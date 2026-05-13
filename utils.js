@@ -115,7 +115,13 @@ function makeNew() {
     // Subclass
     subclass: '',       // e.g. 'moon', 'land'
     landType: '',       // land circle terrain type
+    starFormType: '',   // stars circle constellation form
     wildShapeUses: 0,   // uses spent (max 2, recharge on short/long rest)
+    // Conditions & temp effects
+    conditions: [],     // active condition ids (blinded, charmed, etc.)
+    tempEffects: [],    // custom [{id, name, desc, duration}]
+    // NPCs encountered
+    npcs: [],           // [{id, name, race, role, notes, relationship}]
     // Features (extra) — user-added
     customFeatures: [], // {name, desc}
   };

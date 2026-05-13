@@ -79,12 +79,13 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
 
       <div className="tabs no-print">
         {[
-          { id: 'play', label: t('tabPlay', lang) },
-          { id: 'stats', label: t('tabStats', lang) },
+          { id: 'play',   label: t('tabPlay', lang) },
+          { id: 'stats',  label: t('tabStats', lang) },
           { id: 'spells', label: t('tabSpells', lang) },
-          { id: 'inv', label: t('tabInv', lang) },
-          { id: 'story', label: t('tabStory', lang) },
-          { id: 'notes', label: t('tabNotes', lang) },
+          { id: 'inv',    label: t('tabInv', lang) },
+          { id: 'story',  label: t('tabStory', lang) },
+          { id: 'notes',  label: t('tabNotes', lang) },
+          { id: 'npcs',   label: lang === 'pt' ? 'NPCs' : 'NPCs' },
         ].map(tb => (
           <button key={tb.id} className={`tab ${tab === tb.id ? 'active' : ''}`} onClick={() => setTab(tb.id)}>
             {tb.label}
@@ -120,6 +121,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
 
       {tab === 'story' && <SheetStory char={char} lang={lang} update={update} cls={cls} race={race} />}
       {tab === 'notes' && <SheetNotes char={char} lang={lang} update={update} />}
+      {tab === 'npcs'  && <SheetNpcs char={char} lang={lang} update={update} />}
 
       <div style={{ marginTop: 'var(--s-7)', textAlign: 'center' }} className="no-print">
         <button className="btn btn-ghost btn-danger btn-sm" onClick={onDelete}>
@@ -598,6 +600,221 @@ const WildShapePanel = ({ char, lang, update }) => {
   );
 };
 
+const STD_CONDITIONS = [
+  'blinded','charmed','deafened','exhausted','frightened','grappled',
+  'incapacitated','invisible','paralyzed','petrified','poisoned','prone',
+  'restrained','stunned','unconscious',
+];
+
+const ConditionsPanel = ({ char, lang, update }) => {
+  const [newEffect, setNewEffect] = useState('');
+  const active = char.conditions || [];
+  const temps = char.tempEffects || [];
+  const hasAny = active.length > 0 || temps.length > 0;
+  const toggle = (id) => {
+    const next = active.includes(id) ? active.filter(c => c !== id) : [...active, id];
+    update({ conditions: next });
+  };
+  const addTemp = () => {
+    if (!newEffect.trim()) return;
+    const next = [...temps, { id: Date.now().toString(), name: newEffect.trim(), duration: '' }];
+    update({ tempEffects: next });
+    setNewEffect('');
+  };
+  const removeTemp = (id) => update({ tempEffects: temps.filter(e => e.id !== id) });
+  const updateTemp = (id, patch) => update({ tempEffects: temps.map(e => e.id === id ? { ...e, ...patch } : e) });
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div className="eyebrow mt-4" style={{ marginBottom: 8 }}>
+        {lang === 'pt' ? 'Condições & Efeitos' : 'Conditions & Effects'}
+        {hasAny && <span style={{ marginLeft: 6, color: 'var(--blood-bright)', fontSize: '0.75rem' }}>●</span>}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+        {STD_CONDITIONS.map(id => {
+          const on = active.includes(id);
+          return (
+            <button key={id} type="button"
+              onClick={() => toggle(id)}
+              style={{
+                padding: '4px 10px', borderRadius: 20, fontSize: '0.75rem', cursor: 'pointer',
+                background: on ? 'var(--blood-deep)' : 'var(--surface-2)',
+                border: `1px solid ${on ? 'var(--blood-bright)' : 'var(--stroke-faint)'}`,
+                color: on ? 'var(--blood-bright)' : 'var(--ink-secondary)',
+                fontWeight: on ? 700 : 400,
+              }}>
+              {tName('condition', id, lang)}
+            </button>
+          );
+        })}
+      </div>
+      {temps.map(e => (
+        <div key={e.id} style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+          <input value={e.name} onChange={ev => updateTemp(e.id, { name: ev.target.value })}
+            style={{ flex: 2, padding: '4px 8px', fontSize: '0.8rem', minHeight: 28 }} />
+          <input value={e.duration} onChange={ev => updateTemp(e.id, { duration: ev.target.value })}
+            placeholder={lang === 'pt' ? 'Duração' : 'Duration'}
+            style={{ flex: 1, padding: '4px 8px', fontSize: '0.8rem', minHeight: 28 }} />
+          <button type="button" onClick={() => removeTemp(e.id)}
+            style={{ padding: '4px 8px', background: 'var(--blood-deep)', border: '1px solid var(--blood-bright)', borderRadius: 4, color: 'var(--blood-bright)', cursor: 'pointer', minHeight: 28 }}>
+            ✕
+          </button>
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input value={newEffect} onChange={e => setNewEffect(e.target.value)}
+          placeholder={lang === 'pt' ? 'Efeito personalizado...' : 'Custom effect...'}
+          onKeyDown={e => e.key === 'Enter' && addTemp()}
+          style={{ flex: 1, padding: '4px 8px', fontSize: '0.8rem', minHeight: 28 }} />
+        <button type="button" onClick={addTemp}
+          style={{ padding: '4px 12px', background: 'var(--surface-2)', border: '1px solid var(--gold)', borderRadius: 4, color: 'var(--gold)', cursor: 'pointer', minHeight: 28 }}>
+          +
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ===== NPC tab =====
+const RELATIONSHIP_OPTS = [
+  { id: 'ally',    label: { pt: 'Aliado',   en: 'Ally'    } },
+  { id: 'neutral', label: { pt: 'Neutro',   en: 'Neutral' } },
+  { id: 'enemy',   label: { pt: 'Inimigo',  en: 'Enemy'   } },
+  { id: 'unknown', label: { pt: 'Incerto',  en: 'Unknown' } },
+];
+
+const RELATIONSHIP_COLOR = { ally: 'var(--moss-bright)', neutral: 'var(--gold)', enemy: 'var(--blood-bright)', unknown: 'var(--ink-secondary)' };
+
+const SheetNpcs = ({ char, lang, update }) => {
+  const npcs = char.npcs || [];
+  const [editing, setEditing] = useState(null); // id or 'new'
+  const [form, setForm] = useState({});
+
+  const openNew = () => { setForm({ name: '', race: '', role: '', relationship: 'neutral', notes: '' }); setEditing('new'); };
+  const openEdit = (npc) => { setForm({ ...npc }); setEditing(npc.id); };
+  const save = () => {
+    if (!form.name?.trim()) return;
+    if (editing === 'new') {
+      update({ npcs: [...npcs, { ...form, id: Date.now().toString() }] });
+    } else {
+      update({ npcs: npcs.map(n => n.id === editing ? { ...n, ...form } : n) });
+    }
+    setEditing(null);
+  };
+  const remove = (id) => update({ npcs: npcs.filter(n => n.id !== id) });
+
+  return (
+    <div style={{ padding: '0 0 32px' }}>
+      <div className="eyebrow mt-4" style={{ marginBottom: 12 }}>
+        {lang === 'pt' ? 'Personagens Conhecidos' : 'Known Characters'}
+      </div>
+      <Filigree />
+
+      {npcs.length === 0 && (
+        <div className="text-sm muted" style={{ textAlign: 'center', padding: '24px 0' }}>
+          {lang === 'pt' ? 'Nenhum NPC registrado ainda.' : 'No NPCs recorded yet.'}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+        {npcs.map(npc => (
+          <div key={npc.id} style={{
+            background: 'var(--surface-2)', border: '1px solid var(--stroke-faint)',
+            borderRadius: 8, padding: 12,
+            borderLeft: `3px solid ${RELATIONSHIP_COLOR[npc.relationship] || 'var(--gold)'}`,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontFamily: 'var(--display)', fontSize: '1rem', color: 'var(--ink-primary)' }}>{npc.name}</div>
+                <div className="text-xs muted" style={{ marginTop: 2 }}>
+                  {[npc.race, npc.role].filter(Boolean).join(' · ')}
+                  {npc.relationship && (
+                    <span style={{ marginLeft: 8, color: RELATIONSHIP_COLOR[npc.relationship] }}>
+                      {RELATIONSHIP_OPTS.find(r => r.id === npc.relationship)?.label[lang] || npc.relationship}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button type="button" onClick={() => openEdit(npc)}
+                  style={{ padding: '2px 8px', background: 'transparent', border: '1px solid var(--gold)', borderRadius: 4, color: 'var(--gold)', cursor: 'pointer', fontSize: '0.75rem' }}>
+                  {lang === 'pt' ? 'Editar' : 'Edit'}
+                </button>
+                <button type="button" onClick={() => remove(npc.id)}
+                  style={{ padding: '2px 8px', background: 'transparent', border: '1px solid var(--blood-bright)', borderRadius: 4, color: 'var(--blood-bright)', cursor: 'pointer', fontSize: '0.75rem' }}>
+                  ✕
+                </button>
+              </div>
+            </div>
+            {npc.notes && (
+              <div className="text-sm" style={{ marginTop: 8, color: 'var(--ink-secondary)', whiteSpace: 'pre-wrap' }}>{npc.notes}</div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <button className="btn btn-sm btn-ghost" style={{ width: '100%', marginTop: 16, borderColor: 'var(--gold)', color: 'var(--gold)' }} onClick={openNew}>
+        + {lang === 'pt' ? 'Adicionar NPC' : 'Add NPC'}
+      </button>
+
+      {editing !== null && (
+        <Modal onClose={() => setEditing(null)}>
+          <h3 style={{ marginBottom: 16, color: 'var(--gold)' }}>
+            {editing === 'new' ? (lang === 'pt' ? 'Novo NPC' : 'New NPC') : (lang === 'pt' ? 'Editar NPC' : 'Edit NPC')}
+          </h3>
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div>
+              <label>{lang === 'pt' ? 'Nome' : 'Name'} *</label>
+              <input value={form.name || ''} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div>
+                <label>{lang === 'pt' ? 'Raça / Tipo' : 'Race / Type'}</label>
+                <input value={form.race || ''} onChange={e => setForm(f => ({ ...f, race: e.target.value }))} />
+              </div>
+              <div>
+                <label>{lang === 'pt' ? 'Papel / Profissão' : 'Role / Profession'}</label>
+                <input value={form.role || ''} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} />
+              </div>
+            </div>
+            <div>
+              <label>{lang === 'pt' ? 'Relação' : 'Relationship'}</label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                {RELATIONSHIP_OPTS.map(r => (
+                  <button key={r.id} type="button"
+                    onClick={() => setForm(f => ({ ...f, relationship: r.id }))}
+                    style={{
+                      padding: '4px 12px', borderRadius: 20, cursor: 'pointer', fontSize: '0.8rem',
+                      background: form.relationship === r.id ? RELATIONSHIP_COLOR[r.id] : 'var(--surface-2)',
+                      border: `1px solid ${RELATIONSHIP_COLOR[r.id]}`,
+                      color: form.relationship === r.id ? 'var(--surface-1)' : RELATIONSHIP_COLOR[r.id],
+                      fontWeight: form.relationship === r.id ? 700 : 400,
+                    }}>
+                    {r.label[lang]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label>{lang === 'pt' ? 'Notas' : 'Notes'}</label>
+              <textarea value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                style={{ minHeight: 80 }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            <button className="btn btn-primary" style={{ flex: 1 }} onClick={save} disabled={!form.name?.trim()}>
+              {lang === 'pt' ? 'Salvar' : 'Save'}
+            </button>
+            <button className="btn btn-ghost" onClick={() => setEditing(null)}>
+              {lang === 'pt' ? 'Cancelar' : 'Cancel'}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
 // ===== Play tab =====
 const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, passPerc, slots, roll }) => {
   const [delta, setDelta] = useState('');
@@ -752,6 +969,9 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
           <Icon name="heart" size={14}/> {t('longRest', lang)} {t('rest', lang)}
         </button>
       </div>
+
+      {/* Conditions / status effects */}
+      <ConditionsPanel char={char} lang={lang} update={update} />
 
       {/* Spell slots quick tracker */}
       {slots && slots.length > 0 && (

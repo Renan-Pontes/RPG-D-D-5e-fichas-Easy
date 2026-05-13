@@ -591,7 +591,41 @@ const NAMES = {
       giantCrocodile: 'Crocodilo Gigante', mammoth: 'Mamute',
     },
     subclass: {
-      land: 'Círculo da Terra', moon: 'Círculo da Lua',
+      // Druida
+      land: 'Círculo da Terra', moon: 'Círculo da Lua', stars: 'Círculo das Estrelas',
+      spores: 'Círculo dos Esporos', wildfire: 'Círculo da Chama Selvagem', dreams: 'Círculo dos Sonhos',
+      // Bárbaro
+      berserker: 'Caminho do Rixoso', totem: 'Caminho do Guerreiro Totêmico',
+      // Bardo
+      lore: 'Colégio do Saber', valor: 'Colégio do Valor', glamour: 'Colégio do Glamour',
+      // Clérigo
+      life: 'Domínio da Vida', war: 'Domínio da Guerra', knowledge: 'Domínio do Conhecimento',
+      light: 'Domínio da Luz', tempest: 'Domínio da Tempestade', trickery: 'Domínio do Embuste',
+      // Guerreiro
+      champion: 'Campeão', battlemaster: 'Mestre de Batalha', eldritchknight: 'Cavaleiro Arcano',
+      // Monge
+      openhand: 'Caminho da Mão Aberta', shadow: 'Caminho das Sombras', fourelements: 'Caminho dos Quatro Elementos',
+      // Paladino
+      devotion: 'Juramento de Devoção', ancients: 'Juramento dos Ancestrais', vengeance: 'Juramento de Vingança',
+      // Ranger
+      hunter: 'Caçador', beastmaster: 'Mestre das Bestas',
+      // Ladino
+      thief: 'Ladrão', assassin: 'Assassino', arcanetrickster: 'Trapaceiro Arcano',
+      // Feiticeiro
+      draconic: 'Linhagem Dracônica', wildmagic: 'Magia Selvagem', divine: 'Alma Divina',
+      // Bruxo
+      archfey: 'O Archefada', fiend: 'O Infernal', greatoldone: 'O Grande Ancião',
+      // Mago
+      abjuration: 'Escola de Abjuração', divination: 'Escola de Adivinhação',
+      evocation: 'Escola de Evocação', illusion: 'Escola de Ilusão',
+      necromancy: 'Escola de Necromancia', transmutation: 'Escola de Transmutação',
+    },
+    condition: {
+      blinded: 'Cego', charmed: 'Encantado', deafened: 'Surdo', exhausted: 'Exausto',
+      frightened: 'Amedrontado', grappled: 'Agarrado', incapacitated: 'Incapacitado',
+      invisible: 'Invisível', paralyzed: 'Paralisado', petrified: 'Petrificado',
+      poisoned: 'Envenenado', prone: 'Prono', restrained: 'Restringido',
+      stunned: 'Atordoado', unconscious: 'Inconsciente',
     },
   },
   en: {
@@ -820,7 +854,41 @@ const NAMES = {
       giantCrocodile: 'Giant Crocodile', mammoth: 'Mammoth',
     },
     subclass: {
-      land: 'Circle of the Land', moon: 'Circle of the Moon',
+      // Druid
+      land: 'Circle of the Land', moon: 'Circle of the Moon', stars: 'Circle of Stars',
+      spores: 'Circle of Spores', wildfire: 'Circle of Wildfire', dreams: 'Circle of Dreams',
+      // Barbarian
+      berserker: 'Path of the Berserker', totem: 'Path of the Totem Warrior',
+      // Bard
+      lore: 'College of Lore', valor: 'College of Valor', glamour: 'College of Glamour',
+      // Cleric
+      life: 'Life Domain', war: 'War Domain', knowledge: 'Knowledge Domain',
+      light: 'Light Domain', tempest: 'Tempest Domain', trickery: 'Trickery Domain',
+      // Fighter
+      champion: 'Champion', battlemaster: 'Battle Master', eldritchknight: 'Eldritch Knight',
+      // Monk
+      openhand: 'Way of the Open Hand', shadow: 'Way of Shadow', fourelements: 'Way of the Four Elements',
+      // Paladin
+      devotion: 'Oath of Devotion', ancients: 'Oath of the Ancients', vengeance: 'Oath of Vengeance',
+      // Ranger
+      hunter: 'Hunter', beastmaster: 'Beast Master',
+      // Rogue
+      thief: 'Thief', assassin: 'Assassin', arcanetrickster: 'Arcane Trickster',
+      // Sorcerer
+      draconic: 'Draconic Bloodline', wildmagic: 'Wild Magic', divine: 'Divine Soul',
+      // Warlock
+      archfey: 'The Archfey', fiend: 'The Fiend', greatoldone: 'The Great Old One',
+      // Wizard
+      abjuration: 'School of Abjuration', divination: 'School of Divination',
+      evocation: 'School of Evocation', illusion: 'School of Illusion',
+      necromancy: 'School of Necromancy', transmutation: 'School of Transmutation',
+    },
+    condition: {
+      blinded: 'Blinded', charmed: 'Charmed', deafened: 'Deafened', exhausted: 'Exhausted',
+      frightened: 'Frightened', grappled: 'Grappled', incapacitated: 'Incapacitated',
+      invisible: 'Invisible', paralyzed: 'Paralyzed', petrified: 'Petrified',
+      poisoned: 'Poisoned', prone: 'Prone', restrained: 'Restrained',
+      stunned: 'Stunned', unconscious: 'Unconscious',
     },
   }
 };
