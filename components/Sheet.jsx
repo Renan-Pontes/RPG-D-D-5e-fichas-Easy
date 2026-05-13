@@ -474,6 +474,116 @@ const LevelUpModal = ({ char, cls, lang, canLevel, onClose }) => {
   );
 };
 
+// ===== Wild Shape (Druid) =====
+const BeastModal = ({ beast, lang, onClose }) => {
+  const speeds = [`${beast.speed} ft`];
+  if (beast.fly)    speeds.push(`${lang === 'pt' ? 'Voo' : 'Fly'} ${beast.fly} ft`);
+  if (beast.swim)   speeds.push(`${lang === 'pt' ? 'Nat.' : 'Swim'} ${beast.swim} ft`);
+  if (beast.climb)  speeds.push(`${lang === 'pt' ? 'Esc.' : 'Climb'} ${beast.climb} ft`);
+  if (beast.burrow) speeds.push(`${lang === 'pt' ? 'Cav.' : 'Burrow'} ${beast.burrow} ft`);
+  return (
+    <Modal onClose={onClose}>
+      <h3 style={{ marginBottom: 2 }}>{tName('beast', beast.id, lang)}</h3>
+      <div className="text-xs muted" style={{ marginBottom: 12 }}>
+        {beast.size} {lang === 'pt' ? 'Besta' : 'Beast'} · CR {beast.cr} · {speeds.join(', ')}
+      </div>
+      <div className="combat-grid" style={{ marginBottom: 12 }}>
+        <div className="combat-box"><div className="eyebrow">CA</div><div className="combat-box-value">{beast.ac}</div></div>
+        <div className="combat-box"><div className="eyebrow">HP</div><div className="combat-box-value">{beast.hp}</div></div>
+        <div className="combat-box">
+          <div className="eyebrow">{lang === 'pt' ? 'Des.' : 'Speed'}</div>
+          <div className="combat-box-value" style={{ fontSize: '1rem' }}>{beast.speed}</div>
+        </div>
+      </div>
+      <div className="abil-grid" style={{ marginBottom: 12 }}>
+        {SRD.ABILITIES.map(k => {
+          const score = beast[k];
+          const mod = Math.floor((score - 10) / 2);
+          return (
+            <div key={k} className="abil-box">
+              <div className="abil-box-name">{t(k + 'Sh', lang)}</div>
+              <div className="abil-box-mod">{Utils.fmtMod(mod)}</div>
+              <div className="abil-box-score">{score}</div>
+            </div>
+          );
+        })}
+      </div>
+      {beast.traits && beast.traits.length > 0 && (
+        <>
+          <Filigree>{lang === 'pt' ? 'Traços' : 'Traits'}</Filigree>
+          {beast.traits.map((tr, i) => (
+            <div key={i} className="text-sm" style={{ marginBottom: 6 }}>
+              <strong style={{ color: 'var(--gold-deep)' }}>{tr.name[lang]}.</strong> {tr.desc[lang]}
+            </div>
+          ))}
+        </>
+      )}
+      {beast.actions && beast.actions.length > 0 && (
+        <>
+          <Filigree>{lang === 'pt' ? 'Ações' : 'Actions'}</Filigree>
+          {beast.actions.map((ac, i) => (
+            <div key={i} className="text-sm" style={{ marginBottom: 6 }}>
+              <strong style={{ color: 'var(--gold-deep)' }}>{ac.name[lang]}.</strong> {ac.desc[lang]}
+            </div>
+          ))}
+        </>
+      )}
+    </Modal>
+  );
+};
+
+const WildShapePanel = ({ char, lang, update }) => {
+  const [selected, setSelected] = useState(null);
+  const level = char.level;
+  const maxCr = level >= 8 ? 1 : level >= 4 ? 0.5 : 0.25;
+  const crLabel = level >= 8 ? 'CR ≤ 1' : level >= 4 ? 'CR ≤ 1/2' : 'CR ≤ 1/4';
+  const available = SRD.BEASTS.filter(b => {
+    if (b.crNum > maxCr) return false;
+    if (level < 8 && b.fly) return false;
+    if (level < 4 && b.swim) return false;
+    return true;
+  });
+  const usesUsed = char.wildShapeUses || 0;
+
+  return (
+    <>
+      <div className="eyebrow mt-4" style={{ marginBottom: 8 }}>
+        {lang === 'pt' ? 'Forma Selvagem' : 'Wild Shape'}
+        <span className="text-xs muted" style={{ marginLeft: 8, fontFamily: 'var(--body)', textTransform: 'none', letterSpacing: 0 }}>
+          {crLabel}{level < 8 ? (level < 4 ? (lang === 'pt' ? ' · sem voo/nat.' : ' · no fly/swim') : (lang === 'pt' ? ' · sem voo' : ' · no fly')) : ''}
+        </span>
+      </div>
+      <div className="row gap-2" style={{ marginBottom: 10, alignItems: 'center' }}>
+        <div className="slot-pips">
+          {[0, 1].map(i => (
+            <button
+              key={i} type="button"
+              className={`slot-pip ${i < usesUsed ? 'used' : ''}`}
+              onClick={() => update({ wildShapeUses: i < usesUsed ? i : i + 1 })}
+            />
+          ))}
+        </div>
+        <span className="text-xs muted">{Math.max(0, 2 - usesUsed)}/2 {lang === 'pt' ? 'usos · recarrega em descanso curto' : 'uses · recharge on short rest'}</span>
+      </div>
+      <div className="options-list cols-2" style={{ marginBottom: 4 }}>
+        {available.map(b => (
+          <button key={b.id} className="option" style={{ textAlign: 'left' }} onClick={() => setSelected(b)}>
+            <div className="option-title" style={{ fontSize: '0.9rem' }}>{tName('beast', b.id, lang)}</div>
+            <div className="option-meta text-xs">
+              <span>CR {b.cr}</span>
+              <span>HP {b.hp}</span>
+              <span>CA {b.ac}</span>
+              {b.fly && <span>✦ {lang === 'pt' ? 'voo' : 'fly'}</span>}
+              {b.swim && <span>〜 {lang === 'pt' ? 'nat.' : 'swim'}</span>}
+            </div>
+          </button>
+        ))}
+      </div>
+      {selected && <BeastModal beast={selected} lang={lang} onClose={() => setSelected(null)} />}
+    </>
+  );
+};
+
 // ===== Play tab =====
 const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, passPerc, slots, roll }) => {
   const [delta, setDelta] = useState('');
@@ -608,8 +718,10 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
       {/* Quick rest buttons */}
       <div className="row gap-2" style={{ marginBottom: 16 }}>
         <button className="btn btn-sm btn-ghost" style={{ flex: 1 }} onClick={() => {
-          // short rest — restore nothing automatic except warlock slots
-          if (char.className === 'warlock') update({ spellSlotsUsed: [] });
+          const patch = {};
+          if (char.className === 'warlock') patch.spellSlotsUsed = [];
+          if (char.className === 'druid') patch.wildShapeUses = 0;
+          update(patch);
         }}>
           <Icon name="flame" size={14}/> {t('shortRest', lang)} {t('rest', lang)}
         </button>
@@ -618,6 +730,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             currentHp: char.maxHp,
             tempHp: 0,
             spellSlotsUsed: [],
+            wildShapeUses: 0,
             hitDiceUsed: Math.max(0, (char.hitDiceUsed || 0) - Math.max(1, Math.floor(char.level / 2))),
             deathSaves: { success: 0, fail: 0 },
           });
@@ -656,6 +769,11 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             );
           })}
         </>
+      )}
+
+      {/* Wild Shape — Druid only */}
+      {char.className === 'druid' && char.level >= 2 && (
+        <WildShapePanel char={char} lang={lang} update={update} />
       )}
 
       {/* Quick weapons (attacks) */}

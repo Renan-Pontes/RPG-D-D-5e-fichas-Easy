@@ -12,6 +12,37 @@ const POINT_BUY_TOTAL = 27;
 const pointBuyCost = (abilities) =>
   SRD.ABILITIES.reduce((s, k) => s + (POINT_BUY_COST[abilities[k]] || 0), 0);
 
+const CLASS_PRIORITIES = {
+  barbarian: ['str', 'con', 'dex', 'wis', 'int', 'cha'],
+  bard:      ['cha', 'dex', 'con', 'int', 'wis', 'str'],
+  cleric:    ['wis', 'str', 'con', 'cha', 'int', 'dex'],
+  druid:     ['wis', 'con', 'dex', 'int', 'str', 'cha'],
+  fighter:   ['str', 'con', 'dex', 'wis', 'int', 'cha'],
+  monk:      ['dex', 'wis', 'con', 'str', 'int', 'cha'],
+  paladin:   ['str', 'cha', 'con', 'dex', 'wis', 'int'],
+  ranger:    ['dex', 'wis', 'con', 'str', 'int', 'cha'],
+  rogue:     ['dex', 'int', 'con', 'cha', 'wis', 'str'],
+  sorcerer:  ['cha', 'con', 'dex', 'int', 'wis', 'str'],
+  warlock:   ['cha', 'con', 'dex', 'int', 'wis', 'str'],
+  wizard:    ['int', 'con', 'dex', 'wis', 'cha', 'str'],
+};
+
+const optimizeAbilities = (className) => {
+  const order = CLASS_PRIORITIES[className] || ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+  const result = { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 };
+  let budget = POINT_BUY_TOTAL;
+  for (const stat of order) {
+    for (let v = 15; v >= 8; v--) {
+      if ((POINT_BUY_COST[v] || 0) <= budget) {
+        result[stat] = v;
+        budget -= POINT_BUY_COST[v] || 0;
+        break;
+      }
+    }
+  }
+  return result;
+};
+
 // === Step Components ===
 
 // 1. Identity
@@ -187,6 +218,18 @@ const StepAbilities = ({ char, set, lang }) => {
       <h2>{t('abilitiesTitle', lang)}</h2>
       <div className="text-sm muted" style={{ marginBottom: 16 }}>{t('abilitiesSub', lang)}</div>
       <Filigree />
+
+      {char.className && (
+        <button
+          className="btn btn-sm btn-ghost"
+          style={{ width: '100%', marginBottom: 16, borderColor: 'var(--gold)', color: 'var(--gold)' }}
+          onClick={() => set({ abilities: optimizeAbilities(char.className) })}
+        >
+          ✦ {lang === 'pt'
+            ? `Otimizar para ${tName('class', char.className, lang)}`
+            : `Optimize for ${tName('class', char.className, lang)}`}
+        </button>
+      )}
 
       <div className="pointbuy-pool">
         <span className="pool-label">{t('pointsRemaining', lang)}</span>
