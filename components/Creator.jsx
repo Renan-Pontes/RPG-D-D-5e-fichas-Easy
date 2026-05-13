@@ -1,5 +1,5 @@
 /* Step-by-step character creator (mobile-first) */
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { t, tName } from '../data/i18n.js';
