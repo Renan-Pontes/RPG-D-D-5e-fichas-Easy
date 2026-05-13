@@ -486,6 +486,10 @@ const StepSpells = ({ char, set, lang }) => {
   const level1 = available.filter(s => s.level === 1);
   const level2 = available.filter(s => s.level === 2);
   const level3 = available.filter(s => s.level === 3);
+  const level4 = available.filter(s => s.level === 4);
+  const level5 = available.filter(s => s.level === 5);
+  const level6 = available.filter(s => s.level === 6);
+  const level7Plus = available.filter(s => s.level >= 7);
 
   const toggle = (id) => {
     const has = char.spells.find(s => s.id === id);
@@ -533,8 +537,12 @@ const StepSpells = ({ char, set, lang }) => {
       <Filigree>{tName('class', char.className, lang)}</Filigree>
       <SpellGroup label={t('cantrips', lang)} list={cantrips} />
       <SpellGroup label={`${t('spellLevel', lang)} 1`} list={level1} />
-      {char.level >= 3 && <SpellGroup label={`${t('spellLevel', lang)} 2`} list={level2} />}
-      {char.level >= 5 && <SpellGroup label={`${t('spellLevel', lang)} 3`} list={level3} />}
+      {char.level >= 3 && level2.length > 0 && <SpellGroup label={`${t('spellLevel', lang)} 2`} list={level2} />}
+      {char.level >= 5 && level3.length > 0 && <SpellGroup label={`${t('spellLevel', lang)} 3`} list={level3} />}
+      {char.level >= 7 && level4.length > 0 && <SpellGroup label={`${t('spellLevel', lang)} 4`} list={level4} />}
+      {char.level >= 9 && level5.length > 0 && <SpellGroup label={`${t('spellLevel', lang)} 5`} list={level5} />}
+      {char.level >= 11 && level6.length > 0 && <SpellGroup label={`${t('spellLevel', lang)} 6`} list={level6} />}
+      {char.level >= 13 && level7Plus.length > 0 && <SpellGroup label={`${t('spellLevel', lang)} 7+`} list={level7Plus} />}
     </div>
   );
 };
