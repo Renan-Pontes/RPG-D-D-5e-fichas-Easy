@@ -148,8 +148,11 @@ const StepClass = ({ char, set, lang }) => {
       className: id,
       saveProfs: cls ? [...cls.saves] : [],
       skillProfs: [], // reset
+      subclass: id === 'druid' ? (char.subclass || '') : '',
+      landType: id === 'druid' ? (char.landType || '') : '',
     });
   };
+  const druids = SRD.SUBCLASSES && SRD.SUBCLASSES.druid ? SRD.SUBCLASSES.druid : [];
   return (
     <div>
       <h2>{t('chooseClass', lang)}</h2>
@@ -178,6 +181,55 @@ const StepClass = ({ char, set, lang }) => {
           );
         })}
       </div>
+
+      {char.className === 'druid' && (
+        <div style={{ marginTop: 24 }}>
+          <h3 style={{ color: 'var(--gold)', marginBottom: 8 }}>
+            {lang === 'pt' ? 'Círculo Druídico' : 'Druid Circle'}
+          </h3>
+          <Filigree />
+          <div className="options-list cols-2" style={{ marginTop: 12 }}>
+            {druids.map(sc => {
+              const isSel = char.subclass === sc.id;
+              return (
+                <button key={sc.id} className={`option ${isSel ? 'selected' : ''}`}
+                  onClick={() => set({ subclass: sc.id, landType: sc.id === 'land' ? (char.landType || '') : '' })}>
+                  <div className="option-title">{sc.name[lang]}</div>
+                  <div className="option-meta" style={{ marginTop: 4, fontSize: '0.8em', color: 'var(--ink-secondary)' }}>
+                    {sc.desc[lang]}
+                  </div>
+                  {isSel && sc.features && (
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--stroke-faint)' }}>
+                      {sc.features.map((f, i) => (
+                        <div key={i} className="text-sm" style={{ marginBottom: 4, color: 'var(--ink-secondary)' }}>
+                          <strong style={{ color: 'var(--gold-deep)' }}>Lv{f.level} {f.name[lang]}:</strong> {f.desc[lang]}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {char.subclass === 'land' && (
+            <div style={{ marginTop: 16 }}>
+              <label style={{ color: 'var(--gold-deep)', display: 'block', marginBottom: 8 }}>
+                {lang === 'pt' ? 'Terreno Sagrado' : 'Sacred Terrain'}
+              </label>
+              <div className="options-list cols-2" style={{ marginTop: 4 }}>
+                {druids.find(sc => sc.id === 'land').landTypes.map(lt => (
+                  <button key={lt.id} className={`option ${char.landType === lt.id ? 'selected' : ''}`}
+                    style={{ padding: '8px 12px' }}
+                    onClick={() => set({ landType: lt.id })}>
+                    {lt.name[lang]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

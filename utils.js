@@ -112,6 +112,10 @@ function makeNew() {
     // Visual
     avatar: '',         // base64 data URL
     symbol: '',         // text or emoji
+    // Subclass
+    subclass: '',       // e.g. 'moon', 'land'
+    landType: '',       // land circle terrain type
+    wildShapeUses: 0,   // uses spent (max 2, recharge on short/long rest)
     // Features (extra) — user-added
     customFeatures: [], // {name, desc}
   };

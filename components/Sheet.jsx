@@ -535,11 +535,19 @@ const BeastModal = ({ beast, lang, onClose }) => {
 const WildShapePanel = ({ char, lang, update }) => {
   const [selected, setSelected] = useState(null);
   const level = char.level;
-  const maxCr = level >= 8 ? 1 : level >= 4 ? 0.5 : 0.25;
-  const crLabel = level >= 8 ? 'CR ≤ 1' : level >= 4 ? 'CR ≤ 1/2' : 'CR ≤ 1/4';
+  const isMoon = char.subclass === 'moon';
+  // Moon circle: CR 1 at lv2-5, floor(level/3) at lv6+; no fly restriction from lv2
+  // Standard: CR 1/4 lv2-3 (no fly/swim), CR 1/2 lv4-7 (no fly), CR 1 lv8+
+  const maxCr = isMoon
+    ? (level >= 6 ? Math.floor(level / 3) : 1)
+    : (level >= 8 ? 1 : level >= 4 ? 0.5 : 0.25);
+  const crLabel = isMoon
+    ? `CR ≤ ${level >= 6 ? Math.floor(level / 3) : 1}`
+    : (level >= 8 ? 'CR ≤ 1' : level >= 4 ? 'CR ≤ 1/2' : 'CR ≤ 1/4');
   const available = SRD.BEASTS.filter(b => {
     if (b.crNum > maxCr) return false;
-    if (level < 8 && b.fly) return false;
+    // Moon circle has no fly restriction
+    if (!isMoon && level < 8 && b.fly) return false;
     if (level < 4 && b.swim) return false;
     return true;
   });
@@ -549,8 +557,14 @@ const WildShapePanel = ({ char, lang, update }) => {
     <>
       <div className="eyebrow mt-4" style={{ marginBottom: 8 }}>
         {lang === 'pt' ? 'Forma Selvagem' : 'Wild Shape'}
+        {char.subclass && (
+          <span className="text-xs" style={{ marginLeft: 6, color: 'var(--gold)', fontFamily: 'var(--body)', textTransform: 'none', letterSpacing: 0 }}>
+            {tName('subclass', char.subclass, lang)}
+          </span>
+        )}
         <span className="text-xs muted" style={{ marginLeft: 8, fontFamily: 'var(--body)', textTransform: 'none', letterSpacing: 0 }}>
-          {crLabel}{level < 8 ? (level < 4 ? (lang === 'pt' ? ' · sem voo/nat.' : ' · no fly/swim') : (lang === 'pt' ? ' · sem voo' : ' · no fly')) : ''}
+          {crLabel}
+          {!isMoon && level < 8 && (level < 4 ? (lang === 'pt' ? ' · sem voo/nat.' : ' · no fly/swim') : (lang === 'pt' ? ' · sem voo' : ' · no fly'))}
         </span>
       </div>
       <div className="row gap-2" style={{ marginBottom: 10, alignItems: 'center' }}>

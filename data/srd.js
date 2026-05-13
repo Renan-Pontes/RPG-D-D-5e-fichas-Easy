@@ -808,6 +808,170 @@ const SPELLS = [
   { id: 'sunburst',      level: 8, school: 'evocation', classes: ['druid','sorcerer','wizard'], castingTime: '1 action', range: '150 ft', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Esfera 60 pés: SAL CON 12d6 radiante + cego 1 min (metade dano se passar).', en: '60-ft sphere: CON save 12d6 radiant + blind 1 min (half damage on success).' } },
   { id: 'meteorSwarm',   level: 9, school: 'evocation', classes: ['sorcerer','wizard'], castingTime: '1 action', range: '1 mile', components: 'V, S', duration: 'Instant', desc: { pt: '4 esferas 40 pés: SAL DEST 20d6 fogo + 20d6 contundente em cada (metade se passar).', en: 'Four 40-ft spheres: DEX save 20d6 fire + 20d6 bludgeoning each (half on success).' } },
   { id: 'wishSpell',     level: 9, school: 'conjuration', classes: ['sorcerer','wizard'], castingTime: '1 action', range: 'Self', components: 'V', duration: 'Instant', desc: { pt: 'Duplica magia até 8° nível (sem componentes) ou efeitos personalizados (a critério do mestre). Risco severo se "wish" for além disso.', en: 'Duplicate any spell up to 8th level (no components) or custom effects (DM discretion). Severe risk if used beyond.' } },
+
+  // === CANTRIPS ADICIONAIS ===
+  { id: 'bladeWard',     level: 0, school: 'abjuration',   classes: ['bard','sorcerer','warlock','wizard'], castingTime: '1 action', range: 'Self', components: 'V, S', duration: '1 round', desc: { pt: 'Resistência a dano cortante, contundente e perfurante de armas até o fim do próximo turno.', en: 'Resistance to bludgeoning, piercing, and slashing damage from weapon attacks until end of next turn.' } },
+  { id: 'dancingLights', level: 0, school: 'evocation',    classes: ['bard','sorcerer','wizard'], castingTime: '1 action', range: '120 ft', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'Até 4 chamas flutuantes (luz de tocha). Mova-as 60 pés como ação bônus.', en: 'Up to 4 floating torchlight-sized flames. Move them 60 ft as a bonus action.' } },
+  { id: 'friends',       level: 0, school: 'enchantment',  classes: ['bard','sorcerer','warlock','wizard'], castingTime: '1 action', range: 'Self', components: 'S, M', duration: 'Conc. 1 min', desc: { pt: 'Vantagem em testes de CHA com uma criatura não hostil. Ela percebe quando a magia termina.', en: 'Advantage on CHA checks vs one non-hostile creature. It notices when spell ends.' } },
+  { id: 'mending',       level: 0, school: 'transmutation', classes: ['bard','cleric','druid','wizard'], castingTime: '1 minute', range: 'Touch', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Repara um rasgo ou quebra em um objeto (≤ 1 pé cúbico).', en: 'Repair a single break or tear in an object (≤ 1 cubic foot).' } },
+  { id: 'message',       level: 0, school: 'transmutation', classes: ['bard','sorcerer','wizard'], castingTime: '1 action', range: '120 ft', components: 'V, S, M', duration: '1 round', desc: { pt: 'Sussurre mensagem a uma criatura; ela pode responder apenas para você.', en: 'Whisper a message to one creature; it can whisper a reply only you hear.' } },
+  { id: 'produceFlame',  level: 0, school: 'conjuration',  classes: ['druid'], castingTime: '1 action', range: 'Self', components: 'V, S', duration: '10 min', desc: { pt: 'Chama na mão: ilumina 10/20 pés. Ação: arremesse (40 pés), ataque mágico, 1d8 fogo.', en: 'Flame in hand: light 10/20 ft. Action: throw (40 ft), spell attack, 1d8 fire.' } },
+  { id: 'resistance',    level: 0, school: 'abjuration',   classes: ['cleric','druid'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'Alvo adiciona 1d4 a um salvamento antes que a magia termine.', en: 'Target adds 1d4 to one saving throw before spell ends.' } },
+  { id: 'shillelagh',    level: 0, school: 'transmutation', classes: ['druid'], castingTime: '1 bonus action', range: 'Self', components: 'V, S, M', duration: '1 min', desc: { pt: 'Cajado/clava: dano 1d8, use SAB para ataques. Considerada mágica.', en: 'Club/quarterstaff: deals 1d8, use WIS for attacks. Counts as magical.' } },
+  { id: 'thornWhip',     level: 0, school: 'transmutation', classes: ['druid'], castingTime: '1 action', range: '30 ft', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Ataque mágico: 1d6 perfurante. Se acertar criatura Grande ou menor, puxa 10 pés.', en: 'Spell attack: 1d6 piercing. If Large or smaller target hit, pull 10 ft closer.' } },
+  { id: 'trueStrike',    level: 0, school: 'divination',   classes: ['bard','sorcerer','warlock','wizard'], castingTime: '1 action', range: '30 ft', components: 'S', duration: 'Conc. 1 round', desc: { pt: 'Vantagem no próximo ataque contra a criatura no próximo turno.', en: 'Advantage on next attack roll against the creature on your next turn.' } },
+
+  // === LEVEL 1 ADICIONAIS ===
+  { id: 'alarm',                  level: 1, school: 'abjuration',   classes: ['ranger','wizard'], castingTime: '1 minute', range: '30 ft', components: 'V, S, M', duration: '8 hours', ritual: true, desc: { pt: 'Alarme mental ou sonoro ao entrar em área 20 pés (ritual).', en: 'Mental or audible alarm when creature enters 20-ft area (ritual).' } },
+  { id: 'animalFriendship',       level: 1, school: 'enchantment',  classes: ['bard','druid','ranger'], castingTime: '1 action', range: '30 ft', components: 'V, S, M', duration: '24 hours', desc: { pt: 'SAL SAB ou besta com INT ≤ 3 é enfeitiçada por 24h.', en: 'WIS save or beast with INT ≤ 3 is charmed for 24 hours.' } },
+  { id: 'bane',                   level: 1, school: 'enchantment',  classes: ['bard','cleric'], castingTime: '1 action', range: '30 ft', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'Até 3 criaturas (SAL CHA): -1d4 em ataques e salvamentos.', en: 'Up to 3 creatures (CHA save): -1d4 on attack rolls and saves.' } },
+  { id: 'colorSpray',             level: 1, school: 'illusion',     classes: ['sorcerer','wizard'], castingTime: '1 action', range: 'Self (15-ft cone)', components: 'V, S, M', duration: '1 round', desc: { pt: 'Cone de luz: cegas criaturas com até 6d10 HP total (do menor HP).', en: 'Cone of light: blinds creatures totaling up to 6d10 HP (lowest first).' } },
+  { id: 'comprehendLanguages',    level: 1, school: 'divination',   classes: ['bard','sorcerer','warlock','wizard'], castingTime: '1 action', range: 'Self', components: 'V, S, M', duration: '1 hour', ritual: true, desc: { pt: 'Entende qualquer idioma falado/escrito.', en: 'Understand any spoken or written language.' } },
+  { id: 'createDestroyWater',     level: 1, school: 'transmutation', classes: ['cleric','druid'], castingTime: '1 action', range: '30 ft', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Cria ou destrói até 10 galões de água, ou purifica/contamina água em contêiner.', en: 'Create or destroy up to 10 gallons of water, or purify/contaminate water in container.' } },
+  { id: 'detectEvilAndGood',      level: 1, school: 'divination',   classes: ['cleric','paladin'], castingTime: '1 action', range: 'Self', components: 'V, S', duration: 'Conc. 10 min', desc: { pt: 'Sente aberrações, celestiais, elementais, fadas, infernais e mortos-vivos em 30 pés.', en: 'Sense aberrations, celestials, elementals, fey, fiends, undead within 30 ft.' } },
+  { id: 'detectPoisonAndDisease', level: 1, school: 'divination',   classes: ['cleric','druid','paladin','ranger'], castingTime: '1 action', range: 'Self', components: 'V, S, M', duration: 'Conc. 10 min', ritual: true, desc: { pt: 'Sente venenos, criaturas venenosas e doenças em 30 pés.', en: 'Sense poisons, poisonous creatures, and diseases within 30 ft.' } },
+  { id: 'expediteRetreat',        level: 1, school: 'transmutation', classes: ['sorcerer','warlock','wizard'], castingTime: '1 bonus action', range: 'Self', components: 'V, S', duration: 'Conc. 10 min', desc: { pt: 'Pode usar Disparar como ação bônus a cada turno.', en: 'You can take the Dash action as a bonus action each turn.' } },
+  { id: 'falseLife',              level: 1, school: 'necromancy',   classes: ['sorcerer','wizard'], castingTime: '1 action', range: 'Self', components: 'V, S, M', duration: '1 hour', desc: { pt: 'Ganha 1d4+4 HP temporários.', en: 'Gain 1d4+4 temporary hit points.' } },
+  { id: 'featherFall',            level: 1, school: 'transmutation', classes: ['bard','sorcerer','wizard'], castingTime: '1 reaction', range: '60 ft', components: 'V, M', duration: '1 min', desc: { pt: 'Reação: até 5 criaturas caem a 60 pés/rodada, sem dano.', en: 'Reaction: up to 5 falling creatures descend 60 ft/round, no fall damage.' } },
+  { id: 'findFamiliar',           level: 1, school: 'conjuration',  classes: ['wizard'], castingTime: '1 hour', range: '10 ft', components: 'V, S, M', duration: 'Instant', ritual: true, desc: { pt: 'Invoque familiar espiritual (gato, corvo, coruja, etc.). Veja por seus olhos.', en: 'Summon a spirit familiar (cat, raven, owl, etc.). See through its eyes.' } },
+  { id: 'fogCloud',               level: 1, school: 'conjuration',  classes: ['druid','ranger','sorcerer','wizard'], castingTime: '1 action', range: '120 ft', components: 'V, S', duration: 'Conc. 1 hour', desc: { pt: 'Esfera de névoa 20 pés: área fortemente obscurecida.', en: '20-ft sphere of fog: heavily obscured area.' } },
+  { id: 'grease',                 level: 1, school: 'conjuration',  classes: ['wizard'], castingTime: '1 action', range: '60 ft', components: 'V, S, M', duration: '1 min', desc: { pt: 'Quadrado 10 pés: terreno difícil; SAL DEST ou prono ao entrar/iniciar turno.', en: '10-ft square: difficult terrain; DEX save or prone on entry/start of turn.' } },
+  { id: 'heroism',                level: 1, school: 'enchantment',  classes: ['bard','paladin'], castingTime: '1 action', range: 'Touch', components: 'V, S', duration: 'Conc. 1 min', desc: { pt: 'Alvo imune a medo; ganha HP temp = mod conjuração por turno.', en: 'Target immune to fright; gains temp HP = casting mod each turn.' } },
+  { id: 'hideousLaughter',        level: 1, school: 'enchantment',  classes: ['bard','wizard'], castingTime: '1 action', range: '30 ft', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'SAL SAB ou prono e incapacitado por riso. Repete ao tomar dano.', en: 'WIS save or prone and incapacitated with laughter. Repeats on damage.' } },
+  { id: 'identifySpell',          level: 1, school: 'divination',   classes: ['bard','wizard'], castingTime: '1 minute', range: 'Touch', components: 'V, S, M', duration: 'Instant', ritual: true, desc: { pt: 'Identifica magias ativas em criatura/objeto e propriedades mágicas de item.', en: 'Identify spells on a creature/object and magical properties of a magic item.' } },
+  { id: 'inflictWounds',          level: 1, school: 'necromancy',   classes: ['cleric'], castingTime: '1 action', range: 'Touch', components: 'V, S', duration: 'Instant', desc: { pt: 'Ataque mágico corpo a corpo: 3d10 dano necrótico.', en: 'Melee spell attack: 3d10 necrotic damage.' } },
+  { id: 'jump',                   level: 1, school: 'transmutation', classes: ['druid','ranger','sorcerer','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: '1 min', desc: { pt: 'Distância de salto do alvo triplicada.', en: 'Target\'s jump distance is tripled.' } },
+  { id: 'longstrider',            level: 1, school: 'transmutation', classes: ['bard','druid','ranger','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: '1 hour', desc: { pt: 'Deslocamento do alvo +10 pés.', en: 'Target speed increases by 10 ft.' } },
+  { id: 'mageArmor',              level: 1, school: 'abjuration',   classes: ['sorcerer','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: '8 hours', desc: { pt: 'Alvo sem armadura: CA = 13 + Des.', en: 'Target without armor: AC = 13 + Dex.' } },
+  { id: 'protectionFromEvilGood', level: 1, school: 'abjuration',   classes: ['cleric','druid','paladin','warlock','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: 'Conc. 10 min', desc: { pt: 'Alvo protegido contra aberrações, celestiais, elementais, fadas, infernais e mortos-vivos.', en: 'Target protected vs aberrations, celestials, elementals, fey, fiends, undead.' } },
+  { id: 'purifyFoodAndDrink',     level: 1, school: 'transmutation', classes: ['cleric','druid','paladin'], castingTime: '1 action', range: '10 ft', components: 'V, S', duration: 'Instant', ritual: true, desc: { pt: 'Purifica comida/bebida podre ou venenosa em esfera de 5 pés.', en: 'Purify spoiled or poisoned food and drink within 5-ft sphere.' } },
+  { id: 'rayOfSickness',          level: 1, school: 'necromancy',   classes: ['sorcerer','wizard'], castingTime: '1 action', range: '60 ft', components: 'V, S', duration: 'Instant', desc: { pt: 'Ataque mágico: 2d8 veneno. SAL CON ou envenenado até fim do próximo turno.', en: 'Spell attack: 2d8 poison. CON save or poisoned until end of next turn.' } },
+  { id: 'shieldOfFaith',          level: 1, school: 'abjuration',   classes: ['cleric','paladin'], castingTime: '1 bonus action', range: '60 ft', components: 'V, S, M', duration: 'Conc. 10 min', desc: { pt: '+2 CA a uma criatura.', en: '+2 AC to one creature.' } },
+  { id: 'silentImage',            level: 1, school: 'illusion',     classes: ['bard','sorcerer','wizard'], castingTime: '1 action', range: '60 ft', components: 'V, S, M', duration: 'Conc. 10 min', desc: { pt: 'Crie ilusão visual (cubo 15 pés). Investigação vs CD magia revela.', en: 'Create visual illusion (15-ft cube). Investigation vs spell DC reveals it.' } },
+  { id: 'speakWithAnimals',       level: 1, school: 'divination',   classes: ['bard','druid','ranger'], castingTime: '1 action', range: 'Self', components: 'V, S', duration: '10 min', ritual: true, desc: { pt: 'Compreende e se comunica com animais.', en: 'Understand and communicate with beasts.' } },
+  { id: 'wrathfulSmite',          level: 1, school: 'evocation',    classes: ['paladin'], castingTime: '1 bonus action', range: 'Self', components: 'V', duration: 'Conc. 1 min', desc: { pt: 'Próximo acerto: +1d6 psíquico. SAL SAB ou alvo com medo do paladino.', en: 'Next hit: +1d6 psychic. WIS save or target is frightened of you.' } },
+
+  // === LEVEL 2 ADICIONAIS ===
+  { id: 'animalMessenger',        level: 2, school: 'enchantment',  classes: ['bard','druid','ranger'], castingTime: '1 action', range: '30 ft', components: 'V, S, M', duration: '24 hours', ritual: true, desc: { pt: 'Uma besta Tiny entrega mensagem falada ao destino descrito.', en: 'A Tiny beast delivers a spoken message to a described destination.' } },
+  { id: 'barkskin',               level: 2, school: 'transmutation', classes: ['druid','ranger'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: 'Conc. 1 hour', desc: { pt: 'CA do alvo não pode cair abaixo de 16 (não precisa de concentração para o druida com certas subclasses).', en: 'Target\'s AC can\'t be lower than 16.' } },
+  { id: 'blindnessDeafness',      level: 2, school: 'necromancy',   classes: ['bard','cleric','sorcerer','wizard'], castingTime: '1 action', range: '30 ft', components: 'V', duration: '1 min', desc: { pt: 'SAL CON ou cego ou surdo. Repete no fim de cada turno.', en: 'CON save or blinded or deafened. Repeats at end of each turn.' } },
+  { id: 'brandingSmite',          level: 2, school: 'evocation',    classes: ['paladin'], castingTime: '1 bonus action', range: 'Self', components: 'V', duration: 'Conc. 1 min', desc: { pt: 'Próximo acerto: +2d6 radiante. Alvo brilha e fica visível.', en: 'Next hit: +2d6 radiant. Target sheds light and can\'t become invisible.' } },
+  { id: 'cloudOfDaggers',         level: 2, school: 'conjuration',  classes: ['bard','sorcerer','warlock','wizard'], castingTime: '1 action', range: '60 ft', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'Cubo 5 pés de adagas girando: 4d4 cortante ao entrar ou iniciar turno.', en: '5-ft cube of spinning daggers: 4d4 slashing on entry or start of turn.' } },
+  { id: 'darkvision',             level: 2, school: 'transmutation', classes: ['druid','ranger','sorcerer','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: '8 hours', desc: { pt: 'Alvo ganha visão no escuro 60 pés.', en: 'Target gains 60 ft darkvision.' } },
+  { id: 'enhanceAbility',         level: 2, school: 'transmutation', classes: ['bard','cleric','druid','sorcerer'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: 'Conc. 1 hour', desc: { pt: 'Escolha um par: Urso (CON, +2d6 HP temp), Gato (DEST, vantagem), etc. Vantagem em testes do atributo.', en: 'Choose: Bear (CON, +2d6 temp HP), Cat (DEX, advantage), etc. Advantage on ability checks.' } },
+  { id: 'findSteed',              level: 2, school: 'conjuration',  classes: ['paladin'], castingTime: '10 minutes', range: '30 ft', components: 'V, S', duration: 'Instant', desc: { pt: 'Invoca corcel espiritual (cavalo de guerra, ponei, etc.) como companheiro inteligente.', en: 'Summon a spirit steed (warhorse, pony, etc.) as an intelligent companion.' } },
+  { id: 'findTraps',              level: 2, school: 'divination',   classes: ['cleric','druid','ranger'], castingTime: '1 action', range: 'Self', components: 'V, S', duration: 'Instant', desc: { pt: 'Sente armadilhas em seu campo de visão.', en: 'Sense the presence of traps within your line of sight.' } },
+  { id: 'flameBlade',             level: 2, school: 'evocation',    classes: ['druid','sorcerer'], castingTime: '1 bonus action', range: 'Self', components: 'V, S, M', duration: 'Conc. 10 min', desc: { pt: 'Espada de fogo: ataque mágico corpo a corpo, 3d6 fogo. Ilumina 10/20 pés.', en: 'Flaming scimitar: melee spell attack, 3d6 fire. Sheds light 10/20 ft.' } },
+  { id: 'flamingSphere',          level: 2, school: 'conjuration',  classes: ['druid','sorcerer','wizard'], castingTime: '1 action', range: '60 ft', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'Esfera 5 pés de fogo: SAL DEST 2d6 fogo ao entrar. Mova-a 30 pés como ação bônus.', en: '5-ft sphere of fire: DEX save 2d6 fire on entry. Move it 30 ft as bonus action.' } },
+  { id: 'gentleRepose',           level: 2, school: 'necromancy',   classes: ['cleric','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: '10 days', ritual: true, desc: { pt: 'Preserva cadáver por 10 dias; não pode virar morto-vivo.', en: 'Preserve corpse for 10 days; can\'t become undead.' } },
+  { id: 'gustOfWind',             level: 2, school: 'evocation',    classes: ['druid','sorcerer','wizard'], castingTime: '1 action', range: 'Self (60-ft line)', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'Linha 60 pés: SAL FOR ou empurrado 15 pés. Apaga chamas, dispersa névoa.', en: '60-ft line: STR save or pushed 15 ft. Extinguishes flames, disperses fog.' } },
+  { id: 'heatMetal',              level: 2, school: 'transmutation', classes: ['bard','druid'], castingTime: '1 action', range: '60 ft', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'Metal incandescente: 2d8 fogo; SAL CON ou desvantagem em ataques/testes. Ação bônus p/ repetir.', en: 'Incandescent metal: 2d8 fire; CON save or disadvantage on attacks/checks. Bonus action to repeat.' } },
+  { id: 'lesserRestoration',      level: 2, school: 'abjuration',   classes: ['bard','cleric','druid','paladin','ranger'], castingTime: '1 action', range: 'Touch', components: 'V, S', duration: 'Instant', desc: { pt: 'Remove cegueira, surdez, paralisia, envenenamento ou uma doença.', en: 'End one disease, or blinded, deafened, paralyzed, or poisoned condition.' } },
+  { id: 'levitate',               level: 2, school: 'transmutation', classes: ['sorcerer','wizard'], castingTime: '1 action', range: '60 ft', components: 'V, S, M', duration: 'Conc. 10 min', desc: { pt: 'SAL CON ou criatura/objeto levita. Você sobe/desce 20 pés por ação.', en: 'CON save or creature/object levitates. Rise/descend 20 ft per action.' } },
+  { id: 'locateAnimalsPlants',    level: 2, school: 'divination',   classes: ['bard','druid','ranger'], castingTime: '1 action', range: 'Self', components: 'V, S, M', duration: 'Inst.', ritual: true, desc: { pt: 'Sente a espécie de animal ou planta mais próxima em 5 milhas.', en: 'Sense the nearest named species of beast or plant within 5 miles.' } },
+  { id: 'locateObject',           level: 2, school: 'divination',   classes: ['bard','cleric','druid','paladin','ranger','wizard'], castingTime: '1 action', range: 'Self', components: 'V, S, M', duration: 'Conc. 10 min', desc: { pt: 'Sente o objeto mais próximo que você descreve/conhece, em 1000 pés.', en: 'Sense the nearest object you describe or know, within 1000 ft.' } },
+  { id: 'magicWeapon',            level: 2, school: 'transmutation', classes: ['paladin','wizard'], castingTime: '1 bonus action', range: 'Touch', components: 'V, S', duration: 'Conc. 1 hour', desc: { pt: 'Arma não mágica torna-se mágica com +1 em ataques e dano.', en: 'Nonmagical weapon becomes magical with +1 to attacks and damage.' } },
+  { id: 'moonbeam',               level: 2, school: 'evocation',    classes: ['druid'], castingTime: '1 action', range: '120 ft', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'Cilindro 5 pés de luz prateada: SAL CON 2d10 radiante. Metamorfos retornam à forma natural.', en: '5-ft cylinder of silver light: CON save 2d10 radiant. Shapechangers revert to true form.' } },
+  { id: 'passWithoutTrace',       level: 2, school: 'abjuration',   classes: ['druid','ranger'], castingTime: '1 action', range: 'Self', components: 'V, S, M', duration: 'Conc. 1 hour', desc: { pt: '+10 em testes de Furtividade; não deixa rastros. Até 10 criaturas.', en: '+10 to Stealth checks; leave no tracks. Up to 10 creatures.' } },
+  { id: 'prayerOfHealing',        level: 2, school: 'evocation',    classes: ['cleric'], castingTime: '10 minutes', range: '30 ft', components: 'V', duration: 'Instant', desc: { pt: 'Até 6 criaturas curam 2d8 + mod cada.', en: 'Up to 6 creatures heal 2d8 + mod each.' } },
+  { id: 'protectionFromPoison',   level: 2, school: 'abjuration',   classes: ['cleric','druid','paladin','ranger'], castingTime: '1 action', range: 'Touch', components: 'V, S', duration: '1 hour', desc: { pt: 'Remove envenenamento; vantagem em SAL contra veneno; resistência a veneno.', en: 'Neutralize poison; advantage on saves vs poison; resistance to poison damage.' } },
+  { id: 'rayOfEnfeeblement',      level: 2, school: 'necromancy',   classes: ['warlock','wizard'], castingTime: '1 action', range: '60 ft', components: 'V, S', duration: 'Conc. 1 min', desc: { pt: 'Ataque mágico: ataques de arma baseados em FOR do alvo causam metade do dano.', en: 'Spell attack: target\'s STR-based weapon attacks deal half damage.' } },
+  { id: 'seeInvisibility',        level: 2, school: 'divination',   classes: ['bard','sorcerer','wizard'], castingTime: '1 action', range: 'Self', components: 'V, S, M', duration: '1 hour', desc: { pt: 'Veja criaturas e objetos invisíveis.', en: 'See invisible creatures and objects.' } },
+  { id: 'shatter',                level: 2, school: 'evocation',    classes: ['bard','sorcerer','warlock','wizard'], castingTime: '1 action', range: '60 ft', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Esfera 10 pés: SAL CON 3d8 trovão. Inorgânicos levam desvantagem.', en: '10-ft sphere: CON save 3d8 thunder. Inorganic targets have disadvantage.' } },
+  { id: 'silence',                level: 2, school: 'illusion',     classes: ['bard','cleric','ranger'], castingTime: '1 action', range: '120 ft', components: 'V, S', duration: 'Conc. 10 min', ritual: true, desc: { pt: 'Esfera 20 pés: silêncio total. Não pode conjurar magias com componentes verbais.', en: '20-ft sphere: complete silence. Can\'t cast spells with verbal components.' } },
+  { id: 'suggestion',             level: 2, school: 'enchantment',  classes: ['bard','sorcerer','warlock','wizard'], castingTime: '1 action', range: '30 ft', components: 'V, M', duration: 'Conc. 8 hours', desc: { pt: 'SAL SAB ou criatura segue sugestão razoável (1-2 frases).', en: 'WIS save or creature follows a reasonable suggestion (1-2 sentences).' } },
+  { id: 'zoneOfTruth',            level: 2, school: 'enchantment',  classes: ['cleric','paladin'], castingTime: '1 action', range: '60 ft', components: 'V, S', duration: '10 min', desc: { pt: 'Esfera 15 pés: SAL CHA ou não pode mentir conscientemente.', en: '15-ft sphere: CHA save or can\'t speak deliberate lies.' } },
+
+  // === LEVEL 3 ADICIONAIS ===
+  { id: 'beaconOfHope',           level: 3, school: 'abjuration',   classes: ['cleric'], castingTime: '1 action', range: '30 ft', components: 'V, S', duration: 'Conc. 1 min', desc: { pt: 'Até 3 criaturas: vantagem em SAL SAB e morte; cura máxima.', en: 'Up to 3 creatures: advantage on WIS saves and death saves; heal maximum.' } },
+  { id: 'bestowCurse',            level: 3, school: 'necromancy',   classes: ['bard','cleric','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S', duration: 'Conc. 1 min', desc: { pt: 'Ataque: maldição (desvantagem em atributo, ou -1d8 em ataques/dano, ou SAL SAB p/ agir).', en: 'Touch attack: curse (disadvantage on ability, or -1d8 on attacks/damage, or WIS save to act).' } },
+  { id: 'clairvoyance',           level: 3, school: 'divination',   classes: ['bard','cleric','sorcerer','wizard'], castingTime: '10 min', range: '1 mile', components: 'V, S, M', duration: 'Conc. 10 min', desc: { pt: 'Cria sentido invisível (visão ou audição) em local familiar até 1 milha.', en: 'Create an invisible sensor (sight or hearing) at a known location within 1 mile.' } },
+  { id: 'conjureAnimals',         level: 3, school: 'conjuration',  classes: ['druid','ranger'], castingTime: '1 action', range: '60 ft', components: 'V, S', duration: 'Conc. 1 hour', desc: { pt: 'Invoque bestas feéricas com CR total ≤ 2 (ex: 1 CR1, 2 CR1/2, etc.).', en: 'Summon fey spirits as beasts with combined CR ≤ 2 (e.g. 1 CR1, 2 CR1/2).' } },
+  { id: 'daylight',               level: 3, school: 'evocation',    classes: ['cleric','druid','paladin','ranger','sorcerer'], castingTime: '1 action', range: '60 ft', components: 'V, S', duration: '1 hour', desc: { pt: 'Esfera de luz brilhante 60 pés (suprime trevas mágicas de nível ≤ 3).', en: '60-ft sphere of bright light (suppresses magical darkness of level ≤ 3).' } },
+  { id: 'feign death',            level: 3, school: 'necromancy',   classes: ['bard','cleric','druid','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: '1 hour', ritual: true, desc: { pt: 'Alvo parece morto (catatônico). Resistência a todos os danos exceto psíquico.', en: 'Target appears dead (catatonic). Resistance to all damage except psychic.' } },
+  { id: 'hypnoticPattern',        level: 3, school: 'illusion',     classes: ['bard','sorcerer','warlock','wizard'], castingTime: '1 action', range: '120 ft', components: 'S, M', duration: 'Conc. 1 min', desc: { pt: 'Cubo 30 pés: SAL SAB ou incapacitado e velocidade 0 enquanto vir padrão.', en: '30-ft cube: WIS save or incapacitated and speed 0 while they can see pattern.' } },
+  { id: 'majorImage',             level: 3, school: 'illusion',     classes: ['bard','sorcerer','warlock','wizard'], castingTime: '1 action', range: '120 ft', components: 'V, S, M', duration: 'Conc. 10 min', desc: { pt: 'Ilusão com som, cheiro e temperatura (cubo 20 pés). Investigação vs CD magia revela.', en: 'Illusion with sound, smell, temperature (20-ft cube). Investigation vs DC reveals.' } },
+  { id: 'meldIntoStone',          level: 3, school: 'transmutation', classes: ['cleric','druid'], castingTime: '1 action', range: 'Touch', components: 'V, S', duration: '8 hours', ritual: true, desc: { pt: 'Funda-se em pedra (deve ser maior que você). Veja/ouça; imperceptível.', en: 'Step into stone (must be bigger than you). See/hear; imperceptible.' } },
+  { id: 'nondetection',           level: 3, school: 'abjuration',   classes: ['bard','ranger','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: '8 hours', desc: { pt: 'Alvo oculto de adivinhação (Detectar Magia, bola de cristal, etc.).', en: 'Target hidden from divination (Detect Magic, crystal ball, etc.).' } },
+  { id: 'plantGrowth',            level: 3, school: 'transmutation', classes: ['bard','druid','ranger'], castingTime: '1 action ou 8h', range: '150 ft', components: 'V, S', duration: 'Instant', desc: { pt: 'Imediato: raio 100 pés terreno difícil (custo movimento x4). Lento: terra mais fértil por 1 ano.', en: 'Instant: 100-ft radius difficult terrain (×4 movement). Slow: fertile land for 1 year.' } },
+  { id: 'protectionFromEnergy',   level: 3, school: 'abjuration',   classes: ['cleric','druid','ranger','sorcerer','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S', duration: 'Conc. 1 hour', desc: { pt: 'Resistência a um tipo de dano (ácido, fogo, raio, frio, trovão).', en: 'Resistance to one damage type (acid, fire, lightning, cold, thunder).' } },
+  { id: 'removeCurse',            level: 3, school: 'abjuration',   classes: ['cleric','paladin','warlock','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S', duration: 'Instant', desc: { pt: 'Remove todas as maldições do alvo.', en: 'Remove all curses affecting the target.' } },
+  { id: 'sendingSpell',           level: 3, school: 'evocation',    classes: ['bard','cleric','wizard'], castingTime: '1 action', range: 'Unlimited', components: 'V, S, M', duration: '1 round', desc: { pt: 'Envie mensagem de 25 palavras a qualquer criatura familiar; receba resposta de 25 palavras.', en: 'Send 25-word message to any familiar creature; receive 25-word reply.' } },
+  { id: 'slowSpell',              level: 3, school: 'transmutation', classes: ['sorcerer','wizard'], castingTime: '1 action', range: '120 ft', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'SAL SAB ou: velocidade dimidiada, -2 CA e DEST, sem reações, só 1 ação/ataque.', en: 'WIS save or: half speed, -2 AC and DEX, no reactions, only 1 action/attack.' } },
+  { id: 'speakWithDead',          level: 3, school: 'necromancy',   classes: ['bard','cleric'], castingTime: '1 action', range: '10 ft', components: 'V, S, M', duration: '10 min', desc: { pt: 'Corpo com boca responde até 5 perguntas. Sabe apenas o que sabia em vida.', en: 'Corpse with mouth answers up to 5 questions. Knows only what it knew in life.' } },
+  { id: 'speakWithPlants',        level: 3, school: 'transmutation', classes: ['bard','druid','ranger'], castingTime: '1 action', range: 'Self (30-ft radius)', components: 'V, S', duration: '10 min', desc: { pt: 'Comunique-se com plantas; elas respondem perguntas simples sobre passagem recente.', en: 'Communicate with plants; they answer simple questions about recent passage.' } },
+  { id: 'stinkingCloud',          level: 3, school: 'conjuration',  classes: ['bard','sorcerer','wizard'], castingTime: '1 action', range: '90 ft', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'Esfera 20 pés: fortemente obscurecida. SAL CON ou náusea (perde ação).', en: '20-ft sphere: heavily obscured. CON save or nausea (lose action).' } },
+  { id: 'waterBreathing',         level: 3, school: 'transmutation', classes: ['druid','ranger','sorcerer','wizard'], castingTime: '1 action', range: '30 ft', components: 'V, S, M', duration: '24 hours', ritual: true, desc: { pt: 'Até 10 criaturas respiram debaixo d\'água por 24 horas.', en: 'Up to 10 creatures breathe underwater for 24 hours.' } },
+  { id: 'waterWalk',              level: 3, school: 'transmutation', classes: ['cleric','druid','ranger','sorcerer'], castingTime: '1 action', range: '30 ft', components: 'V, S, M', duration: '1 hour', ritual: true, desc: { pt: 'Até 10 criaturas andam sobre superfícies líquidas como terreno sólido.', en: 'Up to 10 creatures walk on liquid surfaces as solid ground.' } },
+  { id: 'windWall',               level: 3, school: 'evocation',    classes: ['druid','ranger'], castingTime: '1 action', range: '120 ft', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'Parede 50×15 pés de vento forte: SAL FOR 3d8 trovão; bloqueia projéteis leves.', en: '50×15 ft wall of strong wind: STR save 3d8 thunder; deflects projectiles.' } },
+
+  // === LEVEL 4 ADICIONAIS ===
+  { id: 'blight',                 level: 4, school: 'necromancy',   classes: ['druid','sorcerer','warlock','wizard'], castingTime: '1 action', range: '30 ft', components: 'V, S', duration: 'Instant', desc: { pt: 'SAL CON 8d8 necrótico (metade se passar). Plantas: sem salvamento, máximo.', en: 'CON save 8d8 necrotic (half on success). Plants: no save, max damage.' } },
+  { id: 'confusion',              level: 4, school: 'enchantment',  classes: ['bard','druid','sorcerer','wizard'], castingTime: '1 action', range: '90 ft', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'SAL SAB ou ações aleatórias (1d10): imóvel, foge, ataca alvo aleatório, etc.', en: 'WIS save or random actions (1d10): still, flee, attack random target, etc.' } },
+  { id: 'conjureMinorElementals', level: 4, school: 'conjuration',  classes: ['druid','wizard'], castingTime: '1 min', range: '90 ft', components: 'V, S', duration: 'Conc. 1 hour', desc: { pt: 'Invoca elementais com CR total ≤ 2 (1 CR2, 2 CR1, 4 CR1/2, 8 CR1/4).', en: 'Summon elementals CR total ≤ 2 (1 CR2, 2 CR1, 4 CR1/2, 8 CR1/4).' } },
+  { id: 'conjureWoodlandBeings',  level: 4, school: 'conjuration',  classes: ['druid','ranger'], castingTime: '1 action', range: '60 ft', components: 'V, S, M', duration: 'Conc. 1 hour', desc: { pt: 'Invoca fadas com CR total ≤ 2 (mesmas opções de conjurar elementais menores).', en: 'Summon fey with combined CR ≤ 2 (same CR options as conjure minor elementals).' } },
+  { id: 'controlWater',           level: 4, school: 'transmutation', classes: ['cleric','druid','wizard'], castingTime: '1 action', range: '300 ft', components: 'V, S, M', duration: 'Conc. 10 min', desc: { pt: 'Controle água em cubo 100 pés: inunde, redirecione, crie redemunho ou divida.', en: 'Control water in 100-ft cube: flood, redirect, whirlpool, or part.' } },
+  { id: 'deathWard',              level: 4, school: 'abjuration',   classes: ['cleric','paladin'], castingTime: '1 action', range: 'Touch', components: 'V, S', duration: '8 hours', desc: { pt: 'Quando alvo seria reduzido a 0 HP ou morto, fica com 1 HP. 1× por duração.', en: 'When target would be reduced to 0 HP or killed, it drops to 1 HP instead. Once per duration.' } },
+  { id: 'dominateBeast',          level: 4, school: 'enchantment',  classes: ['druid','ranger','sorcerer'], castingTime: '1 action', range: '60 ft', components: 'V, S', duration: 'Conc. 1 min', desc: { pt: 'SAL SAB ou besta sob seu controle telepático.', en: 'WIS save or beast under your telepathic control.' } },
+  { id: 'freedomOfMovement',      level: 4, school: 'abjuration',   classes: ['bard','cleric','druid','ranger'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: '1 hour', desc: { pt: 'Ignore terreno difícil; não pode ser paralisado nem reduzido a velocidade 0 por magia.', en: 'Ignore difficult terrain; can\'t be paralyzed or magically reduced to 0 speed.' } },
+  { id: 'giantInsect',            level: 4, school: 'transmutation', classes: ['druid'], castingTime: '1 action', range: '30 ft', components: 'V, S', duration: 'Conc. 10 min', desc: { pt: 'Transforme 10 centopéias, 3 aranhas, 5 vespas ou 1 escorpião em versões gigantes.', en: 'Transform up to 10 centipedes, 3 spiders, 5 wasps, or 1 scorpion into giant versions.' } },
+  { id: 'graspingVine',           level: 4, school: 'conjuration',  classes: ['druid','ranger'], castingTime: '1 bonus action', range: '30 ft', components: 'V, S', duration: 'Conc. 1 min', desc: { pt: 'Videira animada: SAL DEST ou alvo puxado 20 pés em direção a ela.', en: 'Animated vine: DEX save or target pulled 20 ft toward it.' } },
+  { id: 'hallucinatoryTerrain',   level: 4, school: 'illusion',     classes: ['bard','druid','warlock','wizard'], castingTime: '10 min', range: '300 ft', components: 'V, S, M', duration: '24 hours', desc: { pt: 'Cubo 150 pés parece terreno natural diferente (floresta → pântano, etc.).', en: '150-ft cube appears as different natural terrain (forest→swamp, etc.).' } },
+  { id: 'locateCreature',         level: 4, school: 'divination',   classes: ['bard','cleric','druid','paladin','ranger','wizard'], castingTime: '1 action', range: 'Self', components: 'V, S, M', duration: 'Conc. 1 hour', desc: { pt: 'Sente a direção de criatura conhecida ou espécie específica em 1000 pés.', en: 'Sense direction of a known creature or specific species within 1000 ft.' } },
+  { id: 'stoneShape',             level: 4, school: 'transmutation', classes: ['cleric','druid','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Molde pedra (até 5 pés cúbicos) em qualquer forma.', en: 'Reshape stone (up to 5 cubic feet) into any shape.' } },
+  { id: 'stoneskin',              level: 4, school: 'abjuration',   classes: ['druid','ranger','sorcerer','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: 'Conc. 1 hour', desc: { pt: 'Resistência a dano contundente, cortante e perfurante de armas não mágicas.', en: 'Resistance to bludgeoning, piercing, slashing damage from nonmagical weapons.' } },
+
+  // === LEVEL 5 ADICIONAIS ===
+  { id: 'antilifeShell',          level: 5, school: 'abjuration',   classes: ['druid'], castingTime: '1 action', range: 'Self (10-ft radius)', components: 'V, S', duration: 'Conc. 1 hour', desc: { pt: 'Barreira 10 pés: criaturas vivas não podem entrar voluntariamente.', en: '10-ft barrier: living creatures can\'t voluntarily enter.' } },
+  { id: 'awaken',                 level: 5, school: 'transmutation', classes: ['bard','druid'], castingTime: '8 hours', range: 'Touch', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Planta ou besta (INT < 3) ganha INT 10, idioma, alinhamento e torna-se amigável.', en: 'Plant or beast (INT < 3) gains INT 10, language, alignment, becomes friendly.' } },
+  { id: 'communeWithNature',      level: 5, school: 'divination',   classes: ['druid','ranger'], castingTime: '1 min', range: 'Self', components: 'V, S', duration: 'Instant', ritual: true, desc: { pt: 'Obtenha até 3 informações sobre terra em 3 milhas (terreno, magia, criaturas predominantes).', en: 'Gain up to 3 facts about land within 3 miles (terrain, magic, dominant creatures).' } },
+  { id: 'conjureElemental',       level: 5, school: 'conjuration',  classes: ['druid','wizard'], castingTime: '1 min', range: '90 ft', components: 'V, S, M', duration: 'Conc. 1 hour', desc: { pt: 'Invoque um elemental CR ≤ 5 de água, ar, terra ou fogo.', en: 'Summon one CR ≤ 5 elemental of water, air, earth, or fire.' } },
+  { id: 'contagion',              level: 5, school: 'necromancy',   classes: ['cleric','druid'], castingTime: '1 action', range: 'Touch', components: 'V, S', duration: '7 days', desc: { pt: 'Ataque mágico; SAL CON por 3 turnos; se falhar 3 vezes, doença: cegueira carne, febre, etc.', en: 'Melee spell attack; CON save for 3 turns; fail 3 times: disease effects.' } },
+  { id: 'dominatePerson',         level: 5, school: 'enchantment',  classes: ['bard','sorcerer','wizard'], castingTime: '1 action', range: '60 ft', components: 'V, S', duration: 'Conc. 1 min', desc: { pt: 'SAL SAB ou humanoide sob seu controle telepático.', en: 'WIS save or humanoid under your telepathic control.' } },
+  { id: 'geas',                   level: 5, school: 'enchantment',  classes: ['bard','cleric','druid','paladin','wizard'], castingTime: '1 min', range: '60 ft', components: 'V', duration: '30 days', desc: { pt: 'SAL SAB ou criatura obedece ordem razoável ou sofre 5d10 psíquico cada vez que desobedece.', en: 'WIS save or creature must obey a reasonable command or take 5d10 psychic on disobedience.' } },
+  { id: 'insectPlague',           level: 5, school: 'conjuration',  classes: ['cleric','druid','sorcerer'], castingTime: '1 action', range: '300 ft', components: 'V, S, M', duration: 'Conc. 10 min', desc: { pt: 'Esfera 20 pés de insetos: fortemente obscurecida; SAL CON 4d10 perfurante ao entrar.', en: '20-ft sphere of locusts: heavily obscured; CON save 4d10 piercing on entry.' } },
+  { id: 'mislead',                level: 5, school: 'illusion',     classes: ['bard','wizard'], castingTime: '1 action', range: 'Self', components: 'S', duration: 'Conc. 1 hour', desc: { pt: 'Torne-se invisível e crie duplicata ilusória. Controle duplicata a até 120 pés.', en: 'Become invisible and create an illusory duplicate. Control it within 120 ft.' } },
+  { id: 'modifyMemory',           level: 5, school: 'enchantment',  classes: ['bard','wizard'], castingTime: '1 action', range: '30 ft', components: 'V, S', duration: 'Conc. 1 min', desc: { pt: 'SAL SAB ou incapacitado; reescreva memória dos últimos 24h.', en: 'WIS save or incapacitated; rewrite memory of last 24h.' } },
+  { id: 'planarBinding',          level: 5, school: 'abjuration',   classes: ['bard','cleric','druid','wizard'], castingTime: '1 hour', range: '60 ft', components: 'V, S, M', duration: '24 hours', desc: { pt: 'SAL CHA ou elemental/celestial/infernal/fada fica vinculado a servi-lo por 24h.', en: 'CHA save or elemental/celestial/fiend/fey must serve you for 24 hours.' } },
+  { id: 'reincarnate',            level: 5, school: 'transmutation', classes: ['druid'], castingTime: '1 hour', range: 'Touch', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Reviva ser morto há ≤ 10 dias em corpo novo (raça aleatória da tabela). Retém memórias.', en: 'Revive being dead ≤ 10 days in a new body (random race from table). Retains memories.' } },
+  { id: 'scrying',                level: 5, school: 'divination',   classes: ['bard','cleric','druid','warlock','wizard'], castingTime: '10 min', range: 'Self', components: 'V, S, M', duration: 'Conc. 10 min', desc: { pt: 'SAL SAB (mod por familiaridade) ou espio sensor invisível ao lado da criatura.', en: 'WIS save (modified by familiarity) or invisible sensor appears near target.' } },
+  { id: 'seeming',                level: 5, school: 'illusion',     classes: ['bard','sorcerer','wizard'], castingTime: '1 action', range: '30 ft', components: 'V, S', duration: '8 hours', desc: { pt: 'Altere aparência de qualquer número de criaturas (consentimento não necessário). SAL CHA revela.', en: 'Change appearance of any number of creatures. CHA save to disbelieve.' } },
+  { id: 'treeStride',             level: 5, school: 'conjuration',  classes: ['druid','ranger'], castingTime: '1 action', range: 'Self', components: 'V, S', duration: 'Conc. 1 min', desc: { pt: 'Entre em árvore; saia de outra da mesma espécie até 500 pés. 1 teleporte por turno.', en: 'Enter a tree; exit from same species within 500 ft. One teleport per turn.' } },
+  { id: 'wallOfForce',            level: 5, school: 'evocation',    classes: ['wizard'], castingTime: '1 action', range: '120 ft', components: 'V, S, M', duration: 'Conc. 10 min', desc: { pt: 'Parede invisível imune a dano e dispelar. Pode ser plana ou hemisférica.', en: 'Invisible wall immune to damage and dispel. Can be flat or hemispherical.' } },
+
+  // === LEVEL 6 ADICIONAIS ===
+  { id: 'bladeBarrier',           level: 6, school: 'evocation',    classes: ['cleric'], castingTime: '1 action', range: '90 ft', components: 'V, S', duration: 'Conc. 10 min', desc: { pt: 'Parede 100×5 pés de lâminas: SAL DEST 6d10 cortante ao atravessar.', en: '100×5 ft wall of blades: DEX save 6d10 slashing on pass.' } },
+  { id: 'conjureFey',             level: 6, school: 'conjuration',  classes: ['bard','druid'], castingTime: '1 min', range: '90 ft', components: 'V, S', duration: 'Conc. 1 hour', desc: { pt: 'Invoque espírito feérico CR ≤ 6 como besta ou humanoide.', en: 'Summon a fey spirit CR ≤ 6 as a beast or humanoid.' } },
+  { id: 'disintegrate',           level: 6, school: 'transmutation', classes: ['sorcerer','wizard'], castingTime: '1 action', range: '60 ft', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Ataque mágico: 10d6+40 força. Zera HP: vira pó. Objetos (cubo 10 pés) desintegram.', en: 'Spell attack: 10d6+40 force. Reduces to 0 HP: turns to dust. Objects (10-ft cube) disintegrate.' } },
+  { id: 'findThePath',            level: 6, school: 'divination',   classes: ['bard','cleric','druid'], castingTime: '1 min', range: 'Self', components: 'V, S, M', duration: 'Conc. 1 day', desc: { pt: 'Sente o caminho mais curto para um local familiar.', en: 'Sense the shortest route to a familiar location.' } },
+  { id: 'globeOfInvulnerability', level: 6, school: 'abjuration',   classes: ['sorcerer','wizard'], castingTime: '1 action', range: 'Self (10-ft radius)', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'Esfera 10 pés: magias de nível ≤ 5 não podem entrar.', en: '10-ft sphere: spells of level ≤ 5 can\'t penetrate.' } },
+  { id: 'heroesFeast',            level: 6, school: 'conjuration',  classes: ['cleric','druid'], castingTime: '10 min', range: '30 ft', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Banquete para 12: cura todos HP, imune a veneno e medo, +2d10 HP máx por 24h.', en: 'Feast for 12: heals all HP, immune to poison and fright, +2d10 max HP for 24h.' } },
+  { id: 'moveEarth',              level: 6, school: 'transmutation', classes: ['druid','sorcerer','wizard'], castingTime: '1 action', range: '120 ft', components: 'V, S, M', duration: 'Conc. 2 hours', desc: { pt: 'Remodele terreno (argila/areia/terra) em cubo 40 pés. Ação para alterar.', en: 'Reshape nonrocky ground in 40-ft cube. Action to change shape each turn.' } },
+  { id: 'sunbeam',                level: 6, school: 'evocation',    classes: ['druid','sorcerer','wizard'], castingTime: '1 action', range: 'Self (60-ft line)', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'Linha 60 pés: SAL CON 6d8 radiante + cego. Mortos-vivos desvantagem. Ação p/ repetir.', en: '60-ft line: CON save 6d8 radiant + blind. Undead disadvantage. Action to repeat.' } },
+  { id: 'transportViaPlants',     level: 6, school: 'conjuration',  classes: ['druid'], castingTime: '1 action', range: '10 ft', components: 'V, S', duration: '1 round', desc: { pt: 'Crie portal entre duas plantas de mesmo tipo. Até 8 criaturas por turno.', en: 'Create portal between two plants of the same kind. Up to 8 creatures per turn.' } },
+  { id: 'trueSeeing',             level: 6, school: 'divination',   classes: ['bard','cleric','sorcerer','warlock','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: '1 hour', desc: { pt: 'Visão verdadeira 120 pés: invisíveis, ilusões, plano etéreo, formas verdadeiras.', en: 'Truesight 120 ft: invisibles, illusions, Ethereal Plane, true forms.' } },
+  { id: 'wallOfThorns',           level: 6, school: 'conjuration',  classes: ['druid'], castingTime: '1 action', range: '120 ft', components: 'V, S, M', duration: 'Conc. 10 min', desc: { pt: 'Parede 60×10 pés de espinhos: SAL DEST 7d8 perfurante; terreno difícil.', en: '60×10 ft thorn wall: DEX save 7d8 piercing on pass; difficult terrain.' } },
+  { id: 'windWalk',               level: 6, school: 'transmutation', classes: ['druid'], castingTime: '1 min', range: '30 ft', components: 'V, S, M', duration: '8 hours', desc: { pt: 'Até 10 criaturas viram neblina: velocidade 300 pés (voo). Reverter dura 1 minuto.', en: 'Up to 10 creatures become mist: speed 300 ft (fly). Reverting takes 1 minute.' } },
+
+  // === LEVEL 7 ADICIONAIS ===
+  { id: 'mirageArcane',           level: 7, school: 'illusion',     classes: ['bard','druid','wizard'], castingTime: '10 min', range: 'Sight', components: 'V, S', duration: '10 days', desc: { pt: 'Ilusão de 1 milha quadrada (terreno, estruturas). Totalmente interativa.', en: '1-sq-mile illusion (terrain, structures). Fully interactive.' } },
+  { id: 'planeShift',             level: 7, school: 'conjuration',  classes: ['cleric','druid','sorcerer','warlock','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Você + até 8 voluntários viajam para outro plano. Ou: ataque para banir (SAL CHA).', en: 'You + up to 8 willing creatures travel to another plane. Or: attack to banish (CHA save).' } },
+  { id: 'regenerate',             level: 7, school: 'transmutation', classes: ['bard','cleric','druid'], castingTime: '1 min', range: 'Touch', components: 'V, S, M', duration: '1 hour', desc: { pt: 'Alvo recupera 4d8+15 HP; regenera 1 HP/turno; membros decepados regrowam em 2 min.', en: 'Target regains 4d8+15 HP; regenerates 1 HP/turn; severed limbs regrow in 2 min.' } },
+  { id: 'reverseGravity',         level: 7, school: 'transmutation', classes: ['druid','sorcerer','wizard'], castingTime: '1 action', range: '100 ft', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'Cilindro 50 pés/100 pés alt: gravidade invertida. SAL DEST ou cai para cima (4d6/10 pés).', en: '50-ft radius/100-ft cylinder: gravity reversed. DEX save or fall upward (4d6/10 ft).' } },
+  { id: 'symbolSpell',            level: 7, school: 'abjuration',   classes: ['bard','cleric','wizard'], castingTime: '1 min', range: 'Touch', components: 'V, S, M', duration: 'Until triggered', desc: { pt: 'Glifa mágica ativada por condição: SAL varia (CON/SAB/CHA) por tipo de símbolo.', en: 'Magic glyph triggered by condition: save varies (CON/WIS/CHA) by symbol type.' } },
+
+  // === LEVEL 8 ADICIONAIS ===
+  { id: 'animalShapes',           level: 8, school: 'transmutation', classes: ['druid'], castingTime: '1 action', range: '30 ft', components: 'V, S', duration: 'Conc. 24 hours', desc: { pt: 'Transforme aliados voluntários em bestas CR ≤ 4.', en: 'Transform willing allies into beasts with CR ≤ 4.' } },
+  { id: 'antipathySympathy',      level: 8, school: 'enchantment',  classes: ['druid','wizard'], castingTime: '1 hour', range: '60 ft', components: 'V, S, M', duration: '10 days', desc: { pt: 'Objeto/área atrai ou repele tipo específico de criatura (SAL SAB para resistir à antipatia).', en: 'Object/area attracts or repels a specific creature type (WIS save to resist antipathy).' } },
+  { id: 'controlWeather',         level: 8, school: 'transmutation', classes: ['cleric','druid','wizard'], castingTime: '10 min', range: 'Self (5-mile radius)', components: 'V, S, M', duration: 'Conc. 8 hours', desc: { pt: 'Controle o clima em raio de 5 milhas: precipitação, temperatura, vento.', en: 'Control weather in 5-mile radius: precipitation, temperature, wind.' } },
+  { id: 'earthquake',             level: 8, school: 'evocation',    classes: ['cleric','druid','sorcerer'], castingTime: '1 action', range: '500 ft', components: 'V, S, M', duration: 'Conc. 1 min', desc: { pt: 'Raio 100 pés: terreno difícil, concentração CD 15, estruturas 50 dano, SAL DEST ou prono.', en: '100-ft radius: difficult terrain, concentration DC 15, structures 50 damage, DEX save or prone.' } },
+  { id: 'feeblemind',             level: 8, school: 'enchantment',  classes: ['bard','druid','sorcerer','warlock','wizard'], castingTime: '1 action', range: '150 ft', components: 'V, S, M', duration: 'Instant', desc: { pt: 'SAL INT 4d6 psíquico; INT e CHA tornam-se 1; não pode conjurar. Repete a cada 30 dias.', en: 'INT save 4d6 psychic; INT and CHA become 1; can\'t cast. Repeats every 30 days.' } },
+
+  // === LEVEL 9 ADICIONAIS ===
+  { id: 'foresight',              level: 9, school: 'divination',   classes: ['bard','druid','warlock','wizard'], castingTime: '1 min', range: 'Touch', components: 'V, S, M', duration: '8 hours', desc: { pt: 'Alvo não pode ser surpreendido; vantagem em ataques, habilidades e SAL; inimigos têm desvantagem.', en: 'Target can\'t be surprised; advantage on attacks, ability checks, saves; enemies disadvantage.' } },
+  { id: 'shapechange',            level: 9, school: 'transmutation', classes: ['druid','wizard'], castingTime: '1 action', range: 'Self', components: 'V, S, M', duration: 'Conc. 1 hour', desc: { pt: 'Transforme-se em criatura CR ≤ seu nível (exceto elemental ou morto-vivo). Assume HP e ações.', en: 'Transform into any creature CR ≤ your level (not elemental/undead). Assume HP and actions.' } },
+  { id: 'stormOfVengeance',       level: 9, school: 'conjuration',  classes: ['druid'], castingTime: '1 action', range: 'Sight', components: 'V, S', duration: 'Conc. 1 min', desc: { pt: 'Tempestade raio 360 pés: por turno, raios, granizo, vento, relâmpagos. SAL varia.', en: '360-ft storm: each turn lightning, hail, wind, thunder. Varied saves and damage types.' } },
+  { id: 'trueResurrection',       level: 9, school: 'necromancy',   classes: ['cleric','druid'], castingTime: '1 hour', range: 'Touch', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Revive ser morto há qualquer tempo (exceto velhice). Restaura corpo se necessário.', en: 'Revive a being dead any length of time (not old age). Restores body if needed.' } },
 ];
 
 // === WILD SHAPE BEASTS ===
@@ -896,6 +1060,103 @@ const BEASTS = [
     ],
   },
 
+  // CR 0 — adicionais
+  { id: 'bat', cr: '0', crNum: 0, size: 'Tiny', speed: 5, fly: 30, ac: 12, hp: 1, str: 2, dex: 15, con: 8, int: 2, wis: 12, cha: 4,
+    traits: [{ name: { pt: 'Ecolocalização', en: 'Echolocation' }, desc: { pt: 'Não pode usar ecolocalização se ensurdecido.', en: 'Can\'t use echolocation while deafened.' } }],
+    actions: [{ name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +0, 1 perfurante.', en: 'Melee +0, 1 piercing.' } }],
+  },
+  { id: 'frog', cr: '0', crNum: 0, size: 'Tiny', speed: 20, swim: 20, ac: 11, hp: 1, str: 1, dex: 13, con: 8, int: 1, wis: 8, cha: 3,
+    traits: [{ name: { pt: 'Anfíbio', en: 'Amphibious' }, desc: { pt: 'Respira ar e água.', en: 'Breathes air and water.' } }],
+    actions: [],
+  },
+  { id: 'crab', cr: '0', crNum: 0, size: 'Tiny', speed: 20, swim: 20, ac: 11, hp: 2, str: 2, dex: 11, con: 10, int: 1, wis: 8, cha: 2,
+    traits: [{ name: { pt: 'Anfíbio', en: 'Amphibious' }, desc: { pt: 'Respira ar e água.', en: 'Breathes air and water.' } }],
+    actions: [{ name: { pt: 'Pinça', en: 'Claw' }, desc: { pt: 'Mel., +0, 1 contundente.', en: 'Melee +0, 1 bludgeoning.' } }],
+  },
+  { id: 'spider', cr: '0', crNum: 0, size: 'Tiny', speed: 20, climb: 20, ac: 12, hp: 1, str: 2, dex: 14, con: 8, int: 1, wis: 10, cha: 2,
+    traits: [
+      { name: { pt: 'Andar por Teia', en: 'Spider Climb' }, desc: { pt: 'Escala superfícies difíceis, incluindo tetos.', en: 'Climbs difficult surfaces, including ceilings.' } },
+      { name: { pt: 'Sentido de Teia', en: 'Web Sense' }, desc: { pt: 'Sabe a localização de qualquer criatura tocando a mesma teia.', en: 'Knows the location of any creature touching the same web.' } },
+    ],
+    actions: [{ name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +4, 1 perfurante + SAL CON ou 1d4 veneno.', en: 'Melee +4, 1 piercing + CON save or 1d4 poison.' } }],
+  },
+
+  // CR 1/8 — adicionais
+  { id: 'bloodHawk', cr: '1/8', crNum: 0.125, size: 'Small', speed: 10, fly: 60, ac: 13, hp: 7, str: 6, dex: 14, con: 10, int: 3, wis: 14, cha: 5,
+    traits: [
+      { name: { pt: 'Visão Apurada', en: 'Keen Sight' }, desc: { pt: 'Vantagem em Percepção (visão).', en: 'Advantage on Perception (sight).' } },
+      { name: { pt: 'Tática de Matilha', en: 'Pack Tactics' }, desc: { pt: 'Vantagem se aliado a 5 pés do alvo.', en: 'Advantage if ally within 5 ft of target.' } },
+    ],
+    actions: [{ name: { pt: 'Bicada', en: 'Beak' }, desc: { pt: 'Mel., +4, 1d4+2 perfurante.', en: 'Melee +4, 1d4+2 piercing.' } }],
+  },
+  { id: 'poisonousSnake', cr: '1/8', crNum: 0.125, size: 'Tiny', speed: 30, swim: 30, ac: 13, hp: 2, str: 2, dex: 16, con: 11, int: 1, wis: 10, cha: 3,
+    traits: [],
+    actions: [{ name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +5, 1 perfurante + SAL CON CD 10 ou 2d4 veneno.', en: 'Melee +5, 1 piercing + CON save DC 10 or 2d4 poison.' } }],
+  },
+  { id: 'mastiff', cr: '1/8', crNum: 0.125, size: 'Medium', speed: 40, ac: 12, hp: 5, str: 13, dex: 14, con: 12, int: 3, wis: 12, cha: 7,
+    traits: [{ name: { pt: 'Olfato/Audição Apurada', en: 'Keen Hearing and Smell' }, desc: { pt: 'Vantagem em Percepção (olfato/audição).', en: 'Advantage on Perception (hearing/smell).' } }],
+    actions: [{ name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +3, 1d6+1 perfurante. SAL FOR CD 11 ou prono.', en: 'Melee +3, 1d6+1 piercing. STR save DC 11 or prone.' } }],
+  },
+  { id: 'flyingSnake', cr: '1/8', crNum: 0.125, size: 'Tiny', speed: 30, fly: 60, swim: 30, ac: 14, hp: 5, str: 4, dex: 18, con: 11, int: 2, wis: 12, cha: 5,
+    traits: [{ name: { pt: 'Mordida Sinuosa', en: 'Flyby' }, desc: { pt: 'Não provoca ataques de oportunidade.', en: 'Doesn\'t provoke opportunity attacks.' } }],
+    actions: [{ name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +6, 1 perfurante + SAL CON CD 11 ou 3d4 veneno.', en: 'Melee +6, 1 piercing + CON save DC 11 or 3d4 poison.' } }],
+  },
+
+  // CR 1/4 — adicionais
+  { id: 'elk', cr: '1/4', crNum: 0.25, size: 'Large', speed: 50, ac: 10, hp: 13, str: 16, dex: 10, con: 12, int: 2, wis: 10, cha: 6,
+    traits: [{ name: { pt: 'Carga', en: 'Charge' }, desc: { pt: 'Move 20+ pés + acertou: +1d6 contundente; SAL FOR CD 13 ou prono.', en: 'Move 20+ ft + hit: +1d6 bludgeoning; STR save DC 13 or prone.' } }],
+    actions: [
+      { name: { pt: 'Chifrada', en: 'Ram' }, desc: { pt: 'Mel., +5, 1d6+3 contundente.', en: 'Melee +5, 1d6+3 bludgeoning.' } },
+      { name: { pt: 'Cascos', en: 'Hooves' }, desc: { pt: 'Mel., +5, 2d4+3 contundente.', en: 'Melee +5, 2d4+3 bludgeoning.' } },
+    ],
+  },
+  { id: 'giantFrog', cr: '1/4', crNum: 0.25, size: 'Medium', speed: 30, swim: 30, ac: 11, hp: 18, str: 12, dex: 13, con: 11, int: 2, wis: 10, cha: 3,
+    traits: [
+      { name: { pt: 'Anfíbio', en: 'Amphibious' }, desc: { pt: 'Respira ar e água.', en: 'Breathes air and water.' } },
+      { name: { pt: 'Salto Permanente', en: 'Standing Leap' }, desc: { pt: 'Salto longo 20 pés; vertical 10 pés.', en: 'Long jump 20 ft; high jump 10 ft.' } },
+    ],
+    actions: [{ name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +3, 1d6+1 perfurante. Se Médio ou menor, alvo agarrado (escape CD 11); ação bônus para engolir.', en: 'Melee +3, 1d6+1 piercing. If Medium or smaller, grappled (esc DC 11); bonus action to swallow.' } }],
+  },
+  { id: 'giantOwl', cr: '1/4', crNum: 0.25, size: 'Large', speed: 5, fly: 60, ac: 12, hp: 19, str: 13, dex: 15, con: 12, int: 8, wis: 13, cha: 10,
+    traits: [
+      { name: { pt: 'Voo Silencioso', en: 'Flyby' }, desc: { pt: 'Não provoca ataques de oportunidade.', en: 'Doesn\'t provoke opportunity attacks.' } },
+      { name: { pt: 'Visão e Audição Apuradas', en: 'Keen Hearing and Sight' }, desc: { pt: 'Vantagem em Percepção (audição/visão).', en: 'Advantage on Perception (hearing/sight).' } },
+    ],
+    actions: [{ name: { pt: 'Garras', en: 'Talons' }, desc: { pt: 'Mel., +3, 2d6+1 cortante.', en: 'Melee +3, 2d6+1 slashing.' } }],
+  },
+  { id: 'giantPoisonousSnake', cr: '1/4', crNum: 0.25, size: 'Medium', speed: 30, swim: 30, ac: 14, hp: 11, str: 10, dex: 18, con: 13, int: 2, wis: 10, cha: 3,
+    traits: [],
+    actions: [{ name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +6, 1d4+4 perfurante + SAL CON CD 11 ou 3d6 veneno.', en: 'Melee +6, 1d4+4 piercing + CON save DC 11 or 3d6 poison.' } }],
+  },
+  { id: 'ridingHorse', cr: '1/4', crNum: 0.25, size: 'Large', speed: 60, ac: 10, hp: 13, str: 16, dex: 10, con: 12, int: 2, wis: 11, cha: 7,
+    traits: [],
+    actions: [{ name: { pt: 'Cascos', en: 'Hooves' }, desc: { pt: 'Mel., +5, 2d4+3 contundente.', en: 'Melee +5, 2d4+3 bludgeoning.' } }],
+  },
+  { id: 'giantLizard', cr: '1/4', crNum: 0.25, size: 'Large', speed: 30, climb: 30, ac: 12, hp: 19, str: 15, dex: 12, con: 13, int: 2, wis: 10, cha: 5,
+    traits: [],
+    actions: [{ name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +4, 1d8+2 perfurante.', en: 'Melee +4, 1d8+2 piercing.' } }],
+  },
+
+  // CR 1/2 — adicionais
+  { id: 'giantGoat', cr: '1/2', crNum: 0.5, size: 'Large', speed: 40, ac: 11, hp: 19, str: 17, dex: 11, con: 12, int: 3, wis: 12, cha: 6,
+    traits: [
+      { name: { pt: 'Carga', en: 'Charge' }, desc: { pt: 'Move 20+ pés + acertou: +2d4 contundente; SAL FOR CD 13 ou prono.', en: 'Move 20+ ft + hit: +2d4 bludgeoning; STR save DC 13 or prone.' } },
+      { name: { pt: 'Pés Firmes', en: 'Sure-Footed' }, desc: { pt: 'Vantagem em SAL contra ser derrubado.', en: 'Advantage on saves vs being knocked prone.' } },
+    ],
+    actions: [{ name: { pt: 'Chifrada', en: 'Ram' }, desc: { pt: 'Mel., +5, 2d4+3 contundente.', en: 'Melee +5, 2d4+3 bludgeoning.' } }],
+  },
+  { id: 'giantWasp', cr: '1/2', crNum: 0.5, size: 'Medium', speed: 10, fly: 50, ac: 12, hp: 13, str: 10, dex: 14, con: 10, int: 1, wis: 10, cha: 3,
+    traits: [],
+    actions: [{ name: { pt: 'Ferroada', en: 'Sting' }, desc: { pt: 'Mel., +4, 1d6+2 perfurante + SAL CON CD 11 ou 3d6 veneno + envenenado 1 min.', en: 'Melee +4, 1d6+2 piercing + CON save DC 11 or 3d6 poison + poisoned 1 min.' } }],
+  },
+  { id: 'reefShark', cr: '1/2', crNum: 0.5, size: 'Medium', speed: 0, swim: 40, ac: 12, hp: 22, str: 14, dex: 13, con: 13, int: 1, wis: 10, cha: 4,
+    traits: [
+      { name: { pt: 'Faro de Sangue', en: 'Blood Frenzy' }, desc: { pt: 'Vantagem em ataques corpo a corpo contra criatura que não tenha todos os HP.', en: 'Advantage on melee attacks vs creature that doesn\'t have all HP.' } },
+      { name: { pt: 'Respiração Aquática', en: 'Water Breathing' }, desc: { pt: 'Só respira debaixo d\'água.', en: 'Can only breathe underwater.' } },
+    ],
+    actions: [{ name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +4, 1d8+2 perfurante.', en: 'Melee +4, 1d8+2 piercing.' } }],
+  },
+
   // CR 1
   { id: 'brownBear', cr: '1', crNum: 1, size: 'Large', speed: 40, climb: 30, ac: 11, hp: 34, str: 19, dex: 10, con: 16, int: 2, wis: 13, cha: 7,
     traits: [{ name: { pt: 'Olfato Apurado', en: 'Keen Smell' }, desc: { pt: 'Vantagem em Percepção (olfato).', en: 'Advantage on Perception (smell).' } }],
@@ -941,7 +1202,135 @@ const BEASTS = [
       { name: { pt: 'Garras', en: 'Claws' }, desc: { pt: 'Mel., +5, 1d6+3 cortante.', en: 'Melee +5, 1d6+3 slashing.' } },
     ],
   },
+
+  // CR 2
+  { id: 'allosaurus', cr: '2', crNum: 2, size: 'Large', speed: 60, ac: 13, hp: 51, str: 19, dex: 13, con: 17, int: 2, wis: 12, cha: 5,
+    traits: [
+      { name: { pt: 'Bote', en: 'Pounce' }, desc: { pt: 'Move 30+ pés + acerto de garras: SAL FOR CD 13 ou prono; ataque bônus de mordida.', en: 'Move 30+ ft + claw hit: STR save DC 13 or prone; bonus bite attack.' } },
+    ],
+    actions: [
+      { name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +6, 2d10+4 perfurante.', en: 'Melee +6, 2d10+4 piercing.' } },
+      { name: { pt: 'Garras', en: 'Claws' }, desc: { pt: 'Mel., +6, 1d8+4 cortante.', en: 'Melee +6, 1d8+4 slashing.' } },
+    ],
+  },
+  { id: 'polarBear', cr: '2', crNum: 2, size: 'Large', speed: 40, swim: 30, ac: 12, hp: 42, str: 20, dex: 10, con: 16, int: 2, wis: 13, cha: 7,
+    traits: [
+      { name: { pt: 'Faro Aguçado', en: 'Keen Smell' }, desc: { pt: 'Vantagem em testes de Percepção baseados em olfato.', en: 'Advantage on Perception checks relying on smell.' } },
+    ],
+    actions: [
+      { name: { pt: 'Multiataques', en: 'Multiattack' }, desc: { pt: '2 ataques: mordida + garras.', en: '2 attacks: bite + claws.' } },
+      { name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +7, 1d8+5 perfurante.', en: 'Melee +7, 1d8+5 piercing.' } },
+      { name: { pt: 'Garras', en: 'Claws' }, desc: { pt: 'Mel., +7, 2d6+5 cortante.', en: 'Melee +7, 2d6+5 slashing.' } },
+    ],
+  },
+  { id: 'rhinoceros', cr: '2', crNum: 2, size: 'Large', speed: 40, ac: 11, hp: 45, str: 21, dex: 8, con: 15, int: 2, wis: 12, cha: 6,
+    traits: [
+      { name: { pt: 'Carga', en: 'Charge' }, desc: { pt: 'Move 20+ pés + acerto: extra 2d8 penetrante. SAL DEST CD 15 ou prono.', en: 'Move 20+ ft + hit: extra 2d8 piercing. DEX save DC 15 or prone.' } },
+    ],
+    actions: [
+      { name: { pt: 'Chifrada', en: 'Gore' }, desc: { pt: 'Mel., +7, 2d8+5 penetrante.', en: 'Melee +7, 2d8+5 piercing.' } },
+    ],
+  },
+  { id: 'saberToothedTiger', cr: '2', crNum: 2, size: 'Large', speed: 40, ac: 12, hp: 52, str: 18, dex: 14, con: 15, int: 3, wis: 12, cha: 8,
+    traits: [
+      { name: { pt: 'Faro Aguçado', en: 'Keen Smell' }, desc: { pt: 'Vantagem em testes de Percepção baseados em olfato.', en: 'Advantage on Perception checks relying on smell.' } },
+      { name: { pt: 'Bote', en: 'Pounce' }, desc: { pt: 'Move 20+ pés + acerto: SAL FOR CD 14 ou prono; ataque bônus de mordida.', en: 'Move 20+ ft + hit: STR save DC 14 or prone; bonus bite attack.' } },
+    ],
+    actions: [
+      { name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +6, 1d10+4 perfurante.', en: 'Melee +6, 1d10+4 piercing.' } },
+      { name: { pt: 'Garras', en: 'Claws' }, desc: { pt: 'Mel., +6, 2d6+4 cortante.', en: 'Melee +6, 2d6+4 slashing.' } },
+    ],
+  },
+
+  // CR 3
+  { id: 'ankylosaurus', cr: '3', crNum: 3, size: 'Huge', speed: 30, ac: 15, hp: 68, str: 19, dex: 11, con: 15, int: 2, wis: 12, cha: 5,
+    traits: [],
+    actions: [
+      { name: { pt: 'Cauda', en: 'Tail' }, desc: { pt: 'Mel., +7, 4d6+4 contundente. SAL FOR CD 14 ou prono.', en: 'Melee +7, 4d6+4 bludgeoning. STR save DC 14 or prone.' } },
+    ],
+  },
+  { id: 'killerWhale', cr: '3', crNum: 3, size: 'Huge', speed: 0, swim: 60, ac: 12, hp: 90, str: 19, dex: 10, con: 13, int: 3, wis: 12, cha: 7,
+    traits: [
+      { name: { pt: 'Ecolocalização', en: 'Echolocation' }, desc: { pt: 'Não pode usar percepção às cegas enquanto ensurdecido.', en: "Can't use blindsight while deafened." } },
+      { name: { pt: 'Prender o Fôlego', en: 'Hold Breath' }, desc: { pt: 'Pode prender o fôlego por 30 minutos.', en: 'Can hold its breath for 30 minutes.' } },
+      { name: { pt: 'Audição Aguçada', en: 'Keen Hearing' }, desc: { pt: 'Vantagem em testes de Percepção baseados em audição.', en: 'Advantage on Perception checks relying on hearing.' } },
+    ],
+    actions: [
+      { name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +6, 5d6+4 perfurante.', en: 'Melee +6, 5d6+4 piercing.' } },
+    ],
+  },
+
+  // CR 4
+  { id: 'elephant', cr: '4', crNum: 4, size: 'Huge', speed: 40, ac: 12, hp: 76, str: 22, dex: 9, con: 17, int: 3, wis: 11, cha: 6,
+    traits: [
+      { name: { pt: 'Carga Pisoteadora', en: 'Trampling Charge' }, desc: { pt: 'Move 20+ pés + acerto de chifre: SAL FOR CD 12 ou prono; ataque bônus pisada.', en: 'Move 20+ ft + gore hit: STR save DC 12 or prone; bonus stomp attack.' } },
+    ],
+    actions: [
+      { name: { pt: 'Chifrada', en: 'Gore' }, desc: { pt: 'Mel., +8, 3d8+6 perfurante.', en: 'Melee +8, 3d8+6 piercing.' } },
+      { name: { pt: 'Pisada', en: 'Stomp' }, desc: { pt: 'Mel. (apenas prono), +8, 3d10+6 contundente.', en: 'Melee (prone only), +8, 3d10+6 bludgeoning.' } },
+    ],
+  },
+
+  // CR 5
+  { id: 'giantCrocodile', cr: '5', crNum: 5, size: 'Huge', speed: 30, swim: 50, ac: 14, hp: 114, str: 21, dex: 9, con: 17, int: 2, wis: 10, cha: 7,
+    traits: [
+      { name: { pt: 'Prender o Fôlego', en: 'Hold Breath' }, desc: { pt: 'Pode prender o fôlego por 30 minutos.', en: 'Can hold its breath for 30 minutes.' } },
+    ],
+    actions: [
+      { name: { pt: 'Multiataques', en: 'Multiattack' }, desc: { pt: '2 ataques: mordida + cauda.', en: '2 attacks: bite + tail.' } },
+      { name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +8, 3d10+5 perfurante. Alvo agarrado (escape CD 16). Enquanto agarrado: restringido e mordida automática.', en: 'Melee +8, 3d10+5 piercing. Target grappled (escape DC 16). While grappled: restrained and auto-bite.' } },
+      { name: { pt: 'Cauda', en: 'Tail' }, desc: { pt: 'Mel. (alvo não agarrado), +8, 2d8+5 contundente. SAL FOR CD 16 ou derrubado.', en: 'Melee (non-grappled target), +8, 2d8+5 bludgeoning. STR save DC 16 or knocked prone.' } },
+    ],
+  },
+
+  // CR 6
+  { id: 'mammoth', cr: '6', crNum: 6, size: 'Huge', speed: 40, ac: 13, hp: 126, str: 24, dex: 9, con: 21, int: 3, wis: 11, cha: 6,
+    traits: [
+      { name: { pt: 'Carga Pisoteadora', en: 'Trampling Charge' }, desc: { pt: 'Move 20+ pés + acerto de chifre: SAL FOR CD 18 ou prono; ataque bônus pisada.', en: 'Move 20+ ft + gore hit: STR save DC 18 or prone; bonus stomp attack.' } },
+    ],
+    actions: [
+      { name: { pt: 'Chifrada', en: 'Gore' }, desc: { pt: 'Mel., +10, 4d10+7 perfurante.', en: 'Melee +10, 4d10+7 piercing.' } },
+      { name: { pt: 'Pisada', en: 'Stomp' }, desc: { pt: 'Mel. (apenas prono), +10, 4d10+7 contundente.', en: 'Melee (prone only), +10, 4d10+7 bludgeoning.' } },
+    ],
+  },
 ];
+
+const SUBCLASSES = {
+  druid: [
+    {
+      id: 'land',
+      name: { pt: 'Círculo da Terra', en: 'Circle of the Land' },
+      desc: { pt: 'Druidas ligados a um bioma. Recuperação Natural e magias bônus por terreno.', en: 'Druids bound to a biome. Natural Recovery and terrain bonus spells.' },
+      landTypes: [
+        { id: 'arctic',     name: { pt: 'Ártico',      en: 'Arctic'      } },
+        { id: 'coast',      name: { pt: 'Litoral',     en: 'Coast'       } },
+        { id: 'desert',     name: { pt: 'Deserto',     en: 'Desert'      } },
+        { id: 'forest',     name: { pt: 'Floresta',    en: 'Forest'      } },
+        { id: 'grassland',  name: { pt: 'Pastagem',    en: 'Grassland'   } },
+        { id: 'mountain',   name: { pt: 'Montanha',    en: 'Mountain'    } },
+        { id: 'swamp',      name: { pt: 'Pântano',     en: 'Swamp'       } },
+        { id: 'underdark',  name: { pt: 'Underdark',   en: 'Underdark'   } },
+      ],
+      features: [
+        { level: 2, name: { pt: 'Recuperação Natural', en: 'Natural Recovery' }, desc: { pt: '1×/descanso longo: recupere espaços de magia cujo nível total ≤ metade do nível de druida (arredondado acima).', en: '1/long rest: recover spell slots with total level ≤ half your druid level (round up).' } },
+        { level: 6, name: { pt: 'Passos da Terra', en: 'Land\'s Stride' }, desc: { pt: 'Movimento em terreno difícil não mágico não gasta movimento extra. Vantagem em SAL vs plantas mágicas.', en: 'Moving through nonmagical difficult terrain costs no extra movement. Advantage on saves vs magical plants.' } },
+        { level: 10, name: { pt: 'Mente da Natureza', en: 'Nature\'s Ward' }, desc: { pt: 'Imune a veneno, doença e encantamento/medo de elementais e fadas.', en: 'Immune to poison, disease, and charm/fright from elementals and fey.' } },
+        { level: 14, name: { pt: 'Santuário da Natureza', en: 'Nature\'s Sanctuary' }, desc: { pt: 'Bestas e plantas SAL SAB ou não podem atacar você.', en: 'Beasts and plants WIS save or can\'t attack you.' } },
+      ],
+    },
+    {
+      id: 'moon',
+      name: { pt: 'Círculo da Lua', en: 'Circle of the Moon' },
+      desc: { pt: 'Druidas focados em Forma Selvagem. CR expandido e formas de combate.', en: 'Druids focused on Wild Shape. Expanded CR and combat forms.' },
+      features: [
+        { level: 2, name: { pt: 'Forma Selvagem de Combate', en: 'Combat Wild Shape' }, desc: { pt: 'Use Forma Selvagem como ação bônus. CR máx = 1 no nível 2; aumenta para ⌊nível/3⌋ no nível 6+.', en: 'Use Wild Shape as a bonus action. Max CR = 1 at level 2; increases to ⌊level/3⌋ at level 6+.' } },
+        { level: 2, name: { pt: 'Forma Selvagem Aprimorada', en: 'Improved Wild Shape' }, desc: { pt: 'CR máx ao transformar: 1 (nível 2–5), ⌊nível/3⌋ (nível 6+). Sem restrição de voo.', en: 'Max CR: 1 (level 2–5), ⌊level/3⌋ (level 6+). No fly restriction.' } },
+        { level: 6, name: { pt: 'Transformação Elementar', en: 'Elemental Wild Shape' }, desc: { pt: 'Gaste 2 usos de Forma Selvagem para transformar-se em elemental (ar, terra, fogo ou água).', en: 'Expend 2 Wild Shape uses to transform into an air, earth, fire, or water elemental.' } },
+        { level: 10, name: { pt: 'Forma Selvagem Mística', en: 'Thousand Forms' }, desc: { pt: 'Você pode lançar Alterar-Aparência à vontade.', en: 'You can cast Alter Self at will.' } },
+      ],
+    },
+  ],
+};
 
 // Standard equipment packs
 const PACKS = {
@@ -990,7 +1379,7 @@ function getSpellSlots(charClass, level) {
   return table[level - 1] || [];
 }
 
-return { ABILITIES, SKILLS, RACES, CLASSES, BACKGROUNDS, ALIGNMENTS, WEAPONS, ARMOR, SPELLS, BEASTS, PACKS, profBonus, getSpellSlots };
+return { ABILITIES, SKILLS, RACES, CLASSES, BACKGROUNDS, ALIGNMENTS, WEAPONS, ARMOR, SPELLS, BEASTS, SUBCLASSES, PACKS, profBonus, getSpellSlots };
 })();
 
 export default SRD;
