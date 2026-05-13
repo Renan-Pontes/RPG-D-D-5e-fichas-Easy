@@ -30,6 +30,50 @@ const SKILLS = [
 
 const RACES = [
   {
+    id: 'aasimar', size: 'Medium', speed: 30,
+    asi: { cha: 2, wis: 1 },
+    traits: [
+      { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
+      { name: { pt: 'Resistência Celestial', en: 'Celestial Resistance' }, desc: { pt: 'Resistência a dano necrótico e radiante.', en: 'Resistance to necrotic and radiant damage.' } },
+      { name: { pt: 'Mãos Curandeiras', en: 'Healing Hands' }, desc: { pt: 'Ação: toque para curar 1d4 × seu nível de HP. 1×/descanso longo.', en: 'Action: touch to heal 1d4 × your level HP. 1/long rest.' } },
+      { name: { pt: 'Portador de Luz', en: 'Light Bearer' }, desc: { pt: 'Você conhece o truque Luz (CHA).', en: 'You know the Light cantrip (CHA).' } },
+    ],
+    languages: ['Common', 'Celestial'],
+  },
+  {
+    id: 'bugbear', size: 'Medium', speed: 30,
+    asi: { str: 2, dex: 1 },
+    traits: [
+      { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
+      { name: { pt: 'Membros Longos', en: 'Long-Limbed' }, desc: { pt: 'Em seu turno, alcance corpo a corpo +5 pés.', en: 'On your turn, melee reach increases by 5 ft.' } },
+      { name: { pt: 'Constituição Poderosa', en: 'Powerful Build' }, desc: { pt: 'Conta como uma categoria maior para carregar/empurrar/arrastar.', en: 'Counts as one size larger for carry/push/drag.' } },
+      { name: { pt: 'Furtivo', en: 'Sneaky' }, desc: { pt: 'Proficiência em Furtividade.', en: 'Proficiency in Stealth.' } },
+      { name: { pt: 'Ataque Surpresa', en: 'Surprise Attack' }, desc: { pt: 'No 1° turno, +2d6 de dano se atacar uma criatura surpresa.', en: 'On 1st turn, +2d6 damage to a surprised creature.' } },
+    ],
+    languages: ['Common', 'Goblin'],
+  },
+  {
+    id: 'centaur', size: 'Medium', speed: 40,
+    asi: { str: 2, wis: 1 },
+    traits: [
+      { name: { pt: 'Tipo Feérico', en: 'Fey' }, desc: { pt: 'Você é uma criatura feérica.', en: 'You are a fey creature.' } },
+      { name: { pt: 'Carga', en: 'Charge' }, desc: { pt: 'Mover 30+ pés em linha reta + ataque corpo a corpo: +1d6 dano ou alvo cai prono (CD 8+Str+prof).', en: 'Move 30+ ft straight + melee hit: +1d6 damage or knock prone (DC 8+Str+prof).' } },
+      { name: { pt: 'Constituição Equina', en: 'Equine Build' }, desc: { pt: 'Conta como uma categoria maior para carregar e empurrar/arrastar.', en: 'Counts as one size larger for carrying and push/drag.' } },
+      { name: { pt: 'Cascos', en: 'Hooves' }, desc: { pt: 'Ataque desarmado natural: 1d4 + Força de dano contundente.', en: 'Natural unarmed strike: 1d4 + Str bludgeoning damage.' } },
+      { name: { pt: 'Instinto de Sobrevivência', en: 'Survival Instinct' }, desc: { pt: 'Proficiência em Sobrevivência.', en: 'Proficiency in Survival.' } },
+    ],
+    languages: ['Common', 'Sylvan'],
+  },
+  {
+    id: 'changeling', size: 'Medium', speed: 30,
+    asi: { cha: 2, dex: 1 },
+    traits: [
+      { name: { pt: 'Metamorfo', en: 'Shapechanger' }, desc: { pt: 'Ação: assumir aparência de outra criatura humanoide Pequena/Média que você já viu (não copia equipamento ou habilidades).', en: 'Action: assume appearance of any Small/Medium humanoid you have seen (no gear or abilities copied).' } },
+      { name: { pt: 'Instintos do Metamorfo', en: 'Changeling Instincts' }, desc: { pt: 'Proficiência em duas perícias dentre Blefar, Intuição, Intimidação ou Persuasão.', en: 'Proficiency in 2 of: Deception, Insight, Intimidation, Persuasion.' } },
+    ],
+    languages: ['Common', '+2 of choice'],
+  },
+  {
     id: 'dragonborn', size: 'Medium', speed: 30,
     asi: { str: 2, cha: 1 },
     traits: [
@@ -38,6 +82,19 @@ const RACES = [
       { name: { pt: 'Resistência a Dano', en: 'Damage Resistance' }, desc: { pt: 'Você tem resistência ao tipo de dano associado à sua ancestralidade dracônica.', en: 'You have resistance to the damage type associated with your draconic ancestry.' } },
     ],
     languages: ['Common', 'Draconic'],
+  },
+  {
+    id: 'drow', size: 'Medium', speed: 30,
+    asi: { dex: 2, cha: 1 },
+    traits: [
+      { name: { pt: 'Visão no Escuro Superior', en: 'Superior Darkvision' }, desc: { pt: '120 pés.', en: '120 ft.' } },
+      { name: { pt: 'Sentidos Apurados', en: 'Keen Senses' }, desc: { pt: 'Proficiência em Percepção.', en: 'Proficiency in Perception.' } },
+      { name: { pt: 'Ancestral Feérico', en: 'Fey Ancestry' }, desc: { pt: 'Vantagem contra encantamentos; imune a sono mágico.', en: 'Advantage vs charm; immune to magical sleep.' } },
+      { name: { pt: 'Sensibilidade à Luz Solar', en: 'Sunlight Sensitivity' }, desc: { pt: 'Desvantagem em ataques e Percepção (visão) sob luz solar direta.', en: 'Disadvantage on attacks and Perception (sight) in direct sunlight.' } },
+      { name: { pt: 'Magia Drow', en: 'Drow Magic' }, desc: { pt: 'Truque Luzes Dançantes. No 3°, Fogo Feérico 1×/dia. No 5°, Escuridão 1×/dia. Conjuração: CHA.', en: 'Dancing Lights cantrip. At 3rd, Faerie Fire 1/day. At 5th, Darkness 1/day. CHA.' } },
+      { name: { pt: 'Treinamento de Armas Drow', en: 'Drow Weapon Training' }, desc: { pt: 'Proficiência com floretes, espadas curtas e bestas de mão.', en: 'Proficiency with rapiers, shortswords, hand crossbows.' } },
+    ],
+    languages: ['Common', 'Elvish'],
   },
   {
     id: 'dwarf-hill', size: 'Medium', speed: 25,
@@ -83,6 +140,77 @@ const RACES = [
     languages: ['Common', 'Elvish'],
   },
   {
+    id: 'fairy', size: 'Small', speed: 30,
+    asi: { dex: 2, cha: 1 },
+    traits: [
+      { name: { pt: 'Tipo Feérico', en: 'Fey' }, desc: { pt: 'Você é uma criatura feérica.', en: 'You are a fey creature.' } },
+      { name: { pt: 'Voo', en: 'Flight' }, desc: { pt: 'Velocidade de voo de 30 pés (não pode voar com armadura média/pesada).', en: 'Flying speed 30 ft (no flying in medium/heavy armor).' } },
+      { name: { pt: 'Magia Feérica', en: 'Fairy Magic' }, desc: { pt: 'Truque Druidcraft. No 3°, Fogo Feérico 1×/dia. No 5°, Aumentar/Reduzir 1×/dia. Use INT, SAB ou CHA.', en: 'Druidcraft cantrip. At 3rd, Faerie Fire 1/day. At 5th, Enlarge/Reduce 1/day.' } },
+    ],
+    languages: ['Common', 'Sylvan'],
+  },
+  {
+    id: 'firbolg', size: 'Medium', speed: 30,
+    asi: { wis: 2, str: 1 },
+    traits: [
+      { name: { pt: 'Magia Firbolg', en: 'Firbolg Magic' }, desc: { pt: 'Detectar Magia e Disfarçar-se 1×/descanso curto. Conjuração: SAB.', en: 'Detect Magic and Disguise Self 1/short rest. WIS.' } },
+      { name: { pt: 'Passo Furtivo', en: 'Hidden Step' }, desc: { pt: 'Ação bônus: invisível por 1 turno. 1×/descanso curto.', en: 'Bonus action: invisible for 1 turn. 1/short rest.' } },
+      { name: { pt: 'Constituição Poderosa', en: 'Powerful Build' }, desc: { pt: 'Conta como uma categoria maior para carregar/empurrar/arrastar.', en: 'Counts as one size larger for carry/push/drag.' } },
+      { name: { pt: 'Fala da Fauna e da Flora', en: 'Speech of Beast and Leaf' }, desc: { pt: 'Pode falar com animais e plantas; vantagem em CHA para influenciá-los.', en: 'Can speak to beasts and plants; advantage on CHA checks to influence them.' } },
+    ],
+    languages: ['Common', 'Elvish', 'Giant'],
+  },
+  {
+    id: 'genasi-air', size: 'Medium', speed: 30,
+    asi: { con: 2, dex: 1 },
+    traits: [
+      { name: { pt: 'Respiração Infinita', en: 'Unending Breath' }, desc: { pt: 'Pode segurar a respiração indefinidamente quando não incapacitado.', en: 'Hold your breath indefinitely while not incapacitated.' } },
+      { name: { pt: 'Misturar-se com o Vento', en: 'Mingle with the Wind' }, desc: { pt: 'Truque Toque Chocante. No 3°, Queda Suave 1×/descanso longo. Conjuração: CON.', en: 'Shocking Grasp cantrip. At 3rd, Feather Fall 1/long rest. CON.' } },
+    ],
+    languages: ['Common', 'Primordial'],
+  },
+  {
+    id: 'genasi-earth', size: 'Medium', speed: 30,
+    asi: { con: 2, str: 1 },
+    traits: [
+      { name: { pt: 'Caminhar Terreno', en: 'Earth Walk' }, desc: { pt: 'Pode mover-se em terreno difícil de pedra/terra sem custo extra.', en: 'Move across difficult terrain made of earth/stone without extra cost.' } },
+      { name: { pt: 'Fundir-se com a Pedra', en: 'Merge with Stone' }, desc: { pt: 'Truque Brisa Defensora. No 3°, Passar sem Deixar Rastros 1×/descanso longo. Conjuração: CON.', en: 'Blade Ward cantrip. At 3rd, Pass without Trace 1/long rest. CON.' } },
+    ],
+    languages: ['Common', 'Primordial'],
+  },
+  {
+    id: 'genasi-fire', size: 'Medium', speed: 30,
+    asi: { con: 2, int: 1 },
+    traits: [
+      { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
+      { name: { pt: 'Resistência ao Fogo', en: 'Fire Resistance' }, desc: { pt: 'Resistência a dano de fogo.', en: 'Resistance to fire damage.' } },
+      { name: { pt: 'Alcance das Chamas', en: 'Reach to the Blaze' }, desc: { pt: 'Truque Produzir Chama. No 3°, Mãos Flamejantes 1×/descanso longo. Conjuração: CON.', en: 'Produce Flame cantrip. At 3rd, Burning Hands 1/long rest. CON.' } },
+    ],
+    languages: ['Common', 'Primordial'],
+  },
+  {
+    id: 'genasi-water', size: 'Medium', speed: 30,
+    asi: { con: 2, wis: 1 },
+    traits: [
+      { name: { pt: 'Resistência ao Ácido', en: 'Acid Resistance' }, desc: { pt: 'Resistência a dano de ácido.', en: 'Resistance to acid damage.' } },
+      { name: { pt: 'Anfíbio', en: 'Amphibious' }, desc: { pt: 'Pode respirar ar e água.', en: 'Breathe both air and water.' } },
+      { name: { pt: 'Natação', en: 'Swim Speed' }, desc: { pt: 'Velocidade de natação 30 pés.', en: 'Swim speed 30 ft.' } },
+      { name: { pt: 'Chamado da Onda', en: 'Call to the Wave' }, desc: { pt: 'Truque Modelar Água. No 3°, Criar/Destruir Água 1×/descanso longo. Conjuração: CON.', en: 'Shape Water cantrip. At 3rd, Create or Destroy Water 1/long rest. CON.' } },
+    ],
+    languages: ['Common', 'Primordial'],
+  },
+  {
+    id: 'gnome-forest', size: 'Small', speed: 25,
+    asi: { int: 2, dex: 1 },
+    traits: [
+      { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
+      { name: { pt: 'Astúcia Gnômica', en: 'Gnome Cunning' }, desc: { pt: 'Vantagem em testes de INT/WIS/CHA contra magia.', en: 'Advantage on INT/WIS/CHA saves vs magic.' } },
+      { name: { pt: 'Ilusionista Natural', en: 'Natural Illusionist' }, desc: { pt: 'Você conhece o truque Ilusão Menor (INT).', en: 'You know the Minor Illusion cantrip (INT).' } },
+      { name: { pt: 'Falar com Pequenas Bestas', en: 'Speak with Small Beasts' }, desc: { pt: 'Pode comunicar ideias simples com bestas Pequenas ou menores.', en: 'Communicate simple ideas with Small or smaller beasts.' } },
+    ],
+    languages: ['Common', 'Gnomish'],
+  },
+  {
     id: 'gnome-rock', size: 'Small', speed: 25,
     asi: { int: 2, con: 1 },
     traits: [
@@ -91,6 +219,27 @@ const RACES = [
       { name: { pt: 'Conhecimento de Artífice', en: "Artificer's Lore" }, desc: { pt: 'Adiciona o dobro do bônus de prof. em testes de História sobre objetos mágicos, itens alquímicos e dispositivos tecnológicos.', en: 'Add double prof bonus to History checks about magic/alchemy/tech.' } },
     ],
     languages: ['Common', 'Gnomish'],
+  },
+  {
+    id: 'goblin', size: 'Small', speed: 30,
+    asi: { dex: 2, con: 1 },
+    traits: [
+      { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
+      { name: { pt: 'Fúria do Pequeno', en: 'Fury of the Small' }, desc: { pt: 'Ao causar dano numa criatura maior que você, +1 dado de dano. 1×/descanso curto.', en: 'When you damage a larger creature, +prof damage. 1/short rest.' } },
+      { name: { pt: 'Fuga Ágil', en: 'Nimble Escape' }, desc: { pt: 'Pode usar Disengage ou Hide como ação bônus em todos os turnos.', en: 'Can take Disengage or Hide as a bonus action each turn.' } },
+    ],
+    languages: ['Common', 'Goblin'],
+  },
+  {
+    id: 'goliath', size: 'Medium', speed: 30,
+    asi: { str: 2, con: 1 },
+    traits: [
+      { name: { pt: 'Atletismo das Montanhas', en: 'Mountain Born' }, desc: { pt: 'Resistência a frio; aclimatado a grandes altitudes.', en: 'Cold resistance; acclimated to high altitudes.' } },
+      { name: { pt: 'Resistência da Pedra', en: "Stone's Endurance" }, desc: { pt: 'Reação ao receber dano: reduza-o em 1d12 + Con. 1×/descanso curto.', en: 'Reaction when damaged: reduce by 1d12 + Con. 1/short rest.' } },
+      { name: { pt: 'Constituição Poderosa', en: 'Powerful Build' }, desc: { pt: 'Conta como uma categoria maior para carregar/empurrar/arrastar.', en: 'Counts as one size larger for carry/push/drag.' } },
+      { name: { pt: 'Atletismo Natural', en: 'Natural Athlete' }, desc: { pt: 'Proficiência em Atletismo.', en: 'Proficiency in Athletics.' } },
+    ],
+    languages: ['Common', 'Giant'],
   },
   {
     id: 'half-elf', size: 'Medium', speed: 30,
@@ -135,10 +284,121 @@ const RACES = [
     languages: ['Common', 'Halfling'],
   },
   {
+    id: 'harengon', size: 'Medium', speed: 30,
+    asi: { dex: 2, wis: 1 },
+    traits: [
+      { name: { pt: 'Tipo Feérico', en: 'Fey' }, desc: { pt: 'Você é uma criatura feérica.', en: 'You are a fey creature.' } },
+      { name: { pt: 'Gatilho Lebrino', en: 'Hare-Trigger' }, desc: { pt: 'Adiciona o bônus de proficiência em testes de iniciativa.', en: 'Add proficiency bonus to initiative.' } },
+      { name: { pt: 'Sentidos de Lebre', en: 'Leporine Senses' }, desc: { pt: 'Proficiência em Percepção.', en: 'Proficiency in Perception.' } },
+      { name: { pt: 'Pés de Sorte', en: 'Lucky Footwork' }, desc: { pt: 'Reação ao falhar salvamento de Destreza: role 1d4 e some.', en: 'Reaction on failed DEX save: roll 1d4 and add.' } },
+      { name: { pt: 'Salto de Coelho', en: 'Rabbit Hop' }, desc: { pt: 'Salto vertical/horizontal extra (5 × bônus de prof) sem corrida. Usos = bônus de prof / descanso longo.', en: 'Bonus action hop without running start (5 × prof). Prof bonus uses/long rest.' } },
+    ],
+    languages: ['Common', 'Sylvan'],
+  },
+  {
+    id: 'hobgoblin', size: 'Medium', speed: 30,
+    asi: { con: 2, int: 1 },
+    traits: [
+      { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
+      { name: { pt: 'Treinamento Marcial', en: 'Martial Training' }, desc: { pt: 'Proficiência com armadura leve e duas armas marciais à sua escolha.', en: 'Proficiency in light armor and 2 martial weapons of your choice.' } },
+      { name: { pt: 'Salvar as Aparências', en: 'Saving Face' }, desc: { pt: 'Reação ao falhar 1d20: +1 por aliado a até 30 pés (máx +5). 1×/descanso curto.', en: 'Reaction on a missed d20: +1 per ally within 30 ft (max +5). 1/short rest.' } },
+    ],
+    languages: ['Common', 'Goblin'],
+  },
+  {
     id: 'human', size: 'Medium', speed: 30,
     asi: { all: 1 },
     traits: [
       { name: { pt: 'Versatilidade Humana', en: 'Human Versatility' }, desc: { pt: '+1 em todos os atributos.', en: '+1 to every ability score.' } },
+    ],
+    languages: ['Common', '+1 of choice'],
+  },
+  {
+    id: 'kenku', size: 'Medium', speed: 30,
+    asi: { dex: 2, wis: 1 },
+    traits: [
+      { name: { pt: 'Falsificação Especialista', en: 'Expert Forgery' }, desc: { pt: 'Vantagem em testes para reproduzir escrita ou objetos.', en: 'Advantage on checks to duplicate writing or objects.' } },
+      { name: { pt: 'Treinamento Kenku', en: 'Kenku Training' }, desc: { pt: 'Proficiência em duas: Acrobacia, Blefar, Furtividade ou Prestidigitação.', en: 'Proficiency in 2 of: Acrobatics, Deception, Stealth, Sleight of Hand.' } },
+      { name: { pt: 'Mimetismo', en: 'Mimicry' }, desc: { pt: 'Pode imitar sons que já ouviu (CD = 8 + bônus de prof + CHA).', en: 'Mimic sounds you have heard (DC 8 + prof + CHA).' } },
+    ],
+    languages: ['Common', 'Auran'],
+  },
+  {
+    id: 'kobold', size: 'Small', speed: 30,
+    asi: { dex: 2, int: 1 },
+    traits: [
+      { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
+      { name: { pt: 'Grito Dracônico', en: 'Draconic Cry' }, desc: { pt: 'Ação bônus: aliados ganham vantagem em ataques contra inimigos a até 10 pés. Bônus de prof / descanso longo.', en: 'Bonus action: allies gain advantage on attacks vs enemies within 10 ft. Prof bonus uses/long rest.' } },
+      { name: { pt: 'Legado Kobold', en: 'Kobold Legacy' }, desc: { pt: 'Escolha um: Manhoso (1 perícia), Feitiçaria (1 truque INT/WIS/CHA) ou Resistente (vantagem contra amedrontado).', en: 'Choose one: Craftiness (1 skill prof), Draconic Sorcery (1 cantrip), or Defiance (advantage vs frightened).' } },
+    ],
+    languages: ['Common', 'Draconic'],
+  },
+  {
+    id: 'leonin', size: 'Medium', speed: 35,
+    asi: { con: 2, str: 1 },
+    traits: [
+      { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
+      { name: { pt: 'Garras', en: 'Claws' }, desc: { pt: 'Ataque desarmado natural: 1d4 + Força de dano cortante.', en: 'Natural unarmed strike: 1d4 + Str slashing damage.' } },
+      { name: { pt: 'Rugido Aterrador', en: 'Daunting Roar' }, desc: { pt: 'Ação bônus: criaturas a até 10 pés salvam (CD 8+prof+CON) ou ficam amedrontadas até o fim do seu próximo turno. 1×/descanso curto.', en: 'Bonus action: creatures within 10 ft save (DC 8+prof+CON) or become frightened until end of your next turn. 1/short rest.' } },
+      { name: { pt: 'Arrojo do Caçador', en: "Hunter's Instincts" }, desc: { pt: 'Proficiência em uma perícia: Atletismo, Intimidação, Percepção ou Sobrevivência.', en: 'Proficiency in 1 of: Athletics, Intimidation, Perception, Survival.' } },
+    ],
+    languages: ['Common', 'Leonin'],
+  },
+  {
+    id: 'lizardfolk', size: 'Medium', speed: 30,
+    asi: { con: 2, wis: 1 },
+    traits: [
+      { name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Ataque desarmado natural: 1d6 + Força de dano perfurante.', en: 'Natural unarmed strike: 1d6 + Str piercing damage.' } },
+      { name: { pt: 'Artesão Astuto', en: 'Cunning Artisan' }, desc: { pt: 'Em descanso curto, fabrica escudo, arma simples ou kit de munição com restos de criatura.', en: 'During a short rest, craft a shield, simple weapon, or pack of ammo from creature remains.' } },
+      { name: { pt: 'Prender o Fôlego', en: 'Hold Breath' }, desc: { pt: 'Pode prender a respiração até 15 minutos.', en: 'Hold your breath for up to 15 minutes.' } },
+      { name: { pt: 'Saber do Caçador', en: "Hunter's Lore" }, desc: { pt: 'Proficiência em duas perícias: Lidar com Animais, Natureza, Percepção, Sobrevivência ou Furtividade.', en: 'Proficiency in 2 of: Animal Handling, Nature, Perception, Survival, Stealth.' } },
+      { name: { pt: 'Armadura Natural', en: 'Natural Armor' }, desc: { pt: 'Sem armadura, CA = 13 + Des.', en: 'Without armor, AC = 13 + Dex.' } },
+      { name: { pt: 'Mandíbulas Famintas', en: 'Hungry Jaws' }, desc: { pt: 'Em ataque corpo a corpo bônus: morde e ganha THP iguais ao Con (mín 1). 1×/descanso curto.', en: 'Bonus melee bite: gain temp HP equal to Con (min 1). 1/short rest.' } },
+    ],
+    languages: ['Common', 'Draconic'],
+  },
+  {
+    id: 'minotaur', size: 'Medium', speed: 30,
+    asi: { str: 2, con: 1 },
+    traits: [
+      { name: { pt: 'Chifres', en: 'Horns' }, desc: { pt: 'Ataque desarmado natural: 1d6 + Força de dano perfurante.', en: 'Natural unarmed strike: 1d6 + Str piercing damage.' } },
+      { name: { pt: 'Investida com Chifres', en: 'Goring Rush' }, desc: { pt: 'Após Disparada, ataque bônus de chifres.', en: 'After Dash, bonus action gore attack.' } },
+      { name: { pt: 'Marteladas com Chifres', en: 'Hammering Horns' }, desc: { pt: 'Após acerto corpo a corpo, ação bônus para empurrar 10 pés (CD 8+prof+STR).', en: 'After melee hit, bonus action to push 10 ft (DC 8+prof+STR).' } },
+      { name: { pt: 'Memória Labiríntica', en: 'Labyrinthine Recall' }, desc: { pt: 'Lembra perfeitamente de qualquer caminho que você tenha percorrido.', en: 'Perfectly recall any path you have traveled.' } },
+    ],
+    languages: ['Common', 'Minotaur'],
+  },
+  {
+    id: 'orc', size: 'Medium', speed: 30,
+    asi: { str: 2, con: 1 },
+    traits: [
+      { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
+      { name: { pt: 'Agressivo', en: 'Aggressive' }, desc: { pt: 'Ação bônus: mover-se até seu deslocamento em direção a um inimigo visível.', en: 'Bonus action: move up to your speed toward a visible hostile.' } },
+      { name: { pt: 'Constituição Poderosa', en: 'Powerful Build' }, desc: { pt: 'Conta como uma categoria maior para carregar/empurrar/arrastar.', en: 'Counts as one size larger for carry/push/drag.' } },
+      { name: { pt: 'Intuição Primitiva', en: 'Primal Intuition' }, desc: { pt: 'Proficiência em Intimidação e Sobrevivência.', en: 'Proficiency in Intimidation and Survival.' } },
+    ],
+    languages: ['Common', 'Orc'],
+  },
+  {
+    id: 'satyr', size: 'Medium', speed: 35,
+    asi: { cha: 2, dex: 1 },
+    traits: [
+      { name: { pt: 'Tipo Feérico', en: 'Fey' }, desc: { pt: 'Você é uma criatura feérica.', en: 'You are a fey creature.' } },
+      { name: { pt: 'Investida com Chifres', en: 'Ram' }, desc: { pt: 'Ataque desarmado natural: 1d4 + Força de dano contundente.', en: 'Natural unarmed strike: 1d4 + Str bludgeoning damage.' } },
+      { name: { pt: 'Resistência Mágica', en: 'Magic Resistance' }, desc: { pt: 'Vantagem em salvamentos contra magias.', en: 'Advantage on saves vs spells.' } },
+      { name: { pt: 'Saltos Joviais', en: 'Mirthful Leaps' }, desc: { pt: 'Adiciona seu mod de Des (mín 1) à distância de qualquer salto.', en: 'Add Dex mod (min 1) to jump distance.' } },
+      { name: { pt: 'Folião', en: 'Reveler' }, desc: { pt: 'Proficiência em Atuação e Persuasão.', en: 'Proficiency in Performance and Persuasion.' } },
+    ],
+    languages: ['Common', 'Sylvan'],
+  },
+  {
+    id: 'tabaxi', size: 'Medium', speed: 30,
+    asi: { dex: 2, cha: 1 },
+    traits: [
+      { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
+      { name: { pt: 'Agilidade Felina', en: 'Feline Agility' }, desc: { pt: 'Em seu turno, dobre seu deslocamento. Recarrega ao ficar parado por 1 turno.', en: 'On your turn, double your speed. Recharges after a stationary turn.' } },
+      { name: { pt: 'Garras de Gato', en: "Cat's Claws" }, desc: { pt: 'Ataque natural: 1d4 + Força. Velocidade de escalada 20 pés.', en: 'Natural strike: 1d4 + Str. Climb speed 20 ft.' } },
+      { name: { pt: 'Talento Felino', en: "Cat's Talent" }, desc: { pt: 'Proficiência em Percepção e Furtividade.', en: 'Proficiency in Perception and Stealth.' } },
     ],
     languages: ['Common', '+1 of choice'],
   },
@@ -151,6 +411,53 @@ const RACES = [
       { name: { pt: 'Legado Infernal', en: 'Infernal Legacy' }, desc: { pt: 'Você conhece Taumaturgia. Em nível 3, Repreensão Infernal 1×/dia. Nível 5, Escuridão 1×/dia.', en: 'You know Thaumaturgy. At lvl 3, Hellish Rebuke 1/day. Lvl 5, Darkness 1/day.' } },
     ],
     languages: ['Common', 'Infernal'],
+  },
+  {
+    id: 'tortle', size: 'Medium', speed: 30,
+    asi: { str: 2, wis: 1 },
+    traits: [
+      { name: { pt: 'Garras', en: 'Claws' }, desc: { pt: 'Ataque desarmado natural: 1d4 + Força de dano cortante.', en: 'Natural unarmed strike: 1d4 + Str slashing damage.' } },
+      { name: { pt: 'Prender o Fôlego', en: 'Hold Breath' }, desc: { pt: 'Pode segurar a respiração por até 1 hora.', en: 'Hold breath for up to 1 hour.' } },
+      { name: { pt: 'Armadura Natural', en: 'Natural Armor' }, desc: { pt: 'CA base 17 (não usa Des, não usa armadura).', en: 'Base AC 17 (no Dex, no armor).' } },
+      { name: { pt: 'Defesa do Casco', en: 'Shell Defense' }, desc: { pt: 'Ação: recolher-se no casco, CA 20, vantagem em salvamentos de CON/STR, mas inca­pacitado e veloc 0.', en: 'Action: retreat into shell, AC 20, advantage on Con/Str saves, but incapacitated and 0 speed.' } },
+      { name: { pt: 'Instinto de Sobrevivência', en: 'Survival Instinct' }, desc: { pt: 'Proficiência em Sobrevivência.', en: 'Proficiency in Survival.' } },
+    ],
+    languages: ['Common', 'Aquan'],
+  },
+  {
+    id: 'triton', size: 'Medium', speed: 30,
+    asi: { str: 1, con: 1, cha: 1 },
+    traits: [
+      { name: { pt: 'Anfíbio', en: 'Amphibious' }, desc: { pt: 'Pode respirar ar e água.', en: 'Breathe both air and water.' } },
+      { name: { pt: 'Controle do Ar e da Água', en: 'Control Air and Water' }, desc: { pt: 'Névoa 1×/longo (1°). No 3°, Lufada de Vento. No 5°, Muralha de Água. Conjuração: CHA.', en: 'Fog Cloud 1/long (lvl 1). At 3rd, Gust of Wind. At 5th, Wall of Water. CHA.' } },
+      { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
+      { name: { pt: 'Emissário do Mar', en: 'Emissary of the Sea' }, desc: { pt: 'Pode comunicar ideias simples com bestas aquáticas.', en: 'Communicate simple ideas with water-breathing beasts.' } },
+      { name: { pt: 'Guardião das Profundezas', en: 'Guardians of the Depths' }, desc: { pt: 'Resistência a dano de frio.', en: 'Resistance to cold damage.' } },
+      { name: { pt: 'Natação', en: 'Swim Speed' }, desc: { pt: 'Velocidade de natação 30 pés.', en: 'Swim speed 30 ft.' } },
+    ],
+    languages: ['Common', 'Primordial'],
+  },
+  {
+    id: 'warforged', size: 'Medium', speed: 30,
+    asi: { con: 2, str: 1 },
+    traits: [
+      { name: { pt: 'Resiliência Construída', en: 'Constructed Resilience' }, desc: { pt: 'Vantagem em salvamentos contra veneno e resistência a dano de veneno; imune a doenças; não precisa comer/beber/respirar/dormir.', en: 'Advantage on saves vs poison; resistance to poison; immune to disease; no need to eat/drink/breathe/sleep.' } },
+      { name: { pt: 'Descanso Sentinela', en: "Sentry's Rest" }, desc: { pt: 'Em descanso longo, fica consciente e ativo (sem dormir).', en: 'During a long rest, remain conscious and aware.' } },
+      { name: { pt: 'Proteção Integrada', en: 'Integrated Protection' }, desc: { pt: '+1 CA. Você pode incorporar armadura ao seu corpo.', en: '+1 AC. Armor can be integrated into your body.' } },
+      { name: { pt: 'Design Especializado', en: 'Specialized Design' }, desc: { pt: 'Proficiência em uma perícia e uma ferramenta à sua escolha.', en: 'Proficiency in 1 skill and 1 tool of your choice.' } },
+    ],
+    languages: ['Common', '+1 of choice'],
+  },
+  {
+    id: 'yuan-ti', size: 'Medium', speed: 30,
+    asi: { cha: 2, int: 1 },
+    traits: [
+      { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
+      { name: { pt: 'Conjuração Inata', en: 'Innate Spellcasting' }, desc: { pt: 'Truque Spray Venenoso. Amizade Animal (apenas serpentes) à vontade. No 3°, Sugestão 1×/longo. Conjuração: CHA.', en: 'Poison Spray cantrip. Animal Friendship (snakes only) at will. At 3rd, Suggestion 1/long. CHA.' } },
+      { name: { pt: 'Resistência Mágica', en: 'Magic Resistance' }, desc: { pt: 'Vantagem em salvamentos contra magias.', en: 'Advantage on saves vs spells.' } },
+      { name: { pt: 'Imunidade a Veneno', en: 'Poison Immunity' }, desc: { pt: 'Imune a dano de veneno e à condição envenenado.', en: 'Immune to poison damage and the poisoned condition.' } },
+    ],
+    languages: ['Common', 'Abyssal', 'Draconic'],
   },
 ];
 
@@ -327,6 +634,14 @@ const BACKGROUNDS = [
   { id: 'outlander',   skills: ['athletics', 'survival'],   languages: 1, equipment: { pt: 'Bastão, armadilha, troféu de caça, roupas de viagem, 10 po', en: 'Staff, hunting trap, animal trophy, traveler\'s clothes, 10gp' } },
   { id: 'sailor',      skills: ['athletics', 'perception'], languages: 0, equipment: { pt: 'Pino de manilha, corda de seda 50pés, talismã, roupas comuns, 10 po', en: 'Belaying pin, 50ft silk rope, lucky charm, common clothes, 10gp' } },
   { id: 'urchin',      skills: ['sleightOfHand', 'stealth'], languages: 0, equipment: { pt: 'Faca, mapa cidade-natal, rato, bilhete dos pais, copo, 10 po', en: 'Small knife, map of home city, pet mouse, parent token, cup, 10gp' } },
+  { id: 'charlatan',   skills: ['deception', 'sleightOfHand'], languages: 0, equipment: { pt: 'Roupas finas, kit de disfarce, ferramentas de fraude (cartas marcadas/dados viciados), 15 po', en: 'Fine clothes, disguise kit, con tools (loaded dice/marked cards), 15gp' } },
+  { id: 'gladiator',   skills: ['acrobatics', 'performance'], languages: 0, equipment: { pt: 'Arma incomum (lembrança), traje de admirador, fantasia, 15 po', en: 'Unusual weapon (memento), admirer favor, costume, 15gp' } },
+  { id: 'knight',      skills: ['history', 'persuasion'],   languages: 1, equipment: { pt: 'Roupas finas, anel de sinete, brasão, 25 po, atendente leal', en: 'Fine clothes, signet ring, scroll w/ titles, 25gp, loyal retainer' } },
+  { id: 'pirate',      skills: ['athletics', 'perception'], languages: 0, equipment: { pt: 'Pino de manilha, corda 50 pés, fantasia/vestes, 10 po', en: 'Belaying pin, 50ft rope, costume, 10gp' } },
+  { id: 'spy',         skills: ['deception', 'stealth'],    languages: 0, equipment: { pt: 'Insígnia de espião, roupas comuns, lembrança da missão anterior, 10 po', en: 'Spy insignia, common clothes, memento of last mission, 10gp' } },
+  { id: 'cityWatch',   skills: ['athletics', 'insight'],    languages: 2, equipment: { pt: 'Insígnia da guarda, manopla, vestes de cidade, 10 po, lanterna', en: 'Watch insignia, manacles, city clothes, 10gp, lantern' } },
+  { id: 'farTraveler', skills: ['insight', 'perception'],   languages: 1, equipment: { pt: 'Roupas exóticas, instrumento musical/jogo, peças de origem, 5 po em moedas estrangeiras', en: 'Exotic clothes, instrument/game, origin trinkets, 5gp foreign coin' } },
+  { id: 'inheritor',   skills: ['survival', 'arcana'],      languages: 1, equipment: { pt: 'Herança (carta, mapa, item mágico menor), roupas comuns, 15 po', en: 'Inheritance (letter, map, minor magic item), common clothes, 15gp' } },
 ];
 
 const ALIGNMENTS = ['LG','NG','CG','LN','N','CN','LE','NE','CE'];
@@ -460,6 +775,172 @@ const SPELLS = [
   { id: 'massHealingWord',level: 3, school: 'evocation', classes: ['cleric'], castingTime: '1 bonus action', range: '60 ft', components: 'V', duration: 'Instant', desc: { pt: 'Até 6 criaturas: cure 1d4 + mod cada.', en: 'Up to 6 creatures: heal 1d4 + mod each.' } },
   { id: 'revivify',       level: 3, school: 'necromancy', classes: ['cleric','paladin'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Reviva criatura morta há até 1 min, com 1 HP.', en: 'Revive creature dead up to 1 min, with 1 HP.' } },
   { id: 'spiritGuardians',level: 3, school: 'conjuration', classes: ['cleric'], castingTime: '1 action', range: 'Self (15-ft radius)', components: 'V, S, M', duration: '10 min, conc', concentration: true, desc: { pt: 'Espíritos: 15 pés. Desloc. metade. SAL SAB ou 3d8 radiante/necrótico.', en: 'Spirits in 15-ft radius. Half speed. WIS save or 3d8 radiant/necrotic.' } },
+  { id: 'callLightning', level: 3, school: 'conjuration', classes: ['druid'], castingTime: '1 action', range: '120 ft', components: 'V, S', duration: '10 min, conc', concentration: true, desc: { pt: 'Nuvem de tempestade. Cilindro 5 pés/60 pés alt. SAL DEST 3d10 raio. Ação seguinte conjura raio novamente.', en: 'Storm cloud cylinder 5/60 ft. DEX save 3d10 lightning. Re-cast each turn as action.' } },
+  { id: 'sleetStorm',    level: 3, school: 'conjuration', classes: ['druid','sorcerer','wizard'], castingTime: '1 action', range: '150 ft', components: 'V, S, M', duration: '1 min, conc', concentration: true, desc: { pt: 'Cilindro 20 pés gelo: terreno difícil; queda em prono (SAL DEST).', en: '20-ft cylinder of sleet: difficult terrain; fall prone (DEX save).' } },
+  { id: 'dispelMagic',   level: 3, school: 'abjuration', classes: ['bard','cleric','druid','paladin','sorcerer','warlock','wizard'], castingTime: '1 action', range: '120 ft', components: 'V, S', duration: 'Instant', desc: { pt: 'Cancela magias até 3° nível em alvo. Maior nível requer teste de habilidade conjuração CD 10+nível.', en: 'Ends spells up to 3rd level on target. Higher needs ability check DC 10+lvl.' } },
+  { id: 'animateDead',   level: 3, school: 'necromancy', classes: ['cleric','wizard'], castingTime: '1 minute', range: '10 ft', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Anima cadáver/ossos como esqueleto ou zumbi sob seu controle por 24h.', en: 'Animate skeleton or zombie under your control for 24 hours.' } },
+
+  // 4th Level
+  { id: 'banishment',    level: 4, school: 'abjuration', classes: ['cleric','paladin','sorcerer','warlock','wizard'], castingTime: '1 action', range: '60 ft', components: 'V, S, M', duration: '1 min, conc', concentration: true, desc: { pt: 'SAL CHA ou alvo é banido para plano demipoderoso por 1 min.', en: 'CHA save or banish target to demiplane for 1 min.' } },
+  { id: 'dimensionDoor', level: 4, school: 'conjuration', classes: ['bard','sorcerer','warlock','wizard'], castingTime: '1 action', range: '500 ft', components: 'V', duration: 'Instant', desc: { pt: 'Teleporte até 500 pés (você + 1 criatura voluntária pequena/média).', en: 'Teleport up to 500 ft (you + 1 willing Small/Medium ally).' } },
+  { id: 'fireShield',    level: 4, school: 'evocation', classes: ['wizard'], castingTime: '1 action', range: 'Self', components: 'V, S, M', duration: '10 min', desc: { pt: 'Resistência a fogo OU frio; atacante melee leva 2d8 desse tipo.', en: 'Resistance to fire OR cold; melee attacker takes 2d8 of that type.' } },
+  { id: 'greaterInvisibility', level: 4, school: 'illusion', classes: ['bard','sorcerer','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S', duration: '1 min, conc', concentration: true, desc: { pt: 'Alvo invisível por 1 min, mesmo atacando/conjurando.', en: 'Target invisible for 1 min, even when attacking/casting.' } },
+  { id: 'iceStorm',      level: 4, school: 'evocation', classes: ['druid','sorcerer','wizard'], castingTime: '1 action', range: '300 ft', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Cilindro 20 pés: SAL DEST 2d8 contundente + 4d6 frio (metade se passar). Terreno difícil.', en: '20-ft cylinder: DEX save 2d8 bludg + 4d6 cold (half on success). Difficult terrain.' } },
+  { id: 'polymorph',     level: 4, school: 'transmutation', classes: ['bard','druid','sorcerer','wizard'], castingTime: '1 action', range: '60 ft', components: 'V, S, M', duration: '1 hour, conc', concentration: true, desc: { pt: 'SAL SAB ou alvo vira besta com CR ≤ nível do alvo. HP novos; reverte ao zerar.', en: 'WIS save or target becomes a beast (CR ≤ target level). New HP; reverts at 0.' } },
+  { id: 'wallOfFire',    level: 4, school: 'evocation', classes: ['druid','sorcerer','wizard'], castingTime: '1 action', range: '120 ft', components: 'V, S, M', duration: '1 min, conc', concentration: true, desc: { pt: 'Muralha 60 pés: SAL DEST 5d8 fogo ao atravessar/criação.', en: '60-ft wall: DEX save 5d8 fire on entry/creation.' } },
+  { id: 'guardianOfFaith', level: 4, school: 'conjuration', classes: ['cleric'], castingTime: '1 action', range: '30 ft', components: 'V', duration: '8 hours', desc: { pt: 'Guardião 4 pés: criaturas hostis a 10 pés sofrem 20 radiante/necrótico (SAL DEST metade). Some após 60 dano.', en: 'Guardian: hostile within 10 ft take 20 radiant/necrotic (DEX save half). Vanishes after 60 dmg.' } },
+
+  // 5th Level
+  { id: 'cloudkill',     level: 5, school: 'conjuration', classes: ['sorcerer','wizard'], castingTime: '1 action', range: '120 ft', components: 'V, S', duration: '10 min, conc', concentration: true, desc: { pt: 'Esfera 20 pés gás venenoso: SAL CON 5d8 veneno; obscurece visão.', en: '20-ft sphere of poison gas: CON save 5d8 poison; obscures sight.' } },
+  { id: 'coneOfCold',    level: 5, school: 'evocation', classes: ['sorcerer','wizard'], castingTime: '1 action', range: 'Self (60-ft cone)', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Cone 60 pés: SAL CON 8d8 frio (metade se passar).', en: '60-ft cone: CON save 8d8 cold (half on success).' } },
+  { id: 'flameStrike',   level: 5, school: 'evocation', classes: ['cleric'], castingTime: '1 action', range: '60 ft', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Cilindro 10 pés: SAL DEST 4d6 fogo + 4d6 radiante.', en: '10-ft cylinder: DEX save 4d6 fire + 4d6 radiant.' } },
+  { id: 'holdMonster',   level: 5, school: 'enchantment', classes: ['bard','sorcerer','warlock','wizard'], castingTime: '1 action', range: '90 ft', components: 'V, S, M', duration: '1 min, conc', concentration: true, desc: { pt: 'SAL SAB ou paralisado. Repete cada turno.', en: 'WIS save or paralyzed. Repeats each turn.' } },
+  { id: 'massCureWounds',level: 5, school: 'evocation', classes: ['bard','cleric','druid'], castingTime: '1 action', range: '60 ft', components: 'V, S', duration: 'Instant', desc: { pt: 'Até 6 criaturas em cubo 30 pés: cure 3d8 + mod cada.', en: 'Up to 6 creatures in 30-ft cube: heal 3d8 + mod each.' } },
+  { id: 'raiseDead',     level: 5, school: 'necromancy', classes: ['bard','cleric','paladin'], castingTime: '1 hour', range: 'Touch', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Reviva criatura morta há até 10 dias. -4 em testes/ataques/SAL por 4 descansos longos.', en: 'Revive creature dead up to 10 days. -4 to checks/attacks/saves for 4 long rests.' } },
+  { id: 'wallOfStone',   level: 5, school: 'evocation', classes: ['druid','sorcerer','wizard'], castingTime: '1 action', range: '120 ft', components: 'V, S, M', duration: '10 min, conc', concentration: true, desc: { pt: 'Cria muralha de pedra de 10 painéis 6×6×0,5 pés. Permanente se concentrar a magia inteira.', en: 'Creates 10 stone panels 6x6x0.5 ft. Permanent if you concentrate full duration.' } },
+  { id: 'greaterRestoration', level: 5, school: 'abjuration', classes: ['bard','cleric','druid'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Remove encanto, paralisação, petrificação, maldição, exaustão; ou restaura 1 atributo/HP máx.', en: 'Removes charm, paralysis, petrification, curse, exhaustion; or restores 1 ability/max HP.' } },
+
+  // 6th-9th Level (selection)
+  { id: 'chainLightning',level: 6, school: 'evocation', classes: ['sorcerer','wizard'], castingTime: '1 action', range: '150 ft', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Raio + 3 saltos: SAL DEST 10d8 raio em cada alvo.', en: 'Bolt + 3 jumps: DEX save 10d8 lightning each.' } },
+  { id: 'healSpell',     level: 6, school: 'evocation', classes: ['cleric','druid'], castingTime: '1 action', range: '60 ft', components: 'V, S', duration: 'Instant', desc: { pt: 'Cure 70 HP. Remove cego, surdo, doença.', en: 'Heal 70 HP. Removes blinded, deafened, disease.' } },
+  { id: 'fingerOfDeath', level: 7, school: 'necromancy', classes: ['sorcerer','warlock','wizard'], castingTime: '1 action', range: '60 ft', components: 'V, S', duration: 'Instant', desc: { pt: 'SAL CON 7d8+30 necrótico (metade se passar). Humanoide morto vira zumbi sob seu controle.', en: 'CON save 7d8+30 necrotic (half on success). Slain humanoid becomes a zombie under your control.' } },
+  { id: 'fireStorm',     level: 7, school: 'evocation', classes: ['cleric','druid','sorcerer'], castingTime: '1 action', range: '150 ft', components: 'V, S', duration: 'Instant', desc: { pt: '10 cubos de 10 pés: SAL DEST 7d10 fogo (metade se passar).', en: 'Ten 10-ft cubes: DEX save 7d10 fire (half on success).' } },
+  { id: 'sunburst',      level: 8, school: 'evocation', classes: ['druid','sorcerer','wizard'], castingTime: '1 action', range: '150 ft', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Esfera 60 pés: SAL CON 12d6 radiante + cego 1 min (metade dano se passar).', en: '60-ft sphere: CON save 12d6 radiant + blind 1 min (half damage on success).' } },
+  { id: 'meteorSwarm',   level: 9, school: 'evocation', classes: ['sorcerer','wizard'], castingTime: '1 action', range: '1 mile', components: 'V, S', duration: 'Instant', desc: { pt: '4 esferas 40 pés: SAL DEST 20d6 fogo + 20d6 contundente em cada (metade se passar).', en: 'Four 40-ft spheres: DEX save 20d6 fire + 20d6 bludgeoning each (half on success).' } },
+  { id: 'wishSpell',     level: 9, school: 'conjuration', classes: ['sorcerer','wizard'], castingTime: '1 action', range: 'Self', components: 'V', duration: 'Instant', desc: { pt: 'Duplica magia até 8° nível (sem componentes) ou efeitos personalizados (a critério do mestre). Risco severo se "wish" for além disso.', en: 'Duplicate any spell up to 8th level (no components) or custom effects (DM discretion). Severe risk if used beyond.' } },
+];
+
+// === WILD SHAPE BEASTS ===
+// Druid Wild Shape forms. Level 2: CR 1/4 (no fly/swim).
+// Level 4: CR 1/2 (no fly). Level 8: CR 1 (any).
+const BEASTS = [
+  // CR 0
+  { id: 'cat', cr: '0', crNum: 0, size: 'Tiny', speed: 40, climb: 30, ac: 12, hp: 2, str: 3, dex: 15, con: 10, int: 3, wis: 12, cha: 7,
+    traits: [{ name: { pt: 'Olfato Apurado', en: 'Keen Smell' }, desc: { pt: 'Vantagem em Percepção (olfato).', en: 'Advantage on Perception checks using smell.' } }],
+    actions: [{ name: { pt: 'Garras', en: 'Claws' }, desc: { pt: 'Mel., +0, 1 pé, 1 cortante.', en: 'Melee +0, 1 ft, 1 slashing.' } }],
+  },
+  { id: 'owl', cr: '0', crNum: 0, size: 'Tiny', speed: 5, fly: 60, ac: 11, hp: 1, str: 3, dex: 13, con: 8, int: 2, wis: 12, cha: 7,
+    traits: [
+      { name: { pt: 'Voo Silencioso', en: 'Flyby' }, desc: { pt: 'Não provoca ataques de oportunidade ao sair do alcance.', en: 'No opportunity attacks when leaving reach.' } },
+      { name: { pt: 'Visão e Audição Aguçadas', en: 'Keen Hearing & Sight' }, desc: { pt: 'Vantagem em Percepção (audição/visão).', en: 'Advantage on Perception (hearing/sight).' } },
+    ],
+    actions: [{ name: { pt: 'Garras', en: 'Talons' }, desc: { pt: 'Mel., +3, 1 cortante.', en: 'Melee +3, 1 slashing.' } }],
+  },
+  { id: 'rat', cr: '0', crNum: 0, size: 'Tiny', speed: 20, ac: 10, hp: 1, str: 2, dex: 11, con: 9, int: 2, wis: 10, cha: 4,
+    traits: [{ name: { pt: 'Olfato Apurado', en: 'Keen Smell' }, desc: { pt: 'Vantagem em Percepção (olfato).', en: 'Advantage on Perception (smell).' } }],
+    actions: [{ name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +0, 1 perfurante.', en: 'Melee +0, 1 piercing.' } }],
+  },
+
+  // CR 1/8
+  { id: 'giantCrab', cr: '1/8', crNum: 0.125, size: 'Medium', speed: 30, swim: 30, ac: 15, hp: 13, str: 13, dex: 15, con: 11, int: 1, wis: 9, cha: 3,
+    traits: [{ name: { pt: 'Anfíbio', en: 'Amphibious' }, desc: { pt: 'Pode respirar ar e água.', en: 'Breathes air and water.' } }],
+    actions: [{ name: { pt: 'Pinça', en: 'Claw' }, desc: { pt: 'Mel., +3, 1d6+1 contundente, alvo agarrado (fuga CD 11). 2 garras max.', en: 'Melee +3, 1d6+1 bludgeoning, target grappled (esc DC 11). Max 2 grapples.' } }],
+  },
+
+  // CR 1/4
+  { id: 'wolf', cr: '1/4', crNum: 0.25, size: 'Medium', speed: 40, ac: 13, hp: 11, str: 12, dex: 15, con: 12, int: 3, wis: 12, cha: 6,
+    traits: [
+      { name: { pt: 'Tática de Matilha', en: 'Pack Tactics' }, desc: { pt: 'Vantagem em ataques se aliado a 5 pés do alvo.', en: 'Advantage on attacks if ally within 5 ft.' } },
+      { name: { pt: 'Audição/Olfato Aguçados', en: 'Keen Hearing & Smell' }, desc: { pt: 'Vantagem em Percepção (audição/olfato).', en: 'Advantage on Perception (hearing/smell).' } },
+    ],
+    actions: [{ name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +4, 2d4+2 perfurante. SAL FOR CD 11 ou prono.', en: 'Melee +4, 2d4+2 piercing. STR save DC 11 or prone.' } }],
+  },
+  { id: 'boar', cr: '1/4', crNum: 0.25, size: 'Medium', speed: 40, ac: 11, hp: 11, str: 13, dex: 11, con: 12, int: 2, wis: 9, cha: 5,
+    traits: [
+      { name: { pt: 'Carga', en: 'Charge' }, desc: { pt: 'Move 20+ pés + acertou: +1d6 cortante; SAL FOR CD 11 ou prono.', en: 'Move 20+ ft + hit: +1d6 slashing; STR save DC 11 or prone.' } },
+      { name: { pt: 'Implacável', en: 'Relentless' }, desc: { pt: 'Reage a 7 dano ou menos com 1 HP restante. 1×/descanso curto.', en: 'Reacts to 7 dmg or less with 1 HP remaining. 1/short rest.' } },
+    ],
+    actions: [{ name: { pt: 'Presa', en: 'Tusk' }, desc: { pt: 'Mel., +3, 1d6+1 cortante.', en: 'Melee +3, 1d6+1 slashing.' } }],
+  },
+  { id: 'giantBadger', cr: '1/4', crNum: 0.25, size: 'Medium', speed: 30, burrow: 10, ac: 10, hp: 13, str: 13, dex: 10, con: 15, int: 2, wis: 12, cha: 5,
+    traits: [{ name: { pt: 'Olfato Apurado', en: 'Keen Smell' }, desc: { pt: 'Vantagem em Percepção (olfato).', en: 'Advantage on Perception (smell).' } }],
+    actions: [
+      { name: { pt: 'Multiataque', en: 'Multiattack' }, desc: { pt: 'Uma mordida + uma garras.', en: 'One bite and one claws.' } },
+      { name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +3, 1d6+1 perfurante.', en: 'Melee +3, 1d6+1 piercing.' } },
+      { name: { pt: 'Garras', en: 'Claws' }, desc: { pt: 'Mel., +3, 2d4+1 cortante.', en: 'Melee +3, 2d4+1 slashing.' } },
+    ],
+  },
+  { id: 'panther', cr: '1/4', crNum: 0.25, size: 'Medium', speed: 50, climb: 40, ac: 12, hp: 13, str: 14, dex: 15, con: 10, int: 3, wis: 14, cha: 7,
+    traits: [
+      { name: { pt: 'Audição/Olfato Aguçados', en: 'Keen Smell' }, desc: { pt: 'Vantagem em Percepção (olfato).', en: 'Advantage on Perception (smell).' } },
+      { name: { pt: 'Bote', en: 'Pounce' }, desc: { pt: 'Move 20+ pés + acerto: SAL FOR CD 12 ou prono; ataque bônus mordida.', en: 'Move 20+ ft + hit: STR save DC 12 or prone; bonus bite attack.' } },
+    ],
+    actions: [
+      { name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +4, 1d6+2 perfurante.', en: 'Melee +4, 1d6+2 piercing.' } },
+      { name: { pt: 'Garras', en: 'Claws' }, desc: { pt: 'Mel., +4, 1d4+2 cortante.', en: 'Melee +4, 1d4+2 slashing.' } },
+    ],
+  },
+
+  // CR 1/2
+  { id: 'blackBear', cr: '1/2', crNum: 0.5, size: 'Medium', speed: 40, climb: 30, ac: 11, hp: 19, str: 15, dex: 10, con: 14, int: 2, wis: 12, cha: 7,
+    traits: [{ name: { pt: 'Olfato Apurado', en: 'Keen Smell' }, desc: { pt: 'Vantagem em Percepção (olfato).', en: 'Advantage on Perception (smell).' } }],
+    actions: [
+      { name: { pt: 'Multiataque', en: 'Multiattack' }, desc: { pt: 'Uma mordida + uma garras.', en: 'One bite and one claws.' } },
+      { name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +3, 1d6+2 perfurante.', en: 'Melee +3, 1d6+2 piercing.' } },
+      { name: { pt: 'Garras', en: 'Claws' }, desc: { pt: 'Mel., +3, 2d4+2 cortante.', en: 'Melee +3, 2d4+2 slashing.' } },
+    ],
+  },
+  { id: 'crocodile', cr: '1/2', crNum: 0.5, size: 'Large', speed: 20, swim: 30, ac: 12, hp: 19, str: 15, dex: 10, con: 13, int: 2, wis: 10, cha: 5,
+    traits: [{ name: { pt: 'Prender o Fôlego', en: 'Hold Breath' }, desc: { pt: 'Pode prender a respiração por 15 minutos.', en: 'Hold breath for 15 minutes.' } }],
+    actions: [{ name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +4, 1d10+2 perfurante, alvo agarrado (fuga CD 12).', en: 'Melee +4, 1d10+2 piercing, grappled (esc DC 12).' } }],
+  },
+  { id: 'warhorse', cr: '1/2', crNum: 0.5, size: 'Large', speed: 60, ac: 11, hp: 19, str: 18, dex: 12, con: 13, int: 2, wis: 12, cha: 7,
+    traits: [{ name: { pt: 'Carga', en: 'Trampling Charge' }, desc: { pt: 'Move 20+ pés + acerto: SAL FOR CD 14 ou prono; ataque bônus de cascos.', en: 'Move 20+ ft + hit: STR save DC 14 or prone; bonus hooves attack.' } }],
+    actions: [{ name: { pt: 'Cascos', en: 'Hooves' }, desc: { pt: 'Mel., +6, 2d6+4 contundente.', en: 'Melee +6, 2d6+4 bludgeoning.' } }],
+  },
+  { id: 'ape', cr: '1/2', crNum: 0.5, size: 'Medium', speed: 30, climb: 30, ac: 12, hp: 19, str: 16, dex: 14, con: 14, int: 6, wis: 12, cha: 7,
+    actions: [
+      { name: { pt: 'Multiataque', en: 'Multiattack' }, desc: { pt: 'Dois punhos.', en: 'Two fists.' } },
+      { name: { pt: 'Punho', en: 'Fist' }, desc: { pt: 'Mel., +5, 1d6+3 contundente.', en: 'Melee +5, 1d6+3 bludgeoning.' } },
+      { name: { pt: 'Pedra', en: 'Rock' }, desc: { pt: 'Dist., +5, 25/50, 1d6+3 contundente.', en: 'Ranged +5, 25/50, 1d6+3 bludgeoning.' } },
+    ],
+  },
+
+  // CR 1
+  { id: 'brownBear', cr: '1', crNum: 1, size: 'Large', speed: 40, climb: 30, ac: 11, hp: 34, str: 19, dex: 10, con: 16, int: 2, wis: 13, cha: 7,
+    traits: [{ name: { pt: 'Olfato Apurado', en: 'Keen Smell' }, desc: { pt: 'Vantagem em Percepção (olfato).', en: 'Advantage on Perception (smell).' } }],
+    actions: [
+      { name: { pt: 'Multiataque', en: 'Multiattack' }, desc: { pt: 'Uma mordida + uma garras.', en: 'One bite and one claws.' } },
+      { name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +5, 1d8+4 perfurante.', en: 'Melee +5, 1d8+4 piercing.' } },
+      { name: { pt: 'Garras', en: 'Claws' }, desc: { pt: 'Mel., +5, 2d6+4 cortante.', en: 'Melee +5, 2d6+4 slashing.' } },
+    ],
+  },
+  { id: 'direWolf', cr: '1', crNum: 1, size: 'Large', speed: 50, ac: 14, hp: 37, str: 17, dex: 15, con: 15, int: 3, wis: 12, cha: 7,
+    traits: [
+      { name: { pt: 'Tática de Matilha', en: 'Pack Tactics' }, desc: { pt: 'Vantagem em ataques se aliado a 5 pés do alvo.', en: 'Advantage on attacks if ally within 5 ft.' } },
+      { name: { pt: 'Audição/Olfato Aguçados', en: 'Keen Hearing & Smell' }, desc: { pt: 'Vantagem em Percepção (audição/olfato).', en: 'Advantage on Perception (hearing/smell).' } },
+    ],
+    actions: [{ name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +5, 2d6+3 perfurante. SAL FOR CD 13 ou prono.', en: 'Melee +5, 2d6+3 piercing. STR save DC 13 or prone.' } }],
+  },
+  { id: 'tiger', cr: '1', crNum: 1, size: 'Large', speed: 40, ac: 12, hp: 37, str: 17, dex: 15, con: 14, int: 3, wis: 12, cha: 8,
+    traits: [
+      { name: { pt: 'Olfato Apurado', en: 'Keen Smell' }, desc: { pt: 'Vantagem em Percepção (olfato).', en: 'Advantage on Perception (smell).' } },
+      { name: { pt: 'Bote', en: 'Pounce' }, desc: { pt: 'Move 20+ pés + acerto: SAL FOR CD 13 ou prono; ataque bônus mordida.', en: 'Move 20+ ft + hit: STR save DC 13 or prone; bonus bite.' } },
+    ],
+    actions: [
+      { name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +5, 1d10+3 perfurante.', en: 'Melee +5, 1d10+3 piercing.' } },
+      { name: { pt: 'Garras', en: 'Claws' }, desc: { pt: 'Mel., +5, 1d8+3 cortante.', en: 'Melee +5, 1d8+3 slashing.' } },
+    ],
+  },
+  { id: 'giantEagle', cr: '1', crNum: 1, size: 'Large', speed: 10, fly: 80, ac: 13, hp: 26, str: 16, dex: 17, con: 13, int: 8, wis: 14, cha: 10,
+    traits: [{ name: { pt: 'Visão Aguçada', en: 'Keen Sight' }, desc: { pt: 'Vantagem em Percepção (visão).', en: 'Advantage on Perception (sight).' } }],
+    actions: [
+      { name: { pt: 'Multiataque', en: 'Multiattack' }, desc: { pt: 'Uma bicada + uma garras.', en: 'One beak and one talons.' } },
+      { name: { pt: 'Bicada', en: 'Beak' }, desc: { pt: 'Mel., +5, 1d6+3 perfurante.', en: 'Melee +5, 1d6+3 piercing.' } },
+      { name: { pt: 'Garras', en: 'Talons' }, desc: { pt: 'Mel., +5, 2d6+3 cortante.', en: 'Melee +5, 2d6+3 slashing.' } },
+    ],
+  },
+  { id: 'lion', cr: '1', crNum: 1, size: 'Large', speed: 50, ac: 12, hp: 26, str: 17, dex: 15, con: 13, int: 3, wis: 12, cha: 8,
+    traits: [
+      { name: { pt: 'Tática de Matilha', en: 'Pack Tactics' }, desc: { pt: 'Vantagem em ataques se aliado a 5 pés do alvo.', en: 'Advantage on attacks if ally within 5 ft.' } },
+      { name: { pt: 'Bote', en: 'Pounce' }, desc: { pt: 'Move 20+ pés + acerto: SAL FOR CD 13 ou prono; ataque bônus mordida.', en: 'Move 20+ ft + hit: STR save DC 13 or prone; bonus bite.' } },
+      { name: { pt: 'Corrida Veloz', en: 'Running Leap' }, desc: { pt: 'Salto longo até 25 pés após corrida 10 pés.', en: 'Long jump up to 25 ft after 10-ft run.' } },
+    ],
+    actions: [
+      { name: { pt: 'Mordida', en: 'Bite' }, desc: { pt: 'Mel., +5, 1d8+3 perfurante.', en: 'Melee +5, 1d8+3 piercing.' } },
+      { name: { pt: 'Garras', en: 'Claws' }, desc: { pt: 'Mel., +5, 1d6+3 cortante.', en: 'Melee +5, 1d6+3 slashing.' } },
+    ],
+  },
 ];
 
 // Standard equipment packs
@@ -509,7 +990,7 @@ function getSpellSlots(charClass, level) {
   return table[level - 1] || [];
 }
 
-return { ABILITIES, SKILLS, RACES, CLASSES, BACKGROUNDS, ALIGNMENTS, WEAPONS, ARMOR, SPELLS, PACKS, profBonus, getSpellSlots };
+return { ABILITIES, SKILLS, RACES, CLASSES, BACKGROUNDS, ALIGNMENTS, WEAPONS, ARMOR, SPELLS, BEASTS, PACKS, profBonus, getSpellSlots };
 })();
 
 export default SRD;

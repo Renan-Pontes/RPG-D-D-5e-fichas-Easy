@@ -17,6 +17,12 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
     );
   }
 
+  const isDruid = char.className === 'druid';
+  const wildShapeMaxCR = isDruid ? (char.level >= 8 ? 1 : (char.level >= 4 ? 0.5 : 0.25)) : 0;
+  const wildShapeRules = isDruid && char.level >= 4 && char.level < 8
+    ? (lang === 'pt' ? 'Sem velocidade de voo.' : 'No fly speed.')
+    : (isDruid && char.level < 4 ? (lang === 'pt' ? 'Sem velocidade de voo ou natação.' : 'No fly or swim speed.') : '');
+
   const known = (char.spells || []).map(cs => {
     const def = SRD.SPELLS.find(s => s.id === cs.id);
     return { ...cs, def };
@@ -102,15 +108,23 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
           }
         }}>
           <option value="">+ {lang === 'pt' ? 'Adicionar magia' : 'Add spell'}...</option>
-          {[0,1,2,3].map(lvl => (
-            <optgroup key={lvl} label={lvl === 0 ? t('cantrips', lang) : `${t('spellLevel', lang)} ${lvl}`}>
-              {available.filter(s => s.level === lvl).map(s =>
-                <option key={s.id} value={s.id}>{tName('spellName', s.id, lang)}</option>
-              )}
-            </optgroup>
-          ))}
+          {[0,1,2,3,4,5,6,7,8,9].map(lvl => {
+            const list = available.filter(s => s.level === lvl);
+            if (list.length === 0) return null;
+            return (
+              <optgroup key={lvl} label={lvl === 0 ? t('cantrips', lang) : `${t('spellLevel', lang)} ${lvl}`}>
+                {list.map(s =>
+                  <option key={s.id} value={s.id}>{tName('spellName', s.id, lang)}</option>
+                )}
+              </optgroup>
+            );
+          })}
         </select>
       </div>
+
+      {isDruid && char.level >= 2 && (
+        <WildShapePanel lang={lang} maxCR={wildShapeMaxCR} note={wildShapeRules} druidLevel={char.level} />
+      )}
 
       {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
         <div key={lvl}>
@@ -136,6 +150,95 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
         </div>
       )}
     </>
+  );
+};
+
+const abilityMod = (score) => Math.floor((score - 10) / 2);
+const fmtMod = (m) => (m >= 0 ? `+${m}` : `${m}`);
+
+const WildShapePanel = ({ lang, maxCR, note, druidLevel }) => {
+  const [open, setOpen] = useState(false);
+  const beasts = (SRD.BEASTS || []).filter(b => b.crNum <= maxCR + 1e-9);
+  const allowFly = druidLevel >= 8;
+  const allowSwim = druidLevel >= 4;
+  const eligible = beasts.filter(b => (allowFly || !b.fly) && (allowSwim || !b.swim));
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <Filigree>{lang === 'pt' ? 'Forma Selvagem' : 'Wild Shape'}</Filigree>
+      <div className="card" style={{ padding: 12, marginBottom: 8 }}>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div className="eyebrow">{lang === 'pt' ? 'CR máximo' : 'Max CR'}</div>
+            <div style={{ fontFamily: 'var(--display)', color: 'var(--gold-bright)', fontSize: '1.2rem' }}>
+              {maxCR === 0.25 ? '1/4' : maxCR === 0.5 ? '1/2' : maxCR}
+            </div>
+          </div>
+          <button className="btn btn-sm btn-ghost" onClick={() => setOpen(!open)}>
+            <Icon name={open ? 'chevron-up' : 'chevron-down'} size={14}/>
+            {open
+              ? (lang === 'pt' ? 'Ocultar bestas' : 'Hide beasts')
+              : `${eligible.length} ${lang === 'pt' ? 'formas' : 'forms'}`}
+          </button>
+        </div>
+        {note && <div className="text-xs muted" style={{ marginTop: 6 }}>{note}</div>}
+      </div>
+      {open && eligible.map(b => <BeastCard key={b.id} beast={b} lang={lang} />)}
+    </div>
+  );
+};
+
+const BeastCard = ({ beast, lang }) => {
+  const [open, setOpen] = useState(false);
+  const speeds = [];
+  if (beast.speed) speeds.push(`${beast.speed}'`);
+  if (beast.fly) speeds.push(`${lang === 'pt' ? 'voo' : 'fly'} ${beast.fly}'`);
+  if (beast.swim) speeds.push(`${lang === 'pt' ? 'nat' : 'swim'} ${beast.swim}'`);
+  if (beast.climb) speeds.push(`${lang === 'pt' ? 'esc' : 'climb'} ${beast.climb}'`);
+  if (beast.burrow) speeds.push(`${lang === 'pt' ? 'esc' : 'burrow'} ${beast.burrow}'`);
+  return (
+    <div className="card" style={{ marginBottom: 6, padding: 10 }}>
+      <div className="row" style={{ justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setOpen(!open)}>
+        <div>
+          <div style={{ fontFamily: 'var(--display)', color: 'var(--gold)' }}>
+            {tName('beast', beast.id, lang)}
+          </div>
+          <div className="text-xs muted">
+            CR {beast.cr} · {beast.size} · CA {beast.ac} · HP {beast.hp} · {speeds.join(', ')}
+          </div>
+        </div>
+        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={14}/>
+      </div>
+      {open && (
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--stroke-faint)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4, marginBottom: 10, textAlign: 'center' }}>
+            {['str','dex','con','int','wis','cha'].map(k => (
+              <div key={k}>
+                <div className="eyebrow text-xs">{t(k + 'Sh', lang)}</div>
+                <div className="mono text-sm">{beast[k]} <span className="muted">({fmtMod(abilityMod(beast[k]))})</span></div>
+              </div>
+            ))}
+          </div>
+          {(beast.traits || []).map((tr, i) => (
+            <div key={i} className="text-sm" style={{ marginBottom: 4 }}>
+              <strong style={{ color: 'var(--gold-deep)' }}>{tr.name[lang]}.</strong>{' '}
+              <span style={{ color: 'var(--ink-secondary)' }}>{tr.desc[lang]}</span>
+            </div>
+          ))}
+          {(beast.actions || []).length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <div className="eyebrow text-xs" style={{ marginBottom: 4 }}>{lang === 'pt' ? 'Ações' : 'Actions'}</div>
+              {beast.actions.map((a, i) => (
+                <div key={i} className="text-sm" style={{ marginBottom: 4 }}>
+                  <strong style={{ color: 'var(--gold-deep)' }}>{a.name[lang]}.</strong>{' '}
+                  <span style={{ color: 'var(--ink-secondary)' }}>{a.desc[lang]}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 };
 
