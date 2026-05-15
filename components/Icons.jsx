@@ -39,6 +39,8 @@ export const Icon = ({ name, size = 18, ...props }) => {
     case 'gem':        return <svg {...common}><polygon points="6 3 18 3 22 9 12 22 2 9"/><polyline points="11 3 8 9 12 22"/><polyline points="13 3 16 9 12 22"/><line x1="2" y1="9" x2="22" y2="9"/></svg>;
     case 'cog':        return <svg {...common}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h0a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51h0a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82h0a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>;
     case 'flame':      return <svg {...common}><path d="M8.5 14c2 2 5 2 7 0 2-2 2-5 0-7C13 4 12 2 12 2s-1.5 2-3 4c-1.5 2-2 4-0.5 8z"/></svg>;
+    case 'moon':       return <svg {...common}><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>;
+    case 'chevron-up':    return <svg {...common}><path d="M18 15l-6-6-6 6"/></svg>;
     case 'logo':       // Decorative diamond + cross
       return (
         <svg width={size} height={size} viewBox="0 0 40 40" fill="none">

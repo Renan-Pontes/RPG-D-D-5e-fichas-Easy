@@ -23,30 +23,60 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
     ? (lang === 'pt' ? 'Sem velocidade de voo.' : 'No fly speed.')
     : (isDruid && char.level < 4 ? (lang === 'pt' ? 'Sem velocidade de voo ou natação.' : 'No fly or swim speed.') : '');
 
-  const known = (char.spells || []).map(cs => {
-    const def = SRD.SPELLS.find(s => s.id === cs.id);
-    return { ...cs, def };
-  }).filter(s => s.def);
+  const isPrepared = Utils.isPreparedCaster(char);
+  const maxLvl = Utils.maxSpellLevel(char);
+  const cantripLimit = Utils.cantripsKnown(char);
+  const preparedLimit = isPrepared ? Utils.preparedSpellsLimit(char) : null;
 
-  const byLevel = {};
-  known.forEach(s => {
-    const lvl = s.def.level;
-    if (!byLevel[lvl]) byLevel[lvl] = [];
-    byLevel[lvl].push(s);
-  });
+  const spellEntries = char.spells || [];
+  const cantripIds = spellEntries.filter(s => {
+    const def = SRD.SPELLS.find(x => x.id === s.id);
+    return def && def.level === 0;
+  }).map(s => s.id);
+  const preparedIds = spellEntries.filter(s => {
+    const def = SRD.SPELLS.find(x => x.id === s.id);
+    return def && def.level > 0;
+  }).map(s => s.id);
+
+  const classSpells = SRD.SPELLS.filter(sp => sp.classes.includes(char.className) && sp.level <= maxLvl);
+  const classCantrips = SRD.SPELLS.filter(sp => sp.classes.includes(char.className) && sp.level === 0);
+
+  const toggleCantrip = (id) => {
+    const has = cantripIds.includes(id);
+    if (has) {
+      update({ spells: spellEntries.filter(s => s.id !== id) });
+    } else {
+      if (cantripIds.length >= cantripLimit) return;
+      update({ spells: [...spellEntries, { id, prepared: true }] });
+    }
+  };
 
   const togglePrepared = (id) => {
-    update({
-      spells: char.spells.map(s => s.id === id ? { ...s, prepared: !s.prepared } : s)
-    });
+    const has = preparedIds.includes(id);
+    if (has) {
+      update({ spells: spellEntries.filter(s => s.id !== id) });
+    } else {
+      if (isPrepared && preparedIds.length >= preparedLimit) return;
+      update({ spells: [...spellEntries, { id, prepared: true }] });
+    }
   };
 
   const removeSpell = (id) => {
-    update({ spells: char.spells.filter(s => s.id !== id) });
+    update({ spells: spellEntries.filter(s => s.id !== id) });
   };
 
-  // Add spell dropdown
-  const available = SRD.SPELLS.filter(sp => sp.classes.includes(char.className) && !char.spells.find(s => s.id === sp.id));
+  // Known caster: ability to add new known spells via dropdown
+  const available = SRD.SPELLS.filter(sp => sp.classes.includes(char.className) && !spellEntries.find(s => s.id === sp.id));
+  const addKnownSpell = (id) => update({ spells: [...spellEntries, { id, prepared: true }] });
+
+  const longRest = () => {
+    // Reset all slots + wild shape uses + lay-on-hands etc. For now: reset spell slots.
+    update({
+      spellSlotsUsed: (char.spellSlotsUsed || []).map(() => 0),
+      wildShapeUses: 0,
+      hitDiceUsed: Math.max(0, (char.hitDiceUsed || 0) - Math.max(1, Math.floor(char.level / 2))),
+    });
+  };
 
   return (
     <>
@@ -68,12 +98,25 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
               {spellAtk !== null ? Utils.fmtMod(spellAtk) : '—'}
             </div>
           </div>
+          {isPrepared && (
+            <div>
+              <div className="eyebrow">{t('preparedSpells', lang)}</div>
+              <div className="mono" style={{ fontSize: '1.4rem', color: preparedIds.length > preparedLimit ? 'var(--blood-bright)' : 'var(--gold-bright)' }}>
+                {preparedIds.length}/{preparedLimit}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {slots && slots.length > 0 && slots.some(s => s) && (
         <>
-          <div className="eyebrow mb-2">{t('slots', lang)}</div>
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="eyebrow mb-2">{t('slots', lang)}</div>
+            <button className="btn btn-sm btn-ghost" onClick={longRest} title={t('longRest', lang)}>
+              <Icon name="moon" size={12}/> {t('longRest', lang)}
+            </button>
+          </div>
           {slots.map((max, idx) => {
             if (!max) return null;
             const used = (char.spellSlotsUsed && char.spellSlotsUsed[idx]) || 0;
@@ -101,30 +144,136 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
         </>
       )}
 
+      {isDruid && char.level >= 2 && (
+        <WildShapePanel lang={lang} maxCR={wildShapeMaxCR} note={wildShapeRules} druidLevel={char.level} />
+      )}
+
+      {isPrepared ? (
+        <PreparedSpellsView
+          lang={lang}
+          char={char}
+          classCantrips={classCantrips}
+          classSpells={classSpells}
+          cantripIds={cantripIds}
+          preparedIds={preparedIds}
+          cantripLimit={cantripLimit}
+          preparedLimit={preparedLimit}
+          maxLvl={maxLvl}
+          onToggleCantrip={toggleCantrip}
+          onTogglePrepared={togglePrepared}
+          spellAtk={spellAtk}
+          roll={roll}
+        />
+      ) : (
+        <KnownSpellsView
+          lang={lang}
+          char={char}
+          spellEntries={spellEntries}
+          available={available}
+          onAddSpell={addKnownSpell}
+          onRemove={removeSpell}
+          spellAtk={spellAtk}
+          roll={roll}
+        />
+      )}
+    </>
+  );
+};
+
+const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, cantripIds, preparedIds, cantripLimit, preparedLimit, maxLvl, onToggleCantrip, onTogglePrepared, spellAtk, roll }) => {
+  const leveled = classSpells.filter(s => s.level > 0);
+  const byLevel = {};
+  leveled.forEach(sp => {
+    if (!byLevel[sp.level]) byLevel[sp.level] = [];
+    byLevel[sp.level].push(sp);
+  });
+
+  return (
+    <>
+      {cantripLimit > 0 && classCantrips.length > 0 && (
+        <>
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline', marginTop: 8 }}>
+            <Filigree>{t('cantrips', lang)}</Filigree>
+            <span className="text-xs muted mono">{cantripIds.length}/{cantripLimit}</span>
+          </div>
+          {classCantrips.map(sp => {
+            const sel = cantripIds.includes(sp.id);
+            const disabled = !sel && cantripIds.length >= cantripLimit;
+            return (
+              <SpellRow
+                key={sp.id} spell={{ id: sp.id, def: sp, prepared: sel }} lang={lang}
+                showPrepared={true}
+                preparedDisabled={disabled}
+                preparedIcon={sel ? 'check' : 'plus'}
+                onTogglePrepared={() => onToggleCantrip(sp.id)}
+                onCast={() => spellAtk !== null && roll({ die: 20, mod: spellAtk, label: tName('spellName', sp.id, lang) + ' ' + t('attackRoll', lang) })}
+              />
+            );
+          })}
+        </>
+      )}
+
+      {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
+        <div key={lvl}>
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline', marginTop: 8 }}>
+            <Filigree>{`${t('spellLevel', lang)} ${lvl}`}</Filigree>
+            <span className="text-xs muted mono">
+              {byLevel[lvl].filter(s => preparedIds.includes(s.id)).length}/{byLevel[lvl].length}
+            </span>
+          </div>
+          {byLevel[lvl].map(sp => {
+            const sel = preparedIds.includes(sp.id);
+            const disabled = !sel && preparedIds.length >= preparedLimit;
+            return (
+              <SpellRow
+                key={sp.id} spell={{ id: sp.id, def: sp, prepared: sel }} lang={lang}
+                showPrepared={true}
+                preparedDisabled={disabled}
+                onTogglePrepared={() => onTogglePrepared(sp.id)}
+                onCast={() => spellAtk !== null && roll({ die: 20, mod: spellAtk, label: tName('spellName', sp.id, lang) + ' ' + t('attackRoll', lang) })}
+              />
+            );
+          })}
+        </div>
+      ))}
+
+      {maxLvl === 0 && (
+        <div className="card text-center muted" style={{ padding: 'var(--s-6)' }}>
+          {lang === 'pt' ? 'Nenhum espaço de magia ainda — aumente de nível.' : 'No spell slots yet — level up.'}
+        </div>
+      )}
+    </>
+  );
+};
+
+const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRemove, spellAtk, roll }) => {
+  const known = spellEntries.map(cs => {
+    const def = SRD.SPELLS.find(s => s.id === cs.id);
+    return { ...cs, def };
+  }).filter(s => s.def);
+
+  const byLevel = {};
+  known.forEach(s => {
+    if (!byLevel[s.def.level]) byLevel[s.def.level] = [];
+    byLevel[s.def.level].push(s);
+  });
+
+  return (
+    <>
       <div className="mt-4 mb-3">
-        <select value="" onChange={e => {
-          if (e.target.value) {
-            update({ spells: [...char.spells, { id: e.target.value, prepared: true }] });
-          }
-        }}>
+        <select value="" onChange={e => { if (e.target.value) onAddSpell(e.target.value); }}>
           <option value="">+ {lang === 'pt' ? 'Adicionar magia' : 'Add spell'}...</option>
           {[0,1,2,3,4,5,6,7,8,9].map(lvl => {
             const list = available.filter(s => s.level === lvl);
             if (list.length === 0) return null;
             return (
               <optgroup key={lvl} label={lvl === 0 ? t('cantrips', lang) : `${t('spellLevel', lang)} ${lvl}`}>
-                {list.map(s =>
-                  <option key={s.id} value={s.id}>{tName('spellName', s.id, lang)}</option>
-                )}
+                {list.map(s => <option key={s.id} value={s.id}>{tName('spellName', s.id, lang)}</option>)}
               </optgroup>
             );
           })}
         </select>
       </div>
-
-      {isDruid && char.level >= 2 && (
-        <WildShapePanel lang={lang} maxCR={wildShapeMaxCR} note={wildShapeRules} druidLevel={char.level} />
-      )}
 
       {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
         <div key={lvl}>
@@ -132,13 +281,9 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
           {byLevel[lvl].map(s => (
             <SpellRow
               key={s.id} spell={s} lang={lang}
-              showPrepared={+lvl > 0}
-              onTogglePrepared={() => togglePrepared(s.id)}
-              onRemove={() => removeSpell(s.id)}
-              onCast={() => {
-                // attack roll if it's a damaging cantrip/spell — let the user roll dice manually via desc
-                if (spellAtk !== null) roll({ die: 20, mod: spellAtk, label: tName('spellName', s.id, lang) + ' ' + t('attackRoll', lang) });
-              }}
+              showPrepared={false}
+              onRemove={() => onRemove(s.id)}
+              onCast={() => spellAtk !== null && roll({ die: 20, mod: spellAtk, label: tName('spellName', s.id, lang) + ' ' + t('attackRoll', lang) })}
             />
           ))}
         </div>
@@ -242,20 +387,22 @@ const BeastCard = ({ beast, lang }) => {
   );
 };
 
-const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, onCast }) => {
+const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, onCast, preparedDisabled, preparedIcon }) => {
   const [open, setOpen] = useState(false);
   const sp = spell.def;
   return (
-    <div className={`spell-row ${open ? 'open' : ''}`}>
+    <div className={`spell-row ${open ? 'open' : ''} ${showPrepared && !spell.prepared ? 'unprepared' : ''}`}>
       <div className="spell-row-header" onClick={() => setOpen(!open)}>
         {showPrepared && (
           <button
             type="button"
             className={`spell-prepared ${spell.prepared ? 'on' : ''}`}
-            onClick={(e) => { e.stopPropagation(); onTogglePrepared(); }}
-            title={spell.prepared ? t('prepared', lang) : (lang === 'pt' ? 'Preparar' : 'Prepare')}
+            onClick={(e) => { e.stopPropagation(); if (!preparedDisabled || spell.prepared) onTogglePrepared(); }}
+            disabled={preparedDisabled && !spell.prepared}
+            title={spell.prepared ? t('prepared', lang) : (preparedDisabled ? (lang === 'pt' ? 'Limite atingido' : 'Limit reached') : (lang === 'pt' ? 'Preparar' : 'Prepare'))}
+            style={{ opacity: preparedDisabled && !spell.prepared ? 0.4 : 1 }}
           >
-            <Icon name={spell.prepared ? 'star-fill' : 'star'} size={14}/>
+            <Icon name={spell.prepared ? 'star-fill' : (preparedIcon || 'star')} size={14}/>
           </button>
         )}
         <div style={{ flex: 1 }}>
@@ -281,9 +428,11 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, onCas
             <button className="btn btn-sm btn-ghost" onClick={onCast}>
               <Icon name="dice" size={12}/> {lang === 'pt' ? 'Atacar' : 'Cast'}
             </button>
-            <button className="btn btn-sm btn-ghost btn-danger" onClick={onRemove}>
-              <Icon name="trash" size={12}/>
-            </button>
+            {onRemove && (
+              <button className="btn btn-sm btn-ghost btn-danger" onClick={onRemove}>
+                <Icon name="trash" size={12}/>
+              </button>
+            )}
           </div>
         </div>
       )}

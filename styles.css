@@ -986,6 +986,9 @@ label {
 }
 .spell-row:hover { border-color: var(--gold-deep); }
 .spell-row.expanded { border-color: var(--gold); }
+.spell-row.unprepared { opacity: 0.55; }
+.spell-row.unprepared:hover { opacity: 0.85; }
+.spell-row.unprepared .spell-row-name { color: var(--ink-secondary); }
 .spell-row-head {
   display: flex;
   justify-content: space-between;

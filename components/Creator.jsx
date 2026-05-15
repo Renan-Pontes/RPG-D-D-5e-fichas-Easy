@@ -627,31 +627,45 @@ const StepSpells = ({ char, set, lang }) => {
   }
   const available = SRD.SPELLS.filter(s => s.classes.includes(char.className));
   const cantrips = available.filter(s => s.level === 0);
-  const level1 = available.filter(s => s.level === 1);
-  const level2 = available.filter(s => s.level === 2);
-  const level3 = available.filter(s => s.level === 3);
-  const level4 = available.filter(s => s.level === 4);
-  const level5 = available.filter(s => s.level === 5);
-  const level6 = available.filter(s => s.level === 6);
-  const level7Plus = available.filter(s => s.level >= 7);
+  const isPrepared = Utils.isPreparedCaster(char);
+  const cantripLimit = Utils.cantripsKnown(char);
+
+  const cantripCount = (char.spells || []).filter(s => {
+    const def = SRD.SPELLS.find(x => x.id === s.id);
+    return def && def.level === 0;
+  }).length;
 
   const toggle = (id) => {
     const has = char.spells.find(s => s.id === id);
     if (has) {
       set({ spells: char.spells.filter(s => s.id !== id) });
     } else {
+      const def = SRD.SPELLS.find(x => x.id === id);
+      if (def && def.level === 0 && cantripCount >= cantripLimit) return;
       set({ spells: [...(char.spells || []), { id, prepared: true }] });
     }
   };
 
-  const SpellGroup = ({ label, list }) => (
+  const SpellGroup = ({ label, list, limit, currentCount }) => (
     <>
-      <h4 style={{ marginTop: 20, marginBottom: 8 }}>{label}</h4>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline', marginTop: 20, marginBottom: 8 }}>
+        <h4 style={{ margin: 0 }}>{label}</h4>
+        {typeof limit === 'number' && (
+          <span className="text-xs muted mono">{currentCount}/{limit}</span>
+        )}
+      </div>
       <div className="options-list">
         {list.map(sp => {
           const sel = char.spells.some(s => s.id === sp.id);
+          const isCantrip = sp.level === 0;
+          const limitReached = isCantrip && !sel && cantripCount >= cantripLimit;
           return (
-            <div key={sp.id} className={`option ${sel ? 'selected' : ''}`} onClick={() => toggle(sp.id)}>
+            <div
+              key={sp.id}
+              className={`option ${sel ? 'selected' : ''}`}
+              style={{ opacity: limitReached ? 0.5 : 1, cursor: limitReached ? 'not-allowed' : 'pointer' }}
+              onClick={() => !limitReached && toggle(sp.id)}
+            >
               <div className="row" style={{ alignItems: 'flex-start' }}>
                 <div className="skill-check" style={{ marginTop: 2 }}>
                   {sel && <Icon name="check" size={14}/>}
@@ -675,11 +689,46 @@ const StepSpells = ({ char, set, lang }) => {
     </>
   );
 
+  if (isPrepared) {
+    return (
+      <div>
+        <h2>{t('chooseSpells', lang)}</h2>
+        <Filigree>{tName('class', char.className, lang)}</Filigree>
+        <div className="card" style={{ padding: 12, marginBottom: 16 }}>
+          <div className="text-sm" style={{ color: 'var(--ink-secondary)' }}>
+            {lang === 'pt'
+              ? `Como ${tName('class', char.className, lang)}, você tem acesso a todas as magias da classe e prepara um número delas a cada descanso longo. Escolha apenas seus truques agora — você poderá preparar magias de níveis 1+ na ficha.`
+              : `As a ${tName('class', char.className, lang)}, you have access to every class spell and prepare a number of them after each long rest. Pick your cantrips now — you'll prepare leveled spells from the sheet.`}
+          </div>
+        </div>
+        {cantripLimit > 0 && cantrips.length > 0 && (
+          <SpellGroup label={t('cantrips', lang)} list={cantrips} limit={cantripLimit} currentCount={cantripCount} />
+        )}
+        {cantripLimit === 0 && (
+          <div className="card text-center muted" style={{ padding: 'var(--s-6)' }}>
+            {lang === 'pt' ? 'Essa classe não tem truques. Vá para o próximo passo.' : "This class doesn't get cantrips. Continue."}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Known-caster flow (Bard, Sorcerer, Warlock, Ranger)
+  const level1 = available.filter(s => s.level === 1);
+  const level2 = available.filter(s => s.level === 2);
+  const level3 = available.filter(s => s.level === 3);
+  const level4 = available.filter(s => s.level === 4);
+  const level5 = available.filter(s => s.level === 5);
+  const level6 = available.filter(s => s.level === 6);
+  const level7Plus = available.filter(s => s.level >= 7);
+
   return (
     <div>
       <h2>{t('chooseSpells', lang)}</h2>
       <Filigree>{tName('class', char.className, lang)}</Filigree>
-      <SpellGroup label={t('cantrips', lang)} list={cantrips} />
+      {cantripLimit > 0 && (
+        <SpellGroup label={t('cantrips', lang)} list={cantrips} limit={cantripLimit} currentCount={cantripCount} />
+      )}
       <SpellGroup label={`${t('spellLevel', lang)} 1`} list={level1} />
       {char.level >= 3 && level2.length > 0 && <SpellGroup label={`${t('spellLevel', lang)} 2`} list={level2} />}
       {char.level >= 5 && level3.length > 0 && <SpellGroup label={`${t('spellLevel', lang)} 3`} list={level3} />}

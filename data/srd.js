@@ -547,10 +547,11 @@ const CLASSES = [
     weapons: ['Simple', 'Martial'],
     skillsFrom: ['athletics','insight','intimidation','medicine','persuasion','religion'],
     skillCount: 2,
-    spellcaster: false,
+    spellcaster: true, spellAbility: 'cha',
     features: [
       { name: { pt: 'Sentido Divino', en: 'Divine Sense' }, desc: { pt: 'Ação: detecte celestiais, mortos-vivos e demônios em 60 pés. 1 + CHA mod usos/descanso longo.', en: 'Action: detect celestials/undead/fiends within 60 ft. 1 + CHA mod uses per long rest.' } },
       { name: { pt: 'Imposição de Mãos', en: 'Lay on Hands' }, desc: { pt: 'Reservatório de cura: 5 × nível HP por descanso longo. Cura veneno/doença usando 5 HP.', en: 'Healing pool of 5 × level HP per long rest. Cure poison/disease for 5 HP.' } },
+      { name: { pt: 'Conjuração Divina', en: 'Divine Spellcasting' }, desc: { pt: 'A partir do Nv2: prepare magias = CAR + metade do nível. Modificador: CAR. Sem truques.', en: 'From Lv2: prepare CHA + half level spells. Ability: CHA. No cantrips.' } },
     ],
   },
   {

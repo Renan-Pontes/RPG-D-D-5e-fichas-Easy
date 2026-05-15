@@ -66,6 +66,8 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
         cls={cls} race={race} bg={bg}
       />
 
+      <SubclassBanner char={char} lang={lang} update={update} />
+
       <div className="action-bar no-print">
         <button className="chip" onClick={onPrint}><Icon name="print" size={14} className="chip-icon"/> {t('print', lang)}</button>
         <button className="chip" onClick={onShare}><Icon name="share" size={14} className="chip-icon"/> {t('share', lang)}</button>
@@ -191,6 +193,181 @@ const LevelUpButton = ({ char, lang }) => {
         <LevelUpModal char={char} cls={cls} lang={lang} canLevel={canLevel} onClose={() => setOpen(false)} />
       )}
     </>
+  );
+};
+
+// Level at which each class chooses a subclass
+const SUBCLASS_LEVEL = {
+  barbarian: 3, bard: 3, cleric: 1, druid: 2, fighter: 3,
+  monk: 3, paladin: 3, ranger: 3, rogue: 3, sorcerer: 1, warlock: 1, wizard: 2,
+};
+
+const SUBCLASS_LABEL = {
+  barbarian: { pt: 'Caminho', en: 'Path' },
+  bard:      { pt: 'Colégio', en: 'College' },
+  cleric:    { pt: 'Domínio Divino', en: 'Divine Domain' },
+  druid:     { pt: 'Círculo Druídico', en: 'Druid Circle' },
+  fighter:   { pt: 'Arquétipo Marcial', en: 'Martial Archetype' },
+  monk:      { pt: 'Tradição Monástica', en: 'Monastic Tradition' },
+  paladin:   { pt: 'Juramento Sagrado', en: 'Sacred Oath' },
+  ranger:    { pt: 'Arquétipo de Ranger', en: 'Ranger Archetype' },
+  rogue:     { pt: 'Arquétipo Ladino', en: 'Roguish Archetype' },
+  sorcerer:  { pt: 'Origem de Feiticeiro', en: 'Sorcerous Origin' },
+  warlock:   { pt: 'Patrono Sobrenatural', en: 'Otherworldly Patron' },
+  wizard:    { pt: 'Tradição Arcana', en: 'Arcane Tradition' },
+};
+
+const SubclassBanner = ({ char, lang, update }) => {
+  const [open, setOpen] = useState(false);
+  const subs = (SRD.SUBCLASSES && SRD.SUBCLASSES[char.className]) || [];
+  if (!subs.length) return null;
+  const subLv = SUBCLASS_LEVEL[char.className] || 99;
+  const eligible = (char.level || 1) >= subLv;
+  if (!eligible) return null;
+
+  const label = SUBCLASS_LABEL[char.className] || { pt: 'Subclasse', en: 'Subclass' };
+  const current = subs.find(s => s.id === char.subclass);
+
+  if (!current) {
+    // Prominent banner — pick now
+    return (
+      <>
+        <div
+          className="card no-print"
+          style={{
+            marginBottom: 16, padding: 14,
+            background: 'linear-gradient(180deg, rgba(168,141,84,0.12) 0%, rgba(168,141,84,0.04) 100%)',
+            border: '1px solid var(--gold-deep)',
+          }}
+        >
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div>
+              <div className="eyebrow" style={{ color: 'var(--gold)' }}>{label[lang]}</div>
+              <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)', fontSize: '1.05rem' }}>
+                {char.className === 'druid' ? t('chooseCircle', lang) : t('chooseSubclass', lang)}
+              </div>
+            </div>
+            <button className="btn btn-sm" onClick={() => setOpen(true)} style={{ background: 'var(--gold)', color: 'var(--bg-deep)' }}>
+              <Icon name="sparkle" size={12}/> {char.className === 'druid' ? t('pickCircle', lang) : t('pickSubclass', lang)}
+            </button>
+          </div>
+        </div>
+        {open && <SubclassModal char={char} lang={lang} subs={subs} label={label} update={update} onClose={() => setOpen(false)} />}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="row no-print" style={{ marginBottom: 12, gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span className="eyebrow" style={{ color: 'var(--gold-deep)' }}>{label[lang]}:</span>
+        <span style={{ fontFamily: 'var(--display)', color: 'var(--gold)' }}>{current.name[lang]}</span>
+        {char.subclass === 'land' && char.landType && (
+          <span className="tag" style={{ fontSize: '0.75rem' }}>
+            {(current.landTypes || []).find(l => l.id === char.landType)?.name[lang] || char.landType}
+          </span>
+        )}
+        {char.subclass === 'stars' && char.starFormType && (
+          <span className="tag" style={{ fontSize: '0.75rem' }}>
+            {(current.starForms || []).find(f => f.id === char.starFormType)?.name[lang] || char.starFormType}
+          </span>
+        )}
+        <button className="btn btn-sm btn-ghost" onClick={() => setOpen(true)} style={{ marginLeft: 'auto' }}>
+          <Icon name="edit" size={12}/> {lang === 'pt' ? 'Alterar' : 'Change'}
+        </button>
+      </div>
+      {open && <SubclassModal char={char} lang={lang} subs={subs} label={label} update={update} onClose={() => setOpen(false)} />}
+    </>
+  );
+};
+
+const SubclassModal = ({ char, lang, subs, label, update, onClose }) => {
+  const [pendingId, setPendingId] = useState(char.subclass || '');
+  const [pendingLand, setPendingLand] = useState(char.landType || '');
+  const [pendingStar, setPendingStar] = useState(char.starFormType || '');
+  const selected = subs.find(s => s.id === pendingId);
+  const needsLand = selected && selected.id === 'land' && selected.landTypes;
+  const needsStar = selected && selected.id === 'stars' && selected.starForms;
+  const canSave = pendingId && (!needsLand || pendingLand) && (!needsStar || pendingStar);
+
+  const save = () => {
+    update({
+      subclass: pendingId,
+      landType: needsLand ? pendingLand : '',
+      starFormType: needsStar ? pendingStar : '',
+    });
+    onClose();
+  };
+
+  return (
+    <Modal onClose={onClose} title={label[lang]}>
+      <div className="options-list" style={{ marginBottom: 16 }}>
+        {subs.map(sc => {
+          const isSel = pendingId === sc.id;
+          return (
+            <button key={sc.id} className={`option ${isSel ? 'selected' : ''}`}
+              onClick={() => { setPendingId(sc.id); setPendingLand(''); setPendingStar(''); }}>
+              <div className="option-title">{sc.name[lang]}</div>
+              <div className="option-meta text-xs" style={{ marginTop: 4 }}>{sc.desc[lang]}</div>
+              {isSel && sc.features && (
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--stroke-faint)' }}>
+                  {sc.features.map((f, i) => (
+                    <div key={i} className="text-sm" style={{ marginBottom: 4 }}>
+                      <strong style={{ color: 'var(--gold-deep)' }}>Lv{f.level} {f.name[lang]}:</strong>{' '}
+                      <span style={{ color: 'var(--ink-secondary)' }}>{f.desc[lang]}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {needsLand && (
+        <>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>
+            {lang === 'pt' ? 'Terreno Sagrado' : 'Sacred Terrain'}
+          </div>
+          <div className="options-list cols-4" style={{ marginBottom: 16 }}>
+            {selected.landTypes.map(lt => (
+              <button key={lt.id} className={`option ${pendingLand === lt.id ? 'selected' : ''}`}
+                style={{ padding: '8px 12px', textAlign: 'center' }}
+                onClick={() => setPendingLand(lt.id)}>
+                {lt.name[lang]}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {needsStar && (
+        <>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>
+            {lang === 'pt' ? 'Constelação Favorita' : 'Favored Constellation'}
+          </div>
+          <div className="options-list cols-3" style={{ marginBottom: 16 }}>
+            {selected.starForms.map(sf => (
+              <button key={sf.id} className={`option ${pendingStar === sf.id ? 'selected' : ''}`}
+                onClick={() => setPendingStar(sf.id)}>
+                <div className="option-title" style={{ fontSize: '0.9rem' }}>{sf.name[lang]}</div>
+                <div className="option-meta text-xs" style={{ marginTop: 4 }}>{sf.desc[lang]}</div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div className="row" style={{ gap: 8, justifyContent: 'flex-end' }}>
+        <button className="btn btn-ghost" onClick={onClose}>
+          {lang === 'pt' ? 'Cancelar' : 'Cancel'}
+        </button>
+        <button className="btn" onClick={save} disabled={!canSave}
+          style={{ background: canSave ? 'var(--gold)' : 'var(--surface-2)', color: canSave ? 'var(--bg-deep)' : 'var(--ink-muted)' }}>
+          {lang === 'pt' ? 'Salvar' : 'Save'}
+        </button>
+      </div>
+    </Modal>
   );
 };
 

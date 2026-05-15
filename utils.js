@@ -218,6 +218,70 @@ function spellSlots(char) {
   return SRD.getSpellSlots(char.className, char.level);
 }
 
+// === Prepared-caster logic ===
+const PREPARED_CASTERS = ['cleric', 'druid', 'paladin', 'wizard'];
+
+function isPreparedCaster(char) {
+  return PREPARED_CASTERS.includes(char.className);
+}
+
+// Cantrips known by class per character level (5e SRD).
+// Some classes / subclasses grant extras — those are handled via cantripBonus().
+const CANTRIPS_BY_CLASS = {
+  bard:     [2,2,2,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4],
+  cleric:   [3,3,3,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5],
+  druid:    [2,2,2,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4],
+  sorcerer: [4,4,4,5,5,5,5,5,5,6,6,6,6,6,6,6,6,6,6,6],
+  warlock:  [2,2,2,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4],
+  wizard:   [3,3,3,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5],
+  paladin:  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  ranger:   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+};
+
+// Some races grant a bonus cantrip from a specific class' list.
+// (high-elf, drow get a wizard cantrip; etc.) Returns extra count for the
+// character's *own* class — keep simple for now.
+function cantripBonus(char) {
+  let bonus = 0;
+  // Druid Circle of the Land grants an extra cantrip (in 2024 rules) — none in 5e SRD.
+  // Reserved hook for future subclass-driven cantrip grants.
+  if (char.className === 'druid' && char.subclass === 'land') {
+    // Not strictly RAW in 2014, but common house rule and tracked by some Circles.
+    // Keep 0 unless explicitly granted.
+  }
+  return bonus;
+}
+
+function cantripsKnown(char) {
+  const table = CANTRIPS_BY_CLASS[char.className];
+  if (!table) return 0;
+  const lvl = Math.max(1, Math.min(20, char.level || 1));
+  return table[lvl - 1] + cantripBonus(char);
+}
+
+// Prepared spell limit:
+//  - Cleric / Druid / Wizard: ability mod + class level (min 1)
+//  - Paladin: CHA mod + ⌊level/2⌋ (min 1)
+function preparedSpellsLimit(char) {
+  if (!isPreparedCaster(char)) return Infinity;
+  const ab = spellcastingAbility(char);
+  if (!ab) return 0;
+  const m = abilityMod(char, ab);
+  let limit;
+  if (char.className === 'paladin') {
+    limit = m + Math.floor((char.level || 1) / 2);
+  } else {
+    limit = m + (char.level || 1);
+  }
+  return Math.max(1, limit);
+}
+
+// Max castable spell level (from slots; paladin/ranger get spells from L2).
+function maxSpellLevel(char) {
+  const slots = spellSlots(char);
+  return slots.length;
+}
+
 // === Race ASI helpers ===
 function applyRaceBonus(char, raceId) {
   const race = SRD.RACES.find(r => r.id === raceId);
@@ -266,6 +330,7 @@ return {
   abilityWithRace, abilityMod, profBonus, saveBonus, skillBonus, passivePerception,
   computeAc, maxHpDefault, speed,
   spellcastingAbility, spellSaveDc, spellAttackBonus, spellSlots,
+  isPreparedCaster, cantripsKnown, preparedSpellsLimit, maxSpellLevel,
   applyRaceBonus,
   encodeChar, decodeChar,
   rollDie, rollDice,
