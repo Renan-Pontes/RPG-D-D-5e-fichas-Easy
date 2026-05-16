@@ -1,0 +1,128 @@
+/* Estilos da tela de auth — segue a paleta do projeto */
+
+.auth-screen {
+  min-height: calc(100vh - 80px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
+.auth-card {
+  background: var(--bg-elev, #1a1410);
+  border: 1px solid var(--border, #3a2820);
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.auth-card h1 {
+  font-family: 'Cinzel', serif;
+  color: var(--ink-primary, #f4ecd8);
+}
+
+.auth-card .input {
+  background: var(--bg, #0c0805);
+  border: 1px solid var(--border, #3a2820);
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: var(--ink-primary, #f4ecd8);
+  font-family: inherit;
+}
+
+.auth-card .input:focus {
+  outline: 2px solid var(--gold, #d4a84d);
+  outline-offset: -1px;
+}
+
+.auth-error {
+  background: rgba(180, 50, 50, 0.15);
+  border: 1px solid #b43232;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #ff9999;
+  font-size: 0.9em;
+}
+
+.auth-switch {
+  margin-top: 20px;
+  text-align: center;
+  color: var(--ink-secondary);
+}
+
+.auth-switch a {
+  color: var(--gold, #d4a84d);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.auth-skip {
+  margin-top: 16px;
+  text-align: center;
+  border-top: 1px dashed var(--border);
+  padding-top: 16px;
+}
+
+.auth-migrated-banner {
+  background: rgba(60, 140, 60, 0.18);
+  border: 1px solid #3c8c3c;
+  border-radius: 6px;
+  padding: 10px 14px;
+  color: #c8f4c8;
+  margin: 16px 0;
+}
+
+/* Header user chip */
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px 4px 4px;
+  color: var(--ink-primary);
+  cursor: pointer;
+}
+.user-chip .avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: #1a1410;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.85em;
+}
+.user-chip-menu {
+  position: absolute;
+  top: 56px;
+  right: 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+  min-width: 200px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  z-index: 1000;
+}
+.user-chip-menu .menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--ink-primary);
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+  font: inherit;
+}
+.user-chip-menu .menu-item:hover {
+  background: var(--bg);
+}
+.user-chip-menu .menu-item.danger { color: #ff9999; }

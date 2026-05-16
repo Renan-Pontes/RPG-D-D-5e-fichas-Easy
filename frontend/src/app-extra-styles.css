@@ -1,0 +1,270 @@
+/* Estilos adicionais para campanhas, progressão e auth */
+
+/* Campanha list */
+.campaign-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.campaign-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: transform 120ms, border-color 120ms;
+}
+
+.campaign-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--gold);
+}
+
+.campaign-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.role-pill {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.role-pill.role-dm {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+
+/* Campaign detail */
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  background: none;
+  border: none;
+  color: var(--ink-secondary);
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  font: inherit;
+  font-weight: 500;
+}
+
+.tab.active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+}
+
+.tab .badge {
+  background: var(--gold);
+  color: var(--bg);
+  border-radius: 999px;
+  padding: 0 6px;
+  font-size: 0.8em;
+  margin-left: 4px;
+}
+
+.info-box {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.info-box h3 {
+  margin: 0 0 8px 0;
+  color: var(--gold);
+  font-family: 'Cinzel', serif;
+}
+
+.invite-code-display {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 2.5rem;
+  letter-spacing: 8px;
+  text-align: center;
+  background: var(--bg);
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  padding: 16px;
+  color: var(--gold);
+  user-select: all;
+}
+
+/* Members */
+.members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.member-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+}
+
+.character-picker {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+
+.character-picker select {
+  flex: 1;
+  background: var(--bg);
+  color: var(--ink-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+/* Approvals */
+.approval-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+}
+.approval-card.reviewed { opacity: 0.6; }
+
+.approval-payload {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 0.85em;
+  max-height: 180px;
+  overflow: auto;
+  margin: 8px 0;
+}
+
+.approval-note {
+  font-style: italic;
+  color: var(--ink-secondary);
+  margin: 4px 0;
+}
+
+.pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.pill-approved { background: rgba(60,140,60,0.2); color: #80d080; border: 1px solid #3c8c3c; }
+.pill-rejected { background: rgba(180,50,50,0.2); color: #ff9999; border: 1px solid #b43232; }
+.pill-pending  { background: rgba(212,168,77,0.2); color: var(--gold); border: 1px solid var(--gold); }
+
+/* Dice rig */
+.rig-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 16px;
+}
+
+.rig-values {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+
+.rig-value {
+  background: var(--bg);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  padding: 4px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  border-radius: 4px;
+}
+
+.rig-value.consumed {
+  border-color: var(--border);
+  color: var(--ink-secondary);
+  text-decoration: line-through;
+}
+
+/* Progression panel */
+.progression-panel {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--gold);
+  border-radius: 6px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.progression-panel h3 {
+  margin: 0 0 12px 0;
+  color: var(--gold);
+}
+
+.prog-section {
+  margin: 12px 0;
+}
+
+.prog-section.pending {
+  background: rgba(212,168,77,0.08);
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+
+.prog-label {
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: var(--ink-secondary);
+}
+
+.prog-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.prog-chip {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.85em;
+}
+
+.prog-chip.auto {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* Auth header chip */
+.app-header { position: relative; }
