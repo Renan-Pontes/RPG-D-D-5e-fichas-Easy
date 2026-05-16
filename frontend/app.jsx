@@ -170,14 +170,16 @@ const App = () => {
       return;
     }
     if (!active) return;
-    // Encontra campanha em que esse personagem está
+    // Encontra campanha em que esse personagem está atribuído.
+    // O serializer expõe o personagem como objeto aninhado (m.character.id).
     let campaigns;
     try { campaigns = (await api.listCampaigns()).campaigns; } catch { campaigns = []; }
     let targetCamp = null;
     for (const c of campaigns) {
       try {
         const det = await api.getCampaign(c.id);
-        if (det.campaign.members?.some(m => m.characterId === active.id)) {
+        const found = det.campaign.members?.some(m => m.character && String(m.character.id) === String(active.id));
+        if (found) {
           targetCamp = det.campaign;
           break;
         }
