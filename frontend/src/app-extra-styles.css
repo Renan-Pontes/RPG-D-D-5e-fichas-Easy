@@ -410,6 +410,31 @@
   color: var(--gold);
 }
 
+/* === Char list: busca === */
+.char-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.char-search input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: var(--ink-primary);
+  font: inherit;
+}
+.char-search-count {
+  color: var(--ink-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+}
+
 /* === Gerenciador de iniciativa === */
 .initiative-manager .initiative-list {
   list-style: none;
