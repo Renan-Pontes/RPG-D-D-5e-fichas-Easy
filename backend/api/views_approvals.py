@@ -20,7 +20,11 @@ def campaign_approvals(request, id_or_slug):
     user_is_dm = is_dm(request.user, campaign)
 
     if request.method == 'GET':
-        qs = Approval.objects.filter(campaign=campaign).select_related('requested_by', 'reviewed_by', 'character')
+        qs = Approval.objects.filter(campaign=campaign).select_related(
+            'requested_by', 'requested_by__profile',
+            'reviewed_by', 'reviewed_by__profile',
+            'character',
+        )
         if not user_is_dm:
             qs = qs.filter(requested_by=request.user)
         return Response({'approvals': ApprovalSerializer(qs, many=True).data})

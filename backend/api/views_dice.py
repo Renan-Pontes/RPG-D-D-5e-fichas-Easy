@@ -25,7 +25,7 @@ def campaign_rigs(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
     if request.method == 'GET':
-        rigs = DiceRig.objects.filter(campaign=campaign).select_related('target_user')
+        rigs = DiceRig.objects.filter(campaign=campaign).select_related('target_user', 'target_user__profile')
         return Response({'rigs': DiceRigSerializer(rigs, many=True).data})
 
     target_user_id = request.data.get('targetUserId')

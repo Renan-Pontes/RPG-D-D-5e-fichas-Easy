@@ -13,8 +13,15 @@ from .permissions import get_campaign_or_404, is_dm, require_member, require_dm
 @permission_classes([IsAuthenticated])
 def campaign_list(request):
     if request.method == 'GET':
+        # Pré-busca memberships do usuário para evitar N+1 no get_role do serializer
         owned = list(Campaign.objects.filter(dm=request.user))
-        joined = list(Campaign.objects.filter(memberships__user=request.user).exclude(dm=request.user).distinct())
+        joined = list(
+            Campaign.objects
+            .filter(memberships__user=request.user)
+            .exclude(dm=request.user)
+            .prefetch_related('memberships')
+            .distinct()
+        )
         seen = {c.id for c in owned}
         all_camps = owned + [c for c in joined if c.id not in seen]
         return Response({'campaigns': CampaignListSerializer(all_camps, many=True, context={'request': request}).data})

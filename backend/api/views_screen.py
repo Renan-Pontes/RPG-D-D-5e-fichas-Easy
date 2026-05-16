@@ -39,10 +39,15 @@ def _public_character(data, name, char_id):
 @permission_classes([AllowAny])
 @authentication_classes([])  # sem CSRF/sessão pra rota pública
 def screen(request, token):
-    campaign = Campaign.objects.filter(screen_token=token).select_related('dm').first()
+    campaign = (
+        Campaign.objects
+        .filter(screen_token=token)
+        .select_related('dm', 'dm__profile')
+        .first()
+    )
     if not campaign:
         raise NotFound('not_found')
-    memberships = campaign.memberships.select_related('user', 'character').all()
+    memberships = campaign.memberships.select_related('user', 'user__profile', 'character').all()
     return Response({
         'campaign': {
             'id': campaign.id,

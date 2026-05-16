@@ -118,7 +118,12 @@ class CampaignSerializer(serializers.ModelSerializer):
     def get_members(self, obj):
         request = self.context.get('request')
         is_dm = bool(request and request.user.is_authenticated and obj.dm_id == request.user.id)
-        members = obj.memberships.select_related('user', 'character').all()
+        # select_related para evitar N+1 em user.profile e character
+        members = (
+            obj.memberships
+            .select_related('user', 'user__profile', 'character')
+            .all()
+        )
         ms = MembershipSerializer(members, many=True, context={'request': request, 'is_dm': is_dm}).data
         return ms
 

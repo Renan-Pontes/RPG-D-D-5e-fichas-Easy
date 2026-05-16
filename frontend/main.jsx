@@ -1,12 +1,30 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import './styles.css';
 import './src/auth/auth-styles.css';
 import './src/screen/tv-styles.css';
 import './src/app-extra-styles.css';
-import App from './app.jsx';
 import { AuthProvider } from './src/auth/AuthContext.jsx';
-import TVScreen from './src/screen/TVScreen.jsx';
+
+// Lazy: o TV screen é uma rota independente e o App é grande (SRD pesa).
+// Separar reduz o bundle inicial e acelera o primeiro paint do TV.
+const App = lazy(() => import('./app.jsx'));
+const TVScreen = lazy(() => import('./src/screen/TVScreen.jsx'));
+
+function Loading() {
+  return (
+    <div style={{
+      minHeight: '60vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: 'var(--ink-secondary, #c0b090)',
+      fontFamily: 'Cinzel, serif',
+    }}>
+      Carregando…
+    </div>
+  );
+}
 
 // Router minimalista: a rota /tv/<token> abre o telão público sem auth.
 function Root() {
@@ -15,12 +33,18 @@ function Root() {
   const lang = (localStorage.getItem('dnd5e-forge:lang') || (navigator.language || '').startsWith('pt') ? 'pt' : 'en');
 
   if (tvMatch) {
-    return <TVScreen token={tvMatch[1]} lang={lang} />;
+    return (
+      <Suspense fallback={<Loading />}>
+        <TVScreen token={tvMatch[1]} lang={lang} />
+      </Suspense>
+    );
   }
 
   return (
     <AuthProvider>
-      <App />
+      <Suspense fallback={<Loading />}>
+        <App />
+      </Suspense>
     </AuthProvider>
   );
 }
