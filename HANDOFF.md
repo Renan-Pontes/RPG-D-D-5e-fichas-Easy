@@ -191,6 +191,95 @@ Você acordou rápido e pediu mais melhorias. Foi feito (em 8 commits):
 - `prefers-reduced-motion`: zera animações.
 - Media queries `@max-width: 720px`: tabs scrollaveis, grid 1 coluna, dice log compacto.
 
+## Matriz de autorização (endpoint → quem pode)
+
+Auditoria completa em `backend/api/tests/test_authz_matrix.py` (39 testes).
+
+### Públicos (sem auth)
+| Endpoint | Acesso |
+|---|---|
+| `GET /api/health` | anônimo OK |
+| `GET /api/auth/csrf` | anônimo OK (entrega cookie) |
+| `POST /api/auth/signup` | anônimo OK (rate-limit 5/10min/IP) |
+| `POST /api/auth/login` | anônimo OK (rate-limit 10/10min/IP) |
+| `POST /api/auth/logout` | qualquer um |
+| `GET /api/screen/<token>` | anônimo OK (telão) |
+| `GET /api/screen/<token>/rolls` | anônimo OK |
+
+### Personagens
+| Endpoint | Dono | DM da camp do char | Outro user |
+|---|---|---|---|
+| `GET /characters` | ✅ (lista própria) | — | ✅ (lista própria) |
+| `POST /characters` | ✅ | — | ✅ (cria próprio) |
+| `GET /characters/<id>` | ✅ | ✅ (readonly) | 403 |
+| `PUT /characters/<id>` | ✅ standalone; 🔒 campos sensíveis em campanha | 403 (usa `/dm-edit`) | 403 |
+| `DELETE /characters/<id>` | ✅ | 403 | 403 |
+| `GET /characters/<id>/campaigns` | ✅ | 403 | 403 |
+| `PATCH /characters/<id>/dm-edit` | 403 | ✅ | 403 |
+| `POST /characters/<id>/cast` | ✅ | 403 | 403 |
+| `POST /characters/<id>/rest` | ✅ | ✅ | 403 |
+| `POST /characters/<id>/wild-shape/transform` | ✅ druida com usos | 403 | 403 |
+| `POST /characters/<id>/wild-shape/end` | ✅ | 403 | 403 |
+| `POST /characters/<id>/wild-shape/force-end` | 403 | ✅ | 403 |
+| `POST /characters/<id>/inventory` (add) | ✅ standalone; 403 em campanha | ✅ | 403 |
+| `PATCH /characters/<id>/inventory/<itm>` | ✅ standalone tudo; campanha só `{equipped,qty,notes,attuned}` | ✅ tudo | 403 |
+| `DELETE /characters/<id>/inventory/<itm>` | ✅ standalone; 403 em campanha | ✅ | 403 |
+| `POST /characters/<id>/inventory/<itm>/consume` | ✅ | ✅ | 403 |
+
+### Campanhas
+| Endpoint | DM da campanha | Membro | Outro |
+|---|---|---|---|
+| `GET /campaigns` | ✅ | ✅ | — |
+| `POST /campaigns` | — | — | ✅ (cria como DM) |
+| `GET /campaigns/<id>` | ✅ (full) | ✅ (sem invite/screen tokens) | 403 |
+| `PUT /campaigns/<id>` | ✅ | 403 | 403 |
+| `DELETE /campaigns/<id>` | ✅ | 403 | 403 |
+| `POST /campaigns/join` | — | (qualquer user com inviteCode válido) | — |
+| `PUT /campaigns/<id>/members/<mid>` | ✅ | ✅ (própria membership) | 403 |
+| `DELETE /campaigns/<id>/members/<mid>` | ✅ remove qualquer (não DM) | ✅ sai sozinho | 403 |
+| `POST /campaigns/<id>/rotate-{screen,invite}-{token,code}` | ✅ | 403 | 403 |
+| `POST /campaigns/<id>/long-rest-all` | ✅ | 403 | 403 |
+
+### Combate
+| Endpoint | DM | Membro player | Outro |
+|---|---|---|---|
+| `GET /combat/campaign/<id>` | ✅ | ✅ | 403 |
+| `POST /combat/campaign/<id>/{start,end,reset}` | ✅ | 403 | 403 |
+| `POST /combat/campaign/<id>/combatants` | ✅ | 403 | 403 |
+| `PUT/DELETE /combat/campaign/<id>/combatants/<cid>` | ✅ | 403 | 403 |
+| `POST /combat/campaign/<id>/action` | ✅ | 403 | 403 |
+| `POST /combat/campaign/<id>/next-turn` | ✅ | 403 | 403 |
+| `POST /combat/campaign/<id>/map` | ✅ | 403 | 403 |
+
+### Dice & Rolls
+| Endpoint | DM | Membro | Outro |
+|---|---|---|---|
+| `POST /dice/roll` (sem campaignId) | — | ✅ qualquer autenticado (rate-limited 120/min) | ✅ |
+| `POST /dice/roll` (com campaignId) | ✅ | ✅ | 403 não-membro |
+| `GET/POST /dice/campaign/<id>/rigs` | ✅ | 403 | 403 |
+| `PUT/DELETE /dice/rigs/<id>` | ✅ da campanha | 403 | 403 |
+| `GET /dice/campaign/<id>/log` | ✅ | 403 | 403 |
+| `POST /rolls/campaign/<id>` (cria pedido) | ✅ | ✅ | 403 |
+| `GET /rolls/campaign/<id>/pending` | ✅ vê tudo | ✅ vê só os próprios | 403 |
+| `GET /rolls/campaign/<id>/recent` | ✅ tudo | ✅ public + próprios | 403 |
+| `POST /rolls/<id>/resolve` | ✅ da campanha do roll | 403 (mesmo o requester) | 403 |
+| `POST /rolls/<id>/cancel` | ✅ | ✅ se requester | 403 |
+
+### Aprovações de evolução
+| Endpoint | DM | Membro | Outro |
+|---|---|---|---|
+| `GET /approvals/campaign/<id>` | ✅ tudo | ✅ próprios | 403 |
+| `POST /approvals/campaign/<id>` | ✅ | ✅ (pra char próprio) | 403 |
+| `POST /approvals/<id>/review` | ✅ da campanha | 403 | 403 |
+
+### Garantias específicas testadas (`test_authz_matrix.py`)
+- Anônimo bloqueado em 5 rotas autenticadas; público liberado em `/health`, `/auth/csrf`, `/screen/*`.
+- Cross-user (Bob vs char da Alice): GET/PUT/DELETE/cast/rest/wild-shape/dm-edit/give-item todos 403.
+- Cross-campaign (DM da B em recursos da A): edit campaign, rotate, combat actions, dice rigs/log, review approval — tudo 403.
+- Recursos aninhados: rig/approval/roll de outra campanha 403.
+- `dice/roll` com `campaignId` não-membro agora 403 explícito (era silent ignore).
+- Player não resolve próprio roll (só DM resolve); player cancela próprio OK.
+
 ## Standalone vs Campanha
 
 A ficha tem **dois modos** identificados pelo campo `inCampaign` (computado: true se existe `Membership` ligando o personagem a alguma campanha).

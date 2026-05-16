@@ -103,8 +103,12 @@ def dice_roll(request):
     campaign = None
     if campaign_id:
         campaign = Campaign.objects.filter(pk=campaign_id).first()
-        if campaign and not (campaign.dm_id == request.user.id or Membership.objects.filter(campaign=campaign, user=request.user).exists()):
-            campaign = None  # ignora se não for membro
+        if not campaign:
+            raise NotFound('campaign_not_found')
+        is_member = (campaign.dm_id == request.user.id
+                     or Membership.objects.filter(campaign=campaign, user=request.user).exists())
+        if not is_member:
+            raise PermissionDenied('not_a_member')
 
     results = []
     for _ in range(count):
