@@ -28,7 +28,20 @@ DRUID = {
             2: {'auto_cantrips': ['guidance']},
         },
         'moon': {},
-        'land': {},
+        'land': {
+            # land_type_spells é uma estrutura adicional consultada pelo engine
+            # baseada em char['landType'].
+            'land_type_spells': {
+                'arctic':    {3: ['hold_person', 'spikeGrowth'], 5: ['sleet_storm', 'slow'],         7: ['freedomOfMovement', 'iceStorm'], 9: ['commune_with_nature', 'coneOfCold']},
+                'coast':     {3: ['mirrorImage', 'misty_step'],   5: ['waterBreathing', 'waterWalk'], 7: ['controlWater', 'freedomOfMovement'], 9: ['conjureElemental', 'scrying']},
+                'desert':    {3: ['blur', 'silence'],             5: ['createFood', 'protectionFromEnergy'], 7: ['blight', 'hallucinatoryTerrain'], 9: ['insectPlague', 'wallOfStone']},
+                'forest':    {3: ['barkskin', 'spiderClimb'],     5: ['callLightning', 'plantGrowth'], 7: ['divination', 'freedomOfMovement'], 9: ['commune_with_nature', 'treeStride']},
+                'grassland': {3: ['invisibility', 'pass_without_trace'], 5: ['daylight', 'haste'],    7: ['divination', 'freedomOfMovement'], 9: ['dream', 'insectPlague']},
+                'mountain':  {3: ['spiderClimb', 'spikeGrowth'],  5: ['lightning_bolt', 'meld_into_stone'], 7: ['stoneShape', 'stoneskin'], 9: ['passwall', 'wallOfStone']},
+                'swamp':     {3: ['acidArrow', 'darkness'],       5: ['waterWalk', 'stinkingCloud'],  7: ['freedomOfMovement', 'locateCreature'], 9: ['insectPlague', 'scrying']},
+                'underdark': {3: ['spiderClimb', 'webSpell'],     5: ['gaseousForm', 'stinkingCloud'], 7: ['greaterInvisibility', 'stoneShape'], 9: ['cloudkill', 'insectPlague']},
+            },
+        },
         'spores': {},
         'wildfire': {},
         'dreams': {},
@@ -84,9 +97,28 @@ CLERIC = {
         19: {'asi_or_feat': True},
     },
     'subclass_per_level': {
-        'life': {},
-        'light': {1: {'auto_cantrips': ['light']}},
-        'knowledge': {},
+        'life': {
+            # Domain spells sempre preparados
+            1: {'auto_spells': ['bless', 'cureWounds']},
+            3: {'auto_spells': ['lesserRestoration', 'spiritualWeapon']},
+            5: {'auto_spells': ['beaconOfHope', 'revivify']},
+            7: {'auto_spells': ['deathWard', 'guardianOfFaith']},
+            9: {'auto_spells': ['massCureWounds', 'raiseDead']},
+        },
+        'light': {
+            1: {'auto_cantrips': ['light'], 'auto_spells': ['burningHands', 'faerieFire']},
+            3: {'auto_spells': ['flamingSphere', 'scorchingRay']},
+            5: {'auto_spells': ['daylight', 'fireball']},
+            7: {'auto_spells': ['guardianOfFaith', 'wallOfFire']},
+            9: {'auto_spells': ['flameStrike', 'scrying']},
+        },
+        'knowledge': {
+            1: {'auto_spells': ['commandSpell', 'identify']},
+            3: {'auto_spells': ['augury', 'suggestion']},
+            5: {'auto_spells': ['nondetection', 'speakWithDead']},
+            7: {'auto_spells': ['arcaneEye', 'confusion']},
+            9: {'auto_spells': ['legendLore', 'scrying']},
+        },
     },
 }
 
@@ -135,7 +167,18 @@ PALADIN = {
         16: {'asi_or_feat': True},
         19: {'asi_or_feat': True},
     },
-    'subclass_per_level': {'devotion': {}, 'oathbreaker': {}, 'vengeance': {}},
+    'subclass_per_level': {
+        'devotion': {
+            3: {'auto_spells': ['protectionFromEvilAndGood', 'sanctuary']},
+            5: {'auto_spells': ['lesserRestoration', 'zoneOfTruth']},
+            7: {'auto_spells': ['beaconOfHope', 'dispelMagic']},
+            9: {'auto_spells': ['freedomOfMovement', 'guardianOfFaith']},
+            13: {'auto_spells': ['commune', 'flameStrike']},
+            17: {'auto_spells': ['holyAura']},
+        },
+        'oathbreaker': {},
+        'vengeance': {},
+    },
 }
 
 RANGER = {
@@ -212,7 +255,24 @@ WARLOCK = {
         16: {'asi_or_feat': True},
         19: {'asi_or_feat': True},
     },
-    'subclass_per_level': {'fiend': {}, 'archfey': {}, 'greatOldOne': {}},
+    'subclass_per_level': {
+        'fiend': {
+            1: {'auto_spells': ['burningHands', 'commandSpell']},
+            3: {'auto_spells': ['blindnessDeafness', 'scorchingRay']},
+            5: {'auto_spells': ['fireball', 'stinkingCloud']},
+            7: {'auto_spells': ['fireShield', 'wallOfFire']},
+            9: {'auto_spells': ['flameStrike', 'hallow']},
+        },
+        'hexblade': {
+            1: {'auto_spells': ['shield', 'wrathfulSmite']},
+            3: {'auto_spells': ['brandingSmite', 'magicWeapon']},
+            5: {'auto_spells': ['blinkSpell', 'elemental_weapon']},
+            7: {'auto_spells': ['phantasmal_killer', 'staggering_smite']},
+            9: {'auto_spells': ['banishingSmite', 'cone_of_cold']},
+        },
+        'archfey': {},
+        'greatOldOne': {},
+    },
 }
 
 PROGRESSION_RULES = {

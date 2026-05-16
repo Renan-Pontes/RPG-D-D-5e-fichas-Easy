@@ -91,11 +91,21 @@ export function computeProgression(character) {
     const node = rule.perLevel?.[lv];
     if (node) applyNode(out, node, lv, 'class');
     if (character.subclass) {
-      const subNode = rule.subclassPerLevel?.[character.subclass]?.[lv];
+      const subRule = rule.subclassPerLevel?.[character.subclass];
+      const subNode = subRule?.[lv];
       if (subNode) applyNode(out, subNode, lv, 'subclass');
+      // Druid Land: domain spells dependentes do landType escolhido.
+      if (subRule?.landTypeSpells && character.landType) {
+        const landSpells = subRule.landTypeSpells[character.landType]?.[lv];
+        if (Array.isArray(landSpells)) out.autoSpells.push(...landSpells);
+      }
     } else if (rule.perLevel?.[lv]?.subclassChoice) {
       out.pendingChoices.push({ level: lv, type: 'subclass', reason: 'Escolha sua subclasse' });
     }
+  }
+  // Avisa se for Land sem landType escolhido
+  if (character.className === 'druid' && character.subclass === 'land' && !character.landType && (character.level || 0) >= 3) {
+    out.pendingChoices.push({ level: 3, type: 'landType', reason: 'Escolha um terreno (Círculo da Terra)' });
   }
 
   // Resolve fórmulas com base no nível final

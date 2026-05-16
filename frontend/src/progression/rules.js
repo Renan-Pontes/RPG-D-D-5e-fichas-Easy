@@ -72,11 +72,25 @@ const DRUID = {
       10: { features: [{ id: 'thousandForms', name: 'Mil Formas', desc: 'Lance Alterar Aparência à vontade.' }] },
     },
     land: {
+      // Círculo da Terra: spells de domínio são SEMPRE preparados.
+      // Depende do landType escolhido (forest, mountain, arctic, etc.).
+      // O engine consulta landTypeSpells abaixo e expande conforme char.landType.
       2: { features: [{ id: 'naturalRecovery', name: 'Recuperação Natural', desc: 'Recupere espaços de magia em descanso curto.' }] },
-      3: { autoSpells: [] /* depende do landType — aplicado dinamicamente */ },
       6: { features: [{ id: 'landsStride', name: "Passos da Terra", desc: 'Terreno difícil natural não custa extra.' }] },
       10: { features: [{ id: 'naturesWard', name: 'Proteção da Natureza', desc: 'Imune a veneno, doença, encantamento/medo de elementais/fadas.' }] },
       14: { features: [{ id: 'naturesSanctuary', name: 'Santuário da Natureza', desc: 'Bestas/plantas SAL SAB ou não te atacam.' }] },
+      // landTypeSpells: { <landType>: { <druidLevel>: [spellIds] } }
+      // O engine acumula os spells até o nível atual conforme landType.
+      landTypeSpells: {
+        arctic:    { 3: ['hold_person', 'spikeGrowth'], 5: ['sleet_storm', 'slow'],         7: ['freedomOfMovement', 'iceStorm'], 9: ['commune_with_nature', 'coneOfCold'] },
+        coast:     { 3: ['mirrorImage', 'misty_step'],   5: ['waterBreathing', 'waterWalk'], 7: ['controlWater', 'freedomOfMovement'], 9: ['conjureElemental', 'scrying'] },
+        desert:    { 3: ['blur', 'silence'],             5: ['createFood', 'protectionFromEnergy'], 7: ['blight', 'hallucinatoryTerrain'], 9: ['insectPlague', 'wallOfStone'] },
+        forest:    { 3: ['barkskin', 'spiderClimb'],     5: ['callLightning', 'plantGrowth'], 7: ['divination', 'freedomOfMovement'], 9: ['commune_with_nature', 'treeStride'] },
+        grassland: { 3: ['invisibility', 'pass_without_trace'], 5: ['daylight', 'haste'],    7: ['divination', 'freedomOfMovement'], 9: ['dream', 'insectPlague'] },
+        mountain:  { 3: ['spiderClimb', 'spikeGrowth'],  5: ['lightning_bolt', 'meld_into_stone'], 7: ['stoneShape', 'stoneskin'], 9: ['passwall', 'wallOfStone'] },
+        swamp:     { 3: ['acidArrow', 'darkness'],       5: ['waterWalk', 'stinkingCloud'],  7: ['freedomOfMovement', 'locateCreature'], 9: ['insectPlague', 'scrying'] },
+        underdark: { 3: ['spiderClimb', 'webSpell'],     5: ['gaseousForm', 'stinkingCloud'], 7: ['greaterInvisibility', 'stoneShape'], 9: ['cloudkill', 'insectPlague'] },
+      },
     },
     stars: {
       // EXEMPLO DO USUÁRIO: Estrelas dá Guidance automático no nível 2 (via Mapa Estelar)
@@ -249,24 +263,51 @@ const CLERIC = {
   },
   subclassPerLevel: {
     life: {
-      1: { features: [{ id: 'discipleOfLife', name: 'Discípulo da Vida', desc: 'Magias de cura: +2+nível HP.' }] },
+      // Cleric Life Domain: magias de domínio são SEMPRE preparadas (não contam
+      // contra o limite). Por nível de clérigo (não da magia).
+      1: {
+        autoSpells: ['bless', 'cureWounds'],
+        features: [
+          { id: 'discipleOfLife', name: 'Discípulo da Vida', desc: 'Magias de cura: +2+nível HP.' },
+          { id: 'heavyArmorProficiency', name: 'Proficiência com Armadura Pesada', desc: 'Você ganha proficiência com armaduras pesadas.' },
+        ],
+      },
       2: { features: [{ id: 'preserveLife', name: 'Preservar a Vida', desc: 'CD: cure 5×nível HP em 30 pés.' }] },
+      3: { autoSpells: ['lesserRestoration', 'spiritualWeapon'] },
+      5: { autoSpells: ['beaconOfHope', 'revivify'] },
       6: { features: [{ id: 'blessedHealer', name: 'Curandeiro Abençoado', desc: 'Ao curar outro, cure-se 2+nível.' }] },
+      7: { autoSpells: ['deathWard', 'guardianOfFaith'] },
       8: { features: [{ id: 'divineStrike', name: 'Golpe Divino', desc: '+1d8 radiante em arma (2d8 no 14).' }] },
+      9: { autoSpells: ['massCureWounds', 'raiseDead'] },
       17: { features: [{ id: 'supremeHealing', name: 'Cura Suprema', desc: 'Dados de cura → valor máximo.' }] },
     },
     light: {
-      1: { autoCantrips: ['light'], features: [{ id: 'wardingFlare', name: 'Chama de Proteção', desc: 'Reação: desvantagem em atacante.' }] },
+      1: {
+        autoCantrips: ['light'],
+        autoSpells: ['burningHands', 'faerieFire'],
+        features: [{ id: 'wardingFlare', name: 'Chama de Proteção', desc: 'Reação: desvantagem em atacante.' }],
+      },
       2: { features: [{ id: 'radianceOfDawn', name: 'Radiance do Amanhecer', desc: 'CD: 2d10+nível radiante em 30 pés.' }] },
+      3: { autoSpells: ['flamingSphere', 'scorchingRay'] },
+      5: { autoSpells: ['daylight', 'fireball'] },
       6: { features: [{ id: 'improvedFlare', name: 'Chama Aprimorada', desc: 'Chama de Proteção protege aliados.' }] },
+      7: { autoSpells: ['guardianOfFaith', 'wallOfFire'] },
       8: { features: [{ id: 'potentSpellcasting', name: 'Conjuração Potente', desc: '+SAB no dano de truques.' }] },
+      9: { autoSpells: ['flameStrike', 'scrying'] },
       17: { features: [{ id: 'coronaOfLight', name: 'Corona de Luz', desc: 'Luz 60 pés; desvantagem em SAL fogo/radiante.' }] },
     },
     knowledge: {
-      1: { features: [{ id: 'blessingsOfKnowledge', name: 'Bênçãos do Conhecimento', desc: '+2 idiomas e 2 perícias INT (com expertise).' }] },
+      1: {
+        autoSpells: ['commandSpell', 'identify'],
+        features: [{ id: 'blessingsOfKnowledge', name: 'Bênçãos do Conhecimento', desc: '+2 idiomas e 2 perícias INT (com expertise).' }],
+      },
       2: { features: [{ id: 'knowledgeOfAges', name: 'Conhecimento das Eras', desc: 'CD: proficiência em qualquer perícia/ferramenta por 10 min.' }] },
+      3: { autoSpells: ['augury', 'suggestion'] },
+      5: { autoSpells: ['nondetection', 'speakWithDead'] },
       6: { features: [{ id: 'readThoughts', name: 'Ler Pensamentos', desc: 'CD: leia mente de criatura.' }] },
+      7: { autoSpells: ['arcaneEye', 'confusion'] },
       8: { features: [{ id: 'potentSpellcasting', name: 'Conjuração Potente', desc: '+SAB no dano de truques.' }] },
+      9: { autoSpells: ['legendLore', 'scrying'] },
       17: { features: [{ id: 'visionsOfPast', name: 'Visões do Passado', desc: 'CD: veja história de objeto/local.' }] },
     },
   },
@@ -408,12 +449,23 @@ const PALADIN = {
   },
   subclassPerLevel: {
     devotion: {
-      3: { features: [
-        { id: 'sacredWeapon', name: 'Arma Sagrada', desc: 'CD: arma +CHA em ataque, radiante, luz 20 pés.' },
-        { id: 'turnUnholy', name: 'Repelir Profanos', desc: 'CD: SAL SAB ou amedrontados (celestiais/mortos-vivos).' },
-      ] },
-      7: { features: [{ id: 'auraOfDevotion', name: 'Aura da Devoção', desc: 'Aliados em 10 pés imunes a encantamento.' }] },
+      // Paladino do Juramento da Devoção: Oath Spells sempre preparados.
+      3: {
+        autoSpells: ['protectionFromEvilAndGood', 'sanctuary'],
+        features: [
+          { id: 'sacredWeapon', name: 'Arma Sagrada', desc: 'CD: arma +CHA em ataque, radiante, luz 20 pés.' },
+          { id: 'turnUnholy', name: 'Repelir Profanos', desc: 'CD: SAL SAB ou amedrontados (celestiais/mortos-vivos).' },
+        ],
+      },
+      5: { autoSpells: ['lesserRestoration', 'zoneOfTruth'] },
+      7: {
+        autoSpells: ['beaconOfHope', 'dispelMagic'],
+        features: [{ id: 'auraOfDevotion', name: 'Aura da Devoção', desc: 'Aliados em 10 pés imunes a encantamento.' }],
+      },
+      9: { autoSpells: ['freedomOfMovement', 'guardianOfFaith'] },
+      13: { autoSpells: ['commune', 'flameStrike'] },
       15: { features: [{ id: 'purityOfSpirit', name: 'Pureza de Espírito', desc: 'Protection from Evil and Good sempre ativa.' }] },
+      17: { autoSpells: ['holyAura'] },
       20: { features: [{ id: 'holyNimbus', name: 'Nimbo Sagrado', desc: 'Aura solar 30 pés: 10 radiante/turno em inimigos; vantagem em SAL vs magia.' }] },
     },
   },
@@ -625,10 +677,35 @@ const WARLOCK = {
   },
   subclassPerLevel: {
     fiend: {
-      1: { features: [{ id: 'darkOnesBlessing', name: 'Bênção do Tenebroso', desc: 'Ao matar criatura: CHA + nível HP temp.' }] },
+      1: {
+        autoSpells: ['burningHands', 'commandSpell'],
+        features: [{ id: 'darkOnesBlessing', name: 'Bênção do Tenebroso', desc: 'Ao matar criatura: CHA + nível HP temp.' }],
+      },
+      3: { autoSpells: ['blindnessDeafness', 'scorchingRay'] },
+      5: { autoSpells: ['fireball', 'stinkingCloud'] },
       6: { features: [{ id: 'darkOnesOwnLuck', name: 'Sorte do Tenebroso', desc: '+1d10 em teste/SAL após ver o dado. 1×/desc curto.' }] },
+      7: { autoSpells: ['fireShield', 'wallOfFire'] },
+      9: { autoSpells: ['flameStrike', 'hallow'] },
       10: { features: [{ id: 'fiendishResilience', name: 'Resiliência Demoníaca', desc: 'Escolha tipo de dano: resistência. Pode mudar em desc.' }] },
       14: { features: [{ id: 'hurlThroughHell', name: 'Lançar Através do Inferno', desc: 'Após acerto: SAL CHA ou banido por 1 turno + 10d10 psíquico.' }] },
+    },
+    // Hexblade — patrono "espada"; o jogador escolhe Pacto da Lâmina como Pact Boon no nv 3
+    // (decisão de Pact Boon ainda é manual — não é auto)
+    hexblade: {
+      1: {
+        autoSpells: ['shield', 'wrathfulSmite'],
+        features: [
+          { id: 'hexblade_curse', name: "Maldição da Lâmina", desc: 'Ação bônus: amaldiçoe uma criatura em 30 pés (CR≤PROF). +PROF dano contra ela, crit em 19-20, recuperação de HP ao matá-la.' },
+          { id: 'hexWarrior', name: 'Hex Warrior', desc: 'Use CHA em vez de FOR/DEX em uma arma de sua escolha após desc longo. Proficiência com armaduras médias, escudos e armas marciais.' },
+        ],
+      },
+      3: { autoSpells: ['brandingSmite', 'magicWeapon'] },
+      5: { autoSpells: ['blinkSpell', 'elemental_weapon'] },
+      6: { features: [{ id: 'accursedSpecter', name: 'Espectro Amaldiçoado', desc: 'Ao matar humanoide: erga como espectro até desc longo. 1×/desc longo.' }] },
+      7: { autoSpells: ['phantasmal_killer', 'staggering_smite'] },
+      9: { autoSpells: ['banishingSmite', 'cone_of_cold'] },
+      10: { features: [{ id: 'armorOfHexes', name: 'Armadura de Maldições', desc: 'Alvo da maldição que te acerta: 50% chance do ataque errar.' }] },
+      14: { features: [{ id: 'masterOfHexes', name: 'Mestre das Maldições', desc: 'Ao matar alvo da maldição: transfira para nova criatura sem gastar uso.' }] },
     },
   },
 };

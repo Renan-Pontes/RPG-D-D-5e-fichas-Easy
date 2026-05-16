@@ -65,8 +65,17 @@ def compute_progression(character):
         if out['subclass']:
             sub_rule = (rule.get('subclass_per_level') or {}).get(out['subclass'], {})
             _apply_node(out, sub_rule.get(lv, {}), lv, 'subclass')
+            # Druid Land: spells dependentes de landType
+            land_table = sub_rule.get('land_type_spells')
+            if land_table and character.get('landType'):
+                land_spells = land_table.get(character['landType'], {}).get(lv)
+                if isinstance(land_spells, list):
+                    out['auto_spells'].extend(land_spells)
         elif rule['per_level'].get(lv, {}).get('subclass_choice'):
             out['pending_choices'].append({'level': lv, 'type': 'subclass', 'reason': 'Escolha sua subclasse'})
+    if (character.get('className') == 'druid' and character.get('subclass') == 'land'
+            and not character.get('landType') and (character.get('level') or 0) >= 3):
+        out['pending_choices'].append({'level': 3, 'type': 'landType', 'reason': 'Escolha um terreno (Círculo da Terra)'})
 
     # Spells prepared baseado no último node que define
     for lv in range(level, 0, -1):
