@@ -14,14 +14,18 @@ export function AuthProvider({ children }) {
       const res = await api.me();
       setUser(res.user);
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401) setUser(null);
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setUser(null);
       else console.warn('auth/me failed', e);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    // Pré-carrega CSRF token. /me retorna o cookie de CSRF junto.
+    api.csrf().catch(() => {});
+    refresh();
+  }, [refresh]);
 
   const login = useCallback(async (email, password) => {
     const res = await api.login({ email, password });
