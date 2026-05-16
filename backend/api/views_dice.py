@@ -8,6 +8,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from .models import Campaign, DiceRig, DiceLog, Membership
 from .serializers import DiceRigSerializer, DiceLogSerializer
 from .permissions import get_campaign_or_404, require_dm, is_dm
+from .rate_limit import rate_limit
 
 DICE_SIDES = {'d4': 4, 'd6': 6, 'd8': 8, 'd10': 10, 'd12': 12, 'd20': 20, 'd100': 100}
 VALID_TYPES = set(DICE_SIDES.keys()) | {'any'}
@@ -85,6 +86,7 @@ def rig_detail(request, pk):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@rate_limit(key='dice_roll', max_attempts=120, window=60, per_user=True)  # 120 rolagens/min por user
 def dice_roll(request):
     """Rola N dados pelo servidor. Se em campanha, consome rigs pendentes."""
     dice_type = request.data.get('diceType', 'd20')

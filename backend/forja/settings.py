@@ -100,7 +100,41 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.JSONParser',
     ],
     'UNAUTHENTICATED_USER': 'django.contrib.auth.models.AnonymousUser',
+    'EXCEPTION_HANDLER': 'api.exception_handler.custom_exception_handler',
 }
+
+# === Cache (usado pelo rate_limit) ===
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'forja-cache',
+    }
+}
+
+# === Logging em produção ===
+if not DEBUG:
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'verbose': {
+                'format': '[{asctime}] {levelname} {name}: {message}',
+                'style': '{',
+            },
+        },
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'formatter': 'verbose',
+                'level': 'INFO',
+            },
+        },
+        'loggers': {
+            'django': {'handlers': ['console'], 'level': 'WARNING'},
+            'django.security': {'handlers': ['console'], 'level': 'INFO'},
+            'api': {'handlers': ['console'], 'level': 'INFO'},
+        },
+    }
 
 # === CORS / CSRF ===
 CORS_ALLOWED_ORIGINS = [o.strip() for o in os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:5173').split(',') if o.strip()]

@@ -11,6 +11,7 @@ from rest_framework.response import Response
 
 from .models import Profile
 from .serializers import SignupSerializer, LoginSerializer, UserSerializer
+from .rate_limit import rate_limit, reset_rate_limit
 
 User = get_user_model()
 
@@ -25,6 +26,7 @@ def csrf(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@rate_limit(key='signup', max_attempts=5, window=600)
 def signup(request):
     s = SignupSerializer(data=request.data)
     s.is_valid(raise_exception=True)
@@ -44,6 +46,7 @@ def signup(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@rate_limit(key='login', max_attempts=10, window=600)  # 10 tentativas a cada 10 min por IP
 def login_view(request):
     s = LoginSerializer(data=request.data)
     s.is_valid(raise_exception=True)
@@ -57,6 +60,8 @@ def login_view(request):
     if not user:
         return Response({'error': 'invalid_credentials'}, status=401)
     login(request, user)
+    # zera o contador de tentativas após login OK
+    reset_rate_limit('login', request=request)
     return Response({'user': UserSerializer(user).data})
 
 
