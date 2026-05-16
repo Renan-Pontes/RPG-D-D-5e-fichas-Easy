@@ -130,17 +130,42 @@ O `vercel.json` na raiz já está configurado para buildar de `frontend/`.
 
 ### 2.2 Variáveis de ambiente
 
-Na config do projeto Vercel, adicione:
+Na config do projeto Vercel (**Settings → Environment Variables**), adicione:
 
-| Nome | Valor |
-|---|---|
-| `VITE_API_URL` | `https://SEU_USUARIO.pythonanywhere.com` |
+| Nome | Valor | Quando |
+|---|---|---|
+| `VITE_API_URL` | `https://SEU_USUARIO.pythonanywhere.com` | Production, Preview, Development |
+
+> ⚠️ Sem `VITE_API_URL` setada, o build usa o fallback `https://api-not-set.example` de `frontend/.env.production`. O frontend detecta que o backend está offline, mostra **banner laranja** no topo (“Backend offline – modo standalone”), esconde os botões de login/campanhas e funciona **só com `localStorage`**. Isso é proposital: o site sobe mesmo sem backend, e o usuário consegue criar/editar fichas localmente até o PythonAnywhere subir.
+
+Quando você tiver o backend rodando, abra a Vercel UI, edite `VITE_API_URL` apontando pro seu domínio do PythonAnywhere e **Redeploy** (Settings → Deployments → ⋯ → Redeploy). O banner some automaticamente.
 
 ### 2.3 Deploy
 
-Push pra branch principal → Vercel builda automático.
+Push pra branch principal → Vercel builda automático (o projeto está conectado ao GitHub).
+
+**Redeploy manual** (sem novo commit): Vercel UI → Deployments → último deploy → ⋯ → **Redeploy**.
+
+**Deploy local via CLI** (alternativa, exige `vercel login`):
+
+```bash
+cd frontend  # ou raiz — vercel.json cuida do path
+npx vercel --prod
+```
+
+A CLI vai pedir login na primeira vez (abre browser) e criar `.vercel/project.json` (já está no `.gitignore`).
 
 Teste: abrir o site, criar conta, criar personagem, criar campanha.
+
+### 2.4 Modo offline (standalone-only)
+
+Sem backend acessível (env não setada, PythonAnywhere caiu, CORS bloqueando), o frontend **não quebra**:
+
+- `AuthContext` faz `api.me()` no boot. Se a request explodir por erro de rede (não 401/403), seta `backendAvailable=false`.
+- Aparece banner global laranja no topo: *“Backend offline — você está em modo standalone. Fichas ficam só neste navegador (localStorage). Login/campanhas vão voltar quando o backend responder.”*
+- Botões **Entrar/Cadastrar** e **Minhas campanhas** somem da topbar.
+- Tudo que é local (criar ficha, editar atributos, rolar dados sem mestre, wild shape, inventário) continua funcionando contra `localStorage`.
+- Quando o backend voltar, recarregar a página re-checa `api.me()` e o banner some.
 
 ---
 

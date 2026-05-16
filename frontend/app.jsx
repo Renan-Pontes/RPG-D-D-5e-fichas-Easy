@@ -299,14 +299,16 @@ const App = () => {
       break;
   }
 
+  // Quando backend não responde, esconde botões de auth/campanhas (offline mode)
+  const backendOff = auth.backendAvailable === false;
   const headerRight = (
     <>
-      {auth.user && (
+      {auth.user && !backendOff && (
         <button className="btn btn-ghost btn-sm" onClick={() => setScreen(SCREENS.CAMPAIGNS)}>
           {lang === 'pt' ? 'Campanhas' : 'Campaigns'}
         </button>
       )}
-      {auth.loading ? null : auth.user ? (
+      {auth.loading || backendOff ? null : auth.user ? (
         <UserChip
           user={auth.user}
           open={userMenuOpen}
@@ -330,6 +332,14 @@ const App = () => {
         onHome={() => { setScreen(SCREENS.HOME); setActiveId(null); }}
         right={headerRight}
       />
+      {auth.backendAvailable === false && (
+        <div className="offline-banner" role="status" aria-live="polite">
+          ⚠ {lang === 'pt'
+            ? <>Backend offline — funcionando em modo <strong>standalone</strong> (fichas salvas só neste navegador). Auth, campanhas e mestre ficam indisponíveis até configurar <code>VITE_API_URL</code> no projeto Vercel.</>
+            : <>Backend offline — running in <strong>standalone</strong> mode (sheets saved only in this browser). Auth, campaigns and DM features unavailable until <code>VITE_API_URL</code> is set on the Vercel project.</>
+          }
+        </div>
+      )}
       <main id="main" className="container" tabIndex={-1}>
         {content}
       </main>
