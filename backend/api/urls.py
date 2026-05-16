@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views_auth, views_characters, views_campaigns, views_approvals, views_dice, views_screen, views_combat
+from . import views_auth, views_characters, views_campaigns, views_approvals, views_dice, views_screen, views_combat, views_inventory
 
 urlpatterns = [
     # Auth
@@ -16,6 +16,9 @@ urlpatterns = [
     path('characters/<int:pk>/dm-edit', views_characters.character_dm_edit),
     path('characters/<int:pk>/cast', views_characters.character_cast_spell),
     path('characters/<int:pk>/rest', views_characters.character_rest),
+    path('characters/<int:pk>/inventory', views_inventory.inventory_add),
+    path('characters/<int:pk>/inventory/<str:item_id>', views_inventory.inventory_item),
+    path('characters/<int:pk>/inventory/<str:item_id>/consume', views_inventory.inventory_consume),
     path('campaigns/<str:id_or_slug>/long-rest-all', views_characters.campaign_long_rest_all),
     path('characters/<int:pk>/wild-shape/transform', views_characters.wild_shape_transform),
     path('characters/<int:pk>/wild-shape/end', views_characters.wild_shape_end),

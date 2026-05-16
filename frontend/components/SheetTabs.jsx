@@ -515,18 +515,8 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
       })}
 
       <Filigree>{t('equipmentList', lang)}</Filigree>
-      {(char.equipment || []).map((e, i) => (
-        <div key={i} className="inv-row">
-          <input value={e.name} onChange={ev => updateItem(i, { name: ev.target.value })}/>
-          <input className="inv-qty" type="number" value={e.qty} onChange={ev => updateItem(i, { qty: +ev.target.value || 1 })} min="0"/>
-          <button className="btn btn-icon btn-ghost btn-danger" onClick={() => removeItem(i)}>
-            <Icon name="trash" size={14}/>
-          </button>
-        </div>
-      ))}
-      <button className="btn btn-sm btn-ghost" onClick={addItem} style={{ marginTop: 4 }}>
-        <Icon name="plus" size={14}/> {t('addItem', lang)}
-      </button>
+      <InventoryList char={char} lang={lang} update={update} addItem={addItem} updateItem={updateItem} removeItem={removeItem} />
+
 
       <Filigree>{t('coins', lang)}</Filigree>
       <div className="card" style={{ padding: 12 }}>
@@ -633,5 +623,197 @@ const SheetNotes = ({ char, lang, update }) => {
     </>
   );
 };
+
+/**
+ * InventoryList — lista de equipamento com estado (flags broken/equipped/qty/
+ * attunement/notes).
+ *
+ * Modo standalone: edita tudo localmente via `update`. Mostra botão "Adicionar".
+ * Modo campanha: usa endpoints (PATCH/DELETE/consume). Esconde "Adicionar"
+ * (item dado pelo mestre). Mostra mensagem clara.
+ *
+ * Items "legacy" sem `id` (antiga estrutura {name, qty}) ainda aparecem
+ * — convertidos para nova estrutura na primeira edição via `update`.
+ */
+function InventoryList({ char, lang, update, addItem, updateItem, removeItem }) {
+  const inCampaign = !!char.inCampaign;
+  const items = char.equipment || [];
+
+  const callBackend = async (fn) => {
+    if (typeof char.id !== 'number') return null;
+    try { return await fn(); } catch (e) {
+      alert(e?.data?.error || e?.message || 'failed');
+      return null;
+    }
+  };
+
+  const toggleEquipped = async (it, idx) => {
+    if (typeof char.id === 'number' && inCampaign && it.id) {
+      const r = await callBackend(() => api.invPatch(char.id, it.id, { equipped: !it.equipped }));
+      if (r) update({ equipment: r.character.data.equipment || [] });
+    } else {
+      updateItem(idx, { equipped: !it.equipped });
+    }
+  };
+
+  const toggleAttuned = async (it, idx) => {
+    if (!it.attunement) return;
+    const newVal = !it.attuned;
+    // Limite de 3 attuned em standalone (validado no backend em campanha)
+    if (newVal && !inCampaign) {
+      const count = items.filter(x => x.attuned).length;
+      if (count >= 3) { alert(lang === 'pt' ? 'Limite de 3 itens em sintonia.' : 'Limit of 3 attuned items.'); return; }
+    }
+    if (typeof char.id === 'number' && inCampaign && it.id) {
+      const r = await callBackend(() => api.invPatch(char.id, it.id, { attuned: newVal }));
+      if (r) update({ equipment: r.character.data.equipment || [] });
+    } else {
+      updateItem(idx, { attuned: newVal });
+    }
+  };
+
+  const consume = async (it, idx) => {
+    if (typeof char.id === 'number' && it.id) {
+      const r = await callBackend(() => api.invConsume(char.id, it.id));
+      if (r) update({ equipment: r.character.data.equipment || [] });
+    } else {
+      const nq = Math.max(0, (it.qty || 1) - 1);
+      if (nq === 0 && it.type === 'potion') {
+        const next = items.filter((_, i) => i !== idx);
+        update({ equipment: next });
+      } else {
+        updateItem(idx, { qty: nq });
+      }
+    }
+  };
+
+  const removeOne = async (it, idx) => {
+    if (inCampaign && typeof char.id === 'number') {
+      // Em campanha, dono não remove. DM remove via DM editor.
+      alert(lang === 'pt' ? 'Em campanha, apenas o mestre remove itens.' : 'In campaign, only the DM removes items.');
+      return;
+    }
+    if (typeof char.id === 'number' && it.id) {
+      const r = await callBackend(() => api.invDelete(char.id, it.id));
+      if (r) update({ equipment: r.character.data.equipment || [] });
+    } else {
+      removeItem(idx);
+    }
+  };
+
+  const setNotes = async (it, idx, notes) => {
+    if (typeof char.id === 'number' && inCampaign && it.id) {
+      await callBackend(() => api.invPatch(char.id, it.id, { notes }));
+    } else {
+      updateItem(idx, { notes });
+    }
+  };
+
+  return (
+    <>
+      {inCampaign && (
+        <div className="muted small" style={{ fontSize: '0.85em', marginBottom: 6 }}>
+          🔒 {lang === 'pt'
+            ? 'Em campanha: o mestre entrega os equipamentos. Você pode equipar, consumir e anotar.'
+            : 'In campaign: the DM gives items. You can equip, consume, and add notes.'}
+        </div>
+      )}
+      {items.length === 0 && (
+        <p className="muted small">{lang === 'pt' ? 'Sem itens.' : 'No items.'}</p>
+      )}
+      {items.map((it, i) => (
+        <InventoryRow key={it.id || `legacy-${i}`} item={it} idx={i} lang={lang}
+          inCampaign={inCampaign}
+          onToggleEquipped={() => toggleEquipped(it, i)}
+          onToggleAttuned={() => toggleAttuned(it, i)}
+          onConsume={() => consume(it, i)}
+          onRemove={() => removeOne(it, i)}
+          onSetNotes={(n) => setNotes(it, i, n)}
+          onPatchLocal={(p) => updateItem(i, p)}
+        />
+      ))}
+      {!inCampaign && (
+        <button className="btn btn-sm btn-ghost" onClick={addItem} style={{ marginTop: 4 }}>
+          <Icon name="plus" size={14}/> {t('addItem', lang)}
+        </button>
+      )}
+    </>
+  );
+}
+
+function InventoryRow({ item, idx, lang, inCampaign, onToggleEquipped, onToggleAttuned, onConsume, onRemove, onSetNotes, onPatchLocal }) {
+  const [open, setOpen] = useState(false);
+  const isLegacy = !item.id;
+  const broken = !!item.broken;
+  const equipped = !!item.equipped;
+  const attuned = !!item.attuned;
+  const canAttune = !!item.attunement;
+  const type = item.type || (isLegacy ? 'gear' : '');
+  const typeIcon = type === 'weapon' ? '⚔️' : type === 'armor' ? '🛡️' : type === 'shield' ? '🛡' : type === 'potion' ? '🧪' : type === 'magic' ? '✨' : '🎒';
+
+  return (
+    <div className={`inv-row-v2 ${broken ? 'broken' : ''} ${equipped ? 'equipped' : ''}`}>
+      <div className="inv-row-head" onClick={() => setOpen(!open)}>
+        <span className="inv-type-icon">{typeIcon}</span>
+        <span className="inv-name">{item.name || '?'}</span>
+        {item.qty != null && item.qty !== 1 && <span className="muted small">×{item.qty}</span>}
+        {broken && <span className="inv-tag broken-tag">{lang === 'pt' ? 'QUEBRADO' : 'BROKEN'}</span>}
+        {equipped && <span className="inv-tag equip-tag">{lang === 'pt' ? 'equipado' : 'equipped'}</span>}
+        {attuned && <span className="inv-tag attune-tag">⚝ {lang === 'pt' ? 'em sintonia' : 'attuned'}</span>}
+      </div>
+      {open && (
+        <div className="inv-row-body">
+          {item.description && (
+            <div className="text-sm muted" style={{ marginBottom: 6 }}>
+              {item.description[lang] || item.description.en || item.description}
+            </div>
+          )}
+          {item.weapon && (
+            <div className="text-xs muted">⚔ {item.weapon.damage} {item.weapon.dmgType}{item.weapon.props?.length ? ` · ${item.weapon.props.join(', ')}` : ''}</div>
+          )}
+          {item.armor && (
+            <div className="text-xs muted">🛡 CA {item.armor.ac} ({item.armor.type}){item.armor.stealth === 'disadv' ? ' · desv. Stealth' : ''}{item.armor.strReq ? ` · req FOR ${item.armor.strReq}` : ''}</div>
+          )}
+          {item.magic && (
+            <div className="text-xs" style={{ color: 'var(--gold)' }}>✨ {item.magic.effect?.[lang] || item.magic.effect?.en}</div>
+          )}
+          <div className="row gap-2 mt-2" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
+            {(item.type === 'weapon' || item.type === 'armor' || item.type === 'shield' || canAttune) && (
+              <button className={`btn btn-sm ${equipped ? 'btn-primary' : 'btn-ghost'}`} onClick={onToggleEquipped}>
+                {equipped ? '✓ ' : ''}{lang === 'pt' ? 'Equipado' : 'Equipped'}
+              </button>
+            )}
+            {canAttune && (
+              <button className={`btn btn-sm ${attuned ? 'btn-primary' : 'btn-ghost'}`} onClick={onToggleAttuned}>
+                ⚝ {lang === 'pt' ? 'Sintonia' : 'Attune'}
+              </button>
+            )}
+            {(item.qty || 0) > 0 && (
+              <button className="btn btn-sm btn-ghost" onClick={onConsume} title={lang === 'pt' ? 'Consumir 1' : 'Consume 1'}>
+                − {lang === 'pt' ? 'Consumir' : 'Consume'}
+              </button>
+            )}
+            {/* Em campanha não permite remover */}
+            {!inCampaign && (
+              <button className="btn btn-sm btn-ghost btn-danger" onClick={onRemove}>
+                <Icon name="trash" size={12}/>
+              </button>
+            )}
+          </div>
+          <label className="row gap-2 mt-2" style={{ alignItems: 'center' }}>
+            <span className="muted small">{lang === 'pt' ? 'Notas' : 'Notes'}:</span>
+            <input
+              value={item.notes || ''}
+              onChange={e => onPatchLocal({ notes: e.target.value })}
+              onBlur={e => onSetNotes(e.target.value)}
+              placeholder={lang === 'pt' ? '...' : '...'}
+              style={{ flex: 1 }}
+            />
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export { SheetSpells, SheetInventory, SheetStory, SheetNotes };

@@ -4,6 +4,7 @@ import { usePolling } from '../api/polling.js';
 import CombatTab from './CombatTab.jsx';
 import RollRequestPanel from './RollRequestPanel.jsx';
 import DMCharacterEditor from './DMCharacterEditor.jsx';
+import GiveItemModal from './GiveItemModal.jsx';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -354,6 +355,7 @@ function sortByValue(list) {
 function MembersTab({ campaign, lang, isDM, characters, onChange }) {
   const [assigning, setAssigning] = useState(null); // membershipId em edição
   const [editingChar, setEditingChar] = useState(null); // character object
+  const [givingTo, setGivingTo] = useState(null); // character object
 
   const assignCharacter = async (membershipId, charId) => {
     await api.updateMembership(campaign.id, membershipId, { characterId: charId });
@@ -403,6 +405,15 @@ function MembersTab({ campaign, lang, isDM, characters, onChange }) {
                 🛠 {t(lang, 'Editar ficha', 'Edit sheet')}
               </button>
             )}
+            {isDM && m.character?.data && (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setGivingTo({ id: m.character.id, name: m.character.name })}
+                title={t(lang, 'Dar item ao personagem', 'Give item to character')}
+              >
+                🎁 {t(lang, 'Dar item', 'Give item')}
+              </button>
+            )}
             {isDM && m.character?.data?.wildShape?.active && (
               <button
                 className="btn btn-ghost btn-sm"
@@ -440,6 +451,14 @@ function MembersTab({ campaign, lang, isDM, characters, onChange }) {
           lang={lang}
           onClose={() => setEditingChar(null)}
           onSaved={() => { setEditingChar(null); onChange(); }}
+        />
+      )}
+      {givingTo && (
+        <GiveItemModal
+          character={givingTo}
+          lang={lang}
+          onClose={() => setGivingTo(null)}
+          onGiven={() => { setGivingTo(null); onChange(); }}
         />
       )}
     </div>

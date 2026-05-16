@@ -255,6 +255,64 @@ Em **modo standalone** o comportamento antigo continua — clicar nos pips alter
 
 `POST /api/campaigns/:id/long-rest-all` (DM only). Aplica `long_rest` em todos os PCs da campanha — útil pra acelerar "passou a noite".
 
+## Equipamento com estado e DM dá item (item 4 do plano expandido)
+
+### Estrutura unificada em `data.equipment[]`
+
+Cada item agora tem:
+```json
+{
+  "id": "item-xxxxx",          // único por instância (UUID curto)
+  "sourceId": "longsword",     // opcional, link pro catálogo
+  "name": "Longsword",
+  "type": "weapon|armor|shield|gear|potion|magic",
+  "qty": 1,
+  "equipped": false,
+  "broken": false,
+  "attunement": false,         // o item PEDE sintonia?
+  "attuned": false,            // o jogador está em sintonia?
+  "notes": "",
+  "weapon": { ... },           // opcional, stats inline
+  "armor":  { ... },
+  "magic":  { rarity, attunement, effect{pt,en} },
+  "description": {pt, en}
+}
+```
+
+Items legacy `{name, qty}` continuam renderizáveis (sem flags = sem broken/equipado).
+
+### Catálogo no frontend
+
+`frontend/data/items.js` com ~95 itens SRD (armas, armaduras, gear básico, poções de cura tier 1-4, alguns mágicos: weapon +1/+2/+3, armor +1/+2, shield +1, bag of holding, boots/cloak of elvenkind, ring of protection, etc).
+
+Função `instantiate(sourceItem)` gera uma instância pronta com `id` único e flags default.
+
+### Permissões por modo
+
+| Ação              | Standalone owner | Campanha owner | Campanha DM | Outsider |
+|-------------------|------------------|----------------|-------------|----------|
+| Adicionar item    | ✅              | ❌ 403         | ✅          | ❌ 403   |
+| Patch livre       | ✅              | ❌ 403 fields  | ✅          | ❌ 403   |
+| Patch equipped    | ✅              | ✅             | ✅          | ❌       |
+| Patch qty/notes/attuned | ✅        | ✅             | ✅          | ❌       |
+| Patch broken/name/stats | ✅        | ❌ 403         | ✅          | ❌       |
+| Consumir 1        | ✅              | ✅             | ✅          | ❌       |
+| Remover           | ✅              | ❌ 403         | ✅          | ❌ 403   |
+
+### Regras de bônus aplicadas
+
+- **Quebrado**: o frontend renderiza riscado e desabilita uso (TODO no item legacy de weapons/armor de cálculos automáticos). Cálculo de AC e ataque atual usa `char.armor` (string ID) e `char.weapons[]` — esses não foram migrados pra inventário novo nesta iteração; itens novos com flags são informativos. Migração completa fica como TODO documentado.
+- **Attunement**: backend valida limite de 3. Item sem `attunement: true` retorna 400 ao tentar `attuned: true`.
+- **Equipped**: visual no UI (borda dourada). Sem efeito mecânico ainda (mesmo motivo do broken).
+
+### Por que não migrar weapons/armor?
+
+`char.armor` (id) e `char.weapons[]` continuam sendo a fonte de cálculo de AC e ataque na ficha. Migrar tudo pra `data.equipment[]` exigiria refatorar `Utils.computeAc`, `Sheet.jsx` weapons section e print sheet — pacote grande. Por agora as duas estruturas convivem:
+- `data.equipment[]` é o **inventário** (gear, poções, mágicos, DM-given)
+- `char.armor` e `char.weapons[]` permanecem com armas/armadura equipadas que entram no cálculo
+
+TODO: unificar em iteração futura ou criar bridge `getEquippedWeapon()` que olha em ambas.
+
 ## Próximos passos sugeridos (de manhã)
 
 1. Subir backend no PythonAnywhere e frontend no Vercel.

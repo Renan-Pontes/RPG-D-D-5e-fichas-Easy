@@ -617,6 +617,73 @@
   filter: saturate(0.6);
 }
 
+/* === Inventário v2 (com flags broken/equipped/attuned) === */
+.inv-row-v2 {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 4px;
+  overflow: hidden;
+}
+.inv-row-v2.broken {
+  opacity: 0.65;
+  filter: saturate(0.5);
+}
+.inv-row-v2.equipped {
+  border-left: 3px solid var(--gold, #d4a84d);
+}
+
+.inv-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.inv-row-head:hover {
+  background: var(--bg);
+}
+.inv-type-icon { font-size: 1.1em; }
+.inv-name {
+  flex: 1;
+  font-weight: 500;
+  color: var(--ink-primary);
+}
+.inv-row-v2.broken .inv-name {
+  text-decoration: line-through;
+  color: var(--ink-secondary);
+}
+
+.inv-tag {
+  display: inline-block;
+  font-size: 0.7em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.inv-tag.broken-tag {
+  background: rgba(180, 50, 50, 0.25);
+  color: #ff9999;
+  border: 1px solid #b43232;
+}
+.inv-tag.equip-tag {
+  background: rgba(212, 168, 77, 0.2);
+  color: var(--gold, #d4a84d);
+  border: 1px solid var(--gold-deep, #9c7a2a);
+}
+.inv-tag.attune-tag {
+  background: rgba(120, 60, 200, 0.18);
+  color: #c599ff;
+  border: 1px solid #6b3eb5;
+}
+
+.inv-row-body {
+  padding: 8px 12px;
+  border-top: 1px dashed var(--border);
+  background: var(--bg);
+}
+
 /* === Wild Shape banner === */
 .wild-shape-banner {
   display: grid;
