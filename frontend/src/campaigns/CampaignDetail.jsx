@@ -142,8 +142,7 @@ function OverviewTab({ campaign, lang, isDM, onChange }) {
 }
 
 function MembersTab({ campaign, lang, isDM, characters, onChange }) {
-  const [assigning, setAssigning] = useState(null); // membershipId
-  const myMembership = campaign.members.find(m => m.user.id === (window.__currentUserId__ || '')); // será injetado pelo App
+  const [assigning, setAssigning] = useState(null); // membershipId em edição
 
   const assignCharacter = async (membershipId, charId) => {
     await api.updateMembership(campaign.id, membershipId, { characterId: charId });
