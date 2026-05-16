@@ -58,7 +58,19 @@ npm run dev
 
 Frontend roda em `http://localhost:5173`.
 
-### Testar
+### Testar com dados de seed
+
+```bash
+cd backend
+venv\Scripts\activate
+py manage.py seed
+```
+
+Cria 2 usuários, 1 campanha, 1 personagem, 1 aprovação pendente e 1 fila de dados. Idempotente. Credenciais saem no output.
+
+Em seguida abre `http://localhost:5173` e faz login com `mestre@forja.local / forja-mestre-2026` para ver o lado do mestre, ou `renan@forja.local / thalion-druida-2026` para ver o lado do jogador.
+
+### Testar do zero
 
 Abrir `http://localhost:5173` → criar conta → criar personagem → criar campanha (clicar em "Campanhas" no header) → copiar `invite code` → fazer logout → criar outro usuário → entrar com o invite code.
 
