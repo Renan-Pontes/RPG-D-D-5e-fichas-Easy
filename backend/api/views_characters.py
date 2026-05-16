@@ -62,6 +62,39 @@ def _is_dm_of_char(user, char):
     return Membership.objects.filter(character=char, campaign__dm=user).exists()
 
 
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def character_dm_edit(request, pk):
+    """Mestre da campanha edita campos da ficha do jogador.
+
+    Body: { data: {...patch...}, name?: str }
+    O patch é mesclado no Character.data (merge no nível raiz).
+    Apenas o DM de uma campanha em que o personagem está atribuído pode usar.
+    """
+    try:
+        char = Character.objects.get(pk=pk)
+    except Character.DoesNotExist:
+        raise NotFound('not_found')
+    if not _is_dm_of_char(request.user, char):
+        raise PermissionDenied('dm_only')
+
+    patch = request.data.get('data') or {}
+    if not isinstance(patch, dict):
+        raise ValidationError({'error': 'invalid_patch'})
+
+    data = dict(char.data or {})
+    # Merge raso: o mestre pode trocar qualquer campo, incluindo sub-objetos
+    # inteiros (abilities, spellSlotsUsed). Se quiser merge profundo de
+    # abilities, frontend manda abilities inteiro.
+    data.update(patch)
+    char.data = data
+    new_name = request.data.get('name')
+    if new_name:
+        char.name = str(new_name)[:120]
+    char.save()
+    return Response({'character': CharacterSerializer(char).data})
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def wild_shape_transform(request, pk):

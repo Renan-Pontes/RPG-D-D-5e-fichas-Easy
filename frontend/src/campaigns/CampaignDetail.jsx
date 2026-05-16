@@ -3,6 +3,7 @@ import { api, API_BASE } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import CombatTab from './CombatTab.jsx';
 import RollRequestPanel from './RollRequestPanel.jsx';
+import DMCharacterEditor from './DMCharacterEditor.jsx';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -334,6 +335,7 @@ function sortByValue(list) {
 
 function MembersTab({ campaign, lang, isDM, characters, onChange }) {
   const [assigning, setAssigning] = useState(null); // membershipId em edição
+  const [editingChar, setEditingChar] = useState(null); // character object
 
   const assignCharacter = async (membershipId, charId) => {
     await api.updateMembership(campaign.id, membershipId, { characterId: charId });
@@ -374,6 +376,15 @@ function MembersTab({ campaign, lang, isDM, characters, onChange }) {
             {m.user.id === window.__currentUserId__ && (
               <button className="btn btn-ghost btn-sm" onClick={() => setAssigning(m.id)}>{t(lang, 'Trocar personagem', 'Change character')}</button>
             )}
+            {isDM && m.character?.data && (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setEditingChar({ id: m.character.id, name: m.character.name, data: m.character.data })}
+                title={t(lang, 'Editar ficha em modo mestre', 'Edit sheet in DM mode')}
+              >
+                🛠 {t(lang, 'Editar ficha', 'Edit sheet')}
+              </button>
+            )}
             {isDM && m.character?.data?.wildShape?.active && (
               <button
                 className="btn btn-ghost btn-sm"
@@ -405,6 +416,14 @@ function MembersTab({ campaign, lang, isDM, characters, onChange }) {
           )}
         </div>
       ))}
+      {editingChar && (
+        <DMCharacterEditor
+          character={editingChar}
+          lang={lang}
+          onClose={() => setEditingChar(null)}
+          onSaved={() => { setEditingChar(null); onChange(); }}
+        />
+      )}
     </div>
   );
 }

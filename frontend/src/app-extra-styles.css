@@ -435,6 +435,181 @@
   font-size: 0.85em;
 }
 
+/* === DM Character Editor === */
+.dm-editor-backdrop {
+  /* override modal-backdrop pra ocupar mais espaço */
+  padding: 16px;
+}
+.dm-editor-modal {
+  max-width: 880px;
+  width: 96vw;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.dm-editor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.dm-editor-nav {
+  display: flex;
+  gap: 2px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+.dm-editor-tab {
+  background: none;
+  border: none;
+  color: var(--ink-secondary);
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.dm-editor-tab.active { color: var(--gold, #d4a84d); border-bottom-color: var(--gold, #d4a84d); }
+
+.dm-editor-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 20px;
+}
+
+.dm-editor-foot {
+  display: flex;
+  gap: 10px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.dm-editor-section {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.dm-editor-section h4 {
+  margin: 0 0 8px 0;
+  color: var(--gold, #d4a84d);
+  font-family: 'Cinzel', serif;
+  font-size: 0.95rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.dm-editor-section-body { display: flex; flex-direction: column; gap: 8px; }
+
+.dm-num-field, .dm-text-field {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  align-items: center;
+  gap: 12px;
+}
+.dm-num-field.small {
+  grid-template-columns: 50px 80px;
+}
+.dm-num-field span, .dm-text-field span {
+  color: var(--ink-secondary);
+  font-size: 0.9em;
+}
+.dm-num-field input { max-width: 120px; }
+.dm-text-field textarea { resize: vertical; min-height: 60px; }
+
+.dm-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dm-abil-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 8px;
+}
+.dm-abil-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.dm-abil-box label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  color: var(--ink-secondary);
+  margin-bottom: 4px;
+}
+.dm-abil-box input { text-align: center; width: 60px; }
+
+.dm-condition-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 4px;
+}
+.dm-cond-chip {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--ink-primary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+.dm-cond-chip.on {
+  background: rgba(212, 168, 77, 0.2);
+  border-color: var(--gold, #d4a84d);
+  color: var(--gold, #d4a84d);
+}
+
+.dm-slots-table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dm-slots-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 1fr 100px;
+  gap: 8px;
+  align-items: center;
+  padding: 4px;
+}
+.dm-slots-header {
+  background: var(--bg-elev);
+  font-size: 0.85em;
+  color: var(--ink-secondary);
+  font-family: 'Cinzel', serif;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.dm-slots-level {
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: var(--gold, #d4a84d);
+}
+.dm-slots-avail {
+  font-family: 'JetBrains Mono', monospace;
+  text-align: center;
+}
+.dm-slots-avail.zero { color: #ff9999; }
+
+@media (max-width: 600px) {
+  .dm-num-field, .dm-text-field { grid-template-columns: 1fr; gap: 4px; }
+  .dm-num-field input { max-width: none; }
+  .dm-slots-row { grid-template-columns: 40px 1fr 1fr 70px; font-size: 0.85em; }
+}
+
 /* === Wild Shape banner === */
 .wild-shape-banner {
   display: grid;
