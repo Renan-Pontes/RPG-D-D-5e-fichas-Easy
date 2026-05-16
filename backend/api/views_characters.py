@@ -7,6 +7,7 @@ from .models import Character, Membership
 from .serializers import CharacterSerializer
 from .permissions import can_read_character
 from . import wild_shape as ws_engine
+from . import spells as spells_engine
 
 
 @api_view(['GET', 'POST'])
@@ -60,6 +61,79 @@ def _can_modify_character(user, char):
 
 def _is_dm_of_char(user, char):
     return Membership.objects.filter(character=char, campaign__dm=user).exists()
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def character_cast_spell(request, pk):
+    """Jogador conjura magia. Desconta 1 slot do nível indicado.
+    Body: { spellId: 'fireball', slotLevel: 3 }  (slotLevel=0 = truque)
+    """
+    try:
+        char = Character.objects.get(pk=pk)
+    except Character.DoesNotExist:
+        raise NotFound('not_found')
+    if char.owner_id != request.user.id:
+        raise PermissionDenied('forbidden')
+
+    slot_level = request.data.get('slotLevel')
+    if slot_level is None:
+        raise ValidationError({'error': 'missing_slotLevel'})
+    try:
+        slot_level = int(slot_level)
+    except (TypeError, ValueError):
+        raise ValidationError({'error': 'invalid_slotLevel'})
+
+    next_data, err = spells_engine.cast(char.data or {}, slot_level)
+    if err:
+        return Response({'error': err}, status=400)
+    char.data = next_data
+    char.save()
+    return Response({'character': CharacterSerializer(char).data})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def character_rest(request, pk):
+    """Descanso curto ou longo.
+    Body: { type: 'short' | 'long' }
+    Permissão: dono OU DM da campanha em que o personagem está.
+    """
+    try:
+        char = Character.objects.get(pk=pk)
+    except Character.DoesNotExist:
+        raise NotFound('not_found')
+    if not _can_modify_character(request.user, char):
+        raise PermissionDenied('forbidden')
+
+    rest_type = request.data.get('type')
+    if rest_type == 'long':
+        next_data = spells_engine.long_rest(char.data or {})
+    elif rest_type == 'short':
+        next_data = spells_engine.short_rest(char.data or {})
+    else:
+        raise ValidationError({'error': 'invalid_rest_type'})
+
+    char.data = next_data
+    char.save()
+    return Response({'character': CharacterSerializer(char).data})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def campaign_long_rest_all(request, id_or_slug):
+    """DM aplica descanso longo em todos os PCs da campanha."""
+    from .permissions import get_campaign_or_404, require_dm
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    members = Membership.objects.filter(campaign=campaign).select_related('character')
+    affected = []
+    for m in members:
+        if m.character:
+            m.character.data = spells_engine.long_rest(m.character.data or {})
+            m.character.save()
+            affected.append(m.character.id)
+    return Response({'restedCharacters': affected})
 
 
 @api_view(['PATCH'])

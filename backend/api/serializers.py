@@ -49,10 +49,16 @@ class LoginSerializer(serializers.Serializer):
 
 # === Character ===
 class CharacterSerializer(serializers.ModelSerializer):
+    inCampaign = serializers.SerializerMethodField()
+
     class Meta:
         model = Character
-        fields = ['id', 'name', 'data', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'data', 'created_at', 'updated_at', 'inCampaign']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'inCampaign']
+
+    def get_inCampaign(self, obj):
+        from .models import Membership
+        return Membership.objects.filter(character=obj).exists()
 
 
 # === Campaign ===

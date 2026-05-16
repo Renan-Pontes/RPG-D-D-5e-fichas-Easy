@@ -610,6 +610,13 @@
   .dm-slots-row { grid-template-columns: 40px 1fr 1fr 70px; font-size: 0.85em; }
 }
 
+/* === Slot pip travado (em campanha) === */
+.slot-pip.locked {
+  cursor: not-allowed;
+  opacity: 0.85;
+  filter: saturate(0.6);
+}
+
 /* === Wild Shape banner === */
 .wild-shape-banner {
   display: grid;

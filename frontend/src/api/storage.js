@@ -51,21 +51,21 @@ export function createStorageAdapter({ remote }) {
     mode: 'remote',
     async list() {
       const res = await api.listCharacters();
-      // O backend retorna { id, name, data, ... } — promove data para topo
-      return res.characters.map(c => ({ ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt }));
+      // O backend retorna { id, name, data, inCampaign, ... } — promove data
+      return res.characters.map(c => ({ ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt, inCampaign: c.inCampaign }));
     },
     async get(id) {
       try {
         const res = await api.getCharacter(id);
         const c = res.character;
-        return { ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt };
+        return { ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt, inCampaign: c.inCampaign };
       } catch (e) {
         if (e instanceof ApiError && e.status === 404) return null;
         throw e;
       }
     },
     async save(char) {
-      const { id, createdAt, updatedAt, ...data } = char;
+      const { id, createdAt, updatedAt, inCampaign, ...data } = char;
       const body = { name: char.name || 'Sem nome', data };
       let res;
       if (id && !id.startsWith('local-')) {
@@ -74,7 +74,7 @@ export function createStorageAdapter({ remote }) {
         res = await api.createCharacter(body);
       }
       const c = res.character;
-      return { ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt };
+      return { ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt, inCampaign: c.inCampaign };
     },
     async remove(id) {
       await api.deleteCharacter(id);

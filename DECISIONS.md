@@ -222,6 +222,39 @@ Por quê:
 - Telão fora de combate lê `currentHp` da ficha — assim continua coerente.
 - Custo: 1 UPDATE no Character por ação que toca HP de PC. Aceitável.
 
+## Slots travados, conjuração e descanso (item 3 do plano expandido)
+
+### Slots travados em modo campanha
+
+Personagem com `inCampaign: true` (computado pela presença de `Membership`) tem os pips de slot **read-only** na UI. Pra gastar, o jogador clica **"Conjurar"** numa magia específica:
+- Backend `POST /api/characters/:id/cast` (autoriza só o dono) faz o decremento atomicamente.
+- Truques (nível 0) não consomem slot.
+- Up-cast permitido: jogador escolhe slot maior; o engine só desconta o slot, não recalcula efeito (deixei TODO).
+
+Em **modo standalone** o comportamento antigo continua — clicar nos pips alterna usado/não.
+
+### Descanso longo
+
+`POST /api/characters/:id/rest` body `{type: 'long'}`. Autorizado para dono ou DM da campanha do personagem.
+- Zera `spellSlotsUsed`
+- Zera `wildShapeUses` (se druida)
+- `currentHp` = `maxHp`, `tempHp` = 0
+- Remove condições de status (`unconscious`, `stable`, `dead`) — mantém `poisoned`, `frightened`, etc, que não saem em descanso
+- Reseta `deathSaves`
+- Recupera `ceil(level/2)` hit dice (mínimo 1)
+
+### Descanso curto
+
+`POST /api/characters/:id/rest` body `{type: 'short'}`. Implementação PHB básica:
+- **Bruxo**: restaura todos os slots (Pact Magic).
+- **Druida**: restaura `wildShapeUses` (a regra de Wild Shape do PHB diz "descanso curto ou longo").
+- **Mago**: Arcane Recovery existe mas exige escolha do jogador (slot total ≤ ceil(level/2)) — deixei como manual. TODO: UI específica.
+- **Outros**: descanso curto não tem efeito automático (gasto de hit dice fica manual).
+
+### Descanso longo da party
+
+`POST /api/campaigns/:id/long-rest-all` (DM only). Aplica `long_rest` em todos os PCs da campanha — útil pra acelerar "passou a noite".
+
 ## Próximos passos sugeridos (de manhã)
 
 1. Subir backend no PythonAnywhere e frontend no Vercel.

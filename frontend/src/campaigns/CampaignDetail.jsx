@@ -154,6 +154,24 @@ function OverviewTab({ campaign, lang, isDM, onChange }) {
           </>
         )}
       </div>
+      {isDM && (
+        <div className="info-box" style={{ background: 'rgba(92, 186, 92, 0.08)' }}>
+          <h3 style={{ marginTop: 0 }}>{t(lang, 'Descanso da campanha', 'Campaign rest')}</h3>
+          <p className="muted small" style={{ marginTop: 0 }}>
+            {t(lang, 'Aplica descanso longo em todos os PCs: restaura slots, HP, Wild Shape, hit dice.', 'Applies long rest to all PCs: restores slots, HP, Wild Shape uses, hit dice.')}
+          </p>
+          <button className="btn btn-ghost btn-sm" onClick={async () => {
+            if (!confirm(t(lang, 'Aplicar descanso longo em todos os personagens da campanha?', 'Apply long rest to all party members?'))) return;
+            try {
+              const r = await api.campaignLongRestAll(campaign.id);
+              alert(t(lang, `${r.restedCharacters.length} personagem(ns) descansaram.`, `${r.restedCharacters.length} character(s) rested.`));
+              onChange();
+            } catch (e) { alert(e?.data?.error || e?.message); }
+          }}>
+            🛌 {t(lang, 'Descanso longo (toda a party)', 'Long rest (whole party)')}
+          </button>
+        </div>
+      )}
       {isDM && <InitiativeManager campaign={campaign} lang={lang} onChange={onChange} />}
       <CampaignDiceRoller campaign={campaign} lang={lang} />
       <div className="info-box">

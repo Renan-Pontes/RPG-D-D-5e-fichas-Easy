@@ -5,6 +5,7 @@ import Utils from '../utils.js';
 import { t, tName } from '../data/i18n.js';
 import Icon from './Icons.jsx';
 import { Filigree, NumStepper, Pips } from './Shared.jsx';
+import { api } from '../src/api/client.js';
 
 const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, roll }) => {
   const cls = SRD.CLASSES.find(c => c.id === char.className);
@@ -73,10 +74,19 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
 
       {slots && slots.length > 0 && slots.some(s => s) && (
         <>
-          <div className="eyebrow mb-2">{t('slots', lang)}</div>
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <div className="eyebrow">{t('slots', lang)}</div>
+            <RestButtons char={char} lang={lang} update={update} />
+          </div>
+          {char.inCampaign && (
+            <div className="muted small" style={{ fontSize: '0.8em', marginBottom: 6 }}>
+              🔒 {lang === 'pt' ? 'Em campanha: slots travados. Use "Conjurar" nas magias abaixo.' : 'In campaign: slots locked. Use "Cast" on spells below.'}
+            </div>
+          )}
           {slots.map((max, idx) => {
             if (!max) return null;
             const used = (char.spellSlotsUsed && char.spellSlotsUsed[idx]) || 0;
+            const locked = !!char.inCampaign;
             return (
               <div key={idx} className="slot-row">
                 <div className="slot-level">{lang === 'pt' ? 'Nv' : 'Lv'} {idx + 1}</div>
@@ -84,8 +94,9 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
                   {Array.from({ length: max }).map((_, i) => (
                     <button
                       key={i} type="button"
-                      className={`slot-pip ${i < used ? 'used' : ''}`}
-                      onClick={() => {
+                      className={`slot-pip ${i < used ? 'used' : ''} ${locked ? 'locked' : ''}`}
+                      disabled={locked}
+                      onClick={locked ? undefined : () => {
                         const arr = [...(char.spellSlotsUsed || [])];
                         while (arr.length <= idx) arr.push(0);
                         arr[idx] = i < used ? i : i + 1;
@@ -135,10 +146,11 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
               showPrepared={+lvl > 0}
               onTogglePrepared={() => togglePrepared(s.id)}
               onRemove={() => removeSpell(s.id)}
-              onCast={() => {
-                // attack roll if it's a damaging cantrip/spell — let the user roll dice manually via desc
-                if (spellAtk !== null) roll({ die: 20, mod: spellAtk, label: tName('spellName', s.id, lang) + ' ' + t('attackRoll', lang) });
-              }}
+              char={char}
+              slots={slots}
+              update={update}
+              spellAtk={spellAtk}
+              roll={roll}
             />
           ))}
         </div>
@@ -242,9 +254,54 @@ const BeastCard = ({ beast, lang }) => {
   );
 };
 
-const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, onCast }) => {
+const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char, slots, update, spellAtk, roll }) => {
   const [open, setOpen] = useState(false);
+  const [casting, setCasting] = useState(false);
+  const [error, setError] = useState('');
   const sp = spell.def;
+  const isCantrip = sp.level === 0;
+  const inCampaign = !!char?.inCampaign;
+
+  // Slot selecionado pra conjurar (default: nível mínimo possível = nível da magia)
+  const available = (slots || []).map((max, i) => {
+    const used = (char.spellSlotsUsed || [])[i] || 0;
+    return { level: i + 1, max, used, free: max - used };
+  }).filter(x => x.level >= sp.level && x.free > 0);
+  const [chosenSlot, setChosenSlot] = useState(sp.level || 1);
+  // sincronia: se o nível escolhido não está disponível, escolhe o mínimo disponível
+  const effectiveSlot = available.find(x => x.level === chosenSlot) ? chosenSlot : (available[0]?.level || sp.level);
+
+  const cast = async () => {
+    setError('');
+    setCasting(true);
+    try {
+      const lvl = isCantrip ? 0 : effectiveSlot;
+      if (typeof char.id === 'number' && inCampaign) {
+        // Backend faz o desconto atomicamente
+        const res = await api.castSpell(char.id, { spellId: sp.id, slotLevel: lvl });
+        // res.character.data tem o novo spellSlotsUsed; propaga via update merge
+        const data = res.character.data || {};
+        update({ spellSlotsUsed: data.spellSlotsUsed || char.spellSlotsUsed });
+      } else if (!isCantrip) {
+        // Standalone (local OR remoto sem campanha): aplica local
+        const arr = [...(char.spellSlotsUsed || [])];
+        while (arr.length < 9) arr.push(0);
+        arr[lvl - 1] = (arr[lvl - 1] || 0) + 1;
+        update({ spellSlotsUsed: arr });
+      }
+      // Rolagem de ataque, se aplicável
+      if (spellAtk !== null && spellAtk !== undefined) {
+        roll({ die: 20, mod: spellAtk, label: tName('spellName', sp.id, lang) + ' ' + t('attackRoll', lang) });
+      }
+    } catch (e) {
+      setError(e?.data?.error || e?.message || 'failed');
+    } finally {
+      setCasting(false);
+    }
+  };
+
+  const canCast = isCantrip || available.length > 0;
+
   return (
     <div className={`spell-row ${open ? 'open' : ''}`}>
       <div className="spell-row-header" onClick={() => setOpen(!open)}>
@@ -277,16 +334,99 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, onCas
             <div className="text-xs muted">{t('duration', lang)}: <span style={{ color: 'var(--ink-secondary)' }}>{sp.duration}</span></div>
           </div>
           <div className="text-sm" style={{ color: 'var(--ink-secondary)' }}>{sp.desc[lang]}</div>
-          <div className="row gap-2 mt-3">
-            <button className="btn btn-sm btn-ghost" onClick={onCast}>
-              <Icon name="dice" size={12}/> {lang === 'pt' ? 'Atacar' : 'Cast'}
+          {error && <div style={{ color: '#ff9999', fontSize: '0.85em', marginTop: 4 }}>{error}</div>}
+          <div className="row gap-2 mt-3" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+            {!isCantrip && available.length > 0 && (
+              <label className="text-xs muted" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                {lang === 'pt' ? 'Slot' : 'Slot'}:
+                <select
+                  value={effectiveSlot}
+                  onChange={e => setChosenSlot(parseInt(e.target.value))}
+                  className="input"
+                  style={{ padding: '2px 6px', fontSize: '0.85em', height: 'auto' }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  {available.map(x => (
+                    <option key={x.level} value={x.level}>
+                      Nv {x.level} ({x.free}/{x.max}){x.level > sp.level ? ' ↑' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <button
+              className="btn btn-sm btn-primary"
+              onClick={cast}
+              disabled={!canCast || casting}
+              title={!canCast ? (lang === 'pt' ? 'Sem slot disponível neste nível' : 'No slot available') : undefined}
+            >
+              <Icon name="dice" size={12}/> {casting ? '…' : (isCantrip ? (lang === 'pt' ? 'Conjurar truque' : 'Cast cantrip') : (lang === 'pt' ? 'Conjurar' : 'Cast'))}
             </button>
-            <button className="btn btn-sm btn-ghost btn-danger" onClick={onRemove}>
-              <Icon name="trash" size={12}/>
-            </button>
+            {!isCantrip && !canCast && (
+              <span className="text-xs" style={{ color: '#ff9999' }}>
+                {lang === 'pt' ? 'sem slot' : 'no slot'}
+              </span>
+            )}
+            {!inCampaign && (
+              <button className="btn btn-sm btn-ghost btn-danger" onClick={onRemove} title={lang === 'pt' ? 'Remover magia' : 'Remove'}>
+                <Icon name="trash" size={12}/>
+              </button>
+            )}
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+/**
+ * Botões de descanso. Em campanha: chama backend (recurso autorizado pra dono
+ * ou DM). Em standalone: aplica local.
+ */
+const RestButtons = ({ char, lang, update }) => {
+  const [busy, setBusy] = useState(false);
+  const restore = async (type) => {
+    setBusy(true);
+    try {
+      if (typeof char.id === 'number') {
+        const res = await api.rest(char.id, { type });
+        const d = res.character.data || {};
+        update({
+          spellSlotsUsed: d.spellSlotsUsed,
+          wildShapeUses: d.wildShapeUses,
+          currentHp: d.currentHp,
+          tempHp: d.tempHp,
+          conditions: d.conditions,
+          deathSaves: d.deathSaves,
+          hitDiceUsed: d.hitDiceUsed,
+        });
+      } else {
+        // Local — aplica via merge
+        const patch = {};
+        if (type === 'long') {
+          patch.spellSlotsUsed = [0,0,0,0,0,0,0,0,0];
+          patch.wildShapeUses = 0;
+          patch.currentHp = char.maxHp;
+          patch.tempHp = 0;
+          patch.conditions = (char.conditions || []).filter(c => c !== 'unconscious');
+          patch.deathSaves = { success: 0, fail: 0 };
+        } else {
+          if (char.className === 'warlock') patch.spellSlotsUsed = [0,0,0,0,0,0,0,0,0];
+          if (char.className === 'druid') patch.wildShapeUses = 0;
+        }
+        update(patch);
+      }
+    } catch (e) { console.warn('rest failed', e); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="row gap-1">
+      <button className="btn btn-sm btn-ghost" onClick={() => restore('short')} disabled={busy} title={lang === 'pt' ? 'Descanso curto' : 'Short rest'}>
+        ☕ {lang === 'pt' ? 'Curto' : 'Short'}
+      </button>
+      <button className="btn btn-sm btn-ghost" onClick={() => restore('long')} disabled={busy} title={lang === 'pt' ? 'Descanso longo' : 'Long rest'}>
+        🛌 {lang === 'pt' ? 'Longo' : 'Long'}
+      </button>
     </div>
   );
 };
