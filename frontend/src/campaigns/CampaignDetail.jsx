@@ -374,6 +374,22 @@ function MembersTab({ campaign, lang, isDM, characters, onChange }) {
             {m.user.id === window.__currentUserId__ && (
               <button className="btn btn-ghost btn-sm" onClick={() => setAssigning(m.id)}>{t(lang, 'Trocar personagem', 'Change character')}</button>
             )}
+            {isDM && m.character?.data?.wildShape?.active && (
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ color: '#79d479' }}
+                onClick={async () => {
+                  if (!confirm(t(lang, `Forçar ${m.character.name} a sair da forma selvagem?`, `Force ${m.character.name} out of wild shape?`))) return;
+                  try {
+                    await api.wildShapeForceEnd(m.character.id, {});
+                    onChange();
+                  } catch (e) { alert(e?.data?.error || e?.message); }
+                }}
+                title={t(lang, 'Forçar saída da forma selvagem', 'Force out of wild shape')}
+              >
+                🐾 {t(lang, 'Sair forma', 'End form')}
+              </button>
+            )}
             {isDM && m.role !== 'dm' && (
               <button className="btn btn-ghost btn-sm" style={{ color: '#ff9999' }} onClick={() => removeMember(m.id)}>{t(lang, 'Remover', 'Remove')}</button>
             )}

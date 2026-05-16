@@ -1,11 +1,12 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
 from .models import Character, Membership
 from .serializers import CharacterSerializer
 from .permissions import can_read_character
+from . import wild_shape as ws_engine
 
 
 @api_view(['GET', 'POST'])
@@ -45,6 +46,102 @@ def character_detail(request, pk):
     s.is_valid(raise_exception=True)
     s.save()
     return Response({'character': s.data})
+
+
+def _can_modify_character(user, char):
+    """Dono sempre pode. Mestre da campanha em que o personagem está, também."""
+    if char.owner_id == user.id:
+        return True
+    return Membership.objects.filter(
+        character=char,
+        campaign__dm=user,
+    ).exists()
+
+
+def _is_dm_of_char(user, char):
+    return Membership.objects.filter(character=char, campaign__dm=user).exists()
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def wild_shape_transform(request, pk):
+    """Druida transforma. Body: { beast: {id, hp, ac, str/dex/con/int/wis/cha,
+    speed, size, fly?, swim?, crNum, actions[], traits[]} }
+
+    Apenas o dono pode transformar a si mesmo. O mestre da campanha NÃO pode
+    transformar o jogador (mas pode forçar saída).
+    """
+    try:
+        char = Character.objects.get(pk=pk)
+    except Character.DoesNotExist:
+        raise NotFound('not_found')
+    if char.owner_id != request.user.id:
+        raise PermissionDenied('forbidden')
+
+    data = char.data or {}
+    if (data.get('className') or '').lower() != 'druid':
+        return Response({'error': 'not_druid'}, status=400)
+
+    beast = request.data.get('beast') or {}
+    if not beast.get('id') or not beast.get('hp'):
+        raise ValidationError({'error': 'invalid_beast'})
+
+    level = int(data.get('level') or 1)
+    subclass = data.get('subclass') or ''
+    eligible, reason = ws_engine.beast_eligible(level, subclass, beast)
+    if not eligible:
+        return Response({'error': 'beast_not_eligible', 'reason': reason}, status=400)
+
+    uses = data.get('wildShapeUses') or 0
+    if uses >= 2:
+        return Response({'error': 'no_uses_remaining'}, status=400)
+
+    next_data, err = ws_engine.transform(data, beast)
+    if err:
+        return Response({'error': err}, status=400)
+
+    char.data = next_data
+    char.save()
+    return Response({'character': CharacterSerializer(char).data})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def wild_shape_end(request, pk):
+    """Sai da forma selvagem voluntariamente. Apenas dono."""
+    try:
+        char = Character.objects.get(pk=pk)
+    except Character.DoesNotExist:
+        raise NotFound('not_found')
+    if char.owner_id != request.user.id:
+        raise PermissionDenied('forbidden')
+    next_data, err = ws_engine.end_transform(char.data or {}, excess_damage=0)
+    if err:
+        return Response({'error': err}, status=400)
+    char.data = next_data
+    char.save()
+    return Response({'character': CharacterSerializer(char).data})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def wild_shape_force_end(request, pk):
+    """Mestre força saída da forma selvagem. Personagem precisa estar numa
+    campanha em que o request.user é o DM. Permite passar `excess_damage`
+    pra simular dano excedente narrativo."""
+    try:
+        char = Character.objects.get(pk=pk)
+    except Character.DoesNotExist:
+        raise NotFound('not_found')
+    if not _is_dm_of_char(request.user, char):
+        raise PermissionDenied('dm_only')
+    excess = int(request.data.get('excessDamage') or 0)
+    next_data, err = ws_engine.end_transform(char.data or {}, excess_damage=excess)
+    if err:
+        return Response({'error': err}, status=400)
+    char.data = next_data
+    char.save()
+    return Response({'character': CharacterSerializer(char).data})
 
 
 @api_view(['GET'])

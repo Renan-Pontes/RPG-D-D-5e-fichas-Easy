@@ -189,21 +189,44 @@ def combat_add_combatant(request, id_or_slug):
             raise NotFound('character_not_found')
         # PC stats vêm da ficha (data JSON)
         d = char.data or {}
-        abilities = d.get('abilities') or {}
-        dex_mod = (abilities.get('dex', 10) - 10) // 2
-        ac = d.get('armorClass') or (10 + dex_mod + (2 if d.get('hasShield') else 0))
-        combatant['name'] = char.name
+        ws = d.get('wildShape') or {}
         combatant['character_id'] = char.id
-        combatant['current_hp'] = d.get('currentHp', d.get('maxHp', 1))
-        combatant['stats'] = {
-            'ac': ac,
-            'max_hp': d.get('maxHp', combatant['current_hp']),
-            'speed': d.get('speedOverride') or 30,
-            'abilities': abilities,
-            'saves': {},  # PC saves derivados da ficha; mestre pode ajustar manualmente
-            'actions': [],  # ações de PC são executadas pelo jogador
-        }
         combatant['death_saves'] = d.get('deathSaves') or {'success': 0, 'fail': 0}
+
+        if ws.get('active'):
+            # Druida transformado entra no combate como a fera
+            beast_stats = ws.get('beastStats') or {}
+            combatant['name'] = f"{char.name} ({ws.get('beastName')})"
+            combatant['current_hp'] = ws.get('beastCurrentHp') or 1
+            combatant['wild_shape'] = True
+            combatant['stats'] = {
+                'ac': ws.get('beastAc', 10),
+                'max_hp': ws.get('beastMaxHp', 1),
+                'speed': ws.get('beastSpeed') or 30,
+                'abilities': beast_stats,
+                'saves': {},
+                'actions': ws.get('beastActions') or [],
+            }
+            # Token maior se fera Large+
+            size = (ws.get('beastSize') or 'Medium')
+            if size == 'Large':       combatant['token_scale'] = 2
+            elif size == 'Huge':      combatant['token_scale'] = 3
+            elif size == 'Gargantuan': combatant['token_scale'] = 4
+            elif size in ('Tiny',):   combatant['token_scale'] = 0.5
+        else:
+            abilities = d.get('abilities') or {}
+            dex_mod = (abilities.get('dex', 10) - 10) // 2
+            ac = d.get('armorClass') or (10 + dex_mod + (2 if d.get('hasShield') else 0))
+            combatant['name'] = char.name
+            combatant['current_hp'] = d.get('currentHp', d.get('maxHp', 1))
+            combatant['stats'] = {
+                'ac': ac,
+                'max_hp': d.get('maxHp', combatant['current_hp']),
+                'speed': d.get('speedOverride') or 30,
+                'abilities': abilities,
+                'saves': {},
+                'actions': [],
+            }
     elif t == 'monster':
         m = request.data.get('monster') or {}
         if not m:
@@ -438,7 +461,15 @@ def combat_action(request, id_or_slug):
 
 
 def _sync_pc_to_character(combatant):
-    """Sincroniza HP/condições/death_saves de volta na Character.data do PC."""
+    """Sincroniza HP/condições/death_saves de volta na Character.data do PC.
+
+    Se o combatant é wild_shape (druida transformado), o current_hp é o HP da fera.
+    Atualiza wildShape.beastCurrentHp. Se zerado, termina a transformação (excedente
+    seria 0 aqui — o combat engine não rastreia excedente; pra simplicidade,
+    HP zero em wild shape = sai da forma com excess 0; dano excedente real
+    aplica via /wild-shape/force-end com excessDamage).
+    """
+    from . import wild_shape as wse
     cid = combatant.get('character_id')
     if not cid:
         return
@@ -447,7 +478,20 @@ def _sync_pc_to_character(combatant):
     except Character.DoesNotExist:
         return
     data = dict(char.data or {})
-    data['currentHp'] = combatant.get('current_hp')
+    if combatant.get('wild_shape') and (data.get('wildShape') or {}).get('active'):
+        ws = dict(data['wildShape'])
+        new_beast_hp = combatant.get('current_hp') or 0
+        ws['beastCurrentHp'] = new_beast_hp
+        data['wildShape'] = ws
+        if new_beast_hp <= 0:
+            # Fera caiu: sai da forma, druida fica com o HP pré-transform inteiro
+            # (excedente real deveria vir do dano que sobrou, mas o engine de
+            # combate só sabe o HP final aqui; mestre pode usar /force-end com
+            # excessDamage explícito para subtrair).
+            data, _ = wse.end_transform(data, excess_damage=0)
+        # Não toca em currentHp principal aqui — só na fera
+    else:
+        data['currentHp'] = combatant.get('current_hp')
     if combatant.get('temp_hp') is not None:
         data['tempHp'] = combatant.get('temp_hp')
     data['conditions'] = combatant.get('conditions') or []

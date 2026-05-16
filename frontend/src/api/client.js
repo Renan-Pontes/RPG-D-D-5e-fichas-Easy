@@ -76,6 +76,9 @@ export const api = {
   updateCharacter:  (id, body) => request(`/api/characters/${id}`, { method: 'PUT', body }),
   deleteCharacter:  (id) => request(`/api/characters/${id}`, { method: 'DELETE' }),
   characterCampaigns: (id) => request(`/api/characters/${id}/campaigns`),
+  wildShapeTransform: (id, body) => request(`/api/characters/${id}/wild-shape/transform`, { method: 'POST', body }),
+  wildShapeEnd:       (id) => request(`/api/characters/${id}/wild-shape/end`, { method: 'POST' }),
+  wildShapeForceEnd:  (id, body) => request(`/api/characters/${id}/wild-shape/force-end`, { method: 'POST', body }),
   // Campaigns
   listCampaigns:   () => request('/api/campaigns'),
   getCampaign:     (idOrSlug) => request(`/api/campaigns/${idOrSlug}`),

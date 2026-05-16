@@ -13,6 +13,9 @@ urlpatterns = [
     path('characters', views_characters.character_list),
     path('characters/<int:pk>', views_characters.character_detail),
     path('characters/<int:pk>/campaigns', views_characters.character_campaigns),
+    path('characters/<int:pk>/wild-shape/transform', views_characters.wild_shape_transform),
+    path('characters/<int:pk>/wild-shape/end', views_characters.wild_shape_end),
+    path('characters/<int:pk>/wild-shape/force-end', views_characters.wild_shape_force_end),
 
     # Campaigns
     path('campaigns', views_campaigns.campaign_list),

@@ -435,6 +435,63 @@
   font-size: 0.85em;
 }
 
+/* === Wild Shape banner === */
+.wild-shape-banner {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  margin: 12px 0;
+  padding: 12px 18px;
+  background: linear-gradient(90deg, rgba(100, 180, 100, 0.18), rgba(212, 168, 77, 0.10));
+  border: 1px solid #5cba5c;
+  border-left: 4px solid #5cba5c;
+  border-radius: 8px;
+  animation: ws-glow 2.5s ease-in-out infinite;
+}
+@keyframes ws-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(92, 186, 92, 0.2); }
+  50%      { box-shadow: 0 0 20px rgba(92, 186, 92, 0.5); }
+}
+.wsb-icon { font-size: 2rem; }
+.wsb-info { flex: 1; }
+.wsb-title {
+  font-family: 'Cinzel', serif;
+  color: #79d479;
+  font-size: 1.05rem;
+}
+.wsb-hp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.wsb-hp-bar {
+  flex: 1;
+  max-width: 240px;
+  height: 14px;
+  background: #2a1c14;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.wsb-hp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #5cba5c, #79d479);
+  transition: width 400ms ease;
+}
+.wsb-hp-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9em;
+  color: var(--ink-primary);
+}
+.wsb-pre {
+  font-size: 0.85em;
+  color: var(--ink-secondary);
+  margin-top: 4px;
+  font-style: italic;
+}
+
 /* === Gerenciador de iniciativa === */
 .initiative-manager .initiative-list {
   list-style: none;

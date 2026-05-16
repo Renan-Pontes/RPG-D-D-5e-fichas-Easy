@@ -6,6 +6,7 @@ import { t, tName } from '../data/i18n.js';
 import Icon from './Icons.jsx';
 import { Filigree, Modal, NumStepper, Pips, AvatarUpload } from './Shared.jsx';
 import { SheetSpells, SheetInventory, SheetStory, SheetNotes } from './SheetTabs.jsx';
+import { api, ApiError } from '../src/api/client.js';
 
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDelete, onBack }) => {
   const [tab, setTab] = useState('play');
@@ -35,11 +36,46 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
   const bg = SRD.BACKGROUNDS.find(b => b.id === char.background);
 
   // === HP actions ===
+  // Se em Wild Shape: dano vai pra fera. Quando ela chega a 0, o excedente
+  // vai pro HP humanoide pré-transformação e sai da forma.
   const applyHp = (delta) => {
+    const ws = char.wildShape;
+    if (ws?.active && delta < 0) {
+      const dmg = -delta;
+      const beastHp = ws.beastCurrentHp || 0;
+      if (dmg <= beastHp) {
+        update({
+          currentHp: beastHp - dmg,
+          wildShape: { ...ws, beastCurrentHp: beastHp - dmg },
+        });
+      } else {
+        const excess = dmg - beastHp;
+        const preHp = ws.preTransformHp || 0;
+        const newHumanoidHp = Math.max(0, preHp - excess);
+        update({
+          currentHp: newHumanoidHp,
+          tempHp: ws.preTransformTempHp || 0,
+          wildShape: { active: false },
+        });
+      }
+      setHpDelta(0);
+      return;
+    }
+    if (ws?.active && delta > 0) {
+      // Cura em wild shape vai pra fera (não passa do max dela)
+      const beastMax = ws.beastMaxHp || 0;
+      const beastHp = ws.beastCurrentHp || 0;
+      const newBeast = Math.min(beastMax, beastHp + delta);
+      update({
+        currentHp: newBeast,
+        wildShape: { ...ws, beastCurrentHp: newBeast },
+      });
+      setHpDelta(0);
+      return;
+    }
     let newCurrent = char.currentHp + delta;
     let newTemp = char.tempHp || 0;
     if (delta < 0) {
-      // damage hits temp first
       const dmg = -delta;
       const absorbed = Math.min(newTemp, dmg);
       newTemp -= absorbed;
@@ -65,6 +101,10 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
         onBack={onBack}
         cls={cls} race={race} bg={bg}
       />
+
+      {char.wildShape?.active && (
+        <WildShapeBanner char={char} lang={lang} onChange={onUpdate} />
+      )}
 
       <div className="action-bar no-print">
         <button className="chip" onClick={onPrint}><Icon name="print" size={14} className="chip-icon"/> {t('print', lang)}</button>
@@ -477,7 +517,57 @@ const LevelUpModal = ({ char, cls, lang, canLevel, onClose }) => {
 };
 
 // ===== Wild Shape (Druid) =====
-const BeastModal = ({ beast, lang, onClose }) => {
+
+/** Banner mostrado quando o druida está transformado. Mostra nome da fera +
+ * HP atual da fera / HP da fera + botão "Sair da forma". */
+const WildShapeBanner = ({ char, lang, onChange }) => {
+  const ws = char.wildShape || {};
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const endShape = async () => {
+    setBusy(true); setErr('');
+    try {
+      if (char.id && !String(char.id).startsWith('local-') && typeof char.id === 'number') {
+        const res = await api.wildShapeEnd(char.id);
+        onChange(res.character.data ? { ...res.character.data, id: res.character.id, name: res.character.name, updatedAt: res.character.updated_at } : char);
+      } else {
+        // local: aplica direto
+        onChange({ ...char,
+          currentHp: ws.preTransformHp || 0,
+          tempHp: ws.preTransformTempHp || 0,
+          wildShape: { active: false },
+        });
+      }
+    } catch (e) {
+      setErr(e?.data?.error || e?.message || 'failed');
+    } finally { setBusy(false); }
+  };
+  const pct = ws.beastMaxHp ? Math.max(0, Math.min(100, ((ws.beastCurrentHp || 0) / ws.beastMaxHp) * 100)) : 0;
+  return (
+    <div className="wild-shape-banner">
+      <div className="wsb-icon">🐺</div>
+      <div className="wsb-info">
+        <div className="wsb-title">
+          {lang === 'pt' ? 'Em Forma Selvagem:' : 'In Wild Shape:'}{' '}
+          <strong>{ws.beastName}</strong>
+        </div>
+        <div className="wsb-hp">
+          <div className="wsb-hp-bar"><div className="wsb-hp-fill" style={{ width: `${pct}%` }} /></div>
+          <span className="wsb-hp-text">{ws.beastCurrentHp} / {ws.beastMaxHp} HP · CA {ws.beastAc}</span>
+        </div>
+        <div className="wsb-pre">
+          {lang === 'pt' ? 'Forma humanoide guardada:' : 'Stored humanoid:'} {ws.preTransformHp} HP
+        </div>
+        {err && <div style={{ color: '#ff9999', fontSize: '0.85em' }}>{err}</div>}
+      </div>
+      <button className="btn btn-ghost" onClick={endShape} disabled={busy}>
+        {busy ? '…' : (lang === 'pt' ? 'Sair da forma' : 'Revert form')}
+      </button>
+    </div>
+  );
+};
+
+const BeastModal = ({ beast, lang, onClose, onTransform, canTransform, transformError }) => {
   const speeds = [`${beast.speed} ft`];
   if (beast.fly)    speeds.push(`${lang === 'pt' ? 'Voo' : 'Fly'} ${beast.fly} ft`);
   if (beast.swim)   speeds.push(`${lang === 'pt' ? 'Nat.' : 'Swim'} ${beast.swim} ft`);
@@ -530,12 +620,28 @@ const BeastModal = ({ beast, lang, onClose }) => {
           ))}
         </>
       )}
+      {onTransform && (
+        <>
+          <Filigree />
+          {transformError && <div style={{ color: '#ff9999', marginBottom: 8 }}>{transformError}</div>}
+          <button
+            className="btn btn-primary"
+            style={{ width: '100%' }}
+            onClick={() => onTransform(beast)}
+            disabled={!canTransform}
+            title={!canTransform ? (lang === 'pt' ? 'Sem usos restantes' : 'No uses remaining') : undefined}
+          >
+            🐾 {lang === 'pt' ? 'Transformar nesta fera' : 'Transform into this beast'}
+          </button>
+        </>
+      )}
     </Modal>
   );
 };
 
 const WildShapePanel = ({ char, lang, update }) => {
   const [selected, setSelected] = useState(null);
+  const [transformError, setTransformError] = useState('');
   const level = char.level;
   const isMoon = char.subclass === 'moon';
   // Moon circle: CR 1 at lv2-5, floor(level/3) at lv6+; no fly restriction from lv2
@@ -595,7 +701,53 @@ const WildShapePanel = ({ char, lang, update }) => {
           </button>
         ))}
       </div>
-      {selected && <BeastModal beast={selected} lang={lang} onClose={() => setSelected(null)} />}
+      {selected && (
+        <BeastModal
+          beast={selected}
+          lang={lang}
+          onClose={() => { setSelected(null); setTransformError(''); }}
+          canTransform={usesUsed < 2 && !(char.wildShape?.active)}
+          transformError={transformError}
+          onTransform={async (beast) => {
+            setTransformError('');
+            // Atalho local + remoto. Backend reage se char.id é numérico (remoto).
+            try {
+              if (typeof char.id === 'number') {
+                const res = await api.wildShapeTransform(char.id, { beast });
+                // O storage adapter espera o objeto inteiro como char remoto; usa o data + id + name
+                const c = res.character;
+                update({ ...c.data, id: c.id, name: c.name });
+                setSelected(null);
+              } else {
+                // Local: aplica direto no data
+                update({
+                  wildShape: {
+                    active: true,
+                    beastId: beast.id,
+                    beastName: tName('beast', beast.id, lang),
+                    preTransformHp: char.currentHp || 0,
+                    preTransformTempHp: char.tempHp || 0,
+                    beastMaxHp: beast.hp,
+                    beastCurrentHp: beast.hp,
+                    beastAc: beast.ac,
+                    beastStats: { str: beast.str, dex: beast.dex, con: beast.con, int: beast.int, wis: beast.wis, cha: beast.cha },
+                    beastActions: beast.actions,
+                    beastSpeed: beast.speed,
+                    beastSize: beast.size,
+                    transformedAt: new Date().toISOString(),
+                  },
+                  wildShapeUses: (char.wildShapeUses || 0) + 1,
+                  currentHp: beast.hp,
+                  tempHp: 0,
+                });
+                setSelected(null);
+              }
+            } catch (e) {
+              setTransformError(e?.data?.error || e?.message || 'failed');
+            }
+          }}
+        />
+      )}
     </>
   );
 };
