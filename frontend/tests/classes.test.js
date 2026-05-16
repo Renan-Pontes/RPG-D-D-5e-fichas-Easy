@@ -6,7 +6,7 @@
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeProgression } from '../src/progression/index.js';
+import { computeProgression, applyAutosToCharacter } from '../src/progression/index.js';
 
 const ABILITIES_DEFAULT = { str: 14, dex: 14, con: 14, int: 14, wis: 14, cha: 14 };
 
@@ -273,6 +273,44 @@ describe('Mago 1→20 (Evocação)', () => {
   test('Signature Spells no 20', () => {
     const p = computeProgression(build('wizard', 20, 'evocation'));
     assert.ok(featureAt(p, 'signatureSpells', 20));
+  });
+});
+
+describe('applyAutosToCharacter — novas subclasses', () => {
+  test('Cleric Life nv 5 aplica bless, cureWounds, lesserRestoration, spiritualWeapon, beaconOfHope, revivify', () => {
+    const c = applyAutosToCharacter(build('cleric', 5, 'life'));
+    const ids = new Set(c.spells.map(s => s.id));
+    ['bless','cureWounds','lesserRestoration','spiritualWeapon','beaconOfHope','revivify']
+      .forEach(s => assert.ok(ids.has(s), `falta ${s}`));
+  });
+
+  test('Druid Land forest nv 7 aplica spells acumulados', () => {
+    const c = applyAutosToCharacter(build('druid', 7, 'land', { landType: 'forest' }));
+    const ids = new Set(c.spells.map(s => s.id));
+    ['barkskin','spiderClimb','callLightning','plantGrowth','divination','freedomOfMovement']
+      .forEach(s => assert.ok(ids.has(s), `falta ${s}`));
+  });
+
+  test('Druid Land mudar landType remove autos antigos', () => {
+    let c = applyAutosToCharacter(build('druid', 5, 'land', { landType: 'forest' }));
+    assert.ok(c.spells.find(s => s.id === 'barkskin'));
+    c = applyAutosToCharacter({ ...c, landType: 'desert' });
+    assert.equal(c.spells.find(s => s.id === 'barkskin'), undefined);
+    assert.ok(c.spells.find(s => s.id === 'blur'));
+  });
+
+  test('Warlock Hexblade aplica shield e wrathfulSmite', () => {
+    const c = applyAutosToCharacter(build('warlock', 1, 'hexblade'));
+    const ids = new Set(c.spells.map(s => s.id));
+    assert.ok(ids.has('shield'));
+    assert.ok(ids.has('wrathfulSmite'));
+  });
+
+  test('Paladin Devotion nv 5 aplica oath spells de 3 e 5', () => {
+    const c = applyAutosToCharacter(build('paladin', 5, 'devotion'));
+    const ids = new Set(c.spells.map(s => s.id));
+    ['protectionFromEvilAndGood','sanctuary','lesserRestoration','zoneOfTruth']
+      .forEach(s => assert.ok(ids.has(s), `falta ${s}`));
   });
 });
 

@@ -2,7 +2,7 @@
 Cobertura por classe — paridade com frontend/tests/classes.test.js.
 """
 from django.test import SimpleTestCase
-from api.progression import compute_progression
+from api.progression import compute_progression, apply_autos
 
 ABILITIES = {'str': 14, 'dex': 14, 'con': 14, 'int': 14, 'wis': 14, 'cha': 14}
 
@@ -95,3 +95,37 @@ class ExtraAttacksTests(SimpleTestCase):
     def test_barbarian_paladin_ranger_get_1_at_5(self):
         for cls in ['barbarian', 'paladin', 'ranger', 'monk']:
             self.assertEqual(compute_progression(build(cls, 5))['extra_attacks'], 1)
+
+
+class ApplyAutosNewSubclassesTests(SimpleTestCase):
+    def test_cleric_life_nv5_applies_all(self):
+        c = apply_autos(build('cleric', 5, 'life'))
+        ids = {s['id'] for s in c['spells']}
+        for s in ['bless', 'cureWounds', 'lesserRestoration', 'spiritualWeapon', 'beaconOfHope', 'revivify']:
+            self.assertIn(s, ids)
+
+    def test_druid_land_forest_nv7(self):
+        c = apply_autos(build('druid', 7, 'land', landType='forest'))
+        ids = {s['id'] for s in c['spells']}
+        for s in ['barkskin', 'spiderClimb', 'callLightning', 'plantGrowth', 'divination', 'freedomOfMovement']:
+            self.assertIn(s, ids)
+
+    def test_druid_land_change_terrain_removes_old_autos(self):
+        c = apply_autos(build('druid', 5, 'land', landType='forest'))
+        self.assertIn('barkskin', {s['id'] for s in c['spells']})
+        c['landType'] = 'desert'
+        c = apply_autos(c)
+        self.assertNotIn('barkskin', {s['id'] for s in c['spells']})
+        self.assertIn('blur', {s['id'] for s in c['spells']})
+
+    def test_paladin_devotion_nv5_oath_spells(self):
+        c = apply_autos(build('paladin', 5, 'devotion'))
+        ids = {s['id'] for s in c['spells']}
+        for s in ['protectionFromEvilAndGood', 'sanctuary', 'lesserRestoration', 'zoneOfTruth']:
+            self.assertIn(s, ids)
+
+    def test_warlock_hexblade_nv1(self):
+        c = apply_autos(build('warlock', 1, 'hexblade'))
+        ids = {s['id'] for s in c['spells']}
+        self.assertIn('shield', ids)
+        self.assertIn('wrathfulSmite', ids)
