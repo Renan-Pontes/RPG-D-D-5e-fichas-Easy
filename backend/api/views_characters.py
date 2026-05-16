@@ -43,10 +43,45 @@ def character_detail(request, pk):
         obj.delete()
         return Response({'ok': True})
 
+    # PUT: em campanha, owner não pode alterar campos sensíveis.
+    # Esses campos só mudam via DM editor (PATCH /dm-edit) ou endpoints
+    # dedicados (cast/rest/inventory).
+    in_camp = Membership.objects.filter(character=obj).exists()
+    new_data = request.data.get('data') or {}
+    if in_camp and isinstance(new_data, dict):
+        old = obj.data or {}
+        rejected = []
+        for field in OWNER_LOCKED_IN_CAMPAIGN:
+            new_v = new_data.get(field, _SENTINEL)
+            old_v = old.get(field, _SENTINEL)
+            if new_v is not _SENTINEL and new_v != old_v:
+                rejected.append(field)
+        if rejected:
+            raise PermissionDenied({
+                'error': 'fields_locked_in_campaign',
+                'fields': rejected,
+                'hint': 'use_dm_editor_or_dedicated_endpoint',
+            })
+
     s = CharacterSerializer(obj, data=request.data)
     s.is_valid(raise_exception=True)
     s.save()
     return Response({'character': s.data})
+
+
+_SENTINEL = object()
+
+# Campos que o dono NÃO pode alterar via PUT regular quando o personagem está
+# atribuído a uma campanha. Esses ou só mudam pelo DM (via /dm-edit) ou por
+# endpoints dedicados que aplicam regras (cast/rest/inventory/wild-shape).
+OWNER_LOCKED_IN_CAMPAIGN = {
+    'maxHp', 'level', 'className', 'subclass', 'race', 'background',
+    'alignment', 'xp',
+    'abilities', 'raceBonus',
+    'saveProfs', 'skillProfs', 'skillExpertise',
+    'spellSlotsMax', 'spellSlotsUsed',
+    'equipment', 'weapons', 'armor', 'hasShield',
+}
 
 
 def _can_modify_character(user, char):

@@ -684,6 +684,38 @@
   background: var(--bg);
 }
 
+/* === Campaign mode banner === */
+.campaign-mode-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  margin: 10px 0;
+  font-size: 0.9em;
+  flex-wrap: wrap;
+}
+.campaign-mode-banner.standalone {
+  background: rgba(120, 120, 120, 0.08);
+  border: 1px solid var(--border);
+  color: var(--ink-secondary);
+}
+.campaign-mode-banner.in-campaign {
+  background: linear-gradient(90deg, rgba(212, 168, 77, 0.12), transparent);
+  border: 1px solid var(--gold-deep, #9c7a2a);
+  border-left: 4px solid var(--gold, #d4a84d);
+  color: var(--ink-primary);
+}
+.cmb-icon { font-size: 1.2em; }
+.cmb-label {
+  font-family: 'Cinzel', serif;
+  text-transform: uppercase;
+  font-size: 0.85em;
+  letter-spacing: 1px;
+}
+.campaign-mode-banner.in-campaign .cmb-label { color: var(--gold, #d4a84d); }
+.cmb-name { font-family: 'EB Garamond', serif; font-style: italic; }
+
 /* === Wild Shape banner === */
 .wild-shape-banner {
   display: grid;

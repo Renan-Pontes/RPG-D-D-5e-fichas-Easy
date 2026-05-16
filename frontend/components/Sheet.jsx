@@ -102,6 +102,8 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
         cls={cls} race={race} bg={bg}
       />
 
+      <CampaignModeBanner char={char} lang={lang} onChange={onUpdate} />
+
       {char.wildShape?.active && (
         <WildShapeBanner char={char} lang={lang} onChange={onUpdate} />
       )}
@@ -110,7 +112,14 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
         <button className="chip" onClick={onPrint}><Icon name="print" size={14} className="chip-icon"/> {t('print', lang)}</button>
         <button className="chip" onClick={onShare}><Icon name="share" size={14} className="chip-icon"/> {t('share', lang)}</button>
         <button className="chip" onClick={onExport}><Icon name="download" size={14} className="chip-icon"/> {t('export', lang)}</button>
-        <button className="chip" onClick={onEdit}><Icon name="edit" size={14} className="chip-icon"/> {t('edit', lang)}</button>
+        {!char.inCampaign && (
+          <button className="chip" onClick={onEdit}><Icon name="edit" size={14} className="chip-icon"/> {t('edit', lang)}</button>
+        )}
+        {char.inCampaign && (
+          <span className="chip" style={{ opacity: 0.55, cursor: 'not-allowed' }} title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
+            🔒 <Icon name="edit" size={14} className="chip-icon"/> {t('edit', lang)}
+          </span>
+        )}
         <button className="chip" onClick={() => update({ inspiration: !char.inspiration })}>
           <Icon name={char.inspiration ? 'star-fill' : 'star'} size={14} style={{ color: char.inspiration ? 'var(--gold-bright)' : 'var(--gold)' }}/>
           {t('inspiration', lang)}
@@ -513,6 +522,75 @@ const LevelUpModal = ({ char, cls, lang, canLevel, onClose }) => {
         )}
       </div>
     </Modal>
+  );
+};
+
+// ===== Campaign Mode Banner =====
+
+/**
+ * Mostra status da ficha (standalone ou em campanha) + botão "Sair" pro player.
+ * Em standalone, mostra um chip discreto "Ficha pessoal".
+ * Em campanha, mostra o nome da campanha (busca via API) e botão pra sair.
+ */
+const CampaignModeBanner = ({ char, lang, onChange }) => {
+  const [campInfo, setCampInfo] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!char.inCampaign || typeof char.id !== 'number') { setCampInfo(null); return; }
+    let cancelled = false;
+    api.characterCampaigns(char.id).then(r => {
+      if (cancelled) return;
+      const c = (r.campaigns || [])[0];
+      if (c) setCampInfo(c);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [char.id, char.inCampaign]);
+
+  const leave = async () => {
+    if (!campInfo) return;
+    if (!confirm(lang === 'pt'
+      ? `Sair da campanha "${campInfo.name}"? Você volta a ter controle total da ficha.`
+      : `Leave campaign "${campInfo.name}"? You'll regain full sheet control.`)) return;
+    setBusy(true);
+    try {
+      await api.removeMember(campInfo.id, campInfo.membershipId);
+      // Forçar reload da ficha pra atualizar inCampaign
+      onChange({ ...char, inCampaign: false });
+    } catch (e) {
+      alert(e?.data?.error || e?.message || 'failed');
+    } finally { setBusy(false); }
+  };
+
+  if (!char.inCampaign) {
+    return (
+      <div className="campaign-mode-banner standalone">
+        <span className="cmb-icon">📜</span>
+        <span className="cmb-label">{lang === 'pt' ? 'Ficha pessoal' : 'Personal sheet'}</span>
+        <span className="muted small">
+          {lang === 'pt' ? 'Edição livre — sem mestre, sem travas.' : 'Free editing — no DM, no locks.'}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="campaign-mode-banner in-campaign">
+      <span className="cmb-icon">🏰</span>
+      <span className="cmb-label">{lang === 'pt' ? 'Em campanha' : 'In campaign'}</span>
+      {campInfo && <strong className="cmb-name">{campInfo.name}</strong>}
+      <span className="muted small">
+        {lang === 'pt'
+          ? 'Itens, slots, HP máximo e atributos são gerenciados pelo mestre.'
+          : 'Items, slots, max HP and abilities are managed by the DM.'}
+      </span>
+      <div style={{ flex: 1 }} />
+      {campInfo && (
+        <button className="btn btn-ghost btn-sm" onClick={leave} disabled={busy}>
+          {busy ? '…' : (lang === 'pt' ? 'Sair' : 'Leave')}
+        </button>
+      )}
+    </div>
   );
 };
 

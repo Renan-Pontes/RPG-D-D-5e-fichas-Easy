@@ -191,6 +191,45 @@ Você acordou rápido e pediu mais melhorias. Foi feito (em 8 commits):
 - `prefers-reduced-motion`: zera animações.
 - Media queries `@max-width: 720px`: tabs scrollaveis, grid 1 coluna, dice log compacto.
 
+## Standalone vs Campanha
+
+A ficha tem **dois modos** identificados pelo campo `inCampaign` (computado: true se existe `Membership` ligando o personagem a alguma campanha).
+
+### Tabela de permissões
+
+| Ação                         | Standalone (dono) | Campanha (dono) | Campanha (DM)                          |
+|------------------------------|-------------------|-----------------|----------------------------------------|
+| Editar nome / avatar / notas | ✅                | ✅              | ✅ via `/dm-edit`                      |
+| Editar HP atual / temp / inspiration / condições | ✅ | ✅           | ✅                                     |
+| Editar HP **máximo**         | ✅                | ❌ 403          | ✅                                     |
+| Editar **atributos** (STR/DEX/...) | ✅          | ❌ 403          | ✅                                     |
+| Editar **nível, classe, raça, subclasse, antecedente, alinhamento, XP** | ✅ | ❌ 403 | ✅ |
+| Editar perícias / saves proficientes | ✅          | ❌ 403          | ✅                                     |
+| Slots de magia (toggle pip direto) | ✅           | ❌ 🔒 (travados) | ✅                                     |
+| Conjurar magia (consome slot) | ✅ (local)        | ✅ (via /cast) | ✅                                     |
+| Descansar curto/longo        | ✅                | ✅              | ✅                                     |
+| Adicionar item ao inventário | ✅                | ❌ 403 (DM dá)  | ✅                                     |
+| Equipar / consumir / anotar item | ✅            | ✅              | ✅                                     |
+| Marcar item quebrado / alterar stats | ✅          | ❌ 403          | ✅                                     |
+| Attune item (limite 3)       | ✅                | ✅              | ✅                                     |
+| Remover item                 | ✅                | ❌ 403          | ✅                                     |
+| Wild Shape: transformar / sair | ✅              | ✅              | ✅ (force-end)                         |
+| Solicitar level-up           | ✅ (sobe direto)  | ✅ (pede aprovação) | ✅                                  |
+| Sair da campanha             | —                 | ✅ DELETE membership própria | ✅ pode remover qualquer membro     |
+
+### Fluxo de transição
+
+1. **Entrar em campanha**: jogador na tela "Campanhas" → "Entrar com código" → cola `inviteCode` de 6 chars dado pelo DM → escolhe um personagem dele pra anexar (opcional) → vira modo campanha.
+2. **Anexar personagem depois**: na campanha, tab Membros → "Trocar personagem" → seleciona.
+3. **Sair de campanha**: na ficha do PC, banner gold "🏰 Em campanha: X" tem botão "Sair". Confirma → DELETE da membership → personagem volta a standalone.
+4. **Validação**: personagem só fica em UMA campanha. Tentar anexar a outra retorna 409 `character_already_in_campaign` com `campaignId` da original.
+
+### Garantia server-side
+
+Em campanha, o `PUT /api/characters/:id` regular rejeita patches em campos sensíveis (lista `OWNER_LOCKED_IN_CAMPAIGN` em `views_characters.py`). Owner que tenta hackear o frontend toma 403 com `fields_locked_in_campaign` e lista os campos rejeitados.
+
+Garante que mesmo se o frontend tiver bug e mandar HP máximo de 9999, o backend bloqueia.
+
 ## Segundo turno — extras de 'fim'
 
 - **Gerenciador de iniciativa**: aba "Visão geral" da campanha (só DM) com lista ordenada, marcador de turno atual, próximo/anterior turno, tracking de rodada, "Adicionar todos os jogadores (10+DEX)", form pra NPC custom, "Limpar combate". Persistido em `campaign.state` e refletido no telão via polling.

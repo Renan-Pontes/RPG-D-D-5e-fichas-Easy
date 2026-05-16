@@ -88,6 +88,11 @@ def campaign_join(request):
         char = Character.objects.filter(pk=character_id).first()
         if not char or char.owner_id != request.user.id:
             return Response({'error': 'character_forbidden'}, status=403)
+        # Personagem só pode estar em UMA campanha. Bloqueia se já tem outra.
+        other = Membership.objects.filter(character=char).exclude(campaign=campaign).first()
+        if other:
+            return Response({'error': 'character_already_in_campaign',
+                             'campaignId': other.campaign_id}, status=409)
 
     m, _ = Membership.objects.update_or_create(
         campaign=campaign, user=request.user,
@@ -108,9 +113,16 @@ def campaign_member(request, id_or_slug, membership_id):
         raise NotFound('not_found')
 
     if request.method == 'DELETE':
-        require_dm(request.user, campaign)
-        if m.user_id == campaign.dm_id:
-            return Response({'error': 'cannot_remove_dm'}, status=400)
+        # DM remove qualquer membro (exceto ele próprio); o próprio user pode
+        # remover a si mesmo (sair da campanha voluntariamente).
+        if m.user_id == request.user.id:
+            # User sai voluntariamente — não pode se for o DM da campanha
+            if m.user_id == campaign.dm_id:
+                return Response({'error': 'dm_cannot_leave'}, status=400)
+        else:
+            require_dm(request.user, campaign)
+            if m.user_id == campaign.dm_id:
+                return Response({'error': 'cannot_remove_dm'}, status=400)
         m.delete()
         return Response({'ok': True})
 
@@ -128,6 +140,11 @@ def campaign_member(request, id_or_slug, membership_id):
         # garante que o personagem é do dono da membership
         if char.owner_id != m.user_id:
             raise PermissionDenied('character_not_owned')
+        # personagem só pode estar em UMA campanha (excluindo esta própria)
+        other = Membership.objects.filter(character=char).exclude(pk=m.id).first()
+        if other:
+            return Response({'error': 'character_already_in_campaign',
+                             'campaignId': other.campaign_id}, status=409)
         m.character = char
     m.save()
     return Response({'membership': {'id': m.id, 'characterId': m.character_id}})
