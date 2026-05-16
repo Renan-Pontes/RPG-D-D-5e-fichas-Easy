@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client.js';
-import { connectSocket } from '../api/socket.js';
+import { usePolling } from '../api/polling.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 const CONDITION_LABELS = {
@@ -24,7 +24,6 @@ const CONDITION_LABELS = {
 export default function TVScreen({ token, lang = 'pt' }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
-  const [tick, setTick] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -38,30 +37,9 @@ export default function TVScreen({ token, lang = 'pt' }) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Socket primário + fallback polling 3s
-  useEffect(() => {
-    let socket = null;
-    let cancelled = false;
-    let pollId = null;
-    (async () => {
-      try {
-        socket = await connectSocket({ screenToken: token });
-        socket.on('character:update', load);
-        socket.on('campaign:state', load);
-        socket.on('campaign:member', load);
-        socket.on('approval:reviewed', load);
-        socket.on('dice:public', () => setTick(x => x + 1));
-      } catch (e) {
-        // fallback
-        pollId = setInterval(() => { if (!cancelled) load(); }, 3000);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      if (pollId) clearInterval(pollId);
-      socket?.disconnect();
-    };
-  }, [token, load]);
+  // Polling 2.5s. PythonAnywhere free não tem WebSocket; isso é suficiente
+  // pra atualizar HP, condições e iniciativa do telão.
+  usePolling(load, 2500, [token]);
 
   if (error) return <div className="tv-error"><h1>{error}</h1></div>;
   if (!data) return <div className="tv-loading"><h1>{t(lang, 'Carregando…', 'Loading…')}</h1></div>;

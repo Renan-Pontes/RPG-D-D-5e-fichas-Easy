@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api, API_BASE } from '../api/client.js';
-import { connectSocket } from '../api/socket.js';
+import { usePolling } from '../api/polling.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -28,29 +28,9 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
 
   useEffect(() => { load(); }, [load]);
 
-  // Realtime
-  useEffect(() => {
-    let socket = null;
-    let cancelled = false;
-    (async () => {
-      try {
-        socket = await connectSocket();
-        socket.emit('campaign:subscribe', campaignId, (ack) => {});
-        socket.on('campaign:member', () => { if (!cancelled) load(); });
-        socket.on('campaign:update', () => { if (!cancelled) load(); });
-        socket.on('character:update', () => { if (!cancelled) load(); });
-        socket.on('approval:new', () => { if (!cancelled) load(); });
-        socket.on('approval:reviewed', () => { if (!cancelled) load(); });
-      } catch (e) {
-        console.warn('socket failed', e);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      socket?.emit('campaign:unsubscribe', campaignId);
-      socket?.disconnect();
-    };
-  }, [campaignId, load]);
+  // Polling em vez de WebSocket (PythonAnywhere free não tem WS).
+  // Pausa quando a aba está oculta.
+  usePolling(load, 2500, [campaignId]);
 
   if (error) return <div style={{ padding: 24 }}><p style={{ color: '#ff9999' }}>{error}</p><button onClick={onBack}>← {t(lang, 'Voltar', 'Back')}</button></div>;
   if (!campaign) return <div style={{ padding: 24 }}>{t(lang, 'Carregando…', 'Loading…')}</div>;

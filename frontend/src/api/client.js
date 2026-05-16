@@ -1,4 +1,10 @@
-// Cliente HTTP enxuto. Usa cookies (credentials: 'include') para auth.
+// Cliente HTTP para a API Django.
+//
+// Auth: sessão via cookie (sessionid). Toda requisição mutante envia
+// X-CSRFToken lido do cookie csrftoken — garantimos que ele existe ao
+// chamar /api/auth/csrf no boot.
+//
+// API_BASE vem de VITE_API_URL em produção; em dev cai pra localhost:4000.
 
 const DEFAULT_BASE = import.meta?.env?.VITE_API_URL || 'http://localhost:4000';
 const API_BASE = (typeof window !== 'undefined' && window.__API_BASE__) || DEFAULT_BASE;
@@ -11,21 +17,46 @@ class ApiError extends Error {
   }
 }
 
+function getCookie(name) {
+  if (typeof document === 'undefined') return null;
+  const parts = document.cookie.split(';').map(s => s.trim());
+  for (const p of parts) {
+    if (p.startsWith(name + '=')) return decodeURIComponent(p.slice(name.length + 1));
+  }
+  return null;
+}
+
+let csrfPromise = null;
+async function ensureCsrf() {
+  if (getCookie('csrftoken')) return;
+  if (!csrfPromise) {
+    csrfPromise = fetch(`${API_BASE}/api/auth/csrf`, { credentials: 'include' })
+      .catch(() => null)
+      .finally(() => { csrfPromise = null; });
+  }
+  await csrfPromise;
+}
+
 async function request(path, { method = 'GET', body, headers = {} } = {}) {
+  const isMutation = method !== 'GET' && method !== 'HEAD';
+  if (isMutation) await ensureCsrf();
+  const csrftoken = getCookie('csrftoken');
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      ...(isMutation && csrftoken ? { 'X-CSRFToken': csrftoken } : {}),
       ...headers,
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   let data = null;
   const text = await res.text();
   try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
   if (!res.ok) {
-    throw new ApiError(data?.error || res.statusText, res.status, data);
+    const msg = data?.error || data?.detail || res.statusText;
+    throw new ApiError(msg, res.status, data);
   }
   return data;
 }
@@ -33,6 +64,7 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
 export const api = {
   base: API_BASE,
   // Auth
+  csrf:   ()     => request('/api/auth/csrf'),
   signup: (body) => request('/api/auth/signup', { method: 'POST', body }),
   login:  (body) => request('/api/auth/login',  { method: 'POST', body }),
   logout: ()     => request('/api/auth/logout', { method: 'POST' }),
@@ -65,7 +97,7 @@ export const api = {
   updateRig:     (rigId, body) => request(`/api/dice/rigs/${rigId}`, { method: 'PUT', body }),
   deleteRig:     (rigId) => request(`/api/dice/rigs/${rigId}`, { method: 'DELETE' }),
   diceLog:       (campaignId) => request(`/api/dice/campaign/${campaignId}/log`),
-  // Screen (público)
+  // Screen (público — não exige CSRF/sessão)
   screen:        (token) => request(`/api/screen/${token}`),
 };
 
