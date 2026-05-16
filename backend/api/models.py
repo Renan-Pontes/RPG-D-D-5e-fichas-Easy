@@ -169,3 +169,59 @@ class DiceLog(models.Model):
     class Meta:
         ordering = ['-created_at']
         indexes = [models.Index(fields=['campaign']), models.Index(fields=['user'])]
+
+
+# === CombatInstance ===
+# Uma campanha tem uma instância de combate ativa (ou nenhuma).
+# combat_state guarda combatentes, mapa, posição do turno. Tudo em JSON pra
+# simplicidade — a estrutura está documentada em api/combat.py.
+class CombatInstance(models.Model):
+    campaign = models.OneToOneField(Campaign, on_delete=models.CASCADE, related_name='combat')
+    active = models.BooleanField(default=False)
+    round_number = models.IntegerField(default=1)
+    turn_index = models.IntegerField(default=0)
+    # combatants: [combatant dict] - ver combat.py
+    combatants = models.JSONField(default=list)
+    # map: {background_image: '<base64>', grid_size_px: 50, grid_visible: true, width_px, height_px}
+    map_data = models.JSONField(default=dict)
+    # log de últimas N ações para mestre/telão
+    action_log = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+# === RollRequest ===
+# Jogador clica em rolar, cria uma request pendente. Mestre decide se torna
+# pública (aparece no telão) ou privada (só ele e o jogador veem). Quando a
+# decisão é tomada o backend rola de fato (consumindo dice rig se houver).
+class RollRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending',  'Pending'),
+        ('public',   'Resolved Public'),
+        ('private',  'Resolved Private'),
+        ('cancelled','Cancelled'),
+    ]
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='roll_requests')
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='roll_requests')
+    character = models.ForeignKey(Character, on_delete=models.SET_NULL, null=True, blank=True)
+    label = models.CharField(max_length=120, blank=True, default='')
+    dice_type = models.CharField(max_length=10, default='d20')
+    count = models.IntegerField(default=1)
+    modifier = models.IntegerField(default=0)
+    has_advantage = models.BooleanField(default=False)
+    has_disadvantage = models.BooleanField(default=False)
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='pending')
+    # Resultado preenchido após o mestre decidir e o servidor rolar.
+    # rolls: [{value, kept}], total: int (rolagens + modifier)
+    rolls = models.JSONField(default=list)
+    total = models.IntegerField(null=True, blank=True)
+    is_critical = models.BooleanField(default=False)        # nat 20 em pelo menos um d20
+    is_critical_fail = models.BooleanField(default=False)   # nat 1 em pelo menos um d20
+    rigged = models.BooleanField(default=False)              # veio de DiceRig
+    note = models.CharField(max_length=200, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['campaign', 'status'])]

@@ -6,7 +6,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
 
-from .models import Campaign
+from .models import Campaign, CombatInstance, RollRequest
 
 
 def _public_character(data, name, char_id):
@@ -48,6 +48,13 @@ def screen(request, token):
     if not campaign:
         raise NotFound('not_found')
     memberships = campaign.memberships.select_related('user', 'user__profile', 'character').all()
+    combat = getattr(campaign, 'combat', None)
+    # Últimas rolagens públicas (até 5)
+    public_rolls = list(
+        RollRequest.objects
+        .filter(campaign=campaign, status='public')
+        .select_related('requested_by', 'requested_by__profile')[:5]
+    )
     return Response({
         'campaign': {
             'id': campaign.id,
@@ -64,6 +71,29 @@ def screen(request, token):
                     'character': _public_character(m.character.data, m.character.name, m.character.id) if m.character else None,
                 }
                 for m in memberships
+            ],
+            'combat': {
+                'active': combat.active if combat else False,
+                'round': combat.round_number if combat else 0,
+                'turnIndex': combat.turn_index if combat else 0,
+                'combatants': combat.combatants if combat else [],
+                'map': combat.map_data if combat else {},
+            } if combat else None,
+            'publicRolls': [
+                {
+                    'id': r.id,
+                    'requester': _display_name(r.requested_by),
+                    'label': r.label,
+                    'diceType': r.dice_type,
+                    'count': r.count,
+                    'modifier': r.modifier,
+                    'rolls': r.rolls,
+                    'total': r.total,
+                    'isCritical': r.is_critical,
+                    'isCriticalFail': r.is_critical_fail,
+                    'resolvedAt': r.resolved_at.isoformat() if r.resolved_at else None,
+                }
+                for r in public_rolls
             ],
         }
     })

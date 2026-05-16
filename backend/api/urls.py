@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views_auth, views_characters, views_campaigns, views_approvals, views_dice, views_screen
+from . import views_auth, views_characters, views_campaigns, views_approvals, views_dice, views_screen, views_combat
 
 urlpatterns = [
     # Auth
@@ -34,4 +34,23 @@ urlpatterns = [
 
     # Screen (público)
     path('screen/<str:token>', views_screen.screen),
+    path('screen/<str:token>/rolls', views_combat.roll_public_screen),
+
+    # Combat
+    path('combat/campaign/<str:id_or_slug>', views_combat.combat_get),
+    path('combat/campaign/<str:id_or_slug>/start', views_combat.combat_start),
+    path('combat/campaign/<str:id_or_slug>/end', views_combat.combat_end),
+    path('combat/campaign/<str:id_or_slug>/reset', views_combat.combat_reset),
+    path('combat/campaign/<str:id_or_slug>/combatants', views_combat.combat_add_combatant),
+    path('combat/campaign/<str:id_or_slug>/combatants/<str:combatant_id>', views_combat.combat_combatant),
+    path('combat/campaign/<str:id_or_slug>/action', views_combat.combat_action),
+    path('combat/campaign/<str:id_or_slug>/next-turn', views_combat.combat_next_turn),
+    path('combat/campaign/<str:id_or_slug>/map', views_combat.combat_set_map),
+
+    # RollRequest
+    path('rolls/campaign/<str:id_or_slug>', views_combat.roll_create),
+    path('rolls/campaign/<str:id_or_slug>/pending', views_combat.roll_list_pending),
+    path('rolls/campaign/<str:id_or_slug>/recent', views_combat.roll_list_recent),
+    path('rolls/<int:pk>/resolve', views_combat.roll_resolve),
+    path('rolls/<int:pk>/cancel', views_combat.roll_cancel),
 ]
