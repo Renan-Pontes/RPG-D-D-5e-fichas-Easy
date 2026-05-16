@@ -1,14 +1,15 @@
 # Handoff — sessão noturna 2026-05-16
 
-Bom dia. Aqui está o que foi feito enquanto você dormia.
+Bom dia. Aqui está o que foi feito enquanto você dormia (1º turno + 2º turno).
 
 ## TL;DR
 
-- Backend novo em **Django + DRF** pronto pra subir no **PythonAnywhere**.
-- Frontend Vite/React mantido, agora em `frontend/`, pronto pra **Vercel**.
-- Auth, personagens na nuvem, campanhas, mestre, aprovações, **dice rigging**, **telão TV**, **progressão automática** — tudo funcionando.
-- **55 testes verdes** (42 Django + 13 JS).
-- Seed pronto: `py manage.py seed` cria 2 contas, 1 campanha, 1 personagem e 1 aprovação pendente.
+- Backend Django + DRF pronto pra PythonAnywhere. Frontend Vite/React pronto pra Vercel.
+- **133 testes verdes** (70 Django + 63 JS).
+- Auth, personagens na nuvem, campanhas, mestre, aprovações, **dice rigging completo (UX)**, **telão TV polido**, **progressão automática 1→20 das 12 classes do PHB**.
+- **Rate limiting** no login/signup/dice. Erros padronizados `{error: code}`.
+- **Lazy loading** + chunks → bundle inicial reduzido de 568KB para 9KB.
+- Seed: `py manage.py seed` cria 2 contas, 1 campanha, 1 personagem e 1 aprovação pendente.
 
 ## Como ver funcionando em 2 minutos
 
@@ -139,7 +140,65 @@ Cobertura cruzada (Python e JS testam a mesma engine de progressão com os mesmo
 
 **Polling em vez de WebSocket** — o pivot para Django + PythonAnywhere free não permite WebSocket sem upgrade pago. Polling de 2.5s com pausa quando aba oculta é a alternativa conservadora. Documentado em `DECISIONS.md`. Migrar pra Channels se você quiser real-time real é uma mudança contida no `polling.js` + adicionar Channels no backend.
 
-## Commits relevantes
+## Segundo turno (madrugada → manhã)
+
+Você acordou rápido e pediu mais melhorias. Foi feito (em 8 commits):
+
+### 1. Cobertura de progressão 1→20 das 12 classes
+- **Cleric Life**: domain spells automáticos (Bless+CureWounds @1, LesserRest+SpiritualWeapon @3, BeaconOfHope+Revivify @5, DeathWard+GuardianOfFaith @7, MassCureWounds+RaiseDead @9). Idem **Light** e **Knowledge**.
+- **Paladin Devotion**: Oath spells @3/5/7/9/13/17 todos auto-preparados.
+- **Druid Land**: nova estrutura `landTypeSpells` por terreno (arctic, coast, desert, forest, grassland, mountain, swamp, underdark) com 8 spells por terreno espalhados em 3/5/7/9. Engine aplica conforme `character.landType`. Pendência se faltar escolher terreno.
+- **Warlock Hexblade**: subclasse nova com Hexblade Curse + Hex Warrior + autoSpells. Warlock Fiend expandido com autoSpells por nível.
+- 63 testes JS + 15 testes Python novos validando cada classe 1→20, `asiLevels` canônicos, extra attacks, idempotência.
+
+### 2. Polish do telão
+- Condições com **ícones SVG** inline (15 do PHB).
+- HP **anima** prev→next via requestAnimationFrame, 600ms easing.
+- "Vez de _X_" destacado pulsando no topo, e o card do personagem ativo ganha **glow gold** com transform.
+- HP crítico (<30%) pulsa vermelho; HP morto deixa o card grayscale.
+- Tipografia `clamp()` escala de mobile a 4K.
+- Iniciativa fixa bottom-right com highlight do turno atual.
+
+### 3. UX completa do dice rigging
+- Cards agrupados **por jogador** (todas as filas dele juntas).
+- **Reordenar** valores com setas ↑↓ (só não-consumidos).
+- **Injetar** valor único inline ("⚡ Injetar").
+- **Limpar tudo** por jogador (volta a aleatório).
+- Enter no campo de valores enfileira no jogador selecionado.
+- **Histórico** das últimas 50 rolagens com flag `★` para rigged. Só o DM vê.
+
+### 4. Segurança
+- `rate_limit` decorator (`backend/api/rate_limit.py`) usando cache do Django. 10 logins/10min, 5 signups/10min, 120 rolls/min.
+- `exception_handler` customizado → todos os erros DRF viram `{error: code, detail?, fields?}`.
+- Testes novos: rate limit bloqueia e reseta após sucesso; auditoria cross-user (Bob não acessa nada da Alice em 5 cenários); shape dos erros padronizada.
+
+### 5. Performance
+- Backend: `select_related('user__profile', 'character', 'dm__profile')` nas queries de campanhas, screen, approvals, rigs. Mata N+1.
+- Frontend: `React.lazy()` para `App` e `TVScreen`; `manualChunks` separa `react-vendor`, `srd` (200KB), `progression` (34KB). **Bundle inicial: 9.5KB** (era 568KB monolítico).
+
+### 6. Docs
+- **API.md**: todos os endpoints com payload/response, codes de erro, rate limits.
+- **README**: quick-start em 30s, seção de funcionalidades, links.
+- **HANDOFF.md** atualizado (este arquivo).
+
+### 7. Acessibilidade
+- Skip link "Pular para o conteúdo" visível no foco.
+- `:focus-visible` com outline gold em todos os inputs/botões.
+- Tabs da campanha com `role`, `aria-selected`, `aria-controls`, `aria-labelledby`.
+- `prefers-reduced-motion`: zera animações.
+- Media queries `@max-width: 720px`: tabs scrollaveis, grid 1 coluna, dice log compacto.
+
+## Commits do segundo turno
+
+```
+b401585 docs+a11y: API.md, README quick-start, foco visivel, ARIA nas tabs
+8dd6884 perf: select_related em endpoints + lazy loading no frontend
+3c5c4bd feat(dice-rigging): UX completa para o mestre
+2a208fc feat(tv): polish do telao - icones de condicoes, animacao HP, indicador de turno
+f1937d5 feat(progression): cobertura completa 1-20 das 12 classes do PHB
+```
+
+## Commits do primeiro turno (anteriores)
 
 ```
 5ed10a3 feat(campanhas): editor do estado da campanha + rolagem oficial via backend
@@ -148,7 +207,6 @@ c8cae3a chore: seed command + README com instrucoes
 ccdec33 feat(frontend): adapta para backend Django + CSRF + polling
 7e3ef02 feat(backend): pivot para Django + DRF, prep PythonAnywhere
 ad2237b feat(progression): engine declarativo para ganhos automaticos
-3c5391e feat(server): backend Express ... (HISTÓRICO — foi removido no pivot)
 ```
 
 Bom dia. Tudo verde, tudo testado, prontidão pra subir.
