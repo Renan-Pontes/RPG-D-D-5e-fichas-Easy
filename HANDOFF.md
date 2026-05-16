@@ -5,8 +5,8 @@ Bom dia. Aqui está o que foi feito enquanto você dormia (1º turno + 2º turno
 ## TL;DR
 
 - Backend Django + DRF pronto pra PythonAnywhere. Frontend Vite/React pronto pra Vercel.
-- **133 testes verdes** (70 Django + 63 JS).
-- Auth, personagens na nuvem, campanhas, mestre, aprovações, **dice rigging completo (UX)**, **telão TV polido**, **progressão automática 1→20 das 12 classes do PHB**.
+- **144 testes verdes** (76 Django + 68 JS).
+- Auth, personagens na nuvem, campanhas, mestre, aprovações, **dice rigging completo (UX)**, **telão TV polido**, **progressão automática 1→20 das 12 classes do PHB**, **gerenciador de iniciativa**, **busca de personagens**.
 - **Rate limiting** no login/signup/dice. Erros padronizados `{error: code}`.
 - **Lazy loading** + chunks → bundle inicial reduzido de 568KB para 9KB.
 - Seed: `py manage.py seed` cria 2 contas, 1 campanha, 1 personagem e 1 aprovação pendente.
@@ -188,11 +188,22 @@ Você acordou rápido e pediu mais melhorias. Foi feito (em 8 commits):
 - `prefers-reduced-motion`: zera animações.
 - Media queries `@max-width: 720px`: tabs scrollaveis, grid 1 coluna, dice log compacto.
 
+## Segundo turno — extras de 'fim'
+
+- **Gerenciador de iniciativa**: aba "Visão geral" da campanha (só DM) com lista ordenada, marcador de turno atual, próximo/anterior turno, tracking de rodada, "Adicionar todos os jogadores (10+DEX)", form pra NPC custom, "Limpar combate". Persistido em `campaign.state` e refletido no telão via polling.
+- **Endpoint `/api/characters/:id/campaigns`**: antes, solicitar level-up fazia N+1 GETs no frontend pra encontrar a campanha. Agora é 1 GET. Autorização: só o dono lê.
+- **Busca/filtro na lista de personagens**: input aparece quando há >4 personagens; filtra por nome+raça+classe+subclasse+alinhamento+nível, case-insensitive.
+
 ## Commits do segundo turno
 
 ```
+f26d820 feat(home): busca/filtro na lista de personagens (>4 chars)
+b86fef7 feat: endpoint /characters/:id/campaigns + frontend usa-o
+7d8c6c8 feat(dm): gerenciador de iniciativa pelo painel do mestre
+3366a4a test: applyAutos cobre as novas subclasses
 b401585 docs+a11y: API.md, README quick-start, foco visivel, ARIA nas tabs
 8dd6884 perf: select_related em endpoints + lazy loading no frontend
+438f2a8 feat(security): rate limit, exception handler customizado e logging em prod
 3c5c4bd feat(dice-rigging): UX completa para o mestre
 2a208fc feat(tv): polish do telao - icones de condicoes, animacao HP, indicador de turno
 f1937d5 feat(progression): cobertura completa 1-20 das 12 classes do PHB
