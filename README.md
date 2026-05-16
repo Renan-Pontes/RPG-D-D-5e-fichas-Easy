@@ -1,169 +1,81 @@
 # Forja de Heróis — RPG D&D 5e
 
-Ferramenta web para fichas de D&D 5e com:
+Ferramenta web para fichas de D&D 5e com contas, campanhas, mestre, telão de TV, progressão automática por classe/subclasse e _dice rigging_ pelo mestre.
 
-- **Personagens salvos na nuvem** (auth por conta)
-- **Campanhas e mestre**: mestre cria, jogadores entram com código, mestre aprova evoluções
-- **Telão (TV view)**: link público para colocar na TV mostrando HP, condições, iniciativa
-- **Engine de progressão**: ganhos por nível e subclasse são aplicados automaticamente (ex: druida Círculo das Estrelas ganha `guidance` no nível 2 sem precisar escolher)
-- **Dice rigging do mestre**: o mestre pode pré-definir valores para próximas rolagens de um jogador, garantindo fluidez narrativa
-- 100% bilíngue (PT/EN), tema medieval
+## Quick start (30 segundos)
+
+```bash
+# Backend (Django) — use `py` no Windows
+cd backend && py -m venv venv && venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env
+py manage.py migrate && py manage.py seed && py manage.py runserver 4000
+
+# Frontend (Vite) — em outro terminal
+cd frontend && npm install && npm run dev
+```
+
+Abre `http://localhost:5173`. Credenciais do seed:
+
+- **Mestre**: `mestre@forja.local` / `forja-mestre-2026`
+- **Jogador**: `renan@forja.local` / `thalion-druida-2026`
+
+## Funcionalidades
+
+- **Personagens na nuvem** (auth por conta). Fallback offline em localStorage.
+- **Campanhas** com mestre (DM), jogadores que entram com `inviteCode`, atribuição de personagem por jogador.
+- **Workflow de aprovações**: jogador pede subir de nível → mestre aprova → backend aplica HP/level/spells e re-roda os autos da subclasse.
+- **Telão público**: `/tv/<screenToken>` mostra HP animado, condições com ícones, indicador de turno destacado, iniciativa. Pensado pra 1080p+ a 2-3m.
+- **Engine de progressão declarativa**: as 12 classes do PHB com 1+ subclasse cada. Ganhos automáticos (sem escolha) entram sozinhos: ex. druida Círculo das Estrelas no nível 2 ganha `guidance` via Mapa Estelar; clérigo Life sempre tem domain spells preparados; paladino Devotion idem.
+- **Dice rigging**: mestre pré-define os próximos valores de cada jogador (queue por dado), reordena, injeta, limpa. Rolagens do jogador via app passam pelo backend e consomem da fila. Log visível só pro mestre.
+- **Bilíngue PT/EN**, tema medieval.
 
 ## Stack
 
 | Camada | Tecnologia | Deploy |
 |---|---|---|
-| Frontend | Vite + React 18 | Vercel |
-| Backend | Django 5 + DRF | PythonAnywhere |
-| Banco | SQLite (free) → MySQL fácil | local file / PythonAnywhere |
-| Realtime | Polling 2.5s (sem WebSocket; PA free não suporta) | — |
+| Frontend | Vite + React 18 (lazy chunks) | Vercel |
+| Backend | Django 5 + DRF + SQLite | PythonAnywhere |
+| Realtime | Polling 2.5s (PA free não tem WS) | — |
+| Cache | LocMem (rate limit) | — |
 
-Ver [DECISIONS.md](DECISIONS.md) para detalhes da arquitetura e [DEPLOY.md](DEPLOY.md) para subir em produção.
+Detalhes em [DECISIONS.md](DECISIONS.md). Para subir em produção: [DEPLOY.md](DEPLOY.md). Endpoints: [API.md](API.md).
 
 ## Estrutura
 
 ```
 /frontend       Vite + React (vai pra Vercel)
 /backend        Django (vai pra PythonAnywhere)
-DECISIONS.md
-DEPLOY.md
-vercel.json     aponta build pra frontend/
+vercel.json     build aponta pra frontend/
+DECISIONS.md, DEPLOY.md, API.md, HANDOFF.md
 ```
 
-## Rodar localmente
-
-### Backend (use `py` no Windows)
+## Testes
 
 ```bash
-cd backend
-py -m venv venv
-venv\Scripts\activate                # Windows
-# source venv/bin/activate           # Linux/Mac
-pip install -r requirements.txt
-cp .env.example .env                 # ajustar SECRET se quiser
-py manage.py migrate
-py manage.py createsuperuser         # opcional, pra acessar /admin
-py manage.py runserver 4000
+cd backend && venv\Scripts\activate && py manage.py test api    # 70 testes
+cd frontend && npm test                                          # 63 testes
 ```
 
-Backend roda em `http://localhost:4000`.
+Cobertura cruzada Python/JS pra engine de progressão, autorização cross-user, rate limit, fluxo de aprovação, dice rigging.
 
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Frontend roda em `http://localhost:5173`.
-
-### Testar com dados de seed
-
-```bash
-cd backend
-venv\Scripts\activate
-py manage.py seed
-```
-
-Cria 2 usuários, 1 campanha, 1 personagem, 1 aprovação pendente e 1 fila de dados. Idempotente. Credenciais saem no output.
-
-Em seguida abre `http://localhost:5173` e faz login com `mestre@forja.local / forja-mestre-2026` para ver o lado do mestre, ou `renan@forja.local / thalion-druida-2026` para ver o lado do jogador.
-
-### Testar do zero
-
-Abrir `http://localhost:5173` → criar conta → criar personagem → criar campanha (clicar em "Campanhas" no header) → copiar `invite code` → fazer logout → criar outro usuário → entrar com o invite code.
-
-## Testar a engine de progressão
-
-```bash
-cd backend
-venv\Scripts\activate
-py manage.py test api
-```
-
-42 testes cobrem progressão, autorização cross-user, fluxo de aprovação, dice rigging.
-
-## Endpoints principais
-
-Sob `/api`:
+## Endpoints — TL;DR
 
 ```
-POST /auth/csrf            cookie inicial
-POST /auth/signup          {email, password, displayName}
-POST /auth/login
-POST /auth/logout
-GET  /auth/me
-
-GET  /characters
-POST /characters           {name, data}
-GET  /characters/:id
-PUT  /characters/:id
-DEL  /characters/:id
-
-GET  /campaigns
-POST /campaigns            {name, description?}
-GET  /campaigns/:id|slug
-PUT  /campaigns/:id        (DM)
-DEL  /campaigns/:id        (DM)
-POST /campaigns/join       {inviteCode, characterId?}
-PUT  /campaigns/:id/members/:mid
-DEL  /campaigns/:id/members/:mid  (DM)
-POST /campaigns/:id/rotate-screen-token   (DM)
-POST /campaigns/:id/rotate-invite-code    (DM)
-
-GET  /approvals/campaign/:id
-POST /approvals/campaign/:id   {characterId, type, payload, note?}
-POST /approvals/:id/review     {status, applyChanges?, note?}  (DM)
-
-POST /dice/roll                {diceType, campaignId?, label?, count?}
-GET  /dice/campaign/:id/rigs   (DM)
-POST /dice/campaign/:id/rigs   {targetUserId, diceType, values}  (DM)
-PUT  /dice/rigs/:id            (DM)
-DEL  /dice/rigs/:id            (DM)
-GET  /dice/campaign/:id/log    (DM)
-
-GET  /screen/:token            PÚBLICO — telão TV
+POST /api/auth/{csrf,signup,login,logout}, GET /me
+GET|POST /api/characters       PUT|GET|DELETE /api/characters/:id
+GET|POST /api/campaigns        PUT|GET|DELETE /api/campaigns/:idOrSlug
+POST /api/campaigns/join       PUT|DELETE /api/campaigns/:id/members/:mid
+POST /api/campaigns/:id/rotate-{screen-token,invite-code}
+GET|POST /api/approvals/campaign/:id   POST /api/approvals/:id/review
+POST /api/dice/roll            GET|POST /api/dice/campaign/:id/rigs
+PUT|DELETE /api/dice/rigs/:id  GET /api/dice/campaign/:id/log
+GET /api/screen/:token  (público)
 ```
 
-## Telão na TV
-
-Mestre abre a aba **Telão** numa campanha → copia link → abre na smart TV / tablet / notebook. Polling de 2.5s mantém HP, condições e iniciativa atualizados. Funciona em qualquer navegador.
-
-URL padrão: `https://SEU_FRONTEND/tv/<screen_token>`.
-
-## Dice rigging do mestre — como funciona
-
-1. Mestre vai em **Dados** na campanha.
-2. Escolhe um jogador, tipo de dado e enfileira valores (ex: `15, 12, 18` para os próximos 3 d20).
-3. Quando o jogador rola pelo app, o servidor retorna esses valores em ordem.
-4. Após a fila acabar, volta a rolar random.
-5. Tudo registrado em log que só o mestre vê.
-
-Isso permite ao mestre "salvar" momentos críticos (evitar um 1 numa percepção essencial, ou garantir um crítico planejado) sem precisar pedir rerolls.
-
-## Engine de progressão
-
-Em `frontend/src/progression/rules.js` (e portada em `backend/api/progression/rules.py`) há um descritor declarativo por classe+subclasse+nível. Exemplo:
-
-```js
-druid: {
-  subclassPerLevel: {
-    stars: {
-      2: { autoCantrips: ['guidance'], features: [...] }
-    }
-  }
-}
-```
-
-Quando o personagem é salvo, `applyAutosToCharacter()` aplica os autos. É **idempotente** — rodar 2x não duplica truques. Trocar de subclasse remove autos antigos.
-
-Quando o jogador solicita level-up, o mestre aprova, e o backend aplica via `apply_approval_to_character()`. O personagem sobe de nível, ganha HP, e os novos autos da subclasse entram.
-
-Classes cobertas: bárbaro, bardo, clérigo, druida, feiticeiro, guerreiro, ladino, mago, monge, paladino, patrulheiro, bruxo. Subclasses do exemplo do usuário (druida) completas; outras com esqueleto pronto para encher.
+Tudo detalhado em [API.md](API.md).
 
 ## Licença
 
-Conteúdo de regras: System Reference Document 5.1 (Wizards of the Coast), CC-BY 4.0.
-
-Código: livre — pode usar como quiser.
+Conteúdo de regras: SRD 5.1 (Wizards of the Coast), CC-BY 4.0.
+Código: livre.

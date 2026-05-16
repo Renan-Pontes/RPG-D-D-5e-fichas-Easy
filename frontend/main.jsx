@@ -42,6 +42,7 @@ function Root() {
 
   return (
     <AuthProvider>
+      <a href="#main" className="skip-link">{lang === 'pt' ? 'Pular para o conteúdo' : 'Skip to content'}</a>
       <Suspense fallback={<Loading />}>
         <App />
       </Suspense>

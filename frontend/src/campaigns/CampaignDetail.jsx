@@ -50,22 +50,36 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
         </div>
       </div>
 
-      <div className="tabs" style={{ marginBottom: 16 }}>
-        <button className={`tab ${tab === 'overview' ? 'active' : ''}`} onClick={() => setTab('overview')}>{t(lang, 'Visão geral', 'Overview')}</button>
-        <button className={`tab ${tab === 'members' ? 'active' : ''}`} onClick={() => setTab('members')}>{t(lang, 'Membros', 'Members')}</button>
-        <button className={`tab ${tab === 'approvals' ? 'active' : ''}`} onClick={() => setTab('approvals')}>
-          {t(lang, 'Aprovações', 'Approvals')}
-          {approvals.filter(a => a.status === 'pending').length > 0 && <span className="badge"> {approvals.filter(a => a.status === 'pending').length}</span>}
-        </button>
-        {isDM && <button className={`tab ${tab === 'dice' ? 'active' : ''}`} onClick={() => setTab('dice')}>{t(lang, 'Dados', 'Dice')}</button>}
-        {isDM && <button className={`tab ${tab === 'screen' ? 'active' : ''}`} onClick={() => setTab('screen')}>{t(lang, 'Telão', 'TV screen')}</button>}
+      <div className="tabs" role="tablist" aria-label={t(lang, 'Abas da campanha', 'Campaign tabs')} style={{ marginBottom: 16 }}>
+        {[
+          { id: 'overview',  label: t(lang, 'Visão geral', 'Overview') },
+          { id: 'members',   label: t(lang, 'Membros', 'Members') },
+          { id: 'approvals', label: t(lang, 'Aprovações', 'Approvals'), badge: approvals.filter(a => a.status === 'pending').length },
+          ...(isDM ? [{ id: 'dice',   label: t(lang, 'Dados', 'Dice') }] : []),
+          ...(isDM ? [{ id: 'screen', label: t(lang, 'Telão', 'TV screen') }] : []),
+        ].map(it => (
+          <button
+            key={it.id}
+            role="tab"
+            aria-selected={tab === it.id}
+            aria-controls={`tabpanel-${it.id}`}
+            id={`tab-${it.id}`}
+            className={`tab ${tab === it.id ? 'active' : ''}`}
+            onClick={() => setTab(it.id)}
+          >
+            {it.label}
+            {it.badge > 0 && <span className="badge" aria-label={`${it.badge} pending`}> {it.badge}</span>}
+          </button>
+        ))}
       </div>
 
-      {tab === 'overview' && <OverviewTab campaign={campaign} lang={lang} isDM={isDM} onChange={load} />}
-      {tab === 'members' && <MembersTab campaign={campaign} lang={lang} isDM={isDM} characters={characters} onChange={load} />}
-      {tab === 'approvals' && <ApprovalsTab approvals={approvals} lang={lang} isDM={isDM} onChange={load} />}
-      {tab === 'dice' && isDM && <DiceTab campaign={campaign} rigs={rigs} lang={lang} onChange={load} />}
-      {tab === 'screen' && isDM && <ScreenTab campaign={campaign} lang={lang} onChange={load} />}
+      <div role="tabpanel" id={`tabpanel-${tab}`} aria-labelledby={`tab-${tab}`}>
+        {tab === 'overview' && <OverviewTab campaign={campaign} lang={lang} isDM={isDM} onChange={load} />}
+        {tab === 'members' && <MembersTab campaign={campaign} lang={lang} isDM={isDM} characters={characters} onChange={load} />}
+        {tab === 'approvals' && <ApprovalsTab approvals={approvals} lang={lang} isDM={isDM} onChange={load} />}
+        {tab === 'dice' && isDM && <DiceTab campaign={campaign} rigs={rigs} lang={lang} onChange={load} />}
+        {tab === 'screen' && isDM && <ScreenTab campaign={campaign} lang={lang} onChange={load} />}
+      </div>
     </div>
   );
 }

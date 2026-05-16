@@ -329,7 +329,7 @@ const App = () => {
         onHome={() => { setScreen(SCREENS.HOME); setActiveId(null); }}
         right={headerRight}
       />
-      <main className="container">
+      <main id="main" className="container" tabIndex={-1}>
         {content}
       </main>
       <DiceRoller lang={lang} />
