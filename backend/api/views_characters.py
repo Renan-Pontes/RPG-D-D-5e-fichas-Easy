@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound, PermissionDenied
 
-from .models import Character
+from .models import Character, Membership
 from .serializers import CharacterSerializer
 from .permissions import can_read_character
 
@@ -45,3 +45,33 @@ def character_detail(request, pk):
     s.is_valid(raise_exception=True)
     s.save()
     return Response({'character': s.data})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def character_campaigns(request, pk):
+    """Lista as campanhas em que este personagem está atribuído.
+    Útil pro frontend solicitar level-up sem ter que iterar todas as campanhas
+    do usuário (evita N+1 do lado cliente)."""
+    try:
+        obj = Character.objects.get(pk=pk)
+    except Character.DoesNotExist:
+        raise NotFound('not_found')
+    if obj.owner_id != request.user.id:
+        raise PermissionDenied('forbidden')
+    memberships = (
+        Membership.objects
+        .filter(character=obj)
+        .select_related('campaign')
+    )
+    return Response({
+        'campaigns': [
+            {
+                'id': m.campaign.id,
+                'name': m.campaign.name,
+                'slug': m.campaign.slug,
+                'membershipId': m.id,
+            }
+            for m in memberships
+        ],
+    })

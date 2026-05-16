@@ -12,6 +12,7 @@ urlpatterns = [
     # Characters
     path('characters', views_characters.character_list),
     path('characters/<int:pk>', views_characters.character_detail),
+    path('characters/<int:pk>/campaigns', views_characters.character_campaigns),
 
     # Campaigns
     path('campaigns', views_campaigns.campaign_list),

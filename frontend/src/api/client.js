@@ -75,6 +75,7 @@ export const api = {
   createCharacter:  (body) => request('/api/characters', { method: 'POST', body }),
   updateCharacter:  (id, body) => request(`/api/characters/${id}`, { method: 'PUT', body }),
   deleteCharacter:  (id) => request(`/api/characters/${id}`, { method: 'DELETE' }),
+  characterCampaigns: (id) => request(`/api/characters/${id}/campaigns`),
   // Campaigns
   listCampaigns:   () => request('/api/campaigns'),
   getCampaign:     (idOrSlug) => request(`/api/campaigns/${idOrSlug}`),

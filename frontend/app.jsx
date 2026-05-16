@@ -170,25 +170,24 @@ const App = () => {
       return;
     }
     if (!active) return;
-    // Encontra campanha em que esse personagem está atribuído.
-    // O serializer expõe o personagem como objeto aninhado (m.character.id).
-    let campaigns;
-    try { campaigns = (await api.listCampaigns()).campaigns; } catch { campaigns = []; }
-    let targetCamp = null;
-    for (const c of campaigns) {
-      try {
-        const det = await api.getCampaign(c.id);
-        const found = det.campaign.members?.some(m => m.character && String(m.character.id) === String(active.id));
-        if (found) {
-          targetCamp = det.campaign;
-          break;
-        }
-      } catch {}
+    // 1 só request: lista campanhas onde esse personagem está atribuído
+    let camps = [];
+    try {
+      const r = await api.characterCampaigns(active.id);
+      camps = r.campaigns || [];
+    } catch (e) {
+      console.warn('characterCampaigns failed', e);
     }
-    if (!targetCamp) {
-      setToast(lang === 'pt' ? 'Atribua este personagem a uma campanha primeiro.' : 'Assign this character to a campaign first.');
+    if (camps.length === 0) {
+      setToast(lang === 'pt'
+        ? 'Atribua este personagem a uma campanha primeiro (Campanhas → Membros).'
+        : 'Assign this character to a campaign first (Campaigns → Members).');
       return;
     }
+    // Se houver mais de uma campanha, pega a mais recente (ordem do FK).
+    // TODO: se virar comum ter o mesmo personagem em várias campanhas,
+    //       adicionar modal de escolha.
+    const targetCamp = camps[0];
     try {
       await api.createApproval(targetCamp.id, {
         characterId: active.id,
@@ -196,9 +195,11 @@ const App = () => {
         payload: { toLevel: (active.level || 1) + 1 },
         note: lang === 'pt' ? `Solicitação automática de subida de nível.` : `Automated level-up request.`,
       });
-      setToast(lang === 'pt' ? 'Solicitação enviada ao mestre.' : 'Request sent to DM.');
+      setToast(lang === 'pt'
+        ? `Solicitação enviada para "${targetCamp.name}".`
+        : `Request sent to "${targetCamp.name}".`);
     } catch (e) {
-      setToast(e?.message || 'Falha ao enviar.');
+      setToast(e?.data?.error || e?.message || 'Falha ao enviar.');
     }
   };
 

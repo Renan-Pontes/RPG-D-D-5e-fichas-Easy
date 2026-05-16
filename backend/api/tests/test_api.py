@@ -87,6 +87,22 @@ class CharacterAuthzTests(TestCase):
         self.assertEqual(r.status_code, 403)
         self.assertTrue(Character.objects.filter(id=char.id).exists())
 
+    def test_character_campaigns_lists_only_assigned(self):
+        from api.models import Campaign, Membership
+        char = Character.objects.create(owner=self.alice, name='Thal', data={'level': 1})
+        camp = Campaign.objects.create(dm=self.alice, name='C1', slug='c1')
+        Membership.objects.create(campaign=camp, user=self.alice, character=char, role='player')
+
+        # Personagem em 1 campanha
+        r = self.c_alice.get(f'/api/characters/{char.id}/campaigns')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.json()['campaigns']), 1)
+        self.assertEqual(r.json()['campaigns'][0]['id'], camp.id)
+
+        # Outro user não pode ver as campanhas do char alheio
+        r = self.c_bob.get(f'/api/characters/{char.id}/campaigns')
+        self.assertEqual(r.status_code, 403)
+
 
 class CampaignAuthzTests(TestCase):
     def setUp(self):
