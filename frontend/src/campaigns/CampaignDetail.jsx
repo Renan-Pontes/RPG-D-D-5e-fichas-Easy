@@ -61,7 +61,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
         {isDM && <button className={`tab ${tab === 'screen' ? 'active' : ''}`} onClick={() => setTab('screen')}>{t(lang, 'Telão', 'TV screen')}</button>}
       </div>
 
-      {tab === 'overview' && <OverviewTab campaign={campaign} lang={lang} isDM={isDM} />}
+      {tab === 'overview' && <OverviewTab campaign={campaign} lang={lang} isDM={isDM} onChange={load} />}
       {tab === 'members' && <MembersTab campaign={campaign} lang={lang} isDM={isDM} characters={characters} onChange={load} />}
       {tab === 'approvals' && <ApprovalsTab approvals={approvals} lang={lang} isDM={isDM} onChange={load} />}
       {tab === 'dice' && isDM && <DiceTab campaign={campaign} rigs={rigs} lang={lang} onChange={load} />}
@@ -70,7 +70,26 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   );
 }
 
-function OverviewTab({ campaign, lang, isDM }) {
+function OverviewTab({ campaign, lang, isDM, onChange }) {
+  const [editing, setEditing] = useState(false);
+  const [session, setSession] = useState(campaign.state?.session || '');
+  const [scene, setScene] = useState(campaign.state?.scene || '');
+  const [weather, setWeather] = useState(campaign.state?.weather || '');
+
+  useEffect(() => {
+    setSession(campaign.state?.session || '');
+    setScene(campaign.state?.scene || '');
+    setWeather(campaign.state?.weather || '');
+  }, [campaign.state?.session, campaign.state?.scene, campaign.state?.weather]);
+
+  const saveState = async () => {
+    await api.updateCampaign(campaign.id, {
+      state: { ...campaign.state, session, scene, weather },
+    });
+    setEditing(false);
+    onChange();
+  };
+
   return (
     <div className="col gap-4">
       {isDM && (
@@ -81,11 +100,40 @@ function OverviewTab({ campaign, lang, isDM }) {
         </div>
       )}
       <div className="info-box">
-        <h3>{t(lang, 'Estado da campanha', 'Campaign state')}</h3>
-        <p><strong>{t(lang, 'Sessão atual', 'Current session')}:</strong> {campaign.state?.session || '—'}</p>
-        <p><strong>{t(lang, 'Cena', 'Scene')}:</strong> {campaign.state?.scene || '—'}</p>
-        <p><strong>{t(lang, 'Iniciativa', 'Initiative')}:</strong> {campaign.state?.initiativeTurn ?? '—'}</p>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <h3>{t(lang, 'Estado da campanha', 'Campaign state')}</h3>
+          {isDM && !editing && (
+            <button className="btn btn-ghost btn-sm" onClick={() => setEditing(true)}>{t(lang, 'Editar', 'Edit')}</button>
+          )}
+        </div>
+        {editing ? (
+          <div className="col gap-2">
+            <label className="col gap-1">
+              <span>{t(lang, 'Sessão', 'Session')}</span>
+              <input className="input" value={session} onChange={e => setSession(e.target.value)} placeholder="ex: 12" />
+            </label>
+            <label className="col gap-1">
+              <span>{t(lang, 'Cena', 'Scene')}</span>
+              <input className="input" value={scene} onChange={e => setScene(e.target.value)} placeholder={t(lang, 'ex: Taverna do Javali Cego', 'e.g.: Blind Boar Tavern')} />
+            </label>
+            <label className="col gap-1">
+              <span>{t(lang, 'Clima/Ambiente', 'Weather/Mood')}</span>
+              <input className="input" value={weather} onChange={e => setWeather(e.target.value)} placeholder={t(lang, 'ex: Chuva fina, ventania', 'e.g.: Drizzle, gusty')} />
+            </label>
+            <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>{t(lang, 'Cancelar', 'Cancel')}</button>
+              <button className="btn btn-primary btn-sm" onClick={saveState}>{t(lang, 'Salvar', 'Save')}</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p><strong>{t(lang, 'Sessão atual', 'Current session')}:</strong> {campaign.state?.session || '—'}</p>
+            <p><strong>{t(lang, 'Cena', 'Scene')}:</strong> {campaign.state?.scene || '—'}</p>
+            <p><strong>{t(lang, 'Clima', 'Weather')}:</strong> {campaign.state?.weather || '—'}</p>
+          </>
+        )}
       </div>
+      <CampaignDiceRoller campaign={campaign} lang={lang} />
       <div className="info-box">
         <h3>{t(lang, 'Membros', 'Members')}: {campaign.members?.length || 0}</h3>
       </div>
@@ -291,6 +339,76 @@ function ScreenTab({ campaign, lang, onChange }) {
       <p style={{ marginTop: 16 }}>
         <a href={url} target="_blank" rel="noreferrer">{t(lang, 'Abrir o telão em nova aba', 'Open the TV view in a new tab')}</a>
       </p>
+    </div>
+  );
+}
+
+/**
+ * Rolagem "oficial" da campanha — passa pelo backend, sujeita ao dice rigging
+ * do mestre. O DiceRoller flutuante do app continua rolando local pra diversão
+ * visual; este aqui é a rolagem que importa.
+ */
+function CampaignDiceRoller({ campaign, lang }) {
+  const [diceType, setDiceType] = useState('d20');
+  const [count, setCount] = useState(1);
+  const [label, setLabel] = useState('');
+  const [last, setLast] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const roll = async () => {
+    setBusy(true);
+    try {
+      const r = await api.rollDice({ diceType, count, campaignId: campaign.id, label });
+      setLast(r);
+    } catch (e) {
+      console.warn('roll failed', e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="info-box">
+      <h3 style={{ marginTop: 0 }}>{t(lang, 'Rolar dados (oficial)', 'Roll dice (official)')}</h3>
+      <p style={{ color: 'var(--ink-secondary)', marginTop: 0, fontSize: '0.9em' }}>
+        {t(lang,
+          'Esta rolagem passa pelo servidor — o mestre pode ter pré-definido valores.',
+          'This roll goes through the server — the DM may have pre-set values.'
+        )}
+      </p>
+      <div className="row gap-2" style={{ alignItems: 'center' }}>
+        <select className="input" value={diceType} onChange={e => setDiceType(e.target.value)}>
+          {['d4','d6','d8','d10','d12','d20','d100'].map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
+        <input
+          type="number"
+          className="input"
+          min={1}
+          max={20}
+          value={count}
+          onChange={e => setCount(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+          style={{ width: 64 }}
+        />
+        <input
+          className="input"
+          placeholder={t(lang, 'rótulo (ex: percepção)', 'label (e.g. perception)')}
+          value={label}
+          onChange={e => setLabel(e.target.value)}
+          style={{ flex: 1 }}
+        />
+        <button className="btn btn-primary" onClick={roll} disabled={busy}>
+          {busy ? '…' : t(lang, 'Rolar', 'Roll')}
+        </button>
+      </div>
+      {last && (
+        <div style={{ marginTop: 12, fontFamily: 'JetBrains Mono, monospace' }}>
+          <strong>{t(lang, 'Resultado', 'Result')}:</strong>{' '}
+          {last.results.map((r, i) => (
+            <span key={i} className="rig-value" style={{ marginRight: 4 }}>{r.value}</span>
+          ))}
+          {last.results.length > 1 && <> = <strong>{last.total}</strong></>}
+        </div>
+      )}
     </div>
   );
 }
