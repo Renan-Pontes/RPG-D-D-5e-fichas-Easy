@@ -1,0 +1,275 @@
+/* ========================================================================
+   Mobile-first overrides — celular do jogador.
+   ========================================================================
+
+   Critérios alvo:
+   - Tap targets ≥44px nos elementos primários.
+   - Inputs com font-size ≥16px (evita zoom iOS no focus).
+   - Layout em coluna no celular (≤600px).
+   - Modais subindo do bottom (já tratado em styles.css), com max-height
+     que não corte o conteúdo crítico (HP/condições).
+   - Action-bar da Sheet rolável horizontal só se passar da largura.
+
+   Não substitui media queries existentes; complementa onde elas deixaram
+   buraco. Carrega APÓS as outras (em main.jsx).
+   ========================================================================
+*/
+
+/* === 1. Inputs nunca dão zoom iOS no focus (font-size ≥16px) === */
+@media (max-width: 720px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="search"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* === 2. Tap targets ≥44px nos pontos quentes === */
+@media (max-width: 720px) {
+  /* btn-sm continua menor visualmente, mas precisa de alvo 40+px */
+  .btn-sm {
+    min-height: 40px;
+    padding: 8px 14px;
+    font-size: 0.85rem;
+  }
+
+  /* Toggle PT/EN no header (botões compactos demais — só 29px de altura) */
+  .lang-toggle button {
+    min-height: 40px;
+    min-width: 44px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+
+  /* Chips da action-bar (print/share/export/edit/inspiration) */
+  .chip {
+    min-height: 40px;
+    padding: 8px 14px;
+    font-size: 0.85rem;
+  }
+  .action-bar {
+    /* permite rolagem horizontal se passar da largura, sem quebrar layout */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    margin: 0 calc(-1 * var(--s-4, 16px));
+    padding: 4px var(--s-4, 16px);
+  }
+  .action-bar::-webkit-scrollbar { height: 4px; }
+
+  /* Pip de slot de magia: 22px é pequeno demais pra polegar */
+  .slot-pip {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  /* Botões de ícone (↑↓×) no dice rigging — 26x26 é apertado */
+  .btn-icon {
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  /* Pills de condição clicáveis na ficha */
+  .cc-cond {
+    padding: 6px 12px;
+    font-size: 0.85em;
+  }
+
+  /* Condições do DM editor (chip toggle) */
+  .dm-cond-chip {
+    padding: 8px 12px;
+    min-height: 36px;
+    font-size: 0.85em;
+  }
+
+  /* Editor de inventário: rows clicáveis um pouco maiores */
+  .inv-row-head {
+    padding: 12px 12px;
+    min-height: 48px;
+  }
+  .inv-tag {
+    font-size: 0.65em;
+  }
+}
+
+/* === 3. Modais virtualmente full-screen em telas muito pequenas === */
+@media (max-width: 480px) {
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 100vh !important;
+    height: 100vh;
+    border-radius: 0 !important;
+  }
+  .modal-backdrop {
+    padding: 0 !important;
+  }
+  .dm-editor-modal {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+  }
+  .dm-editor-body { padding: 14px; }
+}
+
+/* === 4. Layout em coluna para áreas que ainda forçam linha === */
+@media (max-width: 600px) {
+  /* Combat tab: actions e form ficam empilhados */
+  .cc-attack-row {
+    flex-wrap: wrap;
+  }
+  .cc-attack-row select,
+  .cc-attack-row > div {
+    width: 100%;
+  }
+  /* Combat grid wrapper: scroll horizontal mas ocupa toda a tela */
+  .combat-grid-wrapper {
+    margin: 0 calc(-1 * var(--s-4, 16px));
+    border-radius: 0;
+    padding: 8px;
+  }
+  .grid-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .grid-token-ctl {
+    margin-left: 0;
+    border-left: none;
+    border-top: 1px dashed var(--border);
+    padding-top: 8px;
+    padding-left: 0;
+    width: 100%;
+  }
+
+  /* Stats grid em coluna única */
+  .tv-stats {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Tabs sticky no topo do scroll — ajuda em ficha longa */
+  .tabs {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg, #0c0805);
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+/* === 5. Hero do char (avatar + nome): empilhamento melhor === */
+@media (max-width: 600px) {
+  .hero-stat-row {
+    flex-direction: column !important;
+    gap: 8px;
+  }
+}
+
+/* === 6. Telão preview no celular do mestre === */
+@media (max-width: 720px) {
+  .tv-grid {
+    grid-template-columns: 1fr !important;
+  }
+  /* Log de rolagens no telão fica no topo, não fixo */
+  .tv-rolls-log {
+    position: static !important;
+    margin-top: 12px;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+}
+
+/* === 7. Banner de Wild Shape: empilha em mobile === */
+@media (max-width: 600px) {
+  .wild-shape-banner {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+  .wsb-icon { display: none; }
+  .wild-shape-banner button {
+    width: 100%;
+  }
+}
+
+/* === 8. Campaign mode banner: empilha === */
+@media (max-width: 600px) {
+  .campaign-mode-banner {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+  .campaign-mode-banner button {
+    width: 100%;
+  }
+}
+
+/* === 9. Touch feedback visível === */
+@media (hover: none) {
+  .btn:active,
+  .chip:active,
+  .tab:active,
+  .slot-pip:active,
+  .dm-cond-chip:active,
+  .cc-cond:active,
+  .inv-row-head:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+    transition: transform 80ms ease, opacity 80ms ease;
+  }
+}
+
+/* === 10. Footer-safe (iPhone notch / barra inferior) === */
+@supports (padding: max(0px)) {
+  .container, .tv-screen {
+    padding-bottom: max(var(--s-6, 24px), env(safe-area-inset-bottom));
+    padding-left: max(var(--s-4, 16px), env(safe-area-inset-left));
+    padding-right: max(var(--s-4, 16px), env(safe-area-inset-right));
+  }
+}
+
+/* === 11. Tabela "dm-slots-row" muito apertada em mobile pequena === */
+@media (max-width: 420px) {
+  .dm-slots-row {
+    grid-template-columns: 30px 1fr 1fr 56px;
+    font-size: 0.8em;
+  }
+  .dm-slots-row input { padding: 6px; }
+}
+
+/* === 12. Dice log e log de rolagens (campo do DM) em mobile === */
+@media (max-width: 600px) {
+  .dice-log-row {
+    grid-template-columns: 40px 1fr auto;
+    gap: 6px;
+  }
+}
+
+/* === 13. Tabs scrolláveis no header de campanha + indicação visual === */
+@media (max-width: 720px) {
+  .tabs::-webkit-scrollbar { height: 3px; }
+  .tabs::-webkit-scrollbar-thumb { background: var(--gold-deep, #9c7a2a); border-radius: 2px; }
+  .tab { min-height: 44px; }
+}
+
+/* === 14. Form de roll em coluna === */
+@media (max-width: 600px) {
+  .rolls-panel .roll-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+}
+
+/* === 15. Reduz tamanhos exagerados na ficha pra caber em 360px === */
+@media (max-width: 360px) {
+  h1 { font-size: 1.5rem !important; }
+  .stat-value { font-size: 1.2rem !important; }
+}

@@ -191,6 +191,52 @@ Você acordou rápido e pediu mais melhorias. Foi feito (em 8 commits):
 - `prefers-reduced-motion`: zera animações.
 - Media queries `@max-width: 720px`: tabs scrollaveis, grid 1 coluna, dice log compacto.
 
+## Mobile-first (celular do jogador)
+
+Audit do item 7 — validado via preview em 375×812 (iPhone 13). Arquivo dedicado: `frontend/src/mobile-styles.css` carregado por último em `main.jsx` (sobrepõe os outros quando necessário).
+
+### Resultados medidos (no preview)
+
+| Elemento | Desktop | Mobile (≤720px) | Alvo |
+|---|---|---|---|
+| `.btn.btn-primary` | 44px | 44px | ≥44px ✅ |
+| `.btn.btn-sm` | 32px | 40px | ≥40px ✅ (era 32) |
+| `.btn-icon` (↑↓×) | 26×26 | 36×36 | ≥36 ✅ |
+| `.chip` (action-bar) | 29px | 40px | ≥40px ✅ |
+| `.tab` (campanha + ficha) | 48px | 44px | ≥44px ✅ |
+| `.slot-pip` (uso de slot) | 22×22 | 45×45 | ≥40 ✅ (era pequeno demais) |
+| `.lang-toggle button` PT/EN | 28×39 | 40×47 | ≥40 ✅ (era 28×39) |
+| `.cc-cond` (toggle condição) | compacto | 6×12 padding | OK ✅ |
+| `.dm-cond-chip` | compacto | 36px | ≥36 ✅ |
+| `.inv-row-head` (item) | normal | 48px clique | ≥48 ✅ |
+| `<input>` font-size | 17px | 16px (`!important`) | ≥16 evita zoom iOS ✅ |
+| `<select>` font-size | 17px | 16px | ≥16 ✅ |
+
+### Outras melhorias aplicadas
+
+- **Modais full-screen em ≤480px** (`.modal`, `.dm-editor-modal`): ocupam 100vw×100vh sem border-radius. Em tablets 480-720 continuam como sheet bottom (já existia).
+- **Action-bar da Sheet** (print/share/export/edit/inspiration): wrap removido, scroll horizontal com touch scroll, scrollbar fina. Não quebra mais layout em telas estreitas.
+- **Tabs sticky** no topo do scroll na Sheet — útil pra trocar de aba sem scrollar até cima de novo.
+- **`.combat-grid-wrapper`** ocupa toda a largura no mobile (margem negativa). Token drag-drop continua funcional.
+- **`.tv-rolls-log`** sai do `position: fixed` em mobile e vira inline depois dos cards.
+- **`.wild-shape-banner`** e **`.campaign-mode-banner`** empilham em ≤600px com botão "Sair" full-width.
+- **Touch feedback** `:active` com `opacity 0.7` + `scale(0.98)` em `@media (hover: none)` — feedback visual claro ao tocar.
+- **Safe area** (iPhone notch): `padding: max(N, env(safe-area-inset-*))` no `.container` e `.tv-screen`.
+- **`viewport-fit=cover`** + `apple-mobile-web-app-capable` no `index.html` para experiência fullscreen quando salvo na home screen.
+- **`format-detection telephone=no`** previne iOS de transformar numbers em links de telefone.
+
+### Layout em coluna (breakpoint 600px)
+
+- `.cc-attack-row` (linha de ataque do combate): empilha select + button.
+- `.tv-stats`: stats em coluna única.
+- `.dice-log-row`: grid compacto sem o tipo nem o ★ rigged.
+- `.dm-slots-row`: tabela com cols menores em ≤420px.
+- `.rolls-panel .roll-row`: histórico em coluna.
+
+### Não regredido em desktop
+
+Confirmado por inspect em 1280×800: `slot-pip 22→31 com padding original`, `btn-sm 32px`, `chip 29px` — overrides só dentro do `@media (max-width: 720px)`.
+
 ## Matriz de autorização (endpoint → quem pode)
 
 Auditoria completa em `backend/api/tests/test_authz_matrix.py` (39 testes).

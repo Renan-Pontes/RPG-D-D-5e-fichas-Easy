@@ -8,7 +8,8 @@
       "PowerShell(*)",
       "Bash(Get-ChildItem -Recurse \"c:\\\\Users\\\\renan\\\\Downloads\\\\RPG D_D 5e\")",
       "Bash(Select-Object FullName, Length)",
-      "Bash(Format-Table -AutoSize)"
+      "Bash(Format-Table -AutoSize)",
+      "mcp__Claude_Preview__preview_start"
     ]
   }
 }
