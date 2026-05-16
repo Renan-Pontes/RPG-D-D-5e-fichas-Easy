@@ -242,22 +242,49 @@ function ApprovalsTab({ approvals, lang, isDM, onChange }) {
   );
 }
 
+/**
+ * DiceTab — UX completa do dice rigging:
+ *  - Cards por jogador agrupando todas as filas dele
+ *  - Reordenar valores (↑↓), apagar individual, injetar inline
+ *  - Limpar fila inteira (volta a aleatório)
+ *  - Histórico das últimas N rolagens (com flag rigged)
+ *  - Atalhos: Enter para enfileirar, Delete pra limpar
+ */
 function DiceTab({ campaign, rigs, lang, onChange }) {
-  const [targetId, setTargetId] = useState('');
   const [diceType, setDiceType] = useState('d20');
   const [valuesText, setValuesText] = useState('');
+  const [activeTarget, setActiveTarget] = useState(null);
+  const [log, setLog] = useState([]);
 
   const players = campaign.members.filter(m => m.role !== 'dm');
 
-  const createRig = async () => {
-    if (!targetId) return;
-    const values = valuesText.split(/[,\s]+/).filter(Boolean).map(v => {
-      const n = parseInt(v, 10);
-      return Number.isFinite(n) ? { value: n } : null;
-    }).filter(Boolean);
-    if (!values.length) return;
-    await api.createRig(campaign.id, { targetUserId: targetId, diceType, values });
+  // Carrega histórico
+  const loadLog = useCallback(async () => {
+    try {
+      const r = await api.diceLog(campaign.id);
+      setLog(r.log || []);
+    } catch (e) { /* ignore */ }
+  }, [campaign.id]);
+  useEffect(() => { loadLog(); }, [loadLog]);
+  // Recarrega histórico junto com mudanças
+  useEffect(() => { loadLog(); }, [rigs, loadLog]);
+
+  const parseValues = (s) => s.split(/[,\s]+/).filter(Boolean).map(v => {
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) ? { value: n } : null;
+  }).filter(Boolean);
+
+  const enqueue = async (targetUserId) => {
+    const values = parseValues(valuesText);
+    if (!values.length || !targetUserId) return;
+    await api.createRig(campaign.id, { targetUserId, diceType, values });
     setValuesText('');
+    onChange();
+  };
+
+  const injectOne = async (targetUserId, value) => {
+    if (!Number.isFinite(value)) return;
+    await api.createRig(campaign.id, { targetUserId, diceType: 'any', values: [{ value }] });
     onChange();
   };
 
@@ -266,56 +293,227 @@ function DiceTab({ campaign, rigs, lang, onChange }) {
     onChange();
   };
 
+  const reorderRig = async (rig, from, to) => {
+    if (to < 0 || to >= rig.values.length) return;
+    const v = [...rig.values];
+    const [item] = v.splice(from, 1);
+    v.splice(to, 0, item);
+    await api.updateRig(rig.id, { values: v });
+    onChange();
+  };
+
+  const removeValue = async (rig, idx) => {
+    const v = rig.values.filter((_, i) => i !== idx);
+    if (v.length === 0) {
+      await api.deleteRig(rig.id);
+    } else {
+      await api.updateRig(rig.id, { values: v });
+    }
+    onChange();
+  };
+
+  const clearAllForPlayer = async (userId) => {
+    if (!confirm(t(lang, 'Limpar todas as filas deste jogador?', 'Clear all queues for this player?'))) return;
+    const playerRigs = rigs.filter(r => r.targetUser?.id === userId || r.targetUserId === userId);
+    await Promise.all(playerRigs.map(r => api.deleteRig(r.id)));
+    onChange();
+  };
+
+  // Agrupa rigs por jogador
+  const rigsByPlayer = {};
+  for (const r of rigs) {
+    const uid = r.targetUser?.id ?? r.targetUserId;
+    if (!rigsByPlayer[uid]) rigsByPlayer[uid] = [];
+    rigsByPlayer[uid].push(r);
+  }
+
   return (
     <div className="col gap-3">
       <div className="info-box">
         <h3 style={{ marginTop: 0 }}>{t(lang, 'Controle de dados', 'Dice control')}</h3>
-        <p style={{ color: 'var(--ink-secondary)' }}>
+        <p style={{ color: 'var(--ink-secondary)', marginTop: 0 }}>
           {t(lang,
             'Defina os próximos valores que cada jogador "rolará". Quando eles rolarem pelo app, esses valores serão usados na ordem. Eles não veem isto.',
             'Set the next values each player will "roll". When they roll via the app, these values are used in order. They cannot see this.'
           )}
         </p>
-        <div className="row gap-2">
-          <select value={targetId} onChange={e => setTargetId(e.target.value)} className="input">
-            <option value="">{t(lang, 'Escolha um jogador…', 'Pick a player…')}</option>
-            {players.map(p => <option key={p.id} value={p.user.id}>{p.user.displayName} ({p.character?.name || '—'})</option>)}
-          </select>
+        <div className="row gap-2" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <select value={diceType} onChange={e => setDiceType(e.target.value)} className="input">
-            <option value="d20">d20</option>
-            <option value="d12">d12</option>
-            <option value="d10">d10</option>
-            <option value="d8">d8</option>
-            <option value="d6">d6</option>
-            <option value="d4">d4</option>
-            <option value="d100">d100</option>
-            <option value="any">{t(lang, 'Qualquer', 'Any')}</option>
+            {['d20','d12','d10','d8','d6','d4','d100','any'].map(d => (
+              <option key={d} value={d}>{d === 'any' ? t(lang, 'Qualquer', 'Any') : d}</option>
+            ))}
           </select>
           <input
             value={valuesText}
             onChange={e => setValuesText(e.target.value)}
-            placeholder={t(lang, 'Valores: 15, 12, 18', 'Values: 15, 12, 18')}
+            onKeyDown={e => { if (e.key === 'Enter' && activeTarget) enqueue(activeTarget); }}
+            placeholder={t(lang, 'Valores: 15, 12, 18 (Enter para enfileirar)', 'Values: 15, 12, 18 (Enter to queue)')}
             className="input"
-            style={{ flex: 1 }}
+            style={{ flex: 1, minWidth: 240 }}
           />
-          <button className="btn btn-primary" onClick={createRig}>{t(lang, 'Adicionar fila', 'Queue')}</button>
         </div>
       </div>
 
-      {rigs.map(r => (
-        <div key={r.id} className="rig-card">
-          <div>
-            <strong>{r.targetUser?.displayName}</strong> · {r.diceType}
+      {players.map(p => {
+        const uid = p.user.id;
+        const playerRigs = rigsByPlayer[uid] || [];
+        const totalPending = playerRigs.reduce((acc, r) => acc + r.values.filter(v => !v.consumed).length, 0);
+        const isActive = activeTarget === uid;
+        return (
+          <div key={p.id} className={`player-dice-card ${isActive ? 'active' : ''}`}>
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <strong>{p.user.displayName}</strong>
+                {p.character && <span style={{ color: 'var(--ink-secondary)', marginLeft: 8 }}>{p.character.name}</span>}
+                {totalPending > 0 && (
+                  <span className="pill pill-pending" style={{ marginLeft: 8 }}>
+                    {totalPending} {t(lang, 'na fila', 'queued')}
+                  </span>
+                )}
+              </div>
+              <div className="row gap-2">
+                <button
+                  className={`btn btn-sm ${isActive ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setActiveTarget(isActive ? null : uid)}
+                  aria-pressed={isActive}
+                >
+                  {isActive ? t(lang, 'Alvo selecionado ✓', 'Target selected ✓') : t(lang, 'Selecionar como alvo', 'Select as target')}
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => enqueue(uid)}
+                  disabled={!valuesText.trim()}
+                  title={t(lang, 'Enfileirar valores acima neste jogador', 'Queue values above for this player')}
+                >
+                  ➕ {t(lang, 'Enfileirar', 'Queue')}
+                </button>
+                {playerRigs.length > 0 && (
+                  <button className="btn btn-ghost btn-sm" style={{ color: '#ff9999' }} onClick={() => clearAllForPlayer(uid)}>
+                    {t(lang, 'Limpar tudo', 'Clear all')}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {playerRigs.length === 0 ? (
+              <p style={{ color: 'var(--ink-secondary)', fontStyle: 'italic', margin: '8px 0 0' }}>
+                {t(lang, 'Sem rolagens enfileiradas. Rolagens deste jogador serão aleatórias.',
+                  'No queued rolls. This player\'s rolls will be random.')}
+              </p>
+            ) : (
+              playerRigs.map(rig => (
+                <RigRow
+                  key={rig.id}
+                  rig={rig}
+                  lang={lang}
+                  onMoveUp={i => reorderRig(rig, i, i - 1)}
+                  onMoveDown={i => reorderRig(rig, i, i + 1)}
+                  onRemoveValue={i => removeValue(rig, i)}
+                  onDeleteRig={() => deleteRig(rig.id)}
+                />
+              ))
+            )}
+
+            <QuickInject lang={lang} onInject={v => injectOne(uid, v)} />
           </div>
-          <div className="rig-values">
-            {r.values.map((v, i) => (
-              <span key={i} className={`rig-value ${v.consumed ? 'consumed' : ''}`}>{v.value}</span>
-            ))}
+        );
+      })}
+
+      <div className="info-box">
+        <h3 style={{ marginTop: 0 }}>{t(lang, 'Histórico de rolagens', 'Rolls history')}</h3>
+        {log.length === 0 ? (
+          <p style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Nenhuma rolagem ainda.', 'No rolls yet.')}</p>
+        ) : (
+          <div className="dice-log">
+            {log.slice(0, 50).map(r => {
+              const player = players.find(p => p.user.id === r.user_id);
+              return (
+                <div key={r.id} className="dice-log-row">
+                  <span className={`dice-log-result ${r.rigged ? 'rigged' : ''}`}>{r.result}</span>
+                  <span className="dice-log-type">{r.dice_type}</span>
+                  <span className="dice-log-who">{player?.user.displayName || `#${r.user_id}`}</span>
+                  {r.label && <span className="dice-log-label">{r.label}</span>}
+                  {r.rigged && <span className="dice-log-flag" title={t(lang, 'Valor da fila do mestre', 'From DM queue')}>★</span>}
+                  <span className="dice-log-time">{new Date(r.created_at).toLocaleTimeString()}</span>
+                </div>
+              );
+            })}
           </div>
-          <button className="btn btn-ghost btn-sm" style={{ color: '#ff9999' }} onClick={() => deleteRig(r.id)}>{t(lang, 'Apagar', 'Delete')}</button>
-        </div>
-      ))}
+        )}
+      </div>
     </div>
+  );
+}
+
+function RigRow({ rig, lang, onMoveUp, onMoveDown, onRemoveValue, onDeleteRig }) {
+  return (
+    <div className="rig-detailed">
+      <div style={{ fontSize: '0.85em', color: 'var(--ink-secondary)' }}>
+        {rig.diceType === 'any' ? t(lang, 'Qualquer dado', 'Any die') : rig.diceType}
+      </div>
+      <div className="rig-values-list">
+        {rig.values.map((v, i) => (
+          <div key={i} className={`rig-value-row ${v.consumed ? 'consumed' : ''}`}>
+            <span className="rig-value-num">{v.value}</span>
+            {v.label && <span className="rig-value-label">{v.label}</span>}
+            <div className="rig-value-actions">
+              {!v.consumed && (
+                <>
+                  <button
+                    className="btn-icon"
+                    onClick={() => onMoveUp(i)}
+                    disabled={i === 0 || rig.values[i - 1]?.consumed}
+                    aria-label="Mover acima"
+                    title={t(lang, 'Mover acima', 'Move up')}
+                  >↑</button>
+                  <button
+                    className="btn-icon"
+                    onClick={() => onMoveDown(i)}
+                    disabled={i === rig.values.length - 1}
+                    aria-label="Mover abaixo"
+                    title={t(lang, 'Mover abaixo', 'Move down')}
+                  >↓</button>
+                  <button
+                    className="btn-icon danger"
+                    onClick={() => onRemoveValue(i)}
+                    aria-label="Remover"
+                    title={t(lang, 'Remover', 'Remove')}
+                  >×</button>
+                </>
+              )}
+              {v.consumed && <span className="rig-consumed-tag">{t(lang, 'usado', 'used')}</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QuickInject({ lang, onInject }) {
+  const [val, setVal] = useState('');
+  const submit = (e) => {
+    e?.preventDefault?.();
+    const n = parseInt(val, 10);
+    if (!Number.isFinite(n)) return;
+    onInject(n);
+    setVal('');
+  };
+  return (
+    <form className="quick-inject" onSubmit={submit}>
+      <input
+        type="number"
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        placeholder={t(lang, 'injetar valor único…', 'inject single value…')}
+        className="input"
+        min={1}
+        max={100}
+      />
+      <button type="submit" className="btn btn-ghost btn-sm" disabled={!val}>
+        ⚡ {t(lang, 'Injetar', 'Inject')}
+      </button>
+    </form>
   );
 }
 

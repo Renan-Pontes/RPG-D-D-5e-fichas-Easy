@@ -183,7 +183,7 @@
 .pill-rejected { background: rgba(180,50,50,0.2); color: #ff9999; border: 1px solid #b43232; }
 .pill-pending  { background: rgba(212,168,77,0.2); color: var(--gold); border: 1px solid var(--gold); }
 
-/* Dice rig */
+/* === Dice rig (UX detalhada) === */
 .rig-card {
   display: flex;
   align-items: center;
@@ -198,6 +198,7 @@
   display: flex;
   gap: 6px;
   flex: 1;
+  flex-wrap: wrap;
 }
 
 .rig-value {
@@ -214,6 +215,149 @@
   border-color: var(--border);
   color: var(--ink-secondary);
   text-decoration: line-through;
+}
+
+/* Cards por jogador */
+.player-dice-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  transition: border-color 200ms;
+}
+.player-dice-card.active {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold) inset;
+}
+
+.rig-detailed {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.rig-values-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.rig-value-row {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  background: var(--bg);
+  border-radius: 4px;
+  border-left: 3px solid var(--gold);
+}
+.rig-value-row.consumed {
+  opacity: 0.55;
+  border-left-color: var(--border);
+}
+
+.rig-value-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--gold);
+}
+.rig-value-row.consumed .rig-value-num {
+  color: var(--ink-secondary);
+  text-decoration: line-through;
+}
+
+.rig-value-label {
+  font-size: 0.85em;
+  color: var(--ink-secondary);
+  font-style: italic;
+}
+
+.rig-value-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.rig-consumed-tag {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  color: var(--ink-secondary);
+  letter-spacing: 1px;
+}
+
+.btn-icon {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--ink-primary);
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-icon:hover:not(:disabled) {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.btn-icon:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-icon.danger:hover { border-color: #d44d4d; color: #ff9999; }
+
+.quick-inject {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  align-items: center;
+}
+.quick-inject input { max-width: 180px; }
+
+/* Histórico de rolagens */
+.dice-log {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.9em;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.dice-log-row {
+  display: grid;
+  grid-template-columns: 50px 50px 1fr auto auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 4px 8px;
+  border-bottom: 1px dashed var(--border);
+}
+
+.dice-log-result {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-align: right;
+  color: var(--ink-primary);
+}
+.dice-log-result.rigged { color: var(--gold); }
+
+.dice-log-type {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--ink-secondary);
+  font-size: 0.85em;
+}
+.dice-log-who { color: var(--ink-primary); }
+.dice-log-label { color: var(--ink-secondary); font-style: italic; }
+.dice-log-flag { color: var(--gold); }
+.dice-log-time {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--ink-secondary);
+  font-size: 0.8em;
 }
 
 /* Progression panel */
