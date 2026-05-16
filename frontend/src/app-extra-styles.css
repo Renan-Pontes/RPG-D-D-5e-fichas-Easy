@@ -410,6 +410,65 @@
   color: var(--gold);
 }
 
+/* === Gerenciador de iniciativa === */
+.initiative-manager .initiative-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.initiative-entry {
+  display: grid;
+  grid-template-columns: 36px 1fr auto auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: 4px;
+  transition: border-left-color 200ms, background 200ms;
+}
+
+.initiative-entry.current {
+  border-left-color: var(--gold);
+  background: rgba(212, 168, 77, 0.08);
+}
+
+.initiative-entry.type-pc { border-left-style: solid; }
+.initiative-entry.type-npc { border-left-style: dashed; }
+
+.init-pos {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--ink-secondary);
+  font-size: 0.9em;
+  text-align: right;
+}
+
+.init-name {
+  color: var(--ink-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.initiative-entry.current .init-name { color: var(--gold); font-weight: 600; }
+
+.init-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: var(--ink-primary);
+}
+
+.init-now-marker {
+  color: var(--gold);
+  font-size: 1.2em;
+  animation: tv-twinkle 2s ease-in-out infinite;
+}
+
 /* Auth header chip */
 .app-header { position: relative; }
 

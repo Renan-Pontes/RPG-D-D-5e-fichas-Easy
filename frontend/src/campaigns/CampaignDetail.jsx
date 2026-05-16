@@ -147,12 +147,183 @@ function OverviewTab({ campaign, lang, isDM, onChange }) {
           </>
         )}
       </div>
+      {isDM && <InitiativeManager campaign={campaign} lang={lang} onChange={onChange} />}
       <CampaignDiceRoller campaign={campaign} lang={lang} />
       <div className="info-box">
         <h3>{t(lang, 'Membros', 'Members')}: {campaign.members?.length || 0}</h3>
       </div>
     </div>
   );
+}
+
+/**
+ * Gerenciador de iniciativa (somente DM).
+ *
+ * - Carrega personagens dos jogadores como entradas pré-preenchidas (DEX mod
+ *   sugerido, mas o DM digita o valor).
+ * - Adiciona NPCs/monstros customizados (nome + valor).
+ * - Ordena automaticamente do maior pro menor.
+ * - "Próximo turno" avança o índice (volta ao 0 no fim).
+ * - "Limpar combate" zera tudo.
+ * - Persistido em campaign.state.{initiative, initiativeTurn, round}.
+ * - Propaga ao telão via polling padrão.
+ */
+function InitiativeManager({ campaign, lang, onChange }) {
+  const init = campaign.state?.initiative || [];
+  const turn = campaign.state?.initiativeTurn ?? 0;
+  const round = campaign.state?.round ?? 1;
+  const [npcName, setNpcName] = useState('');
+  const [npcValue, setNpcValue] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const saveState = useCallback(async (patch) => {
+    setBusy(true);
+    try {
+      await api.updateCampaign(campaign.id, {
+        state: { ...campaign.state, ...patch },
+      });
+      onChange();
+    } catch (e) {
+      console.warn('save state failed', e);
+    } finally {
+      setBusy(false);
+    }
+  }, [campaign.id, campaign.state, onChange]);
+
+  // Sugere DEX modifier para um personagem (não rola, só sugere)
+  const dexMod = (c) => {
+    const dex = c?.abilities?.dex ?? 10;
+    return Math.floor((dex - 10) / 2);
+  };
+
+  const addAllPCs = () => {
+    const existing = new Set(init.map(e => e.name));
+    const pcs = campaign.members
+      .filter(m => m.role !== 'dm' && m.character)
+      .map(m => ({
+        name: m.character.name,
+        value: 10 + dexMod(m.character.data || {}),
+        type: 'pc',
+      }))
+      .filter(e => !existing.has(e.name));
+    if (!pcs.length) return;
+    const merged = sortByValue([...init, ...pcs]);
+    saveState({ initiative: merged });
+  };
+
+  const addNPC = (e) => {
+    e?.preventDefault?.();
+    const name = npcName.trim();
+    const v = parseInt(npcValue, 10);
+    if (!name || !Number.isFinite(v)) return;
+    const merged = sortByValue([...init, { name, value: v, type: 'npc' }]);
+    setNpcName(''); setNpcValue('');
+    saveState({ initiative: merged });
+  };
+
+  const removeEntry = (idx) => {
+    const next = init.filter((_, i) => i !== idx);
+    // Ajustar turn se for o atual ou maior
+    let nextTurn = turn;
+    if (idx < turn) nextTurn = Math.max(0, turn - 1);
+    else if (idx === turn && nextTurn >= next.length) nextTurn = 0;
+    saveState({ initiative: next, initiativeTurn: nextTurn });
+  };
+
+  const advanceTurn = () => {
+    if (init.length === 0) return;
+    const next = (turn + 1) % init.length;
+    const nextRound = next === 0 ? round + 1 : round;
+    saveState({ initiativeTurn: next, round: nextRound });
+  };
+
+  const previousTurn = () => {
+    if (init.length === 0) return;
+    const next = (turn - 1 + init.length) % init.length;
+    const nextRound = (turn === 0 && round > 1) ? round - 1 : round;
+    saveState({ initiativeTurn: next, round: nextRound });
+  };
+
+  const clearCombat = () => {
+    if (!confirm(t(lang, 'Limpar combate inteiro?', 'Clear entire combat?'))) return;
+    saveState({ initiative: [], initiativeTurn: 0, round: 1 });
+  };
+
+  return (
+    <div className="info-box initiative-manager">
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <h3 style={{ margin: 0 }}>{t(lang, 'Iniciativa', 'Initiative')}
+          {init.length > 0 && <span style={{ color: 'var(--ink-secondary)', marginLeft: 8, fontSize: '0.85em' }}>
+            {t(lang, 'rodada', 'round')} {round}
+          </span>}
+        </h3>
+        {init.length > 0 && (
+          <div className="row gap-2">
+            <button className="btn btn-ghost btn-sm" onClick={previousTurn} disabled={busy} aria-label="Turno anterior">←</button>
+            <button className="btn btn-primary btn-sm" onClick={advanceTurn} disabled={busy}>
+              {t(lang, 'Próximo turno', 'Next turn')} →
+            </button>
+            <button className="btn btn-ghost btn-sm" style={{ color: '#ff9999' }} onClick={clearCombat} disabled={busy}>
+              {t(lang, 'Limpar', 'Clear')}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {init.length === 0 ? (
+        <p style={{ color: 'var(--ink-secondary)', fontStyle: 'italic', marginBottom: 12 }}>
+          {t(lang, 'Sem combate ativo.', 'No active combat.')}
+        </p>
+      ) : (
+        <ol className="initiative-list">
+          {init.map((entry, i) => (
+            <li key={`${entry.name}-${i}`} className={`initiative-entry ${i === turn ? 'current' : ''} type-${entry.type || 'npc'}`}>
+              <span className="init-pos">{i + 1}</span>
+              <span className="init-name">{entry.name}</span>
+              <span className="init-value">{entry.value}</span>
+              {i === turn && <span className="init-now-marker" aria-label="agora">●</span>}
+              <button
+                className="btn-icon danger"
+                onClick={() => removeEntry(i)}
+                aria-label={t(lang, 'Remover', 'Remove')}
+                title={t(lang, 'Remover da iniciativa', 'Remove from initiative')}
+              >×</button>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      <div className="row gap-2" style={{ flexWrap: 'wrap', marginTop: 12 }}>
+        <button className="btn btn-ghost btn-sm" onClick={addAllPCs} disabled={busy}>
+          ✚ {t(lang, 'Adicionar todos os jogadores (10+DEX)', 'Add all players (10+DEX)')}
+        </button>
+        <form className="row gap-2" onSubmit={addNPC} style={{ alignItems: 'center', flex: 1, minWidth: 280 }}>
+          <input
+            className="input"
+            placeholder={t(lang, 'Nome do NPC/monstro', 'NPC/monster name')}
+            value={npcName}
+            onChange={e => setNpcName(e.target.value)}
+            style={{ flex: 1, minWidth: 140 }}
+          />
+          <input
+            type="number"
+            className="input"
+            placeholder="Init"
+            value={npcValue}
+            onChange={e => setNpcValue(e.target.value)}
+            style={{ width: 80 }}
+          />
+          <button type="submit" className="btn btn-ghost btn-sm" disabled={!npcName || !npcValue}>
+            ➕ {t(lang, 'NPC', 'NPC')}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function sortByValue(list) {
+  return [...list].sort((a, b) => (b.value - a.value));
 }
 
 function MembersTab({ campaign, lang, isDM, characters, onChange }) {
