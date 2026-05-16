@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api, API_BASE } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
+import CombatTab from './CombatTab.jsx';
+import RollRequestPanel from './RollRequestPanel.jsx';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -53,6 +55,8 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
       <div className="tabs" role="tablist" aria-label={t(lang, 'Abas da campanha', 'Campaign tabs')} style={{ marginBottom: 16 }}>
         {[
           { id: 'overview',  label: t(lang, 'Visão geral', 'Overview') },
+          ...(isDM ? [{ id: 'combat',   label: t(lang, '⚔ Combate', '⚔ Combat') }] : []),
+          { id: 'rolls',     label: t(lang, '🎲 Rolagens', '🎲 Rolls') },
           { id: 'members',   label: t(lang, 'Membros', 'Members') },
           { id: 'approvals', label: t(lang, 'Aprovações', 'Approvals'), badge: approvals.filter(a => a.status === 'pending').length },
           ...(isDM ? [{ id: 'dice',   label: t(lang, 'Dados', 'Dice') }] : []),
@@ -75,6 +79,8 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
 
       <div role="tabpanel" id={`tabpanel-${tab}`} aria-labelledby={`tab-${tab}`}>
         {tab === 'overview' && <OverviewTab campaign={campaign} lang={lang} isDM={isDM} onChange={load} />}
+        {tab === 'combat' && isDM && <CombatTab campaign={campaign} lang={lang} onChange={load} />}
+        {tab === 'rolls' && <RollRequestPanel campaign={campaign} lang={lang} isDM={isDM} onChange={load} />}
         {tab === 'members' && <MembersTab campaign={campaign} lang={lang} isDM={isDM} characters={characters} onChange={load} />}
         {tab === 'approvals' && <ApprovalsTab approvals={approvals} lang={lang} isDM={isDM} onChange={load} />}
         {tab === 'dice' && isDM && <DiceTab campaign={campaign} rigs={rigs} lang={lang} onChange={load} />}

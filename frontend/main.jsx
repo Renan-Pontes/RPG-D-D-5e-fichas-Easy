@@ -4,6 +4,7 @@ import './styles.css';
 import './src/auth/auth-styles.css';
 import './src/screen/tv-styles.css';
 import './src/app-extra-styles.css';
+import './src/campaigns/combat-styles.css';
 import { AuthProvider } from './src/auth/AuthContext.jsx';
 
 // Lazy: o TV screen é uma rota independente e o App é grande (SRD pesa).

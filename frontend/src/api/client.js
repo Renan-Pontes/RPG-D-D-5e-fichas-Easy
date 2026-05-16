@@ -100,6 +100,25 @@ export const api = {
   diceLog:       (campaignId) => request(`/api/dice/campaign/${campaignId}/log`),
   // Screen (público — não exige CSRF/sessão)
   screen:        (token) => request(`/api/screen/${token}`),
+
+  // Combat
+  getCombat:        (id) => request(`/api/combat/campaign/${id}`),
+  startCombat:      (id) => request(`/api/combat/campaign/${id}/start`, { method: 'POST' }),
+  endCombat:        (id) => request(`/api/combat/campaign/${id}/end`, { method: 'POST' }),
+  resetCombat:      (id) => request(`/api/combat/campaign/${id}/reset`, { method: 'POST' }),
+  addCombatant:     (id, body) => request(`/api/combat/campaign/${id}/combatants`, { method: 'POST', body }),
+  updateCombatant:  (id, cid, body) => request(`/api/combat/campaign/${id}/combatants/${cid}`, { method: 'PUT', body }),
+  removeCombatant:  (id, cid) => request(`/api/combat/campaign/${id}/combatants/${cid}`, { method: 'DELETE' }),
+  combatAction:     (id, body) => request(`/api/combat/campaign/${id}/action`, { method: 'POST', body }),
+  combatNextTurn:   (id) => request(`/api/combat/campaign/${id}/next-turn`, { method: 'POST' }),
+  setCombatMap:     (id, body) => request(`/api/combat/campaign/${id}/map`, { method: 'POST', body }),
+
+  // RollRequest
+  createRoll:       (id, body) => request(`/api/rolls/campaign/${id}`, { method: 'POST', body }),
+  listPendingRolls: (id) => request(`/api/rolls/campaign/${id}/pending`),
+  listRecentRolls:  (id) => request(`/api/rolls/campaign/${id}/recent`),
+  resolveRoll:      (rid, body) => request(`/api/rolls/${rid}/resolve`, { method: 'POST', body }),
+  cancelRoll:       (rid) => request(`/api/rolls/${rid}/cancel`, { method: 'POST' }),
 };
 
 export { ApiError, API_BASE };

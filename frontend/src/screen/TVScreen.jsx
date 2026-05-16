@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
+import CombatGrid from '../campaigns/CombatGrid.jsx';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -26,25 +27,46 @@ export default function TVScreen({ token, lang = 'pt' }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [now, setNow] = useState(new Date());
+  // Overlay de rolagem dramática
+  const [activeRoll, setActiveRoll] = useState(null);
+  const lastRollIdRef = useRef(null);
 
   const load = useCallback(async () => {
     try {
       const res = await api.screen(token);
       setData(res.campaign);
       setError('');
+      // Detecta nova rolagem pública e dispara overlay
+      const rolls = res.campaign.publicRolls || [];
+      const newest = rolls[0];
+      if (newest && newest.id !== lastRollIdRef.current) {
+        // Só dispara se a rolagem é fresca (< 20s)
+        if (newest.resolvedAt && (Date.now() - new Date(newest.resolvedAt).getTime()) < 20000) {
+          lastRollIdRef.current = newest.id;
+          setActiveRoll(newest);
+        } else if (!lastRollIdRef.current) {
+          lastRollIdRef.current = newest.id; // marca pra evitar trigger antigo
+        }
+      }
     } catch (e) {
       setError(e?.message || 'Falha ao carregar telão');
     }
   }, [token]);
 
   useEffect(() => { load(); }, [load]);
-  usePolling(load, 2500, [token]);
+  usePolling(load, 2000, [token]);
 
-  // Atualiza relógio
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  // Auto-fecha overlay após 8s
+  useEffect(() => {
+    if (!activeRoll) return;
+    const id = setTimeout(() => setActiveRoll(null), 8000);
+    return () => clearTimeout(id);
+  }, [activeRoll]);
 
   if (error) return <div className="tv-error"><h1>{error}</h1></div>;
   if (!data) return <div className="tv-loading"><h1>{t(lang, 'Carregando…', 'Loading…')}</h1></div>;
@@ -52,12 +74,16 @@ export default function TVScreen({ token, lang = 'pt' }) {
   const members = (data.members || []).filter(m => m.character);
   const playerMembers = members.filter(m => m.role !== 'dm');
 
+  const combat = data.combat;
+  const inCombat = combat?.active;
   const initiative = data.state?.initiative;
   const initiativeTurn = data.state?.initiativeTurn ?? null;
-  const currentTurnName = initiative?.[initiativeTurn]?.name;
+  const currentTurnName = inCombat
+    ? (combat.combatants[combat.turnIndex]?.name)
+    : initiative?.[initiativeTurn]?.name;
 
   return (
-    <div className="tv-screen">
+    <div className={`tv-screen tv-mode-${inCombat ? 'combat' : 'exploration'}`}>
       <header className="tv-header">
         <div>
           <h1 className="tv-title">{data.name}</h1>
@@ -66,6 +92,7 @@ export default function TVScreen({ token, lang = 'pt' }) {
         <div className="tv-meta">
           {data.state?.session && <div className="tv-session-pill">{t(lang, 'Sessão', 'Session')} {data.state.session}</div>}
           {data.state?.weather && <div className="tv-weather">{data.state.weather}</div>}
+          {inCombat && <div className="tv-combat-pill">⚔ {t(lang, 'EM COMBATE', 'IN COMBAT')} · {t(lang, 'Rodada', 'Round')} {combat.round}</div>}
           <div className="tv-clock">{now.toLocaleTimeString()}</div>
         </div>
       </header>
@@ -77,18 +104,31 @@ export default function TVScreen({ token, lang = 'pt' }) {
         </div>
       )}
 
-      <main className="tv-grid">
-        {playerMembers.map(m => (
-          <CharCard
-            key={m.id}
-            member={m}
-            lang={lang}
-            isActiveTurn={currentTurnName && currentTurnName === m.character?.name}
-          />
-        ))}
-      </main>
+      {inCombat ? (
+        <main className="tv-combat-main">
+          <div className="tv-grid-container">
+            <CombatGrid combat={combat} readOnly={true} lang={lang} />
+          </div>
+          <aside className="tv-combat-side">
+            {combat.combatants
+              .filter(c => c.type === 'pc')
+              .map(c => <CombatHpCard key={c.id} c={c} lang={lang} isTurn={combat.combatants[combat.turnIndex]?.id === c.id} />)}
+          </aside>
+        </main>
+      ) : (
+        <main className="tv-grid">
+          {playerMembers.map(m => (
+            <CharCard
+              key={m.id}
+              member={m}
+              lang={lang}
+              isActiveTurn={currentTurnName && currentTurnName === m.character?.name}
+            />
+          ))}
+        </main>
+      )}
 
-      {initiative && initiative.length > 0 && (
+      {initiative && initiative.length > 0 && !inCombat && (
         <aside className="tv-initiative">
           <h3>{t(lang, 'Iniciativa', 'Initiative')}</h3>
           <ol>
@@ -101,41 +141,49 @@ export default function TVScreen({ token, lang = 'pt' }) {
           </ol>
         </aside>
       )}
+
+      {/* Log de rolagens públicas recentes */}
+      {(data.publicRolls || []).length > 0 && !activeRoll && (
+        <div className="tv-rolls-log">
+          {data.publicRolls.slice(0, 5).map(r => (
+            <div key={r.id} className={`tv-roll-entry ${r.isCritical ? 'crit' : ''} ${r.isCriticalFail ? 'fail' : ''}`}>
+              <span className="tv-roll-who">{r.requester}</span>
+              <span className="tv-roll-label">{r.label}</span>
+              <span className="tv-roll-total">{r.total}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Overlay dramático */}
+      {activeRoll && <DramaticRollOverlay roll={activeRoll} lang={lang} onDone={() => setActiveRoll(null)} />}
     </div>
   );
 }
 
-function AnimatedHp({ current, max, temp }) {
-  // Anima de prev até current quando muda
-  const [displayed, setDisplayed] = useState(current ?? 0);
-  const rafRef = useRef(null);
-  useEffect(() => {
-    if (current == null) return;
-    cancelAnimationFrame(rafRef.current);
-    const start = performance.now();
-    const from = displayed;
-    const to = current;
-    if (from === to) return;
-    const duration = 600;
-    const step = (now) => {
-      const t = Math.min(1, (now - start) / duration);
-      // ease out cubic
-      const e = 1 - Math.pow(1 - t, 3);
-      setDisplayed(Math.round(from + (to - from) * e));
-      if (t < 1) rafRef.current = requestAnimationFrame(step);
-    };
-    rafRef.current = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(rafRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current]);
-
-  return <span>{displayed} / {max ?? '?'}{temp ? <span className="tv-hp-temp"> (+{temp})</span> : null}</span>;
+function CombatHpCard({ c, lang, isTurn }) {
+  const hpPct = c.stats?.max_hp ? Math.max(0, Math.min(100, (c.current_hp / c.stats.max_hp) * 100)) : 0;
+  const tone = hpPct > 60 ? 'ok' : hpPct > 30 ? 'warn' : 'crit';
+  return (
+    <div className={`tv-combat-hp-card ${isTurn ? 'is-turn' : ''} ${c.defeated ? 'is-dead' : ''}`}>
+      <div className="tv-combat-name">{c.name}</div>
+      <div className={`tv-hp-bar tv-hp-${tone}`}>
+        <div className="tv-hp-fill" style={{ width: `${hpPct}%` }} />
+        <div className="tv-hp-text">{c.current_hp} / {c.stats?.max_hp}</div>
+      </div>
+      {(c.conditions || []).length > 0 && (
+        <div className="tv-conditions tiny">
+          {c.conditions.map(cond => <ConditionChip key={cond} cond={cond} lang={lang} />)}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function CharCard({ member, lang, isActiveTurn }) {
   const c = member.character;
   const hpPct = c.maxHp ? Math.max(0, Math.min(100, (c.currentHp / c.maxHp) * 100)) : 0;
-  const tone = hpPct > 60 ? 'ok' : hpPct > 30 ? 'warn' : 'critical';
+  const tone = hpPct > 60 ? 'ok' : hpPct > 30 ? 'warn' : 'crit';
   const dead = c.currentHp != null && c.currentHp <= 0;
   return (
     <article className={`tv-char-card ${isActiveTurn ? 'is-active-turn' : ''} ${dead ? 'is-dead' : ''}`}>
@@ -147,12 +195,12 @@ function CharCard({ member, lang, isActiveTurn }) {
           <div className="tv-char-name">{c.name}</div>
           <div className="tv-char-sub">{member.user.displayName} · {[c.race, c.className, c.level].filter(Boolean).join(' ')}</div>
         </div>
-        {c.inspiration && <div className="tv-inspiration" title={t(lang, 'Inspiração', 'Inspiration')} aria-label="Inspiration">★</div>}
+        {c.inspiration && <div className="tv-inspiration" title={t(lang, 'Inspiração', 'Inspiration')}>★</div>}
       </div>
       <div className={`tv-hp-bar tv-hp-${tone}`} role="meter" aria-valuenow={c.currentHp} aria-valuemin={0} aria-valuemax={c.maxHp}>
         <div className="tv-hp-fill" style={{ width: `${hpPct}%` }} />
         <div className="tv-hp-text">
-          <AnimatedHp current={c.currentHp} max={c.maxHp} temp={c.tempHp} /> HP
+          {c.currentHp} / {c.maxHp ?? '?'}{c.tempHp ? <span className="tv-hp-temp"> (+{c.tempHp})</span> : null} HP
         </div>
       </div>
       <div className="tv-stats">
@@ -162,14 +210,14 @@ function CharCard({ member, lang, isActiveTurn }) {
           <div className="tv-stat-block tv-death">
             <span className="lbl">{t(lang, 'Morte', 'Death')}</span>
             <span className="val">
-              <span className="tv-death-succ" aria-label="successes">{'✓'.repeat(c.deathSaves.success)}</span>
-              <span className="tv-death-fail" aria-label="failures">{'✗'.repeat(c.deathSaves.fail)}</span>
+              <span className="tv-death-succ">{'✓'.repeat(c.deathSaves.success)}</span>
+              <span className="tv-death-fail">{'✗'.repeat(c.deathSaves.fail)}</span>
             </span>
           </div>
         )}
       </div>
       {c.conditions?.length > 0 && (
-        <div className="tv-conditions" aria-label="conditions">
+        <div className="tv-conditions">
           {c.conditions.map(cond => <ConditionChip key={cond} cond={cond} lang={lang} />)}
         </div>
       )}
@@ -187,5 +235,44 @@ function ConditionChip({ cond, lang }) {
       </svg>
       <span className="tv-cond-label">{def[lang]}</span>
     </span>
+  );
+}
+
+/**
+ * Overlay dramático que aparece quando o mestre torna uma rolagem pública.
+ * Animação: dado girando 1.5s, depois revela resultado.
+ */
+function DramaticRollOverlay({ roll, lang, onDone }) {
+  const [phase, setPhase] = useState('rolling'); // 'rolling' → 'reveal' → 'done'
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase('reveal'), 1400);
+    return () => clearTimeout(t1);
+  }, []);
+
+  return (
+    <div className={`tv-roll-overlay phase-${phase} ${roll.isCritical ? 'crit' : ''} ${roll.isCriticalFail ? 'fail' : ''}`} onClick={onDone}>
+      <div className="tv-roll-inner">
+        <div className="tv-roll-who">{roll.requester}</div>
+        <div className="tv-roll-label">{roll.label || roll.diceType}</div>
+        <div className="tv-roll-dice">
+          {phase === 'rolling' ? (
+            <div className="tv-die tv-die-spinning">🎲</div>
+          ) : (
+            <div className="tv-roll-numbers">
+              {roll.rolls.filter(r => r.kept).map((r, i) => (
+                <span key={i} className="tv-die-result">{r.value}</span>
+              ))}
+              {roll.modifier !== 0 && (
+                <span className="tv-roll-mod">{roll.modifier >= 0 ? '+' : ''}{roll.modifier}</span>
+              )}
+              <span className="tv-roll-equals">=</span>
+              <span className="tv-roll-total">{roll.total}</span>
+            </div>
+          )}
+        </div>
+        {phase === 'reveal' && roll.isCritical && <div className="tv-roll-tag crit-tag">⚔ CRÍTICO</div>}
+        {phase === 'reveal' && roll.isCriticalFail && <div className="tv-roll-tag fail-tag">💀 FALHA</div>}
+      </div>
+    </div>
   );
 }
