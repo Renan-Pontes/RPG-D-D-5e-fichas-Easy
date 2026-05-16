@@ -150,6 +150,78 @@ Variáveis em `backend/.env` (ver `backend/.env.example`).
 - **Frontend → Vercel**: já configurado via `vercel.json` na raiz (build aponta pra `frontend/`).
 - **Backend → PythonAnywhere**: ver `DEPLOY.md`.
 
+## Combate + Bestiário + VTT (terceiro turno)
+
+### Catálogo de monstros — onde fica?
+
+**Decisão: catálogo no frontend (`frontend/data/monsters.js`), instâncias no backend.**
+
+Alternativa descartada: tabela `MonsterTemplate` populada via seed.
+
+Por quê:
+- Lista é grande (~130 criaturas) e estática. Servir como JSON estático economiza tabela + query + serializer.
+- Backend só lida com **instâncias** de combate (combatant inline com stats). Isso dá flexibilidade pro mestre customizar monstros em runtime sem mexer em catálogo.
+- Frontend filtra/busca local em memória — UX rápida.
+
+Trade-off: se adicionar novos monstros, precisa rebuild. Aceitável.
+
+### Imagens (background do mapa + token PNGs) — onde armazenam?
+
+**Decisão: base64 no JSON do `CombatInstance`.**
+
+Alternativas descartadas:
+- Filesystem do PythonAnywhere (limite de disco 512MB no free, e `MEDIA_ROOT` complica deploy).
+- S3/Cloudinary (custo + dep extra).
+
+Por quê base64:
+- Zero dependência nova (sem Pillow no backend, sem boto3).
+- Frontend já comprime e redimensiona (max 1600px pra BG, 256px pra token) antes de enviar, então o JSON fica gerenciável (~50-200KB por mapa).
+- Backend nem precisa decodificar — apenas armazena e devolve.
+
+Limites: BG max 4MB upload (comprime pra ~200KB JPEG q82); token max 500KB upload (comprime pra ~30KB PNG 256×256).
+
+**Quando trocar**: se a campanha tiver 50+ encontros com mapas, o DB cresce. Sugestão futura: mover pra storage S3-compatible (Backblaze B2 ou Cloudflare R2, ambos free tier generoso).
+
+### Canvas vs SVG — VTT
+
+**Decisão: HTML5 Canvas.**
+
+Por quê:
+- Drag-drop de tokens é fluido (1 redraw por mousemove, sem overhead DOM).
+- Token PNGs renderizam direto via `ctx.drawImage`.
+- Re-render periódico (700ms) pra animação de "HP crítico pulsando" é trivial.
+
+SVG seria melhor pra interatividade rica (click em token, hover state via CSS), mas o custo de re-render em DOM é grande com muitos tokens.
+
+### RollRequest — modelo separado vs reuso do `/dice/roll`?
+
+**Decisão: modelo `RollRequest` novo.**
+
+Por quê:
+- `/dice/roll` existente é síncrono — rola e devolve. Bom pra mestre rolar sozinho ou pra rolagens internas (combat actions).
+- `RollRequest` é assíncrono — pending → resolved. Mestre precisa decidir visibilidade ANTES da rolagem virar realidade.
+- Separar mantém o fluxo síncrono simples e adiciona o novo sem quebrar nada.
+
+Quando jogador pede roll pelo painel, vai pro RollRequest. Quando o mestre rola direto na "Rolagem oficial" da Visão geral, vai pelo `/dice/roll` síncrono (não é DM-gated, ele é o mestre).
+
+### Modos do telão — auto-detecta
+
+**Decisão: telão decide modo baseado em `combat.active`.**
+
+- `combat.active === true` → modo combate (grid VTT + lateral de HPs)
+- senão → modo exploração (cards grandes + iniciativa + log de rolagens)
+
+Sem feature flag, sem botão de troca. O DM controla iniciando/encerrando o combate.
+
+### Sincronização HP entre combat e Character.data
+
+**Decisão: PC com HP mudado em combate sincroniza de volta no `Character.data`.**
+
+Por quê:
+- Jogador olhando a própria ficha vê o HP correto sem precisar abrir o combate.
+- Telão fora de combate lê `currentHp` da ficha — assim continua coerente.
+- Custo: 1 UPDATE no Character por ação que toca HP de PC. Aceitável.
+
 ## Próximos passos sugeridos (de manhã)
 
 1. Subir backend no PythonAnywhere e frontend no Vercel.

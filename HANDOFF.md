@@ -5,7 +5,10 @@ Bom dia. Aqui está o que foi feito enquanto você dormia (1º turno + 2º turno
 ## TL;DR
 
 - Backend Django + DRF pronto pra PythonAnywhere. Frontend Vite/React pronto pra Vercel.
-- **144 testes verdes** (76 Django + 68 JS).
+- **178 testes verdes** (110 Django + 68 JS).
+- **Combate completo**: bestiário com ~130 monstros (CR 0-12), engine que rola ataque/crítico/dano/save/condições, aplica HP automaticamente, sincroniza com a ficha do PC.
+- **Grid VTT** no telão: upload de background, grid ajustável, tokens drag-drop com PNG opcional, escala por tamanho. Telão público vê em modo combate vs exploração automático.
+- **Rolagem dramática DM-gated**: jogador clica rolar → mestre vê pedido → decide "Mostrar no telão" (overlay com dado girando, total grande, crit em dourado pulsante, falha em vermelho) ou "Privado".
 - Auth, personagens na nuvem, campanhas, mestre, aprovações, **dice rigging completo (UX)**, **telão TV polido**, **progressão automática 1→20 das 12 classes do PHB**, **gerenciador de iniciativa**, **busca de personagens**.
 - **Rate limiting** no login/signup/dice. Erros padronizados `{error: code}`.
 - **Lazy loading** + chunks → bundle inicial reduzido de 568KB para 9KB.
@@ -193,6 +196,72 @@ Você acordou rápido e pediu mais melhorias. Foi feito (em 8 commits):
 - **Gerenciador de iniciativa**: aba "Visão geral" da campanha (só DM) com lista ordenada, marcador de turno atual, próximo/anterior turno, tracking de rodada, "Adicionar todos os jogadores (10+DEX)", form pra NPC custom, "Limpar combate". Persistido em `campaign.state` e refletido no telão via polling.
 - **Endpoint `/api/characters/:id/campaigns`**: antes, solicitar level-up fazia N+1 GETs no frontend pra encontrar a campanha. Agora é 1 GET. Autorização: só o dono lê.
 - **Busca/filtro na lista de personagens**: input aparece quando há >4 personagens; filtra por nome+raça+classe+subclasse+alinhamento+nível, case-insensitive.
+
+## Terceiro turno — combate, bestiário, VTT, rolagem dramática
+
+### Bestiário (~130 monstros, CR 0-12)
+`frontend/data/monsters.js` — humanoides (goblin, orc, knight, mage, archmage, gladiator…), undead (skeleton, zombie, ghoul, wight, wraith, mummy, banshee, shadow, specter), fiends (imp, dretch, quasit, hell hound, succubus), giants (ogre, ettin, hill/frost/fire giant), wyrmlings (red, blue, green, black, white), monstrosities (owlbear, troll, minotaur, basilisk, displacer beast, mimic, rust monster, harpy), oozes (gelatinous cube), elementals (gargoyle). Cada um com CA, HP, atributos, saves, skills, resistências/imunidades/vulnerabilidades, sentidos, traits e ações (atk + damage `XdY+Z` + damageType + opcionalmente save).
+
+Usado pelo `MonsterPicker` no painel do mestre (busca por nome, filtro por tipo e CR).
+
+### Engine de combate (`backend/api/combat.py`)
+Funções puras (sem DB):
+- `parse_dice`, `roll_dice` (com `double_dice` para crítico), `roll_d20` (vantagem/desvantagem/forced)
+- `resolve_attack`: d20+atk vs CA, nat 1 sempre erra, nat 20 sempre crítico (dobra dados de dano)
+- `resolve_save` / `resolve_save_effect` (estilo Fireball: alvos rolam DEX save, falhou = total, passou = metade)
+- `apply_damage`: respeita resistências/imunidades/vulnerabilidades, consome `temp_hp` primeiro, marca `unconscious` + inicia death saves quando PC chega a 0, marca `defeated` para monstro
+- `apply_healing`: tira `unconscious`, reseta death_saves, max é `max_hp`
+- `add_condition` (com duração opcional em rounds) / `remove_condition` / `tick_effects` (decrementa nos turnos)
+- `death_save`: nat 20 acorda com 1 HP, nat 1 = 2 falhas, 3 sucessos estabiliza, 3 falhas morre
+
+### Models + endpoints
+- **CombatInstance** (`OneToOne` com Campaign): combatants JSON, map_data JSON, log
+- **RollRequest**: pending → public/private/cancelled, com rolls/total/crit/critfail/rigged
+- 16 endpoints novos (ver `API.md`)
+- PCs em combate têm HP/condições sincronizados com `Character.data` automaticamente
+
+### Painel do mestre (frontend)
+- Aba **⚔ Combate**: start/end/reset, lista de combatentes com HP bar colorida, condições toggláveis, ataques expandíveis (escolha de target), dano/cura manual, death save quando 0 HP.
+- **MonsterPicker** modal: busca/filtro, adicionar N cópias do mesmo monstro com initiative.
+- **CombatGrid** canvas: upload background (max 1600px JPEG q82 base64), grid sobreposto com slider (20-120px), toggle ligar/desligar, drag-drop de tokens com snap ao grid, PNG por token (max 256px), escala por tamanho (Tiny/Small/Medium/Large/Huge/Gargantuan).
+- Aba **🎲 Rolagens**: form de pedido + presets (Percepção, Furtividade, etc), pendentes com botões "Mostrar no telão" / "Privado" (DM) ou "aguardando" (player), histórico recente.
+
+### Telão público
+- **Auto-detecta modo**: `combat.active` → grid VTT + side bar de HP; senão → cards grandes + iniciativa + log de rolagens.
+- **Overlay dramático** quando nova rolagem pública chega: dado girando 1.4s, depois revela "valor + mod = total" gigante. Crítico em dourado pulsante com tag "CRÍTICO", falha em vermelho com tag "FALHA". Auto-fecha em 8s.
+- **Log de rolagens públicas** fixo no canto bottom-left (5 mais recentes).
+- Pill "EM COMBATE · Rodada N" em vermelho pulsante.
+
+### Decisões críticas registradas (DECISIONS.md)
+- **Catálogo de monstros no frontend** (JSON estático lazy chunk), instâncias no backend (combatant inline).
+- **Imagens em base64 no JSON do CombatInstance** (sem filesystem do PythonAnywhere, sem dep Pillow). Frontend comprime antes de enviar.
+- **Canvas em vez de SVG** pra drag-drop fluido.
+- **RollRequest separado** do `/dice/roll` síncrono — fluxos diferentes não se misturam.
+- **Sincronização HP combat → Character.data** para coerência fora do combate.
+
+### Como testar em 1 minuto
+```bash
+# Já seedado
+py manage.py seed
+# Login DM → "Reino Esquecido" → aba ⚔ Combate
+# 1. Botão "Adicionar monstro" → buscar "goblin" → adicionar 3 com Init 12
+# 2. Botão "Adicionar PC" → escolher Thalion
+# 3. "Iniciar combate"
+# 4. Clicar em um goblin → expandir Ataques → escolher Thalion como target → "Atacar"
+#    (rolagem aparece, HP do Thalion cai)
+# 5. Telão (link na aba "Telão") muda automaticamente pro modo combate
+
+# Login player → aba 🎲 Rolagens → "Pedir" um d20+3 com label "percepção"
+# Voltar pro DM → ver pendente → "Mostrar no telão"
+# Telão (em outra aba) mostra overlay dramático
+```
+
+### Commits do terceiro turno
+```
+8ccde28 test(combat): 34 testes Django de combate + RollRequest (110 total)
+xxxxxxx feat(combat-ui): UI completa de combate, grid VTT, rolagens dramaticas no telao
+xxxxxxx feat(combat): backend completo — bestiario, engine, models, REST, RollRequest
+```
 
 ## Commits do segundo turno
 

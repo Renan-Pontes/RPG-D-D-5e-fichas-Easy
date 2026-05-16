@@ -237,6 +237,89 @@ Use pra reordenar (passe a lista na nova ordem) ou apagar valores (filtre a list
 
 ---
 
+## Combat
+
+### `GET /combat/campaign/:idOrSlug`
+Estado atual do combate (member).
+```json
+{ "combat": { "active": false, "round": 1, "turnIndex": 0,
+              "combatants": [...], "map": {...}, "log": [...] } }
+```
+
+### `POST /combat/campaign/:idOrSlug/start | /end | /reset` (DM)
+
+### `POST /combat/campaign/:idOrSlug/combatants` (DM)
+Adiciona combatente. Body:
+```json
+{ "type": "pc", "characterId": 1, "initiative": 17 }
+// OU
+{ "type": "monster", "monster": { ...stats inline... }, "initiative": 12,
+  "position": {"x":100,"y":100}, "tokenScale": 1 }
+```
+
+### `PUT /combat/campaign/:idOrSlug/combatants/:cid` (DM)
+Patch livre: name, initiative, position, sprite (base64 PNG), token_scale,
+current_hp, temp_hp, conditions, defeated, death_saves, stats (parcial).
+
+### `DELETE /combat/campaign/:idOrSlug/combatants/:cid` (DM)
+
+### `POST /combat/campaign/:idOrSlug/action` (DM)
+Action types:
+- `attack`: `{ action, attackerId, targetId, actionIndex, advantage?, disadvantage? }`
+  Resolve d20+atk vs CA. Crit em 20 (dobra dados). Aplica dano automático.
+  Consome dice rig do d20 se houver.
+- `damage`: `{ action, targetId, amount, damageType }` — aplica direto.
+- `heal`: `{ action, targetId, amount }`
+- `save_aoe`: `{ action, attackerId, targetIds: [...], actionIndex }` — magia
+  estilo Fireball, cada alvo rola save, dano total/metade.
+- `add_condition`: `{ action, targetId, condition, rounds? }`
+- `remove_condition`: `{ action, targetId, condition }`
+- `death_save`: `{ action, targetId }` — só PC a 0 HP.
+
+PC com mudança de HP/conditions sincroniza com `Character.data`.
+
+### `POST /combat/campaign/:idOrSlug/next-turn` (DM)
+Avança turno. Tick effects do combatante atual (decrementa condições com duração).
+Volta ao 0 = nova rodada.
+
+### `POST /combat/campaign/:idOrSlug/map` (DM)
+Configura mapa. Body parcial:
+```json
+{ "background_image": "data:image/jpeg;base64,...", "grid_size_px": 50,
+  "grid_visible": true, "width_px": 1200, "height_px": 800 }
+```
+
+---
+
+## Roll Requests (DM-gated)
+
+### `POST /rolls/campaign/:idOrSlug` (member)
+Cria pedido de rolagem. Status fica `pending` até o DM decidir.
+```json
+{ "label": "Perception", "diceType": "d20", "count": 1, "modifier": 3,
+  "hasAdvantage": false, "hasDisadvantage": false, "characterId": 1 }
+```
+
+### `GET /rolls/campaign/:idOrSlug/pending`
+DM vê todos. Jogador vê só os próprios.
+
+### `GET /rolls/campaign/:idOrSlug/recent`
+Histórico (public + os próprios do user).
+
+### `POST /rolls/:id/resolve` (DM)
+```json
+{ "visibility": "public" | "private" }
+```
+Backend rola consumindo `DiceRig` se houver. Marca `isCritical` (nat 20 em d20),
+`isCriticalFail` (nat 1 em d20), `rigged`. Salva também em `DiceLog`.
+
+### `POST /rolls/:id/cancel` (DM ou owner)
+
+### `GET /screen/:token` (público)
+Inclui agora `combat: {...}` e `publicRolls: [...]` (últimas 5 públicas).
+
+---
+
 ## Health
 
 ### `GET /health` (público)
