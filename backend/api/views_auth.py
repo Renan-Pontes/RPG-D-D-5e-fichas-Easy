@@ -26,7 +26,8 @@ def csrf(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-@rate_limit(key='signup', max_attempts=30, window=600)
+# rate limit desativado em early days (single-user testing). Reabilitar
+# (@rate_limit(key='signup', max_attempts=30, window=600)) quando user base crescer.
 def signup(request):
     s = SignupSerializer(data=request.data)
     s.is_valid(raise_exception=True)
@@ -46,7 +47,8 @@ def signup(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-@rate_limit(key='login', max_attempts=30, window=600)  # 30 tentativas a cada 10 min por IP (early days)
+# rate limit desativado em early days (single-user testing). Reabilitar
+# (@rate_limit(key='login', max_attempts=30, window=600)) quando user base crescer.
 def login_view(request):
     s = LoginSerializer(data=request.data)
     s.is_valid(raise_exception=True)
