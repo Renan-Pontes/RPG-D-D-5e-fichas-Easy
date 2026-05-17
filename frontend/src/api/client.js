@@ -1,8 +1,11 @@
 // Cliente HTTP para a API Django.
 //
 // Auth: sessão via cookie (sessionid). Toda requisição mutante envia
-// X-CSRFToken lido do cookie csrftoken — garantimos que ele existe ao
-// chamar /api/auth/csrf no boot.
+// X-CSRFToken. Em cross-origin (Vercel→PA), o browser bloqueia
+// document.cookie pra cookies de outro domínio, então NÃO conseguimos ler
+// 'csrftoken' do cookie. Solução: /api/auth/csrf devolve o token no body
+// JSON, guardamos em module cache e usamos no header. Fallback p/ cookie
+// preserva same-origin/dev local.
 //
 // API_BASE vem de VITE_API_URL em produção; em dev cai pra localhost:4000.
 
@@ -30,21 +33,36 @@ function getCookie(name) {
   return null;
 }
 
+let csrfTokenCache = null;
 let csrfPromise = null;
-async function ensureCsrf() {
-  if (getCookie('csrftoken')) return;
+
+async function ensureCsrf(force = false) {
+  if (!force && csrfTokenCache) return csrfTokenCache;
   if (!csrfPromise) {
-    csrfPromise = fetch(`${API_BASE}/api/auth/csrf`, { credentials: 'include' })
-      .catch(() => null)
-      .finally(() => { csrfPromise = null; });
+    csrfPromise = (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/csrf`, { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json().catch(() => null);
+          if (data?.csrfToken) {
+            csrfTokenCache = data.csrfToken;
+            return csrfTokenCache;
+          }
+        }
+      } catch { /* network — cai pro fallback */ }
+      // Fallback p/ same-origin / dev local: cookie acessível via document.cookie.
+      const fromCookie = getCookie('csrftoken');
+      if (fromCookie) csrfTokenCache = fromCookie;
+      return csrfTokenCache;
+    })().finally(() => { csrfPromise = null; });
   }
-  await csrfPromise;
+  return csrfPromise;
 }
 
-async function request(path, { method = 'GET', body, headers = {} } = {}) {
+async function request(path, { method = 'GET', body, headers = {}, _csrfRetry = false } = {}) {
   const isMutation = method !== 'GET' && method !== 'HEAD';
   if (isMutation) await ensureCsrf();
-  const csrftoken = getCookie('csrftoken');
+  const csrftoken = csrfTokenCache || getCookie('csrftoken');
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     credentials: 'include',
@@ -59,8 +77,21 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
   const text = await res.text();
   try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
   if (!res.ok) {
+    // Retry uma vez em 403 CSRF: token rotacionou / expirou.
+    if (isMutation && res.status === 403 && !_csrfRetry) {
+      const msg = (data?.detail || data?.error || '').toString();
+      if (/csrf/i.test(msg)) {
+        csrfTokenCache = null;
+        await ensureCsrf(true);
+        return request(path, { method, body, headers, _csrfRetry: true });
+      }
+    }
     const msg = data?.error || data?.detail || res.statusText;
     throw new ApiError(msg, res.status, data);
+  }
+  // Se o endpoint de CSRF foi chamado via api.csrf(), aproveita p/ atualizar cache.
+  if (path === '/api/auth/csrf' && data?.csrfToken) {
+    csrfTokenCache = data.csrfToken;
   }
   return data;
 }
