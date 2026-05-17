@@ -6,7 +6,11 @@
 //
 // API_BASE vem de VITE_API_URL em produção; em dev cai pra localhost:4000.
 
-const DEFAULT_BASE = import.meta?.env?.VITE_API_URL || 'http://localhost:4000';
+const PROD_DEFAULT = 'https://mestresdd5e.pythonanywhere.com';
+const DEFAULT_BASE = import.meta?.env?.VITE_API_URL
+  || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+      ? PROD_DEFAULT
+      : 'http://localhost:4000');
 const API_BASE = (typeof window !== 'undefined' && window.__API_BASE__) || DEFAULT_BASE;
 
 class ApiError extends Error {
