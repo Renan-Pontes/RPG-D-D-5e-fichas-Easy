@@ -141,11 +141,14 @@ CORS_ALLOWED_ORIGINS = [o.strip() for o in os.environ.get('CORS_ALLOWED_ORIGINS'
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://localhost:5173').split(',') if o.strip()]
 
-# Em dev, sem HTTPS, cookies sem secure. Em prod, ative via env.
-SESSION_COOKIE_SECURE = os.environ.get('DJANGO_COOKIE_SECURE', 'False').lower() == 'true'
-CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
-SESSION_COOKIE_SAMESITE = 'Lax'
-CSRF_COOKIE_SAMESITE = 'Lax'
+# Cross-site cookies: frontend Vercel (https://dd5efichas.vercel.app) e backend
+# PythonAnywhere ficam em origens diferentes. Browser só envia o cookie no fetch
+# cross-origin se SameSite=None E Secure=True (regra moderna).
+# Em dev local sem HTTPS, ativar túnel HTTPS (ngrok) ou usar mesma origem.
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
 # CSRF_COOKIE_HTTPONLY=False é necessário porque o frontend lê o token JS-side
 CSRF_COOKIE_HTTPONLY = False
 SESSION_COOKIE_HTTPONLY = True
