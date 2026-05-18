@@ -46,7 +46,7 @@ const optimizeAbilities = (className) => {
 // === Step Components ===
 
 // 1. Identity
-const StepIdentity = ({ char, set, lang }) => (
+const StepIdentity = ({ char, set, lang, isNew }) => (
   <div>
     <h2>{t('stepIdentity', lang)}</h2>
     <Filigree />
@@ -62,21 +62,27 @@ const StepIdentity = ({ char, set, lang }) => (
       <div className="row gap-3">
         <div style={{ flex: 1 }}>
           <label>{t('level', lang)}</label>
-          <select value={char.level} onChange={e => set({ level: +e.target.value })}>
-            {Array.from({ length: 20 }, (_, i) => i + 1).map(n =>
-              <option key={n} value={n}>{n}</option>
-            )}
-          </select>
+          {isNew ? (
+            <div className="mono" style={{ padding: '8px 12px', background: 'var(--surface-2, rgba(255,255,255,0.04))', borderRadius: 6, color: 'var(--gold-bright)', fontSize: '1.1rem' }}>
+              1 <span className="muted text-xs">({lang === 'pt' ? 'novos heróis começam aqui' : 'new heroes start here'})</span>
+            </div>
+          ) : (
+            <select value={char.level} onChange={e => set({ level: +e.target.value })}>
+              {Array.from({ length: 20 }, (_, i) => i + 1).map(n =>
+                <option key={n} value={n}>{n}</option>
+              )}
+            </select>
+          )}
         </div>
         <div style={{ flex: 1 }}>
           <label>{lang === 'pt' ? 'Progressão' : 'Leveling'}</label>
-          <select value={char.levelingMode || 'xp'} onChange={e => set({ levelingMode: e.target.value })}>
+          <select value={char.levelingMode || 'milestone'} onChange={e => set({ levelingMode: e.target.value })}>
+            <option value="milestone">{lang === 'pt' ? 'Por Marcos (recomendado)' : 'Milestones (recommended)'}</option>
             <option value="xp">{lang === 'pt' ? 'Por XP' : 'By XP'}</option>
-            <option value="milestone">{lang === 'pt' ? 'Por Marcos' : 'Milestones'}</option>
           </select>
         </div>
       </div>
-      {(char.levelingMode || 'xp') === 'xp' && (
+      {!isNew && (char.levelingMode || 'milestone') === 'xp' && (
         <div>
           <label>{t('xp', lang)}</label>
           <input type="number" min="0" value={char.xp} onChange={e => set({ xp: +e.target.value || 0 })} />
@@ -817,7 +823,12 @@ const StepStory = ({ char, set, lang }) => (
 // === Creator orchestrator ===
 const Creator = ({ lang, initial, onSave, onCancel }) => {
   const [step, setStep] = useState(0);
-  const [char, setChar] = useState(() => initial || Utils.makeNew());
+  const isNew = !initial;
+  const [char, setChar] = useState(() => {
+    if (initial) return initial;
+    // Novos personagens sempre começam no nível 1 — evolução vem via campanha.
+    return { ...Utils.makeNew(), level: 1, xp: 0 };
+  });
 
   const set = useCallback((patch) => setChar(prev => ({ ...prev, ...patch })), []);
 
@@ -867,7 +878,7 @@ const Creator = ({ lang, initial, onSave, onCancel }) => {
         </div>
       </div>
 
-      <Cur char={char} set={set} lang={lang} />
+      <Cur char={char} set={set} lang={lang} isNew={isNew} />
 
       <div className="wizard-footer no-print">
         <div className="wizard-footer-inner">
