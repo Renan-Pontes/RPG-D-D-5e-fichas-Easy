@@ -35,10 +35,10 @@
   .campaign-detail.is-dm .tabs {
     display: flex;
     gap: 4px;
-    background: var(--bg-secondary, rgba(0,0,0,0.15));
+    background: var(--bg-raised, rgba(0,0,0,0.15));
     padding: 4px;
     border-radius: 8px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--stroke);
     margin-bottom: 20px;
     position: sticky;
     top: 56px;  /* abaixo do AppHeader */
@@ -97,7 +97,7 @@
     align-items: start;
   }
   .campaign-detail.is-dm .members-list {
-    border: 1px solid var(--border);
+    border: 1px solid var(--stroke);
     border-radius: 8px;
     overflow: hidden;
     background: rgba(0,0,0,0.1);
@@ -107,7 +107,7 @@
     flex-direction: column;
     gap: 4px;
     padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--stroke);
     cursor: pointer;
     transition: background .12s;
   }
@@ -123,7 +123,7 @@
     display: none;
   }
   .campaign-detail.is-dm .members-detail {
-    border: 1px solid var(--border);
+    border: 1px solid var(--stroke);
     border-radius: 8px;
     padding: 18px;
     background: rgba(0,0,0,0.05);
@@ -178,7 +178,7 @@
     margin: 8px 0 8px;
     font-size: 1em;
     padding: 6px 0;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--stroke);
     color: var(--ink-secondary);
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -236,7 +236,7 @@
   font-size: 0.78em;
   padding: 1px 6px;
   margin-left: 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--stroke);
   border-radius: 4px;
   background: rgba(0,0,0,0.25);
   color: var(--ink-secondary);

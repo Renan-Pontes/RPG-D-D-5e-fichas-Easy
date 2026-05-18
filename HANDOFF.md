@@ -437,6 +437,66 @@ xxxxxxx feat(combat-ui): UI completa de combate, grid VTT, rolagens dramaticas n
 xxxxxxx feat(combat): backend completo — bestiario, engine, models, REST, RollRequest
 ```
 
+## Quarto turno (deploy + correção do workflow + DM desktop-first)
+
+### Workflow de evolução (mestre LIBERA, jogador SOBE)
+
+Antes: aprovar um pedido de levelup aplicava o nível imediatamente. Errado conceitualmente — o jogador deveria escolher subclasse/feats/ASI no momento da subida, não o mestre.
+
+Agora:
+1. Jogador chega no threshold → `ProgressionPanel` botão "Solicitar subida ao nível N".
+2. `POST /api/approvals/campaign/<id>` cria `Approval(status='pending', type='levelup', payload={toLevel:N})`.
+3. Mestre vê na aba **Aprovações** → botão **"✨ Liberar evolução"** → `POST /api/approvals/<id>/review {status:'approved'}` → backend **só marca liberado**, não toca na ficha.
+4. App do jogador faz polling de approvals (via `useEffect` em `app.jsx` quando `active` muda) → detecta `status='approved'` para o char ativo → `ProgressionPanel` mostra banner dourado pulsante **"✨ Evolução liberada — Subir para o nível N ✨"**.
+5. Jogador clica → `POST /api/approvals/<id>/consume` → backend aplica `apply_approval_to_character` (sobe level, ajusta HP, roda autos da engine) → status vira `'consumed'`.
+
+Standalone (sem campanha): jogador clica e sobe direto via `applyLocalLevelUp`. Backend não é tocado pra esse caminho.
+
+DM pode revogar liberação: aba Aprovações → seção "Liberadas (aguardando jogador)" → botão "Revogar liberação" → `POST /review {status:'pending'}`. Backend volta status pra pending e reseta `reviewed_by`/`reviewed_at`.
+
+DM ainda tem "Forçar level up" no `DMCharacterEditor`, mas trancado num `<details>` discreto ("⚠ Override — consertar inconsistências"), com warning explicando que é exceção e não aplica HP automático.
+
+Approvals que não são `levelup` (feature/item/spell/other) continuam aplicando direto no `review` por compatibilidade — não há decisões do jogador.
+
+Migration: `0003_alter_approval_status` adiciona `'consumed'` ao `STATUS_CHOICES`. 9 testes novos em `test_approval_flow.py` cobrindo: unlock não aplica, consume aplica, revoke volta pra pending, double-consume bloqueado, não-dono bloqueado, etc.
+
+### Painel do mestre — desktop-first
+
+O mestre usa PC durante a sessão. A topbar/abas e a aba Membros foram refatoradas pra usar layout em colunas em viewports ≥1024px enquanto degradam pra single-column em mobile.
+
+CSS novo: `frontend/src/campaigns/dm-desktop.css`, importado em `main.jsx` após o mobile-first overlay. Tudo scoped a `.campaign-detail.is-dm`, então **não afeta** o lado do jogador (continua mobile-first do item 7).
+
+Wins concretos em ≥1024px:
+- **Container**: `max-width: 1400px`, padding maior.
+- **Tabs**: sticky `top:56px`, padding 10×18px, font 0.98em, hover dourado, badge vermelho no contador de pendentes.
+- **Aba Visão geral**: 2 colunas (invite + estado lado a lado).
+- **Aba Membros**: split-view com lista à esquerda (320px) + painel de detalhes à direita (2fr). Clica em membro → painel mostra HP/AC/Init/Level/XP/forma-selvagem num `stat-grid` 3×N + botões de ação (Editar ficha / Dar item / Sair forma / Remover). Em mobile, painel direito vira display:none e as ações voltam inline na lista.
+- **Aba Aprovações**: cards 10×14px, payload JSON com `max-height: 80px` overflow.
+- **Aba Combate**: grid 2-col (lista de combatants + área principal).
+
+Atalhos de teclado (apenas quando isDM e foco fora de input):
+- `1..7` = trocar de aba (overview/combate/rolls/membros/aprovações/dice/screen).
+- `n` = próximo turno (na aba Combate) → chama `api.combatNextTurn`.
+- `t` = copiar link do telão (na aba Screen) → `navigator.clipboard.writeText('${origin}/tv/${screenToken}')`.
+
+Banner mobile: em viewport <768px com `isDM`, aparece dica discreta sugerindo PC. Sem bloquear acesso — só orientação.
+
+Validação visual via preview + computed styles em 1400×900 (desktop) e 375×812 (mobile):
+- `members-shell display: grid` em desktop, `block` em mobile ✓
+- `members-list border: 1px solid var(--stroke)` aplicado ✓
+- `tab.active background: var(--gold) #c9a961`, padding 10×18px ✓
+- `dm-mobile-hint display: block` em mobile, `none` em desktop ✓
+
+Gotcha que pegou: o design system usa `--stroke` (não `--border`) e `--bg-raised` (não `--bg-secondary`). CSS com vars inválidas faz o navegador rejeitar a declaração inteira — outros stylesheets do projeto têm o mesmo bug com `var(--border)` mas só afeta a sub-declaração (a regra com fallback parcial). Aqui corrigi pros tokens reais.
+
+### Outros consertos do quarto turno
+- Banner offline (`AuthContext.backendAvailable`) + fallback standalone-only no frontend Vercel quando `VITE_API_URL` não está acessível.
+- Deploy: vercel.json já existia; descoberto que não havia `.vercel/project.json` (deploy via auto-deploy GitHub). Push de `main` dispara build.
+- CSRF cross-origin: `csrfToken` lido do body de `/api/auth/csrf` (cache module-level), enviado no header `X-CSRFToken`, retry uma vez em 403 CSRF. Resolve o caso onde browser bloqueia `document.cookie` em cross-origin.
+- Cookies SameSite=None + Secure=True para Vercel→PA cross-origin.
+- Rate limit desativado em early days (signup/login) — reabilitar quando user base crescer.
+- API_BASE fallback: hostname != localhost → `https://mestresdd5e.pythonanywhere.com`. Resolve o caso onde `VITE_API_URL` não é lido no build.
+
 ## Commits do segundo turno
 
 ```
