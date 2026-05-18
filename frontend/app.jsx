@@ -164,13 +164,29 @@ const App = () => {
     setTimeout(() => window.print(), 250);
   };
 
-  const handleLevelUpRequest = async (prog) => {
+  // Approval levelup liberada (status='approved') pro personagem ativo.
+  // Null quando não há, ou {id, campaignId, toLevel} quando o jogador pode consumir.
+  const [unlockedLevelup, setUnlockedLevelup] = useState(null);
+
+  // Aplica level-up local diretamente — standalone (sem campanha) ou após consume remoto.
+  const applyLocalLevelUp = useCallback(async (char, toLevel) => {
+    const next = { ...char, level: toLevel };
+    const withAutos = applyAutosToCharacter(next);
+    await storage.save(withAutos);
+    await refreshCharacters();
+    setToast(lang === 'pt' ? `Nível ${toLevel}! ✨` : `Level ${toLevel}! ✨`);
+  }, [storage, refreshCharacters, lang]);
+
+  const handleLevelUpRequest = async () => {
+    if (!active) return;
+
+    // Standalone (sem login) — aplica direto.
     if (!auth.user) {
-      setScreen(SCREENS.AUTH);
+      await applyLocalLevelUp(active, (active.level || 1) + 1);
       return;
     }
-    if (!active) return;
-    // 1 só request: lista campanhas onde esse personagem está atribuído
+
+    // Logado: descobre se este personagem está em campanha.
     let camps = [];
     try {
       const r = await api.characterCampaigns(active.id);
@@ -178,15 +194,14 @@ const App = () => {
     } catch (e) {
       console.warn('characterCampaigns failed', e);
     }
+
+    // Sem campanha — aplica direto (storage remoto se logado).
     if (camps.length === 0) {
-      setToast(lang === 'pt'
-        ? 'Atribua este personagem a uma campanha primeiro (Campanhas → Membros).'
-        : 'Assign this character to a campaign first (Campaigns → Members).');
+      await applyLocalLevelUp(active, (active.level || 1) + 1);
       return;
     }
-    // Se houver mais de uma campanha, pega a mais recente (ordem do FK).
-    // TODO: se virar comum ter o mesmo personagem em várias campanhas,
-    //       adicionar modal de escolha.
+
+    // Em campanha — envia solicitação pro mestre liberar.
     const targetCamp = camps[0];
     try {
       await api.createApproval(targetCamp.id, {
@@ -196,12 +211,52 @@ const App = () => {
         note: lang === 'pt' ? `Solicitação automática de subida de nível.` : `Automated level-up request.`,
       });
       setToast(lang === 'pt'
-        ? `Solicitação enviada para "${targetCamp.name}".`
-        : `Request sent to "${targetCamp.name}".`);
+        ? `Solicitação enviada para "${targetCamp.name}". Aguarde o mestre liberar.`
+        : `Request sent to "${targetCamp.name}". Waiting for DM unlock.`);
     } catch (e) {
       setToast(e?.data?.error || e?.message || 'Falha ao enviar.');
     }
   };
+
+  const handleConsumeLevelup = async () => {
+    if (!unlockedLevelup) return;
+    try {
+      const res = await api.consumeApproval(unlockedLevelup.id);
+      // Backend retorna o character.data novo. Recarrega lista pra refletir.
+      await refreshCharacters();
+      setUnlockedLevelup(null);
+      const newLevel = res?.character?.data?.level;
+      setToast(lang === 'pt' ? `Nível ${newLevel}! ✨` : `Level ${newLevel}! ✨`);
+    } catch (e) {
+      setToast(e?.data?.error || e?.message || 'Falha ao consumir.');
+    }
+  };
+
+  // Detecta approval liberada pro personagem ativo (polling leve no boot/troca de ficha).
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!auth.user || !active) { setUnlockedLevelup(null); return; }
+      try {
+        const r = await api.characterCampaigns(active.id);
+        const camps = r.campaigns || [];
+        for (const c of camps) {
+          const lr = await api.listApprovals(c.id);
+          const unlocked = (lr.approvals || []).find(a =>
+            a.status === 'approved' && a.type === 'levelup' && a.character?.id === active.id
+          );
+          if (unlocked && alive) {
+            setUnlockedLevelup({ id: unlocked.id, campaignId: c.id, toLevel: unlocked.payload?.toLevel });
+            return;
+          }
+        }
+        if (alive) setUnlockedLevelup(null);
+      } catch (e) {
+        if (alive) setUnlockedLevelup(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, [active?.id, auth.user?.id]);
 
   // === Render ===
   let content;
@@ -274,8 +329,10 @@ const App = () => {
             <ProgressionPanel
               character={active}
               lang={lang}
-              canRequestLevelUp={!!auth.user}
+              canRequestLevelUp
               onLevelUpRequest={handleLevelUpRequest}
+              unlockedLevelup={unlockedLevelup}
+              onConsumeLevelup={handleConsumeLevelup}
             />
           </div>
         </>

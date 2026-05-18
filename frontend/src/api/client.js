@@ -137,6 +137,7 @@ export const api = {
   listApprovals:  (campaignId) => request(`/api/approvals/campaign/${campaignId}`),
   createApproval: (campaignId, body) => request(`/api/approvals/campaign/${campaignId}`, { method: 'POST', body }),
   reviewApproval: (approvalId, body) => request(`/api/approvals/${approvalId}/review`, { method: 'POST', body }),
+  consumeApproval: (approvalId) => request(`/api/approvals/${approvalId}/consume`, { method: 'POST' }),
   // Dice
   rollDice:      (body) => request('/api/dice/roll', { method: 'POST', body }),
   listRigs:      (campaignId) => request(`/api/dice/campaign/${campaignId}/rigs`),

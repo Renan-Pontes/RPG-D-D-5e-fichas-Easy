@@ -3,9 +3,19 @@ import { computeProgression } from './engine.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
-export default function ProgressionPanel({ character, lang = 'pt', onLevelUpRequest, canRequestLevelUp = false }) {
+export default function ProgressionPanel({
+  character,
+  lang = 'pt',
+  onLevelUpRequest,
+  canRequestLevelUp = false,
+  unlockedLevelup = null,
+  onConsumeLevelup,
+}) {
   const prog = useMemo(() => computeProgression(character), [character]);
   if (!prog.classId) return null;
+
+  const atMaxLevel = (character.level || 1) >= 20;
+  const hasUnlocked = !!unlockedLevelup && !atMaxLevel;
 
   return (
     <div className="progression-panel">
@@ -40,7 +50,18 @@ export default function ProgressionPanel({ character, lang = 'pt', onLevelUpRequ
         </ul>
       </details>
 
-      {canRequestLevelUp && character.level < 20 && onLevelUpRequest && (
+      {hasUnlocked && onConsumeLevelup && (
+        <div className="prog-section unlocked-banner">
+          <div className="prog-label">
+            ✨ {t(lang, `Evolução liberada para o nível ${unlockedLevelup.toLevel}!`, `Evolution unlocked to level ${unlockedLevelup.toLevel}!`)}
+          </div>
+          <button className="btn btn-primary btn-unlock" onClick={onConsumeLevelup}>
+            {t(lang, `Subir para o nível ${unlockedLevelup.toLevel} ✨`, `Level up to ${unlockedLevelup.toLevel} ✨`)}
+          </button>
+        </div>
+      )}
+
+      {!hasUnlocked && canRequestLevelUp && !atMaxLevel && onLevelUpRequest && (
         <button className="btn btn-primary" onClick={() => onLevelUpRequest(prog)}>
           {t(lang, `Solicitar subida ao nível ${character.level + 1}`, `Request level ${character.level + 1}`)}
         </button>

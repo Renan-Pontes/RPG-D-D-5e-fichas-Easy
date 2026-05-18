@@ -60,27 +60,69 @@ def campaign_approvals(request, id_or_slug):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def approval_review(request, pk):
+    """
+    Mestre libera ('approved') ou rejeita uma solicitação.
+
+    Para type='levelup': aprovar só LIBERA — não sobe o nível. O jogador
+    precisa chamar /consume pra de fato aplicar a evolução na ficha
+    (clicando "Subir nível ✨" no celular).
+
+    Para outros types (feature/item/spell/other): aprovar aplica direto,
+    por compatibilidade com o fluxo antigo (não há decisões do jogador).
+    """
     obj = Approval.objects.filter(pk=pk).select_related('campaign', 'character').first()
     if not obj:
         raise NotFound('not_found')
     if obj.campaign.dm_id != request.user.id:
         raise PermissionDenied('dm_only')
 
-    status = request.data.get('status')
-    if status not in ('approved', 'rejected'):
+    new_status = request.data.get('status')
+    if new_status not in ('approved', 'rejected', 'pending'):
+        # 'pending' permite revogar liberação
         raise ValidationError({'error': 'invalid_status'})
 
-    obj.status = status
+    obj.status = new_status
     obj.note = request.data.get('note', obj.note)
-    obj.reviewed_by = request.user
-    obj.reviewed_at = timezone.now()
+    obj.reviewed_by = request.user if new_status != 'pending' else None
+    obj.reviewed_at = timezone.now() if new_status != 'pending' else None
     obj.save()
 
+    # Aplicação direta só pra types não-levelup (mantém compatibilidade).
+    # Pra levelup o jogador consome via /consume.
     apply_changes = request.data.get('applyChanges', True)
-    if status == 'approved' and apply_changes:
+    if new_status == 'approved' and apply_changes and obj.type != 'levelup':
         next_data = apply_approval_to_character(obj.character.data or {}, obj.type, obj.payload or {})
         if next_data is not None:
             obj.character.data = next_data
             obj.character.save()
+            obj.status = 'consumed'
+            obj.save(update_fields=['status'])
 
     return Response({'approval': ApprovalSerializer(obj).data})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def approval_consume(request, pk):
+    """
+    Jogador consome uma approval já liberada (status='approved'),
+    aplicando o efeito na ficha. Só o dono do personagem pode consumir.
+
+    Após consumir, status vira 'consumed' e não pode mais ser aplicada.
+    """
+    obj = Approval.objects.filter(pk=pk).select_related('campaign', 'character').first()
+    if not obj:
+        raise NotFound('not_found')
+    if obj.character.owner_id != request.user.id:
+        raise PermissionDenied('owner_only')
+    if obj.status != 'approved':
+        raise ValidationError({'error': 'not_unlocked', 'currentStatus': obj.status})
+
+    next_data = apply_approval_to_character(obj.character.data or {}, obj.type, obj.payload or {})
+    if next_data is not None:
+        obj.character.data = next_data
+        obj.character.save()
+
+    obj.status = 'consumed'
+    obj.save(update_fields=['status'])
+    return Response({'approval': ApprovalSerializer(obj).data, 'character': {'id': obj.character.id, 'data': obj.character.data}})

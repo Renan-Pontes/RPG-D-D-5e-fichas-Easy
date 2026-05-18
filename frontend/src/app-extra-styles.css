@@ -410,6 +410,58 @@
   color: var(--gold);
 }
 
+/* Banner "Evolução liberada — Subir nível ✨" */
+.prog-section.unlocked-banner {
+  background: linear-gradient(135deg, rgba(212,168,77,0.18), rgba(212,168,77,0.08));
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: unlock-pulse 1.8s ease-in-out infinite;
+}
+.prog-section.unlocked-banner .prog-label {
+  color: var(--gold);
+  font-weight: 600;
+  font-size: 1.05em;
+  margin: 0;
+}
+.btn-unlock {
+  align-self: flex-start;
+  font-size: 1.05em;
+  padding: 10px 18px;
+}
+@keyframes unlock-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212,168,77,0.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(212,168,77,0); }
+}
+
+/* Card de approval no histórico do mestre */
+.approval-card.unlocked {
+  border-left: 3px solid var(--gold);
+  background: rgba(212,168,77,0.05);
+}
+
+/* Override discreto no DM editor (fora do fluxo normal) */
+.dm-override-section {
+  margin-top: 16px;
+  padding: 8px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  background: rgba(180, 80, 80, 0.05);
+}
+.dm-override-section summary {
+  cursor: pointer;
+  font-size: 0.9em;
+  color: var(--ink-secondary);
+  user-select: none;
+}
+.dm-override-section[open] summary {
+  margin-bottom: 8px;
+}
+
 /* === Char list: busca === */
 .char-search {
   display: flex;

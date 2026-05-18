@@ -21,31 +21,25 @@ class RateLimitTests(TestCase):
     def setUp(self):
         cache.clear()  # zera contador entre testes
 
-    def test_login_blocks_after_too_many_attempts(self):
+    def test_login_no_rate_limit_in_early_days(self):
+        """Rate limit desativado em early days — login não bloqueia.
+        Reabilitar quando user base crescer; ver views_auth.py."""
         c = APIClient()
         make_user('a@x.com')
-        # 10 tentativas com senha errada
-        for _ in range(10):
+        for _ in range(15):
             r = c.post('/api/auth/login', {'email': 'a@x.com', 'password': 'wrong'}, format='json')
             self.assertEqual(r.status_code, 401)
-        # 11ª deve ser rate-limited
-        r = c.post('/api/auth/login', {'email': 'a@x.com', 'password': 'wrong'}, format='json')
-        self.assertEqual(r.status_code, 429)
-        self.assertEqual(r.json()['error'], 'rate_limited')
-        self.assertIn('retryAfter', r.json())
+        # Nunca chega a 429.
 
-    def test_signup_blocks_after_too_many_attempts(self):
+    def test_signup_no_rate_limit_in_early_days(self):
+        """Rate limit desativado em early days — signup não bloqueia.
+        Reabilitar quando user base crescer; ver views_auth.py."""
         c = APIClient()
-        # 5 signups (limite)
-        for i in range(5):
-            c.post('/api/auth/signup',
-                   {'email': f'sx{i}@x.com', 'password': f'forja-test-2026-{i}', 'displayName': f'U{i}'},
-                   format='json')
-        # 6ª deve estourar
-        r = c.post('/api/auth/signup',
-                   {'email': 'sx6@x.com', 'password': 'forja-test-2026-x', 'displayName': 'U6'},
-                   format='json')
-        self.assertEqual(r.status_code, 429)
+        for i in range(7):
+            r = c.post('/api/auth/signup',
+                       {'email': f'sx{i}@x.com', 'password': f'forja-test-2026-{i}', 'displayName': f'U{i}'},
+                       format='json')
+            self.assertNotEqual(r.status_code, 429, f'signup #{i} foi rate-limited')
 
     def test_successful_login_resets_counter(self):
         c = APIClient()

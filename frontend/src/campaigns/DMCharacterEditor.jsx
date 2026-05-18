@@ -284,17 +284,19 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
                 <TextInput label={t(lang, 'Raça', 'Race')} value={data.race} onChange={v => patch({ race: v })} />
                 <TextInput label={t(lang, 'Antecedente', 'Background')} value={data.background} onChange={v => patch({ background: v })} />
               </Section>
-              <Section title={t(lang, 'Forçar level up (sem aprovação)', 'Force level up (no approval)')}>
-                <p className="muted small" style={{ marginTop: 0 }}>
-                  {t(lang, 'Aumenta nível em 1. Não aplica HP automático — ajuste manual.',
-                       'Bumps level by 1. Does not auto-apply HP — adjust manually.')}
+              <details className="dm-override-section">
+                <summary>{t(lang, '⚠ Override (consertar inconsistências)', '⚠ Override (fix inconsistencies)')}</summary>
+                <p className="muted small" style={{ margin: '8px 0' }}>
+                  {t(lang,
+                    'Fluxo normal: jogador solicita evolução → você libera na aba Aprovações → jogador clica "Subir nível" na ficha dele. Use este botão APENAS pra consertar fichas inconsistentes (não aplica HP automático).',
+                    'Normal flow: player requests evolution → you unlock in Approvals tab → player clicks "Level up" on their sheet. Use this button ONLY to fix inconsistent sheets (does not auto-apply HP).')}
                 </p>
                 <button className="btn btn-ghost btn-sm"
                   disabled={(data.level || 1) >= 20}
                   onClick={() => patch({ level: Math.min(20, (data.level || 1) + 1) })}>
-                  ⬆ {t(lang, 'Subir 1 nível', 'Level up +1')}
+                  ⬆ {t(lang, 'Forçar subida +1', 'Force level up +1')}
                 </button>
-              </Section>
+              </details>
             </div>
           )}
 

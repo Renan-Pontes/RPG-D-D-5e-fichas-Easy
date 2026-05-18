@@ -119,7 +119,16 @@ class Approval(models.Model):
         ('spell', 'Spell'),
         ('other', 'Other'),
     ]
-    STATUS_CHOICES = [('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected')]
+    # 'approved' = liberada pelo mestre, ainda não consumida pelo jogador.
+    # 'consumed' = aplicada na ficha (level subiu, autos rodaram).
+    # Pra type='levelup' a transição é approved → consumed via /consume.
+    # Pra os outros types, a aplicação ainda acontece direto na hora do approve.
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('consumed', 'Consumed'),
+        ('rejected', 'Rejected'),
+    ]
 
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='approvals')
     character = models.ForeignKey(Character, on_delete=models.CASCADE, related_name='approvals')

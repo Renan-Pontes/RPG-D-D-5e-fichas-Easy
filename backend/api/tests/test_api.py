@@ -169,17 +169,24 @@ class ApprovalFlowTests(TestCase):
         )
         Membership.objects.create(campaign=self.camp, user=self.player, character=self.char, role='player')
 
-    def test_player_creates_approval_and_dm_approves(self):
+    def test_player_creates_approval_dm_unlocks_player_consumes(self):
         r = self.c_player.post(f'/api/approvals/campaign/{self.camp.id}',
             {'characterId': self.char.id, 'type': 'levelup', 'payload': {'toLevel': 3, 'hpGain': 6}},
             format='json')
         self.assertEqual(r.status_code, 200, r.content)
         appr_id = r.json()['approval']['id']
 
-        # DM approves
+        # DM aprova (libera, NÃO aplica): level continua igual.
         r = self.c_dm.post(f'/api/approvals/{appr_id}/review', {'status': 'approved'}, format='json')
         self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['approval']['status'], 'approved')
+        self.char.refresh_from_db()
+        self.assertEqual(self.char.data['level'], 2, 'aprovar não deve mudar nível')
 
+        # Jogador consome: level sobe e autos rodam.
+        r = self.c_player.post(f'/api/approvals/{appr_id}/consume', format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()['approval']['status'], 'consumed')
         self.char.refresh_from_db()
         self.assertEqual(self.char.data['level'], 3)
         self.assertEqual(self.char.data['maxHp'], 21)

@@ -471,7 +471,8 @@ function ApprovalsTab({ approvals, lang, isDM, onChange }) {
     onChange();
   };
   const pending = approvals.filter(a => a.status === 'pending');
-  const reviewed = approvals.filter(a => a.status !== 'pending');
+  const unlocked = approvals.filter(a => a.status === 'approved');
+  const done = approvals.filter(a => a.status === 'consumed' || a.status === 'rejected');
   return (
     <div className="approvals">
       <h3>{t(lang, 'Pendentes', 'Pending')} ({pending.length})</h3>
@@ -486,14 +487,44 @@ function ApprovalsTab({ approvals, lang, isDM, onChange }) {
           {a.note && <div className="approval-note">{a.note}</div>}
           {isDM && (
             <div className="row gap-2">
-              <button className="btn btn-primary btn-sm" onClick={() => review(a.id, 'approved')}>{t(lang, 'Aprovar e aplicar', 'Approve & apply')}</button>
+              <button className="btn btn-primary btn-sm" onClick={() => review(a.id, 'approved')}>
+                {a.type === 'levelup' ? t(lang, '✨ Liberar evolução', '✨ Unlock evolution') : t(lang, 'Aprovar e aplicar', 'Approve & apply')}
+              </button>
               <button className="btn btn-ghost btn-sm" style={{ color: '#ff9999' }} onClick={() => review(a.id, 'rejected')}>{t(lang, 'Rejeitar', 'Reject')}</button>
             </div>
           )}
         </div>
       ))}
+
+      {unlocked.length > 0 && (
+        <>
+          <h3 style={{ marginTop: 24 }}>{t(lang, 'Liberadas (aguardando jogador)', 'Unlocked (awaiting player)')} ({unlocked.length})</h3>
+          {unlocked.map(a => (
+            <div key={a.id} className="approval-card unlocked">
+              <div>
+                <span className="pill pill-approved">{t(lang, 'liberada', 'unlocked')}</span>{' '}
+                <strong>{a.character?.name || a.requestedBy?.displayName}</strong> · {labelType(a.type, lang)}
+                {a.type === 'levelup' && a.payload?.toLevel && (
+                  <> → {t(lang, 'nível', 'level')} {a.payload.toLevel}</>
+                )}
+              </div>
+              <p style={{ color: 'var(--ink-secondary)', fontSize: '0.9em', margin: '6px 0 0' }}>
+                {t(lang, 'O jogador precisa clicar "Subir nível ✨" na ficha pra aplicar.', 'Player needs to click "Level up ✨" on their sheet to apply.')}
+              </p>
+              {isDM && (
+                <div className="row gap-2" style={{ marginTop: 8 }}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => review(a.id, 'pending')}>
+                    {t(lang, 'Revogar liberação', 'Revoke unlock')}
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </>
+      )}
+
       <h3 style={{ marginTop: 24 }}>{t(lang, 'Histórico', 'History')}</h3>
-      {reviewed.map(a => (
+      {done.map(a => (
         <div key={a.id} className="approval-card reviewed">
           <div>
             <span className={`pill pill-${a.status}`}>{a.status}</span>{' '}
