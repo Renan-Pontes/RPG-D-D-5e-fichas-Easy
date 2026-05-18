@@ -343,3 +343,70 @@ class RollRequestEndpointTests(TestCase):
         rid = r.json()['roll']['id']
         r = self.c_dm.post(f'/api/rolls/{rid}/resolve', {'visibility': 'public'}, format='json')
         self.assertTrue(r.json()['roll']['isCritical'])
+
+    # ==== M1: DM force override do valor da rolagem exibida ====
+    def test_dm_override_value_uses_exact_value(self):
+        r = self.c_p.post(f'/api/rolls/campaign/{self.camp.id}',
+            {'label': 'fake perception', 'diceType': 'd20', 'modifier': 3}, format='json')
+        rid = r.json()['roll']['id']
+        r = self.c_dm.post(f'/api/rolls/{rid}/resolve',
+            {'visibility': 'public', 'overrideValue': 17}, format='json')
+        self.assertEqual(r.status_code, 200)
+        body = r.json()['roll']
+        self.assertEqual(body['total'], 20)            # 17 + 3
+        self.assertTrue(body['rigged'])
+        self.assertEqual(len(body['rolls']), 1)
+        self.assertEqual(body['rolls'][0]['value'], 17)
+        self.assertTrue(body['rolls'][0].get('override'))
+        self.assertFalse(body['isCritical'])
+        self.assertFalse(body['isCriticalFail'])
+
+    def test_dm_override_value_20_marks_critical(self):
+        r = self.c_p.post(f'/api/rolls/campaign/{self.camp.id}',
+            {'diceType': 'd20', 'modifier': 0}, format='json')
+        rid = r.json()['roll']['id']
+        r = self.c_dm.post(f'/api/rolls/{rid}/resolve',
+            {'visibility': 'public', 'overrideValue': 20}, format='json')
+        self.assertTrue(r.json()['roll']['isCritical'])
+
+    def test_dm_override_value_1_marks_critical_fail(self):
+        r = self.c_p.post(f'/api/rolls/campaign/{self.camp.id}',
+            {'diceType': 'd20', 'modifier': 5}, format='json')
+        rid = r.json()['roll']['id']
+        r = self.c_dm.post(f'/api/rolls/{rid}/resolve',
+            {'visibility': 'public', 'overrideValue': 1}, format='json')
+        body = r.json()['roll']
+        self.assertTrue(body['isCriticalFail'])
+        self.assertEqual(body['total'], 6)  # 1 + 5
+
+    def test_dm_override_value_out_of_range_rejected(self):
+        r = self.c_p.post(f'/api/rolls/campaign/{self.camp.id}',
+            {'diceType': 'd20'}, format='json')
+        rid = r.json()['roll']['id']
+        r = self.c_dm.post(f'/api/rolls/{rid}/resolve',
+            {'visibility': 'public', 'overrideValue': 25}, format='json')
+        self.assertEqual(r.status_code, 400)
+        r = self.c_dm.post(f'/api/rolls/{rid}/resolve',
+            {'visibility': 'public', 'overrideValue': 0}, format='json')
+        self.assertEqual(r.status_code, 400)
+
+    def test_dm_override_does_not_consume_dice_rig(self):
+        # Se DM forçar o valor, rig pendente NÃO é consumido.
+        rig = DiceRig.objects.create(campaign=self.camp, target_user=self.player,
+                                      dice_type='d20', values=[{'value': 18, 'consumed': False}])
+        r = self.c_p.post(f'/api/rolls/campaign/{self.camp.id}',
+            {'diceType': 'd20', 'modifier': 0}, format='json')
+        rid = r.json()['roll']['id']
+        self.c_dm.post(f'/api/rolls/{rid}/resolve',
+            {'visibility': 'public', 'overrideValue': 12}, format='json')
+        rig.refresh_from_db()
+        self.assertFalse(rig.values[0].get('consumed'))
+
+    def test_dm_override_critical_flag_forces_crit(self):
+        # overrideCritical força flag mesmo com valor != 20.
+        r = self.c_p.post(f'/api/rolls/campaign/{self.camp.id}',
+            {'diceType': 'd20'}, format='json')
+        rid = r.json()['roll']['id']
+        r = self.c_dm.post(f'/api/rolls/{rid}/resolve',
+            {'visibility': 'public', 'overrideValue': 15, 'overrideCritical': True}, format='json')
+        self.assertTrue(r.json()['roll']['isCritical'])

@@ -59,8 +59,8 @@ export default function RollRequestPanel({ campaign, lang, isDM, onChange }) {
     load();
   };
 
-  const resolve = async (id, visibility) => {
-    await api.resolveRoll(id, { visibility });
+  const resolve = async (id, visibility, extra = {}) => {
+    await api.resolveRoll(id, { visibility, ...extra });
     load();
     onChange?.();
   };
@@ -120,33 +120,9 @@ export default function RollRequestPanel({ campaign, lang, isDM, onChange }) {
         {pending.length === 0 ? (
           <p style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Nenhuma pendente.', 'None pending.')}</p>
         ) : pending.map(r => (
-          <div key={r.id} className="roll-row">
-            <div>
-              <strong>{r.requestedBy?.displayName}</strong>
-              <span style={{ marginLeft: 6 }}>{r.label || r.diceType}</span>
-              <span className="muted small" style={{ marginLeft: 6 }}>
-                {r.count > 1 ? `${r.count}` : ''}{r.diceType}
-                {r.modifier ? `${r.modifier >= 0 ? '+' : ''}${r.modifier}` : ''}
-                {r.hasAdvantage ? ' · vantagem' : ''}
-                {r.hasDisadvantage ? ' · desvantagem' : ''}
-              </span>
-            </div>
-            <div className="row gap-2">
-              {isDM ? (
-                <>
-                  <button className="btn btn-primary btn-sm" onClick={() => resolve(r.id, 'public')}>
-                    📺 {t(lang, 'Mostrar no telão', 'Show on TV')}
-                  </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => resolve(r.id, 'private')}>
-                    🔒 {t(lang, 'Rolar privado', 'Private roll')}
-                  </button>
-                  <button className="btn btn-ghost btn-sm" style={{ color: '#ff9999' }} onClick={() => cancel(r.id)}>×</button>
-                </>
-              ) : (
-                <span className="muted small">{t(lang, 'aguardando mestre…', 'waiting for DM…')}</span>
-              )}
-            </div>
-          </div>
+          isDM
+            ? <PendingDMRow key={r.id} r={r} lang={lang} onResolve={resolve} onCancel={cancel} />
+            : <PendingPlayerRow key={r.id} r={r} lang={lang} />
         ))}
       </div>
 
@@ -176,6 +152,95 @@ export default function RollRequestPanel({ campaign, lang, isDM, onChange }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function PendingPlayerRow({ r, lang }) {
+  return (
+    <div className="roll-row">
+      <div>
+        <strong>{r.requestedBy?.displayName}</strong>
+        <span style={{ marginLeft: 6 }}>{r.label || r.diceType}</span>
+        <span className="muted small" style={{ marginLeft: 6 }}>
+          {r.count > 1 ? `${r.count}` : ''}{r.diceType}
+          {r.modifier ? `${r.modifier >= 0 ? '+' : ''}${r.modifier}` : ''}
+          {r.hasAdvantage ? ' · vantagem' : ''}
+          {r.hasDisadvantage ? ' · desvantagem' : ''}
+        </span>
+      </div>
+      <div className="row gap-2">
+        <span className="muted small">{t(lang, 'aguardando mestre…', 'waiting for DM…')}</span>
+      </div>
+    </div>
+  );
+}
+
+// M1: DM pode forçar valor exibido na rolagem (pra calibrar drama no telão).
+function PendingDMRow({ r, lang, onResolve, onCancel }) {
+  const sides = { d4:4, d6:6, d8:8, d10:10, d12:12, d20:20, d100:100 }[r.diceType] || 20;
+  const [override, setOverride] = useState('');
+  const [show, setShow] = useState(false);
+
+  const handleShowAsIs = () => onResolve(r.id, 'public');
+  const handleShowOverride = () => {
+    const n = parseInt(override, 10);
+    if (!override || Number.isNaN(n)) { alert(t(lang, `Informe um valor entre 1 e ${sides}.`, `Enter a value between 1 and ${sides}.`)); return; }
+    if (n < 1 || n > sides) { alert(t(lang, `Valor inválido (1-${sides}).`, `Invalid value (1-${sides}).`)); return; }
+    onResolve(r.id, 'public', { overrideValue: n });
+  };
+
+  return (
+    <div className="roll-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+      <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <div>
+          <strong>{r.requestedBy?.displayName}</strong>
+          <span style={{ marginLeft: 6 }}>{r.label || r.diceType}</span>
+          <span className="muted small" style={{ marginLeft: 6 }}>
+            {r.count > 1 ? `${r.count}` : ''}{r.diceType}
+            {r.modifier ? `${r.modifier >= 0 ? '+' : ''}${r.modifier}` : ''}
+            {r.hasAdvantage ? ' · vantagem' : ''}
+            {r.hasDisadvantage ? ' · desvantagem' : ''}
+          </span>
+        </div>
+        <div className="row gap-2">
+          <button className="btn btn-primary btn-sm" onClick={handleShowAsIs}>
+            📺 {t(lang, 'Mostrar (rolar)', 'Show (roll)')}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShow(v => !v)} title={t(lang, 'Mostrar com valor customizado', 'Show with custom value')}>
+            ✏ {t(lang, 'Valor manual', 'Manual value')}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => onResolve(r.id, 'private')}>
+            🔒 {t(lang, 'Privado', 'Private')}
+          </button>
+          <button className="btn btn-ghost btn-sm" style={{ color: '#ff9999' }} onClick={() => onCancel(r.id)}>×</button>
+        </div>
+      </div>
+      {show && (
+        <div className="row gap-2" style={{ alignItems: 'center', background: 'rgba(212,168,77,0.08)', padding: '6px 8px', borderRadius: 4 }}>
+          <span className="muted small">{t(lang, 'Valor a exibir', 'Value to show')}:</span>
+          <input
+            type="number"
+            className="input"
+            min={1}
+            max={sides}
+            value={override}
+            onChange={e => setOverride(e.target.value)}
+            style={{ width: 80 }}
+            placeholder={`1-${sides}`}
+            autoFocus
+          />
+          <span className="muted small">
+            {r.modifier ? `${r.modifier >= 0 ? '+' : ''}${r.modifier} = ${(parseInt(override) || 0) + r.modifier}` : ''}
+          </span>
+          <button className="btn btn-primary btn-sm" onClick={handleShowOverride}>
+            📺 {t(lang, 'Mostrar com este valor', 'Show with this value')}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => { setShow(false); setOverride(''); }}>
+            {t(lang, 'Cancelar', 'Cancel')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

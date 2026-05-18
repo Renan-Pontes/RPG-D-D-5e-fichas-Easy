@@ -625,32 +625,57 @@ def roll_resolve(request, pk):
     if visibility not in ('public', 'private'):
         raise ValidationError({'error': 'invalid_visibility'})
 
-    sides = engine.parse_dice(rr.dice_type)[1] if rr.dice_type.startswith('d') else 20
     sides = {'d4':4,'d6':6,'d8':8,'d10':10,'d12':12,'d20':20,'d100':100}.get(rr.dice_type, 20)
+
+    # DM pode forçar valor exibido — não consome rig, não rola dados; injeta resultado.
+    # Útil pra ajustar narrativa em rolagens públicas (M1).
+    override_raw = request.data.get('overrideValue', None)
+    override_value = None
+    if override_raw is not None and override_raw != '':
+        try:
+            override_value = int(override_raw)
+        except (TypeError, ValueError):
+            raise ValidationError({'error': 'invalid_override_value'})
+        if override_value < 1 or override_value > sides:
+            raise ValidationError({'error': 'override_out_of_range'})
 
     rolls = []
     rigged = False
     is_crit = False
     is_critfail = False
-    for _ in range(max(1, rr.count)):
-        forced = _maybe_consume_rig(rr.campaign, rr.requested_by_id, rr.dice_type)
-        if forced is not None:
-            rolls.append({'value': forced, 'kept': True, 'rigged': True})
-            rigged = True
-            if rr.dice_type == 'd20' and forced == 20: is_crit = True
-            if rr.dice_type == 'd20' and forced == 1: is_critfail = True
-        elif rr.dice_type == 'd20' and (rr.has_advantage or rr.has_disadvantage):
-            a, b = engine.roll_die(20), engine.roll_die(20)
-            keep = max(a, b) if rr.has_advantage else min(a, b)
-            rolls.append({'value': a, 'kept': keep == a, 'rigged': False})
-            rolls.append({'value': b, 'kept': keep == b, 'rigged': False})
-            if keep == 20: is_crit = True
-            if keep == 1: is_critfail = True
-        else:
-            v = engine.roll_die(sides)
-            rolls.append({'value': v, 'kept': True, 'rigged': False})
-            if rr.dice_type == 'd20' and v == 20: is_crit = True
-            if rr.dice_type == 'd20' and v == 1: is_critfail = True
+
+    if override_value is not None:
+        # Pega o valor digitado como a rolagem; marca como overridden.
+        rolls.append({'value': override_value, 'kept': True, 'rigged': True, 'override': True})
+        rigged = True
+        if rr.dice_type == 'd20' and override_value == 20: is_crit = True
+        if rr.dice_type == 'd20' and override_value == 1: is_critfail = True
+    else:
+        for _ in range(max(1, rr.count)):
+            forced = _maybe_consume_rig(rr.campaign, rr.requested_by_id, rr.dice_type)
+            if forced is not None:
+                rolls.append({'value': forced, 'kept': True, 'rigged': True})
+                rigged = True
+                if rr.dice_type == 'd20' and forced == 20: is_crit = True
+                if rr.dice_type == 'd20' and forced == 1: is_critfail = True
+            elif rr.dice_type == 'd20' and (rr.has_advantage or rr.has_disadvantage):
+                a, b = engine.roll_die(20), engine.roll_die(20)
+                keep = max(a, b) if rr.has_advantage else min(a, b)
+                rolls.append({'value': a, 'kept': keep == a, 'rigged': False})
+                rolls.append({'value': b, 'kept': keep == b, 'rigged': False})
+                if keep == 20: is_crit = True
+                if keep == 1: is_critfail = True
+            else:
+                v = engine.roll_die(sides)
+                rolls.append({'value': v, 'kept': True, 'rigged': False})
+                if rr.dice_type == 'd20' and v == 20: is_crit = True
+                if rr.dice_type == 'd20' and v == 1: is_critfail = True
+
+    # Permite forçar crit/falha independente do valor (raro, mas útil dramaticamente).
+    if 'overrideCritical' in request.data:
+        is_crit = bool(request.data.get('overrideCritical'))
+    if 'overrideCriticalFail' in request.data:
+        is_critfail = bool(request.data.get('overrideCriticalFail'))
 
     kept_sum = sum(r['value'] for r in rolls if r['kept'])
     total = kept_sum + rr.modifier

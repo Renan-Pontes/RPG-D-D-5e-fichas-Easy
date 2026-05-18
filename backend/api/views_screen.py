@@ -49,11 +49,12 @@ def screen(request, token):
         raise NotFound('not_found')
     memberships = campaign.memberships.select_related('user', 'user__profile', 'character').all()
     combat = getattr(campaign, 'combat', None)
-    # Últimas rolagens públicas (até 5)
+    # publicRolls é só pra DISPARAR overlay dramático no TV (não renderizamos lista).
+    # Limitamos a 1 — o mais recente — pra evitar payload inflado.
     public_rolls = list(
         RollRequest.objects
         .filter(campaign=campaign, status='public')
-        .select_related('requested_by', 'requested_by__profile')[:5]
+        .select_related('requested_by', 'requested_by__profile')[:1]
     )
     return Response({
         'campaign': {

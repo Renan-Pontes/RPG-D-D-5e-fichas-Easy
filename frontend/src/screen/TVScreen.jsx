@@ -142,20 +142,7 @@ export default function TVScreen({ token, lang = 'pt' }) {
         </aside>
       )}
 
-      {/* Log de rolagens públicas recentes */}
-      {(data.publicRolls || []).length > 0 && !activeRoll && (
-        <div className="tv-rolls-log">
-          {data.publicRolls.slice(0, 5).map(r => (
-            <div key={r.id} className={`tv-roll-entry ${r.isCritical ? 'crit' : ''} ${r.isCriticalFail ? 'fail' : ''}`}>
-              <span className="tv-roll-who">{r.requester}</span>
-              <span className="tv-roll-label">{r.label}</span>
-              <span className="tv-roll-total">{r.total}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Overlay dramático */}
+      {/* Overlay dramático — TV limpa, sem histórico (M1: telão limpo) */}
       {activeRoll && <DramaticRollOverlay roll={activeRoll} lang={lang} onDone={() => setActiveRoll(null)} />}
     </div>
   );
