@@ -102,15 +102,12 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
         cls={cls} race={race} bg={bg}
       />
 
-<<<<<<< HEAD:components/Sheet.jsx
       <SubclassBanner char={char} lang={lang} update={update} />
-=======
       <CampaignModeBanner char={char} lang={lang} onChange={onUpdate} />
 
       {char.wildShape?.active && (
         <WildShapeBanner char={char} lang={lang} onChange={onUpdate} />
       )}
->>>>>>> d203953156f15171fef4cef7339793c1d615b179:frontend/components/Sheet.jsx
 
       <div className="action-bar no-print">
         <button className="chip" onClick={onPrint}><Icon name="print" size={14} className="chip-icon"/> {t('print', lang)}</button>

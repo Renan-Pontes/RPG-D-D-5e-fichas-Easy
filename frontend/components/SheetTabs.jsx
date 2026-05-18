@@ -70,15 +70,6 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
   const available = SRD.SPELLS.filter(sp => sp.classes.includes(char.className) && !spellEntries.find(s => s.id === sp.id));
   const addKnownSpell = (id) => update({ spells: [...spellEntries, { id, prepared: true }] });
 
-  const longRest = () => {
-    // Reset all slots + wild shape uses + lay-on-hands etc. For now: reset spell slots.
-    update({
-      spellSlotsUsed: (char.spellSlotsUsed || []).map(() => 0),
-      wildShapeUses: 0,
-      hitDiceUsed: Math.max(0, (char.hitDiceUsed || 0) - Math.max(1, Math.floor(char.level / 2))),
-    });
-  };
-
   return (
     <>
       <div className="card mb-4">
@@ -112,14 +103,6 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
 
       {slots && slots.length > 0 && slots.some(s => s) && (
         <>
-<<<<<<< HEAD:components/SheetTabs.jsx
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            <div className="eyebrow mb-2">{t('slots', lang)}</div>
-            <button className="btn btn-sm btn-ghost" onClick={longRest} title={t('longRest', lang)}>
-              <Icon name="moon" size={12}/> {t('longRest', lang)}
-            </button>
-          </div>
-=======
           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <div className="eyebrow">{t('slots', lang)}</div>
             <RestButtons char={char} lang={lang} update={update} />
@@ -129,7 +112,6 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
               🔒 {lang === 'pt' ? 'Em campanha: slots travados. Use "Conjurar" nas magias abaixo.' : 'In campaign: slots locked. Use "Cast" on spells below.'}
             </div>
           )}
->>>>>>> d203953156f15171fef4cef7339793c1d615b179:frontend/components/SheetTabs.jsx
           {slots.map((max, idx) => {
             if (!max) return null;
             const used = (char.spellSlotsUsed && char.spellSlotsUsed[idx]) || 0;
@@ -178,6 +160,8 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
           onTogglePrepared={togglePrepared}
           spellAtk={spellAtk}
           roll={roll}
+          slots={slots}
+          update={update}
         />
       ) : (
         <KnownSpellsView
@@ -189,13 +173,15 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
           onRemove={removeSpell}
           spellAtk={spellAtk}
           roll={roll}
+          slots={slots}
+          update={update}
         />
       )}
     </>
   );
 };
 
-const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, cantripIds, preparedIds, cantripLimit, preparedLimit, maxLvl, onToggleCantrip, onTogglePrepared, spellAtk, roll }) => {
+const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, cantripIds, preparedIds, cantripLimit, preparedLimit, maxLvl, onToggleCantrip, onTogglePrepared, spellAtk, roll, slots, update }) => {
   const leveled = classSpells.filter(s => s.level > 0);
   const byLevel = {};
   leveled.forEach(sp => {
@@ -221,7 +207,11 @@ const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, cantripIds
                 preparedDisabled={disabled}
                 preparedIcon={sel ? 'check' : 'plus'}
                 onTogglePrepared={() => onToggleCantrip(sp.id)}
-                onCast={() => spellAtk !== null && roll({ die: 20, mod: spellAtk, label: tName('spellName', sp.id, lang) + ' ' + t('attackRoll', lang) })}
+                char={char}
+                slots={slots}
+                update={update}
+                spellAtk={spellAtk}
+                roll={roll}
               />
             );
           })}
@@ -245,7 +235,11 @@ const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, cantripIds
                 showPrepared={true}
                 preparedDisabled={disabled}
                 onTogglePrepared={() => onTogglePrepared(sp.id)}
-                onCast={() => spellAtk !== null && roll({ die: 20, mod: spellAtk, label: tName('spellName', sp.id, lang) + ' ' + t('attackRoll', lang) })}
+                char={char}
+                slots={slots}
+                update={update}
+                spellAtk={spellAtk}
+                roll={roll}
               />
             );
           })}
@@ -261,7 +255,7 @@ const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, cantripIds
   );
 };
 
-const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRemove, spellAtk, roll }) => {
+const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRemove, spellAtk, roll, slots, update }) => {
   const known = spellEntries.map(cs => {
     const def = SRD.SPELLS.find(s => s.id === cs.id);
     return { ...cs, def };
@@ -296,20 +290,13 @@ const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRe
           {byLevel[lvl].map(s => (
             <SpellRow
               key={s.id} spell={s} lang={lang}
-<<<<<<< HEAD:components/SheetTabs.jsx
               showPrepared={false}
               onRemove={() => onRemove(s.id)}
-              onCast={() => spellAtk !== null && roll({ die: 20, mod: spellAtk, label: tName('spellName', s.id, lang) + ' ' + t('attackRoll', lang) })}
-=======
-              showPrepared={+lvl > 0}
-              onTogglePrepared={() => togglePrepared(s.id)}
-              onRemove={() => removeSpell(s.id)}
               char={char}
               slots={slots}
               update={update}
               spellAtk={spellAtk}
               roll={roll}
->>>>>>> d203953156f15171fef4cef7339793c1d615b179:frontend/components/SheetTabs.jsx
             />
           ))}
         </div>
@@ -413,11 +400,7 @@ const BeastCard = ({ beast, lang }) => {
   );
 };
 
-<<<<<<< HEAD:components/SheetTabs.jsx
-const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, onCast, preparedDisabled, preparedIcon }) => {
-=======
-const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char, slots, update, spellAtk, roll }) => {
->>>>>>> d203953156f15171fef4cef7339793c1d615b179:frontend/components/SheetTabs.jsx
+const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char, slots, update, spellAtk, roll, preparedDisabled, preparedIcon }) => {
   const [open, setOpen] = useState(false);
   const [casting, setCasting] = useState(false);
   const [error, setError] = useState('');
@@ -499,14 +482,6 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
             <div className="text-xs muted">{t('duration', lang)}: <span style={{ color: 'var(--ink-secondary)' }}>{sp.duration}</span></div>
           </div>
           <div className="text-sm" style={{ color: 'var(--ink-secondary)' }}>{sp.desc[lang]}</div>
-<<<<<<< HEAD:components/SheetTabs.jsx
-          <div className="row gap-2 mt-3">
-            <button className="btn btn-sm btn-ghost" onClick={onCast}>
-              <Icon name="dice" size={12}/> {lang === 'pt' ? 'Atacar' : 'Cast'}
-            </button>
-            {onRemove && (
-              <button className="btn btn-sm btn-ghost btn-danger" onClick={onRemove}>
-=======
           {error && <div style={{ color: '#ff9999', fontSize: '0.85em', marginTop: 4 }}>{error}</div>}
           <div className="row gap-2 mt-3" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
             {!isCantrip && available.length > 0 && (
@@ -540,9 +515,8 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
                 {lang === 'pt' ? 'sem slot' : 'no slot'}
               </span>
             )}
-            {!inCampaign && (
+            {!inCampaign && onRemove && (
               <button className="btn btn-sm btn-ghost btn-danger" onClick={onRemove} title={lang === 'pt' ? 'Remover magia' : 'Remove'}>
->>>>>>> d203953156f15171fef4cef7339793c1d615b179:frontend/components/SheetTabs.jsx
                 <Icon name="trash" size={12}/>
               </button>
             )}
