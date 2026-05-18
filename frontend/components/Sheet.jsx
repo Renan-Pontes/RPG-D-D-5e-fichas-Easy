@@ -7,6 +7,7 @@ import Icon from './Icons.jsx';
 import { Filigree, Modal, NumStepper, Pips, AvatarUpload } from './Shared.jsx';
 import { SheetSpells, SheetInventory, SheetStory, SheetNotes } from './SheetTabs.jsx';
 import { api, ApiError } from '../src/api/client.js';
+import CombatActionPanel from '../src/campaigns/CombatActionPanel.jsx';
 
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDelete, onBack }) => {
   const [tab, setTab] = useState('play');
@@ -107,6 +108,10 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
 
       {char.wildShape?.active && (
         <WildShapeBanner char={char} lang={lang} onChange={onUpdate} />
+      )}
+
+      {char.inCampaign && (
+        <CombatActionPanel char={char} lang={lang} onUpdate={onUpdate} />
       )}
 
       <div className="action-bar no-print">

@@ -157,6 +157,7 @@ export const api = {
   updateCombatant:  (id, cid, body) => request(`/api/combat/campaign/${id}/combatants/${cid}`, { method: 'PUT', body }),
   removeCombatant:  (id, cid) => request(`/api/combat/campaign/${id}/combatants/${cid}`, { method: 'DELETE' }),
   combatAction:     (id, body) => request(`/api/combat/campaign/${id}/action`, { method: 'POST', body }),
+  combatPlayerAttack:(id, body) => request(`/api/combat/campaign/${id}/player-attack`, { method: 'POST', body }),
   combatNextTurn:   (id) => request(`/api/combat/campaign/${id}/next-turn`, { method: 'POST' }),
   setCombatMap:     (id, body) => request(`/api/combat/campaign/${id}/map`, { method: 'POST', body }),
 
