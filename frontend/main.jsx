@@ -5,6 +5,7 @@ import './src/auth/auth-styles.css';
 import './src/screen/tv-styles.css';
 import './src/app-extra-styles.css';
 import './src/campaigns/combat-styles.css';
+import './src/campaigns/dm-desktop.css';
 import './src/mobile-styles.css';
 import { AuthProvider } from './src/auth/AuthContext.jsx';
 

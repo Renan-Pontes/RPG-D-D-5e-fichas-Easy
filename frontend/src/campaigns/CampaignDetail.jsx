@@ -41,8 +41,41 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
 
   const isDM = campaign.role === 'dm';
 
+  // Atalhos de teclado no painel do mestre — só desktop, foco fora de input/textarea.
+  useEffect(() => {
+    if (!isDM) return;
+    const onKey = (e) => {
+      const tag = (e.target?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // 'n' = próximo turno (na aba combate)
+      if (e.key === 'n' && tab === 'combat') {
+        e.preventDefault();
+        api.combatNextTurn(campaign.id).then(load).catch(() => {});
+      }
+      // 't' = copiar link do telão (na aba screen)
+      else if (e.key === 't' && tab === 'screen' && campaign?.screenToken) {
+        e.preventDefault();
+        navigator.clipboard?.writeText(`${window.location.origin}/tv/${campaign.screenToken}`);
+      }
+      // 1..7 = atalhos rápidos de aba pro DM
+      else if (/^[1-7]$/.test(e.key)) {
+        const order = ['overview', 'combat', 'rolls', 'members', 'approvals', 'dice', 'screen'];
+        const t2 = order[parseInt(e.key, 10) - 1];
+        if (t2) { e.preventDefault(); setTab(t2); }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isDM, tab, campaign?.id, campaign?.screenToken, load]);
+
   return (
-    <div className="campaign-detail">
+    <div className={`campaign-detail ${isDM ? 'is-dm' : ''}`}>
+      <div className="dm-mobile-hint">
+        💡 <strong>{t(lang, 'Dica', 'Tip')}:</strong> {t(lang,
+          'Esta tela do mestre fica bem melhor no PC. Recomendamos usar um computador na sessão.',
+          'This DM screen works much better on PC. We recommend using a desktop during sessions.')}
+      </div>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
         <div>
           <button className="btn btn-ghost btn-sm" onClick={onBack}>← {t(lang, 'Campanhas', 'Campaigns')}</button>
@@ -356,6 +389,7 @@ function MembersTab({ campaign, lang, isDM, characters, onChange }) {
   const [assigning, setAssigning] = useState(null); // membershipId em edição
   const [editingChar, setEditingChar] = useState(null); // character object
   const [givingTo, setGivingTo] = useState(null); // character object
+  const [selectedId, setSelectedId] = useState(null); // membership selecionado (desktop split-view)
 
   const assignCharacter = async (membershipId, charId) => {
     await api.updateMembership(campaign.id, membershipId, { characterId: charId });
@@ -369,82 +403,93 @@ function MembersTab({ campaign, lang, isDM, characters, onChange }) {
     onChange();
   };
 
+  // Em desktop (CSS) a lista vira coluna esquerda e o detalhe vai pra direita.
+  // Em mobile, o detalhe não renderiza e os botões aparecem inline (member-actions).
+  const selected = campaign.members.find(m => m.id === selectedId) || null;
+
   return (
-    <div className="members-list">
-      {campaign.members.map(m => (
-        <div key={m.id} className="member-row">
-          <div>
-            <strong>{m.user.displayName}</strong>
-            <span className={`role-pill role-${m.role}`} style={{ marginLeft: 8 }}>{m.role === 'dm' ? t(lang, 'Mestre', 'DM') : t(lang, 'Jogador', 'Player')}</span>
-          </div>
-          <div>
-            {m.character ? (
-              <div>
-                <strong>{m.character.name}</strong>
-                {m.character.summary && (
-                  <span style={{ color: 'var(--ink-secondary)', fontSize: '0.9em' }}>
-                    {' '}— {m.character.summary.race} {m.character.summary.className} {m.character.summary.level}
-                  </span>
-                )}
-              </div>
-            ) : (
-              <em style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Sem personagem atribuído', 'No character assigned')}</em>
-            )}
-          </div>
-          <div className="row gap-2">
-            {/* O próprio user pode atribuir um personagem dele */}
-            {m.user.id === window.__currentUserId__ && (
-              <button className="btn btn-ghost btn-sm" onClick={() => setAssigning(m.id)}>{t(lang, 'Trocar personagem', 'Change character')}</button>
-            )}
-            {isDM && m.character?.data && (
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => setEditingChar({ id: m.character.id, name: m.character.name, data: m.character.data })}
-                title={t(lang, 'Editar ficha em modo mestre', 'Edit sheet in DM mode')}
-              >
-                🛠 {t(lang, 'Editar ficha', 'Edit sheet')}
-              </button>
-            )}
-            {isDM && m.character?.data && (
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => setGivingTo({ id: m.character.id, name: m.character.name })}
-                title={t(lang, 'Dar item ao personagem', 'Give item to character')}
-              >
-                🎁 {t(lang, 'Dar item', 'Give item')}
-              </button>
-            )}
-            {isDM && m.character?.data?.wildShape?.active && (
-              <button
-                className="btn btn-ghost btn-sm"
-                style={{ color: '#79d479' }}
-                onClick={async () => {
-                  if (!confirm(t(lang, `Forçar ${m.character.name} a sair da forma selvagem?`, `Force ${m.character.name} out of wild shape?`))) return;
-                  try {
-                    await api.wildShapeForceEnd(m.character.id, {});
-                    onChange();
-                  } catch (e) { alert(e?.data?.error || e?.message); }
-                }}
-                title={t(lang, 'Forçar saída da forma selvagem', 'Force out of wild shape')}
-              >
-                🐾 {t(lang, 'Sair forma', 'End form')}
-              </button>
-            )}
-            {isDM && m.role !== 'dm' && (
-              <button className="btn btn-ghost btn-sm" style={{ color: '#ff9999' }} onClick={() => removeMember(m.id)}>{t(lang, 'Remover', 'Remove')}</button>
-            )}
-          </div>
-          {assigning === m.id && (
-            <div className="character-picker">
-              <select onChange={e => assignCharacter(m.id, e.target.value || null)}>
-                <option value="">— {t(lang, 'Nenhum', 'None')} —</option>
-                {characters.map(c => <option key={c.id} value={c.id}>{c.name} ({c.race} {c.className} {c.level})</option>)}
-              </select>
-              <button className="btn btn-ghost btn-sm" onClick={() => setAssigning(null)}>{t(lang, 'Cancelar', 'Cancel')}</button>
+    <div className="members-shell">
+      <div className="members-list">
+        {campaign.members.map(m => (
+          <div
+            key={m.id}
+            className={`member-row ${selectedId === m.id ? 'selected' : ''}`}
+            onClick={() => setSelectedId(m.id)}
+          >
+            <div>
+              <strong>{m.user.displayName}</strong>
+              <span className={`role-pill role-${m.role}`} style={{ marginLeft: 8 }}>{m.role === 'dm' ? t(lang, 'Mestre', 'DM') : t(lang, 'Jogador', 'Player')}</span>
             </div>
-          )}
-        </div>
-      ))}
+            <div>
+              {m.character ? (
+                <div>
+                  <strong>{m.character.name}</strong>
+                  {m.character.summary && (
+                    <span style={{ color: 'var(--ink-secondary)', fontSize: '0.9em' }}>
+                      {' '}— {m.character.summary.race} {m.character.summary.className} {m.character.summary.level}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <em style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Sem personagem atribuído', 'No character assigned')}</em>
+              )}
+            </div>
+            <div className="row gap-2 member-actions">
+              <MemberActions
+                m={m}
+                isDM={isDM}
+                lang={lang}
+                onChangeChar={() => setAssigning(m.id)}
+                onEditChar={() => setEditingChar({ id: m.character.id, name: m.character.name, data: m.character.data })}
+                onGiveItem={() => setGivingTo({ id: m.character.id, name: m.character.name })}
+                onEndForm={async () => {
+                  if (!confirm(t(lang, `Forçar ${m.character.name} a sair da forma selvagem?`, `Force ${m.character.name} out of wild shape?`))) return;
+                  try { await api.wildShapeForceEnd(m.character.id, {}); onChange(); } catch (e) { alert(e?.data?.error || e?.message); }
+                }}
+                onRemove={() => removeMember(m.id)}
+              />
+            </div>
+            {assigning === m.id && (
+              <div className="character-picker">
+                <select onChange={e => assignCharacter(m.id, e.target.value || null)}>
+                  <option value="">— {t(lang, 'Nenhum', 'None')} —</option>
+                  {characters.map(c => <option key={c.id} value={c.id}>{c.name} ({c.race} {c.className} {c.level})</option>)}
+                </select>
+                <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); setAssigning(null); }}>{t(lang, 'Cancelar', 'Cancel')}</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Painel direito (desktop) — detalhe do membro selecionado */}
+      <div className="members-detail">
+        {!selected && (
+          <div className="empty">
+            {t(lang, 'Selecione um membro pra ver detalhes e tomar ações.', 'Select a member to see details and take action.')}
+          </div>
+        )}
+        {selected && (
+          <MemberDetailPanel
+            m={selected}
+            isDM={isDM}
+            lang={lang}
+            characters={characters}
+            assigning={assigning === selected.id}
+            onChangeChar={() => setAssigning(selected.id)}
+            onAssign={(charId) => assignCharacter(selected.id, charId)}
+            onCancelAssign={() => setAssigning(null)}
+            onEditChar={() => setEditingChar({ id: selected.character.id, name: selected.character.name, data: selected.character.data })}
+            onGiveItem={() => setGivingTo({ id: selected.character.id, name: selected.character.name })}
+            onEndForm={async () => {
+              if (!confirm(t(lang, `Forçar ${selected.character.name} a sair da forma selvagem?`, `Force ${selected.character.name} out of wild shape?`))) return;
+              try { await api.wildShapeForceEnd(selected.character.id, {}); onChange(); } catch (e) { alert(e?.data?.error || e?.message); }
+            }}
+            onRemove={() => removeMember(selected.id)}
+          />
+        )}
+      </div>
+
       {editingChar && (
         <DMCharacterEditor
           character={editingChar}
@@ -462,6 +507,96 @@ function MembersTab({ campaign, lang, isDM, characters, onChange }) {
         />
       )}
     </div>
+  );
+}
+
+function MemberActions({ m, isDM, lang, onChangeChar, onEditChar, onGiveItem, onEndForm, onRemove }) {
+  // Botões compartilhados entre lista (mobile) e painel detalhado (desktop).
+  // Cada botão para a propagação pra não disparar o setSelectedId do parent.
+  const stop = (fn) => (e) => { e.stopPropagation(); fn?.(); };
+  return (
+    <>
+      {m.user.id === window.__currentUserId__ && (
+        <button className="btn btn-ghost btn-sm" onClick={stop(onChangeChar)}>{t(lang, 'Trocar personagem', 'Change character')}</button>
+      )}
+      {isDM && m.character?.data && (
+        <button className="btn btn-ghost btn-sm" onClick={stop(onEditChar)} title={t(lang, 'Editar ficha em modo mestre', 'Edit sheet in DM mode')}>
+          🛠 {t(lang, 'Editar ficha', 'Edit sheet')}
+        </button>
+      )}
+      {isDM && m.character?.data && (
+        <button className="btn btn-ghost btn-sm" onClick={stop(onGiveItem)} title={t(lang, 'Dar item ao personagem', 'Give item to character')}>
+          🎁 {t(lang, 'Dar item', 'Give item')}
+        </button>
+      )}
+      {isDM && m.character?.data?.wildShape?.active && (
+        <button className="btn btn-ghost btn-sm" style={{ color: '#79d479' }} onClick={stop(onEndForm)}>
+          🐾 {t(lang, 'Sair forma', 'End form')}
+        </button>
+      )}
+      {isDM && m.role !== 'dm' && (
+        <button className="btn btn-ghost btn-sm" style={{ color: '#ff9999' }} onClick={stop(onRemove)}>{t(lang, 'Remover', 'Remove')}</button>
+      )}
+    </>
+  );
+}
+
+function MemberDetailPanel({ m, isDM, lang, characters, assigning, onChangeChar, onAssign, onCancelAssign, onEditChar, onGiveItem, onEndForm, onRemove }) {
+  const c = m.character;
+  return (
+    <>
+      <h3>
+        {m.user.displayName}
+        <span className={`role-pill role-${m.role}`} style={{ marginLeft: 10 }}>{m.role === 'dm' ? t(lang, 'Mestre', 'DM') : t(lang, 'Jogador', 'Player')}</span>
+      </h3>
+      {c ? (
+        <>
+          <div style={{ fontSize: '1.05em' }}>
+            <strong>{c.name}</strong>
+            {c.summary && (
+              <span style={{ color: 'var(--ink-secondary)' }}>
+                {' '}— {c.summary.race} {c.summary.className}{c.summary.subclass ? ` (${c.summary.subclass})` : ''} {c.summary.level}
+              </span>
+            )}
+          </div>
+          {c.data && (
+            <div className="stat-grid">
+              <div><div className="lbl">HP</div><div className="val">{c.data.currentHp ?? '?'}/{c.data.maxHp ?? '?'}</div></div>
+              <div><div className="lbl">AC</div><div className="val">{c.data.ac ?? '?'}</div></div>
+              <div><div className="lbl">Init</div><div className="val">{c.data.initiative ?? c.data.abilities?.dex ? Math.floor(((c.data.abilities?.dex || 10) - 10) / 2) : '?'}</div></div>
+              <div><div className="lbl">{t(lang, 'Nível', 'Level')}</div><div className="val">{c.data.level || 1}</div></div>
+              <div><div className="lbl">XP</div><div className="val">{c.data.xp ?? 0}</div></div>
+              <div><div className="lbl">{t(lang, 'Forma selvagem', 'Wild shape')}</div><div className="val">{c.data.wildShape?.active ? '🐾' : '—'}</div></div>
+            </div>
+          )}
+        </>
+      ) : (
+        <p style={{ color: 'var(--ink-secondary)', fontStyle: 'italic' }}>{t(lang, 'Sem personagem atribuído.', 'No character assigned.')}</p>
+      )}
+
+      <div className="actions-row">
+        <MemberActions
+          m={m}
+          isDM={isDM}
+          lang={lang}
+          onChangeChar={onChangeChar}
+          onEditChar={onEditChar}
+          onGiveItem={onGiveItem}
+          onEndForm={onEndForm}
+          onRemove={onRemove}
+        />
+      </div>
+
+      {assigning && (
+        <div className="character-picker" style={{ marginTop: 12 }}>
+          <select onChange={e => onAssign(e.target.value || null)} defaultValue="">
+            <option value="">— {t(lang, 'Nenhum', 'None')} —</option>
+            {characters.map(ch => <option key={ch.id} value={ch.id}>{ch.name} ({ch.race} {ch.className} {ch.level})</option>)}
+          </select>
+          <button className="btn btn-ghost btn-sm" onClick={onCancelAssign}>{t(lang, 'Cancelar', 'Cancel')}</button>
+        </div>
+      )}
+    </>
   );
 }
 
