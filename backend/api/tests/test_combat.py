@@ -410,3 +410,158 @@ class RollRequestEndpointTests(TestCase):
         r = self.c_dm.post(f'/api/rolls/{rid}/resolve',
             {'visibility': 'public', 'overrideValue': 15, 'overrideCritical': True}, format='json')
         self.assertTrue(r.json()['roll']['isCritical'])
+
+
+# ============================================================
+# M3: Fallout (miss-by-5+ desvia para outro alvo)
+# ============================================================
+class FalloutEngineTests(SimpleTestCase):
+    def _setup(self, *, attacker_atk=4, target_ac=15):
+        attacker = {'id': 'A', 'name': 'Goblin', 'position': {'x': 0, 'y': 0}, 'stats': {}}
+        target = {'id': 'T', 'name': 'Thalion', 'stats': {'ac': target_ac, 'max_hp': 20},
+                  'current_hp': 20, 'temp_hp': 0, 'type': 'pc',
+                  'position': {'x': 1, 'y': 0}}
+        ally = {'id': 'AL', 'name': 'Bard', 'stats': {'ac': 12, 'max_hp': 20},
+                'current_hp': 20, 'temp_hp': 0, 'type': 'pc',
+                'position': {'x': 2, 'y': 0}}
+        far = {'id': 'F', 'name': 'Faraway', 'stats': {'ac': 12, 'max_hp': 20},
+               'current_hp': 20, 'temp_hp': 0, 'type': 'pc',
+               'position': {'x': 10, 'y': 10}}
+        action = {'name': 'Scimitar', 'type': 'melee', 'atk': attacker_atk,
+                  'damage': '1d6+2', 'damageType': 'slashing'}
+        return attacker, target, ally, far, action
+
+    def test_nat_1_triggers_fallout(self):
+        att, tgt, ally, far, action = self._setup()
+        r = engine.resolve_attack_with_fallout(att, tgt, action, [att, tgt, ally, far], forced_d20=1)
+        self.assertFalse(r['hit'])
+        self.assertTrue(r['natural_one'])
+        self.assertIn('fallout', r)
+        self.assertEqual(r['fallout']['reason'], 'natural_one')
+        # ally é o mais próximo de tgt (dist 1)
+        self.assertEqual(r['fallout']['redirected_to_id'], 'AL')
+
+    def test_miss_by_exactly_5_triggers_fallout(self):
+        att, tgt, ally, far, action = self._setup(attacker_atk=0, target_ac=15)
+        # roll 10 + 0 = 10 vs CA 15 → miss por 5
+        r = engine.resolve_attack_with_fallout(att, tgt, action, [att, tgt, ally, far], forced_d20=10)
+        self.assertFalse(r['hit'])
+        self.assertIn('fallout', r)
+        self.assertEqual(r['fallout']['reason'], 'miss_by_5')
+
+    def test_miss_by_4_does_not_trigger(self):
+        att, tgt, ally, far, action = self._setup(attacker_atk=0, target_ac=15)
+        # roll 11 + 0 = 11 vs CA 15 → miss por 4 (não desvia)
+        r = engine.resolve_attack_with_fallout(att, tgt, action, [att, tgt, ally, far], forced_d20=11)
+        self.assertFalse(r['hit'])
+        self.assertNotIn('fallout', r)
+
+    def test_hit_does_not_trigger_fallout(self):
+        att, tgt, ally, far, action = self._setup()
+        r = engine.resolve_attack_with_fallout(att, tgt, action, [att, tgt, ally, far], forced_d20=18)
+        self.assertTrue(r['hit'])
+        self.assertNotIn('fallout', r)
+
+    def test_fallout_skips_defeated_targets(self):
+        att, tgt, ally, far, action = self._setup()
+        ally['defeated'] = True
+        ally['current_hp'] = 0
+        r = engine.resolve_attack_with_fallout(att, tgt, action, [att, tgt, ally, far], forced_d20=1)
+        # ally morto: pula pro Faraway
+        self.assertEqual(r['fallout']['redirected_to_id'], 'F')
+
+    def test_no_fallout_target_returns_normal_miss(self):
+        att, tgt, _, _, action = self._setup()
+        r = engine.resolve_attack_with_fallout(att, tgt, action, [att, tgt], forced_d20=1)
+        self.assertFalse(r['hit'])
+        self.assertNotIn('fallout', r)
+
+
+class PlayerAttackEndpointTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.dm = make_user('dm@x.com', 'DM')
+        self.player = make_user('p@x.com', 'P')
+        self.other_player = make_user('o@x.com', 'Other')
+        self.c_dm = APIClient(); self.c_dm.force_login(self.dm)
+        self.c_p = APIClient(); self.c_p.force_login(self.player)
+        self.c_o = APIClient(); self.c_o.force_login(self.other_player)
+        self.camp = Campaign.objects.create(dm=self.dm, name='C', slug='c')
+        self.char = Character.objects.create(owner=self.player, name='Thal',
+            data={'level': 1, 'maxHp': 15, 'currentHp': 15, 'abilities': {'dex': 14}})
+        Membership.objects.create(campaign=self.camp, user=self.player, character=self.char, role='player')
+        Membership.objects.create(campaign=self.camp, user=self.other_player, role='player')
+
+        # Inicia combate com PC e goblin
+        self.c_dm.post(f'/api/combat/campaign/{self.camp.id}/start')
+        r = self.c_dm.post(f'/api/combat/campaign/{self.camp.id}/combatants',
+            {'type': 'pc', 'characterId': self.char.id, 'initiative': 17,
+             'position': {'x': 0, 'y': 0}}, format='json')
+        cs = r.json()['combat']['combatants']
+        self.thal_id = next(c for c in cs if c['type'] == 'pc')['id']
+        r = self.c_dm.post(f'/api/combat/campaign/{self.camp.id}/combatants',
+            {'type': 'monster', 'monster': {
+                'id': 'goblin', 'name': 'Goblin', 'ac': 13, 'hp': 7,
+                'abilities': {'str': 8, 'dex': 14, 'con': 10, 'int': 10, 'wis': 8, 'cha': 8},
+            }, 'initiative': 12, 'position': {'x': 1, 'y': 0}}, format='json')
+        cs = r.json()['combat']['combatants']
+        self.gob_id = next(c for c in cs if c['type'] == 'monster')['id']
+
+    def _attack(self, client, **body):
+        return client.post(f'/api/combat/campaign/{self.camp.id}/player-attack', body, format='json')
+
+    def test_player_attack_hits_target(self):
+        # PC ataca goblin com bônus alto pra garantir acerto
+        # Cria rig pro player com d20=20 (acerto crítico)
+        DiceRig.objects.create(campaign=self.camp, target_user=self.player,
+                                dice_type='d20', values=[{'value': 20, 'consumed': False}])
+        r = self._attack(self.c_p, attackerCombatantId=self.thal_id, targetId=self.gob_id,
+                         attackKind='weapon', attackName='Espada',
+                         attackBonus=5, damage='1d8+3', damageType='slashing')
+        self.assertEqual(r.status_code, 200, r.content)
+        body = r.json()
+        self.assertTrue(body['result']['hit'])
+        self.assertTrue(body['result']['crit'])
+
+    def test_player_cannot_attack_with_someone_elses_combatant(self):
+        r = self._attack(self.c_o, attackerCombatantId=self.thal_id, targetId=self.gob_id,
+                         attackKind='weapon', attackName='X', attackBonus=0,
+                         damage='1d6', damageType='slashing')
+        self.assertEqual(r.status_code, 403)
+
+    def test_player_attack_with_fallout_redirects(self):
+        # Garante miss feio: rig d20=1 e CA do goblin é 13
+        DiceRig.objects.create(campaign=self.camp, target_user=self.player,
+                                dice_type='d20', values=[{'value': 1, 'consumed': False}])
+        # Adiciona aliado próximo do goblin pra ser o destino do desvio
+        r = self.c_dm.post(f'/api/combat/campaign/{self.camp.id}/combatants',
+            {'type': 'monster', 'monster': {
+                'id': 'ally-npc', 'name': 'Aliado', 'ac': 10, 'hp': 10,
+                'abilities': {'str': 10, 'dex': 10, 'con': 10, 'int': 10, 'wis': 10, 'cha': 10},
+            }, 'initiative': 8, 'position': {'x': 2, 'y': 0}}, format='json')
+        r = self._attack(self.c_p, attackerCombatantId=self.thal_id, targetId=self.gob_id,
+                         attackKind='weapon', attackName='Espada', attackBonus=0,
+                         damage='1d6+2', damageType='slashing')
+        self.assertEqual(r.status_code, 200, r.content)
+        body = r.json()
+        self.assertFalse(body['result']['hit'])
+        self.assertIn('fallout', body['result'])
+
+    def test_player_attack_with_save_applies_damage(self):
+        # Sacred Flame: alvo faz DEX save vs CD; falha = dano cheio
+        # Goblin DEX 14 → +2 save. Sem rig, save pode passar ou falhar.
+        # Aqui não asseguramos hit, só que o endpoint resolve sem 500.
+        r = self._attack(self.c_p, attackerCombatantId=self.thal_id, targetId=self.gob_id,
+                         attackKind='cantrip', attackName='Sacred Flame',
+                         save={'ability': 'dex', 'dc': 13, 'halfOnSave': False},
+                         damage='1d8', damageType='radiant')
+        self.assertEqual(r.status_code, 200, r.content)
+        body = r.json()
+        self.assertEqual(body['result']['kind'], 'save')
+
+    def test_dm_can_also_use_player_attack(self):
+        r = self._attack(self.c_dm, attackerCombatantId=self.thal_id, targetId=self.gob_id,
+                         attackKind='weapon', attackName='X',
+                         attackBonus=5, damage='1d6', damageType='slashing')
+        self.assertEqual(r.status_code, 200, r.content)
+

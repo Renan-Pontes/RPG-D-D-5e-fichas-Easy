@@ -55,6 +55,7 @@ urlpatterns = [
     path('combat/campaign/<str:id_or_slug>/combatants', views_combat.combat_add_combatant),
     path('combat/campaign/<str:id_or_slug>/combatants/<str:combatant_id>', views_combat.combat_combatant),
     path('combat/campaign/<str:id_or_slug>/action', views_combat.combat_action),
+    path('combat/campaign/<str:id_or_slug>/player-attack', views_combat.combat_player_attack),
     path('combat/campaign/<str:id_or_slug>/next-turn', views_combat.combat_next_turn),
     path('combat/campaign/<str:id_or_slug>/map', views_combat.combat_set_map),
 

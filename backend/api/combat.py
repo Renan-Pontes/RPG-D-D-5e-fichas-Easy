@@ -145,6 +145,109 @@ def resolve_attack(attacker, target, action, *,
 
 
 # ============================================================
+# FALLOUT: ataque que erra MUITO desvia para outro alvo
+# ============================================================
+def _grid_distance(a, b):
+    """Distância Chebyshev entre posições de dois combatentes.
+    Posições podem estar ausentes — retorna infinito nesse caso.
+    """
+    pa = a.get('position') or {}
+    pb = b.get('position') or {}
+    if 'x' not in pa or 'y' not in pa or 'x' not in pb or 'y' not in pb:
+        return float('inf')
+    return max(abs(pa['x'] - pb['x']), abs(pa['y'] - pb['y']))
+
+
+def pick_fallout_target(attacker, intended_target, all_combatants, *, rng=None):
+    """Seleciona alvo do desvio quando o ataque erra feio.
+
+    Regra: outro combatente vivo (não o atacante nem o alvo original),
+    preferindo o MAIS PRÓXIMO no grid. Se não há grid (sem posição),
+    pega o próximo na lista. Aliados do atacante recebem peso menor
+    apenas pra empatar — se houver inimigos próximos do alvo, eles
+    sofrem primeiro (lógica de "errou e atingiu quem estava na linha").
+    Mas o desvio é principalmente sobre aliados que estavam atrás:
+    espelha o pedido "acerta um aliado ou quem estiver mais perto".
+
+    Retorna combatant dict ou None se não houver candidato.
+    """
+    candidates = [
+        c for c in all_combatants
+        if c.get('id') != attacker.get('id')
+        and c.get('id') != intended_target.get('id')
+        and not c.get('defeated')
+        and (c.get('current_hp') or 0) > 0
+    ]
+    if not candidates:
+        return None
+
+    intended_pos = (intended_target.get('position') or {})
+    has_grid = 'x' in intended_pos and 'y' in intended_pos
+
+    if has_grid:
+        # Ordena por distância ao alvo original (mais próximo primeiro).
+        # Empate vai para qualquer um — usa secrets pra escolher aleatoriamente
+        # entre os mais próximos pra não viciar a ordem.
+        scored = []
+        for c in candidates:
+            dist = _grid_distance(c, intended_target)
+            scored.append((dist, c))
+        scored.sort(key=lambda x: x[0])
+        nearest_dist = scored[0][0]
+        ties = [c for d, c in scored if d == nearest_dist]
+        return ties[secrets.randbelow(len(ties))] if ties else None
+
+    # Sem grid: aleatório entre os candidatos
+    return candidates[secrets.randbelow(len(candidates))]
+
+
+def resolve_attack_with_fallout(attacker, intended_target, action, all_combatants, *,
+                                 advantage=False, disadvantage=False,
+                                 forced_d20=None, forced_damage=None,
+                                 miss_by_threshold=5):
+    """Ataque com desvio: se errar por miss_by_threshold ou for nat 1,
+    re-rola contra outro alvo próximo (escolhido por pick_fallout_target).
+
+    Retorna o resolve_attack regular, mais um campo 'fallout' opcional:
+    {
+      'triggered': True,
+      'reason': 'natural_one' | 'miss_by_5',
+      'redirected_to_id': str,
+      'redirected_to_name': str,
+      'second_attack': { ...mesma estrutura do resolve_attack regular... }
+    }
+    """
+    primary = resolve_attack(attacker, intended_target, action,
+                              advantage=advantage, disadvantage=disadvantage,
+                              forced_d20=forced_d20, forced_damage=forced_damage)
+    if primary['hit']:
+        return primary
+
+    target_ac = primary['target_ac']
+    miss_margin = target_ac - primary['attack_total']
+    triggers_fallout = primary['natural_one'] or miss_margin >= miss_by_threshold
+    if not triggers_fallout:
+        return primary
+
+    new_target = pick_fallout_target(attacker, intended_target, all_combatants)
+    if not new_target:
+        return primary
+
+    # Re-rola ataque contra novo alvo (sem forçar d20 desta vez — fallout é orgânico)
+    second = resolve_attack(attacker, new_target, action,
+                             advantage=False, disadvantage=False)
+    primary['fallout'] = {
+        'triggered': True,
+        'reason': 'natural_one' if primary['natural_one'] else 'miss_by_5',
+        'miss_margin': miss_margin,
+        'redirected_to_id': new_target.get('id'),
+        'redirected_to_name': new_target.get('name'),
+        'second_attack': second,
+    }
+    return primary
+
+
+# ============================================================
 # SAVING THROW
 # ============================================================
 def resolve_save(target, ability, dc, *, advantage=False, disadvantage=False, forced_d20=None):

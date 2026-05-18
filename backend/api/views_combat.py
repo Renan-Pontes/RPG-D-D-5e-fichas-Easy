@@ -460,6 +460,159 @@ def combat_action(request, id_or_slug):
     return Response(response_payload)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def combat_player_attack(request, id_or_slug):
+    """PC ataca alvo durante seu turno em combate.
+
+    Body: {
+      attackerCombatantId: str,  # combatente do próprio user (ou DM force)
+      targetId: str,
+      attackKind: 'weapon' | 'cantrip' | 'spell',
+      attackName: str,           # ex.: 'Espada Longa', 'Sacred Flame'
+      attackBonus?: int,         # bônus de ataque (frontend já computou)
+      damage?: str,              # ex.: '1d8+3' (frontend monta)
+      damageType?: str,
+      save?: { ability: str, dc: int, halfOnSave: bool },  # se save-based
+      advantage?: bool,
+      disadvantage?: bool,
+      withFallout?: bool,        # default True para ataques vs CA
+    }
+
+    Permissão: dono do PC OU DM. Retorna o mesmo formato de combat_action.
+    """
+    campaign = get_campaign_or_404(id_or_slug)
+    require_member(request.user, campaign)
+    c = _get_combat(campaign)
+    combatants = list(c.combatants or [])
+
+    att = engine.find_combatant(combatants, request.data.get('attackerCombatantId'))
+    tgt = engine.find_combatant(combatants, request.data.get('targetId'))
+    if not att or not tgt:
+        raise NotFound('combatant_not_found')
+
+    # Dono do PC ou DM pode disparar
+    if not is_dm(request.user, campaign):
+        if att.get('type') != 'pc' or att.get('character_id') is None:
+            raise PermissionDenied('not_your_combatant')
+        try:
+            char = Character.objects.get(pk=att['character_id'])
+        except Character.DoesNotExist:
+            raise NotFound('character_not_found')
+        if char.owner_id != request.user.id:
+            raise PermissionDenied('not_your_combatant')
+
+    attack_name = (request.data.get('attackName') or 'Ataque')[:80]
+    attack_kind = request.data.get('attackKind') or 'weapon'
+    save_spec = request.data.get('save')
+
+    # Monta action dict com mesma estrutura usada por resolve_attack/resolve_save_effect
+    action_data = {
+        'name': attack_name,
+        'type': attack_kind,
+        'damage': str(request.data.get('damage') or '0'),
+        'damageType': (request.data.get('damageType') or 'force')[:20],
+    }
+    if isinstance(save_spec, dict) and save_spec.get('ability') and save_spec.get('dc') is not None:
+        action_data['save'] = {
+            'ability': str(save_spec.get('ability')).lower(),
+            'dc': int(save_spec.get('dc')),
+            'halfOnSave': bool(save_spec.get('halfOnSave', True)),
+        }
+    else:
+        # Ataque vs CA — precisa do bônus
+        action_data['atk'] = int(request.data.get('attackBonus') or 0)
+
+    forced_d20 = _maybe_consume_rig(campaign, request.user.id, 'd20')
+    advantage = bool(request.data.get('advantage'))
+    disadvantage = bool(request.data.get('disadvantage'))
+
+    if 'save' in action_data:
+        # Magia com save: alvo único faz save, dano metade no sucesso
+        save_res = engine.resolve_save_effect(action_data, [tgt])
+        per_target = save_res['per_target'][0]
+        if per_target['damage_taken']:
+            applied = engine.apply_damage(tgt, per_target['damage_taken'], per_target['damage_type'])
+            combatants = engine.replace_combatant(combatants, applied['combatant'])
+            if tgt.get('type') == 'pc' and tgt.get('character_id'):
+                _sync_pc_to_character(applied['combatant'])
+            per_target['new_hp'] = applied['combatant'].get('current_hp')
+            per_target['defeated'] = applied['combatant'].get('defeated', False)
+        result = {
+            'kind': 'save',
+            'attack_name': attack_name,
+            'attacker_name': att.get('name'),
+            'target_name': tgt.get('name'),
+            'save': save_res,
+        }
+    else:
+        # Ataque vs CA com fallout
+        with_fallout = request.data.get('withFallout', True)
+        if with_fallout:
+            primary = engine.resolve_attack_with_fallout(
+                att, tgt, action_data, combatants,
+                advantage=advantage, disadvantage=disadvantage,
+                forced_d20=forced_d20,
+            )
+        else:
+            primary = engine.resolve_attack(
+                att, tgt, action_data,
+                advantage=advantage, disadvantage=disadvantage,
+                forced_d20=forced_d20,
+            )
+
+        # Aplica dano do primário se acertou
+        if primary['hit'] and primary['damage']:
+            applied = engine.apply_damage(tgt, primary['damage']['total'], primary['damage']['type'])
+            combatants = engine.replace_combatant(combatants, applied['combatant'])
+            if tgt.get('type') == 'pc' and tgt.get('character_id'):
+                _sync_pc_to_character(applied['combatant'])
+            primary['damage_applied'] = {
+                'damage_taken': applied['damage_taken'],
+                'new_hp': applied['combatant'].get('current_hp'),
+                'defeated': applied['combatant'].get('defeated', False),
+            }
+
+        # Aplica dano do desvio se houver e acertou o novo alvo
+        if primary.get('fallout'):
+            second = primary['fallout']['second_attack']
+            redirected_id = primary['fallout']['redirected_to_id']
+            redirected = engine.find_combatant(combatants, redirected_id)
+            if second['hit'] and second['damage'] and redirected:
+                applied = engine.apply_damage(redirected, second['damage']['total'], second['damage']['type'])
+                combatants = engine.replace_combatant(combatants, applied['combatant'])
+                if redirected.get('type') == 'pc' and redirected.get('character_id'):
+                    _sync_pc_to_character(applied['combatant'])
+                second['damage_applied'] = {
+                    'damage_taken': applied['damage_taken'],
+                    'new_hp': applied['combatant'].get('current_hp'),
+                    'defeated': applied['combatant'].get('defeated', False),
+                }
+
+        result = {
+            'kind': 'attack',
+            'attack_name': attack_name,
+            'attacker_name': att.get('name'),
+            'target_name': tgt.get('name'),
+            **primary,
+        }
+
+    c.combatants = combatants
+    log_entry = {
+        'type': 'player_attack',
+        'attacker': att.get('name'),
+        'target': tgt.get('name'),
+        'attack_name': attack_name,
+        'kind': attack_kind,
+        'hit': result.get('hit', None),
+    }
+    if isinstance(result.get('fallout'), dict):
+        log_entry['fallout_to'] = result['fallout'].get('redirected_to_name')
+    _append_log(c, log_entry)
+    c.save()
+    return Response({'result': result, 'combat': _serialize_combat(c, for_dm=is_dm(request.user, campaign))})
+
+
 def _sync_pc_to_character(combatant):
     """Sincroniza HP/condições/death_saves de volta na Character.data do PC.
 
