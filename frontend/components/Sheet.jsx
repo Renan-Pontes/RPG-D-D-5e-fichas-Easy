@@ -33,15 +33,15 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
   const slots = Utils.spellSlots(char);
 
   const cls = SRD.CLASSES.find(c => c.id === char.className);
-  const race = SRD.RACES.find(r => r.id === char.race);
-  const bg = SRD.BACKGROUNDS.find(b => b.id === char.background);
+  const race = Utils.races(char).find(r => r.id === char.race);
+  const bg = Utils.backgrounds(char).find(b => b.id === char.background);
 
   // === HP actions ===
   // Se em Wild Shape: dano vai pra fera. Quando ela chega a 0, o excedente
   // vai pro HP humanoide pré-transformação e sai da forma.
   const applyHp = (delta) => {
     const ws = char.wildShape;
-    if (ws?.active && delta < 0) {
+    if (ws?.active && char.rulesVersion !== '2024' && delta < 0) {
       const dmg = -delta;
       const beastHp = ws.beastCurrentHp || 0;
       if (dmg <= beastHp) {
@@ -62,7 +62,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
       setHpDelta(0);
       return;
     }
-    if (ws?.active && delta > 0) {
+    if (ws?.active && char.rulesVersion !== '2024' && delta > 0) {
       // Cura em wild shape vai pra fera (não passa do max dela)
       const beastMax = ws.beastMaxHp || 0;
       const beastHp = ws.beastCurrentHp || 0;
@@ -251,6 +251,7 @@ const LevelUpButton = ({ char, lang }) => {
 
 // Level at which each class chooses a subclass
 const SUBCLASS_LEVEL = {
+  artificer: 3,
   barbarian: 3, bard: 3, cleric: 1, druid: 2, fighter: 3,
   monk: 3, paladin: 3, ranger: 3, rogue: 3, sorcerer: 1, warlock: 1, wizard: 2,
 };
@@ -274,7 +275,7 @@ const SubclassBanner = ({ char, lang, update }) => {
   const [open, setOpen] = useState(false);
   const subs = (SRD.SUBCLASSES && SRD.SUBCLASSES[char.className]) || [];
   if (!subs.length) return null;
-  const subLv = SUBCLASS_LEVEL[char.className] || 99;
+  const subLv = Utils.subclassLevel(char);
   const eligible = (char.level || 1) >= subLv;
   if (!eligible) return null;
 
@@ -454,10 +455,10 @@ const LevelUpModal = ({ char, cls, lang, canLevel, onClose }) => {
   };
 
   // Spells step state
-  const isCaster = cls?.spellcaster;
+  const isCaster = !!Utils.spellcastingAbility(char);
   const currentSpellIds = (char.spells || []).map(s => s.id);
   const available = isCaster
-    ? SRD.SPELLS.filter(s => s.classes.includes(char.className) && !currentSpellIds.includes(s.id))
+    ? Utils.spellCatalog(char).filter(s => s.classes.includes(Utils.spellListClass(char)) && !currentSpellIds.includes(s.id))
     : [];
   const oldSlots = Utils.spellSlots({ ...char, level: char.level });
   const newSlots = Utils.spellSlots({ ...char, level: newLevel });
@@ -792,8 +793,8 @@ const WildShapeBanner = ({ char, lang, onChange }) => {
       } else {
         // local: aplica direto
         onChange({ ...char,
-          currentHp: ws.preTransformHp || 0,
-          tempHp: ws.preTransformTempHp || 0,
+          currentHp: char.rulesVersion === '2024' ? char.currentHp : ws.preTransformHp || 0,
+          tempHp: char.rulesVersion === '2024' ? char.tempHp : ws.preTransformTempHp || 0,
           wildShape: { active: false },
         });
       }
@@ -812,10 +813,10 @@ const WildShapeBanner = ({ char, lang, onChange }) => {
         </div>
         <div className="wsb-hp">
           <div className="wsb-hp-bar"><div className="wsb-hp-fill" style={{ width: `${pct}%` }} /></div>
-          <span className="wsb-hp-text">{ws.beastCurrentHp} / {ws.beastMaxHp} HP · CA {ws.beastAc}</span>
+          <span className="wsb-hp-text">{char.rulesVersion === '2024' ? `${char.currentHp} / ${char.maxHp} HP · ${char.tempHp || 0} HP temp` : `${ws.beastCurrentHp} / ${ws.beastMaxHp} HP`} · CA {ws.beastAc}</span>
         </div>
         <div className="wsb-pre">
-          {lang === 'pt' ? 'Forma humanoide guardada:' : 'Stored humanoid:'} {ws.preTransformHp} HP
+          {char.rulesVersion === '2024' ? (lang === 'pt' ? 'Mantém seus próprios pontos de vida.' : 'Retains your own hit points.') : `${lang === 'pt' ? 'Forma humanoide guardada:' : 'Stored humanoid:'} ${ws.preTransformHp} HP`}
         </div>
         {err && <div style={{ color: '#ff9999', fontSize: '0.85em' }}>{err}</div>}
       </div>
@@ -902,6 +903,8 @@ const WildShapePanel = ({ char, lang, update }) => {
   const [selected, setSelected] = useState(null);
   const [transformError, setTransformError] = useState('');
   const level = char.level;
+  const currentRules = char.rulesVersion === '2024';
+  const maxUses = currentRules ? (level >= 17 ? 4 : level >= 6 ? 3 : 2) : 2;
   const isMoon = char.subclass === 'moon';
   // Moon circle: CR 1 at lv2-5, floor(level/3) at lv6+; no fly restriction from lv2
   // Standard: CR 1/4 lv2-3 (no fly/swim), CR 1/2 lv4-7 (no fly), CR 1 lv8+
@@ -914,8 +917,8 @@ const WildShapePanel = ({ char, lang, update }) => {
   const available = SRD.BEASTS.filter(b => {
     if (b.crNum > maxCr) return false;
     // Moon circle has no fly restriction
-    if (!isMoon && level < 8 && b.fly) return false;
-    if (level < 4 && b.swim) return false;
+    if (level < 8 && b.fly) return false;
+    if (!currentRules && level < 4 && b.swim) return false;
     return true;
   });
   const usesUsed = char.wildShapeUses || 0;
@@ -936,7 +939,7 @@ const WildShapePanel = ({ char, lang, update }) => {
       </div>
       <div className="row gap-2" style={{ marginBottom: 10, alignItems: 'center' }}>
         <div className="slot-pips">
-          {[0, 1].map(i => (
+          {Array.from({length: maxUses}, (_, i) => i).map(i => (
             <button
               key={i} type="button"
               className={`slot-pip ${i < usesUsed ? 'used' : ''}`}
@@ -944,7 +947,7 @@ const WildShapePanel = ({ char, lang, update }) => {
             />
           ))}
         </div>
-        <span className="text-xs muted">{Math.max(0, 2 - usesUsed)}/2 {lang === 'pt' ? 'usos · recarrega em descanso curto' : 'uses · recharge on short rest'}</span>
+        <span className="text-xs muted">{Math.max(0, maxUses - usesUsed)}/{maxUses} {lang === 'pt' ? 'usos' : 'uses'} · {currentRules ? (lang === 'pt' ? '+1 por descanso curto' : '+1 per short rest') : (lang === 'pt' ? 'recupera no descanso curto' : 'recover on short rest')}</span>
       </div>
       <div className="options-list cols-2" style={{ marginBottom: 4 }}>
         {available.map(b => (
@@ -965,7 +968,7 @@ const WildShapePanel = ({ char, lang, update }) => {
           beast={selected}
           lang={lang}
           onClose={() => { setSelected(null); setTransformError(''); }}
-          canTransform={usesUsed < 2 && !(char.wildShape?.active)}
+          canTransform={level >= 2 && usesUsed < maxUses && !(char.wildShape?.active)}
           transformError={transformError}
           onTransform={async (beast) => {
             setTransformError('');
@@ -996,8 +999,8 @@ const WildShapePanel = ({ char, lang, update }) => {
                     transformedAt: new Date().toISOString(),
                   },
                   wildShapeUses: (char.wildShapeUses || 0) + 1,
-                  currentHp: beast.hp,
-                  tempHp: 0,
+                  currentHp: currentRules ? char.currentHp : beast.hp,
+                  tempHp: currentRules ? Math.max(char.tempHp || 0, isMoon && level >= 3 ? level * 3 : level) : 0,
                 });
                 setSelected(null);
               }

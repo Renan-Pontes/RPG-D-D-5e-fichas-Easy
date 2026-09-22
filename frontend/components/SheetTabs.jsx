@@ -9,7 +9,7 @@ import { api } from '../src/api/client.js';
 
 const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, roll }) => {
   const cls = SRD.CLASSES.find(c => c.id === char.className);
-  if (!cls || !cls.spellcaster) {
+  if (!Utils.spellcastingAbility(char)) {
     return (
       <div className="card text-center" style={{ padding: 'var(--s-7)' }}>
         <Icon name="sparkle" size={36} style={{ color: 'var(--gold-deep)', marginBottom: 12 }}/>
@@ -30,45 +30,55 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
   const preparedLimit = isPrepared ? Utils.preparedSpellsLimit(char) : null;
 
   const spellEntries = char.spells || [];
+  const autoIds = new Set(spellEntries.filter(s => s.auto).map(s => s.id));
   const cantripIds = spellEntries.filter(s => {
-    const def = SRD.SPELLS.find(x => x.id === s.id);
+    const def = Utils.spellCatalog(char).find(x => x.id === s.id);
     return def && def.level === 0;
   }).map(s => s.id);
   const preparedIds = spellEntries.filter(s => {
-    const def = SRD.SPELLS.find(x => x.id === s.id);
+    const def = Utils.spellCatalog(char).find(x => x.id === s.id);
     return def && def.level > 0;
   }).map(s => s.id);
 
-  const classSpells = SRD.SPELLS.filter(sp => sp.classes.includes(char.className) && sp.level <= maxLvl);
-  const classCantrips = SRD.SPELLS.filter(sp => sp.classes.includes(char.className) && sp.level === 0);
+  const classSpells = Utils.spellCatalog(char).filter(sp => (sp.classes.includes(Utils.spellListClass(char)) && sp.level <= maxLvl) || autoIds.has(sp.id));
+  const classCantrips = Utils.spellCatalog(char).filter(sp => (sp.classes.includes(Utils.spellListClass(char)) || autoIds.has(sp.id)) && sp.level === 0);
 
   const toggleCantrip = (id) => {
+    if (autoIds.has(id)) return;
     const has = cantripIds.includes(id);
     if (has) {
       update({ spells: spellEntries.filter(s => s.id !== id) });
     } else {
-      if (cantripIds.length >= cantripLimit) return;
+      if (cantripIds.filter(id => !autoIds.has(id)).length >= cantripLimit) return;
       update({ spells: [...spellEntries, { id, prepared: true }] });
     }
   };
 
   const togglePrepared = (id) => {
+    if (autoIds.has(id)) return;
     const has = preparedIds.includes(id);
     if (has) {
       update({ spells: spellEntries.filter(s => s.id !== id) });
     } else {
-      if (isPrepared && preparedIds.length >= preparedLimit) return;
+      if (isPrepared && preparedIds.filter(id => !autoIds.has(id)).length >= preparedLimit) return;
       update({ spells: [...spellEntries, { id, prepared: true }] });
     }
   };
 
   const removeSpell = (id) => {
+    if (autoIds.has(id)) return;
     update({ spells: spellEntries.filter(s => s.id !== id) });
   };
 
   // Known caster: ability to add new known spells via dropdown
-  const available = SRD.SPELLS.filter(sp => sp.classes.includes(char.className) && !spellEntries.find(s => s.id === sp.id));
-  const addKnownSpell = (id) => update({ spells: [...spellEntries, { id, prepared: true }] });
+  const available = Utils.spellCatalog(char).filter(sp => sp.classes.includes(Utils.spellListClass(char)) && sp.level <= maxLvl && !spellEntries.find(s => s.id === sp.id));
+  const addKnownSpell = (id) => {
+    const def = Utils.spellCatalog(char).find(s => s.id === id);
+    const count = (def?.level === 0 ? cantripIds : preparedIds).filter(id => !autoIds.has(id)).length;
+    const limit = def?.level === 0 ? cantripLimit : Utils.knownSpellLimit(char);
+    if (!def || count >= limit || spellEntries.some(s => s.id === id)) return;
+    update({ spells: [...spellEntries, { id, prepared: true }] });
+  };
 
   return (
     <>
@@ -153,8 +163,8 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
           classSpells={classSpells}
           cantripIds={cantripIds}
           preparedIds={preparedIds}
-          cantripLimit={cantripLimit}
-          preparedLimit={preparedLimit}
+          cantripLimit={cantripLimit + cantripIds.filter(id => autoIds.has(id)).length}
+          preparedLimit={preparedLimit + preparedIds.filter(id => autoIds.has(id)).length}
           maxLvl={maxLvl}
           onToggleCantrip={toggleCantrip}
           onTogglePrepared={togglePrepared}
@@ -257,7 +267,7 @@ const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, cantripIds
 
 const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRemove, spellAtk, roll, slots, update }) => {
   const known = spellEntries.map(cs => {
-    const def = SRD.SPELLS.find(s => s.id === cs.id);
+    const def = Utils.spellCatalog(char).find(s => s.id === cs.id);
     return { ...cs, def };
   }).filter(s => s.def);
 
@@ -558,9 +568,10 @@ const RestButtons = ({ char, lang, update }) => {
           patch.tempHp = 0;
           patch.conditions = (char.conditions || []).filter(c => c !== 'unconscious');
           patch.deathSaves = { success: 0, fail: 0 };
+          patch.hitDiceUsed = char.rulesVersion === '2024' ? 0 : Math.max(0, (char.hitDiceUsed || 0) - Math.max(1, Math.floor(char.level / 2)));
         } else {
           if (char.className === 'warlock') patch.spellSlotsUsed = [0,0,0,0,0,0,0,0,0];
-          if (char.className === 'druid') patch.wildShapeUses = 0;
+          if (char.className === 'druid') patch.wildShapeUses = char.rulesVersion === '2024' ? Math.max(0, (char.wildShapeUses || 0) - 1) : 0;
         }
         update(patch);
       }

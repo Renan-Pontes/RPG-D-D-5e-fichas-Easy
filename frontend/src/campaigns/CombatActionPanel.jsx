@@ -41,7 +41,7 @@ function deriveAttacks(char) {
 
   // Truques que causam dano (level 0)
   (char.spells || []).forEach(sp => {
-    const def = SRD.SPELLS.find(s => s.id === sp.id);
+    const def = Utils.spellCatalog(char).find(s => s.id === sp.id);
     if (!def || def.level !== 0) return;
     const dmgExpr = def.damage || (def.damageScaling && def.damageScaling[1]) || null;
     if (!dmgExpr) return;

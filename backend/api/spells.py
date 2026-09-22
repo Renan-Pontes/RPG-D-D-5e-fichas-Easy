@@ -84,10 +84,22 @@ FULL_CASTERS = {'bard', 'cleric', 'druid', 'sorcerer', 'wizard'}
 HALF_CASTERS = {'paladin', 'ranger'}
 
 
-def spell_slots_max(class_name, level):
+_THIRD = [
+    [], [], [2], [3], [3], [3], [4, 2], [4, 2], [4, 2], [4, 3],
+    [4, 3], [4, 3], [4, 3, 2], [4, 3, 2], [4, 3, 2], [4, 3, 3],
+    [4, 3, 3], [4, 3, 3], [4, 3, 3, 1], [4, 3, 3, 1],
+]
+
+
+def spell_slots_max(class_name, level, subclass=''):
     """Retorna lista de 9 ints com o máximo de slots por nível (1..9)."""
     cls = (class_name or '').lower()
     lv = max(1, min(20, int(level or 1)))
+    if cls == 'artificer':
+        return list(_FULL[(lv + 1) // 2])
+    if (cls, (subclass or '').lower()) in {('fighter', 'eldritchknight'), ('rogue', 'arcanetrickster')}:
+        row = _THIRD[lv - 1]
+        return row + [0] * (9 - len(row))
     if cls in FULL_CASTERS:
         return list(_FULL[lv])
     if cls in HALF_CASTERS:
@@ -102,7 +114,14 @@ def slots_max_for(character_data):
     override = character_data.get('spellSlotsMax')
     if isinstance(override, list) and len(override) == 9:
         return [max(0, int(v) if v is not None else 0) for v in override]
-    return spell_slots_max(character_data.get('className'), character_data.get('level') or 1)
+    if character_data.get('rulesVersion') == '2024':
+        from .progression.rules import rules_for
+        rule = rules_for(character_data) or {}
+        level = max(1, min(20, int(character_data.get('level') or 1)))
+        row = rule.get('per_level', {}).get(level, {}).get('spellSlots')
+        if row is not None:
+            return list(row)
+    return spell_slots_max(character_data.get('className'), character_data.get('level') or 1, character_data.get('subclass'))
 
 
 def slots_used(character_data):
@@ -156,7 +175,7 @@ def long_rest(character_data):
     # Hit dice: recupera metade do nível, arredondado pra cima, mínimo 1
     level = next_data.get('level') or 1
     used_hd = next_data.get('hitDiceUsed') or 0
-    recover = max(1, (level + 1) // 2)
+    recover = level if character_data.get('rulesVersion') == '2024' else max(1, level // 2)
     next_data['hitDiceUsed'] = max(0, used_hd - recover)
     return next_data
 
@@ -171,7 +190,7 @@ def short_rest(character_data):
     next_data = dict(character_data)
     cls = (next_data.get('className') or '').lower()
     if cls == 'druid':
-        next_data['wildShapeUses'] = 0
+        next_data['wildShapeUses'] = max(0, (character_data.get('wildShapeUses') or 0) - 1) if character_data.get('rulesVersion') == '2024' else 0
     if cls == 'warlock':
         next_data['spellSlotsUsed'] = [0] * 9
     return next_data

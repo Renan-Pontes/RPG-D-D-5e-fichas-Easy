@@ -13,6 +13,7 @@ const pointBuyCost = (abilities) =>
   SRD.ABILITIES.reduce((s, k) => s + (POINT_BUY_COST[abilities[k]] || 0), 0);
 
 const CLASS_PRIORITIES = {
+  artificer: ['int', 'con', 'dex', 'wis', 'cha', 'str'],
   barbarian: ['str', 'con', 'dex', 'wis', 'int', 'cha'],
   bard:      ['cha', 'dex', 'con', 'int', 'wis', 'str'],
   cleric:    ['wis', 'str', 'con', 'cha', 'int', 'dex'],
@@ -103,17 +104,19 @@ const StepIdentity = ({ char, set, lang, isNew }) => (
 
 // 2. Race
 const StepRace = ({ char, set, lang }) => {
+  const [query, setQuery] = useState('');
   const select = (id) => {
     const bonus = Utils.applyRaceBonus(char, id);
-    const race = SRD.RACES.find(r => r.id === id);
+    const race = Utils.races(char).find(r => r.id === id);
     set({ race: id, raceBonus: bonus, speedOverride: 0, languages: race ? [...(race.languages || [])] : [] });
   };
   return (
     <div>
       <h2>{t('chooseRace', lang)}</h2>
       <Filigree />
+      <input aria-label={lang === 'pt' ? 'Buscar raça' : 'Search species'} placeholder={lang === 'pt' ? 'Buscar raça ou espécie…' : 'Search species…'} value={query} onChange={e => setQuery(e.target.value)} style={{ marginBottom: 16 }} />
       <div className="options-list cols-2">
-        {SRD.RACES.map(r => {
+        {Utils.races(char).filter(r => `${tName('race', r.id, lang)} ${r.id}`.toLowerCase().includes(query.toLowerCase())).map(r => {
           const isSel = char.race === r.id;
           const asiTxt = Object.entries(r.asi || {}).map(([k, v]) => {
             if (k === 'all') return `+${v} ${lang === 'pt' ? 'todos' : 'all'}`;
@@ -124,9 +127,10 @@ const StepRace = ({ char, set, lang }) => {
             <button key={r.id} className={`option ${isSel ? 'selected' : ''}`} onClick={() => select(r.id)}>
               <div className="option-title">{tName('race', r.id, lang)}</div>
               <div className="option-meta">
-                <span><strong>{asiTxt}</strong></span>
+                {char.rulesVersion !== '2024' && <span><strong>{asiTxt || (lang === 'pt' ? 'Atributos flexíveis' : 'Flexible abilities')}</strong></span>}
                 <span>{t('speed', lang)}: {r.speed}'</span>
                 <span>{r.size}</span>
+                {r.source && <span>{r.source}</span>}
               </div>
               {isSel && (
                 <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--stroke-faint)' }}>
@@ -149,6 +153,7 @@ const StepRace = ({ char, set, lang }) => {
 // 3. Class
 // Level at which each class chooses a subclass
 const SUBCLASS_LEVEL = {
+  artificer: 3,
   barbarian: 3, bard: 3, cleric: 1, druid: 2, fighter: 3,
   monk: 3, paladin: 3, ranger: 3, rogue: 3, sorcerer: 1, warlock: 1, wizard: 2,
 };
@@ -156,6 +161,7 @@ const SUBCLASS_LEVEL = {
 const SubclassSelector = ({ char, set, lang }) => {
   const classId = char.className;
   if (!classId) return null;
+  if ((char.level || 1) < Utils.subclassLevel(char)) return <p className="muted">{lang === 'pt' ? 'Subclasse disponível no nível ' : 'Subclass available at level '}{Utils.subclassLevel(char)}.</p>;
   const subs = (SRD.SUBCLASSES && SRD.SUBCLASSES[classId]) || [];
   if (!subs.length) return null;
 
@@ -261,7 +267,7 @@ const StepClass = ({ char, set, lang }) => {
       <div className="options-list cols-2">
         {SRD.CLASSES.map(c => {
           const isSel = char.className === c.id;
-          const subLv = SUBCLASS_LEVEL[c.id];
+          const subLv = char.rulesVersion === '2024' ? 3 : SUBCLASS_LEVEL[c.id];
           return (
             <button key={c.id} className={`option ${isSel ? 'selected' : ''}`} onClick={() => select(c.id)}>
               <div className="option-title">{tName('class', c.id, lang)}</div>
@@ -306,7 +312,7 @@ const StepAbilities = ({ char, set, lang }) => {
   };
 
   // Optional ASI for races with "other" bonus (Half-Elf: +2 CHA + 2x +1 of choice)
-  const race = SRD.RACES.find(r => r.id === char.race);
+  const race = Utils.races(char).find(r => r.id === char.race);
   const needsExtraASI = race && race.asi.other;
   const extraASIPool = needsExtraASI ? race.asi.other : 0;
   const usedExtra = SRD.ABILITIES.reduce((s, a) => {
@@ -367,7 +373,22 @@ const StepAbilities = ({ char, set, lang }) => {
         );
       })}
 
-      {needsExtraASI && (
+      {(char.rulesVersion === '2024' || race?.flexibleAsi) && (
+        <div className="card" style={{ padding: 16, marginTop: 16 }}>
+          <h3>{lang === 'pt' ? 'Bônus de origem' : 'Origin bonuses'}</h3>
+          <p className="muted">{lang === 'pt' ? 'Distribua +2/+1 ou +1/+1/+1. Na revisão atual, o antecedente define os atributos disponíveis.' : 'Distribute +2/+1 or +1/+1/+1. Current rules use background ability options.'}</p>
+          {(Utils.backgrounds(char).find(b => b.id === char.background)?.abilities || SRD.ABILITIES).map(k => (
+            <label key={k} className="row gap-3" style={{ marginBottom: 8 }}>
+              <span style={{ flex: 1 }}>{t(k, lang)}</span>
+              <select aria-label={`${t(k, lang)} ${lang === 'pt' ? 'bônus' : 'bonus'}`} value={char.raceBonus[k] || 0} onChange={e => set({ raceBonus: { ...char.raceBonus, [k]: +e.target.value } })} style={{ width: 80 }}>
+                {[0,1,2].map(v => <option key={v} value={v}>+{v}</option>)}
+              </select>
+            </label>
+          ))}
+          <span>{Object.values(char.raceBonus || {}).reduce((sum, n) => sum + n, 0)}/3</span>
+        </div>
+      )}
+      {needsExtraASI && char.rulesVersion !== '2024' && (
         <>
           <Filigree>{lang === 'pt' ? 'Bônus extra de Meio-Elfo' : 'Half-Elf bonus'}</Filigree>
           <div className="text-sm muted" style={{ marginBottom: 8 }}>
@@ -401,10 +422,10 @@ const StepBackground = ({ char, set, lang }) => (
     <h2>{t('chooseBackground', lang)}</h2>
     <Filigree />
     <div className="options-list cols-2">
-      {SRD.BACKGROUNDS.map(b => {
+      {Utils.backgrounds(char).map(b => {
         const isSel = char.background === b.id;
         return (
-          <button key={b.id} className={`option ${isSel ? 'selected' : ''}`} onClick={() => set({ background: b.id })}>
+          <button key={b.id} className={`option ${isSel ? 'selected' : ''}`} onClick={() => set({ background: b.id, ...(char.rulesVersion === '2024' ? { raceBonus: {}, originFeat: b.feat } : {}) })}>
             <div className="option-title">{tName('background', b.id, lang)}</div>
             <div className="option-meta">
               <span>{t('skills', lang)}: {b.skills.map(s => tName('skill', s, lang)).join(', ')}</span>
@@ -420,7 +441,7 @@ const StepBackground = ({ char, set, lang }) => (
 // 6. Skills
 const StepSkills = ({ char, set, lang }) => {
   const cls = SRD.CLASSES.find(c => c.id === char.className);
-  const bg = SRD.BACKGROUNDS.find(b => b.id === char.background);
+  const bg = Utils.backgrounds(char).find(b => b.id === char.background);
   const bgSkills = bg ? bg.skills : [];
   const allowed = cls ? cls.skillsFrom : SRD.SKILLS.map(s => s.id);
   const limit = cls ? cls.skillCount : 0;
@@ -619,7 +640,7 @@ const StepEquipment = ({ char, set, lang }) => {
 // 8. Spells
 const StepSpells = ({ char, set, lang }) => {
   const cls = SRD.CLASSES.find(c => c.id === char.className);
-  if (!cls || !cls.spellcaster) {
+  if (!Utils.spellcastingAbility(char)) {
     return (
       <div>
         <h2>{t('stepSpells', lang)}</h2>
@@ -631,13 +652,13 @@ const StepSpells = ({ char, set, lang }) => {
       </div>
     );
   }
-  const available = SRD.SPELLS.filter(s => s.classes.includes(char.className));
+  const available = Utils.spellCatalog(char).filter(s => s.classes.includes(Utils.spellListClass(char)) && s.level <= Utils.maxSpellLevel(char));
   const cantrips = available.filter(s => s.level === 0);
   const isPrepared = Utils.isPreparedCaster(char);
   const cantripLimit = Utils.cantripsKnown(char);
 
   const cantripCount = (char.spells || []).filter(s => {
-    const def = SRD.SPELLS.find(x => x.id === s.id);
+    const def = Utils.spellCatalog(char).find(x => x.id === s.id);
     return def && def.level === 0;
   }).length;
 
@@ -646,7 +667,7 @@ const StepSpells = ({ char, set, lang }) => {
     if (has) {
       set({ spells: char.spells.filter(s => s.id !== id) });
     } else {
-      const def = SRD.SPELLS.find(x => x.id === id);
+      const def = Utils.spellCatalog(char).find(x => x.id === id);
       if (def && def.level === 0 && cantripCount >= cantripLimit) return;
       set({ spells: [...(char.spells || []), { id, prepared: true }] });
     }
@@ -846,8 +867,8 @@ const Creator = ({ lang, initial, onSave, onCancel }) => {
     { id: 'identity', label: t('stepIdentity', lang), comp: StepIdentity, valid: () => !!char.name },
     { id: 'race', label: t('stepRace', lang), comp: StepRace, valid: () => !!char.race },
     { id: 'class', label: t('stepClass', lang), comp: StepClass, valid: () => !!char.className },
-    { id: 'abilities', label: t('stepAbilities', lang), comp: StepAbilities, valid: () => true },
     { id: 'background', label: t('stepBackground', lang), comp: StepBackground, valid: () => !!char.background },
+    { id: 'abilities', label: t('stepAbilities', lang), comp: StepAbilities, valid: () => char.rulesVersion !== '2024' || Object.values(char.raceBonus || {}).reduce((s,n) => s+n,0) === 3 },
     { id: 'skills', label: t('stepSkills', lang), comp: StepSkills, valid: () => true },
     { id: 'equipment', label: t('stepEquipment', lang), comp: StepEquipment, valid: () => true },
     { id: 'spells', label: t('stepSpells', lang), comp: StepSpells, valid: () => true },
@@ -860,7 +881,7 @@ const Creator = ({ lang, initial, onSave, onCancel }) => {
 
   const handleFinish = () => {
     const maxHp = Utils.maxHpDefault(char);
-    const final = { ...char, maxHp, currentHp: char.currentHp || maxHp };
+    const final = isNew ? { ...char, maxHp, currentHp: maxHp } : { ...char };
     onSave(final);
   };
 

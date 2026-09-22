@@ -29,6 +29,10 @@
  * As features definidas aqui são as que entram automaticamente, com texto curto.
  */
 
+import SRD from '../../data/srd.js';
+import { ARTIFICER_RULES } from './artificer.js';
+import { RULES_2024 } from '../../data/rules2024.js';
+
 // === Druida ===
 const DRUID = {
   classId: 'druid',
@@ -711,6 +715,7 @@ const WARLOCK = {
 };
 
 export const PROGRESSION_RULES = {
+  artificer: ARTIFICER_RULES,
   druid: DRUID,
   fighter: FIGHTER,
   wizard: WIZARD,
@@ -724,6 +729,113 @@ export const PROGRESSION_RULES = {
   monk: MONK,
   warlock: WARLOCK,
 };
+
+// Keep saved IDs compatible with both historical spellings. Catalog entries
+// supply the level-gated descriptions for subclasses missing from the engine.
+for (const [classId, subclasses] of Object.entries(SRD.SUBCLASSES)) {
+  const rule = PROGRESSION_RULES[classId];
+  for (const sub of subclasses) {
+    const legacyId = Object.keys(rule.subclassPerLevel).find(id => id.toLowerCase() === sub.id.toLowerCase());
+    const levels = rule.subclassPerLevel[sub.id] = rule.subclassPerLevel[legacyId] || {};
+    if (sub.manualFeatures && !Object.keys(levels).length) levels.manual = true;
+    for (const feature of sub.features || []) {
+      const node = levels[feature.level] ||= {};
+      // Existing engine text and feature IDs remain authoritative.
+      if (node.features?.length) continue;
+      node.features = (sub.features || []).filter(f => f.level === feature.level).map((f, i) => ({
+        id: `${sub.id}_${feature.level}_${i}`, name: f.name.pt, desc: f.desc.pt,
+        nameEn: f.name.en, descEn: f.desc.en,
+      }));
+    }
+  }
+}
+
+const KNOWN_SPELLS = {
+  bard: [4,5,6,7,8,9,10,11,12,14,15,15,16,18,19,19,20,22,22,22],
+  sorcerer: [2,3,4,5,6,7,8,9,10,11,12,12,13,13,14,14,15,15,15,15],
+  warlock: [2,3,4,5,6,7,8,9,10,10,11,11,12,12,13,13,14,14,15,15],
+  ranger: [0,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11],
+};
+for (const [classId, counts] of Object.entries(KNOWN_SPELLS)) {
+  counts.forEach((count, index) => {
+    const node = PROGRESSION_RULES[classId].perLevel[index + 1] ||= {};
+    node.spellsKnown = count;
+    delete node.spellsPrepared;
+  });
+}
+PROGRESSION_RULES.bard.subclassPerLevel.valor[6].extraAttacks = 1;
+
+// One-third spellcasters: the subclass supplies its own cantrips and spells.
+for (const [classId, subclass] of [['fighter', 'eldritchknight'], ['rogue', 'arcanetrickster']]) {
+  const levels = PROGRESSION_RULES[classId].subclassPerLevel[subclass];
+  const known = { 3: 3, 4: 4, 7: 5, 8: 6, 10: 7, 11: 8, 13: 9, 14: 10, 16: 11, 19: 12, 20: 13 };
+  for (const [lv, count] of Object.entries(known)) (levels[lv] ||= {}).spellsKnown = count;
+  (levels[3] ||= {}).cantripsKnown = classId === 'rogue' ? 3 : 2;
+  (levels[10] ||= {}).cantripsKnown = classId === 'rogue' ? 4 : 3;
+}
+
+
+export const PROGRESSION_RULES_2024 = structuredClone(RULES_2024);
+// Supplemental 2014 subclasses remain available via compatibility. Early
+// features move to level 3; current SRD subclasses use the current text.
+for (const [classId, legacy] of Object.entries(PROGRESSION_RULES)) {
+  if (!PROGRESSION_RULES_2024[classId]) continue;
+  const current = PROGRESSION_RULES_2024[classId];
+  for (const [id, levels] of Object.entries(legacy.subclassPerLevel)) {
+    if (current.subclassPerLevel[id]) continue;
+    const converted = { legacyCompatibility: true };
+    for (const [lv, node] of Object.entries(levels)) {
+      if (!/^\d+$/.test(lv)) continue;
+      const target = Math.max(3, Number(lv));
+      converted[target] = { ...(converted[target] || {}), ...structuredClone(node) };
+    }
+    current.subclassPerLevel[id] = converted;
+  }
+}
+PROGRESSION_RULES_2024.artificer = structuredClone(ARTIFICER_RULES);
+const artificer2025 = PROGRESSION_RULES_2024.artificer;
+artificer2025.source = 'Eberron: Forge of the Artificer (2025)';
+for (let lv = 1; lv <= 20; lv++) {
+  const node = artificer2025.perLevel[lv];
+  node.spellsPrepared = structuredClone(PROGRESSION_RULES_2024.paladin.perLevel[lv].spellsPrepared);
+  node.spellSlots = [...PROGRESSION_RULES_2024.paladin.perLevel[lv].spellSlots];
+  node.cantripsKnown = lv >= 14 ? 4 : lv >= 10 ? 3 : 2;
+}
+const artChanges = {
+  1: ['tinkersMagic', 'Magia do Inventor', 'Conhece Consertar; cria equipamento temporário com ferramentas.'],
+  2: ['replicateMagicItem', 'Replicar Item Mágico', 'Aprenda planos e crie itens após descanso longo.'],
+  6: ['magicItemTinker', 'Manipular Item Mágico', 'Recarregue, drene ou transmute itens replicados.'],
+  7: ['flashOfGenius', 'Lampejo de Genialidade', 'Reação após falha em teste ou salvamento: adicione INT.'],
+  10: ['magicItemAdept', 'Adepto de Itens Mágicos', 'Sintonia com quatro itens.'],
+  11: ['spellStoringItem', 'Item Armazenador de Magia', 'Armazene magia até nível 3, sem componente consumido.'],
+  14: ['advancedArtifice', 'Artifício Avançado', 'Cinco sintonias; descanso curto recupera um Lampejo.'],
+  20: ['soulOfArtifice', 'Alma do Artífice', 'Ao cair a 0 HP, desfaça itens replicados elegíveis: 20 HP por item. Sintonia permite recuperar Lampejos no descanso curto.'],
+};
+for (const [lv, [id,name,desc]] of Object.entries(artChanges)) artificer2025.perLevel[lv].features = [{id,name,desc}];
+delete artificer2025.perLevel[3].features;
+artificer2025.perLevel[1].autoCantrips = ['mending'];
+artificer2025.perLevel[19] = {epicBoon:true, spellsPrepared:{formula:15}, cantripsKnown:4, spellSlots:[4,3,3,3,2,0,0,0,0]};
+
+const currentSubs = PROGRESSION_RULES_2024;
+currentSubs.monk.subclassPerLevel.openHand = currentSubs.monk.subclassPerLevel.openhand;
+function bonusSpells(classId, subId, table) {
+  for (const [level, spells] of Object.entries(table)) {
+    (currentSubs[classId].subclassPerLevel[subId][level] ||= {}).autoSpells = spells;
+  }
+}
+bonusSpells('cleric','life', {3:['aid','bless','cureWounds','lesserRestoration'],5:['massHealingWord','revivify'],7:['auraOfLife','deathWard'],9:['greaterRestoration','massCureWounds']});
+bonusSpells('paladin','devotion', {3:['protectionFromEvilAndGood','shieldOfFaith'],5:['aid','zoneOfTruth'],9:['beaconOfHope','dispelMagic'],13:['freedomOfMovement','guardianOfFaith'],17:['commune','flameStrike']});
+bonusSpells('warlock','fiend', {3:['burningHands','command','scorchingRay','suggestion'],5:['fireball','stinkingCloud'],7:['fireShield','wallOfFire'],9:['geas','insectPlague']});
+bonusSpells('sorcerer','draconic', {3:['alterSelf','chromaticOrb','command','dragonsBreath'],5:['fear','fly'],7:['arcaneEye','charmMonster'],9:['legendLore','summonDragon']});
+currentSubs.ranger.perLevel[1].autoSpells = ['huntersMark'];
+currentSubs.paladin.perLevel[2].autoSpells = ['divineSmite'];
+currentSubs.bard.perLevel[20].autoSpells = ['powerWordHeal','powerWordKill'];
+currentSubs.fighter.subclassPerLevel.champion[7].fightingStyleChoice = 1;
+
+export function rulesFor(character) {
+  return (character.rulesVersion === '2024' ? PROGRESSION_RULES_2024 : PROGRESSION_RULES)[character.className];
+}
+
 
 // Tabela canônica do bônus de proficiência por nível.
 export function profBonus(level) {

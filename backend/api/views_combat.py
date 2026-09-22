@@ -191,17 +191,19 @@ def combat_add_combatant(request, id_or_slug):
         d = char.data or {}
         ws = d.get('wildShape') or {}
         combatant['character_id'] = char.id
+        combatant['temp_hp'] = d.get('tempHp', 0)
         combatant['death_saves'] = d.get('deathSaves') or {'success': 0, 'fail': 0}
 
         if ws.get('active'):
             # Druida transformado entra no combate como a fera
             beast_stats = ws.get('beastStats') or {}
             combatant['name'] = f"{char.name} ({ws.get('beastName')})"
-            combatant['current_hp'] = ws.get('beastCurrentHp') or 1
+            current_rules = d.get('rulesVersion') == '2024'
+            combatant['current_hp'] = d.get('currentHp', 1) if current_rules else ws.get('beastCurrentHp', 1)
             combatant['wild_shape'] = True
             combatant['stats'] = {
                 'ac': ws.get('beastAc', 10),
-                'max_hp': ws.get('beastMaxHp', 1),
+                'max_hp': d.get('maxHp', 1) if current_rules else ws.get('beastMaxHp', 1),
                 'speed': ws.get('beastSpeed') or 30,
                 'abilities': beast_stats,
                 'saves': {},
@@ -631,7 +633,11 @@ def _sync_pc_to_character(combatant):
     except Character.DoesNotExist:
         return
     data = dict(char.data or {})
-    if combatant.get('wild_shape') and (data.get('wildShape') or {}).get('active'):
+    if data.get('rulesVersion') == '2024':
+        data['currentHp'] = combatant.get('current_hp', 0)
+        if data['currentHp'] <= 0 and (data.get('wildShape') or {}).get('active'):
+            data, _ = wse.end_transform(data, excess_damage=0)
+    elif combatant.get('wild_shape') and (data.get('wildShape') or {}).get('active'):
         ws = dict(data['wildShape'])
         new_beast_hp = combatant.get('current_hp') or 0
         ws['beastCurrentHp'] = new_beast_hp

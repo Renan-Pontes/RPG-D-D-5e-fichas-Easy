@@ -2,6 +2,11 @@
    i18n strings — PT-BR / EN
    ============================================ */
 
+import { ARTIFICER, EXTRA_RACES, EXTRA_SUBCLASSES } from './expanded-catalog.js';
+import { BACKGROUNDS_2024, SPELLS_2024, SPECIES_2024 } from './rules2024.js';
+
+const EXTRA_NAMES = { class: [ARTIFICER], race: [...EXTRA_RACES, ...SPECIES_2024], subclass: Object.values(EXTRA_SUBCLASSES).flat(), background: BACKGROUNDS_2024, spellName: SPELLS_2024 };
+
 const I18N = {
   pt: {
     // App
@@ -917,5 +922,5 @@ export const t = (key, lang) => {
 
 export const tName = (kind, id, lang) => {
   const dict = (NAMES[lang] && NAMES[lang][kind]) || NAMES.en[kind] || {};
-  return dict[id] || id;
+  return dict[id] || EXTRA_NAMES[kind]?.find(entry => entry.id === id)?.name[lang] || id;
 };

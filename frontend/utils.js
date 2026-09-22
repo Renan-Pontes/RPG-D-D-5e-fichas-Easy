@@ -3,13 +3,16 @@
    ============================================ */
 
 import SRD from './data/srd.js';
+import { computeProgression } from './src/progression/engine.js';
+import { rulesFor } from './src/progression/rules.js';
+import { SPELLS_2024, BACKGROUNDS_2024, SPECIES_2024 } from './data/rules2024.js';
 
 const Utils = (() => {
 
 const STORAGE_KEY = 'dnd5e-forge:characters:v1';
 
 function uid() {
-  return Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+  return `local-${crypto.randomUUID()}`;
 }
 
 function mod(score) {
@@ -53,6 +56,7 @@ function deleteChar(id) {
 function makeNew() {
   return {
     id: uid(),
+    rulesVersion: '2024',
     createdAt: Date.now(),
     updatedAt: Date.now(),
     // Identity
@@ -166,6 +170,14 @@ function passivePerception(char) {
 function computeAc(char) {
   const dex = abilityMod(char, 'dex');
   let ac = 10 + dex;
+  if (!char.armor) {
+    if (char.className === 'barbarian') ac += abilityMod(char, 'con');
+    if (char.className === 'monk' && !char.hasShield) ac += abilityMod(char, 'wis');
+    if (char.className === 'sorcerer' && char.subclass === 'draconic') {
+      if (char.rulesVersion !== '2024') ac = 13 + dex;
+      else if (char.level >= 3) ac = 10 + dex + abilityMod(char, 'cha');
+    }
+  }
   if (char.armor) {
     const a = SRD.ARMOR.find(x => x.id === char.armor);
     if (a) {
@@ -186,18 +198,28 @@ function maxHpDefault(char) {
   // Lvl 1 = max hit die + con; later levels = avg
   let hp = cls.hitDie + con;
   for (let i = 2; i <= char.level; i++) {
-    hp += Math.ceil((cls.hitDie + 1) / 2) + con;
+    hp += Math.max(1, Math.ceil((cls.hitDie + 1) / 2) + con);
   }
+  if (char.race === 'dwarf-hill') hp += char.level || 1;
+  if (char.rulesVersion === '2024' && char.race === 'dwarf') hp += char.level || 1;
+  if (char.originFeat === 'Tough') hp += 2 * (char.level || 1);
+  if (char.className === 'sorcerer' && char.subclass === 'draconic' && (char.rulesVersion !== '2024' || char.level >= 3)) hp += char.level || 1;
   return hp;
 }
 
 function speed(char) {
   if (char.speedOverride) return char.speedOverride;
-  const race = SRD.RACES.find(r => r.id === char.race);
+  const race = racesFor(char).find(r => r.id === char.race);
   return race ? race.speed : 30;
 }
 
+function racesFor(char) {
+  if (char.rulesVersion !== '2024') return SRD.RACES;
+  return [...SPECIES_2024, ...SRD.RACES.filter(r => !SPECIES_2024.some(s => s.id === r.id)).map(r => ({ ...r, legacyCompatibility: true }))];
+}
+
 function spellcastingAbility(char) {
+  if (spellListClass(char) === 'wizard' && char.className !== 'wizard') return (char.level || 1) >= 3 ? 'int' : null;
   const cls = SRD.CLASSES.find(c => c.id === char.className);
   return cls && cls.spellAbility ? cls.spellAbility : null;
 }
@@ -215,11 +237,29 @@ function spellAttackBonus(char) {
 }
 
 function spellSlots(char) {
-  return SRD.getSpellSlots(char.className, char.level);
+  if (Array.isArray(char.spellSlotsMax) && char.spellSlotsMax.length === 9) {
+    const slots = char.spellSlotsMax.map(v => Math.max(0, Number(v) || 0));
+    while (slots.length && !slots.at(-1)) slots.pop();
+    return slots;
+  }
+  if (char.rulesVersion === '2024') {
+    const row = rulesFor(char)?.perLevel?.[char.level || 1]?.spellSlots;
+    if (row) {
+      const slots = [...row];
+      while (slots.length && !slots.at(-1)) slots.pop();
+      return slots;
+    }
+  }
+  return SRD.getSpellSlots(char.className, char.level, char.subclass || '');
+}
+
+function spellListClass(char) {
+  const sub = (char.subclass || '').toLowerCase();
+  return ((char.className === 'fighter' && sub === 'eldritchknight') || (char.className === 'rogue' && sub === 'arcanetrickster')) ? 'wizard' : char.className;
 }
 
 // === Prepared-caster logic ===
-const PREPARED_CASTERS = ['cleric', 'druid', 'paladin', 'wizard'];
+const PREPARED_CASTERS = ['cleric', 'druid', 'paladin', 'wizard', 'artificer'];
 
 function isPreparedCaster(char) {
   return PREPARED_CASTERS.includes(char.className);
@@ -253,10 +293,7 @@ function cantripBonus(char) {
 }
 
 function cantripsKnown(char) {
-  const table = CANTRIPS_BY_CLASS[char.className];
-  if (!table) return 0;
-  const lvl = Math.max(1, Math.min(20, char.level || 1));
-  return table[lvl - 1] + cantripBonus(char);
+  return computeProgression(char).cantripsKnown;
 }
 
 // Prepared spell limit:
@@ -264,11 +301,13 @@ function cantripsKnown(char) {
 //  - Paladin: CHA mod + ⌊level/2⌋ (min 1)
 function preparedSpellsLimit(char) {
   if (!isPreparedCaster(char)) return Infinity;
+  if (!spellSlots(char).some(Boolean)) return 0;
+  if (char.rulesVersion === '2024') return computeProgression(char).spellsPrepared;
   const ab = spellcastingAbility(char);
   if (!ab) return 0;
   const m = abilityMod(char, ab);
   let limit;
-  if (char.className === 'paladin') {
+  if (['paladin', 'artificer'].includes(char.className)) {
     limit = m + Math.floor((char.level || 1) / 2);
   } else {
     limit = m + (char.level || 1);
@@ -284,6 +323,7 @@ function maxSpellLevel(char) {
 
 // === Race ASI helpers ===
 function applyRaceBonus(char, raceId) {
+  if (char.rulesVersion === '2024') return char.raceBonus || {};
   const race = SRD.RACES.find(r => r.id === raceId);
   if (!race) return {};
   const bonus = {};
@@ -324,12 +364,17 @@ function rollDice(count, sides) {
 }
 
 return {
+  races: racesFor,
+  spellCatalog: char => char.rulesVersion === '2024' ? SPELLS_2024 : SRD.SPELLS,
+  backgrounds: char => char.rulesVersion === '2024' ? BACKGROUNDS_2024 : SRD.BACKGROUNDS,
+  subclassLevel: char => char.rulesVersion === '2024' ? 3 : ({ cleric:1, sorcerer:1, warlock:1, druid:2, wizard:2 }[char.className] || 3),
+  knownSpellLimit: char => { const p = computeProgression(char); return char.rulesVersion === '2024' ? p.spellsPrepared || p.spellsKnown : p.spellsKnown; },
   uid, mod, fmtMod,
   loadAll, saveAll, loadChar, saveChar, deleteChar,
   makeNew,
   abilityWithRace, abilityMod, profBonus, saveBonus, skillBonus, passivePerception,
   computeAc, maxHpDefault, speed,
-  spellcastingAbility, spellSaveDc, spellAttackBonus, spellSlots,
+  spellcastingAbility, spellSaveDc, spellAttackBonus, spellSlots, spellListClass,
   isPreparedCaster, cantripsKnown, preparedSpellsLimit, maxSpellLevel,
   applyRaceBonus,
   encodeChar, decodeChar,

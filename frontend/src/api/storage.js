@@ -13,12 +13,10 @@ import { api, ApiError } from './client.js';
 const STORAGE_KEY = 'dnd5e-forge:characters:v1';
 
 function loadLocal() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+  const raw = localStorage.getItem(STORAGE_KEY);
+  const chars = raw ? JSON.parse(raw) : [];
+  if (!Array.isArray(chars)) throw new Error('invalid_local_backup');
+  return chars;
 }
 
 function saveLocal(chars) {
@@ -33,8 +31,8 @@ export function createStorageAdapter({ remote }) {
       async get(id) { return loadLocal().find(c => c.id === id) || null; },
       async save(char) {
         const all = loadLocal();
-        const idx = all.findIndex(c => c.id === char.id);
-        const next = { ...char, updatedAt: Date.now() };
+        const next = { ...char, id: char.id || `local-${crypto.randomUUID()}`, updatedAt: Date.now() };
+        const idx = all.findIndex(c => c.id === next.id);
         if (idx >= 0) all[idx] = next;
         else all.push(next);
         saveLocal(all);
@@ -68,7 +66,8 @@ export function createStorageAdapter({ remote }) {
       const { id, createdAt, updatedAt, inCampaign, ...data } = char;
       const body = { name: char.name || 'Sem nome', data };
       let res;
-      if (id && !id.startsWith('local-')) {
+      // Server IDs are integers. Older local sheets used unprefixed random IDs.
+      if (id != null && /^\d+$/.test(String(id))) {
         res = await api.updateCharacter(id, body);
       } else {
         res = await api.createCharacter(body);
@@ -93,16 +92,19 @@ export async function migrateLocalToRemote(remoteAdapter) {
   const local = loadLocal();
   if (!local.length) return { migrated: 0 };
   let migrated = 0;
+  // Keep a recovery copy even after a successful migration.
+  localStorage.setItem(`${STORAGE_KEY}:migration-backup`, JSON.stringify(local));
+  const remaining = [...local];
   for (const c of local) {
     try {
       const { id, createdAt, updatedAt, ...data } = c;
-      await api.createCharacter({ name: c.name || 'Sem nome', data });
+      await remoteAdapter.save({ ...data, id: undefined });
+      remaining.splice(remaining.indexOf(c), 1);
+      saveLocal(remaining);
       migrated++;
     } catch (e) {
       console.warn('falha ao migrar personagem', c.name, e);
     }
   }
-  // limpa local após migração bem-sucedida (parcial é ok)
-  if (migrated > 0) localStorage.removeItem(STORAGE_KEY);
-  return { migrated };
+  return { migrated, failed: remaining.length };
 }

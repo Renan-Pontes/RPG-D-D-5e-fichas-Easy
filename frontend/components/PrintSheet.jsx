@@ -7,8 +7,8 @@ import { Filigree } from './Shared.jsx';
 
 const PrintSheet = ({ char, lang }) => {
   const cls = SRD.CLASSES.find(c => c.id === char.className);
-  const race = SRD.RACES.find(r => r.id === char.race);
-  const bg = SRD.BACKGROUNDS.find(b => b.id === char.background);
+  const race = Utils.races(char).find(r => r.id === char.race);
+  const bg = Utils.backgrounds(char).find(b => b.id === char.background);
 
   const ac = Utils.computeAc(char);
   const initBonus = Utils.abilityMod(char, 'dex');
@@ -395,7 +395,7 @@ const PrintSheet = ({ char, lang }) => {
           )}
 
           {[0,1,2,3,4,5,6,7,8,9].map(lvl => {
-            const list = (char.spells || []).map(cs => ({ ...cs, def: SRD.SPELLS.find(s => s.id === cs.id) })).filter(s => s.def && s.def.level === lvl);
+            const list = (char.spells || []).map(cs => ({ ...cs, def: Utils.spellCatalog(char).find(s => s.id === cs.id) })).filter(s => s.def && s.def.level === lvl);
             if (list.length === 0) return null;
             return (
               <div key={lvl} className="ps-section">

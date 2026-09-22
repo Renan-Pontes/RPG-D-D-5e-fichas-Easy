@@ -8,6 +8,7 @@ from django.middleware.csrf import get_token
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.authentication import SessionAuthentication
 
 from .models import Profile
 from .serializers import SignupSerializer, LoginSerializer, UserSerializer
@@ -26,9 +27,9 @@ def csrf(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-# rate limit desativado em early days (single-user testing). Reabilitar
-# (@rate_limit(key='signup', max_attempts=30, window=600)) quando user base crescer.
+@rate_limit(key='signup', max_attempts=30, window=600)
 def signup(request):
+    SessionAuthentication().enforce_csrf(request)
     s = SignupSerializer(data=request.data)
     s.is_valid(raise_exception=True)
     email = s.validated_data['email']
@@ -47,9 +48,9 @@ def signup(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-# rate limit desativado em early days (single-user testing). Reabilitar
-# (@rate_limit(key='login', max_attempts=30, window=600)) quando user base crescer.
+@rate_limit(key='login', max_attempts=30, window=600)
 def login_view(request):
+    SessionAuthentication().enforce_csrf(request)
     s = LoginSerializer(data=request.data)
     s.is_valid(raise_exception=True)
     email = s.validated_data['email'].lower()

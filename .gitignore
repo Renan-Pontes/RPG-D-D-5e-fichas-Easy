@@ -23,3 +23,17 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Python, data and deployment secrets
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.sqlite3
+*.sqlite3-*
+backend/staticfiles/
+backend/frontend_dist/
+backups/
+.vercel/
+playwright-report/
+test-results/

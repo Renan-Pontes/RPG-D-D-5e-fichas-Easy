@@ -1,5 +1,8 @@
 import { useMemo } from 'react';
 import { computeProgression } from './engine.js';
+import { rulesFor } from './rules.js';
+import SRD from '../../data/srd.js';
+import { tName } from '../../data/i18n.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -16,16 +19,19 @@ export default function ProgressionPanel({
 
   const atMaxLevel = (character.level || 1) >= 20;
   const hasUnlocked = !!unlockedLevelup && !atMaxLevel;
+  const subclassRule = rulesFor(character)?.subclassPerLevel?.[character.subclass];
 
   return (
     <div className="progression-panel">
-      <h3>{t(lang, 'Progressão', 'Progression')} — {prog.classId} {prog.level}{prog.subclass ? ` (${prog.subclass})` : ''}</h3>
+      <h3>{t(lang, 'Progressão', 'Progression')} — {tName('class', prog.classId, lang)} {prog.level}{prog.subclass ? ` (${SRD.SUBCLASSES[prog.classId]?.find(s => s.id.toLowerCase() === prog.subclass.toLowerCase())?.name[lang] || prog.subclass})` : ''}</h3>
+      <p className="muted text-sm">{character.rulesVersion === '2024' ? 'D&D 5e revisado · SRD 5.2.1' : 'D&D 5e · regras de 2014'} · <a href="/rules/SRD-5.2.1.pdf" target="_blank" rel="noreferrer">{t(lang, 'Referência de regras', 'Rules reference')}</a></p>
+      {(subclassRule?.manual || subclassRule?.legacyCompatibility) && <p className="muted text-sm">{t(lang, 'Opção de suplemento: ações e escolhas especiais são registradas em Traços e resolvidas com o mestre.', 'Supplement option: record special actions and choices under Features and resolve them with your DM.')}</p>}
 
       {prog.autoCantrips.length > 0 && (
         <div className="prog-section">
           <div className="prog-label">{t(lang, 'Truques automáticos da subclasse:', 'Auto cantrips from subclass:')}</div>
           <div className="prog-chips">
-            {prog.autoCantrips.map(id => <span key={id} className="prog-chip auto">{id}</span>)}
+            {prog.autoCantrips.map(id => <span key={id} className="prog-chip auto">{tName('spellName', id, lang)}</span>)}
           </div>
         </div>
       )}
@@ -45,7 +51,7 @@ export default function ProgressionPanel({
         <summary>{t(lang, `${prog.features.length} traços de classe acumulados`, `${prog.features.length} class features accumulated`)}</summary>
         <ul>
           {prog.features.map((f, i) => (
-            <li key={i}><strong>Nv. {f.level}</strong> — {f.name}: <em>{f.desc}</em></li>
+            <li key={i}><strong>Nv. {f.level}</strong> — {lang === 'en' ? f.nameEn || f.name : f.name}: <em>{lang === 'en' ? f.descEn || f.desc : f.desc}</em></li>
           ))}
         </ul>
       </details>

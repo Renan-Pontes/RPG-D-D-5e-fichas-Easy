@@ -9,11 +9,7 @@
 //
 // API_BASE vem de VITE_API_URL em produção; em dev cai pra localhost:4000.
 
-const PROD_DEFAULT = 'https://mestresdd5e.pythonanywhere.com';
-const DEFAULT_BASE = import.meta?.env?.VITE_API_URL
-  || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-      ? PROD_DEFAULT
-      : 'http://localhost:4000');
+const DEFAULT_BASE = import.meta?.env?.VITE_API_URL || '';
 const API_BASE = (typeof window !== 'undefined' && window.__API_BASE__) || DEFAULT_BASE;
 
 class ApiError extends Error {
@@ -41,7 +37,7 @@ async function ensureCsrf(force = false) {
   if (!csrfPromise) {
     csrfPromise = (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/auth/csrf`, { credentials: 'include' });
+        const res = await fetch(`${API_BASE}/api/auth/csrf`, { credentials: 'include', signal: AbortSignal.timeout(15000) });
         if (res.ok) {
           const data = await res.json().catch(() => null);
           if (data?.csrfToken) {
@@ -64,6 +60,7 @@ async function request(path, { method = 'GET', body, headers = {}, _csrfRetry = 
   if (isMutation) await ensureCsrf();
   const csrftoken = csrfTokenCache || getCookie('csrftoken');
   const res = await fetch(`${API_BASE}${path}`, {
+    signal: AbortSignal.timeout(15000),
     method,
     credentials: 'include',
     headers: {
@@ -75,7 +72,9 @@ async function request(path, { method = 'GET', body, headers = {}, _csrfRetry = 
   });
   let data = null;
   const text = await res.text();
-  try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
+  try { data = text ? JSON.parse(text) : null; } catch {
+    throw new ApiError('backend_unavailable', res.status >= 400 ? res.status : 502, null);
+  }
   if (!res.ok) {
     // Retry uma vez em 403 CSRF: token rotacionou / expirou.
     if (isMutation && res.status === 403 && !_csrfRetry) {

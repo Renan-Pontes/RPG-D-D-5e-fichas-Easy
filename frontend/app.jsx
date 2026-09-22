@@ -138,12 +138,13 @@ const App = () => {
   };
 
   const handleImport = async (arr) => {
+    let imported = 0;
     for (const c of arr) {
       const fresh = { ...c, id: undefined, updatedAt: Date.now() };
-      try { await storage.save(fresh); } catch (e) { console.warn(e); }
+      try { await storage.save(fresh); imported++; } catch (e) { console.warn(e); }
     }
     await refreshCharacters();
-    setToast(t('imported', lang));
+    setToast(lang === 'pt' ? `${imported} de ${arr.length} fichas importadas.` : `${imported} of ${arr.length} characters imported.`);
   };
 
   const handleShare = (char) => {
@@ -170,7 +171,10 @@ const App = () => {
 
   // Aplica level-up local diretamente — standalone (sem campanha) ou após consume remoto.
   const applyLocalLevelUp = useCallback(async (char, toLevel) => {
-    const next = { ...char, level: toLevel };
+    if (toLevel > 20 || toLevel !== (char.level || 1) + 1) return;
+    const hpGain = Utils.maxHpDefault({ ...char, level: toLevel }) - Utils.maxHpDefault(char);
+    const maxHp = (char.maxHp || Utils.maxHpDefault(char)) + hpGain;
+    const next = { ...char, level: toLevel, maxHp, currentHp: Math.min(maxHp, (char.currentHp ?? char.maxHp ?? 0) + hpGain) };
     const withAutos = applyAutosToCharacter(next);
     await storage.save(withAutos);
     await refreshCharacters();

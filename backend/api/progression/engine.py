@@ -9,7 +9,7 @@ Espelha frontend/src/progression/engine.js. Aqui foco em:
   - apply_approval_to_character (move payload aprovado para o data da ficha)
 """
 import math
-from .rules import PROGRESSION_RULES, prof_bonus  # re-export
+from .rules import PROGRESSION_RULES, prof_bonus, rules_for  # re-export
 
 ABILITIES = ['str', 'dex', 'con', 'int', 'wis', 'cha']
 
@@ -31,7 +31,7 @@ def _compute_spells_prepared(formula, character):
         return 0
     level = character.get('level', 1) or 1
     full_map = {'wis+level': 'wis', 'int+level': 'int', 'cha+level': 'cha'}
-    half_map = {'wis+halfLevel': 'wis', 'cha+halfLevel': 'cha'}
+    half_map = {'wis+halfLevel': 'wis', 'cha+halfLevel': 'cha', 'int+halfLevel': 'int'}
     if formula in full_map:
         return max(1, _ability_mod(_ability_score(character, full_map[formula])) + level)
     if formula in half_map:
@@ -48,6 +48,8 @@ def compute_progression(character):
         'auto_cantrips': [],
         'auto_spells': [],
         'cantrips_known': 0,
+        'spells_known': 0,
+        'features': [],
         'spells_prepared': 0,
         'extra_attacks': 0,
         'fighting_styles': 0,
@@ -55,7 +57,7 @@ def compute_progression(character):
         'asi_levels': [],
         'pending_choices': [],
     }
-    rule = PROGRESSION_RULES.get(out['class_id'])
+    rule = rules_for(character)
     if not rule:
         return out
 
@@ -92,6 +94,9 @@ def compute_progression(character):
 def _apply_node(out, node, level, source):
     if not node:
         return
+    out['features'].extend({'level': level, 'source': source, **f} for f in node.get('features', []))
+    if 'spells_known' in node:
+        out['spells_known'] = max(out['spells_known'], node['spells_known'])
     if 'auto_cantrips' in node:
         out['auto_cantrips'].extend(node['auto_cantrips'])
     if 'auto_spells' in node:
@@ -109,6 +114,8 @@ def _apply_node(out, node, level, source):
     if node.get('asi_or_feat'):
         out['asi_levels'].append(level)
         out['pending_choices'].append({'level': level, 'type': 'asiOrFeat', 'reason': 'ASI ou Feat'})
+    if node.get('epicBoon'):
+        out['pending_choices'].append({'level': level, 'type': 'epicBoon', 'reason': 'Escolha uma Dádiva Épica ou outro talento elegível'})
 
 
 def apply_autos(character):

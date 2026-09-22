@@ -76,7 +76,7 @@ _SENTINEL = object()
 # endpoints dedicados que aplicam regras (cast/rest/inventory/wild-shape).
 OWNER_LOCKED_IN_CAMPAIGN = {
     'maxHp', 'level', 'className', 'subclass', 'race', 'background',
-    'alignment', 'xp',
+    'alignment', 'xp', 'rulesVersion',
     'abilities', 'raceBonus',
     'saveProfs', 'skillProfs', 'skillExpertise',
     'spellSlotsMax', 'spellSlotsUsed',
@@ -230,12 +230,13 @@ def wild_shape_transform(request, pk):
 
     level = int(data.get('level') or 1)
     subclass = data.get('subclass') or ''
-    eligible, reason = ws_engine.beast_eligible(level, subclass, beast)
+    eligible, reason = ws_engine.beast_eligible(level, subclass, beast, data.get('rulesVersion'))
     if not eligible:
         return Response({'error': 'beast_not_eligible', 'reason': reason}, status=400)
 
     uses = data.get('wildShapeUses') or 0
-    if uses >= 2:
+    maximum = (4 if level >= 17 else 3 if level >= 6 else 2) if data.get('rulesVersion') == '2024' else 2
+    if uses >= maximum:
         return Response({'error': 'no_uses_remaining'}, status=400)
 
     next_data, err = ws_engine.transform(data, beast)

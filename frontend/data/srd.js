@@ -3,6 +3,9 @@
    Source: System Reference Document 5.1 (CC-BY 4.0)
    ============================================ */
 
+import { ARTIFICER, EXTRA_RACES, EXTRA_SUBCLASSES, SOURCES } from './expanded-catalog.js';
+import { SPELLS_2024 } from './rules2024.js';
+
 const SRD = (() => {
 
 const ABILITIES = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
@@ -561,7 +564,7 @@ const CLASSES = [
     weapons: ['Simple', 'Martial'],
     skillsFrom: ['animalHandling','athletics','insight','investigation','nature','perception','stealth','survival'],
     skillCount: 3,
-    spellcaster: false,
+    spellcaster: true, spellAbility: 'wis',
     features: [
       { name: { pt: 'Inimigo Favorito', en: 'Favored Enemy' }, desc: { pt: 'Escolha um tipo de criatura. Vantagem em testes de Survival para rastreá-los e Inteligência para lembrar info.', en: 'Choose a type. Advantage on Survival to track and Int to recall info.' } },
       { name: { pt: 'Explorador Natural', en: 'Natural Explorer' }, desc: { pt: 'Escolha um tipo de terreno. Bônus de proficiência dobrado em testes de Int e Wis nesse terreno.', en: 'Choose a terrain. Prof bonus is doubled on Int/Wis checks in that terrain.' } },
@@ -1781,9 +1784,21 @@ const WARLOCK_SLOTS = [
   [2,5], [3,5], [3,5], [3,5], [3,5], [3,5], [3,5], [4,5], [4,5], [4,5], [4,5]
 ];
 
-function getSpellSlots(charClass, level) {
+const THIRD_SLOTS = [
+  [], [], [2], [3], [3], [3], [4,2], [4,2], [4,2], [4,3],
+  [4,3], [4,3], [4,3,2], [4,3,2], [4,3,2], [4,3,3],
+  [4,3,3], [4,3,3], [4,3,3,1], [4,3,3,1],
+];
+
+function getSpellSlots(charClass, level, subclass = '') {
+  level = Math.max(1, Math.min(20, Math.trunc(Number(level) || 1)));
+  const sub = subclass.toLowerCase();
+  if ((charClass === 'fighter' && sub === 'eldritchknight') || (charClass === 'rogue' && sub === 'arcanetrickster')) {
+    return [...THIRD_SLOTS[level - 1]];
+  }
   const cls = CLASSES.find(c => c.id === charClass);
   if (!cls || !cls.spellcaster) return [];
+  if (charClass === 'artificer') return [...FULL_SLOTS[Math.ceil(level / 2) - 1]].slice(0, 5);
   if (charClass === 'warlock') {
     const [count, lvl] = WARLOCK_SLOTS[level - 1];
     const arr = Array(lvl).fill(0);
@@ -1795,7 +1810,17 @@ function getSpellSlots(charClass, level) {
   return table[level - 1] || [];
 }
 
-return { ABILITIES, SKILLS, RACES, CLASSES, BACKGROUNDS, ALIGNMENTS, WEAPONS, ARMOR, SPELLS, BEASTS, SUBCLASSES, PACKS, profBonus, getSpellSlots };
+CLASSES.push(ARTIFICER);
+RACES.push(...EXTRA_RACES);
+for (const [classId, options] of Object.entries(EXTRA_SUBCLASSES)) {
+  SUBCLASSES[classId] ||= [];
+  for (const option of options) if (!SUBCLASSES[classId].some(s => s.id === option.id)) SUBCLASSES[classId].push(option);
+}
+const artificerSpells = new Set(['acidSplash','dancingLights','fireBolt','guidance','light','mageHand','mending','message','poisonSpray','prestidigitation','rayOfFrost','resistance','shockingGrasp','spareDying','thornWhip','alarm','cureWounds','detectMagic','disguiseSelf','expediteRetreat','faerieFire','falseLife','featherFall','grease','identifySpell','jump','longstrider','purifyFoodAndDrink','sanctuary','aid','alterSelf','arcaneLock','blur','continualFlame','darkvision','enhanceAbility','enlargeReduce','heatMetal','invisibility','lesserRestoration','levitate','magicMouth','magicWeapon','protectionFromPoison','pyrotechnics','ropeTrick','seeInvisibility','skywrite','spiderClimb','webSpell','blinkSpell','catnap','createFood','dispelMagic','elemental_weapon','flameArrows','fly','glyphOfWarding','haste','protectionFromEnergy','revivify','waterBreathing','waterWalk','arcaneEye','elementalBane','fabricate','freedomOfMovement','leomundsSecretChest','mordenkainensFaithfulHound','mordenkainensPrivateSanctum','otilukesResilientSphere','stoneShape','stoneskin','animateObjects','bigbysHand','creation','greaterRestoration','skillEmpowerment','transmuteRock','wallOfStone']);
+for (const spell of SPELLS) if (artificerSpells.has(spell.id)) spell.classes.push('artificer');
+for (const spell of SPELLS_2024) if (artificerSpells.has(spell.id) || ['identify','blink','elementalWeapon','web'].includes(spell.id)) spell.classes.push('artificer');
+
+return { ABILITIES, SKILLS, RACES, CLASSES, BACKGROUNDS, ALIGNMENTS, WEAPONS, ARMOR, SPELLS, BEASTS, SUBCLASSES, SOURCES, PACKS, profBonus, getSpellSlots };
 })();
 
 export default SRD;

@@ -41,15 +41,17 @@ def max_cr_for(level, subclass):
     return 0.25
 
 
-def beast_eligible(level, subclass, beast):
+def beast_eligible(level, subclass, beast, rules_version='2014'):
     """Verifica se uma fera é elegível para o druida transformar."""
     cr = beast.get('crNum', 0)
+    if level < 2:
+        return False, 'requires_level_2'
     if cr > max_cr_for(level, subclass):
         return False, 'cr_too_high'
     is_moon = subclass == 'moon'
-    if not is_moon and level < 8 and beast.get('fly'):
+    if level < 8 and beast.get('fly'):
         return False, 'no_fly_below_8'
-    if level < 4 and beast.get('swim'):
+    if rules_version != '2024' and level < 4 and beast.get('swim'):
         return False, 'no_swim_below_4'
     return True, None
 
@@ -87,6 +89,12 @@ def transform(character_data, beast):
     # Enquanto transformado, currentHp visível é da fera; temp_hp some
     next_data['currentHp'] = next_data['wildShape']['beastCurrentHp']
     next_data['tempHp'] = 0
+    if character_data.get('rulesVersion') == '2024':
+        level = character_data.get('level') or 1
+        next_data['currentHp'] = character_data.get('currentHp', 0)
+        temporary = level * 3 if character_data.get('subclass') == 'moon' and level >= 3 else level
+        next_data['tempHp'] = max(character_data.get('tempHp') or 0, temporary)
+        next_data['wildShape']['ownHitPoints'] = True
     return next_data, None
 
 
@@ -101,6 +109,9 @@ def end_transform(character_data, excess_damage=0):
         return character_data, 'not_transformed'
 
     next_data = dict(character_data)
+    if character_data.get('rulesVersion') == '2024':
+        next_data['wildShape'] = {'active': False}
+        return next_data, None
     pre_hp = ws.get('preTransformHp') or 0
     new_hp = max(0, pre_hp - max(0, int(excess_damage)))
     next_data['currentHp'] = new_hp
@@ -118,6 +129,15 @@ def apply_damage_in_wild_shape(character_data, damage):
     ws = character_data.get('wildShape') or {}
     if not ws.get('active'):
         return character_data, 0, False  # não estava transformado
+    if character_data.get('rulesVersion') == '2024':
+        next_data = dict(character_data)
+        absorbed = min(next_data.get('tempHp') or 0, damage)
+        next_data['tempHp'] = (next_data.get('tempHp') or 0) - absorbed
+        next_data['currentHp'] = max(0, (next_data.get('currentHp') or 0) - (damage - absorbed))
+        ended = next_data['currentHp'] == 0
+        if ended:
+            next_data['wildShape'] = {'active': False}
+        return next_data, damage, ended
 
     beast_hp = ws.get('beastCurrentHp') or 0
     if damage <= beast_hp:

@@ -14,7 +14,7 @@
  *     backend (validar aprovações).
  */
 
-import { PROGRESSION_RULES, profBonus } from './rules.js';
+import { PROGRESSION_RULES, profBonus, rulesFor } from './rules.js';
 
 const ABILITIES = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 
@@ -33,7 +33,7 @@ function computeSpellsPrepared(formula, character) {
   if (typeof formula !== 'string') return 0;
   const level = character.level || 1;
   const map = { 'wis+level': 'wis', 'int+level': 'int', 'cha+level': 'cha' };
-  const halfMap = { 'wis+halfLevel': 'wis', 'cha+halfLevel': 'cha' };
+  const halfMap = { 'wis+halfLevel': 'wis', 'cha+halfLevel': 'cha', 'int+halfLevel': 'int' };
   if (map[formula]) {
     const mod = abilityMod(getAbilityScore(character, map[formula]));
     return Math.max(1, mod + level);
@@ -84,7 +84,7 @@ export function computeProgression(character) {
     pendingChoices: [],
   };
 
-  const rule = PROGRESSION_RULES[character.className];
+  const rule = rulesFor(character);
   if (!rule) return out;
 
   for (let lv = 1; lv <= (character.level || 1); lv++) {
@@ -154,6 +154,7 @@ function applyNode(out, node, level, source) {
     out.asiLevels.push(level);
     out.pendingChoices.push({ level, type: 'asiOrFeat', reason: 'ASI (+2 ou +1+1) ou Feat' });
   }
+  if (node.epicBoon) out.pendingChoices.push({ level, type: 'epicBoon', reason: 'Escolha uma Dádiva Épica ou outro talento elegível' });
 }
 
 /**

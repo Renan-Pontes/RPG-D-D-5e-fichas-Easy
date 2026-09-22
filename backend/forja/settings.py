@@ -5,10 +5,13 @@ Lê variáveis de .env quando presente. DEBUG é False por padrão em produção
 """
 from pathlib import Path
 import os
+from django.core.exceptions import ImproperlyConfigured
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(BASE_DIR / '.env')
 except ImportError:
     pass
 
@@ -16,6 +19,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-secret-change-me-in-prod')
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
+if os.environ.get('DJANGO_ENV') == 'production' and SECRET_KEY == 'dev-secret-change-me-in-prod':
+    raise ImproperlyConfigured('DJANGO_SECRET_KEY is required in production.')
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
 
@@ -35,6 +40,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -82,6 +88,8 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+FRONTEND_DIST = BASE_DIR / 'frontend_dist'
+WHITENOISE_ROOT = FRONTEND_DIST
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -145,10 +153,11 @@ CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS'
 # PythonAnywhere ficam em origens diferentes. Browser só envia o cookie no fetch
 # cross-origin se SameSite=None E Secure=True (regra moderna).
 # Em dev local sem HTTPS, ativar túnel HTTPS (ngrok) ou usar mesma origem.
-SESSION_COOKIE_SAMESITE = 'None'
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SAMESITE = 'None'
-CSRF_COOKIE_SECURE = True
+COOKIE_SECURE = os.environ.get('DJANGO_COOKIE_SECURE', str(not DEBUG)).lower() == 'true'
+SESSION_COOKIE_SAMESITE = os.environ.get('DJANGO_COOKIE_SAMESITE', 'None' if COOKIE_SECURE else 'Lax')
+SESSION_COOKIE_SECURE = COOKIE_SECURE
+CSRF_COOKIE_SAMESITE = SESSION_COOKIE_SAMESITE
+CSRF_COOKIE_SECURE = COOKIE_SECURE
 # CSRF_COOKIE_HTTPONLY=False é necessário porque o frontend lê o token JS-side
 CSRF_COOKIE_HTTPONLY = False
 SESSION_COOKIE_HTTPONLY = True

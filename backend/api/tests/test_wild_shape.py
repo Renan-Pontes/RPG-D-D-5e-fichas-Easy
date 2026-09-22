@@ -48,9 +48,11 @@ class WildShapeEngineTests(SimpleTestCase):
         self.assertFalse(ok)
         self.assertEqual(reason, 'no_fly_below_8')
 
-    def test_eligibility_allows_fly_for_moon(self):
+    def test_moon_obeys_flying_restriction_until_level_8(self):
         eagle = {'crNum': 0.25, 'fly': 60, 'hp': 1}
         ok, _ = ws.beast_eligible(2, 'moon', eagle)
+        self.assertFalse(ok)
+        ok, _ = ws.beast_eligible(8, 'moon', eagle)
         self.assertTrue(ok)
 
     def test_transform_consumes_use_and_swaps_hp(self):

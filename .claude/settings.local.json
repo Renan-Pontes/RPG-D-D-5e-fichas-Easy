@@ -4,7 +4,6 @@
       "Bash(*)",
       "Python(*)",
       "SQL(*)",
-      "*",
       "PowerShell(*)",
       "Bash(Get-ChildItem -Recurse \"c:\\\\Users\\\\renan\\\\Downloads\\\\RPG D_D 5e\")",
       "Bash(Select-Object FullName, Length)",

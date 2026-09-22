@@ -18,7 +18,7 @@ export function AuthProvider({ children }) {
       setUser(res.user);
       setBackendAvailable(true);
     } catch (e) {
-      if (e instanceof ApiError) {
+      if (e instanceof ApiError && [401, 403].includes(e.status)) {
         // Backend respondeu — está vivo, só não autenticado
         setBackendAvailable(true);
         if (e.status === 401 || e.status === 403) setUser(null);
