@@ -8,6 +8,7 @@ from .serializers import CharacterSerializer
 from .permissions import can_read_character
 from . import wild_shape as ws_engine
 from . import spells as spells_engine
+from .progression import validate_level_choice, apply_level_choice
 
 
 @api_view(['GET', 'POST'])
@@ -81,6 +82,7 @@ OWNER_LOCKED_IN_CAMPAIGN = {
     'saveProfs', 'skillProfs', 'skillExpertise',
     'spellSlotsMax', 'spellSlotsUsed',
     'equipment', 'weapons', 'armor', 'hasShield',
+    'levelChoices', 'feats',
 }
 
 
@@ -123,6 +125,30 @@ def character_cast_spell(request, pk):
     if err:
         return Response({'error': err}, status=400)
     char.data = next_data
+    char.save()
+    return Response({'character': CharacterSerializer(char).data})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def character_level_choice(request, pk):
+    """
+    Registra o ASI/talento de um nível já alcançado (ex.: ficha que subiu sem escolher).
+    Body: { level: 4, choice: { type: 'asi', asi: {wis: 2} } | { type: 'feat', feat: 'Alert' } }
+    """
+    char = Character.objects.filter(pk=pk).first()
+    if not char:
+        raise NotFound('not_found')
+    if not _can_modify_character(request.user, char):
+        raise PermissionDenied('forbidden')
+    level = request.data.get('level')
+    if not isinstance(level, int) or isinstance(level, bool):
+        raise ValidationError({'error': 'invalid_level'})
+    data = char.data or {}
+    check = validate_level_choice(data, level, request.data.get('choice'))
+    if not check['valid']:
+        raise ValidationError({'error': 'invalid_choice', 'issues': check['issues']})
+    char.data = apply_level_choice(data, level, request.data['choice'])
     char.save()
     return Response({'character': CharacterSerializer(char).data})
 

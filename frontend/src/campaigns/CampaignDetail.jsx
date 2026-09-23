@@ -5,6 +5,7 @@ import CombatTab from './CombatTab.jsx';
 import RollRequestPanel from './RollRequestPanel.jsx';
 import DMCharacterEditor from './DMCharacterEditor.jsx';
 import GiveItemModal from './GiveItemModal.jsx';
+import CampaignItemsTab from '../items/CampaignItemsTab.jsx';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -36,10 +37,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   // Pausa quando a aba está oculta.
   usePolling(load, 2500, [campaignId]);
 
-  if (error) return <div style={{ padding: 24 }}><p style={{ color: '#ff9999' }}>{error}</p><button onClick={onBack}>← {t(lang, 'Voltar', 'Back')}</button></div>;
-  if (!campaign) return <div style={{ padding: 24 }}>{t(lang, 'Carregando…', 'Loading…')}</div>;
-
-  const isDM = campaign.role === 'dm';
+  const isDM = campaign?.role === 'dm';
 
   // Atalhos de teclado no painel do mestre — só desktop, foco fora de input/textarea.
   useEffect(() => {
@@ -69,6 +67,10 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     return () => window.removeEventListener('keydown', onKey);
   }, [isDM, tab, campaign?.id, campaign?.screenToken, load]);
 
+  if (error) return <div style={{ padding: 24 }}><p style={{ color: 'var(--blood-bright)' }}>{error}</p><button onClick={onBack}>← {t(lang, 'Voltar', 'Back')}</button></div>;
+  if (!campaign) return <div style={{ padding: 24 }}>{t(lang, 'Carregando…', 'Loading…')}</div>;
+
+
   return (
     <div className={`campaign-detail ${isDM ? 'is-dm' : ''}`}>
       <div className="dm-mobile-hint">
@@ -90,10 +92,11 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
       <div className="tabs" role="tablist" aria-label={t(lang, 'Abas da campanha', 'Campaign tabs')} style={{ marginBottom: 16 }}>
         {[
           { id: 'overview',  label: t(lang, 'Visão geral', 'Overview') },
-          ...(isDM ? [{ id: 'combat',   label: t(lang, '⚔ Combate', '⚔ Combat') }] : []),
-          { id: 'rolls',     label: t(lang, '🎲 Rolagens', '🎲 Rolls') },
+          ...(isDM ? [{ id: 'combat',   label: t(lang, 'Combate', 'Combat') }] : []),
+          { id: 'rolls',     label: t(lang, 'Rolagens', 'Rolls') },
           { id: 'members',   label: t(lang, 'Membros', 'Members') },
           { id: 'approvals', label: t(lang, 'Aprovações', 'Approvals'), badge: approvals.filter(a => a.status === 'pending').length },
+          ...(isDM ? [{ id: 'items',  label: t(lang, 'Itens', 'Items') }] : []),
           ...(isDM ? [{ id: 'dice',   label: t(lang, 'Dados', 'Dice') }] : []),
           ...(isDM ? [{ id: 'screen', label: t(lang, 'Telão', 'TV screen') }] : []),
         ].map(it => (
@@ -118,6 +121,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
         {tab === 'rolls' && <RollRequestPanel campaign={campaign} lang={lang} isDM={isDM} onChange={load} />}
         {tab === 'members' && <MembersTab campaign={campaign} lang={lang} isDM={isDM} characters={characters} onChange={load} />}
         {tab === 'approvals' && <ApprovalsTab approvals={approvals} lang={lang} isDM={isDM} onChange={load} />}
+        {tab === 'items' && isDM && <CampaignItemsTab campaign={campaign} lang={lang} />}
         {tab === 'dice' && isDM && <DiceTab campaign={campaign} rigs={rigs} lang={lang} onChange={load} />}
         {tab === 'screen' && isDM && <ScreenTab campaign={campaign} lang={lang} onChange={load} />}
       </div>
@@ -155,7 +159,7 @@ function OverviewTab({ campaign, lang, isDM, onChange }) {
         </div>
       )}
       <div className="info-box">
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <div className="info-box-head">
           <h3>{t(lang, 'Estado da campanha', 'Campaign state')}</h3>
           {isDM && !editing && (
             <button className="btn btn-ghost btn-sm" onClick={() => setEditing(true)}>{t(lang, 'Editar', 'Edit')}</button>
@@ -181,15 +185,22 @@ function OverviewTab({ campaign, lang, isDM, onChange }) {
             </div>
           </div>
         ) : (
-          <>
-            <p><strong>{t(lang, 'Sessão atual', 'Current session')}:</strong> {campaign.state?.session || '—'}</p>
-            <p><strong>{t(lang, 'Cena', 'Scene')}:</strong> {campaign.state?.scene || '—'}</p>
-            <p><strong>{t(lang, 'Clima', 'Weather')}:</strong> {campaign.state?.weather || '—'}</p>
-          </>
+          <div className="state-tiles">
+            {[
+              [t(lang, 'Sessão', 'Session'), campaign.state?.session],
+              [t(lang, 'Cena', 'Scene'), campaign.state?.scene],
+              [t(lang, 'Clima', 'Weather'), campaign.state?.weather],
+            ].map(([k, v]) => (
+              <div key={k} className="state-tile">
+                <span className="eyebrow">{k}</span>
+                <span className={v ? '' : 'muted'}>{v || '—'}</span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
       {isDM && (
-        <div className="info-box" style={{ background: 'rgba(92, 186, 92, 0.08)' }}>
+        <div className="info-box" style={{ background: 'rgba(156, 192, 101, 0.08)' }}>
           <h3 style={{ marginTop: 0 }}>{t(lang, 'Descanso da campanha', 'Campaign rest')}</h3>
           <p className="muted small" style={{ marginTop: 0 }}>
             {t(lang, 'Aplica descanso longo em todos os PCs: restaura slots, HP, Wild Shape, hit dice.', 'Applies long rest to all PCs: restores slots, HP, Wild Shape uses, hit dice.')}
@@ -209,7 +220,18 @@ function OverviewTab({ campaign, lang, isDM, onChange }) {
       {isDM && <InitiativeManager campaign={campaign} lang={lang} onChange={onChange} />}
       <CampaignDiceRoller campaign={campaign} lang={lang} />
       <div className="info-box">
-        <h3>{t(lang, 'Membros', 'Members')}: {campaign.members?.length || 0}</h3>
+        <h3>{t(lang, 'Membros', 'Members')} <span className="muted" style={{ fontSize: '0.8em' }}>{campaign.members?.length || 0}</span></h3>
+        <div className="member-mini-list">
+          {(campaign.members || []).map(m => (
+            <div key={m.id} className="member-mini">
+              <span className="member-mini-avatar">{(m.character?.name || m.user?.displayName || '?').charAt(0).toUpperCase()}</span>
+              <span className="member-mini-text">
+                <strong>{m.character?.name || m.user?.displayName}</strong>
+                <span className="muted text-xs">{m.character ? m.user?.displayName : (m.role === 'dm' ? t(lang, 'Mestre', 'DM') : t(lang, 'sem personagem', 'no character'))}</span>
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -322,7 +344,7 @@ function InitiativeManager({ campaign, lang, onChange }) {
             <button className="btn btn-primary btn-sm" onClick={advanceTurn} disabled={busy}>
               {t(lang, 'Próximo turno', 'Next turn')} →
             </button>
-            <button className="btn btn-ghost btn-sm" style={{ color: '#ff9999' }} onClick={clearCombat} disabled={busy}>
+            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} onClick={clearCombat} disabled={busy}>
               {t(lang, 'Limpar', 'Clear')}
             </button>
           </div>
@@ -424,6 +446,7 @@ function MembersTab({ campaign, lang, isDM, characters, onChange }) {
               {m.character ? (
                 <div>
                   <strong>{m.character.name}</strong>
+                  {m.character.summary?.cheatMode && <span className="tag" style={{ marginLeft: 6, background: 'var(--blood-deep)', color: 'var(--ink-primary)' }} title={t(lang, 'Modo trapaça ativo nesta ficha', 'Cheat mode active on this sheet')}>🎲 {t(lang, 'Trapaça', 'Cheat')}</span>}
                   {m.character.summary && (
                     <span style={{ color: 'var(--ink-secondary)', fontSize: '0.9em' }}>
                       {' '}— {m.character.summary.race} {m.character.summary.className} {m.character.summary.level}
@@ -500,6 +523,7 @@ function MembersTab({ campaign, lang, isDM, characters, onChange }) {
       )}
       {givingTo && (
         <GiveItemModal
+          campaign={campaign}
           character={givingTo}
           lang={lang}
           onClose={() => setGivingTo(null)}
@@ -530,12 +554,12 @@ function MemberActions({ m, isDM, lang, onChangeChar, onEditChar, onGiveItem, on
         </button>
       )}
       {isDM && m.character?.data?.wildShape?.active && (
-        <button className="btn btn-ghost btn-sm" style={{ color: '#79d479' }} onClick={stop(onEndForm)}>
+        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--moss-bright)' }} onClick={stop(onEndForm)}>
           🐾 {t(lang, 'Sair forma', 'End form')}
         </button>
       )}
       {isDM && m.role !== 'dm' && (
-        <button className="btn btn-ghost btn-sm" style={{ color: '#ff9999' }} onClick={stop(onRemove)}>{t(lang, 'Remover', 'Remove')}</button>
+        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} onClick={stop(onRemove)}>{t(lang, 'Remover', 'Remove')}</button>
       )}
     </>
   );
@@ -553,6 +577,7 @@ function MemberDetailPanel({ m, isDM, lang, characters, assigning, onChangeChar,
         <>
           <div style={{ fontSize: '1.05em' }}>
             <strong>{c.name}</strong>
+            {c.summary?.cheatMode && <span className="tag" style={{ marginLeft: 6, background: 'var(--blood-deep)', color: 'var(--ink-primary)' }} title={t(lang, 'Modo trapaça ativo nesta ficha', 'Cheat mode active on this sheet')}>🎲 {t(lang, 'Trapaça', 'Cheat')}</span>}
             {c.summary && (
               <span style={{ color: 'var(--ink-secondary)' }}>
                 {' '}— {c.summary.race} {c.summary.className}{c.summary.subclass ? ` (${c.summary.subclass})` : ''} {c.summary.level}
@@ -625,7 +650,7 @@ function ApprovalsTab({ approvals, lang, isDM, onChange }) {
               <button className="btn btn-primary btn-sm" onClick={() => review(a.id, 'approved')}>
                 {a.type === 'levelup' ? t(lang, '✨ Liberar evolução', '✨ Unlock evolution') : t(lang, 'Aprovar e aplicar', 'Approve & apply')}
               </button>
-              <button className="btn btn-ghost btn-sm" style={{ color: '#ff9999' }} onClick={() => review(a.id, 'rejected')}>{t(lang, 'Rejeitar', 'Reject')}</button>
+              <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} onClick={() => review(a.id, 'rejected')}>{t(lang, 'Rejeitar', 'Reject')}</button>
             </div>
           )}
         </div>
@@ -817,7 +842,7 @@ function DiceTab({ campaign, rigs, lang, onChange }) {
                   ➕ {t(lang, 'Enfileirar', 'Queue')}
                 </button>
                 {playerRigs.length > 0 && (
-                  <button className="btn btn-ghost btn-sm" style={{ color: '#ff9999' }} onClick={() => clearAllForPlayer(uid)}>
+                  <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} onClick={() => clearAllForPlayer(uid)}>
                     {t(lang, 'Limpar tudo', 'Clear all')}
                   </button>
                 )}
@@ -1002,8 +1027,8 @@ function CampaignDiceRoller({ campaign, lang }) {
           'This roll goes through the server — the DM may have pre-set values.'
         )}
       </p>
-      <div className="row gap-2" style={{ alignItems: 'center' }}>
-        <select className="input" value={diceType} onChange={e => setDiceType(e.target.value)}>
+      <div className="dice-roll-form">
+        <select className="input" value={diceType} onChange={e => setDiceType(e.target.value)} aria-label={t(lang, 'Dado', 'Die')}>
           {['d4','d6','d8','d10','d12','d20','d100'].map(d => <option key={d} value={d}>{d}</option>)}
         </select>
         <input
@@ -1013,14 +1038,13 @@ function CampaignDiceRoller({ campaign, lang }) {
           max={20}
           value={count}
           onChange={e => setCount(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
-          style={{ width: 64 }}
+          aria-label={t(lang, 'Quantidade', 'Count')}
         />
         <input
           className="input"
           placeholder={t(lang, 'rótulo (ex: percepção)', 'label (e.g. perception)')}
           value={label}
           onChange={e => setLabel(e.target.value)}
-          style={{ flex: 1 }}
         />
         <button className="btn btn-primary" onClick={roll} disabled={busy}>
           {busy ? '…' : t(lang, 'Rolar', 'Roll')}

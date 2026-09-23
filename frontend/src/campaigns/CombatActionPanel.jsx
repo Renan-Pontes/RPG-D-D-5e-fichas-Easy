@@ -143,7 +143,7 @@ const ResultDisplay = ({ result, lang, onClose }) => {
         </div>
         <div className="mt-2">
           {lang === 'pt' ? 'Resistência' : 'Save'}: {per.save?.total} vs CD {per.save?.dc} —{' '}
-          <strong style={{ color: ok ? 'var(--moss-bright)' : '#ff9999' }}>
+          <strong style={{ color: ok ? 'var(--moss-bright)' : 'var(--blood-bright)' }}>
             {ok ? (lang === 'pt' ? 'PASSOU' : 'PASSED') : (lang === 'pt' ? 'FALHOU' : 'FAILED')}
           </strong>
         </div>
@@ -166,7 +166,7 @@ const ResultDisplay = ({ result, lang, onClose }) => {
       <div className="mt-2">
         d20 {result.attack_roll?.value}{result.attack_total - result.attack_roll?.value >= 0 ? '+' : ''}
         {result.attack_total - result.attack_roll?.value} = <strong>{result.attack_total}</strong> vs CA {result.target_ac} —{' '}
-        <strong style={{ color: hit ? 'var(--moss-bright)' : '#ff9999' }}>
+        <strong style={{ color: hit ? 'var(--moss-bright)' : 'var(--blood-bright)' }}>
           {result.crit ? (lang === 'pt' ? 'CRÍTICO!' : 'CRITICAL!') : hit ? (lang === 'pt' ? 'ACERTO' : 'HIT') : result.natural_one ? (lang === 'pt' ? 'NATURAL 1' : 'NAT 1') : (lang === 'pt' ? 'ERROU' : 'MISS')}
         </strong>
       </div>
@@ -186,7 +186,7 @@ const ResultDisplay = ({ result, lang, onClose }) => {
           </div>
           <div className="mt-1">
             d20 {fallout.second_attack.attack_roll?.value} = <strong>{fallout.second_attack.attack_total}</strong> vs CA {fallout.second_attack.target_ac} —{' '}
-            <strong style={{ color: fallout.second_attack.hit ? 'var(--moss-bright)' : '#ff9999' }}>
+            <strong style={{ color: fallout.second_attack.hit ? 'var(--moss-bright)' : 'var(--blood-bright)' }}>
               {fallout.second_attack.hit ? (lang === 'pt' ? 'ACERTOU O ALIADO' : 'HIT ALLY') : (lang === 'pt' ? 'errou de novo' : 'missed again')}
             </strong>
           </div>
@@ -317,7 +317,7 @@ const CombatActionPanel = ({ char, lang, onUpdate }) => {
           </button>
         ))}
       </div>
-      {error && <div className="mt-2" style={{ color: '#ff9999', fontSize: '0.85em' }}>{error}</div>}
+      {error && <div className="mt-2" style={{ color: 'var(--blood-bright)', fontSize: '0.85em' }}>{error}</div>}
       {picker && (
         <TargetPickerModal
           onClose={() => { setPicker(null); setResult(null); }}

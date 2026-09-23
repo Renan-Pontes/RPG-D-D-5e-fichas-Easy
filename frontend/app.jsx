@@ -17,7 +17,8 @@ import { api } from './src/api/client.js';
 import CampaignList from './src/campaigns/CampaignList.jsx';
 import CampaignDetail from './src/campaigns/CampaignDetail.jsx';
 import ProgressionPanel from './src/progression/ProgressionPanel.jsx';
-import { applyAutosToCharacter } from './src/progression/engine.js';
+import { applyAutosToCharacter, applyLevelUpChoices, applyLevelChoice, revertLastLevel } from './src/progression/engine.js';
+import LevelUpModal from './src/progression/LevelUpModal.jsx';
 
 const SCREENS = {
   HOME: 'home', CREATE: 'create', SHEET: 'sheet', EDIT: 'edit', PRINT: 'print',
@@ -169,24 +170,47 @@ const App = () => {
   // Null quando não há, ou {id, campaignId, toLevel} quando o jogador pode consumir.
   const [unlockedLevelup, setUnlockedLevelup] = useState(null);
 
-  // Aplica level-up local diretamente — standalone (sem campanha) ou após consume remoto.
-  const applyLocalLevelUp = useCallback(async (char, toLevel) => {
-    if (toLevel > 20 || toLevel !== (char.level || 1) + 1) return;
-    const hpGain = Utils.maxHpDefault({ ...char, level: toLevel }) - Utils.maxHpDefault(char);
-    const maxHp = (char.maxHp || Utils.maxHpDefault(char)) + hpGain;
-    const next = { ...char, level: toLevel, maxHp, currentHp: Math.min(maxHp, (char.currentHp ?? char.maxHp ?? 0) + hpGain) };
-    const withAutos = applyAutosToCharacter(next);
-    await storage.save(withAutos);
+  // Modal de subida guiada: { mode: 'local' | 'consume' | 'choice', level? }.
+  const [levelUpFlow, setLevelUpFlow] = useState(null);
+
+  // Fora de campanha: aplica as escolhas do modal direto na ficha.
+  const applyLocalLevelUp = useCallback(async (char, choices) => {
+    if (choices.toLevel > 20 || choices.toLevel !== (char.level || 1) + 1) return;
+    await storage.save(applyLevelUpChoices(char, choices));
     await refreshCharacters();
-    setToast(lang === 'pt' ? `Nível ${toLevel}! ✨` : `Level ${toLevel}! ✨`);
+    setToast(lang === 'pt' ? `Nível ${choices.toLevel}! ✨` : `Level ${choices.toLevel}! ✨`);
   }, [storage, refreshCharacters, lang]);
+
+  const handleLevelUpConfirm = async (choices) => {
+    if (!active || !levelUpFlow) return;
+    if (levelUpFlow.mode === 'local') return applyLocalLevelUp(active, choices);
+    if (levelUpFlow.mode === 'consume') {
+      const { hpGain, choice, spellsAdded } = choices;
+      await api.consumeApproval(unlockedLevelup.id, { hpGain, choice, spellsAdded });
+      await refreshCharacters();
+      setUnlockedLevelup(null);
+      setToast(lang === 'pt' ? `Nível ${choices.toLevel}! ✨` : `Level ${choices.toLevel}! ✨`);
+      return;
+    }
+    // 'choice': ASI/talento pendente de um nível já alcançado.
+    if (typeof active.id === 'number') {
+      await api.levelChoice(active.id, { level: levelUpFlow.level, choice: choices.choice });
+    } else {
+      await storage.save(applyLevelChoice(active, levelUpFlow.level, choices.choice));
+    }
+    await refreshCharacters();
+    setToast(lang === 'pt' ? 'Escolha registrada ✨' : 'Choice saved ✨');
+  };
 
   const handleLevelUpRequest = async () => {
     if (!active) return;
 
-    // Standalone (sem login) — aplica direto.
-    if (!auth.user) {
-      await applyLocalLevelUp(active, (active.level || 1) + 1);
+    // Já liberado pelo mestre: vai direto pra subida guiada.
+    if (unlockedLevelup) { setLevelUpFlow({ mode: 'consume' }); return; }
+
+    // Fora de campanha (ou sem login) — sobe direto, com escolhas.
+    if (!auth.user || !active.inCampaign) {
+      setLevelUpFlow({ mode: 'local' });
       return;
     }
 
@@ -199,9 +223,9 @@ const App = () => {
       console.warn('characterCampaigns failed', e);
     }
 
-    // Sem campanha — aplica direto (storage remoto se logado).
+    // Sem campanha — sobe com escolhas (storage remoto se logado).
     if (camps.length === 0) {
-      await applyLocalLevelUp(active, (active.level || 1) + 1);
+      setLevelUpFlow({ mode: 'local' });
       return;
     }
 
@@ -222,18 +246,25 @@ const App = () => {
     }
   };
 
-  const handleConsumeLevelup = async () => {
-    if (!unlockedLevelup) return;
-    try {
-      const res = await api.consumeApproval(unlockedLevelup.id);
-      // Backend retorna o character.data novo. Recarrega lista pra refletir.
-      await refreshCharacters();
-      setUnlockedLevelup(null);
-      const newLevel = res?.character?.data?.level;
-      setToast(lang === 'pt' ? `Nível ${newLevel}! ✨` : `Level ${newLevel}! ✨`);
-    } catch (e) {
-      setToast(e?.data?.error || e?.message || 'Falha ao consumir.');
-    }
+  // Fora de campanha: volta um nível desfazendo o que a subida trouxe.
+  const handleLevelDown = async () => {
+    if (!active || active.inCampaign || (active.level || 1) <= 1) return;
+    const to = active.level - 1;
+    const ok = window.confirm(lang === 'pt'
+      ? `Voltar para o nível ${to}? PV, aumento de atributo/talento e magias ganhos no nível ${active.level} serão desfeitos.`
+      : `Go back to level ${to}? HP, ability increase/feat and spells gained at level ${active.level} will be undone.`);
+    if (!ok) return;
+    let next = revertLastLevel(active);
+    if (next.subclass && to < Utils.subclassLevel(next)) next = { ...next, subclass: '', landType: '' };
+    const slots = Utils.spellSlots(next);
+    if (Array.isArray(next.spellSlotsUsed)) next.spellSlotsUsed = next.spellSlotsUsed.map((u, i) => Math.min(u || 0, slots[i] || 0));
+    await storage.save(applyAutosToCharacter(next));
+    await refreshCharacters();
+    setToast(lang === 'pt' ? `Voltou ao nível ${to}.` : `Back to level ${to}.`);
+  };
+
+  const handleConsumeLevelup = () => {
+    if (unlockedLevelup) setLevelUpFlow({ mode: 'consume' });
   };
 
   // Detecta approval liberada pro personagem ativo (polling leve no boot/troca de ficha).
@@ -328,17 +359,30 @@ const App = () => {
             onExport={() => handleExport(active)}
             onDelete={() => handleDelete(active.id)}
             onBack={() => setScreen(SCREENS.HOME)}
-          />
-          <div className="container">
-            <ProgressionPanel
-              character={active}
+            onLevelUp={handleLevelUpRequest}
+          >
+            <div style={{ marginTop: 'var(--s-6)' }}>
+              <ProgressionPanel
+                character={active}
+                lang={lang}
+                canRequestLevelUp
+                onLevelUpRequest={handleLevelUpRequest}
+                onLevelDown={handleLevelDown}
+                unlockedLevelup={unlockedLevelup}
+                onConsumeLevelup={handleConsumeLevelup}
+                onResolveChoice={(level) => setLevelUpFlow({ mode: 'choice', level })}
+              />
+            </div>
+          </Sheet>
+          {levelUpFlow && (
+            <LevelUpModal
+              char={active}
               lang={lang}
-              canRequestLevelUp
-              onLevelUpRequest={handleLevelUpRequest}
-              unlockedLevelup={unlockedLevelup}
-              onConsumeLevelup={handleConsumeLevelup}
+              onlyChoiceLevel={levelUpFlow.mode === 'choice' ? levelUpFlow.level : null}
+              onConfirm={handleLevelUpConfirm}
+              onClose={() => setLevelUpFlow(null)}
             />
-          </div>
+          )}
         </>
       );
       break;
@@ -401,7 +445,7 @@ const App = () => {
           }
         </div>
       )}
-      <main id="main" className="container" tabIndex={-1}>
+      <main id="main" className={`container ${screen === SCREENS.CAMPAIGN ? 'container-wide' : ''}`} tabIndex={-1}>
         {content}
       </main>
       <DiceRoller lang={lang} />
@@ -425,7 +469,7 @@ function UserChip({ user, open, setOpen, onLogout, lang }) {
     <div style={{ position: 'relative' }}>
       <button className="user-chip" onClick={() => setOpen(!open)}>
         <span className="avatar">{initials}</span>
-        <span>{user.displayName}</span>
+        <span className="user-chip-name">{user.displayName}</span>
       </button>
       {open && (
         <div className="user-chip-menu" onClick={e => e.stopPropagation()}>

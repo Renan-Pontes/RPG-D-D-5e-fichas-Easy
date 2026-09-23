@@ -115,7 +115,7 @@ export default function CombatTab({ campaign, lang, onChange }) {
               ⏸ {t(lang, 'Encerrar', 'End')}
             </button>
           </>}
-          <button className="btn btn-ghost btn-sm" style={{ color: '#ff9999' }} onClick={resetCombat}>
+          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} onClick={resetCombat}>
             {t(lang, 'Resetar', 'Reset')}
           </button>
         </div>
@@ -138,25 +138,32 @@ export default function CombatTab({ campaign, lang, onChange }) {
         </button>
       </div>
 
-      {/* GRID VTT */}
-      <CombatGrid combat={combat} campaignId={campaign.id} lang={lang} onChange={load} selectedId={selected} setSelectedId={setSelected} />
+      <div className="combat-body">
+        {/* GRID VTT */}
+        <CombatGrid combat={combat} campaignId={campaign.id} lang={lang} onChange={load} selectedId={selected} setSelectedId={setSelected} />
 
-      {/* Lista de combatentes */}
-      <div className="combatants-list">
-        {combatants.map((c, i) => (
-          <CombatantCard
-            key={c.id}
-            combatant={c}
-            lang={lang}
-            isCurrentTurn={i === combat.turnIndex && combat.active}
-            isSelected={selected === c.id}
-            onSelect={() => setSelected(c.id === selected ? null : c.id)}
-            onRemove={() => removeCombatant(c.id)}
-            allCombatants={combatants}
-            campaignId={campaign.id}
-            onChange={load}
-          />
-        ))}
+        {/* Lista de combatentes */}
+        <div className="combatants-list">
+          {combatants.length === 0 && (
+            <div className="empty-card">
+              {t(lang, 'Nenhum combatente ainda. Adicione monstros ou PCs para montar a iniciativa.', 'No combatants yet. Add monsters or PCs to build initiative.')}
+            </div>
+          )}
+          {combatants.map((c, i) => (
+            <CombatantCard
+              key={c.id}
+              combatant={c}
+              lang={lang}
+              isCurrentTurn={i === combat.turnIndex && combat.active}
+              isSelected={selected === c.id}
+              onSelect={() => setSelected(c.id === selected ? null : c.id)}
+              onRemove={() => removeCombatant(c.id)}
+              allCombatants={combatants}
+              campaignId={campaign.id}
+              onChange={load}
+            />
+          ))}
+        </div>
       </div>
 
       {showPicker && <MonsterPicker lang={lang} onPick={addMonster} onClose={() => setShowPicker(false)} />}
@@ -328,10 +335,10 @@ function DamageHealForm({ lang, onDamage, onHeal }) {
       <select className="input" value={type} onChange={e => setType(e.target.value)}>
         {['bludgeoning','piercing','slashing','fire','cold','lightning','thunder','acid','poison','necrotic','radiant','psychic','force'].map(t => <option key={t}>{t}</option>)}
       </select>
-      <button className="btn btn-ghost btn-sm" style={{ color: '#ff9999' }} onClick={() => onDamage(amount, type)} disabled={!amount}>
+      <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} onClick={() => onDamage(amount, type)} disabled={!amount}>
         − {t(lang, 'Dano', 'Damage')}
       </button>
-      <button className="btn btn-ghost btn-sm" style={{ color: '#80d080' }} onClick={() => onHeal(amount)} disabled={!amount}>
+      <button className="btn btn-ghost btn-sm" style={{ color: 'var(--moss-bright)' }} onClick={() => onHeal(amount)} disabled={!amount}>
         + {t(lang, 'Cura', 'Heal')}
       </button>
     </div>

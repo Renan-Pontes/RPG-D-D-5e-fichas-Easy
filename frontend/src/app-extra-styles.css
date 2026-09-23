@@ -52,29 +52,7 @@
   border-radius: 8px;
 }
 
-/* Campaign detail */
-.tabs {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--border);
-}
-
-.tab {
-  background: none;
-  border: none;
-  color: var(--ink-secondary);
-  padding: 10px 16px;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  font: inherit;
-  font-weight: 500;
-}
-
-.tab.active {
-  color: var(--gold);
-  border-bottom-color: var(--gold);
-}
-
+/* Campaign detail — abas usam o estilo base de styles.css */
 .tab .badge {
   background: var(--gold);
   color: var(--bg);
@@ -179,9 +157,9 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.pill-approved { background: rgba(60,140,60,0.2); color: #80d080; border: 1px solid #3c8c3c; }
-.pill-rejected { background: rgba(180,50,50,0.2); color: #ff9999; border: 1px solid #b43232; }
-.pill-pending  { background: rgba(212,168,77,0.2); color: var(--gold); border: 1px solid var(--gold); }
+.pill-approved { background: rgba(156, 192, 101, 0.2); color: var(--moss-bright); border: 1px solid var(--moss); }
+.pill-rejected { background: rgba(224, 96, 79, 0.2); color: var(--blood-bright); border: 1px solid var(--blood); }
+.pill-pending  { background: rgba(214, 176, 100, 0.2); color: var(--gold); border: 1px solid var(--gold); }
 
 /* === Dice rig (UX detalhada) === */
 .rig-card {
@@ -288,27 +266,12 @@
   letter-spacing: 1px;
 }
 
-.btn-icon {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--ink-primary);
-  width: 26px;
-  height: 26px;
-  border-radius: 4px;
-  font: inherit;
-  font-size: 0.9rem;
-  cursor: pointer;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
 .btn-icon:hover:not(:disabled) {
   border-color: var(--gold);
   color: var(--gold);
 }
 .btn-icon:disabled { opacity: 0.35; cursor: not-allowed; }
-.btn-icon.danger:hover { border-color: #d44d4d; color: #ff9999; }
+.btn-icon.danger:hover { border-color: var(--blood-bright); color: var(--blood-bright); }
 
 .quick-inject {
   display: flex;
@@ -380,7 +343,7 @@
 }
 
 .prog-section.pending {
-  background: rgba(212,168,77,0.08);
+  background: rgba(214, 176, 100, 0.08);
   border-radius: 4px;
   padding: 8px 12px;
 }
@@ -412,7 +375,7 @@
 
 /* Banner "Evolução liberada — Subir nível ✨" */
 .prog-section.unlocked-banner {
-  background: linear-gradient(135deg, rgba(212,168,77,0.18), rgba(212,168,77,0.08));
+  background: linear-gradient(135deg, rgba(214, 176, 100, 0.18), rgba(214, 176, 100, 0.08));
   border: 1px solid var(--gold);
   border-radius: 8px;
   padding: 14px 16px;
@@ -434,14 +397,14 @@
   padding: 10px 18px;
 }
 @keyframes unlock-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(212,168,77,0.4); }
-  50%      { box-shadow: 0 0 0 6px rgba(212,168,77,0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(214, 176, 100, 0.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(214, 176, 100, 0); }
 }
 
 /* Card de approval no histórico do mestre */
 .approval-card.unlocked {
   border-left: 3px solid var(--gold);
-  background: rgba(212,168,77,0.05);
+  background: rgba(214, 176, 100, 0.05);
 }
 
 /* Override discreto no DM editor (fora do fluxo normal) */
@@ -450,7 +413,7 @@
   padding: 8px 12px;
   border: 1px dashed var(--border);
   border-radius: 4px;
-  background: rgba(180, 80, 80, 0.05);
+  background: rgba(224, 96, 79, 0.05);
 }
 .dm-override-section summary {
   cursor: pointer;
@@ -526,7 +489,7 @@
   border-bottom: 2px solid transparent;
   white-space: nowrap;
 }
-.dm-editor-tab.active { color: var(--gold, #d4a84d); border-bottom-color: var(--gold, #d4a84d); }
+.dm-editor-tab.active { color: var(--gold, var(--gold)); border-bottom-color: var(--gold, var(--gold)); }
 
 .dm-editor-body {
   flex: 1;
@@ -551,7 +514,7 @@
 }
 .dm-editor-section h4 {
   margin: 0 0 8px 0;
-  color: var(--gold, #d4a84d);
+  color: var(--gold, var(--gold));
   font-family: 'Cinzel', serif;
   font-size: 0.95rem;
   letter-spacing: 1px;
@@ -619,9 +582,9 @@
   cursor: pointer;
 }
 .dm-cond-chip.on {
-  background: rgba(212, 168, 77, 0.2);
-  border-color: var(--gold, #d4a84d);
-  color: var(--gold, #d4a84d);
+  background: rgba(214, 176, 100, 0.2);
+  border-color: var(--gold, var(--gold));
+  color: var(--gold, var(--gold));
 }
 
 .dm-slots-table {
@@ -648,13 +611,13 @@
   text-align: center;
   font-family: 'JetBrains Mono', monospace;
   font-weight: 600;
-  color: var(--gold, #d4a84d);
+  color: var(--gold, var(--gold));
 }
 .dm-slots-avail {
   font-family: 'JetBrains Mono', monospace;
   text-align: center;
 }
-.dm-slots-avail.zero { color: #ff9999; }
+.dm-slots-avail.zero { color: var(--blood-bright); }
 
 @media (max-width: 600px) {
   .dm-num-field, .dm-text-field { grid-template-columns: 1fr; gap: 4px; }
@@ -682,7 +645,7 @@
   filter: saturate(0.5);
 }
 .inv-row-v2.equipped {
-  border-left: 3px solid var(--gold, #d4a84d);
+  border-left: 3px solid var(--gold, var(--gold));
 }
 
 .inv-row-head {
@@ -715,17 +678,17 @@
   text-transform: uppercase;
 }
 .inv-tag.broken-tag {
-  background: rgba(180, 50, 50, 0.25);
-  color: #ff9999;
-  border: 1px solid #b43232;
+  background: rgba(224, 96, 79, 0.25);
+  color: var(--blood-bright);
+  border: 1px solid var(--blood);
 }
 .inv-tag.equip-tag {
-  background: rgba(212, 168, 77, 0.2);
-  color: var(--gold, #d4a84d);
-  border: 1px solid var(--gold-deep, #9c7a2a);
+  background: rgba(214, 176, 100, 0.2);
+  color: var(--gold, var(--gold));
+  border: 1px solid var(--gold-deep, var(--gold-deep));
 }
 .inv-tag.attune-tag {
-  background: rgba(120, 60, 200, 0.18);
+  background: rgba(159, 176, 240, 0.18);
   color: #c599ff;
   border: 1px solid #6b3eb5;
 }
@@ -738,7 +701,7 @@
 
 /* === Offline banner (backend não conectado) === */
 .offline-banner {
-  background: rgba(180, 100, 50, 0.18);
+  background: rgba(227, 164, 69, 0.18);
   border-bottom: 2px solid #b46432;
   color: #ffd4b3;
   padding: 8px 16px;
@@ -752,7 +715,7 @@
   border-radius: 3px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.85em;
-  color: var(--gold, #d4a84d);
+  color: var(--gold, var(--gold));
 }
 
 /* === Campaign mode banner === */
@@ -772,9 +735,9 @@
   color: var(--ink-secondary);
 }
 .campaign-mode-banner.in-campaign {
-  background: linear-gradient(90deg, rgba(212, 168, 77, 0.12), transparent);
-  border: 1px solid var(--gold-deep, #9c7a2a);
-  border-left: 4px solid var(--gold, #d4a84d);
+  background: linear-gradient(90deg, rgba(214, 176, 100, 0.12), transparent);
+  border: 1px solid var(--gold-deep, var(--gold-deep));
+  border-left: 4px solid var(--gold, var(--gold));
   color: var(--ink-primary);
 }
 .cmb-icon { font-size: 1.2em; }
@@ -784,7 +747,7 @@
   font-size: 0.85em;
   letter-spacing: 1px;
 }
-.campaign-mode-banner.in-campaign .cmb-label { color: var(--gold, #d4a84d); }
+.campaign-mode-banner.in-campaign .cmb-label { color: var(--gold, var(--gold)); }
 .cmb-name { font-family: 'EB Garamond', serif; font-style: italic; }
 
 /* === Wild Shape banner === */
@@ -795,21 +758,21 @@
   gap: 14px;
   margin: 12px 0;
   padding: 12px 18px;
-  background: linear-gradient(90deg, rgba(100, 180, 100, 0.18), rgba(212, 168, 77, 0.10));
-  border: 1px solid #5cba5c;
-  border-left: 4px solid #5cba5c;
+  background: linear-gradient(90deg, rgba(156, 192, 101, 0.18), rgba(214, 176, 100, 0.10));
+  border: 1px solid var(--moss-bright);
+  border-left: 4px solid var(--moss-bright);
   border-radius: 8px;
   animation: ws-glow 2.5s ease-in-out infinite;
 }
 @keyframes ws-glow {
-  0%, 100% { box-shadow: 0 0 8px rgba(92, 186, 92, 0.2); }
-  50%      { box-shadow: 0 0 20px rgba(92, 186, 92, 0.5); }
+  0%, 100% { box-shadow: 0 0 8px rgba(156, 192, 101, 0.2); }
+  50%      { box-shadow: 0 0 20px rgba(156, 192, 101, 0.5); }
 }
 .wsb-icon { font-size: 2rem; }
 .wsb-info { flex: 1; }
 .wsb-title {
   font-family: 'Cinzel', serif;
-  color: #79d479;
+  color: var(--moss-bright);
   font-size: 1.05rem;
 }
 .wsb-hp {
@@ -822,14 +785,14 @@
   flex: 1;
   max-width: 240px;
   height: 14px;
-  background: #2a1c14;
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 4px;
   overflow: hidden;
 }
 .wsb-hp-fill {
   height: 100%;
-  background: linear-gradient(90deg, #5cba5c, #79d479);
+  background: linear-gradient(90deg, var(--moss-bright), var(--moss-bright));
   transition: width 400ms ease;
 }
 .wsb-hp-text {
@@ -869,7 +832,7 @@
 
 .initiative-entry.current {
   border-left-color: var(--gold);
-  background: rgba(212, 168, 77, 0.08);
+  background: rgba(214, 176, 100, 0.08);
 }
 
 .initiative-entry.type-pc { border-left-style: solid; }
@@ -908,7 +871,7 @@
 
 /* === Acessibilidade — foco visível e skip link === */
 :focus-visible {
-  outline: 2px solid var(--gold, #d4a84d);
+  outline: 2px solid var(--gold, var(--gold));
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -917,7 +880,7 @@
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid var(--gold, #d4a84d);
+  outline: 2px solid var(--gold, var(--gold));
   outline-offset: -1px;
 }
 
@@ -926,8 +889,8 @@ textarea:focus-visible {
   position: absolute;
   top: -100px;
   left: 12px;
-  background: var(--gold, #d4a84d);
-  color: var(--bg, #0c0805);
+  background: var(--gold, var(--gold));
+  color: var(--bg, var(--bg-deep));
   padding: 8px 16px;
   border-radius: 4px;
   font-weight: 600;
@@ -936,7 +899,7 @@ textarea:focus-visible {
 }
 .skip-link:focus-visible {
   top: 12px;
-  outline: 2px solid var(--ink-primary, #f4ecd8);
+  outline: 2px solid var(--ink-primary, var(--ink-primary));
 }
 
 /* Reduzir animação para usuários que pedem */

@@ -51,16 +51,7 @@
     padding: 8px 14px;
     font-size: 0.85rem;
   }
-  .action-bar {
-    /* permite rolagem horizontal se passar da largura, sem quebrar layout */
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    margin: 0 calc(-1 * var(--s-4, 16px));
-    padding: 4px var(--s-4, 16px);
-  }
-  .action-bar::-webkit-scrollbar { height: 4px; }
+  .action-bar { flex-wrap: wrap; }
 
   /* Pip de slot de magia: 22px é pequeno demais pra polegar */
   .slot-pip {
@@ -160,7 +151,7 @@
     position: sticky;
     top: 0;
     z-index: 5;
-    background: var(--bg, #0c0805);
+    background: var(--bg, var(--bg-deep));
     border-bottom: 1px solid var(--border);
   }
 }
@@ -255,7 +246,7 @@
 /* === 13. Tabs scrolláveis no header de campanha + indicação visual === */
 @media (max-width: 720px) {
   .tabs::-webkit-scrollbar { height: 3px; }
-  .tabs::-webkit-scrollbar-thumb { background: var(--gold-deep, #9c7a2a); border-radius: 2px; }
+  .tabs::-webkit-scrollbar-thumb { background: var(--gold-deep, var(--gold-deep)); border-radius: 2px; }
   .tab { min-height: 44px; }
 }
 

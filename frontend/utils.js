@@ -152,11 +152,87 @@ function saveBonus(char, key) {
   return m + p;
 }
 
+// === Languages ===
+// Ids em inglês (formato já salvo nas fichas); rótulos pt/en para exibição.
+const LANGUAGES = [
+  { id: 'Common', pt: 'Comum', rare: false },
+  { id: 'Common Sign Language', pt: 'Língua de Sinais Comum', rare: false },
+  { id: 'Draconic', pt: 'Dracônico', rare: false },
+  { id: 'Dwarvish', pt: 'Anão', rare: false },
+  { id: 'Elvish', pt: 'Élfico', rare: false },
+  { id: 'Giant', pt: 'Gigante', rare: false },
+  { id: 'Gnomish', pt: 'Gnômico', rare: false },
+  { id: 'Goblin', pt: 'Goblin', rare: false },
+  { id: 'Halfling', pt: 'Halfling', rare: false },
+  { id: 'Orc', pt: 'Orc', rare: false },
+  { id: 'Abyssal', pt: 'Abissal', rare: true },
+  { id: 'Celestial', pt: 'Celestial', rare: true },
+  { id: 'Deep Speech', pt: 'Dialeto Subterrâneo', rare: true },
+  { id: 'Infernal', pt: 'Infernal', rare: true },
+  { id: 'Primordial', pt: 'Primordial', rare: true },
+  { id: 'Sylvan', pt: 'Silvestre', rare: true },
+  { id: 'Undercommon', pt: 'Subcomum', rare: true },
+  { id: 'Druidic', pt: 'Druídico', rare: true, secret: true },
+  { id: "Thieves' Cant", pt: 'Gíria de Ladrão', rare: true, secret: true },
+];
+
+// Idiomas secretos que a classe concede no nível 1.
+const CLASS_LANGUAGES = { druid: ['Druidic'], rogue: ["Thieves' Cant"] };
+
+const CHOICE_RE = /^\+(\d+)/;
+
+function languageLabel(id, lang) {
+  if (lang !== 'pt') return id;
+  return LANGUAGES.find(l => l.id === id)?.pt || id;
+}
+
+// Idiomas fixos (espécie + classe), sem os marcadores "+N of choice".
+function fixedLanguages(char) {
+  const race = racesFor(char).find(r => r.id === char.race);
+  const fromRace = (race?.languages || []).filter(l => !CHOICE_RE.test(l));
+  return [...new Set([...(fromRace.length ? fromRace : ['Common']), ...(CLASS_LANGUAGES[char.className] || [])])];
+}
+
+// De onde vêm os idiomas à escolha: [{ source: 'race'|'background'|'origin', n }].
+function languageChoiceSources(char) {
+  const race = racesFor(char).find(r => r.id === char.race);
+  const fromRace = (race?.languages || []).reduce((n, l) => n + (+(CHOICE_RE.exec(l)?.[1]) || 0), 0);
+  // Regras de 2024: todo personagem sabe Comum + 2 idiomas à escolha (a origem substitui a espécie).
+  if (char.rulesVersion === '2024') return [{ source: 'origin', n: Math.max(2, fromRace) }];
+  const bg = SRD.BACKGROUNDS.find(b => b.id === char.background);
+  return [
+    { source: 'race', n: fromRace },
+    { source: 'background', n: +(bg?.languages) || 0 },
+  ].filter(x => x.n > 0);
+}
+
+// Quantos idiomas o jogador escolhe livremente.
+function languageChoiceCount(char) {
+  return languageChoiceSources(char).reduce((n, x) => n + x.n, 0);
+}
+
+// Lista final exibida na ficha: fixos + escolhidos (tolerante a fichas antigas).
+function languagesFor(char) {
+  const chosen = (char.languages || []).filter(l => !CHOICE_RE.test(l));
+  return [...new Set([...fixedLanguages(char), ...chosen])];
+}
+
+// === Skills ===
+function backgroundSkills(char) {
+  const bg = (char.rulesVersion === '2024' ? BACKGROUNDS_2024 : SRD.BACKGROUNDS).find(b => b.id === char.background);
+  return bg?.skills || [];
+}
+
+// Perícias do antecedente sempre contam, mesmo em fichas criadas antes do ajuste.
+function hasSkillProf(char, skillId) {
+  return (char.skillProfs || []).includes(skillId) || backgroundSkills(char).includes(skillId);
+}
+
 function skillBonus(char, skillId) {
   const skill = SRD.SKILLS.find(s => s.id === skillId);
   if (!skill) return 0;
   const m = abilityMod(char, skill.stat);
-  const isProf = (char.skillProfs || []).includes(skillId);
+  const isProf = hasSkillProf(char, skillId);
   const isExpert = (char.skillExpertise || []).includes(skillId);
   if (isExpert) return m + profBonus(char) * 2;
   if (isProf) return m + profBonus(char);
@@ -377,6 +453,8 @@ return {
   spellcastingAbility, spellSaveDc, spellAttackBonus, spellSlots, spellListClass,
   isPreparedCaster, cantripsKnown, preparedSpellsLimit, maxSpellLevel,
   applyRaceBonus,
+  LANGUAGES, CLASS_LANGUAGES, languageLabel, fixedLanguages, languageChoiceCount, languageChoiceSources, languagesFor,
+  backgroundSkills, hasSkillProf,
   encodeChar, decodeChar,
   rollDie, rollDice,
 };

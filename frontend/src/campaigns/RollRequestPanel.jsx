@@ -213,11 +213,11 @@ function PendingDMRow({ r, lang, onResolve, onCancel }) {
           <button className="btn btn-ghost btn-sm" onClick={() => onResolve(r.id, 'private')}>
             🔒 {t(lang, 'Privado', 'Private')}
           </button>
-          <button className="btn btn-ghost btn-sm" style={{ color: '#ff9999' }} onClick={() => onCancel(r.id)}>×</button>
+          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} onClick={() => onCancel(r.id)}>×</button>
         </div>
       </div>
       {show && (
-        <div className="row gap-2" style={{ alignItems: 'center', background: 'rgba(212,168,77,0.08)', padding: '6px 8px', borderRadius: 4 }}>
+        <div className="row gap-2" style={{ alignItems: 'center', background: 'rgba(214, 176, 100, 0.08)', padding: '6px 8px', borderRadius: 4 }}>
           <span className="muted small">{t(lang, 'Valor a exibir', 'Value to show')}:</span>
           <input
             type="number"

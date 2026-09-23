@@ -27,19 +27,17 @@ export default function CampaignList({ lang = 'pt', onOpen, onBack }) {
 
   return (
     <div className="campaign-list">
-      <div className="row" style={{ alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <div>
-          {onBack && <button className="btn btn-ghost btn-sm" onClick={onBack}>← {t(lang, 'Voltar', 'Back')}</button>}
-          <h1 style={{ margin: '8px 0 0 0' }}>{t(lang, 'Campanhas', 'Campaigns')}</h1>
-        </div>
-        <div className="row gap-2">
+      {onBack && <button className="btn btn-ghost btn-sm" onClick={onBack}>← {t(lang, 'Voltar', 'Back')}</button>}
+      <div className="page-head">
+        <h1>{t(lang, 'Campanhas', 'Campaigns')}</h1>
+        <div className="page-head-actions">
           <button className="btn btn-ghost" onClick={() => setShowJoin(true)}>{t(lang, 'Entrar com código', 'Join with code')}</button>
           <button className="btn btn-primary" onClick={() => setShowCreate(true)}>{t(lang, '+ Nova campanha', '+ New campaign')}</button>
         </div>
       </div>
 
       {loading && <p>{t(lang, 'Carregando…', 'Loading…')}</p>}
-      {error && <p style={{ color: '#ff9999' }}>{error}</p>}
+      {error && <p style={{ color: 'var(--blood-bright)' }}>{error}</p>}
 
       {!loading && campaigns.length === 0 && (
         <div className="empty-state">
@@ -57,8 +55,13 @@ export default function CampaignList({ lang = 'pt', onOpen, onBack }) {
               <h3 style={{ margin: 0 }}>{c.name}</h3>
               <span className={`role-pill role-${c.role}`}>{c.role === 'dm' ? t(lang, 'Mestre', 'DM') : t(lang, 'Jogador', 'Player')}</span>
             </div>
-            {c.description && <p style={{ color: 'var(--ink-secondary)', fontSize: '0.9em' }}>{c.description}</p>}
-            <div style={{ fontSize: '0.8em', color: 'var(--ink-secondary)' }}>{c.slug}</div>
+            {c.description && <p className="campaign-card-desc">{c.description}</p>}
+            <div className="campaign-card-meta">
+              {c.state?.session || c.state?.scene
+                ? [c.state?.session && `${t(lang, 'Sessão', 'Session')} ${c.state.session}`, c.state?.scene].filter(Boolean).join(' · ')
+                : t(lang, 'Nenhuma sessão registrada', 'No session logged')}
+              <span className="campaign-card-go">→</span>
+            </div>
           </article>
         ))}
       </div>

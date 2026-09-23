@@ -95,6 +95,7 @@ class MembershipSerializer(serializers.ModelSerializer):
                 'tempHp': d.get('tempHp', 0),
                 'conditions': d.get('conditions', []),
                 'avatar': d.get('avatar', ''),
+                'cheatMode': bool(d.get('cheatMode')),
             },
         }
 

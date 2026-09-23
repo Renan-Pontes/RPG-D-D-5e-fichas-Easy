@@ -3,16 +3,18 @@ import { useState, useEffect, useRef } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { t, tName } from '../data/i18n.js';
+import LanguagePicker, { chosenLanguages } from './LanguagePicker.jsx';
 import Icon from './Icons.jsx';
 import { Filigree, Modal, NumStepper, Pips, AvatarUpload } from './Shared.jsx';
-import { SheetSpells, SheetInventory, SheetStory, SheetNotes } from './SheetTabs.jsx';
+import { SheetSpells, SheetInventory, SheetStory, SheetNotes, RestButtons } from './SheetTabs.jsx';
 import { api, ApiError } from '../src/api/client.js';
 import CombatActionPanel from '../src/campaigns/CombatActionPanel.jsx';
 
-const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDelete, onBack }) => {
+const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
   const [tab, setTab] = useState('play');
   const [hpDelta, setHpDelta] = useState(0);
   const [tempHpInput, setTempHpInput] = useState(false);
+  const [cheatOpen, setCheatOpen] = useState(false);
 
   const update = (patch) => onUpdate({ ...char, ...patch });
   const updateRef = useRef(update);
@@ -100,6 +102,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
         lang={lang}
         onAvatar={(av) => update({ avatar: av })}
         onBack={onBack}
+        onLevelUp={onLevelUp}
         cls={cls} race={race} bg={bg}
       />
 
@@ -126,11 +129,17 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
             🔒 <Icon name="edit" size={14} className="chip-icon"/> {t('edit', lang)}
           </span>
         )}
+        <button className="chip" onClick={() => setCheatOpen(true)}
+          style={char.cheatMode ? { borderColor: 'var(--blood-bright)', color: 'var(--blood-bright)' } : undefined}>
+          🎲 {lang === 'pt' ? (char.cheatMode ? 'Trapaça ativa' : 'Modo trapaça') : (char.cheatMode ? 'Cheat on' : 'Cheat mode')}
+        </button>
         <button className="chip" onClick={() => update({ inspiration: !char.inspiration })}>
           <Icon name={char.inspiration ? 'star-fill' : 'star'} size={14} style={{ color: char.inspiration ? 'var(--gold-bright)' : 'var(--gold)' }}/>
           {t('inspiration', lang)}
         </button>
       </div>
+
+      {cheatOpen && <CheatModeModal char={char} lang={lang} update={update} onClose={() => setCheatOpen(false)} />}
 
       <div className="tabs no-print">
         {[
@@ -178,7 +187,10 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
       {tab === 'notes' && <SheetNotes char={char} lang={lang} update={update} />}
       {tab === 'npcs'  && <SheetNpcs char={char} lang={lang} update={update} />}
 
-      <div style={{ marginTop: 'var(--s-7)', textAlign: 'center' }} className="no-print">
+      {/* Conteúdo extra da ficha (ex.: painel de Progressão) antes da zona de perigo */}
+      {children}
+
+      <div style={{ marginTop: 'var(--s-7)', paddingTop: 'var(--s-5)', borderTop: '1px solid var(--stroke-faint)', textAlign: 'center' }} className="no-print">
         <button className="btn btn-ghost btn-danger btn-sm" onClick={onDelete}>
           <Icon name="trash" size={14}/> {t('delete', lang)}
         </button>
@@ -189,7 +201,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
 
 // ===== Sub-components =====
 
-const SheetHero = ({ char, lang, onAvatar, onBack, cls, race, bg }) => (
+const SheetHero = ({ char, lang, onAvatar, onBack, onLevelUp, cls, race, bg }) => (
   <>
     <button className="btn btn-ghost btn-sm no-print" onClick={onBack} style={{ marginBottom: 12 }}>
       <Icon name="arrow-back" size={14}/> {t('yourHeroes', lang)}
@@ -208,44 +220,33 @@ const SheetHero = ({ char, lang, onAvatar, onBack, cls, race, bg }) => (
           {char.player && <span className="tag">{char.player}</span>}
           {(char.levelingMode || 'xp') === 'xp' && char.xp > 0 && <span className="tag">{char.xp} XP</span>}
           {(char.levelingMode || 'xp') === 'milestone' && <span className="tag">{lang === 'pt' ? 'Marcos' : 'Milestones'}</span>}
+          {char.cheatMode && <span className="tag" style={{ background: 'var(--blood-deep)', color: 'var(--ink-primary)' }}>🎲 {lang === 'pt' ? 'Trapaça' : 'Cheat'}</span>}
         </div>
       </div>
-      <LevelUpButton char={char} lang={lang} />
+      <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
     </div>
   </>
 );
 
-const LevelUpButton = ({ char, lang }) => {
-  const [open, setOpen] = useState(false);
-  const cls = SRD.CLASSES.find(c => c.id === char.className);
+// Mesmo fluxo do painel de Progressão: fora de campanha abre a subida guiada;
+// em campanha pede liberação ao mestre.
+const LevelUpButton = ({ char, lang, onLevelUp }) => {
   const mode = char.levelingMode || 'xp';
   const XP_THRESHOLDS = [0,300,900,2700,6500,14000,23000,34000,48000,64000,85000,100000,120000,140000,165000,195000,225000,265000,305000,355000];
   const canLevelXp = mode === 'xp' && char.level < 20 && (char.xp || 0) >= (XP_THRESHOLDS[char.level] || Infinity);
-  const canLevel = char.level < 20 && (mode === 'milestone' || canLevelXp);
+  const canLevel = char.level < 20 && (mode === 'milestone' || canLevelXp || char.cheatMode);
 
   return (
-    <>
-      <button
-        className="btn btn-sm no-print"
-        onClick={() => setOpen(true)}
-        disabled={char.level >= 20}
-        style={{
-          alignSelf: 'flex-start',
-          background: canLevel ? 'var(--gold)' : 'transparent',
-          color: canLevel ? 'var(--bg-deep)' : 'var(--ink-muted)',
-          borderColor: canLevel ? 'var(--gold-bright)' : 'var(--stroke-faint)',
-          fontFamily: 'var(--display)',
-          letterSpacing: '0.08em',
-        }}
-        title={canLevel ? (lang === 'pt' ? 'Pronto para subir de nível!' : 'Ready to level up!') : ''}
-      >
-        <Icon name="star" size={12}/> {t('level', lang)} {char.level}
-        {canLevel && <span style={{ marginLeft: 6 }}>↑</span>}
-      </button>
-      {open && (
-        <LevelUpModal char={char} cls={cls} lang={lang} canLevel={canLevel} onClose={() => setOpen(false)} />
-      )}
-    </>
+    <button
+      className={`hero-level no-print ${canLevel ? 'can' : ''}`}
+      onClick={() => onLevelUp && onLevelUp()}
+      disabled={!canLevel || !onLevelUp}
+      title={canLevel ? (lang === 'pt' ? 'Subir de nível' : 'Level up') : (lang === 'pt' ? 'XP insuficiente' : 'Not enough XP')}
+    >
+      <span className="hero-level-label">{t('level', lang)}</span>
+      <span className="hero-level-num">{char.level}</span>
+      {canLevel && <span className="hero-level-up">↑</span>}
+    </button>
   );
 };
 
@@ -313,20 +314,17 @@ const SubclassBanner = ({ char, lang, update }) => {
 
   return (
     <>
-      <div className="row no-print" style={{ marginBottom: 12, gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span className="eyebrow" style={{ color: 'var(--gold-deep)' }}>{label[lang]}:</span>
-        <span style={{ fontFamily: 'var(--display)', color: 'var(--gold)' }}>{current.name[lang]}</span>
+      <div className="subclass-strip no-print">
+        <div className="subclass-strip-text">
+          <span className="eyebrow">{label[lang]}</span>
+          <span className="subclass-strip-name">{current.name[lang]}</span>
+        </div>
         {char.subclass === 'land' && char.landType && (
           <span className="tag" style={{ fontSize: '0.75rem' }}>
             {(current.landTypes || []).find(l => l.id === char.landType)?.name[lang] || char.landType}
           </span>
         )}
-        {char.subclass === 'stars' && char.starFormType && (
-          <span className="tag" style={{ fontSize: '0.75rem' }}>
-            {(current.starForms || []).find(f => f.id === char.starFormType)?.name[lang] || char.starFormType}
-          </span>
-        )}
-        <button className="btn btn-sm btn-ghost" onClick={() => setOpen(true)} style={{ marginLeft: 'auto' }}>
+        <button className="btn btn-sm btn-ghost" onClick={() => setOpen(true)} aria-label={lang === 'pt' ? 'Alterar' : 'Change'}>
           <Icon name="edit" size={12}/> {lang === 'pt' ? 'Alterar' : 'Change'}
         </button>
       </div>
@@ -338,17 +336,14 @@ const SubclassBanner = ({ char, lang, update }) => {
 const SubclassModal = ({ char, lang, subs, label, update, onClose }) => {
   const [pendingId, setPendingId] = useState(char.subclass || '');
   const [pendingLand, setPendingLand] = useState(char.landType || '');
-  const [pendingStar, setPendingStar] = useState(char.starFormType || '');
   const selected = subs.find(s => s.id === pendingId);
   const needsLand = selected && selected.id === 'land' && selected.landTypes;
-  const needsStar = selected && selected.id === 'stars' && selected.starForms;
-  const canSave = pendingId && (!needsLand || pendingLand) && (!needsStar || pendingStar);
+  const canSave = pendingId && (!needsLand || pendingLand);
 
   const save = () => {
     update({
       subclass: pendingId,
       landType: needsLand ? pendingLand : '',
-      starFormType: needsStar ? pendingStar : '',
     });
     onClose();
   };
@@ -395,22 +390,6 @@ const SubclassModal = ({ char, lang, subs, label, update, onClose }) => {
         </>
       )}
 
-      {needsStar && (
-        <>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>
-            {lang === 'pt' ? 'Constelação Favorita' : 'Favored Constellation'}
-          </div>
-          <div className="options-list cols-3" style={{ marginBottom: 16 }}>
-            {selected.starForms.map(sf => (
-              <button key={sf.id} className={`option ${pendingStar === sf.id ? 'selected' : ''}`}
-                onClick={() => setPendingStar(sf.id)}>
-                <div className="option-title" style={{ fontSize: '0.9rem' }}>{sf.name[lang]}</div>
-                <div className="option-meta text-xs" style={{ marginTop: 4 }}>{sf.desc[lang]}</div>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
 
       <div className="row" style={{ gap: 8, justifyContent: 'flex-end' }}>
         <button className="btn btn-ghost" onClick={onClose}>
@@ -426,283 +405,75 @@ const SubclassModal = ({ char, lang, subs, label, update, onClose }) => {
 };
 
 // ASI levels: most classes 4,8,12,16,19 — Fighter +6,14, Rogue +10
-const ASI_LEVELS_BY_CLASS = {
-  fighter: [4, 6, 8, 12, 14, 16, 19],
-  rogue:   [4, 8, 10, 12, 16, 19],
-  _default: [4, 8, 12, 16, 19],
-};
-
-const LevelUpModal = ({ char, cls, lang, canLevel, onClose }) => {
-  const newLevel = char.level + 1;
-  const asiLevels = ASI_LEVELS_BY_CLASS[char.className] || ASI_LEVELS_BY_CLASS._default;
-  const isASILevel = asiLevels.includes(newLevel);
-
-  // HP step state
-  const hitDie = cls?.hitDie || 8;
-  const conMod = Utils.abilityMod(char, 'con');
-  const avgHp = Math.ceil((hitDie + 1) / 2) + conMod; // (hitDie/2 + 1) round up + Con
-  const [hpMode, setHpMode] = useState('avg'); // 'avg' | 'roll'
-  const [rolledHp, setRolledHp] = useState(null);
-  const hpGain = Math.max(1, hpMode === 'roll' && rolledHp != null ? rolledHp + conMod : avgHp);
-
-  // ASI state
-  const [asiDelta, setAsiDelta] = useState({ str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 });
-  const asiTotal = Object.values(asiDelta).reduce((s, v) => s + v, 0);
-  const asiOk = !isASILevel || asiTotal === 2;
-  const canBump = (k) => {
-    const current = Utils.abilityWithRace(char, k) + (asiDelta[k] || 0);
-    return current < 20;
-  };
-
-  // Spells step state
-  const isCaster = !!Utils.spellcastingAbility(char);
-  const currentSpellIds = (char.spells || []).map(s => s.id);
-  const available = isCaster
-    ? Utils.spellCatalog(char).filter(s => s.classes.includes(Utils.spellListClass(char)) && !currentSpellIds.includes(s.id))
-    : [];
-  const oldSlots = Utils.spellSlots({ ...char, level: char.level });
-  const newSlots = Utils.spellSlots({ ...char, level: newLevel });
-  const maxNewSlotLevel = newSlots.length;
-  const oldMaxSlot = oldSlots.length;
-  const newSpellSlotUnlocked = maxNewSlotLevel > oldMaxSlot;
-  const [addedSpells, setAddedSpells] = useState([]); // ids
-  const toggleSpell = (id) => {
-    setAddedSpells(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
-
-  // Steps
-  const steps = ['hp'];
-  if (isASILevel) steps.push('asi');
-  if (isCaster) steps.push('spells');
-  steps.push('review');
-  const [step, setStep] = useState(0);
-
-  const rollHp = () => {
-    setRolledHp(Math.floor(Math.random() * hitDie) + 1);
-    if (window.__diceRoll) window.__diceRoll({ die: hitDie, mod: conMod, label: lang === 'pt' ? 'HP de Nível' : 'Level HP' });
-  };
-
-  const finalize = () => {
-    const patch = { level: newLevel };
-    // HP
-    const newMax = char.maxHp + hpGain;
-    patch.maxHp = newMax;
-    patch.currentHp = Math.min(char.currentHp + hpGain, newMax);
-    // ASI
-    if (isASILevel) {
-      patch.abilities = { ...char.abilities };
-      SRD.ABILITIES.forEach(k => {
-        patch.abilities[k] = (patch.abilities[k] || 8) + (asiDelta[k] || 0);
-      });
-    }
-    // Spells
-    if (addedSpells.length > 0) {
-      patch.spells = [...(char.spells || []), ...addedSpells.map(id => ({ id, prepared: true }))];
-    }
-    window.__updateChar && window.__updateChar(patch);
+// ===== Modo trapaça =====
+// Liberado pelo próprio jogador, mas sempre visível (selo na ficha e para o mestre).
+const CheatModeModal = ({ char, lang, update, onClose }) => {
+  const pt = lang === 'pt';
+  const on = !!char.cheatMode;
+  const locked = !!char.inCampaign; // servidor trava nível/PV/atributos em campanha
+  const [draft, setDraft] = useState({ level: char.level || 1, maxHp: char.maxHp || 1, abilities: { ...char.abilities } });
+  const items = pt ? [
+    'Editor livre de nível, PV máximo e atributos (aqui embaixo e no botão Editar).',
+    'Magias de qualquer lista e acima do limite de truques e magias preparadas/conhecidas.',
+    'Forma Selvagem com qualquer fera: sem limite de ND, voo, natação ou usos.',
+    'A ficha ganha o selo 🎲 Trapaça, visível para você e para o mestre.',
+    'Desligar não desfaz o que foi alterado.',
+  ] : [
+    'Free editor for level, max HP and ability scores (below and in Edit).',
+    'Spells from any list, above cantrip and prepared/known limits.',
+    'Wild Shape into any beast: no CR, fly, swim or use limits.',
+    'The sheet gets a 🎲 Cheat badge, visible to you and your DM.',
+    'Turning it off does not undo changes.',
+  ];
+  const save = () => {
+    const lv = Math.max(1, Math.min(20, +draft.level || 1));
+    const hp = Math.max(1, +draft.maxHp || 1);
+    update({ level: lv, maxHp: hp, currentHp: Math.min(char.currentHp ?? hp, hp), abilities: draft.abilities });
     onClose();
   };
-
-  const renderStep = () => {
-    const s = steps[step];
-    if (s === 'hp') return (
-      <>
-        <h3 style={{ marginBottom: 4 }}>{lang === 'pt' ? 'Pontos de Vida' : 'Hit Points'}</h3>
-        <div className="muted" style={{ fontSize: '0.85rem', marginBottom: 12 }}>
-          {lang === 'pt' ? `Ganhe HP usando média ou rolando 1d${hitDie} + Con (${conMod >= 0 ? '+' : ''}${conMod})` : `Gain HP using average or rolling 1d${hitDie} + Con (${conMod >= 0 ? '+' : ''}${conMod})`}
-        </div>
-        <div className="row gap-2" style={{ marginBottom: 12 }}>
-          <button className={`btn ${hpMode === 'avg' ? 'btn-primary' : 'btn-ghost'}`} style={{ flex: 1 }} onClick={() => { setHpMode('avg'); setRolledHp(null); }}>
-            {lang === 'pt' ? 'Média' : 'Average'}: <strong style={{ marginLeft: 6 }}>+{avgHp}</strong>
-          </button>
-          <button className={`btn ${hpMode === 'roll' ? 'btn-primary' : 'btn-ghost'}`} style={{ flex: 1 }} onClick={() => { setHpMode('roll'); if (rolledHp == null) rollHp(); }}>
-            <Icon name="dice" size={12}/> {lang === 'pt' ? 'Rolar' : 'Roll'} {rolledHp != null && hpMode === 'roll' ? `+${Math.max(1, rolledHp + conMod)}` : ''}
-          </button>
-        </div>
-        {hpMode === 'roll' && rolledHp != null && (
-          <button className="btn btn-sm btn-ghost" onClick={rollHp} style={{ width: '100%', marginBottom: 12 }}>
-            <Icon name="dice" size={12}/> {lang === 'pt' ? 'Rolar de novo' : 'Reroll'} ({rolledHp})
-          </button>
-        )}
-        <div className="card" style={{ padding: 12, background: 'var(--bg-elev)' }}>
-          <div className="text-xs muted">{lang === 'pt' ? 'HP Máximo' : 'Max HP'}</div>
-          <div style={{ fontFamily: 'var(--display)', fontSize: '1.4rem', color: 'var(--ink-primary)' }}>
-            {char.maxHp} → <span style={{ color: 'var(--moss-bright)' }}>{char.maxHp + hpGain}</span>
-          </div>
-        </div>
-      </>
-    );
-
-    if (s === 'asi') return (
-      <>
-        <h3 style={{ marginBottom: 4 }}>{lang === 'pt' ? 'Aumento de Atributo' : 'Ability Score Improvement'}</h3>
-        <div className="muted" style={{ fontSize: '0.85rem', marginBottom: 12 }}>
-          {lang === 'pt' ? 'Distribua 2 pontos: +2 num atributo ou +1 em dois. (Atributos ficam até 20)' : 'Distribute 2 points: +2 to one or +1 to two. (Cap at 20)'}
-        </div>
-        <div style={{ marginBottom: 12, padding: 10, background: 'var(--bg-elev)', borderRadius: 8, textAlign: 'center', fontFamily: 'var(--display)', color: asiTotal > 2 ? 'var(--blood-bright)' : 'var(--gold)' }}>
-          {asiTotal} / 2 {lang === 'pt' ? 'pontos' : 'points'}
-        </div>
-        {SRD.ABILITIES.map(k => {
-          const base = Utils.abilityWithRace(char, k);
-          const delta = asiDelta[k] || 0;
-          const newVal = base + delta;
-          return (
-            <div key={k} className="row gap-3" style={{ padding: '8px 0', borderBottom: '1px solid var(--stroke-faint)' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)' }}>{t(k, lang)}</div>
-                <div className="text-xs muted">{base} → <strong style={{ color: delta > 0 ? 'var(--moss-bright)' : delta < 0 ? 'var(--blood-bright)' : 'var(--ink-secondary)' }}>{newVal}</strong></div>
-              </div>
-              <div className="dice-stepper" style={{ width: 120 }}>
-                <button onClick={() => setAsiDelta(d => ({ ...d, [k]: Math.max(-base + 1, (d[k] || 0) - 1) }))}>−</button>
-                <span className="dice-stepper-val">{delta >= 0 ? `+${delta}` : delta}</span>
-                <button
-                  onClick={() => setAsiDelta(d => ({ ...d, [k]: (d[k] || 0) + 1 }))}
-                  disabled={!canBump(k) || asiTotal >= 2}
-                  style={{ opacity: (!canBump(k) || asiTotal >= 2) ? 0.4 : 1 }}
-                >+</button>
-              </div>
-            </div>
-          );
-        })}
-      </>
-    );
-
-    if (s === 'spells') {
-      // Group by level
-      const byLevel = {};
-      available.forEach(sp => {
-        if (sp.level > maxNewSlotLevel) return;
-        if (!byLevel[sp.level]) byLevel[sp.level] = [];
-        byLevel[sp.level].push(sp);
-      });
-      return (
-        <>
-          <h3 style={{ marginBottom: 4 }}>{lang === 'pt' ? 'Novas Magias' : 'New Spells'}</h3>
-          <div className="muted" style={{ fontSize: '0.85rem', marginBottom: 12 }}>
-            {newSpellSlotUnlocked
-              ? (lang === 'pt' ? `Você desbloqueou slots de magia de nível ${maxNewSlotLevel}!` : `You unlocked level ${maxNewSlotLevel} spell slots!`)
-              : (lang === 'pt' ? 'Você pode aprender magias adicionais.' : 'You may learn additional spells.')}
-          </div>
-          <div className="text-xs muted" style={{ marginBottom: 8 }}>
-            {lang === 'pt' ? 'Selecionadas' : 'Selected'}: {addedSpells.length}
-          </div>
-          {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
-            <div key={lvl} style={{ marginBottom: 12 }}>
-              <Filigree>{+lvl === 0 ? t('cantrips', lang) : `${t('spellLevel', lang)} ${lvl}`}</Filigree>
-              {byLevel[lvl].map(sp => {
-                const checked = addedSpells.includes(sp.id);
-                return (
-                  <label key={sp.id} className="option" style={{ padding: 10, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', borderColor: checked ? 'var(--gold)' : 'var(--stroke-faint)' }}>
-                    <input type="checkbox" checked={checked} onChange={() => toggleSpell(sp.id)} style={{ width: 18, height: 18, minHeight: 0 }}/>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)' }}>{tName('spellName', sp.id, lang)}</div>
-                      <div className="text-xs muted">{sp.school}</div>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-          ))}
-          {available.length === 0 && (
-            <div className="muted text-center" style={{ padding: 20 }}>
-              {lang === 'pt' ? 'Nenhuma nova magia disponível.' : 'No new spells available.'}
-            </div>
-          )}
-        </>
-      );
-    }
-
-    if (s === 'review') return (
-      <>
-        <h3 style={{ marginBottom: 4 }}>{lang === 'pt' ? 'Resumo' : 'Summary'}</h3>
-        <div className="muted" style={{ fontSize: '0.85rem', marginBottom: 12 }}>
-          {lang === 'pt' ? `Subindo de Nível ${char.level} para ${newLevel}` : `Leveling from ${char.level} to ${newLevel}`}
-        </div>
-        <div style={{ background: 'var(--bg-elev)', borderRadius: 8, padding: 14, marginBottom: 8 }}>
-          <div className="text-xs muted" style={{ letterSpacing: '0.1em' }}>{lang === 'pt' ? 'NÍVEL' : 'LEVEL'}</div>
-          <div style={{ fontFamily: 'var(--display)', fontSize: '1.3rem' }}>
-            {char.level} → <span style={{ color: 'var(--gold-bright)' }}>{newLevel}</span>
-          </div>
-        </div>
-        <div style={{ background: 'var(--bg-elev)', borderRadius: 8, padding: 14, marginBottom: 8 }}>
-          <div className="text-xs muted" style={{ letterSpacing: '0.1em' }}>HP</div>
-          <div style={{ fontFamily: 'var(--display)', fontSize: '1.3rem' }}>
-            {char.maxHp} → <span style={{ color: 'var(--moss-bright)' }}>{char.maxHp + hpGain}</span> <span className="text-xs muted">(+{hpGain})</span>
-          </div>
-        </div>
-        {isASILevel && asiTotal > 0 && (
-          <div style={{ background: 'var(--bg-elev)', borderRadius: 8, padding: 14, marginBottom: 8 }}>
-            <div className="text-xs muted" style={{ letterSpacing: '0.1em' }}>{lang === 'pt' ? 'ATRIBUTOS' : 'ABILITIES'}</div>
-            {SRD.ABILITIES.filter(k => asiDelta[k]).map(k => (
-              <div key={k} style={{ fontFamily: 'var(--display)', fontSize: '0.95rem' }}>
-                {t(k, lang)}: {Utils.abilityWithRace(char, k)} → <span style={{ color: asiDelta[k] > 0 ? 'var(--moss-bright)' : 'var(--blood-bright)' }}>{Utils.abilityWithRace(char, k) + asiDelta[k]}</span>
-              </div>
-            ))}
-          </div>
-        )}
-        {addedSpells.length > 0 && (
-          <div style={{ background: 'var(--bg-elev)', borderRadius: 8, padding: 14, marginBottom: 8 }}>
-            <div className="text-xs muted" style={{ letterSpacing: '0.1em' }}>{lang === 'pt' ? 'NOVAS MAGIAS' : 'NEW SPELLS'}</div>
-            {addedSpells.map(id => (
-              <div key={id} style={{ fontFamily: 'var(--display)', fontSize: '0.95rem' }}>· {tName('spellName', id, lang)}</div>
-            ))}
-          </div>
-        )}
-        <div className="text-xs muted" style={{ marginTop: 8 }}>
-          {lang === 'pt' ? 'Bônus de proficiência:' : 'Proficiency bonus:'} <strong>+{SRD.profBonus(char.level)} → +{SRD.profBonus(newLevel)}</strong>
-        </div>
-      </>
-    );
-
-    return null;
-  };
-
-  const stepValid = (() => {
-    const s = steps[step];
-    if (s === 'asi') return asiOk;
-    return true;
-  })();
-  const isLast = step === steps.length - 1;
-
   return (
     <Modal onClose={onClose}>
-      {!canLevel && (
-        <div style={{ background: 'var(--blood-deep)', color: 'var(--ink-primary)', padding: 10, borderRadius: 6, marginBottom: 12, fontSize: '0.85rem' }}>
-          {lang === 'pt' ? 'XP insuficiente para subir de nível.' : 'Not enough XP to level up.'}
+      <h3 style={{ marginBottom: 8 }}>🎲 {pt ? 'Modo trapaça' : 'Cheat mode'}</h3>
+      <div className="text-sm" style={{ marginBottom: 8 }}>{pt ? 'Sem ele, nível, PV e atributos só mudam pela subida de nível guiada. Com ele ligado:' : 'Without it, level, HP and abilities only change through guided level-up. When on:'}</div>
+      <ul className="text-sm" style={{ margin: '0 0 12px 18px', color: 'var(--ink-secondary)' }}>
+        {items.map((it, i) => <li key={i} style={{ marginBottom: 4 }}>{it}</li>)}
+      </ul>
+      {locked && (
+        <div className="text-sm" style={{ padding: 10, borderRadius: 6, background: 'var(--bg-elev)', marginBottom: 12 }}>
+          🔒 {pt
+            ? 'Esta ficha está numa campanha: o servidor continua travando nível, PV e atributos (só o mestre altera), e a Forma Selvagem é validada pelo servidor. Aqui o modo só libera as magias.'
+            : 'This sheet is in a campaign: the server still locks level, HP and abilities (DM only), and Wild Shape is server-validated. Here the mode only unlocks spells.'}
         </div>
       )}
-      {/* Step pill */}
-      <div className="row gap-2" style={{ marginBottom: 14 }}>
-        {steps.map((s, i) => (
-          <div key={s} style={{
-            flex: 1, height: 4, borderRadius: 2,
-            background: i <= step ? 'var(--gold)' : 'var(--stroke-faint)',
-            transition: 'background 0.2s'
-          }}/>
-        ))}
-      </div>
-      <div style={{ maxHeight: '60vh', overflowY: 'auto', marginBottom: 14 }}>
-        {renderStep()}
-      </div>
-      <div className="row gap-2">
-        {step > 0 && (
-          <button className="btn btn-ghost" onClick={() => setStep(step - 1)}>
-            <Icon name="arrow-back" size={12}/> {t('back', lang)}
-          </button>
-        )}
-        <button className="btn btn-ghost" onClick={onClose} style={{ flex: step === 0 ? 1 : 0 }}>
-          {t('cancel', lang)}
-        </button>
-        {!isLast ? (
-          <button className="btn btn-primary" onClick={() => setStep(step + 1)} disabled={!stepValid} style={{ flex: 1 }}>
-            {lang === 'pt' ? 'Próximo' : 'Next'} →
-          </button>
-        ) : (
-          <button className="btn btn-primary" onClick={finalize} disabled={!canLevel} style={{ flex: 1 }}>
-            <Icon name="star-fill" size={14}/> {lang === 'pt' ? 'Confirmar' : 'Confirm'}
-          </button>
-        )}
-      </div>
+      <button className={`btn ${on ? 'btn-ghost' : 'btn-primary'}`} style={{ width: '100%', marginBottom: 12 }}
+        onClick={() => update(on ? { cheatMode: false } : { cheatMode: true, cheatModeSince: new Date().toISOString() })}>
+        {on ? (pt ? 'Desligar modo trapaça' : 'Turn cheat mode off') : (pt ? 'Ligar modo trapaça' : 'Turn cheat mode on')}
+      </button>
+      {on && !locked && (
+        <>
+          <Filigree>{pt ? 'Editor livre' : 'Free editor'}</Filigree>
+          <div className="row gap-3" style={{ marginBottom: 8 }}>
+            <div style={{ flex: 1 }}>
+              <label>{t('level', lang)}</label>
+              <input type="number" min="1" max="20" value={draft.level} onChange={e => setDraft({ ...draft, level: e.target.value })} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label>{pt ? 'PV máximo' : 'Max HP'}</label>
+              <input type="number" min="1" value={draft.maxHp} onChange={e => setDraft({ ...draft, maxHp: e.target.value })} />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
+            {SRD.ABILITIES.map(k => (
+              <div key={k}>
+                <label>{t(k + 'Sh', lang)} {pt ? '(base)' : '(base)'}</label>
+                <input type="number" min="1" max="30" value={draft.abilities[k] ?? 10}
+                  onChange={e => setDraft({ ...draft, abilities: { ...draft.abilities, [k]: Math.max(1, Math.min(30, +e.target.value || 1)) } })} />
+              </div>
+            ))}
+          </div>
+          <button className="btn btn-primary" style={{ width: '100%' }} onClick={save}>{pt ? 'Salvar' : 'Save'}</button>
+        </>
+      )}
     </Modal>
   );
 };
@@ -746,12 +517,9 @@ const CampaignModeBanner = ({ char, lang, onChange }) => {
 
   if (!char.inCampaign) {
     return (
-      <div className="campaign-mode-banner standalone">
-        <span className="cmb-icon">📜</span>
-        <span className="cmb-label">{lang === 'pt' ? 'Ficha pessoal' : 'Personal sheet'}</span>
-        <span className="muted small">
-          {lang === 'pt' ? 'Edição livre — sem mestre, sem travas.' : 'Free editing — no DM, no locks.'}
-        </span>
+      <div className="campaign-mode-inline no-print">
+        📜 <strong>{lang === 'pt' ? 'Ficha pessoal' : 'Personal sheet'}</strong>
+        <span className="muted"> · {lang === 'pt' ? 'fora de campanha; nível e atributos sobem pela Progressão' : 'not in a campaign; level and abilities change through Progression'}</span>
       </div>
     );
   }
@@ -818,7 +586,7 @@ const WildShapeBanner = ({ char, lang, onChange }) => {
         <div className="wsb-pre">
           {char.rulesVersion === '2024' ? (lang === 'pt' ? 'Mantém seus próprios pontos de vida.' : 'Retains your own hit points.') : `${lang === 'pt' ? 'Forma humanoide guardada:' : 'Stored humanoid:'} ${ws.preTransformHp} HP`}
         </div>
-        {err && <div style={{ color: '#ff9999', fontSize: '0.85em' }}>{err}</div>}
+        {err && <div style={{ color: 'var(--blood-bright)', fontSize: '0.85em' }}>{err}</div>}
       </div>
       <button className="btn btn-ghost" onClick={endShape} disabled={busy}>
         {busy ? '…' : (lang === 'pt' ? 'Sair da forma' : 'Revert form')}
@@ -883,7 +651,7 @@ const BeastModal = ({ beast, lang, onClose, onTransform, canTransform, transform
       {onTransform && (
         <>
           <Filigree />
-          {transformError && <div style={{ color: '#ff9999', marginBottom: 8 }}>{transformError}</div>}
+          {transformError && <div style={{ color: 'var(--blood-bright)', marginBottom: 8 }}>{transformError}</div>}
           <button
             className="btn btn-primary"
             style={{ width: '100%' }}
@@ -899,8 +667,82 @@ const BeastModal = ({ beast, lang, onClose, onTransform, canTransform, transform
   );
 };
 
+// Forma Estelar (Círculo das Estrelas). Texto próprio, resumido do SRD/PHB.
+const STARRY_FORMS = [
+  { id: 'archer', icon: '🏹', name: { pt: 'Arqueiro', en: 'Archer' },
+    desc: { pt: 'Ao entrar e como ação bônus em cada turno: ataque mágico à distância (60 pés), 1d8 + SAB de dano radiante.', en: 'On entering and as a bonus action each turn: ranged spell attack (60 ft), 1d8 + WIS radiant damage.' },
+    desc10: { pt: 'Nv. 10: dano vira 2d8.', en: 'Lv 10: damage becomes 2d8.' } },
+  { id: 'chalice', icon: '🏆', name: { pt: 'Taça', en: 'Chalice' },
+    desc: { pt: 'Ao gastar espaço de magia para curar: você ou uma criatura a 30 pés recupera 1d8 + SAB PV.', en: 'When you spend a spell slot to heal: you or a creature within 30 ft regains 1d8 + WIS HP.' },
+    desc10: { pt: 'Nv. 10: cura vira 2d8.', en: 'Lv 10: healing becomes 2d8.' } },
+  { id: 'dragon', icon: '🐉', name: { pt: 'Dragão', en: 'Dragon' },
+    desc: { pt: 'Em testes de INT/SAB e salvaguardas de CON para concentração, um d20 de 9 ou menos conta como 10.', en: 'On INT/WIS checks and CON saves to maintain concentration, a d20 roll of 9 or lower counts as 10.' },
+    desc10: { pt: 'Nv. 10: ganha voo de 20 pés e pode pairar.', en: 'Lv 10: gain 20 ft fly speed and hover.' } },
+];
+
+const StarryFormSection = ({ char, lang, update, maxUses, usesUsed, cheat }) => {
+  const sf = char.starryForm || {};
+  const level = char.level || 1;
+  // 1º toque mostra o efeito; 2º toque ativa (evita gastar uso sem querer).
+  const [peek, setPeek] = useState(sf.form || null);
+  const unlocked = level >= (char.rulesVersion === '2024' ? 3 : 2);
+  if (!unlocked) return null;
+  const canUse = cheat || usesUsed < maxUses;
+  const wisMod = Utils.abilityMod(char, 'wis');
+  const shown = STARRY_FORMS.find(f => f.id === (peek || sf.form));
+  const activate = (id) => {
+    // Nv. 10 (Constelações Cintilantes): troca de constelação sem gastar uso.
+    if (sf.active) { if (level >= 10 || cheat) update({ starryForm: { ...sf, form: id } }); return; }
+    if (!canUse) return;
+    update({ starryForm: { active: true, form: id, startedAt: new Date().toISOString() }, wildShapeUses: usesUsed + 1 });
+  };
+  return (
+    <div className="card" style={{ padding: 12, marginBottom: 10 }}>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div className="eyebrow" style={{ color: 'var(--gold)' }}>✦ {lang === 'pt' ? 'Forma Estelar' : 'Starry Form'}</div>
+        {sf.active && (
+          <button className="btn btn-sm btn-ghost" onClick={() => update({ starryForm: { active: false } })}>
+            {lang === 'pt' ? 'Encerrar' : 'End'}
+          </button>
+        )}
+      </div>
+      <div className="text-xs muted" style={{ marginBottom: 8 }}>
+        {lang === 'pt'
+          ? `Ação bônus: gaste um uso de Forma Selvagem para brilhar como uma constelação por 10 minutos (luz plena 10 pés). Você não vira fera. SAB ${Utils.fmtMod(wisMod)}.`
+          : `Bonus action: spend a Wild Shape use to glow as a constellation for 10 minutes (bright light 10 ft). You don't become a beast. WIS ${Utils.fmtMod(wisMod)}.`}
+        {level >= 10 && (lang === 'pt' ? ' Nv. 10: troque de constelação no início de cada turno.' : ' Lv 10: switch constellation at the start of each turn.')}
+      </div>
+      <div className="starry-choices">
+        {STARRY_FORMS.map(f => {
+          const isOn = sf.active && sf.form === f.id;
+          return (
+            <button key={f.id} type="button" className={`starry-choice ${isOn ? 'on' : ''} ${peek === f.id && !isOn ? 'focus' : ''}`}
+              onClick={() => (peek === f.id && !isOn ? activate(f.id) : setPeek(f.id))}>
+              <span className="ico">{f.icon}</span>{f.name[lang]}
+            </button>
+          );
+        })}
+      </div>
+      {shown && (
+        <div className="text-sm" style={{ marginTop: 8, color: 'var(--ink-secondary)' }}>
+          <strong style={{ color: 'var(--ink-primary)' }}>{shown.name[lang]}:</strong> {shown.desc[lang]}
+          {level >= 10 && <span style={{ color: 'var(--gold-deep)' }}> {shown.desc10[lang]}</span>}
+          {!sf.active && peek && canUse && (
+            <div className="text-xs muted" style={{ marginTop: 4 }}>{lang === 'pt' ? 'Toque de novo para ativar (gasta 1 uso).' : 'Tap again to activate (spends 1 use).'}</div>
+          )}
+        </div>
+      )}
+      {!sf.active && !canUse && (
+        <div className="text-xs muted" style={{ marginTop: 6 }}>{lang === 'pt' ? 'Sem usos de Forma Selvagem restantes.' : 'No Wild Shape uses left.'}</div>
+      )}
+    </div>
+  );
+};
+
 const WildShapePanel = ({ char, lang, update }) => {
   const [selected, setSelected] = useState(null);
+  const [showBeasts, setShowBeasts] = useState(false);
+  const cheat = !!char.cheatMode;
   const [transformError, setTransformError] = useState('');
   const level = char.level;
   const currentRules = char.rulesVersion === '2024';
@@ -915,6 +757,7 @@ const WildShapePanel = ({ char, lang, update }) => {
     ? `CR ≤ ${level >= 6 ? Math.floor(level / 3) : 1}`
     : (level >= 8 ? 'CR ≤ 1' : level >= 4 ? 'CR ≤ 1/2' : 'CR ≤ 1/4');
   const available = SRD.BEASTS.filter(b => {
+    if (cheat) return true;
     if (b.crNum > maxCr) return false;
     // Moon circle has no fly restriction
     if (level < 8 && b.fly) return false;
@@ -938,7 +781,7 @@ const WildShapePanel = ({ char, lang, update }) => {
         </span>
       </div>
       <div className="row gap-2" style={{ marginBottom: 10, alignItems: 'center' }}>
-        <div className="slot-pips">
+        <div className="slot-pips wild">
           {Array.from({length: maxUses}, (_, i) => i).map(i => (
             <button
               key={i} type="button"
@@ -949,7 +792,16 @@ const WildShapePanel = ({ char, lang, update }) => {
         </div>
         <span className="text-xs muted">{Math.max(0, maxUses - usesUsed)}/{maxUses} {lang === 'pt' ? 'usos' : 'uses'} · {currentRules ? (lang === 'pt' ? '+1 por descanso curto' : '+1 per short rest') : (lang === 'pt' ? 'recupera no descanso curto' : 'recover on short rest')}</span>
       </div>
-      <div className="options-list cols-2" style={{ marginBottom: 4 }}>
+      {char.subclass === 'stars' && (
+        <StarryFormSection char={char} lang={lang} update={update} maxUses={maxUses} usesUsed={usesUsed} cheat={cheat} />
+      )}
+      <button className="btn btn-sm btn-ghost" style={{ width: '100%', marginBottom: 8 }} onClick={() => setShowBeasts(v => !v)}>
+        <Icon name={showBeasts ? 'chevron-up' : 'chevron-down'} size={14}/>{' '}
+        {showBeasts
+          ? (lang === 'pt' ? 'Ocultar formas de fera' : 'Hide beast forms')
+          : (lang === 'pt' ? `Ver formas de fera (${available.length})` : `Show beast forms (${available.length})`)}
+      </button>
+      {showBeasts && <div className="options-list cols-2" style={{ marginBottom: 4 }}>
         {available.map(b => (
           <button key={b.id} className="option" style={{ textAlign: 'left' }} onClick={() => setSelected(b)}>
             <div className="option-title" style={{ fontSize: '0.9rem' }}>{tName('beast', b.id, lang)}</div>
@@ -962,13 +814,13 @@ const WildShapePanel = ({ char, lang, update }) => {
             </div>
           </button>
         ))}
-      </div>
+      </div>}
       {selected && (
         <BeastModal
           beast={selected}
           lang={lang}
           onClose={() => { setSelected(null); setTransformError(''); }}
-          canTransform={level >= 2 && usesUsed < maxUses && !(char.wildShape?.active)}
+          canTransform={(cheat || (level >= 2 && usesUsed < maxUses)) && !(char.wildShape?.active)}
           transformError={transformError}
           onTransform={async (beast) => {
             setTransformError('');
@@ -1022,69 +874,61 @@ const STD_CONDITIONS = [
 
 const ConditionsPanel = ({ char, lang, update }) => {
   const [newEffect, setNewEffect] = useState('');
+  const [open, setOpen] = useState(false);
   const active = char.conditions || [];
   const temps = char.tempEffects || [];
-  const hasAny = active.length > 0 || temps.length > 0;
+  const pt = lang === 'pt';
   const toggle = (id) => {
     const next = active.includes(id) ? active.filter(c => c !== id) : [...active, id];
     update({ conditions: next });
   };
   const addTemp = () => {
     if (!newEffect.trim()) return;
-    const next = [...temps, { id: Date.now().toString(), name: newEffect.trim(), duration: '' }];
-    update({ tempEffects: next });
+    update({ tempEffects: [...temps, { id: Date.now().toString(), name: newEffect.trim(), duration: '' }] });
     setNewEffect('');
   };
   const removeTemp = (id) => update({ tempEffects: temps.filter(e => e.id !== id) });
   const updateTemp = (id, patch) => update({ tempEffects: temps.map(e => e.id === id ? { ...e, ...patch } : e) });
 
+  // Só o que está ativo fica à vista; a lista completa abre sob demanda.
   return (
     <div style={{ marginBottom: 16 }}>
-      <div className="eyebrow mt-4" style={{ marginBottom: 8 }}>
-        {lang === 'pt' ? 'Condições & Efeitos' : 'Conditions & Effects'}
-        {hasAny && <span style={{ marginLeft: 6, color: 'var(--blood-bright)', fontSize: '0.75rem' }}>●</span>}
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div className="eyebrow">{pt ? 'Condições e efeitos' : 'Conditions & effects'}</div>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(o => !o)}>
+          {open ? (pt ? 'Fechar' : 'Close') : (pt ? '+ Condição' : '+ Condition')}
+        </button>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-        {STD_CONDITIONS.map(id => {
+      {!active.length && !temps.length && !open && (
+        <div className="text-sm muted">{pt ? 'Nenhuma condição ativa.' : 'No active conditions.'}</div>
+      )}
+      <div className="cond-chips">
+        {(open ? STD_CONDITIONS : active).map(id => {
           const on = active.includes(id);
           return (
-            <button key={id} type="button"
-              onClick={() => toggle(id)}
-              style={{
-                padding: '4px 10px', borderRadius: 20, fontSize: '0.75rem', cursor: 'pointer',
-                background: on ? 'var(--blood-deep)' : 'var(--surface-2)',
-                border: `1px solid ${on ? 'var(--blood-bright)' : 'var(--stroke-faint)'}`,
-                color: on ? 'var(--blood-bright)' : 'var(--ink-secondary)',
-                fontWeight: on ? 700 : 400,
-              }}>
-              {tName('condition', id, lang)}
+            <button key={id} type="button" className={`cond-chip ${on ? 'on' : ''}`} onClick={() => toggle(id)}
+              title={on ? (pt ? 'Toque para remover' : 'Tap to remove') : ''}>
+              {tName('condition', id, lang)}{on && !open ? ' ✕' : ''}
             </button>
           );
         })}
       </div>
       {temps.map(e => (
-        <div key={e.id} style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
-          <input value={e.name} onChange={ev => updateTemp(e.id, { name: ev.target.value })}
-            style={{ flex: 2, padding: '4px 8px', fontSize: '0.8rem', minHeight: 28 }} />
+        <div key={e.id} className="row gap-2" style={{ marginTop: 6, alignItems: 'center' }}>
+          <input value={e.name} onChange={ev => updateTemp(e.id, { name: ev.target.value })} style={{ flex: 2 }} />
           <input value={e.duration} onChange={ev => updateTemp(e.id, { duration: ev.target.value })}
-            placeholder={lang === 'pt' ? 'Duração' : 'Duration'}
-            style={{ flex: 1, padding: '4px 8px', fontSize: '0.8rem', minHeight: 28 }} />
-          <button type="button" onClick={() => removeTemp(e.id)}
-            style={{ padding: '4px 8px', background: 'var(--blood-deep)', border: '1px solid var(--blood-bright)', borderRadius: 4, color: 'var(--blood-bright)', cursor: 'pointer', minHeight: 28 }}>
-            ✕
-          </button>
+            placeholder={pt ? 'Duração' : 'Duration'} style={{ flex: 1 }} />
+          <button type="button" className="btn btn-icon btn-danger" onClick={() => removeTemp(e.id)} aria-label={pt ? 'Remover' : 'Remove'}>✕</button>
         </div>
       ))}
-      <div style={{ display: 'flex', gap: 6 }}>
-        <input value={newEffect} onChange={e => setNewEffect(e.target.value)}
-          placeholder={lang === 'pt' ? 'Efeito personalizado...' : 'Custom effect...'}
-          onKeyDown={e => e.key === 'Enter' && addTemp()}
-          style={{ flex: 1, padding: '4px 8px', fontSize: '0.8rem', minHeight: 28 }} />
-        <button type="button" onClick={addTemp}
-          style={{ padding: '4px 12px', background: 'var(--surface-2)', border: '1px solid var(--gold)', borderRadius: 4, color: 'var(--gold)', cursor: 'pointer', minHeight: 28 }}>
-          +
-        </button>
-      </div>
+      {open && (
+        <div className="row gap-2" style={{ marginTop: 8 }}>
+          <input value={newEffect} onChange={e => setNewEffect(e.target.value)}
+            placeholder={pt ? 'Efeito personalizado (ex.: Bênção, 1 min)' : 'Custom effect (e.g. Bless, 1 min)'}
+            onKeyDown={e => e.key === 'Enter' && addTemp()} style={{ flex: 1 }} />
+          <button type="button" className="btn btn-icon" onClick={addTemp} aria-label={pt ? 'Adicionar' : 'Add'}>+</button>
+        </div>
+      )}
     </div>
   );
 };
@@ -1231,6 +1075,7 @@ const SheetNpcs = ({ char, lang, update }) => {
 
 // ===== Play tab =====
 const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, passPerc, slots, roll }) => {
+  const cls = SRD.CLASSES.find(c => c.id === char.className);
   const [delta, setDelta] = useState('');
   const apply = (sign) => {
     const n = +delta || 0;
@@ -1253,7 +1098,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
         </div>
         <div className="hp-bar"><div className="hp-bar-fill" style={{ width: `${hpPct}%` }} /></div>
         <div className="hp-actions">
-          <button className="btn btn-sm btn-danger" onClick={() => apply(-1)} disabled={!delta}>
+          <button className="btn btn-sm btn-hurt" onClick={() => apply(-1)} disabled={!delta}>
             <Icon name="sword" size={14}/> {t('damage', lang)}
           </button>
           <input
@@ -1265,7 +1110,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             placeholder="0"
             style={{ width: 80 }}
           />
-          <button className="btn btn-sm" onClick={() => apply(1)} disabled={!delta} style={{ background: 'var(--moss)', color: 'var(--ink-primary)', borderColor: 'var(--moss-bright)' }}>
+          <button className="btn btn-sm btn-heal" onClick={() => apply(1)} disabled={!delta}>
             <Icon name="heart" size={14}/> {t('heal', lang)}
           </button>
         </div>
@@ -1328,65 +1173,42 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
         </div>
       </div>
 
-      <div className="combat-grid" style={{ marginBottom: 16 }}>
-        <div className="combat-box">
-          <div className="eyebrow">{lang === 'pt' ? 'Prof.' : 'Prof.'}</div>
-          <div className="combat-box-value">{Utils.fmtMod(profB)}</div>
+      {/* Quick weapons (attacks) */}
+      {char.weapons && char.weapons.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div className="eyebrow mb-2">{lang === 'pt' ? 'Ataques' : 'Attacks'}</div>
+          {char.weapons.map((w, i) => {
+            const wDef = w.id ? SRD.WEAPONS.find(x => x.id === w.id) : null;
+            const isFinesse = wDef && wDef.props.includes('finesse');
+            const isRanged = wDef && (wDef.type || '').includes('ranged');
+            const useDex = isRanged || (isFinesse && Utils.abilityMod(char, 'dex') > Utils.abilityMod(char, 'str'));
+            const abMod = Utils.abilityMod(char, useDex ? 'dex' : 'str');
+            const isProf = !wDef || !cls
+              ? true
+              : (cls.weapons.includes('Simple') && (wDef.type || '').startsWith('simple'))
+                || (cls.weapons.includes('Martial'))
+                || cls.weapons.some(wt => wDef.id.toLowerCase().includes(wt.toLowerCase().replace(/s$/, '')));
+            const atk = abMod + (isProf ? Utils.profBonus(char) : 0);
+            return (
+              <div key={i} className="slot-row" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
+                <div>
+                  <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)' }}>{w.name}</div>
+                  <div className="text-xs muted">{w.damage} {w.dmgType ? `${w.dmgType}` : ''}</div>
+                </div>
+                <button className="btn btn-sm" onClick={() => roll({ die: 20, mod: atk, label: w.name + ' ' + t('attackRoll', lang) })}>
+                  {Utils.fmtMod(atk)}
+                </button>
+                <button className="btn btn-sm btn-ghost" onClick={() => {
+                  const m = w.damage.match(/(\d+)d(\d+)/);
+                  if (m) roll({ die: +m[2], count: +m[1], mod: abMod, label: w.name + ' ' + t('damageRoll', lang) });
+                }}>
+                  <Icon name="dice" size={12}/>
+                </button>
+              </div>
+            );
+          })}
         </div>
-        <div className="combat-box">
-          <div className="eyebrow">{lang === 'pt' ? 'Perc.' : 'Perc.'}</div>
-          <div className="combat-box-value">{passPerc}</div>
-          <div className="combat-box-sub">{lang === 'pt' ? 'passiva' : 'passive'}</div>
-        </div>
-        <div className="combat-box">
-          <div className="eyebrow">{t('hitDice', lang)}</div>
-          <div className="combat-box-value">{Math.max(0, char.level - (char.hitDiceUsed || 0))}</div>
-          <div className="combat-box-sub">/{char.level} d{(SRD.CLASSES.find(c => c.id === char.className) || {}).hitDie || ''}</div>
-        </div>
-      </div>
-
-      {/* Abilities at a glance */}
-      <div className="abil-grid" style={{ marginBottom: 16 }}>
-        {SRD.ABILITIES.map(k => {
-          const score = Utils.abilityWithRace(char, k);
-          const mod = Utils.abilityMod(char, k);
-          return (
-            <div key={k} className="abil-box" onClick={() => roll({ die: 20, mod, label: t(k, lang) + ' ' + t('abilityCheck', lang) })} style={{ cursor: 'pointer' }}>
-              <div className="abil-box-name">{t(k + 'Sh', lang)}</div>
-              <div className="abil-box-mod">{Utils.fmtMod(mod)}</div>
-              <div className="abil-box-score">{score}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Quick rest buttons */}
-      <div className="row gap-2" style={{ marginBottom: 16 }}>
-        <button className="btn btn-sm btn-ghost" style={{ flex: 1 }} onClick={() => {
-          const patch = {};
-          if (char.className === 'warlock') patch.spellSlotsUsed = [];
-          if (char.className === 'druid') patch.wildShapeUses = 0;
-          update(patch);
-        }}>
-          <Icon name="flame" size={14}/> {t('shortRest', lang)} {t('rest', lang)}
-        </button>
-        <button className="btn btn-sm btn-primary" style={{ flex: 1 }} onClick={() => {
-          update({
-            currentHp: char.maxHp,
-            tempHp: 0,
-            spellSlotsUsed: [],
-            wildShapeUses: 0,
-            hitDiceUsed: Math.max(0, (char.hitDiceUsed || 0) - Math.max(1, Math.floor(char.level / 2))),
-            deathSaves: { success: 0, fail: 0 },
-          });
-        }}>
-          <Icon name="heart" size={14}/> {t('longRest', lang)} {t('rest', lang)}
-        </button>
-      </div>
-
-      {/* Conditions / status effects */}
-      <ConditionsPanel char={char} lang={lang} update={update} />
-
+      )}
       {/* Spell slots quick tracker */}
       {slots && slots.length > 0 && (
         <>
@@ -1419,52 +1241,94 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
         </>
       )}
 
+      {/* Conditions / status effects */}
+      <ConditionsPanel char={char} lang={lang} update={update} />
+
       {/* Wild Shape — Druid only */}
       {char.className === 'druid' && char.level >= 2 && (
         <WildShapePanel char={char} lang={lang} update={update} />
       )}
 
-      {/* Quick weapons (attacks) */}
-      {char.weapons && char.weapons.length > 0 && (
-        <>
-          <div className="eyebrow mt-4 mb-2">{lang === 'pt' ? 'Ataques' : 'Attacks'}</div>
-          {char.weapons.map((w, i) => {
-            const wDef = w.id ? SRD.WEAPONS.find(x => x.id === w.id) : null;
-            const isFinesse = wDef && wDef.props.includes('finesse');
-            const isRanged = wDef && (wDef.type || '').includes('ranged');
-            const useDex = isRanged || (isFinesse && Utils.abilityMod(char, 'dex') > Utils.abilityMod(char, 'str'));
-            const abMod = Utils.abilityMod(char, useDex ? 'dex' : 'str');
-            const isProf = !wDef || !cls
-              ? true
-              : (cls.weapons.includes('Simple') && (wDef.type || '').startsWith('simple'))
-                || (cls.weapons.includes('Martial'))
-                || cls.weapons.some(wt => wDef.id.toLowerCase().includes(wt.toLowerCase().replace(/s$/, '')));
-            const atk = abMod + (isProf ? Utils.profBonus(char) : 0);
-            return (
-              <div key={i} className="slot-row" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
-                <div>
-                  <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)' }}>{w.name}</div>
-                  <div className="text-xs muted">{w.damage} {w.dmgType ? `${w.dmgType}` : ''}</div>
-                </div>
-                <button className="btn btn-sm" onClick={() => roll({ die: 20, mod: atk, label: w.name + ' ' + t('attackRoll', lang) })}>
-                  {Utils.fmtMod(atk)}
-                </button>
-                <button className="btn btn-sm btn-ghost" onClick={() => {
-                  const m = w.damage.match(/(\d+)d(\d+)/);
-                  if (m) roll({ die: +m[2], count: +m[1], mod: abMod, label: w.name + ' ' + t('damageRoll', lang) });
-                }}>
-                  <Icon name="dice" size={12}/>
-                </button>
-              </div>
-            );
-          })}
-        </>
-      )}
+      {/* Abilities at a glance */}
+      <div className="abil-grid" style={{ marginBottom: 16 }}>
+        {SRD.ABILITIES.map(k => {
+          const score = Utils.abilityWithRace(char, k);
+          const mod = Utils.abilityMod(char, k);
+          return (
+            <div key={k} className="abil-box" onClick={() => roll({ die: 20, mod, label: t(k, lang) + ' ' + t('abilityCheck', lang) })} style={{ cursor: 'pointer' }}>
+              <div className="abil-box-name">{t(k + 'Sh', lang)}</div>
+              <div className="abil-box-mod">{Utils.fmtMod(mod)}</div>
+              <div className="abil-box-score">{score}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="combat-grid combat-grid-compact" style={{ marginBottom: 16 }}>
+        <div className="combat-box">
+          <div className="eyebrow">{lang === 'pt' ? 'Prof.' : 'Prof.'}</div>
+          <div className="combat-box-value">{Utils.fmtMod(profB)}</div>
+        </div>
+        <div className="combat-box">
+          <div className="eyebrow">{lang === 'pt' ? 'Perc.' : 'Perc.'}</div>
+          <div className="combat-box-value">{passPerc}</div>
+          <div className="combat-box-sub">{lang === 'pt' ? 'passiva' : 'passive'}</div>
+        </div>
+        <div className="combat-box">
+          <div className="eyebrow">{t('hitDice', lang)}</div>
+          <div className="combat-box-value">{Math.max(0, char.level - (char.hitDiceUsed || 0))}</div>
+          <div className="combat-box-sub">/{char.level} d{(SRD.CLASSES.find(c => c.id === char.className) || {}).hitDie || ''}</div>
+        </div>
+      </div>
+
+      {/* Descanso: mesma lógica (e endpoint) da aba de magias */}
+      <div className="eyebrow mt-4" style={{ marginBottom: 8 }}>{lang === 'pt' ? 'Descanso' : 'Rest'}</div>
+      <div style={{ marginBottom: 16 }}><RestButtons char={char} lang={lang} update={update} /></div>
     </>
   );
 };
 
 // ===== Stats tab (abilities, saves, skills full) =====
+// Idiomas: chips na ficha + modal de escolha (limite = espécie + antecedente/origem).
+const LanguagesField = ({ char, lang, update }) => {
+  const pt = lang === 'pt';
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState([]);
+  const chosen = chosenLanguages(char);
+  const count = Utils.languageChoiceCount(char);
+  const missing = Math.max(0, count - chosen.length);
+  // Fichas antigas podem ter idiomas a mais (talento, mestre): nunca trava abaixo do que já tem.
+  const limit = char.cheatMode ? Infinity : Math.max(count, chosen.length);
+  const edit = () => { setDraft(chosen); setOpen(true); };
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <label style={{ margin: 0 }}>{t('languages', lang)}</label>
+        <button className="btn btn-sm btn-ghost" onClick={edit}>
+          <Icon name="edit" size={12}/> {pt ? 'Escolher' : 'Choose'}
+        </button>
+      </div>
+      <div className="lang-chips">
+        {Utils.languagesFor(char).map(l => <span key={l} className="lang-chip">{Utils.languageLabel(l, lang)}</span>)}
+        {missing > 0 && (
+          <button type="button" className="lang-chip pending" onClick={edit}>
+            + {missing} {pt ? (missing > 1 ? 'idiomas a escolher' : 'idioma a escolher') : (missing > 1 ? 'languages to choose' : 'language to choose')}
+          </button>
+        )}
+      </div>
+      {open && (
+        <Modal onClose={() => setOpen(false)} title={pt ? 'Idiomas' : 'Languages'}>
+          <LanguagePicker char={char} lang={lang} chosen={draft} onChange={setDraft} limit={limit} />
+          <div className="modal-actions">
+            <button className="btn btn-ghost" onClick={() => setOpen(false)}>{pt ? 'Cancelar' : 'Cancel'}</button>
+            <button className="btn btn-primary" onClick={() => { update({ languages: draft }); setOpen(false); }}>{pt ? 'Salvar' : 'Save'}</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
 const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
   return (
     <>
@@ -1508,7 +1372,7 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
       <div className="skill-display">
         {SRD.SKILLS.map(s => {
           const bonus = Utils.skillBonus(char, s.id);
-          const isProf = (char.skillProfs || []).includes(s.id);
+          const isProf = Utils.hasSkillProf(char, s.id);
           const isExpert = (char.skillExpertise || []).includes(s.id);
           return (
             <div key={s.id} className="skill-display-row" onClick={() => roll({ die: 20, mod: bonus, label: tName('skill', s.id, lang) })}>
@@ -1535,14 +1399,22 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
         })}
       </div>
 
+      {(char.feats || []).length > 0 && (
+        <>
+          <Filigree>{lang === 'pt' ? 'Talentos' : 'Feats'}</Filigree>
+          <div style={{ marginBottom: 12 }}>
+            {char.feats.map((f, i) => (
+              <div key={i} className="text-sm" style={{ marginBottom: 4 }}>
+                <strong style={{ color: 'var(--gold-deep)' }}>{f.name}</strong>
+                <span className="muted"> · {lang === 'pt' ? 'Nv.' : 'Lv'} {f.level}</span>
+                {f.note && <span style={{ color: 'var(--ink-secondary)' }}> — {f.note}</span>}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
       <Filigree>{lang === 'pt' ? 'Idiomas e Outras Proficiências' : 'Languages & Other Proficiencies'}</Filigree>
-      <div style={{ marginBottom: 12 }}>
-        <label>{t('languages', lang)}</label>
-        <input
-          value={(char.languages || []).join(', ')}
-          onChange={e => update({ languages: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-        />
-      </div>
+      <LanguagesField char={char} lang={lang} update={update} />
       <div>
         <label>{lang === 'pt' ? 'Outras proficiências' : 'Other proficiencies'}</label>
         <textarea

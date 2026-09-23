@@ -85,19 +85,28 @@ const CharacterList = ({ lang, characters, onOpen, onNew, onImport, onExportAll 
             <div className="char-list">
               {filtered.map(c => (
                 <button key={c.id} className="char-card" onClick={() => onOpen(c.id)}>
-                  <div className="char-card-avatar">
-                    {c.avatar
-                      ? <img src={c.avatar} alt="" />
-                      : <span>{(c.name || '?').charAt(0).toUpperCase()}</span>}
+                  <div className="char-card-avatar-wrap">
+                    <div className="char-card-avatar">
+                      {c.avatar
+                        ? <img src={c.avatar} alt="" />
+                        : <span>{(c.name || '?').charAt(0).toUpperCase()}</span>}
+                    </div>
+                    <span className="char-card-lvl" title={`${t('level', lang)} ${c.level || 1}`}>{c.level || 1}</span>
                   </div>
                   <div className="char-card-info">
                     <div className="char-card-name">{c.name || (lang === 'pt' ? 'Sem nome' : 'Unnamed')}</div>
                     <div className="char-card-sub">
-                      {c.race ? tName('race', c.race, lang) : '—'} {c.className ? '· ' + tName('class', c.className, lang) : ''}
+                      {c.className ? tName('class', c.className, lang) : '—'}
+                      {c.race ? ' · ' + tName('race', c.race, lang) : ''}
                     </div>
-                    <div className="char-card-level">
-                      {t('level', lang)} {c.level || 1}
-                      {c.alignment ? ' · ' + tName('alignment', c.alignment, lang) : ''}
+                    <div className="char-card-foot">
+                      {c.maxHp > 0 && (
+                        <span className="char-card-hp" aria-label={`${c.currentHp ?? c.maxHp}/${c.maxHp} PV`}>
+                          <span className="char-card-hp-bar"><span style={{ width: `${Math.max(0, Math.min(100, ((c.currentHp ?? c.maxHp) / c.maxHp) * 100))}%` }} /></span>
+                          <span className="mono">{c.currentHp ?? c.maxHp}/{c.maxHp}</span>
+                        </span>
+                      )}
+                      {c.inCampaign && <span className="char-card-tag">{lang === 'pt' ? 'Em campanha' : 'In campaign'}</span>}
                     </div>
                   </div>
                   <Icon name="chevron-right" size={18}/>
@@ -109,20 +118,22 @@ const CharacterList = ({ lang, characters, onOpen, onNew, onImport, onExportAll 
         </>
       )}
 
-      <div className="row gap-3" style={{ flexWrap: 'wrap', justifyContent: 'center', marginTop: 'var(--s-5)' }}>
+      <div className="list-actions">
         {characters.length > 0 && (
           <button className="btn btn-primary" onClick={onNew}>
             <Icon name="plus" size={18}/> {t('newCharacter', lang)}
           </button>
         )}
-        <button className="btn btn-ghost" onClick={() => fileRef.current && fileRef.current.click()}>
-          <Icon name="upload" size={16}/> {t('importJson', lang)}
-        </button>
-        {characters.length > 0 && (
-          <button className="btn btn-ghost" onClick={onExportAll}>
-            <Icon name="download" size={16}/> {t('exportAll', lang)}
+        <div className="list-actions-secondary">
+          <button className="btn btn-ghost btn-sm" onClick={() => fileRef.current && fileRef.current.click()}>
+            <Icon name="upload" size={14}/> {t('importJson', lang)}
           </button>
-        )}
+          {characters.length > 0 && (
+            <button className="btn btn-ghost btn-sm" onClick={onExportAll}>
+              <Icon name="download" size={14}/> {t('exportAll', lang)}
+            </button>
+          )}
+        </div>
         <input ref={fileRef} type="file" accept="application/json" onChange={handleImport} style={{ display: 'none' }} />
       </div>
     </>

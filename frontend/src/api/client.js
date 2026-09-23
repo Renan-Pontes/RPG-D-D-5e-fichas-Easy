@@ -113,6 +113,7 @@ export const api = {
   dmEditCharacter:    (id, body) => request(`/api/characters/${id}/dm-edit`, { method: 'PATCH', body }),
   castSpell:          (id, body) => request(`/api/characters/${id}/cast`, { method: 'POST', body }),
   rest:               (id, body) => request(`/api/characters/${id}/rest`, { method: 'POST', body }),
+  levelChoice:        (id, body) => request(`/api/characters/${id}/level-choice`, { method: 'POST', body }),
   campaignLongRestAll:(id) => request(`/api/campaigns/${id}/long-rest-all`, { method: 'POST' }),
   invAdd:        (charId, body) => request(`/api/characters/${charId}/inventory`, { method: 'POST', body }),
   invPatch:      (charId, itemId, body) => request(`/api/characters/${charId}/inventory/${itemId}`, { method: 'PATCH', body }),
@@ -134,9 +135,13 @@ export const api = {
   rotateInviteCode:(id) => request(`/api/campaigns/${id}/rotate-invite-code`, { method: 'POST' }),
   // Approvals
   listApprovals:  (campaignId) => request(`/api/approvals/campaign/${campaignId}`),
+  campaignItems:      (campaignId) => request(`/api/campaigns/${campaignId}/items`),
+  createCampaignItem: (campaignId, item) => request(`/api/campaigns/${campaignId}/items`, { method: 'POST', body: { item } }),
+  updateCampaignItem: (campaignId, itemId, item) => request(`/api/campaigns/${campaignId}/items/${itemId}`, { method: 'PATCH', body: { item } }),
+  deleteCampaignItem: (campaignId, itemId) => request(`/api/campaigns/${campaignId}/items/${itemId}`, { method: 'DELETE' }),
   createApproval: (campaignId, body) => request(`/api/approvals/campaign/${campaignId}`, { method: 'POST', body }),
   reviewApproval: (approvalId, body) => request(`/api/approvals/${approvalId}/review`, { method: 'POST', body }),
-  consumeApproval: (approvalId) => request(`/api/approvals/${approvalId}/consume`, { method: 'POST' }),
+  consumeApproval: (approvalId, body = {}) => request(`/api/approvals/${approvalId}/consume`, { method: 'POST', body }),
   // Dice
   rollDice:      (body) => request('/api/dice/roll', { method: 'POST', body }),
   listRigs:      (campaignId) => request(`/api/dice/campaign/${campaignId}/rigs`),

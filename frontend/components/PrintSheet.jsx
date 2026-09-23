@@ -135,7 +135,7 @@ const PrintSheet = ({ char, lang }) => {
               <div className="ps-list">
                 {SRD.SKILLS.map(s => {
                   const bonus = Utils.skillBonus(char, s.id);
-                  const isProf = (char.skillProfs || []).includes(s.id);
+                  const isProf = Utils.hasSkillProf(char, s.id);
                   const isExpert = (char.skillExpertise || []).includes(s.id);
                   return (
                     <div key={s.id} className="ps-row">
@@ -251,7 +251,7 @@ const PrintSheet = ({ char, lang }) => {
           <div className="ps-section-title">{lang === 'pt' ? 'Idiomas & Proficiências' : 'Languages & Proficiencies'}</div>
           <div className="ps-prof-grid">
             <div>
-              <strong>{t('languages', lang)}:</strong> {(char.languages || []).join(', ') || '—'}
+              <strong>{t('languages', lang)}:</strong> {Utils.languagesFor(char).map(l => Utils.languageLabel(l, lang)).join(', ') || '—'}
             </div>
             {cls && (
               <>

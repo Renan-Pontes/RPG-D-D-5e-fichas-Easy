@@ -234,3 +234,17 @@ class RollRequest(models.Model):
     class Meta:
         ordering = ['-created_at']
         indexes = [models.Index(fields=['campaign', 'status'])]
+
+
+# === Catálogo de itens da campanha (homebrew / mágicos cadastrados pelo mestre) ===
+class CampaignItem(models.Model):
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='items')
+    data = models.JSONField(default=dict)  # mesmo formato de frontend/data/items.js
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return (self.data or {}).get('name', 'item')

@@ -86,6 +86,13 @@ def compute_progression(character):
             out['spells_prepared'] = _compute_spells_prepared(node['spells_prepared'].get('formula'), character)
             break
 
+    # ASI/talento já escolhidos (levelChoices[nível]) deixam de ser pendência.
+    done = character.get('levelChoices') or {}
+    out['pending_choices'] = [
+        c for c in out['pending_choices']
+        if not (c['type'] in ('asiOrFeat', 'epicBoon') and (done.get(str(c['level'])) or done.get(c['level'])))
+    ]
+
     out['auto_cantrips'] = list(dict.fromkeys(out['auto_cantrips']))  # dedup mantendo ordem
     out['auto_spells'] = list(dict.fromkeys(out['auto_spells']))
     return out
@@ -169,6 +176,67 @@ def validate_level_up(character, proposal):
     return {'valid': not issues, 'issues': issues}
 
 
+HIT_DIE = {
+    'barbarian': 12, 'fighter': 10, 'paladin': 10, 'ranger': 10,
+    'bard': 8, 'cleric': 8, 'druid': 8, 'monk': 8, 'rogue': 8, 'warlock': 8, 'artificer': 8,
+    'sorcerer': 6, 'wizard': 6,
+}
+
+
+def max_hp_gain(character):
+    """Maior ganho de PV legítimo num nível: dado de vida máximo + mod. de CON (mínimo 1)."""
+    die = HIT_DIE.get(character.get('className'), 8)
+    return max(1, die + _ability_mod(_ability_score(character, 'con')))
+
+
+def validate_level_choice(character, level, choice):
+    """Espelha validateLevelChoice (frontend/src/progression/engine.js)."""
+    issues = []
+    prog = compute_progression({**character, 'levelChoices': {}})
+    epic_levels = [c['level'] for c in prog['pending_choices'] if c['type'] == 'epicBoon']
+    if level not in prog['asi_levels'] and level not in epic_levels:
+        issues.append('Este nível não concede ASI/talento')
+    done = character.get('levelChoices') or {}
+    if done.get(str(level)) or done.get(level):
+        issues.append('Escolha deste nível já registrada')
+    if not isinstance(choice, dict) or choice.get('type') not in ('asi', 'feat'):
+        issues.append('Tipo de escolha inválido')
+        return {'valid': False, 'issues': issues}
+    if level in epic_levels and choice['type'] != 'feat':
+        issues.append('Este nível concede uma Dádiva Épica (talento)')
+    if choice['type'] == 'asi':
+        asi = choice.get('asi') or {}
+        if not isinstance(asi, dict) or any(k not in ABILITIES for k in asi):
+            issues.append('Atributo inválido')
+            return {'valid': False, 'issues': issues}
+        vals = list(asi.values())
+        if any(not isinstance(v, int) or isinstance(v, bool) or v < 0 or v > 2 for v in vals):
+            issues.append('Cada atributo recebe 0, +1 ou +2')
+        elif sum(vals) != 2:
+            issues.append('Distribua exatamente 2 pontos')
+        elif any(_ability_score(character, k) + v > 20 for k, v in asi.items()):
+            issues.append('Atributo não pode passar de 20')
+    else:
+        feat = choice.get('feat')
+        if not isinstance(feat, str) or not feat.strip() or len(feat) > 120:
+            issues.append('Informe o nome do talento')
+    return {'valid': not issues, 'issues': issues}
+
+
+def apply_level_choice(character, level, choice):
+    nxt = dict(character)
+    nxt['levelChoices'] = {**(character.get('levelChoices') or {}), str(level): choice}
+    if choice['type'] == 'asi':
+        abilities = dict(character.get('abilities') or {})
+        for k, v in (choice.get('asi') or {}).items():
+            abilities[k] = (abilities.get(k) or 10) + v
+        nxt['abilities'] = abilities
+    else:
+        note = choice.get('note') if isinstance(choice.get('note'), str) else ''
+        nxt['feats'] = list(character.get('feats') or []) + [{'name': choice['feat'].strip(), 'note': note[:500], 'level': level}]
+    return nxt
+
+
 def apply_approval_to_character(data, approval_type, payload):
     """Devolve novo dict aplicando a mudança ao data da ficha. None se nada aplica."""
     nxt = dict(data) if isinstance(data, dict) else {}
@@ -189,6 +257,9 @@ def apply_approval_to_character(data, approval_type, payload):
             nxt['spells'] = list(nxt.get('spells') or []) + more
         if isinstance(payload.get('featuresAdded'), list):
             nxt['customFeatures'] = list(nxt.get('customFeatures') or []) + payload['featuresAdded']
+        # Escolha de ASI/talento já validada em approval_consume.
+        if isinstance(payload.get('choice'), dict) and isinstance(payload.get('toLevel'), int):
+            nxt = apply_level_choice(nxt, payload['toLevel'], payload['choice'])
         # aplica autos da nova subclasse/nível
         return apply_autos(nxt)
     if approval_type == 'feature':

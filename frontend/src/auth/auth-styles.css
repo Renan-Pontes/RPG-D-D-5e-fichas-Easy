@@ -9,8 +9,8 @@
 }
 
 .auth-card {
-  background: var(--bg-elev, #1a1410);
-  border: 1px solid var(--border, #3a2820);
+  background: var(--bg-elev, var(--bg-base));
+  border: 1px solid var(--border, var(--bg-elevated));
   border-radius: 12px;
   padding: 32px;
   max-width: 480px;
@@ -20,29 +20,29 @@
 
 .auth-card h1 {
   font-family: 'Cinzel', serif;
-  color: var(--ink-primary, #f4ecd8);
+  color: var(--ink-primary, var(--ink-primary));
 }
 
 .auth-card .input {
-  background: var(--bg, #0c0805);
-  border: 1px solid var(--border, #3a2820);
+  background: var(--bg, var(--bg-deep));
+  border: 1px solid var(--border, var(--bg-elevated));
   border-radius: 6px;
   padding: 10px 12px;
-  color: var(--ink-primary, #f4ecd8);
+  color: var(--ink-primary, var(--ink-primary));
   font-family: inherit;
 }
 
 .auth-card .input:focus {
-  outline: 2px solid var(--gold, #d4a84d);
+  outline: 2px solid var(--gold, var(--gold));
   outline-offset: -1px;
 }
 
 .auth-error {
-  background: rgba(180, 50, 50, 0.15);
-  border: 1px solid #b43232;
+  background: rgba(224, 96, 79, 0.15);
+  border: 1px solid var(--blood);
   border-radius: 6px;
   padding: 8px 12px;
-  color: #ff9999;
+  color: var(--blood-bright);
   font-size: 0.9em;
 }
 
@@ -53,7 +53,7 @@
 }
 
 .auth-switch a {
-  color: var(--gold, #d4a84d);
+  color: var(--gold, var(--gold));
   cursor: pointer;
   text-decoration: underline;
 }
@@ -66,11 +66,11 @@
 }
 
 .auth-migrated-banner {
-  background: rgba(60, 140, 60, 0.18);
-  border: 1px solid #3c8c3c;
+  background: rgba(156, 192, 101, 0.18);
+  border: 1px solid var(--moss);
   border-radius: 6px;
   padding: 10px 14px;
-  color: #c8f4c8;
+  color: var(--moss-bright);
   margin: 16px 0;
 }
 
@@ -91,7 +91,7 @@
   height: 28px;
   border-radius: 50%;
   background: var(--gold);
-  color: #1a1410;
+  color: var(--bg-base);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -125,4 +125,4 @@
 .user-chip-menu .menu-item:hover {
   background: var(--bg);
 }
-.user-chip-menu .menu-item.danger { color: #ff9999; }
+.user-chip-menu .menu-item.danger { color: var(--blood-bright); }

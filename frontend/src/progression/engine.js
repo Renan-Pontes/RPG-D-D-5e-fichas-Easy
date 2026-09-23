@@ -124,6 +124,10 @@ export function computeProgression(character) {
     }
   }
 
+  // ASI/talento já escolhidos (character.levelChoices[nível]) deixam de ser pendência.
+  const done = character.levelChoices || {};
+  out.pendingChoices = out.pendingChoices.filter(c => !((c.type === 'asiOrFeat' || c.type === 'epicBoon') && done[c.level]));
+
   // Dedup autoCantrips/autoSpells
   out.autoCantrips = [...new Set(out.autoCantrips)];
   out.autoSpells = [...new Set(out.autoSpells)];
@@ -188,6 +192,132 @@ export function applyAutosToCharacter(character) {
   next.spells = filtered;
   next.progressionState = prog;
   return next;
+}
+
+export const HIT_DIE = {
+  barbarian: 12, fighter: 10, paladin: 10, ranger: 10,
+  bard: 8, cleric: 8, druid: 8, monk: 8, rogue: 8, warlock: 8, artificer: 8,
+  sorcerer: 6, wizard: 6,
+};
+
+const scoreWithBonus = (character, k) =>
+  ((character.abilities || {})[k] || 10) + ((character.raceBonus || {})[k] || 0);
+
+/** 'asi' (ASI ou talento), 'epic' (só talento/Dádiva Épica) ou null para o nível dado. */
+export function levelChoiceKind(character, level) {
+  const prog = computeProgression({ ...character, level: Math.max(level, character.level || 1), levelChoices: {} });
+  if (prog.pendingChoices.some(c => c.type === 'epicBoon' && c.level === level)) return 'epic';
+  return prog.asiLevels.includes(level) ? 'asi' : null;
+}
+
+/**
+ * Valida a escolha de ASI/talento de um nível. Espelha
+ * backend/api/progression/engine.py:validate_level_choice.
+ * choice: { type: 'asi', asi: {str: 1, dex: 1} } | { type: 'feat', feat: 'Nome', note?: '' }
+ */
+export function validateLevelChoice(character, level, choice) {
+  const issues = [];
+  const prog = computeProgression({ ...character, levelChoices: {} });
+  const epicLevels = prog.pendingChoices.filter(c => c.type === 'epicBoon').map(c => c.level);
+  if (!prog.asiLevels.includes(level) && !epicLevels.includes(level)) issues.push('Este nível não concede ASI/talento');
+  if ((character.levelChoices || {})[level]) issues.push('Escolha deste nível já registrada');
+  if (!choice || !['asi', 'feat'].includes(choice.type)) {
+    issues.push('Tipo de escolha inválido');
+    return { valid: false, issues };
+  }
+  if (epicLevels.includes(level) && choice.type !== 'feat') issues.push('Este nível concede uma Dádiva Épica (talento)');
+  if (choice.type === 'asi') {
+    const asi = choice.asi || {};
+    const keys = Object.keys(asi);
+    if (keys.some(k => !ABILITIES.includes(k))) issues.push('Atributo inválido');
+    const vals = keys.map(k => asi[k]);
+    if (vals.some(v => !Number.isInteger(v) || v < 0 || v > 2)) issues.push('Cada atributo recebe 0, +1 ou +2');
+    if (vals.reduce((a, b) => a + b, 0) !== 2) issues.push('Distribua exatamente 2 pontos');
+    if (keys.some(k => scoreWithBonus(character, k) + asi[k] > 20)) issues.push('Atributo não pode passar de 20');
+  } else if (typeof choice.feat !== 'string' || !choice.feat.trim() || choice.feat.length > 120) {
+    issues.push('Informe o nome do talento');
+  }
+  return { valid: issues.length === 0, issues };
+}
+
+/** Aplica uma escolha já validada: soma ASI nos atributos-base ou registra o talento. */
+export function applyLevelChoice(character, level, choice) {
+  const next = { ...character, levelChoices: { ...(character.levelChoices || {}), [level]: choice } };
+  if (choice.type === 'asi') {
+    next.abilities = { ...(character.abilities || {}) };
+    for (const [k, v] of Object.entries(choice.asi || {})) next.abilities[k] = (next.abilities[k] || 10) + v;
+  } else {
+    next.feats = [...(character.feats || []), { name: choice.feat.trim(), note: choice.note || '', level }];
+  }
+  return next;
+}
+
+/**
+ * Aplica uma subida de nível completa (fichas locais / fora de campanha).
+ * choices: { toLevel, hpGain, choice?, spellsAdded? }
+ */
+export function applyLevelUpChoices(character, choices) {
+  let next = { ...character, level: choices.toLevel };
+  const maxHp = (character.maxHp || 0) + choices.hpGain;
+  next.maxHp = maxHp;
+  next.currentHp = Math.min((character.currentHp ?? maxHp) + choices.hpGain, maxHp);
+  if (choices.choice) next = applyLevelChoice(next, choices.toLevel, choices.choice);
+  let spellsAdded = [];
+  if (choices.spellsAdded?.length) {
+    const have = new Set((next.spells || []).map(s => typeof s === 'string' ? s : s.id));
+    spellsAdded = choices.spellsAdded.filter(id => !have.has(id));
+    next.spells = [...(next.spells || []), ...spellsAdded.map(id => ({ id, prepared: true }))];
+  }
+  // Registro para poder desfazer a subida (revertLastLevel).
+  next.levelHistory = [
+    ...(character.levelHistory || []).filter(h => h.toLevel < choices.toLevel),
+    { toLevel: choices.toLevel, hpGain: choices.hpGain, spellsAdded },
+  ];
+  return applyAutosToCharacter(next);
+}
+
+/** Desfaz a escolha de ASI/talento registrada num nível. */
+function revertLevelChoice(character, level) {
+  const choice = (character.levelChoices || {})[level];
+  if (!choice) return character;
+  const levelChoices = { ...character.levelChoices };
+  delete levelChoices[level];
+  const next = { ...character, levelChoices };
+  if (choice.type === 'asi') {
+    next.abilities = { ...(character.abilities || {}) };
+    for (const [k, v] of Object.entries(choice.asi || {})) next.abilities[k] = (next.abilities[k] || 10) - v;
+  } else {
+    const feats = [...(character.feats || [])];
+    const i = feats.findIndex(f => f.level === level);
+    if (i >= 0) feats.splice(i, 1);
+    next.feats = feats;
+  }
+  return next;
+}
+
+/**
+ * Volta um nível (fichas fora de campanha), desfazendo PV, ASI/talento e magias
+ * ganhos naquele nível. Subidas sem registro (fichas antigas / modo trapaça)
+ * descontam a média do dado de vida.
+ */
+export function revertLastLevel(character) {
+  const level = character.level || 1;
+  if (level <= 1) return character;
+  const entry = (character.levelHistory || []).find(h => h.toLevel === level);
+  const conMod = Math.floor((scoreWithBonus(character, 'con') - 10) / 2);
+  const hpLoss = entry ? entry.hpGain : Math.max(1, Math.floor((HIT_DIE[character.className] || 8) / 2) + 1 + conMod);
+
+  let next = revertLevelChoice(character, level);
+  next.level = level - 1;
+  next.maxHp = Math.max(1, (character.maxHp || 1) - hpLoss);
+  next.currentHp = Math.min(character.currentHp ?? next.maxHp, next.maxHp);
+  next.hitDiceUsed = Math.min(character.hitDiceUsed || 0, next.level);
+  if (entry?.spellsAdded?.length) {
+    const drop = new Set(entry.spellsAdded);
+    next.spells = (next.spells || []).filter(s => !drop.has(typeof s === 'string' ? s : s.id));
+  }
+  next.levelHistory = (character.levelHistory || []).filter(h => h.toLevel < level);
+  return applyAutosToCharacter(next);
 }
 
 /**

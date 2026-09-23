@@ -66,6 +66,9 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, W, H);
+    // Canvas não entende var(--x): resolve os tokens da paleta uma vez por desenho.
+    const css = getComputedStyle(document.documentElement);
+    const tok = (name) => css.getPropertyValue(name).trim() || '#888';
 
     // Background
     if (bgImage) {
@@ -73,21 +76,21 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
       const scale = Math.min(W / bgImage.width, H / bgImage.height);
       const dw = bgImage.width * scale, dh = bgImage.height * scale;
       const dx = (W - dw) / 2, dy = (H - dh) / 2;
-      ctx.fillStyle = '#0c0805';
+      ctx.fillStyle = tok('--bg-deep');
       ctx.fillRect(0, 0, W, H);
       ctx.drawImage(bgImage, dx, dy, dw, dh);
     } else {
       // dark fantasy texture: gradient
       const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, '#1a1410');
-      g.addColorStop(1, '#0c0805');
+      g.addColorStop(0, tok('--bg-base'));
+      g.addColorStop(1, tok('--bg-deep'));
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, W, H);
     }
 
     // Grid
     if (gridVisible && gridSize > 0) {
-      ctx.strokeStyle = 'rgba(212, 168, 77, 0.18)';
+      ctx.strokeStyle = 'rgba(214, 176, 100, 0.18)';
       ctx.lineWidth = 1;
       for (let x = 0; x <= W; x += gridSize) {
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
@@ -111,7 +114,7 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
       ctx.save();
       // Sombra
       ctx.shadowBlur = isCurrent ? 24 : 8;
-      ctx.shadowColor = isCurrent ? '#d4a84d' : 'rgba(0,0,0,0.6)';
+      ctx.shadowColor = isCurrent ? tok('--gold') : 'rgba(0,0,0,0.6)';
       const img = tokenImages[c.id];
       if (img && img.complete && img.naturalWidth > 0) {
         ctx.save();
@@ -122,12 +125,12 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
         ctx.restore();
       } else {
         // Círculo colorido com inicial
-        ctx.fillStyle = c.type === 'pc' ? '#3a6ea5' : '#a53a3a';
+        ctx.fillStyle = c.type === 'pc' ? tok('--arcane') : tok('--blood');
         if (c.defeated) ctx.fillStyle = '#555';
         ctx.beginPath();
         ctx.arc(x, y, size / 2, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#f4ecd8';
+        ctx.fillStyle = tok('--ink-primary');
         ctx.font = `bold ${Math.max(12, size * 0.4)}px 'Cinzel', serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -136,7 +139,7 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
       // Borda
       ctx.shadowBlur = 0;
       ctx.lineWidth = isCurrent ? 4 : 2;
-      ctx.strokeStyle = isCurrent ? '#d4a84d' : (selectedId === c.id ? '#fff' : '#3a2820');
+      ctx.strokeStyle = isCurrent ? tok('--gold') : (selectedId === c.id ? '#fff' : tok('--bg-elevated'));
       ctx.beginPath();
       ctx.arc(x, y, size / 2, 0, Math.PI * 2);
       ctx.stroke();
@@ -146,11 +149,11 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
       const barX = x - barW / 2, barY = y + size / 2 + 4;
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
       ctx.fillRect(barX, barY, barW, barH);
-      ctx.fillStyle = hpPct > 0.6 ? '#5cba5c' : hpPct > 0.3 ? '#d4a84d' : '#d44d4d';
+      ctx.fillStyle = hpPct > 0.6 ? tok('--moss-bright') : hpPct > 0.3 ? tok('--gold') : tok('--blood-bright');
       ctx.fillRect(barX, barY, barW * hpPct, barH);
 
       // Nome
-      ctx.fillStyle = '#f4ecd8';
+      ctx.fillStyle = tok('--ink-primary');
       ctx.shadowBlur = 4;
       ctx.shadowColor = 'rgba(0,0,0,0.9)';
       ctx.font = '12px "EB Garamond", serif';
@@ -159,7 +162,7 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
 
       // Defeated → X
       if (c.defeated) {
-        ctx.strokeStyle = '#d44d4d';
+        ctx.strokeStyle = tok('--blood-bright');
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(x - size / 3, y - size / 3);
@@ -171,7 +174,7 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
 
       // HP crítico → pulso vermelho (apenas visual estático, anim depende de redraw constante)
       if (isCrit) {
-        ctx.strokeStyle = 'rgba(212, 77, 77, 0.7)';
+        ctx.strokeStyle = 'rgba(224, 96, 79, 0.7)';
         ctx.lineWidth = 6;
         ctx.beginPath();
         ctx.arc(x, y, size / 2 + 4, 0, Math.PI * 2);

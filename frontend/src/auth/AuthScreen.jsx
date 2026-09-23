@@ -95,8 +95,9 @@ export default function AuthScreen({ onSkip, lang = 'pt' }) {
         {onSkip && (
           <div className="auth-skip">
             <button className="btn btn-ghost" type="button" onClick={onSkip}>
-              {t('Continuar offline (salvar só neste navegador)', 'Continue offline (save in this browser only)')}
+              {t('Continuar sem conta', 'Continue without account')}
             </button>
+            <div className="auth-skip-note">{t('As fichas ficam salvas só neste navegador.', 'Sheets are saved in this browser only.')}</div>
           </div>
         )}
       </div>

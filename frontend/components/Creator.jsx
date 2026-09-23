@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { t, tName } from '../data/i18n.js';
+import LanguagePicker, { chosenLanguages } from './LanguagePicker.jsx';
 import Icon from './Icons.jsx';
 import { Filigree, Modal, NumStepper, AvatarUpload } from './Shared.jsx';
 
@@ -60,13 +61,16 @@ const StepIdentity = ({ char, set, lang, isNew }) => (
         <label>{t('playerName', lang)}</label>
         <input value={char.player} onChange={e => set({ player: e.target.value })} />
       </div>
-      <div className="row gap-3">
-        <div style={{ flex: 1 }}>
+      <div className="field-row">
+        <div>
           <label>{t('level', lang)}</label>
-          {isNew ? (
-            <div className="mono" style={{ padding: '8px 12px', background: 'var(--surface-2, rgba(255,255,255,0.04))', borderRadius: 6, color: 'var(--gold-bright)', fontSize: '1.1rem' }}>
-              1 <span className="muted text-xs">({lang === 'pt' ? 'novos heróis começam aqui' : 'new heroes start here'})</span>
-            </div>
+          {isNew || !char.cheatMode ? (
+            <>
+              <div className="readonly-field mono">{isNew ? 1 : char.level}</div>
+              <div className="field-hint">{isNew
+                ? (lang === 'pt' ? 'Novos heróis começam no nível 1.' : 'New heroes start at level 1.')
+                : (lang === 'pt' ? 'Suba pelo botão de nível; livre só no modo trapaça.' : 'Use the level button; free only in cheat mode.')}</div>
+            </>
           ) : (
             <select value={char.level} onChange={e => set({ level: +e.target.value })}>
               {Array.from({ length: 20 }, (_, i) => i + 1).map(n =>
@@ -75,7 +79,7 @@ const StepIdentity = ({ char, set, lang, isNew }) => (
             </select>
           )}
         </div>
-        <div style={{ flex: 1 }}>
+        <div>
           <label>{lang === 'pt' ? 'Progressão' : 'Leveling'}</label>
           <select value={char.levelingMode || 'milestone'} onChange={e => set({ levelingMode: e.target.value })}>
             <option value="milestone">{lang === 'pt' ? 'Por Marcos (recomendado)' : 'Milestones (recommended)'}</option>
@@ -108,7 +112,8 @@ const StepRace = ({ char, set, lang }) => {
   const select = (id) => {
     const bonus = Utils.applyRaceBonus(char, id);
     const race = Utils.races(char).find(r => r.id === id);
-    set({ race: id, raceBonus: bonus, speedOverride: 0, languages: race ? [...(race.languages || [])] : [] });
+    // Idiomas fixos vêm da espécie/classe; aqui guardamos só os escolhidos.
+    set({ race: id, raceBonus: bonus, speedOverride: 0, languages: [] });
   };
   return (
     <div>
@@ -227,23 +232,6 @@ const SubclassSelector = ({ char, set, lang }) => {
         </div>
       )}
 
-      {/* Stars circle constellation form */}
-      {char.subclass === 'stars' && selectedSub && selectedSub.starForms && (
-        <div style={{ marginTop: 16 }}>
-          <label style={{ color: 'var(--gold-deep)', display: 'block', marginBottom: 8 }}>
-            {lang === 'pt' ? 'Constelação Favorita' : 'Favored Constellation'}
-          </label>
-          <div className="options-list cols-3" style={{ marginTop: 4 }}>
-            {selectedSub.starForms.map(sf => (
-              <button key={sf.id} className={`option ${char.starFormType === sf.id ? 'selected' : ''}`}
-                onClick={() => set({ starFormType: sf.id })}>
-                <div className="option-title" style={{ fontSize: '0.9rem' }}>{sf.name[lang]}</div>
-                <div className="option-meta text-xs" style={{ marginTop: 4 }}>{sf.desc[lang]}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -296,7 +284,30 @@ const StepClass = ({ char, set, lang }) => {
 };
 
 // 4. Abilities (point buy)
-const StepAbilities = ({ char, set, lang }) => {
+const StepAbilities = ({ char, set, lang, isNew }) => {
+  // Ficha existente: atributos só mudam por ASI na subida de nível (ou modo trapaça).
+  if (!isNew && !char.cheatMode) {
+    return (
+      <div>
+        <h2>{t('abilitiesTitle', lang)}</h2>
+        <Filigree />
+        <div className="card" style={{ padding: 12, marginBottom: 12 }}>
+          🔒 {lang === 'pt'
+            ? 'Atributos travados: mude pelo Aumento de Atributo ao subir de nível, ou ligue o modo trapaça na ficha.'
+            : 'Abilities locked: change them through Ability Score Improvements when leveling up, or turn on cheat mode on the sheet.'}
+        </div>
+        {SRD.ABILITIES.map(k => (
+          <div key={k} className="stat-row">
+            <div className="stat-name">{t(k, lang)}</div>
+            <div className="stat-final">
+              <div className="stat-final-num">{Utils.abilityWithRace(char, k)}</div>
+              <div className="stat-final-mod">{Utils.fmtMod(Utils.abilityMod(char, k))}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
   const cost = pointBuyCost(char.abilities);
   const remaining = POINT_BUY_TOTAL - cost;
   const canIncrease = (k) => {
@@ -417,7 +428,18 @@ const StepAbilities = ({ char, set, lang }) => {
 };
 
 // 5. Background
-const StepBackground = ({ char, set, lang }) => (
+const StepBackground = ({ char, set, lang }) => {
+  // Troca as perícias do antecedente anterior pelas do novo.
+  const selectBg = (b) => {
+    const oldSkills = Utils.backgroundSkills(char);
+    const kept = (char.skillProfs || []).filter(s => !oldSkills.includes(s));
+    set({
+      background: b.id,
+      skillProfs: [...new Set([...kept, ...b.skills])],
+      ...(char.rulesVersion === '2024' ? { raceBonus: {}, originFeat: b.feat } : {}),
+    });
+  };
+  return (
   <div>
     <h2>{t('chooseBackground', lang)}</h2>
     <Filigree />
@@ -425,24 +447,30 @@ const StepBackground = ({ char, set, lang }) => (
       {Utils.backgrounds(char).map(b => {
         const isSel = char.background === b.id;
         return (
-          <button key={b.id} className={`option ${isSel ? 'selected' : ''}`} onClick={() => set({ background: b.id, ...(char.rulesVersion === '2024' ? { raceBonus: {}, originFeat: b.feat } : {}) })}>
+          <button key={b.id} className={`option ${isSel ? 'selected' : ''}`} onClick={() => selectBg(b)}>
             <div className="option-title">{tName('background', b.id, lang)}</div>
             <div className="option-meta">
-              <span>{t('skills', lang)}: {b.skills.map(s => tName('skill', s, lang)).join(', ')}</span>
+              <span>{t('skills', lang)}: <strong>{b.skills.map(s => tName('skill', s, lang)).join(', ')}</strong></span>
             </div>
             <div className="text-xs muted" style={{ marginTop: 4 }}>{b.equipment[lang]}</div>
+            {isSel && (
+              <div className="text-sm" style={{ marginTop: 8, color: 'var(--gold-deep)' }}>
+                ✓ {lang === 'pt' ? 'Você ganha proficiência em' : 'You gain proficiency in'} {b.skills.map(s => tName('skill', s, lang)).join(lang === 'pt' ? ' e ' : ' and ')}
+              </div>
+            )}
           </button>
         );
       })}
     </div>
   </div>
-);
+  );
+};
 
 // 6. Skills
 const StepSkills = ({ char, set, lang }) => {
   const cls = SRD.CLASSES.find(c => c.id === char.className);
   const bg = Utils.backgrounds(char).find(b => b.id === char.background);
-  const bgSkills = bg ? bg.skills : [];
+  const bgSkills = Utils.backgroundSkills(char);
   const allowed = cls ? cls.skillsFrom : SRD.SKILLS.map(s => s.id);
   const limit = cls ? cls.skillCount : 0;
 
@@ -473,6 +501,11 @@ const StepSkills = ({ char, set, lang }) => {
       <div className="text-sm muted" style={{ marginBottom: 8 }}>
         {t('chooseSkillsSub', lang)} {limit} {t('fromClass', lang)} ({remaining} {lang === 'pt' ? 'restantes' : 'left'})
       </div>
+      {bg && (
+        <div className="text-sm" style={{ marginBottom: 8, color: 'var(--gold-deep)' }}>
+          {lang === 'pt' ? 'Do antecedente' : 'From background'} ({tName('background', bg.id, lang)}): {bgSkills.map(s => tName('skill', s, lang)).join(', ')}
+        </div>
+      )}
       <Filigree />
       <div className="skill-list">
         {SRD.SKILLS.map(s => {
@@ -496,9 +529,18 @@ const StepSkills = ({ char, set, lang }) => {
           );
         })}
       </div>
+      <StepLanguages char={char} set={set} lang={lang} />
     </div>
   );
 };
+
+// 6b. Languages (dentro do passo de perícias)
+const StepLanguages = ({ char, set, lang }) => (
+  <>
+    <h2 style={{ marginTop: 32 }}>{lang === 'pt' ? 'Idiomas' : 'Languages'}</h2>
+    <LanguagePicker char={char} lang={lang} chosen={chosenLanguages(char)} onChange={languages => set({ languages })} />
+  </>
+);
 
 // 7. Equipment
 const StepEquipment = ({ char, set, lang }) => {
@@ -868,8 +910,12 @@ const Creator = ({ lang, initial, onSave, onCancel }) => {
     { id: 'race', label: t('stepRace', lang), comp: StepRace, valid: () => !!char.race },
     { id: 'class', label: t('stepClass', lang), comp: StepClass, valid: () => !!char.className },
     { id: 'background', label: t('stepBackground', lang), comp: StepBackground, valid: () => !!char.background },
-    { id: 'abilities', label: t('stepAbilities', lang), comp: StepAbilities, valid: () => char.rulesVersion !== '2024' || Object.values(char.raceBonus || {}).reduce((s,n) => s+n,0) === 3 },
-    { id: 'skills', label: t('stepSkills', lang), comp: StepSkills, valid: () => true },
+    { id: 'abilities', label: t('stepAbilities', lang), comp: StepAbilities, valid: () => (!isNew && !char.cheatMode) || char.rulesVersion !== '2024' || Object.values(char.raceBonus || {}).reduce((s,n) => s+n,0) === 3 },
+    { id: 'skills', label: t('stepSkills', lang), comp: StepSkills, valid: () => {
+      const fixed = Utils.fixedLanguages(char);
+      const chosen = (char.languages || []).filter(l => !fixed.includes(l) && !/^\+\d/.test(l));
+      return chosen.length >= Utils.languageChoiceCount(char);
+    } },
     { id: 'equipment', label: t('stepEquipment', lang), comp: StepEquipment, valid: () => true },
     { id: 'spells', label: t('stepSpells', lang), comp: StepSpells, valid: () => true },
     { id: 'story', label: t('stepStory', lang), comp: StepStory, valid: () => true },
@@ -881,7 +927,12 @@ const Creator = ({ lang, initial, onSave, onCancel }) => {
 
   const handleFinish = () => {
     const maxHp = Utils.maxHpDefault(char);
-    const final = isNew ? { ...char, maxHp, currentHp: maxHp } : { ...char };
+    const normalized = {
+      ...char,
+      languages: Utils.languagesFor(char),
+      skillProfs: [...new Set([...(char.skillProfs || []), ...Utils.backgroundSkills(char)])],
+    };
+    const final = isNew ? { ...normalized, maxHp, currentHp: maxHp } : normalized;
     onSave(final);
   };
 

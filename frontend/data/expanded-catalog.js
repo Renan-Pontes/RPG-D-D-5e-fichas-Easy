@@ -62,6 +62,7 @@ export const SOURCES = {
   EGW: "Explorer's Guide to Wildemount", DSDQ: 'Dragonlance: Shadow of the Dragon Queen',
   BGG: "Bigby Presents: Glory of the Giants", AI: 'Acquisitions Incorporated',
   LR: 'Locathah Rising', OGA: 'One Grung Above',
+  UA26VO: 'Unearthed Arcana: Villainous Options (2026, playtest)',
 };
 
 // Supplemental subclasses can be selected and saved. Their special actions
@@ -102,6 +103,8 @@ const subclasses = {
   ],
   druid: [
     ['shepherd', 'Círculo do Pastor', 'Circle of the Shepherd', 'XGE', 'Totens espirituais e criaturas invocadas.', 'Spirit totems and summoned creatures.'],
+    // Playtest (UA), não é livro publicado: confira o documento antes de usar.
+    ['titan', 'Círculo do Titã (kaiju) — UA', 'Circle of the Titan — UA', 'UA26VO', 'Playtest: a Forma Selvagem vira um monstro colossal no estilo kaiju.', 'Playtest: Wild Shape becomes a colossal kaiju-style monster.'],
   ],
   fighter: [
     ['banneret', 'Cavaleiro do Dragão Púrpura', 'Purple Dragon Knight', 'SCAG', 'Liderança marcial fortalece companheiros.', 'Martial leadership bolsters companions.'],

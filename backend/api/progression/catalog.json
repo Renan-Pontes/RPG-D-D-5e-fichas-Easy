@@ -852,6 +852,9 @@
         },
         "shepherd": {
           "manual": true
+        },
+        "titan": {
+          "manual": true
         }
       }
     },
@@ -7059,6 +7062,9 @@
           "legacyCompatibility": true
         },
         "shepherd": {
+          "legacyCompatibility": true
+        },
+        "titan": {
           "legacyCompatibility": true
         }
       },

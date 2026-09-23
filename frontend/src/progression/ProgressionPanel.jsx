@@ -10,9 +10,11 @@ export default function ProgressionPanel({
   character,
   lang = 'pt',
   onLevelUpRequest,
+  onLevelDown,
   canRequestLevelUp = false,
   unlockedLevelup = null,
   onConsumeLevelup,
+  onResolveChoice,
 }) {
   const prog = useMemo(() => computeProgression(character), [character]);
   if (!prog.classId) return null;
@@ -41,7 +43,14 @@ export default function ProgressionPanel({
           <div className="prog-label">{t(lang, 'Decisões pendentes:', 'Pending choices:')}</div>
           <ul>
             {prog.pendingChoices.map((c, i) => (
-              <li key={i}><strong>Nv. {c.level}</strong> — {c.reason}</li>
+              <li key={i}>
+                <strong>Nv. {c.level}</strong> — {c.reason}
+                {onResolveChoice && (c.type === 'asiOrFeat' || c.type === 'epicBoon') && (
+                  <button className="btn btn-sm btn-primary" style={{ marginLeft: 8 }} onClick={() => onResolveChoice(c.level)}>
+                    {t(lang, 'Escolher agora', 'Choose now')}
+                  </button>
+                )}
+              </li>
             ))}
           </ul>
         </div>
@@ -67,11 +76,20 @@ export default function ProgressionPanel({
         </div>
       )}
 
-      {!hasUnlocked && canRequestLevelUp && !atMaxLevel && onLevelUpRequest && (
-        <button className="btn btn-primary" onClick={() => onLevelUpRequest(prog)}>
-          {t(lang, `Solicitar subida ao nível ${character.level + 1}`, `Request level ${character.level + 1}`)}
-        </button>
-      )}
+      <div className="prog-actions">
+        {!hasUnlocked && canRequestLevelUp && !atMaxLevel && onLevelUpRequest && (
+          <button className="btn btn-primary" onClick={() => onLevelUpRequest(prog)}>
+            {character.inCampaign
+              ? t(lang, `Solicitar subida ao nível ${character.level + 1}`, `Request level ${character.level + 1}`)
+              : t(lang, `Subir para o nível ${character.level + 1}`, `Level up to ${character.level + 1}`)}
+          </button>
+        )}
+        {!character.inCampaign && onLevelDown && (character.level || 1) > 1 && (
+          <button className="btn btn-ghost" onClick={onLevelDown}>
+            {t(lang, `Voltar ao nível ${character.level - 1}`, `Back to level ${character.level - 1}`)}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

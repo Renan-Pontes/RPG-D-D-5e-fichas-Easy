@@ -14,8 +14,8 @@
   align-items: baseline;
   gap: 12px;
   padding: 10px 18px;
-  background: linear-gradient(90deg, rgba(212,168,77,0.20), transparent);
-  border-left: 4px solid var(--gold, #d4a84d);
+  background: linear-gradient(90deg, rgba(214, 176, 100, 0.20), transparent);
+  border-left: 4px solid var(--gold, var(--gold));
   border-radius: 4px;
   margin-top: 12px;
 }
@@ -29,7 +29,7 @@
 .now-turn-name {
   font-family: 'Cinzel', serif;
   font-size: 1.3rem;
-  color: var(--gold, #d4a84d);
+  color: var(--gold, var(--gold));
   font-weight: 600;
 }
 .now-turn-hp {
@@ -54,11 +54,11 @@
 }
 
 .combatant-card.is-turn {
-  border-left-color: var(--gold, #d4a84d);
-  background: rgba(212,168,77,0.05);
+  border-left-color: var(--gold, var(--gold));
+  background: rgba(214, 176, 100, 0.05);
 }
 
-.combatant-card.is-sel { border-color: var(--gold, #d4a84d); }
+.combatant-card.is-sel { border-color: var(--gold, var(--gold)); }
 .combatant-card.is-defeated { opacity: 0.55; filter: grayscale(0.6); }
 .combatant-card.type-pc { border-left-style: solid; }
 .combatant-card.type-monster { border-left-style: dashed; }
@@ -96,8 +96,8 @@
   letter-spacing: 1px;
   font-weight: 700;
 }
-.cc-badge.pc { background: rgba(60, 100, 180, 0.2); color: #8eb0e0; border: 1px solid #5072a0; }
-.cc-badge.mon { background: rgba(180, 50, 50, 0.2); color: #ff9999; border: 1px solid #b43232; }
+.cc-badge.pc { background: rgba(159, 176, 240, 0.2); color: var(--arcane-bright); border: 1px solid var(--arcane); }
+.cc-badge.mon { background: rgba(224, 96, 79, 0.2); color: var(--blood-bright); border: 1px solid var(--blood); }
 
 .cc-hp {
   display: flex;
@@ -108,7 +108,7 @@
   position: relative;
   width: 100%;
   height: 22px;
-  background: #2a1c14;
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 4px;
   overflow: hidden;
@@ -117,9 +117,9 @@
   height: 100%;
   transition: width 400ms ease, background-color 400ms;
 }
-.cc-hp-bar.tone-ok   .cc-hp-fill { background: linear-gradient(90deg, #5cba5c, #79d479); }
-.cc-hp-bar.tone-warn .cc-hp-fill { background: linear-gradient(90deg, #d4a84d, #e5be5d); }
-.cc-hp-bar.tone-crit .cc-hp-fill { background: linear-gradient(90deg, #d44d4d, #ff7373); }
+.cc-hp-bar.tone-ok   .cc-hp-fill { background: linear-gradient(90deg, var(--moss-bright), var(--moss-bright)); }
+.cc-hp-bar.tone-warn .cc-hp-fill { background: linear-gradient(90deg, var(--gold), var(--gold-bright)); }
+.cc-hp-bar.tone-crit .cc-hp-fill { background: linear-gradient(90deg, var(--blood-bright), var(--blood-bright)); }
 .cc-hp-text {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
@@ -137,9 +137,9 @@
 }
 .cc-cond {
   display: inline-block;
-  background: rgba(180,50,50,0.18);
-  border: 1px solid #b43232;
-  color: #ffcccc;
+  background: rgba(224, 96, 79, 0.18);
+  border: 1px solid var(--blood);
+  color: var(--blood-bright);
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 0.75em;
@@ -158,7 +158,7 @@
 
 .cc-actions details > summary {
   cursor: pointer;
-  color: var(--gold, #d4a84d);
+  color: var(--gold, var(--gold));
   padding: 4px 0;
   font-size: 0.9em;
 }
@@ -185,14 +185,14 @@
   gap: 4px;
 }
 .cc-cond-grid .btn-icon.active {
-  background: rgba(212,168,77,0.2);
-  border-color: var(--gold, #d4a84d);
-  color: var(--gold, #d4a84d);
+  background: rgba(214, 176, 100, 0.2);
+  border-color: var(--gold, var(--gold));
+  color: var(--gold, var(--gold));
 }
 
 .cc-death {
-  background: rgba(180,50,50,0.1);
-  border: 1px solid #b43232;
+  background: rgba(224, 96, 79, 0.1);
+  border: 1px solid var(--blood);
   border-radius: 4px;
   padding: 8px;
   display: flex;
@@ -224,8 +224,8 @@
 }
 .monster-row:hover { background: var(--bg-elev); }
 .monster-row.selected {
-  background: rgba(212,168,77,0.1);
-  border-left-color: var(--gold, #d4a84d);
+  background: rgba(214, 176, 100, 0.1);
+  border-left-color: var(--gold, var(--gold));
 }
 
 .muted { color: var(--ink-secondary); }
@@ -244,7 +244,7 @@
   cursor: pointer;
   font: inherit;
 }
-.member-pick:hover { border-color: var(--gold, #d4a84d); }
+.member-pick:hover { border-color: var(--gold, var(--gold)); }
 
 /* === Combat Grid (canvas) === */
 .combat-grid-wrapper {
@@ -309,13 +309,13 @@
 }
 
 .rolls-panel .roll-row.history.public {
-  background: rgba(212,168,77,0.05);
+  background: rgba(214, 176, 100, 0.05);
 }
 .rolls-panel .roll-row.history.critical {
-  background: rgba(212,168,77,0.15);
+  background: rgba(214, 176, 100, 0.15);
 }
 .rolls-panel .roll-row.history.critfail {
-  background: rgba(180,50,50,0.12);
+  background: rgba(224, 96, 79, 0.12);
 }
 
 .roll-result {
@@ -334,8 +334,8 @@
 }
 
 .crit-tag {
-  background: var(--gold, #d4a84d);
-  color: #0c0805;
+  background: var(--gold, var(--gold));
+  color: var(--bg-deep);
   padding: 1px 6px;
   border-radius: 4px;
   font-size: 0.7em;
@@ -343,7 +343,7 @@
   letter-spacing: 1px;
 }
 .critfail-tag {
-  background: #d44d4d;
+  background: var(--blood-bright);
   color: #fff;
   padding: 1px 6px;
   border-radius: 4px;
@@ -351,3 +351,7 @@
   font-weight: 700;
   letter-spacing: 1px;
 }
+
+/* Mapa + lista (no desktop do mestre vira duas colunas, ver dm-desktop.css) */
+.combat-body { display: flex; flex-direction: column; gap: 16px; }
+.combat-body .empty-card { margin-top: 0; padding: var(--s-5) var(--s-4); }

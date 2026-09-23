@@ -13,7 +13,7 @@
   margin: 8px 0 12px;
   padding: 8px 12px;
   border-left: 3px solid var(--gold);
-  background: rgba(212,168,77,0.08);
+  background: rgba(214, 176, 100, 0.08);
   border-radius: 4px;
   color: var(--ink-secondary);
   font-size: 0.85em;
@@ -53,15 +53,15 @@
     transition: background .15s, color .15s;
   }
   .campaign-detail.is-dm .tab:hover {
-    background: rgba(212,168,77,0.08);
+    background: rgba(214, 176, 100, 0.08);
   }
   .campaign-detail.is-dm .tab.active {
     background: var(--gold);
-    color: #1a1610;
+    color: var(--bg-base);
     font-weight: 600;
   }
   .campaign-detail.is-dm .tab .badge {
-    background: #c44;
+    background: var(--blood-bright);
     color: white;
     border-radius: 999px;
     padding: 1px 7px;
@@ -112,9 +112,9 @@
     transition: background .12s;
   }
   .campaign-detail.is-dm .member-row:last-child { border-bottom: none; }
-  .campaign-detail.is-dm .member-row:hover { background: rgba(212,168,77,0.06); }
+  .campaign-detail.is-dm .member-row:hover { background: rgba(214, 176, 100, 0.06); }
   .campaign-detail.is-dm .member-row.selected {
-    background: rgba(212,168,77,0.14);
+    background: rgba(214, 176, 100, 0.14);
     border-left: 3px solid var(--gold);
     padding-left: 11px;
   }
@@ -210,16 +210,16 @@
   }
 
   /* === Combat tab — flex melhor === */
-  .campaign-detail.is-dm .combat-tab {
+  /* Lista de combatentes à esquerda, mapa ocupando o resto */
+  .campaign-detail.is-dm .combat-body {
     display: grid;
-    grid-template-columns: minmax(260px, 320px) 1fr;
+    grid-template-columns: minmax(280px, 340px) 1fr;
     gap: 18px;
     align-items: start;
   }
-  /* fallback se não tiver wrappers — pelo menos respira mais */
-  .campaign-detail.is-dm .combat-tab > * {
-    min-width: 0;
-  }
+  .campaign-detail.is-dm .combat-body > * { min-width: 0; }
+  .campaign-detail.is-dm .combat-body .combatants-list { grid-column: 1; grid-row: 1; }
+  .campaign-detail.is-dm .combat-body .combat-grid-wrapper { grid-column: 2; grid-row: 1; }
 }
 
 /* === Telas muito largas (>=1400) — mais respiro e 3 colunas em members === */

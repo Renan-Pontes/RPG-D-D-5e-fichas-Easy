@@ -13,4 +13,7 @@ from .engine import (
     apply_autos,
     validate_level_up,
     apply_approval_to_character,
+    validate_level_choice,
+    apply_level_choice,
+    max_hp_gain,
 )

@@ -4,7 +4,8 @@ import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { t, tName } from '../data/i18n.js';
 import Icon from './Icons.jsx';
-import { Filigree, NumStepper, Pips } from './Shared.jsx';
+import { Filigree, Modal, NumStepper, Pips } from './Shared.jsx';
+import ItemPickerModal from '../src/items/ItemPickerModal.jsx';
 import { api } from '../src/api/client.js';
 
 const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, roll }) => {
@@ -18,16 +19,13 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
     );
   }
 
-  const isDruid = char.className === 'druid';
-  const wildShapeMaxCR = isDruid ? (char.level >= 8 ? 1 : (char.level >= 4 ? 0.5 : 0.25)) : 0;
-  const wildShapeRules = isDruid && char.level >= 4 && char.level < 8
-    ? (lang === 'pt' ? 'Sem velocidade de voo.' : 'No fly speed.')
-    : (isDruid && char.level < 4 ? (lang === 'pt' ? 'Sem velocidade de voo ou natação.' : 'No fly or swim speed.') : '');
-
+  // Modo trapaça: qualquer lista, qualquer nível, sem limite.
+  const cheat = !!char.cheatMode;
   const isPrepared = Utils.isPreparedCaster(char);
-  const maxLvl = Utils.maxSpellLevel(char);
-  const cantripLimit = Utils.cantripsKnown(char);
-  const preparedLimit = isPrepared ? Utils.preparedSpellsLimit(char) : null;
+  const maxLvl = cheat ? 9 : Utils.maxSpellLevel(char);
+  const cantripLimit = cheat ? Infinity : Utils.cantripsKnown(char);
+  const preparedLimit = isPrepared ? (cheat ? Infinity : Utils.preparedSpellsLimit(char)) : null;
+  const inList = sp => cheat || sp.classes.includes(Utils.spellListClass(char));
 
   const spellEntries = char.spells || [];
   const autoIds = new Set(spellEntries.filter(s => s.auto).map(s => s.id));
@@ -40,30 +38,8 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
     return def && def.level > 0;
   }).map(s => s.id);
 
-  const classSpells = Utils.spellCatalog(char).filter(sp => (sp.classes.includes(Utils.spellListClass(char)) && sp.level <= maxLvl) || autoIds.has(sp.id));
-  const classCantrips = Utils.spellCatalog(char).filter(sp => (sp.classes.includes(Utils.spellListClass(char)) || autoIds.has(sp.id)) && sp.level === 0);
-
-  const toggleCantrip = (id) => {
-    if (autoIds.has(id)) return;
-    const has = cantripIds.includes(id);
-    if (has) {
-      update({ spells: spellEntries.filter(s => s.id !== id) });
-    } else {
-      if (cantripIds.filter(id => !autoIds.has(id)).length >= cantripLimit) return;
-      update({ spells: [...spellEntries, { id, prepared: true }] });
-    }
-  };
-
-  const togglePrepared = (id) => {
-    if (autoIds.has(id)) return;
-    const has = preparedIds.includes(id);
-    if (has) {
-      update({ spells: spellEntries.filter(s => s.id !== id) });
-    } else {
-      if (isPrepared && preparedIds.filter(id => !autoIds.has(id)).length >= preparedLimit) return;
-      update({ spells: [...spellEntries, { id, prepared: true }] });
-    }
-  };
+  const classSpells = Utils.spellCatalog(char).filter(sp => (inList(sp) && sp.level <= maxLvl) || autoIds.has(sp.id));
+  const classCantrips = Utils.spellCatalog(char).filter(sp => (inList(sp) || autoIds.has(sp.id)) && sp.level === 0);
 
   const removeSpell = (id) => {
     if (autoIds.has(id)) return;
@@ -71,11 +47,11 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
   };
 
   // Known caster: ability to add new known spells via dropdown
-  const available = Utils.spellCatalog(char).filter(sp => sp.classes.includes(Utils.spellListClass(char)) && sp.level <= maxLvl && !spellEntries.find(s => s.id === sp.id));
+  const available = Utils.spellCatalog(char).filter(sp => inList(sp) && sp.level <= maxLvl && !spellEntries.find(s => s.id === sp.id));
   const addKnownSpell = (id) => {
     const def = Utils.spellCatalog(char).find(s => s.id === id);
     const count = (def?.level === 0 ? cantripIds : preparedIds).filter(id => !autoIds.has(id)).length;
-    const limit = def?.level === 0 ? cantripLimit : Utils.knownSpellLimit(char);
+    const limit = def?.level === 0 ? cantripLimit : (cheat ? Infinity : Utils.knownSpellLimit(char));
     if (!def || count >= limit || spellEntries.some(s => s.id === id)) return;
     update({ spells: [...spellEntries, { id, prepared: true }] });
   };
@@ -100,14 +76,6 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
               {spellAtk !== null ? Utils.fmtMod(spellAtk) : '—'}
             </div>
           </div>
-          {isPrepared && (
-            <div>
-              <div className="eyebrow">{t('preparedSpells', lang)}</div>
-              <div className="mono" style={{ fontSize: '1.4rem', color: preparedIds.length > preparedLimit ? 'var(--blood-bright)' : 'var(--gold-bright)' }}>
-                {preparedIds.length}/{preparedLimit}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -151,9 +119,7 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
         </>
       )}
 
-      {isDruid && char.level >= 2 && (
-        <WildShapePanel lang={lang} maxCR={wildShapeMaxCR} note={wildShapeRules} druidLevel={char.level} />
-      )}
+      {/* Forma Selvagem fica na aba Jogar (painel completo, com Forma Estelar). */}
 
       {isPrepared ? (
         <PreparedSpellsView
@@ -161,13 +127,10 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
           char={char}
           classCantrips={classCantrips}
           classSpells={classSpells}
-          cantripIds={cantripIds}
-          preparedIds={preparedIds}
-          cantripLimit={cantripLimit + cantripIds.filter(id => autoIds.has(id)).length}
-          preparedLimit={preparedLimit + preparedIds.filter(id => autoIds.has(id)).length}
+          autoIds={autoIds}
+          cantripLimit={cantripLimit}
+          preparedLimit={preparedLimit}
           maxLvl={maxLvl}
-          onToggleCantrip={toggleCantrip}
-          onTogglePrepared={togglePrepared}
           spellAtk={spellAtk}
           roll={roll}
           slots={slots}
@@ -191,77 +154,171 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
   );
 };
 
-const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, cantripIds, preparedIds, cantripLimit, preparedLimit, maxLvl, onToggleCantrip, onTogglePrepared, spellAtk, roll, slots, update }) => {
-  const leveled = classSpells.filter(s => s.level > 0);
-  const byLevel = {};
-  leveled.forEach(sp => {
-    if (!byLevel[sp.level]) byLevel[sp.level] = [];
-    byLevel[sp.level].push(sp);
-  });
+// Agrupa entradas de magia por círculo: { 0: [...], 1: [...] }.
+const groupByLevel = (list) => {
+  const out = {};
+  list.forEach(s => { (out[s.def.level] ||= []).push(s); });
+  return out;
+};
+
+const levelLabel = (lvl, lang) => (+lvl === 0 ? t('cantrips', lang) : `${t('spellLevel', lang)} ${lvl}`);
+
+// Conjuradores preparados: a ficha mostra só o que está pronto, agrupado por círculo
+// (fechado até tocar). A escolha diária acontece no modal "Preparar magias".
+const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, cantripLimit, preparedLimit, maxLvl, spellAtk, roll, slots, update }) => {
+  const pt = lang === 'pt';
+  const [picking, setPicking] = useState(false);
+  const catalog = Utils.spellCatalog(char);
+  const ready = (char.spells || [])
+    .map(cs => ({ ...cs, def: catalog.find(s => s.id === cs.id) }))
+    .filter(s => s.def);
+  const byLevel = groupByLevel(ready);
+  const nonAuto = (lvl0) => ready.filter(s => !autoIds.has(s.id) && (s.def.level === 0) === lvl0).length;
+  const fmt = (n) => (Number.isFinite(n) ? n : '∞');
+  const hasSpells = classSpells.some(s => s.level > 0);
 
   return (
     <>
-      {cantripLimit > 0 && classCantrips.length > 0 && (
-        <>
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline', marginTop: 8 }}>
-            <Filigree>{t('cantrips', lang)}</Filigree>
-            <span className="text-xs muted mono">{cantripIds.length}/{cantripLimit}</span>
-          </div>
-          {classCantrips.map(sp => {
-            const sel = cantripIds.includes(sp.id);
-            const disabled = !sel && cantripIds.length >= cantripLimit;
-            return (
-              <SpellRow
-                key={sp.id} spell={{ id: sp.id, def: sp, prepared: sel }} lang={lang}
-                showPrepared={true}
-                preparedDisabled={disabled}
-                preparedIcon={sel ? 'check' : 'plus'}
-                onTogglePrepared={() => onToggleCantrip(sp.id)}
-                char={char}
-                slots={slots}
-                update={update}
-                spellAtk={spellAtk}
-                roll={roll}
-              />
-            );
-          })}
-        </>
-      )}
+      <div className="spells-toolbar">
+        <div className="spells-counters">
+          {cantripLimit > 0 && (
+            <span className="spell-count"><span className="muted">{t('cantrips', lang)}</span> <b className="mono">{nonAuto(true)}/{fmt(cantripLimit)}</b></span>
+          )}
+          {maxLvl > 0 && (
+            <span className={`spell-count ${nonAuto(false) > preparedLimit ? 'over' : ''}`}><span className="muted">{pt ? 'Preparadas' : 'Prepared'}</span> <b className="mono">{nonAuto(false)}/{fmt(preparedLimit)}</b></span>
+          )}
+        </div>
+        {(hasSpells || cantripLimit > 0) && (
+          <button className="btn btn-primary btn-sm" onClick={() => setPicking(true)}>
+            <Icon name="sparkle" size={14}/> {pt ? 'Preparar magias' : 'Prepare spells'}
+          </button>
+        )}
+      </div>
 
       {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
-        <div key={lvl}>
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline', marginTop: 8 }}>
-            <Filigree>{`${t('spellLevel', lang)} ${lvl}`}</Filigree>
-            <span className="text-xs muted mono">
-              {byLevel[lvl].filter(s => preparedIds.includes(s.id)).length}/{byLevel[lvl].length}
-            </span>
-          </div>
-          {byLevel[lvl].map(sp => {
-            const sel = preparedIds.includes(sp.id);
-            const disabled = !sel && preparedIds.length >= preparedLimit;
-            return (
-              <SpellRow
-                key={sp.id} spell={{ id: sp.id, def: sp, prepared: sel }} lang={lang}
-                showPrepared={true}
-                preparedDisabled={disabled}
-                onTogglePrepared={() => onTogglePrepared(sp.id)}
-                char={char}
-                slots={slots}
-                update={update}
-                spellAtk={spellAtk}
-                roll={roll}
-              />
-            );
-          })}
-        </div>
+        <details key={lvl} className="spell-group">
+          <summary>
+            <span>{levelLabel(lvl, lang)}</span>
+            <span className="spell-group-count mono">{byLevel[lvl].length}</span>
+          </summary>
+          {byLevel[lvl].map(s => (
+            <SpellRow key={s.id} spell={s} lang={lang} showPrepared={false} char={char} slots={slots} update={update} spellAtk={spellAtk} roll={roll} />
+          ))}
+        </details>
       ))}
 
-      {maxLvl === 0 && (
-        <div className="card text-center muted" style={{ padding: 'var(--s-6)' }}>
-          {lang === 'pt' ? 'Nenhum espaço de magia ainda — aumente de nível.' : 'No spell slots yet — level up.'}
+      {!ready.length && (
+        <div className="empty-card">
+          <Icon name="sparkle" size={28}/>
+          <div>{maxLvl > 0 || cantripLimit > 0 ? (pt ? 'Nenhuma magia preparada ainda.' : 'No spells prepared yet.') : (pt ? 'Nenhum espaço de magia ainda — aumente de nível.' : 'No spell slots yet — level up.')}</div>
+          {(hasSpells || cantripLimit > 0) && (
+            <button className="btn btn-sm btn-primary" onClick={() => setPicking(true)}>{pt ? 'Preparar magias' : 'Prepare spells'}</button>
+          )}
         </div>
       )}
+
+      {picking && (
+        <PrepareSpellsModal
+          lang={lang} char={char}
+          classCantrips={classCantrips} classSpells={classSpells.filter(s => s.level > 0)}
+          autoIds={autoIds} cantripLimit={cantripLimit} preparedLimit={preparedLimit}
+          update={update} onClose={() => setPicking(false)}
+        />
+      )}
     </>
+  );
+};
+
+// Modal de preparação: rascunho local, salva tudo de uma vez.
+// Entradas fora da lista da classe (talentos, itens) e automáticas são preservadas.
+const PrepareSpellsModal = ({ lang, char, classCantrips, classSpells, autoIds, cantripLimit, preparedLimit, update, onClose }) => {
+  const pt = lang === 'pt';
+  const listIds = new Set([...classCantrips, ...classSpells].map(s => s.id));
+  const initial = (char.spells || []).filter(s => listIds.has(s.id) && !autoIds.has(s.id)).map(s => s.id);
+  const [draft, setDraft] = useState(initial);
+  const [query, setQuery] = useState('');
+  const [openInfo, setOpenInfo] = useState(null);
+  const q = query.trim().toLowerCase();
+  const match = (sp) => !q || `${tName('spellName', sp.id, 'pt')} ${tName('spellName', sp.id, 'en')}`.toLowerCase().includes(q);
+
+  const cantripSet = new Set(classCantrips.map(s => s.id));
+  const nCantrips = draft.filter(id => cantripSet.has(id)).length;
+  const nSpells = draft.length - nCantrips;
+  const full = (sp) => (sp.level === 0 ? nCantrips >= cantripLimit : nSpells >= preparedLimit);
+  const toggle = (sp) => {
+    if (autoIds.has(sp.id)) return;
+    if (draft.includes(sp.id)) setDraft(draft.filter(id => id !== sp.id));
+    else if (!full(sp)) setDraft([...draft, sp.id]);
+  };
+
+  const save = () => {
+    const kept = (char.spells || []).filter(s => !listIds.has(s.id) || autoIds.has(s.id));
+    const prev = new Map((char.spells || []).map(s => [s.id, s]));
+    update({ spells: [...kept, ...draft.map(id => prev.get(id) || { id, prepared: true })] });
+    onClose();
+  };
+
+  const groups = {};
+  [...(cantripLimit > 0 ? classCantrips : []), ...classSpells].filter(match).forEach(sp => { (groups[sp.level] ||= []).push(sp); });
+  const fmt = (n) => (Number.isFinite(n) ? n : '∞');
+
+  return (
+    <Modal onClose={onClose} title={pt ? 'Preparar magias' : 'Prepare spells'}>
+      <div className="prep-sticky">
+        <div className="spells-counters">
+          {cantripLimit > 0 && <span className={`spell-count ${nCantrips >= cantripLimit ? 'full' : ''}`}><span className="muted">{t('cantrips', lang)}</span> <b className="mono">{nCantrips}/{fmt(cantripLimit)}</b></span>}
+          {classSpells.length > 0 && <span className={`spell-count ${nSpells >= preparedLimit ? 'full' : ''}`}><span className="muted">{pt ? 'Preparadas' : 'Prepared'}</span> <b className="mono">{nSpells}/{fmt(preparedLimit)}</b></span>}
+        </div>
+        <input placeholder={pt ? 'Buscar magia…' : 'Search spell…'} value={query} onChange={e => setQuery(e.target.value)} />
+      </div>
+
+      {Object.keys(groups).sort((a, b) => +a - +b).map(lvl => {
+        const list = groups[lvl];
+        const picked = list.filter(sp => draft.includes(sp.id) || autoIds.has(sp.id)).length;
+        return (
+          <details key={lvl} className="spell-group" open={!!q}>
+            <summary>
+              <span>{levelLabel(lvl, lang)}</span>
+              <span className="spell-group-count mono">{picked}/{list.length}</span>
+            </summary>
+            {list.map(sp => {
+              const auto = autoIds.has(sp.id);
+              const on = auto || draft.includes(sp.id);
+              const blocked = !on && full(sp);
+              return (
+                <div key={sp.id} className={`prep-row ${on ? 'on' : ''} ${blocked ? 'blocked' : ''}`}>
+                  <button type="button" className="prep-toggle" disabled={auto || blocked} onClick={() => toggle(sp)}>
+                    <span className="prep-check">{on && <Icon name="check" size={13}/>}</span>
+                    <span className="prep-name">
+                      {tName('spellName', sp.id, lang)}
+                      {auto && <span className="prep-tag">{pt ? 'sempre' : 'always'}</span>}
+                      {sp.concentration && <span className="prep-tag c">C</span>}
+                      {sp.ritual && <span className="prep-tag r">R</span>}
+                    </span>
+                    <span className="prep-meta">{tName('school', sp.school, lang)} · {sp.castingTime}</span>
+                  </button>
+                  <button type="button" className="prep-info" aria-label="info" onClick={() => setOpenInfo(openInfo === sp.id ? null : sp.id)}>
+                    <Icon name={openInfo === sp.id ? 'chevron-up' : 'chevron-down'} size={14}/>
+                  </button>
+                  {openInfo === sp.id && (
+                    <div className="prep-desc">
+                      <div className="text-xs muted">{sp.range} · {sp.components} · {sp.duration}</div>
+                      <div className="text-sm">{sp.desc?.[lang]}</div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </details>
+        );
+      })}
+      {!Object.keys(groups).length && <div className="muted text-sm" style={{ padding: 12 }}>{pt ? 'Nenhuma magia encontrada.' : 'No spells found.'}</div>}
+
+      <div className="modal-actions sticky">
+        <button className="btn btn-ghost" onClick={onClose}>{pt ? 'Cancelar' : 'Cancel'}</button>
+        <button className="btn btn-primary" onClick={save}>{pt ? 'Salvar' : 'Save'}</button>
+      </div>
+    </Modal>
   );
 };
 
@@ -295,8 +352,11 @@ const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRe
       </div>
 
       {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
-        <div key={lvl}>
-          <Filigree>{+lvl === 0 ? t('cantrips', lang) : `${t('spellLevel', lang)} ${lvl}`}</Filigree>
+        <details key={lvl} className="spell-group">
+          <summary>
+            <span>{levelLabel(lvl, lang)}</span>
+            <span className="spell-group-count mono">{byLevel[lvl].length}</span>
+          </summary>
           {byLevel[lvl].map(s => (
             <SpellRow
               key={s.id} spell={s} lang={lang}
@@ -309,7 +369,7 @@ const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRe
               roll={roll}
             />
           ))}
-        </div>
+        </details>
       ))}
 
       {known.length === 0 && (
@@ -318,95 +378,6 @@ const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRe
         </div>
       )}
     </>
-  );
-};
-
-const abilityMod = (score) => Math.floor((score - 10) / 2);
-const fmtMod = (m) => (m >= 0 ? `+${m}` : `${m}`);
-
-const WildShapePanel = ({ lang, maxCR, note, druidLevel }) => {
-  const [open, setOpen] = useState(false);
-  const beasts = (SRD.BEASTS || []).filter(b => b.crNum <= maxCR + 1e-9);
-  const allowFly = druidLevel >= 8;
-  const allowSwim = druidLevel >= 4;
-  const eligible = beasts.filter(b => (allowFly || !b.fly) && (allowSwim || !b.swim));
-
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <Filigree>{lang === 'pt' ? 'Forma Selvagem' : 'Wild Shape'}</Filigree>
-      <div className="card" style={{ padding: 12, marginBottom: 8 }}>
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div className="eyebrow">{lang === 'pt' ? 'CR máximo' : 'Max CR'}</div>
-            <div style={{ fontFamily: 'var(--display)', color: 'var(--gold-bright)', fontSize: '1.2rem' }}>
-              {maxCR === 0.25 ? '1/4' : maxCR === 0.5 ? '1/2' : maxCR}
-            </div>
-          </div>
-          <button className="btn btn-sm btn-ghost" onClick={() => setOpen(!open)}>
-            <Icon name={open ? 'chevron-up' : 'chevron-down'} size={14}/>
-            {open
-              ? (lang === 'pt' ? 'Ocultar bestas' : 'Hide beasts')
-              : `${eligible.length} ${lang === 'pt' ? 'formas' : 'forms'}`}
-          </button>
-        </div>
-        {note && <div className="text-xs muted" style={{ marginTop: 6 }}>{note}</div>}
-      </div>
-      {open && eligible.map(b => <BeastCard key={b.id} beast={b} lang={lang} />)}
-    </div>
-  );
-};
-
-const BeastCard = ({ beast, lang }) => {
-  const [open, setOpen] = useState(false);
-  const speeds = [];
-  if (beast.speed) speeds.push(`${beast.speed}'`);
-  if (beast.fly) speeds.push(`${lang === 'pt' ? 'voo' : 'fly'} ${beast.fly}'`);
-  if (beast.swim) speeds.push(`${lang === 'pt' ? 'nat' : 'swim'} ${beast.swim}'`);
-  if (beast.climb) speeds.push(`${lang === 'pt' ? 'esc' : 'climb'} ${beast.climb}'`);
-  if (beast.burrow) speeds.push(`${lang === 'pt' ? 'esc' : 'burrow'} ${beast.burrow}'`);
-  return (
-    <div className="card" style={{ marginBottom: 6, padding: 10 }}>
-      <div className="row" style={{ justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setOpen(!open)}>
-        <div>
-          <div style={{ fontFamily: 'var(--display)', color: 'var(--gold)' }}>
-            {tName('beast', beast.id, lang)}
-          </div>
-          <div className="text-xs muted">
-            CR {beast.cr} · {beast.size} · CA {beast.ac} · HP {beast.hp} · {speeds.join(', ')}
-          </div>
-        </div>
-        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={14}/>
-      </div>
-      {open && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--stroke-faint)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4, marginBottom: 10, textAlign: 'center' }}>
-            {['str','dex','con','int','wis','cha'].map(k => (
-              <div key={k}>
-                <div className="eyebrow text-xs">{t(k + 'Sh', lang)}</div>
-                <div className="mono text-sm">{beast[k]} <span className="muted">({fmtMod(abilityMod(beast[k]))})</span></div>
-              </div>
-            ))}
-          </div>
-          {(beast.traits || []).map((tr, i) => (
-            <div key={i} className="text-sm" style={{ marginBottom: 4 }}>
-              <strong style={{ color: 'var(--gold-deep)' }}>{tr.name[lang]}.</strong>{' '}
-              <span style={{ color: 'var(--ink-secondary)' }}>{tr.desc[lang]}</span>
-            </div>
-          ))}
-          {(beast.actions || []).length > 0 && (
-            <div style={{ marginTop: 8 }}>
-              <div className="eyebrow text-xs" style={{ marginBottom: 4 }}>{lang === 'pt' ? 'Ações' : 'Actions'}</div>
-              {beast.actions.map((a, i) => (
-                <div key={i} className="text-sm" style={{ marginBottom: 4 }}>
-                  <strong style={{ color: 'var(--gold-deep)' }}>{a.name[lang]}.</strong>{' '}
-                  <span style={{ color: 'var(--ink-secondary)' }}>{a.desc[lang]}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
   );
 };
 
@@ -492,7 +463,7 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
             <div className="text-xs muted">{t('duration', lang)}: <span style={{ color: 'var(--ink-secondary)' }}>{sp.duration}</span></div>
           </div>
           <div className="text-sm" style={{ color: 'var(--ink-secondary)' }}>{sp.desc[lang]}</div>
-          {error && <div style={{ color: '#ff9999', fontSize: '0.85em', marginTop: 4 }}>{error}</div>}
+          {error && <div style={{ color: 'var(--blood-bright)', fontSize: '0.85em', marginTop: 4 }}>{error}</div>}
           <div className="row gap-2 mt-3" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
             {!isCantrip && available.length > 0 && (
               <label className="text-xs muted" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -521,7 +492,7 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
               <Icon name="dice" size={12}/> {casting ? '…' : (isCantrip ? (lang === 'pt' ? 'Conjurar truque' : 'Cast cantrip') : (lang === 'pt' ? 'Conjurar' : 'Cast'))}
             </button>
             {!isCantrip && !canCast && (
-              <span className="text-xs" style={{ color: '#ff9999' }}>
+              <span className="text-xs" style={{ color: 'var(--blood-bright)' }}>
                 {lang === 'pt' ? 'sem slot' : 'no slot'}
               </span>
             )}
@@ -557,10 +528,13 @@ const RestButtons = ({ char, lang, update }) => {
           conditions: d.conditions,
           deathSaves: d.deathSaves,
           hitDiceUsed: d.hitDiceUsed,
+          // Forma Estelar dura 10 min; qualquer descanso a encerra.
+          ...(char.starryForm?.active ? { starryForm: { active: false } } : {}),
         });
       } else {
         // Local — aplica via merge
         const patch = {};
+        if (char.starryForm?.active) patch.starryForm = { active: false };
         if (type === 'long') {
           patch.spellSlotsUsed = [0,0,0,0,0,0,0,0,0];
           patch.wildShapeUses = 0;
@@ -796,6 +770,7 @@ const SheetNotes = ({ char, lang, update }) => {
  */
 function InventoryList({ char, lang, update, addItem, updateItem, removeItem }) {
   const inCampaign = !!char.inCampaign;
+  const [picking, setPicking] = useState(false);
   const items = char.equipment || [];
 
   const callBackend = async (fn) => {
@@ -892,9 +867,21 @@ function InventoryList({ char, lang, update, addItem, updateItem, removeItem }) 
         />
       ))}
       {!inCampaign && (
-        <button className="btn btn-sm btn-ghost" onClick={addItem} style={{ marginTop: 4 }}>
-          <Icon name="plus" size={14}/> {t('addItem', lang)}
-        </button>
+        <div className="row gap-2" style={{ marginTop: 4 }}>
+          <button className="btn btn-sm btn-primary" onClick={() => setPicking(true)}>
+            <Icon name="plus" size={14}/> {lang === 'pt' ? 'Adicionar / cadastrar item' : 'Add / create item'}
+          </button>
+          <button className="btn btn-sm btn-ghost" onClick={addItem}>{lang === 'pt' ? 'Linha rápida' : 'Quick row'}</button>
+        </div>
+      )}
+      {picking && (
+        <ItemPickerModal
+          lang={lang}
+          title={lang === 'pt' ? '🎒 Adicionar item' : '🎒 Add item'}
+          confirmLabel={lang === 'pt' ? 'Adicionar' : 'Add'}
+          onPick={async (inst) => update({ equipment: [...items, inst] })}
+          onClose={() => setPicking(false)}
+        />
       )}
     </>
   );
@@ -975,4 +962,4 @@ function InventoryRow({ item, idx, lang, inCampaign, onToggleEquipped, onToggleA
   );
 }
 
-export { SheetSpells, SheetInventory, SheetStory, SheetNotes };
+export { SheetSpells, SheetInventory, SheetStory, SheetNotes, RestButtons };

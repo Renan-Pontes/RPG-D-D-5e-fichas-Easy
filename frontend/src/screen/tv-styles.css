@@ -5,24 +5,24 @@
 
 :root {
   --tv-bg-0: #0b0805;
-  --tv-bg-1: #1a1410;
-  --tv-ink: #f4ecd8;
+  --tv-bg-1: var(--bg-base);
+  --tv-ink: var(--ink-primary);
   --tv-ink-soft: #c0b090;
-  --tv-gold: #d4a84d;
-  --tv-gold-deep: #9c7a2a;
-  --tv-border: #3a2820;
-  --tv-hp-ok: #5cba5c;
-  --tv-hp-warn: #d4a84d;
-  --tv-hp-crit: #d44d4d;
-  --tv-cond-bg: rgba(180, 50, 50, 0.18);
-  --tv-cond-border: #b43232;
+  --tv-gold: var(--gold);
+  --tv-gold-deep: var(--gold-deep);
+  --tv-border: var(--bg-elevated);
+  --tv-hp-ok: var(--moss-bright);
+  --tv-hp-warn: var(--gold);
+  --tv-hp-crit: var(--blood-bright);
+  --tv-cond-bg: rgba(224, 96, 79, 0.18);
+  --tv-cond-border: var(--blood);
   --tv-cond-ink: #ffd4d4;
 }
 
 .tv-screen {
   min-height: 100vh;
   background:
-    radial-gradient(ellipse at top, rgba(212, 168, 77, 0.08), transparent 60%),
+    radial-gradient(ellipse at top, rgba(214, 176, 100, 0.08), transparent 60%),
     linear-gradient(135deg, var(--tv-bg-0) 0%, var(--tv-bg-1) 100%);
   color: var(--tv-ink);
   padding: 32px 32px 120px;
@@ -68,7 +68,7 @@
 }
 
 .tv-session-pill {
-  background: rgba(212, 168, 77, 0.15);
+  background: rgba(214, 176, 100, 0.15);
   border: 1px solid var(--tv-gold);
   color: var(--tv-gold);
   padding: 3px 12px;
@@ -95,7 +95,7 @@
   gap: 16px;
   padding: 14px 24px;
   margin-bottom: 24px;
-  background: linear-gradient(90deg, rgba(212, 168, 77, 0.20), transparent);
+  background: linear-gradient(90deg, rgba(214, 176, 100, 0.20), transparent);
   border-left: 4px solid var(--tv-gold);
   border-radius: 4px;
   animation: tv-pulse 2.4s ease-in-out infinite;
@@ -117,8 +117,8 @@
 }
 
 @keyframes tv-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 168, 77, 0); }
-  50%      { box-shadow: 0 0 24px 0 rgba(212, 168, 77, 0.3); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(214, 176, 100, 0); }
+  50%      { box-shadow: 0 0 24px 0 rgba(214, 176, 100, 0.3); }
 }
 
 /* === Grid de personagens === */
@@ -141,7 +141,7 @@
 .tv-char-card.is-active-turn {
   border-color: var(--tv-gold);
   transform: translateY(-2px);
-  box-shadow: 0 0 0 1px var(--tv-gold) inset, 0 6px 26px rgba(212, 168, 77, 0.35);
+  box-shadow: 0 0 0 1px var(--tv-gold) inset, 0 6px 26px rgba(214, 176, 100, 0.35);
 }
 
 .tv-char-card.is-dead {
@@ -197,7 +197,7 @@
 .tv-inspiration {
   color: var(--tv-gold);
   font-size: 2rem;
-  text-shadow: 0 0 12px rgba(212, 168, 77, 0.6);
+  text-shadow: 0 0 12px rgba(214, 176, 100, 0.6);
   animation: tv-twinkle 2s ease-in-out infinite;
 }
 @keyframes tv-twinkle {
@@ -209,7 +209,7 @@
 .tv-hp-bar {
   position: relative;
   height: 36px;
-  background: #2a1c14;
+  background: var(--bg-elevated);
   border-radius: 6px;
   overflow: hidden;
   margin-bottom: 12px;
@@ -222,10 +222,10 @@
   position: relative;
 }
 
-.tv-hp-ok   .tv-hp-fill { background: linear-gradient(90deg, var(--tv-hp-ok), #79d479); }
-.tv-hp-warn .tv-hp-fill { background: linear-gradient(90deg, var(--tv-hp-warn), #e5be5d); }
+.tv-hp-ok   .tv-hp-fill { background: linear-gradient(90deg, var(--tv-hp-ok), var(--moss-bright)); }
+.tv-hp-warn .tv-hp-fill { background: linear-gradient(90deg, var(--tv-hp-warn), var(--gold-bright)); }
 .tv-hp-crit .tv-hp-fill {
-  background: linear-gradient(90deg, var(--tv-hp-crit), #ff7373);
+  background: linear-gradient(90deg, var(--tv-hp-crit), var(--blood-bright));
   animation: tv-low-hp 1.6s ease-in-out infinite;
 }
 
@@ -351,7 +351,7 @@
 .tv-initiative li.current {
   color: var(--tv-gold);
   font-weight: 600;
-  background: rgba(212, 168, 77, 0.12);
+  background: rgba(214, 176, 100, 0.12);
   border-left-color: var(--tv-gold);
 }
 
@@ -395,7 +395,7 @@
 
 /* === Combat mode === */
 .tv-combat-pill {
-  background: #b43232;
+  background: var(--blood);
   color: #fff;
   padding: 4px 14px;
   border-radius: 999px;
@@ -443,7 +443,7 @@
 }
 .tv-combat-hp-card.is-turn {
   border-color: var(--tv-gold);
-  box-shadow: 0 0 16px rgba(212, 168, 77, 0.3);
+  box-shadow: 0 0 16px rgba(214, 176, 100, 0.3);
 }
 .tv-combat-hp-card.is-dead { opacity: 0.5; filter: grayscale(0.7); }
 
@@ -488,7 +488,7 @@
   color: var(--tv-ink-soft);
 }
 .tv-roll-entry.crit { color: var(--tv-gold); }
-.tv-roll-entry.fail { color: #ff9999; }
+.tv-roll-entry.fail { color: var(--blood-bright); }
 .tv-roll-who { color: var(--tv-ink); font-weight: 600; }
 .tv-roll-label { font-style: italic; }
 .tv-roll-total {
@@ -515,10 +515,10 @@
 }
 
 .tv-roll-overlay.crit {
-  background: radial-gradient(circle at center, rgba(212, 168, 77, 0.40), rgba(0, 0, 0, 0.92));
+  background: radial-gradient(circle at center, rgba(214, 176, 100, 0.40), rgba(0, 0, 0, 0.92));
 }
 .tv-roll-overlay.fail {
-  background: radial-gradient(circle at center, rgba(180, 50, 50, 0.40), rgba(0, 0, 0, 0.92));
+  background: radial-gradient(circle at center, rgba(224, 96, 79, 0.40), rgba(0, 0, 0, 0.92));
 }
 
 .tv-roll-inner {
@@ -556,7 +556,7 @@
 
 .tv-die {
   font-size: clamp(6rem, 12vw, 10rem);
-  filter: drop-shadow(0 0 20px rgba(212, 168, 77, 0.6));
+  filter: drop-shadow(0 0 20px rgba(214, 176, 100, 0.6));
 }
 .tv-die-spinning {
   animation: tv-die-spin 1.4s ease-out;
@@ -586,21 +586,21 @@
   padding: 16px 28px;
   min-width: clamp(80px, 12vw, 140px);
   text-align: center;
-  box-shadow: 0 0 40px rgba(212, 168, 77, 0.4);
+  box-shadow: 0 0 40px rgba(214, 176, 100, 0.4);
 }
 
 .tv-roll-overlay.crit .tv-die-result {
   animation: tv-crit-glow 1.5s ease-in-out infinite;
 }
 @keyframes tv-crit-glow {
-  0%, 100% { box-shadow: 0 0 30px rgba(212, 168, 77, 0.5); }
-  50%      { box-shadow: 0 0 80px rgba(212, 168, 77, 1); }
+  0%, 100% { box-shadow: 0 0 30px rgba(214, 176, 100, 0.5); }
+  50%      { box-shadow: 0 0 80px rgba(214, 176, 100, 1); }
 }
 
 .tv-roll-overlay.fail .tv-die-result {
-  color: #ff7373;
-  border-color: #d44d4d;
-  box-shadow: 0 0 40px rgba(212, 77, 77, 0.6);
+  color: var(--blood-bright);
+  border-color: var(--blood-bright);
+  box-shadow: 0 0 40px rgba(224, 96, 79, 0.6);
 }
 
 .tv-roll-mod, .tv-roll-equals {
@@ -618,7 +618,7 @@
 }
 
 .tv-roll-overlay.crit .tv-roll-total { color: var(--tv-gold); }
-.tv-roll-overlay.fail .tv-roll-total { color: #ff7373; }
+.tv-roll-overlay.fail .tv-roll-total { color: var(--blood-bright); }
 
 .tv-roll-tag {
   margin-top: 24px;
@@ -630,7 +630,7 @@
   animation: tv-tag-pulse 1s ease-in-out infinite;
 }
 .tv-roll-tag.crit-tag  { color: var(--tv-gold); }
-.tv-roll-tag.fail-tag  { color: #ff7373; }
+.tv-roll-tag.fail-tag  { color: var(--blood-bright); }
 @keyframes tv-tag-pulse {
   0%, 100% { transform: scale(1);   opacity: 1;   }
   50%      { transform: scale(1.1); opacity: 0.7; }

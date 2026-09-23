@@ -7,7 +7,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from .models import Approval, Campaign, Character
 from .serializers import ApprovalSerializer
 from .permissions import get_campaign_or_404, require_member, is_dm
-from .progression import apply_approval_to_character, validate_level_up
+from .progression import apply_approval_to_character, validate_level_up, validate_level_choice, max_hp_gain
 
 VALID_TYPES = {'levelup', 'feature', 'item', 'spell', 'other'}
 
@@ -118,7 +118,11 @@ def approval_consume(request, pk):
     if obj.status != 'approved':
         raise ValidationError({'error': 'not_unlocked', 'currentStatus': obj.status})
 
-    next_data = apply_approval_to_character(obj.character.data or {}, obj.type, obj.payload or {})
+    payload = dict(obj.payload or {})
+    if obj.type == 'levelup':
+        payload = _merge_levelup_choices(obj.character.data or {}, payload, request.data or {})
+
+    next_data = apply_approval_to_character(obj.character.data or {}, obj.type, payload)
     if next_data is not None:
         obj.character.data = next_data
         obj.character.save()
@@ -126,3 +130,29 @@ def approval_consume(request, pk):
     obj.status = 'consumed'
     obj.save(update_fields=['status'])
     return Response({'approval': ApprovalSerializer(obj).data, 'character': {'id': obj.character.id, 'data': obj.character.data}})
+
+
+def _merge_levelup_choices(data, payload, body):
+    """
+    O jogador decide PV, ASI/talento e magias ao consumir o level-up.
+    Tudo é validado aqui: o mestre liberou o nível, não valores arbitrários.
+    """
+    to_level = payload.get('toLevel')
+    after = {**data, 'level': to_level}
+    hp = body.get('hpGain')
+    if hp is not None:
+        if not isinstance(hp, int) or isinstance(hp, bool) or hp < 1 or hp > max_hp_gain(data):
+            raise ValidationError({'error': 'invalid_hpGain', 'max': max_hp_gain(data)})
+        payload['hpGain'] = hp
+    choice = body.get('choice')
+    if choice is not None:
+        check = validate_level_choice(after, to_level, choice)
+        if not check['valid']:
+            raise ValidationError({'error': 'invalid_choice', 'issues': check['issues']})
+        payload['choice'] = choice
+    spells = body.get('spellsAdded')
+    if spells is not None:
+        if not isinstance(spells, list) or not all(isinstance(x, str) and len(x) <= 80 for x in spells) or len(spells) > 10:
+            raise ValidationError({'error': 'invalid_spellsAdded'})
+        payload['spellsAdded'] = spells
+    return payload

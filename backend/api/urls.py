@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views_auth, views_characters, views_campaigns, views_approvals, views_dice, views_screen, views_combat, views_inventory
+from . import views_auth, views_characters, views_campaigns, views_approvals, views_dice, views_screen, views_combat, views_inventory, views_items
 
 urlpatterns = [
     # Auth
@@ -16,6 +16,7 @@ urlpatterns = [
     path('characters/<int:pk>/dm-edit', views_characters.character_dm_edit),
     path('characters/<int:pk>/cast', views_characters.character_cast_spell),
     path('characters/<int:pk>/rest', views_characters.character_rest),
+    path('characters/<int:pk>/level-choice', views_characters.character_level_choice),
     path('characters/<int:pk>/inventory', views_inventory.inventory_add),
     path('characters/<int:pk>/inventory/<str:item_id>', views_inventory.inventory_item),
     path('characters/<int:pk>/inventory/<str:item_id>/consume', views_inventory.inventory_consume),
@@ -31,6 +32,8 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/members/<int:membership_id>', views_campaigns.campaign_member),
     path('campaigns/<str:id_or_slug>/rotate-screen-token', views_campaigns.campaign_rotate_screen),
     path('campaigns/<str:id_or_slug>/rotate-invite-code', views_campaigns.campaign_rotate_invite),
+    path('campaigns/<str:id_or_slug>/items', views_items.campaign_items),
+    path('campaigns/<str:id_or_slug>/items/<int:item_pk>', views_items.campaign_item_detail),
 
     # Approvals
     path('approvals/campaign/<str:id_or_slug>', views_approvals.campaign_approvals),
