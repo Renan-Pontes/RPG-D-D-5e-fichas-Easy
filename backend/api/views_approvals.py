@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -7,7 +8,10 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from .models import Approval, Campaign, Character
 from .serializers import ApprovalSerializer
 from .permissions import get_campaign_or_404, require_member, is_dm
-from .progression import apply_approval_to_character, validate_level_up, validate_level_choice, max_hp_gain
+from .progression import (
+    apply_approval_to_character, validate_level_up, validate_level_choice, max_hp_gain,
+    class_entries, can_multiclass_into, with_class_level, MULTICLASS_SKILL,
+)
 
 VALID_TYPES = {'levelup', 'feature', 'item', 'spell', 'other'}
 
@@ -26,7 +30,8 @@ def campaign_approvals(request, id_or_slug):
             'character',
         )
         if not user_is_dm:
-            qs = qs.filter(requested_by=request.user)
+            # Jogador vê o que pediu e o que o mestre liberou para os personagens dele.
+            qs = qs.filter(Q(requested_by=request.user) | Q(character__owner=request.user))
         return Response({'approvals': ApprovalSerializer(qs, many=True).data})
 
     # POST
@@ -81,6 +86,13 @@ def approval_review(request, pk):
         # 'pending' permite revogar liberação
         raise ValidationError({'error': 'invalid_status'})
 
+    # Mestre decide se esta subida pode abrir uma classe nova (padrão: regra da mesa).
+    if obj.type == 'levelup' and new_status == 'approved':
+        allow = request.data.get('allowMulticlass')
+        if not isinstance(allow, bool):
+            allow = campaign_allows_multiclass(obj.campaign)
+        obj.payload = {**(obj.payload or {}), 'allowMulticlass': allow}
+
     obj.status = new_status
     obj.note = request.data.get('note', obj.note)
     obj.reviewed_by = request.user if new_status != 'pending' else None
@@ -127,23 +139,43 @@ def approval_consume(request, pk):
         obj.character.data = next_data
         obj.character.save()
 
+    # Guarda o que o jogador escolheu (classe, PV, ASI…) para o histórico do mestre.
+    obj.payload = payload
     obj.status = 'consumed'
-    obj.save(update_fields=['status'])
+    obj.save(update_fields=['status', 'payload'])
     return Response({'approval': ApprovalSerializer(obj).data, 'character': {'id': obj.character.id, 'data': obj.character.data}})
+
+
+def campaign_allows_multiclass(campaign):
+    return (campaign.state or {}).get('allowMulticlass', True) is not False
 
 
 def _merge_levelup_choices(data, payload, body):
     """
-    O jogador decide PV, ASI/talento e magias ao consumir o level-up.
+    O jogador decide classe, PV, ASI/talento e magias ao consumir o level-up.
     Tudo é validado aqui: o mestre liberou o nível, não valores arbitrários.
     """
     to_level = payload.get('toLevel')
-    after = {**data, 'level': to_level}
+    current = [e['id'] for e in class_entries(data)]
+    class_id = body.get('classId') or current[0]
+    if class_id not in current:
+        if payload.get('allowMulticlass', True) is False:
+            raise ValidationError({'error': 'multiclass_not_allowed'})
+        if not can_multiclass_into(data, class_id):
+            raise ValidationError({'error': 'multiclass_prereq'})
+    payload['classId'] = class_id
+    after = {**with_class_level(data, class_id), 'level': to_level}
     hp = body.get('hpGain')
     if hp is not None:
-        if not isinstance(hp, int) or isinstance(hp, bool) or hp < 1 or hp > max_hp_gain(data):
-            raise ValidationError({'error': 'invalid_hpGain', 'max': max_hp_gain(data)})
+        top = max_hp_gain(data, class_id)
+        if not isinstance(hp, int) or isinstance(hp, bool) or hp < 1 or hp > top:
+            raise ValidationError({'error': 'invalid_hpGain', 'max': top})
         payload['hpGain'] = hp
+    skill = body.get('skillAdded')
+    if skill is not None:
+        if class_id in current or class_id not in MULTICLASS_SKILL or not isinstance(skill, str) or not skill or len(skill) > 40:
+            raise ValidationError({'error': 'invalid_skillAdded'})
+        payload['skillAdded'] = skill
     choice = body.get('choice')
     if choice is not None:
         check = validate_level_choice(after, to_level, choice)
@@ -156,3 +188,50 @@ def _merge_levelup_choices(data, payload, body):
             raise ValidationError({'error': 'invalid_spellsAdded'})
         payload['spellsAdded'] = spells
     return payload
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def campaign_grant_levelup(request, id_or_slug):
+    """
+    Mestre libera a subida de nível direto (sem o jogador pedir), para um ou
+    vários personagens da campanha — ex.: marco da história para a mesa toda.
+
+    Body: { characterIds: [1, 2] | 'all', allowMulticlass?: bool, note?: str }
+    Pedido pendente do personagem é aprovado; liberação já existente é mantida.
+    """
+    campaign = get_campaign_or_404(id_or_slug)
+    if campaign.dm_id != request.user.id:
+        raise PermissionDenied('dm_only')
+    ids = request.data.get('characterIds')
+    members = campaign.memberships.exclude(character=None).select_related('character')
+    if ids != 'all':
+        if not isinstance(ids, list) or not ids or not all(isinstance(i, int) for i in ids):
+            raise ValidationError({'error': 'invalid_input'})
+        members = members.filter(character_id__in=ids)
+    allow = request.data.get('allowMulticlass')
+    if not isinstance(allow, bool):
+        allow = campaign_allows_multiclass(campaign)
+    note = (request.data.get('note') or '')[:500]
+
+    granted, skipped = [], []
+    for m in members:
+        char = m.character
+        level = int((char.data or {}).get('level') or 1)
+        open_ = Approval.objects.filter(campaign=campaign, character=char, type='levelup', status__in=('pending', 'approved'))
+        if level >= 20 or open_.filter(status='approved').exists():
+            skipped.append(char.id)
+            continue
+        payload = {'toLevel': level + 1, 'allowMulticlass': allow}
+        obj = open_.filter(status='pending').first()
+        if obj:
+            obj.payload = {**(obj.payload or {}), **payload}
+        else:
+            obj = Approval(campaign=campaign, character=char, requested_by=request.user, type='levelup', payload=payload)
+        obj.status = 'approved'
+        obj.note = note or obj.note
+        obj.reviewed_by = request.user
+        obj.reviewed_at = timezone.now()
+        obj.save()
+        granted.append(ApprovalSerializer(obj).data)
+    return Response({'granted': granted, 'skipped': skipped})

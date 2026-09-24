@@ -37,6 +37,7 @@ urlpatterns = [
 
     # Approvals
     path('approvals/campaign/<str:id_or_slug>', views_approvals.campaign_approvals),
+    path('approvals/campaign/<str:id_or_slug>/grant-levelup', views_approvals.campaign_grant_levelup),
     path('approvals/<int:pk>/review', views_approvals.approval_review),
     path('approvals/<int:pk>/consume', views_approvals.approval_consume),
 

@@ -3126,3 +3126,51 @@ body:has(.wizard-footer) .dice-fab { bottom: calc(92px + env(safe-area-inset-bot
 .auth-card form .btn-primary { width: 100%; }
 .auth-skip .btn { width: 100%; }
 .auth-skip-note { margin-top: 6px; font-size: 0.8rem; color: var(--ink-muted); }
+
+/* ===== Multiclasse ===== */
+/* Subida de nível: escolha da classe */
+.class-pick-list { display: grid; gap: 6px; }
+.class-pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.class-pick {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  min-height: 48px; padding: 10px 12px; cursor: pointer; text-align: left;
+  background: var(--bg-raised); border: 1px solid var(--stroke-faint); border-radius: var(--radius);
+  color: var(--ink-primary);
+}
+.class-pick.small { flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; }
+.class-pick:hover:not(:disabled) { border-color: var(--stroke); }
+.class-pick.on { border-color: var(--gold); background: var(--gold-soft); }
+.class-pick:disabled { opacity: 0.45; cursor: not-allowed; }
+.class-pick-name { font-family: var(--display); font-size: 0.95rem; }
+.class-pick-meta { font-size: 0.75rem; color: var(--ink-muted); }
+.class-pick.on .class-pick-meta { color: var(--gold-bright); }
+.class-pick-note {
+  margin-top: 12px; padding: 10px 12px; border-radius: var(--radius); font-size: 0.9rem;
+  background: var(--arcane-soft); border: 1px solid rgba(159, 176, 240, 0.3); color: var(--ink-secondary);
+}
+
+/* Magias: uma seção por classe conjuradora */
+.class-spells { margin-top: 20px; padding-top: 4px; border-top: 1px solid var(--stroke-faint); }
+.class-spells:first-of-type { border-top: 0; }
+
+/* Mestre: evolução da mesa */
+.leveling-panel { border-left: 3px solid var(--gold); }
+.rule-toggle { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; margin-bottom: 10px; border-radius: var(--radius); background: var(--bg-raised); border: 1px solid var(--stroke-faint); cursor: pointer; }
+.rule-toggle input { width: 18px; height: 18px; min-height: 0; margin-top: 2px; flex: none; }
+.leveling-list { display: grid; gap: 6px; }
+.leveling-row {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center;
+  padding: 10px 12px; border-radius: var(--radius); background: var(--bg-raised); border: 1px solid var(--stroke-faint);
+}
+.leveling-who { display: grid; min-width: 0; }
+.leveling-who strong { font-family: var(--display); color: var(--gold-bright); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.leveling-who .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.leveling-level { font-size: 0.85rem; color: var(--ink-secondary); }
+.leveling-actions { display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+@media (max-width: 600px) {
+  .leveling-row { grid-template-columns: 1fr auto; }
+  .leveling-actions { grid-column: 1 / -1; justify-content: flex-start; }
+}
+.approval-detail { margin: 6px 0; font-size: 0.9rem; color: var(--ink-secondary); }
+.rule-toggle { font-family: var(--body); font-size: 0.95rem; text-transform: none; letter-spacing: 0; color: var(--ink-primary); }
+.rule-toggle strong { color: var(--gold-bright); }

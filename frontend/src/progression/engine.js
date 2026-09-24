@@ -15,6 +15,9 @@
  */
 
 import { PROGRESSION_RULES, profBonus, rulesFor } from './rules.js';
+import {
+  isMulticlass, classEntries, classView, classAt, totalLevelFor, withClassLevel, withoutLastClassLevel,
+} from './multiclass.js';
 
 const ABILITIES = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 
@@ -66,11 +69,12 @@ function computeSpellsPrepared(formula, character) {
  *   }
  */
 export function computeProgression(character) {
+  if (isMulticlass(character)) return computeMulticlassProgression(character);
   const out = {
     classId: character.className || null,
     level: character.level || 1,
     subclass: character.subclass || null,
-    profBonus: profBonus(character.level || 1),
+    profBonus: profBonus(character.totalLevel || character.level || 1),
     features: [],
     autoCantrips: [],
     autoSpells: [],
@@ -135,6 +139,53 @@ export function computeProgression(character) {
   return out;
 }
 
+/**
+ * Multiclasse: roda a progressão de cada classe no nível dela (classView) e
+ * junta tudo. Níveis de traços/escolhas voltam a ser o nível TOTAL (chave de
+ * levelChoices); `classId`/`classLevel` dizem de onde vieram. Os totais de
+ * truques/magias do topo são os da classe inicial; `byClass` tem os de cada uma.
+ */
+function computeMulticlassProgression(character) {
+  const total = character.level || 1;
+  const per = classEntries(character).map(entry => ({ entry, prog: computeProgression(classView(character, entry)) }));
+  const primary = per[0].prog;
+  const toTotal = (id, lv) => totalLevelFor(character, id, lv) || lv;
+  const out = {
+    ...primary,
+    classId: character.className || null,
+    level: total,
+    subclass: character.subclass || null,
+    profBonus: profBonus(total),
+    features: [],
+    autoCantrips: [],
+    autoSpells: [],
+    extraAttacks: 0,
+    fightingStyles: 0,
+    expertiseSlots: 0,
+    asiLevels: [],
+    pendingChoices: [],
+    classes: per.map(({ entry }) => entry),
+    byClass: Object.fromEntries(per.map(({ entry, prog }) => [entry.id, prog])),
+  };
+  for (const { entry, prog } of per) {
+    const id = entry.id;
+    out.features.push(...prog.features.map(f => ({ ...f, classId: id, classLevel: f.level, level: toTotal(id, f.level) })));
+    out.autoCantrips.push(...prog.autoCantrips);
+    out.autoSpells.push(...prog.autoSpells);
+    out.extraAttacks = Math.max(out.extraAttacks, prog.extraAttacks);
+    out.fightingStyles += prog.fightingStyles;
+    out.expertiseSlots += prog.expertiseSlots;
+    out.asiLevels.push(...prog.asiLevels.map(lv => toTotal(id, lv)));
+    out.pendingChoices.push(...prog.pendingChoices.map(c => ({ ...c, classId: id, classLevel: c.level, level: toTotal(id, c.level) })));
+  }
+  out.features.sort((a, b) => a.level - b.level);
+  out.asiLevels.sort((a, b) => a - b);
+  out.pendingChoices.sort((a, b) => a.level - b.level);
+  out.autoCantrips = [...new Set(out.autoCantrips)];
+  out.autoSpells = [...new Set(out.autoSpells)];
+  return out;
+}
+
 function applyNode(out, node, level, source) {
   if (node.features) {
     for (const f of node.features) {
@@ -176,17 +227,25 @@ export function applyAutosToCharacter(character) {
   // Normaliza estrutura: pode vir como string ou objeto
   const norm = spells.map(s => typeof s === 'string' ? { id: s, prepared: false } : { ...s });
 
+  // Autos esperados, com a classe de origem (só marcada fora da classe inicial).
+  const wanted = [];
+  if (prog.byClass) {
+    for (const [cls, p] of Object.entries(prog.byClass)) {
+      const tag = cls === character.className ? {} : { cls };
+      for (const id of [...p.autoCantrips, ...p.autoSpells]) if (!wanted.some(w => w.id === id)) wanted.push({ id, ...tag });
+    }
+  } else {
+    for (const id of [...prog.autoCantrips, ...prog.autoSpells]) if (!wanted.some(w => w.id === id)) wanted.push({ id });
+  }
+
   // Remove autos antigos que não fazem mais parte do prog
-  const validAutoIds = new Set([...prog.autoCantrips, ...prog.autoSpells]);
+  const validAutoIds = new Set(wanted.map(w => w.id));
   const filtered = norm.filter(s => !s.auto || validAutoIds.has(s.id));
 
   // Adiciona autos novos
   const existing = new Set(filtered.map(s => s.id));
-  for (const id of prog.autoCantrips) {
-    if (!existing.has(id)) filtered.push({ id, prepared: true, auto: true });
-  }
-  for (const id of prog.autoSpells) {
-    if (!existing.has(id)) filtered.push({ id, prepared: true, auto: true });
+  for (const w of wanted) {
+    if (!existing.has(w.id)) filtered.push({ ...w, prepared: true, auto: true });
   }
 
   next.spells = filtered;
@@ -205,9 +264,14 @@ const scoreWithBonus = (character, k) =>
 
 /** 'asi' (ASI ou talento), 'epic' (só talento/Dádiva Épica) ou null para o nível dado. */
 export function levelChoiceKind(character, level) {
-  const prog = computeProgression({ ...character, level: Math.max(level, character.level || 1), levelChoices: {} });
-  if (prog.pendingChoices.some(c => c.type === 'epicBoon' && c.level === level)) return 'epic';
-  return prog.asiLevels.includes(level) ? 'asi' : null;
+  // Multiclasse: o ASI vem do nível da CLASSE que ganhou esse nível total.
+  const at = classAt(character, level);
+  if (!at) return null;
+  const view = classView(character, at.entry);
+  const lv = at.classLevel;
+  const prog = computeProgression({ ...view, level: Math.max(lv, view.level || 1), levelChoices: {} });
+  if (prog.pendingChoices.some(c => c.type === 'epicBoon' && c.level === lv)) return 'epic';
+  return prog.asiLevels.includes(lv) ? 'asi' : null;
 }
 
 /**
@@ -257,7 +321,9 @@ export function applyLevelChoice(character, level, choice) {
  * choices: { toLevel, hpGain, choice?, spellsAdded? }
  */
 export function applyLevelUpChoices(character, choices) {
-  let next = { ...character, level: choices.toLevel };
+  const classId = choices.classId || classAt(character, character.level || 1)?.entry.id || character.className;
+  let next = withClassLevel(character, classId);
+  next.level = choices.toLevel;
   const maxHp = (character.maxHp || 0) + choices.hpGain;
   next.maxHp = maxHp;
   next.currentHp = Math.min((character.currentHp ?? maxHp) + choices.hpGain, maxHp);
@@ -265,13 +331,17 @@ export function applyLevelUpChoices(character, choices) {
   let spellsAdded = [];
   if (choices.spellsAdded?.length) {
     const have = new Set((next.spells || []).map(s => typeof s === 'string' ? s : s.id));
+    const tag = classId === character.className ? {} : { cls: classId };
     spellsAdded = choices.spellsAdded.filter(id => !have.has(id));
-    next.spells = [...(next.spells || []), ...spellsAdded.map(id => ({ id, prepared: true }))];
+    next.spells = [...(next.spells || []), ...spellsAdded.map(id => ({ id, prepared: true, ...tag }))];
   }
+  // Perícia da multiclasse (bardo, ranger, ladino).
+  const skillAdded = choices.skillAdded && !(character.skillProfs || []).includes(choices.skillAdded) ? choices.skillAdded : null;
+  if (skillAdded) next.skillProfs = [...(character.skillProfs || []), skillAdded];
   // Registro para poder desfazer a subida (revertLastLevel).
   next.levelHistory = [
     ...(character.levelHistory || []).filter(h => h.toLevel < choices.toLevel),
-    { toLevel: choices.toLevel, hpGain: choices.hpGain, spellsAdded },
+    { toLevel: choices.toLevel, hpGain: choices.hpGain, spellsAdded, classId, ...(skillAdded ? { skillAdded } : {}) },
   ];
   return applyAutosToCharacter(next);
 }
@@ -304,11 +374,11 @@ export function revertLastLevel(character) {
   const level = character.level || 1;
   if (level <= 1) return character;
   const entry = (character.levelHistory || []).find(h => h.toLevel === level);
+  const lastClass = classAt(character, level)?.entry.id || character.className;
   const conMod = Math.floor((scoreWithBonus(character, 'con') - 10) / 2);
-  const hpLoss = entry ? entry.hpGain : Math.max(1, Math.floor((HIT_DIE[character.className] || 8) / 2) + 1 + conMod);
+  const hpLoss = entry ? entry.hpGain : Math.max(1, Math.floor((HIT_DIE[lastClass] || 8) / 2) + 1 + conMod);
 
-  let next = revertLevelChoice(character, level);
-  next.level = level - 1;
+  let next = withoutLastClassLevel(revertLevelChoice(character, level));
   next.maxHp = Math.max(1, (character.maxHp || 1) - hpLoss);
   next.currentHp = Math.min(character.currentHp ?? next.maxHp, next.maxHp);
   next.hitDiceUsed = Math.min(character.hitDiceUsed || 0, next.level);
@@ -316,6 +386,10 @@ export function revertLastLevel(character) {
     const drop = new Set(entry.spellsAdded);
     next.spells = (next.spells || []).filter(s => !drop.has(typeof s === 'string' ? s : s.id));
   }
+  if (entry?.skillAdded) next.skillProfs = (next.skillProfs || []).filter(k => k !== entry.skillAdded);
+  // Magias de uma classe que deixou de existir saem junto.
+  const classesLeft = new Set(classEntries(next).map(e => e.id));
+  next.spells = (next.spells || []).filter(s => !s?.cls || classesLeft.has(s.cls));
   next.levelHistory = (character.levelHistory || []).filter(h => h.toLevel < level);
   return applyAutosToCharacter(next);
 }

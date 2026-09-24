@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from .models import (
     Profile, Character, Campaign, Membership, Approval, DiceRig, DiceLog,
 )
+from .progression.multiclass import class_entries
 
 User = get_user_model()
 
@@ -90,6 +91,7 @@ class MembershipSerializer(serializers.ModelSerializer):
                 'race': d.get('race', ''),
                 'className': d.get('className', ''),
                 'level': d.get('level', 1),
+                'classes': [{'id': e['id'], 'level': e['level'], 'subclass': e['subclass']} for e in class_entries(d)] if d.get('className') else [],
                 'currentHp': d.get('currentHp'),
                 'maxHp': d.get('maxHp'),
                 'tempHp': d.get('tempHp', 0),
@@ -178,7 +180,15 @@ class ApprovalSerializer(serializers.ModelSerializer):
                   'requestedBy', 'reviewedBy']
 
     def get_character(self, obj):
-        return {'id': obj.character_id, 'name': obj.character.name} if obj.character else None
+        if not obj.character:
+            return None
+        d = obj.character.data or {}
+        # Resumo para o mestre decidir a subida sem abrir a ficha.
+        return {
+            'id': obj.character_id, 'name': obj.character.name,
+            'level': d.get('level', 1), 'maxHp': d.get('maxHp'),
+            'classes': [{'id': e['id'], 'level': e['level']} for e in class_entries(d)] if d.get('className') else [],
+        }
 
     def get_requestedBy(self, obj):
         return UserSerializer(obj.requested_by).data if obj.requested_by else None

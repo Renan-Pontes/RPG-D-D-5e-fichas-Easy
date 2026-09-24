@@ -8,9 +8,12 @@ import { Filigree, Modal, NumStepper, Pips } from './Shared.jsx';
 import ItemPickerModal from '../src/items/ItemPickerModal.jsx';
 import { api } from '../src/api/client.js';
 
-const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, roll }) => {
-  const cls = SRD.CLASSES.find(c => c.id === char.className);
-  if (!Utils.spellcastingAbility(char)) {
+// Aba Magias: espaços (compartilhados entre as classes) e uma seção por classe
+// conjuradora — em multiclasse cada uma tem atributo, CD, limites e lista próprios.
+const SheetSpells = ({ char, lang, update, slots, roll }) => {
+  const multi = Utils.isMulticlass(char);
+  const casters = multi ? Utils.casterViews(char) : (Utils.spellcastingAbility(char) ? [char] : []);
+  if (!casters.length) {
     return (
       <div className="card text-center" style={{ padding: 'var(--s-7)' }}>
         <Icon name="sparkle" size={36} style={{ color: 'var(--gold-deep)', marginBottom: 12 }}/>
@@ -19,66 +22,21 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
     );
   }
 
-  // Modo trapaça: qualquer lista, qualquer nível, sem limite.
-  const cheat = !!char.cheatMode;
-  const isPrepared = Utils.isPreparedCaster(char);
-  const maxLvl = cheat ? 9 : Utils.maxSpellLevel(char);
-  const cantripLimit = cheat ? Infinity : Utils.cantripsKnown(char);
-  const preparedLimit = isPrepared ? (cheat ? Infinity : Utils.preparedSpellsLimit(char)) : null;
-  const inList = sp => cheat || sp.classes.includes(Utils.spellListClass(char));
-
-  const spellEntries = char.spells || [];
-  const autoIds = new Set(spellEntries.filter(s => s.auto).map(s => s.id));
-  const cantripIds = spellEntries.filter(s => {
-    const def = Utils.spellCatalog(char).find(x => x.id === s.id);
-    return def && def.level === 0;
-  }).map(s => s.id);
-  const preparedIds = spellEntries.filter(s => {
-    const def = Utils.spellCatalog(char).find(x => x.id === s.id);
-    return def && def.level > 0;
-  }).map(s => s.id);
-
-  const classSpells = Utils.spellCatalog(char).filter(sp => (inList(sp) && sp.level <= maxLvl) || autoIds.has(sp.id));
-  const classCantrips = Utils.spellCatalog(char).filter(sp => (inList(sp) || autoIds.has(sp.id)) && sp.level === 0);
-
-  const removeSpell = (id) => {
-    if (autoIds.has(id)) return;
-    update({ spells: spellEntries.filter(s => s.id !== id) });
-  };
-
-  // Known caster: ability to add new known spells via dropdown
-  const available = Utils.spellCatalog(char).filter(sp => inList(sp) && sp.level <= maxLvl && !spellEntries.find(s => s.id === sp.id));
-  const addKnownSpell = (id) => {
-    const def = Utils.spellCatalog(char).find(s => s.id === id);
-    const count = (def?.level === 0 ? cantripIds : preparedIds).filter(id => !autoIds.has(id)).length;
-    const limit = def?.level === 0 ? cantripLimit : (cheat ? Infinity : Utils.knownSpellLimit(char));
-    if (!def || count >= limit || spellEntries.some(s => s.id === id)) return;
-    update({ spells: [...spellEntries, { id, prepared: true }] });
+  // Magias sem `cls` pertencem à classe inicial.
+  const scoped = (view) => {
+    if (!multi) return { view: char, save: update };
+    const mine = (s) => (s.cls || char.className) === view.className;
+    const tag = view.className === char.className ? {} : { cls: view.className };
+    return {
+      view: { ...view, spells: (char.spells || []).filter(mine) },
+      save: (patch) => ('spells' in patch
+        ? update({ ...patch, spells: [...(char.spells || []).filter(s => !mine(s)), ...patch.spells.map(s => ({ ...s, ...tag }))] })
+        : update(patch)),
+    };
   };
 
   return (
     <>
-      <div className="card mb-4">
-        <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <div className="eyebrow">{t('spellAbility', lang)}</div>
-            <div style={{ fontFamily: 'var(--display)', color: 'var(--gold)' }}>
-              {spellAb ? t(spellAb, lang) : '—'}
-            </div>
-          </div>
-          <div>
-            <div className="eyebrow">{t('spellSaveDc', lang)}</div>
-            <div className="mono" style={{ fontSize: '1.4rem', color: 'var(--gold-bright)' }}>{spellDc || '—'}</div>
-          </div>
-          <div>
-            <div className="eyebrow">{t('spellAttack', lang)}</div>
-            <div className="mono" style={{ fontSize: '1.4rem', color: 'var(--gold-bright)' }}>
-              {spellAtk !== null ? Utils.fmtMod(spellAtk) : '—'}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {slots && slots.length > 0 && slots.some(s => s) && (
         <>
           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -119,7 +77,81 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
         </>
       )}
 
+
       {/* Forma Selvagem fica na aba Jogar (painel completo, com Forma Estelar). */}
+
+      {casters.map(v => {
+        const { view, save } = scoped(v);
+        return <ClassSpells key={v.className} char={view} lang={lang} update={save} slots={slots} roll={roll} showClass={multi} />;
+      })}
+    </>
+  );
+};
+
+const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
+  const spellAb = Utils.spellcastingAbilityOfClass(char);
+  const spellDc = spellAb ? 8 + Utils.profBonus(char) + Utils.abilityMod(char, spellAb) : null;
+  const spellAtk = spellAb ? Utils.profBonus(char) + Utils.abilityMod(char, spellAb) : null;
+
+  // Modo trapaça: qualquer lista, qualquer nível, sem limite.
+  const cheat = !!char.cheatMode;
+  const isPrepared = Utils.isPreparedCaster(char);
+  const maxLvl = cheat ? 9 : Utils.maxSpellLevel(char);
+  const cantripLimit = cheat ? Infinity : Utils.cantripsKnown(char);
+  const preparedLimit = isPrepared ? (cheat ? Infinity : Utils.preparedSpellsLimit(char)) : null;
+  const inList = sp => cheat || sp.classes.includes(Utils.spellListClass(char));
+
+  const spellEntries = char.spells || [];
+  const autoIds = new Set(spellEntries.filter(s => s.auto).map(s => s.id));
+  const cantripIds = spellEntries.filter(s => {
+    const def = Utils.spellCatalog(char).find(x => x.id === s.id);
+    return def && def.level === 0;
+  }).map(s => s.id);
+  const preparedIds = spellEntries.filter(s => {
+    const def = Utils.spellCatalog(char).find(x => x.id === s.id);
+    return def && def.level > 0;
+  }).map(s => s.id);
+
+  const classSpells = Utils.spellCatalog(char).filter(sp => (inList(sp) && sp.level <= maxLvl) || autoIds.has(sp.id));
+  const classCantrips = Utils.spellCatalog(char).filter(sp => (inList(sp) || autoIds.has(sp.id)) && sp.level === 0);
+
+  const removeSpell = (id) => {
+    if (autoIds.has(id)) return;
+    update({ spells: spellEntries.filter(s => s.id !== id) });
+  };
+
+  // Known caster: ability to add new known spells via dropdown
+  const available = Utils.spellCatalog(char).filter(sp => inList(sp) && sp.level <= maxLvl && !spellEntries.find(s => s.id === sp.id));
+  const addKnownSpell = (id) => {
+    const def = Utils.spellCatalog(char).find(s => s.id === id);
+    const count = (def?.level === 0 ? cantripIds : preparedIds).filter(id => !autoIds.has(id)).length;
+    const limit = def?.level === 0 ? cantripLimit : (cheat ? Infinity : Utils.knownSpellLimit(char));
+    if (!def || count >= limit || spellEntries.some(s => s.id === id)) return;
+    update({ spells: [...spellEntries, { id, prepared: true }] });
+  };
+
+  return (
+    <section className={showClass ? 'class-spells' : ''}>
+      <div className="card mb-4">
+        <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div className="eyebrow">{showClass ? tName('class', char.className, lang) : t('spellAbility', lang)}</div>
+            <div style={{ fontFamily: 'var(--display)', color: 'var(--gold)' }}>
+              {spellAb ? t(spellAb, lang) : '—'}
+            </div>
+          </div>
+          <div>
+            <div className="eyebrow">{t('spellSaveDc', lang)}</div>
+            <div className="mono" style={{ fontSize: '1.4rem', color: 'var(--gold-bright)' }}>{spellDc || '—'}</div>
+          </div>
+          <div>
+            <div className="eyebrow">{t('spellAttack', lang)}</div>
+            <div className="mono" style={{ fontSize: '1.4rem', color: 'var(--gold-bright)' }}>
+              {spellAtk !== null ? Utils.fmtMod(spellAtk) : '—'}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {isPrepared ? (
         <PreparedSpellsView
@@ -150,7 +182,7 @@ const SheetSpells = ({ char, lang, update, spellAb, spellDc, spellAtk, slots, ro
           update={update}
         />
       )}
-    </>
+    </section>
   );
 };
 
@@ -544,8 +576,9 @@ const RestButtons = ({ char, lang, update }) => {
           patch.deathSaves = { success: 0, fail: 0 };
           patch.hitDiceUsed = char.rulesVersion === '2024' ? 0 : Math.max(0, (char.hitDiceUsed || 0) - Math.max(1, Math.floor(char.level / 2)));
         } else {
-          if (char.className === 'warlock') patch.spellSlotsUsed = [0,0,0,0,0,0,0,0,0];
-          if (char.className === 'druid') patch.wildShapeUses = char.rulesVersion === '2024' ? Math.max(0, (char.wildShapeUses || 0) - 1) : 0;
+          // Pacto em multiclasse fica somado aos outros espaços: não zera tudo (igual ao servidor).
+          if (char.className === 'warlock' && !Utils.isMulticlass(char)) patch.spellSlotsUsed = [0,0,0,0,0,0,0,0,0];
+          if (Utils.hasClass(char, 'druid')) patch.wildShapeUses = char.rulesVersion === '2024' ? Math.max(0, (char.wildShapeUses || 0) - 1) : 0;
         }
         update(patch);
       }

@@ -1,12 +1,13 @@
 /* Subida de nível guiada: PV, ASI/talento e magias, com os limites das regras.
  * Também resolve um ASI pendente de nível antigo (onlyChoiceLevel). */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import SRD from '../../data/srd.js';
 import Utils from '../../utils.js';
 import { t, tName } from '../../data/i18n.js';
 import Icon from '../../components/Icons.jsx';
 import { Modal, Filigree } from '../../components/Shared.jsx';
 import { HIT_DIE, levelChoiceKind, validateLevelChoice } from './engine.js';
+import { withClassLevel } from './multiclass.js';
 
 const box = { background: 'var(--bg-elev)', borderRadius: 8, padding: 14, marginBottom: 8 };
 
@@ -78,46 +79,116 @@ const ChoiceStep = ({ char, lang, level, kind, choice, setChoice }) => {
   );
 };
 
-export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoiceLevel = null }) {
+// Passo 1: continuar numa classe atual ou abrir uma nova (multiclasse).
+const ClassStep = ({ char, lang, classId, setClassId, allowMulticlass, cheat }) => {
+  const pt = lang === 'pt';
+  const entries = Utils.classEntries(char);
+  const others = SRD.CLASSES.filter(c => !entries.some(e => e.id === c.id));
+  const abilityName = (k) => t(k + 'Sh', lang);
+  const profs = Utils.multiclassProfs(char, classId);
+  const isNew = !entries.some(e => e.id === classId);
+  return (
+    <>
+      <h3 style={{ marginBottom: 4 }}>{pt ? 'Em qual classe?' : 'Which class?'}</h3>
+      <div className="muted text-sm" style={{ marginBottom: 10 }}>
+        {pt ? 'O nível novo vai para uma das suas classes ou abre uma classe nova.' : 'The new level goes to one of your classes or opens a new one.'}
+      </div>
+      <div className="class-pick-list">
+        {entries.map(e => (
+          <button key={e.id} type="button" className={`class-pick ${classId === e.id ? 'on' : ''}`} onClick={() => setClassId(e.id)}>
+            <span className="class-pick-name">{tName('class', e.id, lang)}</span>
+            <span className="class-pick-meta mono">{e.level} → {e.level + 1}</span>
+          </button>
+        ))}
+      </div>
+      {allowMulticlass ? (
+        <>
+          <Filigree>{pt ? 'Nova classe (multiclasse)' : 'New class (multiclass)'}</Filigree>
+          <div className="class-pick-grid">
+            {others.map(c => {
+              const check = Utils.canMulticlassInto(char, c.id);
+              const blocked = !check.ok && !cheat;
+              const why = check.missing.map(m => `${tName('class', m.classId, lang)}: ${m.group.map(abilityName).join(pt ? ' ou ' : ' or ')} 13`).join(' · ');
+              return (
+                <button key={c.id} type="button" disabled={blocked} title={why}
+                  className={`class-pick small ${classId === c.id ? 'on' : ''}`} onClick={() => setClassId(c.id)}>
+                  <span className="class-pick-name">{tName('class', c.id, lang)}</span>
+                  <span className="class-pick-meta">{check.ok ? `d${c.hitDie}` : (pt ? 'requer ' : 'needs ') + why.replace(/^[^:]+: /, '')}</span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <div className="muted text-xs" style={{ marginTop: 10 }}>{pt ? 'O mestre não liberou multiclasse nesta subida.' : 'Your DM did not allow multiclassing for this level.'}</div>
+      )}
+      {isNew && profs && (
+        <div className="class-pick-note">
+          <strong>{pt ? 'Ao entrar na classe você ganha:' : 'Multiclassing grants:'}</strong> {profs[lang]}
+          {cheat && !Utils.canMulticlassInto(char, classId).ok && <div className="text-xs" style={{ color: 'var(--blood-bright)', marginTop: 4 }}>{pt ? 'Sem o pré-requisito (modo trapaça).' : 'Prerequisite not met (cheat mode).'}</div>}
+        </div>
+      )}
+    </>
+  );
+};
+
+export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoiceLevel = null, allowMulticlass = true }) {
   const cheat = !!char.cheatMode;
   const choiceOnly = onlyChoiceLevel != null;
   const newLevel = choiceOnly ? onlyChoiceLevel : (char.level || 1) + 1;
-  const after = choiceOnly ? char : { ...char, level: newLevel };
+  // Padrão: a classe do último nível ganho (continua o caminho atual).
+  const [classId, setClassId] = useState(() => Utils.classSequence(char).at(-1) || char.className);
+  const isNewClass = !Utils.classEntries(char).some(e => e.id === classId);
+  const after = choiceOnly ? char : { ...withClassLevel(char, classId), level: newLevel };
   const kind = levelChoiceKind(after, newLevel);
   const [choice, setChoice] = useState(kind === 'epic' ? { type: 'feat', feat: '' } : { type: 'asi', asi: {} });
+  useEffect(() => { setChoice(kind === 'epic' ? { type: 'feat', feat: '' } : { type: 'asi', asi: {} }); }, [kind]);
 
-  // PV: média (arredondada para cima) ou rolagem, + CON; mínimo 1.
-  const hitDie = HIT_DIE[char.className] || 8;
+  // PV: média (arredondada para cima) ou rolagem do dado da classe escolhida, + CON; mínimo 1.
+  const hitDie = HIT_DIE[classId] || 8;
   const conMod = Utils.abilityMod(char, 'con');
   const avgHp = Math.max(1, Math.floor(hitDie / 2) + 1 + conMod);
   const [hpMode, setHpMode] = useState('avg');
   const [rolled, setRolled] = useState(null);
+  useEffect(() => { setHpMode('avg'); setRolled(null); }, [classId]);
   const hpGain = hpMode === 'roll' && rolled != null ? Math.max(1, rolled + conMod) : avgHp;
   const rollHp = () => {
     setRolled(Math.floor(Math.random() * hitDie) + 1);
     if (window.__diceRoll) window.__diceRoll({ die: hitDie, mod: conMod, label: lang === 'pt' ? 'PV de nível' : 'Level HP' });
   };
 
-  // Magias: só o que o novo nível acrescenta ao limite (sem limite no modo trapaça).
-  const isCaster = !choiceOnly && !!Utils.spellcastingAbility(after);
+  // Perícia ganha ao entrar como multiclasse (bardo, ranger, ladino).
+  const skillCount = !choiceOnly && isNewClass ? (Utils.multiclassProfs(char, classId)?.skill || 0) : 0;
+  const skillOptions = skillCount ? (SRD.CLASSES.find(c => c.id === classId)?.skillsFrom || []).filter(k => !(char.skillProfs || []).includes(k)) : [];
+  const [skillAdded, setSkillAdded] = useState('');
+  useEffect(() => { setSkillAdded(''); }, [classId]);
+
+  // Magias da classe escolhida, vista isoladamente (limites e lista dela).
+  const entry = Utils.classEntries(after).find(e => e.id === classId);
+  const view = entry ? Utils.classView(after, entry) : after;
+  const isCaster = !choiceOnly && !!Utils.spellcastingAbilityOfClass(view) && (Utils.spellSlots(view).length > 0 || Utils.cantripsKnown(view) > 0);
   const catalog = isCaster ? Utils.spellCatalog(char) : [];
   const owned = new Set((char.spells || []).map(s => s.id));
-  const isAuto = id => (char.spells || []).some(s => s.id === id && s.auto);
-  const countOf = (lvl0) => (char.spells || []).filter(s => !isAuto(s.id) && (catalog.find(x => x.id === s.id)?.level === 0) === lvl0).length;
-  const cantripRoom = Math.max(0, Utils.cantripsKnown(after) - countOf(true));
+  const mine = (char.spells || []).filter(s => (s.cls || char.className) === classId && !s.auto);
+  const countOf = (lvl0) => mine.filter(s => (catalog.find(x => x.id === s.id)?.level === 0) === lvl0).length;
+  const cantripRoom = Math.max(0, Utils.cantripsKnown(view) - countOf(true));
   // Conjuradores preparados (druida, clérigo, paladino, mago…) já têm a lista inteira
   // e escolhem as magias no descanso longo — no nível só aprendem truques novos.
-  const spellRoom = Utils.isPreparedCaster(after) ? 0 : Math.max(0, (Utils.knownSpellLimit(after) || 0) - countOf(false));
-  const maxLvl = Utils.maxSpellLevel(after);
-  const listClass = Utils.spellListClass(after);
+  const spellRoom = Utils.isPreparedCaster(view) ? 0 : Math.max(0, (Utils.knownSpellLimit(view) || 0) - countOf(false));
+  const maxLvl = Utils.maxSpellLevel(view);
+  const listClass = Utils.spellListClass(view);
   const available = catalog.filter(s => !owned.has(s.id) && (cheat || (s.classes.includes(listClass) && s.level <= maxLvl && (s.level === 0 || spellRoom > 0))));
   const [added, setAdded] = useState([]);
+  useEffect(() => { setAdded([]); }, [classId]);
   const addedCantrips = added.filter(id => catalog.find(s => s.id === id)?.level === 0).length;
   const addedSpells = added.length - addedCantrips;
   const canAdd = (sp) => cheat || (sp.level === 0 ? addedCantrips < cantripRoom : addedSpells < spellRoom);
   const toggle = (sp) => setAdded(prev => prev.includes(sp.id) ? prev.filter(x => x !== sp.id) : (canAdd(sp) ? [...prev, sp.id] : prev));
 
   const steps = [];
+  const showClassStep = !choiceOnly && (allowMulticlass || Utils.isMulticlass(char));
+  if (showClassStep) steps.push('class');
+  if (skillCount) steps.push('skill');
   if (!choiceOnly) steps.push('hp');
   if (kind) steps.push('choice');
   if (isCaster && (cheat || cantripRoom + spellRoom > 0)) steps.push('spells');
@@ -128,7 +199,7 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
 
   const effectiveChoice = kind === 'epic' ? { ...choice, type: 'feat' } : choice;
   const choiceCheck = kind ? validateLevelChoice(after, newLevel, effectiveChoice) : { valid: true, issues: [] };
-  const stepValid = steps[step] !== 'choice' || choiceCheck.valid;
+  const stepValid = (steps[step] !== 'choice' || choiceCheck.valid) && (steps[step] !== 'skill' || !!skillAdded);
   const isLast = step === steps.length - 1;
 
   const confirm = async () => {
@@ -137,6 +208,8 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
       await onConfirm({
         toLevel: newLevel,
         hpGain,
+        ...(choiceOnly ? {} : { classId }),
+        ...(skillAdded ? { skillAdded } : {}),
         ...(kind ? { choice: effectiveChoice } : {}),
         ...(added.length ? { spellsAdded: added } : {}),
       });
@@ -148,6 +221,20 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
 
   const render = () => {
     const s = steps[step];
+    if (s === 'class') return <ClassStep char={char} lang={lang} classId={classId} setClassId={setClassId} allowMulticlass={allowMulticlass} cheat={cheat} />;
+    if (s === 'skill') return (
+      <>
+        <h3 style={{ marginBottom: 4 }}>{lang === 'pt' ? `Perícia de ${tName('class', classId, lang)}` : `${tName('class', classId, lang)} skill`}</h3>
+        <div className="muted text-sm" style={{ marginBottom: 10 }}>{lang === 'pt' ? 'Escolha 1 perícia da lista da classe.' : 'Pick 1 skill from the class list.'}</div>
+        <div className="class-pick-grid">
+          {skillOptions.map(k => (
+            <button key={k} type="button" className={`class-pick small ${skillAdded === k ? 'on' : ''}`} onClick={() => setSkillAdded(k)}>
+              <span className="class-pick-name">{tName('skill', k, lang)}</span>
+            </button>
+          ))}
+        </div>
+      </>
+    );
     if (s === 'hp') return (
       <>
         <h3 style={{ marginBottom: 4 }}>{lang === 'pt' ? 'Pontos de Vida' : 'Hit Points'}</h3>
@@ -208,7 +295,10 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
     return (
       <>
         <h3 style={{ marginBottom: 4 }}>{lang === 'pt' ? 'Resumo' : 'Summary'}</h3>
-        <div style={box}>{lang === 'pt' ? 'Nível' : 'Level'} {char.level} → <strong style={{ color: 'var(--gold-bright)' }}>{newLevel}</strong></div>
+        <div style={box}>{lang === 'pt' ? 'Nível' : 'Level'} {char.level} → <strong style={{ color: 'var(--gold-bright)' }}>{newLevel}</strong>
+          {' · '}{tName('class', classId, lang)} {entry?.level}{isNewClass && <span className="muted"> ({lang === 'pt' ? 'nova classe' : 'new class'})</span>}
+        </div>
+        {skillAdded && <div style={box}>{lang === 'pt' ? 'Perícia' : 'Skill'}: {tName('skill', skillAdded, lang)}</div>}
         <div style={box}>PV {char.maxHp} → <strong style={{ color: 'var(--moss-bright)' }}>{char.maxHp + hpGain}</strong> (+{hpGain})</div>
         {kind && (
           <div style={box}>

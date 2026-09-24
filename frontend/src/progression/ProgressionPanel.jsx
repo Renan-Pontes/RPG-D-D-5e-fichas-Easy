@@ -3,8 +3,10 @@ import { computeProgression } from './engine.js';
 import { rulesFor } from './rules.js';
 import SRD from '../../data/srd.js';
 import { tName } from '../../data/i18n.js';
+import Utils from '../../utils.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
+const subclassName = (classId, sub, lang) => SRD.SUBCLASSES[classId]?.find(s => s.id.toLowerCase() === sub.toLowerCase())?.name[lang] || sub;
 
 export default function ProgressionPanel({
   character,
@@ -25,7 +27,10 @@ export default function ProgressionPanel({
 
   return (
     <div className="progression-panel">
-      <h3>{t(lang, 'Progressão', 'Progression')} — {tName('class', prog.classId, lang)} {prog.level}{prog.subclass ? ` (${SRD.SUBCLASSES[prog.classId]?.find(s => s.id.toLowerCase() === prog.subclass.toLowerCase())?.name[lang] || prog.subclass})` : ''}</h3>
+      <h3>{t(lang, 'Progressão', 'Progression')} — {prog.classes
+        ? Utils.classLabel(character, lang, tName)
+        : `${tName('class', prog.classId, lang)} ${prog.level}${prog.subclass ? ` (${subclassName(prog.classId, prog.subclass, lang)})` : ''}`}</h3>
+      {prog.classes && <p className="muted text-sm" style={{ margin: '-6px 0 8px' }}>{t(lang, 'Nível total', 'Total level')} {prog.level} · {t(lang, 'proficiência', 'proficiency')} +{prog.profBonus}</p>}
       <p className="muted text-sm">{character.rulesVersion === '2024' ? 'D&D 5e revisado · SRD 5.2.1' : 'D&D 5e · regras de 2014'} · <a href="/rules/SRD-5.2.1.pdf" target="_blank" rel="noreferrer">{t(lang, 'Referência de regras', 'Rules reference')}</a></p>
       {(subclassRule?.manual || subclassRule?.legacyCompatibility) && <p className="muted text-sm">{t(lang, 'Opção de suplemento: ações e escolhas especiais são registradas em Traços e resolvidas com o mestre.', 'Supplement option: record special actions and choices under Features and resolve them with your DM.')}</p>}
 
@@ -44,7 +49,7 @@ export default function ProgressionPanel({
           <ul>
             {prog.pendingChoices.map((c, i) => (
               <li key={i}>
-                <strong>Nv. {c.level}</strong> — {c.reason}
+                <strong>Nv. {c.level}</strong>{c.classId && <span className="muted"> ({tName('class', c.classId, lang)} {c.classLevel})</span>} — {c.reason}
                 {onResolveChoice && (c.type === 'asiOrFeat' || c.type === 'epicBoon') && (
                   <button className="btn btn-sm btn-primary" style={{ marginLeft: 8 }} onClick={() => onResolveChoice(c.level)}>
                     {t(lang, 'Escolher agora', 'Choose now')}
@@ -56,14 +61,32 @@ export default function ProgressionPanel({
         </div>
       )}
 
-      <details className="prog-section">
-        <summary>{t(lang, `${prog.features.length} traços de classe acumulados`, `${prog.features.length} class features accumulated`)}</summary>
-        <ul>
-          {prog.features.map((f, i) => (
-            <li key={i}><strong>Nv. {f.level}</strong> — {lang === 'en' ? f.nameEn || f.name : f.name}: <em>{lang === 'en' ? f.descEn || f.desc : f.desc}</em></li>
-          ))}
-        </ul>
-      </details>
+      {prog.classes && prog.classes.some(e => !e.primary) && (
+        <div className="prog-section">
+          <div className="prog-label">{t(lang, 'Proficiências de multiclasse:', 'Multiclass proficiencies:')}</div>
+          <ul>
+            {prog.classes.filter(e => !e.primary).map(e => (
+              <li key={e.id}><strong>{tName('class', e.id, lang)}</strong> — {Utils.multiclassProfs(character, e.id)?.[lang]}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(prog.classes || [{ id: prog.classId }]).map(e => {
+        const list = prog.features.filter(f => !prog.classes || f.classId === e.id);
+        return (
+          <details key={e.id} className="prog-section">
+            <summary>{prog.classes
+              ? t(lang, `${tName('class', e.id, lang)} ${e.level}: ${list.length} traços`, `${tName('class', e.id, lang)} ${e.level}: ${list.length} features`)
+              : t(lang, `${list.length} traços de classe acumulados`, `${list.length} class features accumulated`)}</summary>
+            <ul>
+              {list.map((f, i) => (
+                <li key={i}><strong>Nv. {f.classLevel ?? f.level}</strong> — {lang === 'en' ? f.nameEn || f.name : f.name}: <em>{lang === 'en' ? f.descEn || f.desc : f.desc}</em></li>
+              ))}
+            </ul>
+          </details>
+        );
+      })}
 
       {hasUnlocked && onConsumeLevelup && (
         <div className="prog-section unlocked-banner">

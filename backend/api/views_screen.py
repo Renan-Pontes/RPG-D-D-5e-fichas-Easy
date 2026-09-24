@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
 
 from .models import Campaign, CombatInstance, RollRequest
+from .progression.multiclass import class_entries
 
 
 def _public_character(data, name, char_id):
@@ -22,6 +23,7 @@ def _public_character(data, name, char_id):
         'className': d.get('className', ''),
         'subclass': d.get('subclass', ''),
         'level': d.get('level', 1),
+        'classes': [{'id': e['id'], 'level': e['level']} for e in class_entries(d)] if d.get('className') else [],
         'currentHp': d.get('currentHp'),
         'maxHp': d.get('maxHp'),
         'tempHp': d.get('tempHp', 0),

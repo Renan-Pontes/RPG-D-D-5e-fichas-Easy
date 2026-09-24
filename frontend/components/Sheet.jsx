@@ -29,9 +29,6 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
   const speed = Utils.speed(char);
   const profB = Utils.profBonus(char);
   const passPerc = Utils.passivePerception(char);
-  const spellAb = Utils.spellcastingAbility(char);
-  const spellDc = Utils.spellSaveDc(char);
-  const spellAtk = Utils.spellAttackBonus(char);
   const slots = Utils.spellSlots(char);
 
   const cls = SRD.CLASSES.find(c => c.id === char.className);
@@ -173,10 +170,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
       )}
 
       {tab === 'spells' && (
-        <SheetSpells
-          char={char} lang={lang} update={update}
-          spellAb={spellAb} spellDc={spellDc} spellAtk={spellAtk} slots={slots} roll={roll}
-        />
+        <SheetSpells char={char} lang={lang} update={update} slots={slots} roll={roll} />
       )}
 
       {tab === 'inv' && (
@@ -212,7 +206,7 @@ const SheetHero = ({ char, lang, onAvatar, onBack, onLevelUp, cls, race, bg }) =
         <div className="hero-name">{char.name || (lang === 'pt' ? 'Sem nome' : 'Unnamed')}</div>
         <div className="hero-sub">
           {race ? tName('race', race.id, lang) : '—'}
-          {cls ? ` · ${tName('class', cls.id, lang)} ${char.level}` : ''}
+          {cls ? ` · ${Utils.classLabel(char, lang, tName)}` : ''}
           {bg ? ` · ${tName('background', bg.id, lang)}` : ''}
         </div>
         <div className="hero-tags">
@@ -272,7 +266,19 @@ const SUBCLASS_LABEL = {
   wizard:    { pt: 'Tradição Arcana', en: 'Arcane Tradition' },
 };
 
+// Uma faixa por classe: em multiclasse cada classe escolhe a própria subclasse
+// quando chega ao nível dela (grava em multiclass[i] fora da classe inicial).
 const SubclassBanner = ({ char, lang, update }) => {
+  const multi = Utils.isMulticlass(char);
+  return Utils.classEntries(char).map(e => (
+    <SubclassRow key={e.id} char={Utils.classView(char, e)} lang={lang} showClass={multi}
+      update={(patch) => e.primary
+        ? update(patch)
+        : update({ multiclass: char.multiclass.map(m => m.id === e.id ? { ...m, ...patch } : m) })} />
+  ));
+};
+
+const SubclassRow = ({ char, lang, update, showClass }) => {
   const [open, setOpen] = useState(false);
   const subs = (SRD.SUBCLASSES && SRD.SUBCLASSES[char.className]) || [];
   if (!subs.length) return null;
@@ -280,7 +286,10 @@ const SubclassBanner = ({ char, lang, update }) => {
   const eligible = (char.level || 1) >= subLv;
   if (!eligible) return null;
 
-  const label = SUBCLASS_LABEL[char.className] || { pt: 'Subclasse', en: 'Subclass' };
+  const base = SUBCLASS_LABEL[char.className] || { pt: 'Subclasse', en: 'Subclass' };
+  const label = showClass
+    ? { pt: `${base.pt} · ${tName('class', char.className, 'pt')}`, en: `${base.en} · ${tName('class', char.className, 'en')}` }
+    : base;
   const current = subs.find(s => s.id === char.subclass);
 
   if (!current) {
@@ -355,7 +364,7 @@ const SubclassModal = ({ char, lang, subs, label, update, onClose }) => {
           const isSel = pendingId === sc.id;
           return (
             <button key={sc.id} className={`option ${isSel ? 'selected' : ''}`}
-              onClick={() => { setPendingId(sc.id); setPendingLand(''); setPendingStar(''); }}>
+              onClick={() => { setPendingId(sc.id); setPendingLand(''); }}>
               <div className="option-title">{sc.name[lang]}</div>
               <div className="option-meta text-xs" style={{ marginTop: 4 }}>{sc.desc[lang]}</div>
               {isSel && sc.features && (
@@ -680,9 +689,8 @@ const STARRY_FORMS = [
     desc10: { pt: 'Nv. 10: ganha voo de 20 pés e pode pairar.', en: 'Lv 10: gain 20 ft fly speed and hover.' } },
 ];
 
-const StarryFormSection = ({ char, lang, update, maxUses, usesUsed, cheat }) => {
+const StarryFormSection = ({ char, level, lang, update, maxUses, usesUsed, cheat }) => {
   const sf = char.starryForm || {};
-  const level = char.level || 1;
   // 1º toque mostra o efeito; 2º toque ativa (evita gastar uso sem querer).
   const [peek, setPeek] = useState(sf.form || null);
   const unlocked = level >= (char.rulesVersion === '2024' ? 3 : 2);
@@ -739,15 +747,16 @@ const StarryFormSection = ({ char, lang, update, maxUses, usesUsed, cheat }) => 
   );
 };
 
-const WildShapePanel = ({ char, lang, update }) => {
+// `druid` = ficha vista só como druida (nível e círculo próprios, mesmo em multiclasse).
+const WildShapePanel = ({ char, druid, lang, update }) => {
   const [selected, setSelected] = useState(null);
   const [showBeasts, setShowBeasts] = useState(false);
   const cheat = !!char.cheatMode;
   const [transformError, setTransformError] = useState('');
-  const level = char.level;
+  const level = druid.level;
   const currentRules = char.rulesVersion === '2024';
   const maxUses = currentRules ? (level >= 17 ? 4 : level >= 6 ? 3 : 2) : 2;
-  const isMoon = char.subclass === 'moon';
+  const isMoon = druid.subclass === 'moon';
   // Moon circle: CR 1 at lv2-5, floor(level/3) at lv6+; no fly restriction from lv2
   // Standard: CR 1/4 lv2-3 (no fly/swim), CR 1/2 lv4-7 (no fly), CR 1 lv8+
   const maxCr = isMoon
@@ -770,9 +779,9 @@ const WildShapePanel = ({ char, lang, update }) => {
     <>
       <div className="eyebrow mt-4" style={{ marginBottom: 8 }}>
         {lang === 'pt' ? 'Forma Selvagem' : 'Wild Shape'}
-        {char.subclass && (
+        {druid.subclass && (
           <span className="text-xs" style={{ marginLeft: 6, color: 'var(--gold)', fontFamily: 'var(--body)', textTransform: 'none', letterSpacing: 0 }}>
-            {tName('subclass', char.subclass, lang)}
+            {tName('subclass', druid.subclass, lang)}
           </span>
         )}
         <span className="text-xs muted" style={{ marginLeft: 8, fontFamily: 'var(--body)', textTransform: 'none', letterSpacing: 0 }}>
@@ -792,8 +801,8 @@ const WildShapePanel = ({ char, lang, update }) => {
         </div>
         <span className="text-xs muted">{Math.max(0, maxUses - usesUsed)}/{maxUses} {lang === 'pt' ? 'usos' : 'uses'} · {currentRules ? (lang === 'pt' ? '+1 por descanso curto' : '+1 per short rest') : (lang === 'pt' ? 'recupera no descanso curto' : 'recover on short rest')}</span>
       </div>
-      {char.subclass === 'stars' && (
-        <StarryFormSection char={char} lang={lang} update={update} maxUses={maxUses} usesUsed={usesUsed} cheat={cheat} />
+      {druid.subclass === 'stars' && (
+        <StarryFormSection char={char} level={level} lang={lang} update={update} maxUses={maxUses} usesUsed={usesUsed} cheat={cheat} />
       )}
       <button className="btn btn-sm btn-ghost" style={{ width: '100%', marginBottom: 8 }} onClick={() => setShowBeasts(v => !v)}>
         <Icon name={showBeasts ? 'chevron-up' : 'chevron-down'} size={14}/>{' '}
@@ -1245,8 +1254,8 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
       <ConditionsPanel char={char} lang={lang} update={update} />
 
       {/* Wild Shape — Druid only */}
-      {char.className === 'druid' && char.level >= 2 && (
-        <WildShapePanel char={char} lang={lang} update={update} />
+      {Utils.classLevel(char, 'druid') >= 2 && (
+        <WildShapePanel char={char} druid={Utils.classView(char, Utils.classEntries(char).find(e => e.id === 'druid'))} lang={lang} update={update} />
       )}
 
       {/* Abilities at a glance */}
@@ -1277,7 +1286,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
         <div className="combat-box">
           <div className="eyebrow">{t('hitDice', lang)}</div>
           <div className="combat-box-value">{Math.max(0, char.level - (char.hitDiceUsed || 0))}</div>
-          <div className="combat-box-sub">/{char.level} d{(SRD.CLASSES.find(c => c.id === char.className) || {}).hitDie || ''}</div>
+          <div className="combat-box-sub">/{Utils.hitDiceLabel(char)}</div>
         </div>
       </div>
 

@@ -247,15 +247,16 @@ def wild_shape_transform(request, pk):
         raise PermissionDenied('forbidden')
 
     data = char.data or {}
-    if (data.get('className') or '').lower() != 'druid':
+    druid = ws_engine.druid_entry(data)
+    if not druid:
         return Response({'error': 'not_druid'}, status=400)
 
     beast = request.data.get('beast') or {}
     if not beast.get('id') or not beast.get('hp'):
         raise ValidationError({'error': 'invalid_beast'})
 
-    level = int(data.get('level') or 1)
-    subclass = data.get('subclass') or ''
+    level = int(druid['level'] or 1)
+    subclass = druid['subclass'] or ''
     eligible, reason = ws_engine.beast_eligible(level, subclass, beast, data.get('rulesVersion'))
     if not eligible:
         return Response({'error': 'beast_not_eligible', 'reason': reason}, status=400)

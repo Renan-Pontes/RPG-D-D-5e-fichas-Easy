@@ -185,8 +185,8 @@ const App = () => {
     if (!active || !levelUpFlow) return;
     if (levelUpFlow.mode === 'local') return applyLocalLevelUp(active, choices);
     if (levelUpFlow.mode === 'consume') {
-      const { hpGain, choice, spellsAdded } = choices;
-      await api.consumeApproval(unlockedLevelup.id, { hpGain, choice, spellsAdded });
+      const { hpGain, choice, spellsAdded, classId, skillAdded } = choices;
+      await api.consumeApproval(unlockedLevelup.id, { hpGain, choice, spellsAdded, classId, skillAdded });
       await refreshCharacters();
       setUnlockedLevelup(null);
       setToast(lang === 'pt' ? `Nível ${choices.toLevel}! ✨` : `Level ${choices.toLevel}! ✨`);
@@ -251,11 +251,17 @@ const App = () => {
     if (!active || active.inCampaign || (active.level || 1) <= 1) return;
     const to = active.level - 1;
     const ok = window.confirm(lang === 'pt'
-      ? `Voltar para o nível ${to}? PV, aumento de atributo/talento e magias ganhos no nível ${active.level} serão desfeitos.`
+      ? `Voltar para o nível ${to}? PV, classe, aumento de atributo/talento e magias ganhos no nível ${active.level} serão desfeitos.`
       : `Go back to level ${to}? HP, ability increase/feat and spells gained at level ${active.level} will be undone.`);
     if (!ok) return;
     let next = revertLastLevel(active);
-    if (next.subclass && to < Utils.subclassLevel(next)) next = { ...next, subclass: '', landType: '' };
+    // Classe que voltou para antes do nível de subclasse perde a subclasse.
+    for (const e of Utils.classEntries(next)) {
+      if (!e.subclass || e.level >= Utils.subclassLevel(Utils.classView(next, e))) continue;
+      next = e.primary
+        ? { ...next, subclass: '', landType: '' }
+        : { ...next, multiclass: next.multiclass.map(m => m.id === e.id ? { ...m, subclass: '', landType: '' } : m) };
+    }
     const slots = Utils.spellSlots(next);
     if (Array.isArray(next.spellSlotsUsed)) next.spellSlotsUsed = next.spellSlotsUsed.map((u, i) => Math.min(u || 0, slots[i] || 0));
     await storage.save(applyAutosToCharacter(next));
@@ -281,7 +287,7 @@ const App = () => {
             a.status === 'approved' && a.type === 'levelup' && a.character?.id === active.id
           );
           if (unlocked && alive) {
-            setUnlockedLevelup({ id: unlocked.id, campaignId: c.id, toLevel: unlocked.payload?.toLevel });
+            setUnlockedLevelup({ id: unlocked.id, campaignId: c.id, toLevel: unlocked.payload?.toLevel, allowMulticlass: unlocked.payload?.allowMulticlass !== false });
             return;
           }
         }
@@ -379,6 +385,7 @@ const App = () => {
               char={active}
               lang={lang}
               onlyChoiceLevel={levelUpFlow.mode === 'choice' ? levelUpFlow.level : null}
+              allowMulticlass={levelUpFlow.mode === 'consume' ? unlockedLevelup?.allowMulticlass !== false : true}
               onConfirm={handleLevelUpConfirm}
               onClose={() => setLevelUpFlow(null)}
             />

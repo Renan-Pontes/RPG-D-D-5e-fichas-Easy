@@ -9,6 +9,8 @@ frontend.
 Retorna lista de 9 ints: [nv1, nv2, ..., nv9].
 """
 
+from .progression.multiclass import class_level, is_multiclass
+
 _FULL = {
     1:  [2,0,0,0,0,0,0,0,0],
     2:  [3,0,0,0,0,0,0,0,0],
@@ -109,18 +111,52 @@ def spell_slots_max(class_name, level, subclass=''):
     return [0] * 9
 
 
+def _caster_level(view):
+    """Nível de conjurador da classe para a tabela de multiclasse (espelha utils.js)."""
+    cls = (view.get('className') or '').lower()
+    lv = int(view.get('level') or 0)
+    sub = (view.get('subclass') or '').lower()
+    if cls in FULL_CASTERS:
+        return lv
+    if cls == 'artificer':
+        return (lv + 1) // 2
+    if cls in HALF_CASTERS:
+        return (lv + 1) // 2 if view.get('rulesVersion') == '2024' else lv // 2
+    if (cls, sub) in {('fighter', 'eldritchknight'), ('rogue', 'arcanetrickster')}:
+        return lv // 3
+    return 0
+
+
 def slots_max_for(character_data):
     """Resolve slots máximos da ficha. Respeita override em data.spellSlotsMax."""
     override = character_data.get('spellSlotsMax')
     if isinstance(override, list) and len(override) == 9:
         return [max(0, int(v) if v is not None else 0) for v in override]
+    from .progression.multiclass import is_multiclass, class_entries, class_view
+    if is_multiclass(character_data):
+        views = [class_view(character_data, e) for e in class_entries(character_data)]
+        casters = [v for v in views if v.get('className') != 'warlock' and any(_class_slots(v))]
+        if len(casters) >= 2:
+            slots = list(_FULL[max(1, min(20, sum(_caster_level(v) for v in casters)))])
+        elif casters:
+            slots = _class_slots(casters[0])
+        else:
+            slots = [0] * 9
+        for v in views:
+            if v.get('className') == 'warlock':  # Magia de Pacto somada no mesmo círculo
+                slots = [a + b for a, b in zip(slots, _class_slots(v))]
+        return slots
+    return _class_slots(character_data)
+
+
+def _class_slots(character_data):
     if character_data.get('rulesVersion') == '2024':
         from .progression.rules import rules_for
         rule = rules_for(character_data) or {}
         level = max(1, min(20, int(character_data.get('level') or 1)))
         row = rule.get('per_level', {}).get(level, {}).get('spellSlots')
         if row is not None:
-            return list(row)
+            return (list(row) + [0] * 9)[:9]
     return spell_slots_max(character_data.get('className'), character_data.get('level') or 1, character_data.get('subclass'))
 
 
@@ -163,7 +199,7 @@ def long_rest(character_data):
     """Restaura tudo: slots, wildShapeUses, HP (até max), hit dice (metade)."""
     next_data = dict(character_data)
     next_data['spellSlotsUsed'] = [0] * 9
-    if (next_data.get('className') or '').lower() == 'druid':
+    if class_level(next_data, 'druid'):
         next_data['wildShapeUses'] = 0
     max_hp = next_data.get('maxHp') or 0
     next_data['currentHp'] = max_hp
@@ -188,9 +224,10 @@ def short_rest(character_data):
     HP não restaura automático no descanso curto.
     """
     next_data = dict(character_data)
-    cls = (next_data.get('className') or '').lower()
-    if cls == 'druid':
+    if class_level(next_data, 'druid'):
         next_data['wildShapeUses'] = max(0, (character_data.get('wildShapeUses') or 0) - 1) if character_data.get('rulesVersion') == '2024' else 0
-    if cls == 'warlock':
+    # Bruxo puro recupera tudo; em multiclasse os espaços do Pacto estão somados
+    # aos demais, então nada é zerado automaticamente.
+    if (next_data.get('className') or '').lower() == 'warlock' and not is_multiclass(next_data):
         next_data['spellSlotsUsed'] = [0] * 9
     return next_data

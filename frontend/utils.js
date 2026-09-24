@@ -5,6 +5,7 @@
 import SRD from './data/srd.js';
 import { computeProgression } from './src/progression/engine.js';
 import { rulesFor } from './src/progression/rules.js';
+import * as MC from './src/progression/multiclass.js';
 import { SPELLS_2024, BACKGROUNDS_2024, SPECIES_2024 } from './data/rules2024.js';
 
 const Utils = (() => {
@@ -142,8 +143,9 @@ function abilityMod(char, key) {
   return mod(abilityWithRace(char, key));
 }
 
+// Proficiência sempre pelo nível total (na "visão" de uma classe, totalLevel).
 function profBonus(char) {
-  return SRD.profBonus(char.level || 1);
+  return SRD.profBonus(char.totalLevel || char.level || 1);
 }
 
 function saveBonus(char, key) {
@@ -247,12 +249,16 @@ function computeAc(char) {
   const dex = abilityMod(char, 'dex');
   let ac = 10 + dex;
   if (!char.armor) {
-    if (char.className === 'barbarian') ac += abilityMod(char, 'con');
-    if (char.className === 'monk' && !char.hasShield) ac += abilityMod(char, 'wis');
-    if (char.className === 'sorcerer' && char.subclass === 'draconic') {
-      if (char.rulesVersion !== '2024') ac = 13 + dex;
-      else if (char.level >= 3) ac = 10 + dex + abilityMod(char, 'cha');
+    // Multiclasse: só uma Defesa sem Armadura vale — fica a que der a maior CA.
+    const options = [ac];
+    if (MC.hasClass(char, 'barbarian')) options.push(10 + dex + abilityMod(char, 'con'));
+    if (MC.hasClass(char, 'monk') && !char.hasShield) options.push(10 + dex + abilityMod(char, 'wis'));
+    const sorc = MC.classEntries(char).find(e => e.id === 'sorcerer' && e.subclass === 'draconic');
+    if (sorc) {
+      if (char.rulesVersion !== '2024') options.push(13 + dex);
+      else if (sorc.level >= 3) options.push(10 + dex + abilityMod(char, 'cha'));
     }
+    ac = Math.max(...options);
   }
   if (char.armor) {
     const a = SRD.ARMOR.find(x => x.id === char.armor);
@@ -271,15 +277,18 @@ function maxHpDefault(char) {
   const cls = SRD.CLASSES.find(c => c.id === char.className);
   if (!cls) return 0;
   const con = abilityMod(char, 'con');
-  // Lvl 1 = max hit die + con; later levels = avg
+  const die = (id) => SRD.CLASSES.find(c => c.id === id)?.hitDie || 8;
+  // Nv 1 = dado máximo da classe inicial; depois a média do dado de cada nível.
+  const seq = MC.classSequence(char);
   let hp = cls.hitDie + con;
-  for (let i = 2; i <= char.level; i++) {
-    hp += Math.max(1, Math.ceil((cls.hitDie + 1) / 2) + con);
+  for (let i = 1; i < seq.length; i++) {
+    hp += Math.max(1, Math.ceil((die(seq[i]) + 1) / 2) + con);
   }
   if (char.race === 'dwarf-hill') hp += char.level || 1;
   if (char.rulesVersion === '2024' && char.race === 'dwarf') hp += char.level || 1;
   if (char.originFeat === 'Tough') hp += 2 * (char.level || 1);
-  if (char.className === 'sorcerer' && char.subclass === 'draconic' && (char.rulesVersion !== '2024' || char.level >= 3)) hp += char.level || 1;
+  const sorc = MC.classEntries(char).find(e => e.id === 'sorcerer' && e.subclass === 'draconic');
+  if (sorc && (char.rulesVersion !== '2024' || sorc.level >= 3)) hp += sorc.level;
   return hp;
 }
 
@@ -295,9 +304,12 @@ function racesFor(char) {
 }
 
 function spellcastingAbility(char) {
-  if (spellListClass(char) === 'wizard' && char.className !== 'wizard') return (char.level || 1) >= 3 ? 'int' : null;
-  const cls = SRD.CLASSES.find(c => c.id === char.className);
-  return cls && cls.spellAbility ? cls.spellAbility : null;
+  // Multiclasse: atributo da primeira classe conjuradora (cada classe tem o seu na aba Magias).
+  if (MC.isMulticlass(char)) {
+    const v = casterViews(char)[0];
+    return v ? spellcastingAbilityOfClass(v) : null;
+  }
+  return spellcastingAbilityOfClass(char);
 }
 
 function spellSaveDc(char) {
@@ -312,21 +324,63 @@ function spellAttackBonus(char) {
   return profBonus(char) + abilityMod(char, ab);
 }
 
+const trimSlots = (slots) => { const out = [...slots]; while (out.length && !out.at(-1)) out.pop(); return out; };
+
+// Uma "visão" por classe (ver multiclass.js) — reaproveita a lógica de classe única.
+function classViews(char) {
+  return MC.classEntries(char).map(e => MC.classView(char, e));
+}
+
+// Classes com Conjuração no nível atual delas (inclui Pacto do bruxo).
+function casterViews(char) {
+  return classViews(char).filter(v => classSlots(v).length > 0 || (cantripsKnown(v) > 0 && !!spellcastingAbilityOfClass(v)));
+}
+
+function spellcastingAbilityOfClass(v) {
+  if (spellListClass(v) === 'wizard' && v.className !== 'wizard') return (v.level || 1) >= 3 ? 'int' : null;
+  return SRD.CLASSES.find(c => c.id === v.className)?.spellAbility || null;
+}
+
+// Nível de conjurador para a tabela de multiclasse (PHB/SRD): meio conjurador
+// arredonda para baixo em 2014 e para cima em 2024; artífice sempre para cima.
+function casterLevelOf(v) {
+  const lv = v.level || 0;
+  const sub = (v.subclass || '').toLowerCase();
+  if (['bard', 'cleric', 'druid', 'sorcerer', 'wizard'].includes(v.className)) return lv;
+  if (v.className === 'artificer') return Math.ceil(lv / 2);
+  if (['paladin', 'ranger'].includes(v.className)) return v.rulesVersion === '2024' ? Math.ceil(lv / 2) : Math.floor(lv / 2);
+  if ((v.className === 'fighter' && sub === 'eldritchknight') || (v.className === 'rogue' && sub === 'arcanetrickster')) return Math.floor(lv / 3);
+  return 0;
+}
+
+function classSlots(v) {
+  if (v.rulesVersion === '2024') {
+    const row = rulesFor(v)?.perLevel?.[v.level || 1]?.spellSlots;
+    if (row) return trimSlots(row);
+  }
+  return SRD.getSpellSlots(v.className, v.level, v.subclass || '');
+}
+
 function spellSlots(char) {
   if (Array.isArray(char.spellSlotsMax) && char.spellSlotsMax.length === 9) {
-    const slots = char.spellSlotsMax.map(v => Math.max(0, Number(v) || 0));
-    while (slots.length && !slots.at(-1)) slots.pop();
-    return slots;
+    return trimSlots(char.spellSlotsMax.map(v => Math.max(0, Number(v) || 0)));
   }
-  if (char.rulesVersion === '2024') {
-    const row = rulesFor(char)?.perLevel?.[char.level || 1]?.spellSlots;
-    if (row) {
-      const slots = [...row];
-      while (slots.length && !slots.at(-1)) slots.pop();
-      return slots;
+  if (MC.isMulticlass(char)) {
+    const views = classViews(char);
+    const casters = views.filter(v => v.className !== 'warlock' && classSlots(v).length > 0);
+    // Duas classes conjuradoras ou mais: tabela de multiclasse pelo nível de conjurador somado.
+    let slots = casters.length >= 2
+      ? SRD.getSpellSlots('wizard', Math.max(1, casters.reduce((n, v) => n + casterLevelOf(v), 0)))
+      : casters.length === 1 ? classSlots(casters[0]) : [];
+    // Magia de Pacto: somada aos espaços do mesmo círculo (recupera junto no descanso).
+    const pact = views.find(v => v.className === 'warlock');
+    if (pact) {
+      slots = [...slots];
+      classSlots(pact).forEach((n, i) => { slots[i] = (slots[i] || 0) + (n || 0); });
     }
+    return trimSlots(slots.map(n => n || 0));
   }
-  return SRD.getSpellSlots(char.className, char.level, char.subclass || '');
+  return classSlots(char);
 }
 
 function spellListClass(char) {
@@ -444,6 +498,19 @@ return {
   spellCatalog: char => char.rulesVersion === '2024' ? SPELLS_2024 : SRD.SPELLS,
   backgrounds: char => char.rulesVersion === '2024' ? BACKGROUNDS_2024 : SRD.BACKGROUNDS,
   subclassLevel: char => char.rulesVersion === '2024' ? 3 : ({ cleric:1, sorcerer:1, warlock:1, druid:2, wizard:2 }[char.className] || 3),
+  // Multiclasse
+  classEntries: MC.classEntries, classLevel: MC.classLevel, hasClass: MC.hasClass, isMulticlass: MC.isMulticlass,
+  classView: MC.classView, classSequence: MC.classSequence, canMulticlassInto: MC.canMulticlassInto,
+  missingPrereqs: MC.missingPrereqs, multiclassProfs: MC.multiclassProfs, MULTICLASS_PREREQS: MC.MULTICLASS_PREREQS,
+  classViews, casterViews, casterLevelOf,
+  spellcastingAbilityOfClass,
+  // "Druida 3 / Guerreiro 1" (ou "Druida 4" com uma classe só)
+  classLabel: (char, lang, tn) => MC.classEntries(char).map(e => `${tn('class', e.id, lang)} ${e.level}`).join(' / '),
+  hitDiceLabel: (char) => {
+    const byDie = {};
+    for (const id of MC.classSequence(char)) { const d = SRD.CLASSES.find(c => c.id === id)?.hitDie || 8; byDie[d] = (byDie[d] || 0) + 1; }
+    return Object.entries(byDie).sort((a, b) => b[0] - a[0]).map(([d, n]) => `${n}d${d}`).join(' + ');
+  },
   knownSpellLimit: char => { const p = computeProgression(char); return char.rulesVersion === '2024' ? p.spellsPrepared || p.spellsKnown : p.spellsKnown; },
   uid, mod, fmtMod,
   loadAll, saveAll, loadChar, saveChar, deleteChar,

@@ -19,7 +19,7 @@ const PrintSheet = ({ char, lang }) => {
   const spellDc = Utils.spellSaveDc(char);
   const spellAtk = Utils.spellAttackBonus(char);
   const slots = Utils.spellSlots(char);
-  const hitDie = cls ? `d${cls.hitDie}` : '—';
+  const hitDie = cls ? Utils.hitDiceLabel(char) : '—';
 
   const PS_Header = ({ subtitle }) => (
     <div className="ps-page-header">
@@ -30,7 +30,7 @@ const PrintSheet = ({ char, lang }) => {
         <div className="ps-flourish">✦ ❖ ✦</div>
         <div className="ps-subtitle">
           {race ? tName('race', race.id, lang) : '—'}
-          {cls ? ` · ${tName('class', cls.id, lang)} ${char.level}` : ''}
+          {cls ? ` · ${Utils.classLabel(char, lang, tName)}` : ''}
           {bg ? ` · ${tName('background', bg.id, lang)}` : ''}
         </div>
         {subtitle && <div className="ps-page-subtitle">{subtitle}</div>}
@@ -200,7 +200,7 @@ const PrintSheet = ({ char, lang }) => {
             <div className="ps-card">
               <div className="ps-card-title">{lang === 'pt' ? 'Dados de Vida' : 'Hit Dice'}</div>
               <div className="ps-hitdice">
-                <div className="ps-hitdice-total">{char.level}{hitDie}</div>
+                <div className="ps-hitdice-total">{hitDie}</div>
                 <div className="ps-hitdice-circles">
                   {Array.from({ length: Math.min(char.level, 20) }).map((_, i) => (
                     <span key={i} className="ps-hitdice-circle">○</span>

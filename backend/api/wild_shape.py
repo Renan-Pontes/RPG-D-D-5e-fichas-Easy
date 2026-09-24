@@ -56,13 +56,20 @@ def beast_eligible(level, subclass, beast, rules_version='2014'):
     return True, None
 
 
+def druid_entry(character_data):
+    """Classe druida da ficha (nível e círculo próprios, mesmo em multiclasse) ou None."""
+    from .progression.multiclass import class_entries
+    return next((e for e in class_entries(character_data) if e['id'] == 'druid'), None)
+
+
 def transform(character_data, beast):
     """Aplica transformação no data do personagem. Retorna novo data + uses_remaining.
 
     Não verifica permissão; o caller (view) faz isso.
     Não verifica usos restantes — caller faz e chama esta função se OK.
     """
-    if (character_data.get('className') or '').lower() != 'druid':
+    druid = druid_entry(character_data)
+    if not druid:
         return character_data, 'not_druid'
     if (character_data.get('wildShape') or {}).get('active'):
         return character_data, 'already_transformed'
@@ -90,9 +97,9 @@ def transform(character_data, beast):
     next_data['currentHp'] = next_data['wildShape']['beastCurrentHp']
     next_data['tempHp'] = 0
     if character_data.get('rulesVersion') == '2024':
-        level = character_data.get('level') or 1
+        level = druid['level']
         next_data['currentHp'] = character_data.get('currentHp', 0)
-        temporary = level * 3 if character_data.get('subclass') == 'moon' and level >= 3 else level
+        temporary = level * 3 if druid['subclass'] == 'moon' and level >= 3 else level
         next_data['tempHp'] = max(character_data.get('tempHp') or 0, temporary)
         next_data['wildShape']['ownHitPoints'] = True
     return next_data, None

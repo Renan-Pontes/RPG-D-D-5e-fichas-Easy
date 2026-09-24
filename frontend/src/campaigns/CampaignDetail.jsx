@@ -6,6 +6,16 @@ import RollRequestPanel from './RollRequestPanel.jsx';
 import DMCharacterEditor from './DMCharacterEditor.jsx';
 import GiveItemModal from './GiveItemModal.jsx';
 import CampaignItemsTab from '../items/CampaignItemsTab.jsx';
+import Utils from '../../utils.js';
+import { tName } from '../../data/i18n.js';
+
+// "Humano · Druida 3 / Guerreiro 1" a partir do resumo do servidor (ou da ficha local).
+function charLine(c, lang) {
+  if (!c) return '';
+  const classes = c.classes?.length ? c.classes : (c.className ? Utils.classEntries(c) : []);
+  const cls = classes.map(e => `${tName('class', e.id, lang)} ${e.level}`).join(' / ');
+  return [c.race && tName('race', c.race, lang), cls].filter(Boolean).join(' · ');
+}
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -120,7 +130,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
         {tab === 'combat' && isDM && <CombatTab campaign={campaign} lang={lang} onChange={load} />}
         {tab === 'rolls' && <RollRequestPanel campaign={campaign} lang={lang} isDM={isDM} onChange={load} />}
         {tab === 'members' && <MembersTab campaign={campaign} lang={lang} isDM={isDM} characters={characters} onChange={load} />}
-        {tab === 'approvals' && <ApprovalsTab approvals={approvals} lang={lang} isDM={isDM} onChange={load} />}
+        {tab === 'approvals' && <ApprovalsTab campaign={campaign} approvals={approvals} lang={lang} isDM={isDM} onChange={load} />}
         {tab === 'items' && isDM && <CampaignItemsTab campaign={campaign} lang={lang} />}
         {tab === 'dice' && isDM && <DiceTab campaign={campaign} rigs={rigs} lang={lang} onChange={load} />}
         {tab === 'screen' && isDM && <ScreenTab campaign={campaign} lang={lang} onChange={load} />}
@@ -449,7 +459,7 @@ function MembersTab({ campaign, lang, isDM, characters, onChange }) {
                   {m.character.summary?.cheatMode && <span className="tag" style={{ marginLeft: 6, background: 'var(--blood-deep)', color: 'var(--ink-primary)' }} title={t(lang, 'Modo trapaça ativo nesta ficha', 'Cheat mode active on this sheet')}>🎲 {t(lang, 'Trapaça', 'Cheat')}</span>}
                   {m.character.summary && (
                     <span style={{ color: 'var(--ink-secondary)', fontSize: '0.9em' }}>
-                      {' '}— {m.character.summary.race} {m.character.summary.className} {m.character.summary.level}
+                      {' '}— {charLine(m.character.summary, lang)}
                     </span>
                   )}
                 </div>
@@ -476,7 +486,7 @@ function MembersTab({ campaign, lang, isDM, characters, onChange }) {
               <div className="character-picker">
                 <select onChange={e => assignCharacter(m.id, e.target.value || null)}>
                   <option value="">— {t(lang, 'Nenhum', 'None')} —</option>
-                  {characters.map(c => <option key={c.id} value={c.id}>{c.name} ({c.race} {c.className} {c.level})</option>)}
+                  {characters.map(c => <option key={c.id} value={c.id}>{c.name} ({Utils.classLabel(c, lang, tName)})</option>)}
                 </select>
                 <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); setAssigning(null); }}>{t(lang, 'Cancelar', 'Cancel')}</button>
               </div>
@@ -580,7 +590,7 @@ function MemberDetailPanel({ m, isDM, lang, characters, assigning, onChangeChar,
             {c.summary?.cheatMode && <span className="tag" style={{ marginLeft: 6, background: 'var(--blood-deep)', color: 'var(--ink-primary)' }} title={t(lang, 'Modo trapaça ativo nesta ficha', 'Cheat mode active on this sheet')}>🎲 {t(lang, 'Trapaça', 'Cheat')}</span>}
             {c.summary && (
               <span style={{ color: 'var(--ink-secondary)' }}>
-                {' '}— {c.summary.race} {c.summary.className}{c.summary.subclass ? ` (${c.summary.subclass})` : ''} {c.summary.level}
+                {' '}— {charLine(c.summary, lang)}
               </span>
             )}
           </div>
@@ -616,7 +626,7 @@ function MemberDetailPanel({ m, isDM, lang, characters, assigning, onChangeChar,
         <div className="character-picker" style={{ marginTop: 12 }}>
           <select onChange={e => onAssign(e.target.value || null)} defaultValue="">
             <option value="">— {t(lang, 'Nenhum', 'None')} —</option>
-            {characters.map(ch => <option key={ch.id} value={ch.id}>{ch.name} ({ch.race} {ch.className} {ch.level})</option>)}
+            {characters.map(ch => <option key={ch.id} value={ch.id}>{ch.name} ({Utils.classLabel(ch, lang, tName)})</option>)}
           </select>
           <button className="btn btn-ghost btn-sm" onClick={onCancelAssign}>{t(lang, 'Cancelar', 'Cancel')}</button>
         </div>
@@ -625,25 +635,141 @@ function MemberDetailPanel({ m, isDM, lang, characters, assigning, onChangeChar,
   );
 }
 
-function ApprovalsTab({ approvals, lang, isDM, onChange }) {
+// Texto curto do que o jogador escolheu ao subir (histórico do mestre).
+function levelupSummary(p, lang) {
+  if (!p) return '';
+  const parts = [];
+  if (p.classId) parts.push(tName('class', p.classId, lang));
+  if (p.hpGain) parts.push(`+${p.hpGain} ${t(lang, 'PV', 'HP')}`);
+  if (p.choice?.type === 'asi') parts.push(Object.entries(p.choice.asi || {}).filter(([, v]) => v).map(([k, v]) => `${k.toUpperCase()} +${v}`).join(', '));
+  if (p.choice?.type === 'feat') parts.push(`${t(lang, 'Talento', 'Feat')}: ${p.choice.feat}`);
+  if (p.skillAdded) parts.push(tName('skill', p.skillAdded, lang));
+  if (p.spellsAdded?.length) parts.push(p.spellsAdded.map(id => tName('spellName', id, lang)).join(', '));
+  return parts.filter(Boolean).join(' · ');
+}
+
+// Conteúdo de pedidos que não são de nível, sem JSON cru.
+function payloadText(a, lang) {
+  const p = a.payload || {};
+  if (a.type === 'levelup') return p.toLevel ? `${t(lang, 'para o nível', 'to level')} ${p.toLevel}` : '';
+  if (a.type === 'spell') return tName('spellName', p.id || p.spellId || '', lang);
+  return p.name || p.title || p.desc || p.id || '';
+}
+
+/**
+ * Evolução da mesa (mestre): regra de multiclasse, nível de cada personagem e
+ * liberação de subida individual ou para a mesa toda — sem esperar o pedido.
+ */
+function LevelingPanel({ campaign, approvals, lang, onChange }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const allowMulti = campaign.state?.allowMulticlass !== false;
+  const players = campaign.members.filter(m => m.role !== 'dm' && m.character);
+  const openFor = (charId, status) => approvals.find(a => a.type === 'levelup' && a.status === status && a.character?.id === charId);
+
+  const run = async (fn, ok) => {
+    setBusy(true); setMsg('');
+    try { await fn(); setMsg(ok); onChange(); } catch (e) { setMsg(e?.data?.error || e?.message || 'Falha'); } finally { setBusy(false); }
+  };
+  const toggleRule = () => run(
+    () => api.updateCampaign(campaign.id, { state: { ...campaign.state, allowMulticlass: !allowMulti } }),
+    !allowMulti ? t(lang, 'Multiclasse liberada na mesa.', 'Multiclassing allowed.') : t(lang, 'Multiclasse bloqueada na mesa.', 'Multiclassing blocked.'),
+  );
+  const grant = (ids) => run(async () => {
+    const r = await api.grantLevelup(campaign.id, { characterIds: ids });
+    if (!r.granted.length) throw new Error(t(lang, 'Nada para liberar (já liberado ou nível 20).', 'Nothing to unlock (already unlocked or level 20).'));
+  }, t(lang, 'Subida liberada! Os jogadores confirmam na ficha.', 'Level up unlocked! Players confirm on their sheet.'));
+  const revoke = (id) => run(() => api.reviewApproval(id, { status: 'pending' }), t(lang, 'Liberação revogada.', 'Unlock revoked.'));
+  const reject = (id) => run(() => api.reviewApproval(id, { status: 'rejected' }), t(lang, 'Pedido recusado.', 'Request rejected.'));
+
+  return (
+    <div className="info-box leveling-panel">
+      <div className="info-box-head">
+        <h3>{t(lang, 'Evolução da mesa', 'Party progression')}</h3>
+        <button className="btn btn-primary btn-sm" disabled={busy || !players.length} onClick={() => {
+          if (confirm(t(lang, 'Liberar a subida de nível para todos os personagens da mesa?', 'Unlock a level up for every character at the table?'))) grant('all');
+        }}>
+          ✨ {t(lang, 'Subir a mesa toda', 'Level up the party')}
+        </button>
+      </div>
+      <label className="rule-toggle">
+        <input type="checkbox" checked={allowMulti} disabled={busy} onChange={toggleRule} />
+        <span>
+          <strong>{t(lang, 'Multiclasse permitida', 'Multiclassing allowed')}</strong>
+          <span className="muted text-xs"> — {t(lang, 'ao subir, o jogador pode abrir uma classe nova (com os pré-requisitos de atributo).', 'when leveling, players may take a new class (ability prerequisites apply).')}</span>
+        </span>
+      </label>
+      {msg && <div className="text-sm" style={{ margin: '8px 0', color: 'var(--ink-secondary)' }}>{msg}</div>}
+
+      <div className="leveling-list">
+        {players.length === 0 && <div className="muted text-sm">{t(lang, 'Nenhum personagem na mesa ainda.', 'No characters at the table yet.')}</div>}
+        {players.map(m => {
+          const c = m.character;
+          const info = c.summary || c.data || {};  // mestre recebe a ficha inteira em `data`
+          const lvl = info.level || 1;
+          const pending = openFor(c.id, 'pending');
+          const unlocked = openFor(c.id, 'approved');
+          return (
+            <div key={m.id} className="leveling-row">
+              <div className="leveling-who">
+                <strong>{c.name}</strong>
+                <span className="muted text-xs">{charLine(c.summary || c.data, lang)} · {m.user.displayName}</span>
+              </div>
+              <span className="leveling-level mono">{t(lang, 'Nv', 'Lv')} {lvl}</span>
+              <div className="leveling-actions">
+                {unlocked ? (
+                  <>
+                    <span className="pill pill-approved" title={unlocked.payload?.allowMulticlass === false ? t(lang, 'sem multiclasse', 'no multiclass') : ''}>
+                      {t(lang, `liberado → ${unlocked.payload?.toLevel}`, `unlocked → ${unlocked.payload?.toLevel}`)}
+                    </span>
+                    <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => revoke(unlocked.id)}>{t(lang, 'Revogar', 'Revoke')}</button>
+                  </>
+                ) : lvl >= 20 ? (
+                  <span className="muted text-xs">{t(lang, 'nível máximo', 'max level')}</span>
+                ) : (
+                  <>
+                    {pending && <span className="pill pill-pending">{t(lang, 'pediu', 'requested')}</span>}
+                    <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => grant([c.id])}>
+                      {pending ? t(lang, 'Aprovar', 'Approve') : t(lang, `Liberar nível ${lvl + 1}`, `Unlock level ${lvl + 1}`)}
+                    </button>
+                    {pending && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} disabled={busy} onClick={() => reject(pending.id)}>{t(lang, 'Recusar', 'Reject')}</button>}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ApprovalsTab({ campaign, approvals, lang, isDM, onChange }) {
   const review = async (id, status) => {
     await api.reviewApproval(id, { status });
     onChange();
   };
-  const pending = approvals.filter(a => a.status === 'pending');
-  const unlocked = approvals.filter(a => a.status === 'approved');
+  // Subidas de nível dos personagens da mesa ficam no painel de evolução (mestre).
+  const tableChars = new Set(campaign.members.filter(m => m.character).map(m => m.character.id));
+  const inPanel = (a) => isDM && a.type === 'levelup' && tableChars.has(a.character?.id);
+  const pending = approvals.filter(a => a.status === 'pending' && !inPanel(a));
+  const unlocked = approvals.filter(a => a.status === 'approved' && !inPanel(a));
   const done = approvals.filter(a => a.status === 'consumed' || a.status === 'rejected');
+  const statusLabel = { consumed: t(lang, 'aplicado', 'applied'), rejected: t(lang, 'recusado', 'rejected') };
   return (
     <div className="approvals">
-      <h3>{t(lang, 'Pendentes', 'Pending')} ({pending.length})</h3>
-      {pending.length === 0 && <p style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Nenhuma pendente.', 'None pending.')}</p>}
+      {isDM && <LevelingPanel campaign={campaign} approvals={approvals} lang={lang} onChange={onChange} />}
+
+      <h3 style={{ marginTop: isDM ? 24 : 0 }}>{t(lang, 'Pedidos pendentes', 'Pending requests')} ({pending.length})</h3>
+      {pending.length === 0 && <p style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Nenhum pedido pendente.', 'No pending requests.')}</p>}
       {pending.map(a => (
         <div key={a.id} className="approval-card">
           <div>
             <strong>{a.requestedBy?.displayName}</strong> {t(lang, 'pediu', 'requested')} <strong>{labelType(a.type, lang)}</strong>
             {a.character && <> {t(lang, 'para', 'for')} <strong>{a.character.name}</strong></>}
           </div>
-          <pre className="approval-payload">{JSON.stringify(a.payload, null, 2)}</pre>
+          {a.character?.classes && <div className="muted text-sm">{charLine(a.character, lang)}</div>}
+          {payloadText(a, lang) && <div className="approval-detail">{payloadText(a, lang)}</div>}
           {a.note && <div className="approval-note">{a.note}</div>}
           {isDM && (
             <div className="row gap-2">
@@ -663,13 +789,10 @@ function ApprovalsTab({ approvals, lang, isDM, onChange }) {
             <div key={a.id} className="approval-card unlocked">
               <div>
                 <span className="pill pill-approved">{t(lang, 'liberada', 'unlocked')}</span>{' '}
-                <strong>{a.character?.name || a.requestedBy?.displayName}</strong> · {labelType(a.type, lang)}
-                {a.type === 'levelup' && a.payload?.toLevel && (
-                  <> → {t(lang, 'nível', 'level')} {a.payload.toLevel}</>
-                )}
+                <strong>{a.character?.name || a.requestedBy?.displayName}</strong> · {labelType(a.type, lang)} {payloadText(a, lang)}
               </div>
               <p style={{ color: 'var(--ink-secondary)', fontSize: '0.9em', margin: '6px 0 0' }}>
-                {t(lang, 'O jogador precisa clicar "Subir nível ✨" na ficha pra aplicar.', 'Player needs to click "Level up ✨" on their sheet to apply.')}
+                {t(lang, 'O jogador confirma a subida na própria ficha (painel de Progressão).', 'The player confirms on their own sheet (Progression panel).')}
               </p>
               {isDM && (
                 <div className="row gap-2" style={{ marginTop: 8 }}>
@@ -684,12 +807,16 @@ function ApprovalsTab({ approvals, lang, isDM, onChange }) {
       )}
 
       <h3 style={{ marginTop: 24 }}>{t(lang, 'Histórico', 'History')}</h3>
+      {done.length === 0 && <p style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Nada por aqui ainda.', 'Nothing here yet.')}</p>}
       {done.map(a => (
         <div key={a.id} className="approval-card reviewed">
           <div>
-            <span className={`pill pill-${a.status}`}>{a.status}</span>{' '}
-            <strong>{a.requestedBy?.displayName}</strong> · {labelType(a.type, lang)} {a.character ? `· ${a.character.name}` : ''}
+            <span className={`pill pill-${a.status === 'consumed' ? 'approved' : a.status}`}>{statusLabel[a.status] || a.status}</span>{' '}
+            <strong>{a.character?.name || a.requestedBy?.displayName}</strong> · {labelType(a.type, lang)} {payloadText(a, lang)}
           </div>
+          {a.type === 'levelup' && a.status === 'consumed' && levelupSummary(a.payload, lang) && (
+            <div className="approval-detail">{levelupSummary(a.payload, lang)}</div>
+          )}
         </div>
       ))}
     </div>

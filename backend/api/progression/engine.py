@@ -10,6 +10,10 @@ Espelha frontend/src/progression/engine.js. Aqui foco em:
 """
 import math
 from .rules import PROGRESSION_RULES, prof_bonus, rules_for  # re-export
+from .multiclass import (
+    is_multiclass, class_entries, class_view, class_sequence, total_level_for, with_class_level,
+    can_multiclass_into, MULTICLASS_SKILL,
+)
 
 ABILITIES = ['str', 'dex', 'con', 'int', 'wis', 'cha']
 
@@ -40,11 +44,13 @@ def _compute_spells_prepared(formula, character):
 
 
 def compute_progression(character):
+    if is_multiclass(character):
+        return _compute_multiclass_progression(character)
     out = {
         'class_id': character.get('className'),
         'level': character.get('level', 1) or 1,
         'subclass': character.get('subclass'),
-        'prof_bonus': prof_bonus(character.get('level', 1) or 1),
+        'prof_bonus': prof_bonus(character.get('totalLevel') or character.get('level', 1) or 1),
         'auto_cantrips': [],
         'auto_spells': [],
         'cantrips_known': 0,
@@ -98,6 +104,37 @@ def compute_progression(character):
     return out
 
 
+def _compute_multiclass_progression(character):
+    """Junta a progressão de cada classe (no nível dela); níveis voltam ao total."""
+    total = character.get('level', 1) or 1
+    per = [(e, compute_progression(class_view(character, e))) for e in class_entries(character)]
+    primary = per[0][1]
+
+    def to_total(cid, lv):
+        return total_level_for(character, cid, lv) or lv
+
+    out = {**primary, 'class_id': character.get('className'), 'level': total,
+           'subclass': character.get('subclass'), 'prof_bonus': prof_bonus(total),
+           'features': [], 'auto_cantrips': [], 'auto_spells': [], 'extra_attacks': 0,
+           'fighting_styles': 0, 'expertise_slots': 0, 'asi_levels': [], 'pending_choices': [],
+           'by_class': {e['id']: p for e, p in per}}
+    for e, p in per:
+        cid = e['id']
+        out['features'].extend({**f, 'class_id': cid, 'class_level': f['level'], 'level': to_total(cid, f['level'])} for f in p['features'])
+        out['auto_cantrips'].extend(p['auto_cantrips'])
+        out['auto_spells'].extend(p['auto_spells'])
+        out['extra_attacks'] = max(out['extra_attacks'], p['extra_attacks'])
+        out['fighting_styles'] += p['fighting_styles']
+        out['expertise_slots'] += p['expertise_slots']
+        out['asi_levels'].extend(to_total(cid, lv) for lv in p['asi_levels'])
+        out['pending_choices'].extend({**c, 'class_id': cid, 'level': to_total(cid, c['level'])} for c in p['pending_choices'])
+    out['asi_levels'].sort()
+    out['pending_choices'].sort(key=lambda c: c['level'])
+    out['auto_cantrips'] = list(dict.fromkeys(out['auto_cantrips']))
+    out['auto_spells'] = list(dict.fromkeys(out['auto_spells']))
+    return out
+
+
 def _apply_node(out, node, level, source):
     if not node:
         return
@@ -137,16 +174,18 @@ def apply_autos(character):
         else:
             norm.append(dict(s))
 
-    valid_auto_ids = set(prog['auto_cantrips']) | set(prog['auto_spells'])
-    filtered = [s for s in norm if not s.get('auto') or s.get('id') in valid_auto_ids]
+    # Autos esperados com a classe de origem (marcada só fora da classe inicial).
+    wanted = {}
+    groups = prog['by_class'].items() if prog.get('by_class') else [(character.get('className'), prog)]
+    for cls, p in groups:
+        for sid in p['auto_cantrips'] + p['auto_spells']:
+            if sid not in wanted:
+                wanted[sid] = {} if cls == character.get('className') else {'cls': cls}
+    filtered = [s for s in norm if not s.get('auto') or s.get('id') in wanted]
     existing = {s['id'] for s in filtered}
-    for sid in prog['auto_cantrips']:
+    for sid, tag in wanted.items():
         if sid not in existing:
-            filtered.append({'id': sid, 'prepared': True, 'auto': True})
-            existing.add(sid)
-    for sid in prog['auto_spells']:
-        if sid not in existing:
-            filtered.append({'id': sid, 'prepared': True, 'auto': True})
+            filtered.append({'id': sid, 'prepared': True, 'auto': True, **tag})
             existing.add(sid)
 
     next_data = dict(character)
@@ -183,9 +222,9 @@ HIT_DIE = {
 }
 
 
-def max_hp_gain(character):
-    """Maior ganho de PV legítimo num nível: dado de vida máximo + mod. de CON (mínimo 1)."""
-    die = HIT_DIE.get(character.get('className'), 8)
+def max_hp_gain(character, class_id=None):
+    """Maior ganho de PV legítimo num nível: dado de vida máximo da classe + mod. de CON (mínimo 1)."""
+    die = HIT_DIE.get(class_id or character.get('className'), 8)
     return max(1, die + _ability_mod(_ability_score(character, 'con')))
 
 
@@ -241,8 +280,13 @@ def apply_approval_to_character(data, approval_type, payload):
     """Devolve novo dict aplicando a mudança ao data da ficha. None se nada aplica."""
     nxt = dict(data) if isinstance(data, dict) else {}
     if approval_type == 'levelup':
+        class_id = payload.get('classId') or nxt.get('className')
         if isinstance(payload.get('toLevel'), int):
+            nxt = with_class_level(nxt, class_id)
             nxt['level'] = payload['toLevel']
+        skill = payload.get('skillAdded')
+        if isinstance(skill, str) and skill not in (nxt.get('skillProfs') or []):
+            nxt['skillProfs'] = list(nxt.get('skillProfs') or []) + [skill]
         if isinstance(payload.get('hpGain'), int):
             max_hp = (nxt.get('maxHp') or 0) + payload['hpGain']
             nxt['maxHp'] = max_hp
@@ -253,7 +297,8 @@ def apply_approval_to_character(data, approval_type, payload):
                 nxt['currentHp'] = min(cur + payload['hpGain'], max_hp)
         if isinstance(payload.get('spellsAdded'), list):
             existing = {s if isinstance(s, str) else s.get('id') for s in (nxt.get('spells') or [])}
-            more = [{'id': sid, 'prepared': False} for sid in payload['spellsAdded'] if sid not in existing]
+            tag = {} if class_id == nxt.get('className') else {'cls': class_id}
+            more = [{'id': sid, 'prepared': True, **tag} for sid in payload['spellsAdded'] if sid not in existing]
             nxt['spells'] = list(nxt.get('spells') or []) + more
         if isinstance(payload.get('featuresAdded'), list):
             nxt['customFeatures'] = list(nxt.get('customFeatures') or []) + payload['featuresAdded']

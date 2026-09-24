@@ -17,3 +17,7 @@ from .engine import (
     apply_level_choice,
     max_hp_gain,
 )
+from .multiclass import (
+    is_multiclass, class_entries, class_level, class_view, class_sequence, can_multiclass_into, with_class_level,
+    missing_prereqs, MULTICLASS_SKILL,
+)

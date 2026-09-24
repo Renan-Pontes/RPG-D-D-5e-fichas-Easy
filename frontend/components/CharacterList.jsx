@@ -3,6 +3,7 @@ import { useRef, useState, useMemo } from 'react';
 import Icon from './Icons.jsx';
 import { Filigree } from './Shared.jsx';
 import { t, tName } from '../data/i18n.js';
+import Utils from '../utils.js';
 
 const CharacterList = ({ lang, characters, onOpen, onNew, onImport, onExportAll }) => {
   const fileRef = useRef(null);
@@ -96,7 +97,7 @@ const CharacterList = ({ lang, characters, onOpen, onNew, onImport, onExportAll 
                   <div className="char-card-info">
                     <div className="char-card-name">{c.name || (lang === 'pt' ? 'Sem nome' : 'Unnamed')}</div>
                     <div className="char-card-sub">
-                      {c.className ? tName('class', c.className, lang) : '—'}
+                      {c.className ? (Utils.isMulticlass(c) ? Utils.classLabel(c, lang, tName) : tName('class', c.className, lang)) : '—'}
                       {c.race ? ' · ' + tName('race', c.race, lang) : ''}
                     </div>
                     <div className="char-card-foot">

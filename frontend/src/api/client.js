@@ -135,6 +135,7 @@ export const api = {
   rotateInviteCode:(id) => request(`/api/campaigns/${id}/rotate-invite-code`, { method: 'POST' }),
   // Approvals
   listApprovals:  (campaignId) => request(`/api/approvals/campaign/${campaignId}`),
+  grantLevelup:   (campaignId, body) => request(`/api/approvals/campaign/${campaignId}/grant-levelup`, { method: 'POST', body }),
   campaignItems:      (campaignId) => request(`/api/campaigns/${campaignId}/items`),
   createCampaignItem: (campaignId, item) => request(`/api/campaigns/${campaignId}/items`, { method: 'POST', body: { item } }),
   updateCampaignItem: (campaignId, itemId, item) => request(`/api/campaigns/${campaignId}/items/${itemId}`, { method: 'PATCH', body: { item } }),
