@@ -7,7 +7,7 @@ import './src/app-extra-styles.css';
 import './src/campaigns/combat-styles.css';
 import './src/campaigns/dm-desktop.css';
 import './src/mobile-styles.css';
-import './src/theme/grimorio.css';
+import './src/theme/themes.css';
 import { AuthProvider } from './src/auth/AuthContext.jsx';
 import { applyTheme, loadTheme } from './src/theme/theme.js';
 

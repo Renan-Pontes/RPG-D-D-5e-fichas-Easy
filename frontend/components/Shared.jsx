@@ -52,18 +52,28 @@ const LangToggle = ({ lang, setLang }) => (
   </div>
 );
 
-// === Theme toggle: Taverna (escuro) <-> Grimório (papel) ===
-const ThemeToggle = ({ theme, setTheme, lang }) => {
-  const next = theme === 'grimorio' ? 'taverna' : 'grimorio';
-  const label = next === 'grimorio'
-    ? (lang === 'pt' ? 'Tema Grimório (papel)' : 'Grimoire theme (paper)')
-    : (lang === 'pt' ? 'Tema Taverna (escuro)' : 'Tavern theme (dark)');
-  return (
-    <button className="btn btn-ghost btn-icon theme-toggle" onClick={() => setTheme(next)} aria-label={label} title={label}>
-      <Icon name={next === 'grimorio' ? 'scroll' : 'moon'} size={18}/>
-    </button>
-  );
-};
+// === Theme picker: Clássico (padrão) · Claro · Escuro ===
+const THEME_OPTIONS = [
+  { id: 'classico', icon: 'scroll', pt: 'Tema Clássico', en: 'Classic theme' },
+  { id: 'light', icon: 'sun', pt: 'Tema Claro', en: 'Light theme' },
+  { id: 'dark', icon: 'moon', pt: 'Tema Escuro', en: 'Dark theme' },
+];
+const ThemeToggle = ({ theme, setTheme, lang }) => (
+  <div className="lang-toggle theme-toggle" role="group" aria-label={lang === 'pt' ? 'Tema' : 'Theme'}>
+    {THEME_OPTIONS.map(o => (
+      <button
+        key={o.id}
+        className={theme === o.id ? 'active' : ''}
+        onClick={() => setTheme(o.id)}
+        aria-label={lang === 'pt' ? o.pt : o.en}
+        aria-pressed={theme === o.id}
+        title={lang === 'pt' ? o.pt : o.en}
+      >
+        <Icon name={o.icon} size={15}/>
+      </button>
+    ))}
+  </div>
+);
 
 // === Header ===
 const AppHeader = ({ lang, setLang, theme, setTheme, onHome, right }) => {
