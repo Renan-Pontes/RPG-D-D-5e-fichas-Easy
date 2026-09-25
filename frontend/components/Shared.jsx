@@ -52,8 +52,31 @@ const LangToggle = ({ lang, setLang }) => (
   </div>
 );
 
+// === Theme picker: Clássico (padrão) · Claro · Escuro ===
+const THEME_OPTIONS = [
+  { id: 'classico', icon: 'scroll', pt: 'Tema Clássico', en: 'Classic theme' },
+  { id: 'light', icon: 'sun', pt: 'Tema Claro', en: 'Light theme' },
+  { id: 'dark', icon: 'moon', pt: 'Tema Escuro', en: 'Dark theme' },
+];
+const ThemeToggle = ({ theme, setTheme, lang }) => (
+  <div className="lang-toggle theme-toggle" role="group" aria-label={lang === 'pt' ? 'Tema' : 'Theme'}>
+    {THEME_OPTIONS.map(o => (
+      <button
+        key={o.id}
+        className={theme === o.id ? 'active' : ''}
+        onClick={() => setTheme(o.id)}
+        aria-label={lang === 'pt' ? o.pt : o.en}
+        aria-pressed={theme === o.id}
+        title={lang === 'pt' ? o.pt : o.en}
+      >
+        <Icon name={o.icon} size={15}/>
+      </button>
+    ))}
+  </div>
+);
+
 // === Header ===
-const AppHeader = ({ lang, setLang, onHome, right }) => {
+const AppHeader = ({ lang, setLang, theme, setTheme, onHome, right }) => {
   return (
     <header className="app-header no-print">
       <div className="brand" onClick={onHome}>
@@ -62,6 +85,7 @@ const AppHeader = ({ lang, setLang, onHome, right }) => {
       </div>
       <div className="header-actions">
         {right}
+        {setTheme && <ThemeToggle theme={theme} setTheme={setTheme} lang={lang} />}
         <LangToggle lang={lang} setLang={setLang} />
       </div>
     </header>
@@ -135,4 +159,4 @@ const AvatarUpload = ({ value, onChange, size = 84, letter }) => {
   );
 };
 
-export { Filigree, Modal, Toast, LangToggle, AppHeader, NumStepper, Pips, AvatarUpload };
+export { Filigree, Modal, Toast, LangToggle, ThemeToggle, AppHeader, NumStepper, Pips, AvatarUpload };

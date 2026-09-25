@@ -4,6 +4,7 @@ import Utils from './utils.js';
 import { t } from './data/i18n.js';
 import Icon from './components/Icons.jsx';
 import { AppHeader, Toast, Modal } from './components/Shared.jsx';
+import { loadTheme, saveTheme } from './src/theme/theme.js';
 import DiceRoller from './components/DiceRoller.jsx';
 import CharacterList from './components/CharacterList.jsx';
 import Creator from './components/Creator.jsx';
@@ -28,6 +29,7 @@ const SCREENS = {
 const App = () => {
   const auth = useAuth();
   const [lang, setLang] = useState(() => localStorage.getItem('dnd5e-forge:lang') || ((navigator.language || '').startsWith('pt') ? 'pt' : 'en'));
+  const [theme, setTheme] = useState(loadTheme);
   const [screen, setScreen] = useState(SCREENS.HOME);
   const [characters, setCharacters] = useState([]);
   const [activeId, setActiveId] = useState(null);
@@ -46,6 +48,7 @@ const App = () => {
   }, [auth.user]);
 
   useEffect(() => { localStorage.setItem('dnd5e-forge:lang', lang); }, [lang]);
+  useEffect(() => { saveTheme(theme); }, [theme]);
 
   // Carregar personagens (local ou remoto)
   const refreshCharacters = useCallback(async () => {
@@ -441,6 +444,8 @@ const App = () => {
       <AppHeader
         lang={lang}
         setLang={setLang}
+        theme={theme}
+        setTheme={setTheme}
         onHome={() => { setScreen(SCREENS.HOME); setActiveId(null); }}
         right={headerRight}
       />

@@ -7,7 +7,9 @@ import './src/app-extra-styles.css';
 import './src/campaigns/combat-styles.css';
 import './src/campaigns/dm-desktop.css';
 import './src/mobile-styles.css';
+import './src/theme/themes.css';
 import { AuthProvider } from './src/auth/AuthContext.jsx';
+import { applyTheme, loadTheme } from './src/theme/theme.js';
 
 // Lazy: o TV screen é uma rota independente e o App é grande (SRD pesa).
 // Separar reduz o bundle inicial e acelera o primeiro paint do TV.
@@ -52,6 +54,9 @@ function Root() {
     </AuthProvider>
   );
 }
+
+// Aplica o tema antes do primeiro paint para não piscar; o telão fica sempre escuro.
+if (!/^\/tv\//.test(window.location.pathname)) applyTheme(loadTheme());
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
