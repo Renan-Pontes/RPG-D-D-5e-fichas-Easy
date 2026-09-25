@@ -52,8 +52,21 @@ const LangToggle = ({ lang, setLang }) => (
   </div>
 );
 
+// === Theme toggle: Taverna (escuro) <-> Grimório (papel) ===
+const ThemeToggle = ({ theme, setTheme, lang }) => {
+  const next = theme === 'grimorio' ? 'taverna' : 'grimorio';
+  const label = next === 'grimorio'
+    ? (lang === 'pt' ? 'Tema Grimório (papel)' : 'Grimoire theme (paper)')
+    : (lang === 'pt' ? 'Tema Taverna (escuro)' : 'Tavern theme (dark)');
+  return (
+    <button className="btn btn-ghost btn-icon theme-toggle" onClick={() => setTheme(next)} aria-label={label} title={label}>
+      <Icon name={next === 'grimorio' ? 'scroll' : 'moon'} size={18}/>
+    </button>
+  );
+};
+
 // === Header ===
-const AppHeader = ({ lang, setLang, onHome, right }) => {
+const AppHeader = ({ lang, setLang, theme, setTheme, onHome, right }) => {
   return (
     <header className="app-header no-print">
       <div className="brand" onClick={onHome}>
@@ -62,6 +75,7 @@ const AppHeader = ({ lang, setLang, onHome, right }) => {
       </div>
       <div className="header-actions">
         {right}
+        {setTheme && <ThemeToggle theme={theme} setTheme={setTheme} lang={lang} />}
         <LangToggle lang={lang} setLang={setLang} />
       </div>
     </header>
@@ -135,4 +149,4 @@ const AvatarUpload = ({ value, onChange, size = 84, letter }) => {
   );
 };
 
-export { Filigree, Modal, Toast, LangToggle, AppHeader, NumStepper, Pips, AvatarUpload };
+export { Filigree, Modal, Toast, LangToggle, ThemeToggle, AppHeader, NumStepper, Pips, AvatarUpload };
