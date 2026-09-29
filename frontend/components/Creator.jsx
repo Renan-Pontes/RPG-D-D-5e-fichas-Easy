@@ -732,8 +732,8 @@ const StepEquipment = ({ char, set, lang }) => {
             <label>{tName('coin', c, lang)}</label>
             <input
               type="number" min="0"
-              value={char.coins[c]}
-              onChange={e => set({ coins: { ...char.coins, [c]: +e.target.value || 0 } })}
+              value={(char.coins || {})[c] || 0}
+              onChange={e => set({ coins: { ...(char.coins || {}), [c]: +e.target.value || 0 } })}
             />
           </div>
         ))}

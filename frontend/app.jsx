@@ -149,6 +149,41 @@ const App = () => {
     setToast(lang === 'pt' ? `${imported} de ${arr.length} fichas importadas.` : `${imported} of ${arr.length} characters imported.`);
   };
 
+  // PDF no layout da ficha oficial de D&D 5e (pdf-lib só carrega quando usado).
+  const handleExportPdf = async (char) => {
+    try {
+      const [{ downloadDnd5ePdf }, { speciesSummary }] = await Promise.all([
+        import('./src/pdf/export-pdf.js'), import('./src/progression/SpeciesChoices.jsx'),
+      ]);
+      await downloadDnd5ePdf(char, lang, { speciesSummary });
+      setToast(lang === 'pt' ? 'PDF gerado.' : 'PDF created.');
+    } catch (e) {
+      console.error(e);
+      setToast(lang === 'pt' ? 'Falha ao gerar o PDF.' : 'Failed to create the PDF.');
+    }
+  };
+
+  const handleImportPdf = async (file) => {
+    try {
+      const { importDnd5ePdf } = await import('./src/pdf/import-pdf.js');
+      const { char, unmatched, fieldCount } = await importDnd5ePdf(new Uint8Array(await file.arrayBuffer()));
+      if (!fieldCount) {
+        setToast(lang === 'pt'
+          ? 'Esse PDF não tem campos preenchíveis: só dá pra importar fichas de formulário (ficha oficial, D&D Beyond ou exportada daqui).'
+          : 'This PDF has no form fields: only fillable sheets can be imported (official sheet, D&D Beyond or exported here).');
+        return;
+      }
+      await storage.save(applyAutosToCharacter(char));
+      await refreshCharacters();
+      setToast(lang === 'pt'
+        ? `Ficha importada${unmatched.length ? ` — ${unmatched.length} item(ns) não reconhecido(s), veja as anotações.` : '.'}`
+        : `Character imported${unmatched.length ? ` — ${unmatched.length} unrecognized item(s), see notes.` : '.'}`);
+    } catch (e) {
+      console.error(e);
+      setToast(t('importedFail', lang));
+    }
+  };
+
   const handleShare = (char) => {
     try {
       const encoded = Utils.encodeChar(char);
@@ -342,6 +377,7 @@ const App = () => {
           onOpen={(id) => { setActiveId(id); setScreen(SCREENS.SHEET); }}
           onNew={() => { setEditingChar(null); setScreen(SCREENS.CREATE); }}
           onImport={handleImport}
+          onImportPdf={handleImportPdf}
           onExportAll={handleExportAll}
         />
       );
@@ -371,6 +407,7 @@ const App = () => {
             onUpdate={handleUpdate}
             onEdit={() => { setEditingChar(active); setScreen(SCREENS.EDIT); }}
             onPrint={handlePrint}
+            onExportPdf={() => handleExportPdf(active)}
             onShare={() => handleShare(active)}
             onExport={() => handleExport(active)}
             onDelete={() => handleDelete(active.id)}

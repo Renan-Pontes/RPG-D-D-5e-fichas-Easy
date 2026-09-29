@@ -16,7 +16,7 @@ import { api, ApiError } from '../src/api/client.js';
 import CombatActionPanel from '../src/campaigns/CombatActionPanel.jsx';
 import * as FS from '../src/progression/fighting-styles.js';
 
-const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
+const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
   const [tab, setTab] = useState('play');
   const [hpDelta, setHpDelta] = useState(0);
   const [tempHpInput, setTempHpInput] = useState(false);
@@ -123,6 +123,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
 
       <div className="action-bar no-print">
         <button className="chip" onClick={onPrint}><Icon name="print" size={14} className="chip-icon"/> {t('print', lang)}</button>
+        <button className="chip" onClick={onExportPdf}><Icon name="download" size={14} className="chip-icon"/> {t('exportPdf', lang)}</button>
         <button className="chip" onClick={onShare}><Icon name="share" size={14} className="chip-icon"/> {t('share', lang)}</button>
         <button className="chip" onClick={onExport}><Icon name="download" size={14} className="chip-icon"/> {t('export', lang)}</button>
         {!char.inCampaign && (

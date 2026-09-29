@@ -835,8 +835,8 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
               <div className="eyebrow text-xs">{tName('coin', c, lang)}</div>
               <input
                 type="number" min="0"
-                value={char.coins[c]}
-                onChange={ev => update({ coins: { ...char.coins, [c]: +ev.target.value || 0 } })}
+                value={(char.coins || {})[c] || 0}
+                onChange={ev => update({ coins: { ...(char.coins || {}), [c]: +ev.target.value || 0 } })}
                 style={{ textAlign: 'center', padding: 6 }}
               />
             </div>

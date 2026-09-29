@@ -22,6 +22,14 @@ node scripts/sync-rules.mjs
 node scripts/sync-rules.mjs --check
 ```
 
+## PDF no formato da ficha de D&D 5e
+
+A ficha exporta um PDF editável no layout clássico de 3 páginas (`frontend/src/pdf/`). O desenho é nosso; só as posições e os nomes dos campos seguem a ficha preenchível oficial, então o arquivo abre em qualquer leitor de PDF e volta para cá (ou vai para outras ferramentas) pela importação. Texto longo diminui até 6 pt; o que não couber vai para páginas de continuação, com o texto completo das características. Se houver mais magias do que linhas, a página de magias se repete, uma sequência por classe conjuradora.
+
+A importação lê PDFs com formulário (ficha oficial preenchida, D&D Beyond, nossa exportação). O que não bater com o catálogo (subclasse, magia homebrew etc.) vai para as anotações da ficha. PDFs escaneados ou achatados não têm campos para ler.
+
+O mapa de campos (`dnd5e-layout.js`) é gerado por `scripts/extract_dnd5e_sheet_layout.py` a partir do PDF oficial, que não fica no repositório.
+
 ## Atribuição
 
 This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.

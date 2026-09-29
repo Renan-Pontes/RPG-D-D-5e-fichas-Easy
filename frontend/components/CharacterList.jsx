@@ -5,7 +5,7 @@ import { Filigree } from './Shared.jsx';
 import { t, tName } from '../data/i18n.js';
 import Utils from '../utils.js';
 
-const CharacterList = ({ lang, characters, onOpen, onNew, onImport, onExportAll }) => {
+const CharacterList = ({ lang, characters, onOpen, onNew, onImport, onImportPdf, onExportAll }) => {
   const fileRef = useRef(null);
   const [query, setQuery] = useState('');
 
@@ -28,7 +28,9 @@ const CharacterList = ({ lang, characters, onOpen, onNew, onImport, onExportAll 
 
   const handleImport = (e) => {
     const file = e.target.files[0];
+    e.target.value = '';
     if (!file) return;
+    if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) { onImportPdf(file); return; }
     const reader = new FileReader();
     reader.onload = () => {
       try {
@@ -135,7 +137,7 @@ const CharacterList = ({ lang, characters, onOpen, onNew, onImport, onExportAll 
             </button>
           )}
         </div>
-        <input ref={fileRef} type="file" accept="application/json" onChange={handleImport} style={{ display: 'none' }} />
+        <input ref={fileRef} type="file" accept="application/json,.json,application/pdf,.pdf" onChange={handleImport} style={{ display: 'none' }} />
       </div>
     </>
   );
