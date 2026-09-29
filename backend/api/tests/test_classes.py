@@ -48,14 +48,14 @@ class DruidLandTests(SimpleTestCase):
 class PaladinDevotionTests(SimpleTestCase):
     def test_devotion_at_3_grants_oath_spells(self):
         p = compute_progression(build('paladin', 3, 'devotion'))
-        self.assertIn('protectionFromEvilAndGood', p['auto_spells'])
+        self.assertIn('protectionFromEvilGood', p['auto_spells'])
         self.assertIn('sanctuary', p['auto_spells'])
 
     def test_devotion_accumulates_to_17(self):
         p = compute_progression(build('paladin', 17, 'devotion'))
-        for s in ['protectionFromEvilAndGood', 'sanctuary', 'lesserRestoration',
+        for s in ['protectionFromEvilGood', 'sanctuary', 'lesserRestoration',
                   'zoneOfTruth', 'beaconOfHope', 'dispelMagic', 'freedomOfMovement',
-                  'guardianOfFaith', 'commune', 'flameStrike', 'holyAura']:
+                  'guardianOfFaith', 'commune', 'flameStrike']:
             self.assertIn(s, p['auto_spells'], f'falta {s}')
 
 
@@ -121,7 +121,7 @@ class ApplyAutosNewSubclassesTests(SimpleTestCase):
     def test_paladin_devotion_nv5_oath_spells(self):
         c = apply_autos(build('paladin', 5, 'devotion'))
         ids = {s['id'] for s in c['spells']}
-        for s in ['protectionFromEvilAndGood', 'sanctuary', 'lesserRestoration', 'zoneOfTruth']:
+        for s in ['protectionFromEvilGood', 'sanctuary', 'lesserRestoration', 'zoneOfTruth']:
             self.assertIn(s, ids)
 
     def test_warlock_hexblade_nv1(self):

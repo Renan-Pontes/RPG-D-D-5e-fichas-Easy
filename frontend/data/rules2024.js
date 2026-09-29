@@ -3,8 +3,23 @@ import spells from './srd2024-spells.json' with { type: 'json' };
 import species from './srd2024-species.json' with { type: 'json' };
 
 export const RULES_2024 = rules;
-export const SPELLS_2024 = spells;
-export const SPECIES_2024 = species;
+import { EXTRA_SPELLS_2024, SPELL_NAMES_PT } from './spells-extra.js';
+import { SPECIES_2024_REVISED, AASIMAR_2024 } from './species-2024.js';
+
+// SRD 5.2.1 + magias de outros livros (resumos próprios), com nomes PT revisados.
+export const SPELLS_2024 = [
+  ...spells.map(s => (SPELL_NAMES_PT[s.id] ? { ...s, name: { ...s.name, pt: SPELL_NAMES_PT[s.id] } } : s)),
+  ...EXTRA_SPELLS_2024.filter(x => !spells.some(s => s.id === x.id)),
+];
+// Traços revisados (PT/EN, sem o lixo da extração do PDF) por cima do JSON gerado,
+// mais o Aasimar do PHB 2024 (resumo próprio). Ver data/species-2024.js.
+export const SPECIES_2024 = [
+  ...species.map(s => {
+    const r = SPECIES_2024_REVISED[s.id];
+    return r ? { ...s, size: r.size, speed: r.speed, traits: r.traits, ...(r.choices ? { choices: r.choices } : {}) } : s;
+  }),
+  AASIMAR_2024,
+];
 export const is2024 = char => char.rulesVersion === '2024';
 export const RULES_SOURCE = 'https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf';
 

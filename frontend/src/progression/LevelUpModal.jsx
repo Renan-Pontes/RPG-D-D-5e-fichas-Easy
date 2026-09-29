@@ -6,12 +6,18 @@ import Utils from '../../utils.js';
 import { t, tName } from '../../data/i18n.js';
 import Icon from '../../components/Icons.jsx';
 import { Modal, Filigree } from '../../components/Shared.jsx';
-import { HIT_DIE, levelChoiceKind, validateLevelChoice } from './engine.js';
+import { HIT_DIE, levelChoiceKind, validateLevelChoice, validateClassOptions } from './engine.js';
+import ClassOptionsPicker, { openPools } from './ClassOptionsPicker.jsx';
+import { pickLabel } from './options-catalog.js';
 import { withClassLevel } from './multiclass.js';
+import FeatPicker, { featCtx, picksText } from './FeatPicker.jsx';
+import { progHasFightingStyle } from './feat-rules.js';
+import { computeProgression } from './engine.js';
+import { spellbookGain, spellbookCandidates, SPELLBOOK_CLASS } from './spellbook.js';
 
 const box = { background: 'var(--bg-elev)', borderRadius: 8, padding: 14, marginBottom: 8 };
 
-const ChoiceStep = ({ char, lang, level, kind, choice, setChoice }) => {
+const ChoiceStep = ({ char, featChar, hasFightingStyle, lang, level, kind, choice, setChoice }) => {
   const type = kind === 'epic' ? 'feat' : choice.type;
   const asi = choice.asi || {};
   const total = Object.values(asi).reduce((a, b) => a + b, 0);
@@ -62,18 +68,8 @@ const ChoiceStep = ({ char, lang, level, kind, choice, setChoice }) => {
           })}
         </>
       ) : (
-        <>
-          <label>{lang === 'pt' ? 'Nome do talento' : 'Feat name'}</label>
-          <input value={choice.feat || ''} maxLength={120} onChange={e => setChoice({ ...choice, type: 'feat', feat: e.target.value })}
-            placeholder={kind === 'epic' ? 'Boon of Fate, Boon of Spell Recall…' : 'Alert, War Caster, Resilient…'} />
-          <label style={{ marginTop: 8 }}>{lang === 'pt' ? 'O que ele faz (opcional)' : 'What it does (optional)'}</label>
-          <textarea value={choice.note || ''} maxLength={500} onChange={e => setChoice({ ...choice, type: 'feat', note: e.target.value })} />
-          <div className="text-xs muted" style={{ marginTop: 6 }}>
-            {lang === 'pt'
-              ? 'Se o talento der +1 em atributo, peça ao mestre para registrar (ou use o modo trapaça numa ficha pessoal).'
-              : 'If the feat grants +1 to an ability, ask your DM to record it (or use cheat mode on a personal sheet).'}
-          </div>
-        </>
+        <FeatPicker char={featChar || char} lang={lang} level={level} kind={kind === 'epic' ? 'epic' : 'asi'}
+          hasFightingStyle={hasFightingStyle} value={choice} onChange={setChoice} cheat={!!char.cheatMode} />
       )}
     </>
   );
@@ -184,6 +180,24 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
   const addedSpells = added.length - addedCantrips;
   const canAdd = (sp) => cheat || (sp.level === 0 ? addedCantrips < cantripRoom : addedSpells < spellRoom);
   const toggle = (sp) => setAdded(prev => prev.includes(sp.id) ? prev.filter(x => x !== sp.id) : (canAdd(sp) ? [...prev, sp.id] : prev));
+  // Mago: grimório ganha 6 magias de nível 1 no 1º nível de Mago e +2 a cada nível
+  // seguinte, de círculo ≤ maior espaço de Mago. Vão para o livro, não preparadas.
+  const bookMode = isCaster && classId === SPELLBOOK_CLASS;
+  const wizLevel = entry?.level || 1;
+  const bookRoom = bookMode ? spellbookGain(wizLevel) : 0;
+  const bookAvailable = bookMode
+    ? spellbookCandidates(char, { maxLevel: cheat ? 9 : (wizLevel === 1 ? 1 : maxLvl), anyList: cheat }).filter(s => !owned.has(s.id))
+    : [];
+  const [bookAdded, setBookAdded] = useState([]);
+  useEffect(() => { setBookAdded([]); }, [classId]);
+  const toggleBook = (sp) => setBookAdded(prev => prev.includes(sp.id) ? prev.filter(x => x !== sp.id) : (cheat || prev.length < bookRoom ? [...prev, sp.id] : prev));
+
+  // Opções de classe (invocações, metamagia…) ganhas ou trocáveis neste nível.
+  const [optValue, setOptValue] = useState({ adds: [], swaps: [] });
+  useEffect(() => { setOptValue({ adds: [], swaps: [] }); }, [classId]);
+  const optPicks = { adds: optValue.adds, swaps: optValue.swaps };
+  const hasOptionStep = !choiceOnly && (() => { const o = openPools(after, classId, optValue, { levelUp: true }); return o.open.length + o.swappable.length > 0; })();
+  const optionCheck = optPicks.adds.length + optPicks.swaps.length ? validateClassOptions(after, classId, optPicks, { levelUp: true }) : { valid: true, issues: [] };
 
   const steps = [];
   const showClassStep = !choiceOnly && (allowMulticlass || Utils.isMulticlass(char));
@@ -191,15 +205,19 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
   if (skillCount) steps.push('skill');
   if (!choiceOnly) steps.push('hp');
   if (kind) steps.push('choice');
-  if (isCaster && (cheat || cantripRoom + spellRoom > 0)) steps.push('spells');
+  if (hasOptionStep) steps.push('options');
+  if (isCaster && (cheat || cantripRoom + spellRoom + bookRoom > 0)) steps.push('spells');
   if (!choiceOnly) steps.push('review');
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const effectiveChoice = kind === 'epic' ? { ...choice, type: 'feat' } : choice;
-  const choiceCheck = kind ? validateLevelChoice(after, newLevel, effectiveChoice) : { valid: true, issues: [] };
-  const stepValid = (steps[step] !== 'choice' || choiceCheck.valid) && (steps[step] !== 'skill' || !!skillAdded);
+  const { custom: _custom, ...effectiveChoice } = kind === 'epic' ? { ...choice, type: 'feat' } : choice;
+  // Talento do catálogo: pré-requisitos de proficiência/conjuração/espécie (fora do modo trapaça).
+  const hasFightingStyle = kind ? progHasFightingStyle(computeProgression({ ...after, levelChoices: {} })) : false;
+  const choiceCheck = kind ? validateLevelChoice(after, newLevel, effectiveChoice, { ctx: featCtx(after), cheat }) : { valid: true, issues: [] };
+  const stepValid = (steps[step] !== 'choice' || choiceCheck.valid) && (steps[step] !== 'skill' || !!skillAdded)
+    && (steps[step] !== 'options' || optionCheck.valid);
   const isLast = step === steps.length - 1;
 
   const confirm = async () => {
@@ -211,7 +229,8 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
         ...(choiceOnly ? {} : { classId }),
         ...(skillAdded ? { skillAdded } : {}),
         ...(kind ? { choice: effectiveChoice } : {}),
-        ...(added.length ? { spellsAdded: added } : {}),
+        ...(added.length + bookAdded.length ? { spellsAdded: [...added, ...bookAdded.map(id => ({ id, inBook: true }))] } : {}),
+        ...(optPicks.adds.length + optPicks.swaps.length ? { options: optPicks } : {}),
       });
       onClose();
     } catch (e) {
@@ -259,13 +278,23 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
     );
     if (s === 'choice') return (
       <>
-        <ChoiceStep char={char} lang={lang} level={newLevel} kind={kind} choice={choice} setChoice={setChoice} />
+        <ChoiceStep char={char} featChar={after} hasFightingStyle={hasFightingStyle} lang={lang} level={newLevel} kind={kind} choice={choice} setChoice={setChoice} />
         {!choiceCheck.valid && <div className="text-xs" style={{ marginTop: 8, color: 'var(--blood-bright)' }}>{choiceCheck.issues.join(' · ')}</div>}
+      </>
+    );
+    if (s === 'options') return (
+      <>
+        <ClassOptionsPicker char={after} classId={classId} lang={lang} value={optValue} onChange={setOptValue} levelUp />
+        {!optionCheck.valid && <div className="text-xs" style={{ marginTop: 8, color: 'var(--blood-bright)' }}>{optionCheck.issues.join(' · ')}</div>}
       </>
     );
     if (s === 'spells') {
       const byLevel = {};
-      available.forEach(sp => { (byLevel[sp.level] ||= []).push(sp); });
+      // Mago: magias de nível 1+ entram pelo grimório (abaixo); aqui só truques.
+      available.filter(sp => !bookMode || sp.level === 0).forEach(sp => { (byLevel[sp.level] ||= []).push(sp); });
+      const bookByLevel = {};
+      bookAvailable.forEach(sp => { (bookByLevel[sp.level] ||= []).push(sp); });
+      const pt = lang === 'pt';
       return (
         <>
           <h3 style={{ marginBottom: 4 }}>{lang === 'pt' ? 'Novas magias' : 'New spells'}</h3>
@@ -289,6 +318,34 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
               })}
             </div>
           ))}
+          {bookMode && (
+            <>
+              <h3 style={{ margin: '12px 0 4px' }}>{pt ? 'Grimório' : 'Spellbook'}</h3>
+              <div className="muted text-sm" style={{ marginBottom: 8 }}>
+                {wizLevel === 1
+                  ? (pt ? 'Seu grimório começa com 6 magias de Mago de nível 1.' : 'Your spellbook starts with 6 level 1 Wizard spells.')
+                  : (pt ? `Acrescente 2 magias de Mago de círculo até ${maxLvl}.` : `Add 2 Wizard spells of level ${maxLvl} or lower.`)}
+                {' '}<strong style={{ color: bookAdded.length === bookRoom ? 'var(--moss-bright)' : 'var(--gold)' }}>{bookAdded.length}/{cheat ? '∞' : bookRoom}</strong>
+                {' · '}{pt ? 'Entram no livro sem preparar; prepare-as na ficha.' : 'They go in the book unprepared; prepare them on the sheet.'}
+              </div>
+              {Object.keys(bookByLevel).sort((a, b) => a - b).map(lvl => (
+                <div key={`b${lvl}`} style={{ marginBottom: 12 }}>
+                  <Filigree>{`${t('spellLevel', lang)} ${lvl}`}</Filigree>
+                  {bookByLevel[lvl].map(sp => {
+                    const on = bookAdded.includes(sp.id);
+                    const blocked = !on && !cheat && bookAdded.length >= bookRoom;
+                    return (
+                      <label key={sp.id} className="option" style={{ padding: 10, marginBottom: 6, display: 'flex', gap: 10, alignItems: 'center', opacity: blocked ? 0.45 : 1, borderColor: on ? 'var(--gold)' : 'var(--stroke-faint)' }}>
+                        <input type="checkbox" checked={on} disabled={blocked} onChange={() => toggleBook(sp)} style={{ width: 18, height: 18, minHeight: 0 }}/>
+                        <span style={{ fontFamily: 'var(--display)' }}>{tName('spellName', sp.id, lang)}</span>
+                        <span className="text-xs muted" style={{ marginLeft: 'auto' }}>{tName('school', sp.school, lang)}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ))}
+            </>
+          )}
         </>
       );
     }
@@ -304,10 +361,17 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
           <div style={box}>
             {effectiveChoice.type === 'asi'
               ? SRD.ABILITIES.filter(k => effectiveChoice.asi?.[k]).map(k => `${t(k, lang)} +${effectiveChoice.asi[k]}`).join(', ')
-              : `${lang === 'pt' ? 'Talento' : 'Feat'}: ${effectiveChoice.feat}`}
+              : `${lang === 'pt' ? 'Talento' : 'Feat'}: ${effectiveChoice.feat}${
+                SRD.ABILITIES.filter(k => effectiveChoice.asi?.[k]).map(k => ` (${t(k, lang)} +${effectiveChoice.asi[k]})`).join('')}${
+                effectiveChoice.picks && Object.keys(effectiveChoice.picks).length ? ` — ${picksText(effectiveChoice.picks, lang)}` : ''}`}
           </div>
         )}
         {added.length > 0 && <div style={box}>{added.map(id => tName('spellName', id, lang)).join(', ')}</div>}
+        {bookAdded.length > 0 && <div style={box}>{lang === 'pt' ? 'Grimório' : 'Spellbook'}: {bookAdded.map(id => tName('spellName', id, lang)).join(', ')}</div>}
+        {optPicks.adds.length > 0 && <div style={box}>{optPicks.adds.map(a => pickLabel(classId, a, lang)).join(', ')}</div>}
+        {optPicks.swaps.map(sw => (
+          <div key={sw.pool} style={box}>{pickLabel(classId, { pool: sw.pool, id: sw.from }, lang)} → {pickLabel(classId, { pool: sw.pool, id: sw.to }, lang)}</div>
+        ))}
       </>
     );
   };

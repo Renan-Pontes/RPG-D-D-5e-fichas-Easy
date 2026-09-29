@@ -52,11 +52,12 @@ describe('Bardo 1→20 (Lore)', () => {
     const p = computeProgression(build('bard', 3, 'lore'));
     assert.ok(featureAt(p, 'cuttingWords', 3));
   });
-  test('Bardic Inspiration d8 no 5, d10 no 15', () => {
+  test('Bardic Inspiration d8 no 5, d10 no 10, d12 no 15 (PHB 2014)', () => {
     const p5 = computeProgression(build('bard', 5, 'lore'));
     assert.ok(featureAt(p5, 'bardicInspirationD8', 5));
     const p15 = computeProgression(build('bard', 15, 'lore'));
-    assert.ok(featureAt(p15, 'bardicInspirationD10', 15));
+    assert.ok(featureAt(p15, 'bardicInspirationD10', 10));
+    assert.ok(featureAt(p15, 'bardicInspirationD12', 15));
   });
   test('Superior Inspiration no 20', () => {
     const p = computeProgression(build('bard', 20, 'lore'));
@@ -159,7 +160,7 @@ describe('Paladino 1→20 (Devotion)', () => {
   });
   test('Devotion auto-prepara Protection from Evil and Good no 3', () => {
     const p = computeProgression(build('paladin', 3, 'devotion'));
-    assert.ok(p.autoSpells.includes('protectionFromEvilAndGood'));
+    assert.ok(p.autoSpells.includes('protectionFromEvilGood'));
   });
   test('Aura of Protection no 6, Aura of Courage no 10', () => {
     const p10 = computeProgression(build('paladin', 10, 'devotion'));
@@ -309,7 +310,7 @@ describe('applyAutosToCharacter — novas subclasses', () => {
   test('Paladin Devotion nv 5 aplica oath spells de 3 e 5', () => {
     const c = applyAutosToCharacter(build('paladin', 5, 'devotion'));
     const ids = new Set(c.spells.map(s => s.id));
-    ['protectionFromEvilAndGood','sanctuary','lesserRestoration','zoneOfTruth']
+    ['protectionFromEvilGood','sanctuary','lesserRestoration','zoneOfTruth']
       .forEach(s => assert.ok(ids.has(s), `falta ${s}`));
   });
 });

@@ -644,7 +644,7 @@ function levelupSummary(p, lang) {
   if (p.choice?.type === 'asi') parts.push(Object.entries(p.choice.asi || {}).filter(([, v]) => v).map(([k, v]) => `${k.toUpperCase()} +${v}`).join(', '));
   if (p.choice?.type === 'feat') parts.push(`${t(lang, 'Talento', 'Feat')}: ${p.choice.feat}`);
   if (p.skillAdded) parts.push(tName('skill', p.skillAdded, lang));
-  if (p.spellsAdded?.length) parts.push(p.spellsAdded.map(id => tName('spellName', id, lang)).join(', '));
+  if (p.spellsAdded?.length) parts.push(p.spellsAdded.map(x => tName('spellName', typeof x === 'string' ? x : x?.id, lang)).join(', '));
   return parts.filter(Boolean).join(' · ');
 }
 

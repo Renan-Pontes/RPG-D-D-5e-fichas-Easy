@@ -29,8 +29,11 @@ test('fixed prepared counts, Artificer and Epic Boons follow the selected revisi
   assert.ok(SRD.CLASSES.some(c => c.id === 'artificer'));
 });
 test('339 current spells have unique IDs and structured metadata', () => {
-  assert.equal(SPELLS_2024.length, 339);
-  assert.equal(new Set(SPELLS_2024.map(s => s.id)).size, 339);
+  // As 339 do SRD 5.2.1 vêm primeiro; depois as extras (PHB 2024 fora do SRD e suplementos).
+  const srd = SPELLS_2024.filter(s => s.source === 'SRD 5.2.1');
+  assert.equal(srd.length, 339);
+  assert.equal(new Set(srd.map(s => s.id)).size, 339);
+  assert.equal(new Set(SPELLS_2024.map(s => s.id)).size, SPELLS_2024.length);
   for (const s of SPELLS_2024) {
     assert.ok(s.range && s.castingTime && s.name.en && s.desc.en, s.id);
     assert.ok(s.level >= 0 && s.level <= 9, s.id);

@@ -2,6 +2,11 @@
 import { useState, useEffect, useRef } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
+import { subclassesFor } from '../src/progression/subclasses.js';
+import { findFeat } from '../data/feats.js';
+import { featSummary, picksText } from '../src/progression/FeatPicker.jsx';
+import ResourcesCard from '../src/progression/ResourcesCard.jsx';
+import { SpeciesChoicesModal } from '../src/progression/SpeciesChoices.jsx';
 import { t, tName } from '../data/i18n.js';
 import LanguagePicker, { chosenLanguages } from './LanguagePicker.jsx';
 import Icon from './Icons.jsx';
@@ -9,6 +14,7 @@ import { Filigree, Modal, NumStepper, Pips, AvatarUpload } from './Shared.jsx';
 import { SheetSpells, SheetInventory, SheetStory, SheetNotes, RestButtons } from './SheetTabs.jsx';
 import { api, ApiError } from '../src/api/client.js';
 import CombatActionPanel from '../src/campaigns/CombatActionPanel.jsx';
+import * as FS from '../src/progression/fighting-styles.js';
 
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
   const [tab, setTab] = useState('play');
@@ -104,6 +110,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onShare, onExport, onDel
       />
 
       <SubclassBanner char={char} lang={lang} update={update} />
+      <SpeciesBanner char={char} lang={lang} update={update} />
       <CampaignModeBanner char={char} lang={lang} onChange={onUpdate} />
 
       {char.wildShape?.active && (
@@ -280,7 +287,7 @@ const SubclassBanner = ({ char, lang, update }) => {
 
 const SubclassRow = ({ char, lang, update, showClass }) => {
   const [open, setOpen] = useState(false);
-  const subs = (SRD.SUBCLASSES && SRD.SUBCLASSES[char.className]) || [];
+  const subs = subclassesFor(char);
   if (!subs.length) return null;
   const subLv = Utils.subclassLevel(char);
   const eligible = (char.level || 1) >= subLv;
@@ -338,6 +345,32 @@ const SubclassRow = ({ char, lang, update, showClass }) => {
         </button>
       </div>
       {open && <SubclassModal char={char} lang={lang} subs={subs} label={label} update={update} onClose={() => setOpen(false)} />}
+    </>
+  );
+};
+
+// Escolhas de espécie pendentes (linhagem, ancestral, talento do Humano…): faixa
+// de destaque como a da subclasse. Alterar depois fica na aba História.
+const SpeciesBanner = ({ char, lang, update }) => {
+  const [open, setOpen] = useState(false);
+  const issues = Utils.speciesChoiceIssues(char).filter(i => !(char.inCampaign && (i.key === 'feat' || i.key === 'asi')));
+  if (!issues.length && !open) return null;
+  return (
+    <>
+      <div className="card no-print" style={{ marginBottom: 16, padding: 14, background: 'linear-gradient(180deg, rgba(168,141,84,0.12) 0%, rgba(168,141,84,0.04) 100%)', border: '1px solid var(--gold-deep)' }}>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <div className="eyebrow" style={{ color: 'var(--gold)' }}>{lang === 'pt' ? 'Espécie' : 'Species'} · {tName('race', char.race, lang)}</div>
+            <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)', fontSize: '1.05rem' }}>
+              {issues.map(i => i[lang] || i.pt).join(' · ')}
+            </div>
+          </div>
+          <button className="btn btn-sm" onClick={() => setOpen(true)} style={{ background: 'var(--gold)', color: 'var(--bg-deep)' }}>
+            <Icon name="sparkle" size={12}/> {lang === 'pt' ? 'Escolher' : 'Choose'}
+          </button>
+        </div>
+      </div>
+      {open && <SpeciesChoicesModal char={char} lang={lang} onSave={update} onClose={() => setOpen(false)} />}
     </>
   );
 };
@@ -1085,6 +1118,13 @@ const SheetNpcs = ({ char, lang, update }) => {
 // ===== Play tab =====
 const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, passPerc, slots, roll }) => {
   const cls = SRD.CLASSES.find(c => c.id === char.className);
+  // Estilos de Luta / Maestria (src/progression/fighting-styles.js)
+  const styles = FS.activeFightingStyles(char);
+  const acStyleBonuses = FS.acBonuses(char, styles);
+  const unarmed = FS.unarmedStrike(char, styles);
+  const styleSummaries = FS.styleSummaries(char, styles);
+  const blindsightFt = FS.blindsight(char, styles);
+  const reactions = FS.styleReactions(char, styles);
   const [delta, setDelta] = useState('');
   const apply = (sign) => {
     const n = +delta || 0;
@@ -1168,7 +1208,11 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
         <div className="combat-box">
           <div className="eyebrow">{t('ac', lang)}</div>
           <div className="combat-box-value">{ac}</div>
-          <div className="combat-box-sub"><Icon name="shield" size={11}/></div>
+          <div className="combat-box-sub">
+            {acStyleBonuses.length > 0
+              ? <span title={acStyleBonuses.map(x => x.label[lang]).join(', ')}>{FS.partsLabel(acStyleBonuses, lang)}</span>
+              : <Icon name="shield" size={11}/>}
+          </div>
         </div>
         <div className="combat-box" onClick={() => roll({ die: 20, mod: initBonus, label: t('initRoll', lang) })} style={{ cursor: 'pointer' }}>
           <div className="eyebrow">{t('initiative', lang)}</div>
@@ -1183,10 +1227,10 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
       </div>
 
       {/* Quick weapons (attacks) */}
-      {char.weapons && char.weapons.length > 0 && (
+      {((char.weapons && char.weapons.length > 0) || unarmed) && (
         <div style={{ marginBottom: 16 }}>
           <div className="eyebrow mb-2">{lang === 'pt' ? 'Ataques' : 'Attacks'}</div>
-          {char.weapons.map((w, i) => {
+          {(char.weapons || []).map((w, i) => {
             const wDef = w.id ? SRD.WEAPONS.find(x => x.id === w.id) : null;
             const isFinesse = wDef && wDef.props.includes('finesse');
             const isRanged = wDef && (wDef.type || '').includes('ranged');
@@ -1197,25 +1241,82 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
               : (cls.weapons.includes('Simple') && (wDef.type || '').startsWith('simple'))
                 || (cls.weapons.includes('Martial'))
                 || cls.weapons.some(wt => wDef.id.toLowerCase().includes(wt.toLowerCase().replace(/s$/, '')));
-            const atk = abMod + (isProf ? Utils.profBonus(char) : 0);
+            const fs = FS.weaponStyleBonuses(char, w, styles);
+            const atk = abMod + (isProf ? Utils.profBonus(char) : 0) + fs.attack;
+            const dmgMod = abMod + fs.damage;
+            const bonusText = FS.partsLabel([...fs.attackParts.map(p => ({ ...p, label: { pt: `${p.label.pt} (ataque)`, en: `${p.label.en} (attack)` } })), ...fs.damageParts], lang);
             return (
               <div key={i} className="slot-row" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
                 <div>
                   <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)' }}>{w.name}</div>
-                  <div className="text-xs muted">{w.damage} {w.dmgType ? `${w.dmgType}` : ''}</div>
+                  <div className="text-xs muted">{w.damage}{dmgMod ? Utils.fmtMod(dmgMod) : ''} {w.dmgType ? `${w.dmgType}` : ''}</div>
+                  {bonusText && <div className="text-xs" style={{ color: 'var(--gold)' }}>{bonusText}</div>}
+                  {fs.mastery && (
+                    <div className="text-xs" style={{ color: 'var(--moss-bright)' }} title={fs.mastery.desc[lang]}>
+                      {lang === 'pt' ? 'Maestria' : 'Mastery'}: <strong>{fs.mastery.name[lang]}</strong> — {fs.mastery.desc[lang]}
+                    </div>
+                  )}
+                  {fs.notes.map((n, k) => <div key={k} className="text-xs muted">{n[lang]}</div>)}
                 </div>
                 <button className="btn btn-sm" onClick={() => roll({ die: 20, mod: atk, label: w.name + ' ' + t('attackRoll', lang) })}>
                   {Utils.fmtMod(atk)}
                 </button>
                 <button className="btn btn-sm btn-ghost" onClick={() => {
                   const m = w.damage.match(/(\d+)d(\d+)/);
-                  if (m) roll({ die: +m[2], count: +m[1], mod: abMod, label: w.name + ' ' + t('damageRoll', lang) });
+                  if (m) roll({ die: +m[2], count: +m[1], mod: dmgMod, label: w.name + ' ' + t('damageRoll', lang) });
                 }}>
                   <Icon name="dice" size={12}/>
                 </button>
               </div>
             );
           })}
+          {unarmed && (() => {
+            // Combate Desarmado: golpe desarmado com Força + BP; dado maior com as mãos livres.
+            const strMod = Utils.abilityMod(char, 'str');
+            const atk = strMod + Utils.profBonus(char);
+            const name = lang === 'pt' ? 'Golpe Desarmado' : 'Unarmed Strike';
+            const [cnt, sides] = unarmed.die.split('d').map(Number);
+            return (
+              <div className="slot-row" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
+                <div>
+                  <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)' }}>{name}</div>
+                  <div className="text-xs muted">{unarmed.die}{strMod ? Utils.fmtMod(strMod) : ''} {lang === 'pt' ? 'concussão' : 'bludgeoning'}</div>
+                  <div className="text-xs" style={{ color: 'var(--gold)' }}>
+                    {unarmed.name[lang]}: {lang === 'pt' ? `${unarmed.dieFree} com as mãos livres` : `${unarmed.dieFree} with free hands`}
+                    {unarmed.grapple ? (lang === 'pt' ? `; ${unarmed.grapple} no agarrado` : `; ${unarmed.grapple} to grappled`) : ''}
+                  </div>
+                </div>
+                <button className="btn btn-sm" onClick={() => roll({ die: 20, mod: atk, label: name + ' ' + t('attackRoll', lang) })}>
+                  {Utils.fmtMod(atk)}
+                </button>
+                <button className="btn btn-sm btn-ghost" onClick={() => roll({ die: sides, count: cnt, mod: strMod, label: name + ' ' + t('damageRoll', lang) })}>
+                  <Icon name="dice" size={12}/>
+                </button>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+      {/* Estilos de Luta ativos: resumo, sentidos (Luta às Cegas) e lembretes de reação */}
+      {styleSummaries.length > 0 && (
+        <div className="card" style={{ marginBottom: 16, padding: 12 }}>
+          <div className="eyebrow mb-2">{lang === 'pt' ? 'Estilos de Luta' : 'Fighting Styles'}</div>
+          {styleSummaries.map(s => (
+            <div key={s.id} className="text-sm" style={{ marginBottom: 4 }}>
+              <strong style={{ color: 'var(--gold)' }}>{s.name[lang]}</strong>
+              {s.summary[lang] && <span className="muted"> — {s.summary[lang]}</span>}
+            </div>
+          ))}
+          {blindsightFt > 0 && (
+            <div className="text-xs mt-2">
+              <strong>{lang === 'pt' ? 'Sentidos' : 'Senses'}:</strong> {lang === 'pt' ? `Percepção às Cegas ${Math.round(blindsightFt * 0.3)} m` : `Blindsight ${blindsightFt} ft`}
+            </div>
+          )}
+          {reactions.map(r => (
+            <div key={r.id} className="text-xs mt-2" style={{ color: 'var(--blood-bright)' }}>
+              <strong>{lang === 'pt' ? 'Reação' : 'Reaction'} · {r.name[lang]}:</strong> {r.text[lang]}
+            </div>
+          ))}
         </div>
       )}
       {/* Spell slots quick tracker */}
@@ -1230,18 +1331,23 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
               <div key={lvl} className="slot-row">
                 <div className="slot-level">{lang === 'pt' ? 'Nv' : 'Lv'} {lvl}</div>
                 <div className="slot-pips">
-                  {Array.from({ length: max }).map((_, i) => (
-                    <button
-                      key={i} type="button"
-                      className={`slot-pip ${i < used ? 'used' : ''}`}
-                      onClick={() => {
-                        const arr = [...(char.spellSlotsUsed || [])];
-                        while (arr.length <= idx) arr.push(0);
-                        arr[idx] = i < used ? i : i + 1;
-                        update({ spellSlotsUsed: arr });
-                      }}
-                    />
-                  ))}
+                  {Array.from({ length: max }).map((_, i) => {
+                    // Sem trapaça: gasta, mas só recupera descansando. Em campanha, use "Conjurar".
+                    const locked = !!char.inCampaign || (i < used && !char.cheatMode);
+                    return (
+                      <button
+                        key={i} type="button"
+                        className={`slot-pip ${i < used ? 'used' : ''} ${locked ? 'locked' : ''}`}
+                        disabled={locked}
+                        onClick={locked ? undefined : () => {
+                          const arr = [...(char.spellSlotsUsed || [])];
+                          while (arr.length <= idx) arr.push(0);
+                          arr[idx] = i < used ? i : i + 1;
+                          update({ spellSlotsUsed: arr });
+                        }}
+                      />
+                    );
+                  })}
                 </div>
                 <span className="text-xs muted mono">{max - used}/{max}</span>
               </div>
@@ -1249,6 +1355,9 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
           })}
         </>
       )}
+
+      {/* Recursos de classe com usos (Fúria, Canalizar Divindade…) */}
+      <ResourcesCard char={char} lang={lang} update={update} />
 
       {/* Conditions / status effects */}
       <ConditionsPanel char={char} lang={lang} update={update} />
@@ -1360,7 +1469,7 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
       <div className="skill-display mb-4">
         {SRD.ABILITIES.map(k => {
           const bonus = Utils.saveBonus(char, k);
-          const isProf = (char.saveProfs || []).includes(k);
+          const isProf = Utils.hasSaveProf(char, k);
           return (
             <div key={k} className="skill-display-row" onClick={() => roll({ die: 20, mod: bonus, label: t(k, lang) + ' ' + t('saveRoll', lang) })}>
               <button
@@ -1382,7 +1491,7 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
         {SRD.SKILLS.map(s => {
           const bonus = Utils.skillBonus(char, s.id);
           const isProf = Utils.hasSkillProf(char, s.id);
-          const isExpert = (char.skillExpertise || []).includes(s.id);
+          const isExpert = Utils.hasExpertise(char, s.id);
           return (
             <div key={s.id} className="skill-display-row" onClick={() => roll({ die: 20, mod: bonus, label: tName('skill', s.id, lang) })}>
               <button
@@ -1414,8 +1523,11 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
           <div style={{ marginBottom: 12 }}>
             {char.feats.map((f, i) => (
               <div key={i} className="text-sm" style={{ marginBottom: 4 }}>
-                <strong style={{ color: 'var(--gold-deep)' }}>{f.name}</strong>
-                <span className="muted"> · {lang === 'pt' ? 'Nv.' : 'Lv'} {f.level}</span>
+                <strong style={{ color: 'var(--gold-deep)' }}>{f.id ? findFeat(f.id)?.name[lang] || f.name : f.name}</strong>
+                <span className="muted"> · {f.origin === 'background' ? (lang === 'pt' ? 'Antecedente' : 'Background') : f.origin === 'species' ? (lang === 'pt' ? 'Espécie' : 'Species') : `${lang === 'pt' ? 'Nv.' : 'Lv'} ${f.level}`}</span>
+                {f.asi && <span className="muted"> · {Object.entries(f.asi).map(([k, v]) => `${t(k + 'Sh', lang)} +${v}`).join(', ')}</span>}
+                {featSummary(f, lang) && <div className="text-xs" style={{ color: 'var(--ink-secondary)' }}>{featSummary(f, lang)}</div>}
+                {f.picks && <div className="text-xs muted">{picksText(f.picks, lang)}</div>}
                 {f.note && <span style={{ color: 'var(--ink-secondary)' }}> — {f.note}</span>}
               </div>
             ))}

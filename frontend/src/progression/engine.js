@@ -18,6 +18,12 @@ import { PROGRESSION_RULES, profBonus, rulesFor } from './rules.js';
 import {
   isMulticlass, classEntries, classView, classAt, totalLevelFor, withClassLevel, withoutLastClassLevel,
 } from './multiclass.js';
+import { featGrants } from './feat-rules.js';
+import { speciesGrants } from './species.js';
+import { classOptionState, validateOptionPicks, applyOptionPicks, revertOptionPicks } from './options.js';
+import { validateFeatChoice, progHasFightingStyle, featEntry, withFeatAsi } from './feat-rules.js';
+import SRD from '../../data/srd.js';
+import { SPELLS_2024 } from '../../data/rules2024.js';
 
 const ABILITIES = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 
@@ -86,6 +92,9 @@ export function computeProgression(character) {
     expertiseSlots: 0,
     asiLevels: [],
     pendingChoices: [],
+    grants: {},
+    classOptions: [],
+    optionSlots: {},
   };
 
   const rule = rulesFor(character);
@@ -128,6 +137,19 @@ export function computeProgression(character) {
     }
   }
 
+  // Opções selecionáveis (invocações, metamagia…): pendências e magias concedidas.
+  const opts = classOptionState(character);
+  out.classOptions = opts.picks.map(({ option, ...p }) => p);
+  out.optionSlots = opts.slots;
+  // Com pool próprio de estilo de luta/expertise, a pendência genérica antiga sai.
+  out.pendingChoices = out.pendingChoices.filter(c => !((c.type === 'fightingStyle' && opts.slots.fightingStyle) || (c.type === 'expertise' && opts.slots.expertise)));
+  out.pendingChoices.push(...opts.pending);
+  out.autoSpells.push(...opts.grants.spells);
+  out.autoCantrips.push(...opts.grants.cantrips);
+  for (const [k, v] of Object.entries(opts.grants)) {
+    if (k !== 'spells' && k !== 'cantrips' && v.length) (out.grants[k] ||= []).push(...v);
+  }
+
   // ASI/talento já escolhidos (character.levelChoices[nível]) deixam de ser pendência.
   const done = character.levelChoices || {};
   out.pendingChoices = out.pendingChoices.filter(c => !((c.type === 'asiOrFeat' || c.type === 'epicBoon') && done[c.level]));
@@ -164,6 +186,9 @@ function computeMulticlassProgression(character) {
     expertiseSlots: 0,
     asiLevels: [],
     pendingChoices: [],
+    classOptions: [],
+    optionSlots: {},
+    grants: {},
     classes: per.map(({ entry }) => entry),
     byClass: Object.fromEntries(per.map(({ entry, prog }) => [entry.id, prog])),
   };
@@ -177,6 +202,9 @@ function computeMulticlassProgression(character) {
     out.expertiseSlots += prog.expertiseSlots;
     out.asiLevels.push(...prog.asiLevels.map(lv => toTotal(id, lv)));
     out.pendingChoices.push(...prog.pendingChoices.map(c => ({ ...c, classId: id, classLevel: c.level, level: toTotal(id, c.level) })));
+    out.classOptions.push(...prog.classOptions);
+    for (const [k, v] of Object.entries(prog.grants)) (out.grants[k] ||= []).push(...v);
+    out.optionSlots[id] = prog.optionSlots;
   }
   out.features.sort((a, b) => a.level - b.level);
   out.asiLevels.sort((a, b) => a - b);
@@ -193,6 +221,8 @@ function applyNode(out, node, level, source) {
     }
   }
   if (node.autoCantrips) out.autoCantrips.push(...node.autoCantrips);
+  // Proficiências fixas do nível (armaduras, armas, ferramentas, perícias, idiomas, salvaguardas).
+  if (node.grants) for (const [k, v] of Object.entries(node.grants)) (out.grants[k] ||= []).push(...v);
   if (node.autoSpells) out.autoSpells.push(...node.autoSpells);
   if (typeof node.cantripsKnown === 'number') out.cantripsKnown = Math.max(out.cantripsKnown, node.cantripsKnown);
   if (typeof node.spellsKnown === 'number') out.spellsKnown = Math.max(out.spellsKnown, node.spellsKnown);
@@ -238,6 +268,14 @@ export function applyAutosToCharacter(character) {
     for (const id of [...prog.autoCantrips, ...prog.autoSpells]) if (!wanted.some(w => w.id === id)) wanted.push({ id });
   }
 
+  // Magias e truques concedidos por talentos (Iniciado em Magia, Tocado por Fadas…).
+  const fromFeats = featGrants(character);
+  for (const id of [...fromFeats.cantrips, ...fromFeats.spells]) if (!wanted.some(w => w.id === id)) wanted.push({ id, feat: true });
+
+  // Truques e magias da espécie/linhagem (as de nível 3 e 5 entram com o nível do personagem).
+  const fromSpecies = speciesGrants(character);
+  for (const id of [...fromSpecies.cantrips, ...fromSpecies.spells]) if (!wanted.some(w => w.id === id)) wanted.push({ id, species: true });
+
   // Remove autos antigos que não fazem mais parte do prog
   const validAutoIds = new Set(wanted.map(w => w.id));
   const filtered = norm.filter(s => !s.auto || validAutoIds.has(s.id));
@@ -248,7 +286,15 @@ export function applyAutosToCharacter(character) {
     if (!existing.has(w.id)) filtered.push({ ...w, prepared: true, auto: true });
   }
 
-  next.spells = filtered;
+  // Magias concedidas ao grimório por escolhas (ex.: Sábio): entram no livro
+  // sem preparar e saem se a escolha for desfeita (`fromOption`).
+  const bookIds = new Set(prog.grants?.spellbook || []);
+  const kept = filtered.filter(s => !s.fromOption || bookIds.has(s.id));
+  const have = new Set(kept.map(s => s.id));
+  const wizTag = character.className === 'wizard' ? {} : { cls: 'wizard' };
+  for (const id of bookIds) if (!have.has(id)) kept.push({ id, inBook: true, prepared: false, fromOption: true, ...wizTag });
+
+  next.spells = kept;
   next.progressionState = prog;
   return next;
 }
@@ -277,9 +323,12 @@ export function levelChoiceKind(character, level) {
 /**
  * Valida a escolha de ASI/talento de um nível. Espelha
  * backend/api/progression/engine.py:validate_level_choice.
- * choice: { type: 'asi', asi: {str: 1, dex: 1} } | { type: 'feat', feat: 'Nome', note?: '' }
+ * choice: { type: 'asi', asi: {str: 1, dex: 1} }
+ *       | { type: 'feat', feat: 'Nome', featId: 'alert', asi?: {dex: 1}, picks?: {...}, note? }  (catálogo)
+ *       | { type: 'feat', feat: 'Nome', note?: '' }  (texto livre / homebrew)
+ * opts.ctx: checagens extras de pré-requisito que só a interface sabe fazer (feat-rules.js).
  */
-export function validateLevelChoice(character, level, choice) {
+export function validateLevelChoice(character, level, choice, opts = {}) {
   const issues = [];
   const prog = computeProgression({ ...character, levelChoices: {} });
   const epicLevels = prog.pendingChoices.filter(c => c.type === 'epicBoon').map(c => c.level);
@@ -300,18 +349,25 @@ export function validateLevelChoice(character, level, choice) {
     if (keys.some(k => scoreWithBonus(character, k) + asi[k] > 20)) issues.push('Atributo não pode passar de 20');
   } else if (typeof choice.feat !== 'string' || !choice.feat.trim() || choice.feat.length > 120) {
     issues.push('Informe o nome do talento');
+  } else if (choice.featId != null) {
+    const kind = epicLevels.includes(level) ? 'epic' : 'asi';
+    issues.push(...validateFeatChoice(character, level, choice, { kind, hasFightingStyle: progHasFightingStyle(prog), ctx: opts.ctx, cheat: !!opts.cheat }));
   }
   return { valid: issues.length === 0, issues };
 }
 
-/** Aplica uma escolha já validada: soma ASI nos atributos-base ou registra o talento. */
+/**
+ * Aplica uma escolha já validada: soma ASI nos atributos-base ou registra o
+ * talento em character.feats (talento do catálogo também soma o +1 dele).
+ */
 export function applyLevelChoice(character, level, choice) {
-  const next = { ...character, levelChoices: { ...(character.levelChoices || {}), [level]: choice } };
+  let next = { ...character, levelChoices: { ...(character.levelChoices || {}), [level]: choice } };
   if (choice.type === 'asi') {
     next.abilities = { ...(character.abilities || {}) };
     for (const [k, v] of Object.entries(choice.asi || {})) next.abilities[k] = (next.abilities[k] || 10) + v;
   } else {
-    next.feats = [...(character.feats || []), { name: choice.feat.trim(), note: choice.note || '', level }];
+    if (choice.featId) next = withFeatAsi(next, choice.asi, 1);
+    next.feats = [...(character.feats || []), featEntry(choice, level)];
   }
   return next;
 }
@@ -328,12 +384,24 @@ export function applyLevelUpChoices(character, choices) {
   next.maxHp = maxHp;
   next.currentHp = Math.min((character.currentHp ?? maxHp) + choices.hpGain, maxHp);
   if (choices.choice) next = applyLevelChoice(next, choices.toLevel, choices.choice);
+  if (choices.options) next = applyOptionPicks(next, classId, choices.options, choices.toLevel);
   let spellsAdded = [];
   if (choices.spellsAdded?.length) {
     const have = new Set((next.spells || []).map(s => typeof s === 'string' ? s : s.id));
     const tag = classId === character.className ? {} : { cls: classId };
-    spellsAdded = choices.spellsAdded.filter(id => !have.has(id));
-    next.spells = [...(next.spells || []), ...spellsAdded.map(id => ({ id, prepared: true, ...tag }))];
+    // Itens: id (magia/truque aprendido) ou { id, inBook: true } (grimório do mago, não preparada).
+    const items = choices.spellsAdded.map(x => (typeof x === 'string' ? { id: x } : x)).filter(x => x?.id && !have.has(x.id));
+    const book = classId === 'wizard' && items.some(x => x.inBook);
+    // Ficha antiga de mago: marca o grimório existente antes de acrescentar.
+    if (book && !(next.spells || []).some(s => s && typeof s === 'object' && 'inBook' in s && (s.cls || next.className) === 'wizard')) {
+      next.spells = (next.spells || []).map(s => {
+        const e = typeof s === 'string' ? { id: s, prepared: false } : s;
+        const lvl = [...SPELLS_2024, ...SRD.SPELLS].find(x => x.id === e.id)?.level || 0;
+        return (e.cls || next.className) === 'wizard' && !e.auto && lvl > 0 ? { ...e, inBook: true } : s;
+      });
+    }
+    spellsAdded = items.map(x => x.id);
+    next.spells = [...(next.spells || []), ...items.map(x => (book && x.inBook ? { id: x.id, prepared: false, inBook: true, ...tag } : { id: x.id, prepared: true, ...tag }))];
   }
   // Perícia da multiclasse (bardo, ranger, ladino).
   const skillAdded = choices.skillAdded && !(character.skillProfs || []).includes(choices.skillAdded) ? choices.skillAdded : null;
@@ -352,13 +420,14 @@ function revertLevelChoice(character, level) {
   if (!choice) return character;
   const levelChoices = { ...character.levelChoices };
   delete levelChoices[level];
-  const next = { ...character, levelChoices };
+  let next = { ...character, levelChoices };
   if (choice.type === 'asi') {
     next.abilities = { ...(character.abilities || {}) };
     for (const [k, v] of Object.entries(choice.asi || {})) next.abilities[k] = (next.abilities[k] || 10) - v;
   } else {
+    if (choice.featId) next = withFeatAsi(next, choice.asi, -1);
     const feats = [...(character.feats || [])];
-    const i = feats.findIndex(f => f.level === level);
+    const i = feats.findIndex(f => f.level === level && !['background', 'species'].includes(f.origin));
     if (i >= 0) feats.splice(i, 1);
     next.feats = feats;
   }
@@ -378,7 +447,7 @@ export function revertLastLevel(character) {
   const conMod = Math.floor((scoreWithBonus(character, 'con') - 10) / 2);
   const hpLoss = entry ? entry.hpGain : Math.max(1, Math.floor((HIT_DIE[lastClass] || 8) / 2) + 1 + conMod);
 
-  let next = withoutLastClassLevel(revertLevelChoice(character, level));
+  let next = withoutLastClassLevel(revertOptionPicks(revertLevelChoice(character, level), level));
   next.maxHp = Math.max(1, (character.maxHp || 1) - hpLoss);
   next.currentHp = Math.min(character.currentHp ?? next.maxHp, next.maxHp);
   next.hitDiceUsed = Math.min(character.hitDiceUsed || 0, next.level);
@@ -417,4 +486,26 @@ export function validateLevelUp(character, proposal) {
     if (proposal.hpGain < 1 || proposal.hpGain > 20) issues.push('hpGain fora da faixa esperada');
   }
   return { valid: issues.length === 0, issues };
+}
+
+/** A ficha vista como `classId` (nível e subclasse dela), ou null se não tem a classe. */
+function viewOf(character, classId) {
+  const entry = classEntries(character).find(e => e.id === classId);
+  return entry ? classView(character, entry) : null;
+}
+
+/**
+ * Valida escolhas de opções de classe (invocações, metamagia…) para a ficha
+ * no nível atual. Espelha backend/api/progression/options.py.
+ * picks: { adds: [{pool, id, detail?}], swaps: [{pool, from, to, detail?}] }
+ */
+export function validateClassOptions(character, classId, picks, { levelUp = false } = {}) {
+  const view = viewOf(character, classId);
+  if (!view) return { valid: false, issues: ['Classe ausente na ficha'] };
+  return validateOptionPicks(view, classId, picks, view.level || 1, { levelUp });
+}
+
+/** Registra escolhas pendentes de um nível já alcançado (sem subir de nível). */
+export function applyClassOptions(character, classId, picks) {
+  return applyAutosToCharacter(applyOptionPicks(character, classId, picks, character.level || 1));
 }

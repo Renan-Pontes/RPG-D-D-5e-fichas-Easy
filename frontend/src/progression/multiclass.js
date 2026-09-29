@@ -149,6 +149,7 @@ export function classView(character, entry) {
     totalLevel: character.level,
     multiclass: [],
     classSequence: undefined,
+    startingClass: character.className,
     levelChoices,
   };
 }

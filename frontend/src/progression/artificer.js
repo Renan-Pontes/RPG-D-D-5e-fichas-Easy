@@ -2,20 +2,20 @@ const feature = (id, name, desc) => ({ id, name, desc });
 export const ARTIFICER_RULES = {
   classId: 'artificer', hitDie: 8,
   perLevel: {
-    1: { cantripsKnown: 2, spellsPrepared: { formula: 'int+halfLevel' }, features: [feature('magicalTinkering', 'Engenho Mágico', 'Imbua objetos pequenos com efeitos utilitários.')] },
+    1: { cantripsKnown: 2, spellsPrepared: { formula: 'int+halfLevel' }, features: [feature('magicalTinkering', 'Engenho Mágico', 'Com ferramentas de funileiro, dê a um objeto Minúsculo uma propriedade mágica simples (luz, mensagem, som/odor ou imagem). Até INT objetos (mín. 1).'), feature('spellcasting', 'Conjuração', 'INT; prepare INT + ½ nível de artífice (mín. 1); ferramentas como foco; conjuração ritual. 2 truques (3 no 10, 4 no 14).')] },
     2: { features: [feature('infuseItem', 'Infundir Item', 'Conhece 4 infusões e mantém 2 itens infundidos. Escolha as infusões e registre os itens no inventário.')] },
-    3: { subclassChoice: true, features: [feature('rightTool', 'A Ferramenta Certa', 'Produza ferramentas de artesão durante um descanso com ferramentas de ladrão ou artesão.')] },
-    4: { cantripsKnown: 3, asiOrFeat: true },
+    3: { subclassChoice: true, features: [feature('artificerSpecialist', 'Especialista', 'Escolha sua especialização (subclasse); ela concede proficiência em uma ferramenta.'), feature('rightTool', 'A Ferramenta Certa', 'Produza ferramentas de artesão durante um descanso com ferramentas de ladrão ou artesão.')] },
+    4: { asiOrFeat: true },
     5: {},
     6: { features: [feature('toolExpertise', 'Especialização em Ferramentas', 'Dobre a proficiência nos testes com ferramentas proficientes. 6 infusões conhecidas; 3 itens ativos.')] },
     7: { features: [feature('flashOfGenius', 'Lampejo de Genialidade', 'Reação: acrescente INT a teste de atributo ou salvamento em 30 pés. INT usos por descanso longo.')] },
     8: { asiOrFeat: true },
     9: {},
-    10: { cantripsKnown: 4, features: [feature('magicItemAdept', 'Adepto de Itens Mágicos', 'Sintonia com até 4 itens; criação acelerada de itens comuns/incomuns. 8 infusões conhecidas; 4 itens ativos.')] },
+    10: { cantripsKnown: 3, features: [feature('magicItemAdept', 'Adepto de Itens Mágicos', 'Sintonia com até 4 itens; fabrica itens Comuns e Incomuns em ¼ do tempo e pela metade do custo. 8 infusões conhecidas; 4 itens ativos.')] },
     11: { features: [feature('spellStoringItem', 'Item Armazenador de Magia', 'Armazene uma magia de artífice de nível 1 ou 2, com tempo de 1 ação. Até 2 × INT usos (mínimo 2).')] },
     12: { asiOrFeat: true },
     13: {},
-    14: { features: [feature('magicItemSavant', 'Sábio de Itens Mágicos', 'Sintonia com até 5 itens; ignore restrições de classe, raça, magia e nível para uso. 10 infusões; 5 itens ativos.')] },
+    14: { cantripsKnown: 4, features: [feature('magicItemSavant', 'Sábio de Itens Mágicos', 'Sintonia com até 5 itens; ignore restrições de classe, raça, magia e nível para uso. 10 infusões; 5 itens ativos.')] },
     15: {},
     16: { asiOrFeat: true },
     17: {},
@@ -25,7 +25,7 @@ export const ARTIFICER_RULES = {
   },
   subclassPerLevel: {
     alchemist: {
-      3: { autoSpells: ['healingWord', 'rayOfSickness'], features: [feature('experimentalElixir', 'Elixir Experimental', 'Após descanso longo, produza um elixir aleatório; 2 no nível 6, 3 no nível 15. Espaços de magia produzem elixires escolhidos.')] },
+      3: { autoSpells: ['healingWord', 'rayOfSickness'], features: [feature('alchemistTools', 'Proficiência com Ferramenta', 'Suprimentos de alquimista (ou outra ferramenta de artesão, se já tiver).'), feature('experimentalElixir', 'Elixir Experimental', 'Após descanso longo, produza um elixir aleatório; 2 no nível 6, 3 no nível 15. Espaços de magia produzem elixires escolhidos.')] },
       5: { autoSpells: ['flamingSphere', 'acidArrow'], features: [feature('alchemicalSavant', 'Sábio Alquímico', 'Com ferramentas de alquimia como foco, adicione INT a uma rolagem de cura ou dano ácido, fogo, necrótico ou veneno.')] },
       9: { autoSpells: ['gaseousForm', 'massHealingWord'], features: [feature('restorativeReagents', 'Reagentes Restauradores', 'Elixires concedem 2d6 + INT HP temporários; Restauração Menor sem espaço INT vezes por descanso longo.')] },
       13: { autoSpells: ['blight', 'deathWard'] },
@@ -33,7 +33,7 @@ export const ARTIFICER_RULES = {
       17: { autoSpells: ['cloudkill', 'raiseDead'] },
     },
     armorer: {
-      3: { autoSpells: ['magicMissile', 'thunderwave'], features: [feature('arcaneArmor', 'Armadura Arcana', 'Armadura pesada e ferramentas de ferreiro. Escolha modelo Guardião ou Infiltrador no descanso.')] },
+      3: { autoSpells: ['magicMissile', 'thunderwave'], features: [feature('arcaneArmor', 'Armadura Arcana', 'Proficiência em armadura pesada e ferramentas de ferreiro. Sua armadura vira foco e não pode ser removida contra a vontade; escolha o modelo Guardião ou Infiltrador após cada descanso.')] },
       5: { extraAttacks: 1, autoSpells: ['mirrorImage', 'shatter'], features: [feature('extraAttack', 'Ataque Extra', 'Dois ataques na ação Atacar.')] },
       9: { autoSpells: ['hypnoticPattern', 'lightningBolt'], features: [feature('armorModifications', 'Modificações de Armadura', 'Infunda separadamente partes da armadura; até 2 infusões adicionais devem integrar a armadura.')] },
       13: { autoSpells: ['fireShield', 'greaterInvisibility'] },
@@ -41,7 +41,7 @@ export const ARTIFICER_RULES = {
       17: { autoSpells: ['passwall', 'wallOfForce'] },
     },
     artillerist: {
-      3: { autoSpells: ['shield', 'thunderwave'], features: [feature('eldritchCannon', 'Canhão Sobrenatural', 'Crie canhão: lança-chamas, balista ou protetor. Ativação por ação bônus; duração de 1 hora.')] },
+      3: { autoSpells: ['shield', 'thunderwave'], features: [feature('artilleristTools', 'Proficiência com Ferramenta', 'Ferramentas de entalhador (ou outra ferramenta de artesão, se já tiver).'), feature('eldritchCannon', 'Canhão Sobrenatural', 'Crie canhão: lança-chamas, balista ou protetor. Ativação por ação bônus; duração de 1 hora.')] },
       5: { autoSpells: ['scorchingRay', 'shatter'], features: [feature('arcaneFirearm', 'Arma de Fogo Arcana', '+1d8 a uma rolagem de dano de magia de artífice lançada com o foco modificado.')] },
       9: { autoSpells: ['fireball', 'windWall'], features: [feature('explosiveCannon', 'Canhão Explosivo', '+1d8 no dano do canhão; pode detoná-lo com uma ação.')] },
       13: { autoSpells: ['iceStorm', 'wallOfFire'] },
@@ -49,7 +49,7 @@ export const ARTIFICER_RULES = {
       17: { autoSpells: ['coneOfCold', 'wallOfForce'] },
     },
     battlesmith: {
-      3: { autoSpells: ['heroism', 'shield'], features: [feature('battleReady', 'Pronto para Batalha', 'Armas marciais; use INT em ataques e dano de armas mágicas.'), feature('steelDefender', 'Defensor de Aço', 'Companheiro constructo; comando por ação bônus. Registre sua ficha entre os combatentes.')] },
+      3: { autoSpells: ['heroism', 'shield'], features: [feature('battleReady', 'Pronto para Batalha', 'Proficiência em armas marciais e ferramentas de ferreiro; use INT em ataques e dano de armas mágicas.'), feature('steelDefender', 'Defensor de Aço', 'Constructo Médio: CA 15, PV 2 + INT + 5×nível de artífice; age após você e obedece por ação bônus; reação Desviar Ataque (desvantagem num ataque a criatura a 5 pés). Registre sua ficha entre os combatentes.')] },
       5: { extraAttacks: 1, autoSpells: ['brandingSmite', 'wardingBond'], features: [feature('extraAttack', 'Ataque Extra', 'Dois ataques na ação Atacar.')] },
       9: { autoSpells: ['auraOfVitality', 'conjureBarrage'], features: [feature('arcaneJolt', 'Abalo Arcano', 'Ao acertar com arma mágica ou defensor: +2d6 dano ou cura próxima. INT usos por descanso longo, 1 por turno.')] },
       13: { autoSpells: ['auraOfPurity', 'fireShield'] },

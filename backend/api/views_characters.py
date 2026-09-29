@@ -8,7 +8,8 @@ from .serializers import CharacterSerializer
 from .permissions import can_read_character
 from . import wild_shape as ws_engine
 from . import spells as spells_engine
-from .progression import validate_level_choice, apply_level_choice
+from .progression import validate_level_choice, apply_level_choice, validate_class_options, apply_class_options
+from .progression.resources import rest_resources, spend_resource
 
 
 @api_view(['GET', 'POST'])
@@ -82,7 +83,7 @@ OWNER_LOCKED_IN_CAMPAIGN = {
     'saveProfs', 'skillProfs', 'skillExpertise',
     'spellSlotsMax', 'spellSlotsUsed',
     'equipment', 'weapons', 'armor', 'hasShield',
-    'levelChoices', 'feats',
+    'levelChoices', 'feats', 'classOptions', 'resourcesUsed',
 }
 
 
@@ -155,6 +156,62 @@ def character_level_choice(request, pk):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def character_class_options(request, pk):
+    """
+    Registra opções de classe pendentes (invocações, metamagia…) de um nível já
+    alcançado, ou troca opções de pools com troca livre (ex.: maestria em armas).
+    Body: { classId: 'warlock', adds: [{pool, id, detail?}], swaps: [{pool, from, to}] }
+    """
+    char = Character.objects.filter(pk=pk).first()
+    if not char:
+        raise NotFound('not_found')
+    if not _can_modify_character(request.user, char):
+        raise PermissionDenied('forbidden')
+    data = char.data or {}
+    class_id = request.data.get('classId') or data.get('className')
+    picks = {'adds': request.data.get('adds') or [], 'swaps': request.data.get('swaps') or []}
+    check = validate_class_options(data, class_id, picks)
+    if not check['valid']:
+        raise ValidationError({'error': 'invalid_options', 'issues': check['issues']})
+    char.data = apply_class_options(data, class_id, picks)
+    char.save()
+    return Response({'character': CharacterSerializer(char).data})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def character_resource(request, pk):
+    """
+    Gasta ou recupera usos de um recurso de classe (Fúria, Canalizar Divindade…).
+    Body: { key: 'barbarian.rage', action: 'use' | 'restore', amount?: 1 }
+    Gastar: dono ou mestre. Recuperar fora do descanso: só o mestre da campanha,
+    ou o dono em modo trapaça fora de campanha.
+    """
+    char = Character.objects.filter(pk=pk).first()
+    if not char:
+        raise NotFound('not_found')
+    if not _can_modify_character(request.user, char):
+        raise PermissionDenied('forbidden')
+    data = char.data or {}
+    action = request.data.get('action')
+    amount = request.data.get('amount', 1)
+    if action not in ('use', 'restore') or not isinstance(amount, int) or isinstance(amount, bool) or not 1 <= amount <= 200:
+        raise ValidationError({'error': 'invalid_resource_action'})
+    if action == 'restore':
+        in_camp = Membership.objects.filter(character=char).exists()
+        allowed = _is_dm_of_char(request.user, char) or (not in_camp and data.get('cheatMode'))
+        if not allowed:
+            raise PermissionDenied({'error': 'restore_needs_rest'})
+    nxt = spend_resource(data, request.data.get('key'), amount if action == 'use' else -amount)
+    if nxt is None:
+        raise ValidationError({'error': 'unknown_resource'})
+    char.data = nxt
+    char.save()
+    return Response({'character': CharacterSerializer(char).data})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def character_rest(request, pk):
     """Descanso curto ou longo.
     Body: { type: 'short' | 'long' }
@@ -174,6 +231,7 @@ def character_rest(request, pk):
         next_data = spells_engine.short_rest(char.data or {})
     else:
         raise ValidationError({'error': 'invalid_rest_type'})
+    next_data = rest_resources(next_data, rest_type)
 
     char.data = next_data
     char.save()
@@ -191,7 +249,7 @@ def campaign_long_rest_all(request, id_or_slug):
     affected = []
     for m in members:
         if m.character:
-            m.character.data = spells_engine.long_rest(m.character.data or {})
+            m.character.data = rest_resources(spells_engine.long_rest(m.character.data or {}), 'long')
             m.character.save()
             affected.append(m.character.id)
     return Response({'restedCharacters': affected})

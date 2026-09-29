@@ -7,13 +7,20 @@
  *
  * Formato:
  *  { sourceId, name {pt,en}, type, weight?, cost?,
- *    weapon? : {damage, dmgType, props[], range?},
+ *    source? : 'DMG24' (fora do SRD; padrão SRD),
+ *    weapon? : {damage, dmgType, props[], range?, mastery?, v2024?, firearm?, reload?},
  *    armor?  : {ac, type, stealth?, strReq?},
  *    magic?  : {rarity, attunement: bool, effect{pt,en}},
  *    description? {pt,en} }
  *
+ * Armas: números de 2014 no topo; `v2024` traz só o que mudou no SRD 5.2.1
+ * (lança de montaria, tridente, picareta de guerra). `mastery` (maestria 2024)
+ * é preenchido abaixo a partir de SHARED.weaponMastery (mesmos ids).
+ *
  * `type`: 'weapon' | 'armor' | 'shield' | 'gear' | 'potion' | 'magic'
  */
+
+import { SHARED } from './class-options/shared.js';
 
 const I = (sourceId, name, type, extra = {}) => ({ sourceId, name, type, ...extra });
 
@@ -22,15 +29,15 @@ const ITEMS = [
   // ARMAS SIMPLES — CORPO A CORPO
   // ============================================================
   I('club',          { pt: 'Clava',           en: 'Club' },          'weapon', { weapon: { damage: '1d4',  dmgType: 'bludgeoning', props: ['light'] } }),
-  I('dagger',        { pt: 'Adaga',           en: 'Dagger' },        'weapon', { weapon: { damage: '1d4',  dmgType: 'piercing',    props: ['finesse','light','thrown'] } }),
+  I('dagger',        { pt: 'Adaga',           en: 'Dagger' },        'weapon', { weapon: { damage: '1d4',  dmgType: 'piercing',    props: ['finesse','light','thrown'], range: '20/60' } }),
   I('greatclub',     { pt: 'Clava Grande',    en: 'Greatclub' },     'weapon', { weapon: { damage: '1d8',  dmgType: 'bludgeoning', props: ['two-handed'] } }),
-  I('handaxe',       { pt: 'Machadinha',      en: 'Handaxe' },       'weapon', { weapon: { damage: '1d6',  dmgType: 'slashing',    props: ['light','thrown'] } }),
-  I('javelin',       { pt: 'Azagaia',         en: 'Javelin' },       'weapon', { weapon: { damage: '1d6',  dmgType: 'piercing',    props: ['thrown'] } }),
-  I('lightHammer',   { pt: 'Martelo Leve',    en: 'Light Hammer' },  'weapon', { weapon: { damage: '1d4',  dmgType: 'bludgeoning', props: ['light','thrown'] } }),
+  I('handaxe',       { pt: 'Machadinha',      en: 'Handaxe' },       'weapon', { weapon: { damage: '1d6',  dmgType: 'slashing',    props: ['light','thrown'], range: '20/60' } }),
+  I('javelin',       { pt: 'Azagaia',         en: 'Javelin' },       'weapon', { weapon: { damage: '1d6',  dmgType: 'piercing',    props: ['thrown'], range: '30/120' } }),
+  I('lightHammer',   { pt: 'Martelo Leve',    en: 'Light Hammer' },  'weapon', { weapon: { damage: '1d4',  dmgType: 'bludgeoning', props: ['light','thrown'], range: '20/60' } }),
   I('mace',          { pt: 'Maça',            en: 'Mace' },          'weapon', { weapon: { damage: '1d6',  dmgType: 'bludgeoning', props: [] } }),
   I('quarterstaff',  { pt: 'Bordão',          en: 'Quarterstaff' },  'weapon', { weapon: { damage: '1d6',  dmgType: 'bludgeoning', props: ['versatile'] } }),
-  I('sickle',        { pt: 'Foice',           en: 'Sickle' },        'weapon', { weapon: { damage: '1d4',  dmgType: 'slashing',    props: ['light'] } }),
-  I('spear',         { pt: 'Lança',           en: 'Spear' },         'weapon', { weapon: { damage: '1d6',  dmgType: 'piercing',    props: ['thrown','versatile'] } }),
+  I('sickle',        { pt: 'Foice Curta',     en: 'Sickle' },        'weapon', { weapon: { damage: '1d4',  dmgType: 'slashing',    props: ['light'] } }),
+  I('spear',         { pt: 'Lança',           en: 'Spear' },         'weapon', { weapon: { damage: '1d6',  dmgType: 'piercing',    props: ['thrown','versatile'], range: '20/60' } }),
 
   // ARMAS SIMPLES — DISTÂNCIA
   I('crossbowLight', { pt: 'Besta Leve',      en: 'Light Crossbow' }, 'weapon', { weapon: { damage: '1d8', dmgType: 'piercing',   props: ['ammo','loading','two-handed'], range: '80/320' } }),
@@ -41,26 +48,41 @@ const ITEMS = [
   // ARMAS MARCIAIS — CORPO A CORPO
   I('battleaxe',     { pt: 'Machado de Batalha', en: 'Battleaxe' },   'weapon', { weapon: { damage: '1d8',  dmgType: 'slashing',    props: ['versatile'] } }),
   I('flail',         { pt: 'Mangual',         en: 'Flail' },          'weapon', { weapon: { damage: '1d8',  dmgType: 'bludgeoning', props: [] } }),
-  I('glaive',        { pt: 'Alabarda',        en: 'Glaive' },         'weapon', { weapon: { damage: '1d10', dmgType: 'slashing',    props: ['heavy','reach','two-handed'] } }),
+  I('glaive',        { pt: 'Glaive',          en: 'Glaive' },         'weapon', { weapon: { damage: '1d10', dmgType: 'slashing',    props: ['heavy','reach','two-handed'] } }),
   I('greataxe',      { pt: 'Machado Grande',  en: 'Greataxe' },       'weapon', { weapon: { damage: '1d12', dmgType: 'slashing',    props: ['heavy','two-handed'] } }),
   I('greatsword',    { pt: 'Espada Grande',   en: 'Greatsword' },     'weapon', { weapon: { damage: '2d6',  dmgType: 'slashing',    props: ['heavy','two-handed'] } }),
-  I('halberd',       { pt: 'Halberda',        en: 'Halberd' },        'weapon', { weapon: { damage: '1d10', dmgType: 'slashing',    props: ['heavy','reach','two-handed'] } }),
-  I('lance',         { pt: 'Lança Montada',   en: 'Lance' },          'weapon', { weapon: { damage: '1d12', dmgType: 'piercing',    props: ['reach','special'] } }),
+  I('halberd',       { pt: 'Alabarda',        en: 'Halberd' },        'weapon', { weapon: { damage: '1d10', dmgType: 'slashing',    props: ['heavy','reach','two-handed'] } }),
+  I('lance',         { pt: 'Lança de Montaria', en: 'Lance' },          'weapon', { weapon: { damage: '1d12', dmgType: 'piercing',    props: ['reach','special'], v2024: { damage: '1d10', props: ['heavy','reach','two-handed'] } } }),
   I('longsword',     { pt: 'Espada Longa',    en: 'Longsword' },      'weapon', { weapon: { damage: '1d8',  dmgType: 'slashing',    props: ['versatile'] } }),
   I('maul',          { pt: 'Marreta',         en: 'Maul' },           'weapon', { weapon: { damage: '2d6',  dmgType: 'bludgeoning', props: ['heavy','two-handed'] } }),
-  I('morningstar',   { pt: 'Mangrenata',      en: 'Morningstar' },    'weapon', { weapon: { damage: '1d8',  dmgType: 'piercing',    props: [] } }),
+  I('morningstar',   { pt: 'Maça-estrela',    en: 'Morningstar' },    'weapon', { weapon: { damage: '1d8',  dmgType: 'piercing',    props: [] } }),
   I('pike',          { pt: 'Pique',           en: 'Pike' },           'weapon', { weapon: { damage: '1d10', dmgType: 'piercing',    props: ['heavy','reach','two-handed'] } }),
-  I('rapier',        { pt: 'Florete',         en: 'Rapier' },         'weapon', { weapon: { damage: '1d8',  dmgType: 'piercing',    props: ['finesse'] } }),
+  I('rapier',        { pt: 'Rapieira',        en: 'Rapier' },         'weapon', { weapon: { damage: '1d8',  dmgType: 'piercing',    props: ['finesse'] } }),
   I('scimitar',      { pt: 'Cimitarra',       en: 'Scimitar' },       'weapon', { weapon: { damage: '1d6',  dmgType: 'slashing',    props: ['finesse','light'] } }),
   I('shortsword',    { pt: 'Espada Curta',    en: 'Shortsword' },     'weapon', { weapon: { damage: '1d6',  dmgType: 'piercing',    props: ['finesse','light'] } }),
-  I('trident',       { pt: 'Tridente',        en: 'Trident' },        'weapon', { weapon: { damage: '1d6',  dmgType: 'piercing',    props: ['thrown','versatile'] } }),
+  I('trident',       { pt: 'Tridente',        en: 'Trident' },        'weapon', { weapon: { damage: '1d6',  dmgType: 'piercing',    props: ['thrown','versatile'], range: '20/60', v2024: { damage: '1d8' } } }),
+  I('warPick',       { pt: 'Picareta de Guerra', en: 'War Pick' },   'weapon', { weapon: { damage: '1d8',  dmgType: 'piercing',    props: [], v2024: { props: ['versatile'] } } }),
   I('warhammer',     { pt: 'Martelo de Guerra', en: 'Warhammer' },    'weapon', { weapon: { damage: '1d8',  dmgType: 'bludgeoning', props: ['versatile'] } }),
   I('whip',          { pt: 'Chicote',         en: 'Whip' },           'weapon', { weapon: { damage: '1d4',  dmgType: 'slashing',    props: ['finesse','reach'] } }),
 
   // ARMAS MARCIAIS — DISTÂNCIA
+  I('blowgun',       { pt: 'Zarabatana',      en: 'Blowgun' },        'weapon', { weapon: { damage: '1',    dmgType: 'piercing',    props: ['ammo','loading'], range: '25/100' } }),
   I('crossbowHand',  { pt: 'Besta de Mão',    en: 'Hand Crossbow' },  'weapon', { weapon: { damage: '1d6',  dmgType: 'piercing',    props: ['ammo','light','loading'], range: '30/120' } }),
   I('crossbowHeavy', { pt: 'Besta Pesada',    en: 'Heavy Crossbow' }, 'weapon', { weapon: { damage: '1d10', dmgType: 'piercing',    props: ['ammo','heavy','loading','two-handed'], range: '100/400' } }),
   I('longbow',       { pt: 'Arco Longo',      en: 'Longbow' },        'weapon', { weapon: { damage: '1d8',  dmgType: 'piercing',    props: ['ammo','heavy','two-handed'], range: '150/600' } }),
+  I('musket',        { pt: 'Mosquete',        en: 'Musket' },         'weapon', { weapon: { damage: '1d12', dmgType: 'piercing',    props: ['ammo','loading','two-handed'], range: '40/120', firearm: true } }),
+  I('pistol',        { pt: 'Pistola',         en: 'Pistol' },         'weapon', { weapon: { damage: '1d10', dmgType: 'piercing',    props: ['ammo','loading'], range: '30/90', firearm: true } }),
+
+  // ARMAS DE FOGO MODERNAS E FUTURISTAS — Guia do Mestre 2024 (fora do SRD; só com o mestre liberando).
+  // `reload`: disparos antes de gastar uma ação (ou ação bônus) para recarregar.
+  I('revolver',        { pt: 'Revólver',               en: 'Revolver' },             'weapon', { source: 'DMG24', weapon: { damage: '2d8', dmgType: 'piercing', props: ['ammo','reload'], range: '40/120', reload: 6, firearm: true } }),
+  I('pistolAutomatic', { pt: 'Pistola Semiautomática', en: 'Semiautomatic Pistol' }, 'weapon', { source: 'DMG24', weapon: { damage: '2d6', dmgType: 'piercing', props: ['ammo','reload'], range: '50/150', reload: 15, firearm: true } }),
+  I('huntingRifle',    { pt: 'Rifle de Caça',          en: 'Hunting Rifle' },        'weapon', { source: 'DMG24', weapon: { damage: '2d10', dmgType: 'piercing', props: ['ammo','reload','two-handed'], range: '80/240', reload: 5, firearm: true } }),
+  I('automaticRifle',  { pt: 'Rifle Automático',       en: 'Automatic Rifle' },      'weapon', { source: 'DMG24', weapon: { damage: '2d8', dmgType: 'piercing', props: ['ammo','burst-fire','reload','two-handed'], range: '80/240', reload: 30, firearm: true } }),
+  I('shotgun',         { pt: 'Espingarda',             en: 'Shotgun' },              'weapon', { source: 'DMG24', weapon: { damage: '2d8', dmgType: 'piercing', props: ['ammo','reload','two-handed'], range: '30/90', reload: 2, firearm: true } }),
+  I('laserPistol',     { pt: 'Pistola Laser',          en: 'Laser Pistol' },         'weapon', { source: 'DMG24', weapon: { damage: '3d6', dmgType: 'radiant', props: ['ammo','reload'], range: '40/120', reload: 50, firearm: true } }),
+  I('laserRifle',      { pt: 'Rifle Laser',            en: 'Laser Rifle' },          'weapon', { source: 'DMG24', weapon: { damage: '3d8', dmgType: 'radiant', props: ['ammo','reload','two-handed'], range: '100/300', reload: 30, firearm: true } }),
+  I('antimatterRifle', { pt: 'Rifle de Antimatéria',   en: 'Antimatter Rifle' },     'weapon', { source: 'DMG24', weapon: { damage: '6d8', dmgType: 'necrotic', props: ['ammo','reload','two-handed'], range: '120/360', reload: 2, firearm: true } }),
 
   // ============================================================
   // ARMADURAS
@@ -69,7 +91,7 @@ const ITEMS = [
   I('leather',        { pt: 'Couro',              en: 'Leather' },        'armor', { armor: { ac: 11, type: 'light'  } }),
   I('studdedLeather', { pt: 'Couro Batido',       en: 'Studded Leather' },'armor', { armor: { ac: 12, type: 'light'  } }),
   I('hide',           { pt: 'Couro Cru',          en: 'Hide' },           'armor', { armor: { ac: 12, type: 'medium' } }),
-  I('chainShirt',     { pt: 'Cota de Cordames',   en: 'Chain Shirt' },    'armor', { armor: { ac: 13, type: 'medium' } }),
+  I('chainShirt',     { pt: 'Camisão de Malha',   en: 'Chain Shirt' },    'armor', { armor: { ac: 13, type: 'medium' } }),
   I('scaleMail',      { pt: 'Cota de Escamas',    en: 'Scale Mail' },     'armor', { armor: { ac: 14, type: 'medium', stealth: 'disadv' } }),
   I('breastplate',    { pt: 'Peitoral',           en: 'Breastplate' },    'armor', { armor: { ac: 14, type: 'medium' } }),
   I('halfPlate',      { pt: 'Meio-Placa',         en: 'Half Plate' },     'armor', { armor: { ac: 15, type: 'medium', stealth: 'disadv' } }),
@@ -150,6 +172,10 @@ const ITEMS = [
   I('immovableRod', { pt: 'Bastão Imóvel',  en: 'Immovable Rod' },      'magic', { magic: { rarity: 'uncommon', attunement: false, effect: { pt: 'Botão prende no ar; aguenta 8000 lb.', en: 'Button locks in air, holds 8000 lb.' } } }),
   I('handyHaversack', { pt: 'Mochila Útil', en: 'Handy Haversack' },    'magic', { magic: { rarity: 'rare', attunement: false, effect: { pt: '3 compartimentos extradimensionais.', en: '3 extradimensional compartments.' } } }),
 ];
+
+// Maestria 2024 de cada arma (fonte única: SHARED.weaponMastery, mesmos ids).
+const MASTERY_BY_ID = Object.fromEntries(SHARED.weaponMastery.options.map(o => [o.id, o.mastery]));
+for (const it of ITEMS) if (it.weapon && MASTERY_BY_ID[it.sourceId]) it.weapon.mastery = MASTERY_BY_ID[it.sourceId];
 
 const ITEMS_BY_ID = Object.fromEntries(ITEMS.map(it => [it.sourceId, it]));
 

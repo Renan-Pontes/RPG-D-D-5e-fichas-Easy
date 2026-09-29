@@ -16,6 +16,8 @@ from .engine import (
     validate_level_choice,
     apply_level_choice,
     max_hp_gain,
+    validate_class_options,
+    apply_class_options,
 )
 from .multiclass import (
     is_multiclass, class_entries, class_level, class_view, class_sequence, can_multiclass_into, with_class_level,

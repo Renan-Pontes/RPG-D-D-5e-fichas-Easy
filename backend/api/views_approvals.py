@@ -11,6 +11,7 @@ from .permissions import get_campaign_or_404, require_member, is_dm
 from .progression import (
     apply_approval_to_character, validate_level_up, validate_level_choice, max_hp_gain,
     class_entries, can_multiclass_into, with_class_level, MULTICLASS_SKILL,
+    validate_class_options,
 )
 
 VALID_TYPES = {'levelup', 'feature', 'item', 'spell', 'other'}
@@ -182,9 +183,23 @@ def _merge_levelup_choices(data, payload, body):
         if not check['valid']:
             raise ValidationError({'error': 'invalid_choice', 'issues': check['issues']})
         payload['choice'] = choice
+    options = body.get('options')
+    if options is not None:
+        check = validate_class_options(after, class_id, options, level_up=True)
+        if not check['valid']:
+            raise ValidationError({'error': 'invalid_options', 'issues': check['issues']})
+        payload['options'] = options
     spells = body.get('spellsAdded')
     if spells is not None:
-        if not isinstance(spells, list) or not all(isinstance(x, str) and len(x) <= 80 for x in spells) or len(spells) > 10:
+        # Itens: id (str) ou {'id', 'inBook': True} — grimório, só para o mago.
+        def _ok(x):
+            if isinstance(x, str):
+                return 0 < len(x) <= 80
+            return (isinstance(x, dict) and set(x) <= {'id', 'inBook'} and x.get('inBook') is True
+                    and class_id == 'wizard' and isinstance(x.get('id'), str) and 0 < len(x['id']) <= 80)
+        book = [x for x in spells if isinstance(x, dict)] if isinstance(spells, list) else []
+        if (not isinstance(spells, list) or not all(_ok(x) for x in spells)
+                or len(spells) - len(book) > 10 or len(book) > 6):
             raise ValidationError({'error': 'invalid_spellsAdded'})
         payload['spellsAdded'] = spells
     return payload

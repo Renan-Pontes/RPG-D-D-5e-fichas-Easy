@@ -12,6 +12,7 @@ from .permissions import get_campaign_or_404, require_dm
 ITEM_TYPES = {'weapon', 'armor', 'shield', 'gear', 'potion', 'magic'}
 RARITIES = {'common', 'uncommon', 'rare', 'very rare', 'legendary', 'artifact'}
 MAX_ITEM_BYTES = 8000
+MASTERIES = {'cleave', 'graze', 'nick', 'push', 'sap', 'slow', 'topple', 'vex'}
 
 
 def _text(value, limit):
@@ -49,6 +50,10 @@ def clean_item(raw):
             'dmgType': _text(weapon.get('dmgType'), 30),
             'props': [_text(p, 30) for p in (weapon.get('props') or []) if _text(p, 30)][:10],
         }
+        if _text(weapon.get('range'), 20):
+            item['weapon']['range'] = _text(weapon.get('range'), 20)
+        if weapon.get('mastery') in MASTERIES:
+            item['weapon']['mastery'] = weapon['mastery']
     armor = raw.get('armor')
     if isinstance(armor, dict) and isinstance(armor.get('ac'), int) and not isinstance(armor.get('ac'), bool):
         item['armor'] = {'ac': max(0, min(30, armor['ac'])), 'type': _text(armor.get('type'), 20) or 'light'}

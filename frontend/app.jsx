@@ -17,8 +17,9 @@ import { api } from './src/api/client.js';
 import CampaignList from './src/campaigns/CampaignList.jsx';
 import CampaignDetail from './src/campaigns/CampaignDetail.jsx';
 import ProgressionPanel from './src/progression/ProgressionPanel.jsx';
-import { applyAutosToCharacter, applyLevelUpChoices, applyLevelChoice, revertLastLevel } from './src/progression/engine.js';
+import { applyAutosToCharacter, applyLevelUpChoices, applyLevelChoice, applyClassOptions, revertLastLevel } from './src/progression/engine.js';
 import LevelUpModal from './src/progression/LevelUpModal.jsx';
+import { ClassOptionsModal } from './src/progression/ClassOptionsPicker.jsx';
 
 const SCREENS = {
   HOME: 'home', CREATE: 'create', SHEET: 'sheet', EDIT: 'edit', PRINT: 'print',
@@ -185,8 +186,8 @@ const App = () => {
     if (!active || !levelUpFlow) return;
     if (levelUpFlow.mode === 'local') return applyLocalLevelUp(active, choices);
     if (levelUpFlow.mode === 'consume') {
-      const { hpGain, choice, spellsAdded, classId, skillAdded } = choices;
-      await api.consumeApproval(unlockedLevelup.id, { hpGain, choice, spellsAdded, classId, skillAdded });
+      const { hpGain, choice, spellsAdded, classId, skillAdded, options } = choices;
+      await api.consumeApproval(unlockedLevelup.id, { hpGain, choice, spellsAdded, classId, skillAdded, options });
       await refreshCharacters();
       setUnlockedLevelup(null);
       setToast(lang === 'pt' ? `Nível ${choices.toLevel}! ✨` : `Level ${choices.toLevel}! ✨`);
@@ -200,6 +201,15 @@ const App = () => {
     }
     await refreshCharacters();
     setToast(lang === 'pt' ? 'Escolha registrada ✨' : 'Choice saved ✨');
+  };
+
+  // Opções de classe pendentes (invocações etc.) ou troca livre, fora da subida de nível.
+  const handleClassOptions = async (classId, picks) => {
+    if (!active) return;
+    if (typeof active.id === 'number') await api.classOptions(active.id, { classId, ...picks });
+    else await storage.save(applyClassOptions(active, classId, picks));
+    await refreshCharacters();
+    setToast(lang === 'pt' ? 'Escolhas registradas ✨' : 'Choices saved ✨');
   };
 
   const handleLevelUpRequest = async () => {
@@ -377,10 +387,15 @@ const App = () => {
                 unlockedLevelup={unlockedLevelup}
                 onConsumeLevelup={handleConsumeLevelup}
                 onResolveChoice={(level) => setLevelUpFlow({ mode: 'choice', level })}
+                onResolveOptions={(classId) => setLevelUpFlow({ mode: 'options', classId })}
               />
             </div>
           </Sheet>
-          {levelUpFlow && (
+          {levelUpFlow?.mode === 'options' && (
+            <ClassOptionsModal char={active} classId={levelUpFlow.classId} lang={lang}
+              onConfirm={handleClassOptions} onClose={() => setLevelUpFlow(null)} />
+          )}
+          {levelUpFlow && levelUpFlow.mode !== 'options' && (
             <LevelUpModal
               char={active}
               lang={lang}

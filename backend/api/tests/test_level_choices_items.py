@@ -104,6 +104,15 @@ class CampaignItemTests(TestCase):
         self.assertEqual(self.c_dm.delete(f"{self.url}/{saved['id']}").status_code, 200)
         self.assertEqual(self.c_dm.get(self.url).json()['items'], [])
 
+    def test_weapon_keeps_range_and_mastery(self):
+        item = {'name': 'Mosquete', 'type': 'weapon', 'weapon': {'damage': '1d12', 'dmgType': 'piercing',
+                'props': ['ammo', 'loading', 'two-handed'], 'range': '40/120', 'mastery': 'slow'}}
+        weapon = self.c_dm.post(self.url, {'item': item}, format='json').json()['item']['item']['weapon']
+        self.assertEqual((weapon['range'], weapon['mastery']), ('40/120', 'slow'))
+        item['weapon']['mastery'] = 'explode'
+        weapon = self.c_dm.post(self.url, {'item': item}, format='json').json()['item']['item']['weapon']
+        self.assertNotIn('mastery', weapon)
+
     def test_player_cannot_see_or_create(self):
         self.assertEqual(self.c_p.get(self.url).status_code, 403)
         self.assertEqual(self.c_p.post(self.url, {'item': {'name': 'x'}}, format='json').status_code, 403)

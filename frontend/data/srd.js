@@ -5,6 +5,7 @@
 
 import { ARTIFICER, EXTRA_RACES, EXTRA_SUBCLASSES, SOURCES } from './expanded-catalog.js';
 import { SPELLS_2024 } from './rules2024.js';
+import { LEGACY_SPELL_CLASSES } from './spells-legacy-classes.js';
 
 const SRD = (() => {
 
@@ -650,49 +651,70 @@ const BACKGROUNDS = [
 
 const ALIGNMENTS = ['LG','NG','CG','LN','N','CN','LE','NE','CE'];
 
+// Os campos de topo (damage, props) são os de 2014, usados pelas fichas antigas.
+// `v2024` sobrescreve só o que mudou no SRD 5.2.1; `mastery` (maestria 2024) e
+// `range` valem para as duas versões. Use `weaponFor(id, rulesVersion)`.
+// `rules: '2014'` = só existe em 2014 (a rede virou equipamento em 2024).
 const WEAPONS = [
   // Simple Melee
-  { id: 'club',         type: 'simple-melee',   damage: '1d4', dmgType: 'bludgeoning', props: ['light'] },
-  { id: 'dagger',       type: 'simple-melee',   damage: '1d4', dmgType: 'piercing', props: ['finesse','light','thrown'] },
-  { id: 'greatclub',    type: 'simple-melee',   damage: '1d8', dmgType: 'bludgeoning', props: ['two-handed'] },
-  { id: 'handaxe',      type: 'simple-melee',   damage: '1d6', dmgType: 'slashing', props: ['light','thrown'] },
-  { id: 'javelin',      type: 'simple-melee',   damage: '1d6', dmgType: 'piercing', props: ['thrown'] },
-  { id: 'lightHammer',  type: 'simple-melee',   damage: '1d4', dmgType: 'bludgeoning', props: ['light','thrown'] },
-  { id: 'mace',         type: 'simple-melee',   damage: '1d6', dmgType: 'bludgeoning', props: [] },
-  { id: 'quarterstaff', type: 'simple-melee',   damage: '1d6', dmgType: 'bludgeoning', props: ['versatile'] },
-  { id: 'sickle',       type: 'simple-melee',   damage: '1d4', dmgType: 'slashing', props: ['light'] },
-  { id: 'spear',        type: 'simple-melee',   damage: '1d6', dmgType: 'piercing', props: ['thrown','versatile'] },
+  { id: 'club',         type: 'simple-melee',   damage: '1d4', dmgType: 'bludgeoning', props: ['light'], mastery: 'slow' },
+  { id: 'dagger',       type: 'simple-melee',   damage: '1d4', dmgType: 'piercing', props: ['finesse','light','thrown'], range: '20/60', mastery: 'nick' },
+  { id: 'greatclub',    type: 'simple-melee',   damage: '1d8', dmgType: 'bludgeoning', props: ['two-handed'], mastery: 'push' },
+  { id: 'handaxe',      type: 'simple-melee',   damage: '1d6', dmgType: 'slashing', props: ['light','thrown'], range: '20/60', mastery: 'vex' },
+  { id: 'javelin',      type: 'simple-melee',   damage: '1d6', dmgType: 'piercing', props: ['thrown'], range: '30/120', mastery: 'slow' },
+  { id: 'lightHammer',  type: 'simple-melee',   damage: '1d4', dmgType: 'bludgeoning', props: ['light','thrown'], range: '20/60', mastery: 'nick' },
+  { id: 'mace',         type: 'simple-melee',   damage: '1d6', dmgType: 'bludgeoning', props: [], mastery: 'sap' },
+  { id: 'quarterstaff', type: 'simple-melee',   damage: '1d6', dmgType: 'bludgeoning', props: ['versatile'], mastery: 'topple' },
+  { id: 'sickle',       type: 'simple-melee',   damage: '1d4', dmgType: 'slashing', props: ['light'], mastery: 'nick' },
+  { id: 'spear',        type: 'simple-melee',   damage: '1d6', dmgType: 'piercing', props: ['thrown','versatile'], range: '20/60', mastery: 'sap' },
   // Simple Ranged
-  { id: 'crossbowLight',type: 'simple-ranged',  damage: '1d8', dmgType: 'piercing', props: ['ammo','loading','two-handed'] },
-  { id: 'dart',         type: 'simple-ranged',  damage: '1d4', dmgType: 'piercing', props: ['finesse','thrown'] },
-  { id: 'shortbow',     type: 'simple-ranged',  damage: '1d6', dmgType: 'piercing', props: ['ammo','two-handed'] },
-  { id: 'sling',        type: 'simple-ranged',  damage: '1d4', dmgType: 'bludgeoning', props: ['ammo'] },
+  { id: 'crossbowLight',type: 'simple-ranged',  damage: '1d8', dmgType: 'piercing', props: ['ammo','loading','two-handed'], range: '80/320', mastery: 'slow' },
+  { id: 'dart',         type: 'simple-ranged',  damage: '1d4', dmgType: 'piercing', props: ['finesse','thrown'], range: '20/60', mastery: 'vex' },
+  { id: 'shortbow',     type: 'simple-ranged',  damage: '1d6', dmgType: 'piercing', props: ['ammo','two-handed'], range: '80/320', mastery: 'vex' },
+  { id: 'sling',        type: 'simple-ranged',  damage: '1d4', dmgType: 'bludgeoning', props: ['ammo'], range: '30/120', mastery: 'slow' },
   // Martial Melee
-  { id: 'battleaxe',    type: 'martial-melee',  damage: '1d8', dmgType: 'slashing', props: ['versatile'] },
-  { id: 'flail',        type: 'martial-melee',  damage: '1d8', dmgType: 'bludgeoning', props: [] },
-  { id: 'glaive',       type: 'martial-melee',  damage: '1d10', dmgType: 'slashing', props: ['heavy','reach','two-handed'] },
-  { id: 'greataxe',     type: 'martial-melee',  damage: '1d12', dmgType: 'slashing', props: ['heavy','two-handed'] },
-  { id: 'greatsword',   type: 'martial-melee',  damage: '2d6', dmgType: 'slashing', props: ['heavy','two-handed'] },
-  { id: 'halberd',      type: 'martial-melee',  damage: '1d10', dmgType: 'slashing', props: ['heavy','reach','two-handed'] },
-  { id: 'lance',        type: 'martial-melee',  damage: '1d12', dmgType: 'piercing', props: ['reach','special'] },
-  { id: 'longsword',    type: 'martial-melee',  damage: '1d8', dmgType: 'slashing', props: ['versatile'] },
-  { id: 'maul',         type: 'martial-melee',  damage: '2d6', dmgType: 'bludgeoning', props: ['heavy','two-handed'] },
-  { id: 'morningstar',  type: 'martial-melee',  damage: '1d8', dmgType: 'piercing', props: [] },
-  { id: 'pike',         type: 'martial-melee',  damage: '1d10', dmgType: 'piercing', props: ['heavy','reach','two-handed'] },
-  { id: 'rapier',       type: 'martial-melee',  damage: '1d8', dmgType: 'piercing', props: ['finesse'] },
-  { id: 'scimitar',     type: 'martial-melee',  damage: '1d6', dmgType: 'slashing', props: ['finesse','light'] },
-  { id: 'shortsword',   type: 'martial-melee',  damage: '1d6', dmgType: 'piercing', props: ['finesse','light'] },
-  { id: 'trident',      type: 'martial-melee',  damage: '1d6', dmgType: 'piercing', props: ['thrown','versatile'] },
-  { id: 'warPick',      type: 'martial-melee',  damage: '1d8', dmgType: 'piercing', props: [] },
-  { id: 'warhammer',    type: 'martial-melee',  damage: '1d8', dmgType: 'bludgeoning', props: ['versatile'] },
-  { id: 'whip',         type: 'martial-melee',  damage: '1d4', dmgType: 'slashing', props: ['finesse','reach'] },
+  { id: 'battleaxe',    type: 'martial-melee',  damage: '1d8', dmgType: 'slashing', props: ['versatile'], mastery: 'topple' },
+  { id: 'flail',        type: 'martial-melee',  damage: '1d8', dmgType: 'bludgeoning', props: [], mastery: 'sap' },
+  { id: 'glaive',       type: 'martial-melee',  damage: '1d10', dmgType: 'slashing', props: ['heavy','reach','two-handed'], mastery: 'graze' },
+  { id: 'greataxe',     type: 'martial-melee',  damage: '1d12', dmgType: 'slashing', props: ['heavy','two-handed'], mastery: 'cleave' },
+  { id: 'greatsword',   type: 'martial-melee',  damage: '2d6', dmgType: 'slashing', props: ['heavy','two-handed'], mastery: 'graze' },
+  { id: 'halberd',      type: 'martial-melee',  damage: '1d10', dmgType: 'slashing', props: ['heavy','reach','two-handed'], mastery: 'cleave' },
+  { id: 'lance',        type: 'martial-melee',  damage: '1d12', dmgType: 'piercing', props: ['reach','special'], mastery: 'topple',
+    v2024: { damage: '1d10', props: ['heavy','reach','two-handed'] } }, // 2024: duas mãos, exceto montado
+  { id: 'longsword',    type: 'martial-melee',  damage: '1d8', dmgType: 'slashing', props: ['versatile'], mastery: 'sap' },
+  { id: 'maul',         type: 'martial-melee',  damage: '2d6', dmgType: 'bludgeoning', props: ['heavy','two-handed'], mastery: 'topple' },
+  { id: 'morningstar',  type: 'martial-melee',  damage: '1d8', dmgType: 'piercing', props: [], mastery: 'sap' },
+  { id: 'pike',         type: 'martial-melee',  damage: '1d10', dmgType: 'piercing', props: ['heavy','reach','two-handed'], mastery: 'push' },
+  { id: 'rapier',       type: 'martial-melee',  damage: '1d8', dmgType: 'piercing', props: ['finesse'], mastery: 'vex' },
+  { id: 'scimitar',     type: 'martial-melee',  damage: '1d6', dmgType: 'slashing', props: ['finesse','light'], mastery: 'nick' },
+  { id: 'shortsword',   type: 'martial-melee',  damage: '1d6', dmgType: 'piercing', props: ['finesse','light'], mastery: 'vex' },
+  { id: 'trident',      type: 'martial-melee',  damage: '1d6', dmgType: 'piercing', props: ['thrown','versatile'], range: '20/60', mastery: 'topple',
+    v2024: { damage: '1d8' } }, // 2024: versátil 1d10
+  { id: 'warPick',      type: 'martial-melee',  damage: '1d8', dmgType: 'piercing', props: [], mastery: 'sap',
+    v2024: { props: ['versatile'] } }, // 2024: versátil 1d10
+  { id: 'warhammer',    type: 'martial-melee',  damage: '1d8', dmgType: 'bludgeoning', props: ['versatile'], mastery: 'push' },
+  { id: 'whip',         type: 'martial-melee',  damage: '1d4', dmgType: 'slashing', props: ['finesse','reach'], mastery: 'slow' },
   // Martial Ranged
-  { id: 'blowgun',      type: 'martial-ranged', damage: '1', dmgType: 'piercing', props: ['ammo','loading'] },
-  { id: 'crossbowHand', type: 'martial-ranged', damage: '1d6', dmgType: 'piercing', props: ['ammo','light','loading'] },
-  { id: 'crossbowHeavy',type: 'martial-ranged', damage: '1d10', dmgType: 'piercing', props: ['ammo','heavy','loading','two-handed'] },
-  { id: 'longbow',      type: 'martial-ranged', damage: '1d8', dmgType: 'piercing', props: ['ammo','heavy','two-handed'] },
-  { id: 'net',          type: 'martial-ranged', damage: '-', dmgType: '-', props: ['special','thrown'] },
+  { id: 'blowgun',      type: 'martial-ranged', damage: '1', dmgType: 'piercing', props: ['ammo','loading'], range: '25/100', mastery: 'vex' },
+  { id: 'crossbowHand', type: 'martial-ranged', damage: '1d6', dmgType: 'piercing', props: ['ammo','light','loading'], range: '30/120', mastery: 'vex' },
+  { id: 'crossbowHeavy',type: 'martial-ranged', damage: '1d10', dmgType: 'piercing', props: ['ammo','heavy','loading','two-handed'], range: '100/400', mastery: 'push' },
+  { id: 'longbow',      type: 'martial-ranged', damage: '1d8', dmgType: 'piercing', props: ['ammo','heavy','two-handed'], range: '150/600', mastery: 'slow' },
+  // Armas de fogo: SRD 5.2.1 (em 2014, regra opcional do Guia do Mestre, mesmos números)
+  { id: 'musket',       type: 'martial-ranged', damage: '1d12', dmgType: 'piercing', props: ['ammo','loading','two-handed'], range: '40/120', mastery: 'slow', firearm: true },
+  { id: 'pistol',       type: 'martial-ranged', damage: '1d10', dmgType: 'piercing', props: ['ammo','loading'], range: '30/90', mastery: 'vex', firearm: true },
+  { id: 'net',          type: 'martial-ranged', damage: '-', dmgType: '-', props: ['special','thrown'], range: '5/15', rules: '2014' },
 ];
+
+/** Estatísticas da arma na versão de regras da ficha (2014 por padrão, como as fichas antigas). */
+const weaponFor = (id, rulesVersion) => {
+  const w = WEAPONS.find(x => x.id === id);
+  if (!w) return null;
+  return rulesVersion === '2024' && w.v2024 ? { ...w, ...w.v2024 } : w;
+};
+/** Lista de armas disponíveis numa versão de regras, já com os números dela. */
+const weaponsFor = (rulesVersion) => WEAPONS
+  .filter(w => !w.rules || w.rules === (rulesVersion === '2024' ? '2024' : '2014'))
+  .map(w => weaponFor(w.id, rulesVersion));
 
 const ARMOR = [
   // Light
@@ -753,7 +775,7 @@ const SPELLS = [
   { id: 'guidingBolt',    level: 1, school: 'evocation', classes: ['cleric'], castingTime: '1 action', range: '120 ft', components: 'V, S', duration: '1 round', desc: { pt: 'Ataque mágico, 4d6 radiante; próximo ataque contra alvo tem vantagem.', en: 'Spell attack, 4d6 radiant; next attack vs target has advantage.' } },
   { id: 'sanctuary',      level: 1, school: 'abjuration', classes: ['cleric'], castingTime: '1 bonus action', range: '30 ft', components: 'V, S, M', duration: '1 min', desc: { pt: 'Alvo: criaturas que o atacam fazem SAL SAB.', en: 'Target: creatures attacking it must make WIS save.' } },
   { id: 'huntersMark',    level: 1, school: 'divination', classes: ['ranger'], castingTime: '1 bonus action', range: '90 ft', components: 'V', duration: '1 hour, conc', concentration: true, desc: { pt: 'Marque criatura: +1d6 dano em ataques contra ela.', en: 'Mark creature: +1d6 damage on attacks against it.' } },
-  { id: 'huntersMarkUp',  level: 1, school: 'evocation', classes: ['paladin'], castingTime: '1 action', range: 'Self', components: 'V, S', duration: '10 min, conc', concentration: true, desc: { pt: 'Próximo acerto: +2d6 trovão. Up cast com slot maior.', en: 'Next hit: +2d6 thunder. Upcast with higher slot.' } },
+  { id: 'thunderousSmite', level: 1, school: 'evocation', classes: ['paladin'], castingTime: '1 action', range: 'Self', components: 'V, S', duration: '10 min, conc', concentration: true, desc: { pt: 'Próximo acerto: +2d6 trovão. Up cast com slot maior.', en: 'Next hit: +2d6 thunder. Upcast with higher slot.' } },
   { id: 'divineFavor',    level: 1, school: 'evocation', classes: ['paladin'], castingTime: '1 bonus action', range: 'Self', components: 'V, S', duration: '1 min, conc', concentration: true, desc: { pt: 'Ataques de arma +1d4 radiante.', en: 'Weapon attacks +1d4 radiant.' } },
   { id: 'entangle',       level: 1, school: 'conjuration', classes: ['druid'], castingTime: '1 action', range: '90 ft', components: 'V, S', duration: '1 min, conc', concentration: true, desc: { pt: 'Quadrado 20 pés: SAL FOR ou agarrado por plantas.', en: '20-ft square: STR save or restrained by plants.' } },
   { id: 'goodberry',      level: 1, school: 'transmutation', classes: ['druid','ranger'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: 'Instant', desc: { pt: 'Crie 10 frutas; cada uma cura 1 HP e alimenta por 1 dia.', en: 'Create 10 berries; each heals 1 HP and feeds for a day.' } },
@@ -892,7 +914,7 @@ const SPELLS = [
   { id: 'clairvoyance',           level: 3, school: 'divination',   classes: ['bard','cleric','sorcerer','wizard'], castingTime: '10 min', range: '1 mile', components: 'V, S, M', duration: 'Conc. 10 min', desc: { pt: 'Cria sentido invisível (visão ou audição) em local familiar até 1 milha.', en: 'Create an invisible sensor (sight or hearing) at a known location within 1 mile.' } },
   { id: 'conjureAnimals',         level: 3, school: 'conjuration',  classes: ['druid','ranger'], castingTime: '1 action', range: '60 ft', components: 'V, S', duration: 'Conc. 1 hour', desc: { pt: 'Invoque bestas feéricas com CR total ≤ 2 (ex: 1 CR1, 2 CR1/2, etc.).', en: 'Summon fey spirits as beasts with combined CR ≤ 2 (e.g. 1 CR1, 2 CR1/2).' } },
   { id: 'daylight',               level: 3, school: 'evocation',    classes: ['cleric','druid','paladin','ranger','sorcerer'], castingTime: '1 action', range: '60 ft', components: 'V, S', duration: '1 hour', desc: { pt: 'Esfera de luz brilhante 60 pés (suprime trevas mágicas de nível ≤ 3).', en: '60-ft sphere of bright light (suppresses magical darkness of level ≤ 3).' } },
-  { id: 'feign death',            level: 3, school: 'necromancy',   classes: ['bard','cleric','druid','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: '1 hour', ritual: true, desc: { pt: 'Alvo parece morto (catatônico). Resistência a todos os danos exceto psíquico.', en: 'Target appears dead (catatonic). Resistance to all damage except psychic.' } },
+  { id: 'feignDeath',             level: 3, school: 'necromancy',   classes: ['bard','cleric','druid','wizard'], castingTime: '1 action', range: 'Touch', components: 'V, S, M', duration: '1 hour', ritual: true, desc: { pt: 'Alvo parece morto (catatônico). Resistência a todos os danos exceto psíquico.', en: 'Target appears dead (catatonic). Resistance to all damage except psychic.' } },
   { id: 'hypnoticPattern',        level: 3, school: 'illusion',     classes: ['bard','sorcerer','warlock','wizard'], castingTime: '1 action', range: '120 ft', components: 'S, M', duration: 'Conc. 1 min', desc: { pt: 'Cubo 30 pés: SAL SAB ou incapacitado e velocidade 0 enquanto vir padrão.', en: '30-ft cube: WIS save or incapacitated and speed 0 while they can see pattern.' } },
   { id: 'majorImage',             level: 3, school: 'illusion',     classes: ['bard','sorcerer','warlock','wizard'], castingTime: '1 action', range: '120 ft', components: 'V, S, M', duration: 'Conc. 10 min', desc: { pt: 'Ilusão com som, cheiro e temperatura (cubo 20 pés). Investigação vs CD magia revela.', en: 'Illusion with sound, smell, temperature (20-ft cube). Investigation vs DC reveals.' } },
   { id: 'meldIntoStone',          level: 3, school: 'transmutation', classes: ['cleric','druid'], castingTime: '1 action', range: 'Touch', components: 'V, S', duration: '8 hours', ritual: true, desc: { pt: 'Funda-se em pedra (deve ser maior que você). Veja/ouça; imperceptível.', en: 'Step into stone (must be bigger than you). See/hear; imperceptible.' } },
@@ -1301,7 +1323,7 @@ const BEASTS = [
 
 const SUBCLASSES = {
   barbarian: [
-    { id: 'berserker', name: { pt: 'Caminho do Rixoso', en: 'Path of the Berserker' },
+    { id: 'berserker', name: { pt: 'Caminho do Berserker', en: 'Path of the Berserker' },
       desc: { pt: 'Fúria desenfreada e combate implacável.', en: 'Unleashed fury and relentless combat.' },
       features: [
         { level: 3, name: { pt: 'Frenesi', en: 'Frenzy' }, desc: { pt: 'Enquanto em Fúria, pode entrar em Frenesi: ataque corpo a corpo bônus a cada turno. Após Fúria: 1 nível de exaustão.', en: 'While raging, enter Frenzy: bonus melee attack each turn. After rage: 1 exhaustion level.' } },
@@ -1313,10 +1335,11 @@ const SUBCLASSES = {
     { id: 'totem', name: { pt: 'Caminho do Guerreiro Totêmico', en: 'Path of the Totem Warrior' },
       desc: { pt: 'Vínculo espiritual com animais totêmicos.', en: 'Spiritual bond with totemic animals.' },
       features: [
-        { level: 3, name: { pt: 'Espírito Totêmico', en: 'Totem Spirit' }, desc: { pt: 'Urso: resistência a todos os danos (exceto psíquico) em Fúria. Águia: desvantagem em ataques vs você; Lobo: aliados têm vantagem vs inimigos adjacentes a você.', en: 'Bear: resistance to all damage (except psychic) while raging. Eagle: disadvantage on attacks vs you; Wolf: allies have advantage vs enemies adjacent to you.' } },
-        { level: 6, name: { pt: 'Aspecto da Besta', en: 'Aspect of the Beast' }, desc: { pt: 'Urso: carga dobrada. Águia: visão de águia, visão no escuro 60 pés. Lobo: rastrear a passo acelerado sem penalidade.', en: 'Bear: double carry capacity. Eagle: keen eyesight, darkvision 60 ft. Wolf: track at fast pace without penalty.' } },
-        { level: 10, name: { pt: 'Andante Espiritual', en: 'Spirit Walker' }, desc: { pt: 'Ritualize Comunhão com a Natureza como ritual.', en: 'Cast Commune with Nature as a ritual.' } },
-        { level: 14, name: { pt: 'Sintonia Totêmica', en: 'Totemic Attunement' }, desc: { pt: 'Urso: inimigos têm desvantagem em atacar aliados enquanto você estiver em Fúria adjacente. Águia: voo 60 pés (rápido). Lobo: derrube Grande ou menor ao atacar em Fúria.', en: 'Bear: enemies disadvantage attacking allies while you rage adjacent. Eagle: fly 60 ft (dash). Wolf: knock prone Large-or-smaller on hit while raging.' } },
+        { level: 3, name: { pt: 'Buscador Espiritual', en: 'Spirit Seeker' }, desc: { pt: 'Conjure Sentido Bestial e Falar com Animais como rituais.', en: 'Cast Beast Sense and Speak with Animals as rituals.' } },
+        { level: 3, name: { pt: 'Espírito Totêmico', en: 'Totem Spirit' }, desc: { pt: 'Escolha um animal (efeito em Fúria). Urso: resistência a todo dano, exceto psíquico. Águia: sem armadura pesada, ataques de oportunidade contra você têm desvantagem e Disparada vira ação bônus. Lobo: aliados têm vantagem corpo a corpo contra inimigos a 5 pés de você. SCAG: Alce (+15 pés de deslocamento) e Tigre (+10 pés de salto em distância, +3 em altura).', en: 'Choose an animal (applies while raging). Bear: resistance to all damage but psychic. Eagle: without heavy armor, opportunity attacks against you have disadvantage and Dash is a bonus action. Wolf: allies have melee advantage vs enemies within 5 ft of you. SCAG: Elk (+15 ft speed) and Tiger (+10 ft long jump, +3 ft high jump).' } },
+        { level: 6, name: { pt: 'Aspecto da Besta', en: 'Aspect of the Beast' }, desc: { pt: 'Escolha um animal (pode ser outro). Urso: carga dobrada e vantagem em FOR para empurrar, puxar, erguer e quebrar. Águia: enxerga a até 1 milha com detalhes; penumbra não impõe desvantagem em Percepção. Lobo: rastreia em passo rápido e se move furtivamente em passo normal. Alce: ritmo de viagem dobrado para você e até 10 companheiros. Tigre: 2 perícias entre Atletismo, Acrobacia, Furtividade e Sobrevivência.', en: 'Choose an animal (may differ). Bear: double carrying capacity, advantage on STR checks to push, pull, lift, or break. Eagle: see up to 1 mile in detail; dim light gives no Perception disadvantage. Wolf: track at a fast pace, move stealthily at a normal pace. Elk: double travel pace for you and up to 10 companions. Tiger: 2 skills among Athletics, Acrobatics, Stealth, Survival.' } },
+        { level: 10, name: { pt: 'Andarilho Espiritual', en: 'Spirit Walker' }, desc: { pt: 'Conjure Comunhão com a Natureza como ritual.', en: 'Cast Commune with Nature as a ritual.' } },
+        { level: 14, name: { pt: 'Sintonia Totêmica', en: 'Totemic Attunement' }, desc: { pt: 'Escolha um animal (efeito em Fúria). Urso: inimigos a 5 pés que vejam ou ouçam você têm desvantagem ao atacar outros alvos. Águia: voo = deslocamento, só em rajadas (cai se terminar o turno no ar). Lobo: ao acertar corpo a corpo, ação bônus para derrubar alvo Grande ou menor. Alce: ação bônus para atropelar criatura Grande ou menor (SAL FOR ou cai e sofre 1d12+FOR). Tigre: após avançar 20 pés em linha reta, ataque corpo a corpo extra como ação bônus.', en: 'Choose an animal (applies while raging). Bear: enemies within 5 ft that can see or hear you have disadvantage attacking others. Eagle: fly speed equal to walking speed, only in bursts (fall if you end your turn aloft). Wolf: on a melee hit, bonus action to knock a Large-or-smaller target prone. Elk: bonus action to trample a Large-or-smaller creature (STR save or prone and 1d12+STR). Tiger: after moving 20 ft straight, bonus-action melee attack.' } },
       ],
     },
   ],
@@ -1325,9 +1348,9 @@ const SUBCLASSES = {
       desc: { pt: 'Conhecimento vasto, críticas cortantes, segredos mágicos.', en: 'Vast knowledge, cutting words, magical secrets.' },
       features: [
         { level: 3, name: { pt: 'Proficiências Bônus', en: 'Bonus Proficiencies' }, desc: { pt: '3 proficiências em perícias à sua escolha.', en: '3 skill proficiencies of your choice.' } },
-        { level: 3, name: { pt: 'Palavras Cortantes', en: 'Cutting Words' }, desc: { pt: 'Reação: gaste 1 Inspiração de Bardo para subtrair 1d6 do ataque, teste ou dano de criatura em 60 pés.', en: 'Reaction: spend 1 Bardic Inspiration to subtract 1d6 from a creature\'s attack, check, or damage roll within 60 ft.' } },
+        { level: 3, name: { pt: 'Palavras Cortantes', en: 'Cutting Words' }, desc: { pt: 'Reação: gaste 1 Inspiração de Bardo e subtraia o dado de Inspiração do ataque, teste de atributo ou dano de criatura a 60 pés.', en: 'Reaction: spend 1 Bardic Inspiration and subtract the Bardic Inspiration die from a creature\'s attack, ability check, or damage roll within 60 ft.' } },
         { level: 6, name: { pt: 'Segredos Mágicos Adicionais', en: 'Additional Magical Secrets' }, desc: { pt: 'Aprenda 2 magias de qualquer classe.', en: 'Learn 2 spells from any class.' } },
-        { level: 14, name: { pt: 'Habilidade sem Par', en: 'Peerless Skill' }, desc: { pt: 'Quando falhar em teste de perícia: gaste 1 Inspiração de Bardo para adicionar ao resultado.', en: 'When failing a skill check: expend 1 Bardic Inspiration to add to the result.' } },
+        { level: 14, name: { pt: 'Perícia Inigualável', en: 'Peerless Skill' }, desc: { pt: 'Em um teste de atributo seu: gaste 1 Inspiração de Bardo e some o dado ao resultado.', en: 'When making an ability check: expend 1 Bardic Inspiration and add the die to the result.' } },
       ],
     },
     { id: 'valor', name: { pt: 'Colégio do Valor', en: 'College of Valor' },
@@ -1339,13 +1362,13 @@ const SUBCLASSES = {
         { level: 14, name: { pt: 'Magia de Batalha', en: 'Battle Magic' }, desc: { pt: 'Ao lançar magia de bardo: ataque bônus com arma como ação bônus.', en: 'When casting a bard spell: bonus weapon attack as bonus action.' } },
       ],
     },
-    { id: 'glamour', name: { pt: 'Colégio do Glamour', en: 'College of Glamour' },
+    { id: 'glamour', name: { pt: 'Colégio do Glamour', en: 'College of Glamour' }, source: 'XGE',
       desc: { pt: 'Magia feérica, charme e presença irresistível.', en: 'Fey magic, charm, and irresistible presence.' },
       features: [
-        { level: 3, name: { pt: 'Manto da Inspiração', en: 'Mantle of Inspiration' }, desc: { pt: 'Ação bônus: gaste 1 Inspiração de Bardo — até 5 criaturas a 60 pés ganham HP temp = 5+CAR e podem se mover sem ataques de oportunidade.', en: 'Bonus action: spend 1 Bardic Inspiration — up to 5 creatures within 60 ft gain temp HP = 5+CHA and can move without opportunity attacks.' } },
-        { level: 3, name: { pt: 'Presença Sedutora', en: 'Enthralling Performance' }, desc: { pt: 'Após 1 min: até CAR humanoides em 60 pés (SAL SAB CD magia ou encantados por 1h).', en: 'After 1 min: up to CHA humanoids in 60 ft (WIS save vs spell DC or charmed 1h).' } },
-        { level: 6, name: { pt: 'Manto da Majestade', en: 'Mantle of Majesty' }, desc: { pt: 'Ação bônus: lança Comando sem gasto de espaço (bônus ação/turno) por 1 min (conc.). Imune enquanto ativo.', en: 'Bonus action: cast Command without spending a slot (bonus action/turn) for 1 min (conc.). Immune while active.' } },
-        { level: 14, name: { pt: 'Manto do Terror', en: 'Unbreakable Majesty' }, desc: { pt: 'Ação bônus: proteção mágica — criaturas atacando você SAL CHA CD magia ou alvo diferente por 1 turno.', en: 'Bonus action: magical protection — creatures attacking you WIS save vs spell DC or choose different target for 1 turn.' } },
+        { level: 3, name: { pt: 'Manto da Inspiração', en: 'Mantle of Inspiration' }, desc: { pt: 'Ação bônus: gaste 1 Inspiração de Bardo — até mod. CAR (mín. 1) criaturas a 60 pés ganham 5 PV temp. (8 no 5, 11 no 10, 14 no 15) e podem usar a reação para se mover até o deslocamento sem provocar ataques de oportunidade.', en: 'Bonus action: spend 1 Bardic Inspiration — up to CHA mod (min 1) creatures within 60 ft gain 5 temp HP (8 at 5th, 11 at 10th, 14 at 15th) and can use their reaction to move up to their speed without provoking opportunity attacks.' } },
+        { level: 3, name: { pt: 'Atuação Cativante', en: 'Enthralling Performance' }, desc: { pt: 'Após atuar por 1 min: até mod. CAR humanoides a 60 pés que assistiram fazem SAL SAB contra sua CD ou ficam enfeitiçados por 1 h. 1×/descanso curto.', en: 'After performing for 1 min: up to CHA mod humanoids within 60 ft who watched make a WIS save vs your DC or are charmed for 1 hour. 1/short rest.' } },
+        { level: 6, name: { pt: 'Manto da Majestade', en: 'Mantle of Majesty' }, desc: { pt: 'Ação bônus, 1 min (conc.): conjure Comando sem espaço e, a cada turno, de novo como ação bônus contra uma criatura enfeitiçada por você. 1×/descanso longo.', en: 'Bonus action, 1 min (conc.): cast Command without a slot and again each turn as a bonus action on a creature charmed by you. 1/long rest.' } },
+        { level: 14, name: { pt: 'Majestade Inquebrável', en: 'Unbreakable Majesty' }, desc: { pt: 'Ação bônus, 1 min: a 1ª vez que uma criatura o ataca no turno, ela faz SAL CAR contra sua CD ou escolhe outro alvo (senão, o ataque é desperdiçado); se passar, tem desvantagem em SAL contra suas magias no seu próximo turno. 1×/descanso curto.', en: 'Bonus action, 1 min: the first time a creature attacks you on a turn, it makes a CHA save vs your DC or must pick a new target (or waste the attack); on a success it has disadvantage on saves vs your spells on your next turn. 1/short rest.' } },
       ],
     },
   ],
@@ -1363,7 +1386,7 @@ const SUBCLASSES = {
     { id: 'war', name: { pt: 'Domínio da Guerra', en: 'War Domain' },
       desc: { pt: 'Guerreiro sagrado que inspira batalha.', en: 'Sacred warrior who inspires battle.' },
       features: [
-        { level: 1, name: { pt: 'Sacerdote da Guerra', en: 'War Priest' }, desc: { pt: 'Ao atacar com arma: ataque bônus como ação bônus SAB/turno.', en: 'When attacking with a weapon: bonus attack as bonus action WIS/turn.' } },
+        { level: 1, name: { pt: 'Sacerdote da Guerra', en: 'War Priest' }, desc: { pt: 'Ao usar a ação Atacar: um ataque com arma como ação bônus. Usos = mod. SAB (mín. 1) por descanso longo.', en: 'When you take the Attack action: one weapon attack as a bonus action. Uses = WIS mod (min 1) per long rest.' } },
         { level: 2, name: { pt: 'Golpe Guiado', en: 'Guided Strike' }, desc: { pt: 'Canalizar Divindade: +10 em rolagem de ataque (após ver o dado).', en: 'Channel Divinity: +10 on attack roll (after seeing the die).' } },
         { level: 6, name: { pt: 'Bênção do Deus da Guerra', en: "War God's Blessing" }, desc: { pt: 'Reação: conceda +10 em ataque de aliado a 30 pés (após ver o dado).', en: 'Reaction: grant +10 to ally\'s attack roll within 30 ft (after seeing the die).' } },
         { level: 8, name: { pt: 'Golpe Divino', en: 'Divine Strike' }, desc: { pt: '1×/turno: +1d8 de dano da arma (2d8 no nível 14).', en: '1/turn: +1d8 of weapon\'s damage type (2d8 at level 14).' } },
@@ -1373,21 +1396,21 @@ const SUBCLASSES = {
     { id: 'knowledge', name: { pt: 'Domínio do Conhecimento', en: 'Knowledge Domain' },
       desc: { pt: 'Verdade, memória e sabedoria das eras.', en: 'Truth, memory, and wisdom of the ages.' },
       features: [
-        { level: 1, name: { pt: 'Bênçãos do Conhecimento', en: 'Blessings of Knowledge' }, desc: { pt: '2 idiomas adicionais e proficiência em 2 perícias de INT.', en: '2 additional languages and proficiency in 2 INT skills.' } },
+        { level: 1, name: { pt: 'Bênçãos do Conhecimento', en: 'Blessings of Knowledge' }, desc: { pt: '2 idiomas adicionais e proficiência em 2 entre Arcanismo, História, Natureza e Religião, com bônus de proficiência dobrado nelas.', en: '2 additional languages and proficiency in 2 of Arcana, History, Nature, and Religion, with double proficiency bonus in them.' } },
         { level: 2, name: { pt: 'Conhecimento das Eras', en: 'Knowledge of the Ages' }, desc: { pt: 'Canalizar Divindade: proficiência em qualquer perícia ou ferramenta por 10 min.', en: 'Channel Divinity: proficiency in any skill or tool for 10 min.' } },
         { level: 6, name: { pt: 'Ler Pensamentos', en: 'Read Thoughts' }, desc: { pt: 'Canalizar Divindade: leia superficialmente a mente de criatura (SAL SAB CD magia) por 1 min. Lançar Sugestão sem gasto.', en: 'Channel Divinity: read a creature\'s surface thoughts (WIS save vs spell DC) for 1 min. Cast Suggestion for free.' } },
         { level: 8, name: { pt: 'Conjuração Potente', en: 'Potent Spellcasting' }, desc: { pt: 'Adicione mod de SAB ao dano de truques de clérigo.', en: 'Add WIS mod to damage of cleric cantrips.' } },
-        { level: 17, name: { pt: 'Visões do Passado', en: 'Visions of the Past' }, desc: { pt: 'Canalizar Divindade: veja o passado recente de objeto ou local após concentração de 1 min.', en: 'Channel Divinity: see the recent past of an object or location after 1 min of concentration.' } },
+        { level: 17, name: { pt: 'Visões do Passado', en: 'Visions of the Past' }, desc: { pt: '1×/descanso curto (não é Canalizar Divindade): medite até 1 min por ponto de SAB e veja o passado de um objeto segurado ou do local onde está.', en: '1/short rest (not Channel Divinity): meditate up to 1 min per point of WIS to see the past of a held object or your location.' } },
       ],
     },
     { id: 'light', name: { pt: 'Domínio da Luz', en: 'Light Domain' },
       desc: { pt: 'Luz, fogo e revelação da verdade.', en: 'Light, fire, and revelation of truth.' },
       features: [
         { level: 1, name: { pt: 'Chama de Proteção', en: 'Warding Flare' }, desc: { pt: 'Reação: chama deslumbrante — atacante tem desvantagem. Usos = mod de SAB/descanso longo.', en: 'Reaction: blinding flare — attacker has disadvantage. Uses = WIS mod/long rest.' } },
-        { level: 2, name: { pt: 'Radiance do Amanhecer', en: 'Radiance of the Dawn' }, desc: { pt: 'Canalizar Divindade: dispel trevas mágicas; criaturas em 30 pés SAL CON 2d10+nível radiante (metade se passar).', en: 'Channel Divinity: dispel magical darkness; creatures in 30 ft CON save 2d10+level radiant (half on success).' } },
+        { level: 2, name: { pt: 'Radiância do Amanhecer', en: 'Radiance of the Dawn' }, desc: { pt: 'Canalizar Divindade: dispel trevas mágicas; criaturas em 30 pés SAL CON 2d10+nível radiante (metade se passar).', en: 'Channel Divinity: dispel magical darkness; creatures in 30 ft CON save 2d10+level radiant (half on success).' } },
         { level: 6, name: { pt: 'Chama Aprimorada', en: 'Improved Flare' }, desc: { pt: 'Chama de Proteção também protege aliados a 30 pés.', en: 'Warding Flare also protects allies within 30 ft.' } },
         { level: 8, name: { pt: 'Conjuração Potente', en: 'Potent Spellcasting' }, desc: { pt: 'Adicione mod de SAB ao dano de truques de clérigo.', en: 'Add WIS mod to damage of cleric cantrips.' } },
-        { level: 17, name: { pt: 'Corona de Luz', en: 'Corona of Light' }, desc: { pt: 'Ação: luz ofuscante 60 pés / penumbra 60 pés além. Criaturas em 60 pés têm desvantagem em SAL vs magias de fogo e radiante por 1 min.', en: 'Action: bright light 60 ft / dim light 60 ft beyond. Creatures in 60 ft disadvantage on saves vs fire/radiant for 1 min.' } },
+        { level: 17, name: { pt: 'Corona de Luz', en: 'Corona of Light' }, desc: { pt: 'Ação, 1 min: luz plena 60 pés e penumbra 30 pés além. Inimigos na luz plena têm desvantagem em SAL contra magias de fogo ou radiante.', en: 'Action, 1 min: bright light 60 ft and dim light 30 ft beyond. Enemies in the bright light have disadvantage on saves vs fire or radiant spells.' } },
       ],
     },
     { id: 'tempest', name: { pt: 'Domínio da Tempestade', en: 'Tempest Domain' },
@@ -1434,24 +1457,26 @@ const SUBCLASSES = {
     { id: 'moon', name: { pt: 'Círculo da Lua', en: 'Circle of the Moon' },
       desc: { pt: 'Druidas focados em Forma Selvagem. CR expandido e formas de combate.', en: 'Druids focused on Wild Shape. Expanded CR and combat forms.' },
       features: [
-        { level: 2, name: { pt: 'Forma Selvagem de Combate', en: 'Combat Wild Shape' }, desc: { pt: 'Forma Selvagem como ação bônus. CR máx = 1 no nível 2; ⌊nível/3⌋ no nível 6+. Sem restrição de voo.', en: 'Wild Shape as bonus action. Max CR = 1 at level 2; ⌊level/3⌋ at level 6+. No fly restriction.' } },
-        { level: 6, name: { pt: 'Transformação Elementar', en: 'Elemental Wild Shape' }, desc: { pt: 'Gaste 2 usos de Forma Selvagem para se transformar em elemental (ar, terra, fogo, água).', en: 'Expend 2 Wild Shape uses to transform into air, earth, fire, or water elemental.' } },
-        { level: 10, name: { pt: 'Mil Formas', en: 'Thousand Forms' }, desc: { pt: 'Lance Alterar-Aparência à vontade.', en: 'Cast Alter Self at will.' } },
+        { level: 2, name: { pt: 'Forma Selvagem de Combate', en: 'Combat Wild Shape' }, desc: { pt: 'Forma Selvagem como ação bônus. Em forma, ação bônus + espaço de magia: cure 1d8 por nível do espaço.', en: 'Wild Shape as a bonus action. While transformed, bonus action + spell slot: heal 1d8 per slot level.' } },
+        { level: 2, name: { pt: 'Formas do Círculo', en: 'Circle Forms' }, desc: { pt: 'ND máximo = 1 no nível 2; nível de druida ÷ 3 (arred. para baixo) a partir do 6. Limites de voo e natação da classe continuam.', en: 'Max CR = 1 at level 2; druid level ÷ 3 (round down) from level 6. The class fly/swim limits still apply.' } },
+        { level: 6, name: { pt: 'Golpe Primal', en: 'Primal Strike' }, desc: { pt: 'Ataques em forma de fera contam como mágicos para superar resistência e imunidade a ataques não mágicos.', en: 'Attacks in beast form count as magical for overcoming resistance and immunity to nonmagical attacks.' } },
+        { level: 10, name: { pt: 'Forma Selvagem Elemental', en: 'Elemental Wild Shape' }, desc: { pt: 'Gaste 2 usos de Forma Selvagem para se transformar em elemental do ar, da terra, do fogo ou da água.', en: 'Expend 2 Wild Shape uses to transform into an air, earth, fire, or water elemental.' } },
+        { level: 14, name: { pt: 'Mil Formas', en: 'Thousand Forms' }, desc: { pt: 'Conjure Alterar-se (Alter Self) à vontade.', en: 'Cast Alter Self at will.' } },
       ],
     },
     { id: 'stars', name: { pt: 'Círculo das Estrelas', en: 'Circle of Stars' },
       desc: { pt: 'Guardiões de constelações antigas. Forma estelar e adivinhação.', en: 'Guardians of ancient constellations. Starry form and divination.' },
       starForms: [
-        { id: 'chalice', name: { pt: 'Taça', en: 'Chalice' }, desc: { pt: 'Ao lançar magia de cura: você também cura 1d8+mod SAB HP.', en: 'When casting a healing spell: you also heal 1d8+WIS mod HP.' } },
-        { id: 'archer', name: { pt: 'Arqueiro', en: 'Archer' }, desc: { pt: 'Ação bônus a cada turno: dispare raio luminoso (+mod SAB no ataque; 1d8+4 dano radiante, alcance 60 pés).', en: 'Bonus action each turn: fire luminous arrow (+WIS mod to hit; 1d8+4 radiant, range 60 ft).' } },
-        { id: 'dragon', name: { pt: 'Dragão', en: 'Dragon' }, desc: { pt: 'Vantagem em testes de Inteligência, Sabedoria e Carisma durante a forma.', en: 'Advantage on Intelligence, Wisdom, and Charisma checks while in this form.' } },
+        { id: 'chalice', name: { pt: 'Cálice', en: 'Chalice' }, desc: { pt: 'Ao conjurar magia de cura com espaço: você ou uma criatura a 30 pés também cura 1d8 + mod. SAB.', en: 'When you cast a healing spell with a slot: you or a creature within 30 ft also regains 1d8 + WIS mod HP.' } },
+        { id: 'archer', name: { pt: 'Arqueiro', en: 'Archer' }, desc: { pt: 'Ao ativar a forma e como ação bônus nos turnos seguintes: ataque mágico à distância (60 pés) de 1d8 + mod. SAB radiante.', en: 'When you assume the form and as a bonus action on later turns: ranged spell attack (60 ft) for 1d8 + WIS mod radiant.' } },
+        { id: 'dragon', name: { pt: 'Dragão', en: 'Dragon' }, desc: { pt: 'Em testes de INT ou SAB e em SAL CON para manter concentração, trate resultados de 9 ou menos no d20 como 10.', en: 'On INT or WIS checks and CON saves to maintain concentration, treat a d20 roll of 9 or lower as a 10.' } },
       ],
       features: [
-        { level: 2, name: { pt: 'Mapa Estelar', en: 'Star Map' }, desc: { pt: 'Objeto foco. 1×/descanso longo: Orientação sem espaço de magia. Magias gratuitas por descanso (até prof+SAB): Orientação, Augúrio, Adivinhar.', en: 'Focus object. 1/long rest: Guidance with no spell slot. Free spells per rest (up to WIS+prof): Guidance, Augury, Divination.' } },
-        { level: 2, name: { pt: 'Forma Estelar', en: 'Starry Form' }, desc: { pt: 'Ao usar Forma Selvagem: assuma forma de constelação (sem transformação animal). Escolha Taça, Arqueiro ou Dragão — cada um com bônus diferente.', en: 'When using Wild Shape: assume constellation form (no animal transformation). Choose Chalice, Archer, or Dragon — each with different benefits.' } },
-        { level: 6, name: { pt: 'Presságio Cósmico', en: 'Cosmic Omen' }, desc: { pt: 'Ao preparar magias: role 1d6. Par = Presságio do Bem: reação para adicionar 1d6 a qualquer rolagem de criatura em 30 pés. Ímpar = Presságio do Mal: subtraia 1d6.', en: 'When preparing spells: roll 1d6. Even = Weal: reaction to add 1d6 to any roll of creature within 30 ft. Odd = Woe: subtract 1d6.' } },
-        { level: 10, name: { pt: 'Cheio de Estrelas', en: 'Full of Stars' }, desc: { pt: 'Em Forma Estelar: resistência a dano contundente, perfurante e cortante.', en: 'While in Starry Form: resistance to bludgeoning, piercing, and slashing damage.' } },
-        { level: 14, name: { pt: 'Flare Estelar', en: 'Star Flare' }, desc: { pt: 'Ação bônus: criaturas em 10 pés SAL CON CD magia ou cegas. Você e aliados em 30 pés se teletransportam até 30 pés para local visível.', en: 'Bonus action: creatures within 10 ft CON save vs spell DC or blinded. You and allies within 30 ft teleport up to 30 ft to visible location.' } },
+        { level: 2, name: { pt: 'Mapa Estelar', en: 'Star Map' }, desc: { pt: 'Foco de druida. Conhece Orientação e tem Raio Guia sempre preparado; conjure Raio Guia sem espaço um número de vezes igual ao bônus de proficiência por descanso longo.', en: 'Druid focus. You know Guidance and always have Guiding Bolt prepared; cast Guiding Bolt without a slot a number of times equal to your proficiency bonus per long rest.' } },
+        { level: 2, name: { pt: 'Forma Estelar', en: 'Starry Form' }, desc: { pt: 'Ação bônus + 1 uso de Forma Selvagem: forma luminosa por 10 min (luz plena 10 pés, penumbra +10), escolhendo Arqueiro, Cálice ou Dragão.', en: 'Bonus action + 1 Wild Shape use: luminous form for 10 min (bright light 10 ft, dim light 10 ft more), choosing Archer, Chalice, or Dragon.' } },
+        { level: 6, name: { pt: 'Presságio Cósmico', en: 'Cosmic Omen' }, desc: { pt: 'Após descanso longo, role um dado. Par = Bonança: reação para somar 1d6 a ataque, teste ou SAL de criatura a 30 pés. Ímpar = Infortúnio: subtraia 1d6. Usos = bônus de proficiência por descanso longo.', en: 'After a long rest, roll a die. Even = Weal: reaction to add 1d6 to a creature\'s attack, check, or save within 30 ft. Odd = Woe: subtract 1d6. Uses = proficiency bonus per long rest.' } },
+        { level: 10, name: { pt: 'Constelações Cintilantes', en: 'Twinkling Constellations' }, desc: { pt: 'Arqueiro e Cálice passam a 2d8; Dragão ganha voo de 20 pés (pairar). Troque de constelação no início de cada turno.', en: 'Archer and Chalice become 2d8; Dragon gains a 20-ft fly speed (hover). Change constellation at the start of each turn.' } },
+        { level: 14, name: { pt: 'Cheio de Estrelas', en: 'Full of Stars' }, desc: { pt: 'Em Forma Estelar: resistência a dano contundente, perfurante e cortante.', en: 'While in Starry Form: resistance to bludgeoning, piercing, and slashing damage.' } },
       ],
     },
     { id: 'spores', name: { pt: 'Círculo dos Esporos', en: 'Circle of Spores' },
@@ -1461,25 +1486,25 @@ const SUBCLASSES = {
         { level: 2, name: { pt: 'Simbiose com Esporos', en: 'Symbiotic Entity' }, desc: { pt: 'Use Forma Selvagem: 4× seu nível de druida em HP temp. Ataques de arma: +1d6 necrótico. Halo dobrado.', en: 'Use Wild Shape: 4× druid level as temp HP. Weapon attacks: +1d6 necrotic. Double Halo damage.' } },
         { level: 6, name: { pt: 'Infecção Fúngica', en: 'Fungal Infestation' }, desc: { pt: 'Ao matar besta/humanoide em 10 pés: use reação para erguê-lo como zumbi de esporos (1 HP, obedece você). Usos = SAB/descanso longo.', en: 'When you kill a beast/humanoid within 10 ft: use reaction to raise it as a spore zombie (1 HP, obeys you). Uses = WIS/long rest.' } },
         { level: 10, name: { pt: 'Propagação de Esporos', en: 'Spreading Spores' }, desc: { pt: 'Em Simbiose: lance Halo de Esporos como ação bônus, afetando cubo de 10 pés por 1 min (conc.).', en: 'While in Symbiosis: cast Halo as bonus action affecting 10-ft cube for 1 min (conc.).' } },
-        { level: 14, name: { pt: 'Forma do Morto-Vivo', en: 'Fungal Body' }, desc: { pt: 'Imune a veneno e enjoo. Em Simbiose: adicione +1d6 necrótico em qualquer ataque de magia.', en: 'Immune to poison and the poisoned condition. In Symbiosis: add +1d6 necrotic to any spell attack.' } },
+        { level: 14, name: { pt: 'Corpo Fúngico', en: 'Fungal Body' }, desc: { pt: 'Não pode ficar cego, surdo, amedrontado nem envenenado; críticos contra você viram acertos normais, salvo se estiver incapacitado.', en: 'You can\'t be blinded, deafened, frightened, or poisoned; critical hits against you count as normal hits unless you are incapacitated.' } },
       ],
     },
     { id: 'wildfire', name: { pt: 'Círculo da Chama Selvagem', en: 'Circle of Wildfire' },
       desc: { pt: 'Fogo que destrói e renova. Espírito de chamas e curas ardentes.', en: 'Fire that destroys and renews. Flame spirit and burning heals.' },
       features: [
-        { level: 2, name: { pt: 'Espírito de Chama', en: 'Wildfire Spirit' }, desc: { pt: 'Use Forma Selvagem: invoque espírito de chamas (CA 13, HP 5+5×nível). Ação bônus: teletransporte (15 pés) + 1d6 fogo a criaturas em 5 pés do ponto de saída. Lance magias como se estivesse nele.', en: 'Use Wild Shape: summon wildfire spirit (AC 13, HP 5+5×level). Bonus action: teleport (15 ft) + 1d6 fire to creatures within 5 ft of departure. Cast spells as if from its space.' } },
-        { level: 6, name: { pt: 'Abraço Ardente', en: 'Enhanced Bond' }, desc: { pt: 'Magias de cura e fogo lançadas pelo espírito ganham +1d8 de cura ou +1d8 de fogo. Magias de cura têm alcance +30 pés.', en: 'Healing and fire spells cast through the spirit gain +1d8 healing or +1d8 fire. Healing spells gain +30 ft range.' } },
-        { level: 10, name: { pt: 'Despertar da Chama', en: 'Cauterizing Flames' }, desc: { pt: 'Ao morrer criatura em 30 pés: chama fantasma. Aliado em 30 pés pode usar reação para curar 2d10+SAB.', en: 'When creature dies within 30 ft: ghostly flame. Ally within 30 ft can use reaction to heal 2d10+WIS.' } },
-        { level: 14, name: { pt: 'Chamas da Vida', en: 'Blazing Revival' }, desc: { pt: '1×/descanso longo: quando cair a 0 HP enquanto o espírito estiver ativo, o espírito explode — você recupera metade do HP máximo e o espírito desaparece.', en: '1/long rest: when you drop to 0 HP while the spirit is active, the spirit explodes — you regain half your max HP and the spirit vanishes.' } },
+        { level: 2, name: { pt: 'Invocar Espírito do Fogo Selvagem', en: 'Summon Wildfire Spirit' }, desc: { pt: 'Ação + 1 uso de Forma Selvagem: espírito a 30 pés por 1 h (CA 13, PV 5 + 5×nível de druida, voo 30); na chegada, 2d6 fogo (SAL DES) a 10 pés. Semente de Chama e Teleporte Flamejante (15 pés): 1d6 + bônus de proficiência de fogo.', en: 'Action + 1 Wild Shape use: spirit within 30 ft for 1 hour (AC 13, HP 5 + 5×druid level, fly 30); on arrival, 2d6 fire (DEX save) within 10 ft. Flame Seed and Fiery Teleportation (15 ft): 1d6 + proficiency bonus fire.' } },
+        { level: 6, name: { pt: 'Vínculo Aprimorado', en: 'Enhanced Bond' }, desc: { pt: 'Com o espírito invocado: +1d8 em uma rolagem de dano de fogo ou de cura das suas magias; suas magias de alcance diferente de pessoal podem partir do espírito.', en: 'While the spirit is summoned: +1d8 to one fire damage or healing roll of your spells; your spells with a range other than self can originate from the spirit.' } },
+        { level: 10, name: { pt: 'Chamas Cauterizantes', en: 'Cauterizing Flames' }, desc: { pt: 'Criatura Pequena ou maior que morre a 30 pés de você ou do espírito deixa uma chama por 1 min. Reação quando alguém entra no espaço dela: cure ou cause 2d10 + SAB de fogo. Usos = bônus de proficiência por descanso longo.', en: 'A Small or larger creature dying within 30 ft of you or the spirit leaves a flame for 1 min. Reaction when a creature enters its space: heal or deal 2d10 + WIS fire. Uses = proficiency bonus per long rest.' } },
+        { level: 14, name: { pt: 'Renascimento Ardente', en: 'Blazing Revival' }, desc: { pt: '1×/descanso longo: ao cair a 0 PV com o espírito a até 120 pés, ele cai a 0 PV e você recupera metade dos PV máximos e se levanta.', en: '1/long rest: when you drop to 0 HP with the spirit within 120 ft, it drops to 0 HP and you regain half your HP maximum and stand up.' } },
       ],
     },
     { id: 'dreams', name: { pt: 'Círculo dos Sonhos', en: 'Circle of Dreams' },
       desc: { pt: 'Magia feérica de cura e viagem onírica.', en: 'Fey healing magic and dream travel.' },
       features: [
-        { level: 2, name: { pt: 'Bálsamo da Terra', en: 'Balm of the Summer Court' }, desc: { pt: 'Pool = nível de druida d6s. Ação bônus: cure aliado a 120 pés (gaste dados do pool — HP recuperado = total rolado, + HP temp = dados gastos).', en: 'Pool = druid level d6s. Bonus action: heal ally within 120 ft (spend pool dice — HP healed = total rolled, + temp HP = dice spent).' } },
-        { level: 6, name: { pt: 'Abrigo no Mundo Feérico', en: 'Hearth of Moonlight and Shadow' }, desc: { pt: 'Durante descanso longo: santuário oculto feérico. Luz tênue 5 pés; criaturas fora não percebem você (a menos que revele).', en: 'During long rest: hidden fey sanctuary. Dim light 5 ft; creatures outside can\'t perceive you unless you reveal yourself.' } },
-        { level: 10, name: { pt: 'Olho do Portal', en: 'Hidden Paths' }, desc: { pt: 'SAB/descanso longo: teleporte (60 pés, você) ou toque a aliado (30 pés, aliado). Sem ataque de oportunidade.', en: 'WIS/long rest: teleport (60 ft, you) or touch ally (30 ft, ally). No opportunity attacks.' } },
-        { level: 14, name: { pt: 'Passeio Onírico', en: 'Walker in Dreams' }, desc: { pt: '1×/descanso longo: ao término de descanso longo lançar Sonho, Aceleração ou Scrying sem gasto.', en: '1/long rest: at the end of a long rest cast Dream, Haste, or Scrying for free.' } },
+        { level: 2, name: { pt: 'Bálsamo da Corte de Verão', en: 'Balm of the Summer Court' }, desc: { pt: 'Reserva de d6 = nível de druida (volta no descanso longo). Ação bônus: gaste até metade do nível em dados numa criatura a 120 pés; ela cura o total e ganha 1 PV temp. por dado.', en: 'Pool of d6s equal to druid level (long rest). Bonus action: spend up to half your level in dice on a creature within 120 ft; it heals the total and gains 1 temp HP per die.' } },
+        { level: 6, name: { pt: 'Lar de Luar e Sombra', en: 'Hearth of Moonlight and Shadow' }, desc: { pt: 'No início de um descanso curto ou longo: esfera de 30 pés que dá +5 em Furtividade e Percepção a você e aliados e esconde luz interna de quem está fora.', en: 'At the start of a short or long rest: 30-ft sphere granting you and allies +5 to Stealth and Perception and hiding light inside from outside viewers.' } },
+        { level: 10, name: { pt: 'Caminhos Ocultos', en: 'Hidden Paths' }, desc: { pt: 'Ação bônus: teleporte-se 60 pés; ou Ação: teleporte 30 pés uma criatura voluntária tocada. Usos = mod. SAB (mín. 1) por descanso longo.', en: 'Bonus action: teleport yourself 60 ft; or Action: teleport a willing touched creature 30 ft. Uses = WIS mod (min 1) per long rest.' } },
+        { level: 14, name: { pt: 'Andarilho dos Sonhos', en: 'Walker in Dreams' }, desc: { pt: '1×/descanso longo, ao terminar um descanso curto: conjure Sonho, Vidência ou Círculo de Teletransporte (para o local do último descanso longo) sem espaço nem componente material.', en: '1/long rest, after a short rest: cast Dream, Scrying, or Teleportation Circle (to your last long rest site) without a slot or material components.' } },
       ],
     },
   ],
@@ -1487,20 +1512,21 @@ const SUBCLASSES = {
     { id: 'champion', name: { pt: 'Campeão', en: 'Champion' },
       desc: { pt: 'Excelência física e críticos devastadores.', en: 'Physical excellence and devastating critical hits.' },
       features: [
-        { level: 3, name: { pt: 'Crítico Aprimorado', en: 'Improved Critical' }, desc: { pt: 'Acerto crítico em rolagens de 19 ou 20 (17+ no nível 15).', en: 'Score a critical hit on rolls of 19 or 20 (17+ at level 15).' } },
+        { level: 3, name: { pt: 'Crítico Aprimorado', en: 'Improved Critical' }, desc: { pt: 'Acerto crítico em rolagens de 19 ou 20 (18–20 no nível 15).', en: 'Score a critical hit on rolls of 19 or 20 (18–20 at level 15).' } },
         { level: 7, name: { pt: 'Atleta Notável', en: 'Remarkable Athlete' }, desc: { pt: '+metade do bônus de proficiência em testes de FOR, DEST e CON sem proficiência. Salto longo com corrida de 5 pés.', en: '+half proficiency bonus on STR, DEX, CON checks without proficiency. Long jump with 5 ft run-up.' } },
         { level: 10, name: { pt: 'Estilo de Combate Adicional', en: 'Additional Fighting Style' }, desc: { pt: 'Escolha mais um estilo de combate.', en: 'Choose one additional Fighting Style.' } },
-        { level: 15, name: { pt: 'Crítico Superior', en: 'Superior Critical' }, desc: { pt: 'Acerto crítico em rolagens de 17, 18, 19 ou 20.', en: 'Score a critical hit on rolls of 17, 18, 19, or 20.' } },
+        { level: 15, name: { pt: 'Crítico Superior', en: 'Superior Critical' }, desc: { pt: 'Acerto crítico em rolagens de 18, 19 ou 20.', en: 'Score a critical hit on rolls of 18, 19, or 20.' } },
         { level: 18, name: { pt: 'Sobrevivente', en: 'Survivor' }, desc: { pt: 'No início do turno com ≤ metade do HP máximo: recupere 5+mod CON HP (se não estiver a 0 HP).', en: 'At start of your turn with ≤ half max HP: regain 5+CON mod HP (if not at 0 HP).' } },
       ],
     },
     { id: 'battlemaster', name: { pt: 'Mestre de Batalha', en: 'Battle Master' },
       desc: { pt: 'Manobras táticas, superioridade de combate.', en: 'Tactical maneuvers and combat superiority.' },
       features: [
-        { level: 3, name: { pt: 'Superioridade de Combate', en: 'Combat Superiority' }, desc: { pt: '4 dados de superioridade (d8). 6 manobras conhecidas. Manobras usam dados de superioridade (subtraem de CD = 8+prof+FOR/DEST).', en: '4 superiority dice (d8). 6 maneuvers known. Maneuvers use superiority dice (save DC = 8+prof+STR/DEX).' } },
+        { level: 3, name: { pt: 'Superioridade de Combate', en: 'Combat Superiority' }, desc: { pt: '4 dados de superioridade (d8), recuperados em descanso curto; 5 no nível 7 e 6 no 15. 3 manobras conhecidas (+2 nos níveis 7, 10 e 15). CD das manobras = 8 + prof + FOR ou DES.', en: '4 superiority dice (d8), regained on a short rest; 5 at level 7 and 6 at 15. 3 maneuvers known (+2 at levels 7, 10, and 15). Maneuver save DC = 8 + prof + STR or DEX.' } },
         { level: 3, name: { pt: 'Estudante da Guerra', en: 'Student of War' }, desc: { pt: 'Proficiência em um tipo de ferramenta de artesão.', en: 'Proficiency with one type of artisan\'s tools.' } },
         { level: 7, name: { pt: 'Conhecer o Inimigo', en: 'Know Your Enemy' }, desc: { pt: 'Ao observar criatura por 1 min: compare 2 das seguintes: FOR, DEST, CON, CA, HP, nível de guerreiro, ataques por ação.', en: 'After observing creature for 1 min: compare 2 of: STR, DEX, CON, AC, HP, fighter levels, attacks per action.' } },
         { level: 10, name: { pt: 'Superioridade Aprimorada', en: 'Improved Superiority' }, desc: { pt: 'Dados de superioridade sobem para d10 (d12 no nível 18).', en: 'Superiority dice become d10 (d12 at level 18).' } },
+        { level: 15, name: { pt: 'Implacável', en: 'Relentless' }, desc: { pt: 'Ao rolar iniciativa sem dados de superioridade, recupere 1.', en: 'When you roll initiative with no superiority dice left, regain 1.' } },
       ],
     },
     { id: 'eldritchknight', name: { pt: 'Cavaleiro Arcano', en: 'Eldritch Knight' },
@@ -1509,8 +1535,9 @@ const SUBCLASSES = {
         { level: 3, name: { pt: 'Conjuração de Magia', en: 'Spellcasting' }, desc: { pt: 'Conjurador de 1/3 do nível (truques + espaços de magia de mago). Principalmente abjuração e evocação.', en: '1/3-level spellcaster (cantrips + wizard spell slots). Mainly abjuration and evocation.' } },
         { level: 3, name: { pt: 'Vínculo com Arma', en: 'Weapon Bond' }, desc: { pt: 'Crie vínculo com 2 armas: teleporte delas para a mão como ação bônus, não pode ser desarmado involuntariamente.', en: 'Bond with up to 2 weapons: teleport them to hand as bonus action, can\'t be involuntarily disarmed.' } },
         { level: 7, name: { pt: 'Magia de Guerra', en: 'War Magic' }, desc: { pt: 'Ao lançar truque: ataque bônus com arma como ação bônus.', en: 'When casting a cantrip: bonus weapon attack as bonus action.' } },
-        { level: 10, name: { pt: 'Golpe Arcano', en: 'Eldritch Strike' }, desc: { pt: 'Ao acertar com arma: alvo tem desvantagem no próximo SAL vs sua magia neste turno.', en: 'When you hit with a weapon: target has disadvantage on next save vs your spell this turn.' } },
-        { level: 15, name: { pt: 'Carga Arcana', en: 'Arcane Charge' }, desc: { pt: 'Ao usar Surto de Ação: teletransporte até 30 pés antes ou depois de cada ação extra.', en: 'When using Action Surge: teleport up to 30 ft before or after each extra action.' } },
+        { level: 10, name: { pt: 'Golpe Arcano', en: 'Eldritch Strike' }, desc: { pt: 'Ao acertar com arma: o alvo tem desvantagem na próxima SAL contra uma magia sua até o fim do seu próximo turno.', en: 'When you hit with a weapon: the target has disadvantage on the next save against a spell you cast before the end of your next turn.' } },
+        { level: 15, name: { pt: 'Carga Arcana', en: 'Arcane Charge' }, desc: { pt: 'Ao usar Surto de Ação: teletransporte-se até 30 pés para um espaço desocupado que veja, antes ou depois da ação adicional.', en: 'When you use Action Surge: teleport up to 30 ft to an unoccupied space you can see, before or after the additional action.' } },
+        { level: 18, name: { pt: 'Magia de Guerra Aprimorada', en: 'Improved War Magic' }, desc: { pt: 'Ao usar a ação para conjurar uma magia: um ataque com arma como ação bônus.', en: 'When you use your action to cast a spell: one weapon attack as a bonus action.' } },
       ],
     },
   ],
@@ -1527,18 +1554,19 @@ const SUBCLASSES = {
     { id: 'shadow', name: { pt: 'Caminho das Sombras', en: 'Way of Shadow' },
       desc: { pt: 'Artes das trevas e furtividade sobrenatural.', en: 'Arts of darkness and supernatural stealth.' },
       features: [
-        { level: 3, name: { pt: 'Artes das Sombras', en: 'Shadow Arts' }, desc: { pt: '2 ki: lance Escuridão, Silêncio, Passe Sem Rastros ou Visão no Escuro sem espaço de magia.', en: '2 ki: cast Darkness, Silence, Pass Without Trace, or Darkvision with no spell slot.' } },
+        { level: 3, name: { pt: 'Artes das Sombras', en: 'Shadow Arts' }, desc: { pt: '2 ki: lance Escuridão, Visão no Escuro, Passos sem Pegadas ou Silêncio sem componentes materiais. Conhece o truque Ilusão Menor.', en: '2 ki: cast Darkness, Darkvision, Pass without Trace, or Silence without material components. You know the Minor Illusion cantrip.' } },
         { level: 6, name: { pt: 'Passo das Sombras', en: 'Shadow Step' }, desc: { pt: 'Em luz tênue/escuridão: teletransporte até 60 pés para luz tênue/escuridão. Vantagem no próximo ataque.', en: 'In dim light/darkness: teleport up to 60 ft to dim light/darkness. Advantage on next attack.' } },
         { level: 11, name: { pt: 'Manto das Sombras', en: 'Cloak of Shadows' }, desc: { pt: 'Em luz tênue/escuridão: fique invisível como ação. Termina ao atacar ou lançar magia.', en: 'In dim light/darkness: become invisible as action. Ends when you attack or cast a spell.' } },
-        { level: 17, name: { pt: 'Oportunista', en: 'Opportunist' }, desc: { pt: 'Reação: ao atacar adjacente ser atacado por aliado, faça um ataque adicional.', en: 'Reaction: when adjacent creature is hit by an ally, make one additional attack against it.' } },
+        { level: 17, name: { pt: 'Oportunista', en: 'Opportunist' }, desc: { pt: 'Reação: quando uma criatura a 5 pés é atingida por um ataque de outra criatura que não você, faça um ataque corpo a corpo contra ela.', en: 'Reaction: when a creature within 5 ft is hit by an attack made by a creature other than you, make a melee attack against it.' } },
       ],
     },
     { id: 'fourelements', name: { pt: 'Caminho dos Quatro Elementos', en: 'Way of the Four Elements' },
       desc: { pt: 'Domine fogo, água, terra e ar com ki.', en: 'Harness fire, water, earth, and air with ki.' },
       features: [
-        { level: 3, name: { pt: 'Discípulo dos Elementos', en: 'Disciple of the Elements' }, desc: { pt: 'Aprenda Disciplinas Elementais (magias de ki). Ex: Punho de Terra (2 ki: Terremoto menor), Faixa de Vento (2 ki: empurre 20 pés), Onda de Chama (2 ki: 3d6 fogo em cone 15 pés).', en: 'Learn Elemental Disciplines (ki spells). E.g. Fangs of the Fire Snake, Fist of Unbroken Air, Rush of the Gale Spirits, Water Whip.' } },
-        { level: 6, name: { pt: 'Disciplinas Adicionais', en: 'Additional Disciplines' }, desc: { pt: 'Aprenda mais 1 disciplina elemental. Total: 3 ao 6°, 4 ao 11°, 5 ao 17°.', en: 'Learn 1 more elemental discipline. Total: 3 at 6th, 4 at 11th, 5 at 17th.' } },
-        { level: 11, name: { pt: 'Andar Sobre a Água', en: 'Stride of the Elements' }, desc: { pt: 'Ao gastar 1 ki para Passo de Vento ou Agua: ganhe deslocamento de voo/natação = deslocamento normal até fim do turno.', en: 'When spending 1 ki for step of wind or water: gain fly/swim speed = movement speed until end of turn.' } },
+        { level: 3, name: { pt: 'Discípulo dos Elementos', en: 'Disciple of the Elements' }, desc: { pt: 'Conhece Sintonia Elemental e mais 1 disciplina elemental, pagas com ki (CD de ki). Ex.: Presas da Serpente de Fogo, Punho do Ar Inquebrável, Chicote d\'Água; várias conjuram magias (Onda Trovejante, Mãos Flamejantes, Lufada de Vento). A partir do 5, gaste ki extra para subir o nível da magia (máx. de ki por disciplina: 2/3/4/5/6 nos níveis 3/5/9/13/17).', en: 'Know Elemental Attunement plus 1 elemental discipline, fueled by ki (ki save DC). E.g. Fangs of the Fire Snake, Fist of Unbroken Air, Water Whip; several cast spells (Thunderwave, Burning Hands, Gust of Wind). From level 5, spend extra ki to raise a spell\'s level (max ki per discipline: 2/3/4/5/6 at levels 3/5/9/13/17).' } },
+        { level: 6, name: { pt: 'Disciplina Adicional', en: 'Additional Discipline' }, desc: { pt: '+1 disciplina elemental; pode trocar uma que já conhece.', en: '+1 elemental discipline; you may swap one you know.' } },
+        { level: 11, name: { pt: 'Disciplina Adicional', en: 'Additional Discipline' }, desc: { pt: '+1 disciplina elemental; pode trocar uma que já conhece.', en: '+1 elemental discipline; you may swap one you know.' } },
+        { level: 17, name: { pt: 'Disciplina Adicional', en: 'Additional Discipline' }, desc: { pt: '+1 disciplina elemental; pode trocar uma que já conhece.', en: '+1 elemental discipline; you may swap one you know.' } },
       ],
     },
   ],
@@ -1547,10 +1575,10 @@ const SUBCLASSES = {
       desc: { pt: 'O arquétipo clássico do paladino: honra e virtude.', en: 'The classic paladin archetype: honor and virtue.' },
       features: [
         { level: 3, name: { pt: 'Arma Sagrada', en: 'Sacred Weapon' }, desc: { pt: 'Canalizar Divindade: arma brilha (+CAR nos ataques, luz 20 pés) por 1 min.', en: 'Channel Divinity: weapon glows (+CHA on attacks, 20 ft light) for 1 min.' } },
-        { level: 3, name: { pt: 'Expulsar os Profanos', en: 'Turn the Unholy' }, desc: { pt: 'Canalizar Divindade: mortos-vivos/infernais em 30 pés SAL SAB CD magia ou fogem por 1 min.', en: 'Channel Divinity: undead/fiends within 30 ft WIS save vs spell DC or flee for 1 min.' } },
+        { level: 3, name: { pt: 'Expulsar os Profanos', en: 'Turn the Unholy' }, desc: { pt: 'Canalizar Divindade: corruptores e mortos-vivos a 30 pés que o ouçam fazem SAL SAB ou ficam expulsos por 1 min (ou até sofrerem dano).', en: 'Channel Divinity: fiends and undead within 30 ft that can hear you make a WIS save or are turned for 1 min (or until they take damage).' } },
         { level: 7, name: { pt: 'Aura de Devoção', en: 'Aura of Devotion' }, desc: { pt: 'Você e aliados em 10 pés (30 pés ao 18°) imunes a encantamento.', en: 'You and allies within 10 ft (30 ft at 18th) immune to being charmed.' } },
         { level: 15, name: { pt: 'Pureza de Espírito', en: 'Purity of Spirit' }, desc: { pt: 'Sempre sob Proteção do Bem e do Mal.', en: 'Always under Protection from Evil and Good.' } },
-        { level: 20, name: { pt: 'Nimbo Sagrado', en: 'Holy Nimbus' }, desc: { pt: '1×/descanso longo: aura de luz solar 30 pés. Mortos-vivos/infernais iniciam turnos na aura: 10 radiante. Vantagem em SAL vs magia de infernais/mortos-vivos.', en: '1/long rest: sunlight aura 30 ft. Undead/fiends start turns in aura: 10 radiant. Advantage on saves vs spells from fiends/undead.' } },
+        { level: 20, name: { pt: 'Nimbo Sagrado', en: 'Holy Nimbus' }, desc: { pt: '1×/descanso longo, ação, 1 min: luz solar plena 30 pés. Inimigo que começa o turno na luz sofre 10 radiante. Vantagem em SAL contra magias de corruptores e mortos-vivos.', en: '1/long rest, action, 1 min: bright sunlight 30 ft. An enemy starting its turn in the light takes 10 radiant. Advantage on saves vs spells cast by fiends or undead.' } },
       ],
     },
     { id: 'ancients', name: { pt: 'Juramento dos Ancestrais', en: 'Oath of the Ancients' },
@@ -1558,9 +1586,9 @@ const SUBCLASSES = {
       features: [
         { level: 3, name: { pt: 'Ira da Natureza', en: "Nature's Wrath" }, desc: { pt: 'Canalizar Divindade: videiras envolvem criatura a 10 pés (SAL FOR ou DEST CD magia ou restringida por 1 min).', en: 'Channel Divinity: vines restrain creature within 10 ft (STR or DEX save vs spell DC or restrained 1 min).' } },
         { level: 3, name: { pt: 'Expulsar os Infiéis', en: 'Turn the Faithless' }, desc: { pt: 'Canalizar Divindade: fadas e infernais em 30 pés SAL SAB ou fogem por 1 min.', en: 'Channel Divinity: fey and fiends within 30 ft WIS save or flee for 1 min.' } },
-        { level: 7, name: { pt: 'Aura de Proteção', en: 'Aura of Warding' }, desc: { pt: 'Você e aliados em 10 pés resistência a dano de magias.', en: 'You and allies within 10 ft resistance to damage from spells.' } },
+        { level: 7, name: { pt: 'Aura de Resguardo', en: 'Aura of Warding' }, desc: { pt: 'Você e aliados a 10 pés (30 no 18) têm resistência a dano de magias.', en: 'You and allies within 10 ft (30 ft at 18th) have resistance to damage from spells.' } },
         { level: 15, name: { pt: 'Sentinela Imortal', en: 'Undying Sentinel' }, desc: { pt: '1×/descanso longo: quando cair a 0 HP, fique a 1 HP. Não envelhece.', en: '1/long rest: when dropping to 0 HP, stay at 1 HP. No longer age.' } },
-        { level: 20, name: { pt: 'Campeão Ancião', en: 'Elder Champion' }, desc: { pt: '1×/descanso longo por 1 min: cura 10 HP no início de cada turno; magias de paladino lançadas em 1 ação como ação bônus; aliados/inimigos a 10 pés SAL vs suas magias com desvantagem/vantagem.', en: '1/long rest for 1 min: heal 10 HP at start of each turn; paladin spells cast in 1 action as bonus action; allies/enemies within 10 ft save against your spells with advantage/disadvantage.' } },
+        { level: 20, name: { pt: 'Campeão Ancião', en: 'Elder Champion' }, desc: { pt: '1×/descanso longo, ação, 1 min: recupere 10 PV no início de cada turno; magias de paladino de 1 ação podem ser conjuradas como ação bônus; inimigos a 10 pés têm desvantagem em SAL contra suas magias de paladino e Canalizar Divindade.', en: '1/long rest, action, 1 min: regain 10 HP at the start of each turn; paladin spells with a casting time of 1 action can be cast as a bonus action; enemies within 10 ft have disadvantage on saves vs your paladin spells and Channel Divinity.' } },
       ],
     },
     { id: 'vengeance', name: { pt: 'Juramento de Vingança', en: 'Oath of Vengeance' },
@@ -1570,7 +1598,7 @@ const SUBCLASSES = {
         { level: 3, name: { pt: 'Voto de Inimizade', en: 'Vow of Enmity' }, desc: { pt: 'Canalizar Divindade: vantagem em ataques vs criatura a 10 pés por 1 min.', en: 'Channel Divinity: advantage on attacks vs creature within 10 ft for 1 min.' } },
         { level: 7, name: { pt: 'Vingador Implacável', en: 'Relentless Avenger' }, desc: { pt: 'Ao acertar com ataque de oportunidade: mova-se metade do deslocamento (sem provocar ataques de oportunidade) após o ataque.', en: 'When hitting with an opportunity attack: move up to half your speed (without provoking opportunity attacks) after the hit.' } },
         { level: 15, name: { pt: 'Alma da Vingança', en: 'Soul of Vengeance' }, desc: { pt: 'Ao criatura sob Voto de Inimizade atacar: use reação para fazer um ataque extra contra ela.', en: 'When a creature under Vow of Enmity makes an attack: use reaction to make one melee attack against it.' } },
-        { level: 20, name: { pt: 'Anjo Vingador', en: 'Avenging Angel' }, desc: { pt: '1×/descanso longo por 1 min: asas (voo 60 pés); aura 30 pés — criaturas hostis SAL SAB CD magia ou atemoridas.', en: '1/long rest for 1 min: wings (fly 60 ft); 30-ft aura — hostile creatures WIS save vs spell DC or frightened.' } },
+        { level: 20, name: { pt: 'Anjo Vingador', en: 'Avenging Angel' }, desc: { pt: '1×/descanso longo, ação, 1 h: asas (voo 60 pés) e aura de 30 pés — inimigo que entra ou começa o turno nela faz SAL SAB ou fica amedrontado por 1 min (ataques contra ele têm vantagem).', en: '1/long rest, action, 1 hour: wings (fly 60 ft) and a 30-ft aura — an enemy entering or starting its turn there makes a WIS save or is frightened for 1 min (attacks against it have advantage).' } },
       ],
     },
   ],
@@ -1578,17 +1606,17 @@ const SUBCLASSES = {
     { id: 'hunter', name: { pt: 'Caçador', en: 'Hunter' },
       desc: { pt: 'Especialista em eliminar alvos específicos.', en: 'Specialist in eliminating specific targets.' },
       features: [
-        { level: 3, name: { pt: 'Presa do Caçador', en: "Hunter's Prey" }, desc: { pt: 'Escolha: Matador de Colossus (+1d8 vs Grandes+), Escapada do Inferno (mova-se sem provocar ataques de oportunidade), ou Golpe da Horda (ataque vs 2 criaturas adjacentes).', en: 'Choose: Colossus Slayer (+1d8 vs Large+), Escape the Horde (move without opportunity attacks), or Horde Breaker (attack 2 adjacent creatures).' } },
-        { level: 7, name: { pt: 'Táticas Defensivas', en: 'Defensive Tactics' }, desc: { pt: 'Escolha: Evasão de Multidão (desvantagem em ataques de oportunidade vs você), Defesa Multiataques (reduza dano ao ser alvo de vários ataques), ou Vontade de Aço (proficiência em SAL SAB).', en: 'Choose: Escape the Horde, Multiattack Defense, or Steel Will (proficiency in WIS saves).' } },
-        { level: 11, name: { pt: 'Multiataques', en: 'Multiattack' }, desc: { pt: 'Escolha: Chuva de Flechas (2 alvos com arco, 1 ação) ou Rajada Volante (3 ataques corpo a corpo, 1 ação).', en: 'Choose: Volley (2 ranged targets, 1 action) or Whirlwind Attack (3 melee attacks, 1 action).' } },
-        { level: 15, name: { pt: 'Defesa Superior', en: "Superior Hunter's Defense" }, desc: { pt: 'Escolha: Esquiva, Esquivar em Grupo (Evasão para aliados a 10 pés) ou Parar os Mortos (dano bônus a mortos-vivos/construtos vs SAL CON ou ficam paralisados).', en: 'Choose: Evasion, Stand Against the Tide, or Uncanny Dodge.' } },
+        { level: 3, name: { pt: 'Presa do Caçador', en: "Hunter's Prey" }, desc: { pt: 'Escolha: Matador de Colossos (1×/turno, +1d8 contra alvo abaixo do PV máximo), Matador de Gigantes (reação: ataque contra criatura Grande+ a 5 pés que o ataque) ou Destruidor de Hordas (1×/turno, ataque extra contra outra criatura a 5 pés do alvo).', en: 'Choose: Colossus Slayer (1/turn, +1d8 vs a target below its HP maximum), Giant Killer (reaction: attack a Large+ creature within 5 ft that attacks you), or Horde Breaker (1/turn, extra attack vs another creature within 5 ft of the target).' } },
+        { level: 7, name: { pt: 'Táticas Defensivas', en: 'Defensive Tactics' }, desc: { pt: 'Escolha: Escapar da Horda (ataques de oportunidade contra você têm desvantagem), Defesa contra Ataques Múltiplos (+4 CA contra os ataques seguintes da mesma criatura no turno) ou Vontade de Ferro (vantagem em SAL contra amedrontado).', en: 'Choose: Escape the Horde (opportunity attacks against you have disadvantage), Multiattack Defense (+4 AC vs later attacks by the same creature that turn), or Steel Will (advantage on saves vs being frightened).' } },
+        { level: 11, name: { pt: 'Ataque Múltiplo', en: 'Multiattack' }, desc: { pt: 'Escolha: Saraivada (ação: ataque à distância contra qualquer número de criaturas a 10 pés de um ponto) ou Ataque Giratório (ação: ataque corpo a corpo contra qualquer número de criaturas a 5 pés).', en: 'Choose: Volley (action: ranged attack vs any number of creatures within 10 ft of a point) or Whirlwind Attack (action: melee attack vs any number of creatures within 5 ft).' } },
+        { level: 15, name: { pt: 'Defesa Superior do Caçador', en: "Superior Hunter's Defense" }, desc: { pt: 'Escolha: Evasão, Firme Contra a Maré (reação: ao errar você, o ataque atinge outra criatura) ou Esquiva Sobrenatural (reação: metade do dano de um ataque).', en: 'Choose: Evasion, Stand Against the Tide (reaction: a missed attack hits another creature), or Uncanny Dodge (reaction: halve an attack\'s damage).' } },
       ],
     },
     { id: 'beastmaster', name: { pt: 'Mestre das Bestas', en: 'Beast Master' },
       desc: { pt: 'Companheiro animal fiel em toda aventura.', en: 'Loyal animal companion throughout every adventure.' },
       features: [
-        { level: 3, name: { pt: 'Companheiro do Ranger', en: "Ranger's Companion" }, desc: { pt: 'Vínculo com besta de CR ≤ 1/4. Age em sua iniciativa. Obedece comandos (gaste ação bônus para comandar ataque).', en: 'Bond with beast CR ≤ 1/4. Acts on your initiative. Obeys commands (spend bonus action to command attack).' } },
-        { level: 7, name: { pt: 'Treinamento Excepcional', en: 'Exceptional Training' }, desc: { pt: 'Ação bônus: besta usa Disparar, Desengajar ou Esquivar. Ataques da besta são mágicos.', en: 'Bonus action: beast uses Dash, Disengage, or Dodge. Beast\'s attacks count as magical.' } },
+        { level: 3, name: { pt: 'Companheiro do Patrulheiro', en: "Ranger's Companion" }, desc: { pt: 'Besta Média ou menor de ND ≤ 1/4 (soma seu bônus de proficiência em CA, ataques, dano, perícias e SAL; PV máx. = o maior entre o normal e 4×nível de patrulheiro). Age na sua iniciativa; use sua ação para ordenar Atacar, Correr, Desengajar, Esquivar ou Ajudar.', en: 'Medium-or-smaller beast of CR ≤ 1/4 (adds your proficiency bonus to AC, attacks, damage, skills, and saves; max HP = the higher of normal or 4×ranger level). Acts on your initiative; use your action to command it to Attack, Dash, Disengage, Dodge, or Help.' } },
+        { level: 7, name: { pt: 'Treinamento Excepcional', en: 'Exceptional Training' }, desc: { pt: 'Ação bônus: a besta usa Correr, Desengajar, Esquivar ou Ajudar. Ataques da besta contam como mágicos.', en: 'Bonus action: the beast takes the Dash, Disengage, Dodge, or Help action. Beast\'s attacks count as magical.' } },
         { level: 11, name: { pt: 'Fúria Bestial', en: 'Bestial Fury' }, desc: { pt: 'Quando comandar ataque: besta ataca 2× por turno.', en: 'When commanding beast to attack: it attacks twice per turn.' } },
         { level: 15, name: { pt: 'Compartilhar Magias', en: 'Share Spells' }, desc: { pt: 'Ao lançar magia em si mesmo: escolha que afete também a besta se estiver a 30 pés.', en: 'When casting a spell on yourself: choose to also affect the beast if within 30 ft.' } },
       ],
@@ -1630,8 +1658,8 @@ const SUBCLASSES = {
     { id: 'draconic', name: { pt: 'Linhagem Dracônica', en: 'Draconic Bloodline' },
       desc: { pt: 'Ancestral dragão confere magia e escamas.', en: 'Draconic ancestor grants magic and scales.' },
       features: [
-        { level: 1, name: { pt: 'Ancestral Dragão', en: 'Dragon Ancestor' }, desc: { pt: 'Escolha tipo de dragão (fogo, gelo, raio, etc.) — idioma Dracônico, vantagem em CAR com dragões desse tipo.', en: 'Choose dragon type (fire, ice, lightning, etc.) — Draconic language, CHA advantage with dragons of that type.' } },
-        { level: 1, name: { pt: 'Resiliência Dracônica', en: 'Raconic Resilience' }, desc: { pt: '+1 HP por nível. CA = 13+DEST sem armadura.', en: '+1 HP per level. AC = 13+DEX without armor.' } },
+        { level: 1, name: { pt: 'Ancestral Dragão', en: 'Dragon Ancestor' }, desc: { pt: 'Escolha um tipo de dragão (define o tipo de dano). Fala, lê e escreve Dracônico; proficiência dobrada em testes de CAR ao interagir com dragões.', en: 'Choose a dragon type (sets the damage type). You speak, read, and write Draconic; double proficiency bonus on CHA checks when interacting with dragons.' } },
+        { level: 1, name: { pt: 'Resiliência Dracônica', en: 'Draconic Resilience' }, desc: { pt: '+1 HP por nível. CA = 13+DEST sem armadura.', en: '+1 HP per level. AC = 13+DEX without armor.' } },
         { level: 6, name: { pt: 'Afinidade Elemental', en: 'Elemental Affinity' }, desc: { pt: 'Magias do tipo do dragão: adicione mod de CAR ao dano. Gaste 1 ponto de feitiçaria: resistência a esse dano por 1h.', en: 'Spells of dragon\'s type: add CHA mod to damage. Spend 1 sorcery point: resistance to that type for 1h.' } },
         { level: 14, name: { pt: 'Asas de Dragão', en: 'Dragon Wings' }, desc: { pt: 'Ação bônus: asas de dragão (voo = deslocamento). Persistente enquanto quiser.', en: 'Bonus action: dragon wings appear (fly speed = movement). Persistent as long as desired.' } },
         { level: 18, name: { pt: 'Presença Dracônica', en: 'Draconic Presence' }, desc: { pt: '5 pontos de feitiçaria: aura 60 pés (SAL SAB CD magia ou encantado/amedrontado) por 1 min (conc.).', en: '5 sorcery points: 60-ft aura (WIS save vs spell DC or charmed/frightened) for 1 min (conc.).' } },
@@ -1647,19 +1675,19 @@ const SUBCLASSES = {
         { level: 18, name: { pt: 'Bombardeio de Feitiços', en: 'Spell Bombardment' }, desc: { pt: '1×/turno: ao rolar dado de dano máximo, role-o novamente e adicione ao total.', en: '1/turn: when rolling maximum damage die result, roll it again and add to total.' } },
       ],
     },
-    { id: 'divine', name: { pt: 'Alma Divina', en: 'Divine Soul' },
+    { id: 'divine', name: { pt: 'Alma Divina', en: 'Divine Soul' }, source: 'XGE',
       desc: { pt: 'Faísca celestial: combine magias de feiticeiro e clérigo.', en: 'Celestial spark: combine sorcerer and cleric spells.' },
       features: [
-        { level: 1, name: { pt: 'Magia Divina', en: 'Divine Magic' }, desc: { pt: 'Acesso à lista de magias de clérigo. Conheça 1 magia adicional de clérigo. Origem divina concede resistência a uma escola de magia.', en: 'Access to cleric spell list. Learn 1 additional cleric spell. Divine origin grants resistance to one magic school.' } },
-        { level: 1, name: { pt: 'Favor dos Deuses', en: 'Favored by the Gods' }, desc: { pt: '1×/descanso curto: ao falhar SAL ou errar ataque, adicione 2d4 ao resultado.', en: '1/short rest: when failing a save or missing an attack, add 2d4 to the result.' } },
-        { level: 6, name: { pt: 'Alma Empoderada', en: 'Empowered Healing' }, desc: { pt: '1 ponto de feitiçaria: rerrole qualquer dado de magia de cura a 5 pés (mesmo de outro).', en: '1 sorcery point: reroll any number of healing dice for a spell within 5 ft (even another\'s).' } },
-        { level: 14, name: { pt: 'Formas Etéreas', en: 'Otherworldly Wings' }, desc: { pt: 'Ação bônus: asas luminosas ou sombrias (voo 30 pés).', en: 'Bonus action: luminous or shadow wings (fly speed 30 ft).' } },
-        { level: 18, name: { pt: 'Manifestação Divina', en: 'Unearthly Recovery' }, desc: { pt: '1×/descanso longo: ao estar com HP ≤ metade do máximo, use ação bônus para recuperar metade do HP máximo.', en: '1/long rest: when at ≤ half max HP, use bonus action to regain half your max HP.' } },
+        { level: 1, name: { pt: 'Magia Divina', en: 'Divine Magic' }, desc: { pt: 'Magias de clérigo podem ser aprendidas como de feiticeiro. Escolha uma afinidade (Bem, Mal, Lei, Caos ou Neutralidade), que concede uma magia extra conhecida: Curar Ferimentos, Infligir Ferimentos, Bênção, Perdição ou Proteção contra o Bem e o Mal.', en: 'You can learn cleric spells as sorcerer spells. Choose an affinity (Good, Evil, Law, Chaos, or Neutrality) that grants one extra known spell: Cure Wounds, Inflict Wounds, Bless, Bane, or Protection from Evil and Good.' } },
+        { level: 1, name: { pt: 'Favorecido pelos Deuses', en: 'Favored by the Gods' }, desc: { pt: '1×/descanso curto: ao falhar SAL ou errar ataque, adicione 2d4 ao resultado.', en: '1/short rest: when failing a save or missing an attack, add 2d4 to the result.' } },
+        { level: 6, name: { pt: 'Cura Fortalecida', en: 'Empowered Healing' }, desc: { pt: '1 ponto de feitiçaria, 1×/turno: rerrole dados de cura de uma magia sua ou de aliado a 5 pés.', en: '1 sorcery point, once per turn: reroll healing dice of a spell cast by you or an ally within 5 ft.' } },
+        { level: 14, name: { pt: 'Asas de Outro Mundo', en: 'Otherworldly Wings' }, desc: { pt: 'Ação bônus: asas espectrais (voo 30 pés) até dispensá-las.', en: 'Bonus action: spectral wings (fly speed 30 ft) until you dismiss them.' } },
+        { level: 18, name: { pt: 'Recuperação Sobrenatural', en: 'Unearthly Recovery' }, desc: { pt: '1×/descanso longo: com PV abaixo da metade do máximo, ação bônus para recuperar metade do PV máximo.', en: '1/long rest: when below half your max HP, bonus action to regain half your max HP.' } },
       ],
     },
   ],
   warlock: [
-    { id: 'archfey', name: { pt: 'O Archefada', en: 'The Archfey' },
+    { id: 'archfey', name: { pt: 'A Arquifada', en: 'The Archfey' },
       desc: { pt: 'Patrono feérico de poder antigo e imprevisível.', en: 'Fey patron of ancient and unpredictable power.' },
       features: [
         { level: 1, name: { pt: 'Presença Feérica', en: 'Fey Presence' }, desc: { pt: '1×/descanso curto: ação — criaturas em 10 pés SAL SAB CD magia ou encantadas/amedrontadas por 1 turno.', en: '1/short rest: action — creatures in 10 ft WIS save vs spell DC or charmed/frightened for 1 turn.' } },
@@ -1668,13 +1696,13 @@ const SUBCLASSES = {
         { level: 14, name: { pt: 'Delírio Sombrio', en: 'Dark Delirium' }, desc: { pt: '1×/descanso curto: ação — criatura em 60 pés SAL SAB CD magia ou em delírio (incapacitado, velocidade 0) por 1 min (conc.).', en: '1/short rest: action — creature in 60 ft WIS save vs spell DC or delirious (incapacitated, speed 0) for 1 min (conc.).' } },
       ],
     },
-    { id: 'fiend', name: { pt: 'O Infernal', en: 'The Fiend' },
+    { id: 'fiend', name: { pt: 'O Corruptor', en: 'The Fiend' },
       desc: { pt: 'Patrono infernal. HP temporários ao matar e sorte das trevas.', en: 'Fiendish patron. Temp HP on kills and dark luck.' },
       features: [
         { level: 1, name: { pt: 'Bênção do Senhor das Trevas', en: "Dark One's Blessing" }, desc: { pt: 'Ao reduzir inimigo a 0 HP: ganhe CAR+nível de bruxo em HP temporários.', en: 'When reducing an enemy to 0 HP: gain CHA+warlock level temporary HP.' } },
         { level: 6, name: { pt: 'Sorte do Senhor das Trevas', en: "Dark One's Own Luck" }, desc: { pt: '1×/descanso curto: ao fazer teste ou SAL, adicione 1d10 ao resultado.', en: '1/short rest: when making a check or save, add 1d10 to the result.' } },
         { level: 10, name: { pt: 'Resiliência Infernal', en: 'Fiendish Resilience' }, desc: { pt: 'Após descanso curto ou longo: escolha um tipo de dano — resistência a ele até o próximo descanso.', en: 'After a short or long rest: choose one damage type — resistance to it until next rest.' } },
-        { level: 14, name: { pt: 'Arremessar pelo Inferno', en: 'Hurl Through Hell' }, desc: { pt: '1×/descanso longo: ao acertar criatura — ela desaparece para um plano infernal e retorna no fim do turno: 10d10 dano psíquico (SAL CON CD magia metade). Celeste: sem dano.', en: '1/long rest: when hitting a creature — it disappears to an infernal plane and returns end of turn: 10d10 psychic (CON save vs spell DC half). Celestial: no damage.' } },
+        { level: 14, name: { pt: 'Arremessar pelo Inferno', en: 'Hurl Through Hell' }, desc: { pt: '1×/descanso longo: ao acertar uma criatura com ataque, ela some para os planos inferiores até o fim do seu próximo turno; ao voltar, se não for corruptor, sofre 10d10 psíquico (sem salvaguarda).', en: '1/long rest: when you hit a creature with an attack, it vanishes to the lower planes until the end of your next turn; when it returns, if it isn\'t a fiend, it takes 10d10 psychic damage (no save).' } },
       ],
     },
     { id: 'greatoldone', name: { pt: 'O Grande Ancião', en: 'The Great Old One' },
@@ -1694,7 +1722,7 @@ const SUBCLASSES = {
         { level: 2, name: { pt: 'Erudito de Abjuração', en: 'Abjuration Savant' }, desc: { pt: 'Copie magias de abjuração por metade do custo (tempo/ouro).', en: 'Copy abjuration spells at half cost (time/gold).' } },
         { level: 2, name: { pt: 'Barreira Arcana', en: 'Arcane Ward' }, desc: { pt: 'Ao lançar abjuração Nível 1+: crie barreira com 2× nível de mago + INT HP. Absorve dano no lugar. Recarrega ao lançar abjuração.', en: 'When casting Abjuration Level 1+: create ward with 2× wizard level + INT HP. Absorbs damage instead. Recharges when casting abjuration.' } },
         { level: 6, name: { pt: 'Barreira Projetada', en: 'Projected Ward' }, desc: { pt: 'Ao aliado em 30 pés sofrer dano: use reação — Barreira absorve no lugar.', en: 'When ally within 30 ft takes damage: use reaction — Ward absorbs instead.' } },
-        { level: 10, name: { pt: 'Abjuração Aprimorada', en: 'Improved Abjuration' }, desc: { pt: 'Ao lançar Contramágica ou Dissipar Magia: adicione bônus de proficiência à rolagem.', en: 'When casting Counterspell or Dispel Magic: add proficiency bonus to the check.' } },
+        { level: 10, name: { pt: 'Abjuração Aprimorada', en: 'Improved Abjuration' }, desc: { pt: 'Some o bônus de proficiência a todo teste de atributo exigido por uma magia de abjuração sua (ex.: Contramágica, Dissipar Magia).', en: 'Add your proficiency bonus to any ability check required by an abjuration spell you cast (e.g. Counterspell, Dispel Magic).' } },
         { level: 14, name: { pt: 'Resistência a Magias', en: 'Spell Resistance' }, desc: { pt: 'Vantagem em SAL vs magias. Resistência a dano de magias.', en: 'Advantage on saves vs spells. Resistance to damage from spells.' } },
       ],
     },
@@ -1702,7 +1730,7 @@ const SUBCLASSES = {
       desc: { pt: 'Preveja o futuro e manipule o destino.', en: 'Foresee the future and manipulate fate.' },
       features: [
         { level: 2, name: { pt: 'Erudito de Adivinhação', en: 'Divination Savant' }, desc: { pt: 'Copie magias de adivinhação por metade do custo.', en: 'Copy divination spells at half cost.' } },
-        { level: 2, name: { pt: 'Presságio', en: 'Portent' }, desc: { pt: 'Após descanso longo: role 2d20 e guarde os valores. Substitua qualquer rolagem de ataque/teste/SAL por esses dados (antes ou depois de ver o resultado).', en: 'After long rest: roll 2d20 and store the values. Replace any attack/check/save roll with these dice (before or after seeing the result).' } },
+        { level: 2, name: { pt: 'Presságio', en: 'Portent' }, desc: { pt: 'Após descanso longo: role 2d20 e guarde os valores. Substitua um ataque, teste ou SAL de criatura que você veja por um desses dados, antes da rolagem.', en: 'After long rest: roll 2d20 and store the values. Replace an attack, check, or save of a creature you can see with one of them, before the roll.' } },
         { level: 6, name: { pt: 'Adivinhação Especializada', en: 'Expert Divination' }, desc: { pt: 'Ao lançar magia de adivinhação Nível 2+: recupere espaço de nível inferior.', en: 'When casting divination Level 2+: recover a lower-level spell slot.' } },
         { level: 10, name: { pt: 'O Terceiro Olho', en: 'The Third Eye' }, desc: { pt: 'Ação (1×/descanso curto): visão no escuro 60 pés, ou ler idiomas desconhecidos, ou ver plano etéreo 60 pés, ou ver invisível 10 pés.', en: 'Action (1/short rest): darkvision 60 ft, read unknown languages, see ethereal 60 ft, or see invisible 10 ft.' } },
         { level: 14, name: { pt: 'Presságio Superior', en: 'Greater Portent' }, desc: { pt: 'Presságio com 3 dados ao invés de 2.', en: 'Portent with 3 dice instead of 2.' } },
@@ -1715,7 +1743,7 @@ const SUBCLASSES = {
         { level: 2, name: { pt: 'Moldar Magias', en: 'Sculpt Spells' }, desc: { pt: 'Ao lançar magia de área de evocação: escolha 1+nível criaturas para automaticamente passar no SAL e tomar 0 dano.', en: 'When casting an evocation spell with area: choose 1+spell level creatures to automatically succeed on save and take 0 damage.' } },
         { level: 6, name: { pt: 'Truque Potente', en: 'Potent Cantrip' }, desc: { pt: 'Truques que forçam SAL causam metade do dano mesmo se passarem.', en: 'Cantrips that force saves deal half damage even on success.' } },
         { level: 10, name: { pt: 'Evocação Empoderada', en: 'Empowered Evocation' }, desc: { pt: 'Adicione mod de INT ao dano de magias de evocação de mago.', en: 'Add INT mod to damage of wizard evocation spells.' } },
-        { level: 14, name: { pt: 'Sobrecarregar', en: 'Overchannel' }, desc: { pt: 'Ao lançar magia de Nível 1–5 causadora de dano: maximize o dano. Uso adicional antes de descanso longo: 2d12 dano necrótico por nível da magia (duplica a cada uso extra).', en: 'When casting a Level 1–5 damage spell: maximize damage. Additional use before long rest: 2d12 necrotic per spell level (doubles each extra use).' } },
+        { level: 14, name: { pt: 'Sobrecarregar', en: 'Overchannel' }, desc: { pt: 'Ao lançar magia de Nível 1–5 causadora de dano: maximize o dano. Usos extras antes do descanso longo: 2d12 necrótico por nível da magia, +1d12 por nível a cada uso seguinte (ignora resistência e imunidade).', en: 'When casting a Level 1–5 damage spell: maximize damage. Extra uses before a long rest: 2d12 necrotic per spell level, +1d12 per level for each further use (ignores resistance and immunity).' } },
       ],
     },
     { id: 'illusion', name: { pt: 'Escola de Ilusão', en: 'School of Illusion' },
@@ -1733,7 +1761,7 @@ const SUBCLASSES = {
       features: [
         { level: 2, name: { pt: 'Erudito de Necromancia', en: 'Necromancy Savant' }, desc: { pt: 'Copie magias de necromancia por metade do custo.', en: 'Copy necromancy spells at half cost.' } },
         { level: 2, name: { pt: 'Colheita Sombria', en: 'Grim Harvest' }, desc: { pt: 'Ao matar com magia: recupere HP = 2× nível da magia (3× para necromancia).', en: 'When killing with a spell: regain HP = 2× spell level (3× for necromancy).' } },
-        { level: 6, name: { pt: 'Escravos Mortos-Vivos', en: 'Undead Thralls' }, desc: { pt: 'Ao lançar Animar Mortos: anime mais 1 criatura. Mortos-vivos ganham bônus no dano e HP máx = nível de mago.', en: 'When casting Animate Dead: animate one extra creature. Undead gain bonus damage and max HP = wizard level.' } },
+        { level: 6, name: { pt: 'Escravos Mortos-Vivos', en: 'Undead Thralls' }, desc: { pt: 'Animar Mortos entra no grimório. Ao conjurá-la, anime 1 cadáver ou pilha de ossos extra. Seus mortos-vivos somam o nível de mago ao PV máximo e o bônus de proficiência ao dano com armas.', en: 'Add Animate Dead to your spellbook. When you cast it, target one extra corpse or pile of bones. Your undead add your wizard level to their HP maximum and your proficiency bonus to weapon damage.' } },
         { level: 10, name: { pt: 'Imune aos Mortos', en: 'Inured to Undeath' }, desc: { pt: 'Resistência a dano necrótico. Imune a redução de HP máximo.', en: 'Resistance to necrotic damage. Immune to max HP reduction.' } },
         { level: 14, name: { pt: 'Comandar Mortos-Vivos', en: 'Command Undead' }, desc: { pt: 'Ação: morto-vivo em 60 pés SAL CAR CD magia ou sob seu controle por 24h. Mortos-vivos inteligentes repeteme a cada hora.', en: 'Action: undead within 60 ft CHA save vs spell DC or under your control for 24h. Intelligent undead repeat every hour.' } },
       ],
@@ -1742,10 +1770,10 @@ const SUBCLASSES = {
       desc: { pt: 'Transforme matéria e forma com magia.', en: 'Transform matter and form with magic.' },
       features: [
         { level: 2, name: { pt: 'Erudito de Transmutação', en: 'Transmutation Savant' }, desc: { pt: 'Copie magias de transmutação por metade do custo.', en: 'Copy transmutation spells at half cost.' } },
-        { level: 2, name: { pt: 'Alquimia Menor', en: 'Minor Alchemy' }, desc: { pt: 'Concentre-se por 10 min: transforme um objeto (madeira→metal, osso→pedra, etc.) por 1h por nível de mago.', en: 'Concentrate for 10 min: transform one object (wood→metal, bone→stone, etc.) for 1h per wizard level.' } },
+        { level: 2, name: { pt: 'Alquimia Menor', en: 'Minor Alchemy' }, desc: { pt: 'Transmute um objeto de madeira, pedra (não preciosa), ferro, cobre ou prata em outro desses materiais: 10 min por pé cúbico; dura 1 h ou até você perder a concentração.', en: 'Transform an object of wood, stone (not gemstone), iron, copper, or silver into another of those materials: 10 min per cubic foot; lasts 1 hour or until you lose concentration.' } },
         { level: 6, name: { pt: 'Pedra do Transmutador', en: "Transmuter's Stone" }, desc: { pt: 'Crie pedra mágica que concede: visão no escuro 60 pés, ou +10 deslocamento, ou proficiência em CON, ou resistência a um elemento.', en: 'Create magic stone granting: darkvision 60 ft, +10 speed, CON proficiency, or resistance to one element.' } },
-        { level: 10, name: { pt: 'Metamorfo', en: 'Shapechanger' }, desc: { pt: '1 espaço de magia: lance Metamorfose em si mesmo sem concentração.', en: '1 spell slot: cast Polymorph on yourself without concentration.' } },
-        { level: 14, name: { pt: 'Mestre Transmutador', en: 'Master Transmuter' }, desc: { pt: 'Consuma a Pedra: transmute objeto como Metamorfose de objetos; ou remova maldição/veneno/doença; ou cure 10d6 HP; ou cure velhice; ou lance Ressurreição Verdadeira 1×.', en: 'Consume the Stone: transmute object like object Polymorph; remove curse/poison/disease; heal 10d6 HP; restore youth; or cast True Resurrection once.' } },
+        { level: 10, name: { pt: 'Metamorfo', en: 'Shapechanger' }, desc: { pt: 'Metamorfose entra no grimório. 1×/descanso curto, sem espaço: conjure-a em si, só para virar fera de ND ≤ 1.', en: 'Add Polymorph to your spellbook. 1/short rest, without a slot: cast it on yourself, only to become a beast of CR ≤ 1.' } },
+        { level: 14, name: { pt: 'Mestre Transmutador', en: 'Master Transmuter' }, desc: { pt: 'Ação, destruindo a Pedra do Transmutador: transmute um objeto não mágico (cubo de 5 pés) em outro de tamanho e massa iguais e valor ≤; ou remova maldições, doenças e venenos e cure todos os PV de uma criatura tocada; ou conjure Reviver os Mortos sem espaço; ou rejuvenesça uma criatura tocada em 3d10 anos (mín. 13).', en: 'Action, destroying your transmuter\'s stone: transform a nonmagical object (5-ft cube) into another of equal size and mass and equal or lesser value; or remove curses, diseases, and poisons and restore all HP of a touched creature; or cast Raise Dead without a slot; or make a touched creature 3d10 years younger (min 13).' } },
       ],
     },
   ],
@@ -1816,11 +1844,30 @@ for (const [classId, options] of Object.entries(EXTRA_SUBCLASSES)) {
   SUBCLASSES[classId] ||= [];
   for (const option of options) if (!SUBCLASSES[classId].some(s => s.id === option.id)) SUBCLASSES[classId].push(option);
 }
-const artificerSpells = new Set(['acidSplash','dancingLights','fireBolt','guidance','light','mageHand','mending','message','poisonSpray','prestidigitation','rayOfFrost','resistance','shockingGrasp','spareDying','thornWhip','alarm','cureWounds','detectMagic','disguiseSelf','expediteRetreat','faerieFire','falseLife','featherFall','grease','identifySpell','jump','longstrider','purifyFoodAndDrink','sanctuary','aid','alterSelf','arcaneLock','blur','continualFlame','darkvision','enhanceAbility','enlargeReduce','heatMetal','invisibility','lesserRestoration','levitate','magicMouth','magicWeapon','protectionFromPoison','pyrotechnics','ropeTrick','seeInvisibility','skywrite','spiderClimb','webSpell','blinkSpell','catnap','createFood','dispelMagic','elemental_weapon','flameArrows','fly','glyphOfWarding','haste','protectionFromEnergy','revivify','waterBreathing','waterWalk','arcaneEye','elementalBane','fabricate','freedomOfMovement','leomundsSecretChest','mordenkainensFaithfulHound','mordenkainensPrivateSanctum','otilukesResilientSphere','stoneShape','stoneskin','animateObjects','bigbysHand','creation','greaterRestoration','skillEmpowerment','transmuteRock','wallOfStone']);
+const artificerSpells = new Set(['acidSplash','dancingLights','fireBolt','guidance','light','mageHand','mending','message','poisonSpray','prestidigitation','rayOfFrost','resistance','shockingGrasp','spareDying','spareTheDying','thornWhip','alarm','cureWounds','detectMagic','disguiseSelf','expediteRetreat','expeditiousRetreat','faerieFire','falseLife','featherFall','grease','identifySpell','identify','jump','longstrider','purifyFoodAndDrink','sanctuary','aid','alterSelf','arcaneLock','blur','continualFlame','darkvision','enhanceAbility','enlargeReduce','heatMetal','invisibility','lesserRestoration','levitate','magicMouth','magicWeapon','protectionFromPoison','pyrotechnics','ropeTrick','seeInvisibility','skywrite','spiderClimb','web','blink','catnap','createFoodAndWater','dispelMagic','elementalWeapon','flameArrows','fly','glyphOfWarding','haste','protectionFromEnergy','revivify','waterBreathing','waterWalk','arcaneEye','elementalBane','fabricate','freedomOfMovement','secretChest','faithfulHound','privateSanctum','resilientSphere','stoneShape','stoneskin','animateObjects','arcaneHand','creation','greaterRestoration','skillEmpowerment','transmuteRock','wallOfStone']);
+// Magias citadas pelas regras 2014 (subclasses, artífice) que não estão na seleção
+// SRD 5.1 acima: entram com os dados do catálogo 2024 (mesmo id), sem lista de
+// classe própria, para aparecerem quando concedidas. Ids 2014 com nome próprio
+// (identifySpell, spareDying, expediteRetreat, commandSpell…) continuam valendo.
+const LEGACY_SPELLS_FROM_2024 = ['acidArrow','arcaneEye','augury','auraOfLife','auraOfPurity','auraOfVitality','banishingSmite','blink','blur','commune','conjureBarrage','createFoodAndWater','crusadersMantle','darkness','destructiveWave','divination','dream','elementalWeapon','gaseousForm','hallow','legendLore','mirrorImage','passwall','phantasmalKiller','spiderClimb','staggeringSmite','wardingBond','web'];
+const LEGACY_ALIASES = new Set(['identify','spareTheDying','expeditiousRetreat']);
+for (const id of new Set([...LEGACY_SPELLS_FROM_2024, ...artificerSpells, ...Object.keys(LEGACY_SPELL_CLASSES)])) {
+  if (LEGACY_ALIASES.has(id) || SPELLS.some(s => s.id === id)) continue;
+  const spell = SPELLS_2024.find(s => s.id === id);
+  if (spell) { const { rulesVersion, ...data } = spell; SPELLS.push({ ...data, classes: [] }); }
+}
 for (const spell of SPELLS) if (artificerSpells.has(spell.id)) spell.classes.push('artificer');
-for (const spell of SPELLS_2024) if (artificerSpells.has(spell.id) || ['identify','blink','elementalWeapon','web'].includes(spell.id)) spell.classes.push('artificer');
+// Listas de classe 2014 (PHB 2014 + suplementos) substituem as listas do catálogo legado.
+for (const spell of SPELLS) {
+  const classes = LEGACY_SPELL_CLASSES[spell.id];
+  if (classes) spell.classes = [...new Set([...classes, ...(artificerSpells.has(spell.id) ? ['artificer'] : [])])];
+}
+for (const spell of SPELLS_2024) if ((artificerSpells.has(spell.id) || ['identify','blink','elementalWeapon','web'].includes(spell.id)) && !spell.classes.includes('artificer')) spell.classes.push('artificer');
 
-return { ABILITIES, SKILLS, RACES, CLASSES, BACKGROUNDS, ALIGNMENTS, WEAPONS, ARMOR, SPELLS, BEASTS, SUBCLASSES, SOURCES, PACKS, profBonus, getSpellSlots };
+// Ids antigos de magia → atuais (fichas salvas são migradas ao carregar).
+const SPELL_ID_ALIASES = { huntersMarkUp: 'thunderousSmite', 'feign death': 'feignDeath' };
+
+return { SPELL_ID_ALIASES, ABILITIES, SKILLS, RACES, CLASSES, BACKGROUNDS, ALIGNMENTS, WEAPONS, weaponFor, weaponsFor, ARMOR, SPELLS, BEASTS, SUBCLASSES, SOURCES, PACKS, profBonus, getSpellSlots };
 })();
 
 export default SRD;

@@ -4,8 +4,11 @@
 
 import { ARTIFICER, EXTRA_RACES, EXTRA_SUBCLASSES } from './expanded-catalog.js';
 import { BACKGROUNDS_2024, SPELLS_2024, SPECIES_2024 } from './rules2024.js';
+import { CLASS_OPTIONS } from './class-options/index.js';
 
-const EXTRA_NAMES = { class: [ARTIFICER], race: [...EXTRA_RACES, ...SPECIES_2024], subclass: Object.values(EXTRA_SUBCLASSES).flat(), background: BACKGROUNDS_2024, spellName: SPELLS_2024 };
+// Subclasses novas do PHB 2024 (Dança, Mar, Coração Selvagem…) vêm dos arquivos de classe.
+const CLASS_FILE_SUBCLASSES = Object.values(CLASS_OPTIONS).flatMap(c => Object.entries(c.subclasses || {}).map(([id, s]) => ({ id, name: s.name })));
+const EXTRA_NAMES = { class: [ARTIFICER], race: [...EXTRA_RACES, ...SPECIES_2024], subclass: [...Object.values(EXTRA_SUBCLASSES).flat(), ...CLASS_FILE_SUBCLASSES], background: BACKGROUNDS_2024, spellName: SPELLS_2024 };
 
 const I18N = {
   pt: {
@@ -461,19 +464,19 @@ const NAMES = {
     weapon: {
       club: 'Clava', dagger: 'Adaga', greatclub: 'Clava Grande', handaxe: 'Machadinha',
       javelin: 'Azagaia', lightHammer: 'Martelo Leve', mace: 'Maça',
-      quarterstaff: 'Bordão', sickle: 'Foice', spear: 'Lança',
+      quarterstaff: 'Bordão', sickle: 'Foice Curta', spear: 'Lança',
       crossbowLight: 'Besta Leve', dart: 'Dardo', shortbow: 'Arco Curto', sling: 'Funda',
       battleaxe: 'Machado de Batalha', flail: 'Mangual', glaive: 'Glaive', greataxe: 'Machado Grande',
-      greatsword: 'Espada Grande', halberd: 'Alabarda', lance: 'Lança Montada',
-      longsword: 'Espada Longa', maul: 'Maul', morningstar: 'Estrela Matina',
-      pike: 'Pique', rapier: 'Florete', scimitar: 'Cimitarra', shortsword: 'Espada Curta',
+      greatsword: 'Espada Grande', halberd: 'Alabarda', lance: 'Lança de Montaria',
+      longsword: 'Espada Longa', maul: 'Marreta', morningstar: 'Maça-estrela',
+      pike: 'Pique', rapier: 'Rapieira', scimitar: 'Cimitarra', shortsword: 'Espada Curta',
       trident: 'Tridente', warPick: 'Picareta de Guerra', warhammer: 'Martelo de Guerra', whip: 'Chicote',
       blowgun: 'Zarabatana', crossbowHand: 'Besta de Mão', crossbowHeavy: 'Besta Pesada',
-      longbow: 'Arco Longo', net: 'Rede',
+      longbow: 'Arco Longo', musket: 'Mosquete', pistol: 'Pistola', net: 'Rede',
     },
     armor: {
       padded: 'Acolchoada', leather: 'Couro', studdedLeather: 'Couro Batido',
-      hide: 'Peles', chainShirt: 'Cota de Malha (curta)', scaleMail: 'Brunea',
+      hide: 'Peles', chainShirt: 'Camisão de Malha', scaleMail: 'Brunea',
       breastplate: 'Peitoral', halfPlate: 'Meia-Placa',
       ringMail: 'Anelar', chainMail: 'Cota de Malha', splint: 'Talas', plate: 'Placas',
       shield: 'Escudo',
@@ -496,7 +499,7 @@ const NAMES = {
       healingWord: 'Palavra de Cura', magicMissile: 'Mísseis Mágicos', shield: 'Escudo Arcano',
       sleep: 'Sono', thunderwave: 'Onda Trovejante', bless: 'Bênção', commandSpell: 'Comando',
       guidingBolt: 'Flecha Guiada', sanctuary: 'Santuário', huntersMark: 'Marca do Caçador',
-      huntersMarkUp: 'Pergaminho de Trovão', divineFavor: 'Favor Divino',
+      thunderousSmite: 'Destruição Trovejante', divineFavor: 'Favor Divino',
       entangle: 'Enredar', goodberry: 'Bagas Mágicas', witchBolt: 'Raio Bruxo',
       armorOfAgathys: 'Armadura de Agathys', hex: 'Maldição',
       aid: 'Auxílio', invisibility: 'Invisibilidade', scorchingRay: 'Raio Escaldante',
@@ -555,7 +558,7 @@ const NAMES = {
       // Nível 3 adicionais
       beaconOfHope: 'Farol de Esperança', bestowCurse: 'Lançar Maldição',
       clairvoyance: 'Clarividência', conjureAnimals: 'Convocar Animais',
-      daylight: 'Luz do Dia', 'feign death': 'Fingir-se de Morto',
+      daylight: 'Luz do Dia', feignDeath: 'Fingir-se de Morto',
       hypnoticPattern: 'Padrão Hipnótico', majorImage: 'Imagem Maior',
       meldIntoStone: 'Fundir-se à Pedra', nondetection: 'Não Detecção',
       plantGrowth: 'Crescimento de Plantas', protectionFromEnergy: 'Proteção da Energia',
@@ -732,7 +735,7 @@ const NAMES = {
       pike: 'Pike', rapier: 'Rapier', scimitar: 'Scimitar', shortsword: 'Shortsword',
       trident: 'Trident', warPick: 'War Pick', warhammer: 'Warhammer', whip: 'Whip',
       blowgun: 'Blowgun', crossbowHand: 'Hand Crossbow', crossbowHeavy: 'Heavy Crossbow',
-      longbow: 'Longbow', net: 'Net',
+      longbow: 'Longbow', musket: 'Musket', pistol: 'Pistol', net: 'Net',
     },
     armor: {
       padded: 'Padded', leather: 'Leather', studdedLeather: 'Studded Leather',
@@ -759,7 +762,7 @@ const NAMES = {
       healingWord: 'Healing Word', magicMissile: 'Magic Missile', shield: 'Shield',
       sleep: 'Sleep', thunderwave: 'Thunderwave', bless: 'Bless', commandSpell: 'Command',
       guidingBolt: 'Guiding Bolt', sanctuary: 'Sanctuary', huntersMark: "Hunter's Mark",
-      huntersMarkUp: 'Thunderous Smite', divineFavor: 'Divine Favor',
+      thunderousSmite: 'Thunderous Smite', divineFavor: 'Divine Favor',
       entangle: 'Entangle', goodberry: 'Goodberry', witchBolt: 'Witch Bolt',
       armorOfAgathys: 'Armor of Agathys', hex: 'Hex',
       aid: 'Aid', invisibility: 'Invisibility', scorchingRay: 'Scorching Ray',
@@ -818,7 +821,7 @@ const NAMES = {
       // Level 3 additional
       beaconOfHope: 'Beacon of Hope', bestowCurse: 'Bestow Curse',
       clairvoyance: 'Clairvoyance', conjureAnimals: 'Conjure Animals',
-      daylight: 'Daylight', 'feign death': 'Feign Death',
+      daylight: 'Daylight', feignDeath: 'Feign Death',
       hypnoticPattern: 'Hypnotic Pattern', majorImage: 'Major Image',
       meldIntoStone: 'Meld into Stone', nondetection: 'Nondetection',
       plantGrowth: 'Plant Growth', protectionFromEnergy: 'Protection from Energy',

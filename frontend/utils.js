@@ -4,8 +4,11 @@
 
 import SRD from './data/srd.js';
 import { computeProgression } from './src/progression/engine.js';
+import { featGrants } from './src/progression/feat-rules.js';
 import { rulesFor } from './src/progression/rules.js';
 import * as MC from './src/progression/multiclass.js';
+import * as FS from './src/progression/fighting-styles.js';
+import * as Species from './src/progression/species.js';
 import { SPELLS_2024, BACKGROUNDS_2024, SPECIES_2024 } from './data/rules2024.js';
 
 const Utils = (() => {
@@ -150,7 +153,7 @@ function profBonus(char) {
 
 function saveBonus(char, key) {
   const m = abilityMod(char, key);
-  const p = (char.saveProfs || []).includes(key) ? profBonus(char) : 0;
+  const p = hasSaveProf(char, key) ? profBonus(char) : 0;
   return m + p;
 }
 
@@ -188,11 +191,29 @@ function languageLabel(id, lang) {
   return LANGUAGES.find(l => l.id === id)?.pt || id;
 }
 
+// Concessões da progressão (escolhas de classe e subclasses): perícias, expertise,
+// idiomas, salvaguardas, ferramentas, armas e armaduras. Em cache por ficha.
+const grantsCache = new WeakMap();
+function classGrants(char) {
+  if (!char || typeof char !== 'object') return {};
+  if (!grantsCache.has(char)) {
+    const g = { ...(char.className ? computeProgression(char).grants || {} : {}) };
+    // Talentos (fixos e sub-escolhas): perícias, expertise, idiomas, ferramentas, salvaguardas.
+    const f = featGrants(char, SRD.SKILLS.map(k => k.id));
+    for (const k of ['skills', 'expertise', 'languages', 'tools', 'saves']) if (f[k].length) g[k] = [...(g[k] || []), ...f[k]];
+    // Espécie: perícias escolhidas (Humano Habilidoso, Sentidos Aguçados…) e fixas.
+    const s = Species.speciesGrants(char);
+    if (s.skills.length) g.skills = [...(g.skills || []), ...s.skills];
+    grantsCache.set(char, g);
+  }
+  return grantsCache.get(char);
+}
+
 // Idiomas fixos (espécie + classe), sem os marcadores "+N of choice".
 function fixedLanguages(char) {
   const race = racesFor(char).find(r => r.id === char.race);
   const fromRace = (race?.languages || []).filter(l => !CHOICE_RE.test(l));
-  return [...new Set([...(fromRace.length ? fromRace : ['Common']), ...(CLASS_LANGUAGES[char.className] || [])])];
+  return [...new Set([...(fromRace.length ? fromRace : ['Common']), ...(CLASS_LANGUAGES[char.className] || []), ...(classGrants(char).languages || [])])];
 }
 
 // De onde vêm os idiomas à escolha: [{ source: 'race'|'background'|'origin', n }].
@@ -227,7 +248,18 @@ function backgroundSkills(char) {
 
 // Perícias do antecedente sempre contam, mesmo em fichas criadas antes do ajuste.
 function hasSkillProf(char, skillId) {
-  return (char.skillProfs || []).includes(skillId) || backgroundSkills(char).includes(skillId);
+  const g = classGrants(char);
+  return (char.skillProfs || []).includes(skillId) || backgroundSkills(char).includes(skillId)
+    || (g.skills || []).includes(skillId) || (g.expertise || []).includes(skillId);
+}
+
+// Expertise marcada na ficha ou concedida por escolha de classe (implica proficiência).
+function hasExpertise(char, skillId) {
+  return (char.skillExpertise || []).includes(skillId) || (classGrants(char).expertise || []).includes(skillId);
+}
+
+function hasSaveProf(char, ability) {
+  return (char.saveProfs || []).includes(ability) || (classGrants(char).saves || []).includes(ability);
 }
 
 function skillBonus(char, skillId) {
@@ -235,7 +267,7 @@ function skillBonus(char, skillId) {
   if (!skill) return 0;
   const m = abilityMod(char, skill.stat);
   const isProf = hasSkillProf(char, skillId);
-  const isExpert = (char.skillExpertise || []).includes(skillId);
+  const isExpert = hasExpertise(char, skillId);
   if (isExpert) return m + profBonus(char) * 2;
   if (isProf) return m + profBonus(char);
   return m;
@@ -269,6 +301,7 @@ function computeAc(char) {
     }
   }
   if (char.hasShield) ac += 2;
+  ac += FS.acBonusTotal(char); // Estilo de Luta: Defesa (+1 usando armadura)
   ac += +(char.extraAcBonus || 0);
   return ac;
 }
@@ -286,7 +319,7 @@ function maxHpDefault(char) {
   }
   if (char.race === 'dwarf-hill') hp += char.level || 1;
   if (char.rulesVersion === '2024' && char.race === 'dwarf') hp += char.level || 1;
-  if (char.originFeat === 'Tough') hp += 2 * (char.level || 1);
+  if (char.originFeat === 'Tough' || (char.feats || []).some(f => f?.id === 'tough' || f?.id === 'tough2014')) hp += 2 * (char.level || 1);
   const sorc = MC.classEntries(char).find(e => e.id === 'sorcerer' && e.subclass === 'draconic');
   if (sorc && (char.rulesVersion !== '2024' || sorc.level >= 3)) hp += sorc.level;
   return hp;
@@ -295,7 +328,14 @@ function maxHpDefault(char) {
 function speed(char) {
   if (char.speedOverride) return char.speedOverride;
   const race = racesFor(char).find(r => r.id === char.race);
-  return race ? race.speed : 30;
+  const fromSpecies = Species.speciesGrants(char).speed; // Elfo da Floresta: 35
+  return fromSpecies || (race ? race.speed : 30);
+}
+
+// Tamanho efetivo: escolha da espécie (Humano/Tiferino/Aasimar…) ou o da espécie.
+function sizeOf(char) {
+  const race = racesFor(char).find(r => r.id === char.race);
+  return Species.speciesGrants(char).size || race?.size || 'Medium';
 }
 
 function racesFor(char) {
@@ -516,12 +556,13 @@ return {
   loadAll, saveAll, loadChar, saveChar, deleteChar,
   makeNew,
   abilityWithRace, abilityMod, profBonus, saveBonus, skillBonus, passivePerception,
-  computeAc, maxHpDefault, speed,
+  computeAc, maxHpDefault, speed, sizeOf,
+  speciesGrants: Species.speciesGrants, speciesChoiceIssues: Species.speciesChoiceIssues,
   spellcastingAbility, spellSaveDc, spellAttackBonus, spellSlots, spellListClass,
   isPreparedCaster, cantripsKnown, preparedSpellsLimit, maxSpellLevel,
   applyRaceBonus,
   LANGUAGES, CLASS_LANGUAGES, languageLabel, fixedLanguages, languageChoiceCount, languageChoiceSources, languagesFor,
-  backgroundSkills, hasSkillProf,
+  backgroundSkills, hasSkillProf, hasExpertise, hasSaveProf, classGrants,
   encodeChar, decodeChar,
   rollDie, rollDice,
 };

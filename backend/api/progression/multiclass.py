@@ -92,7 +92,8 @@ def class_view(character, entry):
             level_choices[str(n)] = got
     view = {**character, 'className': entry['id'], 'subclass': entry.get('subclass') or '',
             'landType': entry.get('landType') or '', 'level': entry['level'],
-            'totalLevel': character.get('level'), 'multiclass': [], 'levelChoices': level_choices}
+            'totalLevel': character.get('level'), 'multiclass': [], 'levelChoices': level_choices,
+            'startingClass': character.get('className')}
     view.pop('classSequence', None)
     return view
 

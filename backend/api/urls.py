@@ -17,6 +17,8 @@ urlpatterns = [
     path('characters/<int:pk>/cast', views_characters.character_cast_spell),
     path('characters/<int:pk>/rest', views_characters.character_rest),
     path('characters/<int:pk>/level-choice', views_characters.character_level_choice),
+    path('characters/<int:pk>/class-options', views_characters.character_class_options),
+    path('characters/<int:pk>/resource', views_characters.character_resource),
     path('characters/<int:pk>/inventory', views_inventory.inventory_add),
     path('characters/<int:pk>/inventory/<str:item_id>', views_inventory.inventory_item),
     path('characters/<int:pk>/inventory/<str:item_id>/consume', views_inventory.inventory_consume),

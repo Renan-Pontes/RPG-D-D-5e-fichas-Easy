@@ -2,10 +2,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
+import { subclassesFor } from '../src/progression/subclasses.js';
+import * as Book from '../src/progression/spellbook.js';
 import { t, tName } from '../data/i18n.js';
 import LanguagePicker, { chosenLanguages } from './LanguagePicker.jsx';
 import Icon from './Icons.jsx';
 import { Filigree, Modal, NumStepper, AvatarUpload } from './Shared.jsx';
+import { FeatChoices } from '../src/progression/FeatPicker.jsx';
+import { originFeatFromText, featPicksIssues } from '../src/progression/feat-rules.js';
+import SpeciesChoices from '../src/progression/SpeciesChoices.jsx';
+import { speciesChoiceSpecs, speciesChoiceIssues, withSpeciesFeat } from '../src/progression/species.js';
 
 const POINT_BUY_COST = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
 const POINT_BUY_TOTAL = 27;
@@ -113,12 +119,26 @@ const StepRace = ({ char, set, lang }) => {
     const bonus = Utils.applyRaceBonus(char, id);
     const race = Utils.races(char).find(r => r.id === id);
     // Idiomas fixos vêm da espécie/classe; aqui guardamos só os escolhidos.
-    set({ race: id, raceBonus: bonus, speedOverride: 0, languages: [] });
+    // Trocar de espécie zera as escolhas dela e o talento concedido por ela.
+    if (id === char.race) return;
+    set({ race: id, raceBonus: bonus, speedOverride: 0, languages: [], speciesChoices: {}, feats: withSpeciesFeat(char.feats, null) });
   };
+  const hasChoices = speciesChoiceSpecs(char).length > 0;
   return (
     <div>
       <h2>{t('chooseRace', lang)}</h2>
       <Filigree />
+      {hasChoices && (
+        <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+          <h3 style={{ marginBottom: 10 }}>{lang === 'pt' ? 'Escolhas de' : 'Choices for'} {tName('race', char.race, lang)}</h3>
+          <SpeciesChoices key={char.race} char={char} lang={lang} onChange={set} lockFeat={!!char.inCampaign} />
+          {speciesChoiceIssues(char).length > 0 && (
+            <div className="text-xs" style={{ color: 'var(--blood-bright)', marginTop: 10 }}>
+              {speciesChoiceIssues(char).map(i => i[lang] || i.pt).join(' · ')}
+            </div>
+          )}
+        </div>
+      )}
       <input aria-label={lang === 'pt' ? 'Buscar raça' : 'Search species'} placeholder={lang === 'pt' ? 'Buscar raça ou espécie…' : 'Search species…'} value={query} onChange={e => setQuery(e.target.value)} style={{ marginBottom: 16 }} />
       <div className="options-list cols-2">
         {Utils.races(char).filter(r => `${tName('race', r.id, lang)} ${r.id}`.toLowerCase().includes(query.toLowerCase())).map(r => {
@@ -167,7 +187,7 @@ const SubclassSelector = ({ char, set, lang }) => {
   const classId = char.className;
   if (!classId) return null;
   if ((char.level || 1) < Utils.subclassLevel(char)) return <p className="muted">{lang === 'pt' ? 'Subclasse disponível no nível ' : 'Subclass available at level '}{Utils.subclassLevel(char)}.</p>;
-  const subs = (SRD.SUBCLASSES && SRD.SUBCLASSES[classId]) || [];
+  const subs = subclassesFor(char, classId);
   if (!subs.length) return null;
 
   const subclassLabelMap = {
@@ -384,7 +404,12 @@ const StepAbilities = ({ char, set, lang, isNew }) => {
         );
       })}
 
-      {(char.rulesVersion === '2024' || race?.flexibleAsi) && (
+      {char.rulesVersion !== '2024' && speciesChoiceSpecs(char).some(c => c.key === 'asi') && (
+        <div className="card text-sm" style={{ padding: 12, marginTop: 16 }}>
+          {lang === 'pt' ? 'Os bônus de atributo desta espécie são escolhidos no passo de espécie.' : "This species' ability bonuses are chosen in the species step."}
+        </div>
+      )}
+      {(char.rulesVersion === '2024' || (race?.flexibleAsi && !speciesChoiceSpecs(char).some(c => c.key === 'asi'))) && (
         <div className="card" style={{ padding: 16, marginTop: 16 }}>
           <h3>{lang === 'pt' ? 'Bônus de origem' : 'Origin bonuses'}</h3>
           <p className="muted">{lang === 'pt' ? 'Distribua +2/+1 ou +1/+1/+1. Na revisão atual, o antecedente define os atributos disponíveis.' : 'Distribute +2/+1 or +1/+1/+1. Current rules use background ability options.'}</p>
@@ -427,16 +452,51 @@ const StepAbilities = ({ char, set, lang, isNew }) => {
   );
 };
 
+// Talento de origem (2024) registrado em char.feats com origin: 'background'.
+const originEntry = (char) => (char.feats || []).find(f => f?.origin === 'background') || null;
+function withOriginFeat(feats, b) {
+  const rest = (feats || []).filter(f => f?.origin !== 'background');
+  const o = originFeatFromText(b.feat);
+  if (!o) return rest;
+  return [...rest, { name: b.feat, id: o.feat.id, level: 1, origin: 'background', note: '', ...(Object.keys(o.picks).length ? { picks: o.picks } : {}) }];
+}
+// Sub-escolhas do talento de origem completas? (talento fora do catálogo não trava)
+function originFeatDone(char) {
+  const e = originEntry(char);
+  const o = e && char.rulesVersion === '2024' ? originFeatFromText(e.name) : null;
+  return !o || featPicksIssues(o.feat, e.picks, 1).length === 0;
+}
+// Perícias escolhidas no talento de origem (Habilidoso) entram nas proficiências.
+const originFeatSkills = (char) => {
+  const p = originEntry(char)?.picks || {};
+  return [...(p.skillOrTool || []), ...(p.skill || [])].filter(id => SRD.SKILLS.some(s => s.id === id));
+};
+
+const OriginFeat = ({ char, set, lang }) => {
+  const entry = originEntry(char);
+  const o = entry ? originFeatFromText(entry.name) : null;
+  if (!o) return null;
+  const setPicks = (picks) => set({ feats: (char.feats || []).map(f => (f === entry ? { ...f, picks } : f)) });
+  return (
+    <div style={{ marginTop: 16 }}>
+      <Filigree>{lang === 'pt' ? 'Talento de origem' : 'Origin feat'}: {o.feat.name[lang]}</Filigree>
+      <p className="text-sm" style={{ color: 'var(--ink-secondary)', marginBottom: 10 }}>{o.feat.desc[lang]}</p>
+      <FeatChoices char={char} lang={lang} feat={o.feat} level={1} picks={entry.picks || {}} onChange={setPicks} hide={Object.keys(o.picks)} />
+    </div>
+  );
+};
+
 // 5. Background
 const StepBackground = ({ char, set, lang }) => {
   // Troca as perícias do antecedente anterior pelas do novo.
   const selectBg = (b) => {
     const oldSkills = Utils.backgroundSkills(char);
     const kept = (char.skillProfs || []).filter(s => !oldSkills.includes(s));
+    const keepFeat = b.id === char.background && originEntry(char);
     set({
       background: b.id,
       skillProfs: [...new Set([...kept, ...b.skills])],
-      ...(char.rulesVersion === '2024' ? { raceBonus: {}, originFeat: b.feat } : {}),
+      ...(char.rulesVersion === '2024' ? { raceBonus: {}, originFeat: b.feat, ...(keepFeat ? {} : { feats: withOriginFeat(char.feats, b) }) } : {}),
     });
   };
   return (
@@ -462,6 +522,7 @@ const StepBackground = ({ char, set, lang }) => {
         );
       })}
     </div>
+    {char.rulesVersion === '2024' && <OriginFeat char={char} set={set} lang={lang} />}
   </div>
   );
 };
@@ -548,7 +609,7 @@ const StepEquipment = ({ char, set, lang }) => {
   const cls = SRD.CLASSES.find(c => c.id === char.className);
 
   const addWeapon = (id) => {
-    const w = SRD.WEAPONS.find(x => x.id === id);
+    const w = SRD.weaponFor(id, char.rulesVersion);
     if (!w) return;
     set({
       weapons: [...(char.weapons || []), {
@@ -557,6 +618,8 @@ const StepEquipment = ({ char, set, lang }) => {
         damage: w.damage,
         dmgType: w.dmgType,
         props: w.props,
+        ...(w.range ? { range: w.range } : {}),
+        ...(w.mastery ? { mastery: w.mastery } : {}),
       }]
     });
   };
@@ -618,22 +681,22 @@ const StepEquipment = ({ char, set, lang }) => {
         <select value="" onChange={e => { if (e.target.value) addWeapon(e.target.value); e.target.value = ''; }}>
           <option value="">{t('addWeapon', lang)}...</option>
           <optgroup label={lang === 'pt' ? 'Simples — Corpo a corpo' : 'Simple — Melee'}>
-            {SRD.WEAPONS.filter(w => w.type === 'simple-melee').map(w =>
+            {SRD.weaponsFor(char.rulesVersion).filter(w => w.type === 'simple-melee').map(w =>
               <option key={w.id} value={w.id}>{tName('weapon', w.id, lang)} ({w.damage} {w.dmgType})</option>
             )}
           </optgroup>
           <optgroup label={lang === 'pt' ? 'Simples — Distância' : 'Simple — Ranged'}>
-            {SRD.WEAPONS.filter(w => w.type === 'simple-ranged').map(w =>
+            {SRD.weaponsFor(char.rulesVersion).filter(w => w.type === 'simple-ranged').map(w =>
               <option key={w.id} value={w.id}>{tName('weapon', w.id, lang)} ({w.damage} {w.dmgType})</option>
             )}
           </optgroup>
           <optgroup label={lang === 'pt' ? 'Marcial — Corpo a corpo' : 'Martial — Melee'}>
-            {SRD.WEAPONS.filter(w => w.type === 'martial-melee').map(w =>
+            {SRD.weaponsFor(char.rulesVersion).filter(w => w.type === 'martial-melee').map(w =>
               <option key={w.id} value={w.id}>{tName('weapon', w.id, lang)} ({w.damage} {w.dmgType})</option>
             )}
           </optgroup>
           <optgroup label={lang === 'pt' ? 'Marcial — Distância' : 'Martial — Ranged'}>
-            {SRD.WEAPONS.filter(w => w.type === 'martial-ranged').map(w =>
+            {SRD.weaponsFor(char.rulesVersion).filter(w => w.type === 'martial-ranged').map(w =>
               <option key={w.id} value={w.id}>{tName('weapon', w.id, lang)} ({w.damage} {w.dmgType})</option>
             )}
           </optgroup>
@@ -704,6 +767,11 @@ const StepSpells = ({ char, set, lang }) => {
     return def && def.level === 0;
   }).length;
 
+  // Mago: grimório inicial (6 magias de nível 1; +2 por nível acima do 1º).
+  const book = Book.usesSpellbook(char);
+  const bookLimit = book ? Book.spellbookSize(char.level || 1) : 0;
+  const bookCount = book ? Book.spellbookIds(char).length : 0;
+
   const toggle = (id) => {
     const has = char.spells.find(s => s.id === id);
     if (has) {
@@ -711,6 +779,11 @@ const StepSpells = ({ char, set, lang }) => {
     } else {
       const def = Utils.spellCatalog(char).find(x => x.id === id);
       if (def && def.level === 0 && cantripCount >= cantripLimit) return;
+      if (book && def && def.level > 0) {
+        if (bookCount >= bookLimit) return;
+        set({ spells: Book.addToSpellbook(char, [id]) });
+        return;
+      }
       set({ spells: [...(char.spells || []), { id, prepared: true }] });
     }
   };
@@ -727,7 +800,7 @@ const StepSpells = ({ char, set, lang }) => {
         {list.map(sp => {
           const sel = char.spells.some(s => s.id === sp.id);
           const isCantrip = sp.level === 0;
-          const limitReached = isCantrip && !sel && cantripCount >= cantripLimit;
+          const limitReached = !sel && (isCantrip ? cantripCount >= cantripLimit : (book && bookCount >= bookLimit));
           return (
             <div
               key={sp.id}
@@ -772,6 +845,21 @@ const StepSpells = ({ char, set, lang }) => {
         </div>
         {cantripLimit > 0 && cantrips.length > 0 && (
           <SpellGroup label={t('cantrips', lang)} list={cantrips} limit={cantripLimit} currentCount={cantripCount} />
+        )}
+        {book && (
+          <>
+            <div className="card" style={{ padding: 12, marginTop: 20 }}>
+              <div className="text-sm" style={{ color: 'var(--ink-secondary)' }}>
+                {lang === 'pt'
+                  ? `Grimório: escolha ${bookLimit} magias de Mago${(char.level || 1) > 1 ? ' (círculos que você conjura)' : ' de nível 1'}. Na ficha você prepara magias a partir dele.`
+                  : `Spellbook: pick ${bookLimit} Wizard spells${(char.level || 1) > 1 ? ' (levels you can cast)' : ' of level 1'}. On the sheet you prepare spells from it.`}
+              </div>
+            </div>
+            {[...new Set(available.filter(s => s.level > 0).map(s => s.level))].sort((a, b) => a - b).map(lvl => (
+              <SpellGroup key={lvl} label={`${lang === 'pt' ? 'Grimório' : 'Spellbook'} · ${t('spellLevel', lang)} ${lvl}`}
+                list={available.filter(s => s.level === lvl)} limit={bookLimit} currentCount={bookCount} />
+            ))}
+          </>
         )}
         {cantripLimit === 0 && (
           <div className="card text-center muted" style={{ padding: 'var(--s-6)' }}>
@@ -907,9 +995,10 @@ const Creator = ({ lang, initial, onSave, onCancel }) => {
 
   const steps = [
     { id: 'identity', label: t('stepIdentity', lang), comp: StepIdentity, valid: () => !!char.name },
-    { id: 'race', label: t('stepRace', lang), comp: StepRace, valid: () => !!char.race },
+    // Fichas antigas editadas não travam aqui: as escolhas também podem ser feitas na ficha.
+    { id: 'race', label: t('stepRace', lang), comp: StepRace, valid: () => !!char.race && (!isNew || speciesChoiceIssues(char).length === 0) },
     { id: 'class', label: t('stepClass', lang), comp: StepClass, valid: () => !!char.className },
-    { id: 'background', label: t('stepBackground', lang), comp: StepBackground, valid: () => !!char.background },
+    { id: 'background', label: t('stepBackground', lang), comp: StepBackground, valid: () => !!char.background && originFeatDone(char) },
     { id: 'abilities', label: t('stepAbilities', lang), comp: StepAbilities, valid: () => (!isNew && !char.cheatMode) || char.rulesVersion !== '2024' || Object.values(char.raceBonus || {}).reduce((s,n) => s+n,0) === 3 },
     { id: 'skills', label: t('stepSkills', lang), comp: StepSkills, valid: () => {
       const fixed = Utils.fixedLanguages(char);
@@ -930,7 +1019,7 @@ const Creator = ({ lang, initial, onSave, onCancel }) => {
     const normalized = {
       ...char,
       languages: Utils.languagesFor(char),
-      skillProfs: [...new Set([...(char.skillProfs || []), ...Utils.backgroundSkills(char)])],
+      skillProfs: [...new Set([...(char.skillProfs || []), ...Utils.backgroundSkills(char), ...originFeatSkills(char)])],
     };
     const final = isNew ? { ...normalized, maxHp, currentHp: maxHp } : normalized;
     onSave(final);

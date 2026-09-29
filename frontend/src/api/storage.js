@@ -9,6 +9,17 @@
  */
 
 import { api, ApiError } from './client.js';
+import Utils from '../../utils.js';
+import SRD from '../../data/srd.js';
+
+// Ids de magia renomeados: fichas antigas são corrigidas ao carregar.
+function migrate(char) {
+  if (!char || !Array.isArray(char.spells)) return char;
+  const alias = SRD.SPELL_ID_ALIASES || {};
+  if (!char.spells.some(s => alias[typeof s === 'string' ? s : s?.id])) return char;
+  const spells = char.spells.map(s => (typeof s === 'string' ? (alias[s] || s) : alias[s?.id] ? { ...s, id: alias[s.id] } : s));
+  return { ...char, spells };
+}
 
 const STORAGE_KEY = 'dnd5e-forge:characters:v1';
 
@@ -27,8 +38,8 @@ export function createStorageAdapter({ remote }) {
   if (!remote) {
     return {
       mode: 'local',
-      async list() { return loadLocal(); },
-      async get(id) { return loadLocal().find(c => c.id === id) || null; },
+      async list() { return loadLocal().map(migrate); },
+      async get(id) { return migrate(loadLocal().find(c => c.id === id) || null); },
       async save(char) {
         const all = loadLocal();
         const next = { ...char, id: char.id || `local-${crypto.randomUUID()}`, updatedAt: Date.now() };
@@ -50,13 +61,13 @@ export function createStorageAdapter({ remote }) {
     async list() {
       const res = await api.listCharacters();
       // O backend retorna { id, name, data, inCampaign, ... } — promove data
-      return res.characters.map(c => ({ ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt, inCampaign: c.inCampaign }));
+      return res.characters.map(c => migrate({ ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt, inCampaign: c.inCampaign }));
     },
     async get(id) {
       try {
         const res = await api.getCharacter(id);
         const c = res.character;
-        return { ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt, inCampaign: c.inCampaign };
+        return migrate({ ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt, inCampaign: c.inCampaign });
       } catch (e) {
         if (e instanceof ApiError && e.status === 404) return null;
         throw e;
@@ -64,6 +75,10 @@ export function createStorageAdapter({ remote }) {
     },
     async save(char) {
       const { id, createdAt, updatedAt, inCampaign, ...data } = char;
+      // CA calculada (armadura, escudo, estilos de luta…) para o combate no servidor.
+      if (char.className) {
+        try { data.armorClass = Utils.computeAc(char); } catch { /* ficha incompleta */ }
+      }
       const body = { name: char.name || 'Sem nome', data };
       let res;
       // Server IDs are integers. Older local sheets used unprefixed random IDs.

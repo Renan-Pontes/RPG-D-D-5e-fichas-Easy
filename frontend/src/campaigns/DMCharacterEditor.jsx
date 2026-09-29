@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import SRD from '../../data/srd.js';
 import { api } from '../api/client.js';
+import ResourcesCard from '../progression/ResourcesCard.jsx';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -136,6 +137,10 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
                 <NumInput label={t(lang, 'Deslocamento override', 'Speed override')} value={data.speedOverride} onChange={v => patch({ speedOverride: v })} />
                 <ToggleRow label={t(lang, 'Inspiração', 'Inspiration')} value={!!data.inspiration} onChange={v => patch({ inspiration: v })} />
                 <ToggleRow label={t(lang, 'Escudo equipado', 'Shield equipped')} value={!!data.hasShield} onChange={v => patch({ hasShield: v })} />
+              </Section>
+
+              <Section title={t(lang, 'Recursos de classe', 'Class resources')}>
+                <ResourcesCard char={data} lang={lang} update={patch} canRestore local />
               </Section>
 
               <Section title={t(lang, 'Salvamentos contra morte', 'Death saves')}>

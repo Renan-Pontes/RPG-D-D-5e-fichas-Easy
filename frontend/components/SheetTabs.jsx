@@ -2,11 +2,16 @@
 import { useState } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
+import { restResources } from '../src/progression/resources.js';
 import { t, tName } from '../data/i18n.js';
 import Icon from './Icons.jsx';
 import { Filigree, Modal, NumStepper, Pips } from './Shared.jsx';
 import ItemPickerModal from '../src/items/ItemPickerModal.jsx';
 import { api } from '../src/api/client.js';
+import * as FS from '../src/progression/fighting-styles.js';
+import * as Book from '../src/progression/spellbook.js';
+import { SpeciesChoicesModal, speciesSummary } from '../src/progression/SpeciesChoices.jsx';
+import { speciesChoiceSpecs } from '../src/progression/species.js';
 
 // Aba Magias: espaços (compartilhados entre as classes) e uma seção por classe
 // conjuradora — em multiclasse cada uma tem atributo, CD, limites e lista próprios.
@@ -51,7 +56,7 @@ const SheetSpells = ({ char, lang, update, slots, roll }) => {
           {slots.map((max, idx) => {
             if (!max) return null;
             const used = (char.spellSlotsUsed && char.spellSlotsUsed[idx]) || 0;
-            const locked = !!char.inCampaign;
+            const campaignLocked = !!char.inCampaign;
             return (
               <div key={idx} className="slot-row">
                 <div className="slot-level">{lang === 'pt' ? 'Nv' : 'Lv'} {idx + 1}</div>
@@ -59,9 +64,9 @@ const SheetSpells = ({ char, lang, update, slots, roll }) => {
                   {Array.from({ length: max }).map((_, i) => (
                     <button
                       key={i} type="button"
-                      className={`slot-pip ${i < used ? 'used' : ''} ${locked ? 'locked' : ''}`}
-                      disabled={locked}
-                      onClick={locked ? undefined : () => {
+                      className={`slot-pip ${i < used ? 'used' : ''} ${campaignLocked || (i < used && !char.cheatMode) ? 'locked' : ''}`}
+                      disabled={campaignLocked || (i < used && !char.cheatMode)}
+                      onClick={campaignLocked || (i < used && !char.cheatMode) ? undefined : () => {
                         const arr = [...(char.spellSlotsUsed || [])];
                         while (arr.length <= idx) arr.push(0);
                         arr[idx] = i < used ? i : i + 1;
@@ -112,7 +117,10 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
     return def && def.level > 0;
   }).map(s => s.id);
 
-  const classSpells = Utils.spellCatalog(char).filter(sp => (inList(sp) && sp.level <= maxLvl) || autoIds.has(sp.id));
+  // Mago: prepara só magias do grimório.
+  const book = Book.usesSpellbook(char);
+  const bookIds = new Set(book ? Book.spellbookIds(char) : []);
+  const classSpells = Utils.spellCatalog(char).filter(sp => ((book ? bookIds.has(sp.id) : inList(sp)) && sp.level <= maxLvl) || autoIds.has(sp.id));
   const classCantrips = Utils.spellCatalog(char).filter(sp => (inList(sp) || autoIds.has(sp.id)) && sp.level === 0);
 
   const removeSpell = (id) => {
@@ -167,6 +175,7 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
           roll={roll}
           slots={slots}
           update={update}
+          book={book}
         />
       ) : (
         <KnownSpellsView
@@ -197,13 +206,14 @@ const levelLabel = (lvl, lang) => (+lvl === 0 ? t('cantrips', lang) : `${t('spel
 
 // Conjuradores preparados: a ficha mostra só o que está pronto, agrupado por círculo
 // (fechado até tocar). A escolha diária acontece no modal "Preparar magias".
-const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, cantripLimit, preparedLimit, maxLvl, spellAtk, roll, slots, update }) => {
+const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, cantripLimit, preparedLimit, maxLvl, spellAtk, roll, slots, update, book = false }) => {
   const pt = lang === 'pt';
   const [picking, setPicking] = useState(false);
   const catalog = Utils.spellCatalog(char);
+  // Mago: magias do grimório não preparadas ficam só na seção Grimório.
   const ready = (char.spells || [])
     .map(cs => ({ ...cs, def: catalog.find(s => s.id === cs.id) }))
-    .filter(s => s.def);
+    .filter(s => s.def && !(book && Book.isInBook(char, s) && !Book.isPreparedEntry(s)));
   const byLevel = groupByLevel(ready);
   const nonAuto = (lvl0) => ready.filter(s => !autoIds.has(s.id) && (s.def.level === 0) === lvl0).length;
   const fmt = (n) => (Number.isFinite(n) ? n : '∞');
@@ -249,24 +259,138 @@ const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, c
         </div>
       )}
 
+      {book && (
+        <SpellbookSection lang={lang} char={char} preparedLimit={preparedLimit} maxLvl={maxLvl}
+          spellAtk={spellAtk} roll={roll} slots={slots} update={update} />
+      )}
+
       {picking && (
         <PrepareSpellsModal
           lang={lang} char={char}
           classCantrips={classCantrips} classSpells={classSpells.filter(s => s.level > 0)}
           autoIds={autoIds} cantripLimit={cantripLimit} preparedLimit={preparedLimit}
-          update={update} onClose={() => setPicking(false)}
+          update={update} onClose={() => setPicking(false)} book={book}
         />
       )}
     </>
   );
 };
 
+// Grimório do Mago: todas as magias do livro, com a estrela de preparada
+// (respeita o limite, exceto no modo trapaça) e cópia de magias achadas.
+const SpellbookSection = ({ lang, char, preparedLimit, maxLvl, spellAtk, roll, slots, update }) => {
+  const pt = lang === 'pt';
+  const [copying, setCopying] = useState(false);
+  const catalog = Utils.spellCatalog(char);
+  const entries = (char.spells || [])
+    .filter(s => Book.isInBook(char, s))
+    .map(s => ({ ...s, prepared: Book.isPreparedEntry(s), def: catalog.find(x => x.id === s.id) }))
+    .filter(s => s.def);
+  const byLevel = groupByLevel(entries);
+  const nPrepared = Book.preparedFromBook(char).length;
+  const atLimit = nPrepared >= preparedLimit;
+  const expected = Book.spellbookSize(char.level || 1);
+  const toggle = (id) => {
+    const spells = Book.togglePreparedInBook(char, id, preparedLimit);
+    if (spells) update({ spells });
+  };
+  const remove = (id) => {
+    const name = tName('spellName', id, lang);
+    if (window.confirm(pt ? `Tirar ${name} do grimório?` : `Remove ${name} from the spellbook?`)) update({ spells: Book.removeFromSpellbook(char, id) });
+  };
+
+  return (
+    <div className="spellbook mt-4">
+      <div className="spells-toolbar">
+        <div className="spells-counters">
+          <span className="eyebrow" style={{ marginRight: 8 }}><Icon name="book" size={13}/> {pt ? 'Grimório' : 'Spellbook'}</span>
+          <span className="spell-count" title={pt ? `Sem cópias: 6 + 2 por nível de Mago = ${expected}` : `Without copies: 6 + 2 per Wizard level = ${expected}`}>
+            <span className="muted">{pt ? 'Magias' : 'Spells'}</span> <b className="mono">{entries.length}</b><span className="muted text-xs"> / {expected}</span>
+          </span>
+        </div>
+        <button className="btn btn-ghost btn-sm" onClick={() => setCopying(true)}>
+          <Icon name="plus" size={14}/> {pt ? 'Copiar magia para o grimório' : 'Copy spell into spellbook'}
+        </button>
+      </div>
+      {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
+        <details key={lvl} className="spell-group">
+          <summary>
+            <span>{levelLabel(lvl, lang)}</span>
+            <span className="spell-group-count mono">{byLevel[lvl].filter(s => s.prepared).length}/{byLevel[lvl].length}</span>
+          </summary>
+          {byLevel[lvl].map(s => (
+            <SpellRow key={s.id} spell={s} lang={lang} showPrepared
+              onTogglePrepared={() => toggle(s.id)} preparedDisabled={atLimit || s.def.level > maxLvl}
+              onRemove={() => remove(s.id)}
+              char={char} slots={slots} update={update} spellAtk={spellAtk} roll={roll} />
+          ))}
+        </details>
+      ))}
+      {!entries.length && (
+        <div className="muted text-sm" style={{ padding: 12 }}>
+          {pt ? 'Grimório vazio. Copie magias de Mago para ele (6 de nível 1 no começo).' : 'Empty spellbook. Copy Wizard spells into it (6 level 1 spells to start).'}
+        </div>
+      )}
+      {copying && <CopySpellModal lang={lang} char={char} maxLvl={maxLvl} update={update} onClose={() => setCopying(false)} />}
+    </div>
+  );
+};
+
+// Copiar magia achada (pergaminho, outro grimório): qualquer magia de Mago de
+// círculo que o mago possa preparar; custo em ouro/tempo só informativo.
+const CopySpellModal = ({ lang, char, maxLvl, update, onClose }) => {
+  const pt = lang === 'pt';
+  const cheat = !!char.cheatMode;
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const list = Book.spellbookCandidates(char, { maxLevel: cheat ? 9 : Math.max(1, maxLvl), anyList: cheat })
+    .filter(sp => !q || `${tName('spellName', sp.id, 'pt')} ${tName('spellName', sp.id, 'en')}`.toLowerCase().includes(q));
+  const groups = groupByLevel(list.map(def => ({ id: def.id, def })));
+  const copy = (id) => { update({ spells: Book.addToSpellbook(char, [id]) }); onClose(); };
+  return (
+    <Modal onClose={onClose} title={pt ? 'Copiar magia para o grimório' : 'Copy spell into spellbook'}>
+      <div className="prep-sticky">
+        <div className="muted text-xs" style={{ marginBottom: 6 }}>
+          {pt ? 'Custo por círculo: 2 horas e 50 PO (tinta e materiais). Desconte o ouro no inventário.' : 'Cost per spell level: 2 hours and 50 GP (ink and materials). Deduct the gold in your inventory.'}
+          {cheat && (pt ? ' Modo trapaça: qualquer magia.' : ' Cheat mode: any spell.')}
+        </div>
+        <input placeholder={pt ? 'Buscar magia…' : 'Search spell…'} value={query} onChange={e => setQuery(e.target.value)} />
+      </div>
+      {Object.keys(groups).sort((a, b) => +a - +b).map(lvl => (
+        <details key={lvl} className="spell-group" open={!!q}>
+          <summary>
+            <span>{levelLabel(lvl, lang)}</span>
+            <span className="spell-group-count mono">{Book.copyCost(+lvl).gp} PO · {Book.copyCost(+lvl).hours} h</span>
+          </summary>
+          {groups[lvl].map(({ def: sp }) => (
+            <div key={sp.id} className="prep-row">
+              <button type="button" className="prep-toggle" onClick={() => copy(sp.id)}>
+                <span className="prep-check"><Icon name="plus" size={13}/></span>
+                <span className="prep-name">
+                  {tName('spellName', sp.id, lang)}
+                  {sp.ritual && <span className="prep-tag r">R</span>}
+                </span>
+                <span className="prep-meta">{tName('school', sp.school, lang)} · {sp.castingTime}</span>
+              </button>
+            </div>
+          ))}
+        </details>
+      ))}
+      {!list.length && <div className="muted text-sm" style={{ padding: 12 }}>{pt ? 'Nenhuma magia encontrada.' : 'No spells found.'}</div>}
+      <div className="modal-actions sticky">
+        <button className="btn btn-ghost" onClick={onClose}>{pt ? 'Fechar' : 'Close'}</button>
+      </div>
+    </Modal>
+  );
+};
+
 // Modal de preparação: rascunho local, salva tudo de uma vez.
 // Entradas fora da lista da classe (talentos, itens) e automáticas são preservadas.
-const PrepareSpellsModal = ({ lang, char, classCantrips, classSpells, autoIds, cantripLimit, preparedLimit, update, onClose }) => {
+const PrepareSpellsModal = ({ lang, char, classCantrips, classSpells, autoIds, cantripLimit, preparedLimit, update, onClose, book = false }) => {
   const pt = lang === 'pt';
   const listIds = new Set([...classCantrips, ...classSpells].map(s => s.id));
-  const initial = (char.spells || []).filter(s => listIds.has(s.id) && !autoIds.has(s.id)).map(s => s.id);
+  const initial = (char.spells || []).filter(s => listIds.has(s.id) && !autoIds.has(s.id)
+    && !(book && Book.isInBook(char, s) && !Book.isPreparedEntry(s))).map(s => s.id);
   const [draft, setDraft] = useState(initial);
   const [query, setQuery] = useState('');
   const [openInfo, setOpenInfo] = useState(null);
@@ -284,6 +408,8 @@ const PrepareSpellsModal = ({ lang, char, classCantrips, classSpells, autoIds, c
   };
 
   const save = () => {
+    // Mago: as magias continuam no grimório; só muda `prepared`.
+    if (book) { update({ spells: Book.applyPreparedDraft(char, draft, listIds, autoIds) }); onClose(); return; }
     const kept = (char.spells || []).filter(s => !listIds.has(s.id) || autoIds.has(s.id));
     const prev = new Map((char.spells || []).map(s => [s.id, s]));
     update({ spells: [...kept, ...draft.map(id => prev.get(id) || { id, prepared: true })] });
@@ -560,6 +686,7 @@ const RestButtons = ({ char, lang, update }) => {
           conditions: d.conditions,
           deathSaves: d.deathSaves,
           hitDiceUsed: d.hitDiceUsed,
+          resourcesUsed: d.resourcesUsed || {},
           // Forma Estelar dura 10 min; qualquer descanso a encerra.
           ...(char.starryForm?.active ? { starryForm: { active: false } } : {}),
         });
@@ -580,6 +707,7 @@ const RestButtons = ({ char, lang, update }) => {
           if (char.className === 'warlock' && !Utils.isMulticlass(char)) patch.spellSlotsUsed = [0,0,0,0,0,0,0,0,0];
           if (Utils.hasClass(char, 'druid')) patch.wildShapeUses = char.rulesVersion === '2024' ? Math.max(0, (char.wildShapeUses || 0) - 1) : 0;
         }
+        patch.resourcesUsed = restResources(char, type).resourcesUsed;
         update(patch);
       }
     } catch (e) { console.warn('rest failed', e); }
@@ -601,11 +729,12 @@ const RestButtons = ({ char, lang, update }) => {
 const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
   const cls_ = cls;
   const addWeapon = (id) => {
-    const w = SRD.WEAPONS.find(x => x.id === id);
+    const w = SRD.weaponFor(id, char.rulesVersion);
     if (!w) return;
     update({
       weapons: [...(char.weapons || []), {
         id: w.id, name: tName('weapon', w.id, lang), damage: w.damage, dmgType: w.dmgType, props: w.props,
+        ...(w.range ? { range: w.range } : {}), ...(w.mastery ? { mastery: w.mastery } : {}),
       }]
     });
   };
@@ -639,7 +768,7 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
         <option value="">+ {t('addWeapon', lang)}...</option>
         {['simple-melee','simple-ranged','martial-melee','martial-ranged'].map(t_ => (
           <optgroup key={t_} label={t_}>
-            {SRD.WEAPONS.filter(w => w.type === t_).map(w =>
+            {SRD.weaponsFor(char.rulesVersion).filter(w => w.type === t_).map(w =>
               <option key={w.id} value={w.id}>{tName('weapon', w.id, lang)} ({w.damage})</option>
             )}
           </optgroup>
@@ -651,7 +780,9 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
         const isRanged = wDef && (wDef.type || '').includes('ranged');
         const useDex = isRanged || (isFinesse && Utils.abilityMod(char, 'dex') > Utils.abilityMod(char, 'str'));
         const abMod = Utils.abilityMod(char, useDex ? 'dex' : 'str');
-        const atk = abMod + Utils.profBonus(char);
+        const fs = FS.weaponStyleBonuses(char, w);
+        const atk = abMod + Utils.profBonus(char) + fs.attack;
+        const dmgMod = abMod + fs.damage;
         return (
           <div key={i} className="card" style={{ marginBottom: 8, padding: 12 }}>
             <div className="row gap-2 mb-2">
@@ -668,7 +799,7 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
               </button>
               <button className="btn btn-sm btn-ghost" onClick={() => {
                 const m = w.damage.match(/(\d+)d(\d+)/);
-                if (m) roll({ die: +m[2], count: +m[1], mod: abMod, label: w.name + ' ' + t('damageRoll', lang) });
+                if (m) roll({ die: +m[2], count: +m[1], mod: dmgMod, label: w.name + ' ' + t('damageRoll', lang) });
               }}>
                 {t('damageRoll', lang)}
               </button>
@@ -676,6 +807,18 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
             {wDef && wDef.props && wDef.props.length > 0 && (
               <div className="text-xs muted mt-2">{wDef.props.join(', ')}</div>
             )}
+            {(fs.attackParts.length > 0 || fs.damageParts.length > 0) && (
+              <div className="text-xs mt-2" style={{ color: 'var(--gold)' }}>
+                {fs.attackParts.length > 0 && <>{lang === 'pt' ? 'Ataque' : 'Attack'} {FS.partsLabel(fs.attackParts, lang)} </>}
+                {fs.damageParts.length > 0 && <>{lang === 'pt' ? 'Dano' : 'Damage'} {FS.partsLabel(fs.damageParts, lang)}</>}
+              </div>
+            )}
+            {fs.mastery && (
+              <div className="text-xs mt-2" style={{ color: 'var(--moss-bright)' }}>
+                {lang === 'pt' ? 'Maestria' : 'Mastery'}: <strong>{fs.mastery.name[lang]}</strong> — {fs.mastery.desc[lang]}
+              </div>
+            )}
+            {fs.notes.map((n, k) => <div key={k} className="text-xs muted mt-2">{n[lang]}</div>)}
           </div>
         );
       })}
@@ -739,19 +882,48 @@ const SheetStory = ({ char, lang, update, cls, race }) => (
       </div>
     </div>
 
-    {race && (
-      <>
-        <Filigree>{lang === 'pt' ? 'Traços Raciais' : 'Racial Traits'}</Filigree>
-        {race.traits.map((tr, i) => (
-          <div key={i} className="card" style={{ marginBottom: 8, padding: 12 }}>
-            <div style={{ fontFamily: 'var(--display)', color: 'var(--gold)', marginBottom: 4 }}>{tr.name[lang]}</div>
-            <div className="text-sm" style={{ color: 'var(--ink-secondary)' }}>{tr.desc[lang]}</div>
-          </div>
-        ))}
-      </>
-    )}
+    {race && <SpeciesTraits char={char} lang={lang} update={update} race={race} />}
   </>
 );
+
+// Traços da espécie + resumo das escolhas (linhagem, resistências, magias…).
+// Em campanha a troca fica com o mestre; pendências aparecem na faixa do topo.
+const SpeciesTraits = ({ char, lang, update, race }) => {
+  const [open, setOpen] = useState(false);
+  const rows = speciesSummary(char, lang);
+  const canEdit = speciesChoiceSpecs(char).length > 0 && !char.inCampaign;
+  return (
+    <>
+      <Filigree>{lang === 'pt' ? 'Traços da Espécie' : 'Species Traits'}</Filigree>
+      {(rows.length > 0 || canEdit) && (
+        <div className="card" style={{ marginBottom: 8, padding: 12 }}>
+          {rows.map(([k, v]) => (
+            <div key={k} className="text-sm" style={{ marginBottom: 4 }}>
+              <strong style={{ color: 'var(--gold-deep)' }}>{k}:</strong> <span style={{ color: 'var(--ink-secondary)' }}>{v}</span>
+            </div>
+          ))}
+          {canEdit && (
+            <button className="btn btn-sm btn-ghost no-print" style={{ marginTop: 6 }} onClick={() => setOpen(true)}>
+              <Icon name="edit" size={12}/> {lang === 'pt' ? 'Alterar escolhas' : 'Change choices'}
+            </button>
+          )}
+        </div>
+      )}
+      {race.traits.map((tr, i) => {
+        const later = tr.level && (char.level || 1) < tr.level;
+        return (
+          <div key={i} className="card" style={{ marginBottom: 8, padding: 12, opacity: later ? 0.6 : 1 }}>
+            <div style={{ fontFamily: 'var(--display)', color: 'var(--gold)', marginBottom: 4 }}>
+              {tr.name[lang]}{tr.level ? <span className="text-xs muted"> · {lang === 'pt' ? 'nível' : 'level'} {tr.level}</span> : null}
+            </div>
+            <div className="text-sm" style={{ color: 'var(--ink-secondary)' }}>{tr.desc[lang]}</div>
+          </div>
+        );
+      })}
+      {open && <SpeciesChoicesModal char={char} lang={lang} onSave={update} onClose={() => setOpen(false)} />}
+    </>
+  );
+};
 
 // ===== Notes / Journal =====
 const SheetNotes = ({ char, lang, update }) => {
@@ -889,7 +1061,7 @@ function InventoryList({ char, lang, update, addItem, updateItem, removeItem }) 
         <p className="muted small">{lang === 'pt' ? 'Sem itens.' : 'No items.'}</p>
       )}
       {items.map((it, i) => (
-        <InventoryRow key={it.id || `legacy-${i}`} item={it} idx={i} lang={lang}
+        <InventoryRow rulesVersion={char.rulesVersion} key={it.id || `legacy-${i}`} item={it} idx={i} lang={lang}
           inCampaign={inCampaign}
           onToggleEquipped={() => toggleEquipped(it, i)}
           onToggleAttuned={() => toggleAttuned(it, i)}
@@ -920,7 +1092,7 @@ function InventoryList({ char, lang, update, addItem, updateItem, removeItem }) 
   );
 }
 
-function InventoryRow({ item, idx, lang, inCampaign, onToggleEquipped, onToggleAttuned, onConsume, onRemove, onSetNotes, onPatchLocal }) {
+function InventoryRow({ item, idx, lang, rulesVersion, inCampaign, onToggleEquipped, onToggleAttuned, onConsume, onRemove, onSetNotes, onPatchLocal }) {
   const [open, setOpen] = useState(false);
   const isLegacy = !item.id;
   const broken = !!item.broken;
@@ -947,9 +1119,11 @@ function InventoryRow({ item, idx, lang, inCampaign, onToggleEquipped, onToggleA
               {item.description[lang] || item.description.en || item.description}
             </div>
           )}
-          {item.weapon && (
-            <div className="text-xs muted">⚔ {item.weapon.damage} {item.weapon.dmgType}{item.weapon.props?.length ? ` · ${item.weapon.props.join(', ')}` : ''}</div>
-          )}
+          {item.weapon && (() => {
+            // Números de 2024 (lança de montaria, tridente…) quando a ficha é 2024.
+            const w = rulesVersion === '2024' && item.weapon.v2024 ? { ...item.weapon, ...item.weapon.v2024 } : item.weapon;
+            return <div className="text-xs muted">⚔ {w.damage} {w.dmgType}{w.props?.length ? ` · ${w.props.join(', ')}` : ''}{w.range ? ` · ${w.range}` : ''}</div>;
+          })()}
           {item.armor && (
             <div className="text-xs muted">🛡 CA {item.armor.ac} ({item.armor.type}){item.armor.stealth === 'disadv' ? ' · desv. Stealth' : ''}{item.armor.strReq ? ` · req FOR ${item.armor.strReq}` : ''}</div>
           )}

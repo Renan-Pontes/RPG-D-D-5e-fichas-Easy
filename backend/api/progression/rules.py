@@ -13,6 +13,11 @@ _CATALOG = json.loads(
 )
 PROGRESSION_RULES = _CATALOG['legacy']
 PROGRESSION_RULES_2024 = _CATALOG['current']
+CLASS_OPTIONS = _CATALOG.get('options', {})
+SPECIES_RESOURCES = _CATALOG.get('speciesResources', {})
+# Talentos (frontend/data/feats.js), só com os campos de validação.
+FEATS = _CATALOG.get('feats', [])
+FEATS_BY_ID = {f['id']: f for f in FEATS}
 
 
 def rules_for(character):

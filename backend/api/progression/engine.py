@@ -10,6 +10,9 @@ Espelha frontend/src/progression/engine.js. Aqui foco em:
 """
 import math
 from .rules import PROGRESSION_RULES, prof_bonus, rules_for  # re-export
+from .options import class_option_state, validate_option_picks, apply_option_picks
+from .feats import validate_feat_choice, with_feat_asi, feat_entry
+from .species import species_spell_ids
 from .multiclass import (
     is_multiclass, class_entries, class_view, class_sequence, total_level_for, with_class_level,
     can_multiclass_into, MULTICLASS_SKILL,
@@ -91,6 +94,12 @@ def compute_progression(character):
         if node.get('spells_prepared'):
             out['spells_prepared'] = _compute_spells_prepared(node['spells_prepared'].get('formula'), character)
             break
+
+    # Opções de classe (invocações etc.): magias concedidas entram como autos.
+    opts = class_option_state(character)
+    out['option_slots'] = opts['slots']
+    out['auto_spells'].extend(opts['grants']['spells'])
+    out['auto_cantrips'].extend(opts['grants']['cantrips'])
 
     # ASI/talento já escolhidos (levelChoices[nível]) deixam de ser pendência.
     done = character.get('levelChoices') or {}
@@ -181,7 +190,12 @@ def apply_autos(character):
         for sid in p['auto_cantrips'] + p['auto_spells']:
             if sid not in wanted:
                 wanted[sid] = {} if cls == character.get('className') else {'cls': cls}
-    filtered = [s for s in norm if not s.get('auto') or s.get('id') in wanted]
+    # Espécie/linhagem: truques e magias dos níveis 1/3/5 (igual ao frontend).
+    for sid in species_spell_ids(character):
+        if sid not in wanted:
+            wanted[sid] = {'species': True}
+    # Autos de talentos (marcados `feat`) são calculados só no frontend: mantidos.
+    filtered = [s for s in norm if not s.get('auto') or s.get('id') in wanted or s.get('feat')]
     existing = {s['id'] for s in filtered}
     for sid, tag in wanted.items():
         if sid not in existing:
@@ -259,6 +273,10 @@ def validate_level_choice(character, level, choice):
         feat = choice.get('feat')
         if not isinstance(feat, str) or not feat.strip() or len(feat) > 120:
             issues.append('Informe o nome do talento')
+        elif choice.get('featId') is not None:
+            # Talento do catálogo (sem featId = texto livre / homebrew, aceito como antes).
+            kind = 'epic' if level in epic_levels else 'asi'
+            issues.extend(validate_feat_choice(character, level, choice, kind, prog.get('fighting_styles', 0) > 0))
     return {'valid': not issues, 'issues': issues}
 
 
@@ -271,9 +289,35 @@ def apply_level_choice(character, level, choice):
             abilities[k] = (abilities.get(k) or 10) + v
         nxt['abilities'] = abilities
     else:
-        note = choice.get('note') if isinstance(choice.get('note'), str) else ''
-        nxt['feats'] = list(character.get('feats') or []) + [{'name': choice['feat'].strip(), 'note': note[:500], 'level': level}]
+        # Talento do catálogo: soma o +1 dele (já validado) e guarda id/picks/asi.
+        if choice.get('featId') is not None:
+            nxt = with_feat_asi(nxt, choice.get('asi'), 1)
+        nxt['feats'] = list(character.get('feats') or []) + [feat_entry(choice, level)]
     return nxt
+
+
+def _mark_legacy_spellbook(data):
+    """
+    Ficha antiga de mago (nenhuma entrada com 'inBook'): marca as magias não
+    automáticas do mago como no grimório. Truques também recebem a marca, mas
+    o frontend ignora 'inBook' em magias de nível 0 (sem catálogo aqui).
+    """
+    spells = list(data.get('spells') or [])
+    main = data.get('className')
+
+    def owner(s):
+        return (s.get('cls') if isinstance(s, dict) else None) or main
+
+    if any(isinstance(s, dict) and 'inBook' in s and owner(s) == 'wizard' for s in spells):
+        return spells
+    out = []
+    for s in spells:
+        e = {'id': s, 'prepared': False} if isinstance(s, str) else s
+        if isinstance(e, dict) and owner(e) == 'wizard' and not e.get('auto'):
+            out.append({**e, 'inBook': True})
+        else:
+            out.append(s)
+    return out
 
 
 def apply_approval_to_character(data, approval_type, payload):
@@ -298,13 +342,29 @@ def apply_approval_to_character(data, approval_type, payload):
         if isinstance(payload.get('spellsAdded'), list):
             existing = {s if isinstance(s, str) else s.get('id') for s in (nxt.get('spells') or [])}
             tag = {} if class_id == nxt.get('className') else {'cls': class_id}
-            more = [{'id': sid, 'prepared': True, **tag} for sid in payload['spellsAdded'] if sid not in existing]
+            # Item: id (aprendida, preparada) ou {'id', 'inBook': True} (grimório do mago).
+            book = class_id == 'wizard' and any(isinstance(x, dict) and x.get('inBook') for x in payload['spellsAdded'])
+            if book:
+                nxt['spells'] = _mark_legacy_spellbook(nxt)
+            more = []
+            for x in payload['spellsAdded']:
+                sid = x if isinstance(x, str) else (x.get('id') if isinstance(x, dict) else None)
+                if not isinstance(sid, str) or sid in existing:
+                    continue
+                existing.add(sid)
+                if book and isinstance(x, dict) and x.get('inBook'):
+                    more.append({'id': sid, 'prepared': False, 'inBook': True, **tag})
+                else:
+                    more.append({'id': sid, 'prepared': True, **tag})
             nxt['spells'] = list(nxt.get('spells') or []) + more
         if isinstance(payload.get('featuresAdded'), list):
             nxt['customFeatures'] = list(nxt.get('customFeatures') or []) + payload['featuresAdded']
         # Escolha de ASI/talento já validada em approval_consume.
         if isinstance(payload.get('choice'), dict) and isinstance(payload.get('toLevel'), int):
             nxt = apply_level_choice(nxt, payload['toLevel'], payload['choice'])
+        # Opções de classe (invocações etc.), também validadas em approval_consume.
+        if isinstance(payload.get('options'), dict) and isinstance(payload.get('toLevel'), int):
+            nxt = apply_option_picks(nxt, class_id, payload['options'], payload['toLevel'])
         # aplica autos da nova subclasse/nível
         return apply_autos(nxt)
     if approval_type == 'feature':
@@ -323,3 +383,20 @@ def apply_approval_to_character(data, approval_type, payload):
         nxt['spells'] = list(nxt.get('spells') or []) + [{'id': sid, 'prepared': bool(payload.get('prepared'))}]
         return nxt
     return None
+
+
+def _view_of(character, class_id):
+    entry = next((e for e in class_entries(character) if e['id'] == class_id), None)
+    return class_view(character, entry) if entry else None
+
+
+def validate_class_options(character, class_id, picks, level_up=False):
+    """Espelha validateClassOptions (frontend/src/progression/engine.js)."""
+    view = _view_of(character, class_id)
+    if not view:
+        return {'valid': False, 'issues': ['Classe ausente na ficha']}
+    return validate_option_picks(view, class_id, picks, view.get('level') or 1, level_up=level_up)
+
+
+def apply_class_options(character, class_id, picks):
+    return apply_autos(apply_option_picks(character, class_id, picks, character.get('level') or 1))

@@ -29,6 +29,8 @@ const toForm = (item, lang) => ({
   damage: item?.weapon?.damage || '',
   dmgType: item?.weapon?.dmgType || 'slashing',
   props: (item?.weapon?.props || []).join(', '),
+  // Campos da arma que o formulário não edita (alcance, maestria, números 2024): preservados.
+  weaponExtra: (({ damage, dmgType, props, ...rest }) => rest)(item?.weapon || {}),
   ac: item?.armor?.ac ?? '',
   armorType: item?.armor?.type || (item?.type === 'shield' ? 'shield' : 'light'),
   isMagic: !!item?.magic || item?.type === 'magic',
@@ -45,7 +47,7 @@ export const formToItem = (f) => {
   if (f.cost !== '' && +f.cost >= 0) item.cost = +f.cost;
   if (both(f.description)) item.description = both(f.description);
   if (f.type === 'weapon' && f.damage.trim()) {
-    item.weapon = { damage: f.damage.trim(), dmgType: f.dmgType, props: f.props.split(',').map(p => p.trim()).filter(Boolean) };
+    item.weapon = { ...(f.weaponExtra || {}), damage: f.damage.trim(), dmgType: f.dmgType, props: f.props.split(',').map(p => p.trim()).filter(Boolean) };
   }
   if ((f.type === 'armor' || f.type === 'shield') && f.ac !== '') {
     item.armor = { ac: Math.max(0, Math.min(30, parseInt(f.ac) || 0)), type: f.type === 'shield' ? 'shield' : f.armorType };

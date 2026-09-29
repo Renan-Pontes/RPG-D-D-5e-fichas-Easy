@@ -1,6 +1,8 @@
 /* Print sheet — multi-page, parchment-styled, faithful to classic 5e layout */
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
+import * as FS from '../src/progression/fighting-styles.js';
+import { speciesSummary } from '../src/progression/SpeciesChoices.jsx';
 import { t, tName } from '../data/i18n.js';
 import Icon from './Icons.jsx';
 import { Filigree } from './Shared.jsx';
@@ -97,7 +99,7 @@ const PrintSheet = ({ char, lang }) => {
               <div className="ps-list">
                 {SRD.ABILITIES.map(k => {
                   const bonus = Utils.saveBonus(char, k);
-                  const isProf = (char.saveProfs || []).includes(k);
+                  const isProf = Utils.hasSaveProf(char, k);
                   return (
                     <div key={k} className="ps-row">
                       <span className={`ps-dot ${isProf ? 'on' : ''}`}/>
@@ -124,6 +126,12 @@ const PrintSheet = ({ char, lang }) => {
                   <span className="ps-sense-num">{10 + Utils.skillBonus(char, 'insight')}</span>
                   <span className="ps-sense-name">{lang === 'pt' ? 'Intuição Passiva' : 'Passive Insight'}</span>
                 </div>
+                {FS.blindsight(char) > 0 && (
+                  <div className="ps-sense-row">
+                    <span className="ps-sense-num">{lang === 'pt' ? `${Math.round(FS.blindsight(char) * 0.3)} m` : `${FS.blindsight(char)} ft`}</span>
+                    <span className="ps-sense-name">{lang === 'pt' ? 'Percepção às Cegas' : 'Blindsight'}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -136,7 +144,7 @@ const PrintSheet = ({ char, lang }) => {
                 {SRD.SKILLS.map(s => {
                   const bonus = Utils.skillBonus(char, s.id);
                   const isProf = Utils.hasSkillProf(char, s.id);
-                  const isExpert = (char.skillExpertise || []).includes(s.id);
+                  const isExpert = Utils.hasExpertise(char, s.id);
                   return (
                     <div key={s.id} className="ps-row">
                       <span className={`ps-dot ${isExpert ? 'expert' : isProf ? 'on' : ''}`}/>
@@ -226,18 +234,22 @@ const PrintSheet = ({ char, lang }) => {
               </thead>
               <tbody>
                 {char.weapons.map((w, i) => {
-                  const wDef = w.id ? SRD.WEAPONS.find(x => x.id === w.id) : null;
+                  const wDef = w.id ? SRD.weaponFor(w.id, char.rulesVersion) : null;
                   const isFinesse = wDef && wDef.props && wDef.props.includes('finesse');
                   const isRanged = wDef && (wDef.type || '').includes('ranged');
                   const useDex = isRanged || (isFinesse && Utils.abilityMod(char, 'dex') > Utils.abilityMod(char, 'str'));
                   const abMod = Utils.abilityMod(char, useDex ? 'dex' : 'str');
-                  const atk = abMod + Utils.profBonus(char);
+                  const fs = FS.weaponStyleBonuses(char, w);
+                  const atk = abMod + Utils.profBonus(char) + fs.attack;
+                  const dmgMod = abMod + fs.damage;
+                  const extra = [FS.partsLabel([...fs.attackParts, ...fs.damageParts], lang),
+                    fs.mastery ? `${lang === 'pt' ? 'Maestria' : 'Mastery'}: ${fs.mastery.name[lang]}` : ''].filter(Boolean).join(' · ');
                   return (
                     <tr key={i}>
                       <td><strong>{w.name}</strong></td>
                       <td>{Utils.fmtMod(atk)}</td>
-                      <td>{w.damage}{abMod !== 0 ? ` ${abMod >= 0 ? '+' : ''}${abMod}` : ''} {w.dmgType}</td>
-                      <td>{wDef && wDef.props ? wDef.props.join(', ') : '—'}</td>
+                      <td>{w.damage}{dmgMod !== 0 ? ` ${dmgMod >= 0 ? '+' : ''}${dmgMod}` : ''} {w.dmgType}</td>
+                      <td>{wDef && wDef.props ? wDef.props.join(', ') : '—'}{extra ? <div style={{ fontSize: '0.85em' }}>{extra}</div> : null}</td>
                     </tr>
                   );
                 })}
@@ -335,6 +347,9 @@ const PrintSheet = ({ char, lang }) => {
             {race && (
               <div className="ps-section">
                 <div className="ps-section-title">{lang === 'pt' ? 'Traços Raciais' : 'Racial Traits'}</div>
+                {speciesSummary(char, lang).map(([k, v]) => (
+                  <div key={k} className="ps-feature"><strong>{k}.</strong> {v}</div>
+                ))}
                 {race.traits.map((tr, i) => (
                   <div key={i} className="ps-feature">
                     <strong>{tr.name[lang]}.</strong> {tr.desc[lang]}

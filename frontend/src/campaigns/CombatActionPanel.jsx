@@ -10,6 +10,7 @@ import { api } from '../api/client.js';
 import SRD from '../../data/srd.js';
 import Utils from '../../utils.js';
 import { Modal } from '../../components/Shared.jsx';
+import * as FS from '../progression/fighting-styles.js';
 
 const ABILITY_MOD = (score) => Math.floor((score - 10) / 2);
 
@@ -21,6 +22,7 @@ function deriveAttacks(char) {
   const dexMod = Utils.abilityMod(char, 'dex');
   const spellAtk = Utils.spellAttackBonus(char);
   const spellDc = Utils.spellSaveDc(char);
+  const styles = FS.activeFightingStyles(char);
 
   (char.weapons || []).forEach((w, i) => {
     const def = SRD.WEAPONS.find(x => x.id === w.id);
@@ -28,16 +30,33 @@ function deriveAttacks(char) {
     const ranged = def && (def.type || '').endsWith('ranged');
     const useDex = ranged || (finesse && dexMod > strMod);
     const abilityMod = useDex ? dexMod : strMod;
+    // Estilos de Luta (Arquearia, Duelo, Arremesso…) — ver fighting-styles.js
+    const fs = FS.weaponStyleBonuses(char, w, styles);
+    const dmgMod = abilityMod + fs.damage;
     attacks.push({
       key: `weapon:${i}`,
       kind: 'weapon',
       name: w.name || (def ? def.id : 'Arma'),
-      damage: `${w.damage || '1d4'}${abilityMod >= 0 ? '+' : ''}${abilityMod}`,
+      damage: `${w.damage || '1d4'}${dmgMod >= 0 ? '+' : ''}${dmgMod}`,
       damageType: w.dmgType || (def && def.dmgType) || 'slashing',
-      attackBonus: abilityMod + profB,
+      attackBonus: abilityMod + profB + fs.attack,
       icon: ranged ? '🏹' : '⚔️',
     });
   });
+
+  // Combate Desarmado: golpe desarmado com o dado do estilo (mãos livres não são rastreadas).
+  const unarmed = FS.unarmedStrike(char, styles);
+  if (unarmed) {
+    attacks.push({
+      key: 'unarmed',
+      kind: 'weapon',
+      name: char.lang === 'pt' ? 'Golpe Desarmado' : 'Unarmed Strike',
+      damage: `${unarmed.die}${strMod >= 0 ? '+' : ''}${strMod}`,
+      damageType: 'bludgeoning',
+      attackBonus: strMod + profB,
+      icon: '👊',
+    });
+  }
 
   // Truques que causam dano (level 0)
   (char.spells || []).forEach(sp => {

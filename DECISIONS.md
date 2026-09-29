@@ -320,3 +320,15 @@ TODO: unificar em iteração futura ou criar bridge `getEquippedWeapon()` que ol
 3. Testar telão num celular como TV.
 4. Decidir se quer OAuth e qual provider.
 5. Encher o resto das subclasses na engine de progressão (deixei estrutura, falta dado nas menos comuns).
+
+## Escolhas de classe, recursos e talentos (2026-09-25)
+
+Referência de levantamento: o XML do Aurora Builder (github.com/AuroraLegacy/elements) foi usado só como mapa de fatos (nomes, níveis, pré-requisitos, listas de classe). Não tem licença livre; nenhum texto foi copiado. Texto vem do SRD 5.2.1 ou é resumo original.
+
+- **Um arquivo por classe** em `frontend/data/class-options/` (contrato no README de lá): traços 2024 revisados, subclasses de todos os livros, listas de opções (invocações, metamagia, manobras…), escolhas por nível, recursos com usos. `rules.js` incorpora esses dados em `PROGRESSION_RULES_2024`; o seletor de subclasse os lê via `src/progression/subclasses.js`. Assim cada classe evolui sem conflitar com as outras.
+- **Motor genérico de opções** (`src/progression/options.js`, espelho `backend/api/progression/options.py`): vagas por nível, pré-requisitos, repetição, trocas (`swapOnLevelUp`/`swapLevels`/`freeSwap`), pools dinâmicos (magia/perícia/idioma), concessões. Escolhas ficam em `data.classOptions`; campo trancado em campanha, só muda por level-up aprovado ou `POST /characters/:id/class-options` (validado).
+- **Recursos** (`src/progression/resources.js`, espelho `resources.py`): gasto em `data.resourcesUsed`. Regra da mesa: sem modo trapaça só se gasta — a recuperação vem do descanso certo (curto/longo/`shortRestRegain`) ou do mestre (editor do mestre). Vale também para espaços de magia. Em campanha, `POST /characters/:id/resource` (restore só para o mestre).
+- **Talentos**: catálogo `data/feats.js`, seleção e sub-escolhas no ASI (`FeatPicker.jsx`), +1 com teto 20/30, validação espelhada no backend (`progression/feats.py`). Concessões de talentos (perícias, idiomas, magias, salvaguarda) entram na ficha via `featGrants`.
+- **Grimório do mago**: `inBook: true` em `data.spells`; fichas antigas convertidas na primeira gravação.
+- **Magias**: SRD 5.2.1 + `data/spells-extra.js` (outros livros, resumos próprios); ids antigos migrados ao carregar (`SRD.SPELL_ID_ALIASES`).
+- **CA no combate**: o frontend grava `armorClass` calculada ao salvar (o combate do servidor lê esse campo).
