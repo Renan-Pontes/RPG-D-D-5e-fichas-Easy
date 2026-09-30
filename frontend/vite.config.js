@@ -20,6 +20,8 @@ export default defineConfig({
           'react-vendor': ['react', 'react-dom'],
           // SRD é grande (~70KB) e raramente muda — chunk próprio
           'srd': ['./data/srd.js'],
+          // Bestiário do combate (SRD 5.2.1 gerado, ~500KB) — só muda ao reimportar
+          'bestiary': ['./data/bestiary.js', './data/monsters-srd521.js', './data/monsters.js'],
           // Progressão é compartilhada entre Sheet e Campaign
           'progression': ['./src/progression/engine.js', './src/progression/rules.js'],
         },

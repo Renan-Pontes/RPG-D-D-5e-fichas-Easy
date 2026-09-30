@@ -1,4 +1,5 @@
 /* Spells / Inventory / Story / Notes tabs */
+import { errorMessage } from '../src/api/errors.js';
 import { useState } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
@@ -104,7 +105,7 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
   const maxLvl = cheat ? 9 : Utils.maxSpellLevel(char);
   const cantripLimit = cheat ? Infinity : Utils.cantripsKnown(char);
   const preparedLimit = isPrepared ? (cheat ? Infinity : Utils.preparedSpellsLimit(char)) : null;
-  const inList = sp => cheat || sp.classes.includes(Utils.spellListClass(char));
+  const inList = sp => cheat || Utils.inSpellList(char, sp);
 
   const spellEntries = char.spells || [];
   const autoIds = new Set(spellEntries.filter(s => s.auto).map(s => s.id));
@@ -296,20 +297,20 @@ const SpellbookSection = ({ lang, char, preparedLimit, maxLvl, spellAtk, roll, s
   };
   const remove = (id) => {
     const name = tName('spellName', id, lang);
-    if (window.confirm(pt ? `Tirar ${name} do grimório?` : `Remove ${name} from the spellbook?`)) update({ spells: Book.removeFromSpellbook(char, id) });
+    if (window.confirm(pt ? `Tirar ${name} do livro de magias?` : `Remove ${name} from the spellbook?`)) update({ spells: Book.removeFromSpellbook(char, id) });
   };
 
   return (
     <div className="spellbook mt-4">
       <div className="spells-toolbar">
         <div className="spells-counters">
-          <span className="eyebrow" style={{ marginRight: 8 }}><Icon name="book" size={13}/> {pt ? 'Grimório' : 'Spellbook'}</span>
+          <span className="eyebrow" style={{ marginRight: 8 }}><Icon name="book" size={13}/> {pt ? 'Livro de magias' : 'Spellbook'}</span>
           <span className="spell-count" title={pt ? `Sem cópias: 6 + 2 por nível de Mago = ${expected}` : `Without copies: 6 + 2 per Wizard level = ${expected}`}>
             <span className="muted">{pt ? 'Magias' : 'Spells'}</span> <b className="mono">{entries.length}</b><span className="muted text-xs"> / {expected}</span>
           </span>
         </div>
         <button className="btn btn-ghost btn-sm" onClick={() => setCopying(true)}>
-          <Icon name="plus" size={14}/> {pt ? 'Copiar magia para o grimório' : 'Copy spell into spellbook'}
+          <Icon name="plus" size={14}/> {pt ? 'Copiar magia para o livro de magias' : 'Copy spell into spellbook'}
         </button>
       </div>
       {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
@@ -328,7 +329,7 @@ const SpellbookSection = ({ lang, char, preparedLimit, maxLvl, spellAtk, roll, s
       ))}
       {!entries.length && (
         <div className="muted text-sm" style={{ padding: 12 }}>
-          {pt ? 'Grimório vazio. Copie magias de Mago para ele (6 de nível 1 no começo).' : 'Empty spellbook. Copy Wizard spells into it (6 level 1 spells to start).'}
+          {pt ? 'Livro de magias vazio. Copie magias de Mago para ele (6 de nível 1 no começo).' : 'Empty spellbook. Copy Wizard spells into it (6 level 1 spells to start).'}
         </div>
       )}
       {copying && <CopySpellModal lang={lang} char={char} maxLvl={maxLvl} update={update} onClose={() => setCopying(false)} />}
@@ -348,13 +349,13 @@ const CopySpellModal = ({ lang, char, maxLvl, update, onClose }) => {
   const groups = groupByLevel(list.map(def => ({ id: def.id, def })));
   const copy = (id) => { update({ spells: Book.addToSpellbook(char, [id]) }); onClose(); };
   return (
-    <Modal onClose={onClose} title={pt ? 'Copiar magia para o grimório' : 'Copy spell into spellbook'}>
+    <Modal onClose={onClose} title={pt ? 'Copiar magia para o livro de magias' : 'Copy spell into spellbook'}>
       <div className="prep-sticky">
         <div className="muted text-xs" style={{ marginBottom: 6 }}>
           {pt ? 'Custo por círculo: 2 horas e 50 PO (tinta e materiais). Desconte o ouro no inventário.' : 'Cost per spell level: 2 hours and 50 GP (ink and materials). Deduct the gold in your inventory.'}
           {cheat && (pt ? ' Modo trapaça: qualquer magia.' : ' Cheat mode: any spell.')}
         </div>
-        <input placeholder={pt ? 'Buscar magia…' : 'Search spell…'} value={query} onChange={e => setQuery(e.target.value)} />
+        <input aria-label={pt ? 'Buscar magia…' : 'Search spell…'} placeholder={pt ? 'Buscar magia…' : 'Search spell…'} value={query} onChange={e => setQuery(e.target.value)} />
       </div>
       {Object.keys(groups).sort((a, b) => +a - +b).map(lvl => (
         <details key={lvl} className="spell-group" open={!!q}>
@@ -427,7 +428,7 @@ const PrepareSpellsModal = ({ lang, char, classCantrips, classSpells, autoIds, c
           {cantripLimit > 0 && <span className={`spell-count ${nCantrips >= cantripLimit ? 'full' : ''}`}><span className="muted">{t('cantrips', lang)}</span> <b className="mono">{nCantrips}/{fmt(cantripLimit)}</b></span>}
           {classSpells.length > 0 && <span className={`spell-count ${nSpells >= preparedLimit ? 'full' : ''}`}><span className="muted">{pt ? 'Preparadas' : 'Prepared'}</span> <b className="mono">{nSpells}/{fmt(preparedLimit)}</b></span>}
         </div>
-        <input placeholder={pt ? 'Buscar magia…' : 'Search spell…'} value={query} onChange={e => setQuery(e.target.value)} />
+        <input aria-label={pt ? 'Buscar magia…' : 'Search spell…'} placeholder={pt ? 'Buscar magia…' : 'Search spell…'} value={query} onChange={e => setQuery(e.target.value)} />
       </div>
 
       {Object.keys(groups).sort((a, b) => +a - +b).map(lvl => {
@@ -579,7 +580,7 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
         roll({ die: 20, mod: spellAtk, label: tName('spellName', sp.id, lang) + ' ' + t('attackRoll', lang) });
       }
     } catch (e) {
-      setError(e?.data?.error || e?.message || 'failed');
+      setError(errorMessage(e));
     } finally {
       setCasting(false);
     }
@@ -792,8 +793,8 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
               </button>
             </div>
             <div className="row gap-2" style={{ alignItems: 'center' }}>
-              <input value={w.damage} onChange={e => updateWeapon(i, { damage: e.target.value })} style={{ width: 90 }} placeholder="1d8"/>
-              <input value={w.dmgType || ''} onChange={e => updateWeapon(i, { dmgType: e.target.value })} style={{ width: 110 }} placeholder={lang === 'pt' ? 'tipo' : 'type'}/>
+              <input aria-label="1d8" value={w.damage} onChange={e => updateWeapon(i, { damage: e.target.value })} style={{ width: 90 }} placeholder="1d8"/>
+              <input aria-label={lang === 'pt' ? 'tipo' : 'type'} value={w.dmgType || ''} onChange={e => updateWeapon(i, { dmgType: e.target.value })} style={{ width: 110 }} placeholder={lang === 'pt' ? 'tipo' : 'type'}/>
               <button className="btn btn-sm" onClick={() => roll({ die: 20, mod: atk, label: w.name + ' ' + t('attackRoll', lang) })}>
                 <Icon name="dice" size={12}/> {Utils.fmtMod(atk)}
               </button>
@@ -865,20 +866,20 @@ const SheetStory = ({ char, lang, update, cls, race }) => (
       {['personality','ideals','bonds','flaws','backstory','appearance','allies','treasure'].map(field => (
         <div key={field}>
           <label>{t(field, lang)}</label>
-          <textarea value={char[field] || ''} onChange={e => update({ [field]: e.target.value })} style={{ minHeight: field === 'backstory' ? 120 : 60 }}/>
+          <textarea aria-label={t(field, lang)} value={char[field] || ''} onChange={e => update({ [field]: e.target.value })} style={{ minHeight: field === 'backstory' ? 120 : 60 }}/>
         </div>
       ))}
       <div className="row gap-3" style={{ flexWrap: 'wrap' }}>
         {['age','height','weight','eyes','skin','hair'].map(f => (
           <div key={f} style={{ flex: '1 1 30%' }}>
             <label>{t(f, lang)}</label>
-            <input value={char[f] || ''} onChange={e => update({ [f]: e.target.value })}/>
+            <input aria-label={t(f, lang)} value={char[f] || ''} onChange={e => update({ [f]: e.target.value })}/>
           </div>
         ))}
       </div>
       <div>
         <label>{t('symbol', lang)}</label>
-        <input value={char.symbol || ''} onChange={e => update({ symbol: e.target.value })}/>
+        <input aria-label={t('symbol', lang)} value={char.symbol || ''} onChange={e => update({ symbol: e.target.value })}/>
       </div>
     </div>
 
@@ -955,7 +956,7 @@ const SheetNotes = ({ char, lang, update }) => {
               <Icon name="trash" size={14}/>
             </button>
           </div>
-          <textarea value={n.text} onChange={e => updateNote(n.id, e.target.value)} style={{ minHeight: 90 }} placeholder={lang === 'pt' ? 'Aventura, encontro, descoberta...' : 'Adventure, encounter, discovery...'}/>
+          <textarea aria-label={lang === 'pt' ? 'Aventura, encontro, descoberta...' : 'Adventure, encounter, discovery...'} value={n.text} onChange={e => updateNote(n.id, e.target.value)} style={{ minHeight: 90 }} placeholder={lang === 'pt' ? 'Aventura, encontro, descoberta...' : 'Adventure, encounter, discovery...'}/>
         </div>
       ))}
     </>
@@ -981,7 +982,7 @@ function InventoryList({ char, lang, update, addItem, updateItem, removeItem }) 
   const callBackend = async (fn) => {
     if (typeof char.id !== 'number') return null;
     try { return await fn(); } catch (e) {
-      alert(e?.data?.error || e?.message || 'failed');
+      alert(errorMessage(e));
       return null;
     }
   };
@@ -1155,7 +1156,7 @@ function InventoryRow({ item, idx, lang, rulesVersion, inCampaign, onToggleEquip
           </div>
           <label className="row gap-2 mt-2" style={{ alignItems: 'center' }}>
             <span className="muted small">{lang === 'pt' ? 'Notas' : 'Notes'}:</span>
-            <input
+            <input aria-label={lang === 'pt' ? '...' : '...'}
               value={item.notes || ''}
               onChange={e => onPatchLocal({ notes: e.target.value })}
               onBlur={e => onSetNotes(e.target.value)}

@@ -115,3 +115,20 @@ test('artífice: recursos com usos', () => {
   assert.deepEqual(get('experimentalElixir2014').uses.byLevel, { 3: 1, 6: 2, 15: 3 });
   assert.equal(get('arcaneJolt').minLevel, 9);
 });
+
+test('artífice 2014: Replicar Item Mágico abre 1 item da lista por infusão, com nível mínimo', () => {
+  const inf = picks('infusion', ['replicateMagicItem', 'enhancedDefense', 'enhancedWeapon', 'homunculusServant']);
+  const c2 = sheet(2, { rulesVersion: '2014', classOptions: inf });
+  assert.ok(computeProgression(c2).pendingChoices.some(p => p.pool === 'replicateItem' && p.missing === 1));
+  assert.ok(validateClassOptions(c2, 'artificer', add('replicateItem', 'bagOfHolding')).valid);
+  assert.ok(!validateClassOptions(c2, 'artificer', add('replicateItem', 'bootsOfSpeed')).valid, 'item de 14º nível');
+  assert.ok(!validateClassOptions(c2, 'artificer', add('replicateItem', 'bagOfHolding', 'wandOfSecrets')).valid, 'só 1 por infusão');
+  // A infusão pode ser escolhida de novo (sem `detail`), abrindo outra vaga de item.
+  const c6 = sheet(6, { rulesVersion: '2014', classOptions: [...inf, ...picks('replicateItem', ['bagOfHolding'])] });
+  const v = validateClassOptions(c6, 'artificer', { adds: [{ pool: 'infusion', id: 'replicateMagicItem' }, { pool: 'replicateItem', id: 'cloakOfElvenkind' }] });
+  assert.ok(v.valid, v.issues.join('; '));
+  const items = art.pools.replicateItem.options;
+  assert.ok(items.length > 40);
+  for (const lv of [6, 10, 14]) assert.ok(items.some(o => o.prereq?.level === lv), `nível ${lv}`);
+  assert.ok(items.every(o => o.rules === '2014'));
+});

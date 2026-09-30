@@ -110,3 +110,29 @@ test('bardo: recursos com usos', () => {
   assert.equal(res.find(r => r.id === 'enthrallingPerformance').rules, '2014');
   assert.ok(!ids.some(id => /slot/i.test(id)), 'sem espaços de magia');
 });
+
+test('bardo 2014: Segredos Mágicos 2 nos níveis 10, 14 e 18 (qualquer lista, até o maior círculo)', () => {
+  const at = (level, classOptions = []) => bard({ rulesVersion: '2014', level, classOptions });
+  assert.ok(!pools(computeProgression(at(9))).some(x => x.startsWith('magicalSecrets2014')));
+  assert.ok(pools(computeProgression(at(10))).includes('magicalSecrets2014:2'));
+  assert.ok(pools(computeProgression(at(18))).includes('magicalSecrets2014:6'));
+  const def = CLASS_OPTIONS.bard.pools.magicalSecrets2014;
+  assert.equal(def.kind, 'spell');
+  assert.equal(def.filter.maxSlot, true);
+  assert.ok(!def.filter.classes, 'qualquer lista');
+  assert.ok(validateClassOptions(at(10), 'bard', { adds: [{ pool: 'magicalSecrets2014', id: 'fireball' }, { pool: 'magicalSecrets2014', id: 'counterspell' }] }).valid);
+  // As escolhidas entram como magias automáticas e descontam das conhecidas (já estão na tabela).
+  const known = computeProgression(at(10)).spellsKnown;
+  const picked = computeProgression(at(10, [{ classId: 'bard', pool: 'magicalSecrets2014', id: 'fireball', level: 10 }]));
+  assert.ok(picked.autoSpells.includes('fireball'));
+  assert.equal(picked.spellsKnown, known - 1);
+  // 2024 não tem o pool.
+  assert.ok(!pools(computeProgression(bard({ level: 10 }))).some(x => x.startsWith('magicalSecrets2014')));
+});
+
+test('bardo 2014 do Saber: Segredos Mágicos Adicionais (2 no nível 6) limitados ao maior círculo', () => {
+  const p = computeProgression(bard({ rulesVersion: '2014', level: 6, subclass: 'lore' }));
+  assert.ok(pools(p).includes('additionalMagicalSecrets:2'));
+  assert.equal(CLASS_OPTIONS.bard.pools.additionalMagicalSecrets.filter.maxSlot, true);
+  assert.ok(!CLASS_OPTIONS.bard.pools.additionalMagicalSecrets.countsAsKnown, 'não contam nas conhecidas');
+});

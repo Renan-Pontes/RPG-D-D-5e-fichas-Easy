@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import rogue from '../data/class-options/rogue.js';
 import { computeProgression, validateClassOptions } from '../src/progression/engine.js';
 import { PROGRESSION_RULES_2024 } from '../src/progression/rules.js';
+import { poolOptions, pickLabel } from '../src/progression/options-catalog.js';
 
 const base = (extra = {}) => ({ rulesVersion: '2024', className: 'rogue', level: 1, classOptions: [], ...extra });
 const pendingPools = (prog) => Object.fromEntries(prog.pendingChoices.filter(c => c.type === 'classOption').map(c => [c.pool, c.missing]));
@@ -25,10 +26,27 @@ test('ladino 2024: 4 especializações no nível 6', () => {
   assert.ok(!validateClassOptions(ch, 'rogue', { adds: [...four, { pool: 'expertise', id: 'athletics' }] }).valid, 'excede vagas');
 });
 
-test('ladino 2014: sem pools novos (mantém a pendência antiga)', () => {
+test('ladino 2014: especialização 2 + 2 (níveis 1 e 6) com seletor, sem a pendência genérica', () => {
   const prog = computeProgression(base({ rulesVersion: '2014' }));
-  assert.ok(prog.pendingChoices.some(c => c.type === 'expertise'));
+  assert.ok(!prog.pendingChoices.some(c => c.type === 'expertise'), 'pendência genérica some');
+  assert.equal(pendingPools(prog).expertise2014, 2);
   assert.ok(!pendingPools(prog).language);
+  assert.ok(!pendingPools(prog).weaponMastery);
+  assert.equal(pendingPools(computeProgression(base({ rulesVersion: '2014', level: 6 }))).expertise2014, 4);
+});
+
+test("ladino 2014: Ferramentas de Ladrão podem receber especialização", () => {
+  const c = base({ rulesVersion: '2014', skillProfs: ['stealth'] });
+  const ids = poolOptions(c, 'rogue', 'expertise2014').map(o => o.id);
+  assert.ok(ids.includes('thievesTools'));
+  assert.ok(ids.includes('stealth'));
+  assert.ok(validateClassOptions(c, 'rogue', { adds: [{ pool: 'expertise2014', id: 'stealth' }, { pool: 'expertise2014', id: 'thievesTools' }] }).valid);
+  assert.ok(!validateClassOptions(c, 'rogue', { adds: ['stealth', 'thievesTools', 'perception'].map(id => ({ pool: 'expertise2014', id })) }).valid, 'excede vagas');
+  const withPicks = { ...c, classOptions: [{ classId: 'rogue', pool: 'expertise2014', id: 'thievesTools', level: 1 }] };
+  assert.ok(computeProgression(withPicks).grants.expertise.includes('thievesTools'));
+  assert.equal(pickLabel('rogue', withPicks.classOptions[0], 'en'), "Thieves' Tools");
+  // 2024: a ferramenta não aparece no pool de especialização.
+  assert.ok(!poolOptions(base({ skillProfs: ['stealth'] }), 'rogue', 'expertise').some(o => o.id === 'thievesTools'));
 });
 
 test('ladino 2024: traços revisados substituem o texto do PDF', () => {

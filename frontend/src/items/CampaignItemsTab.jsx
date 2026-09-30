@@ -1,4 +1,5 @@
 /* Aba do mestre: catálogo de itens da campanha (cadastrar, editar, remover). */
+import { errorMessage } from '../api/errors.js';
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import ItemForm, { typeLabel } from './ItemForm.jsx';
@@ -13,7 +14,7 @@ export default function CampaignItemsTab({ campaign, lang }) {
 
   const load = () => api.campaignItems(campaign.id)
     .then(r => setItems(r.items || []))
-    .catch(e => setError(e?.data?.error || e?.message || 'failed'));
+    .catch(e => setError(errorMessage(e)));
   useEffect(() => { load(); }, [campaign.id]);
 
   const save = async (item) => {
@@ -47,7 +48,7 @@ export default function CampaignItemsTab({ campaign, lang }) {
         <button className="btn btn-primary btn-sm" onClick={() => setEditing('new')}>+ {t(lang, 'Cadastrar item', 'Add item')}</button>
       </div>
       {error && <p style={{ color: 'var(--blood-bright)' }}>{error}</p>}
-      {items && !items.length && <p className="muted">{t(lang, 'Nenhum item cadastrado.', 'No items yet.')}</p>}
+      {items && !items.length && <p className="muted">{t(lang, 'Nenhum item cadastrado ainda — use "Cadastrar item" para criar o primeiro (ex.: a espada do chefão, uma poção).', 'No items yet — use "Add item" to create the first (e.g. the boss\'s sword, a potion).')}</p>}
       {(items || []).map(row => (
         <div key={row.id} className="card" style={{ padding: 12, marginBottom: 8 }}>
           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>

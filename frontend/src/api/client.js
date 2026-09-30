@@ -9,7 +9,7 @@
 //
 // API_BASE vem de VITE_API_URL em produção; em dev cai pra localhost:4000.
 
-const DEFAULT_BASE = import.meta?.env?.VITE_API_URL || '';
+const DEFAULT_BASE = import.meta.env?.VITE_API_URL || '';
 const API_BASE = (typeof window !== 'undefined' && window.__API_BASE__) || DEFAULT_BASE;
 
 class ApiError extends Error {
@@ -117,6 +117,7 @@ export const api = {
   classOptions:       (id, body) => request(`/api/characters/${id}/class-options`, { method: 'POST', body }),
   resource:           (id, body) => request(`/api/characters/${id}/resource`, { method: 'POST', body }),
   campaignLongRestAll:(id) => request(`/api/campaigns/${id}/long-rest-all`, { method: 'POST' }),
+  campaignShortRestAll:(id) => request(`/api/campaigns/${id}/short-rest-all`, { method: 'POST' }),
   invAdd:        (charId, body) => request(`/api/characters/${charId}/inventory`, { method: 'POST', body }),
   invPatch:      (charId, itemId, body) => request(`/api/characters/${charId}/inventory/${itemId}`, { method: 'PATCH', body }),
   invDelete:     (charId, itemId) => request(`/api/characters/${charId}/inventory/${itemId}`, { method: 'DELETE' }),
@@ -138,10 +139,30 @@ export const api = {
   // Approvals
   listApprovals:  (campaignId) => request(`/api/approvals/campaign/${campaignId}`),
   grantLevelup:   (campaignId, body) => request(`/api/approvals/campaign/${campaignId}/grant-levelup`, { method: 'POST', body }),
+  // { amount, characterIds?: [..] | 'all', split?: bool } — só em campanha no modo XP
+  awardXp:        (campaignId, body) => request(`/api/campaigns/${campaignId}/award-xp`, { method: 'POST', body }),
   campaignItems:      (campaignId) => request(`/api/campaigns/${campaignId}/items`),
   createCampaignItem: (campaignId, item) => request(`/api/campaigns/${campaignId}/items`, { method: 'POST', body: { item } }),
   updateCampaignItem: (campaignId, itemId, item) => request(`/api/campaigns/${campaignId}/items/${itemId}`, { method: 'PATCH', body: { item } }),
   deleteCampaignItem: (campaignId, itemId) => request(`/api/campaigns/${campaignId}/items/${itemId}`, { method: 'DELETE' }),
+  // Diário: params { session?, subtype?, kind?, offset?, limit? }
+  listDiary:          (campaignId, params = {}) => {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== '')).toString();
+    return request(`/api/campaigns/${campaignId}/diary${qs ? `?${qs}` : ''}`);
+  },
+  createDiaryNote:    (campaignId, body) => request(`/api/campaigns/${campaignId}/diary`, { method: 'POST', body }),
+  updateDiaryEntry:   (campaignId, entryId, body) => request(`/api/campaigns/${campaignId}/diary/${entryId}`, { method: 'PATCH', body }),
+  deleteDiaryEntry:   (campaignId, entryId) => request(`/api/campaigns/${campaignId}/diary/${entryId}`, { method: 'DELETE' }),
+  startDiarySession:  (campaignId, body = {}) => request(`/api/campaigns/${campaignId}/diary/sessions`, { method: 'POST', body }),
+  renameDiarySession: (campaignId, number, title) => request(`/api/campaigns/${campaignId}/diary/sessions/${number}`, { method: 'PATCH', body: { title } }),
+  // Preparação do mestre (aventuras = mapa de salas/cenas). Só mestre.
+  listAdventures:   (campaignId) => request(`/api/campaigns/${campaignId}/adventures`),
+  getAdventure:     (campaignId, advId) => request(`/api/campaigns/${campaignId}/adventures/${advId}`),
+  createAdventure:  (campaignId, body) => request(`/api/campaigns/${campaignId}/adventures`, { method: 'POST', body }),
+  updateAdventure:  (campaignId, advId, body) => request(`/api/campaigns/${campaignId}/adventures/${advId}`, { method: 'PATCH', body }),
+  deleteAdventure:  (campaignId, advId) => request(`/api/campaigns/${campaignId}/adventures/${advId}`, { method: 'DELETE' }),
+  adventurePlay:    (campaignId, advId, body) => request(`/api/campaigns/${campaignId}/adventures/${advId}/play`, { method: 'POST', body }),
+  adventureScreen:  (campaignId, advId, body) => request(`/api/campaigns/${campaignId}/adventures/${advId}/screen`, { method: 'POST', body }),
   createApproval: (campaignId, body) => request(`/api/approvals/campaign/${campaignId}`, { method: 'POST', body }),
   reviewApproval: (approvalId, body) => request(`/api/approvals/${approvalId}/review`, { method: 'POST', body }),
   consumeApproval: (approvalId, body = {}) => request(`/api/approvals/${approvalId}/consume`, { method: 'POST', body }),
@@ -174,6 +195,15 @@ export const api = {
   listRecentRolls:  (id) => request(`/api/rolls/campaign/${id}/recent`),
   resolveRoll:      (rid, body) => request(`/api/rolls/${rid}/resolve`, { method: 'POST', body }),
   cancelRoll:       (rid) => request(`/api/rolls/${rid}/cancel`, { method: 'POST' }),
+
+  // Pedido de teste do mestre para a mesa
+  listChecks:    (id) => request(`/api/checks/campaign/${id}`),
+  createCheck:   (id, body) => request(`/api/checks/campaign/${id}`, { method: 'POST', body }),
+  myChecks:      () => request('/api/checks/mine'),
+  respondCheck:  (cid, body) => request(`/api/checks/${cid}/respond`, { method: 'POST', body }),
+  closeCheck:    (cid, body = {}) => request(`/api/checks/${cid}/close`, { method: 'POST', body }),
+  screenCheck:   (cid, show) => request(`/api/checks/${cid}/screen`, { method: 'POST', body: { show } }),
+  deleteCheck:   (cid) => request(`/api/checks/${cid}`, { method: 'DELETE' }),
 };
 
 export { ApiError, API_BASE };

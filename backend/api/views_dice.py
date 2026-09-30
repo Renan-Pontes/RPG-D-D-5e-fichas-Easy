@@ -9,6 +9,7 @@ from .models import Campaign, DiceRig, DiceLog, Membership
 from .serializers import DiceRigSerializer, DiceLogSerializer
 from .permissions import get_campaign_or_404, require_dm, is_dm
 from .rate_limit import rate_limit
+from .diary import log_dice_roll
 
 DICE_SIDES = {'d4': 4, 'd6': 6, 'd8': 8, 'd10': 10, 'd12': 12, 'd20': 20, 'd100': 100}
 VALID_TYPES = set(DICE_SIDES.keys()) | {'any'}
@@ -113,6 +114,7 @@ def dice_roll(request):
     results = []
     for _ in range(count):
         results.append(_consume_or_roll(request.user, dice_type, campaign, label))
+    log_dice_roll(campaign, request.user, dice_type, results, label)
 
     return Response({
         'results': results,

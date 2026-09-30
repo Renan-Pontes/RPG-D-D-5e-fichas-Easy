@@ -1,119 +1,188 @@
 import { useMemo, useState } from 'react';
-import { MONSTERS, MONSTER_TYPES } from '../../data/monsters.js';
-import SRD from '../../data/srd.js';
+import { BESTIARY, MONSTER_TYPES, monsterForCombat } from '../../data/bestiary.js';
+import { CR_TABLE, estimateCr } from '../combat/cr-estimate.js';
+import { loadCustomMonsters, saveCustomMonsters, deleteCustomMonster } from '../combat/custom-monsters.js';
+import CustomMonsterEditor from '../combat/CustomMonsterEditor.jsx';
+import MonsterImportPanel from '../combat/MonsterImportPanel.jsx';
+import '../combat/monster-tools.css';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
+const CR_STEPS = CR_TABLE.map(r => r.numeric);
+const crText = (n) => CR_TABLE.find(r => r.numeric === n)?.cr ?? String(n);
 
 /**
- * Modal pra escolher monstro do catálogo. Combina MONSTERS (humanoides etc)
- * + SRD.BEASTS (que já é usado pra Wild Shape).
+ * Modal pra escolher monstro: catálogo (data/bestiary.js) + monstros do mestre
+ * (importados / personalizados, guardados só neste navegador).
+ * Visões: lista · importar JSON · editor de monstro personalizado.
  */
-export default function MonsterPicker({ lang, onPick, onClose }) {
+// showInitiative=false: contexto sem combate (Preparação), onde iniciativa não se aplica.
+export default function MonsterPicker({ lang, onPick, onClose, levelingMode, confirmLabel, showInitiative = true }) {
+  const [view, setView] = useState('list'); // 'list' | 'import' | 'edit'
+  const [editBase, setEditBase] = useState(null);
+  const [custom, setCustom] = useState(() => loadCustomMonsters());
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [crFilter, setCrFilter] = useState('');
+  const [crMin, setCrMin] = useState('');
+  const [crMax, setCrMax] = useState('');
+  const [onlyMine, setOnlyMine] = useState(false);
   const [count, setCount] = useState(1);
   const [initiative, setInitiative] = useState(10);
   const [selectedId, setSelectedId] = useState(null);
 
-  const all = useMemo(() => {
-    // Combina monsters + beasts num único catálogo
-    const beastsAsMonsters = (SRD.BEASTS || []).map(b => ({
-      id: b.id,
-      name: { pt: b.id, en: b.id },
-      cr: b.cr, crNum: b.crNum,
-      type: 'beast',
-      size: b.size, alignment: 'U',
-      speed: { walk: b.speed, fly: b.fly, swim: b.swim, climb: b.climb },
-      ac: b.ac, hp: b.hp,
-      abilities: { str: b.str, dex: b.dex, con: b.con, int: b.int, wis: b.wis, cha: b.cha },
-      traits: b.traits,
-      actions: (b.actions || []).map(a => ({
-        name: a.name, type: 'melee', atk: 0, damage: '1d4', damageType: 'bludgeoning',
-        desc: a.desc,
-      })),
-    }));
-    return [...MONSTERS, ...beastsAsMonsters];
-  }, []);
+  const all = useMemo(() => [...custom, ...BESTIARY], [custom]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const lo = crMin === '' ? -Infinity : parseFloat(crMin);
+    const hi = crMax === '' ? Infinity : parseFloat(crMax);
     return all.filter(m => {
+      if (onlyMine && !m.custom) return false;
       if (typeFilter && m.type !== typeFilter) return false;
-      if (crFilter !== '') {
-        const cr = parseFloat(crFilter);
-        if (Number.isFinite(cr) && m.crNum !== cr) return false;
-      }
+      const cr = Number(m.crNum) || 0;
+      if (cr < Math.min(lo, hi) || cr > Math.max(lo, hi)) return false;
       if (q) {
         const name = ((m.name?.pt || '') + ' ' + (m.name?.en || '') + ' ' + (m.id || '')).toLowerCase();
         if (!name.includes(q)) return false;
       }
       return true;
-    }).slice(0, 80);
-  }, [all, query, typeFilter, crFilter]);
+    }).slice(0, 120);
+  }, [all, query, typeFilter, crMin, crMax, onlyMine]);
 
-  const selected = filtered.find(m => m.id === selectedId);
+  const selected = all.find(m => m.id === selectedId);
+  const selectedEst = useMemo(() => (selected?.custom ? estimateCr(selected) : null), [selected]);
 
   const submit = () => {
     if (!selected) return;
-    onPick(selected, Math.max(1, Math.min(10, parseInt(count) || 1)), parseInt(initiative) || 10);
+    onPick(monsterForCombat(selected), Math.max(1, Math.min(10, parseInt(count) || 1)), parseInt(initiative) || 10);
   };
+
+  const saveMine = (list) => {
+    const next = saveCustomMonsters(list);
+    setCustom(next);
+    setSelectedId(list[0]?.id || null);
+    setOnlyMine(false);
+    setView('list');
+  };
+
+  const removeMine = (id) => {
+    if (!confirm(t(lang, 'Apagar este monstro da sua lista?', 'Delete this monster from your list?'))) return;
+    setCustom(deleteCustomMonster(id));
+    if (selectedId === id) setSelectedId(null);
+  };
+
+  const title = view === 'import' ? t(lang, 'Importar monstro (JSON)', 'Import monster (JSON)')
+    : view === 'edit' ? t(lang, 'Monstro personalizado', 'Custom monster')
+      : t(lang, 'Escolher monstro', 'Pick a monster');
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal monster-picker" onClick={e => e.stopPropagation()}>
-        <h2 style={{ marginTop: 0 }}>{t(lang, 'Escolher monstro', 'Pick a monster')}</h2>
-        <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
-          <input className="input" placeholder={t(lang, 'Nome…', 'Name…')} value={query} onChange={e => setQuery(e.target.value)} autoFocus />
-          <select className="input" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
-            <option value="">{t(lang, 'Todos os tipos', 'All types')}</option>
-            {MONSTER_TYPES.map(t => <option key={t}>{t}</option>)}
-          </select>
-          <select className="input" value={crFilter} onChange={e => setCrFilter(e.target.value)}>
-            <option value="">{t(lang, 'Todo CR', 'Any CR')}</option>
-            {[0, 0.125, 0.25, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(c => (
-              <option key={c} value={c}>CR {c < 1 ? `1/${1/c}` : c}</option>
-            ))}
-          </select>
-        </div>
+      <div className={`modal monster-picker ${view === 'edit' ? 'is-wide' : ''}`} onClick={e => e.stopPropagation()} role="dialog" aria-label={title}>
+        <button type="button" className="modal-close" onClick={onClose} aria-label={t(lang, 'Fechar', 'Close')}>×</button>
+        <h2 style={{ marginTop: 0 }}>{title}</h2>
 
-        <div className="monster-grid">
-          {filtered.map(m => (
-            <div
-              key={m.id}
-              className={`monster-row ${selectedId === m.id ? 'selected' : ''}`}
-              onClick={() => setSelectedId(m.id)}
-            >
-              <div>
-                <strong>{m.name?.[lang] || m.name?.en || m.id}</strong>
-                <span style={{ marginLeft: 6, color: 'var(--ink-secondary)', fontSize: '0.85em' }}>
-                  CR {m.cr} · {m.type}
-                </span>
-              </div>
-              <div className="muted small">
-                CA {m.ac} · HP {m.hp} · {m.size}
-              </div>
+        {view === 'import' && (
+          <MonsterImportPanel lang={lang} onCancel={() => setView('list')} onSave={saveMine} />
+        )}
+
+        {view === 'edit' && (
+          <CustomMonsterEditor
+            key={editBase?.id || 'blank'}
+            lang={lang}
+            base={editBase}
+            xpMode={levelingMode === 'xp'}
+            onCancel={() => setView('list')}
+            onSave={(m) => saveMine([m])}
+          />
+        )}
+
+        {view === 'list' && (
+          <>
+            <div className="mp-filters">
+              <input className="input" placeholder={t(lang, 'Nome…', 'Name…')} value={query} onChange={e => setQuery(e.target.value)} autoFocus aria-label={t(lang, 'Nome', 'Name')} />
+              <select className="input" value={typeFilter} onChange={e => setTypeFilter(e.target.value)} aria-label={t(lang, 'Tipo', 'Type')}>
+                <option value="">{t(lang, 'Todos os tipos', 'All types')}</option>
+                {MONSTER_TYPES.map(ty => <option key={ty}>{ty}</option>)}
+              </select>
+              <select className="input" value={crMin} onChange={e => setCrMin(e.target.value)} aria-label={t(lang, 'ND mínimo', 'Min CR')}>
+                <option value="">{t(lang, 'ND mín.', 'Min CR')}</option>
+                {CR_STEPS.map(c => <option key={c} value={c}>ND ≥ {crText(c)}</option>)}
+              </select>
+              <select className="input" value={crMax} onChange={e => setCrMax(e.target.value)} aria-label={t(lang, 'ND máximo', 'Max CR')}>
+                <option value="">{t(lang, 'ND máx.', 'Max CR')}</option>
+                {CR_STEPS.map(c => <option key={c} value={c}>ND ≤ {crText(c)}</option>)}
+              </select>
             </div>
-          ))}
-          {filtered.length === 0 && <p style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Nada encontrado.', 'Nothing found.')}</p>}
-        </div>
 
-        <div className="row gap-2" style={{ alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
-          {selected && (
-            <>
-              <strong>{selected.name?.[lang] || selected.name?.en}</strong>
-              <span>×</span>
-              <input type="number" min={1} max={10} value={count} onChange={e => setCount(e.target.value)} className="input" style={{ width: 60 }} />
-              <span style={{ color: 'var(--ink-secondary)' }}>Init</span>
-              <input type="number" value={initiative} onChange={e => setInitiative(e.target.value)} className="input" style={{ width: 70 }} />
-            </>
-          )}
-          <div style={{ flex: 1 }} />
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>{t(lang, 'Cancelar', 'Cancel')}</button>
-          <button className="btn btn-primary btn-sm" disabled={!selected} onClick={submit}>
-            {t(lang, 'Adicionar ao combate', 'Add to combat')}
-          </button>
-        </div>
+            <div className="mp-tools">
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setView('import')}>⇪ {t(lang, 'Importar JSON', 'Import JSON')}</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setEditBase(null); setView('edit'); }}>✚ {t(lang, 'Novo monstro', 'New monster')}</button>
+              <button type="button" className="btn btn-ghost btn-sm" disabled={!selected} onClick={() => { setEditBase(selected); setView('edit'); }}>
+                ✎ {selected?.custom ? t(lang, 'Editar', 'Edit') : t(lang, 'Personalizar', 'Customize')}
+              </button>
+              {custom.length > 0 && (
+                <label className="me-check" style={{ marginLeft: 'auto' }}>
+                  <input type="checkbox" checked={onlyMine} onChange={e => setOnlyMine(e.target.checked)} />
+                  {t(lang, `Só os meus (${custom.length})`, `Mine only (${custom.length})`)}
+                </label>
+              )}
+            </div>
+
+            <div className="monster-grid">
+              {filtered.map(m => (
+                <div
+                  key={m.id}
+                  className={`monster-row ${selectedId === m.id ? 'selected' : ''}`}
+                  onClick={() => setSelectedId(m.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(m.id); } }}
+                >
+                  <div className="mp-row">
+                    <div>
+                      <strong>{m.name?.[lang] || m.name?.en || m.id}</strong>
+                      {m.custom && <span className="mp-badge local">{t(lang, 'meu', 'mine')}</span>}
+                      <span style={{ marginLeft: 6, color: 'var(--ink-secondary)', fontSize: '0.85em' }}>
+                        ND {m.cr} · {m.type}
+                      </span>
+                    </div>
+                    {m.custom && (
+                      <button type="button" className="btn btn-ghost btn-icon danger" aria-label={t(lang, 'Apagar', 'Delete')}
+                        onClick={e => { e.stopPropagation(); removeMine(m.id); }}>×</button>
+                    )}
+                  </div>
+                  <div className="muted small">
+                    CA {m.ac} · PV {m.hp} · {m.size}
+                  </div>
+                </div>
+              ))}
+              {filtered.length === 0 && <p style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Nada encontrado.', 'Nothing found.')}</p>}
+            </div>
+
+            <div className="mp-footer">
+              {selected && (
+                <>
+                  <strong>{selected.name?.[lang] || selected.name?.en}</strong>
+                  {selectedEst && selectedEst.cr !== selected.cr && (
+                    <span className="muted small">({t(lang, 'estimado', 'estimated')} {selectedEst.cr})</span>
+                  )}
+                  <span>×</span>
+                  <input type="number" min={1} max={10} value={count} onChange={e => setCount(e.target.value)} className="input" aria-label={t(lang, 'Quantidade', 'Count')} />
+                  {showInitiative && (
+                    <>
+                      <span style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Inic.', 'Init')}</span>
+                      <input type="number" value={initiative} onChange={e => setInitiative(e.target.value)} className="input" aria-label={t(lang, 'Iniciativa', 'Initiative')} />
+                    </>
+                  )}
+                </>
+              )}
+              <span className="mp-spacer" />
+              <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>{t(lang, 'Cancelar', 'Cancel')}</button>
+              <button type="button" className="btn btn-primary btn-sm" disabled={!selected} onClick={submit}>
+                {confirmLabel || t(lang, 'Adicionar ao combate', 'Add to combat')}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

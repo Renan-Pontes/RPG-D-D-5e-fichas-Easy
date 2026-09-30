@@ -27,6 +27,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from .models import Campaign, CombatInstance, RollRequest, Character, DiceRig, DiceLog, Membership
 from .permissions import get_campaign_or_404, require_dm, require_member, is_dm
 from . import combat as engine
+from .diary import log_combat_start, log_combat_end, log_roll_request
 
 
 # ============================================================
@@ -34,6 +35,48 @@ from . import combat as engine
 # ============================================================
 def _new_id():
     return secrets.token_hex(4)
+
+
+MAX_MONSTER_ACTIONS = 80
+
+
+def _uses_def(d):
+    """{'uses': 3, 'lairUses': 4} saneado (1–10)."""
+    def clamp(v):
+        try:
+            return max(1, min(10, int(v)))
+        except (TypeError, ValueError):
+            return None
+    out = {'uses': clamp(d.get('uses')) or 3}
+    lair = clamp(d.get('lairUses'))
+    if lair:
+        out['lairUses'] = lair
+    return out
+
+
+def _action_name(action):
+    n = action.get('name')
+    if isinstance(n, dict):
+        return n.get('pt') or n.get('en') or '?'
+    return n or '?'
+
+
+def _check_and_consume(combatants, att, idx, force=False):
+    """Valida recarga/usos/ações lendárias do atacante e marca o uso.
+    Retorna (combatants, atacante atualizado). force=True ignora a validação
+    (o mestre manda), mas ainda registra o gasto."""
+    ok, reason = engine.action_availability(att, idx)
+    if not ok and not force:
+        raise ValidationError({'error': reason})
+    updated = engine.consume_action(att, idx)
+    return engine.replace_combatant(combatants, updated), updated
+
+
+def _sync_changed(combatants, ids):
+    for cid in ids:
+        cur = engine.find_combatant(combatants, cid)
+        if cur and cur.get('type') == 'pc' and cur.get('character_id'):
+            _sync_pc_to_character(cur)
 
 
 def _get_combat(campaign, create=False):
@@ -113,6 +156,7 @@ def combat_start(request, id_or_slug):
     c.turn_index = 0
     _append_log(c, {'type': 'start'})
     c.save()
+    log_combat_start(campaign, c.combatants, request.user)
     return Response({'combat': _serialize_combat(c, for_dm=True)})
 
 
@@ -125,6 +169,7 @@ def combat_end(request, id_or_slug):
     c.active = False
     _append_log(c, {'type': 'end'})
     c.save()
+    log_combat_end(campaign, c.round_number, c.combatants, request.user)
     return Response({'combat': _serialize_combat(c, for_dm=True)})
 
 
@@ -234,8 +279,12 @@ def combat_add_combatant(request, id_or_slug):
         if not m:
             raise ValidationError({'error': 'missing_monster_data'})
         combatant['name'] = m.get('name') or 'Monstro'
+        if isinstance(combatant['name'], dict):
+            combatant['name'] = combatant['name'].get('pt') or combatant['name'].get('en') or 'Monstro'
+        combatant['name'] = str(combatant['name'])[:80]
         combatant['monster_id'] = m.get('id')
         combatant['current_hp'] = m.get('hp') or 1
+        actions = [a for a in (m.get('actions') or []) if isinstance(a, dict)][:MAX_MONSTER_ACTIONS]
         combatant['stats'] = {
             'ac': m.get('ac', 10),
             'max_hp': m.get('hp', 1),
@@ -246,8 +295,19 @@ def combat_add_combatant(request, id_or_slug):
             'damage_immunities': m.get('damageImmunities') or [],
             'damage_vulnerabilities': m.get('damageVulnerabilities') or [],
             'condition_immunities': m.get('conditionImmunities') or [],
-            'actions': m.get('actions') or [],
+            'actions': actions,
         }
+        if m.get('cr') is not None:
+            combatant['stats']['cr'] = str(m.get('cr'))[:8]
+        if isinstance(m.get('xp'), int):
+            combatant['stats']['xp'] = m['xp']
+        leg = m.get('legendary')
+        if isinstance(leg, dict) and any(a.get('kind') == 'legendary' for a in actions):
+            combatant['stats']['legendary'] = _uses_def(leg)
+        lr = m.get('legendaryResistance')
+        if isinstance(lr, dict):
+            combatant['stats']['legendary_resistance'] = _uses_def(lr)
+        combatant = engine.init_resources(combatant)
     else:
         raise ValidationError({'error': 'invalid_type'})
 
@@ -340,6 +400,8 @@ def combat_action(request, id_or_slug):
         if idx < 0 or idx >= len(actions):
             raise ValidationError({'error': 'invalid_action_index'})
         action_data = actions[idx]
+        combatants, att = _check_and_consume(combatants, att, idx, force=bool(request.data.get('force')))
+        tgt = engine.find_combatant(combatants, tgt.get('id'))
         forced_d20 = _maybe_consume_rig(campaign, request.user.id, 'd20')
         forced_damage = None  # Damage poderia ter rig próprio também — não tratado aqui ainda
         result = engine.resolve_attack(
@@ -348,10 +410,10 @@ def combat_action(request, id_or_slug):
             disadvantage=bool(request.data.get('disadvantage')),
             forced_d20=forced_d20,
         )
-        # Aplica dano se acertou
-        if result['hit'] and result['damage']:
-            dmg = result['damage']['total']
-            applied = engine.apply_damage(tgt, dmg, result['damage']['type'])
+        # Aplica dano se acertou (parcela principal + dano adicional de outro tipo)
+        parts = engine.attack_damage_parts(result)
+        if parts:
+            applied = engine.apply_damage_parts(tgt, parts)
             combatants = engine.replace_combatant(combatants, applied['combatant'])
             result['damage_applied'] = {
                 'damage_taken': applied['damage_taken'],
@@ -364,9 +426,13 @@ def combat_action(request, id_or_slug):
                 _sync_pc_to_character(applied['combatant'])
         log_entry.update({
             'attacker': att.get('name'), 'target': tgt.get('name'),
+            'action_name': _action_name(action_data),
             'hit': result['hit'], 'crit': result['crit'],
             'total': result['attack_total'], 'ac': result['target_ac'],
             'damage': result.get('damage'),
+            'extra_damage': result.get('extra_damage'),
+            # Dano sofrido (após resistências) — usado pelos avisos de concentração.
+            'damage_taken': (result.get('damage_applied') or {}).get('damage_taken', 0),
         })
         response_payload['result'] = result
 
@@ -402,22 +468,57 @@ def combat_action(request, id_or_slug):
         if not att:
             raise NotFound('attacker_not_found')
         actions = (att.get('stats') or {}).get('actions') or []
-        action_data = actions[idx] if idx < len(actions) else None
+        action_data = actions[idx] if 0 <= idx < len(actions) else None
         if not action_data or not action_data.get('save'):
             raise ValidationError({'error': 'action_has_no_save'})
+        if not isinstance(target_ids, list) or not target_ids:
+            raise ValidationError({'error': 'missing_targets'})
+        combatants, att = _check_and_consume(combatants, att, idx, force=bool(request.data.get('force')))
         targets = [t for t in combatants if t.get('id') in target_ids]
         result = engine.resolve_save_effect(action_data, targets)
-        # Aplica dano em cada
-        for entry in result['per_target']:
-            tgt = next((t for t in combatants if t.get('id') == entry['target_id']), None)
-            if not tgt or entry['damage_taken'] == 0:
-                continue
-            applied = engine.apply_damage(tgt, entry['damage_taken'], entry['damage_type'])
-            combatants = engine.replace_combatant(combatants, applied['combatant'])
-            if tgt.get('type') == 'pc' and tgt.get('character_id'):
-                _sync_pc_to_character(applied['combatant'])
-        log_entry.update({'attacker': att.get('name'), 'per_target': result['per_target']})
+        # Aplica dano (por tipo) e condições em quem falhou
+        combatants, changed = engine.apply_save_results(combatants, result)
+        _sync_changed(combatants, changed)
+        log_entry.update({'attacker': att.get('name'), 'action_name': _action_name(action_data),
+                          'dc': result['dc'], 'ability': result['ability'],
+                          'per_target': result['per_target']})
         response_payload['result'] = result
+
+    elif action_type == 'use_action':
+        # Gasta a ação sem resolver (ações especiais, lendárias "faz um ataque", Multiataque…)
+        # body: {attackerId, actionIndex, force?}
+        att = engine.find_combatant(combatants, request.data.get('attackerId'))
+        if not att:
+            raise NotFound('combatant_not_found')
+        idx = int(request.data.get('actionIndex') or 0)
+        actions = (att.get('stats') or {}).get('actions') or []
+        if idx < 0 or idx >= len(actions):
+            raise ValidationError({'error': 'invalid_action_index'})
+        combatants, att = _check_and_consume(combatants, att, idx, force=bool(request.data.get('force')))
+        log_entry.update({'attacker': att.get('name'), 'action_name': _action_name(actions[idx]),
+                          'kind': actions[idx].get('kind') or 'action'})
+        response_payload['result'] = {
+            'action_state': att.get('action_state'), 'legendary': att.get('legendary'),
+        }
+
+    elif action_type == 'set_resources':
+        # Ajuste manual do mestre: recarga, usos, ações/resistências lendárias, covil.
+        tgt = engine.find_combatant(combatants, request.data.get('targetId'))
+        if not tgt:
+            raise NotFound('combatant_not_found')
+        patch = {k: request.data.get(k) for k in (
+            'actionIndex', 'charged', 'usesLeft', 'legendaryRemaining', 'inLair',
+            'legendaryResistanceRemaining', 'restoreAll') if k in request.data}
+        try:
+            updated = engine.set_resources(tgt, patch)
+        except (TypeError, ValueError):
+            raise ValidationError({'error': 'invalid_resources'})
+        combatants = engine.replace_combatant(combatants, updated)
+        log_entry.update({'target': tgt.get('name'), 'patch': patch})
+        response_payload['result'] = {
+            'action_state': updated.get('action_state'), 'legendary': updated.get('legendary'),
+            'legendary_resistance': updated.get('legendary_resistance'), 'in_lair': updated.get('in_lair'),
+        }
 
     elif action_type == 'add_condition':
         tgt = engine.find_combatant(combatants, request.data.get('targetId'))
@@ -532,14 +633,8 @@ def combat_player_attack(request, id_or_slug):
     if 'save' in action_data:
         # Magia com save: alvo único faz save, dano metade no sucesso
         save_res = engine.resolve_save_effect(action_data, [tgt])
-        per_target = save_res['per_target'][0]
-        if per_target['damage_taken']:
-            applied = engine.apply_damage(tgt, per_target['damage_taken'], per_target['damage_type'])
-            combatants = engine.replace_combatant(combatants, applied['combatant'])
-            if tgt.get('type') == 'pc' and tgt.get('character_id'):
-                _sync_pc_to_character(applied['combatant'])
-            per_target['new_hp'] = applied['combatant'].get('current_hp')
-            per_target['defeated'] = applied['combatant'].get('defeated', False)
+        combatants, changed = engine.apply_save_results(combatants, save_res)
+        _sync_changed(combatants, changed)
         result = {
             'kind': 'save',
             'attack_name': attack_name,
@@ -608,8 +703,13 @@ def combat_player_attack(request, id_or_slug):
         'kind': attack_kind,
         'hit': result.get('hit', None),
     }
+    if result.get('kind') == 'save':
+        log_entry['damage_taken'] = sum(p.get('damage_taken') or 0 for p in result['save'].get('per_target') or [])
+    else:
+        log_entry['damage_taken'] = (result.get('damage_applied') or {}).get('damage_taken', 0)
     if isinstance(result.get('fallout'), dict):
         log_entry['fallout_to'] = result['fallout'].get('redirected_to_name')
+        log_entry['fallout_damage_taken'] = (result['fallout']['second_attack'].get('damage_applied') or {}).get('damage_taken', 0)
     _append_log(c, log_entry)
     c.save()
     return Response({'result': result, 'combat': _serialize_combat(c, for_dm=is_dm(request.user, campaign))})
@@ -680,10 +780,18 @@ def combat_next_turn(request, id_or_slug):
 
     next_idx = (cur_idx + 1) % len(combatants)
     next_round = c.round_number + 1 if next_idx == 0 else c.round_number
-    c.combatants = combatants
     c.turn_index = next_idx
     c.round_number = next_round
     _append_log(c, {'type': 'next_turn', 'round': next_round, 'index': next_idx, 'whose': combatants[next_idx].get('name')})
+
+    # Início do turno do monstro: rola recarga (d6) e restaura ações lendárias.
+    nxt = combatants[next_idx]
+    if nxt.get('type') == 'monster':
+        started = engine.start_turn(nxt)
+        combatants[next_idx] = started['combatant']
+        if started['recharge_rolls']:
+            _append_log(c, {'type': 'recharge', 'target': nxt.get('name'), 'rolls': started['recharge_rolls']})
+    c.combatants = combatants
     c.save()
     return Response({'combat': _serialize_combat(c, for_dm=True)})
 
@@ -853,6 +961,7 @@ def roll_resolve(request, pk):
         campaign=rr.campaign, user=rr.requested_by, dice_type=rr.dice_type,
         result=total, rigged=rigged, label=rr.label,
     )
+    log_roll_request(rr)
 
     return Response({'roll': _serialize_roll(rr)})
 

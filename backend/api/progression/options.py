@@ -36,6 +36,46 @@ def find_option(class_id, pool, option_id):
     return next((o for o in d.get('options', []) if o['id'] == option_id), None)
 
 
+# Armas Kensei à distância (o catálogo do backend não leva o campo `melee`).
+_KENSEI_RANGED = {'crossbowLight', 'dart', 'shortbow', 'sling', 'blowgun', 'crossbowHand', 'longbow', 'pistol', 'musket'}
+
+
+def migrate_class_options(character):
+    """Espelha migrateClassOptions: Kensei nível 3 passou de 2 x kenseiWeapon
+    para kenseiWeaponMelee + kenseiWeaponRanged."""
+    from .multiclass import class_level
+    all_picks = character.get('classOptions') or []
+    kensei = [p for p in all_picks if isinstance(p, dict) and p.get('classId') == 'monk' and p.get('pool') == 'kenseiWeapon']
+    if not kensei:
+        return character
+    slots = option_slots(character, 'monk', class_level(character, 'monk'))
+    room = (slots.get('kenseiWeapon') or {}).get('total', 0)
+    if len(kensei) <= room:
+        return character
+    others = [p for p in all_picks if p not in kensei]
+    view = {**character, 'classOptions': others}
+    free = {pool: (slots.get(pool) or {}).get('total', 0) - len(picks_of(view, 'monk', pool))
+            for pool in ('kenseiWeaponMelee', 'kenseiWeaponRanged')}
+    excess = sorted(kensei, key=lambda p: p.get('level') or 0)[:len(kensei) - room]
+    moved = {}
+    for p in excess:
+        pool = 'kenseiWeaponRanged' if p.get('id') in _KENSEI_RANGED else 'kenseiWeaponMelee'
+        if free[pool] > 0:
+            moved[id(p)] = pool
+            free[pool] -= 1
+    for p in excess:
+        if id(p) in moved:
+            continue
+        for pool in ('kenseiWeaponMelee', 'kenseiWeaponRanged'):
+            if free[pool] > 0:
+                moved[id(p)] = pool
+                free[pool] -= 1
+                break
+    if not moved:
+        return character
+    return {**character, 'classOptions': [{**p, 'pool': moved[id(p)]} if id(p) in moved else p for p in all_picks]}
+
+
 def picks_of(character, class_id, pool=None):
     return [p for p in (character.get('classOptions') or [])
             if isinstance(p, dict) and p.get('classId') == class_id and (pool is None or p.get('pool') == pool)]
@@ -92,6 +132,8 @@ def check_prereq(character, option, picks, class_level):
         issues.append('Requer ' + ' ou '.join(any_of))
     if req.get('subclass') and character.get('subclass') not in req['subclass']:
         issues.append('Subclasse específica')
+    if rules == '2014' and option.get('classes2014') and character.get('className') not in option['classes2014']:
+        issues.append('Fora da lista desta classe (2014)')
     return issues
 
 
@@ -111,6 +153,7 @@ def _grants(data, picks):
 
 def class_option_state(character):
     """Escolhas, vagas e concessões de UMA classe (ficha vista como essa classe)."""
+    character = migrate_class_options(character)
     class_id = character.get('className')
     data = class_options_data(class_id)
     if not data:
@@ -125,6 +168,7 @@ def class_option_state(character):
 
 def validate_option_picks(character, class_id, picks_in, class_level, level_up=False):
     """Espelha validateOptionPicks. picks_in: {'adds': [...], 'swaps': [...]}"""
+    character = migrate_class_options(character)
     issues = []
     if not isinstance(picks_in, dict):
         return {'valid': False, 'issues': ['Formato inválido']}
@@ -180,7 +224,7 @@ def validate_option_picks(character, class_id, picks_in, class_level, level_up=F
         same = [p for p in picks if p.get('pool') == a['pool'] and p.get('id') == a['id']]
         if same and not option.get('repeatable'):
             issues.append(f"{a['id']} já escolhida")
-        if same and option.get('repeatable') and any((p.get('detail') or '') == (detail or '') for p in same):
+        if same and option.get('repeatable') and option.get('detail') and any((p.get('detail') or '') == (detail or '') for p in same):
             issues.append(f"{a['id']}: escolha um alvo diferente")
         picks = picks + [{'classId': class_id, 'pool': a['pool'], 'id': a['id'], 'detail': detail}]
 
@@ -200,6 +244,7 @@ def _clean(p):
 
 
 def apply_option_picks(character, class_id, picks_in, level):
+    character = migrate_class_options(character)
     out = [p for p in (character.get('classOptions') or []) if isinstance(p, dict)]
     for s in picks_in.get('swaps') or []:
         idx = next((i for i, p in enumerate(out) if p.get('classId') == class_id and p.get('pool') == s['pool'] and p.get('id') == s['from']), None)

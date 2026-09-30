@@ -1,3 +1,4 @@
+import { errorMessage } from '../api/errors.js';
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 
@@ -17,7 +18,7 @@ export default function CampaignList({ lang = 'pt', onOpen, onBack }) {
       setCampaigns(res.campaigns || []);
       setError('');
     } catch (e) {
-      setError(e?.message || 'failed');
+      setError(errorMessage(e, lang));
     } finally {
       setLoading(false);
     }
@@ -84,7 +85,7 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
       const res = await api.createCampaign({ name, description: desc });
       onCreated(res.campaign);
     } catch (e) {
-      setError(e?.message || 'failed');
+      setError(errorMessage(e, lang));
     } finally { setBusy(false); }
   };
   return (
@@ -123,7 +124,7 @@ function JoinCampaignModal({ lang, onClose, onJoined }) {
       onJoined({ id: res.campaignId, slug: res.slug });
     } catch (e) {
       if (e?.data?.error === 'invite_invalid') setError(t(lang, 'Código inválido', 'Invalid code'));
-      else setError(e?.message || 'failed');
+      else setError(errorMessage(e, lang));
     } finally { setBusy(false); }
   };
   return (

@@ -26,9 +26,10 @@ function spellLine(src, lang) {
   return parts.join(' · ');
 }
 
-/** Bônus racial de 2014 com escolha de atributo: escolha da espécie + +1 do talento da espécie. */
+/** Bônus racial de 2014 com escolha de atributo: bônus fixo da raça + escolha da espécie + +1 do talento da espécie. */
 function raceBonusWith(char) {
-  const out = { ...speciesAsi(char) };
+  const out = { ...Utils.applyRaceBonus(char, char.race) };
+  for (const [k, v] of Object.entries(speciesAsi(char))) out[k] = (out[k] || 0) + v;
   for (const [k, v] of Object.entries(speciesFeatEntry(char)?.asi || {})) out[k] = (out[k] || 0) + v;
   return out;
 }
@@ -84,6 +85,12 @@ export default function SpeciesChoices({ char, lang, onChange, lockFeat = false 
     // Trocar a linhagem zera o truque escolhido (Alto Elfo); trocar o traço variável zera a perícia.
     if (key === 'lineage' && v !== sc.lineage) delete next.cantrip;
     if (key === 'bonus' && v !== sc.bonus) delete next.skill;
+    // Escolhas condicionais (`when`) que deixaram de valer somem (ex.: traço do meio-elfo ao trocar a descendência).
+    const active = speciesChoiceSpecs({ ...char, speciesChoices: next });
+    for (const c of speciesDef(char)?.choices || []) {
+      if (c.when && c.key in next && !active.some(a => a.key === c.key)) delete next[c.key];
+    }
+    for (const c of active) if (c.options && next[c.key] != null && !c.options.some(o => o.id === next[c.key])) delete next[c.key];
     emit({ speciesChoices: next });
   };
   const withoutSkill = { ...char, speciesChoices: { ...sc, skill: undefined } };

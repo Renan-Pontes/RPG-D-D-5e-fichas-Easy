@@ -173,7 +173,7 @@ export function buildSheetData(char, lang = 'pt', { speciesSummary } = {}) {
   f.CharacterName = f['CharacterName 2'] = char.name || '';
   f['Race '] = race ? tName('race', race.id, lang) : '';
   f.Alignment = char.alignment ? (ALIGNMENT_LABEL[lang]?.[char.alignment] || char.alignment) : '';
-  f.XP = char.levelingMode === 'milestone' && !char.xp ? L(lang, 'Marco', 'Milestone') : String(char.xp || 0);
+  f.XP = Utils.levelingMode(char) === 'milestone' ? L(lang, 'Marcos', 'Milestones') : String(char.xp || 0);
   f.Inspiration = char.inspiration ? '★' : '';
   f.ProfBonus = fmt(prof);
   f.AC = String(Utils.computeAc(char));
@@ -374,6 +374,7 @@ export function sheetValuesToChar(values) {
   }
   const xp = num(get('XP'));
   if (xp !== null) { char.xp = xp; if (xp > 0) char.levelingMode = 'xp'; }
+  else if (/marco|milestone/i.test(get('XP'))) char.levelingMode = 'milestone';
   char.inspiration = truthy(get('Inspiration'));
 
   // Os valores da ficha já incluem bônus de espécie/antecedente: gravamos o total.

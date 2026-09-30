@@ -1,5 +1,6 @@
 /* Formulário de cadastro de item (mesmo formato de data/items.js).
  * Usado pelo mestre (catálogo da campanha) e pelo jogador (ficha pessoal). */
+import { errorMessage } from '../api/errors.js';
 import { useState } from 'react';
 import { ITEM_TYPES } from '../../data/items.js';
 
@@ -71,7 +72,7 @@ export default function ItemForm({ lang, initial, submitLabel, onSubmit, onCance
     }
     setError(''); setBusy(true);
     try { await onSubmit(formToItem(f)); }
-    catch (e) { setError(e?.data?.error || e?.message || 'failed'); }
+    catch (e) { setError(errorMessage(e)); }
     finally { setBusy(false); }
   };
 
@@ -80,11 +81,11 @@ export default function ItemForm({ lang, initial, submitLabel, onSubmit, onCance
       <div className="row gap-2">
         <div style={{ flex: 2 }}>
           <label>{t(lang, 'Nome', 'Name')}</label>
-          <input value={f.name} maxLength={120} onChange={e => set({ name: e.target.value })} autoFocus />
+          <input aria-label={t(lang, 'Nome', 'Name')} value={f.name} maxLength={120} onChange={e => set({ name: e.target.value })} autoFocus />
         </div>
         <div style={{ flex: 1 }}>
           <label>{t(lang, 'Tipo', 'Type')}</label>
-          <select value={f.type} onChange={e => set({ type: e.target.value })}>
+          <select aria-label={t(lang, 'Tipo', 'Type')} value={f.type} onChange={e => set({ type: e.target.value })}>
             {ITEM_TYPES.map(ty => <option key={ty} value={ty}>{typeLabel(ty, lang)}</option>)}
           </select>
         </div>
@@ -94,17 +95,17 @@ export default function ItemForm({ lang, initial, submitLabel, onSubmit, onCance
         <div className="row gap-2">
           <div style={{ flex: 1 }}>
             <label>{t(lang, 'Dano', 'Damage')}</label>
-            <input value={f.damage} placeholder="1d8" onChange={e => set({ damage: e.target.value })} />
+            <input aria-label={t(lang, 'Dano', 'Damage')} value={f.damage} placeholder="1d8" onChange={e => set({ damage: e.target.value })} />
           </div>
           <div style={{ flex: 1 }}>
             <label>{t(lang, 'Tipo de dano', 'Damage type')}</label>
-            <select value={f.dmgType} onChange={e => set({ dmgType: e.target.value })}>
+            <select aria-label={t(lang, 'Tipo de dano', 'Damage type')} value={f.dmgType} onChange={e => set({ dmgType: e.target.value })}>
               {DMG_TYPES.map(d => <option key={d}>{d}</option>)}
             </select>
           </div>
           <div style={{ flex: 2 }}>
             <label>{t(lang, 'Propriedades', 'Properties')}</label>
-            <input value={f.props} placeholder="finesse, light" onChange={e => set({ props: e.target.value })} />
+            <input aria-label={t(lang, 'Propriedades', 'Properties')} value={f.props} placeholder="finesse, light" onChange={e => set({ props: e.target.value })} />
           </div>
         </div>
       )}
@@ -113,12 +114,12 @@ export default function ItemForm({ lang, initial, submitLabel, onSubmit, onCance
         <div className="row gap-2">
           <div style={{ flex: 1 }}>
             <label>{f.type === 'shield' ? t(lang, 'Bônus de CA', 'AC bonus') : 'CA'}</label>
-            <input type="number" min="0" max="30" value={f.ac} onChange={e => set({ ac: e.target.value })} />
+            <input aria-label={f.type === 'shield' ? t(lang, 'Bônus de CA', 'AC bonus') : 'CA'} type="number" min="0" max="30" value={f.ac} onChange={e => set({ ac: e.target.value })} />
           </div>
           {f.type === 'armor' && (
             <div style={{ flex: 1 }}>
               <label>{t(lang, 'Categoria', 'Category')}</label>
-              <select value={f.armorType} onChange={e => set({ armorType: e.target.value })}>
+              <select aria-label={t(lang, 'Categoria', 'Category')} value={f.armorType} onChange={e => set({ armorType: e.target.value })}>
                 <option value="light">{t(lang, 'Leve', 'Light')}</option>
                 <option value="medium">{t(lang, 'Média', 'Medium')}</option>
                 <option value="heavy">{t(lang, 'Pesada', 'Heavy')}</option>
@@ -131,11 +132,11 @@ export default function ItemForm({ lang, initial, submitLabel, onSubmit, onCance
       <div className="row gap-2">
         <div style={{ flex: 1 }}>
           <label>{t(lang, 'Peso (lb)', 'Weight (lb)')}</label>
-          <input type="number" min="0" step="0.1" value={f.weight} onChange={e => set({ weight: e.target.value })} />
+          <input aria-label={t(lang, 'Peso (lb)', 'Weight (lb)')} type="number" min="0" step="0.1" value={f.weight} onChange={e => set({ weight: e.target.value })} />
         </div>
         <div style={{ flex: 1 }}>
           <label>{t(lang, 'Preço (PO)', 'Cost (GP)')}</label>
-          <input type="number" min="0" step="0.01" value={f.cost} onChange={e => set({ cost: e.target.value })} />
+          <input aria-label={t(lang, 'Preço (PO)', 'Cost (GP)')} type="number" min="0" step="0.01" value={f.cost} onChange={e => set({ cost: e.target.value })} />
         </div>
       </div>
 
@@ -150,7 +151,7 @@ export default function ItemForm({ lang, initial, submitLabel, onSubmit, onCance
           <div className="row gap-2" style={{ alignItems: 'flex-end' }}>
             <div style={{ flex: 1 }}>
               <label>{t(lang, 'Raridade', 'Rarity')}</label>
-              <select value={f.rarity} onChange={e => set({ rarity: e.target.value })}>
+              <select aria-label={t(lang, 'Raridade', 'Rarity')} value={f.rarity} onChange={e => set({ rarity: e.target.value })}>
                 {RARITIES.map(([id, pt, en]) => <option key={id} value={id}>{lang === 'pt' ? pt : en}</option>)}
               </select>
             </div>
@@ -161,14 +162,14 @@ export default function ItemForm({ lang, initial, submitLabel, onSubmit, onCance
           </div>
           <div>
             <label>{t(lang, 'Efeito mágico', 'Magic effect')}</label>
-            <textarea rows={2} value={f.effect} onChange={e => set({ effect: e.target.value })} />
+            <textarea aria-label={t(lang, 'Efeito mágico', 'Magic effect')} rows={2} value={f.effect} onChange={e => set({ effect: e.target.value })} />
           </div>
         </>
       )}
 
       <div>
         <label>{t(lang, 'Descrição', 'Description')}</label>
-        <textarea rows={2} value={f.description} onChange={e => set({ description: e.target.value })} />
+        <textarea aria-label={t(lang, 'Descrição', 'Description')} rows={2} value={f.description} onChange={e => set({ description: e.target.value })} />
       </div>
 
       {extra}

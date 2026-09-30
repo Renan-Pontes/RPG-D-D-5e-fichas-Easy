@@ -10,6 +10,7 @@ import { CLASS_OPTIONS } from '../../data/class-options/index.js';
 import { classEntries, classView } from './multiclass.js';
 import { findOption, picksOf } from './options.js';
 import { profBonus } from './rules.js';
+import { SUBRACE_RESOURCES_2014 } from '../../data/subraces-2014.js';
 
 const score = (c, k) => ((c.abilities || {})[k] || 10) + ((c.raceBonus || {})[k] || 0);
 const mod = (c, k) => Math.floor((score(c, k) - 10) / 2);
@@ -81,6 +82,8 @@ export const SPECIES_RESOURCES = {
     orc: [{ id: 'relentlessEndurance', name: b('Resistência Implacável', 'Relentless Endurance'), uses: { fixed: 1 }, recharge: 'long' }],
     aasimar: [{ id: 'healingHands', name: b('Mãos Curativas', 'Healing Hands'), uses: { fixed: 1 }, recharge: 'long' }],
     goliath: [{ id: 'stonesEndurance', name: b('Resistência da Pedra', "Stone's Endurance"), uses: { fixed: 1 }, recharge: 'short' }],
+    // Sub-raças de suplementos (aasimar do VGM, shifters do ERLW, draconatos de Wildemount…).
+    ...SUBRACE_RESOURCES_2014,
   },
 };
 
@@ -111,6 +114,7 @@ export function computeResources(character) {
     for (const p of picksOf(character, entry.id)) {
       const option = findOption(entry.id, p.pool, p.id);
       if (!option?.resource) continue;
+      if (lv < (option.resource.minLevel || 1)) continue;
       const res = build(character, entry.id, { id: `${p.pool}.${p.id}`, name: option.name, desc: option.desc, ...option.resource }, `${entry.id}.${p.pool}.${p.id}`, lv);
       if (res && !out.some(x => x.key === res.key)) out.push(res);
     }

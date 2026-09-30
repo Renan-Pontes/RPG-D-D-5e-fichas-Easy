@@ -1,0 +1,466 @@
+/* ============================================================
+   Mesa agora (mestre) + avisos + fim de encontro guiado
+   Mobile-first (360px); tablet paisagem/desktop em duas colunas.
+   ============================================================ */
+
+.table-now {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.table-now h3 { margin: 0; font-size: 1rem; }
+.tn-eyebrow {
+  font-family: var(--display);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.tn-box {
+  background: var(--bg-card);
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 0;
+}
+.tn-box-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.tn-count {
+  display: inline-block;
+  margin-left: 8px;
+  min-width: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--blood-soft);
+  color: var(--blood-bright);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+/* Ordem no celular: cena, combate, avisos, personagens, pendências, ações */
+.tn-scene { order: 1; }
+.tn-combat { order: 2; }
+.tn-wrapup { order: 3; }
+.tn-nudges { order: 4; }
+.tn-party { order: 5; }
+.tn-pending { order: 6; }
+.tn-actions { order: 7; }
+.tn-check { order: 8; }
+
+/* --- Cena / sessão inline --- */
+.tn-scene {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 8px;
+}
+.tn-scene-weather { grid-column: 1 / -1; }
+.tn-scene-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-raised);
+  border: 1px solid var(--stroke-faint);
+  border-radius: 6px;
+  padding: 6px 10px;
+  min-width: 0;
+}
+.tn-scene-field:focus-within { border-color: var(--gold); }
+.tn-scene-input {
+  background: transparent;
+  border: 0;
+  color: var(--ink-primary);
+  font-family: var(--body);
+  font-size: 1rem;
+  padding: 2px 0;
+  min-height: 30px;
+  width: 100%;
+  min-width: 0;
+}
+.tn-scene-input:focus { outline: none; }
+.tn-scene-input::placeholder { color: var(--ink-muted); }
+.tn-saved { color: var(--moss-bright); }
+
+/* --- Faixa do combate --- */
+.tn-combat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--blood);
+  background: linear-gradient(90deg, var(--blood-soft), transparent 80%), var(--bg-card);
+}
+.tn-combat.is-idle { border-color: var(--stroke); background: var(--bg-card); }
+.tn-combat-label { color: var(--ink-secondary); font-size: 0.95rem; }
+.tn-combat-info { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; min-width: 0; }
+.tn-combat-round {
+  font-family: var(--display);
+  color: var(--blood-bright);
+  letter-spacing: 0.08em;
+}
+.tn-combat-now strong { color: var(--ink-primary); font-size: 1.05rem; }
+.tn-combat-next { color: var(--ink-secondary); }
+.tn-combat-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* --- Personagens --- */
+.tn-party {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  min-width: 0;
+}
+.tn-card {
+  background: var(--bg-card);
+  border: 1px solid var(--stroke);
+  border-left: 3px solid var(--moss);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.tn-card.tone-warn { border-left-color: var(--amber); }
+.tn-card.tone-crit { border-left-color: var(--blood-bright); }
+.tn-card.tone-down { border-left-color: var(--blood-bright); background: linear-gradient(180deg, var(--blood-soft), transparent 60%), var(--bg-card); }
+.tn-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.tn-card-who { display: flex; flex-direction: column; min-width: 0; }
+.tn-card-name {
+  font-family: var(--display);
+  font-size: 1.05rem;
+  color: var(--ink-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tn-insp {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid var(--stroke-faint);
+  border-radius: 999px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-size: 1rem;
+}
+.tn-insp.on { color: var(--gold-bright); border-color: var(--gold); background: var(--gold-soft); }
+.tn-insp-label { font-size: 0.72rem; font-family: var(--display); letter-spacing: 0.08em; }
+
+.tn-hp {
+  position: relative;
+  height: 24px;
+  border-radius: 4px;
+  background: var(--bg-deep);
+  border: 1px solid var(--stroke-faint);
+  overflow: hidden;
+}
+.tn-hp-fill { position: absolute; inset: 0 auto 0 0; background: var(--moss); transition: width 0.3s; }
+.tn-hp.tone-warn .tn-hp-fill { background: var(--amber-deep); }
+.tn-hp.tone-crit .tn-hp-fill, .tn-hp.tone-down .tn-hp-fill { background: var(--blood); }
+.tn-hp-text {
+  position: relative;
+  display: block;
+  line-height: 22px;
+  padding: 0 8px;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--ink-primary);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.tn-temp { color: var(--arcane-bright); }
+
+.tn-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin: 0;
+}
+.tn-stats > div {
+  background: var(--bg-raised);
+  border-radius: 4px;
+  padding: 3px 4px;
+  text-align: center;
+  min-width: 0;
+}
+.tn-stats dt {
+  font-family: var(--display);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.tn-stats dd { margin: 0; font-family: var(--mono); font-size: 0.95rem; color: var(--ink-primary); }
+
+.tn-death { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--ink-secondary); }
+.tn-ds { font-size: 0.9rem; letter-spacing: 2px; }
+.tn-ds.ok { color: var(--moss-bright); }
+.tn-ds.bad { color: var(--blood-bright); }
+
+.tn-conds { display: flex; flex-wrap: wrap; gap: 4px; }
+.tn-cond {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--amber-soft);
+  border: 1px solid var(--amber-deep);
+  color: var(--amber);
+}
+.tn-conc { font-size: 0.85rem; color: var(--ink-secondary); min-height: 24px; display: flex; align-items: center; }
+.tn-conc-on strong { color: var(--arcane-bright); }
+.tn-conc .btn-link { font-size: 0.8rem; min-height: 32px; }
+.tn-conc-add { padding: 0 !important; color: var(--ink-muted) !important; text-decoration: none !important; }
+.tn-conc-form { display: flex; gap: 6px; width: 100%; }
+.tn-conc-form .input { flex: 1; min-width: 0; min-height: 36px; padding: 4px 8px; }
+.tn-slots { display: flex; flex-wrap: wrap; gap: 4px; }
+.tn-slot {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--arcane-soft);
+  color: var(--ink-secondary);
+}
+.tn-slot strong { color: var(--arcane-bright); }
+.tn-slot.empty { background: var(--bg-raised); color: var(--ink-muted); }
+.tn-slot.empty strong { color: var(--ink-muted); }
+
+/* --- Pendências --- */
+.tn-pending-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.tn-pending-list:empty { display: none; }
+.tn-pending-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 4px 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--stroke-faint);
+  border-radius: 6px;
+  color: var(--ink-primary);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--body);
+  font-size: 0.95rem;
+}
+.tn-pending-item:hover { border-color: var(--gold); }
+.tn-pending-n {
+  flex: none;
+  min-width: 34px;
+  text-align: center;
+  font-family: var(--mono);
+  color: var(--gold-bright);
+}
+
+/* --- Ações rápidas --- */
+.tn-action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
+.tn-action-grid .btn { width: 100%; letter-spacing: 0.06em; }
+.tn-toggle { display: flex; gap: 8px; align-items: flex-start; font-size: 0.9rem; cursor: pointer; }
+.tn-toggle, .tn-toggle span, .nudge-pref, .nudge-pref span {
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--body);
+}
+.tn-toggle strong, .nudge-pref strong { font-family: var(--display); letter-spacing: 0.03em; color: var(--ink-primary); }
+.tn-toggle input { margin-top: 4px; width: 18px; height: 18px; flex: none; }
+.tn-msg { color: var(--ink-secondary); margin: 8px 0 0; }
+
+/* ============================================================
+   Avisos
+   ============================================================ */
+.nudge-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.nudge {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--stroke-faint);
+  border-left: 3px solid var(--arcane);
+}
+.nudge.sev-warn { border-left-color: var(--amber); }
+.nudge.sev-danger { border-left-color: var(--blood-bright); background: linear-gradient(90deg, var(--blood-soft), transparent 70%), var(--bg-raised); }
+.nudge-icon { flex: none; width: 16px; text-align: center; color: var(--arcane-bright); }
+.nudge.sev-warn .nudge-icon { color: var(--amber); }
+.nudge.sev-danger .nudge-icon { color: var(--blood-bright); }
+.nudge-body { flex: 1; min-width: 0; }
+.nudge-text { margin: 0 0 6px; color: var(--ink-primary); font-size: 0.95rem; line-height: 1.35; overflow-wrap: anywhere; }
+.nudge-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.nudge-actions .btn { letter-spacing: 0.05em; }
+.nudge-mute {
+  background: none;
+  border: 0;
+  padding: 0 4px;
+  min-height: 32px;
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.nudge-list.is-compact .nudge-text { font-size: 0.9rem; }
+.nudge-empty { margin: 0; }
+.nudge-error { color: var(--blood-bright); font-size: 0.85rem; margin: 0 0 6px; }
+
+.nudge-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  background: var(--bg-raised);
+  border: 1px dashed var(--stroke);
+}
+.nudge-pref { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; font-size: 0.9rem; }
+.nudge-pref input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
+.nudge-hint { display: block; }
+.nudge-default-off { color: var(--ink-muted); font-size: 0.8rem; }
+
+/* Sino do combate: contador + lista suspensa + toast leve (sem modal) */
+.nudge-bell-wrap { position: relative; display: inline-flex; }
+.nudge-bell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: var(--bg-elevated);
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.nudge-bell.has-items { border-color: var(--amber); color: var(--amber); }
+.nudge-bell-count { font-family: var(--mono); font-size: 0.85rem; }
+.nudge-bell .sr-only {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+.nudge-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  width: min(380px, calc(100vw - 32px));
+  max-height: 60vh;
+  overflow: auto;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--stroke-strong);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-deep);
+}
+.nudge-pop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.nudge-toast-slot {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  max-width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.nudge-toast {
+  pointer-events: auto;
+  display: block;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--stroke-strong);
+  border-left: 3px solid var(--arcane);
+  background: var(--bg-elevated);
+  color: var(--ink-primary);
+  box-shadow: var(--shadow-card);
+  font-family: var(--body);
+  font-size: 0.92rem;
+  cursor: pointer;
+  animation: nudge-in 0.2s ease-out;
+}
+.nudge-toast.sev-warn { border-left-color: var(--amber); }
+.nudge-toast.sev-danger { border-left-color: var(--blood-bright); }
+@keyframes nudge-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .nudge-toast { animation: none; } }
+
+/* ============================================================
+   Fim de encontro guiado
+   ============================================================ */
+.eoe-panel {
+  border: 1px solid var(--gold);
+  border-radius: 10px;
+  padding: 12px;
+  margin: 12px 0;
+  background: linear-gradient(180deg, var(--gold-soft), transparent 60%), var(--bg-card);
+}
+.eoe-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.eoe-head > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.eoe-eyebrow {
+  font-family: var(--display);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.eoe-title { font-family: var(--display); color: var(--ink-primary); }
+.eoe-steps { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.eoe-step {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--stroke-faint);
+}
+.eoe-step.is-done { border-color: var(--moss); }
+.eoe-step-title { font-family: var(--display); font-size: 0.9rem; color: var(--ink-primary); letter-spacing: 0.04em; }
+.eoe-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.eoe-row .btn { letter-spacing: 0.06em; }
+.eoe-xp { width: 110px; min-height: 38px; }
+.eoe-body { width: 100%; min-height: 90px; resize: vertical; font-family: var(--body); }
+.eoe-step .input { width: 100%; box-sizing: border-box; }
+.eoe-step .eoe-row .input.eoe-xp { width: 110px; }
+
+/* ============================================================
+   Tablet paisagem / desktop: duas colunas
+   ============================================================ */
+@media (min-width: 640px) {
+  .tn-scene { grid-template-columns: 90px 1fr 1fr; }
+  .tn-scene-weather { grid-column: auto; }
+  .tn-party { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+}
+@media (min-width: 900px) {
+  .table-now {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    grid-template-areas:
+      "scene   scene"
+      "combat  combat"
+      "wrapup  wrapup"
+      "party   nudges"
+      "party   pending"
+      "party   actions"
+      "party   ."
+      "check   check";
+    grid-template-rows: auto auto auto auto auto auto 1fr auto;
+    align-items: start;
+    gap: 0 16px; /* espaço vertical por margem: linhas vazias (sem combate) não somam gap */
+  }
+  .table-now > * { margin-bottom: 12px; }
+  .tn-scene { grid-area: scene; }
+  .tn-combat { grid-area: combat; }
+  .tn-wrapup { grid-area: wrapup; }
+  .tn-wrapup .eoe-panel { margin: 0; }
+  .tn-party { grid-area: party; }
+  .tn-nudges { grid-area: nudges; }
+  .tn-pending { grid-area: pending; }
+  .tn-actions { grid-area: actions; }
+  .tn-check { grid-area: check; }
+  .tn-party { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+}
+@media (min-width: 1280px) {
+  .table-now { grid-template-columns: minmax(0, 1fr) 380px; }
+}

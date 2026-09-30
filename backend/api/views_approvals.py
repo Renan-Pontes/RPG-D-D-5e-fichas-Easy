@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
 from .models import Approval, Campaign, Character
+from .diary import log_levelup, log_xp
 from .serializers import ApprovalSerializer
 from .permissions import get_campaign_or_404, require_member, is_dm
 from .progression import (
@@ -144,7 +145,33 @@ def approval_consume(request, pk):
     obj.payload = payload
     obj.status = 'consumed'
     obj.save(update_fields=['status', 'payload'])
+    log_levelup(obj)
     return Response({'approval': ApprovalSerializer(obj).data, 'character': {'id': obj.character.id, 'data': obj.character.data}})
+
+
+def _grant_levelups(campaign, members, user, allow, note=''):
+    """Aprova (ou cria aprovada) a subida de nível de cada membro. Devolve (granted, skipped)."""
+    granted, skipped = [], []
+    for m in members:
+        char = m.character
+        level = int((char.data or {}).get('level') or 1)
+        open_ = Approval.objects.filter(campaign=campaign, character=char, type='levelup', status__in=('pending', 'approved'))
+        if level >= 20 or open_.filter(status='approved').exists():
+            skipped.append(char.id)
+            continue
+        payload = {'toLevel': level + 1, 'allowMulticlass': allow}
+        obj = open_.filter(status='pending').first()
+        if obj:
+            obj.payload = {**(obj.payload or {}), **payload}
+        else:
+            obj = Approval(campaign=campaign, character=char, requested_by=user, type='levelup', payload=payload)
+        obj.status = 'approved'
+        obj.note = note or obj.note
+        obj.reviewed_by = user
+        obj.reviewed_at = timezone.now()
+        obj.save()
+        granted.append(ApprovalSerializer(obj).data)
+    return granted, skipped
 
 
 def campaign_allows_multiclass(campaign):
@@ -229,24 +256,59 @@ def campaign_grant_levelup(request, id_or_slug):
         allow = campaign_allows_multiclass(campaign)
     note = (request.data.get('note') or '')[:500]
 
-    granted, skipped = [], []
+    granted, skipped = _grant_levelups(campaign, members, request.user, allow, note)
+    return Response({'granted': granted, 'skipped': skipped})
+
+
+# XP total para chegar a cada nível (índice = nível atual → XP para o próximo). SRD 5.2.1.
+XP_THRESHOLDS = [0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000,
+                 100000, 120000, 140000, 165000, 195000, 225000, 265000, 305000, 355000]
+
+
+def campaign_leveling_mode(campaign):
+    return 'xp' if (campaign.state or {}).get('levelingMode') == 'xp' else 'milestone'
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def campaign_award_xp(request, id_or_slug):
+    """
+    Mestre dá XP (campanha no modo XP). Body: { amount: int, characterIds: [..] | 'all', split?: bool }
+    split=true divide o total entre os personagens (XP de encontro); senão cada um recebe `amount`.
+    Quem passar do limiar do próximo nível ganha a subida liberada automaticamente.
+    """
+    campaign = get_campaign_or_404(id_or_slug)
+    if campaign.dm_id != request.user.id:
+        raise PermissionDenied('dm_only')
+    if campaign_leveling_mode(campaign) != 'xp':
+        raise ValidationError({'error': 'campaign_uses_milestones'})
+    amount = request.data.get('amount')
+    if not isinstance(amount, int) or isinstance(amount, bool) or not (0 < amount <= 1_000_000):
+        raise ValidationError({'error': 'invalid_amount'})
+    ids = request.data.get('characterIds', 'all')
+    members = campaign.memberships.exclude(character=None).exclude(role='dm').select_related('character')
+    if ids != 'all':
+        if not isinstance(ids, list) or not ids or not all(isinstance(i, int) for i in ids):
+            raise ValidationError({'error': 'invalid_input'})
+        members = members.filter(character_id__in=ids)
+    members = list(members)
+    if not members:
+        raise ValidationError({'error': 'no_characters'})
+    each = amount // len(members) if request.data.get('split') else amount
+
+    awarded, ready = [], []
     for m in members:
         char = m.character
-        level = int((char.data or {}).get('level') or 1)
-        open_ = Approval.objects.filter(campaign=campaign, character=char, type='levelup', status__in=('pending', 'approved'))
-        if level >= 20 or open_.filter(status='approved').exists():
-            skipped.append(char.id)
-            continue
-        payload = {'toLevel': level + 1, 'allowMulticlass': allow}
-        obj = open_.filter(status='pending').first()
-        if obj:
-            obj.payload = {**(obj.payload or {}), **payload}
-        else:
-            obj = Approval(campaign=campaign, character=char, requested_by=request.user, type='levelup', payload=payload)
-        obj.status = 'approved'
-        obj.note = note or obj.note
-        obj.reviewed_by = request.user
-        obj.reviewed_at = timezone.now()
-        obj.save()
-        granted.append(ApprovalSerializer(obj).data)
-    return Response({'granted': granted, 'skipped': skipped})
+        data = dict(char.data or {})
+        data['xp'] = int(data.get('xp') or 0) + each
+        data['levelingMode'] = 'xp'
+        char.data = data
+        char.save()
+        level = int(data.get('level') or 1)
+        awarded.append({'characterId': char.id, 'xp': data['xp']})
+        if level < 20 and data['xp'] >= XP_THRESHOLDS[level]:
+            ready.append(m)
+    granted, _ = _grant_levelups(campaign, ready, request.user, campaign_allows_multiclass(campaign),
+                                 f'XP suficiente para o nível seguinte.') if ready else ([], [])
+    log_xp(campaign, each, members, granted, request.user)
+    return Response({'each': each, 'awarded': awarded, 'granted': granted})

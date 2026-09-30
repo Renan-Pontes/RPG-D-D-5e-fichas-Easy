@@ -105,6 +105,24 @@ const divineAffinity = [
   grants: { spells: [spell] },
 }));
 
+// Mente Aberrante / Alma Mecânica 2014 (TCE): as magias da subclasse (2 por círculo,
+// ganhas nos níveis 1/3/5/7/9) podem ser trocadas, ao ganhar nível de feiticeiro, por
+// outra do mesmo círculo, das listas de feiticeiro/bruxo/mago, de certas escolas.
+// O formato não troca `autoSpells`, então cada círculo vira um pool dinâmico: as
+// magias padrão aparecem sempre (`include`) e o resto obedece ao filtro de escola.
+// Obs.: pela regra, só 1 troca por nível no total; aqui cada pool permite 1.
+const TCE_LISTS = ['sorcerer', 'warlock', 'wizard'];
+const subclassSpellPools = (prefix, pt, en, schools, defaults) => Object.fromEntries(
+  defaults.map((ids, i) => [`${prefix}${i + 1}`, {
+    name: b(`${pt} (${i + 1}º círculo)`, `${en} (level ${i + 1})`),
+    kind: 'spell', grantAs: 'spell', swapOnLevelUp: 1,
+    filter: { classes: TCE_LISTS, school: schools, level: i + 1, include: ids },
+  }]));
+const PSIONIC_DEFAULTS = [['armsOfHadar', 'dissonantWhispers'], ['calmEmotions', 'detectThoughts'], ['hungerOfHadar', 'sendingSpell'], ['blackTentacles', 'summonAberration'], ['telepathicBond', 'telekinesis']];
+const CLOCKWORK_DEFAULTS = [['alarm', 'protectionFromEvilGood'], ['aid', 'lesserRestoration'], ['dispelMagic', 'protectionFromEnergy'], ['freedomOfMovement', 'summonConstruct'], ['greaterRestoration', 'wallOfForce']];
+// Magias da subclasse por nível de feiticeiro (2 por círculo).
+const subSpellLevels = (prefix) => ({ 1: { [`${prefix}1`]: 2 }, 3: { [`${prefix}2`]: 2 }, 5: { [`${prefix}3`]: 2 }, 7: { [`${prefix}4`]: 2 }, 9: { [`${prefix}5`]: 2 } });
+
 export default {
   classId: 'sorcerer',
 
@@ -130,6 +148,8 @@ export default {
       name: b('Afinidade Divina', 'Divine Affinity'),
       options: divineAffinity,
     },
+    ...subclassSpellPools('psionicSpells', 'Magias Psiônicas', 'Psionic Spells', ['divination', 'enchantment'], PSIONIC_DEFAULTS),
+    ...subclassSpellPools('clockworkSpells', 'Magias Mecânicas', 'Clockwork Magic', ['abjuration', 'transmutation'], CLOCKWORK_DEFAULTS),
   },
 
   // 2024: 2 no nível 2, +2 no 10 e +2 no 17 (totais 2/4/6).
@@ -145,6 +165,8 @@ export default {
   legacySubclassChoices: {
     draconic: { 1: { dragonAncestor: 1 } },
     divine: { 1: { divineAffinity: 1 } },
+    aberrantmind: subSpellLevels('psionicSpells'),
+    clockworksoul: subSpellLevels('clockworkSpells'),
   },
 
   // Recursos com usos (sem espaços de magia). Subclasses de suplemento começam no

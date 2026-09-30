@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { computeProgression, validateClassOptions } from '../src/progression/engine.js';
 import { PROGRESSION_RULES_2024 } from '../src/progression/rules.js';
 import monk from '../data/class-options/monk.js';
+import { poolOptions } from '../src/progression/options-catalog.js';
 
 const sheet = (level, extra = {}) => ({
   rulesVersion: '2024', className: 'monk', subclass: '', level, race: 'human', background: 'sage', maxHp: 30, currentHp: 30,
@@ -60,13 +61,22 @@ test('Quatro Elementos: disciplinas com nível mínimo, magias concedidas e troc
   }, { levelUp: true }).valid, true);
 });
 
-test('Kensei: 2 armas + pincel no 3, +1 arma no 6', () => {
+test('Kensei: 1 arma corpo a corpo + 1 à distância + pincel no 3, +1 arma qualquer no 6', () => {
   const c = sheet(3, { subclass: 'kensei', classOptions: [pick('tool', 'flute')] });
   assert.equal(validateClassOptions(c, 'monk', { adds: [
-    { pool: 'kenseiWeapon', id: 'longsword' }, { pool: 'kenseiWeapon', id: 'longbow' }, { pool: 'kenseiBrush', id: 'paintersSupplies' },
+    { pool: 'kenseiWeaponMelee', id: 'longsword' }, { pool: 'kenseiWeaponRanged', id: 'longbow' }, { pool: 'kenseiBrush', id: 'paintersSupplies' },
   ] }).valid, true);
+  // Duas armas quaisquer no mesmo pool não valem mais no nível 3.
+  assert.equal(validateClassOptions(c, 'monk', { adds: [
+    { pool: 'kenseiWeaponMelee', id: 'longsword' }, { pool: 'kenseiWeaponMelee', id: 'rapier' },
+  ] }).valid, false);
+  // O seletor só mostra armas corpo a corpo num pool e à distância no outro.
+  const melee = poolOptions(c, 'monk', 'kenseiWeaponMelee').map(o => o.id);
+  const ranged = poolOptions(c, 'monk', 'kenseiWeaponRanged').map(o => o.id);
+  assert.ok(melee.includes('longsword') && !melee.includes('longbow'));
+  assert.ok(ranged.includes('longbow') && !ranged.includes('longsword'));
   assert.equal(computeProgression(sheet(6, { subclass: 'kensei', classOptions: [pick('tool', 'flute'),
-    pick('kenseiWeapon', 'longsword', 3), pick('kenseiWeapon', 'longbow', 3), pick('kenseiBrush', 'paintersSupplies', 3)] }))
+    pick('kenseiWeaponMelee', 'longsword', 3), pick('kenseiWeaponRanged', 'longbow', 3), pick('kenseiBrush', 'paintersSupplies', 3)] }))
     .pendingChoices.find(p => p.pool === 'kenseiWeapon')?.missing, 1);
 });
 
@@ -119,12 +129,12 @@ test('disciplinas elementais: troca só ao chegar em 6, 11 ou 17', () => {
 });
 
 test('fichas 2014 também têm as escolhas de tradição (legacySubclassChoices)', () => {
-  for (const [subclass, pool] of [['fourelements', 'elementalDiscipline'], ['kensei', 'kenseiWeapon'], ['ascendantdragon', 'dragonLanguage'], ['mercy', 'subclassProficiencies'], ['drunkenmaster', 'subclassProficiencies']]) {
+  for (const [subclass, pool] of [['fourelements', 'elementalDiscipline'], ['kensei', 'kenseiWeaponMelee'], ['ascendantdragon', 'dragonLanguage'], ['mercy', 'subclassProficiencies'], ['drunkenmaster', 'subclassProficiencies']]) {
     const c = sheet(3, { rulesVersion: '2014', subclass, classOptions: [pick('tool', 'flute')] });
     assert.ok(computeProgression(c).pendingChoices.some(p => p.pool === pool), subclass);
   }
   const k = sheet(3, { rulesVersion: '2014', subclass: 'kensei', classOptions: [pick('tool', 'flute')] });
-  assert.equal(validateClassOptions(k, 'monk', { adds: [{ pool: 'kenseiWeapon', id: 'pistol' }] }).valid, false);
+  assert.equal(validateClassOptions(k, 'monk', { adds: [{ pool: 'kenseiWeaponRanged', id: 'pistol' }] }).valid, false);
 });
 
 test('recursos do monge: forma e versões', () => {
@@ -140,4 +150,21 @@ test('recursos do monge: forma e versões', () => {
   const focus = monk.resources.find(x => x.id === 'focusPoints');
   assert.deepEqual([focus.rules, focus.recharge, focus.minLevel, focus.uses.classLevel], ['2024', 'short', 2, true]);
   assert.equal(monk.resources.find(x => x.id === 'ki').rules, '2014');
+});
+
+test('Kensei antigo (2 × kenseiWeapon no nível 3) migra para os pools corpo a corpo/à distância', async () => {
+  const { migrateClassOptions, validateOptionPicks } = await import('../src/progression/options.js');
+  const old = {
+    rulesVersion: '2014', className: 'monk', subclass: 'kensei', level: 4, abilities: { str: 10, dex: 16, con: 12, int: 10, wis: 14, cha: 8 },
+    classOptions: [
+      { classId: 'monk', pool: 'kenseiWeapon', id: 'longsword', level: 3 },
+      { classId: 'monk', pool: 'kenseiWeapon', id: 'longbow', level: 3 },
+      { classId: 'monk', pool: 'kenseiBrush', id: (await import('../data/class-options/monk.js')).default.pools.kenseiBrush.options[0].id, level: 3 },
+    ],
+  };
+  const m = migrateClassOptions(old);
+  assert.deepEqual(m.classOptions.filter(p => p.pool.startsWith('kenseiWeapon')).map(p => [p.pool, p.id]),
+    [['kenseiWeaponMelee', 'longsword'], ['kenseiWeaponRanged', 'longbow']]);
+  assert.equal(migrateClassOptions(m), m); // idempotente
+  assert.equal(validateOptionPicks(old, 'monk', {}, 4).valid, true);
 });

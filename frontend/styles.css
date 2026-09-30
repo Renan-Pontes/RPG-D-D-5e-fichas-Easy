@@ -3009,8 +3009,20 @@ label {
 .subclass-strip-name { font-family: var(--display); color: var(--gold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Abas roláveis: esmaece a borda e deixa respiro para a última aba aparecer inteira */
-.tabs { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
-.tabs::after { content: ''; flex: 0 0 28px; }
+/* Abas roláveis: setas com esmaecimento nas bordas (components/ScrollTabs.jsx) */
+.tabs-arrow {
+  position: sticky; z-index: 1; flex: 0 0 36px; align-self: stretch; min-height: 40px;
+  border: 0; padding: 0; cursor: pointer; color: var(--gold-bright);
+  font-family: var(--display); font-size: 1.5rem; line-height: 1;
+}
+.tabs-arrow.right { margin-left: -36px; text-align: right; padding-right: 4px;
+  background: linear-gradient(to right, transparent, var(--tabs-bg, var(--bg-base)) 55%); }
+.tabs-arrow.left { margin-right: -36px; text-align: left; padding-left: 4px;
+  background: linear-gradient(to left, transparent, var(--tabs-bg, var(--bg-base)) 55%); }
+.tabs-arrow:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+/* sticky conta a partir do padding da barra: compensa para encostar na borda */
+.tabs-arrow.right { right: calc(-1 * var(--tabs-pad, 0px)); }
+.tabs-arrow.left { left: calc(-1 * var(--tabs-pad, 0px)); }
 
 /* Gemas giradas ocupam mais que a caixa: espaço para não encostarem no texto */
 .slot-pips, .slot-row .slot-pips, .slot-pips.wild { gap: 14px; padding: 4px 7px; }
@@ -3174,3 +3186,12 @@ body:has(.wizard-footer) .dice-fab { bottom: calc(92px + env(safe-area-inset-bot
 .approval-detail { margin: 6px 0; font-size: 0.9rem; color: var(--ink-secondary); }
 .rule-toggle { font-family: var(--body); font-size: 0.95rem; text-transform: none; letter-spacing: 0; color: var(--ink-primary); }
 .rule-toggle strong { color: var(--gold-bright); }
+
+/* Evolução da mesa: modo de progressão (Marcos/XP) e entrega de XP */
+.leveling-mode { flex-wrap: wrap; align-items: center; cursor: default; }
+.leveling-mode .seg { display: inline-flex; gap: 4px; }
+.leveling-mode .muted { flex-basis: 100%; }
+.xp-award { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.xp-award input[type="number"] { width: 110px; font-size: 16px; }
+.xp-split { display: inline-flex; gap: 6px; align-items: center; min-height: 40px; font-family: var(--body); text-transform: none; letter-spacing: 0; }
+.xp-split input { width: 18px; height: 18px; min-height: 0; }

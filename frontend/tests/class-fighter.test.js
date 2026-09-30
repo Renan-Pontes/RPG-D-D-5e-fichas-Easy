@@ -135,3 +135,20 @@ test('recursos do guerreiro: formato e cobertura', () => {
   assert.equal(sw.shortRestRegain, 1);
   assert.ok(fighter.pools.rune.options.every(o => o.resource?.recharge === 'short'));
 });
+
+test('guerreiro 2014: Técnica Superior abre 1 manobra do pool e dá 1 dado de superioridade', async () => {
+  const { computeResources } = await import('../src/progression/resources.js');
+  const c = base({ rulesVersion: '2014' });
+  const st = [{ classId: 'fighter', pool: 'fightingStyle', id: 'superiorTechnique', level: 1 }];
+  assert.ok(validateClassOptions(c, 'fighter', { adds: [{ pool: 'fightingStyle', id: 'superiorTechnique' }, { pool: 'maneuver', id: 'riposte' }] }).valid);
+  const withSt = { ...c, classOptions: st };
+  assert.ok(pendingPools(computeProgression(withSt)).some(([pool, n]) => pool === 'maneuver' && n === 1));
+  assert.ok(!fighter.pools.fightingStyle.options.find(o => o.id === 'superiorTechnique').detail, 'sem texto livre');
+  const res = computeResources(withSt).find(r => r.id === 'fightingStyle.superiorTechnique');
+  assert.equal(res?.max, 1);
+  assert.equal(res?.die, 'd6');
+  assert.equal(res?.recharge, 'short');
+  // Paladino 2014 não pode pegar o estilo (não está na lista dele).
+  assert.ok(!validateClassOptions({ rulesVersion: '2014', className: 'paladin', level: 2, classOptions: [] }, 'paladin',
+    { adds: [{ pool: 'fightingStyle', id: 'superiorTechnique' }] }).valid);
+});

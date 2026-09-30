@@ -11,6 +11,8 @@
  * Chaves especiais: 'feat' (talento em char.feats com origin: 'species'),
  * 'asi' (bônus de atributo da espécie, `pattern`), 'cantrip' (truque de uma lista).
  */
+import { SUBRACE_EFFECTS_2014 } from './subraces-2014.js';
+
 const b = (pt, en) => ({ pt, en });
 const T = (pt, en, dpt, den, extra = {}) => ({ name: b(pt, en), desc: b(dpt, den), ...extra });
 
@@ -193,7 +195,7 @@ export const SPECIES_2014_CHOICES = {
     choices: [{ key: 'cantrip', label: b('Truque de Mago', 'Wizard cantrip'), list: 'wizard' }] },
   'elf-wood': { skills: ['perception'] },
   'gnome-forest': { cantrips: ['minorIllusion'], fixedSpellAbility: 'int' },
-  tiefling: { resist: ['fire'], cantrips: ['thaumaturgy'], spells: { 5: ['darkness'] }, fixedSpellAbility: 'cha' },
+  tiefling: { resist: ['fire'], cantrips: ['thaumaturgy'], spells: { 3: ['hellishRebuke'], 5: ['darkness'] }, fixedSpellAbility: 'cha' },
   aasimar: { resist: ['necrotic', 'radiant'], cantrips: ['light'], fixedSpellAbility: 'cha' },
   'half-elf': { choices: [{ key: 'skill', label: b('Versatilidade em Perícias', 'Skill Versatility'), count: 2 }] },
   'human-variant': { choices: [
@@ -211,4 +213,6 @@ export const SPECIES_2014_CHOICES = {
     ] },
     { key: 'skill', label: b('Perícia', 'Skill'), when: { bonus: 'skill' } },
   ] },
+  // Sub-raças de suplementos: data/subraces-2014.js.
+  ...SUBRACE_EFFECTS_2014,
 };

@@ -116,3 +116,35 @@ test('feiticeiro: recursos com usos', () => {
   assert.deepEqual(res.find(r => r.id === 'restoreBalance').uses, { ability: 'cha', min: 1 });
   assert.deepEqual(res.find(r => r.id === 'restoreBalance2014').uses, { profBonus: true });
 });
+
+test('feiticeiro 2014: Mente Aberrante / Alma Mecânica escolhem as magias da subclasse e podem trocá-las', async () => {
+  const { poolOptions } = await import('../src/progression/options-catalog.js');
+  const ab = base({ rulesVersion: '2014', level: 1, subclass: 'aberrantmind' });
+  assert.ok(pending(ab).some(([pool, n]) => pool === 'psionicSpells1' && n === 2));
+  assert.ok(pending({ ...ab, level: 9 }).some(([pool, n]) => pool === 'psionicSpells5' && n === 2));
+  const opts1 = poolOptions(ab, 'sorcerer', 'psionicSpells1').map(o => o.id);
+  assert.ok(opts1.includes('armsOfHadar') && opts1.includes('dissonantWhispers'), 'padrões sempre listados');
+  assert.ok(opts1.includes('charmPerson'), 'encantamento de 1º círculo das listas');
+  assert.ok(!opts1.includes('magicMissile'), 'evocação fora');
+  assert.ok(!opts1.includes('detectThoughts'), 'outro círculo fora');
+  const picked = { ...ab, level: 2, classOptions: [pick('psionicSpells1', 'armsOfHadar', 1), pick('psionicSpells1', 'dissonantWhispers', 1)] };
+  assert.ok(computeProgression(picked).autoSpells.includes('armsOfHadar'));
+  assert.ok(validateClassOptions(picked, 'sorcerer', { swaps: [{ pool: 'psionicSpells1', from: 'armsOfHadar', to: 'charmPerson' }] }, { levelUp: true }).valid);
+  assert.ok(!validateClassOptions(picked, 'sorcerer', { swaps: [{ pool: 'psionicSpells1', from: 'armsOfHadar', to: 'charmPerson' }] }).valid, 'só ao subir de nível');
+  const cw = base({ rulesVersion: '2014', level: 3, subclass: 'clockworksoul' });
+  const cw2 = poolOptions(cw, 'sorcerer', 'clockworkSpells2').map(o => o.id);
+  assert.ok(cw2.includes('aid') && cw2.includes('lesserRestoration'));
+  assert.ok(cw2.includes('enlargeReduce') || cw2.includes('alterSelf'), 'transmutação de 2º círculo');
+  // 2024 continua com magias fixas.
+  assert.ok(!pending(base({ level: 3, subclass: 'aberrantmind' })).some(([pool]) => pool.startsWith('psionicSpells')));
+});
+
+test('feiticeiro Alma Divina: seletor de magias libera a lista de clérigo (2014 e 2024)', async () => {
+  const { default: Utils } = await import('../utils.js');
+  const cure = Utils.spellCatalog({}).find(s => s.id === 'cureWounds');
+  assert.ok(!cure.classes.includes('sorcerer'));
+  assert.ok(Utils.inSpellList(base({ rulesVersion: '2014', subclass: 'divine' }), cure));
+  assert.ok(!Utils.inSpellList(base({ rulesVersion: '2014', subclass: 'draconic' }), cure));
+  const cure24 = Utils.spellCatalog({ rulesVersion: '2024' }).find(s => s.id === 'cureWounds');
+  assert.ok(Utils.inSpellList(base({ level: 3, subclass: 'divine' }), cure24));
+});

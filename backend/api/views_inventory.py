@@ -26,6 +26,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 
 from .models import Character, Membership
 from .serializers import CharacterSerializer
+from .diary import log_item_given
 
 
 # ============================================================
@@ -104,6 +105,8 @@ def inventory_add(request, pk):
     data['equipment'] = inventory
     char.data = data
     char.save()
+    if in_camp:
+        log_item_given(char, new_item, request.user)
     return Response({'character': CharacterSerializer(char).data, 'item': new_item})
 
 

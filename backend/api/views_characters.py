@@ -5,6 +5,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 
 from .models import Character, Membership
 from .serializers import CharacterSerializer
+from .diary import log_long_rest, log_short_rest
 from .permissions import can_read_character
 from . import wild_shape as ws_engine
 from . import spells as spells_engine
@@ -252,6 +253,30 @@ def campaign_long_rest_all(request, id_or_slug):
             m.character.data = rest_resources(spells_engine.long_rest(m.character.data or {}), 'long')
             m.character.save()
             affected.append(m.character.id)
+    log_long_rest(campaign, affected, request.user)
+    return Response({'restedCharacters': affected})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def campaign_short_rest_all(request, id_or_slug):
+    """DM aplica descanso curto em todos os PCs da campanha (análogo ao longo).
+
+    Só o que volta sozinho no descanso curto (recursos de classe "short",
+    espaços do Pacto do bruxo, usos da Forma Selvagem). PV/dados de vida
+    ficam com cada jogador, que decide quantos dados gastar.
+    """
+    from .permissions import get_campaign_or_404, require_dm
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    members = Membership.objects.filter(campaign=campaign).exclude(role='dm').select_related('character')
+    affected = []
+    for m in members:
+        if m.character:
+            m.character.data = rest_resources(spells_engine.short_rest(m.character.data or {}), 'short')
+            m.character.save()
+            affected.append(m.character.id)
+    log_short_rest(campaign, affected, request.user)
     return Response({'restedCharacters': affected})
 
 

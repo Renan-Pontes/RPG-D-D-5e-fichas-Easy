@@ -203,7 +203,14 @@ export default {
 
   pools: {
     // Estilo de Luta 2024: pode trocar o talento a cada nível de Guerreiro.
-    fightingStyle: { ...SHARED.fightingStyle, swapOnLevelUp: 1 },
+    // Técnica Superior (TCE): a manobra vem do pool `maneuver` (1 vaga) e o dado d6 vira recurso.
+    fightingStyle: {
+      ...SHARED.fightingStyle, swapOnLevelUp: 1,
+      options: SHARED.fightingStyle.options.map(o => (o.id === 'superiorTechnique' ? {
+        ...o, choices: { maneuver: 1 },
+        resource: { uses: { fixed: 1 }, recharge: 'short', die: { byLevel: { 1: 'd6' } } },
+      } : o)),
+    },
     weaponMastery: SHARED.weaponMastery,
     maneuver: {
       name: b('Manobras', 'Maneuvers'),

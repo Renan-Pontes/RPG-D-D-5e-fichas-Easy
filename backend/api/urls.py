@@ -1,5 +1,7 @@
 from django.urls import path
-from . import views_auth, views_characters, views_campaigns, views_approvals, views_dice, views_screen, views_combat, views_inventory, views_items
+from . import views_checks
+from . import views_adventures
+from . import views_auth, views_characters, views_campaigns, views_approvals, views_dice, views_screen, views_combat, views_inventory, views_items, views_diary
 
 urlpatterns = [
     # Auth
@@ -23,6 +25,7 @@ urlpatterns = [
     path('characters/<int:pk>/inventory/<str:item_id>', views_inventory.inventory_item),
     path('characters/<int:pk>/inventory/<str:item_id>/consume', views_inventory.inventory_consume),
     path('campaigns/<str:id_or_slug>/long-rest-all', views_characters.campaign_long_rest_all),
+    path('campaigns/<str:id_or_slug>/short-rest-all', views_characters.campaign_short_rest_all),
     path('characters/<int:pk>/wild-shape/transform', views_characters.wild_shape_transform),
     path('characters/<int:pk>/wild-shape/end', views_characters.wild_shape_end),
     path('characters/<int:pk>/wild-shape/force-end', views_characters.wild_shape_force_end),
@@ -36,10 +39,21 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/rotate-invite-code', views_campaigns.campaign_rotate_invite),
     path('campaigns/<str:id_or_slug>/items', views_items.campaign_items),
     path('campaigns/<str:id_or_slug>/items/<int:item_pk>', views_items.campaign_item_detail),
+    path('campaigns/<str:id_or_slug>/diary', views_diary.campaign_diary),
+    path('campaigns/<str:id_or_slug>/diary/sessions', views_diary.campaign_diary_start_session),
+    path('campaigns/<str:id_or_slug>/diary/sessions/<int:number>', views_diary.campaign_diary_session),
+    path('campaigns/<str:id_or_slug>/diary/<int:entry_pk>', views_diary.campaign_diary_entry),
+
+    # Preparação do mestre (aventuras como mapa de salas/cenas) — só mestre
+    path('campaigns/<str:id_or_slug>/adventures', views_adventures.adventure_list),
+    path('campaigns/<str:id_or_slug>/adventures/<int:pk>', views_adventures.adventure_detail),
+    path('campaigns/<str:id_or_slug>/adventures/<int:pk>/play', views_adventures.adventure_play),
+    path('campaigns/<str:id_or_slug>/adventures/<int:pk>/screen', views_adventures.adventure_screen),
 
     # Approvals
     path('approvals/campaign/<str:id_or_slug>', views_approvals.campaign_approvals),
     path('approvals/campaign/<str:id_or_slug>/grant-levelup', views_approvals.campaign_grant_levelup),
+    path('campaigns/<str:id_or_slug>/award-xp', views_approvals.campaign_award_xp),
     path('approvals/<int:pk>/review', views_approvals.approval_review),
     path('approvals/<int:pk>/consume', views_approvals.approval_consume),
 
@@ -48,6 +62,14 @@ urlpatterns = [
     path('dice/campaign/<str:id_or_slug>/rigs', views_dice.campaign_rigs),
     path('dice/campaign/<str:id_or_slug>/log', views_dice.campaign_dice_log),
     path('dice/rigs/<int:pk>', views_dice.rig_detail),
+
+    # Pedido de teste do mestre para a mesa ("Todos: Percepção CD 15")
+    path('checks/mine', views_checks.my_checks),
+    path('checks/campaign/<str:id_or_slug>', views_checks.campaign_checks),
+    path('checks/<int:pk>', views_checks.check_detail),
+    path('checks/<int:pk>/respond', views_checks.check_respond),
+    path('checks/<int:pk>/close', views_checks.check_close),
+    path('checks/<int:pk>/screen', views_checks.check_screen),
 
     # Screen (público)
     path('screen/<str:token>', views_screen.screen),

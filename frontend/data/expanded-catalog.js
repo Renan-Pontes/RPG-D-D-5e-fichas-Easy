@@ -56,6 +56,7 @@ export const SOURCES = {
   PHB: "Player's Handbook (2014)", DMG: "Dungeon Master's Guide (2014)",
   XGE: "Xanathar's Guide to Everything", TCE: "Tasha's Cauldron of Everything",
   SCAG: "Sword Coast Adventurer's Guide", MPMM: 'Monsters of the Multiverse',
+  VGM: "Volo's Guide to Monsters", MTF: "Mordenkainen's Tome of Foes",
   ERLW: 'Eberron: Rising from the Last War', GGR: "Guildmasters' Guide to Ravnica",
   AAG: "Astral Adventurer's Guide", SCC: 'Strixhaven: A Curriculum of Chaos',
   VRGR: "Van Richten's Guide to Ravenloft", FTD: "Fizban's Treasury of Dragons",

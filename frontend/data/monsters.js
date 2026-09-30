@@ -1,5 +1,6 @@
 /**
- * Bestiário SRD 5.1 expandido para uso em combate.
+ * Bestiário para uso em combate: SRD 5.1/5.2.1 e alguns monstros de outros livros
+ * (Displacer Beast, Orog, Troglodyte, Banshee) só com números e resumo próprio.
  *
  * Formato:
  *   id, name {pt,en}, cr (string), crNum (number),
@@ -22,7 +23,8 @@
  *
  * Crédito: SRD 5.1 (Wizards of the Coast), CC-BY 4.0.
  *
- * Cobertura: ~130 criaturas, CR 0 a 12.
+ * Cobertura: 62 criaturas, ND 0 a 12. Catálogo antigo: o combate usa data/bestiary.js (SRD 5.2.1
+ * + as criaturas daqui que não existem no 5.2.1).
  */
 
 const MONSTERS = [
@@ -982,7 +984,7 @@ const MONSTERS = [
       { name: { pt: 'Toque Corruptor', en: 'Corrupting Touch' }, type: 'melee', atk: 4, range: '5 ft', damage: '3d6+2', damageType: 'necrotic' },
       { name: { pt: 'Olhar Horrível', en: 'Horrifying Visage' }, type: 'special', save: { ability: 'WIS', dc: 13 },
         desc: { pt: 'Criaturas humanoides em 60 ft: SAL SAB 13 ou amedrontadas por 1 min.', en: 'Humanoids in 60 ft: WIS save DC 13 or frightened 1 min.' } },
-      { name: { pt: 'Gritar', en: 'Wail' }, type: 'special', save: { ability: 'CON', dc: 13 },
+      { name: { pt: 'Gritar', en: 'Wail' }, type: 'special', save: { ability: 'CON', dc: 13 }, uses: 1, usesPer: 'day',
         desc: { pt: '1×/dia ao anoitecer. Criaturas em 30 ft: SAL CON 13 ou caem a 0 HP.', en: '1/day at dusk. CON save DC 13 or drop to 0 HP.' } },
     ],
   },

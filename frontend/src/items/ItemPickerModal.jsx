@@ -1,4 +1,5 @@
 /* Escolhe um item do catálogo SRD, do catálogo da campanha ou cadastra um novo. */
+import { errorMessage } from '../api/errors.js';
 import { useMemo, useState } from 'react';
 import { ITEMS, ITEM_TYPES, instantiate } from '../../data/items.js';
 import ItemForm, { typeLabel } from './ItemForm.jsx';
@@ -44,7 +45,7 @@ export default function ItemPickerModal({ lang, title, confirmLabel, campaignIte
       await onPick(instantiate(src, { qty: Math.max(1, parseInt(qty) || 1), name: nameOf(src, lang) }));
       onClose();
     } catch (e) {
-      setError(e?.data?.error || e?.message || 'failed');
+      setError(errorMessage(e));
     } finally { setBusy(false); }
   };
 
@@ -84,7 +85,7 @@ export default function ItemPickerModal({ lang, title, confirmLabel, campaignIte
         ) : (
           <>
             <div className="row gap-2" style={{ flexWrap: 'wrap', marginBottom: 8 }}>
-              <input className="input" placeholder={t(lang, 'Buscar…', 'Search…')} value={query} onChange={e => setQuery(e.target.value)} style={{ flex: 2 }} />
+              <input aria-label={t(lang, 'Buscar…', 'Search…')} className="input" placeholder={t(lang, 'Buscar…', 'Search…')} value={query} onChange={e => setQuery(e.target.value)} style={{ flex: 2 }} />
               <select className="input" value={type} onChange={e => setType(e.target.value)} style={{ flex: 1 }}>
                 <option value="">{t(lang, 'Todos os tipos', 'All types')}</option>
                 {ITEM_TYPES.map(ty => <option key={ty} value={ty}>{typeLabel(ty, lang)}</option>)}

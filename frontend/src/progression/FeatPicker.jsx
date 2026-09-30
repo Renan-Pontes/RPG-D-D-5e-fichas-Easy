@@ -208,7 +208,7 @@ function ChoiceField({ char, lang, c, picks, setPick }) {
       )}
       {CUSTOM.has(c.key) && cur.length < c.count && (
         <div className="row gap-2" style={{ marginTop: 6 }}>
-          <input value={custom} maxLength={60} onChange={e => setCustom(e.target.value)}
+          <input aria-label={c.key === 'skillOrTool' ? L(lang, 'Ferramenta…', 'Tool…') : L(lang, 'Outro…', 'Other…')} value={custom} maxLength={60} onChange={e => setCustom(e.target.value)}
             placeholder={c.key === 'skillOrTool' ? L(lang, 'Ferramenta…', 'Tool…') : L(lang, 'Outro…', 'Other…')} />
           <button type="button" className="btn btn-ghost" disabled={!custom.trim() || cur.includes(custom.trim())}
             onClick={() => { setPick(c.key, [...cur, custom.trim()]); setCustom(''); }}>{L(lang, 'Adicionar', 'Add')}</button>
@@ -312,7 +312,7 @@ export default function FeatPicker({ char, lang, level, kind, hasFightingStyle, 
       ) : custom ? (
         <>
           <label>{L(lang, 'Nome do talento', 'Feat name')}</label>
-          <input value={value.feat || ''} maxLength={120} onChange={e => onChange({ ...value, feat: e.target.value })}
+          <input aria-label={L(lang, 'Talento da casa…', 'Homebrew feat…')} value={value.feat || ''} maxLength={120} onChange={e => onChange({ ...value, feat: e.target.value })}
             placeholder={L(lang, 'Talento da casa…', 'Homebrew feat…')} />
           <label style={{ marginTop: 8 }}>{L(lang, 'O que ele faz (opcional)', 'What it does (optional)')}</label>
           <textarea value={value.note || ''} maxLength={500} onChange={e => onChange({ ...value, note: e.target.value })} />
@@ -324,7 +324,7 @@ export default function FeatPicker({ char, lang, level, kind, hasFightingStyle, 
         </>
       ) : (
         <>
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder={L(lang, 'Buscar talento…', 'Search feats…')} style={{ marginBottom: 8 }} />
+          <input aria-label={L(lang, 'Buscar talento…', 'Search feats…')} value={q} onChange={e => setQ(e.target.value)} placeholder={L(lang, 'Buscar talento…', 'Search feats…')} style={{ marginBottom: 8 }} />
           <div style={{ display: 'grid', gap: 6 }}>
             {list.map(({ f, issues }) => {
               const blocked = issues.length > 0 && !cheat;

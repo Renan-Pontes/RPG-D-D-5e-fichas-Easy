@@ -15,6 +15,13 @@ O catálogo ampliado não equivale à automação completa de todos os livros. O
 
 Escolhas de classe (invocações, metamagia, manobras, estilos de luta, maestria em armas, ordens, expertise etc.), textos revisados dos traços 2024 e as subclasses de todos os livros oficiais ficam em `frontend/data/class-options/` (formato no README de lá), com o motor em `frontend/src/progression/options.js` e a validação espelhada no backend. Traços revisados das espécies 2024 (resumos PT/EN do SRD, mais o Aasimar do PHB 2024 em resumo próprio) e as escolhas de espécie de 2024 e 2014 (linhagens, legados, ancestrais, tamanho, perícia, talento do Humano/humano variante/linhagem personalizada) ficam em `frontend/data/species-2024.js`, com o motor em `frontend/src/progression/species.js` (`char.speciesChoices`; magias da linhagem espelhadas no backend). Talentos estão catalogados em `frontend/data/feats.js`; magias fora do SRD, em `frontend/data/spells-extra.js`. Fora do SRD, tudo é resumo original: o levantamento usou o XML do Aurora Builder apenas como referência de estrutura (nomes, níveis, pré-requisitos), sem copiar texto. Dados do *Eberron: Forge of the Artificer* vieram de fonte de terceiros e estão marcados "conferir no livro".
 
+O bestiário do combate tem as 331 criaturas do SRD 5.2.1 (ND 0–30), importadas da [API Open5e v2](https://api.open5e.com/v2/creatures/?document__key=srd-2024) pelo script `scripts/import-open5e-monsters.mjs`. O script aceita somente o documento `srd-2024`. Os demais documentos do Open5e são conteúdo OGL de terceiros e não são importados. O resultado é gerado em `frontend/data/monsters-srd521.js`, com ataques, dano adicional, salvaguardas com CD, recarga, usos por dia, ações bônus, reações e ações e resistências lendárias estruturados. O texto das regras segue em inglês, e os nomes em português são tradução própria (`scripts/monster-names-pt.mjs`). A API não informa quantas ações lendárias cada criatura tem, então usamos o padrão do SRD 5.2.1: 3 por rodada, ou 4 no covil. `frontend/data/bestiary.js` junta esse catálogo às criaturas de `frontend/data/monsters.js` que não existem no 5.2.1: orc e homem-lagarto (SRD 5.1) e quatro criaturas de fora do SRD, que têm só números e um resumo próprio. Os animais da Forma Selvagem (`SRD.BEASTS`) continuam como estão. No combate, eles usam a versão 5.2.1.
+
+```sh
+node scripts/import-open5e-monsters.mjs --cache /tmp/open5e          # baixa e regenera
+node scripts/import-open5e-monsters.mjs --cache /tmp/open5e --check  # confere se o arquivo está em dia
+```
+
 Os dados antigos são mantidos somente para compatibilidade com fichas existentes; não são a versão padrão de novas fichas. Os dados de progressão do backend são gerados pelo mesmo catálogo usado pelo frontend:
 
 ```sh

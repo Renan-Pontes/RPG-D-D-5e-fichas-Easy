@@ -67,6 +67,9 @@ def campaign_detail(request, id_or_slug):
     if 'state' in request.data:
         if not isinstance(request.data['state'], dict):
             raise ValidationError({'state': 'must be object'})
+        mode = request.data['state'].get('levelingMode')
+        if mode is not None and mode not in ('xp', 'milestone'):
+            raise ValidationError({'levelingMode': 'must be xp or milestone'})
         obj.state = request.data['state']
     obj.save()
     return Response({'campaign': CampaignSerializer(obj, context={'request': request}).data})

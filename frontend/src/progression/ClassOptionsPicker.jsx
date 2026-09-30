@@ -1,6 +1,7 @@
 /* Seletor de opções de classe (invocações, metamagia, manobras…).
  * Usado na subida de nível e para resolver pendências pelo painel de progressão.
  * value: { adds: [{pool, id, detail?}], swaps: [{pool, from, to}] } */
+import { errorMessage } from '../api/errors.js';
 import { useMemo, useState } from 'react';
 import { Modal } from '../../components/Shared.jsx';
 import { validateClassOptions } from './engine.js';
@@ -153,7 +154,7 @@ export function ClassOptionsModal({ char, classId, lang, onConfirm, onClose }) {
   const confirm = async () => {
     setBusy(true); setError('');
     try { await onConfirm(classId, picks); onClose(); }
-    catch (e) { setError(e?.data?.issues?.join(' · ') || e?.data?.error || e?.message || 'Falha'); }
+    catch (e) { setError(errorMessage(e)); }
     finally { setBusy(false); }
   };
   return (

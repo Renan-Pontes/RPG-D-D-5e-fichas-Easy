@@ -178,6 +178,22 @@ const pools = {
     kind: 'skill', grantAs: 'skill',
     filter: { from: BARBARIAN_SKILLS },
   },
+  // Fichas 2014: recurso opcional do Tasha (TCE), decidido nos níveis 3 e 10.
+  tceOptional: {
+    name: b('Conhecimento Primal (TCE, opcional)', 'Primal Knowledge (TCE, optional)'),
+    options: [
+      { id: 'primalKnowledge', name: b('Conhecimento Primal (TCE)', 'Primal Knowledge (TCE)'), source: 'TCE', rules: '2014',
+        prereq: { level: 3 },
+        desc: b('Opcional: ganha proficiência em 1 perícia da lista do bárbaro (outra no nível 10).', 'Optional: gain proficiency in 1 skill from the barbarian list (another at level 10).'),
+        choices: { primalKnowledge: 1 } },
+      { id: 'primalKnowledge10', name: b('Conhecimento Primal, 2ª perícia (TCE)', 'Primal Knowledge, 2nd skill (TCE)'), source: 'TCE', rules: '2014',
+        prereq: { level: 10, options: ['primalKnowledge'] },
+        desc: b('Mais 1 perícia da lista do bárbaro.', 'One more skill from the barbarian list.'),
+        choices: { primalKnowledge: 1 } },
+      { id: 'baseRules', name: b('Não usar (regra-base)', "Don't use (base rules)"), source: 'SRD', rules: '2014', repeatable: true,
+        desc: b('Mantém só a regra-base do PHB neste nível.', 'Keep only the PHB base rule at this level.') },
+    ],
+  },
 
   // Coração Selvagem, 6º: escolha persistente, troca após Descanso Longo.
   wildHeartAspect: {
@@ -561,6 +577,11 @@ export default {
     3: { primalKnowledge: 1 },
     4: { weaponMastery: 1 },
     10: { weaponMastery: 1 },
+  },
+  // 2014: Conhecimento Primal (TCE) é opcional — nos níveis 3 e 10 decide-se usar ou não.
+  legacyChoices: {
+    3: { tceOptional: 1 },
+    10: { tceOptional: 1 },
   },
   subclassChoices: {
     wildHeart: { 6: { wildHeartAspect: 1 } },

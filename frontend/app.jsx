@@ -1,5 +1,6 @@
 /* Main app orchestrator */
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { errorMessage } from './src/api/errors.js';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import Utils from './utils.js';
 import { t } from './data/i18n.js';
 import Icon from './components/Icons.jsx';
@@ -20,10 +21,12 @@ import ProgressionPanel from './src/progression/ProgressionPanel.jsx';
 import { applyAutosToCharacter, applyLevelUpChoices, applyLevelChoice, applyClassOptions, revertLastLevel } from './src/progression/engine.js';
 import LevelUpModal from './src/progression/LevelUpModal.jsx';
 import { ClassOptionsModal } from './src/progression/ClassOptionsPicker.jsx';
+// Grimório (regras para jogadores): chunk próprio, só carrega quando aberto.
+const GrimoireScreen = lazy(() => import('./src/grimoire/GrimoireScreen.jsx'));
 
 const SCREENS = {
   HOME: 'home', CREATE: 'create', SHEET: 'sheet', EDIT: 'edit', PRINT: 'print',
-  AUTH: 'auth', CAMPAIGNS: 'campaigns', CAMPAIGN: 'campaign',
+  AUTH: 'auth', CAMPAIGNS: 'campaigns', CAMPAIGN: 'campaign', GRIMOIRE: 'grimoire',
 };
 
 const App = () => {
@@ -37,6 +40,25 @@ const App = () => {
   const [confirm, setConfirm] = useState(null);
   const [activeCampaignId, setActiveCampaignId] = useState(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  // Grimório: aberto pelo cabeçalho ou por link #grimorio/<regra> (volta pra tela anterior).
+  const [grimoire, setGrimoire] = useState(null); // { id, q, from }
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
+  const openGrimoire = useCallback((id = null, q = '') => {
+    const prev = screenRef.current;
+    setGrimoire(g => ({ id, q, from: prev === SCREENS.GRIMOIRE ? (g?.from || SCREENS.HOME) : prev }));
+    setScreen(SCREENS.GRIMOIRE);
+  }, []);
+  useEffect(() => {
+    const onHash = () => {
+      const m = /^#(?:grimorio|grimoire)(?:\/([^?]*))?(?:\?q=(.*))?$/i.exec(window.location.hash);
+      if (m) openGrimoire(m[1] ? decodeURIComponent(m[1]) : null, m[2] ? decodeURIComponent(m[2]) : '');
+    };
+    onHash();
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, [openGrimoire]);
 
   // Adapter de storage: muda quando o login muda
   const storage = useMemo(() => createStorageAdapter({ remote: !!auth.user }), [auth.user]);
@@ -61,6 +83,9 @@ const App = () => {
   }, [storage, auth.loading]);
 
   useEffect(() => { refreshCharacters(); }, [refreshCharacters]);
+
+  // Login/cadastro concluído: sai da tela de entrada.
+  useEffect(() => { if (auth.user && screen === SCREENS.AUTH) setScreen(SCREENS.HOME); }, [auth.user, screen]);
 
   // Migração toast
   useEffect(() => {
@@ -150,12 +175,12 @@ const App = () => {
   };
 
   // PDF no layout da ficha oficial de D&D 5e (pdf-lib só carrega quando usado).
-  const handleExportPdf = async (char) => {
+  const handleExportPdf = async (char, { flatten = false } = {}) => {
     try {
       const [{ downloadDnd5ePdf }, { speciesSummary }] = await Promise.all([
         import('./src/pdf/export-pdf.js'), import('./src/progression/SpeciesChoices.jsx'),
       ]);
-      await downloadDnd5ePdf(char, lang, { speciesSummary });
+      await downloadDnd5ePdf(char, lang, { speciesSummary, flatten });
       setToast(lang === 'pt' ? 'PDF gerado.' : 'PDF created.');
     } catch (e) {
       console.error(e);
@@ -287,7 +312,7 @@ const App = () => {
         ? `Solicitação enviada para "${targetCamp.name}". Aguarde o mestre liberar.`
         : `Request sent to "${targetCamp.name}". Waiting for DM unlock.`);
     } catch (e) {
-      setToast(e?.data?.error || e?.message || 'Falha ao enviar.');
+      setToast(errorMessage(e));
     }
   };
 
@@ -347,6 +372,14 @@ const App = () => {
   // === Render ===
   let content;
   switch (screen) {
+    case SCREENS.GRIMOIRE:
+      content = (
+        <Suspense fallback={<div className="muted" style={{ padding: 24 }}>{lang === 'pt' ? 'Abrindo o Grimório…' : 'Opening the Grimoire…'}</div>}>
+          <GrimoireScreen lang={lang} initialId={grimoire?.id} initialQuery={grimoire?.q || ''}
+            onBack={() => setScreen(grimoire?.from && grimoire.from !== SCREENS.GRIMOIRE ? grimoire.from : SCREENS.HOME)} />
+        </Suspense>
+      );
+      break;
     case SCREENS.AUTH:
       content = <AuthScreen lang={lang} onSkip={() => setScreen(SCREENS.HOME)} />;
       break;
@@ -407,7 +440,7 @@ const App = () => {
             onUpdate={handleUpdate}
             onEdit={() => { setEditingChar(active); setScreen(SCREENS.EDIT); }}
             onPrint={handlePrint}
-            onExportPdf={() => handleExportPdf(active)}
+            onExportPdf={opts => handleExportPdf(active, opts)}
             onShare={() => handleShare(active)}
             onExport={() => handleExport(active)}
             onDelete={() => handleDelete(active.id)}
@@ -467,6 +500,10 @@ const App = () => {
   const backendOff = auth.backendAvailable === false;
   const headerRight = (
     <>
+      <button className={`btn btn-ghost btn-sm header-grimoire ${screen === SCREENS.GRIMOIRE ? 'active' : ''}`}
+        onClick={() => openGrimoire()} title={lang === 'pt' ? 'Grimório: regras explicadas' : 'Grimoire: rules explained'}>
+        <Icon name="book" size={14}/> <span className="header-grimoire-label">{lang === 'pt' ? 'Grimório' : 'Grimoire'}</span>
+      </button>
       {auth.user && !backendOff && (
         <button className="btn btn-ghost btn-sm" onClick={() => setScreen(SCREENS.CAMPAIGNS)}>
           {lang === 'pt' ? 'Campanhas' : 'Campaigns'}
@@ -504,7 +541,7 @@ const App = () => {
           }
         </div>
       )}
-      <main id="main" className={`container ${screen === SCREENS.CAMPAIGN ? 'container-wide' : ''}`} tabIndex={-1}>
+      <main id="main" className={`container ${screen === SCREENS.CAMPAIGN || screen === SCREENS.GRIMOIRE ? 'container-wide' : ''}`} tabIndex={-1}>
         {content}
       </main>
       <DiceRoller lang={lang} />

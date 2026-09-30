@@ -11,6 +11,7 @@
  * resultados em engine.js. Espelhado em backend/api/progression/options.py.
  */
 import { CLASS_OPTIONS } from '../../data/class-options/index.js';
+import * as MC from './multiclass.js';
 
 /** Dados de opções da classe, ou null. */
 export const classOptionsData = (classId) => CLASS_OPTIONS[classId] || null;
@@ -38,6 +39,43 @@ export function findOption(classId, pool, id) {
     return { id, name: { pt: id, en: id }, dynamic: def.kind, repeatable: false };
   }
   return def.options.find(o => o.id === id) || null;
+}
+
+/**
+ * Migra escolhas salvas em formatos antigos. Hoje: Kensei nível 3 passou de
+ * 2 × `kenseiWeapon` para 1 `kenseiWeaponMelee` + 1 `kenseiWeaponRanged`; as
+ * armas que sobram no pool genérico vão para os novos (corpo a corpo primeiro).
+ * Espelhado em backend/api/progression/options.py (migrate_class_options).
+ */
+export function migrateClassOptions(character) {
+  const all = Array.isArray(character.classOptions) ? character.classOptions : [];
+  const kensei = all.filter(p => p && p.classId === 'monk' && p.pool === 'kenseiWeapon');
+  if (!kensei.length) return character;
+  const view = { ...character, classOptions: all.filter(p => !(p && p.classId === 'monk' && p.pool === 'kenseiWeapon')) };
+  const monkLevel = MC.classLevel(character, 'monk');
+  const slots = optionSlots({ ...character, classOptions: all }, 'monk', monkLevel);
+  const room = slots.kenseiWeapon?.total || 0;
+  if (kensei.length <= room) return character;
+  const free = pool => (slots[pool]?.total || 0) - picksOf(view, 'monk', pool).length;
+  const openMelee = free('kenseiWeaponMelee');
+  const openRanged = free('kenseiWeaponRanged');
+  // As mais antigas são as do nível 3.
+  const excess = [...kensei].sort((a, b) => (a.level || 0) - (b.level || 0)).slice(0, kensei.length - room);
+  const moved = new Map();
+  let melee = openMelee; let ranged = openRanged;
+  for (const p of excess) {
+    const isMelee = findOption('monk', 'kenseiWeapon', p.id)?.melee !== false;
+    if (isMelee && melee > 0) { moved.set(p, 'kenseiWeaponMelee'); melee--; }
+    else if (!isMelee && ranged > 0) { moved.set(p, 'kenseiWeaponRanged'); ranged--; }
+  }
+  // Duas do mesmo tipo: a segunda ocupa a vaga que sobrou (o jogador pode trocar depois).
+  for (const p of excess) {
+    if (moved.has(p)) continue;
+    if (melee > 0) { moved.set(p, 'kenseiWeaponMelee'); melee--; }
+    else if (ranged > 0) { moved.set(p, 'kenseiWeaponRanged'); ranged--; }
+  }
+  if (!moved.size) return character;
+  return { ...character, classOptions: all.map(p => (moved.has(p) ? { ...p, pool: moved.get(p) } : p)) };
 }
 
 /** Escolhas já registradas na ficha para uma classe (e pool, se informado). */
@@ -98,6 +136,8 @@ export function checkPrereq(character, classId, option, picks, classLevel = char
     issues.push({ pt: `Requer ${req.anyOption.map(id => nameOf(classId, id, 'pt')).join(' ou ')}`, en: `Requires ${req.anyOption.map(id => nameOf(classId, id, 'en')).join(' or ')}` });
   }
   if (req.subclass?.length && !req.subclass.includes(character.subclass)) issues.push({ pt: 'Subclasse específica', en: 'Specific subclass' });
+  // Estilos de luta 2014: cada estilo só existe na lista de certas classes.
+  if (rules === '2014' && option.classes2014 && !option.classes2014.includes(classId)) issues.push({ pt: 'Fora da lista desta classe (2014)', en: "Not on this class's list (2014)" });
   return { ok: issues.length === 0, issues };
 }
 
@@ -132,6 +172,7 @@ export function optionCatalog(character, classId, pool, extraPicks = [], classLe
  * `character` é a ficha vista como essa classe (className/level/subclass dela).
  */
 export function classOptionState(character) {
+  character = migrateClassOptions(character);
   const classId = character.className;
   const data = classOptionsData(classId);
   const empty = { picks: [], pending: [], grants: { spells: [], cantrips: [] }, slots: {} };
@@ -204,6 +245,7 @@ export function allOptionGrants(character) {
  * momento em pools com `freeSwap`.
  */
 export function validateOptionPicks(character, classId, { adds = [], swaps = [] } = {}, classLevel = character.level || 1, { levelUp = false } = {}) {
+  character = migrateClassOptions(character);
   const issues = [];
   const data = classOptionsData(classId);
   if (!data) return { valid: adds.length + swaps.length === 0, issues: adds.length + swaps.length ? ['Classe sem opções selecionáveis'] : [] };
@@ -234,7 +276,9 @@ export function validateOptionPicks(character, classId, { adds = [], swaps = [] 
     if (!check.ok) issues.push(`${option.name.pt}: ${check.issues.map(x => x.pt).join(', ')}`);
     const same = picks.filter(p => p.pool === a.pool && p.id === a.id);
     if (same.length && !option.repeatable) issues.push(`${option.name.pt} já escolhida`);
-    if (same.length && option.repeatable && same.some(p => (p.detail || '') === (a.detail || ''))) issues.push(`${option.name.pt}: escolha um alvo diferente`);
+    // Repetível com `detail`: cada escolha precisa de um alvo diferente. Sem `detail`
+    // (ex.: Replicar Item Mágico, cujo item vem de outro pool), pode repetir à vontade.
+    if (same.length && option.repeatable && option.detail && same.some(p => (p.detail || '') === (a.detail || ''))) issues.push(`${option.name.pt}: escolha um alvo diferente`);
     picks = [...picks, { classId, pool: a.pool, id: a.id, detail: a.detail }];
   }
   // Vagas contadas já com as novas escolhas (uma opção pode abrir vagas em outro pool).
@@ -250,6 +294,7 @@ const countBy = (picks) => picks.reduce((acc, p) => ({ ...acc, [p.pool]: (acc[p.
 
 /** Registra escolhas já validadas. `level` = nível total do personagem. */
 export function applyOptionPicks(character, classId, { adds = [], swaps = [] } = {}, level = character.level || 1) {
+  character = migrateClassOptions(character);
   let list = Array.isArray(character.classOptions) ? [...character.classOptions] : [];
   for (const s of swaps) {
     const i = list.findIndex(p => p.classId === classId && p.pool === s.pool && p.id === s.from);

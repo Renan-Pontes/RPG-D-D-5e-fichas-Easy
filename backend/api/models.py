@@ -248,3 +248,110 @@ class CampaignItem(models.Model):
 
     def __str__(self):
         return (self.data or {}).get('name', 'item')
+
+
+# === Diário da campanha ===
+# Linha do tempo da mesa: notas escritas (mestre/jogadores) e eventos
+# registrados automaticamente (subida de nível, XP, item, descanso, combate,
+# rolagens marcantes). Agrupado por sessão (campaign.state.session).
+# Ver api/diary.py (log_diary) e views_diary.py.
+class DiaryEntry(models.Model):
+    KIND_CHOICES = [('note', 'Note'), ('event', 'Event')]
+    SUBTYPES = ('note', 'session', 'roll', 'levelup', 'item', 'combat', 'rest', 'xp', 'custom')
+
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='diary_entries')
+    session = models.IntegerField(null=True, blank=True)  # nº da sessão; None = sem sessão (agrupa por dia)
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, default='note')
+    subtype = models.CharField(max_length=20, default='note')
+    title = models.CharField(max_length=200, blank=True, default='')
+    body = models.TextField(blank=True, default='')
+    data = models.JSONField(default=dict, blank=True)
+    occurred_at = models.DateTimeField(default=timezone.now)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='diary_entries')
+    hidden = models.BooleanField(default=False)  # oculto dos jogadores
+    edited_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-occurred_at', '-id']
+        indexes = [models.Index(fields=['campaign', 'session']), models.Index(fields=['campaign', '-occurred_at'])]
+
+    def __str__(self):
+        return self.title or self.subtype
+
+
+# === Pedido de teste do mestre para a mesa ===
+# "Todos: Percepção CD 15". Cada jogador-alvo responde rolando no app (servidor
+# rola, respeitando DiceRig) ou digitando o dado físico. O mestre vê quem
+# passou/falhou e decide se mostra no telão. Nada é aplicado na ficha.
+class CheckRequest(models.Model):
+    KIND_CHOICES = [('skill', 'Skill'), ('save', 'Save'), ('ability', 'Ability'), ('custom', 'Custom')]
+    ADV_CHOICES = [('normal', 'Normal'), ('adv', 'Advantage'), ('dis', 'Disadvantage')]
+    STATUS_CHOICES = [('open', 'Open'), ('closed', 'Closed')]
+
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='check_requests')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='check_requests')
+    label = models.CharField(max_length=120)
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, default='skill')
+    key = models.CharField(max_length=30, blank=True, default='')  # 'perception', 'dex', ...
+    dc = models.IntegerField(null=True, blank=True)
+    dc_hidden = models.BooleanField(default=False)  # jogadores não veem a CD
+    advantage = models.CharField(max_length=6, choices=ADV_CHOICES, default='normal')
+    target_user_ids = models.JSONField(default=list, blank=True)  # [] = todos os jogadores
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='open')
+    show_on_screen = models.BooleanField(default=False)
+    screen_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['campaign', 'status'])]
+
+    def __str__(self):
+        return self.label
+
+
+class CheckResponse(models.Model):
+    MODE_CHOICES = [('app', 'Rolled in app'), ('physical', 'Physical die'), ('dm', 'Entered by DM')]
+
+    check_request = models.ForeignKey(CheckRequest, on_delete=models.CASCADE, related_name='responses')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='check_responses')
+    character = models.ForeignKey(Character, on_delete=models.SET_NULL, null=True, blank=True)
+    mode = models.CharField(max_length=10, choices=MODE_CHOICES, default='app')
+    natural = models.IntegerField(null=True, blank=True)   # dado mantido (None se só o total foi informado)
+    rolls = models.JSONField(default=list, blank=True)     # [{value, kept}] quando rolou no app
+    modifier = models.IntegerField(null=True, blank=True)
+    total = models.IntegerField()
+    rigged = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at']
+        unique_together = [('check_request', 'user')]
+
+
+# === Preparação do mestre: aventuras como mapa de nós (salas/cenas) ===
+# Só o mestre lê/edita. `data` guarda a estrutura ({version, nodes, edges}) e
+# `play` o estado na mesa ({current, visited, unlocked}) — separados para o
+# autosave do editor nunca sobrescrever o que aconteceu no jogo.
+# Validação/limites em api/views_adventures.py.
+class Adventure(models.Model):
+    STATUS_CHOICES = [('draft', 'Draft'), ('playing', 'Playing'), ('done', 'Done')]
+
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='adventures')
+    name = models.CharField(max_length=120)
+    summary = models.TextField(blank=True, default='')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='draft')
+    data = models.JSONField(default=dict, blank=True)
+    play = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        indexes = [models.Index(fields=['campaign', '-updated_at'])]
+
+    def __str__(self):
+        return self.name

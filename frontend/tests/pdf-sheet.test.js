@@ -110,3 +110,12 @@ test('importa valores no formato da ficha oficial (nomes com espaço sobrando, m
   assert.ok(unmatched.some(u => u.includes('Unknown Homebrew Spell')));
   assert.match(char.notes, /Unknown Homebrew Spell/);
 });
+
+test('PDF editável mantém os campos; o "para imprimir" fixa o texto e remove o formulário', async () => {
+  const c = wizard();
+  const editable = await readPdfFields(await exportDnd5ePdf(c, 'pt'));
+  assert.ok(Object.keys(editable).length > 300);
+  const flat = await exportDnd5ePdf(c, 'pt', { flatten: true });
+  assert.deepEqual(await readPdfFields(flat), {});
+  assert.equal((await importDnd5ePdf(flat)).fieldCount, 0);
+});

@@ -112,6 +112,12 @@ const pools = {
     name: b('Especialização', 'Expertise'),
     kind: 'skill', grantAs: 'expertise', filter: { proficient: true },
   },
+  // Especialização 2014 (PHB/SRD 5.1; nv 1: 2; nv 6: 2): perícias proficientes ou
+  // Ferramentas de Ladrão.
+  expertise2014: {
+    name: b('Especialização', 'Expertise'),
+    kind: 'skill', grantAs: 'expertise', filter: { proficient: true, tools: ['thievesTools'] },
+  },
   // Gíria de Ladrão: o idioma extra do nível 1.
   language: {
     name: b('Idioma (Gíria de Ladrão)', "Language (Thieves' Cant)"),
@@ -474,6 +480,11 @@ export default {
   choices: {
     1: { expertise: 2, language: 1, weaponMastery: 2 },
     6: { expertise: 2 },
+  },
+  // 2014: Especialização no 1 e no 6 (2 cada; pode incluir Ferramentas de Ladrão).
+  legacyChoices: {
+    1: { expertise2014: 2 },
+    6: { expertise2014: 2 },
   },
   subclassChoices: {
     mastermind: { 3: { mastermindLanguage: 2, mastermindGamingSet: 1 } },

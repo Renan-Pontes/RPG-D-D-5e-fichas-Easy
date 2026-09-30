@@ -6,7 +6,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
 
-from .models import Campaign, CombatInstance, RollRequest
+from .models import Campaign, CombatInstance, RollRequest, CheckRequest
 from .progression.multiclass import class_entries
 
 
@@ -58,6 +58,13 @@ def screen(request, token):
         .filter(campaign=campaign, status='public')
         .select_related('requested_by', 'requested_by__profile')[:1]
     )
+    # Pedido de teste que o mestre escolheu mostrar (no máximo um).
+    shown_check = (
+        CheckRequest.objects
+        .filter(campaign=campaign, show_on_screen=True)
+        .prefetch_related('responses')
+        .first()
+    )
     return Response({
         'campaign': {
             'id': campaign.id,
@@ -98,6 +105,7 @@ def screen(request, token):
                 }
                 for r in public_rolls
             ],
+            'publicCheck': _check_for_screen(shown_check) if shown_check else None,
         }
     })
 
@@ -109,3 +117,8 @@ def _display_name(user):
         except Exception:
             pass
     return (user.email or user.username).split('@')[0] if user.email else user.username
+
+
+def _check_for_screen(cr):
+    from .views_checks import serialize_for_screen
+    return serialize_for_screen(cr)

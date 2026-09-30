@@ -218,8 +218,19 @@
 }
 
 /* === 10. Footer-safe (iPhone notch / barra inferior) === */
+/* O padding-bottom grande (styles.css) reserva espaço para o botão de dados
+   flutuante e o rodapé do criador; aqui só somamos a área segura. Antes este
+   bloco trocava por 24px e o fim da página ficava escondido sob o FAB. */
 @supports (padding: max(0px)) {
-  .container, .tv-screen {
+  .container {
+    padding-bottom: calc(var(--s-7, 48px) + 80px + env(safe-area-inset-bottom));
+    padding-left: max(var(--s-3, 12px), env(safe-area-inset-left));
+    padding-right: max(var(--s-3, 12px), env(safe-area-inset-right));
+  }
+  body:has(.wizard-footer) .container {
+    padding-bottom: calc(180px + env(safe-area-inset-bottom));
+  }
+  .tv-screen {
     padding-bottom: max(var(--s-6, 24px), env(safe-area-inset-bottom));
     padding-left: max(var(--s-4, 16px), env(safe-area-inset-left));
     padding-right: max(var(--s-4, 16px), env(safe-area-inset-right));
@@ -244,6 +255,7 @@
 }
 
 /* === 13. Tabs scrolláveis no header de campanha + indicação visual === */
+@media (max-width: 600px) { .tabs { --tabs-pad: 12px; } }
 @media (max-width: 720px) {
   .tabs::-webkit-scrollbar { height: 3px; }
   .tabs::-webkit-scrollbar-thumb { background: var(--gold-deep, var(--gold-deep)); border-radius: 2px; }
@@ -263,4 +275,131 @@
 @media (max-width: 360px) {
   h1 { font-size: 1.5rem !important; }
   .stat-value { font-size: 1.2rem !important; }
+}
+
+/* === 16. Alvos de toque e textos que estouravam (auditoria mobile) === */
+@media (max-width: 720px) {
+  /* Avatar do usuário no header: 38px de altura */
+  .user-chip { min-height: 40px; }
+
+  /* Linha Dano / valor / Curar: com "1fr auto 1fr" o botão Curar não
+     encolhia e vazava 4px para fora do card em 360px. */
+  .hp-actions { grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr); gap: 6px; }
+  .hp-actions .btn { padding-left: 6px; padding-right: 6px; letter-spacing: 0.06em; min-width: 0; }
+  .hp-actions .hp-input { width: 100% !important; }
+  /* PV temporário: input de 28px de altura */
+  .hp-temp input { min-height: 40px !important; }
+
+  /* Bolinha de proficiência (16px): área de toque invisível maior */
+  .skill-prof-dot { position: relative; }
+  .skill-prof-dot::after { content: ''; position: absolute; inset: -12px; }
+
+  /* "+ 1 idioma a escolher" e chips de idioma */
+  .lang-chip.pending { min-height: 40px; padding: 6px 14px; }
+
+  /* Checkbox + label (Escudo etc.): label vira alvo de 40px */
+  input[type="checkbox"] + label { display: inline-flex; align-items: center; min-height: 40px; }
+
+  /* Botões de escolha (perícias, talentos): "Prestidigitação" em caixa-alta
+     Cinzel não cabe em 144px e vazava para fora do botão. */
+  .class-pick { min-width: 0; }
+  .class-pick-name { overflow-wrap: anywhere; hyphens: auto; }
+}
+@media (max-width: 400px) {
+  .class-pick.small .class-pick-name { font-size: 0.85rem; letter-spacing: 0.02em; }
+}
+
+/* Tela de login: input herdava a Cinzel (só maiúsculas) do label */
+.auth-card .input { font-family: var(--body); }
+
+/* === 17. Cabeçalho em 360px: cabia 8px a mais que a tela (rolagem lateral).
+   Compacta PT/EN e "Campanhas" e deixa as ações encolherem em vez de vazar. === */
+@media (max-width: 520px) {
+  .app-header { gap: 8px; }
+  .app-header .brand { flex-shrink: 0; }
+  .header-actions { min-width: 0; gap: 4px; }
+  .header-actions .btn-sm { padding: 6px 8px; letter-spacing: 0.04em; font-size: 0.8rem; }
+  .lang-toggle button { min-width: 36px; padding: 8px 6px; letter-spacing: 0.06em; }
+}
+@media (max-width: 340px) {
+  .app-header { padding-left: 10px; padding-right: 10px; }
+  .header-actions .btn-sm { padding: 6px 6px; letter-spacing: 0; }
+}
+
+/* === 18. Barra de progresso do criador: em ≤360px o container tem 10px de
+   padding e a margem de -12px sangrava 2px (rolagem lateral). === */
+@media (max-width: 360px) {
+  .wizard { margin-left: -10px; margin-right: -10px; padding-left: 10px; padding-right: 10px; }
+  /* Mesmo caso das abas (ficha e campanha) */
+  .tabs { margin-left: -10px; margin-right: -10px; padding-left: 10px; padding-right: 10px; --tabs-pad: 10px; }
+  .combat-grid-wrapper { margin-left: -10px; margin-right: -10px; }
+}
+@media (min-width: 361px) and (max-width: 600px) {
+  /* grade de combate: -14px vs. container de 12px vazava 2px */
+  .combat-grid-wrapper { margin-left: -12px; margin-right: -12px; }
+}
+
+/* Telas de toque maiores que celular (tablet): PT/EN e botões pequenos com alvo ≥40px */
+@media (pointer: coarse) and (min-width: 721px) {
+  .lang-toggle button { min-height: 40px; min-width: 40px; }
+  .btn-sm { min-height: 40px; }
+}
+
+/* Motivo do "Próximo" travado no criador */
+.wizard-footer { flex-direction: column; }
+.wizard-hint {
+  max-width: 900px; width: 100%; margin: 0 auto;
+  font-size: 0.85rem; color: var(--amber);
+  padding-right: 64px; /* não passa por baixo do botão de dados */
+}
+
+/* === 19. Botão de dados (canto inferior direito) nunca cobre avisos com botão:
+   o aviso do sininho e o "desfazer" do diário sobem acima dele. === */
+.nudge-toast-slot { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
+.diary-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+@media (min-width: 900px) {
+  .nudge-toast-slot { bottom: 96px; right: 24px; }
+}
+
+/* Criador, passo de magias: descrição completa só da magia marcada; as demais
+   em 3 linhas (a lista passava de 39.000px de altura no celular). */
+.spell-desc-clamp {
+  display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* Ajuda dos atalhos do mestre: só onde há teclado (desktop/tablet com mouse) */
+.kbd-help { margin: -8px 0 14px; font-size: 0.85rem; color: var(--ink-muted); }
+.kbd-help summary { cursor: pointer; display: inline-block; padding: 4px 0; }
+.kbd-help summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.kbd-help ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.kbd-help kbd {
+  font-family: var(--mono); font-size: 0.8rem; padding: 1px 6px; border-radius: 4px;
+  border: 1px solid var(--stroke); background: var(--bg-raised); color: var(--ink-primary);
+}
+@media (hover: none), (pointer: coarse), (max-width: 720px) { .kbd-help { display: none; } }
+
+/* Botões de ícone sem .btn (×, ↑↓ etc.) apareciam com o visual nativo branco do navegador */
+.btn-icon:not(.btn) {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--ink-secondary);
+  border: 1px solid var(--stroke); border-radius: var(--radius);
+  font-family: var(--body); font-size: 1rem; cursor: pointer;
+}
+.btn-icon:not(.btn).danger { color: var(--blood-bright); }
+.btn-icon:not(.btn):focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* Modais são renderizados dentro do cartão que os abriu (sem portal): não herdam
+   o texto centralizado do cartão (ex.: "?" do Grimório nos PV ficava todo centralizado). */
+.modal { text-align: left; }
+
+/* Subida de nível no celular: o modal ocupa a tela toda, então a área rolável
+   cresce até os botões (antes parava em 60vh e sobrava 40% vazio). */
+@media (max-width: 480px) {
+  .modal:has(> .lu-scroll) { display: flex; flex-direction: column; }
+  .modal > .lu-scroll { max-height: none !important; flex: 1 1 auto; min-height: 0; }
+}
+
+/* Ficha no desktop: as 7 abas cabem na coluna de 720px sem rolar */
+@media (min-width: 721px) {
+  .tab { padding-left: 12px; padding-right: 12px; letter-spacing: 0.12em; }
 }

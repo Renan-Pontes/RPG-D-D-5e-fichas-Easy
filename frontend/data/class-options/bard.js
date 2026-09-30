@@ -454,10 +454,18 @@ export default {
       swapOnLevelUp: 1,
     },
     // Colégio do Saber 2014 (nível 6): Segredos Mágicos Adicionais — magias de qualquer classe.
+    // Truque ou círculo com espaço disponível; não contam nas magias conhecidas.
     additionalMagicalSecrets: {
       name: b('Segredos Mágicos Adicionais', 'Additional Magical Secrets'),
       kind: 'spell', grantAs: 'spell',
-      filter: {},
+      filter: { maxSlot: true },
+    },
+    // Bardo 2014 (PHB/SRD 5.1), níveis 10, 14 e 18: 2 magias de qualquer classe (truque
+    // ou círculo com espaço). Contam como magias de bardo conhecidas (`countsAsKnown`).
+    magicalSecrets2014: {
+      name: b('Segredos Mágicos', 'Magical Secrets'),
+      kind: 'spell', grantAs: 'spell', countsAsKnown: true,
+      filter: { maxSlot: true },
     },
     // Colégio das Espadas (nível 3): só Duelismo ou Combate com Duas Armas.
     fightingStyle: {
@@ -475,7 +483,9 @@ export default {
   legacyChoices: {
     1: { musicalInstrument: 1, musicalInstrumentStart: 2 },
     3: { expertise: 2 },
-    10: { expertise: 2 },
+    10: { expertise: 2, magicalSecrets2014: 2 },
+    14: { magicalSecrets2014: 2 },
+    18: { magicalSecrets2014: 2 },
   },
   subclassChoices: {
     lore: { 3: { loreSkill: 3 }, 6: { magicalDiscoveries: 2 } },

@@ -1,3 +1,4 @@
+import { errorMessage } from '../api/errors.js';
 import { useEffect, useState, useCallback } from 'react';
 import SRD from '../../data/srd.js';
 import { api } from '../api/client.js';
@@ -68,7 +69,7 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
       onSaved?.(res.character);
       onClose();
     } catch (e) {
-      setError(e?.data?.error || e?.message || 'failed');
+      setError(errorMessage(e));
     } finally {
       setSaving(false);
     }

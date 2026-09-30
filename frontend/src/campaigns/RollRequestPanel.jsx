@@ -1,6 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
+import GroupCheckPanel from '../checks/GroupCheckPanel.jsx';
+import PlayerCampaignChecks from '../checks/PlayerCampaignChecks.jsx';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -30,16 +32,37 @@ export default function RollRequestPanel({ campaign, lang, isDM, onChange }) {
   const [adv, setAdv] = useState(false);
   const [dis, setDis] = useState(false);
 
+  // Ids dos meus pedidos pendentes: quando o mestre resolve, mostra o dado
+  // (3D) com o valor que veio do servidor.
+  const myPendingRef = useRef(new Set());
+
   const load = useCallback(async () => {
     try {
       const [p, r] = await Promise.all([
         api.listPendingRolls(campaign.id),
         api.listRecentRolls(campaign.id),
       ]);
-      setPending(p.rolls || []);
-      setRecent(r.rolls || []);
+      const pend = p.rolls || [];
+      const rec = r.rolls || [];
+      if (!isDM) {
+        for (const roll of rec) {
+          if (myPendingRef.current.has(roll.id) && roll.status !== 'cancelled' && roll.rolls?.length) {
+            window.__diceShow?.({
+              label: roll.label || roll.diceType,
+              groups: [{ die: parseInt(String(roll.diceType).replace('d', ''), 10) || 20, rolls: roll.rolls }],
+              mod: roll.modifier || 0,
+              total: roll.total,
+              isCrit: roll.isCritical,
+              isFumble: roll.isCriticalFail,
+            });
+          }
+        }
+        myPendingRef.current = new Set(pend.map(x => x.id));
+      }
+      setPending(pend);
+      setRecent(rec);
     } catch (e) { /* ignore */ }
-  }, [campaign.id]);
+  }, [campaign.id, isDM]);
 
   useEffect(() => { load(); }, [load]);
   usePolling(load, 2500, [campaign.id]);
@@ -72,6 +95,7 @@ export default function RollRequestPanel({ campaign, lang, isDM, onChange }) {
 
   return (
     <div className="rolls-panel col gap-3">
+      {isDM ? <GroupCheckPanel campaign={campaign} lang={lang} /> : <PlayerCampaignChecks campaign={campaign} lang={lang} />}
       {/* Form criar pedido */}
       <div className="info-box">
         <h3 style={{ marginTop: 0 }}>
@@ -85,7 +109,7 @@ export default function RollRequestPanel({ campaign, lang, isDM, onChange }) {
             : t(lang, 'Você manda o pedido; o mestre decide se exibe no telão ou roda privado.', 'You send the request; the DM decides if it shows on the TV or rolls private.')}
         </p>
         <div className="row gap-2" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
-          <input className="input" placeholder={t(lang, 'rótulo (ex: percepção)', 'label (e.g. perception)')} value={label} onChange={e => setLabel(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
+          <input aria-label={t(lang, 'rótulo (ex: percepção)', 'label (e.g. perception)')} className="input" placeholder={t(lang, 'rótulo (ex: percepção)', 'label (e.g. perception)')} value={label} onChange={e => setLabel(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
           <select className="input" value={dice} onChange={e => setDice(e.target.value)}>
             {['d4','d6','d8','d10','d12','d20','d100'].map(d => <option key={d}>{d}</option>)}
           </select>
@@ -219,7 +243,7 @@ function PendingDMRow({ r, lang, onResolve, onCancel }) {
       {show && (
         <div className="row gap-2" style={{ alignItems: 'center', background: 'rgba(214, 176, 100, 0.08)', padding: '6px 8px', borderRadius: 4 }}>
           <span className="muted small">{t(lang, 'Valor a exibir', 'Value to show')}:</span>
-          <input
+          <input aria-label={`1-${sides}`}
             type="number"
             className="input"
             min={1}

@@ -57,6 +57,21 @@
   opacity: 0.92;
 }
 
+/* Texto "ler em voz alta" mandado pela Preparação do mestre */
+.tv-read-aloud {
+  margin: 0 0 24px;
+  padding: 18px 24px;
+  border-left: 4px solid var(--tv-gold);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--tv-ink);
+  font-size: clamp(1.1rem, 1.8vw, 1.7rem);
+  font-style: italic;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  max-height: 40vh;
+  overflow: auto;
+}
+
 .tv-meta {
   text-align: right;
   display: flex;
@@ -629,9 +644,113 @@
   text-transform: uppercase;
   animation: tv-tag-pulse 1s ease-in-out infinite;
 }
-.tv-roll-tag.crit-tag  { color: var(--tv-gold); }
-.tv-roll-tag.fail-tag  { color: var(--blood-bright); }
+.tv-roll-tag.tv-crit-tag  { color: var(--tv-gold); }
+.tv-roll-tag.tv-fail-tag  { color: var(--blood-bright); }
+/* (Antes usava .crit-tag/.fail-tag, que colidiam com a etiqueta pequena de
+   crítico do painel de rolagens: aparecia uma barra dourada no rodapé.) */
 @keyframes tv-tag-pulse {
   0%, 100% { transform: scale(1);   opacity: 1;   }
   50%      { transform: scale(1.1); opacity: 0.7; }
+}
+
+/* === Dado 3D do telão === */
+.tv-roll-overlay .tv-dice-stage {
+  width: min(80vw, 900px);
+  height: min(40vh, 420px);
+  margin: 0 auto;
+}
+.tv-roll-overlay .tv-dice-stage.dice-stage-2d { height: auto; min-height: 180px; }
+.tv-roll-overlay.phase-reveal .tv-dice-stage { height: min(22vh, 260px); transition: height 0.4s ease; }
+.tv-roll-overlay.phase-reveal .tv-roll-dice { min-height: 0; }
+
+/* === Pedido de teste mostrado pelo mestre === */
+.tv-check-panel {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  width: min(94vw, 1200px);
+  z-index: 40;
+  background: rgba(14, 10, 7, 0.92);
+  border: 2px solid var(--tv-gold);
+  border-radius: 14px;
+  padding: 14px 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  animation: tv-check-in 0.35s ease-out;
+}
+@keyframes tv-check-in {
+  from { transform: translate(-50%, 30px); opacity: 0; }
+  to   { transform: translate(-50%, 0); opacity: 1; }
+}
+.tv-check-head {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.tv-check-eyebrow {
+  font-family: 'Cinzel', serif;
+  color: var(--tv-gold);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  font-size: clamp(0.9rem, 1.4vw, 1.2rem);
+}
+.tv-check-label {
+  font-family: 'Cinzel', serif;
+  color: var(--tv-ink);
+  font-size: clamp(1.4rem, 2.6vw, 2.4rem);
+  font-weight: 700;
+}
+.tv-check-dc {
+  font-family: 'Cinzel', serif;
+  color: var(--tv-ink-soft);
+  font-size: clamp(1.1rem, 2vw, 1.8rem);
+  border: 1px solid var(--tv-gold);
+  border-radius: 999px;
+  padding: 0 14px;
+}
+.tv-check-count { margin-left: auto; color: var(--tv-ink-soft); font-size: clamp(1rem, 1.6vw, 1.4rem); }
+.tv-check-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.tv-check-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(214, 176, 100, 0.3);
+  font-size: clamp(1.1rem, 1.8vw, 1.6rem);
+  color: var(--tv-ink);
+}
+.tv-check-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-check-total { font-family: 'Cinzel', serif; font-weight: 700; color: var(--tv-gold); }
+.tv-check-mark { font-weight: 700; font-size: 1.3em; }
+.tv-check-item.pass { border-color: var(--moss-bright); background: rgba(156, 192, 101, 0.14); }
+.tv-check-item.pass .tv-check-mark { color: var(--moss-bright); }
+.tv-check-item.fail { border-color: var(--blood-bright); background: rgba(224, 96, 79, 0.14); }
+.tv-check-item.fail .tv-check-mark { color: var(--blood-bright); }
+.tv-check-item.waiting { opacity: 0.55; }
+
+/* Revelação do dado: o painel do teste à mesa sai de cena enquanto o overlay
+   está aberto (os números ficavam por cima dele). */
+.tv-check-panel { transition: opacity 0.25s ease; }
+.tv-screen.has-roll-overlay .tv-check-panel { opacity: 0; pointer-events: none; }
+.tv-roll-overlay { background: rgba(0, 0, 0, 0.92); }
+
+/* Celular: a coluna lateral do combate vazava 2px (itens de grid sem min-width) */
+.tv-combat-main > * { min-width: 0; }
+@media (max-width: 720px) {
+  /* a regra de 2 colunas vem depois da media query antiga e a anulava */
+  .tv-combat-main { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .tv-combat-side > .tv-combat-hp-card { flex: 1 1 100%; min-width: 0; }
 }

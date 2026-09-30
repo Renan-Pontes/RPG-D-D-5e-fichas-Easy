@@ -95,6 +95,8 @@ def compute_resources(character):
             option = find_option(entry['id'], p.get('pool'), p.get('id'))
             if not option or not option.get('resource'):
                 continue
+            if lv < (option['resource'].get('minLevel') or 1):
+                continue
             key = f"{entry['id']}.{p['pool']}.{p['id']}"
             res = _build(character, entry['id'], {'id': f"{p['pool']}.{p['id']}", **option['resource']}, key, lv)
             if res and not any(x['key'] == key for x in out):

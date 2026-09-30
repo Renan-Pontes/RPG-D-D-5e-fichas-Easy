@@ -1,5 +1,5 @@
 /* Step-by-step character creator (mobile-first) */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
@@ -61,11 +61,11 @@ const StepIdentity = ({ char, set, lang, isNew }) => (
     <div style={{ display: 'grid', gap: 'var(--s-3)', gridTemplateColumns: '1fr' }}>
       <div>
         <label>{t('characterName', lang)}</label>
-        <input value={char.name} onChange={e => set({ name: e.target.value })} placeholder={lang === 'pt' ? 'Aragorn, Filho de Arathorn...' : 'Aragorn, son of Arathorn...'} />
+        <input aria-label={t('characterName', lang)} value={char.name} onChange={e => set({ name: e.target.value })} placeholder={lang === 'pt' ? 'Aragorn, Filho de Arathorn...' : 'Aragorn, son of Arathorn...'} />
       </div>
       <div>
         <label>{t('playerName', lang)}</label>
-        <input value={char.player} onChange={e => set({ player: e.target.value })} />
+        <input aria-label={t('playerName', lang)} value={char.player} onChange={e => set({ player: e.target.value })} />
       </div>
       <div className="field-row">
         <div>
@@ -87,21 +87,28 @@ const StepIdentity = ({ char, set, lang, isNew }) => (
         </div>
         <div>
           <label>{lang === 'pt' ? 'Progressão' : 'Leveling'}</label>
-          <select value={char.levelingMode || 'milestone'} onChange={e => set({ levelingMode: e.target.value })}>
-            <option value="milestone">{lang === 'pt' ? 'Por Marcos (recomendado)' : 'Milestones (recommended)'}</option>
-            <option value="xp">{lang === 'pt' ? 'Por XP' : 'By XP'}</option>
-          </select>
+          {char.campaignLeveling ? (
+            <div className="text-sm muted" style={{ padding: '8px 0' }}>
+              {char.campaignLeveling === 'xp' ? (lang === 'pt' ? 'Por XP' : 'By XP') : (lang === 'pt' ? 'Por Marcos' : 'Milestones')}
+              {lang === 'pt' ? ' — definido pela campanha' : ' — set by the campaign'}
+            </div>
+          ) : (
+            <select value={char.levelingMode || 'milestone'} onChange={e => set({ levelingMode: e.target.value })}>
+              <option value="milestone">{lang === 'pt' ? 'Por Marcos (recomendado)' : 'Milestones (recommended)'}</option>
+              <option value="xp">{lang === 'pt' ? 'Por XP' : 'By XP'}</option>
+            </select>
+          )}
         </div>
       </div>
-      {!isNew && (char.levelingMode || 'milestone') === 'xp' && (
+      {!isNew && (char.campaignLeveling || char.levelingMode || 'milestone') === 'xp' && (
         <div>
           <label>{t('xp', lang)}</label>
-          <input type="number" min="0" value={char.xp} onChange={e => set({ xp: +e.target.value || 0 })} />
+          <input aria-label={t('xp', lang)} type="number" min="0" value={char.xp} onChange={e => set({ xp: +e.target.value || 0 })} />
         </div>
       )}
       <div>
         <label>{t('alignment', lang)}</label>
-        <select value={char.alignment} onChange={e => set({ alignment: e.target.value })}>
+        <select aria-label={t('alignment', lang)} value={char.alignment} onChange={e => set({ alignment: e.target.value })}>
           <option value="">{t('chooseAlignment', lang)}</option>
           {SRD.ALIGNMENTS.map(a =>
             <option key={a} value={a}>{tName('alignment', a, lang)}</option>
@@ -121,15 +128,26 @@ const StepRace = ({ char, set, lang }) => {
     // Idiomas fixos vêm da espécie/classe; aqui guardamos só os escolhidos.
     // Trocar de espécie zera as escolhas dela e o talento concedido por ela.
     if (id === char.race) return;
+    pickedRef.current = true;
     set({ race: id, raceBonus: bonus, speedOverride: 0, languages: [], speciesChoices: {}, feats: withSpeciesFeat(char.feats, null) });
   };
   const hasChoices = speciesChoiceSpecs(char).length > 0;
+  // As escolhas da espécie aparecem acima da lista: ao escolher uma espécie lá
+  // embaixo, leva o jogador até elas (senão o "Próximo" fica travado sem motivo aparente).
+  const choicesRef = useRef(null);
+  const pickedRef = useRef(false);
+  useEffect(() => {
+    if (!pickedRef.current || !hasChoices || !choicesRef.current) return;
+    pickedRef.current = false;
+    const top = choicesRef.current.getBoundingClientRect().top + window.scrollY - 90;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  }, [char.race, hasChoices]);
   return (
     <div>
       <h2>{t('chooseRace', lang)}</h2>
       <Filigree />
       {hasChoices && (
-        <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+        <div ref={choicesRef} className="card" style={{ padding: 16, marginBottom: 16 }}>
           <h3 style={{ marginBottom: 10 }}>{lang === 'pt' ? 'Escolhas de' : 'Choices for'} {tName('race', char.race, lang)}</h3>
           <SpeciesChoices key={char.race} char={char} lang={lang} onChange={set} lockFeat={!!char.inCampaign} />
           {speciesChoiceIssues(char).length > 0 && (
@@ -392,9 +410,9 @@ const StepAbilities = ({ char, set, lang, isNew }) => {
               {bonus > 0 && <small>{t('raceBonus', lang)}: +{bonus}</small>}
             </div>
             <div className="stat-controls">
-              <button className="stat-btn" onClick={() => change(k, -1)} disabled={!canDecrease(k)}>−</button>
+              <button className="stat-btn" onClick={() => change(k, -1)} disabled={!canDecrease(k)} aria-label={`${lang === 'pt' ? 'Diminuir' : 'Decrease'} ${t(k, lang)}`}>−</button>
               <span className="stat-value mono">{base}</span>
-              <button className="stat-btn" onClick={() => change(k, 1)} disabled={!canIncrease(k)}>+</button>
+              <button className="stat-btn" onClick={() => change(k, 1)} disabled={!canIncrease(k)} aria-label={`${lang === 'pt' ? 'Aumentar' : 'Increase'} ${t(k, lang)}`}>+</button>
             </div>
             <div className="stat-final">
               <div className="stat-final-num">{final}</div>
@@ -421,7 +439,11 @@ const StepAbilities = ({ char, set, lang, isNew }) => {
               </select>
             </label>
           ))}
-          <span>{Object.values(char.raceBonus || {}).reduce((sum, n) => sum + n, 0)}/3</span>
+          {(() => { const used = Object.values(char.raceBonus || {}).reduce((sum, n) => sum + n, 0); return (
+            <div className="text-sm" role="status" style={{ color: used === 3 ? 'var(--moss-bright)' : 'var(--amber)' }}>
+              {lang === 'pt' ? 'Distribuídos' : 'Assigned'}: <strong className="mono">{used}/3</strong>
+            </div>
+          ); })()}
         </div>
       )}
       {needsExtraASI && char.rulesVersion !== '2024' && (
@@ -730,7 +752,7 @@ const StepEquipment = ({ char, set, lang }) => {
         {['cp', 'sp', 'ep', 'gp', 'pp'].map(c => (
           <div key={c}>
             <label>{tName('coin', c, lang)}</label>
-            <input
+            <input aria-label={tName('coin', c, lang)}
               type="number" min="0"
               value={(char.coins || {})[c] || 0}
               onChange={e => set({ coins: { ...(char.coins || {}), [c]: +e.target.value || 0 } })}
@@ -757,7 +779,7 @@ const StepSpells = ({ char, set, lang }) => {
       </div>
     );
   }
-  const available = Utils.spellCatalog(char).filter(s => s.classes.includes(Utils.spellListClass(char)) && s.level <= Utils.maxSpellLevel(char));
+  const available = Utils.spellCatalog(char).filter(s => Utils.inSpellList(char, s) && s.level <= Utils.maxSpellLevel(char));
   const cantrips = available.filter(s => s.level === 0);
   const isPrepared = Utils.isPreparedCaster(char);
   const cantripLimit = Utils.cantripsKnown(char);
@@ -806,7 +828,9 @@ const StepSpells = ({ char, set, lang }) => {
               key={sp.id}
               className={`option ${sel ? 'selected' : ''}`}
               style={{ opacity: limitReached ? 0.5 : 1, cursor: limitReached ? 'not-allowed' : 'pointer' }}
+              role="checkbox" aria-checked={sel} aria-disabled={limitReached} tabIndex={0}
               onClick={() => !limitReached && toggle(sp.id)}
+              onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !limitReached) { e.preventDefault(); toggle(sp.id); } }}
             >
               <div className="row" style={{ alignItems: 'flex-start' }}>
                 <div className="skill-check" style={{ marginTop: 2 }}>
@@ -819,7 +843,7 @@ const StepSpells = ({ char, set, lang }) => {
                     <span>{sp.castingTime}</span>
                     <span>{sp.range}</span>
                   </div>
-                  <div className="text-sm" style={{ color: 'var(--ink-secondary)', marginTop: 6 }}>
+                  <div className={`text-sm ${sel ? '' : 'spell-desc-clamp'}`} style={{ color: 'var(--ink-secondary)', marginTop: 6 }}>
                     {sp.desc[lang]}
                   </div>
                 </div>
@@ -851,12 +875,12 @@ const StepSpells = ({ char, set, lang }) => {
             <div className="card" style={{ padding: 12, marginTop: 20 }}>
               <div className="text-sm" style={{ color: 'var(--ink-secondary)' }}>
                 {lang === 'pt'
-                  ? `Grimório: escolha ${bookLimit} magias de Mago${(char.level || 1) > 1 ? ' (círculos que você conjura)' : ' de nível 1'}. Na ficha você prepara magias a partir dele.`
+                  ? `Livro de magias: escolha ${bookLimit} magias de Mago${(char.level || 1) > 1 ? ' (círculos que você conjura)' : ' de nível 1'}. Na ficha você prepara magias a partir dele.`
                   : `Spellbook: pick ${bookLimit} Wizard spells${(char.level || 1) > 1 ? ' (levels you can cast)' : ' of level 1'}. On the sheet you prepare spells from it.`}
               </div>
             </div>
             {[...new Set(available.filter(s => s.level > 0).map(s => s.level))].sort((a, b) => a - b).map(lvl => (
-              <SpellGroup key={lvl} label={`${lang === 'pt' ? 'Grimório' : 'Spellbook'} · ${t('spellLevel', lang)} ${lvl}`}
+              <SpellGroup key={lvl} label={`${lang === 'pt' ? 'Livro de magias' : 'Spellbook'} · ${t('spellLevel', lang)} ${lvl}`}
                 list={available.filter(s => s.level === lvl)} limit={bookLimit} currentCount={bookCount} />
             ))}
           </>
@@ -905,67 +929,67 @@ const StepStory = ({ char, set, lang }) => (
     <div style={{ display: 'grid', gap: 12 }}>
       <div>
         <label>{t('personality', lang)}</label>
-        <textarea value={char.personality} onChange={e => set({ personality: e.target.value })} />
+        <textarea aria-label={t('personality', lang)} value={char.personality} onChange={e => set({ personality: e.target.value })} />
       </div>
       <div>
         <label>{t('ideals', lang)}</label>
-        <textarea value={char.ideals} onChange={e => set({ ideals: e.target.value })} />
+        <textarea aria-label={t('ideals', lang)} value={char.ideals} onChange={e => set({ ideals: e.target.value })} />
       </div>
       <div>
         <label>{t('bonds', lang)}</label>
-        <textarea value={char.bonds} onChange={e => set({ bonds: e.target.value })} />
+        <textarea aria-label={t('bonds', lang)} value={char.bonds} onChange={e => set({ bonds: e.target.value })} />
       </div>
       <div>
         <label>{t('flaws', lang)}</label>
-        <textarea value={char.flaws} onChange={e => set({ flaws: e.target.value })} />
+        <textarea aria-label={t('flaws', lang)} value={char.flaws} onChange={e => set({ flaws: e.target.value })} />
       </div>
       <div>
         <label>{t('backstory', lang)}</label>
-        <textarea value={char.backstory} onChange={e => set({ backstory: e.target.value })} style={{ minHeight: 120 }} />
+        <textarea aria-label={t('backstory', lang)} value={char.backstory} onChange={e => set({ backstory: e.target.value })} style={{ minHeight: 120 }} />
       </div>
       <div>
         <label>{t('appearance', lang)}</label>
-        <textarea value={char.appearance} onChange={e => set({ appearance: e.target.value })} />
+        <textarea aria-label={t('appearance', lang)} value={char.appearance} onChange={e => set({ appearance: e.target.value })} />
       </div>
       <div className="row gap-3" style={{ flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 100px' }}>
           <label>{t('age', lang)}</label>
-          <input value={char.age} onChange={e => set({ age: e.target.value })} />
+          <input aria-label={t('age', lang)} value={char.age} onChange={e => set({ age: e.target.value })} />
         </div>
         <div style={{ flex: '1 1 100px' }}>
           <label>{t('height', lang)}</label>
-          <input value={char.height} onChange={e => set({ height: e.target.value })} />
+          <input aria-label={t('height', lang)} value={char.height} onChange={e => set({ height: e.target.value })} />
         </div>
         <div style={{ flex: '1 1 100px' }}>
           <label>{t('weight', lang)}</label>
-          <input value={char.weight} onChange={e => set({ weight: e.target.value })} />
+          <input aria-label={t('weight', lang)} value={char.weight} onChange={e => set({ weight: e.target.value })} />
         </div>
       </div>
       <div className="row gap-3" style={{ flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 100px' }}>
           <label>{t('eyes', lang)}</label>
-          <input value={char.eyes} onChange={e => set({ eyes: e.target.value })} />
+          <input aria-label={t('eyes', lang)} value={char.eyes} onChange={e => set({ eyes: e.target.value })} />
         </div>
         <div style={{ flex: '1 1 100px' }}>
           <label>{t('skin', lang)}</label>
-          <input value={char.skin} onChange={e => set({ skin: e.target.value })} />
+          <input aria-label={t('skin', lang)} value={char.skin} onChange={e => set({ skin: e.target.value })} />
         </div>
         <div style={{ flex: '1 1 100px' }}>
           <label>{t('hair', lang)}</label>
-          <input value={char.hair} onChange={e => set({ hair: e.target.value })} />
+          <input aria-label={t('hair', lang)} value={char.hair} onChange={e => set({ hair: e.target.value })} />
         </div>
       </div>
       <div>
         <label>{t('allies', lang)}</label>
-        <textarea value={char.allies} onChange={e => set({ allies: e.target.value })} />
+        <textarea aria-label={t('allies', lang)} value={char.allies} onChange={e => set({ allies: e.target.value })} />
       </div>
       <div>
         <label>{t('treasure', lang)}</label>
-        <textarea value={char.treasure} onChange={e => set({ treasure: e.target.value })} />
+        <textarea aria-label={t('treasure', lang)} value={char.treasure} onChange={e => set({ treasure: e.target.value })} />
       </div>
       <div>
         <label>{t('symbol', lang)}</label>
-        <input value={char.symbol} onChange={e => set({ symbol: e.target.value })} placeholder={lang === 'pt' ? 'Brasão, símbolo sagrado, etc.' : 'Crest, holy symbol, etc.'} />
+        <input aria-label={t('symbol', lang)} value={char.symbol} onChange={e => set({ symbol: e.target.value })} placeholder={lang === 'pt' ? 'Brasão, símbolo sagrado, etc.' : 'Crest, holy symbol, etc.'} />
       </div>
     </div>
   </div>
@@ -1012,6 +1036,21 @@ const Creator = ({ lang, initial, onSave, onCancel }) => {
 
   const Cur = steps[step].comp;
   const canNext = steps[step].valid();
+  // Motivo do "Próximo" travado, mostrado junto dos botões.
+  const blockedHint = canNext ? '' : ({
+    identity: lang === 'pt' ? 'Dê um nome ao personagem para continuar.' : 'Name your character to continue.',
+    race: !char.race
+      ? (lang === 'pt' ? 'Escolha uma espécie para continuar.' : 'Choose a species to continue.')
+      : (lang === 'pt' ? 'Complete as escolhas da espécie (no topo da página).' : 'Finish the species choices (top of the page).'),
+    class: lang === 'pt' ? 'Escolha uma classe para continuar.' : 'Choose a class to continue.',
+    background: !char.background
+      ? (lang === 'pt' ? 'Escolha um antecedente para continuar.' : 'Choose a background to continue.')
+      : (lang === 'pt' ? 'Complete as escolhas do talento de origem.' : 'Finish the origin feat choices.'),
+    abilities: lang === 'pt' ? 'Distribua os +3 de bônus de atributo do antecedente.' : 'Assign the background\'s +3 ability bonuses.',
+    skills: lang === 'pt' ? 'Escolha os idiomas que faltam.' : 'Choose the remaining languages.',
+  }[steps[step].id] || '');
+  // Cada passo começa do topo (a lista de espécies é longa).
+  useEffect(() => { window.scrollTo(0, 0); }, [step]);
   const isLast = step === steps.length - 1;
 
   const handleFinish = () => {
@@ -1042,6 +1081,7 @@ const Creator = ({ lang, initial, onSave, onCancel }) => {
       <Cur char={char} set={set} lang={lang} isNew={isNew} />
 
       <div className="wizard-footer no-print">
+        {blockedHint && <div className="wizard-hint" role="status" aria-live="polite">{blockedHint}</div>}
         <div className="wizard-footer-inner">
           <button className="btn btn-ghost" onClick={step === 0 ? onCancel : () => setStep(step - 1)}>
             <Icon name="chevron-left" size={16}/>

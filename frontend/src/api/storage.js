@@ -9,13 +9,24 @@
  */
 
 import { api, ApiError } from './client.js';
-import Utils from '../../utils.js';
-import SRD from '../../data/srd.js';
+
+// SRD e Utils são pesados (~2MB): carregados sob demanda para não entrarem no
+// bundle inicial (tela de login e telão /tv/ não precisam deles).
+let SRD = null;
+let Utils = null;
+async function loadDeps() {
+  if (!SRD || !Utils) {
+    const [srd, utils] = await Promise.all([import('../../data/srd.js'), import('../../utils.js')]);
+    SRD = srd.default;
+    Utils = utils.default;
+  }
+}
 
 // Ids de magia renomeados: fichas antigas são corrigidas ao carregar.
+// (Chamado só depois de loadDeps().)
 function migrate(char) {
   if (!char || !Array.isArray(char.spells)) return char;
-  const alias = SRD.SPELL_ID_ALIASES || {};
+  const alias = SRD?.SPELL_ID_ALIASES || {};
   if (!char.spells.some(s => alias[typeof s === 'string' ? s : s?.id])) return char;
   const spells = char.spells.map(s => (typeof s === 'string' ? (alias[s] || s) : alias[s?.id] ? { ...s, id: alias[s.id] } : s));
   return { ...char, spells };
@@ -38,8 +49,8 @@ export function createStorageAdapter({ remote }) {
   if (!remote) {
     return {
       mode: 'local',
-      async list() { return loadLocal().map(migrate); },
-      async get(id) { return migrate(loadLocal().find(c => c.id === id) || null); },
+      async list() { await loadDeps(); return loadLocal().map(migrate); },
+      async get(id) { await loadDeps(); return migrate(loadLocal().find(c => c.id === id) || null); },
       async save(char) {
         const all = loadLocal();
         const next = { ...char, id: char.id || `local-${crypto.randomUUID()}`, updatedAt: Date.now() };
@@ -59,24 +70,25 @@ export function createStorageAdapter({ remote }) {
   return {
     mode: 'remote',
     async list() {
-      const res = await api.listCharacters();
+      const [res] = await Promise.all([api.listCharacters(), loadDeps()]);
       // O backend retorna { id, name, data, inCampaign, ... } — promove data
-      return res.characters.map(c => migrate({ ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt, inCampaign: c.inCampaign }));
+      return res.characters.map(c => migrate({ ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt, inCampaign: c.inCampaign, campaignLeveling: c.campaignLeveling ?? null }));
     },
     async get(id) {
       try {
-        const res = await api.getCharacter(id);
+        const [res] = await Promise.all([api.getCharacter(id), loadDeps()]);
         const c = res.character;
-        return migrate({ ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt, inCampaign: c.inCampaign });
+        return migrate({ ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt, inCampaign: c.inCampaign, campaignLeveling: c.campaignLeveling ?? null });
       } catch (e) {
         if (e instanceof ApiError && e.status === 404) return null;
         throw e;
       }
     },
     async save(char) {
-      const { id, createdAt, updatedAt, inCampaign, ...data } = char;
+      const { id, createdAt, updatedAt, inCampaign, campaignLeveling, ...data } = char;
       // CA calculada (armadura, escudo, estilos de luta…) para o combate no servidor.
       if (char.className) {
+        await loadDeps();
         try { data.armorClass = Utils.computeAc(char); } catch { /* ficha incompleta */ }
       }
       const body = { name: char.name || 'Sem nome', data };
@@ -88,7 +100,7 @@ export function createStorageAdapter({ remote }) {
         res = await api.createCharacter(body);
       }
       const c = res.character;
-      return { ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt, inCampaign: c.inCampaign };
+      return { ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt, inCampaign: c.inCampaign, campaignLeveling: c.campaignLeveling ?? null };
     },
     async remove(id) {
       await api.deleteCharacter(id);

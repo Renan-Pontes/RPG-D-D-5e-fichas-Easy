@@ -95,3 +95,21 @@ test('bárbaro: recursos com usos', () => {
   assert.equal(rage.shortRestRegain, 1);
   assert.equal(res.find(r => r.id === 'rage2014').shortRestRegain, undefined);
 });
+
+test('bárbaro 2014: Conhecimento Primal (TCE) opcional — 1 perícia no 3 e outra no 10', () => {
+  const b14 = (level, classOptions = []) => base({ rulesVersion: '2014', level, classOptions });
+  const pend = (c) => classOptionState(c).pending.map(p => `${p.pool}:${p.missing}`);
+  assert.deepEqual(pend(b14(2)), []);
+  assert.ok(pend(b14(3)).includes('tceOptional:1'));
+  const on = [{ classId: 'barbarian', pool: 'tceOptional', id: 'primalKnowledge', level: 3 }];
+  assert.ok(pend(b14(3, on)).includes('primalKnowledge:1'));
+  assert.ok(validateClassOptions(b14(3, on), 'barbarian', { adds: [{ pool: 'primalKnowledge', id: 'athletics' }] }).valid);
+  assert.ok(!validateClassOptions(b14(3, on), 'barbarian', { adds: [{ pool: 'primalKnowledge', id: 'arcana' }] }).valid, 'fora da lista');
+  const lv10 = b14(10, [...on, { classId: 'barbarian', pool: 'primalKnowledge', id: 'athletics', level: 3 }]);
+  assert.ok(validateClassOptions(lv10, 'barbarian', { adds: [{ pool: 'tceOptional', id: 'primalKnowledge10' }, { pool: 'primalKnowledge', id: 'survival' }] }).valid);
+  assert.ok(!validateClassOptions(b14(3, on), 'barbarian', { adds: [{ pool: 'tceOptional', id: 'primalKnowledge10' }] }).valid, 'nível 10+');
+  // Recusar o opcional nos dois níveis.
+  const off = b14(10, [{ classId: 'barbarian', pool: 'tceOptional', id: 'baseRules', level: 3 }]);
+  assert.ok(validateClassOptions(off, 'barbarian', { adds: [{ pool: 'tceOptional', id: 'baseRules' }] }).valid);
+  assert.equal(barbarian.pools.tceOptional.options[0].source, 'TCE');
+});

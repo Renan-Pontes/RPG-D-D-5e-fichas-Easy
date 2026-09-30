@@ -1,13 +1,22 @@
+import { errorMessage } from '../api/errors.js';
 import { useEffect, useState, useCallback } from 'react';
 import { api, API_BASE } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
-import CombatTab from './CombatTab.jsx';
 import RollRequestPanel from './RollRequestPanel.jsx';
 import DMCharacterEditor from './DMCharacterEditor.jsx';
 import GiveItemModal from './GiveItemModal.jsx';
 import CampaignItemsTab from '../items/CampaignItemsTab.jsx';
+import DiaryTab from './DiaryTab.jsx';
 import Utils from '../../utils.js';
 import { tName } from '../../data/i18n.js';
+import { lazy, Suspense } from 'react';
+import ScrollTabs from '../../components/ScrollTabs.jsx';
+// Preparação do mestre (mapa de salas/cenas) — carregada só quando a aba abre.
+const PrepTab = lazy(() => import('../prep/PrepTab.jsx'));
+// Combate e Mesa agora (só do mestre) puxam o bestiário (~550KB): chunk sob demanda,
+// assim o jogador nunca baixa o bestiário.
+const CombatTab = lazy(() => import('./CombatTab.jsx'));
+const TableNow = lazy(() => import('./TableNow.jsx'));
 
 // "Humano · Druida 3 / Guerreiro 1" a partir do resumo do servidor (ou da ficha local).
 function charLine(c, lang) {
@@ -19,11 +28,15 @@ function charLine(c, lang) {
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
+// Atalhos 1–7 do mestre: as abas usadas durante a sessão, na ordem da barra.
+const DM_TAB_KEYS = ['now', 'overview', 'combat', 'prep', 'rolls', 'diary', 'screen'];
+const shortcutOf = (id) => { const i = DM_TAB_KEYS.indexOf(id); return i >= 0 ? i + 1 : null; };
+
 export default function CampaignDetail({ lang = 'pt', campaignId, onBack, characters = [] }) {
   const [campaign, setCampaign] = useState(null);
   const [approvals, setApprovals] = useState([]);
   const [rigs, setRigs] = useState([]);
-  const [tab, setTab] = useState('overview');
+  const [tabSel, setTab] = useState(null); // null = aba inicial (mestre: Mesa agora)
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -37,7 +50,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
         setRigs(rRes.rigs || []);
       }
     } catch (e) {
-      setError(e?.message || 'failed');
+      setError(errorMessage(e, lang));
     }
   }, [campaignId]);
 
@@ -48,6 +61,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   usePolling(load, 2500, [campaignId]);
 
   const isDM = campaign?.role === 'dm';
+  const tab = tabSel ?? (isDM ? 'now' : 'overview');
 
   // Atalhos de teclado no painel do mestre — só desktop, foco fora de input/textarea.
   useEffect(() => {
@@ -66,10 +80,9 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
         e.preventDefault();
         navigator.clipboard?.writeText(`${window.location.origin}/tv/${campaign.screenToken}`);
       }
-      // 1..7 = atalhos rápidos de aba pro DM
+      // 1..7 = atalhos rápidos de aba pro DM (mesma ordem da barra; ver DM_TAB_KEYS)
       else if (/^[1-7]$/.test(e.key)) {
-        const order = ['overview', 'combat', 'rolls', 'members', 'approvals', 'dice', 'screen'];
-        const t2 = order[parseInt(e.key, 10) - 1];
+        const t2 = DM_TAB_KEYS[parseInt(e.key, 10) - 1];
         if (t2) { e.preventDefault(); setTab(t2); }
       }
     };
@@ -99,12 +112,15 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
         </div>
       </div>
 
-      <div className="tabs" role="tablist" aria-label={t(lang, 'Abas da campanha', 'Campaign tabs')} style={{ marginBottom: 16 }}>
+      <ScrollTabs activeKey={tab} lang={lang} role="tablist" aria-label={t(lang, 'Abas da campanha', 'Campaign tabs')} style={{ marginBottom: 16 }}>
         {[
+          ...(isDM ? [{ id: 'now', label: t(lang, 'Mesa agora', 'Table now') }] : []),
           { id: 'overview',  label: t(lang, 'Visão geral', 'Overview') },
           ...(isDM ? [{ id: 'combat',   label: t(lang, 'Combate', 'Combat') }] : []),
+          ...(isDM ? [{ id: 'prep',     label: t(lang, 'Preparação', 'Prep') }] : []),
           { id: 'rolls',     label: t(lang, 'Rolagens', 'Rolls') },
           { id: 'members',   label: t(lang, 'Membros', 'Members') },
+          { id: 'diary',     label: t(lang, 'Diário', 'Diary') },
           { id: 'approvals', label: t(lang, 'Aprovações', 'Approvals'), badge: approvals.filter(a => a.status === 'pending').length },
           ...(isDM ? [{ id: 'items',  label: t(lang, 'Itens', 'Items') }] : []),
           ...(isDM ? [{ id: 'dice',   label: t(lang, 'Dados', 'Dice') }] : []),
@@ -118,18 +134,39 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
             id={`tab-${it.id}`}
             className={`tab ${tab === it.id ? 'active' : ''}`}
             onClick={() => setTab(it.id)}
+            title={isDM && shortcutOf(it.id) ? t(lang, `Atalho: tecla ${shortcutOf(it.id)}`, `Shortcut: key ${shortcutOf(it.id)}`) : undefined}
+            aria-keyshortcuts={isDM && shortcutOf(it.id) ? String(shortcutOf(it.id)) : undefined}
           >
             {it.label}
-            {it.badge > 0 && <span className="badge" aria-label={`${it.badge} pending`}> {it.badge}</span>}
+            {it.badge > 0 && <span className="badge" aria-label={t(lang, `${it.badge} pendente(s)`, `${it.badge} pending`)}> {it.badge}</span>}
           </button>
         ))}
-      </div>
+      </ScrollTabs>
+      {isDM && (
+        <details className="kbd-help">
+          <summary>{t(lang, 'Atalhos de teclado', 'Keyboard shortcuts')}</summary>
+          <ul>
+            {DM_TAB_KEYS.map((id, i) => (
+              <li key={id}><kbd>{i + 1}</kbd> {{
+                now: t(lang, 'Mesa agora', 'Table now'), overview: t(lang, 'Visão geral', 'Overview'),
+                combat: t(lang, 'Combate', 'Combat'), prep: t(lang, 'Preparação', 'Prep'),
+                rolls: t(lang, 'Rolagens', 'Rolls'), diary: t(lang, 'Diário', 'Diary'), screen: t(lang, 'Telão', 'TV screen'),
+              }[id]}</li>
+            ))}
+            <li><kbd>N</kbd> {t(lang, 'próximo turno (na aba Combate)', 'next turn (Combat tab)')}</li>
+            <li><kbd>T</kbd> {t(lang, 'copiar link do telão (na aba Telão)', 'copy TV link (TV screen tab)')}</li>
+          </ul>
+        </details>
+      )}
 
       <div role="tabpanel" id={`tabpanel-${tab}`} aria-labelledby={`tab-${tab}`}>
+        {tab === 'now' && isDM && <Suspense fallback={<p className="muted">{t(lang, 'Carregando…', 'Loading…')}</p>}><TableNow campaign={campaign} approvals={approvals} lang={lang} onChange={load} onNavigate={setTab} /></Suspense>}
         {tab === 'overview' && <OverviewTab campaign={campaign} lang={lang} isDM={isDM} onChange={load} />}
-        {tab === 'combat' && isDM && <CombatTab campaign={campaign} lang={lang} onChange={load} />}
+        {tab === 'prep' && isDM && <Suspense fallback={<p className="muted">{t(lang, 'Carregando…', 'Loading…')}</p>}><PrepTab campaign={campaign} lang={lang} onOpenTab={setTab} /></Suspense>}
+        {tab === 'combat' && isDM && <Suspense fallback={<p className="muted">{t(lang, 'Carregando combate…', 'Loading combat…')}</p>}><CombatTab campaign={campaign} lang={lang} onChange={load} onNavigate={setTab} /></Suspense>}
         {tab === 'rolls' && <RollRequestPanel campaign={campaign} lang={lang} isDM={isDM} onChange={load} />}
         {tab === 'members' && <MembersTab campaign={campaign} lang={lang} isDM={isDM} characters={characters} onChange={load} />}
+        {tab === 'diary' && <DiaryTab campaign={campaign} lang={lang} isDM={isDM} />}
         {tab === 'approvals' && <ApprovalsTab campaign={campaign} approvals={approvals} lang={lang} isDM={isDM} onChange={load} />}
         {tab === 'items' && isDM && <CampaignItemsTab campaign={campaign} lang={lang} />}
         {tab === 'dice' && isDM && <DiceTab campaign={campaign} rigs={rigs} lang={lang} onChange={load} />}
@@ -179,15 +216,15 @@ function OverviewTab({ campaign, lang, isDM, onChange }) {
           <div className="col gap-2">
             <label className="col gap-1">
               <span>{t(lang, 'Sessão', 'Session')}</span>
-              <input className="input" value={session} onChange={e => setSession(e.target.value)} placeholder="ex: 12" />
+              <input aria-label="ex: 12" className="input" value={session} onChange={e => setSession(e.target.value)} placeholder="ex: 12" />
             </label>
             <label className="col gap-1">
               <span>{t(lang, 'Cena', 'Scene')}</span>
-              <input className="input" value={scene} onChange={e => setScene(e.target.value)} placeholder={t(lang, 'ex: Taverna do Javali Cego', 'e.g.: Blind Boar Tavern')} />
+              <input aria-label={t(lang, 'ex: Taverna do Javali Cego', 'e.g.: Blind Boar Tavern')} className="input" value={scene} onChange={e => setScene(e.target.value)} placeholder={t(lang, 'ex: Taverna do Javali Cego', 'e.g.: Blind Boar Tavern')} />
             </label>
             <label className="col gap-1">
               <span>{t(lang, 'Clima/Ambiente', 'Weather/Mood')}</span>
-              <input className="input" value={weather} onChange={e => setWeather(e.target.value)} placeholder={t(lang, 'ex: Chuva fina, ventania', 'e.g.: Drizzle, gusty')} />
+              <input aria-label={t(lang, 'ex: Chuva fina, ventania', 'e.g.: Drizzle, gusty')} className="input" value={weather} onChange={e => setWeather(e.target.value)} placeholder={t(lang, 'ex: Chuva fina, ventania', 'e.g.: Drizzle, gusty')} />
             </label>
             <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>
               <button className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>{t(lang, 'Cancelar', 'Cancel')}</button>
@@ -221,7 +258,7 @@ function OverviewTab({ campaign, lang, isDM, onChange }) {
               const r = await api.campaignLongRestAll(campaign.id);
               alert(t(lang, `${r.restedCharacters.length} personagem(ns) descansaram.`, `${r.restedCharacters.length} character(s) rested.`));
               onChange();
-            } catch (e) { alert(e?.data?.error || e?.message); }
+            } catch (e) { alert(errorMessage(e)); }
           }}>
             🛌 {t(lang, 'Descanso longo (toda a party)', 'Long rest (whole party)')}
           </button>
@@ -389,14 +426,14 @@ function InitiativeManager({ campaign, lang, onChange }) {
           ✚ {t(lang, 'Adicionar todos os jogadores (10+DEX)', 'Add all players (10+DEX)')}
         </button>
         <form className="row gap-2" onSubmit={addNPC} style={{ alignItems: 'center', flex: 1, minWidth: 280 }}>
-          <input
+          <input aria-label={t(lang, 'Nome do NPC/monstro', 'NPC/monster name')}
             className="input"
             placeholder={t(lang, 'Nome do NPC/monstro', 'NPC/monster name')}
             value={npcName}
             onChange={e => setNpcName(e.target.value)}
             style={{ flex: 1, minWidth: 140 }}
           />
-          <input
+          <input aria-label="Init"
             type="number"
             className="input"
             placeholder="Init"
@@ -477,7 +514,7 @@ function MembersTab({ campaign, lang, isDM, characters, onChange }) {
                 onGiveItem={() => setGivingTo({ id: m.character.id, name: m.character.name })}
                 onEndForm={async () => {
                   if (!confirm(t(lang, `Forçar ${m.character.name} a sair da forma selvagem?`, `Force ${m.character.name} out of wild shape?`))) return;
-                  try { await api.wildShapeForceEnd(m.character.id, {}); onChange(); } catch (e) { alert(e?.data?.error || e?.message); }
+                  try { await api.wildShapeForceEnd(m.character.id, {}); onChange(); } catch (e) { alert(errorMessage(e)); }
                 }}
                 onRemove={() => removeMember(m.id)}
               />
@@ -516,7 +553,7 @@ function MembersTab({ campaign, lang, isDM, characters, onChange }) {
             onGiveItem={() => setGivingTo({ id: selected.character.id, name: selected.character.name })}
             onEndForm={async () => {
               if (!confirm(t(lang, `Forçar ${selected.character.name} a sair da forma selvagem?`, `Force ${selected.character.name} out of wild shape?`))) return;
-              try { await api.wildShapeForceEnd(selected.character.id, {}); onChange(); } catch (e) { alert(e?.data?.error || e?.message); }
+              try { await api.wildShapeForceEnd(selected.character.id, {}); onChange(); } catch (e) { alert(errorMessage(e)); }
             }}
             onRemove={() => removeMember(selected.id)}
           />
@@ -656,6 +693,9 @@ function payloadText(a, lang) {
   return p.name || p.title || p.desc || p.id || '';
 }
 
+// XP total para passar do nível N ao N+1 (índice = nível atual). SRD 5.2.1.
+const XP_NEXT = [0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000, 165000, 195000, 225000, 265000, 305000, 355000];
+
 /**
  * Evolução da mesa (mestre): regra de multiclasse, nível de cada personagem e
  * liberação de subida individual ou para a mesa toda — sem esperar o pedido.
@@ -664,17 +704,32 @@ function LevelingPanel({ campaign, approvals, lang, onChange }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const allowMulti = campaign.state?.allowMulticlass !== false;
+  const xpMode = campaign.state?.levelingMode === 'xp';
+  const [xpAmount, setXpAmount] = useState('');
+  const [xpSplit, setXpSplit] = useState(true);
   const players = campaign.members.filter(m => m.role !== 'dm' && m.character);
   const openFor = (charId, status) => approvals.find(a => a.type === 'levelup' && a.status === status && a.character?.id === charId);
 
   const run = async (fn, ok) => {
     setBusy(true); setMsg('');
-    try { await fn(); setMsg(ok); onChange(); } catch (e) { setMsg(e?.data?.error || e?.message || 'Falha'); } finally { setBusy(false); }
+    try { await fn(); setMsg(ok); onChange(); } catch (e) { setMsg(errorMessage(e)); } finally { setBusy(false); }
   };
   const toggleRule = () => run(
     () => api.updateCampaign(campaign.id, { state: { ...campaign.state, allowMulticlass: !allowMulti } }),
     !allowMulti ? t(lang, 'Multiclasse liberada na mesa.', 'Multiclassing allowed.') : t(lang, 'Multiclasse bloqueada na mesa.', 'Multiclassing blocked.'),
   );
+  const setMode = (mode) => run(
+    () => api.updateCampaign(campaign.id, { state: { ...campaign.state, levelingMode: mode } }),
+    mode === 'xp'
+      ? t(lang, 'A mesa agora sobe de nível por XP.', 'The table now levels up by XP.')
+      : t(lang, 'A mesa agora sobe de nível por marcos.', 'The table now levels up by milestones.'),
+  );
+  const awardXp = (ids) => run(async () => {
+    const amount = parseInt(xpAmount, 10);
+    if (!(amount > 0)) throw new Error(t(lang, 'Informe quanto XP dar.', 'Enter how much XP to give.'));
+    await api.awardXp(campaign.id, { amount, characterIds: ids, split: ids === 'all' && xpSplit });
+    setXpAmount('');
+  }, t(lang, 'XP entregue. Quem alcançou o próximo nível já está liberado para subir.', 'XP awarded. Anyone who reached the next level is unlocked to level up.'));
   const grant = (ids) => run(async () => {
     const r = await api.grantLevelup(campaign.id, { characterIds: ids });
     if (!r.granted.length) throw new Error(t(lang, 'Nada para liberar (já liberado ou nível 20).', 'Nothing to unlock (already unlocked or level 20).'));
@@ -699,6 +754,34 @@ function LevelingPanel({ campaign, approvals, lang, onChange }) {
           <span className="muted text-xs"> — {t(lang, 'ao subir, o jogador pode abrir uma classe nova (com os pré-requisitos de atributo).', 'when leveling, players may take a new class (ability prerequisites apply).')}</span>
         </span>
       </label>
+      <div className="rule-toggle leveling-mode">
+        <strong>{t(lang, 'Progressão', 'Leveling')}</strong>
+        <div className="seg" role="radiogroup" aria-label={t(lang, 'Progressão', 'Leveling')}>
+          <button type="button" role="radio" aria-checked={!xpMode} className={`btn btn-sm ${!xpMode ? 'btn-primary' : 'btn-ghost'}`} disabled={busy} onClick={() => xpMode && setMode('milestone')}>
+            {t(lang, 'Marcos', 'Milestones')}
+          </button>
+          <button type="button" role="radio" aria-checked={xpMode} className={`btn btn-sm ${xpMode ? 'btn-primary' : 'btn-ghost'}`} disabled={busy} onClick={() => !xpMode && setMode('xp')}>
+            XP
+          </button>
+        </div>
+        <span className="muted text-xs">
+          {xpMode
+            ? t(lang, 'você dá XP; ao alcançar o próximo nível a subida é liberada sozinha.', 'you award XP; reaching the next level unlocks it automatically.')
+            : t(lang, 'você libera a subida quando a história pedir.', 'you unlock level ups when the story calls for it.')}
+        </span>
+      </div>
+      {xpMode && (
+        <div className="xp-award">
+          <input aria-label={t(lang, 'XP', 'XP')} type="number" min="1" inputMode="numeric" placeholder={t(lang, 'XP', 'XP')} value={xpAmount} onChange={e => setXpAmount(e.target.value)} />
+          <label className="xp-split">
+            <input type="checkbox" checked={xpSplit} onChange={e => setXpSplit(e.target.checked)} />
+            <span>{t(lang, 'dividir entre a mesa', 'split among the party')}</span>
+          </label>
+          <button className="btn btn-primary btn-sm" disabled={busy || !players.length} onClick={() => awardXp('all')}>
+            {t(lang, 'Dar XP à mesa', 'Give XP to party')}
+          </button>
+        </div>
+      )}
       {msg && <div className="text-sm" style={{ margin: '8px 0', color: 'var(--ink-secondary)' }}>{msg}</div>}
 
       <div className="leveling-list">
@@ -715,7 +798,10 @@ function LevelingPanel({ campaign, approvals, lang, onChange }) {
                 <strong>{c.name}</strong>
                 <span className="muted text-xs">{charLine(c.summary || c.data, lang)} · {m.user.displayName}</span>
               </div>
-              <span className="leveling-level mono">{t(lang, 'Nv', 'Lv')} {lvl}</span>
+              <span className="leveling-level mono">
+                {t(lang, 'Nv', 'Lv')} {lvl}
+                {xpMode && <span className="muted text-xs"> · {info.xp || 0}/{XP_NEXT[lvl] ?? '—'} XP</span>}
+              </span>
               <div className="leveling-actions">
                 {unlocked ? (
                   <>
@@ -729,6 +815,7 @@ function LevelingPanel({ campaign, approvals, lang, onChange }) {
                 ) : (
                   <>
                     {pending && <span className="pill pill-pending">{t(lang, 'pediu', 'requested')}</span>}
+                    {xpMode && <button className="btn btn-ghost btn-sm" disabled={busy} title={t(lang, 'Dá o valor do campo de XP só para este personagem', 'Gives the XP field amount to this character only')} onClick={() => awardXp([c.id])}>+XP</button>}
                     <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => grant([c.id])}>
                       {pending ? t(lang, 'Aprovar', 'Approve') : t(lang, `Liberar nível ${lvl + 1}`, `Unlock level ${lvl + 1}`)}
                     </button>
@@ -924,7 +1011,7 @@ function DiceTab({ campaign, rigs, lang, onChange }) {
               <option key={d} value={d}>{d === 'any' ? t(lang, 'Qualquer', 'Any') : d}</option>
             ))}
           </select>
-          <input
+          <input aria-label={t(lang, 'Valores: 15, 12, 18 (Enter para enfileirar)', 'Values: 15, 12, 18 (Enter to queue)')}
             value={valuesText}
             onChange={e => setValuesText(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && activeTarget) enqueue(activeTarget); }}
@@ -1003,7 +1090,7 @@ function DiceTab({ campaign, rigs, lang, onChange }) {
       <div className="info-box">
         <h3 style={{ marginTop: 0 }}>{t(lang, 'Histórico de rolagens', 'Rolls history')}</h3>
         {log.length === 0 ? (
-          <p style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Nenhuma rolagem ainda.', 'No rolls yet.')}</p>
+          <p style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Nenhuma rolagem ainda. As rolagens feitas na ficha dentro da campanha aparecem aqui.', 'No rolls yet. Rolls made from sheets in this campaign show up here.')}</p>
         ) : (
           <div className="dice-log">
             {log.slice(0, 50).map(r => {
@@ -1082,7 +1169,7 @@ function QuickInject({ lang, onInject }) {
   };
   return (
     <form className="quick-inject" onSubmit={submit}>
-      <input
+      <input aria-label={t(lang, 'injetar valor único…', 'inject single value…')}
         type="number"
         value={val}
         onChange={e => setVal(e.target.value)}
@@ -1138,6 +1225,12 @@ function CampaignDiceRoller({ campaign, lang }) {
     try {
       const r = await api.rollDice({ diceType, count, campaignId: campaign.id, label });
       setLast(r);
+      // Mostra no dado 3D o valor que o servidor decidiu (pode vir de rig do mestre).
+      window.__diceShow?.({
+        label: label || `${count}${diceType}`,
+        groups: [{ die: parseInt(diceType.slice(1), 10), rolls: r.results.map(x => ({ value: x.value, kept: true })) }],
+        total: r.total,
+      });
     } catch (e) {
       console.warn('roll failed', e);
     } finally {
@@ -1167,7 +1260,7 @@ function CampaignDiceRoller({ campaign, lang }) {
           onChange={e => setCount(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
           aria-label={t(lang, 'Quantidade', 'Count')}
         />
-        <input
+        <input aria-label={t(lang, 'rótulo (ex: percepção)', 'label (e.g. perception)')}
           className="input"
           placeholder={t(lang, 'rótulo (ex: percepção)', 'label (e.g. perception)')}
           value={label}

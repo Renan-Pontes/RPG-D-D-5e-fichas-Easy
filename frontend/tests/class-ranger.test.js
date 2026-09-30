@@ -95,3 +95,35 @@ test('patrulheiro: recursos com usos', () => {
   assert.deepEqual(res.find(r => r.id === 'favoredEnemy').uses.byLevel, { 1: 2, 5: 3, 9: 4, 13: 5, 17: 6 });
   for (const id of ['tireless', 'naturesVeil', 'dreadfulStrike']) assert.equal(res.find(r => r.id === id).rules, '2024');
 });
+
+test('patrulheiro 2014: Estilo de Luta no nível 2 com seletor (lista de 2014 da classe)', () => {
+  const c = ranger(2, { rulesVersion: '2014', classOptions: [
+    { classId: 'ranger', pool: 'favoredEnemy', id: 'beasts', level: 1 }, { classId: 'ranger', pool: 'favoredTerrain', id: 'forest', level: 1 },
+    { classId: 'ranger', pool: 'tceOptional', id: 'naturalExplorer', level: 1 }, { classId: 'ranger', pool: 'languages', id: 'Elvish', level: 1 },
+  ] });
+  const p = computeProgression(c);
+  assert.ok(pendingPools(p).includes('fightingStyle:1'));
+  assert.ok(!p.pendingChoices.some(x => x.type === 'fightingStyle'), 'pendência genérica some');
+  assert.ok(validateClassOptions(c, 'ranger', { adds: [{ pool: 'fightingStyle', id: 'archery' }] }).valid);
+  // Estilos que não estão na lista de 2014 do patrulheiro são recusados.
+  assert.ok(!validateClassOptions(c, 'ranger', { adds: [{ pool: 'fightingStyle', id: 'protection2014' }] }).valid);
+  assert.ok(!validateClassOptions(c, 'ranger', { adds: [{ pool: 'fightingStyle', id: 'superiorTechnique' }] }).valid);
+  assert.ok(!pendingPools(computeProgression(ranger(1, { rulesVersion: '2014' }))).some(x => x.startsWith('fightingStyle')));
+});
+
+test('patrulheiro 2014: Explorador Hábil (TCE) opcional — 1 expertise + 2 idiomas; Incansável no 10', () => {
+  const lv1 = ranger(1, { rulesVersion: '2014', skillProfs: ['survival'] });
+  assert.ok(pendingPools(computeProgression(lv1)).includes('tceOptional:1'));
+  const deft = { ...lv1, classOptions: [{ classId: 'ranger', pool: 'tceOptional', id: 'deftExplorer', level: 1 }] };
+  const pend = pendingPools(computeProgression(deft));
+  assert.ok(pend.includes('expertise:1') && pend.includes('languages:2'));
+  assert.ok(validateClassOptions(deft, 'ranger', { adds: [{ pool: 'expertise', id: 'survival' }, { pool: 'languages', id: 'Elvish' }, { pool: 'languages', id: 'Sylvan' }] }).valid);
+  // Sem o Explorador Hábil, não há vaga de expertise.
+  const phb = { ...lv1, classOptions: [{ classId: 'ranger', pool: 'tceOptional', id: 'naturalExplorer', level: 1 }] };
+  assert.ok(!pendingPools(computeProgression(phb)).some(x => x.startsWith('expertise')));
+  const opt = CLASS_OPTIONS.ranger.pools.tceOptional.options.find(o => o.id === 'deftExplorer');
+  assert.equal(opt.source, 'TCE');
+  assert.equal(opt.resource.minLevel, 10);
+  // 2024 não vê o pool.
+  assert.ok(!pendingPools(computeProgression(ranger(1))).some(x => x.startsWith('tceOptional')));
+});

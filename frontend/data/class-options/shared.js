@@ -239,7 +239,8 @@ const FIGHTING_STYLES = [
     id: 'superiorTechnique', name: b('Técnica Superior', 'Superior Technique'), source: 'TCE', rules: '2014', classes2014: ['fighter'],
     desc: b('Aprende uma manobra do Mestre de Batalha e ganha um dado de superioridade (d6), recuperado em descanso curto ou longo.',
       'Learn one Battle Master maneuver and gain one superiority die (d6), regained on a short or long rest.'),
-    detail: b('Qual manobra?', 'Which maneuver?'),
+    // Só o guerreiro tem este estilo em 2014: fighter.js abre a vaga no pool `maneuver`
+    // (choices) e cria o recurso do dado; paladino/patrulheiro não podem escolhê-lo.
     effect: { maneuvers: 1, superiorityDice: { count: 1, die: 'd6', recharge: 'short' } },
   },
 ];

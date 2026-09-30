@@ -20,7 +20,7 @@ import {
 } from './multiclass.js';
 import { featGrants } from './feat-rules.js';
 import { speciesGrants } from './species.js';
-import { classOptionState, validateOptionPicks, applyOptionPicks, revertOptionPicks } from './options.js';
+import { classOptionState, validateOptionPicks, applyOptionPicks, revertOptionPicks, optionPool, migrateClassOptions } from './options.js';
 import { validateFeatChoice, progHasFightingStyle, featEntry, withFeatAsi } from './feat-rules.js';
 import SRD from '../../data/srd.js';
 import { SPELLS_2024 } from '../../data/rules2024.js';
@@ -142,8 +142,14 @@ export function computeProgression(character) {
   out.classOptions = opts.picks.map(({ option, ...p }) => p);
   out.optionSlots = opts.slots;
   // Com pool próprio de estilo de luta/expertise, a pendência genérica antiga sai.
-  out.pendingChoices = out.pendingChoices.filter(c => !((c.type === 'fightingStyle' && opts.slots.fightingStyle) || (c.type === 'expertise' && opts.slots.expertise)));
+  // (Qualquer pool que conceda expertise conta, ex.: `expertise2014` do ladino.)
+  const expertisePool = Object.keys(opts.slots).some(p => p === 'expertise' || optionPool(character.className, p)?.grantAs === 'expertise');
+  out.pendingChoices = out.pendingChoices.filter(c => !((c.type === 'fightingStyle' && opts.slots.fightingStyle) || (c.type === 'expertise' && expertisePool)));
   out.pendingChoices.push(...opts.pending);
+  // Pools `countsAsKnown` (Segredos Mágicos do bardo 2014): as magias escolhidas entram
+  // como automáticas, mas já estão somadas na tabela de magias conhecidas — descontam.
+  const known = opts.picks.filter(p => optionPool(character.className, p.pool)?.countsAsKnown).length;
+  if (known) out.spellsKnown = Math.max(0, out.spellsKnown - known);
   out.autoSpells.push(...opts.grants.spells);
   out.autoCantrips.push(...opts.grants.cantrips);
   for (const [k, v] of Object.entries(opts.grants)) {
@@ -250,6 +256,7 @@ function applyNode(out, node, level, source) {
  * - Remove autos que sobraram de subclasses anteriores (caso troquem).
  */
 export function applyAutosToCharacter(character) {
+  character = migrateClassOptions(character);
   const prog = computeProgression(character);
   const next = { ...character };
   const spells = Array.isArray(next.spells) ? [...next.spells] : [];

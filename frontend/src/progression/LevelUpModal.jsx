@@ -1,5 +1,6 @@
 /* Subida de nível guiada: PV, ASI/talento e magias, com os limites das regras.
  * Também resolve um ASI pendente de nível antigo (onlyChoiceLevel). */
+import { errorMessage } from '../api/errors.js';
 import { useState, useEffect } from 'react';
 import SRD from '../../data/srd.js';
 import Utils from '../../utils.js';
@@ -172,8 +173,7 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
   // e escolhem as magias no descanso longo — no nível só aprendem truques novos.
   const spellRoom = Utils.isPreparedCaster(view) ? 0 : Math.max(0, (Utils.knownSpellLimit(view) || 0) - countOf(false));
   const maxLvl = Utils.maxSpellLevel(view);
-  const listClass = Utils.spellListClass(view);
-  const available = catalog.filter(s => !owned.has(s.id) && (cheat || (s.classes.includes(listClass) && s.level <= maxLvl && (s.level === 0 || spellRoom > 0))));
+  const available = catalog.filter(s => !owned.has(s.id) && (cheat || (Utils.inSpellList(view, s) && s.level <= maxLvl && (s.level === 0 || spellRoom > 0))));
   const [added, setAdded] = useState([]);
   useEffect(() => { setAdded([]); }, [classId]);
   const addedCantrips = added.filter(id => catalog.find(s => s.id === id)?.level === 0).length;
@@ -234,7 +234,7 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
       });
       onClose();
     } catch (e) {
-      setError(e?.data?.issues?.join(' · ') || e?.data?.error || e?.message || 'Falha');
+      setError(errorMessage(e));
     } finally { setBusy(false); }
   };
 
@@ -320,10 +320,10 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
           ))}
           {bookMode && (
             <>
-              <h3 style={{ margin: '12px 0 4px' }}>{pt ? 'Grimório' : 'Spellbook'}</h3>
+              <h3 style={{ margin: '12px 0 4px' }}>{pt ? 'Livro de magias' : 'Spellbook'}</h3>
               <div className="muted text-sm" style={{ marginBottom: 8 }}>
                 {wizLevel === 1
-                  ? (pt ? 'Seu grimório começa com 6 magias de Mago de nível 1.' : 'Your spellbook starts with 6 level 1 Wizard spells.')
+                  ? (pt ? 'Seu livro de magias começa com 6 magias de Mago de nível 1.' : 'Your spellbook starts with 6 level 1 Wizard spells.')
                   : (pt ? `Acrescente 2 magias de Mago de círculo até ${maxLvl}.` : `Add 2 Wizard spells of level ${maxLvl} or lower.`)}
                 {' '}<strong style={{ color: bookAdded.length === bookRoom ? 'var(--moss-bright)' : 'var(--gold)' }}>{bookAdded.length}/{cheat ? '∞' : bookRoom}</strong>
                 {' · '}{pt ? 'Entram no livro sem preparar; prepare-as na ficha.' : 'They go in the book unprepared; prepare them on the sheet.'}
@@ -367,7 +367,7 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
           </div>
         )}
         {added.length > 0 && <div style={box}>{added.map(id => tName('spellName', id, lang)).join(', ')}</div>}
-        {bookAdded.length > 0 && <div style={box}>{lang === 'pt' ? 'Grimório' : 'Spellbook'}: {bookAdded.map(id => tName('spellName', id, lang)).join(', ')}</div>}
+        {bookAdded.length > 0 && <div style={box}>{lang === 'pt' ? 'Livro de magias' : 'Spellbook'}: {bookAdded.map(id => tName('spellName', id, lang)).join(', ')}</div>}
         {optPicks.adds.length > 0 && <div style={box}>{optPicks.adds.map(a => pickLabel(classId, a, lang)).join(', ')}</div>}
         {optPicks.swaps.map(sw => (
           <div key={sw.pool} style={box}>{pickLabel(classId, { pool: sw.pool, id: sw.from }, lang)} → {pickLabel(classId, { pool: sw.pool, id: sw.to }, lang)}</div>
@@ -378,10 +378,12 @@ export default function LevelUpModal({ char, lang, onConfirm, onClose, onlyChoic
 
   return (
     <Modal onClose={onClose}>
-      <div className="row gap-2" style={{ marginBottom: 14 }}>
+      <div className="row gap-2" style={{ marginBottom: 14, paddingRight: 36 /* não passa por baixo do × */ }}
+        role="progressbar" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={step + 1}
+        aria-label={lang === 'pt' ? `Passo ${step + 1} de ${steps.length}` : `Step ${step + 1} of ${steps.length}`}>
         {steps.map((s, i) => <div key={s} style={{ flex: 1, height: 4, borderRadius: 2, background: i <= step ? 'var(--gold)' : 'var(--stroke-faint)' }}/>)}
       </div>
-      <div style={{ maxHeight: '60vh', overflowY: 'auto', marginBottom: 14 }}>{render()}</div>
+      <div className="lu-scroll" style={{ maxHeight: '60vh', overflowY: 'auto', marginBottom: 14 }}>{render()}</div>
       {error && <div className="text-sm" style={{ color: 'var(--blood-bright)', marginBottom: 8 }}>{error}</div>}
       <div className="row gap-2">
         {step > 0 && <button className="btn btn-ghost" onClick={() => setStep(step - 1)}>{t('back', lang)}</button>}

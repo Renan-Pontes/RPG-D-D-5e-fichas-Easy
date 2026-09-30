@@ -97,7 +97,10 @@ export function speciesGrants(char) {
   if (!def) return out;
   const sc = char.speciesChoices || {};
   const lv = char.level || 1;
+  let fixedAbility = def.fixedSpellAbility || null;
   const add = (src) => {
+    // Opção com atributo próprio (ex.: meio-elfo de descendência drow = CAR, truque de mago = INT).
+    if (src !== def && src.fixedSpellAbility) fixedAbility = src.fixedSpellAbility;
     if (src.darkvision) out.darkvision = Math.max(out.darkvision, src.darkvision);
     if (src.speed) out.speed = src.speed;
     out.resist.push(...(src.resist || []));
@@ -119,7 +122,7 @@ export function speciesGrants(char) {
     }
   }
   if (speciesChoiceSpecs(char).some(c => c.key === 'size') && ['Medium', 'Small'].includes(sc.size)) out.size = sc.size;
-  out.spellAbility = def.fixedSpellAbility || (SPELL_ABILITIES.includes(sc.spellAbility) ? sc.spellAbility : null);
+  out.spellAbility = fixedAbility || (SPELL_ABILITIES.includes(sc.spellAbility) ? sc.spellAbility : null);
   for (const k of ['cantrips', 'spells', 'skills', 'resist']) out[k] = [...new Set(out[k])];
   return out;
 }

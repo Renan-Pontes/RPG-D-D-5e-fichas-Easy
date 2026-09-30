@@ -22,8 +22,16 @@ Formato de combatente (campo `combat_state.combatants` em CombatInstance):
     'damage_immunities': [...],
     'damage_vulnerabilities': [...],
     'condition_immunities': [...],
-    'actions': [{name, type, atk, damage, damageType, save?, desc?}, ...]
+    'actions': [{name, type, atk, damage, damageType, extraDamage?, save?,
+                 recharge?, uses?, usesPer?, kind?, cost?, desc?}, ...],
+    'legendary': {'uses': 3, 'lairUses': 4}?,          # definição (catálogo)
+    'legendary_resistance': {'uses': 3, 'lairUses': 4}?,
   },
+  # Estado dos recursos do monstro (ver init_resources):
+  'action_state': {'<idx>': {'charged': bool} | {'uses_left': int}},
+  'legendary': {'max': 3, 'remaining': 3, 'lair_max': 4?}?,
+  'legendary_resistance': {'max': 3, 'remaining': 3, 'lair_max': 4?}?,
+  'in_lair': False,             # no covil: usa lair_max
   'current_hp': 7,
   'temp_hp': 0,
   'conditions': ['poisoned'],
@@ -60,7 +68,10 @@ def parse_dice(expr):
 
 
 def roll_dice(expr, double_dice=False):
-    """Rola 'XdY+Z'. Se double_dice (crítico), rola 2X dados."""
+    """Rola 'XdY+Z'. Se double_dice (crítico), rola 2X dados. Aceita valor fixo ('1')."""
+    if re.fullmatch(r'\s*-?\d+\s*', str(expr or '')):
+        v = int(expr)
+        return {'total': max(0, v), 'rolls': [], 'mod': v}
     count, sides, mod = parse_dice(expr)
     if count == 0 or sides == 0:
         return {'total': 0, 'rolls': [], 'mod': 0}
@@ -129,6 +140,15 @@ def resolve_attack(attacker, target, action, *,
         else:
             d = roll_dice(dmg_expr, double_dice=crit)
             result['damage'] = {**d, 'type': dmg_type, 'crit': crit}
+        # Dano adicional ("plus 5 (2d4) Fire damage") — rolado à parte, com tipo próprio.
+        extras = []
+        for extra in action.get('extraDamage') or []:
+            if not isinstance(extra, dict) or not extra.get('damage'):
+                continue
+            ed = roll_dice(extra.get('damage'), double_dice=crit)
+            extras.append({**ed, 'type': extra.get('damageType') or dmg_type, 'crit': crit})
+        if extras:
+            result['extra_damage'] = extras
 
     name_action = (action.get('name') or {}).get('en') if isinstance(action.get('name'), dict) else action.get('name', '?')
     if natural_one:
@@ -271,6 +291,9 @@ def resolve_save_effect(action, targets, *, forced_d20s=None):
 
     targets: lista de combatant dicts. Retorna lista de dicts por alvo.
     forced_d20s: dict {target_id: forced_value} pra rigging.
+
+    Dano adicional (action.extraDamage) é rolado à parte com seu tipo; condições
+    em save.conditions são aplicadas a quem falhar (ver apply_save_results).
     """
     save = action.get('save') or {}
     ability = save.get('ability', 'DEX')
@@ -278,26 +301,40 @@ def resolve_save_effect(action, targets, *, forced_d20s=None):
     half = bool(save.get('halfOnSave', False))
     dmg_expr = action.get('damage', '0')
     dmg_type = action.get('damageType', 'force')
+    conditions = [c for c in (save.get('conditions') or []) if c in ALL_CONDITIONS]
     forced_d20s = forced_d20s or {}
 
     # Rola o dano uma vez (todos sofrem o mesmo total base)
     base = roll_dice(dmg_expr) if dmg_expr and dmg_expr != '0' else None
+    extra_rolls = []
+    for extra in action.get('extraDamage') or []:
+        if isinstance(extra, dict) and extra.get('damage'):
+            extra_rolls.append({**roll_dice(extra['damage']), 'type': extra.get('damageType') or dmg_type})
 
     out = []
     for tgt in targets:
         r = resolve_save(tgt, ability, dc, forced_d20=forced_d20s.get(tgt.get('id')))
-        applied = 0
+
+        def portion(full):
+            return full // 2 if (r['success'] and half) else (0 if r['success'] else full)
+
+        parts = []
         if base:
-            full = base['total']
-            applied = full // 2 if (r['success'] and half) else (0 if r['success'] else full)
+            parts.append({'amount': portion(base['total']), 'type': dmg_type})
+        for er in extra_rolls:
+            parts.append({'amount': portion(er['total']), 'type': er['type']})
+        parts = [p for p in parts if p['amount'] > 0]
         out.append({
             'target_id': tgt.get('id'),
             'target_name': tgt.get('name'),
             'save': r,
-            'damage_taken': applied,
+            'damage_taken': sum(p['amount'] for p in parts),
             'damage_type': dmg_type,
+            'damage_parts': parts,
+            'conditions': [] if r['success'] else conditions,
         })
-    return {'damage_base': base, 'per_target': out, 'ability': ability, 'dc': dc, 'half_on_save': half}
+    return {'damage_base': base, 'extra_damage': extra_rolls, 'per_target': out,
+            'ability': ability, 'dc': dc, 'half_on_save': half}
 
 
 # ============================================================
@@ -364,6 +401,57 @@ def apply_damage(combatant, amount, damage_type):
         'hp_lost': remaining,
         'note': note,
     }
+
+
+def attack_damage_parts(result):
+    """Partes de dano de um resolve_attack que acertou: [{'amount', 'type'}]."""
+    if not result.get('hit') or not result.get('damage'):
+        return []
+    parts = [{'amount': result['damage']['total'], 'type': result['damage']['type']}]
+    for e in result.get('extra_damage') or []:
+        parts.append({'amount': e['total'], 'type': e['type']})
+    return [p for p in parts if p['amount'] > 0]
+
+
+def apply_damage_parts(combatant, parts):
+    """Aplica várias parcelas de dano (cada uma com seu tipo, p/ resistências)."""
+    cur = combatant
+    taken = 0
+    notes = []
+    for p in parts:
+        r = apply_damage(cur, int(p.get('amount') or 0), p.get('type'))
+        cur = r['combatant']
+        taken += r['damage_taken']
+        if r['note']:
+            notes.append(r['note'])
+    return {'combatant': cur, 'damage_taken': taken, 'note': ','.join(notes) or None}
+
+
+def apply_save_results(combatants, result):
+    """Aplica dano e condições de um resolve_save_effect. Retorna (combatants, ids alterados)."""
+    changed = []
+    for entry in result['per_target']:
+        tgt = find_combatant(combatants, entry['target_id'])
+        if not tgt:
+            continue
+        cur = tgt
+        if entry.get('damage_parts'):
+            applied = apply_damage_parts(cur, entry['damage_parts'])
+            cur = applied['combatant']
+            entry['damage_taken'] = applied['damage_taken']
+        applied_conds = []
+        for cond in entry.get('conditions') or []:
+            r = add_condition(cur, cond)
+            cur = r['combatant']
+            if r['applied']:
+                applied_conds.append(cond)
+        entry['conditions_applied'] = applied_conds
+        entry['new_hp'] = cur.get('current_hp')
+        entry['defeated'] = cur.get('defeated', False)
+        if cur is not tgt:
+            combatants = replace_combatant(combatants, cur)
+            changed.append(cur.get('id'))
+    return combatants, changed
 
 
 def apply_healing(combatant, amount):
@@ -490,3 +578,181 @@ def find_combatant(combatants, combatant_id):
 def replace_combatant(combatants, updated):
     """Retorna nova lista com o combatant substituído pelo id."""
     return [updated if c.get('id') == updated.get('id') else c for c in combatants]
+
+
+# ============================================================
+# RECURSOS DE MONSTRO: recarga, usos por dia, ações lendárias
+# ============================================================
+def _stats_actions(combatant):
+    return (combatant.get('stats') or {}).get('actions') or []
+
+
+def init_resources(combatant):
+    """Garante action_state/legendary/legendary_resistance a partir das stats.
+
+    Idempotente: não mexe no que já existe (combatentes antigos são migrados
+    na primeira chamada).
+    """
+    stats = combatant.get('stats') or {}
+    next_c = dict(combatant)
+    state = dict(combatant.get('action_state') or {})
+    for i, a in enumerate(_stats_actions(combatant)):
+        key = str(i)
+        if key in state or not isinstance(a, dict):
+            continue
+        if a.get('recharge'):
+            state[key] = {'charged': True}
+        elif a.get('uses'):
+            state[key] = {'uses_left': int(a['uses'])}
+    next_c['action_state'] = state
+    leg = stats.get('legendary')
+    if isinstance(leg, dict) and not combatant.get('legendary'):
+        n = int(leg.get('uses') or 3)
+        next_c['legendary'] = {'max': n, 'remaining': n, 'lair_max': leg.get('lairUses')}
+    lr = stats.get('legendary_resistance')
+    if isinstance(lr, dict) and not combatant.get('legendary_resistance'):
+        n = int(lr.get('uses') or 3)
+        next_c['legendary_resistance'] = {'max': n, 'remaining': n, 'lair_max': lr.get('lairUses')}
+    return next_c
+
+
+def _res_max(combatant, key):
+    res = combatant.get(key) or {}
+    if combatant.get('in_lair') and res.get('lair_max'):
+        return int(res['lair_max'])
+    return int(res.get('max') or 0)
+
+
+def legendary_max(combatant):
+    return _res_max(combatant, 'legendary')
+
+
+def legendary_resistance_max(combatant):
+    return _res_max(combatant, 'legendary_resistance')
+
+
+def action_availability(combatant, index):
+    """(ok, motivo) — motivo: None | 'recharging' | 'no_uses_left' | 'no_legendary_actions'."""
+    c = init_resources(combatant)
+    actions = _stats_actions(c)
+    if index < 0 or index >= len(actions):
+        return False, 'invalid_action_index'
+    a = actions[index]
+    st = (c.get('action_state') or {}).get(str(index)) or {}
+    if a.get('kind') == 'legendary':
+        cost = int(a.get('cost') or 1)
+        if (c.get('legendary') or {}).get('remaining', 0) < cost:
+            return False, 'no_legendary_actions'
+    if a.get('recharge') and not st.get('charged', True):
+        return False, 'recharging'
+    if a.get('uses') and st.get('uses_left', 1) <= 0:
+        return False, 'no_uses_left'
+    return True, None
+
+
+def consume_action(combatant, index):
+    """Marca o uso: recarga gasta, uso diário −1, ações lendárias −custo."""
+    c = init_resources(combatant)
+    actions = _stats_actions(c)
+    if index < 0 or index >= len(actions):
+        return c
+    a = actions[index]
+    state = dict(c.get('action_state') or {})
+    key = str(index)
+    if a.get('recharge'):
+        state[key] = {**(state.get(key) or {}), 'charged': False}
+    elif a.get('uses'):
+        cur = (state.get(key) or {}).get('uses_left', int(a['uses']))
+        state[key] = {**(state.get(key) or {}), 'uses_left': max(0, int(cur) - 1)}
+    c['action_state'] = state
+    if a.get('kind') == 'legendary' and c.get('legendary'):
+        leg = dict(c['legendary'])
+        leg['remaining'] = max(0, int(leg.get('remaining') or 0) - int(a.get('cost') or 1))
+        c['legendary'] = leg
+    return c
+
+
+def start_turn(combatant, *, roll=None):
+    """Início do turno do monstro: rola recarga (d6) das ações gastas e
+    restaura as ações lendárias. Retorna {'combatant', 'recharge_rolls', 'legendary_reset'}.
+    """
+    roll = roll or (lambda: roll_die(6))
+    c = init_resources(combatant)
+    actions = _stats_actions(c)
+    state = dict(c.get('action_state') or {})
+    rolls = []
+    for key, st in list(state.items()):
+        try:
+            i = int(key)
+        except (TypeError, ValueError):
+            continue
+        if i >= len(actions) or not actions[i].get('recharge') or st.get('charged', True):
+            continue
+        need = int(actions[i]['recharge'])
+        v = int(roll())
+        ok = v >= need
+        state[key] = {**st, 'charged': ok}
+        name = actions[i].get('name')
+        rolls.append({'index': i, 'name': name.get('en') if isinstance(name, dict) else name,
+                      'roll': v, 'need': need, 'recharged': ok})
+    c['action_state'] = state
+    reset = False
+    if c.get('legendary'):
+        leg = dict(c['legendary'])
+        mx = legendary_max(c)
+        reset = leg.get('remaining') != mx
+        leg['remaining'] = mx
+        c['legendary'] = leg
+    return {'combatant': c, 'recharge_rolls': rolls, 'legendary_reset': reset}
+
+
+def set_resources(combatant, patch):
+    """Ajuste manual do mestre. patch aceita:
+    actionIndex + charged (bool) | usesLeft (int);
+    legendaryRemaining, inLair (bool), legendaryResistanceRemaining; restoreAll (bool).
+    """
+    c = init_resources(combatant)
+    actions = _stats_actions(c)
+    state = dict(c.get('action_state') or {})
+    if patch.get('restoreAll'):
+        for i, a in enumerate(actions):
+            if a.get('recharge'):
+                state[str(i)] = {'charged': True}
+            elif a.get('uses'):
+                state[str(i)] = {'uses_left': int(a['uses'])}
+        if c.get('legendary'):
+            c['legendary'] = {**c['legendary'], 'remaining': legendary_max(c)}
+        if c.get('legendary_resistance'):
+            c['legendary_resistance'] = {**c['legendary_resistance'], 'remaining': legendary_resistance_max(c)}
+    idx = patch.get('actionIndex')
+    if idx is not None:
+        idx = int(idx)
+        if 0 <= idx < len(actions):
+            a = actions[idx]
+            st = dict(state.get(str(idx)) or {})
+            if 'charged' in patch and a.get('recharge'):
+                st['charged'] = bool(patch['charged'])
+            if 'usesLeft' in patch and a.get('uses'):
+                st['uses_left'] = max(0, min(int(a['uses']), int(patch['usesLeft'])))
+            state[str(idx)] = st
+    c['action_state'] = state
+    if 'inLair' in patch:
+        was, now = bool(c.get('in_lair')), bool(patch['inLair'])
+        c['in_lair'] = now
+        if was != now:
+            for key, mx_fn in (('legendary', legendary_max), ('legendary_resistance', legendary_resistance_max)):
+                if not c.get(key):
+                    continue
+                res = dict(c[key])
+                rem = int(res.get('remaining') or 0)
+                if now:  # entrar no covil concede os usos extras
+                    rem += mx_fn(c) - int(res.get('max') or 0)
+                res['remaining'] = max(0, min(mx_fn(c), rem))
+                c[key] = res
+    if c.get('legendary') and 'legendaryRemaining' in patch:
+        c['legendary'] = {**c['legendary'],
+                          'remaining': max(0, min(legendary_max(c), int(patch['legendaryRemaining'])))}
+    if c.get('legendary_resistance') and 'legendaryResistanceRemaining' in patch:
+        c['legendary_resistance'] = {**c['legendary_resistance'],
+                                     'remaining': max(0, min(legendary_resistance_max(c), int(patch['legendaryResistanceRemaining'])))}
+    return c

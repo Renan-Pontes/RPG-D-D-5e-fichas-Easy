@@ -19035,7 +19035,8 @@
             {
               "id": "commonMagicItem",
               "rules": "2024",
-              "repeatable": true
+              "repeatable": true,
+              "detail": true
             },
             {
               "id": "gogglesOfNight",
@@ -19292,6 +19293,7 @@
               "id": "uncommonWondrousItem",
               "rules": "2024",
               "repeatable": true,
+              "detail": true,
               "prereq": {
                 "level": 10
               }
@@ -19342,6 +19344,7 @@
               "id": "rareWondrousItem",
               "rules": "2024",
               "repeatable": true,
+              "detail": true,
               "prereq": {
                 "level": 14
               }
@@ -19439,7 +19442,9 @@
               "id": "replicateMagicItem",
               "rules": "2014",
               "repeatable": true,
-              "prereq": {}
+              "choices": {
+                "replicateItem": 1
+              }
             },
             {
               "id": "repulsionShield",
@@ -19451,6 +19456,7 @@
             {
               "id": "resistantArmor",
               "rules": "2014",
+              "detail": true,
               "prereq": {
                 "level": 6
               }
@@ -19466,6 +19472,343 @@
               "prereq": {
                 "level": 6
               }
+            }
+          ]
+        },
+        "replicateItem": {
+          "swapOnLevelUp": 1,
+          "options": [
+            {
+              "id": "alchemyJug",
+              "rules": "2014"
+            },
+            {
+              "id": "bagOfHolding",
+              "rules": "2014"
+            },
+            {
+              "id": "capOfWaterBreathing",
+              "rules": "2014"
+            },
+            {
+              "id": "gogglesOfNight",
+              "rules": "2014"
+            },
+            {
+              "id": "ropeOfClimbing",
+              "rules": "2014"
+            },
+            {
+              "id": "sendingStones",
+              "rules": "2014"
+            },
+            {
+              "id": "wandOfMagicDetection",
+              "rules": "2014"
+            },
+            {
+              "id": "wandOfSecrets",
+              "rules": "2014"
+            },
+            {
+              "id": "bootsOfElvenkind",
+              "rules": "2014",
+              "prereq": {
+                "level": 6
+              }
+            },
+            {
+              "id": "cloakOfElvenkind",
+              "rules": "2014",
+              "prereq": {
+                "level": 6
+              }
+            },
+            {
+              "id": "cloakOfTheMantaRay",
+              "rules": "2014",
+              "prereq": {
+                "level": 6
+              }
+            },
+            {
+              "id": "eyesOfCharming",
+              "rules": "2014",
+              "prereq": {
+                "level": 6
+              }
+            },
+            {
+              "id": "glovesOfThievery",
+              "rules": "2014",
+              "prereq": {
+                "level": 6
+              }
+            },
+            {
+              "id": "lanternOfRevealing",
+              "rules": "2014",
+              "prereq": {
+                "level": 6
+              }
+            },
+            {
+              "id": "pipesOfHaunting",
+              "rules": "2014",
+              "prereq": {
+                "level": 6
+              }
+            },
+            {
+              "id": "ringOfWaterWalking",
+              "rules": "2014",
+              "prereq": {
+                "level": 6
+              }
+            },
+            {
+              "id": "bootsOfStridingAndSpringing",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "bootsOfTheWinterlands",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "bracersOfArchery",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "broochOfShielding",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "cloakOfProtection",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "eyesOfTheEagle",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "gauntletsOfOgrePower",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "glovesOfMissileSnaring",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "glovesOfSwimmingAndClimbing",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "hatOfDisguise",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "headbandOfIntellect",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "helmOfTelepathy",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "medallionOfThoughts",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "necklaceOfAdaptation",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "periaptOfWoundClosure",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "pipesOfTheSewers",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "quiverOfEhlonna",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "ringOfJumping",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "ringOfMindShielding",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "slippersOfSpiderClimbing",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "wingedBoots",
+              "rules": "2014",
+              "prereq": {
+                "level": 10
+              }
+            },
+            {
+              "id": "amuletOfHealth",
+              "rules": "2014",
+              "prereq": {
+                "level": 14
+              }
+            },
+            {
+              "id": "arcanePropulsionArm",
+              "rules": "2014",
+              "prereq": {
+                "level": 14
+              }
+            },
+            {
+              "id": "beltOfHillGiantStrength",
+              "rules": "2014",
+              "prereq": {
+                "level": 14
+              }
+            },
+            {
+              "id": "bootsOfLevitation",
+              "rules": "2014",
+              "prereq": {
+                "level": 14
+              }
+            },
+            {
+              "id": "bootsOfSpeed",
+              "rules": "2014",
+              "prereq": {
+                "level": 14
+              }
+            },
+            {
+              "id": "bracersOfDefense",
+              "rules": "2014",
+              "prereq": {
+                "level": 14
+              }
+            },
+            {
+              "id": "cloakOfTheBat",
+              "rules": "2014",
+              "prereq": {
+                "level": 14
+              }
+            },
+            {
+              "id": "dimensionalShackles",
+              "rules": "2014",
+              "prereq": {
+                "level": 14
+              }
+            },
+            {
+              "id": "gemOfSeeing",
+              "rules": "2014",
+              "prereq": {
+                "level": 14
+              }
+            },
+            {
+              "id": "hornOfBlasting",
+              "rules": "2014",
+              "prereq": {
+                "level": 14
+              }
+            },
+            {
+              "id": "ringOfFreeAction",
+              "rules": "2014",
+              "prereq": {
+                "level": 14
+              }
+            },
+            {
+              "id": "ringOfProtection",
+              "rules": "2014",
+              "prereq": {
+                "level": 14
+              }
+            },
+            {
+              "id": "ringOfTheRam",
+              "rules": "2014",
+              "prereq": {
+                "level": 14
+              }
+            },
+            {
+              "id": "commonItem",
+              "rules": "2014",
+              "repeatable": true,
+              "detail": true
             }
           ]
         },
@@ -19612,6 +19955,7 @@
                   "Alchemist's supplies"
                 ]
               },
+              "detail": true,
               "prereq": {
                 "subclass": [
                   "alchemist"
@@ -19629,6 +19973,7 @@
                   "Smith's tools"
                 ]
               },
+              "detail": true,
               "prereq": {
                 "subclass": [
                   "armorer"
@@ -19643,6 +19988,7 @@
                   "Woodcarver's tools"
                 ]
               },
+              "detail": true,
               "prereq": {
                 "subclass": [
                   "artillerist"
@@ -19660,6 +20006,7 @@
                   "Smith's tools"
                 ]
               },
+              "detail": true,
               "prereq": {
                 "subclass": [
                   "battlesmith"
@@ -20215,6 +20562,38 @@
             ]
           }
         },
+        "tceOptional": {
+          "options": [
+            {
+              "id": "primalKnowledge",
+              "rules": "2014",
+              "choices": {
+                "primalKnowledge": 1
+              },
+              "prereq": {
+                "level": 3
+              }
+            },
+            {
+              "id": "primalKnowledge10",
+              "rules": "2014",
+              "choices": {
+                "primalKnowledge": 1
+              },
+              "prereq": {
+                "level": 10,
+                "options": [
+                  "primalKnowledge"
+                ]
+              }
+            },
+            {
+              "id": "baseRules",
+              "rules": "2014",
+              "repeatable": true
+            }
+          ]
+        },
         "wildHeartAspect": {
           "freeSwap": true,
           "options": [
@@ -20510,6 +20889,14 @@
         },
         "10": {
           "weaponMastery": 1
+        }
+      },
+      "legacyChoices": {
+        "3": {
+          "tceOptional": 1
+        },
+        "10": {
+          "tceOptional": 1
         }
       },
       "subclassChoices": {
@@ -20935,6 +21322,10 @@
           "kind": "spell",
           "grantAs": "spell"
         },
+        "magicalSecrets2014": {
+          "kind": "spell",
+          "grantAs": "spell"
+        },
         "fightingStyle": {
           "options": [
             {
@@ -21114,7 +21505,14 @@
           "expertise": 2
         },
         "10": {
-          "expertise": 2
+          "expertise": 2,
+          "magicalSecrets2014": 2
+        },
+        "14": {
+          "magicalSecrets2014": 2
+        },
+        "18": {
+          "magicalSecrets2014": 2
         }
       },
       "subclassChoices": {
@@ -22076,16 +22474,35 @@
           "swapOnLevelUp": 1,
           "options": [
             {
-              "id": "archery"
+              "id": "archery",
+              "classes2014": [
+                "fighter",
+                "ranger"
+              ]
             },
             {
-              "id": "blindFighting"
+              "id": "blindFighting",
+              "classes2014": [
+                "fighter",
+                "paladin",
+                "ranger"
+              ]
             },
             {
-              "id": "defense"
+              "id": "defense",
+              "classes2014": [
+                "fighter",
+                "paladin",
+                "ranger"
+              ]
             },
             {
-              "id": "dueling"
+              "id": "dueling",
+              "classes2014": [
+                "fighter",
+                "paladin",
+                "ranger"
+              ]
             },
             {
               "id": "greatWeaponFighting",
@@ -22093,10 +22510,18 @@
             },
             {
               "id": "greatWeaponFighting2014",
-              "rules": "2014"
+              "rules": "2014",
+              "classes2014": [
+                "fighter",
+                "paladin"
+              ]
             },
             {
-              "id": "interception"
+              "id": "interception",
+              "classes2014": [
+                "fighter",
+                "paladin"
+              ]
             },
             {
               "id": "protection",
@@ -22104,7 +22529,11 @@
             },
             {
               "id": "protection2014",
-              "rules": "2014"
+              "rules": "2014",
+              "classes2014": [
+                "fighter",
+                "paladin"
+              ]
             },
             {
               "id": "thrownWeaponFighting",
@@ -22112,17 +22541,45 @@
             },
             {
               "id": "thrownWeaponFighting2014",
-              "rules": "2014"
+              "rules": "2014",
+              "classes2014": [
+                "fighter",
+                "ranger"
+              ]
             },
             {
-              "id": "twoWeaponFighting"
+              "id": "twoWeaponFighting",
+              "classes2014": [
+                "fighter",
+                "ranger"
+              ]
             },
             {
-              "id": "unarmedFighting"
+              "id": "unarmedFighting",
+              "classes2014": [
+                "fighter"
+              ]
             },
             {
               "id": "superiorTechnique",
-              "rules": "2014"
+              "rules": "2014",
+              "choices": {
+                "maneuver": 1
+              },
+              "resource": {
+                "uses": {
+                  "fixed": 1
+                },
+                "recharge": "short",
+                "die": {
+                  "byLevel": {
+                    "1": "d6"
+                  }
+                }
+              },
+              "classes2014": [
+                "fighter"
+              ]
             }
           ]
         },
@@ -23940,6 +24397,498 @@
             }
           ]
         },
+        "kenseiWeaponMelee": {
+          "options": [
+            {
+              "id": "club",
+              "grants": {
+                "weapons": [
+                  "club"
+                ]
+              }
+            },
+            {
+              "id": "dagger",
+              "grants": {
+                "weapons": [
+                  "dagger"
+                ]
+              }
+            },
+            {
+              "id": "greatclub",
+              "grants": {
+                "weapons": [
+                  "greatclub"
+                ]
+              }
+            },
+            {
+              "id": "handaxe",
+              "grants": {
+                "weapons": [
+                  "handaxe"
+                ]
+              }
+            },
+            {
+              "id": "javelin",
+              "grants": {
+                "weapons": [
+                  "javelin"
+                ]
+              }
+            },
+            {
+              "id": "lightHammer",
+              "grants": {
+                "weapons": [
+                  "lightHammer"
+                ]
+              }
+            },
+            {
+              "id": "mace",
+              "grants": {
+                "weapons": [
+                  "mace"
+                ]
+              }
+            },
+            {
+              "id": "quarterstaff",
+              "grants": {
+                "weapons": [
+                  "quarterstaff"
+                ]
+              }
+            },
+            {
+              "id": "sickle",
+              "grants": {
+                "weapons": [
+                  "sickle"
+                ]
+              }
+            },
+            {
+              "id": "spear",
+              "grants": {
+                "weapons": [
+                  "spear"
+                ]
+              }
+            },
+            {
+              "id": "battleaxe",
+              "grants": {
+                "weapons": [
+                  "battleaxe"
+                ]
+              }
+            },
+            {
+              "id": "flail",
+              "grants": {
+                "weapons": [
+                  "flail"
+                ]
+              }
+            },
+            {
+              "id": "longsword",
+              "grants": {
+                "weapons": [
+                  "longsword"
+                ]
+              }
+            },
+            {
+              "id": "morningstar",
+              "grants": {
+                "weapons": [
+                  "morningstar"
+                ]
+              }
+            },
+            {
+              "id": "rapier",
+              "grants": {
+                "weapons": [
+                  "rapier"
+                ]
+              }
+            },
+            {
+              "id": "scimitar",
+              "grants": {
+                "weapons": [
+                  "scimitar"
+                ]
+              }
+            },
+            {
+              "id": "shortsword",
+              "grants": {
+                "weapons": [
+                  "shortsword"
+                ]
+              }
+            },
+            {
+              "id": "trident",
+              "grants": {
+                "weapons": [
+                  "trident"
+                ]
+              }
+            },
+            {
+              "id": "warPick",
+              "grants": {
+                "weapons": [
+                  "warPick"
+                ]
+              }
+            },
+            {
+              "id": "warhammer",
+              "grants": {
+                "weapons": [
+                  "warhammer"
+                ]
+              }
+            },
+            {
+              "id": "whip",
+              "grants": {
+                "weapons": [
+                  "whip"
+                ]
+              }
+            },
+            {
+              "id": "crossbowLight",
+              "grants": {
+                "weapons": [
+                  "crossbowLight"
+                ]
+              }
+            },
+            {
+              "id": "dart",
+              "grants": {
+                "weapons": [
+                  "dart"
+                ]
+              }
+            },
+            {
+              "id": "shortbow",
+              "grants": {
+                "weapons": [
+                  "shortbow"
+                ]
+              }
+            },
+            {
+              "id": "sling",
+              "grants": {
+                "weapons": [
+                  "sling"
+                ]
+              }
+            },
+            {
+              "id": "blowgun",
+              "grants": {
+                "weapons": [
+                  "blowgun"
+                ]
+              }
+            },
+            {
+              "id": "crossbowHand",
+              "grants": {
+                "weapons": [
+                  "crossbowHand"
+                ]
+              }
+            },
+            {
+              "id": "longbow",
+              "grants": {
+                "weapons": [
+                  "longbow"
+                ]
+              }
+            },
+            {
+              "id": "pistol",
+              "rules": "2024",
+              "grants": {
+                "weapons": [
+                  "pistol"
+                ]
+              }
+            },
+            {
+              "id": "musket",
+              "rules": "2024",
+              "grants": {
+                "weapons": [
+                  "musket"
+                ]
+              }
+            }
+          ]
+        },
+        "kenseiWeaponRanged": {
+          "options": [
+            {
+              "id": "club",
+              "grants": {
+                "weapons": [
+                  "club"
+                ]
+              }
+            },
+            {
+              "id": "dagger",
+              "grants": {
+                "weapons": [
+                  "dagger"
+                ]
+              }
+            },
+            {
+              "id": "greatclub",
+              "grants": {
+                "weapons": [
+                  "greatclub"
+                ]
+              }
+            },
+            {
+              "id": "handaxe",
+              "grants": {
+                "weapons": [
+                  "handaxe"
+                ]
+              }
+            },
+            {
+              "id": "javelin",
+              "grants": {
+                "weapons": [
+                  "javelin"
+                ]
+              }
+            },
+            {
+              "id": "lightHammer",
+              "grants": {
+                "weapons": [
+                  "lightHammer"
+                ]
+              }
+            },
+            {
+              "id": "mace",
+              "grants": {
+                "weapons": [
+                  "mace"
+                ]
+              }
+            },
+            {
+              "id": "quarterstaff",
+              "grants": {
+                "weapons": [
+                  "quarterstaff"
+                ]
+              }
+            },
+            {
+              "id": "sickle",
+              "grants": {
+                "weapons": [
+                  "sickle"
+                ]
+              }
+            },
+            {
+              "id": "spear",
+              "grants": {
+                "weapons": [
+                  "spear"
+                ]
+              }
+            },
+            {
+              "id": "battleaxe",
+              "grants": {
+                "weapons": [
+                  "battleaxe"
+                ]
+              }
+            },
+            {
+              "id": "flail",
+              "grants": {
+                "weapons": [
+                  "flail"
+                ]
+              }
+            },
+            {
+              "id": "longsword",
+              "grants": {
+                "weapons": [
+                  "longsword"
+                ]
+              }
+            },
+            {
+              "id": "morningstar",
+              "grants": {
+                "weapons": [
+                  "morningstar"
+                ]
+              }
+            },
+            {
+              "id": "rapier",
+              "grants": {
+                "weapons": [
+                  "rapier"
+                ]
+              }
+            },
+            {
+              "id": "scimitar",
+              "grants": {
+                "weapons": [
+                  "scimitar"
+                ]
+              }
+            },
+            {
+              "id": "shortsword",
+              "grants": {
+                "weapons": [
+                  "shortsword"
+                ]
+              }
+            },
+            {
+              "id": "trident",
+              "grants": {
+                "weapons": [
+                  "trident"
+                ]
+              }
+            },
+            {
+              "id": "warPick",
+              "grants": {
+                "weapons": [
+                  "warPick"
+                ]
+              }
+            },
+            {
+              "id": "warhammer",
+              "grants": {
+                "weapons": [
+                  "warhammer"
+                ]
+              }
+            },
+            {
+              "id": "whip",
+              "grants": {
+                "weapons": [
+                  "whip"
+                ]
+              }
+            },
+            {
+              "id": "crossbowLight",
+              "grants": {
+                "weapons": [
+                  "crossbowLight"
+                ]
+              }
+            },
+            {
+              "id": "dart",
+              "grants": {
+                "weapons": [
+                  "dart"
+                ]
+              }
+            },
+            {
+              "id": "shortbow",
+              "grants": {
+                "weapons": [
+                  "shortbow"
+                ]
+              }
+            },
+            {
+              "id": "sling",
+              "grants": {
+                "weapons": [
+                  "sling"
+                ]
+              }
+            },
+            {
+              "id": "blowgun",
+              "grants": {
+                "weapons": [
+                  "blowgun"
+                ]
+              }
+            },
+            {
+              "id": "crossbowHand",
+              "grants": {
+                "weapons": [
+                  "crossbowHand"
+                ]
+              }
+            },
+            {
+              "id": "longbow",
+              "grants": {
+                "weapons": [
+                  "longbow"
+                ]
+              }
+            },
+            {
+              "id": "pistol",
+              "rules": "2024",
+              "grants": {
+                "weapons": [
+                  "pistol"
+                ]
+              }
+            },
+            {
+              "id": "musket",
+              "rules": "2024",
+              "grants": {
+                "weapons": [
+                  "musket"
+                ]
+              }
+            }
+          ]
+        },
         "kenseiBrush": {
           "options": [
             {
@@ -24153,7 +25102,8 @@
         },
         "kensei": {
           "3": {
-            "kenseiWeapon": 2,
+            "kenseiWeaponMelee": 1,
+            "kenseiWeaponRanged": 1,
             "kenseiBrush": 1
           },
           "6": {
@@ -24189,7 +25139,8 @@
         },
         "kensei": {
           "3": {
-            "kenseiWeapon": 2,
+            "kenseiWeaponMelee": 1,
+            "kenseiWeaponRanged": 1,
             "kenseiBrush": 1
           },
           "6": {
@@ -24224,16 +25175,35 @@
         "fightingStyle": {
           "options": [
             {
-              "id": "archery"
+              "id": "archery",
+              "classes2014": [
+                "fighter",
+                "ranger"
+              ]
             },
             {
-              "id": "blindFighting"
+              "id": "blindFighting",
+              "classes2014": [
+                "fighter",
+                "paladin",
+                "ranger"
+              ]
             },
             {
-              "id": "defense"
+              "id": "defense",
+              "classes2014": [
+                "fighter",
+                "paladin",
+                "ranger"
+              ]
             },
             {
-              "id": "dueling"
+              "id": "dueling",
+              "classes2014": [
+                "fighter",
+                "paladin",
+                "ranger"
+              ]
             },
             {
               "id": "greatWeaponFighting",
@@ -24241,10 +25211,18 @@
             },
             {
               "id": "greatWeaponFighting2014",
-              "rules": "2014"
+              "rules": "2014",
+              "classes2014": [
+                "fighter",
+                "paladin"
+              ]
             },
             {
-              "id": "interception"
+              "id": "interception",
+              "classes2014": [
+                "fighter",
+                "paladin"
+              ]
             },
             {
               "id": "protection",
@@ -24252,7 +25230,11 @@
             },
             {
               "id": "protection2014",
-              "rules": "2014"
+              "rules": "2014",
+              "classes2014": [
+                "fighter",
+                "paladin"
+              ]
             },
             {
               "id": "thrownWeaponFighting",
@@ -24260,17 +25242,31 @@
             },
             {
               "id": "thrownWeaponFighting2014",
-              "rules": "2014"
+              "rules": "2014",
+              "classes2014": [
+                "fighter",
+                "ranger"
+              ]
             },
             {
-              "id": "twoWeaponFighting"
+              "id": "twoWeaponFighting",
+              "classes2014": [
+                "fighter",
+                "ranger"
+              ]
             },
             {
-              "id": "unarmedFighting"
+              "id": "unarmedFighting",
+              "classes2014": [
+                "fighter"
+              ]
             },
             {
               "id": "superiorTechnique",
-              "rules": "2014"
+              "rules": "2014",
+              "classes2014": [
+                "fighter"
+              ]
             },
             {
               "id": "blessedWarrior",
@@ -24664,16 +25660,35 @@
         "fightingStyle": {
           "options": [
             {
-              "id": "archery"
+              "id": "archery",
+              "classes2014": [
+                "fighter",
+                "ranger"
+              ]
             },
             {
-              "id": "blindFighting"
+              "id": "blindFighting",
+              "classes2014": [
+                "fighter",
+                "paladin",
+                "ranger"
+              ]
             },
             {
-              "id": "defense"
+              "id": "defense",
+              "classes2014": [
+                "fighter",
+                "paladin",
+                "ranger"
+              ]
             },
             {
-              "id": "dueling"
+              "id": "dueling",
+              "classes2014": [
+                "fighter",
+                "paladin",
+                "ranger"
+              ]
             },
             {
               "id": "greatWeaponFighting",
@@ -24681,10 +25696,18 @@
             },
             {
               "id": "greatWeaponFighting2014",
-              "rules": "2014"
+              "rules": "2014",
+              "classes2014": [
+                "fighter",
+                "paladin"
+              ]
             },
             {
-              "id": "interception"
+              "id": "interception",
+              "classes2014": [
+                "fighter",
+                "paladin"
+              ]
             },
             {
               "id": "protection",
@@ -24692,7 +25715,11 @@
             },
             {
               "id": "protection2014",
-              "rules": "2014"
+              "rules": "2014",
+              "classes2014": [
+                "fighter",
+                "paladin"
+              ]
             },
             {
               "id": "thrownWeaponFighting",
@@ -24700,17 +25727,31 @@
             },
             {
               "id": "thrownWeaponFighting2014",
-              "rules": "2014"
+              "rules": "2014",
+              "classes2014": [
+                "fighter",
+                "ranger"
+              ]
             },
             {
-              "id": "twoWeaponFighting"
+              "id": "twoWeaponFighting",
+              "classes2014": [
+                "fighter",
+                "ranger"
+              ]
             },
             {
-              "id": "unarmedFighting"
+              "id": "unarmedFighting",
+              "classes2014": [
+                "fighter"
+              ]
             },
             {
               "id": "superiorTechnique",
-              "rules": "2014"
+              "rules": "2014",
+              "classes2014": [
+                "fighter"
+              ]
             },
             {
               "id": "druidicWarrior",
@@ -24925,6 +25966,29 @@
           "kind": "language",
           "grantAs": "language"
         },
+        "tceOptional": {
+          "options": [
+            {
+              "id": "naturalExplorer",
+              "rules": "2014"
+            },
+            {
+              "id": "deftExplorer",
+              "rules": "2014",
+              "choices": {
+                "expertise": 1,
+                "languages": 2
+              },
+              "resource": {
+                "uses": {
+                  "profBonus": true
+                },
+                "recharge": "long",
+                "minLevel": 10
+              }
+            }
+          ]
+        },
         "favoredEnemy": {
           "options": [
             {
@@ -25024,7 +26088,8 @@
               "repeatable": true,
               "choices": {
                 "languages": 1
-              }
+              },
+              "detail": true
             }
           ]
         },
@@ -25190,6 +26255,7 @@
           "options": [
             {
               "id": "beastOfTheLand",
+              "detail": true,
               "prereq": {
                 "subclass": [
                   "beastmaster"
@@ -25198,6 +26264,7 @@
             },
             {
               "id": "beastOfTheSea",
+              "detail": true,
               "prereq": {
                 "subclass": [
                   "beastmaster"
@@ -25206,6 +26273,7 @@
             },
             {
               "id": "beastOfTheSky",
+              "detail": true,
               "prereq": {
                 "subclass": [
                   "beastmaster"
@@ -25215,6 +26283,7 @@
             {
               "id": "rangersCompanion",
               "rules": "2014",
+              "detail": true,
               "prereq": {
                 "subclass": [
                   "beastmaster"
@@ -25599,7 +26668,11 @@
       "legacyChoices": {
         "1": {
           "favoredEnemy": 1,
-          "favoredTerrain": 1
+          "favoredTerrain": 1,
+          "tceOptional": 1
+        },
+        "2": {
+          "fightingStyle": 1
         },
         "6": {
           "favoredEnemy": 1,
@@ -25696,6 +26769,10 @@
     "rogue": {
       "pools": {
         "expertise": {
+          "kind": "skill",
+          "grantAs": "expertise"
+        },
+        "expertise2014": {
           "kind": "skill",
           "grantAs": "expertise"
         },
@@ -26083,6 +27160,14 @@
           "expertise": 2
         }
       },
+      "legacyChoices": {
+        "1": {
+          "expertise2014": 2
+        },
+        "6": {
+          "expertise2014": 2
+        }
+      },
       "subclassChoices": {
         "mastermind": {
           "3": {
@@ -26362,6 +27447,56 @@
               }
             }
           ]
+        },
+        "psionicSpells1": {
+          "kind": "spell",
+          "grantAs": "spell",
+          "swapOnLevelUp": 1
+        },
+        "psionicSpells2": {
+          "kind": "spell",
+          "grantAs": "spell",
+          "swapOnLevelUp": 1
+        },
+        "psionicSpells3": {
+          "kind": "spell",
+          "grantAs": "spell",
+          "swapOnLevelUp": 1
+        },
+        "psionicSpells4": {
+          "kind": "spell",
+          "grantAs": "spell",
+          "swapOnLevelUp": 1
+        },
+        "psionicSpells5": {
+          "kind": "spell",
+          "grantAs": "spell",
+          "swapOnLevelUp": 1
+        },
+        "clockworkSpells1": {
+          "kind": "spell",
+          "grantAs": "spell",
+          "swapOnLevelUp": 1
+        },
+        "clockworkSpells2": {
+          "kind": "spell",
+          "grantAs": "spell",
+          "swapOnLevelUp": 1
+        },
+        "clockworkSpells3": {
+          "kind": "spell",
+          "grantAs": "spell",
+          "swapOnLevelUp": 1
+        },
+        "clockworkSpells4": {
+          "kind": "spell",
+          "grantAs": "spell",
+          "swapOnLevelUp": 1
+        },
+        "clockworkSpells5": {
+          "kind": "spell",
+          "grantAs": "spell",
+          "swapOnLevelUp": 1
         }
       },
       "resources": [
@@ -26621,6 +27756,40 @@
           "1": {
             "divineAffinity": 1
           }
+        },
+        "aberrantmind": {
+          "1": {
+            "psionicSpells1": 2
+          },
+          "3": {
+            "psionicSpells2": 2
+          },
+          "5": {
+            "psionicSpells3": 2
+          },
+          "7": {
+            "psionicSpells4": 2
+          },
+          "9": {
+            "psionicSpells5": 2
+          }
+        },
+        "clockworksoul": {
+          "1": {
+            "clockworkSpells1": 2
+          },
+          "3": {
+            "clockworkSpells2": 2
+          },
+          "5": {
+            "clockworkSpells3": 2
+          },
+          "7": {
+            "clockworkSpells4": 2
+          },
+          "9": {
+            "clockworkSpells5": 2
+          }
         }
       }
     },
@@ -26633,6 +27802,7 @@
               "id": "agonizingBlast",
               "rules": "2024",
               "repeatable": true,
+              "detail": true,
               "prereq": {
                 "level": 2
               }
@@ -26689,6 +27859,7 @@
               "id": "eldritchSpear",
               "rules": "2024",
               "repeatable": true,
+              "detail": true,
               "prereq": {
                 "level": 2
               }
@@ -26759,6 +27930,7 @@
               "id": "lessonsOfTheFirstOnes",
               "rules": "2024",
               "repeatable": true,
+              "detail": true,
               "prereq": {
                 "level": 2
               }
@@ -26856,6 +28028,7 @@
               "id": "repellingBlast",
               "rules": "2024",
               "repeatable": true,
+              "detail": true,
               "prereq": {
                 "level": 2
               }
@@ -31569,6 +32742,9 @@
           "thaumaturgy"
         ],
         "spells": {
+          "3": [
+            "hellishRebuke"
+          ],
           "5": [
             "darkness"
           ]
@@ -31578,6 +32754,346 @@
         "cantrips": [
           "light"
         ]
+      },
+      "tiefling-baalzebul": {
+        "cantrips": [
+          "thaumaturgy"
+        ],
+        "spells": {
+          "3": [
+            "rayOfSickness"
+          ],
+          "5": [
+            "crownOfMadness"
+          ]
+        }
+      },
+      "tiefling-dispater": {
+        "cantrips": [
+          "thaumaturgy"
+        ],
+        "spells": {
+          "3": [
+            "disguiseSelf"
+          ],
+          "5": [
+            "detectThoughts"
+          ]
+        }
+      },
+      "tiefling-fierna": {
+        "cantrips": [
+          "friends"
+        ],
+        "spells": {
+          "3": [
+            "charmPerson"
+          ],
+          "5": [
+            "suggestion"
+          ]
+        }
+      },
+      "tiefling-glasya": {
+        "cantrips": [
+          "minorIllusion"
+        ],
+        "spells": {
+          "3": [
+            "disguiseSelf"
+          ],
+          "5": [
+            "invisibility"
+          ]
+        }
+      },
+      "tiefling-levistus": {
+        "cantrips": [
+          "rayOfFrost"
+        ],
+        "spells": {
+          "3": [
+            "armorOfAgathys"
+          ],
+          "5": [
+            "darkness"
+          ]
+        }
+      },
+      "tiefling-mammon": {
+        "cantrips": [
+          "mageHand"
+        ],
+        "spells": {
+          "3": [
+            "floatingDisk"
+          ],
+          "5": [
+            "arcaneLock"
+          ]
+        }
+      },
+      "tiefling-mephistopheles": {
+        "cantrips": [
+          "mageHand"
+        ],
+        "spells": {
+          "3": [
+            "burningHands"
+          ],
+          "5": [
+            "flameBlade"
+          ]
+        }
+      },
+      "tiefling-zariel": {
+        "cantrips": [
+          "thaumaturgy"
+        ],
+        "spells": {
+          "3": [
+            "searingSmite"
+          ],
+          "5": [
+            "brandingSmite"
+          ]
+        }
+      },
+      "tiefling-feral": {
+        "options": {
+          "lineage": {
+            "infernal": {
+              "cantrips": [
+                "thaumaturgy"
+              ],
+              "spells": {
+                "3": [
+                  "hellishRebuke"
+                ],
+                "5": [
+                  "darkness"
+                ]
+              }
+            },
+            "devilsTongue": {
+              "cantrips": [
+                "viciousMockery"
+              ],
+              "spells": {
+                "3": [
+                  "charmPerson"
+                ],
+                "5": [
+                  "enthrall"
+                ]
+              }
+            },
+            "hellfire": {
+              "cantrips": [
+                "thaumaturgy"
+              ],
+              "spells": {
+                "3": [
+                  "burningHands"
+                ],
+                "5": [
+                  "darkness"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "aasimar-protector": {
+        "cantrips": [
+          "light"
+        ]
+      },
+      "aasimar-scourge": {
+        "cantrips": [
+          "light"
+        ]
+      },
+      "aasimar-fallen": {
+        "cantrips": [
+          "light"
+        ]
+      },
+      "half-elf-mark-detection": {
+        "spells": {
+          "1": [
+            "detectMagic",
+            "detectPoisonAndDisease"
+          ],
+          "3": [
+            "seeInvisibility"
+          ]
+        }
+      },
+      "human-mark-finding": {
+        "spells": {
+          "1": [
+            "huntersMark"
+          ],
+          "3": [
+            "locateObject"
+          ]
+        }
+      },
+      "half-orc-mark-finding": {
+        "spells": {
+          "1": [
+            "huntersMark"
+          ],
+          "3": [
+            "locateObject"
+          ]
+        }
+      },
+      "human-mark-handling": {
+        "spells": {
+          "1": [
+            "animalFriendship",
+            "speakWithAnimals"
+          ]
+        }
+      },
+      "halfling-mark-healing": {
+        "spells": {
+          "1": [
+            "cureWounds"
+          ]
+        }
+      },
+      "halfling-mark-hospitality": {
+        "cantrips": [
+          "prestidigitation"
+        ],
+        "spells": {
+          "1": [
+            "purifyFoodAndDrink",
+            "unseenServant"
+          ]
+        }
+      },
+      "human-mark-making": {
+        "cantrips": [
+          "mending"
+        ],
+        "spells": {
+          "1": [
+            "magicWeapon"
+          ]
+        }
+      },
+      "human-mark-passage": {
+        "spells": {
+          "1": [
+            "mistyStep"
+          ]
+        }
+      },
+      "gnome-mark-scribing": {
+        "cantrips": [
+          "message"
+        ],
+        "spells": {
+          "1": [
+            "comprehendLanguages"
+          ],
+          "3": [
+            "magicMouth"
+          ]
+        }
+      },
+      "human-mark-sentinel": {
+        "spells": {
+          "1": [
+            "shield"
+          ]
+        }
+      },
+      "elf-mark-shadow": {
+        "cantrips": [
+          "minorIllusion"
+        ],
+        "spells": {
+          "3": [
+            "invisibility"
+          ]
+        }
+      },
+      "half-elf-mark-storm": {
+        "cantrips": [
+          "gust"
+        ],
+        "spells": {
+          "3": [
+            "gustOfWind"
+          ]
+        }
+      },
+      "dwarf-mark-warding": {
+        "spells": {
+          "1": [
+            "alarm",
+            "mageArmor"
+          ],
+          "3": [
+            "arcaneLock"
+          ]
+        }
+      },
+      "halfling-lotusden": {
+        "cantrips": [
+          "druidcraft"
+        ],
+        "spells": {
+          "3": [
+            "entangle"
+          ],
+          "5": [
+            "spikeGrowth"
+          ]
+        }
+      },
+      "elf-pallid": {
+        "cantrips": [
+          "light"
+        ],
+        "spells": {
+          "3": [
+            "sleep"
+          ],
+          "5": [
+            "invisibility"
+          ]
+        }
+      },
+      "half-elf-variant": {
+        "options": {
+          "descent": {
+            "drow": {
+              "cantrips": [
+                "dancingLights"
+              ],
+              "spells": {
+                "3": [
+                  "faerieFire"
+                ],
+                "5": [
+                  "darkness"
+                ]
+              }
+            }
+          }
+        },
+        "cantrip": {
+          "when": {
+            "descent": "high",
+            "trait": "cantrip"
+          }
+        }
       }
     },
     "2024": {
@@ -31747,6 +33263,134 @@
       "goliath": [
         {
           "id": "stonesEndurance",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "short"
+        }
+      ],
+      "aasimar-protector": [
+        {
+          "id": "healingHands",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "long"
+        },
+        {
+          "id": "celestialTransformation",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "long",
+          "minLevel": 3
+        }
+      ],
+      "aasimar-scourge": [
+        {
+          "id": "healingHands",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "long"
+        },
+        {
+          "id": "celestialTransformation",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "long",
+          "minLevel": 3
+        }
+      ],
+      "aasimar-fallen": [
+        {
+          "id": "healingHands",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "long"
+        },
+        {
+          "id": "celestialTransformation",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "long",
+          "minLevel": 3
+        }
+      ],
+      "shifter-beasthide": [
+        {
+          "id": "shifting",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "short"
+        }
+      ],
+      "shifter-longtooth": [
+        {
+          "id": "shifting",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "short"
+        }
+      ],
+      "shifter-swiftstride": [
+        {
+          "id": "shifting",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "short"
+        }
+      ],
+      "shifter-wildhunt": [
+        {
+          "id": "shifting",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "short"
+        }
+      ],
+      "human-mark-sentinel": [
+        {
+          "id": "vigilantGuardian",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "long"
+        }
+      ],
+      "dragonborn-draconblood": [
+        {
+          "id": "breathWeapon",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "short"
+        },
+        {
+          "id": "forcefulPresence",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "short"
+        }
+      ],
+      "dragonborn-ravenite": [
+        {
+          "id": "breathWeapon",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "short"
+        },
+        {
+          "id": "vengefulAssault",
           "uses": {
             "fixed": 1
           },

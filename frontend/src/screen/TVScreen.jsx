@@ -1,7 +1,10 @@
+import { errorMessage } from '../api/errors.js';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import CombatGrid from '../campaigns/CombatGrid.jsx';
+import DiceStage from '../dice/DiceStage.jsx';
+import '../dice/dice-styles.css';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -49,9 +52,9 @@ export default function TVScreen({ token, lang = 'pt' }) {
         }
       }
     } catch (e) {
-      setError(e?.message || 'Falha ao carregar telão');
+      setError(errorMessage(e, lang, lang === 'en' ? 'Could not load the TV screen.' : 'Falha ao carregar o telão.'));
     }
-  }, [token]);
+  }, [token, lang]);
 
   useEffect(() => { load(); }, [load]);
   usePolling(load, 2000, [token]);
@@ -83,7 +86,7 @@ export default function TVScreen({ token, lang = 'pt' }) {
     : initiative?.[initiativeTurn]?.name;
 
   return (
-    <div className={`tv-screen tv-mode-${inCombat ? 'combat' : 'exploration'}`}>
+    <div className={`tv-screen tv-mode-${inCombat ? 'combat' : 'exploration'} ${activeRoll ? 'has-roll-overlay' : ''}`}>
       <header className="tv-header">
         <div>
           <h1 className="tv-title">{data.name}</h1>
@@ -102,6 +105,11 @@ export default function TVScreen({ token, lang = 'pt' }) {
           <span className="tv-now-label">{t(lang, 'Vez de', "Now acting")}</span>
           <span className="tv-now-name">{currentTurnName}</span>
         </div>
+      )}
+
+      {/* Texto para ler em voz alta enviado pela aba Preparação do mestre */}
+      {data.state?.sceneText && !inCombat && (
+        <section className="tv-read-aloud" aria-live="polite">{data.state.sceneText}</section>
       )}
 
       {inCombat ? (
@@ -141,6 +149,8 @@ export default function TVScreen({ token, lang = 'pt' }) {
           </ol>
         </aside>
       )}
+
+      {data.publicCheck && <CheckScreenPanel check={data.publicCheck} lang={lang} />}
 
       {/* Overlay dramático — TV limpa, sem histórico (M1: telão limpo) */}
       {activeRoll && <DramaticRollOverlay roll={activeRoll} lang={lang} onDone={() => setActiveRoll(null)} />}
@@ -227,12 +237,16 @@ function ConditionChip({ cond, lang }) {
 
 /**
  * Overlay dramático que aparece quando o mestre torna uma rolagem pública.
- * Animação: dado girando 1.5s, depois revela resultado.
+ * Dado 3D (three.js, sob demanda) rola e para no valor que veio do servidor;
+ * sem WebGL / com movimento reduzido cai no 2D. Depois revela o total.
  */
 function DramaticRollOverlay({ roll, lang, onDone }) {
-  const [phase, setPhase] = useState('rolling'); // 'rolling' → 'reveal' → 'done'
+  const [phase, setPhase] = useState('rolling'); // 'rolling' → 'reveal'
+  const die = parseInt(String(roll.diceType || 'd20').replace(/^d/i, ''), 10) || 20;
+  const groups = [{ die, rolls: (roll.rolls || []).map(r => ({ value: r.value, kept: r.kept !== false })) }];
+  // Segurança: revela mesmo se a animação falhar/demorar.
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase('reveal'), 1400);
+    const t1 = setTimeout(() => setPhase('reveal'), 3500);
     return () => clearTimeout(t1);
   }, []);
 
@@ -241,12 +255,17 @@ function DramaticRollOverlay({ roll, lang, onDone }) {
       <div className="tv-roll-inner">
         <div className="tv-roll-who">{roll.requester}</div>
         <div className="tv-roll-label">{roll.label || roll.diceType}</div>
-        <div className="tv-roll-dice">
-          {phase === 'rolling' ? (
-            <div className="tv-die tv-die-spinning">🎲</div>
-          ) : (
+        <DiceStage
+          groups={groups}
+          tone={roll.isCritical ? 'crit' : roll.isCriticalFail ? 'fumble' : null}
+          className="tv-dice-stage"
+          size2d={140}
+          onSettled={() => setPhase('reveal')}
+        />
+        {phase === 'reveal' && (
+          <div className="tv-roll-dice">
             <div className="tv-roll-numbers">
-              {roll.rolls.filter(r => r.kept).map((r, i) => (
+              {groups[0].rolls.filter(r => r.kept).map((r, i) => (
                 <span key={i} className="tv-die-result">{r.value}</span>
               ))}
               {roll.modifier !== 0 && (
@@ -255,11 +274,35 @@ function DramaticRollOverlay({ roll, lang, onDone }) {
               <span className="tv-roll-equals">=</span>
               <span className="tv-roll-total">{roll.total}</span>
             </div>
-          )}
-        </div>
-        {phase === 'reveal' && roll.isCritical && <div className="tv-roll-tag crit-tag">⚔ CRÍTICO</div>}
-        {phase === 'reveal' && roll.isCriticalFail && <div className="tv-roll-tag fail-tag">💀 FALHA</div>}
+          </div>
+        )}
+        {phase === 'reveal' && roll.isCritical && <div className="tv-roll-tag tv-crit-tag">⚔ {t(lang, 'CRÍTICO', 'CRITICAL')}</div>}
+        {phase === 'reveal' && roll.isCriticalFail && <div className="tv-roll-tag tv-fail-tag">💀 {t(lang, 'FALHA', 'FUMBLE')}</div>}
       </div>
     </div>
+  );
+}
+
+/** Resultado de um pedido de teste que o mestre escolheu mostrar no telão. */
+function CheckScreenPanel({ check, lang }) {
+  const done = check.results.filter(r => r.total != null).length;
+  return (
+    <section className="tv-check-panel" aria-live="polite">
+      <header className="tv-check-head">
+        <span className="tv-check-eyebrow">🎯 {t(lang, 'Teste', 'Check')}</span>
+        <span className="tv-check-label">{check.label}</span>
+        {check.dc != null && <span className="tv-check-dc">CD {check.dc}</span>}
+        <span className="tv-check-count">{done}/{check.results.length}</span>
+      </header>
+      <ul className="tv-check-list">
+        {check.results.map((r, i) => (
+          <li key={i} className={`tv-check-item ${r.outcome || (r.total == null ? 'waiting' : 'answered')}`}>
+            <span className="tv-check-name">{r.name}</span>
+            <span className="tv-check-total">{r.total == null ? '…' : r.total}</span>
+            {r.outcome && <span className="tv-check-mark">{r.outcome === 'pass' ? '✓' : '✗'}</span>}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

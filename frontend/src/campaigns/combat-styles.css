@@ -172,6 +172,7 @@
 
 .cc-attack-row {
   display: flex;
+  flex-wrap: wrap; /* coluna estreita (1280px): texto em cima, alvo + botão embaixo */
   gap: 6px;
   align-items: center;
   padding: 4px 6px;
@@ -355,3 +356,30 @@
 /* Mapa + lista (no desktop do mestre vira duas colunas, ver dm-desktop.css) */
 .combat-body { display: flex; flex-direction: column; gap: 16px; }
 .combat-body .empty-card { margin-top: 0; padding: var(--s-5) var(--s-4); }
+
+/* Recursos de monstro: recarga, usos, ações/resistências lendárias */
+.cc-resources { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; padding: 6px 8px; border: 1px solid var(--line, rgba(255,255,255,0.1)); border-radius: 6px; }
+.cc-res-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.9em; }
+.cc-pips { display: inline-flex; gap: 4px; }
+.cc-pip { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--gold); background: transparent; padding: 0; cursor: pointer; }
+.cc-pip.on { background: var(--gold-bright, var(--gold)); }
+.cc-kind + .cc-kind { margin-top: 6px; }
+.cc-kind-label { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-secondary); margin: 4px 0 2px; }
+.cc-attack-row.is-unavailable strong { opacity: 0.55; }
+.cc-limit { display: inline-flex; gap: 6px; margin-left: 6px; font-size: 0.8em; color: var(--gold); }
+.cc-limit.spent { color: var(--blood-bright); }
+.cc-action-desc { font-size: 0.82em; color: var(--ink-secondary); white-space: pre-wrap; margin-top: 4px; }
+.cc-save-targets { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; }
+.cc-action-error { color: var(--blood-bright); font-size: 0.85em; margin: 4px 0; }
+.btn-link { background: none; border: 0; padding: 0 0 0 6px; color: var(--arcane-bright, var(--gold)); cursor: pointer; font-size: 0.8em; text-decoration: underline; }
+.combat-log { margin-top: 12px; font-size: 0.85em; }
+.combat-log ul { margin: 6px 0 0; padding-left: 18px; color: var(--ink-secondary); }
+
+/* O texto da ação nunca fica espremido em 1 letra por linha */
+.cc-attack-row > div:first-child { flex: 1 1 180px !important; }
+.cc-attack-row > select { flex: 1 1 120px; }
+/* Bolinhas de ações/resistências lendárias: desenho de 14px, alvo de toque de ~34px */
+.cc-pips { gap: 10px; padding: 0 4px; }
+.cc-pip { position: relative; }
+.cc-pip::after { content: ''; position: absolute; inset: -10px -5px; }
+.now-turn-hp { white-space: nowrap; }

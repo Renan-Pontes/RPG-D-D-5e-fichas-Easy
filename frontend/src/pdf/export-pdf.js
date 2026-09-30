@@ -324,6 +324,8 @@ export async function exportDnd5ePdf(char, lang = 'pt', opts = {}) {
   }
 
   form.updateFieldAppearances(font);
+  // "Para imprimir": grava o texto na página e remove os campos (não dá mais para editar).
+  if (opts.flatten) form.flatten();
   return doc.save();
 }
 
@@ -332,7 +334,7 @@ export async function downloadDnd5ePdf(char, lang, opts) {
   const blob = new Blob([bytes], { type: 'application/pdf' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `${(char.name || 'personagem').replace(/[^a-z0-9]+/gi, '_')}_DnD5e.pdf`;
+  a.download = `${(char.name || 'personagem').replace(/[^a-z0-9]+/gi, '_')}_DnD5e${opts?.flatten ? '' : '_editavel'}.pdf`;
   document.body.appendChild(a);
   a.click();
   a.remove();

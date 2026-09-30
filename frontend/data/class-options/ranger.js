@@ -85,6 +85,20 @@ const pools = {
   },
 
   // --- 2014 (fichas antigas) ---
+  // Recursos opcionais do Tasha (TCE): com o mestre de acordo, o Explorador Hábil
+  // substitui o Explorador Natural (Terreno Favorito). Escolha "PHB" para manter a regra-base.
+  tceOptional: {
+    name: b('Explorador Natural ou Explorador Hábil (TCE)', 'Natural Explorer or Deft Explorer (TCE)'),
+    options: [
+      { id: 'naturalExplorer', name: b('Explorador Natural (PHB)', 'Natural Explorer (PHB)'), source: 'SRD', rules: '2014',
+        desc: b('Regra-base: mantém o Terreno Favorito nos níveis 1, 6 e 10.', 'Base rule: keep Favored Terrain at levels 1, 6, and 10.') },
+      { id: 'deftExplorer', name: b('Explorador Hábil (TCE)', 'Deft Explorer (TCE)'), source: 'TCE', rules: '2014',
+        desc: b('Opcional, substitui o Explorador Natural. Nível 1 (Astuto): Especialização em 1 perícia proficiente e 2 idiomas. Nível 6 (Andarilho): +1,5 m de deslocamento e deslocamentos de escalada e natação iguais ao seu. Nível 10 (Incansável): ação para ganhar PV temporários de 1d8 + SAB (usos = bônus de proficiência por descanso longo) e o descanso curto reduz a exaustão em 1. Ignore as vagas de Terreno Favorito.',
+          'Optional, replaces Natural Explorer. Level 1 (Canny): Expertise in 1 proficient skill and 2 languages. Level 6 (Roving): +5 ft speed and climbing and swimming speeds equal to your speed. Level 10 (Tireless): action to gain 1d8 + WIS temporary HP (uses = proficiency bonus per long rest), and a short rest reduces exhaustion by 1. Ignore the Favored Terrain slots.'),
+        choices: { expertise: 1, languages: 2 },
+        resource: { uses: { profBonus: true }, recharge: 'long', minLevel: 10 } },
+    ],
+  },
   favoredEnemy: { name: b('Inimigo Favorito', 'Favored Enemy'), options: favoredEnemyOptions },
   favoredTerrain: { name: b('Terreno Favorito', 'Favored Terrain'), options: favoredTerrainOptions },
 
@@ -609,8 +623,11 @@ export default {
     9: { expertise: 2 },
   },
   // Regras de 2014 (PHB/SRD 5.1): Inimigo Favorito (1, 6, 14) e Terreno Favorito (1, 6, 10).
+  // Estilo de Luta no 2 (como o paladino 2014). Explorador Hábil (TCE, opcional) abre
+  // vagas pela opção `deftExplorer` do pool `tceOptional`.
   legacyChoices: {
-    1: { favoredEnemy: 1, favoredTerrain: 1 },
+    1: { favoredEnemy: 1, favoredTerrain: 1, tceOptional: 1 },
+    2: { fightingStyle: 1 },
     6: { favoredEnemy: 1, favoredTerrain: 1 },
     10: { favoredTerrain: 1 },
     14: { favoredEnemy: 1 },

@@ -10,7 +10,11 @@
  *   ritual: true             só rituais
  *   castingTime: 'Action'    tempo de conjuração (começo do texto)
  *   inBook: true             só magias do grimório do mago (spellbook.js)
- * Pools `kind: 'skill'`: from: [ids], proficient: true (só perícias já proficientes).
+ *   include: [ids]           magias sempre listadas, mesmo fora dos filtros acima
+ *                            (ex.: magias fixas de subclasse que podem ser trocadas)
+ * Pools `kind: 'skill'`: from: [ids], proficient: true (só perícias já proficientes),
+ *   tools: [ids de items.js]  ferramentas também escolhíveis (ex.: Ferramentas de Ladrão
+ *                            na Especialização do ladino 2014).
  * Pools `kind: 'language'`: from: [ids] opcional.
  * Pools estáticos: `filter` / `filterByClass` (ver matchesOptionFilter).
  */
@@ -19,6 +23,9 @@ import { tName } from '../../data/i18n.js';
 import Utils from '../../utils.js';
 import { optionPool, optionCatalog, picksOf } from './options.js';
 import { spellbookIds } from './spellbook.js';
+import { ITEMS_BY_ID } from '../../data/items.js';
+
+const toolName = (id) => ITEMS_BY_ID[id]?.name || { pt: id, en: id };
 
 const SCHOOL = s => String(s || '').toLowerCase();
 
@@ -26,7 +33,8 @@ function spellOptions(character, def) {
   const f = def.filter || {};
   const maxSlot = f.maxSlot ? Utils.maxSpellLevel(character) : null;
   const book = f.inBook ? new Set(spellbookIds(character)) : null;
-  return Utils.spellCatalog(character).filter(s =>
+  const include = new Set(f.include || []);
+  return Utils.spellCatalog(character).filter(s => include.has(s.id) || (
     (!book || book.has(s.id)) &&
     (!f.classes || f.classes.some(c => s.classes.includes(c)))
     && (f.level == null || s.level === f.level)
@@ -35,7 +43,7 @@ function spellOptions(character, def) {
     && (maxSlot == null || s.level <= maxSlot)
     && (!f.school || f.school.map(SCHOOL).includes(SCHOOL(s.school)))
     && (!f.ritual || s.ritual)
-    && (!f.castingTime || String(s.castingTime || '').toLowerCase().startsWith(f.castingTime.toLowerCase())),
+    && (!f.castingTime || String(s.castingTime || '').toLowerCase().startsWith(f.castingTime.toLowerCase()))),
   ).map(s => ({ id: s.id, name: { pt: tName('spellName', s.id, 'pt'), en: tName('spellName', s.id, 'en') }, meta: s.level === 0 ? 'truque' : `${s.level}º`, desc: null }));
 }
 
@@ -43,7 +51,8 @@ function skillOptions(character, def) {
   const f = def.filter || {};
   return SRD.SKILLS
     .filter(k => (!f.from || f.from.includes(k.id)) && (!f.proficient || Utils.hasSkillProf(character, k.id)))
-    .map(k => ({ id: k.id, name: { pt: tName('skill', k.id, 'pt'), en: tName('skill', k.id, 'en') }, desc: null }));
+    .map(k => ({ id: k.id, name: { pt: tName('skill', k.id, 'pt'), en: tName('skill', k.id, 'en') }, desc: null }))
+    .concat((f.tools || []).map(id => ({ id, name: toolName(id), meta: 'ferramenta', desc: null })));
 }
 
 function languageOptions(character, def) {
@@ -100,7 +109,7 @@ export function pickLabel(classId, pick, lang) {
   if (!def) return pick.id;
   if (!def.kind) return def.options.find(o => o.id === pick.id)?.name[lang] || pick.id;
   if (def.kind === 'spell') return tName('spellName', pick.id, lang);
-  if (def.kind === 'skill') return tName('skill', pick.id, lang);
+  if (def.kind === 'skill') return def.filter?.tools?.includes(pick.id) ? toolName(pick.id)[lang] : tName('skill', pick.id, lang);
   const l = Utils.LANGUAGES.find(x => x.id === pick.id);
   return l ? (lang === 'pt' ? l.pt : l.id) : pick.id;
 }

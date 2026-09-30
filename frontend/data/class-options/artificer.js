@@ -170,11 +170,52 @@ const infusions = [
   inf('mindSharpener', 'Afiador Mental', 'Mind Sharpener', 2, 'Armadura ou robe. 4 cargas: reação para transformar uma falha de Concentração em sucesso. Recupera 1d4 cargas ao amanhecer.', 'Armor or robes. 4 charges: reaction to turn a failed Concentration save into a success. Regains 1d4 charges at dawn.', { text: b('Uma armadura ou robe', 'A suit of armor or robes') }),
   inf('radiantWeapon', 'Arma Radiante', 'Radiant Weapon', 6, 'Arma simples ou marcial (sintonia). +1 em ataque e dano; emite luz sob comando; 4 cargas para, por reação, cegar quem o acerta. Recupera 1d4 cargas ao amanhecer.', 'Simple or martial weapon (attunement). +1 to attack and damage; sheds light on command; 4 charges to blind an attacker as a reaction. Regains 1d4 charges at dawn.', { text: b('Uma arma simples ou marcial', 'A simple or martial weapon') }),
   inf('repeatingShot', 'Tiro Repetido', 'Repeating Shot', 2, 'Arma simples ou marcial com munição (sintonia). +1 em ataque e dano à distância; ignora Recarga; cria a própria munição.', 'Simple or martial weapon with the ammunition property (attunement). +1 to ranged attack and damage; ignores Loading; creates its own ammunition.', { text: b('Uma arma com a propriedade munição', 'A weapon with the ammunition property') }),
-  inf('replicateMagicItem', 'Replicar Item Mágico', 'Replicate Magic Item', 2, 'Aprende a fabricar um item mágico específico das tabelas de replicação (2º, 6º, 10º ou 14º nível) ou um item mágico comum que não seja poção nem pergaminho. Pode ser escolhida várias vezes, com um item diferente em cada. Informe qual.', 'Learn to make one specific magic item from the replication tables (levels 2, 6, 10, or 14) or a common magic item that is not a potion or scroll. Can be taken multiple times, with a different item each time. Specify which.', { repeatable: true, detail: b('Qual item?', 'Which item?'), text: b('O item precisa estar liberado para o seu nível de artífice', 'The item must be available at your artificer level') }),
+  { ...inf('replicateMagicItem', 'Replicar Item Mágico', 'Replicate Magic Item', 2, 'Aprende a fabricar um item mágico específico das tabelas de replicação (2º, 6º, 10º ou 14º nível) ou um item mágico comum que não seja poção nem pergaminho. Pode ser escolhida várias vezes, com um item diferente em cada; o item é escolhido na lista "Item Replicado".', 'Learn to make one specific magic item from the replication tables (levels 2, 6, 10, or 14) or a common magic item that is not a potion or scroll. Can be taken multiple times, with a different item each time; pick the item in the "Replicated Item" list.', { repeatable: true }), choices: { replicateItem: 1 } },
   inf('repulsionShield', 'Escudo de Repulsão', 'Repulsion Shield', 6, 'Escudo (sintonia). +1 na CA; 4 cargas para, por reação, empurrar até 4,5 m (15 pés) quem o acerta corpo a corpo. Recupera 1d4 cargas ao amanhecer.', 'Shield (attunement). +1 AC; 4 charges to push a creature that hits you in melee up to 15 feet as a reaction. Regains 1d4 charges at dawn.', { text: b('Um escudo', 'A shield') }),
   inf('resistantArmor', 'Armadura Resistente', 'Resistant Armor', 6, 'Armadura (sintonia). Resistência a um tipo de dano escolhido ao infundir: ácido, frio, fogo, força, elétrico, necrótico, veneno, psíquico, radiante ou trovão.', 'Armor (attunement). Resistance to one damage type chosen when you infuse it: acid, cold, fire, force, lightning, necrotic, poison, psychic, radiant, or thunder.', { detail: b('Qual tipo de dano?', 'Which damage type?'), text: b('Uma armadura', 'A suit of armor') }),
   inf('returningWeapon', 'Arma Retornável', 'Returning Weapon', 2, 'Arma simples ou marcial de arremesso. +1 em ataque e dano; volta à mão logo após o ataque.', "Simple or martial weapon with the thrown property. +1 to attack and damage; it returns to the wielder's hand right after the attack.", { text: b('Uma arma de arremesso', 'A weapon with the thrown property') }),
   inf('spellRefuelingRing', 'Anel de Recarga Mágica', 'Spell-Refueling Ring', 6, 'Anel (sintonia). Uma vez por amanhecer, com uma ação, recupera um espaço de magia de até 3º nível.', 'Ring (attunement). Once per dawn, as an action, regain a spell slot of 3rd level or lower.', { text: b('Um anel', 'A ring') }),
+];
+
+// === Itens da infusão Replicar Item Mágico (TCE, fichas 2014) ===
+// Só os nomes e o nível mínimo de artífice (tabelas de replicação); sem descrição.
+const REPLICABLE = {
+  2: [['alchemyJug', 'Jarro Alquímico', 'Alchemy Jug'], ['bagOfHolding', 'Bolsa Devoradora', 'Bag of Holding'],
+    ['capOfWaterBreathing', 'Gorro de Respirar na Água', 'Cap of Water Breathing'], ['gogglesOfNight', 'Óculos Noturnos', 'Goggles of Night'],
+    ['ropeOfClimbing', 'Corda de Escalada', 'Rope of Climbing'], ['sendingStones', 'Pedras de Mensagem', 'Sending Stones'],
+    ['wandOfMagicDetection', 'Varinha de Detecção de Magia', 'Wand of Magic Detection'], ['wandOfSecrets', 'Varinha de Segredos', 'Wand of Secrets']],
+  6: [['bootsOfElvenkind', 'Botas Élficas', 'Boots of Elvenkind'], ['cloakOfElvenkind', 'Manto Élfico', 'Cloak of Elvenkind'],
+    ['cloakOfTheMantaRay', 'Manto da Arraia', 'Cloak of the Manta Ray'], ['eyesOfCharming', 'Olhos Encantadores', 'Eyes of Charming'],
+    ['glovesOfThievery', 'Luvas do Ladrão', 'Gloves of Thievery'], ['lanternOfRevealing', 'Lanterna Reveladora', 'Lantern of Revealing'],
+    ['pipesOfHaunting', 'Flautas Assombradas', 'Pipes of Haunting'], ['ringOfWaterWalking', 'Anel de Andar na Água', 'Ring of Water Walking']],
+  10: [['bootsOfStridingAndSpringing', 'Botas de Caminhar e Saltar', 'Boots of Striding and Springing'], ['bootsOfTheWinterlands', 'Botas das Terras Invernais', 'Boots of the Winterlands'],
+    ['bracersOfArchery', 'Braçadeiras de Arqueria', 'Bracers of Archery'], ['broochOfShielding', 'Broche de Proteção', 'Brooch of Shielding'],
+    ['cloakOfProtection', 'Manto de Proteção', 'Cloak of Protection'], ['eyesOfTheEagle', 'Olhos de Águia', 'Eyes of the Eagle'],
+    ['gauntletsOfOgrePower', 'Manoplas de Força do Ogro', 'Gauntlets of Ogre Power'], ['glovesOfMissileSnaring', 'Luvas de Apanhar Projéteis', 'Gloves of Missile Snaring'],
+    ['glovesOfSwimmingAndClimbing', 'Luvas de Natação e Escalada', 'Gloves of Swimming and Climbing'], ['hatOfDisguise', 'Chapéu do Disfarce', 'Hat of Disguise'],
+    ['headbandOfIntellect', 'Tiara do Intelecto', 'Headband of Intellect'], ['helmOfTelepathy', 'Elmo da Telepatia', 'Helm of Telepathy'],
+    ['medallionOfThoughts', 'Medalhão dos Pensamentos', 'Medallion of Thoughts'], ['necklaceOfAdaptation', 'Colar da Adaptação', 'Necklace of Adaptation'],
+    ['periaptOfWoundClosure', 'Amuleto de Fechar Ferimentos', 'Periapt of Wound Closure'], ['pipesOfTheSewers', 'Flautas dos Esgotos', 'Pipes of the Sewers'],
+    ['quiverOfEhlonna', 'Aljava de Ehlonna', 'Quiver of Ehlonna'], ['ringOfJumping', 'Anel do Salto', 'Ring of Jumping'],
+    ['ringOfMindShielding', 'Anel de Proteção Mental', 'Ring of Mind Shielding'], ['slippersOfSpiderClimbing', 'Sapatilhas de Escalada Aracnídea', 'Slippers of Spider Climbing'],
+    ['wingedBoots', 'Botas Aladas', 'Winged Boots']],
+  14: [['amuletOfHealth', 'Amuleto da Saúde', 'Amulet of Health'], ['arcanePropulsionArm', 'Braço de Propulsão Arcana', 'Arcane Propulsion Arm'],
+    ['beltOfHillGiantStrength', 'Cinto de Força do Gigante da Colina', 'Belt of Hill Giant Strength'], ['bootsOfLevitation', 'Botas da Levitação', 'Boots of Levitation'],
+    ['bootsOfSpeed', 'Botas da Velocidade', 'Boots of Speed'], ['bracersOfDefense', 'Braçadeiras de Defesa', 'Bracers of Defense'],
+    ['cloakOfTheBat', 'Manto do Morcego', 'Cloak of the Bat'], ['dimensionalShackles', 'Algemas Dimensionais', 'Dimensional Shackles'],
+    ['gemOfSeeing', 'Gema da Visão', 'Gem of Seeing'], ['hornOfBlasting', 'Trompa da Explosão', 'Horn of Blasting'],
+    ['ringOfFreeAction', 'Anel da Ação Livre', 'Ring of Free Action'], ['ringOfProtection', 'Anel de Proteção', 'Ring of Protection'],
+    ['ringOfTheRam', 'Anel do Aríete', 'Ring of the Ram']],
+};
+const replicableItems = [
+  ...Object.entries(REPLICABLE).flatMap(([level, list]) => list.map(([id, pt, en]) => ({
+    id, name: b(pt, en), source: 'TCE', rules: '2014',
+    desc: b(`Item da tabela de replicação de ${level}º nível de artífice.`, `Item from the artificer level ${level} replication table.`),
+    ...(+level > 2 ? { prereq: { level: +level } } : {}),
+  }))),
+  { id: 'commonItem', name: b('Item mágico comum (outro)', 'Common magic item (other)'), source: 'TCE', rules: '2014', repeatable: true,
+    desc: b('Qualquer item mágico comum que não seja poção nem pergaminho.', 'Any common magic item that is not a potion or scroll.'),
+    detail: b('Qual item comum?', 'Which common item?') },
 ];
 
 // === Modelos de Armadura (Armeiro) ===
@@ -505,6 +546,12 @@ export default {
       name: b('Infusões de Artífice', 'Artificer Infusions'),
       swapOnLevelUp: 1,
       options: infusions,
+    },
+    // Uma vaga por infusão Replicar Item Mágico escolhida (troca junto com a infusão).
+    replicateItem: {
+      name: b('Item Replicado', 'Replicated Item'),
+      swapOnLevelUp: 1,
+      options: replicableItems,
     },
     artisanTool: {
       name: b('Ferramenta de Artesão', "Artisan's Tool"),

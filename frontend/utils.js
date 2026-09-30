@@ -428,6 +428,19 @@ function spellListClass(char) {
   return ((char.className === 'fighter' && sub === 'eldritchknight') || (char.className === 'rogue' && sub === 'arcanetrickster')) ? 'wizard' : char.className;
 }
 
+// Listas de magia de onde a classe (vista isoladamente) escolhe. Alma Divina
+// (Magia Divina): feiticeiro + clérigo, em 2014 e 2024.
+function spellListClasses(char) {
+  const sub = (char.subclass || '').toLowerCase();
+  const main = spellListClass(char);
+  return char.className === 'sorcerer' && sub === 'divine' ? [main, 'cleric'] : [main];
+}
+
+// A magia está numa das listas da classe?
+function inSpellList(char, spell) {
+  return spellListClasses(char).some(c => (spell?.classes || []).includes(c));
+}
+
 // === Prepared-caster logic ===
 const PREPARED_CASTERS = ['cleric', 'druid', 'paladin', 'wizard', 'artificer'];
 
@@ -551,6 +564,8 @@ return {
     for (const id of MC.classSequence(char)) { const d = SRD.CLASSES.find(c => c.id === id)?.hitDie || 8; byDie[d] = (byDie[d] || 0) + 1; }
     return Object.entries(byDie).sort((a, b) => b[0] - a[0]).map(([d, n]) => `${n}d${d}`).join(' + ');
   },
+  // Modo de progressão: a campanha manda (Marcos ou XP); fora dela vale o da ficha.
+  levelingMode: char => char.campaignLeveling || char.levelingMode || 'xp',
   knownSpellLimit: char => { const p = computeProgression(char); return char.rulesVersion === '2024' ? p.spellsPrepared || p.spellsKnown : p.spellsKnown; },
   uid, mod, fmtMod,
   loadAll, saveAll, loadChar, saveChar, deleteChar,
@@ -558,7 +573,7 @@ return {
   abilityWithRace, abilityMod, profBonus, saveBonus, skillBonus, passivePerception,
   computeAc, maxHpDefault, speed, sizeOf,
   speciesGrants: Species.speciesGrants, speciesChoiceIssues: Species.speciesChoiceIssues,
-  spellcastingAbility, spellSaveDc, spellAttackBonus, spellSlots, spellListClass,
+  spellcastingAbility, spellSaveDc, spellAttackBonus, spellSlots, spellListClass, spellListClasses, inSpellList,
   isPreparedCaster, cantripsKnown, preparedSpellsLimit, maxSpellLevel,
   applyRaceBonus,
   LANGUAGES, CLASS_LANGUAGES, languageLabel, fixedLanguages, languageChoiceCount, languageChoiceSources, languagesFor,

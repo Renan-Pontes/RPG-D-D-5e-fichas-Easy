@@ -374,7 +374,7 @@ const PrintSheet = ({ char, lang }) => {
       {/* ============ PAGE 3 — SPELLS ============ */}
       {cls && cls.spellcaster && (
         <div className="ps-page">
-          <PS_Header subtitle={lang === 'pt' ? 'Grimório' : 'Spellbook'} />
+          <PS_Header subtitle={lang === 'pt' ? 'Livro de magias' : 'Spellbook'} />
 
           <div className="ps-spell-stats">
             <div className="ps-stat-box">

@@ -4,6 +4,7 @@
    ============================================ */
 
 import { ARTIFICER, EXTRA_RACES, EXTRA_SUBCLASSES, SOURCES } from './expanded-catalog.js';
+import { SUBRACES_2014 } from './subraces-2014.js';
 import { SPELLS_2024 } from './rules2024.js';
 import { LEGACY_SPELL_CLASSES } from './spells-legacy-classes.js';
 
@@ -1761,7 +1762,7 @@ const SUBCLASSES = {
       features: [
         { level: 2, name: { pt: 'Erudito de Necromancia', en: 'Necromancy Savant' }, desc: { pt: 'Copie magias de necromancia por metade do custo.', en: 'Copy necromancy spells at half cost.' } },
         { level: 2, name: { pt: 'Colheita Sombria', en: 'Grim Harvest' }, desc: { pt: 'Ao matar com magia: recupere HP = 2× nível da magia (3× para necromancia).', en: 'When killing with a spell: regain HP = 2× spell level (3× for necromancy).' } },
-        { level: 6, name: { pt: 'Escravos Mortos-Vivos', en: 'Undead Thralls' }, desc: { pt: 'Animar Mortos entra no grimório. Ao conjurá-la, anime 1 cadáver ou pilha de ossos extra. Seus mortos-vivos somam o nível de mago ao PV máximo e o bônus de proficiência ao dano com armas.', en: 'Add Animate Dead to your spellbook. When you cast it, target one extra corpse or pile of bones. Your undead add your wizard level to their HP maximum and your proficiency bonus to weapon damage.' } },
+        { level: 6, name: { pt: 'Escravos Mortos-Vivos', en: 'Undead Thralls' }, desc: { pt: 'Animar Mortos entra no livro de magias. Ao conjurá-la, anime 1 cadáver ou pilha de ossos extra. Seus mortos-vivos somam o nível de mago ao PV máximo e o bônus de proficiência ao dano com armas.', en: 'Add Animate Dead to your spellbook. When you cast it, target one extra corpse or pile of bones. Your undead add your wizard level to their HP maximum and your proficiency bonus to weapon damage.' } },
         { level: 10, name: { pt: 'Imune aos Mortos', en: 'Inured to Undeath' }, desc: { pt: 'Resistência a dano necrótico. Imune a redução de HP máximo.', en: 'Resistance to necrotic damage. Immune to max HP reduction.' } },
         { level: 14, name: { pt: 'Comandar Mortos-Vivos', en: 'Command Undead' }, desc: { pt: 'Ação: morto-vivo em 60 pés SAL CAR CD magia ou sob seu controle por 24h. Mortos-vivos inteligentes repeteme a cada hora.', en: 'Action: undead within 60 ft CHA save vs spell DC or under your control for 24h. Intelligent undead repeat every hour.' } },
       ],
@@ -1772,7 +1773,7 @@ const SUBCLASSES = {
         { level: 2, name: { pt: 'Erudito de Transmutação', en: 'Transmutation Savant' }, desc: { pt: 'Copie magias de transmutação por metade do custo.', en: 'Copy transmutation spells at half cost.' } },
         { level: 2, name: { pt: 'Alquimia Menor', en: 'Minor Alchemy' }, desc: { pt: 'Transmute um objeto de madeira, pedra (não preciosa), ferro, cobre ou prata em outro desses materiais: 10 min por pé cúbico; dura 1 h ou até você perder a concentração.', en: 'Transform an object of wood, stone (not gemstone), iron, copper, or silver into another of those materials: 10 min per cubic foot; lasts 1 hour or until you lose concentration.' } },
         { level: 6, name: { pt: 'Pedra do Transmutador', en: "Transmuter's Stone" }, desc: { pt: 'Crie pedra mágica que concede: visão no escuro 60 pés, ou +10 deslocamento, ou proficiência em CON, ou resistência a um elemento.', en: 'Create magic stone granting: darkvision 60 ft, +10 speed, CON proficiency, or resistance to one element.' } },
-        { level: 10, name: { pt: 'Metamorfo', en: 'Shapechanger' }, desc: { pt: 'Metamorfose entra no grimório. 1×/descanso curto, sem espaço: conjure-a em si, só para virar fera de ND ≤ 1.', en: 'Add Polymorph to your spellbook. 1/short rest, without a slot: cast it on yourself, only to become a beast of CR ≤ 1.' } },
+        { level: 10, name: { pt: 'Metamorfo', en: 'Shapechanger' }, desc: { pt: 'Metamorfose entra no livro de magias. 1×/descanso curto, sem espaço: conjure-a em si, só para virar fera de ND ≤ 1.', en: 'Add Polymorph to your spellbook. 1/short rest, without a slot: cast it on yourself, only to become a beast of CR ≤ 1.' } },
         { level: 14, name: { pt: 'Mestre Transmutador', en: 'Master Transmuter' }, desc: { pt: 'Ação, destruindo a Pedra do Transmutador: transmute um objeto não mágico (cubo de 5 pés) em outro de tamanho e massa iguais e valor ≤; ou remova maldições, doenças e venenos e cure todos os PV de uma criatura tocada; ou conjure Reviver os Mortos sem espaço; ou rejuvenesça uma criatura tocada em 3d10 anos (mín. 13).', en: 'Action, destroying your transmuter\'s stone: transform a nonmagical object (5-ft cube) into another of equal size and mass and equal or lesser value; or remove curses, diseases, and poisons and restore all HP of a touched creature; or cast Raise Dead without a slot; or make a touched creature 3d10 years younger (min 13).' } },
       ],
     },
@@ -1840,6 +1841,13 @@ function getSpellSlots(charClass, level, subclass = '') {
 
 CLASSES.push(ARTIFICER);
 RACES.push(...EXTRA_RACES);
+// Sub-raças de suplementos (MToF, VGM, ERLW, SCAG, EGtW): logo depois da raça-base e das irmãs.
+for (const sub of SUBRACES_2014) {
+  const { base, ...race } = sub;
+  let at = -1;
+  RACES.forEach((r, i) => { if (r.id === base || r.id.startsWith(`${base}-`)) at = i; });
+  RACES.splice(at < 0 ? RACES.length : at + 1, 0, race);
+}
 for (const [classId, options] of Object.entries(EXTRA_SUBCLASSES)) {
   SUBCLASSES[classId] ||= [];
   for (const option of options) if (!SUBCLASSES[classId].some(s => s.id === option.id)) SUBCLASSES[classId].push(option);

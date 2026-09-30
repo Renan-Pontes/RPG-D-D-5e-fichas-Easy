@@ -5,6 +5,7 @@
  * - Modal de seleção de alvo (inimigos primeiro, aliados depois, com HP/distância).
  * - Envia /player-attack ao backend; mostra resultado (acerto, crit, desvio).
  */
+import { errorMessage } from '../api/errors.js';
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import SRD from '../../data/srd.js';
@@ -303,7 +304,7 @@ const CombatActionPanel = ({ char, lang, onUpdate }) => {
         onUpdate({ ...char, currentHp: me.current_hp });
       }
     } catch (e) {
-      setError(e?.data?.error || e?.message || 'failed');
+      setError(errorMessage(e));
     } finally {
       setBusy(false);
     }

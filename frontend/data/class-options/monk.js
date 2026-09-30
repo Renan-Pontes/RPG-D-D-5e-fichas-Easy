@@ -104,6 +104,7 @@ const kw = (id, pt, en, kind) => ({
   desc: b(`Arma kensei ${kind.pt}: proficiência (se ainda não tiver) e conta como arma de monge.`,
     `${kind.en === 'melee' ? 'Melee' : 'Ranged'} kensei weapon: proficiency (if you lack it) and it counts as a monk weapon.`),
   grants: { weapons: [id] },
+  melee: kind === MELEE, // usado no filtro dos pools de nível 3 (1 corpo a corpo + 1 à distância)
 });
 const kenseiWeapons = [
   kw('club', 'Clava', 'Club', MELEE), kw('dagger', 'Adaga', 'Dagger', MELEE),
@@ -400,7 +401,8 @@ const subclasses = {
 
 const SUBCLASS_CHOICES = {
   fourelements: { 3: { elementalDiscipline: 1 }, 6: { elementalDiscipline: 1 }, 11: { elementalDiscipline: 1 }, 17: { elementalDiscipline: 1 } },
-  kensei: { 3: { kenseiWeapon: 2, kenseiBrush: 1 }, 6: { kenseiWeapon: 1 }, 11: { kenseiWeapon: 1 }, 17: { kenseiWeapon: 1 } },
+  // Nível 3: 1 arma corpo a corpo + 1 à distância (pools filtrados); depois, qualquer uma.
+  kensei: { 3: { kenseiWeaponMelee: 1, kenseiWeaponRanged: 1, kenseiBrush: 1 }, 6: { kenseiWeapon: 1 }, 11: { kenseiWeapon: 1 }, 17: { kenseiWeapon: 1 } },
   ascendantdragon: { 3: { dragonLanguage: 1 } },
 };
 const LEGACY_SUBCLASS_CHOICES = {
@@ -469,6 +471,14 @@ export default {
     kenseiWeapon: {
       name: b('Armas Kensei', 'Kensei Weapons'),
       options: kenseiWeapons,
+    },
+    kenseiWeaponMelee: {
+      name: b('Arma Kensei (corpo a corpo)', 'Kensei Weapon (melee)'),
+      options: kenseiWeapons, filter: { melee: true },
+    },
+    kenseiWeaponRanged: {
+      name: b('Arma Kensei (à distância)', 'Kensei Weapon (ranged)'),
+      options: kenseiWeapons, filter: { melee: false },
     },
     kenseiBrush: {
       name: b('Caminho do Pincel', 'Way of the Brush'),

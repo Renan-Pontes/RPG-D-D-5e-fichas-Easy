@@ -1,4 +1,5 @@
 /* Character sheet view — play/stats/spells/inventory/story/journal tabs */
+import { errorMessage } from '../src/api/errors.js';
 import { useState, useEffect, useRef } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
@@ -10,11 +11,14 @@ import { SpeciesChoicesModal } from '../src/progression/SpeciesChoices.jsx';
 import { t, tName } from '../data/i18n.js';
 import LanguagePicker, { chosenLanguages } from './LanguagePicker.jsx';
 import Icon from './Icons.jsx';
+import ScrollTabs from './ScrollTabs.jsx';
 import { Filigree, Modal, NumStepper, Pips, AvatarUpload } from './Shared.jsx';
 import { SheetSpells, SheetInventory, SheetStory, SheetNotes, RestButtons } from './SheetTabs.jsx';
 import { api, ApiError } from '../src/api/client.js';
 import CombatActionPanel from '../src/campaigns/CombatActionPanel.jsx';
+import PlayerChecksBanner from '../src/checks/PlayerChecksBanner.jsx';
 import * as FS from '../src/progression/fighting-styles.js';
+import GrimoireHint from '../src/grimoire/GrimoireHint.jsx';
 
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
   const [tab, setTab] = useState('play');
@@ -109,6 +113,11 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         cls={cls} race={race} bg={bg}
       />
 
+      {/* Pedido de teste do mestre: logo abaixo do topo, para ser visto sem rolar */}
+      {char.inCampaign && typeof char.id === 'number' && (
+        <PlayerChecksBanner char={char} lang={lang} />
+      )}
+
       <SubclassBanner char={char} lang={lang} update={update} />
       <SpeciesBanner char={char} lang={lang} update={update} />
       <CampaignModeBanner char={char} lang={lang} onChange={onUpdate} />
@@ -123,7 +132,8 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
 
       <div className="action-bar no-print">
         <button className="chip" onClick={onPrint}><Icon name="print" size={14} className="chip-icon"/> {t('print', lang)}</button>
-        <button className="chip" onClick={onExportPdf}><Icon name="download" size={14} className="chip-icon"/> {t('exportPdf', lang)}</button>
+        <button className="chip" onClick={() => onExportPdf({ flatten: false })} title={lang === 'pt' ? 'Ficha de D&D 5e com campos que você pode preencher e alterar em qualquer leitor de PDF' : 'D&D 5e sheet with fields you can fill and change in any PDF reader'}><Icon name="edit" size={14} className="chip-icon"/> {t('exportPdf', lang)}</button>
+        <button className="chip" onClick={() => onExportPdf({ flatten: true })} title={lang === 'pt' ? 'Ficha de D&D 5e com o texto fixo, pronta para imprimir' : 'D&D 5e sheet with fixed text, ready to print'}><Icon name="download" size={14} className="chip-icon"/> {t('exportPdfPrint', lang)}</button>
         <button className="chip" onClick={onShare}><Icon name="share" size={14} className="chip-icon"/> {t('share', lang)}</button>
         <button className="chip" onClick={onExport}><Icon name="download" size={14} className="chip-icon"/> {t('export', lang)}</button>
         {!char.inCampaign && (
@@ -146,7 +156,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
 
       {cheatOpen && <CheatModeModal char={char} lang={lang} update={update} onClose={() => setCheatOpen(false)} />}
 
-      <div className="tabs no-print">
+      <ScrollTabs className="no-print" activeKey={tab} lang={lang} role="tablist" aria-label={lang === 'pt' ? 'Seções da ficha' : 'Sheet sections'}>
         {[
           { id: 'play',   label: t('tabPlay', lang) },
           { id: 'stats',  label: t('tabStats', lang) },
@@ -156,11 +166,11 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
           { id: 'notes',  label: t('tabNotes', lang) },
           { id: 'npcs',   label: lang === 'pt' ? 'NPCs' : 'NPCs' },
         ].map(tb => (
-          <button key={tb.id} className={`tab ${tab === tb.id ? 'active' : ''}`} onClick={() => setTab(tb.id)}>
+          <button key={tb.id} role="tab" aria-selected={tab === tb.id} className={`tab ${tab === tb.id ? 'active' : ''}`} onClick={() => setTab(tb.id)}>
             {tb.label}
           </button>
         ))}
-      </div>
+      </ScrollTabs>
 
       {tab === 'play' && (
         <SheetPlay
@@ -220,8 +230,8 @@ const SheetHero = ({ char, lang, onAvatar, onBack, onLevelUp, cls, race, bg }) =
         <div className="hero-tags">
           {char.alignment && <span className="tag">{tName('alignment', char.alignment, lang)}</span>}
           {char.player && <span className="tag">{char.player}</span>}
-          {(char.levelingMode || 'xp') === 'xp' && char.xp > 0 && <span className="tag">{char.xp} XP</span>}
-          {(char.levelingMode || 'xp') === 'milestone' && <span className="tag">{lang === 'pt' ? 'Marcos' : 'Milestones'}</span>}
+          {Utils.levelingMode(char) === 'xp' && <span className="tag">{char.xp || 0} XP</span>}
+          {Utils.levelingMode(char) === 'milestone' && <span className="tag" title={lang === 'pt' ? 'Sobe de nível por marcos da história (sem XP)' : 'Levels up at story milestones (no XP)'}>{lang === 'pt' ? 'Marcos' : 'Milestones'}</span>}
           {char.cheatMode && <span className="tag" style={{ background: 'var(--blood-deep)', color: 'var(--ink-primary)' }}>🎲 {lang === 'pt' ? 'Trapaça' : 'Cheat'}</span>}
         </div>
       </div>
@@ -233,7 +243,7 @@ const SheetHero = ({ char, lang, onAvatar, onBack, onLevelUp, cls, race, bg }) =
 // Mesmo fluxo do painel de Progressão: fora de campanha abre a subida guiada;
 // em campanha pede liberação ao mestre.
 const LevelUpButton = ({ char, lang, onLevelUp }) => {
-  const mode = char.levelingMode || 'xp';
+  const mode = Utils.levelingMode(char);
   const XP_THRESHOLDS = [0,300,900,2700,6500,14000,23000,34000,48000,64000,85000,100000,120000,140000,165000,195000,225000,265000,305000,355000];
   const canLevelXp = mode === 'xp' && char.level < 20 && (char.xp || 0) >= (XP_THRESHOLDS[char.level] || Infinity);
   const canLevel = char.level < 20 && (mode === 'milestone' || canLevelXp || char.cheatMode);
@@ -498,11 +508,11 @@ const CheatModeModal = ({ char, lang, update, onClose }) => {
           <div className="row gap-3" style={{ marginBottom: 8 }}>
             <div style={{ flex: 1 }}>
               <label>{t('level', lang)}</label>
-              <input type="number" min="1" max="20" value={draft.level} onChange={e => setDraft({ ...draft, level: e.target.value })} />
+              <input aria-label={t('level', lang)} type="number" min="1" max="20" value={draft.level} onChange={e => setDraft({ ...draft, level: e.target.value })} />
             </div>
             <div style={{ flex: 1 }}>
               <label>{pt ? 'PV máximo' : 'Max HP'}</label>
-              <input type="number" min="1" value={draft.maxHp} onChange={e => setDraft({ ...draft, maxHp: e.target.value })} />
+              <input aria-label={pt ? 'PV máximo' : 'Max HP'} type="number" min="1" value={draft.maxHp} onChange={e => setDraft({ ...draft, maxHp: e.target.value })} />
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
@@ -554,7 +564,7 @@ const CampaignModeBanner = ({ char, lang, onChange }) => {
       // Forçar reload da ficha pra atualizar inCampaign
       onChange({ ...char, inCampaign: false });
     } catch (e) {
-      alert(e?.data?.error || e?.message || 'failed');
+      alert(errorMessage(e));
     } finally { setBusy(false); }
   };
 
@@ -610,7 +620,7 @@ const WildShapeBanner = ({ char, lang, onChange }) => {
         });
       }
     } catch (e) {
-      setErr(e?.data?.error || e?.message || 'failed');
+      setErr(errorMessage(e));
     } finally { setBusy(false); }
   };
   const pct = ws.beastMaxHp ? Math.max(0, Math.min(100, ((ws.beastCurrentHp || 0) / ws.beastMaxHp) * 100)) : 0;
@@ -900,7 +910,7 @@ const WildShapePanel = ({ char, druid, lang, update }) => {
                 setSelected(null);
               }
             } catch (e) {
-              setTransformError(e?.data?.error || e?.message || 'failed');
+              setTransformError(errorMessage(e));
             }
           }}
         />
@@ -937,7 +947,7 @@ const ConditionsPanel = ({ char, lang, update }) => {
   return (
     <div style={{ marginBottom: 16 }}>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <div className="eyebrow">{pt ? 'Condições e efeitos' : 'Conditions & effects'}</div>
+        <div className="eyebrow">{pt ? 'Condições e efeitos' : 'Conditions & effects'}<GrimoireHint id="condicoes" lang={lang} /></div>
         <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(o => !o)}>
           {open ? (pt ? 'Fechar' : 'Close') : (pt ? '+ Condição' : '+ Condition')}
         </button>
@@ -948,12 +958,15 @@ const ConditionsPanel = ({ char, lang, update }) => {
       <div className="cond-chips">
         {(open ? STD_CONDITIONS : active).map(id => {
           const on = active.includes(id);
-          return (
+          const chip = (
             <button key={id} type="button" className={`cond-chip ${on ? 'on' : ''}`} onClick={() => toggle(id)}
               title={on ? (pt ? 'Toque para remover' : 'Tap to remove') : ''}>
               {tName('condition', id, lang)}{on && !open ? ' ✕' : ''}
             </button>
           );
+          return on && !open
+            ? <span key={id} className="row" style={{ alignItems: 'center' }}>{chip}<GrimoireHint id={id} lang={lang} label={tName('condition', id, lang)} /></span>
+            : chip;
         })}
       </div>
       {temps.map(e => (
@@ -1071,11 +1084,11 @@ const SheetNpcs = ({ char, lang, update }) => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <div>
                 <label>{lang === 'pt' ? 'Raça / Tipo' : 'Race / Type'}</label>
-                <input value={form.race || ''} onChange={e => setForm(f => ({ ...f, race: e.target.value }))} />
+                <input aria-label={lang === 'pt' ? 'Raça / Tipo' : 'Race / Type'} value={form.race || ''} onChange={e => setForm(f => ({ ...f, race: e.target.value }))} />
               </div>
               <div>
                 <label>{lang === 'pt' ? 'Papel / Profissão' : 'Role / Profession'}</label>
-                <input value={form.role || ''} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} />
+                <input aria-label={lang === 'pt' ? 'Papel / Profissão' : 'Role / Profession'} value={form.role || ''} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} />
               </div>
             </div>
             <div>
@@ -1098,7 +1111,7 @@ const SheetNpcs = ({ char, lang, update }) => {
             </div>
             <div>
               <label>{lang === 'pt' ? 'Notas' : 'Notes'}</label>
-              <textarea value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              <textarea aria-label={lang === 'pt' ? 'Notas' : 'Notes'} value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 style={{ minHeight: 80 }} />
             </div>
           </div>
@@ -1165,7 +1178,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
           </button>
         </div>
         <div className="hp-temp">
-          {t('tempHp', lang)}:
+          {t('tempHp', lang)}<GrimoireHint id="pv-temporarios" lang={lang} />:
           {' '}
           <input
             type="number" min="0"
@@ -1178,7 +1191,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
         {/* Death saves */}
         {char.currentHp === 0 && (
           <div style={{ marginTop: 14, padding: 12, background: 'var(--blood-deep)', borderRadius: 4, border: '1px solid var(--blood-bright)' }}>
-            <div className="eyebrow text-center" style={{ color: 'var(--blood-bright)' }}>{t('deathSaves', lang)}</div>
+            <div className="eyebrow text-center" style={{ color: 'var(--blood-bright)' }}>{t('deathSaves', lang)}<GrimoireHint id="testes-contra-a-morte" lang={lang} /></div>
             <div className="row gap-3" style={{ marginTop: 8, justifyContent: 'center', alignItems: 'center' }}>
               <span className="text-xs" style={{ color: 'var(--moss-bright)' }}>{t('successes', lang)}:</span>
               <div className="death-pips">
@@ -1389,19 +1402,19 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
           <div className="combat-box-value">{Utils.fmtMod(profB)}</div>
         </div>
         <div className="combat-box">
-          <div className="eyebrow">{lang === 'pt' ? 'Perc.' : 'Perc.'}</div>
+          <div className="eyebrow">{lang === 'pt' ? 'Perc.' : 'Perc.'}<GrimoireHint id="valor-passivo" lang={lang} /></div>
           <div className="combat-box-value">{passPerc}</div>
           <div className="combat-box-sub">{lang === 'pt' ? 'passiva' : 'passive'}</div>
         </div>
         <div className="combat-box">
-          <div className="eyebrow">{t('hitDice', lang)}</div>
+          <div className="eyebrow">{t('hitDice', lang)}<GrimoireHint id="dados-de-vida" lang={lang} /></div>
           <div className="combat-box-value">{Math.max(0, char.level - (char.hitDiceUsed || 0))}</div>
           <div className="combat-box-sub">/{Utils.hitDiceLabel(char)}</div>
         </div>
       </div>
 
       {/* Descanso: mesma lógica (e endpoint) da aba de magias */}
-      <div className="eyebrow mt-4" style={{ marginBottom: 8 }}>{lang === 'pt' ? 'Descanso' : 'Rest'}</div>
+      <div className="eyebrow mt-4" style={{ marginBottom: 8 }}>{lang === 'pt' ? 'Descanso' : 'Rest'}<GrimoireHint id="descanso-curto" lang={lang} /></div>
       <div style={{ marginBottom: 16 }}><RestButtons char={char} lang={lang} update={update} /></div>
     </>
   );
@@ -1539,7 +1552,7 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
       <LanguagesField char={char} lang={lang} update={update} />
       <div>
         <label>{lang === 'pt' ? 'Outras proficiências' : 'Other proficiencies'}</label>
-        <textarea
+        <textarea aria-label={lang === 'pt' ? 'Outras proficiências' : 'Other proficiencies'}
           value={char.otherProfs || ''}
           onChange={e => update({ otherProfs: e.target.value })}
           placeholder={lang === 'pt' ? 'Ferramentas, armas adicionais...' : 'Tools, extra weapons...'}

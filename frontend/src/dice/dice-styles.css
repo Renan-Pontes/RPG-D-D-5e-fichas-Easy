@@ -1,0 +1,275 @@
+/* ============================================
+   Rolador de dados — sheet inferior + palco 3D
+   ============================================ */
+
+/* Botão flutuante: menor, respeita safe-area e some ao rolar pra baixo */
+.dice-fab.no-print {
+  position: fixed;
+  right: 14px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  z-index: 50;
+  transition: transform 0.2s ease, opacity 0.2s ease, margin-bottom 0.2s ease;
+}
+.dice-fab.no-print.is-hidden {
+  transform: translateY(90px);
+  opacity: 0;
+  pointer-events: none;
+}
+@media (min-width: 900px) {
+  .dice-fab.no-print { right: 24px; bottom: 24px; width: 56px; height: 56px; }
+}
+
+/* Espaço extra no fim da página enquanto o sheet está aberto,
+   para nada ficar escondido atrás dele. */
+body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
+@media (min-width: 900px) {
+  body.dice-sheet-open { padding-bottom: 0; }
+}
+
+.dice-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  max-height: min(60vh, 540px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-raised);
+  border-top: 1px solid var(--stroke-strong);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.55);
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: dice-sheet-in 0.2s ease-out;
+  transition: transform 0.18s ease;
+}
+@keyframes dice-sheet-in {
+  from { transform: translateY(40px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+@media (min-width: 900px) {
+  .dice-sheet {
+    left: auto;
+    right: 24px;
+    bottom: 24px;
+    width: 400px;
+    max-height: min(78vh, 680px);
+    border: 1px solid var(--stroke);
+    border-radius: 14px;
+  }
+}
+
+.dice-sheet-grip {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 4px;
+  cursor: grab;
+  touch-action: none;
+}
+.dice-sheet-handle {
+  width: 44px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--stroke-strong);
+}
+.dice-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 8px 16px;
+  border-bottom: 1px solid var(--stroke-faint);
+}
+.dice-sheet-title {
+  flex: 1;
+  font-family: var(--display);
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  font-size: 1rem;
+}
+.dice-sheet-anim {
+  background: var(--bg-card);
+  border: 1px solid var(--stroke-faint);
+  color: var(--ink-secondary);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  min-height: 36px;
+  cursor: pointer;
+}
+.dice-sheet-close {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid var(--stroke-faint);
+  border-radius: 50%;
+  color: var(--ink-primary);
+  cursor: pointer;
+}
+.dice-sheet-close:hover { border-color: var(--gold); }
+
+.dice-sheet-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Último resultado — toque rola de novo */
+.dice-last {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: var(--bg-card);
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: var(--ink-primary);
+  cursor: pointer;
+  font: inherit;
+}
+.dice-last:disabled { cursor: default; }
+.dice-last-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dice-last-label {
+  font-family: var(--display);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dice-last-detail { font-family: var(--mono); font-size: 0.75rem; color: var(--ink-muted); }
+.dice-last-total {
+  font-family: var(--display);
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--gold-bright);
+  min-width: 44px;
+  text-align: right;
+}
+.dice-last.crit { border-color: var(--gold-bright); }
+.dice-last.fumble { border-color: var(--blood-bright); }
+.dice-last.fumble .dice-last-total { color: var(--blood-bright); }
+
+/* Fórmula rápida */
+.dice-formula { display: flex; gap: 8px; }
+.dice-formula-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  font-family: var(--mono);
+  font-size: 1rem;
+}
+.dice-formula-input.is-error { border-color: var(--blood-bright); }
+.dice-formula-go { min-height: 48px; min-width: 88px; font-size: 1rem; }
+.dice-formula-hint { color: var(--blood-bright); font-size: 0.8rem; margin-top: -4px; }
+
+.dice-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.dice-chip {
+  flex-shrink: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--stroke-faint);
+  color: var(--ink-secondary);
+  border-radius: 999px;
+  padding: 6px 12px;
+  min-height: 36px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.dice-chip:hover { border-color: var(--gold); color: var(--ink-primary); }
+
+.dice-sheet .adv-toggle { margin-bottom: 0; }
+.dice-sheet .adv-toggle button { min-height: 44px; font-size: 0.85rem; }
+.dice-sheet .dice-controls { margin-bottom: 0; }
+.dice-sheet .dice-stepper { grid-template-columns: 48px 1fr 48px; min-height: 44px; }
+.dice-sheet .dice-picker { margin-bottom: 0; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+@media (min-width: 420px) {
+  .dice-sheet .dice-picker { gap: 6px; }
+}
+.dice-sheet .dice-picker-btn { min-height: 52px; padding: 4px 0; min-width: 0; }
+.dice-sheet .dice-picker-btn .die-shape { transform: scale(0.95); }
+.dice-sheet .dice-picker-btn.is-main { border-color: var(--gold); }
+.dice-sheet-foot { font-size: 0.75rem; text-align: center; }
+.dice-sheet-foot code { font-family: var(--mono); color: var(--ink-secondary); }
+
+.dice-sheet-history { border-top: 1px solid var(--stroke-faint); padding-top: 6px; }
+.dice-history-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 40px;
+  background: transparent;
+  border: 0;
+  color: var(--ink-secondary);
+  font-family: var(--display);
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  padding: 0;
+}
+.dice-history-list { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.dice-history-empty { padding: 8px 0; }
+.dice-entry-btn {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.dice-entry-btn:disabled { cursor: default; }
+.dice-entry-btn .dice-entry-detail { grid-column: 1; grid-row: 2; justify-self: start; font-family: var(--mono); font-size: 0.75rem; color: var(--ink-muted); }
+.dice-entry-btn .dice-total { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.dice-history-list .dice-entry { display: block; }
+.dice-history-clear { width: 100%; margin-top: 6px; }
+
+/* Resultado discreto quando a animação está desligada */
+.dice-pop {
+  z-index: 70;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  cursor: pointer;
+}
+.dice-pop strong { font-size: 1.4rem; }
+.dice-pop-label { font-size: 0.8rem; color: var(--ink-secondary); max-width: 50vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dice-pop.fumble { border-color: var(--blood-bright); color: var(--blood-bright); }
+
+/* Palco (3D ou 2D) */
+.dice-stage {
+  width: min(92vw, 720px);
+  height: min(42vh, 340px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.dice-stage-2d { height: auto; min-height: 120px; }
+.dice-stage-canvas { width: 100%; height: 100%; display: block; }
+.dice-overlay-dismiss { font-size: 0.8rem; letter-spacing: 0.08em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dice-sheet, .dice-fab.no-print { animation: none; transition: none; }
+}

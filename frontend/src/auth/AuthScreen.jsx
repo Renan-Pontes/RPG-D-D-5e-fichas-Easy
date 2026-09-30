@@ -1,3 +1,4 @@
+import { errorMessage } from '../api/errors.js';
 import { useState } from 'react';
 import { useAuth } from './AuthContext.jsx';
 
@@ -24,7 +25,7 @@ export default function AuthScreen({ onSkip, lang = 'pt' }) {
       if (code === 'email_taken') setError(t('E-mail já cadastrado', 'Email already registered'));
       else if (code === 'invalid_credentials') setError(t('E-mail ou senha incorretos', 'Invalid credentials'));
       else if (code === 'invalid_input') setError(t('Dados inválidos. Senha precisa de 6+ caracteres.', 'Invalid input. Password must be 6+ chars.'));
-      else setError(err?.message || t('Falha ao autenticar', 'Auth failed'));
+      else setError(errorMessage(err, lang, t('Falha ao autenticar', 'Auth failed')));
     } finally {
       setBusy(false);
     }

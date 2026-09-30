@@ -27,7 +27,8 @@ function optionsForBackend(data) {
     ...pick(pool, ['kind', 'grantAs', 'swapOnLevelUp', 'swapLevels', 'freeSwap', 'startingClassOnly']),
     ...(pool.filter?.from ? { filter: { from: pool.filter.from } } : {}),
     ...(pool.options ? { options: pool.options.map(o => ({
-      ...pick(o, ['id', 'rules', 'repeatable', 'grants', 'choices', 'resource']),
+      ...pick(o, ['id', 'rules', 'repeatable', 'grants', 'choices', 'resource', 'classes2014']),
+      ...(o.detail ? { detail: true } : {}),
       ...(o.prereq ? { prereq: pick(o.prereq, ['level', 'options', 'anyOption', 'subclass']) } : {}),
     })) } : {}),
   }]));

@@ -51,15 +51,24 @@ class LoginSerializer(serializers.Serializer):
 # === Character ===
 class CharacterSerializer(serializers.ModelSerializer):
     inCampaign = serializers.SerializerMethodField()
+    campaignLeveling = serializers.SerializerMethodField()
 
     class Meta:
         model = Character
-        fields = ['id', 'name', 'data', 'created_at', 'updated_at', 'inCampaign']
-        read_only_fields = ['id', 'created_at', 'updated_at', 'inCampaign']
+        fields = ['id', 'name', 'data', 'created_at', 'updated_at', 'inCampaign', 'campaignLeveling']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'inCampaign', 'campaignLeveling']
 
     def get_inCampaign(self, obj):
         from .models import Membership
         return Membership.objects.filter(character=obj).exists()
+
+    def get_campaignLeveling(self, obj):
+        """Modo de progressão da campanha do personagem ('xp' | 'milestone'), ou None fora de campanha."""
+        from .models import Membership
+        m = Membership.objects.filter(character=obj).select_related('campaign').first()
+        if not m:
+            return None
+        return 'xp' if (m.campaign.state or {}).get('levelingMode') == 'xp' else 'milestone'
 
 
 # === Campaign ===

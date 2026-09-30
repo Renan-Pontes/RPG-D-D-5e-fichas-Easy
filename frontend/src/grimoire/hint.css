@@ -1,0 +1,28 @@
+/* "?" do Grimório na ficha */
+.grim-hint {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 6px;
+  padding: 0;
+  border: 1px solid var(--stroke);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--gold);
+  font-family: var(--display);
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+  position: relative;
+}
+/* Área de toque maior que o desenho */
+.grim-hint::after { content: ''; position: absolute; inset: -10px; }
+.grim-hint:hover, .grim-hint:focus-visible { border-color: var(--gold); background: var(--gold-soft); color: var(--gold-bright); }
+
+/* Botão do Grimório no cabeçalho: só o ícone em telas bem estreitas */
+.header-grimoire.active { color: var(--gold-bright); border-color: var(--gold); }
+@media (max-width: 420px) {
+  .header-grimoire-label { display: none; }
+}

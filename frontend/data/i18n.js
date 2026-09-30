@@ -3,12 +3,13 @@
    ============================================ */
 
 import { ARTIFICER, EXTRA_RACES, EXTRA_SUBCLASSES } from './expanded-catalog.js';
+import { SUBRACES_2014 } from './subraces-2014.js';
 import { BACKGROUNDS_2024, SPELLS_2024, SPECIES_2024 } from './rules2024.js';
 import { CLASS_OPTIONS } from './class-options/index.js';
 
 // Subclasses novas do PHB 2024 (Dança, Mar, Coração Selvagem…) vêm dos arquivos de classe.
 const CLASS_FILE_SUBCLASSES = Object.values(CLASS_OPTIONS).flatMap(c => Object.entries(c.subclasses || {}).map(([id, s]) => ({ id, name: s.name })));
-const EXTRA_NAMES = { class: [ARTIFICER], race: [...EXTRA_RACES, ...SPECIES_2024], subclass: [...Object.values(EXTRA_SUBCLASSES).flat(), ...CLASS_FILE_SUBCLASSES], background: BACKGROUNDS_2024, spellName: SPELLS_2024 };
+const EXTRA_NAMES = { class: [ARTIFICER], race: [...EXTRA_RACES, ...SUBRACES_2014, ...SPECIES_2024], subclass: [...Object.values(EXTRA_SUBCLASSES).flat(), ...CLASS_FILE_SUBCLASSES], background: BACKGROUNDS_2024, spellName: SPELLS_2024 };
 
 const I18N = {
   pt: {
@@ -21,7 +22,8 @@ const I18N = {
     noHeroesSub: 'Crie seu primeiro personagem para começar sua jornada.',
     newCharacter: 'Novo Personagem',
     importJson: 'Importar (JSON ou PDF)',
-    exportPdf: 'PDF D&D 5e',
+    exportPdf: 'PDF editável',
+    exportPdfPrint: 'PDF para imprimir',
     exportAll: 'Exportar Todos',
     // Wizard
     step: 'Passo',
@@ -212,7 +214,8 @@ const I18N = {
     noHeroesSub: 'Create your first character to begin your journey.',
     newCharacter: 'New Character',
     importJson: 'Import (JSON or PDF)',
-    exportPdf: 'D&D 5e PDF',
+    exportPdf: 'Editable PDF',
+    exportPdfPrint: 'Print-ready PDF',
     exportAll: 'Export All',
     step: 'Step',
     of: 'of',

@@ -33,7 +33,8 @@ export default {
           subclass: ['fiend'],                 // exige uma destas subclasses
           text: b('...', '...'),               // parte não verificável, só exibida
         },
-        repeatable: true,                      // pode ser escolhida mais de uma vez (com `detail` diferente)
+        repeatable: true,                      // pode ser escolhida mais de uma vez (com `detail` diferente;
+                                               // sem `detail`, repete à vontade — ex.: Replicar Item Mágico)
         detail: b('Qual truque?', 'Which cantrip?'), // pede um texto curto ao escolher
         grants: {                              // o que a opção concede (tudo opcional)
           spells: ['mageArmor'],               // magias sempre preparadas (ids do catálogo 2024)
@@ -54,6 +55,8 @@ export default {
       kind: 'spell',                           // 'spell' | 'skill' | 'language'
       filter: { classes: ['cleric'], level: 0 },          // spell: classes, level | minLevel/maxLevel, maxSlot, school[], ritual, castingTime, inBook
       grantAs: 'cantrip',                      // 'spell' | 'cantrip' | 'spellbook' (grimório do mago, sem preparar) | 'skill' | 'expertise' | 'language' | 'tool' | 'weapon'
+      countsAsKnown: false,                    // true = as magias escolhidas já estão na tabela de conhecidas
+                                               // (Segredos Mágicos 2014): descontam do limite de conhecidas
     },                                         // vagas vêm da opção blessedWarrior (abaixo)
     expertise: {
       name: b('Especialização', 'Expertise'),
@@ -115,6 +118,26 @@ backend conferem apenas o formato da escolha.
 - `classes: [ids]`: lista de magias; `level`, `minLevel`, `maxLevel`: círculo.
 - `maxSlot: true`: círculo ≤ maior espaço que a ficha conjura.
 - `school: [ids]`, `ritual: true`, `castingTime: 'Action'` (começo do texto).
+- `include: [ids]`: magias sempre listadas, mesmo fora dos outros filtros. Serve
+  para magias fixas de subclasse que podem ser trocadas: o formato não troca
+  `autoSpells`, então a subclasse abre vagas num pool com as magias padrão em
+  `include` e `swapOnLevelUp` (Mente Aberrante/Alma Mecânica 2014, `sorcerer.js`).
+
+Pools `kind: 'skill'` aceitam `tools: [ids de items.js]`: ferramentas que também
+podem ser escolhidas (ex.: `thievesTools` na Especialização do ladino 2014). O id
+entra na concessão do pool (`grantAs`) como qualquer perícia.
+
+### Estilos de luta 2014
+
+Em fichas 2014, uma opção com `classes2014` só vale para as classes listadas
+(conferido no motor e no backend). O guerreiro sobrescreve a Técnica Superior
+em `fighter.js` para abrir 1 vaga no pool `maneuver` e criar o dado (recurso).
+
+### Recursos opcionais do Tasha (fichas 2014)
+
+Um pool estático `tceOptional` com uma opção "regra-base" e a opção do TCE, que
+abre vagas em outros pools por `choices` (Explorador Hábil do patrulheiro,
+Conhecimento Primal do bárbaro). O `resource` de uma opção aceita `minLevel`.
 - `inBook: true`: só magias que já estão no grimório do mago
   (`src/progression/spellbook.js`; entradas `inBook: true` em `character.spells`,
   e fichas antigas sem a marca contam todas as magias de nível 1+ do mago).
