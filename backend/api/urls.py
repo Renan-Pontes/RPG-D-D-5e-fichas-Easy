@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views_checks
 from . import views_adventures
+from . import views_share
 from . import views_auth, views_characters, views_campaigns, views_approvals, views_dice, views_screen, views_combat, views_inventory, views_items, views_diary
 
 urlpatterns = [
@@ -58,6 +59,9 @@ urlpatterns = [
     path('approvals/<int:pk>/consume', views_approvals.approval_consume),
 
     # Dice
+    path('shares', views_share.share_create),
+    path('shares/<str:token>', views_share.share_get),
+
     path('dice/roll', views_dice.dice_roll),
     path('dice/campaign/<str:id_or_slug>/rigs', views_dice.campaign_rigs),
     path('dice/campaign/<str:id_or_slug>/log', views_dice.campaign_dice_log),

@@ -94,23 +94,27 @@ const App = () => {
     }
   }, [auth.migrated, lang]);
 
-  // Compartilhar via URL hash (compatibilidade)
+  // Abrir ficha compartilhada: #s=<token> (link curto, 24h) ou #share=<json> (links antigos).
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash.startsWith('#share=')) {
-      try {
-        const data = Utils.decodeChar(hash.slice(7));
-        if (data && data.name) {
-          const fresh = { ...data, id: Utils.uid(), updatedAt: Date.now() };
-          storage.save(fresh).then(saved => {
-            refreshCharacters();
-            setActiveId(saved.id);
-            setScreen(SCREENS.SHEET);
-            setToast(lang === 'pt' ? 'Personagem importado!' : 'Character imported!');
-            history.replaceState(null, '', window.location.pathname);
-          });
-        }
-      } catch (e) { console.error('share parse fail', e); }
+    const importShared = (data) => {
+      if (!data || !data.name) return;
+      const fresh = { ...data, id: Utils.uid(), updatedAt: Date.now() };
+      return storage.save(fresh).then(saved => {
+        refreshCharacters();
+        setActiveId(saved.id);
+        setScreen(SCREENS.SHEET);
+        setToast(lang === 'pt' ? 'Personagem importado!' : 'Character imported!');
+        history.replaceState(null, '', window.location.pathname);
+      });
+    };
+    if (hash.startsWith('#s=')) {
+      api.getShare(hash.slice(3)).then(res => importShared(res.character)).catch(() => {
+        setToast(lang === 'pt' ? 'Este link expirou (vale 24h) ou não existe.' : 'This link has expired (valid for 24h) or does not exist.');
+        history.replaceState(null, '', window.location.pathname);
+      });
+    } else if (hash.startsWith('#share=')) {
+      try { importShared(Utils.decodeChar(hash.slice(7))); } catch (e) { console.error('share parse fail', e); }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storage]);
@@ -215,12 +219,17 @@ const App = () => {
     }
   };
 
-  const handleShare = (char) => {
+  // Link curto: a ficha fica 24h no servidor e o link leva só o código. Precisa de conta.
+  const handleShare = async (char) => {
+    if (!auth.user) {
+      setToast(lang === 'pt' ? 'Entre na sua conta para gerar um link de compartilhamento.' : 'Log in to create a share link.');
+      return;
+    }
     try {
-      const encoded = Utils.encodeChar(char);
-      const url = `${window.location.origin}${window.location.pathname}#share=${encoded}`;
+      const { token } = await api.createShare(char);
+      const url = `${window.location.origin}${window.location.pathname}#s=${token}`;
       navigator.clipboard.writeText(url).then(
-        () => setToast(t('linkCopied', lang)),
+        () => setToast(lang === 'pt' ? 'Link copiado! Ele vale por 24 horas.' : 'Link copied! It is valid for 24 hours.'),
         () => prompt(t('shareLink', lang), url)
       );
     } catch (e) {

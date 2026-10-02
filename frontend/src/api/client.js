@@ -103,6 +103,9 @@ export const api = {
   login:  (body) => request('/api/auth/login',  { method: 'POST', body }),
   logout: ()     => request('/api/auth/logout', { method: 'POST' }),
   me:     ()     => request('/api/auth/me'),
+  // Link de compartilhamento (24h)
+  createShare: (character) => request('/api/shares', { method: 'POST', body: { character } }),
+  getShare:    (token) => request(`/api/shares/${encodeURIComponent(token)}`),
   // Characters
   listCharacters:   () => request('/api/characters'),
   getCharacter:     (id) => request(`/api/characters/${id}`),

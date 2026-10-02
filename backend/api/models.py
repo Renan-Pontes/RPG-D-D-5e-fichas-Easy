@@ -355,3 +355,21 @@ class Adventure(models.Model):
 
     def __str__(self):
         return self.name
+
+
+# === Link de compartilhamento de ficha ===
+# Cópia da ficha guardada por 24h; o link leva só o token. Quem cria precisa de
+# conta; quem abre não. Expirados são apagados ao criar novos (sem tarefa agendada).
+def new_share_token():
+    return secrets.token_urlsafe(9)  # 12 caracteres
+
+
+class SharedCharacter(models.Model):
+    token = models.CharField(max_length=24, unique=True, default=new_share_token)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='shared_characters')
+    data = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(db_index=True)
+
+    def __str__(self):
+        return f'{self.token} ({self.data.get("name", "")})'

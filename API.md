@@ -74,6 +74,14 @@ Só o dono.
 
 ---
 
+## Shares (link de ficha, 24h)
+
+### `POST /shares`
+Logado (rate-limited 30/h por usuário). Body `{ character: {...} }` (até ~1,5 MB, precisa de `name`). Responde `201 { token, expiresAt }`; o link do app é `/#s=<token>`. Guarda no máximo 50 links ativos por usuário; expirados são apagados ao criar novos.
+
+### `GET /shares/:token` (público)
+`200 { character, expiresAt }` ou `404` se expirou (24h) ou não existe. Quem abre recebe uma cópia da ficha.
+
 ## Campaigns
 
 ### `GET /campaigns`
