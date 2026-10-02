@@ -9,12 +9,15 @@ import { tName } from '../../data/i18n.js';
 import { findFeat } from '../../data/feats.js';
 import { featTakenIssue } from '../progression/feat-rules.js';
 import {
-  speciesDef, speciesChoiceSpecs, speciesChoiceIssues, speciesGrants, speciesFeatEntry, withSpeciesFeat,
+  speciesDef, speciesChoiceSpecs, speciesChoiceIssues, speciesGrants, speciesFeatEntry, withSpeciesFeat, SKILL_IDS,
 } from '../progression/species.js';
+import { startingTools } from './start-data.js';
+import { STANDARD_ARRAY_BY_CLASS } from './ability-helpers.js';
 
 const b = (pt, en) => ({ pt, en });
 const rv = (char) => (char?.rulesVersion === '2014' ? '2014' : '2024');
 const list = (v) => (Array.isArray(v) ? v : v != null && v !== '' ? [v] : []);
+const SKILL_IDS_SET = new Set(SKILL_IDS);
 
 // ---------------------------------------------------------------------------
 // Lista curta
@@ -197,24 +200,79 @@ export function pendingChoiceLabels(char, id, lang) {
 // Etapa Espécie
 // ---------------------------------------------------------------------------
 
+const uniq = (arr) => [...new Set(arr.filter(Boolean))];
+
+/** Ferramentas que a espécie dá (2014: fixas da raça + a escolhida, ex.: Anão ferreiro, Gnomo das Rochas funileiro). */
+export const speciesToolIds = (char) => {
+  try { return speciesGrants(char).tools || []; } catch { return []; }
+};
+
+/** Ferramentas que vêm de outra fonte (classe, antecedente, talentos), para não apagá-las. */
+function otherToolIds(char) {
+  let fixed = [];
+  try { fixed = startingTools(char).fixed || []; } catch { fixed = []; }
+  let granted = [];
+  try { granted = Utils.classGrants(char).tools || []; } catch { granted = []; }
+  const tc = char?.creation?.toolChoices || {};
+  const chosen = Object.entries(tc).filter(([k, v]) => k !== 'species' && Array.isArray(v)).flatMap(([, v]) => v);
+  return new Set([...fixed, ...granted, ...chosen]);
+}
+
 /**
- * Patch para trocar de espécie: limpa escolhas da espécie, idiomas escolhidos,
- * talento da espécie e (2014) o bônus racial. Mesma espécie = patch vazio.
+ * Patch de ferramentas ao mudar a espécie ou as escolhas dela: tira de `toolProfs`
+ * as ferramentas que a espécie anterior deu (menos as que vêm de outra fonte) e
+ * põe as da espécie nova. A origem fica em `creation.toolChoices.species`.
+ */
+export function syncSpeciesTools(prev, next) {
+  const old = Array.isArray(prev?.creation?.toolChoices?.species) ? prev.creation.toolChoices.species : [];
+  const now = speciesToolIds(next);
+  const others = otherToolIds(next);
+  const toolProfs = uniq([...(next.toolProfs || prev.toolProfs || []).filter(t => !old.includes(t) || others.has(t) || now.includes(t)), ...now]);
+  const creation = { ...(next.creation || prev.creation || {}), toolChoices: { ...(next.creation?.toolChoices || prev.creation?.toolChoices || {}), species: now } };
+  return { toolProfs, creation };
+}
+
+/** Ferramentas da espécie que sumiram de `toolProfs` (ex.: trocar de classe limpou a lista). null = tudo certo. */
+export function missingSpeciesToolsPatch(char) {
+  const now = speciesToolIds(char);
+  const rec = char?.creation?.toolChoices?.species;
+  const same = Array.isArray(rec) && rec.length === now.length && now.every(t => rec.includes(t));
+  if (same && now.every(t => (char.toolProfs || []).includes(t))) return null;
+  return syncSpeciesTools(char, char);
+}
+
+/** Tamanho já marcado quando a espécie deixa escolher (Médio, o recomendado). */
+function defaultChoices(char, id) {
+  const specs = speciesChoiceSpecs({ ...char, race: id, speciesChoices: {} });
+  return specs.some(c => c.key === 'size' && c.options?.some(o => o.id === 'Medium')) ? { size: 'Medium' } : {};
+}
+
+/**
+ * Patch para trocar de espécie: limpa escolhas da espécie, talento da espécie,
+ * (2014) o bônus racial, troca as ferramentas da raça e tira só os idiomas que
+ * deixaram de valer (os idiomas fixos da raça antiga e o que passar do limite).
+ * Mesma espécie = patch vazio.
  */
 export function selectSpecies(char, id) {
   if (char.race === id) return {};
-  return {
+  const oldFixed = (() => { try { return Utils.fixedLanguages(char); } catch { return []; } })();
+  const patch = {
     race: id,
-    speciesChoices: {},
-    languages: [],
+    speciesChoices: defaultChoices(char, id),
     feats: withSpeciesFeat(char.feats, null),
     ...(rv(char) === '2014' ? { raceBonus: {} } : {}),
   };
+  const langs = (char.languages || []).filter(l => !oldFixed.includes(l) && !/^\+\d/.test(l));
+  const next = { ...char, ...patch, languages: langs };
+  patch.languages = typeof Utils.trimLanguages === 'function' ? Utils.trimLanguages(next) : [];
+  Object.assign(patch, syncSpeciesTools(char, { ...next, languages: patch.languages }));
+  return patch;
 }
 
 export function speciesIssues(char) {
-  if (!char.race) return [b('Escolha uma espécie para o seu herói.', 'Pick a species for your hero.')];
-  if (!findSpecies(char)) return [b('Essa espécie não existe nestas regras. Escolha outra.', 'That species does not exist in these rules. Pick another.')];
+  const old = rv(char) === '2014';
+  if (!char.race) return [old ? b('Escolha uma raça para o seu herói.', 'Pick a race for your hero.') : b('Escolha uma espécie para o seu herói.', 'Pick a species for your hero.')];
+  if (!findSpecies(char)) return [old ? b('Essa raça não existe nestas regras. Escolha outra.', 'That race does not exist in these rules. Pick another.') : b('Essa espécie não existe nestas regras. Escolha outra.', 'That species does not exist in these rules. Pick another.')];
   return [];
 }
 
@@ -251,13 +309,65 @@ export function repeatedSpeciesFeat(char) {
   return featTakenIssue(withoutSpeciesFeat(char), feat, e.picks || {}) ? feat : null;
 }
 
-/** Atributo de conjuração sugerido: o da classe (se ela usa magia), senão Carisma ou o maior entre INT/SAB/CAR. */
+const MENTAL = ['int', 'wis', 'cha'];
+
+/**
+ * Atributo de conjuração sugerido: o da classe (se ela usa magia); senão o maior
+ * atributo mental já distribuído; antes da etapa Atributos, o que a sugestão de
+ * atributos da classe deixa mais alto (Monge → SAB, Ladino → INT, Guerreiro → CAR).
+ */
 export function recommendedSpellAbility(char) {
   const cls = Utils.spellcastingAbility(char);
-  if (['int', 'wis', 'cha'].includes(cls)) return cls;
-  const a = char.abilities || {};
-  return ['int', 'wis', 'cha'].reduce((best, k) => ((a[k] || 0) > (a[best] || 0) ? k : best), 'cha');
+  if (MENTAL.includes(cls)) return cls;
+  // Atributos já distribuídos (voltou depois da etapa Atributos) valem mais que a sugestão.
+  const own = char?.abilities || {};
+  const assigned = new Set(MENTAL.map(k => own[k] || 0)).size > 1;
+  const a = (assigned ? own : STANDARD_ARRAY_BY_CLASS[char?.className]) || own;
+  return MENTAL.reduce((best, k) => ((a[k] || 0) > (a[best] || 0) ? k : best), 'cha');
 }
+
+/** Talento de Origem sugerido por classe para o Humano 2024 (Versátil). */
+const FEAT_BY_CLASS = {
+  barbarian: 'tough', fighter: 'tough', paladin: 'tough', monk: 'tough',
+  rogue: 'skilled', ranger: 'skilled', bard: 'skilled',
+  cleric: 'alert', druid: 'alert', sorcerer: 'alert', warlock: 'alert', wizard: 'alert', artificer: 'alert',
+};
+const FEAT_WHY = {
+  tough: b('mais Pontos de Vida para quem luta na linha de frente', 'more Hit Points for front-line fighters'),
+  skilled: b('3 perícias a mais, ótimo para quem resolve problemas fora do combate', '3 extra skills, great for solving problems outside combat'),
+  alert: b('age mais cedo no combate, bom para quem conjura magias', 'acts earlier in combat, good for spellcasters'),
+};
+
+/**
+ * Talento recomendado para a escolha `feat` da espécie (só talentos de Origem, 2024):
+ * { id, name, why } ou null. Não repete o talento do antecedente (Habilidoso pode repetir).
+ */
+export function recommendedSpeciesFeat(char) {
+  const spec = speciesChoiceSpecs(char).find(c => c.key === 'feat');
+  if (!spec || spec.kind !== 'origin') return null;
+  const taken = new Set((char.feats || []).filter(f => f?.origin !== 'species').map(f => f?.id).filter(Boolean));
+  const usable = (id) => {
+    const f = findFeat(id, '2024') || findFeat(id);
+    return f && (f.repeatable || !taken.has(f.id)) ? f : null;
+  };
+  const first = FEAT_BY_CLASS[char.className] || 'skilled';
+  const feat = usable(first) || usable('skilled');
+  if (!feat) return null;
+  return { id: feat.id, name: feat.name, why: FEAT_WHY[feat.base || feat.id] || FEAT_WHY[first] || null };
+}
+
+/** Perícias marcadas no talento da espécie (ex.: Habilidoso do Humano) que o herói já tem por outra fonte. */
+export function repeatedSpeciesFeatSkills(char) {
+  const e = speciesFeatEntry(char);
+  if (!e?.picks || !speciesChoiceSpecs(char).some(c => c.key === 'feat')) return [];
+  const isSkill = (id) => SKILL_IDS_SET.has(id);
+  const ids = [...list(e.picks.skill), ...list(e.picks.skillOrTool)].filter(isSkill);
+  const base = withoutSpeciesFeat(char);
+  return [...new Set(ids)].filter(id => Utils.hasSkillProf(base, id));
+}
+
+/** "A", "A e B", "A, B e C". */
+const joinPt = (xs, and) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} ${and} ${xs[xs.length - 1]}`);
 
 export function speciesChoicesIssues(char) {
   const out = speciesChoiceIssues(char).map(i => {
@@ -273,6 +383,17 @@ export function speciesChoicesIssues(char) {
     out.push(b(
       `Você já tem a perícia ${tName('skill', id, 'pt')} pela classe ou antecedente. Troque por outra.`,
       `You already have ${tName('skill', id, 'en')} from your class or background. Pick another.`,
+    ));
+  }
+  const dup = repeatedSpeciesFeatSkills(char);
+  if (dup.length) {
+    const e = speciesFeatEntry(char);
+    const f = e?.id ? findFeat(e.id) : null;
+    const fname = (l) => f?.name?.[l] || e?.name || '';
+    const many = dup.length > 1;
+    out.push(b(
+      `${joinPt(dup.map(id => tName('skill', id, 'pt')), 'e')} já ${many ? 'vêm' : 'vem'} da classe, do antecedente ou da espécie. No talento ${fname('pt')}, troque por ${many ? 'outras' : 'outra'}.`,
+      `You already have ${joinPt(dup.map(id => tName('skill', id, 'en')), 'and')} from your class, background or species. In the ${fname('en')} feat, pick ${many ? 'others' : 'another'}.`,
     ));
   }
   const feat = repeatedSpeciesFeat(char);

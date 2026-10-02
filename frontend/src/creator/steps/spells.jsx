@@ -1,10 +1,12 @@
 /* Etapa: magias de 1º círculo (preparadas/conhecidas; grimório do Mago). Ver ../spell-helpers.js. */
+import { useState } from 'react';
+import Utils from '../../../utils.js';
 import { tName } from '../../../data/i18n.js';
 import { StepIntro, Term, Callout, ChoiceCard, Counter, L } from '../ui.jsx';
-import { SpellPicker, GrantedCallout, InvalidCallout, abilityName } from './cantrips.jsx';
+import { SpellPicker, GrantedCallout, InvalidCallout, DuplicateCallout, abilityName } from './cantrips.jsx';
 import {
   spellPlan, hasClassSpells, spellIssues, availableSpells, chosenSpells, preparedFromBook, recommendedSpells,
-  invalidChoices, toggleSpell, togglePrepared, fillRecommended, spellDef,
+  invalidChoices, toggleSpell, togglePrepared, fillRecommended, spellDef, expandedSpellIds,
 } from '../spell-helpers.js';
 
 // 2024: quem troca as preparadas só ao subir de nível (os demais trocam no descanso longo).
@@ -39,11 +41,11 @@ function Intro({ char, lang, plan }) {
       {lang === 'pt' ? (
         <p>Magias de <Term id="spellLevel" lang={lang}>1º círculo</Term> são mais fortes que truques, mas cada uso gasta um{' '}
           <Term id="spellSlot" lang={lang}>espaço de magia</Term>. Você tem <b>{slots}</b> {slots === 1 ? 'espaço' : 'espaços'}
-          {warlock ? <>, que voltam num descanso curto ou longo (<Term id="pactMagic" lang={lang}>Magia de Pacto</Term>)</> : ', que voltam depois de um descanso longo'}.</p>
+          {warlock ? <>, que {slots === 1 ? 'volta' : 'voltam'} num descanso curto ou longo (<Term id="pactMagic" lang={lang}>Magia de Pacto</Term>)</> : `, que ${slots === 1 ? 'volta' : 'voltam'} depois de um descanso longo`}.</p>
       ) : (
         <p><Term id="spellLevel" lang={lang}>Level 1</Term> spells are stronger than cantrips, but each cast uses a{' '}
           <Term id="spellSlot" lang={lang}>spell slot</Term>. You have <b>{slots}</b> {slots === 1 ? 'slot' : 'slots'}
-          {warlock ? <>, which come back on a short or long rest (<Term id="pactMagic" lang={lang}>Pact Magic</Term>)</> : ', which come back after a long rest'}.</p>
+          {warlock ? <>, which {slots === 1 ? 'comes' : 'come'} back on a short or long rest (<Term id="pactMagic" lang={lang}>Pact Magic</Term>)</> : ', which come back after a long rest'}.</p>
       )}
       {plan.book ? (
         lang === 'pt' ? (
@@ -66,6 +68,11 @@ function Intro({ char, lang, plan }) {
           <p>As a {cls}, you learn <b>{plan.leveled}</b> spells from your class list. <SwapNote char={char} lang={lang} plan={plan} /></p>
         )
       )}
+      {expandedSpellIds(char).size > 0 && (
+        <p>{L(lang,
+          <>O seu patrono tem uma <b>Lista Expandida</b>: essas magias entram como opções na sua lista (marcadas abaixo), mas não vêm de graça — se quiser uma delas, escolha-a como uma das suas {plan.leveled}.</>,
+          <>Your patron has an <b>Expanded Spell List</b>: those spells become options on your list (marked below), but they aren't free — if you want one, pick it as one of your {plan.leveled}.</>)}</p>
+      )}
     </StepIntro>
   );
 }
@@ -76,13 +83,15 @@ function PrepareFromBook({ char, set, lang, plan }) {
   const prepared = new Set(preparedFromBook(char));
   const full = prepared.size >= plan.leveled;
   const suggested = new Set(recommendedSpells(char).slice(0, plan.leveled));
-  if (!book.length) return null;
+  if (!book.length) {
+    return <p className="muted text-sm" style={{ marginTop: 8 }}>{L(lang, 'Primeiro anote magias no grimório (aba 1).', 'First write spells in your spellbook (tab 1).')}</p>;
+  }
   return (
     <>
-      <div className="cr-spell-head">
-        <span><b>{L(lang, '2. Prepare para hoje', '2. Prepare for today')}</b> <Counter n={prepared.size} of={plan.leveled} /></span>
-      </div>
-      <p className="muted text-sm">{L(lang, 'Toque nas magias do grimório que você quer deixar prontas.', 'Tap the spellbook spells you want ready.')}</p>
+      <p className="muted text-sm" style={{ marginTop: 8 }}>
+        {L(lang, `Toque nas magias do grimório que você quer deixar prontas hoje (${plan.leveled}). A estrela ★ marca as preparadas.`,
+          `Tap the spellbook spells you want ready today (${plan.leveled}). The star ★ marks prepared ones.`)}
+      </p>
       <div className="options-list cols-2">
         {book.map(sp => {
           const on = prepared.has(sp.id);
@@ -99,14 +108,31 @@ function PrepareFromBook({ char, set, lang, plan }) {
   );
 }
 
+const TAB_STYLE = { flex: '1 1 0', minWidth: 0, whiteSpace: 'normal' };
+
 function SpellsStep({ char, set, lang }) {
   const plan = spellPlan(char);
   const bad = new Set(invalidChoices(char, 'spell').map(x => x.id));
   const chosen = chosenSpells(char);
   const n = chosen.filter(id => !bad.has(id)).length;
   const want = plan.book ? plan.spellbook : plan.leveled;
-  const toggle = (id) => { const next = toggleSpell(char, id); if (next) set({ spells: next }); };
-  const done = n >= want && (!plan.book || preparedFromBook(char).length >= plan.leveled);
+  const prepared = plan.book ? preparedFromBook(char).length : 0;
+  const done = n >= want && (!plan.book || prepared >= plan.leveled);
+  // Mago: duas abas (grimório | prepare para hoje) para a parte 2 não ficar depois da lista inteira.
+  const [tab, setTab] = useState(() => (plan.book && n >= want ? 'prep' : 'book'));
+  const toggle = (id) => {
+    const next = toggleSpell(char, id);
+    if (!next) return;
+    set({ spells: next });
+    // Grimório completo: leva direto para a parte 2.
+    if (plan.book && chosenSpells({ ...char, spells: next }).filter(x => !bad.has(x)).length >= want) setTab('prep');
+  };
+  const expanded = expandedSpellIds(char);
+  const patronTag = expanded.size
+    ? (sp) => (expanded.has(sp.id) && !Utils.inSpellList(char, sp)
+      ? <div className="text-xs muted" style={{ marginTop: 4 }}>{L(lang, 'Lista Expandida do patrono', "Patron's Expanded List")}</div> : null)
+    : undefined;
+  const fill = () => { set({ spells: fillRecommended(char, 'spell') }); if (plan.book) setTab('prep'); };
 
   return (
     <div>
@@ -118,23 +144,51 @@ function SpellsStep({ char, set, lang }) {
       )}
 
       <GrantedCallout char={char} lang={lang} cantrips={false} />
+      <DuplicateCallout char={char} lang={lang} cantrips={false} />
       <InvalidCallout char={char} set={set} lang={lang} kind="spell" />
 
-      <div className="cr-spell-head">
-        <span>
-          {plan.book ? <b>{L(lang, '1. Grimório', '1. Spellbook')} </b> : L(lang, 'Magias escolhidas ', 'Spells chosen ')}
-          <Counter n={n} of={want} />
-        </span>
-        <button type="button" className="btn btn-sm btn-ghost" disabled={done}
-          onClick={() => set({ spells: fillRecommended(char, 'spell') })}>
-          {L(lang, 'Escolher as recomendadas', 'Pick the recommended ones')}
-        </button>
-      </div>
-
-      <SpellPicker char={char} lang={lang} spells={availableSpells(char)} selected={new Set(chosen)}
-        onToggle={toggle} full={n >= want} suggested={new Set(recommendedSpells(char))} />
-
-      {plan.book && <PrepareFromBook char={char} set={set} lang={lang} plan={plan} />}
+      {plan.book ? (
+        <>
+          <div role="tablist" aria-label={L(lang, 'Grimório e magias preparadas', 'Spellbook and prepared spells')}
+            style={{ display: 'flex', gap: 8, margin: '16px 0 6px' }}>
+            <button type="button" role="tab" aria-selected={tab === 'book'} style={TAB_STYLE}
+              className={`btn btn-sm ${tab === 'book' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab('book')}>
+              {L(lang, '1. Grimório', '1. Spellbook')} <Counter n={n} of={want} />
+            </button>
+            <button type="button" role="tab" aria-selected={tab === 'prep'} style={TAB_STYLE}
+              className={`btn btn-sm ${tab === 'prep' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTab('prep')}>
+              {L(lang, '2. Prepare para hoje', '2. Prepare for today')} <Counter n={prepared} of={plan.leveled} />
+            </button>
+          </div>
+          <div className="cr-spell-head">
+            <span className="muted text-sm">
+              {tab === 'book'
+                ? L(lang, `Escolha ${want} magias para anotar no grimório.`, `Pick ${want} spells to write in your spellbook.`)
+                : L(lang, `Das ${n} magias do grimório, prepare ${plan.leveled}.`, `Of your ${n} spellbook spells, prepare ${plan.leveled}.`)}
+            </span>
+            <button type="button" className="btn btn-sm btn-ghost" disabled={done} onClick={fill}>
+              {L(lang, 'Escolher as recomendadas', 'Pick the recommended ones')}
+            </button>
+          </div>
+          {tab === 'book' ? (
+            <SpellPicker char={char} lang={lang} spells={availableSpells(char)} selected={new Set(chosen)}
+              onToggle={toggle} full={n >= want} suggested={new Set(recommendedSpells(char))} />
+          ) : (
+            <PrepareFromBook char={char} set={set} lang={lang} plan={plan} />
+          )}
+        </>
+      ) : (
+        <>
+          <div className="cr-spell-head">
+            <span>{L(lang, 'Magias escolhidas ', 'Spells chosen ')}<Counter n={n} of={want} /></span>
+            <button type="button" className="btn btn-sm btn-ghost" disabled={done} onClick={fill}>
+              {L(lang, 'Escolher as recomendadas', 'Pick the recommended ones')}
+            </button>
+          </div>
+          <SpellPicker char={char} lang={lang} spells={availableSpells(char)} selected={new Set(chosen)}
+            onToggle={toggle} full={n >= want} suggested={new Set(recommendedSpells(char))} extra={patronTag} />
+        </>
+      )}
     </div>
   );
 }

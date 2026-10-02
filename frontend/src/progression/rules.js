@@ -17,6 +17,8 @@
  *     features?: Array<{ id, name, desc }>,
  *     autoCantrips?: string[],           // ids de truques que entram automáticos
  *     autoSpells?: string[],             // ids de magias sempre preparadas
+ *     expandedSpells?: string[],         // 2014: Lista Expandida do patrono do bruxo — só AMPLIA
+ *                                        // a lista de escolha (não são aprendidas de graça; PHB 2014)
  *     subclassChoice?: boolean,          // sinaliza que é a hora de escolher
  *     fightingStyleChoice?: number,      // qtd de estilos a escolher
  *     asiOrFeat?: boolean,               // ASI ou feat
@@ -112,7 +114,7 @@ const DRUID = {
         autoCantrips: ['guidance'],
         autoSpells: ['guidingBolt'],
         features: [
-          { id: 'starMap', name: 'Mapa Estelar', desc: 'Foco de druida. Conhece Orientação e tem Raio Guia sempre preparado; conjure Raio Guia sem espaço PB vezes por descanso longo.' },
+          { id: 'starMap', name: 'Mapa Estelar', desc: 'Foco de druida. Conhece Orientação e tem Flecha Guiada sempre preparado; conjure Flecha Guiada sem espaço PB vezes por descanso longo.' },
           { id: 'starryForm', name: 'Forma Estelar', desc: 'Ação bônus + 1 uso de Forma Selvagem: forma luminosa por 10 min (Arqueiro, Cálice ou Dragão).' },
         ],
       },
@@ -739,14 +741,14 @@ const WARLOCK = {
   subclassPerLevel: {
     fiend: {
       1: {
-        autoSpells: ['burningHands', 'commandSpell'],
+        expandedSpells: ['burningHands', 'commandSpell'],
         features: [{ id: 'darkOnesBlessing', name: 'Bênção do Tenebroso', desc: 'Ao reduzir criatura hostil a 0 PV: CAR + nível de bruxo PV temp. (mín. 1).' }],
       },
-      3: { autoSpells: ['blindnessDeafness', 'scorchingRay'] },
-      5: { autoSpells: ['fireball', 'stinkingCloud'] },
+      3: { expandedSpells: ['blindnessDeafness', 'scorchingRay'] },
+      5: { expandedSpells: ['fireball', 'stinkingCloud'] },
       6: { features: [{ id: 'darkOnesOwnLuck', name: 'Sorte do Tenebroso', desc: '+1d10 em teste de atributo ou SAL, após ver o d20 e antes do resultado. 1×/desc curto.' }] },
-      7: { autoSpells: ['fireShield', 'wallOfFire'] },
-      9: { autoSpells: ['flameStrike', 'hallow'] },
+      7: { expandedSpells: ['fireShield', 'wallOfFire'] },
+      9: { expandedSpells: ['flameStrike', 'hallow'] },
       10: { features: [{ id: 'fiendishResilience', name: 'Resiliência Demoníaca', desc: 'Escolha tipo de dano: resistência. Pode mudar em desc.' }] },
       14: { features: [{ id: 'hurlThroughHell', name: 'Arremessar pelo Inferno', desc: '1×/desc longo, ao acertar um ataque: o alvo some para os planos inferiores até o fim do seu próximo turno e, se não for corruptor, sofre 10d10 psíquico ao voltar (sem salvaguarda).' }] },
     },
@@ -754,17 +756,17 @@ const WARLOCK = {
     // (decisão de Pact Boon ainda é manual — não é auto)
     hexblade: {
       1: {
-        autoSpells: ['shield', 'wrathfulSmite'],
+        expandedSpells: ['shield', 'wrathfulSmite'],
         features: [
           { id: 'hexblade_curse', name: "Maldição da Lâmina", desc: 'Ação bônus: amaldiçoe uma criatura em 30 pés (CR≤PROF). +PROF dano contra ela, crit em 19-20, recuperação de HP ao matá-la.' },
           { id: 'hexWarrior', name: 'Hex Warrior', desc: 'Use CHA em vez de FOR/DEX em uma arma de sua escolha após desc longo. Proficiência com armaduras médias, escudos e armas marciais.' },
         ],
       },
-      3: { autoSpells: ['blur', 'brandingSmite'] },
-      5: { autoSpells: ['blink', 'elementalWeapon'] },
+      3: { expandedSpells: ['blur', 'brandingSmite'] },
+      5: { expandedSpells: ['blink', 'elementalWeapon'] },
       6: { features: [{ id: 'accursedSpecter', name: 'Espectro Amaldiçoado', desc: 'Ao matar humanoide: erga como espectro até desc longo. 1×/desc longo.' }] },
-      7: { autoSpells: ['phantasmalKiller', 'staggeringSmite'] },
-      9: { autoSpells: ['banishingSmite', 'coneOfCold'] },
+      7: { expandedSpells: ['phantasmalKiller', 'staggeringSmite'] },
+      9: { expandedSpells: ['banishingSmite', 'coneOfCold'] },
       10: { features: [{ id: 'armorOfHexes', name: 'Armadura de Maldições', desc: 'Alvo da maldição que te acerta: 50% chance do ataque errar.' }] },
       14: { features: [{ id: 'masterOfHexes', name: 'Mestre das Maldições', desc: 'Ao matar alvo da maldição: transfira para nova criatura sem gastar uso.' }] },
     },
@@ -810,6 +812,17 @@ for (const [classId, subclasses] of Object.entries(SRD.SUBCLASSES)) {
 for (const [classId, a, b] of [['monk', 'openhand', 'openHand'], ['rogue', 'arcanetrickster', 'arcaneTrickster']]) {
   const subs = PROGRESSION_RULES[classId].subclassPerLevel;
   subs[a] = subs[b] = subs[a] || subs[b];
+}
+
+// Bruxo 2014 (PHB): Lista Expandida dos patronos do livro básico. Só amplia a lista
+// de onde o bruxo escolhe as magias conhecidas — não concede nada de graça.
+const WARLOCK_EXPANDED_2014 = {
+  archfey: { 1: ['faerieFire', 'sleep'], 3: ['calmEmotions', 'phantasmalForce'], 5: ['blink', 'plantGrowth'], 7: ['dominateBeast', 'greaterInvisibility'], 9: ['dominatePerson', 'seeming'] },
+  greatoldone: { 1: ['dissonantWhispers', 'hideousLaughter'], 3: ['detectThoughts', 'phantasmalForce'], 5: ['clairvoyance', 'sendingSpell'], 7: ['dominateBeast', 'blackTentacles'], 9: ['dominatePerson', 'telekinesis'] },
+};
+for (const [sub, table] of Object.entries(WARLOCK_EXPANDED_2014)) {
+  const levels = PROGRESSION_RULES.warlock.subclassPerLevel[sub] ||= {};
+  for (const [lv, ids] of Object.entries(table)) (levels[lv] ||= {}).expandedSpells = ids;
 }
 
 const KNOWN_SPELLS = {
@@ -858,7 +871,7 @@ for (const [classId, legacy] of Object.entries(PROGRESSION_RULES)) {
 // Traços de nível 1/2 convertidos para o 3 somam-se aos do 3 (listas concatenadas).
 function mergeNodes(a = {}, b = {}) {
   const out = { ...a, ...b };
-  for (const k of ['features', 'autoSpells', 'autoCantrips']) {
+  for (const k of ['features', 'autoSpells', 'autoCantrips', 'expandedSpells']) {
     if (a[k] && b[k]) out[k] = [...a[k], ...b[k]];
   }
   return out;

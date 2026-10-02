@@ -8,7 +8,7 @@ import { t as tr, tName } from '../../data/i18n.js';
 import { featsFor, findFeat } from '../../data/feats.js';
 import { SHARED } from '../../data/class-options/shared.js';
 import { CLASS_OPTIONS } from '../../data/class-options/index.js';
-import { TOOLS, toolName, armorTraining, weaponTraining } from '../creator/start-data.js';
+import { TOOLS, toolName, armorTraining, weaponTraining, startingTools } from '../creator/start-data.js';
 import {
   featCategories, featPrereqIssues, featTakenIssue, featChoiceSpecs, featRules, featScore,
 } from './feat-rules.js';
@@ -120,6 +120,15 @@ function poolOpts(classId, pools, rules) {
   return (data?.pools?.[key]?.options || []).filter(o => !o.rules || o.rules === rules);
 }
 
+/** Ferramentas/instrumentos que a ficha já tem (treino da ficha, concessões, classe e antecedente da criação). */
+function knownTools(char) {
+  let fixed = [];
+  try { fixed = startingTools(char).fixed || []; } catch { fixed = []; }
+  let granted = [];
+  try { granted = Utils.classGrants(char).tools || []; } catch { granted = []; }
+  return new Set([...(char.toolProfs || []), ...granted, ...fixed]);
+}
+
 function choiceOptions(char, c, picks, lang) {
   const rules = featRules(char);
   const nm = (o) => o.name?.[lang] || o.name?.en || o.id;
@@ -137,7 +146,7 @@ function choiceOptions(char, c, picks, lang) {
       const skills = SRD.SKILLS.filter(s => (!c.options || c.options.includes(s.id)) && (c.key === 'skillProfOrExpertise' || newSkill(s.id)))
         .map(s => ({ id: s.id, label: tName('skill', s.id, lang) }));
       if (c.key !== 'skillOrTool') return skills;
-      const known = new Set([...(char.toolProfs || []), ...(Utils.classGrants(char).tools || [])]);
+      const known = knownTools(char);
       const newTool = isNew(id => known.has(id));
       const tools = Object.keys(TOOLS).filter(newTool)
         .map(id => ({ id, label: `${toolName(id, lang)} (${L(lang, 'ferramenta', 'tool')})` }))
@@ -146,8 +155,14 @@ function choiceOptions(char, c, picks, lang) {
     }
     case 'expertise':
       return SRD.SKILLS.filter(s => Utils.hasSkillProf(char, s.id) && !Utils.hasExpertise(char, s.id)).map(s => ({ id: s.id, label: tName('skill', s.id, lang) }));
-    case 'tool': return (c.options || Object.keys(TOOLS)).map(id => ({ id, label: TOOLS[id] ? toolName(id, lang) : humanize(id) }));
-    case 'instrument': return Object.entries(INSTRUMENTS).map(([id, n]) => ({ id, label: n[lang === 'pt' ? 0 : 1] }));
+    case 'tool': case 'instrument': {
+      // Ferramenta/instrumento tem que ser NOVO (Artesão, Músico): esconde os que a ficha já tem.
+      const cur = Array.isArray(picks?.[c.key]) ? picks[c.key] : [];
+      const known = knownTools(char);
+      const fresh = (id) => cur.includes(id) || !known.has(id);
+      if (c.key === 'instrument') return Object.entries(INSTRUMENTS).filter(([id]) => fresh(id)).map(([id, n]) => ({ id, label: n[lang === 'pt' ? 0 : 1] }));
+      return (c.options || Object.keys(TOOLS)).filter(fresh).map(id => ({ id, label: TOOLS[id] ? toolName(id, lang) : humanize(id) }));
+    }
     case 'language': {
       const known = new Set(Utils.languagesFor(char));
       return Utils.LANGUAGES.filter(l => !known.has(l.id)).map(l => ({ id: l.id, label: lang === 'pt' ? l.pt : l.id }));
@@ -167,15 +182,22 @@ function choiceOptions(char, c, picks, lang) {
       return Utils.spellCatalog(char)
         .filter(sp => (!list || sp.classes.includes(list)) && (level == null || sp.level === level)
           && (!schools.length || schools.includes(String(sp.school).toLowerCase())) && (!s.ritual || sp.ritual))
-        .map(sp => ({ id: sp.id, label: tName('spellName', sp.id, lang) }));
+        // Livro básico (SRD) primeiro; magias de outros livros marcadas com a fonte ("confirme com o mestre").
+        .map(sp => {
+          const core = !sp.source || /SRD/.test(sp.source);
+          return { id: sp.id, core, label: tName('spellName', sp.id, lang) + (core ? '' : ` · ${sp.source}`) };
+        })
+        .sort((a, b) => (b.core - a.core) || a.label.localeCompare(b.label));
     }
     default: return c.options ? c.options.map(id => ({ id, label: humanize(id) })) : [];
   }
 }
 
-function ChoiceField({ char, lang, c, picks, setPick }) {
+function ChoiceField({ char, lang, c, picks, setPick, tall = false, recommend = {} }) {
   const [custom, setCustom] = useState('');
-  const opts = choiceOptions(char, c, picks, lang);
+  const rec = recommend[c.key];
+  const opts = (choiceOptions(char, c, picks, lang) || null)?.map(o => (rec && (Array.isArray(rec) ? rec.includes(o.id) : rec === o.id)
+    ? { ...o, label: `${o.label} — ${L(lang, 'Recomendado', 'Recommended')}` } : o)) ?? null;
   const title = (CHOICE_LABEL[c.key] || [c.key, c.key])[lang === 'pt' ? 0 : 1];
   if (c.single) {
     return (
@@ -197,7 +219,7 @@ function ChoiceField({ char, lang, c, picks, setPick }) {
       {opts == null ? (
         <div className="text-xs muted">{L(lang, 'Escolha a lista de magias primeiro.', 'Choose the spell list first.')}</div>
       ) : (
-        <div className="class-pick-grid" style={{ maxHeight: 200, overflowY: 'auto' }}>
+        <div className="class-pick-grid" style={tall ? undefined : { maxHeight: 200, overflowY: 'auto' }}>
           {[...opts, ...extra.map(id => ({ id, label: TOOLS[id] ? toolName(id, lang) : humanize(id) }))].map(o => {
             const on = cur.includes(o.id);
             return (
@@ -221,7 +243,7 @@ function ChoiceField({ char, lang, c, picks, setPick }) {
 }
 
 /** Sub-escolhas de um talento (sem o +1). picks/onChange: { spellList: 'cleric', cantrip: [...] }. */
-export function FeatChoices({ char, lang, feat, level, picks = {}, onChange, hide = [] }) {
+export function FeatChoices({ char, lang, feat, level, picks = {}, onChange, hide = [], tall = false, recommend = {} }) {
   const specs = featChoiceSpecs(feat, level).filter(c => !hide.includes(c.key));
   if (!specs.length) return null;
   const setPick = (key, v) => {
@@ -231,7 +253,7 @@ export function FeatChoices({ char, lang, feat, level, picks = {}, onChange, hid
     if (key === 'spellList' && v !== picks.spellList) { delete next.cantrip; delete next.spell; }
     onChange(next);
   };
-  return <>{specs.map(c => <ChoiceField key={c.key} char={char} lang={lang} c={c} picks={picks} setPick={setPick} />)}</>;
+  return <>{specs.map(c => <ChoiceField key={c.key} char={char} lang={lang} c={c} picks={picks} setPick={setPick} tall={tall} recommend={recommend} />)}</>;
 }
 
 /** Seletor do aumento de atributo do talento. asi = { dex: 1 }. */

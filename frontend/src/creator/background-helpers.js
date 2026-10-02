@@ -19,6 +19,9 @@ import {
 } from '../progression/feat-rules.js';
 import { classStart, backgroundStart, toolName, TOOL_CATEGORIES } from './start-data.js';
 import { dropPack } from './equipment-helpers.js';
+import {
+  classSkillPicks, classToolPicks, overlappingSkills, overlapSentence, expertiseIssues, pruneExpertise, joinNames,
+} from './class-helpers.js';
 
 const uniq = (a) => [...new Set(a)];
 const is2024 = (char) => char?.rulesVersion !== '2014';
@@ -44,11 +47,40 @@ export const chosenBackgroundTools = (char) => {
 /** Todas as ferramentas que vêm do antecedente atual (fixas + escolhidas). */
 export const backgroundToolIds = (char) => uniq([...backgroundTool(char).fixed, ...chosenBackgroundTools(char)]);
 
-/** Ferramentas que vêm da classe (fixas + escolha registrada em creation.toolChoices.class). */
+/** Ferramentas que vêm da classe (fixas + escolha registrada em creation.toolChoices.class + Escolhas da classe). */
 function classToolIds(char) {
   const c = classStart(char)?.tools;
   const chosen = char?.creation?.toolChoices?.class;
-  return uniq([...(c?.fixed || []), ...(Array.isArray(chosen) ? chosen : [])]);
+  let picks = [];
+  try { picks = classToolPicks(char); } catch { picks = []; }
+  return uniq([...(c?.fixed || []), ...(Array.isArray(chosen) ? chosen : []), ...picks]);
+}
+
+/**
+ * Ferramentas/instrumentos que a ficha já tem por outro lado que não a escolha
+ * do antecedente (classe, Escolhas da classe, talentos, outras fontes de toolProfs).
+ */
+export function ownedToolsOutsideBackground(char) {
+  const cur = chosenBackgroundTools(char);
+  let granted = [];
+  try {
+    // Sem as escolhas do talento de origem: ele vem depois e não deve travar a escolha do antecedente.
+    const e = originEntry(char);
+    const base = e ? { ...char, feats: (char.feats || []).filter(f => f !== e) } : char;
+    granted = Utils.classGrants(base).tools || [];
+  } catch { granted = []; }
+  return uniq([
+    ...(char?.toolProfs || []).filter(x => !cur.includes(x)),
+    ...classToolIds(char),
+    ...granted,
+    ...backgroundTool(char).fixed,
+  ]);
+}
+
+/** Ferramentas escolhidas no antecedente que a ficha já tinha (treino repetido). */
+export function backgroundToolRepeats(char) {
+  const owned = new Set(ownedToolsOutsideBackground(char));
+  return chosenBackgroundTools(char).filter(x => owned.has(x));
 }
 
 /** Nome curto da categoria de ferramenta à escolha ("ferramenta de artesão", "instrumento musical ou jogo"). */
@@ -76,7 +108,7 @@ export const ORIGIN_FEAT_LINE = {
   crafter: { pt: 'Treino em 3 ferramentas de artesão e desconto nas compras.', en: "Training with 3 artisan's tools and discounts when buying." },
   healer: { pt: 'Cura melhor os aliados usando um Kit de Curandeiro.', en: "Heals allies better with a Healer's Kit." },
   lucky: { pt: 'Alguns pontos de sorte para rolar com vantagem quando importa.', en: 'A few luck points to roll with advantage when it matters.' },
-  magicInitiate: { pt: 'Aprende 2 truques e 1 magia simples, mesmo sem ser conjurador.', en: 'Learn 2 cantrips and 1 simple spell, even if you are not a caster.' },
+  magicInitiate: { pt: 'Aprende 2 truques e 1 magia de 1º círculo, mesmo sem ser conjurador.', en: 'Learn 2 cantrips and 1 level 1 spell, even if you are not a caster.' },
   musician: { pt: 'Toca 3 instrumentos e anima os aliados depois de descansar.', en: 'Play 3 instruments and inspire allies after a rest.' },
   savageAttacker: { pt: 'Uma vez por turno, rola o dano da arma duas vezes e fica com o melhor.', en: 'Once per turn, roll weapon damage twice and keep the better one.' },
   skilled: { pt: 'Treino em mais 3 perícias ou ferramentas à sua escolha.', en: 'Training in 3 more skills or tools of your choice.' },
@@ -85,14 +117,26 @@ export const ORIGIN_FEAT_LINE = {
 };
 
 /**
- * O antecedente combina com a classe? 2024: um dos 3 atributos é atributo
- * principal da classe. 2014 (sem atributos): uma das perícias usa o atributo principal.
+ * O antecedente combina com a classe? 2024: aumenta o atributo PRINCIPAL da
+ * classe (o primeiro de `primary`). 2014 (sem atributos): uma das perícias usa
+ * esse atributo. Em ambos, não combina se repetir uma perícia que o jogador já
+ * escolheu na classe (seria mandado de volta para trocar).
  */
 export function fitsClass(char, b) {
-  const primary = classStart(char)?.primary || [];
-  if (!b || !primary.length) return false;
-  if (is2024(char) && Array.isArray(b.abilities)) return b.abilities.some(a => primary.includes(a));
-  return (b.skills || []).some(s => primary.includes(SRD.SKILLS.find(k => k.id === s)?.stat));
+  const main = (classStart(char)?.primary || [])[0];
+  if (!b || !main) return false;
+  let picks = [];
+  try { picks = classSkillPicks(char); } catch { picks = []; }
+  if ((b.skills || []).some(s => picks.includes(s))) return false;
+  if (is2024(char) && Array.isArray(b.abilities)) return b.abilities.includes(main);
+  return (b.skills || []).some(s => SRD.SKILLS.find(k => k.id === s)?.stat === main);
+}
+
+/** Atributo de conjuração sugerido para o Iniciado em Magia: o atributo mental principal da classe. */
+const LIST_ABILITY = { cleric: 'wis', druid: 'wis', wizard: 'int', bard: 'cha', sorcerer: 'cha', warlock: 'cha' };
+export function recommendedSpellAbility(char, spellList) {
+  const mental = (classStart(char)?.primary || []).find(a => ['int', 'wis', 'cha'].includes(a));
+  return mental || LIST_ABILITY[spellList] || 'int';
 }
 
 // ---------------------------------------------------------------------------
@@ -233,13 +277,22 @@ export function applyBackground(char, bgId) {
   // Pacote de equipamento do antecedente anterior deixa de valer (itens e ouro recalculados).
   const equip = dropPack({ ...char, creation }, 'backgroundPack');
 
+  let feats = is2024(char) ? withOriginFeat(char.feats, b) : null;
+  // Iniciado em Magia: já vem com o atributo de conjuração sugerido (o mental principal da classe).
+  if (feats) {
+    feats = feats.map(f => (f?.origin === 'background' && f.id === 'magicInitiate' && !f.picks?.spellAbility
+      ? { ...f, picks: { ...(f.picks || {}), spellAbility: recommendedSpellAbility(char, f.picks?.spellList) } } : f));
+  }
   const patch = {
     background: b.id,
     skillProfs: uniq([...kept, ...added]),
     toolProfs,
     ...equip,
-    ...(is2024(char) ? { raceBonus: {}, originFeat: b.feat, feats: withOriginFeat(char.feats, b) } : {}),
+    ...(feats ? { raceBonus: {}, originFeat: b.feat, feats } : {}),
   };
+  // Especialização em perícia que só o antecedente anterior dava deixa de valer.
+  const pruned = pruneExpertise({ ...char, ...patch, creation: patch.creation || creation });
+  if (pruned.length !== (char.classOptions || []).length) patch.classOptions = pruned;
   // Idiomas a mais (ex.: 2014, Sábio dá 2 e o novo antecedente dá 0).
   if (typeof Utils.trimLanguages === 'function') patch.languages = Utils.trimLanguages({ ...char, ...patch });
   return patch;
@@ -275,6 +328,24 @@ export function backgroundIssues(char) {
   const b = findBackground(char);
   if (!b) return [{ pt: 'Escolha um antecedente: toque em um dos cartões.', en: 'Choose a background: tap one of the cards.' }];
   const out = [];
+  // Perícia que o jogador escolheu na classe e o antecedente também dá: trava aqui, na hora.
+  const rep = overlappingSkills(char).filter(id => (b.skills || []).includes(id));
+  if (rep.length) {
+    const s = overlapSentence(char, rep);
+    const many = rep.length > 1;
+    out.push({
+      pt: `${s.pt} Você ${many ? 'as' : 'a'} tinha escolhido na etapa Perícias: troque ${many ? 'por outras' : 'por outra'} lá (botão "Trocar perícias da classe").`,
+      en: `${s.en} You had picked ${many ? 'them' : 'it'} in the Skills step: swap ${many ? 'them' : 'it'} there ("Change class skills" button).`,
+    });
+  }
+  const toolRep = backgroundToolRepeats(char);
+  if (toolRep.length) {
+    const names = (lang) => joinNames(toolRep.map(id => toolName(id, lang)), lang);
+    out.push({
+      pt: `Você já tem treino em ${names('pt')}. Escolha ${toolRep.length > 1 ? 'outras' : 'outra'} no antecedente.`,
+      en: `You're already trained with ${names('en')}. Pick ${toolRep.length > 1 ? 'others' : 'another'} for the background.`,
+    });
+  }
   const t = backgroundTool(char);
   if (t.choose) {
     const n = t.choose - chosenBackgroundTools(char).filter(x => t.from.includes(x)).length;
@@ -294,5 +365,7 @@ export function backgroundIssues(char) {
       });
     }
   }
+  // Especialização do Ladino: escolhida aqui, quando as perícias do antecedente já contam.
+  out.push(...expertiseIssues(char));
   return out;
 }

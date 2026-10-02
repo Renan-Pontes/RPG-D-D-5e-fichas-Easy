@@ -6,7 +6,7 @@ import SRD from '../../data/srd.js';
 import Utils from '../../utils.js';
 import { t as tr, tName } from '../../data/i18n.js';
 import { findFeat } from '../../data/feats.js';
-import { DAMAGE_NAMES } from '../../data/species-2024.js';
+import { DAMAGE_NAMES, RACE_TOOL_NAMES } from '../../data/species-2024.js';
 import { featEntry } from './feat-rules.js';
 import FeatPicker from './FeatPicker.jsx';
 import { Modal } from '../../components/Shared.jsx';
@@ -195,6 +195,9 @@ export function speciesSummary(char, lang) {
     } else if (c.from && sc[c.key]) rows.push([c.label[lang], tr(sc[c.key], lang)]);
   }
   if (g.resist.length) rows.push([L(lang, 'Resistências', 'Resistances'), g.resist.map(d => DAMAGE_NAMES[d]?.[lang] || d).join(', ')]);
+  const shownTools = new Set(list(g.options.tool?.tools));
+  const fixedTools = g.tools.filter(t => !shownTools.has(t));
+  if (fixedTools.length) rows.push([L(lang, 'Ferramentas', 'Tools'), fixedTools.map(t => RACE_TOOL_NAMES[t]?.[lang] || t).join(', ')]);
   if (g.darkvision) rows.push([L(lang, 'Visão no escuro', 'Darkvision'), `${g.darkvision} ${L(lang, 'pés', 'ft')}`]);
   const spells = [...g.cantrips, ...Object.entries(g.spellsByLevel).flatMap(([lv, ids]) => ids.map(id => ((char.level || 1) >= +lv ? id : null)))].filter(Boolean);
   if (spells.length) {

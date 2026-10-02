@@ -19,7 +19,7 @@ const features = {
       'Conjura magias de artífice com Inteligência. Ferramentas de ladrão, de funileiro ou de artesão em que tenha proficiência servem de foco de conjuração. Truques: 2 (3 no 10º, 4 no 14º); ao terminar um Descanso Longo, pode trocar 1 truque. Magias preparadas conforme a tabela da classe (2 no 1º nível); a lista preparada pode mudar a cada Descanso Longo.',
       'You cast Artificer spells using Intelligence. Thieves\' tools, tinker\'s tools, or artisan\'s tools you are proficient with serve as your spellcasting focus. Cantrips: 2 (3 at 10th, 4 at 14th); after a Long Rest you can replace 1 cantrip. Prepared spells follow the class table (2 at 1st level); you can change the prepared list after each Long Rest.')),
     f('tinkersMagic', b('Magia do Inventor', "Tinker's Magic"), b(
-      'Você conhece o truque Consertar (não conta no limite de truques). Com uma ação Magia e ferramentas de funileiro, cria em um espaço livre a até 1,5 m um item comum de uma lista fixa (ex.: rolamentos, cesto, saco de dormir, sino, cobertor, talha, garrafa, balde, estrepes, vela, pé de cabra, frasco, gancho de escalada, armadilha de caça, jarro, lampião, algemas, rede, óleo, papel, pergaminho, vara, algibeira, corda, saco, pá, cravos, barbante, pederneira, tocha, frasco pequeno). O item dura até o fim do seu próximo Descanso Longo. Usos: modificador de INT (mín. 1) por Descanso Longo.',
+      'Você conhece o truque Remendar (não conta no limite de truques). Com uma ação Magia e ferramentas de funileiro, cria em um espaço livre a até 1,5 m um item comum de uma lista fixa (ex.: rolamentos, cesto, saco de dormir, sino, cobertor, talha, garrafa, balde, estrepes, vela, pé de cabra, frasco, gancho de escalada, armadilha de caça, jarro, lampião, algemas, rede, óleo, papel, pergaminho, vara, algibeira, corda, saco, pá, cravos, barbante, pederneira, tocha, frasco pequeno). O item dura até o fim do seu próximo Descanso Longo. Usos: modificador de INT (mín. 1) por Descanso Longo.',
       "You know the Mending cantrip (it doesn't count against your cantrips). As a Magic action with tinker's tools, you create a mundane item from a fixed list in an unoccupied space within 5 feet (e.g., ball bearings, basket, bedroll, bell, blanket, block and tackle, bottle, bucket, caltrops, candle, crowbar, flask, grappling hook, hunting trap, jug, lamp, manacles, net, oil, paper, parchment, pole, pouch, rope, sack, shovel, iron spikes, string, tinderbox, torch, vial). It lasts until the end of your next Long Rest. Uses: your INT modifier (min 1) per Long Rest.")),
   ],
   2: [
@@ -260,7 +260,7 @@ const ART_TOOLS = [
 const artisanTools = ART_TOOLS.map(([id, pt, en]) => ({
   id, name: b(pt, en), source: 'EFA',
   desc: b(`Proficiência com ${pt.toLowerCase()}.`, `Proficiency with ${en}.`),
-  grants: { tools: [en] },
+  grants: { tools: [id] },
 }));
 
 // Nível 3: proficiências fixas de cada subclasse ("Ferramentas do Ofício").
@@ -383,7 +383,7 @@ const subclasses = {
           tools('Proficiência com armas marciais à distância e ferramentas de entalhador (se já tiver, escolha outra ferramenta de artesão). Você fabrica varinhas na metade do tempo normal.',
             "Proficiency with Martial Ranged weapons and woodcarver's tools (if you already have them, choose another artisan's tool). You craft wands in half the normal time."),
           f('eldritchCannon', b('Canhão Sobrenatural', 'Eldritch Cannon'), b(
-            'Ação Magia com ferramentas de ferreiro ou de entalhador: cria um canhão Pequeno ou Minúsculo a até 1,5 m (CA 18, PV = 5 × nível de artífice, imune a veneno e psíquico; Consertar recupera 2d6 PV). Escolha o tipo: Lança-chamas (cone de 4,5 m, 2d8 de fogo, salvaguarda de DES para metade), Balista de Força (ataque mágico a 36 m, 2d8 de força e empurra 1,5 m) ou Protetor (1d8 + INT de PV temporários para você e aliados a até 3 m). Ação Bônus a até 18 m: o canhão se move 4,5 m e dispara. Um canhão por vez; cria outro após um Descanso Longo ou gastando um espaço de magia.',
+            'Ação Magia com ferramentas de ferreiro ou de entalhador: cria um canhão Pequeno ou Minúsculo a até 1,5 m (CA 18, PV = 5 × nível de artífice, imune a veneno e psíquico; Remendar recupera 2d6 PV). Escolha o tipo: Lança-chamas (cone de 4,5 m, 2d8 de fogo, salvaguarda de DES para metade), Balista de Força (ataque mágico a 36 m, 2d8 de força e empurra 1,5 m) ou Protetor (1d8 + INT de PV temporários para você e aliados a até 3 m). Ação Bônus a até 18 m: o canhão se move 4,5 m e dispara. Um canhão por vez; cria outro após um Descanso Longo ou gastando um espaço de magia.',
             "Magic action with smith's or woodcarver's tools: create a Small or Tiny cannon within 5 feet (AC 18, HP = 5 × artificer level, immune to poison and psychic; Mending restores 2d6 HP). Choose its type: Flamethrower (15-ft cone, 2d8 fire, DEX save for half), Force Ballista (spell attack at 120 ft, 2d8 force and a 5-ft push), or Protector (1d8 + INT temporary HP to you and allies within 10 ft). Bonus Action within 60 ft: the cannon moves 15 feet and fires. One cannon at a time; make another after a Long Rest or by expending a spell slot.")),
         ],
       },

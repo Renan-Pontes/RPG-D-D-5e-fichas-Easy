@@ -10,13 +10,10 @@
  */
 import SRD from '../../data/srd.js';
 import Utils from '../../utils.js';
-import * as FS from '../progression/fighting-styles.js';
-import { computeProgression } from '../progression/engine.js';
-import { findOption } from '../progression/options.js';
 import { subclassesFor, subclassName } from '../progression/subclasses.js';
 import { tName } from '../../data/i18n.js';
 import LAYOUT from './dnd5e-layout.js';
-import { armorTraining, weaponTraining } from '../creator/start-data.js';
+import { trainingLines, backgroundFeature, featName, featDesc, featPicksText, classFeatureList } from '../sheet/sheet-text.js';
 
 export { LAYOUT };
 
@@ -53,12 +50,6 @@ const ABILITY_ABBR = {
   pt: { str: 'FOR', dex: 'DES', con: 'CON', int: 'INT', wis: 'SAB', cha: 'CAR' },
   en: { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' },
 };
-const DAMAGE_LABEL = {
-  acid: ['ácido', 'acid'], bludgeoning: ['concussão', 'bludgeoning'], cold: ['frio', 'cold'], fire: ['fogo', 'fire'],
-  force: ['energia', 'force'], lightning: ['elétrico', 'lightning'], necrotic: ['necrótico', 'necrotic'],
-  piercing: ['perfurante', 'piercing'], poison: ['veneno', 'poison'], psychic: ['psíquico', 'psychic'],
-  radiant: ['radiante', 'radiant'], slashing: ['cortante', 'slashing'], thunder: ['trovejante', 'thunder'],
-};
 
 /** Capacidade de cada nível na página de magias (0 = truques). */
 export const SPELL_CAPACITY = Object.fromEntries(Object.entries(LAYOUT.spells).map(([lvl, rows]) => [lvl, rows.length]));
@@ -69,52 +60,60 @@ export const pageField = (name, pageIndex) => (pageIndex === 0 ? name : `${name.
 const fmt = n => Utils.fmtMod(n);
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
+// Ataque pela regra da ficha (Utils.attackFor: proficiência, Artes Marciais do Monge, Estilos de Luta).
 function weaponRow(char, w, lang) {
-  const def = w.id ? SRD.weaponFor(w.id, char.rulesVersion) : null;
-  const ranged = def?.type?.includes('ranged');
-  const finesse = def?.props?.includes('finesse');
-  const useDex = ranged || (finesse && Utils.abilityMod(char, 'dex') > Utils.abilityMod(char, 'str'));
-  const abMod = Utils.abilityMod(char, useDex ? 'dex' : 'str');
-  const fs = FS.weaponStyleBonuses(char, w);
-  const atk = def ? abMod + Utils.profBonus(char) + fs.attack : Number(w.bonus) || 0;
-  const dice = w.dmg || def?.damage || '';
-  const dmgBonus = def ? abMod + (fs.damage || 0) : 0;
-  const type = w.dmgType || def?.dmgType || '';
-  const typeLabel = type ? (DAMAGE_LABEL[type]?.[lang === 'pt' ? 0 : 1] || type) : '';
-  const dmg = [dice && `${dice}${dmgBonus ? (dmgBonus > 0 ? `+${dmgBonus}` : dmgBonus) : ''}`, typeLabel].filter(Boolean).join(' ');
+  const a = Utils.attackFor(char, w);
+  const typeLabel = a.dmgType ? Utils.damageLabel(a.dmgType, lang) : '';
+  const dmg = [a.dice ? a.damage : (w.dmg || w.damage || ''), typeLabel].filter(Boolean).join(' ');
   const name = w.name || (w.id ? tName('weapon', w.id, lang) : '');
-  return { name, atk: fmt(atk), dmg, note: w.note || '' };
+  return { name, atk: fmt(a.bonus), dmg, note: w.note || '' };
+}
+
+function unarmedRow(char, lang) {
+  const u = Utils.unarmedStrike(char);
+  return { name: u.name[lang === 'pt' ? 'pt' : 'en'], atk: fmt(u.bonus), dmg: `${u.damage} ${Utils.damageLabel(u.dmgType, lang)}`, note: '' };
 }
 
 function featureLines(char, lang) {
-  const prog = computeProgression(char);
+  const out = classFeatureList(char, lang);
+  const bgf = backgroundFeature(char, lang);
+  if (bgf) out.push({ title: `${bgf.name} (${L(lang, 'antecedente', 'background')})`, text: bgf.desc });
+  return out;
+}
+
+/** Talentos: nome no idioma da tela, descrição e as escolhas feitas (lista, atributo, truques, magia). */
+function featLines(char, lang) {
   const out = [];
-  const seen = new Set();
-  for (const f of prog.features || []) {
-    const key = `${f.classId || ''}:${f.id || f.name}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const name = lang === 'pt' ? f.name : (f.nameEn || f.name);
-    const desc = lang === 'pt' ? f.desc : (f.descEn || f.desc);
-    const cls = f.classId ? ` — ${tName('class', f.classId, lang)} ${f.classLevel}` : '';
-    out.push({ title: `${typeof name === 'object' ? name[lang] : name} (${L(lang, 'nv.', 'lvl')} ${f.classLevel || f.level}${cls})`, text: typeof desc === 'object' ? desc[lang] : (desc || '') });
-  }
-  for (const p of prog.classOptions || []) {
-    const opt = findOption(p.classId || char.className, p.pool, p.id);
-    if (!opt) continue;
-    out.push({ title: `${opt.name[lang]}${p.detail ? ` (${p.detail})` : ''}`, text: opt.desc?.[lang] || '' });
+  for (const f of char.feats || []) {
+    const name = featName(char, f, lang);
+    if (!name) continue;
+    // A lista de magias já vai no nome ("Iniciado em Magia (Clérigo)").
+    const picks = typeof f === 'object' && f.picks ? featPicksText({ ...f.picks, spellList: undefined }, lang) : '';
+    out.push({ title: `${L(lang, 'Talento', 'Feat')}: ${name}`, text: [featDesc(char, f, lang), picks].filter(Boolean).join('\n'), picks });
   }
   return out;
 }
 
+/**
+ * Traços da espécie: as escolhas (com o valor escolhido) e os traços que não
+ * viraram escolha. `short` = linha da página 2 ("Tamanho: Médio").
+ */
 function speciesLines(char, lang, speciesSummary) {
   const race = Utils.races(char).find(r => r.id === char.race);
-  const out = (speciesSummary ? speciesSummary(char, lang) : []).map(([k, v]) => ({ title: k, text: String(v) }));
-  for (const tr of race?.traits || []) out.push({ title: tr.name[lang], text: tr.desc[lang] });
-  for (const f of char.feats || []) {
-    const name = typeof f === 'string' ? f : (f.name?.[lang] || f.name || f.id);
-    if (name) out.push({ title: `${L(lang, 'Talento', 'Feat')}: ${name}`, text: f.desc?.[lang] || '' });
+  const out = (speciesSummary ? speciesSummary(char, lang) : []).map(([k, v]) => ({ title: k, text: String(v), short: `${k}: ${v}` }));
+  const head = (s) => String(s).split(':')[0].trim().toLowerCase();
+  const chosen = new Set(out.map(x => head(x.title)));
+  for (const tr of race?.traits || []) {
+    const name = tr.name?.[lang] || tr.name?.pt || '';
+    // O traço que virou escolha já aparece com o valor (evita "Habilidoso" duas vezes).
+    if (chosen.has(head(name))) {
+      const row = out.find(x => head(x.title) === head(name));
+      if (row && tr.desc?.[lang]) row.text = `${row.text}\n${tr.desc[lang]}`;
+      continue;
+    }
+    out.push({ title: name, text: tr.desc?.[lang] || '', short: name });
   }
+  for (const f of featLines(char, lang)) out.push({ ...f, short: f.picks ? `${f.title} (${f.picks})` : f.title });
   return out;
 }
 
@@ -205,7 +204,7 @@ export function buildSheetData(char, lang = 'pt', { speciesSummary } = {}) {
   LAYOUT.deathFail.forEach((n, i) => { checks[n] = i < (ds.fail || 0); });
   f.Passive = String(Utils.passivePerception(char));
 
-  const weapons = (char.weapons || []).map(w => weaponRow(char, w, lang));
+  const weapons = [...(char.weapons || []).map(w => weaponRow(char, w, lang)), unarmedRow(char, lang)];
   weapons.slice(0, 3).forEach((w, i) => {
     const [n, a, d] = WEAPON_FIELDS[i];
     f[n] = w.name; f[a] = w.atk; f[d] = w.dmg;
@@ -223,17 +222,7 @@ export function buildSheetData(char, lang = 'pt', { speciesSummary } = {}) {
   const langs = Utils.languagesFor(char).map(l => Utils.languageLabel(l, lang));
   const profLines = [];
   if (langs.length) profLines.push(`${L(lang, 'Idiomas', 'Languages')}: ${langs.join(', ')}`);
-  const armorTr = armorTraining(char);
-  const ARMOR_PT = { light: ['leves', 'light'], medium: ['médias', 'medium'], heavy: ['pesadas', 'heavy'], shield: ['escudos', 'shields'] };
-  if (armorTr?.size) profLines.push(`${L(lang, 'Armaduras', 'Armor')}: ${[...armorTr].map(a => (ARMOR_PT[a] ? L(lang, ...ARMOR_PT[a]) : a)).join(', ')}`);
-  const weaponTr = weaponTraining(char);
-  if (weaponTr) {
-    const CAT = { simple: ['simples', 'simple'], martial: ['marciais', 'martial'] };
-    const parts = [...[...weaponTr.categories].map(c => (CAT[c] ? L(lang, ...CAT[c]) : c)),
-      ...[...weaponTr.ids].map(id => { const w = SRD.weaponsFor(char.rulesVersion).find(x => x.id.toLowerCase() === id); return w ? tName('weapon', w.id, lang) : id; })];
-    if (weaponTr.martialProps.size) parts.push(L(lang, 'marciais com acuidade/leves', 'martial finesse/light'));
-    if (parts.length) profLines.push(`${L(lang, 'Armas', 'Weapons')}: ${parts.join(', ')}`);
-  }
+  for (const t of trainingLines(char, lang)) profLines.push(`${t.label}: ${t.text}`);
   if (char.otherProfs) profLines.push(`${L(lang, 'Outras', 'Other')}: ${char.otherProfs}`);
   f.ProficienciesLang = profLines.join('\n');
 
@@ -261,7 +250,7 @@ export function buildSheetData(char, lang = 'pt', { speciesSummary } = {}) {
   const traits = speciesLines(char, lang, speciesSummary);
   // Na ficha só cabem os nomes; o texto completo vai para as páginas de continuação.
   f['Features and Traits'] = features.map(x => `• ${x.title}`).join('\n');
-  f['Feat+Traits'] = traits.map(x => `• ${x.title}`).join('\n');
+  f['Feat+Traits'] = traits.map(x => `• ${x.short || x.title}`).join('\n');
 
   const sections = [];
   if (features.length) sections.push({ title: L(lang, 'Características de classe', 'Class features'), items: features });

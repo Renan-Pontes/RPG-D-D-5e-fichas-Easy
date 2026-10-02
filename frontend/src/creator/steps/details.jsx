@@ -1,7 +1,7 @@
 /* Etapa — Detalhes: nome (obrigatório), foto, aparência e história com perguntas-guia. */
 import { AvatarUpload } from '../../../components/Shared.jsx';
 import { StepIntro, Callout, L } from '../ui.jsx';
-import { detailsIssues, STORY_PROMPTS } from '../creation.js';
+import { detailsIssues, STORY_PROMPTS, NAME_MAX } from '../creation.js';
 
 const LOOKS = [
   ['age', 'Idade', 'Age', '25 anos', '25 years'],
@@ -22,7 +22,9 @@ const TRAITS = [
 function DetailsStep({ char, set, lang }) {
   const story = char.creation?.story || {};
   const setStory = (id, v) => set(prev => ({ creation: { ...(prev.creation || {}), story: { ...(prev.creation?.story || {}), [id]: v } } }));
-  const missingName = detailsIssues(char).length > 0;
+  const nameIssues = detailsIssues(char);
+  const missingName = !String(char.name || '').trim();
+  const nameLen = String(char.name || '').length;
 
   return (
     <div>
@@ -45,9 +47,13 @@ function DetailsStep({ char, set, lang }) {
         </div>
         <div>
           <label htmlFor="cr-name">{L(lang, 'Nome do personagem', 'Character name')} *</label>
-          <input id="cr-name" value={char.name || ''} onChange={e => set({ name: e.target.value })}
-            placeholder={L(lang, 'Ex.: Lia Pedravento', 'E.g. Lia Stonewind')} aria-invalid={missingName} autoComplete="off" />
-          {missingName && <div className="field-hint">{L(lang, 'Obrigatório. Pode trocar depois na ficha.', 'Required. You can change it later on the sheet.')}</div>}
+          <input id="cr-name" value={char.name || ''} onChange={e => set({ name: e.target.value.slice(0, NAME_MAX) })}
+            maxLength={NAME_MAX} aria-describedby="cr-name-hint"
+            placeholder={L(lang, 'Ex.: Lia Pedravento', 'E.g. Lia Stonewind')} aria-invalid={nameIssues.length > 0} autoComplete="off" />
+          {missingName && <div className="field-hint" id="cr-name-hint">{L(lang, 'Obrigatório. Pode trocar depois na ficha.', 'Required. You can change it later on the sheet.')}</div>}
+          {!missingName && nameLen > NAME_MAX - 20 && (
+            <div className="field-hint" id="cr-name-hint">{L(lang, `${nameLen} de ${NAME_MAX} letras (máximo).`, `${nameLen} of ${NAME_MAX} characters (maximum).`)}</div>
+          )}
         </div>
         <div>
           <label htmlFor="cr-player">{L(lang, 'Seu nome (jogador)', 'Your name (player)')}</label>

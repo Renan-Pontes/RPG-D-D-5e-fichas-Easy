@@ -5,13 +5,21 @@ import { t, tName } from '../../../data/i18n.js';
 import { StepIntro, Term, Callout, ChoiceCard, Counter, L } from '../ui.jsx';
 import {
   spellPlan, hasClassCantrips, cantripIssues, availableCantrips, chosenCantrips, beginnerCantrips,
-  grantedSpells, invalidChoices, withoutInvalid, toggleCantrip, fillRecommended,
+  grantedSpells, invalidChoices, withoutInvalid, toggleCantrip, fillRecommended, isCoreSpell, duplicateGrantIssues,
 } from '../spell-helpers.js';
 
 const ABILITY_NAMES = { int: ['Inteligência', 'Intelligence'], wis: ['Sabedoria', 'Wisdom'], cha: ['Carisma', 'Charisma'] };
 export const abilityName = (ab, lang) => (ABILITY_NAMES[ab] ? ABILITY_NAMES[ab][lang === 'pt' ? 0 : 1] : '—');
 
-/** Lista de magias escolhíveis com busca, filtro "bons para começar" e cartões. */
+// O label global do app (maiúsculas espaçadas, bloco) e o input (100% de largura,
+// 44px) deixavam o filtro como um quadrado enorme: estilo próprio aqui.
+const FILTER_LABEL = {
+  display: 'inline-flex', alignItems: 'center', gap: 8, margin: 0, cursor: 'pointer',
+  fontFamily: 'var(--body)', fontSize: '0.9rem', letterSpacing: 'normal', textTransform: 'none', color: 'var(--ink-secondary)',
+};
+const FILTER_BOX = { width: 18, height: 18, minHeight: 0, padding: 0, margin: 0, flex: '0 0 auto' };
+
+/** Lista de magias escolhíveis com busca, filtro "bons para começar" e cartões. Magias de suplementos ficam recolhidas. */
 export function SpellPicker({ char, lang, spells, selected, onToggle, full, suggested, extra }) {
   const [query, setQuery] = useState('');
   const [onlySuggested, setOnlySuggested] = useState(false);
@@ -21,7 +29,35 @@ export function SpellPicker({ char, lang, spells, selected, onToggle, full, sugg
     .filter(sp => !q || `${tName('spellName', sp.id, 'pt')} ${tName('spellName', sp.id, 'en')}`.toLowerCase().includes(q))
     // Sugeridas primeiro, depois em ordem alfabética.
     .sort((a, b) => (suggested.has(b.id) - suggested.has(a.id)) || tName('spellName', a.id, lang).localeCompare(tName('spellName', b.id, lang)));
-  const levels = [...new Set(visible.map(sp => sp.level))].sort((a, b) => a - b);
+  const core = visible.filter(sp => isCoreSpell(sp, char));
+  const other = visible.filter(sp => !isCoreSpell(sp, char));
+
+  const card = (sp) => {
+    const on = selected.has(sp.id);
+    const meta = Utils.spellMeta(sp, lang);
+    const isCore = isCoreSpell(sp, char);
+    return (
+      <ChoiceCard key={sp.id} selected={on} disabled={!on && full} onClick={() => onToggle(sp.id)}
+        title={tName('spellName', sp.id, lang)}
+        badge={suggested.has(sp.id) ? L(lang, 'Bom para começar', 'Good to start') : (!isCore && sp.source ? sp.source : null)}
+        subtitle={[tName('school', sp.school, lang), meta.castingTime, meta.range,
+          sp.concentration ? L(lang, 'Concentração', 'Concentration') : null, sp.ritual ? 'Ritual' : null].filter(Boolean).join(' · ')}>
+        <div className={`text-sm ${on ? '' : 'spell-desc-clamp'}`} style={{ color: 'var(--ink-secondary)', marginTop: 6, textAlign: 'left' }}>
+          {sp.desc?.[lang] || sp.desc?.pt}
+        </div>
+        {extra ? extra(sp, on) : null}
+      </ChoiceCard>
+    );
+  };
+  const groups = (list) => {
+    const levels = [...new Set(list.map(sp => sp.level))].sort((a, b) => a - b);
+    return levels.map(lvl => (
+      <div key={lvl}>
+        {levels.length > 1 && <h4 className="cr-spell-level">{lvl === 0 ? t('cantrips', lang) : L(lang, `${lvl}º círculo`, `Level ${lvl}`)}</h4>}
+        <div className="options-list cols-2">{list.filter(sp => sp.level === lvl).map(card)}</div>
+      </div>
+    ));
+  };
 
   return (
     <>
@@ -29,37 +65,38 @@ export function SpellPicker({ char, lang, spells, selected, onToggle, full, sugg
         <input type="search" aria-label={L(lang, 'Buscar magia', 'Search spell')} placeholder={L(lang, 'Buscar pelo nome…', 'Search by name…')}
           value={query} onChange={e => setQuery(e.target.value)} />
         {suggested.size > 0 && (
-          <label className="cr-spell-filter">
-            <input type="checkbox" checked={onlySuggested} onChange={e => setOnlySuggested(e.target.checked)} />
-            {L(lang, 'Mostrar só as boas para começar', 'Only show beginner-friendly')}
+          <label className="cr-spell-filter" style={FILTER_LABEL}>
+            <input type="checkbox" style={FILTER_BOX} checked={onlySuggested} onChange={e => setOnlySuggested(e.target.checked)} />
+            <span>{L(lang, 'Mostrar só as boas para começar', 'Only show beginner-friendly')}</span>
           </label>
         )}
       </div>
-      {levels.map(lvl => (
-        <div key={lvl}>
-          {levels.length > 1 && <h4 className="cr-spell-level">{lvl === 0 ? t('cantrips', lang) : `${t('spellLevel', lang)} ${lvl}`}</h4>}
-          <div className="options-list cols-2">
-            {visible.filter(sp => sp.level === lvl).map(sp => {
-              const on = selected.has(sp.id);
-              const meta = Utils.spellMeta(sp, lang);
-              return (
-                <ChoiceCard key={sp.id} selected={on} disabled={!on && full} onClick={() => onToggle(sp.id)}
-                  title={tName('spellName', sp.id, lang)}
-                  badge={suggested.has(sp.id) ? L(lang, 'Bom para começar', 'Good to start') : null}
-                  subtitle={[tName('school', sp.school, lang), meta.castingTime, meta.range,
-                    sp.concentration ? L(lang, 'Concentração', 'Concentration') : null, sp.ritual ? 'Ritual' : null].filter(Boolean).join(' · ')}>
-                  <div className={`text-sm ${on ? '' : 'spell-desc-clamp'}`} style={{ color: 'var(--ink-secondary)', marginTop: 6, textAlign: 'left' }}>
-                    {sp.desc?.[lang] || sp.desc?.pt}
-                  </div>
-                  {extra ? extra(sp, on) : null}
-                </ChoiceCard>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+      {groups(core)}
+      {other.length > 0 && (
+        // Aberto quando já há escolha de outro livro ou a busca só achou magias de lá.
+        <details style={{ marginTop: 16 }} open={other.some(sp => selected.has(sp.id)) || (!!q && !core.length)}>
+          <summary>{L(lang, `Outros livros (${other.length}) — confirme com o mestre`, `Other books (${other.length}) — check with your DM`)}</summary>
+          <p className="muted text-sm" style={{ margin: '8px 0' }}>
+            {L(lang, 'Estas magias não estão no livro básico. Use só se o mestre aceitar.', 'These spells are not in the core book. Use them only if your DM agrees.')}
+          </p>
+          {groups(other)}
+        </details>
+      )}
       {!visible.length && <div className="muted text-sm" style={{ padding: 12 }}>{L(lang, 'Nenhuma magia encontrada.', 'No spells found.')}</div>}
     </>
+  );
+}
+
+/** Aviso: o mesmo truque/magia vem de duas origens (classe, talento, espécie) — trave e diga onde trocar. */
+export function DuplicateCallout({ char, lang, cantrips }) {
+  const issues = duplicateGrantIssues(char, cantrips ? 'cantrip' : 'spell');
+  if (!issues.length) return null;
+  return (
+    <Callout kind="warn">
+      <b>{L(lang, 'Escolha repetida:', 'Repeated pick:')}</b>
+      <ul className="cr-spell-granted">{issues.map((i, k) => <li key={k}>{i[lang] || i.pt}</li>)}</ul>
+      <span className="muted text-sm">{L(lang, 'Use "Voltar" para ir até essa etapa.', 'Use "Back" to go to that step.')}</span>
+    </Callout>
   );
 }
 
@@ -90,7 +127,7 @@ export function InvalidCallout({ char, set, lang, kind }) {
   const bad = invalidChoices(char, kind);
   if (!bad.length) return null;
   const why = (x) => {
-    if (x.reason === 'list') return L(lang, `não é da lista de ${tName('class', char.className, 'pt')}`, `not on the ${tName('class', char.className, 'en')} list`);
+    if (x.reason === 'list') return L(lang, `não é da lista de magias da classe ${tName('class', char.className, 'pt')}`, `not on the ${tName('class', char.className, 'en')} list`);
     if (x.reason === 'level') return L(lang, `${x.level}º círculo, alto demais por enquanto`, `level ${x.level}, too high for now`);
     if (x.reason === 'granted') return L(lang, `você já ganha de ${x.from?.pt}`, `you already get it from ${x.from?.en}`);
     return L(lang, 'não existe nesta regra', "doesn't exist in these rules");
@@ -133,6 +170,7 @@ function CantripsStep({ char, set, lang }) {
       </StepIntro>
 
       <GrantedCallout char={char} lang={lang} cantrips />
+      <DuplicateCallout char={char} lang={lang} cantrips />
       <InvalidCallout char={char} set={set} lang={lang} kind="cantrip" />
 
       <div className="cr-spell-head">

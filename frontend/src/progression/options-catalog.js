@@ -15,7 +15,7 @@
  * Pools `kind: 'skill'`: from: [ids], proficient: true (só perícias já proficientes),
  *   tools: [ids de items.js]  ferramentas também escolhíveis (ex.: Ferramentas de Ladrão
  *                            na Especialização do ladino 2014).
- * Pools `kind: 'language'`: from: [ids] opcional.
+ * Pools `kind: 'language'`: from: [ids] opcional (sem `from`: catálogo da regra, sem idiomas secretos).
  * Pools estáticos: `filter` / `filterByClass` (ver matchesOptionFilter).
  */
 import SRD from '../../data/srd.js';
@@ -55,12 +55,19 @@ function skillOptions(character, def) {
     .concat((f.tools || []).map(id => ({ id, name: toolName(id), meta: 'ferramenta', desc: null })));
 }
 
+/**
+ * Idiomas do catálogo da regra da ficha (2014 sem a Língua de Sinais Comum;
+ * Dracônico exótico). Idiomas secretos de classe (Druídico, Gíria de Ladrão)
+ * nunca são escolhíveis aqui, a não ser que o pool os liste em `from`.
+ */
 function languageOptions(character, def) {
   const f = def.filter || {};
   const known = new Set(Utils.languagesFor(character));
-  return Utils.LANGUAGES
-    .filter(l => (!f.from || f.from.includes(l.id)) && !known.has(l.id))
-    .map(l => ({ id: l.id, name: { pt: l.pt, en: l.id }, meta: l.rare ? 'raro' : '', desc: null }));
+  const is2014 = character?.rulesVersion === '2014';
+  const catalog = typeof Utils.languageCatalog === 'function' ? Utils.languageCatalog(character) : Utils.LANGUAGES;
+  return catalog
+    .filter(l => (f.from ? f.from.includes(l.id) : !l.secret) && !known.has(l.id))
+    .map(l => ({ id: l.id, name: { pt: l.pt, en: l.id }, meta: l.rare ? (is2014 ? 'exótico' : 'raro') : '', desc: null }));
 }
 
 /**

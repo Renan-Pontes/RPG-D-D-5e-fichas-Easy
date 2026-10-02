@@ -45,9 +45,14 @@ export function ChoiceGrid({ children, cols = 2 }) {
  * aparece só quando selecionado.
  */
 export function ChoiceCard({ selected, disabled, onClick, title, subtitle, badge, children, details }) {
+  // div com papel de botão: os detalhes podem ter botões próprios (botão dentro de botão é inválido).
+  const activate = () => { if (!disabled) onClick?.(); };
   return (
-    <button type="button" className={`option ${selected ? 'selected' : ''}`} disabled={disabled}
-      aria-pressed={!!selected} onClick={onClick} style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}>
+    <div role="button" tabIndex={disabled ? -1 : 0} className={`option ${selected ? 'selected' : ''}`}
+      aria-pressed={!!selected} aria-disabled={disabled || undefined}
+      onClick={(e) => { if (e.target.closest('button, input, select, textarea, a') && e.target !== e.currentTarget) return; activate(); }}
+      onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); activate(); } }}
+      style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}>
       <div className="option-title">
         {title}
         {badge && <span className="cr-badge">{badge}</span>}
@@ -55,7 +60,7 @@ export function ChoiceCard({ selected, disabled, onClick, title, subtitle, badge
       {subtitle && <div className="option-meta">{subtitle}</div>}
       {children}
       {selected && details && <div className="cr-details">{details}</div>}
-    </button>
+    </div>
   );
 }
 

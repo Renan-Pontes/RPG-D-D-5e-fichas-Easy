@@ -5,7 +5,9 @@
 //   components, duration, ritual, concentration, desc: {pt, en}, rulesVersion: '2024', source }
 // PHB24 usa as listas de classe do PHB 2024 (+ artífice); suplementos usam as listas do próprio livro
 // (com as expansões de artífice do TCE). `desc` é um resumo curto, não o texto da magia.
-export const EXTRA_SPELLS_2024 = [
+// `metaPt` (tempo, alcance, componentes e duração em pt, em metros) é gerado no fim do
+// arquivo por translateSpellMeta — os campos em inglês continuam para os filtros.
+const RAW_EXTRA_SPELLS = [
   // Já citadas pelas classes/subclasses (prioridade)
   {"id": "mindSliver", "name": {"pt": "Lasca Mental", "en": "Mind Sliver"}, "level": 0, "school": "enchantment", "classes": ["sorcerer", "warlock", "wizard"], "castingTime": "Action", "range": "60 feet", "components": "V", "duration": "1 round", "ritual": false, "concentration": false, "desc": {"pt": "Truque psíquico que reduz o próximo salvamento do alvo.", "en": "Psychic cantrip that weakens the target's next saving throw."}, "rulesVersion": "2024", "source": "PHB24"},
   {"id": "armorOfAgathys", "name": {"pt": "Armadura de Agathys", "en": "Armor of Agathys"}, "level": 1, "school": "abjuration", "classes": ["warlock"], "castingTime": "Bonus Action", "range": "Self", "components": "V, S, M (a shard of blue glass)", "duration": "1 hour", "ritual": false, "concentration": false, "desc": {"pt": "Concede PV temporários e causa dano de frio a quem te acerta corpo a corpo.", "en": "Grants temporary HP and deals cold damage to melee attackers."}, "rulesVersion": "2024", "source": "PHB24"},
@@ -362,3 +364,203 @@ export const SPELL_NAMES_PT = {
   wish: "Desejo",
   wordOfRecall: "Palavra de Recordação",
 };
+
+// ---------------------------------------------------------------------------
+// Tradução dos metadados (tempo de conjuração, alcance, componentes, duração)
+// das magias sem texto pt do SRD 5.2.1: extras acima e as nativas 2014 (srd.js).
+// Padrões comuns → pt-BR, distâncias em metros (1,5 m a cada 5 pés), como o SRD em pt.
+// ---------------------------------------------------------------------------
+const fmtNum = (n) => String(Math.round(n * 10) / 10).replace('.', ',');
+/** "60" (pés) → "18 metros"; "5" → "1,5 metro". */
+export function feetToMeters(ft) {
+  const m = Number(String(ft).replace(/,/g, '')) * 0.3;
+  return `${fmtNum(m)} ${m < 2 ? 'metro' : 'metros'}`;
+}
+const milesToKm = (mi) => { const km = Number(mi) * 1.5; return `${fmtNum(km)} ${km < 2 ? 'quilômetro' : 'quilômetros'}`; };
+
+const UNIT_PT = {
+  round: ['rodada', 'rodadas'], min: ['minuto', 'minutos'], minute: ['minuto', 'minutos'], hour: ['hora', 'horas'],
+  h: ['hora', 'horas'], day: ['dia', 'dias'],
+};
+/** "10 min" / "1 hour" / "8h" / "7 days" → "10 minutos" / "1 hora" / "8 horas" / "7 dias" (ou null). */
+function timePt(str) {
+  const m = String(str).trim().match(/^(\d+)\s*(rounds?|min|minutes?|hours?|h|days?)\.?$/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  const unit = m[2].toLowerCase().replace(/s$/, '');
+  const names = UNIT_PT[unit];
+  return names ? `${n} ${n === 1 ? names[0] : names[1]}` : null;
+}
+
+const SHAPE_PT = { cone: 'cone', cube: 'cubo', line: 'linha', radius: 'raio', emanation: 'emanação', sphere: 'esfera', cylinder: 'cilindro' };
+/** Alcance: "Self (15-foot cone)" → "Pessoal (cone de 4,5 metros)", "120 ft" → "36 metros". */
+export function rangePt(range) {
+  const r = String(range || '').trim();
+  const fixed = { self: 'Pessoal', touch: 'Toque', sight: 'Visão', unlimited: 'Ilimitado', special: 'Especial' }[r.toLowerCase()];
+  if (fixed) return fixed;
+  let m = r.match(/^([\d,]+)\s*(ft|feet|foot)\.?$/i);
+  if (m) return feetToMeters(m[1]);
+  m = r.match(/^([\d,]+)\s*miles?$/i);
+  if (m) return milesToKm(m[1]);
+  m = r.match(/^Self\s*\(([\d,]+)[- ](ft|foot|feet|mile)[- ]?(cone|cube|line|radius|emanation|sphere|cylinder)\)$/i);
+  if (m) {
+    const dist = /mile/i.test(m[2]) ? milesToKm(m[1]) : feetToMeters(m[1]);
+    return `Pessoal (${SHAPE_PT[m[3].toLowerCase()]} de ${dist})`;
+  }
+  return r;
+}
+
+// Gatilhos de reação/ação bônus ("…, which you take when …") — os que aparecem no catálogo.
+const TRIGGER_PT = [
+  [/^when you take acid, cold, fire, lightning, or thunder damage$/i, 'quando você sofre dano de ácido, frio, fogo, elétrico ou trovejante'],
+  [/^when a creature you can see within 60 feet of (?:yourself|you) succeeds on an attack roll, an ability check, or a saving throw$/i, 'quando uma criatura que você vê a até 18 metros tem sucesso numa jogada de ataque, teste de atributo ou salvaguarda'],
+  [/^when you speak to another creature$/i, 'quando você fala com outra criatura'],
+  [/^when a creature you can see makes an attack roll or starts to cast a spell$/i, 'quando uma criatura que você vê faz uma jogada de ataque ou começa a conjurar uma magia'],
+  [/^when a humanoid you can see within 60 feet of you dies$/i, 'quando um humanoide que você vê a até 18 metros morre'],
+  [/^when (?:you are|you're) hit by an attack roll(?:.*)$/i, 'quando você é atingido por uma jogada de ataque'],
+  [/^in response to being damaged by a creature within 60 feet of you that you can see$/i, 'quando uma criatura que você vê a até 18 metros causa dano a você'],
+  [/^immediately after hitting a (creature|target) with a Melee weapon or an Unarmed Strike$/i, (_, w) => `imediatamente após atingir ${w === 'target' ? 'um alvo' : 'uma criatura'} com uma arma corpo a corpo ou um Ataque Desarmado`],
+  [/^immediately after hitting a creature with a Ranged weapon$/i, 'imediatamente após atingir uma criatura com uma arma de ataque à distância'],
+  [/^immediately after hitting a creature with a weapon$/i, 'imediatamente após atingir uma criatura com uma arma'],
+  [/^immediately after hitting or missing a target with a ranged attack using a weapon$/i, 'imediatamente após acertar ou errar um ataque à distância com uma arma'],
+];
+const ACTION_PT = { action: 'Ação', 'bonus action': 'Ação Bônus', reaction: 'Reação' };
+function actionPt(str) {
+  const k = String(str).trim().replace(/^1\s+/, '').toLowerCase();
+  return ACTION_PT[k] || timePt(str);
+}
+/** Tempo de conjuração: "1 action" → "Ação", "Action or Ritual" → "Ação ou Ritual", "Reaction, which you take when…" → "Reação, que você realiza quando…". */
+export function castingTimePt(ct) {
+  const s = String(ct || '').trim();
+  const which = s.match(/^([^,]+),\s*which you take\s+(.+)$/i);
+  if (which) {
+    const base = actionPt(which[1]) || which[1];
+    const trig = TRIGGER_PT.find(([re]) => re.test(which[2].trim()));
+    if (!trig) return base;
+    const text = typeof trig[1] === 'function' ? which[2].trim().replace(trig[0], trig[1]) : trig[1];
+    return `${base}, que você realiza ${text}`;
+  }
+  const parts = s.split(/\s+(?:or|ou)\s+/i);
+  const out = parts.map(p => (/^ritual$/i.test(p) ? 'Ritual' : actionPt(p)));
+  if (out.every(Boolean)) return out.join(' ou ');
+  return s;
+}
+
+/** Duração: "Concentration, up to 1 minute" / "1 min, conc" / "Conc. 1 hour" → "Concentração, até 1 minuto". */
+export function durationPt(d) {
+  const s = String(d || '').trim();
+  const fixed = {
+    instant: 'Instantânea', 'inst.': 'Instantânea', instantaneous: 'Instantânea', 'until dispelled': 'Até ser dissipada',
+    'until triggered': 'Até ser ativada', 'until dispelled or triggered': 'Até ser dissipada ou ativada', special: 'Especial',
+  }[s.toLowerCase()];
+  if (fixed) return fixed;
+  if (/^Instantaneous or 1 hour \(see below\)$/i.test(s)) return 'Instantânea ou 1 hora (veja a descrição)';
+  let m = s.match(/^Concentration,\s*up to\s+(.+)$/i) || s.match(/^Conc\.\s*(.+)$/i) || s.match(/^(.+?),\s*conc\.?$/i);
+  if (m) { const t = timePt(m[1]); return t ? `Concentração, até ${t}` : s; }
+  m = s.match(/^Up to\s+(.+)$/i);
+  if (m) { const t = timePt(m[1]); return t ? `Até ${t}` : s; }
+  return timePt(s) || s;
+}
+
+const COIN_PT = { gp: 'PO', sp: 'PP', cp: 'PC', ep: 'PE', pp: 'PL' };
+/** Componentes: "V, S, M (a ruby worth at least 50 gp, which the spell consumes)" → "V, S, M (vale 50+ PO, consumido)". */
+export function componentsPt(c) {
+  const s = String(c || '').trim();
+  const m = s.match(/^([VSM,\s]+?)\s*\((.*)\)$/);
+  if (!m) return s;
+  const letters = m[1].trim();
+  const mat = m[2];
+  const cost = mat.match(/worth\s+(?:at least\s+)?([\d,]+)\s*\+?\s*(gp|sp|cp|ep|pp)\b/i) || mat.match(/([\d,]+)\s*(gp|sp|cp|ep|pp)\s+worth\b/i);
+  const notes = [];
+  if (cost) notes.push(`vale ${cost[1].replace(/,/g, '.')}+ ${COIN_PT[cost[2].toLowerCase()]}`);
+  if (/consume/i.test(mat)) notes.push('consumido');
+  return notes.length ? `${letters} (${notes.join(', ')})` : letters;
+}
+
+/** metaPt de uma magia sem texto pt (mesmo formato do SRD: { castingTime, range, components, duration }). */
+export function translateSpellMeta(sp) {
+  return {
+    castingTime: castingTimePt(sp?.castingTime),
+    range: rangePt(sp?.range),
+    components: componentsPt(sp?.components),
+    duration: durationPt(sp?.duration),
+  };
+}
+
+// Abreviações e unidades dos resumos 2014 antigos ("SAL DEST", "20 pés", "0 HP", "10 lb").
+const SAVE_PT = {
+  FOR: 'Força', STR: 'Força', DEST: 'Destreza', DES: 'Destreza', DEX: 'Destreza', CON: 'Constituição',
+  INT: 'Inteligência', SAB: 'Sabedoria', WIS: 'Sabedoria', CAR: 'Carisma', CHA: 'Carisma',
+};
+/** Deixa um resumo pt mais claro para iniciante: salvaguardas por extenso, metros, PV, kg, litros. */
+export function polishPtText(text) {
+  if (typeof text !== 'string') return text;
+  return text
+    .replace(/\bSAL\.?\s+(FOR|STR|DEST|DES|DEX|CON|INT|SAB|WIS|CAR|CHA)\b/g, (_, a) => `salvaguarda de ${SAVE_PT[a]}`)
+    .replace(/\bSAL\b/g, 'salvaguarda')
+    .replace(/\bsalvamentos\b/g, 'salvaguardas').replace(/\bsalvamento\b/g, 'salvaguarda')
+    .replace(/(-|−)?(\d[\d.,]*)\s*(?:pés|ft)\b/g, (_, sign, n) => `${sign || ''}${feetToMeters(n.replace(/\./g, ''))}`)
+    .replace(/(\d[\d.,]*)\s*lb\b/g, (_, n) => `${fmtNum(Number(n.replace(/\./g, '')) * 0.5)} kg`)
+    .replace(/(\d+)\s*galões/g, (_, n) => `${Number(n) * 4} litros`)
+    .replace(/\bHP\b/g, 'PV');
+}
+
+/**
+ * Resumos 2014 (uma linha, texto próprio) das magias que o catálogo 2014 copia do
+ * SRD 5.2.1 (srd.js, LEGACY_SPELLS_FROM_2024): sem eles a ficha 2014 mostraria o texto
+ * inteiro da versão 2024 — e com a regra errada (ex.: o salto do Orbe Cromático é de 2024).
+ */
+export const LEGACY_SUMMARIES_2014 = {
+  // 1º círculo
+  chromaticOrb: ['Esfera de energia (ácido, frio, fogo, elétrico, veneno ou trovejante): ataque mágico à distância, 3d8 de dano do tipo escolhido. Precisa de um diamante de 50 PO.', 'Orb of energy (acid, cold, fire, lightning, poison or thunder): ranged spell attack, 3d8 damage of that type. Needs a 50 gp diamond.'],
+  dissonantWhispers: ['Uma criatura ouve uma melodia dolorosa: salvaguarda de Sabedoria ou 3d6 psíquico e usa a reação para se afastar de você (metade do dano se passar).', 'A creature hears a painful tune: WIS save or 3d6 psychic and it uses its reaction to move away from you (half damage on a success).'],
+  ensnaringStrike: ['Ação bônus: no seu próximo acerto com arma brotam vinhas; o alvo faz salvaguarda de Força ou fica impedido e sofre 1d6 perfurante por turno. Concentração.', 'Bonus action: your next weapon hit sprouts vines; the target makes a STR save or is restrained and takes 1d6 piercing each turn. Concentration.'],
+  floatingDisk: ['Ritual: cria um disco de força a 1 metro do chão que carrega até 250 kg e segue você por 1 hora.', 'Ritual: creates a floating disk of force that carries up to 500 lb and follows you for 1 hour.'],
+  hellishRebuke: ['Reação quando uma criatura causa dano a você: ela é envolvida em chamas, salvaguarda de Destreza ou 2d10 de fogo (metade se passar).', 'Reaction when a creature damages you: it is wreathed in flames, DEX save or 2d10 fire (half on a success).'],
+  iceKnife: ['Arremessa um caco de gelo: ataque mágico à distância, 1d10 perfurante; depois ele explode e quem estiver a até 1,5 metro faz salvaguarda de Destreza ou sofre 2d6 de frio.', 'Throw a shard of ice: ranged spell attack, 1d10 piercing; then it explodes and each creature within 5 ft makes a DEX save or takes 2d6 cold.'],
+  illusoryScript: ['Ritual: escreve uma mensagem que só as criaturas que você escolher conseguem ler; para os outros parece outra escrita. Dura 10 dias.', 'Ritual: write a message only the creatures you choose can read; to others it looks like something else. Lasts 10 days.'],
+  searingSmite: ['Ação bônus: seu próximo acerto com arma causa +1d6 de fogo e incendeia o alvo, que sofre 1d6 de fogo no começo de cada turno até passar numa salvaguarda de Constituição. Concentração.', 'Bonus action: your next weapon hit deals +1d6 fire and sets the target ablaze; it takes 1d6 fire at the start of each turn until it passes a CON save. Concentration.'],
+  unseenServant: ['Ritual: cria uma força invisível e sem mente que faz tarefas simples (buscar, limpar, carregar) por 1 hora.', 'Ritual: creates an invisible, mindless force that performs simple tasks (fetch, clean, carry) for 1 hour.'],
+  // 2º círculo
+  acidArrow: ['Flecha de ácido: ataque mágico à distância, 4d4 de ácido agora e 2d4 no fim do próximo turno do alvo (metade do dano inicial se errar).', 'Acid arrow: ranged spell attack, 4d4 acid now and 2d4 at the end of the target\'s next turn (half the initial damage on a miss).'],
+  augury: ['Ritual: pergunte sobre um plano para os próximos 30 minutos e receba um presságio: bem, mal, bem e mal, ou nada.', 'Ritual: ask about a plan for the next 30 minutes and get an omen: weal, woe, weal and woe, or nothing.'],
+  blur: ['Seu corpo fica borrado: quem ataca você tem desvantagem (se depender da visão). Concentração, até 1 minuto.', 'Your body blurs: attackers have disadvantage against you (if they rely on sight). Concentration, up to 1 minute.'],
+  darkness: ['Escuridão mágica numa esfera de 4,5 metros de raio; nem visão no escuro enxerga nela. Concentração, até 10 minutos.', 'Magical darkness in a 15-ft-radius sphere; even darkvision can\'t see through it. Concentration, up to 10 minutes.'],
+  mirrorImage: ['Três cópias ilusórias suas confundem os inimigos: um ataque contra você pode acertar uma cópia, que some. Dura 1 minuto.', 'Three illusory duplicates confuse foes: an attack against you may hit a duplicate instead, destroying it. Lasts 1 minute.'],
+  spiderClimb: ['Uma criatura anda por paredes e tetos com as mãos livres e ganha deslocamento de escalada. Concentração, até 1 hora.', 'A creature can walk on walls and ceilings with free hands and gains a climbing speed. Concentration, up to 1 hour.'],
+  wardingBond: ['Liga você a um aliado: ele ganha +1 na CA e nas salvaguardas e resistência a dano, mas você sofre o mesmo dano que ele. Dura 1 hora.', 'Links you to an ally: it gets +1 AC and saves and resistance to damage, but you take the same damage it does. Lasts 1 hour.'],
+  web: ['Teias grossas num cubo de 6 metros: terreno difícil, e quem entra faz salvaguarda de Destreza ou fica impedido. Concentração, até 1 hora.', 'Thick webs fill a 20-ft cube: difficult terrain, and creatures entering make a DEX save or are restrained. Concentration, up to 1 hour.'],
+  alterSelf: ['Muda seu corpo: respirar e nadar na água, mudar a aparência, ou ganhar garras/presas (1d6). Concentração, até 1 hora.', 'Change your body: breathe and swim underwater, change your appearance, or grow natural weapons (1d6). Concentration, up to 1 hour.'],
+  arcaneLock: ['Tranca magicamente uma porta, janela ou baú; só você e quem você escolher abrem normalmente. Permanente.', 'Magically locks a door, window or chest; only you and those you choose open it normally. Permanent.'],
+  continualFlame: ['Uma chama que não esquenta e não se apaga, como uma tocha eterna. Precisa de pó de rubi (50 PO).', 'A flame that gives no heat and never goes out, like an everlasting torch. Needs ruby dust (50 gp).'],
+  enlargeReduce: ['Uma criatura ou objeto cresce (vantagem em Força e +1d4 de dano com arma) ou encolhe (desvantagem em Força e −1d4 de dano). Concentração, até 1 minuto.', 'A creature or object grows (advantage on STR, +1d4 weapon damage) or shrinks (disadvantage on STR, −1d4 damage). Concentration, up to 1 minute.'],
+  magicMouth: ['Ritual: um objeto ganha uma boca mágica que fala uma mensagem quando acontece algo que você definiu.', 'Ritual: an object gets a magic mouth that speaks a message when a condition you set happens.'],
+  ropeTrick: ['Uma corda sobe e abre um esconderijo extradimensional para até 8 criaturas por 1 hora.', 'A rope rises and opens an extradimensional hideout for up to 8 creatures for 1 hour.'],
+  arcanistsMagicAura: ['Esconde ou falsifica a aura mágica de uma criatura ou objeto contra magias de detecção. Dura 24 horas.', 'Hides or falsifies the magical aura of a creature or object against divination. Lasts 24 hours.'],
+  calmEmotions: ['Criaturas numa esfera de 6 metros fazem salvaguarda de Carisma; quem falhar deixa de estar com medo/enfeitiçado ou deixa de ser hostil. Concentração, até 1 minuto.', 'Creatures in a 20-ft sphere make a CHA save; on a failure they stop being charmed/frightened or become indifferent. Concentration, up to 1 minute.'],
+  detectThoughts: ['Lê os pensamentos superficiais de uma criatura a até 9 metros; pode sondar mais fundo (salvaguarda de Sabedoria). Concentração, até 1 minuto.', 'Read the surface thoughts of a creature within 30 ft; you can probe deeper (WIS save). Concentration, up to 1 minute.'],
+  dragonsBreath: ['Uma criatura ganha um sopro de dragão (ácido, frio, fogo, elétrico ou veneno): ação para soprar um cone de 4,5 metros, 3d6 de dano, salvaguarda de Destreza para metade. Concentração, até 1 minuto.', 'A creature gains a dragon breath (acid, cold, fire, lightning or poison): action to exhale a 15-ft cone, 3d6 damage, DEX save for half. Concentration, up to 1 minute.'],
+  enthrall: ['Quem ouve você faz salvaguarda de Sabedoria; quem falhar tem desvantagem em Sabedoria (Percepção) para notar outras criaturas. Dura 1 minuto.', 'Listeners make a WIS save; on a failure they have disadvantage on Wisdom (Perception) checks to notice others. Lasts 1 minute.'],
+  knock: ['Abre uma fechadura, tranca ou corrente comum (ou suspende Tranca Arcana por 10 minutos), com um barulho alto.', 'Opens a mundane lock, bar or chain (or suppresses Arcane Lock for 10 minutes), with a loud knock.'],
+  mindSpike: ['Salvaguarda de Sabedoria ou 3d8 psíquico (metade se passar); você sabe onde o alvo está enquanto durar. Concentração, até 1 hora.', 'WIS save or 3d8 psychic (half on a success); you know where the target is while it lasts. Concentration, up to 1 hour.'],
+  phantasmalForce: ['Cria uma ilusão na mente de uma criatura (salvaguarda de Inteligência); ela acredita nela e pode sofrer 1d6 psíquico por turno. Concentração, até 1 minuto.', 'Creates an illusion in a creature\'s mind (INT save); it believes it and can take 1d6 psychic each turn. Concentration, up to 1 minute.'],
+};
+
+/**
+ * Prepara o catálogo 2014 (SRD.SPELLS) para a tela em pt: resumo 2014 nas cópias de
+ * magias 2024, resumos antigos mais claros e `metaPt` traduzido (Utils.spellMeta usa).
+ * Troca objetos (desc) em vez de alterar os compartilhados com o catálogo 2024. Idempotente.
+ */
+export function localizeLegacySpells(spells) {
+  for (const sp of spells || []) {
+    if (!sp || sp.__ptLocalized) continue;
+    const sum = LEGACY_SUMMARIES_2014[sp.id];
+    if (sum) sp.desc = { pt: sum[0], en: sum[1] };
+    else if (sp.desc?.pt && !sp.metaPt) sp.desc = { ...sp.desc, pt: polishPtText(sp.desc.pt) };
+    if (!sp.metaPt) sp.metaPt = translateSpellMeta(sp);
+    Object.defineProperty(sp, '__ptLocalized', { value: true, enumerable: false });
+  }
+  return spells;
+}
+
+export const EXTRA_SPELLS_2024 = RAW_EXTRA_SPELLS.map(s => ({ ...s, metaPt: translateSpellMeta(s) }));

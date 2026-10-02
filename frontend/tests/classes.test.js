@@ -230,10 +230,10 @@ describe('Feiticeiro 1→20 (Draconato)', () => {
 });
 
 describe('Bruxo 1→20 (Hexblade)', () => {
-  test('Hexblade autoSpells e features no 1', () => {
+  test('Hexblade: Lista Expandida não vira magia automática (PHB 2014) e features no 1', () => {
     const p = computeProgression(build('warlock', 1, 'hexblade'));
-    assert.ok(p.autoSpells.includes('shield'));
-    assert.ok(p.autoSpells.includes('wrathfulSmite'));
+    assert.ok(!p.autoSpells.includes('shield'));
+    assert.ok(!p.autoSpells.includes('wrathfulSmite'));
     assert.ok(featureAt(p, 'hexblade_curse', 1));
     assert.ok(featureAt(p, 'hexWarrior', 1));
   });
@@ -300,11 +300,11 @@ describe('applyAutosToCharacter — novas subclasses', () => {
     assert.ok(c.spells.find(s => s.id === 'blur'));
   });
 
-  test('Warlock Hexblade aplica shield e wrathfulSmite', () => {
+  test('Warlock Hexblade 2014 não ganha a Lista Expandida de graça (shield/wrathfulSmite)', () => {
     const c = applyAutosToCharacter(build('warlock', 1, 'hexblade'));
     const ids = new Set(c.spells.map(s => s.id));
-    assert.ok(ids.has('shield'));
-    assert.ok(ids.has('wrathfulSmite'));
+    assert.ok(!ids.has('shield'));
+    assert.ok(!ids.has('wrathfulSmite'));
   });
 
   test('Paladin Devotion nv 5 aplica oath spells de 3 e 5', () => {

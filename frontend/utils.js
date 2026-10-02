@@ -10,6 +10,8 @@ import * as MC from './src/progression/multiclass.js';
 import * as FS from './src/progression/fighting-styles.js';
 import * as Species from './src/progression/species.js';
 import { SPELLS_2024, BACKGROUNDS_2024, SPECIES_2024 } from './data/rules2024.js';
+// Ciclo utils ↔ start-data é seguro: nenhum dos dois usa o outro no carregamento.
+import { isWeaponProficient } from './src/creator/start-data.js';
 
 const Utils = (() => {
 
@@ -372,15 +374,134 @@ function hasSaveProf(char, ability) {
   return (char.saveProfs || []).includes(ability) || (classGrants(char).saves || []).includes(ability);
 }
 
+// Ordem Divina: Taumaturgo (Clérigo 2024) e Ordem Primal: Mago (Druida 2024), SRD 5.2.1:
+// somam o modificador de Sabedoria (mínimo +1) aos testes de Inteligência
+// (Arcanismo ou Religião / Arcanismo ou Natureza).
+const WIS_TO_INT_SKILLS = [
+  { classId: 'cleric', pool: 'divineOrder', id: 'thaumaturge', skills: ['arcana', 'religion'] },
+  { classId: 'druid', pool: 'primalOrder', id: 'magician', skills: ['arcana', 'nature'] },
+];
+function wisdomSkillBonus(char, skillId) {
+  if (!is2024(char)) return 0;
+  const picks = Array.isArray(char.classOptions) ? char.classOptions : [];
+  const hit = WIS_TO_INT_SKILLS.some(r => r.skills.includes(skillId) && MC.hasClass(char, r.classId)
+    && picks.some(p => p && p.pool === r.pool && p.id === r.id && (!p.classId || p.classId === r.classId)));
+  return hit ? Math.max(1, abilityMod(char, 'wis')) : 0;
+}
+
 function skillBonus(char, skillId) {
   const skill = SRD.SKILLS.find(s => s.id === skillId);
   if (!skill) return 0;
-  const m = abilityMod(char, skill.stat);
+  const m = abilityMod(char, skill.stat) + wisdomSkillBonus(char, skillId);
   const isProf = hasSkillProf(char, skillId);
   const isExpert = hasExpertise(char, skillId);
   if (isExpert) return m + profBonus(char) * 2;
   if (isProf) return m + profBonus(char);
   return m;
+}
+
+// === Ataques ===
+const DAMAGE_LABEL = {
+  acid: ['ácido', 'acid'], bludgeoning: ['concussão', 'bludgeoning'], cold: ['frio', 'cold'], fire: ['fogo', 'fire'],
+  force: ['energia', 'force'], lightning: ['elétrico', 'lightning'], necrotic: ['necrótico', 'necrotic'],
+  piercing: ['perfurante', 'piercing'], poison: ['veneno', 'poison'], psychic: ['psíquico', 'psychic'],
+  radiant: ['radiante', 'radiant'], slashing: ['cortante', 'slashing'], thunder: ['trovejante', 'thunder'],
+};
+/** Tipo de dano no idioma da tela (aceita o id em inglês; texto livre passa como está). */
+function damageLabel(type, lang) {
+  const key = String(type || '').trim().toLowerCase();
+  const row = DAMAGE_LABEL[key] || Object.values(DAMAGE_LABEL).find(r => r.includes(key));
+  return row ? row[lang === 'pt' ? 0 : 1] : (type || '');
+}
+
+/** Deslocamento em pés → texto da tela: '9 m' (pt) ou '30 ft'. */
+function speedLabel(feet, lang) {
+  if (lang !== 'pt') return `${feet} ft`;
+  return `${(feet * 0.3).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} m`;
+}
+
+const dieSides = (dice) => { const m = /^(\d+)d(\d+)$/.exec(String(dice || '').trim()); return m ? { count: +m[1], sides: +m[2] } : null; };
+
+// Artes Marciais do Monge. 2024 (SRD 5.2.1): d6 no 1º, d8 no 5º, d10 no 11º, d12 no 17º.
+// 2014 (SRD 5.1): d4, d6, d8, d10 nos mesmos níveis.
+function martialArtsDie(char) {
+  if (!MC.hasClass(char, 'monk')) return null;
+  const lv = MC.classLevel(char, 'monk') || (char.className === 'monk' ? char.level || 1 : 0);
+  if (!lv) return null;
+  const steps = is2024(char) ? [6, 8, 10, 12] : [4, 6, 8, 10];
+  return `1d${steps[lv >= 17 ? 3 : lv >= 11 ? 2 : lv >= 5 ? 1 : 0]}`;
+}
+
+// Artes Marciais só valem sem armadura e sem escudo.
+const martialArtsActive = (char) => !!martialArtsDie(char) && !char.armor && !char.hasShield;
+
+/** Arma de Monge: 2024 = simples corpo a corpo e marciais corpo a corpo Leves; 2014 = espada curta e simples corpo a corpo sem Duas Mãos/Pesada. */
+function isMonkWeapon(char, def) {
+  if (!def) return false;
+  const props = def.props || [];
+  if (is2024(char)) return def.type === 'simple-melee' || (def.type === 'martial-melee' && props.includes('light'));
+  return def.id === 'shortsword' || (def.type === 'simple-melee' && !props.includes('two-handed') && !props.includes('heavy'));
+}
+
+const withMod = (dice, mod) => (dice ? `${dice}${mod ? fmtMod(mod) : ''}` : String(Math.max(0, mod)));
+
+/**
+ * Ataque com uma arma da ficha (char.weapons[i]) pela regra da ficha:
+ * { bonus, damage, dice, dmgMod, dmgType, ability, proficient, monk, fs }.
+ * `damage` é o texto ('1d6+2'); `dice` + `dmgMod` servem para rolar.
+ */
+function attackFor(char, weapon) {
+  const w = weapon || {};
+  const def = w.id ? SRD.weaponFor(w.id, char.rulesVersion) : null;
+  const props = def?.props || w.props || [];
+  const ranged = (def?.type || '').includes('ranged');
+  const str = abilityMod(char, 'str');
+  const dex = abilityMod(char, 'dex');
+  const monk = !!def && martialArtsActive(char) && isMonkWeapon(char, def);
+  const useDex = ranged || ((props.includes('finesse') || monk) && dex > str);
+  const ability = useDex ? 'dex' : 'str';
+  const abMod = useDex ? dex : str;
+  const proficient = !def || isWeaponProficient(char, def.id);
+  const fs = FS.weaponStyleBonuses(char, w);
+  let dice = w.damage || w.dmg || def?.damage || '';
+  if (monk) {
+    const ma = martialArtsDie(char);
+    const a = dieSides(dice); const b = dieSides(ma);
+    if (!a || (b && a.count === 1 && b.sides > a.sides)) dice = ma;
+  }
+  // Arma personalizada (sem id): vale o bônus anotado na ficha.
+  const bonus = def ? abMod + (proficient ? profBonus(char) : 0) + (fs.attack || 0) : (Number(w.bonus) || 0);
+  const dmgMod = def ? abMod + (fs.damage || 0) : 0;
+  return { bonus, damage: withMod(dice, dmgMod), dice, dmgMod, dmgType: w.dmgType || def?.dmgType || '', ability, proficient, monk, fs };
+}
+
+/**
+ * Golpe Desarmado (todo mundo é proficiente): 1 + FOR de concussão. Monge com
+ * Artes Marciais usa o dado marcial e DES ou FOR; o Estilo de Luta Desarmado
+ * troca o 1 pelo dado do estilo. { name, bonus, damage, dice, dmgMod, dmgType, ability, proficient, monk, style }.
+ */
+function unarmedStrike(char) {
+  const str = abilityMod(char, 'str');
+  const dex = abilityMod(char, 'dex');
+  const monk = martialArtsActive(char);
+  const style = FS.unarmedStrike(char);
+  const useDex = monk && dex > str;
+  const abMod = useDex ? dex : str;
+  let dice = '';
+  if (style) dice = style.die;
+  if (monk) {
+    const ma = martialArtsDie(char);
+    if (!dice || dieSides(ma).sides > (dieSides(dice)?.sides || 0)) dice = ma;
+  }
+  // Sem dado: dano fixo de 1 + modificador.
+  const dmgMod = dice ? abMod : 1 + abMod;
+  return {
+    name: { pt: 'Golpe Desarmado', en: 'Unarmed Strike' },
+    bonus: abMod + profBonus(char),
+    damage: dice ? withMod(dice, abMod) : String(Math.max(1, dmgMod)),
+    dice, dmgMod: dice ? abMod : Math.max(1, dmgMod),
+    dmgType: 'bludgeoning', ability: useDex ? 'dex' : 'str', proficient: true, monk, style,
+  };
 }
 
 function passivePerception(char) {
@@ -632,6 +753,50 @@ function maxSpellLevel(char) {
   return slots.length;
 }
 
+// === Tempo/alcance/duração em pt (magias sem metaPt) ===
+const UNIT_PT = [
+  [/\bbonus actions?\b/gi, 'ação bônus'], [/\bactions?\b/gi, 'ação'], [/\breactions?\b/gi, 'reação'],
+  [/\b(\d+) minutes?\b|\b(\d+) min\b/gi, (m, a, b) => `${a || b} ${+(a || b) === 1 ? 'minuto' : 'minutos'}`],
+  [/\b(\d+) hours?\b|\b(\d+)h\b/gi, (m, a, b) => `${a || b} ${+(a || b) === 1 ? 'hora' : 'horas'}`],
+  [/\b(\d+) rounds?\b/gi, (m, a) => `${a} ${+a === 1 ? 'rodada' : 'rodadas'}`],
+  [/\b(\d+) days?\b/gi, (m, a) => `${a} ${+a === 1 ? 'dia' : 'dias'}`],
+  [/\bor Ritual\b/g, 'ou Ritual'], [/\bRitual\b/g, 'Ritual'], [/\bor\b/g, 'ou'],
+];
+const ftToM = (n) => (Math.round(+String(n).replace(/,/g, '') * 0.3 * 10) / 10).toLocaleString('pt-BR');
+const SHAPE_PT = { cone: 'cone', cube: 'cubo', line: 'linha', radius: 'raio', emanation: 'emanação', sphere: 'esfera', cylinder: 'cilindro' };
+function metaPt(text, kind) {
+  if (!text || typeof text !== 'string') return text;
+  let s = text.trim();
+  if (kind === 'time') {
+    // "Reaction, which you take when…": o gatilho fica na descrição da magia.
+    const trigger = /,\s*which you take/i.test(s);
+    s = s.replace(/,\s*which you take.*$/i, '');
+    s = s.replace(/^Action\b/, '1 ação').replace(/^Bonus Action\b/, '1 ação bônus').replace(/^Reaction\b/, '1 reação');
+    for (const [re, to] of UNIT_PT) s = s.replace(re, to);
+    return trigger ? `${s} (gatilho na descrição)` : s;
+  }
+  if (kind === 'range') {
+    s = s.replace(/\b(\d[\d,]*)[- ](?:ft|feet|foot)\b\.?/gi, (m, n) => `${ftToM(n)} m`)
+      .replace(/\b(\d+)[- ]miles?\b/gi, (m, n) => `${(Math.round(n * 1.5 * 10) / 10).toLocaleString('pt-BR')} km`)
+      .replace(/\b(cone|cube|line|radius|emanation|sphere|cylinder)\b/gi, (m) => SHAPE_PT[m.toLowerCase()])
+      .replace(/^Self\b/, 'Pessoal').replace(/^Touch\b/, 'Toque').replace(/^Sight\b/, 'Visão')
+      .replace(/^Unlimited\b/, 'Ilimitado').replace(/^Special\b/, 'Especial');
+    // "Pessoal (9 m cone)" → "Pessoal (cone de 9 m)"
+    return s.replace(/\((\S+ (?:m|km)) (cone|cubo|linha|raio|emanação|esfera|cilindro)\)/, '($2 de $1)');
+  }
+  if (kind === 'duration') {
+    s = s.replace(/^Instantaneous or (.*)\(see below\)$/i, 'Instantânea ou $1(veja a descrição)')
+      .replace(/^(Instantaneous|Instant|Inst\.)$/i, 'Instantânea')
+      .replace(/^Concentration, up to /i, 'Concentração, até ').replace(/^Conc\. /i, 'Concentração, até ')
+      .replace(/^(.*), conc$/i, 'Concentração, até $1')
+      .replace(/^Until dispelled$/i, 'Até ser dissipada').replace(/^Until triggered$/i, 'Até ser ativada')
+      .replace(/^Up to /i, 'Até ').replace(/^Permanent$/i, 'Permanente').replace(/^Special$/i, 'Especial');
+    for (const [re, to] of UNIT_PT) s = s.replace(re, to);
+    return s;
+  }
+  return s;
+}
+
 // === Race ASI helpers ===
 function applyRaceBonus(char, raceId) {
   if (char.rulesVersion === '2024') return char.raceBonus || {};
@@ -678,7 +843,11 @@ return {
   races: racesFor,
   spellCatalog: char => char.rulesVersion === '2024' ? SPELLS_2024 : SRD.SPELLS,
   // Tempo/alcance/componentes/duração no idioma da tela (texto em pt das magias do SRD 5.2.1).
-  spellMeta: (sp, lang) => (lang === 'pt' && sp?.metaPt) || { castingTime: sp?.castingTime, range: sp?.range, components: sp?.components, duration: sp?.duration },
+  // Sem metaPt (magias fora do SRD 5.2.1 em pt): tradução das expressões comuns.
+  spellMeta: (sp, lang) => (lang === 'pt' && sp?.metaPt)
+    || (lang === 'pt' ? { castingTime: metaPt(sp?.castingTime, 'time'), range: metaPt(sp?.range, 'range'), components: sp?.components, duration: metaPt(sp?.duration, 'duration') } : null)
+    || { castingTime: sp?.castingTime, range: sp?.range, components: sp?.components, duration: sp?.duration },
+  metaPt,
   backgrounds: char => char.rulesVersion === '2024' ? BACKGROUNDS_2024 : SRD.BACKGROUNDS,
   subclassLevel: char => char.rulesVersion === '2024' ? 3 : ({ cleric:1, sorcerer:1, warlock:1, druid:2, wizard:2 }[char.className] || 3),
   // Multiclasse
@@ -700,7 +869,8 @@ return {
   uid, mod, fmtMod,
   loadAll, saveAll, loadChar, saveChar, deleteChar,
   makeNew,
-  abilityWithRace, abilityMod, profBonus, saveBonus, skillBonus, passivePerception,
+  abilityWithRace, abilityMod, profBonus, saveBonus, skillBonus, wisdomSkillBonus, passivePerception,
+  attackFor, unarmedStrike, martialArtsDie, isMonkWeapon, damageLabel, speedLabel,
   computeAc, maxHpDefault, speed, initiative, sizeOf,
   speciesGrants: Species.speciesGrants, speciesChoiceIssues: Species.speciesChoiceIssues,
   spellcastingAbility, spellSaveDc, spellAttackBonus, spellSlots, spellListClass, spellListClasses, inSpellList,

@@ -28,7 +28,7 @@ const SPELL = {
   searingSmite: b('Destruição Abrasadora', 'Searing Smite'), brandingSmite: b('Bênção Flamejante', 'Branding Smite'),
   viciousMockery: b('Caçoada Cruel', 'Vicious Mockery'), enthrall: b('Cativar', 'Enthrall'),
   light: b('Luz', 'Light'), entangle: b('Enredar', 'Entangle'), spikeGrowth: b('Crescimento de Espinhos', 'Spike Growth'), sleep: b('Sono', 'Sleep'),
-  druidcraft: b('Druidcraft', 'Druidcraft'), detectMagic: b('Detectar Magia', 'Detect Magic'),
+  druidcraft: b('Arte Druídica', 'Druidcraft'), detectMagic: b('Detectar Magia', 'Detect Magic'),
   detectPoisonAndDisease: b('Detectar Veneno e Doenças', 'Detect Poison and Disease'), seeInvisibility: b('Ver Invisibilidade', 'See Invisibility'),
   huntersMark: b('Marca do Caçador', "Hunter's Mark"), locateObject: b('Localizar Objeto', 'Locate Object'),
   animalFriendship: b('Amizade com Animais', 'Animal Friendship'), speakWithAnimals: b('Falar com Animais', 'Speak with Animals'),

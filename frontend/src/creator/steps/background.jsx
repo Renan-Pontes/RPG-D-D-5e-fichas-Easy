@@ -5,12 +5,24 @@ import { classStart, toolName, backgroundStart } from '../start-data.js';
 import {
   backgroundList, findBackground, backgroundTool, backgroundToolText, backgroundOriginFeat, chosenBackgroundTools,
   ORIGIN_FEAT_LINE, fitsClass, applyBackground, toggleBackgroundTool, skillOverlap, backgroundIssues,
-  toolCategoryName, originFeatSpecs,
+  toolCategoryName, originFeatSpecs, ownedToolsOutsideBackground,
 } from '../background-helpers.js';
+import { expertiseGroups } from '../class-helpers.js';
+import { itemName } from '../equipment-helpers.js';
+import { Expertise } from './skills.jsx';
 
 const bgName = (b, lang) => b?.name?.[lang] || tName('background', b?.id, lang);
 const skillNames = (ids, lang) => (ids || []).map(s => tName('skill', s, lang)).join(lang === 'pt' ? ' e ' : ' and ');
 const abilityNames = (ids, lang) => (ids || []).map(a => t(a, lang)).join(', ');
+const SPLIT = { pt: '+2 em um e +1 em outro, ou +1 nos três', en: '+2 to one and +1 to another, or +1 to all three' };
+
+/** Itens do pacote A do antecedente ("Lança, Arco Curto, 20 Flechas…"). */
+function packText(pack, char, lang) {
+  return (pack?.items || []).map(it => {
+    const n = it.qty > 1 ? `${it.qty} ` : '';
+    return `${n}${itemName(it, char, lang)}`;
+  }).join(', ');
+}
 
 /** Linhas "o que você ganha" de um antecedente, em linguagem simples. */
 function Gains({ char, b, lang }) {
@@ -25,7 +37,7 @@ function Gains({ char, b, lang }) {
       <span className="cr-bg-line"><strong>{L(lang, 'Perícias', 'Skills')}:</strong> {skillNames(b.skills, lang)}</span>
       {tool && <span className="cr-bg-line"><strong>{L(lang, 'Ferramenta', 'Tool')}:</strong> {tool}</span>}
       {is24 && b.abilities && (
-        <span className="cr-bg-line"><strong>{L(lang, 'Atributos', 'Abilities')}:</strong> {abilityNames(b.abilities, lang)} <span className="muted">{L(lang, '(+3 para dividir)', '(+3 to split)')}</span></span>
+        <span className="cr-bg-line"><strong>{L(lang, 'Atributos', 'Abilities')}:</strong> {abilityNames(b.abilities, lang)} <span className="muted">({SPLIT[lang === 'pt' ? 'pt' : 'en']})</span></span>
       )}
       {is24 && b.feat && (
         <span className="cr-bg-line"><strong>{L(lang, 'Talento', 'Feat')}:</strong> {of ? of.feat.name[lang] + (of.picks.spellList ? ` (${tName('class', of.picks.spellList, lang)})` : '') : b.feat}
@@ -37,7 +49,12 @@ function Gains({ char, b, lang }) {
       {!is24 && start?.feature && (
         <span className="cr-bg-line"><strong>{L(lang, 'Característica', 'Feature')}:</strong> {start.feature[lang]}{start.featureDesc && <span className="muted"> — {start.featureDesc[lang]}</span>}</span>
       )}
-      {is24 && pack && <span className="cr-bg-line muted">{L(lang, `Equipamento: um kit do ofício ou 50 PO (você escolhe depois).`, 'Equipment: a trade kit or 50 GP (you choose later).')}</span>}
+      {is24 && pack && (
+        <span className="cr-bg-line muted">
+          <strong>{L(lang, 'Equipamento', 'Equipment')}:</strong> {packText(pack, char, lang)}{pack.gp ? `, ${pack.gp} ` : ' '}{pack.gp ? <Term id="goldPieces" lang={lang}>{L(lang, 'PO', 'GP')}</Term> : null}
+          {' '}{L(lang, 'ou 50 ', 'or 50 ')}<Term id="goldPieces" lang={lang}>{L(lang, 'PO', 'GP')}</Term>{L(lang, ' (você escolhe depois)', ' (you choose later)')}
+        </span>
+      )}
     </span>
   );
 }
@@ -46,7 +63,7 @@ function ToolChooser({ char, set, lang }) {
   const tl = backgroundTool(char);
   if (!tl.choose) return null;
   const cur = chosenBackgroundTools(char);
-  const other = new Set((char.toolProfs || []).filter(x => !cur.includes(x)));
+  const other = new Set(ownedToolsOutsideBackground(char));
   return (
     <div style={{ marginTop: 12 }}>
       <label>
@@ -54,7 +71,7 @@ function ToolChooser({ char, set, lang }) {
         <Counter n={cur.length} of={tl.choose} />
       </label>
       <p className="text-xs muted" style={{ margin: '2px 0 6px' }}>
-        {L(lang, 'É só sabor: escolha a que combina com a história do seu herói.', "It's mostly flavor: pick the one that fits your hero's story.")}
+        {L(lang, 'Você ganha treino (proficiência) nela. Escolha a que combina com a história do seu herói; as que você já tem ficam bloqueadas.', "You gain proficiency with it. Pick the one that fits your hero's story; the ones you already have are locked.")}
       </p>
       <div className="class-pick-grid">
         {tl.from.map(id => {
@@ -65,6 +82,7 @@ function ToolChooser({ char, set, lang }) {
               title={dup ? L(lang, 'Você já tem essa ferramenta.', 'You already have this tool.') : undefined}
               onClick={() => set(toggleBackgroundTool(char, id))}>
               <span className="class-pick-name" style={{ fontSize: '0.85rem' }}>{toolName(id, lang)}</span>
+              {dup && <span className="class-pick-meta">{L(lang, 'já proficiente', 'already proficient')}</span>}
             </button>
           );
         })}
@@ -123,8 +141,8 @@ function Comp({ char, set, lang, goTo, steps }) {
           <p className="text-sm" style={{ margin: '6px 0 0' }}>
             {L(lang, `Você ganha treino em ${skillNames(sel.skills, 'pt')}.`, `You gain training in ${skillNames(sel.skills, 'en')}.`)}
             {is24 && sel.abilities && ' ' + L(lang,
-              `Na etapa de atributos você vai dividir +3 entre ${abilityNames(sel.abilities, 'pt')} (+2 e +1, ou +1 em cada).`,
-              `In the abilities step you'll split +3 among ${abilityNames(sel.abilities, 'en')} (+2 and +1, or +1 each).`)}
+              `Na etapa de atributos você aumenta ${abilityNames(sel.abilities, 'pt')}: ${SPLIT.pt}.`,
+              `In the abilities step you raise ${abilityNames(sel.abilities, 'en')}: ${SPLIT.en}.`)}
             {is24 && hasFeatChoices && ' ' + L(lang, 'Na próxima etapa você faz as escolhas do talento.', "In the next step you'll make the feat's choices.")}
           </p>
 
@@ -133,8 +151,8 @@ function Comp({ char, set, lang, goTo, steps }) {
           {overlap.length > 0 && (
             <Callout kind="warn">
               {L(lang,
-                <>Você já tinha escolhido <strong>{skillNames(overlap, 'pt')}</strong> na etapa de classe, e o antecedente também dá {overlap.length === 1 ? 'essa perícia' : 'essas perícias'}. Treino repetido não soma nada: volte e troque {overlap.length === 1 ? 'a da classe por outra' : 'as da classe por outras'}.</>,
-                <>You had already picked <strong>{skillNames(overlap, 'en')}</strong> for your class, and your background also gives {overlap.length === 1 ? 'that skill' : 'those skills'}. Repeated training adds nothing: go back and swap the class {overlap.length === 1 ? 'one' : 'ones'} for something else.</>)}
+                <>Você já tinha escolhido <strong>{skillNames(overlap, 'pt')}</strong> na etapa Perícias, e o antecedente também dá {overlap.length === 1 ? 'essa perícia' : 'essas perícias'}. Treino repetido não soma nada: troque {overlap.length === 1 ? 'a da classe por outra' : 'as da classe por outras'} (a etapa Perícias vai marcar substitutas como "Recomendado"), ou escolha outro antecedente.</>,
+                <>You had already picked <strong>{skillNames(overlap, 'en')}</strong> in the Skills step, and your background also gives {overlap.length === 1 ? 'that skill' : 'those skills'}. Repeated training adds nothing: swap the class {overlap.length === 1 ? 'one' : 'ones'} (the Skills step will mark replacements as "Recommended"), or pick another background.</>)}
               {canGoSkills && goTo && (
                 <div style={{ marginTop: 8 }}>
                   <button type="button" className="btn btn-ghost" onClick={() => goTo('skills')}>{L(lang, 'Trocar perícias da classe', 'Change class skills')}</button>
@@ -145,11 +163,17 @@ function Comp({ char, set, lang, goTo, steps }) {
         </div>
       )}
 
+      {sel && expertiseGroups(char).map(g => (
+        <div key={g.key} style={{ marginTop: 16 }}>
+          <Expertise char={char} set={set} lang={lang} group={g} />
+        </div>
+      ))}
+
       {is24 && (
         <Callout kind="info">
           {L(lang,
-            <><strong>Já jogou a versão 2014?</strong> Nas regras 2024 os bônus de atributo saíram da espécie e vieram para o antecedente, junto com um talento. Por isso o Sábio, por exemplo, dá +3 em Constituição/Inteligência/Sabedoria e o Iniciado em Magia — não é bônus a mais. Os idiomas não vêm mais do antecedente: todo mundo fala Comum e escolhe mais 2 na etapa Idiomas.</>,
-            <><strong>Played the 2014 version?</strong> In the 2024 rules, ability increases moved from species to background, along with a feat. That's why the Sage, for example, gives +3 among Constitution/Intelligence/Wisdom plus Magic Initiate — it isn't an extra bonus. Languages no longer come from the background: everyone speaks Common and picks 2 more in the Languages step.</>)}
+            <><strong>Já jogou a versão 2014?</strong> Nas regras 2024 os bônus de atributo saíram da espécie e vieram para o antecedente, junto com um talento. Por isso o Sábio, por exemplo, aumenta Constituição, Inteligência ou Sabedoria (+2 em um e +1 em outro, ou +1 nos três) e dá o Iniciado em Magia — não é bônus a mais. Os idiomas não vêm mais do antecedente: todo mundo fala Comum e escolhe mais 2 na etapa Idiomas.</>,
+            <><strong>Played the 2014 version?</strong> In the 2024 rules, ability increases moved from species to background, along with a feat. That's why the Sage, for example, raises Constitution, Intelligence or Wisdom (+2 to one and +1 to another, or +1 to all three) plus Magic Initiate — it isn't an extra bonus. Languages no longer come from the background: everyone speaks Common and picks 2 more in the Languages step.</>)}
         </Callout>
       )}
       {!is24 && sel && (backgroundStart(char)?.languages || 0) > 0 && (

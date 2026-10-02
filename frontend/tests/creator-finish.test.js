@@ -4,7 +4,8 @@ import Utils from '../utils.js';
 import {
   newCharacter, hasRulesChoices, rulesSwitchPatch, detailsIssues, composeBackstory, STORY_PROMPTS,
   collectIssues, flatIssues, finalizeCharacter, characterSummary, weaponAttack, allToolProfs,
-  ALIGNMENT_INFO, isEvilAlignment,
+  ALIGNMENT_INFO, isEvilAlignment, NAME_MAX, knownSpells, hpBreakdown, hpExplain, initiativeExplain,
+  featuresSummary, groupWeapons, classCastsNow, saveDraft, loadDraft, clearDraft, DRAFT_KEY, saveErrorMessage,
 } from '../src/creator/creation.js';
 
 // Merge raso igual ao `set` do CreatorWizard.
@@ -209,6 +210,7 @@ test('2014: resumo do Mago (magias, CD, ataque mágico)', () => {
   assert.equal(s.spellAttack, 5);
   assert.deepEqual(s.spells.filter(x => x.level === 0).map(x => x.id).sort(), ['fireBolt', 'light', 'mageHand']);
   assert.equal(s.spells.find(x => x.id === 'magicMissile').name, 'Magic Missile');
+  assert.equal(characterSummary(wizard2014(), 'pt').spells.find(x => x.id === 'magicMissile').name, 'Mísseis Mágicos');
   assert.equal(s.passivePerception, 13); // 10 + 1 + 2
 });
 
@@ -228,4 +230,176 @@ test('resumo não quebra com a ficha ainda vazia', () => {
     assert.equal(s.hitDie, null);
     assert.deepEqual(s.attacks, []);
   }
+});
+
+// ---------- Bugs do teste de navegador (revisão, nome, rascunho) ----------
+
+test('detalhes: nome com mais de 120 letras vira pendência (o servidor recusa)', () => {
+  assert.equal(NAME_MAX, 120);
+  assert.deepEqual(detailsIssues({ name: 'a'.repeat(120) }), []);
+  const iss = detailsIssues({ name: 'a'.repeat(121) });
+  assert.equal(iss.length, 1);
+  assert.match(iss[0].pt, /121.*120/);
+  // Espaços nas pontas não contam e saem ao salvar.
+  assert.deepEqual(detailsIssues({ name: ` ${'a'.repeat(120)} ` }), []);
+  assert.equal(finalizeCharacter({ ...fighter2024(), name: '  Lia  ' }).name, 'Lia');
+});
+
+test('erro ao salvar: mensagem clara para nome longo e para falha de rede', () => {
+  const longName = { name: 'x'.repeat(130) };
+  assert.match(saveErrorMessage({ status: 400, data: { name: ['too long'] } }, longName).pt, /120/);
+  assert.match(saveErrorMessage({ status: 400 }, longName).pt, /120/);
+  assert.match(saveErrorMessage({ status: 400 }, { name: 'Lia' }).pt, /recusou/);
+  assert.match(saveErrorMessage(new Error('Failed to fetch'), { name: 'Lia' }).pt, /conexão/);
+});
+
+test('revisão 2024: nomes das magias em português e todas as fontes (classe, escolha de classe, talento, espécie)', () => {
+  const druid = {
+    ...newCharacter('2024'), className: 'druid', race: 'elf', background: 'sage',
+    abilities: { str: 8, dex: 14, con: 13, int: 10, wis: 15, cha: 8 },
+    classOptions: [{ classId: 'druid', pool: 'primalOrder', id: 'magician' }, { classId: 'druid', pool: 'magicianCantrip', id: 'starryWisp' }],
+    spells: [{ id: 'produceFlame', prepared: true }, { id: 'thornWhip', prepared: true }, { id: 'cureWounds', prepared: true }],
+    feats: [{ id: 'magicInitiate', origin: 'background', picks: { cantrip: ['guidance', 'light'], spell: 'alarm' } }],
+  };
+  const sp = knownSpells(druid, 'pt');
+  const byId = Object.fromEntries(sp.map(x => [x.id, x]));
+  assert.equal(byId.produceFlame.name, 'Produzir Chama');
+  assert.equal(byId.cureWounds.name, 'Curar Ferimentos');
+  assert.equal(byId.guidance.name, 'Orientação');
+  assert.equal(byId.guidance.source, 'feat');
+  assert.equal(byId.guidance.from.pt, 'Iniciado em Magia');
+  assert.equal(byId.starryWisp.name, 'Centelha Estelar'); // Ordem Primal: Mago
+  assert.equal(byId.starryWisp.source, 'class');
+  assert.equal(byId.starryWisp.auto, true);
+  assert.equal(byId.produceFlame.auto, false);
+  for (const x of sp) assert.doesNotMatch(x.name, /^(Guidance|Light|Produce Flame|Cure Wounds|Alarm)$/);
+  // Inglês continua em inglês.
+  assert.equal(knownSpells(druid, 'en').find(x => x.id === 'produceFlame').name, 'Produce Flame');
+});
+
+test('revisão: automáticas da classe (Marca do Caçador, Remendar, Pacto do Tomo)', () => {
+  const ranger = { ...newCharacter('2024'), className: 'ranger' };
+  const hm = knownSpells(ranger, 'pt').find(x => x.id === 'huntersMark');
+  assert.ok(hm && hm.auto && hm.prepared, 'Marca do Caçador sempre preparada');
+  const art = { ...newCharacter('2024'), className: 'artificer' };
+  assert.ok(knownSpells(art, 'pt').some(x => x.id === 'mending'));
+  const lock = { ...newCharacter('2024'), className: 'warlock',
+    classOptions: [{ classId: 'warlock', pool: 'invocation', id: 'pactOfTheTome' }, { classId: 'warlock', pool: 'tomeCantrip', id: 'guidance' }] };
+  assert.ok(knownSpells(lock, 'pt').some(x => x.id === 'guidance' && x.source === 'class'));
+});
+
+test('revisão do Mago: preparadas x só no grimório', () => {
+  const c = { ...wizard2014(), spells: [{ id: 'fireBolt' }, { id: 'magicMissile', inBook: true, prepared: true }, { id: 'sleep', inBook: true, prepared: false }] };
+  const s = characterSummary(c, 'pt');
+  const mm = s.spells.find(x => x.id === 'magicMissile');
+  const sl = s.spells.find(x => x.id === 'sleep');
+  assert.equal(mm.prepared, true);
+  assert.equal(mm.bookOnly, false);
+  assert.equal(sl.prepared, false);
+  assert.equal(sl.bookOnly, true);
+  assert.equal(s.usesSpellbook, true);
+});
+
+test('Paladino/Patrulheiro 2014 nível 1: sem CD nem ataque mágico (magia só no nível 2)', () => {
+  for (const className of ['paladin', 'ranger']) {
+    const c = { ...newCharacter('2014'), className, abilities: { str: 15, dex: 14, con: 13, int: 8, wis: 12, cha: 14 } };
+    assert.equal(classCastsNow(c), false, className);
+    const s = characterSummary(c, 'pt');
+    assert.equal(s.spellAbility, null, className);
+    assert.equal(s.spellDc, null);
+    assert.equal(s.classSpellsFrom, 2);
+  }
+  // 2024: o Paladino já conjura no 1.
+  const p24 = characterSummary({ ...newCharacter('2024'), className: 'paladin', abilities: { str: 15, dex: 10, con: 13, int: 8, wis: 12, cha: 14 } }, 'pt');
+  assert.equal(p24.spellAbility, 'cha');
+  assert.equal(p24.classSpellsFrom, null);
+});
+
+test('PV explicado: dado + CON + Vigoroso + Robustez Anã somam o total', () => {
+  const c = { ...fighter2024(), feats: [{ id: 'tough', origin: 'background' }] };
+  const f = finalizeCharacter(c);
+  const hp = hpBreakdown(f);
+  assert.equal(hp.total, f.maxHp);
+  assert.equal(hp.parts.reduce((n, p) => n + p.amount, 0), f.maxHp);
+  assert.deepEqual(hp.parts.map(p => p.kind), ['die', 'con', 'dwarf', 'tough']);
+  const txt = hpExplain(f, 'pt');
+  assert.match(txt, /^10 do dado/);
+  assert.match(txt, /Robustez Anã/);
+  assert.match(txt, /Vigoroso/);
+  assert.match(txt, new RegExp(`= ${f.maxHp}$`));
+  // Anão da Colina 2014 (Tenacidade Anã) e Mago sem bônus.
+  const w = finalizeCharacter({ ...wizard2014(), race: 'dwarf-hill' });
+  assert.equal(hpBreakdown(w).parts.reduce((n, p) => n + p.amount, 0), w.maxHp);
+  const plain = finalizeCharacter(wizard2014());
+  assert.deepEqual(hpBreakdown(plain).parts.map(p => p.kind), ['die', 'con']);
+});
+
+test('iniciativa: Alerta 2014 dá +5 (como a ficha), 2024 dá o Bônus de Proficiência', () => {
+  const c14 = { ...wizard2014(), feats: [{ id: 'alert2014' }] };
+  const s14 = characterSummary(c14, 'pt');
+  assert.equal(s14.initiative, Utils.initiative(s14.char));
+  assert.equal(s14.initiative, Utils.abilityMod(s14.char, 'dex') + 5);
+  assert.match(initiativeExplain(s14.char, 'pt'), /5 do talento Alerta/);
+  const c24 = { ...fighter2024(), feats: [{ id: 'alert', origin: 'background' }] };
+  assert.match(initiativeExplain(finalizeCharacter(c24), 'pt'), /Bônus de Proficiência \+2 \(talento Alerta\) = \+4/);
+});
+
+test('revisão: talentos, escolhas da classe e traços da espécie', () => {
+  const c = { ...newCharacter('2024'), className: 'fighter', race: 'human', background: 'guard',
+    feats: [{ id: 'alert', origin: 'background' }, { id: 'tough' }],
+    classOptions: [{ classId: 'fighter', pool: 'fightingStyle', id: 'defense' }, { classId: 'fighter', pool: 'weaponMastery', id: 'longsword' }] };
+  const groups = featuresSummary(c, 'pt');
+  const all = groups.flatMap(g => [g.title.pt, ...g.items]).join(' | ');
+  for (const w of ['Alerta', 'Vigoroso', 'Estilo de Luta', 'Defesa', 'Maestria em Armas', 'Espada Longa', 'Engenhoso', 'Habilidoso']) {
+    assert.ok(all.includes(w), `${w} em ${all}`);
+  }
+});
+
+test('revisão: armas repetidas viram uma linha com ×2', () => {
+  const g = groupWeapons([{ id: 'quarterstaff' }, { id: 'quarterstaff' }, { id: 'dagger', qty: 2 }]);
+  assert.deepEqual(g.map(w => [w.id, w.qty]), [['quarterstaff', 2], ['dagger', 2]]);
+  const s = characterSummary({ ...wizard2014(), weapons: [{ id: 'quarterstaff' }, { id: 'quarterstaff' }] }, 'pt');
+  assert.equal(s.attacks.length, 1);
+  assert.equal(s.attacks[0].qty, 2);
+});
+
+test('rascunho (F5): salva, carrega, ignora vazio/corrompido e limpa', () => {
+  const mem = new Map();
+  const store = { getItem: k => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: k => mem.delete(k) };
+  assert.equal(loadDraft(store), null);
+  assert.equal(saveDraft({ char: newCharacter('2024'), stepId: 'welcome', visited: ['welcome'] }, store), true);
+  assert.equal(loadDraft(store), null, 'ficha sem escolhas não vira rascunho');
+  saveDraft({ char: fighter2024(), stepId: 'equipment', visited: ['welcome', 'class', 'equipment'] }, store);
+  const d = loadDraft(store);
+  assert.equal(d.stepId, 'equipment');
+  assert.equal(d.char.className, 'fighter');
+  assert.deepEqual(d.visited, ['welcome', 'class', 'equipment']);
+  mem.set(DRAFT_KEY, '{quebrado');
+  assert.equal(loadDraft(store), null);
+  clearDraft(store);
+  assert.equal(mem.has(DRAFT_KEY), false);
+  // Cota cheia com a foto: grava sem ela.
+  let calls = 0;
+  const tight = { ...store, setItem: (k, v) => { calls++; if (v.includes('data:image')) throw new Error('quota'); mem.set(k, v); } };
+  assert.equal(saveDraft({ char: fighter2024(), stepId: 'details' }, tight), true);
+  assert.equal(calls, 2);
+  assert.equal(loadDraft(store).char.avatar, '');
+  // Sem localStorage (aba privada/bloqueado): não quebra.
+  const broken = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); }, removeItem: () => { throw new Error('denied'); } };
+  assert.equal(loadDraft(broken), null);
+  assert.equal(saveDraft({ char: fighter2024() }, broken), false);
+  clearDraft(broken);
+});
+
+test('revisão do Monge: ataques pela conta da ficha (Artes Marciais) e Golpe Desarmado', () => {
+  const c = { ...newCharacter('2024'), className: 'monk', race: 'human', abilities: { str: 10, dex: 15, con: 12, int: 8, wis: 14, cha: 8 }, weapons: [{ id: 'spear' }] };
+  const s = characterSummary(c, 'pt');
+  const spear = s.attacks.find(a => a.name === 'Lança');
+  assert.equal(spear.ability, 'dex');
+  assert.equal(spear.atk, 4);
+  const un = s.attacks.find(a => a.unarmed);
+  assert.ok(un, 'Golpe Desarmado aparece para o Monge');
+  assert.equal(un.dmg, '1d6+2');
+  // Guerreiro sem estilo desarmado: sem linha de Golpe Desarmado.
+  assert.equal(characterSummary(fighter2024(), 'pt').attacks.some(a => a.unarmed), false);
 });

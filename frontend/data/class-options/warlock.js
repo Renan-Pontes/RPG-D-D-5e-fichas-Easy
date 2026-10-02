@@ -8,7 +8,7 @@ const f = (id, name, desc) => ({ id, name, desc });
 const DAMAGE_CANTRIP = b('um truque de bruxo que causa dano', 'a Warlock cantrip that deals damage');
 const WHICH_CANTRIP = b('Qual truque?', 'Which cantrip?');
 const ELDRITCH_BLAST = b('truque Rajada Mística', 'Eldritch Blast cantrip');
-const HEX_OR_CURSE = b('magia Bruxaria ou um traço de bruxo que amaldiçoa (ex.: Maldição da Lâmina)', 'the Hex spell or a Warlock feature that curses (e.g., Hexblade\'s Curse)');
+const HEX_OR_CURSE = b('magia Maldição ou um traço de bruxo que amaldiçoa (ex.: Maldição da Lâmina)', 'the Hex spell or a Warlock feature that curses (e.g., Hexblade\'s Curse)');
 
 // === Invocações Místicas 2024 (SRD 5.2.1) ===
 // `rules: '2024'` marca as que têm versão diferente nas regras de 2014 (ver abaixo).
@@ -290,7 +290,7 @@ const features = {
       'Você desenterrou fragmentos de saber proibido que lhe dão habilidades mágicas permanentes. Ganha 1 invocação à sua escolha (ex.: Pacto do Tomo) e mais conforme a coluna Invocações da tabela (3 no 2º nível, 5 no 5º, 6 no 7º, 7 no 9º, 8 no 12º, 9 no 15º e 10 no 18º). Para aprender uma invocação você precisa cumprir o pré-requisito dela (ex.: "Bruxo nível 5+"). Sempre que ganhar um nível de bruxo, pode trocar uma invocação por outra para a qual se qualifique, mas não uma que seja pré-requisito de outra invocação que você tenha. Não pode escolher a mesma invocação mais de uma vez, a não ser que a descrição dela diga que é repetível.',
       'You have unearthed forbidden lore that grants you abiding magical abilities. You gain one invocation of your choice (such as Pact of the Tome) and more as shown in the Invocations column (3 at level 2, 5 at 5, 6 at 7, 7 at 9, 8 at 12, 9 at 15, and 10 at 18). You must meet an invocation\'s prerequisite to learn it (e.g., "Level 5+ Warlock"). Whenever you gain a Warlock level, you can replace one invocation with another you qualify for, but not one that is a prerequisite for another invocation you have. You can\'t pick the same invocation more than once unless its description says it is repeatable.')),
     f('pactMagic', b('Magia de Pacto', 'Pact Magic'), b(
-      'Por um ritual oculto, você firmou um pacto com uma entidade misteriosa que lhe dá a capacidade de conjurar magias. Truques: conhece 2 truques de bruxo (sugeridos Rajada Mística e Prestidigitação), 3 no 4º nível e 4 no 10º; ao ganhar um nível de bruxo, pode trocar um deles. Espaços de magia: a tabela mostra quantos espaços você tem e o círculo deles — todos do mesmo círculo — e você recupera todos ao terminar um Descanso Curto ou Longo. Magias preparadas: comece com 2 magias de bruxo de 1º círculo (sugeridas Enfeitiçar Pessoa e Bruxaria); a quantidade cresce conforme a tabela, sempre de círculo até o dos seus espaços. Magias que outros traços deixam sempre preparadas não contam nesse limite. Ao ganhar um nível de bruxo, pode trocar uma magia preparada por outra elegível. Carisma é seu atributo de conjuração, e você pode usar um Foco Arcano.',
+      'Por um ritual oculto, você firmou um pacto com uma entidade misteriosa que lhe dá a capacidade de conjurar magias. Truques: conhece 2 truques de bruxo (sugeridos Rajada Mística e Prestidigitação), 3 no 4º nível e 4 no 10º; ao ganhar um nível de bruxo, pode trocar um deles. Espaços de magia: a tabela mostra quantos espaços você tem e o círculo deles — todos do mesmo círculo — e você recupera todos ao terminar um Descanso Curto ou Longo. Magias preparadas: comece com 2 magias de bruxo de 1º círculo (sugeridas Enfeitiçar Pessoa e Maldição); a quantidade cresce conforme a tabela, sempre de círculo até o dos seus espaços. Magias que outros traços deixam sempre preparadas não contam nesse limite. Ao ganhar um nível de bruxo, pode trocar uma magia preparada por outra elegível. Carisma é seu atributo de conjuração, e você pode usar um Foco Arcano.',
       'Through occult ceremony, you have formed a pact with a mysterious entity that grants you the ability to cast spells. Cantrips: you know two Warlock cantrips (Eldritch Blast and Prestidigitation are recommended), three at level 4 and four at level 10; whenever you gain a Warlock level, you can replace one. Spell slots: the table shows how many slots you have and their level — all the same level — and you regain all of them when you finish a Short or Long Rest. Prepared spells: start with two level 1 Warlock spells (Charm Person and Hex are recommended); the number grows per the table, always of a level no higher than your slot level. Spells other features make always prepared don\'t count against it. Whenever you gain a Warlock level, you can replace one prepared spell with another eligible one. Charisma is your spellcasting ability, and you can use an Arcane Focus.')),
   ],
   2: [
@@ -432,7 +432,7 @@ const subclasses = {
       3: {
         features: [
           f('celestialSpells', b('Magias Celestiais', 'Celestial Spells'), b(
-            'Sempre preparadas: nível 3 — Auxílio, Curar Ferimentos, Raio Guia, Restauração Menor, Luz, Chama Sagrada; nível 5 — Luz do Dia, Revivificar; nível 7 — Guardião da Fé, Muralha de Fogo; nível 9 — Restauração Maior, Invocar Celestial.',
+            'Sempre preparadas: nível 3 — Auxílio, Curar Ferimentos, Flecha Guiada, Restauração Menor, Luz, Chama Sagrada; nível 5 — Luz do Dia, Revivificar; nível 7 — Guardião da Fé, Muralha de Fogo; nível 9 — Restauração Maior, Invocar Celestial.',
             'Always prepared: level 3 — Aid, Cure Wounds, Guiding Bolt, Lesser Restoration, Light, Sacred Flame; level 5 — Daylight, Revivify; level 7 — Guardian of Faith, Wall of Fire; level 9 — Greater Restoration, Summon Celestial.')),
           f('healingLight', b('Luz Curativa', 'Healing Light'), b(
             'Você tem uma reserva de d6 igual a 1 + seu nível de bruxo. Como Ação Bônus, cura você ou uma criatura que veja a até 18 m gastando dados da reserva (no máximo seu modificador de Carisma de uma vez, mínimo 1) e somando o resultado. A reserva se recupera num Descanso Longo.',
@@ -500,7 +500,7 @@ const subclasses = {
       10: {
         features: [
           f('eldritchHex', b('Maldição Mística', 'Eldritch Hex'), b(
-            'Você sempre tem a magia Bruxaria preparada. Quando a conjura e escolhe um atributo, o alvo também tem Desvantagem em salvaguardas desse atributo enquanto a magia durar.',
+            'Você sempre tem a magia Maldição preparada. Quando a conjura e escolhe um atributo, o alvo também tem Desvantagem em salvaguardas desse atributo enquanto a magia durar.',
             'You always have the Hex spell prepared. When you cast it and choose an ability, the target also has Disadvantage on saving throws of that ability for the spell\'s duration.')),
           f('thoughtShield', b('Escudo de Pensamentos', 'Thought Shield'), b(
             'Seus pensamentos não podem ser lidos por telepatia ou outros meios, a menos que você permita. Você tem Resistência a dano psíquico, e quem lhe causar dano psíquico sofre a mesma quantidade de dano que você sofreu.',
@@ -511,7 +511,7 @@ const subclasses = {
       14: {
         features: [
           f('createThrall', b('Criar Servo', 'Create Thrall'), b(
-            'Ao conjurar Invocar Aberração, pode fazê-la sem Concentração (duração de 1 minuto nesse caso). A Aberração surge com PV temporários iguais ao seu nível de bruxo + modificador de Carisma e, na primeira vez em cada turno que acertar uma criatura sob sua Bruxaria, causa dano psíquico extra igual ao bônus de dano da Bruxaria.',
+            'Ao conjurar Invocar Aberração, pode fazê-la sem Concentração (duração de 1 minuto nesse caso). A Aberração surge com PV temporários iguais ao seu nível de bruxo + modificador de Carisma e, na primeira vez em cada turno que acertar uma criatura sob sua Maldição, causa dano psíquico extra igual ao bônus de dano da Maldição.',
             'When you cast Summon Aberration, you can make it not require Concentration (its duration becomes 1 minute). The Aberration appears with Temporary Hit Points equal to your Warlock level + Charisma modifier and, the first time each turn it hits a creature under your Hex, deals extra Psychic damage equal to Hex\'s bonus damage.')),
         ],
       },

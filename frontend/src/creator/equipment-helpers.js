@@ -14,8 +14,10 @@ import Utils from '../../utils.js';
 import SRD from '../../data/srd.js';
 import { tName } from '../../data/i18n.js';
 import { SHARED } from '../../data/class-options/shared.js';
+import { optionPool, findOption } from '../progression/options.js';
 import {
   classStart, backgroundStart, packFor, startingTools, toolName, isArmorProficient, isWeaponProficient,
+  packProficiencyIssues,
 } from './start-data.js';
 
 const b = (pt, en) => ({ pt, en });
@@ -50,14 +52,16 @@ export function selectedPacks(char) {
 /** Assinatura das escolhas (sem idioma): mudou → o equipamento precisa ser recalculado. */
 export function equipmentSignature(char) {
   const c = char?.creation || {};
+  const bgTools = Array.isArray(c.toolChoices?.background) ? c.toolChoices.background : [];
   return [rv(char), char?.className || '', c.classPack || '', char?.background || '', c.backgroundPack || '',
-    (char?.toolProfs || []).join(',')].join('|');
+    (char?.toolProfs || []).join(','), classToolIds(char).join(','), bgTools.join(',')].join('|');
 }
 
 // ---------------------------------------------------------------------------
 // Nomes e estatísticas
 // ---------------------------------------------------------------------------
-const DMG = { bludgeoning: b('concussão', 'bludgeoning'), piercing: b('perfuração', 'piercing'), slashing: b('corte', 'slashing') };
+// Mesmos nomes usados nos talentos e nas magias ("dano contundente, perfurante e cortante").
+const DMG = { bludgeoning: b('contundente', 'bludgeoning'), piercing: b('perfurante', 'piercing'), slashing: b('cortante', 'slashing') };
 const PROPS = {
   finesse: b('Acuidade', 'Finesse'), light: b('Leve', 'Light'), thrown: b('Arremesso', 'Thrown'),
   'two-handed': b('Duas Mãos', 'Two-Handed'), versatile: b('Versátil', 'Versatile'), heavy: b('Pesada', 'Heavy'),
@@ -127,15 +131,44 @@ export function weaponSummary(id, char, lang = 'pt') {
   return parts.join(' · ');
 }
 
-/** Ferramenta concreta escolhida na proficiência para um item "a que você escolheu". */
+/**
+ * Ferramentas/instrumentos escolhidos nas Escolhas da classe (char.classOptions,
+ * pools sem `kind` com grants.tools: instrumentos do Bardo, ferramenta do Monge…).
+ * Mesma lógica de class-helpers.js classToolPicks (copiada para evitar import circular).
+ */
+export function classToolIds(char) {
+  const cls = char?.className;
+  if (!cls) return [];
+  const out = [];
+  for (const p of char.classOptions || []) {
+    if (!p || p.classId !== cls) continue;
+    let o = null;
+    try { o = !optionPool(cls, p.pool)?.kind ? findOption(cls, p.pool, p.id) : null; } catch { o = null; }
+    for (const t of o?.grants?.tools || []) if (!out.includes(t)) out.push(t);
+  }
+  return out;
+}
+
+/**
+ * Ferramenta concreta escolhida na proficiência para um item "a que você escolheu"
+ * (toolChoice: 'class' | 'background'), ou null se ainda não escolheu.
+ * Fontes, nesta ordem: creation.toolChoices[source], Escolhas da classe (classe), toolProfs.
+ */
 export function chosenToolFor(char, source) {
   const choice = startingTools(char).choices.find(c => c.source === source);
   if (!choice) return null;
   const fixed = new Set(startingTools(char).fixed);
   const explicit = char?.creation?.toolChoices?.[source];
-  const pool = Array.isArray(explicit) && explicit.length ? explicit : (char?.toolProfs || []);
+  const fromClass = classToolIds(char);
+  let pool;
+  if (Array.isArray(explicit) && explicit.length) pool = explicit;
+  else if (source === 'class') pool = [...fromClass, ...(char?.toolProfs || [])];
+  else pool = (char?.toolProfs || []).filter(id => !fromClass.includes(id)); // não reaproveita a da classe
   return pool.find(id => choice.from.includes(id) && !fixed.has(id)) || null;
 }
+
+/** Item "ferramenta escolhida" que ainda não tem ferramenta escolhida. */
+export const isUnresolvedToolItem = (it, char) => !!it?.toolChoice && !chosenToolFor(char, it.toolChoice);
 
 /** Nome de um item de pacote (resolve "ferramenta escolhida" quando já há escolha). */
 export function itemName(it, char, lang = 'pt') {
@@ -149,23 +182,45 @@ export function itemName(it, char, lang = 'pt') {
   return pick(lang, it.name);
 }
 
-// Conteúdo dos pacotes de aventura (resumo próprio do SRD 5.2.1, "Adventuring Gear").
+// Conteúdo dos pacotes de aventura, por regra (lista própria, sem texto copiado):
+// 2024 = SRD 5.2.1 "Adventuring Gear"; 2014 = SRD 5.1 / PHB 2014 "Equipment Packs".
 export const PACK_CONTENTS = {
-  burglar: b('mochila, rolamentos, sino, velas, pé de cabra, lanterna, óleo, comida para 5 dias, corda, pederneira e cantil',
-    'backpack, ball bearings, bell, candles, crowbar, lantern, oil, 5 days of rations, rope, tinderbox and waterskin'),
-  diplomat: b('baú, roupas finas, tinta e penas, lamparina, estojos de mapa, óleo, papel, pergaminho, perfume e pederneira',
-    'chest, fine clothes, ink and pens, lamp, map cases, oil, paper, parchment, perfume and tinderbox'),
-  dungeoneer: b('mochila, estrepes, pé de cabra, óleo, comida para 10 dias, corda, pederneira, 10 tochas e cantil',
-    'backpack, caltrops, crowbar, oil, 10 days of rations, rope, tinderbox, 10 torches and waterskin'),
-  entertainer: b('mochila, saco de dormir, sino, lanterna, fantasias, espelho, óleo, comida para 9 dias, pederneira e cantil',
-    'backpack, bedroll, bell, lantern, costumes, mirror, oil, 9 days of rations, tinderbox and waterskin'),
-  explorer: b('mochila, saco de dormir, óleo, comida para 10 dias, corda, pederneira, 10 tochas e cantil',
-    'backpack, bedroll, oil, 10 days of rations, rope, tinderbox, 10 torches and waterskin'),
-  priest: b('mochila, cobertor, água benta, lamparina, comida para 7 dias, túnica e pederneira',
-    'backpack, blanket, holy water, lamp, 7 days of rations, robe and tinderbox'),
-  scholar: b('mochila, livro, tinta e pena, lamparina, óleo, pergaminho e pederneira',
-    'backpack, book, ink and pen, lamp, oil, parchment and tinderbox'),
+  '2024': {
+    burglar: b('mochila, rolamentos, sino, 10 velas, pé de cabra, lanterna coberta, 7 frascos de óleo, comida para 5 dias, corda, pederneira e cantil',
+      'backpack, ball bearings, bell, 10 candles, crowbar, hooded lantern, 7 flasks of oil, 5 days of rations, rope, tinderbox and waterskin'),
+    diplomat: b('baú, roupas finas, tinta, 5 penas de escrever, lamparina, 2 estojos de mapa, 4 frascos de óleo, 5 folhas de papel, 5 folhas de pergaminho, perfume e pederneira',
+      'chest, fine clothes, ink, 5 ink pens, lamp, 2 map or scroll cases, 4 flasks of oil, 5 sheets of paper, 5 sheets of parchment, perfume and tinderbox'),
+    dungeoneer: b('mochila, estrepes, pé de cabra, 2 frascos de óleo, comida para 10 dias, corda, pederneira, 10 tochas e cantil',
+      'backpack, caltrops, crowbar, 2 flasks of oil, 10 days of rations, rope, tinderbox, 10 torches and waterskin'),
+    entertainer: b('mochila, saco de dormir, sino, lanterna furta-fogo, 3 fantasias, espelho, 8 frascos de óleo, comida para 9 dias, pederneira e cantil',
+      'backpack, bedroll, bell, bullseye lantern, 3 costumes, mirror, 8 flasks of oil, 9 days of rations, tinderbox and waterskin'),
+    explorer: b('mochila, saco de dormir, 2 frascos de óleo, comida para 10 dias, corda, pederneira, 10 tochas e cantil',
+      'backpack, bedroll, 2 flasks of oil, 10 days of rations, rope, tinderbox, 10 torches and waterskin'),
+    priest: b('mochila, cobertor, água benta, lamparina, comida para 7 dias, túnica e pederneira',
+      'backpack, blanket, holy water, lamp, 7 days of rations, robe and tinderbox'),
+    scholar: b('mochila, livro, tinta, pena de escrever, lamparina, 10 frascos de óleo, 10 folhas de pergaminho e pederneira',
+      'backpack, book, ink, ink pen, lamp, 10 flasks of oil, 10 sheets of parchment and tinderbox'),
+  },
+  '2014': {
+    burglar: b('mochila, saco com 1.000 rolamentos, 3 m de barbante, sino, 5 velas, pé de cabra, martelo, 10 pítons, lanterna coberta, 2 frascos de óleo, comida para 5 dias, pederneira, cantil e 15 m de corda',
+      'backpack, bag of 1,000 ball bearings, 10 feet of string, bell, 5 candles, crowbar, hammer, 10 pitons, hooded lantern, 2 flasks of oil, 5 days of rations, tinderbox, waterskin and 50 feet of hempen rope'),
+    diplomat: b('baú, 2 estojos para mapas e pergaminhos, roupas finas, vidro de tinta, pena de escrever, lamparina, 2 frascos de óleo, 5 folhas de papel, vidro de perfume, lacre e sabão',
+      'chest, 2 cases for maps and scrolls, fine clothes, bottle of ink, ink pen, lamp, 2 flasks of oil, 5 sheets of paper, vial of perfume, sealing wax and soap'),
+    dungeoneer: b('mochila, pé de cabra, martelo, 10 pítons, 10 tochas, pederneira, comida para 10 dias, cantil e 15 m de corda',
+      'backpack, crowbar, hammer, 10 pitons, 10 torches, tinderbox, 10 days of rations, waterskin and 50 feet of hempen rope'),
+    entertainer: b('mochila, saco de dormir, 2 fantasias, 5 velas, comida para 5 dias, cantil e kit de disfarce',
+      'backpack, bedroll, 2 costumes, 5 candles, 5 days of rations, waterskin and disguise kit'),
+    explorer: b('mochila, saco de dormir, kit de refeição, pederneira, 10 tochas, comida para 10 dias, cantil e 15 m de corda',
+      'backpack, bedroll, mess kit, tinderbox, 10 torches, 10 days of rations, waterskin and 50 feet of hempen rope'),
+    priest: b('mochila, cobertor, 10 velas, pederneira, caixa de esmolas, 2 blocos de incenso, incensário, vestes, comida para 2 dias e cantil',
+      'backpack, blanket, 10 candles, tinderbox, alms box, 2 blocks of incense, censer, vestments, 2 days of rations and waterskin'),
+    scholar: b('mochila, livro de estudo, vidro de tinta, pena de escrever, 10 folhas de pergaminho, saquinho de areia e faca pequena',
+      'backpack, book of lore, bottle of ink, ink pen, 10 sheets of parchment, little bag of sand and small knife'),
+  },
 };
+
+/** Conteúdo de um pacote de aventura ('explorer', 'priest'…) na regra da ficha. */
+export const packContents = (key, char, lang = 'pt') => pick(lang, PACK_CONTENTS[rv(char)][key]);
 
 /**
  * Linhas de um pacote para mostrar ao jogador: { kind, text, hint?, warn? }.
@@ -186,8 +241,12 @@ export function packLines(pack, char, lang = 'pt') {
     } else if (it.kind === 'weapon') {
       const note = it.note ? ` (${pick(lang, it.note)})` : '';
       out.push({ kind: 'weapon', text: text + note, hint: weaponSummary(it.id, char, lang), warn: !isWeaponProficient(char, it.id) });
+    } else if (isUnresolvedToolItem(it, char)) {
+      out.push({ kind: 'item', text, hint: it.toolChoice === 'class'
+        ? (lang === 'pt' ? 'vem o que você escolher em Escolhas da classe' : 'you get the one you pick in Class choices')
+        : (lang === 'pt' ? 'vem o que você escolher na etapa Antecedente' : 'you get the one you pick in the Background step') });
     } else {
-      out.push({ kind: 'item', text, hint: it.pack ? pick(lang, PACK_CONTENTS[it.pack]) : '' });
+      out.push({ kind: 'item', text, hint: it.pack ? packContents(it.pack, char, lang) : '' });
     }
   }
   return out;
@@ -207,20 +266,31 @@ export function armorHint(a, lang = 'pt') {
 // ---------------------------------------------------------------------------
 // Aplicação dos pacotes
 // ---------------------------------------------------------------------------
+/** Peças de um pacote: armas e itens ainda "crus" (juntados depois com mergePieces). */
 function packPieces(pack, from, char, lang) {
   const weapons = []; const equipment = [];
   let armor = null; let shield = false;
   for (const it of pack?.items || []) {
     if (it.kind === 'armor') armor = it.id;
     else if (it.kind === 'shield') shield = true;
-    else if (it.kind === 'weapon') {
-      const w = weaponEntry(it.id, char, lang, { qty: it.qty, note: it.note, from });
-      if (w) weapons.push(w);
-    } else {
-      equipment.push({ name: itemName(it, char, lang), qty: it.qty || 1, from });
-    }
+    else if (it.kind === 'weapon') weapons.push({ id: it.id, qty: it.qty || 1, note: it.note, from });
+    else if (isUnresolvedToolItem(it, char)) continue; // nunca grava o texto "ferramenta escolhida"
+    else equipment.push({ name: itemName(it, char, lang), qty: it.qty || 1, from });
   }
   return { weapons, equipment, armor, shield, gp: pack?.gp || 0 };
+}
+
+/** Junta armas (mesmo id) e itens (mesmo nome) repetidos da classe e do antecedente, somando a quantidade. */
+function mergeBy(list, key) {
+  const out = []; const seen = new Map();
+  for (const x of list) {
+    const k = key(x);
+    if (k && seen.has(k)) { const y = seen.get(k); y.qty += x.qty; if (!y.note && x.note) y.note = x.note; continue; }
+    const copy = { ...x };
+    out.push(copy);
+    if (k) seen.set(k, copy);
+  }
+  return out;
 }
 
 /**
@@ -238,6 +308,10 @@ export function applyStartingEquipment(char, lang = 'pt') {
 
   const c = packPieces(classPack, 'classPack', char, lang);
   const g = packPieces(backgroundPack, 'backgroundPack', char, lang);
+  const packWeapons = mergeBy([...c.weapons, ...g.weapons], w => w.id)
+    .map(w => weaponEntry(w.id, char, lang, { qty: w.qty, note: w.note, from: w.from })).filter(Boolean);
+  const packEquipment = mergeBy([...c.equipment, ...g.equipment], e => String(e.name || '').trim().toLowerCase())
+    .map(e => ({ name: e.name, qty: e.qty, from: e.from }));
   const keep = (x) => !PACK_SOURCES.includes(x?.from);
 
   const packArmor = c.armor || g.armor || null;
@@ -261,8 +335,8 @@ export function applyStartingEquipment(char, lang = 'pt') {
     ...char,
     armor,
     hasShield,
-    weapons: [...(char.weapons || []).filter(keep), ...c.weapons, ...g.weapons],
-    equipment: [...(char.equipment || []).filter(keep), ...c.equipment, ...g.equipment],
+    weapons: [...(char.weapons || []).filter(keep), ...packWeapons],
+    equipment: [...(char.equipment || []).filter(keep), ...packEquipment],
     coins,
     creation,
   };
@@ -327,7 +401,26 @@ export function equipmentWarnings(char) {
     out.push({ id: 'weaponProf', pt: `Sem proficiência com: ${names}. Você ainda pode usar, mas não soma o Bônus de Proficiência no ataque.`,
       en: `Not proficient with: ${names}. You can still use them, but you don't add your Proficiency Bonus to the attack.` });
   }
+  const missing = masteriesWithoutWeapon(char);
+  if (missing.length) {
+    const pt = missing.map(id => tName('weapon', id, 'pt')).join(', ');
+    const en = missing.map(id => tName('weapon', id, 'en')).join(', ');
+    out.push({ id: 'masteryMismatch',
+      pt: `Você escolheu Maestria em ${pt}, mas não terá ${missing.length > 1 ? 'essas armas' : 'essa arma'} com este equipamento. Volte em Escolhas da classe para trocar a Maestria, ou combine com o mestre comprar a arma com seu ouro.`,
+      en: `You picked Weapon Mastery with ${en}, but this equipment doesn't include ${missing.length > 1 ? 'those weapons' : 'that weapon'}. Go back to Class choices to change your Mastery, or buy the weapon with your gold (ask your DM).` });
+  }
   return out;
+}
+
+/** Armas com Maestria escolhida (classOptions pool 'weaponMastery') que o personagem não tem em char.weapons. */
+export function masteriesWithoutWeapon(char) {
+  const cls = char?.className;
+  if (rv(char) !== '2024' || !cls) return [];
+  const have = new Set((char.weapons || []).map(w => w?.id).filter(Boolean));
+  return (char.classOptions || [])
+    .filter(p => p && p.pool === 'weaponMastery' && (!p.classId || p.classId === cls) && typeof p.id === 'string')
+    .map(p => p.id)
+    .filter((id, i, arr) => arr.indexOf(id) === i && !have.has(id));
 }
 
 /** CA atual e, para comparação, a CA sem armadura (útil para Bárbaro/Monge). */
@@ -347,6 +440,14 @@ export function equipmentIssues(char) {
   }
   if (s.needsBackgroundChoice && !s.backgroundPack) {
     out.push({ pt: 'Escolha o equipamento do seu antecedente (pacote ou ouro).', en: 'Pick your background equipment (package or gold).' });
+  }
+  for (const [pack, label] of [[s.classPack, b('da classe', 'class')], [s.backgroundPack, b('do antecedente', 'background')]]) {
+    const bad = packProficiencyIssues(char, pack).filter(it => it.kind === 'armor' || it.kind === 'shield');
+    if (!bad.length) continue;
+    const names = (lang) => bad.map(it => (it.kind === 'shield' ? (lang === 'pt' ? 'Escudo' : 'Shield') : tName('armor', it.id, lang))).join(lang === 'pt' ? ' e ' : ' and ');
+    out.push({ id: 'packArmorTraining',
+      pt: `O pacote ${pack.id} ${label.pt} traz ${names('pt')}, mas você não tem treino para usar (com isso não conseguiria conjurar magias e teria desvantagem nos ataques). Escolha outro pacote na etapa Equipamento.`,
+      en: `${label.en[0].toUpperCase()}${label.en.slice(1)} package ${pack.id} includes ${names('en')}, but you are not trained to use it (you couldn't cast spells and would have disadvantage on attacks). Pick another package in the Equipment step.` });
   }
   if (!out.length && (s.classPack || s.backgroundPack) && creation.equipSig !== equipmentSignature(char)) {
     out.push({ pt: 'Sua classe ou antecedente mudou: abra a etapa Equipamento para atualizar os itens.',

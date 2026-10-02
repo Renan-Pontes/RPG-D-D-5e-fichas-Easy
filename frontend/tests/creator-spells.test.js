@@ -6,7 +6,12 @@ import {
   spellPlan, hasClassCantrips, hasClassSpells, cantripIssues, spellIssues, availableCantrips, availableSpells,
   chosenCantrips, chosenSpells, preparedFromBook, grantedSpells, invalidChoices, withoutInvalid,
   toggleCantrip, toggleSpell, togglePrepared, fillRecommended, beginnerCantrips, recommendedSpells, offListEntries, grantSource,
+  duplicateGrants, duplicateGrantIssues, isCoreSpell, expandedSpellIds,
 } from '../src/creator/spell-helpers.js';
+import SRD from '../data/srd.js';
+import { SPELLS_2024 } from '../data/rules2024.js';
+import { EXTRA_SPELLS_2024, translateSpellMeta, rangePt, castingTimePt, durationPt, componentsPt, polishPtText } from '../data/spells-extra.js';
+import { tName } from '../data/i18n.js';
 
 const mk = (rulesVersion, className, extra = {}) => ({
   ...Utils.makeNew(), rulesVersion, className, subclass: '', level: 1, race: 'human', background: 'sage', feats: [], spells: [], skillProfs: [],
@@ -208,4 +213,119 @@ test('sugestões para iniciantes ficam na lista da classe nas duas regras', () =
   }
   assert.ok(beginnerCantrips(mk('2014', 'sorcerer')).includes('fireBolt'));
   assert.ok(!beginnerCantrips(mk('2014', 'sorcerer')).includes('sorcerousBurst'));
+});
+
+// ---------------------------------------------------------------------------
+// Bugs do teste de navegador (grupo magias)
+// ---------------------------------------------------------------------------
+const mi = (list, cantrip, spell = [], origin = 'background') => [{ id: 'magicInitiate', origin, picks: { spellList: list, spellAbility: 'int', cantrip, spell } }];
+
+test('duplicata entre classe, talento e espécie trava com aviso que diz onde trocar', () => {
+  // A: Mago + Iniciado em Magia (Prestidigitação) + Gnomo das Rochas (já dá Prestidigitação).
+  const a = mk('2024', 'wizard', { feats: mi('wizard', ['fireBolt', 'prestidigitation'], ['magicMissile']), race: 'gnome', speciesChoices: { lineage: 'rock', spellAbility: 'int' } });
+  assert.deepEqual(duplicateGrants(a).map(d => d.id), ['prestidigitation']);
+  assert.match(cantripIssues(a)[0].pt, /Prestidigitação vem duas vezes.*Iniciado em Magia.*Talento de origem/);
+  // B: Clérigo Taumaturgo com Luz + Iniciado em Magia (Clérigo) com Luz.
+  const b2 = mk('2024', 'cleric', {
+    classOptions: [{ classId: 'cleric', pool: 'divineOrder', id: 'thaumaturge', level: 1 }, { classId: 'cleric', pool: 'thaumaturgeCantrip', id: 'light', level: 1 }],
+    feats: mi('cleric', ['light', 'guidance'], ['bless']),
+  });
+  const issue = cantripIssues(b2).find(i => /Luz vem duas vezes/.test(i.pt));
+  assert.ok(issue, 'aviso da Luz');
+  assert.match(issue.pt, /Truque do Taumaturgo/);
+  // D: Druida (Falar com Animais sempre preparada) + Iniciado em Magia com a mesma magia.
+  const d = mk('2024', 'druid', { feats: mi('druid', ['guidance', 'druidcraft'], ['speakWithAnimals']) });
+  assert.match(spellIssues(d)[0].pt, /Falar com Animais vem duas vezes/);
+  assert.deepEqual(duplicateGrantIssues(d, 'cantrip'), []);
+  // Sem repetição: nada.
+  assert.deepEqual(duplicateGrants(mk('2024', 'wizard', { feats: mi('wizard', ['fireBolt', 'mageHand'], ['magicMissile']) })), []);
+});
+
+test('Bruxo 2014: Lista Expandida do patrono só amplia a lista (não vem de graça)', () => {
+  const w = mk('2014', 'warlock', { subclass: 'fiend' });
+  assert.deepEqual(grantedSpells(w), []);
+  assert.ok(expandedSpellIds(w).has('burningHands') && expandedSpellIds(w).has('commandSpell'));
+  assert.ok(availableSpells(w).some(s => s.id === 'burningHands'));
+  let c = apply(w, toggleSpell(w, 'burningHands'));
+  c = apply(c, toggleSpell(c, 'commandSpell'));
+  assert.deepEqual(spellIssues(c), []);
+  assert.equal(toggleSpell(c, 'hex'), null, 'só 2 conhecidas');
+  // Sem patrono a magia não é da lista do bruxo.
+  assert.equal(toggleSpell(mk('2014', 'warlock'), 'burningHands'), null);
+  assert.ok(availableSpells(mk('2014', 'warlock', { subclass: 'greatoldone' })).some(s => s.id === 'dissonantWhispers'));
+  // 2024 continua com as magias do patrono sempre preparadas (nível 3).
+  assert.ok(grantedSpells(mk('2024', 'warlock', { subclass: 'fiend', level: 3 })).some(g => g.id === 'burningHands'));
+});
+
+test('nomes PT distintos: Maldição (Hex) × Perdição (Bane); Arte Druídica', () => {
+  assert.equal(tName('spellName', 'hex', 'pt'), 'Maldição');
+  assert.equal(tName('spellName', 'bane', 'pt'), 'Perdição');
+  assert.equal(tName('spellName', 'druidcraft', 'pt'), 'Arte Druídica');
+  for (const cat of [SPELLS_2024, SRD.SPELLS]) {
+    const seen = new Map();
+    for (const s of cat) {
+      const n = tName('spellName', s.id, 'pt').toLowerCase();
+      assert.ok(!seen.has(n) || seen.get(n) === s.id, `${s.id} e ${seen.get(n)} com o mesmo nome "${n}"`);
+      seen.set(n, s.id);
+    }
+  }
+});
+
+test('magias de outros livros ficam separadas (livro básico × suplementos)', () => {
+  const find = (cat, id) => cat.find(s => s.id === id);
+  assert.equal(isCoreSpell(find(SPELLS_2024, 'magicMissile'), mk('2024', 'wizard')), true);
+  assert.equal(isCoreSpell(find(SPELLS_2024, 'jimsMagicMissile'), mk('2024', 'wizard')), false);
+  assert.equal(isCoreSpell(find(SPELLS_2024, 'absorbElements'), mk('2024', 'wizard')), false);
+  assert.equal(isCoreSpell(find(SPELLS_2024, 'tollTheDead'), mk('2024', 'cleric')), true, 'PHB 2024');
+  assert.equal(isCoreSpell(find(SRD.SPELLS, 'tollTheDead'), mk('2014', 'cleric')), false, 'em 2014 é do XGE');
+  assert.equal(isCoreSpell(find(SRD.SPELLS, 'sacredFlame'), mk('2014', 'cleric')), true);
+  // Recomendadas sempre do livro básico.
+  for (const cls of ['bard', 'cleric', 'druid', 'sorcerer', 'warlock', 'wizard']) {
+    const c = mk('2024', cls);
+    recommendedSpells(c).forEach(id => assert.ok(isCoreSpell(find(SPELLS_2024, id), c), `${cls} ${id}`));
+  }
+});
+
+test('tempo, alcance, componentes e duração em português (metros) nas magias sem texto do SRD', () => {
+  assert.equal(rangePt('60 feet'), '18 metros');
+  assert.equal(rangePt('120 ft'), '36 metros');
+  assert.equal(rangePt('Self (15-foot cone)'), 'Pessoal (cone de 4,5 metros)');
+  assert.equal(rangePt('Self (5-foot radius)'), 'Pessoal (raio de 1,5 metro)');
+  assert.equal(rangePt('Touch'), 'Toque');
+  assert.equal(rangePt('1 mile'), '1,5 quilômetro');
+  assert.equal(castingTimePt('1 action'), 'Ação');
+  assert.equal(castingTimePt('Action or Ritual'), 'Ação ou Ritual');
+  assert.equal(castingTimePt('1 hour or Ritual'), '1 hora ou Ritual');
+  assert.match(castingTimePt('Reaction, which you take when you take acid, cold, fire, lightning, or thunder damage'), /^Reação, que você realiza quando você sofre dano de ácido/);
+  assert.equal(durationPt('Concentration, up to 1 minute'), 'Concentração, até 1 minuto');
+  assert.equal(durationPt('1 min, conc'), 'Concentração, até 1 minuto');
+  assert.equal(durationPt('Conc. 1 hour'), 'Concentração, até 1 hora');
+  assert.equal(durationPt('Instant'), 'Instantânea');
+  assert.equal(componentsPt('V, S, M (a gem worth at least 50 gp)'), 'V, S, M (vale 50+ PO)');
+  assert.equal(componentsPt('S, M (a pinch of sand)'), 'S, M');
+  const english = /(?<![\wÀ-ÿ])(feet|ft|foot|action|which|you|self|touch|minutes?|hours?|rounds?|instant(aneous)?|until|concentration|conc|up to|worth|bonus|reaction|days?|mile)(?![\wÀ-ÿ])/i;
+  const all = [...EXTRA_SPELLS_2024, ...SRD.SPELLS];
+  for (const s of all) {
+    const m = Utils.spellMeta(s, 'pt');
+    for (const k of ['castingTime', 'range', 'components', 'duration']) assert.ok(!english.test(m[k] || ''), `${s.id}.${k}: "${m[k]}"`);
+  }
+  // Os mesmos dados alimentam a ficha (Utils.spellMeta).
+  assert.equal(Utils.spellMeta(SRD.SPELLS.find(s => s.id === 'fireBolt'), 'pt').range, '36 metros');
+  assert.equal(Utils.spellMeta(SRD.SPELLS.find(s => s.id === 'fireBolt'), 'en').range, '120 ft');
+  assert.deepEqual(translateSpellMeta({ castingTime: 'Bonus Action', range: 'Self', components: 'V', duration: '1 round' }),
+    { castingTime: 'Ação Bônus', range: 'Pessoal', components: 'V', duration: '1 rodada' });
+});
+
+test('2014: resumo de uma linha com a regra 2014 (Orbe Cromático sem o salto de 2024) e textos sem "SAL DEST"/pés', () => {
+  const orb14 = SRD.SPELLS.find(s => s.id === 'chromaticOrb');
+  const orb24 = SPELLS_2024.find(s => s.id === 'chromaticOrb');
+  assert.match(orb14.desc.pt, /3d8/);
+  assert.ok(orb14.desc.pt.length < 200, 'uma linha');
+  assert.ok(!/salt|leap/i.test(orb14.desc.pt + orb14.desc.en), 'sem o salto de 2024');
+  assert.ok(orb24.desc.pt.length > orb14.desc.pt.length, '2024 continua com o texto do SRD 5.2.1');
+  for (const id of ['floatingDisk', 'illusoryScript', 'unseenServant', 'iceKnife', 'hellishRebuke']) {
+    assert.ok(SRD.SPELLS.find(s => s.id === id).desc.pt.length < 200, id);
+  }
+  for (const s of SRD.SPELLS) assert.ok(!/\bSAL\b|\bpés\b|\bHP\b/.test(s.desc?.pt || ''), `${s.id}: ${s.desc?.pt}`);
+  assert.equal(polishPtText('SAL DEST ou 1d6 em 20 pés; 0 HP.'), 'salvaguarda de Destreza ou 1d6 em 6 metros; 0 PV.');
 });

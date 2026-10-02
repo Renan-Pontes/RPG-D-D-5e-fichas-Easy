@@ -14,6 +14,17 @@ import * as Book from '../src/progression/spellbook.js';
 import { SpeciesChoicesModal, speciesSummary } from '../src/progression/SpeciesChoices.jsx';
 import { speciesChoiceSpecs } from '../src/progression/species.js';
 import { grantedSpells } from '../src/creator/spell-helpers.js';
+import { propLabel, armorTypeLabel } from '../src/creator/equipment-helpers.js';
+import { classFeatureList, backgroundFeature } from '../src/sheet/sheet-text.js';
+
+// Siglas das moedas (PHB em pt: peça de cobre/prata/electro/ouro/platina).
+const COIN_LABEL = { pt: { cp: 'PC', sp: 'PP', ep: 'PE', gp: 'PO', pp: 'PL' }, en: { cp: 'CP', sp: 'SP', ep: 'EP', gp: 'GP', pp: 'PP' } };
+const COIN_NAME = { pt: { cp: 'cobre', sp: 'prata', ep: 'electro', gp: 'ouro', pp: 'platina' }, en: { cp: 'copper', sp: 'silver', ep: 'electrum', gp: 'gold', pp: 'platinum' } };
+const WEAPON_GROUP = {
+  'simple-melee': ['Simples corpo a corpo', 'Simple melee'], 'simple-ranged': ['Simples à distância', 'Simple ranged'],
+  'martial-melee': ['Marciais corpo a corpo', 'Martial melee'], 'martial-ranged': ['Marciais à distância', 'Martial ranged'],
+};
+const propsText = (props, lang) => (props || []).map(p => propLabel(p, lang)).join(', ');
 
 // Magias de talento/espécie (auto + feat/species): ficam fora das listas da classe.
 const isGrantEntry = (s) => !!s && typeof s === 'object' && s.auto && (s.feat || s.species);
@@ -861,7 +872,7 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
         <select value={char.armor || ''} onChange={e => update({ armor: e.target.value || null })}>
           <option value="">{t('noArmor', lang)}</option>
           {SRD.ARMOR.filter(a => a.type !== 'shield').map(a => (
-            <option key={a.id} value={a.id}>{tName('armor', a.id, lang)} (CA {a.ac}, {a.type})</option>
+            <option key={a.id} value={a.id}>{tName('armor', a.id, lang)} ({lang === 'pt' ? 'CA' : 'AC'} {a.ac}, {armorTypeLabel(a.type, lang)})</option>
           ))}
         </select>
         <div className="row gap-2 mt-2" style={{ alignItems: 'center' }}>
@@ -876,7 +887,7 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
       <select value="" onChange={e => { if (e.target.value) { addWeapon(e.target.value); e.target.value = ''; } }} style={{ marginBottom: 8 }}>
         <option value="">+ {t('addWeapon', lang)}...</option>
         {['simple-melee','simple-ranged','martial-melee','martial-ranged'].map(t_ => (
-          <optgroup key={t_} label={t_}>
+          <optgroup key={t_} label={WEAPON_GROUP[t_][lang === 'pt' ? 0 : 1]}>
             {SRD.weaponsFor(char.rulesVersion).filter(w => w.type === t_).map(w =>
               <option key={w.id} value={w.id}>{tName('weapon', w.id, lang)} ({w.damage})</option>
             )}
@@ -884,14 +895,12 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
         ))}
       </select>
       {(char.weapons || []).map((w, i) => {
-        const wDef = w.id ? SRD.WEAPONS.find(x => x.id === w.id) : null;
-        const isFinesse = wDef && wDef.props && wDef.props.includes('finesse');
-        const isRanged = wDef && (wDef.type || '').includes('ranged');
-        const useDex = isRanged || (isFinesse && Utils.abilityMod(char, 'dex') > Utils.abilityMod(char, 'str'));
-        const abMod = Utils.abilityMod(char, useDex ? 'dex' : 'str');
-        const fs = FS.weaponStyleBonuses(char, w);
-        const atk = abMod + Utils.profBonus(char) + fs.attack;
-        const dmgMod = abMod + fs.damage;
+        const wDef = w.id ? SRD.weaponFor(w.id, char.rulesVersion) : null;
+        // Regra da ficha: proficiência, Artes Marciais do Monge e Estilos de Luta.
+        const a = Utils.attackFor(char, w);
+        const fs = a.fs;
+        const atk = a.bonus;
+        const dmgMod = a.dmgMod;
         return (
           <div key={i} className="card" style={{ marginBottom: 8, padding: 12 }}>
             <div className="row gap-2 mb-2">
@@ -902,19 +911,19 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
             </div>
             <div className="row gap-2" style={{ alignItems: 'center' }}>
               <input aria-label="1d8" value={w.damage} onChange={e => updateWeapon(i, { damage: e.target.value })} style={{ width: 90 }} placeholder="1d8"/>
-              <input aria-label={lang === 'pt' ? 'tipo' : 'type'} value={w.dmgType || ''} onChange={e => updateWeapon(i, { dmgType: e.target.value })} style={{ width: 110 }} placeholder={lang === 'pt' ? 'tipo' : 'type'}/>
+              <input aria-label={lang === 'pt' ? 'tipo' : 'type'} value={w.dmgType ? Utils.damageLabel(w.dmgType, lang) : ''} onChange={e => updateWeapon(i, { dmgType: e.target.value })} style={{ width: 110 }} placeholder={lang === 'pt' ? 'tipo' : 'type'}/>
               <button className="btn btn-sm" onClick={() => roll({ die: 20, mod: atk, label: w.name + ' ' + t('attackRoll', lang) })}>
                 <Icon name="dice" size={12}/> {Utils.fmtMod(atk)}
               </button>
               <button className="btn btn-sm btn-ghost" onClick={() => {
-                const m = w.damage.match(/(\d+)d(\d+)/);
+                const m = String(a.dice || '').match(/(\d+)d(\d+)/);
                 if (m) roll({ die: +m[2], count: +m[1], mod: dmgMod, label: w.name + ' ' + t('damageRoll', lang) });
               }}>
-                {t('damageRoll', lang)}
+                {t('damageRoll', lang)} {a.damage}
               </button>
             </div>
             {wDef && wDef.props && wDef.props.length > 0 && (
-              <div className="text-xs muted mt-2">{wDef.props.join(', ')}</div>
+              <div className="text-xs muted mt-2">{propsText(wDef.props, lang)}</div>
             )}
             {(fs.attackParts.length > 0 || fs.damageParts.length > 0) && (
               <div className="text-xs mt-2" style={{ color: 'var(--gold)' }}>
@@ -928,6 +937,7 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
               </div>
             )}
             {fs.notes.map((n, k) => <div key={k} className="text-xs muted mt-2">{n[lang]}</div>)}
+            {a.monk && <div className="text-xs mt-2" style={{ color: 'var(--gold)' }}>{lang === 'pt' ? `Artes Marciais: arma de monge (usa ${a.ability === 'dex' ? 'DES' : 'FOR'})` : `Martial Arts: Monk weapon (uses ${a.ability === 'dex' ? 'DEX' : 'STR'})`}</div>}
           </div>
         );
       })}
@@ -941,10 +951,11 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
           {['cp','sp','ep','gp','pp'].map(c => (
             <div key={c} className="text-center">
-              <div className="eyebrow text-xs">{tName('coin', c, lang)}</div>
+              <div className="eyebrow text-xs" title={COIN_NAME[lang === 'pt' ? 'pt' : 'en'][c]}>{COIN_LABEL[lang === 'pt' ? 'pt' : 'en'][c]}</div>
               <input
                 type="number" min="0"
                 value={(char.coins || {})[c] || 0}
+                aria-label={`${COIN_LABEL[lang === 'pt' ? 'pt' : 'en'][c]} (${COIN_NAME[lang === 'pt' ? 'pt' : 'en'][c]})`}
                 onChange={ev => update({ coins: { ...(char.coins || {}), [c]: +ev.target.value || 0 } })}
                 style={{ textAlign: 'center', padding: 6 }}
               />
@@ -954,17 +965,27 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
       </div>
 
       <Filigree>{lang === 'pt' ? 'Características de Classe' : 'Class Features'}</Filigree>
-      {cls && cls.features && cls.features.map((f, i) => (
-        <div key={i} className="card" style={{ marginBottom: 8, padding: 12 }}>
-          <div style={{ fontFamily: 'var(--display)', color: 'var(--gold)', marginBottom: 4 }}>
-            {f.name[lang]}
-          </div>
-          <div className="text-sm" style={{ color: 'var(--ink-secondary)' }}>{f.desc[lang]}</div>
-        </div>
-      ))}
+      <ClassFeatures char={char} lang={lang} cls={cls} />
     </>
   );
 };
+
+// Características de classe pela regra da ficha (2024 usa os traços de 2024 e as escolhas
+// de classe) + a característica do antecedente nas regras 2014.
+function ClassFeatures({ char, lang, cls }) {
+  let items = [];
+  try { items = classFeatureList(char, lang); } catch { items = []; }
+  // Sem dados de progressão (classe fora das regras): os traços do nível 1 do SRD.
+  if (!items.length && char.rulesVersion !== '2024' && cls?.features) items = cls.features.map(f => ({ title: f.name[lang], text: f.desc[lang] }));
+  const bgf = backgroundFeature(char, lang);
+  if (bgf) items = [...items, { title: `${bgf.name} (${lang === 'pt' ? 'antecedente' : 'background'})`, text: bgf.desc }];
+  return items.map((f, i) => (
+    <div key={i} className="card" style={{ marginBottom: 8, padding: 12 }}>
+      <div style={{ fontFamily: 'var(--display)', color: 'var(--gold)', marginBottom: 4 }}>{f.title}</div>
+      {f.text && <div className="text-sm" style={{ color: 'var(--ink-secondary)' }}>{f.text}</div>}
+    </div>
+  ));
+}
 
 // ===== Story =====
 const SheetStory = ({ char, lang, update, cls, race }) => (
@@ -1231,10 +1252,10 @@ function InventoryRow({ item, idx, lang, rulesVersion, inCampaign, onToggleEquip
           {item.weapon && (() => {
             // Números de 2024 (lança de montaria, tridente…) quando a ficha é 2024.
             const w = rulesVersion === '2024' && item.weapon.v2024 ? { ...item.weapon, ...item.weapon.v2024 } : item.weapon;
-            return <div className="text-xs muted">⚔ {w.damage} {w.dmgType}{w.props?.length ? ` · ${w.props.join(', ')}` : ''}{w.range ? ` · ${w.range}` : ''}</div>;
+            return <div className="text-xs muted">⚔ {w.damage} {Utils.damageLabel(w.dmgType, lang)}{w.props?.length ? ` · ${propsText(w.props, lang)}` : ''}{w.range ? ` · ${w.range}` : ''}</div>;
           })()}
           {item.armor && (
-            <div className="text-xs muted">🛡 CA {item.armor.ac} ({item.armor.type}){item.armor.stealth === 'disadv' ? ' · desv. Stealth' : ''}{item.armor.strReq ? ` · req FOR ${item.armor.strReq}` : ''}</div>
+            <div className="text-xs muted">🛡 {lang === 'pt' ? 'CA' : 'AC'} {item.armor.ac} ({armorTypeLabel(item.armor.type, lang)}){item.armor.stealth === 'disadv' ? (lang === 'pt' ? ' · desvantagem em Furtividade' : ' · Stealth disadvantage') : ''}{item.armor.strReq ? (lang === 'pt' ? ` · exige FOR ${item.armor.strReq}` : ` · STR ${item.armor.strReq} required`) : ''}</div>
           )}
           {item.magic && (
             <div className="text-xs" style={{ color: 'var(--gold)' }}>✨ {item.magic.effect?.[lang] || item.magic.effect?.en}</div>

@@ -5,24 +5,16 @@
 // permitem (ex.: o idioma extra do Ladino). 2014: exóticos com aval do mestre.
 import Utils from '../utils.js';
 import Icon from './Icons.jsx';
+// Sugestões de idioma para iniciantes (lógica pura em language-hints.js).
+import { speciesLanguageHint, languageSuggestions } from './language-hints.js';
+
+export { speciesLanguageHint, languageSuggestions };
 
 const SOURCE_LABEL = {
   race: { pt: 'da espécie', en: 'from species' },
   background: { pt: 'do antecedente', en: 'from background' },
   origin: { pt: 'da origem', en: 'from origin' },
   class: { pt: 'da classe', en: 'from class' },
-};
-
-// 2024: idioma que combina com a espécie escolhida (só sugestão; a espécie não dá idiomas).
-const SPECIES_LANGUAGE = {
-  dwarf: 'Dwarvish', elf: 'Elvish', drow: 'Elvish', 'half-elf': 'Elvish', gnome: 'Gnomish', halfling: 'Halfling',
-  orc: 'Orc', 'half-orc': 'Orc', goliath: 'Giant', dragonborn: 'Draconic', tiefling: 'Infernal', aasimar: 'Celestial',
-};
-export const speciesLanguageHint = (char) => {
-  if (char?.rulesVersion !== '2024' || !char.race) return null;
-  const id = String(char.race);
-  const key = Object.keys(SPECIES_LANGUAGE).sort((a, b) => b.length - a.length).find(k => id === k || id.startsWith(`${k}-`));
-  return key ? SPECIES_LANGUAGE[key] : null;
 };
 
 export const chosenLanguages = (char) => {
@@ -42,7 +34,7 @@ export default function LanguagePicker({ char, lang, chosen, onChange, limit }) 
   const catalog = Utils.languageCatalog(char);
   const isRare = (id) => !!catalog.find(l => l.id === id)?.rare;
   const rareChosen = chosen.filter(isRare).length;
-  const hint = speciesLanguageHint(char);
+  const suggest = languageSuggestions(char);
 
   // Idiomas digitados em fichas antigas que não estão no catálogo continuam selecionáveis.
   const custom = chosen.filter(id => !catalog.some(l => l.id === id)).map(id => ({ id, pt: id, rare: false }));
@@ -61,10 +53,14 @@ export default function LanguagePicker({ char, lang, chosen, onChange, limit }) 
           const on = chosen.includes(l.id);
           const blocked = !on && (left === 0 || (isRare(l.id) && rareChosen >= rareAllow));
           return (
-            <button key={l.id} type="button" className={`lang-option ${on ? 'on' : ''}`} disabled={blocked} onClick={() => toggle(l.id)}>
+            <button key={l.id} type="button" className={`lang-option ${on ? 'on' : ''}`} disabled={blocked} aria-pressed={on} onClick={() => toggle(l.id)}>
               <span className="lang-check">{on && <Icon name="check" size={12}/>}</span>
               {Utils.languageLabel(l.id, lang)}
-              {l.id === hint && <span className="cr-badge">{pt ? 'Combina com sua espécie' : 'Fits your species'}</span>}
+              {suggest.ids.includes(l.id) && (
+                <span className="cr-badge">
+                  {suggest.kind === 'species' ? (pt ? 'Combina com sua espécie' : 'Fits your species') : (pt ? 'Recomendado' : 'Recommended')}
+                </span>
+              )}
             </button>
           );
         })}

@@ -345,6 +345,11 @@
   .btn-sm { min-height: 40px; }
 }
 
+/* Assistente de criação: o botão de dados flutuante some (não há o que rolar e,
+   no celular, ele subia para fugir dos cartões e cobria textos e o rodapé). */
+body:has(.cr-progress) .dice-fab { display: none !important; }
+body:has(.cr-progress) .wizard-hint { padding-right: 0; }
+
 /* Motivo do "Próximo" travado no criador */
 .wizard-footer { flex-direction: column; }
 .wizard-hint {

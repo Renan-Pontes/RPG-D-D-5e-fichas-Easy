@@ -6,12 +6,16 @@
  * Puro e sem Utils (utils.js e engine.js importam este arquivo).
  *
  * char.speciesChoices = {
- *   lineage?, size?, spellAbility?, ancestry?, skill? (id ou [ids]), cantrip?, asi?: { str: 1 }, bonus?
+ *   lineage?, size?, spellAbility?, ancestry?, skill? (id ou [ids]), cantrip?, asi?: { str: 1 }, bonus?,
+ *   tool? (2014: ferramenta de artesão do anão, de race.tools.choose)
  * }
+ * Ferramentas da raça 2014 (data/srd.js `tools: { fixed, choose, from }`): as fixas
+ * (Gnomo das Rochas: funileiro) e a escolhida aparecem em speciesGrants().tools.
  * O talento da espécie (Humano 2024, humano variante e linhagem personalizada 2014)
  * fica em char.feats com origin: 'species'.
  */
-import { SPECIES_2024_REVISED, AASIMAR_2024, SPECIES_2014_CHOICES } from '../../data/species-2024.js';
+import { SPECIES_2024_REVISED, AASIMAR_2024, SPECIES_2014_CHOICES, RACE_TOOL_NAMES } from '../../data/species-2024.js';
+import SRD from '../../data/srd.js';
 import { findFeat } from '../../data/feats.js';
 import { featPicksIssues } from './feat-rules.js';
 
@@ -37,6 +41,27 @@ export function speciesDef(char) {
   return SPECIES_TABLE['2014'][id] || null;
 }
 
+/** Registro da raça 2014 (data/srd.js RACES), ou null em fichas 2024. */
+export function raceRecord2014(char) {
+  if (!char?.race || char.rulesVersion === '2024') return null;
+  return (SRD.RACES || []).find(r => r.id === char.race) || null;
+}
+
+const ARTISAN = new Set(['smithsTools', 'brewersSupplies', 'masonsTools', 'tinkersTools']);
+const b2 = (pt, en) => ({ pt, en });
+
+/** Escolha de ferramenta da raça 2014 (Anão: ferreiro, cervejeiro ou pedreiro), ou null. */
+export function raceToolChoice(char) {
+  const t = raceRecord2014(char)?.tools;
+  if (!t?.choose || !t.from?.length) return null;
+  const artisan = t.from.every(id => ARTISAN.has(id));
+  return {
+    key: 'tool',
+    label: artisan ? b2('Ferramenta de artesão', "Artisan's tool") : b2('Ferramenta', 'Tool'),
+    options: t.from.map(id => ({ id, name: RACE_TOOL_NAMES[id] || b2(id, id), tools: [id] })),
+  };
+}
+
 /**
  * Escolhas ativas (respeitando `when`, ex.: truque do Alto Elfo).
  * Ficha 2024: o bônus de atributo vem só do antecedente (SRD 5.2.1), então a
@@ -46,8 +71,10 @@ export function speciesDef(char) {
 export function speciesChoiceSpecs(char) {
   const sc = char?.speciesChoices || {};
   const legacyAsiOff = char?.rulesVersion === '2024';
-  return (speciesDef(char)?.choices || []).filter(c => (!legacyAsiOff || c.key !== 'asi')
+  const own = (speciesDef(char)?.choices || []).filter(c => (!legacyAsiOff || c.key !== 'asi')
     && (!c.when || Object.entries(c.when).every(([k, v]) => sc[k] === v)));
+  const tool = own.some(c => c.key === 'tool') ? null : raceToolChoice(char);
+  return tool ? [...own, tool] : own;
 }
 
 export const speciesFeatEntry = (char) => (char?.feats || []).find(f => f?.origin === 'species') || null;
@@ -95,12 +122,16 @@ export function speciesChoiceIssues(char) {
 
 /**
  * O que a espécie concede no nível atual da ficha:
- * { cantrips, spells, spellsByLevel, skills, resist, darkvision, speed, size, spellAbility, options }.
+ * { cantrips, spells, spellsByLevel, skills, resist, tools, darkvision, speed, size, spellAbility, options }.
  * `spells` só traz as magias já liberadas (nível do personagem ≥ nível da linhagem).
  */
 export function speciesGrants(char) {
-  const out = { cantrips: [], spells: [], spellsByLevel: {}, skills: [], resist: [], darkvision: 0, speed: null, size: null, spellAbility: null, options: {} };
-  const def = speciesDef(char);
+  const out = { cantrips: [], spells: [], spellsByLevel: {}, skills: [], resist: [], tools: [], darkvision: 0, speed: null, size: null, spellAbility: null, options: {} };
+  // 2014: visão no escuro e ferramentas fixas vêm do registro da raça (srd.js).
+  const race = raceRecord2014(char);
+  if (race?.darkvision) out.darkvision = race.darkvision;
+  if (race?.tools?.fixed?.length) out.tools.push(...race.tools.fixed);
+  const def = speciesDef(char) || (race ? {} : null);
   if (!def) return out;
   const sc = char.speciesChoices || {};
   const lv = char.level || 1;
@@ -112,6 +143,7 @@ export function speciesGrants(char) {
     if (src.speed) out.speed = src.speed;
     out.resist.push(...(src.resist || []));
     out.skills.push(...(src.skills || []));
+    out.tools.push(...(src.tools || []));
     out.cantrips.push(...(src.cantrips || []));
     for (const [l, ids] of Object.entries(src.spells || {})) {
       (out.spellsByLevel[l] ||= []).push(...ids);
@@ -130,7 +162,7 @@ export function speciesGrants(char) {
   }
   if (speciesChoiceSpecs(char).some(c => c.key === 'size') && ['Medium', 'Small'].includes(sc.size)) out.size = sc.size;
   out.spellAbility = fixedAbility || (SPELL_ABILITIES.includes(sc.spellAbility) ? sc.spellAbility : null);
-  for (const k of ['cantrips', 'spells', 'skills', 'resist']) out[k] = [...new Set(out[k])];
+  for (const k of ['cantrips', 'spells', 'skills', 'resist', 'tools']) out[k] = [...new Set(out[k])];
   return out;
 }
 

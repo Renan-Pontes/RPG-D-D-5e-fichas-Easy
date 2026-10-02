@@ -13,7 +13,7 @@ function spellRefs(node, path, out) {
   if (Array.isArray(node)) node.forEach((x, i) => spellRefs(x, `${path}[${i}]`, out));
   else if (node && typeof node === 'object') {
     for (const [k, v] of Object.entries(node)) {
-      if (['autoSpells', 'autoCantrips'].includes(k)) v.forEach(id => out.push([`${path}.${k}`, id]));
+      if (['autoSpells', 'autoCantrips', 'expandedSpells'].includes(k)) v.forEach(id => out.push([`${path}.${k}`, id]));
       else if (k === 'landTypeSpells') for (const [land, lv] of Object.entries(v)) for (const [l, ids] of Object.entries(lv)) ids.forEach(id => out.push([`${path}.${land}.${l}`, id]));
       else spellRefs(v, `${path}.${k}`, out);
     }
@@ -47,7 +47,9 @@ test('Devoção 2014: magias de juramento nos níveis 3/5/9/13/17, sem Aura Sagr
 });
 
 test('Hexblade 2014: Borrão (não Arma Mágica) e ids em camelCase', () => {
-  const p = computeProgression(build('warlock', 9, 'hexblade')).autoSpells;
+  // Lista Expandida (só amplia a lista de escolha; não entra em autoSpells).
+  const p = Object.entries(PROGRESSION_RULES.warlock.subclassPerLevel.hexblade).filter(([lv]) => Number(lv) <= 9).flatMap(([, n]) => n.expandedSpells || []);
+  assert.deepEqual(computeProgression(build('warlock', 9, 'hexblade')).autoSpells, []);
   for (const id of ['blur', 'blink', 'elementalWeapon', 'phantasmalKiller', 'staggeringSmite', 'coneOfCold']) assert.ok(p.includes(id), id);
   assert.ok(!p.includes('magicWeapon'));
 });

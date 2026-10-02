@@ -1,11 +1,13 @@
 /* Etapa Classe: o que o herói faz na aventura (ver ../README.md). */
+import { useRef } from 'react';
 import { tName } from '../../../data/i18n.js';
 import { StepIntro, Term, ChoiceGrid, ChoiceCard, Callout, L } from '../ui.jsx';
-import { classStart, startingSpells } from '../start-data.js';
+import { classStart } from '../start-data.js';
 import {
   CORE_CLASSES, OTHER_BOOK_CLASSES, COMPLEXITY, isBeginnerClass, abilityName, abilityList,
   armorText, weaponText, toolText, classFeaturesL1, needsSubclass, subclassList, isCoreSubclass,
   SUBCLASS_LABEL, SUBCLASS_INTRO, RECOMMENDED_SUBCLASS, classIssues, selectClass, selectSubclass,
+  classSpellSummary, classChangeNotice, dismissClassChange,
 } from '../class-helpers.js';
 
 const k = (lang) => (lang === 'pt' ? 'pt' : 'en');
@@ -30,28 +32,23 @@ function ClassCard({ char, id, lang, onPick }) {
 }
 
 function SpellLine({ char, lang }) {
-  const sp = startingSpells(char);
-  const note = classStart(char)?.spells?.note;
-  if (note) return <li><strong>{L(lang, 'Magia', 'Magic')}:</strong> {note[k(lang)]}</li>;
-  if (sp.mode === 'none' && !sp.cantrips && !sp.prepared) return null;
-  const parts = [];
-  if (sp.cantrips) parts.push(L(lang, `${sp.cantrips} truques`, `${sp.cantrips} cantrips`));
-  if (sp.prepared) parts.push(L(lang, `${sp.prepared} magias de 1º círculo`, `${sp.prepared} level 1 spells`));
-  if (sp.spellbook) parts.push(L(lang, `grimório com ${sp.spellbook}`, `spellbook with ${sp.spellbook}`));
+  const summary = classSpellSummary(char);
+  if (!summary) return null;
+  if (classStart(char)?.spells?.note) return <li><strong>{L(lang, 'Magia', 'Magic')}:</strong> {summary[k(lang)]}</li>;
   return (
     <li>
-      <strong>{L(lang, 'Magia', 'Magic')}:</strong> {L(lang, 'sim', 'yes')} — {parts.join(', ')}{' '}
+      <strong>{L(lang, 'Magia', 'Magic')}:</strong> {L(lang, 'sim', 'yes')} — {summary[k(lang)]}{' '}
       <span className="muted">({L(lang, 'escolhidas mais adiante', 'picked later on')})</span>
     </li>
   );
 }
 
-function ClassDetails({ char, lang }) {
+function ClassDetails({ char, lang, boxRef }) {
   const s = classStart(char);
   if (!s) return null;
   const feats = classFeaturesL1(char, char.className);
   return (
-    <div className="card cr-class-details" style={{ marginTop: 16 }}>
+    <div className="card cr-class-details" style={{ marginTop: 16, scrollMarginTop: 12 }} ref={boxRef} id="cr-class-details">
       <h3 style={{ marginBottom: 8 }}>{tName('class', char.className, lang)}</h3>
       <ul className="cr-class-facts">
         <li>
@@ -119,9 +116,24 @@ function SubclassPicker({ char, set, lang }) {
   );
 }
 
+/** Tela estreita (celular): os detalhes ficam longe do cartão tocado. */
+const isNarrow = () => {
+  try { return typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 720px)').matches; } catch { return false; }
+};
+
 function ClassStep({ char, set, lang }) {
-  const pick = (id) => set(selectClass(char, id));
+  const detailsRef = useRef(null);
+  const pick = (id) => {
+    set(selectClass(char, id));
+    // No celular, leva até o quadro de detalhes logo depois de tocar.
+    if (isNarrow()) {
+      setTimeout(() => {
+        try { detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch { /* sem rolagem */ }
+      }, 60);
+    }
+  };
   const isOther = OTHER_BOOK_CLASSES.includes(char.className);
+  const changedFrom = classChangeNotice(char);
   return (
     <div>
       <StepIntro title={L(lang, 'Escolha sua classe', 'Choose your class')}>
@@ -135,6 +147,16 @@ function ClassStep({ char, set, lang }) {
           'Primeira vez? As classes com o selo "Bom para começar" têm menos regras para lembrar. Toque numa classe para ver os detalhes.',
           'First time? Classes marked "Good for beginners" have fewer rules to remember. Tap a class to see the details.')}
       </Callout>
+      {changedFrom && char.className && (
+        <Callout kind="warn">
+          {L(lang,
+            <>Você trocou de classe ({tName('class', changedFrom, 'pt')} → {tName('class', char.className, 'pt')}). Os <Term id="abilityScores" lang={lang}>atributos</Term> e o bônus que você já tinha distribuído foram pensados para a classe anterior. Na etapa Atributos, toque em "Sugestão para minha classe" para refazer, ou confira se ainda servem.</>,
+            <>You changed class ({tName('class', changedFrom, 'en')} → {tName('class', char.className, 'en')}). The <Term id="abilityScores" lang={lang}>ability scores</Term> and bonus you had already set were meant for your previous class. In the Abilities step, tap "Suggestion for my class" to redo them, or check they still work.</>)}
+          <div style={{ marginTop: 8 }}>
+            <button type="button" className="btn btn-ghost" onClick={() => set(dismissClassChange(char))}>{L(lang, 'Entendi', 'Got it')}</button>
+          </div>
+        </Callout>
+      )}
       <ChoiceGrid>
         {CORE_CLASSES.map(id => <ClassCard key={id} char={char} id={id} lang={lang} onPick={pick} />)}
       </ChoiceGrid>
@@ -147,7 +169,7 @@ function ClassStep({ char, set, lang }) {
           {OTHER_BOOK_CLASSES.map(id => <ClassCard key={id} char={char} id={id} lang={lang} onPick={pick} />)}
         </ChoiceGrid>
       </details>
-      {char.className && <ClassDetails char={char} lang={lang} />}
+      {char.className && <ClassDetails char={char} lang={lang} boxRef={detailsRef} />}
       <SubclassPicker char={char} set={set} lang={lang} />
     </div>
   );

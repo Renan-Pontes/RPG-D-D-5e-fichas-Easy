@@ -21,6 +21,16 @@ import { findFeat } from '../../data/feats.js';
 import { computeProgression } from '../progression/engine.js';
 import { speciesGrants } from '../progression/species.js';
 import * as Book from '../progression/spellbook.js';
+import { optionPool } from '../progression/options.js';
+import { rulesFor } from '../progression/rules.js';
+import { speciesChoiceSpecs } from '../progression/species.js';
+import SRD from '../../data/srd.js';
+import { localizeLegacySpells } from '../../data/spells-extra.js';
+
+// Catálogo 2014 em pt na tela (criação e ficha): resumo 2014 nas magias copiadas do
+// SRD 5.2.1, "SAL DEST"/pés/HP por extenso e tempo/alcance/duração traduzidos (metaPt,
+// que Utils.spellMeta usa). Ver data/spells-extra.js. Idempotente.
+localizeLegacySpells(SRD.SPELLS);
 
 const b = (pt, en) => ({ pt, en });
 const rv = (char) => (char?.rulesVersion === '2014' ? '2014' : '2024');
@@ -32,6 +42,44 @@ const plural = (n, one, many) => (n === 1 ? one : many);
 export const spellDef = (char, id) => Utils.spellCatalog(char).find(s => s.id === id) || null;
 const nameOf = (char, id) => b(tName('spellName', id, 'pt'), tName('spellName', id, 'en'));
 const className = (char) => b(tName('class', char.className, 'pt'), tName('class', char.className, 'en'));
+
+// ---------------------------------------------------------------------------
+// Livro básico × outros livros
+// ---------------------------------------------------------------------------
+/** Fontes do livro básico (SRD 5.1/5.2.1 e Livro do Jogador 2014/2024) — as demais vão para "Outros livros". */
+const CORE_SPELL_SOURCES = new Set([undefined, null, '', 'SRD', 'SRD 5.1', 'SRD 5.2.1', 'PHB', 'PHB14', 'PHB24']);
+/**
+ * Magias marcadas PHB24 que, na regra 2014, vieram de suplementos (XGE, TCE) ou só
+ * existem em 2024 — numa ficha 2014 elas não são do livro básico.
+ */
+const NOT_PHB_2014 = new Set(['mindSliver', 'thunderclap', 'tollTheDead', 'wordOfRadiance', 'synapticStatic', 'steelWindStrike',
+  'tashasBubblingCauldron', 'arcaneVigor', 'jallarzisStormOfRadiance', 'powerWordFortify', 'fountOfMoonlight', 'yolandesRegalPresence']);
+/** A magia é do livro básico? (as de suplementos aparecem recolhidas, "confirme com o mestre"). */
+export function isCoreSpell(sp, char) {
+  if (!CORE_SPELL_SOURCES.has(sp?.source)) return false;
+  if (rv(char) === '2014' && sp?.source === 'PHB24' && (NOT_PHB_2014.has(sp.id) || /^summon/.test(sp.id))) return false;
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Lista da classe (+ Lista Expandida do patrono do Bruxo 2014)
+// ---------------------------------------------------------------------------
+/**
+ * 2014 (PHB): a Lista Expandida do patrono do bruxo só acrescenta opções à lista de
+ * escolha — não são magias de graça. Ids de rules.js `expandedSpells` até o nível atual.
+ */
+export function expandedSpellIds(char) {
+  const out = new Set();
+  if (!char?.className || !char?.subclass) return out;
+  const levels = rulesFor(char)?.subclassPerLevel?.[char.subclass];
+  if (!levels) return out;
+  for (const [lv, node] of Object.entries(levels)) {
+    if (/^\d+$/.test(lv) && Number(lv) <= (char.level || 1)) for (const id of node?.expandedSpells || []) out.add(id);
+  }
+  return out;
+}
+/** A magia está na lista de escolha do personagem (lista da classe ou Lista Expandida)? */
+export const onClassList = (char, d, expanded = expandedSpellIds(char)) => !!d && (Utils.inSpellList(char, d) || expanded.has(d.id));
 
 // ---------------------------------------------------------------------------
 // Sugestões para iniciantes
@@ -74,13 +122,13 @@ const FALLBACK_2014 = { sorcerer: ['fireBolt'] };
 export function beginnerCantrips(char) {
   const cls = char?.className;
   const ids = [...(SRD_RECOMMENDED.cantrips[cls] || []), ...(rv(char) === '2014' ? FALLBACK_2014[cls] || [] : []), ...EASY_CANTRIPS];
-  return [...new Set(ids)].filter(id => { const d = spellDef(char, id); return d && d.level === 0 && Utils.inSpellList(char, d); });
+  return [...new Set(ids)].filter(id => { const d = spellDef(char, id); return d && d.level === 0 && onClassList(char, d); });
 }
 
 /** Magias de 1º círculo recomendadas (na lista da classe), na ordem de sugestão. */
 export function recommendedSpells(char) {
   const ids = SRD_RECOMMENDED.spells[char?.className] || [];
-  return ids.filter(id => { const d = spellDef(char, id); return d && d.level === 1 && Utils.inSpellList(char, d); });
+  return ids.filter(id => { const d = spellDef(char, id); return d && d.level === 1 && onClassList(char, d); });
 }
 
 // ---------------------------------------------------------------------------
@@ -124,22 +172,32 @@ function featAbility(feat, entry) {
 }
 
 /**
- * Truques e magias que o personagem ganha sem escolher na classe:
- * [{ id, level, source: 'class'|'feat'|'species', from: {pt,en}, ability }].
- * Mesma ordem de prioridade do applyAutosToCharacter (classe, talento, espécie).
+ * Todas as origens de truques/magias que não ocupam vaga da classe, SEM juntar
+ * repetidas: [{ id, level, source: 'class'|'feat'|'species', from: {pt,en}, ability,
+ * chosen, step }]. `chosen` = o jogador escolheu (pode trocar); `step` = etapa da
+ * criação onde se troca ('classChoices' | 'originFeat' | 'speciesChoices' | null).
  */
-export function grantedSpells(char) {
+export function grantEntries(char) {
   const out = [];
-  const push = (id, source, from, ability = null) => {
-    if (!id || out.some(g => g.id === id)) return;
+  const push = (id, source, from, ability = null, chosen = false, step = null) => {
+    if (!id || out.some(g => g.id === id && g.source === source && g.from?.pt === from?.pt)) return;
     const d = spellDef(char, id);
-    out.push({ id, level: d ? d.level : null, source, from, ability });
+    out.push({ id, level: d ? d.level : null, source, from, ability, chosen, step });
   };
   if (char?.className) {
     let prog = null;
     try { prog = computeProgression(char); } catch { prog = null; }
+    const ability = Utils.spellcastingAbilityOfClass(char);
+    // Escolhas de recurso de classe (Truque do Taumaturgo, Pacto do Tomo…): origem própria.
+    const picks = (Array.isArray(char.classOptions) ? char.classOptions : [])
+      .filter(p => p?.id && optionPool(p.classId || char.className, p.pool)?.kind === 'spell' && spellDef(char, p.id));
+    const picked = new Set(picks.map(p => p.id));
     const from = b(`recurso de ${tName('class', char.className, 'pt')}`, `${tName('class', char.className, 'en')} feature`);
-    for (const id of [...(prog?.autoCantrips || []), ...(prog?.autoSpells || [])]) push(id, 'class', from, Utils.spellcastingAbilityOfClass(char));
+    for (const id of [...(prog?.autoCantrips || []), ...(prog?.autoSpells || [])]) if (!picked.has(id)) push(id, 'class', from, ability);
+    for (const p of picks) {
+      const pool = optionPool(p.classId || char.className, p.pool);
+      push(p.id, 'class', pool?.name?.pt ? pool.name : from, ability, true, 'classChoices');
+    }
   }
   for (const entry of char?.feats || []) {
     const feat = entry?.id ? findFeat(entry.id) : null;
@@ -147,13 +205,77 @@ export function grantedSpells(char) {
     const g = feat.grants || {};
     const p = entry.picks || {};
     const ab = featAbility(feat, entry);
-    for (const id of [...list(g.cantrips), ...list(p.cantrip), ...list(g.spells), ...list(p.spell)]) push(id, 'feat', feat.name, ab);
+    const step = entry.origin === 'background' ? 'originFeat' : entry.origin === 'species' ? 'speciesChoices' : null;
+    for (const id of [...list(g.cantrips), ...list(g.spells)]) push(id, 'feat', feat.name, ab);
+    for (const id of [...list(p.cantrip), ...list(p.spell)]) push(id, 'feat', feat.name, ab, true, step);
   }
   const sg = speciesGrants(char || {});
   const race = Utils.races(char || {}).find(r => r.id === char?.race);
   const raceName = race?.name ? (typeof race.name === 'string' ? b(race.name, race.name) : race.name) : b('espécie', 'species');
-  for (const id of [...sg.cantrips, ...sg.spells]) push(id, 'species', raceName, sg.spellAbility);
+  let chosenCantrip = null;
+  try { if (speciesChoiceSpecs(char || {}).some(c => c.key === 'cantrip')) chosenCantrip = char?.speciesChoices?.cantrip || null; } catch { /* sem espécie */ }
+  for (const id of [...sg.cantrips, ...sg.spells]) push(id, 'species', raceName, sg.spellAbility, id === chosenCantrip, id === chosenCantrip ? 'speciesChoices' : null);
   return out;
+}
+
+/**
+ * Truques e magias que o personagem ganha sem escolher na classe (uma linha por magia):
+ * [{ id, level, source: 'class'|'feat'|'species', from: {pt,en}, ability }].
+ * Mesma ordem de prioridade do applyAutosToCharacter (classe, talento, espécie).
+ */
+export function grantedSpells(char) {
+  const out = [];
+  for (const g of grantEntries(char)) {
+    if (out.some(x => x.id === g.id)) continue;
+    const { chosen, step, ...rest } = g;
+    out.push(rest);
+  }
+  return out;
+}
+
+const STEP_NAME = {
+  classChoices: b('Escolhas da classe', 'Class choices'),
+  originFeat: b('Talento de origem', 'Origin feat'),
+  speciesChoices: b('Escolhas da espécie', 'Species choices'),
+};
+
+/**
+ * O mesmo truque/magia vindo de duas origens (classe, talento, espécie): o personagem
+ * ficaria com um a menos, porque a ficha guarda cada magia uma vez só.
+ * [{ id, level, entries: [grantEntry…], fix: grantEntry escolhido para trocar | null }].
+ * Só aponta quando há pelo menos uma escolha que pode ser trocada.
+ */
+export function duplicateGrants(char) {
+  const by = new Map();
+  for (const g of grantEntries(char)) (by.get(g.id) || by.set(g.id, []).get(g.id)).push(g);
+  const out = [];
+  for (const [id, entries] of by) {
+    if (entries.length < 2) continue;
+    const choices = entries.filter(e => e.chosen);
+    if (!choices.length) continue;
+    // Troca a escolha que vem por último no assistente (talento/espécie antes da classe).
+    const order = ['speciesChoices', 'originFeat', 'classChoices'];
+    const fix = [...choices].sort((a, c) => order.indexOf(a.step) - order.indexOf(c.step))[0];
+    out.push({ id, level: entries[0].level, entries, fix });
+  }
+  return out;
+}
+
+/** Pendências de duplicata (kind: 'cantrip' | 'spell' | undefined = todas). Bloqueiam o avanço. */
+export function duplicateGrantIssues(char, kind) {
+  return duplicateGrants(char)
+    .filter(d => !kind || (kind === 'cantrip' ? d.level === 0 : (d.level || 0) > 0))
+    .map(d => {
+      const n = nameOf(char, d.id);
+      const froms = [...new Set(d.entries.map(e => e.from?.pt))].join(' e ');
+      const fromsEn = [...new Set(d.entries.map(e => e.from?.en))].join(' and ');
+      const where = d.fix?.step ? STEP_NAME[d.fix.step] : null;
+      const kindPt = d.level === 0 ? 'truque' : 'magia';
+      return b(
+        `${n.pt} vem duas vezes (${froms}). Troque a escolha de ${d.fix.from?.pt}${where ? ` na etapa "${where.pt}"` : ''} por ${kindPt === 'truque' ? 'outro truque — repetido, ele não vale um truque extra' : 'outra magia — repetida, ela não vale uma magia extra'}.`,
+        `${n.en} comes twice (${fromsEn}). Change the ${d.fix.from?.en} pick${where ? ` in the "${where.en}" step` : ''} to a different ${d.level === 0 ? 'cantrip' : 'spell'} — a repeat doesn't count as an extra one.`,
+      );
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -172,14 +294,16 @@ export const preparedFromBook = (char) => Book.preparedFromBook({ ...char, spell
 /** Truques da lista da classe que podem ser escolhidos (sem os que já vêm de graça). */
 export function availableCantrips(char) {
   const granted = new Set(grantedSpells(char).map(g => g.id));
-  return Utils.spellCatalog(char).filter(s => s.level === 0 && Utils.inSpellList(char, s) && !granted.has(s.id));
+  const expanded = expandedSpellIds(char);
+  return Utils.spellCatalog(char).filter(s => s.level === 0 && onClassList(char, s, expanded) && !granted.has(s.id));
 }
 
 /** Magias de círculo 1..máximo da lista da classe que podem ser escolhidas. */
 export function availableSpells(char) {
   const max = spellPlan(char).maxLevel;
   const granted = new Set(grantedSpells(char).map(g => g.id));
-  return Utils.spellCatalog(char).filter(s => s.level >= 1 && s.level <= max && Utils.inSpellList(char, s) && !granted.has(s.id));
+  const expanded = expandedSpellIds(char);
+  return Utils.spellCatalog(char).filter(s => s.level >= 1 && s.level <= max && onClassList(char, s, expanded) && !granted.has(s.id));
 }
 
 /**
@@ -190,14 +314,15 @@ export function availableSpells(char) {
 export function invalidChoices(char, kind) {
   const plan = spellPlan(char);
   const granted = new Map(grantedSpells(char).map(g => [g.id, g]));
+  const expanded = expandedSpellIds(char);
   const out = [];
   for (const s of own(char)) {
     const d = spellDef(char, s.id);
     if (!d) { if (kind === 'spell') out.push({ id: s.id, reason: 'unknown' }); continue; }
     if ((d.level === 0) !== (kind === 'cantrip')) continue;
-    if (!Utils.inSpellList(char, d)) out.push({ id: s.id, reason: 'list' });
+    if (!onClassList(char, d, expanded)) out.push({ id: s.id, reason: 'list' });
     else if (d.level > plan.maxLevel) out.push({ id: s.id, reason: 'level', level: d.level });
-    else if (granted.has(s.id)) out.push({ id: s.id, reason: 'granted', from: granted.get(s.id).from });
+    else if (granted.has(s.id)) out.push({ id: s.id, reason: 'granted', level: d.level, from: granted.get(s.id).from });
   }
   return out;
 }
@@ -212,13 +337,13 @@ function invalidIssue(char, x) {
   const n = nameOf(char, x.id);
   const c = className(char);
   if (x.reason === 'unknown') return b(`"${x.id}" não existe nesta regra; tire-a da seleção.`, `"${x.id}" doesn't exist in these rules; remove it.`);
-  if (x.reason === 'list') return b(`${n.pt} não é da lista de magias de ${c.pt}; tire-a da seleção.`, `${n.en} isn't on the ${c.en} spell list; remove it.`);
+  if (x.reason === 'list') return b(`${n.pt} não é da lista de magias da classe ${c.pt}; tire-a da seleção.`, `${n.en} isn't on the ${c.en} spell list; remove it.`);
   if (x.reason === 'level') {
     const max = spellPlan(char).maxLevel;
     return b(`${n.pt} é de ${x.level}º círculo; agora você só lança até o ${max}º. Tire-a da seleção.`,
       `${n.en} is level ${x.level}; right now you can only cast up to level ${max}. Remove it.`);
   }
-  return b(`Você já ganha ${n.pt} de ${x.from?.pt}; troque por outra para não desperdiçar a vaga.`,
+  return b(`Você já ganha ${n.pt} de ${x.from?.pt}; troque por ${x.level === 0 ? 'outro' : 'outra'} para não desperdiçar a vaga.`,
     `You already get ${n.en} from ${x.from?.en}; swap it for another so you don't waste the slot.`);
 }
 
@@ -241,7 +366,7 @@ export function cantripIssues(char) {
   const bad = invalidChoices(char, 'cantrip');
   const badIds = new Set(bad.map(x => x.id));
   const n = chosenCantrips(char).filter(id => !badIds.has(id)).length;
-  const issues = bad.map(x => invalidIssue(char, x));
+  const issues = [...duplicateGrantIssues(char, 'cantrip'), ...bad.map(x => invalidIssue(char, x))];
   const c = countIssue(n, plan.cantrips, { pt: ['truque', 'truques'], en: ['cantrip', 'cantrips'] });
   if (c) issues.push(c);
   return issues;
@@ -253,13 +378,13 @@ export function spellIssues(char) {
   if (plan.leveled <= 0 && plan.spellbook <= 0) return [];
   const bad = invalidChoices(char, 'spell');
   const badIds = new Set(bad.map(x => x.id));
-  const issues = bad.map(x => invalidIssue(char, x));
+  const issues = [...duplicateGrantIssues(char, 'spell'), ...bad.map(x => invalidIssue(char, x))];
   const ok = chosenSpells(char).filter(id => !badIds.has(id));
   if (plan.book) {
     const c1 = countIssue(ok.length, plan.spellbook, { pt: ['magia no grimório', 'magias no grimório'], en: ['spellbook spell', 'spellbook spells'] });
     if (c1) issues.push(c1);
     const prepared = preparedFromBook(char).filter(id => !badIds.has(id)).length;
-    const c2 = countIssue(prepared, plan.leveled, { pt: ['magia preparada (marque a estrela)', 'magias preparadas (marque a estrela)'], en: ['prepared spell (tap the star)', 'prepared spells (tap the star)'] });
+    const c2 = countIssue(prepared, plan.leveled, { pt: ['magia preparada (aba "2. Prepare para hoje")', 'magias preparadas (aba "2. Prepare para hoje")'], en: ['prepared spell ("2. Prepare for today" tab)', 'prepared spells ("2. Prepare for today" tab)'] });
     if (c2) issues.push(c2);
   } else {
     const what = plan.mode === 'prepared'
@@ -354,5 +479,6 @@ export function grantSource(char, entry) {
 
 /** Entradas da classe (não automáticas) fora da lista dela — sobras de outra classe. */
 export function offListEntries(char) {
-  return own(char).filter(s => { const d = spellDef(char, s.id); return d && !Utils.inSpellList(char, d); });
+  const expanded = expandedSpellIds(char);
+  return own(char).filter(s => { const d = spellDef(char, s.id); return d && !onClassList(char, d, expanded); });
 }

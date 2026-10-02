@@ -74,7 +74,7 @@ const features = {
       'Você conhece o Druídico, a língua secreta dos druidas, e sempre tem a magia Falar com Animais preparada. Pode deixar mensagens ocultas em Druídico: quem conhece o idioma as percebe automaticamente; os demais notam a mensagem com um teste de Inteligência (Investigação) CD 15, mas não a decifram sem magia.',
       'You know Druidic, the secret language of Druids, and you always have Speak with Animals prepared. You can leave hidden messages in Druidic: those who know it spot them automatically; others notice the message with a DC 15 Intelligence (Investigation) check but can\'t decipher it without magic.'),
     f('primalOrder', 'Ordem Primal', 'Primal Order',
-      'Escolha um papel sagrado. Mago: conhece um truque extra da lista de druida e soma o modificador de Sabedoria (mínimo +1) aos testes de Inteligência (Arcanismo ou Natureza). Guardião: proficiência com armas marciais e treino com armadura média.',
+      'Escolha um papel sagrado. Mágico: conhece um truque extra da lista de druida e soma o modificador de Sabedoria (mínimo +1) aos testes de Inteligência (Arcanismo ou Natureza). Guardião: proficiência com armas marciais e treino com armadura média.',
       'Choose a sacred role. Magician: you know one extra Druid cantrip and add your Wisdom modifier (minimum +1) to Intelligence (Arcana or Nature) checks. Warden: proficiency with Martial weapons and training with Medium armor.'),
   ],
   2: [
@@ -132,7 +132,7 @@ const features = {
 const primalOrder = {
   name: b('Ordem Primal', 'Primal Order'),
   options: [
-    { id: 'magician', name: b('Mago', 'Magician'), source: 'SRD',
+    { id: 'magician', name: b('Mágico', 'Magician'), source: 'SRD',
       desc: b('Conhece um truque extra da lista de druida e soma o modificador de Sabedoria (mínimo +1) aos testes de Inteligência (Arcanismo ou Natureza).',
         'Know one extra Druid cantrip and add your Wisdom modifier (minimum +1) to Intelligence (Arcana or Nature) checks.'),
       choices: { magicianCantrip: 1 } },
@@ -158,10 +158,10 @@ const elementalFury = {
 const pools = {
   primalOrder,
   elementalFury,
-  // Mago: +1 truque de druida (não conta no limite da tabela). Troca junto com os
+  // Mágico: +1 truque de druida (não conta no limite da tabela). Troca junto com os
   // truques da classe, a cada nível de druida.
   magicianCantrip: {
-    name: b('Truque do Mago', 'Magician Cantrip'),
+    name: b('Truque do Mágico', 'Magician Cantrip'),
     kind: 'spell', filter: { classes: ['druid'], level: 0 }, grantAs: 'cantrip', swapOnLevelUp: 1,
   },
   // Círculo da Terra (2014): Truque Bônus.
@@ -291,7 +291,7 @@ const stars = {
     3: {
       features: [
         f('starMap', 'Mapa Estelar', 'Star Map',
-          'Você cria um mapa estelar Minúsculo (pergaminho, tábua, pedra etc.) que serve de foco de conjuração; se perdê-lo, refaz em 1 hora de ritual durante um descanso. Com ele, conhece o truque Orientação e tem Raio Guia sempre preparado, e pode conjurar Raio Guia sem gastar espaço um número de vezes igual ao modificador de Sabedoria (mínimo 1) por descanso longo.',
+          'Você cria um mapa estelar Minúsculo (pergaminho, tábua, pedra etc.) que serve de foco de conjuração; se perdê-lo, refaz em 1 hora de ritual durante um descanso. Com ele, conhece o truque Orientação e tem Flecha Guiada sempre preparado, e pode conjurar Flecha Guiada sem gastar espaço um número de vezes igual ao modificador de Sabedoria (mínimo 1) por descanso longo.',
           'You create a Tiny star map (scroll, tablet, stone, etc.) that serves as a spellcasting focus; if lost, you remake it in a 1-hour ritual during a rest. With it you know the Guidance cantrip and always have Guiding Bolt prepared, and you can cast Guiding Bolt without a slot a number of times equal to your Wisdom modifier (minimum 1) per Long Rest.'),
         f('starryForm', 'Forma Estelar', 'Starry Form',
           'Como Ação Bônus, gaste um uso de Forma Selvagem (sem se transformar): por 10 minutos seu corpo brilha (luz plena 3 m, penumbra mais 3 m) e você escolhe uma constelação. Arqueiro: ao ativar e como Ação Bônus nos turnos seguintes, ataque mágico à distância a até 18 m (60 pés), 1d8 + SAB de dano Radiante. Cálice: ao conjurar magia com espaço que restaure PV, você ou outra criatura a até 9 m (30 pés) recupera 1d8 + SAB. Dragão: em testes de INT e SAB e em salvaguardas de CON para manter Concentração, um 9 ou menos no d20 conta como 10.',
@@ -466,9 +466,9 @@ const resources = [
     desc: b('Também recupera 1 uso gastando um espaço de nível 2+.', 'Also regain 1 use by expending a level 2+ slot.'),
     uses: WIS, recharge: 'long', minLevel: 10, subclass: ['moon'], rules: '2024' },
   // Círculo das Estrelas
-  { id: 'starMapGuidingBolt', name: b('Mapa Estelar (Raio Guia grátis)', 'Star Map (free Guiding Bolt)'),
+  { id: 'starMapGuidingBolt', name: b('Mapa Estelar (Flecha Guiada grátis)', 'Star Map (free Guiding Bolt)'),
     uses: WIS, recharge: 'long', minLevel: 3, subclass: ['stars'], rules: '2024' },
-  { id: 'starMapGuidingBoltLegacy', name: b('Mapa Estelar (Raio Guia grátis)', 'Star Map (free Guiding Bolt)'),
+  { id: 'starMapGuidingBoltLegacy', name: b('Mapa Estelar (Flecha Guiada grátis)', 'Star Map (free Guiding Bolt)'),
     uses: { profBonus: true }, recharge: 'long', minLevel: 2, subclass: ['stars'], rules: '2014' },
   { id: 'cosmicOmen', name: b('Presságio Cósmico', 'Cosmic Omen'),
     uses: WIS, recharge: 'long', minLevel: 6, subclass: ['stars'], rules: '2024' },

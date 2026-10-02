@@ -7,7 +7,11 @@ import {
   choiceGroups, groupOptions, toggleGroupPick, setPickDetail, classChoiceIssues, hasClassChoices, recommendedIds,
   classSkillList, classSkillCount, classSkillPicks, toggleClassSkill, skillsIssues, expertiseGroups, expertiseOptions,
   otherSkillSources, stripClassPack, classToolPicks, armorText, weaponText, toolText, classFeaturesL1, SKILL_HINTS,
+  expertiseIssues, recommendedSkills, overlappingSkills, classSpellSummary, classChangeNotice, dismissClassChange,
+  masteryMismatch,
 } from '../src/creator/class-helpers.js';
+import { applyBackground } from '../src/creator/background-helpers.js';
+import { poolOptions } from '../src/progression/options-catalog.js';
 import SRD from '../data/srd.js';
 
 const mk = (rules, className, extra = {}) => {
@@ -254,7 +258,9 @@ for (const rules of ['2024', '2014']) {
   test(`${rules}: Especialização do Ladino só em perícias treinadas; some ao desmarcar a perícia`, () => {
     let c = mk(rules, 'rogue');
     const pool = rules === '2024' ? 'expertise' : 'expertise2014';
-    assert.ok(skillsIssues(c).some(i => /Especialização/.test(i.pt)));
+    // A Especialização é pendência da etapa Antecedente (não trava as Perícias).
+    assert.ok(!skillsIssues(c).some(i => /Especialização/.test(i.pt)));
+    assert.ok(expertiseIssues(c).some(i => /Especialização/.test(i.pt)));
     c = pickSkills(c, ['stealth', 'perception', 'acrobatics', 'insight']);
     const g = expertiseGroups(c)[0];
     assert.equal(g.pools[0], pool);
@@ -265,9 +271,11 @@ for (const rules of ['2024', '2014']) {
     c = apply(c, toggleGroupPick(c, g, 'stealth'));
     c = apply(c, toggleGroupPick(c, expertiseGroups(c)[0], 'perception'));
     assert.deepEqual(skillsIssues(c), []);
+    assert.deepEqual(expertiseIssues(c), []);
     c = pickSkills(c, ['stealth']);
     assert.deepEqual(c.classOptions.filter(p => p.pool === pool).map(p => p.id), ['perception']);
-    assert.equal(skillsIssues(c).length, 2); // falta 1 perícia e 1 especialização
+    assert.equal(skillsIssues(c).length, 1); // falta 1 perícia
+    assert.equal(expertiseIssues(c).length, 1); // e 1 especialização
   });
 }
 
@@ -275,4 +283,130 @@ test('Ladino 2024: trocar de classe tira o idioma extra escolhido', () => {
   let c = mk('2024', 'rogue', { languages: ['Elvish', 'Dwarvish', 'Draconic'] });
   c = apply(c, selectClass(c, 'fighter'));
   assert.equal(c.languages.length, 2);
+});
+
+test('textos: plural das ferramentas e lista "da classe X"', () => {
+  assert.equal(toolText({ tools: { choose: 3, category: 'instrument' } }, 'pt'), 'Escolha 3 instrumentos musicais');
+  assert.equal(toolText({ tools: { choose: 1, category: 'instrument' } }, 'pt'), 'Escolha 1 instrumento musical');
+});
+
+test('cartão da classe 2014: Clérigo/Druida/Mago mostram a regra, não "1 magias"', () => {
+  for (const [id, ab] of [['cleric', 'Sabedoria'], ['druid', 'Sabedoria'], ['wizard', 'Inteligência']]) {
+    const s = classSpellSummary(mk('2014', id));
+    assert.match(s.pt, new RegExp(`depende do atributo \\(modificador de ${ab} \\+ 1`), id);
+    assert.ok(!/1 magias/.test(s.pt), s.pt);
+  }
+  assert.match(classSpellSummary(mk('2014', 'wizard')).pt, /grimório com 6/);
+  // 2024 continua com o número fixo, com singular/plural certos.
+  assert.match(classSpellSummary(mk('2024', 'cleric')).pt, /4 magias de 1º círculo/);
+  assert.equal(classSpellSummary(mk('2024', 'fighter')), null);
+});
+
+test('perícia repetida com o antecedente: só cita as escolhidas e recomenda substitutas', () => {
+  // Mago 2024: Arcanismo + Investigação; Sábio dá Arcanismo e História.
+  let c = pickSkills(mk('2024', 'wizard'), ['arcana', 'investigation']);
+  c = apply(c, applyBackground(c, 'sage'));
+  assert.deepEqual(overlappingSkills(c), ['arcana']);
+  const iss = skillsIssues(c).map(i => i.pt).join(' | ');
+  assert.match(iss, /Arcanismo já vem do antecedente; troque por outra/);
+  assert.ok(!/História/.test(iss), iss);
+  const rec = recommendedSkills(c);
+  assert.ok(!rec.includes('arcana') && !rec.includes('history'), rec.join());
+  assert.equal(rec.length, 2);
+  assert.ok(rec.includes('investigation'));
+  // Trocar a repetida pela substituta resolve, sem apagar a perícia que o antecedente acrescentou.
+  const sub = rec.find(id => id !== 'investigation');
+  c = pickSkills(c, [sub]);
+  assert.deepEqual(skillsIssues(c), []);
+  assert.ok(c.skillProfs.includes('history'));
+  // Plural: Guerreiro 2024 Atletismo + Percepção + Guarda.
+  let f = pickSkills(mk('2024', 'fighter'), ['athletics', 'perception']);
+  f = apply(f, applyBackground(f, 'guard'));
+  assert.match(skillsIssues(f)[0].pt, /Atletismo e Percepção já vêm do antecedente; troque por outras/);
+});
+
+test('recomendações de perícia não colidem com os antecedentes típicos da classe', () => {
+  const typical = { fighter: ['soldier', 'guard'], wizard: ['sage'], rogue: ['criminal'], ranger: ['guide'], paladin: ['noble'], cleric: ['acolyte'] };
+  for (const [cls, bgs] of Object.entries(typical)) {
+    const c = mk('2024', cls);
+    const rec = recommendedSkills(c);
+    assert.equal(rec.length, classSkillCount(c), cls);
+    for (const bg of bgs) {
+      const b = { ...c, ...applyBackground(c, bg) };
+      const bgSkills = (b.creation?.bgSkillsAdded || []);
+      const clash = rec.filter(id => bgSkills.includes(id));
+      assert.ok(clash.length <= 1, `${cls}+${bg}: ${clash.join()}`);
+    }
+  }
+});
+
+test('trocar de classe depois dos atributos deixa um aviso (e dá para dispensar)', () => {
+  let c = mk('2014', 'warlock');
+  assert.equal(classChangeNotice(c), null);
+  c = { ...c, creation: { ...c.creation, abilityMethod: 'standard', abilityAssign: { cha: 0 } } };
+  c = apply(c, selectClass(c, 'paladin'));
+  assert.equal(classChangeNotice(c), 'warlock');
+  c = apply(c, dismissClassChange(c));
+  assert.equal(classChangeNotice(c), null);
+  // Voltar para a classe original também tira o aviso.
+  let d = { ...mk('2024', 'wizard'), creation: { abilityMethod: 'pointbuy' } };
+  d = apply(d, selectClass(d, 'druid'));
+  assert.equal(classChangeNotice(d), 'wizard');
+  d = apply(d, selectClass(d, 'wizard'));
+  assert.equal(classChangeNotice(d), null);
+  // Sem atributos definidos: sem aviso.
+  const e = mk('2024', 'wizard');
+  assert.equal(classChangeNotice(apply(e, selectClass(e, 'druid'))), null);
+});
+
+test('escolhas sem recomendação própria ganham uma (Monge, Bardo, Patrulheiro 2014)', () => {
+  for (const [rules, cls] of [['2024', 'monk'], ['2024', 'bard'], ['2014', 'monk'], ['2014', 'ranger'], ['2024', 'warlock'], ['2024', 'fighter'], ['2024', 'rogue'], ['2024', 'barbarian']]) {
+    const c = mk(rules, cls);
+    for (const g of choiceGroups(c).filter(x => !x.step)) {
+      const opts = groupOptions(c, g);
+      const rec = recommendedIds(c, g);
+      assert.ok(rec.length >= 1, `${rules} ${cls} ${g.key}`);
+      assert.ok(rec.every(id => opts.some(o => o.id === id && o.eligible)), `${rules} ${cls} ${g.key}: ${rec.join()}`);
+    }
+  }
+  const bard = mk('2024', 'bard');
+  assert.equal(recommendedIds(bard, choiceGroups(bard)[0]).length, 3);
+});
+
+test('maestria: recomenda as armas do pacote escolhido e acusa maestria sem a arma', () => {
+  let c = mk('2024', 'fighter');
+  const wm = () => choiceGroups(c).find(g => g.key === 'weaponMastery');
+  c = { ...c, creation: { ...c.creation, classPack: 'B' } };
+  const recB = recommendedIds(c, wm());
+  assert.ok(!recB.includes('greatsword'), recB.join());
+  c = { ...c, creation: { ...c.creation, classPack: 'A' } };
+  c = apply(c, toggleGroupPick(c, wm(), 'greatsword'));
+  assert.deepEqual(masteryMismatch(c), []);
+  c = { ...c, creation: { ...c.creation, classPack: 'C' } };
+  assert.deepEqual(masteryMismatch(c), ['greatsword']);
+});
+
+test('Artífice: ferramenta de artesão gravada como id (start-data TOOLS)', () => {
+  let c = mk('2024', 'artificer');
+  const g = choiceGroups(c).find(x => x.key === 'artisanTool');
+  assert.ok(g, choiceGroups(c).map(x => x.key).join());
+  c = apply(c, toggleGroupPick(c, g, 'smithsTools'));
+  assert.deepEqual(classToolPicks(c), ['smithsTools']);
+});
+
+test('idiomas de escolhas de classe 2014: sem idiomas secretos nem Língua de Sinais', () => {
+  let c = mk('2014', 'cleric');
+  c = apply(c, selectSubclass(c, 'knowledge'));
+  const ids = poolOptions(c, 'cleric', 'knowledgeLanguage').map(o => o.id);
+  assert.ok(ids.includes('Elvish') && ids.includes('Draconic'));
+  for (const bad of ['Druidic', "Thieves' Cant", 'Common Sign Language']) assert.ok(!ids.includes(bad), bad);
+  const drac = poolOptions(c, 'cleric', 'knowledgeLanguage').find(o => o.id === 'Draconic');
+  assert.equal(drac.meta, 'exótico');
+  const r = mk('2014', 'ranger');
+  const rl = poolOptions(r, 'ranger', 'languages').map(o => o.id);
+  assert.ok(!rl.includes('Druidic') && !rl.includes("Thieves' Cant") && !rl.includes('Common Sign Language'));
+  // 2024: Língua de Sinais existe; secretos continuam fora.
+  const w = mk('2024', 'ranger');
+  const wl = poolOptions(w, 'ranger', 'languages').map(o => o.id);
+  assert.ok(wl.includes('Common Sign Language') && !wl.includes('Druidic'));
 });

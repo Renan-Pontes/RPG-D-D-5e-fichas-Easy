@@ -2,6 +2,7 @@
  * Grava em char.raceBonus (nome antigo do campo; em 2024 é o bônus do ANTECEDENTE). Lógica em ../ability-helpers.js. */
 import { useEffect } from 'react';
 import Utils from '../../../utils.js';
+import { hpExplain, initiativeExplain } from '../creation.js';
 import { tName } from '../../../data/i18n.js';
 import { StepIntro, Term, Callout, ChoiceGrid, ChoiceCard, Counter, L } from '../ui.jsx';
 import {
@@ -66,8 +67,8 @@ function Summary({ char, lang }) {
         </div>
       </div>
       <div className="text-xs muted" style={{ marginTop: 8 }}>
-        {L(lang, 'PV = dado da classe no máximo + modificador de Constituição. A armadura (escolhida no equipamento) pode subir a CA. Iniciativa = modificador de Destreza.',
-          'HP = your class die at maximum + Constitution modifier. Armor (picked in equipment) can raise AC. Initiative = Dexterity modifier.')}
+        {L(lang, 'PV', 'HP')}: {hpExplain(char, lang)}. {L(lang, 'Iniciativa', 'Initiative')}: {initiativeExplain(char, lang)}.{' '}
+        {L(lang, 'A armadura (escolhida no equipamento) pode subir a CA.', 'Armor (picked in equipment) can raise AC.')}
       </div>
     </div>
   );

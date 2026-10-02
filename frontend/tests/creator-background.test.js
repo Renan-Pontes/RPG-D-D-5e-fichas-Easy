@@ -5,8 +5,9 @@ import Utils from '../utils.js';
 import {
   applyBackground, backgroundIssues, toggleBackgroundTool, skillOverlap, fitsClass, findBackground,
   originEntry, originFeatApplies, originFeatIssues, originFeatConflict, originFeatRepeats, backgroundToolIds,
-  withOriginFeat, ORIGIN_FEAT_LINE,
+  withOriginFeat, ORIGIN_FEAT_LINE, ownedToolsOutsideBackground, backgroundToolRepeats, recommendedSpellAbility,
 } from '../src/creator/background-helpers.js';
+import { expertiseGroups, expertiseOptions, toggleGroupPick } from '../src/creator/class-helpers.js';
 import { newCharacter } from '../src/creator/creation.js';
 import { FEATS } from '../data/feats.js';
 
@@ -68,7 +69,7 @@ test('sem antecedente: issue em linguagem simples', () => {
 });
 
 test('2014: não mexe em raceBonus nem talentos, e corta idiomas a mais', () => {
-  let c = mk('2014', { race: 'human', raceBonus: { str: 1 } });
+  let c = mk('2014', { race: 'human', raceBonus: { str: 1 }, skillProfs: ['investigation', 'medicine'] });
   c = pick(c, 'sage');
   assert.deepEqual(c.raceBonus, { str: 1 });
   assert.deepEqual(c.feats || [], []);
@@ -87,12 +88,82 @@ test('2014: não mexe em raceBonus nem talentos, e corta idiomas a mais', () => 
 });
 
 test('combina com sua classe: 2024 por atributo, 2014 por perícia', () => {
-  const w24 = mk('2024');
+  const w24 = mk('2024', { skillProfs: [] });
   assert.equal(fitsClass(w24, findBackground(w24, 'sage')), true);
   assert.equal(fitsClass(w24, findBackground(w24, 'soldier')), false);
-  const w14 = mk('2014');
+  const w14 = mk('2014', { skillProfs: [] });
   assert.equal(fitsClass(w14, findBackground(w14, 'sage')), true);
   assert.equal(fitsClass(w14, findBackground(w14, 'soldier')), false);
+  // Repetir uma perícia já escolhida na classe tira o selo (Mago com Arcanismo × Sábio).
+  assert.equal(fitsClass(mk('2014'), findBackground(w14, 'sage')), false);
+});
+
+test('selo "Combina" só pelo atributo PRINCIPAL da classe (2024): poucos antecedentes por classe', () => {
+  const f = { ...newCharacter('2024'), className: 'fighter', skillProfs: [] };
+  const fits = Utils.backgrounds(f).filter(b => fitsClass(f, b)).map(b => b.id);
+  assert.ok(fits.includes('soldier') && fits.includes('guard'), fits.join());
+  assert.ok(fits.length <= 8, `Guerreiro: ${fits.length} antecedentes com selo (${fits.join()})`);
+  assert.ok(!fits.includes('sage'));
+  // Com Atletismo escolhido na classe, Soldado e Guarda (que dão Atletismo) perdem o selo.
+  const f2 = { ...f, skillProfs: ['athletics', 'perception'] };
+  assert.ok(!fitsClass(f2, findBackground(f2, 'soldier')));
+  assert.ok(!fitsClass(f2, findBackground(f2, 'guard')));
+});
+
+test('perícia da classe repetida pelo antecedente trava NA etapa Antecedente e só cita a escolhida', () => {
+  // Mago 2014: Arcanismo + Investigação; Sábio dá Arcanismo e História.
+  let c = pick(mk('2014'), 'sage');
+  const iss = backgroundIssues(c).map(i => i.pt).join(' | ');
+  assert.match(iss, /Arcanismo já vem do antecedente/);
+  assert.ok(!/História/.test(iss), iss);
+  // 2024 Guerreiro (Atletismo + Percepção) + Guarda (Atletismo + Percepção): plural certo.
+  let g = pick({ ...newCharacter('2024'), className: 'fighter', skillProfs: ['athletics', 'perception'] }, 'guard');
+  assert.match(backgroundIssues(g)[0].pt, /Atletismo e Percepção já vêm do antecedente/);
+  // Trocou a perícia da classe: some.
+  c = { ...c, skillProfs: c.skillProfs.filter(s => s !== 'arcana').concat('medicine') };
+  assert.ok(!backgroundIssues(c).some(i => /antecedente\./.test(i.pt)));
+});
+
+test('ferramenta que a classe já dá não pode ser escolhida de novo no antecedente', () => {
+  // Bardo 2024 com Alaúde nas escolhas da classe + Artista (1 instrumento).
+  let c = { ...newCharacter('2024'), className: 'bard', skillProfs: [], classOptions: [{ classId: 'bard', pool: 'musicalInstrument', id: 'lute' }] };
+  c = pick(c, 'entertainer');
+  assert.ok(ownedToolsOutsideBackground(c).includes('lute'));
+  c = { ...c, ...toggleBackgroundTool(c, 'lute') };
+  assert.deepEqual(backgroundToolRepeats(c), ['lute']);
+  assert.ok(backgroundIssues(c).some(i => /já tem treino em Alaúde/.test(i.pt)));
+  c = { ...c, ...toggleBackgroundTool(c, 'flute') };
+  assert.deepEqual(backgroundToolRepeats(c), []);
+});
+
+test('Iniciado em Magia já vem com o atributo mental principal da classe', () => {
+  const sage = pick({ ...newCharacter('2024'), className: 'wizard', skillProfs: [] }, 'sage');
+  assert.equal(originEntry(sage).picks.spellAbility, 'int');
+  const guide = pick({ ...newCharacter('2024'), className: 'ranger', skillProfs: [] }, 'guide');
+  assert.equal(originEntry(guide).picks.spellAbility, 'wis');
+  const aco = pick({ ...newCharacter('2024'), className: 'paladin', skillProfs: [] }, 'acolyte');
+  assert.equal(originEntry(aco).picks.spellAbility, 'cha');
+  // Sem atributo mental na classe: o da lista (Clérigo → Sabedoria).
+  const rog = pick({ ...newCharacter('2024'), className: 'rogue', skillProfs: [] }, 'acolyte');
+  assert.equal(originEntry(rog).picks.spellAbility, 'wis');
+  assert.equal(recommendedSpellAbility({ ...newCharacter('2024'), className: 'fighter' }, 'wizard'), 'int');
+});
+
+test('Ladino: Especialização é pendência da etapa Antecedente e aceita perícias do antecedente', () => {
+  for (const rules of ['2014', '2024']) {
+    let c = { ...newCharacter(rules), className: 'rogue', skillProfs: ['perception', 'acrobatics', 'investigation', 'insight'] };
+    c = pick(c, 'criminal');
+    assert.ok(backgroundIssues(c).some(i => /Especialização/.test(i.pt)), rules);
+    const g = expertiseGroups(c)[0];
+    assert.ok(expertiseOptions(c, g).some(o => o.id === 'stealth'), `${rules}: Furtividade (do Criminoso) disponível`);
+    c = { ...c, ...toggleGroupPick(c, g, 'stealth') };
+    c = { ...c, ...toggleGroupPick(c, expertiseGroups(c)[0], 'perception') };
+    assert.ok(!backgroundIssues(c).some(i => /Especialização/.test(i.pt)), rules);
+    // Trocar para um antecedente sem Furtividade tira a especialização dela.
+    c = pick(c, 'sage');
+    assert.ok(!c.classOptions.some(p => p.id === 'stealth'), rules);
+    assert.ok(backgroundIssues(c).some(i => /Especialização/.test(i.pt)), rules);
+  }
 });
 
 test('talento de origem: etapa só aparece com sub-escolhas (2024)', () => {
@@ -105,7 +176,7 @@ test('talento de origem: etapa só aparece com sub-escolhas (2024)', () => {
 test('Iniciado em Magia: issues simples até completar', () => {
   let c = pick(mk('2024'), 'sage');
   const iss = originFeatIssues(c).map(i => i.pt).join(' | ');
-  assert.match(iss, /atributo/);
+  assert.ok(!/atributo/.test(iss), 'atributo já vem sugerido');
   assert.match(iss, /2 truques/);
   assert.match(iss, /1 magia/);
   const e = originEntry(c);

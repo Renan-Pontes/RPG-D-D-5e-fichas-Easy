@@ -6,7 +6,8 @@
  *   pede no nível 1 (2014: Clérigo, Feiticeiro, Bruxo).
  * - Escolhas da classe: vagas de options.js (optionSlots) gravadas em
  *   char.classOptions. A Especialização (depende das perícias) é feita na
- *   etapa de perícias; o idioma extra do Ladino 2024 fica na etapa de idiomas
+ *   etapa Antecedente, depois que todas as perícias (classe + antecedente) já
+ *   são conhecidas; o idioma extra do Ladino 2024 fica na etapa de idiomas
  *   (utils.js languageChoiceSources já conta essa vaga).
  * - Perícias: exatamente N da lista da classe; as que vêm de outra fonte
  *   (antecedente, espécie, talento, opção de classe) ficam travadas.
@@ -20,7 +21,7 @@ import {
   optionSlots, optionPool, picksOf, applyOptionPicks, validateOptionPicks, findOption,
 } from '../progression/options.js';
 import { poolOptions } from '../progression/options-catalog.js';
-import { classStart, backgroundStart, packFor, toolName, TOOL_CATEGORIES } from './start-data.js';
+import { classStart, backgroundStart, packFor, toolName, TOOL_CATEGORIES, startingSpells } from './start-data.js';
 import { originFeatSkills } from './creation.js';
 import { dropPack } from './equipment-helpers.js';
 
@@ -92,6 +93,12 @@ const TOOL_CHOICE = {
   artisan: b('ferramenta de artesão', "artisan's tool"),
   artisanOrInstrument: b('ferramenta de artesão ou instrumento musical', "artisan's tool or musical instrument"),
 };
+/** Plural das categorias ("3 instrumentos musicais"). */
+const TOOL_CHOICE_PLURAL = {
+  instrument: b('instrumentos musicais', 'musical instruments'),
+  artisan: b('ferramentas de artesão', "artisan's tools"),
+  artisanOrInstrument: b('ferramentas de artesão ou instrumentos musicais', "artisan's tools or musical instruments"),
+};
 /** "Ferramentas de Ladrão; escolha 1 ferramenta de artesão" / "Nenhuma". */
 export function toolText(start, lang) {
   const pt = lang === 'pt';
@@ -99,12 +106,44 @@ export function toolText(start, lang) {
   const parts = [];
   if (t.fixed?.length) parts.push(t.fixed.map(id => toolName(id, lang)).join(', '));
   if (t.choose) {
-    const cat = (TOOL_CHOICE[t.category] || TOOL_CATEGORIES[t.category] || b('ferramenta', 'tool'))[pt ? 'pt' : 'en'];
-    parts.push(pt ? `escolha ${t.choose} ${cat}${t.choose > 1 ? ' (cada)' : ''}` : `choose ${t.choose} ${cat}${t.choose > 1 ? 's' : ''}`);
+    const table = t.choose > 1 ? TOOL_CHOICE_PLURAL : TOOL_CHOICE;
+    const cat = (table[t.category] || TOOL_CATEGORIES[t.category] || b(t.choose > 1 ? 'ferramentas' : 'ferramenta', t.choose > 1 ? 'tools' : 'tool'))[pt ? 'pt' : 'en'];
+    parts.push(pt ? `escolha ${t.choose} ${cat}` : `choose ${t.choose} ${cat}`);
   }
   if (!parts.length) return pt ? 'Nenhuma' : 'None';
   const s = parts.join('; ');
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
+ * Resumo da magia da classe no nível 1 para o cartão de detalhes: { pt, en } ou null.
+ * Classes de 2014 que preparam pelo atributo (Clérigo, Druida, Mago, Artífice)
+ * mostram a regra ("depende do atributo"), não um número calculado com os
+ * atributos ainda vazios.
+ */
+export function classSpellSummary(char, classId = char?.className) {
+  const s = classStart(char, classId)?.spells;
+  if (!s) return null;
+  if (s.note) return s.note;
+  const sp = startingSpells(char, classId);
+  if (sp.mode === 'none' && !sp.cantrips && !sp.prepared) return null;
+  const pt = [];
+  const en = [];
+  if (sp.cantrips) { pt.push(plural(sp.cantrips, 'truque', 'truques')); en.push(plural(sp.cantrips, 'cantrip', 'cantrips')); }
+  const f = s.preparedFormula;
+  if (f) {
+    const add = Math.floor((char?.level || 1) * f.levelMult);
+    const ab = abilityName(f.ability, 'pt');
+    const abEn = abilityName(f.ability, 'en');
+    const plus = add ? ` + ${add}` : '';
+    pt.push(`magias de 1º círculo preparadas: depende do atributo (modificador de ${ab}${plus}, mínimo 1; normalmente ${add + 2} ou ${add + 3})`);
+    en.push(`prepared level 1 spells: depends on your ability (${abEn} modifier${plus}, minimum 1; usually ${add + 2} or ${add + 3})`);
+  } else if (sp.prepared) {
+    pt.push(plural(sp.prepared, 'magia de 1º círculo', 'magias de 1º círculo'));
+    en.push(plural(sp.prepared, 'level 1 spell', 'level 1 spells'));
+  }
+  if (sp.spellbook) { pt.push(`grimório com ${sp.spellbook}`); en.push(`spellbook with ${sp.spellbook}`); }
+  return b(pt.join(', '), en.join(', '));
 }
 
 /** PV no nível 1 = dado de vida máximo + modificador de Constituição. */
@@ -216,6 +255,14 @@ export function selectClass(char, classId) {
     saveProfs: [...(start?.saves || [])],
     ...stripClassPack(char),
   };
+  // Troca de classe depois de já ter mexido nos atributos: avisa que eles eram para a classe anterior.
+  const c0 = char.creation || {};
+  const touchedAbilities = !!(c0.abilityMethod || (c0.abilityAssign && Object.keys(c0.abilityAssign).length)
+    || c0.abilityBonus || c0.abilityRolls);
+  const creation = { ...(patch.creation || c0) };
+  if (char.className && touchedAbilities) creation.classChangedFrom = creation.classChangedFrom || char.className;
+  if (creation.classChangedFrom === classId) delete creation.classChangedFrom;
+  patch.creation = creation;
   if (Array.isArray(char.toolProfs)) patch.toolProfs = char.toolProfs.filter(t => !oldClassTools.has(t) || bgTools.includes(t));
   // Idioma extra do Ladino 2024 (Gíria de Ladrão): sai junto com a classe.
   if (char.className === 'rogue' || classId === 'rogue') {
@@ -226,6 +273,22 @@ export function selectClass(char, classId) {
 }
 
 /** Patch ao escolher a subclasse: zera escolhas que dependiam da anterior. */
+/**
+ * Classe anterior quando o jogador trocou de classe depois de já ter definido
+ * atributos (os valores foram pensados para ela). null se não houver aviso.
+ */
+export function classChangeNotice(char) {
+  const from = char?.creation?.classChangedFrom;
+  return from && from !== char.className ? from : null;
+}
+
+/** Patch que dispensa o aviso de troca de classe. */
+export function dismissClassChange(char) {
+  const creation = { ...(char.creation || {}) };
+  delete creation.classChangedFrom;
+  return { creation };
+}
+
 export function selectSubclass(char, subId) {
   if (char.subclass === subId) return {};
   const next = { ...char, subclass: subId, landType: '', starFormType: '' };
@@ -366,14 +429,14 @@ export const POOL_INTRO = {
     'A way of fighting you excel at. If unsure, Defense (+1 AC) works with any weapon.'),
   divineOrder: b('Que tipo de clérigo você é: um guerreiro protetor de armadura pesada ou um estudioso com um truque a mais.',
     'What kind of cleric you are: a heavily armored protector or a scholar with an extra cantrip.'),
-  primalOrder: b('Que tipo de druida você é: um guardião que luta de armadura ou um mago com um truque a mais.',
+  primalOrder: b('Que tipo de druida você é: um guardião que luta de armadura ou um mágico com um truque a mais.',
     'What kind of druid you are: an armored warden or a magician with an extra cantrip.'),
   invocation: b('Um poder estranho que o seu patrono te deu. Algumas só podem ser escolhidas em níveis maiores.',
     'A strange power granted by your patron. Some can only be picked at higher levels.'),
-  tool: b('Seu monge sabe usar uma ferramenta de ofício ou tocar um instrumento. É mais para a história do personagem.',
-    'Your monk can use a trade tool or play an instrument. Mostly flavor for your character.'),
-  musicalInstrument: b('Instrumentos que seu bardo sabe tocar. Escolha os que combinam com o personagem.',
-    'Instruments your bard can play. Pick the ones that fit your character.'),
+  tool: b('Seu monge ganha treino (proficiência) numa ferramenta de ofício ou num instrumento musical. Escolha o que combina com a história do personagem.',
+    'Your monk gains proficiency with one trade tool or musical instrument. Pick what fits your character\'s story.'),
+  musicalInstrument: b('Instrumentos que seu bardo sabe tocar (você ganha proficiência neles). Escolha os que combinam com o personagem.',
+    'Instruments your bard can play (you gain proficiency with them). Pick the ones that fit your character.'),
   artisanTool: b('Além das Ferramentas de Ladrão e de Funileiro, escolha mais uma ferramenta de ofício.',
     "Besides Thieves' and Tinker's Tools, pick one more trade tool."),
   favoredEnemy: b('Um tipo de criatura que você caçou muito: você a rastreia melhor e aprende um idioma dela.',
@@ -397,7 +460,9 @@ const RECOMMENDED = {
   divineOrder: ['protector'],
   primalOrder: ['warden'],
   invocation: ['armorOfShadows'],
-  musicalInstrument: ['lute'],
+  musicalInstrument: ['lute', 'flute', 'lyre'],
+  tool: ['flute', 'calligraphersSupplies'],
+  artisanTool: ['smithsTools'],
   dragonAncestor: ['redDragon'],
   favoredTerrain: ['forest'],
   favoredEnemy: ['undead'],
@@ -406,14 +471,55 @@ const RECOMMENDED = {
   expertise2014: ['stealth', 'thievesTools', 'perception'],
 };
 
-/** Ids recomendados num grupo (Maestria: as armas do equipamento inicial da classe). */
+/** Armas dos pacotes de equipamento da classe: o escolhido (se já houver) ou o primeiro que tem armas. */
+export function masteryPack(char) {
+  const packs = classStart(char)?.equipment || [];
+  const hasWeapons = (p) => (p?.items || []).some(i => i.kind === 'weapon');
+  const chosen = packFor(classStart(char), char?.creation?.classPack);
+  if (chosen) return chosen;
+  return packs.find(hasWeapons) || null;
+}
+
+/**
+ * Ids recomendados num grupo. Maestria: as armas do pacote de equipamento da
+ * classe (o escolhido na etapa Equipamento, ou o primeiro pacote com armas).
+ * Escolhas sem recomendação própria recomendam a primeira opção disponível,
+ * para o "Na dúvida, fique com as marcadas" sempre ter uma marcada.
+ */
 export function recommendedIds(char, group) {
   const pool = group.pools[0];
+  let ids;
   if (pool === 'weaponMastery') {
-    const pack = classStart(char)?.equipment?.[0];
-    return uniq((pack?.items || []).filter(i => i.kind === 'weapon').map(i => i.id));
+    ids = uniq((masteryPack(char)?.items || []).filter(i => i.kind === 'weapon').map(i => i.id));
+  } else {
+    ids = RECOMMENDED[pool] || [];
   }
-  return RECOMMENDED[pool] || [];
+  if (group.step) return ids;
+  let opts = [];
+  try { opts = groupOptions(char, group); } catch { opts = []; }
+  if (!opts.length) return ids;
+  const ok = new Set(opts.filter(o => o.eligible || o.chosen).map(o => o.id));
+  const valid = ids.filter(id => ok.has(id));
+  if (valid.length) return valid;
+  const first = opts.find(o => o.eligible && !o.detail) || opts.find(o => o.eligible);
+  return first ? [first.id] : [];
+}
+
+/**
+ * Maestrias escolhidas em armas que não estão no pacote de equipamento da
+ * classe escolhido (ex.: maestria em Machado Grande e pacote "só ouro").
+ * Para a etapa Equipamento/Revisão avisar. [] se não houver pacote escolhido.
+ */
+export function masteryMismatch(char) {
+  const cls = char?.className;
+  if (!cls || !char?.creation?.classPack) return [];
+  const pack = packFor(classStart(char), char.creation.classPack);
+  if (!pack) return [];
+  const have = new Set([
+    ...(pack.items || []).filter(i => i.kind === 'weapon').map(i => i.id),
+    ...(char.weapons || []).map(w => w?.id || w?.weaponId).filter(Boolean),
+  ]);
+  return (char.classOptions || []).filter(p => p.classId === cls && p.pool === 'weaponMastery' && !have.has(p.id)).map(p => p.id);
 }
 
 /** Pendências de escolhas da classe feitas numa etapa (null = classChoices, 'skills'). */
@@ -486,24 +592,36 @@ export const SKILL_HINTS = {
 };
 
 /** Sugestões de perícias por classe (para iniciante). */
+// Em ordem de preferência; as do fim são substitutas quando o antecedente já dá
+// uma das primeiras (a lista evita as perícias dos antecedentes mais comuns da classe).
 const RECOMMENDED_SKILLS = {
-  barbarian: ['athletics', 'perception'],
-  bard: ['persuasion', 'perception', 'insight'],
-  cleric: ['insight', 'medicine'],
-  druid: ['nature', 'perception'],
-  fighter: ['athletics', 'perception'],
-  monk: ['acrobatics', 'stealth'],
-  paladin: ['athletics', 'persuasion'],
-  ranger: ['perception', 'stealth', 'survival'],
-  rogue: ['stealth', 'perception', 'sleightOfHand', 'investigation'],
-  sorcerer: ['arcana', 'persuasion'],
-  warlock: ['arcana', 'deception'],
-  wizard: ['arcana', 'investigation'],
-  artificer: ['arcana', 'investigation'],
+  barbarian: ['perception', 'survival', 'athletics', 'intimidation', 'nature', 'animalHandling'],
+  bard: ['persuasion', 'perception', 'insight', 'deception', 'performance', 'stealth'],
+  cleric: ['medicine', 'persuasion', 'history', 'insight', 'religion'],
+  druid: ['perception', 'medicine', 'nature', 'survival', 'insight', 'animalHandling'],
+  fighter: ['acrobatics', 'perception', 'insight', 'survival', 'athletics', 'intimidation'],
+  monk: ['acrobatics', 'insight', 'athletics', 'stealth', 'religion', 'history'],
+  paladin: ['athletics', 'insight', 'medicine', 'intimidation', 'persuasion', 'religion'],
+  ranger: ['perception', 'survival', 'athletics', 'insight', 'stealth', 'nature', 'investigation', 'animalHandling'],
+  rogue: ['perception', 'acrobatics', 'investigation', 'insight', 'stealth', 'sleightOfHand', 'persuasion', 'athletics'],
+  sorcerer: ['persuasion', 'insight', 'arcana', 'deception', 'intimidation', 'religion'],
+  warlock: ['deception', 'intimidation', 'arcana', 'investigation', 'history', 'nature'],
+  wizard: ['investigation', 'insight', 'arcana', 'medicine', 'history', 'religion'],
+  artificer: ['investigation', 'perception', 'arcana', 'medicine', 'history', 'sleightOfHand'],
 };
+/**
+ * Perícias sugeridas (já na quantidade da classe), sem as que vêm de outra
+ * fonte (antecedente, espécie…): ao voltar depois de escolher o antecedente,
+ * as substitutas aparecem como "Recomendado". As já escolhidas e válidas contam
+ * primeiro, para a sugestão completar o que falta.
+ */
 export const recommendedSkills = (char) => {
   const from = classSkillList(char);
-  return (RECOMMENDED_SKILLS[char?.className] || []).filter(id => from.includes(id));
+  const others = otherSkillSources(char);
+  const ok = (id) => from.includes(id) && !others[id];
+  const base = (RECOMMENDED_SKILLS[char?.className] || []).filter(ok);
+  const rest = from.filter(id => ok(id) && !base.includes(id));
+  return [...base, ...rest].slice(0, classSkillCount(char));
 };
 
 /** Lista e quantidade de perícias da classe na regra da ficha (start-data). */
@@ -539,11 +657,43 @@ export function classSkillPicks(char) {
   return uniq((char.skillProfs || []).filter(id => from.includes(id) && !others[id]));
 }
 
+/**
+ * Perícias que o próprio jogador marcou em skillProfs (sem as que o
+ * antecedente acrescentou: creation.bgSkillsAdded).
+ */
+function playerSkillMarks(char) {
+  const added = Array.isArray(char?.creation?.bgSkillsAdded) ? char.creation.bgSkillsAdded : [];
+  return (char?.skillProfs || []).filter(id => !added.includes(id));
+}
+
 /** Marcadas na classe, mas que agora vêm de outra fonte (ex.: o antecedente dá a mesma). */
 export function overlappingSkills(char) {
   const from = classSkillList(char);
   const others = otherSkillSources(char);
-  return uniq((char.skillProfs || []).filter(id => from.includes(id) && others[id]));
+  return uniq(playerSkillMarks(char).filter(id => from.includes(id) && others[id]));
+}
+
+/** "Atletismo" / "Atletismo e Percepção" / "A, B e C". */
+export function joinNames(names, lang) {
+  const and = lang === 'pt' ? ' e ' : ' and ';
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')}${and}${names[names.length - 1]}` : (names[0] || '');
+}
+
+/**
+ * Frase sobre perícias repetidas, agrupadas por fonte, com concordância:
+ * "Atletismo e Percepção já vêm do antecedente." Retorna { pt, en } ou null.
+ */
+export function overlapSentence(char, ids = overlappingSkills(char)) {
+  if (!ids.length) return null;
+  const others = otherSkillSources(char);
+  const bySrc = {};
+  for (const id of ids) (bySrc[others[id] || 'other'] ||= []).push(id);
+  const part = (lang) => Object.entries(bySrc).map(([src, list]) => {
+    const names = joinNames(list.map(id => tName('skill', id, lang)), lang);
+    const from = SKILL_SOURCE[src]?.[lang] || (lang === 'pt' ? 'de outra fonte' : 'from another source');
+    return lang === 'pt' ? `${names} já ${list.length > 1 ? 'vêm' : 'vem'} ${from}` : `${names} already ${list.length > 1 ? 'come' : 'comes'} ${from}`;
+  }).join('; ');
+  return b(`${part('pt')}.`, `${part('en')}.`);
 }
 
 /** Liga/desliga uma perícia de classe. Retorna o patch (também limpa Especialização inválida). */
@@ -551,8 +701,10 @@ export function toggleClassSkill(char, id) {
   const from = classSkillList(char);
   const others = otherSkillSources(char);
   if (!from.includes(id) || others[id]) return {};
-  // Limpa marcas antigas que agora vêm de outra fonte (não contam mais).
-  const base = (char.skillProfs || []).filter(s => !(from.includes(s) && others[s]));
+  // Limpa marcas antigas do jogador que agora vêm de outra fonte (não contam mais).
+  // As que o antecedente acrescentou ficam (são dele).
+  const overlap = overlappingSkills(char);
+  const base = (char.skillProfs || []).filter(s => !overlap.includes(s));
   const picks = classSkillPicks(char);
   let skillProfs;
   if (picks.includes(id)) skillProfs = base.filter(s => s !== id);
@@ -611,9 +763,10 @@ export function skillsIssues(char) {
   }
   if (picks.length < need) {
     const n = need - picks.length;
-    const dup = overlap.length
-      ? b(` (${overlap.map(id => tName('skill', id, 'pt')).join(', ')} já vem ${SKILL_SOURCE[others[overlap[0]]]?.pt || 'de outra fonte'}; troque por outra)`,
-        ` (${overlap.map(id => tName('skill', id, 'en')).join(', ')} already comes ${SKILL_SOURCE[others[overlap[0]]]?.en || 'from another source'}; pick another)`)
+    const s = overlapSentence(char, overlap);
+    const many = overlap.length > 1;
+    const dup = s
+      ? b(` (${s.pt.slice(0, -1)}; troque por ${many ? 'outras' : 'outra'})`, ` (${s.en.slice(0, -1)}; pick ${many ? 'others' : 'another'})`)
       : b('', '');
     out.push(b(`Escolha mais ${plural(n, 'perícia', 'perícias')} da lista da classe${dup.pt}.`,
       `Pick ${plural(n, 'more skill', 'more skills')} from your class list${dup.en}.`));
@@ -622,7 +775,16 @@ export function skillsIssues(char) {
     out.push(b(`Você marcou ${plural(n, 'perícia', 'perícias')} a mais. Desmarque ${n} (o limite é ${need}).`,
       `You picked ${plural(n, 'skill', 'skills')} too many. Unselect ${n} (the limit is ${need}).`));
   }
-  // Especialização (Ladino): depende das perícias escolhidas.
+  return out;
+}
+
+/**
+ * Pendências da Especialização (Ladino). Ela é escolhida na etapa Antecedente,
+ * depois que as perícias do antecedente já existem (qualquer perícia treinada vale).
+ */
+export function expertiseIssues(char) {
+  if (!char?.className || !classStart(char)) return [];
+  const out = [];
   for (const g of expertiseGroups(char)) {
     const def = optionPool(char.className, g.pools[0]);
     const valid = new Set([...proficientSkills(char), ...(def?.filter?.tools || [])]);
@@ -633,7 +795,7 @@ export function skillsIssues(char) {
     }
     const missing = g.total - g.picks.length;
     if (missing > 0) {
-      out.push(b(`Escolha mais ${missing} em "Especialização" (no fim da página).`, `Pick ${missing} more in "Expertise" (at the bottom of the page).`));
+      out.push(b(`Escolha mais ${missing} em "Especialização" (abaixo do antecedente).`, `Pick ${missing} more in "Expertise" (below the background).`));
     }
   }
   return out;

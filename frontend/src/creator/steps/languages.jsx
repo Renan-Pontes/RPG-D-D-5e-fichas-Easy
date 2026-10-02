@@ -1,6 +1,7 @@
 /* Etapa Idiomas. Lógica em ../species-helpers.js e utils.js (languageIssues/trimLanguages). */
 import Utils from '../../../utils.js';
 import LanguagePicker from '../../../components/LanguagePicker.jsx';
+import { languageSuggestions } from '../../../components/language-hints.js';
 import { StepIntro, Term, Callout, Counter, L } from '../ui.jsx';
 import {
   chosenLanguages, languagesApply, languagesIssues, fixedLanguageReasons, languageSlotReasons,
@@ -12,6 +13,20 @@ function LanguagesStep({ char, set, lang }) {
   const slots = languageSlotReasons(char);
   const need = Utils.languageChoiceCount(char);
   const chosen = chosenLanguages(char);
+  const suggest = languageSuggestions(char);
+  const names = (l) => {
+    const xs = suggest.ids.map(id => Utils.languageLabel(id, l));
+    const and = l === 'pt' ? ' e ' : ' and ';
+    return xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')}${and}${xs[xs.length - 1]}`;
+  };
+  let hint = null;
+  if (suggest.kind === 'species' && suggest.ids.length) {
+    hint = L(lang, `Se não souber o que escolher, pegue ${names('pt')}, o idioma do seu povo (marcado como "Combina com sua espécie").`,
+      `If unsure, pick ${names('en')}, the language of your people (marked "Fits your species").`);
+  } else if (suggest.ids.length) {
+    hint = L(lang, `Se não souber o que escolher, ${names('pt')} ${suggest.ids.length > 1 ? 'são úteis' : 'é útil'} em muitas aventuras (marcados como "Recomendado").`,
+      `If unsure, ${names('en')} ${suggest.ids.length > 1 ? 'are' : 'is'} useful in many adventures (marked "Recommended").`);
+  }
   return (
     <div>
       <StepIntro title={L(lang, 'Idiomas', 'Languages')}>
@@ -20,13 +35,7 @@ function LanguagesStep({ char, set, lang }) {
           {L(lang, ' são as línguas que seu herói fala, lê e escreve. Servem para conversar com outros povos e ler pistas na aventura.',
             ' are the tongues your hero speaks, reads and writes. They let you talk to other peoples and read clues on the adventure.')}
         </p>
-        <p>
-          {is2024
-            ? L(lang, 'Se não souber o que escolher, pegue o idioma do seu povo (marcado como "Combina com sua espécie").',
-              'If unsure, pick the language of your people (marked "Fits your species").')
-            : L(lang, 'Se não souber o que escolher, Élfico, Anão e Gigante são úteis em muitas aventuras.',
-              'If unsure, Elvish, Dwarvish and Giant are useful in many adventures.')}
-        </p>
+        {hint && <p>{hint}</p>}
       </StepIntro>
 
       <div className="card" style={{ padding: 14, marginBottom: 12 }}>

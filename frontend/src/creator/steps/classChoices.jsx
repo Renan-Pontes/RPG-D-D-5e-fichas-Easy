@@ -4,9 +4,10 @@ import { tName } from '../../../data/i18n.js';
 import { StepIntro, Term, ChoiceGrid, ChoiceCard, Callout, Counter, L } from '../ui.jsx';
 import {
   choiceGroups, groupOptions, toggleGroupPick, setPickDetail, recommendedIds, isAutoGroup,
-  POOL_INTRO, classChoiceIssues, hasClassChoices,
+  POOL_INTRO, classChoiceIssues, hasClassChoices, masteryPack,
 } from '../class-helpers.js';
 import { findOption, optionPool } from '../../progression/options.js';
+import { SHARED } from '../../../data/class-options/shared.js';
 
 const k = (lang) => (lang === 'pt' ? 'pt' : 'en');
 
@@ -25,6 +26,15 @@ function Group({ char, set, lang, group }) {
     .sort((a, b) => (Number(rec.has(b.id)) - Number(rec.has(a.id))) || (Number(b.eligible) - Number(a.eligible)));
   const full = group.picks.length >= group.total;
   const term = POOL_TERM[pool];
+  const [showAll, setShowAll] = useState(false);
+  // Maestria: lista longa (dezenas de armas). Mostra as recomendadas e as escolhidas; o resto em "Ver todas".
+  const isMastery = pool === 'weaponMastery';
+  const collapsible = isMastery && rec.size > 0 && all.length > 12;
+  const visible = collapsible && !showAll && !q ? shown.filter(o => rec.has(o.id) || o.chosen) : shown;
+  const packId = isMastery ? masteryPack(char)?.id : null;
+  const masteryName = (o) => SHARED.masteryProperties?.[o.mastery]?.name?.[k(lang)];
+  // "Simples corpo a corpo, 1d6" (fim da descrição da opção).
+  const weaponKind = (o) => String(o.desc?.[k(lang)] || '').split(lang === 'pt' ? ' Arma: ' : ' Weapon: ')[1]?.replace(/\.$/, '') || '';
   const detailPicks = group.picks
     .map(p => ({ p, o: !optionPool(char.className, p.pool)?.kind ? findOption(char.className, p.pool, p.id) : null }))
     .filter(x => x.o?.detail);
@@ -43,14 +53,18 @@ function Group({ char, set, lang, group }) {
         </Callout>
       ) : (
         <>
-          {rec.size > 0 && pool === 'weaponMastery' && (
-            <p className="muted text-sm">{L(lang, '"Recomendado" = armas que já vêm no equipamento inicial da sua classe.', '"Recommended" = weapons in your class starting equipment.')}</p>
+          {rec.size > 0 && isMastery && (
+            <Callout kind="info">
+              {L(lang,
+                `"Recomendado" = armas que vêm no pacote de equipamento ${packId ? `"Opção ${packId}" ` : ''}da sua classe (você escolhe o pacote na etapa Equipamento). Se escolher outro pacote, volte aqui e troque. Fora da criação, você pode trocar uma maestria depois de cada Descanso Longo.`,
+                `"Recommended" = weapons in your class's ${packId ? `"Option ${packId}" ` : ''}equipment pack (you pick the pack in the Equipment step). If you pick another pack, come back and swap. After creation, you can swap one mastery after each Long Rest.`)}
+            </Callout>
           )}
           {all.length > 12 && (
             <input className="cr-choice-search" placeholder={L(lang, 'Buscar…', 'Search…')} value={query} onChange={e => setQuery(e.target.value)} />
           )}
           <ChoiceGrid>
-            {shown.map(o => {
+            {visible.map(o => {
               const blocked = !o.chosen && (!o.eligible || (full && group.total > 1));
               const why = !o.eligible && o.issues?.length ? o.issues.map(x => x[k(lang)]).join(' · ') : (o.prereq?.text ? `${L(lang, 'Requisito', 'Prerequisite')}: ${o.prereq.text[k(lang)]}` : '');
               return (
@@ -58,12 +72,22 @@ function Group({ char, set, lang, group }) {
                   onClick={() => set(toggleGroupPick(char, group, o.id))}
                   title={o.name[k(lang)]}
                   badge={rec.has(o.id) ? L(lang, 'Recomendado', 'Recommended') : (o.meta || null)}
-                  subtitle={o.desc?.[k(lang)] || null}>
+                  subtitle={isMastery && masteryName(o)
+                    ? `${L(lang, 'Maestria', 'Mastery')}: ${masteryName(o)}${weaponKind(o) ? ` · ${weaponKind(o)}` : ''}`
+                    : (o.desc?.[k(lang)] || null)}
+                  details={isMastery ? o.desc?.[k(lang)] : null}>
                   {why && <div className="text-xs muted" style={{ marginTop: 4 }}>{why}</div>}
                 </ChoiceCard>
               );
             })}
           </ChoiceGrid>
+          {collapsible && !q && (
+            <button type="button" className="btn btn-ghost" style={{ marginTop: 8 }} onClick={() => setShowAll(v => !v)}>
+              {showAll
+                ? L(lang, 'Mostrar só as recomendadas', 'Show only recommended')
+                : L(lang, `Ver todas as armas (${all.length})`, `See all weapons (${all.length})`)}
+            </button>
+          )}
           {detailPicks.map(({ p, o }) => (
             <label key={p.pool + p.id} className="cr-choice-detail">
               <span>{o.name[k(lang)]}: {o.detail[k(lang)]}</span>
@@ -90,7 +114,7 @@ function ClassChoicesStep({ char, set, lang }) {
       {later.length > 0 && (
         <Callout kind="info">
           {later.map(g => (g.step === 'skills'
-            ? L(lang, `"${g.name.pt}" fica para a próxima etapa, depois de escolher suas perícias.`, `"${g.name.en}" comes in the next step, after you pick your skills.`)
+            ? L(lang, `"${g.name.pt}" fica para a etapa Antecedente, quando você já souber todas as suas perícias.`, `"${g.name.en}" comes in the Background step, once you know all your skills.`)
             : L(lang, `"${g.name.pt}" fica para a etapa de idiomas.`, `"${g.name.en}" is picked in the languages step.`))).join(' ')}
         </Callout>
       )}

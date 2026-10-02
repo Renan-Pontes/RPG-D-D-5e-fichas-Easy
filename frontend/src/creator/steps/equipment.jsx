@@ -4,13 +4,36 @@ import Icon from '../../../components/Icons.jsx';
 import SRD from '../../../data/srd.js';
 import { tName } from '../../../data/i18n.js';
 import { StepIntro, Term, ChoiceGrid, ChoiceCard, Callout, L } from '../ui.jsx';
-import { isArmorProficient, isWeaponProficient } from '../start-data.js';
+import { isArmorProficient, isWeaponProficient, packProficiencyIssues } from '../start-data.js';
 import {
   classPackOptions, backgroundPackOptions, selectedPacks, isGoldOnly, packLines, applyStartingEquipment,
   needsReapply, equipmentWarnings, equipmentIssues, acPreview, weaponEntry, weaponSummary, armorHint,
 } from '../equipment-helpers.js';
 
 const COINS = ['cp', 'sp', 'ep', 'gp', 'pp'];
+
+/** O pacote traz armadura ou escudo que o personagem não sabe usar? */
+const armorProblem = (char, pack) => packProficiencyIssues(char, pack).some(it => it.kind === 'armor' || it.kind === 'shield');
+
+/** Aviso (com botão) quando o pacote escolhido traz armadura sem treino — ex.: trocou de subclasse depois. */
+function ArmorTrainingFix({ char, lang, pack, opts, label, onPick }) {
+  if (!pack || !armorProblem(char, pack)) return null;
+  const alt = opts.find(p => p.id !== pack.id && !isGoldOnly(p) && !armorProblem(char, p)) || opts.find(p => p.id !== pack.id && !armorProblem(char, p));
+  return (
+    <Callout kind="warn">
+      {L(lang,
+        `A Opção ${pack.id} ${label.pt} traz armadura que você não tem treino para usar (talvez porque trocou de classe ou subclasse). Com ela você não conseguiria conjurar magias e teria desvantagem nos ataques. Escolha outra opção para continuar.`,
+        `Option ${pack.id} (${label.en}) includes armor you are not trained to use (maybe you changed class or subclass). With it you couldn't cast spells and would have disadvantage on attacks. Pick another option to continue.`)}
+      {alt && (
+        <div style={{ marginTop: 8 }}>
+          <button type="button" className="btn btn-sm" onClick={() => onPick(alt.id)}>
+            {L(lang, `Trocar para a Opção ${alt.id}`, `Switch to Option ${alt.id}`)}
+          </button>
+        </div>
+      )}
+    </Callout>
+  );
+}
 
 function PackContents({ pack, char, lang }) {
   const lines = packLines(pack, char, lang);
@@ -154,7 +177,10 @@ function Comp({ char, set, lang }) {
   const bgOpts = backgroundPackOptions(char);
   const sel = selectedPacks(char);
   const pickPack = (key, id) => set(prev => applyStartingEquipment({ ...prev, creation: { ...(prev.creation || {}), [key]: id } }, lang));
-  const firstItemPack = (opts) => opts.findIndex(p => !isGoldOnly(p));
+  const firstItemPack = (opts) => {
+    const ok = opts.findIndex(p => !isGoldOnly(p) && !armorProblem(char, p));
+    return ok >= 0 ? ok : opts.findIndex(p => !isGoldOnly(p));
+  };
   const className = char.className ? tName('class', char.className, lang) : '';
   const bgName = char.background ? tName('background', char.background, lang) : '';
   const { ac, unarmored } = acPreview(char);
@@ -173,6 +199,8 @@ function Comp({ char, set, lang }) {
       {classOpts.length > 0 ? (
         <section className="cr-eq-section">
           <h3>{L(lang, `Da sua classe${className ? ` (${className})` : ''}`, `From your class${className ? ` (${className})` : ''}`)}</h3>
+          <ArmorTrainingFix char={char} lang={lang} pack={sel.classPack} opts={classOpts} label={{ pt: 'da classe', en: 'class' }}
+            onPick={(id) => pickPack('classPack', id)} />
           <ChoiceGrid cols={classOpts.length > 1 ? 2 : 1}>
             {classOpts.map((p, i) => (
               <PackCard key={p.id} pack={p} index={i} char={char} lang={lang} firstItemPack={firstItemPack(classOpts)}
@@ -196,12 +224,16 @@ function Comp({ char, set, lang }) {
               <PackContents pack={bgOpts[0]} char={char} lang={lang} />
             </div>
           ) : (
+            <>
+            <ArmorTrainingFix char={char} lang={lang} pack={sel.backgroundPack} opts={bgOpts} label={{ pt: 'do antecedente', en: 'background' }}
+              onPick={(id) => pickPack('backgroundPack', id)} />
             <ChoiceGrid cols={2}>
               {bgOpts.map((p, i) => (
                 <PackCard key={p.id} pack={p} index={i} char={char} lang={lang} firstItemPack={firstItemPack(bgOpts)}
                   selected={char.creation?.backgroundPack === p.id} onPick={() => pickPack('backgroundPack', p.id)} />
               ))}
             </ChoiceGrid>
+            </>
           )}
         </section>
       )}

@@ -4,8 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
-import { findFeat } from '../data/feats.js';
-import { featSummary, picksText } from '../src/progression/FeatPicker.jsx';
+import { featSummary } from '../src/progression/FeatPicker.jsx';
 import ResourcesCard from '../src/progression/ResourcesCard.jsx';
 import { SpeciesChoicesModal } from '../src/progression/SpeciesChoices.jsx';
 import { t, tName } from '../data/i18n.js';
@@ -19,7 +18,8 @@ import CombatActionPanel from '../src/campaigns/CombatActionPanel.jsx';
 import PlayerChecksBanner from '../src/checks/PlayerChecksBanner.jsx';
 import * as FS from '../src/progression/fighting-styles.js';
 import GrimoireHint from '../src/grimoire/GrimoireHint.jsx';
-import { isWeaponProficient, isArmorProficient } from '../src/creator/start-data.js';
+import { isArmorProficient } from '../src/creator/start-data.js';
+import { trainingLines, featName, featPicksText } from '../src/sheet/sheet-text.js';
 
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
   const [tab, setTab] = useState('play');
@@ -650,23 +650,23 @@ const WildShapeBanner = ({ char, lang, onChange }) => {
 };
 
 const BeastModal = ({ beast, lang, onClose, onTransform, canTransform, transformError }) => {
-  const speeds = [`${beast.speed} ft`];
-  if (beast.fly)    speeds.push(`${lang === 'pt' ? 'Voo' : 'Fly'} ${beast.fly} ft`);
-  if (beast.swim)   speeds.push(`${lang === 'pt' ? 'Nat.' : 'Swim'} ${beast.swim} ft`);
-  if (beast.climb)  speeds.push(`${lang === 'pt' ? 'Esc.' : 'Climb'} ${beast.climb} ft`);
-  if (beast.burrow) speeds.push(`${lang === 'pt' ? 'Cav.' : 'Burrow'} ${beast.burrow} ft`);
+  const speeds = [`${Utils.speedLabel(beast.speed, lang)}`];
+  if (beast.fly)    speeds.push(`${lang === 'pt' ? 'Voo' : 'Fly'} ${Utils.speedLabel(beast.fly, lang)}`);
+  if (beast.swim)   speeds.push(`${lang === 'pt' ? 'Nat.' : 'Swim'} ${Utils.speedLabel(beast.swim, lang)}`);
+  if (beast.climb)  speeds.push(`${lang === 'pt' ? 'Esc.' : 'Climb'} ${Utils.speedLabel(beast.climb, lang)}`);
+  if (beast.burrow) speeds.push(`${lang === 'pt' ? 'Cav.' : 'Burrow'} ${Utils.speedLabel(beast.burrow, lang)}`);
   return (
     <Modal onClose={onClose}>
       <h3 style={{ marginBottom: 2 }}>{tName('beast', beast.id, lang)}</h3>
       <div className="text-xs muted" style={{ marginBottom: 12 }}>
-        {beast.size} {lang === 'pt' ? 'Besta' : 'Beast'} · CR {beast.cr} · {speeds.join(', ')}
+        {beast.size} {lang === 'pt' ? 'Besta' : 'Beast'} · {lang === 'pt' ? 'ND' : 'CR'} {beast.cr} · {speeds.join(', ')}
       </div>
       <div className="combat-grid" style={{ marginBottom: 12 }}>
         <div className="combat-box"><div className="eyebrow">CA</div><div className="combat-box-value">{beast.ac}</div></div>
-        <div className="combat-box"><div className="eyebrow">HP</div><div className="combat-box-value">{beast.hp}</div></div>
+        <div className="combat-box"><div className="eyebrow">{lang === 'pt' ? 'PV' : 'HP'}</div><div className="combat-box-value">{beast.hp}</div></div>
         <div className="combat-box">
           <div className="eyebrow">{lang === 'pt' ? 'Des.' : 'Speed'}</div>
-          <div className="combat-box-value" style={{ fontSize: '1rem' }}>{beast.speed}</div>
+          <div className="combat-box-value" style={{ fontSize: '1rem' }}>{Utils.speedLabel(beast.speed, lang)}</div>
         </div>
       </div>
       <div className="abil-grid" style={{ marginBottom: 12 }}>
@@ -1248,32 +1248,29 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
         </div>
         <div className="combat-box">
           <div className="eyebrow">{t('speed', lang)}</div>
-          <div className="combat-box-value">{speed}</div>
-          <div className="combat-box-sub">ft</div>
+          <div className="combat-box-value">{Utils.speedLabel(speed, lang).split(' ')[0]}</div>
+          <div className="combat-box-sub">{lang === 'pt' ? 'm' : 'ft'}</div>
         </div>
       </div>
 
       {/* Quick weapons (attacks) */}
-      {((char.weapons && char.weapons.length > 0) || unarmed) && (
+      {(
         <div style={{ marginBottom: 16 }}>
           <div className="eyebrow mb-2">{lang === 'pt' ? 'Ataques' : 'Attacks'}</div>
           {(char.weapons || []).map((w, i) => {
-            const wDef = w.id ? SRD.WEAPONS.find(x => x.id === w.id) : null;
-            const isFinesse = wDef && wDef.props.includes('finesse');
-            const isRanged = wDef && (wDef.type || '').includes('ranged');
-            const useDex = isRanged || (isFinesse && Utils.abilityMod(char, 'dex') > Utils.abilityMod(char, 'str'));
-            const abMod = Utils.abilityMod(char, useDex ? 'dex' : 'str');
-            // Proficiência por regra (2014/2024), multiclasse, concessões de classe/talento/raça.
-            const isProf = !wDef || isWeaponProficient(char, wDef.id);
-            const fs = FS.weaponStyleBonuses(char, w, styles);
-            const atk = abMod + (isProf ? Utils.profBonus(char) : 0) + fs.attack;
-            const dmgMod = abMod + fs.damage;
+            // Regra da ficha: proficiência, Artes Marciais do Monge e Estilos de Luta (Utils.attackFor).
+            const a = Utils.attackFor(char, w);
+            const fs = a.fs;
+            const atk = a.bonus;
+            const dmgMod = a.dmgMod;
             const bonusText = FS.partsLabel([...fs.attackParts.map(p => ({ ...p, label: { pt: `${p.label.pt} (ataque)`, en: `${p.label.en} (attack)` } })), ...fs.damageParts], lang);
             return (
               <div key={i} className="slot-row" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
                 <div>
                   <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)' }}>{w.name}</div>
-                  <div className="text-xs muted">{w.damage}{dmgMod ? Utils.fmtMod(dmgMod) : ''} {w.dmgType ? `${w.dmgType}` : ''}</div>
+                  <div className="text-xs muted">{a.damage} {a.dmgType ? Utils.damageLabel(a.dmgType, lang) : ''}</div>
+                  {a.monk && <div className="text-xs" style={{ color: 'var(--gold)' }}>{lang === 'pt' ? 'Artes Marciais (arma de monge)' : 'Martial Arts (Monk weapon)'}</div>}
+                  {!a.proficient && <div className="text-xs" style={{ color: 'var(--blood-bright)' }}>{lang === 'pt' ? 'Sem proficiência: não soma o bônus de proficiência' : 'Not proficient: no proficiency bonus'}</div>}
                   {bonusText && <div className="text-xs" style={{ color: 'var(--gold)' }}>{bonusText}</div>}
                   {fs.mastery && (
                     <div className="text-xs" style={{ color: 'var(--moss-bright)' }} title={fs.mastery.desc[lang]}>
@@ -1286,7 +1283,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
                   {Utils.fmtMod(atk)}
                 </button>
                 <button className="btn btn-sm btn-ghost" onClick={() => {
-                  const m = w.damage.match(/(\d+)d(\d+)/);
+                  const m = String(a.dice || '').match(/(\d+)d(\d+)/);
                   if (m) roll({ die: +m[2], count: +m[1], mod: dmgMod, label: w.name + ' ' + t('damageRoll', lang) });
                 }}>
                   <Icon name="dice" size={12}/>
@@ -1294,28 +1291,33 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
               </div>
             );
           })}
-          {unarmed && (() => {
-            // Combate Desarmado: golpe desarmado com Força + BP; dado maior com as mãos livres.
-            const strMod = Utils.abilityMod(char, 'str');
-            const atk = strMod + Utils.profBonus(char);
-            const name = lang === 'pt' ? 'Golpe Desarmado' : 'Unarmed Strike';
-            const [cnt, sides] = unarmed.die.split('d').map(Number);
+          {(() => {
+            // Golpe Desarmado: todo mundo é proficiente (1 + FOR de concussão). Monge usa o dado
+            // de Artes Marciais com DES ou FOR; o Estilo de Luta Desarmado troca o 1 por um dado.
+            const u = Utils.unarmedStrike(char);
+            const name = u.name[lang];
+            const m = String(u.dice || '').match(/(\d+)d(\d+)/);
             return (
               <div className="slot-row" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
                 <div>
                   <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)' }}>{name}</div>
-                  <div className="text-xs muted">{unarmed.die}{strMod ? Utils.fmtMod(strMod) : ''} {lang === 'pt' ? 'concussão' : 'bludgeoning'}</div>
-                  <div className="text-xs" style={{ color: 'var(--gold)' }}>
-                    {unarmed.name[lang]}: {lang === 'pt' ? `${unarmed.dieFree} com as mãos livres` : `${unarmed.dieFree} with free hands`}
-                    {unarmed.grapple ? (lang === 'pt' ? `; ${unarmed.grapple} no agarrado` : `; ${unarmed.grapple} to grappled`) : ''}
-                  </div>
+                  <div className="text-xs muted">{u.damage} {Utils.damageLabel(u.dmgType, lang)}</div>
+                  {u.monk && <div className="text-xs" style={{ color: 'var(--gold)' }}>{lang === 'pt' ? 'Artes Marciais' : 'Martial Arts'}</div>}
+                  {unarmed && (
+                    <div className="text-xs" style={{ color: 'var(--gold)' }}>
+                      {unarmed.name[lang]}: {lang === 'pt' ? `${unarmed.dieFree} com as mãos livres` : `${unarmed.dieFree} with free hands`}
+                      {unarmed.grapple ? (lang === 'pt' ? `; ${unarmed.grapple} no agarrado` : `; ${unarmed.grapple} to grappled`) : ''}
+                    </div>
+                  )}
                 </div>
-                <button className="btn btn-sm" onClick={() => roll({ die: 20, mod: atk, label: name + ' ' + t('attackRoll', lang) })}>
-                  {Utils.fmtMod(atk)}
+                <button className="btn btn-sm" onClick={() => roll({ die: 20, mod: u.bonus, label: name + ' ' + t('attackRoll', lang) })}>
+                  {Utils.fmtMod(u.bonus)}
                 </button>
-                <button className="btn btn-sm btn-ghost" onClick={() => roll({ die: sides, count: cnt, mod: strMod, label: name + ' ' + t('damageRoll', lang) })}>
-                  <Icon name="dice" size={12}/>
-                </button>
+                {m ? (
+                  <button className="btn btn-sm btn-ghost" onClick={() => roll({ die: +m[2], count: +m[1], mod: u.dmgMod, label: name + ' ' + t('damageRoll', lang) })}>
+                    <Icon name="dice" size={12}/>
+                  </button>
+                ) : <span />}
               </div>
             );
           })()}
@@ -1499,8 +1501,10 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
               <button
                 type="button"
                 className={`skill-prof-dot ${isProf ? 'prof' : ''}`}
-                onClick={(e) => { e.stopPropagation(); update({ saveProfs: isProf ? char.saveProfs.filter(x => x !== k) : [...char.saveProfs, k] }); }}
-                style={{ cursor: 'pointer', background: 'none' }}
+                onClick={(e) => { e.stopPropagation(); update({ saveProfs: isProf ? (char.saveProfs || []).filter(x => x !== k) : [...(char.saveProfs || []), k] }); }}
+                aria-pressed={isProf}
+                title={isProf ? (lang === 'pt' ? 'Treinado' : 'Proficient') : (lang === 'pt' ? 'Sem treino' : 'Not proficient')}
+                style={{ cursor: 'pointer', padding: 0, background: isProf ? 'var(--gold)' : 'none' }}
               />
               <span className="skill-display-name">{t(k, lang)}</span>
               <span className="skill-display-stat">{t(k + 'Sh', lang)}</span>
@@ -1524,14 +1528,16 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
                 onClick={(e) => {
                   e.stopPropagation();
                   if (isExpert) {
-                    update({ skillExpertise: char.skillExpertise.filter(x => x !== s.id), skillProfs: char.skillProfs.filter(x => x !== s.id) });
+                    update({ skillExpertise: (char.skillExpertise || []).filter(x => x !== s.id), skillProfs: (char.skillProfs || []).filter(x => x !== s.id) });
                   } else if (isProf) {
                     update({ skillExpertise: [...(char.skillExpertise || []), s.id] });
                   } else {
-                    update({ skillProfs: [...char.skillProfs, s.id] });
+                    update({ skillProfs: [...(char.skillProfs || []), s.id] });
                   }
                 }}
-                style={{ cursor: 'pointer', background: 'none' }}
+                aria-pressed={isProf || isExpert}
+                title={isExpert ? (lang === 'pt' ? 'Especialista' : 'Expertise') : isProf ? (lang === 'pt' ? 'Treinado' : 'Proficient') : (lang === 'pt' ? 'Sem treino' : 'Not proficient')}
+                style={{ cursor: 'pointer', padding: 0, background: isProf || isExpert ? 'var(--gold)' : 'none' }}
               />
               <span className="skill-display-name">{tName('skill', s.id, lang)}</span>
               <span className="skill-display-stat">{t(s.stat + 'Sh', lang)}</span>
@@ -1547,11 +1553,11 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
           <div style={{ marginBottom: 12 }}>
             {char.feats.map((f, i) => (
               <div key={i} className="text-sm" style={{ marginBottom: 4 }}>
-                <strong style={{ color: 'var(--gold-deep)' }}>{f.id ? findFeat(f.id)?.name[lang] || f.name : f.name}</strong>
+                <strong style={{ color: 'var(--gold-deep)' }}>{featName(char, f, lang)}</strong>
                 <span className="muted"> · {f.origin === 'background' ? (lang === 'pt' ? 'Antecedente' : 'Background') : f.origin === 'species' ? (lang === 'pt' ? 'Espécie' : 'Species') : `${lang === 'pt' ? 'Nv.' : 'Lv'} ${f.level}`}</span>
                 {f.asi && <span className="muted"> · {Object.entries(f.asi).map(([k, v]) => `${t(k + 'Sh', lang)} +${v}`).join(', ')}</span>}
                 {featSummary(f, lang) && <div className="text-xs" style={{ color: 'var(--ink-secondary)' }}>{featSummary(f, lang)}</div>}
-                {f.picks && <div className="text-xs muted">{picksText(f.picks, lang)}</div>}
+                {f.picks && <div className="text-xs muted">{featPicksText(f.picks, lang)}</div>}
                 {f.note && <span style={{ color: 'var(--ink-secondary)' }}> — {f.note}</span>}
               </div>
             ))}
@@ -1560,6 +1566,11 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
       )}
       <Filigree>{lang === 'pt' ? 'Idiomas e Outras Proficiências' : 'Languages & Other Proficiencies'}</Filigree>
       <LanguagesField char={char} lang={lang} update={update} />
+      {trainingLines(char, lang).map(tl => (
+        <div key={tl.key} className="text-sm" style={{ marginBottom: 6 }}>
+          <strong style={{ color: 'var(--gold-deep)' }}>{tl.label}:</strong> {tl.text}
+        </div>
+      ))}
       <div>
         <label>{lang === 'pt' ? 'Outras proficiências' : 'Other proficiencies'}</label>
         <textarea aria-label={lang === 'pt' ? 'Outras proficiências' : 'Other proficiencies'}

@@ -72,6 +72,11 @@ function SpeciesCard({ char, id, lang, set, flavorId = id }) {
   );
 }
 
+const GROUP_HEAD = {
+  display: 'block', width: '100%', padding: 0, margin: 0, border: 0, background: 'none', color: 'inherit',
+  font: 'inherit', textAlign: 'left', textTransform: 'none', letterSpacing: 'normal', cursor: 'pointer',
+};
+
 /** 2014: um cartão por raça; as sub-raças aparecem ao selecionar. */
 function Group2014({ char, group, lang, set }) {
   if (group.members.length === 1) return <SpeciesCard char={char} id={group.members[0]} flavorId={group.id} lang={lang} set={set} />;
@@ -79,7 +84,8 @@ function Group2014({ char, group, lang, set }) {
   const first = group.members.find(m => isRecommended(char, m)) || group.members[0];
   return (
     <div className={`option ${active ? 'selected' : ''}`} style={{ cursor: 'default' }}>
-      <button type="button" className="btn btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', padding: 0, textAlign: 'left' }}
+      {/* Botão sem a classe .btn: ela põe o texto em MAIÚSCULAS espaçadas. */}
+      <button type="button" style={GROUP_HEAD}
         aria-pressed={active} onClick={() => !active && set(selectSpecies(char, first))}>
         <div>
           <div className="option-title">{group.name[lang]}
@@ -131,7 +137,7 @@ function SpeciesStep({ char, set, lang }) {
 
       {selectedExtra && (
         <Callout kind="warn">
-          {L(lang, `Você escolheu ${raceName(char.race, 'pt')}, de outro livro. Confirme com o mestre se ela vale na mesa.`,
+          {L(lang, `Você escolheu ${raceName(char.race, 'pt')}, de outro livro. Confirme com o mestre se ${old ? 'essa raça' : 'essa espécie'} vale na mesa.`,
             `You picked ${raceName(char.race, 'en')}, from another book. Check with your DM that it is allowed.`)}
           {!old && findSpecies(char)?.legacyCompatibility && L(lang,
             ' Nas regras 2024 ela não dá idiomas nem bônus de atributo (isso vem da origem e do antecedente).',
@@ -148,13 +154,13 @@ function SpeciesStep({ char, set, lang }) {
       <details className="card" style={{ marginTop: 16, padding: 12 }} open={open}
         onToggle={(e) => setOpen(e.currentTarget.open)}>
         <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
-          {L(lang, `Mais espécies (outros livros — confirme com o mestre) · ${moreSpecies(char).length}`,
-            `More species (other books — check with your DM) · ${moreSpecies(char).length}`)}
+          {L(lang, `Mais ${old ? 'raças' : 'espécies'} (outros livros — confirme com o mestre) · ${moreSpecies(char).length}`,
+            `More ${old ? 'races' : 'species'} (other books — check with your DM) · ${moreSpecies(char).length}`)}
         </summary>
         {open && (
           <div style={{ marginTop: 10 }}>
             <input type="search" value={q} onChange={e => setQ(e.target.value)}
-              placeholder={L(lang, 'Buscar pelo nome…', 'Search by name…')} aria-label={L(lang, 'Buscar espécie', 'Search species')}
+              placeholder={L(lang, 'Buscar pelo nome…', 'Search by name…')} aria-label={old ? L(lang, 'Buscar raça', 'Search race') : L(lang, 'Buscar espécie', 'Search species')}
               style={{ marginBottom: 10, width: '100%' }} />
             {more.length === 0
               ? <div className="muted text-sm">{L(lang, 'Nada encontrado.', 'Nothing found.')}</div>
