@@ -8,6 +8,7 @@ import { AppHeader, Toast, Modal } from './components/Shared.jsx';
 import DiceRoller from './components/DiceRoller.jsx';
 import CharacterList from './components/CharacterList.jsx';
 import Creator from './components/Creator.jsx';
+import CreatorWizard from './src/creator/CreatorWizard.jsx';
 import Sheet from './components/Sheet.jsx';
 
 import { useAuth } from './src/auth/AuthContext.jsx';
@@ -439,7 +440,14 @@ const App = () => {
       break;
     case SCREENS.CREATE:
     case SCREENS.EDIT:
-      content = (
+      // Ficha nova: assistente passo a passo (src/creator). Editar ficha existente: editor antigo.
+      content = !editingChar ? (
+        <CreatorWizard
+          lang={lang}
+          onSave={handleSaveNew}
+          onCancel={() => setScreen(activeId ? SCREENS.SHEET : SCREENS.HOME)}
+        />
+      ) : (
         <Creator
           lang={lang}
           initial={editingChar}

@@ -934,3 +934,50 @@ textarea:focus-visible {
   }
   .dice-log-type, .dice-log-flag { display: none; }
 }
+
+/* === Criação de personagem (src/creator) === */
+.cr-progress { display: flex; gap: 4px; overflow-x: auto; padding: 4px 0 8px; scrollbar-width: thin; }
+.cr-progress-step {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1 0 auto; min-width: 54px;
+  background: none; border: none; padding: 2px; color: var(--ink-muted); cursor: pointer; font: inherit;
+}
+.cr-progress-step:disabled { cursor: not-allowed; opacity: 0.45; }
+.cr-progress-dot {
+  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 0.7rem;
+  border: 1px solid var(--stroke); background: var(--bg-raised); font-family: var(--mono, monospace);
+}
+.cr-progress-step.done .cr-progress-dot { background: var(--gold-deep); color: var(--bg-deep); border-color: var(--gold-deep); }
+.cr-progress-step.active .cr-progress-dot { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 0 2px rgba(201, 162, 39, 0.25); }
+.cr-progress-label { font-size: 0.62rem; white-space: nowrap; max-width: 76px; overflow: hidden; text-overflow: ellipsis; }
+.cr-progress-step.active .cr-progress-label { color: var(--gold); }
+@media (max-width: 700px) { .cr-progress-label { display: none; } .cr-progress-step { min-width: 26px; flex: 0 0 auto; } }
+
+.cr-intro { margin-bottom: var(--s-4); }
+.cr-intro h2 { margin-bottom: 6px; }
+.cr-intro-text { color: var(--ink-secondary); font-size: 0.95rem; line-height: 1.5; }
+.cr-term { position: relative; display: inline; }
+.cr-term-btn {
+  background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: help;
+  border-bottom: 1px dotted var(--gold-deep);
+}
+.cr-term-q {
+  display: inline-grid; place-items: center; width: 14px; height: 14px; margin-left: 3px; border-radius: 50%;
+  font-size: 0.6rem; background: var(--gold-deep); color: var(--bg-deep); vertical-align: 2px;
+}
+.cr-term-pop {
+  display: block; margin: 6px 0; padding: 8px 10px; border-radius: var(--radius); font-size: 0.85rem; line-height: 1.4;
+  background: var(--bg-raised); border: 1px solid var(--gold-deep); color: var(--ink-primary);
+}
+.cr-callout { padding: 10px 12px; border-radius: var(--radius); margin: 10px 0; font-size: 0.9rem; line-height: 1.45; border: 1px solid var(--stroke); background: var(--bg-raised); }
+.cr-callout.cr-warn { border-color: var(--amber, #c98a2b); }
+.cr-callout.cr-ok { border-color: var(--moss-bright, #6f9a4a); }
+.cr-badge {
+  display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 999px; font-size: 0.65rem; vertical-align: 2px;
+  font-family: var(--body, inherit); letter-spacing: 0; text-transform: none;
+  background: rgba(201, 162, 39, 0.15); color: var(--gold); border: 1px solid var(--gold-deep);
+}
+.cr-details { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--stroke-faint); text-align: left; font-size: 0.88rem; color: var(--ink-secondary); }
+.cr-issues { margin: 0; padding-left: 18px; }
+.cr-counter { font-family: var(--mono, monospace); font-size: 0.8rem; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--stroke); }
+.cr-counter.done { color: var(--moss-bright, #6f9a4a); border-color: currentColor; }
+.cr-counter.over { color: var(--blood-bright, #c0392b); border-color: currentColor; }
