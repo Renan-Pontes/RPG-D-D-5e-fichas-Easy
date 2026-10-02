@@ -219,7 +219,7 @@ const SheetHero = ({ char, lang, onAvatar, onBack, onLevelUp, cls, race, bg }) =
       <Icon name="arrow-back" size={14}/> {t('yourHeroes', lang)}
     </button>
     <div className="sheet-hero">
-      <AvatarUpload value={char.avatar} onChange={onAvatar} letter={(char.name || '?').charAt(0).toUpperCase()} />
+      <AvatarUpload value={char.avatar} onChange={onAvatar} lang={lang} letter={(char.name || '?').charAt(0).toUpperCase()} />
       <div className="hero-info">
         <div className="hero-name">{char.name || (lang === 'pt' ? 'Sem nome' : 'Unnamed')}</div>
         <div className="hero-sub">

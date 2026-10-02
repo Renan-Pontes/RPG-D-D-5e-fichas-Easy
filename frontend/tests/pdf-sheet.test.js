@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Utils from '../utils.js';
-import { buildSheetData, sheetValuesToChar, SPELL_CAPACITY, LAYOUT } from '../src/pdf/sheet-data.js';
+import { PDFDocument } from 'pdf-lib';
+import { buildSheetData, buildCoverData, sheetValuesToChar, SPELL_CAPACITY, LAYOUT } from '../src/pdf/sheet-data.js';
 import { exportDnd5ePdf } from '../src/pdf/export-pdf.js';
 import { importDnd5ePdf, readPdfFields } from '../src/pdf/import-pdf.js';
 
@@ -118,4 +119,57 @@ test('PDF editável mantém os campos; o "para imprimir" fixa o texto e remove o
   const flat = await exportDnd5ePdf(c, 'pt', { flatten: true });
   assert.deepEqual(await readPdfFields(flat), {});
   assert.equal((await importDnd5ePdf(flat)).fieldCount, 0);
+});
+
+// PNG 1×1 — a Forja grava JPEG, mas fichas antigas/importadas podem ter PNG.
+const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+test('com foto, o PDF ganha uma capa e a importação continua funcionando', async () => {
+  const c = wizard({
+    avatar: TINY_PNG, symbol: 'Coruja de prata', conditions: ['poisoned'],
+    tempEffects: [{ id: '1', name: 'Bênção', duration: '1 min' }],
+    npcs: [{ id: 'n', name: 'Mestre Aldric', race: 'Humano', role: 'Mentor', relationship: 'ally', notes: 'Biblioteca de Candlekeep.' }],
+  });
+  const cover = buildCoverData(c, 'pt');
+  assert.equal(cover.name, 'Élara Ventoluz');
+  assert.match(cover.classLevel, /Mago 9/);
+  assert.deepEqual(cover.facts[0], ['Símbolo', 'Coruja de prata']);
+  assert.deepEqual(cover.conditions, ['Envenenado', 'Bênção (1 min)']);
+  assert.equal(cover.npcs[0].title, 'Mestre Aldric — Aliado');
+
+  const pages = async bytes => (await PDFDocument.load(bytes)).getPageCount();
+  const plain = await exportDnd5ePdf(wizard(), 'pt');
+  const withCover = await exportDnd5ePdf(c, 'pt');
+  assert.equal(await pages(withCover), (await pages(plain)) + 1);
+  const { char } = await importDnd5ePdf(withCover);
+  assert.equal(char.name, 'Élara Ventoluz');
+  assert.equal(char.level, 9);
+});
+
+test('foto inválida não quebra a exportação nem cria capa', async () => {
+  const bytes = await exportDnd5ePdf(wizard({ avatar: 'data:image/png;base64,AAAA' }), 'pt');
+  const plain = await exportDnd5ePdf(wizard(), 'pt');
+  assert.equal((await PDFDocument.load(bytes)).getPageCount(), (await PDFDocument.load(plain)).getPageCount());
+});
+
+test('ficha em branco: campos editáveis vazios, com página de magias, e volta como ficha nova', async () => {
+  const bytes = await exportDnd5ePdf({}, 'pt', { blank: true });
+  const fields = await readPdfFields(bytes);
+  assert.ok(Object.keys(fields).length > 300);
+  assert.ok('Spells 1015' in fields, 'tem página de magias');
+  assert.ok(Object.values(fields).every(v => v === '' || v === false), 'nenhum campo vem preenchido');
+  const empty = await importDnd5ePdf(bytes);
+  assert.equal(empty.char, null, 'sem nada preenchido não cria ficha');
+  assert.ok(empty.fieldCount > 0, 'mas não é confundido com PDF sem formulário');
+
+  // Preenchida no leitor de PDF, volta como ficha.
+  const { PDFDocument } = await import('pdf-lib');
+  const doc = await PDFDocument.load(bytes);
+  const form = doc.getForm();
+  form.getTextField('CharacterName').setText('Bruna Pedraforte');
+  form.getTextField('ClassLevel').setText('Guerreiro 3');
+  const { char } = await importDnd5ePdf(await doc.save());
+  assert.equal(char.name, 'Bruna Pedraforte');
+  assert.equal(char.className, 'fighter');
+  assert.equal(char.level, 3);
 });

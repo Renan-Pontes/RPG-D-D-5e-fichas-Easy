@@ -59,6 +59,13 @@ const StepIdentity = ({ char, set, lang, isNew }) => (
     <h2>{t('stepIdentity', lang)}</h2>
     <Filigree />
     <div style={{ display: 'grid', gap: 'var(--s-3)', gridTemplateColumns: '1fr' }}>
+      <div className="creator-avatar">
+        <AvatarUpload value={char.avatar} onChange={(avatar) => set({ avatar })} lang={lang} size={72}
+          letter={(char.name || '?').charAt(0).toUpperCase()} />
+        <span className="muted text-xs">{char.avatar
+          ? (lang === 'pt' ? 'Toque na foto para ver, trocar ou remover.' : 'Tap the photo to view, change or remove it.')
+          : (lang === 'pt' ? 'Foto do personagem (opcional) — toque no círculo.' : 'Character photo (optional) — tap the circle.')}</span>
+      </div>
       <div>
         <label>{t('characterName', lang)}</label>
         <input aria-label={t('characterName', lang)} value={char.name} onChange={e => set({ name: e.target.value })} placeholder={lang === 'pt' ? 'Aragorn, Filho de Arathorn...' : 'Aragorn, son of Arathorn...'} />

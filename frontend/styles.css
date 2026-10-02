@@ -743,6 +743,13 @@ label {
   position: relative;
 }
 .hero-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-viewer { display: grid; gap: var(--s-4); justify-items: center; padding-top: var(--s-4); }
+.avatar-viewer img {
+  width: min(100%, 400px); aspect-ratio: 1; object-fit: cover;
+  border-radius: var(--radius-lg); border: 2px solid var(--gold);
+}
+.avatar-viewer-actions { display: flex; gap: var(--s-2); flex-wrap: wrap; justify-content: center; }
+.creator-avatar { display: flex; align-items: center; gap: var(--s-3); }
 .hero-avatar-letter {
   font-family: var(--display);
   font-size: 2rem;
@@ -1395,6 +1402,17 @@ label {
   position: relative;
 }
 .ps-page:last-child { page-break-after: avoid; }
+.ps-cover { text-align: center; padding-top: 24px; }
+.ps-cover-photo {
+  width: 62%; max-width: 380px; aspect-ratio: 1; object-fit: cover;
+  border: 3px double #8a6f3f; border-radius: 6px; margin: 0 auto 18px; display: block;
+}
+.ps-cover-class { font-family: var(--display); font-size: 1.15rem; color: #3a2a18; margin-top: 4px; }
+.ps-cover-player { font-size: 0.85rem; color: #6a4520; margin-top: 6px; }
+.ps-cover-facts { margin: 20px 0 8px; text-align: left; }
+.ps-cover-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; text-align: left; }
+.ps-cover-list { margin: 0; padding-left: 18px; }
+.ps-cover-npc { margin-bottom: 8px; }
 
 /* Page header with corner ornaments */
 .ps-page-header {
@@ -3114,7 +3132,9 @@ body:has(.wizard-footer) .dice-fab { bottom: calc(92px + env(safe-area-inset-bot
 .member-mini-avatar {
   width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center;
   border: 1.5px solid var(--gold-deep); color: var(--gold); font-family: var(--display);
+  overflow: hidden;
 }
+.member-mini-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .member-mini-text { display: grid; min-width: 0; }
 .member-mini-text strong, .member-mini-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dice-roll-form { display: grid; grid-template-columns: 110px 72px 1fr auto; gap: 8px; align-items: center; }

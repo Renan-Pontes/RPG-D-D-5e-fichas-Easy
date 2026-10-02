@@ -6,6 +6,7 @@ import { speciesSummary } from '../src/progression/SpeciesChoices.jsx';
 import { t, tName } from '../data/i18n.js';
 import Icon from './Icons.jsx';
 import { Filigree } from './Shared.jsx';
+import { buildCoverData } from '../src/pdf/sheet-data.js';
 
 const PrintSheet = ({ char, lang }) => {
   const cls = SRD.CLASSES.find(c => c.id === char.className);
@@ -40,8 +41,43 @@ const PrintSheet = ({ char, lang }) => {
     </div>
   );
 
+  const cover = char.avatar ? buildCoverData(char, lang) : null;
+
   return (
     <div className="ps-sheet">
+
+      {/* ============ CAPA — só com foto ============ */}
+      {cover && (
+        <div className="ps-page ps-cover">
+          <img className="ps-cover-photo" src={char.avatar} alt="" />
+          <div className="ps-title">{cover.name || (lang === 'pt' ? 'Sem nome' : 'Unnamed')}</div>
+          <div className="ps-flourish">✦ ❖ ✦</div>
+          {cover.classLevel && <div className="ps-cover-class">{cover.classLevel}</div>}
+          {cover.subtitle && <div className="ps-subtitle">{cover.subtitle}</div>}
+          {cover.player && <div className="ps-cover-player">{lang === 'pt' ? 'Jogador' : 'Player'}: {cover.player}</div>}
+          <div className="ps-portrait-strip ps-cover-facts">
+            {cover.facts.map(([label, value]) => (
+              <div key={label} className="ps-portrait-cell"><label>{label}</label><span>{value}</span></div>
+            ))}
+          </div>
+          <div className="ps-cover-cols">
+            {cover.conditions.length > 0 && (
+              <div className="ps-section">
+                <div className="ps-section-title">{lang === 'pt' ? 'Condições e efeitos ativos' : 'Active conditions & effects'}</div>
+                <ul className="ps-cover-list">{cover.conditions.map(c => <li key={c}>{c}</li>)}</ul>
+              </div>
+            )}
+            {cover.npcs.length > 0 && (
+              <div className="ps-section">
+                <div className="ps-section-title">{lang === 'pt' ? 'NPCs conhecidos' : 'Known NPCs'}</div>
+                {cover.npcs.map((n, i) => (
+                  <div key={i} className="ps-cover-npc"><strong>{n.title}</strong>{n.text && <div className="ps-narrative">{n.text}</div>}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ============ PAGE 1 — CORE ============ */}
       <div className="ps-page">

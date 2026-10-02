@@ -175,12 +175,12 @@ const App = () => {
   };
 
   // PDF no layout da ficha oficial de D&D 5e (pdf-lib só carrega quando usado).
-  const handleExportPdf = async (char, { flatten = false } = {}) => {
+  const handleExportPdf = async (char, { flatten = false, blank = false } = {}) => {
     try {
       const [{ downloadDnd5ePdf }, { speciesSummary }] = await Promise.all([
         import('./src/pdf/export-pdf.js'), import('./src/progression/SpeciesChoices.jsx'),
       ]);
-      await downloadDnd5ePdf(char, lang, { speciesSummary, flatten });
+      await downloadDnd5ePdf(char, lang, { speciesSummary, flatten, blank });
       setToast(lang === 'pt' ? 'PDF gerado.' : 'PDF created.');
     } catch (e) {
       console.error(e);
@@ -196,6 +196,12 @@ const App = () => {
         setToast(lang === 'pt'
           ? 'Esse PDF não tem campos preenchíveis: só dá pra importar fichas de formulário (ficha oficial, D&D Beyond ou exportada daqui).'
           : 'This PDF has no form fields: only fillable sheets can be imported (official sheet, D&D Beyond or exported here).');
+        return;
+      }
+      if (!char) {
+        setToast(lang === 'pt'
+          ? 'Esse PDF está em branco: preencha a ficha no leitor de PDF, salve e importe de novo.'
+          : 'This PDF is blank: fill in the sheet in your PDF reader, save it and import again.');
         return;
       }
       await storage.save(applyAutosToCharacter(char));
@@ -412,6 +418,7 @@ const App = () => {
           onImport={handleImport}
           onImportPdf={handleImportPdf}
           onExportAll={handleExportAll}
+          onBlankPdf={() => handleExportPdf({}, { blank: true })}
         />
       );
       break;

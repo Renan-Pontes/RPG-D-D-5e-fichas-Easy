@@ -21,10 +21,13 @@ export async function readPdfFields(bytes) {
   return values;
 }
 
-/** Devolve { char, unmatched, fieldCount }; fieldCount 0 = PDF sem formulário. */
+/**
+ * Devolve { char, unmatched, fieldCount }: fieldCount 0 = PDF sem formulário;
+ * char null com fieldCount > 0 = formulário sem nada preenchido (ex.: ficha em branco).
+ */
 export async function importDnd5ePdf(bytes) {
   const values = await readPdfFields(bytes);
   const filled = Object.values(values).filter(v => v === true || (typeof v === 'string' && v.trim())).length;
-  if (!filled) return { char: null, unmatched: [], fieldCount: 0 };
+  if (!filled) return { char: null, unmatched: [], fieldCount: Object.keys(values).length };
   return { ...sheetValuesToChar(values), fieldCount: filled };
 }

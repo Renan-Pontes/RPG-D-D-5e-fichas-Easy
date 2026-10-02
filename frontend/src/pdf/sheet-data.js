@@ -262,6 +262,13 @@ export function buildSheetData(char, lang = 'pt', { speciesSummary } = {}) {
   return { fields: f, checks, spellPages: spellPages(char, lang), sections };
 }
 
+/** Ficha em branco: todos os campos vazios e uma página de magias limpa, para preencher no leitor de PDF. */
+export function blankSheetData() {
+  const fields = Object.fromEntries(LAYOUT.fields.filter(f => f.type !== 'check' && f.type !== 'image').map(f => [f.name, '']));
+  const header = { className: '', ability: '', dc: '', atk: '' };
+  return { fields, checks: {}, spellPages: [{ header, slots: {}, levels: {}, continued: false }], sections: [] };
+}
+
 // ---------------------------------------------------------------------------
 // Importação
 // ---------------------------------------------------------------------------
@@ -472,4 +479,43 @@ export function sheetValuesToChar(values) {
   char.importedFrom = 'pdf';
 
   return { char, unmatched };
+}
+
+const SIZE_LABEL = {
+  Tiny: ['Miúdo', 'Tiny'], Small: ['Pequeno', 'Small'], Medium: ['Médio', 'Medium'],
+  Large: ['Grande', 'Large'], Huge: ['Enorme', 'Huge'], Gargantuan: ['Imenso', 'Gargantuan'],
+};
+const RELATIONSHIP_LABEL = { ally: ['Aliado', 'Ally'], neutral: ['Neutro', 'Neutral'], enemy: ['Inimigo', 'Enemy'] };
+
+/**
+ * Capa do PDF (só quando há foto): identidade em destaque e o que não tem
+ * lugar nas páginas da ficha oficial — símbolo, tamanho, condições/efeitos
+ * ativos e NPCs conhecidos.
+ */
+export function buildCoverData(char, lang = 'pt') {
+  const d = buildSheetData(char, lang);
+  const f = d.fields;
+  const subtitle = [f['Race '], f.Background, f.Alignment].filter(Boolean).join(' · ');
+  const facts = [];
+  if (char.symbol) facts.push([L(lang, 'Símbolo', 'Symbol'), char.symbol]);
+  const size = Utils.sizeOf(char);
+  facts.push([L(lang, 'Tamanho', 'Size'), SIZE_LABEL[size] ? L(lang, ...SIZE_LABEL[size]) : size]);
+  facts.push([L(lang, 'Progressão', 'Leveling'), Utils.levelingMode(char) === 'milestone' ? L(lang, 'Por marcos', 'Milestones') : `${char.xp || 0} XP`]);
+  const conditions = [
+    ...(char.conditions || []).map(id => tName('condition', id, lang) || id),
+    ...(char.tempEffects || []).map(e => (e.duration ? `${e.name} (${e.duration})` : e.name)),
+  ].filter(Boolean);
+  const npcs = (char.npcs || []).filter(n => n.name).map(n => ({
+    title: [n.name, n.relationship && RELATIONSHIP_LABEL[n.relationship] ? L(lang, ...RELATIONSHIP_LABEL[n.relationship]) : n.relationship].filter(Boolean).join(' — '),
+    text: [[n.race, n.role].filter(Boolean).join(' · '), n.notes || ''].filter(Boolean).join('\n'),
+  }));
+  return {
+    name: char.name || '',
+    classLevel: f.ClassLevel,
+    subtitle,
+    player: char.player || '',
+    facts,
+    conditions,
+    npcs,
+  };
 }

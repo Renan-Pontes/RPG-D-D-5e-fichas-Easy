@@ -271,7 +271,9 @@ function OverviewTab({ campaign, lang, isDM, onChange }) {
         <div className="member-mini-list">
           {(campaign.members || []).map(m => (
             <div key={m.id} className="member-mini">
-              <span className="member-mini-avatar">{(m.character?.name || m.user?.displayName || '?').charAt(0).toUpperCase()}</span>
+              <span className="member-mini-avatar">{m.character?.summary?.avatar
+                ? <img src={m.character.summary.avatar} alt="" />
+                : (m.character?.name || m.user?.displayName || '?').charAt(0).toUpperCase()}</span>
               <span className="member-mini-text">
                 <strong>{m.character?.name || m.user?.displayName}</strong>
                 <span className="muted text-xs">{m.character ? m.user?.displayName : (m.role === 'dm' ? t(lang, 'Mestre', 'DM') : t(lang, 'sem personagem', 'no character'))}</span>

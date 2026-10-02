@@ -95,42 +95,72 @@ const Pips = ({ count, used, onChange, type = 'normal' }) => {
 };
 
 // Avatar input
-const AvatarUpload = ({ value, onChange, size = 84, letter }) => {
-  const fileRef = useRef(null);
-  const handle = (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      // Compress to ~200px square
-      const img = new Image();
-      img.onload = () => {
-        const max = 260;
-        const ratio = Math.min(max / img.width, max / img.height, 1);
-        const w = Math.round(img.width * ratio);
-        const h = Math.round(img.height * ratio);
-        const c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        c.getContext('2d').drawImage(img, 0, 0, w, h);
-        onChange(c.toDataURL('image/jpeg', 0.82));
-      };
-      img.src = reader.result;
+// Sem foto: clique abre o seletor. Com foto: clique abre a foto ampliada com
+// "Alterar" / "Remover". A imagem é recortada no centro (quadrado) e reduzida
+// pra 400px JPEG — fica no JSON da ficha (~30KB), sem mídia no servidor.
+const AVATAR_PX = 400;
+const compressAvatar = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onerror = reject;
+  reader.onload = () => {
+    const img = new Image();
+    img.onerror = reject;
+    img.onload = () => {
+      const side = Math.min(img.width, img.height);
+      const out = Math.min(AVATAR_PX, side);
+      const c = document.createElement('canvas');
+      c.width = out; c.height = out;
+      c.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, out, out);
+      resolve(c.toDataURL('image/jpeg', 0.82));
     };
-    reader.readAsDataURL(f);
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+const AvatarUpload = ({ value, onChange, size = 84, letter, lang = 'pt' }) => {
+  const fileRef = useRef(null);
+  const [viewing, setViewing] = useState(false);
+  const pt = lang === 'pt';
+  const pick = () => fileRef.current && fileRef.current.click();
+  const handle = async (e) => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      onChange(await compressAvatar(f));
+      setViewing(false);
+    } catch { /* arquivo não é imagem legível — ignora */ }
   };
   return (
     <>
       <div
         className="hero-avatar"
         style={{ width: size, height: size }}
-        onClick={() => fileRef.current && fileRef.current.click()}
-        title="Upload avatar"
+        onClick={() => (value ? setViewing(true) : pick())}
+        role="button"
+        title={value ? (pt ? 'Ver foto' : 'View photo') : (pt ? 'Adicionar foto' : 'Add photo')}
       >
         {value
           ? <img src={value} alt="" />
           : <span className="hero-avatar-letter">{letter || '?'}</span>}
       </div>
       <input ref={fileRef} type="file" accept="image/*" onChange={handle} style={{ display: 'none' }} />
+      {viewing && value && (
+        <Modal onClose={() => setViewing(false)}>
+          <div className="avatar-viewer">
+            <img src={value} alt="" />
+            <div className="avatar-viewer-actions">
+              <button className="btn btn-primary" onClick={pick}>
+                <Icon name="upload" size={14}/> {pt ? 'Alterar foto' : 'Change photo'}
+              </button>
+              <button className="btn btn-ghost" onClick={() => { onChange(''); setViewing(false); }}>
+                {pt ? 'Remover' : 'Remove'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </>
   );
 };

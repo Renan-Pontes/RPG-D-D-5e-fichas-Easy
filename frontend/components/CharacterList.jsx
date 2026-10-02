@@ -5,7 +5,7 @@ import { Filigree } from './Shared.jsx';
 import { t, tName } from '../data/i18n.js';
 import Utils from '../utils.js';
 
-const CharacterList = ({ lang, characters, onOpen, onNew, onImport, onImportPdf, onExportAll }) => {
+const CharacterList = ({ lang, characters, onOpen, onNew, onImport, onImportPdf, onExportAll, onBlankPdf }) => {
   const fileRef = useRef(null);
   const [query, setQuery] = useState('');
 
@@ -130,6 +130,10 @@ const CharacterList = ({ lang, characters, onOpen, onNew, onImport, onImportPdf,
         <div className="list-actions-secondary">
           <button className="btn btn-ghost btn-sm" onClick={() => fileRef.current && fileRef.current.click()}>
             <Icon name="upload" size={14}/> {t('importJson', lang)}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={onBlankPdf}
+            title={lang === 'pt' ? 'Ficha de D&D 5e vazia e editável, para preencher no leitor de PDF — depois dá pra importar aqui' : 'Empty, fillable D&D 5e sheet to fill in any PDF reader — you can import it back here'}>
+            <Icon name="download" size={14}/> {lang === 'pt' ? 'Ficha PDF em branco' : 'Blank PDF sheet'}
           </button>
           {characters.length > 0 && (
             <button className="btn btn-ghost btn-sm" onClick={onExportAll}>

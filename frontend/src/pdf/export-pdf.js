@@ -6,9 +6,11 @@
  * qualquer leitor e volta para a Forja (ou para outras ferramentas) pela
  * importação. Texto que não cabe diminui até 6 pt; o que passar disso vai para
  * páginas de continuação. Magias que não cabem geram páginas de magia extras.
+ * Com foto, abre com uma capa (sem campos de formulário) e a foto também
+ * preenche o retrato da página de detalhes.
  */
 import { PDFDocument, StandardFonts, TextAlignment, rgb } from 'pdf-lib';
-import { LAYOUT, buildSheetData, pageField } from './sheet-data.js';
+import { LAYOUT, blankSheetData, buildSheetData, buildCoverData, pageField } from './sheet-data.js';
 
 const INK = rgb(0.13, 0.12, 0.11);
 const MUTED = rgb(0.42, 0.4, 0.37);
@@ -159,8 +161,91 @@ function drawSheetHeader(page, bold, font, lang, title) {
   page.drawText(T(lang, 'Gerada pela Forja de Heróis', 'Made with Forja de Heróis'), { x: 36, y: 20, size: 5.5, font, color: MUTED });
 }
 
+// Avatar é data URL (JPEG da Forja; PNG em fichas antigas/importadas).
+async function embedAvatar(doc, dataUrl) {
+  const m = /^data:image\/(jpe?g|png);base64,(.+)$/i.exec(dataUrl || '');
+  if (!m) return null;
+  const bytes = Uint8Array.from(atob(m[2]), c => c.charCodeAt(0));
+  try {
+    return /png/i.test(m[1]) ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
+  } catch { return null; }
+}
+
+// Encaixa a imagem no retângulo sem distorcer (fotos antigas podem não ser quadradas).
+function drawImageFit(page, img, [x1, y1, x2, y2]) {
+  const w = x2 - x1, h = y2 - y1;
+  const fit = Math.min(w / img.width, h / img.height);
+  const fw = img.width * fit, fh = img.height * fit;
+  page.drawRectangle({ x: x1, y: y1, width: w, height: h, color: FILL });
+  page.drawImage(img, { x: x1 + (w - fw) / 2, y: y1 + (h - fh) / 2, width: fw, height: fh });
+}
+
+function drawCoverPage(page, { font, bold, clean, lang, img, cover }) {
+  const [W, H] = LAYOUT.pageSize;
+  const margin = 54;
+  drawSheetHeader(page, bold, font, lang, T(lang, 'CAPA', 'COVER'));
+  const side = 300;
+  const top = H - 84;
+  const px = (W - side) / 2;
+  page.drawRectangle({ x: px - 4, y: top - side - 4, width: side + 8, height: side + 8, borderColor: INK, borderWidth: 1.2 });
+  drawImageFit(page, img, [px, top - side, px + side, top]);
+
+  let y = top - side - 40;
+  const center = (text, size, f, color = INK) => {
+    let s = size;
+    const t = clean(text);
+    while (s > 9 && f.widthOfTextAtSize(t, s) > W - margin * 2) s -= 1;
+    page.drawText(t, { x: (W - f.widthOfTextAtSize(t, s)) / 2, y, size: s, font: f, color });
+    y -= s + 8;
+  };
+  center(cover.name || T(lang, 'Sem nome', 'Unnamed'), 26, bold);
+  if (cover.classLevel) center(cover.classLevel, 13, font);
+  if (cover.subtitle) center(cover.subtitle, 11, font, MUTED);
+  if (cover.player) center(`${T(lang, 'Jogador', 'Player')}: ${cover.player}`, 9, font, MUTED);
+  y -= 6;
+  page.drawLine({ start: { x: margin, y }, end: { x: W - margin, y }, thickness: 0.6, color: LINE });
+  y -= 18;
+
+  // Fatos curtos em linha.
+  const factW = (W - margin * 2) / Math.max(1, cover.facts.length);
+  cover.facts.forEach(([label, value], i) => {
+    const x = margin + i * factW;
+    page.drawText(clean(label.toUpperCase()), { x, y, size: 6.5, font: bold, color: MUTED });
+    const v = wrap(font, clean(value), 9, factW - 8).slice(0, 2);
+    v.forEach((l, j) => page.drawText(l, { x, y: y - 12 - j * 11, size: 9, font, color: INK }));
+  });
+  y -= 44;
+
+  // Condições e NPCs em duas colunas, até o rodapé; o resto é cortado com "…".
+  const colW = (W - margin * 2 - 18) / 2;
+  const column = (x, title, items) => {
+    let cy = y;
+    if (!items.length) return;
+    page.drawText(clean(title.toUpperCase()), { x, y: cy, size: 8, font: bold, color: INK });
+    cy -= 4;
+    page.drawLine({ start: { x, y: cy }, end: { x: x + colW, y: cy }, thickness: 0.6, color: LINE });
+    cy -= 12;
+    for (const it of items) {
+      const lines = [
+        ...(it.title ? wrap(bold, clean(it.title), 8, colW).map(l => [l, bold]) : []),
+        ...(it.text ? wrap(font, clean(it.text), 7.5, colW).map(l => [l, font]) : []),
+      ];
+      for (const [l, f] of lines) {
+        if (cy < 40) { page.drawText('…', { x, y: cy, size: 8, font, color: MUTED }); return; }
+        page.drawText(l, { x, y: cy, size: f === bold ? 8 : 7.5, font: f, color: INK });
+        cy -= 10;
+      }
+      cy -= 4;
+    }
+  };
+  const left = cover.conditions.length ? cover.conditions.map(c => ({ text: `• ${c}` })) : [];
+  column(margin, T(lang, 'Condições e efeitos ativos', 'Active conditions & effects'), left);
+  column(left.length ? margin + colW + 18 : margin, T(lang, 'NPCs conhecidos', 'Known NPCs'), cover.npcs);
+}
+
 export async function exportDnd5ePdf(char, lang = 'pt', opts = {}) {
-  const data = buildSheetData(char, lang, opts);
+  // opts.blank: ficha vazia para quem prefere preencher direto no PDF (e importar depois).
+  const data = opts.blank ? blankSheetData() : buildSheetData(char, lang, opts);
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -168,10 +253,12 @@ export async function exportDnd5ePdf(char, lang = 'pt', opts = {}) {
   const clean = makeSanitizer(font);
   const [W, H] = LAYOUT.pageSize;
   const overflow = [];
-  const title = clean(char.name || T(lang, 'Sem nome', 'Unnamed'));
+  const title = clean(char.name || (opts.blank ? T(lang, 'Ficha em branco', 'Blank sheet') : T(lang, 'Sem nome', 'Unnamed')));
   doc.setTitle(`${title} — D&D 5e`);
   doc.setCreator('Forja de Heróis');
 
+  const avatar = opts.blank ? null : await embedAvatar(doc, char.avatar);
+  if (avatar) drawCoverPage(doc.addPage([W, H]), { font, bold, clean, lang, img: avatar, cover: buildCoverData(char, lang) });
   const pages = [0, 1].map(() => doc.addPage([W, H]));
   drawSheetHeader(pages[0], bold, font, lang, T(lang, 'FICHA DE PERSONAGEM', 'CHARACTER SHEET'));
   drawSheetHeader(pages[1], bold, font, lang, T(lang, 'DETALHES DO PERSONAGEM', 'CHARACTER DETAILS'));
@@ -207,6 +294,7 @@ export async function exportDnd5ePdf(char, lang = 'pt', opts = {}) {
     const page = pages[f.page];
     if (f.type === 'image') {
       box(page, f.rect, { fill: true, pad: 0 });
+      if (avatar && f.name === 'CHARACTER IMAGE') drawImageFit(page, avatar, f.rect);
       continue;
     }
     if (f.type === 'check') {
@@ -334,7 +422,9 @@ export async function downloadDnd5ePdf(char, lang, opts) {
   const blob = new Blob([bytes], { type: 'application/pdf' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `${(char.name || 'personagem').replace(/[^a-z0-9]+/gi, '_')}_DnD5e${opts?.flatten ? '' : '_editavel'}.pdf`;
+  a.download = opts?.blank
+    ? `Ficha_DnD5e_em_branco.pdf`
+    : `${(char.name || 'personagem').replace(/[^a-z0-9]+/gi, '_')}_DnD5e${opts?.flatten ? '' : '_editavel'}.pdf`;
   document.body.appendChild(a);
   a.click();
   a.remove();
