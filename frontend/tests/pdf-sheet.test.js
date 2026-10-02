@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Utils from '../utils.js';
 import { PDFDocument } from 'pdf-lib';
-import { buildSheetData, buildCoverData, sheetValuesToChar, SPELL_CAPACITY, LAYOUT } from '../src/pdf/sheet-data.js';
+import { buildSheetData, buildCoverData, spellbookSection, sheetValuesToChar, SPELL_CAPACITY, LAYOUT } from '../src/pdf/sheet-data.js';
 import { exportDnd5ePdf } from '../src/pdf/export-pdf.js';
 import { importDnd5ePdf, readPdfFields } from '../src/pdf/import-pdf.js';
 
@@ -172,4 +172,16 @@ test('ficha em branco: campos editáveis vazios, com página de magias, e volta 
   assert.equal(char.name, 'Bruna Pedraforte');
   assert.equal(char.className, 'fighter');
   assert.equal(char.level, 3);
+});
+
+test('versão de impressão traz o livro de magias com as descrições', async () => {
+  const c = wizard();
+  const book = spellbookSection(c, 'pt');
+  assert.equal(book.items.length, c.spells.length);
+  assert.match(book.items[0].title, /Truque/);
+  assert.ok(book.items.every(it => it.text.length > 20), 'toda magia tem tempo/alcance e descrição');
+  const pages = async bytes => (await PDFDocument.load(bytes)).getPageCount();
+  const print = await exportDnd5ePdf(c, 'pt', { flatten: true, spellbook: true });
+  assert.ok(await pages(print) > await pages(await exportDnd5ePdf(c, 'pt', { flatten: true })));
+  assert.equal(spellbookSection({ ...wizard(), spells: [] }, 'pt'), null);
 });

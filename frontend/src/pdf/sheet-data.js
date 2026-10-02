@@ -519,3 +519,23 @@ export function buildCoverData(char, lang = 'pt') {
     npcs,
   };
 }
+
+/** Livro de magias (texto integral) para a versão de impressão: ordenado por círculo e nome. */
+export function spellbookSection(char, lang = 'pt') {
+  const catalog = Utils.spellCatalog(char);
+  const items = (char.spells || [])
+    .map(s => catalog.find(d => d.id === s.id))
+    .filter(Boolean)
+    .sort((a, b) => a.level - b.level || tName('spellName', a.id, lang).localeCompare(tName('spellName', b.id, lang)))
+    .map(d => {
+      const circle = d.level === 0 ? L(lang, 'Truque', 'Cantrip') : L(lang, `${d.level}º círculo`, `Level ${d.level}`);
+      const tags = [d.ritual && L(lang, 'ritual', 'ritual'), d.concentration && L(lang, 'concentração', 'concentration')].filter(Boolean);
+      const meta = [d.castingTime, d.range, d.components, d.duration].filter(Boolean).join(' · ');
+      const desc = String(d.desc?.[lang] || d.desc?.en || '').replace(/[ \t]+/g, ' ').replace(/\n\s*\n/g, '\n').trim();
+      return {
+        title: `${tName('spellName', d.id, lang)} — ${circle}, ${tName('school', d.school, lang)}${tags.length ? ` (${tags.join(', ')})` : ''}`,
+        text: [meta, desc].filter(Boolean).join('\n'),
+      };
+    });
+  return items.length ? { title: L(lang, 'Livro de magias', 'Spellbook'), items } : null;
+}

@@ -9,9 +9,9 @@
  * Com foto, abre com uma capa (sem campos de formulário) e a foto também
  * preenche o retrato da página de detalhes.
  */
-import { PDFDocument, StandardFonts, TextAlignment, drawCheckMark, rgb } from 'pdf-lib';
+import { PDFDocument, PDFName, StandardFonts, TextAlignment, drawCheckMark, rgb } from 'pdf-lib';
 import { ORN, brandHeader, caption, decorateMainPages, decorateSpellPage, fieldBg, frame } from './ornaments.js';
-import { LAYOUT, blankSheetData, buildSheetData, buildCoverData, pageField } from './sheet-data.js';
+import { LAYOUT, blankSheetData, buildSheetData, buildCoverData, pageField, spellbookSection } from './sheet-data.js';
 
 const INK = rgb(0.13, 0.12, 0.11);
 const MUTED = rgb(0.42, 0.4, 0.37);
@@ -376,6 +376,9 @@ export async function exportDnd5ePdf(char, lang = 'pt', opts = {}) {
 
   // --- Continuação: texto integral de traços/características e o que transbordou ---
   const sections = [...data.sections];
+  // Impressão: descrição completa das magias no fim (a ficha só tem os nomes).
+  const book = opts.spellbook && !opts.blank ? spellbookSection(char, lang) : null;
+  if (book) sections.push(book);
   if (overflow.length) {
     const labelOf = n => (LABELS[n] ? (lang === 'pt' ? LABELS[n][0] : LABELS[n][1]) : n);
     sections.unshift({ title: T(lang, 'Continuação dos campos', 'Continued fields'), items: overflow.map(o => ({ title: `${labelOf(o.field)} (…)`, text: o.rest })) });
@@ -419,8 +422,22 @@ export async function exportDnd5ePdf(char, lang = 'pt', opts = {}) {
 
   form.updateFieldAppearances(font);
   // "Para imprimir": grava o texto na página e remove os campos (não dá mais para editar).
-  if (opts.flatten) form.flatten();
+  if (opts.flatten) {
+    form.flatten();
+    // O flatten do pdf-lib apaga os widgets mas deixa as páginas apontando para eles
+    // (referências quebradas no /Annots — leitores reclamam ou "consertam" o arquivo).
+    for (const page of doc.getPages()) page.node.delete(PDFName.of('Annots'));
+  }
   return doc.save();
+}
+
+/** Versão de impressão (texto fixo + livro de magias) aberta no visualizador de PDF do navegador. */
+export async function printDnd5ePdf(char, lang, opts = {}, target = null) {
+  const bytes = await exportDnd5ePdf(char, lang, { ...opts, flatten: true, spellbook: true });
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+  setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
+  if (target && !target.closed) { target.location.href = url; return true; }
+  return !!window.open(url, '_blank');
 }
 
 export async function downloadDnd5ePdf(char, lang, opts) {

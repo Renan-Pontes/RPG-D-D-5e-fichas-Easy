@@ -9,7 +9,6 @@ import DiceRoller from './components/DiceRoller.jsx';
 import CharacterList from './components/CharacterList.jsx';
 import Creator from './components/Creator.jsx';
 import Sheet from './components/Sheet.jsx';
-import PrintSheet from './components/PrintSheet.jsx';
 
 import { useAuth } from './src/auth/AuthContext.jsx';
 import AuthScreen from './src/auth/AuthScreen.jsx';
@@ -25,7 +24,7 @@ import { ClassOptionsModal } from './src/progression/ClassOptionsPicker.jsx';
 const GrimoireScreen = lazy(() => import('./src/grimoire/GrimoireScreen.jsx'));
 
 const SCREENS = {
-  HOME: 'home', CREATE: 'create', SHEET: 'sheet', EDIT: 'edit', PRINT: 'print',
+  HOME: 'home', CREATE: 'create', SHEET: 'sheet', EDIT: 'edit',
   AUTH: 'auth', CAMPAIGNS: 'campaigns', CAMPAIGN: 'campaign', GRIMOIRE: 'grimoire',
 };
 
@@ -228,9 +227,25 @@ const App = () => {
     }
   };
 
-  const handlePrint = () => {
-    setScreen(SCREENS.PRINT);
-    setTimeout(() => window.print(), 250);
+  // Imprimir = PDF ornamentado (texto fixo + livro de magias) no visualizador do navegador.
+  // A aba abre já no clique (senão o bloqueador de pop-up barra) e recebe o PDF quando ficar pronto.
+  const handlePrint = async () => {
+    const tab = window.open('', '_blank');
+    if (tab) tab.document.write(`<p style="font-family:sans-serif;padding:24px">${lang === 'pt' ? 'Preparando a ficha para impressão…' : 'Preparing the sheet for printing…'}</p>`);
+    try {
+      const [{ printDnd5ePdf, downloadDnd5ePdf }, { speciesSummary }] = await Promise.all([
+        import('./src/pdf/export-pdf.js'), import('./src/progression/SpeciesChoices.jsx'),
+      ]);
+      const opened = await printDnd5ePdf(active, lang, { speciesSummary }, tab);
+      if (!opened) {
+        await downloadDnd5ePdf(active, lang, { speciesSummary, flatten: true, spellbook: true });
+        setToast(lang === 'pt' ? 'Pop-up bloqueado: o PDF foi baixado — abra e imprima.' : 'Pop-up blocked: the PDF was downloaded — open it and print.');
+      }
+    } catch (e) {
+      console.error(e);
+      if (tab) tab.close();
+      setToast(lang === 'pt' ? 'Falha ao gerar o PDF.' : 'Failed to create the PDF.');
+    }
   };
 
   // Approval levelup liberada (status='approved') pro personagem ativo.
@@ -483,22 +498,6 @@ const App = () => {
             />
           )}
         </>
-      );
-      break;
-    case SCREENS.PRINT:
-      content = (
-        <div className="print-preview-frame">
-          <div className="no-print print-toolbar">
-            <button className="btn btn-ghost btn-sm" onClick={() => setScreen(SCREENS.SHEET)}>
-              <Icon name="arrow-back" size={14}/> {t('back', lang)}
-            </button>
-            <div className="print-toolbar-title">{lang === 'pt' ? 'Visualização de impressão' : 'Print preview'}</div>
-            <button className="btn btn-primary" onClick={() => window.print()}>
-              <Icon name="print" size={14}/> {t('print', lang)}
-            </button>
-          </div>
-          <PrintSheet char={active} lang={lang} />
-        </div>
       );
       break;
   }
