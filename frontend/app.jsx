@@ -543,8 +543,8 @@ const App = () => {
       {auth.backendAvailable === false && (
         <div className="offline-banner" role="status" aria-live="polite">
           ⚠ {lang === 'pt'
-            ? <>Backend offline — funcionando em modo <strong>standalone</strong> (fichas salvas só neste navegador). Auth, campanhas e mestre ficam indisponíveis até configurar <code>VITE_API_URL</code> no projeto Vercel.</>
-            : <>Backend offline — running in <strong>standalone</strong> mode (sheets saved only in this browser). Auth, campaigns and DM features unavailable until <code>VITE_API_URL</code> is set on the Vercel project.</>
+            ? <>Backend offline — funcionando em modo <strong>standalone</strong> (fichas salvas só neste navegador). Login, campanhas e mestre voltam sozinhos quando o servidor responder.</>
+            : <>Backend offline — running in <strong>standalone</strong> mode (sheets saved only in this browser). Login, campaigns and DM features come back automatically once the server responds.</>
           }
         </div>
       )}

@@ -39,6 +39,21 @@ export function AuthProvider({ children }) {
     refresh();
   }, [refresh]);
 
+  // Offline não é definitivo (servidor reiniciando, PA acordando, Wi-Fi caiu):
+  // tenta de novo a cada 15s e ao voltar pra aba, e o banner some sozinho.
+  useEffect(() => {
+    if (backendAvailable !== false) return;
+    const retry = () => { if (document.visibilityState === 'visible') refresh(); };
+    const id = setInterval(retry, 15000);
+    document.addEventListener('visibilitychange', retry);
+    window.addEventListener('online', retry);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', retry);
+      window.removeEventListener('online', retry);
+    };
+  }, [backendAvailable, refresh]);
+
   const login = useCallback(async (email, password) => {
     const res = await api.login({ email, password });
     setUser(res.user);
