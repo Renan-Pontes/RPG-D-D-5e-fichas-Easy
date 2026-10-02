@@ -60,14 +60,15 @@ class PaladinDevotionTests(SimpleTestCase):
 
 
 class WarlockHexbladeTests(SimpleTestCase):
-    def test_hexblade_at_1(self):
+    # PHB 2014: a Lista Expandida do patrono só amplia as opções de escolha; não dá magias de graça.
+    def test_hexblade_at_1_expanded_not_free(self):
         p = compute_progression(build('warlock', 1, 'hexblade'))
-        self.assertIn('shield', p['auto_spells'])
-        self.assertIn('wrathfulSmite', p['auto_spells'])
+        self.assertNotIn('shield', p['auto_spells'])
+        self.assertNotIn('wrathfulSmite', p['auto_spells'])
 
-    def test_fiend_at_5_has_fireball(self):
+    def test_fiend_at_5_fireball_not_free(self):
         p = compute_progression(build('warlock', 5, 'fiend'))
-        self.assertIn('fireball', p['auto_spells'])
+        self.assertNotIn('fireball', p['auto_spells'])
 
 
 class AsiLevelsCoverageTests(SimpleTestCase):
@@ -124,8 +125,8 @@ class ApplyAutosNewSubclassesTests(SimpleTestCase):
         for s in ['protectionFromEvilGood', 'sanctuary', 'lesserRestoration', 'zoneOfTruth']:
             self.assertIn(s, ids)
 
-    def test_warlock_hexblade_nv1(self):
+    def test_warlock_hexblade_nv1_no_free_expanded_spells(self):
         c = apply_autos(build('warlock', 1, 'hexblade'))
         ids = {s['id'] for s in c['spells']}
-        self.assertIn('shield', ids)
-        self.assertIn('wrathfulSmite', ids)
+        self.assertNotIn('shield', ids)
+        self.assertNotIn('wrathfulSmite', ids)

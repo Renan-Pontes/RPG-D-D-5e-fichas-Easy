@@ -750,7 +750,7 @@
               {
                 "id": "starMap",
                 "name": "Mapa Estelar",
-                "desc": "Foco de druida. Conhece Orientação e tem Raio Guia sempre preparado; conjure Raio Guia sem espaço PB vezes por descanso longo."
+                "desc": "Foco de druida. Conhece Orientação e tem Flecha Guiada sempre preparado; conjure Flecha Guiada sem espaço PB vezes por descanso longo."
               },
               {
                 "id": "starryForm",
@@ -4604,7 +4604,7 @@
       "subclass_per_level": {
         "fiend": {
           "1": {
-            "auto_spells": [
+            "expandedSpells": [
               "burningHands",
               "commandSpell"
             ],
@@ -4617,13 +4617,13 @@
             ]
           },
           "3": {
-            "auto_spells": [
+            "expandedSpells": [
               "blindnessDeafness",
               "scorchingRay"
             ]
           },
           "5": {
-            "auto_spells": [
+            "expandedSpells": [
               "fireball",
               "stinkingCloud"
             ]
@@ -4638,13 +4638,13 @@
             ]
           },
           "7": {
-            "auto_spells": [
+            "expandedSpells": [
               "fireShield",
               "wallOfFire"
             ]
           },
           "9": {
-            "auto_spells": [
+            "expandedSpells": [
               "flameStrike",
               "hallow"
             ]
@@ -4670,7 +4670,7 @@
         },
         "hexblade": {
           "1": {
-            "auto_spells": [
+            "expandedSpells": [
               "shield",
               "wrathfulSmite"
             ],
@@ -4688,13 +4688,13 @@
             ]
           },
           "3": {
-            "auto_spells": [
+            "expandedSpells": [
               "blur",
               "brandingSmite"
             ]
           },
           "5": {
-            "auto_spells": [
+            "expandedSpells": [
               "blink",
               "elementalWeapon"
             ]
@@ -4709,13 +4709,13 @@
             ]
           },
           "7": {
-            "auto_spells": [
+            "expandedSpells": [
               "phantasmalKiller",
               "staggeringSmite"
             ]
           },
           "9": {
-            "auto_spells": [
+            "expandedSpells": [
               "banishingSmite",
               "coneOfCold"
             ]
@@ -4749,6 +4749,22 @@
                 "nameEn": "Fey Presence",
                 "descEn": "1/short rest: action — creatures in 10 ft WIS save vs spell DC or charmed/frightened for 1 turn."
               }
+            ],
+            "expandedSpells": [
+              "faerieFire",
+              "sleep"
+            ]
+          },
+          "3": {
+            "expandedSpells": [
+              "calmEmotions",
+              "phantasmalForce"
+            ]
+          },
+          "5": {
+            "expandedSpells": [
+              "blink",
+              "plantGrowth"
             ]
           },
           "6": {
@@ -4760,6 +4776,18 @@
                 "nameEn": "Misty Escape",
                 "descEn": "1/short rest: when taking damage — teleport 60 ft as a reaction and become invisible until your next turn starts."
               }
+            ]
+          },
+          "7": {
+            "expandedSpells": [
+              "dominateBeast",
+              "greaterInvisibility"
+            ]
+          },
+          "9": {
+            "expandedSpells": [
+              "dominatePerson",
+              "seeming"
             ]
           },
           "10": {
@@ -4795,6 +4823,22 @@
                 "nameEn": "Awakened Mind",
                 "descEn": "Communicate telepathically with any creature that knows at least 1 language, within 30 ft."
               }
+            ],
+            "expandedSpells": [
+              "dissonantWhispers",
+              "hideousLaughter"
+            ]
+          },
+          "3": {
+            "expandedSpells": [
+              "detectThoughts",
+              "phantasmalForce"
+            ]
+          },
+          "5": {
+            "expandedSpells": [
+              "clairvoyance",
+              "sendingSpell"
             ]
           },
           "6": {
@@ -4806,6 +4850,18 @@
                 "nameEn": "Entropic Ward",
                 "descEn": "1/short rest: reaction when attacked — impose disadvantage. If the attack misses: advantage on your next attack against that attacker."
               }
+            ]
+          },
+          "7": {
+            "expandedSpells": [
+              "dominateBeast",
+              "blackTentacles"
+            ]
+          },
+          "9": {
+            "expandedSpells": [
+              "dominatePerson",
+              "telekinesis"
             ]
           },
           "10": {
@@ -6615,7 +6671,7 @@
             {
               "id": "spellcasting",
               "name": "Conjuração",
-              "desc": "Você conjura magias de clérigo por meio de prece e meditação; Sabedoria é seu atributo de conjuração e um Símbolo Sagrado pode ser seu foco. Truques: conhece 3 da lista de clérigo (recomendados: Orientação, Chama Sagrada e Taumaturgia), 4 no nível 4 e 5 no nível 10; ao ganhar um nível de clérigo, pode trocar um truque por outro. Espaços de magia: conforme a tabela, recuperados num Descanso Longo. Magias preparadas: comece com 4 magias de 1º círculo (recomendadas: Bênção, Curar Ferimentos, Raio Guia e Escudo da Fé); o número cresce com a tabela e as magias devem ser de círculos para os quais você tem espaços. Ao terminar um Descanso Longo, pode trocar qualquer magia preparada. Magias sempre preparadas por outros traços de clérigo não contam nesse limite.",
+              "desc": "Você conjura magias de clérigo por meio de prece e meditação; Sabedoria é seu atributo de conjuração e um Símbolo Sagrado pode ser seu foco. Truques: conhece 3 da lista de clérigo (recomendados: Orientação, Chama Sagrada e Taumaturgia), 4 no nível 4 e 5 no nível 10; ao ganhar um nível de clérigo, pode trocar um truque por outro. Espaços de magia: conforme a tabela, recuperados num Descanso Longo. Magias preparadas: comece com 4 magias de 1º círculo (recomendadas: Bênção, Curar Ferimentos, Flecha Guiada e Escudo da Fé); o número cresce com a tabela e as magias devem ser de círculos para os quais você tem espaços. Ao terminar um Descanso Longo, pode trocar qualquer magia preparada. Magias sempre preparadas por outros traços de clérigo não contam nesse limite.",
               "nameEn": "Spellcasting",
               "descEn": "You cast Cleric spells through prayer and meditation; Wisdom is your spellcasting ability and a Holy Symbol can be your focus. Cantrips: you know 3 from the Cleric list (Guidance, Sacred Flame, and Thaumaturgy are recommended), 4 at level 4 and 5 at level 10; whenever you gain a Cleric level you can replace one cantrip. Spell slots: per the table, regained on a Long Rest. Prepared spells: start with 4 level 1 spells (Bless, Cure Wounds, Guiding Bolt, and Shield of Faith are recommended); the number grows per the table and spells must be of a level for which you have slots. When you finish a Long Rest you can change any prepared spell. Spells another Cleric feature always prepares don't count against this number."
             },
@@ -7345,7 +7401,7 @@
               {
                 "id": "warDomainSpells",
                 "name": "Magias do Domínio da Guerra",
-                "desc": "Ao alcançar os níveis de clérigo indicados, você passa a ter sempre preparadas estas magias (não contam no limite de preparadas). Nível 3: Raio Guia, Arma Mágica, Escudo da Fé, Arma Espiritual; 5: Manto do Cruzado, Guardiões Espirituais; 7: Escudo de Fogo, Liberdade de Movimento; 9: Imobilizar Monstro, Golpe do Vento de Aço.",
+                "desc": "Ao alcançar os níveis de clérigo indicados, você passa a ter sempre preparadas estas magias (não contam no limite de preparadas). Nível 3: Flecha Guiada, Arma Mágica, Escudo da Fé, Arma Espiritual; 5: Manto do Cruzado, Guardiões Espirituais; 7: Escudo de Fogo, Liberdade de Movimento; 9: Imobilizar Monstro, Golpe do Vento de Aço.",
                 "nameEn": "War Domain Spells",
                 "descEn": "When you reach the listed Cleric levels, you always have these spells prepared (they don't count against your prepared spells). Level 3: Guiding Bolt, Magic Weapon, Shield of Faith, Spiritual Weapon; 5: Crusader's Mantle, Spirit Guardians; 7: Fire Shield, Freedom of Movement; 9: Hold Monster, Steel Wind Strike."
               }
@@ -8274,7 +8330,7 @@
             {
               "id": "primalOrder",
               "name": "Ordem Primal",
-              "desc": "Escolha um papel sagrado. Mago: conhece um truque extra da lista de druida e soma o modificador de Sabedoria (mínimo +1) aos testes de Inteligência (Arcanismo ou Natureza). Guardião: proficiência com armas marciais e treino com armadura média.",
+              "desc": "Escolha um papel sagrado. Mágico: conhece um truque extra da lista de druida e soma o modificador de Sabedoria (mínimo +1) aos testes de Inteligência (Arcanismo ou Natureza). Guardião: proficiência com armas marciais e treino com armadura média.",
               "nameEn": "Primal Order",
               "descEn": "Choose a sacred role. Magician: you know one extra Druid cantrip and add your Wisdom modifier (minimum +1) to Intelligence (Arcana or Nature) checks. Warden: proficiency with Martial weapons and training with Medium armor."
             }
@@ -8987,7 +9043,7 @@
               {
                 "id": "starMap",
                 "name": "Mapa Estelar",
-                "desc": "Você cria um mapa estelar Minúsculo (pergaminho, tábua, pedra etc.) que serve de foco de conjuração; se perdê-lo, refaz em 1 hora de ritual durante um descanso. Com ele, conhece o truque Orientação e tem Raio Guia sempre preparado, e pode conjurar Raio Guia sem gastar espaço um número de vezes igual ao modificador de Sabedoria (mínimo 1) por descanso longo.",
+                "desc": "Você cria um mapa estelar Minúsculo (pergaminho, tábua, pedra etc.) que serve de foco de conjuração; se perdê-lo, refaz em 1 hora de ritual durante um descanso. Com ele, conhece o truque Orientação e tem Flecha Guiada sempre preparado, e pode conjurar Flecha Guiada sem gastar espaço um número de vezes igual ao modificador de Sabedoria (mínimo 1) por descanso longo.",
                 "nameEn": "Star Map",
                 "descEn": "You create a Tiny star map (scroll, tablet, stone, etc.) that serves as a spellcasting focus; if lost, you remake it in a 1-hour ritual during a rest. With it you know the Guidance cantrip and always have Guiding Bolt prepared, and you can cast Guiding Bolt without a slot a number of times equal to your Wisdom modifier (minimum 1) per Long Rest."
               },
@@ -15627,7 +15683,7 @@
             {
               "id": "pactMagic",
               "name": "Magia de Pacto",
-              "desc": "Por um ritual oculto, você firmou um pacto com uma entidade misteriosa que lhe dá a capacidade de conjurar magias. Truques: conhece 2 truques de bruxo (sugeridos Rajada Mística e Prestidigitação), 3 no 4º nível e 4 no 10º; ao ganhar um nível de bruxo, pode trocar um deles. Espaços de magia: a tabela mostra quantos espaços você tem e o círculo deles — todos do mesmo círculo — e você recupera todos ao terminar um Descanso Curto ou Longo. Magias preparadas: comece com 2 magias de bruxo de 1º círculo (sugeridas Enfeitiçar Pessoa e Bruxaria); a quantidade cresce conforme a tabela, sempre de círculo até o dos seus espaços. Magias que outros traços deixam sempre preparadas não contam nesse limite. Ao ganhar um nível de bruxo, pode trocar uma magia preparada por outra elegível. Carisma é seu atributo de conjuração, e você pode usar um Foco Arcano.",
+              "desc": "Por um ritual oculto, você firmou um pacto com uma entidade misteriosa que lhe dá a capacidade de conjurar magias. Truques: conhece 2 truques de bruxo (sugeridos Rajada Mística e Prestidigitação), 3 no 4º nível e 4 no 10º; ao ganhar um nível de bruxo, pode trocar um deles. Espaços de magia: a tabela mostra quantos espaços você tem e o círculo deles — todos do mesmo círculo — e você recupera todos ao terminar um Descanso Curto ou Longo. Magias preparadas: comece com 2 magias de bruxo de 1º círculo (sugeridas Enfeitiçar Pessoa e Maldição); a quantidade cresce conforme a tabela, sempre de círculo até o dos seus espaços. Magias que outros traços deixam sempre preparadas não contam nesse limite. Ao ganhar um nível de bruxo, pode trocar uma magia preparada por outra elegível. Carisma é seu atributo de conjuração, e você pode usar um Foco Arcano.",
               "nameEn": "Pact Magic",
               "descEn": "Through occult ceremony, you have formed a pact with a mysterious entity that grants you the ability to cast spells. Cantrips: you know two Warlock cantrips (Eldritch Blast and Prestidigitation are recommended), three at level 4 and four at level 10; whenever you gain a Warlock level, you can replace one. Spell slots: the table shows how many slots you have and their level — all the same level — and you regain all of them when you finish a Short or Long Rest. Prepared spells: start with two level 1 Warlock spells (Charm Person and Hex are recommended); the number grows per the table, always of a level no higher than your slot level. Spells other features make always prepared don't count against it. Whenever you gain a Warlock level, you can replace one prepared spell with another eligible one. Charisma is your spellcasting ability, and you can use an Arcane Focus."
             }
@@ -16442,7 +16498,7 @@
               {
                 "id": "eldritchHex",
                 "name": "Maldição Mística",
-                "desc": "Você sempre tem a magia Bruxaria preparada. Quando a conjura e escolhe um atributo, o alvo também tem Desvantagem em salvaguardas desse atributo enquanto a magia durar.",
+                "desc": "Você sempre tem a magia Maldição preparada. Quando a conjura e escolhe um atributo, o alvo também tem Desvantagem em salvaguardas desse atributo enquanto a magia durar.",
                 "nameEn": "Eldritch Hex",
                 "descEn": "You always have the Hex spell prepared. When you cast it and choose an ability, the target also has Disadvantage on saving throws of that ability for the spell's duration."
               },
@@ -16463,7 +16519,7 @@
               {
                 "id": "createThrall",
                 "name": "Criar Servo",
-                "desc": "Ao conjurar Invocar Aberração, pode fazê-la sem Concentração (duração de 1 minuto nesse caso). A Aberração surge com PV temporários iguais ao seu nível de bruxo + modificador de Carisma e, na primeira vez em cada turno que acertar uma criatura sob sua Bruxaria, causa dano psíquico extra igual ao bônus de dano da Bruxaria.",
+                "desc": "Ao conjurar Invocar Aberração, pode fazê-la sem Concentração (duração de 1 minuto nesse caso). A Aberração surge com PV temporários iguais ao seu nível de bruxo + modificador de Carisma e, na primeira vez em cada turno que acertar uma criatura sob sua Maldição, causa dano psíquico extra igual ao bônus de dano da Maldição.",
                 "nameEn": "Create Thrall",
                 "descEn": "When you cast Summon Aberration, you can make it not require Concentration (its duration becomes 1 minute). The Aberration appears with Temporary Hit Points equal to your Warlock level + Charisma modifier and, the first time each turn it hits a creature under your Hex, deals extra Psychic damage equal to Hex's bonus damage."
               }
@@ -16558,7 +16614,7 @@
               {
                 "id": "celestialSpells",
                 "name": "Magias Celestiais",
-                "desc": "Sempre preparadas: nível 3 — Auxílio, Curar Ferimentos, Raio Guia, Restauração Menor, Luz, Chama Sagrada; nível 5 — Luz do Dia, Revivificar; nível 7 — Guardião da Fé, Muralha de Fogo; nível 9 — Restauração Maior, Invocar Celestial.",
+                "desc": "Sempre preparadas: nível 3 — Auxílio, Curar Ferimentos, Flecha Guiada, Restauração Menor, Luz, Chama Sagrada; nível 5 — Luz do Dia, Revivificar; nível 7 — Guardião da Fé, Muralha de Fogo; nível 9 — Restauração Maior, Invocar Celestial.",
                 "nameEn": "Celestial Spells",
                 "descEn": "Always prepared: level 3 — Aid, Cure Wounds, Guiding Bolt, Lesser Restoration, Light, Sacred Flame; level 5 — Daylight, Revivify; level 7 — Guardian of Faith, Wall of Fire; level 9 — Greater Restoration, Summon Celestial."
               },
@@ -18083,7 +18139,7 @@
             {
               "id": "tinkersMagic",
               "name": "Magia do Inventor",
-              "desc": "Você conhece o truque Consertar (não conta no limite de truques). Com uma ação Magia e ferramentas de funileiro, cria em um espaço livre a até 1,5 m um item comum de uma lista fixa (ex.: rolamentos, cesto, saco de dormir, sino, cobertor, talha, garrafa, balde, estrepes, vela, pé de cabra, frasco, gancho de escalada, armadilha de caça, jarro, lampião, algemas, rede, óleo, papel, pergaminho, vara, algibeira, corda, saco, pá, cravos, barbante, pederneira, tocha, frasco pequeno). O item dura até o fim do seu próximo Descanso Longo. Usos: modificador de INT (mín. 1) por Descanso Longo.",
+              "desc": "Você conhece o truque Remendar (não conta no limite de truques). Com uma ação Magia e ferramentas de funileiro, cria em um espaço livre a até 1,5 m um item comum de uma lista fixa (ex.: rolamentos, cesto, saco de dormir, sino, cobertor, talha, garrafa, balde, estrepes, vela, pé de cabra, frasco, gancho de escalada, armadilha de caça, jarro, lampião, algemas, rede, óleo, papel, pergaminho, vara, algibeira, corda, saco, pá, cravos, barbante, pederneira, tocha, frasco pequeno). O item dura até o fim do seu próximo Descanso Longo. Usos: modificador de INT (mín. 1) por Descanso Longo.",
               "nameEn": "Tinker's Magic",
               "descEn": "You know the Mending cantrip (it doesn't count against your cantrips). As a Magic action with tinker's tools, you create a mundane item from a fixed list in an unoccupied space within 5 feet (e.g., ball bearings, basket, bedroll, bell, blanket, block and tackle, bottle, bucket, caltrops, candle, crowbar, flask, grappling hook, hunting trap, jug, lamp, manacles, net, oil, paper, parchment, pole, pouch, rope, sack, shovel, iron spikes, string, tinderbox, torch, vial). It lasts until the end of your next Long Rest. Uses: your INT modifier (min 1) per Long Rest."
             }
@@ -18763,7 +18819,7 @@
               {
                 "id": "eldritchCannon",
                 "name": "Canhão Sobrenatural",
-                "desc": "Ação Magia com ferramentas de ferreiro ou de entalhador: cria um canhão Pequeno ou Minúsculo a até 1,5 m (CA 18, PV = 5 × nível de artífice, imune a veneno e psíquico; Consertar recupera 2d6 PV). Escolha o tipo: Lança-chamas (cone de 4,5 m, 2d8 de fogo, salvaguarda de DES para metade), Balista de Força (ataque mágico a 36 m, 2d8 de força e empurra 1,5 m) ou Protetor (1d8 + INT de PV temporários para você e aliados a até 3 m). Ação Bônus a até 18 m: o canhão se move 4,5 m e dispara. Um canhão por vez; cria outro após um Descanso Longo ou gastando um espaço de magia.",
+                "desc": "Ação Magia com ferramentas de ferreiro ou de entalhador: cria um canhão Pequeno ou Minúsculo a até 1,5 m (CA 18, PV = 5 × nível de artífice, imune a veneno e psíquico; Remendar recupera 2d6 PV). Escolha o tipo: Lança-chamas (cone de 4,5 m, 2d8 de fogo, salvaguarda de DES para metade), Balista de Força (ataque mágico a 36 m, 2d8 de força e empurra 1,5 m) ou Protetor (1d8 + INT de PV temporários para você e aliados a até 3 m). Ação Bônus a até 18 m: o canhão se move 4,5 m e dispara. Um canhão por vez; cria outro após um Descanso Longo ou gastando um espaço de magia.",
                 "nameEn": "Eldritch Cannon",
                 "descEn": "Magic action with smith's or woodcarver's tools: create a Small or Tiny cannon within 5 feet (AC 18, HP = 5 × artificer level, immune to poison and psychic; Mending restores 2d6 HP). Choose its type: Flamethrower (15-ft cone, 2d8 fire, DEX save for half), Force Ballista (spell attack at 120 ft, 2d8 force and a 5-ft push), or Protector (1d8 + INT temporary HP to you and allies within 10 ft). Bonus Action within 60 ft: the cannon moves 15 feet and fires. One cannon at a time; make another after a Long Rest or by expending a spell slot."
               }
@@ -19819,7 +19875,7 @@
               "id": "alchemistsSupplies",
               "grants": {
                 "tools": [
-                  "Alchemist's supplies"
+                  "alchemistsSupplies"
                 ]
               }
             },
@@ -19827,7 +19883,7 @@
               "id": "brewersSupplies",
               "grants": {
                 "tools": [
-                  "Brewer's supplies"
+                  "brewersSupplies"
                 ]
               }
             },
@@ -19835,7 +19891,7 @@
               "id": "calligraphersSupplies",
               "grants": {
                 "tools": [
-                  "Calligrapher's supplies"
+                  "calligraphersSupplies"
                 ]
               }
             },
@@ -19843,7 +19899,7 @@
               "id": "carpentersTools",
               "grants": {
                 "tools": [
-                  "Carpenter's tools"
+                  "carpentersTools"
                 ]
               }
             },
@@ -19851,7 +19907,7 @@
               "id": "cartographersTools",
               "grants": {
                 "tools": [
-                  "Cartographer's tools"
+                  "cartographersTools"
                 ]
               }
             },
@@ -19859,7 +19915,7 @@
               "id": "cobblersTools",
               "grants": {
                 "tools": [
-                  "Cobbler's tools"
+                  "cobblersTools"
                 ]
               }
             },
@@ -19867,7 +19923,7 @@
               "id": "cooksUtensils",
               "grants": {
                 "tools": [
-                  "Cook's utensils"
+                  "cooksUtensils"
                 ]
               }
             },
@@ -19875,7 +19931,7 @@
               "id": "glassblowersTools",
               "grants": {
                 "tools": [
-                  "Glassblower's tools"
+                  "glassblowersTools"
                 ]
               }
             },
@@ -19883,7 +19939,7 @@
               "id": "jewelersTools",
               "grants": {
                 "tools": [
-                  "Jeweler's tools"
+                  "jewelersTools"
                 ]
               }
             },
@@ -19891,7 +19947,7 @@
               "id": "leatherworkersTools",
               "grants": {
                 "tools": [
-                  "Leatherworker's tools"
+                  "leatherworkersTools"
                 ]
               }
             },
@@ -19899,7 +19955,7 @@
               "id": "masonsTools",
               "grants": {
                 "tools": [
-                  "Mason's tools"
+                  "masonsTools"
                 ]
               }
             },
@@ -19907,7 +19963,7 @@
               "id": "paintersSupplies",
               "grants": {
                 "tools": [
-                  "Painter's supplies"
+                  "paintersSupplies"
                 ]
               }
             },
@@ -19915,7 +19971,7 @@
               "id": "pottersTools",
               "grants": {
                 "tools": [
-                  "Potter's tools"
+                  "pottersTools"
                 ]
               }
             },
@@ -19923,7 +19979,7 @@
               "id": "smithsTools",
               "grants": {
                 "tools": [
-                  "Smith's tools"
+                  "smithsTools"
                 ]
               }
             },
@@ -19931,7 +19987,7 @@
               "id": "weaversTools",
               "grants": {
                 "tools": [
-                  "Weaver's tools"
+                  "weaversTools"
                 ]
               }
             },
@@ -19939,7 +19995,7 @@
               "id": "woodcarversTools",
               "grants": {
                 "tools": [
-                  "Woodcarver's tools"
+                  "woodcarversTools"
                 ]
               }
             }
