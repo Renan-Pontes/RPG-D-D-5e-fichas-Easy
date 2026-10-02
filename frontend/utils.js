@@ -549,6 +549,8 @@ function rollDice(count, sides) {
 return {
   races: racesFor,
   spellCatalog: char => char.rulesVersion === '2024' ? SPELLS_2024 : SRD.SPELLS,
+  // Tempo/alcance/componentes/duração no idioma da tela (texto em pt das magias do SRD 5.2.1).
+  spellMeta: (sp, lang) => (lang === 'pt' && sp?.metaPt) || { castingTime: sp?.castingTime, range: sp?.range, components: sp?.components, duration: sp?.duration },
   backgrounds: char => char.rulesVersion === '2024' ? BACKGROUNDS_2024 : SRD.BACKGROUNDS,
   subclassLevel: char => char.rulesVersion === '2024' ? 3 : ({ cleric:1, sorcerer:1, warlock:1, druid:2, wizard:2 }[char.className] || 3),
   // Multiclasse

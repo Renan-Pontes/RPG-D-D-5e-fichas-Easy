@@ -530,7 +530,8 @@ export function spellbookSection(char, lang = 'pt') {
     .map(d => {
       const circle = d.level === 0 ? L(lang, 'Truque', 'Cantrip') : L(lang, `${d.level}º círculo`, `Level ${d.level}`);
       const tags = [d.ritual && L(lang, 'ritual', 'ritual'), d.concentration && L(lang, 'concentração', 'concentration')].filter(Boolean);
-      const meta = [d.castingTime, d.range, d.components, d.duration].filter(Boolean).join(' · ');
+      const m = Utils.spellMeta(d, lang);
+      const meta = [m.castingTime, m.range, m.components, m.duration].filter(Boolean).join(' · ');
       const desc = String(d.desc?.[lang] || d.desc?.en || '').replace(/[ \t]+/g, ' ').replace(/\n\s*\n/g, '\n').trim();
       return {
         title: `${tName('spellName', d.id, lang)} — ${circle}, ${tName('school', d.school, lang)}${tags.length ? ` (${tags.join(', ')})` : ''}`,

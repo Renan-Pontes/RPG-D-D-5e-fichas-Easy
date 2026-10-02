@@ -1,6 +1,8 @@
 import rules from './srd2024-rules.json' with { type: 'json' };
 import spells from './srd2024-spells.json' with { type: 'json' };
 import species from './srd2024-species.json' with { type: 'json' };
+// Tradução pt-BR do texto das magias do SRD 5.2.1 (CC-BY 4.0): descrição, tempo, alcance, componentes, duração.
+import spellsPt from './srd2024-spells-pt.json' with { type: 'json' };
 
 export const RULES_2024 = rules;
 import { EXTRA_SPELLS_2024, SPELL_NAMES_PT } from './spells-extra.js';
@@ -8,7 +10,15 @@ import { SPECIES_2024_REVISED, AASIMAR_2024 } from './species-2024.js';
 
 // SRD 5.2.1 + magias de outros livros (resumos próprios), com nomes PT revisados.
 export const SPELLS_2024 = [
-  ...spells.map(s => (SPELL_NAMES_PT[s.id] ? { ...s, name: { ...s.name, pt: SPELL_NAMES_PT[s.id] } } : s)),
+  ...spells.map(s => {
+    const pt = spellsPt[s.id];
+    return {
+      ...s,
+      ...(SPELL_NAMES_PT[s.id] ? { name: { ...s.name, pt: SPELL_NAMES_PT[s.id] } } : {}),
+      // Campos em inglês continuam (filtros comparam "Action" etc.); o texto em pt fica em desc.pt e metaPt.
+      ...(pt ? { desc: { ...s.desc, pt: pt.desc }, metaPt: { castingTime: pt.castingTime, range: pt.range, components: pt.components, duration: pt.duration } } : {}),
+    };
+  }),
   ...EXTRA_SPELLS_2024.filter(x => !spells.some(s => s.id === x.id)),
 ];
 // Traços revisados (PT/EN, sem o lixo da extração do PDF) por cima do JSON gerado,

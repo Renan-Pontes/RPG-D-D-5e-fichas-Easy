@@ -371,7 +371,7 @@ const CopySpellModal = ({ lang, char, maxLvl, update, onClose }) => {
                   {tName('spellName', sp.id, lang)}
                   {sp.ritual && <span className="prep-tag r">R</span>}
                 </span>
-                <span className="prep-meta">{tName('school', sp.school, lang)} · {sp.castingTime}</span>
+                <span className="prep-meta">{tName('school', sp.school, lang)} · {Utils.spellMeta(sp, lang).castingTime}</span>
               </button>
             </div>
           ))}
@@ -454,14 +454,14 @@ const PrepareSpellsModal = ({ lang, char, classCantrips, classSpells, autoIds, c
                       {sp.concentration && <span className="prep-tag c">C</span>}
                       {sp.ritual && <span className="prep-tag r">R</span>}
                     </span>
-                    <span className="prep-meta">{tName('school', sp.school, lang)} · {sp.castingTime}</span>
+                    <span className="prep-meta">{tName('school', sp.school, lang)} · {Utils.spellMeta(sp, lang).castingTime}</span>
                   </button>
                   <button type="button" className="prep-info" aria-label="info" onClick={() => setOpenInfo(openInfo === sp.id ? null : sp.id)}>
                     <Icon name={openInfo === sp.id ? 'chevron-up' : 'chevron-down'} size={14}/>
                   </button>
                   {openInfo === sp.id && (
                     <div className="prep-desc">
-                      <div className="text-xs muted">{sp.range} · {sp.components} · {sp.duration}</div>
+                      <div className="text-xs muted">{Utils.spellMeta(sp, lang).range} · {Utils.spellMeta(sp, lang).components} · {Utils.spellMeta(sp, lang).duration}</div>
                       <div className="text-sm">{sp.desc?.[lang]}</div>
                     </div>
                   )}
@@ -607,8 +607,8 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
           <div className="spell-row-name">{tName('spellName', sp.id, lang)}</div>
           <div className="spell-meta">
             <span>{tName('school', sp.school, lang)}</span>
-            <span>{sp.castingTime}</span>
-            <span>{sp.range}</span>
+            <span>{Utils.spellMeta(sp, lang).castingTime}</span>
+            <span>{Utils.spellMeta(sp, lang).range}</span>
             {sp.concentration && <span style={{ color: 'var(--gold)' }}>C</span>}
             {sp.ritual && <span style={{ color: 'var(--moss-bright)' }}>R</span>}
           </div>
@@ -618,8 +618,8 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
       {open && (
         <div className="spell-row-body">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-            <div className="text-xs muted">{t('components', lang)}: <span style={{ color: 'var(--ink-secondary)' }}>{sp.components}</span></div>
-            <div className="text-xs muted">{t('duration', lang)}: <span style={{ color: 'var(--ink-secondary)' }}>{sp.duration}</span></div>
+            <div className="text-xs muted">{t('components', lang)}: <span style={{ color: 'var(--ink-secondary)' }}>{Utils.spellMeta(sp, lang).components}</span></div>
+            <div className="text-xs muted">{t('duration', lang)}: <span style={{ color: 'var(--ink-secondary)' }}>{Utils.spellMeta(sp, lang).duration}</span></div>
           </div>
           <div className="text-sm" style={{ color: 'var(--ink-secondary)' }}>{sp.desc[lang]}</div>
           {error && <div style={{ color: 'var(--blood-bright)', fontSize: '0.85em', marginTop: 4 }}>{error}</div>}
