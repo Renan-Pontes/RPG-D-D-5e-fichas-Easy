@@ -9,7 +9,8 @@
  * Com foto, abre com uma capa (sem campos de formulário) e a foto também
  * preenche o retrato da página de detalhes.
  */
-import { PDFDocument, StandardFonts, TextAlignment, rgb } from 'pdf-lib';
+import { PDFDocument, StandardFonts, TextAlignment, drawCheckMark, rgb } from 'pdf-lib';
+import { ORN, brandHeader, caption, decorateMainPages, decorateSpellPage, fieldBg, frame } from './ornaments.js';
 import { LAYOUT, blankSheetData, buildSheetData, buildCoverData, pageField } from './sheet-data.js';
 
 const INK = rgb(0.13, 0.12, 0.11);
@@ -31,8 +32,8 @@ const LABELS = {
   XP: ['EXPERIÊNCIA', 'EXPERIENCE POINTS', 'below'],
   Inspiration: ['INSPIRAÇÃO', 'INSPIRATION', 'right'],
   ProfBonus: ['BÔNUS DE PROFICIÊNCIA', 'PROFICIENCY BONUS', 'right'],
-  STR: ['FORÇA', 'STRENGTH', 'above'], DEX: ['DESTREZA', 'DEXTERITY', 'above'], CON: ['CONSTITUIÇÃO', 'CONSTITUTION', 'above'],
-  INT: ['INTELIGÊNCIA', 'INTELLIGENCE', 'above'], WIS: ['SABEDORIA', 'WISDOM', 'above'], CHA: ['CARISMA', 'CHARISMA', 'above'],
+  STR: ['FORÇA', 'STRENGTH', 'top'], DEX: ['DESTREZA', 'DEXTERITY', 'top'], CON: ['CONSTITUIÇÃO', 'CONSTITUTION', 'top'],
+  INT: ['INTELIGÊNCIA', 'INTELLIGENCE', 'top'], WIS: ['SABEDORIA', 'WISDOM', 'top'], CHA: ['CARISMA', 'CHARISMA', 'top'],
   AC: ['CA', 'ARMOR CLASS', 'below'], Initiative: ['INICIATIVA', 'INITIATIVE', 'below'], Speed: ['DESLOCAMENTO', 'SPEED', 'below'],
   HPMax: ['PV máximos', 'Hit Point Maximum', 'left'],
   HPCurrent: ['PONTOS DE VIDA ATUAIS', 'CURRENT HIT POINTS', 'below'],
@@ -44,7 +45,7 @@ const LABELS = {
   AttacksSpellcasting: ['ATAQUES E CONJURAÇÃO', 'ATTACKS & SPELLCASTING', 'below'],
   Passive: ['SABEDORIA (PERCEPÇÃO) PASSIVA', 'PASSIVE WISDOM (PERCEPTION)', 'right'],
   ProficienciesLang: ['OUTRAS PROFICIÊNCIAS E IDIOMAS', 'OTHER PROFICIENCIES & LANGUAGES', 'below'],
-  CP: ['PC', 'CP', 'left'], SP: ['PP', 'SP', 'left'], EP: ['PE', 'EP', 'left'], GP: ['PO', 'GP', 'left'], PP: ['PL', 'PP', 'left'],
+  CP: ['PC', 'CP', 'coin'], SP: ['PP', 'SP', 'coin'], EP: ['PE', 'EP', 'coin'], GP: ['PO', 'GP', 'coin'], PP: ['PL', 'PP', 'coin'],
   Equipment: ['EQUIPAMENTO', 'EQUIPMENT', 'below'],
   'Features and Traits': ['CARACTERÍSTICAS E TRAÇOS', 'FEATURES & TRAITS', 'below'],
   'CharacterName 2': ['NOME DO PERSONAGEM', 'CHARACTER NAME', 'below'],
@@ -138,27 +139,24 @@ function fitText(font, text, rect, { multiline, max = 10 }) {
   return { size: MIN_SIZE, text: kept.join('\n'), rest: paras.slice(i).join('\n') };
 }
 
-function drawLabel(page, font, label, rect, where) {
-  const size = where === 'left' || where === 'right' ? 6.5 : 6;
-  const tw = font.widthOfTextAtSize(label, size);
+function drawLabel(page, font, label, rect, where, color = MUTED) {
   const [x1, y1, x2, y2] = rect;
+  let size = where === 'coin' ? 5.5 : where === 'right' ? 6.2 : 6;
+  // Rótulos centralizados encolhem para não passar da moldura (atributos, deslocamento).
+  if (where === 'top' || where === 'below') while (size > 4.5 && font.widthOfTextAtSize(label, size) > x2 - x1 + (where === 'top' ? -2 : 2)) size -= 0.25;
+  const tw = font.widthOfTextAtSize(label, size);
   const cx = (x1 + x2) / 2;
   const pos = {
-    below: [cx - tw / 2, y1 - size - 1.5], above: [x1 + 1, y2 + 2.5],
-    left: [x1 - tw - 3, (y1 + y2) / 2 - size / 3], right: [x2 + 4, (y1 + y2) / 2 - size / 3],
+    below: [cx - tw / 2, y1 - size - 1.5], above: [x1 + 1, y2 + 2.5], top: [cx - tw / 2, y2 + 4],
+    left: [x1 - tw - 3, (y1 + y2) / 2 - size / 3], coin: [x1 - tw - 6, (y1 + y2) / 2 - size / 3], right: [x2 + 8, (y1 + y2) / 2 - size / 3],
   }[where];
-  page.drawText(label, { x: pos[0], y: pos[1], size, font, color: MUTED });
-}
-
-function box(page, rect, { fill = false, pad = 1.5 } = {}) {
-  const [x1, y1, x2, y2] = rect;
-  page.drawRectangle({ x: x1 - pad, y: y1 - pad, width: x2 - x1 + pad * 2, height: y2 - y1 + pad * 2, borderColor: LINE, borderWidth: 0.6, color: fill ? FILL : undefined });
+  page.drawText(label, { x: pos[0], y: pos[1], size, font, color });
 }
 
 function drawSheetHeader(page, bold, font, lang, title) {
-  page.drawText('D&D 5e', { x: 36, y: 752, size: 16, font: bold, color: INK });
-  page.drawText(title, { x: 36, y: 740, size: 7, font, color: MUTED });
-  page.drawText(T(lang, 'Gerada pela Forja de Heróis', 'Made with Forja de Heróis'), { x: 36, y: 20, size: 5.5, font, color: MUTED });
+  brandHeader(page, bold, font, `${title} · D&D 5e`);
+  const foot = T(lang, 'Gerada pela Forja de Heróis', 'Made with Forja de Heróis');
+  page.drawText(foot, { x: (LAYOUT.pageSize[0] - font.widthOfTextAtSize(foot, 5.5)) / 2, y: 10, size: 5.5, font, color: MUTED });
 }
 
 // Avatar é data URL (JPEG da Forja; PNG em fichas antigas/importadas).
@@ -185,9 +183,9 @@ function drawCoverPage(page, { font, bold, clean, lang, img, cover }) {
   const margin = 54;
   drawSheetHeader(page, bold, font, lang, T(lang, 'CAPA', 'COVER'));
   const side = 300;
-  const top = H - 84;
+  const top = H - 92;
   const px = (W - side) / 2;
-  page.drawRectangle({ x: px - 4, y: top - side - 4, width: side + 8, height: side + 8, borderColor: INK, borderWidth: 1.2 });
+  frame(page, [px - 10, top - side - 10, px + side + 10, top + 10], { cut: 12 });
   drawImageFit(page, img, [px, top - side, px + side, top]);
 
   let y = top - side - 40;
@@ -273,27 +271,35 @@ export async function exportDnd5ePdf(char, lang = 'pt', opts = {}) {
     const tf = form.createTextField(name);
     if (multiline) tf.enableMultiline();
     tf.setAlignment(align === 1 ? TextAlignment.Center : align === 2 ? TextAlignment.Right : TextAlignment.Left);
-    tf.addToPage(page, { x: rect[0], y: rect[1], width: rect[2] - rect[0], height: rect[3] - rect[1], borderWidth: 0, font, textColor: INK });
+    tf.addToPage(page, { x: rect[0], y: rect[1], width: rect[2] - rect[0], height: rect[3] - rect[1], borderWidth: 0, borderColor: undefined, backgroundColor: undefined, font, textColor: INK });
     tf.setFontSize(fit.size);
     tf.setText(fit.text);
   };
   const addCheck = (page, name, rect, checked) => {
     const [x1, y1, x2, y2] = rect;
     const r = Math.min(x2 - x1, y2 - y1) / 2 + 0.5;
-    page.drawCircle({ x: (x1 + x2) / 2, y: (y1 + y2) / 2, size: r, borderColor: LINE, borderWidth: 0.6 });
+    page.drawCircle({ x: (x1 + x2) / 2, y: (y1 + y2) / 2, size: r, color: rgb(1, 1, 1), borderColor: INK, borderWidth: 0.7 });
     const cb = form.createCheckBox(name);
-    cb.addToPage(page, { x: x1, y: y1, width: x2 - x1, height: y2 - y1, borderWidth: 0, textColor: INK });
+    // Sem fundo: o padrão do pdf-lib é branco e apagaria o círculo desenhado embaixo.
+    cb.addToPage(page, { x: x1, y: y1, width: x2 - x1, height: y2 - y1, borderWidth: 0, borderColor: undefined, backgroundColor: undefined, textColor: INK });
     if (checked) cb.check();
+    // Aparência própria: só o tique. A padrão desenha um quadrado (borda 0 no PDF = linha mais fina, não "sem linha").
+    cb.updateAppearances((_, widget) => {
+      const { width, height } = widget.getRectangle();
+      const on = drawCheckMark({ x: width / 2, y: height / 2, size: Math.min(width, height) / 2, thickness: 1.1, color: INK });
+      return { normal: { on, off: [] } };
+    });
   };
 
   // --- Páginas 1 e 2 ---
+  decorateMainPages(pages, Object.fromEntries(LAYOUT.fields.filter(f => f.page <= 1).map(f => [f.name.trim(), f])));
   const seen = new Set();
   for (const f of LAYOUT.fields) {
     if (f.page > 1 || seen.has(f.name)) continue;
     seen.add(f.name);
     const page = pages[f.page];
     if (f.type === 'image') {
-      box(page, f.rect, { fill: true, pad: 0 });
+      fieldBg(page, f.rect);
       if (avatar && f.name === 'CHARACTER IMAGE') drawImageFit(page, avatar, f.rect);
       continue;
     }
@@ -302,9 +308,10 @@ export async function exportDnd5ePdf(char, lang = 'pt', opts = {}) {
       continue;
     }
     const big = /^(STR|DEX|CON|INT|WIS|CHA|AC|Initiative|Speed|HPCurrent|HPTemp)$/.test(f.name);
-    box(page, f.rect, { fill: !f.multiline && !big });
+    // As molduras já contornam os grupos: campo de uma linha só ganha um fundo leve.
+    if (!f.multiline && !big) fieldBg(page, f.rect);
     const label = LABELS[f.name];
-    if (label) drawLabel(page, font, clean(lang === 'pt' ? label[0] : label[1]), f.rect, label[2]);
+    if (label) drawLabel(page, bold, clean(lang === 'pt' ? label[0] : label[1]), f.rect, label[2], ORN.ink);
     addText(page, f.name, f.rect, data.fields[f.name] ?? '', { multiline: f.multiline, align: f.align, max: big ? 16 : undefined });
   }
   // Nomes das salvaguardas e perícias ao lado das caixas.
@@ -318,12 +325,12 @@ export async function exportDnd5ePdf(char, lang = 'pt', opts = {}) {
     pages[0].drawText(clean(lang === 'pt' ? SKILL_NAMES[i][0] : SKILL_NAMES[i][1]), { x: f.rect[2] + 4, y: f.rect[1] + 1.5, size: 7, font, color: INK });
   });
   const sectionTitle = (page, text, x, y) => page.drawText(clean(text), { x, y, size: 6.5, font: bold, color: MUTED });
-  sectionTitle(pages[0], T(lang, 'SALVAGUARDAS', 'SAVING THROWS'), 100, 498);
-  sectionTitle(pages[0], T(lang, 'PERÍCIAS', 'SKILLS'), 100, 222);
+  caption(pages[0], bold, clean(T(lang, 'SALVAGUARDAS', 'SAVING THROWS')), [94, 0, 208], 495);
+  caption(pages[0], bold, clean(T(lang, 'PERÍCIAS', 'SKILLS')), [94, 0, 208], 217);
   for (const [text, y] of [[T(lang, 'SUCESSOS', 'SUCCESSES'), 462], [T(lang, 'FALHAS', 'FAILURES'), 447]]) {
     sectionTitle(pages[0], text, 342 - bold.widthOfTextAtSize(clean(text), 6.5), y);
   }
-  sectionTitle(pages[0], T(lang, 'TESTES CONTRA A MORTE', 'DEATH SAVES'), 312, 432);
+  caption(pages[0], bold, clean(T(lang, 'TESTES CONTRA A MORTE', 'DEATH SAVES')), [306, 0, 389], 434, 5.5);
   sectionTitle(pages[1], T(lang, 'RETRATO', 'CHARACTER APPEARANCE'), 36, 665);
   sectionTitle(pages[1], T(lang, 'SÍMBOLO', 'SYMBOL'), 424, 500);
 
@@ -333,35 +340,34 @@ export async function exportDnd5ePdf(char, lang = 'pt', opts = {}) {
   data.spellPages.forEach((sp, index) => {
     const page = doc.addPage([W, H]);
     drawSheetHeader(page, bold, font, lang, T(lang, 'MAGIAS', 'SPELLCASTING') + (sp.continued ? T(lang, ' (continuação)', ' (continued)') : ''));
+    decorateSpellPage(page, bold, rectOf, LAYOUT.spells);
     const head = { 'Spellcasting Class 2': sp.header.className, 'SpellcastingAbility 2': sp.header.ability, 'SpellSaveDC  2': sp.header.dc, 'SpellAtkBonus 2': sp.header.atk };
     for (const [name, value] of Object.entries(head)) {
-      box(page, rectOf[name]);
       const l = LABELS[name];
-      drawLabel(page, font, clean(lang === 'pt' ? l[0] : l[1]), rectOf[name], l[2]);
+      drawLabel(page, bold, clean(lang === 'pt' ? l[0] : l[1]), rectOf[name], l[2], ORN.ink);
       addText(page, pageField(name, index), rectOf[name], value, { align: 1, max: 14 });
     }
     for (let lvl = 0; lvl <= 9; lvl++) {
       const rows = LAYOUT.spells[lvl];
       const top = rectOf[rows[0].field];
-      // Cabeçalho do nível: círculo com o número, total e gastos.
       if (lvl === 0) {
-        sectionTitle(page, `0  ${T(lang, 'TRUQUES', 'CANTRIPS')}`, top[0], top[3] + 8);
+        caption(page, bold, clean(T(lang, 'TRUQUES', 'CANTRIPS')), [top[0] + 20, 0, top[2]], top[3] + 11.5, 7);
       } else {
         const total = rectOf[`SlotsTotal ${lvl + 18}`];
         const used = rectOf[`SlotsRemaining ${lvl + 18}`];
-        page.drawCircle({ x: total[0] - 12, y: (total[1] + total[3]) / 2, size: 9, borderColor: LINE, borderWidth: 0.8 });
-        page.drawText(String(lvl), { x: total[0] - 14.5, y: (total[1] + total[3]) / 2 - 3.5, size: 10, font: bold, color: INK });
-        box(page, total, { fill: true });
-        box(page, used);
-        drawLabel(page, font, clean(T(lang, 'ESPAÇOS', 'SLOTS TOTAL')), total, 'above');
-        drawLabel(page, font, clean(T(lang, 'GASTOS', 'SLOTS EXPENDED')), used, 'above');
+        // Rótulos só no 1º círculo, acima da barra (os outros seguem o mesmo padrão).
+        if (lvl === 1) {
+          const y = total[3] + 7;
+          page.drawText(clean(T(lang, 'ESPAÇOS', 'SLOTS TOTAL')), { x: total[0], y, size: 5.5, font: bold, color: MUTED });
+          page.drawText(clean(T(lang, 'GASTOS', 'SLOTS EXPENDED')), { x: used[0], y, size: 5.5, font: bold, color: MUTED });
+          caption(page, bold, clean(T(lang, 'NOME DA MAGIA  (círculo = preparada)', 'SPELL NAME  (circle = prepared)')), [top[0], 0, top[2]], top[3] + 8, 5.5);
+        }
         addText(page, pageField(`SlotsTotal ${lvl + 18}`, index), total, sp.slots[lvl] ? String(sp.slots[lvl]) : '', { align: 1, max: 12 });
         addText(page, pageField(`SlotsRemaining ${lvl + 18}`, index), used, '', { align: 1 });
       }
       rows.forEach((row, i) => {
         const r = rectOf[row.field];
         const spell = sp.levels[lvl]?.[i];
-        page.drawLine({ start: { x: r[0], y: r[1] }, end: { x: r[2], y: r[1] }, thickness: 0.5, color: LINE });
         addText(page, pageField(row.field, index), r, spell?.name || '', { max: 8.5 });
         if (row.prepared) addCheck(page, pageField(row.prepared, index), rectOf[row.prepared], !!spell?.prepared);
       });
