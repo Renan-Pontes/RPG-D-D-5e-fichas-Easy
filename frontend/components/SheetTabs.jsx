@@ -13,17 +13,26 @@ import * as FS from '../src/progression/fighting-styles.js';
 import * as Book from '../src/progression/spellbook.js';
 import { SpeciesChoicesModal, speciesSummary } from '../src/progression/SpeciesChoices.jsx';
 import { speciesChoiceSpecs } from '../src/progression/species.js';
+import { grantedSpells } from '../src/creator/spell-helpers.js';
+
+// Magias de talento/espécie (auto + feat/species): ficam fora das listas da classe.
+const isGrantEntry = (s) => !!s && typeof s === 'object' && s.auto && (s.feat || s.species);
 
 // Aba Magias: espaços (compartilhados entre as classes) e uma seção por classe
 // conjuradora — em multiclasse cada uma tem atributo, CD, limites e lista próprios.
 const SheetSpells = ({ char, lang, update, slots, roll }) => {
   const multi = Utils.isMulticlass(char);
-  const casters = multi ? Utils.casterViews(char) : (Utils.spellcastingAbility(char) ? [char] : []);
-  if (!casters.length) {
+  // Só conjura quem tem espaços ou truques no nível atual (Paladino/Patrulheiro 2014 só no nível 2).
+  const singleCaster = !!Utils.spellcastingAbility(char) && (Utils.casterViews(char).length > 0 || Utils.spellSlots(char).some(Boolean));
+  const casters = multi ? Utils.casterViews(char) : (singleCaster ? [char] : []);
+  const hasGrants = (char.spells || []).some(isGrantEntry);
+  if (!casters.length && !hasGrants) {
     return (
       <div className="card text-center" style={{ padding: 'var(--s-7)' }}>
         <Icon name="sparkle" size={36} style={{ color: 'var(--gold-deep)', marginBottom: 12 }}/>
-        <p className="muted">{t('notSpellcaster', lang)}</p>
+        <p className="muted">{!multi && Utils.spellcastingAbility(char) && ['paladin', 'ranger'].includes(char.className)
+          ? (lang === 'pt' ? 'Você ganha magias a partir do nível 2.' : 'You gain spells starting at level 2.')
+          : t('notSpellcaster', lang)}</p>
       </div>
     );
   }
@@ -90,7 +99,54 @@ const SheetSpells = ({ char, lang, update, slots, roll }) => {
         const { view, save } = scoped(v);
         return <ClassSpells key={v.className} char={view} lang={lang} update={save} slots={slots} roll={roll} showClass={multi} />;
       })}
+
+      <GrantedSpellsSection char={char} lang={lang} update={update} slots={slots} roll={roll} />
     </>
+  );
+};
+
+// Magias de talento (Iniciado em Magia…) e de espécie (Tiferino, Elfo…): com a
+// origem e o atributo próprios — aparecem até para quem não conjura pela classe.
+const GrantedSpellsSection = ({ char, lang, update, slots, roll }) => {
+  const pt = lang === 'pt';
+  const catalog = Utils.spellCatalog(char);
+  const entries = (char.spells || []).filter(isGrantEntry)
+    .map(s => ({ ...s, def: catalog.find(x => x.id === s.id) })).filter(s => s.def);
+  if (!entries.length) return null;
+  const sources = grantedSpells(char);
+  const groups = [];
+  for (const s of entries) {
+    const src = sources.find(g => g.id === s.id && g.source === (s.feat ? 'feat' : 'species'));
+    const label = src?.from?.[lang] || (s.feat ? (pt ? 'Talento' : 'Feat') : (pt ? 'Espécie' : 'Species'));
+    const ability = src?.ability || null;
+    let g = groups.find(x => x.label === label && x.ability === ability);
+    if (!g) groups.push(g = { label, ability, list: [] });
+    g.list.push(s);
+  }
+  return (
+    <section className="mt-4">
+      <div className="eyebrow">{pt ? 'Magias de talento e espécie' : 'Feat and species spells'}</div>
+      <div className="muted text-xs" style={{ marginBottom: 6 }}>
+        {pt ? 'Não dependem da classe: truques à vontade; magias de 1º círculo ou mais 1× por descanso longo sem gastar espaço (ou com seus espaços, se tiver).'
+          : 'Not tied to your class: cantrips at will; level 1+ spells once per long rest without a slot (or with your slots, if you have them).'}
+      </div>
+      {groups.map(g => {
+        const atk = g.ability ? Utils.profBonus(char) + Utils.abilityMod(char, g.ability) : null;
+        return (
+          <details key={`${g.label}-${g.ability}`} className="spell-group" open>
+            <summary>
+              <span>{g.label}</span>
+              <span className="spell-group-count mono">
+                {g.ability ? `${t(g.ability, lang)} · ${t('spellSaveDc', lang)} ${8 + atk} · ${Utils.fmtMod(atk)}` : g.list.length}
+              </span>
+            </summary>
+            {g.list.map(s => (
+              <SpellRow key={s.id} spell={s} lang={lang} showPrepared={false} char={char} slots={slots} update={update} spellAtk={atk} roll={roll} />
+            ))}
+          </details>
+        );
+      })}
+    </section>
   );
 };
 
@@ -107,8 +163,15 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
   const preparedLimit = isPrepared ? (cheat ? Infinity : Utils.preparedSpellsLimit(char)) : null;
   const inList = sp => cheat || Utils.inSpellList(char, sp);
 
-  const spellEntries = char.spells || [];
+  const allEntries = char.spells || [];
+  const spellEntries = allEntries.filter(s => !isGrantEntry(s));
   const autoIds = new Set(spellEntries.filter(s => s.auto).map(s => s.id));
+  // Entradas da classe fora da lista dela (sobras de outra classe, Segredos Mágicos…): sinalizadas.
+  const offList = new Set(cheat ? [] : spellEntries.filter(s => {
+    if (s.auto) return false;
+    const def = Utils.spellCatalog(char).find(x => x.id === s.id);
+    return def && !Utils.inSpellList(char, def);
+  }).map(s => s.id));
   const cantripIds = spellEntries.filter(s => {
     const def = Utils.spellCatalog(char).find(x => x.id === s.id);
     return def && def.level === 0;
@@ -121,22 +184,24 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
   // Mago: prepara só magias do grimório.
   const book = Book.usesSpellbook(char);
   const bookIds = new Set(book ? Book.spellbookIds(char) : []);
-  const classSpells = Utils.spellCatalog(char).filter(sp => ((book ? bookIds.has(sp.id) : inList(sp)) && sp.level <= maxLvl) || autoIds.has(sp.id));
-  const classCantrips = Utils.spellCatalog(char).filter(sp => (inList(sp) || autoIds.has(sp.id)) && sp.level === 0);
+  // Magias de talento/espécie ficam na seção própria (GrantedSpellsSection), fora das listas da classe.
+  const grantIds = new Set(allEntries.filter(isGrantEntry).map(s => s.id));
+  const classSpells = Utils.spellCatalog(char).filter(sp => !grantIds.has(sp.id) && (((book ? bookIds.has(sp.id) : inList(sp)) && sp.level <= maxLvl) || autoIds.has(sp.id)));
+  const classCantrips = Utils.spellCatalog(char).filter(sp => !grantIds.has(sp.id) && (inList(sp) || autoIds.has(sp.id)) && sp.level === 0);
 
   const removeSpell = (id) => {
     if (autoIds.has(id)) return;
-    update({ spells: spellEntries.filter(s => s.id !== id) });
+    update({ spells: allEntries.filter(s => isGrantEntry(s) || s.id !== id) });
   };
 
   // Known caster: ability to add new known spells via dropdown
-  const available = Utils.spellCatalog(char).filter(sp => inList(sp) && sp.level <= maxLvl && !spellEntries.find(s => s.id === sp.id));
+  const available = Utils.spellCatalog(char).filter(sp => inList(sp) && sp.level <= maxLvl && !allEntries.find(s => s.id === sp.id));
   const addKnownSpell = (id) => {
     const def = Utils.spellCatalog(char).find(s => s.id === id);
     const count = (def?.level === 0 ? cantripIds : preparedIds).filter(id => !autoIds.has(id)).length;
     const limit = def?.level === 0 ? cantripLimit : (cheat ? Infinity : Utils.knownSpellLimit(char));
-    if (!def || count >= limit || spellEntries.some(s => s.id === id)) return;
-    update({ spells: [...spellEntries, { id, prepared: true }] });
+    if (!def || count >= limit || allEntries.some(s => s.id === id)) return;
+    update({ spells: [...allEntries, { id, prepared: true }] });
   };
 
   return (
@@ -177,6 +242,8 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
           slots={slots}
           update={update}
           book={book}
+          offList={offList}
+          onRemove={removeSpell}
         />
       ) : (
         <KnownSpellsView
@@ -186,6 +253,7 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
           available={available}
           onAddSpell={addKnownSpell}
           onRemove={removeSpell}
+          offList={offList}
           spellAtk={spellAtk}
           roll={roll}
           slots={slots}
@@ -207,18 +275,20 @@ const levelLabel = (lvl, lang) => (+lvl === 0 ? t('cantrips', lang) : `${t('spel
 
 // Conjuradores preparados: a ficha mostra só o que está pronto, agrupado por círculo
 // (fechado até tocar). A escolha diária acontece no modal "Preparar magias".
-const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, cantripLimit, preparedLimit, maxLvl, spellAtk, roll, slots, update, book = false }) => {
+const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, cantripLimit, preparedLimit, maxLvl, spellAtk, roll, slots, update, book = false, offList = new Set(), onRemove }) => {
   const pt = lang === 'pt';
   const [picking, setPicking] = useState(false);
   const catalog = Utils.spellCatalog(char);
   // Mago: magias do grimório não preparadas ficam só na seção Grimório.
   const ready = (char.spells || [])
     .map(cs => ({ ...cs, def: catalog.find(s => s.id === cs.id) }))
-    .filter(s => s.def && !(book && Book.isInBook(char, s) && !Book.isPreparedEntry(s)));
+    .filter(s => s.def && !isGrantEntry(s) && !(book && Book.isInBook(char, s) && !Book.isPreparedEntry(s)));
   const byLevel = groupByLevel(ready);
   const nonAuto = (lvl0) => ready.filter(s => !autoIds.has(s.id) && (s.def.level === 0) === lvl0).length;
   const fmt = (n) => (Number.isFinite(n) ? n : '∞');
   const hasSpells = classSpells.some(s => s.level > 0);
+  // 2024: Bardo, Feiticeiro e Bruxo trocam as preparadas ao subir de nível (os demais, no descanso longo).
+  const swapOnLevel = char.rulesVersion === '2024' && ['bard', 'sorcerer', 'warlock'].includes(char.className);
 
   return (
     <>
@@ -238,6 +308,13 @@ const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, c
         )}
       </div>
 
+      {swapOnLevel && maxLvl > 0 && (
+        <div className="muted text-xs" style={{ marginBottom: 6 }}>
+          {pt ? 'Você troca uma magia preparada quando sobe de nível (não no descanso).' : 'You swap one prepared spell when you level up (not on a rest).'}
+        </div>
+      )}
+      <OffListWarning lang={lang} char={char} offList={offList} onRemove={onRemove} />
+
       {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
         <details key={lvl} className="spell-group">
           <summary>
@@ -245,7 +322,8 @@ const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, c
             <span className="spell-group-count mono">{byLevel[lvl].length}</span>
           </summary>
           {byLevel[lvl].map(s => (
-            <SpellRow key={s.id} spell={s} lang={lang} showPrepared={false} char={char} slots={slots} update={update} spellAtk={spellAtk} roll={roll} />
+            <SpellRow key={s.id} spell={s} lang={lang} showPrepared={false} char={char} slots={slots} update={update} spellAtk={spellAtk} roll={roll}
+              tag={offList.has(s.id) ? <OffListTag lang={lang} /> : null} />
           ))}
         </details>
       ))}
@@ -274,6 +352,33 @@ const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, c
         />
       )}
     </>
+  );
+};
+
+// Magia da classe fora da lista dela (ex.: Mísseis Mágicos num Druida, que sobrou de outra classe).
+const OffListTag = ({ lang }) => (
+  <span className="spell-tag-warn" title={lang === 'pt' ? 'Não é da lista desta classe' : 'Not on this class list'}>
+    {lang === 'pt' ? 'fora da lista' : 'off-list'}
+  </span>
+);
+
+const OffListWarning = ({ lang, char, offList, onRemove }) => {
+  if (!offList.size) return null;
+  const pt = lang === 'pt';
+  return (
+    <div className="card mb-3" style={{ padding: 10, borderColor: 'var(--blood-bright, #c0392b)' }}>
+      <div className="text-sm">
+        {pt ? `Estas magias não são da lista de ${tName('class', char.className, lang)} — provavelmente sobraram de outra classe. Se não vierem de um recurso especial (como Segredos Mágicos), remova-as:`
+          : `These spells aren't on the ${tName('class', char.className, lang)} list — probably left over from another class. Unless a special feature grants them (like Magical Secrets), remove them:`}
+      </div>
+      <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+        {[...offList].map(id => (
+          <button key={id} type="button" className="btn btn-ghost btn-sm" onClick={() => onRemove && onRemove(id)}>
+            <Icon name="x" size={12}/> {tName('spellName', id, lang)}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 };
 
@@ -481,7 +586,7 @@ const PrepareSpellsModal = ({ lang, char, classCantrips, classSpells, autoIds, c
   );
 };
 
-const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRemove, spellAtk, roll, slots, update }) => {
+const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRemove, spellAtk, roll, slots, update, offList = new Set() }) => {
   const known = spellEntries.map(cs => {
     const def = Utils.spellCatalog(char).find(s => s.id === cs.id);
     return { ...cs, def };
@@ -510,6 +615,8 @@ const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRe
         </select>
       </div>
 
+      <OffListWarning lang={lang} char={char} offList={offList} onRemove={onRemove} />
+
       {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
         <details key={lvl} className="spell-group">
           <summary>
@@ -520,6 +627,7 @@ const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRe
             <SpellRow
               key={s.id} spell={s} lang={lang}
               showPrepared={false}
+              tag={offList.has(s.id) ? <OffListTag lang={lang} /> : null}
               onRemove={() => onRemove(s.id)}
               char={char}
               slots={slots}
@@ -540,7 +648,7 @@ const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRe
   );
 };
 
-const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char, slots, update, spellAtk, roll, preparedDisabled, preparedIcon }) => {
+const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char, slots, update, spellAtk, roll, preparedDisabled, preparedIcon, tag = null }) => {
   const [open, setOpen] = useState(false);
   const [casting, setCasting] = useState(false);
   const [error, setError] = useState('');
@@ -604,7 +712,7 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
           </button>
         )}
         <div style={{ flex: 1 }}>
-          <div className="spell-row-name">{tName('spellName', sp.id, lang)}</div>
+          <div className="spell-row-name">{tName('spellName', sp.id, lang)}{tag}</div>
           <div className="spell-meta">
             <span>{tName('school', sp.school, lang)}</span>
             <span>{Utils.spellMeta(sp, lang).castingTime}</span>

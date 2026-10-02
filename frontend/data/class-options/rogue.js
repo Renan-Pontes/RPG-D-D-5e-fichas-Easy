@@ -475,10 +475,11 @@ const resources = [
 export default {
   classId: 'rogue',
   pools,
-  // Especialização (1: 2; 6: 2), idioma da Gíria de Ladrão (1) e Maestria em Armas (1: 2).
+  // Especialização (1: 2; 6: 2) e Maestria em Armas (1: 2). O idioma extra da Gíria de Ladrão
+  // é escolhido junto dos outros idiomas (Utils.languageChoiceSources, fonte 'class').
   // Golpe Astuto é escolhido na hora do ataque — não é pool.
   choices: {
-    1: { expertise: 2, language: 1, weaponMastery: 2 },
+    1: { expertise: 2, weaponMastery: 2 },
     6: { expertise: 2 },
   },
   // 2014: Especialização no 1 e no 6 (2 cada; pode incluir Ferramentas de Ladrão).

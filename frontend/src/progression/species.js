@@ -37,10 +37,17 @@ export function speciesDef(char) {
   return SPECIES_TABLE['2014'][id] || null;
 }
 
-/** Escolhas ativas (respeitando `when`, ex.: truque do Alto Elfo). */
+/**
+ * Escolhas ativas (respeitando `when`, ex.: truque do Alto Elfo).
+ * Ficha 2024: o bônus de atributo vem só do antecedente (SRD 5.2.1), então a
+ * escolha 'asi' das raças legadas (humano variante, linhagem personalizada,
+ * marcas de dragão…) não é pedida — ela nunca seria aplicada.
+ */
 export function speciesChoiceSpecs(char) {
   const sc = char?.speciesChoices || {};
-  return (speciesDef(char)?.choices || []).filter(c => !c.when || Object.entries(c.when).every(([k, v]) => sc[k] === v));
+  const legacyAsiOff = char?.rulesVersion === '2024';
+  return (speciesDef(char)?.choices || []).filter(c => (!legacyAsiOff || c.key !== 'asi')
+    && (!c.when || Object.entries(c.when).every(([k, v]) => sc[k] === v)));
 }
 
 export const speciesFeatEntry = (char) => (char?.feats || []).find(f => f?.origin === 'species') || null;

@@ -159,10 +159,13 @@ function saveBonus(char, key) {
 
 // === Languages ===
 // Ids em inglês (formato já salvo nas fichas); rótulos pt/en para exibição.
+// `rare` = tabela de Idiomas Raros do SRD 5.2.1 (2024). Em 2014 (PHB) a divisão
+// é Padrão × Exóticos: `rare2014` sobrescreve `rare` e `only2024` some do
+// catálogo 2014 (a Língua de Sinais Comum não existe lá). Use languageCatalog(char).
 const LANGUAGES = [
   { id: 'Common', pt: 'Comum', rare: false },
-  { id: 'Common Sign Language', pt: 'Língua de Sinais Comum', rare: false },
-  { id: 'Draconic', pt: 'Dracônico', rare: false },
+  { id: 'Common Sign Language', pt: 'Língua de Sinais Comum', rare: false, only2024: true },
+  { id: 'Draconic', pt: 'Dracônico', rare: false, rare2014: true },
   { id: 'Dwarvish', pt: 'Anão', rare: false },
   { id: 'Elvish', pt: 'Élfico', rare: false },
   { id: 'Giant', pt: 'Gigante', rare: false },
@@ -209,29 +212,136 @@ function classGrants(char) {
   return grantsCache.get(char);
 }
 
-// Idiomas fixos (espécie + classe), sem os marcadores "+N of choice".
+const is2024 = (char) => char?.rulesVersion === '2024';
+
+// Catálogo de idiomas da regra da ficha: [{ id, pt, rare, secret? }].
+// 2024: Padrão (rare false) × Raros. 2014: Padrão × Exóticos (rare = exótico).
+function languageCatalog(char) {
+  if (is2024(char)) return LANGUAGES;
+  return LANGUAGES.filter(l => !l.only2024).map(l => ('rare2014' in l ? { ...l, rare: l.rare2014 } : l));
+}
+
+// O id é raro (2024) / exótico (2014)? Ids fora do catálogo (fichas antigas) contam como comuns.
+function isRareLanguage(char, id) {
+  return !!languageCatalog(char).find(l => l.id === id)?.rare;
+}
+
+// Idiomas fixos (espécie + classe + talentos), sem os marcadores "+N of choice".
+// 2024: a espécie não concede idiomas (SRD 5.2.1, "Choose Languages": Comum + 2
+// da tabela Padrão), nem mesmo as raças legadas; sobra Comum + classe/talento.
 function fixedLanguages(char) {
-  const race = racesFor(char).find(r => r.id === char.race);
+  const race = is2024(char) ? null : racesFor(char).find(r => r.id === char.race);
   const fromRace = (race?.languages || []).filter(l => !CHOICE_RE.test(l));
   return [...new Set([...(fromRace.length ? fromRace : ['Common']), ...(CLASS_LANGUAGES[char.className] || []), ...(classGrants(char).languages || [])])];
 }
 
-// De onde vêm os idiomas à escolha: [{ source: 'race'|'background'|'origin', n }].
+// Ladino 2024 (Gíria de Ladrão, SRD 5.2.1): +1 idioma de qualquer tabela. Fichas
+// que já escolheram esse idioma pela opção de classe (pool 'language' em
+// data/class-options/rogue.js) não ganham a vaga de novo — o idioma já está em fixos.
+function rogueExtraLanguage(char) {
+  if (!is2024(char)) return 0;
+  if (char.className !== 'rogue' && !MC.hasClass(char, 'rogue')) return 0;
+  const picked = (Array.isArray(char.classOptions) ? char.classOptions : []).filter(p => p?.classId === 'rogue' && p.pool === 'language').length;
+  return Math.max(0, 1 - picked);
+}
+
+// De onde vêm os idiomas à escolha:
+//   [{ source: 'race'|'background'|'origin'|'class', n, rare: bool }]
+// `rare: true` = a vaga aceita idioma raro (2024) — só o idioma extra do Ladino.
+// Em 2014 os exóticos ficam liberados com aval do mestre (PHB cap. 4), sem limite.
 function languageChoiceSources(char) {
+  // Regras de 2024: todo personagem sabe Comum + 2 idiomas da tabela Padrão
+  // (a origem substitui a espécie; '+N of choice' de raças legadas não soma).
+  if (is2024(char)) {
+    const cls = rogueExtraLanguage(char);
+    return [{ source: 'origin', n: 2, rare: false }, ...(cls ? [{ source: 'class', n: cls, rare: true }] : [])];
+  }
   const race = racesFor(char).find(r => r.id === char.race);
   const fromRace = (race?.languages || []).reduce((n, l) => n + (+(CHOICE_RE.exec(l)?.[1]) || 0), 0);
-  // Regras de 2024: todo personagem sabe Comum + 2 idiomas à escolha (a origem substitui a espécie).
-  if (char.rulesVersion === '2024') return [{ source: 'origin', n: Math.max(2, fromRace) }];
   const bg = SRD.BACKGROUNDS.find(b => b.id === char.background);
   return [
-    { source: 'race', n: fromRace },
-    { source: 'background', n: +(bg?.languages) || 0 },
+    { source: 'race', n: fromRace, rare: true },
+    { source: 'background', n: +(bg?.languages) || 0, rare: true },
   ].filter(x => x.n > 0);
 }
 
 // Quantos idiomas o jogador escolhe livremente.
 function languageChoiceCount(char) {
   return languageChoiceSources(char).reduce((n, x) => n + x.n, 0);
+}
+
+// Quantos dos escolhidos podem ser raros. 2014: sem limite (exóticos com aval do mestre).
+function rareLanguageAllowance(char) {
+  if (!is2024(char)) return Infinity;
+  return languageChoiceSources(char).filter(x => x.rare).reduce((n, x) => n + x.n, 0);
+}
+
+// Idiomas escolhidos pelo jogador (char.languages sem fixos e sem marcadores "+N").
+function chosenLanguageIds(char) {
+  const fixed = fixedLanguages(char);
+  return [...new Set((char.languages || []).filter(l => typeof l === 'string' && l && !CHOICE_RE.test(l) && !fixed.includes(l)))];
+}
+
+// Escolha que não existe nesta regra (ex.: Língua de Sinais Comum numa ficha 2014).
+const invalidLanguage = (char, id) => !is2024(char) && !!LANGUAGES.find(l => l.id === id)?.only2024;
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+// O que falta/sobra na escolha de idiomas: [{ pt, en }] ([] = tudo certo).
+function languageIssues(char) {
+  const out = [];
+  const chosen = chosenLanguageIds(char);
+  const bad = chosen.filter(id => invalidLanguage(char, id));
+  for (const id of bad) {
+    out.push({
+      pt: `${languageLabel(id, 'pt')} só existe nas regras 2024. Desmarque esse idioma.`,
+      en: `${id} only exists in the 2024 rules. Unselect that language.`,
+    });
+  }
+  const valid = chosen.filter(id => !bad.includes(id));
+  const need = languageChoiceCount(char);
+  if (valid.length < need) {
+    const n = need - valid.length;
+    out.push({
+      pt: `Escolha mais ${plural(n, 'idioma', 'idiomas')}.`,
+      en: `Pick ${plural(n, 'more language', 'more languages')}.`,
+    });
+  } else if (valid.length > need) {
+    const n = valid.length - need;
+    out.push({
+      pt: need === 0
+        ? `Você não tem idiomas à escolha. Desmarque ${plural(n, 'idioma', 'idiomas')}.`
+        : `Você marcou ${plural(n, 'idioma', 'idiomas')} a mais. Desmarque ${n} (o limite é ${need}).`,
+      en: need === 0
+        ? `You have no languages to choose. Unselect ${plural(n, 'language', 'languages')}.`
+        : `You picked ${plural(n, 'language', 'languages')} too many. Unselect ${n} (the limit is ${need}).`,
+    });
+  }
+  const allow = rareLanguageAllowance(char);
+  const rares = valid.filter(id => isRareLanguage(char, id));
+  if (rares.length > allow) {
+    const names = (l) => rares.map(id => languageLabel(id, l)).join(', ');
+    out.push(allow === 0
+      ? {
+        pt: `Idiomas raros (${names('pt')}) não entram nos 2 idiomas da origem. Troque por um idioma da lista Padrão.`,
+        en: `Rare languages (${names('en')}) can't be your 2 origin languages. Swap them for Standard languages.`,
+      }
+      : {
+        pt: `Só ${plural(allow, 'idioma raro é permitido', 'idiomas raros são permitidos')} (${names('pt')} marcados). Troque o excesso por um idioma da lista Padrão.`,
+        en: `Only ${plural(allow, 'rare language is', 'rare languages are')} allowed (${names('en')} picked). Swap the extra for Standard languages.`,
+      });
+  }
+  return out;
+}
+
+// Corta escolhas inválidas ou a mais (ex.: depois de trocar antecedente/classe/espécie).
+// Devolve a NOVA lista de idiomas escolhidos (sem os fixos e sem marcadores); uso:
+// set({ languages: Utils.trimLanguages(char) }). Mantém a ordem: os primeiros ficam.
+function trimLanguages(char) {
+  const valid = chosenLanguageIds(char).filter(id => !invalidLanguage(char, id));
+  let allow = rareLanguageAllowance(char);
+  const kept = valid.filter(id => !isRareLanguage(char, id) || allow-- > 0);
+  return kept.slice(0, languageChoiceCount(char));
 }
 
 // Lista final exibida na ficha: fixos + escolhidos (tolerante a fichas antigas).
@@ -329,7 +439,20 @@ function speed(char) {
   if (char.speedOverride) return char.speedOverride;
   const race = racesFor(char).find(r => r.id === char.race);
   const fromSpecies = Species.speciesGrants(char).speed; // Elfo da Floresta: 35
-  return fromSpecies || (race ? race.speed : 30);
+  const base = fromSpecies || (race ? race.speed : 30);
+  // Armadura pesada sem a Força mínima: −10 pés (anão 2014 ignora).
+  const armor = char.armor && SRD.ARMOR.find(a => a.id === char.armor);
+  const dwarf2014 = char.rulesVersion !== '2024' && String(char.race || '').startsWith('dwarf');
+  if (armor?.strReq && abilityWithRace(char, 'str') < armor.strReq && !dwarf2014) return Math.max(0, base - 10);
+  return base;
+}
+
+// Iniciativa: DES + Alerta (2024: + Bônus de Proficiência; 2014: +5).
+function initiative(char) {
+  const dex = abilityMod(char, 'dex');
+  const alert = (char.feats || []).some(f => f?.id === 'alert' || f?.id === 'alert2014' || /^(alert|alerta)$/i.test(String(f?.name || '').trim()));
+  if (!alert) return dex;
+  return dex + (char.rulesVersion === '2024' ? profBonus(char) : 5);
 }
 
 // Tamanho efetivo: escolha da espécie (Humano/Tiferino/Aasimar…) ou o da espécie.
@@ -442,10 +565,15 @@ function inSpellList(char, spell) {
 }
 
 // === Prepared-caster logic ===
+// 2014: só Clérigo, Druida, Paladino, Mago e Artífice preparam; os demais "conhecem".
+// 2024 (SRD 5.2.1): toda classe conjuradora tem a coluna Prepared Spells — Bardo,
+// Feiticeiro, Bruxo e Patrulheiro também preparam (Cavaleiro Místico e Trapaceiro
+// Arcano seguem com magias conhecidas nos dados de progressão).
 const PREPARED_CASTERS = ['cleric', 'druid', 'paladin', 'wizard', 'artificer'];
+const PREPARED_CASTERS_2024 = [...PREPARED_CASTERS, 'bard', 'sorcerer', 'warlock', 'ranger'];
 
 function isPreparedCaster(char) {
-  return PREPARED_CASTERS.includes(char.className);
+  return (char?.rulesVersion === '2024' ? PREPARED_CASTERS_2024 : PREPARED_CASTERS).includes(char?.className);
 }
 
 // Cantrips known by class per character level (5e SRD).
@@ -573,12 +701,13 @@ return {
   loadAll, saveAll, loadChar, saveChar, deleteChar,
   makeNew,
   abilityWithRace, abilityMod, profBonus, saveBonus, skillBonus, passivePerception,
-  computeAc, maxHpDefault, speed, sizeOf,
+  computeAc, maxHpDefault, speed, initiative, sizeOf,
   speciesGrants: Species.speciesGrants, speciesChoiceIssues: Species.speciesChoiceIssues,
   spellcastingAbility, spellSaveDc, spellAttackBonus, spellSlots, spellListClass, spellListClasses, inSpellList,
   isPreparedCaster, cantripsKnown, preparedSpellsLimit, maxSpellLevel,
   applyRaceBonus,
   LANGUAGES, CLASS_LANGUAGES, languageLabel, fixedLanguages, languageChoiceCount, languageChoiceSources, languagesFor,
+  languageCatalog, isRareLanguage, rareLanguageAllowance, chosenLanguageIds, languageIssues, trimLanguages,
   backgroundSkills, hasSkillProf, hasExpertise, hasSaveProf, classGrants,
   encodeChar, decodeChar,
   rollDie, rollDice,

@@ -16,6 +16,7 @@ import { findOption } from '../progression/options.js';
 import { subclassesFor, subclassName } from '../progression/subclasses.js';
 import { tName } from '../../data/i18n.js';
 import LAYOUT from './dnd5e-layout.js';
+import { armorTraining, weaponTraining } from '../creator/start-data.js';
 
 export { LAYOUT };
 
@@ -177,7 +178,7 @@ export function buildSheetData(char, lang = 'pt', { speciesSummary } = {}) {
   f.Inspiration = char.inspiration ? '★' : '';
   f.ProfBonus = fmt(prof);
   f.AC = String(Utils.computeAc(char));
-  f.Initiative = fmt(Utils.abilityMod(char, 'dex'));
+  f.Initiative = fmt(Utils.initiative(char));
   const speed = Utils.speed(char);
   f.Speed = lang === 'pt' ? `${(speed * 0.3).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} m` : `${speed} ft`;
   f.HPMax = String(char.maxHp || '');
@@ -220,11 +221,19 @@ export function buildSheetData(char, lang = 'pt', { speciesSummary } = {}) {
   f.AttacksSpellcasting = attackLines.join('\n');
 
   const langs = Utils.languagesFor(char).map(l => Utils.languageLabel(l, lang));
-  const cls = SRD.CLASSES.find(c => c.id === char.className);
   const profLines = [];
   if (langs.length) profLines.push(`${L(lang, 'Idiomas', 'Languages')}: ${langs.join(', ')}`);
-  if (cls?.armor?.length) profLines.push(`${L(lang, 'Armaduras', 'Armor')}: ${cls.armor.join(', ')}`);
-  if (cls?.weapons?.length) profLines.push(`${L(lang, 'Armas', 'Weapons')}: ${cls.weapons.join(', ')}`);
+  const armorTr = armorTraining(char);
+  const ARMOR_PT = { light: ['leves', 'light'], medium: ['médias', 'medium'], heavy: ['pesadas', 'heavy'], shield: ['escudos', 'shields'] };
+  if (armorTr?.size) profLines.push(`${L(lang, 'Armaduras', 'Armor')}: ${[...armorTr].map(a => (ARMOR_PT[a] ? L(lang, ...ARMOR_PT[a]) : a)).join(', ')}`);
+  const weaponTr = weaponTraining(char);
+  if (weaponTr) {
+    const CAT = { simple: ['simples', 'simple'], martial: ['marciais', 'martial'] };
+    const parts = [...[...weaponTr.categories].map(c => (CAT[c] ? L(lang, ...CAT[c]) : c)),
+      ...[...weaponTr.ids].map(id => { const w = SRD.weaponsFor(char.rulesVersion).find(x => x.id.toLowerCase() === id); return w ? tName('weapon', w.id, lang) : id; })];
+    if (weaponTr.martialProps.size) parts.push(L(lang, 'marciais com acuidade/leves', 'martial finesse/light'));
+    if (parts.length) profLines.push(`${L(lang, 'Armas', 'Weapons')}: ${parts.join(', ')}`);
+  }
   if (char.otherProfs) profLines.push(`${L(lang, 'Outras', 'Other')}: ${char.otherProfs}`);
   f.ProficienciesLang = profLines.join('\n');
 

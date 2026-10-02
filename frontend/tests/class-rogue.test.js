@@ -8,12 +8,12 @@ import { poolOptions, pickLabel } from '../src/progression/options-catalog.js';
 const base = (extra = {}) => ({ rulesVersion: '2024', className: 'rogue', level: 1, classOptions: [], ...extra });
 const pendingPools = (prog) => Object.fromEntries(prog.pendingChoices.filter(c => c.type === 'classOption').map(c => [c.pool, c.missing]));
 
-test('ladino 2024: especialização, idioma e maestria no nível 1', () => {
+test('ladino 2024: especialização e maestria no nível 1 (o idioma da Gíria fica na escolha de idiomas)', () => {
   const prog = computeProgression(base());
   assert.ok(!prog.pendingChoices.some(c => c.type === 'expertise'), 'pendência genérica de expertise removida');
   const pend = pendingPools(prog);
   assert.equal(pend.expertise, 2);
-  assert.equal(pend.language, 1);
+  assert.equal(pend.language, undefined, 'idioma extra vem de Utils.languageChoiceSources, não de pool');
   assert.equal(pend.weaponMastery, 2);
 });
 

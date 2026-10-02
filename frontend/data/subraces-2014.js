@@ -72,8 +72,10 @@ const RACES = [];
 const EFFECTS = {};
 const RESOURCES = {};
 /** Registra uma sub-raça: entrada de raça + efeitos/escolhas + recursos. */
-function add(id, base, source, pt, en, { size = 'Medium', speed = 30, asi, languages, traits, fx = {}, resources }) {
-  RACES.push({ id, base, name: b(pt, en), size, speed, asi, source, languages, traits });
+// profs: proficiências raciais no formato de srd.js ({ weapons, armor, tools }); a
+// visão no escuro dos efeitos (fx.darkvision) também vai para a entrada da raça.
+function add(id, base, source, pt, en, { size = 'Medium', speed = 30, asi, languages, traits, fx = {}, resources, profs = {} }) {
+  RACES.push({ id, base, name: b(pt, en), size, speed, asi, source, languages, traits, ...profs, ...(fx.darkvision ? { darkvision: fx.darkvision } : {}) });
   if (Object.keys(fx).length) EFFECTS[id] = fx;
   if (resources) RESOURCES[id] = resources;
 }
@@ -180,7 +182,8 @@ const BASE = {
   halfling: { size: 'Small', speed: 25, languages: ['Common', 'Halfling'], traits: [LUCKY, BRAVE, NIMBLE], fx: {} },
   gnome: { size: 'Small', speed: 25, languages: ['Common', 'Gnomish'], traits: [DV, GNOME_CUNNING], fx: { darkvision: 60 } },
   elf: { size: 'Medium', speed: 30, languages: ['Common', 'Elvish'], traits: [DV, KEEN, FEY, TRANCE], fx: { darkvision: 60, skills: ['perception'] } },
-  dwarf: { size: 'Medium', speed: 25, languages: ['Common', 'Dwarvish'], fx: { darkvision: 60, resist: ['poison'] }, traits: [
+  dwarf: { size: 'Medium', speed: 25, languages: ['Common', 'Dwarvish'], fx: { darkvision: 60, resist: ['poison'] },
+    profs: { weapons: ['battleaxe', 'handaxe', 'lightHammer', 'warhammer'], tools: { fixed: [], choose: 1, from: ['smithsTools', 'brewersSupplies', 'masonsTools'] } }, traits: [
     DV,
     T('Resiliência Anã', 'Dwarven Resilience', 'Vantagem contra veneno; resistência a dano de veneno.', 'Advantage against poison; resistance to poison damage.'),
     T('Treinamento Anão', 'Dwarven Training', 'Proficiência com machado de batalha, machadinha, martelo leve e martelo de guerra, e com uma ferramenta de artesão (ferreiro, cervejeiro ou pedreiro).', "Proficiency with battleaxe, handaxe, light hammer and warhammer, and with one artisan's tool (smith's, brewer's or mason's)."),
@@ -238,7 +241,7 @@ for (const [mark, base, pt, en, asi, free, ability, spellFx, [ipt, ien, iwhat], 
       intuition(ipt, ien, iwhat), innate(mpt, men, spellFx, ability), ...(extra.extra || []), MARK_SPELLS,
       ...(free ? [T('Aumento de Atributo', 'Ability Score Increase', `+2 em ${AB[free].pt} e +1 em outro atributo à escolha (escolha no passo de espécie).`, `+2 ${AB[free].en} and +1 to another ability of your choice (pick it in the species step).`)] : []),
     ],
-    fx, resources: extra.resources,
+    fx, resources: extra.resources, profs: B.profs,
   });
 }
 

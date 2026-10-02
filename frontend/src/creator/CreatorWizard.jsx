@@ -22,7 +22,7 @@ export default function CreatorWizard({ lang, onSave, onCancel }) {
   useEffect(() => { window.scrollTo(0, 0); }, [stepId]);
 
   const goTo = useCallback((id) => setStepId(id), []);
-  const next = () => (isLast ? onSave(finalizeCharacter(char)) : setStepId(steps[index + 1].id));
+  const next = () => (isLast ? onSave(finalizeCharacter(char, lang)) : setStepId(steps[index + 1].id));
   const back = () => (index === 0 ? onCancel() : setStepId(steps[index - 1].id));
   // Pode pular para qualquer etapa já liberada (todas as anteriores sem pendência).
   const firstBlocked = steps.findIndex(s => s.issues && s.issues(char).length);

@@ -1599,7 +1599,7 @@
               {
                 "id": "necromancy_6_0",
                 "name": "Escravos Mortos-Vivos",
-                "desc": "Animar Mortos entra no grimório. Ao conjurá-la, anime 1 cadáver ou pilha de ossos extra. Seus mortos-vivos somam o nível de mago ao PV máximo e o bônus de proficiência ao dano com armas.",
+                "desc": "Animar Mortos entra no livro de magias. Ao conjurá-la, anime 1 cadáver ou pilha de ossos extra. Seus mortos-vivos somam o nível de mago ao PV máximo e o bônus de proficiência ao dano com armas.",
                 "nameEn": "Undead Thralls",
                 "descEn": "Add Animate Dead to your spellbook. When you cast it, target one extra corpse or pile of bones. Your undead add your wizard level to their HP maximum and your proficiency bonus to weapon damage."
               }
@@ -1663,7 +1663,7 @@
               {
                 "id": "transmutation_10_0",
                 "name": "Metamorfo",
-                "desc": "Metamorfose entra no grimório. 1×/descanso curto, sem espaço: conjure-a em si, só para virar fera de ND ≤ 1.",
+                "desc": "Metamorfose entra no livro de magias. 1×/descanso curto, sem espaço: conjure-a em si, só para virar fera de ND ≤ 1.",
                 "nameEn": "Shapechanger",
                 "descEn": "Add Polymorph to your spellbook. 1/short rest, without a slot: cast it on yourself, only to become a beast of CR ≤ 1."
               }
@@ -27153,7 +27153,6 @@
       "choices": {
         "1": {
           "expertise": 2,
-          "language": 1,
           "weaponMastery": 2
         },
         "6": {

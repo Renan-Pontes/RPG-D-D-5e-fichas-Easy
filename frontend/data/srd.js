@@ -33,6 +33,14 @@ const SKILLS = [
   { id: 'survival',       stat: 'wis' },
 ];
 
+// Raças 2014 (SRD 5.1 / PHB 2014). Campos opcionais de proficiência racial
+// (lidos por quem quiser somar ao ataque/armadura; textos continuam em traits):
+//   weapons: [ids de WEAPONS]         ex.: Treinamento com Armas Élficas
+//   armor:   ['light', 'medium', …]   categorias (Treinamento de Armadura Anã)
+//   tools:   { fixed: [ids], choose: n, from: [ids] }  (ids de ferramenta, ex.: 'smithsTools')
+//   darkvision: alcance em pés (0/ausente = não tem)
+// languages: ids de idioma; '+N of choice' = N idiomas à escolha (2014). Em fichas
+// 2024 os idiomas da raça são ignorados (Comum + 2 da origem; ver utils.js).
 const RACES = [
   {
     id: 'aasimar', size: 'Medium', speed: 30,
@@ -97,9 +105,11 @@ const RACES = [
       { name: { pt: 'Ancestral Feérico', en: 'Fey Ancestry' }, desc: { pt: 'Vantagem contra encantamentos; imune a sono mágico.', en: 'Advantage vs charm; immune to magical sleep.' } },
       { name: { pt: 'Sensibilidade à Luz Solar', en: 'Sunlight Sensitivity' }, desc: { pt: 'Desvantagem em ataques e Percepção (visão) sob luz solar direta.', en: 'Disadvantage on attacks and Perception (sight) in direct sunlight.' } },
       { name: { pt: 'Magia Drow', en: 'Drow Magic' }, desc: { pt: 'Truque Luzes Dançantes. No 3°, Fogo Feérico 1×/dia. No 5°, Escuridão 1×/dia. Conjuração: CHA.', en: 'Dancing Lights cantrip. At 3rd, Faerie Fire 1/day. At 5th, Darkness 1/day. CHA.' } },
-      { name: { pt: 'Treinamento de Armas Drow', en: 'Drow Weapon Training' }, desc: { pt: 'Proficiência com floretes, espadas curtas e bestas de mão.', en: 'Proficiency with rapiers, shortswords, hand crossbows.' } },
+      { name: { pt: 'Treinamento de Armas Drow', en: 'Drow Weapon Training' }, desc: { pt: 'Proficiência com rapieiras, espadas curtas e bestas de mão.', en: 'Proficiency with rapiers, shortswords, hand crossbows.' } },
+      { name: { pt: 'Transe', en: 'Trance' }, desc: { pt: 'Você medita 4h em vez de dormir.', en: 'You meditate for 4 hours instead of sleeping.' } },
     ],
     languages: ['Common', 'Elvish'],
+    weapons: ['rapier', 'shortsword', 'crossbowHand'], darkvision: 120,
   },
   {
     id: 'dwarf-hill', size: 'Medium', speed: 25,
@@ -107,10 +117,14 @@ const RACES = [
     traits: [
       { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
       { name: { pt: 'Resiliência Anã', en: 'Dwarven Resilience' }, desc: { pt: 'Vantagem em testes contra veneno e resistência a dano de veneno.', en: 'Advantage on saves vs poison and resistance to poison damage.' } },
-      { name: { pt: 'Treinamento de Combate Anão', en: 'Dwarven Combat Training' }, desc: { pt: 'Proficiência com machado de batalha, machadinha, martelo leve, e maul.', en: 'Proficiency with battleaxe, handaxe, light hammer, warhammer.' } },
+      { name: { pt: 'Treinamento de Combate Anão', en: 'Dwarven Combat Training' }, desc: { pt: 'Proficiência com machado de batalha, machadinha, martelo leve e martelo de guerra.', en: 'Proficiency with battleaxe, handaxe, light hammer, warhammer.' } },
+      { name: { pt: 'Proficiência com Ferramentas', en: 'Tool Proficiency' }, desc: { pt: 'Proficiência com uma ferramenta de artesão à sua escolha: ferramentas de ferreiro, suprimentos de cervejeiro ou ferramentas de pedreiro.', en: "Proficiency with one artisan's tool of your choice: smith's tools, brewer's supplies, or mason's tools." } },
+      { name: { pt: 'Especialização em Rochas', en: 'Stonecunning' }, desc: { pt: 'Em testes de Inteligência (História) sobre a origem de trabalhos em pedra, você é proficiente e soma o dobro do bônus de proficiência.', en: 'On Intelligence (History) checks about the origin of stonework, you are proficient and add double your proficiency bonus.' } },
       { name: { pt: 'Tenacidade Anã', en: 'Dwarven Toughness' }, desc: { pt: '+1 HP por nível.', en: '+1 HP per level.' } },
     ],
     languages: ['Common', 'Dwarvish'],
+    weapons: ['battleaxe', 'handaxe', 'lightHammer', 'warhammer'],
+    tools: { fixed: [], choose: 1, from: ['smithsTools', 'brewersSupplies', 'masonsTools'] }, darkvision: 60,
   },
   {
     id: 'dwarf-mountain', size: 'Medium', speed: 25,
@@ -118,9 +132,15 @@ const RACES = [
     traits: [
       { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
       { name: { pt: 'Resiliência Anã', en: 'Dwarven Resilience' }, desc: { pt: 'Vantagem contra veneno; resistência a dano de veneno.', en: 'Advantage vs poison; resistance to poison damage.' } },
+      { name: { pt: 'Treinamento de Combate Anão', en: 'Dwarven Combat Training' }, desc: { pt: 'Proficiência com machado de batalha, machadinha, martelo leve e martelo de guerra.', en: 'Proficiency with battleaxe, handaxe, light hammer, warhammer.' } },
+      { name: { pt: 'Proficiência com Ferramentas', en: 'Tool Proficiency' }, desc: { pt: 'Proficiência com uma ferramenta de artesão à sua escolha: ferramentas de ferreiro, suprimentos de cervejeiro ou ferramentas de pedreiro.', en: "Proficiency with one artisan's tool of your choice: smith's tools, brewer's supplies, or mason's tools." } },
+      { name: { pt: 'Especialização em Rochas', en: 'Stonecunning' }, desc: { pt: 'Em testes de Inteligência (História) sobre a origem de trabalhos em pedra, você é proficiente e soma o dobro do bônus de proficiência.', en: 'On Intelligence (History) checks about the origin of stonework, you are proficient and add double your proficiency bonus.' } },
       { name: { pt: 'Treinamento de Armadura Anã', en: 'Dwarven Armor Training' }, desc: { pt: 'Proficiência com armaduras leves e médias.', en: 'Proficiency with light and medium armor.' } },
     ],
     languages: ['Common', 'Dwarvish'],
+    weapons: ['battleaxe', 'handaxe', 'lightHammer', 'warhammer'],
+    tools: { fixed: [], choose: 1, from: ['smithsTools', 'brewersSupplies', 'masonsTools'] }, darkvision: 60,
+    armor: ['light', 'medium'],
   },
   {
     id: 'elf-high', size: 'Medium', speed: 30,
@@ -131,18 +151,26 @@ const RACES = [
       { name: { pt: 'Ancestral Feérico', en: 'Fey Ancestry' }, desc: { pt: 'Vantagem contra encantamentos; magia não pode pôr você para dormir.', en: 'Advantage vs charm; magic cannot put you to sleep.' } },
       { name: { pt: 'Transe', en: 'Trance' }, desc: { pt: 'Você medita 4h em vez de dormir.', en: 'You meditate for 4 hours instead of sleeping.' } },
       { name: { pt: 'Truque Cantado', en: 'Cantrip' }, desc: { pt: 'Você conhece um truque de mago à sua escolha.', en: 'You know one wizard cantrip.' } },
+      { name: { pt: 'Treinamento com Armas Élficas', en: 'Elf Weapon Training' }, desc: { pt: 'Proficiência com espada longa, espada curta, arco curto e arco longo.', en: 'Proficiency with longsword, shortsword, shortbow and longbow.' } },
+      { name: { pt: 'Idioma Extra', en: 'Extra Language' }, desc: { pt: 'Você fala, lê e escreve mais um idioma à sua escolha.', en: 'You can speak, read, and write one extra language of your choice.' } },
     ],
-    languages: ['Common', 'Elvish'],
+    languages: ['Common', 'Elvish', '+1 of choice'],
+    weapons: ['longsword', 'shortsword', 'shortbow', 'longbow'], darkvision: 60,
   },
   {
     id: 'elf-wood', size: 'Medium', speed: 35,
     asi: { dex: 2, wis: 1 },
     traits: [
       { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
-      { name: { pt: 'Fuga na Natureza', en: 'Mask of the Wild' }, desc: { pt: 'Pode tentar se esconder mesmo levemente obscurecido pela natureza.', en: 'You can hide when lightly obscured by natural phenomena.' } },
+      { name: { pt: 'Sentidos Apurados', en: 'Keen Senses' }, desc: { pt: 'Proficiência em Percepção.', en: 'Proficiency in Perception.' } },
+      { name: { pt: 'Ancestral Feérico', en: 'Fey Ancestry' }, desc: { pt: 'Vantagem contra encantamentos; magia não pode pôr você para dormir.', en: 'Advantage vs charm; magic cannot put you to sleep.' } },
+      { name: { pt: 'Transe', en: 'Trance' }, desc: { pt: 'Você medita 4h em vez de dormir.', en: 'You meditate for 4 hours instead of sleeping.' } },
+      { name: { pt: 'Treinamento com Armas Élficas', en: 'Elf Weapon Training' }, desc: { pt: 'Proficiência com espada longa, espada curta, arco curto e arco longo.', en: 'Proficiency with longsword, shortsword, shortbow and longbow.' } },
       { name: { pt: 'Pés Velozes', en: 'Fleet of Foot' }, desc: { pt: 'Deslocamento base 35 pés.', en: 'Base speed 35 ft.' } },
+      { name: { pt: 'Máscara da Natureza', en: 'Mask of the Wild' }, desc: { pt: 'Pode tentar se esconder mesmo levemente obscurecido pela natureza.', en: 'You can hide when lightly obscured by natural phenomena.' } },
     ],
     languages: ['Common', 'Elvish'],
+    weapons: ['longsword', 'shortsword', 'shortbow', 'longbow'], darkvision: 60,
   },
   {
     id: 'fairy', size: 'Small', speed: 30,
@@ -213,7 +241,7 @@ const RACES = [
       { name: { pt: 'Ilusionista Natural', en: 'Natural Illusionist' }, desc: { pt: 'Você conhece o truque Ilusão Menor (INT).', en: 'You know the Minor Illusion cantrip (INT).' } },
       { name: { pt: 'Falar com Pequenas Bestas', en: 'Speak with Small Beasts' }, desc: { pt: 'Pode comunicar ideias simples com bestas Pequenas ou menores.', en: 'Communicate simple ideas with Small or smaller beasts.' } },
     ],
-    languages: ['Common', 'Gnomish'],
+    languages: ['Common', 'Gnomish'], darkvision: 60,
   },
   {
     id: 'gnome-rock', size: 'Small', speed: 25,
@@ -222,8 +250,10 @@ const RACES = [
       { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
       { name: { pt: 'Astúcia Gnômica', en: 'Gnome Cunning' }, desc: { pt: 'Vantagem em testes de INT/WIS/CHA contra magia.', en: 'Advantage on INT/WIS/CHA saves vs magic.' } },
       { name: { pt: 'Conhecimento de Artífice', en: "Artificer's Lore" }, desc: { pt: 'Adiciona o dobro do bônus de prof. em testes de História sobre objetos mágicos, itens alquímicos e dispositivos tecnológicos.', en: 'Add double prof bonus to History checks about magic/alchemy/tech.' } },
+      { name: { pt: 'Funileiro', en: 'Tinker' }, desc: { pt: 'Proficiência com ferramentas de funileiro. Com elas, em 1 hora (e 10 po de material) você monta um pequeno mecanismo: brinquedo de corda, isqueiro ou caixinha de música. Até 3 ao mesmo tempo; cada um dura 24 horas.', en: "Proficiency with tinker's tools. With them, in 1 hour (and 10 gp of materials) you build a tiny clockwork device: a wind-up toy, a fire starter or a music box. Up to 3 at a time; each lasts 24 hours." } },
     ],
     languages: ['Common', 'Gnomish'],
+    tools: { fixed: ['tinkersTools'], choose: 0, from: [] }, darkvision: 60,
   },
   {
     id: 'goblin', size: 'Small', speed: 30,
@@ -254,7 +284,7 @@ const RACES = [
       { name: { pt: 'Ancestral Feérico', en: 'Fey Ancestry' }, desc: { pt: 'Vantagem contra encantamentos.', en: 'Advantage vs charm; immune to magical sleep.' } },
       { name: { pt: 'Versatilidade Hábil', en: 'Skill Versatility' }, desc: { pt: 'Proficiência em duas perícias à sua escolha.', en: 'Proficiency in 2 skills of your choice.' } },
     ],
-    languages: ['Common', 'Elvish'],
+    languages: ['Common', 'Elvish', '+1 of choice'], darkvision: 60,
   },
   {
     id: 'half-orc', size: 'Medium', speed: 30,
@@ -265,7 +295,7 @@ const RACES = [
       { name: { pt: 'Resistência Implacável', en: 'Relentless Endurance' }, desc: { pt: 'Quando reduzido a 0 HP (não morto), fica com 1 HP. 1 vez por descanso longo.', en: 'When reduced to 0 HP (not killed), drop to 1 HP. Once per long rest.' } },
       { name: { pt: 'Ataques Selvagens', en: 'Savage Attacks' }, desc: { pt: 'Em crítico corpo a corpo, role 1 dado extra de dano.', en: 'On melee crit, roll 1 extra damage die.' } },
     ],
-    languages: ['Common', 'Orc'],
+    languages: ['Common', 'Orc'], darkvision: 60,
   },
   {
     id: 'halfling-light', size: 'Small', speed: 25,
@@ -284,6 +314,7 @@ const RACES = [
     traits: [
       { name: { pt: 'Sortudo', en: 'Lucky' }, desc: { pt: 'Reroll 1s naturais.', en: 'Reroll natural 1s.' } },
       { name: { pt: 'Bravo', en: 'Brave' }, desc: { pt: 'Vantagem contra medo.', en: 'Advantage vs frightened.' } },
+      { name: { pt: 'Agilidade Halfling', en: 'Halfling Nimbleness' }, desc: { pt: 'Pode mover-se através do espaço de criaturas maiores.', en: 'Can move through spaces of larger creatures.' } },
       { name: { pt: 'Resiliência Robusta', en: 'Stout Resilience' }, desc: { pt: 'Vantagem contra veneno; resistência a dano de veneno.', en: 'Advantage vs poison; resistance to poison damage.' } },
     ],
     languages: ['Common', 'Halfling'],
@@ -415,7 +446,7 @@ const RACES = [
       { name: { pt: 'Resistência Infernal', en: 'Hellish Resistance' }, desc: { pt: 'Resistência a dano de fogo.', en: 'Resistance to fire damage.' } },
       { name: { pt: 'Legado Infernal', en: 'Infernal Legacy' }, desc: { pt: 'Você conhece Taumaturgia. Em nível 3, Repreensão Infernal 1×/dia. Nível 5, Escuridão 1×/dia.', en: 'You know Thaumaturgy. At lvl 3, Hellish Rebuke 1/day. Lvl 5, Darkness 1/day.' } },
     ],
-    languages: ['Common', 'Infernal'],
+    languages: ['Common', 'Infernal'], darkvision: 60,
   },
   {
     id: 'tortle', size: 'Medium', speed: 30,
@@ -628,26 +659,26 @@ const CLASSES = [
 ];
 
 const BACKGROUNDS = [
-  { id: 'acolyte',     skills: ['insight', 'religion'],     languages: 2, equipment: { pt: 'Símbolo sagrado, livro de orações, 5 paus de incenso, vestes, bolsa com 15 po', en: 'Holy symbol, prayer book, 5 sticks of incense, vestments, pouch w/ 15gp' } },
+  { id: 'acolyte',     skills: ['insight', 'religion'],     languages: 2, equipment: { pt: 'Símbolo sagrado, livro de orações, 5 varetas de incenso, vestes cerimoniais, roupas comuns, bolsa com 15 po', en: 'Holy symbol, prayer book, 5 sticks of incense, vestments, common clothes, pouch w/ 15gp' } },
   { id: 'criminal',    skills: ['deception', 'stealth'],    languages: 0, equipment: { pt: 'Pé-de-cabra, roupas escuras com capuz, bolsa com 15 po', en: 'Crowbar, dark common clothes w/ hood, pouch w/ 15gp' } },
   { id: 'folkHero',    skills: ['animalHandling', 'survival'], languages: 0, equipment: { pt: 'Ferramentas de artesão, pá, marmita de ferro, roupas comuns, 10 po', en: "Artisan's tools, shovel, iron pot, common clothes, 10gp" } },
   { id: 'noble',       skills: ['history', 'persuasion'],   languages: 1, equipment: { pt: 'Roupas finas, anel de sinete, pergaminho de genealogia, 25 po', en: 'Fine clothes, signet ring, scroll of pedigree, 25gp' } },
   { id: 'sage',        skills: ['arcana', 'history'],       languages: 2, equipment: { pt: 'Frasco de tinta, pena, faca, carta de colega, roupas comuns, 10 po', en: 'Bottle of ink, quill, knife, letter from colleague, common clothes, 10gp' } },
   { id: 'soldier',     skills: ['athletics', 'intimidation'], languages: 0, equipment: { pt: 'Insígnia, troféu, jogo de cartas/dados, roupas comuns, 10 po', en: 'Insignia, trophy, deck of cards/dice, common clothes, 10gp' } },
-  { id: 'hermit',      skills: ['medicine', 'religion'],    languages: 1, equipment: { pt: 'Estojo de mapas/pergaminhos, manta, vestes, kit de herbalismo, 5 po', en: 'Map/scroll case, blanket, vestments, herbalism kit, 5gp' } },
+  { id: 'hermit',      skills: ['medicine', 'religion'],    languages: 1, equipment: { pt: 'Estojo de pergaminhos cheio de anotações, cobertor de inverno, roupas comuns, kit de herbalismo, 5 po', en: 'Scroll case stuffed with notes, winter blanket, common clothes, herbalism kit, 5gp' } },
   { id: 'entertainer', skills: ['acrobatics', 'performance'], languages: 0, equipment: { pt: 'Instrumento musical, traje de admirador, fantasia, 15 po', en: 'Musical instrument, costume, admirer favor, 15gp' } },
   { id: 'guildArtisan',skills: ['insight', 'persuasion'],   languages: 1, equipment: { pt: 'Ferramentas de artesão, carta de apresentação, roupas de viagem, 15 po', en: "Artisan's tools, letter of introduction, traveler's clothes, 15gp" } },
   { id: 'outlander',   skills: ['athletics', 'survival'],   languages: 1, equipment: { pt: 'Bastão, armadilha, troféu de caça, roupas de viagem, 10 po', en: 'Staff, hunting trap, animal trophy, traveler\'s clothes, 10gp' } },
   { id: 'sailor',      skills: ['athletics', 'perception'], languages: 0, equipment: { pt: 'Pino de manilha, corda de seda 50pés, talismã, roupas comuns, 10 po', en: 'Belaying pin, 50ft silk rope, lucky charm, common clothes, 10gp' } },
-  { id: 'urchin',      skills: ['sleightOfHand', 'stealth'], languages: 0, equipment: { pt: 'Faca, mapa cidade-natal, rato, bilhete dos pais, copo, 10 po', en: 'Small knife, map of home city, pet mouse, parent token, cup, 10gp' } },
+  { id: 'urchin',      skills: ['sleightOfHand', 'stealth'], languages: 0, equipment: { pt: 'Faca pequena, mapa da cidade natal, rato de estimação, lembrança dos pais, roupas comuns, 10 po', en: 'Small knife, map of home city, pet mouse, token from parents, common clothes, 10gp' } },
   { id: 'charlatan',   skills: ['deception', 'sleightOfHand'], languages: 0, equipment: { pt: 'Roupas finas, kit de disfarce, ferramentas de fraude (cartas marcadas/dados viciados), 15 po', en: 'Fine clothes, disguise kit, con tools (loaded dice/marked cards), 15gp' } },
-  { id: 'gladiator',   skills: ['acrobatics', 'performance'], languages: 0, equipment: { pt: 'Arma incomum (lembrança), traje de admirador, fantasia, 15 po', en: 'Unusual weapon (memento), admirer favor, costume, 15gp' } },
+  { id: 'gladiator',   skills: ['acrobatics', 'performance'], languages: 0, equipment: { pt: 'Arma barata e incomum (tridente ou rede), lembrança de um admirador, fantasia, 15 po', en: 'Inexpensive but unusual weapon (trident or net), favor of an admirer, costume, 15gp' } },
   { id: 'knight',      skills: ['history', 'persuasion'],   languages: 1, equipment: { pt: 'Roupas finas, anel de sinete, brasão, 25 po, atendente leal', en: 'Fine clothes, signet ring, scroll w/ titles, 25gp, loyal retainer' } },
-  { id: 'pirate',      skills: ['athletics', 'perception'], languages: 0, equipment: { pt: 'Pino de manilha, corda 50 pés, fantasia/vestes, 10 po', en: 'Belaying pin, 50ft rope, costume, 10gp' } },
-  { id: 'spy',         skills: ['deception', 'stealth'],    languages: 0, equipment: { pt: 'Insígnia de espião, roupas comuns, lembrança da missão anterior, 10 po', en: 'Spy insignia, common clothes, memento of last mission, 10gp' } },
-  { id: 'cityWatch',   skills: ['athletics', 'insight'],    languages: 2, equipment: { pt: 'Insígnia da guarda, manopla, vestes de cidade, 10 po, lanterna', en: 'Watch insignia, manacles, city clothes, 10gp, lantern' } },
-  { id: 'farTraveler', skills: ['insight', 'perception'],   languages: 1, equipment: { pt: 'Roupas exóticas, instrumento musical/jogo, peças de origem, 5 po em moedas estrangeiras', en: 'Exotic clothes, instrument/game, origin trinkets, 5gp foreign coin' } },
-  { id: 'inheritor',   skills: ['survival', 'arcana'],      languages: 1, equipment: { pt: 'Herança (carta, mapa, item mágico menor), roupas comuns, 15 po', en: 'Inheritance (letter, map, minor magic item), common clothes, 15gp' } },
+  { id: 'pirate',      skills: ['athletics', 'perception'], languages: 0, equipment: { pt: 'Pino de manilha (clava), corda de seda de 50 pés, talismã da sorte, roupas comuns, 10 po', en: 'Belaying pin (club), 50ft silk rope, lucky charm, common clothes, 10gp' } },
+  { id: 'spy',         skills: ['deception', 'stealth'],    languages: 0, equipment: { pt: 'Pé de cabra, roupas comuns escuras com capuz, bolsa com 15 po', en: 'Crowbar, dark common clothes w/ hood, pouch w/ 15gp' } },
+  { id: 'cityWatch',   skills: ['athletics', 'insight'],    languages: 2, equipment: { pt: 'Uniforme da guarda, trompa de sinal, algemas, bolsa com 10 po', en: 'Uniform, horn, manacles, pouch w/ 10gp' } },
+  { id: 'farTraveler', skills: ['insight', 'perception'],   languages: 1, equipment: { pt: 'Roupas de viajante, instrumento musical ou jogo, mapas mal desenhados da sua terra, joia pequena (10 po), bolsa com 5 po', en: "Traveler's clothes, musical instrument or gaming set, poorly wrought maps of your homeland, small piece of jewelry (10gp), pouch w/ 5gp" } },
+  { id: 'inheritor',   skills: ['survival', 'arcana'],      languages: 1, equipment: { pt: 'Herança (objeto, carta ou mapa), roupas de viajante, o jogo ou instrumento escolhido, bolsa com 15 po', en: "Inheritance (item, letter or map), traveler's clothes, chosen gaming set or instrument, pouch w/ 15gp" } },
 ];
 
 const ALIGNMENTS = ['LG','NG','CG','LN','N','CN','LE','NE','CE'];

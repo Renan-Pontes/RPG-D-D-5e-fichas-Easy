@@ -19,6 +19,7 @@ import CombatActionPanel from '../src/campaigns/CombatActionPanel.jsx';
 import PlayerChecksBanner from '../src/checks/PlayerChecksBanner.jsx';
 import * as FS from '../src/progression/fighting-styles.js';
 import GrimoireHint from '../src/grimoire/GrimoireHint.jsx';
+import { isWeaponProficient, isArmorProficient } from '../src/creator/start-data.js';
 
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
   const [tab, setTab] = useState('play');
@@ -35,7 +36,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   }, []);
 
   const ac = Utils.computeAc(char);
-  const initBonus = Utils.abilityMod(char, 'dex');
+  const initBonus = Utils.initiative(char);
   const speed = Utils.speed(char);
   const profB = Utils.profBonus(char);
   const passPerc = Utils.passivePerception(char);
@@ -1131,7 +1132,11 @@ const SheetNpcs = ({ char, lang, update }) => {
 
 // ===== Play tab =====
 const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, passPerc, slots, roll }) => {
-  const cls = SRD.CLASSES.find(c => c.id === char.className);
+  // Armadura/escudo sem treino: desvantagem em FOR/DES e sem conjurar magias (2014 e 2024).
+  const untrainedArmor = [
+    ...(char.armor && !isArmorProficient(char, char.armor) ? [tName('armor', char.armor, lang)] : []),
+    ...(char.hasShield && !isArmorProficient(char, 'shield') ? [lang === 'pt' ? 'Escudo' : 'Shield'] : []),
+  ];
   // Estilos de Luta / Maestria (src/progression/fighting-styles.js)
   const styles = FS.activeFightingStyles(char);
   const acStyleBonuses = FS.acBonuses(char, styles);
@@ -1227,6 +1232,14 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
               ? <span title={acStyleBonuses.map(x => x.label[lang]).join(', ')}>{FS.partsLabel(acStyleBonuses, lang)}</span>
               : <Icon name="shield" size={11}/>}
           </div>
+          {untrainedArmor.length > 0 && (
+            <div className="text-xs" style={{ color: 'var(--blood-bright)' }}
+              title={lang === 'pt'
+                ? 'Sem treino: desvantagem em testes, salvaguardas e ataques de FOR e DES, e você não pode lançar magias.'
+                : "Untrained: Disadvantage on STR and DEX checks, saves and attacks, and you can't cast spells."}>
+              {lang === 'pt' ? 'Sem treino' : 'Untrained'}: {untrainedArmor.join(', ')}
+            </div>
+          )}
         </div>
         <div className="combat-box" onClick={() => roll({ die: 20, mod: initBonus, label: t('initRoll', lang) })} style={{ cursor: 'pointer' }}>
           <div className="eyebrow">{t('initiative', lang)}</div>
@@ -1250,11 +1263,8 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             const isRanged = wDef && (wDef.type || '').includes('ranged');
             const useDex = isRanged || (isFinesse && Utils.abilityMod(char, 'dex') > Utils.abilityMod(char, 'str'));
             const abMod = Utils.abilityMod(char, useDex ? 'dex' : 'str');
-            const isProf = !wDef || !cls
-              ? true
-              : (cls.weapons.includes('Simple') && (wDef.type || '').startsWith('simple'))
-                || (cls.weapons.includes('Martial'))
-                || cls.weapons.some(wt => wDef.id.toLowerCase().includes(wt.toLowerCase().replace(/s$/, '')));
+            // Proficiência por regra (2014/2024), multiclasse, concessões de classe/talento/raça.
+            const isProf = !wDef || isWeaponProficient(char, wDef.id);
             const fs = FS.weaponStyleBonuses(char, w, styles);
             const atk = abMod + (isProf ? Utils.profBonus(char) : 0) + fs.attack;
             const dmgMod = abMod + fs.damage;

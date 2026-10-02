@@ -8,6 +8,7 @@ import { t as tr, tName } from '../../data/i18n.js';
 import { featsFor, findFeat } from '../../data/feats.js';
 import { SHARED } from '../../data/class-options/shared.js';
 import { CLASS_OPTIONS } from '../../data/class-options/index.js';
+import { TOOLS, toolName, armorTraining, weaponTraining } from '../creator/start-data.js';
 import {
   featCategories, featPrereqIssues, featTakenIssue, featChoiceSpecs, featRules, featScore,
 } from './feat-rules.js';
@@ -47,25 +48,12 @@ const CUSTOM = new Set(['skillOrTool', 'tool', 'instrument', 'weapon']);
 const humanize = (id) => String(id).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase());
 
 /** Proficiências em armadura/armas marciais que a ficha tem (aproximação para o pré-requisito). */
-const MC_PROFS = {
-  barbarian: ['shield', 'martialWeapon'], bard: ['lightArmor'], cleric: ['lightArmor', 'mediumArmor', 'shield'],
-  druid: ['lightArmor', 'mediumArmor', 'shield'], fighter: ['lightArmor', 'mediumArmor', 'shield', 'martialWeapon'],
-  paladin: ['lightArmor', 'mediumArmor', 'shield', 'martialWeapon'], ranger: ['lightArmor', 'mediumArmor', 'shield', 'martialWeapon'],
-  rogue: ['lightArmor'], warlock: ['lightArmor'], artificer: ['lightArmor', 'mediumArmor', 'shield'],
-};
 function proficiencySet(char) {
   const out = new Set();
-  const cls = SRD.CLASSES.find(c => c.id === char.className);
-  for (const a of cls?.armor || []) {
-    const s = String(a).toLowerCase();
-    if (s.startsWith('light')) out.add('lightArmor');
-    if (s.startsWith('medium')) out.add('mediumArmor');
-    if (s.startsWith('heavy')) out.add('heavyArmor');
-    if (s.startsWith('shield')) out.add('shield');
-    if (s.startsWith('all')) ['lightArmor', 'mediumArmor', 'heavyArmor', 'shield'].forEach(x => out.add(x));
-  }
-  if ((cls?.weapons || []).some(w => /martial/i.test(w))) out.add('martialWeapon');
-  for (const e of Utils.classEntries(char)) if (e.id !== char.className) (MC_PROFS[e.id] || []).forEach(x => out.add(x));
+  // Treino pela regra da ficha (start-data já soma multiclasse, talentos e concessões de classe).
+  const ARMOR_KEY = { light: 'lightArmor', medium: 'mediumArmor', heavy: 'heavyArmor', shield: 'shield' };
+  for (const a of armorTraining(char) || []) if (ARMOR_KEY[a]) out.add(ARMOR_KEY[a]);
+  if (weaponTraining(char)?.categories.has('martial')) out.add('martialWeapon');
   if (char.race === 'dwarf-mountain') { out.add('lightArmor'); out.add('mediumArmor'); }
   for (const f of char.feats || []) {
     for (const p of findFeat(f?.id)?.grants?.proficiencies || []) out.add(p === 'martialWeapons' ? 'martialWeapon' : p);
@@ -115,6 +103,7 @@ export function picksText(picks, lang) {
     if (['skill', 'skillProfOrExpertise', 'expertise', 'skillOrTool'].includes(key) && SRD.SKILLS.some(s => s.id === v)) return tName('skill', v, lang);
     if (key === 'damageType' && DAMAGE[v]) return DAMAGE[v][lang === 'pt' ? 0 : 1];
     if (key === 'instrument' && INSTRUMENTS[v]) return INSTRUMENTS[v][lang === 'pt' ? 0 : 1];
+    if (TOOLS[v]) return toolName(v, lang);
     return humanize(v);
   };
   return Object.entries(picks)
@@ -139,12 +128,25 @@ function choiceOptions(char, c, picks, lang) {
     case 'spellAbility': return c.options.map(id => ({ id, label: tr(id, lang) }));
     case 'variant': return c.spec.map(v => ({ id: v.id, label: v.name[lang] }));
     case 'damageType': return (c.options || []).map(id => ({ id, label: DAMAGE[id]?.[lang === 'pt' ? 0 : 1] || humanize(id) }));
-    case 'skill': case 'skillProfOrExpertise': case 'skillOrTool':
-      return SRD.SKILLS.filter(s => (!c.options || c.options.includes(s.id)) && (c.key !== 'skill' || !Utils.hasSkillProf(char, s.id)))
+    case 'skill': case 'skillProfOrExpertise': case 'skillOrTool': {
+      // Perícia/ferramenta tem que ser NOVA (Habilidoso, Humano Habilidoso…): esconde as que a ficha
+      // já tem por outro lado. As marcadas aqui mesmo continuam na lista para poder desmarcar.
+      const cur = Array.isArray(picks?.[c.key]) ? picks[c.key] : [];
+      const isNew = (has) => (id) => cur.includes(id) || !has(id);
+      const newSkill = isNew(id => Utils.hasSkillProf(char, id));
+      const skills = SRD.SKILLS.filter(s => (!c.options || c.options.includes(s.id)) && (c.key === 'skillProfOrExpertise' || newSkill(s.id)))
         .map(s => ({ id: s.id, label: tName('skill', s.id, lang) }));
+      if (c.key !== 'skillOrTool') return skills;
+      const known = new Set([...(char.toolProfs || []), ...(Utils.classGrants(char).tools || [])]);
+      const newTool = isNew(id => known.has(id));
+      const tools = Object.keys(TOOLS).filter(newTool)
+        .map(id => ({ id, label: `${toolName(id, lang)} (${L(lang, 'ferramenta', 'tool')})` }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+      return [...skills, ...tools];
+    }
     case 'expertise':
       return SRD.SKILLS.filter(s => Utils.hasSkillProf(char, s.id) && !Utils.hasExpertise(char, s.id)).map(s => ({ id: s.id, label: tName('skill', s.id, lang) }));
-    case 'tool': return (c.options || []).map(id => ({ id, label: humanize(id) }));
+    case 'tool': return (c.options || Object.keys(TOOLS)).map(id => ({ id, label: TOOLS[id] ? toolName(id, lang) : humanize(id) }));
     case 'instrument': return Object.entries(INSTRUMENTS).map(([id, n]) => ({ id, label: n[lang === 'pt' ? 0 : 1] }));
     case 'language': {
       const known = new Set(Utils.languagesFor(char));
@@ -196,7 +198,7 @@ function ChoiceField({ char, lang, c, picks, setPick }) {
         <div className="text-xs muted">{L(lang, 'Escolha a lista de magias primeiro.', 'Choose the spell list first.')}</div>
       ) : (
         <div className="class-pick-grid" style={{ maxHeight: 200, overflowY: 'auto' }}>
-          {[...opts, ...extra.map(id => ({ id, label: humanize(id) }))].map(o => {
+          {[...opts, ...extra.map(id => ({ id, label: TOOLS[id] ? toolName(id, lang) : humanize(id) }))].map(o => {
             const on = cur.includes(o.id);
             return (
               <button key={o.id} type="button" className={`class-pick small ${on ? 'on' : ''}`} disabled={!on && cur.length >= c.count} onClick={() => toggle(o.id)}>

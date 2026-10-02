@@ -981,3 +981,84 @@ textarea:focus-visible {
 .cr-counter { font-family: var(--mono, monospace); font-size: 0.8rem; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--stroke); }
 .cr-counter.done { color: var(--moss-bright, #6f9a4a); border-color: currentColor; }
 .cr-counter.over { color: var(--blood-bright, #c0392b); border-color: currentColor; }
+
+/* === Criação: etapa equipment (src/creator/steps/equipment.jsx) === */
+.cr-eq-section { margin-bottom: var(--s-4); }
+.cr-eq-section h3 { margin-bottom: 8px; }
+.cr-eq-lines { margin: 8px 0 0; padding-left: 18px; text-align: left; font-size: 0.86rem; line-height: 1.45; }
+.cr-eq-lines li { margin-bottom: 2px; }
+.cr-eq-hint { color: var(--ink-secondary); font-size: 0.82rem; text-align: left; }
+.cr-eq-flag, .cr-eq-warn strong { color: var(--amber, #c98a2b); }
+.cr-eq-result { margin: var(--s-4) 0; }
+.cr-eq-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin-bottom: 6px; }
+.cr-eq-big { font-family: var(--display); font-size: 1.4rem; color: var(--gold); }
+.cr-eq-advanced { margin-top: var(--s-4); }
+.cr-eq-advanced summary { cursor: pointer; font-weight: 600; }
+.cr-eq-advanced select { margin-bottom: 8px; }
+.cr-eq-coins { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 480px) { .cr-eq-coins { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* === Criação: etapa Antecedente (background) === */
+.cr-bg-gains { display: block; margin-top: 6px; text-align: left; font-size: 0.82rem; line-height: 1.4; color: var(--ink-secondary); }
+.cr-bg-line { display: block; margin-top: 2px; }
+.cr-bg-line strong { color: var(--ink-primary); font-weight: 600; }
+
+/* === Criação: etapa Idiomas (src/creator/steps/languages.jsx) === */
+.cr-languages .lang-known,
+.cr-languages .lang-counter { display: none; }
+
+/* === Criação: etapas abilities / abilityBonus (atributos) === */
+.cr-ab-pool { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.cr-ab-chip {
+  display: inline-flex; flex-direction: column; align-items: center; min-width: 44px; padding: 4px 8px;
+  border-radius: var(--radius); border: 1px solid var(--gold-deep); background: var(--bg-raised); color: var(--gold);
+}
+.cr-ab-chip .mono { font-size: 1.05rem; }
+.cr-ab-chip.used { opacity: 0.55; border-color: var(--stroke); color: var(--ink-secondary); }
+.cr-ab-rolls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+@media (min-width: 560px) { .cr-ab-rolls { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.cr-ab-roll { text-align: center; padding: 6px; border: 1px solid var(--stroke); border-radius: var(--radius); background: var(--bg-raised); }
+.cr-ab-roll.used { border-color: var(--gold-deep); }
+.cr-ab-roll-total { font-size: 1.3rem; color: var(--gold); }
+.cr-ab-roll-dice { display: flex; justify-content: center; gap: 4px; color: var(--ink-secondary); }
+.cr-ab-roll-dice .dropped { text-decoration: line-through; opacity: 0.5; }
+.cr-ab-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center; }
+.cr-ab-summary-num { font-size: 1.5rem; color: var(--gold); }
+.stat-row .stat-controls select { max-width: 150px; }
+
+/* === Criação: revisão final (steps/review.jsx) === */
+.cr-review-value { font-family: var(--display); font-size: 1.5rem; color: var(--gold); min-width: 48px; text-align: right; }
+.cr-review-pending { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--stroke-faint); }
+.cr-review-pending-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 600; margin-bottom: 4px; }
+.cr-review-abilities { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+@media (min-width: 600px) { .cr-review-abilities { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.cr-review-ability { text-align: center; background: var(--bg-card); border: 1px solid var(--stroke-faint); border-radius: var(--radius); padding: 8px 4px; }
+.cr-review-mod { font-family: var(--display); font-size: 1.4rem; color: var(--gold); line-height: 1.1; }
+
+/* === Criação: etapas de magias (cantrips / spells) === */
+.cr-spell-toolbar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 8px 0 12px; }
+.cr-spell-toolbar input[type="search"] { flex: 1 1 200px; min-width: 0; }
+.cr-spell-filter { display: inline-flex; gap: 6px; align-items: center; font-size: 0.88rem; color: var(--ink-secondary); cursor: pointer; }
+.cr-spell-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin: 16px 0 6px; }
+.cr-spell-level { margin: 16px 0 8px; }
+.cr-spell-granted { margin: 6px 0 8px; padding-left: 18px; }
+.spell-tag-warn { color: var(--blood-bright, #c0392b); font-size: 0.75rem; border: 1px solid currentColor; border-radius: 6px; padding: 0 5px; margin-left: 6px; }
+.spell-tag-src { color: var(--ink-secondary); font-size: 0.75rem; border: 1px solid var(--stroke); border-radius: 6px; padding: 0 5px; margin-left: 6px; }
+
+/* === Criação: etapas class / classChoices / skills === */
+.cr-class-facts { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 0.92rem; line-height: 1.45; }
+.cr-class-features { margin-top: 12px; }
+.cr-class-features summary { cursor: pointer; color: var(--gold); }
+.cr-class-features p { margin: 8px 0 0; color: var(--ink-secondary); }
+.cr-choice-group { margin-top: 24px; }
+.cr-choice-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.cr-choice-head h3 { margin: 0; }
+.cr-choice-search { margin: 8px 0; width: 100%; }
+.cr-choice-detail { display: grid; gap: 4px; margin-top: 10px; font-size: 0.9rem; }
+.cr-skill-row { width: 100%; text-align: left; font: inherit; color: inherit; }
+.cr-skill-row:disabled { cursor: default; }
+.cr-skill-row.disabled { cursor: not-allowed; }
+.cr-skill-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cr-skill-name { font-weight: 600; }
+.cr-skill-hint { font-size: 0.8rem; color: var(--ink-secondary); line-height: 1.35; }
+.cr-badge.cr-badge-muted { background: transparent; color: var(--ink-secondary); border-color: var(--stroke); }
