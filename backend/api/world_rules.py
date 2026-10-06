@@ -466,6 +466,18 @@ def revealed_secrets(entry):
             for s in (entry.secrets or []) if isinstance(s, dict) and s.get('revealed')]
 
 
+# Subconjunto de `data` que vai na lista leve (rótulo do cartão). Todos são
+# campos públicos; o jogador só recebe quando a entrada está `revealed`.
+LIGHT_DATA_KEYS = {'npc': ('role',), 'place': ('placeType',), 'item': ('rarity',), 'handout': ('style',)}
+
+
+def light_data(entry, for_dm):
+    raw = entry.data or {}
+    if not for_dm and entry.visibility != 'revealed':
+        return {}
+    return {k: raw[k] for k in LIGHT_DATA_KEYS.get(entry.kind, ()) if raw.get(k) not in (None, '')}
+
+
 def serialize_light(entry, for_dm, visible_ids=None):
     """WorldEntryLight. `visible_ids` = ids não-hidden que o jogador pode ver
     (obrigatório quando for_dm=False)."""
@@ -476,6 +488,9 @@ def serialize_light(entry, for_dm, visible_ids=None):
         'isMap': is_map(entry.kind, entry.data),
         'revealedAt': _iso(entry.revealed_at), 'updatedAt': _iso(entry.updated_at),
     }
+    ldata = light_data(entry, for_dm)
+    if ldata:  # só quando há rótulo (o front lê `entry.data?.role` etc.)
+        base['data'] = ldata
     if for_dm:
         base.update({
             'parentId': entry.parent_id, 'whenLabel': entry.when_label, 'whenOrder': entry.when_order,

@@ -121,11 +121,17 @@ urlpatterns = [
     path('checks/<int:pk>/close', views_checks.check_close),
     path('checks/<int:pk>/screen', views_checks.check_screen),
 
+    # Prévia do convite. Fica DEPOIS das rotas campaigns/<id_or_slug>/<literal>:
+    # códigos são maiúsculos, então nunca sombreiam essas rotas (case-sensitive).
+    path('campaigns/invite/<str:code>', views_campaigns.campaign_invite_preview),
+    path('campaigns/invite/<str:code>/cover', views_campaigns.campaign_invite_cover),
+
     # Screen (público)
     path('screen/<str:token>', views_screen.screen),
     path('screen/<str:token>/rolls', views_combat.roll_public_screen),
     path('screen/<str:token>/image/<int:entry_id>', _wp2('views_screen', 'screen_image')),
     path('screen/<str:token>/cover', _wp2('views_screen', 'screen_cover')),
+    path('screen/<str:token>/map', views_screen.screen_map),
 
     # Combat
     path('combat/campaign/<str:id_or_slug>', views_combat.combat_get),

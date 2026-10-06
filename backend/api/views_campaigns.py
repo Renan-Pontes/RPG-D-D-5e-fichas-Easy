@@ -14,6 +14,7 @@ from .campaign_state import (clean_state_patch, clean_state_value, merge_state,
                              PATCHABLE_KEYS, SERVER_KEYS)
 from .image_data import validate_data_url, image_ver, image_response
 from .screen_card import clean_screen_card, resolve_screen_card
+from .rate_limit import rate_limit
 
 TONES = {'heroic', 'dark', 'mystery', 'comic', 'epic'}
 _ACCENT = re.compile(r'^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$')
@@ -219,6 +220,67 @@ def campaign_screen_card(request, id_or_slug):
     card = clean_screen_card(campaign, request.data)
     merge_state(campaign, {'screenCard': card})
     return Response({'card': resolve_screen_card(campaign, token=campaign.screen_token)})
+
+
+_INVITE_CODE = re.compile(r'^[A-Z0-9]{4,10}$')
+
+
+def _campaign_by_invite(code):
+    code = (code or '').strip().upper()
+    if not _INVITE_CODE.match(code):
+        return None
+    return Campaign.objects.filter(invite_code=code).select_related('dm', 'dm__profile').defer('cover_image').first()
+
+
+def _dm_display_name(user):
+    prof = getattr(user, 'profile', None)
+    name = getattr(prof, 'display_name', '') if prof else ''
+    return name or (user.email.split('@')[0] if user.email else user.username)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@rate_limit(key='invite_preview', max_attempts=30, window=60, per_ip=False, per_user=True)
+def campaign_invite_preview(request, code):
+    """GET /campaigns/invite/<code> — prévia da mesa antes de entrar (ex.: na
+    criação de personagem: "tem um código de sala?"). Só dados de vitrine:
+    nada de estado, membros nominais, tokens ou Mundo. 404 invite_invalid."""
+    campaign = _campaign_by_invite(code)
+    if not campaign:
+        return Response({'error': 'invite_invalid'}, status=404)
+    state = campaign.state or {}
+    already = campaign.dm_id == request.user.id or \
+        Membership.objects.filter(campaign=campaign, user=request.user).exists()
+    out = {
+        'campaignId': campaign.id,
+        'slug': campaign.slug,
+        'name': campaign.name,
+        'tagline': campaign.tagline,
+        'accent': campaign.accent,
+        'dmName': _dm_display_name(campaign.dm),
+        'members': Membership.objects.filter(campaign=campaign).exclude(role='dm').count(),
+        'levelingMode': 'xp' if state.get('levelingMode') == 'xp' else 'milestone',
+        'allowMulticlass': state.get('allowMulticlass', True) is not False,
+        'alreadyMember': already,
+    }
+    if campaign.cover_ver:
+        out['coverUrl'] = f'/api/campaigns/invite/{campaign.invite_code}/cover?v={campaign.cover_ver}'
+    return Response(out)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@rate_limit(key='invite_cover', max_attempts=60, window=60, per_ip=False, per_user=True)
+def campaign_invite_cover(request, code):
+    """GET /campaigns/invite/<code>/cover — capa para a prévia do convite (quem
+    tem o código já pode entrar na mesa, então pode ver a capa)."""
+    campaign = _campaign_by_invite(code)
+    if not campaign or not campaign.cover_ver:
+        return Response({'error': 'invite_invalid' if not campaign else 'not_found'}, status=404)
+    img = Campaign.objects.filter(pk=campaign.pk).values_list('cover_image', flat=True).first()
+    if not img:
+        return Response({'error': 'not_found'}, status=404)
+    return image_response(request, img, campaign.cover_ver)
 
 
 @api_view(['POST'])

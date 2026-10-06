@@ -49,6 +49,30 @@ class SharedCharacterAdmin(admin.ModelAdmin):
     search_fields = ('token', 'owner__email')
 
 
+class WorldImageInline(admin.StackedInline):
+    model = m.WorldImage
+    extra = 0
+    readonly_fields = ('data',)
+    can_delete = True
+
+
+@admin.register(m.WorldEntry)
+class WorldEntryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'kind', 'visibility', 'campaign', 'updated_at')
+    list_filter = ('kind', 'visibility')
+    search_fields = ('name', 'summary', 'campaign__name')
+    list_select_related = ('campaign',)
+    raw_id_fields = ('campaign', 'parent')
+    inlines = [WorldImageInline]
+
+
+@admin.register(m.WorldImage)
+class WorldImageAdmin(admin.ModelAdmin):
+    list_display = ('entry',)
+    raw_id_fields = ('entry',)
+    readonly_fields = ('data',)
+
+
 for model in (m.Membership, m.Approval, m.DiceRig, m.DiceLog, m.CombatInstance, m.RollRequest,
               m.CampaignItem, m.DiaryEntry, m.CheckRequest, m.CheckResponse, m.Adventure):
     admin.site.register(model)

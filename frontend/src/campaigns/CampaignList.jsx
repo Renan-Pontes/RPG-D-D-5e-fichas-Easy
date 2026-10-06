@@ -6,15 +6,25 @@ import CoverPicker from '../shell/CoverPicker.jsx';
 import ToneAccentFields from '../shell/ToneAccentFields.jsx';
 import { defaultCoverArt, isHexColor, saveRememberedArea, TONES } from '../shell/shell-logic.js';
 import '../shell/shell.css';
+import { TableInviteCard } from '../creator/JoinTable.jsx';
+import { normalizeInviteCode, joinFromInvite, joinToast } from '../creator/creation.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
-export default function CampaignList({ lang = 'pt', onOpen, onBack }) {
+/**
+ * joinCode: código vindo da rota /join/<código> — abre o "Entrar com código" já preenchido.
+ * characters: fichas do jogador, para escolher qual levar à mesa.
+ * onJoinCodeUsed: avisa que o código pré-preenchido já foi usado/fechado.
+ * onToast: mensagem de sucesso ao entrar.
+ */
+export default function CampaignList({ lang = 'pt', onOpen, onBack, joinCode = null, characters = [], onJoinCodeUsed, onToast }) {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const [showJoin, setShowJoin] = useState(false);
+  const [showJoin, setShowJoin] = useState(!!joinCode);
+  useEffect(() => { if (joinCode) setShowJoin(true); }, [joinCode]);
+  const closeJoin = () => { setShowJoin(false); onJoinCodeUsed?.(); };
 
   const load = async () => {
     try {
@@ -59,7 +69,8 @@ export default function CampaignList({ lang = 'pt', onOpen, onBack }) {
       </div>
 
       {showCreate && <CreateCampaignModal lang={lang} onClose={() => setShowCreate(false)} onCreated={(c) => { setShowCreate(false); load(); onOpen?.(c); }} />}
-      {showJoin && <JoinCampaignModal lang={lang} onClose={() => setShowJoin(false)} onJoined={(c) => { setShowJoin(false); load(); onOpen?.(c); }} />}
+      {showJoin && <JoinCampaignModal lang={lang} initialCode={joinCode || ''} characters={characters} onClose={closeJoin}
+        onJoined={(c) => { closeJoin(); load(); onOpen?.(c); if (c.toast) onToast?.(c.toast); }} />}
     </div>
   );
 }
@@ -232,25 +243,44 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
   );
 }
 
-function JoinCampaignModal({ lang, onClose, onJoined }) {
-  const [code, setCode] = useState('');
+/** Entrar numa campanha com o código, escolhendo (opcional) qual ficha levar. */
+function JoinCampaignModal({ lang, onClose, onJoined, initialCode = '', characters = [] }) {
+  const [code, setCode] = useState(normalizeInviteCode(initialCode));
+  // Só fichas da conta (id do servidor); as que já estão numa mesa ficam desabilitadas.
+  const mine = characters.filter(c => typeof c.id === 'number');
+  const [charId, setCharId] = useState(() => (mine.find(c => !c.inCampaign)?.id ?? ''));
+  const [table, setTable] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  // Código preenchido pela rota: mostra a mesa (se o servidor souber dizer).
+  useEffect(() => {
+    let alive = true;
+    const c = normalizeInviteCode(initialCode);
+    if (!c) return undefined;
+    api.campaignInvite(c).then(res => { if (alive) setTable(joinFromInvite(c, res)); }).catch(() => {});
+    return () => { alive = false; };
+  }, [initialCode]);
+
   const submit = async (e) => {
     e.preventDefault();
-    setBusy(true);
+    if (busy) return;
+    setBusy(true); setError('');
     try {
-      const res = await api.joinCampaign({ inviteCode: code });
-      onJoined({ id: res.campaignId, slug: res.slug });
+      const body = { inviteCode: normalizeInviteCode(code) };
+      if (charId !== '') body.characterId = charId;
+      const res = await api.joinCampaign(body);
+      const ch = mine.find(c => c.id === charId);
+      onJoined({ id: res.campaignId, slug: res.slug, toast: ch && table && normalizeInviteCode(code) === table.code ? joinToast(ch.name, table.name, lang) : '' });
     } catch (e) {
-      if (e?.data?.error === 'invite_invalid') setError(t(lang, 'Código inválido', 'Invalid code'));
+      if (e?.data?.error === 'invite_invalid') setError(t(lang, 'Código inválido: confira as letras com o seu mestre.', 'Invalid code: check the letters with your GM.'));
       else setError(errorMessage(e, lang));
     } finally { setBusy(false); }
   };
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <h2 style={{ marginTop: 0 }}>{t(lang, 'Entrar em campanha', 'Join campaign')}</h2>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="join-camp-title" onClick={e => e.stopPropagation()}>
+        <h2 id="join-camp-title" style={{ marginTop: 0 }}>{t(lang, 'Entrar em campanha', 'Join campaign')}</h2>
         <form onSubmit={submit} className="col gap-3">
           <label className="col gap-1">
             <span>{t(lang, 'Código de convite', 'Invite code')}</span>
@@ -258,17 +288,37 @@ function JoinCampaignModal({ lang, onClose, onJoined }) {
               className="input"
               required
               value={code}
-              onChange={e => setCode(e.target.value.toUpperCase())}
+              onChange={e => { setCode(normalizeInviteCode(e.target.value)); setError(''); }}
               placeholder="ABCDEF"
-              maxLength={10}
-              autoFocus
+              maxLength={16}
+              autoFocus={!initialCode}
+              autoComplete="off"
               style={{ fontFamily: 'JetBrains Mono, monospace', letterSpacing: 2, fontSize: '1.2em' }}
             />
           </label>
+          {table && normalizeInviteCode(code) === table.code && <TableInviteCard table={table} lang={lang} />}
+          {mine.length > 0 && (
+            <fieldset className="col gap-1" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+              <legend style={{ marginBottom: 'var(--s-1)' }}>{t(lang, 'Qual personagem vai para a mesa?', 'Which character goes to the table?')}</legend>
+              <div className="join-chars">
+                {mine.map(c => (
+                  <label key={c.id} className={`join-char ${c.inCampaign ? 'is-disabled' : ''}`}>
+                    <input type="radio" name="join-char" checked={charId === c.id} disabled={!!c.inCampaign} onChange={() => setCharId(c.id)} />
+                    <span className="join-char-name">{c.name || t(lang, 'Sem nome', 'Unnamed')}</span>
+                    <span className="muted text-sm">{c.inCampaign ? t(lang, 'já está numa mesa', 'already in a table') : `${t(lang, 'nível', 'level')} ${c.level || 1}`}</span>
+                  </label>
+                ))}
+                <label className="join-char">
+                  <input type="radio" name="join-char" checked={charId === ''} onChange={() => setCharId('')} />
+                  <span className="join-char-name">{t(lang, 'Escolho depois', "I'll pick later")}</span>
+                </label>
+              </div>
+            </fieldset>
+          )}
           {error && <div className="auth-error">{error}</div>}
           <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>
             <button type="button" className="btn btn-ghost" onClick={onClose}>{t(lang, 'Cancelar', 'Cancel')}</button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>{t(lang, 'Entrar', 'Join')}</button>
+            <button type="submit" className="btn btn-primary" disabled={busy || !code}>{busy ? t(lang, 'Entrando…', 'Joining…') : t(lang, 'Entrar', 'Join')}</button>
           </div>
         </form>
       </div>

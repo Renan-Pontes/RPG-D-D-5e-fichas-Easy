@@ -266,7 +266,7 @@ class CampaignItem(models.Model):
 # Ver api/diary.py (log_diary) e views_diary.py.
 class DiaryEntry(models.Model):
     KIND_CHOICES = [('note', 'Note'), ('event', 'Event')]
-    SUBTYPES = ('note', 'session', 'roll', 'levelup', 'item', 'combat', 'rest', 'xp', 'custom')
+    SUBTYPES = ('note', 'session', 'roll', 'levelup', 'levelgrant', 'item', 'combat', 'rest', 'xp', 'reveal', 'custom')
 
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='diary_entries')
     session = models.IntegerField(null=True, blank=True)  # nº da sessão; None = sem sessão (agrupa por dia)

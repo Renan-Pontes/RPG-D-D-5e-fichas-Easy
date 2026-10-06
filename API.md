@@ -114,6 +114,18 @@ Lista todas as campanhas onde o user é DM ou jogador. Itens trazem `role: 'dm' 
 ```
 **200** `{ membership, campaignId, slug }`. **404 invite_invalid**.
 
+### `GET /campaigns/invite/:code` (logado)
+Prévia da mesa antes de entrar (ex.: "Tem um código de sala?" na criação de personagem). Código sem diferenciar maiúsculas.
+```json
+{ "campaignId": 3, "slug": "mesa", "name": "Mesa", "tagline": "…", "accent": "#c9a24a", "dmName": "Mestre",
+  "members": 4, "levelingMode": "milestone" | "xp", "allowMulticlass": true, "alreadyMember": false,
+  "coverUrl"?: "/api/campaigns/invite/ABC234/cover?v=<coverVer>" }
+```
+`members` = jogadores (sem o mestre). `coverUrl` só se houver capa. **404 invite_invalid**. **429 rate_limited** acima de 30 consultas/min por usuário (contra força bruta). Nada de estado, nomes de membros ou tokens.
+
+### `GET /campaigns/invite/:code/cover` (logado)
+Capa da campanha para a prévia (imagem binária, cache por `?v=`). 60/min por usuário. 404 sem capa ou código inválido.
+
 ### `PUT /campaigns/:id/members/:membershipId`
 ```json
 { "characterId": 5 | null }
@@ -328,7 +340,12 @@ Backend rola consumindo `DiceRig` se houver. Marca `isCritical` (nat 20 em d20),
 ### `POST /rolls/:id/cancel` (DM ou owner)
 
 ### `GET /screen/:token` (público)
-Inclui agora `combat: {...}` e `publicRolls: [...]` (últimas 5 públicas).
+Inclui agora `combat: {...}` e `publicRolls: [...]` (só a mais recente). `combat.map` traz `grid_size_px`, `grid_visible`, `width_px`, `height_px` e, se houver fundo, `backgroundVer` + `backgroundUrl` — o fundo **não** vem mais inline (`background_image`).
+
+### `GET /screen/:token/map?v=<backgroundVer>` (público)
+Fundo do mapa de combate (binário, cacheável). 404 sem fundo.
+
+**Cartão "Mostrar agora":** documento (`handout`) com `recipients` diferente de `'all'` nunca vai ao telão: o POST `/campaigns/:id/screen-card` responde **400** `handout_private`, um cartão já gravado é ignorado (`card: null`) e `GET /screen/:token/image/:id` dá 404.
 
 ---
 
@@ -345,7 +362,7 @@ Lugares, NPCs, facções, itens, lore e documentos do mestre (`WorldEntry`). O f
 { "entries": [WorldEntryLight], "count": 7, "max": 500 }      // mestre
 { "entries": [WorldEntryLight], "seenAt": "iso" | null }       // jogador
 ```
-`WorldEntryLight`: `{id, kind, name, summary, tags, visibility, imageVer, imageUrl, isMap, revealedAt, updatedAt, parentId, whenLabel, whenOrder, links, mentions, secretsCount, sort}`; o mestre recebe também `version`, `secretsRevealed`, `pinTargets`.
+`WorldEntryLight`: `{id, kind, name, summary, tags, visibility, imageVer, imageUrl, isMap, revealedAt, updatedAt, parentId, whenLabel, whenOrder, links, mentions, secretsCount, sort, data?}`; o mestre recebe também `version`, `secretsRevealed`, `pinTargets`. `data` é um subconjunto para o rótulo do cartão — `npc.role`, `place.placeType`, `item.rarity`, `handout.style` — e só aparece quando há valor (para o jogador, só se a entrada estiver `revealed`).
 
 ### `POST /campaigns/:id/world` (mestre) → **201** `{entry: WorldEntryFull}`
 Só `kind` (`place|npc|faction|item|lore|handout`) e `name` são obrigatórios. Campos aceitos (camelCase): `summary, body, dmNotes, secrets, visibility, parentId, tags, links, data, whenLabel, whenOrder, sort`.

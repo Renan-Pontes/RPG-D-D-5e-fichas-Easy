@@ -405,9 +405,26 @@
   .shell-search-backdrop { padding-top: 16px !important; }
 }
 
-/* Botão flutuante de dados: zona livre acima da barra inferior. */
+/* Botão flutuante de dados no celular, dentro da campanha: em vez de flutuar
+   sobre o conteúdo (cobria o "Nível" do card de jogador, o × de um chip…), ele
+   encaixa na ponta direita da barra inferior, que reserva esse espaço.
+   --fab-safe-bottom continua marcando a zona livre acima da barra, usada por
+   avisos e botões fixos das áreas. */
 @media (max-width: 767px) {
   body:has(.shell-bottom-bar) { --fab-safe-bottom: calc(var(--shell-bar-h, 62px) + 8px); }
+  body:has(.shell-bottom-bar .shell-bottom-btn):has(.dice-fab) .shell-bottom-bar { padding-right: calc(var(--shell-fab-size) + 12px); }
+  body:has(.shell-bottom-bar) {
+    --shell-fab-size: 50px;
+  }
+  body:has(.shell-bottom-bar) .dice-fab.no-print {
+    right: 8px;
+    bottom: calc((var(--shell-bar-h, 62px) - var(--shell-fab-size)) / 2 + env(safe-area-inset-bottom, 0px));
+    width: var(--shell-fab-size); height: var(--shell-fab-size);
+    margin-bottom: 0 !important; /* encaixado: não precisa desviar de nada */
+    z-index: 41; /* acima da barra (40) */
+  }
+  /* encaixado na barra, não some ao rolar (senão a barra ficaria com um buraco) */
+  body:has(.shell-bottom-bar) .dice-fab.no-print.is-hidden { transform: none; opacity: 1; pointer-events: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

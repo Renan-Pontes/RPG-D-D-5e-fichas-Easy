@@ -21,6 +21,8 @@ import ProgressionPanel from './src/progression/ProgressionPanel.jsx';
 import { applyAutosToCharacter, applyLevelUpChoices, applyLevelChoice, applyClassOptions, revertLastLevel } from './src/progression/engine.js';
 import LevelUpModal from './src/progression/LevelUpModal.jsx';
 import { ClassOptionsModal } from './src/progression/ClassOptionsPicker.jsx';
+import InviteChoice from './src/campaigns/InviteChoice.jsx';
+import { parseJoinRoute, savePendingInvite, loadPendingInvite, joinToast, joinFailMessage } from './src/creator/creation.js';
 
 const AdminScreen = lazy(() => import('./src/admin/AdminScreen.jsx'));
 // Grimório (regras para jogadores): chunk próprio, só carrega quando aberto.
@@ -121,14 +123,80 @@ const App = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storage]);
 
+  // Convite: /join/<código> ou #join=<código>. Guarda o código (sobrevive ao login/F5) e limpa a URL.
+  const [pendingInvite, setPendingInvite] = useState(() => parseJoinRoute(window.location.pathname, window.location.hash) || loadPendingInvite());
+  const [inviteJoin, setInviteJoin] = useState(null);         // mesa verificada para o assistente
+  const [campaignJoinCode, setCampaignJoinCode] = useState(null); // "Usar um personagem que já tenho"
+  const [joinRetry, setJoinRetry] = useState(null);           // { join, characterId, charName, msg }
+  const [joinRetrying, setJoinRetrying] = useState(false);
+  const inviteAuthRedirect = useRef(false);
+  useEffect(() => {
+    const take = () => {
+      const code = parseJoinRoute(window.location.pathname, window.location.hash);
+      if (!code) return;
+      savePendingInvite(code);
+      setPendingInvite(code);
+      inviteAuthRedirect.current = false;
+      history.replaceState(null, '', '/');
+    };
+    take();
+    window.addEventListener('hashchange', take);
+    return () => window.removeEventListener('hashchange', take);
+  }, []);
+  const clearPendingInvite = useCallback(() => { savePendingInvite(null); setPendingInvite(null); }, []);
+  // Sem login: leva à entrada (uma vez); depois do login, a escolha aparece sozinha.
+  useEffect(() => {
+    if (!pendingInvite || auth.loading) return;
+    if (auth.backendAvailable === false) {
+      setToast(lang === 'pt' ? 'O convite precisa do servidor, que está fora do ar agora. Tente o link de novo mais tarde.' : 'The invite needs the server, which is offline right now. Try the link again later.');
+      clearPendingInvite();
+      return;
+    }
+    if (!auth.user && !inviteAuthRedirect.current) {
+      inviteAuthRedirect.current = true;
+      setScreen(SCREENS.AUTH);
+    }
+  }, [pendingInvite, auth.loading, auth.user, auth.backendAvailable, lang, clearPendingInvite]);
+
   const active = characters.find(c => c.id === activeId);
 
-  const handleSaveNew = async (char) => {
+  // Entra na mesa com a ficha recém-salva. Se falhar, a ficha continua salva e fica o aviso com "Tentar de novo".
+  const joinTable = async (join, characterId, charName) => {
+    try {
+      const res = await api.joinCampaign({ inviteCode: join.code, characterId });
+      setJoinRetry(null);
+      await refreshCharacters();
+      setActiveCampaignId(res.slug || join.slug || res.campaignId || join.campaignId);
+      setScreen(SCREENS.CAMPAIGN);
+      setToast(joinToast(charName, join.name, lang));
+      return true;
+    } catch (e) {
+      console.warn('join after create failed', e);
+      setJoinRetry({ join, characterId, charName, msg: joinFailMessage(e, join) });
+      return false;
+    }
+  };
+
+  const retryJoin = async () => {
+    if (!joinRetry || joinRetrying) return;
+    setJoinRetrying(true);
+    try { await joinTable(joinRetry.join, joinRetry.characterId, joinRetry.charName); }
+    finally { setJoinRetrying(false); }
+  };
+
+  // join: mesa escolhida no assistente (opcional). Os outros usos chamam só handleSaveNew(char).
+  const handleSaveNew = async (char, { join = null } = {}) => {
     const withAutos = applyAutosToCharacter(char);
     const saved = await storage.save(withAutos);
     await refreshCharacters();
     setActiveId(saved.id);
     setEditingChar(null);
+    setInviteJoin(null);
+    if (join && auth.user && saved?.id != null) {
+      if (await joinTable(join, saved.id, saved.name || char.name)) return;
+      setScreen(SCREENS.SHEET);
+      return;
+    }
     setScreen(SCREENS.SHEET);
     setToast(t('saved', lang));
   };
@@ -450,6 +518,10 @@ const App = () => {
       content = (
         <CampaignList
           lang={lang}
+          characters={characters}
+          joinCode={campaignJoinCode}
+          onJoinCodeUsed={() => setCampaignJoinCode(null)}
+          onToast={setToast}
           onOpen={(c) => { setActiveCampaignId(c.id); setScreen(SCREENS.CAMPAIGN); }}
           onBack={() => setScreen(SCREENS.HOME)}
         />
@@ -471,7 +543,7 @@ const App = () => {
           lang={lang}
           characters={characters}
           onOpen={(id) => { setActiveId(id); setScreen(SCREENS.SHEET); }}
-          onNew={() => { setEditingChar(null); setScreen(SCREENS.CREATE); }}
+          onNew={() => { setEditingChar(null); setInviteJoin(null); setScreen(SCREENS.CREATE); }}
           onImport={handleImport}
           onImportPdf={handleImportPdf}
           onExportAll={handleExportAll}
@@ -485,9 +557,12 @@ const App = () => {
       // Ficha nova: assistente passo a passo (src/creator). Editar ficha existente: editor antigo.
       content = !editingChar ? (
         <CreatorWizard
+          key={inviteJoin?.code || 'new'}
           lang={lang}
+          initialJoin={inviteJoin}
+          joinEnabled={!!auth.user && auth.backendAvailable !== false}
           onSave={handleSaveNew}
-          onCancel={() => setScreen(activeId ? SCREENS.SHEET : SCREENS.HOME)}
+          onCancel={() => { setInviteJoin(null); setScreen(activeId ? SCREENS.SHEET : SCREENS.HOME); }}
         />
       ) : (
         <Creator
@@ -603,8 +678,38 @@ const App = () => {
         </div>
       )}
       <main id="main" className={`container ${screen === SCREENS.CAMPAIGN || screen === SCREENS.GRIMOIRE || screen === SCREENS.ADMIN ? 'container-wide' : ''}`} tabIndex={-1}>
+        {screen === SCREENS.AUTH && pendingInvite && !auth.user && (
+          <div className="join-hint" role="status" style={{ marginBottom: 'var(--s-4)' }}>
+            {lang === 'pt'
+              ? <>Você recebeu um convite para uma mesa (código <span className="mono">{pendingInvite}</span>). Entre ou crie sua conta para continuar.</>
+              : <>You got an invite to a table (code <span className="mono">{pendingInvite}</span>). Log in or sign up to continue.</>}
+          </div>
+        )}
+        {joinRetry && screen !== SCREENS.CAMPAIGN && screen !== SCREENS.CREATE && (
+          <div className="join-retry" role="alert">
+            <span className="join-retry-msg">{joinRetry.msg[lang] || joinRetry.msg.pt}</span>
+            <span className="join-retry-actions">
+              {joinRetry.msg.retry && (
+                <button type="button" className="btn btn-primary btn-sm" onClick={retryJoin} disabled={joinRetrying}>
+                  {joinRetrying ? (lang === 'pt' ? 'Tentando…' : 'Trying…') : (lang === 'pt' ? 'Tentar de novo' : 'Try again')}
+                </button>
+              )}
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setJoinRetry(null)}>{lang === 'pt' ? 'Dispensar' : 'Dismiss'}</button>
+            </span>
+          </div>
+        )}
         {content}
       </main>
+      {pendingInvite && auth.user && !auth.loading && (
+        <InviteChoice
+          code={pendingInvite}
+          lang={lang}
+          hasCharacters={characters.some(c => typeof c.id === 'number')}
+          onClose={clearPendingInvite}
+          onCreate={(join) => { clearPendingInvite(); setEditingChar(null); setInviteJoin(join); setScreen(SCREENS.CREATE); }}
+          onUseExisting={(join) => { clearPendingInvite(); setCampaignJoinCode(join.code); setScreen(SCREENS.CAMPAIGNS); }}
+        />
+      )}
       <DiceRoller lang={lang} />
       {toast && <Toast msg={toast} onDone={() => setToast('')} />}
       {confirm && (

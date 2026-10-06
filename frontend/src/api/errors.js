@@ -32,8 +32,8 @@ const E = {
   // Conta / campanha
   invalid_credentials: ['E-mail ou senha incorretos.', 'Wrong email or password.'],
   email_taken: ['E-mail já cadastrado.', 'Email already registered.'],
-  invite_invalid: ['Código de convite inválido.', 'Invalid invite code.'],
-  character_already_in_campaign: ['Este personagem já está em uma campanha.', 'This character is already in a campaign.'],
+  invite_invalid: ['Código de convite inválido. Confira com o mestre (letras e números, sem espaços).', 'Invalid invite code. Check it with your DM (letters and numbers, no spaces).'],
+  character_already_in_campaign: ['Este personagem já está em outra campanha. Escolha outro ou crie um novo.', 'This character is already in another campaign. Pick another or create a new one.'],
   cannot_remove_dm: ['O mestre não pode ser removido da campanha.', 'The DM cannot be removed from the campaign.'],
   dm_cannot_leave: ['O mestre não pode sair da própria campanha.', "The DM can't leave their own campaign."],
   fields_locked_in_campaign: ['Em campanha, esses campos só mudam pelo mestre ou pela subida de nível.', 'In a campaign, these fields change only via the DM or leveling up.'],
@@ -111,7 +111,7 @@ const E = {
   // Preparação
   too_many_adventures: ['Limite de aventuras da campanha atingido.', 'Campaign adventure limit reached.'],
   adventure_too_large: ['Aventura grande demais para salvar.', 'Adventure too large to save.'],
-  image_too_large: ['Imagem grande demais mesmo depois de comprimir.', 'Image still too large after compression.'],
+  image_too_large: ['Imagem grande demais mesmo depois de comprimir. Tente uma menor.', 'Image still too large after compression. Try a smaller one.'],
   invalid_image: ['Imagem inválida.', 'Invalid image.'],
   invalid_node: ['Sala/cena inválida.', 'Invalid room/scene.'],
   invalid_node_id: ['Sala/cena inválida.', 'Invalid room/scene.'],
@@ -135,6 +135,25 @@ const E = {
   invalid_mode: ['Modo inválido.', 'Invalid mode.'],
   invalid_amount: ['Quantidade inválida.', 'Invalid amount.'],
   invalid_pagination: ['Página inválida.', 'Invalid page.'],
+  // Mundo / telão
+  version_conflict: ['Este cartão foi alterado em outra aba ou aparelho. Recarregue para ver a versão mais nova antes de salvar.', 'This card was changed in another tab or device. Reload to see the latest version before saving.'],
+  entry_hidden: ['Este cartão está oculto. Revele (ou deixe conhecido de nome) antes de mostrar aos jogadores.', 'This card is hidden. Reveal it (or make it known by name) before showing it to players.'],
+  entry_not_found: ['Cartão do mundo não encontrado (pode ter sido apagado).', 'World card not found (it may have been deleted).'],
+  too_many_entries: ['O mundo desta campanha atingiu o limite de cartões.', "This campaign's world reached its card limit."],
+  handout_private: ['Este material é só para alguns jogadores; não dá para mostrar no telão.', "This handout is for specific players only; it can't go on the shared screen."],
+  world_not_empty: ['O mundo já tem cartões; o modelo inicial só entra num mundo vazio.', 'The world already has cards; the starter template only goes into an empty world.'],
+  scene_not_found: ['Cena não encontrada (a aventura pode ter mudado).', 'Scene not found (the adventure may have changed).'],
+  empty_recap: ['Escreva o resumo antes de mostrar.', 'Write the recap before showing it.'],
+  no_image: ['Este cartão não tem imagem.', 'This card has no image.'],
+  too_many_links: ['Ligações demais neste cartão.', 'Too many links on this card.'],
+  too_many_secrets: ['Segredos demais neste cartão.', 'Too many secrets on this card.'],
+  too_many_tags: ['Marcadores demais neste cartão.', 'Too many tags on this card.'],
+  too_many_pins: ['Marcadores demais neste mapa.', 'Too many pins on this map.'],
+  unknown_secret: ['Esse segredo não existe mais no cartão.', 'That secret no longer exists on the card.'],
+  unknown_pin: ['Esse marcador não existe mais no mapa.', 'That pin no longer exists on the map.'],
+  body_too_long: ['Texto longo demais.', 'Text too long.'],
+  notes_too_long: ['Anotações longas demais.', 'Notes too long.'],
+  recap_too_long: ['Resumo longo demais.', 'Recap too long.'],
 };
 
 function currentLang() {

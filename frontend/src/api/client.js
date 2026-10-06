@@ -179,6 +179,8 @@ export const api = {
   updateCampaign:  (id, body) => request(`/api/campaigns/${id}`, { method: 'PUT', body }),
   deleteCampaign:  (id) => request(`/api/campaigns/${id}`, { method: 'DELETE' }),
   joinCampaign:    (body) => request('/api/campaigns/join', { method: 'POST', body }),
+  // Prévia de um código de convite (nome, frase, mestre) antes de entrar.
+  campaignInvite:  (code) => request(`/api/campaigns/invite/${encodeURIComponent(code)}`),
   updateMembership:(campId, membId, body) => request(`/api/campaigns/${campId}/members/${membId}`, { method: 'PUT', body }),
   removeMember:    (campId, membId) => request(`/api/campaigns/${campId}/members/${membId}`, { method: 'DELETE' }),
   rotateScreenToken:(id) => request(`/api/campaigns/${id}/rotate-screen-token`, { method: 'POST' }),

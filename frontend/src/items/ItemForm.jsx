@@ -3,78 +3,16 @@
 import { errorMessage } from '../api/errors.js';
 import { useState } from 'react';
 import { ITEM_TYPES } from '../../data/items.js';
+import { DAMAGE_TYPES } from '../combat/monster-i18n.js';
+import {
+  RARITIES, WEAPON_PROPS, dmgTypeLabel, formToItem, formWeightLb, toForm, typeLabel, weaponPropLabel,
+} from './item-model.js';
+
+// Reexporta os rótulos para quem já importava daqui.
+export { dmgTypeLabel, formToItem, rarityLabel, typeLabel, weaponPropLabel, weightLabel } from './item-model.js';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
-const TYPE_LABEL = {
-  weapon: ['Arma', 'Weapon'], armor: ['Armadura', 'Armor'], shield: ['Escudo', 'Shield'],
-  gear: ['Equipamento', 'Gear'], potion: ['Poção', 'Potion'], magic: ['Item mágico', 'Magic item'],
-};
-const RARITIES = [
-  ['common', 'Comum', 'Common'], ['uncommon', 'Incomum', 'Uncommon'], ['rare', 'Raro', 'Rare'],
-  ['very rare', 'Muito raro', 'Very rare'], ['legendary', 'Lendário', 'Legendary'], ['artifact', 'Artefato', 'Artifact'],
-];
-const DMG_TYPES = ['bludgeoning', 'piercing', 'slashing', 'acid', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'poison', 'psychic', 'radiant', 'thunder'];
-const DMG_PT = {
-  bludgeoning: 'concussão', piercing: 'perfurante', slashing: 'cortante', acid: 'ácido', cold: 'frio', fire: 'fogo',
-  force: 'energia', lightning: 'elétrico', necrotic: 'necrótico', poison: 'veneno', psychic: 'psíquico', radiant: 'radiante', thunder: 'trovejante',
-};
-/** Tipo de dano na língua da tela ("piercing" → "perfurante"). */
-export const dmgTypeLabel = (type, lang) => (lang === 'pt' ? DMG_PT[type] || type : type);
-/** Raridade na língua da tela ("very rare" → "Muito raro"). */
-export const rarityLabel = (rarity, lang) => {
-  const r = RARITIES.find(([id]) => id === rarity);
-  return r ? (lang === 'pt' ? r[1] : r[2]) : rarity;
-};
-/** Peso guardado em libras → "1 kg (2 lb)" em pt, "2 lb" em en. */
-export const weightLabel = (lb, lang) => {
-  if (lb == null || lb === '') return '';
-  const kg = Math.round(lb * 0.45 * 10) / 10;
-  return lang === 'pt' ? `${String(kg).replace('.', ',')} kg (${lb} lb)` : `${lb} lb`;
-};
-
-export const typeLabel = (type, lang) => (TYPE_LABEL[type] || [type, type])[lang === 'pt' ? 0 : 1];
-
-const text = (v, lang) => (typeof v === 'string' ? v : v?.[lang] || v?.en || v?.pt || '');
-
-// Converte um item salvo em estado do formulário.
-const toForm = (item, lang) => ({
-  name: item?.name ? text(item.name, lang) : '',
-  type: item?.type || 'gear',
-  weight: item?.weight ?? '',
-  cost: item?.cost ?? '',
-  description: text(item?.description, lang),
-  damage: item?.weapon?.damage || '',
-  dmgType: item?.weapon?.dmgType || 'slashing',
-  props: (item?.weapon?.props || []).join(', '),
-  // Campos da arma que o formulário não edita (alcance, maestria, números 2024): preservados.
-  weaponExtra: (({ damage, dmgType, props, ...rest }) => rest)(item?.weapon || {}),
-  ac: item?.armor?.ac ?? '',
-  armorType: item?.armor?.type || (item?.type === 'shield' ? 'shield' : 'light'),
-  isMagic: !!item?.magic || item?.type === 'magic',
-  rarity: item?.magic?.rarity || 'uncommon',
-  attunement: !!item?.magic?.attunement,
-  effect: text(item?.magic?.effect, lang),
-});
-
-// Estado do formulário → item (só inclui os blocos preenchidos).
-export const formToItem = (f) => {
-  const both = (s) => (s.trim() ? { pt: s.trim(), en: s.trim() } : undefined);
-  const item = { name: f.name.trim(), type: f.type };
-  if (f.weight !== '' && +f.weight >= 0) item.weight = +f.weight;
-  if (f.cost !== '' && +f.cost >= 0) item.cost = +f.cost;
-  if (both(f.description)) item.description = both(f.description);
-  if (f.type === 'weapon' && f.damage.trim()) {
-    item.weapon = { ...(f.weaponExtra || {}), damage: f.damage.trim(), dmgType: f.dmgType, props: f.props.split(',').map(p => p.trim()).filter(Boolean) };
-  }
-  if ((f.type === 'armor' || f.type === 'shield') && f.ac !== '') {
-    item.armor = { ac: Math.max(0, Math.min(30, parseInt(f.ac) || 0)), type: f.type === 'shield' ? 'shield' : f.armorType };
-  }
-  if (f.isMagic || f.type === 'magic') {
-    item.magic = { rarity: f.rarity, attunement: f.attunement, effect: both(f.effect) || {} };
-  }
-  return item;
-};
 
 export default function ItemForm({ lang, initial, submitLabel, onSubmit, onCancel, extra }) {
   const [f, setF] = useState(() => toForm(initial, lang));
@@ -117,12 +55,24 @@ export default function ItemForm({ lang, initial, submitLabel, onSubmit, onCance
           <div style={{ flex: 1 }}>
             <label>{t(lang, 'Tipo de dano', 'Damage type')}</label>
             <select aria-label={t(lang, 'Tipo de dano', 'Damage type')} value={f.dmgType} onChange={e => set({ dmgType: e.target.value })}>
-              {DMG_TYPES.map(d => <option key={d} value={d}>{dmgTypeLabel(d, lang)}</option>)}
+              {DAMAGE_TYPES.map(d => <option key={d} value={d}>{dmgTypeLabel(d, lang)}</option>)}
             </select>
           </div>
-          <div style={{ flex: 2 }}>
-            <label>{t(lang, 'Propriedades', 'Properties')}</label>
-            <input aria-label={t(lang, 'Propriedades', 'Properties')} value={f.props} placeholder="finesse, light" onChange={e => set({ props: e.target.value })} />
+        </div>
+      )}
+      {f.type === 'weapon' && (
+        <div>
+          <label>{t(lang, 'Propriedades', 'Properties')}</label>
+          <div className="row gap-2" role="group" aria-label={t(lang, 'Propriedades', 'Properties')} style={{ flexWrap: 'wrap' }}>
+            {WEAPON_PROPS.map(p => {
+              const on = f.props.includes(p);
+              return (
+                <button key={p} type="button" aria-pressed={on} className={`btn btn-sm ${on ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => set({ props: on ? f.props.filter(x => x !== p) : [...f.props, p] })}>
+                  {weaponPropLabel(p, lang)}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -148,9 +98,9 @@ export default function ItemForm({ lang, initial, submitLabel, onSubmit, onCance
 
       <div className="row gap-2">
         <div style={{ flex: 1 }}>
-          <label>{t(lang, 'Peso em libras (lb)', 'Weight (lb)')}</label>
-          <input aria-label={t(lang, 'Peso em libras (lb)', 'Weight (lb)')} type="number" min="0" step="0.1" value={f.weight} onChange={e => set({ weight: e.target.value })} />
-          {lang === 'pt' && f.weight !== '' && +f.weight > 0 && <div className="muted small">≈ {weightLabel(+f.weight, lang)}</div>}
+          <label>{t(lang, 'Peso (kg)', 'Weight (lb)')}</label>
+          <input aria-label={t(lang, 'Peso (kg)', 'Weight (lb)')} type="number" min="0" step="0.1" inputMode="decimal" value={f.weight} onChange={e => set({ weight: e.target.value })} />
+          {lang === 'pt' && f.weight !== '' && formWeightLb(f) > 0 && <div className="muted small">≈ {formWeightLb(f)} lb</div>}
         </div>
         <div style={{ flex: 1 }}>
           <label>{t(lang, 'Preço (PO)', 'Cost (GP)')}</label>

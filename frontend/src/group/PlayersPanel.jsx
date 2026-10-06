@@ -88,21 +88,15 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
           onSaved={() => { notify?.(t(lang, `Ficha de ${editing.name} salva.`, `${editing.name}'s sheet saved.`)); setEditing(null); onChange?.(); }} />
       )}
       {giving && (
-        <GiveItemModal campaign={campaign} character={giving} lang={lang} onClose={() => setGiving(null)}
-          onGiven={async (item) => {
+        <GiveItemModal campaign={campaign} character={giving} lang={lang} notify={false} onClose={() => setGiving(null)}
+          onGiven={(instance) => {
             const who = giving.name;
             setGiving(null); onChange?.();
-            let itemName = item?.name || item?.item?.name || '';
-            if (!itemName) {
-              // O modal não diz o que foi dado: o diário registra na hora ("Thalion recebeu Poção de Cura").
-              try {
-                const r = await api.listDiary(campaign.id, { subtype: 'item', limit: 1 });
-                const last = (r.entries || [])[0]?.data?.items?.slice(-1)[0];
-                if (last?.characterName === who) itemName = last.itemName;
-              } catch { /* segue com o aviso genérico */ }
-            }
+            const raw = instance?.name;
+            const itemName = raw && typeof raw === 'object' ? (raw[lang] || raw.pt || raw.en) : raw;
+            const qty = instance?.qty > 1 ? `${instance.qty}× ` : '';
             notify?.(itemName
-              ? t(lang, `${who} recebeu ${itemName}`, `${who} received ${itemName}`)
+              ? t(lang, `${who} recebeu ${qty}${itemName}`, `${who} received ${qty}${itemName}`)
               : t(lang, `${who} recebeu o item`, `${who} received the item`));
           }} />
       )}

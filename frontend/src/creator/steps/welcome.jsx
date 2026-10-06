@@ -1,6 +1,7 @@
 /* Etapa 1 — Começo: o que é uma ficha, qual livro de regras e como sobe de nível. */
 import { StepIntro, Term, ChoiceGrid, ChoiceCard, Callout, L } from '../ui.jsx';
-import { hasRulesChoices, rulesSwitchPatch } from '../creation.js';
+import { hasRulesChoices, rulesSwitchPatch, creationJoin } from '../creation.js';
+import { JoinTableBlock } from '../JoinTable.jsx';
 
 const RULES = [
   {
@@ -34,7 +35,8 @@ const LEVELING = [
   },
 ];
 
-function WelcomeStep({ char, set, lang }) {
+function WelcomeStep({ char, set, lang, joinEnabled = true }) {
+  const join = creationJoin(char);
   const rules = char.rulesVersion === '2014' ? '2014' : '2024';
   const leveling = char.levelingMode === 'xp' ? 'xp' : 'milestone';
 
@@ -66,6 +68,8 @@ function WelcomeStep({ char, set, lang }) {
           'Each screen explains what you are choosing. Tap words marked "?" to see what they mean.')}</p>
       </StepIntro>
 
+      <JoinTableBlock char={char} set={set} lang={lang} joinEnabled={joinEnabled} />
+
       <div className="card" style={{ marginBottom: 'var(--s-4)' }}>
         <h3 style={{ marginTop: 0 }}>{L(lang, 'Qual livro de regras?', 'Which rulebook?')}</h3>
         <p className="muted text-sm">
@@ -88,15 +92,25 @@ function WelcomeStep({ char, set, lang }) {
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>{L(lang, 'Como seu herói sobe de nível?', 'How does your hero level up?')}</h3>
-        <p className="muted text-sm">
-          {L(lang, 'Quem decide é o mestre. Se não souber, deixe ', 'The GM decides. If you don\'t know, keep ')}
-          <Term id="milestone" lang={lang}>{L(lang, 'Marcos', 'Milestones')}</Term>
-          {L(lang, ' — dá para mudar depois na ficha.', ' — you can change it later on the sheet.')}
-        </p>
+        {join ? (
+          <p className="muted text-sm">
+            {L(lang, `Quem decide é o mestre: a mesa "${join.name}" sobe `, `The GM decides: the table "${join.name}" levels up `)}
+            {join.levelingMode === 'xp'
+              ? L(lang, 'por XP.', 'by XP.')
+              : <><Term id="milestone" lang={lang}>{L(lang, 'por Marcos', 'by Milestones')}</Term>.</>}
+          </p>
+        ) : (
+          <p className="muted text-sm">
+            {L(lang, 'Quem decide é o mestre. Se não souber, deixe ', 'The GM decides. If you don\'t know, keep ')}
+            <Term id="milestone" lang={lang}>{L(lang, 'Marcos', 'Milestones')}</Term>
+            {L(lang, ' — dá para mudar depois na ficha.', ' — you can change it later on the sheet.')}
+          </p>
+        )}
         <ChoiceGrid>
           {LEVELING.map(m => (
-            <ChoiceCard key={m.id} selected={leveling === m.id} onClick={() => set({ levelingMode: m.id })}
-              title={m.title[lang]} badge={m.badge?.[lang]} subtitle={m.sub[lang]} />
+            <ChoiceCard key={m.id} selected={leveling === m.id} disabled={!!join && leveling !== m.id}
+              onClick={() => { if (!join) set({ levelingMode: m.id }); }}
+              title={m.title[lang]} badge={join ? (leveling === m.id ? L(lang, 'Da mesa', "Table's") : null) : m.badge?.[lang]} subtitle={m.sub[lang]} />
           ))}
         </ChoiceGrid>
       </div>
@@ -107,7 +121,7 @@ function WelcomeStep({ char, set, lang }) {
 export default {
   id: 'welcome',
   title: { pt: 'Começo', en: 'Start' },
-  // Regra e progressão já vêm com padrão (2024 + Marcos): nada a pendente aqui.
+  // Regra e progressão já vêm com padrão (2024 + Marcos) e o código de mesa é opcional: nada pendente aqui.
   issues: () => [],
   Comp: WelcomeStep,
 };

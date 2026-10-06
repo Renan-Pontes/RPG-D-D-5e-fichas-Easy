@@ -22,3 +22,14 @@ test('issues do backend aparecem como lista', () => {
   assert.equal(errorMessage({ data: { issues: ['a', 'b'] } }, 'pt'), 'a · b');
   assert.equal(errorText('nao_existe', 'pt'), null);
 });
+
+test('códigos do mundo, telão e convite têm texto nas duas línguas', () => {
+  for (const code of ['version_conflict', 'image_too_large', 'entry_hidden', 'too_many_entries', 'invite_invalid', 'character_already_in_campaign']) {
+    const pt = errorText(code, 'pt');
+    const en = errorText(code, 'en');
+    assert.ok(pt && en && pt !== en, code);
+    assert.doesNotMatch(pt, /código:/, code);
+  }
+  // 409 do mundo chega como { error: 'version_conflict', entry }
+  assert.match(errorMessage({ message: 'version_conflict', data: { error: 'version_conflict', entry: {} } }, 'pt'), /outra aba/);
+});

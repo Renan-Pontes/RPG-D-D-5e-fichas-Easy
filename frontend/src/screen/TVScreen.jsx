@@ -256,10 +256,14 @@ function TVCard({ card, lang }) {
 
 /** Versão pequena do cartão durante o combate (canto da tela). */
 function TVMiniCard({ card, lang }) {
-  const img = absUrl(API_BASE, card.imageUrl);
+  // Sem imagem própria, o cartão do mundo usa a mesma arte padrão da prévia do mestre.
+  const fallback = card.type === 'entry' ? defaultArt({ kind: card.kind, id: card.entryId }) : null;
+  const img = absUrl(API_BASE, card.imageUrl) || fallback;
   return (
     <div className="tv-mini-card" key={cardKey(card)}>
-      {img && <img src={img} alt="" onError={hideOnError} />}
+      {img && <img src={img} alt="" onError={(e) => {
+        if (fallback && !e.currentTarget.src.endsWith(fallback)) e.currentTarget.src = fallback; else hideOnError(e);
+      }} />}
       <div>
         <div className="tv-card-kind">{cardKindLabel(card, lang)}</div>
         <div className="tv-mini-title">{card.title}</div>

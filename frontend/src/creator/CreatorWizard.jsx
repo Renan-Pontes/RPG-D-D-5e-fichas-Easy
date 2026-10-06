@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import Icon from '../../components/Icons.jsx';
 import { tName } from '../../data/i18n.js';
 import { STEPS } from './steps.js';
-import { newCharacter, finalizeCharacter, loadDraft, saveDraft, clearDraft, saveErrorMessage } from './creation.js';
+import { newCharacter, finalizeCharacter, loadDraft, saveDraft, clearDraft, saveErrorMessage, joinPatch, creationJoin } from './creation.js';
 import { L, IssueList } from './ui.jsx';
 
 const safeIssues = (s, char) => {
@@ -11,10 +11,16 @@ const safeIssues = (s, char) => {
   try { return s.issues(char) || []; } catch { return [{ pt: 'Revise esta etapa.', en: 'Review this step.' }]; }
 };
 
-export default function CreatorWizard({ lang, onSave, onCancel }) {
+/**
+ * initialJoin: mesa já verificada (rota /join/<código>) — o personagem nasce com ela.
+ * joinEnabled: dá para entrar numa mesa (logado e com servidor)? Senão o bloco só explica.
+ * onSave(char, { join }) — join = mesa escolhida na etapa Começo (ou null).
+ */
+export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = null, joinEnabled = true }) {
   // Rascunho salvo (F5 no meio da criação): oferece continuar antes de começar outro.
   const [draft, setDraft] = useState(() => loadDraft());
-  const [char, setChar] = useState(() => newCharacter());
+  const withInitialJoin = (c) => (initialJoin ? { ...c, ...joinPatch(c, initialJoin) } : c);
+  const [char, setChar] = useState(() => withInitialJoin(newCharacter()));
   const set = useCallback((patch) => setChar(prev => ({ ...prev, ...(typeof patch === 'function' ? patch(prev) : patch) })), []);
 
   // Só as etapas que se aplicam a este personagem (ex.: magias só para conjuradores).
@@ -54,7 +60,7 @@ export default function CreatorWizard({ lang, onSave, onCancel }) {
   }, [char, stepId, visited, draft]);
 
   const resumeDraft = () => {
-    setChar(draft.char);
+    setChar(withInitialJoin(draft.char));
     const ok = STEPS.some(s => s.id === draft.stepId);
     setStepId(ok ? draft.stepId : STEPS[0].id);
     setVisited(draft.visited.length ? draft.visited : [STEPS[0].id]);
@@ -69,7 +75,7 @@ export default function CreatorWizard({ lang, onSave, onCancel }) {
     setSaving(true);
     setSaveError(null);
     try {
-      await onSave(finalizeCharacter(char, lang));
+      await onSave(finalizeCharacter(char, lang), { join: joinEnabled ? creationJoin(char) : null });
       clearDraft();
     } catch (err) {
       console.error('creator save failed', err);
@@ -129,7 +135,7 @@ export default function CreatorWizard({ lang, onSave, onCancel }) {
         </div>
       )}
 
-      {!draft && <Comp char={char} set={set} lang={lang} goTo={goTo} steps={steps} />}
+      {!draft && <Comp char={char} set={set} lang={lang} goTo={goTo} steps={steps} joinEnabled={joinEnabled} />}
 
       <div className="wizard-footer no-print">
         {saveError && (
@@ -147,7 +153,9 @@ export default function CreatorWizard({ lang, onSave, onCancel }) {
           </button>
           <button className="btn btn-primary" onClick={next} disabled={issues.length > 0 || saving || !!draft} aria-busy={saving || undefined}>
             {isLast
-              ? (saving ? L(lang, 'Salvando…', 'Saving…') : L(lang, 'Criar personagem', 'Create character'))
+              ? (saving ? L(lang, 'Salvando…', 'Saving…')
+                : joinEnabled && creationJoin(char) ? L(lang, 'Criar e entrar na mesa', 'Create and join table')
+                : L(lang, 'Criar personagem', 'Create character'))
               : L(lang, 'Avançar', 'Next')}
             <Icon name={isLast ? 'check' : 'chevron-right'} size={16}/>
           </button>

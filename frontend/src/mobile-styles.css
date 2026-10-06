@@ -121,12 +121,6 @@
   .cc-attack-row > div {
     width: 100%;
   }
-  /* Combat grid wrapper: scroll horizontal mas ocupa toda a tela */
-  .combat-grid-wrapper {
-    margin: 0 calc(-1 * var(--s-4, 16px));
-    border-radius: 0;
-    padding: 8px;
-  }
   .grid-controls {
     flex-direction: column;
     align-items: stretch;
@@ -332,11 +326,6 @@
   .wizard { margin-left: -10px; margin-right: -10px; padding-left: 10px; padding-right: 10px; }
   /* Mesmo caso das abas (ficha e campanha) */
   .tabs { margin-left: -10px; margin-right: -10px; padding-left: 10px; padding-right: 10px; --tabs-pad: 10px; }
-  .combat-grid-wrapper { margin-left: -10px; margin-right: -10px; }
-}
-@media (min-width: 361px) and (max-width: 600px) {
-  /* grade de combate: -14px vs. container de 12px vazava 2px */
-  .combat-grid-wrapper { margin-left: -12px; margin-right: -12px; }
 }
 
 /* Telas de toque maiores que celular (tablet): PT/EN e botões pequenos com alvo ≥40px */

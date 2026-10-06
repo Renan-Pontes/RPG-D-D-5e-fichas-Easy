@@ -36,7 +36,8 @@ export function hasRulesChoices(char) {
   if (char.raceBonus && Object.values(char.raceBonus).some(Boolean)) return true;
   if (char.speciesChoices && Object.keys(char.speciesChoices).length) return true;
   if (char.abilities && Object.values(char.abilities).some(v => v !== 8)) return true;
-  if (char.creation && Object.keys(char.creation).length) return true;
+  // A mesa escolhida (creation.join) não é escolha de regra.
+  if (char.creation && Object.keys(char.creation).some(k => k !== 'join')) return true;
   return false;
 }
 
@@ -51,7 +52,121 @@ export function rulesSwitchPatch(char, rulesVersion) {
   for (const k of Object.keys(char || {})) patch[k] = undefined;
   Object.assign(patch, fresh);
   for (const k of RULES_SWITCH_KEEP) if (char && char[k] !== undefined && char[k] !== '') patch[k] = char[k];
+  // A mesa escolhida continua (não depende da regra).
+  if (char?.creation?.join) patch.creation = { join: char.creation.join };
   return patch;
+}
+
+// ---------------------------------------------------------------------------
+// Começo: código de mesa (opcional) — criar o personagem já dentro da campanha
+// ---------------------------------------------------------------------------
+/** Código de convite limpo: maiúsculas, só letras e números (aceita colar com espaço/hífen). */
+export function normalizeInviteCode(raw) {
+  return String(raw ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
+}
+
+/**
+ * Código da rota de convite: /join/<CÓDIGO> ou #join=<CÓDIGO> (também #join/<CÓDIGO>).
+ * Devolve o código normalizado ou null.
+ */
+export function parseJoinRoute(pathname = '', hash = '') {
+  let m = /^\/join\/([^/?#]+)\/?$/i.exec(String(pathname || ''));
+  if (!m) m = /^#join[=/]([^&?#]+)/i.exec(String(hash || ''));
+  if (!m) return null;
+  let raw = m[1];
+  try { raw = decodeURIComponent(raw); } catch { /* fica cru */ }
+  const code = normalizeInviteCode(raw);
+  return code || null;
+}
+
+/** Resposta de GET /api/campaigns/invite/<code> → o que a criação guarda em char.creation.join. */
+export function joinFromInvite(code, invite) {
+  if (!invite || invite.campaignId == null) return null;
+  return {
+    code: normalizeInviteCode(code),
+    campaignId: invite.campaignId,
+    slug: invite.slug || null,
+    name: String(invite.name || ''),
+    tagline: String(invite.tagline || ''),
+    accent: invite.accent || '',
+    dmName: String(invite.dmName || ''),
+    levelingMode: invite.levelingMode === 'xp' ? 'xp' : 'milestone',
+    alreadyMember: !!invite.alreadyMember,
+    members: Number.isFinite(invite.members) ? invite.members : null,
+    coverUrl: typeof invite.coverUrl === 'string' && invite.coverUrl.startsWith('/api/') ? invite.coverUrl : null,
+  };
+}
+
+/** Patch para o `set` do assistente: guarda a mesa e adota a progressão dela. null remove a mesa. */
+export function joinPatch(char, join) {
+  const creation = { ...(char?.creation || {}) };
+  if (!join) {
+    delete creation.join;
+    return { creation };
+  }
+  creation.join = join;
+  return { creation, levelingMode: join.levelingMode === 'xp' ? 'xp' : 'milestone' };
+}
+
+/** Mesa escolhida na criação (ou null). */
+export const creationJoin = (char) => {
+  const j = char?.creation?.join;
+  return j && j.code && j.campaignId != null ? j : null;
+};
+
+/** Mensagem do "Verificar" que falhou (código errado, sem conexão…). */
+export function inviteCheckMessage(err) {
+  const code = err?.data?.error || err?.data?.detail;
+  if (err?.status === 404 || code === 'invite_invalid' || code === 'not_found') {
+    return { pt: 'Não achamos nenhuma mesa com esse código. Confira as letras com o seu mestre e tente de novo.',
+      en: "We couldn't find a table with that code. Check the letters with your GM and try again." };
+  }
+  if (err?.status === 401 || err?.status === 403) {
+    return { pt: 'Entre na sua conta para usar um código de mesa.', en: 'Log in to use a table code.' };
+  }
+  if (err?.status === 429) {
+    return { pt: 'Muitas tentativas seguidas. Espere um pouco e tente de novo.', en: 'Too many attempts. Wait a moment and try again.' };
+  }
+  return { pt: 'Não deu para verificar agora. Confira sua conexão e tente de novo.', en: "Couldn't check right now. Check your connection and try again." };
+}
+
+/** Aviso quando a ficha foi salva mas a entrada na mesa falhou (nada se perde). retry: vale tentar de novo? */
+export function joinFailMessage(err, join) {
+  const n = String(join?.name || '').trim();
+  const mesaPt = n ? `a mesa "${n}"` : 'a mesa';
+  const mesaEn = n ? `the table "${n}"` : 'the table';
+  const code = err?.data?.error || err?.data?.detail;
+  if (err?.status === 404 || code === 'invite_invalid') {
+    return { pt: `Sua ficha foi salva, mas o código da mesa não vale mais (o mestre pode ter trocado). Peça o código novo e use Campanhas → "Entrar com código".`,
+      en: 'Your sheet was saved, but the table code is no longer valid (the GM may have changed it). Ask for the new code and use Campaigns → "Join with code".',
+      retry: false };
+  }
+  if (code === 'character_already_in_campaign') {
+    return { pt: 'Sua ficha foi salva, mas ela já está em outra mesa.', en: 'Your sheet was saved, but it is already in another table.', retry: false };
+  }
+  return { pt: `Sua ficha foi salva, mas não deu para entrar n${mesaPt} agora.`,
+    en: `Your sheet was saved, but joining ${mesaEn} failed for now.`, retry: true };
+}
+
+/** Rota de convite pendente (sobrevive ao login e a um F5). */
+export const PENDING_INVITE_KEY = 'forja:pending-invite';
+export function savePendingInvite(code, store = sessionStore()) {
+  if (!store) return;
+  try { if (code) store.setItem(PENDING_INVITE_KEY, code); else store.removeItem(PENDING_INVITE_KEY); } catch { /* ignora */ }
+}
+export function loadPendingInvite(store = sessionStore()) {
+  if (!store) return null;
+  try { return normalizeInviteCode(store.getItem(PENDING_INVITE_KEY)) || null; } catch { return null; }
+}
+const sessionStore = () => { try { return globalThis.sessionStorage || null; } catch { return null; } };
+
+/** Toast de sucesso: "Thalion entrou na mesa Ecos de Valdoria". */
+export function joinToast(charName, campName, lang = 'pt') {
+  const who = String(charName || '').trim() || L(lang, 'Seu personagem', 'Your character');
+  const where = String(campName || '').trim();
+  return where
+    ? L(lang, `${who} entrou na mesa ${where}!`, `${who} joined the table ${where}!`)
+    : L(lang, `${who} entrou na mesa!`, `${who} joined the table!`);
 }
 
 // ---------------------------------------------------------------------------

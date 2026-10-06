@@ -20,7 +20,7 @@ from .models import Campaign, CombatInstance, RollRequest, CheckRequest
 from .progression.multiclass import class_entries
 from .campaign_state import public_state
 from .image_data import image_response, image_ver
-from .screen_card import resolve_screen_card
+from .screen_card import is_private_handout, resolve_screen_card
 
 
 def _public_character(data, name, char_id):
@@ -136,9 +136,9 @@ def screen(request, token):
 
 
 def _public_map(map_data, token):
-    """Mapa do telão: grade + fundo. O fundo continua inline (compat) e ganha
-    `backgroundVer`/`backgroundUrl` para o telão trocar para a URL cacheável."""
-    out = {k: map_data.get(k) for k in ('background_image', 'grid_size_px', 'grid_visible', 'width_px', 'height_px')
+    """Mapa do telão: grade + fundo. O fundo NÃO vai inline (payload pesado a
+    cada polling): o telão usa `backgroundUrl` (cacheável por ?v=)."""
+    out = {k: map_data.get(k) for k in ('grid_size_px', 'grid_visible', 'width_px', 'height_px')
            if k in map_data}
     bg = map_data.get('background_image')
     if bg:
@@ -171,11 +171,9 @@ def screen_image(request, token, entry_id=None, **kwargs):
              .exclude(visibility='hidden').only('id', 'kind', 'data', 'image_ver', 'visibility').first())
     if not entry or not entry.image_ver:
         raise NotFound('not_found')
-    if entry.kind == 'handout' and isinstance((entry.data or {}).get('recipients'), list):
-        # Documento só para alguns jogadores: no telão, só se o mestre o mostrou agora.
-        card = (campaign.state or {}).get('screenCard') or {}
-        if not (card.get('type') == 'entry' and card.get('entryId') == entry.id):
-            raise NotFound('not_found')
+    if is_private_handout(entry):
+        # Documento só para alguns jogadores nunca vai ao telão público.
+        raise NotFound('not_found')
     img = WorldImage.objects.filter(entry=entry).only('data').first()
     if not img or not img.data:
         raise NotFound('not_found')

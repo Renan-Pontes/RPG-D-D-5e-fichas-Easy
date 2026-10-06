@@ -316,7 +316,7 @@ function renderDM(area, p, { setGroupPending }) {
   if (area === 'prepare') return <Area Comp={PrepareArea} props={p} lang={p.lang} resetKey={k} fallback={<PrepareFallback {...p} />} />;
   if (area === 'play') return <Area Comp={PlayArea} props={p} lang={p.lang} resetKey={k} fallback={<PlayFallback {...p} />} />;
   if (area === 'group') {
-    return <Area Comp={GroupArea} props={{ ...p, onPendingCount: setGroupPending }} lang={p.lang} resetKey={k} fallback={<GroupFallback {...p} />} />;
+    return <Area Comp={GroupArea} props={{ ...p, hasJoinRoute: true, onPendingCount: setGroupPending }} lang={p.lang} resetKey={k} fallback={<GroupFallback {...p} />} />;
   }
   return null;
 }
@@ -327,7 +327,7 @@ function renderPlayer(area, p) {
   if (area === 'world') return <Area Comp={PlayerWorld} props={p} lang={p.lang} resetKey={k} fallback={<WorldFallback {...p} />} />;
   if (area === 'chronicle') return <ChronicleView {...p} />;
   if (area === 'group') {
-    return <Area Comp={GroupArea} props={{ ...p, sub: 'players' }} lang={p.lang} resetKey={k} fallback={<PlayerGroupFallback {...p} />} />;
+    return <Area Comp={GroupArea} props={{ ...p, sub: 'players', hasJoinRoute: true }} lang={p.lang} resetKey={k} fallback={<PlayerGroupFallback {...p} />} />;
   }
   return null;
 }

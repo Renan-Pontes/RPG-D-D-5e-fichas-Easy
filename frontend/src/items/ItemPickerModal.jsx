@@ -1,16 +1,19 @@
-/* Escolhe um item do catálogo SRD, do catálogo da campanha ou cadastra um novo. */
+/* Escolhe um item das regras básicas (SRD), do catálogo da campanha ou cadastra um novo. */
 import { errorMessage } from '../api/errors.js';
 import { useMemo, useState } from 'react';
 import { ITEMS, ITEM_TYPES, instantiate } from '../../data/items.js';
-import ItemForm, { typeLabel } from './ItemForm.jsx';
+import ItemForm from './ItemForm.jsx';
+import { dmgTypeLabel, rarityLabel, typeLabel, weaponPropLabel, weightLabel } from './item-model.js';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const nameOf = (it, lang) => (typeof it.name === 'string' ? it.name : it.name?.[lang] || it.name?.en || '?');
 
 const statLine = (it, lang) => [
-  it.weapon && `⚔ ${it.weapon.damage} ${it.weapon.dmgType}`,
-  it.armor && `🛡 CA ${it.armor.ac}`,
-  it.magic && `✨ ${it.magic.rarity}${it.magic.attunement ? t(lang, ' · sintonia', ' · attunement') : ''}`,
+  it.weapon && `⚔ ${it.weapon.damage} ${dmgTypeLabel(it.weapon.dmgType, lang)}`,
+  it.weapon?.props?.length && it.weapon.props.map(p => weaponPropLabel(p, lang)).join(', '),
+  it.armor && `🛡 ${t(lang, 'CA', 'AC')} ${it.armor.ac}`,
+  it.magic && `✨ ${rarityLabel(it.magic.rarity, lang)}${it.magic.attunement ? t(lang, ' · sintonia', ' · attunement') : ''}`,
+  it.weight != null && it.weight !== '' && weightLabel(it.weight, lang),
 ].filter(Boolean).join(' · ');
 
 /**
@@ -51,7 +54,7 @@ export default function ItemPickerModal({ lang, title, confirmLabel, campaignIte
 
   const tabs = [
     ...(campaignItems ? [['campaign', t(lang, 'Campanha', 'Campaign')]] : []),
-    ['srd', t(lang, 'Catálogo SRD', 'SRD catalog')],
+    ['srd', t(lang, 'Regras básicas', 'Basic rules')],
     ['new', t(lang, 'Cadastrar novo', 'Create new')],
   ];
 

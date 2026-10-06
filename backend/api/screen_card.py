@@ -41,6 +41,15 @@ def plain_text(text):
     return _MENTION.sub(r'\1', text or '')
 
 
+def is_private_handout(entry):
+    """Documento com destinatários escolhidos (recipients != 'all'). Esses nunca
+    vão ao cartão "Mostrar agora": o telão é público e o cartão chega a todos."""
+    if entry.kind != 'handout':
+        return False
+    rec = (entry.data or {}).get('recipients', 'all')
+    return rec not in (None, 'all')
+
+
 def clean_screen_card(campaign, body):
     """Valida o corpo do POST e devolve o que vai para state.screenCard (ou None)."""
     if isinstance(body, dict) and 'card' in body:   # aceita {card: {...} | null}
@@ -64,6 +73,8 @@ def clean_screen_card(campaign, body):
         if entry.visibility == 'hidden':
             # Mostrar no telão não revela sozinho: o mestre revela antes (um clique dele).
             _bad('entry_hidden')
+        if is_private_handout(entry):
+            _bad('handout_private')
         secret_ids = body.get('secretIds') or []
         if not isinstance(secret_ids, list) or len(secret_ids) > MAX_SECRET_IDS \
                 or not all(isinstance(s, str) and 0 < len(s) <= 40 for s in secret_ids):
@@ -111,7 +122,7 @@ def resolve_screen_card(campaign, *, token=None):
     if kind == 'entry':
         from .models import WorldEntry
         entry = WorldEntry.objects.filter(campaign=campaign, pk=raw.get('entryId')).first()
-        if not entry or entry.visibility == 'hidden':
+        if not entry or entry.visibility == 'hidden' or is_private_handout(entry):
             return None
         labels = KIND_LABELS.get(entry.kind, ('', ''))
         if entry.visibility == 'revealed':

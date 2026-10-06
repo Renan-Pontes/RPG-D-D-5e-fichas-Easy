@@ -2,6 +2,7 @@
 Diário da campanha.
 
 GET    /api/campaigns/<id>/diary?session=&subtype=&kind=&offset=&limit=
+       subtype: lista por vírgula de DiaryEntry.SUBTYPES + 'summary' (inclui 'levelgrant' e 'reveal')
 POST   /api/campaigns/<id>/diary                 { title?, body, subtype?: 'note'|'summary', session?, hidden? }
 PATCH  /api/campaigns/<id>/diary/<pk>            { title?, body?, hidden?, session? }
 DELETE /api/campaigns/<id>/diary/<pk>
