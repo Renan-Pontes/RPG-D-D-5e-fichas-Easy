@@ -10,7 +10,12 @@ export const speciesLanguageHint = (char) => {
   if (char?.rulesVersion !== '2024' || !char.race) return null;
   const id = String(char.race);
   const key = Object.keys(SPECIES_LANGUAGE).sort((a, b) => b.length - a.length).find(k => id === k || id.startsWith(`${k}-`));
-  return key ? SPECIES_LANGUAGE[key] : null;
+  if (!key) return null;
+  const lang = SPECIES_LANGUAGE[key];
+  // Infernal/Celestial são raros em 2024: só sugere se o herói tiver vaga para idioma raro (ex.: Ladino).
+  let rare = false, allowance = 0;
+  try { rare = Utils.isRareLanguage(char, lang); allowance = Utils.rareLanguageAllowance(char); } catch { /* sem dados: segue */ }
+  return rare && !allowance ? null : lang;
 };
 
 // Idiomas úteis em muitas aventuras (todos da lista Padrão nas duas regras), em ordem de preferência.

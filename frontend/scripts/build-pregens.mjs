@@ -233,8 +233,8 @@ export const PREGENS = [
     name: 'Dante Brasanegra',
     pitch: b('Fez um pacto com um ser poderoso: poucas magias, mas muito fortes.', 'Made a pact with a powerful being: few spells, but very strong ones.'),
     howToPlay: b(
-      'Seu ataque principal é a Rajada Mística: use-a todo turno contra o inimigo mais perigoso.\nNo começo da luta, lance Maldição (ação bônus) no alvo para somar dano a cada acerto.\nSeus espaços de magia voltam num Descanso Curto: peça uma pausa ao grupo quando eles acabarem.',
-      'Your main attack is Eldritch Blast: use it every turn on the most dangerous enemy.\nAt the start of a fight, cast Hex (bonus action) on the target to add damage on every hit.\nYour spell slots come back on a Short Rest: ask the group for a break when they run out.'),
+      'Seu ataque principal é a Rajada Mística: use-a todo turno contra o inimigo mais perigoso.\nNo começo da luta, lance Maldição (ação bônus) no alvo para somar dano a cada acerto; seus espaços de magia voltam num Descanso Curto.\nAntes de explorar, tire a armadura de couro e lance Armadura Arcana em você (grátis, pela Armadura das Sombras): sua CA sobe de 13 para 15.',
+      'Your main attack is Eldritch Blast: use it every turn on the most dangerous enemy.\nAt the start of a fight, cast Hex (bonus action) on the target to add damage on every hit; your spell slots come back on a Short Rest.\nBefore exploring, take off your leather armor and cast Mage Armor on yourself (free, from Armor of Shadows): your AC goes from 13 to 15.'),
     personality: 'Irônico, leal aos amigos e com medo de que o patrono cobre a dívida cedo demais.',
     backstory: 'Dante foi criado num templo que o aceitou apesar dos chifres e da cauda. Em busca de respostas sobre sua origem, leu um livro proibido e ouviu uma voz que lhe ofereceu poder. Aceitou o pacto para proteger o templo de um ataque, e agora deve favores a alguém que nunca viu. Tenta usar esse poder para fazer o bem, antes que a conta chegue.',
     appearance: 'Pele vermelho-escura, chifres curvos, olhos dourados e um manto de acólito gasto nas bordas.',
@@ -348,7 +348,7 @@ export function buildCharacter(spec) {
     personality: spec.personality,
     backstory: spec.backstory,
     appearance: spec.appearance,
-    avatar: `/art/classes/${spec.classId}.webp`,
+    avatar: `/art/pregens/${spec.classId}.webp`,
     pregenId: spec.classId,
   };
   return c;
