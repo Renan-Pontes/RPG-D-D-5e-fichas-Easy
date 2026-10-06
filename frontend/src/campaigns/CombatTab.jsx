@@ -1,5 +1,6 @@
 import { errorMessage } from '../api/errors.js';
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import MonsterPicker from './MonsterPicker.jsx';
@@ -10,6 +11,13 @@ import EndOfEncounterPanel from './EndOfEncounterPanel.jsx';
 import { isWizardEnabled } from './end-of-encounter.js';
 import { findMonster, monsterForCombat } from '../../data/bestiary.js';
 import SRD from '../../data/srd.js';
+import Utils from '../../utils.js';
+import { confirmDialog } from '../../components/ConfirmDialog.jsx';
+import AttackResultCard from '../play/AttackResultCard.jsx';
+import SaveResultCard from '../play/SaveResultCard.jsx';
+import { attackPreview } from '../play/play-api.js';
+import { flash } from '../play/flash.js';
+import { CONDITIONS, DAMAGE_TYPES, conditionLabel, damageTypeLabel } from '../combat/monster-i18n.js';
 
 // Animais da Forma Selvagem (SRD.BEASTS) não têm ataques estruturados: no combate
 // usamos a versão do bestiário SRD 5.2.1, com ataques reais.
@@ -24,11 +32,8 @@ import {
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
-const CONDITION_LIST = [
-  'blinded','charmed','deafened','frightened','grappled','incapacitated',
-  'invisible','paralyzed','petrified','poisoned','prone','restrained',
-  'stunned','unconscious','exhaustion',
-];
+const CONDITION_LIST = CONDITIONS;
+const ask = (lang, message, opts = {}) => confirmDialog({ message, lang, ...opts });
 
 /**
  * Aba de Combate (só DM).
@@ -63,12 +68,12 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
 
   const startCombat = async () => { await api.startCombat(campaign.id); load(); };
   const endCombat = async () => {
-    if (!confirm(t(lang, 'Encerrar combate?', 'End combat?'))) return;
+    if (!await ask(lang, t(lang, 'Encerrar o combate?', 'End combat?'), { confirmLabel: t(lang, 'Encerrar', 'End') })) return;
     const r = await api.endCombat(campaign.id); load();
     if (isWizardEnabled(campaign.state)) setWrapUp(r?.combat || combat);
   };
   const resetCombat = async () => {
-    if (!confirm(t(lang, 'Resetar combate (remove todos os combatentes)?', 'Reset combat (removes all combatants)?'))) return;
+    if (!await ask(lang, t(lang, 'Recomeçar do zero? Todos os combatentes saem do combate.', 'Start over? All combatants are removed.'), { danger: true, confirmLabel: t(lang, 'Recomeçar', 'Start over') })) return;
     await api.resetCombat(campaign.id); load();
   };
   const nextTurn = async () => { await api.combatNextTurn(campaign.id); load(); };
@@ -90,23 +95,24 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
     load();
   };
 
-  const addPC = async (characterId) => {
-    const dexMod = 2; // suposição; jogador rola depois
-    const init = 10 + Math.floor(Math.random() * 8); // random pra rapido; mestre ajusta
+  // Iniciativa do personagem: o mestre digita o que o jogador rolou na mesa
+  // (dado físico); "rolar" só preenche o campo com d20 + bônus da ficha.
+  const addPC = async (characterId, initiative) => {
+    const n = parseInt(initiative, 10);
+    const pcCount = combatants.filter(c => c.type === 'pc').length;
     await api.addCombatant(campaign.id, {
       type: 'pc',
       characterId,
-      initiative: init,
-      position: { x: 100, y: 200 },
+      initiative: Number.isFinite(n) ? n : 10,
+      position: { x: 100 + pcCount * 60, y: 200 },
       tokenScale: 1,
     });
-    setShowAddPC(false);
     load();
   };
 
   const removeCombatant = async (cid) => {
     const who = combat?.combatants?.find(c => c.id === cid)?.name || '';
-    if (!confirm(t(lang, `Tirar ${who} do combate? (PV e condições dele se perdem.)`, `Remove ${who} from combat? (Its HP and conditions are lost.)`))) return;
+    if (!await ask(lang, t(lang, `Tirar ${who} do combate? (PV e condições dele se perdem.)`, `Remove ${who} from combat? (Its HP and conditions are lost.)`), { danger: true, confirmLabel: t(lang, 'Tirar', 'Remove') })) return;
     await api.removeCombatant(campaign.id, cid);
     if (selected === cid) setSelected(null);
     load();
@@ -141,8 +147,9 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
               ⏸ {t(lang, 'Encerrar', 'End')}
             </button>
           </>}
-          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} onClick={resetCombat}>
-            {t(lang, 'Resetar', 'Reset')}
+          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} onClick={resetCombat}
+            title={t(lang, 'Tira todos os combatentes e recomeça', 'Removes all combatants and starts over')}>
+            {t(lang, 'Recomeçar', 'Start over')}
           </button>
         </div>
       </div>
@@ -151,7 +158,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
         <div className="now-turn">
           <span className="now-turn-label">{t(lang, 'Vez de', 'Now acting')}</span>
           <span className="now-turn-name">{currentTurn.name}</span>
-          <span className="now-turn-hp">HP {currentTurn.current_hp} / {(currentTurn.stats || {}).max_hp}</span>
+          <span className="now-turn-hp">{t(lang, 'PV', 'HP')} {currentTurn.current_hp} / {(currentTurn.stats || {}).max_hp}</span>
         </div>
       )}
 
@@ -160,7 +167,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
           ✚ {t(lang, 'Adicionar monstro', 'Add monster')}
         </button>
         <button className="btn btn-ghost btn-sm" onClick={() => setShowAddPC(true)}>
-          ✚ {t(lang, 'Adicionar PC', 'Add PC')}
+          ✚ {t(lang, 'Adicionar personagem', 'Add character')}
         </button>
       </div>
       <EncounterDifficulty campaign={campaign} combatants={combatants} lang={lang} />
@@ -177,7 +184,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
         <div className="combatants-list">
           {combatants.length === 0 && (
             <div className="empty-card">
-              {t(lang, 'Nenhum combatente ainda. Adicione monstros ou PCs para montar a iniciativa.', 'No combatants yet. Add monsters or PCs to build initiative.')}
+              {t(lang, 'Nenhum combatente ainda. Adicione monstros e personagens para montar a iniciativa.', 'No combatants yet. Add monsters and characters to build initiative.')}
             </div>
           )}
           {combatants.map((c, i) => (
@@ -201,20 +208,8 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
 
       {showPicker && <MonsterPicker lang={lang} levelingMode={campaign.state?.levelingMode || 'milestone'} onPick={addMonster} onClose={() => setShowPicker(false)} />}
       {showAddPC && (
-        <div className="modal-backdrop" onClick={() => setShowAddPC(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h2 style={{ marginTop: 0 }}>{t(lang, 'Adicionar PC ao combate', 'Add PC to combat')}</h2>
-            {campaign.members.filter(m => m.role !== 'dm' && m.character).map(m => (
-              <button key={m.id} className="member-pick" onClick={() => addPC(m.character.id)}>
-                <strong>{m.character.name}</strong>
-                <span style={{ color: 'var(--ink-secondary)', marginLeft: 8 }}>{m.user.displayName}</span>
-              </button>
-            ))}
-            {campaign.members.filter(m => m.role !== 'dm' && m.character).length === 0 && (
-              <p style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Nenhum PC com personagem atribuído.', 'No PC with assigned character.')}</p>
-            )}
-          </div>
-        </div>
+        <AddCharacterModal campaign={campaign} lang={lang} combatants={combatants}
+          onAdd={addPC} onClose={() => setShowAddPC(false)} />
       )}
     </div>
   );
@@ -238,7 +233,17 @@ function CombatantCard({ combatant, lang, isCurrentTurn, isSelected, onSelect, o
     onChange();
   };
 
-  const doAttack = (actionIndex, targetId, force) => send({ action: 'attack', attackerId: c.id, targetId, actionIndex, force: !!force });
+  // "Atacar" agora só PEDE uma prévia ao servidor: nada muda até o mestre tocar em Aplicar.
+  const [suggestion, setSuggestion] = useState(null); // {preview, targetId, index}
+  const doAttack = async (actionIndex, targetId) => {
+    setActionError('');
+    try {
+      const preview = await attackPreview(campaignId, { attackerId: c.id, targetId, actionIndex });
+      setSuggestion({ preview, targetId, index: actionIndex, key: Date.now() });
+    } catch (e) {
+      setActionError(errorMessage(e, lang));
+    }
+  };
   const doSave = (actionIndex, targetIds, force) => send({ action: 'save_aoe', attackerId: c.id, targetIds, actionIndex, force: !!force });
   const doUse = (actionIndex, force) => send({ action: 'use_action', attackerId: c.id, actionIndex, force: !!force });
   const setRes = (patch) => send({ action: 'set_resources', targetId: c.id, ...patch });
@@ -277,9 +282,11 @@ function CombatantCard({ combatant, lang, isCurrentTurn, isSelected, onSelect, o
       <div className="cc-head" onClick={onSelect}>
         <div className="cc-name">
           <span className="cc-init">{c.initiative}</span>
-          <strong>{c.name}</strong>
-          {c.type === 'monster' && <span className="cc-badge mon">M</span>}
-          {c.type === 'pc' && <span className="cc-badge pc">PC</span>}
+          <span className="cc-who">
+            <strong>{c.name}</strong>
+            {c.type === 'monster' && <span className="cc-badge mon">{t(lang, 'Monstro', 'Monster')}</span>}
+            {c.type === 'pc' && <span className="cc-badge pc">{t(lang, 'Personagem', 'Character')}</span>}
+          </span>
         </div>
         <div className="cc-hp">
           <div className={`cc-hp-bar tone-${tone}`}>
@@ -293,8 +300,9 @@ function CombatantCard({ combatant, lang, isCurrentTurn, isSelected, onSelect, o
       {(c.conditions || []).length > 0 && (
         <div className="cc-conditions">
           {c.conditions.map(cond => (
-            <span key={cond} className="cc-cond" onClick={() => toggleCondition(cond)} title="Clique para remover">
-              {cond}{(() => { const ef = (c.effects || []).find(e => e.name === cond); return ef ? ` (${ef.rounds_left})` : ''; })()}
+            <span key={cond} className="cc-cond" role="button" tabIndex={0} onClick={() => toggleCondition(cond)}
+              onKeyDown={e => { if (e.key === 'Enter') toggleCondition(cond); }} title={t(lang, 'Toque para remover', 'Tap to remove')}>
+              {conditionLabel(cond, lang)}{(() => { const ef = (c.effects || []).find(e => e.name === cond); return ef ? ` (${ef.rounds_left})` : ''; })()}
             </span>
           ))}
         </div>
@@ -317,7 +325,19 @@ function CombatantCard({ combatant, lang, isCurrentTurn, isSelected, onSelect, o
                       <AttackRow
                         key={index} action={a} index={index} combatant={c} lang={lang}
                         allCombatants={allCombatants} selfId={c.id}
-                        onAttack={(tid, force) => doAttack(index, tid, force)}
+                        onAttack={(tid) => doAttack(index, tid)}
+                        suggestion={suggestion && suggestion.index === index ? suggestion : null}
+                        campaignId={campaignId}
+                        onApplied={(res, info) => {
+                          setSuggestion(null);
+                          const name = info?.targetName || '';
+                          flash(info?.hit
+                            ? t(lang, `Aplicado: ${name} sofreu ${info.damage} de dano.`, `Applied: ${name} took ${info.damage} damage.`)
+                            : t(lang, `Aplicado: o ataque errou ${name}.`, `Applied: the attack missed ${name}.`));
+                          onChange();
+                        }}
+                        onDiscard={() => setSuggestion(null)}
+                        onSaveApplied={onChange}
                         onSave={(tids, force) => doSave(index, tids, force)}
                         onUse={(force) => doUse(index, force)}
                         onRecharge={(charged) => setRes({ actionIndex: index, charged })}
@@ -327,13 +347,13 @@ function CombatantCard({ combatant, lang, isCurrentTurn, isSelected, onSelect, o
                 );
               })}
               {actions.length === 0 && <p style={{ color: 'var(--ink-secondary)', fontStyle: 'italic' }}>
-                {c.type === 'pc' ? t(lang, 'Ações de PC são executadas pelo jogador.', 'PC actions are executed by the player.') :
+                {c.type === 'pc' ? t(lang, 'O jogador age pela própria ficha; use Dano / Cura e Condições abaixo.', 'The player acts from their own sheet; use Damage / Heal and Conditions below.') :
                  t(lang, 'Sem ações cadastradas.', 'No actions defined.')}
               </p>}
             </div>
           </details>
           <details>
-            <summary>{t(lang, 'Dano / Cura manual', 'Manual damage / heal')}</summary>
+            <summary>{t(lang, 'Dano / Cura', 'Damage / Heal')}</summary>
             <DamageHealForm lang={lang} onDamage={doDamage} onHeal={doHeal} />
           </details>
           <details>
@@ -346,8 +366,8 @@ function CombatantCard({ combatant, lang, isCurrentTurn, isSelected, onSelect, o
               {CONDITION_LIST.map(cond => {
                 const on = (c.conditions || []).includes(cond);
                 return (
-                  <button key={cond} className={`btn-icon ${on ? 'active' : ''}`} onClick={() => toggleCondition(cond)} title={cond} style={{ width: 'auto', padding: '4px 8px' }}>
-                    {cond}
+                  <button key={cond} type="button" className={`btn-icon ${on ? 'active' : ''}`} aria-pressed={on} onClick={() => toggleCondition(cond)} style={{ width: 'auto', padding: '4px 8px' }}>
+                    {conditionLabel(cond, lang)}
                   </button>
                 );
               })}
@@ -358,7 +378,7 @@ function CombatantCard({ combatant, lang, isCurrentTurn, isSelected, onSelect, o
               <div>
                 {t(lang, 'Salvamentos contra morte', 'Death saves')}: ✓{c.death_saves?.success || 0} ✗{c.death_saves?.fail || 0}
               </div>
-              <button className="btn btn-primary btn-sm" onClick={doDeathSave}>{t(lang, 'Rolar SAL Morte', 'Roll Death Save')}</button>
+              <button className="btn btn-primary btn-sm" onClick={doDeathSave}>{t(lang, 'Rolar teste contra a morte', 'Roll death save')}</button>
             </div>
           )}
         </div>
@@ -410,7 +430,7 @@ function MonsterResources({ combatant: c, lang, onSet }) {
   );
 }
 
-function AttackRow({ action, index, combatant, lang, allCombatants, selfId, onAttack, onSave, onUse, onRecharge }) {
+function AttackRow({ action, index, combatant, lang, allCombatants, selfId, onAttack, onSave, onUse, onRecharge, suggestion, campaignId, onApplied, onDiscard, onSaveApplied }) {
   const [targetId, setTargetId] = useState('');
   const [targetIds, setTargetIds] = useState([]);
   const [showDesc, setShowDesc] = useState(false);
@@ -425,12 +445,20 @@ function AttackRow({ action, index, combatant, lang, allCombatants, selfId, onAt
   const force = !status.available;
   const forceTitle = force ? `${reasonLabel(status.reason, lang)} ${t(lang, '(o mestre pode forçar)', '(DM may force)')}` : undefined;
   // Indisponível (recarga/usos/lendárias): o mestre confirma para forçar.
-  const guard = (fn) => () => {
-    if (force && !confirm(`${reasonLabel(status.reason, lang)} ${t(lang, 'Usar mesmo assim?', 'Use anyway?')}`)) return;
+  const guard = (fn) => async () => {
+    if (force && !await ask(lang, `${reasonLabel(status.reason, lang)} ${t(lang, 'Usar mesmo assim?', 'Use anyway?')}`, { confirmLabel: t(lang, 'Usar', 'Use') })) return;
     fn();
   };
+  const [loading, setLoading] = useState(false);
+  const [saveSugg, setSaveSugg] = useState(null); // efeito com resistência em sugestão
+  const attackNow = async () => {
+    setLoading(true);
+    try { await onAttack(targetId); } finally { setLoading(false); }
+  };
+  const target = allCombatants.find(x => x.id === (suggestion?.targetId || targetId));
   const toggleTarget = (id) => setTargetIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
   return (
+    <>
     <div className={`cc-attack-row ${status.available ? '' : 'is-unavailable'}`}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <strong>{name}</strong>
@@ -450,7 +478,12 @@ function AttackRow({ action, index, combatant, lang, allCombatants, selfId, onAt
             {showDesc ? t(lang, 'ocultar', 'hide') : t(lang, 'texto', 'text')}
           </button>
         )}
-        {showDesc && desc && <div className="cc-action-desc">{desc}</div>}
+        {showDesc && desc && (
+          <div className="cc-action-desc">
+            {lang === 'pt' && !action.desc?.pt && <div className="muted small">{t(lang, 'Texto original das regras (em inglês):', 'Rules text:')}</div>}
+            {desc}
+          </div>
+        )}
         {save && (
           <div className="cc-save-targets">
             {targets.map(tg => (
@@ -463,17 +496,19 @@ function AttackRow({ action, index, combatant, lang, allCombatants, selfId, onAt
       </div>
       {attack && (
         <>
-          <select value={targetId} onChange={e => setTargetId(e.target.value)} className="input" style={{ minWidth: 120 }}>
+          <select value={targetId} onChange={e => setTargetId(e.target.value)} className="input cc-target-select" aria-label={t(lang, `Alvo de ${name}`, `Target for ${name}`)}>
             <option value="">{t(lang, 'Alvo…', 'Target…')}</option>
             {targets.map(tg => <option key={tg.id} value={tg.id}>{tg.name}</option>)}
           </select>
-          <button className="btn btn-primary btn-sm" disabled={!targetId} title={forceTitle} onClick={guard(() => onAttack(targetId, force))}>
+          <button className="btn btn-primary btn-sm" disabled={!targetId || loading} title={forceTitle || t(lang, 'Mostra o resultado; nada é aplicado até você confirmar', 'Shows the result; nothing is applied until you confirm')} onClick={attackNow}>
             ⚔ {t(lang, 'Atacar', 'Attack')}
           </button>
         </>
       )}
       {save && (
-        <button className="btn btn-primary btn-sm" disabled={!targetIds.length} title={forceTitle} onClick={guard(() => { onSave(targetIds, force); setTargetIds([]); })}>
+        <button className="btn btn-primary btn-sm" disabled={!targetIds.length || !!saveSugg}
+          title={forceTitle || t(lang, 'Mostra os resultados; nada é aplicado até você confirmar', 'Shows the results; nothing is applied until you confirm')}
+          onClick={() => setSaveSugg({ key: Date.now(), targets: allCombatants.filter(x => targetIds.includes(x.id)) })}>
           {t(lang, 'Resolver', 'Resolve')} ({targetIds.length})
         </button>
       )}
@@ -483,6 +518,21 @@ function AttackRow({ action, index, combatant, lang, allCombatants, selfId, onAt
         </button>
       )}
     </div>
+    {saveSugg && (
+      <SaveResultCard key={saveSugg.key} campaignId={campaignId} attacker={combatant} action={action} actionIndex={index}
+        targets={saveSugg.targets} status={status} lang={lang}
+        onApplied={() => {
+          setSaveSugg(null); setTargetIds([]);
+          flash(t(lang, `Aplicado: ${name}.`, `Applied: ${name}.`));
+          onSaveApplied?.();
+        }}
+        onDiscard={() => setSaveSugg(null)} />
+    )}
+    {suggestion && (
+      <AttackResultCard key={suggestion.key} preview={suggestion.preview} campaignId={campaignId}
+        attacker={combatant} target={target} lang={lang} onApplied={onApplied} onDiscard={onDiscard} />
+    )}
+    </>
   );
 }
 
@@ -502,9 +552,9 @@ function DamageHealForm({ lang, onDamage, onHeal }) {
   const [type, setType] = useState('bludgeoning');
   return (
     <div className="row gap-2" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-      <input type="number" className="input" value={amount} onChange={e => setAmount(e.target.value)} placeholder="HP" style={{ width: 80 }} />
-      <select className="input" value={type} onChange={e => setType(e.target.value)}>
-        {['bludgeoning','piercing','slashing','fire','cold','lightning','thunder','acid','poison','necrotic','radiant','psychic','force'].map(t => <option key={t}>{t}</option>)}
+      <input type="number" inputMode="numeric" min={0} className="input" value={amount} onChange={e => setAmount(e.target.value)} placeholder={t(lang, 'PV', 'HP')} aria-label={t(lang, 'Quantidade de PV', 'HP amount')} style={{ width: 80 }} />
+      <select className="input" value={type} onChange={e => setType(e.target.value)} aria-label={t(lang, 'Tipo de dano', 'Damage type')}>
+        {DAMAGE_TYPES.map(ty => <option key={ty} value={ty}>{damageTypeLabel(ty, lang)}</option>)}
       </select>
       <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} onClick={() => onDamage(amount, type)} disabled={!amount}>
         − {t(lang, 'Dano', 'Damage')}
@@ -513,5 +563,75 @@ function DamageHealForm({ lang, onDamage, onHeal }) {
         + {t(lang, 'Cura', 'Heal')}
       </button>
     </div>
+  );
+}
+
+/** Adicionar personagens ao combate com a iniciativa que o jogador rolou na mesa. */
+function AddCharacterModal({ campaign, lang, combatants, onAdd, onClose }) {
+  const inFight = new Set(combatants.filter(c => c.type === 'pc').map(c => c.character_id));
+  const members = (campaign.members || []).filter(m => m.role !== 'dm' && m.character);
+  const [inits, setInits] = useState({});
+  const [busy, setBusy] = useState(null);
+  const bonusOf = (m) => {
+    try { const d = m.character.data; return d && d.abilities ? Utils.initiative(d) : null; } catch { return null; }
+  };
+  const add = async (m) => {
+    setBusy(m.character.id);
+    try { await onAdd(m.character.id, inits[m.character.id]); } finally { setBusy(null); }
+  };
+  const addAll = async () => {
+    for (const m of members) {
+      if (inFight.has(m.character.id)) continue;
+      // eslint-disable-next-line no-await-in-loop
+      await add(m);
+    }
+    onClose();
+  };
+  return createPortal(
+    <div className="modal-backdrop combat-modal-backdrop" onClick={onClose}>
+      <div className="modal" role="dialog" aria-label={t(lang, 'Adicionar personagem ao combate', 'Add character to combat')} onClick={e => e.stopPropagation()}>
+        <button type="button" className="modal-close" onClick={onClose} aria-label={t(lang, 'Fechar', 'Close')}>×</button>
+        <h2 style={{ marginTop: 0 }}>{t(lang, 'Adicionar personagem ao combate', 'Add character to combat')}</h2>
+        <p className="muted small" style={{ marginTop: 0 }}>
+          {t(lang, 'Digite a iniciativa que cada jogador rolou (dado físico). Em branco = 10.', 'Type the initiative each player rolled (physical die). Blank = 10.')}
+        </p>
+        {members.map(m => {
+          const id = m.character.id;
+          const bonus = bonusOf(m);
+          const already = inFight.has(id);
+          return (
+            <div key={m.id} className={`add-pc-row ${already ? 'is-in' : ''}`}>
+              <div className="add-pc-who">
+                <strong>{m.character.name}</strong>
+                <span className="muted small">{m.user?.displayName}{bonus != null ? ` · ${t(lang, 'iniciativa', 'initiative')} ${bonus >= 0 ? '+' : ''}${bonus}` : ''}</span>
+              </div>
+              {already ? (
+                <span className="muted small">✓ {t(lang, 'no combate', 'in combat')}</span>
+              ) : (
+                <div className="add-pc-actions">
+                  <input className="input" type="number" inputMode="numeric" value={inits[id] ?? ''} placeholder="10"
+                    onChange={e => setInits(v => ({ ...v, [id]: e.target.value }))}
+                    aria-label={t(lang, `Iniciativa de ${m.character.name}`, `${m.character.name} initiative`)} />
+                  <button type="button" className="btn btn-ghost btn-sm" title={t(lang, 'Rolar d20 + bônus (só preenche o campo)', 'Roll d20 + bonus (just fills the field)')}
+                    onClick={() => setInits(v => ({ ...v, [id]: String(1 + Math.floor(Math.random() * 20) + (bonus || 0)) }))}>🎲</button>
+                  <button type="button" className="btn btn-primary btn-sm" disabled={busy === id} onClick={() => add(m)}>
+                    {t(lang, 'Adicionar', 'Add')}
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {members.length === 0 && (
+          <p style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Nenhum jogador com personagem ainda.', 'No player with a character yet.')}</p>
+        )}
+        {members.some(m => !inFight.has(m.character.id)) && members.length > 1 && (
+          <div className="row gap-2" style={{ justifyContent: 'flex-end', marginTop: 12 }}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={addAll}>{t(lang, 'Adicionar todos', 'Add everyone')}</button>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body,
   );
 }

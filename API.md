@@ -332,6 +332,69 @@ Inclui agora `combat: {...}` e `publicRolls: [...]` (últimas 5 públicas).
 
 ---
 
+## Mundo da campanha
+
+Lugares, NPCs, facções, itens, lore e documentos do mestre (`WorldEntry`). O filtro do que o jogador vê é feito **só no backend** (`api/world_rules.py`). Revelar é sempre ação do mestre.
+
+**Visibilidade para o jogador:** `hidden` → nada (lista não traz; detalhe, imagem e pin = 404) · `partial` → `kind`, `name`, `summary`, imagem e `tags` · `revealed` → + `body`, segredos revelados (só `{id, text, session}`), dados públicos do tipo, `links`/`parentId`/`mentions` cujo alvo não está oculto e `whenLabel`. **Nunca:** `dmNotes`, segredos não revelados, `data.statblock`, `data.campaignItemId`, `data.recipients`. Menções `@[Nome](id)` a alvos ocultos chegam ao jogador como texto simples (`Nome`). Handout com `recipients: [membershipId…]` só existe para esses jogadores.
+
+**Limites:** 500 entradas por campanha (`too_many_entries`), `name` 120, `summary` 280, `body` e `dmNotes` 20k, 20 segredos × 1k, 12 tags × 30, 40 links, 100 pins, imagem ≤ 450k caracteres (`image_too_large`). A lista nunca traz corpo, notas nem imagem.
+
+### `GET /campaigns/:id/world` (membro)
+```json
+{ "entries": [WorldEntryLight], "count": 7, "max": 500 }      // mestre
+{ "entries": [WorldEntryLight], "seenAt": "iso" | null }       // jogador
+```
+`WorldEntryLight`: `{id, kind, name, summary, tags, visibility, imageVer, imageUrl, isMap, revealedAt, updatedAt, parentId, whenLabel, whenOrder, links, mentions, secretsCount, sort}`; o mestre recebe também `version`, `secretsRevealed`, `pinTargets`.
+
+### `POST /campaigns/:id/world` (mestre) → **201** `{entry: WorldEntryFull}`
+Só `kind` (`place|npc|faction|item|lore|handout`) e `name` são obrigatórios. Campos aceitos (camelCase): `summary, body, dmNotes, secrets, visibility, parentId, tags, links, data, whenLabel, whenOrder, sort`.
+- `secrets`: `[{id?, text, revealed?}]` ou `["texto"]` (ids `s1, s2…` gerados).
+- `links`: `[{to: entryId, rel: ally|enemy|family|member|employer|owes|located_in|other, note?}]` — alvos inexistentes são descartados.
+- `data` por tipo (whitelist): npc `{role, appearance, mannerism, wants, statblock?}` · place `{placeType: region|city|village|dungeon|building|landmark, map?: {pins: [{id, entryId, x: 0..1, y: 0..1, visible, label?}]}}` · faction `{goal, symbolColor: '#hex'}` · item `{rarity, attunement, effect, campaignItemId?}` · lore `{}` · handout `{style: scroll|letter|wanted|note, recipients: 'all' | [membershipId]}`.
+
+### `GET /world/:pk` (membro) → `{entry: WorldEntryFull}`
+Mestre: tudo (`body, dmNotes, secrets, data, createdAt, version…`). Jogador: filtrado; oculto ou sem acesso = **404**.
+
+### `PATCH /world/:pk` (mestre)
+`{...campos, version}` → `{entry}` (versão +1). Se `version` não bate: **409** `{error: 'version_conflict', entry}` com a entrada atual. Aumentar visibilidade, revelar segredo ou mostrar pin grava `revealedAt` (não escreve na Crônica).
+
+### `DELETE /world/:pk` (mestre)
+Também limpa `links` e pins de outras entradas que apontavam para ela.
+
+### `PUT /world/:pk/image` (mestre) · `DELETE`
+`{image: 'data:image/(jpeg|png|webp);base64,…'}` → `{imageVer, imageUrl}`. Outros formatos: `invalid_image`.
+
+### `GET /world/:pk/image?v=<ver>` (membro; jogador só se não oculta)
+Bytes da imagem. `ETag: "<imageVer>"`, `Cache-Control: private, max-age=31536000`; `If-None-Match` igual → **304**.
+
+### `POST /world/:pk/reveal` (mestre)
+```json
+{ "visibility": "partial", "secrets": {"s1": true}, "pins": {"p2": true}, "logDiary": true, "lang": "pt" }
+```
+Todas as chaves são opcionais; `false` oculta de novo. Se algo passou a ser visto, grava `revealedAt` e (com `logDiary`, padrão `true`) cria no diário um evento `reveal` (`"Revelado: Irmã Velna"`, `"Rumor: …"`, `"Descoberto: …"` com o texto dos segredos no corpo, `"No mapa: …"`), `data: {entryId, entryName, kind, visibility, secretIds, pinIds}`. Segredos revelados ganham `session` (sessão atual) e `revealedAt`. Resposta: `{entry}`.
+
+### `POST /campaigns/:id/world/sample` (mestre)
+`{lang: 'pt'|'en'}` → **201** `{entries: [WorldEntryLight], adventureId}`: a vila "Vale de Brumafria" / "Mistfrost Vale" (lugar com mapa e 4 pins, 3 NPCs, 1 facção, 1 rumor parcial, 1 segredo oculto) e a aventura de 3 salas "O Sino Afogado" com `refs` nos nós. **409** `world_not_empty` se já houver entradas.
+
+### `POST /campaigns/:id/world/seen` (jogador)
+Grava `Membership.world_seen_at = agora` → `{seenAt}`. Para o mestre é no-op (`{seenAt: null}`). A contagem "Novo!" do GET da campanha usa `views_world.world_new_count(campaign, membership)`.
+
+### `GET /campaigns/:id/session-plan` · `PUT` (mestre)
+Plano da próxima sessão em `Campaign.dm_settings.sessionPlan`. PUT (ou PATCH) faz **merge por chave** no servidor (`{plan: {...}}` ou as chaves direto) e devolve `{plan}`:
+```json
+{ "strongStart": "texto",
+  "scenes":  [{"id":"c1","text":"","nodeRef":{"adventureId":1,"nodeId":"n3"}|null,"done":false}],
+  "secrets": [{"id":"p1","text":"","ref":{"entryId":5,"secretId":"s2"}|null,"discovered":false}],
+  "npcIds": [5,9], "placeIds": [3], "monsters": "texto", "rewards": "texto" }
+```
+Limites: 30 cenas, 30 pistas, 60 ids por lista, ~60 KB no total. Marcar `discovered` **não** revela nada; o front sugere "Revelar também no cartão?" e chama `/world/:pk/reveal` se o mestre aceitar.
+
+### Rotas do WP2 registradas em `urls.py` (contrato C1)
+`PATCH /campaigns/:id/state` → `views_campaigns.campaign_state_patch` · `GET/PUT /campaigns/:id/cover` → `campaign_cover` · `POST /campaigns/:id/screen-card` → `campaign_screen_card` · `GET /screen/:token/image/:entryId` → `views_screen.screen_image(request, token, entry_id)` · `GET /screen/:token/cover` → `screen_cover` · `POST /combat/campaign/:id/attack-preview` → `views_combat.combat_attack_preview`. Enquanto a função não existir, a rota responde **501** `not_implemented`.
+
+---
+
 ## Health
 
 ### `GET /health` (público)

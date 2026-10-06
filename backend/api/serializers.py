@@ -111,18 +111,39 @@ class MembershipSerializer(serializers.ModelSerializer):
         }
 
 
+def _viewer_is_dm(serializer, obj):
+    request = serializer.context.get('request')
+    return bool(request and request.user.is_authenticated and obj.dm_id == request.user.id)
+
+
+def _cover_url(obj):
+    return f'/api/campaigns/{obj.id}/cover?v={obj.cover_ver}' if getattr(obj, 'cover_ver', '') else None
+
+
 class CampaignSerializer(serializers.ModelSerializer):
+    """Campanha completa (contrato C3).
+
+    Mestre: state inteiro, inviteCode, screenToken, onboarding, advancedDice,
+    pendingApprovals. Jogador: state recortado (campaign_state.PLAYER_KEYS),
+    worldNewCount e o cartão do telão resolvido (screenCard) para o toast
+    "O mestre revelou…"."""
     role = serializers.SerializerMethodField()
     members = serializers.SerializerMethodField()
     inviteCode = serializers.CharField(source='invite_code', read_only=True)
     screenToken = serializers.CharField(source='screen_token', read_only=True)
     dmId = serializers.IntegerField(source='dm_id', read_only=True)
+    coverVer = serializers.CharField(source='cover_ver', read_only=True)
+    coverUrl = serializers.SerializerMethodField()
 
     class Meta:
         model = Campaign
         fields = ['id', 'name', 'slug', 'description', 'state', 'role',
                   'members', 'inviteCode', 'screenToken', 'dmId',
+                  'tagline', 'accent', 'tone', 'coverVer', 'coverUrl',
                   'created_at', 'updated_at']
+
+    def get_coverUrl(self, obj):
+        return _cover_url(obj)
 
     def get_role(self, obj):
         request = self.context.get('request')
@@ -135,7 +156,7 @@ class CampaignSerializer(serializers.ModelSerializer):
 
     def get_members(self, obj):
         request = self.context.get('request')
-        is_dm = bool(request and request.user.is_authenticated and obj.dm_id == request.user.id)
+        is_dm = _viewer_is_dm(self, obj)
         # select_related para evitar N+1 em user.profile e character
         members = (
             obj.memberships
@@ -146,22 +167,60 @@ class CampaignSerializer(serializers.ModelSerializer):
         return ms
 
     def to_representation(self, instance):
+        from .campaign_state import public_state, PLAYER_KEYS
+        from .screen_card import resolve_screen_card
         data = super().to_representation(instance)
         request = self.context.get('request')
-        is_dm = bool(request and request.user.is_authenticated and instance.dm_id == request.user.id)
-        if not is_dm:
-            # esconde tokens privados para não-DM
+        is_dm = _viewer_is_dm(self, instance)
+        data['screenCard'] = resolve_screen_card(instance)
+        if is_dm:
+            settings = instance.dm_settings if isinstance(instance.dm_settings, dict) else {}
+            data['onboarding'] = settings.get('onboarding') or {}
+            data['advancedDice'] = bool(settings.get('advancedDice'))
+            data['pendingApprovals'] = instance.approvals.filter(status='pending').count()
+        else:
+            # esconde tokens privados e o que é só do mestre (nudges, concentração,
+            # diarySessions, screenCard cru…) para não-DM
             data.pop('inviteCode', None)
             data.pop('screenToken', None)
+            data['state'] = public_state(instance.state, PLAYER_KEYS)
+            data['worldNewCount'] = _world_new_count(instance, request)
         return data
 
 
+def _world_new_count(campaign, request):
+    """Entradas do Mundo reveladas depois da última visita do jogador à aba Mundo
+    (mesma regra do WP1: views_world.world_new_count, que respeita handouts)."""
+    from .models import Membership
+    if not request or not request.user.is_authenticated:
+        return 0
+    m = Membership.objects.filter(campaign=campaign, user=request.user).first()
+    try:
+        from .views_world import world_new_count
+    except ImportError:  # pragma: no cover — Mundo ainda não instalado
+        return 0
+    return world_new_count(campaign, m)
+
+
 class CampaignListSerializer(serializers.ModelSerializer):
+    """Lista de campanhas: leve, sem segredos. state só com o recorte público
+    (sessão, cena, clima, ao vivo) — nunca nudges, concentração ou diarySessions."""
     role = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+    coverVer = serializers.CharField(source='cover_ver', read_only=True)
+    coverUrl = serializers.SerializerMethodField()
 
     class Meta:
         model = Campaign
-        fields = ['id', 'name', 'slug', 'description', 'state', 'role']
+        fields = ['id', 'name', 'slug', 'description', 'state', 'role',
+                  'tagline', 'accent', 'tone', 'coverVer', 'coverUrl']
+
+    def get_state(self, obj):
+        from .campaign_state import public_state
+        return public_state(obj.state)
+
+    def get_coverUrl(self, obj):
+        return _cover_url(obj)
 
     def get_role(self, obj):
         request = self.context.get('request')

@@ -5,6 +5,8 @@ import { findMonster } from '../../data/bestiary.js';
 import { loadCustomMonsters } from './custom-monsters.js';
 import { combatantXp, encounterDifficulty, DIFFICULTY_LABEL } from './encounter.js';
 import './monster-tools.css';
+import { confirmDialog } from '../../components/ConfirmDialog.jsx';
+import { flash } from '../play/flash.js';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
@@ -62,13 +64,13 @@ export default function EncounterDifficulty({ campaign, combatants, lang }) {
     const amount = info.totalXp;
     if (!amount) return;
     const msg = t(lang, `Dar ${amount} XP ao grupo (dividido entre os personagens)?`, `Award ${amount} XP to the party (split among characters)?`);
-    if (!confirm(msg)) return;
+    if (!await confirmDialog({ lang, message: msg, confirmLabel: t(lang, 'Dar XP', 'Award XP') })) return;
     setBusy(true);
     try {
       await api.awardXp(campaign.id, info.characterIds.length ? { amount, characterIds: info.characterIds, split: true } : { amount, split: true });
       setAwarded(amount);
     } catch (e) {
-      alert(t(lang, 'Não foi possível dar XP: ', 'Could not award XP: ') + errorMessage(e, lang));
+      flash(t(lang, 'Não foi possível dar XP: ', 'Could not award XP: ') + errorMessage(e, lang), { error: true });
     } finally { setBusy(false); }
   };
 

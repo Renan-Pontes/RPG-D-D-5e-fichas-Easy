@@ -43,6 +43,8 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    # ETag + 304 em GETs iguais (polling da campanha/telão sai quase de graça).
+    'django.middleware.http.ConditionalGetMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -145,9 +147,30 @@ if not DEBUG:
     }
 
 # === CORS / CSRF ===
-CORS_ALLOWED_ORIGINS = [o.strip() for o in os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:5173').split(',') if o.strip()]
+# Listas separadas por vírgula. CORS_ALLOWED_ORIGINS / CSRF_TRUSTED_ORIGINS
+# substituem o padrão; EXTRA_TRUSTED_ORIGINS soma às duas (ex.: um túnel ou
+# outra porta de dev). Fora de produção (DEBUG ou DJANGO_ENV != production)
+# as portas de dev do Vite (5173 e 5174, localhost e 127.0.0.1) já são aceitas.
+def _origin_list(value):
+    return [o.strip().rstrip('/') for o in (value or '').split(',') if o.strip()]
+
+
+DEV_ORIGINS = [f'http://{host}:{port}' for port in (5173, 5174) for host in ('localhost', '127.0.0.1')]
+_EXTRA_ORIGINS = _origin_list(os.environ.get('EXTRA_TRUSTED_ORIGINS', ''))
+_DEV = DEBUG or os.environ.get('DJANGO_ENV') != 'production'
+
+
+def _with_extras(base):
+    out = []
+    for o in base + _EXTRA_ORIGINS + (DEV_ORIGINS if _DEV else []):
+        if o not in out:
+            out.append(o)
+    return out
+
+
+CORS_ALLOWED_ORIGINS = _with_extras(_origin_list(os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')))
+CSRF_TRUSTED_ORIGINS = _with_extras(_origin_list(os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://localhost:5173')))
 CORS_ALLOW_CREDENTIALS = True
-CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://localhost:5173').split(',') if o.strip()]
 
 # Cross-site cookies: frontend Vercel (https://dd5efichas.vercel.app) e backend
 # PythonAnywhere ficam em origens diferentes. Browser só envia o cookie no fetch

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  NODE_W, NODE_H, NODE_KIND, EDGE_KIND, borderPoint, fitView, nodeAt, nodeMap, hasTreasure,
+  NODE_W, NODE_H, NODE_KIND, EDGE_KIND, borderPoint, fitView, nodeAt, nodeMap, hasTreasure, panToShow,
 } from './prep-graph.js';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
@@ -13,12 +13,16 @@ const short = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
  * duplo clique no fundo cria sala. Em modo "play" só seleciona (não edita).
  *
  * props: data, play, mode ('prep'|'play'), selected {type,id}, onSelect(sel|null),
- *        onMoveNode(id, x, y), onConnect(from, to), onCreateNode(x, y),
- *        available (Set nodeId), highlighted (Set edgeId), lang
+ *        onMoveNode(id, x, y), onConnect(from, to), onCreateNode(x, y, visibleBounds),
+ *        available (Set nodeId), highlighted (Set edgeId), lang,
+ *        focusId (nó que deve ficar inteiro na tela: sala recém-criada/selecionada)
  */
+// Margem da área visível: no alto ficam os botões de zoom/“+ Sala”.
+const PAD = { top: 56, side: 24 };
+
 export default function MapCanvas({
   data, play, mode, selected, onSelect, onMoveNode, onConnect, onCreateNode,
-  available, highlighted, lang,
+  available, highlighted, lang, focusId,
 }) {
   const wrapRef = useRef(null);
   const svgRef = useRef(null);
@@ -79,6 +83,20 @@ export default function MapCanvas({
   });
 
   const fit = () => setView(fitView(nodes, size.w, size.h));
+
+  // Área visível em coordenadas do mapa (para a sala nova nascer inteira na tela).
+  const visibleBounds = () => ({
+    x0: (PAD.side - v.x) / v.k, y0: (PAD.top - v.y) / v.k,
+    x1: (size.w - PAD.side - v.x) / v.k, y1: (size.h - PAD.side - v.y) / v.k,
+  });
+
+  // Sala focada (nova ou escolhida na lista/painel) fora da tela → desliza até ela.
+  useEffect(() => {
+    if (!focusId || !size.w) return;
+    const n = byId.get(focusId);
+    if (!n) return;
+    setView(cur => panToShow(cur || v, n, size.w, size.h, Math.max(PAD.top, PAD.side)));
+  }, [focusId, size.w, size.h]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------------------------------------------------------------- ponteiros
   const startPointer = (e) => {
@@ -168,7 +186,7 @@ export default function MapCanvas({
     if (!editable) return;
     const p = toMap(e.clientX, e.clientY);
     if (nodeAt(data, p.x, p.y)) return;
-    onCreateNode(Math.round(p.x - NODE_W / 2), Math.round(p.y - NODE_H / 2));
+    onCreateNode(Math.round(p.x - NODE_W / 2), Math.round(p.y - NODE_H / 2), visibleBounds());
   };
 
   const onNodeKey = (e, node) => {
@@ -321,7 +339,7 @@ export default function MapCanvas({
         <button type="button" className="btn btn-ghost btn-sm" onClick={fit}>{t(lang, 'Enquadrar', 'Fit')}</button>
         {editable && (
           <button type="button" className="btn btn-primary btn-sm"
-            onClick={() => onCreateNode(Math.round((size.w / 2 - v.x) / v.k - NODE_W / 2), Math.round((size.h / 2 - v.y) / v.k - NODE_H / 2))}>
+            onClick={() => onCreateNode(Math.round((size.w / 2 - v.x) / v.k - NODE_W / 2), Math.round((size.h / 2 - v.y) / v.k - NODE_H / 2), visibleBounds())}>
             + {t(lang, 'Sala', 'Room')}
           </button>
         )}

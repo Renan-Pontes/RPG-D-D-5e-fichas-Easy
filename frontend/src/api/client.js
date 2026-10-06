@@ -55,6 +55,27 @@ async function ensureCsrf(force = false) {
   return csrfPromise;
 }
 
+function currentLang() {
+  try { return localStorage.getItem('dnd5e-forge:lang') || 'pt'; } catch { return 'pt'; }
+}
+
+// Erro claro para CSRF de origem não confiável (ex.: Vite numa porta que o
+// Django não conhece). `code` = 'csrf_origin' para quem quiser tratar.
+function csrfOriginError(status, data) {
+  const msg = currentLang() === 'en'
+    ? 'Origin not authorized by the server. Open the app at the official address (or add this address to CSRF_TRUSTED_ORIGINS).'
+    : 'Origem não autorizada pelo servidor. Abra o app pelo endereço oficial (ou adicione este endereço em CSRF_TRUSTED_ORIGINS).';
+  // `issues` faz o errorMessage() (api/errors.js) mostrar este texto mesmo
+  // quando a tela passa uma mensagem genérica de fallback.
+  return new ApiError(msg, status, { error: 'csrf_origin', code: 'csrf_origin', detail: msg, issues: [msg], raw: data });
+}
+
+/** Esquece o token CSRF guardado e busca outro (o Django gira o token no login). */
+export async function refreshCsrf() {
+  csrfTokenCache = null;
+  return ensureCsrf(true);
+}
+
 async function request(path, { method = 'GET', body, headers = {}, _csrfRetry = false } = {}) {
   const isMutation = method !== 'GET' && method !== 'HEAD';
   if (isMutation) await ensureCsrf();
@@ -76,10 +97,17 @@ async function request(path, { method = 'GET', body, headers = {}, _csrfRetry = 
     throw new ApiError('backend_unavailable', res.status >= 400 ? res.status : 502, null);
   }
   if (!res.ok) {
-    // Retry uma vez em 403 CSRF: token rotacionou / expirou.
-    if (isMutation && res.status === 403 && !_csrfRetry) {
-      const msg = (data?.detail || data?.error || '').toString();
-      if (/csrf/i.test(msg)) {
+    // 403 de CSRF: o exception handler do backend devolve {error: 'forbidden',
+    // detail: 'CSRF Failed: …'}, então o motivo vem em `detail`.
+    const csrfMsg = res.status === 403 ? `${data?.detail || ''} ${data?.error || ''}` : '';
+    if (isMutation && /csrf/i.test(csrfMsg)) {
+      // Origem fora de CSRF_TRUSTED_ORIGINS: repetir não adianta — explica claramente
+      // em vez de "Você não tem permissão" (que faz o usuário achar que errou a senha).
+      if (/origin|referer/i.test(csrfMsg)) {
+        throw csrfOriginError(res.status, data);
+      }
+      // Token rotacionou / expirou: renova e repete uma vez.
+      if (!_csrfRetry) {
         csrfTokenCache = null;
         await ensureCsrf(true);
         return request(path, { method, body, headers, _csrfRetry: true });
@@ -95,13 +123,21 @@ async function request(path, { method = 'GET', body, headers = {}, _csrfRetry = 
   return data;
 }
 
+function withCsrfRefresh(data) {
+  csrfTokenCache = null;
+  ensureCsrf(true).catch(() => {});
+  return data;
+}
+
 export const api = {
   base: API_BASE,
   // Auth
   csrf:   ()     => request('/api/auth/csrf'),
-  signup: (body) => request('/api/auth/signup', { method: 'POST', body }),
-  login:  (body) => request('/api/auth/login',  { method: 'POST', body }),
-  logout: ()     => request('/api/auth/logout', { method: 'POST' }),
+  // O Django gira o token CSRF ao autenticar: renova logo depois, senão a
+  // primeira escrita após o login sempre leva 403 e precisa ser repetida.
+  signup: (body) => request('/api/auth/signup', { method: 'POST', body }).then(withCsrfRefresh),
+  login:  (body) => request('/api/auth/login',  { method: 'POST', body }).then(withCsrfRefresh),
+  logout: ()     => request('/api/auth/logout', { method: 'POST' }).then(withCsrfRefresh),
   me:     ()     => request('/api/auth/me'),
   // Área de administração (só is_staff)
   adminOverview:   () => request('/api/admin/overview'),
@@ -147,6 +183,18 @@ export const api = {
   removeMember:    (campId, membId) => request(`/api/campaigns/${campId}/members/${membId}`, { method: 'DELETE' }),
   rotateScreenToken:(id) => request(`/api/campaigns/${id}/rotate-screen-token`, { method: 'POST' }),
   rotateInviteCode:(id) => request(`/api/campaigns/${id}/rotate-invite-code`, { method: 'POST' }),
+  // Estado da mesa: merge por chave no servidor (session, scene, sceneText, weather,
+  // live, nudges, concentration, endOfEncounterWizard, levelingMode, allowMulticlass).
+  patchCampaignState: (id, patch) => request(`/api/campaigns/${id}/state`, { method: 'PATCH', body: { patch } }),
+  // Identidade e ajustes só do mestre (merge parcial): {name, description, tagline,
+  // accent, tone, onboarding: {flag: bool}, advancedDice: bool}
+  patchCampaign:   (id, body) => request(`/api/campaigns/${id}`, { method: 'PATCH', body }),
+  // Capa: dataURL (jpeg/png/webp ≤ 450k) ou null para remover → {coverVer}
+  setCampaignCover:(id, image) => request(`/api/campaigns/${id}/cover`, { method: image ? 'PUT' : 'DELETE', body: image ? { image } : undefined }),
+  campaignCoverUrl:(c) => (c?.coverVer ? `${API_BASE}/api/campaigns/${c.id}/cover?v=${encodeURIComponent(c.coverVer)}` : null),
+  // "Mostrar agora" no telão: {type:'entry', entryId, secretIds?} | {type:'recap', title, text}
+  // | {type:'scene', adventureId, nodeId} | null (limpa)
+  setScreenCard:   (id, card) => request(`/api/campaigns/${id}/screen-card`, { method: 'POST', body: card ?? { type: null } }),
   // Approvals
   listApprovals:  (campaignId) => request(`/api/approvals/campaign/${campaignId}`),
   grantLevelup:   (campaignId, body) => request(`/api/approvals/campaign/${campaignId}/grant-levelup`, { method: 'POST', body }),
@@ -217,4 +265,4 @@ export const api = {
   deleteCheck:   (cid) => request(`/api/checks/${cid}`, { method: 'DELETE' }),
 };
 
-export { ApiError, API_BASE };
+export { ApiError, API_BASE, request };

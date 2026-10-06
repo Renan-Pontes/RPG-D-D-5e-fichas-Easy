@@ -1,9 +1,33 @@
+import importlib
+
+from django.http import JsonResponse
 from django.urls import path
+from . import views_world
 from . import views_checks
 from . import views_adventures
 from . import views_share
 from . import views_admin
 from . import views_auth, views_characters, views_campaigns, views_approvals, views_dice, views_screen, views_combat, views_inventory, views_items, views_diary
+
+
+def _wp2(module, name):
+    """Rotas do contrato C1 cujas views são do WP2. Se a função ainda não
+    existir no módulo, a rota responde 501 (not_implemented) em vez de quebrar
+    o import das URLs; quando existir, é usada direto."""
+    mod = importlib.import_module(f'{__package__}.{module}')
+    fn = getattr(mod, name, None)
+    if fn is not None:
+        return fn
+
+    def pending(request, *args, **kwargs):
+        real = getattr(importlib.import_module(f'{__package__}.{module}'), name, None)
+        if real is not None:
+            return real(request, *args, **kwargs)
+        return JsonResponse({'error': 'not_implemented', 'detail': f'{module}.{name}'}, status=501)
+    pending.csrf_exempt = True  # views DRF fazem a própria checagem de CSRF
+    pending.__name__ = name
+    return pending
+
 
 urlpatterns = [
     # Auth
@@ -41,6 +65,20 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/rotate-invite-code', views_campaigns.campaign_rotate_invite),
     path('campaigns/<str:id_or_slug>/items', views_items.campaign_items),
     path('campaigns/<str:id_or_slug>/items/<int:item_pk>', views_items.campaign_item_detail),
+    # Estado parcial, capa e "Mostrar agora" no telão (WP2, contrato C1)
+    path('campaigns/<str:id_or_slug>/state', _wp2('views_campaigns', 'campaign_state_patch')),
+    path('campaigns/<str:id_or_slug>/cover', _wp2('views_campaigns', 'campaign_cover')),
+    path('campaigns/<str:id_or_slug>/screen-card', _wp2('views_campaigns', 'campaign_screen_card')),
+
+    # Mundo da campanha (lugares, NPCs, facções, itens, lore, documentos)
+    path('campaigns/<str:id_or_slug>/world', views_world.world_list),
+    path('campaigns/<str:id_or_slug>/world/sample', views_world.world_sample),
+    path('campaigns/<str:id_or_slug>/world/seen', views_world.world_seen),
+    path('campaigns/<str:id_or_slug>/session-plan', views_world.session_plan),
+    path('world/<int:pk>', views_world.world_detail),
+    path('world/<int:pk>/image', views_world.world_image),
+    path('world/<int:pk>/reveal', views_world.world_reveal),
+
     path('campaigns/<str:id_or_slug>/diary', views_diary.campaign_diary),
     path('campaigns/<str:id_or_slug>/diary/sessions', views_diary.campaign_diary_start_session),
     path('campaigns/<str:id_or_slug>/diary/sessions/<int:number>', views_diary.campaign_diary_session),
@@ -86,6 +124,8 @@ urlpatterns = [
     # Screen (público)
     path('screen/<str:token>', views_screen.screen),
     path('screen/<str:token>/rolls', views_combat.roll_public_screen),
+    path('screen/<str:token>/image/<int:entry_id>', _wp2('views_screen', 'screen_image')),
+    path('screen/<str:token>/cover', _wp2('views_screen', 'screen_cover')),
 
     # Combat
     path('combat/campaign/<str:id_or_slug>', views_combat.combat_get),
@@ -96,6 +136,7 @@ urlpatterns = [
     path('combat/campaign/<str:id_or_slug>/combatants/<str:combatant_id>', views_combat.combat_combatant),
     path('combat/campaign/<str:id_or_slug>/action', views_combat.combat_action),
     path('combat/campaign/<str:id_or_slug>/player-attack', views_combat.combat_player_attack),
+    path('combat/campaign/<str:id_or_slug>/attack-preview', _wp2('views_combat', 'combat_attack_preview')),
     path('combat/campaign/<str:id_or_slug>/next-turn', views_combat.combat_next_turn),
     path('combat/campaign/<str:id_or_slug>/map', views_combat.combat_set_map),
 

@@ -28,6 +28,10 @@ from .models import Campaign, CombatInstance, RollRequest, Character, DiceRig, D
 from .permissions import get_campaign_or_404, require_dm, require_member, is_dm
 from . import combat as engine
 from .diary import log_combat_start, log_combat_end, log_roll_request
+from .image_data import validate_data_url
+
+# Fundo do mapa de combate: o canvas comprime para ≤1600 px em JPEG 0,82.
+MAX_MAP_IMAGE_CHARS = 2_000_000
 
 
 # ============================================================
@@ -79,27 +83,79 @@ def _sync_changed(combatants, ids):
             _sync_pc_to_character(cur)
 
 
-def _get_combat(campaign, create=False):
-    c, created = CombatInstance.objects.get_or_create(campaign=campaign)
+def _get_combat(campaign, create=True):
+    """Instância de combate da campanha. create=False devolve None se não houver
+    (GET de polling não escreve no banco)."""
+    if not create:
+        return CombatInstance.objects.filter(campaign=campaign).first()
+    c, _ = CombatInstance.objects.get_or_create(campaign=campaign)
     return c
 
 
+# Campos do log que jogador/telão podem ver (sem CA, totais nem dano de monstro).
+PUBLIC_LOG_KEYS = ('type', 'attacker', 'target', 'action_name', 'attack_name', 'hit', 'crit',
+                   'round', 'whose', 'condition', 'name', 'ts', 'downed')
+EMPTY_COMBAT = {'active': False, 'round': 1, 'turnIndex': 0, 'combatants': [], 'map': {},
+                'log': [], 'updatedAt': None}
+
+
+def health_band(current, maximum, defeated=False):
+    """Faixa de saúde pública: unhurt (ileso) · hurt (ferido) · bloodied (sangrando) · down (caído)."""
+    try:
+        current = float(current)
+        maximum = float(maximum)
+    except (TypeError, ValueError):
+        return 'down' if defeated else 'unhurt'
+    if defeated or current <= 0:
+        return 'down'
+    if maximum <= 0 or current >= maximum:
+        return 'unhurt'
+    return 'bloodied' if current <= maximum / 2 else 'hurt'
+
+
+def public_combatant(cb):
+    """Combatente visto por jogador/telão. Monstro: nome, condições e faixa de
+    saúde (nada de PV, CA, ações ou atributos). PC: PV e CA (a mesa já vê na ficha)."""
+    stats = cb.get('stats') or {}
+    base = {
+        'id': cb.get('id'), 'type': cb.get('type'), 'name': cb.get('name'),
+        'initiative': cb.get('initiative'), 'position': cb.get('position'),
+        'sprite': cb.get('sprite'), 'token_scale': cb.get('token_scale', 1),
+        'conditions': cb.get('conditions') or [], 'defeated': bool(cb.get('defeated')),
+        'health': health_band(cb.get('current_hp'), stats.get('max_hp'), cb.get('defeated')),
+    }
+    if cb.get('type') == 'pc':
+        base.update({
+            'character_id': cb.get('character_id'),
+            'current_hp': cb.get('current_hp'), 'temp_hp': cb.get('temp_hp', 0),
+            'death_saves': cb.get('death_saves'), 'wild_shape': bool(cb.get('wild_shape')),
+            'stats': {'ac': stats.get('ac'), 'max_hp': stats.get('max_hp'), 'speed': stats.get('speed')},
+        })
+    return base
+
+
 def _serialize_combat(c, *, for_dm=False):
-    """Combat instance → dict pra resposta."""
-    data = {
+    """Combat instance → dict. Jogador e telão recebem a versão filtrada."""
+    if c is None:
+        return {**EMPTY_COMBAT, 'combatants': [], 'map': {}, 'log': []}
+    log = c.action_log[-30:] if c.action_log else []   # últimas 30 entradas
+    combatants = c.combatants or []
+    if not for_dm:
+        combatants = [public_combatant(x) for x in combatants if isinstance(x, dict)]
+        log = [{k: v for k, v in e.items() if k in PUBLIC_LOG_KEYS} for e in log if isinstance(e, dict)]
+    return {
         'active': c.active,
         'round': c.round_number,
         'turnIndex': c.turn_index,
-        'combatants': c.combatants,
-        'map': c.map_data,
-        'log': c.action_log[-30:],          # últimas 30 entradas
+        'combatants': combatants,
+        'map': c.map_data or {},
+        'log': log,
         'updatedAt': c.updated_at.isoformat() if c.updated_at else None,
     }
-    return data
 
 
 def _serialize_combat_public(c):
-    """Vista pra rota pública do telão: esconde info sensível (HP de monstros não-derrotados pode ser opcional)."""
+    """Vista do telão: igual à do jogador (monstros só com nome/condições/faixa de saúde)."""
     return _serialize_combat(c, for_dm=False)
 
 
@@ -133,6 +189,137 @@ def _append_log(combat, entry):
     combat.action_log = log[-100:]
 
 
+def _int(value, default=0):
+    """int tolerante para campos numéricos do corpo; inválido → 400."""
+    if value is None or value == '':
+        return default
+    if isinstance(value, bool):
+        raise ValidationError({'error': 'invalid_number'})
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise ValidationError({'error': 'invalid_number'})
+
+
+def _went_down(before, after):
+    """Caiu agora: PV foi de >0 para 0 nesta ação."""
+    try:
+        return (before.get('current_hp') or 0) > 0 and (after.get('current_hp') or 0) <= 0
+    except (TypeError, AttributeError):
+        return False
+
+
+def _typed_d20(value):
+    """d20 natural digitado pelo mestre (dado físico). None se ausente."""
+    if value is None or value == '':
+        return None
+    v = _int(value)
+    if not 1 <= v <= 20:
+        raise ValidationError({'error': 'invalid_attackRoll'})
+    return v
+
+
+def _typed_damage(value, action):
+    """Dano digitado: int (tipo da ação) ou [{amount, type}]. None se ausente."""
+    if value is None or value == '':
+        return None
+    default_type = action.get('damageType') or 'bludgeoning'
+    if isinstance(value, list):
+        if not value or len(value) > 6:
+            raise ValidationError({'error': 'invalid_damage'})
+        parts = []
+        for p in value:
+            if not isinstance(p, dict):
+                raise ValidationError({'error': 'invalid_damage'})
+            amount = _int(p.get('amount'))
+            if not 0 <= amount <= 9999:
+                raise ValidationError({'error': 'invalid_damage'})
+            parts.append({'amount': amount, 'type': str(p.get('type') or default_type)[:30]})
+        return parts
+    amount = _int(value)
+    if not 0 <= amount <= 9999:
+        raise ValidationError({'error': 'invalid_damage'})
+    return [{'amount': amount, 'type': default_type}]
+
+
+def _dice_label(expr, crit):
+    """'1d6+2' → '2d6+2' no crítico (só para mostrar)."""
+    count, sides, mod = engine.parse_dice(expr)
+    if not count:
+        return str(expr or '')
+    n = count * 2 if crit else count
+    return f'{n}d{sides}' + (f'{mod:+d}' if mod else '')
+
+
+def _roll_parts(action, crit):
+    """Rola o dano da ação (principal + adicionais) sem aplicar."""
+    out = []
+    dmg_type = action.get('damageType') or 'bludgeoning'
+    main = action.get('damage')
+    if main and str(main) != '0':
+        r = engine.roll_dice(main, double_dice=crit)
+        out.append({'dice': _dice_label(main, crit), 'rolled': r['total'], 'rolls': r['rolls'], 'type': dmg_type})
+    for extra in action.get('extraDamage') or []:
+        if isinstance(extra, dict) and extra.get('damage'):
+            r = engine.roll_dice(extra['damage'], double_dice=crit)
+            out.append({'dice': _dice_label(extra['damage'], crit), 'rolled': r['total'], 'rolls': r['rolls'],
+                        'type': extra.get('damageType') or dmg_type})
+    return out
+
+
+def _manual_attack_result(att, tgt, action, typed_roll, typed_parts, body):
+    """Resultado de ataque com valores do mestre (no formato de engine.resolve_attack).
+    `hit`/`crit` no corpo, quando booleanos, mandam (autoridade do mestre)."""
+    atk_bonus = _int(action.get('atk'), 0)
+    target_ac = (tgt.get('stats') or {}).get('ac', 10)
+    if typed_roll is None:
+        d20 = engine.roll_d20(advantage=bool(body.get('advantage')), disadvantage=bool(body.get('disadvantage')))
+    else:
+        d20 = {'value': typed_roll, 'rolls': [typed_roll], 'manual': True}
+    nat = d20['value']
+    total = nat + atk_bonus
+    crit = body['crit'] if isinstance(body.get('crit'), bool) else nat == 20
+    hit = body['hit'] if isinstance(body.get('hit'), bool) else (crit or (nat != 1 and total >= target_ac))
+    result = {'hit': hit, 'crit': crit, 'natural_one': nat == 1, 'attack_roll': d20,
+              'attack_total': total, 'target_ac': target_ac, 'damage': None, 'manual': True}
+    if hit:
+        if typed_parts is not None:
+            first, rest = typed_parts[0], typed_parts[1:]
+            result['damage'] = {'total': first['amount'], 'rolls': [], 'mod': 0, 'type': first['type'],
+                                'crit': crit, 'manual': True}
+            if rest:
+                result['extra_damage'] = [{'total': p['amount'], 'rolls': [], 'mod': 0, 'type': p['type'],
+                                           'crit': crit, 'manual': True} for p in rest]
+        else:
+            rolled = _roll_parts(action, crit)
+            if rolled:
+                result['damage'] = {'total': rolled[0]['rolled'], 'rolls': rolled[0]['rolls'],
+                                    'type': rolled[0]['type'], 'crit': crit}
+                if rolled[1:]:
+                    result['extra_damage'] = [{'total': p['rolled'], 'rolls': p['rolls'], 'type': p['type'],
+                                               'crit': crit} for p in rolled[1:]]
+    who = f"{att.get('name', '?')} → {tgt.get('name', '?')}"
+    dmg = sum(p['amount'] for p in engine.attack_damage_parts(result))
+    result['log'] = (f"{who}: {'CRÍTICO! ' if crit else ''}acerto ({nat}+{atk_bonus}={total} vs CA {target_ac}) — {dmg}"
+                     if hit else f"{who}: errou ({nat}+{atk_bonus}={total} vs CA {target_ac})")
+    return result
+
+
+def _peek_rig(campaign, user_id, dice_type):
+    """Próximo valor preparado (Ferramentas avançadas) SEM consumir. Int ou None."""
+    rigs = DiceRig.objects.filter(
+        campaign=campaign, target_user_id=user_id, dice_type__in=[dice_type, 'any']
+    ).order_by('created_at')
+    for rig in rigs:
+        for v in rig.values or []:
+            if not v.get('consumed'):
+                try:
+                    return int(v.get('value'))
+                except (TypeError, ValueError):
+                    return None
+    return None
+
+
 # ============================================================
 # Combat: read / start / end / configure
 # ============================================================
@@ -141,7 +328,7 @@ def _append_log(combat, entry):
 def combat_get(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_member(request.user, campaign)
-    c = _get_combat(campaign)
+    c = _get_combat(campaign, create=False)   # GET de polling não cria linha
     return Response({'combat': _serialize_combat(c, for_dm=is_dm(request.user, campaign))})
 
 
@@ -169,7 +356,7 @@ def combat_end(request, id_or_slug):
     c.active = False
     _append_log(c, {'type': 'end'})
     c.save()
-    log_combat_end(campaign, c.round_number, c.combatants, request.user)
+    log_combat_end(campaign, c.round_number, c.combatants, request.user, action_log=c.action_log)
     return Response({'combat': _serialize_combat(c, for_dm=True)})
 
 
@@ -350,6 +537,9 @@ def combat_combatant(request, id_or_slug, combatant_id):
         stats.update(patch['stats'])
         updated['stats'] = stats
     c.combatants = engine.replace_combatant(c.combatants, updated)
+    if _went_down(target, updated):
+        # PV zerado à mão também conta como queda no resumo do combate.
+        _append_log(c, {'type': 'hp_set', 'target': target.get('name'), 'downed': target.get('name')})
     c.save()
     return Response({'combat': _serialize_combat(c, for_dm=True)})
 
@@ -390,31 +580,42 @@ def combat_action(request, id_or_slug):
     response_payload = {}
 
     if action_type == 'attack':
-        # body: {attackerId, targetId, actionIndex, advantage?, disadvantage?}
+        # body: {attackerId, targetId, actionIndex, advantage?, disadvantage?, force?,
+        #        attackRoll?, damage?, hit?, crit?, consumeRig?}
+        # Com attackRoll/damage o servidor aplica EXATAMENTE os valores enviados
+        # (dado físico digitado ou valores da prévia); sem eles, rola como antes.
         att = engine.find_combatant(combatants, request.data.get('attackerId'))
         tgt = engine.find_combatant(combatants, request.data.get('targetId'))
         if not att or not tgt:
             raise NotFound('combatant_not_found')
-        idx = int(request.data.get('actionIndex') or 0)
+        idx = _int(request.data.get('actionIndex'), 0)
         actions = (att.get('stats') or {}).get('actions') or []
         if idx < 0 or idx >= len(actions):
             raise ValidationError({'error': 'invalid_action_index'})
         action_data = actions[idx]
         combatants, att = _check_and_consume(combatants, att, idx, force=bool(request.data.get('force')))
         tgt = engine.find_combatant(combatants, tgt.get('id'))
-        forced_d20 = _maybe_consume_rig(campaign, request.user.id, 'd20')
-        forced_damage = None  # Damage poderia ter rig próprio também — não tratado aqui ainda
-        result = engine.resolve_attack(
-            att, tgt, action_data,
-            advantage=bool(request.data.get('advantage')),
-            disadvantage=bool(request.data.get('disadvantage')),
-            forced_d20=forced_d20,
-        )
+        typed_roll = _typed_d20(request.data.get('attackRoll'))
+        typed_parts = _typed_damage(request.data.get('damage'), action_data)
+        if typed_roll is not None or typed_parts is not None:
+            if request.data.get('consumeRig'):
+                _maybe_consume_rig(campaign, request.user.id, 'd20')
+            result = _manual_attack_result(att, tgt, action_data, typed_roll, typed_parts, request.data)
+        else:
+            forced_d20 = _maybe_consume_rig(campaign, request.user.id, 'd20')
+            result = engine.resolve_attack(
+                att, tgt, action_data,
+                advantage=bool(request.data.get('advantage')),
+                disadvantage=bool(request.data.get('disadvantage')),
+                forced_d20=forced_d20,
+            )
         # Aplica dano se acertou (parcela principal + dano adicional de outro tipo)
         parts = engine.attack_damage_parts(result)
+        downed = False
         if parts:
             applied = engine.apply_damage_parts(tgt, parts)
             combatants = engine.replace_combatant(combatants, applied['combatant'])
+            downed = _went_down(tgt, applied['combatant'])
             result['damage_applied'] = {
                 'damage_taken': applied['damage_taken'],
                 'note': applied['note'],
@@ -434,6 +635,10 @@ def combat_action(request, id_or_slug):
             # Dano sofrido (após resistências) — usado pelos avisos de concentração.
             'damage_taken': (result.get('damage_applied') or {}).get('damage_taken', 0),
         })
+        if result.get('manual'):
+            log_entry['manual'] = True
+        if downed:
+            log_entry['downed'] = tgt.get('name')
         response_payload['result'] = result
 
     elif action_type == 'damage':
@@ -441,12 +646,14 @@ def combat_action(request, id_or_slug):
         tgt = engine.find_combatant(combatants, request.data.get('targetId'))
         if not tgt:
             raise NotFound('combatant_not_found')
-        applied = engine.apply_damage(tgt, int(request.data.get('amount') or 0),
+        applied = engine.apply_damage(tgt, _int(request.data.get('amount'), 0),
                                       request.data.get('damageType') or 'bludgeoning')
         combatants = engine.replace_combatant(combatants, applied['combatant'])
         if tgt.get('type') == 'pc' and tgt.get('character_id'):
             _sync_pc_to_character(applied['combatant'])
         log_entry.update({'target': tgt.get('name'), 'amount': applied['damage_taken'], 'note': applied['note']})
+        if _went_down(tgt, applied['combatant']):
+            log_entry['downed'] = tgt.get('name')
         response_payload['result'] = applied
 
     elif action_type == 'heal':
@@ -477,8 +684,13 @@ def combat_action(request, id_or_slug):
         targets = [t for t in combatants if t.get('id') in target_ids]
         result = engine.resolve_save_effect(action_data, targets)
         # Aplica dano (por tipo) e condições em quem falhou
+        before = {x.get('id'): x for x in combatants}
         combatants, changed = engine.apply_save_results(combatants, result)
         _sync_changed(combatants, changed)
+        downs = [x.get('name') for x in combatants
+                 if x.get('id') in changed and _went_down(before.get(x.get('id')) or {}, x)]
+        if downs:
+            log_entry['downed_list'] = downs
         log_entry.update({'attacker': att.get('name'), 'action_name': _action_name(action_data),
                           'dc': result['dc'], 'ability': result['ability'],
                           'per_target': result['per_target']})
@@ -565,6 +777,69 @@ def combat_action(request, id_or_slug):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def combat_attack_preview(request, id_or_slug):
+    """Prévia de ataque (contrato C2 · AttackPreview): rola e calcula, mas NÃO
+    aplica nada — nem PV, nem gasto de recarga/usos, nem dado preparado.
+    O mestre confirma com POST /action {action:'attack', attackRoll, damage}.
+
+    body: {attackerId, targetId, actionIndex, advantage?, disadvantage?, attackRoll?}
+    resposta: {attackRoll, total, targetAC, hit, crit, damage: [{dice, rolled, type, rolls}],
+               damageTotal, effectiveDamage, newHp, note, rolls, attackBonus, actionName,
+               available, unavailableReason, rigged}
+    `damage` vem rolado mesmo no erro (para o mestre "Ajustar" sem nova chamada);
+    quem decide se aplica é `hit`.
+    """
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    c = _get_combat(campaign, create=False)
+    combatants = list((c.combatants if c else None) or [])
+    att = engine.find_combatant(combatants, request.data.get('attackerId'))
+    tgt = engine.find_combatant(combatants, request.data.get('targetId'))
+    if not att or not tgt:
+        raise NotFound('combatant_not_found')
+    idx = _int(request.data.get('actionIndex'), 0)
+    actions = (att.get('stats') or {}).get('actions') or []
+    if idx < 0 or idx >= len(actions):
+        raise ValidationError({'error': 'invalid_action_index'})
+    action = actions[idx]
+    available, reason = engine.action_availability(att, idx)
+
+    typed = _typed_d20(request.data.get('attackRoll'))
+    rigged = False
+    if typed is not None:
+        d20 = {'value': typed, 'rolls': [typed]}
+    else:
+        peek = _peek_rig(campaign, request.user.id, 'd20')
+        rigged = peek is not None
+        d20 = engine.roll_d20(advantage=bool(request.data.get('advantage')),
+                              disadvantage=bool(request.data.get('disadvantage')),
+                              forced=peek)
+    nat = d20['value']
+    atk_bonus = _int(action.get('atk'), 0)
+    total = nat + atk_bonus
+    target_ac = (tgt.get('stats') or {}).get('ac', 10)
+    crit = nat == 20
+    hit = crit or (nat != 1 and total >= target_ac)
+    parts = _roll_parts(action, crit)
+    damage_total = sum(p['rolled'] for p in parts)
+    effective, new_hp, note = 0, tgt.get('current_hp'), None
+    if hit and parts:
+        sim = engine.apply_damage_parts(dict(tgt), [{'amount': p['rolled'], 'type': p['type']} for p in parts])
+        effective, new_hp, note = sim['damage_taken'], sim['combatant'].get('current_hp'), sim['note']
+    return Response({
+        'attackerId': att.get('id'), 'targetId': tgt.get('id'), 'actionIndex': idx,
+        'actionName': _action_name(action), 'attackBonus': atk_bonus,
+        'attackRoll': nat, 'rolls': d20.get('rolls') or [nat], 'total': total,
+        'targetAC': target_ac, 'hit': hit, 'crit': crit, 'naturalOne': nat == 1,
+        'damage': parts, 'damageTotal': damage_total,
+        'effectiveDamage': effective, 'newHp': new_hp, 'note': note,
+        'available': available, 'unavailableReason': None if available else reason,
+        'rigged': rigged,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def combat_player_attack(request, id_or_slug):
     """PC ataca alvo durante seu turno em combate.
 
@@ -627,6 +902,7 @@ def combat_player_attack(request, id_or_slug):
         action_data['atk'] = int(request.data.get('attackBonus') or 0)
 
     forced_d20 = _maybe_consume_rig(campaign, request.user.id, 'd20')
+    downs = []
     advantage = bool(request.data.get('advantage'))
     disadvantage = bool(request.data.get('disadvantage'))
 
@@ -634,6 +910,9 @@ def combat_player_attack(request, id_or_slug):
         # Magia com save: alvo único faz save, dano metade no sucesso
         save_res = engine.resolve_save_effect(action_data, [tgt])
         combatants, changed = engine.apply_save_results(combatants, save_res)
+        after = engine.find_combatant(combatants, tgt.get('id')) or {}
+        if _went_down(tgt, after):
+            downs.append(tgt.get('name'))
         _sync_changed(combatants, changed)
         result = {
             'kind': 'save',
@@ -662,6 +941,8 @@ def combat_player_attack(request, id_or_slug):
         if primary['hit'] and primary['damage']:
             applied = engine.apply_damage(tgt, primary['damage']['total'], primary['damage']['type'])
             combatants = engine.replace_combatant(combatants, applied['combatant'])
+            if _went_down(tgt, applied['combatant']):
+                downs.append(tgt.get('name'))
             if tgt.get('type') == 'pc' and tgt.get('character_id'):
                 _sync_pc_to_character(applied['combatant'])
             primary['damage_applied'] = {
@@ -678,6 +959,8 @@ def combat_player_attack(request, id_or_slug):
             if second['hit'] and second['damage'] and redirected:
                 applied = engine.apply_damage(redirected, second['damage']['total'], second['damage']['type'])
                 combatants = engine.replace_combatant(combatants, applied['combatant'])
+                if _went_down(redirected, applied['combatant']):
+                    downs.append(redirected.get('name'))
                 if redirected.get('type') == 'pc' and redirected.get('character_id'):
                     _sync_pc_to_character(applied['combatant'])
                 second['damage_applied'] = {
@@ -710,6 +993,8 @@ def combat_player_attack(request, id_or_slug):
     if isinstance(result.get('fallout'), dict):
         log_entry['fallout_to'] = result['fallout'].get('redirected_to_name')
         log_entry['fallout_damage_taken'] = (result['fallout']['second_attack'].get('damage_applied') or {}).get('damage_taken', 0)
+    if downs:
+        log_entry['downed_list'] = downs
     _append_log(c, log_entry)
     c.save()
     return Response({'result': result, 'combat': _serialize_combat(c, for_dm=is_dm(request.user, campaign))})
@@ -804,11 +1089,22 @@ def combat_set_map(request, id_or_slug):
     require_dm(request.user, campaign)
     c = _get_combat(campaign)
     map_data = dict(c.map_data or {})
-    payload = request.data
-    # Aceita campos: background_image (base64 dataURL), grid_size_px, grid_visible, width_px, height_px
-    for k in ['background_image', 'grid_size_px', 'grid_visible', 'width_px', 'height_px']:
+    payload = request.data if isinstance(request.data, dict) else {}
+    # background_image: data URL de imagem (jpeg/png/webp/gif) ou null/'' para tirar.
+    if 'background_image' in payload:
+        bg = payload.get('background_image')
+        if bg in (None, ''):
+            map_data['background_image'] = None
+        else:
+            map_data['background_image'] = validate_data_url(bg, max_chars=MAX_MAP_IMAGE_CHARS, allow_gif=True)
+    if 'grid_size_px' in payload:
+        map_data['grid_size_px'] = max(10, min(400, _int(payload.get('grid_size_px'), 50)))
+    if 'grid_visible' in payload:
+        map_data['grid_visible'] = bool(payload.get('grid_visible'))
+    for k in ('width_px', 'height_px'):
         if k in payload:
-            map_data[k] = payload[k]
+            v = payload.get(k)
+            map_data[k] = None if v in (None, '') else max(1, min(10000, _int(v, 1)))
     c.map_data = map_data
     c.save()
     return Response({'combat': _serialize_combat(c, for_dm=True)})

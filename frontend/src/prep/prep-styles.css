@@ -221,6 +221,14 @@
 .prep-list-panel { border-top: 1px solid var(--stroke); padding: 12px; background: var(--bg-base); }
 .prep-list-empty { padding: 24px; text-align: center; border: 1px dashed var(--stroke); border-radius: var(--radius-lg); }
 
+/* ---------- Mundo na sala (Preparar / Conduzir) ---------- */
+.prep-in-scene .prep-plain > li { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px solid var(--stroke-faint); border-radius: var(--radius); background: var(--bg-card); }
+.prep-in-scene .pw-chip { border: 0; background: transparent; padding: 0; }
+.prep-in-scene-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.prep-filter { align-self: flex-start; flex-wrap: wrap; }
+.prep-status-select.st-playing { color: var(--moss-bright); border-color: var(--moss); }
+.prep-status-select.st-done { color: var(--ink-muted); }
+
 /* ---------- responsivo ---------- */
 @media (max-width: 980px) {
   .prep-work, .prep-work.is-list:has(> .prep-side) { grid-template-columns: minmax(0, 1fr); }

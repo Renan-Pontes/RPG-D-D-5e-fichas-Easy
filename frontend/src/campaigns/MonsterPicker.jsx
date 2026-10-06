@@ -1,10 +1,14 @@
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { BESTIARY, MONSTER_TYPES, monsterForCombat } from '../../data/bestiary.js';
 import { CR_TABLE, estimateCr } from '../combat/cr-estimate.js';
 import { loadCustomMonsters, saveCustomMonsters, deleteCustomMonster } from '../combat/custom-monsters.js';
 import CustomMonsterEditor from '../combat/CustomMonsterEditor.jsx';
 import MonsterImportPanel from '../combat/MonsterImportPanel.jsx';
 import '../combat/monster-tools.css';
+import { monsterTypeLabel, sizeLabel } from '../combat/monster-i18n.js';
+import { confirmDialog } from '../../components/ConfirmDialog.jsx';
+import './combat-styles.css';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 const CR_STEPS = CR_TABLE.map(r => r.numeric);
@@ -64,18 +68,19 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
     setView('list');
   };
 
-  const removeMine = (id) => {
-    if (!confirm(t(lang, 'Apagar este monstro da sua lista?', 'Delete this monster from your list?'))) return;
+  const removeMine = async (id) => {
+    if (!await confirmDialog({ lang, danger: true, message: t(lang, 'Apagar este monstro da sua lista?', 'Delete this monster from your list?'), confirmLabel: t(lang, 'Apagar', 'Delete') })) return;
     setCustom(deleteCustomMonster(id));
     if (selectedId === id) setSelectedId(null);
   };
 
-  const title = view === 'import' ? t(lang, 'Importar monstro (JSON)', 'Import monster (JSON)')
+  const title = view === 'import' ? t(lang, 'Importar monstro (arquivo)', 'Import monster (file)')
     : view === 'edit' ? t(lang, 'Monstro personalizado', 'Custom monster')
       : t(lang, 'Escolher monstro', 'Pick a monster');
 
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
+  // Portal no <body>: o modal fica acima das abas/barras fixas da casca.
+  return createPortal(
+    <div className="modal-backdrop combat-modal-backdrop" onClick={onClose}>
       <div className={`modal monster-picker ${view === 'edit' ? 'is-wide' : ''}`} onClick={e => e.stopPropagation()} role="dialog" aria-label={title}>
         <button type="button" className="modal-close" onClick={onClose} aria-label={t(lang, 'Fechar', 'Close')}>×</button>
         <h2 style={{ marginTop: 0 }}>{title}</h2>
@@ -101,20 +106,21 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
               <input className="input" placeholder={t(lang, 'Nome…', 'Name…')} value={query} onChange={e => setQuery(e.target.value)} autoFocus aria-label={t(lang, 'Nome', 'Name')} />
               <select className="input" value={typeFilter} onChange={e => setTypeFilter(e.target.value)} aria-label={t(lang, 'Tipo', 'Type')}>
                 <option value="">{t(lang, 'Todos os tipos', 'All types')}</option>
-                {MONSTER_TYPES.map(ty => <option key={ty}>{ty}</option>)}
+                {[...MONSTER_TYPES].sort((a, b) => monsterTypeLabel(a, lang).localeCompare(monsterTypeLabel(b, lang), lang))
+                  .map(ty => <option key={ty} value={ty}>{monsterTypeLabel(ty, lang)}</option>)}
               </select>
               <select className="input" value={crMin} onChange={e => setCrMin(e.target.value)} aria-label={t(lang, 'ND mínimo', 'Min CR')}>
                 <option value="">{t(lang, 'ND mín.', 'Min CR')}</option>
-                {CR_STEPS.map(c => <option key={c} value={c}>ND ≥ {crText(c)}</option>)}
+                {CR_STEPS.map(c => <option key={c} value={c}>{t(lang, 'ND', 'CR')} ≥ {crText(c)}</option>)}
               </select>
               <select className="input" value={crMax} onChange={e => setCrMax(e.target.value)} aria-label={t(lang, 'ND máximo', 'Max CR')}>
                 <option value="">{t(lang, 'ND máx.', 'Max CR')}</option>
-                {CR_STEPS.map(c => <option key={c} value={c}>ND ≤ {crText(c)}</option>)}
+                {CR_STEPS.map(c => <option key={c} value={c}>{t(lang, 'ND', 'CR')} ≤ {crText(c)}</option>)}
               </select>
             </div>
 
             <div className="mp-tools">
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setView('import')}>⇪ {t(lang, 'Importar JSON', 'Import JSON')}</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setView('import')}>⇪ {t(lang, 'Importar arquivo', 'Import file')}</button>
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setEditBase(null); setView('edit'); }}>✚ {t(lang, 'Novo monstro', 'New monster')}</button>
               <button type="button" className="btn btn-ghost btn-sm" disabled={!selected} onClick={() => { setEditBase(selected); setView('edit'); }}>
                 ✎ {selected?.custom ? t(lang, 'Editar', 'Edit') : t(lang, 'Personalizar', 'Customize')}
@@ -142,7 +148,7 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
                       <strong>{m.name?.[lang] || m.name?.en || m.id}</strong>
                       {m.custom && <span className="mp-badge local">{t(lang, 'meu', 'mine')}</span>}
                       <span style={{ marginLeft: 6, color: 'var(--ink-secondary)', fontSize: '0.85em' }}>
-                        ND {m.cr} · {m.type}
+                        {t(lang, 'ND', 'CR')} {m.cr} · {monsterTypeLabel(m.type, lang)}
                       </span>
                     </div>
                     {m.custom && (
@@ -151,7 +157,7 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
                     )}
                   </div>
                   <div className="muted small">
-                    CA {m.ac} · PV {m.hp} · {m.size}
+                    {t(lang, 'CA', 'AC')} {m.ac} · {t(lang, 'PV', 'HP')} {m.hp} · {sizeLabel(m.size, lang)}
                   </div>
                 </div>
               ))}
@@ -184,6 +190,7 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

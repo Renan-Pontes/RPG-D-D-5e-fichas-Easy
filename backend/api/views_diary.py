@@ -12,7 +12,8 @@ Permissões:
   - Mestre: lê tudo (inclusive ocultas), cria, edita/exclui/oculta qualquer entrada.
   - Jogador (membro): lê entradas não ocultas; cria notas próprias; edita/exclui só as dele.
 Sessões ficam em campaign.state: session (nº atual, texto — o mesmo campo da
-visão geral) e diarySessions {"12": {title, startedAt}}.
+visão geral), live (sessão rolando) e diarySessions {"12": {title, startedAt}},
+sempre gravados com merge atômico (campaign_state.update_state).
 """
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
@@ -20,6 +21,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from .campaign_state import update_state
 from .diary import current_session, log_diary, session_meta, _user_name
 from .models import DiaryEntry
 from .permissions import get_campaign_or_404, is_dm, require_dm, require_member
@@ -171,18 +173,22 @@ def campaign_diary_entry(request, id_or_slug, entry_pk):
     return Response({'entry': _serialize(entry, request.user, dm)})
 
 
-def _save_session_meta(campaign, number, **fields):
-    state = dict(campaign.state or {})
-    meta = dict(session_meta(campaign))
-    meta[str(number)] = {**(meta.get(str(number)) or {'title': '', 'startedAt': None}), **fields}
-    state['diarySessions'] = meta
-    return state
+def _save_session_meta(campaign, number, extra=None, **fields):
+    """Grava diarySessions[number] (e `extra`, ex.: session/live) com merge
+    atômico no servidor — não apaga o que outro aparelho escreveu no state."""
+    def patch(state):
+        meta = dict(state.get('diarySessions') if isinstance(state.get('diarySessions'), dict) else {})
+        meta[str(number)] = {**(meta.get(str(number)) or {'title': '', 'startedAt': None}), **fields}
+        return {'diarySessions': meta, **(extra or {})}
+    return update_state(campaign, patch)
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def campaign_diary_start_session(request, id_or_slug):
-    """Mestre começa a sessão N: vira a sessão atual (state.session) e abre o grupo no diário."""
+    """Mestre começa a sessão N: vira a sessão atual (state.session), liga
+    state.live (selo "Ao vivo"; mande live:false para só abrir o grupo no
+    diário) e abre o grupo no diário."""
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
     number = request.data.get('number')
@@ -190,10 +196,11 @@ def campaign_diary_start_session(request, id_or_slug):
         number = (current_session(campaign) or 0) + 1
     number = _session_number(number)
     title = _text(request.data.get('title'), MAX_TITLE, 'title')
-    state = _save_session_meta(campaign, number, title=title, startedAt=timezone.now().isoformat())
-    state['session'] = str(number)
-    campaign.state = state
-    campaign.save(update_fields=['state', 'updated_at'])
+    live = request.data.get('live', True)
+    if not isinstance(live, bool):
+        raise ValidationError({'error': 'invalid_live'})
+    _save_session_meta(campaign, number, extra={'session': str(number), 'live': live},
+                       title=title, startedAt=timezone.now().isoformat())
     log_diary(campaign, 'session', f'Sessão {number} começou' + (f' — {title}' if title else ''),
               data={'session': number, 'title': title}, user=request.user)
     return Response({'currentSession': number, 'state': campaign.state}, status=201)
@@ -205,6 +212,5 @@ def campaign_diary_session(request, id_or_slug, number):
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
     title = _text(request.data.get('title'), MAX_TITLE, 'title')
-    campaign.state = _save_session_meta(campaign, number, title=title)
-    campaign.save(update_fields=['state', 'updated_at'])
+    _save_session_meta(campaign, number, title=title)
     return Response({'session': {'number': number, **campaign.state['diarySessions'][str(number)]}})

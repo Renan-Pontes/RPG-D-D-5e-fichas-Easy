@@ -6,7 +6,9 @@
 .dice-fab.no-print {
   position: fixed;
   right: 14px;
-  bottom: calc(16px + env(safe-area-inset-bottom));
+  /* --fab-safe-bottom: zona livre definida por quem tem barra fixa embaixo
+     (ex.: a barra de áreas da campanha no celular). */
+  bottom: calc(16px + var(--fab-safe-bottom, 0px) + env(safe-area-inset-bottom));
   width: 52px;
   height: 52px;
   border-radius: 50%;
@@ -19,12 +21,13 @@
   pointer-events: none;
 }
 @media (min-width: 900px) {
-  .dice-fab.no-print { right: 24px; bottom: 24px; width: 56px; height: 56px; }
+  .dice-fab.no-print { right: 24px; bottom: calc(24px + var(--fab-safe-bottom, 0px)); width: 56px; height: 56px; }
 }
 
 /* Espaço extra no fim da página enquanto o sheet está aberto,
    para nada ficar escondido atrás dele. */
 body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
+/* O sheet aberto fica acima da barra inferior da campanha (z 40 < 60). */
 @media (min-width: 900px) {
   body.dice-sheet-open { padding-bottom: 0; }
 }

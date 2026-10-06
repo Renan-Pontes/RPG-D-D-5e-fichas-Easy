@@ -1,0 +1,25 @@
+/* Preparar › Itens da campanha (WP7). */
+.ci { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ci-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; justify-content: space-between; }
+.ci-head h2 { margin: 0 0 4px; }
+.ci-head p { margin: 0; max-width: 70ch; }
+.ci-empty { padding: 24px; text-align: center; border: 1px dashed var(--stroke); border-radius: var(--radius-lg); color: var(--ink-muted); }
+.ci-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.ci-card {
+  display: flex; flex-direction: column; gap: 6px; padding: 12px; min-width: 0;
+  background: var(--bg-card); border: 1px solid var(--stroke); border-radius: var(--radius-lg);
+}
+.ci-card.is-magic { border-color: var(--gold-deep); background: linear-gradient(160deg, var(--gold-soft), var(--bg-card) 55%); }
+.ci-card.r-legendary, .ci-card.r-artifact { border-color: var(--gold-bright); box-shadow: 0 0 0 1px rgba(237, 203, 122, 0.25) inset; }
+.ci-card-top { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.ci-icon { width: 38px; height: 38px; flex: 0 0 auto; display: grid; place-items: center; font-size: 1.2rem; border-radius: 50%; border: 1px solid var(--gold-deep); background: var(--bg-deep); }
+.ci-title { display: flex; flex-direction: column; min-width: 0; }
+.ci-title strong { font-family: var(--display); font-size: 1rem; overflow-wrap: anywhere; }
+.ci-rarity { color: var(--gold-bright); }
+.ci-effect { margin: 0; color: var(--gold); font-size: 0.9rem; }
+.ci-desc { margin: 0; color: var(--ink-secondary); font-size: 0.88rem; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ci-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: auto; }
+.ci-del { color: var(--blood-bright); }
+.ci-edit { padding: 16px; background: var(--bg-raised); border: 1px solid var(--stroke); border-radius: var(--radius-lg); max-width: 720px; }
+.ci-edit h3 { margin-top: 0; }
+@media (max-width: 640px) { .ci-grid { grid-template-columns: minmax(0, 1fr); } }

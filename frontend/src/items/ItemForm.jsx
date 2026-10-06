@@ -15,6 +15,23 @@ const RARITIES = [
   ['very rare', 'Muito raro', 'Very rare'], ['legendary', 'Lendário', 'Legendary'], ['artifact', 'Artefato', 'Artifact'],
 ];
 const DMG_TYPES = ['bludgeoning', 'piercing', 'slashing', 'acid', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'poison', 'psychic', 'radiant', 'thunder'];
+const DMG_PT = {
+  bludgeoning: 'concussão', piercing: 'perfurante', slashing: 'cortante', acid: 'ácido', cold: 'frio', fire: 'fogo',
+  force: 'energia', lightning: 'elétrico', necrotic: 'necrótico', poison: 'veneno', psychic: 'psíquico', radiant: 'radiante', thunder: 'trovejante',
+};
+/** Tipo de dano na língua da tela ("piercing" → "perfurante"). */
+export const dmgTypeLabel = (type, lang) => (lang === 'pt' ? DMG_PT[type] || type : type);
+/** Raridade na língua da tela ("very rare" → "Muito raro"). */
+export const rarityLabel = (rarity, lang) => {
+  const r = RARITIES.find(([id]) => id === rarity);
+  return r ? (lang === 'pt' ? r[1] : r[2]) : rarity;
+};
+/** Peso guardado em libras → "1 kg (2 lb)" em pt, "2 lb" em en. */
+export const weightLabel = (lb, lang) => {
+  if (lb == null || lb === '') return '';
+  const kg = Math.round(lb * 0.45 * 10) / 10;
+  return lang === 'pt' ? `${String(kg).replace('.', ',')} kg (${lb} lb)` : `${lb} lb`;
+};
 
 export const typeLabel = (type, lang) => (TYPE_LABEL[type] || [type, type])[lang === 'pt' ? 0 : 1];
 
@@ -100,7 +117,7 @@ export default function ItemForm({ lang, initial, submitLabel, onSubmit, onCance
           <div style={{ flex: 1 }}>
             <label>{t(lang, 'Tipo de dano', 'Damage type')}</label>
             <select aria-label={t(lang, 'Tipo de dano', 'Damage type')} value={f.dmgType} onChange={e => set({ dmgType: e.target.value })}>
-              {DMG_TYPES.map(d => <option key={d}>{d}</option>)}
+              {DMG_TYPES.map(d => <option key={d} value={d}>{dmgTypeLabel(d, lang)}</option>)}
             </select>
           </div>
           <div style={{ flex: 2 }}>
@@ -131,8 +148,9 @@ export default function ItemForm({ lang, initial, submitLabel, onSubmit, onCance
 
       <div className="row gap-2">
         <div style={{ flex: 1 }}>
-          <label>{t(lang, 'Peso (lb)', 'Weight (lb)')}</label>
-          <input aria-label={t(lang, 'Peso (lb)', 'Weight (lb)')} type="number" min="0" step="0.1" value={f.weight} onChange={e => set({ weight: e.target.value })} />
+          <label>{t(lang, 'Peso em libras (lb)', 'Weight (lb)')}</label>
+          <input aria-label={t(lang, 'Peso em libras (lb)', 'Weight (lb)')} type="number" min="0" step="0.1" value={f.weight} onChange={e => set({ weight: e.target.value })} />
+          {lang === 'pt' && f.weight !== '' && +f.weight > 0 && <div className="muted small">≈ {weightLabel(+f.weight, lang)}</div>}
         </div>
         <div style={{ flex: 1 }}>
           <label>{t(lang, 'Preço (PO)', 'Cost (GP)')}</label>

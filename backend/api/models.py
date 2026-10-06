@@ -70,6 +70,14 @@ class Campaign(models.Model):
     invite_code = models.CharField(max_length=10, unique=True, default=new_invite_code)
     description = models.TextField(blank=True, default='')
     state = models.JSONField(default=dict)  # iniciativa, cena, sessão, etc
+    # Identidade visual da campanha (capa do mestre / telão)
+    tagline = models.CharField(max_length=160, blank=True, default='')
+    accent = models.CharField(max_length=9, blank=True, default='')   # '#b8862b'
+    tone = models.CharField(max_length=20, blank=True, default='')
+    cover_image = models.TextField(blank=True, default='')            # data URL ≤ 450k; só GET próprio
+    cover_ver = models.CharField(max_length=16, blank=True, default='')
+    # Só o mestre vê: onboarding, advancedDice, sessionPlan (ver views_world.session_plan)
+    dm_settings = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -104,6 +112,7 @@ class Membership(models.Model):
     character = models.ForeignKey(Character, on_delete=models.SET_NULL, null=True, blank=True, related_name='memberships')
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='player')
     joined_at = models.DateTimeField(auto_now_add=True)
+    world_seen_at = models.DateTimeField(null=True, blank=True)  # selo "Novo!" do Mundo do jogador
 
     class Meta:
         unique_together = [('campaign', 'user')]
@@ -373,3 +382,48 @@ class SharedCharacter(models.Model):
 
     def __str__(self):
         return f'{self.token} ({self.data.get("name", "")})'
+
+
+# === Mundo da campanha ===
+# Lugares, NPCs, facções, itens, lore e documentos que o mestre cria. Fica numa
+# tabela própria (nunca em Campaign.state, que vaza para jogador e telão). O
+# filtro do que o jogador vê é feito só no backend (api/world_rules.py).
+class WorldEntry(models.Model):
+    KIND_CHOICES = [('place', 'Place'), ('npc', 'NPC'), ('faction', 'Faction'),
+                    ('item', 'Item'), ('lore', 'Lore'), ('handout', 'Handout')]
+    VIS_CHOICES = [('hidden', 'Hidden'), ('partial', 'Partial'), ('revealed', 'Revealed')]
+
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='world')
+    kind = models.CharField(max_length=16, choices=KIND_CHOICES)
+    name = models.CharField(max_length=120)
+    summary = models.CharField(max_length=280, blank=True, default='')
+    body = models.TextField(blank=True, default='')
+    dm_notes = models.TextField(blank=True, default='')        # só mestre, nunca vai p/ jogador
+    secrets = models.JSONField(default=list, blank=True)       # [{id, text, revealed}]
+    visibility = models.CharField(max_length=10, choices=VIS_CHOICES, default='hidden')
+    parent = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children')
+    tags = models.JSONField(default=list, blank=True)
+    links = models.JSONField(default=list, blank=True)         # [{to, rel, note}]
+    data = models.JSONField(default=dict, blank=True)          # campos por tipo (whitelist)
+    when_label = models.CharField(max_length=60, blank=True, default='')
+    when_order = models.IntegerField(null=True, blank=True)
+    image_ver = models.CharField(max_length=16, blank=True, default='')
+    sort = models.IntegerField(default=0)
+    revealed_at = models.DateTimeField(null=True, blank=True)
+    version = models.IntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['sort', 'id']
+        indexes = [models.Index(fields=['campaign', 'kind']),
+                   models.Index(fields=['campaign', 'visibility'])]
+
+    def __str__(self):
+        return self.name
+
+
+class WorldImage(models.Model):
+    # Blob separado para a lista nunca carregar imagem (e para migrar p/ R2 depois).
+    entry = models.OneToOneField(WorldEntry, on_delete=models.CASCADE, related_name='img')
+    data = models.TextField()  # data:image/(jpeg|png|webp);base64 ≤ 450k chars

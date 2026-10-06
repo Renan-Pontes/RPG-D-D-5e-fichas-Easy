@@ -12,6 +12,7 @@ import SRD from '../../data/srd.js';
 import Utils from '../../utils.js';
 import { Modal } from '../../components/Shared.jsx';
 import * as FS from '../progression/fighting-styles.js';
+import { abilityLabel, damageTypeLabel } from '../combat/monster-i18n.js';
 
 const ABILITY_MOD = (score) => Math.floor((score - 10) / 2);
 
@@ -100,9 +101,16 @@ function combatantDistance(a, b) {
   return Math.max(Math.abs(pa.x - pb.x), Math.abs(pa.y - pb.y));
 }
 
+// Jogador não vê PV de monstro: só a faixa pública de saúde.
+function healthText(h, lang) {
+  const pt = { unhurt: 'ileso', hurt: 'ferido', bloodied: 'sangrando', down: 'caído' };
+  const en = { unhurt: 'unhurt', hurt: 'hurt', bloodied: 'bloodied', down: 'down' };
+  return (lang === 'pt' ? pt : en)[h] || '';
+}
+
 const TargetPickerModal = ({ onClose, combat, attacker, attack, onPick, lang, busy, result }) => {
   const combatants = (combat?.combatants || []).filter(c =>
-    c.id !== attacker.id && !c.defeated && (c.current_hp || 0) > 0
+    c.id !== attacker.id && !c.defeated && (c.current_hp != null ? c.current_hp > 0 : c.health !== 'down')
   );
   // Inimigos: tipo monster (do ponto de vista do player). PCs são aliados.
   const enemies = combatants.filter(c => c.type === 'monster');
@@ -116,8 +124,11 @@ const TargetPickerModal = ({ onClose, combat, attacker, attack, onPick, lang, bu
           <div>
             <div className="option-title">{c.name}</div>
             <div className="option-meta text-xs">
-              HP {c.current_hp}/{c.stats?.max_hp ?? '?'} · CA {c.stats?.ac ?? '?'}
-              {dist !== null && ` · ${dist === 0 ? 'mesma casa' : `${dist} ${lang === 'pt' ? 'quadrados' : 'sq'}`}`}
+              {c.current_hp != null
+                ? <>{lang === 'pt' ? 'PV' : 'HP'} {c.current_hp}/{c.stats?.max_hp ?? '?'}</>
+                : <>{healthText(c.health, lang)}</>}
+              {c.stats?.ac != null && <> · {lang === 'pt' ? 'CA' : 'AC'} {c.stats.ac}</>}
+              {dist !== null && ` · ${dist === 0 ? (lang === 'pt' ? 'mesma casa' : 'same square') : `${dist} ${lang === 'pt' ? 'quadrados' : 'sq'}`}`}
             </div>
           </div>
         </div>
@@ -168,7 +179,7 @@ const ResultDisplay = ({ result, lang, onClose }) => {
           </strong>
         </div>
         <div className="mt-1">
-          {lang === 'pt' ? 'Dano' : 'Damage'}: <strong>{per.damage_taken || 0}</strong> {per.damage_type}
+          {lang === 'pt' ? 'Dano' : 'Damage'}: <strong>{per.damage_taken || 0}</strong> {damageTypeLabel(per.damage_type, lang)}
         </div>
         {per.defeated && <div className="mt-1" style={{ color: 'var(--blood-bright)' }}>💀 {lang === 'pt' ? 'Alvo abatido!' : 'Target defeated!'}</div>}
         <div className="mt-3"><button className="btn btn-sm btn-primary" onClick={onClose}>OK</button></div>
@@ -185,14 +196,14 @@ const ResultDisplay = ({ result, lang, onClose }) => {
       </div>
       <div className="mt-2">
         d20 {result.attack_roll?.value}{result.attack_total - result.attack_roll?.value >= 0 ? '+' : ''}
-        {result.attack_total - result.attack_roll?.value} = <strong>{result.attack_total}</strong> vs CA {result.target_ac} —{' '}
+        {result.attack_total - result.attack_roll?.value} = <strong>{result.attack_total}</strong>{result.target_ac != null ? <> {lang === 'pt' ? 'vs CA' : 'vs AC'} {result.target_ac}</> : null} —{' '}
         <strong style={{ color: hit ? 'var(--moss-bright)' : 'var(--blood-bright)' }}>
           {result.crit ? (lang === 'pt' ? 'CRÍTICO!' : 'CRITICAL!') : hit ? (lang === 'pt' ? 'ACERTO' : 'HIT') : result.natural_one ? (lang === 'pt' ? 'NATURAL 1' : 'NAT 1') : (lang === 'pt' ? 'ERROU' : 'MISS')}
         </strong>
       </div>
       {hit && result.damage && (
         <div className="mt-1">
-          {lang === 'pt' ? 'Dano' : 'Damage'}: <strong>{result.damage.total}</strong> {result.damage.type}
+          {lang === 'pt' ? 'Dano' : 'Damage'}: <strong>{result.damage.total}</strong> {damageTypeLabel(result.damage.type, lang)}
           {result.damage_applied?.defeated && <span style={{ color: 'var(--blood-bright)', marginLeft: 8 }}>💀</span>}
         </div>
       )}
@@ -205,14 +216,14 @@ const ResultDisplay = ({ result, lang, onClose }) => {
             ({fallout.reason === 'natural_one' ? (lang === 'pt' ? 'rolagem natural 1' : 'natural 1') : `${lang === 'pt' ? 'errou por' : 'missed by'} ${fallout.miss_margin}+`})
           </div>
           <div className="mt-1">
-            d20 {fallout.second_attack.attack_roll?.value} = <strong>{fallout.second_attack.attack_total}</strong> vs CA {fallout.second_attack.target_ac} —{' '}
+            d20 {fallout.second_attack.attack_roll?.value} = <strong>{fallout.second_attack.attack_total}</strong> {lang === 'pt' ? 'vs CA' : 'vs AC'} {fallout.second_attack.target_ac} —{' '}
             <strong style={{ color: fallout.second_attack.hit ? 'var(--moss-bright)' : 'var(--blood-bright)' }}>
               {fallout.second_attack.hit ? (lang === 'pt' ? 'ACERTOU O ALIADO' : 'HIT ALLY') : (lang === 'pt' ? 'errou de novo' : 'missed again')}
             </strong>
           </div>
           {fallout.second_attack.hit && fallout.second_attack.damage && (
             <div className="mt-1">
-              {lang === 'pt' ? 'Dano' : 'Damage'}: <strong>{fallout.second_attack.damage.total}</strong> {fallout.second_attack.damage.type}
+              {lang === 'pt' ? 'Dano' : 'Damage'}: <strong>{fallout.second_attack.damage.total}</strong> {damageTypeLabel(fallout.second_attack.damage.type, lang)}
             </div>
           )}
         </div>
@@ -318,7 +329,7 @@ const CombatActionPanel = ({ char, lang, onUpdate }) => {
           {isMyTurn && <span style={{ color: 'var(--gold-bright)', marginLeft: 8 }}>· {lang === 'pt' ? 'SUA VEZ' : 'YOUR TURN'}</span>}
         </strong>
         <span className="text-xs muted">
-          {lang === 'pt' ? 'Rodada' : 'Round'} {combat.round} · HP {myCombatant.current_hp}/{myCombatant.stats?.max_hp}
+          {lang === 'pt' ? 'Rodada' : 'Round'} {combat.round} · {lang === 'pt' ? 'PV' : 'HP'} {myCombatant.current_hp}/{myCombatant.stats?.max_hp}
         </span>
       </div>
       <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
@@ -328,11 +339,11 @@ const CombatActionPanel = ({ char, lang, onUpdate }) => {
             className="btn btn-sm btn-primary"
             onClick={() => { setResult(null); setPicker({ attack: atk }); }}
             disabled={busy}
-            title={atk.save ? `Save ${atk.save.ability.toUpperCase()} CD ${atk.save.dc}` : `+${atk.attackBonus} ${atk.damage}`}
+            title={atk.save ? `${lang === 'pt' ? 'Resistência de' : 'Save'} ${abilityLabel(atk.save.ability, lang)} ${lang === 'pt' ? 'CD' : 'DC'} ${atk.save.dc}` : `+${atk.attackBonus} ${atk.damage}`}
           >
             {atk.icon} {atk.name}
             <span className="text-xs muted" style={{ marginLeft: 6 }}>
-              {atk.save ? `CD ${atk.save.dc}` : `+${atk.attackBonus}`}
+              {atk.save ? `${lang === 'pt' ? 'CD' : 'DC'} ${atk.save.dc}` : `+${atk.attackBonus}`}
             </span>
           </button>
         ))}

@@ -20,7 +20,8 @@ Helpers prontos por evento (cada um é chamado com uma linha):
   - log_dice_roll(campaign, user, dice_type, results, label)  views_dice.dice_roll (só nat 20/1 em d20)
   - log_roll_request(rr)                       PENDENTE: views_combat.roll_resolve (telão/críticos)
   - log_combat_start(campaign, combatants, user)     PENDENTE: views_combat.combat_start
-  - log_combat_end(campaign, round_number, combatants, user)  PENDENTE: views_combat.combat_end
+  - log_combat_end(campaign, round_number, combatants, user, action_log)  views_combat.combat_end
+  - log_levelup_granted(approval)              sinal post_save de Approval (levelup → approved)
 
 Para ligar o combate (arquivo de outro agente), basta, ao final de cada view:
 
@@ -242,12 +243,162 @@ def log_combat_start(campaign, combatants, user=None):
                      {'phase': 'start', 'combatants': names}, user=user)
 
 
-def log_combat_end(campaign, round_number, combatants, user=None):
+def _base_name(name):
+    """'Goblin #2' → 'Goblin' (agrupa cópias do mesmo monstro)."""
+    return re.sub(r'\s*#\d+$', '', str(name or '?')).strip() or '?'
+
+
+def _join_pt(names):
+    names = [n for n in names if n]
+    if len(names) <= 1:
+        return ''.join(names)
+    return ', '.join(names[:-1]) + ' e ' + names[-1]
+
+
+def _times_pt(n):
+    return {1: 'uma vez', 2: 'duas vezes'}.get(n, f'{n} vezes')
+
+
+def combat_summary(round_number, combatants, action_log=None):
+    """Resumo estruturado do combate: participantes, quedas e vencedor.
+
+    winner: 'party' (todos os monstros caíram), 'monsters' (todos os PCs caídos)
+    ou None (fuga, rendição, mestre encerrou antes)."""
+    combatants = [c for c in (combatants or []) if isinstance(c, dict)]
+
     def down(c):
         hp = c.get('current_hp', c.get('hp'))
-        return isinstance(hp, (int, float)) and hp <= 0
-    defeated = _names(combatants, down)
-    body = f'{round_number} rodada(s).' + (f' Derrotados: {", ".join(defeated)}.' if defeated else '')
+        return bool(c.get('defeated')) or (isinstance(hp, (int, float)) and hp <= 0)
+
+    pcs = [c for c in combatants if c.get('type') == 'pc']
+    monsters = [c for c in combatants if c.get('type') == 'monster']
+    groups = {}
+    for m in monsters:
+        g = groups.setdefault(_base_name(m.get('name')), {'name': _base_name(m.get('name')), 'count': 0, 'defeated': 0})
+        g['count'] += 1
+        g['defeated'] += 1 if down(m) else 0
+
+    # Quedas desde o último "start" do log (o log guarda os 100 últimos eventos).
+    log = [e for e in (action_log or []) if isinstance(e, dict)]
+    starts = [i for i, e in enumerate(log) if e.get('type') == 'start']
+    if starts:
+        log = log[starts[-1]:]
+    downs = {}
+    for e in log:
+        names = list(e.get('downed_list') or [])
+        if e.get('downed'):
+            names.append(e['downed'])
+        for n in names:
+            downs[str(n)] = downs.get(str(n), 0) + 1
+    pc_names = {str(c.get('name')) for c in pcs}
+    pc_downs = {n: k for n, k in downs.items() if n in pc_names}
+
+    winner = None
+    if monsters and all(down(m) for m in monsters):
+        winner = 'party'
+    elif pcs and all(down(p) for p in pcs):
+        winner = 'monsters'
+    return {
+        'rounds': round_number,
+        'pcs': [str(c.get('name') or '?') for c in pcs],
+        'monsters': list(groups.values()),
+        'defeated': _names(combatants, down),
+        'downs': pc_downs,
+        'winner': winner,
+    }
+
+
+def combat_narration_pt(summary):
+    """'Thalion e Mira venceram 3 inimigos (Goblin ×3) em 4 rodadas; Mira caiu uma vez.'"""
+    rounds = summary['rounds']
+    rtxt = f'{rounds} rodada' + ('s' if rounds != 1 else '')
+    pcs = _join_pt(summary['pcs']) or 'O grupo'
+    foes = summary['monsters']
+    total = sum(g['count'] for g in foes)
+    foe_txt = ', '.join(f'{g["name"]} ×{g["count"]}' if g['count'] > 1 else g['name'] for g in foes)
+    if summary['winner'] == 'party' and total:
+        verb = 'venceu' if len(summary['pcs']) <= 1 else 'venceram'
+        main = f'{pcs} {verb} {total} inimigo{"s" if total != 1 else ""} ({foe_txt}) em {rtxt}'
+    elif summary['winner'] == 'monsters':
+        main = f'{pcs} {"caiu" if len(summary["pcs"]) <= 1 else "caíram"} diante de {foe_txt or "inimigos"} em {rtxt}'
+    else:
+        main = f'Combate encerrado em {rtxt}' + (f' contra {foe_txt}' if foe_txt else '')
+    falls = [f'{n} caiu {_times_pt(k)}' for n, k in summary['downs'].items()]
+    return main + ('; ' + '; '.join(falls) if falls else '') + '.'
+
+
+def log_combat_end(campaign, round_number, combatants, user=None, action_log=None):
+    summary = combat_summary(round_number, combatants, action_log)
+    body = combat_narration_pt(summary)
     return log_diary(campaign, 'combat', 'Combate encerrado', body,
                      {'phase': 'end', 'rounds': round_number, 'combatants': _names(combatants),
-                      'defeated': defeated}, user=user)
+                      'defeated': summary['defeated'], 'pcs': summary['pcs'],
+                      'monsters': summary['monsters'], 'downs': summary['downs'],
+                      'winner': summary['winner']}, user=user)
+
+
+# ------------------------------------------------------------------ liberação de nível
+LEVELGRANT = 'levelgrant'   # subtipo próprio: 'levelup' é o jogador aplicando a subida
+
+
+def log_levelup_granted(approval, user=None):
+    """Mestre liberou a subida de nível (approval → 'approved'). Liberações
+    próximas no tempo (marco da mesa toda) viram uma entrada só.
+    Entrada: subtype 'levelgrant', data {phase:'granted', grants:[{characterId,
+    characterName, toLevel}]}."""
+    if approval.type != 'levelup' or approval.status != 'approved':
+        return None
+    try:
+        from .models import DiaryEntry
+        char = approval.character
+        item = {'characterId': char.id, 'characterName': _char_name(char),
+                'toLevel': (approval.payload or {}).get('toLevel')}
+        campaign = approval.campaign
+        session = current_session(campaign)
+        last = (DiaryEntry.objects
+                .filter(campaign=campaign, subtype=LEVELGRANT, kind='event', session=session,
+                        edited_at__isnull=True, occurred_at__gte=timezone.now() - GROUP_WINDOW)
+                .order_by('-occurred_at', '-id').first())
+
+        def title(items):
+            if len(items) == 1:
+                lvl = items[0].get('toLevel')
+                return f'Nível liberado para {items[0]["characterName"]}' + (f' (nível {lvl})' if lvl else '')
+            return f'Nível liberado para {_join_pt([i["characterName"] for i in items])}'
+
+        note = (approval.note or '')[:500]
+        if last and len((last.data or {}).get('grants') or []) < MAX_GROUPED:
+            grants = [g for g in (last.data.get('grants') or []) if g.get('characterId') != char.id] + [item]
+            last.data = {**last.data, 'grants': grants}
+            last.title = title(grants)[:200]
+            last.save(update_fields=['data', 'title'])
+            return last
+        return log_diary(campaign, LEVELGRANT, title([item]), note,
+                         {'phase': 'granted', 'grants': [item]},
+                         user=user or approval.reviewed_by)
+    except Exception:  # noqa: BLE001
+        logger.exception('diary: falha ao registrar liberação de nível')
+        return None
+
+
+def _connect_levelup_signals():
+    """Liga o registro da liberação ao salvar a Approval (as views de aprovação
+    não precisam mudar). Idempotente via dispatch_uid."""
+    from django.db.models.signals import pre_save, post_save
+    from .models import Approval
+
+    def remember_status(sender, instance, **kwargs):
+        instance._diary_prev_status = (
+            Approval.objects.filter(pk=instance.pk).values_list('status', flat=True).first()
+            if instance.pk else None)
+
+    def on_saved(sender, instance, created, **kwargs):
+        prev = getattr(instance, '_diary_prev_status', None)
+        if instance.type == 'levelup' and instance.status == 'approved' and prev != 'approved':
+            log_levelup_granted(instance)
+
+    pre_save.connect(remember_status, sender=Approval, weak=False, dispatch_uid='diary_levelup_prev')
+    post_save.connect(on_saved, sender=Approval, weak=False, dispatch_uid='diary_levelup_granted')
+
+
+_connect_levelup_signals()

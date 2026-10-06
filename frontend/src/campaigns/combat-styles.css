@@ -383,3 +383,62 @@
 .cc-pip { position: relative; }
 .cc-pip::after { content: ''; position: absolute; inset: -10px -5px; }
 .now-turn-hp { white-space: nowrap; }
+
+/* === Rework Jogar (WP6) ======================================== */
+/* Modais do combate vão para o <body> e ficam acima das barras fixas da casca. */
+.combat-modal-backdrop { z-index: 1200; }
+
+.cc-target-select { min-width: 0; max-width: 100%; }
+.cc-badge { text-transform: uppercase; }
+.cc-cond { text-transform: none; letter-spacing: 0; font-size: 0.8em; }
+
+/* Adicionar personagem (iniciativa digitada) */
+.add-pc-row {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 12px; margin-bottom: 6px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+}
+.add-pc-row.is-in { opacity: 0.6; }
+.add-pc-who { display: flex; flex-direction: column; min-width: 0; }
+.add-pc-actions { display: flex; align-items: center; gap: 6px; }
+.add-pc-actions .input { width: 72px; text-align: center; }
+
+/* Barra do mapa recolhível */
+.grid-controls-toggle { display: none; }
+@media (max-width: 720px) {
+  .grid-controls-toggle { display: inline-flex; margin-bottom: 8px; }
+  .grid-controls.is-collapsed { display: none; }
+  .grid-controls { gap: 6px; }
+  .grid-ctl-label input[type=range] { width: 90px; }
+  .grid-token-ctl { margin-left: 0; padding-left: 0; border-left: 0; flex-wrap: wrap; }
+  .combat-grid-wrapper { padding: 6px; }
+}
+
+/* Celular: cabeçalho do combatente em duas linhas e nada estoura 390px */
+@media (max-width: 480px) {
+  .cc-head { grid-template-columns: 1fr auto; }
+  .cc-head .cc-hp { grid-column: 1 / -1; grid-row: 2; }
+  .cc-name { flex-wrap: wrap; min-width: 0; }
+  .cc-name strong { overflow-wrap: anywhere; }
+  .cc-attack-row > select, .cc-target-select { flex: 1 1 100%; }
+  .now-turn { flex-wrap: wrap; padding: 8px 12px; }
+  .now-turn-hp { margin-left: 0; }
+  .add-pc-actions { width: 100%; }
+  .add-pc-actions .btn-primary { margin-left: auto; }
+}
+
+/* Checkbox de vantagem/desvantagem do pedido de rolagem (antes viravam quadrados brancos no celular) */
+.roll-check { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; font-size: 0.9rem; color: var(--ink-secondary); }
+.roll-check input[type=checkbox] { width: 18px; height: 18px; margin: 0; accent-color: var(--gold); flex: 0 0 auto; }
+.cc-head { grid-template-columns: minmax(0, 1.4fr) minmax(64px, 1fr) auto; }
+.cc-name { min-width: 0; }
+.cc-who { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.cc-who strong { overflow-wrap: anywhere; line-height: 1.15; }
+.cc-who .cc-badge { font-size: 0.6rem; letter-spacing: 0.06em; }
+@media (max-width: 480px) {
+  .cc-head { grid-template-columns: minmax(0, 1fr) auto; }
+}
+/* A margem negativa "sangrando" do mapa estourava 390px na casca nova. */
+@media (max-width: 720px) {
+  .combat-tab .combat-grid-wrapper { margin-left: 0; margin-right: 0; max-width: 100%; }
+}

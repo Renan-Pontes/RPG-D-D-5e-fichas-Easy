@@ -296,3 +296,66 @@ class CombatMembershipTests(AuthzMatrixBase):
         self.c_a.post(f'/api/combat/campaign/{self.camp_a.id}/start')
         r = self.c_b.post(f'/api/combat/campaign/{self.camp_a.id}/next-turn')
         self.assertEqual(r.status_code, 403)
+
+
+# ============================================================
+# Mundo da campanha (WorldEntry) — quem lê/escreve o quê
+# ============================================================
+class WorldAuthzTests(AuthzMatrixBase):
+    """Alice = mestre da camp_a; Bob = jogador da camp_a (e mestre da camp_b);
+    Carla = estranha. O jogador só lê o que não está oculto; ninguém além do
+    mestre escreve; estranhos e entradas ocultas respondem 404 no detalhe."""
+
+    def setUp(self):
+        super().setUp()
+        from api.models import WorldEntry
+        self.hidden = WorldEntry.objects.create(campaign=self.camp_a, kind='npc', name='Vilão', dm_notes='x')
+        self.shown = WorldEntry.objects.create(campaign=self.camp_a, kind='npc', name='Taverneiro', visibility='revealed')
+        self.world_a = f'/api/campaigns/{self.camp_a.id}/world'
+
+    def _write_calls(self, client):
+        pk = self.shown.id
+        return [
+            client.post(self.world_a, {'kind': 'npc', 'name': 'X'}, format='json'),
+            client.patch(f'/api/world/{pk}', {'name': 'X'}, format='json'),
+            client.delete(f'/api/world/{pk}'),
+            client.put(f'/api/world/{pk}/image', {'image': 'data:image/png;base64,AAAA'}, format='json'),
+            client.post(f'/api/world/{pk}/reveal', {'visibility': 'hidden'}, format='json'),
+            client.post(f'{self.world_a}/sample', {}, format='json'),
+            client.put(f'/api/campaigns/{self.camp_a.id}/session-plan', {'monsters': 'x'}, format='json'),
+        ]
+
+    def test_anon_blocked(self):
+        for r in [self.anon.get(self.world_a), self.anon.get(f'/api/world/{self.shown.id}'),
+                  self.anon.get(f'/api/world/{self.shown.id}/image')] + self._write_calls(self.anon):
+            self.assertIn(r.status_code, (401, 403))
+
+    def test_player_cannot_write(self):
+        for r in self._write_calls(self.c_b):
+            self.assertIn(r.status_code, (403, 404))
+        self.shown.refresh_from_db()
+        self.assertEqual(self.shown.name, 'Taverneiro')
+        self.assertEqual(self.shown.visibility, 'revealed')
+
+    def test_stranger_cannot_read_or_write(self):
+        self.assertEqual(self.c_c.get(self.world_a).status_code, 403)
+        self.assertEqual(self.c_c.get(f'/api/world/{self.shown.id}').status_code, 404)
+        for r in self._write_calls(self.c_c):
+            self.assertIn(r.status_code, (403, 404))
+
+    def test_dm_of_other_campaign_cannot_touch(self):
+        # Bob é mestre da camp_b, mas só jogador na camp_a
+        r = self.c_b.patch(f'/api/world/{self.hidden.id}', {'visibility': 'revealed'}, format='json')
+        self.assertEqual(r.status_code, 404)
+
+    def test_player_reads_only_visible(self):
+        r = self.c_b.get(self.world_a)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual([e['id'] for e in r.json()['entries']], [self.shown.id])
+        self.assertEqual(self.c_b.get(f'/api/world/{self.hidden.id}').status_code, 404)
+        self.assertEqual(self.c_b.get(f'/api/world/{self.shown.id}').status_code, 200)
+        self.assertEqual(self.c_b.get(f'/api/campaigns/{self.camp_a.id}/session-plan').status_code, 403)
+
+    def test_dm_full_access(self):
+        self.assertEqual(self.c_a.get(f'/api/world/{self.hidden.id}').json()['entry']['dmNotes'], 'x')
+        self.assertEqual(self.c_a.get(f'/api/campaigns/{self.camp_a.id}/session-plan').status_code, 200)

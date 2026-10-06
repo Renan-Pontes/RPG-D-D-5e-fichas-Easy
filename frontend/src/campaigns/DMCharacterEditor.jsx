@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import SRD from '../../data/srd.js';
 import { api } from '../api/client.js';
 import ResourcesCard from '../progression/ResourcesCard.jsx';
+import { tName } from '../../data/i18n.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -105,16 +106,16 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
             🛠 {t(lang, 'Editar ficha (modo mestre)', 'Edit sheet (DM mode)')}
             <span className="muted small" style={{ marginLeft: 8 }}>{name}</span>
           </h2>
-          <button className="btn-icon" onClick={onClose} aria-label="Fechar">×</button>
+          <button className="btn-icon" onClick={onClose} aria-label={t(lang, 'Fechar', 'Close')}>×</button>
         </div>
 
         <nav className="dm-editor-nav" role="tablist">
           {[
-            { id: 'vitals', label: t(lang, 'Vitais & Status', 'Vitals & Status') },
+            { id: 'vitals', label: t(lang, 'Vida e estado', 'Vitals & Status') },
             { id: 'abilities', label: t(lang, 'Atributos', 'Abilities') },
             { id: 'progression', label: t(lang, 'Progressão', 'Progression') },
-            { id: 'spells', label: t(lang, 'Slots de magia', 'Spell slots') },
-            { id: 'inventory', label: t(lang, 'Inventário & Moedas', 'Inventory & Coins') },
+            { id: 'spells', label: t(lang, 'Espaços de magia', 'Spell slots') },
+            { id: 'inventory', label: t(lang, 'Inventário e moedas', 'Inventory & Coins') },
             { id: 'story', label: t(lang, 'Identidade', 'Identity') },
           ].map(s => (
             <button key={s.id} role="tab" aria-selected={section === s.id}
@@ -127,15 +128,15 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
           {section === 'vitals' && (
             <div className="col gap-3">
               <Section title={t(lang, 'Pontos de Vida', 'Hit Points')}>
-                <NumInput label={t(lang, 'HP atual', 'Current HP')} value={data.currentHp} onChange={v => patch({ currentHp: v })} />
-                <NumInput label={t(lang, 'HP máximo', 'Max HP')} value={data.maxHp} onChange={v => patch({ maxHp: v })} />
-                <NumInput label={t(lang, 'HP temporário', 'Temp HP')} value={data.tempHp} onChange={v => patch({ tempHp: v })} />
+                <NumInput label={t(lang, 'PV atuais', 'Current HP')} value={data.currentHp} onChange={v => patch({ currentHp: v })} />
+                <NumInput label={t(lang, 'PV máximos', 'Max HP')} value={data.maxHp} onChange={v => patch({ maxHp: v })} />
+                <NumInput label={t(lang, 'PV temporários', 'Temp HP')} value={data.tempHp} onChange={v => patch({ tempHp: v })} />
                 <NumInput label={t(lang, 'Dados de vida usados', 'Hit dice used')} value={data.hitDiceUsed} onChange={v => patch({ hitDiceUsed: v })} />
               </Section>
 
               <Section title={t(lang, 'Combate', 'Combat')}>
-                <NumInput label={t(lang, 'CA bônus extra', 'Extra AC bonus')} value={data.extraAcBonus} onChange={v => patch({ extraAcBonus: v })} />
-                <NumInput label={t(lang, 'Deslocamento override', 'Speed override')} value={data.speedOverride} onChange={v => patch({ speedOverride: v })} />
+                <NumInput label={t(lang, 'Bônus extra de CA', 'Extra AC bonus')} value={data.extraAcBonus} onChange={v => patch({ extraAcBonus: v })} />
+                <NumInput label={t(lang, 'Deslocamento fixo (0 = automático)', 'Speed override (0 = automatic)')} value={data.speedOverride} onChange={v => patch({ speedOverride: v })} />
                 <ToggleRow label={t(lang, 'Inspiração', 'Inspiration')} value={!!data.inspiration} onChange={v => patch({ inspiration: v })} />
                 <ToggleRow label={t(lang, 'Escudo equipado', 'Shield equipped')} value={!!data.hasShield} onChange={v => patch({ hasShield: v })} />
               </Section>
@@ -159,7 +160,7 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
                       <button key={cond} type="button"
                         className={`dm-cond-chip ${on ? 'on' : ''}`}
                         onClick={() => toggleCondition(cond)}>
-                        {cond}
+                        {cond === 'exhaustion' ? t(lang, 'Exaustão', 'Exhaustion') : tName('condition', cond, lang)}
                       </button>
                     );
                   })}
@@ -167,11 +168,11 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
               </Section>
 
               {data.wildShape?.active && (
-                <Section title={t(lang, 'Wild Shape ativo', 'Wild Shape active')}>
+                <Section title={t(lang, 'Forma selvagem ativa', 'Wild Shape active')}>
                   <div className="muted">{t(lang, 'Fera:', 'Beast:')} <strong>{data.wildShape.beastName}</strong></div>
-                  <NumInput label={t(lang, 'HP fera atual', 'Beast current HP')} value={data.wildShape.beastCurrentHp}
+                  <NumInput label={t(lang, 'PV atuais da fera', 'Beast current HP')} value={data.wildShape.beastCurrentHp}
                     onChange={v => patch({ wildShape: { ...data.wildShape, beastCurrentHp: v } })} />
-                  <NumInput label={t(lang, 'HP fera máximo', 'Beast max HP')} value={data.wildShape.beastMaxHp}
+                  <NumInput label={t(lang, 'PV máximos da fera', 'Beast max HP')} value={data.wildShape.beastMaxHp}
                     onChange={v => patch({ wildShape: { ...data.wildShape, beastMaxHp: v } })} />
                 </Section>
               )}
@@ -180,7 +181,7 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
 
           {section === 'abilities' && (
             <div className="col gap-3">
-              <Section title={t(lang, 'Atributos (score base)', 'Ability scores (base)')}>
+              <Section title={t(lang, 'Atributos (valor base)', 'Ability scores (base)')}>
                 <div className="dm-abil-grid">
                   {ABILITIES.map(k => (
                     <div key={k} className="dm-abil-box">
@@ -204,7 +205,7 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
                       <button key={sk} type="button"
                         className={`dm-cond-chip ${on ? 'on' : ''}`}
                         onClick={() => patch({ skillProfs: on ? data.skillProfs.filter(x => x !== sk) : [...(data.skillProfs || []), sk] })}>
-                        {sk}
+                        {tName('skill', sk, lang)}
                       </button>
                     );
                   })}
@@ -229,20 +230,20 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
 
           {section === 'progression' && (
             <div className="col gap-3">
-              <Section title={t(lang, 'Nível & Experiência', 'Level & XP')}>
+              <Section title={t(lang, 'Nível e experiência', 'Level & XP')}>
                 <NumInput label={t(lang, 'Nível', 'Level')} value={data.level} min={1} max={20} onChange={v => patch({ level: Math.max(1, Math.min(20, v)) })} />
                 <NumInput label="XP" value={data.xp} onChange={v => patch({ xp: v })} />
-                <TextInput label={t(lang, 'Classe', 'Class')} value={data.className} onChange={v => patch({ className: v })} />
-                <TextInput label={t(lang, 'Subclasse', 'Subclass')} value={data.subclass} onChange={v => patch({ subclass: v })} />
-                <TextInput label={t(lang, 'Raça', 'Race')} value={data.race} onChange={v => patch({ race: v })} />
-                <TextInput label={t(lang, 'Antecedente', 'Background')} value={data.background} onChange={v => patch({ background: v })} />
+                <TextInput label={t(lang, 'Classe (id)', 'Class (id)')} value={data.className} onChange={v => patch({ className: v })} />
+                <TextInput label={t(lang, 'Subclasse (id)', 'Subclass (id)')} value={data.subclass} onChange={v => patch({ subclass: v })} />
+                <TextInput label={t(lang, 'Espécie (id)', 'Species (id)')} value={data.race} onChange={v => patch({ race: v })} />
+                <TextInput label={t(lang, 'Antecedente (id)', 'Background (id)')} value={data.background} onChange={v => patch({ background: v })} />
               </Section>
               <details className="dm-override-section">
-                <summary>{t(lang, '⚠ Override (consertar inconsistências)', '⚠ Override (fix inconsistencies)')}</summary>
+                <summary>{t(lang, '⚠ Ajuste manual (consertar inconsistências)', '⚠ Override (fix inconsistencies)')}</summary>
                 <p className="muted small" style={{ margin: '8px 0' }}>
                   {t(lang,
-                    'Fluxo normal: jogador solicita evolução → você libera na aba Aprovações → jogador clica "Subir nível" na ficha dele. Use este botão APENAS pra consertar fichas inconsistentes (não aplica HP automático).',
-                    'Normal flow: player requests evolution → you unlock in Approvals tab → player clicks "Level up" on their sheet. Use this button ONLY to fix inconsistent sheets (does not auto-apply HP).')}
+                    'Caminho normal: o jogador pede a subida → você libera em Grupo › Jogadores › Pedidos → o jogador confirma "Subir de nível" na ficha dele. Use este botão SÓ para consertar fichas inconsistentes (não ajusta PV sozinho).',
+                    'Normal flow: player requests a level up → you unlock it in Group › Players › Requests → player confirms "Level up" on their sheet. Use this button ONLY to fix inconsistent sheets (does not adjust HP).')}
                 </p>
                 <button className="btn btn-ghost btn-sm"
                   disabled={(data.level || 1) >= 20}
@@ -255,15 +256,15 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
 
           {section === 'spells' && (
             <div className="col gap-3">
-              <Section title={t(lang, 'Slots de magia por nível', 'Spell slots per level')}>
+              <Section title={t(lang, 'Espaços de magia por círculo', 'Spell slots per level')}>
                 <p className="muted small" style={{ marginTop: 0 }}>
                   {t(lang,
-                    'Editar o máximo aplica override (substitui o automático). Marque "Restaurar tudo" pra zerar usados em descanso longo.',
+                    'Editar o máximo substitui o valor automático. "Restaurar tudo" zera os espaços usados (descanso longo).',
                     'Edit max to override automatic. "Restore all" zeroes used slots (long rest).')}
                 </p>
                 <div className="dm-slots-table">
                   <div className="dm-slots-row dm-slots-header">
-                    <div>{t(lang, 'Nível', 'Level')}</div>
+                    <div>{t(lang, 'Círculo', 'Level')}</div>
                     <div>{t(lang, 'Usados', 'Used')}</div>
                     <div>{t(lang, 'Máximo', 'Max')}</div>
                     <div>{t(lang, 'Disponíveis', 'Available')}</div>
@@ -287,7 +288,7 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
                     🛌 {t(lang, 'Restaurar tudo (descanso longo)', 'Restore all (long rest)')}
                   </button>
                   <button className="btn btn-ghost btn-sm" onClick={resetSlotsToDefault}>
-                    {t(lang, 'Reverter pra auto', 'Reset to auto')}
+                    {t(lang, 'Voltar ao automático', 'Reset to auto')}
                   </button>
                 </div>
               </Section>
@@ -299,7 +300,7 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
               <Section title={t(lang, 'Moedas', 'Coins')}>
                 <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
                   {['cp','sp','ep','gp','pp'].map(c => (
-                    <NumInput key={c} label={c.toUpperCase()} value={(data.coins||{})[c]} onChange={v => patchCoin(c, v)} small />
+                    <NumInput key={c} label={lang === 'en' ? c.toUpperCase() : ({ cp: 'PC', sp: 'PP', ep: 'PE', gp: 'PO', pp: 'PL' }[c])} value={(data.coins||{})[c]} onChange={v => patchCoin(c, v)} small />
                   ))}
                 </div>
               </Section>
@@ -308,10 +309,10 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
               </Section>
               <Section title={t(lang, 'Equipamento (texto livre)', 'Equipment (free text)')}>
                 <p className="muted small" style={{ marginTop: 0 }}>
-                  {t(lang, 'Itens estruturados serão editados pelo painel próprio (item 4 do plano).', 'Structured items will be edited via the dedicated panel (plan item 4).')}
+                  {t(lang, 'Só leitura. Para entregar itens use "Dar item" no card do jogador.', 'Read only. To hand out items use "Give item" on the player card.')}
                 </p>
                 <textarea className="input" rows={6}
-                  value={Array.isArray(data.equipment) ? data.equipment.map(it => typeof it === 'string' ? it : `${it.name || '?'}${it.qty ? ` ×${it.qty}` : ''}${it.broken ? ' (quebrado)' : ''}${it.notes ? ' — ' + it.notes : ''}`).join('\n') : (data.equipment || '')}
+                  value={Array.isArray(data.equipment) ? data.equipment.map(it => typeof it === 'string' ? it : `${it.name || '?'}${it.qty ? ` ×${it.qty}` : ''}${it.broken ? (lang === 'en' ? ' (broken)' : ' (quebrado)') : ''}${it.notes ? ' — ' + it.notes : ''}`).join('\n') : (data.equipment || '')}
                   readOnly />
               </Section>
             </div>
@@ -325,7 +326,7 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
                 <TextInput label={t(lang, 'Alinhamento', 'Alignment')} value={data.alignment} onChange={v => patch({ alignment: v })} />
                 <TextInput label={t(lang, 'Idade', 'Age')} value={data.age} onChange={v => patch({ age: v })} />
               </Section>
-              <Section title={t(lang, 'Personalidade & Histórico', 'Personality & Backstory')}>
+              <Section title={t(lang, 'Personalidade e história', 'Personality & Backstory')}>
                 <TextArea label={t(lang, 'Traços de personalidade', 'Personality traits')} value={data.personality} onChange={v => patch({ personality: v })} />
                 <TextArea label={t(lang, 'Ideais', 'Ideals')} value={data.ideals} onChange={v => patch({ ideals: v })} />
                 <TextArea label={t(lang, 'Vínculos', 'Bonds')} value={data.bonds} onChange={v => patch({ bonds: v })} />

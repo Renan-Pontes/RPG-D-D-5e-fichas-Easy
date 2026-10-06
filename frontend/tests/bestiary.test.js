@@ -172,7 +172,8 @@ test('estado de recarga/usos/lendárias na UI espelha o backend', () => {
   const groups = groupCombatActions(snap.actions);
   assert.equal(groups.legendary.length, 3);
   assert.equal(groups.action[0].index, 0);
-  assert.match(actionSummary(snap.actions[breath], 'pt'), /DEX CD 21 · 17d6 fire/);
+  assert.match(actionSummary(snap.actions[breath], 'pt'), /DES CD 21 · 17d6 fogo/);
+  assert.match(actionSummary(snap.actions[breath], 'en'), /DEX DC 21 · 17d6 fire/);
   const uses = { stats: { actions: [{ type: 'special', uses: 2, usesPer: 'day' }] }, action_state: { 0: { uses_left: 0 } } };
   assert.equal(actionStatus(uses, 0).reason, 'no_uses_left');
   assert.equal(limitLabel(uses, 0, 'en'), '0/2 per day');

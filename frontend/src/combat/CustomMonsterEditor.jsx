@@ -3,6 +3,7 @@ import { CR_TABLE, CR_TABLE_NOTE, estimateCr, parseMultiattack, crToNumber, xpFo
 import { multiattackAction } from '../campaigns/import-5emm.js';
 import { newCustomId } from './custom-monsters.js';
 import './monster-tools.css';
+import { damageTypeLabel, monsterTypeLabel, sizeLabel } from './monster-i18n.js';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const DAMAGE_TYPES = ['acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder'];
@@ -190,11 +191,11 @@ export default function CustomMonsterEditor({ lang, base, xpMode, onSave, onCanc
                 </Field>
               </div>
               <Field label={t(lang, 'Tamanho', 'Size')}>
-                <select value={d.size} onChange={e => set({ size: e.target.value })}>{SIZES.map(s => <option key={s}>{s}</option>)}</select>
+                <select value={d.size} onChange={e => set({ size: e.target.value })}>{SIZES.map(s => <option key={s} value={s}>{sizeLabel(s, lang)}</option>)}</select>
               </Field>
               <Field label={t(lang, 'Tipo', 'Type')}>
                 <select value={d.type} onChange={e => set({ type: e.target.value })}>
-                  {[...new Set([...TYPES, d.type])].map(s => <option key={s}>{s}</option>)}
+                  {[...new Set([...TYPES, d.type])].map(s => <option key={s} value={s}>{monsterTypeLabel(s, lang)}</option>)}
                 </select>
               </Field>
               <Field label={t(lang, 'CA', 'AC')}>
@@ -252,7 +253,7 @@ export default function CustomMonsterEditor({ lang, base, xpMode, onSave, onCanc
                       <input value={r.damage} placeholder="1d8+3" onChange={e => setRow(i, { damage: e.target.value })} />
                     </Field>
                     <Field label={t(lang, 'Tipo', 'Type')}>
-                      <select value={r.damageType} onChange={e => setRow(i, { damageType: e.target.value })}>{DAMAGE_TYPES.map(x => <option key={x}>{x}</option>)}</select>
+                      <select value={r.damageType} onChange={e => setRow(i, { damageType: e.target.value })}>{DAMAGE_TYPES.map(x => <option key={x} value={x}>{damageTypeLabel(x, lang)}</option>)}</select>
                     </Field>
                     <Field label={t(lang, 'Nº/turno', 'Per turn')}>
                       <input type="number" inputMode="numeric" min={0} max={8} value={r.count} title={t(lang, 'Quantas vezes no multiataque (0 = fora do multiataque)', 'Times in the multiattack (0 = not part of it)')}
@@ -271,7 +272,7 @@ export default function CustomMonsterEditor({ lang, base, xpMode, onSave, onCanc
                       <input value={r.damage} placeholder="6d6" onChange={e => setRow(i, { damage: e.target.value })} />
                     </Field>
                     <Field label={t(lang, 'Tipo', 'Type')}>
-                      <select value={r.damageType} onChange={e => setRow(i, { damageType: e.target.value })}>{DAMAGE_TYPES.map(x => <option key={x}>{x}</option>)}</select>
+                      <select value={r.damageType} onChange={e => setRow(i, { damageType: e.target.value })}>{DAMAGE_TYPES.map(x => <option key={x} value={x}>{damageTypeLabel(x, lang)}</option>)}</select>
                     </Field>
                   </>
                 )}
@@ -302,7 +303,7 @@ export default function CustomMonsterEditor({ lang, base, xpMode, onSave, onCanc
             <div className="me-chips">
               {[PHYSICAL, ...DAMAGE_TYPES].map(type => (
                 <button key={type} type="button" className={`me-chip ${defClass(type)}`} onClick={() => cycleDefense(type)} aria-pressed={!!defClass(type)}>
-                  {type === PHYSICAL ? t(lang, 'físico não mágico', 'nonmagical physical') : type}
+                  {type === PHYSICAL ? t(lang, 'físico não mágico', 'nonmagical physical') : damageTypeLabel(type, lang)}
                   {defClass(type) === 'res' && ' ½'}{defClass(type) === 'imm' && ' ∅'}{defClass(type) === 'vul' && ' ×2'}
                 </button>
               ))}

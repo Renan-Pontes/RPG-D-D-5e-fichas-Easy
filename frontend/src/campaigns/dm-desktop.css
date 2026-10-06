@@ -8,20 +8,7 @@
  */
 
 /* === Banner discreto sugerindo PC pra DM em mobile === */
-.dm-mobile-hint {
-  display: none;
-  margin: 8px 0 12px;
-  padding: 8px 12px;
-  border-left: 3px solid var(--gold);
-  background: rgba(214, 176, 100, 0.08);
-  border-radius: 4px;
-  color: var(--ink-secondary);
-  font-size: 0.85em;
-}
-.dm-mobile-hint strong { color: var(--gold); }
-@media (max-width: 767px) {
-  .campaign-detail.is-dm .dm-mobile-hint { display: block; }
-}
+/* O aviso "melhor no PC" saiu: a casca nova (src/shell) funciona no celular. */
 
 /* === Layout do shell em desktop ============================== */
 @media (min-width: 1024px) {
@@ -42,10 +29,9 @@
     border-radius: 8px;
     border: 1px solid var(--stroke);
     margin-bottom: 20px;
-    position: sticky;
-    top: 0;  /* o AppHeader não é fixo: com 56px o conteúdo aparecia por cima da barra */
-    z-index: 10;
-    backdrop-filter: blur(8px);
+    /* Não é mais sticky: quem fica preso no topo é a barra de áreas da casca
+       (.shell-areas). Duas barras sticky se sobrepunham e o blur criava um
+       contexto que passava por cima de modais (MonsterPicker). */
   }
   .campaign-detail.is-dm .tab {
     flex: 0 1 auto;

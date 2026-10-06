@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import ItemPickerModal from '../items/ItemPickerModal.jsx';
+import { flash } from '../play/flash.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -8,7 +9,8 @@ const t = (lang, pt, en) => lang === 'pt' ? pt : en;
  * Modal pro DM dar item a um personagem da campanha: catálogo da campanha,
  * catálogo SRD ou cadastro novo (opcionalmente salvo no catálogo da campanha).
  */
-export default function GiveItemModal({ campaign, character, lang, onClose, onGiven }) {
+// notify=false: quem chama mostra a própria confirmação.
+export default function GiveItemModal({ campaign, character, lang, onClose, onGiven, notify = true }) {
   const [campaignItems, setCampaignItems] = useState(null);
 
   useEffect(() => {
@@ -26,7 +28,12 @@ export default function GiveItemModal({ campaign, character, lang, onClose, onGi
       onSaveToCatalog={campaign ? (item) => api.createCampaignItem(campaign.id, item) : undefined}
       onPick={async (instance) => {
         await api.invAdd(character.id, { item: instance });
-        onGiven?.();
+        // Confirmação visível (o modal costuma fechar logo em seguida).
+        const qty = instance?.qty > 1 ? `${instance.qty}× ` : '';
+        const raw = instance?.name;
+        const itemName = (raw && typeof raw === 'object' ? (raw[lang] || raw.pt || raw.en) : raw) || t(lang, 'o item', 'the item');
+        if (notify) flash(t(lang, `${character.name} recebeu ${qty}${itemName}`, `${character.name} received ${qty}${itemName}`));
+        onGiven?.(instance);
       }}
       onClose={onClose}
     />

@@ -7,6 +7,8 @@ import { checkLabel } from '../checks/check-logic.js';
 import { DIFFICULTY_LABEL } from '../combat/encounter.js';
 import MonsterPicker from '../campaigns/MonsterPicker.jsx';
 import ItemPickerModal from '../items/ItemPickerModal.jsx';
+import WorldRefs from './WorldRefs.jsx';
+import { compressImage } from '../world/image.js';
 import {
   NODE_KINDS, EDGE_KINDS, COINS, COIN_LABEL, LIMITS, encounterEntry, nodeEncounter, makeEdge, edgeKindLabel,
 } from './prep-graph.js';
@@ -28,35 +30,8 @@ export function monsterLookup() {
   return (id) => (id ? (findMonster(id) || custom.find(m => m.id === id) || null) : null);
 }
 
-/** Lê uma imagem e comprime (JPEG, lado maior ≤ max) para caber no JSON da aventura. */
-export function compressImage(file, max = 1280) {
-  return new Promise((resolve, reject) => {
-    if (!file || !/^image\//.test(file.type)) { reject(new Error('not_image')); return; }
-    if (file.size > 12 * 1024 * 1024) { reject(new Error('image_too_large')); return; }
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('read_failed'));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('not_image'));
-      img.onload = () => {
-        let size = max;
-        for (let attempt = 0; attempt < 5; attempt++) {
-          let w = img.width; let h = img.height;
-          if (w > size || h > size) { const s = Math.min(size / w, size / h); w = Math.round(w * s); h = Math.round(h * s); }
-          const c = document.createElement('canvas');
-          c.width = w; c.height = h;
-          c.getContext('2d').drawImage(img, 0, 0, w, h);
-          const url = c.toDataURL('image/jpeg', attempt ? 0.65 : 0.75);
-          if (url.length <= LIMITS.imageChars) { resolve({ url, w, h }); return; }
-          size = Math.round(size * 0.75);
-        }
-        reject(new Error('image_too_large'));
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
+/** Compressão de imagem: pipeline único em src/world/image.js (reexportado por compatibilidade). */
+export { compressImage };
 
 /**
  * Editor de um nó (modo Preparar). Alterações sobem via onChange(patch) — o
@@ -64,6 +39,7 @@ export function compressImage(file, max = 1280) {
  */
 export default function NodeEditor({
   node, data, adventures, currentAdventureId, campaign, campaignItems, levels, lang,
+  world, onCreateEntry, onOpenEntry,
   onChange, onDelete, onDataChange, onSelectEdge,
 }) {
   const [picker, setPicker] = useState(null); // 'monster' | 'item'
@@ -141,14 +117,29 @@ export default function NodeEditor({
         <textarea className="input" rows={4} maxLength={10000} value={node.notes || ''} onChange={e => set({ notes: e.target.value })} />
       </label>
 
+      {/* ----- Cartões do Mundo ----- */}
+      <section className="prep-section prep-world-refs">
+        <header><h4>🌍 {t(lang, 'Cartões do Mundo nesta sala', 'World cards in this room')}</h4></header>
+        <p className="muted small prep-note">{t(lang,
+          'Quem está aqui, onde fica, que segredo se esconde. Em “Conduzir” eles aparecem prontos para revelar ou mostrar no telão.',
+          'Who is here, where it is, what secret hides here. In “Run” they show up ready to reveal or show on the TV.')}</p>
+        <WorldRefs entries={world} ids={node.refs || []} lang={lang} max={LIMITS.refs} compact
+          onToggle={(id) => {
+            const cur = node.refs || [];
+            set({ refs: cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id].slice(0, LIMITS.refs) });
+          }}
+          onCreate={onCreateEntry} onOpen={onOpenEntry}
+          addLabel={t(lang, 'Ligar NPC, lugar, item…', 'Link NPC, place, item…')} />
+      </section>
+
       {/* ----- Encontro ----- */}
       <section className="prep-section">
         <header>
           <h4>⚔ {t(lang, 'Encontro', 'Encounter')}</h4>
           {enc.monsters > 0 && (
             <span className={`enc-label ${enc.rating}`} title={t(lang,
-              `${enc.estimated ? '≈ ' : ''}${enc.totalXp} XP · orçamento: Baixa ${enc.budget.low} · Moderada ${enc.budget.moderate} · Alta ${enc.budget.high}`,
-              `${enc.estimated ? '≈ ' : ''}${enc.totalXp} XP · budget: Low ${enc.budget.low} · Moderate ${enc.budget.moderate} · High ${enc.budget.high}`)}>
+              `${enc.estimated ? '≈ ' : ''}${enc.totalXp} XP · dificuldade para o grupo: fácil até ${enc.budget.low} · média até ${enc.budget.moderate} · difícil até ${enc.budget.high} XP`,
+              `${enc.estimated ? '≈ ' : ''}${enc.totalXp} XP · difficulty for the party: easy up to ${enc.budget.low} · medium up to ${enc.budget.moderate} · hard up to ${enc.budget.high} XP`)}>
               {levels.length ? diffLabel : t(lang, 'sem PJs', 'no PCs')}
             </span>
           )}
@@ -289,7 +280,7 @@ export default function NodeEditor({
       </section>
 
       <div className="prep-editor-foot">
-        <button type="button" className="btn btn-ghost btn-sm danger" onClick={onDelete}>{t(lang, 'Apagar este nó', 'Delete this node')}</button>
+        <button type="button" className="btn btn-ghost btn-sm danger" onClick={onDelete}>🗑 {t(lang, 'Apagar sala', 'Delete room')}</button>
       </div>
 
       {picker === 'monster' && (

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { api } from '../api/client.js';
+import { flash } from '../play/flash.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -32,7 +33,11 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
   const [tokenImages, setTokenImages] = useState({}); // id -> HTMLImageElement
   const [dragging, setDragging] = useState(null); // {id, dx, dy}
   const [hoverId, setHoverId] = useState(null);
-  const [showControls, setShowControls] = useState(!readOnly);
+  // Barra de ferramentas do mapa: no celular começa recolhida (ocupava meia tela).
+  const [showControls, setShowControls] = useState(() => {
+    if (readOnly) return false;
+    try { return !window.matchMedia('(max-width: 720px)').matches; } catch { return true; }
+  });
 
   const map = combat?.map || {};
   const W = map.width_px || DEFAULT_WIDTH;
@@ -108,7 +113,11 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
       const x = c.position?.x ?? 50;
       const y = c.position?.y ?? 50;
       const isCurrent = i === turnIdx;
-      const hpPct = c.stats?.max_hp ? Math.max(0, Math.min(1, (c.current_hp || 0) / c.stats.max_hp)) : 1;
+      // Jogador/telão não recebem PV de monstro: usam a faixa pública de saúde.
+      const BAND = { unhurt: 1, hurt: 0.7, bloodied: 0.35, down: 0 };
+      const hpPct = c.stats?.max_hp && c.current_hp != null
+        ? Math.max(0, Math.min(1, (c.current_hp || 0) / c.stats.max_hp))
+        : (c.health in BAND ? BAND[c.health] : 1);
       const isCrit = hpPct <= 0.3 && !c.defeated;
 
       ctx.save();
@@ -260,7 +269,7 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
 
   const handleBgFile = (e) => {
     const f = e.target.files?.[0]; if (!f) return;
-    if (f.size > 4 * 1024 * 1024) { alert(t(lang, 'Imagem grande demais (>4MB). Comprima primeiro.', 'Image too large (>4MB). Compress first.')); return; }
+    if (f.size > 4 * 1024 * 1024) { flash(t(lang, 'Imagem grande demais (mais de 4 MB). Tente uma menor.', 'Image too large (over 4 MB). Try a smaller one.'), { error: true }); return; }
     const reader = new FileReader();
     reader.onload = () => {
       // Comprime via canvas pra max 1600px
@@ -276,7 +285,11 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
         c.width = w; c.height = h;
         c.getContext('2d').drawImage(img, 0, 0, w, h);
         const dataUrl = c.toDataURL('image/jpeg', 0.82);
-        await api.setCombatMap(campaignId, { background_image: dataUrl, width_px: w, height_px: h });
+        try {
+          await api.setCombatMap(campaignId, { background_image: dataUrl, width_px: w, height_px: h });
+        } catch {
+          flash(t(lang, 'Não consegui usar essa imagem como fundo.', 'Could not use that image as background.'), { error: true });
+        }
         onChange?.();
       };
       img.src = reader.result;
@@ -301,7 +314,7 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
 
   const handleTokenFile = (combatantId) => async (e) => {
     const f = e.target.files?.[0]; if (!f) return;
-    if (f.size > 500 * 1024) { alert(t(lang, 'PNG grande demais (>500KB).', 'PNG too large (>500KB).')); return; }
+    if (f.size > 500 * 1024) { flash(t(lang, 'Imagem grande demais (mais de 500 KB).', 'Image too large (over 500 KB).'), { error: true }); return; }
     const reader = new FileReader();
     reader.onload = () => {
       const img = new Image();
@@ -330,33 +343,41 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
 
   return (
     <div className="combat-grid-wrapper" ref={wrapperRef}>
-      {showControls && !readOnly && (
-        <div className="grid-controls">
+      {!readOnly && (
+        <button type="button" className="btn btn-ghost btn-sm grid-controls-toggle" aria-expanded={showControls}
+          onClick={() => setShowControls(v => !v)}>
+          🛠 {showControls ? t(lang, 'Esconder ferramentas do mapa', 'Hide map tools') : t(lang, 'Ferramentas do mapa', 'Map tools')}
+        </button>
+      )}
+      {!readOnly && (
+        <div className={`grid-controls ${showControls ? '' : 'is-collapsed'}`}>
           <button className="btn btn-ghost btn-sm" onClick={() => fileRef.current?.click()}>
-            🖼 {t(lang, 'Background', 'Background')}
+            🖼 {t(lang, 'Imagem de fundo', 'Background')}
           </button>
-          {map.background_image && <button className="btn btn-ghost btn-sm" onClick={clearBg}>×</button>}
+          {map.background_image && <button className="btn btn-ghost btn-sm" onClick={clearBg} aria-label={t(lang, 'Tirar imagem de fundo', 'Remove background')}>×</button>}
           <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBgFile} />
           <label className="grid-ctl-label">
             <span>{t(lang, 'Quadrado', 'Square')}: {gridSize}px</span>
             <input type="range" min={20} max={120} step={5} value={gridSize} onChange={e => setGridSize(e.target.value)} />
           </label>
           <button className="btn btn-ghost btn-sm" onClick={toggleGrid}>
-            {gridVisible ? '◻ ' : '⬜ '}{t(lang, 'Grid', 'Grid')}
+            {gridVisible ? '◻ ' : '⬜ '}{gridVisible ? t(lang, 'Esconder grade', 'Hide grid') : t(lang, 'Mostrar grade', 'Show grid')}
           </button>
           {selectedCombatant && (
             <div className="grid-token-ctl">
               <strong>{selectedCombatant.name}</strong>
               <input ref={tokenFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleTokenFile(selectedCombatant.id)} />
-              <button className="btn btn-ghost btn-sm" onClick={() => tokenFileRef.current?.click()}>
-                PNG
+              <button className="btn btn-ghost btn-sm" onClick={() => tokenFileRef.current?.click()}
+                title={t(lang, 'Trocar a imagem da ficha no mapa', 'Change the token image')}>
+                🖼 {t(lang, 'Imagem', 'Image')}
               </button>
-              <select value={selectedCombatant.token_scale || 1} onChange={e => setTokenScale(selectedCombatant.id, e.target.value)} className="input" style={{ width: 90 }}>
-                <option value="0.5">Tiny</option>
-                <option value="1">Small/Medium</option>
-                <option value="2">Large</option>
-                <option value="3">Huge</option>
-                <option value="4">Gargantuan</option>
+              <select value={selectedCombatant.token_scale || 1} onChange={e => setTokenScale(selectedCombatant.id, e.target.value)} className="input"
+                aria-label={t(lang, 'Tamanho no mapa', 'Size on map')} style={{ width: 'auto' }}>
+                <option value="0.5">{t(lang, 'Miúdo', 'Tiny')}</option>
+                <option value="1">{t(lang, 'Pequeno/Médio', 'Small/Medium')}</option>
+                <option value="2">{t(lang, 'Grande', 'Large')}</option>
+                <option value="3">{t(lang, 'Enorme', 'Huge')}</option>
+                <option value="4">{t(lang, 'Imenso', 'Gargantuan')}</option>
               </select>
             </div>
           )}
@@ -367,10 +388,11 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
           ref={canvasRef}
           width={W}
           height={H}
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-          onMouseLeave={() => { setDragging(null); setHoverId(null); }}
+          onPointerDown={(e) => { if (!readOnly) { try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ok */ } } onMouseDown(e); }}
+          onPointerMove={onMouseMove}
+          onPointerUp={onMouseUp}
+          onPointerCancel={() => { setDragging(null); setHoverId(null); }}
+          onPointerLeave={(e) => { if (e.pointerType === 'mouse') { setDragging(null); setHoverId(null); } }}
           style={{ cursor: dragging ? 'grabbing' : hoverId ? 'grab' : (readOnly ? 'default' : 'crosshair') }}
         />
       </div>

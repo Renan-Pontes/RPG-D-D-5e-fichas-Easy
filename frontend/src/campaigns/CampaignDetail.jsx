@@ -1,1297 +1,357 @@
+// Casca da campanha (DESIGN 1): capa fixa + quatro áreas.
+//   Mestre:  Mundo · Preparar · Jogar · Grupo  (teclas 1–4, Ctrl+K, N, T)
+//   Jogador: Mesa · Mundo · Crônica · Grupo
+// Cada área é um arquivo de outro pacote, carregado sob demanda. Enquanto um
+// arquivo não existe (ou quebra), a casca mostra a tela antiga equivalente
+// (src/shell/Fallbacks.jsx), para nada se perder no caminho.
+//
+// Props passadas a toda área: { campaign, lang, isDM, characters, sub, params,
+// goTo, onSubChange, onChange (recarrega a campanha), onOpenTab/onNavigate
+// (ids de aba antigos → área nova) }. O mesmo vem por contexto em useArea().
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
-import { useEffect, useState, useCallback } from 'react';
-import { api, API_BASE } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
-import RollRequestPanel from './RollRequestPanel.jsx';
-import DMCharacterEditor from './DMCharacterEditor.jsx';
-import GiveItemModal from './GiveItemModal.jsx';
-import CampaignItemsTab from '../items/CampaignItemsTab.jsx';
-import DiaryTab from './DiaryTab.jsx';
-import Utils from '../../utils.js';
-import { tName } from '../../data/i18n.js';
-import { lazy, Suspense } from 'react';
-import ScrollTabs from '../../components/ScrollTabs.jsx';
-// Preparação do mestre (mapa de salas/cenas) — carregada só quando a aba abre.
-const PrepTab = lazy(() => import('../prep/PrepTab.jsx'));
-// Combate e Mesa agora (só do mestre) puxam o bestiário (~550KB): chunk sob demanda,
-// assim o jogador nunca baixa o bestiário.
-const CombatTab = lazy(() => import('./CombatTab.jsx'));
-const TableNow = lazy(() => import('./TableNow.jsx'));
+import { listWorld, createSampleWorld, getSessionPlan } from '../world/world-api.js';
+import CampaignHeader from '../shell/CampaignHeader.jsx';
+import AreaNav from '../shell/AreaNav.jsx';
+import Onboarding from '../shell/Onboarding.jsx';
+import { AreaContext, legacyNavigate } from '../shell/useArea.js';
+import {
+  AreaBoundary, ChronicleView, GroupFallback, Loading, PlayFallback, PlayerGroupFallback,
+  PlayerTableFallback, PrepareFallback, WorldFallback,
+} from '../shell/Fallbacks.jsx';
+import {
+  areasFor, initialArea, isHexColor, loadRememberedArea, normalizeArea, onboardingStatus,
+  onboardingVisible, planHasContent, saveRememberedArea, screenLink, t,
+} from '../shell/shell-logic.js';
+import '../shell/shell.css';
 
-// "Humano · Druida 3 / Guerreiro 1" a partir do resumo do servidor (ou da ficha local).
-function charLine(c, lang) {
-  if (!c) return '';
-  const classes = c.classes?.length ? c.classes : (c.className ? Utils.classEntries(c) : []);
-  const cls = classes.map(e => `${tName('class', e.id, lang)} ${e.level}`).join(' / ');
-  return [c.race && tName('race', c.race, lang), cls].filter(Boolean).join(' · ');
-}
+const SettingsMenu = lazy(() => import('../shell/SettingsMenu.jsx'));
+const QuickSearch = lazy(() => import('../shell/QuickSearch.jsx'));
 
-const t = (lang, pt, en) => lang === 'pt' ? pt : en;
+// Áreas novas: detectadas em tempo de build. Arquivo ausente → fallback.
+const MODULES = import.meta.glob([
+  '../world/WorldArea.jsx', '../prep/PrepareArea.jsx', '../play/PlayArea.jsx', '../group/GroupArea.jsx',
+  '../player/PlayerTable.jsx', '../player/PlayerWorld.jsx', '../player/RevealToast.jsx',
+]);
+const lazyIf = (p) => (MODULES[p] ? lazy(MODULES[p]) : null);
+const WorldArea = lazyIf('../world/WorldArea.jsx');
+const PrepareArea = lazyIf('../prep/PrepareArea.jsx');
+const PlayArea = lazyIf('../play/PlayArea.jsx');
+const GroupArea = lazyIf('../group/GroupArea.jsx');
+const PlayerTable = lazyIf('../player/PlayerTable.jsx');
+const PlayerWorld = lazyIf('../player/PlayerWorld.jsx');
+const RevealToast = lazyIf('../player/RevealToast.jsx');
 
-// Atalhos 1–7 do mestre: as abas usadas durante a sessão, na ordem da barra.
-const DM_TAB_KEYS = ['now', 'overview', 'combat', 'prep', 'rolls', 'diary', 'screen'];
-const shortcutOf = (id) => { const i = DM_TAB_KEYS.indexOf(id); return i >= 0 ? i + 1 : null; };
+const isTyping = (el) => {
+  const tag = (el?.tagName || '').toLowerCase();
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || !!el?.isContentEditable;
+};
+const modalOpen = () => !!document.querySelector('.modal-backdrop, [role="dialog"][aria-modal="true"]');
 
 export default function CampaignDetail({ lang = 'pt', campaignId, onBack, characters = [] }) {
   const [campaign, setCampaign] = useState(null);
-  const [approvals, setApprovals] = useState([]);
-  const [rigs, setRigs] = useState([]);
-  const [tabSel, setTab] = useState(null); // null = aba inicial (mestre: Mesa agora)
   const [error, setError] = useState('');
+  const [nav, setNav] = useState(null);           // {area, sub, params}
+  const [world, setWorld] = useState(null);       // {entries, count, max} (mestre)
+  const [planHas, setPlanHas] = useState(false);
+  const [search, setSearch] = useState(false);
+  const [settings, setSettings] = useState(false);
+  const [ending, setEnding] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [groupPending, setGroupPending] = useState(null);
+  const [toast, setToast] = useState('');
+  const [sampleBusy, setSampleBusy] = useState(false);
+  const toastTimer = useRef(null);
 
+  const say = useCallback((msg) => {
+    setToast(msg);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(''), 2600);
+  }, []);
+
+  // Polling global: só a campanha (aprovações e o resto ficam nas áreas).
   const load = useCallback(async () => {
     try {
-      const cRes = await api.getCampaign(campaignId);
-      setCampaign(cRes.campaign);
-      const aRes = await api.listApprovals(campaignId);
-      setApprovals(aRes.approvals || []);
-      if (cRes.campaign.role === 'dm') {
-        const rRes = await api.listRigs(campaignId);
-        setRigs(rRes.rigs || []);
-      }
+      const r = await api.getCampaign(campaignId);
+      setCampaign(r.campaign);
+      setError('');
     } catch (e) {
+      // Falha no polling com a campanha já na tela: mantém o que está aberto.
       setError(errorMessage(e, lang));
     }
-  }, [campaignId]);
-
-  useEffect(() => { load(); }, [load]);
-
-  // Polling em vez de WebSocket (PythonAnywhere free não tem WS).
-  // Pausa quando a aba está oculta.
+  }, [campaignId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Trocou de campanha: zera a tela (o usePolling já busca na hora).
+  useEffect(() => { setCampaign(null); setNav(null); setWorld(null); setError(''); }, [campaignId]);
   usePolling(load, 2500, [campaignId]);
 
   const isDM = campaign?.role === 'dm';
-  const tab = tabSel ?? (isDM ? 'now' : 'overview');
 
-  // Atalhos de teclado no painel do mestre — só desktop, foco fora de input/textarea.
+  const loadWorld = useCallback(async () => {
+    if (!campaign) return;
+    try { const r = await listWorld(campaign.id); setWorld({ entries: r.entries || [], count: r.count ?? (r.entries || []).length, max: r.max || 500 }); }
+    catch { setWorld(w => w || { entries: [], count: 0, max: 500 }); }
+  }, [campaign?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Dados de apoio do mestre: lista leve do Mundo (onboarding + busca) e plano.
   useEffect(() => {
-    if (!isDM) return;
+    if (!campaign?.id || !isDM) return;
+    loadWorld();
+    if (!campaign.onboarding?.dismissed) {
+      getSessionPlan(campaign.id).then(p => setPlanHas(planHasContent(p))).catch(() => {});
+    }
+  }, [campaign?.id, isDM]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const obStatus = useMemo(() => (isDM && campaign
+    ? onboardingStatus(campaign, { worldCount: world?.count || 0, planHasContent: planHas })
+    : null), [isDM, campaign, world?.count, planHas]);
+
+  // Área inicial (uma vez por campanha, quando os dados chegam).
+  useEffect(() => {
+    if (!campaign || nav) return;
+    if (isDM && world == null) return; // espera o Mundo para decidir pelo onboarding
+    let alive = true;
+    (async () => {
+      let combatActive = false;
+      if (isDM && !campaign.state?.live) {
+        try { combatActive = !!(await api.getCombat(campaign.id))?.combat?.active; } catch { /* ok */ }
+      }
+      if (!alive) return;
+      const first = initialArea({
+        isDM, live: !!campaign.state?.live, combatActive,
+        onboardingPending: onboardingVisible(obStatus),
+        remembered: loadRememberedArea(campaign.id),
+      });
+      setNav({ ...first, params: {} });
+    })();
+    return () => { alive = false; };
+  }, [campaign, isDM, world, nav, obStatus]);
+
+  const goTo = useCallback((area, sub, params) => {
+    if (!campaign) return;
+    const n = normalizeArea(isDM, area, sub);
+    if (!n) return;
+    setNav({ ...n, params: params || {} });
+    saveRememberedArea(campaign.id, n);
+    if (n.area === 'world' && isDM) loadWorld();
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch { /* ok */ }
+  }, [campaign?.id, isDM, loadWorld]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onSubChange = useCallback((s) => {
+    setNav(prev => {
+      if (!prev) return prev;
+      const n = normalizeArea(isDM, prev.area, s) || prev;
+      if (campaign) saveRememberedArea(campaign.id, n);
+      return { ...n, params: {} };
+    });
+  }, [isDM, campaign?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const clearParams = useCallback(() => setNav(prev => (prev ? { ...prev, params: {} } : prev)), []);
+  const legacyNav = useMemo(() => legacyNavigate(goTo), [goTo]);
+
+  // Onboarding: grava a flag (só o mestre vê).
+  const markOnboarding = useCallback(async (flag, value = true) => {
+    if (!campaign || !isDM || campaign.onboarding?.[flag] === value) return;
+    try { await api.patchCampaign(campaign.id, { onboarding: { [flag]: value } }); load(); } catch { /* não bloqueia */ }
+  }, [campaign, isDM, load]);
+
+  const tvUrl = campaign ? screenLink(window.location.origin, campaign.screenToken) : '';
+  const copyTv = useCallback(async () => {
+    try { await navigator.clipboard?.writeText(tvUrl); say(t(lang, 'Link do telão copiado', 'TV link copied')); } catch { /* ok */ }
+    markOnboarding('tv');
+  }, [tvUrl, lang, say, markOnboarding]);
+
+  const onOnboardingAction = async (step) => {
+    if (step === 'cover') { setSettings(true); return; }
+    if (step === 'firstEntry') { goTo('world', 'atlas', { create: true }); return; }
+    if (step === 'prepare') { goTo('prepare', 'next'); return; }
+    if (step === 'tv') { window.open(tvUrl, '_blank', 'noopener'); markOnboarding('tv'); return; }
+    if (step === 'invite') {
+      try { await navigator.clipboard?.writeText(campaign.inviteCode); } catch { /* ok */ }
+      say(t(lang, `Código ${campaign.inviteCode} copiado — mande para a mesa`, `Code ${campaign.inviteCode} copied — send it to the table`));
+      markOnboarding('invite');
+    }
+  };
+
+  const loadSample = async () => {
+    setSampleBusy(true);
+    try {
+      await createSampleWorld(campaign.id, lang);
+      await loadWorld();
+      setNav(n => ({ ...(n || { area: 'world', sub: 'atlas' }), params: { sampleAt: Date.now() } }));
+      say(t(lang, 'Vale de Brumafria está pronto para explorar', 'Mistfrost Vale is ready to explore'));
+    } catch (e) { say(errorMessage(e, lang)); } finally { setSampleBusy(false); }
+  };
+
+  // Sessão: começar / encerrar.
+  const startSession = async () => {
+    setBusy(true);
+    try { await api.startDiarySession(campaign.id, {}); await load(); goTo('play', 'scene'); }
+    catch (e) { say(errorMessage(e, lang)); } finally { setBusy(false); }
+  };
+  const endSession = async (withRecap) => {
+    setBusy(true);
+    try {
+      await api.patchCampaignState(campaign.id, { live: false });
+      await load();
+      setEnding(false);
+      if (withRecap) goTo('group', 'chronicle', { recap: true });
+      else say(t(lang, 'Sessão encerrada. Bom jogo!', 'Session ended. Good game!'));
+    } catch (e) { say(errorMessage(e, lang)); } finally { setBusy(false); }
+  };
+  const clearScreen = async () => {
+    try { await api.setScreenCard(campaign.id, null); load(); } catch (e) { say(errorMessage(e, lang)); }
+  };
+
+  // Atalhos: 1–4 áreas · Ctrl+K busca · N próximo turno (Jogar › Combate) · T copia o telão.
+  const areas = areasFor(isDM);
+  useEffect(() => {
+    if (!campaign) return;
     const onKey = (e) => {
-      const tag = (e.target?.tagName || '').toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      // 'n' = próximo turno (na aba combate)
-      if (e.key === 'n' && tab === 'combat') {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault(); setSearch(true); return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target) || modalOpen()) return;
+      if (/^[1-4]$/.test(e.key)) {
+        const a = areas[parseInt(e.key, 10) - 1];
+        if (a) { e.preventDefault(); goTo(a.id, nav?.area === a.id ? nav.sub : null); }
+      } else if (isDM && (e.key === 'n' || e.key === 'N') && nav?.area === 'play' && nav?.sub === 'combat') {
         e.preventDefault();
         api.combatNextTurn(campaign.id).then(load).catch(() => {});
-      }
-      // 't' = copiar link do telão (na aba screen)
-      else if (e.key === 't' && tab === 'screen' && campaign?.screenToken) {
-        e.preventDefault();
-        navigator.clipboard?.writeText(`${window.location.origin}/tv/${campaign.screenToken}`);
-      }
-      // 1..7 = atalhos rápidos de aba pro DM (mesma ordem da barra; ver DM_TAB_KEYS)
-      else if (/^[1-7]$/.test(e.key)) {
-        const t2 = DM_TAB_KEYS[parseInt(e.key, 10) - 1];
-        if (t2) { e.preventDefault(); setTab(t2); }
+      } else if (isDM && (e.key === 't' || e.key === 'T')) {
+        e.preventDefault(); copyTv();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isDM, tab, campaign?.id, campaign?.screenToken, load]);
+  }, [campaign, areas, isDM, nav, goTo, load, copyTv]);
 
-  if (error) return <div style={{ padding: 24 }}><p style={{ color: 'var(--blood-bright)' }}>{error}</p><button onClick={onBack}>← {t(lang, 'Voltar', 'Back')}</button></div>;
-  if (!campaign) return <div style={{ padding: 24 }}>{t(lang, 'Carregando…', 'Loading…')}</div>;
-
-
-  return (
-    <div className={`campaign-detail ${isDM ? 'is-dm' : ''}`}>
-      <div className="dm-mobile-hint">
-        💡 <strong>{t(lang, 'Dica', 'Tip')}:</strong> {t(lang,
-          'Esta tela do mestre fica bem melhor no PC. Recomendamos usar um computador na sessão.',
-          'This DM screen works much better on PC. We recommend using a desktop during sessions.')}
+  if (error && !campaign) {
+    return (
+      <div className="shell-error">
+        <p style={{ color: 'var(--blood-bright)' }}>{error}</p>
+        <button className="btn btn-ghost" onClick={onBack}>← {t(lang, 'Voltar', 'Back')}</button>
       </div>
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-        <div>
-          <button className="btn btn-ghost btn-sm" onClick={onBack}>← {t(lang, 'Campanhas', 'Campaigns')}</button>
-          <h1 style={{ margin: '6px 0 0 0' }}>{campaign.name}</h1>
-          <p style={{ color: 'var(--ink-secondary)', margin: '4px 0' }}>{campaign.description}</p>
-        </div>
-        <div>
-          <span className={`role-pill role-${campaign.role}`}>{isDM ? t(lang, 'Mestre', 'DM') : t(lang, 'Jogador', 'Player')}</span>
-        </div>
-      </div>
-
-      <ScrollTabs activeKey={tab} lang={lang} role="tablist" aria-label={t(lang, 'Abas da campanha', 'Campaign tabs')} style={{ marginBottom: 16 }}>
-        {[
-          ...(isDM ? [{ id: 'now', label: t(lang, 'Mesa agora', 'Table now') }] : []),
-          { id: 'overview',  label: t(lang, 'Visão geral', 'Overview') },
-          ...(isDM ? [{ id: 'combat',   label: t(lang, 'Combate', 'Combat') }] : []),
-          ...(isDM ? [{ id: 'prep',     label: t(lang, 'Preparação', 'Prep') }] : []),
-          { id: 'rolls',     label: t(lang, 'Rolagens', 'Rolls') },
-          { id: 'members',   label: t(lang, 'Membros', 'Members') },
-          { id: 'diary',     label: t(lang, 'Diário', 'Diary') },
-          { id: 'approvals', label: t(lang, 'Aprovações', 'Approvals'), badge: approvals.filter(a => a.status === 'pending').length },
-          ...(isDM ? [{ id: 'items',  label: t(lang, 'Itens', 'Items') }] : []),
-          ...(isDM ? [{ id: 'dice',   label: t(lang, 'Dados', 'Dice') }] : []),
-          ...(isDM ? [{ id: 'screen', label: t(lang, 'Telão', 'TV screen') }] : []),
-        ].map(it => (
-          <button
-            key={it.id}
-            role="tab"
-            aria-selected={tab === it.id}
-            aria-controls={`tabpanel-${it.id}`}
-            id={`tab-${it.id}`}
-            className={`tab ${tab === it.id ? 'active' : ''}`}
-            onClick={() => setTab(it.id)}
-            title={isDM && shortcutOf(it.id) ? t(lang, `Atalho: tecla ${shortcutOf(it.id)}`, `Shortcut: key ${shortcutOf(it.id)}`) : undefined}
-            aria-keyshortcuts={isDM && shortcutOf(it.id) ? String(shortcutOf(it.id)) : undefined}
-          >
-            {it.label}
-            {it.badge > 0 && <span className="badge" aria-label={t(lang, `${it.badge} pendente(s)`, `${it.badge} pending`)}> {it.badge}</span>}
-          </button>
-        ))}
-      </ScrollTabs>
-      {isDM && (
-        <details className="kbd-help">
-          <summary>{t(lang, 'Atalhos de teclado', 'Keyboard shortcuts')}</summary>
-          <ul>
-            {DM_TAB_KEYS.map((id, i) => (
-              <li key={id}><kbd>{i + 1}</kbd> {{
-                now: t(lang, 'Mesa agora', 'Table now'), overview: t(lang, 'Visão geral', 'Overview'),
-                combat: t(lang, 'Combate', 'Combat'), prep: t(lang, 'Preparação', 'Prep'),
-                rolls: t(lang, 'Rolagens', 'Rolls'), diary: t(lang, 'Diário', 'Diary'), screen: t(lang, 'Telão', 'TV screen'),
-              }[id]}</li>
-            ))}
-            <li><kbd>N</kbd> {t(lang, 'próximo turno (na aba Combate)', 'next turn (Combat tab)')}</li>
-            <li><kbd>T</kbd> {t(lang, 'copiar link do telão (na aba Telão)', 'copy TV link (TV screen tab)')}</li>
-          </ul>
-        </details>
-      )}
-
-      <div role="tabpanel" id={`tabpanel-${tab}`} aria-labelledby={`tab-${tab}`}>
-        {tab === 'now' && isDM && <Suspense fallback={<p className="muted">{t(lang, 'Carregando…', 'Loading…')}</p>}><TableNow campaign={campaign} approvals={approvals} lang={lang} onChange={load} onNavigate={setTab} /></Suspense>}
-        {tab === 'overview' && <OverviewTab campaign={campaign} lang={lang} isDM={isDM} onChange={load} />}
-        {tab === 'prep' && isDM && <Suspense fallback={<p className="muted">{t(lang, 'Carregando…', 'Loading…')}</p>}><PrepTab campaign={campaign} lang={lang} onOpenTab={setTab} /></Suspense>}
-        {tab === 'combat' && isDM && <Suspense fallback={<p className="muted">{t(lang, 'Carregando combate…', 'Loading combat…')}</p>}><CombatTab campaign={campaign} lang={lang} onChange={load} onNavigate={setTab} /></Suspense>}
-        {tab === 'rolls' && <RollRequestPanel campaign={campaign} lang={lang} isDM={isDM} onChange={load} />}
-        {tab === 'members' && <MembersTab campaign={campaign} lang={lang} isDM={isDM} characters={characters} onChange={load} />}
-        {tab === 'diary' && <DiaryTab campaign={campaign} lang={lang} isDM={isDM} />}
-        {tab === 'approvals' && <ApprovalsTab campaign={campaign} approvals={approvals} lang={lang} isDM={isDM} onChange={load} />}
-        {tab === 'items' && isDM && <CampaignItemsTab campaign={campaign} lang={lang} />}
-        {tab === 'dice' && isDM && <DiceTab campaign={campaign} rigs={rigs} lang={lang} onChange={load} />}
-        {tab === 'screen' && isDM && <ScreenTab campaign={campaign} lang={lang} onChange={load} />}
-      </div>
-    </div>
-  );
-}
-
-function OverviewTab({ campaign, lang, isDM, onChange }) {
-  const [editing, setEditing] = useState(false);
-  const [session, setSession] = useState(campaign.state?.session || '');
-  const [scene, setScene] = useState(campaign.state?.scene || '');
-  const [weather, setWeather] = useState(campaign.state?.weather || '');
-
-  useEffect(() => {
-    setSession(campaign.state?.session || '');
-    setScene(campaign.state?.scene || '');
-    setWeather(campaign.state?.weather || '');
-  }, [campaign.state?.session, campaign.state?.scene, campaign.state?.weather]);
-
-  const saveState = async () => {
-    await api.updateCampaign(campaign.id, {
-      state: { ...campaign.state, session, scene, weather },
-    });
-    setEditing(false);
-    onChange();
-  };
-
-  return (
-    <div className="col gap-4">
-      {isDM && (
-        <div className="info-box">
-          <h3>{t(lang, 'Convidar jogadores', 'Invite players')}</h3>
-          <p>{t(lang, 'Compartilhe este código com os jogadores:', 'Share this code with players:')}</p>
-          <div className="invite-code-display">{campaign.inviteCode}</div>
-        </div>
-      )}
-      <div className="info-box">
-        <div className="info-box-head">
-          <h3>{t(lang, 'Estado da campanha', 'Campaign state')}</h3>
-          {isDM && !editing && (
-            <button className="btn btn-ghost btn-sm" onClick={() => setEditing(true)}>{t(lang, 'Editar', 'Edit')}</button>
-          )}
-        </div>
-        {editing ? (
-          <div className="col gap-2">
-            <label className="col gap-1">
-              <span>{t(lang, 'Sessão', 'Session')}</span>
-              <input aria-label="ex: 12" className="input" value={session} onChange={e => setSession(e.target.value)} placeholder="ex: 12" />
-            </label>
-            <label className="col gap-1">
-              <span>{t(lang, 'Cena', 'Scene')}</span>
-              <input aria-label={t(lang, 'ex: Taverna do Javali Cego', 'e.g.: Blind Boar Tavern')} className="input" value={scene} onChange={e => setScene(e.target.value)} placeholder={t(lang, 'ex: Taverna do Javali Cego', 'e.g.: Blind Boar Tavern')} />
-            </label>
-            <label className="col gap-1">
-              <span>{t(lang, 'Clima/Ambiente', 'Weather/Mood')}</span>
-              <input aria-label={t(lang, 'ex: Chuva fina, ventania', 'e.g.: Drizzle, gusty')} className="input" value={weather} onChange={e => setWeather(e.target.value)} placeholder={t(lang, 'ex: Chuva fina, ventania', 'e.g.: Drizzle, gusty')} />
-            </label>
-            <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>{t(lang, 'Cancelar', 'Cancel')}</button>
-              <button className="btn btn-primary btn-sm" onClick={saveState}>{t(lang, 'Salvar', 'Save')}</button>
-            </div>
-          </div>
-        ) : (
-          <div className="state-tiles">
-            {[
-              [t(lang, 'Sessão', 'Session'), campaign.state?.session],
-              [t(lang, 'Cena', 'Scene'), campaign.state?.scene],
-              [t(lang, 'Clima', 'Weather'), campaign.state?.weather],
-            ].map(([k, v]) => (
-              <div key={k} className="state-tile">
-                <span className="eyebrow">{k}</span>
-                <span className={v ? '' : 'muted'}>{v || '—'}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      {isDM && (
-        <div className="info-box" style={{ background: 'rgba(156, 192, 101, 0.08)' }}>
-          <h3 style={{ marginTop: 0 }}>{t(lang, 'Descanso da campanha', 'Campaign rest')}</h3>
-          <p className="muted small" style={{ marginTop: 0 }}>
-            {t(lang, 'Aplica descanso longo em todos os PCs: restaura slots, HP, Wild Shape, hit dice.', 'Applies long rest to all PCs: restores slots, HP, Wild Shape uses, hit dice.')}
-          </p>
-          <button className="btn btn-ghost btn-sm" onClick={async () => {
-            if (!confirm(t(lang, 'Aplicar descanso longo em todos os personagens da campanha?', 'Apply long rest to all party members?'))) return;
-            try {
-              const r = await api.campaignLongRestAll(campaign.id);
-              alert(t(lang, `${r.restedCharacters.length} personagem(ns) descansaram.`, `${r.restedCharacters.length} character(s) rested.`));
-              onChange();
-            } catch (e) { alert(errorMessage(e)); }
-          }}>
-            🛌 {t(lang, 'Descanso longo (toda a party)', 'Long rest (whole party)')}
-          </button>
-        </div>
-      )}
-      {isDM && <InitiativeManager campaign={campaign} lang={lang} onChange={onChange} />}
-      <CampaignDiceRoller campaign={campaign} lang={lang} />
-      <div className="info-box">
-        <h3>{t(lang, 'Membros', 'Members')} <span className="muted" style={{ fontSize: '0.8em' }}>{campaign.members?.length || 0}</span></h3>
-        <div className="member-mini-list">
-          {(campaign.members || []).map(m => (
-            <div key={m.id} className="member-mini">
-              <span className="member-mini-avatar">{m.character?.summary?.avatar
-                ? <img src={m.character.summary.avatar} alt="" />
-                : (m.character?.name || m.user?.displayName || '?').charAt(0).toUpperCase()}</span>
-              <span className="member-mini-text">
-                <strong>{m.character?.name || m.user?.displayName}</strong>
-                <span className="muted text-xs">{m.character ? m.user?.displayName : (m.role === 'dm' ? t(lang, 'Mestre', 'DM') : t(lang, 'sem personagem', 'no character'))}</span>
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Gerenciador de iniciativa (somente DM).
- *
- * - Carrega personagens dos jogadores como entradas pré-preenchidas (DEX mod
- *   sugerido, mas o DM digita o valor).
- * - Adiciona NPCs/monstros customizados (nome + valor).
- * - Ordena automaticamente do maior pro menor.
- * - "Próximo turno" avança o índice (volta ao 0 no fim).
- * - "Limpar combate" zera tudo.
- * - Persistido em campaign.state.{initiative, initiativeTurn, round}.
- * - Propaga ao telão via polling padrão.
- */
-function InitiativeManager({ campaign, lang, onChange }) {
-  const init = campaign.state?.initiative || [];
-  const turn = campaign.state?.initiativeTurn ?? 0;
-  const round = campaign.state?.round ?? 1;
-  const [npcName, setNpcName] = useState('');
-  const [npcValue, setNpcValue] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  const saveState = useCallback(async (patch) => {
-    setBusy(true);
-    try {
-      await api.updateCampaign(campaign.id, {
-        state: { ...campaign.state, ...patch },
-      });
-      onChange();
-    } catch (e) {
-      console.warn('save state failed', e);
-    } finally {
-      setBusy(false);
-    }
-  }, [campaign.id, campaign.state, onChange]);
-
-  // Sugere DEX modifier para um personagem (não rola, só sugere)
-  const dexMod = (c) => {
-    const dex = c?.abilities?.dex ?? 10;
-    return Math.floor((dex - 10) / 2);
-  };
-
-  const addAllPCs = () => {
-    const existing = new Set(init.map(e => e.name));
-    const pcs = campaign.members
-      .filter(m => m.role !== 'dm' && m.character)
-      .map(m => ({
-        name: m.character.name,
-        value: 10 + dexMod(m.character.data || {}),
-        type: 'pc',
-      }))
-      .filter(e => !existing.has(e.name));
-    if (!pcs.length) return;
-    const merged = sortByValue([...init, ...pcs]);
-    saveState({ initiative: merged });
-  };
-
-  const addNPC = (e) => {
-    e?.preventDefault?.();
-    const name = npcName.trim();
-    const v = parseInt(npcValue, 10);
-    if (!name || !Number.isFinite(v)) return;
-    const merged = sortByValue([...init, { name, value: v, type: 'npc' }]);
-    setNpcName(''); setNpcValue('');
-    saveState({ initiative: merged });
-  };
-
-  const removeEntry = (idx) => {
-    const next = init.filter((_, i) => i !== idx);
-    // Ajustar turn se for o atual ou maior
-    let nextTurn = turn;
-    if (idx < turn) nextTurn = Math.max(0, turn - 1);
-    else if (idx === turn && nextTurn >= next.length) nextTurn = 0;
-    saveState({ initiative: next, initiativeTurn: nextTurn });
-  };
-
-  const advanceTurn = () => {
-    if (init.length === 0) return;
-    const next = (turn + 1) % init.length;
-    const nextRound = next === 0 ? round + 1 : round;
-    saveState({ initiativeTurn: next, round: nextRound });
-  };
-
-  const previousTurn = () => {
-    if (init.length === 0) return;
-    const next = (turn - 1 + init.length) % init.length;
-    const nextRound = (turn === 0 && round > 1) ? round - 1 : round;
-    saveState({ initiativeTurn: next, round: nextRound });
-  };
-
-  const clearCombat = () => {
-    if (!confirm(t(lang, 'Limpar combate inteiro?', 'Clear entire combat?'))) return;
-    saveState({ initiative: [], initiativeTurn: 0, round: 1 });
-  };
-
-  return (
-    <div className="info-box initiative-manager">
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <h3 style={{ margin: 0 }}>{t(lang, 'Iniciativa', 'Initiative')}
-          {init.length > 0 && <span style={{ color: 'var(--ink-secondary)', marginLeft: 8, fontSize: '0.85em' }}>
-            {t(lang, 'rodada', 'round')} {round}
-          </span>}
-        </h3>
-        {init.length > 0 && (
-          <div className="row gap-2">
-            <button className="btn btn-ghost btn-sm" onClick={previousTurn} disabled={busy} aria-label="Turno anterior">←</button>
-            <button className="btn btn-primary btn-sm" onClick={advanceTurn} disabled={busy}>
-              {t(lang, 'Próximo turno', 'Next turn')} →
-            </button>
-            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} onClick={clearCombat} disabled={busy}>
-              {t(lang, 'Limpar', 'Clear')}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {init.length === 0 ? (
-        <p style={{ color: 'var(--ink-secondary)', fontStyle: 'italic', marginBottom: 12 }}>
-          {t(lang, 'Sem combate ativo.', 'No active combat.')}
-        </p>
-      ) : (
-        <ol className="initiative-list">
-          {init.map((entry, i) => (
-            <li key={`${entry.name}-${i}`} className={`initiative-entry ${i === turn ? 'current' : ''} type-${entry.type || 'npc'}`}>
-              <span className="init-pos">{i + 1}</span>
-              <span className="init-name">{entry.name}</span>
-              <span className="init-value">{entry.value}</span>
-              {i === turn && <span className="init-now-marker" aria-label="agora">●</span>}
-              <button
-                className="btn-icon danger"
-                onClick={() => removeEntry(i)}
-                aria-label={t(lang, 'Remover', 'Remove')}
-                title={t(lang, 'Remover da iniciativa', 'Remove from initiative')}
-              >×</button>
-            </li>
-          ))}
-        </ol>
-      )}
-
-      <div className="row gap-2" style={{ flexWrap: 'wrap', marginTop: 12 }}>
-        <button className="btn btn-ghost btn-sm" onClick={addAllPCs} disabled={busy}>
-          ✚ {t(lang, 'Adicionar todos os jogadores (10+DEX)', 'Add all players (10+DEX)')}
-        </button>
-        <form className="row gap-2" onSubmit={addNPC} style={{ alignItems: 'center', flex: 1, minWidth: 280 }}>
-          <input aria-label={t(lang, 'Nome do NPC/monstro', 'NPC/monster name')}
-            className="input"
-            placeholder={t(lang, 'Nome do NPC/monstro', 'NPC/monster name')}
-            value={npcName}
-            onChange={e => setNpcName(e.target.value)}
-            style={{ flex: 1, minWidth: 140 }}
-          />
-          <input aria-label="Init"
-            type="number"
-            className="input"
-            placeholder="Init"
-            value={npcValue}
-            onChange={e => setNpcValue(e.target.value)}
-            style={{ width: 80 }}
-          />
-          <button type="submit" className="btn btn-ghost btn-sm" disabled={!npcName || !npcValue}>
-            ➕ {t(lang, 'NPC', 'NPC')}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function sortByValue(list) {
-  return [...list].sort((a, b) => (b.value - a.value));
-}
-
-function MembersTab({ campaign, lang, isDM, characters, onChange }) {
-  const [assigning, setAssigning] = useState(null); // membershipId em edição
-  const [editingChar, setEditingChar] = useState(null); // character object
-  const [givingTo, setGivingTo] = useState(null); // character object
-  const [selectedId, setSelectedId] = useState(null); // membership selecionado (desktop split-view)
-
-  const assignCharacter = async (membershipId, charId) => {
-    await api.updateMembership(campaign.id, membershipId, { characterId: charId });
-    setAssigning(null);
-    onChange();
-  };
-
-  const removeMember = async (membershipId) => {
-    if (!confirm(t(lang, 'Remover este membro?', 'Remove this member?'))) return;
-    await api.removeMember(campaign.id, membershipId);
-    onChange();
-  };
-
-  // Em desktop (CSS) a lista vira coluna esquerda e o detalhe vai pra direita.
-  // Em mobile, o detalhe não renderiza e os botões aparecem inline (member-actions).
-  const selected = campaign.members.find(m => m.id === selectedId) || null;
-
-  return (
-    <div className="members-shell">
-      <div className="members-list">
-        {campaign.members.map(m => (
-          <div
-            key={m.id}
-            className={`member-row ${selectedId === m.id ? 'selected' : ''}`}
-            onClick={() => setSelectedId(m.id)}
-          >
-            <div>
-              <strong>{m.user.displayName}</strong>
-              <span className={`role-pill role-${m.role}`} style={{ marginLeft: 8 }}>{m.role === 'dm' ? t(lang, 'Mestre', 'DM') : t(lang, 'Jogador', 'Player')}</span>
-            </div>
-            <div>
-              {m.character ? (
-                <div>
-                  <strong>{m.character.name}</strong>
-                  {m.character.summary?.cheatMode && <span className="tag" style={{ marginLeft: 6, background: 'var(--blood-deep)', color: 'var(--ink-primary)' }} title={t(lang, 'Modo trapaça ativo nesta ficha', 'Cheat mode active on this sheet')}>🎲 {t(lang, 'Trapaça', 'Cheat')}</span>}
-                  {m.character.summary && (
-                    <span style={{ color: 'var(--ink-secondary)', fontSize: '0.9em' }}>
-                      {' '}— {charLine(m.character.summary, lang)}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <em style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Sem personagem atribuído', 'No character assigned')}</em>
-              )}
-            </div>
-            <div className="row gap-2 member-actions">
-              <MemberActions
-                m={m}
-                isDM={isDM}
-                lang={lang}
-                onChangeChar={() => setAssigning(m.id)}
-                onEditChar={() => setEditingChar({ id: m.character.id, name: m.character.name, data: m.character.data })}
-                onGiveItem={() => setGivingTo({ id: m.character.id, name: m.character.name })}
-                onEndForm={async () => {
-                  if (!confirm(t(lang, `Forçar ${m.character.name} a sair da forma selvagem?`, `Force ${m.character.name} out of wild shape?`))) return;
-                  try { await api.wildShapeForceEnd(m.character.id, {}); onChange(); } catch (e) { alert(errorMessage(e)); }
-                }}
-                onRemove={() => removeMember(m.id)}
-              />
-            </div>
-            {assigning === m.id && (
-              <div className="character-picker">
-                <select onChange={e => assignCharacter(m.id, e.target.value || null)}>
-                  <option value="">— {t(lang, 'Nenhum', 'None')} —</option>
-                  {characters.map(c => <option key={c.id} value={c.id}>{c.name} ({Utils.classLabel(c, lang, tName)})</option>)}
-                </select>
-                <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); setAssigning(null); }}>{t(lang, 'Cancelar', 'Cancel')}</button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Painel direito (desktop) — detalhe do membro selecionado */}
-      <div className="members-detail">
-        {!selected && (
-          <div className="empty">
-            {t(lang, 'Selecione um membro pra ver detalhes e tomar ações.', 'Select a member to see details and take action.')}
-          </div>
-        )}
-        {selected && (
-          <MemberDetailPanel
-            m={selected}
-            isDM={isDM}
-            lang={lang}
-            characters={characters}
-            assigning={assigning === selected.id}
-            onChangeChar={() => setAssigning(selected.id)}
-            onAssign={(charId) => assignCharacter(selected.id, charId)}
-            onCancelAssign={() => setAssigning(null)}
-            onEditChar={() => setEditingChar({ id: selected.character.id, name: selected.character.name, data: selected.character.data })}
-            onGiveItem={() => setGivingTo({ id: selected.character.id, name: selected.character.name })}
-            onEndForm={async () => {
-              if (!confirm(t(lang, `Forçar ${selected.character.name} a sair da forma selvagem?`, `Force ${selected.character.name} out of wild shape?`))) return;
-              try { await api.wildShapeForceEnd(selected.character.id, {}); onChange(); } catch (e) { alert(errorMessage(e)); }
-            }}
-            onRemove={() => removeMember(selected.id)}
-          />
-        )}
-      </div>
-
-      {editingChar && (
-        <DMCharacterEditor
-          character={editingChar}
-          lang={lang}
-          onClose={() => setEditingChar(null)}
-          onSaved={() => { setEditingChar(null); onChange(); }}
-        />
-      )}
-      {givingTo && (
-        <GiveItemModal
-          campaign={campaign}
-          character={givingTo}
-          lang={lang}
-          onClose={() => setGivingTo(null)}
-          onGiven={() => { setGivingTo(null); onChange(); }}
-        />
-      )}
-    </div>
-  );
-}
-
-function MemberActions({ m, isDM, lang, onChangeChar, onEditChar, onGiveItem, onEndForm, onRemove }) {
-  // Botões compartilhados entre lista (mobile) e painel detalhado (desktop).
-  // Cada botão para a propagação pra não disparar o setSelectedId do parent.
-  const stop = (fn) => (e) => { e.stopPropagation(); fn?.(); };
-  return (
-    <>
-      {m.user.id === window.__currentUserId__ && (
-        <button className="btn btn-ghost btn-sm" onClick={stop(onChangeChar)}>{t(lang, 'Trocar personagem', 'Change character')}</button>
-      )}
-      {isDM && m.character?.data && (
-        <button className="btn btn-ghost btn-sm" onClick={stop(onEditChar)} title={t(lang, 'Editar ficha em modo mestre', 'Edit sheet in DM mode')}>
-          🛠 {t(lang, 'Editar ficha', 'Edit sheet')}
-        </button>
-      )}
-      {isDM && m.character?.data && (
-        <button className="btn btn-ghost btn-sm" onClick={stop(onGiveItem)} title={t(lang, 'Dar item ao personagem', 'Give item to character')}>
-          🎁 {t(lang, 'Dar item', 'Give item')}
-        </button>
-      )}
-      {isDM && m.character?.data?.wildShape?.active && (
-        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--moss-bright)' }} onClick={stop(onEndForm)}>
-          🐾 {t(lang, 'Sair forma', 'End form')}
-        </button>
-      )}
-      {isDM && m.role !== 'dm' && (
-        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} onClick={stop(onRemove)}>{t(lang, 'Remover', 'Remove')}</button>
-      )}
-    </>
-  );
-}
-
-function MemberDetailPanel({ m, isDM, lang, characters, assigning, onChangeChar, onAssign, onCancelAssign, onEditChar, onGiveItem, onEndForm, onRemove }) {
-  const c = m.character;
-  return (
-    <>
-      <h3>
-        {m.user.displayName}
-        <span className={`role-pill role-${m.role}`} style={{ marginLeft: 10 }}>{m.role === 'dm' ? t(lang, 'Mestre', 'DM') : t(lang, 'Jogador', 'Player')}</span>
-      </h3>
-      {c ? (
-        <>
-          <div style={{ fontSize: '1.05em' }}>
-            <strong>{c.name}</strong>
-            {c.summary?.cheatMode && <span className="tag" style={{ marginLeft: 6, background: 'var(--blood-deep)', color: 'var(--ink-primary)' }} title={t(lang, 'Modo trapaça ativo nesta ficha', 'Cheat mode active on this sheet')}>🎲 {t(lang, 'Trapaça', 'Cheat')}</span>}
-            {c.summary && (
-              <span style={{ color: 'var(--ink-secondary)' }}>
-                {' '}— {charLine(c.summary, lang)}
-              </span>
-            )}
-          </div>
-          {c.data && (
-            <div className="stat-grid">
-              <div><div className="lbl">HP</div><div className="val">{c.data.currentHp ?? '?'}/{c.data.maxHp ?? '?'}</div></div>
-              <div><div className="lbl">AC</div><div className="val">{c.data.ac ?? '?'}</div></div>
-              <div><div className="lbl">Init</div><div className="val">{c.data.initiative ?? c.data.abilities?.dex ? Math.floor(((c.data.abilities?.dex || 10) - 10) / 2) : '?'}</div></div>
-              <div><div className="lbl">{t(lang, 'Nível', 'Level')}</div><div className="val">{c.data.level || 1}</div></div>
-              <div><div className="lbl">XP</div><div className="val">{c.data.xp ?? 0}</div></div>
-              <div><div className="lbl">{t(lang, 'Forma selvagem', 'Wild shape')}</div><div className="val">{c.data.wildShape?.active ? '🐾' : '—'}</div></div>
-            </div>
-          )}
-        </>
-      ) : (
-        <p style={{ color: 'var(--ink-secondary)', fontStyle: 'italic' }}>{t(lang, 'Sem personagem atribuído.', 'No character assigned.')}</p>
-      )}
-
-      <div className="actions-row">
-        <MemberActions
-          m={m}
-          isDM={isDM}
-          lang={lang}
-          onChangeChar={onChangeChar}
-          onEditChar={onEditChar}
-          onGiveItem={onGiveItem}
-          onEndForm={onEndForm}
-          onRemove={onRemove}
-        />
-      </div>
-
-      {assigning && (
-        <div className="character-picker" style={{ marginTop: 12 }}>
-          <select onChange={e => onAssign(e.target.value || null)} defaultValue="">
-            <option value="">— {t(lang, 'Nenhum', 'None')} —</option>
-            {characters.map(ch => <option key={ch.id} value={ch.id}>{ch.name} ({Utils.classLabel(ch, lang, tName)})</option>)}
-          </select>
-          <button className="btn btn-ghost btn-sm" onClick={onCancelAssign}>{t(lang, 'Cancelar', 'Cancel')}</button>
-        </div>
-      )}
-    </>
-  );
-}
-
-// Texto curto do que o jogador escolheu ao subir (histórico do mestre).
-function levelupSummary(p, lang) {
-  if (!p) return '';
-  const parts = [];
-  if (p.classId) parts.push(tName('class', p.classId, lang));
-  if (p.hpGain) parts.push(`+${p.hpGain} ${t(lang, 'PV', 'HP')}`);
-  if (p.choice?.type === 'asi') parts.push(Object.entries(p.choice.asi || {}).filter(([, v]) => v).map(([k, v]) => `${k.toUpperCase()} +${v}`).join(', '));
-  if (p.choice?.type === 'feat') parts.push(`${t(lang, 'Talento', 'Feat')}: ${p.choice.feat}`);
-  if (p.skillAdded) parts.push(tName('skill', p.skillAdded, lang));
-  if (p.spellsAdded?.length) parts.push(p.spellsAdded.map(x => tName('spellName', typeof x === 'string' ? x : x?.id, lang)).join(', '));
-  return parts.filter(Boolean).join(' · ');
-}
-
-// Conteúdo de pedidos que não são de nível, sem JSON cru.
-function payloadText(a, lang) {
-  const p = a.payload || {};
-  if (a.type === 'levelup') return p.toLevel ? `${t(lang, 'para o nível', 'to level')} ${p.toLevel}` : '';
-  if (a.type === 'spell') return tName('spellName', p.id || p.spellId || '', lang);
-  return p.name || p.title || p.desc || p.id || '';
-}
-
-// XP total para passar do nível N ao N+1 (índice = nível atual). SRD 5.2.1.
-const XP_NEXT = [0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000, 165000, 195000, 225000, 265000, 305000, 355000];
-
-/**
- * Evolução da mesa (mestre): regra de multiclasse, nível de cada personagem e
- * liberação de subida individual ou para a mesa toda — sem esperar o pedido.
- */
-function LevelingPanel({ campaign, approvals, lang, onChange }) {
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState('');
-  const allowMulti = campaign.state?.allowMulticlass !== false;
-  const xpMode = campaign.state?.levelingMode === 'xp';
-  const [xpAmount, setXpAmount] = useState('');
-  const [xpSplit, setXpSplit] = useState(true);
-  const players = campaign.members.filter(m => m.role !== 'dm' && m.character);
-  const openFor = (charId, status) => approvals.find(a => a.type === 'levelup' && a.status === status && a.character?.id === charId);
-
-  const run = async (fn, ok) => {
-    setBusy(true); setMsg('');
-    try { await fn(); setMsg(ok); onChange(); } catch (e) { setMsg(errorMessage(e)); } finally { setBusy(false); }
-  };
-  const toggleRule = () => run(
-    () => api.updateCampaign(campaign.id, { state: { ...campaign.state, allowMulticlass: !allowMulti } }),
-    !allowMulti ? t(lang, 'Multiclasse liberada na mesa.', 'Multiclassing allowed.') : t(lang, 'Multiclasse bloqueada na mesa.', 'Multiclassing blocked.'),
-  );
-  const setMode = (mode) => run(
-    () => api.updateCampaign(campaign.id, { state: { ...campaign.state, levelingMode: mode } }),
-    mode === 'xp'
-      ? t(lang, 'A mesa agora sobe de nível por XP.', 'The table now levels up by XP.')
-      : t(lang, 'A mesa agora sobe de nível por marcos.', 'The table now levels up by milestones.'),
-  );
-  const awardXp = (ids) => run(async () => {
-    const amount = parseInt(xpAmount, 10);
-    if (!(amount > 0)) throw new Error(t(lang, 'Informe quanto XP dar.', 'Enter how much XP to give.'));
-    await api.awardXp(campaign.id, { amount, characterIds: ids, split: ids === 'all' && xpSplit });
-    setXpAmount('');
-  }, t(lang, 'XP entregue. Quem alcançou o próximo nível já está liberado para subir.', 'XP awarded. Anyone who reached the next level is unlocked to level up.'));
-  const grant = (ids) => run(async () => {
-    const r = await api.grantLevelup(campaign.id, { characterIds: ids });
-    if (!r.granted.length) throw new Error(t(lang, 'Nada para liberar (já liberado ou nível 20).', 'Nothing to unlock (already unlocked or level 20).'));
-  }, t(lang, 'Subida liberada! Os jogadores confirmam na ficha.', 'Level up unlocked! Players confirm on their sheet.'));
-  const revoke = (id) => run(() => api.reviewApproval(id, { status: 'pending' }), t(lang, 'Liberação revogada.', 'Unlock revoked.'));
-  const reject = (id) => run(() => api.reviewApproval(id, { status: 'rejected' }), t(lang, 'Pedido recusado.', 'Request rejected.'));
-
-  return (
-    <div className="info-box leveling-panel">
-      <div className="info-box-head">
-        <h3>{t(lang, 'Evolução da mesa', 'Party progression')}</h3>
-        <button className="btn btn-primary btn-sm" disabled={busy || !players.length} onClick={() => {
-          if (confirm(t(lang, 'Liberar a subida de nível para todos os personagens da mesa?', 'Unlock a level up for every character at the table?'))) grant('all');
-        }}>
-          ✨ {t(lang, 'Subir a mesa toda', 'Level up the party')}
-        </button>
-      </div>
-      <label className="rule-toggle">
-        <input type="checkbox" checked={allowMulti} disabled={busy} onChange={toggleRule} />
-        <span>
-          <strong>{t(lang, 'Multiclasse permitida', 'Multiclassing allowed')}</strong>
-          <span className="muted text-xs"> — {t(lang, 'ao subir, o jogador pode abrir uma classe nova (com os pré-requisitos de atributo).', 'when leveling, players may take a new class (ability prerequisites apply).')}</span>
-        </span>
-      </label>
-      <div className="rule-toggle leveling-mode">
-        <strong>{t(lang, 'Progressão', 'Leveling')}</strong>
-        <div className="seg" role="radiogroup" aria-label={t(lang, 'Progressão', 'Leveling')}>
-          <button type="button" role="radio" aria-checked={!xpMode} className={`btn btn-sm ${!xpMode ? 'btn-primary' : 'btn-ghost'}`} disabled={busy} onClick={() => xpMode && setMode('milestone')}>
-            {t(lang, 'Marcos', 'Milestones')}
-          </button>
-          <button type="button" role="radio" aria-checked={xpMode} className={`btn btn-sm ${xpMode ? 'btn-primary' : 'btn-ghost'}`} disabled={busy} onClick={() => !xpMode && setMode('xp')}>
-            XP
-          </button>
-        </div>
-        <span className="muted text-xs">
-          {xpMode
-            ? t(lang, 'você dá XP; ao alcançar o próximo nível a subida é liberada sozinha.', 'you award XP; reaching the next level unlocks it automatically.')
-            : t(lang, 'você libera a subida quando a história pedir.', 'you unlock level ups when the story calls for it.')}
-        </span>
-      </div>
-      {xpMode && (
-        <div className="xp-award">
-          <input aria-label={t(lang, 'XP', 'XP')} type="number" min="1" inputMode="numeric" placeholder={t(lang, 'XP', 'XP')} value={xpAmount} onChange={e => setXpAmount(e.target.value)} />
-          <label className="xp-split">
-            <input type="checkbox" checked={xpSplit} onChange={e => setXpSplit(e.target.checked)} />
-            <span>{t(lang, 'dividir entre a mesa', 'split among the party')}</span>
-          </label>
-          <button className="btn btn-primary btn-sm" disabled={busy || !players.length} onClick={() => awardXp('all')}>
-            {t(lang, 'Dar XP à mesa', 'Give XP to party')}
-          </button>
-        </div>
-      )}
-      {msg && <div className="text-sm" style={{ margin: '8px 0', color: 'var(--ink-secondary)' }}>{msg}</div>}
-
-      <div className="leveling-list">
-        {players.length === 0 && <div className="muted text-sm">{t(lang, 'Nenhum personagem na mesa ainda.', 'No characters at the table yet.')}</div>}
-        {players.map(m => {
-          const c = m.character;
-          const info = c.summary || c.data || {};  // mestre recebe a ficha inteira em `data`
-          const lvl = info.level || 1;
-          const pending = openFor(c.id, 'pending');
-          const unlocked = openFor(c.id, 'approved');
-          return (
-            <div key={m.id} className="leveling-row">
-              <div className="leveling-who">
-                <strong>{c.name}</strong>
-                <span className="muted text-xs">{charLine(c.summary || c.data, lang)} · {m.user.displayName}</span>
-              </div>
-              <span className="leveling-level mono">
-                {t(lang, 'Nv', 'Lv')} {lvl}
-                {xpMode && <span className="muted text-xs"> · {info.xp || 0}/{XP_NEXT[lvl] ?? '—'} XP</span>}
-              </span>
-              <div className="leveling-actions">
-                {unlocked ? (
-                  <>
-                    <span className="pill pill-approved" title={unlocked.payload?.allowMulticlass === false ? t(lang, 'sem multiclasse', 'no multiclass') : ''}>
-                      {t(lang, `liberado → ${unlocked.payload?.toLevel}`, `unlocked → ${unlocked.payload?.toLevel}`)}
-                    </span>
-                    <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => revoke(unlocked.id)}>{t(lang, 'Revogar', 'Revoke')}</button>
-                  </>
-                ) : lvl >= 20 ? (
-                  <span className="muted text-xs">{t(lang, 'nível máximo', 'max level')}</span>
-                ) : (
-                  <>
-                    {pending && <span className="pill pill-pending">{t(lang, 'pediu', 'requested')}</span>}
-                    {xpMode && <button className="btn btn-ghost btn-sm" disabled={busy} title={t(lang, 'Dá o valor do campo de XP só para este personagem', 'Gives the XP field amount to this character only')} onClick={() => awardXp([c.id])}>+XP</button>}
-                    <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => grant([c.id])}>
-                      {pending ? t(lang, 'Aprovar', 'Approve') : t(lang, `Liberar nível ${lvl + 1}`, `Unlock level ${lvl + 1}`)}
-                    </button>
-                    {pending && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} disabled={busy} onClick={() => reject(pending.id)}>{t(lang, 'Recusar', 'Reject')}</button>}
-                  </>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function ApprovalsTab({ campaign, approvals, lang, isDM, onChange }) {
-  const review = async (id, status) => {
-    await api.reviewApproval(id, { status });
-    onChange();
-  };
-  // Subidas de nível dos personagens da mesa ficam no painel de evolução (mestre).
-  const tableChars = new Set(campaign.members.filter(m => m.character).map(m => m.character.id));
-  const inPanel = (a) => isDM && a.type === 'levelup' && tableChars.has(a.character?.id);
-  const pending = approvals.filter(a => a.status === 'pending' && !inPanel(a));
-  const unlocked = approvals.filter(a => a.status === 'approved' && !inPanel(a));
-  const done = approvals.filter(a => a.status === 'consumed' || a.status === 'rejected');
-  const statusLabel = { consumed: t(lang, 'aplicado', 'applied'), rejected: t(lang, 'recusado', 'rejected') };
-  return (
-    <div className="approvals">
-      {isDM && <LevelingPanel campaign={campaign} approvals={approvals} lang={lang} onChange={onChange} />}
-
-      <h3 style={{ marginTop: isDM ? 24 : 0 }}>{t(lang, 'Pedidos pendentes', 'Pending requests')} ({pending.length})</h3>
-      {pending.length === 0 && <p style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Nenhum pedido pendente.', 'No pending requests.')}</p>}
-      {pending.map(a => (
-        <div key={a.id} className="approval-card">
-          <div>
-            <strong>{a.requestedBy?.displayName}</strong> {t(lang, 'pediu', 'requested')} <strong>{labelType(a.type, lang)}</strong>
-            {a.character && <> {t(lang, 'para', 'for')} <strong>{a.character.name}</strong></>}
-          </div>
-          {a.character?.classes && <div className="muted text-sm">{charLine(a.character, lang)}</div>}
-          {payloadText(a, lang) && <div className="approval-detail">{payloadText(a, lang)}</div>}
-          {a.note && <div className="approval-note">{a.note}</div>}
-          {isDM && (
-            <div className="row gap-2">
-              <button className="btn btn-primary btn-sm" onClick={() => review(a.id, 'approved')}>
-                {a.type === 'levelup' ? t(lang, '✨ Liberar evolução', '✨ Unlock evolution') : t(lang, 'Aprovar e aplicar', 'Approve & apply')}
-              </button>
-              <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} onClick={() => review(a.id, 'rejected')}>{t(lang, 'Rejeitar', 'Reject')}</button>
-            </div>
-          )}
-        </div>
-      ))}
-
-      {unlocked.length > 0 && (
-        <>
-          <h3 style={{ marginTop: 24 }}>{t(lang, 'Liberadas (aguardando jogador)', 'Unlocked (awaiting player)')} ({unlocked.length})</h3>
-          {unlocked.map(a => (
-            <div key={a.id} className="approval-card unlocked">
-              <div>
-                <span className="pill pill-approved">{t(lang, 'liberada', 'unlocked')}</span>{' '}
-                <strong>{a.character?.name || a.requestedBy?.displayName}</strong> · {labelType(a.type, lang)} {payloadText(a, lang)}
-              </div>
-              <p style={{ color: 'var(--ink-secondary)', fontSize: '0.9em', margin: '6px 0 0' }}>
-                {t(lang, 'O jogador confirma a subida na própria ficha (painel de Progressão).', 'The player confirms on their own sheet (Progression panel).')}
-              </p>
-              {isDM && (
-                <div className="row gap-2" style={{ marginTop: 8 }}>
-                  <button className="btn btn-ghost btn-sm" onClick={() => review(a.id, 'pending')}>
-                    {t(lang, 'Revogar liberação', 'Revoke unlock')}
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-        </>
-      )}
-
-      <h3 style={{ marginTop: 24 }}>{t(lang, 'Histórico', 'History')}</h3>
-      {done.length === 0 && <p style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Nada por aqui ainda.', 'Nothing here yet.')}</p>}
-      {done.map(a => (
-        <div key={a.id} className="approval-card reviewed">
-          <div>
-            <span className={`pill pill-${a.status === 'consumed' ? 'approved' : a.status}`}>{statusLabel[a.status] || a.status}</span>{' '}
-            <strong>{a.character?.name || a.requestedBy?.displayName}</strong> · {labelType(a.type, lang)} {payloadText(a, lang)}
-          </div>
-          {a.type === 'levelup' && a.status === 'consumed' && levelupSummary(a.payload, lang) && (
-            <div className="approval-detail">{levelupSummary(a.payload, lang)}</div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/**
- * DiceTab — UX completa do dice rigging:
- *  - Cards por jogador agrupando todas as filas dele
- *  - Reordenar valores (↑↓), apagar individual, injetar inline
- *  - Limpar fila inteira (volta a aleatório)
- *  - Histórico das últimas N rolagens (com flag rigged)
- *  - Atalhos: Enter para enfileirar, Delete pra limpar
- */
-function DiceTab({ campaign, rigs, lang, onChange }) {
-  const [diceType, setDiceType] = useState('d20');
-  const [valuesText, setValuesText] = useState('');
-  const [activeTarget, setActiveTarget] = useState(null);
-  const [log, setLog] = useState([]);
-
-  const players = campaign.members.filter(m => m.role !== 'dm');
-
-  // Carrega histórico
-  const loadLog = useCallback(async () => {
-    try {
-      const r = await api.diceLog(campaign.id);
-      setLog(r.log || []);
-    } catch (e) { /* ignore */ }
-  }, [campaign.id]);
-  useEffect(() => { loadLog(); }, [loadLog]);
-  // Recarrega histórico junto com mudanças
-  useEffect(() => { loadLog(); }, [rigs, loadLog]);
-
-  const parseValues = (s) => s.split(/[,\s]+/).filter(Boolean).map(v => {
-    const n = parseInt(v, 10);
-    return Number.isFinite(n) ? { value: n } : null;
-  }).filter(Boolean);
-
-  const enqueue = async (targetUserId) => {
-    const values = parseValues(valuesText);
-    if (!values.length || !targetUserId) return;
-    await api.createRig(campaign.id, { targetUserId, diceType, values });
-    setValuesText('');
-    onChange();
-  };
-
-  const injectOne = async (targetUserId, value) => {
-    if (!Number.isFinite(value)) return;
-    await api.createRig(campaign.id, { targetUserId, diceType: 'any', values: [{ value }] });
-    onChange();
-  };
-
-  const deleteRig = async (id) => {
-    await api.deleteRig(id);
-    onChange();
-  };
-
-  const reorderRig = async (rig, from, to) => {
-    if (to < 0 || to >= rig.values.length) return;
-    const v = [...rig.values];
-    const [item] = v.splice(from, 1);
-    v.splice(to, 0, item);
-    await api.updateRig(rig.id, { values: v });
-    onChange();
-  };
-
-  const removeValue = async (rig, idx) => {
-    const v = rig.values.filter((_, i) => i !== idx);
-    if (v.length === 0) {
-      await api.deleteRig(rig.id);
-    } else {
-      await api.updateRig(rig.id, { values: v });
-    }
-    onChange();
-  };
-
-  const clearAllForPlayer = async (userId) => {
-    if (!confirm(t(lang, 'Limpar todas as filas deste jogador?', 'Clear all queues for this player?'))) return;
-    const playerRigs = rigs.filter(r => r.targetUser?.id === userId || r.targetUserId === userId);
-    await Promise.all(playerRigs.map(r => api.deleteRig(r.id)));
-    onChange();
-  };
-
-  // Agrupa rigs por jogador
-  const rigsByPlayer = {};
-  for (const r of rigs) {
-    const uid = r.targetUser?.id ?? r.targetUserId;
-    if (!rigsByPlayer[uid]) rigsByPlayer[uid] = [];
-    rigsByPlayer[uid].push(r);
+    );
   }
+  if (!campaign || !nav) return <div className="shell-error"><Loading lang={lang} /></div>;
+
+  const accent = isHexColor(campaign.accent) ? campaign.accent : null;
+  const badges = isDM
+    ? { group: groupPending ?? campaign.pendingApprovals ?? 0 }
+    : { world: campaign.worldNewCount || 0 };
+  const areaProps = {
+    campaign, lang, isDM, characters, sub: nav.sub, params: nav.params, goTo, onSubChange,
+    onChange: load, onOpenTab: legacyNav, onNavigate: legacyNav,
+  };
+  const ctx = {
+    area: nav.area, sub: nav.sub, params: nav.params, goTo, clearParams, isDM, lang, campaign, reload: load,
+    openSearch: () => setSearch(true), openSettings: () => setSettings(true),
+  };
+
+  const content = isDM ? renderDM(nav.area, areaProps, { setGroupPending }) : renderPlayer(nav.area, areaProps);
 
   return (
-    <div className="col gap-3">
-      <div className="info-box">
-        <h3 style={{ marginTop: 0 }}>{t(lang, 'Controle de dados', 'Dice control')}</h3>
-        <p style={{ color: 'var(--ink-secondary)', marginTop: 0 }}>
-          {t(lang,
-            'Defina os próximos valores que cada jogador "rolará". Quando eles rolarem pelo app, esses valores serão usados na ordem. Eles não veem isto.',
-            'Set the next values each player will "roll". When they roll via the app, these values are used in order. They cannot see this.'
+    <AreaContext.Provider value={ctx}>
+      <div className={`campaign-detail shell ${isDM ? 'is-dm' : 'is-player'}`} style={accent ? { '--camp-accent': accent } : undefined}>
+        <CampaignHeader
+          campaign={campaign} lang={lang} isDM={isDM} busy={busy} onBack={onBack}
+          onStartSession={startSession} onEndSession={() => setEnding(true)}
+          onSearch={() => setSearch(true)} onSettings={() => setSettings(true)}
+          onTvOpened={() => markOnboarding('tv')} onClearScreen={clearScreen}
+        />
+        <AreaNav areas={areas} active={nav.area} onSelect={(a) => goTo(a)} onSearch={() => setSearch(true)} lang={lang} badges={badges} showKeys={isDM} />
+
+        <main className="shell-panel" id="shell-panel" role="tabpanel" aria-labelledby={`area-tab-${nav.area}`}>
+          {isDM && nav.area === 'world' && onboardingVisible(obStatus) && (
+            <Onboarding
+              lang={lang} status={obStatus}
+              onAction={onOnboardingAction}
+              onDismiss={() => markOnboarding('dismissed')}
+              worldEmpty={(world?.count || 0) === 0}
+              onSample={loadSample} sampleBusy={sampleBusy}
+            />
           )}
-        </p>
-        <div className="row gap-2" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <select value={diceType} onChange={e => setDiceType(e.target.value)} className="input">
-            {['d20','d12','d10','d8','d6','d4','d100','any'].map(d => (
-              <option key={d} value={d}>{d === 'any' ? t(lang, 'Qualquer', 'Any') : d}</option>
-            ))}
-          </select>
-          <input aria-label={t(lang, 'Valores: 15, 12, 18 (Enter para enfileirar)', 'Values: 15, 12, 18 (Enter to queue)')}
-            value={valuesText}
-            onChange={e => setValuesText(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && activeTarget) enqueue(activeTarget); }}
-            placeholder={t(lang, 'Valores: 15, 12, 18 (Enter para enfileirar)', 'Values: 15, 12, 18 (Enter to queue)')}
-            className="input"
-            style={{ flex: 1, minWidth: 240 }}
-          />
+          {content}
+        </main>
+
+        {!isDM && RevealToast && (
+          <AreaBoundary lang={lang} resetKey="toast">
+            <Suspense fallback={null}><RevealToast {...areaProps} /></Suspense>
+          </AreaBoundary>
+        )}
+
+        {search && (
+          <Suspense fallback={null}>
+            <QuickSearch campaign={campaign} lang={lang} isDM={isDM} initialWorld={world?.entries}
+              onClose={() => setSearch(false)}
+              onPick={(r) => { setSearch(false); goTo(r.go[0], r.go[1], r.go[2]); }} />
+          </Suspense>
+        )}
+        {settings && isDM && (
+          <Suspense fallback={null}>
+            <SettingsMenu campaign={campaign} lang={lang} onClose={() => setSettings(false)} onChange={load}
+              worldCount={world?.count ?? null} worldMax={world?.max || 500} onMarkOnboarding={markOnboarding} />
+          </Suspense>
+        )}
+        {ending && <EndSessionDialog lang={lang} busy={busy} onCancel={() => setEnding(false)} onEnd={endSession} />}
+        {toast && <div className="toast shell-toast" role="status">{toast}</div>}
+      </div>
+    </AreaContext.Provider>
+  );
+}
+
+function Area({ Comp, props, fallback, lang, resetKey }) {
+  if (!Comp) return fallback;
+  return (
+    <AreaBoundary lang={lang} resetKey={resetKey} fallback={fallback}>
+      <Suspense fallback={<Loading lang={lang} />}><Comp {...props} /></Suspense>
+    </AreaBoundary>
+  );
+}
+
+function renderDM(area, p, { setGroupPending }) {
+  const k = `${area}:${p.campaign.id}`;
+  if (area === 'world') return <Area Comp={WorldArea} props={p} lang={p.lang} resetKey={k} fallback={<WorldFallback {...p} />} />;
+  if (area === 'prepare') return <Area Comp={PrepareArea} props={p} lang={p.lang} resetKey={k} fallback={<PrepareFallback {...p} />} />;
+  if (area === 'play') return <Area Comp={PlayArea} props={p} lang={p.lang} resetKey={k} fallback={<PlayFallback {...p} />} />;
+  if (area === 'group') {
+    return <Area Comp={GroupArea} props={{ ...p, onPendingCount: setGroupPending }} lang={p.lang} resetKey={k} fallback={<GroupFallback {...p} />} />;
+  }
+  return null;
+}
+
+function renderPlayer(area, p) {
+  const k = `${area}:${p.campaign.id}`;
+  if (area === 'table') return <Area Comp={PlayerTable} props={p} lang={p.lang} resetKey={k} fallback={<PlayerTableFallback {...p} />} />;
+  if (area === 'world') return <Area Comp={PlayerWorld} props={p} lang={p.lang} resetKey={k} fallback={<WorldFallback {...p} />} />;
+  if (area === 'chronicle') return <ChronicleView {...p} />;
+  if (area === 'group') {
+    return <Area Comp={GroupArea} props={{ ...p, sub: 'players' }} lang={p.lang} resetKey={k} fallback={<PlayerGroupFallback {...p} />} />;
+  }
+  return null;
+}
+
+function EndSessionDialog({ lang, busy, onCancel, onEnd }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onCancel(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div className="modal shell-end" role="dialog" aria-modal="true" aria-labelledby="shell-end-title" onClick={(e) => e.stopPropagation()}>
+        <h2 id="shell-end-title">■ {t(lang, 'Encerrar a sessão?', 'End the session?')}</h2>
+        <p className="muted">{t(lang,
+          'O selo "Ao vivo" sai. Se quiser, já abrimos a Crônica para você escrever o "Anteriormente em…" — é opcional.',
+          'The "Live" badge goes away. If you like, we open the Chronicle so you can write the "Previously on…" — optional.')}</p>
+        <div className="shell-end-actions">
+          <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={busy}>{t(lang, 'Continuar jogando', 'Keep playing')}</button>
+          <button type="button" className="btn btn-ghost" onClick={() => onEnd(false)} disabled={busy}>{t(lang, 'Encerrar', 'End')}</button>
+          <button type="button" className="btn btn-primary" onClick={() => onEnd(true)} disabled={busy}>{t(lang, 'Encerrar e escrever o recap', 'End and write the recap')}</button>
         </div>
       </div>
-
-      {players.map(p => {
-        const uid = p.user.id;
-        const playerRigs = rigsByPlayer[uid] || [];
-        const totalPending = playerRigs.reduce((acc, r) => acc + r.values.filter(v => !v.consumed).length, 0);
-        const isActive = activeTarget === uid;
-        return (
-          <div key={p.id} className={`player-dice-card ${isActive ? 'active' : ''}`}>
-            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <strong>{p.user.displayName}</strong>
-                {p.character && <span style={{ color: 'var(--ink-secondary)', marginLeft: 8 }}>{p.character.name}</span>}
-                {totalPending > 0 && (
-                  <span className="pill pill-pending" style={{ marginLeft: 8 }}>
-                    {totalPending} {t(lang, 'na fila', 'queued')}
-                  </span>
-                )}
-              </div>
-              <div className="row gap-2">
-                <button
-                  className={`btn btn-sm ${isActive ? 'btn-primary' : 'btn-ghost'}`}
-                  onClick={() => setActiveTarget(isActive ? null : uid)}
-                  aria-pressed={isActive}
-                >
-                  {isActive ? t(lang, 'Alvo selecionado ✓', 'Target selected ✓') : t(lang, 'Selecionar como alvo', 'Select as target')}
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => enqueue(uid)}
-                  disabled={!valuesText.trim()}
-                  title={t(lang, 'Enfileirar valores acima neste jogador', 'Queue values above for this player')}
-                >
-                  ➕ {t(lang, 'Enfileirar', 'Queue')}
-                </button>
-                {playerRigs.length > 0 && (
-                  <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} onClick={() => clearAllForPlayer(uid)}>
-                    {t(lang, 'Limpar tudo', 'Clear all')}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {playerRigs.length === 0 ? (
-              <p style={{ color: 'var(--ink-secondary)', fontStyle: 'italic', margin: '8px 0 0' }}>
-                {t(lang, 'Sem rolagens enfileiradas. Rolagens deste jogador serão aleatórias.',
-                  'No queued rolls. This player\'s rolls will be random.')}
-              </p>
-            ) : (
-              playerRigs.map(rig => (
-                <RigRow
-                  key={rig.id}
-                  rig={rig}
-                  lang={lang}
-                  onMoveUp={i => reorderRig(rig, i, i - 1)}
-                  onMoveDown={i => reorderRig(rig, i, i + 1)}
-                  onRemoveValue={i => removeValue(rig, i)}
-                  onDeleteRig={() => deleteRig(rig.id)}
-                />
-              ))
-            )}
-
-            <QuickInject lang={lang} onInject={v => injectOne(uid, v)} />
-          </div>
-        );
-      })}
-
-      <div className="info-box">
-        <h3 style={{ marginTop: 0 }}>{t(lang, 'Histórico de rolagens', 'Rolls history')}</h3>
-        {log.length === 0 ? (
-          <p style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Nenhuma rolagem ainda. As rolagens feitas na ficha dentro da campanha aparecem aqui.', 'No rolls yet. Rolls made from sheets in this campaign show up here.')}</p>
-        ) : (
-          <div className="dice-log">
-            {log.slice(0, 50).map(r => {
-              const player = players.find(p => p.user.id === r.user_id);
-              return (
-                <div key={r.id} className="dice-log-row">
-                  <span className={`dice-log-result ${r.rigged ? 'rigged' : ''}`}>{r.result}</span>
-                  <span className="dice-log-type">{r.dice_type}</span>
-                  <span className="dice-log-who">{player?.user.displayName || `#${r.user_id}`}</span>
-                  {r.label && <span className="dice-log-label">{r.label}</span>}
-                  {r.rigged && <span className="dice-log-flag" title={t(lang, 'Valor da fila do mestre', 'From DM queue')}>★</span>}
-                  <span className="dice-log-time">{new Date(r.created_at).toLocaleTimeString()}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
 
-function RigRow({ rig, lang, onMoveUp, onMoveDown, onRemoveValue, onDeleteRig }) {
-  return (
-    <div className="rig-detailed">
-      <div style={{ fontSize: '0.85em', color: 'var(--ink-secondary)' }}>
-        {rig.diceType === 'any' ? t(lang, 'Qualquer dado', 'Any die') : rig.diceType}
-      </div>
-      <div className="rig-values-list">
-        {rig.values.map((v, i) => (
-          <div key={i} className={`rig-value-row ${v.consumed ? 'consumed' : ''}`}>
-            <span className="rig-value-num">{v.value}</span>
-            {v.label && <span className="rig-value-label">{v.label}</span>}
-            <div className="rig-value-actions">
-              {!v.consumed && (
-                <>
-                  <button
-                    className="btn-icon"
-                    onClick={() => onMoveUp(i)}
-                    disabled={i === 0 || rig.values[i - 1]?.consumed}
-                    aria-label="Mover acima"
-                    title={t(lang, 'Mover acima', 'Move up')}
-                  >↑</button>
-                  <button
-                    className="btn-icon"
-                    onClick={() => onMoveDown(i)}
-                    disabled={i === rig.values.length - 1}
-                    aria-label="Mover abaixo"
-                    title={t(lang, 'Mover abaixo', 'Move down')}
-                  >↓</button>
-                  <button
-                    className="btn-icon danger"
-                    onClick={() => onRemoveValue(i)}
-                    aria-label="Remover"
-                    title={t(lang, 'Remover', 'Remove')}
-                  >×</button>
-                </>
-              )}
-              {v.consumed && <span className="rig-consumed-tag">{t(lang, 'usado', 'used')}</span>}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function QuickInject({ lang, onInject }) {
-  const [val, setVal] = useState('');
-  const submit = (e) => {
-    e?.preventDefault?.();
-    const n = parseInt(val, 10);
-    if (!Number.isFinite(n)) return;
-    onInject(n);
-    setVal('');
-  };
-  return (
-    <form className="quick-inject" onSubmit={submit}>
-      <input aria-label={t(lang, 'injetar valor único…', 'inject single value…')}
-        type="number"
-        value={val}
-        onChange={e => setVal(e.target.value)}
-        placeholder={t(lang, 'injetar valor único…', 'inject single value…')}
-        className="input"
-        min={1}
-        max={100}
-      />
-      <button type="submit" className="btn btn-ghost btn-sm" disabled={!val}>
-        ⚡ {t(lang, 'Injetar', 'Inject')}
-      </button>
-    </form>
-  );
-}
-
-function ScreenTab({ campaign, lang, onChange }) {
-  const rotate = async () => {
-    if (!confirm(t(lang, 'Gerar novo link? O antigo deixa de funcionar.', 'Generate a new link? The old one will stop working.'))) return;
-    await api.rotateScreenToken(campaign.id);
-    onChange();
-  };
-  const url = `${window.location.origin}/tv/${campaign.screenToken}`;
-  return (
-    <div className="info-box">
-      <h3 style={{ marginTop: 0 }}>{t(lang, 'Telão para TV', 'TV screen')}</h3>
-      <p>{t(lang, 'Abra este link na TV ou tablet onde os jogadores acompanham o jogo:', 'Open this link on the TV or tablet that players watch:')}</p>
-      <div className="row gap-2">
-        <input className="input" readOnly value={url} onClick={e => e.target.select()} style={{ flex: 1, fontFamily: 'monospace' }} />
-        <button className="btn btn-primary" onClick={() => navigator.clipboard.writeText(url)}>{t(lang, 'Copiar', 'Copy')}</button>
-        <button className="btn btn-ghost" onClick={rotate}>{t(lang, 'Renovar', 'Rotate')}</button>
-      </div>
-      <p style={{ marginTop: 16 }}>
-        <a href={url} target="_blank" rel="noreferrer">{t(lang, 'Abrir o telão em nova aba', 'Open the TV view in a new tab')}</a>
-      </p>
-    </div>
-  );
-}
-
-/**
- * Rolagem "oficial" da campanha — passa pelo backend, sujeita ao dice rigging
- * do mestre. O DiceRoller flutuante do app continua rolando local pra diversão
- * visual; este aqui é a rolagem que importa.
- */
-function CampaignDiceRoller({ campaign, lang }) {
-  const [diceType, setDiceType] = useState('d20');
-  const [count, setCount] = useState(1);
-  const [label, setLabel] = useState('');
-  const [last, setLast] = useState(null);
-  const [busy, setBusy] = useState(false);
-
-  const roll = async () => {
-    setBusy(true);
-    try {
-      const r = await api.rollDice({ diceType, count, campaignId: campaign.id, label });
-      setLast(r);
-      // Mostra no dado 3D o valor que o servidor decidiu (pode vir de rig do mestre).
-      window.__diceShow?.({
-        label: label || `${count}${diceType}`,
-        groups: [{ die: parseInt(diceType.slice(1), 10), rolls: r.results.map(x => ({ value: x.value, kept: true })) }],
-        total: r.total,
-      });
-    } catch (e) {
-      console.warn('roll failed', e);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="info-box">
-      <h3 style={{ marginTop: 0 }}>{t(lang, 'Rolar dados (oficial)', 'Roll dice (official)')}</h3>
-      <p style={{ color: 'var(--ink-secondary)', marginTop: 0, fontSize: '0.9em' }}>
-        {t(lang,
-          'Esta rolagem passa pelo servidor — o mestre pode ter pré-definido valores.',
-          'This roll goes through the server — the DM may have pre-set values.'
-        )}
-      </p>
-      <div className="dice-roll-form">
-        <select className="input" value={diceType} onChange={e => setDiceType(e.target.value)} aria-label={t(lang, 'Dado', 'Die')}>
-          {['d4','d6','d8','d10','d12','d20','d100'].map(d => <option key={d} value={d}>{d}</option>)}
-        </select>
-        <input
-          type="number"
-          className="input"
-          min={1}
-          max={20}
-          value={count}
-          onChange={e => setCount(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
-          aria-label={t(lang, 'Quantidade', 'Count')}
-        />
-        <input aria-label={t(lang, 'rótulo (ex: percepção)', 'label (e.g. perception)')}
-          className="input"
-          placeholder={t(lang, 'rótulo (ex: percepção)', 'label (e.g. perception)')}
-          value={label}
-          onChange={e => setLabel(e.target.value)}
-        />
-        <button className="btn btn-primary" onClick={roll} disabled={busy}>
-          {busy ? '…' : t(lang, 'Rolar', 'Roll')}
-        </button>
-      </div>
-      {last && (
-        <div style={{ marginTop: 12, fontFamily: 'JetBrains Mono, monospace' }}>
-          <strong>{t(lang, 'Resultado', 'Result')}:</strong>{' '}
-          {last.results.map((r, i) => (
-            <span key={i} className="rig-value" style={{ marginRight: 4 }}>{r.value}</span>
-          ))}
-          {last.results.length > 1 && <> = <strong>{last.total}</strong></>}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function labelType(type, lang) {
-  const map = {
-    levelup: t(lang, 'Subir de nível', 'Level up'),
-    feature: t(lang, 'Nova feature', 'New feature'),
-    item: t(lang, 'Novo item', 'New item'),
-    spell: t(lang, 'Nova magia', 'New spell'),
-    other: t(lang, 'Outro', 'Other'),
-  };
-  return map[type] || type;
-}

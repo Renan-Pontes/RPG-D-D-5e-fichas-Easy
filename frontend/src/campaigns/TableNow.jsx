@@ -2,7 +2,8 @@
 // personagens, cena, combate, pendências, avisos e ações rápidas.
 // Regra de produto: aqui só se mostra e se sugere; toda mudança é um clique do mestre.
 import { errorMessage } from '../api/errors.js';
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import Utils from '../../utils.js';
@@ -13,7 +14,14 @@ import { NudgeList, NudgeSettings, useNudges } from './NudgeList.jsx';
 import { concentrationOf, conditionLabel, partyStatus, stateWithConcentration } from './nudges.js';
 import { isWizardEnabled, stateWithWizard } from './end-of-encounter.js';
 import EndOfEncounterPanel from './EndOfEncounterPanel.jsx';
+import { confirmDialog } from '../../components/ConfirmDialog.jsx';
+import InScenePanel from '../play/InScenePanel.jsx';
+import RecapCard from '../play/RecapCard.jsx';
+import { patchState } from '../play/play-api.js';
+import { flash } from '../play/flash.js';
 import './table-now.css';
+
+const ImproviseModal = lazy(() => import('../world/ImproviseModal.jsx'));
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
@@ -41,13 +49,21 @@ function openGrimoire() {
   else window.location.hash = '#grimorio';
 }
 
-export default function TableNow({ campaign, approvals = [], lang = 'pt', onChange, onNavigate }) {
+// onNavigate(tabAntiga) continua aceito; goTo(área, sub, params) é o da casca nova.
+export default function TableNow({ campaign, approvals = [], lang = 'pt', onChange, onNavigate, goTo }) {
   const [combat, setCombat] = useState(undefined); // undefined = carregando
   const [pendingRolls, setPendingRolls] = useState([]);
   const [checks, setChecks] = useState([]);
   const [showCheck, setShowCheck] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showWrapUp, setShowWrapUp] = useState(false);
+  const [showRecap, setShowRecap] = useState(false);
+  const [showImprovise, setShowImprovise] = useState(false);
+  useEffect(() => {
+    if (!showRecap && !showCheck) return;
+    const el = document.querySelector(showRecap ? '.tn-recap' : '.tn-check');
+    try { el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch { /* ok */ }
+  }, [showRecap, showCheck]);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -65,10 +81,12 @@ export default function TableNow({ campaign, approvals = [], lang = 'pt', onChan
   const refresh = useCallback(() => { load(); onChange?.(); }, [load, onChange]);
   const nudges = useNudges({ campaign, combat, lang, onChange: refresh });
 
-  const saveState = async (nextState) => {
-    await api.updateCampaign(campaign.id, { state: nextState });
+  // PATCH por chave (merge no servidor): só manda o que mudou.
+  const saveState = async (patch) => {
+    await patchState(campaign.id, patch);
     onChange?.();
   };
+  const ask = (message, confirmLabel) => confirmDialog({ lang, message, confirmLabel });
 
   const act = async (fn, ok) => {
     setBusy(true); setMsg('');
@@ -104,6 +122,8 @@ export default function TableNow({ campaign, approvals = [], lang = 'pt', onChan
         </div>
       )}
 
+      <InScenePanel campaign={campaign} lang={lang} goTo={goTo} />
+
       <section className="tn-box tn-nudges" aria-labelledby="tn-nudges-h">
         <div className="tn-box-head">
           <h3 id="tn-nudges-h">{L(lang, 'Avisos', 'Notices')}
@@ -119,7 +139,10 @@ export default function TableNow({ campaign, approvals = [], lang = 'pt', onChan
 
       <section className="tn-party" aria-label={L(lang, 'Personagens da mesa', 'Party')}>
         {party.length === 0 && (
-          <div className="tn-box muted">{L(lang, 'Nenhum personagem na mesa ainda. Compartilhe o código de convite na Visão geral.', 'No characters yet. Share the invite code from the Overview.')}</div>
+          <div className="tn-box muted">
+            {L(lang, 'Nenhum personagem na mesa ainda. Convide os jogadores em Grupo › Jogadores.', 'No characters yet. Invite players in Party › Players.')}
+            {goTo && <button type="button" className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }} onClick={() => goTo('group', 'players')}>🛡️ {L(lang, 'Ir para Grupo', 'Go to Party')}</button>}
+          </div>
         )}
         {party.map(p => (
           <PartyCard key={p.characterId} p={p} campaign={campaign} lang={lang} onSaveState={saveState}
@@ -137,7 +160,7 @@ export default function TableNow({ campaign, approvals = [], lang = 'pt', onChan
             const s = summarize(c);
             return (
               <li key={c.id}>
-                <button type="button" className="tn-pending-item" onClick={() => setShowCheck(true)}>
+                <button type="button" className="tn-pending-item" onClick={() => onNavigate?.('rolls')}>
                   <span className="tn-pending-n">{s.answered}/{s.total}</span>
                   <span>🎯 {c.label}{c.dc != null ? ` CD ${c.dc}` : ''} — {L(lang, 'responderam', 'answered')}</span>
                 </button>
@@ -156,13 +179,20 @@ export default function TableNow({ campaign, approvals = [], lang = 'pt', onChan
           <button type="button" className={`btn btn-sm ${showCheck ? 'btn-primary' : 'btn-ghost'}`} aria-expanded={showCheck} onClick={() => setShowCheck(v => !v)}>
             🎯 {L(lang, 'Pedir teste à mesa', 'Ask for a check')}
           </button>
-          <button type="button" className="btn btn-ghost btn-sm" disabled={busy || !party.length} onClick={() => {
-            if (confirm(L(lang, 'Aplicar descanso curto em todos os personagens da mesa?', 'Apply a short rest to the whole party?'))) {
+          <button type="button" className={`btn btn-sm ${showImprovise ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setShowImprovise(true)}
+            title={L(lang, 'NPC, taverna ou nomes na hora', 'NPC, tavern or names on the spot')}>
+            🎲 {L(lang, 'Improvisar', 'Improvise')}
+          </button>
+          <button type="button" className={`btn btn-sm ${showRecap ? 'btn-primary' : 'btn-ghost'}`} aria-expanded={showRecap} onClick={() => setShowRecap(v => !v)}>
+            📜 {L(lang, 'Anteriormente em…', 'Previously on…')}
+          </button>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={busy || !party.length} onClick={async () => {
+            if (await ask(L(lang, 'Aplicar descanso curto em todos os personagens da mesa?', 'Apply a short rest to the whole party?'), L(lang, 'Aplicar', 'Apply'))) {
               act(async () => { await api.campaignShortRestAll(campaign.id); }, L(lang, 'Descanso curto aplicado.', 'Short rest applied.'));
             }
           }}>☕ {L(lang, 'Descanso curto (mesa)', 'Short rest (party)')}</button>
-          <button type="button" className="btn btn-ghost btn-sm" disabled={busy || !party.length} onClick={() => {
-            if (confirm(L(lang, 'Aplicar descanso longo em todos os personagens da mesa?', 'Apply a long rest to the whole party?'))) {
+          <button type="button" className="btn btn-ghost btn-sm" disabled={busy || !party.length} onClick={async () => {
+            if (await ask(L(lang, 'Aplicar descanso longo em todos os personagens da mesa?', 'Apply a long rest to the whole party?'), L(lang, 'Aplicar', 'Apply'))) {
               act(async () => { await api.campaignLongRestAll(campaign.id); }, L(lang, 'Descanso longo aplicado.', 'Long rest applied.'));
             }
           }}>🛌 {L(lang, 'Descanso longo (mesa)', 'Long rest (party)')}</button>
@@ -174,7 +204,7 @@ export default function TableNow({ campaign, approvals = [], lang = 'pt', onChan
               const on = e.target.checked;
               setWizardLocal(on);
               act(async () => {
-                try { await saveState(stateWithWizard(campaign.state, on)); } catch (err) { setWizardLocal(null); throw err; }
+                try { await saveState({ endOfEncounterWizard: stateWithWizard(campaign.state, on).endOfEncounterWizard }); } catch (err) { setWizardLocal(null); throw err; }
               }, on ? L(lang, 'Fim de encontro guiado ligado.', 'Guided wrap-up on.') : L(lang, 'Fim de encontro guiado desligado.', 'Guided wrap-up off.'));
             }} />
           <span>
@@ -189,8 +219,20 @@ export default function TableNow({ campaign, approvals = [], lang = 'pt', onChan
 
       {showCheck && (
         <div className="tn-check">
-          <GroupCheckPanel campaign={campaign} lang={lang} />
+          <GroupCheckPanel campaign={campaign} lang={lang} showList={false} onSent={() => { load(); flash(L(lang, 'Pedido enviado à mesa. Acompanhe em Testes.', 'Request sent. Follow it in Checks.')); }} />
         </div>
+      )}
+      {showRecap && (
+        <div className="tn-box tn-recap">
+          <RecapCard campaign={campaign} lang={lang} autoDraft onClose={() => setShowRecap(false)} />
+        </div>
+      )}
+      {showImprovise && createPortal(
+        <Suspense fallback={null}>
+          <ImproviseModal campaignId={campaign.id} lang={lang} onClose={() => setShowImprovise(false)}
+            onSaved={(entry) => flash(L(lang, `Salvo no Mundo (oculto): ${entry?.name || ''}`, `Saved to the World (hidden): ${entry?.name || ''}`))} />
+        </Suspense>,
+        document.body,
       )}
     </div>
   );
@@ -227,7 +269,7 @@ function SceneBar({ campaign, lang, onSave }) {
   const commit = async (k) => {
     setEditing(null);
     if ((st[k] || '') === vals[k]) return;
-    try { await onSave({ ...st, [k]: vals[k] }); setSaved(k); setTimeout(() => setSaved(s => (s === k ? null : s)), 1500); } catch { /* polling corrige */ }
+    try { await onSave({ [k]: vals[k] }); setSaved(k); setTimeout(() => setSaved(s => (s === k ? null : s)), 1500); } catch { /* polling corrige */ }
   };
   return (
     <div className="tn-scene">
@@ -296,7 +338,7 @@ function PartyCard({ p, campaign, lang, onSaveState, onToggleInspiration }) {
   const ds = p.deathSaves || {};
 
   const saveConc = async (spell) => {
-    await onSaveState(stateWithConcentration(campaign.state, `char:${p.characterId}`, spell));
+    await onSaveState({ concentration: stateWithConcentration(campaign.state, `char:${p.characterId}`, spell).concentration });
     setEditConc(false); setConcText('');
   };
 

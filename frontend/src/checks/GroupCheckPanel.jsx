@@ -5,7 +5,7 @@
 // digitando o dado físico; o mestre também pode anotar o que ouviu na mesa.
 // Nada vai para o telão sem o mestre tocar em "Mostrar no telão".
 import { errorMessage } from '../api/errors.js';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import { tName } from '../../data/i18n.js';
@@ -14,12 +14,15 @@ import {
   QUICK_SKILLS, QUICK_SAVES, ABILITIES, abilityAbbr, checkLabel, buildCheckPayload, summarize,
 } from './check-logic.js';
 import { formatMod } from '../dice/dice-math.js';
+import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import './checks-styles.css';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const DC_PRESETS = [10, 12, 15, 18, 20];
 
-export default function GroupCheckPanel({ campaign, lang = 'pt' }) {
+// showList=false: só o formulário de pedir (a lista fica na lista única de
+// Testes, em Jogar › Testes); onSent é chamado depois de cada pedido enviado.
+export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true, onSent }) {
   const players = (campaign.members || []).filter(m => m.role !== 'dm' && m.user?.id !== campaign.dmId);
   const [dc, setDc] = useState('');
   const [dcHidden, setDcHidden] = useState(false);
@@ -32,13 +35,13 @@ export default function GroupCheckPanel({ campaign, lang = 'pt' }) {
   const [custom, setCustom] = useState('');
 
   const load = useCallback(async () => {
+    if (!showList) { onSent?.(); return; }
     try {
       const r = await api.listChecks(campaign.id);
       setChecks(r.checks || []);
     } catch { /* polling */ }
-  }, [campaign.id]);
-  useEffect(() => { load(); }, [load]);
-  usePolling(load, 2500, [campaign.id]);
+  }, [campaign.id, showList, onSent]);
+  usePolling(async () => { if (showList) await load(); }, 2500, [campaign.id, showList]);
 
   const send = async (spec) => {
     if (!players.length) { setError(L(lang, 'Nenhum jogador na campanha ainda.', 'No players in this campaign yet.')); return; }
@@ -156,12 +159,12 @@ export default function GroupCheckPanel({ campaign, lang = 'pt' }) {
       </div>
       {error && <div className="check-card-error" role="alert">{error}</div>}
 
-      {open.length > 0 && (
+      {showList && open.length > 0 && (
         <div className="gc-list">
           {open.map(c => <DMCheckCard key={c.id} check={c} campaign={campaign} lang={lang} act={act} />)}
         </div>
       )}
-      {closed.length > 0 && (
+      {showList && closed.length > 0 && (
         <details className="gc-closed">
           <summary>{L(lang, 'Encerrados', 'Closed')} ({closed.length})</summary>
           <div className="gc-list">
@@ -173,7 +176,7 @@ export default function GroupCheckPanel({ campaign, lang = 'pt' }) {
   );
 }
 
-function DMCheckCard({ check, campaign, lang, act }) {
+export function DMCheckCard({ check, campaign, lang, act }) {
   const s = summarize(check);
   const isOpen = check.status === 'open';
   return (
@@ -182,7 +185,7 @@ function DMCheckCard({ check, campaign, lang, act }) {
         <div>
           <strong>{check.label}</strong>
           {check.dc != null && <span className="gc-card-dc">CD {check.dc}{check.dcHidden ? ' 🔒' : ''}</span>}
-          {check.advantage !== 'normal' && <span className="gc-card-adv">{check.advantage === 'adv' ? 'VTG' : 'DSV'}</span>}
+          {check.advantage !== 'normal' && <span className="gc-card-adv">{check.advantage === 'adv' ? L(lang, 'vantagem', 'advantage') : L(lang, 'desvantagem', 'disadvantage')}</span>}
         </div>
         <span className="muted small">
           {s.answered}/{s.total} {L(lang, 'responderam', 'answered')}
@@ -203,7 +206,9 @@ function DMCheckCard({ check, campaign, lang, act }) {
           {isOpen ? L(lang, 'Encerrar', 'Close') : L(lang, 'Reabrir', 'Reopen')}
         </button>
         <button type="button" className="btn btn-sm btn-ghost gc-remove" aria-label={L(lang, 'Remover pedido', 'Remove request')}
-          onClick={() => { if (confirm(L(lang, 'Remover este pedido?', 'Remove this request?'))) act(() => api.deleteCheck(check.id)); }}>
+          onClick={async () => {
+            if (await confirmDialog({ lang, danger: true, message: L(lang, 'Remover este pedido?', 'Remove this request?'), confirmLabel: L(lang, 'Remover', 'Remove') })) act(() => api.deleteCheck(check.id));
+          }}>
           {L(lang, 'Remover', 'Remove')}
         </button>
       </div>

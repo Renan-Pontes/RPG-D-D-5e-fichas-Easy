@@ -13,6 +13,8 @@ export const KIND_LABEL = {
   legendary: { pt: 'Ações lendárias', en: 'Legendary actions' },
 };
 
+import { abilityLabel, conditionLabel, damageTypeLabel, rangeLabel } from '../combat/monster-i18n.js';
+
 const pick = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
 export function actionName(a, lang) {
@@ -74,19 +76,20 @@ export function limitLabel(combatant, index, lang) {
   return out.join(' · ');
 }
 
-/** Resumo mecânico: "+14 · 1d10+8 slashing + 2d4 fire" / "DEX CD 21 · 17d6 fire (metade)". */
+/** Resumo mecânico: "+14 · 3 m · 1d10+8 cortante + 2d4 fogo" / "DES CD 21 · 17d6 fogo (metade no sucesso)". */
 export function actionSummary(a, lang) {
   if (!a) return '';
-  const dmg = [a.damage && `${a.damage} ${a.damageType || ''}`.trim(),
-    ...(a.extraDamage || []).map(e => `${e.damage} ${e.damageType || ''}`.trim())].filter(Boolean).join(' + ');
+  const dmgOf = (d, ty) => `${d} ${ty ? damageTypeLabel(ty, lang) : ''}`.trim();
+  const dmg = [a.damage && dmgOf(a.damage, a.damageType),
+    ...(a.extraDamage || []).map(e => dmgOf(e.damage, e.damageType))].filter(Boolean).join(' + ');
   if (isAttack(a)) {
     const atk = a.atk != null ? `${a.atk >= 0 ? '+' : ''}${a.atk}` : '';
-    return [atk, a.range, dmg].filter(Boolean).join(' · ');
+    return [atk, rangeLabel(a.range, lang), dmg].filter(Boolean).join(' · ');
   }
   if (isSave(a)) {
-    const parts = [`${String(a.save.ability).toUpperCase()} ${pick(lang, 'CD', 'DC')} ${a.save.dc}`];
+    const parts = [`${abilityLabel(a.save.ability, lang)} ${pick(lang, 'CD', 'DC')} ${a.save.dc}`];
     if (dmg) parts.push(dmg + (a.save.halfOnSave ? pick(lang, ' (metade no sucesso)', ' (half on success)') : ''));
-    if (a.save.conditions?.length) parts.push(a.save.conditions.join(', '));
+    if (a.save.conditions?.length) parts.push(a.save.conditions.map(c => conditionLabel(c, lang)).join(', '));
     return parts.join(' · ');
   }
   return '';
@@ -123,13 +126,14 @@ export function logLine(e, lang) {
   const name = e.action_name ? ` (${e.action_name})` : '';
   switch (e.type) {
     case 'attack': {
-      const dmg = e.hit && e.damage ? ` — ${[e.damage, ...(e.extra_damage || [])].map(d => `${d.total} ${d.type}`).join(' + ')}` : '';
+      const dmg = e.hit && e.damage ? ` — ${[e.damage, ...(e.extra_damage || [])].map(d => `${d.total} ${damageTypeLabel(d.type, lang)}`).join(' + ')}` : '';
       const res = e.crit ? pick(lang, 'CRÍTICO', 'CRIT') : e.hit ? pick(lang, 'acertou', 'hit') : pick(lang, 'errou', 'miss');
-      return `${e.attacker} → ${e.target}${name}: ${e.total} vs CA ${e.ac}, ${res}${dmg}`;
+      const manual = e.manual ? pick(lang, ' (valores do mestre)', ' (DM values)') : '';
+      return `${e.attacker} → ${e.target}${name}: ${e.total} ${pick(lang, 'vs CA', 'vs AC')} ${e.ac}, ${res}${dmg}${manual}`;
     }
     case 'save_aoe':
-      return `${e.attacker}${name}: ${e.ability} ${pick(lang, 'CD', 'DC')} ${e.dc} — ` + (e.per_target || []).map(p =>
-        `${p.target_name} ${p.save?.success ? '✓' : '✗'}${p.damage_taken ? ` ${p.damage_taken}` : ''}${p.conditions_applied?.length ? ` [${p.conditions_applied.join(', ')}]` : ''}`).join('; ');
+      return `${e.attacker}${name}: ${abilityLabel(e.ability, lang)} ${pick(lang, 'CD', 'DC')} ${e.dc} — ` + (e.per_target || []).map(p =>
+        `${p.target_name} ${p.save?.success ? '✓' : '✗'}${p.damage_taken ? ` ${p.damage_taken}` : ''}${p.conditions_applied?.length ? ` [${p.conditions_applied.map(c => conditionLabel(c, lang)).join(', ')}]` : ''}`).join('; ');
     case 'use_action':
       return `${e.attacker}: ${pick(lang, 'usou', 'used')}${name || ''}`;
     case 'recharge':
@@ -140,6 +144,20 @@ export function logLine(e, lang) {
       return `${e.target}: −${e.amount}`;
     case 'heal':
       return `${e.target}: +${e.healed}`;
+    case 'add_condition':
+      return `${e.target}: + ${conditionLabel(e.condition, lang)}`;
+    case 'remove_condition':
+      return `${e.target}: − ${conditionLabel(e.condition, lang)}`;
+    case 'player_attack': {
+      const atk = e.attack_name ? ` (${e.attack_name})` : '';
+      const res = e.hit === false ? pick(lang, 'errou', 'miss') : e.hit ? pick(lang, 'acertou', 'hit') : '';
+      const dmg = e.damage_taken ? ` — ${e.damage_taken}` : '';
+      return `${e.attacker} → ${e.target}${atk}${res ? `: ${res}` : ''}${dmg}`;
+    }
+    case 'start':
+      return pick(lang, 'Combate iniciado', 'Combat started');
+    case 'end':
+      return pick(lang, 'Combate encerrado', 'Combat ended');
     default:
       return '';
   }

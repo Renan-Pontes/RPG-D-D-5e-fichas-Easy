@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSessionSummary, groupEntries, matchesFilter, entryIcon } from '../src/campaigns/diary-summary.js';
+import { buildSessionSummary, groupEntries, matchesFilter, entryIcon, combatNarration, entryTitle, entryBody, buildRecap, pickRecapGroup } from '../src/campaigns/diary-summary.js';
 
 let n = 0;
 const ev = (subtype, data = {}, extra = {}) => ({
@@ -72,4 +72,71 @@ test('filtro por tipo e ícones', () => {
   assert.ok(matchesFilter({ kind: 'event', subtype: 'xp' }, 'all'));
   assert.equal(entryIcon({ kind: 'event', subtype: 'combat' }), '⚔');
   assert.equal(entryIcon({ kind: 'note', subtype: 'summary' }), '📜');
+});
+
+
+const combatEnd = {
+  phase: 'end', rounds: 4, pcs: ['Thalion', 'Mira'],
+  monsters: [{ name: 'Goblin', count: 3, defeated: 3 }], downs: { Mira: 1 }, winner: 'party',
+};
+
+test('combate narrado em pt e en a partir dos dados do servidor', () => {
+  assert.equal(combatNarration(combatEnd, 'pt'), 'Thalion e Mira venceram 3 inimigos (Goblin ×3) em 4 rodadas; Mira caiu uma vez.');
+  assert.equal(combatNarration(combatEnd, 'en'), 'Thalion and Mira defeated 3 foes (Goblin ×3) in 4 rounds; Mira went down once.');
+  assert.equal(combatNarration({ ...combatEnd, pcs: ['Kor'], downs: {}, rounds: 1 }, 'pt'), 'Kor venceu 3 inimigos (Goblin ×3) em 1 rodada.');
+  assert.match(combatNarration({ ...combatEnd, winner: null, downs: {} }, 'pt'), /^Combate encerrado em 4 rodadas contra Goblin ×3\.$/);
+  assert.match(combatNarration({ ...combatEnd, winner: 'monsters', downs: {} }, 'pt'), /caíram diante de Goblin ×3/);
+  assert.equal(combatNarration({ phase: 'end', rounds: 2, defeated: ['Orc'] }, 'pt'), '', 'evento antigo sem resumo estruturado');
+  assert.equal(combatNarration({ phase: 'start' }, 'pt'), '');
+});
+
+test('título e texto da entrada no idioma da tela', () => {
+  const end = { kind: 'event', subtype: 'combat', title: 'Combate encerrado', body: 'texto pt', data: combatEnd };
+  assert.equal(entryTitle(end, 'pt'), 'Combate encerrado');
+  assert.equal(entryTitle(end, 'en'), 'Combat ended');
+  assert.match(entryBody(end, 'en'), /^Thalion and Mira defeated/);
+  assert.equal(entryBody({ ...end, editedAt: '2026-10-01' }, 'en'), 'texto pt', 'texto editado à mão é respeitado');
+  const grant = { kind: 'event', subtype: 'levelgrant', title: 'Nível liberado para Kor (nível 3)', data: { grants: [{ characterName: 'Kor', toLevel: 3 }] } };
+  assert.equal(entryTitle(grant, 'pt'), 'Nível liberado para Kor (nível 3)');
+  assert.equal(entryTitle(grant, 'en'), 'Level up unlocked for Kor (level 3)');
+  assert.equal(entryTitle({ kind: 'note', title: 'Minha nota' }, 'en'), 'Minha nota', 'nota do usuário não é traduzida');
+  assert.equal(entryTitle({ kind: 'event', subtype: 'reveal', title: 'Revelado: Velna', data: { entryName: 'Velna', visibility: 'revealed', secretIds: [] } }, 'en'), 'Revealed: Velna');
+  assert.equal(entryIcon({ kind: 'event', subtype: 'levelgrant' }), '✨');
+  assert.ok(matchesFilter({ kind: 'event', subtype: 'levelgrant' }, 'levelup'), 'liberação conta como Níveis');
+  assert.ok(matchesFilter({ kind: 'event', subtype: 'reveal' }, 'reveal'));
+});
+
+test('"Anteriormente em…" monta um rascunho em prosa sem o que é oculto', () => {
+  const list = [
+    ev('session', { session: 12 }),
+    ev('combat', combatEnd),
+    ev('reveal', { entryName: 'Irmã Velna', visibility: 'revealed' }),
+    ev('item', { items: [{ characterName: 'Thal', itemName: 'Espada +1', qty: 1 }] }),
+    ev('levelup', { characterName: 'Kor', level: 3 }),
+    ev('note', {}, { kind: 'note', title: 'O anel', body: 'Ele mentiu.' }),
+    ev('note', {}, { kind: 'note', body: 'Segredo do mestre', hidden: true }),
+  ];
+  const r = buildRecap(list, { lang: 'pt', session: 12, title: 'A cripta', campaignName: 'Reino Esquecido' });
+  assert.equal(r.title, 'Anteriormente em Reino Esquecido…');
+  assert.ok(r.text.startsWith('Sessão 12 — A cripta'), r.text);
+  assert.ok(r.text.includes('Thalion e Mira venceram 3 inimigos'), r.text);
+  assert.ok(r.text.includes('Descobriram Irmã Velna.'), r.text);
+  assert.ok(r.text.includes('Thal ficou com Espada +1.'), r.text);
+  assert.ok(r.text.includes('Kor (nível 3)'), r.text);
+  assert.ok(r.text.includes('• O anel: Ele mentiu.'), r.text);
+  assert.ok(!r.text.includes('Segredo'), 'oculto fica de fora');
+  assert.ok(r.text.length <= 5000);
+  const en = buildRecap([], { lang: 'en' });
+  assert.equal(en.title, 'Previously…');
+  assert.match(en.text, /Write here/);
+});
+
+test('recap escolhe a última sessão com algo além da abertura', () => {
+  const groups = groupEntries([
+    { id: 9, session: 13, subtype: 'session', kind: 'event', occurredAt: '2026-10-02T20:00:00' },
+    { id: 8, session: 12, subtype: 'xp', kind: 'event', occurredAt: '2026-09-30T21:00:00' },
+    { id: 7, session: 12, subtype: 'session', kind: 'event', occurredAt: '2026-09-30T20:00:00' },
+  ]);
+  assert.equal(pickRecapGroup(groups), 's12');
+  assert.equal(pickRecapGroup([]), null);
 });

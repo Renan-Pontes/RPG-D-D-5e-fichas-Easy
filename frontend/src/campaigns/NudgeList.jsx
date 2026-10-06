@@ -7,6 +7,7 @@ import Utils from '../../utils.js';
 import {
   NUDGE_TYPES, buildNudges, nudgePrefs, pruneDismissed, stateWithConcentration, stateWithNudgePref, visibleNudges,
 } from './nudges.js';
+import { patchState } from '../play/play-api.js';
 import './table-now.css';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
@@ -31,7 +32,8 @@ export async function runNudgeOp(op, campaign) {
     case 'updateCombatant': return api.updateCombatant(campaign.id, op.combatantId, op.body);
     case 'check': return api.createCheck(campaign.id, op.body);
     case 'clearConcentration':
-      await api.updateCampaign(campaign.id, { state: stateWithConcentration(campaign.state, op.key, '') });
+      // PATCH por chave: não atropela o que outra aba mudou no state.
+      await patchState(campaign.id, { concentration: stateWithConcentration(campaign.state, op.key, '').concentration });
       if (op.characterId) await api.dmEditCharacter(op.characterId, { data: { concentration: null } });
       return null;
     default: return null;
@@ -74,7 +76,7 @@ export function useNudges({ campaign, combat, lang, onChange }) {
   const setPref = useCallback(async (type, on) => {
     setError('');
     try {
-      await api.updateCampaign(campaign.id, { state: stateWithNudgePref(campaign.state, type, on) });
+      await patchState(campaign.id, { nudges: stateWithNudgePref(campaign.state, type, on).nudges });
       onChange?.();
     } catch (e) { setError(errorMessage(e)); }
   }, [campaign.id, campaign.state, onChange]);

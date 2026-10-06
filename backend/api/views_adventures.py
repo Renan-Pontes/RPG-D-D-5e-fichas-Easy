@@ -19,7 +19,8 @@ Formato de `data` (tudo opcional exceto ids/nome):
               encounter: [{ monsterId, name, crNum, count, snapshot? }],
               hazards: [{ name, dc, effect, damage }],
               checks: [{ skill, dc, note }],
-              treasure: { items: [instância de item], coins: {cp,sp,ep,gp,pp} } }],
+              treasure: { items: [instância de item], coins: {cp,sp,ep,gp,pp} },
+              refs: [worldEntryId] (≤ 20, cartões do Mundo ligados à sala) }],
     edges: [{ id, from, to|null, kind, label, condition, oneWay, toAdventureId? }] }
 `play`: { current: nodeId|null, visited: [nodeId], unlocked: [edgeId] }
 """
@@ -34,6 +35,8 @@ from rest_framework.exceptions import NotFound, ValidationError
 from .models import Adventure
 from .permissions import get_campaign_or_404, require_dm
 from .diary import log_diary
+from .campaign_state import merge_state
+from django.utils import timezone
 
 STATUSES = {'draft', 'playing', 'done'}
 NODE_KINDS = {'room', 'social', 'exploration', 'rest', 'boss', 'combat', 'puzzle', 'trap', 'travel', 'other'}
@@ -48,6 +51,7 @@ MAX_IMAGE_CHARS = 450_000        # ~330 KB de JPEG em base64
 MAX_ITEM_BYTES = 8000
 MAX_SNAPSHOT_BYTES = 40_000
 POS_LIMIT = 100_000
+MAX_REFS = 20
 
 
 def _bad(code):
@@ -167,6 +171,18 @@ def _clean_treasure(raw):
     return {'items': items, 'coins': {k: v for k, v in coins.items() if v}}
 
 
+def _clean_refs(raw):
+    """Cartões do Mundo ligados à sala: ids inteiros (≤ MAX_REFS), sem repetição.
+    A existência é conferida na leitura (o painel "Nesta cena" usa a lista do Mundo)."""
+    out = []
+    for r in _list(raw, MAX_REFS, 'invalid_refs'):
+        if isinstance(r, bool) or not isinstance(r, int) or r <= 0:
+            _bad('invalid_refs')
+        if r not in out:
+            out.append(r)
+    return out
+
+
 def _clean_node(n):
     if not isinstance(n, dict):
         _bad('invalid_node')
@@ -198,6 +214,7 @@ def _clean_node(n):
         'hazards': _clean_hazards(n.get('hazards')),
         'checks': _clean_checks(n.get('checks')),
         'treasure': _clean_treasure(n.get('treasure')),
+        'refs': _clean_refs(n.get('refs')),
     }
 
 
@@ -412,19 +429,22 @@ def adventure_screen(request, id_or_slug, pk):
     require_dm(request.user, campaign)
     obj = _get(campaign, pk)
     body = request.data if isinstance(request.data, dict) else {}
-    state = dict(campaign.state or {})
     node_id = _id(body.get('nodeId'))
     if node_id:
         node = _node(obj, node_id)
-        state['scene'] = node['name']
-        if body.get('text'):
-            state['sceneText'] = (node.get('readAloud') or '')[:5000]
-        else:
-            state.pop('sceneText', None)
+        patch = {
+            'scene': node['name'],
+            'sceneText': (node.get('readAloud') or '')[:5000] if body.get('text') else None,
+            # O telão mostra a cena como cartão (contrato C2 · ScreenCard).
+            'screenCard': {'type': 'scene', 'adventureId': obj.id, 'nodeId': node_id,
+                           'at': timezone.now().isoformat()},
+        }
     else:
-        state.pop('sceneText', None)
+        patch = {'sceneText': None}
         if body.get('clearScene'):
-            state['scene'] = ''
-    campaign.state = state
-    campaign.save(update_fields=['state', 'updated_at'])
+            patch['scene'] = ''
+        card = (campaign.state or {}).get('screenCard')
+        if isinstance(card, dict) and card.get('type') == 'scene':
+            patch['screenCard'] = None
+    state = merge_state(campaign, patch)
     return Response({'state': state})

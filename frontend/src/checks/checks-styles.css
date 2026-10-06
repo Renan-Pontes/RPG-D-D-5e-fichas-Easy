@@ -194,3 +194,16 @@
 .gc-card-actions .btn { min-height: 40px; }
 .gc-remove { margin-left: auto; color: var(--blood-bright); }
 .gc-closed summary { cursor: pointer; color: var(--ink-secondary); min-height: 36px; display: flex; align-items: center; }
+
+/* "Sobrevivência", "Investigação": o texto cabe no botão (quebra com hífen se preciso). */
+.gc-quick { grid-template-columns: repeat(auto-fill, minmax(min(132px, 100%), 1fr)); }
+.gc-quick-btn {
+  min-width: 0;
+  font-size: 0.86rem;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  padding: 4px 6px;
+}
+.gc-card-adv { text-transform: none; }

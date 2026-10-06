@@ -10,15 +10,21 @@ import {
   coinsText, addCoins, COINS, COIN_LABEL,
 } from './prep-graph.js';
 import { checkText, monsterLookup } from './NodeEditor.jsx';
+import { prepApi } from './prep-api.js';
+import { pickEntries } from './prep-world.js';
+import { WorldChip } from './WorldRefs.jsx';
+import usePrepConfirm from './usePrepConfirm.jsx';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
 /**
- * Painel "em jogo" de um nó: ler em voz alta, caminhos disponíveis, encontro,
- * perigos, testes, tesouro. Cada ação é um clique do mestre; nada automático.
+ * Painel "Conduzir" de uma sala: ler em voz alta, cartões do Mundo ligados
+ * (revelar / mostrar no telão), caminhos, encontro, perigos, testes, tesouro.
+ * Cada ação é um clique do mestre; nada automático.
  */
 export default function PlayPanel({
   adventure, node, campaign, levels, lang, logDiary, onLogDiary, onPlay, onOpenAdventure, onOpenTab, onSelectNode,
+  goTo, world, onWorldChange, onOpenEntry,
 }) {
   const data = adventure.data;
   const play = adventure.play;
@@ -27,7 +33,9 @@ export default function PlayPanel({
   const [startNow, setStartNow] = useState(false);
   const [withPcs, setWithPcs] = useState(true);
   const [giving, setGiving] = useState(false);
+  const [confirm, confirmEl] = usePrepConfirm(lang);
   const lookup = useMemo(() => monsterLookup(), []);
+  const refs = useMemo(() => pickEntries(node.refs || [], world || []), [node.refs, world]);
   const kind = NODE_KIND[node.kind] || NODE_KIND.other;
   const isCurrent = play.current === node.id;
   const visited = play.visited.includes(node.id);
@@ -37,7 +45,7 @@ export default function PlayPanel({
   const run = async (key, fn, ok) => {
     setBusy(key); setMsg('');
     try { await fn(); if (ok) setMsg(ok); } catch (e) {
-      setMsg(`${t(lang, 'Falhou', 'Failed')}: ${errorMessage(e)}`);
+      setMsg(`${t(lang, 'Falhou', 'Failed')}: ${errorMessage(e, lang)}`);
     } finally { setBusy(''); }
   };
 
@@ -60,8 +68,8 @@ export default function PlayPanel({
     }
     if (startNow) await api.startCombat(campaign.id);
   }, t(lang,
-    `${enc.monsters} monstro(s) no combate${withPcs ? ' + PJs' : ''}${startNow ? ' · combate iniciado' : ''}. Ajuste as iniciativas na aba Combate.`,
-    `${enc.monsters} monster(s) added${withPcs ? ' + PCs' : ''}${startNow ? ' · combat started' : ''}. Adjust initiative in the Combat tab.`));
+    `${enc.monsters} monstro(s) no combate${withPcs ? ' + PJs' : ''}${startNow ? ' · combate iniciado' : ''}. Ajuste as iniciativas em Jogar › Combate.`,
+    `${enc.monsters} monster(s) added${withPcs ? ' + PCs' : ''}${startNow ? ' · combat started' : ''}. Adjust initiative under Play › Combat.`));
 
   const askCheck = (c) => run(`chk-${c.skill}`, async () => {
     const isSave = c.skill.startsWith('save:');
@@ -76,8 +84,24 @@ export default function PlayPanel({
   const clearScreen = () => run('tv', () => api.adventureScreen(campaign.id, adventure.id, { nodeId: null }),
     t(lang, 'Texto tirado do telão.', 'Text removed from the TV.'));
 
-  const imageToMap = () => {
-    if (!confirm(t(lang, 'Usar esta imagem como mapa do combate/telão? O mapa atual será substituído.', 'Use this image as the combat/TV map? The current map will be replaced.'))) return;
+  const reveal = (entry, visibility) => run(`rv-${entry.id}`, async () => {
+    const r = await prepApi.reveal(entry.id, { visibility, logDiary, lang });
+    if (r?.entry) onWorldChange?.(r.entry);
+  }, visibility === 'partial'
+    ? t(lang, `Os jogadores agora conhecem “${entry.name}” de nome.`, `Players now know “${entry.name}” by name.`)
+    : t(lang, `“${entry.name}” revelado aos jogadores.`, `“${entry.name}” revealed to the players.`));
+
+  const showEntry = (entry) => run(`tv-${entry.id}`, () => prepApi.showOnScreen(campaign.id, { type: 'entry', entryId: entry.id }),
+    t(lang, `“${entry.name}” no telão.`, `“${entry.name}” on the TV.`));
+
+  const goCombat = () => (goTo ? goTo('play', 'combat') : onOpenTab?.('combat'));
+
+  const imageToMap = async () => {
+    if (!(await confirm({
+      title: t(lang, 'Usar como mapa do combate?', 'Use as the combat map?'),
+      text: t(lang, 'Esta imagem vira o mapa do combate e do telão. O mapa atual será substituído.', 'This image becomes the combat and TV map. The current map will be replaced.'),
+      ok: t(lang, 'Usar imagem', 'Use image'),
+    }))) return;
     run('map', () => new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => api.setCombatMap(campaign.id, { background_image: node.image, width_px: img.width, height_px: img.height }).then(resolve, reject);
@@ -114,7 +138,7 @@ export default function PlayPanel({
         </button>
         <label className="me-check small">
           <input type="checkbox" checked={logDiary} onChange={e => onLogDiary(e.target.checked)} />
-          {t(lang, 'Registrar no Diário', 'Log to Diary')}
+          {t(lang, 'Registrar na Crônica', 'Log to Chronicle')}
         </label>
       </div>
 
@@ -132,6 +156,34 @@ export default function PlayPanel({
         {campaign.state?.sceneText && <button type="button" className="btn btn-ghost btn-sm" disabled={busy === 'tv'} onClick={clearScreen}>{t(lang, 'Tirar texto do telão', 'Remove text from TV')}</button>}
         {node.image && <button type="button" className="btn btn-ghost btn-sm" disabled={busy === 'map'} onClick={imageToMap}>🗺 {t(lang, 'Imagem como mapa do combate', 'Image as combat map')}</button>}
       </div>
+
+      {refs.length > 0 && (
+        <section className="prep-section prep-in-scene">
+          <header><h4>🌍 {t(lang, 'Nesta sala', 'In this room')}</h4></header>
+          <ul className="prep-plain">
+            {refs.map(e => (
+              <li key={e.id}>
+                <WorldChip entry={e} lang={lang} onOpen={onOpenEntry} />
+                <div className="prep-in-scene-actions">
+                  {e.visibility === 'hidden' && (
+                    <button type="button" className="btn btn-ghost btn-sm" disabled={busy === `rv-${e.id}`} onClick={() => reveal(e, 'partial')}
+                      title={t(lang, 'Os jogadores veem o nome, a frase e a imagem', 'Players see the name, tagline and image')}>◐ {t(lang, 'Só o nome', 'Name only')}</button>
+                  )}
+                  {e.visibility !== 'revealed' && (
+                    <button type="button" className="btn btn-ghost btn-sm" disabled={busy === `rv-${e.id}`} onClick={() => reveal(e, 'revealed')}>
+                      👁 {e.visibility === 'partial' ? t(lang, 'Revelar tudo', 'Reveal all') : t(lang, 'Revelar', 'Reveal')}
+                    </button>
+                  )}
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={e.visibility === 'hidden' || busy === `tv-${e.id}`} onClick={() => showEntry(e)}
+                    title={e.visibility === 'hidden' ? t(lang, 'Revele antes de mostrar no telão', 'Reveal before showing on the TV') : undefined}>
+                    📺 {t(lang, 'Mostrar', 'Show')}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {node.notes && (
         <section className="prep-section">
@@ -188,7 +240,9 @@ export default function PlayPanel({
               return <li key={i}>{e.count} × {src ? (src.name?.[lang] || src.name?.en) : e.name} {src?.cr != null && <span className="muted small">ND {src.cr}</span>}</li>;
             })}
           </ul>
-          <p className="muted small prep-note">{enc.estimated ? '≈ ' : ''}{enc.totalXp.toLocaleString()} XP · {t(lang, 'orçamento', 'budget')} {enc.budget.low}/{enc.budget.moderate}/{enc.budget.high}</p>
+          <p className="muted small prep-note">{enc.estimated ? '≈ ' : ''}{enc.totalXp.toLocaleString()} XP · {t(lang,
+            `dificuldade: fácil até ${enc.budget.low}, média até ${enc.budget.moderate}, difícil até ${enc.budget.high} XP`,
+            `difficulty: easy up to ${enc.budget.low}, medium up to ${enc.budget.moderate}, hard up to ${enc.budget.high} XP`)}</p>
           <div className="adv-row wrap">
             <label className="me-check small"><input type="checkbox" checked={withPcs} onChange={e => setWithPcs(e.target.checked)} />{t(lang, 'Incluir PJs que faltam', 'Add missing PCs')}</label>
             <label className="me-check small"><input type="checkbox" checked={startNow} onChange={e => setStartNow(e.target.checked)} />{t(lang, 'Já iniciar o combate', 'Start combat now')}</label>
@@ -197,7 +251,7 @@ export default function PlayPanel({
             <button type="button" className="btn btn-primary btn-sm" disabled={busy === 'enc'} onClick={startEncounter}>
               ⚔ {busy === 'enc' ? '…' : t(lang, 'Começar encontro', 'Start encounter')}
             </button>
-            {onOpenTab && <button type="button" className="btn btn-ghost btn-sm" onClick={() => onOpenTab('combat')}>{t(lang, 'Ir para Combate', 'Go to Combat')} →</button>}
+            {(goTo || onOpenTab) && <button type="button" className="btn btn-ghost btn-sm" onClick={goCombat}>{t(lang, 'Ir para Combate', 'Go to Combat')} →</button>}
           </div>
         </section>
       )}
@@ -239,6 +293,7 @@ export default function PlayPanel({
 
       {msg && <p className="prep-msg" role="status">{msg}</p>}
 
+      {confirmEl}
       {giving && (
         <TreasureModal node={node} campaign={campaign} adventure={adventure} lang={lang}
           onClose={() => setGiving(false)} onDone={(text) => { setGiving(false); setMsg(text); }} />

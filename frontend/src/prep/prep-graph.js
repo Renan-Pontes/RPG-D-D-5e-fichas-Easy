@@ -3,7 +3,7 @@
  * Sem React; testável em node (tests/prep-graph.test.js).
  *
  * data = { version: 1, nodes: [Node], edges: [Edge] }
- * Node = { id, name, kind, x, y, readAloud, notes, tags, image,
+ * Node = { id, name, kind, x, y, readAloud, notes, tags, image, refs: [worldEntryId] (≤ 20),
  *          encounter: [{ monsterId, name, crNum, count, snapshot? }],
  *          hazards: [{ name, dc, effect, damage }], checks: [{ skill, dc, note }],
  *          treasure: { items: [instância], coins: {cp,sp,ep,gp,pp} } }
@@ -48,7 +48,7 @@ export const GATED_KINDS = new Set(['locked', 'secret']);
 export const COINS = ['pp', 'gp', 'ep', 'sp', 'cp'];
 export const COIN_LABEL = { pp: { pt: 'pl', en: 'pp' }, gp: { pt: 'po', en: 'gp' }, ep: { pt: 'pe', en: 'ep' }, sp: { pt: 'pp', en: 'sp' }, cp: { pt: 'pc', en: 'cp' } };
 
-export const LIMITS = { nodes: 200, edges: 600, imageChars: 450_000, dataBytes: 2_000_000 };
+export const LIMITS = { nodes: 200, edges: 600, imageChars: 450_000, dataBytes: 2_000_000, refs: 20 };
 
 const tr = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
@@ -67,7 +67,7 @@ export function emptyPlay() {
 export function makeNode({ id, name = '', kind = 'room', x = 0, y = 0, ...rest } = {}) {
   return {
     id: id || newId('n'), name, kind, x, y,
-    readAloud: '', notes: '', tags: [], image: '',
+    readAloud: '', notes: '', tags: [], image: '', refs: [],
     encounter: [], hazards: [], checks: [], treasure: { items: [], coins: {} },
     ...rest,
   };
@@ -389,6 +389,50 @@ export function freeSpot(data, x = 0, y = 0) {
     }
   }
   return { x: Math.round(x + 30), y: Math.round(y + 30) };
+}
+
+/**
+ * Posição livre perto de (x,y) que caiba INTEIRA dentro de `bounds`
+ * ({x0, y0, x1, y1}, em coordenadas do mapa — a área visível). Procura em
+ * anéis ao redor do ponto; se a área visível estiver cheia, cai no freeSpot.
+ */
+export function freeSpotIn(data, x, y, bounds) {
+  if (!bounds) return freeSpot(data, x, y);
+  const nodes = data?.nodes || [];
+  const clash = (px, py) => nodes.some(n => Math.abs(n.x - px) < NODE_W + 40 && Math.abs(n.y - py) < NODE_H + 40);
+  const fits = (px, py) => px >= bounds.x0 && py >= bounds.y0 && px + NODE_W <= bounds.x1 && py + NODE_H <= bounds.y1;
+  const sx = Math.round(NODE_W / 2 + 30);
+  const sy = Math.round(NODE_H / 2 + 30);
+  for (let r = 0; r < 14; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const px = Math.round(x + dx * sx);
+        const py = Math.round(y + dy * sy);
+        if (fits(px, py) && !clash(px, py)) return { x: px, y: py };
+      }
+    }
+  }
+  return freeSpot(data, x, y);
+}
+
+/**
+ * Ajusta o pan (sem mudar o zoom) para o nó caber inteiro na tela w×h, com
+ * margem `pad`. Devolve a mesma view se ele já está visível.
+ */
+export function panToShow(view, node, w, h, pad = 24) {
+  if (!view || !node || !w || !h) return view;
+  const k = view.k;
+  const left = node.x * k + view.x;
+  const top = node.y * k + view.y;
+  const right = left + NODE_W * k;
+  const bottom = top + NODE_H * k;
+  let { x, y } = view;
+  if (right > w - pad) x -= right - (w - pad);
+  if (left + (x - view.x) < pad) x += pad - (left + (x - view.x));
+  if (bottom > h - pad) y -= bottom - (h - pad);
+  if (top + (y - view.y) < pad) y += pad - (top + (y - view.y));
+  return x === view.x && y === view.y ? view : { ...view, x, y };
 }
 
 /** Enquadramento (pan/zoom) para caber todos os nós em w×h. */

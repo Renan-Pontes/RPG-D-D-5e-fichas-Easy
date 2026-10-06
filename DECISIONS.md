@@ -332,3 +332,18 @@ Referência de levantamento: o XML do Aurora Builder (github.com/AuroraLegacy/el
 - **Grimório do mago**: `inBook: true` em `data.spells`; fichas antigas convertidas na primeira gravação.
 - **Magias**: SRD 5.2.1 + `data/spells-extra.js` (outros livros, resumos próprios); ids antigos migrados ao carregar (`SRD.SPELL_ID_ALIASES`).
 - **CA no combate**: o frontend grava `armorClass` calculada ao salvar (o combate do servidor lê esse campo).
+
+
+## Mundo (rework da área do mestre, 2026-10)
+
+- **Tabela própria, nunca `Campaign.state`.** `state` vai para jogadores, lista de campanhas e telão público, e sofre "lost update" com PUT inteiro. O mundo fica em `WorldEntry` (uma linha por cartão) e a imagem em `WorldImage` (blob separado, `OneToOne`), para a lista nunca carregar base64 e para migrar imagens para R2/B2 depois sem mexer no resto.
+- **Filtro por papel só no backend** (`api/world_rules.py`, funções puras). O front do jogador nunca recebe `dm_notes`, segredos não revelados, `statblock`, `campaignItemId` nem `recipients`. Entrada oculta = 404 (inclusive para estranhos, para não confirmar que existe). Menção `@[Nome](id)` a alvo oculto vira texto simples no corpo do jogador.
+- **Segredos como lista por entrada** (`[{id, text, revealed, session?, revealedAt?}]`) em vez de markup dentro do texto: sem parser no front e sem risco de vazar por erro de renderização; casa com as "pistas" do plano da sessão (`ref: {entryId, secretId}`).
+- **Revelar é sempre clique do mestre.** `POST /world/:pk/reveal` é a ação explícita (com registro opcional na Crônica, ligado por padrão no botão); o PATCH do editor também pode mudar visibilidade, mas não escreve no diário. Nada revela sozinho — nem o plano da sessão, nem o telão (o `screen-card` recusa entrada oculta).
+- **Concorrência otimista:** cada entrada tem `version`; o PATCH faz `UPDATE … WHERE version = v` e responde 409 com a entrada atual se alguém salvou antes (duas abas, celular + PC). O front mostra "Alguém alterou — recarregar" sem perder o texto local.
+- **Imagem cacheável:** `GET /world/:pk/image?v=<image_ver>` devolve bytes com `ETag` e `Cache-Control: private, max-age=1 ano`; a versão muda a URL quando a imagem muda. Isso tira o base64 do polling.
+- **Selo "Novo!":** `revealed_at` na entrada × `Membership.world_seen_at` do jogador. Barato (uma contagem), sem tabela de leitura por entrada.
+- **Plano da sessão** fica em `Campaign.dm_settings.sessionPlan` (só o mestre lê `dm_settings`), com merge por chave no servidor e `select_for_update`, para não apagar `onboarding`/`advancedDice` gravados por outra tela.
+- **Mundo de exemplo** (`api/world_sample.py`, pt/en) com mapa gerado por `api/world_assets/gen_brumafria_map.py` (Pillow, sem rótulos: os nomes ficam nos pins, nas duas línguas). O vilão, a facção e o segredo nascem ocultos.
+- **Limites** (SQLite no plano free): 500 entradas por campanha, imagem ≤ 450k caracteres, textos ≤ 20k. Ver `world_rules.py`.
+- **Rotas de outro pacote em `urls.py`:** registradas via `_wp2(módulo, nome)`; se a view ainda não existe, a rota responde 501 em vez de quebrar o import das URLs.

@@ -2,8 +2,12 @@ import { errorMessage } from '../api/errors.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
-import { DIARY_TYPES, buildSessionSummary, entryIcon, groupEntries, matchesFilter } from './diary-summary.js';
+import { DIARY_TYPES, buildRecap, entryBody, entryIcon, entryTitle, groupEntries, matchesFilter, pickRecapGroup } from './diary-summary.js';
+import MoreMenu from '../group/MoreMenu.jsx';
+import { groupApi } from '../group/group-api.js';
+import { copyText } from '../group/InviteCard.jsx';
 import './diary-styles.css';
+import '../group/group-styles.css';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const UNDO_MS = 5000;
@@ -20,7 +24,9 @@ function fmtDay(day, lang) {
   return new Date(y, m - 1, d).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-US', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-export default function DiaryTab({ campaign, lang = 'pt', isDM }) {
+// showStartSession: false quando a casca já tem o "Começar sessão" no cabeçalho
+// (um só lugar para começar a sessão).
+export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange, showStartSession = true }) {
   const [entries, setEntries] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [current, setCurrent] = useState(null);
@@ -68,10 +74,10 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM }) {
     setToast(tt => (tt?.id === id ? null : tt));
   }, [campaign.id]);
 
+  // Sem confirm() nativo: a entrada some na hora e o toast oferece "Desfazer".
   const askDelete = (entry) => {
-    if (!confirm(t(lang, 'Excluir esta entrada do diário?', 'Delete this diary entry?'))) return;
     setPending(p => ({ ...p, [entry.id]: true }));
-    setToast({ id: entry.id, text: t(lang, 'Entrada excluída.', 'Entry deleted.') });
+    setToast({ id: entry.id, text: t(lang, 'Entrada excluída.', 'Entry deleted.'), undo: true });
     timers.current[entry.id] = setTimeout(() => commitDelete(entry.id), UNDO_MS);
   };
 
@@ -103,13 +109,38 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM }) {
     [entries, pending, filter],
   );
   const groups = useMemo(() => groupEntries(visible), [visible]);
-  // Resumo usa todas as entradas do grupo, não só as do filtro atual.
-  const fullGroups = useMemo(
-    () => Object.fromEntries(groupEntries(entries.filter(e => !pending[e.id])).map(g => [g.key, g.entries])),
-    [entries, pending],
-  );
   const sessionInfo = useMemo(() => Object.fromEntries(sessions.map(s => [s.number, s])), [sessions]);
   const currentTitle = current != null ? sessionInfo[current]?.title : '';
+
+  // "Anteriormente em…": rascunho editável a partir da última sessão com eventos.
+  const [recap, setRecap] = useState(null); // {key, session, title, text}
+  const openRecap = useCallback((key) => {
+    const all = groupEntries(entries.filter(e => !pending[e.id]));
+    const g = all.find(x => x.key === key) || all.find(x => x.key === pickRecapGroup(all));
+    const info = g?.session != null ? sessionInfo[g.session] : null;
+    const draft = buildRecap(g?.entries || [], { lang, session: g?.session ?? null, title: info?.title, campaignName: campaign.name });
+    setRecap({ key: g?.key || null, session: g?.session ?? null, ...draft });
+  }, [entries, pending, sessionInfo, lang, campaign.name]);
+  const onScreen = campaign.state?.screenCard;
+  const flash = (text) => setToast({ id: `m${Date.now()}`, text });
+  useEffect(() => {
+    if (!toast || toast.undo) return undefined;
+    const id = setTimeout(() => setToast(tt => (tt === toast ? null : tt)), 3500);
+    return () => clearTimeout(id);
+  }, [toast]);
+
+  const showOnScreen = async (title, text) => {
+    try {
+      await groupApi.showOnScreen(campaign.id, { type: 'recap', title: String(title || '').slice(0, 200), text: String(text || '').slice(0, 5000) });
+      flash(t(lang, '📺 No telão agora.', '📺 On the TV now.'));
+      onCampaignChange?.();
+      return true;
+    } catch (e) { setError(errMsg(e)); return false; }
+  };
+  const clearScreen = async () => {
+    try { await groupApi.showOnScreen(campaign.id, null); flash(t(lang, 'Telão de volta à capa.', 'TV back to the cover.')); onCampaignChange?.(); }
+    catch (e) { setError(errMsg(e)); }
+  };
 
   return (
     <div className="diary col gap-3">
@@ -117,16 +148,43 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM }) {
 
       <div className="info-box diary-head">
         <div className="info-box-head">
-          <h3>{t(lang, 'Diário da campanha', 'Campaign diary')}</h3>
+          <h3>📜 {t(lang, 'Crônica da campanha', 'Campaign chronicle')}</h3>
           <span className="muted small">
             {current != null
               ? `${t(lang, 'Sessão atual', 'Current session')}: ${current}${currentTitle ? ` — ${currentTitle}` : ''}`
               : t(lang, 'Sem sessão numerada — agrupado por dia', 'No numbered session — grouped by day')}
           </span>
         </div>
-        {isDM && <StartSession campaign={campaign} lang={lang} current={current} onDone={load} onError={setError} />}
+        {isDM && showStartSession && <StartSession campaign={campaign} lang={lang} current={current} onDone={load} onError={setError} />}
         <NoteComposer campaign={campaign} lang={lang} isDM={isDM} onDone={load} onError={setError} />
       </div>
+
+      {isDM && loaded && (
+        recap ? (
+          <RecapEditor campaign={campaign} lang={lang} recap={recap} onScreen={onScreen}
+            onShow={showOnScreen} onClearScreen={clearScreen} onClose={() => setRecap(null)}
+            onSaved={() => { setRecap(null); flash(t(lang, 'Recap salvo na crônica.', 'Recap saved to the chronicle.')); load(); }}
+            onCopied={() => flash(t(lang, 'Texto copiado.', 'Text copied.'))}
+            onError={setError} />
+        ) : (
+          <div className="diary-recap-cta">
+            <div>
+              <strong className="diary-recap-cta-title">✨ {t(lang, 'Anteriormente em…', 'Previously on…')}</strong>
+              <span className="muted small">
+                {onScreen?.type === 'recap'
+                  ? t(lang, 'O recap está no telão agora.', 'The recap is on the TV now.')
+                  : t(lang, 'Monte o resumo da última sessão para abrir a próxima. Você edita antes de mostrar.', 'Draft a recap of last session to open the next one. You edit it before showing.')}
+              </span>
+            </div>
+            <div className="diary-actions">
+              {onScreen?.type === 'recap' && <button type="button" className="btn btn-ghost btn-sm" onClick={clearScreen}>{t(lang, 'Tirar do telão', 'Remove from TV')}</button>}
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => openRecap(null)} disabled={!entries.length}>
+                {t(lang, 'Montar recap', 'Draft recap')}
+              </button>
+            </div>
+          </div>
+        )
+      )}
 
       <div className="diary-filters" role="toolbar" aria-label={t(lang, 'Filtrar por tipo', 'Filter by type')}>
         {[{ id: 'all', icon: '', pt: 'Tudo', en: 'All' }, ...DIARY_TYPES].map(tp => (
@@ -141,17 +199,17 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM }) {
       {loaded && groups.length === 0 && (
         <p className="muted diary-empty">
           {filter === 'all'
-            ? t(lang, 'O diário está vazio. Subidas de nível, XP, itens entregues, descansos e rolagens marcantes aparecem aqui automaticamente.',
-                'The diary is empty. Level-ups, XP, items given, rests and notable rolls show up here automatically.')
+            ? t(lang, 'A crônica ainda está em branco. Combates, revelações, subidas de nível, XP, itens entregues e rolagens marcantes aparecem aqui sozinhos — e você pode escrever notas acima.',
+                'The chronicle is still blank. Combats, reveals, level-ups, XP, items given and notable rolls show up here on their own — and you can write notes above.')
             : t(lang, 'Nada deste tipo por enquanto.', 'Nothing of this type yet.')}
         </p>
       )}
 
       {groups.map(g => (
         <SessionGroup key={g.key} group={g} info={g.session != null ? sessionInfo[g.session] : null}
-          allEntries={fullGroups[g.key] || g.entries}
           campaign={campaign} lang={lang} isDM={isDM} onReload={load} onError={setError}
-          onPatch={patchEntry} onDelete={askDelete} />
+          onPatch={patchEntry} onDelete={askDelete} onRecap={() => openRecap(g.key)}
+          onShowEntry={(e) => showOnScreen(entryTitle(e, lang) || t(lang, 'Anteriormente…', 'Previously…'), entryBody(e, lang))} />
       ))}
 
       {hasMore && (
@@ -161,7 +219,7 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM }) {
       {toast && (
         <div className="diary-toast" role="status">
           <span>{toast.text}</span>
-          <button className="btn btn-ghost btn-sm" onClick={() => undoDelete(toast.id)}>{t(lang, 'Desfazer', 'Undo')}</button>
+          {toast.undo && <button className="btn btn-ghost btn-sm" onClick={() => undoDelete(toast.id)}>{t(lang, 'Desfazer', 'Undo')}</button>}
         </div>
       )}
     </div>
@@ -252,10 +310,9 @@ function NoteComposer({ campaign, lang, isDM, onDone, onError }) {
   );
 }
 
-function SessionGroup({ group, info, allEntries, campaign, lang, isDM, onReload, onError, onPatch, onDelete }) {
+function SessionGroup({ group, info, campaign, lang, isDM, onReload, onError, onPatch, onDelete, onRecap, onShowEntry }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState(info?.title || '');
-  const [summary, setSummary] = useState(null);
 
   useEffect(() => { if (!editingTitle) setTitle(info?.title || ''); }, [info?.title, editingTitle]);
 
@@ -263,20 +320,6 @@ function SessionGroup({ group, info, allEntries, campaign, lang, isDM, onReload,
     e.preventDefault();
     try { await api.renameDiarySession(campaign.id, group.session, title); setEditingTitle(false); onReload(); }
     catch (err) { onError(errMsg(err)); }
-  };
-
-  const openSummary = () => setSummary(buildSessionSummary(allEntries, { lang, session: group.session, title: info?.title }));
-
-  const saveSummary = async () => {
-    const label = group.session != null ? `${t(lang, 'Sessão', 'Session')} ${group.session}` : fmtDay(group.day, lang);
-    try {
-      await api.createDiaryNote(campaign.id, {
-        subtype: 'summary', title: `${t(lang, 'Resumo', 'Recap')} — ${label}`, body: summary,
-        session: group.session,
-      });
-      setSummary(null);
-      onReload();
-    } catch (err) { onError(errMsg(err)); }
   };
 
   return (
@@ -288,7 +331,7 @@ function SessionGroup({ group, info, allEntries, campaign, lang, isDM, onReload,
             <input className="input" autoFocus value={title} maxLength={200} onChange={e => setTitle(e.target.value)}
               aria-label={t(lang, 'Título da sessão', 'Session title')} />
             <button type="submit" className="btn btn-primary btn-sm">{t(lang, 'Salvar', 'Save')}</button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditingTitle(false)}>✕</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditingTitle(false)} aria-label={t(lang, 'Cancelar', 'Cancel')}>✕</button>
           </form>
         ) : (
           <h4 className="diary-group-title">
@@ -298,40 +341,23 @@ function SessionGroup({ group, info, allEntries, campaign, lang, isDM, onReload,
           </h4>
         )}
         {isDM && !editingTitle && (
-          <div className="diary-group-tools">
-            {group.session != null && (
-              <button className="btn btn-ghost btn-sm" onClick={() => setEditingTitle(true)}
-                aria-label={t(lang, 'Renomear sessão', 'Rename session')}>✎</button>
-            )}
-            <button className="btn btn-ghost btn-sm" onClick={openSummary}>📜 {t(lang, 'Resumo da sessão', 'Session recap')}</button>
-          </div>
+          <MoreMenu label={t(lang, 'Ações da sessão', 'Session actions')} items={[
+            { id: 'recap', label: `📜 ${t(lang, 'Recap desta sessão', 'Recap this session')}`, onSelect: onRecap },
+            { id: 'rename', label: `✎ ${t(lang, 'Renomear sessão', 'Rename session')}`, onSelect: () => setEditingTitle(true), hidden: group.session == null },
+          ]} />
         )}
       </header>
 
-      {summary != null && (
-        <div className="diary-summary">
-          <p className="muted small">{t(lang, 'Montado a partir dos eventos (ocultos ficam de fora). Edite à vontade antes de salvar.',
-            'Built from the events (hidden ones are left out). Edit freely before saving.')}</p>
-          <textarea className="input" rows={Math.min(16, summary.split('\n').length + 2)} value={summary}
-            onChange={e => setSummary(e.target.value)} aria-label={t(lang, 'Texto do resumo', 'Recap text')} />
-          <div className="diary-actions">
-            <button className="btn btn-ghost btn-sm" onClick={() => setSummary(null)}>{t(lang, 'Cancelar', 'Cancel')}</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => navigator.clipboard?.writeText(summary)}>{t(lang, 'Copiar', 'Copy')}</button>
-            <button className="btn btn-primary btn-sm" onClick={saveSummary}>{t(lang, 'Salvar como nota', 'Save as note')}</button>
-          </div>
-        </div>
-      )}
-
       <ol className="diary-timeline">
         {group.entries.map(e => (
-          <DiaryItem key={e.id} entry={e} lang={lang} isDM={isDM} onPatch={onPatch} onDelete={onDelete} />
+          <DiaryItem key={e.id} entry={e} lang={lang} isDM={isDM} onPatch={onPatch} onDelete={onDelete} onShow={onShowEntry} />
         ))}
       </ol>
     </section>
   );
 }
 
-function DiaryItem({ entry, lang, isDM, onPatch, onDelete }) {
+function DiaryItem({ entry, lang, isDM, onPatch, onDelete, onShow }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(entry.title);
   const [body, setBody] = useState(entry.body);
@@ -342,7 +368,17 @@ function DiaryItem({ entry, lang, isDM, onPatch, onDelete }) {
     if (await onPatch(entry.id, { title, body })) setEditing(false);
   };
 
+  const shownTitle = entryTitle(entry, lang);
+  const shownBody = entryBody(entry, lang);
   const cls = ['diary-item', `is-${entry.kind}`, `sub-${entry.subtype}`, entry.hidden ? 'is-hidden' : ''].filter(Boolean).join(' ');
+  const menu = entry.canEdit ? [
+    { id: 'edit', label: `✎ ${t(lang, 'Editar', 'Edit')}`, onSelect: startEdit },
+    { id: 'hide', label: entry.hidden ? `👁 ${t(lang, 'Mostrar aos jogadores', 'Show to players')}` : `🙈 ${t(lang, 'Ocultar dos jogadores', 'Hide from players')}`,
+      onSelect: () => onPatch(entry.id, { hidden: !entry.hidden }), hidden: !isDM },
+    { id: 'tv', label: `📺 ${t(lang, 'Mostrar no telão', 'Show on TV')}`, onSelect: () => onShow?.(entry),
+      hidden: !isDM || entry.hidden || !(shownBody || shownTitle) },
+    { id: 'del', label: `🗑 ${t(lang, 'Excluir', 'Delete')}`, onSelect: () => onDelete(entry), danger: true },
+  ] : [];
   return (
     <li className={cls}>
       <span className="diary-icon" aria-hidden="true">{entryIcon(entry)}</span>
@@ -361,29 +397,70 @@ function DiaryItem({ entry, lang, isDM, onPatch, onDelete }) {
         ) : (
           <>
             <div className="diary-card-head">
-              {entry.title && <strong className="diary-card-title">{entry.title}</strong>}
+              {shownTitle && <strong className="diary-card-title">{shownTitle}</strong>}
               {entry.hidden && <span className="diary-tag">{t(lang, 'oculta', 'hidden')}</span>}
+              <MoreMenu items={menu} label={t(lang, 'Ações da entrada', 'Entry actions')} className="diary-more-menu" />
             </div>
-            {entry.body && <p className="diary-body">{entry.body}</p>}
+            {shownBody && <p className="diary-body">{shownBody}</p>}
             <div className="diary-meta">
               <span>{fmtTime(entry.occurredAt, lang)}</span>
               {entry.kind === 'note' && entry.createdBy && <span>· {entry.createdBy.name}</span>}
               {entry.editedAt && <span>· {t(lang, 'editada', 'edited')}</span>}
-              {entry.canEdit && (
-                <span className="diary-item-tools">
-                  <button className="btn btn-ghost btn-sm" onClick={startEdit}>{t(lang, 'Editar', 'Edit')}</button>
-                  {isDM && (
-                    <button className="btn btn-ghost btn-sm" onClick={() => onPatch(entry.id, { hidden: !entry.hidden })}>
-                      {entry.hidden ? t(lang, 'Mostrar', 'Show') : t(lang, 'Ocultar', 'Hide')}
-                    </button>
-                  )}
-                  <button className="btn btn-ghost btn-sm diary-del" onClick={() => onDelete(entry)}>{t(lang, 'Excluir', 'Delete')}</button>
-                </span>
-              )}
             </div>
           </>
         )}
       </div>
     </li>
+  );
+}
+
+/**
+ * Editor do "Anteriormente em…": rascunho montado dos eventos (sem IA), que o
+ * mestre edita antes de mostrar no telão ou salvar na crônica. Nada vai à TV
+ * sem o clique dele.
+ */
+function RecapEditor({ campaign, lang, recap, onScreen, onShow, onClearScreen, onClose, onSaved, onCopied, onError }) {
+  const [title, setTitle] = useState(recap.title);
+  const [text, setText] = useState(recap.text);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setTitle(recap.title); setText(recap.text); }, [recap]);
+  const live = onScreen?.type === 'recap' && onScreen.title === title.trim() && onScreen.text === text;
+  const tooLong = text.length > 5000;
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      await api.createDiaryNote(campaign.id, { subtype: 'summary', title: title.trim().slice(0, 200), body: text, session: recap.session });
+      onSaved();
+    } catch (err) { onError(errMsg(err)); }
+    setBusy(false);
+  };
+  const show = async () => { setBusy(true); await onShow(title.trim(), text); setBusy(false); };
+
+  return (
+    <section className="diary-recap" aria-labelledby="diary-recap-h">
+      <div className="diary-recap-head">
+        <span className="eyebrow" id="diary-recap-h">✨ {t(lang, 'Anteriormente em…', 'Previously on…')}</span>
+        {recap.session != null && <span className="muted small">{t(lang, 'a partir da sessão', 'from session')} {recap.session}</span>}
+      </div>
+      <p className="muted small diary-recap-hint">
+        {t(lang, 'Rascunho montado com o que ficou na crônica (o que está oculto fica de fora). Edite à vontade: só vai para o telão quando você mandar.',
+          'Draft built from the chronicle (hidden entries are left out). Edit freely: it only goes to the TV when you say so.')}
+      </p>
+      <input className="input diary-recap-title" value={title} maxLength={200} onChange={e => setTitle(e.target.value)}
+        aria-label={t(lang, 'Título do recap', 'Recap title')} />
+      <textarea className="input diary-recap-text" rows={Math.min(14, Math.max(5, text.split('\n').length + 2))} value={text}
+        onChange={e => setText(e.target.value)} aria-label={t(lang, 'Texto do recap', 'Recap text')} />
+      {tooLong && <p className="diary-error small">{t(lang, 'Texto longo demais para o telão (máx. 5000 caracteres).', 'Too long for the TV (max 5000 characters).')}</p>}
+      <div className="diary-actions">
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>{t(lang, 'Fechar', 'Close')}</button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={async () => { if (await copyText(`${title}\n\n${text}`)) onCopied(); }}>{t(lang, 'Copiar', 'Copy')}</button>
+        <button type="button" className="btn btn-ghost btn-sm" disabled={busy || (!text.trim() && !title.trim())} onClick={save}>{t(lang, 'Salvar na crônica', 'Save to chronicle')}</button>
+        {live
+          ? <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={onClearScreen}>{t(lang, 'Tirar do telão', 'Remove from TV')}</button>
+          : <button type="button" className="btn btn-primary btn-sm" disabled={busy || tooLong || (!text.trim() && !title.trim())} onClick={show}>📺 {t(lang, 'Mostrar no telão', 'Show on TV')}</button>}
+      </div>
+      {live && <p className="diary-recap-live small" role="status">● {t(lang, 'No telão agora', 'On the TV now')}</p>}
+    </section>
   );
 }

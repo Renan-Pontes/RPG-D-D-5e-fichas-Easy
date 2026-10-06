@@ -5,20 +5,24 @@ import MapCanvas from './MapCanvas.jsx';
 import NodeList from './NodeList.jsx';
 import NodeEditor, { EdgeEditor } from './NodeEditor.jsx';
 import PlayPanel from './PlayPanel.jsx';
+import usePrepConfirm from './usePrepConfirm.jsx';
+import { prepApi } from './prep-api.js';
 import {
   emptyPlay, makeNode, makeEdge, addNode, updateNode, removeNode, addEdge, updateEdge, removeEdge, reverseEdge,
   availableTargets, highlightedEdges, validateAdventure, partyLevels, freeSpot, startNode, exportAdventure,
-  parseAdventureImport, edgeText, GATED_KINDS, LIMITS,
+  parseAdventureImport, edgeText, GATED_KINDS, LIMITS, freeSpotIn,
 } from './prep-graph.js';
 import '../combat/monster-tools.css';
 import './prep-styles.css';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
+// Situação da aventura (o id 'playing' é do servidor; na tela é "Ativa", para não
+// confundir com o modo "Conduzir").
 const STATUS = [
   { id: 'draft', pt: 'Rascunho', en: 'Draft' },
-  { id: 'playing', pt: 'Em jogo', en: 'Playing' },
-  { id: 'done', pt: 'Concluída', en: 'Done' },
+  { id: 'playing', pt: 'Ativa', en: 'Active' },
+  { id: 'done', pt: 'Concluída', en: 'Completed' },
 ];
 const statusLabel = (s, lang) => { const x = STATUS.find(i => i.id === s) || STATUS[0]; return t(lang, x.pt, x.en); };
 
@@ -53,16 +57,23 @@ function download(name, obj) {
 }
 
 /**
- * Aba "Preparação" do mestre: aventuras como mapa de salas/cenas conectadas.
- * Preparar (editar mapa e nós) · Em jogo (marcar onde o grupo está, caminhos,
- * encontro, tesouro, telão). Jogadores nunca veem esta aba nem os dados.
+ * Preparar › Aventuras: cada aventura é um mapa de salas/cenas conectadas.
+ * Modo Preparar (editar mapa e salas) · Conduzir (marcar onde o grupo está,
+ * caminhos, encontro, tesouro, telão, cartões do Mundo da sala). Jogadores
+ * nunca veem esta área nem os dados.
  */
-export default function PrepTab({ campaign, lang, onOpenTab }) {
+export default function PrepTab({ campaign, lang, onOpenTab, goTo, initialAdventureId, initialNodeId, onConsumedParams }) {
   const [adventures, setAdventures] = useState(null);
   const [error, setError] = useState('');
-  const [openId, setOpenId] = useState(null);
+  const [openId, setOpenId] = useState(initialAdventureId || null);
+  const [focusNodeId, setFocusNodeId] = useState(initialNodeId || null);
   const [newName, setNewName] = useState('');
+  const [filter, setFilter] = useState('all');
   const importRef = useRef(null);
+
+  useEffect(() => {
+    if (initialAdventureId) { setOpenId(initialAdventureId); setFocusNodeId(initialNodeId || null); onConsumedParams?.(); }
+  }, [initialAdventureId, initialNodeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadList = useCallback(async () => {
     try {
@@ -101,8 +112,9 @@ export default function PrepTab({ campaign, lang, onOpenTab }) {
   if (openId) {
     return (
       <AdventureWorkspace key={openId} campaign={campaign} lang={lang} advId={openId} adventures={adventures || []}
-        onBack={() => { setOpenId(null); loadList(); }}
-        onOpen={(id) => setOpenId(id)}
+        initialNodeId={focusNodeId} goTo={goTo}
+        onBack={() => { setOpenId(null); setFocusNodeId(null); loadList(); }}
+        onOpen={(id) => { setFocusNodeId(null); setOpenId(id); }}
         onDeleted={() => { setOpenId(null); loadList(); }}
         onListChange={(a) => setAdventures(list => (list || []).map(x => (x.id === a.id ? { ...x, ...a } : x)))}
         onOpenTab={onOpenTab} />
@@ -113,10 +125,10 @@ export default function PrepTab({ campaign, lang, onOpenTab }) {
     <div className="prep-tab">
       <div className="prep-intro">
         <div>
-          <h2>{t(lang, 'Preparação', 'Prep')}</h2>
+          <h2>{t(lang, 'Aventuras', 'Adventures')}</h2>
           <p className="muted">{t(lang,
-            'Monte cada aventura como um mapa de salas e cenas ligadas por caminhos. Na sessão, marque por onde o grupo passa. Só você vê isto.',
-            'Build each adventure as a map of rooms and scenes linked by paths. During the session, mark where the party goes. Only you see this.')}</p>
+            'Monte cada aventura como um mapa de salas e cenas ligadas por caminhos e ligue os cartões do seu Mundo a cada sala. Na sessão, use “Conduzir” para marcar por onde o grupo passa. Só você vê isto.',
+            'Build each adventure as a map of rooms and scenes linked by paths, and link your World cards to each room. During the session, use “Run” to mark where the party goes. Only you see this.')}</p>
         </div>
       </div>
       <form className="prep-create" onSubmit={create}>
@@ -134,8 +146,18 @@ export default function PrepTab({ campaign, lang, onOpenTab }) {
           <p>{t(lang, 'Nenhuma aventura ainda — dê um nome acima e crie a primeira, ou importe um arquivo de aventura.', 'No adventures yet — name one above to create the first, or import an adventure file.')}</p>
         </div>
       )}
+      {(adventures || []).length > 1 && (
+        <div className="prep-seg prep-filter" role="group" aria-label={t(lang, 'Filtrar por situação', 'Filter by status')}>
+          <button type="button" aria-pressed={filter === 'all'} className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>{t(lang, 'Todas', 'All')}</button>
+          {STATUS.map(st => (
+            <button type="button" key={st.id} aria-pressed={filter === st.id} className={filter === st.id ? 'on' : ''} onClick={() => setFilter(st.id)}>
+              {t(lang, st.pt, st.en)} <span className="muted small">{(adventures || []).filter(a => a.status === st.id).length}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="prep-adv-grid">
-        {(adventures || []).map(a => (
+        {(adventures || []).filter(a => filter === 'all' || a.status === filter).map(a => (
           <button type="button" key={a.id} className={`prep-adv-card st-${a.status}`} onClick={() => setOpenId(a.id)}>
             <span className={`prep-status st-${a.status}`}>{statusLabel(a.status, lang)}</span>
             <strong>{a.name}</strong>
@@ -151,13 +173,15 @@ export default function PrepTab({ campaign, lang, onOpenTab }) {
   );
 }
 
-function AdventureWorkspace({ campaign, lang, advId, adventures, onBack, onOpen, onDeleted, onListChange, onOpenTab }) {
+function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, goTo, onBack, onOpen, onDeleted, onListChange, onOpenTab }) {
   const [adv, setAdv] = useState(null);
   const [error, setError] = useState('');
   const [saveState, setSaveState] = useState('saved'); // saved | dirty | saving | error
   const [view, setView] = useState(() => (prefersList() ? 'list' : readPref('forja.prep.view', 'map')));
   const [mode, setMode] = useState('prep');
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState(initialNodeId ? { type: 'node', id: initialNodeId } : null);
+  const [world, setWorld] = useState(null);
+  const [confirm, confirmEl] = usePrepConfirm(lang);
   const [campaignItems, setCampaignItems] = useState([]);
   const [logDiary, setLogDiary] = useState(true);
   const [showIssues, setShowIssues] = useState(false);
@@ -175,9 +199,10 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, onBack, onOpen,
       if (!alive) return;
       advRef.current = { ...r.adventure, play: r.adventure.play || emptyPlay() };
       setAdv(advRef.current);
-      if (r.adventure.status === 'playing') setMode('play');
+      if (r.adventure.status === 'playing' && !initialNodeId) setMode('play');
     }).catch(e => setError(errText(e, lang)));
     api.campaignItems(campaign.id).then(r => alive && setCampaignItems(r.items || [])).catch(() => {});
+    prepApi.listWorld(campaign.id).then(r => alive && setWorld(r.entries || [])).catch(() => alive && setWorld([]));
     return () => { alive = false; };
   }, [campaign.id, advId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -264,9 +289,9 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, onBack, onOpen,
   if (!adv) return <div className="prep-tab"><p className="muted">{t(lang, 'Carregando…', 'Loading…')}</p></div>;
 
   // ---------------------------------------------------------------- edição
-  const createNode = (x, y) => {
+  const createNode = (x, y, bounds) => {
     if (data.nodes.length >= LIMITS.nodes) { say(ERRORS.too_many_nodes[lang]); return; }
-    const pos = x == null ? freeSpot(data, 0, 0) : freeSpot(data, x, y);
+    const pos = x == null ? freeSpot(data, 0, 0) : (bounds ? freeSpotIn(data, x, y, bounds) : freeSpot(data, x, y));
     const node = makeNode({ ...pos, name: t(lang, `Sala ${data.nodes.length + 1}`, `Room ${data.nodes.length + 1}`) });
     changeData(d => addNode(d, node));
     setSelected({ type: 'node', id: node.id });
@@ -285,24 +310,49 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, onBack, onOpen,
     changeData(() => next);
   };
 
-  const deleteNode = (node) => {
-    const busy = node.readAloud || node.notes || node.encounter?.length || node.treasure?.items?.length;
-    if (busy && !confirm(t(lang, `Apagar "${node.name}" e suas conexões?`, `Delete "${node.name}" and its connections?`))) return;
+  const deleteNode = async (node) => {
+    const busy = node.readAloud || node.notes || node.encounter?.length || node.treasure?.items?.length || node.refs?.length;
+    if (busy && !(await confirm({
+      title: t(lang, `Apagar a sala “${node.name}”?`, `Delete the room “${node.name}”?`),
+      text: t(lang, 'As conexões dela também somem. Os cartões do Mundo ligados a ela continuam no Mundo.', 'Its connections go too. World cards linked to it stay in the World.'),
+      ok: t(lang, 'Apagar sala', 'Delete room'), danger: true,
+    }))) return;
     changeData(d => removeNode(d, node.id));
     setSelected(null);
   };
 
   const deleteAdventure = async () => {
-    if (!confirm(t(lang, `Apagar a aventura "${adv.name}"? Isto não pode ser desfeito. (Dica: exporte antes.)`, `Delete the adventure "${adv.name}"? This cannot be undone. (Tip: export first.)`))) return;
+    if (!(await confirm({
+      title: t(lang, `Apagar a aventura “${adv.name}”?`, `Delete the adventure “${adv.name}”?`),
+      text: t(lang, 'Isto não pode ser desfeito. Dica: exporte antes.', 'This cannot be undone. Tip: export first.'),
+      ok: t(lang, 'Apagar aventura', 'Delete adventure'), danger: true,
+    }))) return;
     clearTimeout(timer.current);
     pending.current = {};
     try { await api.deleteAdventure(campaign.id, advId); onDeleted(); } catch (e) { setError(errText(e, lang)); }
   };
 
-  const resetPlay = () => {
-    if (!confirm(t(lang, 'Zerar o progresso (atual, visitados e portas liberadas)?', 'Reset progress (current, visited and unlocked doors)?'))) return;
+  const resetPlay = async () => {
+    if (!(await confirm({
+      title: t(lang, 'Zerar o progresso?', 'Reset progress?'),
+      text: t(lang, 'Sala atual, visitadas e portas liberadas voltam ao início.', 'Current room, visited rooms and unlocked doors go back to the start.'),
+      ok: t(lang, 'Zerar', 'Reset'), danger: true,
+    }))) return;
     onPlay('reset');
   };
+
+  // ---------------------------------------------------------------- Mundo
+  async function createEntry(kind, name) {
+    const r = await prepApi.createEntry(campaign.id, { kind, name, visibility: 'hidden' });
+    const e = r.entry;
+    const light = { id: e.id, kind: e.kind, name: e.name, summary: e.summary || '', tags: e.tags || [], visibility: e.visibility, imageVer: e.imageVer || '', imageUrl: e.imageUrl || null };
+    setWorld(w => [...(w || []), light]);
+    return light;
+  }
+  function patchWorld(entry) {
+    setWorld(w => (w || []).map(x => (x.id === entry.id ? { ...x, visibility: entry.visibility, revealedAt: entry.revealedAt } : x)));
+  }
+  const openEntry = goTo ? (e) => { flush(); goTo('world', 'atlas', { entryId: e.id }); } : null;
 
   const switchView = (v) => { setView(v); writePref('forja.prep.view', v); };
   const openOther = async (id) => {
@@ -319,6 +369,7 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, onBack, onOpen,
     ? (
       <NodeEditor key={node.id} node={node} data={data} adventures={adventures} currentAdventureId={advId}
         campaign={campaign} campaignItems={campaignItems} levels={levels} lang={lang}
+        world={world} onCreateEntry={createEntry} onOpenEntry={openEntry}
         onChange={(patch) => changeData(d => updateNode(d, node.id, patch))}
         onDelete={() => deleteNode(node)}
         onDataChange={addEdgeObj}
@@ -326,6 +377,7 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, onBack, onOpen,
     ) : (
       <PlayPanel key={node.id} adventure={adv} node={node} campaign={campaign} levels={levels} lang={lang}
         logDiary={logDiary} onLogDiary={setLogDiary} onPlay={onPlay} onOpenAdventure={openOther} onOpenTab={onOpenTab}
+        goTo={goTo} world={world} onWorldChange={patchWorld} onOpenEntry={openEntry}
         onSelectNode={(id) => setSelected({ type: 'node', id })} />
     ));
 
@@ -370,7 +422,8 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, onBack, onOpen,
           <li>{t(lang, 'Puxe o ● da borda de uma sala até outra para ligar as duas.', 'Pull the ● on a room’s edge to another room to link them.')}</li>
           <li>{t(lang, 'Clique numa conexão para escolher o tipo (porta, trancada, secreta…), rótulo e condição.', 'Click a connection to set its type (door, locked, secret…), label and condition.')}</li>
           <li>{t(lang, 'Marque a sala de entrada com a tag “início”.', 'Tag the entrance room with “start”.')}</li>
-          <li>{t(lang, 'Na sessão, troque para “Em jogo”.', 'During the session, switch to “Playing”.')}</li>
+          <li>{t(lang, 'Ligue NPCs, lugares e segredos do Mundo em “Cartões do Mundo nesta sala”.', 'Link World NPCs, places and secrets under “World cards in this room”.')}</li>
+          <li>{t(lang, 'Na sessão, troque para “Conduzir”.', 'During the session, switch to “Run”.')}</li>
         </ul>
       </div>
     );
@@ -385,7 +438,7 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, onBack, onOpen,
         <button type="button" className="btn btn-ghost btn-sm" onClick={async () => { await flush(); onBack(); }}>← {t(lang, 'Aventuras', 'Adventures')}</button>
         <input className="input prep-title-input" value={adv.name} maxLength={120} aria-label={t(lang, 'Nome da aventura', 'Adventure name')}
           onChange={e => setFields({ name: e.target.value })} onBlur={e => { if (!e.target.value.trim()) setFields({ name: t(lang, 'Sem nome', 'Untitled') }); }} />
-        <select className="input prep-status-select" value={adv.status} aria-label={t(lang, 'Situação', 'Status')} onChange={e => setFields({ status: e.target.value })}>
+        <select className={`input prep-status-select st-${adv.status}`} value={adv.status} aria-label={t(lang, 'Situação da aventura', 'Adventure status')} title={t(lang, 'Situação da aventura', 'Adventure status')} onChange={e => setFields({ status: e.target.value })}>
           {STATUS.map(s => <option key={s.id} value={s.id}>{t(lang, s.pt, s.en)}</option>)}
         </select>
         <span className={`prep-save s-${saveState}`} role="status">{saveText}</span>
@@ -394,7 +447,7 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, onBack, onOpen,
       <div className="prep-toolbar">
         <div className="prep-seg" role="group" aria-label={t(lang, 'Modo', 'Mode')}>
           <button type="button" aria-pressed={mode === 'prep'} className={mode === 'prep' ? 'on' : ''} onClick={() => setMode('prep')}>✎ {t(lang, 'Preparar', 'Prepare')}</button>
-          <button type="button" aria-pressed={mode === 'play'} className={mode === 'play' ? 'on' : ''} onClick={() => setMode('play')}>▶ {t(lang, 'Em jogo', 'Playing')}</button>
+          <button type="button" aria-pressed={mode === 'play'} className={mode === 'play' ? 'on' : ''} onClick={() => setMode('play')}>▶ {t(lang, 'Conduzir', 'Run')}</button>
         </div>
         <div className="prep-seg" role="group" aria-label={t(lang, 'Visão', 'View')}>
           <button type="button" aria-pressed={view === 'map'} className={view === 'map' ? 'on' : ''} onClick={() => switchView('map')}>🗺 {t(lang, 'Mapa', 'Map')}</button>
@@ -447,7 +500,7 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, onBack, onOpen,
             onSelect={setSelected}
             onMoveNode={(id, x, y) => changeData(d => updateNode(d, id, { x, y }))}
             onConnect={(a, b) => connect(a, b)}
-            onCreateNode={createNode}
+            onCreateNode={createNode} focusId={selNode?.id}
             available={available} highlighted={hot} />
           <aside className="prep-side" aria-label={t(lang, 'Detalhes', 'Details')}>{side}</aside>
         </div>
@@ -461,6 +514,7 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, onBack, onOpen,
           {selEdge && <aside className="prep-side">{side}</aside>}
         </div>
       )}
+      {confirmEl}
     </div>
   );
 }
