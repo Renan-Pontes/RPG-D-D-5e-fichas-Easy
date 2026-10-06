@@ -1,0 +1,2740 @@
+[
+  {
+    "id": "fighter",
+    "classId": "fighter",
+    "pitch": {
+      "pt": "Fica na linha de frente e protege o grupo — o mais fácil de jogar.",
+      "en": "Holds the front line and protects the group — the easiest to play."
+    },
+    "howToPlay": {
+      "pt": "No seu turno, ande até o inimigo mais perigoso e ataque com a Espada Grande.\nSe o inimigo estiver longe, arremesse uma Azagaia.\nFerida? Use Retomar o Fôlego (ação bônus) para recuperar Pontos de Vida.",
+      "en": "On your turn, walk up to the most dangerous enemy and attack with your Greatsword.\nIf the enemy is far away, throw a Javelin.\nHurt? Use Second Wind (bonus action) to regain Hit Points."
+    },
+    "difficulty": {
+      "pt": "Fácil",
+      "en": "Easy"
+    },
+    "character": {
+      "id": "pregen-fighter",
+      "rulesVersion": "2024",
+      "createdAt": 0,
+      "updatedAt": 0,
+      "name": "Bruna Ferrocampo",
+      "player": "",
+      "race": "human",
+      "className": "fighter",
+      "level": 1,
+      "background": "soldier",
+      "alignment": "LG",
+      "xp": 0,
+      "levelingMode": "milestone",
+      "abilities": {
+        "str": 15,
+        "dex": 14,
+        "con": 13,
+        "int": 8,
+        "wis": 10,
+        "cha": 12
+      },
+      "raceBonus": {
+        "str": 2,
+        "dex": 1
+      },
+      "skillProfs": [
+        "athletics",
+        "intimidation",
+        "acrobatics",
+        "perception",
+        "insight"
+      ],
+      "skillExpertise": [],
+      "saveProfs": [
+        "str",
+        "con"
+      ],
+      "languages": [
+        "Common",
+        "Dwarvish",
+        "Elvish"
+      ],
+      "otherProfs": "Ferramentas: Dados",
+      "currentHp": 13,
+      "maxHp": 13,
+      "tempHp": 0,
+      "hitDiceUsed": 0,
+      "deathSaves": {
+        "success": 0,
+        "fail": 0
+      },
+      "inspiration": false,
+      "armor": "chainMail",
+      "hasShield": false,
+      "extraAcBonus": 0,
+      "speedOverride": 0,
+      "weapons": [
+        {
+          "id": "greatsword",
+          "name": "Espada Grande",
+          "damage": "2d6",
+          "dmgType": "slashing",
+          "props": [
+            "heavy",
+            "two-handed"
+          ],
+          "mastery": "graze",
+          "from": "classPack"
+        },
+        {
+          "id": "flail",
+          "name": "Mangual",
+          "damage": "1d8",
+          "dmgType": "bludgeoning",
+          "props": [],
+          "mastery": "sap",
+          "from": "classPack"
+        },
+        {
+          "id": "javelin",
+          "name": "Azagaia ×8",
+          "damage": "1d6",
+          "dmgType": "piercing",
+          "props": [
+            "thrown"
+          ],
+          "range": "30/120",
+          "mastery": "slow",
+          "qty": 8,
+          "from": "classPack"
+        },
+        {
+          "id": "spear",
+          "name": "Lança",
+          "damage": "1d6",
+          "dmgType": "piercing",
+          "props": [
+            "thrown",
+            "versatile"
+          ],
+          "range": "20/60",
+          "versatile": "1d8",
+          "mastery": "sap",
+          "from": "backgroundPack"
+        },
+        {
+          "id": "shortbow",
+          "name": "Arco Curto",
+          "damage": "1d6",
+          "dmgType": "piercing",
+          "props": [
+            "ammo",
+            "two-handed"
+          ],
+          "range": "80/320",
+          "mastery": "vex",
+          "from": "backgroundPack"
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Pacote de Explorador de Masmorras",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Flechas",
+          "qty": 20,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Dados",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Kit de Curandeiro",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Aljava",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Roupas de Viajante",
+          "qty": 1,
+          "from": "backgroundPack"
+        }
+      ],
+      "treasure": "",
+      "coins": {
+        "cp": 0,
+        "sp": 0,
+        "ep": 0,
+        "gp": 18,
+        "pp": 0
+      },
+      "spells": [],
+      "spellSlotsUsed": [],
+      "personality": "Fala pouco, cumpre o que promete e sempre divide a última ração.",
+      "ideals": "",
+      "bonds": "",
+      "flaws": "",
+      "backstory": "Bruna cresceu numa vila de fronteira e entrou para a milícia aos dezesseis anos. Depois de anos guardando muralhas, viu sua companhia ser dispensada sem pagamento. Agora vende a espada a quem precisa de proteção, mas só a causas que considera justas. Guarda o escudo velho do pai como lembrança.",
+      "appearance": "Alta, ombros largos, cabelo castanho preso numa trança curta e uma cicatriz no queixo.",
+      "age": "",
+      "height": "",
+      "weight": "",
+      "eyes": "",
+      "skin": "",
+      "hair": "",
+      "allies": "",
+      "notes": "",
+      "avatar": "/art/classes/fighter.webp",
+      "symbol": "",
+      "subclass": "",
+      "landType": "",
+      "starFormType": "",
+      "wildShapeUses": 0,
+      "conditions": [],
+      "tempEffects": [],
+      "npcs": [],
+      "customFeatures": [],
+      "classOptions": [
+        {
+          "classId": "fighter",
+          "pool": "fightingStyle",
+          "id": "defense",
+          "level": 1
+        },
+        {
+          "classId": "fighter",
+          "pool": "weaponMastery",
+          "id": "greatsword",
+          "level": 1
+        },
+        {
+          "classId": "fighter",
+          "pool": "weaponMastery",
+          "id": "flail",
+          "level": 1
+        },
+        {
+          "classId": "fighter",
+          "pool": "weaponMastery",
+          "id": "javelin",
+          "level": 1
+        }
+      ],
+      "toolProfs": [
+        "diceSet"
+      ],
+      "originFeat": "Savage Attacker",
+      "feats": [
+        {
+          "name": "Savage Attacker",
+          "id": "savageAttacker",
+          "level": 1,
+          "origin": "background",
+          "note": ""
+        },
+        {
+          "id": "tough",
+          "name": "Vigoroso",
+          "level": 1,
+          "note": "",
+          "origin": "species"
+        }
+      ],
+      "speciesChoices": {
+        "size": "Medium",
+        "skill": "insight"
+      },
+      "pregenId": "fighter"
+    }
+  },
+  {
+    "id": "barbarian",
+    "classId": "barbarian",
+    "pitch": {
+      "pt": "Entra em Fúria, aguenta pancada e bate muito forte — simples e divertido.",
+      "en": "Rages, shrugs off hits and hits very hard — simple and fun."
+    },
+    "howToPlay": {
+      "pt": "No começo da luta, entre em Fúria (ação bônus): você causa mais dano e sofre menos.\nDepois, ataque com o Machado Grande todo turno.\nSe precisar atacar de longe, arremesse uma Machadinha.",
+      "en": "At the start of a fight, enter a Rage (bonus action): you deal more damage and take less.\nThen attack with your Greataxe every turn.\nIf you need to attack from afar, throw a Handaxe."
+    },
+    "difficulty": {
+      "pt": "Média",
+      "en": "Average"
+    },
+    "character": {
+      "id": "pregen-barbarian",
+      "rulesVersion": "2024",
+      "createdAt": 0,
+      "updatedAt": 0,
+      "name": "Tarok Pedra-Alta",
+      "player": "",
+      "race": "goliath",
+      "className": "barbarian",
+      "level": 1,
+      "background": "farmer",
+      "alignment": "CG",
+      "xp": 0,
+      "levelingMode": "milestone",
+      "abilities": {
+        "str": 15,
+        "dex": 13,
+        "con": 14,
+        "int": 10,
+        "wis": 12,
+        "cha": 8
+      },
+      "raceBonus": {
+        "str": 2,
+        "con": 1
+      },
+      "skillProfs": [
+        "animalHandling",
+        "nature",
+        "perception",
+        "survival"
+      ],
+      "skillExpertise": [],
+      "saveProfs": [
+        "str",
+        "con"
+      ],
+      "languages": [
+        "Common",
+        "Giant",
+        "Dwarvish"
+      ],
+      "otherProfs": "Ferramentas: Ferramentas de Carpinteiro",
+      "currentHp": 16,
+      "maxHp": 16,
+      "tempHp": 0,
+      "hitDiceUsed": 0,
+      "deathSaves": {
+        "success": 0,
+        "fail": 0
+      },
+      "inspiration": false,
+      "armor": null,
+      "hasShield": false,
+      "extraAcBonus": 0,
+      "speedOverride": 0,
+      "weapons": [
+        {
+          "id": "greataxe",
+          "name": "Machado Grande",
+          "damage": "1d12",
+          "dmgType": "slashing",
+          "props": [
+            "heavy",
+            "two-handed"
+          ],
+          "mastery": "cleave",
+          "from": "classPack"
+        },
+        {
+          "id": "handaxe",
+          "name": "Machadinha ×4",
+          "damage": "1d6",
+          "dmgType": "slashing",
+          "props": [
+            "light",
+            "thrown"
+          ],
+          "range": "20/60",
+          "mastery": "vex",
+          "qty": 4,
+          "from": "classPack"
+        },
+        {
+          "id": "sickle",
+          "name": "Foice Curta",
+          "damage": "1d4",
+          "dmgType": "slashing",
+          "props": [
+            "light"
+          ],
+          "mastery": "nick",
+          "from": "backgroundPack"
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Pacote de Aventureiro",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Ferramentas de Carpinteiro",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Kit de Curandeiro",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Panela de Ferro",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Pá",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Roupas de Viajante",
+          "qty": 1,
+          "from": "backgroundPack"
+        }
+      ],
+      "treasure": "",
+      "coins": {
+        "cp": 0,
+        "sp": 0,
+        "ep": 0,
+        "gp": 45,
+        "pp": 0
+      },
+      "spells": [],
+      "spellSlotsUsed": [],
+      "personality": "Gentil com animais e crianças, assustador com quem ameaça os dois.",
+      "ideals": "",
+      "bonds": "",
+      "flaws": "",
+      "backstory": "Tarok cuidava de cabras e do pomar da família no alto das montanhas. Quando bandidos queimaram o celeiro, ele descobriu uma raiva que não sabia que tinha. Desceu ao vale para garantir que ninguém mais perca a colheita para a violência. Ainda carrega sementes no bolso para plantar onde passar.",
+      "appearance": "Enorme, pele cinzenta com manchas escuras como pedra, mãos calejadas e um sorriso tímido.",
+      "age": "",
+      "height": "",
+      "weight": "",
+      "eyes": "",
+      "skin": "",
+      "hair": "",
+      "allies": "",
+      "notes": "",
+      "avatar": "/art/classes/barbarian.webp",
+      "symbol": "",
+      "subclass": "",
+      "landType": "",
+      "starFormType": "",
+      "wildShapeUses": 0,
+      "conditions": [],
+      "tempEffects": [],
+      "npcs": [],
+      "customFeatures": [],
+      "classOptions": [
+        {
+          "classId": "barbarian",
+          "pool": "weaponMastery",
+          "id": "greataxe",
+          "level": 1
+        },
+        {
+          "classId": "barbarian",
+          "pool": "weaponMastery",
+          "id": "handaxe",
+          "level": 1
+        }
+      ],
+      "toolProfs": [
+        "carpentersTools"
+      ],
+      "originFeat": "Tough",
+      "feats": [
+        {
+          "name": "Tough",
+          "id": "tough",
+          "level": 1,
+          "origin": "background",
+          "note": ""
+        }
+      ],
+      "speciesChoices": {
+        "ancestry": "stone"
+      },
+      "pregenId": "barbarian"
+    }
+  },
+  {
+    "id": "rogue",
+    "classId": "rogue",
+    "pitch": {
+      "pt": "Ágil e esperto: se esconde, acha armadilhas e acerta o ponto fraco do inimigo.",
+      "en": "Nimble and clever: hides, finds traps and hits the enemy where it hurts."
+    },
+    "howToPlay": {
+      "pt": "Ataque com o Arco Curto ou a Espada Curta quando um aliado estiver perto do inimigo: isso libera o Ataque Furtivo (dano extra).\nDepois de atacar, use a Ação Ardilosa (ação bônus) para se esconder ou se afastar.\nFora do combate, ofereça-se para abrir fechaduras e procurar armadilhas.",
+      "en": "Attack with your Shortbow or Shortsword when an ally is next to the enemy: that unlocks Sneak Attack (extra damage).\nAfter attacking, use Cunning Action (bonus action) to hide or step away.\nOutside combat, offer to pick locks and look for traps."
+    },
+    "difficulty": {
+      "pt": "Fácil",
+      "en": "Easy"
+    },
+    "character": {
+      "id": "pregen-rogue",
+      "rulesVersion": "2024",
+      "createdAt": 0,
+      "updatedAt": 0,
+      "name": "Pipo Mão-Leve",
+      "player": "",
+      "race": "halfling",
+      "className": "rogue",
+      "level": 1,
+      "background": "criminal",
+      "alignment": "CG",
+      "xp": 0,
+      "levelingMode": "milestone",
+      "abilities": {
+        "str": 12,
+        "dex": 15,
+        "con": 13,
+        "int": 14,
+        "wis": 10,
+        "cha": 8
+      },
+      "raceBonus": {
+        "dex": 2,
+        "int": 1
+      },
+      "skillProfs": [
+        "sleightOfHand",
+        "stealth",
+        "perception",
+        "acrobatics",
+        "investigation",
+        "insight"
+      ],
+      "skillExpertise": [],
+      "saveProfs": [
+        "dex",
+        "int"
+      ],
+      "languages": [
+        "Common",
+        "Thieves' Cant",
+        "Halfling",
+        "Dwarvish",
+        "Elvish"
+      ],
+      "otherProfs": "Ferramentas: Ferramentas de Ladrão",
+      "currentHp": 9,
+      "maxHp": 9,
+      "tempHp": 0,
+      "hitDiceUsed": 0,
+      "deathSaves": {
+        "success": 0,
+        "fail": 0
+      },
+      "inspiration": false,
+      "armor": "leather",
+      "hasShield": false,
+      "extraAcBonus": 0,
+      "speedOverride": 0,
+      "weapons": [
+        {
+          "id": "dagger",
+          "name": "Adaga ×4",
+          "damage": "1d4",
+          "dmgType": "piercing",
+          "props": [
+            "finesse",
+            "light",
+            "thrown"
+          ],
+          "range": "20/60",
+          "mastery": "nick",
+          "qty": 4,
+          "from": "classPack"
+        },
+        {
+          "id": "shortsword",
+          "name": "Espada Curta",
+          "damage": "1d6",
+          "dmgType": "piercing",
+          "props": [
+            "finesse",
+            "light"
+          ],
+          "mastery": "vex",
+          "from": "classPack"
+        },
+        {
+          "id": "shortbow",
+          "name": "Arco Curto",
+          "damage": "1d6",
+          "dmgType": "piercing",
+          "props": [
+            "ammo",
+            "two-handed"
+          ],
+          "range": "80/320",
+          "mastery": "vex",
+          "from": "classPack"
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Flechas",
+          "qty": 20,
+          "from": "classPack"
+        },
+        {
+          "name": "Aljava",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Ferramentas de Ladrão",
+          "qty": 2,
+          "from": "classPack"
+        },
+        {
+          "name": "Pacote de Assaltante",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Pé de Cabra",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Bolsa",
+          "qty": 2,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Roupas de Viajante",
+          "qty": 1,
+          "from": "backgroundPack"
+        }
+      ],
+      "treasure": "",
+      "coins": {
+        "cp": 0,
+        "sp": 0,
+        "ep": 0,
+        "gp": 24,
+        "pp": 0
+      },
+      "spells": [],
+      "spellSlotsUsed": [],
+      "personality": "Brincalhão, curioso e incapaz de resistir a uma porta trancada.",
+      "ideals": "",
+      "bonds": "",
+      "flaws": "",
+      "backstory": "Pipo cresceu nas docas de uma cidade grande, abrindo fechaduras para uma quadrilha em troca de comida. Um dia a quadrilha o deixou para trás numa fuga, e ele jurou nunca mais depender de quem não confia. Hoje usa seus talentos para o bem, quase sempre. Coleciona chaves de portas que já abriu.",
+      "appearance": "Baixinho, cabelo cacheado ruivo, roupas escuras cheias de bolsos e pés descalços.",
+      "age": "",
+      "height": "",
+      "weight": "",
+      "eyes": "",
+      "skin": "",
+      "hair": "",
+      "allies": "",
+      "notes": "",
+      "avatar": "/art/classes/rogue.webp",
+      "symbol": "",
+      "subclass": "",
+      "landType": "",
+      "starFormType": "",
+      "wildShapeUses": 0,
+      "conditions": [],
+      "tempEffects": [],
+      "npcs": [],
+      "customFeatures": [],
+      "classOptions": [
+        {
+          "classId": "rogue",
+          "pool": "weaponMastery",
+          "id": "dagger",
+          "level": 1
+        },
+        {
+          "classId": "rogue",
+          "pool": "weaponMastery",
+          "id": "shortsword",
+          "level": 1
+        },
+        {
+          "classId": "rogue",
+          "pool": "expertise",
+          "id": "stealth",
+          "level": 1
+        },
+        {
+          "classId": "rogue",
+          "pool": "expertise",
+          "id": "sleightOfHand",
+          "level": 1
+        }
+      ],
+      "toolProfs": [
+        "thievesTools"
+      ],
+      "originFeat": "Alert",
+      "feats": [
+        {
+          "name": "Alert",
+          "id": "alert",
+          "level": 1,
+          "origin": "background",
+          "note": ""
+        }
+      ],
+      "speciesChoices": {},
+      "pregenId": "rogue"
+    }
+  },
+  {
+    "id": "cleric",
+    "classId": "cleric",
+    "pitch": {
+      "pt": "Cura os amigos, protege com a fé e ainda luta de escudo e maça.",
+      "en": "Heals friends, shields them with faith and still fights with shield and mace."
+    },
+    "howToPlay": {
+      "pt": "Se um aliado cair, lance Palavra Curativa (ação bônus, de longe) para levantá-lo.\nNo resto do turno, use Chama Sagrada contra inimigos distantes ou ataque com a Maça de perto.\nAntes de uma luta difícil, lance Bênção no grupo.",
+      "en": "If an ally drops, cast Healing Word (bonus action, at range) to get them back up.\nFor the rest of your turn, use Sacred Flame on distant foes or swing your Mace up close.\nBefore a hard fight, cast Bless on the group."
+    },
+    "difficulty": {
+      "pt": "Média",
+      "en": "Average"
+    },
+    "character": {
+      "id": "pregen-cleric",
+      "rulesVersion": "2024",
+      "createdAt": 0,
+      "updatedAt": 0,
+      "name": "Dagna Brasaforte",
+      "player": "",
+      "race": "dwarf",
+      "className": "cleric",
+      "level": 1,
+      "background": "acolyte",
+      "alignment": "LG",
+      "xp": 0,
+      "levelingMode": "milestone",
+      "abilities": {
+        "str": 14,
+        "dex": 8,
+        "con": 13,
+        "int": 10,
+        "wis": 15,
+        "cha": 12
+      },
+      "raceBonus": {
+        "wis": 2,
+        "cha": 1
+      },
+      "skillProfs": [
+        "insight",
+        "religion",
+        "medicine",
+        "persuasion"
+      ],
+      "skillExpertise": [],
+      "saveProfs": [
+        "wis",
+        "cha"
+      ],
+      "languages": [
+        "Common",
+        "Dwarvish",
+        "Elvish"
+      ],
+      "otherProfs": "Ferramentas: Suprimentos de Calígrafo",
+      "currentHp": 10,
+      "maxHp": 10,
+      "tempHp": 0,
+      "hitDiceUsed": 0,
+      "deathSaves": {
+        "success": 0,
+        "fail": 0
+      },
+      "inspiration": false,
+      "armor": "chainShirt",
+      "hasShield": true,
+      "extraAcBonus": 0,
+      "speedOverride": 0,
+      "weapons": [
+        {
+          "id": "mace",
+          "name": "Maça",
+          "damage": "1d6",
+          "dmgType": "bludgeoning",
+          "props": [],
+          "mastery": "sap",
+          "from": "classPack"
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Símbolo Sagrado",
+          "qty": 2,
+          "from": "classPack"
+        },
+        {
+          "name": "Pacote de Sacerdote",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Suprimentos de Calígrafo",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Livro (orações)",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Pergaminho (folhas)",
+          "qty": 10,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Túnica",
+          "qty": 1,
+          "from": "backgroundPack"
+        }
+      ],
+      "treasure": "",
+      "coins": {
+        "cp": 0,
+        "sp": 0,
+        "ep": 0,
+        "gp": 15,
+        "pp": 0
+      },
+      "spells": [
+        {
+          "id": "sacredFlame",
+          "prepared": true
+        },
+        {
+          "id": "guidance",
+          "prepared": true
+        },
+        {
+          "id": "thaumaturgy",
+          "prepared": true
+        },
+        {
+          "id": "cureWounds",
+          "prepared": true
+        },
+        {
+          "id": "bless",
+          "prepared": true
+        },
+        {
+          "id": "guidingBolt",
+          "prepared": true
+        },
+        {
+          "id": "shieldOfFaith",
+          "prepared": true
+        }
+      ],
+      "spellSlotsUsed": [],
+      "personality": "Teimosa, calorosa e sempre com um provérbio do templo na ponta da língua.",
+      "ideals": "",
+      "bonds": "",
+      "flaws": "",
+      "backstory": "Dagna serviu por anos na forja-templo do seu clã, onde aprendeu que fé também se martela. Quando uma praga atingiu a cidade vizinha, foi a única sacerdotisa que aceitou descer da montanha para ajudar. Lá percebeu que o mundo precisa de mais cura do que o templo podia dar. Partiu levando só o escudo e o símbolo sagrado.",
+      "appearance": "Baixa e robusta, barba ruiva trançada com contas de bronze e olhos cor de brasa.",
+      "age": "",
+      "height": "",
+      "weight": "",
+      "eyes": "",
+      "skin": "",
+      "hair": "",
+      "allies": "",
+      "notes": "",
+      "avatar": "/art/classes/cleric.webp",
+      "symbol": "",
+      "subclass": "",
+      "landType": "",
+      "starFormType": "",
+      "wildShapeUses": 0,
+      "conditions": [],
+      "tempEffects": [],
+      "npcs": [],
+      "customFeatures": [],
+      "classOptions": [
+        {
+          "classId": "cleric",
+          "pool": "divineOrder",
+          "id": "protector",
+          "level": 1
+        }
+      ],
+      "toolProfs": [
+        "calligraphersSupplies"
+      ],
+      "originFeat": "Magic Initiate (Cleric)",
+      "feats": [
+        {
+          "name": "Magic Initiate (Cleric)",
+          "id": "magicInitiate",
+          "level": 1,
+          "origin": "background",
+          "note": "",
+          "picks": {
+            "spellList": "cleric",
+            "spellAbility": "wis",
+            "cantrip": [
+              "light",
+              "spareTheDying"
+            ],
+            "spell": [
+              "healingWord"
+            ]
+          }
+        }
+      ],
+      "speciesChoices": {},
+      "pregenId": "cleric"
+    }
+  },
+  {
+    "id": "wizard",
+    "classId": "wizard",
+    "pitch": {
+      "pt": "O maior repertório de magias do jogo: resolve problemas com o livro certo.",
+      "en": "The biggest spell list in the game: solves problems with the right book."
+    },
+    "howToPlay": {
+      "pt": "Fique atrás dos aliados e ataque com Raio de Gelo ou Raio de Fogo, que acertam de longe.\nContra um grupo de inimigos, lance Mísseis Mágicos (nunca erra) ou Sono.\nSe for acertado, a magia Escudo (reação) pode transformar o golpe em erro.",
+      "en": "Stay behind your allies and attack with Ray of Frost or Fire Bolt from range.\nAgainst a group of enemies, cast Magic Missile (never misses) or Sleep.\nIf you get hit, the Shield spell (reaction) can turn the hit into a miss."
+    },
+    "difficulty": {
+      "pt": "Média",
+      "en": "Average"
+    },
+    "character": {
+      "id": "pregen-wizard",
+      "rulesVersion": "2024",
+      "createdAt": 0,
+      "updatedAt": 0,
+      "name": "Elarion Folhaclara",
+      "player": "",
+      "race": "elf",
+      "className": "wizard",
+      "level": 1,
+      "background": "sage",
+      "alignment": "NG",
+      "xp": 0,
+      "levelingMode": "milestone",
+      "abilities": {
+        "str": 8,
+        "dex": 12,
+        "con": 13,
+        "int": 15,
+        "wis": 14,
+        "cha": 10
+      },
+      "raceBonus": {
+        "int": 2,
+        "wis": 1
+      },
+      "skillProfs": [
+        "arcana",
+        "history",
+        "investigation",
+        "insight",
+        "perception"
+      ],
+      "skillExpertise": [],
+      "saveProfs": [
+        "int",
+        "wis"
+      ],
+      "languages": [
+        "Common",
+        "Elvish",
+        "Dwarvish"
+      ],
+      "otherProfs": "Ferramentas: Suprimentos de Calígrafo",
+      "currentHp": 7,
+      "maxHp": 7,
+      "tempHp": 0,
+      "hitDiceUsed": 0,
+      "deathSaves": {
+        "success": 0,
+        "fail": 0
+      },
+      "inspiration": false,
+      "armor": null,
+      "hasShield": false,
+      "extraAcBonus": 0,
+      "speedOverride": 0,
+      "weapons": [
+        {
+          "id": "dagger",
+          "name": "Adaga ×2",
+          "damage": "1d4",
+          "dmgType": "piercing",
+          "props": [
+            "finesse",
+            "light",
+            "thrown"
+          ],
+          "range": "20/60",
+          "mastery": "nick",
+          "qty": 2,
+          "from": "classPack"
+        },
+        {
+          "id": "quarterstaff",
+          "name": "Bordão ×2",
+          "damage": "1d6",
+          "dmgType": "bludgeoning",
+          "props": [
+            "versatile"
+          ],
+          "versatile": "1d8",
+          "mastery": "topple",
+          "qty": 2,
+          "note": "Foco arcano",
+          "from": "classPack"
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Túnica",
+          "qty": 2,
+          "from": "classPack"
+        },
+        {
+          "name": "Grimório",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Pacote de Erudito",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Suprimentos de Calígrafo",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Livro (história)",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Pergaminho (folhas)",
+          "qty": 8,
+          "from": "backgroundPack"
+        }
+      ],
+      "treasure": "",
+      "coins": {
+        "cp": 0,
+        "sp": 0,
+        "ep": 0,
+        "gp": 13,
+        "pp": 0
+      },
+      "spells": [
+        {
+          "id": "rayOfFrost",
+          "prepared": true
+        },
+        {
+          "id": "light",
+          "prepared": true
+        },
+        {
+          "id": "mageHand",
+          "prepared": true
+        },
+        {
+          "id": "magicMissile",
+          "prepared": true,
+          "inBook": true
+        },
+        {
+          "id": "mageArmor",
+          "prepared": true,
+          "inBook": true
+        },
+        {
+          "id": "sleep",
+          "prepared": true,
+          "inBook": true
+        },
+        {
+          "id": "thunderwave",
+          "prepared": true,
+          "inBook": true
+        },
+        {
+          "id": "detectMagic",
+          "prepared": false,
+          "inBook": true
+        },
+        {
+          "id": "featherFall",
+          "prepared": false,
+          "inBook": true
+        }
+      ],
+      "spellSlotsUsed": [],
+      "personality": "Educado, distraído e incapaz de passar por uma biblioteca sem entrar.",
+      "ideals": "",
+      "bonds": "",
+      "flaws": "",
+      "backstory": "Elarion passou mais de um século copiando tomos antigos numa torre élfica. Ao encontrar um mapa rasurado que apontava para uma biblioteca perdida, percebeu que tinha lido sobre o mundo, mas nunca o visto. Saiu para encontrar a biblioteca e aprender o que os livros não contam. Anota tudo num caderno que já está quase cheio.",
+      "appearance": "Esguio, cabelo prateado longo, óculos redondos e uma túnica azul manchada de tinta.",
+      "age": "",
+      "height": "",
+      "weight": "",
+      "eyes": "",
+      "skin": "",
+      "hair": "",
+      "allies": "",
+      "notes": "",
+      "avatar": "/art/classes/wizard.webp",
+      "symbol": "",
+      "subclass": "",
+      "landType": "",
+      "starFormType": "",
+      "wildShapeUses": 0,
+      "conditions": [],
+      "tempEffects": [],
+      "npcs": [],
+      "customFeatures": [],
+      "classOptions": [],
+      "toolProfs": [
+        "calligraphersSupplies"
+      ],
+      "originFeat": "Magic Initiate (Wizard)",
+      "feats": [
+        {
+          "name": "Magic Initiate (Wizard)",
+          "id": "magicInitiate",
+          "level": 1,
+          "origin": "background",
+          "note": "",
+          "picks": {
+            "spellList": "wizard",
+            "spellAbility": "int",
+            "cantrip": [
+              "fireBolt",
+              "minorIllusion"
+            ],
+            "spell": [
+              "shield"
+            ]
+          }
+        }
+      ],
+      "speciesChoices": {
+        "lineage": "high",
+        "skill": "perception",
+        "spellAbility": "int"
+      },
+      "pregenId": "wizard"
+    }
+  },
+  {
+    "id": "ranger",
+    "classId": "ranger",
+    "pitch": {
+      "pt": "Atiradora da floresta: acerta de longe, rastreia qualquer coisa e conhece a natureza.",
+      "en": "Forest sharpshooter: hits from afar, tracks anything and knows the wild."
+    },
+    "howToPlay": {
+      "pt": "No primeiro turno da luta, lance Marca do Caçador (ação bônus) no inimigo mais forte.\nDepois, atire com o Arco Longo todo turno: a marca soma dano extra.\nFora do combate, use Sobrevivência para rastrear e guiar o grupo.",
+      "en": "On the first turn of a fight, cast Hunter's Mark (bonus action) on the toughest enemy.\nThen shoot your Longbow every turn: the mark adds extra damage.\nOutside combat, use Survival to track and guide the group."
+    },
+    "difficulty": {
+      "pt": "Média",
+      "en": "Average"
+    },
+    "character": {
+      "id": "pregen-ranger",
+      "rulesVersion": "2024",
+      "createdAt": 0,
+      "updatedAt": 0,
+      "name": "Naira Ventoverde",
+      "player": "",
+      "race": "elf",
+      "className": "ranger",
+      "level": 1,
+      "background": "guide",
+      "alignment": "NG",
+      "xp": 0,
+      "levelingMode": "milestone",
+      "abilities": {
+        "str": 12,
+        "dex": 15,
+        "con": 13,
+        "int": 8,
+        "wis": 14,
+        "cha": 10
+      },
+      "raceBonus": {
+        "dex": 2,
+        "wis": 1
+      },
+      "skillProfs": [
+        "stealth",
+        "survival",
+        "athletics",
+        "insight",
+        "nature",
+        "perception"
+      ],
+      "skillExpertise": [],
+      "saveProfs": [
+        "str",
+        "dex"
+      ],
+      "languages": [
+        "Common",
+        "Elvish",
+        "Dwarvish"
+      ],
+      "otherProfs": "Ferramentas: Ferramentas de Cartógrafo",
+      "currentHp": 11,
+      "maxHp": 11,
+      "tempHp": 0,
+      "hitDiceUsed": 0,
+      "deathSaves": {
+        "success": 0,
+        "fail": 0
+      },
+      "inspiration": false,
+      "armor": "studdedLeather",
+      "hasShield": false,
+      "extraAcBonus": 0,
+      "speedOverride": 0,
+      "weapons": [
+        {
+          "id": "scimitar",
+          "name": "Cimitarra",
+          "damage": "1d6",
+          "dmgType": "slashing",
+          "props": [
+            "finesse",
+            "light"
+          ],
+          "mastery": "nick",
+          "from": "classPack"
+        },
+        {
+          "id": "shortsword",
+          "name": "Espada Curta",
+          "damage": "1d6",
+          "dmgType": "piercing",
+          "props": [
+            "finesse",
+            "light"
+          ],
+          "mastery": "vex",
+          "from": "classPack"
+        },
+        {
+          "id": "longbow",
+          "name": "Arco Longo",
+          "damage": "1d8",
+          "dmgType": "piercing",
+          "props": [
+            "ammo",
+            "heavy",
+            "two-handed"
+          ],
+          "range": "150/600",
+          "mastery": "slow",
+          "from": "classPack"
+        },
+        {
+          "id": "shortbow",
+          "name": "Arco Curto",
+          "damage": "1d6",
+          "dmgType": "piercing",
+          "props": [
+            "ammo",
+            "two-handed"
+          ],
+          "range": "80/320",
+          "mastery": "vex",
+          "from": "backgroundPack"
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Flechas",
+          "qty": 40,
+          "from": "classPack"
+        },
+        {
+          "name": "Aljava",
+          "qty": 2,
+          "from": "classPack"
+        },
+        {
+          "name": "Foco Druídico (ramo de visco)",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Pacote de Aventureiro",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Ferramentas de Cartógrafo",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Saco de Dormir",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Tenda",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Roupas de Viajante",
+          "qty": 1,
+          "from": "backgroundPack"
+        }
+      ],
+      "treasure": "",
+      "coins": {
+        "cp": 0,
+        "sp": 0,
+        "ep": 0,
+        "gp": 10,
+        "pp": 0
+      },
+      "spells": [
+        {
+          "id": "cureWounds",
+          "prepared": true
+        },
+        {
+          "id": "ensnaringStrike",
+          "prepared": true
+        }
+      ],
+      "spellSlotsUsed": [],
+      "personality": "Calma, observadora e desconfiada de quem nunca dormiu ao relento.",
+      "ideals": "",
+      "bonds": "",
+      "flaws": "",
+      "backstory": "Naira guiava caravanas pela floresta antiga onde nasceu, conhecendo cada trilha e cada perigo. Quando criaturas estranhas começaram a sair da mata e atacar viajantes, ela decidiu caçar a origem do problema. Deixou sua aldeia com o arco da mãe e uma promessa de voltar. Fala com as árvores quando acha que ninguém está ouvindo.",
+      "appearance": "Pele morena, orelhas pontudas, cabelo verde-escuro curto e capa cor de musgo.",
+      "age": "",
+      "height": "",
+      "weight": "",
+      "eyes": "",
+      "skin": "",
+      "hair": "",
+      "allies": "",
+      "notes": "",
+      "avatar": "/art/classes/ranger.webp",
+      "symbol": "",
+      "subclass": "",
+      "landType": "",
+      "starFormType": "",
+      "wildShapeUses": 0,
+      "conditions": [],
+      "tempEffects": [],
+      "npcs": [],
+      "customFeatures": [],
+      "classOptions": [
+        {
+          "classId": "ranger",
+          "pool": "weaponMastery",
+          "id": "scimitar",
+          "level": 1
+        },
+        {
+          "classId": "ranger",
+          "pool": "weaponMastery",
+          "id": "shortsword",
+          "level": 1
+        }
+      ],
+      "toolProfs": [
+        "cartographersTools"
+      ],
+      "originFeat": "Magic Initiate (Druid)",
+      "feats": [
+        {
+          "name": "Magic Initiate (Druid)",
+          "id": "magicInitiate",
+          "level": 1,
+          "origin": "background",
+          "note": "",
+          "picks": {
+            "spellList": "druid",
+            "spellAbility": "wis",
+            "cantrip": [
+              "guidance",
+              "produceFlame"
+            ],
+            "spell": [
+              "goodberry"
+            ]
+          }
+        }
+      ],
+      "speciesChoices": {
+        "lineage": "wood",
+        "skill": "perception",
+        "spellAbility": "wis"
+      },
+      "pregenId": "ranger"
+    }
+  },
+  {
+    "id": "paladin",
+    "classId": "paladin",
+    "pitch": {
+      "pt": "Cavaleiro sagrado de armadura pesada: protege, cura com as mãos e golpeia com luz.",
+      "en": "Holy knight in heavy armor: protects, heals with a touch and strikes with light."
+    },
+    "howToPlay": {
+      "pt": "Fique na frente do grupo e ataque com a Espada Longa (escudo no outro braço).\nUse Cura pelas Mãos (ação bônus) para curar quem estiver ferido, inclusive você.\nNum golpe importante, lance Golpe Abrasador para queimar o inimigo.",
+      "en": "Stand in front of the group and attack with your Longsword (shield on the other arm).\nUse Lay On Hands (bonus action) to heal whoever is hurt, including yourself.\nOn an important hit, cast Searing Smite to burn the enemy."
+    },
+    "difficulty": {
+      "pt": "Média",
+      "en": "Average"
+    },
+    "character": {
+      "id": "pregen-paladin",
+      "rulesVersion": "2024",
+      "createdAt": 0,
+      "updatedAt": 0,
+      "name": "Kaelor Escama-de-Ouro",
+      "player": "",
+      "race": "dragonborn",
+      "className": "paladin",
+      "level": 1,
+      "background": "noble",
+      "alignment": "LG",
+      "xp": 0,
+      "levelingMode": "milestone",
+      "abilities": {
+        "str": 15,
+        "dex": 10,
+        "con": 13,
+        "int": 8,
+        "wis": 12,
+        "cha": 14
+      },
+      "raceBonus": {
+        "str": 2,
+        "cha": 1
+      },
+      "skillProfs": [
+        "history",
+        "persuasion",
+        "athletics",
+        "insight",
+        "perception",
+        "medicine",
+        "intimidation"
+      ],
+      "skillExpertise": [],
+      "saveProfs": [
+        "wis",
+        "cha"
+      ],
+      "languages": [
+        "Common",
+        "Draconic",
+        "Dwarvish"
+      ],
+      "otherProfs": "Ferramentas: Dados",
+      "currentHp": 11,
+      "maxHp": 11,
+      "tempHp": 0,
+      "hitDiceUsed": 0,
+      "deathSaves": {
+        "success": 0,
+        "fail": 0
+      },
+      "inspiration": false,
+      "armor": "chainMail",
+      "hasShield": true,
+      "extraAcBonus": 0,
+      "speedOverride": 0,
+      "weapons": [
+        {
+          "id": "longsword",
+          "name": "Espada Longa",
+          "damage": "1d8",
+          "dmgType": "slashing",
+          "props": [
+            "versatile"
+          ],
+          "versatile": "1d10",
+          "mastery": "sap",
+          "from": "classPack"
+        },
+        {
+          "id": "javelin",
+          "name": "Azagaia ×6",
+          "damage": "1d6",
+          "dmgType": "piercing",
+          "props": [
+            "thrown"
+          ],
+          "range": "30/120",
+          "mastery": "slow",
+          "qty": 6,
+          "from": "classPack"
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Símbolo Sagrado",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Pacote de Sacerdote",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Dados",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Roupas Finas",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Perfume",
+          "qty": 1,
+          "from": "backgroundPack"
+        }
+      ],
+      "treasure": "",
+      "coins": {
+        "cp": 0,
+        "sp": 0,
+        "ep": 0,
+        "gp": 38,
+        "pp": 0
+      },
+      "spells": [
+        {
+          "id": "searingSmite",
+          "prepared": true
+        },
+        {
+          "id": "heroism",
+          "prepared": true
+        }
+      ],
+      "spellSlotsUsed": [],
+      "personality": "Cortês, orgulhoso da família e incapaz de ignorar um pedido de socorro.",
+      "ideals": "",
+      "bonds": "",
+      "flaws": "",
+      "backstory": "Kaelor é o filho mais novo de uma casa nobre que descende de um antigo dragão dourado. Cresceu ouvindo histórias de ancestrais heroicos, mas viu a família trocar a honra por ouro. Fez um juramento diante do altar da cidade de devolver ao nome da casa o seu brilho. Leva o brasão no escudo para não esquecer a promessa.",
+      "appearance": "Escamas douradas, olhos âmbar, armadura polida e uma capa vermelha com o brasão da família.",
+      "age": "",
+      "height": "",
+      "weight": "",
+      "eyes": "",
+      "skin": "",
+      "hair": "",
+      "allies": "",
+      "notes": "",
+      "avatar": "/art/classes/paladin.webp",
+      "symbol": "",
+      "subclass": "",
+      "landType": "",
+      "starFormType": "",
+      "wildShapeUses": 0,
+      "conditions": [],
+      "tempEffects": [],
+      "npcs": [],
+      "customFeatures": [],
+      "classOptions": [
+        {
+          "classId": "paladin",
+          "pool": "weaponMastery",
+          "id": "longsword",
+          "level": 1
+        },
+        {
+          "classId": "paladin",
+          "pool": "weaponMastery",
+          "id": "javelin",
+          "level": 1
+        }
+      ],
+      "toolProfs": [
+        "diceSet"
+      ],
+      "originFeat": "Skilled",
+      "feats": [
+        {
+          "name": "Skilled",
+          "id": "skilled",
+          "level": 1,
+          "origin": "background",
+          "note": "",
+          "picks": {
+            "skillOrTool": [
+              "perception",
+              "medicine",
+              "intimidation"
+            ]
+          }
+        }
+      ],
+      "speciesChoices": {
+        "ancestry": "gold"
+      },
+      "pregenId": "paladin"
+    }
+  },
+  {
+    "id": "bard",
+    "classId": "bard",
+    "pitch": {
+      "pt": "Inspira os amigos, encanta os inimigos e resolve tudo na conversa.",
+      "en": "Inspires friends, charms foes and talks her way through anything."
+    },
+    "howToPlay": {
+      "pt": "Dê Inspiração Bárdica (ação bônus) a um aliado antes de um teste ou ataque difícil.\nAtaque com Zombaria Cruel: o alvo sofre dano psíquico e erra mais o próximo ataque.\nSe alguém cair, lance Palavra Curativa (ação bônus) para levantá-lo.",
+      "en": "Give Bardic Inspiration (bonus action) to an ally before a hard check or attack.\nAttack with Vicious Mockery: the target takes psychic damage and is likelier to miss.\nIf someone drops, cast Healing Word (bonus action) to get them back up."
+    },
+    "difficulty": {
+      "pt": "Desafiadora",
+      "en": "Challenging"
+    },
+    "character": {
+      "id": "pregen-bard",
+      "rulesVersion": "2024",
+      "createdAt": 0,
+      "updatedAt": 0,
+      "name": "Tainá Voz-de-Mel",
+      "player": "",
+      "race": "human",
+      "className": "bard",
+      "level": 1,
+      "background": "entertainer",
+      "alignment": "CG",
+      "xp": 0,
+      "levelingMode": "milestone",
+      "abilities": {
+        "str": 8,
+        "dex": 14,
+        "con": 12,
+        "int": 13,
+        "wis": 10,
+        "cha": 15
+      },
+      "raceBonus": {
+        "cha": 2,
+        "dex": 1
+      },
+      "skillProfs": [
+        "acrobatics",
+        "performance",
+        "persuasion",
+        "perception",
+        "insight",
+        "stealth",
+        "deception",
+        "history",
+        "arcana"
+      ],
+      "skillExpertise": [],
+      "saveProfs": [
+        "dex",
+        "cha"
+      ],
+      "languages": [
+        "Common",
+        "Dwarvish",
+        "Elvish"
+      ],
+      "otherProfs": "Ferramentas: Tambor, Alaúde, Flauta, Lira, Trompa, Viola, Flauta de Pã",
+      "currentHp": 9,
+      "maxHp": 9,
+      "tempHp": 0,
+      "hitDiceUsed": 0,
+      "deathSaves": {
+        "success": 0,
+        "fail": 0
+      },
+      "inspiration": false,
+      "armor": "leather",
+      "hasShield": false,
+      "extraAcBonus": 0,
+      "speedOverride": 0,
+      "weapons": [
+        {
+          "id": "dagger",
+          "name": "Adaga ×2",
+          "damage": "1d4",
+          "dmgType": "piercing",
+          "props": [
+            "finesse",
+            "light",
+            "thrown"
+          ],
+          "range": "20/60",
+          "mastery": "nick",
+          "qty": 2,
+          "from": "classPack"
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Alaúde",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Pacote de Artista",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Tambor",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Fantasia",
+          "qty": 2,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Espelho",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Perfume",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Roupas de Viajante",
+          "qty": 1,
+          "from": "backgroundPack"
+        }
+      ],
+      "treasure": "",
+      "coins": {
+        "cp": 0,
+        "sp": 0,
+        "ep": 0,
+        "gp": 30,
+        "pp": 0
+      },
+      "spells": [
+        {
+          "id": "viciousMockery",
+          "prepared": true
+        },
+        {
+          "id": "dancingLights",
+          "prepared": true
+        },
+        {
+          "id": "healingWord",
+          "prepared": true
+        },
+        {
+          "id": "dissonantWhispers",
+          "prepared": true
+        },
+        {
+          "id": "charmPerson",
+          "prepared": true
+        },
+        {
+          "id": "colorSpray",
+          "prepared": true
+        }
+      ],
+      "spellSlotsUsed": [],
+      "personality": "Faz amizade com qualquer um em cinco minutos e transforma tudo em música.",
+      "ideals": "",
+      "bonds": "",
+      "flaws": "",
+      "backstory": "Tainá viajou desde pequena com uma trupe de artistas, tocando alaúde em praças e tavernas. Numa noite, uma canção antiga que ela tocou fez as velas da taverna dançarem sozinhas. Desde então quer descobrir a origem da magia escondida nas músicas. Coleciona canções de cada lugar por onde passa.",
+      "appearance": "Cabelo preto volumoso com fitas coloridas, sorriso largo e roupas cheias de remendos alegres.",
+      "age": "",
+      "height": "",
+      "weight": "",
+      "eyes": "",
+      "skin": "",
+      "hair": "",
+      "allies": "",
+      "notes": "",
+      "avatar": "/art/classes/bard.webp",
+      "symbol": "",
+      "subclass": "",
+      "landType": "",
+      "starFormType": "",
+      "wildShapeUses": 0,
+      "conditions": [],
+      "tempEffects": [],
+      "npcs": [],
+      "customFeatures": [],
+      "classOptions": [
+        {
+          "classId": "bard",
+          "pool": "musicalInstrument",
+          "id": "lute",
+          "level": 1
+        },
+        {
+          "classId": "bard",
+          "pool": "musicalInstrumentStart",
+          "id": "flute",
+          "level": 1
+        },
+        {
+          "classId": "bard",
+          "pool": "musicalInstrumentStart",
+          "id": "lyre",
+          "level": 1
+        }
+      ],
+      "toolProfs": [
+        "drum",
+        "lute",
+        "flute",
+        "lyre",
+        "horn",
+        "viol",
+        "panFlute"
+      ],
+      "originFeat": "Musician",
+      "feats": [
+        {
+          "name": "Musician",
+          "id": "musician",
+          "level": 1,
+          "origin": "background",
+          "note": "",
+          "picks": {
+            "instrument": [
+              "horn",
+              "viol",
+              "panFlute"
+            ]
+          }
+        },
+        {
+          "id": "skilled",
+          "name": "Habilidoso",
+          "level": 1,
+          "note": "",
+          "picks": {
+            "skillOrTool": [
+              "deception",
+              "history",
+              "arcana"
+            ]
+          },
+          "origin": "species"
+        }
+      ],
+      "speciesChoices": {
+        "size": "Medium",
+        "skill": "stealth"
+      },
+      "pregenId": "bard"
+    }
+  },
+  {
+    "id": "druid",
+    "classId": "druid",
+    "pitch": {
+      "pt": "Magia da natureza: cura, controla o campo de batalha e conversa com bichos.",
+      "en": "Nature magic: heals, controls the battlefield and talks to animals."
+    },
+    "howToPlay": {
+      "pt": "Ataque de longe com Produzir Chama ou de perto com o Bordão.\nContra inimigos agrupados, lance Onda Trovejante ou Fogo das Fadas (seus aliados acertam mais).\nGuarde um espaço de magia para Curar Ferimentos se alguém se machucar feio.",
+      "en": "Attack from afar with Produce Flame or up close with your Quarterstaff.\nAgainst grouped enemies, cast Thunderwave or Faerie Fire (your allies hit more often).\nKeep a spell slot for Cure Wounds in case someone gets badly hurt."
+    },
+    "difficulty": {
+      "pt": "Desafiadora",
+      "en": "Challenging"
+    },
+    "character": {
+      "id": "pregen-druid",
+      "rulesVersion": "2024",
+      "createdAt": 0,
+      "updatedAt": 0,
+      "name": "Nilo Musgovelho",
+      "player": "",
+      "race": "gnome",
+      "className": "druid",
+      "level": 1,
+      "background": "hermit",
+      "alignment": "N",
+      "xp": 0,
+      "levelingMode": "milestone",
+      "abilities": {
+        "str": 8,
+        "dex": 12,
+        "con": 14,
+        "int": 13,
+        "wis": 15,
+        "cha": 10
+      },
+      "raceBonus": {
+        "wis": 2,
+        "con": 1
+      },
+      "skillProfs": [
+        "medicine",
+        "religion",
+        "perception",
+        "nature"
+      ],
+      "skillExpertise": [],
+      "saveProfs": [
+        "int",
+        "wis"
+      ],
+      "languages": [
+        "Common",
+        "Druidic",
+        "Gnomish",
+        "Dwarvish"
+      ],
+      "otherProfs": "Ferramentas: Kit de Herbalismo",
+      "currentHp": 10,
+      "maxHp": 10,
+      "tempHp": 0,
+      "hitDiceUsed": 0,
+      "deathSaves": {
+        "success": 0,
+        "fail": 0
+      },
+      "inspiration": false,
+      "armor": "leather",
+      "hasShield": true,
+      "extraAcBonus": 0,
+      "speedOverride": 0,
+      "weapons": [
+        {
+          "id": "sickle",
+          "name": "Foice Curta",
+          "damage": "1d4",
+          "dmgType": "slashing",
+          "props": [
+            "light"
+          ],
+          "mastery": "nick",
+          "from": "classPack"
+        },
+        {
+          "id": "quarterstaff",
+          "name": "Bordão ×2",
+          "damage": "1d6",
+          "dmgType": "bludgeoning",
+          "props": [
+            "versatile"
+          ],
+          "versatile": "1d8",
+          "mastery": "topple",
+          "qty": 2,
+          "note": "Foco druídico",
+          "from": "classPack"
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Pacote de Aventureiro",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Kit de Herbalismo",
+          "qty": 2,
+          "from": "classPack"
+        },
+        {
+          "name": "Saco de Dormir",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Livro (filosofia)",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Lamparina",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Óleo (frascos)",
+          "qty": 3,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Roupas de Viajante",
+          "qty": 1,
+          "from": "backgroundPack"
+        }
+      ],
+      "treasure": "",
+      "coins": {
+        "cp": 0,
+        "sp": 0,
+        "ep": 0,
+        "gp": 25,
+        "pp": 0
+      },
+      "spells": [
+        {
+          "id": "produceFlame",
+          "prepared": true
+        },
+        {
+          "id": "druidcraft",
+          "prepared": true
+        },
+        {
+          "id": "cureWounds",
+          "prepared": true
+        },
+        {
+          "id": "thunderwave",
+          "prepared": true
+        },
+        {
+          "id": "faerieFire",
+          "prepared": true
+        },
+        {
+          "id": "animalFriendship",
+          "prepared": true
+        }
+      ],
+      "spellSlotsUsed": [],
+      "personality": "Fala devagar, ri de piadas que só ele entende e trata cogumelos como amigos.",
+      "ideals": "",
+      "bonds": "",
+      "flaws": "",
+      "backstory": "Nilo viveu sozinho por anos numa cabana dentro de um carvalho oco, estudando ervas e ouvindo os animais. Os esquilos da floresta trouxeram a notícia de que a mata está adoecendo, árvore por árvore. Ele saiu do isolamento para descobrir a causa antes que seja tarde. Ainda acha as cidades barulhentas demais.",
+      "appearance": "Pequeno, barba branca cheia de folhinhas, chapéu de feltro verde e um bordão torto.",
+      "age": "",
+      "height": "",
+      "weight": "",
+      "eyes": "",
+      "skin": "",
+      "hair": "",
+      "allies": "",
+      "notes": "",
+      "avatar": "/art/classes/druid.webp",
+      "symbol": "",
+      "subclass": "",
+      "landType": "",
+      "starFormType": "",
+      "wildShapeUses": 0,
+      "conditions": [],
+      "tempEffects": [],
+      "npcs": [],
+      "customFeatures": [],
+      "classOptions": [
+        {
+          "classId": "druid",
+          "pool": "primalOrder",
+          "id": "warden",
+          "level": 1
+        }
+      ],
+      "toolProfs": [
+        "herbalismKit"
+      ],
+      "originFeat": "Healer",
+      "feats": [
+        {
+          "name": "Healer",
+          "id": "healer",
+          "level": 1,
+          "origin": "background",
+          "note": ""
+        }
+      ],
+      "speciesChoices": {
+        "lineage": "forest",
+        "spellAbility": "wis"
+      },
+      "pregenId": "druid"
+    }
+  },
+  {
+    "id": "monk",
+    "classId": "monk",
+    "pitch": {
+      "pt": "Luta de mãos vazias, é rápida e ataca várias vezes por turno.",
+      "en": "Fights barehanded, moves fast and attacks several times per turn."
+    },
+    "howToPlay": {
+      "pt": "Ataque com a Lança ou um golpe desarmado e, com a ação bônus, dê mais um golpe desarmado (Artes Marciais).\nVocê é rápida: use o movimento para chegar em quem está atacando os aliados mais frágeis.\nSem armadura, sua defesa vem da Destreza e da Sabedoria — não vista armadura.",
+      "en": "Attack with your Spear or an unarmed strike, then use your bonus action for another unarmed strike (Martial Arts).\nYou're fast: use your movement to reach whoever is attacking your most fragile allies.\nYour defense comes from Dexterity and Wisdom — don't wear armor."
+    },
+    "difficulty": {
+      "pt": "Desafiadora",
+      "en": "Challenging"
+    },
+    "character": {
+      "id": "pregen-monk",
+      "rulesVersion": "2024",
+      "createdAt": 0,
+      "updatedAt": 0,
+      "name": "Ruga Maré-Calma",
+      "player": "",
+      "race": "orc",
+      "className": "monk",
+      "level": 1,
+      "background": "sailor",
+      "alignment": "LN",
+      "xp": 0,
+      "levelingMode": "milestone",
+      "abilities": {
+        "str": 12,
+        "dex": 15,
+        "con": 13,
+        "int": 10,
+        "wis": 14,
+        "cha": 8
+      },
+      "raceBonus": {
+        "dex": 2,
+        "wis": 1
+      },
+      "skillProfs": [
+        "acrobatics",
+        "perception",
+        "insight",
+        "athletics"
+      ],
+      "skillExpertise": [],
+      "saveProfs": [
+        "str",
+        "dex"
+      ],
+      "languages": [
+        "Common",
+        "Orc",
+        "Dwarvish"
+      ],
+      "otherProfs": "Ferramentas: Ferramentas de Navegador, Flauta",
+      "currentHp": 9,
+      "maxHp": 9,
+      "tempHp": 0,
+      "hitDiceUsed": 0,
+      "deathSaves": {
+        "success": 0,
+        "fail": 0
+      },
+      "inspiration": false,
+      "armor": null,
+      "hasShield": false,
+      "extraAcBonus": 0,
+      "speedOverride": 0,
+      "weapons": [
+        {
+          "id": "spear",
+          "name": "Lança",
+          "damage": "1d6",
+          "dmgType": "piercing",
+          "props": [
+            "thrown",
+            "versatile"
+          ],
+          "range": "20/60",
+          "versatile": "1d8",
+          "mastery": "sap",
+          "from": "classPack"
+        },
+        {
+          "id": "dagger",
+          "name": "Adaga ×6",
+          "damage": "1d4",
+          "dmgType": "piercing",
+          "props": [
+            "finesse",
+            "light",
+            "thrown"
+          ],
+          "range": "20/60",
+          "mastery": "nick",
+          "qty": 6,
+          "from": "classPack"
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Flauta",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Pacote de Aventureiro",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Ferramentas de Navegador",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Corda",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Roupas de Viajante",
+          "qty": 1,
+          "from": "backgroundPack"
+        }
+      ],
+      "treasure": "",
+      "coins": {
+        "cp": 0,
+        "sp": 0,
+        "ep": 0,
+        "gp": 31,
+        "pp": 0
+      },
+      "spells": [],
+      "spellSlotsUsed": [],
+      "personality": "Serena até no meio da tempestade, mas não tolera injustiça com os mais fracos.",
+      "ideals": "",
+      "bonds": "",
+      "flaws": "",
+      "backstory": "Ruga trabalhou anos no convés de um navio mercante, onde aprendeu a se equilibrar em qualquer onda. Um velho cozinheiro de bordo lhe ensinou a meditar e a lutar sem armas nas horas vagas. Quando o navio foi tomado por piratas, ela salvou a tripulação usando só as mãos. Desembarcou para encontrar o mosteiro de onde o cozinheiro dizia ter vindo.",
+      "appearance": "Pele verde-acinzentada, presas pequenas, cabeça raspada e tatuagens de ondas nos braços.",
+      "age": "",
+      "height": "",
+      "weight": "",
+      "eyes": "",
+      "skin": "",
+      "hair": "",
+      "allies": "",
+      "notes": "",
+      "avatar": "/art/classes/monk.webp",
+      "symbol": "",
+      "subclass": "",
+      "landType": "",
+      "starFormType": "",
+      "wildShapeUses": 0,
+      "conditions": [],
+      "tempEffects": [],
+      "npcs": [],
+      "customFeatures": [],
+      "classOptions": [
+        {
+          "classId": "monk",
+          "pool": "tool",
+          "id": "flute",
+          "level": 1
+        }
+      ],
+      "toolProfs": [
+        "navigatorsTools",
+        "flute"
+      ],
+      "originFeat": "Tavern Brawler",
+      "feats": [
+        {
+          "name": "Tavern Brawler",
+          "id": "tavernBrawler",
+          "level": 1,
+          "origin": "background",
+          "note": ""
+        }
+      ],
+      "speciesChoices": {},
+      "pregenId": "monk"
+    }
+  },
+  {
+    "id": "sorcerer",
+    "classId": "sorcerer",
+    "pitch": {
+      "pt": "Magia que nasce no sangue: dano forte de longe e poderes que se moldam.",
+      "en": "Magic born in the blood: strong ranged damage and powers you can bend."
+    },
+    "howToPlay": {
+      "pt": "Fique a distância e ataque com Explosão Feiticeira todo turno.\nContra vários inimigos perto de você, lance Mãos Flamejantes.\nSe estiver cercada, use seu Sopro de dragão (elétrico) numa linha de inimigos.",
+      "en": "Keep your distance and attack with Sorcerous Burst every turn.\nAgainst several enemies close to you, cast Burning Hands.\nIf you get surrounded, use your dragon Breath Weapon (lightning) on a line of enemies."
+    },
+    "difficulty": {
+      "pt": "Desafiadora",
+      "en": "Challenging"
+    },
+    "character": {
+      "id": "pregen-sorcerer",
+      "rulesVersion": "2024",
+      "createdAt": 0,
+      "updatedAt": 0,
+      "name": "Zaira Faísca-Azul",
+      "player": "",
+      "race": "dragonborn",
+      "className": "sorcerer",
+      "level": 1,
+      "background": "charlatan",
+      "alignment": "CG",
+      "xp": 0,
+      "levelingMode": "milestone",
+      "abilities": {
+        "str": 10,
+        "dex": 13,
+        "con": 14,
+        "int": 8,
+        "wis": 12,
+        "cha": 15
+      },
+      "raceBonus": {
+        "cha": 2,
+        "con": 1
+      },
+      "skillProfs": [
+        "deception",
+        "sleightOfHand",
+        "persuasion",
+        "insight",
+        "perception",
+        "arcana",
+        "intimidation"
+      ],
+      "skillExpertise": [],
+      "saveProfs": [
+        "con",
+        "cha"
+      ],
+      "languages": [
+        "Common",
+        "Draconic",
+        "Dwarvish"
+      ],
+      "otherProfs": "Ferramentas: Kit de Falsificação",
+      "currentHp": 8,
+      "maxHp": 8,
+      "tempHp": 0,
+      "hitDiceUsed": 0,
+      "deathSaves": {
+        "success": 0,
+        "fail": 0
+      },
+      "inspiration": false,
+      "armor": null,
+      "hasShield": false,
+      "extraAcBonus": 0,
+      "speedOverride": 0,
+      "weapons": [
+        {
+          "id": "spear",
+          "name": "Lança",
+          "damage": "1d6",
+          "dmgType": "piercing",
+          "props": [
+            "thrown",
+            "versatile"
+          ],
+          "range": "20/60",
+          "versatile": "1d8",
+          "mastery": "sap",
+          "from": "classPack"
+        },
+        {
+          "id": "dagger",
+          "name": "Adaga ×2",
+          "damage": "1d4",
+          "dmgType": "piercing",
+          "props": [
+            "finesse",
+            "light",
+            "thrown"
+          ],
+          "range": "20/60",
+          "mastery": "nick",
+          "qty": 2,
+          "from": "classPack"
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Foco Arcano (cristal)",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Pacote de Explorador de Masmorras",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Kit de Falsificação",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Fantasia",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Roupas Finas",
+          "qty": 1,
+          "from": "backgroundPack"
+        }
+      ],
+      "treasure": "",
+      "coins": {
+        "cp": 0,
+        "sp": 0,
+        "ep": 0,
+        "gp": 43,
+        "pp": 0
+      },
+      "spells": [
+        {
+          "id": "sorcerousBurst",
+          "prepared": true
+        },
+        {
+          "id": "light",
+          "prepared": true
+        },
+        {
+          "id": "prestidigitation",
+          "prepared": true
+        },
+        {
+          "id": "shockingGrasp",
+          "prepared": true
+        },
+        {
+          "id": "burningHands",
+          "prepared": true
+        },
+        {
+          "id": "detectMagic",
+          "prepared": true
+        }
+      ],
+      "spellSlotsUsed": [],
+      "personality": "Charmosa, impulsiva e sempre com uma história exagerada para contar.",
+      "ideals": "",
+      "bonds": "",
+      "flaws": "",
+      "backstory": "Zaira ganhava a vida vendendo \"poções milagrosas\" de feira em feira, todas falsas. Um dia, irritada com um cliente, soltou faíscas azuis pelos dedos e percebeu que a magia dela era de verdade. Agora quer entender esse poder antes que ele exploda na hora errada. Ainda guarda algumas poções falsas, só por garantia.",
+      "appearance": "Escamas azul-cobalto, olhos que faíscam quando se irrita e um chapéu de abas largas cheio de penas.",
+      "age": "",
+      "height": "",
+      "weight": "",
+      "eyes": "",
+      "skin": "",
+      "hair": "",
+      "allies": "",
+      "notes": "",
+      "avatar": "/art/classes/sorcerer.webp",
+      "symbol": "",
+      "subclass": "",
+      "landType": "",
+      "starFormType": "",
+      "wildShapeUses": 0,
+      "conditions": [],
+      "tempEffects": [],
+      "npcs": [],
+      "customFeatures": [],
+      "classOptions": [],
+      "toolProfs": [
+        "forgeryKit"
+      ],
+      "originFeat": "Skilled",
+      "feats": [
+        {
+          "name": "Skilled",
+          "id": "skilled",
+          "level": 1,
+          "origin": "background",
+          "note": "",
+          "picks": {
+            "skillOrTool": [
+              "perception",
+              "arcana",
+              "intimidation"
+            ]
+          }
+        }
+      ],
+      "speciesChoices": {
+        "ancestry": "blue"
+      },
+      "pregenId": "sorcerer"
+    }
+  },
+  {
+    "id": "warlock",
+    "classId": "warlock",
+    "pitch": {
+      "pt": "Fez um pacto com um ser poderoso: poucas magias, mas muito fortes.",
+      "en": "Made a pact with a powerful being: few spells, but very strong ones."
+    },
+    "howToPlay": {
+      "pt": "Seu ataque principal é a Rajada Mística: use-a todo turno contra o inimigo mais perigoso.\nNo começo da luta, lance Maldição (ação bônus) no alvo para somar dano a cada acerto.\nSeus espaços de magia voltam num Descanso Curto: peça uma pausa ao grupo quando eles acabarem.",
+      "en": "Your main attack is Eldritch Blast: use it every turn on the most dangerous enemy.\nAt the start of a fight, cast Hex (bonus action) on the target to add damage on every hit.\nYour spell slots come back on a Short Rest: ask the group for a break when they run out."
+    },
+    "difficulty": {
+      "pt": "Desafiadora",
+      "en": "Challenging"
+    },
+    "character": {
+      "id": "pregen-warlock",
+      "rulesVersion": "2024",
+      "createdAt": 0,
+      "updatedAt": 0,
+      "name": "Dante Brasanegra",
+      "player": "",
+      "race": "tiefling",
+      "className": "warlock",
+      "level": 1,
+      "background": "acolyte",
+      "alignment": "CN",
+      "xp": 0,
+      "levelingMode": "milestone",
+      "abilities": {
+        "str": 8,
+        "dex": 14,
+        "con": 13,
+        "int": 12,
+        "wis": 10,
+        "cha": 15
+      },
+      "raceBonus": {
+        "cha": 2,
+        "int": 1
+      },
+      "skillProfs": [
+        "insight",
+        "religion",
+        "deception",
+        "intimidation"
+      ],
+      "skillExpertise": [],
+      "saveProfs": [
+        "wis",
+        "cha"
+      ],
+      "languages": [
+        "Common",
+        "Dwarvish",
+        "Elvish"
+      ],
+      "otherProfs": "Ferramentas: Suprimentos de Calígrafo",
+      "currentHp": 9,
+      "maxHp": 9,
+      "tempHp": 0,
+      "hitDiceUsed": 0,
+      "deathSaves": {
+        "success": 0,
+        "fail": 0
+      },
+      "inspiration": false,
+      "armor": "leather",
+      "hasShield": false,
+      "extraAcBonus": 0,
+      "speedOverride": 0,
+      "weapons": [
+        {
+          "id": "sickle",
+          "name": "Foice Curta",
+          "damage": "1d4",
+          "dmgType": "slashing",
+          "props": [
+            "light"
+          ],
+          "mastery": "nick",
+          "from": "classPack"
+        },
+        {
+          "id": "dagger",
+          "name": "Adaga ×2",
+          "damage": "1d4",
+          "dmgType": "piercing",
+          "props": [
+            "finesse",
+            "light",
+            "thrown"
+          ],
+          "range": "20/60",
+          "mastery": "nick",
+          "qty": 2,
+          "from": "classPack"
+        }
+      ],
+      "equipment": [
+        {
+          "name": "Foco Arcano (orbe)",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Livro (saber oculto)",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Pacote de Erudito",
+          "qty": 1,
+          "from": "classPack"
+        },
+        {
+          "name": "Suprimentos de Calígrafo",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Livro (orações)",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Símbolo Sagrado",
+          "qty": 1,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Pergaminho (folhas)",
+          "qty": 10,
+          "from": "backgroundPack"
+        },
+        {
+          "name": "Túnica",
+          "qty": 1,
+          "from": "backgroundPack"
+        }
+      ],
+      "treasure": "",
+      "coins": {
+        "cp": 0,
+        "sp": 0,
+        "ep": 0,
+        "gp": 23,
+        "pp": 0
+      },
+      "spells": [
+        {
+          "id": "eldritchBlast",
+          "prepared": true
+        },
+        {
+          "id": "prestidigitation",
+          "prepared": true
+        },
+        {
+          "id": "hex",
+          "prepared": true
+        },
+        {
+          "id": "charmPerson",
+          "prepared": true
+        }
+      ],
+      "spellSlotsUsed": [],
+      "personality": "Irônico, leal aos amigos e com medo de que o patrono cobre a dívida cedo demais.",
+      "ideals": "",
+      "bonds": "",
+      "flaws": "",
+      "backstory": "Dante foi criado num templo que o aceitou apesar dos chifres e da cauda. Em busca de respostas sobre sua origem, leu um livro proibido e ouviu uma voz que lhe ofereceu poder. Aceitou o pacto para proteger o templo de um ataque, e agora deve favores a alguém que nunca viu. Tenta usar esse poder para fazer o bem, antes que a conta chegue.",
+      "appearance": "Pele vermelho-escura, chifres curvos, olhos dourados e um manto de acólito gasto nas bordas.",
+      "age": "",
+      "height": "",
+      "weight": "",
+      "eyes": "",
+      "skin": "",
+      "hair": "",
+      "allies": "",
+      "notes": "",
+      "avatar": "/art/classes/warlock.webp",
+      "symbol": "",
+      "subclass": "",
+      "landType": "",
+      "starFormType": "",
+      "wildShapeUses": 0,
+      "conditions": [],
+      "tempEffects": [],
+      "npcs": [],
+      "customFeatures": [],
+      "classOptions": [
+        {
+          "classId": "warlock",
+          "pool": "invocation",
+          "id": "armorOfShadows",
+          "level": 1
+        }
+      ],
+      "toolProfs": [
+        "calligraphersSupplies"
+      ],
+      "originFeat": "Magic Initiate (Cleric)",
+      "feats": [
+        {
+          "name": "Magic Initiate (Cleric)",
+          "id": "magicInitiate",
+          "level": 1,
+          "origin": "background",
+          "note": "",
+          "picks": {
+            "spellList": "cleric",
+            "spellAbility": "cha",
+            "cantrip": [
+              "guidance",
+              "sacredFlame"
+            ],
+            "spell": [
+              "healingWord"
+            ]
+          }
+        }
+      ],
+      "speciesChoices": {
+        "size": "Medium",
+        "lineage": "infernal",
+        "spellAbility": "cha"
+      },
+      "pregenId": "warlock"
+    }
+  }
+]
