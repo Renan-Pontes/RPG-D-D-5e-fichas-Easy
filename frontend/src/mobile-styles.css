@@ -315,6 +315,22 @@
   .header-actions .btn-sm { padding: 6px 8px; letter-spacing: 0.04em; font-size: 0.8rem; }
   .lang-toggle button { min-width: 36px; padding: 8px 6px; letter-spacing: 0.06em; }
 }
+/* Celular: PT/EN vira um botão só (mostra o idioma para onde troca). Com o
+   botão Admin a mais, os dois juntos empurravam o EN para fora da tela. */
+@media (max-width: 520px) {
+  .lang-toggle button.active { display: none; }
+  .lang-toggle button { min-width: 40px; }
+  .app-header .header-actions { flex-wrap: nowrap; }
+  .app-header .header-actions > * { flex-shrink: 1; }
+}
+@media (max-width: 420px) {
+  /* Grimório fica só com o ícone (o title/aria dizem o nome) */
+  .header-grimoire-label { display: none; }
+  /* Admin + Campanhas + avatar + idioma cabem em 360px */
+  .app-header .header-actions { gap: 4px; }
+  .app-header .header-actions .btn-sm { padding: 6px 7px; letter-spacing: 0.02em; font-size: 0.72rem; }
+  .app-header .user-chip { padding-right: 4px; }
+}
 @media (max-width: 340px) {
   .app-header { padding-left: 10px; padding-right: 10px; }
   .header-actions .btn-sm { padding: 6px 6px; letter-spacing: 0; }
@@ -322,8 +338,17 @@
 
 /* === 18. Barra de progresso do criador: em ≤360px o container tem 10px de
    padding e a margem de -12px sangrava 2px (rolagem lateral). === */
+@media (max-width: 600px) {
+  /* a sangria acompanha o padding real do .container (--s-3 vale 10px aqui;
+     com -12px fixo a barra passava 2px da tela em 390px) */
+  .wizard {
+    margin-left: calc(-1 * max(var(--s-3, 12px), env(safe-area-inset-left)));
+    margin-right: calc(-1 * max(var(--s-3, 12px), env(safe-area-inset-right)));
+    padding-left: max(var(--s-3, 12px), env(safe-area-inset-left));
+    padding-right: max(var(--s-3, 12px), env(safe-area-inset-right));
+  }
+}
 @media (max-width: 360px) {
-  .wizard { margin-left: -10px; margin-right: -10px; padding-left: 10px; padding-right: 10px; }
   /* Mesmo caso das abas (ficha e campanha) */
   .tabs { margin-left: -10px; margin-right: -10px; padding-left: 10px; padding-right: 10px; --tabs-pad: 10px; }
 }
@@ -396,4 +421,33 @@ body:has(.cr-progress) .wizard-hint { padding-right: 0; }
 /* Ficha no desktop: as 7 abas cabem na coluna de 720px sem rolar */
 @media (min-width: 721px) {
   .tab { padding-left: 12px; padding-right: 12px; letter-spacing: 0.12em; }
+}
+
+/* === Acabamento no visual dourado/escuro (testes de navegador, #45) ===
+   - links-botão ("texto", "recarregar") no dourado, não no azul arcano;
+   - indicador "Salvo" em texto do tema, não monoespaçado;
+   - rodapé do Improvisar preso embaixo do modal: a ação principal fica
+     visível sem rolar em telas baixas. */
+.btn-link {
+  color: var(--gold-bright);
+  text-decoration-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  text-underline-offset: 2px;
+  font-family: inherit;
+}
+.btn-link:hover { color: var(--ink-primary); }
+.campaign-detail .wl-save { font-family: var(--body); font-style: italic; letter-spacing: 0.01em; }
+.modal.wl-impro .wl-impro-foot {
+  position: sticky;
+  bottom: calc(-1 * var(--s-5, 24px));
+  z-index: 2;
+  margin: 14px calc(-1 * var(--s-5, 24px)) calc(-1 * var(--s-5, 24px));
+  padding: 12px var(--s-5, 24px) var(--s-5, 24px);
+  background: linear-gradient(180deg, transparent, var(--bg-card) 14px);
+  border-top: 1px solid var(--stroke-faint);
+}
+
+/* Criador em 360–420px: as 11 etapas cabem sem cortar a última */
+@media (max-width: 420px) {
+  .cr-progress { gap: 2px; padding-inline: 6px; justify-content: space-between; }
+  .cr-progress-step { min-width: 26px; }
 }

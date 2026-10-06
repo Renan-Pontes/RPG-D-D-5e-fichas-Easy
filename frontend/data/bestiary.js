@@ -6,6 +6,8 @@
  *     scripts/import-open5e-monsters.mjs a partir do Open5e, document srd-2024).
  *   - monsters.js: catálogo antigo (SRD 5.1 + 4 criaturas fora do SRD em resumo
  *     próprio). Só entram as que não existem no 5.2.1.
+ *   - monsters-pt.js: tradução pt-BR dos nomes e textos de traços/ações
+ *     (aplicada aqui, por localizeMonster).
  *   - SRD.BEASTS (srd.js) continua sendo o catálogo da Forma Selvagem; no combate
  *     os animais vêm do 5.2.1, com ataques reais.
  *
@@ -42,6 +44,7 @@
  */
 import { MONSTERS } from './monsters.js';
 import { MONSTERS_SRD521 } from './monsters-srd521.js';
+import { localizeMonster } from './monsters-pt.js';
 
 export const MONSTER_TYPES = ['aberration', 'beast', 'celestial', 'construct', 'dragon', 'elemental', 'fey',
   'fiend', 'giant', 'humanoid', 'monstrosity', 'ooze', 'plant', 'undead'];
@@ -67,7 +70,10 @@ const legacyExtras = MONSTERS
   .filter(m => !SRD_IDS.has(LEGACY_IDS[m.id] || m.id))
   .map(m => ({ ...m, source: m.source || (NON_SRD.has(m.id) ? 'Fora do SRD (resumo próprio)' : 'SRD 5.1') }));
 
+// Nomes e textos de traços/ações em pt-BR (monsters-pt.js); o texto em
+// inglês continua em desc.en (usado pelo estimador de ND).
 export const BESTIARY = [...MONSTERS_SRD521, ...legacyExtras]
+  .map(localizeMonster)
   .sort((a, b) => a.crNum - b.crNum || a.name.en.localeCompare(b.name.en));
 
 export const BESTIARY_BY_ID = Object.fromEntries(BESTIARY.map(m => [m.id, m]));

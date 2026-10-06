@@ -80,7 +80,11 @@ export function unifyTests({ checks = [], pendingRolls = [], recentRolls = [] } 
   return { open, answered, history };
 }
 
-/** Contagem do selo de "Testes" (o que está esperando ação). */
+/**
+ * Contagem do selo de "Testes": só o que está ABERTO (esperando alguém rolar
+ * ou o mestre resolver) — o mesmo número da aba "Abertos". Respondidos têm o
+ * próprio contador dentro do painel e não seguram o selo.
+ */
 export function testsBadge(groups) {
-  return (groups?.open?.length || 0) + (groups?.answered?.length || 0);
+  return groups?.open?.length || 0;
 }

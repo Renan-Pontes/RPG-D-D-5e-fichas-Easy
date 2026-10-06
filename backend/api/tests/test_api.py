@@ -232,11 +232,12 @@ class DiceRigTests(TestCase):
             format='json')
         results = r.json()['results']
         self.assertEqual(results[0]['value'], 20)
-        self.assertTrue(results[0]['rigged'])
         self.assertEqual(results[1]['value'], 1)
-        self.assertTrue(results[1]['rigged'])
-        # 3a rolagem cai pra random (fila esvaziada)
-        self.assertFalse(results[2]['rigged'])
+        # o jogador nunca sabe que o dado foi viciado (#15)
+        self.assertFalse(any('rigged' in x or 'source' in x for x in results))
+        # 3a rolagem cai pra random (fila esvaziada) — o mestre vê no histórico
+        log = self.c_dm.get(f'/api/dice/campaign/{self.camp.id}/log').json()['log']
+        self.assertEqual([e['rigged'] for e in reversed(log)], [True, True, False])
         self.assertGreaterEqual(results[2]['value'], 1)
         self.assertLessEqual(results[2]['value'], 20)
 
@@ -244,7 +245,8 @@ class DiceRigTests(TestCase):
         DiceRig.objects.create(campaign=self.camp, target_user=self.player, dice_type='d20', values=[{'value': 20}])
         # sem campaignId, não deve rigar
         r = self.c_player.post('/api/dice/roll', {'diceType': 'd20'}, format='json')
-        self.assertFalse(r.json()['results'][0]['rigged'])
+        self.assertNotIn('rigged', r.json()['results'][0])
+        self.assertFalse(DiceRig.objects.get(target_user=self.player).values[0].get('consumed'))
 
 
 class ScreenPublicTests(TestCase):

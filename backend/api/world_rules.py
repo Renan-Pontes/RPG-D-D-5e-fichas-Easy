@@ -8,11 +8,12 @@ segredos não revelados, `data.statblock` ou entradas `hidden` sai daqui.
 
 Visibilidade para o jogador:
   hidden   → nada (lista não traz; detalhe, imagem e pin = 404)
-  partial  → kind, name, summary, imagem, tags  ("conhecido de nome")
+  partial  → kind, name, summary, imagem  ("conhecido de nome")
   revealed → + body, segredos revelados (só texto), dados públicos do tipo,
              links/parent/menções cujo alvo não está hidden, linha do tempo
   nunca    → dm_notes, segredos não revelados, data.statblock,
-             data.campaignItemId, data.recipients
+             data.campaignItemId, data.recipients, tags (são organização do
+             mestre: "#vilão" estragaria a surpresa)
 
 Erros de validação levantam WorldError(code); a view vira 400 {'error': code}.
 """
@@ -483,7 +484,7 @@ def serialize_light(entry, for_dm, visible_ids=None):
     (obrigatório quando for_dm=False)."""
     base = {
         'id': entry.id, 'kind': entry.kind, 'name': entry.name, 'summary': entry.summary,
-        'tags': list(entry.tags or []), 'visibility': entry.visibility,
+        'tags': list(entry.tags or []) if for_dm else [], 'visibility': entry.visibility,
         'imageVer': entry.image_ver or '', 'imageUrl': _image_url(entry),
         'isMap': is_map(entry.kind, entry.data),
         'revealedAt': _iso(entry.revealed_at), 'updatedAt': _iso(entry.updated_at),

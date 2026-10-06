@@ -12,7 +12,8 @@ import { useEffect, useRef, useState } from 'react';
 import useArea from '../shell/useArea.js';
 import { listWorld, worldImageUrl } from '../world/world-api.js';
 import { defaultArt, kindIcon } from '../world/world-model.js';
-import { cardKey, L, revealedSince, shouldToastCard, toastTitle } from './player-model.js';
+import { cardKey, L, shouldToastCard, toastTitle } from './player-model.js';
+import { freshReveals, revealKey } from './reveal-toast-model.js';
 import './player-styles.css';
 
 const SHOW_MS = 10_000;
@@ -25,13 +26,13 @@ export default function RevealToast({ campaign, lang = 'pt', onOpenWorld }) {
   const [toast, setToast] = useState(null);
   const lastCardRef = useRef(null);
   const prevCountRef = useRef(undefined);
-  const recentIdsRef = useRef(new Set());
+  const toastedRef = useRef(new Set());   // revealKey() já avisadas (id@revealedAt)
+  const shownCardsRef = useRef(new Map()); // entryId → card.at do telão já avisado
   const isPlayer = campaign && campaign.role !== 'dm';
   const campaignId = campaign?.id;
 
   const show = (t) => {
     setToast({ ...t, key: `${Date.now()}` });
-    if (t.entryId) recentIdsRef.current.add(t.entryId);
     try { navigator.vibrate?.([30, 50, 30]); } catch { /* ignore */ }
   };
 
@@ -44,6 +45,7 @@ export default function RevealToast({ campaign, lang = 'pt', onOpenWorld }) {
     if (shouldToastCard(card, lastCardRef.current, Date.now(), 10 * 60_000)) {
       lastCardRef.current = ck;
       writeStore(campaignId, ck);
+      if (card.entryId != null) shownCardsRef.current.set(card.entryId, card.at);
       show({
         title: toastTitle([card.title], lang),
         text: card.partial ? L(lang, 'Rumores…', 'Rumors…') : (card.text || ''),
@@ -55,23 +57,37 @@ export default function RevealToast({ campaign, lang = 'pt', onOpenWorld }) {
   }, [ck, isPlayer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 2) Revelação sem telão: o contador de novidades subiu
+  //    (opcional) campaign.worldRevealedAt — última revelação visível ao
+  //    jogador; se o servidor mandar, pega também o segredo novo de um cartão
+  //    que já estava no contador (o contador não sobe nesse caso).
   const count = campaign?.worldNewCount;
+  const lastAt = campaign?.worldRevealedAt || '';
+  const prevAtRef = useRef(undefined);
   useEffect(() => {
     if (!isPlayer || typeof count !== 'number') return;
     const prev = prevCountRef.current;
+    const prevAt = prevAtRef.current;
     prevCountRef.current = count;
-    if (prev === undefined || count <= prev) return;
+    prevAtRef.current = lastAt;
+    if (prev === undefined) return;
+    const atMoved = !!lastAt && prevAt !== undefined && lastAt !== prevAt;
+    if (count <= prev && !atMoved) return;
+    const max = count > prev ? count - prev : 1;
     let alive = true;
     (async () => {
       try {
         const r = await listWorld(campaignId);
-        const fresh = revealedSince(r.entries || [], r.seenAt)
-          .slice(0, count - prev)
-          .filter(e => !recentIdsRef.current.has(e.id));
+        const fresh = freshReveals(r.entries || [], r.seenAt, max, toastedRef.current, shownCardsRef.current);
         if (!alive || !fresh.length) return;
         const first = fresh[0];
+        // Cartão já avisado antes (ex.: segredo novo dele): "Descoberto: Barão Hidrel".
+        const known = [...toastedRef.current].some(k => k.startsWith(`${first.id}@`))
+          || shownCardsRef.current.has(first.id);
+        fresh.forEach(e => toastedRef.current.add(revealKey(e)));
         show({
-          title: toastTitle(fresh.map(e => e.name), lang),
+          title: known && fresh.length === 1
+            ? L(lang, `Descoberto: ${first.name}`, `Discovered: ${first.name}`)
+            : toastTitle(fresh.map(e => e.name), lang),
           text: first.summary || '',
           entryId: first.id,
           image: worldImageUrl(first) || defaultArt(first),
@@ -80,7 +96,7 @@ export default function RevealToast({ campaign, lang = 'pt', onOpenWorld }) {
       } catch { /* o selo "Novo!" na aba já avisa */ }
     })();
     return () => { alive = false; };
-  }, [count, isPlayer]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [count, lastAt, isPlayer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!toast) return;

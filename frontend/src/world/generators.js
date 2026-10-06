@@ -25,12 +25,15 @@ const L = (lang) => (lang === 'en' ? 'en' : 'pt');
 // ===================================================================== tabelas
 export const TABLES = {
   pt: {
+    // [nome, gênero] — o gênero do nome manda na ocupação, aparência e textos.
     first: [
-      'Aldo', 'Benedita', 'Caetano', 'Dalva', 'Elói', 'Fabíola', 'Gervásio', 'Helena', 'Inácio', 'Jacira',
-      'Lázaro', 'Marisol', 'Nestor', 'Odete', 'Policarpo', 'Quitéria', 'Rufino', 'Severina', 'Tibério', 'Ursulina',
-      'Valdemar', 'Zuleica', 'Amaro', 'Brites', 'Cosme', 'Dorotéia', 'Estêvão', 'Firmina', 'Gaspar', 'Iolanda',
-      'Jurema', 'Leopoldo', 'Mafalda', 'Nicanor', 'Otília', 'Pancrácio', 'Rosalva', 'Salomé', 'Teodoro', 'Violeta',
-      'Bartô', 'Celeste', 'Damião', 'Isaura', 'Joaquim', 'Luzia', 'Matias', 'Rosário',
+      ['Aldo', 'm'], ['Benedita', 'f'], ['Caetano', 'm'], ['Dalva', 'f'], ['Elói', 'm'], ['Fabíola', 'f'], ['Gervásio', 'm'],
+      ['Helena', 'f'], ['Inácio', 'm'], ['Jacira', 'f'], ['Lázaro', 'm'], ['Marisol', 'f'], ['Nestor', 'm'], ['Odete', 'f'],
+      ['Policarpo', 'm'], ['Quitéria', 'f'], ['Rufino', 'm'], ['Severina', 'f'], ['Tibério', 'm'], ['Ursulina', 'f'],
+      ['Valdemar', 'm'], ['Zuleica', 'f'], ['Amaro', 'm'], ['Brites', 'f'], ['Cosme', 'm'], ['Dorotéia', 'f'], ['Estêvão', 'm'],
+      ['Firmina', 'f'], ['Gaspar', 'm'], ['Iolanda', 'f'], ['Leopoldo', 'm'], ['Jurema', 'f'], ['Nicanor', 'm'], ['Mafalda', 'f'],
+      ['Pancrácio', 'm'], ['Otília', 'f'], ['Teodoro', 'm'], ['Rosalva', 'f'], ['Bartô', 'm'], ['Salomé', 'f'], ['Damião', 'm'],
+      ['Violeta', 'f'], ['Joaquim', 'm'], ['Celeste', 'f'], ['Matias', 'm'], ['Isaura', 'f'], ['Belmiro', 'm'], ['Luzia', 'f'],
     ],
     last: [
       'Pé-de-Malte', 'Mão-de-Ferro', 'Barba-Rala', 'Olho-de-Corvo', 'da Ponte Velha', 'das Brumas', 'Fiapo-de-Prata',
@@ -39,17 +42,25 @@ export const TABLES = {
       'Corta-Vento', 'Cabeça-de-Prego', 'Remendo', 'Sete-Luas', 'Fundo-de-Poço', 'Cálice', 'Torrebranca',
       'Marfim', 'Espinheiro', 'Cobre-Velho', 'Pinhão', 'Gota-de-Orvalho', 'Arame', 'Trovoada', 'da Encruzilhada',
     ],
+    // Entradas com gênero são pares [masculino, feminino]; texto solto serve para os dois.
     roles: [
-      'Taverneiro', 'Ferreira', 'Guarda da muralha', 'Sacerdotisa de aldeia', 'Mercador de especiarias', 'Contrabandista',
-      'Pescador', 'Curandeira', 'Escriba do conselho', 'Caçador de recompensas', 'Menestrel', 'Coveiro', 'Barqueiro',
-      'Alquimista falido', 'Nobre arruinado', 'Mendigo da praça', 'Capitão da guarda', 'Cartógrafa', 'Domadora de feras',
-      'Vendedor de relíquias', 'Ladra de bolsas', 'Mineiro', 'Estalajadeira', 'Vigia do farol', 'Ervanária',
-      'Agiota', 'Prefeito da vila', 'Aprendiz de mago', 'Pastor de cabras', 'Batedor de estrada',
+      ['Taverneiro', 'Taverneira'], ['Ferreiro', 'Ferreira'], 'Guarda da muralha', ['Sacerdote de aldeia', 'Sacerdotisa de aldeia'],
+      ['Mercador de especiarias', 'Mercadora de especiarias'], 'Contrabandista', ['Pescador', 'Pescadora'], ['Curandeiro', 'Curandeira'],
+      'Escriba do conselho', ['Caçador de recompensas', 'Caçadora de recompensas'], 'Menestrel', ['Coveiro', 'Coveira'],
+      ['Barqueiro', 'Barqueira'], ['Alquimista falido', 'Alquimista falida'], ['Nobre arruinado', 'Nobre arruinada'],
+      ['Mendigo da praça', 'Mendiga da praça'], ['Capitão da guarda', 'Capitã da guarda'], ['Cartógrafo', 'Cartógrafa'],
+      ['Domador de feras', 'Domadora de feras'], ['Vendedor de relíquias', 'Vendedora de relíquias'], ['Ladrão de bolsas', 'Ladra de bolsas'],
+      ['Mineiro', 'Mineira'], ['Estalajadeiro', 'Estalajadeira'], 'Vigia do farol', ['Ervanário', 'Ervanária'], 'Agiota',
+      ['Prefeito da vila', 'Prefeita da vila'], ['Aprendiz de mago', 'Aprendiz de maga'], ['Pastor de cabras', 'Pastora de cabras'],
+      ['Batedor de estrada', 'Batedora de estrada'],
     ],
     build: [
-      'Alto e magro como um varapau', 'Baixinha e atarracada', 'Corpulento, de ombros largos', 'Franzino, quase sumindo dentro da roupa',
-      'Velha, mas de costas retas', 'Jovem e inquieto', 'Barrigudo e de bochechas vermelhas', 'Musculosa, de braços queimados de sol',
-      'Curvado pelos anos', 'Elegante, de postura impecável', 'Desengonçado, todo cotovelos e joelhos', 'Robusta como um barril',
+      ['Alto e magro como um varapau', 'Alta e magra como um varapau'], ['Baixinho e atarracado', 'Baixinha e atarracada'],
+      ['Corpulento, de ombros largos', 'Corpulenta, de ombros largos'], ['Franzino, quase sumindo dentro da roupa', 'Franzina, quase sumindo dentro da roupa'],
+      ['Velho, mas de costas retas', 'Velha, mas de costas retas'], ['Jovem e inquieto', 'Jovem e inquieta'],
+      ['Barrigudo e de bochechas vermelhas', 'Barriguda e de bochechas vermelhas'], ['Musculoso, de braços queimados de sol', 'Musculosa, de braços queimados de sol'],
+      ['Curvado pelos anos', 'Curvada pelos anos'], 'Elegante, de postura impecável',
+      ['Desengonçado, todo cotovelos e joelhos', 'Desengonçada, toda cotovelos e joelhos'], ['Robusto como um barril', 'Robusta como um barril'],
     ],
     feature: [
       'com uma cicatriz que atravessa a sobrancelha', 'de olhos de cores diferentes', 'com um dente de ouro que brilha ao sorrir',
@@ -57,51 +68,51 @@ export const TABLES = {
       'com sardas por todo o rosto', 'de unhas sempre sujas de tinta', 'com uma orelha mordida', 'de voz rouca e grave',
       'com um tapa-olho de couro bordado', 'de sobrancelhas grossas e unidas', 'com mãos enormes e calejadas',
       'de pele marcada por queimaduras antigas', 'com uma trança que vai até a cintura', 'de olhar distante e cansado',
-      'com cheiro forte de alho', 'que manca da perna esquerda', 'de dedos cheios de anéis baratos', 'com um bigode enrolado nas pontas',
+      'com cheiro forte de alho', 'que manca da perna esquerda', 'de dedos cheios de anéis baratos', ['com um bigode enrolado nas pontas', 'com um coque preso por dois grampos de osso'],
       'de dentes muito brancos e perfeitos', 'com um corte recente no lábio', 'de cabeça raspada e brilhante', 'com o rosto pintado de cinza',
     ],
     clothing: [
       'veste um avental manchado de gordura', 'usa um manto remendado com retalhos coloridos', 'anda sempre de chapéu de aba larga',
       'veste roupas finas, mas puídas nas mangas', 'usa uma cota de malha enferrujada', 'carrega um colar de dentes de animais',
-      'usa botas grandes demais', 'veste o uniforme da guarda, mal abotoado', 'anda descalço, mesmo no frio',
+      'usa botas grandes demais', 'veste o uniforme da guarda, mal abotoado', ['anda descalço, mesmo no frio', 'anda descalça, mesmo no frio'],
       'usa luvas de couro que nunca tira', 'tem um cachecol de lã tricotado pela avó', 'veste preto da cabeça aos pés',
       'usa um broche de prata em forma de coruja', 'carrega uma bolsa cheia de pergaminhos', 'veste um gibão de veludo cor de vinho',
       'usa óculos de lentes grossas e rachadas', 'anda com um galo de briga debaixo do braço', 'traz um cachimbo apagado no canto da boca',
     ],
     mannerism: [
-      'Bate duas vezes na mesa antes de contar um segredo.', 'Fala de si mesmo na terceira pessoa.', 'Cantarola baixinho quando está nervoso.',
+      'Bate duas vezes na mesa antes de contar um segredo.', ['Fala de si mesmo na terceira pessoa.', 'Fala de si mesma na terceira pessoa.'], ['Cantarola baixinho quando está nervoso.', 'Cantarola baixinho quando está nervosa.'],
       'Nunca olha nos olhos de ninguém.', 'Termina toda frase com "não é mesmo?".', 'Coça a barba (ou o queixo) quando mente.',
       'Ri alto das próprias piadas, antes de terminar.', 'Cheira tudo antes de comer ou beber.', 'Conta moedas o tempo todo, mesmo conversando.',
       'Usa palavras difíceis — e quase sempre erradas.', 'Fala sussurrando, como se alguém estivesse ouvindo.', 'Interrompe para corrigir detalhes sem importância.',
       'Benze-se sempre que alguém fala de magia.', 'Dá apelidos para todo mundo no primeiro minuto.', 'Gesticula tanto que derruba coisas.',
       'Responde perguntas com outras perguntas.', 'Repete a última palavra que o outro disse.', 'Está sempre comendo alguma coisa.',
-      'Fala devagar, escolhendo cada palavra.', 'Conta histórias de um "primo" que claramente é ele mesmo.', 'Assobia para chamar atenção.',
+      'Fala devagar, escolhendo cada palavra.', ['Conta histórias de um "primo" que claramente é ele mesmo.', 'Conta histórias de uma "prima" que claramente é ela mesma.'], 'Assobia para chamar atenção.',
       'Não consegue ficar parado: anda de um lado para o outro.', 'Promete coisas que não pode cumprir.', 'Chama todos de "meu jovem", até os mais velhos.',
       'Desconfia de quem é canhoto.', 'Ri nervoso sempre que ouve um nome específico.', 'Fala com o próprio animal como se fosse gente.',
       'Sempre sabe o preço de tudo.', 'Cita provérbios que ninguém conhece.', 'Se assusta com qualquer barulho.',
     ],
     wants: [
       'Pagar uma dívida antiga antes que cobrem com sangue.', 'Descobrir quem matou o irmão.', 'Juntar ouro para fugir da cidade.',
-      'Provar que não é covarde.', 'Reconquistar o amor de alguém que partiu.', 'Ser aceito na guilda que o rejeitou.',
-      'Recuperar um anel roubado da família.', 'Proteger a filha de um casamento arranjado.', 'Ficar famoso — de qualquer jeito.',
+      'Provar que não é covarde.', 'Reconquistar o amor de alguém que partiu.', ['Ser aceito na guilda que o rejeitou.', 'Ser aceita na guilda que a rejeitou.'],
+      'Recuperar um anel roubado da família.', 'Proteger a filha de um casamento arranjado.', ['Ficar famoso — de qualquer jeito.', 'Ficar famosa — de qualquer jeito.'],
       'Vingar-se do antigo patrão.', 'Encontrar a cura para uma doença que esconde.', 'Abrir a própria taverna.',
-      'Expulsar os forasteiros da vila.', 'Ver o mar pelo menos uma vez.', 'Que a guarda pare de vigiá-lo.',
+      'Expulsar os forasteiros da vila.', 'Ver o mar pelo menos uma vez.', ['Que a guarda pare de vigiá-lo.', 'Que a guarda pare de vigiá-la.'],
       'Achar um herdeiro digno para o seu ofício.', 'Esquecer algo terrível que viu na floresta.', 'Ganhar a aposta com o rival de sempre.',
-      'Que alguém acredite na história que ele conta.', 'Livrar-se de um objeto amaldiçoado sem que ninguém saiba.',
-      'Voltar para a terra natal com honra.', 'Ser nomeado conselheiro da vila.', 'Encontrar o mapa que o avô escondeu.',
+      ['Que alguém acredite na história que ele conta.', 'Que alguém acredite na história que ela conta.'], 'Livrar-se de um objeto amaldiçoado sem que ninguém saiba.',
+      'Voltar para a terra natal com honra.', ['Ser nomeado conselheiro da vila.', 'Ser nomeada conselheira da vila.'], 'Encontrar o mapa que o avô escondeu.',
       'Que os heróis levem uma carta até a capital.', 'Manter o segredo da família enterrado.', 'Comer bem e dormir sem medo.',
     ],
     secret: [
-      'É filho bastardo do barão local.', 'Deve dinheiro a um culto e está sendo vigiado.', 'Roubou a identidade de um morto.',
+      ['É filho bastardo do barão local.', 'É filha bastarda do barão local.'], ['Deve dinheiro a um culto e está sendo vigiado.', 'Deve dinheiro a um culto e está sendo vigiada.'], 'Roubou a identidade de um morto.',
       'Viu o assassino, mas foi pago para esquecer.', 'Trabalha como espião para uma facção rival.', 'Tem um dragãozinho escondido no porão.',
-      'Envenenou o antigo dono do negócio.', 'É um licantropo que ainda não sabe controlar a fera.', 'Esconde um fugitivo em casa.',
-      'Já foi aventureiro e abandonou os companheiros num túmulo.', 'Sabe onde está a entrada esquecida das catacumbas.',
-      'Está apaixonado pelo vilão da história.', 'Falsifica selos do conselho para viver.', 'Ouve vozes vindas do poço da praça.',
+      'Envenenou o antigo dono do negócio.', ['É um licantropo que ainda não sabe controlar a fera.', 'É uma licantropa que ainda não sabe controlar a fera.'], 'Esconde um fugitivo em casa.',
+      ['Já foi aventureiro e abandonou os companheiros num túmulo.', 'Já foi aventureira e abandonou os companheiros num túmulo.'], 'Sabe onde está a entrada esquecida das catacumbas.',
+      ['Está apaixonado pelo vilão da história.', 'Está apaixonada pelo vilão da história.'], 'Falsifica selos do conselho para viver.', 'Ouve vozes vindas do poço da praça.',
       'Prometeu o primogênito a uma fada, e o prazo está acabando.', 'É um disfarce: na verdade, é outra pessoa com magia.',
       'Guarda a chave de uma porta que ninguém deveria abrir.', 'Quebrou um juramento sagrado e teme o castigo.',
       'Vende informações sobre os heróis para quem pagar mais.', 'Tem um mapa tatuado nas costas e não sabe o que ele mostra.',
       'Está morrendo e não contou a ninguém.', 'Matou um homem em legítima defesa e enterrou o corpo no quintal.',
-      'É o verdadeiro herdeiro de um trono caído.', 'Já foi possuído — e às vezes sente a presença voltando.',
+      ['É o verdadeiro herdeiro de um trono caído.', 'É a verdadeira herdeira de um trono caído.'], ['Já foi possuído — e às vezes sente a presença voltando.', 'Já foi possuída — e às vezes sente a presença voltando.'],
     ],
     tavernNoun: [
       ['Javali', 'm'], ['Caneca', 'f'], ['Dragão', 'm'], ['Raposa', 'f'], ['Barril', 'm'], ['Coruja', 'f'], ['Grifo', 'm'],
@@ -154,11 +165,13 @@ export const TABLES = {
   },
   en: {
     first: [
-      'Aldric', 'Bettany', 'Corwin', 'Delia', 'Edric', 'Fenna', 'Gideon', 'Hester', 'Ivo', 'Jessamy',
-      'Lorcan', 'Maribel', 'Nestor', 'Odile', 'Percival', 'Quilla', 'Rufus', 'Seraphine', 'Tobias', 'Ursula',
-      'Wendel', 'Ysolde', 'Ambrose', 'Brielle', 'Cuthbert', 'Dorothea', 'Elias', 'Fiora', 'Garrick', 'Isolde',
-      'Jasper', 'Leopold', 'Mirabel', 'Nicodemus', 'Ottilie', 'Pell', 'Rosalind', 'Saffron', 'Thaddeus', 'Violet',
-      'Barnaby', 'Celeste', 'Dorian', 'Imogen', 'Jory', 'Lucia', 'Matthias', 'Rowena',
+      ['Aldric', 'm'], ['Bettany', 'f'], ['Corwin', 'm'], ['Delia', 'f'], ['Edric', 'm'], ['Fenna', 'f'], ['Gideon', 'm'],
+      ['Hester', 'f'], ['Ivo', 'm'], ['Jessamy', 'f'], ['Lorcan', 'm'], ['Maribel', 'f'], ['Nestor', 'm'], ['Odile', 'f'],
+      ['Percival', 'm'], ['Quilla', 'f'], ['Rufus', 'm'], ['Seraphine', 'f'], ['Tobias', 'm'], ['Ursula', 'f'],
+      ['Wendel', 'm'], ['Ysolde', 'f'], ['Ambrose', 'm'], ['Brielle', 'f'], ['Cuthbert', 'm'], ['Dorothea', 'f'], ['Elias', 'm'],
+      ['Fiora', 'f'], ['Garrick', 'm'], ['Isolde', 'f'], ['Jasper', 'm'], ['Mirabel', 'f'], ['Leopold', 'm'], ['Ottilie', 'f'],
+      ['Nicodemus', 'm'], ['Rosalind', 'f'], ['Pell', 'm'], ['Saffron', 'f'], ['Thaddeus', 'm'], ['Violet', 'f'], ['Barnaby', 'm'],
+      ['Celeste', 'f'], ['Dorian', 'm'], ['Imogen', 'f'], ['Jory', 'm'], ['Lucia', 'f'], ['Matthias', 'm'], ['Rowena', 'f'],
     ],
     last: [
       'Maltfoot', 'Ironhand', 'Thinbeard', 'Crowseye', 'of the Old Bridge', 'Mistborn', 'Silverthread', 'Ashstrong',
@@ -168,10 +181,10 @@ export const TABLES = {
       'Wire', 'Thunderclap', 'of the Crossroads',
     ],
     roles: [
-      'Innkeeper', 'Blacksmith', 'Wall guard', 'Village priestess', 'Spice merchant', 'Smuggler', 'Fisher', 'Healer',
-      'Council scribe', 'Bounty hunter', 'Minstrel', 'Gravedigger', 'Ferryman', 'Broke alchemist', 'Ruined noble',
+      'Innkeeper', 'Blacksmith', 'Wall guard', ['Village priest', 'Village priestess'], 'Spice merchant', 'Smuggler', 'Fisher', 'Healer',
+      'Council scribe', 'Bounty hunter', 'Minstrel', 'Gravedigger', ['Ferryman', 'Ferrywoman'], 'Broke alchemist', 'Ruined noble',
       'Town beggar', 'Captain of the guard', 'Cartographer', 'Beast tamer', 'Relic peddler', 'Pickpocket', 'Miner',
-      'Landlady', 'Lighthouse keeper', 'Herbalist', 'Moneylender', 'Village reeve', "Wizard's apprentice", 'Goatherd', 'Road scout',
+      ['Landlord', 'Landlady'], 'Lighthouse keeper', 'Herbalist', 'Moneylender', 'Village reeve', "Wizard's apprentice", 'Goatherd', 'Road scout',
     ],
     build: [
       'Tall and thin as a rake', 'Short and stocky', 'Burly and broad-shouldered', 'Scrawny, almost lost inside their clothes',
@@ -274,10 +287,28 @@ export const TABLES = {
   },
 };
 
+// ===================================================================== gênero
+// Entrada de tabela: texto (serve para todos) ou [masculino, feminino].
+export const GENDERS = ['m', 'f'];
+/** Texto da entrada na forma do gênero pedido. */
+export const inflect = (entry, gender) => (Array.isArray(entry) ? entry[gender === 'f' ? 1 : 0] : entry);
+/** Todas as formas possíveis de uma tabela (para validar). */
+export const allForms = (arr) => arr.flatMap(e => (Array.isArray(e) ? e : [e]));
+const pickIndex = (arr, rng) => Math.floor(rng() * arr.length) % arr.length;
+const firstNamesOf = (T, gender) => T.first.filter(([, g]) => g === gender);
+
 // ===================================================================== peças
-export function personName(lang, rng = Math.random) {
+export function personName(lang, rng = Math.random, gender) {
   const T = TABLES[L(lang)];
-  return `${pick(T.first, rng)} ${pick(T.last, rng)}`;
+  const pool = gender ? firstNamesOf(T, gender) : T.first;
+  return `${pick(pool, rng)[0]} ${pick(T.last, rng)}`;
+}
+
+/** Gênero de um nome gerado ("Jacira Pé-de-Malte" → 'f'); null se não reconhece. */
+export function genderOfName(name, lang = 'pt') {
+  const first = String(name || '').trim().split(/\s+/)[0];
+  const hit = TABLES[L(lang)].first.find(([n]) => n === first);
+  return hit ? hit[1] : null;
 }
 
 export function placeName(lang, rng = Math.random) {
@@ -307,10 +338,30 @@ export function tavernName(lang, rng = Math.random) {
   return g === 'f' ? `A ${noun} ${adj[1]}` : `O ${noun} ${adj[0]}`;
 }
 
-export function appearance(lang, rng = Math.random) {
+export function appearance(lang, rng = Math.random, gender = 'm') {
   const T = TABLES[L(lang)];
-  const sep = L(lang) === 'en' ? '; ' : '; ';
-  return `${pick(T.build, rng)}, ${pick(T.feature, rng)}${sep}${pick(T.clothing, rng)}.`;
+  return renderPick('appearance', [pickIndex(T.build, rng), pickIndex(T.feature, rng), pickIndex(T.clothing, rng)], lang, gender);
+}
+
+// Campos de NPC que flexionam: guardamos o índice sorteado (picks) para poder
+// trocar o gênero depois sem perder o que foi rolado.
+const NPC_TABLE = { role: 'roles', mannerism: 'mannerism', wants: 'wants', secret: 'secret' };
+
+function renderPick(field, idx, lang, gender) {
+  const T = TABLES[L(lang)];
+  if (field === 'appearance') {
+    const [b, f, c] = idx;
+    return `${inflect(T.build[b], gender)}, ${inflect(T.feature[f], gender)}; ${inflect(T.clothing[c], gender)}.`;
+  }
+  return inflect(T[NPC_TABLE[field]][idx], gender);
+}
+
+function rollNpcField(field, lang, rng, gender) {
+  const T = TABLES[L(lang)];
+  const idx = field === 'appearance'
+    ? [pickIndex(T.build, rng), pickIndex(T.feature, rng), pickIndex(T.clothing, rng)]
+    : pickIndex(T[NPC_TABLE[field]], rng);
+  return { value: renderPick(field, idx, lang, gender), idx };
 }
 
 // ===================================================================== geradores
@@ -335,14 +386,12 @@ export const fieldLabel = (field, lang) => { const r = FIELD_LABELS[field]; retu
 function rollField(type, field, lang, rng) {
   const T = TABLES[L(lang)];
   switch (`${type}.${field}`) {
-    case 'npc.name': case 'names.person': case 'names.person2': return personName(lang, rng);
-    case 'npc.role': return pick(T.roles, rng);
-    case 'npc.appearance': return appearance(lang, rng);
-    case 'npc.mannerism': return pick(T.mannerism, rng);
-    case 'npc.wants': return pick(T.wants, rng);
-    case 'npc.secret': return pick(T.secret, rng);
+    case 'names.person': case 'names.person2': return personName(lang, rng);
     case 'tavern.name': case 'names.tavern': return tavernName(lang, rng);
-    case 'tavern.keeper': return `${personName(lang, rng)} — ${pick(T.mannerism, rng).replace(/\.$/, '').toLowerCase()}`;
+    case 'tavern.keeper': {
+      const g = pick(GENDERS, rng);
+      return `${personName(lang, rng, g)} — ${inflect(pick(T.mannerism, rng), g).replace(/\.$/, '').toLowerCase()}`;
+    }
     case 'tavern.atmosphere': return pick(T.atmosphere, rng);
     case 'tavern.specialty': return pick(T.specialty, rng);
     case 'tavern.clientele': return pick(T.clientele, rng);
@@ -354,11 +403,26 @@ function rollField(type, field, lang, rng) {
   }
 }
 
-/** Gera um resultado completo: {type, lang, ...campos}. */
-export function generate(type, lang = 'pt', rng = Math.random) {
+/**
+ * Gera um resultado completo: {type, lang, ...campos}. O NPC também leva
+ * `gender` ('m'|'f', vem do nome sorteado) e `picks` (índices nas tabelas),
+ * para que ocupação, aparência e textos concordem com o nome.
+ */
+export function generate(type, lang = 'pt', rng = Math.random, gender) {
   const fields = FIELDS[type];
   if (!fields) throw new Error(`unknown_generator:${type}`);
   const out = { type, lang: L(lang) };
+  if (type === 'npc') {
+    const g = GENDERS.includes(gender) ? gender : pick(GENDERS, rng);
+    out.gender = g;
+    out.picks = {};
+    out.name = personName(lang, rng, g);
+    for (const f of fields.filter(f => f !== 'name')) {
+      const r = rollNpcField(f, lang, rng, g);
+      out[f] = r.value; out.picks[f] = r.idx;
+    }
+    return out;
+  }
   for (const f of fields) out[f] = rollField(type, f, lang, rng);
   if (type === 'names' && out.person2 === out.person) out.person2 = rollField(type, 'person2', lang, rng);
   return out;
@@ -371,9 +435,42 @@ export const generateNames = (lang, rng) => generate('names', lang, rng);
 /** Rerrola um campo só (tenta não repetir o valor atual). */
 export function rerollField(gen, field, rng = Math.random) {
   if (!gen || !FIELDS[gen.type]?.includes(field)) return gen;
+  if (gen.type === 'npc') {
+    const g = gen.gender || 'm';
+    let r = { value: gen[field], idx: gen.picks?.[field] };
+    for (let i = 0; i < 6 && r.value === gen[field]; i++) {
+      r = field === 'name' ? { value: personName(gen.lang, rng, g) } : rollNpcField(field, gen.lang, rng, g);
+    }
+    const out = { ...gen, [field]: r.value };
+    if (field !== 'name') out.picks = { ...(gen.picks || {}), [field]: r.idx };
+    return out;
+  }
   let v = gen[field];
   for (let i = 0; i < 6 && v === gen[field]; i++) v = rollField(gen.type, field, gen.lang, rng);
   return { ...gen, [field]: v };
+}
+
+/**
+ * Troca o gênero do NPC: novo primeiro nome (mesmo sobrenome) e ocupação,
+ * aparência e textos flexionados. Campos que o mestre editou à mão ficam
+ * como estão.
+ */
+export function setNpcGender(gen, gender, rng = Math.random) {
+  if (!gen || gen.type !== 'npc' || !GENDERS.includes(gender) || gen.gender === gender) return gen;
+  const T = TABLES[gen.lang === 'en' ? 'en' : 'pt'];
+  const old = gen.gender || 'm';
+  const out = { ...gen, gender };
+  // Nome sorteado: troca só o primeiro nome. Nome escrito pelo mestre: não mexe.
+  if (!gen.name || genderOfName(gen.name, gen.lang) === old) {
+    const rest = String(gen.name || '').split(' ').slice(1).join(' ');
+    out.name = `${pick(firstNamesOf(T, gender), rng)[0]} ${rest || pick(T.last, rng)}`;
+  }
+  for (const f of FIELDS.npc.filter(f => f !== 'name')) {
+    const idx = gen.picks?.[f];
+    if (idx === undefined) continue;
+    if (gen[f] === renderPick(f, idx, gen.lang, old)) out[f] = renderPick(f, idx, gen.lang, gender);
+  }
+  return out;
 }
 
 /**

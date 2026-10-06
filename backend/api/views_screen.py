@@ -21,6 +21,7 @@ from .progression.multiclass import class_entries
 from .campaign_state import public_state
 from .image_data import image_response, image_ver
 from .screen_card import is_private_handout, resolve_screen_card
+from .dice_privacy import scrub_dice
 
 
 def _public_character(data, name, char_id):
@@ -122,7 +123,7 @@ def screen(request, token):
                     'diceType': r.dice_type,
                     'count': r.count,
                     'modifier': r.modifier,
-                    'rolls': r.rolls,
+                    'rolls': scrub_dice(r.rolls or []),
                     'total': r.total,
                     'isCritical': r.is_critical,
                     'isCriticalFail': r.is_critical_fail,

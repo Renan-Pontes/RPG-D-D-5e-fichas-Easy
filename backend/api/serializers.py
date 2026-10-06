@@ -24,6 +24,13 @@ class UserSerializer(serializers.ModelSerializer):
         return obj.email.split('@')[0] if obj.email else obj.username
 
 
+class PublicUserSerializer(UserSerializer):
+    """Usuário visto por outra pessoa da mesa: só id e nome de exibição.
+    E-mail é dado pessoal — só o próprio usuário e o mestre da mesa o veem."""
+    class Meta(UserSerializer.Meta):
+        fields = ['id', 'displayName']
+
+
 class SignupSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=200)
     password = serializers.CharField(min_length=6, max_length=200, write_only=True)
@@ -79,6 +86,15 @@ class MembershipSerializer(serializers.ModelSerializer):
     class Meta:
         model = Membership
         fields = ['id', 'user', 'character', 'role', 'joined_at']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        viewer_id = getattr(getattr(request, 'user', None), 'id', None)
+        if not self.context.get('is_dm', False) and instance.user_id != viewer_id \
+                and isinstance(data.get('user'), dict):
+            data['user'].pop('email', None)   # jogador vê só o nome dos colegas
+        return data
 
     def get_character(self, obj):
         if not obj.character:
@@ -234,8 +250,9 @@ class CampaignListSerializer(serializers.ModelSerializer):
 
 # === Approval ===
 class ApprovalSerializer(serializers.ModelSerializer):
-    requested_by = UserSerializer(read_only=True)
-    reviewed_by = UserSerializer(read_only=True)
+    # Sem e-mail: o jogador lê as próprias aprovações e o revisor é o mestre.
+    requested_by = PublicUserSerializer(read_only=True)
+    reviewed_by = PublicUserSerializer(read_only=True)
     character = serializers.SerializerMethodField()
     requestedBy = serializers.SerializerMethodField()
     reviewedBy = serializers.SerializerMethodField()
@@ -259,10 +276,10 @@ class ApprovalSerializer(serializers.ModelSerializer):
         }
 
     def get_requestedBy(self, obj):
-        return UserSerializer(obj.requested_by).data if obj.requested_by else None
+        return PublicUserSerializer(obj.requested_by).data if obj.requested_by else None
 
     def get_reviewedBy(self, obj):
-        return UserSerializer(obj.reviewed_by).data if obj.reviewed_by else None
+        return PublicUserSerializer(obj.reviewed_by).data if obj.reviewed_by else None
 
 
 # === DiceRig ===

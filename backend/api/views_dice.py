@@ -10,6 +10,7 @@ from .serializers import DiceRigSerializer, DiceLogSerializer
 from .permissions import get_campaign_or_404, require_dm, is_dm
 from .rate_limit import rate_limit
 from .diary import log_dice_roll
+from .dice_privacy import scrub_dice
 
 DICE_SIDES = {'d4': 4, 'd6': 6, 'd8': 8, 'd10': 10, 'd12': 12, 'd20': 20, 'd100': 100}
 VALID_TYPES = set(DICE_SIDES.keys()) | {'any'}
@@ -116,9 +117,13 @@ def dice_roll(request):
         results.append(_consume_or_roll(request.user, dice_type, campaign, label))
     log_dice_roll(campaign, request.user, dice_type, results, label)
 
+    total = sum(r['value'] for r in results)
+    # Dado viciado é segredo do mestre: quem não é o mestre recebe só o valor.
+    if not (campaign and campaign.dm_id == request.user.id):
+        results = scrub_dice(results)
     return Response({
         'results': results,
-        'total': sum(r['value'] for r in results),
+        'total': total,
     })
 
 

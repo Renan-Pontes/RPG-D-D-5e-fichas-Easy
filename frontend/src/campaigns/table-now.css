@@ -338,8 +338,10 @@
 }
 .nudge-bell.has-items { border-color: var(--amber); color: var(--amber); }
 .nudge-bell-count { font-family: var(--mono); font-size: 0.85rem; }
+/* Rótulo visível: "🔔 0 avisos" em vez de um número solto (bug #6). */
 .nudge-bell .sr-only {
-  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  position: static !important; width: auto; height: auto; overflow: visible; clip: auto; white-space: nowrap;
+  margin: 0; padding: 0; font-size: 0.8rem;
 }
 .nudge-pop {
   position: absolute;

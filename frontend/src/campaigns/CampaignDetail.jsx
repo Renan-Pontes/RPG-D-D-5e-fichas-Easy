@@ -22,8 +22,8 @@ import {
   PlayerTableFallback, PrepareFallback, WorldFallback,
 } from '../shell/Fallbacks.jsx';
 import {
-  areasFor, initialArea, isHexColor, loadRememberedArea, normalizeArea, onboardingStatus,
-  onboardingVisible, planHasContent, saveRememberedArea, screenLink, t,
+  areasFor, campaignRoute, initialArea, isHexColor, loadRememberedArea, normalizeArea, onboardingStatus,
+  onboardingVisible, parseCampaignRoute, planHasContent, saveRememberedArea, screenLink, t,
 } from '../shell/shell-logic.js';
 import '../shell/shell.css';
 
@@ -118,15 +118,27 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
         try { combatActive = !!(await api.getCombat(campaign.id))?.combat?.active; } catch { /* ok */ }
       }
       if (!alive) return;
+      // F5 dentro da campanha: a URL (#c/<slug>/<área>/<sub>) diz onde estava.
+      const route = parseCampaignRoute(window.location.hash);
+      const fromUrl = route && (route.slug === campaign.slug || route.slug === String(campaign.id)) ? route : null;
       const first = initialArea({
         isDM, live: !!campaign.state?.live, combatActive,
         onboardingPending: onboardingVisible(obStatus),
         remembered: loadRememberedArea(campaign.id),
+        fromUrl,
       });
       setNav({ ...first, params: {} });
     })();
     return () => { alive = false; };
   }, [campaign, isDM, world, nav, obStatus]);
+
+  // Mantém a URL em dia com a tela (replaceState: não enche o histórico).
+  useEffect(() => {
+    if (!campaign || !nav) return;
+    const h = campaignRoute(campaign.slug || campaign.id, nav.area, nav.sub);
+    if (!h || window.location.hash === h) return;
+    try { window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}${h}`); } catch { /* ok */ }
+  }, [campaign?.slug, campaign?.id, nav?.area, nav?.sub]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const goTo = useCallback((area, sub, params) => {
     if (!campaign) return;
@@ -262,7 +274,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
         />
         <AreaNav areas={areas} active={nav.area} onSelect={(a) => goTo(a)} onSearch={() => setSearch(true)} lang={lang} badges={badges} showKeys={isDM} />
 
-        <main className="shell-panel" id="shell-panel" role="tabpanel" aria-labelledby={`area-tab-${nav.area}`}>
+        <div className="shell-panel" id="shell-panel" role="tabpanel" aria-labelledby={`area-tab-${nav.area}`}>
           {isDM && nav.area === 'world' && onboardingVisible(obStatus) && (
             <Onboarding
               lang={lang} status={obStatus}
@@ -273,7 +285,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
             />
           )}
           {content}
-        </main>
+        </div>
 
         {!isDM && RevealToast && (
           <AreaBoundary lang={lang} resetKey="toast">

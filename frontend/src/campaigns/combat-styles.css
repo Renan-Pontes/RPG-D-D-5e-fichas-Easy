@@ -442,3 +442,19 @@
 @media (max-width: 720px) {
   .combat-tab .combat-grid-wrapper { margin-left: 0; margin-right: 0; max-width: 100%; }
 }
+
+/* Combate vazio: orientação (bug #6) */
+.combat-empty-hint {
+  padding: 12px 14px;
+  border: 1px dashed var(--gold-deep);
+  border-radius: 8px;
+  background: var(--gold-soft);
+  color: var(--ink-secondary);
+}
+.combat-empty-hint p { margin: 0 0 6px; line-height: 1.45; }
+.combat-empty-hint strong { color: var(--gold); }
+/* Banner "Vez de": atalho para as ações de quem age (bug #33) */
+.now-turn { align-items: center; }
+.now-turn-go { white-space: nowrap; }
+@media (max-width: 480px) { .now-turn-go { margin-left: auto; } }
+.combatant-card { scroll-margin-top: 80px; }

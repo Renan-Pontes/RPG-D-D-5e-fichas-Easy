@@ -296,3 +296,18 @@ export const tempKey = () => `k${Date.now().toString(36)}${(_uid++).toString(36)
 
 /** Limita x/y a 0..1 (posição relativa do pin). */
 export const clampUnit = (v) => Math.min(1, Math.max(0, Number.isFinite(v) ? v : 0.5));
+
+// ---------------------------------------------------------------- textos com plural e verbo do aparelho
+/** true em telas de toque (celular/tablet); false no mouse. */
+export const isTouchUi = () => {
+  try { return typeof window !== 'undefined' && !!window.matchMedia?.('(hover: none) and (pointer: coarse)').matches; } catch { return false; }
+};
+/** "Toque"/"Clique" (ou "Tap"/"Click") conforme o aparelho. */
+export const tapVerb = (lang, touch) => (touch ? t(lang, 'Toque', 'Tap') : t(lang, 'Clique', 'Click'));
+
+/** "4 marcadores · 2 visíveis aos jogadores." — plural flexionado de verdade. */
+export function pinCountText(total, visible, lang = 'pt') {
+  const n = Number(total) || 0; const v = Number(visible) || 0;
+  if (lang === 'en') return `${n} ${n === 1 ? 'pin' : 'pins'} · ${v} visible to players.`;
+  return `${n} ${n === 1 ? 'marcador' : 'marcadores'} · ${v} ${v === 1 ? 'visível' : 'visíveis'} aos jogadores.`;
+}

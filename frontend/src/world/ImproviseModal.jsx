@@ -4,7 +4,7 @@
 //   <ImproviseModal campaignId lang onClose onSaved={(entry) => …} initialType="npc" />
 import { useEffect, useState } from 'react';
 import { createEntry, worldErrorText } from './world-api.js';
-import { FIELDS, fieldLabel, generate, rerollField, toEntryPayload, toPlainText } from './generators.js';
+import { FIELDS, fieldLabel, generate, rerollField, setNpcGender, toEntryPayload, toPlainText } from './generators.js';
 import { t } from './world-model.js';
 import './world-styles.css';
 
@@ -21,6 +21,9 @@ export default function ImproviseModal({ campaignId, lang = 'pt', onClose, onSav
   const [gen, setGen] = useState(() => generate(initialType, lang));
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState('');
+  // O que já foi salvo deste resultado: '*' (NPC/taverna) ou o campo de "Nomes".
+  // Qualquer rerrolagem/edição gera um resultado novo e libera o botão de novo.
+  const [savedKeys, setSavedKeys] = useState(() => new Set());
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -30,17 +33,27 @@ export default function ImproviseModal({ campaignId, lang = 'pt', onClose, onSav
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const switchType = (id) => { setType(id); setGen(generate(id, lang)); setSaved(''); setError(''); };
-  const rollAll = () => { setGen(generate(type, lang)); setSaved(''); };
-  const reroll = (f) => { setGen(g => rerollField(g, f)); setSaved(''); };
-  const edit = (f, v) => setGen(g => ({ ...g, [f]: v }));
+  const fresh = () => { setSaved(''); setSavedKeys(new Set()); };
+  const unsave = (f) => setSavedKeys(prev => {
+    if (!prev.has('*') && !prev.has(f)) return prev;
+    const next = new Set(prev); next.delete('*'); next.delete(f); return next;
+  });
+  const switchType = (id) => { setType(id); setGen(generate(id, lang)); fresh(); setError(''); };
+  const rollAll = () => { setGen(generate(type, lang)); fresh(); };
+  const reroll = (f) => { setGen(g => rerollField(g, f)); setSaved(''); unsave(f); };
+  const edit = (f, v) => { setGen(g => ({ ...g, [f]: v })); setSaved(''); unsave(f); };
+  const flipGender = (g) => { setGen(cur => setNpcGender(cur, g)); fresh(); };
+
+  const saveKey = (field) => (type === 'names' ? field : '*');
+  const isSaved = (field) => savedKeys.has(saveKey(field));
 
   const save = async (field) => {
-    if (!campaignId) return;
+    if (!campaignId || busy || isSaved(field)) return;
     setBusy(true); setError('');
     try {
       const entry = await createEntry(campaignId, toEntryPayload(gen, field));
       setSaved(entry.name);
+      setSavedKeys(prev => new Set(prev).add(saveKey(field)));
       onSaved?.(entry);
     } catch (e) {
       setError(worldErrorText(e, lang));
@@ -77,6 +90,16 @@ export default function ImproviseModal({ campaignId, lang = 'pt', onClose, onSav
                 {f === 'secret' || f === 'rumor' ? '🔒 ' : ''}{fieldLabel(f, lang)}
               </div>
               <div className="wl-impro-value">
+                {type === 'npc' && f === 'name' && (
+                  <div className="wl-impro-gender" role="group" aria-label={t(lang, 'Gênero', 'Gender')}>
+                    {[['m', 'Ele', 'He'], ['f', 'Ela', 'She']].map(([g, pt, en]) => (
+                      <button key={g} type="button" aria-pressed={(gen.gender || 'm') === g}
+                        className={(gen.gender || 'm') === g ? 'is-on' : ''} onClick={() => flipGender(g)}>
+                        {t(lang, pt, en)}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {long(f)
                   ? <textarea rows={2} value={gen[f]} onChange={e => edit(f, e.target.value)} aria-label={fieldLabel(f, lang)} />
                   : <input value={gen[f]} onChange={e => edit(f, e.target.value)} aria-label={fieldLabel(f, lang)} />}
@@ -84,8 +107,10 @@ export default function ImproviseModal({ campaignId, lang = 'pt', onClose, onSav
               <div className="wl-impro-btns">
                 <button type="button" className="wl-die" onClick={() => reroll(f)} title={t(lang, 'Rolar de novo só este', 'Reroll just this')} aria-label={t(lang, `Rolar ${fieldLabel(f, lang)} de novo`, `Reroll ${fieldLabel(f, lang)}`)}>🎲</button>
                 {type === 'names' && (
-                  <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => save(f)}>
-                    ＋ {t(lang, `Criar ${NAME_KIND[f][0]}`, `Create ${NAME_KIND[f][1]}`)}
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={busy || isSaved(f)} onClick={() => save(f)}>
+                    {isSaved(f)
+                      ? `✓ ${t(lang, 'Criado', 'Created')}`
+                      : `＋ ${t(lang, `Criar ${NAME_KIND[f][0]}`, `Create ${NAME_KIND[f][1]}`)}`}
                   </button>
                 )}
               </div>
@@ -97,13 +122,21 @@ export default function ImproviseModal({ campaignId, lang = 'pt', onClose, onSav
         {error && <p className="wl-error" role="alert">{error}</p>}
 
         <div className="wl-impro-foot">
-          <button type="button" className="btn btn-ghost" onClick={rollAll}>🎲 {t(lang, 'Rolar tudo', 'Roll all')}</button>
-          <button type="button" className="btn btn-ghost" onClick={copy}>{copied ? t(lang, 'Copiado!', 'Copied!') : t(lang, 'Copiar', 'Copy')}</button>
-          {type !== 'names' && campaignId && (
-            <button type="button" className="btn btn-primary" disabled={busy} onClick={() => save()}>
-              {busy ? t(lang, 'Salvando…', 'Saving…') : t(lang, 'Gostei, salvar no mundo', 'Love it, save to world')}
-            </button>
+          {!(type !== 'names' && isSaved()) && (
+            <button type="button" className="btn btn-ghost" onClick={rollAll}>🎲 {t(lang, 'Rolar tudo', 'Roll all')}</button>
           )}
+          <button type="button" className="btn btn-ghost" onClick={copy}>{copied ? t(lang, 'Copiado!', 'Copied!') : t(lang, 'Copiar', 'Copy')}</button>
+          {type !== 'names' && campaignId && (isSaved()
+            ? (
+              <>
+                <button type="button" className="btn btn-ghost" disabled aria-disabled="true">✓ {t(lang, 'Salvo', 'Saved')}</button>
+                <button type="button" className="btn btn-primary" onClick={rollAll}>🎲 {t(lang, 'Gerar outro', 'Roll another')}</button>
+              </>
+            ) : (
+              <button type="button" className="btn btn-primary" disabled={busy} onClick={() => save()}>
+                {busy ? t(lang, 'Salvando…', 'Saving…') : t(lang, 'Gostei, salvar no mundo', 'Love it, save to world')}
+              </button>
+            ))}
         </div>
       </div>
     </div>

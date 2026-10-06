@@ -29,11 +29,19 @@ function Loading() {
   );
 }
 
+// Idioma salvo ('pt' | 'en') ou, sem nada salvo, o do navegador.
+function initialLang() {
+  let stored = null;
+  try { stored = localStorage.getItem('dnd5e-forge:lang'); } catch { /* bloqueado */ }
+  if (stored === 'pt' || stored === 'en') return stored;
+  return (navigator.language || '').startsWith('pt') ? 'pt' : 'en';
+}
+
 // Router minimalista: a rota /tv/<token> abre o telão público sem auth.
 function Root() {
   const path = window.location.pathname;
   const tvMatch = path.match(/^\/tv\/([^\/]+)$/);
-  const lang = (localStorage.getItem('dnd5e-forge:lang') || (navigator.language || '').startsWith('pt') ? 'pt' : 'en');
+  const lang = initialLang();
 
   if (tvMatch) {
     return (

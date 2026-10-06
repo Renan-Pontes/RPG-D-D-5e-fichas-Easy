@@ -8,7 +8,9 @@ import {
   normalizePlan, addScene, addSecret, updateItem, removeItem, moveItem, toggleId, padSecrets,
   toggleDiscovered, revealBodyFor, planDiff, planProgress, carryOver, textForRef, SECRET_GOAL, PLAN_LIMITS,
 } from './next-session.js';
-import { kindIcon, kindLabel, WORLD_KINDS } from './prep-world.js';
+import { WORLD_KINDS } from './prep-world.js';
+// Ícones e nomes dos tipos vêm do Mundo, para casar com o Atlas (🧑 NPCs, ⚜️ Facções, 📜 Histórias).
+import { kindIcon, kindLabel } from '../world/world-model.js';
 import WorldRefs from './WorldRefs.jsx';
 import usePrepConfirm from './usePrepConfirm.jsx';
 import './next-session.css';
@@ -21,7 +23,7 @@ const STEPS = [
   { id: 'scenes',      icon: '🎬', pt: 'Cenas possíveis',         en: 'Potential scenes' },
   { id: 'secrets',     icon: '🗝', pt: 'Segredos e pistas',       en: 'Secrets & clues' },
   { id: 'places',      icon: '🏰', pt: 'Lugares fantásticos',     en: 'Fantastic locations' },
-  { id: 'npcs',        icon: '👤', pt: 'NPCs importantes',        en: 'Important NPCs' },
+  { id: 'npcs',        icon: '🧑', pt: 'NPCs importantes',        en: 'Important NPCs' },
   { id: 'monsters',    icon: '🐉', pt: 'Monstros',                en: 'Monsters' },
   { id: 'rewards',     icon: '💎', pt: 'Recompensas',             en: 'Rewards' },
 ];
@@ -520,7 +522,7 @@ function SecretLink({ value, world, lang, loadEntry, onChange }) {
           const list = (world || []).filter(e => e.kind === k.id);
           if (!list.length) return null;
           return (
-            <optgroup key={k.id} label={`${k.icon} ${kindLabel(k.id, lang, true)}`}>
+            <optgroup key={k.id} label={`${kindIcon(k.id)} ${kindLabel(k.id, lang, true)}`}>
               {list.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
             </optgroup>
           );

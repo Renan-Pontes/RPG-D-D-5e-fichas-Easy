@@ -55,7 +55,7 @@ export function LogDiaryCheck({ value, onChange, lang }) {
   return (
     <label className="wl-logcheck">
       <input type="checkbox" checked={value} onChange={e => onChange(e.target.checked)} />
-      <span>{t(lang, 'Registrar na Crônica', 'Log in the Chronicle')}</span>
+      <span title={t(lang, 'Cada revelação (do cartão ou de um segredo) vira uma linha na Crônica da campanha.', 'Each reveal (card or secret) becomes a line in the campaign Chronicle.')}>{t(lang, 'Registrar na Crônica', 'Log in the Chronicle')}</span>
     </label>
   );
 }
@@ -75,8 +75,11 @@ export function VisibilitySwitch({ value, onPick, busy, lang, compact = false })
   );
 }
 
-export default function RevealControl({ entry, lang = 'pt', onChange, beforeReveal, showSecrets = false, compact = false }) {
-  const r = useReveal(entry, lang, onChange, beforeReveal);
+// `reveal` (opcional): o resultado de useReveal() de quem chama, para que o
+// painel e o resto da tela compartilhem o mesmo estado (uma caixa "Crônica" só).
+export default function RevealControl({ entry, lang = 'pt', onChange, beforeReveal, showSecrets = false, compact = false, reveal = null }) {
+  const own = useReveal(entry, lang, onChange, beforeReveal);
+  const r = reveal || own;
   if (!entry) return null;
   const vis = entry.visibility || 'hidden';
   const secrets = (entry.secrets || []).filter(s => s && s.id);

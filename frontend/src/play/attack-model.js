@@ -11,8 +11,15 @@ const int = (v) => {
   return Number.isFinite(n) ? n : null;
 };
 
-/** AttackPreview (C2) → rascunho editável. */
-export function draftFromPreview(p) {
+/** A parte entra na conta? Dano extra condicional só entra se o mestre marcar. */
+export const partOn = (p) => !p?.conditional || !!p.on;
+
+/**
+ * AttackPreview (C2) → rascunho editável.
+ * `conditions` (opcional): condição de cada parte do dano, alinhada com
+ * preview.damage (ver damagePartConditions). Parte condicional começa DESLIGADA.
+ */
+export function draftFromPreview(p, { conditions = [] } = {}) {
   if (!p) return null;
   return {
     attackerId: p.attackerId,
@@ -24,7 +31,10 @@ export function draftFromPreview(p) {
     d20: p.attackRoll != null ? String(p.attackRoll) : '',
     rolledD20: p.attackRoll ?? null,
     rolls: p.rolls || [],
-    parts: (p.damage || []).map(d => ({ dice: d.dice || '', type: d.type || '', amount: String(d.rolled ?? 0), rolled: d.rolled ?? 0 })),
+    parts: (p.damage || []).map((d, i) => {
+      const conditional = conditions[i] || null;
+      return { dice: d.dice || '', type: d.type || '', amount: String(d.rolled ?? 0), rolled: d.rolled ?? 0, conditional, on: !conditional };
+    }),
     hitOverride: null,          // null = segue a regra; true/false = palavra do mestre
     available: p.available !== false,
     unavailableReason: p.unavailableReason || null,
@@ -50,9 +60,9 @@ export function evaluateDraft(d) {
   const natOne = valid && nat === 1;
   const ruleHit = valid && (crit || (!natOne && total >= d.ac));
   const hit = d.hitOverride == null ? ruleHit : !!d.hitOverride;
-  const amounts = (d.parts || []).map(p => Math.max(0, int(p.amount) ?? 0));
+  const amounts = (d.parts || []).filter(partOn).map(p => Math.max(0, int(p.amount) ?? 0));
   const damageTotal = amounts.reduce((a, b) => a + b, 0);
-  const partsValid = (d.parts || []).every(p => {
+  const partsValid = (d.parts || []).filter(partOn).every(p => {
     const n = int(p.amount);
     return n != null && n >= 0 && n <= 9999;
   });
@@ -65,6 +75,15 @@ export function isAdjusted(d) {
   if (int(d.d20) !== d.rolledD20) return true;
   if (d.hitOverride != null) return true;
   return (d.parts || []).some(p => int(p.amount) !== p.rolled);
+}
+
+/**
+ * Os totais que o servidor calculou (resistências, PV novos) valem para a tela?
+ * Só se nada foi ajustado e todas as partes roladas estão na conta.
+ */
+export function serverTotalsValid(d) {
+  if (!d || isAdjusted(d)) return false;
+  return (d.parts || []).every(partOn);
 }
 
 /** Dados do crítico: "1d6+2" → "2d6+2" (só para mostrar ao mestre). */
@@ -91,7 +110,7 @@ export function applyBody(d, { force = false } = {}) {
     force: !!force || !d.available,
   };
   if (r.hit) {
-    const parts = (d.parts || []).map(p => ({ amount: Math.max(0, int(p.amount) ?? 0), type: p.type || 'bludgeoning' }));
+    const parts = (d.parts || []).filter(partOn).map(p => ({ amount: Math.max(0, int(p.amount) ?? 0), type: p.type || 'bludgeoning' }));
     body.damage = parts.length ? parts : [{ amount: 0, type: 'bludgeoning' }];
   } else {
     body.damage = [{ amount: 0, type: (d.parts?.[0]?.type) || 'bludgeoning' }];
@@ -108,7 +127,7 @@ export function resultLine(d, { lang = 'pt', damageLabel = (t) => t } = {}) {
   const L = (pt, en) => (lang === 'en' ? en : pt);
   const head = `${r.total} ${L('vs CA', 'vs AC')} ${d.ac}`;
   if (!r.hit) return `${head} — ${r.natOne ? L('1 natural, erra', 'natural 1, miss') : L('erra', 'miss')}`;
-  const dmg = (d.parts || []).map(p => `${Math.max(0, int(p.amount) ?? 0)} ${damageLabel(p.type)}`.trim()).join(' + ');
+  const dmg = (d.parts || []).filter(partOn).map(p => `${Math.max(0, int(p.amount) ?? 0)} ${damageLabel(p.type)}`.trim()).join(' + ');
   return `${head} — ${r.crit ? L('CRÍTICO', 'CRITICAL') : L('acerta', 'hit')}${dmg ? `, ${dmg}` : ''}`;
 }
 

@@ -314,6 +314,21 @@ REVEAL_TITLES = {
 }
 
 
+def _already_logged(campaign, entry, title, newly_secrets, newly_pins):
+    """Revelar → ocultar → revelar o mesmo cartão na mesma sessão não repete a
+    linha na Crônica: já existe um evento com o mesmo título e os mesmos
+    segredos/pins para esta entrada."""
+    from .models import DiaryEntry
+    secret_ids = sorted(s['id'] for s in newly_secrets)
+    pin_ids = sorted(p['id'] for p in newly_pins)
+    rows = (DiaryEntry.objects
+            .filter(campaign=campaign, subtype='reveal', kind='event', title=title[:200], hidden=False,
+                    session=current_session(campaign), data__entryId=entry.id)
+            .values_list('data', flat=True))
+    return any(sorted((d or {}).get('secretIds') or []) == secret_ids
+               and sorted((d or {}).get('pinIds') or []) == pin_ids for d in rows)
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def world_reveal(request, pk):
@@ -382,12 +397,13 @@ def world_reveal(request, pk):
         lang = 'en' if body.get('lang') == 'en' else 'pt'
         t = REVEAL_TITLES[lang]
         key = ('revealed' if final_vis == 'revealed' else 'partial') if vis_up else ('secret' if newly_secrets else 'pin')
-        log_diary(campaign, 'reveal', t[key].format(name=entry.name),
-                  body='\n'.join(s['text'] for s in newly_secrets),
-                  data={'entryId': entry.id, 'entryName': entry.name, 'kind': entry.kind,
-                        'visibility': final_vis, 'secretIds': [s['id'] for s in newly_secrets],
-                        'pinIds': [p['id'] for p in newly_pins]},
-                  user=request.user)
+        if not _already_logged(campaign, entry, t[key].format(name=entry.name), newly_secrets, newly_pins):
+            log_diary(campaign, 'reveal', t[key].format(name=entry.name),
+                      body='\n'.join(s['text'] for s in newly_secrets),
+                      data={'entryId': entry.id, 'entryName': entry.name, 'kind': entry.kind,
+                            'visibility': final_vis, 'secretIds': [s['id'] for s in newly_secrets],
+                            'pinIds': [p['id'] for p in newly_pins]},
+                      user=request.user)
     return Response({'entry': R.serialize_full(entry, True)})
 
 

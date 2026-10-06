@@ -138,7 +138,7 @@ class ScreenCardTests(Base):
         self.assertEqual(r.status_code, 200, r.content)
         card = self.screen()['card']
         self.assertEqual(card['title'], 'Irmã Velna')
-        self.assertEqual(card['kindLabel'], 'Personagem')
+        self.assertEqual(card['kindLabel'], 'NPC')
         self.assertIn('Cuida do templo de Brumafria.', card['text'])   # sem a marcação @[..](id)
         self.assertIn('Tem uma filha', card['text'])                    # segredo revelado e pedido
         self.assertNotIn('Serve ao culto', card['text'])                # não revelado: nunca

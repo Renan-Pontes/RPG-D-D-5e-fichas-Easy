@@ -13,7 +13,7 @@ import {
   kindIcon, kindLabel, placeTypeLabel, rarityLabel, relLabel, t,
 } from './world-model.js';
 import useAutosave, { saveStateLabel } from './useAutosave.js';
-import RevealControl, { useReveal, LogDiaryCheck } from './RevealControl.jsx';
+import RevealControl, { useReveal } from './RevealControl.jsx';
 import { EntryImage, VisibilitySeal } from './EntryCard.jsx';
 import { EntryPicker, MentionTextarea, RelationsEditor, TagsInput } from './LinksField.jsx';
 
@@ -234,7 +234,7 @@ export default function EntryEditor({
       {error && <p className="wl-error" role="alert">{error}</p>}
 
       {/* ----- revelar */}
-      <RevealControl entry={entry} lang={lang} onChange={afterReveal} beforeReveal={beforeReveal} />
+      <RevealControl entry={entry} lang={lang} onChange={afterReveal} beforeReveal={beforeReveal} reveal={rv} />
 
       <div className="wl-ed-quick">
         {onShow && (
@@ -270,15 +270,26 @@ export default function EntryEditor({
           <section className="wl-ed-sec wl-ed-secrets">
             <div className="wl-ed-sec-head">
               <h4>🗝 {t(lang, 'Segredos', 'Secrets')}</h4>
-              <LogDiaryCheck value={rv.logDiary} onChange={rv.setLogDiary} lang={lang} />
             </div>
-            <p className="wl-hint">{t(lang, 'Cada segredo se revela sozinho, quando você quiser. Ótimo para pistas.', 'Each secret is revealed on its own, whenever you want. Great for clues.')}</p>
+            <p className="wl-hint">{t(lang, 'Revele cada segredo separadamente, quando quiser. Ótimo para pistas. A caixa "Registrar na Crônica" lá em cima vale também para os segredos.', 'Reveal each secret separately, whenever you want. Great for clues. The "Log in the Chronicle" box above also applies to secrets.')}</p>
+            {secrets.some(s => s.revealed) && (entry.visibility || 'hidden') !== 'revealed' && (
+              <p className="wl-secret-warn" role="note">
+                ⚠ {entry.visibility === 'partial'
+                  ? t(lang, 'O cartão está "Conhecido de nome": os jogadores só veem os segredos revelados quando ele estiver "Revelado".', 'The card is "Known by name": players only see revealed secrets once it is "Revealed".')
+                  : t(lang, 'O cartão está oculto: os jogadores ainda não veem os segredos revelados.', 'The card is hidden: players cannot see revealed secrets yet.')}
+              </p>
+            )}
             {secrets.map((s, i) => (
               <div key={s.id || i} className={`wl-secret${s.revealed ? ' is-revealed' : ''}`}>
                 <textarea rows={2} value={s.text} maxLength={1000} placeholder={t(lang, 'Ex.: Borin guarda a chave da cripta.', 'E.g.: Borin keeps the crypt key.')}
                   onChange={e => setSecrets(secrets.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))} />
                 <div className="wl-secret-actions">
-                  {s.revealed && <span className="wl-secret-badge">{t(lang, 'Revelado', 'Revealed')}{s.session ? ` · ${t(lang, 'sessão', 'session')} ${s.session}` : ''}</span>}
+                  {s.revealed && (
+                    <span className={`wl-secret-badge${entry.visibility === 'revealed' ? '' : ' is-waiting'}`}>
+                      {entry.visibility === 'revealed' ? t(lang, 'Revelado', 'Revealed') : t(lang, 'Revelado (cartão ainda não)', 'Revealed (card not yet)')}
+                      {s.session ? ` · ${t(lang, 'sessão', 'session')} ${s.session}` : ''}
+                    </span>
+                  )}
                   <button type="button" className={`btn btn-sm ${s.revealed ? 'btn-ghost' : 'btn-primary'}`} disabled={rv.busy || !s.text.trim()}
                     onClick={() => rv.toggleSecret(s.id, !s.revealed)}>
                     {s.revealed ? t(lang, 'Ocultar', 'Hide') : t(lang, 'Revelar', 'Reveal')}

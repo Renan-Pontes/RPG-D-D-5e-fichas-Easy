@@ -65,6 +65,10 @@
 .arc-damage.is-off { opacity: 0.5; }
 .arc-damage ul { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .arc-part { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.arc-part.is-conditional { padding: 6px 8px; border: 1px dashed var(--gold-deep); border-radius: 8px; }
+.arc-part.is-off > :not(.arc-cond) { opacity: 0.45; text-decoration: line-through; }
+.arc-cond { flex-basis: 100%; display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--gold); cursor: pointer; min-height: 32px; }
+.arc-cond input { width: 18px; height: 18px; accent-color: var(--gold); }
 .arc-dmg-val { font-family: var(--display); font-size: 1.35rem; color: var(--blood-bright); min-width: 1.6em; }
 .arc-dmg-input { width: 5em; }
 .arc-type { width: auto; min-width: 0; max-width: 12em; }
@@ -109,6 +113,12 @@
 
 /* ---------- Área ---------- */
 .play-area { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+/* Zona livre do botão de dados (FAB, fixo no canto): o fim de Jogar nunca fica
+   embaixo dele (#46). */
+.play-area { padding-bottom: calc(80px + var(--fab-safe-bottom, 0px)); }
+@media (min-width: 900px) {
+  .play-area { padding-bottom: calc(96px + var(--fab-safe-bottom, 0px)); }
+}
 
 /* ---------- Nesta cena ---------- */
 .ins {
@@ -230,3 +240,59 @@
 .src-name { flex: 1 1 120px; min-width: 0; overflow-wrap: anywhere; }
 .src-total { width: 5em; text-align: center; }
 .src-out { font-family: var(--display); color: var(--blood-bright); min-width: 3em; text-align: right; }
+
+/* Telão: cartão sobreposto ao combate / guardado para depois (#34) */
+.scr-tv-overlay {
+  display: block; margin-top: 6px; padding: 4px 8px; border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35); border-left: 3px solid var(--gold);
+  font-size: 0.85rem; color: var(--parchment, var(--ink));
+}
+.scr-tv-overlay.is-waiting { border-left-color: var(--ink-secondary); opacity: 0.85; }
+
+/* ---------- Plano da sessão em Jogar › Cena (#26) ---------- */
+.spp {
+  margin: 12px 0;
+  border: 1px solid var(--gold-deep);
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--gold-soft), transparent 70%), var(--bg-elevated);
+  min-width: 0;
+}
+.spp-empty { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px; border-style: dashed; color: var(--ink-secondary); }
+.spp-summary {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 14px; cursor: pointer; list-style: none; min-height: 44px;
+}
+.spp-summary::-webkit-details-marker { display: none; }
+.spp-summary::after { content: '▾'; color: var(--gold); transition: transform 0.2s ease; }
+.spp:not([open]) .spp-summary::after { transform: rotate(-90deg); }
+.spp-title { font-family: var(--display); color: var(--gold-bright); font-size: 1.05rem; flex: 1 1 auto; }
+.spp-progress { display: inline-flex; gap: 10px; font-family: var(--mono, monospace); }
+.spp-body { display: flex; flex-direction: column; gap: 12px; padding: 0 14px 14px; min-width: 0; }
+.spp-block { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.spp-eyebrow { font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.spp-strong p { margin: 0; padding: 8px 12px; border-left: 3px solid var(--gold); background: rgba(0, 0, 0, 0.18); border-radius: 4px; white-space: pre-line; line-height: 1.45; overflow-wrap: anywhere; }
+.spp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.spp-item {
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 10px;
+  padding: 8px 10px; border: 1px solid var(--stroke); border-radius: 8px; background: var(--bg);
+}
+.spp-item.is-done .spp-text { opacity: 0.55; text-decoration: line-through; }
+.spp-check { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; min-width: 64px; }
+.spp-check input { width: 20px; height: 20px; accent-color: var(--gold); }
+.spp-check-label { font-size: 0.7rem; color: var(--ink-secondary); }
+.spp-text { flex: 1 1 160px; display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.spp-pre { white-space: pre-line; margin: 0; overflow-wrap: anywhere; }
+.spp-room { font-size: 0.8rem; color: var(--gold); }
+.spp-now { align-self: center; font-size: 0.75rem; color: var(--moss-bright, var(--gold)); white-space: nowrap; }
+.spp-use { align-self: center; white-space: nowrap; }
+.spp-ask {
+  flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 8px; border-radius: 6px; background: var(--gold-soft); border: 1px dashed var(--gold-deep);
+}
+.spp-ask > span { flex: 1 1 180px; font-size: 0.9rem; }
+.spp-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.spp-note { margin: 0; }
+.spp-edit { align-self: flex-start; }
+@media (max-width: 480px) {
+  .spp-use { flex: 1 1 100%; }
+}

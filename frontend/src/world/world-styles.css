@@ -34,6 +34,7 @@
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; min-height: 36px; border-radius: 999px;
   background: var(--bg-card); border: 1px solid var(--stroke-faint); color: var(--ink-secondary);
   font-family: var(--body); font-size: 0.88rem; cursor: pointer; white-space: nowrap;
+  flex-shrink: 0; /* nas fileiras roláveis (.wl-filters) o chip mantém a largura e a fileira rola */
 }
 .wl-chip:hover { border-color: var(--stroke-strong); color: var(--ink-primary); }
 .wl-chip.is-on { border-color: var(--wl-kind, var(--gold)); color: var(--ink-primary); background: color-mix(in srgb, var(--wl-kind, var(--gold)) 20%, var(--bg-card)); }
@@ -80,6 +81,12 @@
   background: rgba(14, 10, 7, 0.78); color: var(--ink-primary); border: 1px solid color-mix(in srgb, var(--wl-kind) 70%, transparent);
   backdrop-filter: blur(3px);
 }
+.wl-card-top {
+  position: absolute; top: 10px; left: 10px; right: 10px; z-index: 1;
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; justify-content: space-between; pointer-events: none;
+}
+.wl-card-top .wl-kind-badge, .wl-card-top .wl-seal { position: static; max-width: 100%; }
+.wl-card-top .wl-seal { margin-left: auto; }
 .wl-map-badge { position: absolute; bottom: 10px; left: 10px; z-index: 1; font-size: 0.72rem; padding: 2px 9px; border-radius: 999px; background: rgba(14,10,7,0.78); border: 1px solid var(--stroke); color: var(--gold-bright); }
 
 /* selo de visibilidade */
@@ -236,6 +243,8 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-secret.is-revealed { background: rgba(52,64,31,0.25); border-color: rgba(156,192,101,0.4); }
 .wl-secret-actions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .wl-secret-badge { margin-right: auto; font-size: 0.75rem; color: var(--moss-bright); }
+.wl-secret-badge.is-waiting { color: var(--amber); }
+.wl-secret-warn { margin: 6px 0; padding: 8px 10px; border-radius: var(--radius); font-size: 0.84rem; line-height: 1.4; color: var(--amber); background: var(--amber-soft); border: 1px solid rgba(227,164,69,0.35); }
 
 .wl-conflict { margin: 12px 0; padding: 12px; border-radius: 8px; background: var(--blood-soft); border: 1px solid var(--blood-bright); }
 .wl-conflict p { margin: 4px 0 8px; font-size: 0.88rem; color: var(--ink-secondary); }
@@ -379,6 +388,9 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-impro-btns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .wl-die { width: 40px; height: 40px; border-radius: 8px; border: 1px solid var(--stroke); background: var(--bg-card); font-size: 1.1rem; cursor: pointer; transition: transform 0.3s; }
 .wl-die:hover { border-color: var(--gold); transform: rotate(90deg); }
+.wl-impro-gender { display: inline-flex; gap: 2px; padding: 2px; margin-bottom: 6px; border-radius: 999px; background: var(--bg-deep); border: 1px solid var(--stroke-faint); }
+.wl-impro-gender button { border: 0; background: none; color: var(--ink-muted); font-size: 0.78rem; padding: 4px 12px; min-height: 30px; border-radius: 999px; cursor: pointer; }
+.wl-impro-gender button.is-on { background: var(--gold-soft); color: var(--gold-bright); box-shadow: 0 0 0 1px var(--gold) inset; }
 .wl-impro-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
 @media (max-width: 560px) {
   .wl-impro-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'label btns' 'value value'; }

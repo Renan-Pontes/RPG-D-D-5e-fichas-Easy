@@ -1,12 +1,12 @@
 // Chips de tom + amostras de cor (⚙ Ajustes e assistente de criação).
-import { ACCENTS, TONES, t } from './shell-logic.js';
+import { ACCENTS, TONES, accentName, t } from './shell-logic.js';
 
 /** Chips de tom + amostras de cor (usado também no assistente de criação). */
 export default function ToneAccentFields({ lang, tone, accent, onTone, onAccent }) {
   return (
     <>
       <div className="col gap-1">
-        <span>{t(lang, 'Tom', 'Tone')}</span>
+        <span className="shell-label" aria-hidden="true">{t(lang, 'Tom', 'Tone')}</span>
         <div className="shell-chip-row" role="radiogroup" aria-label={t(lang, 'Tom', 'Tone')}>
           {TONES.map(x => (
             <button key={x.id} type="button" role="radio" aria-checked={tone === x.id}
@@ -18,10 +18,10 @@ export default function ToneAccentFields({ lang, tone, accent, onTone, onAccent 
         </div>
       </div>
       <div className="col gap-1">
-        <span>{t(lang, 'Cor de destaque', 'Accent color')}</span>
+        <span className="shell-label" aria-hidden="true">{t(lang, 'Cor de destaque', 'Accent color')}</span>
         <div className="shell-swatches" role="radiogroup" aria-label={t(lang, 'Cor de destaque', 'Accent color')}>
           {ACCENTS.map(c => (
-            <button key={c} type="button" role="radio" aria-checked={accent === c} aria-label={c}
+            <button key={c} type="button" role="radio" aria-checked={accent === c} aria-label={accentName(c, lang)} title={accentName(c, lang)}
               className={`shell-swatch ${accent === c ? 'active' : ''}`} style={{ '--sw': c }} onClick={() => onAccent(c)} />
           ))}
         </div>

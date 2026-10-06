@@ -12,6 +12,7 @@ import { defaultArt } from '../world/world-model.js';
 import RecapCard from './RecapCard.jsx';
 import { getAdventure, getScreen, listAdventures, rotateScreenToken, setScreenCard } from './play-api.js';
 import { activeScene } from './scene-model.js';
+import { cardKind, screenNow } from './screen-now.js';
 import { flash } from './flash.js';
 import './play-styles.css';
 
@@ -95,7 +96,9 @@ export default function ScreenPanel({ campaign, lang = 'pt', onChange }) {
   // Cartão sem imagem própria: a mesma arte padrão do tipo que o Mundo usa.
   const cardImg = card ? (abs(card.imageUrl) || (card.type === 'entry' ? defaultArt({ kind: card.kind, id: card.entryId }) : null)) : null;
   const cover = abs(screen?.campaign?.coverUrl);
-  const combatOn = !!screen?.combat?.active;
+  // Mesma regra do /tv e do 📺 do cabeçalho (screen-now.js).
+  const now = screenNow({ combat: screen?.combat, card });
+  const combatOn = now.mode === 'combat';
 
   return (
     <div className="scr">
@@ -112,6 +115,16 @@ export default function ScreenPanel({ campaign, lang = 'pt', onChange }) {
               <span className="scr-tv-kind">⚔ {L(lang, 'Combate', 'Combat')}</span>
               <strong className="scr-tv-title">{L(lang, 'Rodada', 'Round')} {screen.combat.round}</strong>
               <span className="scr-tv-text">{L(lang, 'O telão mostra o mapa e a ordem de iniciativa.', 'The screen shows the map and initiative order.')}</span>
+              {now.overlay && (
+                <span className="scr-tv-overlay">
+                  {L(lang, 'Junto, ao lado:', 'Alongside:')} <strong>{cardKind(now.overlay, lang) ? `${cardKind(now.overlay, lang)} · ` : ''}{now.overlay.title}</strong>
+                </span>
+              )}
+              {now.waiting && (
+                <span className="scr-tv-overlay is-waiting">
+                  {L(lang, 'Aparece quando o combate acabar:', 'Shows when combat ends:')} <strong>{now.waiting.title}</strong>
+                </span>
+              )}
             </div>
           ) : card ? (
             <div className={`scr-tv-body ${cardImg ? 'has-img' : ''}`}>

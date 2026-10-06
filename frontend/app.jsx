@@ -23,6 +23,7 @@ import LevelUpModal from './src/progression/LevelUpModal.jsx';
 import { ClassOptionsModal } from './src/progression/ClassOptionsPicker.jsx';
 import InviteChoice from './src/campaigns/InviteChoice.jsx';
 import { parseJoinRoute, savePendingInvite, loadPendingInvite, joinToast, joinFailMessage } from './src/creator/creation.js';
+import { parseCampaignRoute } from './src/shell/shell-logic.js';
 
 const AdminScreen = lazy(() => import('./src/admin/AdminScreen.jsx'));
 // Grimório (regras para jogadores): chunk próprio, só carrega quando aberto.
@@ -63,6 +64,29 @@ const App = () => {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, [openGrimoire]);
+
+  // F5 dentro da campanha: #c/<slug>/<área>/<sub> reabre a mesma campanha (a
+  // área é lida pelo CampaignDetail). Espera o login; sem conta, fica guardada
+  // até a pessoa entrar.
+  const pendingRoute = useRef(parseCampaignRoute(window.location.hash));
+  useEffect(() => {
+    const r = pendingRoute.current;
+    if (!r || r.consumed || auth.loading || !auth.user) return;
+    pendingRoute.current = { ...r, consumed: true }; // solto quando a tela da campanha abrir
+    setActiveCampaignId(r.slug);
+    setScreen(SCREENS.CAMPAIGN);
+  }, [auth.loading, auth.user]);
+  // Saiu da campanha: tira o #c/… da URL (senão o F5 levaria de volta para lá).
+  useEffect(() => {
+    if (screen === SCREENS.CAMPAIGN) {
+      if (pendingRoute.current?.consumed) pendingRoute.current = null;
+      return;
+    }
+    if (pendingRoute.current) return;
+    if (/^#c\//.test(window.location.hash)) {
+      try { history.replaceState(history.state, '', window.location.pathname + window.location.search); } catch { /* ok */ }
+    }
+  }, [screen]);
 
   // Adapter de storage: muda quando o login muda
   const storage = useMemo(() => createStorageAdapter({ remote: !!auth.user }), [auth.user]);

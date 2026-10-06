@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import DiaryTab from '../campaigns/DiaryTab.jsx';
+import { SubChips } from '../shell/AreaNav.jsx';
 import InviteCard from './InviteCard.jsx';
 import PlayersPanel from './PlayersPanel.jsx';
 import RequestsPanel from './RequestsPanel.jsx';
@@ -67,15 +68,11 @@ export default function GroupArea({ campaign, lang = 'pt', isDM, characters = []
   return (
     <div className="grp-area">
       {/* Jogador: a Crônica é uma área própria na casca; aqui só Jogadores. */}
-      {isDM && <nav className="grp-subnav" role="tablist" aria-label={t(lang, 'Grupo', 'Group')}>
-        <button type="button" role="tab" aria-selected={current === 'players'} className={current === 'players' ? 'on' : ''} onClick={() => setSub('players')}>
-          🛡 {t(lang, 'Jogadores', 'Players')}
-          {isDM && count > 0 && <span className="grp-pill-badge" aria-label={t(lang, `${count} pedido(s) pendente(s)`, `${count} pending request(s)`)}>{count}</span>}
-        </button>
-        <button type="button" role="tab" aria-selected={current === 'chronicle'} className={current === 'chronicle' ? 'on' : ''} onClick={() => setSub('chronicle')}>
-          📜 {t(lang, 'Crônica', 'Chronicle')}
-        </button>
-      </nav>}
+      {isDM && (
+        <SubChips subs={['players', 'chronicle']} active={current} onSelect={setSub} lang={lang}
+          ariaLabel={t(lang, 'Grupo', 'Group')} badges={{ players: count }}
+          badgeLabels={{ players: t(lang, `${count} pedido(s) pendente(s)`, `${count} pending request(s)`) }} />
+      )}
 
       {current === 'players' && (
         <div className="grp-players-view" role="tabpanel">

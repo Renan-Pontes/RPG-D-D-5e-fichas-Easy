@@ -4,7 +4,7 @@
 import { useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { compressImage } from '../world/image.js';
-import { COVER_ART, t } from './shell-logic.js';
+import { COVER_ART, coverArtName, t } from './shell-logic.js';
 
 export async function artToDataUrl(path) {
   const res = await fetch(path);
@@ -54,7 +54,8 @@ export default function CoverPicker({ lang, campaign = null, selected = null, on
       <div className="shell-cover-grid" role="listbox" aria-label={t(lang, 'Artes prontas', 'Ready-made art')}>
         {COVER_ART.map(p => (
           <button key={p} type="button" role="option" aria-selected={selected === p}
-            className={`shell-cover-opt ${selected === p ? 'active' : ''}`} disabled={busy || working} onClick={() => pickArt(p)}>
+            className={`shell-cover-opt ${selected === p ? 'active' : ''}`} disabled={busy || working} onClick={() => pickArt(p)}
+            aria-label={coverArtName(p, lang)} title={coverArtName(p, lang)}>
             <img src={p} alt="" loading="lazy" />
           </button>
         ))}

@@ -136,3 +136,14 @@ test('ids curtos e utilidades', () => {
   assert.equal(clampUnit(-1), 0);
   assert.equal(clampUnit(NaN), 0.5);
 });
+
+test('pinCountText flexiona o plural (#40)', async () => {
+  const { pinCountText, tapVerb } = await import('../src/world/world-model.js');
+  assert.equal(pinCountText(4, 2, 'pt'), '4 marcadores · 2 visíveis aos jogadores.');
+  assert.equal(pinCountText(1, 1, 'pt'), '1 marcador · 1 visível aos jogadores.');
+  assert.equal(pinCountText(0, 0, 'pt'), '0 marcadores · 0 visíveis aos jogadores.');
+  assert.equal(pinCountText(1, 0, 'en'), '1 pin · 0 visible to players.');
+  assert.equal(tapVerb('pt', true), 'Toque');
+  assert.equal(tapVerb('pt', false), 'Clique');
+  assert.equal(tapVerb('en', false), 'Click');
+});

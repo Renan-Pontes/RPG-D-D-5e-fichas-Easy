@@ -24,6 +24,7 @@ from .models import CheckRequest, CheckResponse, Membership
 from .permissions import get_campaign_or_404, is_dm, require_member
 from .rate_limit import rate_limit
 from .views_dice import _consume_or_roll
+from .dice_privacy import scrub_dice
 
 KINDS = {'skill', 'save', 'ability', 'custom'}
 ADV = {'normal', 'adv', 'dis'}
@@ -71,18 +72,22 @@ def outcome(total, dc):
     return 'pass' if total >= dc else 'fail'
 
 
-def _serialize_response(resp):
+def _serialize_response(resp, for_dm=False):
+    """Resposta de teste. `rigged` só vai para o mestre: o jogador nunca sabe
+    que o dado foi viciado."""
     if not resp:
         return None
-    return {
+    out = {
         'mode': resp.mode,
         'natural': resp.natural,
-        'rolls': resp.rolls,
+        'rolls': resp.rolls if for_dm else scrub_dice(resp.rolls or []),
         'modifier': resp.modifier,
         'total': resp.total,
-        'rigged': resp.rigged,
         'at': resp.updated_at.isoformat() if resp.updated_at else None,
     }
+    if for_dm:
+        out['rigged'] = resp.rigged
+    return out
 
 
 def serialize_for_dm(cr):
@@ -95,7 +100,7 @@ def serialize_for_dm(cr):
             'displayName': _display_name(m.user),
             'characterId': m.character_id,
             'characterName': m.character.name if m.character else None,
-            'response': _serialize_response(resp),
+            'response': _serialize_response(resp, for_dm=True),
             'outcome': outcome(resp.total, cr.dc) if resp else None,
         })
     answered = sum(1 for t in targets if t['response'])
@@ -372,4 +377,4 @@ def check_respond(request, pk):
 
     cr = CheckRequest.objects.select_related('campaign').prefetch_related('responses').get(pk=cr.pk)
     payload = serialize_for_dm(cr) if dm else serialize_for_player(cr, request.user)
-    return Response({'check': payload, 'response': _serialize_response(resp)})
+    return Response({'check': payload, 'response': _serialize_response(resp, for_dm=dm)})

@@ -26,7 +26,7 @@ export function TableInviteCard({ table, lang, children, confirmed = false }) {
       <dl className="join-card-meta">
         {table.dmName && <div><dt>{L(lang, 'Mestre', 'GM')}</dt><dd>{table.dmName}</dd></div>}
         {n != null && <div><dt>{L(lang, 'Jogadores', 'Players')}</dt><dd>{n === 0 ? L(lang, 'você será o primeiro', "you'll be the first") : n}</dd></div>}
-        <div><dt>{L(lang, 'Sobe de nível', 'Levels up')}</dt><dd>{table.levelingMode === 'xp' ? L(lang, 'por XP', 'by XP') : L(lang, 'por Marcos', 'by Milestones')}</dd></div>
+        <div><dt>{L(lang, 'Sobe de nível', 'Levels up')}</dt><dd>{table.levelingMode === 'xp' ? L(lang, 'por XP', 'by XP') : L(lang, 'quando a história pede (o mestre libera)', 'when the story calls for it (DM unlocks)')}</dd></div>
       </dl>
       {table.alreadyMember && (
         <p className="join-card-note">{L(lang,

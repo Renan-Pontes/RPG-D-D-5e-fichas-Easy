@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { api } from '../api/client.js';
 import { flash } from '../play/flash.js';
+import { labelWidths, tokenLabel } from './token-label.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -107,6 +108,10 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
 
     // Tokens
     const turnIdx = combat?.turnIndex ?? -1;
+    // Rótulos não se atropelam: cada um cabe no espaço até o vizinho (#42).
+    const freeWidth = labelWidths((combat?.combatants || []).map(c => ({
+      id: c.id, x: c.position?.x ?? 50, y: c.position?.y ?? 50, size: gridSize * (c.token_scale || 1),
+    })));
     (combat?.combatants || []).forEach((c, i) => {
       const scale = c.token_scale || 1;
       const size = gridSize * scale;
@@ -167,7 +172,7 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
       ctx.shadowColor = 'rgba(0,0,0,0.9)';
       ctx.font = '12px "EB Garamond", serif';
       ctx.textAlign = 'center';
-      ctx.fillText(c.name || '', x, barY + barH + 14);
+      ctx.fillText(tokenLabel(c.name, freeWidth.get(c.id) ?? size, (txt) => ctx.measureText(txt).width), x, barY + barH + 14);
 
       // Defeated → X
       if (c.defeated) {

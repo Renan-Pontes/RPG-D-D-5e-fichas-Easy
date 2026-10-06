@@ -76,12 +76,62 @@ export function limitLabel(combatant, index, lang) {
   return out.join(' · ');
 }
 
+// Condições conhecidas do dano extra (texto do SRD → rótulo curto pt/en).
+const KNOWN_CONDITIONS = [
+  [/attack roll had advantage/i, { pt: 'se o ataque teve Vantagem', en: 'if the attack had Advantage' }],
+];
+
+const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Dano extra CONDICIONAL ("plus 2 (1d4) Slashing damage if the attack roll had
+ * Advantage"): nunca somado sozinho — o mestre marca quando a condição valeu.
+ * Devolve null (sempre entra) ou { pt, en, text } com o rótulo da condição.
+ * Aceita também `extra.condition` explícito no dado ({pt,en} ou texto).
+ */
+export function extraDamageCondition(action, i) {
+  const e = action?.extraDamage?.[i];
+  if (!e) return null;
+  if (e.condition) {
+    if (typeof e.condition === 'object') return { pt: e.condition.pt || e.condition.en, en: e.condition.en || e.condition.pt, text: e.condition.en || e.condition.pt };
+    return { pt: 'só em certas condições (veja o texto)', en: String(e.condition), text: String(e.condition) };
+  }
+  const desc = String(action.desc?.en || (typeof action.desc === 'string' ? action.desc : '') || '')
+    .replace(/(\d+d\d+)\s*([+−-])\s*(\d+)/g, '$1$2$3');
+  if (!desc || !e.damage) return null;
+  const dice = escapeRe(String(e.damage).replace(/\s+/g, ''));
+  const type = e.damageType ? `\\s*${escapeRe(e.damageType)}` : '';
+  const m = desc.match(new RegExp(`\\(${dice}\\)${type}\\s+damage\\s*,?\\s*(if|while|when|unless)\\b([^.;,]*)`, 'i'));
+  if (!m) return null;
+  const text = `${m[1]}${m[2]}`.trim();
+  for (const [re, label] of KNOWN_CONDITIONS) {
+    if (re.test(text)) return { ...label, text };
+  }
+  return { pt: 'só em certas condições (veja o texto)', en: text, text };
+}
+
+/**
+ * Condição de cada parte do dano na ordem em que o servidor rola
+ * (principal, depois cada extraDamage). null = parte incondicional.
+ */
+export function damagePartConditions(action) {
+  if (!action) return [];
+  const out = [];
+  if (action.damage && String(action.damage) !== '0') out.push(null);
+  (action.extraDamage || []).forEach((e, i) => { if (e && e.damage) out.push(extraDamageCondition(action, i)); });
+  return out;
+}
+
 /** Resumo mecânico: "+14 · 3 m · 1d10+8 cortante + 2d4 fogo" / "DES CD 21 · 17d6 fogo (metade no sucesso)". */
 export function actionSummary(a, lang) {
   if (!a) return '';
   const dmgOf = (d, ty) => `${d} ${ty ? damageTypeLabel(ty, lang) : ''}`.trim();
   const dmg = [a.damage && dmgOf(a.damage, a.damageType),
-    ...(a.extraDamage || []).map(e => dmgOf(e.damage, e.damageType))].filter(Boolean).join(' + ');
+    ...(a.extraDamage || []).map((e, i) => {
+      const cond = extraDamageCondition(a, i);
+      const base = dmgOf(e.damage, e.damageType);
+      return cond ? `(${base} ${cond[lang] || cond.en})` : base;
+    })].filter(Boolean).join(' + ');
   if (isAttack(a)) {
     const atk = a.atk != null ? `${a.atk >= 0 ? '+' : ''}${a.atk}` : '';
     return [atk, rangeLabel(a.range, lang), dmg].filter(Boolean).join(' · ');

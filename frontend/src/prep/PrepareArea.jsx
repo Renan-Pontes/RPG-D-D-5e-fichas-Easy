@@ -55,7 +55,7 @@ export default function PrepareArea({ campaign, lang, sub: subProp, params, goTo
   return (
     <div className="pa">
       <SubChips subs={PREPARE_SUBS.map(x => x.id)} active={sub} onSelect={setSub} lang={lang}
-        labels={Object.fromEntries(PREPARE_SUBS.map(x => [x.id, `${x.icon} ${t(lang, x.pt, x.en)}`]))} />
+        ariaLabel={t(lang, 'Preparar', 'Prepare')} />
       <div role="tabpanel">
         {sub === 'next' && <NextSession campaign={campaign} lang={lang} goTo={nav} />}
         {sub === 'adventures' && (

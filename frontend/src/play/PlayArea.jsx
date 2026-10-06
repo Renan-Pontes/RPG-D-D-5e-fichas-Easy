@@ -5,6 +5,9 @@
 //   sub?, onSubChange?(sub) | onSub?(sub), goTo?   — da casca; sem eles usa useArea() (C4)
 // A subvista vem de useArea().sub; trocar de subvista chama goTo('play', sub).
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
+import { api } from '../api/client.js';
+import { usePolling } from '../api/polling.js';
+import { testsBadge, unifyTests } from './scene-model.js';
 import { useArea } from '../shell/useArea.js';
 import { SubChips } from '../shell/AreaNav.jsx';
 import { legacyTabToArea } from '../shell/shell-logic.js';
@@ -28,6 +31,18 @@ export default function PlayArea(props) {
   const rawSub = props.sub || ctxSub || localSub;
   const sub = PLAY_SUBS.includes(rawSub) ? rawSub : 'scene';
   const [testsWaiting, setTestsWaiting] = useState(0);
+  // Selo de Testes sempre atual, mesmo com outra subvista aberta (#37).
+  const campaignId = campaign?.id;
+  const refreshTests = useCallback(async () => {
+    if (!campaignId) return;
+    const [c, p] = await Promise.allSettled([api.listChecks(campaignId), api.listPendingRolls(campaignId)]);
+    if (c.status !== 'fulfilled' && p.status !== 'fulfilled') return;
+    setTestsWaiting(testsBadge(unifyTests({
+      checks: c.status === 'fulfilled' ? (c.value.checks || []) : [],
+      pendingRolls: p.status === 'fulfilled' ? (p.value.rolls || []) : [],
+    })));
+  }, [campaignId]);
+  usePolling(refreshTests, 6000, [campaignId]);
 
   const shellGoTo = props.goTo || (area.campaign != null ? area.goTo : null);
   const onSub = props.onSubChange || props.onSub;

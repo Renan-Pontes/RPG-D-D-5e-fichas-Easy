@@ -25,6 +25,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
 from .models import Campaign, CombatInstance, RollRequest, Character, DiceRig, DiceLog, Membership
+from .dice_privacy import scrub_dice
 from .permissions import get_campaign_or_404, require_dm, require_member, is_dm
 from . import combat as engine
 from .diary import log_combat_start, log_combat_end, log_roll_request
@@ -159,8 +160,10 @@ def _serialize_combat_public(c):
     return _serialize_combat(c, for_dm=False)
 
 
-def _serialize_roll(rr):
-    return {
+def _serialize_roll(rr, for_dm=False):
+    """Pedido de rolagem. Vício/valor forçado é segredo do mestre: jogador e
+    telão recebem a versão sem `rigged`/`override` (nem no topo nem por dado)."""
+    out = {
         'id': rr.id,
         'campaignId': rr.campaign_id,
         'requestedBy': {'id': rr.requested_by_id, 'displayName': getattr(getattr(rr.requested_by, 'profile', None), 'display_name', None) or rr.requested_by.username},
@@ -181,6 +184,7 @@ def _serialize_roll(rr):
         'createdAt': rr.created_at.isoformat() if rr.created_at else None,
         'resolvedAt': rr.resolved_at.isoformat() if rr.resolved_at else None,
     }
+    return out if for_dm else scrub_dice(out)
 
 
 def _append_log(combat, entry):
@@ -997,7 +1001,10 @@ def combat_player_attack(request, id_or_slug):
         log_entry['downed_list'] = downs
     _append_log(c, log_entry)
     c.save()
-    return Response({'result': result, 'combat': _serialize_combat(c, for_dm=is_dm(request.user, campaign))})
+    dm = is_dm(request.user, campaign)
+    if not dm:
+        result = scrub_dice(result)   # jogador nunca sabe que o d20 foi viciado
+    return Response({'result': result, 'combat': _serialize_combat(c, for_dm=dm)})
 
 
 def _sync_pc_to_character(combatant):
@@ -1131,7 +1138,7 @@ def roll_create(request, id_or_slug):
         has_advantage=bool(body.get('hasAdvantage')),
         has_disadvantage=bool(body.get('hasDisadvantage')),
     )
-    return Response({'roll': _serialize_roll(rr)})
+    return Response({'roll': _serialize_roll(rr, for_dm=is_dm(request.user, campaign))})
 
 
 @api_view(['GET'])
@@ -1141,9 +1148,10 @@ def roll_list_pending(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_member(request.user, campaign)
     qs = RollRequest.objects.filter(campaign=campaign, status='pending').select_related('requested_by', 'requested_by__profile')
-    if not is_dm(request.user, campaign):
+    dm = is_dm(request.user, campaign)
+    if not dm:
         qs = qs.filter(requested_by=request.user)
-    return Response({'rolls': [_serialize_roll(r) for r in qs]})
+    return Response({'rolls': [_serialize_roll(r, for_dm=dm) for r in qs]})
 
 
 @api_view(['GET'])
@@ -1153,10 +1161,11 @@ def roll_list_recent(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_member(request.user, campaign)
     qs = RollRequest.objects.filter(campaign=campaign).exclude(status='pending').select_related('requested_by', 'requested_by__profile')
-    if not is_dm(request.user, campaign):
+    dm = is_dm(request.user, campaign)
+    if not dm:
         from django.db.models import Q
         qs = qs.filter(Q(status='public') | Q(requested_by=request.user))
-    return Response({'rolls': [_serialize_roll(r) for r in qs[:30]]})
+    return Response({'rolls': [_serialize_roll(r, for_dm=dm) for r in qs[:30]]})
 
 
 @api_view(['GET'])
@@ -1259,7 +1268,7 @@ def roll_resolve(request, pk):
     )
     log_roll_request(rr)
 
-    return Response({'roll': _serialize_roll(rr)})
+    return Response({'roll': _serialize_roll(rr, for_dm=True)})
 
 
 @api_view(['POST'])
@@ -1276,4 +1285,4 @@ def roll_cancel(request, pk):
     rr.status = 'cancelled'
     rr.resolved_at = timezone.now()
     rr.save()
-    return Response({'roll': _serialize_roll(rr)})
+    return Response({'roll': _serialize_roll(rr, for_dm=rr.campaign.dm_id == request.user.id)})

@@ -4,6 +4,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { defaultCoverArt, nextSessionNumber, screenLink, t } from './shell-logic.js';
+import { getScreen } from '../play/play-api.js';
+import { cardKind, screenNow } from '../play/screen-now.js';
 
 export default function CampaignHeader({
   campaign, lang, isDM, onBack, onStartSession, onEndSession, onSearch, onSettings, onTvOpened, onClearScreen, busy,
@@ -75,7 +77,20 @@ function TvPopover({ campaign, lang, onClose, onOpened, onClear }) {
   const ref = useRef(null);
   const [copied, setCopied] = useState(false);
   const url = screenLink(window.location.origin, campaign.screenToken);
-  const card = campaign.screenCard;
+  // Lê o MESMO estado que a TV (/api/screen/<token>) enquanto o popover está aberto,
+  // para mostrar combate + cartão sobreposto igual ao telão e a Jogar › Telão.
+  const [screen, setScreen] = useState(null);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!campaign.screenToken) return undefined;
+    let alive = true;
+    getScreen(campaign.screenToken).then(r => { if (alive) setScreen(r); }).catch(() => {});
+    const tm = setTimeout(() => setTick(n => n + 1), 4000);
+    return () => { alive = false; clearTimeout(tm); };
+  }, [campaign.screenToken, tick]);
+  const card = screen ? (screen.card || null) : (campaign.screenCard || null);
+  const now = screenNow({ combat: screen?.combat, card });
+  const clear = async () => { await onClear?.(); setTick(n => n + 1); };
   useEffect(() => {
     const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target) && !e.target.closest?.('.shell-tv-wrap')) onClose(); };
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -92,12 +107,25 @@ function TvPopover({ campaign, lang, onClose, onOpened, onClear }) {
       <div className="shell-pop-row">
         <span className="eyebrow">{t(lang, 'Na tela agora', 'On screen now')}</span>
         <strong className="shell-pop-now">
-          {card?.title
-            ? <>{card.kindLabel ? <span className="muted">{card.kindLabel} · </span> : null}{card.title}</>
-            : t(lang, 'Capa da campanha', 'Campaign cover')}
+          {now.mode === 'combat'
+            ? <>⚔ {t(lang, 'Combate', 'Combat')}{now.round ? <span className="muted"> · {t(lang, 'rodada', 'round')} {now.round}</span> : null}</>
+            : now.card?.title
+              ? <>{cardKind(now.card, lang) ? <span className="muted">{cardKind(now.card, lang)} · </span> : null}{now.card.title}</>
+              : t(lang, 'Capa da campanha', 'Campaign cover')}
         </strong>
+        {now.overlay && (
+          <span className="small">
+            <span className="muted">{t(lang, 'Junto, ao lado: ', 'Alongside: ')}</span>
+            {cardKind(now.overlay, lang) ? `${cardKind(now.overlay, lang)} · ` : ''}{now.overlay.title}
+          </span>
+        )}
+        {now.waiting && (
+          <span className="small muted">{t(lang, 'Depois do combate: ', 'After combat: ')}{now.waiting.title}</span>
+        )}
         {card && onClear && (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onClear}>{t(lang, 'Voltar para a capa', 'Back to cover')}</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={clear}>
+            {now.mode === 'combat' ? t(lang, 'Tirar o cartão', 'Remove the card') : t(lang, 'Voltar para a capa', 'Back to cover')}
+          </button>
         )}
       </div>
       <div className="shell-pop-link">

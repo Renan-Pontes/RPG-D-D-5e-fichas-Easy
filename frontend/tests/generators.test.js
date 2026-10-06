@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   TABLES, FIELDS, GEN_TYPES, makeRng, generate, generateNpc, generateTavern, generateNames, rerollField,
   toEntryPayload, toPlainText, tavernName, placeName, factionName, personName, fieldLabel,
+  allForms, inflect, genderOfName, setNpcGender,
 } from '../src/world/generators.js';
 
 test('tabelas pt e en têm as mesmas chaves e são ricas', () => {
@@ -39,10 +40,10 @@ test('textos em pt não usam as tabelas em inglês', () => {
   const rng = makeRng(99);
   for (let i = 0; i < 40; i++) {
     const n = generateNpc('pt', rng);
-    assert.ok(TABLES.pt.mannerism.includes(n.mannerism));
-    assert.ok(TABLES.pt.wants.includes(n.wants));
-    assert.ok(TABLES.pt.secret.includes(n.secret));
-    assert.ok(TABLES.pt.roles.includes(n.role));
+    assert.ok(allForms(TABLES.pt.mannerism).includes(n.mannerism));
+    assert.ok(allForms(TABLES.pt.wants).includes(n.wants));
+    assert.ok(allForms(TABLES.pt.secret).includes(n.secret));
+    assert.ok(allForms(TABLES.pt.roles).includes(n.role));
   }
 });
 
@@ -119,4 +120,72 @@ test('texto para copiar usa rótulos da língua', () => {
   assert.match(txt, /^Nome: /);
   assert.match(txt, /Maneirismo: /);
   assert.equal(fieldLabel('wants', 'en'), 'Wants');
+});
+
+// ---------------------------------------------------------------- gênero (#32)
+const formOf = (arr, text, g) => arr.find(e => inflect(e, g) === text) !== undefined;
+
+test('NPC em pt: nome, ocupação, aparência e textos concordam em gênero', () => {
+  const rng = makeRng(2026);
+  const seen = new Set();
+  for (let i = 0; i < 300; i++) {
+    const n = generateNpc('pt', rng);
+    seen.add(n.gender);
+    assert.equal(genderOfName(n.name, 'pt'), n.gender, n.name);
+    const T = TABLES.pt;
+    assert.ok(formOf(T.roles, n.role, n.gender), `${n.name}: ${n.role}`);
+    assert.ok(formOf(T.mannerism, n.mannerism, n.gender), `${n.name}: ${n.mannerism}`);
+    assert.ok(formOf(T.wants, n.wants, n.gender), `${n.name}: ${n.wants}`);
+    assert.ok(formOf(T.secret, n.secret, n.gender), `${n.name}: ${n.secret}`);
+    const build = n.appearance.split(',')[0];
+    assert.ok(T.build.some(e => inflect(e, n.gender).startsWith(build)), `${n.name}: ${n.appearance}`);
+    // nada da outra forma escapa
+    const other = n.gender === 'm' ? 'f' : 'm';
+    for (const [k, f] of [['roles', 'role'], ['mannerism', 'mannerism'], ['wants', 'wants'], ['secret', 'secret']]) {
+      const e = T[k].find(x => Array.isArray(x) && inflect(x, other) === n[f]);
+      assert.equal(e, undefined, `${n.name}: ${n[f]}`);
+    }
+  }
+  assert.deepEqual([...seen].sort(), ['f', 'm']);
+});
+
+test('casos do teste de navegador não acontecem mais', () => {
+  const rng = makeRng(77);
+  for (let i = 0; i < 400; i++) {
+    const n = generateNpc('pt', rng);
+    if (n.gender === 'm') assert.doesNotMatch(`${n.role} ${n.appearance}`, /Ladra|Cartógrafa|Robusta|Franzina|inquieta|Curandeira/);
+    else assert.doesNotMatch(`${n.role} ${n.appearance}`, /Ladrão|Cartógrafo|Robusto|Corpulento|Franzino|inquieto/);
+  }
+});
+
+test('rerrolar o nome mantém o gênero; rerrolar ocupação flexiona', () => {
+  const rng = makeRng(5);
+  const n = generate('npc', 'pt', rng, 'f');
+  for (let i = 0; i < 20; i++) {
+    const r = rerollField(n, 'name', rng);
+    assert.equal(genderOfName(r.name, 'pt'), 'f');
+    const o = rerollField(n, 'role', rng);
+    assert.ok(formOf(TABLES.pt.roles, o.role, 'f'));
+    assert.equal(o.picks.role !== undefined, true);
+  }
+});
+
+test('trocar gênero flexiona o que foi rolado e preserva o que o mestre editou', () => {
+  const n = generate('npc', 'pt', makeRng(9), 'm');
+  const edited = { ...n, wants: 'Achar o gato perdido.' };
+  const f = setNpcGender(edited, 'f', makeRng(1));
+  assert.equal(f.gender, 'f');
+  assert.equal(genderOfName(f.name, 'pt'), 'f');
+  assert.equal(f.name.split(' ').slice(1).join(' '), n.name.split(' ').slice(1).join(' '), 'mantém o sobrenome');
+  assert.equal(f.wants, 'Achar o gato perdido.');
+  assert.equal(f.role, inflect(TABLES.pt.roles[n.picks.role], 'f'));
+  assert.equal(f.secret, inflect(TABLES.pt.secret[n.picks.secret], 'f'));
+  // ida e volta volta ao mesmo texto
+  const back = setNpcGender(f, 'm', makeRng(1));
+  assert.equal(back.role, n.role);
+  assert.equal(back.appearance, n.appearance);
+  assert.equal(setNpcGender(n, 'm'), n);
+  // nome escrito à mão não muda
+  const custom = setNpcGender({ ...n, name: 'Zé do Brejo' }, 'f', makeRng(3));
+  assert.equal(custom.name, 'Zé do Brejo');
 });

@@ -16,6 +16,7 @@ import { isWizardEnabled, stateWithWizard } from './end-of-encounter.js';
 import EndOfEncounterPanel from './EndOfEncounterPanel.jsx';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import InScenePanel from '../play/InScenePanel.jsx';
+import SessionPlanPanel from '../play/SessionPlanPanel.jsx';
 import RecapCard from '../play/RecapCard.jsx';
 import { patchState } from '../play/play-api.js';
 import { flash } from '../play/flash.js';
@@ -121,6 +122,8 @@ export default function TableNow({ campaign, approvals = [], lang = 'pt', onChan
             onClose={() => setShowWrapUp(false)} onNavigate={onNavigate} onChange={refresh} />
         </div>
       )}
+
+      <SessionPlanPanel campaign={campaign} lang={lang} goTo={goTo} onSaveState={saveState} />
 
       <InScenePanel campaign={campaign} lang={lang} goTo={goTo} />
 

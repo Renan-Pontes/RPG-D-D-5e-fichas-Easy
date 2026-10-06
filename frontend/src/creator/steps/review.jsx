@@ -9,7 +9,7 @@ import { StepIntro, Term, Callout, IssueList, L } from '../ui.jsx';
 
 // Nome com quantidade (o pacote às vezes já grava "Adaga ×2" no nome).
 const withQty = (name, qty) => (qty > 1 && !/×\s*\d+\s*$/.test(String(name || '')) ? `${name} ×${qty}` : name);
-import { collectIssues, flatIssues, characterSummary, abilityAbbr, ALIGNMENT_INFO, initiativeExplain } from '../creation.js';
+import { collectIssues, flatIssues, characterSummary, abilityAbbr, ALIGNMENT_INFO, initiativeExplain, creationJoin } from '../creation.js';
 
 const fmt = (n) => Utils.fmtMod(n);
 const ABILITY_NAMES = {
@@ -41,7 +41,24 @@ function Section({ title, children }) {
   );
 }
 
-function ReviewStep({ char, lang, goTo, steps }) {
+// Texto do "tudo pronto": acompanha o rótulo do botão do rodapé e cita a mesa.
+export function readyText(lang, char, joinEnabled) {
+  const join = joinEnabled ? creationJoin(char) : null;
+  const who = String(char?.name || '').trim();
+  if (join) {
+    const table = join.name || L(lang, 'a mesa', 'the table');
+    return who
+      ? L(lang, `Tudo pronto! Toque em "Criar e entrar na mesa": ${who} vai direto para ${table}. Você pode mudar quase tudo depois, na ficha.`,
+        `All set! Tap "Create and join table": ${who} goes straight to ${table}. You can change almost everything later on the sheet.`)
+      : L(lang, `Tudo pronto! Toque em "Criar e entrar na mesa" para salvar e entrar em ${table}. Você pode mudar quase tudo depois, na ficha.`,
+        `All set! Tap "Create and join table" to save and join ${table}. You can change almost everything later on the sheet.`);
+  }
+  return L(lang,
+    'Tudo pronto! Toque em "Criar personagem" para salvar. Você pode mudar quase tudo depois, na ficha.',
+    'All set! Tap "Create character" to save. You can change almost everything later on the sheet.');
+}
+
+function ReviewStep({ char, lang, goTo, steps, joinEnabled = false }) {
   const groups = collectIssues(steps || STEPS, char);
   const s = useMemo(() => characterSummary(char, lang), [char, lang]);
   const c = s.char;
@@ -93,9 +110,7 @@ function ReviewStep({ char, lang, goTo, steps }) {
           ))}
         </Callout>
       ) : (
-        <Callout kind="ok">{L(lang,
-          'Tudo pronto! Toque em "Criar personagem" para salvar. Você pode mudar quase tudo depois, na ficha.',
-          'All set! Tap "Create character" to save. You can change almost everything later on the sheet.')}</Callout>
+        <Callout kind="ok">{readyText(lang, char, joinEnabled)}</Callout>
       )}
 
       <Section title={c.name || L(lang, '(sem nome)', '(no name)')}>
@@ -106,6 +121,7 @@ function ReviewStep({ char, lang, goTo, steps }) {
             c.background && tName('background', c.background, lang),
             align && align.name[lang],
             `D&D ${c.rulesVersion === '2014' ? '2014' : '2024'}`,
+            joinEnabled && creationJoin(char) && L(lang, `Mesa: ${creationJoin(char).name || creationJoin(char).code}`, `Table: ${creationJoin(char).name || creationJoin(char).code}`),
           ].filter(Boolean).join(' · ')}
         </p>
       </Section>

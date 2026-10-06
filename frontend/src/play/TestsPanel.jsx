@@ -8,7 +8,7 @@ import { errorMessage } from '../api/errors.js';
 import { usePolling } from '../api/polling.js';
 import GroupCheckPanel, { DMCheckCard } from '../checks/GroupCheckPanel.jsx';
 import { PendingDMRow, RollHistoryRow } from './RollRows.jsx';
-import { unifyTests } from './scene-model.js';
+import { testsBadge, unifyTests } from './scene-model.js';
 import '../checks/checks-styles.css';
 import '../campaigns/combat-styles.css';
 import './play-styles.css';
@@ -35,7 +35,7 @@ export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount })
   usePolling(load, 3000, [campaign.id]);
 
   const groups = useMemo(() => unifyTests(data), [data]);
-  const waiting = groups.open.length + groups.answered.length;
+  const waiting = testsBadge(groups);
   // Avisa a casca (selo da subaba) sem re-render em loop.
   useEffect(() => { onCount?.(waiting); }, [waiting, onCount]);
 

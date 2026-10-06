@@ -65,8 +65,9 @@ export default function EntryCard({
   const actions = dm && (onReveal || onShow) ? (
     <div className="wl-card-actions">
       {onReveal && (
-        <button type="button" className="wl-act" onClick={stop(onReveal)} title={t(lang, 'Revelar aos jogadores', 'Reveal to players')}>
-          <span aria-hidden="true">👁</span> {t(lang, 'Revelar', 'Reveal')}
+        <button type="button" className="wl-act" onClick={stop(onReveal)}
+          title={vis === 'hidden' ? t(lang, 'Revelar aos jogadores', 'Reveal to players') : t(lang, 'Mudar quem vê este cartão', 'Change who sees this card')}>
+          <span aria-hidden="true">👁</span> {vis === 'hidden' ? t(lang, 'Revelar', 'Reveal') : t(lang, 'Quem vê…', 'Who sees…')}
         </button>
       )}
       {onShow && (
@@ -104,8 +105,10 @@ export default function EntryCard({
       <div className="wl-card-art">
         <EntryImage entry={entry} className="wl-card-img" />
         <div className="wl-card-art-fade" aria-hidden="true" />
-        <span className="wl-kind-badge"><span aria-hidden="true">{meta.icon}</span> {kindLabel(entry.kind, lang)}</span>
-        {dm && <VisibilitySeal visibility={vis} lang={lang} />}
+        <div className="wl-card-top">
+          <span className="wl-kind-badge"><span aria-hidden="true">{meta.icon}</span> {kindLabel(entry.kind, lang)}</span>
+          {dm && <VisibilitySeal visibility={vis} lang={lang} />}
+        </div>
         {entry.isMap && <span className="wl-map-badge" title={t(lang, 'Tem mapa', 'Has a map')}>🗺 {t(lang, 'Mapa', 'Map')}</span>}
         {isNew && <span className="wl-new">{t(lang, 'Novo!', 'New!')}</span>}
         {rumor && <span className="wl-rumor-tag">{t(lang, 'Rumores…', 'Rumors…')}</span>}
@@ -115,7 +118,7 @@ export default function EntryCard({
         {sub && <div className="wl-card-sub">{sub}</div>}
         {entry.summary
           ? <p className="wl-card-summary">{entry.summary}</p>
-          : dm && <p className="wl-card-summary wl-muted">{t(lang, 'Sem frase ainda — toque para escrever.', 'No tagline yet — tap to write one.')}</p>}
+          : dm && <p className="wl-card-summary wl-muted">{t(lang, 'Sem frase ainda — abra o cartão para escrever.', 'No tagline yet — open the card to write one.')}</p>}
         <div className="wl-card-foot">
           {secretsTotal > 0 && (
             <span className="wl-secrets" title={t(lang, 'Segredos revelados / total', 'Secrets revealed / total')}>

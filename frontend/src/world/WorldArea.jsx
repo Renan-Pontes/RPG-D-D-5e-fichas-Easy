@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { Toast } from '../../components/Shared.jsx';
 import useArea from '../shell/useArea.js';
+import { SubChips } from '../shell/AreaNav.jsx';
 import {
   createEntry, createSampleWorld, getEntry, isConflict, listWorld, showEntryOnScreen, updateEntry, worldErrorText,
 } from './world-api.js';
@@ -163,13 +164,8 @@ export default function WorldArea(props) {
   return (
     <div className={`wl-area${openId ? ' has-editor' : ''}`}>
       {showSubChips && (
-        <div className="wl-subs" role="tablist" aria-label={t(lang, 'Mundo', 'World')}>
-          {SUBS.map(s => (
-            <button key={s.id} type="button" role="tab" aria-selected={sub === s.id} className={`wl-sub${sub === s.id ? ' is-on' : ''}`} onClick={() => setSub(s.id)}>
-              <span aria-hidden="true">{s.icon}</span> {t(lang, s.pt, s.en)}
-            </button>
-          ))}
-        </div>
+        <SubChips subs={SUBS.map(s => s.id)} active={sub} onSelect={setSub} lang={lang}
+          icons={Object.fromEntries(SUBS.map(s => [s.id, s.icon]))} ariaLabel={t(lang, 'Mundo', 'World')} />
       )}
 
       {error && <p className="wl-error" role="alert">{error} <button type="button" className="wl-linkbtn" onClick={() => { setError(''); load(); }}>{t(lang, 'Tentar de novo', 'Try again')}</button></p>}

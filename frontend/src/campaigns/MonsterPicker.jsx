@@ -57,7 +57,7 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
 
   const submit = () => {
     if (!selected) return;
-    onPick(monsterForCombat(selected), Math.max(1, Math.min(10, parseInt(count) || 1)), parseInt(initiative) || 10);
+    onPick(monsterForCombat(selected), Math.max(1, Math.min(10, parseInt(count) || 1)), (() => { const n = parseInt(initiative, 10); return Number.isFinite(n) ? n : 10; })());
   };
 
   const saveMine = (list) => {

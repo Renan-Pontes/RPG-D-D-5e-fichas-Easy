@@ -8,6 +8,7 @@ import '../dice/dice-styles.css';
 import { HERO_ART, hideOnError } from '../art.js';
 import { absUrl, cardKey, charLine, healthLabel, paragraphs, screenMode } from '../player/player-model.js';
 import { defaultArt } from '../world/world-model.js';
+import { isDeadScreenLink, recapSubtitle } from './tv-logic.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -46,8 +47,12 @@ export default function TVScreen({ token, lang = 'pt' }) {
   // Overlay de rolagem dramática
   const [activeRoll, setActiveRoll] = useState(null);
   const lastRollIdRef = useRef(null);
+  // Link apagado/trocado (404): para de perguntar ao servidor e explica o que fazer.
+  const [dead, setDead] = useState(false);
+  const deadRef = useRef(false);
 
   const load = useCallback(async () => {
+    if (deadRef.current) return;
     try {
       const res = await api.screen(token);
       setData(res.campaign);
@@ -66,6 +71,7 @@ export default function TVScreen({ token, lang = 'pt' }) {
         }
       }
     } catch (e) {
+      if (isDeadScreenLink(e)) { deadRef.current = true; setDead(true); return; }
       setError(errorMessage(e, lang, lang === 'en' ? 'Could not load the TV screen.' : 'Falha ao carregar o telão.'));
     }
   }, [token, lang]);
@@ -89,6 +95,19 @@ export default function TVScreen({ token, lang = 'pt' }) {
     if (data?.name) document.title = `${data.name} · ${t(lang, 'Telão', 'TV screen')}`;
   }, [data?.name, lang]);
 
+  if (dead) {
+    return (
+      <div className="tv-error tv-dead" role="alert">
+        <div className="tv-dead-box">
+          <div className="tv-dead-ico" aria-hidden="true">📺</div>
+          <h1>{t(lang, 'Este link de telão não vale mais', 'This TV link no longer works')}</h1>
+          <p>{t(lang,
+            'O mestre pode ter gerado um link novo. Peça a ele o link atual — fica em ⚙ Ajustes › Convite e telão, ou no botão 📺 Telão da campanha.',
+            'The DM may have generated a new link. Ask them for the current one — it is under ⚙ Settings › Invite & TV, or the 📺 TV button of the campaign.')}</p>
+        </div>
+      </div>
+    );
+  }
   if (error && !data) return <div className="tv-error"><h1>{error}</h1></div>;
   if (!data) return <div className="tv-loading"><h1>{t(lang, 'Carregando…', 'Loading…')}</h1></div>;
 
@@ -276,13 +295,14 @@ function TVMiniCard({ card, lang }) {
 function TVRecap({ card, campaign, lang }) {
   const paras = paragraphs(card.text);
   const size = (card.text || '').length > 900 ? 'is-long' : (card.text || '').length > 450 ? 'is-medium' : '';
+  const subtitle = recapSubtitle(card.title, campaign.name);
   return (
     <main className={`tv-recap ${size}`} aria-live="polite">
       <div className="tv-recap-bar top" aria-hidden="true" />
       <div className="tv-recap-content">
         <div className="tv-recap-eyebrow">{t(lang, 'Anteriormente em', 'Previously on')}</div>
         <h1 className="tv-recap-campaign">{campaign.name}</h1>
-        {card.title && <h2 className="tv-recap-title">{card.title}</h2>}
+        {subtitle && <h2 className="tv-recap-title">{subtitle}</h2>}
         <div className="tv-recap-text">
           {paras.map((p, i) => <p key={i} style={{ '--i': i }}>{p}</p>)}
         </div>

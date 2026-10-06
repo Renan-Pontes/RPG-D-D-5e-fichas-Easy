@@ -179,3 +179,71 @@ test('estado de recarga/usos/lendárias na UI espelha o backend', () => {
   assert.equal(limitLabel(uses, 0, 'en'), '0/2 per day');
   assert.match(logLine({ type: 'recharge', target: 'Dragão', rolls: [{ name: 'Fire Breath', roll: 6, recharged: true }] }, 'pt'), /d6=6 recarregou/);
 });
+
+// ---- tradução pt-BR dos traços/ações (monsters-pt.js) ----
+import { translateMonsterText, FEATURE_NAMES_PT } from '../data/monsters-pt.js';
+import { convertDistances, createTranslator, missingKeys } from '../data/monsters-pt-engine.js';
+import { MONSTER_TEXT_PT } from '../data/monsters-pt.js';
+
+const EN_WORDS = /\b(the|and|with|its|creature|target|damage|feet|ft|attack|spell|saving|throw|roll|turn|hit|points|or|to|is|has|until|each|within|can|using|makes?|ranged|melee|reach|range|condition|bonus|action|speed|if|that|this|by|from|at|which|while|half|success|failure|trigger|response)\b/i;
+const entries = (m) => [...(m.traits || []), ...allActions(m)];
+
+test('pt-BR: todo nome de traço/ação do bestiário tem tradução', () => {
+  const untranslated = [];
+  for (const m of BESTIARY) for (const e of entries(m)) if (!e.name.pt || e.name.pt === e.name.en) untranslated.push(`${m.id}/${e.name.en}`);
+  assert.deepEqual(untranslated, []);
+  assert.equal(BESTIARY_BY_ID.commoner.traits.find(t => t.name.en === 'Training').name.pt, 'Treinamento');
+});
+
+test('pt-BR: todo texto do SRD 5.2.1 traduzido, sem inglês nem marcadores sobrando', () => {
+  const missing = new Set();
+  for (const m of MONSTERS_SRD521) for (const e of entries(m)) if (e.desc?.en) missingKeys(e.desc.en, MONSTER_TEXT_PT).forEach(k => missing.add(k));
+  assert.deepEqual([...missing], [], 'frases sem tradução');
+  for (const m of BESTIARY) {
+    if (m.source !== 'SRD 5.2.1') continue;
+    for (const e of entries(m)) {
+      if (!e.desc?.en) continue;
+      const pt = e.desc.pt;
+      assert.ok(pt, `${m.id}/${e.name.en}: sem desc.pt`);
+      assert.ok(!/[#@{}]/.test(pt), `${m.id}/${e.name.en}: marcador sobrando em "${pt}"`);
+      assert.ok(!/\d+\s*(ft|feet|foot)\b/i.test(pt), `${m.id}/${e.name.en}: pés em "${pt}"`);
+      const en = pt.split(/[^\p{L}]+/u).find(w => EN_WORDS.test(w) && new RegExp(`^${EN_WORDS.source}$`, 'i').test(w));
+      assert.equal(en, undefined, `${m.id}/${e.name.en}: palavra em inglês "${en}" em "${pt}"`);
+      assert.equal(e.desc.en.length > 0, true); // o original continua (estimador de ND usa desc.en)
+    }
+  }
+});
+
+test('pt-BR: termos oficiais e metros nos blocos traduzidos', () => {
+  const d = BESTIARY_BY_ID['adult-red-dragon'];
+  assert.equal(d.actions.find(a => a.name.en === 'Rend').desc.pt,
+    'Jogada de Ataque Corpo a Corpo: +14, alcance 3 m. 13 (1d10 + 8) de dano Cortante mais 5 (2d4) de dano de Fogo.');
+  assert.equal(d.actions.find(a => a.name.en === 'Fire Breath').desc.pt,
+    'Teste de Resistência de Destreza: CD 21, cada criatura em um Cone de 18 m. Falha: 59 (17d6) de dano de Fogo. Sucesso: Metade do dano.');
+  assert.equal(d.actions[0].desc.pt, 'O dragão faz três ataques de Dilacerar. Pode substituir um ataque por um uso de Conjuração para conjurar Raio Ardente.');
+  const bow = BESTIARY_BY_ID['goblin-warrior'].actions.find(a => a.name.en === 'Shortbow');
+  assert.match(bow.desc.pt, /^Jogada de Ataque à Distância: \+4, distância 24\/96 m\. 5 \(1d6 \+ 2\) de dano Perfurante/);
+  // gênero da criatura nas frases genéricas
+  assert.match(BESTIARY_BY_ID.hydra.traits.find(t => t.name.en === 'Legendary Resistance')?.desc.pt
+    || translateMonsterText('If the hydra fails a saving throw, it can choose to succeed instead.'), /a hidra .*bem-sucedida/i);
+  // lista de magias
+  const owl = translateMonsterText('The owl casts one of the following spells, requiring no spell components and using Wisdom as the spellcasting ability:\n\n- **At Will:** Detect Evil and Good, Detect Magic\n- **1/Day Each:** Clairvoyance');
+  assert.equal(owl, 'A coruja conjura uma das magias a seguir, sem precisar de componentes de magia e usando Sabedoria como atributo de conjuração:\n\n- **À vontade:** Detectar o Bem e o Mal, Detectar Magia\n- **1/dia cada:** Clarividência');
+  assert.equal(FEATURE_NAMES_PT['Ink Cloud'], 'Nuvem de Tinta');
+});
+
+test('pt-BR: motor de tradução (distâncias, números, criatura)', () => {
+  assert.equal(convertDistances('reach 5 ft. or range 80/320 ft., a 15-foot Cone, 30+ feet'), 'reach 1,5 ft. or range 24/96 ft., a 4,5-foot Cone, 9+ feet');
+  const tr = createTranslator({
+    dict: { 'The @ moves # feet.': '{O} anda # m.', 'Swap # and #.': 'Troca #2 e #1.' },
+    nouns: { mummy: ['múmia', 'f'], ogre: ['ogro', 'm'] },
+    names: { Bite: 'Mordida', Claw: 'Garra' },
+  });
+  assert.equal(tr('The mummy moves 30 feet.'), 'A múmia anda 9 m.');
+  assert.equal(tr('Swap 1 and 2.'), 'Troca 2 e 1.');
+  assert.equal(tr('The ogre makes two Claw attacks and one Bite attack.'), 'O ogro faz dois ataques de Garra e um ataque de Mordida.');
+  assert.equal(tr('Melee Attack Roll: +5, reach 10 ft. 7 (1d8 + 3) Piercing damage plus 3 (1d6) Poison damage.'),
+    'Jogada de Ataque Corpo a Corpo: +5, alcance 3 m. 7 (1d8 + 3) de dano Perfurante mais 3 (1d6) de dano de Veneno.');
+  assert.equal(tr('Constitution Saving Throw: DC 13. Failure: 10 (3d6) Cold damage.'), null, 'frase "DC 13." fora do dicionário → null');
+  assert.equal(tr('Something unknown.'), null);
+});

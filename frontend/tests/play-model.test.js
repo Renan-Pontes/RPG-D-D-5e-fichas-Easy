@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyBody, critDice, draftFromPreview, evaluateDraft, isAdjusted, resultLine } from '../src/play/attack-model.js';
+import { applyBody, critDice, draftFromPreview, evaluateDraft, isAdjusted, resultLine, serverTotalsValid } from '../src/play/attack-model.js';
 import { activeScene, sceneEntries, testsBadge, unifyTests } from '../src/play/scene-model.js';
 
 // Prévia como o servidor devolve (AttackPreview, contrato C2).
@@ -105,7 +105,7 @@ test('Testes: lista única com Percepção CD 15 em Abertos', () => {
   assert.equal(g.open.find(x => x.key === 'r7').pending, true);
   assert.deepEqual(g.answered.map(x => x.key), ['c2']);
   assert.deepEqual(g.history.map(x => x.key), ['r6', 'c3']);
-  assert.equal(testsBadge(g), 3);
+  assert.equal(testsBadge(g), 2); // só os abertos (#37): respondido não segura o selo
   assert.deepEqual(unifyTests(), { open: [], answered: [], history: [] });
 });
 
@@ -143,4 +143,47 @@ test('efeito com resistência é sugestão: rascunho, metade no sucesso e chamad
     { action: 'add_condition', targetId: 't', condition: 'prone' },
     { action: 'damage', targetId: 'x', amount: 10, damageType: 'fire' },
   ]);
+});
+
+// #29 — dano extra condicional ("se o ataque teve Vantagem") nunca entra sozinho.
+test('dano extra condicional começa desligado e só entra se o mestre marcar', async () => {
+  const { damagePartConditions, actionSummary } = await import('../src/campaigns/monster-actions.js');
+  const scimitar = {
+    name: { pt: 'Cimitarra', en: 'Scimitar' }, type: 'melee', atk: 4, range: '5 ft', damage: '1d6+2', damageType: 'slashing',
+    extraDamage: [{ damage: '1d4', damageType: 'slashing' }],
+    desc: { en: 'Melee Attack Roll: +4, reach 5 ft. 5 (1d6 + 2) Slashing damage, plus 2 (1d4) Slashing damage if the attack roll had Advantage.' },
+  };
+  const conditions = damagePartConditions(scimitar);
+  assert.equal(conditions[0], null);
+  assert.equal(conditions[1].pt, 'se o ataque teve Vantagem');
+  assert.match(actionSummary(scimitar, 'pt'), /\(1d4 cortante se o ataque teve Vantagem\)/);
+
+  const preview = { ...PREVIEW, damage: [...PREVIEW.damage, { dice: '1d4', rolled: 3, type: 'slashing', rolls: [3] }], effectiveDamage: 9, newHp: 6 };
+  const d = draftFromPreview(preview, { conditions });
+  assert.equal(evaluateDraft(d).damageTotal, 6);
+  assert.deepEqual(applyBody(d).damage, [{ amount: 6, type: 'slashing' }]);
+  assert.equal(serverTotalsValid(d), false); // o total do servidor somou o extra
+  const on = { ...d, parts: d.parts.map(p => (p.conditional ? { ...p, on: true } : p)) };
+  assert.equal(evaluateDraft(on).damageTotal, 9);
+  assert.deepEqual(applyBody(on).damage, [{ amount: 6, type: 'slashing' }, { amount: 3, type: 'slashing' }]);
+  assert.equal(serverTotalsValid(on), true);
+});
+
+test('dano extra incondicional ("plus 2 (1d4) Cold damage.") continua somado', async () => {
+  const { damagePartConditions } = await import('../src/campaigns/monster-actions.js');
+  const spear = { type: 'melee', damage: '1d6', damageType: 'piercing', extraDamage: [{ damage: '1d4', damageType: 'cold' }],
+    desc: { en: '3 (1d6) Piercing damage plus 2 (1d4) Cold damage. If the target is a creature, its Speed decreases.' } };
+  assert.deepEqual(damagePartConditions(spear), [null, null]);
+});
+
+// #34 — cabeçalho e Jogar › Telão contam o mesmo que a TV desenha.
+test('screenNow: combate com cartão do Mundo sobreposto; recap espera o combate acabar', async () => {
+  const { screenNow } = await import('../src/play/screen-now.js');
+  const entry = { type: 'entry', title: 'Borin', kindLabel: 'Personagem' };
+  const recap = { type: 'recap', title: 'Anteriormente…' };
+  const fight = { active: true, round: 2, combatants: [] };
+  assert.deepEqual(screenNow({ combat: fight, card: entry }), { mode: 'combat', round: 2, card: null, overlay: entry, waiting: null });
+  assert.deepEqual(screenNow({ combat: fight, card: recap }), { mode: 'combat', round: 2, card: null, overlay: null, waiting: recap });
+  assert.equal(screenNow({ combat: { active: false }, card: entry }).card, entry);
+  assert.equal(screenNow({}).mode, 'rest');
 });

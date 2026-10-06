@@ -34,6 +34,28 @@ export const SUB_LABELS = {
   chronicle: ['Crônica', 'Chronicle'],
 };
 
+/** Rótulo curto (celular estreito): cabe numa fileira só. */
+export const SUB_SHORT = {
+  timeline: ['Linha do tempo', 'Timeline'],
+  documents: ['Docs', 'Docs'],
+  next: ['Próxima', 'Next'],
+  items: ['Itens', 'Items'],
+  screen: ['Telão', 'TV'],
+};
+
+/** Ícone de cada subvista — o mesmo em todas as áreas. */
+export const SUB_ICONS = {
+  atlas: '📚', map: '🗺', timeline: '⌛', documents: '📄',
+  next: '📋', adventures: '🧭', items: '💎',
+  scene: '🎭', combat: '⚔', checks: '🎲', screen: '📺',
+  players: '🛡', chronicle: '📜',
+};
+
+export const subShortLabel = (sub, lang) => {
+  const l = SUB_SHORT[sub];
+  return l ? (lang === 'en' ? l[1] : l[0]) : subLabel(sub, lang);
+};
+
 export const subLabel = (sub, lang) => {
   const l = SUB_LABELS[sub];
   return l ? (lang === 'en' ? l[1] : l[0]) : sub;
@@ -137,8 +159,12 @@ export function planHasContent(plan) {
  *  - senão, primeiros passos pendentes → Mundo;
  *  - senão → Preparar › Próxima sessão.
  * Jogador: lembrada ou Mesa.
+ * `fromUrl` ({area, sub} lido da URL) vem antes de tudo, para o F5 voltar à mesma tela.
  */
-export function initialArea({ isDM, live = false, combatActive = false, onboardingPending = false, remembered = null }) {
+export function initialArea({ isDM, live = false, combatActive = false, onboardingPending = false, remembered = null, fromUrl = null }) {
+  // A URL (#c/<slug>/<área>/<sub>, ex.: depois de um F5) manda em tudo.
+  const url = fromUrl && fromUrl.area ? normalizeArea(isDM, fromUrl.area, fromUrl.sub) : null;
+  if (url) return url;
   if (!isDM) {
     return normalizeArea(false, remembered?.area, remembered?.sub) || { area: 'table', sub: null };
   }
@@ -223,6 +249,24 @@ export const TONES = [
 
 export const ACCENTS = ['#d6b064', '#b8862b', '#8e2c2c', '#6b5ca5', '#3f7fae', '#4c8a5b', '#d2833a', '#a0a4ad'];
 
+/** Nome legível de cada cor de destaque (leitor de tela e dica). */
+export const ACCENT_NAMES = {
+  '#d6b064': ['Dourado', 'Gold'],
+  '#b8862b': ['Bronze', 'Bronze'],
+  '#8e2c2c': ['Vermelho-sangue', 'Blood red'],
+  '#6b5ca5': ['Violeta', 'Violet'],
+  '#3f7fae': ['Azul', 'Blue'],
+  '#4c8a5b': ['Verde-musgo', 'Moss green'],
+  '#d2833a': ['Laranja', 'Orange'],
+  '#a0a4ad': ['Prata', 'Silver'],
+};
+
+export function accentName(hex, lang) {
+  const n = ACCENT_NAMES[String(hex || '').toLowerCase()];
+  if (n) return lang === 'en' ? n[1] : n[0];
+  return lang === 'en' ? 'Custom color' : 'Cor personalizada';
+}
+
 export function isHexColor(v) {
   return typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v);
 }
@@ -240,6 +284,26 @@ export const COVER_ART = [
   '/art/backgrounds/acolyte.webp',
   '/art/grimoire-book.webp',
 ];
+
+/** Nome de cada arte de capa (rótulo das opções da galeria). */
+export const COVER_ART_NAMES = {
+  '/art/hero-forge.webp': ['Forja dos heróis', "Heroes' forge"],
+  '/art/backgrounds/wayfarer.webp': ['Viajante', 'Wayfarer'],
+  '/art/backgrounds/outlander.webp': ['Forasteiro', 'Outlander'],
+  '/art/backgrounds/sage.webp': ['Sábio', 'Sage'],
+  '/art/backgrounds/knight.webp': ['Cavaleiro', 'Knight'],
+  '/art/backgrounds/sailor.webp': ['Marinheiro', 'Sailor'],
+  '/art/backgrounds/hermit.webp': ['Eremita', 'Hermit'],
+  '/art/backgrounds/noble.webp': ['Nobre', 'Noble'],
+  '/art/backgrounds/acolyte.webp': ['Acólito', 'Acolyte'],
+  '/art/grimoire-book.webp': ['Grimório', 'Grimoire'],
+};
+
+export function coverArtName(path, lang) {
+  const n = COVER_ART_NAMES[path];
+  const name = n ? (lang === 'en' ? n[1] : n[0]) : (lang === 'en' ? 'Art' : 'Arte');
+  return lang === 'en' ? `Cover: ${name}` : `Capa: ${name}`;
+}
 
 export function defaultCoverArt(campaign) {
   const n = Number(campaign?.id) || 0;
@@ -259,4 +323,35 @@ export function inviteLink(origin, code) {
 
 export function screenLink(origin, token) {
   return token ? `${origin}/tv/${token}` : '';
+}
+
+// ---------------------------------------------------------------------------
+// Rota da campanha na URL: #c/<slug>/<área>/<subvista>
+// (recarregar a página volta para a mesma campanha e a mesma tela)
+// ---------------------------------------------------------------------------
+
+const ROUTE_SAFE = /^[A-Za-z0-9_-]{1,80}$/;
+
+/** Monta o hash `#c/<slug>/<área>[/<sub>]`. Sem campanha → ''. */
+export function campaignRoute(slug, area = null, sub = null) {
+  const s = String(slug ?? '').trim();
+  if (!ROUTE_SAFE.test(s)) return '';
+  let h = `#c/${encodeURIComponent(s)}`;
+  if (area && ROUTE_SAFE.test(area)) {
+    h += `/${area}`;
+    if (sub && ROUTE_SAFE.test(sub)) h += `/${sub}`;
+  }
+  return h;
+}
+
+/** Lê `#c/<slug>/<área>/<sub>` → {slug, area, sub} (área/sub podem vir null). */
+export function parseCampaignRoute(hash) {
+  const m = /^#c\/([^/?#]+)(?:\/([^/?#]+))?(?:\/([^/?#]+))?\/?$/.exec(String(hash || ''));
+  if (!m) return null;
+  let slug;
+  try { slug = decodeURIComponent(m[1]); } catch { return null; }
+  if (!ROUTE_SAFE.test(slug)) return null;
+  const area = m[2] && ROUTE_SAFE.test(m[2]) ? m[2] : null;
+  const sub = area && m[3] && ROUTE_SAFE.test(m[3]) ? m[3] : null;
+  return { slug, area, sub };
 }

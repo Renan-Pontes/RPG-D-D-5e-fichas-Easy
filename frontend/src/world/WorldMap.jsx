@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createEntry, getEntry, isConflict, putEntryImage, updateEntry, worldErrorText, worldImageUrl } from './world-api.js';
 import { compressImage } from './image.js';
-import { KIND_META, clampUnit, freshId, kindIcon, sortEntries, t } from './world-model.js';
+import { KIND_META, clampUnit, freshId, isTouchUi, kindIcon, pinCountText, sortEntries, t, tapVerb } from './world-model.js';
 import useAutosave, { saveStateLabel } from './useAutosave.js';
 import { LogDiaryCheck, useReveal } from './RevealControl.jsx';
 import { EntryPicker } from './LinksField.jsx';
@@ -23,6 +23,8 @@ export default function WorldMap({ campaign, entries = [], lang = 'pt', mapId: m
   const [adding, setAdding] = useState(false);
   const [sel, setSel] = useState(null);
   const mapRef = useRef(null);
+  const [touch] = useState(isTouchUi);
+  const tap = tapVerb(lang, touch);
   const versionRef = useRef(null);
 
   useEffect(() => { if (mapIdProp && mapIdProp !== mapId) setMapIdState(mapIdProp); }, [mapIdProp]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -117,7 +119,7 @@ export default function WorldMap({ campaign, entries = [], lang = 'pt', mapId: m
         <>
           <div className="wl-map-tools">
             <button type="button" className={`btn btn-sm ${adding ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setAdding(a => !a); setSel(null); }} aria-pressed={adding}>
-              📍 {adding ? t(lang, 'Toque no mapa…', 'Tap the map…') : t(lang, 'Marcador', 'Pin')}
+              📍 {adding ? t(lang, `${tap} no mapa…`, `${tap} the map…`) : t(lang, 'Marcador', 'Pin')}
             </button>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => onOpenEntry?.(map.id)}>✎ {t(lang, 'Editar lugar', 'Edit place')}</button>
             <LogDiaryCheck value={rv.logDiary} onChange={rv.setLogDiary} lang={lang} />
@@ -173,8 +175,8 @@ export default function WorldMap({ campaign, entries = [], lang = 'pt', mapId: m
             </div>
           ) : (
             <p className="wl-hint">{pins.length
-              ? t(lang, `${pins.length} marcador(es) · ${pins.filter(p => p.visible).length} visível(is) aos jogadores. Toque num marcador para editar.`, `${pins.length} pin(s) · ${pins.filter(p => p.visible).length} visible to players. Tap a pin to edit.`)
-              : t(lang, 'Nenhum marcador ainda. Use "Marcador" e toque no mapa.', 'No pins yet. Use "Pin" and tap the map.')}</p>
+              ? `${pinCountText(pins.length, pins.filter(p => p.visible).length, lang)} ${t(lang, `${tap} num marcador para editar.`, `${tap} a pin to edit.`)}`
+              : t(lang, `Nenhum marcador ainda. Use "Marcador" e ${tap.toLowerCase()} no mapa.`, `No pins yet. Use "Pin" and ${tap.toLowerCase()} the map.`)}</p>
           )}
         </>
       )}

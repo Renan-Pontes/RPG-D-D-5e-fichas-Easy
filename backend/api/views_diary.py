@@ -25,7 +25,7 @@ from rest_framework.response import Response
 from .campaign_state import update_state
 from .diary import current_session, log_diary, session_meta, _user_name
 from .models import DiaryEntry
-from .permissions import get_campaign_or_404, is_dm, require_dm, require_member
+from .permissions import get_campaign_or_404, get_membership, is_dm, require_dm, require_member
 from .rate_limit import rate_limit
 
 NOTE_SUBTYPES = {'note', 'summary'}
@@ -35,17 +35,58 @@ MAX_BODY = 20000
 MAX_ENTRIES = 5000
 
 
-def _serialize(e, user, dm):
+def _serialize(e, user, dm, bodies=None):
     mine = e.created_by_id == user.id and e.kind == 'note'
+    body = bodies[e.id] if bodies and e.id in bodies else e.body
     return {
         'id': e.id, 'session': e.session, 'kind': e.kind, 'subtype': e.subtype,
-        'title': e.title, 'body': e.body, 'data': e.data or {},
+        'title': e.title, 'body': body, 'data': e.data or {},
         'occurredAt': e.occurred_at.isoformat(),
         'editedAt': e.edited_at.isoformat() if e.edited_at else None,
         'createdBy': {'id': e.created_by_id, 'name': _user_name(e.created_by)} if e.created_by_id else None,
         'hidden': e.hidden,
         'canEdit': dm or mine,
     }
+
+
+def player_reveal_filter(campaign, user):
+    """Eventos 'reveal' da Crônica vistos pelo jogador seguem o estado ATUAL do
+    Mundo: some o evento de cartão que voltou a ficar oculto, de documento que
+    não é para ele, de segredo que o mestre escondeu de novo e de pin que saiu
+    do mapa. Devolve (ids_excluídos, {id: corpo_filtrado})."""
+    from . import world_rules as R
+    from .models import WorldEntry
+    membership = get_membership(user, campaign)
+    mid = membership.id if membership else None
+    events = list(DiaryEntry.objects.filter(campaign=campaign, subtype='reveal', kind='event')
+                  .values_list('id', 'data', 'body'))
+    if not events:
+        return set(), {}
+    entry_ids = {(d or {}).get('entryId') for _, d, _ in events}
+    worlds = {w.id: w for w in WorldEntry.objects.filter(campaign=campaign, id__in=[i for i in entry_ids if i])}
+    excluded, bodies = set(), {}
+    for pk, data, body in events:
+        data = data or {}
+        w = worlds.get(data.get('entryId'))
+        if not w or not R.player_can_see(w, mid):
+            excluded.add(pk)
+            continue
+        secret_ids = data.get('secretIds') or []
+        pin_ids = data.get('pinIds') or []
+        if secret_ids:
+            live = {s.get('id'): s for s in w.secrets or [] if isinstance(s, dict) and s.get('revealed')}
+            still = [live[i] for i in secret_ids if i in live] if w.visibility == 'revealed' else []
+            if not still and not pin_ids:
+                excluded.add(pk)
+                continue
+            bodies[pk] = '\n'.join(s.get('text', '') for s in still)
+        elif pin_ids:
+            m = (w.data or {}).get('map')
+            visible = {p.get('id') for p in (m.get('pins') or [] if isinstance(m, dict) else [])
+                       if isinstance(p, dict) and p.get('visible')}
+            if not visible.intersection(pin_ids):
+                excluded.add(pk)
+    return excluded, bodies
 
 
 def _session_number(value):
@@ -87,8 +128,10 @@ def campaign_diary(request, id_or_slug):
         return _create_note(request, campaign, dm)
 
     base = DiaryEntry.objects.filter(campaign=campaign)
+    bodies = None
     if not dm:
-        base = base.filter(hidden=False)
+        excluded, bodies = player_reveal_filter(campaign, request.user)
+        base = base.filter(hidden=False).exclude(pk__in=excluded)
     qs = base.select_related('created_by', 'created_by__profile')
     p = request.query_params
     if p.get('session') not in (None, ''):
@@ -109,7 +152,7 @@ def campaign_diary(request, id_or_slug):
         raise ValidationError({'error': 'invalid_pagination'})
     page = list(qs[offset:offset + limit + 1])
     return Response({
-        'entries': [_serialize(e, request.user, dm) for e in page[:limit]],
+        'entries': [_serialize(e, request.user, dm, bodies) for e in page[:limit]],
         'hasMore': len(page) > limit,
         'offset': offset,
         **_sessions_payload(campaign, base),

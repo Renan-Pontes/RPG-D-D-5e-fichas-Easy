@@ -8,15 +8,20 @@
 import { useMemo, useState } from 'react';
 import { errorMessage } from '../api/errors.js';
 import { applyAttack, attackPreview } from './play-api.js';
-import { applyBody, critDice, draftFromPreview, evaluateDraft, isAdjusted } from './attack-model.js';
+import { applyBody, critDice, draftFromPreview, evaluateDraft, isAdjusted, serverTotalsValid } from './attack-model.js';
 import { damageTypeLabel, DAMAGE_TYPES } from '../combat/monster-i18n.js';
-import { reasonLabel } from '../campaigns/monster-actions.js';
+import { damagePartConditions, reasonLabel } from '../campaigns/monster-actions.js';
 import './play-styles.css';
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
 
 export default function AttackResultCard({ preview, campaignId, attacker, target, lang = 'pt', onApplied, onDiscard }) {
-  const [draft, setDraft] = useState(() => draftFromPreview(preview));
+  // Dano extra condicional ("se o ataque teve Vantagem") começa desligado: o mestre marca.
+  const conditions = useMemo(
+    () => damagePartConditions(attacker?.stats?.actions?.[preview?.actionIndex ?? 0]),
+    [attacker, preview?.actionIndex],
+  );
+  const [draft, setDraft] = useState(() => draftFromPreview(preview, { conditions }));
   const [adjusting, setAdjusting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -30,9 +35,10 @@ export default function AttackResultCard({ preview, campaignId, attacker, target
   const curHp = target?.current_hp;
   const maxHp = target?.stats?.max_hp;
   // Sem ajuste: o servidor já calculou resistências/imunidades. Com ajuste: conta simples.
-  const dmgShown = !r.hit ? 0 : (!adjusted && draft.effectiveDamage != null ? draft.effectiveDamage : r.damageTotal);
+  const serverOk = serverTotalsValid(draft);
+  const dmgShown = !r.hit ? 0 : (serverOk && draft.effectiveDamage != null ? draft.effectiveDamage : r.damageTotal);
   const newHp = curHp == null ? null
-    : (!adjusted && r.hit && draft.newHp != null ? draft.newHp : Math.max(0, curHp - dmgShown));
+    : (serverOk && r.hit && draft.newHp != null ? draft.newHp : Math.max(0, curHp - dmgShown));
 
   const apply = async () => {
     const body = applyBody(draft);
@@ -55,8 +61,12 @@ export default function AttackResultCard({ preview, campaignId, attacker, target
         attackerId: draft.attackerId, targetId: draft.targetId, actionIndex: draft.actionIndex,
         attackRoll: r.nat ?? undefined,
       });
-      const next = draftFromPreview(p);
-      setDraft(d => ({ ...next, hitOverride: d.hitOverride }));
+      const next = draftFromPreview(p, { conditions });
+      // Mantém a marcação das condições que o mestre já fez.
+      setDraft(d => ({
+        ...next, hitOverride: d.hitOverride,
+        parts: next.parts.map((pt, i) => (pt.conditional ? { ...pt, on: !!d.parts[i]?.on } : pt)),
+      }));
     } catch (e) {
       setError(errorMessage(e, lang));
     } finally { setBusy(false); }
@@ -119,7 +129,13 @@ export default function AttackResultCard({ preview, campaignId, attacker, target
           <span className="arc-eyebrow">{L(lang, 'Dano', 'Damage')}</span>
           <ul>
             {draft.parts.map((p, i) => (
-              <li key={i} className="arc-part">
+              <li key={i} className={`arc-part ${p.conditional ? 'is-conditional' : ''} ${p.conditional && !p.on ? 'is-off' : ''}`}>
+                {p.conditional && (
+                  <label className="arc-cond" title={p.conditional.text}>
+                    <input type="checkbox" checked={!!p.on} onChange={e => setPart(i, { on: e.target.checked })} />
+                    <span>{L(lang, p.conditional.pt, p.conditional.en)}?</span>
+                  </label>
+                )}
                 {adjusting ? (
                   <>
                     <input className="input arc-dmg-input" type="number" inputMode="numeric" min={0} max={9999} value={p.amount}
@@ -146,8 +162,8 @@ export default function AttackResultCard({ preview, campaignId, attacker, target
             <p className="arc-hp">
               {L(lang, 'PV de', 'HP of')} {target?.name}: <strong>{curHp}</strong> → <strong className={newHp <= 0 ? 'arc-down' : ''}>{newHp}</strong>
               {maxHp ? <span className="muted small"> / {maxHp}</span> : null}
-              {adjusted && <span className="muted small"> · {L(lang, 'resistências contam ao aplicar', 'resistances apply on Apply')}</span>}
-              {!adjusted && draft.note && <span className="muted small"> · {draft.note}</span>}
+              {!serverOk && <span className="muted small"> · {L(lang, 'resistências contam ao aplicar', 'resistances apply on Apply')}</span>}
+              {serverOk && draft.note && <span className="muted small"> · {draft.note}</span>}
             </p>
           )}
         </div>

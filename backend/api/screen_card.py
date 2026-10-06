@@ -20,7 +20,7 @@ from rest_framework.exceptions import ValidationError, NotFound
 
 KIND_LABELS = {
     'place': ('Lugar', 'Place'),
-    'npc': ('Personagem', 'Character'),
+    'npc': ('NPC', 'NPC'),   # 'Personagem' é o termo dos PJs no app
     'faction': ('Facção', 'Faction'),
     'item': ('Item', 'Item'),
     'lore': ('Lenda', 'Lore'),

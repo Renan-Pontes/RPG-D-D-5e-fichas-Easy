@@ -2,6 +2,12 @@
 // (ver onboardingStatus em shell-logic.js); o cartão pode ser dispensado e some
 // quando tudo está concluído. Flags ficam em Campaign.dm_settings.onboarding.
 import { useState } from 'react';
+
+// No celular o cartão começa recolhido (só o progresso e o próximo passo),
+// para o Atlas aparecer sem rolar.
+const startsCollapsed = () => {
+  try { return window.matchMedia('(max-width: 767px)').matches; } catch { return false; }
+};
 import { ONBOARDING_STEPS, t } from './shell-logic.js';
 
 const STEP_TEXT = {
@@ -14,14 +20,16 @@ const STEP_TEXT = {
 
 export default function Onboarding({ lang, status, onAction, onDismiss, onSample, sampleBusy = false, worldEmpty = false }) {
   const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState(() => !startsCollapsed());
   if (!status) return null;
+  const nextStep = ONBOARDING_STEPS.find(k => !status.done[k]);
   const tx = (k, i) => (lang === 'en' ? STEP_TEXT[k][i + 1] : STEP_TEXT[k][i]);
   const act = async (k) => {
     const r = await onAction?.(k);
     if (k === 'invite' && r !== false) { setCopied(true); setTimeout(() => setCopied(false), 1800); }
   };
   return (
-    <section className="shell-onboarding" aria-labelledby="shell-ob-title">
+    <section className={`shell-onboarding ${open ? 'is-open' : 'is-collapsed'}`} aria-labelledby="shell-ob-title">
       <div className="shell-ob-head">
         <div>
           <span className="eyebrow">{t(lang, 'Primeiros passos', 'First steps')}</span>
@@ -31,9 +39,23 @@ export default function Onboarding({ lang, status, onAction, onDismiss, onSample
           <span className="shell-ob-count">{status.count}/{status.total}</span>
           <span className="shell-ob-bar"><span style={{ width: `${(status.count / status.total) * 100}%` }} /></span>
         </div>
-        <button type="button" className="btn btn-ghost btn-sm shell-ob-dismiss" onClick={onDismiss}>{t(lang, 'Dispensar', 'Dismiss')}</button>
+        <div className="shell-ob-head-actions">
+          <button type="button" className="btn btn-ghost btn-sm shell-ob-toggle" onClick={() => setOpen(v => !v)}
+            aria-expanded={open} aria-controls="shell-ob-list">
+            {open ? t(lang, 'Recolher', 'Collapse') : t(lang, 'Ver passos', 'Show steps')}
+          </button>
+          <button type="button" className="btn btn-ghost btn-sm shell-ob-dismiss" onClick={onDismiss}>{t(lang, 'Dispensar', 'Dismiss')}</button>
+        </div>
       </div>
-      <ol className="shell-ob-list">
+      {!open && nextStep && (
+        <div className="shell-ob-next">
+          <span className="text-sm"><span className="muted">{t(lang, 'Próximo:', 'Next:')}</span> <strong>{tx(nextStep, 0)}</strong></span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => act(nextStep)}>
+            {nextStep === 'invite' && copied ? t(lang, 'Copiado ✓', 'Copied ✓') : tx(nextStep, 4)}
+          </button>
+        </div>
+      )}
+      <ol className="shell-ob-list" id="shell-ob-list" hidden={!open}>
         {ONBOARDING_STEPS.map(k => {
           const done = status.done[k];
           return (

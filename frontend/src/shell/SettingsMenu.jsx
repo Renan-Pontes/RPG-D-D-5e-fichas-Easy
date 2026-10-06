@@ -66,6 +66,7 @@ function IdentitySection({ campaign, lang, onChange, onMarkOnboarding }) {
   const [tone, setTone] = useState(campaign.tone || '');
   const [accent, setAccent] = useState(campaign.accent || '');
   const { msg, busy, run } = useStatus();
+  const coverStatus = useStatus();
   const dirty = name !== (campaign.name || '') || tagline !== (campaign.tagline || '') || tone !== (campaign.tone || '') || accent !== (campaign.accent || '');
 
   const save = () => run(async () => {
@@ -73,32 +74,39 @@ function IdentitySection({ campaign, lang, onChange, onMarkOnboarding }) {
     onChange?.();
   }, t(lang, 'Salvo ✓', 'Saved ✓'), lang);
 
-  const setCover = (dataUrl) => run(async () => {
+  const setCover = (dataUrl) => coverStatus.run(async () => {
     await api.setCampaignCover(campaign.id, dataUrl);
     if (dataUrl) onMarkOnboarding?.('cover');
     onChange?.();
   }, dataUrl ? t(lang, 'Capa atualizada ✓', 'Cover updated ✓') : t(lang, 'Capa removida', 'Cover removed'), lang);
 
   return (
-    <div className="col gap-3">
-      <label className="col gap-1">
-        <span>{t(lang, 'Nome', 'Name')}</span>
-        <input className="input" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
-      </label>
-      <label className="col gap-1">
-        <span>{t(lang, 'Frase de efeito', 'Tagline')}</span>
-        <input className="input" value={tagline} maxLength={160} onChange={(e) => setTagline(e.target.value)}
-          placeholder={t(lang, 'Onde a névoa guarda segredos…', 'Where the mist keeps its secrets…')} />
-      </label>
-      <ToneAccentFields lang={lang} tone={tone} accent={accent} onTone={setTone} onAccent={setAccent} />
-      <div className="row gap-2" style={{ alignItems: 'center' }}>
-        <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={busy || !dirty}>{t(lang, 'Salvar', 'Save')}</button>
-        {msg && <span className="muted text-sm" role="status">{msg}</span>}
-      </div>
-      <div className="col gap-1">
-        <span>{t(lang, 'Capa', 'Cover')}</span>
-        <CoverPicker lang={lang} campaign={campaign} busy={busy} onPick={setCover} />
-      </div>
+    <div className="col gap-4 shell-settings-form">
+      <section className="col gap-2">
+        <h3 className="shell-h3">{t(lang, 'Capa', 'Cover')}</h3>
+        <p className="muted text-sm" style={{ margin: 0 }}>{t(lang, 'A capa é salva assim que você escolhe.', 'The cover is saved as soon as you pick it.')}</p>
+        <CoverPicker lang={lang} campaign={campaign} busy={coverStatus.busy} onPick={setCover} />
+        {coverStatus.msg && <span className="muted text-sm" role="status">{coverStatus.msg}</span>}
+      </section>
+      <section className="col gap-3">
+        <h3 className="shell-h3">{t(lang, 'Nome, tom e cor', 'Name, tone and color')}</h3>
+        <label className="col gap-1">
+          <span>{t(lang, 'Nome', 'Name')}</span>
+          <input className="input" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label className="col gap-1">
+          <span>{t(lang, 'Frase de efeito', 'Tagline')}</span>
+          <input className="input" value={tagline} maxLength={160} onChange={(e) => setTagline(e.target.value)}
+            placeholder={t(lang, 'Onde a névoa guarda segredos…', 'Where the mist keeps its secrets…')} />
+        </label>
+        <ToneAccentFields lang={lang} tone={tone} accent={accent} onTone={setTone} onAccent={setAccent} />
+        <div className="row gap-2 shell-save-row">
+          <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={busy || !dirty}>{t(lang, 'Salvar', 'Save')}</button>
+          {msg
+            ? <span className="muted text-sm" role="status">{msg}</span>
+            : dirty && <span className="muted text-sm">{t(lang, 'Há mudanças não salvas', 'Unsaved changes')}</span>}
+        </div>
+      </section>
     </div>
   );
 }
@@ -125,7 +133,7 @@ function TableSection({ campaign, lang, onChange, onMarkOnboarding }) {
     }, t(lang, 'Novo código gerado ✓', 'New code generated ✓'), lang);
   };
   return (
-    <div className="col gap-4">
+    <div className="col gap-4 shell-settings-form">
       <section className="col gap-2">
         <h3 className="shell-h3">{t(lang, 'Convite', 'Invite')}</h3>
         <p className="muted text-sm" style={{ margin: 0 }}>{t(lang, 'Os jogadores entram em Campanhas › Entrar com código.', 'Players join under Campaigns › Join with code.')}</p>
@@ -137,7 +145,8 @@ function TableSection({ campaign, lang, onChange, onMarkOnboarding }) {
       </section>
       <section className="col gap-2">
         <h3 className="shell-h3">{t(lang, 'Telão', 'TV screen')}</h3>
-        <input className="input" readOnly value={tv} onFocus={(e) => e.target.select()} aria-label={t(lang, 'Link do telão', 'TV link')} style={{ fontFamily: 'monospace' }} />
+        <p className="muted text-sm" style={{ margin: 0 }}>{t(lang, 'Abra este link na TV ou tablet que a mesa vê.', 'Open this link on the TV or tablet the table watches.')}</p>
+        <input className="input shell-link-input" readOnly value={tv} onFocus={(e) => e.target.select()} aria-label={t(lang, 'Link do telão', 'TV link')} />
         <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
           <button type="button" className="btn btn-primary btn-sm" onClick={() => copy(tv, 'tv')}>{t(lang, 'Copiar link', 'Copy link')}</button>
           <a className="btn btn-ghost btn-sm" href={tv} target="_blank" rel="noreferrer" onClick={() => onMarkOnboarding?.('tv')}>{t(lang, 'Abrir', 'Open')}</a>

@@ -143,8 +143,8 @@ export default function CheckRequestCard({ check, char, lang = 'pt', onAnswered,
                 placeholder={mode === 'natural' ? 'd20' : L(lang, 'total', 'total')}
                 aria-label={mode === 'natural' ? L(lang, 'Número que saiu no d20 físico', 'Number rolled on the physical d20') : L(lang, 'Total já somado', 'Total already added')}
               />
-              <button type="submit" className="btn btn-ghost check-physical-send" disabled={busy || value === ''}>
-                {preview != null ? `= ${preview} ✓` : L(lang, 'Enviar', 'Send')}
+              <button type="submit" className={`btn ${value === '' ? 'btn-ghost' : 'btn-primary'} check-physical-send`} disabled={busy || value === ''}>
+                {preview != null ? L(lang, `Enviar ${preview}`, `Send ${preview}`) : L(lang, 'Enviar', 'Send')}
               </button>
             </form>
             {editing && (

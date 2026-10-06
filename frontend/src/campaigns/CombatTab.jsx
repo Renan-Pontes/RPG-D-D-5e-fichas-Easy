@@ -1,5 +1,5 @@
 import { errorMessage } from '../api/errors.js';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
@@ -61,6 +61,18 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
   useEffect(() => { load(); }, [load]);
   usePolling(load, 2500, [campaign.id]);
 
+  // Quando a vez muda, o card de quem age abre sozinho (mostra Atacar etc.).
+  // Só seleciona — não rola a tela nem age por ninguém.
+  const turnKey = combat?.active ? `${combat.round}:${combat.turnIndex}:${combat.combatants?.[combat.turnIndex]?.id || ''}` : '';
+  const lastTurnKey = useRef(null);
+  useEffect(() => {
+    if (!turnKey) { lastTurnKey.current = null; return; }
+    if (lastTurnKey.current === turnKey) return;
+    lastTurnKey.current = turnKey;
+    const who = combat?.combatants?.[combat.turnIndex];
+    if (who) setSelected(who.id);
+  }, [turnKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!combat) return <div>{t(lang, 'Carregando combate…', 'Loading combat…')}</div>;
 
   const combatants = combat.combatants || [];
@@ -86,7 +98,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
       await api.addCombatant(campaign.id, {
         type: 'monster',
         monster: { ...snap, name: count > 1 ? `${base} #${i + 1}` : base },
-        initiative: initiative + Math.floor(Math.random() * 5) - 2, // pequena variação
+        initiative, // exatamente o que o mestre digitou (nunca alterado pelo app)
         position: { x: 100 + i * 60, y: 100 },
         tokenScale: snap.size === 'Large' ? 2 : snap.size === 'Huge' ? 3 : snap.size === 'Gargantuan' ? 4 : snap.size === 'Tiny' ? 0.5 : 1,
       });
@@ -135,7 +147,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
           </h3>
         </div>
         <div className="row gap-2">
-          <NudgeBell campaign={campaign} combat={combat} lang={lang} onChange={() => { load(); onChange?.(); }} />
+          {combatants.length > 0 && <NudgeBell campaign={campaign} combat={combat} lang={lang} onChange={() => { load(); onChange?.(); }} />}
           {!combat.active && <button className="btn btn-primary btn-sm" onClick={startCombat} disabled={combatants.length === 0}>
             ▶ {t(lang, 'Iniciar combate', 'Start combat')}
           </button>}
@@ -147,10 +159,12 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
               ⏸ {t(lang, 'Encerrar', 'End')}
             </button>
           </>}
-          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} onClick={resetCombat}
-            title={t(lang, 'Tira todos os combatentes e recomeça', 'Removes all combatants and starts over')}>
-            {t(lang, 'Recomeçar', 'Start over')}
-          </button>
+          {combatants.length > 0 && (
+            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }} onClick={resetCombat}
+              title={t(lang, 'Tira todos os combatentes e recomeça', 'Removes all combatants and starts over')}>
+              {t(lang, 'Recomeçar', 'Start over')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -159,6 +173,29 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
           <span className="now-turn-label">{t(lang, 'Vez de', 'Now acting')}</span>
           <span className="now-turn-name">{currentTurn.name}</span>
           <span className="now-turn-hp">{t(lang, 'PV', 'HP')} {currentTurn.current_hp} / {(currentTurn.stats || {}).max_hp}</span>
+          <button type="button" className="btn btn-ghost btn-sm now-turn-go"
+            onClick={() => {
+              setSelected(currentTurn.id);
+              requestAnimationFrame(() => document.getElementById(`cc-${currentTurn.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+            }}>
+            {currentTurn.type === 'monster' ? t(lang, 'Ver ações', 'See actions') : t(lang, 'Ver card', 'See card')} ↓
+          </button>
+        </div>
+      )}
+
+      {combatants.length === 0 && (
+        <div className="combat-empty-hint">
+          <p>
+            <strong>{t(lang, 'Nada no combate ainda.', 'Nothing in combat yet.')}</strong>{' '}
+            {t(lang,
+              'Adicione monstros e os personagens dos jogadores (com a iniciativa que rolaram na mesa) e toque em Iniciar combate.',
+              'Add monsters and the players’ characters (with the initiative they rolled at the table), then tap Start combat.')}
+          </p>
+          {onNavigate && (
+            <button type="button" className="btn-link" onClick={() => onNavigate('prep')}>
+              {t(lang, 'Ou monte o encontro com calma em Preparar →', 'Or build the encounter calmly in Prepare →')}
+            </button>
+          )}
         </div>
       )}
 
@@ -182,11 +219,6 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
 
         {/* Lista de combatentes */}
         <div className="combatants-list">
-          {combatants.length === 0 && (
-            <div className="empty-card">
-              {t(lang, 'Nenhum combatente ainda. Adicione monstros e personagens para montar a iniciativa.', 'No combatants yet. Add monsters and characters to build initiative.')}
-            </div>
-          )}
           {combatants.map((c, i) => (
             <CombatantCard
               key={c.id}
@@ -278,7 +310,7 @@ function CombatantCard({ combatant, lang, isCurrentTurn, isSelected, onSelect, o
   };
 
   return (
-    <div className={`combatant-card ${isCurrentTurn ? 'is-turn' : ''} ${isSelected ? 'is-sel' : ''} ${c.defeated ? 'is-defeated' : ''} type-${c.type}`}>
+    <div id={`cc-${c.id}`} className={`combatant-card ${isCurrentTurn ? 'is-turn' : ''} ${isSelected ? 'is-sel' : ''} ${c.defeated ? 'is-defeated' : ''} type-${c.type}`}>
       <div className="cc-head" onClick={onSelect}>
         <div className="cc-name">
           <span className="cc-init">{c.initiative}</span>
@@ -575,15 +607,17 @@ function AddCharacterModal({ campaign, lang, combatants, onAdd, onClose }) {
   const bonusOf = (m) => {
     try { const d = m.character.data; return d && d.abilities ? Utils.initiative(d) : null; } catch { return null; }
   };
-  const add = async (m) => {
+  const add = async (m, { closeWhenDone = true } = {}) => {
     setBusy(m.character.id);
     try { await onAdd(m.character.id, inits[m.character.id]); } finally { setBusy(null); }
+    // Todos já no combate → fecha sozinho (não fica bloqueando o Iniciar combate).
+    if (closeWhenDone && members.every(x => x.character.id === m.character.id || inFight.has(x.character.id))) onClose();
   };
   const addAll = async () => {
     for (const m of members) {
       if (inFight.has(m.character.id)) continue;
       // eslint-disable-next-line no-await-in-loop
-      await add(m);
+      await add(m, { closeWhenDone: false });
     }
     onClose();
   };
@@ -625,11 +659,12 @@ function AddCharacterModal({ campaign, lang, combatants, onAdd, onClose }) {
         {members.length === 0 && (
           <p style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Nenhum jogador com personagem ainda.', 'No player with a character yet.')}</p>
         )}
-        {members.some(m => !inFight.has(m.character.id)) && members.length > 1 && (
-          <div className="row gap-2" style={{ justifyContent: 'flex-end', marginTop: 12 }}>
+        <div className="row gap-2" style={{ justifyContent: 'flex-end', marginTop: 12, flexWrap: 'wrap' }}>
+          {members.filter(m => !inFight.has(m.character.id)).length > 1 && (
             <button type="button" className="btn btn-ghost btn-sm" onClick={addAll}>{t(lang, 'Adicionar todos', 'Add everyone')}</button>
-          </div>
-        )}
+          )}
+          <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>✓ {t(lang, 'Pronto', 'Done')}</button>
+        </div>
       </div>
     </div>,
     document.body,

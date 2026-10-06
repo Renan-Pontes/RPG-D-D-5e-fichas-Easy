@@ -46,9 +46,11 @@ const Toast = ({ msg, onDone }) => {
 
 // === Lang toggle ===
 const LangToggle = ({ lang, setLang }) => (
-  <div className="lang-toggle" role="group">
-    <button className={lang === 'pt' ? 'active' : ''} onClick={() => setLang('pt')}>PT</button>
-    <button className={lang === 'en' ? 'active' : ''} onClick={() => setLang('en')}>EN</button>
+  <div className="lang-toggle" role="group" aria-label={lang === 'pt' ? 'Idioma' : 'Language'}>
+    <button type="button" className={lang === 'pt' ? 'active' : ''} aria-pressed={lang === 'pt'} onClick={() => setLang('pt')}
+      aria-label="Português" title={lang === 'pt' ? undefined : 'Mudar para português'}>PT</button>
+    <button type="button" className={lang === 'en' ? 'active' : ''} aria-pressed={lang === 'en'} onClick={() => setLang('en')}
+      aria-label="English" title={lang === 'en' ? undefined : 'Switch to English'}>EN</button>
   </div>
 );
 

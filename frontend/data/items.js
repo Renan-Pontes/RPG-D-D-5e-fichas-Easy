@@ -18,9 +18,13 @@
  * é preenchido abaixo a partir de SHARED.weaponMastery (mesmos ids).
  *
  * `type`: 'weapon' | 'armor' | 'shield' | 'gear' | 'potion' | 'magic'
+ *
+ * Itens mágicos do SRD 5.2.1 vêm de ./magic-items-srd.js (ver o cabeçalho de
+ * lá pros campos extras de `magic`: category, bonus, acBonus, charges…).
  */
 
 import { SHARED } from './class-options/shared.js';
+import { MAGIC_ITEMS_SRD } from './magic-items-srd.js';
 
 const I = (sourceId, name, type, extra = {}) => ({ sourceId, name, type, ...extra });
 
@@ -176,6 +180,42 @@ const ITEMS = [
 // Maestria 2024 de cada arma (fonte única: SHARED.weaponMastery, mesmos ids).
 const MASTERY_BY_ID = Object.fromEntries(SHARED.weaponMastery.options.map(o => [o.id, o.mastery]));
 for (const it of ITEMS) if (it.weapon && MASTERY_BY_ID[it.sourceId]) it.weapon.mastery = MASTERY_BY_ID[it.sourceId];
+
+// ============================================================
+// ITENS MÁGICOS DO SRD 5.2.1 (data/magic-items-srd.js, CC-BY-4.0)
+// Ids que já existiam aqui (weapon+1, bagHolding, potionHealing…) continuam
+// com o mesmo sourceId e tipo: só ganham nome pt, descrição completa e os
+// campos mecânicos de `magic`. Os demais entram no fim da lista; quem tem
+// `base` copia os números da arma/armadura comum.
+// ============================================================
+mergeMagicItems(ITEMS, MAGIC_ITEMS_SRD);
+
+function mergeMagicItems(list, magicItems) {
+  const byId = Object.fromEntries(list.map(it => [it.sourceId, it]));
+  // Itens antigos que são um caso particular de um item do SRD.
+  const ENRICH_FROM = { ringFire: 'ringResistance', scrollFireball: 'spellScroll3' };
+  for (const m of magicItems) {
+    const cur = byId[m.sourceId];
+    if (cur) {
+      cur.name = { pt: m.name.pt || cur.name.pt, en: cur.name.en || m.name.en };
+      cur.description = m.description;
+      cur.magic = { ...(cur.magic || {}), ...m.magic };
+      continue;
+    }
+    const it = { ...m, magic: { ...m.magic } };
+    const base = m.base && byId[m.base];
+    if (base?.weapon) it.weapon = { ...base.weapon, props: [...(base.weapon.props || [])] };
+    if (base?.armor) it.armor = { ...base.armor };
+    list.push(it);
+    byId[it.sourceId] = it;
+  }
+  for (const [id, fromId] of Object.entries(ENRICH_FROM)) {
+    const cur = byId[id], from = byId[fromId];
+    if (!cur || !from) continue;
+    cur.description = cur.description || from.description;
+    cur.magic = { ...cur.magic, category: from.magic?.category };
+  }
+}
 
 const ITEMS_BY_ID = Object.fromEntries(ITEMS.map(it => [it.sourceId, it]));
 

@@ -117,8 +117,8 @@ export default function PlayerWorld({ campaign, lang = 'pt', sub: subProp, entry
       </header>
 
       {showSubChips && (
-        <SubChips subs={SUBS} active={sub} onSelect={changeSub} lang={lang}
-          labels={Object.fromEntries(SUBS.map(s => [s, L(lang, ...SUB_LABELS[s])]))} badges={subBadges} />
+        <SubChips subs={SUBS} active={sub} onSelect={changeSub} lang={lang} badges={subBadges}
+          ariaLabel={L(lang, 'Mundo', 'World')} />
       )}
 
       {error && !entries && <p className="pl-error" role="alert">{error}</p>}

@@ -198,7 +198,7 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
           {step === 1 && (
             <>
               <div className="col gap-1">
-                <span>{t(lang, 'Capa', 'Cover')}</span>
+                <span className="shell-label">{t(lang, 'Capa', 'Cover')}</span>
                 <CoverPicker lang={lang} selected={coverArt} busy={busy} allowRemove={false}
                   onPick={(url, art) => { setCover(url); setCoverArt(art || 'upload'); }} />
                 {cover && coverArt === 'upload' && <img className="camp-wizard-preview" src={cover} alt={t(lang, 'Capa enviada', 'Uploaded cover')} />}
@@ -229,7 +229,7 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
             {step > 0
               ? <button type="button" className="btn btn-ghost" onClick={() => setStep(step - 1)} disabled={busy}>← {t(lang, 'Voltar', 'Back')}</button>
               : <button type="button" className="btn btn-ghost" onClick={onClose} disabled={busy}>{t(lang, 'Cancelar', 'Cancel')}</button>}
-            <span style={{ flex: 1 }} />
+            <span className="camp-wizard-spacer" aria-hidden="true" />
             {step < 2 && canNext && (
               <button type="button" className="btn btn-ghost" onClick={create} disabled={busy}>{t(lang, 'Criar agora', 'Create now')}</button>
             )}

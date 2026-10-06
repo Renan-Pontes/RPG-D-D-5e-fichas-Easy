@@ -1,7 +1,7 @@
 // Navegação das áreas: abas no desktop e barra inferior fixa no celular.
 // Também exporta <SubChips>, os chips segmentados das subvistas (as áreas podem
 // usar para ficarem com o mesmo visual da casca).
-import { areaLabel, subLabel, t } from './shell-logic.js';
+import { areaLabel, SUB_ICONS, subLabel, subShortLabel, t } from './shell-logic.js';
 
 export default function AreaNav({ areas, active, onSelect, onSearch, lang, badges = {}, showKeys = false }) {
   return (
@@ -53,24 +53,37 @@ export default function AreaNav({ areas, active, onSelect, onSearch, lang, badge
   );
 }
 
-/** Chips segmentados das subvistas de uma área. */
-export function SubChips({ subs, active, onSelect, lang, labels = {}, badges = {} }) {
+/**
+ * Chips segmentados das subvistas de uma área — o MESMO visual em Mundo,
+ * Preparar, Jogar e Grupo (DESIGN 1.2). Ícone padrão por subvista (SUB_ICONS),
+ * rótulo curto no celular estreito e rolagem horizontal se ainda não couber.
+ *   labels: {sub: texto} substitui o rótulo; icons: {sub: '🗺'|null} idem p/ ícone.
+ */
+export function SubChips({ subs, active, onSelect, lang, labels = {}, icons = {}, badges = {}, badgeLabels = {}, ariaLabel }) {
   if (!subs || subs.length < 2) return null;
   return (
-    <div className="shell-subchips" role="tablist" aria-label={t(lang, 'Subvistas', 'Views')}>
-      {subs.map(s => (
-        <button
-          key={s}
-          type="button"
-          role="tab"
-          aria-selected={active === s}
-          className={`shell-subchip ${active === s ? 'active' : ''}`}
-          onClick={() => onSelect(s)}
-        >
-          {labels[s] || subLabel(s, lang)}
-          {badges[s] > 0 && <span className="shell-badge">{badges[s]}</span>}
-        </button>
-      ))}
+    <div className="shell-subchips" role="tablist" aria-label={ariaLabel || t(lang, 'Subvistas', 'Views')}>
+      {subs.map(s => {
+        const icon = s in icons ? icons[s] : SUB_ICONS[s];
+        const long = labels[s] || subLabel(s, lang);
+        const short = labels[s] || subShortLabel(s, lang);
+        return (
+          <button
+            key={s}
+            type="button"
+            role="tab"
+            aria-selected={active === s}
+            className={`shell-subchip ${active === s ? 'active' : ''}`}
+            onClick={() => onSelect(s)}
+          >
+            {icon && <span className="shell-subchip-ico" aria-hidden="true">{icon}</span>}
+            {short === long
+              ? <span>{long}</span>
+              : <><span className="shell-subchip-long">{long}</span><span className="shell-subchip-short" aria-hidden="true">{short}</span></>}
+            {badges[s] > 0 && <span className="shell-badge" aria-label={badgeLabels[s] || undefined}>{badges[s]}</span>}
+          </button>
+        );
+      })}
     </div>
   );
 }
