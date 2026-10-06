@@ -100,7 +100,7 @@ export default function ItemForm({ lang, initial, submitLabel, onSubmit, onCance
         <div style={{ flex: 1 }}>
           <label>{t(lang, 'Peso (kg)', 'Weight (lb)')}</label>
           <input aria-label={t(lang, 'Peso (kg)', 'Weight (lb)')} type="number" min="0" step="0.1" inputMode="decimal" value={f.weight} onChange={e => set({ weight: e.target.value })} />
-          {lang === 'pt' && f.weight !== '' && formWeightLb(f) > 0 && <div className="muted small">≈ {formWeightLb(f)} lb</div>}
+          {lang === 'pt' && f.weight !== '' && formWeightLb(f) > 0 && <div className="muted small">≈ {String(formWeightLb(f)).replace('.', ',')} lb</div>}
         </div>
         <div style={{ flex: 1 }}>
           <label>{t(lang, 'Preço (PO)', 'Cost (GP)')}</label>
