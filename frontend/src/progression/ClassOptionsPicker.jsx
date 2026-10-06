@@ -9,6 +9,7 @@ import { classEntries, classView } from './multiclass.js';
 import { optionPool, optionSlots, picksOf, classOptionsData } from './options.js';
 import { poolOptions, pickLabel } from './options-catalog.js';
 import { tName } from '../../data/i18n.js';
+import { optionArt } from '../art.js';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
@@ -78,6 +79,7 @@ function PoolSection({ char, classId, pool, room, total, lang, value, onChange }
               onClick={() => !blocked || on ? toggle(o) : null}>
               <div className="row" style={{ alignItems: 'center', gap: 8 }}>
                 <input type="checkbox" readOnly checked={on} disabled={blocked} style={{ width: 16, height: 16, minHeight: 0 }} />
+                {optionArt(o.id) && <img src={optionArt(o.id)} alt="" loading="lazy" className="opt-thumb" />}
                 <span style={{ fontFamily: 'var(--display)' }}>{o.name[lang]}</span>
                 {o.meta && <Badge>{o.meta}</Badge>}
                 {o.source && <Badge>{o.source}</Badge>}

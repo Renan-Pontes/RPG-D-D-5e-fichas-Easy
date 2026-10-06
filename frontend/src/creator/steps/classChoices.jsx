@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { tName } from '../../../data/i18n.js';
 import { StepIntro, Term, ChoiceGrid, ChoiceCard, Callout, Counter, L } from '../ui.jsx';
+import { optionArt } from '../../art.js';
 import {
   choiceGroups, groupOptions, toggleGroupPick, setPickDetail, recommendedIds, isAutoGroup,
   POOL_INTRO, classChoiceIssues, hasClassChoices, masteryPack,
@@ -71,6 +72,7 @@ function Group({ char, set, lang, group }) {
                 <ChoiceCard key={o.id} selected={o.chosen} disabled={blocked}
                   onClick={() => set(toggleGroupPick(char, group, o.id))}
                   title={o.name[k(lang)]}
+                  thumb={optionArt(o.id)}
                   badge={rec.has(o.id) ? L(lang, 'Recomendado', 'Recommended') : (o.meta || null)}
                   subtitle={isMastery && masteryName(o)
                     ? `${L(lang, 'Maestria', 'Mastery')}: ${masteryName(o)}${weaponKind(o) ? ` · ${weaponKind(o)}` : ''}`

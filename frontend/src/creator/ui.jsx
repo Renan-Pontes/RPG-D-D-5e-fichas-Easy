@@ -44,7 +44,7 @@ export function ChoiceGrid({ children, cols = 2 }) {
  * Cartão de opção. `badge` = selo curto (ex.: "Bom para começar"); `details`
  * aparece só quando selecionado.
  */
-export function ChoiceCard({ selected, disabled, onClick, title, subtitle, badge, children, details, image }) {
+export function ChoiceCard({ selected, disabled, onClick, title, subtitle, badge, children, details, image, thumb }) {
   // div com papel de botão: os detalhes podem ter botões próprios (botão dentro de botão é inválido).
   const activate = () => { if (!disabled) onClick?.(); };
   return (
@@ -54,6 +54,7 @@ export function ChoiceCard({ selected, disabled, onClick, title, subtitle, badge
       onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); activate(); } }}
       style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}>
       {image && <img className="cr-card-art" src={image} alt="" loading="lazy" decoding="async" onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
+      {thumb && <img className="cr-card-thumb" src={thumb} alt="" loading="lazy" decoding="async" onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
       <div className="option-title">
         {title}
         {badge && <span className="cr-badge">{badge}</span>}

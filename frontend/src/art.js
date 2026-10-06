@@ -1,5 +1,7 @@
 /* Ilustrações do site (geradas para a Forja; ficam em public/art/). */
 import SPECIES_WITH_ART from './art-species.json' with { type: 'json' };
+import OPTIONS_WITH_ART from './art-options.json' with { type: 'json' };
+import SUBCLASSES_WITH_ART from './art-subclasses.json' with { type: 'json' };
 const CLASS_ART = new Set(['artificer', 'barbarian', 'bard', 'cleric', 'druid', 'fighter', 'monk', 'paladin', 'ranger', 'rogue', 'sorcerer', 'warlock', 'wizard']);
 const SPECIES_ART = ['aasimar', 'dragonborn', 'dwarf', 'elf', 'gnome', 'goliath', 'halfling', 'human', 'orc', 'tiefling'];
 // Raças 2014 / sub-raças → ilustração da espécie mais próxima.
@@ -21,6 +23,13 @@ export function speciesArt(id) {
 
 const BACKGROUND_ART = new Set(['acolyte', 'artisan', 'charlatan', 'criminal', 'entertainer', 'farmer', 'guard', 'guide', 'hermit', 'merchant', 'noble', 'sage', 'sailor', 'scribe', 'soldier', 'wayfarer', 'folkHero', 'guildArtisan', 'outlander', 'urchin', 'gladiator', 'knight', 'pirate', 'spy', 'cityWatch', 'farTraveler', 'inheritor']);
 export const backgroundArt = (id) => (BACKGROUND_ART.has(id) ? `/art/backgrounds/${id}.webp` : null);
+
+// Escolhas de classe (instrumentos, armas da maestria, invocações…) e subclasses.
+const OPTION_OWN = new Set(OPTIONS_WITH_ART);
+const SUBCLASS_OWN = new Set(SUBCLASSES_WITH_ART);
+const safeId = (id) => String(id).replace(/[^A-Za-z0-9_-]/g, '_');
+export const optionArt = (id) => (id && OPTION_OWN.has(safeId(id)) ? `/art/options/${safeId(id)}.webp` : null);
+export const subclassArt = (classId, id) => (SUBCLASS_OWN.has(`${classId}-${id}`) ? `/art/subclasses/${classId}-${id}.webp` : null);
 
 export const HERO_ART = '/art/hero-forge.webp';
 export const GRIMOIRE_ART = '/art/grimoire-book.webp';

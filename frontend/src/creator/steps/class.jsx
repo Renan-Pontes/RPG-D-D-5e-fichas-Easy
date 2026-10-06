@@ -10,7 +10,7 @@ import {
   classSpellSummary, classChangeNotice, dismissClassChange,
 } from '../class-helpers.js';
 
-import { classArt } from '../../art.js';
+import { classArt, subclassArt } from '../../art.js';
 
 const k = (lang) => (lang === 'pt' ? 'pt' : 'en');
 
@@ -96,7 +96,7 @@ function SubclassPicker({ char, set, lang }) {
   const rec = RECOMMENDED_SUBCLASS[char.className];
   const card = (sc) => (
     <ChoiceCard key={sc.id} selected={char.subclass === sc.id} onClick={() => set(selectSubclass(char, sc.id))}
-      title={sc.name[k(lang)]} badge={sc.id === rec ? L(lang, 'Recomendado', 'Recommended') : (sc.source && !isCoreSubclass(sc) ? sc.source : null)}
+      title={sc.name[k(lang)]} image={subclassArt(char.className, sc.id)} badge={sc.id === rec ? L(lang, 'Recomendado', 'Recommended') : (sc.source && !isCoreSubclass(sc) ? sc.source : null)}
       subtitle={sc.desc?.[k(lang)]}
       details={sc.features?.length ? (
         <>{sc.features.filter(f => f.level <= (char.level || 1)).map((f, i) => (

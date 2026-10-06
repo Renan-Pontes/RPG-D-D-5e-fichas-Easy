@@ -1095,3 +1095,8 @@ body:has(.cr-progress) { overflow-x: clip; }
 @media (max-width: 600px) { .home-hero-art { aspect-ratio: 16 / 9; } .home-hero-text { margin-top: -2rem; } .home-hero-text h1 { font-size: 1.9rem; } }
 .option:has(> .cr-card-art) { overflow: hidden; }
 @media (max-width: 600px) { .cr-card-art { aspect-ratio: 16 / 8; object-position: center 25%; } }
+/* Miniatura das escolhas de classe (instrumentos, armas, invocações…) */
+.cr-card-thumb { float: left; width: 64px; height: 64px; object-fit: cover; border-radius: 12px; margin: -2px 12px 6px -2px;
+  border: 1px solid var(--gold-deep); box-shadow: 0 0 10px rgba(214, 176, 100, 0.18); }
+.option:has(> .cr-card-thumb)::after { content: ''; display: block; clear: both; }
+.opt-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; border: 1px solid var(--gold-deep); flex: none; }
