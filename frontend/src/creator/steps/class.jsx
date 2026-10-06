@@ -10,6 +10,8 @@ import {
   classSpellSummary, classChangeNotice, dismissClassChange,
 } from '../class-helpers.js';
 
+import { classArt } from '../../art.js';
+
 const k = (lang) => (lang === 'pt' ? 'pt' : 'en');
 
 function ClassCard({ char, id, lang, onPick }) {
@@ -22,6 +24,7 @@ function ClassCard({ char, id, lang, onPick }) {
       title={tName('class', id, lang)}
       badge={isBeginnerClass(char, id) ? L(lang, 'Bom para começar', 'Good for beginners') : null}
       subtitle={s.role?.[k(lang)]}
+      image={classArt(id)}
     >
       <div className="option-meta">
         <span><strong>{L(lang, 'Principal', 'Main')}:</strong> {abilityList(s.primary, lang)}</span>

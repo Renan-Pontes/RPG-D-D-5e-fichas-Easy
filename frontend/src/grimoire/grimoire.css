@@ -256,3 +256,7 @@
   .grim-chapter-blurb { font-size: 0.78rem; }
 }
 .grim-search input:focus, .grim-search input:focus-visible { outline: none !important; box-shadow: none !important; }
+.grim-cover-art {
+  display: block; width: 100%; aspect-ratio: 16 / 7; object-fit: cover; border-radius: var(--radius-lg);
+  mask-image: radial-gradient(ellipse at center, #000 55%, transparent 100%); -webkit-mask-image: radial-gradient(ellipse at center, #000 55%, transparent 100%);
+}

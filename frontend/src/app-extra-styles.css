@@ -1076,3 +1076,22 @@ textarea:focus-visible {
 .cr-intro, .cr-details, .option, .cr-callout, .cr-issues, .wizard-hint, [class^="cr-review"] { overflow-wrap: anywhere; min-width: 0; }
 body:has(.cr-progress) { overflow-x: clip; }
 .cr-progress { max-width: 100%; }
+
+/* Ilustrações (public/art) */
+.cr-card-art {
+  display: block; width: calc(100% + 2 * var(--s-4)); max-width: none; aspect-ratio: 16 / 10; object-fit: cover; object-position: center 22%;
+  margin: calc(-1 * var(--s-4)) calc(-1 * var(--s-4)) 10px; border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  mask-image: linear-gradient(#000 70%, transparent); -webkit-mask-image: linear-gradient(#000 70%, transparent);
+  transition: transform 0.3s, filter 0.3s; filter: saturate(0.92);
+}
+.option:hover .cr-card-art, .option.selected .cr-card-art { filter: saturate(1.08) brightness(1.05); }
+.home-hero { position: relative; margin-bottom: var(--s-6); border-radius: var(--radius-lg); overflow: hidden; text-align: center; }
+.home-hero-art {
+  display: block; width: 100%; aspect-ratio: 16 / 7; object-fit: cover; object-position: center 40%;
+  mask-image: linear-gradient(#000 55%, transparent); -webkit-mask-image: linear-gradient(#000 55%, transparent);
+}
+.home-hero-text { position: relative; margin-top: -3.2rem; }
+.home-hero-text h1 { font-size: 2.4rem; text-shadow: 0 2px 18px rgba(0, 0, 0, 0.9); }
+@media (max-width: 600px) { .home-hero-art { aspect-ratio: 16 / 9; } .home-hero-text { margin-top: -2rem; } .home-hero-text h1 { font-size: 1.9rem; } }
+.option:has(> .cr-card-art) { overflow: hidden; }
+@media (max-width: 600px) { .cr-card-art { aspect-ratio: 16 / 8; object-position: center 25%; } }

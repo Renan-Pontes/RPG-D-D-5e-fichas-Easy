@@ -1,5 +1,6 @@
 /* Home screen — list of characters */
 import { useRef, useState, useMemo } from 'react';
+import { HERO_ART, hideOnError } from '../src/art.js';
 import Icon from './Icons.jsx';
 import { Filigree } from './Shared.jsx';
 import { t, tName } from '../data/i18n.js';
@@ -46,10 +47,13 @@ const CharacterList = ({ lang, characters, onOpen, onNew, onImport, onImportPdf,
 
   return (
     <>
-      <div className="text-center" style={{ marginBottom: 'var(--s-6)' }}>
-        <div className="eyebrow" style={{ marginBottom: 6 }}>D&D 5e SRD</div>
-        <h1 style={{ fontSize: '2.4rem' }}>{t('yourHeroes', lang)}</h1>
-        <Filigree />
+      <div className="home-hero">
+        <img className="home-hero-art" src={HERO_ART} alt="" decoding="async" onError={hideOnError} />
+        <div className="home-hero-text">
+          <div className="eyebrow" style={{ marginBottom: 6 }}>D&D 5e SRD</div>
+          <h1>{t('yourHeroes', lang)}</h1>
+          <Filigree />
+        </div>
       </div>
 
       {characters.length === 0 ? (

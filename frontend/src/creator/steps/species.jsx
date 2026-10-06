@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { tName } from '../../../data/i18n.js';
 import { StepIntro, Term, ChoiceGrid, ChoiceCard, Callout, L } from '../ui.jsx';
+import { speciesArt } from '../../art.js';
 import {
   CORE_SPECIES_2024, CORE_GROUPS_2014, FLAVOR, moreSpecies, isCore, isRecommended, findSpecies,
   darkvisionOf, speedOf, formatFeet, sizeLabel, splitTraits, raceBonusText, speciesLanguagesText,
@@ -63,6 +64,7 @@ function SpeciesCard({ char, id, lang, set, flavorId = id }) {
       badge={isRecommended(char, id) ? L(lang, 'Bom para começar', 'Good for beginners') : null}
       subtitle={r?.source ? `${L(lang, 'Livro', 'Book')}: ${r.source}` : null}
       details={<FullDetails char={char} id={id} lang={lang} />}
+      image={speciesArt(id)}
     >
       {FLAVOR[flavorId] && <div className="option-desc">{FLAVOR[flavorId][lang]}</div>}
       <Stats char={char} id={id} lang={lang} />

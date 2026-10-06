@@ -5,6 +5,7 @@ import Icon from '../../components/Icons.jsx';
 import { ARTICLES, CATEGORIES } from '../../data/grimoire/index.js';
 import { buildIndex, search, findArticle, grimoireHash, normalize } from './search.js';
 import ArticleView from './ArticleView.jsx';
+import { GRIMOIRE_ART, hideOnError } from '../art.js';
 import './grimoire.css';
 
 const TXT = {
@@ -68,6 +69,7 @@ function Cover({ lang, tx, openArticle, setCat, recent, byId, catCount }) {
   const pick = (id) => byId.get(id);
   return (
     <div className="grim-cover">
+      <img className="grim-cover-art" src={GRIMOIRE_ART} alt="" decoding="async" onError={hideOnError} />
       <section className="grim-path">
         <h3>{tx('start')}</h3>
         <p className="muted">{tx('startSub')}</p>
