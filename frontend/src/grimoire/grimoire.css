@@ -48,12 +48,12 @@
 
 .grim-main { min-width: 0; }
 .grim-main-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: var(--s-2); }
-.grim-placeholder { display: none; }
 .grim-foot { margin-top: var(--s-5); }
 
-/* Celular: lista OU artigo */
-.grim.has-open .grim-side { display: none; }
-.grim:not(.has-open) .grim-main { display: none; }
+/* Celular: capa, OU lista (buscando/capítulo), OU página */
+.grim-side { display: none; }
+.grim.is-browsing:not(.has-open) .grim-side { display: block; }
+.grim.is-browsing:not(.has-open) .grim-main { display: none; }
 
 /* Artigo */
 .grim-article {
@@ -96,15 +96,163 @@
 @media (min-width: 860px) {
   .grim-layout { grid-template-columns: 340px minmax(0, 1fr); align-items: start; gap: var(--s-5); }
   .grim.has-open .grim-side, .grim .grim-side { display: block; }
-  .grim .grim-main { display: block; }
+  .grim .grim-main, .grim.is-browsing:not(.has-open) .grim-main { display: block; }
   .grim-side { position: sticky; top: 12px; max-height: calc(100vh - 24px); display: flex !important; flex-direction: column; }
   .grim-list { overflow-y: auto; padding-right: 4px; flex: 1 1 auto; }
   .grim-cats { flex-wrap: wrap; overflow: visible; }
-  .grim-back-list { visibility: hidden; }
   .grim-article { padding: var(--s-5); }
-  .grim-placeholder {
-    display: grid; place-items: center; gap: 8px; padding: var(--s-7) var(--s-4);
-    border: 1px dashed var(--stroke-faint); border-radius: var(--radius-lg); color: var(--ink-muted);
-  }
 }
 .grim-item, .grim-item:hover, .grim-item * { text-decoration: none; }
+
+/* ===== Grimório mágico ===== */
+.grim { position: relative; }
+.grim > *:not(.grim-sky) { position: relative; z-index: 1; }
+/* Céu de partículas e brilho arcano atrás de tudo */
+.grim-sky {
+  position: absolute; inset: -40px -16px auto; height: 420px; z-index: 0; pointer-events: none; overflow: hidden;
+  background:
+    radial-gradient(60% 70% at 18% 20%, rgba(159, 176, 240, 0.16), transparent 70%),
+    radial-gradient(50% 60% at 85% 10%, rgba(214, 176, 100, 0.14), transparent 70%);
+  mask-image: linear-gradient(#000 55%, transparent);
+}
+.grim-sky::before, .grim-sky::after {
+  content: ''; position: absolute; inset: 0;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 30%, rgba(255, 236, 190, 0.9), transparent),
+    radial-gradient(1px 1px at 28% 70%, rgba(200, 210, 255, 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 46% 18%, rgba(255, 236, 190, 0.7), transparent),
+    radial-gradient(1px 1px at 63% 52%, rgba(200, 210, 255, 0.9), transparent),
+    radial-gradient(2px 2px at 78% 28%, rgba(255, 236, 190, 0.8), transparent),
+    radial-gradient(1px 1px at 90% 64%, rgba(200, 210, 255, 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 6% 82%, rgba(255, 236, 190, 0.6), transparent),
+    radial-gradient(1px 1px at 54% 88%, rgba(200, 210, 255, 0.6), transparent);
+  animation: grim-drift 18s linear infinite;
+}
+.grim-sky::after { transform: scale(1.4) rotate(12deg); opacity: 0.6; animation-duration: 26s; animation-direction: reverse; }
+@keyframes grim-drift { from { transform: translateY(0); } to { transform: translateY(-40px); } }
+
+.grim-hero { display: flex; align-items: center; gap: 16px; margin: var(--s-3) 0 var(--s-3); }
+.grim-title { margin: 0; font-family: var(--display); color: var(--gold-bright); font-size: 2rem; letter-spacing: 0.08em;
+  text-shadow: 0 0 18px rgba(214, 176, 100, 0.35); }
+.grim-sigil {
+  flex: none; width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center;
+  border: 1px solid var(--gold-deep); position: relative;
+  background: radial-gradient(circle, rgba(214, 176, 100, 0.25), transparent 70%);
+  box-shadow: 0 0 24px rgba(159, 176, 240, 0.25), inset 0 0 12px rgba(214, 176, 100, 0.25);
+}
+.grim-sigil::before {
+  content: ''; position: absolute; inset: 5px; border-radius: 50%;
+  border: 1px dashed rgba(214, 176, 100, 0.55); animation: grim-spin 30s linear infinite;
+}
+.grim-sigil span { color: var(--gold-bright); font-size: 1.5rem; animation: grim-pulse 3.2s ease-in-out infinite; }
+@keyframes grim-spin { to { transform: rotate(360deg); } }
+@keyframes grim-pulse { 0%, 100% { opacity: 0.75; text-shadow: 0 0 6px rgba(214, 176, 100, 0.4); } 50% { opacity: 1; text-shadow: 0 0 16px rgba(255, 220, 150, 0.9); } }
+
+.grim-search {
+  display: flex; align-items: center; gap: 10px; padding: 0 12px;
+  border: 1px solid var(--gold-deep); border-radius: 999px; background: rgba(20, 15, 11, 0.75);
+  box-shadow: 0 0 0 0 rgba(214, 176, 100, 0); transition: box-shadow 0.25s, border-color 0.25s;
+  color: var(--gold);
+}
+.grim-search:focus-within { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(214, 176, 100, 0.18), 0 0 22px rgba(159, 176, 240, 0.18); }
+.grim-search input { border: none !important; background: transparent !important; box-shadow: none !important; padding-left: 0; flex: 1; min-width: 0; }
+.grim-kbd { font-family: var(--mono); font-size: 0.75rem; padding: 1px 7px; border: 1px solid var(--stroke); border-radius: 6px; color: var(--ink-muted); }
+@media (max-width: 700px) { .grim-kbd { display: none; } .grim-title { font-size: 1.6rem; } .grim-sigil { width: 46px; height: 46px; } }
+.grim-head { margin-bottom: var(--s-4); }
+.grim-item mark { background: rgba(214, 176, 100, 0.3); color: var(--gold-bright); border-radius: 3px; padding: 0 1px; }
+
+/* Capa */
+.grim-cover { display: grid; gap: var(--s-5); animation: grim-open 0.35s ease-out; }
+.grim-cover-h { font-family: var(--display); font-size: 0.82rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); margin: 0 0 10px; }
+.grim-path {
+  padding: var(--s-4); border-radius: var(--radius-lg); border: 1px solid var(--gold-deep);
+  background: linear-gradient(135deg, rgba(214, 176, 100, 0.10), rgba(159, 176, 240, 0.06));
+}
+.grim-path h3 { margin: 0; font-family: var(--display); color: var(--gold-bright); font-size: 1.15rem; }
+.grim-path p { margin: 4px 0 12px; }
+.grim-path ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.grim-path a {
+  display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: var(--radius);
+  text-decoration: none; color: var(--ink-primary); border: 1px solid transparent; transition: background 0.2s, border-color 0.2s, transform 0.2s;
+}
+.grim-path a:hover { background: var(--gold-soft); border-color: var(--gold-deep); transform: translateX(3px); }
+.grim-path-n {
+  flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--display); color: var(--bg-deep); background: var(--gold); box-shadow: 0 0 10px rgba(214, 176, 100, 0.45);
+}
+.grim-path-t { font-family: var(--display); letter-spacing: 0.03em; }
+.grim-chapters { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.grim-chapter {
+  display: grid; gap: 2px; text-align: left; padding: 14px; cursor: pointer; font: inherit; color: inherit;
+  border: 1px solid var(--stroke); border-radius: var(--radius-lg); background: var(--bg-card);
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.grim-chapter:hover { transform: translateY(-2px); border-color: var(--gold); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35), 0 0 16px rgba(214, 176, 100, 0.15); }
+.grim-chapter-icon { font-size: 1.6rem; line-height: 1; margin-bottom: 4px; filter: drop-shadow(0 0 6px rgba(214, 176, 100, 0.35)); }
+.grim-chapter-name { font-family: var(--display); color: var(--gold-bright); letter-spacing: 0.03em; }
+.grim-chapter-blurb { font-size: 0.85rem; color: var(--ink-secondary); }
+.grim-chapter-n { font-size: 0.72rem; color: var(--ink-muted); font-family: var(--mono); margin-top: 4px; }
+.grim-cover-actions { display: flex; justify-content: center; }
+.grim-random { border-color: var(--gold-deep); }
+
+/* Página */
+@keyframes grim-open { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.grim-article {
+  animation: grim-open 0.3s ease-out;
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(214, 176, 100, 0.07), transparent 60%),
+    var(--bg-card);
+  box-shadow: inset 0 0 0 1px rgba(214, 176, 100, 0.08), 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.grim-article.compact { animation: none; box-shadow: none; background: transparent; }
+.grim-article-title { font-size: 1.7rem; text-shadow: 0 0 14px rgba(214, 176, 100, 0.25); }
+.grim-ornament { text-align: center; color: var(--gold-deep); letter-spacing: 0.6em; margin: 10px 0 0; font-size: 0.8rem; }
+.grim-article.compact .grim-ornament { display: none; }
+.grim-dropcap .grim-cap {
+  float: left; font-family: var(--display); font-size: 3.2rem; line-height: 0.9; margin: 4px 8px 0 0;
+  color: var(--gold-bright); text-shadow: 0 0 14px rgba(214, 176, 100, 0.45);
+}
+.grim-simple p::after { content: ''; display: block; clear: both; }
+.grim-term {
+  color: var(--gold-bright); font-weight: 600; text-decoration: none;
+  border-bottom: 1px dashed rgba(214, 176, 100, 0.7); transition: color 0.2s, text-shadow 0.2s;
+}
+.grim-term:hover { color: #fff3d4; text-shadow: 0 0 8px rgba(214, 176, 100, 0.7); border-bottom-style: solid; }
+.grim-srd summary { cursor: pointer; list-style: none; }
+.grim-srd summary::-webkit-details-marker { display: none; }
+.grim-srd summary h3::after { content: ' ▸'; }
+.grim-srd[open] summary h3::after { content: ' ▾'; }
+.grim-srd blockquote { margin-top: 6px; }
+.grim-rune {
+  display: inline-flex; align-items: center; min-height: 34px; padding: 4px 12px; border-radius: 999px;
+  border: 1px solid var(--gold-deep); color: var(--gold-bright); text-decoration: none; font-size: 0.88rem;
+  background: rgba(214, 176, 100, 0.06); transition: box-shadow 0.2s, background 0.2s;
+}
+.grim-rune::before { content: '✦'; margin-right: 6px; font-size: 0.7rem; color: var(--gold); }
+.grim-rune:hover { background: var(--gold-soft); box-shadow: 0 0 12px rgba(214, 176, 100, 0.3); }
+.grim-pager { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: var(--s-5); padding-top: var(--s-4); border-top: 1px solid var(--stroke-faint); }
+.grim-page {
+  display: grid; gap: 2px; padding: 10px 12px; border-radius: var(--radius); text-decoration: none;
+  border: 1px solid var(--stroke); color: var(--ink-primary); transition: border-color 0.2s, background 0.2s;
+}
+.grim-page:hover { border-color: var(--gold); background: var(--gold-soft); }
+.grim-page-next { text-align: right; }
+.grim-page-dir { font-size: 0.75rem; color: var(--gold); font-family: var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
+.grim-page-title { font-family: var(--display); color: var(--gold-bright); }
+
+/* Menos movimento para quem pediu */
+@media (prefers-reduced-motion: reduce) {
+  .grim-sky::before, .grim-sky::after, .grim-sigil::before, .grim-sigil span { animation: none; }
+  .grim-article, .grim-cover { animation: none; }
+}
+/* O botão de dados flutuante não cobre o livro no celular */
+@media (max-width: 859px) { body:has(.grim) .dice-fab { display: none !important; } }
+.grim-article .grim-sec h3 { font-size: 0.78rem; }
+@media (max-width: 600px) {
+  .grim-chapters { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .grim-chapter { padding: 10px; }
+  .grim-chapter-icon { font-size: 1.3rem; }
+  .grim-chapter-name { font-size: 0.85rem; }
+  .grim-chapter-blurb { font-size: 0.78rem; }
+}
+.grim-search input:focus, .grim-search input:focus-visible { outline: none !important; box-shadow: none !important; }

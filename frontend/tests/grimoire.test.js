@@ -140,3 +140,15 @@ test('deep-link: hash e aliases', () => {
   assert.equal(findArticle(ARTICLES, 'Agarrado').id, 'agarrado');
   assert.equal(findArticle(ARTICLES, 'nao-existe'), null);
 });
+
+test('termos em negrito viram links para o artigo certo (e nunca para o próprio)', async () => {
+  const { buildTermMap, termTarget } = await import('../src/grimoire/terms.js');
+  const { ARTICLES } = await import('../data/grimoire/index.js');
+  const map = buildTermMap(ARTICLES, 'pt');
+  assert.equal(termTarget(map, 'desvantagem', 'agarrado'), 'vantagem-desvantagem');
+  assert.equal(termTarget(map, 'Vantagem', 'agarrado'), 'vantagem-desvantagem');
+  assert.equal(termTarget(map, 'vantagem', 'vantagem-desvantagem'), null);
+  assert.equal(termTarget(map, 'palavra que não existe', null), null);
+  const ids = new Set(ARTICLES.map(a => a.id));
+  for (const id of map.values()) assert.ok(ids.has(id));
+});
