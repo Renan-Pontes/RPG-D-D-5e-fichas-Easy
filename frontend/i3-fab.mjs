@@ -24,8 +24,14 @@ const check = async (label) => {
     const bad = [];
     const inter = (a, b) => Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
     const sel = 'button, a[href], input, select, textarea, summary, [role="button"], [role="tab"], .grp-stats > div, label, h1, h2, h3, p, dd, dt, .chip, img';
+    const bar = document.querySelector('.shell-bottom-bar');
+    const br = bar && getComputedStyle(bar).display !== 'none' ? bar.getBoundingClientRect() : null;
+    // Encaixado na barra: o que está atrás dele já estaria atrás da barra; só os botões da barra contam.
+    const docked = br && fr.top >= br.top - 1;
     for (const el of document.querySelectorAll(sel)) {
       if (el.closest('.dice-fab, .dice-sheet')) continue;
+      if (docked && !el.closest('.shell-bottom-bar')) continue;
+      if (br && !docked && el.getBoundingClientRect().top >= br.top) continue;
       const rc = el.getBoundingClientRect();
       if (!rc.width || !rc.height) continue;
       const x = rc.left + rc.width / 2, y = rc.top + rc.height / 2;
@@ -33,7 +39,7 @@ const check = async (label) => {
       const covered = (hit && hit.closest('.dice-fab')) || (inter(rc, fr) > 4 && !el.contains(fab) && !fab.contains(el) && !el.matches('.shell-bottom-bar, nav, main, body'));
       if (covered) bad.push(el.tagName + ':' + (el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 30));
     }
-    return { fab: [Math.round(fr.top), Math.round(fr.bottom), Math.round(fr.left)], bad, sw: document.documentElement.scrollWidth };
+    return { docked, fab: [Math.round(fr.top), Math.round(fr.bottom), Math.round(fr.left)], bad, sw: document.documentElement.scrollWidth };
   });
   console.log(label, JSON.stringify(res));
   return res;
