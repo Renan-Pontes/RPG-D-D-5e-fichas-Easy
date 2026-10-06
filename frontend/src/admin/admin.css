@@ -1,0 +1,32 @@
+/* Área de administração */
+.adm-tabs { display: flex; gap: 4px; overflow-x: auto; margin-bottom: 14px; border-bottom: 1px solid var(--stroke); }
+.adm-tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 8px 12px; color: var(--ink-secondary); cursor: pointer; font: inherit; white-space: nowrap; }
+.adm-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+.adm-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.adm-stat { background: var(--bg-card); border: 1px solid var(--stroke); border-radius: var(--radius); padding: 12px; }
+.adm-stat-value { font-size: 1.8rem; color: var(--gold-bright); line-height: 1.1; }
+.adm-stat-label { font-family: var(--display); font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.adm-stat-sub { font-size: 0.75rem; margin-top: 4px; }
+.adm-two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 760px) { .adm-two { grid-template-columns: 1fr; } }
+.adm-card { background: var(--bg-card); border: 1px solid var(--stroke); border-radius: var(--radius); padding: 12px; margin-bottom: 14px; min-width: 0; }
+.adm-card h3 { margin: 0 0 8px; font-size: 1rem; }
+.adm-row {
+  display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; width: 100%; text-align: left;
+  background: none; border: none; border-top: 1px solid var(--stroke-faint); padding: 8px 2px; cursor: pointer; font: inherit; color: inherit;
+}
+.adm-row:hover { background: var(--bg-raised); }
+.adm-row-main { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
+.adm-row-side { font-size: 0.8rem; white-space: nowrap; }
+.adm-bar { display: grid; grid-template-columns: 110px 1fr 36px; gap: 8px; align-items: center; font-size: 0.85rem; padding: 2px 0; }
+.adm-bar-track { height: 8px; border-radius: 4px; background: var(--bg-raised); overflow: hidden; }
+.adm-bar-track > span { display: block; height: 100%; background: var(--gold-deep); }
+.adm-search { width: 100%; margin-bottom: 10px; }
+.adm-filters { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; }
+.adm-filters .adm-search { margin-bottom: 10px; }
+@media (max-width: 600px) { .adm-filters { grid-template-columns: 1fr; } }
+.adm-pager { display: flex; gap: 10px; align-items: center; justify-content: center; margin-top: 10px; }
+.adm-tag { margin-left: 6px; font-size: 0.65rem; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--gold-deep); color: var(--gold); }
+.adm-error { color: var(--blood-bright, #c0392b); }
+.adm-avatar { width: 96px; height: 96px; object-fit: cover; border-radius: 50%; border: 2px solid var(--gold); float: right; margin-left: 10px; }
+.adm-link { background: none; border: none; padding: 0; color: var(--gold); cursor: pointer; font: inherit; text-decoration: underline; }

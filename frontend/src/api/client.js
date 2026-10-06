@@ -103,6 +103,14 @@ export const api = {
   login:  (body) => request('/api/auth/login',  { method: 'POST', body }),
   logout: ()     => request('/api/auth/logout', { method: 'POST' }),
   me:     ()     => request('/api/auth/me'),
+  // Área de administração (só is_staff)
+  adminOverview:   () => request('/api/admin/overview'),
+  adminUsers:      (q = '', offset = 0) => request(`/api/admin/users?q=${encodeURIComponent(q)}&offset=${offset}`),
+  adminUser:       (id) => request(`/api/admin/users/${id}`),
+  adminCharacters: ({ q = '', className = '', rules = '', offset = 0 } = {}) =>
+    request(`/api/admin/characters?q=${encodeURIComponent(q)}&className=${className}&rules=${rules}&offset=${offset}`),
+  adminCharacter:  (id) => request(`/api/admin/characters/${id}`),
+  adminCampaigns:  (q = '', offset = 0) => request(`/api/admin/campaigns?q=${encodeURIComponent(q)}&offset=${offset}`),
   // Link de compartilhamento (24h)
   createShare: (character) => request('/api/shares', { method: 'POST', body: { character } }),
   getShare:    (token) => request(`/api/shares/${encodeURIComponent(token)}`),

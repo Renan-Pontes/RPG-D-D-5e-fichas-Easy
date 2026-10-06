@@ -21,12 +21,14 @@ import ProgressionPanel from './src/progression/ProgressionPanel.jsx';
 import { applyAutosToCharacter, applyLevelUpChoices, applyLevelChoice, applyClassOptions, revertLastLevel } from './src/progression/engine.js';
 import LevelUpModal from './src/progression/LevelUpModal.jsx';
 import { ClassOptionsModal } from './src/progression/ClassOptionsPicker.jsx';
+
+const AdminScreen = lazy(() => import('./src/admin/AdminScreen.jsx'));
 // Grimório (regras para jogadores): chunk próprio, só carrega quando aberto.
 const GrimoireScreen = lazy(() => import('./src/grimoire/GrimoireScreen.jsx'));
 
 const SCREENS = {
   HOME: 'home', CREATE: 'create', SHEET: 'sheet', EDIT: 'edit',
-  AUTH: 'auth', CAMPAIGNS: 'campaigns', CAMPAIGN: 'campaign', GRIMOIRE: 'grimoire',
+  AUTH: 'auth', CAMPAIGNS: 'campaigns', CAMPAIGN: 'campaign', GRIMOIRE: 'grimoire', ADMIN: 'admin',
 };
 
 const App = () => {
@@ -414,6 +416,11 @@ const App = () => {
     case SCREENS.AUTH:
       content = <AuthScreen lang={lang} onSkip={() => setScreen(SCREENS.HOME)} />;
       break;
+    case SCREENS.ADMIN:
+      content = auth.user?.isAdmin
+        ? <Suspense fallback={<p className="muted">…</p>}><AdminScreen lang={lang} onBack={() => setScreen(SCREENS.HOME)} /></Suspense>
+        : <p className="muted">{lang === 'pt' ? 'Acesso só para administradores.' : 'Admins only.'}</p>;
+      break;
     case SCREENS.CAMPAIGNS:
       content = (
         <CampaignList
@@ -527,6 +534,11 @@ const App = () => {
         onClick={() => openGrimoire()} title={lang === 'pt' ? 'Grimório: regras explicadas' : 'Grimoire: rules explained'}>
         <Icon name="book" size={14}/> <span className="header-grimoire-label">{lang === 'pt' ? 'Grimório' : 'Grimoire'}</span>
       </button>
+      {auth.user?.isAdmin && !backendOff && (
+        <button className={`btn btn-ghost btn-sm ${screen === SCREENS.ADMIN ? 'active' : ''}`} onClick={() => setScreen(SCREENS.ADMIN)}>
+          Admin
+        </button>
+      )}
       {auth.user && !backendOff && (
         <button className="btn btn-ghost btn-sm" onClick={() => setScreen(SCREENS.CAMPAIGNS)}>
           {lang === 'pt' ? 'Campanhas' : 'Campaigns'}
@@ -564,7 +576,7 @@ const App = () => {
           }
         </div>
       )}
-      <main id="main" className={`container ${screen === SCREENS.CAMPAIGN || screen === SCREENS.GRIMOIRE ? 'container-wide' : ''}`} tabIndex={-1}>
+      <main id="main" className={`container ${screen === SCREENS.CAMPAIGN || screen === SCREENS.GRIMOIRE || screen === SCREENS.ADMIN ? 'container-wide' : ''}`} tabIndex={-1}>
         {content}
       </main>
       <DiceRoller lang={lang} />

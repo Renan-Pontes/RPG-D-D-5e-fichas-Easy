@@ -74,6 +74,10 @@ Só o dono.
 
 ---
 
+## Admin (só contas `is_staff`, somente leitura)
+
+`GET /admin/overview` (números, cadastros e fichas recentes, fichas por classe/regra) · `GET /admin/users?q=&offset=` · `GET /admin/users/:id` (fichas e campanhas da conta) · `GET /admin/characters?q=&className=&rules=&offset=` · `GET /admin/characters/:id` (ficha completa) · `GET /admin/campaigns?q=&offset=`. `GET /auth/me` traz `isAdmin`. Para dar acesso: `python manage.py make_admin email@x.com` (`--remove` tira). O painel do Django fica em `/admin/`.
+
 ## Shares (link de ficha, 24h)
 
 ### `POST /shares`

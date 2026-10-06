@@ -17,6 +17,11 @@ from .rate_limit import rate_limit, reset_rate_limit
 User = get_user_model()
 
 
+def _self_payload(user):
+    """Dados da própria conta (inclui isAdmin, que não vai para outros usuários)."""
+    return {**UserSerializer(user).data, 'isAdmin': bool(user.is_staff)}
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def csrf(request):
@@ -43,7 +48,7 @@ def signup(request):
     user = User.objects.create_user(username=username, email=email, password=password)
     Profile.objects.create(user=user, display_name=display_name)
     login(request, user)
-    return Response({'user': UserSerializer(user).data})
+    return Response({'user': _self_payload(user)})
 
 
 @api_view(['POST'])
@@ -65,7 +70,7 @@ def login_view(request):
     login(request, user)
     # zera o contador de tentativas após login OK
     reset_rate_limit('login', request=request)
-    return Response({'user': UserSerializer(user).data})
+    return Response({'user': _self_payload(user)})
 
 
 @api_view(['POST'])
@@ -78,4 +83,4 @@ def logout_view(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def me(request):
-    return Response({'user': UserSerializer(request.user).data})
+    return Response({'user': _self_payload(request.user)})

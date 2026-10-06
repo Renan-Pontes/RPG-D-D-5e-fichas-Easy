@@ -2,6 +2,7 @@ from django.urls import path
 from . import views_checks
 from . import views_adventures
 from . import views_share
+from . import views_admin
 from . import views_auth, views_characters, views_campaigns, views_approvals, views_dice, views_screen, views_combat, views_inventory, views_items, views_diary
 
 urlpatterns = [
@@ -59,6 +60,13 @@ urlpatterns = [
     path('approvals/<int:pk>/consume', views_approvals.approval_consume),
 
     # Dice
+    path('admin/overview', views_admin.overview),
+    path('admin/users', views_admin.users),
+    path('admin/users/<int:pk>', views_admin.user_detail),
+    path('admin/characters', views_admin.characters),
+    path('admin/characters/<int:pk>', views_admin.character_detail),
+    path('admin/campaigns', views_admin.campaigns),
+
     path('shares', views_share.share_create),
     path('shares/<str:token>', views_share.share_get),
 
