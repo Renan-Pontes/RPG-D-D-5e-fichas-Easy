@@ -1,12 +1,14 @@
 /* Home screen — list of characters */
-import { useRef, useState, useMemo } from 'react';
+import { useRef, useState, useMemo, lazy, Suspense } from 'react';
 import { HERO_ART, hideOnError } from '../src/art.js';
 import Icon from './Icons.jsx';
 import { Filigree } from './Shared.jsx';
 import { t, tName } from '../data/i18n.js';
 import Utils from '../utils.js';
 
-const CharacterList = ({ lang, characters, onOpen, onNew, onImport, onImportPdf, onExportAll, onBlankPdf }) => {
+const PregenGallery = lazy(() => import('../src/pregens/PregenGallery.jsx'));
+
+const CharacterList = ({ lang, characters, onOpen, onNew, onImport, onImportPdf, onExportAll, onBlankPdf, onPickPregen }) => {
   const fileRef = useRef(null);
   const [query, setQuery] = useState('');
 
@@ -55,6 +57,12 @@ const CharacterList = ({ lang, characters, onOpen, onNew, onImport, onImportPdf,
           <Filigree />
         </div>
       </div>
+
+      {onPickPregen && (
+        <Suspense fallback={null}>
+          <PregenGallery lang={lang} onPick={onPickPregen} startOpen={characters.length === 0} />
+        </Suspense>
+      )}
 
       {characters.length === 0 ? (
         <div className="empty">

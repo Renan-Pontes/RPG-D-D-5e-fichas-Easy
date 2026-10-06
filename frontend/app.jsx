@@ -133,6 +133,31 @@ const App = () => {
     setToast(t('saved', lang));
   };
 
+  // Ficha pronta (Comece rápido): vira uma cópia do jogador. A foto vira data URL para o PDF usar.
+  const handlePickPregen = async (pregen) => {
+    let avatar = pregen.character.avatar || '';
+    if (avatar && !avatar.startsWith('data:')) {
+      // JPEG 400px, como as fotos enviadas (o PDF só embute JPEG/PNG).
+      try {
+        avatar = await new Promise((ok, fail) => {
+          const img = new Image();
+          img.onload = () => {
+            const side = Math.min(img.width, img.height, 400);
+            const c = document.createElement('canvas');
+            c.width = c.height = side;
+            const s = Math.min(img.width, img.height);
+            c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, side, side);
+            ok(c.toDataURL('image/jpeg', 0.82));
+          };
+          img.onerror = fail;
+          img.src = avatar;
+        });
+      } catch { avatar = ''; }
+    }
+    const char = { ...pregen.character, avatar, id: Utils.uid(), createdAt: Date.now(), updatedAt: Date.now() };
+    await handleSaveNew(char);
+  };
+
   const handleUpdate = async (char) => {
     const withAutos = applyAutosToCharacter(char);
     await storage.save(withAutos);
@@ -451,6 +476,7 @@ const App = () => {
           onImportPdf={handleImportPdf}
           onExportAll={handleExportAll}
           onBlankPdf={() => handleExportPdf({}, { blank: true })}
+          onPickPregen={handlePickPregen}
         />
       );
       break;

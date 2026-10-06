@@ -1,6 +1,7 @@
 /* Etapa "Antecedente": o que o herói fazia antes de aventurar (ver ../README.md). */
 import { tName, t } from '../../../data/i18n.js';
 import { StepIntro, Term, Callout, ChoiceGrid, ChoiceCard, Counter, L } from '../ui.jsx';
+import { backgroundArt } from '../../art.js';
 import { classStart, toolName, backgroundStart } from '../start-data.js';
 import {
   backgroundList, findBackground, backgroundTool, backgroundToolText, backgroundOriginFeat, chosenBackgroundTools,
@@ -129,6 +130,7 @@ function Comp({ char, set, lang, goTo, steps }) {
           <ChoiceCard key={b.id} selected={sel?.id === b.id}
             onClick={() => set(applyBackground(char, b.id))}
             title={bgName(b, lang)}
+            image={backgroundArt(b.id)}
             badge={fitsClass(char, b) ? L(lang, 'Combina com sua classe', 'Fits your class') : null}>
             <Gains char={char} b={b} lang={lang} />
           </ChoiceCard>
