@@ -93,7 +93,11 @@ export function JoinTableBlock({ char, set, lang, joinEnabled = true }) {
       {!open ? (
         <button type="button" className="join-toggle" onClick={() => setOpen(true)} aria-expanded="false">
           <span className="join-toggle-ico" aria-hidden="true">🗝</span>
-          <span>{L(lang, 'Tem um código de mesa?', 'Have a table code?')} <span className="muted">({L(lang, 'opcional', 'optional')})</span></span>
+          <span className="join-toggle-txt">
+            <strong>{L(lang, 'Tem um código de mesa?', 'Have a table code?')}</strong>
+            <span className="muted text-sm">{L(lang, 'Digite o código do mestre e o personagem já nasce dentro da campanha. Sem código, é só seguir.', "Type your GM's code and the character is created inside the campaign. No code? Just go on.")}</span>
+          </span>
+          <span className="join-toggle-go" aria-hidden="true">›</span>
         </button>
       ) : (
         <div className="join-panel">

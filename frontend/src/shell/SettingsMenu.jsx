@@ -12,6 +12,7 @@ import ToneAccentFields from './ToneAccentFields.jsx';
 import { defaultCoverArt, isHexColor, screenLink, t } from './shell-logic.js';
 import { confirmNameMatches, immersionOn } from '../world/living/living-logic.js';
 import { flash } from '../play/flash.js';
+import { clearWorld, worldErrorText } from '../world/world-api.js';
 import '../world/living/living.css';
 import { plansApi, showPlanLimit } from '../plans/plans-api.js';
 import useMyPlan from '../plans/useMyPlan.js';
@@ -22,7 +23,7 @@ const AdvancedDice = lazy(() => import('./AdvancedDice.jsx'));
 
 const SECTIONS = ['identity', 'table', 'rules', 'world', 'advanced', 'danger'];
 
-export default function SettingsMenu({ campaign, lang, onClose, onChange, worldCount = null, worldMax = 500, onMarkOnboarding, onDeleted }) {
+export default function SettingsMenu({ campaign, lang, onClose, onChange, worldCount = null, worldMax = 500, onMarkOnboarding, onDeleted, onWorldCleared }) {
   const [section, setSection] = useState('identity');
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -56,7 +57,7 @@ export default function SettingsMenu({ campaign, lang, onClose, onChange, worldC
           {section === 'rules' && <RulesSection campaign={campaign} lang={lang} onChange={onChange} />}
           {section === 'world' && <LivingWorldSection campaign={campaign} lang={lang} onChange={onChange} />}
           {section === 'advanced' && <AdvancedSection campaign={campaign} lang={lang} onChange={onChange} worldCount={worldCount} worldMax={worldMax} />}
-          {section === 'danger' && <DangerSection campaign={campaign} lang={lang} onClose={onClose} onChange={onChange} onDeleted={onDeleted} />}
+          {section === 'danger' && <DangerSection campaign={campaign} lang={lang} onClose={onClose} onChange={onChange} onDeleted={onDeleted} worldCount={worldCount} onWorldCleared={onWorldCleared} />}
         </div>
       </div>
     </div>
@@ -322,8 +323,9 @@ function LivingWorldSection({ campaign, lang, onChange }) {
   );
 }
 
-function DangerSection({ campaign, lang, onClose, onChange }) {
+function DangerSection({ campaign, lang, onClose, onChange, worldCount, onWorldCleared }) {
   const [confirming, setConfirming] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const { msg, busy, run } = useStatus();
   const closed = closedInfo(campaign);
   if (closed) {
@@ -352,6 +354,25 @@ function DangerSection({ campaign, lang, onClose, onChange }) {
   return (
     <div className="col gap-4">
       <section className="col gap-2 lv-danger">
+        <h3 className="shell-h3">{t(lang, 'Esvaziar o Mundo', 'Empty the World')}</h3>
+        <p className="muted text-sm" style={{ margin: 0 }}>
+          {t(lang,
+            'Apaga todos os cartões do Mundo (lugares, NPCs, facções, itens, segredos, mapas e imagens) para começar outro do zero. A campanha, os jogadores, o diário e o combate continuam.',
+            'Deletes every World card (places, NPCs, factions, items, secrets, maps and images) so you can start another from scratch. The campaign, players, diary and combat stay.')}
+        </p>
+        <button type="button" className="lv-btn-danger" onClick={() => setClearing(true)} disabled={worldCount === 0}>
+          🗑 {worldCount === 0 ? t(lang, 'O Mundo já está vazio', 'The World is already empty') : t(lang, 'Esvaziar o Mundo…', 'Empty the World…')}
+        </button>
+      </section>
+      {clearing && <ClearWorldDialog campaign={campaign} lang={lang} worldCount={worldCount} onCancel={() => setClearing(false)}
+        onDone={async (res) => {
+          setClearing(false);
+          const n = res?.deleted?.entries ?? 0;
+          flash(t(lang, `O Mundo foi esvaziado (${n} ${n === 1 ? 'cartão apagado' : 'cartões apagados'}).`, `The World was emptied (${n} ${n === 1 ? 'card' : 'cards'} deleted).`), { ms: 4200 });
+          onClose?.();
+          await onWorldCleared?.();
+        }} />}
+      <section className="col gap-2 lv-danger">
         <h3 className="shell-h3">{t(lang, 'Encerrar campanha', 'Close campaign')}</h3>
         <p className="muted text-sm" style={{ margin: 0 }}>
           {t(lang,
@@ -371,6 +392,58 @@ function DangerSection({ campaign, lang, onClose, onChange }) {
           onClose?.();
           onChange?.();
         }} />}
+    </div>
+  );
+}
+
+function ClearWorldDialog({ campaign, lang, worldCount, onCancel, onDone }) {
+  const [typed, setTyped] = useState('');
+  const [adventures, setAdventures] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const ok = confirmNameMatches(typed, campaign.name);
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!ok || busy) return;
+    setBusy(true); setErr('');
+    try {
+      const res = await clearWorld(campaign.id, typed, { adventures });
+      onDone(res);
+    } catch (ex) {
+      setErr(worldErrorText(ex, lang));
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="modal-backdrop" style={{ zIndex: 1200 }} onClick={(e) => { e.stopPropagation(); if (!busy) onCancel(); }}>
+      <form className="modal col gap-3" role="alertdialog" aria-modal="true" aria-labelledby="lv-clear-title"
+        onClick={(e) => e.stopPropagation()} onSubmit={submit}
+        onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); if (!busy) onCancel(); } }}>
+        <h2 id="lv-clear-title" style={{ margin: 0 }}>{t(lang, 'Esvaziar o Mundo?', 'Empty the World?')}</h2>
+        <p style={{ margin: 0 }}>
+          {worldCount != null
+            ? t(lang, `Os ${worldCount} cartões do Mundo de `, `The ${worldCount} World cards of `)
+            : t(lang, 'Todos os cartões do Mundo de ', 'All World cards of ')}
+          <span className="lv-confirm-name">{campaign.name}</span>
+          {t(lang, ' serão apagados para sempre, com segredos, mapas e imagens. Não dá para desfazer.', ' will be deleted for good, with secrets, maps and images. This cannot be undone.')}
+        </p>
+        <label className="row gap-2" style={{ alignItems: 'center' }}>
+          <input type="checkbox" checked={adventures} onChange={(e) => setAdventures(e.target.checked)} />
+          <span className="text-sm">{t(lang, 'Apagar também as aventuras da campanha', "Also delete the campaign's adventures")}</span>
+        </label>
+        <label className="col gap-1">
+          <span>{t(lang, 'Para confirmar, digite o nome da campanha:', 'To confirm, type the campaign name:')}</span>
+          <input className="input" value={typed} autoFocus autoComplete="off" spellCheck={false}
+            onChange={(e) => setTyped(e.target.value)} placeholder={campaign.name} aria-invalid={typed !== '' && !ok} />
+        </label>
+        {err && <p role="alert" style={{ margin: 0, color: 'var(--blood-bright)' }}>{err}</p>}
+        <div className="row gap-2" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel} disabled={busy}>{t(lang, 'Cancelar', 'Cancel')}</button>
+          <button type="submit" className="lv-btn-danger" disabled={!ok || busy}>
+            {busy ? t(lang, 'Apagando…', 'Deleting…') : t(lang, 'Esvaziar o Mundo', 'Empty the World')}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

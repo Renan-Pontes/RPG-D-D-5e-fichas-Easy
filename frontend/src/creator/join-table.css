@@ -3,12 +3,15 @@
 
 .join-toggle {
   display: flex; align-items: center; gap: var(--s-2); width: 100%;
-  padding: var(--s-2) var(--s-3); background: transparent; color: var(--ink-secondary);
-  border: 1px dashed var(--stroke); border-radius: var(--radius-lg);
+  padding: var(--s-3); background: var(--gold-soft); color: var(--ink-primary);
+  border: 1px solid var(--stroke-strong); border-radius: var(--radius-lg); min-height: 56px;
   font: inherit; text-align: left; cursor: pointer; transition: border-color .15s, color .15s, background .15s;
 }
 .join-toggle:hover, .join-toggle:focus-visible { border-color: var(--stroke-strong); color: var(--ink-primary); background: var(--gold-soft); }
-.join-toggle-ico { color: var(--gold); }
+.join-toggle-ico { color: var(--gold); font-size: 1.4rem; flex: none; }
+.join-toggle-txt { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.join-toggle-txt strong { color: var(--gold); font-weight: 600; }
+.join-toggle-go { color: var(--gold); font-size: 1.4rem; flex: none; }
 
 .join-panel {
   padding: var(--s-3) var(--s-4); border: 1px solid var(--stroke); border-radius: var(--radius-lg);

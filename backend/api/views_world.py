@@ -455,6 +455,29 @@ def world_sample(request, id_or_slug):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def world_clear(request, id_or_slug):
+    """Esvazia o Mundo da campanha (todos os cartões, imagens, segredos, mapas,
+    reações). A campanha, os jogadores, o diário e o combate ficam. Com
+    {adventures: true} apaga também as aventuras. Confirmação pelo nome."""
+    from .models import Adventure
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    body = _body(request)
+    typed = ' '.join(str(body.get('confirm') or '').split()).casefold()
+    if typed != ' '.join((campaign.name or '').split()).casefold():
+        return Response({'error': 'confirm_name'}, status=400)
+    with transaction.atomic():
+        entries = WorldEntry.objects.filter(campaign=campaign).count()
+        WorldEntry.objects.filter(campaign=campaign).delete()
+        adventures = 0
+        if body.get('adventures') is True:
+            adventures = Adventure.objects.filter(campaign=campaign).count()
+            Adventure.objects.filter(campaign=campaign).delete()
+    return Response({'deleted': {'entries': entries, 'adventures': adventures}})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def world_seen(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     if is_dm(request.user, campaign):

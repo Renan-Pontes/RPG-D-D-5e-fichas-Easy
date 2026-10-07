@@ -77,6 +77,11 @@ export function createSampleWorld(campaignId, lang = 'pt') {
   return request(`/api/campaigns/${cid(campaignId)}/world/sample`, { method: 'POST', body: { lang } });
 }
 
+/** Esvazia o Mundo (confirm = nome da campanha). → {deleted:{entries, adventures}} */
+export function clearWorld(campaignId, confirm, { adventures = false } = {}) {
+  return request(`/api/campaigns/${cid(campaignId)}/world/clear`, { method: 'POST', body: { confirm, adventures } });
+}
+
 /** Jogador abriu a aba Mundo (zera o "Novo!"). → {seenAt} */
 export function markWorldSeen(campaignId) {
   return request(`/api/campaigns/${cid(campaignId)}/world/seen`, { method: 'POST', body: {} });
@@ -155,6 +160,7 @@ const WORLD_ERRORS = {
   not_image: ['Esse arquivo não é uma imagem.', 'That file is not an image.'],
   read_failed: ['Não consegui ler o arquivo.', 'Could not read the file.'],
   too_many_entries: ['O mundo chegou ao limite de 500 cartões.', 'The world reached the 500-card limit.'],
+  confirm_name: ['O nome digitado não confere com o da campanha.', 'The typed name does not match the campaign.'],
   world_not_empty: ['O exemplo só pode ser criado num mundo vazio.', 'The sample can only be created in an empty world.'],
   missing_name: ['Dê um nome ao cartão.', 'Give the card a name.'],
   entry_hidden: ['Revele o cartão antes de mostrar no telão.', 'Reveal the card before showing it on screen.'],

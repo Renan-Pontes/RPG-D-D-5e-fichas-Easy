@@ -491,3 +491,31 @@ class WorldRulesUnitTests(TestCase):
         self.assertEqual(d['map']['pins'][0]['x'], 1.0)
         self.assertEqual(d['map']['pins'][0]['y'], 0.0)
         self.assertTrue(d['map']['pins'][0]['id'])
+
+
+class WorldClearTests(WorldBase):
+    def test_clear_needs_dm_and_name(self):
+        self.create(name='A')
+        self.assertEqual(self.c1.post(f'{self.base}/clear', {'confirm': 'Mesa'}, format='json').status_code, 403)
+        r = self.c_dm.post(f'{self.base}/clear', {'confirm': 'Outra coisa'}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(WorldEntry.objects.filter(campaign=self.camp).count(), 1)
+
+    def test_clear_keeps_campaign_and_optionally_adventures(self):
+        r = self.c_dm.post(f'{self.base}/sample', {'lang': 'pt'}, format='json')
+        self.assertEqual(r.status_code, 201)
+        self.create(name='Extra')
+        WorldEntry.objects.create(campaign=self.other, kind='npc', name='Alheio')
+        r = self.c_dm.post(f'{self.base}/clear', {'confirm': '  mesa '}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertGreater(r.json()['deleted']['entries'], 1)
+        self.assertEqual(WorldEntry.objects.filter(campaign=self.camp).count(), 0)
+        self.assertEqual(WorldEntry.objects.filter(campaign=self.other).count(), 1)
+        self.assertTrue(Adventure.objects.filter(campaign=self.camp).exists())
+        self.assertTrue(Campaign.objects.filter(pk=self.camp.pk).exists())
+        self.assertEqual(self.camp.memberships.count(), 3)
+        # o exemplo pode ser criado de novo
+        self.assertEqual(self.c_dm.post(f'{self.base}/sample', {'lang': 'pt'}, format='json').status_code, 201)
+        r = self.c_dm.post(f'{self.base}/clear', {'confirm': 'Mesa', 'adventures': True}, format='json')
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(Adventure.objects.filter(campaign=self.camp).exists())

@@ -54,6 +54,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   const [campaign, setCampaign] = useState(null);
   const [error, setError] = useState('');
   const [nav, setNav] = useState(null);           // {area, sub, params}
+  const [worldEpoch, setWorldEpoch] = useState(0); // muda ao esvaziar o Mundo → remonta a área
   const [world, setWorld] = useState(null);       // {entries, count, max} (mestre)
   const [planHas, setPlanHas] = useState(false);
   const [search, setSearch] = useState(false);
@@ -253,6 +254,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     ? { group: groupPending ?? campaign.pendingApprovals ?? 0 }
     : { world: campaign.worldNewCount || 0 };
   const areaProps = {
+    worldEpoch,
     campaign, lang, isDM, characters, sub: nav.sub, params: nav.params, goTo, onSubChange,
     onChange: load, onOpenTab: legacyNav, onNavigate: legacyNav,
     // jogador saiu da mesa (Grupo › ⋯ › Sair da campanha): volta para Campanhas
@@ -305,7 +307,8 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
         {settings && isDM && (
           <Suspense fallback={null}>
             <SettingsMenu campaign={campaign} lang={lang} onClose={() => setSettings(false)} onChange={load}
-              worldCount={world?.count ?? null} worldMax={world?.max || 500} onMarkOnboarding={markOnboarding} />
+              worldCount={world?.count ?? null} worldMax={world?.max || 500} onMarkOnboarding={markOnboarding}
+              onWorldCleared={async () => { await loadWorld(); setWorldEpoch(e => e + 1); }} />
           </Suspense>
         )}
         {ending && <EndSessionDialog lang={lang} busy={busy} onCancel={() => setEnding(false)} onEnd={endSession} />}
@@ -319,13 +322,13 @@ function Area({ Comp, props, fallback, lang, resetKey }) {
   if (!Comp) return fallback;
   return (
     <AreaBoundary lang={lang} resetKey={resetKey} fallback={fallback}>
-      <Suspense fallback={<Loading lang={lang} />}><Comp {...props} /></Suspense>
+      <Suspense fallback={<Loading lang={lang} />}><Comp key={resetKey} {...props} /></Suspense>
     </AreaBoundary>
   );
 }
 
 function renderDM(area, p, { setGroupPending }) {
-  const k = `${area}:${p.campaign.id}`;
+  const k = `${area}:${p.campaign.id}:${area === 'world' ? p.worldEpoch || 0 : 0}`;
   if (area === 'world') return <Area Comp={WorldArea} props={p} lang={p.lang} resetKey={k} fallback={<WorldFallback {...p} />} />;
   if (area === 'prepare') return <Area Comp={PrepareArea} props={p} lang={p.lang} resetKey={k} fallback={<PrepareFallback {...p} />} />;
   if (area === 'play') return <Area Comp={PlayArea} props={p} lang={p.lang} resetKey={k} fallback={<PlayFallback {...p} />} />;
