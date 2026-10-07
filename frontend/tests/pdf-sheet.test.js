@@ -185,3 +185,15 @@ test('versão de impressão traz o livro de magias com as descrições', async (
   assert.ok(await pages(print) > await pages(await exportDnd5ePdf(c, 'pt', { flatten: true })));
   assert.equal(spellbookSection({ ...wizard(), spells: [] }, 'pt'), null);
 });
+
+test('PDF de ficha mínima (sem atributos) não quebra', async () => {
+  assert.equal(Utils.abilityWithRace({ name: 'X' }, 'dex'), 10);
+  assert.equal(Utils.abilityMod({}, 'str'), 0);
+  assert.equal(Utils.abilityWithRace({ abilities: { dex: 14 }, raceBonus: { dex: 2 } }, 'dex'), 16);
+  for (const c of [{ name: 'Mínima' }, { name: 'Mago', className: 'wizard', level: 3 }]) {
+    assert.ok(buildSheetData(c, 'pt'));
+    assert.ok(buildCoverData(c, 'pt'));
+    const bytes = await exportDnd5ePdf(c, 'pt');
+    assert.ok(bytes.length > 1000);
+  }
+});

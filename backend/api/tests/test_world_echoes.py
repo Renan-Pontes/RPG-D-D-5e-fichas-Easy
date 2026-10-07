@@ -194,6 +194,13 @@ class CampaignDeleteLeaveTests(EchoBase):
         self.assertEqual(self.c1.delete(f'/api/campaigns/{self.camp.id}').status_code, 403)
         r = self.c_dm.delete(f'/api/campaigns/{self.camp.id}')
         self.assertEqual(r.status_code, 200)
+        # "Apagar" agora encerra (30 dias somente leitura); a purga apaga de vez.
+        self.assertEqual(r.json()['campaign']['status'], 'closed')
+        from datetime import timedelta
+        from django.utils import timezone
+        from api.plans import purge_expired
+        Campaign.objects.filter(pk=self.camp.id).update(closed_at=timezone.now() - timedelta(days=31))
+        purge_expired()
         self.assertFalse(Campaign.objects.filter(pk=self.camp.id).exists())
         self.assertFalse(WorldEntry.objects.filter(campaign_id=self.camp.id).exists())
         self.assertFalse(Adventure.objects.filter(campaign_id=self.camp.id).exists())

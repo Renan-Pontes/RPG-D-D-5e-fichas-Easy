@@ -55,6 +55,7 @@ class InvitePreviewTests(Base):
             'campaignId': self.camp.id, 'slug': 'mesa', 'name': 'Mesa', 'tagline': 'Brumas',
             'accent': '#c9a24a', 'dmName': 'Mestre Zé', 'members': 2, 'levelingMode': 'xp',
             'allowMulticlass': False, 'alreadyMember': False,
+            'status': 'active', 'slots': {'used': 0, 'max': 0},  # planos: vagas de mesa do mestre
         })
         # nada de estado, tokens ou código
         text = r.content.decode()

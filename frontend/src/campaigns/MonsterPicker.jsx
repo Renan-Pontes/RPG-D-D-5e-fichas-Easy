@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { BESTIARY, MONSTER_TYPES, monsterForCombat } from '../../data/bestiary.js';
 import { CR_TABLE, estimateCr } from '../combat/cr-estimate.js';
@@ -9,9 +9,12 @@ import '../combat/monster-tools.css';
 import { monsterTypeLabel, sizeLabel } from '../combat/monster-i18n.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import './combat-styles.css';
+import { monsterArt, monsterEmoji } from '../art.js';
+import ArtThumb from '../components/ArtThumb.jsx';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 const CR_STEPS = CR_TABLE.map(r => r.numeric);
+const PAGE_SIZE = 120;
 const crText = (n) => CR_TABLE.find(r => r.numeric === n)?.cr ?? String(n);
 
 /**
@@ -32,10 +35,11 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
   const [count, setCount] = useState(1);
   const [initiative, setInitiative] = useState(10);
   const [selectedId, setSelectedId] = useState(null);
+  const [limit, setLimit] = useState(PAGE_SIZE);
 
   const all = useMemo(() => [...custom, ...BESTIARY], [custom]);
 
-  const filtered = useMemo(() => {
+  const allFiltered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const lo = crMin === '' ? -Infinity : parseFloat(crMin);
     const hi = crMax === '' ? Infinity : parseFloat(crMax);
@@ -49,8 +53,12 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
         if (!name.includes(q)) return false;
       }
       return true;
-    }).slice(0, 120);
+    });
   }, [all, query, typeFilter, crMin, crMax, onlyMine]);
+  // Paginação igual ao seletor de itens: filtro novo volta para a 1ª página.
+  useEffect(() => { setLimit(PAGE_SIZE); }, [query, typeFilter, crMin, crMax, onlyMine]);
+  const filtered = allFiltered.slice(0, limit);
+  const remaining = allFiltered.length - filtered.length;
 
   const selected = all.find(m => m.id === selectedId);
   const selectedEst = useMemo(() => (selected?.custom ? estimateCr(selected) : null), [selected]);
@@ -143,6 +151,9 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
                   tabIndex={0}
                   onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(m.id); } }}
                 >
+                  <div className="art-row">
+                  <ArtThumb src={monsterArt(m.baseId || m.id)} emoji={monsterEmoji(m.type)} size={48} lang={lang} />
+                  <div className="art-row-text">
                   <div className="mp-row">
                     <div>
                       <strong>{m.name?.[lang] || m.name?.en || m.id}</strong>
@@ -159,9 +170,16 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
                   <div className="muted small">
                     {t(lang, 'CA', 'AC')} {m.ac} · {t(lang, 'PV', 'HP')} {m.hp} · {sizeLabel(m.size, lang)}
                   </div>
+                  </div>
+                  </div>
                 </div>
               ))}
               {filtered.length === 0 && <p style={{ color: 'var(--ink-secondary)' }}>{t(lang, 'Nada encontrado.', 'Nothing found.')}</p>}
+              {remaining > 0 && (
+                <button type="button" className="btn btn-ghost btn-sm mp-more" style={{ alignSelf: 'center', margin: '8px 0' }} onClick={() => setLimit(l => l + PAGE_SIZE)}>
+                  {t(lang, `Mostrar mais (${remaining} restantes)`, `Show more (${remaining} left)`)}
+                </button>
+              )}
             </div>
 
             <div className="mp-footer">

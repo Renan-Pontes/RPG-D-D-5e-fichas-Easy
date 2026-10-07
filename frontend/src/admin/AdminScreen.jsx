@@ -1,4 +1,5 @@
-/* Área de administração (só contas admin): visão geral, contas, fichas e campanhas. Somente leitura. */
+/* Área de administração (só contas admin): visão geral, contas, fichas e campanhas.
+   Somente leitura, exceto o plano/extras de cada conta (PATCH /api/admin/users/<id>/plan). */
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
@@ -6,6 +7,9 @@ import { tName } from '../../data/i18n.js';
 import { Modal } from '../../components/Shared.jsx';
 import Icon from '../../components/Icons.jsx';
 import './admin.css';
+import { loadCatalog, plansApi } from '../plans/plans-api.js';
+import '../plans/plans.css';
+import { L as PL, formatPrice, normalizeMyPlan, planName } from '../plans/plans-logic.js';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const fmtDate = (iso, lang) => (iso ? new Date(iso).toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US', { dateStyle: 'short', timeStyle: 'short' }) : '—');
@@ -140,6 +144,7 @@ function Users({ lang, openUser }) {
             <button key={u.id} type="button" className="adm-row" onClick={() => openUser(u.id)}>
               <span className="adm-row-main">
                 <strong>{u.displayName}</strong>{u.isAdmin && <span className="adm-tag">admin</span>}
+                {(u.plan?.slug || typeof u.plan === 'string') && (u.plan?.slug || u.plan) !== 'free' && <span className="adm-tag">{u.plan?.slug || u.plan}</span>}
                 <span className="muted"> {u.email}</span>
               </span>
               <span className="adm-row-side muted">{u.characters} {L(lang, 'fichas', 'chars')} · {u.campaigns} {L(lang, 'mesas', 'tables')}</span>
@@ -226,6 +231,7 @@ function UserModal({ id, lang, onClose, openChar }) {
             {d.user.email}{d.user.isAdmin && <span className="adm-tag">admin</span>}<br />
             {L(lang, 'Criada em', 'Joined')} {fmtDate(d.user.dateJoined, lang)} · {L(lang, 'último login', 'last login')} {fmtDate(d.user.lastLogin, lang)}
           </p>
+          <PlanEditor userId={id} initial={d.plan || d.userPlan || null} lang={lang} />
           <h4>{L(lang, 'Fichas', 'Characters')} ({d.characters.length})</h4>
           {d.characters.length ? d.characters.map(c => <CharacterRow key={c.id} c={c} lang={lang} onOpen={openChar} showOwner={false} />)
             : <p className="muted text-sm">{L(lang, 'Nenhuma ficha.', 'No characters.')}</p>}
@@ -236,6 +242,64 @@ function UserModal({ id, lang, onClose, openChar }) {
         </>
       )}
     </Modal>
+  );
+}
+
+/** Plano e extras da conta (admin). Pagamento ainda não existe: é aqui que se libera. */
+function PlanEditor({ userId, initial, lang }) {
+  const [catalog, setCatalog] = useState(null);
+  const [form, setForm] = useState(null);   // {plan, addons:{slug:qtd}, validUntil:'aaaa-mm-dd'}
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const cat = await loadCatalog();
+      let raw = initial;
+      if (!raw) { try { raw = await plansApi.adminGetPlan(userId); } catch { raw = null; } }
+      const my = normalizeMyPlan(raw || { plan: 'free' }, cat);
+      if (!alive) return;
+      setCatalog(cat);
+      setForm({ plan: my.plan.slug || 'free', addons: { ...my.addons }, validUntil: my.validUntil ? String(my.validUntil).slice(0, 10) : '', source: my.source });
+    })();
+    return () => { alive = false; };
+  }, [userId, initial]);
+  if (!catalog || !form) return <p className="muted text-sm">{L(lang, 'Carregando plano…', 'Loading plan…')}</p>;
+  const setAddon = (slug, v) => setForm(f => ({ ...f, addons: { ...f.addons, [slug]: Math.max(0, Math.min(99, parseInt(v, 10) || 0)) } }));
+  const save = async () => {
+    setBusy(true); setMsg('');
+    try {
+      await plansApi.adminSetPlan(userId, { plan: form.plan, addons: form.addons, validUntil: form.validUntil || null });
+      setMsg(L(lang, 'Plano salvo ✓', 'Plan saved ✓'));
+    } catch (e) { setMsg(errorMessage(e, lang)); } finally { setBusy(false); }
+  };
+  return (
+    <section className="adm-plan">
+      <h4 style={{ marginTop: 0 }}>{L(lang, 'Plano da conta', 'Account plan')}
+        {form.source && form.source !== 'free' && <span className="adm-tag">{form.source}</span>}</h4>
+      <div className="adm-plan-grid">
+        <label className="adm-plan-field">
+          <span>{L(lang, 'Plano', 'Plan')}</span>
+          <select value={form.plan} onChange={e => setForm(f => ({ ...f, plan: e.target.value }))}>
+            {catalog.plans.map(p => <option key={p.slug} value={p.slug}>{planName(p, lang)} — {formatPrice(p.priceCents, lang, { free: false })}</option>)}
+          </select>
+        </label>
+        <label className="adm-plan-field">
+          <span>{L(lang, 'Válido até (vazio = sem prazo)', 'Valid until (empty = no end)')}</span>
+          <input type="date" value={form.validUntil} onChange={e => setForm(f => ({ ...f, validUntil: e.target.value }))} />
+        </label>
+        {catalog.addons.map(a => (
+          <label key={a.slug} className="adm-plan-field adm-plan-addon">
+            <span>{PL(lang, a.namePt, a.nameEn)}</span>
+            <input type="number" min={0} max={99} inputMode="numeric" value={form.addons[a.slug] || 0} onChange={e => setAddon(a.slug, e.target.value)} />
+          </label>
+        ))}
+      </div>
+      <div className="row gap-2" style={{ alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
+        <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={busy}>{busy ? '…' : L(lang, 'Salvar plano', 'Save plan')}</button>
+        {msg && <span className="muted text-sm" role="status">{msg}</span>}
+      </div>
+    </section>
   );
 }
 

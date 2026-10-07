@@ -3,6 +3,9 @@ import SPECIES_WITH_ART from './art-species.json' with { type: 'json' };
 import OPTIONS_WITH_ART from './art-options.json' with { type: 'json' };
 import SUBCLASSES_WITH_ART from './art-subclasses.json' with { type: 'json' };
 import COVERS_WITH_ART from './art-covers.json' with { type: 'json' };
+import ITEMS_WITH_ART from './art-items.json' with { type: 'json' };
+import MONSTERS_WITH_ART from './art-monsters.json' with { type: 'json' };
+import ICONS_WITH_ART from './art-icons.json' with { type: 'json' };
 const CLASS_ART = new Set(['artificer', 'barbarian', 'bard', 'cleric', 'druid', 'fighter', 'monk', 'paladin', 'ranger', 'rogue', 'sorcerer', 'warlock', 'wizard']);
 const SPECIES_ART = ['aasimar', 'dragonborn', 'dwarf', 'elf', 'gnome', 'goliath', 'halfling', 'human', 'orc', 'tiefling'];
 // Raças 2014 / sub-raças → ilustração da espécie mais próxima.
@@ -31,6 +34,107 @@ const SUBCLASS_OWN = new Set(SUBCLASSES_WITH_ART);
 const safeId = (id) => String(id).replace(/[^A-Za-z0-9_-]/g, '_');
 export const optionArt = (id) => (id && OPTION_OWN.has(safeId(id)) ? `/art/options/${safeId(id)}.webp` : null);
 export const subclassArt = (classId, id) => (SUBCLASS_OWN.has(`${classId}-${id}`) ? `/art/subclasses/${classId}-${id}.webp` : null);
+
+// ---------------------------------------------------------------------------
+// Itens, armas, monstros e ícones. Os manifestos (src/art-*.json) dizem quais
+// ilustrações já existem; quando chegarem mais, só o manifesto muda. Sem imagem,
+// as funções devolvem null e o <ArtThumb> mostra a moldura "Ilustração em breve".
+
+const ITEM_OWN = new Set(ITEMS_WITH_ART);
+const MONSTER_OWN = new Set(MONSTERS_WITH_ART);
+const ICON_OWN = new Set(ICONS_WITH_ART);
+
+/** Ilustração de um id do catálogo de itens (armaduras/itens mágicos) ou de uma arma. */
+function itemArtById(id) {
+  if (!id || typeof id !== 'string') return null;
+  const s = safeId(id);
+  // Ids do manifesto são nomes de arquivo seguros (ex.: weapon+1); o '+' vai cru:
+  // %2B não acha o arquivo no servidor estático e o Vite devolveria o index.html.
+  if (ITEM_OWN.has(id) && /^[A-Za-z0-9_+-]+$/.test(id)) return `/art/items/${id}.webp`;
+  if (ITEM_OWN.has(s)) return `/art/items/${s}.webp`;
+  // Armas comuns têm a arte nas escolhas de classe (maestria), pelo id da arma.
+  if (OPTION_OWN.has(s)) return `/art/options/${s}.webp`;
+  return null;
+}
+
+/**
+ * Ilustração de um item: aceita o objeto (instância da ficha, item do catálogo
+ * ou da campanha), o sourceId ou o id da arma. Tenta a arte própria do item e,
+ * se não houver, a da arma/armadura comum em que ele se baseia (`base`).
+ */
+export function itemArt(item) {
+  if (!item) return null;
+  if (typeof item === 'string') return itemArtById(item);
+  if (typeof item !== 'object') return null;
+  for (const id of [item.artId, item.sourceId, item.id, item.base]) {
+    const src = itemArtById(id);
+    if (src) return src;
+  }
+  return null;
+}
+
+// Ids antigos / camelCase de feras → id do bestiário 5.2.1 (cópia leve de data/bestiary.js,
+// para não carregar o bestiário inteiro só para achar um retrato).
+const MONSTER_ALIAS = {
+  thug: 'tough', 'cult-fanatic': 'cultist-fanatic', acolyte: 'priest-acolyte', veteran: 'warrior-veteran',
+  goblin: 'goblin-warrior', hobgoblin: 'hobgoblin-warrior', bugbear: 'bugbear-warrior',
+  kobold: 'kobold-warrior', gnoll: 'gnoll-warrior', minotaur: 'minotaur-of-baphomet',
+  poisonousSnake: 'venomous-snake', giantPoisonousSnake: 'giant-venomous-snake',
+};
+const kebab = (s) => s.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+
+/** Retrato de um monstro do bestiário (aceita ids antigos e camelCase). */
+export function monsterArt(id) {
+  if (!id || typeof id !== 'string') return null;
+  for (const k of [id, MONSTER_ALIAS[id], kebab(id), MONSTER_ALIAS[kebab(id)]]) {
+    if (k && MONSTER_OWN.has(k)) return `/art/monsters/${k}.webp`;
+  }
+  return null;
+}
+
+const iconArt = (prefix, id) => {
+  if (!id || typeof id !== 'string') return null;
+  const key = `${prefix}-${safeId(id)}`;
+  return ICON_OWN.has(key) ? `/art/icons/${key}.webp` : null;
+};
+// Exaustão aparece como 'exhausted' (ficha) e 'exhaustion' (combate).
+const COND_ALIAS = { exhausted: 'exhaustion', exhaustion: 'exhausted' };
+/** Ícone de condição ('cond-<id>'). */
+export const conditionIcon = (id) => iconArt('cond', id) || iconArt('cond', COND_ALIAS[id]);
+/** Ícone de tipo de dano ('dmg-<tipo>'), ex.: damageIcon('fire'). */
+export const damageIcon = (type) => iconArt('dmg', String(type || '').toLowerCase());
+/** Emblema de escola de magia ('school-<escola>'), ex.: schoolIcon('evocation'). */
+export const schoolIcon = (school) => iconArt('school', String(school || '').toLowerCase());
+
+// Emojis temáticos para a moldura sem imagem.
+const ITEM_EMOJI = {
+  weapon: '⚔️', armor: '🛡️', shield: '🛡️', potion: '🧪', ring: '💍', rod: '🪄', staff: '🪄', wand: '🪄',
+  scroll: '📜', wondrous: '✨', magic: '✨', gear: '🎒',
+};
+/** Emoji do item pela categoria mágica ou pelo tipo. */
+export const itemEmoji = (item) => ITEM_EMOJI[item?.magic?.category] && item?.magic?.category !== 'armor'
+  ? ITEM_EMOJI[item.magic.category]
+  : (ITEM_EMOJI[item?.type] || '🎒');
+
+const MONSTER_EMOJI = {
+  aberration: '🐙', beast: '🐺', celestial: '👼', construct: '🗿', dragon: '🐉', elemental: '🌪️', fey: '🧚',
+  fiend: '😈', giant: '🗻', humanoid: '🗡️', monstrosity: '👹', ooze: '🫧', plant: '🌿', undead: '💀', swarm: '🐀',
+};
+export const monsterEmoji = (type) => MONSTER_EMOJI[String(type || '').toLowerCase().split(/[ (]/)[0]] || '👹';
+
+export const CONDITION_EMOJI = {
+  blinded: '🙈', charmed: '💞', deafened: '🔇', exhausted: '😩', exhaustion: '😩', frightened: '😱',
+  grappled: '✊', incapacitated: '💫', invisible: '👻', paralyzed: '⚡', petrified: '🗿', poisoned: '🤢',
+  prone: '🛌', restrained: '⛓️', stunned: '💫', unconscious: '💤',
+};
+export const SCHOOL_EMOJI = {
+  abjuration: '🛡️', conjuration: '🌀', divination: '👁️', enchantment: '💫', evocation: '🔥',
+  illusion: '🎭', necromancy: '💀', transmutation: '⚗️',
+};
+export const DAMAGE_EMOJI = {
+  acid: '🧪', bludgeoning: '🔨', cold: '❄️', fire: '🔥', force: '✴️', lightning: '⚡', necrotic: '💀',
+  piercing: '🏹', poison: '☠️', psychic: '🧠', radiant: '☀️', slashing: '🗡️', thunder: '💥',
+};
 
 export const HERO_ART = '/art/hero-forge.webp';
 export const GRIMOIRE_ART = '/art/grimoire-book.webp';

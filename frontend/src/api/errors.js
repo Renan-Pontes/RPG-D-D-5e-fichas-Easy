@@ -154,6 +154,18 @@ const E = {
   body_too_long: ['Texto longo demais.', 'Text too long.'],
   notes_too_long: ['Anotações longas demais.', 'Notes too long.'],
   recap_too_long: ['Resumo longo demais.', 'Recap too long.'],
+  // Planos / ciclo da campanha
+  plan_limit: ['Você chegou a um limite do seu plano. Nada foi apagado — veja "Meu plano" para liberar mais.', 'You reached a limit of your plan. Nothing was deleted — see "My plan" to get more.'],
+  campaign_closed: ['Esta campanha foi encerrada: agora ela é só para leitura. Baixe sua ficha enquanto dá (ou peça ao mestre para reabrir).', 'This campaign was closed: it is read-only now. Download your sheet while you can (or ask the GM to reopen it).'],
+};
+
+// Limite do plano por recurso (`limit` no corpo do erro plan_limit).
+const PLAN_LIMIT = {
+  images: ['Seu espaço de imagens encheu. Nada foi apagado — veja "Meu plano" para ter mais espaço.', 'Your image space is full. Nothing was deleted — see "My plan" for more space.'],
+  campaigns: ['Você chegou ao limite de campanhas do seu plano. Encerre uma que acabou ou veja "Meu plano".', "You reached your plan's campaign limit. Close one that has ended or see \"My plan\"."],
+  characters: ['Você chegou ao limite de personagens do seu plano. Nenhuma ficha foi apagada — veja "Meu plano".', "You reached your plan's character limit. No sheet was deleted — see \"My plan\"."],
+  slots: ['A mesa está sem vagas e você já está no limite de personagens do seu plano.', 'The table has no free seats and you are already at your plan\'s character limit.'],
+  cards: ['O mundo desta campanha chegou ao limite de 2.000 cartões.', "This campaign's world reached its 2,000-card limit."],
 };
 
 function currentLang() {
@@ -175,6 +187,7 @@ export function errorMessage(e, lang = currentLang(), fallback) {
   if (typeof e === 'string') return errorText(e, lang) || e;
   const data = e.data || {};
   if (Array.isArray(data.issues) && data.issues.length) return data.issues.join(' · ');
+  if (data.error === 'plan_limit' && PLAN_LIMIT[data.limit]) return lang === 'en' ? PLAN_LIMIT[data.limit][1] : PLAN_LIMIT[data.limit][0];
   const byDetail = typeof data.detail === 'string' && /^[a-z_]+$/.test(data.detail) ? errorText(data.detail, lang) : null;
   const known = byDetail || errorText(data.error, lang) || errorText(e.message, lang);
   if (known) return known;

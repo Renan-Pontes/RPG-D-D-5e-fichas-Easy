@@ -3,7 +3,7 @@ import { useState } from 'react';
 import Utils from '../../../utils.js';
 import { tName } from '../../../data/i18n.js';
 import { StepIntro, Term, Callout, ChoiceCard, Counter, L } from '../ui.jsx';
-import { SpellPicker, GrantedCallout, InvalidCallout, DuplicateCallout, abilityName } from './cantrips.jsx';
+import { SpellPicker, SpellTitle, GrantedCallout, InvalidCallout, DuplicateCallout, abilityName } from './cantrips.jsx';
 import {
   spellPlan, hasClassSpells, spellIssues, availableSpells, chosenSpells, preparedFromBook, recommendedSpells,
   invalidChoices, toggleSpell, togglePrepared, fillRecommended, spellDef, expandedSpellIds,
@@ -98,7 +98,7 @@ function PrepareFromBook({ char, set, lang, plan }) {
           return (
             <ChoiceCard key={sp.id} selected={on} disabled={!on && full}
               onClick={() => { const next = togglePrepared(char, sp.id); if (next) set({ spells: next }); }}
-              title={`${on ? '★' : '☆'} ${tName('spellName', sp.id, lang)}`}
+              title={<SpellTitle sp={sp} lang={lang} prefix={`${on ? '★' : '☆'} `} />}
               badge={suggested.has(sp.id) ? L(lang, 'Recomendada', 'Recommended') : null}
               subtitle={on ? L(lang, 'Preparada', 'Prepared') : L(lang, 'No grimório', 'In spellbook')} />
           );

@@ -42,6 +42,7 @@ from .diary import current_session, log_diary
 from .models import Campaign, Membership, WorldEntry, WorldImage, WorldReaction, WorldView
 from .permissions import get_campaign_or_404, get_membership, is_dm, require_dm, require_member
 from .rate_limit import rate_limit
+from . import plans as P
 
 
 def _bad(code):
@@ -176,7 +177,7 @@ def world_list(request, id_or_slug):
             immersion = R.immersion_on(campaign)
             if immersion:
                 add_dm_echoes(campaign, entries)
-            return Response({'entries': entries, 'count': len(entries), 'max': R.MAX_ENTRIES,
+            return Response({'entries': entries, 'count': len(entries), 'max': P.MAX_CARDS_PER_CAMPAIGN,
                              'immersion': immersion})
         visible = player_visible_ids(campaign, membership.id)
         qs = WorldEntry.objects.filter(campaign=campaign, id__in=visible).defer('dm_notes')
@@ -199,8 +200,8 @@ def world_list(request, id_or_slug):
     kind = _run(R.clean_kind, body.get('kind'))
     if not R.text(body.get('name'), R.MAX_NAME):
         _bad('missing_name')
-    if WorldEntry.objects.filter(campaign=campaign).count() >= R.MAX_ENTRIES:
-        _bad('too_many_entries')
+    # Cartões: sem limite comercial; só o teto técnico por campanha (402 plan_limit 'cards').
+    P.check_cards(campaign)
     fields = _run(R.clean_entry_fields, body, kind)
     fields = _check_refs(campaign, fields)
     now = timezone.now()
@@ -304,6 +305,8 @@ def world_image(request, pk):
     if isinstance(raw, str) and len(raw) > R.MAX_IMAGE_CHARS:
         _bad('image_too_large')
     data_url = _run(R.clean_image, raw)
+    old = WorldImage.objects.filter(entry=entry).values_list('data', flat=True).first()
+    P.check_images(entry.campaign.dm, P.image_bytes(data_url), P.image_bytes(old))
     ver = R.image_version(data_url)
     with transaction.atomic():
         WorldImage.objects.update_or_create(entry=entry, defaults={'data': data_url})

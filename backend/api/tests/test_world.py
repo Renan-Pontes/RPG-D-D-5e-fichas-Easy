@@ -161,11 +161,13 @@ class WorldCrudTests(WorldBase):
         self.assertEqual(a2['links'], [])
         self.assertIsNone(a2['data']['map']['pins'][0]['entryId'])
 
-    def test_limit_500_entries(self):
-        WorldEntry.objects.bulk_create([WorldEntry(campaign=self.camp, kind='lore', name=f'E{i}') for i in range(R.MAX_ENTRIES)])
-        r = self.c_dm.post(self.base, {'kind': 'npc', 'name': 'A 501ª'}, format='json')
-        self.assertEqual(r.status_code, 400)
-        self.assertEqual(r.json()['error'], 'too_many_entries')
+    def test_limit_entries(self):
+        # Teto técnico por campanha agora vem dos planos (api/plans.py): 2.000 → 402 plan_limit 'cards'.
+        from api.plans import MAX_CARDS_PER_CAMPAIGN
+        WorldEntry.objects.bulk_create([WorldEntry(campaign=self.camp, kind='lore', name=f'E{i}') for i in range(MAX_CARDS_PER_CAMPAIGN)])
+        r = self.c_dm.post(self.base, {'kind': 'npc', 'name': 'A 2001ª'}, format='json')
+        self.assertEqual(r.status_code, 402)
+        self.assertEqual((r.json()['error'], r.json()['limit']), ('plan_limit', 'cards'))
 
     def test_dm_list_is_light(self):
         self.create(name='Borin', body='corpo @[Velna](1)', dmNotes='NOTA-DO-MESTRE', secrets=['SEGREDO-OCULTO'])

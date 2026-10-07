@@ -171,6 +171,8 @@ class AdventureSceneTests(Base):
 
 class CampaignIdentityTests(Base):
     def test_create_with_identity(self):
+        from api.plans import assign_plan
+        assign_plan(self.dm, plan_slug='dm')  # Grátis = 1 campanha, e o Base já criou uma
         r = self.c_dm.post('/api/campaigns', {'name': 'Brumafria', 'tagline': 'Onde a névoa guarda segredos…',
                                               'accent': '#b8862b', 'tone': 'mystery'}, format='json')
         self.assertEqual(r.status_code, 200, r.content)

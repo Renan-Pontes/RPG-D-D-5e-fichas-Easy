@@ -16,6 +16,9 @@ import { speciesChoiceSpecs } from '../src/progression/species.js';
 import { grantedSpells } from '../src/creator/spell-helpers.js';
 import { propLabel, armorTypeLabel } from '../src/creator/equipment-helpers.js';
 import { classFeatureList, backgroundFeature } from '../src/sheet/sheet-text.js';
+import { itemEmoji, schoolIcon, SCHOOL_EMOJI } from '../src/art.js';
+import { itemArtFor } from '../src/items/item-art.js';
+import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
 
 // Siglas das moedas (PHB em pt: peça de cobre/prata/electro/ouro/platina).
 const COIN_LABEL = { pt: { cp: 'PC', sp: 'PP', ep: 'PE', gp: 'PO', pp: 'PL' }, en: { cp: 'CP', sp: 'SP', ep: 'EP', gp: 'GP', pp: 'PP' } };
@@ -487,7 +490,7 @@ const CopySpellModal = ({ lang, char, maxLvl, update, onClose }) => {
                   {tName('spellName', sp.id, lang)}
                   {sp.ritual && <span className="prep-tag r">R</span>}
                 </span>
-                <span className="prep-meta">{tName('school', sp.school, lang)} · {Utils.spellMeta(sp, lang).castingTime}</span>
+                <span className="prep-meta"><ArtIcon src={schoolIcon(sp.school)} emoji={SCHOOL_EMOJI[sp.school]} size={14} /> {tName('school', sp.school, lang)} · {Utils.spellMeta(sp, lang).castingTime}</span>
               </button>
             </div>
           ))}
@@ -570,7 +573,7 @@ const PrepareSpellsModal = ({ lang, char, classCantrips, classSpells, autoIds, c
                       {sp.concentration && <span className="prep-tag c">C</span>}
                       {sp.ritual && <span className="prep-tag r">R</span>}
                     </span>
-                    <span className="prep-meta">{tName('school', sp.school, lang)} · {Utils.spellMeta(sp, lang).castingTime}</span>
+                    <span className="prep-meta"><ArtIcon src={schoolIcon(sp.school)} emoji={SCHOOL_EMOJI[sp.school]} size={14} /> {tName('school', sp.school, lang)} · {Utils.spellMeta(sp, lang).castingTime}</span>
                   </button>
                   <button type="button" className="prep-info" aria-label="info" onClick={() => setOpenInfo(openInfo === sp.id ? null : sp.id)}>
                     <Icon name={openInfo === sp.id ? 'chevron-up' : 'chevron-down'} size={14}/>
@@ -659,6 +662,12 @@ const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRe
   );
 };
 
+/** Emblema da escola de magia (ícone ilustrado quando houver; senão o símbolo da escola). */
+const SchoolBadge = ({ school, lang, size = 30 }) => (
+  <ArtThumb src={schoolIcon(school)} emoji={SCHOOL_EMOJI[school] || '✦'} size={size} round lang={lang}
+    title={tName('school', school, lang)} className="school-badge" />
+);
+
 const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char, slots, update, spellAtk, roll, preparedDisabled, preparedIcon, tag = null }) => {
   const [open, setOpen] = useState(false);
   const [casting, setCasting] = useState(false);
@@ -722,7 +731,8 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
             <Icon name={spell.prepared ? 'star-fill' : (preparedIcon || 'star')} size={14}/>
           </button>
         )}
-        <div style={{ flex: 1 }}>
+        <SchoolBadge school={sp.school} lang={lang} />
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div className="spell-row-name">{tName('spellName', sp.id, lang)}{tag}</div>
           <div className="spell-meta">
             <span>{tName('school', sp.school, lang)}</span>
@@ -903,8 +913,9 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
         const dmgMod = a.dmgMod;
         return (
           <div key={i} className="card" style={{ marginBottom: 8, padding: 12 }}>
-            <div className="row gap-2 mb-2">
-              <input value={w.name} onChange={e => updateWeapon(i, { name: e.target.value })}/>
+            <div className="row gap-2 mb-2" style={{ alignItems: 'center' }}>
+              <ArtThumb src={itemArtFor(w)} emoji="⚔️" size={44} lang={lang} />
+              <input value={w.name} onChange={e => updateWeapon(i, { name: e.target.value })} style={{ flex: 1, minWidth: 0 }}/>
               <button className="btn btn-icon btn-ghost btn-danger" onClick={() => removeWeapon(i)}>
                 <Icon name="trash" size={14}/>
               </button>
@@ -1230,12 +1241,16 @@ function InventoryRow({ item, idx, lang, rulesVersion, inCampaign, onToggleEquip
   const attuned = !!item.attuned;
   const canAttune = !!item.attunement;
   const type = item.type || (isLegacy ? 'gear' : '');
-  const typeIcon = type === 'weapon' ? '⚔️' : type === 'armor' ? '🛡️' : type === 'shield' ? '🛡' : type === 'potion' ? '🧪' : type === 'magic' ? '✨' : '🎒';
+  const art = itemArtFor(item);
+  const emoji = itemEmoji({ ...item, type });
+  const descText = item.description
+    ? (typeof item.description === 'string' ? item.description : (item.description[lang] || item.description.en || item.description.pt || ''))
+    : '';
 
   return (
     <div className={`inv-row-v2 ${broken ? 'broken' : ''} ${equipped ? 'equipped' : ''}`}>
       <div className="inv-row-head" onClick={() => setOpen(!open)}>
-        <span className="inv-type-icon">{typeIcon}</span>
+        <ArtThumb src={art} emoji={emoji} size={36} lang={lang} className="inv-type-icon" />
         <span className="inv-name">{item.name || '?'}</span>
         {item.qty != null && item.qty !== 1 && <span className="muted small">×{item.qty}</span>}
         {broken && <span className="inv-tag broken-tag">{lang === 'pt' ? 'QUEBRADO' : 'BROKEN'}</span>}
@@ -1244,11 +1259,12 @@ function InventoryRow({ item, idx, lang, rulesVersion, inCampaign, onToggleEquip
       </div>
       {open && (
         <div className="inv-row-body">
-          {item.description && (
-            <div className="text-sm muted" style={{ marginBottom: 6 }}>
-              {item.description[lang] || item.description.en || item.description}
-            </div>
-          )}
+          <div className="item-detail">
+            <ArtThumb src={art} emoji={emoji} size={96} lang={lang} alt={item.name || ''} />
+            {descText ? (
+              <div className="item-detail-text text-sm muted item-desc">{descText}</div>
+            ) : <div className="item-detail-text" />}
+          </div>
           {item.weapon && (() => {
             // Números de 2024 (lança de montaria, tridente…) quando a ficha é 2024.
             const w = rulesVersion === '2024' && item.weapon.v2024 ? { ...item.weapon, ...item.weapon.v2024 } : item.weapon;
@@ -1299,4 +1315,4 @@ function InventoryRow({ item, idx, lang, rulesVersion, inCampaign, onToggleEquip
   );
 }
 
-export { SheetSpells, SheetInventory, SheetStory, SheetNotes, RestButtons };
+export { SheetSpells, SheetInventory, SheetStory, SheetNotes, RestButtons, SchoolBadge };

@@ -1,7 +1,8 @@
 // ⚙ Ajustes da campanha (DESIGN 1.2): identidade (nome, frase, capa, cor, tom),
 // convite e link do telão, modo de nível e multiclasse, e Ferramentas avançadas
 // (Dados preparados pelo mestre — desligado por padrão), Mundo vivo (imersão
-// do Mundo) e Zona de perigo (apagar a campanha, confirmando pelo nome).
+// do Mundo) e Zona de perigo (encerrar a campanha — 30 dias só leitura para
+// baixar as fichas — ou reabrir, confirmando pelo nome).
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
@@ -12,6 +13,10 @@ import { defaultCoverArt, isHexColor, screenLink, t } from './shell-logic.js';
 import { confirmNameMatches, immersionOn } from '../world/living/living-logic.js';
 import { flash } from '../play/flash.js';
 import '../world/living/living.css';
+import { plansApi, showPlanLimit } from '../plans/plans-api.js';
+import useMyPlan from '../plans/useMyPlan.js';
+import { CLOSED_DAYS, closedInfo, closedText, formatDay, meterLevel, ratio, tableSlots } from '../plans/plans-logic.js';
+import '../plans/plans.css';
 
 const AdvancedDice = lazy(() => import('./AdvancedDice.jsx'));
 
@@ -51,7 +56,7 @@ export default function SettingsMenu({ campaign, lang, onClose, onChange, worldC
           {section === 'rules' && <RulesSection campaign={campaign} lang={lang} onChange={onChange} />}
           {section === 'world' && <LivingWorldSection campaign={campaign} lang={lang} onChange={onChange} />}
           {section === 'advanced' && <AdvancedSection campaign={campaign} lang={lang} onChange={onChange} worldCount={worldCount} worldMax={worldMax} />}
-          {section === 'danger' && <DangerSection campaign={campaign} lang={lang} onClose={onClose} onDeleted={onDeleted} />}
+          {section === 'danger' && <DangerSection campaign={campaign} lang={lang} onClose={onClose} onChange={onChange} onDeleted={onDeleted} />}
         </div>
       </div>
     </div>
@@ -63,7 +68,7 @@ function useStatus() {
   const [busy, setBusy] = useState(false);
   const run = async (fn, ok, lang) => {
     setBusy(true); setMsg('');
-    try { await fn(); setMsg(ok); } catch (e) { setMsg(errorMessage(e, lang)); } finally { setBusy(false); }
+    try { await fn(); setMsg(ok); } catch (e) { showPlanLimit(e); setMsg(errorMessage(e, lang)); } finally { setBusy(false); }
   };
   return { msg, busy, run, setMsg };
 }
@@ -163,8 +168,44 @@ function TableSection({ campaign, lang, onChange, onMarkOnboarding }) {
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => rotate('tv')} disabled={busy}>{t(lang, 'Gerar novo link', 'New link')}</button>
         </div>
       </section>
+      <SeatsSection campaign={campaign} lang={lang} />
       {msg && <p className="muted text-sm" role="status" style={{ margin: 0 }}>{msg}</p>}
     </div>
+  );
+}
+
+/** Vagas da mesa: jogadores no limite do próprio plano entram ocupando uma vaga sua. */
+function SeatsSection({ campaign, lang }) {
+  const my = useMyPlan(true);
+  const { used, max } = tableSlots(campaign, my);
+  if (max == null) return null;
+  const level = meterLevel(used, max);
+  return (
+    <section className={`col gap-2 pl-seats lvl-${level}`}>
+      <h3 className="shell-h3">{t(lang, 'Vagas da mesa', 'Table seats')}</h3>
+      {max > 0 ? (
+        <>
+          <div className="pl-seats-row">
+            <span className="pl-track" role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={used}
+              aria-label={t(lang, 'Vagas da mesa usadas', 'Table seats used')}>
+              <span style={{ width: `${ratio(used, max) * 100}%` }} />
+            </span>
+            <strong className="mono">{used}/{max}</strong>
+          </div>
+          <p className="muted text-sm" style={{ margin: 0 }}>
+            {t(lang,
+              `${used} de ${max} vagas usadas. Quem já está no limite de personagens do próprio plano entra usando uma vaga sua — e esse personagem não conta no limite dele.`,
+              `${used} of ${max} seats used. Players already at their own plan's character limit join using one of your seats — and that character doesn't count toward their limit.`)}
+          </p>
+        </>
+      ) : (
+        <p className="muted text-sm" style={{ margin: 0 }}>
+          {t(lang,
+            'Seu plano não empresta vagas: cada jogador usa o limite de personagens do próprio plano. Nos planos de mestre, você pode receber jogadores que já estão no limite.',
+            "Your plan doesn't lend seats: each player uses their own plan's character limit. On GM plans you can host players who are already at their limit.")}
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -281,26 +322,54 @@ function LivingWorldSection({ campaign, lang, onChange }) {
   );
 }
 
-function DangerSection({ campaign, lang, onClose, onDeleted }) {
+function DangerSection({ campaign, lang, onClose, onChange }) {
   const [confirming, setConfirming] = useState(false);
+  const { msg, busy, run } = useStatus();
+  const closed = closedInfo(campaign);
+  if (closed) {
+    const reopen = () => run(async () => {
+      await plansApi.reopenCampaign(campaign.id);
+      onChange?.();
+    }, t(lang, 'Campanha reaberta ✓', 'Campaign reopened ✓'), lang);
+    return (
+      <div className="col gap-4">
+        <section className="col gap-2 lv-danger pl-closing">
+          <h3 className="shell-h3">{t(lang, 'Campanha encerrada', 'Campaign closed')}</h3>
+          <p className="text-sm" style={{ margin: 0 }}>{closedText(campaign, lang)}</p>
+          <p className="muted text-sm" style={{ margin: 0 }}>
+            {t(lang,
+              'Até lá ela fica só para leitura. Reabrindo, tudo volta como estava (se couber no número de campanhas do seu plano).',
+              'Until then it is read-only. Reopening brings everything back as it was (if it fits in your plan\'s campaign count).')}
+          </p>
+          <button type="button" className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start', minHeight: 40 }} onClick={reopen} disabled={busy}>
+            {busy ? t(lang, 'Reabrindo…', 'Reopening…') : t(lang, '↺ Reabrir campanha', '↺ Reopen campaign')}
+          </button>
+          {msg && <span className="muted text-sm" role="status">{msg}</span>}
+        </section>
+      </div>
+    );
+  }
   return (
     <div className="col gap-4">
       <section className="col gap-2 lv-danger">
-        <h3 className="shell-h3">{t(lang, 'Apagar campanha', 'Delete campaign')}</h3>
+        <h3 className="shell-h3">{t(lang, 'Encerrar campanha', 'Close campaign')}</h3>
         <p className="muted text-sm" style={{ margin: 0 }}>
-          {t(lang, 'Apaga a mesa inteira, para sempre. Não dá para desfazer.', 'Deletes the whole table, forever. It cannot be undone.')}
+          {t(lang,
+            `A mesa fica ${CLOSED_DAYS} dias só para leitura, com um aviso para todos baixarem as fichas. Nesse prazo você pode reabrir. Depois disso, o mundo, as aventuras e o diário são apagados de vez.`,
+            `The table stays read-only for ${CLOSED_DAYS} days, with a notice for everyone to download their sheets. You can reopen it during that time. After that, the world, adventures and diary are deleted for good.`)}
         </p>
         <button type="button" className="lv-btn-danger" onClick={() => setConfirming(true)}>
-          🗑 {t(lang, 'Apagar campanha…', 'Delete campaign…')}
+          ⌛ {t(lang, 'Encerrar campanha…', 'Close campaign…')}
         </button>
       </section>
       {confirming && <DeleteCampaignDialog campaign={campaign} lang={lang} onCancel={() => setConfirming(false)}
-        onDone={() => {
-          flash(t(lang, `A campanha "${campaign.name}" foi apagada. As fichas dos jogadores continuam com eles.`,
-            `The campaign "${campaign.name}" was deleted. Players keep their character sheets.`), { ms: 5200 });
+        onDone={(res) => {
+          const purge = res?.campaign?.purgeAt || res?.purgeAt || new Date(Date.now() + CLOSED_DAYS * 86400000).toISOString();
+          flash(t(lang, `A campanha "${campaign.name}" foi encerrada. Todos podem baixar as fichas até ${formatDay(purge, lang)}.`,
+            `The campaign "${campaign.name}" was closed. Everyone can download their sheets until ${formatDay(purge, lang)}.`), { ms: 5200 });
+          setConfirming(false);
           onClose?.();
-          if (onDeleted) onDeleted();
-          else document.querySelector('.shell-back')?.click(); // volta para a lista de campanhas
+          onChange?.();
         }} />}
     </div>
   );
@@ -316,9 +385,10 @@ function DeleteCampaignDialog({ campaign, lang, onCancel, onDone }) {
     if (!ok || busy) return;
     setBusy(true); setErr('');
     try {
-      await api.deleteCampaign(campaign.id);
-      onDone();
+      const res = await plansApi.closeCampaign(campaign.id);
+      onDone(res);
     } catch (ex) {
+      showPlanLimit(ex);
       setErr(errorMessage(ex, lang));
       setBusy(false);
     }
@@ -328,10 +398,12 @@ function DeleteCampaignDialog({ campaign, lang, onCancel, onDone }) {
       <form className="modal col gap-3" role="alertdialog" aria-modal="true" aria-labelledby="lv-del-title" aria-describedby="lv-del-desc"
         onClick={(e) => e.stopPropagation()} onSubmit={submit}
         onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); if (!busy) onCancel(); } }}>
-        <h2 id="lv-del-title" style={{ margin: 0 }}>{t(lang, 'Apagar esta campanha?', 'Delete this campaign?')}</h2>
+        <h2 id="lv-del-title" style={{ margin: 0 }}>{t(lang, 'Encerrar esta campanha?', 'Close this campaign?')}</h2>
         <div id="lv-del-desc" className="col gap-2">
           <p style={{ margin: 0 }}>
-            {t(lang, 'Isto apaga para sempre ', 'This permanently deletes ')}<span className="lv-confirm-name">{campaign.name}</span>{t(lang, ', com:', ', including:')}
+            <span className="lv-confirm-name">{campaign.name}</span>
+            {t(lang, ` fica ${CLOSED_DAYS} dias só para leitura (dá para reabrir nesse prazo). Depois, apaga para sempre:`,
+              ` stays read-only for ${CLOSED_DAYS} days (you can reopen it meanwhile). After that, it permanently deletes:`)}
           </p>
           <ul className="lv-danger-list">
             <li>{t(lang, 'todo o mundo: lugares, NPCs, facções, segredos, mapas e imagens;', 'the whole world: places, NPCs, factions, secrets, maps and images;')}</li>
@@ -339,8 +411,8 @@ function DeleteCampaignDialog({ campaign, lang, onCancel, onDone }) {
             <li>{t(lang, 'o diário, a crônica, o combate e os itens da mesa.', 'the diary, the chronicle, combat and the table\'s items.')}</li>
           </ul>
           <p className="muted text-sm" style={{ margin: 0 }}>
-            {t(lang, 'As fichas dos jogadores NÃO são apagadas — elas só saem da mesa e continuam com cada jogador.',
-              'Players\' character sheets are NOT deleted — they just leave the table and stay with each player.')}
+            {t(lang, 'As fichas dos jogadores continuam com eles. Quem entrou usando uma vaga da sua mesa fica com a ficha se o próprio plano tiver espaço; senão, ela é apagada no fim do prazo — por isso todos veem o aviso para baixar.',
+              "Players keep their sheets. Anyone who joined using one of your table seats keeps the sheet if their own plan has room; otherwise it is deleted at the end of the window — that's why everyone sees the download notice.")}
           </p>
         </div>
         <label className="col gap-1" style={{ marginTop: 8 }}>
@@ -352,7 +424,7 @@ function DeleteCampaignDialog({ campaign, lang, onCancel, onDone }) {
         <div className="row gap-2" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel} disabled={busy}>{t(lang, 'Cancelar', 'Cancel')}</button>
           <button type="submit" className="lv-btn-danger" disabled={!ok || busy}>
-            {busy ? t(lang, 'Apagando…', 'Deleting…') : t(lang, 'Apagar para sempre', 'Delete forever')}
+            {busy ? t(lang, 'Encerrando…', 'Closing…') : t(lang, 'Encerrar campanha', 'Close campaign')}
           </button>
         </div>
       </form>

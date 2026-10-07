@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -7,6 +8,7 @@ from .models import Character, Membership
 from .serializers import CharacterSerializer
 from .diary import log_long_rest, log_short_rest
 from .permissions import can_read_character
+from . import plans as P
 from . import wild_shape as ws_engine
 from . import spells as spells_engine
 from .progression import validate_level_choice, apply_level_choice, validate_class_options, apply_class_options
@@ -17,12 +19,36 @@ from .progression.resources import rest_resources, spend_resource
 @permission_classes([IsAuthenticated])
 def character_list(request):
     if request.method == 'GET':
+        P.purge_expired()  # purga preguiçosa (fichas em vaga de campanha vencida — opção A)
         chars = Character.objects.filter(owner=request.user)
         return Response({'characters': CharacterSerializer(chars, many=True).data})
     s = CharacterSerializer(data=request.data)
     s.is_valid(raise_exception=True)
-    obj = Character.objects.create(owner=request.user, name=s.validated_data['name'], data=s.validated_data.get('data') or {})
-    return Response({'character': CharacterSerializer(obj).data})
+    data = s.validated_data.get('data') or {}
+    # Código de mesa opcional: cria e já entra na campanha. Se o jogador está no
+    # limite de personagens, a ficha nasce ocupando uma vaga da mesa do mestre.
+    invite = request.data.get('inviteCode') if isinstance(request.data, dict) else None
+    campaign = None
+    if invite:
+        from .views_campaigns import _campaign_by_invite
+        campaign = _campaign_by_invite(invite if isinstance(invite, str) else '')
+        if not campaign:
+            return Response({'error': 'invite_invalid'}, status=404)
+        P.require_open(campaign)
+    sponsored = P.check_character_create(request.user, campaign)
+    P.check_images(request.user, P.image_bytes(data.get('avatar') if isinstance(data, dict) else None))
+    with transaction.atomic():
+        obj = Character.objects.create(owner=request.user, name=s.validated_data['name'], data=data)
+        out = {'character': None}
+        if campaign is not None:
+            from .views_campaigns import join_payload
+            m, _ = Membership.objects.update_or_create(
+                campaign=campaign, user=request.user,
+                defaults={'character': obj, 'sponsored': sponsored,
+                          'role': 'dm' if campaign.dm_id == request.user.id else 'player'})
+            out['join'] = join_payload(campaign, m)
+    out['character'] = CharacterSerializer(obj).data
+    return Response(out)
 
 
 @api_view(['GET', 'PUT', 'DELETE'])
@@ -68,6 +94,10 @@ def character_detail(request, pk):
 
     s = CharacterSerializer(obj, data=request.data)
     s.is_valid(raise_exception=True)
+    if isinstance(new_data, dict) and 'avatar' in new_data:
+        # Retrato próprio conta no espaço de imagens do dono (arte do site em /art não).
+        P.check_images(obj.owner, P.image_bytes(new_data.get('avatar')),
+                       P.image_bytes((obj.data or {}).get('avatar')))
     s.save()
     return Response({'character': s.data})
 

@@ -1,4 +1,5 @@
 import { errorMessage } from '../api/errors.js';
+import { freePositions } from '../combat/placement.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
@@ -18,6 +19,8 @@ import SaveResultCard from '../play/SaveResultCard.jsx';
 import { attackPreview } from '../play/play-api.js';
 import { flash } from '../play/flash.js';
 import { CONDITIONS, DAMAGE_TYPES, conditionLabel, damageTypeLabel } from '../combat/monster-i18n.js';
+import { conditionIcon, monsterArt, monsterEmoji, CONDITION_EMOJI } from '../art.js';
+import ArtThumb, { ArtIcon } from '../components/ArtThumb.jsx';
 
 // Animais da Forma Selvagem (SRD.BEASTS) não têm ataques estruturados: no combate
 // usamos a versão do bestiário SRD 5.2.1, com ataques reais.
@@ -90,17 +93,25 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
   };
   const nextTurn = async () => { await api.combatNextTurn(campaign.id); load(); };
 
+  const gridOpts = () => {
+    const m = combat?.map || {};
+    return { grid: m.grid_size_px || 50, width: m.width_px || 1200, height: m.height_px || 800 };
+  };
+
   const addMonster = async (monster, count, initiative) => {
     // Snapshot do bestiário (ações/bônus/reações/lendárias numa lista com `kind`).
     const snap = monsterForCombat(resolveCatalogMonster(monster));
     const base = (typeof snap.name === 'object' ? (snap.name?.[lang] || snap.name?.en) : snap.name) || 'Monster';
+    const tokenScale = snap.size === 'Large' ? 2 : snap.size === 'Huge' ? 3 : snap.size === 'Gargantuan' ? 4 : snap.size === 'Tiny' ? 0.5 : 1;
+    // Próximas células livres do grid (antes todos nasciam em (100,100) e empilhavam).
+    const spots = freePositions(combatants, count, { ...gridOpts(), scale: tokenScale, start: { x: 100, y: 100 } });
     for (let i = 0; i < count; i++) {
       await api.addCombatant(campaign.id, {
         type: 'monster',
         monster: { ...snap, name: count > 1 ? `${base} #${i + 1}` : base },
         initiative, // exatamente o que o mestre digitou (nunca alterado pelo app)
-        position: { x: 100 + i * 60, y: 100 },
-        tokenScale: snap.size === 'Large' ? 2 : snap.size === 'Huge' ? 3 : snap.size === 'Gargantuan' ? 4 : snap.size === 'Tiny' ? 0.5 : 1,
+        position: spots[i],
+        tokenScale,
       });
     }
     setShowPicker(false);
@@ -111,12 +122,12 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
   // (dado físico); "rolar" só preenche o campo com d20 + bônus da ficha.
   const addPC = async (characterId, initiative) => {
     const n = parseInt(initiative, 10);
-    const pcCount = combatants.filter(c => c.type === 'pc').length;
+    const [spot] = freePositions(combatants, 1, { ...gridOpts(), start: { x: 100, y: 200 } });
     await api.addCombatant(campaign.id, {
       type: 'pc',
       characterId,
       initiative: Number.isFinite(n) ? n : 10,
-      position: { x: 100 + pcCount * 60, y: 200 },
+      position: spot,
       tokenScale: 1,
     });
     load();
@@ -314,6 +325,9 @@ function CombatantCard({ combatant, lang, isCurrentTurn, isSelected, onSelect, o
       <div className="cc-head" onClick={onSelect}>
         <div className="cc-name">
           <span className="cc-init">{c.initiative}</span>
+          {c.type === 'monster' && (
+            <ArtThumb src={c.sprite || monsterArt(c.monster_id)} emoji={monsterEmoji(c.stats?.type)} size={34} round lang={lang} />
+          )}
           <span className="cc-who">
             <strong>{c.name}</strong>
             {c.type === 'monster' && <span className="cc-badge mon">{t(lang, 'Monstro', 'Monster')}</span>}
@@ -334,6 +348,7 @@ function CombatantCard({ combatant, lang, isCurrentTurn, isSelected, onSelect, o
           {c.conditions.map(cond => (
             <span key={cond} className="cc-cond" role="button" tabIndex={0} onClick={() => toggleCondition(cond)}
               onKeyDown={e => { if (e.key === 'Enter') toggleCondition(cond); }} title={t(lang, 'Toque para remover', 'Tap to remove')}>
+              <ArtIcon src={conditionIcon(cond)} emoji={CONDITION_EMOJI[cond]} size={14} />
               {conditionLabel(cond, lang)}{(() => { const ef = (c.effects || []).find(e => e.name === cond); return ef ? ` (${ef.rounds_left})` : ''; })()}
             </span>
           ))}
@@ -399,6 +414,7 @@ function CombatantCard({ combatant, lang, isCurrentTurn, isSelected, onSelect, o
                 const on = (c.conditions || []).includes(cond);
                 return (
                   <button key={cond} type="button" className={`btn-icon ${on ? 'active' : ''}`} aria-pressed={on} onClick={() => toggleCondition(cond)} style={{ width: 'auto', padding: '4px 8px' }}>
+                    <ArtIcon src={conditionIcon(cond)} emoji={CONDITION_EMOJI[cond]} size={14} />
                     {conditionLabel(cond, lang)}
                   </button>
                 );

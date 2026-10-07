@@ -10,6 +10,10 @@ import { defaultCoverArt, isHexColor, saveRememberedArea, TONES } from '../shell
 import '../shell/shell.css';
 import { TableInviteCard } from '../creator/JoinTable.jsx';
 import { normalizeInviteCode, joinFromInvite, joinToast } from '../creator/creation.js';
+import { showPlanLimit } from '../plans/plans-api.js';
+import useMyPlan from '../plans/useMyPlan.js';
+import { closedInfo, formatDay, inviteSeatsFree, limitShortText, planLimitFrom, seatNoticeText, sponsoredFrom, sponsoredText } from '../plans/plans-logic.js';
+import '../plans/plans.css';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -92,6 +96,11 @@ function CampaignCard({ c, lang, onOpen }) {
       <div className="camp-card-body">
         <div className="camp-card-top">
           <span className={`role-pill role-${c.role}`}>{c.role === 'dm' ? t(lang, 'Mestre', 'DM') : t(lang, 'Jogador', 'Player')}</span>
+          {c.status === 'closed' && (
+            <span className="pl-tag pl-tag-closed" style={{ marginLeft: 0 }}>
+              {t(lang, 'Encerrada', 'Closed')}{closedInfo(c)?.purgeAt ? ` · ${t(lang, 'baixe até', 'download by')} ${formatDay(closedInfo(c).purgeAt, lang)}` : ''}
+            </span>
+          )}
           {st.live && <span className="shell-live"><span className="shell-live-dot" aria-hidden="true" />{t(lang, 'Ao vivo', 'Live')}</span>}
           {tone && <span className="camp-card-tone">{lang === 'en' ? tone.en : tone.pt}</span>}
         </div>
@@ -153,7 +162,7 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
         try {
           await api.setCampaignCover(c.id, cover);
           await api.patchCampaign(c.id, { onboarding: { cover: true } });
-        } catch { /* segue */ }
+        } catch (e) { showPlanLimit(e); /* segue: sem espaço de imagens, a campanha nasce sem capa */ }
       }
       if (start === 'sample') {
         try { await createSampleWorld(c.id, lang); } catch { /* segue */ }
@@ -166,7 +175,9 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
       saveRememberedArea(c.id, imported ? { area: 'prepare', sub: 'adventures' } : { area: 'world', sub: 'atlas' });
       onCreated(c);
     } catch (err) {
-      setError(errorMessage(err, lang));
+      const lim = planLimitFrom(err);
+      if (lim) showPlanLimit(err);
+      setError(lim ? limitShortText(lim, lang) : errorMessage(err, lang));
       setBusy(false);
     }
   };
@@ -271,17 +282,21 @@ function JoinCampaignModal({ lang, onClose, onJoined, initialCode = '', characte
   const mine = characters.filter(c => typeof c.id === 'number');
   const [charId, setCharId] = useState(() => (mine.find(c => !c.inCampaign)?.id ?? ''));
   const [table, setTable] = useState(null);
+  const [seatsFree, setSeatsFree] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const my = useMyPlan(true);
 
-  // Código preenchido pela rota: mostra a mesa (se o servidor souber dizer).
+  // Mostra a mesa do código (da rota ou digitado) — nome, mestre e vagas livres.
   useEffect(() => {
     let alive = true;
-    const c = normalizeInviteCode(initialCode);
-    if (!c) return undefined;
-    api.campaignInvite(c).then(res => { if (alive) setTable(joinFromInvite(c, res)); }).catch(() => {});
-    return () => { alive = false; };
-  }, [initialCode]);
+    const c = normalizeInviteCode(code);
+    if (!c || c.length < 6 || table?.code === c) return undefined;
+    const tm = setTimeout(() => {
+      api.campaignInvite(c).then(res => { if (alive) { setTable(joinFromInvite(c, res)); setSeatsFree(inviteSeatsFree(res)); } }).catch(() => {});
+    }, c === normalizeInviteCode(initialCode) ? 0 : 450);
+    return () => { alive = false; clearTimeout(tm); };
+  }, [code]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = async (e) => {
     e.preventDefault();
@@ -292,9 +307,13 @@ function JoinCampaignModal({ lang, onClose, onJoined, initialCode = '', characte
       if (charId !== '') body.characterId = charId;
       const res = await api.joinCampaign(body);
       const ch = mine.find(c => c.id === charId);
-      onJoined({ id: res.campaignId, slug: res.slug, toast: ch && table && normalizeInviteCode(code) === table.code ? joinToast(ch.name, table.name, lang) : '' });
+      const base = ch && table && normalizeInviteCode(code) === table.code ? joinToast(ch.name, table.name, lang) : '';
+      const seat = sponsoredFrom(res, table?.dmName);
+      onJoined({ id: res.campaignId, slug: res.slug, toast: seat != null ? `${base} ${sponsoredText(seat, lang)}`.trim() : base });
     } catch (e) {
-      if (e?.data?.error === 'invite_invalid') setError(t(lang, 'Código inválido: confira as letras com o seu mestre.', 'Invalid code: check the letters with your GM.'));
+      const lim = planLimitFrom(e);
+      if (lim) { showPlanLimit(e, { dmName: table?.dmName, campaignName: table?.name }); setError(limitShortText(lim, lang)); }
+      else if (e?.data?.error === 'invite_invalid') setError(t(lang, 'Código inválido: confira as letras com o seu mestre.', 'Invalid code: check the letters with your GM.'));
       else setError(errorMessage(e, lang));
     } finally { setBusy(false); }
   };
@@ -317,7 +336,9 @@ function JoinCampaignModal({ lang, onClose, onJoined, initialCode = '', characte
               style={{ fontFamily: 'JetBrains Mono, monospace', letterSpacing: 2, fontSize: '1.2em' }}
             />
           </label>
-          {table && normalizeInviteCode(code) === table.code && <TableInviteCard table={table} lang={lang} />}
+          {table && normalizeInviteCode(code) === table.code && (
+            <TableInviteCard table={table} lang={lang} notice={charId !== '' ? seatNoticeText(my, table.dmName, lang, seatsFree) : ''} />
+          )}
           {mine.length > 0 && (
             <fieldset className="col gap-1" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
               <legend style={{ marginBottom: 'var(--s-1)' }}>{t(lang, 'Qual personagem vai para a mesa?', 'Which character goes to the table?')}</legend>
@@ -335,6 +356,9 @@ function JoinCampaignModal({ lang, onClose, onJoined, initialCode = '', characte
                 </label>
               </div>
             </fieldset>
+          )}
+          {charId !== '' && !(table && normalizeInviteCode(code) === table.code) && seatNoticeText(my, '', lang) && (
+            <p className="pl-sponsored-note" role="note">🪑 {seatNoticeText(my, '', lang)}</p>
           )}
           {error && <div className="auth-error">{error}</div>}
           <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>

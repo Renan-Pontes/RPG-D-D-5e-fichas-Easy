@@ -59,11 +59,26 @@ class LoginSerializer(serializers.Serializer):
 class CharacterSerializer(serializers.ModelSerializer):
     inCampaign = serializers.SerializerMethodField()
     campaignLeveling = serializers.SerializerMethodField()
+    tableSlot = serializers.SerializerMethodField()
 
     class Meta:
         model = Character
-        fields = ['id', 'name', 'data', 'created_at', 'updated_at', 'inCampaign', 'campaignLeveling']
-        read_only_fields = ['id', 'created_at', 'updated_at', 'inCampaign', 'campaignLeveling']
+        fields = ['id', 'name', 'data', 'created_at', 'updated_at', 'inCampaign', 'campaignLeveling', 'tableSlot']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'inCampaign', 'campaignLeveling', 'tableSlot']
+
+    def get_tableSlot(self, obj):
+        """Ficha numa VAGA DE MESA (não conta no limite do jogador): {campaignId,
+        campaignName, dmName, status, purgeAt} — "usa uma vaga da mesa de <Mestre>"."""
+        from .models import Membership
+        from .plans import dm_display_name, purge_at
+        m = (Membership.objects.filter(character=obj, sponsored=True)
+             .select_related('campaign', 'campaign__dm', 'campaign__dm__profile').first())
+        if not m:
+            return None
+        c = m.campaign
+        p = purge_at(c)
+        return {'campaignId': c.id, 'campaignName': c.name, 'dmName': dm_display_name(c.dm),
+                'status': c.status, 'purgeAt': p.isoformat() if p else None}
 
     def get_inCampaign(self, obj):
         from .models import Membership
@@ -85,7 +100,7 @@ class MembershipSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Membership
-        fields = ['id', 'user', 'character', 'role', 'joined_at']
+        fields = ['id', 'user', 'character', 'role', 'joined_at', 'sponsored']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -130,6 +145,16 @@ class MembershipSerializer(serializers.ModelSerializer):
 def _viewer_is_dm(serializer, obj):
     request = serializer.context.get('request')
     return bool(request and request.user.is_authenticated and obj.dm_id == request.user.id)
+
+
+def _lifecycle(data, obj):
+    """status/closedAt/purgeAt (campanha encerrada = somente leitura até purgeAt)."""
+    from .plans import purge_at
+    p = purge_at(obj)
+    data['status'] = obj.status
+    data['closedAt'] = obj.closed_at.isoformat() if obj.closed_at else None
+    data['purgeAt'] = p.isoformat() if p else None
+    return data
 
 
 def _cover_url(obj):
@@ -188,6 +213,7 @@ class CampaignSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         request = self.context.get('request')
         is_dm = _viewer_is_dm(self, instance)
+        _lifecycle(data, instance)
         data['screenCard'] = resolve_screen_card(instance)
         settings = instance.dm_settings if isinstance(instance.dm_settings, dict) else {}
         # "Mundo vivo" (padrão ligado): o jogador precisa saber para mostrar os ecos
@@ -197,6 +223,8 @@ class CampaignSerializer(serializers.ModelSerializer):
             data['advancedDice'] = bool(settings.get('advancedDice'))
             data['fogHint'] = settings.get('fogHint') is True
             data['pendingApprovals'] = instance.approvals.filter(status='pending').count()
+            from .plans import slots_info
+            data['tableSlots'] = slots_info(instance)   # vagas de mesa {used, max}
         else:
             # esconde tokens privados e o que é só do mestre (nudges, concentração,
             # diarySessions, screenCard cru…) para não-DM
@@ -237,6 +265,9 @@ class CampaignListSerializer(serializers.ModelSerializer):
     def get_state(self, obj):
         from .campaign_state import public_state
         return public_state(obj.state)
+
+    def to_representation(self, instance):
+        return _lifecycle(super().to_representation(instance), instance)
 
     def get_coverUrl(self, obj):
         return _cover_url(obj)

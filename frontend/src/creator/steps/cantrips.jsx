@@ -3,10 +3,23 @@ import { useState } from 'react';
 import Utils from '../../../utils.js';
 import { t, tName } from '../../../data/i18n.js';
 import { StepIntro, Term, Callout, ChoiceCard, Counter, L } from '../ui.jsx';
+import { schoolIcon, SCHOOL_EMOJI } from '../../art.js';
+import ArtThumb from '../../components/ArtThumb.jsx';
 import {
   spellPlan, hasClassCantrips, cantripIssues, availableCantrips, chosenCantrips, beginnerCantrips,
   grantedSpells, invalidChoices, withoutInvalid, toggleCantrip, fillRecommended, isCoreSpell, duplicateGrantIssues,
 } from '../spell-helpers.js';
+
+/** Título da magia com o emblema da escola (ícone ilustrado quando houver). */
+export function SpellTitle({ sp, lang, prefix = '' }) {
+  return (
+    <span className="spell-title-art">
+      <ArtThumb src={schoolIcon(sp.school)} emoji={SCHOOL_EMOJI[sp.school] || '✦'} size={26} round lang={lang}
+        title={tName('school', sp.school, lang)} />
+      <span>{prefix}{tName('spellName', sp.id, lang)}</span>
+    </span>
+  );
+}
 
 const ABILITY_NAMES = { int: ['Inteligência', 'Intelligence'], wis: ['Sabedoria', 'Wisdom'], cha: ['Carisma', 'Charisma'] };
 export const abilityName = (ab, lang) => (ABILITY_NAMES[ab] ? ABILITY_NAMES[ab][lang === 'pt' ? 0 : 1] : '—');
@@ -38,7 +51,7 @@ export function SpellPicker({ char, lang, spells, selected, onToggle, full, sugg
     const isCore = isCoreSpell(sp, char);
     return (
       <ChoiceCard key={sp.id} selected={on} disabled={!on && full} onClick={() => onToggle(sp.id)}
-        title={tName('spellName', sp.id, lang)}
+        title={<SpellTitle sp={sp} lang={lang} />}
         badge={suggested.has(sp.id) ? L(lang, 'Bom para começar', 'Good to start') : (!isCore && sp.source ? sp.source : null)}
         subtitle={[tName('school', sp.school, lang), meta.castingTime, meta.range,
           sp.concentration ? L(lang, 'Concentração', 'Concentration') : null, sp.ritual ? 'Ritual' : null].filter(Boolean).join(' · ')}>

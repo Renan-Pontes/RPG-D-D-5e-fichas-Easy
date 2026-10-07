@@ -5,10 +5,11 @@ import { api } from '../api/client.js';
 import ItemForm, { typeLabel, dmgTypeLabel, rarityLabel, weightLabel } from './ItemForm.jsx';
 import usePrepConfirm from '../prep/usePrepConfirm.jsx';
 import './items-styles.css';
+import { itemArt, itemEmoji } from '../art.js';
+import ArtThumb from '../components/ArtThumb.jsx';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const text = (v, lang) => (typeof v === 'string' ? v : v?.[lang] || v?.en || '');
-const TYPE_ICON = { weapon: '⚔', armor: '🛡', shield: '🛡', gear: '🎒', potion: '🧪', magic: '✨' };
 
 export default function CampaignItemsTab({ campaign, lang, goTo }) {
   const [items, setItems] = useState(null);
@@ -88,7 +89,7 @@ export default function CampaignItemsTab({ campaign, lang, goTo }) {
           return (
             <li key={row.id} className={`ci-card ${magic ? 'is-magic' : ''} r-${(it.magic?.rarity || '').replace(/\s+/g, '-')}`}>
               <div className="ci-card-top">
-                <span className="ci-icon" aria-hidden="true">{TYPE_ICON[it.type] || '✦'}</span>
+                <ArtThumb src={itemArt(it)} emoji={itemEmoji(it)} size={48} lang={lang} />
                 <div className="ci-title">
                   <strong>{text(it.name, lang) || it.name}</strong>
                   <span className="muted small">{typeLabel(it.type, lang)}

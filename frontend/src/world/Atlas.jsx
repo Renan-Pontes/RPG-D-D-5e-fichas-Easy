@@ -60,7 +60,7 @@ export default function Atlas({
   const [overId, setOverId] = useState(null);
   const gridRef = useRef(null);
   // Pedido externo para abrir o "+ Novo" (ex.: Primeiros passos).
-  useEffect(() => { if (createNonce) setCreating(true); }, [createNonce]);
+  useEffect(() => { if (createNonce && onCreate) setCreating(true); }, [createNonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sorted = useMemo(() => sortEntries(entries), [entries]);
   const counts = useMemo(() => countByKind(entries), [entries]);
@@ -92,11 +92,11 @@ export default function Atlas({
           <span aria-hidden="true">🔍</span>
           <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={t(lang, 'Buscar no mundo…', 'Search the world…')} aria-label={t(lang, 'Buscar no mundo', 'Search the world')} />
         </div>
-        <button type="button" className="btn btn-primary" onClick={() => setCreating(c => !c)} aria-expanded={creating}>＋ {t(lang, 'Novo', 'New')}</button>
+        {onCreate && <button type="button" className="btn btn-primary" onClick={() => setCreating(c => !c)} aria-expanded={creating}>＋ {t(lang, 'Novo', 'New')}</button>}
         {onImprovise && <button type="button" className="btn btn-ghost" onClick={onImprovise}>🎲 {t(lang, 'Improvisar', 'Improvise')}</button>}
       </div>
 
-      {creating && <QuickCreate lang={lang} defaultKind={kind !== 'all' ? kind : 'npc'} onCreate={create} onCancel={() => setCreating(false)} busy={busy} />}
+      {creating && onCreate && <QuickCreate lang={lang} defaultKind={kind !== 'all' ? kind : 'npc'} onCreate={create} onCancel={() => setCreating(false)} busy={busy} />}
 
       {!empty && (
         <>
@@ -126,7 +126,11 @@ export default function Atlas({
         </>
       )}
 
-      {empty ? (
+      {empty && !onCreate ? (
+        <div className="wl-empty wl-empty-small">
+          <p>{t(lang, 'O Mundo desta campanha ficou vazio.', "This campaign's World is empty.")}</p>
+        </div>
+      ) : empty ? (
         <div className="wl-empty wl-empty-world">
           <img src="/art/backgrounds/wayfarer.webp" alt="" className="wl-empty-art" />
           <div className="wl-empty-body">
@@ -135,7 +139,7 @@ export default function Atlas({
               'Create a place — just the name is enough. Then an NPC who lives there, a secret they keep… and the world starts breathing.')}</p>
             <p className="wl-muted wl-small">{t(lang, 'Exemplo: "Vale de Brumafria — vila de pescadores onde a névoa nunca se levanta."', 'Example: "Mistfrost Vale — a fishing village where the mist never lifts."')}</p>
             <div className="wl-row wl-wrap">
-              {!creating && <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>＋ {t(lang, 'Criar o primeiro cartão', 'Create the first card')}</button>}
+              {!creating && onCreate && <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>＋ {t(lang, 'Criar o primeiro cartão', 'Create the first card')}</button>}
               {onSample && <button type="button" className="btn btn-ghost" disabled={sampleBusy} onClick={onSample}>{sampleBusy ? t(lang, 'Criando…', 'Creating…') : t(lang, '✨ Começar com um exemplo', '✨ Start with an example')}</button>}
               {onImprovise && <button type="button" className="btn btn-ghost" onClick={onImprovise}>🎲 {t(lang, 'Improvisar um NPC', 'Improvise an NPC')}</button>}
             </div>

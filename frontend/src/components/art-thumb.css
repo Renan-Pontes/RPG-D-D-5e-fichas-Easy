@@ -1,0 +1,96 @@
+/* Moldura dourada das ilustrações (ArtThumb / ArtIcon). */
+.art-thumb {
+  --art-size: 40px;
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: var(--art-size);
+  height: var(--art-size);
+  border-radius: var(--radius-sm, 6px);
+  overflow: hidden;
+  border: 1px solid var(--gold-deep, #8a6a2b);
+  background:
+    radial-gradient(circle at 50% 35%, rgba(237, 203, 122, 0.16), transparent 65%),
+    var(--bg-deep, #120e0a);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45) inset, 0 1px 4px rgba(0, 0, 0, 0.35);
+  vertical-align: middle;
+}
+.art-thumb::after {
+  /* filete dourado interno */
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  border: 1px solid rgba(237, 203, 122, 0.22);
+  pointer-events: none;
+}
+.art-thumb.is-round { border-radius: 50%; }
+.art-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.art-thumb.is-empty { border-style: dashed; border-color: rgba(214, 176, 100, 0.55); }
+.art-thumb-emoji {
+  font-size: calc(var(--art-size) * 0.48);
+  line-height: 1;
+  filter: grayscale(0.35) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+  opacity: 0.85;
+}
+.art-thumb.is-empty:has(.art-thumb-soon) { align-content: center; gap: 4px; padding: 6px; }
+.art-thumb.is-empty:has(.art-thumb-soon) .art-thumb-emoji { font-size: calc(var(--art-size) * 0.32); }
+.art-thumb-soon {
+  font-family: var(--serif, Georgia, serif);
+  font-style: italic;
+  font-size: clamp(9px, calc(var(--art-size) * 0.11), 13px);
+  line-height: 1.15;
+  text-align: center;
+  color: var(--gold, #d6b064);
+  opacity: 0.8;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.art-icon { display: inline-block; vertical-align: middle; flex: 0 0 auto; }
+img.art-icon { border-radius: 4px; object-fit: cover; }
+.art-icon-emoji {
+  --art-size: 18px;
+  width: var(--art-size);
+  height: var(--art-size);
+  font-size: calc(var(--art-size) * 0.8);
+  line-height: var(--art-size);
+  text-align: center;
+}
+
+/* Linha com miniatura + texto (pickers, inventário, ataques). */
+.art-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.art-row > .art-row-text { flex: 1 1 auto; min-width: 0; }
+
+/* Detalhe de item: imagem maior + texto com parágrafos/tabelas preservados. */
+.item-detail { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 8px; }
+.item-detail-text { flex: 1 1 auto; min-width: 0; }
+.item-desc { white-space: pre-line; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .item-detail { flex-direction: column; align-items: center; }
+  .item-detail-text { width: 100%; }
+}
+
+/* Ficha: emblema da escola na linha da magia e miniatura no inventário/ataques. */
+.spell-row-header { display: flex; align-items: center; gap: 10px; }
+.school-badge { --art-size: 30px; }
+.inv-row-body .item-desc { max-height: 50vh; overflow-y: auto; }
+.inv-row-head .art-thumb { margin: -2px 0; }
+.attack-name { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.attack-name > div { min-width: 0; }
+
+/* Chips de condição com ícone. */
+.cond-chip .art-icon, .cc-cond .art-icon, .tv-condition .art-icon { margin-right: 4px; }
+.spell-title-art { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.spell-title-art > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+
+/* Telão: retrato dos monstros. */
+.tv-foe .tv-foe-portrait { --art-size: 52px; }
+.tv-foe-down .tv-foe-portrait { filter: grayscale(1); }
+img.tv-cond-icon { border-radius: 4px; }

@@ -277,7 +277,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
         <AreaNav areas={areas} active={nav.area} onSelect={(a) => goTo(a)} onSearch={() => setSearch(true)} lang={lang} badges={badges} showKeys={isDM} />
 
         <div className="shell-panel" id="shell-panel" role="tabpanel" aria-labelledby={`area-tab-${nav.area}`}>
-          {isDM && nav.area === 'world' && onboardingVisible(obStatus) && (
+          {isDM && nav.area === 'world' && campaign.status !== 'closed' && onboardingVisible(obStatus) && (
             <Onboarding
               lang={lang} status={obStatus}
               onAction={onOnboardingAction}

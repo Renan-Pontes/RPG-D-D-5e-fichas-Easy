@@ -8,6 +8,8 @@ import {
   deleteEntry, deleteEntryImage, getEntry, isConflict, putEntryImage, updateEntry, worldErrorText,
 } from './world-api.js';
 import { compressForEntry } from './image.js';
+import { showPlanLimit } from '../plans/plans-api.js';
+import { limitShortText, planLimitFrom } from '../plans/plans-logic.js';
 import {
   HANDOUT_STYLES, KINDS, KIND_META, PLACE_TYPES, RARITIES, allTags, backlinks, childrenOf, freshId, handoutStyleLabel,
   kindIcon, kindLabel, placeTypeLabel, rarityLabel, relLabel, t,
@@ -120,7 +122,10 @@ export default function EntryEditor({
       setLocal(next);
       onSaved?.(next);
     } catch (e) {
-      setError(worldErrorText(e, lang));
+      // Espaço de imagens cheio: abre o aviso do plano (nada é apagado).
+      const lim = planLimitFrom(e);
+      if (lim) showPlanLimit(e);
+      setError(lim ? limitShortText(lim, lang) : worldErrorText(e, lang));
     } finally {
       setImgBusy(false);
     }

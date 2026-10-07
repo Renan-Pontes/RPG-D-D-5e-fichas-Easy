@@ -24,14 +24,19 @@ import { ClassOptionsModal } from './src/progression/ClassOptionsPicker.jsx';
 import InviteChoice from './src/campaigns/InviteChoice.jsx';
 import { parseJoinRoute, savePendingInvite, loadPendingInvite, joinToast, joinFailMessage } from './src/creator/creation.js';
 import { parseCampaignRoute } from './src/shell/shell-logic.js';
+import LimitDialogHost from './src/plans/LimitDialog.jsx';
+import { onOpenMyPlan, plansApi, showPlanLimit } from './src/plans/plans-api.js';
+import { planLimitFrom, sponsoredFrom, sponsoredText } from './src/plans/plans-logic.js';
 
 const AdminScreen = lazy(() => import('./src/admin/AdminScreen.jsx'));
 // Grimório (regras para jogadores): chunk próprio, só carrega quando aberto.
 const GrimoireScreen = lazy(() => import('./src/grimoire/GrimoireScreen.jsx'));
+// Meu plano (uso, planos e extras): só carrega quando aberto.
+const MyPlan = lazy(() => import('./src/plans/MyPlan.jsx'));
 
 const SCREENS = {
   HOME: 'home', CREATE: 'create', SHEET: 'sheet', EDIT: 'edit',
-  AUTH: 'auth', CAMPAIGNS: 'campaigns', CAMPAIGN: 'campaign', GRIMOIRE: 'grimoire', ADMIN: 'admin',
+  AUTH: 'auth', CAMPAIGNS: 'campaigns', CAMPAIGN: 'campaign', GRIMOIRE: 'grimoire', ADMIN: 'admin', PLAN: 'plan',
 };
 
 const App = () => {
@@ -98,6 +103,14 @@ const App = () => {
 
   useEffect(() => { localStorage.setItem('dnd5e-forge:lang', lang); }, [lang]);
 
+  // "Ver meu plano" (aviso de limite, menu da conta) de qualquer lugar.
+  const planFrom = useRef(SCREENS.HOME);
+  useEffect(() => onOpenMyPlan(() => {
+    if (screenRef.current !== SCREENS.PLAN) planFrom.current = screenRef.current;
+    setUserMenuOpen(false);
+    setScreen(SCREENS.PLAN);
+  }), []);
+
   // Carregar personagens (local ou remoto)
   const refreshCharacters = useCallback(async () => {
     if (auth.loading) return;
@@ -128,7 +141,7 @@ const App = () => {
     const importShared = (data) => {
       if (!data || !data.name) return;
       const fresh = { ...data, id: Utils.uid(), updatedAt: Date.now() };
-      return storage.save(fresh).then(saved => {
+      return storage.save(fresh).catch(e => { showPlanLimit(e); throw e; }).then(saved => {
         refreshCharacters();
         setActiveId(saved.id);
         setScreen(SCREENS.SHEET);
@@ -192,13 +205,39 @@ const App = () => {
       await refreshCharacters();
       setActiveCampaignId(res.slug || join.slug || res.campaignId || join.campaignId);
       setScreen(SCREENS.CAMPAIGN);
-      setToast(joinToast(charName, join.name, lang));
+      const seat = sponsoredFrom(res, join.dmName);
+      setToast(seat != null ? `${joinToast(charName, join.name, lang)} ${sponsoredText(seat, lang)}` : joinToast(charName, join.name, lang));
       return true;
     } catch (e) {
       console.warn('join after create failed', e);
+      showPlanLimit(e, { dmName: join.dmName, campaignName: join.name });
       setJoinRetry({ join, characterId, charName, msg: joinFailMessage(e, join) });
       return false;
     }
+  };
+
+  // Cria a ficha pela mesa (POST /api/characters com inviteCode): usa vaga do mestre.
+  const createAtTable = async (char, join) => {
+    const { id, createdAt, updatedAt, inCampaign, campaignLeveling, ...data } = char;
+    try { if (char.className) data.armorClass = Utils.computeAc(char); } catch { /* ficha incompleta */ }
+    let res;
+    try {
+      res = await plansApi.createCharacterAtTable({ name: char.name || 'Sem nome', data }, join.code);
+    } catch (e) {
+      showPlanLimit(e, { dmName: join.dmName, campaignName: join.name });
+      throw e;
+    }
+    const c = res.character || res;
+    const j = res.join || res;
+    await refreshCharacters();
+    setActiveId(c.id);
+    setEditingChar(null);
+    setInviteJoin(null);
+    setJoinRetry(null);
+    setActiveCampaignId(j.slug || join.slug || j.campaignId || join.campaignId);
+    setScreen(SCREENS.CAMPAIGN);
+    const seat = sponsoredFrom(j, join.dmName);
+    setToast(`${joinToast(c.name || char.name, join.name, lang)} ${sponsoredText(seat ?? join.dmName ?? '', lang)}`);
   };
 
   const retryJoin = async () => {
@@ -211,7 +250,19 @@ const App = () => {
   // join: mesa escolhida no assistente (opcional). Os outros usos chamam só handleSaveNew(char).
   const handleSaveNew = async (char, { join = null } = {}) => {
     const withAutos = applyAutosToCharacter(char);
-    const saved = await storage.save(withAutos);
+    let saved;
+    try {
+      saved = await storage.save(withAutos);
+    } catch (e) {
+      // No limite de personagens, mas com código de mesa: cria já dentro da mesa,
+      // ocupando uma vaga do mestre (o servidor decide se há vaga).
+      if (join && auth.user && planLimitFrom(e)?.limit === 'characters') {
+        await createAtTable(withAutos, join);
+        return;
+      }
+      showPlanLimit(e);
+      throw e;
+    }
     await refreshCharacters();
     setActiveId(saved.id);
     setEditingChar(null);
@@ -247,7 +298,7 @@ const App = () => {
       } catch { avatar = ''; }
     }
     const char = { ...pregen.character, avatar, id: Utils.uid(), createdAt: Date.now(), updatedAt: Date.now() };
-    await handleSaveNew(char);
+    try { await handleSaveNew(char); } catch (e) { if (!planLimitFrom(e)) setToast(errorMessage(e, lang)); }
   };
 
   const handleUpdate = async (char) => {
@@ -291,7 +342,10 @@ const App = () => {
     let imported = 0;
     for (const c of arr) {
       const fresh = { ...c, id: undefined, updatedAt: Date.now() };
-      try { await storage.save(fresh); imported++; } catch (e) { console.warn(e); }
+      try { await storage.save(fresh); imported++; } catch (e) {
+        console.warn(e);
+        if (showPlanLimit(e)) break; // no limite: as próximas também falhariam
+      }
     }
     await refreshCharacters();
     setToast(lang === 'pt' ? `${imported} de ${arr.length} fichas importadas.` : `${imported} of ${arr.length} characters imported.`);
@@ -327,7 +381,7 @@ const App = () => {
           : 'This PDF is blank: fill in the sheet in your PDF reader, save it and import again.');
         return;
       }
-      await storage.save(applyAutosToCharacter(char));
+      try { await storage.save(applyAutosToCharacter(char)); } catch (e) { if (showPlanLimit(e)) return; throw e; }
       await refreshCharacters();
       setToast(lang === 'pt'
         ? `Ficha importada${unmatched.length ? ` — ${unmatched.length} item(ns) não reconhecido(s), veja as anotações.` : '.'}`
@@ -538,6 +592,15 @@ const App = () => {
         ? <Suspense fallback={<p className="muted">…</p>}><AdminScreen lang={lang} onBack={() => setScreen(SCREENS.HOME)} /></Suspense>
         : <p className="muted">{lang === 'pt' ? 'Acesso só para administradores.' : 'Admins only.'}</p>;
       break;
+    case SCREENS.PLAN:
+      content = auth.user
+        ? (
+          <Suspense fallback={<p className="muted" style={{ padding: 24 }}>{lang === 'pt' ? 'Abrindo seu plano…' : 'Opening your plan…'}</p>}>
+            <MyPlan lang={lang} onBack={() => setScreen(planFrom.current && planFrom.current !== SCREENS.PLAN ? planFrom.current : SCREENS.HOME)} />
+          </Suspense>
+        )
+        : <p className="muted">{lang === 'pt' ? 'Entre na sua conta para ver seu plano.' : 'Log in to see your plan.'}</p>;
+      break;
     case SCREENS.CAMPAIGNS:
       content = (
         <CampaignList
@@ -585,6 +648,7 @@ const App = () => {
           lang={lang}
           initialJoin={inviteJoin}
           joinEnabled={!!auth.user && auth.backendAvailable !== false}
+          planCheck={!!auth.user && auth.backendAvailable !== false}
           onSave={handleSaveNew}
           onCancel={() => { setInviteJoin(null); setScreen(activeId ? SCREENS.SHEET : SCREENS.HOME); }}
         />
@@ -675,6 +739,7 @@ const App = () => {
           open={userMenuOpen}
           setOpen={setUserMenuOpen}
           onLogout={async () => { await auth.logout(); setUserMenuOpen(false); setScreen(SCREENS.HOME); }}
+          onPlan={() => { if (screen !== SCREENS.PLAN) planFrom.current = screen; setUserMenuOpen(false); setScreen(SCREENS.PLAN); }}
           lang={lang}
         />
       ) : (
@@ -735,6 +800,7 @@ const App = () => {
         />
       )}
       <DiceRoller lang={lang} />
+      <LimitDialogHost lang={lang} />
       {toast && <Toast msg={toast} onDone={() => setToast('')} />}
       {confirm && (
         <Modal onClose={() => setConfirm(null)}>
@@ -749,7 +815,7 @@ const App = () => {
   );
 };
 
-function UserChip({ user, open, setOpen, onLogout, lang }) {
+function UserChip({ user, open, setOpen, onLogout, onPlan, lang }) {
   const initials = (user.displayName || user.email || '?').slice(0, 1).toUpperCase();
   return (
     <div style={{ position: 'relative' }}>
@@ -760,6 +826,10 @@ function UserChip({ user, open, setOpen, onLogout, lang }) {
       {open && (
         <div className="user-chip-menu" onClick={e => e.stopPropagation()}>
           <div style={{ padding: '6px 10px', fontSize: '0.85em', color: 'var(--ink-secondary)' }}>{user.email}</div>
+          <button className="menu-item pl-menu-plan" onClick={onPlan}>
+            <span>{lang === 'pt' ? 'Meu plano' : 'My plan'}</span>
+            <span className="pl-menu-badge" aria-hidden="true">✦</span>
+          </button>
           <button className="menu-item danger" onClick={onLogout}>
             {lang === 'pt' ? 'Sair' : 'Log out'}
           </button>

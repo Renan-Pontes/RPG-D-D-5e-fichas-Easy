@@ -111,6 +111,10 @@ def dice_roll(request):
                      or Membership.objects.filter(campaign=campaign, user=request.user).exists())
         if not is_member:
             raise PermissionDenied('not_a_member')
+        if campaign.status == 'closed':
+            # Campanha encerrada é somente leitura: a ficha do jogador continua
+            # rolando, mas fora da campanha (sem log, sem diário, sem dado viciado).
+            campaign = None
 
     results = []
     for _ in range(count):

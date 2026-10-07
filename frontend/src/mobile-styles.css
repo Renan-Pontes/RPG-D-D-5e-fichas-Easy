@@ -347,6 +347,15 @@
     padding-left: max(var(--s-3, 12px), env(safe-area-inset-left));
     padding-right: max(var(--s-3, 12px), env(safe-area-inset-right));
   }
+  /* Abas da ficha/campanha: mesma sangria (com -12px fixo sobravam 2px de
+     rolagem lateral em 390px); o padding interno compensa, o visual não muda. */
+  .tabs {
+    margin-left: calc(-1 * max(var(--s-3, 12px), env(safe-area-inset-left)));
+    margin-right: calc(-1 * max(var(--s-3, 12px), env(safe-area-inset-right)));
+    padding-left: max(var(--s-3, 12px), env(safe-area-inset-left));
+    padding-right: max(var(--s-3, 12px), env(safe-area-inset-right));
+    --tabs-pad: max(var(--s-3, 12px), env(safe-area-inset-left));
+  }
 }
 @media (max-width: 360px) {
   /* Mesmo caso das abas (ficha e campanha) */

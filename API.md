@@ -15,6 +15,8 @@ Base URL: `https://SEU_BACKEND/api`. Em dev local, `http://localhost:4000/api`.
   - `invalid` ou `invalid_input` (400)
   - `rate_limited` (429): inclui `retryAfter` (segundos).
   - `conflict` (409): ex: email já cadastrado (`email_taken`).
+  - `plan_limit` (**402**): o plano da conta não deixa criar mais daquele tipo. Ver [Planos](#planos).
+  - `campaign_closed` (**423**): escrita numa campanha encerrada (somente leitura). Ver [Planos](#planos).
 - **Rate limit**:
   - `POST /auth/login` — 10/10min por IP. Reseta após sucesso.
   - `POST /auth/signup` — 5/10min por IP.
@@ -58,16 +60,19 @@ Lista personagens do usuário. **200** `{ characters: [...] }`.
 
 ### `POST /characters`
 ```json
-{ "name": "Thalion", "data": { ...ficha completa em JSON... } }
+{ "name": "Thalion", "data": { ...ficha completa em JSON... }, "inviteCode"?: "ABC123" }
 ```
-**200** `{ character }`.
+**200** `{ character }`. Com `inviteCode`, cria **e já entra** na mesa: `{ character, join: { membership, campaignId, slug, sponsored, dmName? } }`.
+**402 plan_limit** `limit:'characters'` se o jogador está no limite e (com código) a mesa não tem vaga livre — vem `slots: {used, max}`. Retrato (`data.avatar` data URL) conta no espaço de imagens (`limit:'images'`); arte do site (`/art/...`) não. **404 invite_invalid**, **423 campaign_closed**.
+
+`character.tableSlot`: `null` ou `{campaignId, campaignName, dmName, status, purgeAt}` quando a ficha ocupa uma vaga da mesa de um mestre ("Este personagem usa uma vaga da mesa de <dmName>").
 
 ### `GET /characters/:id`
 **200** `{ character }`. Dono ou DM da campanha em que está atribuído podem ler.
 **403 forbidden** caso contrário.
 
 ### `PUT /characters/:id`
-Body igual ao POST. Só o dono.
+Body igual ao POST. Só o dono. Trocar o retrato por um maior checa o espaço de imagens (402 `images`); igual/menor ou sem retrato sempre pode.
 
 ### `DELETE /characters/:id`
 Só o dono.
@@ -108,8 +113,16 @@ Lista todas as campanhas onde o user é DM ou jogador. Itens trazem `role: 'dm' 
 
 `dm_settings` aceitos no PUT/PATCH (só o mestre): `onboarding`, `advancedDice`, `immersion` (bool, "Mundo vivo", padrão `true`) e `fogHint` (bool, padrão `false`: deixa o jogador ter uma noção *aproximada* do que ainda não conhece). O GET devolve `immersion` para todos (o jogador precisa saber se mostra os ecos) e `fogHint` só ao mestre.
 
-### `DELETE /campaigns/:id` (DM)
-Apaga a campanha e tudo o que é dela (CASCADE): mundo, imagens, ecos, aventuras, diário/Crônica, combate, itens, pedidos de teste/rolagem, dados viciados e as memberships. **As fichas dos jogadores NÃO são apagadas** — só saem da mesa (`Membership.character` é SET_NULL). Jogador = 403. → `{ok: true}`.
+### `DELETE /campaigns/:id` (DM) — ENCERRA (alias: `POST /campaigns/:id/close`)
+Não apaga mais na hora: `status:'closed'`, `closed_at`. Durante 30 dias a campanha fica **somente leitura para todos** (toda escrita → **423** `{error:'campaign_closed', campaignId, closedAt, purgeAt}`; leitura normal), para todo mundo baixar as fichas. Encerrar de novo é idempotente (não reinicia o prazo). Jogador = 403.
+→ `{ok: true, campaign: {id, status:'closed', closedAt, purgeAt}}`.
+
+Depois de `purgeAt` a campanha é **apagada de vez** (mundo, imagens, ecos, aventuras, diário, combate, itens, pedidos, dados viciados, memberships). Fichas normais só saem da mesa. Fichas em **vaga de mesa** (`sponsored`) — opção A: ficam com o jogador se couberem no plano dele; senão são apagadas. Purga preguiçosa: ao listar campanhas/personagens, no login e `python manage.py purge_closed_campaigns [--dry-run]` (roda no deploy).
+
+### `POST /campaigns/:id/reopen` (DM)
+Volta a ativa. Sempre permitido: encerradas já contam no limite de campanhas, então reabrir não muda o uso (quem desceu de plano não fica preso). → mesmo corpo do encerrar, com `status:'active'`.
+
+Campos novos da campanha (GET/lista): `status: 'active'|'closed'`, `closedAt`, `purgeAt` (null se ativa). Mestre recebe `tableSlots: {used, max}`. Cada membro traz `sponsored` (ocupa vaga da mesa).
 
 ### `POST /campaigns/:id/leave` (jogador)
 Sai da campanha (atalho de `DELETE /members/<a própria>`). A ficha continua do jogador; reações/leituras do Mundo e dados viciados que miravam o jogador nesta mesa somem. Mestre = **400** `dm_cannot_leave` (ele apaga a campanha). Não-membro = 403.
@@ -118,13 +131,15 @@ Sai da campanha (atalho de `DELETE /members/<a própria>`). A ficha continua do 
 ```json
 { "inviteCode": "ABC123", "characterId"?: 5 }
 ```
-**200** `{ membership, campaignId, slug }`. **404 invite_invalid**.
+**200** `{ membership: {id, sponsored}, campaignId, slug, sponsored, dmName? }`. **404 invite_invalid**. **423 campaign_closed**.
+Se o jogador já está no limite de personagens do próprio plano e a mesa tem vaga livre, a ficha entra **ocupando uma vaga do mestre** (`sponsored: true`, `dmName` para a mensagem "Este personagem usa uma vaga da mesa de <Mestre>") e deixa de contar no limite do jogador enquanto a campanha existir. Entrar com uma ficha que já existe nunca é bloqueado.
 
 ### `GET /campaigns/invite/:code` (logado)
 Prévia da mesa antes de entrar (ex.: "Tem um código de sala?" na criação de personagem). Código sem diferenciar maiúsculas.
 ```json
 { "campaignId": 3, "slug": "mesa", "name": "Mesa", "tagline": "…", "accent": "#c9a24a", "dmName": "Mestre",
   "members": 4, "levelingMode": "milestone" | "xp", "allowMulticlass": true, "alreadyMember": false,
+  "status": "active" | "closed", "slots": { "used": 1, "max": 6 },
   "coverUrl"?: "/api/campaigns/invite/ABC234/cover?v=<coverVer>" }
 ```
 `members` = jogadores (sem o mestre). `coverUrl` só se houver capa. **404 invite_invalid**. **429 rate_limited** acima de 30 consultas/min por usuário (contra força bruta). Nada de estado, nomes de membros ou tokens.
@@ -447,3 +462,53 @@ Limites: 30 cenas, 30 pistas, 60 ids por lista, ~60 KB no total. Marcar `discove
 ## Padrão de polling
 
 O frontend usa polling de 2.5s para atualizar telão, campanha e aprovações (PythonAnywhere free não suporta WebSocket). Pausa quando a aba está oculta (`document.hidden`). Para migrar para WebSocket: instalar `channels` + Redis no backend e substituir `usePolling` por listener real-time.
+
+
+---
+
+## Planos
+
+Modelo e motivos em `DECISIONS.md › Planos`; lógica em `backend/api/plans.py`. Limites valem para o **total da conta**. Conta sem plano (ou vencido) = **Grátis**.
+
+### `GET /plans` (público)
+`{ plans: [{slug, name:{pt,en}, priceCents, characters, campaigns, slotsPerCampaign, storageMb, order}], addons: [{slug, name, kind, amount, priceCents}], cardsPerCampaign: 2000, closedGraceDays: 30, contact: {email, mailto}, paymentsEnabled: false }`
+
+### `GET /me/plan`
+```json
+{ "plan": {...}, "addons": [{"slug": "storage", "quantity": 2, ...}], "validUntil": null, "expired": false,
+  "source": "free" | "admin" | "payment",
+  "limits": { "characters": 3, "campaigns": 1, "slotsPerCampaign": 0, "storageMb": 25, "storageBytes": 26214400, "cardsPerCampaign": 2000 },
+  "usage": { "characters": 2, "sponsoredCharacters": 1, "campaigns": 1, "activeCampaigns": 1, "closedCampaigns": 0,
+             "storageBytes": 123456,
+             "storage": { "world": 0, "covers": 0, "avatars": 0, "combatMaps": 0, "adventureMaps": 0 },
+             "byCampaign": [{ "id", "name", "slug", "status", "closedAt", "purgeAt", "imageBytes", "cards", "slots": {"used", "max"} }] },
+  "contact": { "email": "", "mailto": "" }, "paymentsEnabled": false }
+```
+`usage.characters` não conta fichas em vaga de mesa. Imagens = tamanho real das data URLs guardadas (Mundo, capas, retratos próprios, mapas de combate e de aventura); arte do site (`/art`, mapa do mundo de exemplo) não conta.
+
+### `POST /me/plan/checkout`
+`{ plan?: slug, addon?: slug, quantity?: 1..100 }` → hoje **200** `{ available: false, reason: 'payments_coming_soon', contact }` ("Pagamento em breve — fale com a gente"). Ponto de integração do Mercado Pago: `plans.start_checkout()` (criar cobrança) e `plans.apply_payment()` (webhook confirmado). E-mail de contato: variável `FORJA_CONTACT_EMAIL` (settings ou ambiente).
+
+### `GET | PATCH /admin/users/:id/plan` (is_staff)
+GET = corpo de `/me/plan` da conta + `{userId, email}`. PATCH `{ plan?: slug, addons?: {slug: qtd}, validUntil?: "2030-01-31" | ISO | null, note?: "..." }` — campos ausentes ficam como estão; `addons` substitui o mapa inteiro. **400** `unknown_plan` / `unknown_addon` / `invalid_addons` / `invalid_validUntil`. Também editável no Django admin (`Plan`, `AddOn`, `UserPlan`).
+
+### Erro `plan_limit` (402)
+```json
+{ "error": "plan_limit", "limit": "images" | "campaigns" | "characters" | "slots" | "cards",
+  "used": 3, "max": 3, "plan": "free",
+  "next": { "plan": { "slug": "player", "name": {...}, "priceCents": 490, "value": 30, ... } | null,
+            "addon": { "slug": "characters", "amount": 20, "priceCents": 190, "needed": 1, ... } | null,
+            "contact": { "email", "mailto" } } | null }
+```
+`next` considera o uso atual: `plan` é o menor plano acima do atual cujo limite (somando os extras que a conta já tem) passa de `used` (null se nenhum resolve); `addon.needed` = quantos pacotes do extra seriam precisos. `images` traz também `needed` (bytes a mais). `characters` com código de mesa traz `slots`. `cards` (teto técnico de 2.000 cartões por campanha) vem com `next: null`. Estourar limite **nunca apaga nada**: quem já está acima (ex.: rebaixado) mantém tudo e só não cria mais daquele tipo; trocar uma imagem por outra menor ou apagar sempre pode.
+
+| Onde | Limite |
+|---|---|
+| `POST /characters` | `characters` (vaga de mesa com `inviteCode`), `images` (retrato) |
+| `PUT /characters/:id` | `images` (retrato) |
+| `POST /campaigns` | `campaigns` |
+| `PUT /campaigns/:id/cover`, `PUT /world/:pk/image`, `POST /combat/campaign/:id/map`, `POST/PATCH /campaigns/:id/adventures[/:pk]` (imagens das salas) | `images` (do mestre) |
+| `POST /campaigns/:id/world` | `cards` |
+
+### Erro `campaign_closed` (423)
+Qualquer POST/PUT/PATCH/DELETE nas rotas da campanha encerrada (inclui `world/:pk/*`, `approvals/:pk/*`, `checks/:pk/*`, `rolls/:pk/*`, `dice/rigs/:pk`, `characters/:pk/dm-edit`, entrar/sair). Livres: `DELETE /campaigns/:id` e `/close` (idempotentes), `/reopen`, `world/seen` e `world/:pk/view`. Quem não é da mesa continua recebendo 403. A ficha do jogador (`/characters/:id`, rest/cast/inventário) continua dele e editável. `POST /dice/roll` com `campaignId` de campanha encerrada rola normalmente, mas fora da campanha (sem log, diário nem dado viciado).

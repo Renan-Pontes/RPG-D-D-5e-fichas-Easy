@@ -750,9 +750,18 @@
 @media (max-width: 720px) {
   /* a regra de 2 colunas vem depois da media query antiga e a anulava */
   .tv-combat-main { grid-template-columns: 1fr; }
+  /* a base (.tv-combat-side column) vem depois da regra antiga de 720px:
+     sobrava column + wrap, que quebrava em colunas para a direita */
+  .tv-combat-side { flex-direction: column; flex-wrap: nowrap; }
 }
 @media (max-width: 600px) {
-  .tv-combat-side > .tv-combat-hp-card { flex: 1 1 100%; min-width: 0; }
+  /* cada bloco da coluna lateral ocupa a linha toda e pode encolher
+     (inimigos e cartão vazavam: scrollWidth 563+ em 390px) */
+  .tv-combat-side > * { flex: 0 0 auto; min-width: 0; max-width: 100%; }
+  .tv-foe { padding: 6px 10px; }
+  .tv-foe-name { flex: 1 1 8em; overflow-wrap: anywhere; font-size: 1rem; }
+  .tv-foe-band { white-space: nowrap; }
+  .tv-combat-name, .tv-mini-title { overflow-wrap: anywhere; }
 }
 
 /* ========================================================================

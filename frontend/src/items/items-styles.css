@@ -23,3 +23,12 @@
 .ci-edit { padding: 16px; background: var(--bg-raised); border: 1px solid var(--stroke); border-radius: var(--radius-lg); max-width: 720px; }
 .ci-edit h3 { margin-top: 0; }
 @media (max-width: 640px) { .ci-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Seletor de itens: miniaturas, "mostrar mais" e detalhe do escolhido. */
+.monster-row.art-row { display: flex; }
+.ip-more { align-self: center; margin: 8px 0; }
+.ip-detail {
+  margin-top: 10px; padding: 10px; border: 1px solid var(--gold-deep); border-radius: var(--radius);
+  background: linear-gradient(160deg, var(--gold-soft), var(--bg-card) 60%);
+}
+.ip-desc { max-height: 28vh; overflow-y: auto; margin-top: 4px; }

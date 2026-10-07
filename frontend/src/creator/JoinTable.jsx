@@ -4,12 +4,15 @@ import { api, API_BASE } from '../api/client.js';
 import { L } from './ui.jsx';
 import { normalizeInviteCode, joinFromInvite, joinPatch, creationJoin, inviteCheckMessage } from './creation.js';
 import './join-table.css';
+import useMyPlan from '../plans/useMyPlan.js';
+import { inviteSeatsFree, seatNoticeText } from '../plans/plans-logic.js';
+import '../plans/plans.css';
 
 const isHex = (c) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c);
 const memberCount = (m) => (Array.isArray(m) ? m.length : Number.isFinite(m) ? m : null);
 
 /** Cartão da mesa (nome, frase, mestre, progressão). `children` = ações. */
-export function TableInviteCard({ table, lang, children, confirmed = false }) {
+export function TableInviteCard({ table, lang, children, confirmed = false, notice = '' }) {
   if (!table) return null;
   const n = memberCount(table.members);
   return (
@@ -33,6 +36,7 @@ export function TableInviteCard({ table, lang, children, confirmed = false }) {
           'Você já participa desta mesa: este personagem passa a ser o seu nela.',
           'You are already in this table: this character becomes yours there.')}</p>
       )}
+      {notice && <p className="pl-sponsored-note" role="note">🪑 {notice}</p>}
       {children && <div className="join-card-actions">{children}</div>}
     </div>
   );
@@ -49,6 +53,9 @@ export function JoinTableBlock({ char, set, lang, joinEnabled = true }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [found, setFound] = useState(null); // mesa verificada, ainda não confirmada
+  const [seatsFree, setSeatsFree] = useState(null);
+  // No limite de personagens? Então a ficha entra usando uma vaga da mesa.
+  const my = useMyPlan(joinEnabled);
 
   const verify = async (e) => {
     e?.preventDefault?.();
@@ -60,6 +67,7 @@ export function JoinTableBlock({ char, set, lang, joinEnabled = true }) {
       const j = joinFromInvite(c, res);
       if (!j) throw Object.assign(new Error('invite_invalid'), { status: 404 });
       setFound(j);
+      setSeatsFree(inviteSeatsFree(res));
     } catch (err) {
       setError(inviteCheckMessage(err));
     } finally {
@@ -73,7 +81,7 @@ export function JoinTableBlock({ char, set, lang, joinEnabled = true }) {
   if (join) {
     return (
       <div className="join-block">
-        <TableInviteCard table={join} lang={lang} confirmed>
+        <TableInviteCard table={join} lang={lang} confirmed notice={seatNoticeText(my, join.dmName, lang, seatsFree)}>
           <button type="button" className="btn btn-ghost btn-sm" onClick={remove}>{L(lang, 'Trocar ou tirar a mesa', 'Change or remove table')}</button>
         </TableInviteCard>
       </div>
@@ -114,7 +122,7 @@ export function JoinTableBlock({ char, set, lang, joinEnabled = true }) {
           )}
           {error && <div className="join-error" role="alert">{error[lang] || error.pt}</div>}
           {found && (
-            <TableInviteCard table={found} lang={lang}>
+            <TableInviteCard table={found} lang={lang} notice={seatNoticeText(my, found.dmName, lang, seatsFree)}>
               <button type="button" className="btn btn-primary" onClick={confirm}>{L(lang, 'É essa! Entrar nesta mesa', "That's it! Join this table")}</button>
               <button type="button" className="btn btn-ghost" onClick={() => setFound(null)}>{L(lang, 'Não é essa', 'Not this one')}</button>
             </TableInviteCard>

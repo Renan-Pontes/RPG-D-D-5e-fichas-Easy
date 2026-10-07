@@ -6,6 +6,7 @@
 //
 // Outros pacotes importam daqui — mantenha os nomes estáveis.
 import { request, API_BASE } from '../api/client.js';
+import { errorText as appErrorText } from '../api/errors.js';
 
 const cid = (id) => encodeURIComponent(id);
 
@@ -169,6 +170,9 @@ export function worldErrorText(e, lang = 'pt', fallback) {
   const code = e?.data?.error || e?.message;
   const pair = WORLD_ERRORS[code];
   if (pair) return lang === 'pt' ? pair[0] : pair[1];
+  // Códigos gerais (campanha encerrada, limite do plano…) usam o texto do app.
+  const shared = appErrorText(e?.data?.error, lang === 'pt' ? 'pt' : 'en') || appErrorText(e?.data?.detail, lang === 'pt' ? 'pt' : 'en');
+  if (shared) return shared;
   if (fallback) return fallback(e, lang);
   return lang === 'pt' ? 'Algo deu errado. Tente de novo.' : 'Something went wrong. Try again.';
 }

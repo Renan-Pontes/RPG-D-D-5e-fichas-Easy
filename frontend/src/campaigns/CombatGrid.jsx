@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { api } from '../api/client.js';
 import { flash } from '../play/flash.js';
 import { labelWidths, tokenLabel } from './token-label.js';
+import { loadNameIndex, needsNameIndex, portraitFor } from '../combat/monster-portrait.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -54,18 +55,40 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
     img.src = map.background_image;
   }, [map.background_image]);
 
-  // Carrega sprites dos combatentes
+  // Índice nome → retrato (só quando algum monstro não traz o id, ex.: telão/jogador).
+  const [nameIndex, setNameIndex] = useState(null);
+  const wantsIndex = needsNameIndex(combat?.combatants);
+  useEffect(() => {
+    if (!wantsIndex || nameIndex) return undefined;
+    let alive = true;
+    loadNameIndex().then(ix => { if (alive) setNameIndex(ix); });
+    return () => { alive = false; };
+  }, [wantsIndex, nameIndex]);
+
+  // Carrega sprites dos combatentes; monstro sem PNG próprio usa o retrato do bestiário.
+  // Imagens ficam em cache por URL (o poll não recarrega tudo de novo).
+  const imgCache = useRef(new Map());
   useEffect(() => {
     const next = {};
     (combat?.combatants || []).forEach(c => {
-      if (c.sprite) {
-        const img = new Image();
-        img.src = c.sprite;
-        next[c.id] = img;
+      const src = c.sprite || portraitFor(c, nameIndex);
+      if (!src) return;
+      let img = imgCache.current.get(src);
+      if (!img) {
+        img = new Image();
+        img.decoding = 'async';
+        img.src = src;
+        if (imgCache.current.size > 200) imgCache.current.clear();
+        imgCache.current.set(src, img);
       }
+      if (!img.complete) {
+        img.addEventListener('load', () => setTokenImages(cur => ({ ...cur })), { once: true });
+      }
+      next[c.id] = img;
     });
     setTokenImages(next);
-  }, [combat]);
+    return undefined;
+  }, [combat, nameIndex]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -135,7 +158,10 @@ export default function CombatGrid({ combat, campaignId, lang, onChange, selecte
         ctx.beginPath();
         ctx.arc(x, y, size / 2, 0, Math.PI * 2);
         ctx.clip();
-        ctx.drawImage(img, x - size / 2, y - size / 2, size, size);
+        if (c.defeated) ctx.globalAlpha = 0.45;
+        // Retrato retangular: recorta o centro (cover) para não achatar.
+        const iw = img.naturalWidth, ih = img.naturalHeight, side = Math.min(iw, ih);
+        ctx.drawImage(img, (iw - side) / 2, (ih - side) / 2, side, side, x - size / 2, y - size / 2, size, size);
         ctx.restore();
       } else {
         // Círculo colorido com inicial

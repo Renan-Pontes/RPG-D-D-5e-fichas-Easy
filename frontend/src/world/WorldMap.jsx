@@ -13,7 +13,7 @@ import { EntryPicker } from './LinksField.jsx';
 const MIN_Z = 1;
 const MAX_Z = 6;
 
-export default function WorldMap({ campaign, entries = [], lang = 'pt', mapId: mapIdProp, onMapChange, onOpenEntry, onEntrySaved, onEntryCreated }) {
+export default function WorldMap({ campaign, readOnly = false, entries = [], lang = 'pt', mapId: mapIdProp, onMapChange, onOpenEntry, onEntrySaved, onEntryCreated }) {
   const maps = useMemo(() => sortEntries(entries.filter(e => e.isMap)), [entries]);
   const [mapId, setMapIdState] = useState(mapIdProp || null);
   const [trail, setTrail] = useState([]); // mapas anteriores (aninhados)
@@ -81,6 +81,7 @@ export default function WorldMap({ campaign, entries = [], lang = 'pt', mapId: m
 
   // ---------------------------------------------------------------- sem mapas
   if (!maps.length && !mapId) {
+    if (readOnly) return <p className="wl-empty wl-empty-small">{t(lang, 'Esta campanha não tem mapas.', 'This campaign has no maps.')}</p>;
     return <NewMapCard campaign={campaign} lang={lang} entries={entries} onCreated={(e) => { onEntryCreated?.(e); setMapId(e.id); }} />;
   }
 

@@ -23,6 +23,8 @@ if not env.exists():
         env.chmod(0o600)
         f.write(contents)
 python = '/home/NGhetsis/.virtualenvs/forja/bin/python'
-for args in [('check',), ('migrate', '--noinput'), ('collectstatic', '--noinput'), ('backup', '--output', str(data / 'backups'))]:
+# Backup antes da purga: campanhas encerradas há 30+ dias são apagadas de vez.
+for args in [('check',), ('migrate', '--noinput'), ('collectstatic', '--noinput'),
+             ('backup', '--output', str(data / 'backups')), ('purge_closed_campaigns',)]:
     subprocess.run([python, 'manage.py', *args], cwd=backend, check=True)
 print('FORJA_READY', flush=True)

@@ -6,6 +6,7 @@ import { api } from '../api/client.js';
 import { defaultCoverArt, nextSessionNumber, screenLink, t } from './shell-logic.js';
 import { getScreen } from '../play/play-api.js';
 import { cardKind, screenNow } from '../play/screen-now.js';
+import ClosedCampaignBanner from '../plans/ClosedCampaignBanner.jsx';
 
 export default function CampaignHeader({
   campaign, lang, isDM, onBack, onStartSession, onEndSession, onSearch, onSettings, onTvOpened, onClearScreen, busy,
@@ -15,6 +16,7 @@ export default function CampaignHeader({
   const session = parseInt(st.session, 10);
   const cover = api.campaignCoverUrl(campaign) || defaultCoverArt(campaign);
   const [tvOpen, setTvOpen] = useState(false);
+  const closed = campaign.status === 'closed';
 
   return (
     <header className={`shell-header ${live ? 'is-live' : ''} ${isDM ? 'is-dm' : ''}`}>
@@ -33,6 +35,7 @@ export default function CampaignHeader({
             {Number.isFinite(session) && session > 0 && (
               <span className="shell-session">{t(lang, 'Sessão', 'Session')} {session}</span>
             )}
+            {closed && <span className="pl-tag pl-tag-closed" style={{ marginLeft: 0 }}>⌛ {t(lang, 'Encerrada', 'Closed')}</span>}
             {live && <span className="shell-live" role="status"><span className="shell-live-dot" aria-hidden="true" />{t(lang, 'Ao vivo', 'Live')}</span>}
             {st.scene && <span className="shell-scene" title={st.scene}>{st.scene}</span>}
           </div>
@@ -40,7 +43,7 @@ export default function CampaignHeader({
 
         {isDM && (
           <div className="shell-actions">
-            {live ? (
+            {closed ? null : live ? (
               <button type="button" className="btn btn-ghost btn-sm shell-act" onClick={onEndSession} disabled={busy}>
                 <span aria-hidden="true">■</span> <span className="shell-act-txt">{t(lang, 'Encerrar', 'End')}</span>
               </button>
@@ -69,6 +72,11 @@ export default function CampaignHeader({
           </div>
         )}
       </div>
+      {closed && (
+        <div className="shell-header-closed">
+          <ClosedCampaignBanner campaign={campaign} lang={lang} isDM={isDM} />
+        </div>
+      )}
     </header>
   );
 }

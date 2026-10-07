@@ -62,6 +62,8 @@ export default function WorldArea(props) {
   const immersion = campaign && 'immersion' in campaign ? immersionOn(campaign) : listImmersion;
 
   const cid = campaign?.id;
+  // Campanha encerrada: só leitura — some tudo que escreveria (o backend daria 423).
+  const closed = campaign?.status === 'closed';
   const load = useCallback(async () => {
     if (!cid) return;
     try {
@@ -186,21 +188,22 @@ export default function WorldArea(props) {
       {entries === null ? (
         <div className="wl-skeleton-grid" aria-busy="true">{[0, 1, 2, 3].map(i => <div key={i} className="wl-skeleton" />)}</div>
       ) : sub === 'atlas' ? (
-        <Atlas entries={list} lang={lang} selectedId={openId} onOpen={openEntry} onReveal={quickReveal} onShow={show}
-          onCreate={create} onImprovise={() => setImprovise(true)} onReorder={reorder}
-          onSample={list.length === 0 ? sample : null} sampleBusy={sampleBusy} count={meta.count} max={meta.max} createNonce={createNonce}
+        <Atlas entries={list} lang={lang} selectedId={openId} onOpen={openEntry}
+          onCreate={closed ? null : create} onImprovise={closed ? null : () => setImprovise(true)} onReorder={closed ? null : reorder}
+          onReveal={closed ? null : quickReveal} onShow={closed ? null : show}
+          onSample={list.length === 0 && !closed ? sample : null} sampleBusy={sampleBusy} count={meta.count} max={meta.max} createNonce={createNonce}
           top={immersion && list.length > 0 ? (
             <Suspense fallback={null}>
               <LivingWorld entries={list} lang={lang} campaignId={cid} echoes={echoes} selectedId={openId}
-                onOpen={openEntry} onCreate={create} />
+                onOpen={openEntry} onCreate={closed ? null : create} />
             </Suspense>
           ) : null} />
       ) : sub === 'map' ? (
-        <WorldMap campaign={campaign} entries={list} lang={lang} mapId={mapId} onMapChange={setMapId}
+        <WorldMap campaign={campaign} readOnly={closed} entries={list} lang={lang} mapId={mapId} onMapChange={setMapId}
           onOpenEntry={openEntry} onEntrySaved={upsert} onEntryCreated={(e) => { upsert(e); }} />
       ) : (
         <Timeline campaign={campaign} entries={list} lang={lang} onOpenEntry={openEntry} onEntrySaved={upsert} onReload={load}
-          onCreate={(f) => create({ ...f, name: t(lang, 'Novo evento', 'New event') })} />
+          onCreate={closed ? null : (f) => create({ ...f, name: t(lang, 'Novo evento', 'New event') })} />
       )}
 
       {openId && (
@@ -213,7 +216,7 @@ export default function WorldArea(props) {
         </>
       )}
 
-      {improvise && (
+      {improvise && !closed && (
         <ImproviseModal campaignId={cid} lang={lang} onClose={() => setImprovise(false)}
           onSaved={(e) => { upsert(e); setMeta(m => ({ ...m, count: m.count + 1 })); }} />
       )}

@@ -30,6 +30,7 @@ from .permissions import get_campaign_or_404, require_dm, require_member, is_dm
 from . import combat as engine
 from .diary import log_combat_start, log_combat_end, log_roll_request
 from .image_data import validate_data_url
+from . import plans as P
 
 # Fundo do mapa de combate: o canvas comprime para ≤1600 px em JPEG 0,82.
 MAX_MAP_IMAGE_CHARS = 2_000_000
@@ -1103,7 +1104,10 @@ def combat_set_map(request, id_or_slug):
         if bg in (None, ''):
             map_data['background_image'] = None
         else:
-            map_data['background_image'] = validate_data_url(bg, max_chars=MAX_MAP_IMAGE_CHARS, allow_gif=True)
+            bg = validate_data_url(bg, max_chars=MAX_MAP_IMAGE_CHARS, allow_gif=True)
+            # Mapa de combate conta no espaço de imagens do mestre (plano).
+            P.check_images(campaign.dm, P.image_bytes(bg), P.image_bytes(map_data.get('background_image')))
+            map_data['background_image'] = bg
     if 'grid_size_px' in payload:
         map_data['grid_size_px'] = max(10, min(400, _int(payload.get('grid_size_px'), 50)))
     if 'grid_visible' in payload:

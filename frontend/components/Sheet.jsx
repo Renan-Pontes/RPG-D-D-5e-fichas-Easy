@@ -20,6 +20,8 @@ import * as FS from '../src/progression/fighting-styles.js';
 import GrimoireHint from '../src/grimoire/GrimoireHint.jsx';
 import { isArmorProficient } from '../src/creator/start-data.js';
 import { trainingLines, featName, featPicksText } from '../src/sheet/sheet-text.js';
+import { itemArt, conditionIcon, CONDITION_EMOJI } from '../src/art.js';
+import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
 
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
   const [tab, setTab] = useState('play');
@@ -962,6 +964,7 @@ const ConditionsPanel = ({ char, lang, update }) => {
           const chip = (
             <button key={id} type="button" className={`cond-chip ${on ? 'on' : ''}`} onClick={() => toggle(id)}
               title={on ? (pt ? 'Toque para remover' : 'Tap to remove') : ''}>
+              <ArtIcon src={conditionIcon(id)} emoji={CONDITION_EMOJI[id]} size={16} />
               {tName('condition', id, lang)}{on && !open ? ' ✕' : ''}
             </button>
           );
@@ -1266,6 +1269,8 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             const bonusText = FS.partsLabel([...fs.attackParts.map(p => ({ ...p, label: { pt: `${p.label.pt} (ataque)`, en: `${p.label.en} (attack)` } })), ...fs.damageParts], lang);
             return (
               <div key={i} className="slot-row" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
+                <div className="attack-name">
+                <ArtThumb src={itemArt(w)} emoji="⚔️" size={40} lang={lang} />
                 <div>
                   <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)' }}>{w.name}</div>
                   <div className="text-xs muted">{a.damage} {a.dmgType ? Utils.damageLabel(a.dmgType, lang) : ''}</div>
@@ -1278,6 +1283,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
                     </div>
                   )}
                   {fs.notes.map((n, k) => <div key={k} className="text-xs muted">{n[lang]}</div>)}
+                </div>
                 </div>
                 <button className="btn btn-sm" onClick={() => roll({ die: 20, mod: atk, label: w.name + ' ' + t('attackRoll', lang) })}>
                   {Utils.fmtMod(atk)}
@@ -1299,6 +1305,8 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             const m = String(u.dice || '').match(/(\d+)d(\d+)/);
             return (
               <div className="slot-row" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
+                <div className="attack-name">
+                <ArtThumb src={null} emoji="👊" size={40} lang={lang} title={name} />
                 <div>
                   <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)' }}>{name}</div>
                   <div className="text-xs muted">{u.damage} {Utils.damageLabel(u.dmgType, lang)}</div>
@@ -1309,6 +1317,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
                       {unarmed.grapple ? (lang === 'pt' ? `; ${unarmed.grapple} no agarrado` : `; ${unarmed.grapple} to grappled`) : ''}
                     </div>
                   )}
+                </div>
                 </div>
                 <button className="btn btn-sm" onClick={() => roll({ die: 20, mod: u.bonus, label: name + ' ' + t('attackRoll', lang) })}>
                   {Utils.fmtMod(u.bonus)}

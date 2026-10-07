@@ -959,6 +959,7 @@ textarea:focus-visible {
 .cr-progress-step.active .cr-progress-label { color: var(--gold); }
 @media (max-width: 700px) { .cr-progress-label { display: none; } .cr-progress-step { min-width: 30px; flex: 0 0 auto; } }
 .cr-draft { margin-bottom: var(--s-4); border-color: var(--gold-deep); }
+.cr-plan-notice { margin-bottom: var(--s-4); border-color: var(--gold-deep); }
 .cr-save-error { color: var(--blood-bright, #c0392b); font-weight: 600; }
 
 .cr-intro { margin-bottom: var(--s-4); }

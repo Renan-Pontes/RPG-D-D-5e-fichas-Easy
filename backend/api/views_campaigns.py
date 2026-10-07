@@ -15,6 +15,7 @@ from .campaign_state import (clean_state_patch, clean_state_value, merge_state,
 from .image_data import validate_data_url, image_ver, image_response
 from .screen_card import clean_screen_card, resolve_screen_card
 from .rate_limit import rate_limit
+from . import plans as P
 
 TONES = {'heroic', 'dark', 'mystery', 'comic', 'epic'}
 _ACCENT = re.compile(r'^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$')
@@ -82,6 +83,7 @@ def _apply_dm_settings(obj, data):
 @permission_classes([IsAuthenticated])
 def campaign_list(request):
     if request.method == 'GET':
+        P.purge_expired()  # purga preguiçosa das encerradas vencidas (sem tarefa agendada)
         # Pré-busca memberships do usuário para evitar N+1 no get_role do serializer
         # defer: a capa (até 450k) nunca vai na lista — só por GET /cover.
         owned = list(Campaign.objects.filter(dm=request.user).defer('cover_image'))
@@ -101,6 +103,7 @@ def campaign_list(request):
     description = request.data.get('description') or ''
     if not name or len(name) > MAX_NAME or not isinstance(description, str):
         raise ValidationError({'error': 'invalid_input'})
+    P.check_campaign_create(request.user)
     base = slugify_clean(name)
     slug = base
     attempt = 0
@@ -130,11 +133,10 @@ def campaign_detail(request, id_or_slug):
     require_dm(request.user, obj)
 
     if request.method == 'DELETE':
-        # Apaga mundo, aventuras, diário, combate, itens, pedidos e ecos (CASCADE).
-        # Fichas dos jogadores NÃO: Membership.character é SET_NULL e Character
-        # pertence ao usuário — elas só saem da mesa.
-        obj.delete()
-        return Response({'ok': True})
+        # "Apagar campanha" ENCERRA: somente leitura por P.CLOSED_GRACE_DAYS dias
+        # (todos baixam as fichas), o mestre pode reabrir; depois a purga apaga
+        # mundo, aventuras, diário… e decide as fichas em vaga emprestada.
+        return _close_response(request, P.close_campaign(obj))
 
     data = request.data if isinstance(request.data, dict) else {}
     if 'name' in data:
@@ -176,6 +178,34 @@ def campaign_detail(request, id_or_slug):
     return resp
 
 
+def _close_response(request, obj):
+    return Response({'ok': True, 'campaign': {
+        'id': obj.id, 'status': obj.status,
+        'closedAt': obj.closed_at.isoformat() if obj.closed_at else None,
+        'purgeAt': P.purge_at(obj).isoformat() if P.purge_at(obj) else None,
+    }})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def campaign_close(request, id_or_slug):
+    """POST /campaigns/:id/close — mesmo que DELETE /campaigns/:id (encerrar)."""
+    obj = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, obj)
+    return _close_response(request, P.close_campaign(obj))
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def campaign_reopen(request, id_or_slug):
+    """POST /campaigns/:id/reopen — volta a ativa (402 plan_limit se as campanhas
+    da conta não couberem mais no plano)."""
+    obj = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, obj)
+    P.reopen_campaign(obj)
+    return _close_response(request, obj)
+
+
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def campaign_state_patch(request, id_or_slug):
@@ -211,6 +241,7 @@ def campaign_cover(request, id_or_slug):
         image = body.get('image')
         if image not in (None, ''):
             image = validate_data_url(image)
+            P.check_images(campaign.dm, P.image_bytes(image), P.image_bytes(campaign.cover_image))
     campaign.cover_image = image or ''
     campaign.cover_ver = image_ver(image) if image else ''
     campaign.save(update_fields=['cover_image', 'cover_ver', 'updated_at'])
@@ -272,6 +303,9 @@ def campaign_invite_preview(request, code):
         'levelingMode': 'xp' if state.get('levelingMode') == 'xp' else 'milestone',
         'allowMulticlass': state.get('allowMulticlass', True) is not False,
         'alreadyMember': already,
+        'status': campaign.status,
+        # vaga de mesa: o jogador no limite de personagens ainda pode entrar/criar
+        'slots': P.slots_info(campaign),
     }
     if campaign.cover_ver:
         out['coverUrl'] = f'/api/campaigns/invite/{campaign.invite_code}/cover?v={campaign.cover_ver}'
@@ -303,6 +337,7 @@ def campaign_join(request):
     campaign = Campaign.objects.filter(invite_code=code).first()
     if not campaign:
         return Response({'error': 'invite_invalid'}, status=404)
+    P.require_open(campaign)
 
     char = None
     if character_id:
@@ -315,14 +350,27 @@ def campaign_join(request):
             return Response({'error': 'character_already_in_campaign',
                              'campaignId': other.campaign_id}, status=409)
 
+    existing = Membership.objects.filter(campaign=campaign, user=request.user).first()
+    # Jogador no limite de personagens entra ocupando uma vaga do mestre (se houver).
+    sponsored = P.decide_sponsored(request.user, campaign, char, existing)
     m, _ = Membership.objects.update_or_create(
         campaign=campaign, user=request.user,
         defaults={
             'character': char,
             'role': 'dm' if campaign.dm_id == request.user.id else 'player',
+            'sponsored': sponsored,
         },
     )
-    return Response({'membership': {'id': m.id}, 'campaignId': campaign.id, 'slug': campaign.slug})
+    return Response(join_payload(campaign, m))
+
+
+def join_payload(campaign, m):
+    out = {'membership': {'id': m.id, 'sponsored': m.sponsored},
+           'campaignId': campaign.id, 'slug': campaign.slug, 'sponsored': m.sponsored}
+    if m.sponsored:
+        # "Este personagem usa uma vaga da mesa de <Mestre>"
+        out['dmName'] = _dm_display_name(campaign.dm)
+    return out
 
 
 def _remove_member(campaign, m):
@@ -387,9 +435,12 @@ def campaign_member(request, id_or_slug, membership_id):
         if other:
             return Response({'error': 'character_already_in_campaign',
                              'campaignId': other.campaign_id}, status=409)
+        m.sponsored = P.decide_sponsored(m.user, campaign, char, m)
         m.character = char
+    if m.character is None:
+        m.sponsored = False
     m.save()
-    return Response({'membership': {'id': m.id, 'characterId': m.character_id}})
+    return Response({'membership': {'id': m.id, 'characterId': m.character_id, 'sponsored': m.sponsored}})
 
 
 @api_view(['POST'])

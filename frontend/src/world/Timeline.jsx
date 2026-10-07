@@ -63,7 +63,7 @@ export default function Timeline({ campaign, entries = [], lang = 'pt', onOpenEn
         <div className="wl-timeline-head">
           <h3 className="wl-h3">⌛ {t(lang, 'História do mundo', 'World history')}</h3>
           <div className="wl-row">
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAdding(a => !a)}>＋ {t(lang, 'Cartão existente', 'Existing card')}</button>
+            {onCreate && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAdding(a => !a)}>＋ {t(lang, 'Cartão existente', 'Existing card')}</button>}
             {onCreate && <button type="button" className="btn btn-primary btn-sm" onClick={() => onCreate({ kind: 'lore', whenLabel: t(lang, 'Quando?', 'When?') })}>＋ {t(lang, 'Evento', 'Event')}</button>}
           </div>
         </div>

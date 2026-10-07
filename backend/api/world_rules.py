@@ -29,7 +29,7 @@ RELS = ('ally', 'enemy', 'family', 'member', 'employer', 'owes', 'located_in', '
 PLACE_TYPES = ('region', 'city', 'village', 'dungeon', 'building', 'landmark')
 HANDOUT_STYLES = ('scroll', 'letter', 'wanted', 'note')
 
-MAX_ENTRIES = 500
+MAX_ENTRIES = 2000
 MAX_NAME = 120
 MAX_SUMMARY = 280
 MAX_BODY = 20_000

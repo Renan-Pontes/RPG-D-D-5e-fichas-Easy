@@ -38,7 +38,8 @@ class MembershipInline(admin.TabularInline):
 
 @admin.register(m.Campaign)
 class CampaignAdmin(admin.ModelAdmin):
-    list_display = ('name', 'dm', 'slug', 'invite_code', 'updated_at')
+    list_display = ('name', 'dm', 'slug', 'invite_code', 'status', 'closed_at', 'updated_at')
+    list_filter = ('status',)
     search_fields = ('name', 'slug', 'dm__email')
     inlines = [MembershipInline]
 
@@ -76,6 +77,32 @@ class WorldImageAdmin(admin.ModelAdmin):
 for model in (m.Membership, m.Approval, m.DiceRig, m.DiceLog, m.CombatInstance, m.RollRequest,
               m.CampaignItem, m.DiaryEntry, m.CheckRequest, m.CheckResponse, m.Adventure):
     admin.site.register(model)
+
+# === Planos (api/plans.py) — editáveis aqui; o app lê os valores na hora ===
+@admin.register(m.Plan)
+class PlanAdmin(admin.ModelAdmin):
+    list_display = ('slug', 'name_pt', 'price_cents', 'max_characters', 'max_campaigns',
+                    'table_slots', 'storage_mb', 'order', 'active')
+    list_editable = ('price_cents', 'max_characters', 'max_campaigns', 'table_slots', 'storage_mb',
+                     'order', 'active')
+
+
+@admin.register(m.AddOn)
+class AddOnAdmin(admin.ModelAdmin):
+    list_display = ('slug', 'name_pt', 'kind', 'amount', 'price_cents', 'order', 'active')
+    list_editable = ('amount', 'price_cents', 'order', 'active')
+
+
+@admin.register(m.UserPlan)
+class UserPlanAdmin(admin.ModelAdmin):
+    """Plano de cada conta. `addons` = {"slug do extra": quantidade}, ex. {"storage": 2}.
+    Conta sem registro (ou vencida) usa o plano Grátis."""
+    list_display = ('user', 'plan', 'addons', 'valid_until', 'source', 'updated_at')
+    list_filter = ('plan', 'source')
+    search_fields = ('user__email', 'note')
+    raw_id_fields = ('user',)
+    list_select_related = ('user', 'plan')
+
 
 admin.site.site_header = 'Forja de Heróis — administração'
 admin.site.site_title = 'Forja admin'

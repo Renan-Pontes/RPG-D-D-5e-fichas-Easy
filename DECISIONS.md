@@ -347,3 +347,28 @@ Referência de levantamento: o XML do Aurora Builder (github.com/AuroraLegacy/el
 - **Mundo de exemplo** (`api/world_sample.py`, pt/en) com mapa gerado por `api/world_assets/gen_brumafria_map.py` (Pillow, sem rótulos: os nomes ficam nos pins, nas duas línguas). O vilão, a facção e o segredo nascem ocultos.
 - **Limites** (SQLite no plano free): 500 entradas por campanha, imagem ≤ 450k caracteres, textos ≤ 20k. Ver `world_rules.py`.
 - **Rotas de outro pacote em `urls.py`:** registradas via `_wp2(módulo, nome)`; se a view ainda não existe, a rota responde 501 em vez de quebrar o import das URLs.
+
+## Planos (2026-10)
+
+Decisão do dono: o site precisa ser **viável** (teto de custo ~R$ 50/mês), não maximizar lucro. Por isso só se limita o que custa, sempre no **total da conta**, nunca por campanha. Código em `backend/api/plans.py`; API em `API.md › Planos`.
+
+| Plano | Preço/mês | Personagens | Campanhas | Vagas de mesa (por campanha) | Imagens |
+|---|---|---|---|---|---|
+| Grátis (`free`) | R$ 0 | 3 | 1 | 0 | 25 MB |
+| Jogador (`player`) | R$ 4,90 | 30 | 1 | 0 | 50 MB |
+| Mestre (`dm`) | R$ 14,90 | 5 | 3 | 6 | 400 MB |
+| Mestre Lendário (`legend`) | R$ 29,90 | 10 | 8 | 8 | 1.500 MB |
+
+Extras (quantidade por conta): +1 campanha R$ 2,90 · +250 MB R$ 3,90 · +20 personagens R$ 1,90 · +2 vagas de mesa por campanha R$ 1,90.
+
+- **Tabelas editáveis no Django admin:** `Plan` e `AddOn` (criados pela migração `0012_seed_plans`, idempotente) e `UserPlan` (user, plano, `addons {slug: qtd}`, `valid_until` opcional, origem `admin|payment|free`). Sem `UserPlan` ou vencido = Grátis. O admin também atribui pela área Admin do app (`PATCH /api/admin/users/:id/plan`).
+- **O que conta:**
+  - *Imagens* = um único "saco" de MB que o mestre distribui entre as campanhas como quiser. Mede o tamanho real das data URLs guardadas no banco: imagens do Mundo (`WorldImage`), capas, retratos dos próprios personagens, mapa de combate (`map_data.background_image`) e imagens das salas das aventuras. Arte estática do site (`/art`, inclusive fichas prontas e aventuras prontas) e o mapa do mundo de exemplo (detectado pelo hash) não contam. Tokens (`sprite`) do combate ficaram de fora (pequenos e geralmente cópia do retrato).
+  - *Campanhas* como mestre = ativas + encerradas ainda no prazo.
+  - *Personagens* próprios, menos os que estão em vaga de mesa.
+  - *Cartões do Mundo*: sem limite comercial; teto técnico de 2.000 por campanha (`plans.MAX_CARDS_PER_CAMPAIGN`).
+- **Estourar limite nunca apaga dados.** Só bloqueia criar coisa nova daquele tipo, com `402 {error:'plan_limit', limit, used, max, plan, next}` — `next` diz o que o próximo plano/extra daria, para o frontend montar a mensagem amigável. Quem foi rebaixado mantém tudo; trocar imagem por uma menor ou apagar sempre pode. Usei 402 (Payment Required) para não confundir com o 403 de permissão/CSRF que o cliente já trata.
+- **Vagas de mesa:** o mestre com plano que dá vagas tem N vagas em *cada* campanha. Quando um jogador que **já está no limite** do próprio plano entra numa mesa (ou cria ficha com o código da mesa), a ficha ocupa uma vaga do mestre (`Membership.sponsored`) e deixa de contar para o jogador enquanto a campanha existir. Entrar com ficha que já existe nunca é bloqueado (não cria nada); criar ficha nova no limite só passa se houver vaga. Sair da mesa devolve a ficha à contagem do jogador (pode ficar acima do limite — nada some).
+- **Ciclo da campanha:** "Apagar campanha" passou a **encerrar** (`status='closed'`, `closed_at`). 30 dias somente leitura para todos (o guarda `plans.closed_guard`, aplicado em `urls.py`, responde `423 campaign_closed` a qualquer escrita nas rotas da campanha; leitura normal), com aviso e botões de baixar ficha no app; o mestre pode reabrir se couber no plano. Depois do prazo a campanha é apagada de vez; fichas em vaga emprestada seguem a **opção A**: se o jogador tem espaço no próprio plano a ficha fica com ele como personagem normal, senão é apagada.
+- **Purga sem tarefa agendada** (PythonAnywhere free não tem): `plans.purge_expired()` é idempotente e roda ao listar campanhas, ao listar personagens, no login (sinal `user_logged_in`) e no comando `manage.py purge_closed_campaigns` (chamado no deploy por `scripts/bootstrap_pythonanywhere.py`, depois do backup).
+- **Pagamento ainda não:** `POST /api/me/plan/checkout` responde `{available:false, contact}` ("Pagamento em breve — fale com a gente", e-mail em `FORJA_CONTACT_EMAIL`). Integração futura com o Mercado Pago entra em `plans.start_checkout()` (criar cobrança) e `plans.apply_payment()` (webhook confirmado → `UserPlan` com `source='payment'` e `valid_until`).

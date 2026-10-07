@@ -36,6 +36,7 @@ from .models import Adventure
 from .permissions import get_campaign_or_404, require_dm
 from .diary import log_diary
 from .campaign_state import merge_state
+from . import plans as P
 from django.utils import timezone
 
 STATUSES = {'draft', 'playing', 'done'}
@@ -48,7 +49,7 @@ MAX_NODES = 200
 MAX_EDGES = 600
 MAX_DATA_BYTES = 2_000_000       # abaixo do DATA_UPLOAD_MAX_MEMORY_SIZE (2,5 MB)
 MAX_IMAGE_CHARS = 450_000        # ~330 KB de JPEG em base64
-MAX_ITEM_BYTES = 8000
+MAX_ITEM_BYTES = 24000
 MAX_SNAPSHOT_BYTES = 40_000
 POS_LIMIT = 100_000
 MAX_REFS = 20
@@ -307,7 +308,11 @@ def _apply_fields(obj, body):
             _bad('invalid_status')
         obj.status = body['status']
     if 'data' in body:
-        obj.data = clean_adventure_data(body.get('data'))
+        new_data = clean_adventure_data(body.get('data'))
+        # Imagens das salas contam no espaço de imagens do mestre (plano).
+        P.check_images(obj.campaign.dm, P.adventure_image_bytes(new_data),
+                       P.adventure_image_bytes(obj.data) if obj.pk else 0)
+        obj.data = new_data
         obj.play = _clean_play(obj.play, obj.data)
 
 

@@ -47,9 +47,9 @@ export default function LivingWorld({ entries, lang = 'pt', campaignId, echoes, 
       </div>
       {skyOpen && <SkyAtlas entries={entries} lang={lang} onOpen={onOpen} selectedId={selectedId} />}
       <div className="lv-side">
-        <BlankPages entries={entries} lang={lang} campaignId={campaignId} onCreate={onCreate} onOpen={onOpen} />
+        {onCreate && <BlankPages entries={entries} lang={lang} campaignId={campaignId} onCreate={onCreate} onOpen={onOpen} />}
         <EchoesPanel echoes={echoes} entries={entries} lang={lang} onOpen={onOpen} />
-        <TavernRumors lang={lang} campaignId={campaignId} onCreate={onCreate} />
+        {onCreate && <TavernRumors lang={lang} campaignId={campaignId} onCreate={onCreate} />}
       </div>
     </section>
   );

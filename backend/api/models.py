@@ -78,12 +78,17 @@ class Campaign(models.Model):
     cover_ver = models.CharField(max_length=16, blank=True, default='')
     # Só o mestre vê: onboarding, advancedDice, sessionPlan (ver views_world.session_plan)
     dm_settings = models.JSONField(default=dict, blank=True)
+    # Ciclo de vida (ver api/plans.py): "Apagar campanha" ENCERRA — fica somente
+    # leitura por CLOSED_GRACE_DAYS e depois é apagada de vez (purga preguiçosa).
+    STATUS_CHOICES = [('active', 'Active'), ('closed', 'Closed')]
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='active')
+    closed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-updated_at']
-        indexes = [models.Index(fields=['dm'])]
+        indexes = [models.Index(fields=['dm']), models.Index(fields=['status', 'closed_at'])]
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -113,6 +118,9 @@ class Membership(models.Model):
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='player')
     joined_at = models.DateTimeField(auto_now_add=True)
     world_seen_at = models.DateTimeField(null=True, blank=True)  # selo "Novo!" do Mundo do jogador
+    # Vaga de mesa: o personagem ocupa uma vaga do plano do MESTRE e não conta no
+    # limite de personagens do jogador enquanto a campanha existir (api/plans.py).
+    sponsored = models.BooleanField(default=False)
 
     class Meta:
         unique_together = [('campaign', 'user')]
@@ -457,3 +465,61 @@ class WorldView(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=['entry', 'membership'], name='uniq_world_view')]
         indexes = [models.Index(fields=['membership'])]
+
+
+# === Planos (ver api/plans.py e DECISIONS.md › Planos) ===
+# Limita só o que custa, no TOTAL da conta. Editáveis no Django admin.
+class Plan(models.Model):
+    slug = models.SlugField(max_length=30, unique=True)
+    name_pt = models.CharField(max_length=60)
+    name_en = models.CharField(max_length=60)
+    price_cents = models.PositiveIntegerField(default=0)        # mensal, centavos de BRL
+    max_characters = models.PositiveIntegerField(default=3)
+    max_campaigns = models.PositiveIntegerField(default=1)
+    table_slots = models.PositiveIntegerField(default=0)         # vagas de jogador POR campanha do mestre
+    storage_mb = models.PositiveIntegerField(default=25)         # imagens, somando a conta toda
+    order = models.IntegerField(default=0)
+    active = models.BooleanField(default=True)                   # aparece no catálogo público
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f'{self.name_pt} ({self.slug})'
+
+
+class AddOn(models.Model):
+    """Extra que se soma ao plano, em quantidade por conta. `kind` diz o que
+    soma e `amount` quanto (por unidade): campaigns, storage_mb, characters,
+    table_slots (este último vale para CADA campanha do mestre)."""
+    KIND_CHOICES = [('campaigns', 'Campaigns'), ('storage_mb', 'Storage MB'),
+                    ('characters', 'Characters'), ('table_slots', 'Table slots per campaign')]
+    slug = models.SlugField(max_length=30, unique=True)
+    name_pt = models.CharField(max_length=80)
+    name_en = models.CharField(max_length=80)
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES)
+    amount = models.PositiveIntegerField(default=1)
+    price_cents = models.PositiveIntegerField(default=0)
+    order = models.IntegerField(default=0)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f'{self.name_pt} ({self.slug})'
+
+
+class UserPlan(models.Model):
+    """Plano da conta. Sem registro (ou vencido) = plano 'free'."""
+    SOURCE_CHOICES = [('free', 'Free'), ('admin', 'Admin'), ('payment', 'Payment')]
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='user_plan')
+    plan = models.ForeignKey(Plan, on_delete=models.PROTECT, related_name='subscriptions')
+    addons = models.JSONField(default=dict, blank=True)          # {addon_slug: quantidade}
+    valid_until = models.DateTimeField(null=True, blank=True)    # None = sem vencimento
+    source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default='admin')
+    note = models.CharField(max_length=200, blank=True, default='')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.user} → {self.plan.slug}'

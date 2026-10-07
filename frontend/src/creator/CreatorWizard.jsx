@@ -3,6 +3,9 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import Icon from '../../components/Icons.jsx';
 import { tName } from '../../data/i18n.js';
 import { STEPS } from './steps.js';
+import { planLimitFrom, limitShortText, creatorLimitNotice } from '../plans/plans-logic.js';
+import useMyPlan from '../plans/useMyPlan.js';
+import { openMyPlan } from '../plans/plans-api.js';
 import { newCharacter, finalizeCharacter, loadDraft, saveDraft, clearDraft, saveErrorMessage, joinPatch, creationJoin } from './creation.js';
 import { L, IssueList } from './ui.jsx';
 
@@ -15,8 +18,11 @@ const safeIssues = (s, char) => {
  * initialJoin: mesa já verificada (rota /join/<código>) — o personagem nasce com ela.
  * joinEnabled: dá para entrar numa mesa (logado e com servidor)? Senão o bloco só explica.
  * onSave(char, { join }) — join = mesa escolhida na etapa Começo (ou null).
+ * planCheck: consulta o plano (GET /api/me/plan) para avisar, sem bloquear, se
+ *   o limite de personagens já foi atingido.
  */
-export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = null, joinEnabled = true }) {
+export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = null, joinEnabled = true, planCheck = false }) {
+  const myPlan = useMyPlan(planCheck);
   // Rascunho salvo (F5 no meio da criação): oferece continuar antes de começar outro.
   const [draft, setDraft] = useState(() => loadDraft());
   const withInitialJoin = (c) => (initialJoin ? { ...c, ...joinPatch(c, initialJoin) } : c);
@@ -79,7 +85,9 @@ export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = nu
       clearDraft();
     } catch (err) {
       console.error('creator save failed', err);
-      if (mounted.current) setSaveError(saveErrorMessage(err, char));
+      // Limite do plano: o aviso (LimitDialog) já abriu; aqui fica a linha curta.
+      const lim = planLimitFrom(err);
+      if (mounted.current) setSaveError(lim ? { pt: limitShortText(lim, 'pt'), en: limitShortText(lim, 'en') } : saveErrorMessage(err, char));
     } finally {
       savingRef.current = false;
       if (mounted.current) setSaving(false);
@@ -132,6 +140,15 @@ export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = nu
             <button type="button" className="btn btn-primary" onClick={resumeDraft}>{L(lang, 'Continuar de onde parei', 'Continue where I left off')}</button>
             <button type="button" className="btn btn-ghost" onClick={discardDraft}>{L(lang, 'Começar de novo', 'Start over')}</button>
           </div>
+        </div>
+      )}
+
+      {!draft && index === 0 && !creationJoin(char) && creatorLimitNotice(myPlan, lang) && (
+        <div className="card cr-plan-notice" role="note">
+          <p className="text-sm" style={{ margin: 0 }}>🛡 {creatorLimitNotice(myPlan, lang)}</p>
+          <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={openMyPlan}>
+            {L(lang, 'Ver meu plano', 'See my plan')}
+          </button>
         </div>
       )}
 

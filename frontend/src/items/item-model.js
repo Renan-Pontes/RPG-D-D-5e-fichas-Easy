@@ -75,6 +75,11 @@ export const toForm = (item, lang) => {
     isMagic: !!item?.magic || item?.type === 'magic',
     rarity: String(item?.magic?.rarity || 'uncommon').replace(/-/g, ' '),
     attunement: !!item?.magic?.attunement,
+    // Sintonização restrita ({by}) e campos do SRD que o formulário não edita
+    // (categoria, bônus, cargas, cura…): preservados ao salvar.
+    attunementBy: item?.magic?.attunement && typeof item.magic.attunement === 'object' ? item.magic.attunement : null,
+    magicExtra: (({ rarity, attunement, effect, ...rest }) => rest)(item?.magic || {}),
+    refs: Object.fromEntries(['sourceId', 'base'].filter(k => typeof item?.[k] === 'string').map(k => [k, item[k]])),
     effect: text(item?.magic?.effect, lang),
   };
 };
@@ -92,7 +97,7 @@ export function formWeightLb(f) {
 /** Estado do formulário → item (só inclui os blocos preenchidos). */
 export const formToItem = (f) => {
   const both = (s) => (s.trim() ? { pt: s.trim(), en: s.trim() } : undefined);
-  const item = { name: f.name.trim(), type: f.type };
+  const item = { ...(f.refs || {}), name: f.name.trim(), type: f.type };
   const lb = formWeightLb(f);
   if (lb != null) item.weight = lb;
   if (f.cost !== '' && +f.cost >= 0) item.cost = +f.cost;
@@ -105,7 +110,12 @@ export const formToItem = (f) => {
     item.armor = { ac: Math.max(0, Math.min(30, parseInt(f.ac) || 0)), type: f.type === 'shield' ? 'shield' : f.armorType };
   }
   if (f.isMagic || f.type === 'magic') {
-    item.magic = { rarity: f.rarity, attunement: f.attunement, effect: both(f.effect) || {} };
+    item.magic = {
+      ...(f.magicExtra || {}),
+      rarity: f.rarity,
+      attunement: f.attunement ? (f.attunementBy || true) : false,
+      effect: both(f.effect) || {},
+    };
   }
   return item;
 };

@@ -139,8 +139,10 @@ function makeNew() {
 
 // === Computed values ===
 function abilityWithRace(char, key) {
-  const base = char.abilities[key] || 0;
-  const bonus = (char.raceBonus && char.raceBonus[key]) || 0;
+  // Ficha mínima (importada/sem atributos): sem o bloco inteiro vale 10 (mod +0).
+  const abilities = char && char.abilities;
+  const base = abilities && typeof abilities === 'object' ? (Number(abilities[key]) || 0) : 10;
+  const bonus = Number(char && char.raceBonus && char.raceBonus[key]) || 0;
   return base + bonus;
 }
 

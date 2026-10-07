@@ -5,7 +5,9 @@ import { usePolling } from '../api/polling.js';
 import CombatGrid from '../campaigns/CombatGrid.jsx';
 import DiceStage from '../dice/DiceStage.jsx';
 import '../dice/dice-styles.css';
-import { HERO_ART, hideOnError } from '../art.js';
+import { HERO_ART, hideOnError, conditionIcon } from '../art.js';
+import ArtThumb, { ArtIcon } from '../components/ArtThumb.jsx';
+import { loadNameIndex, needsNameIndex, portraitFor } from '../combat/monster-portrait.js';
 import { absUrl, cardKey, charLine, healthLabel, paragraphs, screenMode } from '../player/player-model.js';
 import { defaultArt } from '../world/world-model.js';
 import { isDeadScreenLink, recapSubtitle } from './tv-logic.js';
@@ -46,6 +48,15 @@ export default function TVScreen({ token, lang = 'pt' }) {
   const [now, setNow] = useState(new Date());
   // Overlay de rolagem dramática
   const [activeRoll, setActiveRoll] = useState(null);
+  // Retratos dos monstros no combate (pelo nome do bestiário; carregado só em combate).
+  const [foeIndex, setFoeIndex] = useState(null);
+  const wantsFoeIndex = !!data?.combat?.active && needsNameIndex(data?.combat?.combatants);
+  useEffect(() => {
+    if (!wantsFoeIndex || foeIndex) return undefined;
+    let alive = true;
+    loadNameIndex().then(ix => { if (alive) setFoeIndex(ix); });
+    return () => { alive = false; };
+  }, [wantsFoeIndex, foeIndex]);
   const lastRollIdRef = useRef(null);
   // Link apagado/trocado (404): para de perguntar ao servidor e explica o que fazer.
   const [dead, setDead] = useState(false);
@@ -158,7 +169,7 @@ export default function TVScreen({ token, lang = 'pt' }) {
                 .map(c => <CombatHpCard key={c.id} c={c} lang={lang} isTurn={combat.combatants[combat.turnIndex]?.id === c.id} />)}
               {combat.combatants.some(c => c.type !== 'pc') && (
                 <div className="tv-foes">
-                  {combat.combatants.filter(c => c.type !== 'pc').map(c => <FoeChip key={c.id} c={c} lang={lang} isTurn={combat.combatants[combat.turnIndex]?.id === c.id} />)}
+                  {combat.combatants.filter(c => c.type !== 'pc').map(c => <FoeChip key={c.id} c={c} lang={lang} portrait={c.sprite || portraitFor(c, foeIndex)} isTurn={combat.combatants[combat.turnIndex]?.id === c.id} />)}
                 </div>
               )}
             </aside>
@@ -312,10 +323,11 @@ function TVRecap({ card, campaign, lang }) {
   );
 }
 
-function FoeChip({ c, lang, isTurn }) {
+function FoeChip({ c, lang, isTurn, portrait }) {
   const band = c.health || 'unhurt';
   return (
     <div className={`tv-foe tv-foe-${band} ${isTurn ? 'is-turn' : ''}`}>
+      <ArtThumb src={portrait} emoji="👹" size={52} round lang={lang} className="tv-foe-portrait" />
       <span className="tv-foe-name">{c.name}</span>
       <span className="tv-foe-band">{healthLabel(band, lang)}</span>
       {(c.conditions || []).length > 0 && (
@@ -400,9 +412,11 @@ function ConditionChip({ cond, lang }) {
   if (!def) return <span className="tv-condition">{cond}</span>;
   return (
     <span className="tv-condition" title={def[lang]}>
-      <svg className="tv-cond-icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d={def.icon} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+      {conditionIcon(cond) ? <ArtIcon src={conditionIcon(cond)} size={22} className="tv-cond-icon" /> : (
+        <svg className="tv-cond-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d={def.icon} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
       <span className="tv-cond-label">{def[lang]}</span>
     </span>
   );
