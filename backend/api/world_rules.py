@@ -623,3 +623,162 @@ def merged_session_plan(current, patch):
     if json_size(plan) > MAX_SESSION_PLAN_BYTES:
         _bad('session_plan_too_large')
     return plan
+
+
+# ------------------------------------------------------------------ ecos da mesa
+# Reações de personagem a cartões revelados/parciais (imersão, não placar): o
+# jogador vê só as próprias marcas e contagens agregadas SEM nomes; o mestre vê
+# quem sussurrou o quê, contado em linguagem de cronista (echo_lines).
+REACTION_KINDS = ('shiver', 'love', 'doubt', 'fight')   # 😱 ❤️ 🤔 ⚔️
+FAVORITE_KIND = 'star'                                  # ⭐ "quero voltar aqui"
+ECHO_KINDS = REACTION_KINDS + (FAVORITE_KIND,)
+REACTION_ALIASES = {
+    '😱': 'shiver', 'chill': 'shiver', 'fear': 'shiver',
+    '❤️': 'love', '❤': 'love', 'heart': 'love', 'affection': 'love',
+    '🤔': 'doubt', 'suspicion': 'doubt', 'distrust': 'doubt', 'wary': 'doubt',
+    '⚔️': 'fight', '⚔': 'fight', 'challenge': 'fight',
+    '⭐': 'star', 'favorite': 'star', 'fav': 'star', 'return': 'star',
+}
+VIEW_THROTTLE_SECONDS = 60          # 1 leitura contada por minuto por cartão e jogador
+MAX_ECHO_LINES = 12
+
+
+def clean_reaction_kind(value):
+    if isinstance(value, str):
+        v = value.strip()
+        v = REACTION_ALIASES.get(v, REACTION_ALIASES.get(v.lower(), v.lower()))
+        if v in ECHO_KINDS:
+            return v
+    _bad('invalid_reaction')
+
+
+def player_can_react(entry, membership_id):
+    """Só cartões que o jogador enxerga (revelado ou conhecido de nome)."""
+    return player_can_see(entry, membership_id) and entry.visibility in ('partial', 'revealed')
+
+
+def view_counts(last_at, now):
+    """A leitura conta? (throttle: uma por VIEW_THROTTLE_SECONDS)."""
+    return last_at is None or (now - last_at).total_seconds() >= VIEW_THROTTLE_SECONDS
+
+
+def immersion_on(campaign):
+    """dm_settings.immersion ("Mundo vivo"), padrão ligado."""
+    s = campaign.dm_settings if isinstance(campaign.dm_settings, dict) else {}
+    return s.get('immersion') is not False
+
+
+_TIMES = {
+    'pt': {2: 'duas vezes', 3: 'três vezes', 4: 'quatro vezes', 5: 'cinco vezes', 6: 'seis vezes',
+           7: 'sete vezes', 8: 'oito vezes', 9: 'nove vezes', 10: 'dez vezes'},
+    'en': {2: 'twice', 3: 'three times', 4: 'four times', 5: 'five times', 6: 'six times',
+           7: 'seven times', 8: 'eight times', 9: 'nine times', 10: 'ten times'},
+}
+_MANY_TIMES = {'pt': 'muitas vezes', 'en': 'again and again'}
+
+# (singular, plural) — {who} = nome(s), {name} = cartão
+_ECHO_PHRASES = {
+    'pt': {
+        'shiver': ('{name} arrepiou {who}', '{name} arrepiou {who}'),
+        'love': ('{who} se afeiçoou a {name}', '{who} se afeiçoaram a {name}'),
+        'doubt': ('{who} desconfia de {name}', '{who} desconfiam de {name}'),
+        'fight': ('{who} quer enfrentar {name}', '{who} querem enfrentar {name}'),
+        'star': ('{who} quer voltar a {name}', '{who} querem voltar a {name}'),
+        'read': '{who} voltou {times} a pensar em {name}',
+        'read_place': '{who} voltou {times} a {name}',
+        'read_map': '{who} voltou {times} ao mapa de {name}',
+        'and': ' e ',
+    },
+    'en': {
+        'shiver': ('{name} sent a shiver through {who}', '{name} sent a shiver through {who}'),
+        'love': ('{who} grew fond of {name}', '{who} grew fond of {name}'),
+        'doubt': ('{who} does not trust {name}', '{who} do not trust {name}'),
+        'fight': ('{who} wants to face {name}', '{who} want to face {name}'),
+        'star': ('{who} wants to return to {name}', '{who} want to return to {name}'),
+        'read': '{who} thought back on {name} {times}',
+        'read_place': '{who} returned to {name} {times}',
+        'read_map': '{who} returned to the map of {name} {times}',
+        'and': ' and ',
+    },
+}
+
+
+def _join_names(names, lang):
+    names = [n for n in names if n]
+    if len(names) <= 1:
+        return names[0] if names else ''
+    return ', '.join(names[:-1]) + _ECHO_PHRASES[lang]['and'] + names[-1]
+
+
+def _times(n, lang):
+    return _TIMES[lang].get(n) or _MANY_TIMES[lang]
+
+
+def echo_lines(entries, lang='pt', limit=MAX_ECHO_LINES):
+    """Frases de cronista a partir dos ecos por cartão.
+
+    `entries`: [{entryId, name, kind, isMap, lastAt, people: [{name, kinds, views}]}]
+    (ordem = mais recente primeiro). Leituras só viram frase a partir de 2.
+    Devolve [{entryId, kind, text}] — nunca números frios nem placar."""
+    lang = 'en' if lang == 'en' else 'pt'
+    P = _ECHO_PHRASES[lang]
+    out = []
+    for e in entries:
+        name = e.get('name') or ''
+        people = e.get('people') or []
+        for kind in ECHO_KINDS:
+            who = [p['name'] for p in people if kind in (p.get('kinds') or [])]
+            if who:
+                sing, plur = P[kind]
+                tpl = plur if len(who) > 1 else sing
+                out.append({'entryId': e.get('entryId'), 'kind': kind,
+                            'text': tpl.format(who=_join_names(who, lang), name=name)})
+        for p in sorted(people, key=lambda p: -(p.get('views') or 0)):
+            n = p.get('views') or 0
+            if n >= 2:
+                tpl = P['read_map'] if e.get('isMap') else P['read_place'] if e.get('kind') == 'place' else P['read']
+                out.append({'entryId': e.get('entryId'), 'kind': 'read',
+                            'text': tpl.format(who=p['name'], name=name, times=_times(n, lang))})
+    return out[:limit]
+
+
+def known_share_phrase(revealed, partial, total, lang='pt'):
+    """Indicador narrativo do mestre: quanto do mundo a mesa já conhece (frase,
+    nunca porcentagem). Parcial conta meio."""
+    lang = 'en' if lang == 'en' else 'pt'
+    if total <= 0:
+        return ''
+    share = (revealed + 0.5 * partial) / total
+    steps = [
+        (0.0, 'Seus jogadores ainda não conhecem nada do seu mundo',
+              'Your players know nothing of your world yet'),
+        (0.15, 'Seus jogadores mal arranharam a superfície do seu mundo',
+               'Your players have barely scratched the surface of your world'),
+        (0.29, 'Seus jogadores já conhecem cerca de um quarto do seu mundo',
+               'Your players already know about a quarter of your world'),
+        (0.42, 'Seus jogadores já conhecem cerca de um terço do seu mundo',
+               'Your players already know about a third of your world'),
+        (0.62, 'Seus jogadores já conhecem cerca de metade do seu mundo',
+               'Your players already know about half of your world'),
+        (0.88, 'Seus jogadores já conhecem boa parte do seu mundo',
+               'Your players already know most of your world'),
+        (1.01, 'Seus jogadores conhecem quase todo o seu mundo — ainda há sombras?',
+               'Your players know nearly all of your world — any shadows left?'),
+    ]
+    if share == 0:
+        return steps[0][1 if lang == 'pt' else 2]
+    for limit, pt, en in steps[1:]:
+        if share < limit:
+            return pt if lang == 'pt' else en
+    return steps[-1][1 if lang == 'pt' else 2]
+
+
+def fog_hint(hidden_count):
+    """Quantidade APROXIMADA do desconhecido (só se o mestre permitir)."""
+    if hidden_count <= 0:
+        return 'none'
+    if hidden_count <= 3:
+        return 'few'
+    if hidden_count <= 12:
+        return 'some'
+    return 'many'

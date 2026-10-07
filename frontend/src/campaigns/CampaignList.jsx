@@ -2,7 +2,9 @@ import { errorMessage } from '../api/errors.js';
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import { createSampleWorld } from '../world/world-api.js';
-import CoverPicker from '../shell/CoverPicker.jsx';
+import ReadyAdventureGallery from '../ready/ReadyAdventureGallery.jsx';
+import { readyApi } from '../ready/ready-logic.js';
+import CoverPicker from './CoverPicker.jsx';
 import ToneAccentFields from '../shell/ToneAccentFields.jsx';
 import { defaultCoverArt, isHexColor, saveRememberedArea, TONES } from '../shell/shell-logic.js';
 import '../shell/shell.css';
@@ -114,11 +116,13 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [tagline, setTagline] = useState('');
-  const [cover, setCover] = useState(null);      // dataURL
-  const [coverArt, setCoverArt] = useState(null); // caminho da arte escolhida (destaque)
+  const [cover, setCover] = useState(null);           // dataURL 16:9 (pronta ou enviada) ou null
+  const [coverChoice, setCoverChoice] = useState('none'); // id da capa pronta | 'upload' | 'none'
+  const [coverWorking, setCoverWorking] = useState(false);
   const [tone, setTone] = useState('');
   const [accent, setAccent] = useState('');
-  const [start, setStart] = useState('blank');   // 'blank' | 'sample'
+  const [start, setStart] = useState('blank');   // 'blank' | 'sample' | 'ready'
+  const [readyId, setReadyId] = useState(null);   // aventura pronta escolhida (start === 'ready')
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -133,7 +137,11 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
 
   const create = async (e) => {
     e?.preventDefault?.();
-    if (!canNext || busy) return;
+    if (!canNext || busy || coverWorking) return;
+    if (step === 2 && start === 'ready' && !readyId) {
+      setError(t(lang, 'Escolha uma das aventuras prontas (ou outro jeito de começar).', 'Pick one of the ready adventures (or another way to start).'));
+      return;
+    }
     setBusy(true); setError('');
     try {
       const res = await api.createCampaign({
@@ -150,8 +158,12 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
       if (start === 'sample') {
         try { await createSampleWorld(c.id, lang); } catch { /* segue */ }
       }
-      // Primeira visita: cai no Mundo, com os Primeiros passos.
-      saveRememberedArea(c.id, { area: 'world', sub: 'atlas' });
+      let imported = false;
+      if (start === 'ready' && readyId) {
+        try { await readyApi.importInto(c.id, readyId, lang); imported = true; } catch { /* segue: dá para importar em Preparar */ }
+      }
+      // Primeira visita: com aventura pronta, cai na aventura; senão, no Mundo (Primeiros passos).
+      saveRememberedArea(c.id, imported ? { area: 'prepare', sub: 'adventures' } : { area: 'world', sub: 'atlas' });
       onCreated(c);
     } catch (err) {
       setError(errorMessage(err, lang));
@@ -195,17 +207,16 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
             </>
           )}
 
-          {step === 1 && (
-            <>
-              <div className="col gap-1">
-                <span className="shell-label">{t(lang, 'Capa', 'Cover')}</span>
-                <CoverPicker lang={lang} selected={coverArt} busy={busy} allowRemove={false}
-                  onPick={(url, art) => { setCover(url); setCoverArt(art || 'upload'); }} />
-                {cover && coverArt === 'upload' && <img className="camp-wizard-preview" src={cover} alt={t(lang, 'Capa enviada', 'Uploaded cover')} />}
-              </div>
-              <ToneAccentFields lang={lang} tone={tone} accent={accent} onTone={setTone} onAccent={setAccent} />
-            </>
-          )}
+          {/* Passo 2 fica montado (só escondido) para a escolha de capa não se perder ao voltar. */}
+          <div className="col gap-3" style={step !== 1 ? { display: 'none' } : undefined}>
+            <div className="col gap-1">
+              <span className="shell-label">{t(lang, 'Capa', 'Cover')}</span>
+              <CoverPicker lang={lang} name={name} tagline={tagline} accent={isHexColor(accent) ? accent : ''}
+                initialChoice={coverChoice} busy={busy}
+                onWorking={setCoverWorking} onPick={(url, choice) => { setCover(url); setCoverChoice(choice); }} />
+            </div>
+            <ToneAccentFields lang={lang} tone={tone} accent={accent} onTone={setTone} onAccent={setAccent} />
+          </div>
 
           {step === 2 && (
             <div className="camp-wizard-starts" role="radiogroup" aria-label={t(lang, 'Como começar', 'How to start')}>
@@ -221,7 +232,17 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
                   'A vila "Vale de Brumafria": um mapa, 3 NPCs, uma facção, um rumor, um segredo e uma aventura de 3 salas. Tudo editável e apagável.',
                   'The village "Mistfrost Vale": a map, 3 NPCs, a faction, a rumor, a secret and a 3-room adventure. All editable and deletable.')}</span>
               </button>
+              <button type="button" role="radio" aria-checked={start === 'ready'} className={`camp-start ${start === 'ready' ? 'active' : ''}`} onClick={() => { setStart('ready'); setError(''); }}>
+                <span className="camp-start-ico" aria-hidden="true">📖</span>
+                <strong>{t(lang, 'Começar com uma aventura pronta', 'Start with a ready adventure')}</strong>
+                <span className="muted text-sm">{t(lang,
+                  'Uma aventura completa para iniciantes: mundo, personagens, salas, pistas e dicas para conduzir.',
+                  'A complete beginner adventure: world, characters, rooms, clues and tips for running it.')}</span>
+              </button>
             </div>
+          )}
+          {step === 2 && start === 'ready' && (
+            <ReadyAdventureGallery lang={lang} mode="pick" selected={readyId} onSelect={(id) => { setReadyId(id); setError(''); }} />
           )}
 
           {error && <div className="auth-error">{error}</div>}
@@ -231,9 +252,9 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
               : <button type="button" className="btn btn-ghost" onClick={onClose} disabled={busy}>{t(lang, 'Cancelar', 'Cancel')}</button>}
             <span className="camp-wizard-spacer" aria-hidden="true" />
             {step < 2 && canNext && (
-              <button type="button" className="btn btn-ghost" onClick={create} disabled={busy}>{t(lang, 'Criar agora', 'Create now')}</button>
+              <button type="button" className="btn btn-ghost" onClick={create} disabled={busy || coverWorking}>{t(lang, 'Criar agora', 'Create now')}</button>
             )}
-            <button type="submit" className="btn btn-primary" disabled={busy || !canNext}>
+            <button type="submit" className="btn btn-primary" disabled={busy || !canNext || coverWorking}>
               {busy ? t(lang, 'Criando…', 'Creating…') : step < 2 ? t(lang, 'Próximo', 'Next') : t(lang, 'Criar campanha', 'Create campaign')}
             </button>
           </div>

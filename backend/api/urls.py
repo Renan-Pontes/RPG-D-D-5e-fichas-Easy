@@ -5,6 +5,7 @@ from django.urls import path
 from . import views_world
 from . import views_checks
 from . import views_adventures
+from . import views_ready
 from . import views_share
 from . import views_admin
 from . import views_auth, views_characters, views_campaigns, views_approvals, views_dice, views_screen, views_combat, views_inventory, views_items, views_diary
@@ -61,6 +62,7 @@ urlpatterns = [
     path('campaigns/join', views_campaigns.campaign_join),
     path('campaigns/<str:id_or_slug>', views_campaigns.campaign_detail),
     path('campaigns/<str:id_or_slug>/members/<int:membership_id>', views_campaigns.campaign_member),
+    path('campaigns/<str:id_or_slug>/leave', views_campaigns.campaign_leave),
     path('campaigns/<str:id_or_slug>/rotate-screen-token', views_campaigns.campaign_rotate_screen),
     path('campaigns/<str:id_or_slug>/rotate-invite-code', views_campaigns.campaign_rotate_invite),
     path('campaigns/<str:id_or_slug>/items', views_items.campaign_items),
@@ -74,10 +76,13 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/world', views_world.world_list),
     path('campaigns/<str:id_or_slug>/world/sample', views_world.world_sample),
     path('campaigns/<str:id_or_slug>/world/seen', views_world.world_seen),
+    path('campaigns/<str:id_or_slug>/world/echoes', views_world.world_echoes),
     path('campaigns/<str:id_or_slug>/session-plan', views_world.session_plan),
     path('world/<int:pk>', views_world.world_detail),
     path('world/<int:pk>/image', views_world.world_image),
     path('world/<int:pk>/reveal', views_world.world_reveal),
+    path('world/<int:pk>/react', views_world.world_react),
+    path('world/<int:pk>/view', views_world.world_view),
 
     path('campaigns/<str:id_or_slug>/diary', views_diary.campaign_diary),
     path('campaigns/<str:id_or_slug>/diary/sessions', views_diary.campaign_diary_start_session),
@@ -89,6 +94,9 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/adventures/<int:pk>', views_adventures.adventure_detail),
     path('campaigns/<str:id_or_slug>/adventures/<int:pk>/play', views_adventures.adventure_play),
     path('campaigns/<str:id_or_slug>/adventures/<int:pk>/screen', views_adventures.adventure_screen),
+    # Aventuras prontas da Forja (pacotes originais: mundo + aventura)
+    path('ready-adventures', views_ready.ready_catalog),
+    path('campaigns/<str:id_or_slug>/ready-adventure', views_ready.campaign_ready_adventure),
 
     # Approvals
     path('approvals/campaign/<str:id_or_slug>', views_approvals.campaign_approvals),

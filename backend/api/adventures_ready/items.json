@@ -1,0 +1,744 @@
+{
+ "potionHealing": {
+  "pt": {
+   "sourceId": "potionHealing",
+   "name": "Poção de Cura",
+   "type": "potion",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "common",
+    "attunement": false,
+    "category": "potion",
+    "heal": "2d4+2",
+    "effect": {
+     "pt": "Recupera 2d4 + 2 PV.",
+     "en": "Regain 2d4 + 2 HP."
+    }
+   },
+   "description": {
+    "pt": "Você recupera 2d4 + 2 Pontos de Vida quando bebe esta poção.\nSeja qual for sua potência, o líquido vermelho da poção cintila quando agitado.",
+    "en": "You regain 2d4 + 2 Hit Points when you drink this potion.\nWhatever its potency, the potion’s red liquid glimmers when agitated."
+   }
+  },
+  "en": {
+   "sourceId": "potionHealing",
+   "name": "Potion of Healing",
+   "type": "potion",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "common",
+    "attunement": false,
+    "category": "potion",
+    "heal": "2d4+2",
+    "effect": {
+     "pt": "Recupera 2d4 + 2 PV.",
+     "en": "Regain 2d4 + 2 HP."
+    }
+   },
+   "description": {
+    "pt": "Você recupera 2d4 + 2 Pontos de Vida quando bebe esta poção.\nSeja qual for sua potência, o líquido vermelho da poção cintila quando agitado.",
+    "en": "You regain 2d4 + 2 Hit Points when you drink this potion.\nWhatever its potency, the potion’s red liquid glimmers when agitated."
+   }
+  }
+ },
+ "potionClimbing": {
+  "pt": {
+   "sourceId": "potionClimbing",
+   "name": "Poção de Escalada",
+   "type": "potion",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "common",
+    "attunement": false,
+    "category": "potion",
+    "effect": {
+     "pt": "Deslocamento de Escalada igual ao Deslocamento e Vantagem em Atletismo para escalar, por 1 hora.",
+     "en": "Climb Speed equal to Speed and Advantage on Athletics to climb, for 1 hour."
+    }
+   },
+   "description": {
+    "pt": "Quando você bebe esta poção, recebe um Deslocamento de Escalada igual ao seu Deslocamento por 1 hora. Durante esse tempo, você tem Vantagem em testes de Força (Atletismo) para escalar.\nEsta poção é separada em camadas marrom, prateada e cinza que lembram faixas de rocha. Agitar o frasco não mistura as cores.",
+    "en": "When you drink this potion, you gain a Climb Speed equal to your Speed for 1 hour. During this time, you have Advantage on Strength (Athletics) checks to climb.\nThis potion is separated into brown, silver, and gray layers resembling bands of stone. Shaking the bottle fails to mix the colors."
+   }
+  },
+  "en": {
+   "sourceId": "potionClimbing",
+   "name": "Potion of Climbing",
+   "type": "potion",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "common",
+    "attunement": false,
+    "category": "potion",
+    "effect": {
+     "pt": "Deslocamento de Escalada igual ao Deslocamento e Vantagem em Atletismo para escalar, por 1 hora.",
+     "en": "Climb Speed equal to Speed and Advantage on Athletics to climb, for 1 hour."
+    }
+   },
+   "description": {
+    "pt": "Quando você bebe esta poção, recebe um Deslocamento de Escalada igual ao seu Deslocamento por 1 hora. Durante esse tempo, você tem Vantagem em testes de Força (Atletismo) para escalar.\nEsta poção é separada em camadas marrom, prateada e cinza que lembram faixas de rocha. Agitar o frasco não mistura as cores.",
+    "en": "When you drink this potion, you gain a Climb Speed equal to your Speed for 1 hour. During this time, you have Advantage on Strength (Athletics) checks to climb.\nThis potion is separated into brown, silver, and gray layers resembling bands of stone. Shaking the bottle fails to mix the colors."
+   }
+  }
+ },
+ "potionWaterBreath": {
+  "pt": {
+   "sourceId": "potionWaterBreath",
+   "name": "Poção de Respiração Aquática",
+   "type": "potion",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": false,
+    "category": "potion",
+    "effect": {
+     "pt": "Respira debaixo d’água por 24 horas.",
+     "en": "Breathe underwater for 24 hours."
+    }
+   },
+   "description": {
+    "pt": "Você pode respirar debaixo d’água por 24 horas depois de beber esta poção.\nO fluido verde e turvo desta poção cheira a mar e tem uma bolha parecida com uma água-viva flutuando nele.",
+    "en": "You can breathe underwater for 24 hours after drinking this potion.\nThis potion’s cloudy green fluid smells of the sea and has a jellyfish-like bubble floating in it."
+   }
+  },
+  "en": {
+   "sourceId": "potionWaterBreath",
+   "name": "Potion of Water Breathing",
+   "type": "potion",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": false,
+    "category": "potion",
+    "effect": {
+     "pt": "Respira debaixo d’água por 24 horas.",
+     "en": "Breathe underwater for 24 hours."
+    }
+   },
+   "description": {
+    "pt": "Você pode respirar debaixo d’água por 24 horas depois de beber esta poção.\nO fluido verde e turvo desta poção cheira a mar e tem uma bolha parecida com uma água-viva flutuando nele.",
+    "en": "You can breathe underwater for 24 hours after drinking this potion.\nThis potion’s cloudy green fluid smells of the sea and has a jellyfish-like bubble floating in it."
+   }
+  }
+ },
+ "ammo+1": {
+  "pt": {
+   "sourceId": "ammo+1",
+   "name": "Munição +1",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": false,
+    "category": "weapon",
+    "bonus": 1,
+    "effect": {
+     "pt": "+1 nas jogadas de ataque e dano; deixa de ser mágica após atingir.",
+     "en": "+1 to attack and damage rolls; no longer magical after it hits."
+    }
+   },
+   "description": {
+    "pt": "Arma (qualquer munição), Incomum. Você recebe um bônus de +1 nas jogadas de ataque e de dano feitas com esta munição mágica. Depois que atinge um alvo, a munição deixa de ser mágica.\nEsta munição costuma ser encontrada ou vendida em lotes de dez ou vinte unidades. Dez unidades desta munição equivalem em valor a uma poção da mesma raridade.",
+    "en": "Weapon (Any Ammunition), Uncommon. You have a +1 bonus to attack rolls and damage rolls made with this piece of magic ammunition. Once it hits a target, the ammunition is no longer magical.\nThis ammunition is typically found or sold in quantities of ten or twenty pieces. Ten pieces of this ammunition are equivalent in value to a potion of the same rarity."
+   }
+  },
+  "en": {
+   "sourceId": "ammo+1",
+   "name": "Ammunition +1",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": false,
+    "category": "weapon",
+    "bonus": 1,
+    "effect": {
+     "pt": "+1 nas jogadas de ataque e dano; deixa de ser mágica após atingir.",
+     "en": "+1 to attack and damage rolls; no longer magical after it hits."
+    }
+   },
+   "description": {
+    "pt": "Arma (qualquer munição), Incomum. Você recebe um bônus de +1 nas jogadas de ataque e de dano feitas com esta munição mágica. Depois que atinge um alvo, a munição deixa de ser mágica.\nEsta munição costuma ser encontrada ou vendida em lotes de dez ou vinte unidades. Dez unidades desta munição equivalem em valor a uma poção da mesma raridade.",
+    "en": "Weapon (Any Ammunition), Uncommon. You have a +1 bonus to attack rolls and damage rolls made with this piece of magic ammunition. Once it hits a target, the ammunition is no longer magical.\nThis ammunition is typically found or sold in quantities of ten or twenty pieces. Ten pieces of this ammunition are equivalent in value to a potion of the same rarity."
+   }
+  }
+ },
+ "cloakProtection": {
+  "pt": {
+   "sourceId": "cloakProtection",
+   "name": "Capa de Proteção",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": true,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": true,
+    "category": "wondrous",
+    "acBonus": 1,
+    "saveBonus": 1,
+    "effect": {
+     "pt": "+1 na CA e nos testes de resistência.",
+     "en": "+1 to AC and saving throws."
+    }
+   },
+   "description": {
+    "pt": "Você recebe um bônus de +1 na Classe de Armadura e nos testes de resistência enquanto usa esta capa.",
+    "en": "You gain a +1 bonus to Armor Class and saving throws while you wear this cloak."
+   }
+  },
+  "en": {
+   "sourceId": "cloakProtection",
+   "name": "Cloak of Protection",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": true,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": true,
+    "category": "wondrous",
+    "acBonus": 1,
+    "saveBonus": 1,
+    "effect": {
+     "pt": "+1 na CA e nos testes de resistência.",
+     "en": "+1 to AC and saving throws."
+    }
+   },
+   "description": {
+    "pt": "Você recebe um bônus de +1 na Classe de Armadura e nos testes de resistência enquanto usa esta capa.",
+    "en": "You gain a +1 bonus to Armor Class and saving throws while you wear this cloak."
+   }
+  }
+ },
+ "cloakElven": {
+  "pt": {
+   "sourceId": "cloakElven",
+   "name": "Capa Élfica",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": true,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": true,
+    "effect": {
+     "pt": "Vantagem em Furtividade; Percepção para notá-lo tem Desvantagem.",
+     "en": "Advantage on Stealth; Perception checks to perceive you have Disadvantage."
+    },
+    "category": "wondrous"
+   },
+   "description": {
+    "pt": "Enquanto você usa esta capa, testes de Sabedoria (Percepção) feitos para perceber você têm Desvantagem, e você tem Vantagem em testes de Destreza (Furtividade).",
+    "en": "While you wear this cloak, Wisdom (Perception) checks made to perceive you have Disadvantage, and you have Advantage on Dexterity (Stealth) checks."
+   }
+  },
+  "en": {
+   "sourceId": "cloakElven",
+   "name": "Cloak of Elvenkind",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": true,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": true,
+    "effect": {
+     "pt": "Vantagem em Furtividade; Percepção para notá-lo tem Desvantagem.",
+     "en": "Advantage on Stealth; Perception checks to perceive you have Disadvantage."
+    },
+    "category": "wondrous"
+   },
+   "description": {
+    "pt": "Enquanto você usa esta capa, testes de Sabedoria (Percepção) feitos para perceber você têm Desvantagem, e você tem Vantagem em testes de Destreza (Furtividade).",
+    "en": "While you wear this cloak, Wisdom (Perception) checks made to perceive you have Disadvantage, and you have Advantage on Dexterity (Stealth) checks."
+   }
+  }
+ },
+ "bootsElven": {
+  "pt": {
+   "sourceId": "bootsElven",
+   "name": "Botas Élficas",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": false,
+    "effect": {
+     "pt": "Passos silenciosos; Vantagem em testes de Destreza (Furtividade).",
+     "en": "Silent steps; Advantage on Dexterity (Stealth) checks."
+    },
+    "category": "wondrous"
+   },
+   "description": {
+    "pt": "Enquanto você usa estas botas, seus passos não fazem nenhum som, independentemente da superfície sobre a qual você se move. Você também tem Vantagem em testes de Destreza (Furtividade).",
+    "en": "While you wear these boots, your steps make no sound, regardless of the surface you are moving across. You also have Advantage on Dexterity (Stealth) checks."
+   }
+  },
+  "en": {
+   "sourceId": "bootsElven",
+   "name": "Boots of Elvenkind",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": false,
+    "effect": {
+     "pt": "Passos silenciosos; Vantagem em testes de Destreza (Furtividade).",
+     "en": "Silent steps; Advantage on Dexterity (Stealth) checks."
+    },
+    "category": "wondrous"
+   },
+   "description": {
+    "pt": "Enquanto você usa estas botas, seus passos não fazem nenhum som, independentemente da superfície sobre a qual você se move. Você também tem Vantagem em testes de Destreza (Furtividade).",
+    "en": "While you wear these boots, your steps make no sound, regardless of the surface you are moving across. You also have Advantage on Dexterity (Stealth) checks."
+   }
+  }
+ },
+ "featherTokenTree": {
+  "pt": {
+   "sourceId": "featherTokenTree",
+   "name": "Símbolo de Pena (Árvore)",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": false,
+    "category": "wondrous",
+    "effect": {
+     "pt": "Surge um carvalho não mágico de 18 m de altura.",
+     "en": "A 60-ft nonmagical oak tree springs up."
+    }
+   },
+   "description": {
+    "pt": "Este objeto se parece com uma pena. Existem diferentes tipos de símbolos de pena, cada um com um efeito diferente de uso único. O Mestre escolhe o tipo de símbolo ou o determina aleatoriamente rolando na tabela Símbolos de Pena. O tipo do símbolo determina sua raridade.\nÁrvore (Incomum). Você precisa estar ao ar livre para usar este símbolo. Você pode realizar uma ação de Magia para tocá-lo em um espaço desocupado no chão. O símbolo desaparece e, em seu lugar, surge um carvalho não mágico. A árvore tem 18 m de altura e um tronco de 1,5 m de diâmetro, e seus galhos no topo se espalham em um raio de 6 m.",
+    "en": "This object looks like a feather. Different types of feather tokens exist, each with a different single-use effect. The GM chooses the kind of token or determines it randomly by rolling on the Feather Tokens table. The type of token determines its rarity.\nTree (Uncommon). You must be outdoors to use this token. You can take a Magic action to touch it to an unoccupied space on the ground. The token disappears, and in its place a nonmagical oak tree springs into existence. The tree is 60 feet tall and has a 5-foot-diameter trunk, and its branches at the top spread out in a 20-foot radius."
+   }
+  },
+  "en": {
+   "sourceId": "featherTokenTree",
+   "name": "Feather Token (Tree)",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": false,
+    "category": "wondrous",
+    "effect": {
+     "pt": "Surge um carvalho não mágico de 18 m de altura.",
+     "en": "A 60-ft nonmagical oak tree springs up."
+    }
+   },
+   "description": {
+    "pt": "Este objeto se parece com uma pena. Existem diferentes tipos de símbolos de pena, cada um com um efeito diferente de uso único. O Mestre escolhe o tipo de símbolo ou o determina aleatoriamente rolando na tabela Símbolos de Pena. O tipo do símbolo determina sua raridade.\nÁrvore (Incomum). Você precisa estar ao ar livre para usar este símbolo. Você pode realizar uma ação de Magia para tocá-lo em um espaço desocupado no chão. O símbolo desaparece e, em seu lugar, surge um carvalho não mágico. A árvore tem 18 m de altura e um tronco de 1,5 m de diâmetro, e seus galhos no topo se espalham em um raio de 6 m.",
+    "en": "This object looks like a feather. Different types of feather tokens exist, each with a different single-use effect. The GM chooses the kind of token or determines it randomly by rolling on the Feather Tokens table. The type of token determines its rarity.\nTree (Uncommon). You must be outdoors to use this token. You can take a Magic action to touch it to an unoccupied space on the ground. The token disappears, and in its place a nonmagical oak tree springs into existence. The tree is 60 feet tall and has a 5-foot-diameter trunk, and its branches at the top spread out in a 20-foot radius."
+   }
+  }
+ },
+ "wandWeb": {
+  "pt": {
+   "sourceId": "wandWeb",
+   "name": "Varinha da Teia",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": true,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": {
+     "by": {
+      "en": "a Spellcaster",
+      "pt": "um conjurador"
+     }
+    },
+    "effect": {
+     "pt": "7 cargas: conjura Teia (CD 13).",
+     "en": "7 charges: cast Web (DC 13)."
+    },
+    "category": "wand",
+    "charges": 7
+   },
+   "description": {
+    "pt": "Esta varinha tem 7 cargas. Enquanto a segura, você pode gastar 1 carga para conjurar Teia (CD de resistência 13) a partir dela.\nRecuperando Cargas. A varinha recupera 1d6 + 1 cargas gastas diariamente ao amanhecer. Se você gastar a última carga da varinha, role 1d20. Com um 1, a varinha se desfaz em cinzas e é destruída.",
+    "en": "This wand has 7 charges. While holding it, you can expend 1 charge to cast Web (save DC 13) from it.\nRegaining Charges. The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand’s last charge, roll 1d20. On a 1, the wand crumbles into ashes and is destroyed."
+   }
+  },
+  "en": {
+   "sourceId": "wandWeb",
+   "name": "Wand of Web",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": true,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": {
+     "by": {
+      "en": "a Spellcaster",
+      "pt": "um conjurador"
+     }
+    },
+    "effect": {
+     "pt": "7 cargas: conjura Teia (CD 13).",
+     "en": "7 charges: cast Web (DC 13)."
+    },
+    "category": "wand",
+    "charges": 7
+   },
+   "description": {
+    "pt": "Esta varinha tem 7 cargas. Enquanto a segura, você pode gastar 1 carga para conjurar Teia (CD de resistência 13) a partir dela.\nRecuperando Cargas. A varinha recupera 1d6 + 1 cargas gastas diariamente ao amanhecer. Se você gastar a última carga da varinha, role 1d20. Com um 1, a varinha se desfaz em cinzas e é destruída.",
+    "en": "This wand has 7 charges. While holding it, you can expend 1 charge to cast Web (save DC 13) from it.\nRegaining Charges. The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand’s last charge, roll 1d20. On a 1, the wand crumbles into ashes and is destroyed."
+   }
+  }
+ },
+ "cloakMantaRay": {
+  "pt": {
+   "sourceId": "cloakMantaRay",
+   "name": "Capa da Arraia-Jamanta",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": true,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": true,
+    "category": "wondrous",
+    "effect": {
+     "pt": "Respira debaixo d'água; Natação de 18 m.",
+     "en": "Breathe underwater; 60 ft Swim Speed."
+    }
+   },
+   "description": {
+    "pt": "Enquanto usa esta capa, você consegue respirar debaixo d'água e tem Deslocamento de Natação de 18 metros.",
+    "en": "While wearing this cloak, you can breathe underwater, and you have a Swim Speed of 60 feet."
+   }
+  },
+  "en": {
+   "sourceId": "cloakMantaRay",
+   "name": "Cloak of the Manta Ray",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": true,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": true,
+    "category": "wondrous",
+    "effect": {
+     "pt": "Respira debaixo d'água; Natação de 18 m.",
+     "en": "Breathe underwater; 60 ft Swim Speed."
+    }
+   },
+   "description": {
+    "pt": "Enquanto usa esta capa, você consegue respirar debaixo d'água e tem Deslocamento de Natação de 18 metros.",
+    "en": "While wearing this cloak, you can breathe underwater, and you have a Swim Speed of 60 feet."
+   }
+  }
+ },
+ "decanterEndlessWater": {
+  "pt": {
+   "sourceId": "decanterEndlessWater",
+   "name": "Garrafa de Água Infinita",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": false,
+    "category": "wondrous",
+    "effect": {
+     "pt": "Ação de Magia: jorra 4, 20 ou 120 litros de água; o gêiser pode derrubar (Força CD 13, 1d4 Contundente e Caído).",
+     "en": "Magic action: pours 1, 5, or 30 gallons of water; the geyser can knock a target Prone (DC 13 Str, 1d4 Bludgeoning)."
+    }
+   },
+   "description": {
+    "pt": "Este frasco tampado faz barulho de líquido quando sacudido, como se contivesse água. A garrafa pesa 1 kg.\nVocê pode realizar uma ação de Magia para remover a tampa e pronunciar uma de três palavras de comando, e então uma quantidade de água doce ou salgada (à sua escolha) jorra do frasco. A água para de jorrar no início do seu próximo turno. Escolha entre as seguintes palavras de comando:\nRespingo. A garrafa produz 4 litros de água.\nFonte. A garrafa produz 20 litros de água.\nGêiser. A garrafa produz 120 litros de água, que jorram em uma Linha de 9 m de comprimento e 30 cm de largura. Se estiver segurando a garrafa, você pode apontar o gêiser em uma direção (nenhuma ação necessária). Uma criatura à sua escolha na Linha deve ser bem-sucedida em um teste de resistência de Força CD 13 ou sofrerá 1d4 de dano Contundente e ficará na condição Caído. Em vez de uma criatura, você pode escolher como alvo um objeto na Linha que não esteja sendo vestido nem carregado e que pese no máximo 100 kg. O objeto é derrubado pelo gêiser.",
+    "en": "This stoppered flask sloshes when shaken, as if it contains water. The decanter weighs 2 pounds.\nYou can take a Magic action to remove the stopper and issue one of three command words, whereupon an amount of fresh water or salt water (your choice) pours out of the flask. The water stops pouring out at the start of your next turn. Choose from the following command words:\nSplash. The decanter produces 1 gallon of water.\nFountain. The decanter produces 5 gallons of water.\nGeyser. The decanter produces 30 gallons of water that gushes forth in a Line 30 feet long and 1 foot wide. If you’re holding the decanter, you can aim the geyser in one direction (no action required). One creature of your choice in the Line must succeed on a DC 13 Strength saving throw or take 1d4 Bludgeoning damage and have the Prone condition. Instead of a creature, you can target one object in the Line that isn’t being worn or carried and that weighs no more than 200 pounds. The object is knocked over by the geyser."
+   }
+  },
+  "en": {
+   "sourceId": "decanterEndlessWater",
+   "name": "Decanter of Endless Water",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": false,
+    "category": "wondrous",
+    "effect": {
+     "pt": "Ação de Magia: jorra 4, 20 ou 120 litros de água; o gêiser pode derrubar (Força CD 13, 1d4 Contundente e Caído).",
+     "en": "Magic action: pours 1, 5, or 30 gallons of water; the geyser can knock a target Prone (DC 13 Str, 1d4 Bludgeoning)."
+    }
+   },
+   "description": {
+    "pt": "Este frasco tampado faz barulho de líquido quando sacudido, como se contivesse água. A garrafa pesa 1 kg.\nVocê pode realizar uma ação de Magia para remover a tampa e pronunciar uma de três palavras de comando, e então uma quantidade de água doce ou salgada (à sua escolha) jorra do frasco. A água para de jorrar no início do seu próximo turno. Escolha entre as seguintes palavras de comando:\nRespingo. A garrafa produz 4 litros de água.\nFonte. A garrafa produz 20 litros de água.\nGêiser. A garrafa produz 120 litros de água, que jorram em uma Linha de 9 m de comprimento e 30 cm de largura. Se estiver segurando a garrafa, você pode apontar o gêiser em uma direção (nenhuma ação necessária). Uma criatura à sua escolha na Linha deve ser bem-sucedida em um teste de resistência de Força CD 13 ou sofrerá 1d4 de dano Contundente e ficará na condição Caído. Em vez de uma criatura, você pode escolher como alvo um objeto na Linha que não esteja sendo vestido nem carregado e que pese no máximo 100 kg. O objeto é derrubado pelo gêiser.",
+    "en": "This stoppered flask sloshes when shaken, as if it contains water. The decanter weighs 2 pounds.\nYou can take a Magic action to remove the stopper and issue one of three command words, whereupon an amount of fresh water or salt water (your choice) pours out of the flask. The water stops pouring out at the start of your next turn. Choose from the following command words:\nSplash. The decanter produces 1 gallon of water.\nFountain. The decanter produces 5 gallons of water.\nGeyser. The decanter produces 30 gallons of water that gushes forth in a Line 30 feet long and 1 foot wide. If you’re holding the decanter, you can aim the geyser in one direction (no action required). One creature of your choice in the Line must succeed on a DC 13 Strength saving throw or take 1d4 Bludgeoning damage and have the Prone condition. Instead of a creature, you can target one object in the Line that isn’t being worn or carried and that weighs no more than 200 pounds. The object is knocked over by the geyser."
+   }
+  }
+ },
+ "dustDisappearance": {
+  "pt": {
+   "sourceId": "dustDisappearance",
+   "name": "Pó do Desaparecimento",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": false,
+    "category": "wondrous",
+    "effect": {
+     "pt": "Uso único: você e tudo em 3 m ficam Invisíveis por 2d4 minutos (termina ao atacar ou conjurar).",
+     "en": "Single use: you and everything within 10 ft are Invisible for 2d4 minutes (ends on attack or spell)."
+    }
+   },
+   "description": {
+    "pt": "Este pó se parece com areia fina. Há o suficiente para um uso. Quando você realiza uma ação de Usar para jogar o pó no ar, você e cada criatura e objeto em uma Emanação de 3 m originada em você ficam na condição Invisível por 2d4 minutos. A duração é a mesma para todos os afetados, e o pó é consumido quando sua magia faz efeito. Imediatamente depois que uma criatura afetada faz uma jogada de ataque, causa dano ou conjura uma magia, a condição Invisível termina para ela.",
+    "en": "This powder resembles fine sand. There is enough of it for one use. When you take a Utilize action to throw the dust into the air, you and each creature and object within a 10-foot Emanation originating from you have the Invisible condition for 2d4 minutes. The duration is the same for all subjects, and the dust is consumed when its magic takes effect. Immediately after an affected creature makes an attack roll, deals damage, or casts a spell, the Invisible condition ends for that creature."
+   }
+  },
+  "en": {
+   "sourceId": "dustDisappearance",
+   "name": "Dust of Disappearance",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": false,
+    "category": "wondrous",
+    "effect": {
+     "pt": "Uso único: você e tudo em 3 m ficam Invisíveis por 2d4 minutos (termina ao atacar ou conjurar).",
+     "en": "Single use: you and everything within 10 ft are Invisible for 2d4 minutes (ends on attack or spell)."
+    }
+   },
+   "description": {
+    "pt": "Este pó se parece com areia fina. Há o suficiente para um uso. Quando você realiza uma ação de Usar para jogar o pó no ar, você e cada criatura e objeto em uma Emanação de 3 m originada em você ficam na condição Invisível por 2d4 minutos. A duração é a mesma para todos os afetados, e o pó é consumido quando sua magia faz efeito. Imediatamente depois que uma criatura afetada faz uma jogada de ataque, causa dano ou conjura uma magia, a condição Invisível termina para ela.",
+    "en": "This powder resembles fine sand. There is enough of it for one use. When you take a Utilize action to throw the dust into the air, you and each creature and object within a 10-foot Emanation originating from you have the Invisible condition for 2d4 minutes. The duration is the same for all subjects, and the dust is consumed when its magic takes effect. Immediately after an affected creature makes an attack roll, deals damage, or casts a spell, the Invisible condition ends for that creature."
+   }
+  }
+ },
+ "healersKit": {
+  "pt": {
+   "sourceId": "healersKit",
+   "name": "Kit de Curandeiro",
+   "type": "gear",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": ""
+  },
+  "en": {
+   "sourceId": "healersKit",
+   "name": "Healer's Kit",
+   "type": "gear",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": ""
+  }
+ },
+ "rope50ft": {
+  "pt": {
+   "sourceId": "rope50ft",
+   "name": "Corda 50 pés",
+   "type": "gear",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": ""
+  },
+  "en": {
+   "sourceId": "rope50ft",
+   "name": "Rope (50 ft)",
+   "type": "gear",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": ""
+  }
+ },
+ "lantern": {
+  "pt": {
+   "sourceId": "lantern",
+   "name": "Lanterna",
+   "type": "gear",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": ""
+  },
+  "en": {
+   "sourceId": "lantern",
+   "name": "Lantern",
+   "type": "gear",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": false,
+   "attuned": false,
+   "notes": ""
+  }
+ },
+ "bracersArchery": {
+  "pt": {
+   "sourceId": "bracersArchery",
+   "name": "Braçadeiras do Arqueiro",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": true,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": true,
+    "category": "wondrous",
+    "effect": {
+     "pt": "Proficiência com arcos longos e curtos; +2 no dano com eles.",
+     "en": "Proficiency with longbows and shortbows; +2 damage with them."
+    }
+   },
+   "description": {
+    "pt": "Enquanto usa estas braçadeiras, você tem proficiência com Arco Longo e Arco Curto e recebe um bônus de +2 nas jogadas de dano feitas com essas armas.",
+    "en": "While wearing these bracers, you have proficiency with the Longbow and Shortbow, and you gain a +2 bonus to damage rolls made with such weapons."
+   }
+  },
+  "en": {
+   "sourceId": "bracersArchery",
+   "name": "Bracers of Archery",
+   "type": "magic",
+   "qty": 1,
+   "equipped": false,
+   "broken": false,
+   "attunement": true,
+   "attuned": false,
+   "notes": "",
+   "magic": {
+    "rarity": "uncommon",
+    "attunement": true,
+    "category": "wondrous",
+    "effect": {
+     "pt": "Proficiência com arcos longos e curtos; +2 no dano com eles.",
+     "en": "Proficiency with longbows and shortbows; +2 damage with them."
+    }
+   },
+   "description": {
+    "pt": "Enquanto usa estas braçadeiras, você tem proficiência com Arco Longo e Arco Curto e recebe um bônus de +2 nas jogadas de dano feitas com essas armas.",
+    "en": "While wearing these bracers, you have proficiency with the Longbow and Shortbow, and you gain a +2 bonus to damage rolls made with such weapons."
+   }
+  }
+ }
+}

@@ -5,13 +5,13 @@
 // aceita props para sobrescrever:
 //   <WorldArea campaign lang sub params goTo showSubChips={false} />
 // params.entryId abre o cartão; params.mapId abre o mapa; params.create abre o "+ Novo".
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { Toast } from '../../components/Shared.jsx';
 import useArea from '../shell/useArea.js';
 import { SubChips } from '../shell/AreaNav.jsx';
 import {
-  createEntry, createSampleWorld, getEntry, isConflict, listWorld, showEntryOnScreen, updateEntry, worldErrorText,
+  createEntry, createSampleWorld, getEntry, getWorldEchoes, isConflict, listWorld, showEntryOnScreen, updateEntry, worldErrorText,
 } from './world-api.js';
 import { applyPatches, t, toLight } from './world-model.js';
 import Atlas from './Atlas.jsx';
@@ -21,6 +21,8 @@ import RevealControl from './RevealControl.jsx';
 import Timeline from './Timeline.jsx';
 import WorldMap from './WorldMap.jsx';
 import { EntryImage } from './EntryCard.jsx';
+import { immersionOn } from './living/living-logic.js';
+const LivingWorld = lazy(() => import('./living/LivingWorld.jsx'));
 import './world-styles.css';
 
 const SUBS = [
@@ -54,6 +56,10 @@ export default function WorldArea(props) {
   const [sampleBusy, setSampleBusy] = useState(false);
   const [adventures, setAdventures] = useState([]);
   const advLoaded = useRef(false);
+  const [echoes, setEchoes] = useState(null);
+  // "Mundo vivo" (⚙ Ajustes): a campanha manda `immersion`; a lista também.
+  const [listImmersion, setListImmersion] = useState(true);
+  const immersion = campaign && 'immersion' in campaign ? immersionOn(campaign) : listImmersion;
 
   const cid = campaign?.id;
   const load = useCallback(async () => {
@@ -62,16 +68,23 @@ export default function WorldArea(props) {
       const r = await listWorld(cid);
       setEntries(r.entries || []);
       setMeta({ count: r.count ?? (r.entries || []).length, max: r.max || 500 });
+      setListImmersion(r.immersion !== false);
       setError('');
     } catch (e) { setError(worldErrorText(e, lang)); setEntries(prev => prev || []); }
   }, [cid, lang]);
+  // Ecos da mesa: sem endpoint ou com erro → vazio, sem aviso.
+  const loadEchoes = useCallback(async () => {
+    if (!cid || !immersion) return;
+    setEchoes(await getWorldEchoes(cid, lang));
+  }, [cid, lang, immersion]);
+  useEffect(() => { loadEchoes(); }, [loadEchoes]);
   useEffect(() => { load(); }, [load]);
   // Volta para a aba → atualiza (outra aba/aparelho pode ter mexido).
   useEffect(() => {
-    const onFocus = () => { if (document.visibilityState === 'visible') load(); };
+    const onFocus = () => { if (document.visibilityState === 'visible') { load(); loadEchoes(); } };
     document.addEventListener('visibilitychange', onFocus);
     return () => document.removeEventListener('visibilitychange', onFocus);
-  }, [load]);
+  }, [load, loadEchoes]);
 
   // Atalhos vindos da busca (Ctrl+K) ou de outras áreas.
   useEffect(() => {
@@ -175,7 +188,13 @@ export default function WorldArea(props) {
       ) : sub === 'atlas' ? (
         <Atlas entries={list} lang={lang} selectedId={openId} onOpen={openEntry} onReveal={quickReveal} onShow={show}
           onCreate={create} onImprovise={() => setImprovise(true)} onReorder={reorder}
-          onSample={list.length === 0 ? sample : null} sampleBusy={sampleBusy} count={meta.count} max={meta.max} createNonce={createNonce} />
+          onSample={list.length === 0 ? sample : null} sampleBusy={sampleBusy} count={meta.count} max={meta.max} createNonce={createNonce}
+          top={immersion && list.length > 0 ? (
+            <Suspense fallback={null}>
+              <LivingWorld entries={list} lang={lang} campaignId={cid} echoes={echoes} selectedId={openId}
+                onOpen={openEntry} onCreate={create} />
+            </Suspense>
+          ) : null} />
       ) : sub === 'map' ? (
         <WorldMap campaign={campaign} entries={list} lang={lang} mapId={mapId} onMapChange={setMapId}
           onOpenEntry={openEntry} onEntrySaved={upsert} onEntryCreated={(e) => { upsert(e); }} />

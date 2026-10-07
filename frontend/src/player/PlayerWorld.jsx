@@ -5,6 +5,11 @@
 // depois da última visita; abrir a aba chama /world/seen (zera o badge).
 // Polling da lista a cada 10 s, só enquanto a aba está aberta (montada).
 //
+// Mundo vivo (src/player/living/, desligável em dm_settings.immersion): o
+// personagem reage aos cartões (😱 ❤️ 🤔 ⚔️) e marca ⭐ "Quero voltar"
+// (otimista), abrir um cartão registra a leitura (1/min/cartão), filtro
+// "Quero voltar" no Atlas e a névoa do desconhecido no Atlas e no Mapa.
+//
 // Props: campaign, lang, sub? (força a subvista), entryId? (abre um cartão),
 //        onSeen?() (a casca recarrega o badge), showSubChips (padrão true).
 // Também lê useArea() (sub/params/goTo) quando montado dentro da casca.
@@ -21,6 +26,13 @@ import {
 import { atlasEntries, kindCounts, L, newEntryIds, paragraphs, secretSessionLabel } from './player-model.js';
 import Handout from './Handout.jsx';
 import MentionText from './MentionText.jsx';
+import ReactionBar from './living/ReactionBar.jsx';
+import { AtlasFog, MapFog } from './living/Fog.jsx';
+import { addReaction, registerView, removeReaction } from './living/living-api.js';
+import {
+  FAVORITE_KIND, favoriteEntries, immersionOn, isFavorite, mergePending, replaceEntry, shouldSendView,
+  toggleFavorite, toggleReaction,
+} from './living/living-model.js';
 import './player-styles.css';
 
 const SUBS = ['atlas', 'map', 'timeline', 'documents'];
@@ -44,6 +56,16 @@ export default function PlayerWorld({ campaign, lang = 'pt', sub: subProp, entry
   const baselineRef = useRef(undefined);  // seenAt de ANTES desta visita (congelado)
   const markedRef = useRef(null);         // último revealedAt (ms) já marcado como visto
   const cacheRef = useRef(new Map());     // id → {key, entry} (detalhes)
+  const pendingRef = useRef(new Map());   // id → campos otimistas ainda sem resposta
+  const viewedRef = useRef(new Map());    // id → ms do último registro de leitura
+  const [fogHintKey, setFogHintKey] = useState('');
+  const [echoError, setEchoError] = useState('');
+  const [listImmersion, setListImmersion] = useState(null);
+  const living = typeof listImmersion === 'boolean' ? listImmersion : immersionOn(campaign);
+  const charName = useMemo(() => {
+    const me = typeof window !== 'undefined' ? window.__currentUserId__ : null;
+    return (campaign.members || []).find(m => me != null && m.user?.id === me)?.character?.name || '';
+  }, [campaign.members]);
 
   const markSeen = useCallback(async (latestMs) => {
     markedRef.current = latestMs;
@@ -58,7 +80,9 @@ export default function PlayerWorld({ campaign, lang = 'pt', sub: subProp, entry
       const r = await listWorld(campaign.id);
       const list = r.entries || [];
       if (baselineRef.current === undefined) baselineRef.current = r.seenAt ?? null;
-      setEntries(list);
+      setEntries(mergePending(list, pendingRef.current));
+      setFogHintKey(r.fog?.hint || '');
+      if (typeof r.immersion === 'boolean') setListImmersion(r.immersion);
       setError('');
       const latest = list.reduce((m, e) => Math.max(m, Date.parse(e.revealedAt || '') || 0), 0);
       if (markedRef.current === null || latest > markedRef.current) markSeen(latest);
@@ -98,7 +122,41 @@ export default function PlayerWorld({ campaign, lang = 'pt', sub: subProp, entry
     map: maps.filter(m => newIds.has(m.id)).length,
   };
 
-  const openEntry = (id) => setOpenId(Number(id));
+  // ---- Ecos: reação / estrela (otimista; desfaz se o servidor recusar)
+  const echo = useCallback(async (entry, kind) => {
+    const fav = kind === FAVORITE_KIND;
+    const { entry: next, on } = fav ? toggleFavorite(entry) : toggleReaction(entry, kind);
+    if (next === entry) return;
+    const patch = fav ? { myFavorite: next.myFavorite } : { myReactions: next.myReactions, reactionCounts: next.reactionCounts };
+    pendingRef.current.set(entry.id, { ...(pendingRef.current.get(entry.id) || {}), ...patch });
+    setEntries(list => replaceEntry(list, { ...(list || []).find(e => e.id === entry.id), ...patch }));
+    setEchoError('');
+    try {
+      const r = on ? await addReaction(entry.id, kind) : await removeReaction(entry.id, kind);
+      pendingRef.current.delete(entry.id);
+      if (r && r.entryId === entry.id) {
+        // o servidor devolve o estado real (contagens da mesa já com a minha)
+        const real = { myReactions: r.myReactions, myFavorite: r.myFavorite, reactionCounts: r.reactionCounts };
+        setEntries(list => replaceEntry(list, { ...(list || []).find(e => e.id === entry.id), ...real }));
+      }
+    } catch {
+      pendingRef.current.delete(entry.id);
+      const undo = fav ? { myFavorite: entry.myFavorite } : { myReactions: entry.myReactions, reactionCounts: entry.reactionCounts };
+      setEntries(list => replaceEntry(list, { ...(list || []).find(e => e.id === entry.id), ...undo }));
+      setEchoError(L(lang, 'O vento levou sua reação. Tente de novo.', 'The wind carried your reaction away. Try again.'));
+    }
+  }, [lang]);
+  const onReact = useCallback((entry, kind) => echo(entry, kind), [echo]);
+  const onFavorite = useCallback((entry) => echo(entry, FAVORITE_KIND), [echo]);
+
+  // ---- Registro de leitura (o mestre vê nos Ecos da mesa)
+  useEffect(() => {
+    if (!living || openId == null) return;
+    const light = byId.get(openId);
+    if (light && shouldSendView(light, viewedRef.current)) registerView(light.id).catch(() => {});
+  }, [openId, living, byId]);
+
+  const openEntry = (id) => { setEchoError(''); setOpenId(Number(id)); };
   const openMap = (id) => { setMapId(id); setOpenId(null); changeSub('map'); };
 
   return (
@@ -127,10 +185,11 @@ export default function PlayerWorld({ campaign, lang = 'pt', sub: subProp, entry
       {entries && entries.length === 0 && <WorldSilence lang={lang} />}
 
       {entries && entries.length > 0 && sub === 'atlas' && (
-        <AtlasView entries={entries} kind={kind} setKind={setKind} counts={counts} newIds={newIds} lang={lang} onOpen={(e) => openEntry(e.id)} />
+        <AtlasView entries={entries} kind={kind} setKind={setKind} counts={counts} newIds={newIds} lang={lang} onOpen={(e) => openEntry(e.id)}
+          living={living} campaignId={campaign.id} fogHint={fogHintKey} />
       )}
       {entries && entries.length > 0 && sub === 'map' && (
-        <MapView maps={maps} mapId={mapId} setMapId={setMapId} byId={byId} fetchFull={fetchFull} newIds={newIds} lang={lang} onOpen={openEntry} />
+        <MapView maps={maps} mapId={mapId} setMapId={setMapId} byId={byId} fetchFull={fetchFull} newIds={newIds} lang={lang} onOpen={openEntry} living={living} />
       )}
       {entries && entries.length > 0 && sub === 'timeline' && (
         <TimelineView items={timeline} newIds={newIds} lang={lang} onOpen={openEntry} />
@@ -151,6 +210,11 @@ export default function PlayerWorld({ campaign, lang = 'pt', sub: subProp, entry
           onOpen={openEntry}
           onOpenMap={openMap}
           onClose={() => setOpenId(null)}
+          living={living}
+          charName={charName}
+          onReact={onReact}
+          onFavorite={onFavorite}
+          echoError={echoError}
         />
       )}
     </div>
@@ -170,13 +234,16 @@ function WorldSilence({ lang }) {
 }
 
 // ------------------------------------------------------------------ Atlas
-function AtlasView({ entries, kind, setKind, counts, newIds, lang, onOpen }) {
+function AtlasView({ entries, kind, setKind, counts, newIds, lang, onOpen, living, campaignId, fogHint }) {
   const kinds = ATLAS_KINDS.filter(k => counts[k]);
-  const k = kind !== 'all' && !counts[kind] ? 'all' : kind;
-  const list = atlasEntries(entries, { kind: k, newIds });
+  const favs = living ? favoriteEntries(entries) : [];
+  const k = kind === 'fav' ? (favs.length ? 'fav' : 'all') : (kind !== 'all' && !counts[kind] ? 'all' : kind);
+  const list = k === 'fav'
+    ? atlasEntries(favs, { kind: 'all', newIds, excludeHandouts: false })
+    : atlasEntries(entries, { kind: k, newIds });
   return (
     <section aria-label={L(lang, 'Atlas', 'Atlas')}>
-      {kinds.length > 1 && (
+      {(kinds.length > 1 || favs.length > 0) && (
         <div className="pl-filters" role="group" aria-label={L(lang, 'Filtrar por tipo', 'Filter by type')}>
           <button type="button" className={`pl-filter ${k === 'all' ? 'active' : ''}`} aria-pressed={k === 'all'} onClick={() => setKind('all')}>
             {L(lang, 'Tudo', 'All')}
@@ -186,21 +253,34 @@ function AtlasView({ entries, kind, setKind, counts, newIds, lang, onOpen }) {
               <span aria-hidden="true">{KIND_META[kk].icon}</span> {kindLabel(kk, lang, true)} <span className="pl-filter-n">{counts[kk]}</span>
             </button>
           ))}
+          {favs.length > 0 && (
+            <button type="button" className={`pl-filter lv-filter-fav ${k === 'fav' ? 'active' : ''}`} aria-pressed={k === 'fav'} onClick={() => setKind('fav')}>
+              <span className="lv-fav-ico" aria-hidden="true">★</span> {L(lang, 'Quero voltar', 'Return here')}
+            </button>
+          )}
         </div>
       )}
       {list.length === 0 ? (
         <p className="muted">{L(lang, 'Nada revelado deste tipo ainda.', 'Nothing of this kind revealed yet.')}</p>
       ) : (
         <div className="pl-grid">
-          {list.map(e => <EntryCard key={e.id} entry={e} mode="player" isNew={newIds.has(e.id)} onOpen={onOpen} lang={lang} />)}
+          {list.map(e => (living && isFavorite(e)
+            ? (
+              <div key={e.id} className="lv-card-wrap">
+                <EntryCard entry={e} mode="player" isNew={newIds.has(e.id)} onOpen={onOpen} lang={lang} />
+                <span className="lv-card-star" title={L(lang, 'Quero voltar aqui', 'I want to return here')}>★</span>
+              </div>
+            )
+            : <EntryCard key={e.id} entry={e} mode="player" isNew={newIds.has(e.id)} onOpen={onOpen} lang={lang} />))}
         </div>
       )}
+      {living && k === 'all' && <AtlasFog campaignId={campaignId} lang={lang} hint={fogHint} />}
     </section>
   );
 }
 
 // ------------------------------------------------------------------ Mapa
-function MapView({ maps, mapId, setMapId, byId, fetchFull, newIds, lang, onOpen }) {
+function MapView({ maps, mapId, setMapId, byId, fetchFull, newIds, lang, onOpen, living }) {
   const [trail, setTrail] = useState([]);           // mapas aninhados abertos pelo pin
   const rootId = maps.some(m => m.id === mapId) ? mapId : (maps.find(m => !m.parentId) || maps[0])?.id;
   const currentId = trail.length ? trail[trail.length - 1] : rootId;
@@ -261,6 +341,7 @@ function MapView({ maps, mapId, setMapId, byId, fetchFull, newIds, lang, onOpen 
         <div className="pl-map-canvas">
           {img ? <img src={img} alt={current?.name || ''} className="pl-map-img" draggable={false} />
             : <div className="pl-map-noimg">{L(lang, 'O mestre ainda não desenhou este mapa.', 'The DM has not drawn this map yet.')}</div>}
+          {img && living && <MapFog pins={pins} known={byId} />}
           {pins.map(p => {
             const target = p.entryId && byId.get(p.entryId);
             const label = p.label || target?.name || '';
@@ -339,7 +420,7 @@ function DocumentsView({ handouts, fetchFull, newIds, lang, onOpen, knownIds }) 
 }
 
 // ------------------------------------------------------------------ Cartão aberto
-function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen, onOpenMap, onClose }) {
+function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen, onOpenMap, onClose, living, charName, onReact, onFavorite, echoError }) {
   const [full, setFull] = useState(null);
   const [missing, setMissing] = useState(false);
   const [history, setHistory] = useState([]);
@@ -399,6 +480,9 @@ function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen,
         {e && e.kind === 'handout' && full ? (
           <div className="pl-viewer-handout">
             <Handout entry={full} lang={lang} onMention={go} />
+            {living && light && (
+              <ReactionBar entry={light} charName={charName} lang={lang} onReact={onReact} onFavorite={onFavorite} error={echoError} />
+            )}
           </div>
         ) : e && (
           <>
@@ -485,6 +569,10 @@ function EntryViewer({ id, light, entries, byId, fetchFull, isNew, lang, onOpen,
                 <div className="pl-viewer-tags">{e.tags.map(tag => <span key={tag} className="pl-tag">#{tag}</span>)}</div>
               )}
               {e.whenLabel && <div className="pl-viewer-when">⌛ {e.whenLabel}</div>}
+
+              {living && light && (
+                <ReactionBar entry={light} charName={charName} lang={lang} onReact={onReact} onFavorite={onFavorite} error={echoError} />
+              )}
             </div>
           </>
         )}

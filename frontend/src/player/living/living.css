@@ -1,0 +1,90 @@
+/* =====================================================================
+   Mundo vivo do jogador: ecos (reações), estrela "Quero voltar", névoa.
+   Discreto, dourado/escuro, leve no celular. Prefixo .lv-
+   ===================================================================== */
+
+/* ---------------------------------------------------------------- Ecos */
+.lv-echo {
+  margin-top: 4px; padding: 12px 12px 10px; border-radius: var(--radius-lg, 14px);
+  border: 1px solid var(--stroke-faint);
+  background: radial-gradient(ellipse at 0% 0%, rgba(214, 176, 100, 0.07), transparent 65%), var(--bg-raised);
+  display: flex; flex-direction: column; gap: 8px; min-width: 0;
+}
+.lv-echo-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.lv-echo-q { font-family: var(--display); font-size: 0.9rem; letter-spacing: 0.03em; color: var(--gold); min-width: 0; }
+.lv-echo-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.lv-react {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; position: relative;
+  min-height: 52px; padding: 6px 4px; border-radius: 12px; border: 1px solid var(--stroke-faint);
+  background: var(--bg-card); color: var(--ink-secondary); font: inherit; cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.lv-react:hover { border-color: var(--stroke); color: var(--ink-primary); }
+.lv-react:focus-visible, .lv-star:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+.lv-react.on {
+  border-color: var(--gold); color: var(--gold-bright);
+  background: radial-gradient(circle at 50% 30%, rgba(237, 203, 122, 0.18), transparent 70%), var(--bg-card);
+}
+.lv-react-ico { font-size: 1.25rem; line-height: 1; filter: saturate(0.85); }
+.lv-react.on .lv-react-ico { filter: none; }
+.lv-react-txt { font-size: 0.7rem; line-height: 1.15; text-align: center; overflow-wrap: anywhere; }
+.lv-react-n {
+  position: absolute; top: 3px; right: 5px; font-size: 0.66rem; color: var(--ink-muted); font-variant-numeric: tabular-nums;
+}
+.lv-echo-whisper { margin: 0; font-size: 0.82rem; font-style: italic; color: var(--ink-muted); }
+.lv-echo-err { margin: 0; font-size: 0.82rem; color: var(--blood-bright); }
+
+.lv-star {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 12px; border-radius: 999px;
+  border: 1px solid var(--stroke); background: transparent; color: var(--ink-secondary); font: inherit; font-size: 0.85rem; cursor: pointer;
+}
+.lv-star span[aria-hidden] { font-size: 1.05rem; line-height: 1; }
+.lv-star.on { border-color: var(--gold); color: var(--gold-bright); background: var(--gold-soft); }
+
+/* Marca da estrela sobre o cartão no Atlas (o cartão é de outro pacote). */
+.lv-card-wrap { position: relative; min-width: 0; }
+.lv-card-star {
+  position: absolute; top: 8px; left: 8px; z-index: 2; pointer-events: none;
+  width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(14, 10, 7, 0.72); border: 1px solid var(--gold); color: var(--gold-bright); font-size: 0.9rem;
+  box-shadow: 0 0 10px rgba(237, 203, 122, 0.35);
+}
+
+/* Filtro "Quero voltar" na barra de tipos */
+.pl-filter.lv-filter-fav .lv-fav-ico { color: var(--gold-bright); }
+
+/* ---------------------------------------------------------------- Névoa (Atlas) */
+.lv-fog {
+  margin-top: 6px; padding: 18px 14px 16px; border-radius: var(--radius-lg, 14px); text-align: center;
+  border: 1px dashed var(--stroke-faint);
+  background:
+    radial-gradient(ellipse at 50% 120%, rgba(214, 176, 100, 0.06), transparent 60%),
+    linear-gradient(180deg, transparent, rgba(14, 10, 7, 0.55));
+}
+.lv-fog-sils { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; }
+.lv-fog-sil {
+  width: clamp(64px, 22vw, 96px); aspect-ratio: 3 / 4; border-radius: 10px; transform: rotate(var(--tilt, 0deg));
+  border: 1px solid color-mix(in srgb, var(--wl-kind, #d6b064) 30%, transparent);
+  background: linear-gradient(180deg, rgba(243, 230, 203, 0.035), rgba(243, 230, 203, 0.01));
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 5px; padding: 8px;
+  filter: blur(0.6px); opacity: 0.55;
+}
+.lv-fog-glyph { font-size: 1.4rem; margin-bottom: auto; margin-top: 6px; filter: grayscale(1) brightness(0.55); opacity: 0.6; }
+.lv-fog-bar { display: block; width: 80%; height: 6px; border-radius: 3px; background: rgba(243, 230, 203, 0.08); }
+.lv-fog-bar.short { width: 50%; }
+.lv-fog-line { margin: 0; font-family: var(--display); font-style: italic; color: var(--ink-muted); font-size: 0.95rem; }
+.lv-fog-hint { margin: 4px 0 0; font-size: 0.82rem; color: var(--ink-faint); font-style: italic; }
+@media (prefers-reduced-motion: no-preference) {
+  .lv-fog-sil { animation: lv-drift 9s ease-in-out infinite alternate; }
+  .lv-fog-sil:nth-child(2) { animation-delay: -3s; }
+  .lv-fog-sil:nth-child(3) { animation-delay: -6s; }
+}
+@keyframes lv-drift {
+  from { opacity: 0.4; transform: rotate(var(--tilt, 0deg)) translateY(0); }
+  to { opacity: 0.62; transform: rotate(var(--tilt, 0deg)) translateY(-3px); }
+}
+
+/* ---------------------------------------------------------------- Névoa (Mapa) */
+.lv-mapfog { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+.lv-mapfog-base { fill: rgba(20, 16, 12, 0.42); }
+.lv-mapfog-grain { opacity: 0.35; }

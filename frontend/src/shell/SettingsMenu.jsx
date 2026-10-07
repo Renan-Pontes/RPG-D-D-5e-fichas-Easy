@@ -1,19 +1,23 @@
 // ⚙ Ajustes da campanha (DESIGN 1.2): identidade (nome, frase, capa, cor, tom),
 // convite e link do telão, modo de nível e multiclasse, e Ferramentas avançadas
-// (Dados preparados pelo mestre — desligado por padrão).
+// (Dados preparados pelo mestre — desligado por padrão), Mundo vivo (imersão
+// do Mundo) e Zona de perigo (apagar a campanha, confirmando pelo nome).
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
-import CoverPicker from './CoverPicker.jsx';
+import CoverPicker from '../campaigns/CoverPicker.jsx';
 import ToneAccentFields from './ToneAccentFields.jsx';
-import { isHexColor, screenLink, t } from './shell-logic.js';
+import { defaultCoverArt, isHexColor, screenLink, t } from './shell-logic.js';
+import { confirmNameMatches, immersionOn } from '../world/living/living-logic.js';
+import { flash } from '../play/flash.js';
+import '../world/living/living.css';
 
 const AdvancedDice = lazy(() => import('./AdvancedDice.jsx'));
 
-const SECTIONS = ['identity', 'table', 'rules', 'advanced'];
+const SECTIONS = ['identity', 'table', 'rules', 'world', 'advanced', 'danger'];
 
-export default function SettingsMenu({ campaign, lang, onClose, onChange, worldCount = null, worldMax = 500, onMarkOnboarding }) {
+export default function SettingsMenu({ campaign, lang, onClose, onChange, worldCount = null, worldMax = 500, onMarkOnboarding, onDeleted }) {
   const [section, setSection] = useState('identity');
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -24,7 +28,9 @@ export default function SettingsMenu({ campaign, lang, onClose, onChange, worldC
     identity: t(lang, 'Identidade', 'Identity'),
     table: t(lang, 'Convite e telão', 'Invite & TV'),
     rules: t(lang, 'Regras da mesa', 'Table rules'),
+    world: t(lang, 'Mundo vivo', 'Living world'),
     advanced: t(lang, 'Ferramentas avançadas', 'Advanced tools'),
+    danger: t(lang, 'Zona de perigo', 'Danger zone'),
   };
   return (
     <div className="modal-backdrop shell-settings-backdrop" onClick={onClose}>
@@ -43,7 +49,9 @@ export default function SettingsMenu({ campaign, lang, onClose, onChange, worldC
           {section === 'identity' && <IdentitySection campaign={campaign} lang={lang} onChange={onChange} onMarkOnboarding={onMarkOnboarding} />}
           {section === 'table' && <TableSection campaign={campaign} lang={lang} onChange={onChange} onMarkOnboarding={onMarkOnboarding} />}
           {section === 'rules' && <RulesSection campaign={campaign} lang={lang} onChange={onChange} />}
+          {section === 'world' && <LivingWorldSection campaign={campaign} lang={lang} onChange={onChange} />}
           {section === 'advanced' && <AdvancedSection campaign={campaign} lang={lang} onChange={onChange} worldCount={worldCount} worldMax={worldMax} />}
+          {section === 'danger' && <DangerSection campaign={campaign} lang={lang} onClose={onClose} onDeleted={onDeleted} />}
         </div>
       </div>
     </div>
@@ -85,7 +93,9 @@ function IdentitySection({ campaign, lang, onChange, onMarkOnboarding }) {
       <section className="col gap-2">
         <h3 className="shell-h3">{t(lang, 'Capa', 'Cover')}</h3>
         <p className="muted text-sm" style={{ margin: 0 }}>{t(lang, 'A capa é salva assim que você escolhe.', 'The cover is saved as soon as you pick it.')}</p>
-        <CoverPicker lang={lang} campaign={campaign} busy={coverStatus.busy} onPick={setCover} />
+        <CoverPicker lang={lang} name={name} tagline={tagline} accent={isHexColor(accent) ? accent : ''}
+          currentSrc={api.campaignCoverUrl(campaign)} fallbackSrc={defaultCoverArt(campaign)}
+          busy={coverStatus.busy} onPick={setCover} />
         {coverStatus.msg && <span className="muted text-sm" role="status">{coverStatus.msg}</span>}
       </section>
       <section className="col gap-3">
@@ -224,13 +234,128 @@ function AdvancedSection({ campaign, lang, onChange, worldCount, worldMax }) {
       </section>
       {worldCount != null && (
         <section className="col gap-1">
-          <h3 className="shell-h3">{t(lang, 'Espaço do mundo', 'World space')}</h3>
+          <h3 className="shell-h3">{t(lang, 'Tamanho do mundo', 'World size')}</h3>
           <div className="shell-meter" role="meter" aria-valuemin={0} aria-valuemax={worldMax} aria-valuenow={worldCount}>
             <span style={{ width: `${Math.min(100, (worldCount / (worldMax || 500)) * 100)}%` }} />
           </div>
-          <span className="muted text-sm">{t(lang, `${worldCount} de ${worldMax} cartões`, `${worldCount} of ${worldMax} cards`)}</span>
+          <span className="muted text-sm">{t(lang, `${worldCount} de ${worldMax} cartões (lugares, NPCs, facções, itens…). Cada campanha comporta até ${worldMax}.`, `${worldCount} of ${worldMax} cards (places, NPCs, factions, items…). Each campaign holds up to ${worldMax}.`)}</span>
         </section>
       )}
+    </div>
+  );
+}
+
+function LivingWorldSection({ campaign, lang, onChange }) {
+  const on = immersionOn(campaign);
+  const fog = campaign.fogHint === true;
+  const { msg, busy, run } = useStatus();
+  const patch = (body) => run(async () => { await api.patchCampaign(campaign.id, body); onChange?.(); }, t(lang, 'Salvo ✓', 'Saved ✓'), lang);
+  return (
+    <div className="col gap-4">
+      <section className="col gap-2">
+        <label className="rule-toggle">
+          <input type="checkbox" checked={on} disabled={busy} onChange={() => patch({ immersion: !on })} />
+          <span>{t(lang, 'Mundo vivo', 'Living world')}</span>
+        </label>
+        <p className="muted text-sm" style={{ margin: 0 }}>
+          {t(lang,
+            'O Atlas ganha o céu do seu mundo (cada cartão uma estrela), as páginas em branco do cronista, os rumores da taverna e os ecos da mesa — os jogadores podem se arrepiar, desconfiar ou querer voltar ao que você revelou, e você ouve. Nada é decidido por você; desligue quando quiser silêncio.',
+            'The Atlas gains your world\'s sky (each card a star), the chronicler\'s blank pages, tavern rumors and echoes from the table — players can shiver, doubt or long to return to what you revealed, and you hear it. Nothing is decided for you; turn it off when you want silence.')}
+        </p>
+      </section>
+      {on && (
+        <section className="col gap-2">
+          <label className="rule-toggle">
+            <input type="checkbox" checked={fog} disabled={busy} onChange={() => patch({ fogHint: !fog })} />
+            <span>{t(lang, 'Deixar os jogadores pressentirem o desconhecido', 'Let players sense the unknown')}</span>
+          </label>
+          <p className="muted text-sm" style={{ margin: 0 }}>
+            {t(lang,
+              'Na névoa do Mundo deles aparece uma noção vaga ("alguns lugares", "muitos segredos") do que ainda não conhecem — nunca nomes nem números.',
+              'The fog in their World shows a vague sense ("a few places", "many secrets") of what they do not know yet — never names or numbers.')}
+          </p>
+        </section>
+      )}
+      {msg && <p className="muted text-sm" role="status" style={{ margin: 0 }}>{msg}</p>}
+    </div>
+  );
+}
+
+function DangerSection({ campaign, lang, onClose, onDeleted }) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <div className="col gap-4">
+      <section className="col gap-2 lv-danger">
+        <h3 className="shell-h3">{t(lang, 'Apagar campanha', 'Delete campaign')}</h3>
+        <p className="muted text-sm" style={{ margin: 0 }}>
+          {t(lang, 'Apaga a mesa inteira, para sempre. Não dá para desfazer.', 'Deletes the whole table, forever. It cannot be undone.')}
+        </p>
+        <button type="button" className="lv-btn-danger" onClick={() => setConfirming(true)}>
+          🗑 {t(lang, 'Apagar campanha…', 'Delete campaign…')}
+        </button>
+      </section>
+      {confirming && <DeleteCampaignDialog campaign={campaign} lang={lang} onCancel={() => setConfirming(false)}
+        onDone={() => {
+          flash(t(lang, `A campanha "${campaign.name}" foi apagada. As fichas dos jogadores continuam com eles.`,
+            `The campaign "${campaign.name}" was deleted. Players keep their character sheets.`), { ms: 5200 });
+          onClose?.();
+          if (onDeleted) onDeleted();
+          else document.querySelector('.shell-back')?.click(); // volta para a lista de campanhas
+        }} />}
+    </div>
+  );
+}
+
+function DeleteCampaignDialog({ campaign, lang, onCancel, onDone }) {
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const ok = confirmNameMatches(typed, campaign.name);
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!ok || busy) return;
+    setBusy(true); setErr('');
+    try {
+      await api.deleteCampaign(campaign.id);
+      onDone();
+    } catch (ex) {
+      setErr(errorMessage(ex, lang));
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="modal-backdrop" style={{ zIndex: 1200 }} onClick={(e) => { e.stopPropagation(); if (!busy) onCancel(); }}>
+      <form className="modal col gap-3" role="alertdialog" aria-modal="true" aria-labelledby="lv-del-title" aria-describedby="lv-del-desc"
+        onClick={(e) => e.stopPropagation()} onSubmit={submit}
+        onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); if (!busy) onCancel(); } }}>
+        <h2 id="lv-del-title" style={{ margin: 0 }}>{t(lang, 'Apagar esta campanha?', 'Delete this campaign?')}</h2>
+        <div id="lv-del-desc" className="col gap-2">
+          <p style={{ margin: 0 }}>
+            {t(lang, 'Isto apaga para sempre ', 'This permanently deletes ')}<span className="lv-confirm-name">{campaign.name}</span>{t(lang, ', com:', ', including:')}
+          </p>
+          <ul className="lv-danger-list">
+            <li>{t(lang, 'todo o mundo: lugares, NPCs, facções, segredos, mapas e imagens;', 'the whole world: places, NPCs, factions, secrets, maps and images;')}</li>
+            <li>{t(lang, 'as aventuras e o plano da próxima sessão;', 'the adventures and the next-session plan;')}</li>
+            <li>{t(lang, 'o diário, a crônica, o combate e os itens da mesa.', 'the diary, the chronicle, combat and the table\'s items.')}</li>
+          </ul>
+          <p className="muted text-sm" style={{ margin: 0 }}>
+            {t(lang, 'As fichas dos jogadores NÃO são apagadas — elas só saem da mesa e continuam com cada jogador.',
+              'Players\' character sheets are NOT deleted — they just leave the table and stay with each player.')}
+          </p>
+        </div>
+        <label className="col gap-1" style={{ marginTop: 8 }}>
+          <span>{t(lang, 'Para confirmar, digite o nome da campanha:', 'To confirm, type the campaign name:')}</span>
+          <input className="input" value={typed} autoFocus autoComplete="off" spellCheck={false}
+            onChange={(e) => setTyped(e.target.value)} placeholder={campaign.name} aria-invalid={typed !== '' && !ok} />
+        </label>
+        {err && <p role="alert" style={{ margin: 0, color: 'var(--blood-bright)' }}>{err}</p>}
+        <div className="row gap-2" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel} disabled={busy}>{t(lang, 'Cancelar', 'Cancel')}</button>
+          <button type="submit" className="lv-btn-danger" disabled={!ok || busy}>
+            {busy ? t(lang, 'Apagando…', 'Deleting…') : t(lang, 'Apagar para sempre', 'Delete forever')}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

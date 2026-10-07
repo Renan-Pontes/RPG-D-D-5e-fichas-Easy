@@ -48,7 +48,7 @@ export function QuickCreate({ lang, defaultKind = 'npc', onCreate, onCancel, bus
 
 export default function Atlas({
   entries, lang = 'pt', selectedId, onOpen, onReveal, onShow, onCreate, onImprovise, onReorder, onSample, sampleBusy = false,
-  count, max = 500, initialKind = 'all', createNonce = 0,
+  count, max = 500, initialKind = 'all', createNonce = 0, top = null,
 }) {
   const [kind, setKind] = useState(initialKind);
   const [vis, setVis] = useState('all');
@@ -86,6 +86,7 @@ export default function Atlas({
 
   return (
     <div className="wl-atlas">
+      {top /* Mundo vivo (céu, páginas em branco, ecos, rumores) — montado pelo WorldArea */}
       <div className="wl-atlas-bar">
         <div className="wl-search">
           <span aria-hidden="true">🔍</span>

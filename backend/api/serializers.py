@@ -189,10 +189,13 @@ class CampaignSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         is_dm = _viewer_is_dm(self, instance)
         data['screenCard'] = resolve_screen_card(instance)
+        settings = instance.dm_settings if isinstance(instance.dm_settings, dict) else {}
+        # "Mundo vivo" (padrão ligado): o jogador precisa saber para mostrar os ecos
+        data['immersion'] = settings.get('immersion') is not False
         if is_dm:
-            settings = instance.dm_settings if isinstance(instance.dm_settings, dict) else {}
             data['onboarding'] = settings.get('onboarding') or {}
             data['advancedDice'] = bool(settings.get('advancedDice'))
+            data['fogHint'] = settings.get('fogHint') is True
             data['pendingApprovals'] = instance.approvals.filter(status='pending').count()
         else:
             # esconde tokens privados e o que é só do mestre (nudges, concentração,

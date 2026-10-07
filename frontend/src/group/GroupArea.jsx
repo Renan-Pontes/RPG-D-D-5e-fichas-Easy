@@ -31,8 +31,9 @@ function writeSub(id, v) {
  *    elas, a área lembra a última subvista por campanha (localStorage)
  *  - hasJoinRoute: o app abre /join/<código>? (decide o que "Copiar link" copia)
  *  - onPendingCount(n): opcional, avisa a casca do nº de pedidos pendentes
+ *  - onLeaveCampaign(): jogador saiu da mesa → a casca volta para Campanhas
  */
-export default function GroupArea({ campaign, lang = 'pt', isDM, characters = [], onChange, sub, onSubChange, hasJoinRoute = false, onPendingCount }) {
+export default function GroupArea({ campaign, lang = 'pt', isDM, characters = [], onChange, sub, onSubChange, hasJoinRoute = false, onPendingCount, onLeaveCampaign }) {
   const [ownSub, setOwnSub] = useState(() => readSub(campaign.id) || 'players');
   const current = !isDM ? 'players' : (SUBS.includes(sub) ? sub : ownSub);
   const setSub = (v) => { if (onSubChange) onSubChange(v); else setOwnSub(v); writeSub(campaign.id, v); };
@@ -78,7 +79,7 @@ export default function GroupArea({ campaign, lang = 'pt', isDM, characters = []
         <div className="grp-players-view" role="tabpanel">
           {isDM && <InviteCard campaign={campaign} lang={lang} hasJoinRoute={hasJoinRoute} compact={(campaign.members || []).length > 2} />}
           <PlayersPanel campaign={campaign} lang={lang} isDM={isDM} characters={characters} approvals={approvals || []}
-            ask={ask} notify={notify} onChange={refresh} />
+            ask={ask} notify={notify} onChange={refresh} onLeft={onLeaveCampaign} />
           {approvals == null
             ? <p className="muted small">{t(lang, 'Carregando pedidos…', 'Loading requests…')}</p>
             : <RequestsPanel campaign={campaign} approvals={approvals} xpEvents={xpEvents} lang={lang} isDM={isDM}

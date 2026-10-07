@@ -14,7 +14,25 @@
 import { useState } from 'react';
 import { worldImageUrl } from './world-api.js';
 import { KIND_META, VIS_META, defaultArt, kindLabel, subtitleOf, t, visLabel } from './world-model.js';
+import { entryWhispers } from './living/living-logic.js';
 import './world-styles.css';
+import './living/living.css';
+
+/** Mestre: "a mesa sussurrou sobre isto" com os ícones das reações dos jogadores. */
+function Whisper({ entry, lang }) {
+  const w = entryWhispers(entry);
+  if (!w.any) return null;
+  return (
+    <div className="lv-whisper" title={t(lang, 'Reações dos jogadores a este cartão', 'Player reactions to this card')}>
+      <span>{t(lang, 'a mesa sussurrou sobre isto', 'the table whispered about this')}</span>
+      <span className="lv-whisper-icons">
+        {w.icons.map(i => (
+          <span key={i.id}>{i.n <= 3 ? i.icon.repeat(i.n) : <>{i.icon}<small>×{i.n}</small></>}</span>
+        ))}
+      </span>
+    </div>
+  );
+}
 
 export function VisibilitySeal({ visibility, lang = 'pt', small = false }) {
   const v = VIS_META[visibility] ? visibility : 'hidden';
@@ -128,6 +146,7 @@ export default function EntryCard({
           {(entry.tags || []).slice(0, 3).map(tag => <span key={tag} className="wl-tag">#{tag}</span>)}
           {entry.whenLabel && <span className="wl-when">⌛ {entry.whenLabel}</span>}
         </div>
+        {dm && <Whisper entry={entry} lang={lang} />}
         {actions}
         {extra}
       </div>

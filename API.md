@@ -106,7 +106,13 @@ Lista todas as campanhas onde o user é DM ou jogador. Itens trazem `role: 'dm' 
 { "name"?: "...", "description"?: "...", "state"?: {"session": 12, "scene": "...", "weather": "..." } }
 ```
 
+`dm_settings` aceitos no PUT/PATCH (só o mestre): `onboarding`, `advancedDice`, `immersion` (bool, "Mundo vivo", padrão `true`) e `fogHint` (bool, padrão `false`: deixa o jogador ter uma noção *aproximada* do que ainda não conhece). O GET devolve `immersion` para todos (o jogador precisa saber se mostra os ecos) e `fogHint` só ao mestre.
+
 ### `DELETE /campaigns/:id` (DM)
+Apaga a campanha e tudo o que é dela (CASCADE): mundo, imagens, ecos, aventuras, diário/Crônica, combate, itens, pedidos de teste/rolagem, dados viciados e as memberships. **As fichas dos jogadores NÃO são apagadas** — só saem da mesa (`Membership.character` é SET_NULL). Jogador = 403. → `{ok: true}`.
+
+### `POST /campaigns/:id/leave` (jogador)
+Sai da campanha (atalho de `DELETE /members/<a própria>`). A ficha continua do jogador; reações/leituras do Mundo e dados viciados que miravam o jogador nesta mesa somem. Mestre = **400** `dm_cannot_leave` (ele apaga a campanha). Não-membro = 403.
 
 ### `POST /campaigns/join`
 ```json
@@ -133,8 +139,8 @@ Capa da campanha para a prévia (imagem binária, cache por `?v=`). 60/min por u
 - O próprio usuário pode mudar seu personagem (precisa ser dele).
 - DM pode mudar de qualquer jogador (mas o personagem precisa pertencer ao dono da membership).
 
-### `DELETE /campaigns/:id/members/:membershipId` (DM)
-Não permite remover o próprio DM.
+### `DELETE /campaigns/:id/members/:membershipId` (DM ou o próprio jogador)
+O mestre remove qualquer jogador; o próprio jogador pode remover a si mesmo (sair). Não permite remover o DM (`cannot_remove_dm` / `dm_cannot_leave`).
 
 ### `POST /campaigns/:id/rotate-screen-token` (DM)
 Gera novo token para o telão. O link antigo deixa de funcionar.
@@ -396,6 +402,25 @@ Todas as chaves são opcionais; `false` oculta de novo. Se algo passou a ser vis
 
 ### `POST /campaigns/:id/world/seen` (jogador)
 Grava `Membership.world_seen_at = agora` → `{seenAt}`. Para o mestre é no-op (`{seenAt: null}`). A contagem "Novo!" do GET da campanha usa `views_world.world_new_count(campaign, membership)`.
+
+### Ecos da mesa (imersão do Mundo — desligável com `dm_settings.immersion`)
+Os jogadores reagem como personagem a cartões **revelados ou conhecidos de nome**: `shiver` 😱 (arrepio), `love` ❤️ (afeto), `doubt` 🤔 (desconfiança), `fight` ⚔️ (quero enfrentar) e `star` ⭐ ("quero voltar aqui"). Nada de pontos, selos ou placar; o jogador **nunca** vê quem reagiu.
+
+- `POST /world/:pk/react` (jogador) `{kind}` — idempotente (único por cartão+jogador+kind). Aceita também o emoji. → `{entryId, myReactions, myFavorite, reactionCounts}`. Cartão oculto, handout de outro destinatário ou não-membro = **404**; mestre = **403** `players_only`; "Mundo vivo" desligado = **409** `immersion_off`; kind inválido = **400** `invalid_reaction`; 90/min por usuário (**429**).
+- `DELETE /world/:pk/react` (jogador) `{kind}` ou `?kind=` — desmarca. Mesmas respostas.
+- `POST /world/:pk/view` (jogador) — registra leitura; conta no máximo **1 por minuto por cartão** → `{counted: bool}`. Mestre ou imersão desligada = no-op `{counted: false}`.
+- `GET /campaigns/:id/world/echoes?lang=pt|en` (mestre) →
+```json
+{ "immersion": true, "known": "Seus jogadores já conhecem cerca de um terço do seu mundo",
+  "lines": [{"entryId": 4, "kind": "shiver", "text": "Irmã Velna arrepiou Thalion e Bia"},
+            {"entryId": 1, "kind": "read", "text": "Thalion voltou quatro vezes ao mapa de Brumafria"}],
+  "entries": [{"entryId": 4, "kind": "npc", "name": "Irmã Velna", "visibility": "revealed", "isMap": false,
+               "reactions": {"shiver": 2}, "favorites": 0, "views": 5, "lastAt": "iso",
+               "people": [{"membershipId": 7, "name": "Thalion", "kinds": ["shiver"], "views": 4, "lastAt": "iso"}]}] }
+```
+`name` = personagem do jogador (ou o nome dele, se não houver ficha). `known` é frase, nunca porcentagem. Desligado → `{immersion: false, entries: [], lines: [], known}`.
+
+Na lista/detalhe do Mundo (`immersion` vem na lista): o **jogador** recebe, só em cartões revelados/parciais, `myReactions` (sem `star`), `myFavorite` e `reactionCounts` (agregado sem nomes, sem favoritos); se o mestre ligou `fogHint`, a lista traz `fog: {hint: 'none'|'few'|'some'|'many'}` (nunca um número). O **mestre** recebe `reactionCounts`, `favoriteCount`, `viewCount` e, no detalhe, `whispers` (`[{membershipId, name, kinds, views, lastAt}]`).
 
 ### `GET /campaigns/:id/session-plan` · `PUT` (mestre)
 Plano da próxima sessão em `Campaign.dm_settings.sessionPlan`. PUT (ou PATCH) faz **merge por chave** no servidor (`{plan: {...}}` ou as chaves direto) e devolve `{plan}`:

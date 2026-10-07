@@ -107,6 +107,44 @@ export function showEntryOnScreen(campaignId, entryId, secretIds) {
   return showOnScreen(campaignId, { type: 'entry', entryId, ...(secretIds?.length ? { secretIds } : {}) });
 }
 
+// ------------------------------------------------------------ Mundo vivo (ecos da mesa)
+// Contrato (backend G1):
+//   POST   /api/world/:pk/react {kind}  → jogador reage a um cartão revelado/parcial
+//   DELETE /api/world/:pk/react {kind}  → desfaz (kind também vai em ?kind=)
+//     kind: 'shiver' 😱 | 'love' ❤️ | 'doubt' 🤔 | 'fight' ⚔️ | 'star' ⭐ (quero voltar aqui)
+//   POST   /api/world/:pk/view          → registro de leitura (servidor limita 1/min/cartão)
+//   GET    /api/campaigns/:id/world/echoes?lang= (mestre) → {immersion, known, lines: [{entryId, kind, text}],
+//          entries: [{entryId, name, kind, isMap, reactions: {kind: n}, favorites, views,
+//          people: [{name, kinds, views, lastAt}]}]}  (ver living/living-logic.normalizeEchoes)
+//   A lista do mestre já traz por cartão: reactionCounts {kind: n}, favoriteCount, viewCount.
+
+/** Jogador reage a um cartão. → resposta do servidor */
+export function reactToEntry(id, kind) {
+  return request(`/api/world/${id}/react`, { method: 'POST', body: { kind } });
+}
+
+/** Jogador desfaz a reação. */
+export function unreactToEntry(id, kind) {
+  return request(`/api/world/${id}/react?kind=${encodeURIComponent(kind)}`, { method: 'DELETE', body: { kind } });
+}
+
+/** Jogador leu o cartão (o servidor ignora repetições dentro de 1 min). Falhas são silenciosas. */
+export function markEntryViewed(id) {
+  return request(`/api/world/${id}/view`, { method: 'POST', body: {} }).catch(() => null);
+}
+
+/**
+ * Ecos da mesa (mestre). Se o endpoint ainda não existir (404/405/501) ou
+ * falhar, devolve null — quem chama mostra o estado vazio, sem erro.
+ */
+export async function getWorldEchoes(campaignId, lang = 'pt') {
+  try {
+    return await request(`/api/campaigns/${cid(campaignId)}/world/echoes?lang=${lang === 'en' ? 'en' : 'pt'}`);
+  } catch {
+    return null;
+  }
+}
+
 export const isConflict = (e) => e?.status === 409 && e?.data?.error === 'version_conflict';
 
 const WORLD_ERRORS = {

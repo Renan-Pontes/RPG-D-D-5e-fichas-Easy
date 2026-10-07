@@ -255,6 +255,8 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   const areaProps = {
     campaign, lang, isDM, characters, sub: nav.sub, params: nav.params, goTo, onSubChange,
     onChange: load, onOpenTab: legacyNav, onNavigate: legacyNav,
+    // jogador saiu da mesa (Grupo › ⋯ › Sair da campanha): volta para Campanhas
+    onLeaveCampaign: isDM ? undefined : onBack,
   };
   const ctx = {
     area: nav.area, sub: nav.sub, params: nav.params, goTo, clearParams, isDM, lang, campaign, reload: load,

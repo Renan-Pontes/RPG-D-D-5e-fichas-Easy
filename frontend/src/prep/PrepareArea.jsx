@@ -1,8 +1,9 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import NextSession from './NextSession.jsx';
 import CampaignItemsTab from '../items/CampaignItemsTab.jsx';
 import { SubChips } from '../shell/AreaNav.jsx';
 import './next-session.css';
+import ReadyAdventureGallery from '../ready/ReadyAdventureGallery.jsx';
 
 const PrepTab = lazy(() => import('./PrepTab.jsx'));
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
@@ -33,6 +34,8 @@ export default function PrepareArea({ campaign, lang, sub: subProp, params, goTo
   const [openParams, setOpenParams] = useState(params || null);
   const [paramsSeen, setParamsSeen] = useState(params);
   if (params !== paramsSeen) { setParamsSeen(params); setOpenParams(params || null); }
+  const [showReady, setShowReady] = useState(false);
+  const [listKey, setListKey] = useState(0); // remonta a lista depois de importar uma aventura pronta
 
   const setSub = (id) => {
     setOwn(id);
@@ -58,14 +61,47 @@ export default function PrepareArea({ campaign, lang, sub: subProp, params, goTo
         ariaLabel={t(lang, 'Preparar', 'Prepare')} />
       <div role="tabpanel">
         {sub === 'next' && <NextSession campaign={campaign} lang={lang} goTo={nav} />}
+        {/* Só aparece na lista de aventuras (CSS: irmão .prep-tab), não dentro de uma aventura aberta. */}
+        {sub === 'adventures' && (
+          <div className="ready-entry">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowReady(true)}>📖 {t(lang, 'Adicionar aventura pronta', 'Add a ready adventure')}</button>
+            <span className="muted">{t(lang, 'Aventuras originais da Forja, prontas para conduzir.', 'Original Forja adventures, ready to run.')}</span>
+          </div>
+        )}
         {sub === 'adventures' && (
           <Suspense fallback={<p className="muted">{t(lang, 'Carregando…', 'Loading…')}</p>}>
-            <PrepTab campaign={campaign} lang={lang} goTo={nav} onOpenTab={onOpenTab}
+            <PrepTab key={listKey} campaign={campaign} lang={lang} goTo={nav} onOpenTab={onOpenTab}
               initialAdventureId={openParams?.adventureId} initialNodeId={openParams?.nodeId}
               onConsumedParams={() => setOpenParams(null)} />
           </Suspense>
         )}
         {sub === 'items' && <CampaignItemsTab campaign={campaign} lang={lang} goTo={nav} />}
+      </div>
+      {showReady && (
+        <ReadyModal campaign={campaign} lang={lang} onClose={() => setShowReady(false)}
+          onImported={() => setListKey(k => k + 1)}
+          onOpen={(adventureId) => { setShowReady(false); setOpenParams({ adventureId }); setListKey(k => k + 1); }} />
+      )}
+    </div>
+  );
+}
+
+/** Janela "Adicionar aventura pronta" (Preparar › Aventuras). */
+function ReadyModal({ campaign, lang, onClose, onImported, onOpen }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal ready-modal" role="dialog" aria-modal="true" aria-labelledby="ready-modal-title" onClick={e => e.stopPropagation()}>
+        <button type="button" className="modal-close" onClick={onClose} aria-label={t(lang, 'Fechar', 'Close')}>×</button>
+        <h2 id="ready-modal-title">📖 {t(lang, 'Aventuras prontas', 'Ready adventures')}</h2>
+        <p className="ready-intro">{t(lang,
+          'Cada uma traz o mundo (lugares, personagens, facções, lendas e documentos), as salas com texto para ler em voz alta, testes, encontros e tesouro, e dicas para conduzir. Os cartões chegam ocultos; a aventura chega como Rascunho.',
+          'Each one brings the world (places, characters, factions, legends and handouts), rooms with read-aloud text, checks, encounters and treasure, and tips for running it. Cards arrive hidden; the adventure arrives as a Draft.')}</p>
+        <ReadyAdventureGallery lang={lang} mode="import" campaignId={campaign.id} onImported={onImported} onOpen={onOpen} />
       </div>
     </div>
   );

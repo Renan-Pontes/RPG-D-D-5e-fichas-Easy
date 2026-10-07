@@ -68,6 +68,13 @@ def _apply_dm_settings(obj, data):
         if not isinstance(data.get('advancedDice'), bool):
             raise ValidationError({'error': 'invalid_advancedDice'})
         settings['advancedDice'] = data['advancedDice']
+    # "Mundo vivo" (imersão do Mundo: ecos da mesa, névoa, céu do atlas) — padrão
+    # ligado; fogHint deixa o jogador ter noção APROXIMADA do desconhecido.
+    for key in ('immersion', 'fogHint'):
+        if key in data:
+            if not isinstance(data.get(key), bool):
+                raise ValidationError({'error': f'invalid_{key}'})
+            settings[key] = data[key]
     obj.dm_settings = settings
 
 
@@ -123,6 +130,9 @@ def campaign_detail(request, id_or_slug):
     require_dm(request.user, obj)
 
     if request.method == 'DELETE':
+        # Apaga mundo, aventuras, diário, combate, itens, pedidos e ecos (CASCADE).
+        # Fichas dos jogadores NÃO: Membership.character é SET_NULL e Character
+        # pertence ao usuário — elas só saem da mesa.
         obj.delete()
         return Response({'ok': True})
 
@@ -315,6 +325,27 @@ def campaign_join(request):
     return Response({'membership': {'id': m.id}, 'campaignId': campaign.id, 'slug': campaign.slug})
 
 
+def _remove_member(campaign, m):
+    """Tira a pessoa da mesa. A ficha NÃO é apagada (só deixa de estar na
+    campanha); dados viciados que miravam essa pessoa nesta mesa somem junto."""
+    from .models import DiceRig
+    DiceRig.objects.filter(campaign=campaign, target_user_id=m.user_id).delete()
+    m.delete()
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def campaign_leave(request, id_or_slug):
+    """Jogador sai da campanha (atalho de DELETE /members/<a própria>). O
+    mestre não sai da própria mesa — ele apaga a campanha."""
+    campaign = get_campaign_or_404(id_or_slug)
+    if is_dm(request.user, campaign):
+        return Response({'error': 'dm_cannot_leave'}, status=400)
+    m = require_member(request.user, campaign)
+    _remove_member(campaign, m)
+    return Response({'ok': True})
+
+
 @api_view(['PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def campaign_member(request, id_or_slug, membership_id):
@@ -334,7 +365,7 @@ def campaign_member(request, id_or_slug, membership_id):
             require_dm(request.user, campaign)
             if m.user_id == campaign.dm_id:
                 return Response({'error': 'cannot_remove_dm'}, status=400)
-        m.delete()
+        _remove_member(campaign, m)
         return Response({'ok': True})
 
     # PUT: o próprio jogador pode mudar seu personagem; DM idem

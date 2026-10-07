@@ -1,0 +1,85 @@
+/* Aventuras prontas da Forja — galeria (assistente de campanha e Preparar). */
+.ready { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ready-loading { margin: 8px 0; }
+.ready-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
+
+.ready-card {
+  display: flex; flex-direction: column; min-width: 0; padding: 0; overflow: hidden; text-align: left;
+  border: 1px solid var(--stroke); border-radius: var(--radius-lg, 12px);
+  background: var(--bg-raised); color: var(--ink-primary);
+  box-shadow: var(--shadow-card, none);
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.ready-card.is-pick { cursor: pointer; font: inherit; }
+.ready-card.is-pick:hover { border-color: var(--gold-deep, var(--gold)); }
+.ready-card.is-pick:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.ready-card.active {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold-soft), var(--shadow-card, none);
+  background: linear-gradient(180deg, var(--gold-soft), var(--bg-raised) 55%);
+}
+.ready-card.is-imported { border-color: var(--stroke-faint, var(--stroke)); }
+
+.ready-art { position: relative; aspect-ratio: 16 / 9; background: var(--bg-deep, #0d0b08); overflow: hidden; }
+.ready-art img { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(.92); }
+.ready-art::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, transparent 45%, rgba(10, 8, 5, .78));
+}
+.ready-level {
+  position: absolute; left: 10px; bottom: 8px; z-index: 1;
+  font-size: .72rem; letter-spacing: .08em; text-transform: uppercase;
+  padding: 2px 9px; border-radius: 999px;
+  color: var(--gold-bright, var(--gold)); border: 1px solid var(--gold-deep, var(--gold));
+  background: rgba(14, 11, 7, .72);
+}
+
+.ready-body { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px 12px; min-width: 0; }
+.ready-theme { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); }
+.ready-name { font-family: var(--display); font-size: 1.12rem; color: var(--gold-bright, var(--gold)); line-height: 1.2; }
+.ready-tagline { color: var(--ink-secondary); font-size: .9rem; font-style: italic; }
+.ready-pitch {
+  color: var(--ink-secondary); font-size: .86rem; line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ready-pitch.is-open { -webkit-line-clamp: unset; display: block; }
+.ready-card.is-pick .ready-pitch { display: none; }
+.ready-card.is-pick.active .ready-pitch { display: block; }
+.ready-meta { font-size: .78rem; color: var(--ink-muted); margin-top: 2px; }
+
+.ready-actions {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 0 12px 12px; margin-top: auto;
+}
+.ready-spacer { flex: 1 1 auto; }
+.ready-here { font-size: .82rem; color: var(--moss-bright, var(--ink-secondary)); }
+.ready-fine { font-size: .82rem; margin: 0; }
+.ready-note {
+  margin: 0; padding: 8px 12px; border-radius: var(--radius, 8px);
+  border: 1px solid var(--gold-deep, var(--stroke)); background: var(--gold-soft); color: var(--ink-primary); font-size: .9rem;
+}
+.ready-error { margin: 0; color: var(--blood-bright); font-size: .9rem; }
+
+/* Botão e janela em Preparar › Aventuras */
+.ready-entry { display: none; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+.ready-entry:has(~ .prep-tab > .prep-intro) { display: flex; }
+.ready-entry .muted { font-size: .86rem; }
+.ready-modal { max-width: 860px; position: relative; }
+.ready-modal h2 { margin: 0 0 4px; font-family: var(--display); }
+.ready-modal .ready-intro { margin: 0 0 12px; color: var(--ink-secondary); font-size: .9rem; }
+
+/* Assistente: no celular, a galeria vira uma coluna e o rádio fica compacto */
+@media (max-width: 560px) {
+  .camp-wizard .ready-grid { grid-template-columns: 1fr; }
+  .camp-wizard .ready-card.is-pick { flex-direction: row; }
+  .camp-wizard .ready-card.is-pick .ready-art { width: 38%; flex: 0 0 38%; aspect-ratio: auto; min-height: 110px; }
+  .camp-wizard .ready-card.is-pick .ready-level { left: 6px; bottom: 6px; font-size: .64rem; padding: 1px 6px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ready-card { transition: none; }
+}
+
+/* Assistente: os três jeitos de começar cabem lado a lado quando há espaço */
+.camp-wizard .camp-wizard-starts { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.camp-wizard .ready { margin-top: 4px; }

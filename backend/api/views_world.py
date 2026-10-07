@@ -18,11 +18,18 @@ GET    /api/world/<pk>/image?v=<ver>         imagem (bytes) com ETag/Cache-Contr
 PUT    /api/world/<pk>/image                 { image: dataURL } → { imageVer }
 DELETE /api/world/<pk>/image
 POST   /api/world/<pk>/reveal                { visibility?, secrets?: {s1: true}, pins?: {p1: true}, logDiary?: true, lang? }
+
+Ecos da mesa (imersão; desligável em dm_settings.immersion — "Mundo vivo"):
+POST   /api/world/<pk>/react                 jogador { kind: shiver|love|doubt|fight|star } (idempotente)
+DELETE /api/world/<pk>/react                 jogador { kind } (ou ?kind=)
+POST   /api/world/<pk>/view                  jogador registra leitura (1 por minuto por cartão)
+GET    /api/campaigns/<c>/world/echoes       mestre: quem sussurrou o quê + frases de cronista (?lang=en)
 """
 import base64
 
 from django.db import transaction
-from django.db.models import F
+from django.db import IntegrityError
+from django.db.models import Count, F, Sum
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
@@ -32,8 +39,9 @@ from rest_framework.response import Response
 
 from . import world_rules as R
 from .diary import current_session, log_diary
-from .models import Campaign, Membership, WorldEntry, WorldImage
+from .models import Campaign, Membership, WorldEntry, WorldImage, WorldReaction, WorldView
 from .permissions import get_campaign_or_404, get_membership, is_dm, require_dm, require_member
+from .rate_limit import rate_limit
 
 
 def _bad(code):
@@ -165,12 +173,25 @@ def world_list(request, id_or_slug):
         if for_dm:
             # body só para calcular menções; nunca vai na resposta
             entries = [R.serialize_light(e, True) for e in WorldEntry.objects.filter(campaign=campaign).defer('dm_notes')]
-            return Response({'entries': entries, 'count': len(entries), 'max': R.MAX_ENTRIES})
+            immersion = R.immersion_on(campaign)
+            if immersion:
+                add_dm_echoes(campaign, entries)
+            return Response({'entries': entries, 'count': len(entries), 'max': R.MAX_ENTRIES,
+                             'immersion': immersion})
         visible = player_visible_ids(campaign, membership.id)
         qs = WorldEntry.objects.filter(campaign=campaign, id__in=visible).defer('dm_notes')
         entries = [R.serialize_light(e, False, visible) for e in qs]
-        return Response({'entries': entries,
-                         'seenAt': membership.world_seen_at.isoformat() if membership.world_seen_at else None})
+        immersion = R.immersion_on(campaign)
+        out = {'entries': entries, 'immersion': immersion,
+               'seenAt': membership.world_seen_at.isoformat() if membership.world_seen_at else None}
+        if immersion:
+            add_player_echoes(membership, entries)
+            settings = campaign.dm_settings if isinstance(campaign.dm_settings, dict) else {}
+            if settings.get('fogHint') is True:
+                # só uma noção aproximada (poucos/alguns/muitos), nunca número
+                hidden = WorldEntry.objects.filter(campaign=campaign).count() - len(visible)
+                out['fog'] = {'hint': R.fog_hint(hidden)}
+        return Response(out)
 
     if not for_dm:
         require_dm(request.user, campaign)
@@ -201,7 +222,13 @@ def world_list(request, id_or_slug):
 def world_detail(request, pk):
     if request.method == 'GET':
         entry, for_dm, visible = _entry_for(request, pk)
-        return Response({'entry': R.serialize_full(entry, for_dm, visible)})
+        out = R.serialize_full(entry, for_dm, visible)
+        if R.immersion_on(entry.campaign):
+            if for_dm:
+                add_dm_echoes(entry.campaign, [out], with_people=True)
+            else:
+                add_player_echoes(get_membership(request.user, entry.campaign), [out])
+        return Response({'entry': out})
 
     entry = _dm_entry(request, pk)
     campaign = entry.campaign
@@ -456,3 +483,197 @@ def session_plan(request, id_or_slug):
         settings['sessionPlan'] = plan
         Campaign.objects.filter(pk=fresh.pk).update(dm_settings=settings)
     return Response({'plan': plan})
+
+
+# ------------------------------------------------------------------ ecos da mesa
+def _who(membership):
+    """Nome que o mestre lê nos ecos: o personagem, senão o jogador."""
+    if membership.character_id and membership.character:
+        return membership.character.name
+    prof = getattr(membership.user, 'profile', None)
+    return (prof.display_name if prof else '') or membership.user.username
+
+
+def _reaction_counts(entry_ids):
+    """{entryId: {kind: n}} sem favoritos (agregado, sem nomes)."""
+    out = {}
+    rows = (WorldReaction.objects.filter(entry_id__in=entry_ids).exclude(kind=R.FAVORITE_KIND)
+            .values('entry_id', 'kind').annotate(n=Count('id')))
+    for r in rows:
+        out.setdefault(r['entry_id'], {})[r['kind']] = r['n']
+    return out
+
+
+def add_player_echoes(membership, entries):
+    """Marca do próprio jogador + contagens agregadas (sem nomes), só para
+    cartões revelados/parciais. Muta `entries` (dicts serializados)."""
+    if membership is None:
+        return entries
+    ids = [e['id'] for e in entries if e.get('visibility') in ('partial', 'revealed')]
+    counts = _reaction_counts(ids)
+    mine = {}
+    for eid, kind in WorldReaction.objects.filter(membership=membership, entry_id__in=ids).values_list('entry_id', 'kind'):
+        mine.setdefault(eid, set()).add(kind)
+    for e in entries:
+        if e['id'] not in ids:
+            continue
+        my = mine.get(e['id'], set())
+        e['myReactions'] = [k for k in R.REACTION_KINDS if k in my]
+        e['myFavorite'] = R.FAVORITE_KIND in my
+        e['reactionCounts'] = counts.get(e['id'], {})
+    return entries
+
+
+def _echo_rows(campaign, entry_ids=None):
+    """(reações, leituras) do mestre, com membership/personagem carregados."""
+    rq = WorldReaction.objects.filter(entry__campaign=campaign).select_related(
+        'membership__character', 'membership__user__profile')
+    vq = WorldView.objects.filter(entry__campaign=campaign).select_related(
+        'membership__character', 'membership__user__profile')
+    if entry_ids is not None:
+        rq, vq = rq.filter(entry_id__in=entry_ids), vq.filter(entry_id__in=entry_ids)
+    return list(rq), list(vq)
+
+
+def _people_by_entry(reactions, views):
+    people = {}   # entryId -> membershipId -> pessoa
+    for r in reactions:
+        p = people.setdefault(r.entry_id, {}).setdefault(r.membership_id, {
+            'membershipId': r.membership_id, 'name': _who(r.membership), 'kinds': [], 'views': 0,
+            'lastAt': None})
+        p['kinds'].append(r.kind)
+        p['lastAt'] = max(filter(None, [p['lastAt'], r.created.isoformat()]))
+    for v in views:
+        p = people.setdefault(v.entry_id, {}).setdefault(v.membership_id, {
+            'membershipId': v.membership_id, 'name': _who(v.membership), 'kinds': [], 'views': 0,
+            'lastAt': None})
+        p['views'] = v.count
+        p['lastAt'] = max(filter(None, [p['lastAt'], v.last_at.isoformat()]))
+    for by_m in people.values():
+        for p in by_m.values():
+            p['kinds'] = [k for k in R.ECHO_KINDS if k in p['kinds']]
+    return {eid: sorted(by_m.values(), key=lambda p: p['lastAt'] or '', reverse=True)
+            for eid, by_m in people.items()}
+
+
+def add_dm_echoes(campaign, entries, with_people=False):
+    """Mestre: contagens por cartão (reactionCounts, favoriteCount, viewCount)
+    e, no detalhe, quem sussurrou (whispers)."""
+    ids = [e['id'] for e in entries]
+    counts = {}
+    for r in (WorldReaction.objects.filter(entry_id__in=ids).values('entry_id', 'kind').annotate(n=Count('id'))):
+        counts.setdefault(r['entry_id'], {})[r['kind']] = r['n']
+    views = dict(WorldView.objects.filter(entry_id__in=ids).values('entry_id')
+                 .annotate(n=Sum('count')).values_list('entry_id', 'n'))
+    people = _people_by_entry(*_echo_rows(campaign, ids)) if with_people else {}
+    for e in entries:
+        c = dict(counts.get(e['id'], {}))
+        e['favoriteCount'] = c.pop(R.FAVORITE_KIND, 0)
+        e['reactionCounts'] = c
+        e['viewCount'] = views.get(e['id']) or 0
+        if with_people:
+            e['whispers'] = people.get(e['id'], [])
+    return entries
+
+
+def _player_entry(request, pk):
+    """Entrada + membership do jogador que pode reagir. Mestre = 403; quem
+    não enxerga o cartão = 404 (não confirma que existe)."""
+    entry = WorldEntry.objects.select_related('campaign').filter(pk=pk).first()
+    if not entry:
+        raise NotFound('not_found')
+    if is_dm(request.user, entry.campaign):
+        return entry, None
+    membership = get_membership(request.user, entry.campaign)
+    if not membership or not R.player_can_react(entry, membership.id):
+        raise NotFound('not_found')
+    return entry, membership
+
+
+def _my_echo(entry, membership):
+    mine = set(WorldReaction.objects.filter(entry=entry, membership=membership).values_list('kind', flat=True))
+    return {'entryId': entry.id,
+            'myReactions': [k for k in R.REACTION_KINDS if k in mine],
+            'myFavorite': R.FAVORITE_KIND in mine,
+            'reactionCounts': _reaction_counts([entry.id]).get(entry.id, {})}
+
+
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
+@rate_limit(key='world_react', max_attempts=90, window=60, per_ip=False, per_user=True)
+def world_react(request, pk):
+    entry, membership = _player_entry(request, pk)
+    if membership is None:
+        return Response({'error': 'players_only'}, status=403)
+    if not R.immersion_on(entry.campaign):
+        return Response({'error': 'immersion_off'}, status=409)
+    raw = _body(request).get('kind') or request.query_params.get('kind')
+    kind = _run(R.clean_reaction_kind, raw)
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                WorldReaction.objects.get_or_create(entry=entry, membership=membership, kind=kind)
+        except IntegrityError:
+            pass  # clique duplo concorrente: já existe
+    else:
+        WorldReaction.objects.filter(entry=entry, membership=membership, kind=kind).delete()
+    return Response(_my_echo(entry, membership))
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def world_view(request, pk):
+    """Jogador abriu o cartão. Conta no máximo 1 leitura por minuto por cartão
+    (abrir/fechar seguido não infla nada). Mestre e "Mundo vivo" desligado = no-op."""
+    entry, membership = _player_entry(request, pk)
+    if membership is None or not R.immersion_on(entry.campaign):
+        return Response({'counted': False})
+    now = timezone.now()
+    with transaction.atomic():
+        row = WorldView.objects.select_for_update().filter(entry=entry, membership=membership).first()
+        if row is None:
+            try:
+                with transaction.atomic():
+                    WorldView.objects.create(entry=entry, membership=membership, count=1, last_at=now)
+                return Response({'counted': True})
+            except IntegrityError:
+                row = WorldView.objects.select_for_update().get(entry=entry, membership=membership)
+        if not R.view_counts(row.last_at, now):
+            return Response({'counted': False})
+        WorldView.objects.filter(pk=row.pk).update(count=F('count') + 1, last_at=now)
+    return Response({'counted': True})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def world_echoes(request, id_or_slug):
+    """Painel "Ecos da mesa" do mestre: por cartão, quem reagiu/voltou, mais
+    frases de cronista prontas (`lines`) e a frase de quanto a mesa conhece."""
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    lang = 'en' if request.query_params.get('lang') == 'en' else 'pt'
+    rows = list(WorldEntry.objects.filter(campaign=campaign).values_list('id', 'kind', 'name', 'visibility', 'data'))
+    vis = [r[3] for r in rows]
+    known = R.known_share_phrase(vis.count('revealed'), vis.count('partial'), len(rows), lang)
+    if not R.immersion_on(campaign):
+        return Response({'immersion': False, 'entries': [], 'lines': [], 'known': known})
+    people = _people_by_entry(*_echo_rows(campaign))
+    meta = {r[0]: r for r in rows}
+    entries = []
+    for eid, plist in people.items():
+        if eid not in meta:
+            continue
+        _id, kind, name, visibility, data = meta[eid]
+        reactions = {}
+        for p in plist:
+            for k in p['kinds']:
+                reactions[k] = reactions.get(k, 0) + 1
+        favorites = reactions.pop(R.FAVORITE_KIND, 0)
+        entries.append({'entryId': eid, 'kind': kind, 'name': name, 'visibility': visibility,
+                        'isMap': R.is_map(kind, data), 'reactions': reactions, 'favorites': favorites,
+                        'views': sum(p['views'] for p in plist),
+                        'lastAt': max((p['lastAt'] or '' for p in plist), default=''),
+                        'people': plist})
+    entries.sort(key=lambda e: e['lastAt'], reverse=True)
+    return Response({'immersion': True, 'entries': entries, 'known': known,
+                     'lines': R.echo_lines(entries, lang)})

@@ -7,6 +7,7 @@ import { classArt, speciesArt } from '../art.js';
 import DMCharacterEditor from '../campaigns/DMCharacterEditor.jsx';
 import GiveItemModal from '../campaigns/GiveItemModal.jsx';
 import MoreMenu from './MoreMenu.jsx';
+import { groupApi } from './group-api.js';
 import { charLine, fmtMod, hpTone, levelupFor, memberStats, t, xpProgress } from './group-model.js';
 
 const condName = (c, lang) => (c === 'exhaustion' ? t(lang, 'Exaustão', 'Exhaustion') : tName('condition', c, lang));
@@ -15,9 +16,10 @@ const condName = (c, lang) => (c === 'exhaustion' ? t(lang, 'Exaustão', 'Exhaus
  * Cards dos jogadores da mesa: retrato, classe/espécie traduzidas, PV, CA e
  * iniciativa (mesmo cálculo da Mesa: Utils.computeAc / Utils.initiative).
  * Mestre: editar ficha, dar item (com aviso), encerrar forma selvagem (só
- * druida em forma) e remover da mesa. Jogador: trocar o próprio personagem.
+ * druida em forma) e remover da mesa. Jogador: trocar o próprio personagem e
+ * sair da campanha (com confirmação; a ficha continua com ele).
  */
-export default function PlayersPanel({ campaign, lang, isDM, characters = [], approvals = [], ask, notify, onChange }) {
+export default function PlayersPanel({ campaign, lang, isDM, characters = [], approvals = [], ask, notify, onChange, onLeft }) {
   const [editing, setEditing] = useState(null);
   const [giving, setGiving] = useState(null);
   const [assigning, setAssigning] = useState(null);
@@ -43,6 +45,20 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
       okLabel: t(lang, 'Remover', 'Remove'), danger: true,
     });
     if (ok) run(() => api.removeMember(campaign.id, m.id), t(lang, `${who} saiu da mesa.`, `${who} left the table.`));
+  };
+  const leave = async () => {
+    const ok = await ask({
+      title: t(lang, `Sair de ${campaign.name}?`, `Leave ${campaign.name}?`),
+      text: t(lang,
+        'Sua ficha continua com você — ela só deixa esta mesa. Você para de ver o Mundo e a Crônica desta campanha. Para voltar, peça um novo convite ao mestre.',
+        'Your sheet stays with you — it only leaves this table. You stop seeing this campaign\'s World and Chronicle. To come back, ask the DM for a new invite.'),
+      okLabel: t(lang, 'Sair da campanha', 'Leave campaign'), danger: true,
+    });
+    if (!ok) return;
+    try {
+      await groupApi.leaveCampaign(campaign.id);
+      if (onLeft) onLeft(); else onChange?.();
+    } catch (e) { notify?.(errorMessage(e, lang), 'error'); }
   };
   const endForm = async (m) => {
     const ok = await ask({
@@ -79,7 +95,7 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
             onAssignStart={() => setAssigning(m.id)} onAssignCancel={() => setAssigning(null)} onAssign={(id) => assign(m, id)}
             onEdit={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data })}
             onGive={() => setGiving({ id: m.character.id, name: m.character.name })}
-            onEndForm={() => endForm(m)} onRemove={() => removeMember(m)} />
+            onEndForm={() => endForm(m)} onRemove={() => removeMember(m)} onLeave={leave} />
         ))}
       </div>
 
@@ -113,7 +129,7 @@ function Portrait({ stats, name }) {
   return <span className="grp-portrait is-initial" aria-hidden="true">{(name || '?').charAt(0).toUpperCase()}</span>;
 }
 
-function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, assigning, characters, onAssignStart, onAssignCancel, onAssign, onEdit, onGive, onEndForm, onRemove }) {
+function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, assigning, characters, onAssignStart, onAssignCancel, onAssign, onEdit, onGive, onEndForm, onRemove, onLeave }) {
   const c = m.character;
   const s = memberStats(m);
   const tone = s ? hpTone(s.hp, s.maxHp) : 'unknown';
@@ -122,6 +138,7 @@ function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, assigning,
   const menu = [
     isMe && { id: 'swap', label: t(lang, 'Trocar personagem', 'Change character'), onSelect: onAssignStart },
     isDM && { id: 'remove', label: t(lang, 'Remover da mesa', 'Remove from table'), onSelect: onRemove, danger: true },
+    isMe && !isDM && { id: 'leave', label: t(lang, 'Sair da campanha', 'Leave campaign'), onSelect: onLeave, danger: true },
   ].filter(Boolean);
 
   return (

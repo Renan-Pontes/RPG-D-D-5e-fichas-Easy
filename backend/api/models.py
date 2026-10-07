@@ -427,3 +427,33 @@ class WorldImage(models.Model):
     # Blob separado para a lista nunca carregar imagem (e para migrar p/ R2 depois).
     entry = models.OneToOneField(WorldEntry, on_delete=models.CASCADE, related_name='img')
     data = models.TextField()  # data:image/(jpeg|png|webp);base64 ≤ 450k chars
+
+
+# === Ecos da mesa (imersão do Mundo) ===
+# Reações de personagem dos jogadores a cartões revelados/parciais e o registro
+# de leitura. Só o mestre vê quem reagiu; o jogador vê só as próprias marcas e
+# contagens agregadas (ver views_world.world_echoes / world_react / world_view).
+class WorldReaction(models.Model):
+    KIND_CHOICES = [('shiver', 'Shiver'), ('love', 'Love'), ('doubt', 'Doubt'),
+                    ('fight', 'Fight'), ('star', 'Want to return')]
+
+    entry = models.ForeignKey(WorldEntry, on_delete=models.CASCADE, related_name='reactions')
+    membership = models.ForeignKey(Membership, on_delete=models.CASCADE, related_name='world_reactions')
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['entry', 'membership', 'kind'],
+                                               name='uniq_world_reaction')]
+        indexes = [models.Index(fields=['membership'])]
+
+
+class WorldView(models.Model):
+    entry = models.ForeignKey(WorldEntry, on_delete=models.CASCADE, related_name='views')
+    membership = models.ForeignKey(Membership, on_delete=models.CASCADE, related_name='world_views')
+    count = models.PositiveIntegerField(default=0)
+    last_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['entry', 'membership'], name='uniq_world_view')]
+        indexes = [models.Index(fields=['membership'])]
