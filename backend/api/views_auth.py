@@ -3,7 +3,7 @@ Views de autenticação. Sessão Django + CSRF + endpoint que entrega o cookie
 inicial de CSRF para o frontend pegar.
 """
 import secrets
-from django.contrib.auth import authenticate, login, logout, get_user_model
+from django.contrib.auth import authenticate, login, logout, get_user_model, update_session_auth_hash
 from django.middleware.csrf import get_token
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication
 
 from .models import Profile
+from .passwords import must_change, password_problem, set_own_password
 from .serializers import SignupSerializer, LoginSerializer, UserSerializer
 from .rate_limit import rate_limit, reset_rate_limit
 
@@ -18,8 +19,10 @@ User = get_user_model()
 
 
 def _self_payload(user):
-    """Dados da própria conta (inclui isAdmin, que não vai para outros usuários)."""
-    return {**UserSerializer(user).data, 'isAdmin': bool(user.is_staff)}
+    """Dados da própria conta (inclui isAdmin e mustChangePassword, que não vão
+    para outros usuários)."""
+    return {**UserSerializer(user).data, 'isAdmin': bool(user.is_staff),
+            'mustChangePassword': must_change(user)}
 
 
 @api_view(['GET'])
@@ -84,3 +87,24 @@ def logout_view(request):
 @permission_classes([IsAuthenticated])
 def me(request):
     return Response({'user': _self_payload(request.user)})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@rate_limit(key='change_password', max_attempts=10, window=600, per_user=True)
+def change_password(request):
+    """Troca a própria senha: {currentPassword, newPassword}. Desliga a troca
+    obrigatória e mantém esta sessão aberta (as outras caem)."""
+    user = request.user
+    current = request.data.get('currentPassword') or ''
+    new = request.data.get('newPassword') or ''
+    if not isinstance(current, str) or not user.check_password(current):
+        return Response({'error': 'wrong_password'}, status=400)
+    if new == current:
+        return Response({'error': 'same_password'}, status=400)
+    problem = password_problem(new, user)
+    if problem:
+        return Response({'error': problem}, status=400)
+    set_own_password(user, new)
+    update_session_auth_hash(request, user)
+    return Response({'user': _self_payload(user)})

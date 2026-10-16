@@ -139,6 +139,10 @@ export const api = {
   login:  (body) => request('/api/auth/login',  { method: 'POST', body }).then(withCsrfRefresh),
   logout: ()     => request('/api/auth/logout', { method: 'POST' }).then(withCsrfRefresh),
   me:     ()     => request('/api/auth/me'),
+  changePassword: (currentPassword, newPassword) =>
+    request('/api/auth/change-password', { method: 'POST', body: { currentPassword, newPassword } }),
+  adminTempPassword: (id, password, mustChange = true) =>
+    request(`/api/admin/users/${id}/temp-password`, { method: 'POST', body: { password, mustChange } }),
   // Área de administração (só is_staff)
   adminOverview:   () => request('/api/admin/overview'),
   adminUsers:      (q = '', offset = 0) => request(`/api/admin/users?q=${encodeURIComponent(q)}&offset=${offset}`),

@@ -81,8 +81,15 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  // Troca da própria senha (também encerra a troca obrigatória da senha temporária).
+  const changePassword = useCallback(async (currentPassword, newPassword) => {
+    const res = await api.changePassword(currentPassword, newPassword);
+    setUser(res.user);
+    return res.user;
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, migrated, backendAvailable, apiBase: API_BASE, login, signup, logout, refresh }}>
+    <AuthContext.Provider value={{ user, loading, migrated, backendAvailable, apiBase: API_BASE, login, signup, logout, refresh, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

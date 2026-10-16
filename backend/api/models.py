@@ -40,6 +40,8 @@ def slugify_clean(text):
 class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
     display_name = models.CharField(max_length=80)
+    # Senha temporária definida pelo admin: o app obriga a troca no próximo login.
+    must_change_password = models.BooleanField(default=False)
 
     def __str__(self):
         return self.display_name

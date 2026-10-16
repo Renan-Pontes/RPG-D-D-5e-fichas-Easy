@@ -1,5 +1,6 @@
 /* Área de administração (só contas admin): visão geral, contas, fichas e campanhas.
-   Somente leitura, exceto o plano/extras de cada conta (PATCH /api/admin/users/<id>/plan). */
+   Somente leitura, exceto o plano/extras de cada conta (PATCH /api/admin/users/<id>/plan)
+   e a senha temporária (POST /api/admin/users/<id>/temp-password). */
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
@@ -232,6 +233,7 @@ function UserModal({ id, lang, onClose, openChar }) {
             {L(lang, 'Criada em', 'Joined')} {fmtDate(d.user.dateJoined, lang)} · {L(lang, 'último login', 'last login')} {fmtDate(d.user.lastLogin, lang)}
           </p>
           <PlanEditor userId={id} initial={d.plan || d.userPlan || null} lang={lang} />
+          <TempPasswordEditor userId={id} pending={d.user.mustChangePassword} lang={lang} />
           <h4>{L(lang, 'Fichas', 'Characters')} ({d.characters.length})</h4>
           {d.characters.length ? d.characters.map(c => <CharacterRow key={c.id} c={c} lang={lang} onOpen={openChar} showOwner={false} />)
             : <p className="muted text-sm">{L(lang, 'Nenhuma ficha.', 'No characters.')}</p>}
@@ -242,6 +244,61 @@ function UserModal({ id, lang, onClose, openChar }) {
         </>
       )}
     </Modal>
+  );
+}
+
+/** Senha temporária para quem perdeu o acesso (não há "esqueci a senha"). Com
+ *  "pedir troca", o app só libera a conta depois que a pessoa escolher a dela. */
+function TempPasswordEditor({ userId, pending, lang }) {
+  const [password, setPassword] = useState('');
+  const [mustChange, setMustChange] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [waiting, setWaiting] = useState(!!pending);
+  const ERR = {
+    weak_password: L(lang, 'Senha fraca: 6+ caracteres e nada muito comum.', 'Weak password: 6+ characters, nothing too common.'),
+    password_required: L(lang, 'Digite a senha temporária.', 'Type the temporary password.'),
+    password_too_long: L(lang, 'Senha longa demais.', 'Password too long.'),
+  };
+  const save = async () => {
+    setBusy(true); setMsg('');
+    try {
+      const r = await api.adminTempPassword(userId, password, mustChange);
+      setWaiting(!!r.user?.mustChangePassword);
+      setPassword('');
+      setMsg(mustChange
+        ? L(lang, 'Senha definida ✓ — a pessoa vai trocar no próximo login.', 'Password set ✓ — they will change it on next login.')
+        : L(lang, 'Senha definida ✓', 'Password set ✓'));
+    } catch (e) {
+      setMsg(ERR[e?.data?.error] || L(lang, 'Não deu para definir a senha.', 'Could not set the password.'));
+    } finally { setBusy(false); }
+  };
+  return (
+    <section className="adm-plan">
+      <h4 style={{ marginTop: 0 }}>{L(lang, 'Senha temporária', 'Temporary password')}
+        {waiting && <span className="adm-tag">{L(lang, 'aguardando troca', 'awaiting change')}</span>}</h4>
+      <p className="muted text-sm" style={{ marginTop: 0 }}>
+        {L(lang, 'Para quem perdeu o acesso. Combine a senha com a pessoa por fora; as sessões abertas dela caem.',
+          'For someone who lost access. Share it privately; their open sessions are logged out.')}
+      </p>
+      <div className="adm-plan-grid">
+        <label className="adm-plan-field">
+          <span>{L(lang, 'Senha', 'Password')}</span>
+          <input type="text" value={password} onChange={e => setPassword(e.target.value)}
+            autoComplete="off" spellCheck={false} minLength={6} maxLength={200} />
+        </label>
+        <label className="adm-plan-field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <input type="checkbox" checked={mustChange} onChange={e => setMustChange(e.target.checked)} />
+          <span>{L(lang, 'Pedir para trocar no próximo login', 'Require a change on next login')}</span>
+        </label>
+      </div>
+      <div className="row gap-2" style={{ alignItems: 'center', marginTop: 8 }}>
+        <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={busy || password.length < 6}>
+          {busy ? '…' : L(lang, 'Definir senha', 'Set password')}
+        </button>
+        {msg && <span className="text-sm">{msg}</span>}
+      </div>
+    </section>
   );
 }
 

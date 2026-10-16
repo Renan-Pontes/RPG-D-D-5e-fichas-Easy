@@ -43,6 +43,7 @@ urlpatterns = [
     path('auth/login', views_auth.login_view),
     path('auth/logout', views_auth.logout_view),
     path('auth/me', views_auth.me),
+    path('auth/change-password', views_auth.change_password),
 
     # Characters
     path('characters', views_characters.character_list),
@@ -123,6 +124,7 @@ urlpatterns = [
     path('admin/campaigns', views_admin.campaigns),
 
     path('admin/users/<int:pk>/plan', views_plans.admin_user_plan),
+    path('admin/users/<int:pk>/temp-password', views_admin.user_temp_password),
 
     # Planos (limites da conta; pagamento ainda não — ver api/plans.py)
     path('plans', views_plans.plan_catalog),

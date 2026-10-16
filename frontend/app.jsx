@@ -13,6 +13,7 @@ import Sheet from './components/Sheet.jsx';
 
 import { useAuth } from './src/auth/AuthContext.jsx';
 import AuthScreen from './src/auth/AuthScreen.jsx';
+import ForcePasswordChange from './src/auth/ForcePasswordChange.jsx';
 import { createStorageAdapter } from './src/api/storage.js';
 import { api } from './src/api/client.js';
 import CampaignList from './src/campaigns/CampaignList.jsx';
@@ -714,6 +715,9 @@ const App = () => {
       );
       break;
   }
+
+  // Senha temporária: nada abre até a pessoa escolher a senha dela.
+  if (auth.user?.mustChangePassword) content = <ForcePasswordChange lang={lang} />;
 
   // Quando backend não responde, esconde botões de auth/campanhas (offline mode)
   const backendOff = auth.backendAvailable === false;

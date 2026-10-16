@@ -1,9 +1,11 @@
 """
-Área de administração (só contas com is_staff). Somente leitura.
+Área de administração (só contas com is_staff). Somente leitura, exceto o
+plano (views_plans) e a senha temporária.
 
 GET /api/admin/overview                       — números gerais e cadastros recentes
 GET /api/admin/users?q=&offset=&limit=        — contas (busca por e-mail/nome)
 GET /api/admin/users/<id>                     — conta + fichas + campanhas
+POST /api/admin/users/<id>/temp-password      — {password, mustChange?} senha temporária
 GET /api/admin/characters?q=&className=&rules=&offset=&limit=  — fichas
 GET /api/admin/characters/<id>                — ficha completa (data)
 GET /api/admin/campaigns?q=&offset=&limit=    — campanhas
@@ -11,7 +13,7 @@ GET /api/admin/campaigns?q=&offset=&limit=    — campanhas
 from collections import Counter
 from datetime import timedelta
 
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.db.models import Count, Q
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
@@ -20,6 +22,7 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
 from .models import Campaign, Character, Membership, SharedCharacter
+from .passwords import must_change, password_problem, set_temporary_password
 
 User = get_user_model()
 MAX_LIMIT = 100
@@ -42,7 +45,7 @@ def _display_name(u):
 def _user_row(u):
     return {
         'id': u.id, 'email': u.email, 'displayName': _display_name(u),
-        'isAdmin': u.is_staff, 'isActive': u.is_active,
+        'isAdmin': u.is_staff, 'isActive': u.is_active, 'mustChangePassword': must_change(u),
         'dateJoined': u.date_joined.isoformat() if u.date_joined else None,
         'lastLogin': u.last_login.isoformat() if u.last_login else None,
         'characters': getattr(u, 'n_chars', None), 'campaigns': getattr(u, 'n_camps', None),
@@ -134,6 +137,25 @@ def user_detail(request, pk):
         'campaignsAsDm': [_campaign_row(c) for c in owned],
         'campaignsAsPlayer': [_campaign_row(m.campaign) for m in joined],
     })
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def user_temp_password(request, pk):
+    """Senha temporária para quem perdeu o acesso. Com mustChange (padrão), o
+    app obriga a pessoa a trocar no próximo login."""
+    u = User.objects.select_related('profile').filter(pk=pk).first()
+    if not u:
+        raise NotFound('Conta não encontrada.')
+    password = request.data.get('password')
+    problem = password_problem(password, u)
+    if problem:
+        return Response({'error': problem}, status=400)
+    must = request.data.get('mustChange', True) is not False
+    set_temporary_password(u, password, must_change=must)
+    if u.pk == request.user.pk:
+        update_session_auth_hash(request, u)   # o admin trocando a própria não cai
+    return Response({'user': _user_row(u)})
 
 
 @api_view(['GET'])

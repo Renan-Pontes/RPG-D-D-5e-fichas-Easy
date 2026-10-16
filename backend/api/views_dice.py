@@ -155,5 +155,5 @@ def _consume_or_roll(user, dice_type, campaign, label):
 def campaign_dice_log(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
-    log = DiceLog.objects.filter(campaign=campaign).order_by('-created_at')[:200]
+    log = DiceLog.objects.filter(campaign=campaign).order_by('-created_at', '-id')[:200]
     return Response({'log': DiceLogSerializer(log, many=True).data})
