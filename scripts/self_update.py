@@ -244,8 +244,26 @@ def prepare_new_tree(zip_path):
     return new
 
 
+def prev_dir():
+    return ROOT.with_name(ROOT.name + '.prev')
+
+
+def free_space():
+    """O disco do plano free não comporta 3 cópias do app: a reserva da versão
+    ANTERIOR à atual sai antes de baixar (a atual vira a nova reserva na troca)."""
+    prev = prev_dir()
+    if prev.exists():
+        shutil.rmtree(prev)
+        log(f'  reserva antiga apagada ({prev.name})')
+    for leftover in (WORK / 'new', WORK / 'release.zip'):
+        if leftover.is_dir():
+            shutil.rmtree(leftover)
+        elif leftover.exists():
+            leftover.unlink()
+
+
 def swap_in(new):
-    prev = ROOT.with_name(ROOT.name + '.prev')
+    prev = prev_dir()
     if prev.exists():
         shutil.rmtree(prev)
     if ROOT.exists():
@@ -305,6 +323,8 @@ def main():
     migrating = False
     try:
         take_lock()
+        step('liberando espaço')
+        free_space()
         step('baixando o pacote')
         zip_path, source = fetch_package()
         write_status(source=source)
@@ -312,6 +332,7 @@ def main():
         backup = backup_database()
         step('extraindo')
         new = prepare_new_tree(zip_path)
+        zip_path.unlink(missing_ok=True)
         step('trocando as pastas')
         prev = swap_in(new)
         if requirements_changed(prev):
@@ -344,6 +365,14 @@ def main():
                 reload_site()
         except Exception as e2:          # rollback quebrado: registrar e sair
             log(f'ERRO no rollback: {e2}')
+        for leftover in (WORK / 'new', WORK / 'release.zip'):   # não deixa lixo no disco
+            try:
+                if leftover.is_dir():
+                    shutil.rmtree(leftover)
+                else:
+                    leftover.unlink(missing_ok=True)
+            except OSError:
+                pass
         write_status(state='error', finishedAt=now(), error=str(e)[:500])
         return 1
     finally:
