@@ -1,0 +1,61 @@
+# Pacote do backend para o PythonAnywhere.
+# A cada push na main: builda o frontend, monta o pacote enxuto
+# (scripts/package_release.py --slim) e publica no release `backend-latest`.
+# O servidor baixa daqui quando recebe POST /api/ops/update (scripts/self_update.py).
+# Se o segredo FORJA_UPDATE_KEY_SHA256 existir no repositório, já dispara a atualização.
+name: Pacote do backend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: backend-release
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      UPDATE_KEY: ${{ secrets.FORJA_UPDATE_KEY_SHA256 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build do frontend
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          node ./node_modules/vite/bin/vite.js build
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Pacote
+        run: python scripts/package_release.py --slim --output dist-release/forja-release.zip
+
+      - name: Publica no release backend-latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view backend-latest >/dev/null 2>&1 || \
+            gh release create backend-latest --prerelease --title "Pacote do backend (automático)" \
+              --notes "Gerado a cada push na main. O servidor baixa daqui (POST /api/ops/update)."
+          gh release upload backend-latest dist-release/forja-release.zip --clobber
+          gh release edit backend-latest --notes "Commit ${GITHUB_SHA} — gerado em $(date -u +%FT%TZ)."
+
+      - name: Atualiza o servidor
+        if: ${{ env.UPDATE_KEY != '' }}
+        run: |
+          curl -fsS -X POST https://nghetsis.pythonanywhere.com/api/ops/update \
+            -H 'Content-Type: application/json' -d "{\"password\":\"${UPDATE_KEY}\"}"
