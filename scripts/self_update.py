@@ -51,6 +51,7 @@ LOG = WORK / 'update.log'
 LOCK = WORK / 'lock'
 STALE_LOCK = 15 * 60
 MAX_UNZIPPED = 400 * 1024 * 1024
+KEEP_PRE_UPDATE = 5
 
 
 class UpdateError(Exception):
@@ -202,7 +203,17 @@ def backup_database():
     with sqlite3.connect(db.as_uri() + '?mode=ro', uri=True) as src, sqlite3.connect(target) as dst:
         src.backup(dst)
     log(f'  backup: {target}')
+    prune_backups(folder)
     return target
+
+
+def prune_backups(folder, keep=KEEP_PRE_UPDATE):
+    """O disco do plano free é pequeno: guarda só os `keep` backups mais novos
+    desta rotina (os manuais e os do deploy antigo ficam)."""
+    mine = sorted(folder.glob('pre-update-*.sqlite3'))
+    for old in mine[:-keep] if keep else mine:
+        old.unlink(missing_ok=True)
+        log(f'  backup antigo apagado: {old.name}')
 
 
 def restore_database(backup):

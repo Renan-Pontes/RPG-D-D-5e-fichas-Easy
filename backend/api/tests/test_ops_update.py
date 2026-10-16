@@ -140,6 +140,16 @@ class UpdaterPiecesTests(TestCase):
         with self.assertRaises(self.up.UpdateError):
             self.up.extract(z, self.tmp / 'out')
 
+    def test_guarda_so_os_backups_mais_novos(self):
+        for i in range(8):
+            (self.tmp / f'pre-update-20261016T0{i}0000Z.sqlite3').write_text('x')
+        (self.tmp / 'forja-manual.sqlite3').write_text('x')
+        self.up.prune_backups(self.tmp, keep=5)
+        left = sorted(p.name for p in self.tmp.glob('*.sqlite3'))
+        self.assertIn('forja-manual.sqlite3', left)
+        self.assertEqual([n for n in left if n.startswith('pre-update')],
+                         [f'pre-update-20261016T0{i}0000Z.sqlite3' for i in range(3, 8)])
+
     def test_le_env(self):
         env = self.tmp / '.env'
         env.write_text('# comentario\nDATABASE_PATH="/home/x/db.sqlite3"\nOUTRA=1\n')
