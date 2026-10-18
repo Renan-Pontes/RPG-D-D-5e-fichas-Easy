@@ -30,3 +30,7 @@
 .adm-error { color: var(--blood-bright, #c0392b); }
 .adm-avatar { width: 96px; height: 96px; object-fit: cover; border-radius: 50%; border: 2px solid var(--gold); float: right; margin-left: 10px; }
 .adm-link { background: none; border: none; padding: 0; color: var(--gold); cursor: pointer; font: inherit; text-decoration: underline; }
+/* Caixinha com texto ao lado (senha temporária): o input não herda a largura dos campos. */
+.adm-check { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 0.9rem; color: var(--ink-secondary); cursor: pointer; }
+.adm-check input[type="checkbox"] { flex: 0 0 auto; width: 22px; height: 22px; min-height: 0; margin: 0; }
+.adm-actions { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 10px; }

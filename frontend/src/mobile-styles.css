@@ -97,6 +97,10 @@
     max-width: 100% !important;
     max-height: 100vh !important;
     height: 100vh;
+    /* dvh = altura visível de verdade (sem a barra do navegador do celular) */
+    max-height: 100dvh !important;
+    height: 100dvh;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
     border-radius: 0 !important;
   }
   .modal-backdrop {

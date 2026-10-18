@@ -232,8 +232,8 @@ function UserModal({ id, lang, onClose, openChar }) {
             {d.user.email}{d.user.isAdmin && <span className="adm-tag">admin</span>}<br />
             {L(lang, 'Criada em', 'Joined')} {fmtDate(d.user.dateJoined, lang)} · {L(lang, 'último login', 'last login')} {fmtDate(d.user.lastLogin, lang)}
           </p>
-          <PlanEditor userId={id} initial={d.plan || d.userPlan || null} lang={lang} />
           <TempPasswordEditor userId={id} pending={d.user.mustChangePassword} lang={lang} />
+          <PlanEditor userId={id} initial={d.plan || d.userPlan || null} lang={lang} />
           <h4>{L(lang, 'Fichas', 'Characters')} ({d.characters.length})</h4>
           {d.characters.length ? d.characters.map(c => <CharacterRow key={c.id} c={c} lang={lang} onOpen={openChar} showOwner={false} />)
             : <p className="muted text-sm">{L(lang, 'Nenhuma ficha.', 'No characters.')}</p>}
@@ -287,12 +287,12 @@ function TempPasswordEditor({ userId, pending, lang }) {
           <input type="text" value={password} onChange={e => setPassword(e.target.value)}
             autoComplete="off" spellCheck={false} minLength={6} maxLength={200} />
         </label>
-        <label className="adm-plan-field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <input type="checkbox" checked={mustChange} onChange={e => setMustChange(e.target.checked)} />
-          <span>{L(lang, 'Pedir para trocar no próximo login', 'Require a change on next login')}</span>
-        </label>
       </div>
-      <div className="row gap-2" style={{ alignItems: 'center', marginTop: 8 }}>
+      <label className="adm-check">
+        <input type="checkbox" checked={mustChange} onChange={e => setMustChange(e.target.checked)} />
+        <span>{L(lang, 'Pedir para trocar no próximo login', 'Require a change on next login')}</span>
+      </label>
+      <div className="adm-actions">
         <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={busy || password.length < 6}>
           {busy ? '…' : L(lang, 'Definir senha', 'Set password')}
         </button>
