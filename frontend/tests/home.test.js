@@ -1,9 +1,9 @@
-/* Tela inicial (src/home/home-utils.js): busca, ordem "Recentes", estado do PV e linha do cartão. */
+/* Tela inicial (src/home/home-utils.js): busca, ordem "Recentes" / "Criação", estado do PV e linha do cartão. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  fold, filterCharacters, sortRecent, hpState, hpStateLabel, heroLine, portraitOf, subclassName,
+  fold, filterCharacters, sortRecent, sortCreated, sortCharacters, hpState, hpStateLabel, heroLine, portraitOf, subclassName,
 } from '../src/home/home-utils.js';
 
 const bruna = { id: 'a', name: 'Bruna Ferrocampo', className: 'fighter', subclass: 'champion', race: 'human', level: 5 };
@@ -52,6 +52,26 @@ test('ordem "Recentes": updatedAt decrescente (número local ou ISO remoto); sem
   assert.deepEqual(sortRecent(list).map(c => c.id), [3, 4, 7, 1, 2, 5, 6]);
   assert.equal(sortRecent(list).length, list.length);
   assert.deepEqual(list.map(c => c.id), [1, 2, 3, 4, 5, 6, 7]); // não altera a lista original
+});
+
+test('ordem "Criação": no navegador fica a do armazenamento; da conta, createdAt crescente', () => {
+  // Local: a ficha nova entra no fim e editar (updatedAt) não muda o lugar
+  const local = [{ id: 'x', updatedAt: 9000 }, { id: 'y', updatedAt: 1000, createdAt: 50 }, { id: 'z', updatedAt: 5000 }];
+  assert.deepEqual(sortCreated(local).map(c => c.id), ['x', 'y', 'z']);
+  assert.notEqual(sortCreated(local), local); // cópia: o useMemo não devolve a mesma lista
+  // Conta: todas com createdAt (texto ISO do servidor); empate na ordem recebida
+  const remote = [
+    { id: 3, createdAt: '2026-10-03T10:00:00Z', updatedAt: '2026-10-20T10:00:00Z' },
+    { id: 1, createdAt: '2026-10-01T10:00:00Z', updatedAt: '2026-10-19T10:00:00Z' },
+    { id: 2, createdAt: '2026-10-02T10:00:00Z', updatedAt: '2026-10-21T10:00:00Z' },
+    { id: 4, createdAt: '2026-10-02T10:00:00Z', updatedAt: '2026-10-01T10:00:00Z' },
+  ];
+  assert.deepEqual(sortCreated(remote).map(c => c.id), [1, 2, 4, 3]);
+  assert.deepEqual(sortCreated([]), []);
+  // Escolha da lista
+  assert.deepEqual(sortCharacters(remote, 'created').map(c => c.id), [1, 2, 4, 3]);
+  assert.deepEqual(sortCharacters(remote, 'recent').map(c => c.id), [2, 3, 1, 4]);
+  assert.deepEqual(sortCharacters(local, undefined).map(c => c.id), ['x', 'z', 'y']); // padrão: Recentes
 });
 
 test('hpState: limites do plano da ficha (ok > 50%, warn > 25%, crit > 0, down = 0)', () => {

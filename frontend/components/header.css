@@ -1,6 +1,12 @@
 /* Cabeçalho global: só correções de encaixe (nenhum botão muda de lugar). As regras de
    styles.css e mobile-styles.css continuam; estas são mais específicas e vêm depois. */
 
+/* 601–719 px: styles.css só dá respiro lateral até 600 px (14 px) e a partir de 720 px
+   (24 px); entre as duas faixas o cabeçalho ficava com 0 e o "EN" encostava na borda. */
+@media (min-width: 601px) and (max-width: 719px) {
+  .app-header { padding-left: 14px; padding-right: 14px; }
+}
+
 /* PT/EN nunca encolhe nem corta ("EN" inteiro em qualquer largura) */
 .app-header .lang-toggle { flex-shrink: 0; }
 
@@ -75,4 +81,11 @@
 @media (max-width: 330px) {
   .app-header:has(.header-actions > :nth-child(5)) { gap: 4px; }
   .app-header:has(.header-actions > :nth-child(5)) .header-actions { gap: 2px; }
+}
+/* < 320 px (300 px): ainda sobravam 9 px (PT) e 4 px (EN); sai um pouco do respiro
+   lateral e o símbolo da marca fica menor */
+@media (max-width: 319px) {
+  .app-header:has(.header-actions > :nth-child(5)) { gap: 2px; padding-left: 6px; padding-right: 6px; }
+  .app-header:has(.header-actions > :nth-child(5)) .brand-mark { width: 28px; height: 28px; }
+  .app-header:has(.header-actions > :nth-child(5)) .header-actions .btn-sm { padding-inline: 4px; }
 }

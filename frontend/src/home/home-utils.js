@@ -53,6 +53,21 @@ export function sortRecent(characters) {
     .map(x => x.c);
 }
 
+/** "Criação": a ordem de antes da reforma. No navegador é a do armazenamento (a ficha
+ * nova entra no fim; editar não muda o lugar). Da conta, createdAt crescente quando
+ * todas têm data; senão também fica a ordem recebida. */
+export function sortCreated(characters) {
+  const list = characters.slice();
+  if (!list.length || !list.every(c => stamp(c.createdAt) > 0)) return list;
+  return list
+    .map((c, i) => ({ c, i, s: stamp(c.createdAt) }))
+    .sort((a, b) => (a.s - b.s) || (a.i - b.i))
+    .map(x => x.c);
+}
+
+/** Ordem da lista: 'recent' (padrão, igual à do servidor) ou 'created'. */
+export const sortCharacters = (characters, sort) => (sort === 'created' ? sortCreated(characters) : sortRecent(characters));
+
 /** Estado do PV (limites do plano da ficha): ok > 50%, warn > 25%, crit > 0, down = 0.
  * Sem currentHp conta como cheio. Sem maxHp → null. */
 export function hpState(currentHp, maxHp) {

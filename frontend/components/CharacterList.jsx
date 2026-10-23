@@ -1,6 +1,6 @@
 /* Tela inicial: seus heróis primeiro e "criar" sempre à mão.
  * Estados: carregando (esqueleto), erro (Tentar de novo), sem fichas (3 portas para
- * começar) e com fichas (cartões, fichas prontas, atalhos, mais opções e a barra fixa
+ * começar) e com fichas (cartões com busca e ordem, fichas prontas, atalhos, mais opções e a barra fixa
  * "Novo personagem" no celular). Visual e regras em src/home/. */
 import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { HERO_ART, backgroundArt, hideOnError } from '../src/art.js';
@@ -9,7 +9,7 @@ import { t } from '../data/i18n.js';
 import { useAuth } from '../src/auth/AuthContext.jsx';
 import HeroCard from '../src/home/HeroCard.jsx';
 import { HomeActions, HomeLinks, HomeTitle, ImportError } from '../src/home/HomeActions.jsx';
-import { L, filterCharacters, sortRecent, readFlag, writeFlag } from '../src/home/home-utils.js';
+import { L, filterCharacters, sortCharacters, readFlag, writeFlag } from '../src/home/home-utils.js';
 import { PregenHead, pregenSectionClass } from '../src/pregens/PregenHead.jsx';
 import '../src/home/home.css';
 
@@ -18,6 +18,8 @@ const PregenGallery = lazy(loadGallery);
 // Só lista o arquivo (não baixa nada): sem data/pregens.json a porta "Ficha pronta" nem aparece.
 const HAS_PREGENS = Object.keys(import.meta.glob('../data/pregens.json')).length > 0;
 const HINT_KEY = 'forja:home-local-hint';
+// Ordem da lista: "Recentes" (padrão, igual à do servidor) ou "Criação" (a de antes).
+const SORT_KEY = 'forja:home-sort-created';
 
 // Lupa do campo de busca (o conjunto de ícones do app não tem uma).
 const SearchGlyph = () => (
@@ -56,6 +58,7 @@ const CharacterList = ({
   const [query, setQuery] = useState('');
   const [importError, setImportError] = useState(null); // { where: 'door' | 'more', msg }
   const [hintOn, setHintOn] = useState(() => readFlag(HINT_KEY, true));
+  const [sort, setSort] = useState(() => (readFlag(SORT_KEY, false) ? 'created' : 'recent'));
   // Esqueleto só se a lista demorar (> 250 ms): carga rápida não pisca.
   const [slow, setSlow] = useState(false);
   useEffect(() => {
@@ -68,7 +71,7 @@ const CharacterList = ({
   // A galeria vem em chunk próprio: começa a baixar já, junto com a lista.
   useEffect(() => { if (showPregens) loadGallery().catch(() => { /* tenta de novo ao montar */ }); }, [showPregens]);
 
-  const sorted = useMemo(() => sortRecent(characters), [characters]);
+  const sorted = useMemo(() => sortCharacters(characters, sort), [characters, sort]);
   const filtered = useMemo(() => filterCharacters(sorted, query, lang), [sorted, query, lang]);
 
   const mode = listState === 'loading' ? 'loading' : listState === 'error' ? 'error' : characters.length ? 'list' : 'empty';
@@ -100,6 +103,7 @@ const CharacterList = ({
   };
   const clearSearch = () => { setQuery(''); searchRef.current?.focus(); };
   const dismissHint = () => { setHintOn(false); writeFlag(HINT_KEY, false); };
+  const pickSort = (v) => { setSort(v); writeFlag(SORT_KEY, v === 'created'); };
 
   const n = characters.length;
   const links = (first) => (
@@ -207,19 +211,32 @@ const CharacterList = ({
               <>
                 {/* Título da seção para leitor de tela (o H1 acima é o da página): H1 → H2 → H3 de cada herói */}
                 <h2 className="home-sr">{L(lang, 'Suas fichas', 'Your characters')}</h2>
-                {n > 4 && (
-                  <div className="home-find" role="search">
-                    <div className="home-find-box">
-                      <SearchGlyph />
-                      <input ref={searchRef} type="search" className="input" value={query} onChange={e => setQuery(e.target.value)}
-                        placeholder={L(lang, 'Buscar nome, classe…', 'Search name, class…')}
-                        aria-label={L(lang, 'Filtrar personagens', 'Filter characters')} />
-                      {query && <span className="home-find-count" aria-live="polite">{filtered.length} / {n}</span>}
-                      {query && (
-                        <button type="button" className="home-x" onClick={clearSearch} aria-label={L(lang, 'Limpar busca', 'Clear search')}>
-                          <Icon name="x" size={16} />
-                        </button>
-                      )}
+                {n > 1 && (
+                  <div className="home-tools">
+                    {n > 4 && (
+                      <div className="home-find" role="search">
+                        <div className="home-find-box">
+                          <SearchGlyph />
+                          <input ref={searchRef} type="search" className="input" value={query} onChange={e => setQuery(e.target.value)}
+                            placeholder={L(lang, 'Buscar nome, classe…', 'Search name, class…')}
+                            aria-label={L(lang, 'Filtrar personagens', 'Filter characters')} />
+                          {query && <span className="home-find-count" aria-live="polite">{filtered.length} / {n}</span>}
+                          {query && (
+                            <button type="button" className="home-x" onClick={clearSearch} aria-label={L(lang, 'Limpar busca', 'Clear search')}>
+                              <Icon name="x" size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <div className="home-sort" role="group" aria-labelledby="home-sort-t">
+                      <span className="home-sort-t" id="home-sort-t">{L(lang, 'Ordem', 'Order')}</span>
+                      <span className="home-sort-seg">
+                        <button type="button" aria-pressed={sort === 'recent'} onClick={() => pickSort('recent')}
+                          title={L(lang, 'A editada por último primeiro', 'Last edited first')}>{L(lang, 'Recentes', 'Recent')}</button>
+                        <button type="button" aria-pressed={sort === 'created'} onClick={() => pickSort('created')}
+                          title={L(lang, 'Na ordem em que foram criadas', 'In the order they were created')}>{L(lang, 'Criação', 'Created')}</button>
+                      </span>
                     </div>
                   </div>
                 )}
