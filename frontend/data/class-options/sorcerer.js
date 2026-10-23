@@ -1,7 +1,7 @@
 // Feiticeiro — Metamagia, traços da classe base 2024 e subclasses.
 // Classe base, Metamagia 2024 e Feitiçaria Dracônica: SRD 5.2.1 (CC-BY 4.0).
 // Metamagia 2014 (PHB): SRD 5.1 (CC-BY 4.0); Buscadora/Transmutada 2014 (TCE): resumo original.
-// Demais subclasses (PHB24, XGE, SCAG/XGE, TCE, DSDQ): resumos ORIGINAIS, só fatos de regra.
+// Demais subclasses (PHB24, XGE, SCAG/XGE, TCE, DSDQ, UA 2026): resumos ORIGINAIS, só fatos de regra.
 const b = (pt, en) => ({ pt, en });
 const f = (id, namePt, nameEn, descPt, descEn) => ({ id, name: b(namePt, nameEn), desc: b(descPt, descEn) });
 
@@ -231,6 +231,10 @@ export default {
     { id: 'lunarPhenomenon', name: b('Fenômeno Lunar', 'Lunar Phenomenon'), subclass: ['lunar'],
       desc: b('Um por fase; ou gaste 5 pontos de feitiçaria.', 'One per phase; or spend 5 Sorcery Points.'),
       uses: { fixed: 3 }, recharge: 'long', minLevel: 18 },
+    // Demoníaca (UA, só regras 2024)
+    { id: 'abyssalExplosion', name: b('Explosão Abissal', 'Abyssal Explosion'), rules: '2024', subclass: ['demonic'],
+      desc: b('Ou gaste 7 pontos de feitiçaria para recuperar.', 'Or spend 7 Sorcery Points to restore it.'),
+      uses: { fixed: 1 }, recharge: 'long', minLevel: 18 },
   ],
 
   // -------------------------------------------------------------------------
@@ -650,6 +654,54 @@ export default {
             f('lunarPhenomenon', 'Fenômeno Lunar', 'Lunar Phenomenon',
               'Ação Bônus (ou junto com a troca de fase): efeito da fase ativa. Cheia: criaturas à sua escolha a até 9 m (30 pés) fazem salvaguarda de Constituição ou ficam Cegas até o fim do próximo turno delas, e uma criatura à sua escolha nessa área recupera 3d8 PV. Nova: criaturas à sua escolha a até 9 m fazem salvaguarda de Destreza ou sofrem 3d10 de dano necrótico e ficam com deslocamento 0 até o fim do próximo turno delas; você fica Invisível até o fim do seu próximo turno. Crescente: teleporte-se até 18 m (60 pés), podendo levar uma criatura voluntária a até 1,5 m, e ganhe Resistência a todo dano até o início do seu próximo turno. Cada efeito 1 vez por Descanso Longo, ou gaste 5 pontos de feitiçaria.',
               'Bonus Action (or as part of a phase change): effect of the active phase. Full: creatures of your choice within 30 feet make a Constitution save or are Blinded until the end of their next turn, and one creature of your choice there regains 3d8 HP. New: creatures of your choice within 30 feet make a Dexterity save or take 3d10 Necrotic damage and have Speed 0 until the end of their next turn; you become Invisible until the end of your next turn. Crescent: teleport up to 60 feet, optionally bringing a willing creature within 5 feet, and gain Resistance to all damage until the start of your next turn. Each effect once per Long Rest, or spend 5 Sorcery Points.'),
+          ],
+        },
+      },
+    },
+
+    // Unearthed Arcana (playtest, já escrito para 2024): versão revisada do
+    // Villainous Options Update (18/jun/2026). Resumo original; as tabelas de
+    // efeitos do Abismo ficam no documento do UA.
+    demonic: {
+      name: b('Feitiçaria Demoníaca — UA', 'Demonic Sorcery — UA'),
+      source: 'UA26VOU',
+      desc: b('Playtest: sua magia vem do Abismo (pacto, linhagem ou contato com demônios), e você abre fendas para o caos abissal.',
+        'Playtest: your magic comes from the Abyss (a bargain, a bloodline, or contact with demons), and you tear rifts into its chaos.'),
+      levels: {
+        3: {
+          features: [
+            f('demonicSpells', 'Magias Demoníacas', 'Demonic Spells',
+              'Magias sempre preparadas (não contam no limite): nível 3 — Perdição, Sussurros Dissonantes, Crescimento de Espinhos, Teia; 5 — Lançar Maldição, Dissipar Magia; 7 — Inseto Gigante, Terreno Alucinatório; 9 — Contatar Outro Plano, Modificar Memória.',
+              'Always prepared (they don\'t count against your limit): level 3 — Bane, Dissonant Whispers, Spike Growth, Web; 5 — Bestow Curse, Dispel Magic; 7 — Giant Insect, Hallucinatory Terrain; 9 — Contact Other Plane, Modify Memory.'),
+            f('abyssalRupture', 'Fenda Abissal', 'Abyssal Rupture',
+              'Ao usar Feitiçaria Inata, você abre uma fenda para o Abismo que preenche uma esfera de 3 m (10 pés) de raio num ponto que você vê a até 9 m (30 pés); ela dura enquanto a Feitiçaria Inata durar e pode ser movida a cada turno. Enquanto isso, como Ação Bônus, escolha um efeito: Chicote Demoníaco (ataque mágico corpo a corpo contra uma criatura a até 1,5 m da fenda: 1d8 de dano Cortante, e um alvo Grande ou menor pode ser puxado até 3 m / 10 pés para o centro) ou Gritos Aterradores (cada criatura na fenda faz salvaguarda de Sabedoria contra sua CD ou sofre 1d4 de dano Psíquico).',
+              'When you use Innate Sorcery, you tear a rift into the Abyss that fills a 10-foot-radius sphere at a point you can see within 30 feet; it lasts as long as Innate Sorcery and can be moved each turn. Meanwhile, as a Bonus Action, choose an effect: Demonic Lash (melee spell attack against a creature within 5 feet of the rift: 1d8 Slashing damage, and a Large or smaller target can be pulled up to 10 feet toward its center) or Terrifying Screams (each creature in the rift makes a Wisdom save against your DC or takes 1d4 Psychic damage).'),
+          ],
+          autoSpells: ['bane', 'dissonantWhispers', 'spikeGrowth', 'web'],
+        },
+        5: { autoSpells: ['bestowCurse', 'dispelMagic'] },
+        6: {
+          features: [
+            f('abyssalRealm', 'Reino Abissal', 'Abyssal Realm',
+              'Quando gastar pelo menos 1 ponto de feitiçaria como parte de uma ação de Magia ou Ação Bônus no seu turno, você pode atrair a influência de uma camada do Abismo: escolha um efeito da tabela da subclasse e aplique-o numa emanação de 3 m (10 pés) em volta de você ou dentro da sua Fenda Abissal.',
+              'When you spend at least 1 Sorcery Point as part of a Magic action or Bonus Action on your turn, you can draw on a layer of the Abyss: choose an effect from the subclass table and apply it in a 10-foot emanation around you or inside your Abyssal Rupture.'),
+          ],
+        },
+        7: { autoSpells: ['giantInsect', 'hallucinatoryTerrain'] },
+        9: { autoSpells: ['contactOtherPlane', 'modifyMemory'] },
+        14: {
+          features: [
+            f('abyssalConduit', 'Conduto Abissal', 'Abyssal Conduit',
+              'Você tem Invocar Corruptor sempre preparada. Pode conjurá-la sem Concentração; assim, ela dura 1 minuto e o corruptor tem de ser um Demônio. O corruptor invocado tem Vantagem nas jogadas de ataque enquanto estiver dentro da sua Fenda Abissal.',
+              'You always have Summon Fiend prepared. You can cast it without Concentration; if you do, it lasts 1 minute and the fiend must be a Demon. Your summoned fiend has Advantage on attack rolls while inside your Abyssal Rupture.'),
+          ],
+          autoSpells: ['summonFiend'],
+        },
+        18: {
+          features: [
+            f('abyssalExplosion', 'Explosão Abissal', 'Abyssal Explosion',
+              'Ação de Magia: uma explosão de energia abissal preenche uma esfera de 9 m (30 pés) de raio. Cada criatura na área faz salvaguarda de Constituição contra sua CD; se falhar, uma criatura que não seja Corruptor sofre 8d6 de dano de Energia e fica Incapacitada até o início do seu próximo turno. Uma vez por Descanso Longo, ou gaste 7 pontos de feitiçaria para recuperar o uso.',
+              'Magic action: an explosion of Abyssal energy fills a 30-foot-radius sphere. Each creature there makes a Constitution save against your DC; on a failure, a creature that isn\'t a Fiend takes 8d6 Force damage and is Incapacitated until the start of your next turn. Once per Long Rest, or spend 7 Sorcery Points to restore the use.'),
           ],
         },
       },

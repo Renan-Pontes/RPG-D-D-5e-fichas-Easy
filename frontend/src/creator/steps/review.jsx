@@ -6,6 +6,7 @@ import Utils from '../../../utils.js';
 // depois que todos os módulos terminaram de carregar.
 import { STEPS } from '../steps.js';
 import { StepIntro, Term, Callout, IssueList, L } from '../ui.jsx';
+import { marksOf } from '../journey-ui.jsx';
 
 // Nome com quantidade (o pacote às vezes já grava "Adaga ×2" no nome).
 const withQty = (name, qty) => (qty > 1 && !/×\s*\d+\s*$/.test(String(name || '')) ? `${name} ×${qty}` : name);
@@ -93,6 +94,17 @@ function ReviewStep({ char, lang, goTo, steps, joinEnabled = false }) {
           'Se faltar algo, aparece logo abaixo com um botão para voltar à etapa certa.',
           "If anything is missing, it shows up right below with a button to go back to the right step.")}</p>
       </StepIntro>
+
+      {marksOf(char, lang).length > 0 && (
+        <div className="cr-seals" aria-label={L(lang, 'Os selos da sua lenda', 'The seals of your legend')}>
+          <div className="eyebrow">{L(lang, 'Os selos da sua lenda', 'The seals of your legend')}</div>
+          <div className="cr-seals-row">
+            {marksOf(char, lang).map(m => (
+              <span key={m.key} className="cr-seal-item"><img src={m.src} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} /><span>{m.title}</span></span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {groups.length > 0 ? (
         <Callout kind="warn">

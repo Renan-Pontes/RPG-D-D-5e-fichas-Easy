@@ -1,7 +1,12 @@
-/* Etapa — Detalhes: nome (obrigatório), foto, aparência e história com perguntas-guia. */
+/* Etapa — Detalhes: nome (obrigatório), foto, aparência e história com perguntas-guia.
+ * A crônica da criação (chronicle.js) pode ir para a história livre (acrescenta, não apaga). */
+import { useMemo, useState } from 'react';
 import { AvatarUpload } from '../../../components/Shared.jsx';
 import { StepIntro, Callout, L } from '../ui.jsx';
 import { detailsIssues, STORY_PROMPTS, NAME_MAX } from '../creation.js';
+import { chronicleLines } from '../chronicle.js';
+import { withChronicle, hasChronicle, chroniclePreview } from '../chronicle-story.js';
+import '../journey-extra.css';
 
 const LOOKS = [
   ['age', 'Idade', 'Age', '25 anos', '25 years'],
@@ -19,7 +24,40 @@ const TRAITS = [
   ['flaws', 'Defeitos', 'Flaws', 'Qual é sua fraqueza? Ex.: "Não resisto a uma aposta."', "What's your weakness? E.g. \"I can't resist a bet.\""],
 ];
 
+/** Altura da história livre: cresce com o texto (a crônica é longa), até 14 linhas. */
+const storyRows = (t) => { const s = String(t || ''); return Math.min(14, Math.max(3, s.split('\n').length + Math.floor(s.length / 90))); };
+
+/** A crônica vira história: prévia curta + botão que ACRESCENTA o texto à história livre. */
+function ChronicleToStory({ char, set, lang, onAdded }) {
+  const lines = useMemo(() => { try { return chronicleLines(char, lang); } catch { return []; } }, [char, lang]);
+  const text = lines.join(' ');
+  const inStory = hasChronicle(char.backstory, lines);
+  const use = () => {
+    set(prev => { try { return { backstory: withChronicle(prev.backstory, chronicleLines(prev, lang)) }; } catch { return {}; } });
+    onAdded?.();
+  };
+  return (
+    <div className="cr-tale">
+      <span className="cr-tale-k">{L(lang, 'A crônica até aqui', 'The chronicle so far')}</span>
+      {text
+        ? <p className="cr-tale-preview">{chroniclePreview(text)}</p>
+        : <p className="cr-tale-empty">{L(lang, 'A crônica ainda está em branco: ela se escreve conforme você faz as escolhas.', 'The chronicle is still blank: it writes itself as you make your choices.')}</p>}
+      <div className="cr-tale-row">
+        <button type="button" className="btn btn-sm btn-ghost cr-tale-btn" disabled={!text || inStory} onClick={use}>
+          {L(lang, 'Usar a crônica na história', 'Use the chronicle in the story')}
+        </button>
+        <span className="cr-tale-note" role="status">
+          {inStory
+            ? L(lang, 'A crônica já está na história livre, logo abaixo. Edite à vontade.', 'The chronicle is already in the free story, just below. Edit it as you like.')
+            : L(lang, 'O texto vai para o fim de "Algo mais? (história livre)", sem apagar o que você escreveu.', 'The text goes to the end of "Anything else? (free story)", without erasing what you wrote.')}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function DetailsStep({ char, set, lang }) {
+  const [added, setAdded] = useState(0);
   const story = char.creation?.story || {};
   const setStory = (id, v) => set(prev => ({ creation: { ...(prev.creation || {}), story: { ...(prev.creation?.story || {}), [id]: v } } }));
   const nameIssues = detailsIssues(char);
@@ -89,9 +127,11 @@ function DetailsStep({ char, set, lang }) {
               <input id={`cr-story-${p.id}`} value={story[p.id] || ''} onChange={e => setStory(p.id, e.target.value)} placeholder={p.hint[lang]} />
             </div>
           ))}
+          <ChronicleToStory char={char} set={set} lang={lang} onAdded={() => setAdded(n => n + 1)} />
           <div>
             <label htmlFor="cr-backstory">{L(lang, 'Algo mais? (história livre)', 'Anything else? (free story)')}</label>
-            <textarea id="cr-backstory" value={char.backstory || ''} onChange={e => set({ backstory: e.target.value })} />
+            <textarea id="cr-backstory" key={`bs${added}`} className={added ? 'cr-tale-added' : undefined} rows={storyRows(char.backstory)}
+              value={char.backstory || ''} onChange={e => set({ backstory: e.target.value })} />
           </div>
         </div>
         <Callout kind="info">{L(lang,

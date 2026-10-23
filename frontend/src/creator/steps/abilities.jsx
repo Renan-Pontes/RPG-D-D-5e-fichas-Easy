@@ -1,4 +1,5 @@
 /* Etapa "Atributos": gerar os 6 valores-base (conjunto padrão, compra de pontos ou rolagem). Lógica em ../ability-helpers.js. */
+import { useEffect, useState } from 'react';
 import Utils from '../../../utils.js';
 import { tName } from '../../../data/i18n.js';
 import { StepIntro, Term, Callout, ChoiceGrid, ChoiceCard, L } from '../ui.jsx';
@@ -7,8 +8,17 @@ import {
   STANDARD_ARRAY_BY_CLASS, abilityMethod, abilityPool, abilityAssign, pointBuyCost, nextPointCost, primaryAbilities,
   setMethodPatch, assignPatch, pointBuyPatch, rollPatch, suggestionPatch, abilitiesIssues,
 } from '../ability-helpers.js';
+import { abilityList } from '../class-helpers.js';
+import { classArt } from '../../art.js';
+import { preloadDice3D, effectiveAnimMode } from '../../dice/DiceStage.jsx';
+import { Echo } from '../journey-ui.jsx';
+import RollReveal from '../RollReveal.jsx';
+import DoorsPanel from '../DoorsPanel.jsx';
+import '../journey-extra.css';
 
 const fmt = Utils.fmtMod;
+/** Os dados animam (3D ou 2D)? Com movimento reduzido ('static') ou desligado ('off'), o resultado aparece direto. */
+const diceAnimate = () => { try { const m = effectiveAnimMode(); return m === '3d' || m === '2d'; } catch { return false; } };
 
 function MethodPicker({ char, set, lang }) {
   const m = abilityMethod(char);
@@ -44,8 +54,16 @@ function RollPanel({ char, set, lang }) {
   const rolls = char.creation?.abilityRolls || [];
   const assign = abilityAssign(char);
   const usedBy = (i) => ABILITIES.find(k => assign[k] === i);
+  // A rolagem continua a mesma (rollPatch grava os 6×4d6); os dados 3D só revelam o que foi gravado.
+  const [reveal, setReveal] = useState(null);
+  const roll = () => {
+    const p = rollPatch(char);
+    set(p);
+    if (diceAnimate()) setReveal({ id: Date.now(), rolls: p.creation.abilityRolls });
+  };
   return (
     <div className="card" style={{ padding: 12, marginBottom: 12 }}>
+      {reveal && <RollReveal key={reveal.id} rolls={reveal.rolls} lang={lang} onClose={() => setReveal(null)} />}
       <Callout kind="warn">
         {L(lang, 'Combine com o mestre antes: rolar pode deixar o herói bem mais forte ou mais fraco que o resto do grupo.',
           'Check with your DM first: rolling can make your hero much stronger or weaker than the rest of the group.')}
@@ -67,12 +85,12 @@ function RollPanel({ char, set, lang }) {
             })}
           </div>
           <button type="button" className="btn btn-sm btn-ghost" style={{ marginTop: 8 }}
-            onClick={() => set(rollPatch(char))}>
+            onClick={roll}>
             {L(lang, 'Rolar de novo (só se o mestre deixar)', 'Roll again (only if your DM allows)')}
           </button>
         </>
       ) : (
-        <button type="button" className="btn btn-primary" style={{ width: '100%' }} onClick={() => set(rollPatch(char))}>
+        <button type="button" className="btn btn-primary" style={{ width: '100%' }} onClick={roll}>
           🎲 {L(lang, 'Rolar os dados', 'Roll the dice')}
         </button>
       )}
@@ -167,6 +185,8 @@ function Comp({ char, set, lang }) {
   const bonusNote = char.rulesVersion === '2024'
     ? L(lang, 'Na próxima etapa seu antecedente ainda soma +3 em atributos.', 'In the next step your background still adds +3 to abilities.')
     : L(lang, 'Na próxima etapa entram os bônus da sua raça.', 'In the next step your race bonuses are added.');
+  // Dados 3D: carrega o palco ao entrar na etapa (só se for animar em 3D), para a primeira rolagem não esperar.
+  useEffect(() => { try { if (effectiveAnimMode() === '3d') preloadDice3D().catch(() => {}); } catch { /* sem 3D: o palco cai para 2D */ } }, []);
 
   return (
     <div>
@@ -181,6 +201,14 @@ function Comp({ char, set, lang }) {
         </p>
         <p className="text-sm">{bonusNote}</p>
       </StepIntro>
+
+      {char.className && primary.length > 0 && (
+        <Echo art={classArt(char.className)} lang={lang}>
+          {L(lang, `${className}. Seu caminho pede ${abilityList(primary, 'pt')}: é o `, `${className}. Your path calls for ${abilityList(primary, 'en')}: that's the `)}
+          <Term id="primaryAbility" lang={lang}>{L(lang, 'atributo principal', 'primary ability')}</Term>
+          {L(lang, ', então ponha ali o seu valor mais alto.', ', so put your highest score there.')}
+        </Echo>
+      )}
 
       <MethodPicker char={char} set={set} lang={lang} />
 
@@ -224,6 +252,8 @@ function Comp({ char, set, lang }) {
         {L(lang, 'Como ler o modificador: 8–9 = −1 · 10–11 = +0 · 12–13 = +1 · 14–15 = +2 · 16–17 = +3. Quanto maior, mais fácil acertar nos testes daquele atributo.',
           'Reading the modifier: 8–9 = −1 · 10–11 = +0 · 12–13 = +1 · 14–15 = +2 · 16–17 = +3. The higher it is, the easier rolls with that ability get.')}
       </Callout>
+
+      <DoorsPanel char={char} lang={lang} />
     </div>
   );
 }

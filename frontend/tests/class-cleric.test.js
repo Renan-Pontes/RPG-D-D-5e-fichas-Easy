@@ -10,7 +10,7 @@ const make = (level, extra = {}) => ({
 });
 const pendingPools = (prog) => prog.pendingChoices.filter(p => p.type === 'classOption').map(p => `${p.pool}:${p.missing}`);
 
-const DOMAINS = ['life', 'light', 'trickery', 'war', 'knowledge', 'nature', 'tempest', 'death', 'arcana', 'forge', 'grave', 'order', 'peace', 'twilight'];
+const DOMAINS = ['life', 'light', 'trickery', 'war', 'knowledge', 'nature', 'tempest', 'death', 'arcana', 'forge', 'grave', 'order', 'peace', 'twilight', 'pestilence'];
 
 test('clérigo 2024: Ordem Divina no 1 e Golpes Abençoados no 7', () => {
   assert.deepEqual(pendingPools(computeProgression(make(1))), ['divineOrder:1']);
@@ -67,6 +67,22 @@ test('clérigo 2024: Vida acumula magias e traços até o 17', () => {
   }
   const ids = prog.features.map(f => f.id);
   for (const f of ['discipleOfLife', 'preserveLife', 'blessedHealer', 'supremeHealing']) assert.ok(ids.includes(f), f);
+});
+
+test('clérigo 2024: Domínio da Pestilência (UA) — magias, traços e usos', async () => {
+  const { computeResources } = await import('../src/progression/resources.js');
+  const c = make(17, { subclass: 'pestilence' });
+  const prog = computeProgression(c);
+  for (const s of ['detectPoisonAndDisease', 'protectionFromPoison', 'rayOfEnfeeblement', 'rayOfSickness', 'stinkingCloud', 'vampiricTouch', 'blight', 'giantInsect', 'contagion', 'insectPlague']) {
+    assert.ok(prog.autoSpells.includes(s), s);
+  }
+  const ids = prog.features.map(f => f.id);
+  for (const f of ['blightWeaver', 'plagueBlessing', 'virulentBurst', 'verminForm']) assert.ok(ids.includes(f), f);
+  assert.equal(cleric.subclasses.pestilence.source, 'UA26VO');
+  const res = computeResources({ ...c, abilities: { wis: 16 } }).map(r => r.id);
+  assert.ok(res.includes('virulentBurst') && res.includes('verminForm'));
+  assert.ok(!computeResources({ ...c, level: 5 }).some(r => r.id === 'virulentBurst'), 'Explosão Virulenta só no 6');
+  assert.ok(!computeResources({ ...c, rulesVersion: '2014', level: 17 }).some(r => r.id === 'verminForm'), 'UA 2024: fora das fichas 2014');
 });
 
 test('clérigo 2024: escolhas de domínio', () => {

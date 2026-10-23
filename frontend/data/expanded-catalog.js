@@ -64,6 +64,7 @@ export const SOURCES = {
   BGG: "Bigby Presents: Glory of the Giants", AI: 'Acquisitions Incorporated',
   LR: 'Locathah Rising', OGA: 'One Grung Above',
   UA26VO: 'Unearthed Arcana: Villainous Options (2026, playtest)',
+  UA26VOU: 'Unearthed Arcana: Villainous Options Update (2026, playtest)',
 };
 
 // Supplemental subclasses can be selected and saved. Their special actions
@@ -101,11 +102,15 @@ const subclasses = {
     ['order', 'Domínio da Ordem', 'Order Domain', 'TCE', 'Comando e coordenação de aliados.', 'Command and ally coordination.'],
     ['peace', 'Domínio da Paz', 'Peace Domain', 'TCE', 'Vínculos protetores entre companheiros.', 'Protective bonds between companions.'],
     ['twilight', 'Domínio do Crepúsculo', 'Twilight Domain', 'TCE', 'Proteção, visão e santuário na penumbra.', 'Protection, sight, and sanctuary in dim light.'],
+    // Playtest (UA) escrito para 2024: traços completos em class-options/cleric.js.
+    ['pestilence', 'Domínio da Pestilência — UA', 'Pestilence Domain — UA', 'UA26VO', 'Playtest: praga, podridão e Exaustão nos inimigos.', 'Playtest: plague, rot, and Exhaustion on foes.'],
   ],
   druid: [
     ['shepherd', 'Círculo do Pastor', 'Circle of the Shepherd', 'XGE', 'Totens espirituais e criaturas invocadas.', 'Spirit totems and summoned creatures.'],
     // Playtest (UA), não é livro publicado: confira o documento antes de usar.
-    ['titan', 'Círculo do Titã (kaiju) — UA', 'Circle of the Titan — UA', 'UA26VO', 'Playtest: a Forma Selvagem vira um monstro colossal no estilo kaiju.', 'Playtest: Wild Shape becomes a colossal kaiju-style monster.'],
+    // Escrito para 2024 (traços completos em class-options/druid.js); aqui fica a
+    // versão manual para fichas 2014. Versão revisada (Villainous Options Update).
+    ['titan', 'Círculo do Titã (kaiju) — UA', 'Circle of the Titan — UA', 'UA26VOU', 'Playtest: a Forma Selvagem vira um monstro colossal no estilo kaiju.', 'Playtest: Wild Shape becomes a colossal kaiju-style monster.'],
   ],
   fighter: [
     ['banneret', 'Cavaleiro do Dragão Púrpura', 'Purple Dragon Knight', 'SCAG', 'Liderança marcial fortalece companheiros.', 'Martial leadership bolsters companions.'],
@@ -115,6 +120,8 @@ const subclasses = {
     ['echoknight', 'Cavaleiro do Eco', 'Echo Knight', 'EGW', 'Manifeste um eco para atacar e se reposicionar.', 'Manifest an echo to attack and reposition.'],
     ['psiwarrior', 'Guerreiro Psiônico', 'Psi Warrior', 'TCE', 'Dados psiônicos alimentam ataque, defesa e movimento.', 'Psionic dice fuel attacks, defense, and movement.'],
     ['runeknight', 'Cavaleiro das Runas', 'Rune Knight', 'TCE', 'Runas gigantes e crescimento mágico.', 'Giant runes and magical growth.'],
+    // Playtest (UA) escrito para 2024: traços completos em class-options/fighter.js.
+    ['hellknight', 'Cavaleiro Infernal — UA', 'Hell Knight — UA', 'UA26VOU', 'Playtest: armas forjadas no inferno e feridas infernais.', 'Playtest: hell-forged weapons and infernal wounds.'],
   ],
   monk: [
     ['longdeath', 'Caminho da Morte Longa', 'Way of the Long Death', 'SCAG', 'Disciplina que transforma a morte em resistência.', 'Discipline that turns death into resilience.'],
@@ -155,6 +162,8 @@ const subclasses = {
     ['aberrantmind', 'Mente Aberrante', 'Aberrant Mind', 'TCE', 'Telepatia e conjuração psiônica.', 'Telepathy and psionic spellcasting.'],
     ['clockworksoul', 'Alma Mecânica', 'Clockwork Soul', 'TCE', 'Magia que restaura o equilíbrio e a ordem.', 'Magic that restores balance and order.'],
     ['lunar', 'Feitiçaria Lunar', 'Lunar Sorcery', 'DSDQ', 'Fases lunares alteram a afinidade mágica.', 'Lunar phases alter magical affinity.'],
+    // Playtest (UA) escrito para 2024: traços completos em class-options/sorcerer.js.
+    ['demonic', 'Feitiçaria Demoníaca — UA', 'Demonic Sorcery — UA', 'UA26VOU', 'Playtest: fendas para o Abismo e magia demoníaca.', 'Playtest: rifts into the Abyss and demonic magic.'],
   ],
   warlock: [
     ['undying', 'O Imortal', 'The Undying', 'SCAG', 'Pacto ligado à persistência além da morte.', 'A pact tied to persistence beyond death.'],

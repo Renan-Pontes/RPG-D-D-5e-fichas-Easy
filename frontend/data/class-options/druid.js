@@ -1,7 +1,8 @@
 // Druida — opções, traços e círculos (regras 2024). Formato em README.md.
 // Classe base e Círculo da Terra: SRD 5.2.1 (CC-BY 4.0), texto adaptado.
 // Lua, Mar e Estrelas (PHB 2024) e círculos de suplemento (XGE/TCE): resumos
-// ORIGINAIS — nada copiado de livros pagos.
+// ORIGINAIS — nada copiado de livros pagos. Círculo do Titã: playtest
+// (Unearthed Arcana 2026), também em resumo original.
 // Círculos de 2014 ajustados às regras de 2024: traços do nível 2 vão para o 3;
 // magias de círculo continuam nos níveis 3/5/7/9 (as do nível 2 entram no 3).
 // Escolhas feitas na hora do uso (constelação da Forma Estelar, espírito do
@@ -31,6 +32,8 @@ const SPELL = {
   cloudkill: b('Névoa Mortal', 'Cloudkill'), contagion: b('Contágio', 'Contagion'), flamingSphere: b('Esfera Flamejante', 'Flaming Sphere'),
   scorchingRay: b('Raio Ardente', 'Scorching Ray'), plantGrowth: b('Crescimento de Plantas', 'Plant Growth'), revivify: b('Revivificar', 'Revivify'),
   auraOfLife: b('Aura de Vida', 'Aura of Life'), fireShield: b('Escudo de Fogo', 'Fire Shield'), flameStrike: b('Coluna de Chamas', 'Flame Strike'),
+  thaumaturgy: b('Taumaturgia', 'Thaumaturgy'), enlargeReduce: b('Aumentar/Reduzir', 'Enlarge/Reduce'), fear: b('Medo', 'Fear'),
+  destructiveWave: b('Onda Destrutiva', 'Destructive Wave'),
 };
 
 const table = (spells, lang) => Object.entries(spells)
@@ -441,6 +444,38 @@ const wildfire = {
   }, { 3: ['burningHands', 'cureWounds', 'flamingSphere', 'scorchingRay'], 5: ['plantGrowth', 'revivify'], 7: ['auraOfLife', 'fireShield'], 9: ['flameStrike', 'massCureWounds'] }),
 };
 
+// Unearthed Arcana (playtest, já escrito para 2024): versão revisada do
+// Villainous Options Update (18/jun/2026). Resumo original; as fichas completas
+// das três Formas de Titã ficam no documento do UA (resolvidas na mesa).
+const titan = {
+  name: b('Círculo do Titã (kaiju) — UA', 'Circle of the Titan — UA'),
+  source: 'UA26VOU',
+  desc: b('Playtest: druidas que derrubam a civilização quando ela ameaça a natureza, virando monstros colossais no estilo kaiju.',
+    'Playtest: druids who topple civilization when it threatens nature, becoming colossal kaiju-style monsters.'),
+  levels: circle('titan', b('Círculo do Titã', 'Circle of the Titan'), {
+    3: [
+      f('titanForms', 'Formas de Titã', 'Titan Forms',
+        'Ao usar Forma Selvagem, você pode assumir uma Forma de Titã Grande em vez de uma Fera: Behemoth (terrestre; Sopro Incandescente em linha, alimentado por espaços de magia, causa dano Radiante e dano dobrado a objetos e estruturas), Leviatã (anfíbio, com natação; Nuvem de Tinta como Reação ao sofrer dano) ou Insectoide (voo; Pólen Energizante cura e reposiciona aliados). Na forma, sua CA é 13 + modificador de Sabedoria, você ataca com Dilacerar e ganha PV temporários iguais a 4 × seu nível de druida. A forma dura 10 minutos (não as horas normais da Forma Selvagem), e você pode conjurar as magias do círculo nela.',
+        'When you use Wild Shape, you can assume a Large Titan Form instead of a Beast: Behemoth (land; a line-shaped Incandescent Breath, fueled by spell slots, deals Radiant damage and double damage to objects and structures), Leviathan (amphibious, with a Swim Speed; Ink Cloud as a Reaction when damaged), or Insectoid (flying; Energizing Pollen heals and repositions allies). In the form, your AC is 13 + your Wisdom modifier, you attack with Rend, and you gain Temporary HP equal to 4 × your Druid level. The form lasts 10 minutes (not Wild Shape\'s usual hours), and you can cast your circle spells in it.'),
+    ],
+    6: [
+      f('direImpact', 'Impacto Terrível', 'Dire Impact',
+        'Dilacerar Elemental: ao acertar com Dilacerar da Forma de Titã, você pode causar dano Ácido, Elétrico, de Fogo, de Frio ou Trovejante. Onda de Choque: logo após assumir a Forma de Titã, ou como Ação Bônus gastando um espaço de magia de nível 1+ enquanto estiver nela, o chão treme numa emanação de 4,5 m (15 pés); as criaturas na área fazem salvaguarda de Constituição contra sua CD ou ficam Caídas.',
+        'Elemental Rend: when you hit with your Titan Form\'s Rend, you can make it deal Acid, Cold, Fire, Lightning, or Thunder damage. Shock Wave: right after you assume a Titan Form, or as a Bonus Action by expending a level 1+ spell slot while in it, the ground heaves in a 15-foot emanation; creatures there make a Constitution save against your DC or have the Prone condition.'),
+    ],
+    10: [
+      f('primalHavoc', 'Devastação Primal', 'Primal Havoc',
+        'Tamanho Enorme: ao assumir a Forma de Titã, você pode ficar Enorme. Couro Endurecido: logo após assumir uma Forma de Titã Enorme ou maior, gaste um espaço de magia de nível 1+ para ganhar bônus na CA igual à metade do nível do espaço (arredondado para cima) enquanto a forma durar. Cada forma ganha ainda a habilidade de nível 10 da sua ficha (como o Fedor Tóxico do Leviatã, que envenena quem começa o turno perto de você).',
+        'Huge Size: when you assume a Titan Form, you can become Huge. Toughened Hide: right after you assume a Huge or larger Titan Form, expend a level 1+ spell slot to gain an AC bonus equal to half the slot\'s level (round up) for the form\'s duration. Each form also gains the level 10 ability in its stat block (such as the Leviathan\'s Toxic Stench, which poisons creatures that start their turn near you).'),
+    ],
+    14: [
+      f('monstrousAppetite', 'Apetite Monstruoso', 'Monstrous Appetite',
+        'Tamanho Imenso: ao assumir a Forma de Titã, você pode ficar Imenso. Dilacerar Agarrador: sendo Enorme ou maior, uma vez por turno, ao acertar Dilacerar, você pode deixar o alvo Agarrado. Engolir: sendo Imenso, como Ação Bônus, uma criatura Grande ou menor Agarrada por você faz salvaguarda de Força contra sua CD; se falhar, você a engole (os efeitos de estar engolido estão no documento do UA).',
+        'Gargantuan Size: when you assume a Titan Form, you can become Gargantuan. Grappling Rend: while Huge or larger, once per turn when you hit with Rend, you can give the target the Grappled condition. Swallow: while Gargantuan, as a Bonus Action, a Large or smaller creature Grappled by you makes a Strength save against your DC; on a failure, you swallow it (the effects of being swallowed are in the UA document).'),
+    ],
+  }, { 3: ['enlargeReduce', 'thunderwave'], 5: ['fear'], 7: ['fireShield'], 9: ['destructiveWave'] }, { 3: ['thaumaturgy'] }),
+};
+
 // Recursos com usos (sem Forma Selvagem nem espaços de magia, que a ficha já controla).
 // Círculos de suplemento usam minLevel 2 (nível 2014); em 2024 a subclasse só existe a partir do 3.
 const WIS = { ability: 'wis', min: 1 };
@@ -507,5 +542,5 @@ export default {
   legacySubclassChoices: { land: { 2: { landBonusCantrip: 1 } } },
   features,
   resources,
-  subclasses: { land, moon, sea, stars, dreams, shepherd, spores, wildfire },
+  subclasses: { land, moon, sea, stars, dreams, shepherd, spores, wildfire, titan },
 };

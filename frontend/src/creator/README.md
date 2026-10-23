@@ -12,13 +12,18 @@ continua em `components/Creator.jsx`.
 
 | Arquivo | O que é |
 | --- | --- |
-| `CreatorWizard.jsx` | Orquestra as etapas: barra de progresso com nomes, Voltar/Avançar, pula etapas que não se aplicam, botão Concluir só na revisão. |
+| `CreatorWizard.jsx` | Orquestra as etapas: mapa da jornada (capítulos + etapas, com feito/pendente/alcançável), herói e crônica ao lado, Voltar/Avançar (ou "Segure para selar"), pula etapas que não se aplicam, forja ao concluir na revisão. |
 | `steps.js` | Lista ordenada das etapas (importa cada `steps/*.jsx`). |
 | `steps/<id>.jsx` | Uma etapa por arquivo (contrato abaixo). |
 | `ui.jsx` | Peças comuns: `StepIntro`, `Term`, `ChoiceGrid`/`ChoiceCard`, `Callout`, `IssueList`, `L`. |
 | `glossary.js` | Termos explicados em uma frase (pt/en). |
 | `start-data.js` | Dados de início por regra: classe (perícias, proficiências, salvaguardas, equipamento A/B, magias no nível 1) e antecedente (ferramenta, equipamento, idiomas 2014). |
 | `creation.js` | Funções puras: `newCharacter`, `finalizeCharacter` e helpers compartilhados. |
+| `journey.js` | Capítulos da jornada (Prólogo … Epílogo) a partir das etapas; estado de cada capítulo para o mapa. Puro. |
+| `chronicle.js` | A crônica: frases da história de origem a partir das escolhas (pt/en). Pura. |
+| `decision.js` | O peso da decisão: o que muda no herói (PV, CA, magias), o que será desfeito, a primeira batalha (goblin do SRD), o caminho dos níveis 2–5. Só lê as regras. |
+| `journey-ui.jsx` | Visual da jornada: mapa de capítulos, cartão de capítulo, herói ganhando vida, crônica, painel da decisão, botão de segurar, revelação e forja. |
+| `creator.css` | Estilos do visual da jornada (só tokens de `styles.css`). |
 
 ## Contrato de uma etapa
 
@@ -41,6 +46,28 @@ export default {
 - Textos sempre em pt e en (`lang === 'pt'`). Nada de jargão sem `<Term>`.
 - Regras: `char.rulesVersion === '2024'` (SRD 5.2.1) ou `'2014'` (SRD 5.1).
   Para 2024 use os dados 2024 (nunca `SRD.CLASSES` para perícias/proficiências).
+
+## O peso da decisão (escolhas grandes)
+
+Classe, antecedente, espécie, escolhas de classe de vaga única e tendência não
+são aplicadas no toque: a etapa chama `propose(decision)` (de `useDecision()`)
+e mostra um `<DecisionPanel>` com a prévia; o botão Avançar do rodapé vira
+"Segure para selar" e, ao completar, o assistente aplica `decision.patch(char)`
+(o mesmo patch que o clique aplicava antes), guarda a "cicatriz" na crônica se
+um selo foi quebrado, mostra a revelação e avança se a etapa ficou completa.
+
+```js
+propose({
+  key: 'class', id,                       // uma decisão em análise por vez
+  current: char.className || null,        // o que já está selado (null = nada)
+  currentName: { pt, en },                // para o aviso "isto quebra o selo de…"
+  patch: (c) => selectClass(c, id),       // patch puro, aplicado ao selar
+  scar: 'class',                          // opcional: frase na crônica ao trocar
+  reveal: { kicker, name, art, tale },    // opcional: tela cheia ao selar
+});
+```
+
+Escolhas pequenas (perícias, idiomas, maestrias, magias) continuam com um toque.
 
 ## Ordem das etapas
 

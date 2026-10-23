@@ -286,6 +286,12 @@ export default {
         })),
       ],
     },
+    // Cavaleiro Infernal (UA): Dádiva Diabólica dá uma destas perícias.
+    hellKnightSkill: {
+      name: b('Dádiva Diabólica: perícia', 'Diabolical Gift: skill'),
+      kind: 'skill', grantAs: 'skill',
+      filter: { from: ['deception', 'performance', 'sleightOfHand'] },
+    },
   },
 
   // Maestria: 3 / 4 / 5 / 6 tipos de arma nos níveis 1 / 4 / 10 / 16.
@@ -304,6 +310,7 @@ export default {
     champion: { 7: { fightingStyle: 1 } },
     battlemaster: { 3: { maneuver: 3, studentOfWarTool: 1, studentOfWarSkill: 1 }, 7: { maneuver: 2 }, 10: { maneuver: 2 }, 15: { maneuver: 2 } },
     ...SUPPLEMENT_CHOICES,
+    hellknight: { 3: { hellKnightSkill: 1 } }, // UA para regras 2024: só fichas 2024
   },
   // Fichas 2014: Estilo Adicional do Campeão no nível 10; Estudante da Guerra só dá ferramenta.
   legacySubclassChoices: {
@@ -383,6 +390,11 @@ export default {
       uses: { fixed: 1 }, recharge: 'short', minLevel: 10 },
     { id: 'reclaimPotential', name: b('Recuperar Potencial', 'Reclaim Potential'), subclass: ['echoknight'],
       uses: { ability: 'con', min: 1 }, recharge: 'long', minLevel: 15 },
+
+    // Cavaleiro Infernal (UA, só regras 2024)
+    { id: 'infernalWound', name: b('Ferida Infernal', 'Infernal Wound'), subclass: ['hellknight'], rules: '2024',
+      desc: b('Dano extra + ferida que repete o dano; a partir do nível 7, um 1 no dado conta como 6.', 'Extra damage + a wound that repeats it; from level 7, a 1 on the die counts as a 6.'),
+      uses: { ability: 'con', min: 1 }, recharge: 'short', minLevel: 3, die: { byLevel: { 3: 'd6' } } },
   ],
 
   // Traços da classe base 2024 (SRD 5.2.1).
@@ -831,6 +843,50 @@ export default {
           f('improvedInspiringSurge', 'Surto Inspirador Aprimorado', 'Improved Inspiring Surge',
             'Surto Inspirador passa a permitir que dois aliados façam o ataque, em vez de um.',
             'Inspiring Surge now lets two allies make the attack instead of one.'),
+        ] },
+      },
+    },
+
+    // ----- Unearthed Arcana (playtest, já escrito para 2024) -----
+    // Versão revisada do Villainous Options Update (18/jun/2026). Resumo original.
+    hellknight: {
+      name: b('Cavaleiro Infernal — UA', 'Hell Knight — UA'), source: 'UA26VOU',
+      desc: b('Playtest: guerreiros que empenharam a alma aos Nove Infernos; suas armas forjadas no inferno abrem feridas que continuam queimando.',
+        'Playtest: fighters who pledged their souls to the Nine Hells; their hell-forged weapons open wounds that keep burning.'),
+      levels: {
+        3: { grants: { languages: ['Infernal'] }, features: [
+          f('diabolicalGift', 'Dádiva Diabólica', 'Diabolical Gift',
+            'Você aprende o idioma Infernal, ganha Visão Diabólica (como a invocação: enxerga normalmente na penumbra e na escuridão, mágica ou não) e proficiência em uma perícia à escolha: Blefar, Atuação ou Prestidigitação.',
+            'You learn the Infernal language, gain Devil\'s Sight (as the invocation: you see normally in dim light and darkness, magical or not), and gain proficiency in one skill of your choice: Deception, Performance, or Sleight of Hand.'),
+          f('hellForgedWeapon', 'Arma Forjada no Inferno', 'Hell-Forged Weapon',
+            'Ao realizar a ação Atacar, você pode imbuir de fogo infernal até duas armas que esteja empunhando e escolher dano de Frio, Fogo ou Necrótico: os ataques com elas podem causar esse tipo em vez do normal. Ficam assim até você usar o traço de novo, ficar Inconsciente ou passar 1 minuto ou mais a mais de 1,5 m (5 pés) delas.',
+            'When you take the Attack action, you can imbue up to two weapons you\'re holding with hellfire and choose Cold, Fire, or Necrotic damage: attacks with them can deal that type instead of the normal one. They stay that way until you use this feature again, are Unconscious, or are more than 5 feet away from them for 1 minute or more.'),
+          f('infernalWound', 'Ferida Infernal', 'Infernal Wound',
+            'Ao acertar uma criatura com a Arma Forjada no Inferno, você pode causar dano extra do tipo escolhido igual a uma rolagem do seu Dado de Ferida Infernal (d6) e abrir nela uma ferida infernal: no início de cada turno dela, ela sofre de novo uma rolagem do dado. A ferida dura 1 minuto, ou até o alvo recuperar PV ou alguém a até 1,5 m (5 pés) dele usar uma ação para estancá-la. Usos: modificador de Constituição (mínimo 1) por Descanso Curto ou Longo.',
+            'When you hit a creature with your Hell-Forged Weapon, you can deal extra damage of the chosen type equal to one roll of your Infernal Wound Die (d6) and open an infernal wound: at the start of each of its turns, it takes another roll of the die. The wound lasts 1 minute, or until the target regains HP or someone within 5 feet of it takes an action to staunch it. Uses: Constitution modifier (minimum 1) per Short or Long Rest.'),
+        ] },
+        7: { features: [
+          f('infernalEquipment', 'Equipamento Infernal', 'Infernal Equipment',
+            'Ao terminar um Descanso Curto ou Longo, escolha Frio, Fogo ou Necrótico: você tem Resistência a esse tipo enquanto usar armadura Pesada ou empunhar um Escudo. Além disso, ao rolar o Dado de Ferida Infernal, você pode tratar um 1 como 6.',
+            'When you finish a Short or Long Rest, choose Cold, Fire, or Necrotic: you have Resistance to that type while wearing Heavy armor or holding a Shield. In addition, when you roll your Infernal Wound Die, you can treat a 1 as a 6.'),
+          f('advancedWounds', 'Feridas Avançadas', 'Advanced Wounds',
+            'Sempre que rolar o Dado de Ferida Infernal contra um alvo, aplique um destes efeitos; num 6, a Sorte do Diabo reforça o efeito. Gangrena Estígia: dano de Frio igual ao seu modificador de Constituição e o alvo não pode usar Reações até o início do próximo turno dele (6: Deslocamento dele cai à metade até o fim do próximo turno dele). Purulência de Minauros: cada inimigo numa emanação de 1,5 m (5 pés) do alvo sofre dano Ácido igual ao seu modificador de Constituição, e o alvo fica Envenenado até o fim do próximo turno dele (6: quem sofreu o ácido tem −1 na CA até o fim do seu próximo turno). Ruptura de Cânia: dano de Energia extra (6: penalidade nas salvaguardas do alvo; detalhes no documento do UA).',
+            'Whenever you roll your Infernal Wound Die against a target, apply one of these effects; on a 6, Devil\'s Luck strengthens it. Stygian Gangrene: Cold damage equal to your Constitution modifier, and the target can\'t take Reactions until the start of its next turn (6: its Speed is halved until the end of its next turn). Purulence of Minauros: each enemy in a 5-foot emanation from the target takes Acid damage equal to your Constitution modifier, and the target is Poisoned until the end of its next turn (6: those who took the acid have −1 AC until the end of your next turn). Rupture of Cania: extra Force damage (6: a penalty to the target\'s saving throws; details in the UA document).'),
+        ] },
+        10: { features: [
+          f('hellfireSurge', 'Surto do Fogo Infernal', 'Hellfire Surge',
+            'Ao usar Surto de Ação empunhando uma Arma Forjada no Inferno, o fogo infernal irrompe numa emanação de 6 m (20 pés) a partir de você, até o fim do seu próximo turno. Uma criatura com ferida infernal que começar o turno nela sofre duas rolagens do Dado de Ferida Infernal em vez de uma.',
+            'When you use Action Surge while holding a Hell-Forged Weapon, hellfire erupts in a 20-foot emanation from you until the end of your next turn. A creature with an infernal wound that starts its turn there takes two rolls of your Infernal Wound Die instead of one.'),
+        ] },
+        15: { features: [
+          f('devilsMisfortune', 'Infortúnio do Diabo', "Devil's Misfortune",
+            'Reação: quando uma criatura com ferida infernal acertar você com uma jogada de ataque, role o Dado de Ferida Infernal e reduza o dano pelo resultado; a cada 6, role de novo e some (até três rolagens). Um acerto crítico dela vira acerto normal.',
+            'Reaction: when a creature with an infernal wound hits you with an attack roll, roll your Infernal Wound Die and reduce the damage by the result; on each 6, roll again and add it (up to three rolls). A critical hit from it becomes a normal hit.'),
+        ] },
+        18: { features: [
+          f('infernalBargain', 'Barganha Infernal', 'Infernal Bargain',
+            'Se tirar 6 no Dado de Ferida Infernal três ou mais vezes antes do início do seu próximo turno, você ganha Inspiração Heroica. Quando uma criatura que você vê a até 36 m (120 pés) rolar o d20 de um Teste de d20, você pode gastar essa Inspiração Heroica para obrigá-la a rolar de novo; o pacto traz efeitos extras conforme o novo resultado (detalhes no documento do UA).',
+            'If you roll a 6 on your Infernal Wound Die three or more times before the start of your next turn, you gain Heroic Inspiration. When a creature you can see within 120 feet rolls the d20 for a D20 Test, you can expend that Heroic Inspiration to force it to reroll; the bargain adds extra effects depending on the new result (details in the UA document).'),
         ] },
       },
     },

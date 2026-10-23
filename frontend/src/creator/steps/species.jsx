@@ -1,13 +1,15 @@
 /* Etapa Espécie (2024) / Raça (2014). Lógica em ../species-helpers.js. */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { tName } from '../../../data/i18n.js';
 import { StepIntro, Term, ChoiceGrid, ChoiceCard, Callout, L } from '../ui.jsx';
 import { speciesArt } from '../../art.js';
 import {
   CORE_SPECIES_2024, CORE_GROUPS_2014, FLAVOR, moreSpecies, isCore, isRecommended, findSpecies,
   darkvisionOf, speedOf, formatFeet, sizeLabel, splitTraits, raceBonusText, speciesLanguagesText,
-  pendingChoiceLabels, selectSpecies, speciesIssues,
+  pendingChoiceLabels, selectSpecies, speciesIssues, groupOf,
 } from '../species-helpers.js';
+import { DecisionPanel, useDecision, useConsidering } from '../journey-ui.jsx';
+import { birthLine } from '../chronicle.js';
 
 const is2014 = (char) => char.rulesVersion === '2014';
 const raceName = (id, lang) => tName('race', id, lang);
@@ -53,17 +55,18 @@ function FullDetails({ char, id, lang }) {
   );
 }
 
-function SpeciesCard({ char, id, lang, set, flavorId = id }) {
+// Os detalhes completos (FullDetails) ficam no painel do peso da escolha, abaixo dos cartões.
+function SpeciesCard({ char, id, lang, onPick, considering, flavorId = id }) {
   const bonus = raceBonusText(char, id, lang);
   const r = findSpecies(char, id);
   return (
     <ChoiceCard
       selected={char.race === id}
-      onClick={() => set(selectSpecies(char, id))}
+      considering={considering === id}
+      onClick={() => onPick(id)}
       title={raceName(id, lang)}
       badge={isRecommended(char, id) ? L(lang, 'Bom para começar', 'Good for beginners') : null}
       subtitle={r?.source ? `${L(lang, 'Livro', 'Book')}: ${r.source}` : null}
-      details={<FullDetails char={char} id={id} lang={lang} />}
       image={speciesArt(id)}
     >
       {FLAVOR[flavorId] && <div className="option-desc">{FLAVOR[flavorId][lang]}</div>}
@@ -79,16 +82,18 @@ const GROUP_HEAD = {
   font: 'inherit', textAlign: 'left', textTransform: 'none', letterSpacing: 'normal', cursor: 'pointer',
 };
 
-/** 2014: um cartão por raça; as sub-raças aparecem ao selecionar. */
-function Group2014({ char, group, lang, set }) {
-  if (group.members.length === 1) return <SpeciesCard char={char} id={group.members[0]} flavorId={group.id} lang={lang} set={set} />;
-  const active = group.members.includes(char.race);
+/** 2014: um cartão por raça; as sub-raças aparecem ao selecionar (ou ao pôr uma delas em análise). */
+function Group2014({ char, group, lang, onPick, considering }) {
+  if (group.members.length === 1) return <SpeciesCard char={char} id={group.members[0]} flavorId={group.id} lang={lang} onPick={onPick} considering={considering} />;
+  const sealedHere = group.members.includes(char.race);
+  const consideringHere = group.members.includes(considering);
+  const active = sealedHere || consideringHere;
   const first = group.members.find(m => isRecommended(char, m)) || group.members[0];
   return (
-    <div className={`option ${active ? 'selected' : ''}`} style={{ cursor: 'default' }}>
+    <div className={`option ${sealedHere ? 'selected' : consideringHere ? 'considering' : ''}`} style={{ cursor: 'default' }}>
       {/* Botão sem a classe .btn: ela põe o texto em MAIÚSCULAS espaçadas. */}
       <button type="button" style={GROUP_HEAD}
-        aria-pressed={active} onClick={() => !active && set(selectSpecies(char, first))}>
+        aria-pressed={sealedHere} onClick={() => !active && onPick(first)}>
         <div>
           <div className="option-title">{group.name[lang]}
             <span className="cr-badge">{L(lang, `${group.members.length} sub-raças`, `${group.members.length} subraces`)}</span>
@@ -102,12 +107,51 @@ function Group2014({ char, group, lang, set }) {
             {L(lang, 'Escolha a sub-raça (um ramo desse povo):', 'Pick the subrace (a branch of this people):')}
           </div>
           <div className="options-list">
-            {group.members.map(m => <SpeciesCard key={m} char={char} id={m} lang={lang} set={set} />)}
+            {group.members.map(m => <SpeciesCard key={m} char={char} id={m} lang={lang} onPick={onPick} considering={considering} />)}
           </div>
         </div>
       )}
     </div>
   );
+}
+
+/** Tela estreita (celular): o painel da escolha fica longe do cartão tocado. */
+const isNarrow = () => {
+  try { return typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 720px)').matches; } catch { return false; }
+};
+
+const bothName = (id) => ({ pt: raceName(id, 'pt'), en: raceName(id, 'en') });
+const fmtBoth = (ft) => ({ pt: formatFeet(ft, 'pt'), en: formatFeet(ft, 'en') });
+
+/** O que a espécie dá e o que deixa para trás (o painel do peso da decisão). */
+function speciesInfo(char, id) {
+  const r = findSpecies(char, id);
+  if (!r) return null;
+  const dv = darkvisionOf(char, id), speed = speedOf(char, id);
+  const { main } = splitTraits(char, id, 3);
+  const bonus = { pt: raceBonusText(char, id, 'pt'), en: raceBonusText(char, id, 'en') };
+  const choosesSize = /você escolhe/.test(sizeLabel(char, id, 'pt'));
+  const small = !choosesSize && r.size === 'Small';
+  const sp = fmtBoth(speed), dvTxt = dv ? fmtBoth(dv) : null;
+  return {
+    art: speciesArt(id), kicker: { pt: 'O sangue', en: 'The blood' }, name: bothName(id),
+    pitch: FLAVOR[id] || FLAVOR[groupOf(id)?.id] || null,
+    gains: [
+      { pt: `Deslocamento: ${sp.pt}`, en: `Speed: ${sp.en}` },
+      dvTxt ? { pt: `Visão no escuro: ${dvTxt.pt}`, en: `Darkvision: ${dvTxt.en}` } : null,
+      { pt: `Tamanho: ${sizeLabel(char, id, 'pt')}`, en: `Size: ${sizeLabel(char, id, 'en')}` },
+      bonus.pt ? { pt: `Bônus nos atributos: ${bonus.pt}`, en: `Ability bonus: ${bonus.en}` } : null,
+      ...main.map(t => ({ pt: t.name.pt, en: t.name.en })),
+    ],
+    loses: [
+      speed < 30 ? { pt: `Deslocamento menor: ${sp.pt} (o comum é 9 m)`, en: `Slower: ${sp.en} (most have 30 ft)` } : null,
+      small ? (is2014(char)
+        ? { pt: 'Tamanho Pequeno: desvantagem nos ataques com armas Pesadas', en: 'Small size: disadvantage on attacks with Heavy weapons' }
+        : { pt: 'Tamanho Pequeno', en: 'Small size' }) : null,
+      !dv ? { pt: 'Sem visão no escuro', en: 'No darkvision' } : null,
+    ],
+    tale: { pt: birthLine(id, 'pt'), en: birthLine(id, 'en') },
+  };
 }
 
 function SpeciesStep({ char, set, lang }) {
@@ -117,6 +161,27 @@ function SpeciesStep({ char, set, lang }) {
   const [open, setOpen] = useState(selectedExtra);
   const more = moreSpecies(char, q);
   const word = old ? L(lang, 'raça', 'race') : L(lang, 'espécie', 'species');
+  const panelRef = useRef(null);
+  const { propose } = useDecision();
+  const considering = useConsidering('species');
+  const pick = (id) => {
+    // A escolha só vale ao selar (segurar o botão do rodapé); até lá o herói mostra uma prévia.
+    propose({
+      key: 'species', id, current: char.race || null, currentName: char.race ? bothName(char.race) : null,
+      patch: (c) => selectSpecies(c, id),
+      reveal: { kicker: { pt: 'O sangue foi escolhido', en: 'Your blood is chosen' }, name: bothName(id), art: speciesArt(id), tale: { pt: birthLine(id, 'pt'), en: birthLine(id, 'en') } },
+    });
+    // Leva até o painel do peso da escolha (fica abaixo dos cartões).
+    if (isNarrow() || id !== char.race) {
+      setTimeout(() => {
+        try { panelRef.current?.scrollIntoView({ behavior: 'smooth', block: isNarrow() ? 'start' : 'nearest' }); } catch { /* sem rolagem */ }
+      }, 60);
+    }
+  };
+  // Espécie em análise: o painel mostra como a ficha ficaria (sem gravar nada).
+  const shownId = considering || (findSpecies(char) ? char.race : null);
+  const view = considering ? { ...char, ...selectSpecies(char, considering) } : char;
+  const consideringExtra = !!considering && !isCore(char, considering);
 
   return (
     <div>
@@ -149,9 +214,23 @@ function SpeciesStep({ char, set, lang }) {
 
       <ChoiceGrid>
         {old
-          ? CORE_GROUPS_2014.map(g => <Group2014 key={g.id} char={char} group={g} lang={lang} set={set} />)
-          : CORE_SPECIES_2024.map(id => <SpeciesCard key={id} char={char} id={id} lang={lang} set={set} />)}
+          ? CORE_GROUPS_2014.map(g => <Group2014 key={g.id} char={char} group={g} lang={lang} onPick={pick} considering={considering} />)
+          : CORE_SPECIES_2024.map(id => <SpeciesCard key={id} char={char} id={id} lang={lang} onPick={pick} considering={considering} />)}
       </ChoiceGrid>
+
+      {shownId && (
+        <div ref={panelRef} style={{ scrollMarginTop: 140 }}>
+          <DecisionPanel char={char} lang={lang} decisionKey="species" sealedId={char.race || null} info={speciesInfo(char, shownId)}>
+            {consideringExtra && (
+              <p className="text-sm muted" style={{ margin: '0 0 8px' }}>
+                {L(lang, `${raceName(shownId, 'pt')} é de outro livro: confirme com o mestre se ${old ? 'essa raça' : 'essa espécie'} vale na mesa.`,
+                  `${raceName(shownId, 'en')} is from another book: check with your DM that it is allowed.`)}
+              </p>
+            )}
+            <FullDetails char={view} id={shownId} lang={lang} />
+          </DecisionPanel>
+        </div>
+      )}
 
       <details className="card" style={{ marginTop: 16, padding: 12 }} open={open}
         onToggle={(e) => setOpen(e.currentTarget.open)}>
@@ -166,7 +245,7 @@ function SpeciesStep({ char, set, lang }) {
               style={{ marginBottom: 10, width: '100%' }} />
             {more.length === 0
               ? <div className="muted text-sm">{L(lang, 'Nada encontrado.', 'Nothing found.')}</div>
-              : <ChoiceGrid>{more.map(r => <SpeciesCard key={r.id} char={char} id={r.id} lang={lang} set={set} />)}</ChoiceGrid>}
+              : <ChoiceGrid>{more.map(r => <SpeciesCard key={r.id} char={char} id={r.id} lang={lang} onPick={pick} considering={considering} />)}</ChoiceGrid>}
           </div>
         )}
       </details>

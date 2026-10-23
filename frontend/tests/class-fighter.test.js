@@ -81,6 +81,20 @@ test('subclasses do guerreiro cobrem os níveis 3/7/10/15/18', () => {
   assert.deepEqual(PROGRESSION_RULES_2024.fighter.subclassPerLevel.psiwarrior[18].autoSpells, ['telekinesis']);
 });
 
+test('cavaleiro infernal (UA): Infernal, perícia da Dádiva Diabólica e Ferida Infernal', async () => {
+  const { computeResources } = await import('../src/progression/resources.js');
+  const ch = base({ level: 3, subclass: 'hellknight' });
+  const prog = computeProgression(ch);
+  assert.ok(prog.grants.languages.includes('Infernal'));
+  assert.equal(Object.fromEntries(pendingPools(prog)).hellKnightSkill, 1);
+  assert.ok(validateClassOptions(ch, 'fighter', { adds: [{ pool: 'hellKnightSkill', id: 'deception' }] }).valid);
+  assert.ok(!validateClassOptions(ch, 'fighter', { adds: [{ pool: 'hellKnightSkill', id: 'athletics' }] }).valid, 'só Blefar/Atuação/Prestidigitação');
+  const wound = computeResources({ ...ch, abilities: { con: 16 } }).find(r => r.id === 'infernalWound');
+  assert.equal(wound?.max, 3);
+  assert.equal(wound?.recharge, 'short');
+  assert.equal(fighter.subclasses.hellknight.source, 'UA26VOU');
+});
+
 test('guerreiro 2014: escolhas de subclasse legadas', () => {
   const champ9 = computeProgression(base({ rulesVersion: '2014', level: 9, subclass: 'champion' }));
   assert.equal(Object.fromEntries(pendingPools(champ9)).fightingStyle, 1, 'Campeão 2014 ainda sem estilo extra no 9');

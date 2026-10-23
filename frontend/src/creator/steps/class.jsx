@@ -11,15 +11,20 @@ import {
 } from '../class-helpers.js';
 
 import { classArt, subclassArt } from '../../art.js';
+import { DecisionPanel, useDecision, useConsidering } from '../journey-ui.jsx';
+import { classTradeoffs } from '../decision.js';
+import { callLine } from '../chronicle.js';
+import { findBackground } from '../background-helpers.js';
 
 const k = (lang) => (lang === 'pt' ? 'pt' : 'en');
 
-function ClassCard({ char, id, lang, onPick }) {
+function ClassCard({ char, id, lang, onPick, considering }) {
   const s = classStart(char, id);
   if (!s) return null;
   return (
     <ChoiceCard
       selected={char.className === id}
+      considering={considering === id}
       onClick={() => onPick(id)}
       title={tName('class', id, lang)}
       badge={isBeginnerClass(char, id) ? L(lang, 'Bom para começar', 'Good for beginners') : null}
@@ -124,14 +129,43 @@ const isNarrow = () => {
   try { return typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 720px)').matches; } catch { return false; }
 };
 
+const both = (kind, id) => ({ pt: tName(kind, id, 'pt'), en: tName(kind, id, 'en') });
+
+/** O que a classe dá e o que deixa para trás (o painel do peso da decisão). */
+function classInfo(char, id, lang) {
+  const s = classStart(char, id);
+  if (!s) return null;
+  const spell = classSpellSummary({ ...char, className: id });
+  const bg = char.rulesVersion === '2024' ? findBackground(char)?.abilities : null;
+  return {
+    art: classArt(id), kicker: { pt: 'O chamado', en: 'The call' }, name: both('class', id), pitch: s.role,
+    gains: [
+      { pt: `Vida: d${s.hitDie} a cada nível`, en: `Health: d${s.hitDie} every level` },
+      { pt: `Atributo principal: ${abilityList(s.primary, 'pt')}`, en: `Main ability: ${abilityList(s.primary, 'en')}` },
+      { pt: `Testes de resistência: ${s.saves.map(a => abilityName(a, 'pt')).join(' e ')}`, en: `Saving throws: ${s.saves.map(a => abilityName(a, 'en')).join(' and ')}` },
+      (s.armor || []).length ? { pt: `Armaduras: ${armorText(s, 'pt')}`, en: `Armor: ${armorText(s, 'en')}` } : null,
+      spell ? { pt: `Magia: ${spell.pt}`, en: `Magic: ${spell.en}` } : null,
+    ],
+    loses: classTradeoffs(char, id, bg),
+    tale: { pt: callLine(id, 'pt'), en: callLine(id, 'en') },
+  };
+}
+
 function ClassStep({ char, set, lang }) {
   const detailsRef = useRef(null);
+  const { propose } = useDecision();
+  const considering = useConsidering('class');
   const pick = (id) => {
-    set(selectClass(char, id));
-    // No celular, leva até o quadro de detalhes logo depois de tocar.
-    if (isNarrow()) {
+    // A escolha só vale ao selar (segurar o botão do rodapé); até lá o herói mostra uma prévia.
+    propose({
+      key: 'class', id, current: char.className || null, currentName: char.className ? both('class', char.className) : null,
+      patch: (c) => selectClass(c, id), scar: 'class',
+      reveal: { kicker: { pt: 'O chamado foi respondido', en: 'The call was answered' }, name: both('class', id), art: classArt(id), tale: { pt: callLine(id, 'pt'), en: callLine(id, 'en') } },
+    });
+    // Leva até o painel do peso da escolha logo depois de tocar (no celular ele fica longe do cartão).
+    if (isNarrow() || id !== char.className) {
       setTimeout(() => {
-        try { detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch { /* sem rolagem */ }
+        try { detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: isNarrow() ? 'start' : 'nearest' }); } catch { /* sem rolagem */ }
       }, 60);
     }
   };
@@ -161,7 +195,7 @@ function ClassStep({ char, set, lang }) {
         </Callout>
       )}
       <ChoiceGrid>
-        {CORE_CLASSES.map(id => <ClassCard key={id} char={char} id={id} lang={lang} onPick={pick} />)}
+        {CORE_CLASSES.map(id => <ClassCard key={id} char={char} id={id} lang={lang} onPick={pick} considering={considering} />)}
       </ChoiceGrid>
       <details style={{ marginTop: 16 }} open={isOther}>
         <summary>{L(lang, 'Outros livros — confirme com o mestre', 'Other books — check with your DM')}</summary>
@@ -169,10 +203,19 @@ function ClassStep({ char, set, lang }) {
           {L(lang, 'Estas classes não estão no livro básico. Use só se o mestre aceitar.', 'These classes are not in the core book. Use them only if your DM agrees.')}
         </p>
         <ChoiceGrid>
-          {OTHER_BOOK_CLASSES.map(id => <ClassCard key={id} char={char} id={id} lang={lang} onPick={pick} />)}
+          {OTHER_BOOK_CLASSES.map(id => <ClassCard key={id} char={char} id={id} lang={lang} onPick={pick} considering={considering} />)}
         </ChoiceGrid>
       </details>
-      {char.className && <ClassDetails char={char} lang={lang} boxRef={detailsRef} />}
+      {(considering || char.className) && (() => {
+        const view = considering ? { ...char, ...selectClass(char, considering) } : char;
+        return (
+          <div ref={detailsRef} style={{ scrollMarginTop: 140 }}>
+            <DecisionPanel char={char} lang={lang} decisionKey="class" sealedId={char.className || null} info={classInfo(char, view.className, lang)} battle path={view.className}>
+              <ClassDetails char={view} lang={lang} />
+            </DecisionPanel>
+          </div>
+        );
+      })()}
       <SubclassPicker char={char} set={set} lang={lang} />
     </div>
   );

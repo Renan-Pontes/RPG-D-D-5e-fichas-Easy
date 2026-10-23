@@ -5,6 +5,7 @@
 // níveis 1 e 2 vão para o 3; magias de domínio nos níveis 3/5/7/9; o traço de
 // nível 8 (Golpe Divino / Conjuração Potente) sai, pois a classe já concede
 // Golpes Abençoados no nível 7.
+// Domínio da Pestilência: playtest (Unearthed Arcana 2026), já escrito para 2024.
 const b = (pt, en) => ({ pt, en });
 const f = (id, pt, en, dpt, den) => ({ id, name: b(pt, en), desc: b(dpt, den) });
 
@@ -61,6 +62,8 @@ const SPELL = {
   auraOfVitality: b('Aura de Vitalidade', 'Aura of Vitality'), tinyHut: b('Cabana', 'Tiny Hut'),
   greaterInvisibility: b('Invisibilidade Maior', 'Greater Invisibility'), circleOfPower: b('Círculo de Poder', 'Circle of Power'),
   mislead: b('Despistar', 'Mislead'),
+  detectPoisonAndDisease: b('Detectar Veneno e Doenças', 'Detect Poison and Disease'), protectionFromPoison: b('Proteção contra Veneno', 'Protection from Poison'),
+  stinkingCloud: b('Nuvem Fedorenta', 'Stinking Cloud'), giantInsect: b('Inseto Gigante', 'Giant Insect'), contagion: b('Contágio', 'Contagion'),
 };
 
 /**
@@ -593,6 +596,32 @@ const subclasses = {
           'You and your allies have Half Cover while in your Twilight Sanctuary.')],
       }),
   },
+
+  // --- Unearthed Arcana (playtest, regras 2024) ------------------------------
+  // Villainous Options (UA, 2/abr/2026). Resumo original; confira o documento.
+  pestilence: {
+    name: b('Domínio da Pestilência — UA', 'Pestilence Domain — UA'), source: 'UA26VO',
+    desc: b('Playtest: clérigos de deuses da doença, da fome e da podridão, que espalham Exaustão entre os inimigos.',
+      'Playtest: clerics of gods of disease, famine, and rot, who spread Exhaustion among their foes.'),
+    levels: domain('pestilence', b('Domínio da Pestilência', 'Pestilence Domain'),
+      { 3: ['detectPoisonAndDisease', 'protectionFromPoison', 'rayOfEnfeeblement', 'rayOfSickness'], 5: ['stinkingCloud', 'vampiricTouch'], 7: ['blight', 'giantInsect'], 9: ['contagion', 'insectPlague'] },
+      {
+        3: [
+          f('blightWeaver', 'Tecelão da Praga', 'Blight Weaver',
+            'Você tem Resistência a dano Necrótico e Venenoso e não pode ser infectado por contágios mágicos. O dano Necrótico ou Venenoso das suas magias e traços de clérigo ignora Resistência a esses tipos, e você pode trocar um tipo pelo outro ao causá-lo.',
+            'You have Resistance to Necrotic and Poison damage and can\'t be infected by magical contagions. Necrotic or Poison damage from your Cleric spells and features ignores Resistance to those types, and you can swap one type for the other when you deal it.'),
+          f('plagueBlessing', 'Bênção da Praga', 'Plague Blessing',
+            `${cd('pt')}, ação Mágica: por 1 minuto, uma emanação de praga de 1,5 m (5 pés) envolve você ou uma criatura voluntária que você tocar (termina se você a dispensar, criá-la de novo ou ficar Incapacitado). Cada criatura à sua escolha que começar o turno nela faz salvaguarda de Constituição contra sua CD ou ganha 1 nível de Exaustão. Este traço não eleva a Exaustão de ninguém acima do seu modificador de Sabedoria (mínimo 1).`,
+            `${cd('en')}, Magic action: for 1 minute, a 5-foot emanation of plague surrounds you or a willing creature you touch (it ends if you dismiss it, create it again, or are Incapacitated). Each creature of your choice that starts its turn in it makes a Constitution save against your DC or gains 1 Exhaustion level. This feature can't raise anyone's Exhaustion above your Wisdom modifier (minimum 1).`),
+        ],
+        6: [f('virulentBurst', 'Explosão Virulenta', 'Virulent Burst',
+          'Reação: quando uma criatura hostil a até 18 m (60 pés) cai a 0 PV, ela explode numa emanação de praga de 3 m (10 pés), ou de 6 m (20 pés) se tinha algum nível de Exaustão. Cada criatura à sua escolha na área faz salvaguarda de Constituição contra sua CD; se falhar, você escolhe: Choque Pútrido (fica Incapacitada e com Deslocamento 0 até o fim do próximo turno dela) ou Infecção Tóxica (3d6 de dano Necrótico ou Venenoso, à sua escolha). Usos: modificador de Sabedoria (mínimo 1) por Descanso Longo.',
+          'Reaction: when a hostile creature within 60 feet drops to 0 HP, it bursts into a 10-foot emanation of plague, or 20 feet if it had any Exhaustion. Each creature of your choice in the area makes a Constitution save against your DC; on a failure, you pick: Putrid Shock (Incapacitated and Speed 0 until the end of its next turn) or Toxic Infection (3d6 Necrotic or Poison damage, your choice). Uses: Wisdom modifier (minimum 1) per Long Rest.')],
+        17: [f('verminForm', 'Forma de Vermes', 'Vermin Form',
+          'Ação Bônus: por 10 minutos você vira um enxame Médio de pragas Minúsculas (baratas, larvas, ratos…). Nessa forma: imunidade a Agarrado, Paralisado, Caído e Contido; Resistência a dano Contundente, Cortante e Perfurante; você pode entrar e ficar no espaço de outras criaturas (e elas no seu); e um inimigo cujo espaço você entra, ou que entra no seu ou termina o turno nele, sofre dano Necrótico, Perfurante ou Venenoso (à sua escolha) igual ao seu modificador de Sabedoria, no máximo uma vez por turno. Termina antes se você quiser, ficar Incapacitado ou morrer. Uma vez por Descanso Longo, ou gaste um espaço de nível 5+ para recuperar o uso.',
+          'Bonus Action: for 10 minutes you become a Medium swarm of Tiny pests (roaches, maggots, rats…). In this form: immunity to Grappled, Paralyzed, Prone, and Restrained; Resistance to Bludgeoning, Piercing, and Slashing damage; you can enter and occupy other creatures\' spaces (and they yours); and an enemy whose space you enter, or that enters or ends its turn in yours, takes Necrotic, Piercing, or Poison damage (your choice) equal to your Wisdom modifier, at most once per turn. It ends early if you choose, are Incapacitated, or die. Once per Long Rest, or expend a level 5+ slot to restore the use.')],
+      }),
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -640,6 +669,12 @@ const resources = [
   { id: 'embodimentOfTheLaw', name: b('Encarnação da Lei', 'Embodiment of the Law'), subclass: ['order'], uses: WIS, recharge: 'long', minLevel: 6 },
   { id: 'stepsOfNight', name: b('Passos da Noite', 'Steps of Night'), subclass: ['twilight'], uses: { profBonus: true }, recharge: 'long', minLevel: 6 },
   { id: 'visionsOfThePast', name: b('Visões do Passado', 'Visions of the Past'), subclass: ['knowledge'], uses: { fixed: 1 }, recharge: 'short', minLevel: 17 },
+  // Pestilência (UA, só regras 2024)
+  { id: 'virulentBurst', name: b('Explosão Virulenta', 'Virulent Burst'), subclass: ['pestilence'], rules: '2024',
+    uses: WIS, recharge: 'long', minLevel: 6 },
+  { id: 'verminForm', name: b('Forma de Vermes', 'Vermin Form'), subclass: ['pestilence'], rules: '2024',
+    desc: b('Ou gaste um espaço de nível 5+ para recuperar.', 'Or expend a level 5+ slot to restore it.'),
+    uses: { fixed: 1 }, recharge: 'long', minLevel: 17 },
 ];
 
 export default {
