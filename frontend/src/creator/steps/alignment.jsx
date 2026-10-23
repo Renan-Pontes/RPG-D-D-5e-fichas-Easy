@@ -44,6 +44,7 @@ function AlignmentStep({ char, set, lang }) {
     // A escolha só vale ao selar (segurar o botão do rodapé); o patch é o mesmo do clique de antes.
     propose({
       key: 'alignment', id, current: value || null, currentName: cur ? cur.name : null,
+      name: id === NONE ? NONE_NAME : findAlignment(id)?.name,
       patch: () => ({ alignment: id === NONE ? '' : id }),
     });
     setTimeout(() => {
@@ -83,18 +84,17 @@ function AlignmentStep({ char, set, lang }) {
 
       {shownId && (
         <div ref={panelRef} style={{ scrollMarginTop: 140 }}>
-          <DecisionPanel char={char} lang={lang} decisionKey="alignment" sealedId={value || null} info={alignmentInfo(char, shownId)}>
-            {considering && isEvilAlignment(considering) && (
-              <p className="text-sm muted" style={{ margin: 0 }}>
-                {L(lang, 'Esta é uma tendência má: confirme com o mestre se ela combina com a mesa e com o grupo.',
-                  'This is an evil alignment: check with your GM that it fits the table and the group.')}
-              </p>
-            )}
-          </DecisionPanel>
+          {/* O aviso amarelo aparece já na análise: ao selar, a etapa avança sozinha. */}
+          {considering && isEvilAlignment(considering) && (
+            <Callout kind="warn">{L(lang,
+              'Esta é uma tendência má. Confirme com o mestre se ela combina com a mesa e com o grupo antes de selar.',
+              'This is an evil alignment. Check with your GM that it fits the table and the group before sealing.')}</Callout>
+          )}
+          <DecisionPanel char={char} lang={lang} decisionKey="alignment" sealedId={value || null} info={alignmentInfo(char, shownId)} />
         </div>
       )}
 
-      {isEvilAlignment(value) && (
+      {!considering && isEvilAlignment(value) && (
         <Callout kind="warn">{L(lang,
           'Você escolheu uma tendência má. Confirme com o mestre se isso combina com a mesa e com o grupo.',
           'You picked an evil alignment. Check with your GM that it fits the table and the group.')}</Callout>

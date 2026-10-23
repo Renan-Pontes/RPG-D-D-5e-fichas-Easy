@@ -1,5 +1,5 @@
 /* Etapa Classe: o que o herói faz na aventura (ver ../README.md). */
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { tName } from '../../../data/i18n.js';
 import { StepIntro, Term, ChoiceGrid, ChoiceCard, Callout, L } from '../ui.jsx';
 import { classStart } from '../start-data.js';
@@ -144,10 +144,16 @@ function classInfo(char, id, lang) {
       { pt: `Atributo principal: ${abilityList(s.primary, 'pt')}`, en: `Main ability: ${abilityList(s.primary, 'en')}` },
       { pt: `Testes de resistência: ${s.saves.map(a => abilityName(a, 'pt')).join(' e ')}`, en: `Saving throws: ${s.saves.map(a => abilityName(a, 'en')).join(' and ')}` },
       (s.armor || []).length ? { pt: `Armaduras: ${armorText(s, 'pt')}`, en: `Armor: ${armorText(s, 'en')}` } : null,
+      { pt: `Armas: ${weaponText(s, 'pt')}`, en: `Weapons: ${weaponText(s, 'en')}` },
       spell ? { pt: `Magia: ${spell.pt}`, en: `Magic: ${spell.en}` } : null,
     ],
     loses: classTradeoffs(char, id, bg),
-    tale: { pt: callLine(id, 'pt'), en: callLine(id, 'en') },
+    tale: callLine(id, 'pt') ? { pt: callLine(id, 'pt'), en: callLine(id, 'en') } : null,
+    // Trocar de classe depois dos atributos: avisa antes de selar (o aviso completo aparece no topo depois).
+    breakNote: id !== char.className && classChangeNotice({ ...char, ...selectClass(char, id) })
+      ? { pt: `Os atributos que você já distribuiu foram pensados para ${tName('class', char.className, 'pt')}; depois, na etapa Atributos, use "Sugestão para minha classe".`,
+        en: `The ability scores you already set were meant for ${tName('class', char.className, 'en')}; afterwards, in the Abilities step, use "Suggestion for my class".` }
+      : null,
   };
 }
 
@@ -160,7 +166,7 @@ function ClassStep({ char, set, lang }) {
     propose({
       key: 'class', id, current: char.className || null, currentName: char.className ? both('class', char.className) : null,
       patch: (c) => selectClass(c, id), scar: 'class',
-      reveal: { kicker: { pt: 'O chamado foi respondido', en: 'The call was answered' }, name: both('class', id), art: classArt(id), tale: { pt: callLine(id, 'pt'), en: callLine(id, 'en') } },
+      reveal: { kicker: { pt: 'O chamado foi respondido', en: 'The call was answered' }, name: both('class', id), art: classArt(id), tale: callLine(id, 'pt') ? { pt: callLine(id, 'pt'), en: callLine(id, 'en') } : null },
     });
     // Leva até o painel do peso da escolha logo depois de tocar (no celular ele fica longe do cartão).
     if (isNarrow() || id !== char.className) {
@@ -171,6 +177,19 @@ function ClassStep({ char, set, lang }) {
   };
   const isOther = OTHER_BOOK_CLASSES.includes(char.className);
   const changedFrom = classChangeNotice(char);
+  // Depois de selar: leva ao aviso de troca de classe (no topo) ou, no celular,
+  // ao seletor de subclasse obrigatório (2014), que fica abaixo do painel.
+  const noticeRef = useRef(null);
+  const subRef = useRef(null);
+  const sealedClass = useRef(char.className);
+  useEffect(() => {
+    if (sealedClass.current === char.className) return undefined;
+    sealedClass.current = char.className;
+    const target = changedFrom ? noticeRef.current : needsSubclass(char) && !char.subclass && isNarrow() ? subRef.current : null;
+    if (!target) return undefined;
+    const t = setTimeout(() => { try { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch { /* sem rolagem */ } }, 80);
+    return () => clearTimeout(t);
+  }, [char.className]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div>
       <StepIntro title={L(lang, 'Escolha sua classe', 'Choose your class')}>
@@ -185,6 +204,7 @@ function ClassStep({ char, set, lang }) {
           'First time? Classes marked "Good for beginners" have fewer rules to remember. Tap a class to see the details.')}
       </Callout>
       {changedFrom && char.className && (
+        <div ref={noticeRef} style={{ scrollMarginTop: 140 }}>
         <Callout kind="warn">
           {L(lang,
             <>Você trocou de classe ({tName('class', changedFrom, 'pt')} → {tName('class', char.className, 'pt')}). Os <Term id="abilityScores" lang={lang}>atributos</Term> e o bônus que você já tinha distribuído foram pensados para a classe anterior. Na etapa Atributos, toque em "Sugestão para minha classe" para refazer, ou confira se ainda servem.</>,
@@ -193,6 +213,7 @@ function ClassStep({ char, set, lang }) {
             <button type="button" className="btn btn-ghost" onClick={() => set(dismissClassChange(char))}>{L(lang, 'Entendi', 'Got it')}</button>
           </div>
         </Callout>
+        </div>
       )}
       <ChoiceGrid>
         {CORE_CLASSES.map(id => <ClassCard key={id} char={char} id={id} lang={lang} onPick={pick} considering={considering} />)}
@@ -216,7 +237,9 @@ function ClassStep({ char, set, lang }) {
           </div>
         );
       })()}
-      <SubclassPicker char={char} set={set} lang={lang} />
+      <div ref={subRef} style={{ scrollMarginTop: 140 }}>
+        <SubclassPicker char={char} set={set} lang={lang} />
+      </div>
     </div>
   );
 }

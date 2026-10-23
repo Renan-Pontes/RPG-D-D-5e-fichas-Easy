@@ -11,6 +11,7 @@ import { classStart, backgroundStart } from './start-data.js';
 import { expectedRaceBonus, abilitiesIssues, STANDARD_ARRAY_BY_CLASS, ABILITIES } from './ability-helpers.js';
 import { applyStartingEquipment } from './equipment-helpers.js';
 import { spellPlan } from './spell-helpers.js';
+import { characterSummary, classCastsNow } from './creation.js';
 
 const withBonus = (c) => ({ ...c, raceBonus: expectedRaceBonus(c) });
 const safe = (fn, fallback = null) => { try { return fn(); } catch { return fallback; } };
@@ -77,6 +78,14 @@ export function lostByPatch(char, patch) {
   if (feats) out.push({ pt: `${feats} ${feats > 1 ? 'talentos' : 'talento'}`, en: `${feats} feat${feats > 1 ? 's' : ''}` });
   const langs = n(count(char.languages), count(a.languages));
   if (langs) out.push({ pt: `${langs} ${langs > 1 ? 'idiomas escolhidos' : 'idioma escolhido'}`, en: `${langs} chosen language${langs > 1 ? 's' : ''}` });
+  const bonus = (c) => Object.values(c.raceBonus || {}).some(Boolean);
+  if (bonus(char) && !bonus(a)) out.push({ pt: 'o bônus de atributo já distribuído', en: 'the ability bonus you assigned' });
+  // Escolhas da espécie (o tamanho Médio volta sozinho; não conta).
+  const sc = Object.keys(char.speciesChoices || {}).filter(key => key !== 'size' && char.speciesChoices[key] != null
+    && JSON.stringify(a.speciesChoices?.[key]) !== JSON.stringify(char.speciesChoices[key])).length;
+  if (sc) out.push({ pt: sc > 1 ? 'as escolhas da espécie' : 'a escolha da espécie', en: sc > 1 ? 'the species choices' : 'the species choice' });
+  const tools = n(count(char.creation?.toolChoices?.background), count(a.creation?.toolChoices?.background));
+  if (tools) out.push({ pt: tools > 1 ? 'as ferramentas escolhidas' : 'a ferramenta escolhida', en: tools > 1 ? 'the chosen tools' : 'the chosen tool' });
   return out;
 }
 
@@ -103,8 +112,13 @@ export function battleOdds(char, lang = 'pt') {
   }
   const w = withBonus(c);
   const ac = safe(() => Utils.computeAc(w), 10), hp = safe(() => Utils.maxHpDefault(w), 1) || 1;
+  // O mesmo ataque que a Revisão mostra: a melhor arma conhecida (ou desarmado) e,
+  // se a classe já conjura, o ataque mágico. Sem isso, o atributo principal.
+  const sum = safe(() => characterSummary(w, lang), null);
+  const known = [...(sum?.attacks || []).filter(x => x?.known && Number.isFinite(x.atk)).map(x => x.atk),
+    ...(classCastsNow(w) && Number.isFinite(sum?.spellAttack) ? [sum.spellAttack] : [])];
   const primary = classStart(c)?.primary || ['str'];
-  const attack = Utils.profBonus(w) + Math.max(...primary.map(k => Utils.abilityMod(w, k)));
+  const attack = known.length ? Math.max(...known) : Utils.profBonus(w) + Math.max(...primary.map(k => Utils.abilityMod(w, k)));
   return {
     hitsYou: pct((21 - (ac - GOBLIN.attack)) / 20),
     fallsAfter: Math.max(1, Math.ceil(hp / GOBLIN.damage)),
@@ -122,16 +136,30 @@ const ASI = /aumento (no valor )?de atributo|ability score improvement/i;
 const BIG = /ataque extra|extra attack|subclasse|subclass|forma selvagem|wild shape|ação astuta|cunning action|surto de ação|action surge|golpe do paladino|paladin's smite|fonte de magia|font of magic/i;
 
 /** [{ level, items: [{pt,en}], big }] para os níveis 2 a 5. */
+const SUBCLASS = /subclasse|subclass/i, EXTRA = /ataque extra|extra attack/i, STYLE = /estilo de luta|fighting style/i, EXPERT = /especialização|expertise/i;
+
 export function classPath(char, classId = char?.className) {
   if (!classId) return [];
-  const p = safe(() => computeProgression({
-    rulesVersion: char?.rulesVersion === '2014' ? '2014' : '2024', className: classId, level: 5, subclass: '', classOptions: [], feats: [], spells: [],
+  const base = {
+    rulesVersion: char?.rulesVersion === '2014' ? '2014' : '2024', className: classId, subclass: '', classOptions: [], feats: [], spells: [],
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-  }), null);
+  };
+  const at = (level) => safe(() => computeProgression({ ...base, level }), null);
+  const p = at(5);
   if (!p) return [];
+  // Marcas que a progressão guarda fora de features (regras 2014: subclasse, Ataque Extra, estilo, especialização).
+  const levels = [1, 2, 3, 4, 5].map(at);
+  const num = (level, key) => Number(levels[level - 1]?.[key]) || 0;
+  const grew = (key, level) => num(level, key) > num(level - 1, key);
+  const subLevel = safe(() => Utils.subclassLevel({ ...base, level: 1 }), null);
   return [2, 3, 4, 5].map(level => {
     const items = (p.features || []).filter(f => f.level === level && f.source === 'class' && !ASI.test(f.name || ''))
       .map(f => ({ pt: f.name, en: f.nameEn || f.name }));
+    const has = (re) => items.some(x => re.test(x.pt) || re.test(x.en));
+    if (level === subLevel && !has(SUBCLASS)) items.unshift({ pt: 'Subclasse', en: 'Subclass' });
+    if (grew('extraAttacks', level) && !has(EXTRA)) items.push({ pt: 'Ataque Extra', en: 'Extra Attack' });
+    if (grew('fightingStyles', level) && !has(STYLE)) items.push({ pt: 'Estilo de Luta', en: 'Fighting Style' });
+    if (grew('expertiseSlots', level) && !has(EXPERT)) items.push({ pt: 'Especialização', en: 'Expertise' });
     if (level === 4) items.push({ pt: '+2 num atributo ou um talento', en: '+2 to an ability or a feat' });
     if (level === 5 && FULL_CASTERS.includes(classId)) items.push({ pt: 'Magias de 3º círculo', en: 'Level 3 spells' });
     if (level === 5 && HALF_CASTERS.includes(classId)) items.push({ pt: 'Magias de 2º círculo', en: 'Level 2 spells' });

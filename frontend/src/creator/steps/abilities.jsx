@@ -8,7 +8,7 @@ import {
   STANDARD_ARRAY_BY_CLASS, abilityMethod, abilityPool, abilityAssign, pointBuyCost, nextPointCost, primaryAbilities,
   setMethodPatch, assignPatch, pointBuyPatch, rollPatch, suggestionPatch, abilitiesIssues,
 } from '../ability-helpers.js';
-import { abilityList } from '../class-helpers.js';
+import { abilityList, classChangeNotice, dismissClassChange } from '../class-helpers.js';
 import { classArt } from '../../art.js';
 import { preloadDice3D, effectiveAnimMode } from '../../dice/DiceStage.jsx';
 import { Echo } from '../journey-ui.jsx';
@@ -185,8 +185,9 @@ function Comp({ char, set, lang }) {
   const bonusNote = char.rulesVersion === '2024'
     ? L(lang, 'Na próxima etapa seu antecedente ainda soma +3 em atributos.', 'In the next step your background still adds +3 to abilities.')
     : L(lang, 'Na próxima etapa entram os bônus da sua raça.', 'In the next step your race bonuses are added.');
-  // Dados 3D: carrega o palco ao entrar na etapa (só se for animar em 3D), para a primeira rolagem não esperar.
-  useEffect(() => { try { if (effectiveAnimMode() === '3d') preloadDice3D().catch(() => {}); } catch { /* sem 3D: o palco cai para 2D */ } }, []);
+  // Dados 3D: carrega o palco quando o jogador escolhe rolar (só se for animar em 3D), para a primeira rolagem não esperar.
+  useEffect(() => { try { if (m === 'roll' && effectiveAnimMode() === '3d') preloadDice3D().catch(() => {}); } catch { /* sem 3D: o palco cai para 2D */ } }, [m]);
+  const changedFrom = classChangeNotice(char);
 
   return (
     <div>
@@ -208,6 +209,17 @@ function Comp({ char, set, lang }) {
           <Term id="primaryAbility" lang={lang}>{L(lang, 'atributo principal', 'primary ability')}</Term>
           {L(lang, ', então ponha ali o seu valor mais alto.', ', so put your highest score there.')}
         </Echo>
+      )}
+
+      {changedFrom && char.className && (
+        <Callout kind="warn">
+          {L(lang,
+            `Você trocou de classe (${tName('class', changedFrom, 'pt')} → ${className}). Os atributos abaixo foram pensados para a classe anterior: toque em "Sugestão para minha classe" para refazer, ou confira se ainda servem.`,
+            `You changed class (${tName('class', changedFrom, 'en')} → ${className}). The scores below were meant for your previous class: tap "Suggestion for my class" to redo them, or check they still work.`)}
+          <div style={{ marginTop: 8 }}>
+            <button type="button" className="btn btn-ghost" onClick={() => set(dismissClassChange(char))}>{L(lang, 'Entendi', 'Got it')}</button>
+          </div>
+        </Callout>
       )}
 
       <MethodPicker char={char} set={set} lang={lang} />

@@ -7,7 +7,7 @@ import { classStart, toolName, backgroundStart } from '../start-data.js';
 import {
   backgroundList, findBackground, backgroundTool, backgroundToolText, backgroundOriginFeat, chosenBackgroundTools,
   ORIGIN_FEAT_LINE, fitsClass, applyBackground, toggleBackgroundTool, skillOverlap, backgroundIssues,
-  toolCategoryName, originFeatSpecs, ownedToolsOutsideBackground,
+  toolCategoryName, originFeatSpecs, ownedToolsOutsideBackground, originFeatConflict,
 } from '../background-helpers.js';
 import { expertiseGroups } from '../class-helpers.js';
 import { itemName } from '../equipment-helpers.js';
@@ -111,18 +111,22 @@ function backgroundInfo(char, b) {
   const toolPt = backgroundToolText(char, b.id, 'pt'), toolEn = backgroundToolText(char, b.id, 'en');
   const of = backgroundOriginFeat(b);
   const featName = (lang) => (of ? of.feat.name[lang] + (of.picks.spellList ? ` (${tName('class', of.picks.spellList, lang)})` : '') : b.feat);
+  const featLine = of ? ORIGIN_FEAT_LINE[of.feat.id] : null;
+  const pack = is24 ? start?.equipment?.find(p => p.id === 'A') : null;
+  const packLine = (lang) => `${packText(pack, char, lang)}${pack.gp ? `, ${pack.gp} ${L(lang, 'PO', 'GP')}` : ''} ${L(lang, 'ou 50 PO (você escolhe depois)', 'or 50 GP (you choose later)')}`;
   return {
     art: backgroundArt(b.id), kicker: { pt: 'As raízes', en: 'The roots' }, name: bothName(b),
     gains: [
       { pt: `Perícias: ${skillNames(b.skills, 'pt')}`, en: `Skills: ${skillNames(b.skills, 'en')}` },
       toolPt ? { pt: `Ferramenta: ${toolPt}`, en: `Tool: ${toolEn}` } : null,
       is24 && b.abilities ? { pt: `Atributos: ${abilityNames(b.abilities, 'pt')} (${SPLIT.pt})`, en: `Abilities: ${abilityNames(b.abilities, 'en')} (${SPLIT.en})` } : null,
-      is24 && b.feat ? { pt: `Talento de origem: ${featName('pt')}`, en: `Origin feat: ${featName('en')}` } : null,
-      !is24 && start?.languages > 0 ? { pt: `Idiomas: +${start.languages} à sua escolha`, en: `Languages: +${start.languages} of your choice` } : null,
-      !is24 && start?.feature ? { pt: `Característica: ${start.feature.pt}`, en: `Feature: ${start.feature.en}` } : null,
+      is24 && b.feat ? { pt: `Talento de origem: ${featName('pt')}${featLine ? ` — ${featLine.pt}` : ''}`, en: `Origin feat: ${featName('en')}${featLine ? ` — ${featLine.en}` : ''}` } : null,
+      !is24 && start?.languages > 0 ? { pt: `Idiomas: +${start.languages} à sua escolha (na etapa Idiomas)`, en: `Languages: +${start.languages} of your choice (in the Languages step)` } : null,
+      !is24 && start?.feature ? { pt: `Característica: ${start.feature.pt}${start.featureDesc ? ` — ${start.featureDesc.pt}` : ''}`, en: `Feature: ${start.feature.en}${start.featureDesc ? ` — ${start.featureDesc.en}` : ''}` } : null,
+      pack ? { pt: `Equipamento: ${packLine('pt')}`, en: `Equipment: ${packLine('en')}` } : null,
     ],
     loses: is24 ? backgroundTradeoffs(char, b) : [],
-    tale: { pt: youthLine(b.id, 'pt'), en: youthLine(b.id, 'en') },
+    tale: youthLine(b.id, 'pt') ? { pt: youthLine(b.id, 'pt'), en: youthLine(b.id, 'en') } : null,
   };
 }
 
@@ -157,12 +161,30 @@ function BackgroundDetails({ char, set, lang, goTo, canGoSkills, preview }) {
         )
         : <ToolChooser char={char} set={set} lang={lang} />}
 
+      {preview && is24 && originFeatConflict(char) && (
+        <Callout kind="warn">
+          {L(lang,
+            `Você já tem o talento ${originFeatConflict(char).name.pt} (da espécie). Se selar este antecedente, troque o talento da espécie ou escolha outro antecedente.`,
+            `You already have the ${originFeatConflict(char).name.en} feat (from your species). If you seal this background, change the species feat or pick another background.`)}
+        </Callout>
+      )}
+      {!is24 && (backgroundStart(char)?.languages || 0) > 0 && (
+        <Callout kind="info">
+          {L(lang, 'Os idiomas do antecedente você escolhe na etapa Idiomas.', "You pick your background's languages in the Languages step.")}
+        </Callout>
+      )}
+
       {overlap.length > 0 && (
         <Callout kind="warn">
           {L(lang,
             <>Você já tinha escolhido <strong>{skillNames(overlap, 'pt')}</strong> na etapa Perícias, e o antecedente também dá {overlap.length === 1 ? 'essa perícia' : 'essas perícias'}. Treino repetido não soma nada: troque {overlap.length === 1 ? 'a da classe por outra' : 'as da classe por outras'} (a etapa Perícias vai marcar substitutas como "Recomendado"), ou escolha outro antecedente.</>,
             <>You had already picked <strong>{skillNames(overlap, 'en')}</strong> in the Skills step, and your background also gives {overlap.length === 1 ? 'that skill' : 'those skills'}. Repeated training adds nothing: swap the class {overlap.length === 1 ? 'one' : 'ones'} (the Skills step will mark replacements as "Recommended"), or pick another background.</>)}
-          {canGoSkills && goTo && (
+          {canGoSkills && goTo && preview && (
+            <p className="text-sm muted" style={{ margin: '8px 0 0' }}>
+              {L(lang, 'Sele o antecedente (segure o botão do rodapé) e depois troque as perícias da classe.', 'Seal the background (hold the footer button), then change your class skills.')}
+            </p>
+          )}
+          {canGoSkills && goTo && !preview && (
             <div style={{ marginTop: 8 }}>
               <button type="button" className="btn btn-ghost" onClick={() => goTo('skills')}>{L(lang, 'Trocar perícias da classe', 'Change class skills')}</button>
             </div>
@@ -189,7 +211,7 @@ function Comp({ char, set, lang, goTo, steps }) {
     propose({
       key: 'background', id, current: char.background || null, currentName: sel ? bothName(sel) : null,
       patch: (c) => applyBackground(c, id),
-      reveal: b ? { kicker: { pt: 'As raízes estão fincadas', en: 'Your roots take hold' }, name: bothName(b), art: backgroundArt(id), tale: { pt: youthLine(id, 'pt'), en: youthLine(id, 'en') } } : null,
+      reveal: b ? { kicker: { pt: 'As raízes estão fincadas', en: 'Your roots take hold' }, name: bothName(b), art: backgroundArt(id), tale: youthLine(id, 'pt') ? { pt: youthLine(id, 'pt'), en: youthLine(id, 'en') } : null } : null,
     });
     // Leva até o painel do peso da escolha (fica abaixo dos cartões).
     if (isNarrow() || id !== char.background) {
@@ -256,11 +278,6 @@ function Comp({ char, set, lang, goTo, steps }) {
           {L(lang,
             <><strong>Já jogou a versão 2014?</strong> Nas regras 2024 os bônus de atributo saíram da espécie e vieram para o antecedente, junto com um talento. Por isso o Sábio, por exemplo, aumenta Constituição, Inteligência ou Sabedoria (+2 em um e +1 em outro, ou +1 nos três) e dá o Iniciado em Magia — não é bônus a mais. Os idiomas não vêm mais do antecedente: todo mundo fala Comum e escolhe mais 2 na etapa Idiomas.</>,
             <><strong>Played the 2014 version?</strong> In the 2024 rules, ability increases moved from species to background, along with a feat. That's why the Sage, for example, raises Constitution, Intelligence or Wisdom (+2 to one and +1 to another, or +1 to all three) plus Magic Initiate — it isn't an extra bonus. Languages no longer come from the background: everyone speaks Common and picks 2 more in the Languages step.</>)}
-        </Callout>
-      )}
-      {!is24 && sel && (backgroundStart(char)?.languages || 0) > 0 && (
-        <Callout kind="info">
-          {L(lang, 'Os idiomas do antecedente você escolhe na etapa Idiomas.', "You pick your background's languages in the Languages step.")}
         </Callout>
       )}
     </div>

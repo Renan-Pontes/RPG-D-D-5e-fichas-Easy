@@ -10,8 +10,31 @@ import { newCharacter, finalizeCharacter, loadDraft, saveDraft, clearDraft, save
 import { L, IssueList } from './ui.jsx';
 import { CHAPTERS, chapterIndexOf, journeyChapters } from './journey.js';
 import { scarLine } from './chronicle.js';
+import { classChangeNotice } from './class-helpers.js';
 import { DecisionContext, JourneyMap, TitleCard, HeroPanel, Chronicle, MiniHero, HoldButton, Reveal, Forge, FORGE_MS, prefersReduced } from './journey-ui.jsx';
 import './creator.css';
+
+/** O painel do herói fica fixo ao lado (desktop) ou abre em tela cheia (celular). */
+const WIDE = '(min-width: 1024px)';
+const isWide = () => { try { return !!window.matchMedia?.(WIDE).matches; } catch { return true; } };
+function useWide() {
+  const [wide, setWide] = useState(isWide);
+  useEffect(() => {
+    let mq;
+    try { mq = window.matchMedia?.(WIDE); } catch { mq = null; }
+    if (!mq) return undefined;
+    const on = () => setWide(mq.matches);
+    mq.addEventListener ? mq.addEventListener('change', on) : mq.addListener(on);
+    return () => (mq.removeEventListener ? mq.removeEventListener('change', on) : mq.removeListener(on));
+  }, []);
+  return wide;
+}
+
+/** Nome da escolha em análise ({pt,en} em name ou na revelação). */
+const pendingName = (d, lang) => {
+  const n = d?.name || d?.reveal?.name;
+  return n && typeof n === 'object' ? n[lang] || n.pt || '' : n || '';
+};
 
 const safeIssues = (s, char) => {
   if (!s.issues) return [];
@@ -51,11 +74,30 @@ export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = nu
   const [sideOpen, setSideOpen] = useState(false);
   const [forging, setForging] = useState(false);
   const [advanceReq, setAdvanceReq] = useState(0);
+  // Quem propôs a escolha (o cartão): o foco volta para ele depois de selar ou desistir.
+  const proposerRef = useRef(null);
+  const [focusAfter, setFocusAfter] = useState(null);
   const decision = useMemo(() => ({
     pending,
-    propose: (d) => setPending(d && d.id !== d.current ? d : null),
-    cancel: () => setPending(null),
+    propose: (d) => {
+      const el = typeof document !== 'undefined' ? document.activeElement : null;
+      if (el && el.closest?.('.cr-stage')) proposerRef.current = el;
+      setPending(d && d.id !== d.current ? d : null);
+    },
+    cancel: () => {
+      const el = typeof document !== 'undefined' ? document.activeElement : null;
+      if (el && el.closest?.('.cr-stage .option')) proposerRef.current = el;
+      setPending(null); setFocusAfter('card');
+    },
   }), [pending]);
+  const wide = useWide();
+  const sideCloseRef = useRef(null);
+  const miniRef = useRef(null);
+  const headRef = useRef(null);
+  const closeSide = useCallback(() => {
+    setSideOpen(false);
+    requestAnimationFrame(() => { try { miniRef.current?.focus({ preventScroll: true }); } catch { /* sem foco */ } });
+  }, []);
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -66,6 +108,10 @@ export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = nu
   // Se a etapa atual deixou de se aplicar (ex.: trocou para classe sem magia), volta para a anterior válida.
   useEffect(() => { if (!steps.some(s => s.id === stepId)) setStepId(steps[Math.min(index, steps.length - 1)].id); }, [steps, stepId, index]);
   useEffect(() => { window.scrollTo(0, 0); setPending(null); setSideOpen(false); }, [stepId]);
+  // Painel do herói em tela cheia (celular): o foco entra nele ao abrir.
+  useEffect(() => {
+    if (sideOpen && !wide) requestAnimationFrame(() => { try { sideCloseRef.current?.focus({ preventScroll: true }); } catch { /* sem foco */ } });
+  }, [sideOpen, wide]);
   // Cartão de título ao entrar (para a frente) num capítulo novo.
   const chapterRef = useRef(chapterIndexOf(stepId, steps));
   useEffect(() => {
@@ -115,6 +161,8 @@ export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = nu
     if (!prefersReduced()) {
       setForging(true);
       await new Promise(r => setTimeout(r, FORGE_MS));
+      // Saiu da tela durante a forja: não salva às escondidas.
+      if (!mounted.current) { savingRef.current = false; return; }
     }
     try {
       await onSave(finalizeCharacter(char, lang), { join: joinEnabled ? creationJoin(char) : null });
@@ -142,7 +190,10 @@ export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = nu
   // antes), guarda a "cicatriz" na crônica se quebrou um selo, mostra a
   // revelação e avança se a etapa ficou completa.
   const pendingAfter = useMemo(() => { try { return pending ? { ...char, ...pending.patch(char) } : null; } catch { return null; } }, [pending, char]);
-  const pendingAdvances = !!pendingAfter && !isLast && safeIssues(step, pendingAfter).length === 0;
+  const pendingIssues = useMemo(() => (pendingAfter ? safeIssues(step, pendingAfter) : null), [pendingAfter, step]);
+  // Quebrar um selo não avança: a pessoa fica na etapa e vê o que mudou (ex.: o aviso de troca de classe).
+  const pendingAdvances = !!pendingAfter && !isLast && !pending.current && pendingIssues.length === 0
+    && !(step.id === 'class' && classChangeNotice(pendingAfter));
   const seal = () => {
     const d = pending;
     if (!d) return;
@@ -156,10 +207,23 @@ export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = nu
       return { ...p, creation };
     });
     setPending(null);
-    const go = () => { if (advance) setAdvanceReq(n => n + 1); };
+    const go = () => { if (advance) setAdvanceReq(n => n + 1); setFocusAfter(advance ? 'step' : 'card'); };
     if (d.reveal && !prefersReduced()) setReveal({ ...d.reveal, then: go });
     else go();
   };
+  // Foco depois de selar/desistir: no cartão escolhido, ou no título da etapa nova (o botão do selo some).
+  useEffect(() => {
+    if (!focusAfter || pending || reveal) return;
+    const kind = focusAfter;
+    setFocusAfter(null);
+    requestAnimationFrame(() => {
+      try {
+        if (kind === 'step') { headRef.current?.focus({ preventScroll: true }); return; }
+        const el = proposerRef.current?.isConnected ? proposerRef.current : document.querySelector('.cr-stage .option.selected');
+        el?.focus({ preventScroll: true });
+      } catch { /* sem foco */ }
+    });
+  }, [focusAfter, pending, reveal, stepId]);
   const chapters = journeyChapters({ steps, index, visited, stepIssues, reachable });
   const chapter = chapters.find(c => c.now);
 
@@ -168,19 +232,34 @@ export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = nu
   const revealRef = useRef(null);
   revealRef.current = reveal;
   const closeReveal = useCallback(() => { const r = revealRef.current; setReveal(null); r?.then?.(); }, []);
+  // Esc: fecha a revelação, o cartão de capítulo, o painel do herói ou desiste da escolha em análise.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      if (reveal) closeReveal();
+      else if (titleChapter) closeTitle();
+      else if (sideOpen && !wide) closeSide();
+      else if (pending) decision.cancel();
+      else return;
+      e.preventDefault();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [reveal, titleChapter, sideOpen, wide, pending, closeReveal, closeTitle, closeSide, decision]);
   const draftStep = draft && STEPS.find(s => s.id === draft.stepId);
+  const overlay = sideOpen && !wide; // o resto da tela fica inerte com o painel do herói aberto
   return (
     <DecisionContext.Provider value={decision}>
-      <div className="wizard no-print">
+      <div className="wizard no-print" inert={overlay ? '' : undefined}>
         <JourneyMap chapters={chapters} steps={steps} index={index} stepIssues={stepIssues} visited={visited} reachable={reachable} goTo={goTo} lang={lang} navRef={navRef} />
-        <MiniHero char={char} lang={lang} onOpen={() => setSideOpen(true)} />
+        <MiniHero char={char} lang={lang} onOpen={() => setSideOpen(true)} open={sideOpen} btnRef={miniRef} />
       </div>
 
       <div className={`cr-shell ${sideOpen ? 'side-open' : ''}`}>
-      <div className="cr-stage">
+      <div className="cr-stage" inert={overlay ? '' : undefined}>
       {chapter && (
-        <header className="cr-chapter-head">
-          <div className="eyebrow">{chapter.num[lang] || chapter.num.pt} · {step.title[lang]}</div>
+        <header className="cr-chapter-head" ref={headRef} tabIndex={-1}>
+          <div className="eyebrow">{chapter.num[lang] || chapter.num.pt} · {step.title[lang]} · <span className="cr-step-count">{L(lang, `Etapa ${index + 1} de ${steps.length}`, `Step ${index + 1} of ${steps.length}`)}</span></div>
           <div className="cr-chapter-title cr-foil">{chapter.title[lang] || chapter.title.pt}</div>
           <p className="cr-narr">{chapter.narr[lang] || chapter.narr.pt}</p>
         </header>
@@ -213,24 +292,35 @@ export default function CreatorWizard({ lang, onSave, onCancel, initialJoin = nu
 
       {!draft && <Comp char={char} set={set} lang={lang} goTo={goTo} steps={steps} joinEnabled={joinEnabled} />}
       </div>
-      <aside className="cr-side no-print" aria-label={L(lang, 'Seu herói', 'Your hero')}>
-        <button type="button" className="btn btn-ghost cr-side-close" onClick={() => setSideOpen(false)}>{L(lang, 'Voltar à jornada', 'Back to the journey')}</button>
-        <HeroPanel char={char} lang={lang} />
-        <Chronicle char={char} lang={lang} />
-      </aside>
+      {/* Só monta o painel quando ele aparece (desktop ou aberto no celular): é recalculado a cada tecla. */}
+      {(wide || sideOpen) && (
+        <aside className="cr-side no-print" aria-label={L(lang, 'Seu herói', 'Your hero')}
+          {...(overlay ? { role: 'dialog', 'aria-modal': 'true' } : {})}>
+          <button type="button" className="btn btn-ghost cr-side-close" onClick={closeSide} ref={sideCloseRef}>{L(lang, 'Voltar à jornada', 'Back to the journey')}</button>
+          <HeroPanel char={char} lang={lang} />
+          <Chronicle char={char} lang={lang} />
+        </aside>
+      )}
       </div>
 
-      <div className="wizard-footer no-print">
+      <div className="wizard-footer no-print" inert={overlay ? '' : undefined}>
         {saveError && (
           <div className="wizard-hint cr-save-error" role="alert">{saveError[lang] || saveError.pt}</div>
         )}
-        {pending ? (
-          <div className="wizard-hint cr-seal-status" role="status" aria-live="polite">
-            {L(lang, 'Segure o selo até a forja brilhar. No teclado, Enter.', 'Hold the seal until the forge glows. On a keyboard, Enter.')}
+        {/* Leitor de tela: só uma linha curta sobre a escolha em análise. */}
+        <div className="cr-sr" role="status" aria-live="polite">
+          {pending ? L(lang, `Em análise: ${pendingName(pending, 'pt')}. Segure o selo, ou Enter, para selar; Esc para desistir.`, `Considering: ${pendingName(pending, 'en')}. Hold the seal, or press Enter, to seal; Esc to cancel.`) : ''}
+        </div>
+        {pending && (
+          <div className="wizard-hint cr-seal-status" aria-hidden="true">
+            {L(lang, 'Segure o selo até a forja brilhar. No teclado, Enter; Esc desiste.', 'Hold the seal until the forge glows. On a keyboard, Enter; Esc cancels.')}
           </div>
-        ) : issues.length > 0 && (
+        )}
+        {/* Pendências da etapa continuam à vista; em análise, as que sobrariam depois de selar. */}
+        {(pending ? pendingIssues || issues : issues).length > 0 && (
           <div className="wizard-hint" role="status" aria-live="polite">
-            <IssueList issues={issues.slice(0, 2)} lang={lang} />
+            {pending && <span className="cr-after-seal">{L(lang, 'Depois de selar, ainda falta:', 'After sealing, still missing:')}</span>}
+            <IssueList issues={(pending ? pendingIssues || issues : issues).slice(0, 2)} lang={lang} />
           </div>
         )}
         <div className="wizard-footer-inner">

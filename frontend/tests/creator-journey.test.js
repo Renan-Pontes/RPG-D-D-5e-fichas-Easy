@@ -43,7 +43,7 @@ test('mapa: capítulo atual, concluído, com pendência e sem etapas', () => {
   assert.equal(by.call.done, false);
   assert.equal(by.gift.skip, true);
   assert.equal(by.forge.target, null, 'capítulo não alcançável não tem destino');
-  assert.equal(by.call.target, 1);
+  assert.equal(by.call.target, 2, 'o "!" leva à etapa com pendência');
 });
 
 test('crônica: começa vazia e cresce na ordem da história (2024)', () => {
@@ -152,4 +152,48 @@ test('o que fica para trás: classe e antecedente', () => {
   assert.match(t[0].pt, /Inteligência/);
   assert.ok(t.some(x => /principal/.test(x.pt)));
   assert.deepEqual(backgroundTradeoffs(f, { abilities: [] }), []);
+});
+
+test('o que fica para trás: bônus de atributo, escolhas da espécie e ferramenta', () => {
+  let c = mk('2024', 'fighter');
+  c = apply(c, applyBackground(c, 'farmer'));
+  c = { ...c, raceBonus: { str: 2, con: 1 } };
+  assert.ok(lostByPatch(c, (x) => applyBackground(x, 'sage')).some(x => /bônus de atributo/.test(x.pt)));
+  const sp = { ...newCharacter('2024'), race: 'dragonborn', speciesChoices: { size: 'Medium', ancestry: 'red' } };
+  const lost = lostByPatch(sp, (x) => selectSpecies(x, 'human'));
+  assert.ok(lost.some(x => /escolha da espécie/.test(x.pt)), 'escolha da espécie desfeita');
+  assert.ok(!lost.some(x => /escolhas da espécie/.test(x.pt)), 'o tamanho Médio não conta');
+  const tool = { ...mk('2024', 'fighter'), creation: { toolChoices: { background: ['dice'] } } };
+  assert.ok(lostByPatch(tool, () => ({ creation: { toolChoices: { background: [] } } })).some(x => /ferramenta/.test(x.pt)));
+});
+
+test('a primeira batalha usa o ataque da ficha (arma, desarmado ou magia)', () => {
+  const pb = (c, abilities) => ({ ...c, abilities, creation: { ...(c.creation || {}), abilityMethod: 'pointbuy' } });
+  // Paladino 2014 com FOR 13 / CAR 15 (compra de pontos): Espada Longa com FOR (+1) + prof (+2) contra CA 15 → 45%, não o Carisma.
+  const pal = pb(mk('2014', 'paladin'), { str: 13, dex: 10, con: 14, int: 8, wis: 12, cha: 15 });
+  assert.equal(battleOdds(pal).assumedAbilities, false);
+  assert.equal(battleOdds(pal).youHit, 45);
+  // Monge 2024 com DES 13 / SAB 15: Artes Marciais usa DES (+1) + prof (+2) → 45%, não a Sabedoria.
+  const monk = pb(mk('2024', 'monk'), { str: 10, dex: 13, con: 14, int: 8, wis: 15, cha: 12 });
+  assert.equal(battleOdds(monk).youHit, 45);
+  // Mago: o ataque mágico (INT +2, prof +2) conta → 50%.
+  const wiz = pb(mk('2024', 'wizard'), { str: 8, dex: 12, con: 14, int: 15, wis: 13, cha: 10 });
+  assert.equal(battleOdds(wiz).youHit, 50);
+});
+
+test('o caminho adiante 2014: subclasse, Ataque Extra e Estilo de Luta (sem repetir no 2024)', () => {
+  const ranger = classPath(mk('2014', 'ranger'));
+  const at = (p, lv) => p.find(x => x.level === lv)?.items.map(i => i.pt) || [];
+  assert.ok(at(ranger, 3).includes('Subclasse'));
+  assert.ok(at(ranger, 5).includes('Ataque Extra'));
+  assert.ok(at(ranger, 2).includes('Estilo de Luta'));
+  assert.ok(at(classPath(mk('2014', 'wizard')), 2).includes('Subclasse'));
+  assert.equal(at(classPath(mk('2014', 'fighter')), 5).filter(x => /Ataque Extra/.test(x)).length, 1);
+  for (const cls of ['fighter', 'ranger', 'paladin', 'bard']) {
+    for (const lv of classPath(mk('2024', cls))) {
+      const names = lv.items.map(i => i.pt);
+      assert.equal(new Set(names).size, names.length, `${cls} ${lv.level} sem itens repetidos`);
+      assert.ok(!names.includes('Subclasse') || !names.some(n => /^Subclasse de/.test(n)));
+    }
+  }
 });
