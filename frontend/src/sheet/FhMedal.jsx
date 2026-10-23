@@ -1,6 +1,6 @@
-/* Medalhão da defesa da ficha (visual "Ficha Forjada", src/sheet/ficha.css):
- * forma dourada em SVG (escudo, círculo ou losango) com o valor no meio, o rótulo e
- * uma linha de apoio embaixo.
+/* Medalhão da ficha (visual "Ficha Forjada", src/sheet/ficha.css): defesa na aba Jogar,
+ * atributo/CD/ataque de magia na aba Magias. Forma dourada em SVG (escudo, círculo,
+ * losango ou hexágono) com o valor no meio, o rótulo e uma linha de apoio embaixo.
  * - O contorno usa o degradê #fh-gilt-stroke de <FhMedalDefs/>, desenhado uma vez só
  *   por ficha (o mesmo id repetido em cada medalhão seria id duplicado).
  * - Com `onClick` o medalhão é um <button> (iniciativa: rola ao tocar e pelo teclado);
@@ -10,6 +10,7 @@ const SHAPES = {
   shield: <path d="M32 2 L60 12 V34 C60 52 46 63 32 68 C18 63 4 52 4 34 V12 Z" />,
   circle: <circle cx="32" cy="35" r="27" />,
   diamond: <path d="M32 8 L58 35 L32 62 L6 35 Z" />,
+  hex: <path d="M32 4 L59 19.5 V50.5 L32 66 L5 50.5 V19.5 Z" />, // atributo de conjuração (como os selos de atributo)
 };
 
 export function FhMedalDefs() {

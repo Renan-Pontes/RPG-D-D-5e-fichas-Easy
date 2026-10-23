@@ -23,6 +23,7 @@ import { trainingLines, featName, featPicksText } from '../src/sheet/sheet-text.
 import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '../src/art.js';
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
 import FhTitle from '../src/sheet/FhTitle.jsx';
+import FhAttackRow from '../src/sheet/FhAttack.jsx';
 import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
 import { FhHex, FhSkillRow, FhProfLegend, FhTapToRoll } from '../src/sheet/FhChecks.jsx';
 import { hpState, hpStateLabel, useHpFeedback } from '../src/sheet/hp-feedback.js';
@@ -1335,10 +1336,11 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
         </div>
       </section>
 
-      {/* Quick weapons (attacks) */}
-      {(
-        <section className="fh-panel">
-          <FhTitle>{lang === 'pt' ? 'Ataques' : 'Attacks'}</FhTitle>
+      {/* Ataques: uma linha por arma e o Golpe Desarmado (src/sheet/FhAttack.jsx). Os botões
+          "Ataque +X" e "Dano NdX+Y" fazem as mesmas rolagens (rótulos e valores) de antes. */}
+      <section className="fh-panel">
+        <FhTitle>{lang === 'pt' ? 'Ataques' : 'Attacks'}</FhTitle>
+        <div className="fh-atks">
           {(char.weapons || []).map((w, i) => {
             // Regra da ficha: proficiência, Artes Marciais do Monge e Estilos de Luta (Utils.attackFor).
             const a = Utils.attackFor(char, w);
@@ -1347,33 +1349,27 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             const dmgMod = a.dmgMod;
             const bonusText = FS.partsLabel([...fs.attackParts.map(p => ({ ...p, label: { pt: `${p.label.pt} (ataque)`, en: `${p.label.en} (attack)` } })), ...fs.damageParts], lang);
             return (
-              <div key={i} className="slot-row" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
-                <div className="attack-name">
-                <ArtThumb src={itemArt(w)} emoji="⚔️" size={40} lang={lang} />
-                <div>
-                  <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)' }}>{w.name}</div>
-                  <div className="text-xs muted">{a.damage} {a.dmgType ? Utils.damageLabel(a.dmgType, lang) : ''}</div>
-                  {a.monk && <div className="text-xs" style={{ color: 'var(--gold)' }}>{lang === 'pt' ? 'Artes Marciais (arma de monge)' : 'Martial Arts (Monk weapon)'}</div>}
-                  {!a.proficient && <div className="text-xs" style={{ color: 'var(--blood-bright)' }}>{lang === 'pt' ? 'Sem proficiência: não soma o bônus de proficiência' : 'Not proficient: no proficiency bonus'}</div>}
-                  {bonusText && <div className="text-xs" style={{ color: 'var(--gold)' }}>{bonusText}</div>}
-                  {fs.mastery && (
-                    <div className="text-xs" style={{ color: 'var(--moss-bright)' }} title={fs.mastery.desc[lang]}>
-                      {lang === 'pt' ? 'Maestria' : 'Mastery'}: <strong>{fs.mastery.name[lang]}</strong> — {fs.mastery.desc[lang]}
-                    </div>
-                  )}
-                  {fs.notes.map((n, k) => <div key={k} className="text-xs muted">{n[lang]}</div>)}
-                </div>
-                </div>
-                <button className="btn btn-sm" onClick={() => roll({ die: 20, mod: atk, label: w.name + ' ' + t('attackRoll', lang) })}>
-                  {Utils.fmtMod(atk)}
-                </button>
-                <button className="btn btn-sm btn-ghost" onClick={() => {
+              <FhAttackRow key={i} lang={lang}
+                art={<ArtThumb src={itemArt(w)} emoji="⚔️" size={40} lang={lang} />}
+                name={w.name}
+                sub={a.dmgType ? Utils.damageLabel(a.dmgType, lang) : null}
+                atkText={Utils.fmtMod(atk)}
+                onAttack={() => roll({ die: 20, mod: atk, label: w.name + ' ' + t('attackRoll', lang) })}
+                dmgText={a.damage}
+                onDamage={() => {
                   const m = String(a.dice || '').match(/(\d+)d(\d+)/);
                   if (m) roll({ die: +m[2], count: +m[1], mod: dmgMod, label: w.name + ' ' + t('damageRoll', lang) });
                 }}>
-                  <Icon name="dice" size={12}/>
-                </button>
-              </div>
+                {a.monk && <div className="fh-atk-note is-gold">{lang === 'pt' ? 'Artes Marciais (arma de monge)' : 'Martial Arts (Monk weapon)'}</div>}
+                {!a.proficient && <div className="fh-atk-note is-warn">{lang === 'pt' ? 'Sem proficiência: não soma o bônus de proficiência' : 'Not proficient: no proficiency bonus'}</div>}
+                {bonusText && <div className="fh-atk-note is-gold">{bonusText}</div>}
+                {fs.mastery && (
+                  <div className="fh-atk-note is-mastery" title={fs.mastery.desc[lang]}>
+                    {lang === 'pt' ? 'Maestria' : 'Mastery'}: <strong>{fs.mastery.name[lang]}</strong> — {fs.mastery.desc[lang]}
+                  </div>
+                )}
+                {fs.notes.map((n, k) => <div key={k} className="fh-atk-note">{n[lang]}</div>)}
+              </FhAttackRow>
             );
           })}
           {(() => {
@@ -1382,52 +1378,48 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             const u = Utils.unarmedStrike(char);
             const name = u.name[lang];
             const m = String(u.dice || '').match(/(\d+)d(\d+)/);
+            // com dado, a fórmula vai no botão de dano; sem dado (dano fixo), fica na linha
+            const sub = m ? Utils.damageLabel(u.dmgType, lang) : `${u.damage} ${Utils.damageLabel(u.dmgType, lang)}`;
             return (
-              <div className="slot-row" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
-                <div className="attack-name">
-                <ArtThumb src={null} emoji="👊" size={40} lang={lang} title={name} />
-                <div>
-                  <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)' }}>{name}</div>
-                  <div className="text-xs muted">{u.damage} {Utils.damageLabel(u.dmgType, lang)}</div>
-                  {u.monk && <div className="text-xs" style={{ color: 'var(--gold)' }}>{lang === 'pt' ? 'Artes Marciais' : 'Martial Arts'}</div>}
-                  {unarmed && (
-                    <div className="text-xs" style={{ color: 'var(--gold)' }}>
-                      {unarmed.name[lang]}: {lang === 'pt' ? `${unarmed.dieFree} com as mãos livres` : `${unarmed.dieFree} with free hands`}
-                      {unarmed.grapple ? (lang === 'pt' ? `; ${unarmed.grapple} no agarrado` : `; ${unarmed.grapple} to grappled`) : ''}
-                    </div>
-                  )}
-                </div>
-                </div>
-                <button className="btn btn-sm" onClick={() => roll({ die: 20, mod: u.bonus, label: name + ' ' + t('attackRoll', lang) })}>
-                  {Utils.fmtMod(u.bonus)}
-                </button>
-                {m ? (
-                  <button className="btn btn-sm btn-ghost" onClick={() => roll({ die: +m[2], count: +m[1], mod: u.dmgMod, label: name + ' ' + t('damageRoll', lang) })}>
-                    <Icon name="dice" size={12}/>
-                  </button>
-                ) : <span />}
-              </div>
+              <FhAttackRow lang={lang}
+                art={<ArtThumb src={null} emoji="👊" size={40} lang={lang} title={name} />}
+                name={name}
+                sub={sub}
+                atkText={Utils.fmtMod(u.bonus)}
+                onAttack={() => roll({ die: 20, mod: u.bonus, label: name + ' ' + t('attackRoll', lang) })}
+                dmgText={u.damage}
+                onDamage={m ? () => roll({ die: +m[2], count: +m[1], mod: u.dmgMod, label: name + ' ' + t('damageRoll', lang) }) : null}>
+                {u.monk && <div className="fh-atk-note is-gold">{lang === 'pt' ? 'Artes Marciais' : 'Martial Arts'}</div>}
+                {unarmed && (
+                  <div className="fh-atk-note is-gold">
+                    {unarmed.name[lang]}: {lang === 'pt' ? `${unarmed.dieFree} com as mãos livres` : `${unarmed.dieFree} with free hands`}
+                    {unarmed.grapple ? (lang === 'pt' ? `; ${unarmed.grapple} no agarrado` : `; ${unarmed.grapple} to grappled`) : ''}
+                  </div>
+                )}
+              </FhAttackRow>
             );
           })()}
-        </section>
-      )}
+        </div>
+      </section>
       {/* Estilos de Luta ativos: resumo, sentidos (Luta às Cegas) e lembretes de reação */}
       {styleSummaries.length > 0 && (
         <section className="fh-panel">
           <FhTitle>{lang === 'pt' ? 'Estilos de Luta' : 'Fighting Styles'}</FhTitle>
-          {styleSummaries.map(s => (
-            <div key={s.id} className="text-sm" style={{ marginBottom: 4 }}>
-              <strong style={{ color: 'var(--gold)' }}>{s.name[lang]}</strong>
-              {s.summary[lang] && <span className="muted"> — {s.summary[lang]}</span>}
-            </div>
-          ))}
+          <div className="fh-traits">
+            {styleSummaries.map(s => (
+              <div key={s.id} className="fh-trait">
+                <div className="fh-trait-name">{s.name[lang]}</div>
+                {s.summary[lang] && <p className="fh-trait-text">{s.summary[lang]}</p>}
+              </div>
+            ))}
+          </div>
           {blindsightFt > 0 && (
-            <div className="text-xs mt-2">
+            <div className="fh-style-sense">
               <strong>{lang === 'pt' ? 'Sentidos' : 'Senses'}:</strong> {lang === 'pt' ? `Percepção às Cegas ${Math.round(blindsightFt * 0.3)} m` : `Blindsight ${blindsightFt} ft`}
             </div>
           )}
           {reactions.map(r => (
-            <div key={r.id} className="text-xs mt-2" style={{ color: 'var(--blood-bright)' }}>
+            <div key={r.id} className="fh-style-react">
               <strong>{lang === 'pt' ? 'Reação' : 'Reaction'} · {r.name[lang]}:</strong> {r.text[lang]}
             </div>
           ))}

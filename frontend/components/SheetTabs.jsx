@@ -1,6 +1,6 @@
 /* Spells / Inventory / Story / Notes tabs */
 import { errorMessage } from '../src/api/errors.js';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { restResources } from '../src/progression/resources.js';
@@ -20,6 +20,7 @@ import { itemEmoji, schoolIcon, SCHOOL_EMOJI } from '../src/art.js';
 import { itemArtFor } from '../src/items/item-art.js';
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
 import FhTitle from '../src/sheet/FhTitle.jsx';
+import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
 import { slotCircleLabel, gemLabel, lockedSlotTitle } from '../src/sheet/gem-text.js';
 
 // Siglas das moedas (PHB em pt: peça de cobre/prata/electro/ouro/platina).
@@ -68,6 +69,8 @@ const SheetSpells = ({ char, lang, update, slots, roll }) => {
 
   return (
     <>
+      {/* degradê dourado dos medalhões de CD e ataque: um só por aba (id único) */}
+      <FhMedalDefs />
       {slots && slots.length > 0 && slots.some(s => s) && (
         <section className="fh-panel">
           <FhTitle act={<RestButtons char={char} lang={lang} update={update} />}>{t('slots', lang)}</FhTitle>
@@ -140,9 +143,9 @@ const GrantedSpellsSection = ({ char, lang, update, slots, roll }) => {
     g.list.push(s);
   }
   return (
-    <section className="mt-4">
+    <section className="fh-panel fh-spells">
       <FhTitle>{pt ? 'Magias de talento e espécie' : 'Feat and species spells'}</FhTitle>
-      <div className="muted text-xs" style={{ marginBottom: 6 }}>
+      <div className="fh-spells-note">
         {pt ? 'Não dependem da classe: truques à vontade; magias de 1º círculo ou mais 1× por descanso longo sem gastar espaço (ou com seus espaços, se tiver).'
           : 'Not tied to your class: cantrips at will; level 1+ spells once per long rest without a slot (or with your slots, if you have them).'}
       </div>
@@ -152,7 +155,7 @@ const GrantedSpellsSection = ({ char, lang, update, slots, roll }) => {
           <details key={`${g.label}-${g.ability}`} className="spell-group" open>
             <summary>
               <span>{g.label}</span>
-              <span className="spell-group-count mono">
+              <span className={`spell-group-count mono${g.ability ? ' fh-group-info' : ''}`}>
                 {g.ability ? `${t(g.ability, lang)} · ${t('spellSaveDc', lang)} ${8 + atk} · ${Utils.fmtMod(atk)}` : g.list.length}
               </span>
             </summary>
@@ -221,26 +224,13 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
   };
 
   return (
-    <section className={showClass ? 'class-spells' : ''}>
-      <div className="card mb-4">
-        <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <div className="eyebrow">{showClass ? tName('class', char.className, lang) : t('spellAbility', lang)}</div>
-            <div style={{ fontFamily: 'var(--display)', color: 'var(--gold)' }}>
-              {spellAb ? t(spellAb, lang) : '—'}
-            </div>
-          </div>
-          <div>
-            <div className="eyebrow">{t('spellSaveDc', lang)}</div>
-            <div className="mono" style={{ fontSize: '1.4rem', color: 'var(--gold-bright)' }}>{spellDc || '—'}</div>
-          </div>
-          <div>
-            <div className="eyebrow">{t('spellAttack', lang)}</div>
-            <div className="mono" style={{ fontSize: '1.4rem', color: 'var(--gold-bright)' }}>
-              {spellAtk !== null ? Utils.fmtMod(spellAtk) : '—'}
-            </div>
-          </div>
-        </div>
+    <section className={`fh-panel fh-spells${showClass ? ' class-spells' : ''}`}>
+      <FhTitle>{lang === 'pt' ? `Magias de ${tName('class', char.className, lang)}` : `${tName('class', char.className, lang)} spells`}</FhTitle>
+      {/* Atributo de conjuração, CD e bônus de ataque em três medalhões (o antigo cartão) */}
+      <div className="fh-spell-stats">
+        <FhMedal shape="hex" value={spellAb ? t(spellAb + 'Sh', lang) : '—'} label={t('spellAbility', lang)} sub={spellAb ? t(spellAb, lang) : null} />
+        <FhMedal shape="shield" value={spellDc || '—'} label={t('spellSaveDc', lang)} />
+        <FhMedal shape="circle" value={spellAtk !== null ? Utils.fmtMod(spellAtk) : '—'} label={t('spellAttack', lang)} />
       </div>
 
       {isPrepared ? (
@@ -287,7 +277,8 @@ const groupByLevel = (list) => {
   return out;
 };
 
-const levelLabel = (lvl, lang) => (+lvl === 0 ? t('cantrips', lang) : `${t('spellLevel', lang)} ${lvl}`);
+// "Nível 1" virou "1º círculo", o mesmo texto da linha de espaços (src/sheet/gem-text.js)
+const levelLabel = (lvl, lang) => (+lvl === 0 ? t('cantrips', lang) : slotCircleLabel(+lvl, lang));
 
 // Conjuradores preparados: a ficha mostra só o que está pronto, agrupado por círculo
 // (fechado até tocar). A escolha diária acontece no modal "Preparar magias".
@@ -325,14 +316,14 @@ const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, c
       </div>
 
       {swapOnLevel && maxLvl > 0 && (
-        <div className="muted text-xs" style={{ marginBottom: 6 }}>
+        <div className="fh-spells-note">
           {pt ? 'Você troca uma magia preparada quando sobe de nível (não no descanso).' : 'You swap one prepared spell when you level up (not on a rest).'}
         </div>
       )}
       <OffListWarning lang={lang} char={char} offList={offList} onRemove={onRemove} />
 
       {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
-        <details key={lvl} className="spell-group">
+        <details key={lvl} className="spell-group fh-by-level">
           <summary>
             <span>{levelLabel(lvl, lang)}</span>
             <span className="spell-group-count mono">{byLevel[lvl].length}</span>
@@ -382,12 +373,12 @@ const OffListWarning = ({ lang, char, offList, onRemove }) => {
   if (!offList.size) return null;
   const pt = lang === 'pt';
   return (
-    <div className="card mb-3" style={{ padding: 10, borderColor: 'var(--blood-bright, #c0392b)' }}>
+    <div className="card fh-offlist">
       <div className="text-sm">
         {pt ? `Estas magias não são da lista de ${tName('class', char.className, lang)} — provavelmente sobraram de outra classe. Se não vierem de um recurso especial (como Segredos Mágicos), remova-as:`
           : `These spells aren't on the ${tName('class', char.className, lang)} list — probably left over from another class. Unless a special feature grants them (like Magical Secrets), remove them:`}
       </div>
-      <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+      <div className="fh-offlist-acts">
         {[...offList].map(id => (
           <button key={id} type="button" className="btn btn-ghost btn-sm" onClick={() => onRemove && onRemove(id)}>
             <Icon name="x" size={12}/> {tName('spellName', id, lang)}
@@ -422,10 +413,10 @@ const SpellbookSection = ({ lang, char, preparedLimit, maxLvl, spellAtk, roll, s
   };
 
   return (
-    <div className="spellbook mt-4">
+    <div className="spellbook fh-book">
       <div className="spells-toolbar">
         <div className="spells-counters">
-          <span className="eyebrow" style={{ marginRight: 8 }}><Icon name="book" size={13}/> {pt ? 'Livro de magias' : 'Spellbook'}</span>
+          <span className="eyebrow fh-book-title"><Icon name="book" size={15} aria-hidden="true"/> {pt ? 'Livro de magias' : 'Spellbook'}</span>
           <span className="spell-count" title={pt ? `Sem cópias: 6 + 2 por nível de Mago = ${expected}` : `Without copies: 6 + 2 per Wizard level = ${expected}`}>
             <span className="muted">{pt ? 'Magias' : 'Spells'}</span> <b className="mono">{entries.length}</b><span className="muted text-xs"> / {expected}</span>
           </span>
@@ -435,7 +426,7 @@ const SpellbookSection = ({ lang, char, preparedLimit, maxLvl, spellAtk, roll, s
         </button>
       </div>
       {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
-        <details key={lvl} className="spell-group">
+        <details key={lvl} className="spell-group fh-by-level">
           <summary>
             <span>{levelLabel(lvl, lang)}</span>
             <span className="spell-group-count mono">{byLevel[lvl].filter(s => s.prepared).length}/{byLevel[lvl].length}</span>
@@ -449,7 +440,7 @@ const SpellbookSection = ({ lang, char, preparedLimit, maxLvl, spellAtk, roll, s
         </details>
       ))}
       {!entries.length && (
-        <div className="muted text-sm" style={{ padding: 12 }}>
+        <div className="fh-spells-empty">
           {pt ? 'Livro de magias vazio. Copie magias de Mago para ele (6 de nível 1 no começo).' : 'Empty spellbook. Copy Wizard spells into it (6 level 1 spells to start).'}
         </div>
       )}
@@ -616,14 +607,14 @@ const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRe
 
   return (
     <>
-      <div className="mt-4 mb-3">
-        <select value="" onChange={e => { if (e.target.value) onAddSpell(e.target.value); }}>
+      <div className="fh-spell-add">
+        <select value="" aria-label={lang === 'pt' ? 'Adicionar magia' : 'Add spell'} onChange={e => { if (e.target.value) onAddSpell(e.target.value); }}>
           <option value="">+ {lang === 'pt' ? 'Adicionar magia' : 'Add spell'}...</option>
           {[0,1,2,3,4,5,6,7,8,9].map(lvl => {
             const list = available.filter(s => s.level === lvl);
             if (list.length === 0) return null;
             return (
-              <optgroup key={lvl} label={lvl === 0 ? t('cantrips', lang) : `${t('spellLevel', lang)} ${lvl}`}>
+              <optgroup key={lvl} label={levelLabel(lvl, lang)}>
                 {list.map(s => <option key={s.id} value={s.id}>{tName('spellName', s.id, lang)}</option>)}
               </optgroup>
             );
@@ -634,7 +625,7 @@ const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRe
       <OffListWarning lang={lang} char={char} offList={offList} onRemove={onRemove} />
 
       {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
-        <details key={lvl} className="spell-group">
+        <details key={lvl} className="spell-group fh-by-level">
           <summary>
             <span>{levelLabel(lvl, lang)}</span>
             <span className="spell-group-count mono">{byLevel[lvl].length}</span>
@@ -656,7 +647,7 @@ const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRe
       ))}
 
       {known.length === 0 && (
-        <div className="card text-center muted" style={{ padding: 'var(--s-6)' }}>
+        <div className="fh-spells-empty">
           {lang === 'pt' ? 'Nenhuma magia conhecida.' : 'No spells known.'}
         </div>
       )}
@@ -670,13 +661,23 @@ const SchoolBadge = ({ school, lang, size = 30 }) => (
     title={tName('school', school, lang)} className="school-badge" />
 );
 
+// Linha de magia no visual "Ficha Forjada" (src/sheet/ficha.css). Só design: abrir/fechar,
+// a estrela de preparada, o seletor de espaço, Conjurar e remover são os de antes.
+// - O cabeçalho é um <button aria-expanded>; a estrela é um botão IRMÃO (antes ficava
+//   dentro do cabeçalho clicável; botão dentro de botão é HTML inválido).
+// - Etiqueta de círculo ("Truque" / "1º círculo"), sub "escola · tempo · alcance" e as
+//   marcas C/R. Sem espaço livre para conjurar (o mesmo canCast do botão), a linha esmaece.
 const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char, slots, update, spellAtk, roll, preparedDisabled, preparedIcon, tag = null }) => {
   const [open, setOpen] = useState(false);
   const [casting, setCasting] = useState(false);
   const [error, setError] = useState('');
+  const bodyId = useId();
   const sp = spell.def;
   const isCantrip = sp.level === 0;
   const inCampaign = !!char?.inCampaign;
+  const pt = lang === 'pt';
+  const name = tName('spellName', sp.id, lang);
+  const meta = Utils.spellMeta(sp, lang);
 
   // Slot selecionado pra conjurar (default: nível mínimo possível = nível da magia)
   const available = (slots || []).map((max, i) => {
@@ -717,78 +718,82 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
   };
 
   const canCast = isCantrip || available.length > 0;
+  const starTitle = spell.prepared ? t('prepared', lang) : (preparedDisabled ? (pt ? 'Limite atingido' : 'Limit reached') : (pt ? 'Preparar' : 'Prepare'));
 
   return (
-    <div className={`spell-row ${open ? 'open' : ''} ${showPrepared && !spell.prepared ? 'unprepared' : ''}`}>
-      <div className="spell-row-header" onClick={() => setOpen(!open)}>
+    <div className={`spell-row fh-spell${open ? ' open' : ''}${showPrepared && !spell.prepared ? ' unprepared' : ''}${canCast ? '' : ' no-slot'}`}>
+      <div className="fh-spell-head">
         {showPrepared && (
           <button
             type="button"
-            className={`spell-prepared ${spell.prepared ? 'on' : ''}`}
-            onClick={(e) => { e.stopPropagation(); if (!preparedDisabled || spell.prepared) onTogglePrepared(); }}
+            className={`spell-prepared fh-spell-star ${spell.prepared ? 'on' : ''}`}
+            onClick={() => { if (!preparedDisabled || spell.prepared) onTogglePrepared(); }}
             disabled={preparedDisabled && !spell.prepared}
-            title={spell.prepared ? t('prepared', lang) : (preparedDisabled ? (lang === 'pt' ? 'Limite atingido' : 'Limit reached') : (lang === 'pt' ? 'Preparar' : 'Prepare'))}
-            style={{ opacity: preparedDisabled && !spell.prepared ? 0.4 : 1 }}
+            title={starTitle}
+            aria-label={`${t('prepared', lang)}: ${name}`}
+            aria-pressed={!!spell.prepared}
           >
-            <Icon name={spell.prepared ? 'star-fill' : (preparedIcon || 'star')} size={14}/>
+            <Icon name={spell.prepared ? 'star-fill' : (preparedIcon || 'star')} size={18} aria-hidden="true"/>
           </button>
         )}
-        <SchoolBadge school={sp.school} lang={lang} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="spell-row-name">{tName('spellName', sp.id, lang)}{tag}</div>
-          <div className="spell-meta">
-            <span>{tName('school', sp.school, lang)}</span>
-            <span>{Utils.spellMeta(sp, lang).castingTime}</span>
-            <span>{Utils.spellMeta(sp, lang).range}</span>
-            {sp.concentration && <span style={{ color: 'var(--gold)' }}>C</span>}
-            {sp.ritual && <span style={{ color: 'var(--moss-bright)' }}>R</span>}
-          </div>
-        </div>
-        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={16}/>
+        <button type="button" className="spell-row-header fh-spell-toggle" aria-expanded={open} aria-controls={open ? bodyId : undefined} onClick={() => setOpen(!open)}>
+          <SchoolBadge school={sp.school} lang={lang} size={38} />
+          <span className="fh-spell-main">
+            <span className="spell-row-name">{name}{tag}</span>
+            <span className="spell-meta">
+              <span>{tName('school', sp.school, lang)}</span>
+              <span>{meta.castingTime}</span>
+              <span>{meta.range}</span>
+              {sp.concentration && <span className="fh-mark is-c" title={pt ? 'Concentração' : 'Concentration'}>C</span>}
+              {sp.ritual && <span className="fh-mark is-r" title="Ritual">R</span>}
+            </span>
+          </span>
+          <span className="fh-lvl">{isCantrip ? (pt ? 'Truque' : 'Cantrip') : slotCircleLabel(sp.level, lang)}</span>
+          <Icon name={open ? 'chevron-up' : 'chevron-down'} size={18} className="fh-spell-chev" aria-hidden="true"/>
+        </button>
       </div>
       {open && (
-        <div className="spell-row-body">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-            <div className="text-xs muted">{t('components', lang)}: <span style={{ color: 'var(--ink-secondary)' }}>{Utils.spellMeta(sp, lang).components}</span></div>
-            <div className="text-xs muted">{t('duration', lang)}: <span style={{ color: 'var(--ink-secondary)' }}>{Utils.spellMeta(sp, lang).duration}</span></div>
+        <div className="spell-row-body fh-spell-body" id={bodyId}>
+          <div className="fh-spell-facts">
+            <span className="fh-chipline"><span className="fh-chipline-k">{t('components', lang)}:</span> {meta.components}</span>
+            <span className={`fh-chipline${sp.concentration ? ' conc' : ''}`}><span className="fh-chipline-k">{t('duration', lang)}:</span> {meta.duration}</span>
           </div>
-          <div className="text-sm" style={{ color: 'var(--ink-secondary)' }}>{sp.desc[lang]}</div>
-          {error && <div style={{ color: 'var(--blood-bright)', fontSize: '0.85em', marginTop: 4 }}>{error}</div>}
-          <div className="row gap-2 mt-3" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="fh-spell-desc">{sp.desc[lang]}</div>
+          {error && <div className="fh-spell-error">{error}</div>}
+          <div className="fh-spell-acts">
             {!isCantrip && available.length > 0 && (
-              <label className="text-xs muted" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                {lang === 'pt' ? 'Slot' : 'Slot'}:
+              <label className="fh-spell-slot">
+                <span className="fh-spell-slot-k">Slot:</span>
                 <select
                   value={effectiveSlot}
                   onChange={e => setChosenSlot(parseInt(e.target.value))}
                   className="input"
-                  style={{ padding: '2px 6px', fontSize: '0.85em', height: 'auto' }}
                   onClick={e => e.stopPropagation()}
                 >
                   {available.map(x => (
                     <option key={x.level} value={x.level}>
-                      Nv {x.level} ({x.free}/{x.max}){x.level > sp.level ? ' ↑' : ''}
+                      {slotCircleLabel(x.level, lang)} ({x.free}/{x.max}){x.level > sp.level ? ' ↑' : ''}
                     </option>
                   ))}
                 </select>
               </label>
             )}
             <button
-              className="btn btn-sm btn-primary"
+              className="btn btn-sm btn-primary fh-spell-cast"
               onClick={cast}
               disabled={!canCast || casting}
-              title={!canCast ? (lang === 'pt' ? 'Sem slot disponível neste nível' : 'No slot available') : undefined}
+              title={!canCast ? (pt ? 'Sem slot disponível neste nível' : 'No slot available') : undefined}
             >
-              <Icon name="dice" size={12}/> {casting ? '…' : (isCantrip ? (lang === 'pt' ? 'Conjurar truque' : 'Cast cantrip') : (lang === 'pt' ? 'Conjurar' : 'Cast'))}
+              <Icon name="dice" size={14} aria-hidden="true"/> {casting ? '…' : (isCantrip ? (pt ? 'Conjurar truque' : 'Cast cantrip') : (pt ? 'Conjurar' : 'Cast'))}
             </button>
             {!isCantrip && !canCast && (
-              <span className="text-xs" style={{ color: 'var(--blood-bright)' }}>
-                {lang === 'pt' ? 'sem slot' : 'no slot'}
+              <span className="fh-spell-noslot">
+                {pt ? 'sem slot' : 'no slot'}
               </span>
             )}
             {!inCampaign && onRemove && (
-              <button className="btn btn-sm btn-ghost btn-danger" onClick={onRemove} title={lang === 'pt' ? 'Remover magia' : 'Remove'}>
-                <Icon name="trash" size={12}/>
+              <button className="btn btn-sm btn-ghost btn-danger fh-spell-remove" onClick={onRemove} title={pt ? 'Remover magia' : 'Remove'} aria-label={pt ? `Remover magia: ${name}` : `Remove: ${name}`}>
+                <Icon name="trash" size={16} aria-hidden="true"/>
               </button>
             )}
           </div>
