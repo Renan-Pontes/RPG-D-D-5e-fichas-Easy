@@ -53,12 +53,13 @@ const App = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   // Grimório: aberto pelo cabeçalho ou por link #grimorio/<regra> (volta pra tela anterior).
-  const [grimoire, setGrimoire] = useState(null); // { id, q, from }
+  const [grimoire, setGrimoire] = useState(null); // { id, q, from, n }
   const screenRef = useRef(screen);
   screenRef.current = screen;
-  const openGrimoire = useCallback((id = null, q = '') => {
+  // reset (só o botão do cabeçalho): n muda e o Grimório já aberto volta para a capa.
+  const openGrimoire = useCallback((id = null, q = '', reset = false) => {
     const prev = screenRef.current;
-    setGrimoire(g => ({ id, q, from: prev === SCREENS.GRIMOIRE ? (g?.from || SCREENS.HOME) : prev }));
+    setGrimoire(g => ({ id, q, from: prev === SCREENS.GRIMOIRE ? (g?.from || SCREENS.HOME) : prev, n: (g?.n || 0) + (reset ? 1 : 0) }));
     setScreen(SCREENS.GRIMOIRE);
   }, []);
   useEffect(() => {
@@ -593,6 +594,7 @@ const App = () => {
       content = (
         <Suspense fallback={<div className="muted" style={{ padding: 24 }}>{lang === 'pt' ? 'Abrindo o Grimório…' : 'Opening the Grimoire…'}</div>}>
           <GrimoireScreen lang={lang} initialId={grimoire?.id} initialQuery={grimoire?.q || ''}
+            openSeq={grimoire?.n || 0} backTo={grimoire?.from}
             onBack={() => setScreen(grimoire?.from && grimoire.from !== SCREENS.GRIMOIRE ? grimoire.from : SCREENS.HOME)} />
         </Suspense>
       );
@@ -741,7 +743,7 @@ const App = () => {
   const headerRight = (
     <>
       <button className={`btn btn-ghost btn-sm header-grimoire ${screen === SCREENS.GRIMOIRE ? 'active' : ''}`}
-        onClick={() => openGrimoire()} title={lang === 'pt' ? 'Grimório: regras explicadas' : 'Grimoire: rules explained'}>
+        onClick={() => openGrimoire(null, '', true)} title={lang === 'pt' ? 'Grimório: regras explicadas' : 'Grimoire: rules explained'}>
         <Icon name="book" size={14}/> <span className="header-grimoire-label">{lang === 'pt' ? 'Grimório' : 'Grimoire'}</span>
       </button>
       {auth.user?.isAdmin && !backendOff && (
