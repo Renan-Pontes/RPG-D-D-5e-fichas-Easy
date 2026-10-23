@@ -20,7 +20,7 @@ import * as FS from '../src/progression/fighting-styles.js';
 import GrimoireHint from '../src/grimoire/GrimoireHint.jsx';
 import { isArmorProficient } from '../src/creator/start-data.js';
 import { trainingLines, featName, featPicksText } from '../src/sheet/sheet-text.js';
-import { itemArt, conditionIcon, CONDITION_EMOJI } from '../src/art.js';
+import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '../src/art.js';
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
 import FhTitle from '../src/sheet/FhTitle.jsx';
 import '../src/sheet/ficha.css';
@@ -117,6 +117,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         onAvatar={(av) => update({ avatar: av })}
         onBack={onBack}
         onLevelUp={onLevelUp}
+        onInspiration={() => update({ inspiration: !char.inspiration })}
         cls={cls} race={race} bg={bg}
       />
 
@@ -155,10 +156,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
           style={char.cheatMode ? { borderColor: 'var(--blood-bright)', color: 'var(--blood-bright)' } : undefined}>
           🎲 {lang === 'pt' ? (char.cheatMode ? 'Trapaça ativa' : 'Modo trapaça') : (char.cheatMode ? 'Cheat on' : 'Cheat mode')}
         </button>
-        <button className="chip" onClick={() => update({ inspiration: !char.inspiration })}>
-          <Icon name={char.inspiration ? 'star-fill' : 'star'} size={14} style={{ color: char.inspiration ? 'var(--gold-bright)' : 'var(--gold)' }}/>
-          {t('inspiration', lang)}
-        </button>
+        {/* Inspiração: virou a estrela do topo (SheetHero), com o mesmo handler */}
       </div>
 
       {cheatOpen && <CheatModeModal char={char} lang={lang} update={update} onClose={() => setCheatOpen(false)} />}
@@ -220,32 +218,63 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
 
 // ===== Sub-components =====
 
-const SheetHero = ({ char, lang, onAvatar, onBack, onLevelUp, cls, race, bg }) => (
-  <>
-    <button className="btn btn-ghost btn-sm no-print" onClick={onBack} style={{ marginBottom: 12 }}>
-      <Icon name="arrow-back" size={14}/> {t('yourHeroes', lang)}
-    </button>
-    <div className="sheet-hero">
-      <AvatarUpload value={char.avatar} onChange={onAvatar} lang={lang} letter={(char.name || '?').charAt(0).toUpperCase()} />
-      <div className="hero-info">
-        <div className="hero-name">{char.name || (lang === 'pt' ? 'Sem nome' : 'Unnamed')}</div>
-        <div className="hero-sub">
-          {race ? tName('race', race.id, lang) : '—'}
-          {cls ? ` · ${Utils.classLabel(char, lang, tName)}` : ''}
-          {bg ? ` · ${tName('background', bg.id, lang)}` : ''}
+// Topo da ficha (visual "Ficha Forjada", src/sheet/ficha.css: .fh-hero).
+// - Retrato grande: só decoração (aria-hidden). Mesma regra do retrato do criador
+//   (portraitOf, src/creator/journey-ui.jsx): a foto do jogador; sem foto, a arte da
+//   espécie; senão, a da classe. Atrás dele fica a inicial em monograma, que aparece
+//   quando não há arte ou a imagem não carrega.
+// - O controle da foto continua sendo o círculo do AvatarUpload (enviar, ver, trocar,
+//   remover), num canto do retrato.
+// - Máscara e animações só em elementos-folha (<img>, anel do selo, estrela): o
+//   AvatarUpload abre um Modal, que não é portal.
+const hideBrokenImg = (e) => { e.currentTarget.style.display = 'none'; };
+
+const SheetHero = ({ char, lang, onAvatar, onBack, onLevelUp, onInspiration, cls, race, bg }) => {
+  const pt = lang === 'pt';
+  const letter = (char.name || '?').charAt(0).toUpperCase();
+  const portrait = char.avatar || speciesArt(char.race) || classArt(char.className);
+  return (
+    <>
+      <button className="btn btn-ghost btn-sm no-print" onClick={onBack} style={{ marginBottom: 12 }}>
+        <Icon name="arrow-back" size={14}/> {t('yourHeroes', lang)}
+      </button>
+      <div className="sheet-hero fh-hero">
+        <div className="fh-hero-art" aria-hidden="true">
+          <span className="fh-hero-mono">{letter}</span>
+          {portrait && <img key={portrait} src={portrait} alt="" onError={hideBrokenImg} />}
         </div>
-        <div className="hero-tags">
-          {char.alignment && <span className="tag">{tName('alignment', char.alignment, lang)}</span>}
-          {char.player && <span className="tag">{char.player}</span>}
-          {Utils.levelingMode(char) === 'xp' && <span className="tag">{char.xp || 0} XP</span>}
-          {Utils.levelingMode(char) === 'milestone' && <span className="tag" title={lang === 'pt' ? 'Sobe de nível por marcos da história (sem XP)' : 'Levels up at story milestones (no XP)'}>{lang === 'pt' ? 'Marcos' : 'Milestones'}</span>}
-          {char.cheatMode && <span className="tag" style={{ background: 'var(--blood-deep)', color: 'var(--ink-primary)' }}>🎲 {lang === 'pt' ? 'Trapaça' : 'Cheat'}</span>}
+        <div className="fh-hero-body">
+          <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
+          <div className={char.name ? 'hero-name' : 'hero-name is-unnamed'}>
+            {char.name ? <span className="fh-foil">{char.name}</span> : (pt ? 'Sem nome' : 'Unnamed')}
+          </div>
+          <div className="hero-sub">
+            {race ? <b>{tName('race', race.id, lang)}</b> : '—'}
+            {cls ? ` · ${Utils.classLabel(char, lang, tName)}` : ''}
+            {bg ? ` · ${tName('background', bg.id, lang)}` : ''}
+          </div>
+          <div className="hero-tags">
+            {char.alignment && <span className="tag">{tName('alignment', char.alignment, lang)}</span>}
+            {char.player && <span className="tag">{char.player}</span>}
+            {Utils.levelingMode(char) === 'xp' && <span className="tag">{char.xp || 0} XP</span>}
+            {Utils.levelingMode(char) === 'milestone' && <span className="tag" title={pt ? 'Sobe de nível por marcos da história (sem XP)' : 'Levels up at story milestones (no XP)'}>{pt ? 'Marcos' : 'Milestones'}</span>}
+            {char.cheatMode && <span className="tag fh-tag-cheat">🎲 {pt ? 'Trapaça' : 'Cheat'}</span>}
+          </div>
+        </div>
+        {/* Estrela e foto vêm depois do corpo: pintam (e recebem o toque) por cima dele,
+            sem z-index. Ficam no lado direito do retrato. */}
+        <button type="button" className="fh-insp no-print" aria-pressed={!!char.inspiration} onClick={onInspiration}>
+          <span className="fh-insp-gem"><Icon name={char.inspiration ? 'star-fill' : 'star'} size={22}/></span>
+          <span className="fh-insp-label">{t('inspiration', lang)}</span>
+        </button>
+        <div className="fh-hero-photo">
+          <AvatarUpload value={char.avatar} onChange={onAvatar} lang={lang} size={52} letter={letter} />
+          <span className="fh-hero-photo-badge" aria-hidden="true"><Icon name="image" size={11}/></span>
         </div>
       </div>
-      <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
-    </div>
-  </>
-);
+    </>
+  );
+};
 
 // Mesmo fluxo do painel de Progressão: fora de campanha abre a subida guiada;
 // em campanha pede liberação ao mestre.
@@ -255,15 +284,23 @@ const LevelUpButton = ({ char, lang, onLevelUp }) => {
   const canLevelXp = mode === 'xp' && char.level < 20 && (char.xp || 0) >= (XP_THRESHOLDS[char.level] || Infinity);
   const canLevel = char.level < 20 && (mode === 'milestone' || canLevelXp || char.cheatMode);
 
+  // Selo de nível: anel tracejado + núcleo dourado. Com `can`, o anel gira devagar
+  // (nunca com movimento reduzido) e o selinho ↑ continua no canto.
   return (
     <button
-      className={`hero-level no-print ${canLevel ? 'can' : ''}`}
+      className={`hero-level fh-seal no-print ${canLevel ? 'can' : ''}`}
       onClick={() => onLevelUp && onLevelUp()}
       disabled={!canLevel || !onLevelUp}
       title={canLevel ? (lang === 'pt' ? 'Subir de nível' : 'Level up') : (lang === 'pt' ? 'XP insuficiente' : 'Not enough XP')}
     >
-      <span className="hero-level-label">{t('level', lang)}</span>
-      <span className="hero-level-num">{char.level}</span>
+      <svg className="fh-seal-ring" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="30" fill="none" stroke="#e0b55e" strokeWidth="1.2" strokeDasharray="2 4"/>
+        <circle cx="32" cy="32" r="27" fill="none" stroke="#9a7231" strokeWidth="0.8"/>
+      </svg>
+      <span className="fh-seal-core">
+        <span className="hero-level-label">{t('level', lang)}</span>
+        <span className="hero-level-num">{char.level}</span>
+      </span>
       {canLevel && <span className="hero-level-up">↑</span>}
     </button>
   );

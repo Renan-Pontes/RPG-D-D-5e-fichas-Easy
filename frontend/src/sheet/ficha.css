@@ -286,3 +286,345 @@
   .ficha .card:not(.modal *)::before,
   .ficha .card:not(.modal *)::after { display: none; }
 }
+
+/* ---------- Topo / herói (plano §4.3; SheetHero e LevelUpButton em components/Sheet.jsx) ----------
+   Retrato decorativo (foto, ou arte da espécie/classe) mascarado: à direita no desktop,
+   em cima no celular. O selo de nível fica ao lado do nome; a estrela de Inspiração
+   (saiu da barra de ações) e o AvatarUpload (círculo da foto), numa coluna no lado
+   direito do retrato.
+   O painel tem overflow: hidden (corta o retrato) mas nada de transform/filter/isolation/
+   z-index: o AvatarUpload abre Modal aqui dentro, e o fundo fixo precisa cobrir a tela.
+   As camadas se empilham pela ordem do DOM (arte → corpo → estrela e foto → cantoneiras
+   no ::after). */
+.ficha .fh-hero {
+  --fh-cover-h: clamp(190px, 46vw, 250px); /* altura do retrato no celular */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch; /* o .sheet-hero do celular (styles.css) centraliza e encolheria o corpo */
+  gap: 0;
+  overflow: hidden;
+  min-width: 0;
+  margin: 0 0 16px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background:
+    radial-gradient(90% 70% at 0% 100%, rgba(255, 148, 70, 0.1), transparent 60%) padding-box,
+    var(--fh-noise) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather) 40%, var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
+  box-shadow: 0 1px 0 rgba(255, 230, 170, 0.06) inset, 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+/* cantoneiras por cima do retrato (o ::after vem depois dos filhos na pintura) */
+.ficha .fh-hero::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0.85;
+  background:
+    var(--fh-corner-tl) top left / 22px no-repeat,
+    var(--fh-corner-tr) top right / 22px no-repeat,
+    var(--fh-corner-bl) bottom left / 22px no-repeat,
+    var(--fh-corner-br) bottom right / 22px no-repeat;
+}
+
+/* Retrato (decorativo). A inicial em monograma fica atrás: aparece sem arte ou se a
+   imagem falhar (a <img> se esconde no onError). */
+.ficha .fh-hero-art {
+  position: absolute;
+  top: 0;
+  right: 0;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.ficha .fh-hero-art img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.94;
+}
+.ficha .fh-hero-mono {
+  font-family: var(--fh-deco);
+  font-weight: 900;
+  font-size: 8rem;
+  line-height: 1;
+  color: rgba(224, 181, 94, 0.12);
+  text-shadow: 0 0 40px rgba(224, 181, 94, 0.12);
+  user-select: none;
+}
+
+/* Círculo da foto (AvatarUpload: sem foto abre o seletor; com foto, ver/trocar/remover) */
+.ficha .fh-hero-photo { position: absolute; width: 52px; height: 52px; }
+.ficha .fh-hero-photo .hero-avatar {
+  border: 2px solid var(--gold);
+  background: radial-gradient(circle at 50% 35%, #2c1f17, #120c09 75%);
+  box-shadow: 0 0 0 3px rgba(10, 7, 6, 0.75), 0 6px 16px rgba(0, 0, 0, 0.6);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+@media (hover: hover) {
+  .ficha .fh-hero-photo .hero-avatar:hover { border-color: var(--fh-gold-hi); box-shadow: 0 0 0 3px rgba(10, 7, 6, 0.75), 0 0 16px rgba(240, 190, 90, 0.45); }
+}
+.ficha .fh-hero-photo .hero-avatar-letter { font-family: var(--fh-deco); font-weight: 700; font-size: 1.4rem; }
+.ficha .fh-hero-photo-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  pointer-events: none; /* o toque passa para o círculo */
+  color: var(--gold-bright);
+  background: #140e0b;
+  border: 1px solid var(--gold-deep);
+}
+
+/* Corpo: [selo] [nome] / subtítulo / etiquetas */
+.ficha .fh-hero-body {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "seal name" "sub sub" "tags tags";
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 8px;
+  min-width: 0;
+}
+.ficha .fh-hero .hero-name {
+  grid-area: name;
+  margin: 0;
+  min-width: 0;
+  font-family: var(--fh-deco);
+  font-weight: 900;
+  font-size: 2rem;
+  line-height: 1.04;
+  letter-spacing: 0.02em;
+  color: var(--gold-bright);
+  word-break: normal;
+  overflow-wrap: anywhere; /* só parte a palavra se ela sozinha não couber */
+}
+/* a folha de ouro se repete em cada linha do nome (senão o degradê se estica nas duas) */
+.ficha .fh-hero .hero-name .fh-foil {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  /* sombra difusa a mais: o fim de um nome longo pode passar por cima do retrato */
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.6)) drop-shadow(0 0 10px rgba(0, 0, 0, 0.7));
+}
+.ficha .fh-hero .hero-name.is-unnamed { font-family: var(--display); font-weight: 500; font-size: 1.3rem; font-style: italic; color: var(--ink-muted); }
+.ficha .fh-hero .hero-sub { grid-area: sub; font-size: 1.02rem; line-height: 1.35; color: var(--ink-secondary); }
+.ficha .fh-hero .hero-sub b { font-weight: 600; color: var(--ink-primary); }
+.ficha .fh-hero .hero-tags { grid-area: tags; display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.ficha .fh-hero .tag {
+  font-family: var(--display);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 3px;
+  color: var(--ink-secondary);
+  background: rgba(10, 7, 6, 0.7);
+  border: 1px solid rgba(224, 181, 94, 0.3);
+}
+.ficha .fh-hero .tag.fh-tag-cheat { color: #ffd7cf; border-color: var(--blood-bright); background: rgba(94, 21, 17, 0.7); }
+
+/* Selo de nível (button.hero-level): mantém can, ↑, disabled e title. As regras
+   globais de .hero-level (styles.css) desenham a caixinha antiga: anuladas aqui. */
+.ficha .fh-seal {
+  grid-area: seal;
+  position: relative;
+  top: auto;
+  right: auto;
+  width: 64px;
+  height: 64px;
+  min-width: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--on-gold);
+  cursor: default;
+}
+.ficha .fh-seal.can { cursor: pointer; }
+.ficha .fh-seal.can:hover { background: none; }
+.ficha .fh-seal-ring { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.75; }
+.ficha .fh-seal.can .fh-seal-ring { opacity: 1; animation: fh-spin 40s linear infinite; }
+.ficha .fh-seal-core {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid transparent; /* aparece em cores forçadas */
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  background: radial-gradient(circle at 35% 30%, #fff0bf, #e2b65d 45%, #8e6425 100%);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5), 0 0 18px rgba(240, 190, 90, 0.4);
+  line-height: 1;
+  transition: box-shadow 0.25s var(--fh-ease);
+}
+.ficha .fh-seal.can .fh-seal-core { box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5), 0 0 22px rgba(240, 190, 90, 0.65); }
+@media (hover: hover) {
+  .ficha .fh-seal.can:hover .fh-seal-core { box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5), 0 0 30px rgba(251, 228, 163, 0.85); }
+}
+.ficha .fh-seal .hero-level-label,
+.ficha .fh-seal.can:hover .hero-level-label {
+  font-family: var(--display);
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--on-gold);
+  margin-bottom: 1px;
+}
+.ficha .fh-seal .hero-level-num,
+.ficha .fh-seal.can:hover .hero-level-num {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--on-gold);
+}
+.ficha .fh-seal .hero-level-up { /* posição e tamanho do styles.css: fora do núcleo, não cobre o rótulo */
+  font-weight: 700;
+  color: var(--on-gold);
+  background: var(--fh-gold-hi);
+  box-shadow: 0 0 0 2px #140e0b, 0 0 12px rgba(251, 228, 163, 0.7);
+}
+.ficha .fh-seal:focus-visible,
+.ficha .fh-insp:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 3px; }
+@keyframes fh-spin { to { transform: rotate(360deg); } }
+
+/* Estrela de Inspiração: o mesmo handler do antigo chip da barra; aria-pressed.
+   Largura fixa de 80px: o centro dela (48px da borda) alinha com o da foto. */
+.ficha .fh-insp {
+  position: absolute;
+  right: 8px;
+  width: 80px;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.ficha .fh-insp-gem {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 7, 6, 0.7);
+  border: 1px solid rgba(224, 181, 94, 0.35);
+  transition: border-color 0.2s, box-shadow 0.3s, color 0.2s;
+}
+.ficha .fh-insp-label {
+  font-family: var(--display);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+@media (hover: hover) {
+  .ficha .fh-insp:hover .fh-insp-gem { border-color: var(--gold); color: var(--gold); }
+}
+.ficha .fh-insp[aria-pressed="true"] { color: var(--gold-bright); }
+.ficha .fh-insp[aria-pressed="true"] .fh-insp-gem {
+  color: var(--fh-gold-hi);
+  border-color: var(--gold);
+  background: radial-gradient(circle at 50% 45%, rgba(240, 190, 90, 0.28), rgba(10, 7, 6, 0.75) 70%);
+  box-shadow: 0 0 18px rgba(240, 190, 90, 0.5);
+}
+.ficha .fh-insp[aria-pressed="true"] svg { animation: fh-insp-pop 0.45s var(--fh-ease); }
+/* resposta ao toque (como o :active dos .btn/.chip no celular), só nos elementos-folha */
+@media (hover: none) {
+  .ficha .fh-insp:active .fh-insp-gem,
+  .ficha .fh-seal.can:active .fh-seal-core { transform: scale(0.93); }
+}
+@keyframes fh-insp-pop { 0% { transform: scale(0.6); } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
+
+/* Desktop (contêiner da ficha com 672px): retrato à direita, esmaecendo para a esquerda */
+@media (min-width: 720px) {
+  .ficha .fh-hero { min-height: 236px; }
+  .ficha .fh-hero-art { bottom: 0; width: 52%; }
+  .ficha .fh-hero-art img {
+    object-position: 50% 20%;
+    -webkit-mask-image: linear-gradient(to left, #000 50%, transparent 100%);
+    mask-image: linear-gradient(to left, #000 50%, transparent 100%);
+  }
+  .ficha .fh-insp { top: 18px; }
+  .ficha .fh-hero-photo { right: 22px; bottom: 18px; }
+  .ficha .fh-hero-body { max-width: 68%; padding: 26px 28px; }
+}
+/* Celular e tablet estreito: retrato em cima, selo e estrela sobre a borda dele e o nome
+   com a largura toda embaixo (ao lado do selo ele quebraria no meio da palavra) */
+@media (max-width: 719px) {
+  .ficha .fh-hero-art { left: 0; height: var(--fh-cover-h); }
+  .ficha .fh-hero-art img {
+    object-position: 50% 22%;
+    -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+    mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  }
+  .ficha .fh-hero-mono { font-size: 7rem; }
+  .ficha .fh-hero-photo { top: 12px; right: 22px; }
+  /* a estrela fica na mesma faixa do selo, sobre a borda do retrato */
+  .ficha .fh-insp { top: calc(var(--fh-cover-h) - 58px); }
+  .ficha .fh-hero-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "seal" "name" "sub" "tags";
+    row-gap: 8px;
+    padding: calc(var(--fh-cover-h) - 58px) 16px 16px;
+  }
+  .ficha .fh-seal { width: 60px; height: 60px; justify-self: start; }
+  .ficha .fh-seal-core { width: 44px; height: 44px; }
+  .ficha .fh-hero .hero-name { margin-top: 4px; font-size: 1.9rem; }
+  .ficha .fh-hero .hero-sub { font-size: 0.98rem; }
+}
+@media (max-width: 360px) {
+  .ficha .fh-hero .hero-name { font-size: 1.7rem; }
+  .ficha .fh-hero .tag { letter-spacing: 0.12em; padding: 4px 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ficha .fh-seal.can .fh-seal-ring,
+  .ficha .fh-insp[aria-pressed="true"] svg { animation: none; }
+  .ficha .fh-seal-core,
+  .ficha .fh-insp-gem,
+  .ficha .fh-hero-photo .hero-avatar { transition: none; }
+}
+@media (forced-colors: active) {
+  /* retrato e monograma são decoração: sem a placa de fundo que o navegador põe atrás
+     de texto (ela aparecia como um retângulo por baixo da imagem) */
+  .ficha .fh-hero-art { forced-color-adjust: none; }
+  .ficha .fh-hero .hero-name { color: CanvasText; }
+  .ficha .fh-hero .hero-name .fh-foil { filter: none; }
+  .ficha .fh-seal-core { background: Canvas; box-shadow: none; }
+  .ficha .fh-seal .hero-level-label,
+  .ficha .fh-seal .hero-level-num { color: CanvasText; }
+  .ficha .fh-insp[aria-pressed="true"] .fh-insp-gem { border: 2px solid Highlight; color: Highlight; }
+}
+@media print {
+  /* o retrato é decoração: no papel só gasta tinta (o círculo da foto continua) */
+  .ficha .fh-hero { min-height: 0; }
+  .ficha .fh-hero-art,
+  .ficha .fh-hero::after { display: none; }
+  .ficha .fh-hero-body { max-width: none; padding-top: 20px; }
+  .ficha .fh-hero .hero-name { color: #6b4f1d; }
+  .ficha .fh-hero .hero-name .fh-foil { filter: none; }
+}
