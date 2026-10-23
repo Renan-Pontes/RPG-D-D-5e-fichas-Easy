@@ -30,6 +30,8 @@ export function buildIndex(articles, lang = 'pt') {
       a,
       titleMain, titleAlt, keys,
       titleStr: titleMain.join(' '),
+      // Siglas e apelidos entre parênteses no título: "Classe de Armadura (CA)" → ['ca'].
+      acr: (String(a.title?.[lang] || '').match(/\(([^)]{1,6})\)/g) || []).map((x) => normalize(x)),
       titleAltStr: titleAlt.join(' '),
       text: ` ${text} `,
       textAlt: ` ${textAlt} `,
@@ -67,9 +69,10 @@ function scoreEntry(e, tokens, phrase) {
     total += s;
   }
   if (e.titleStr === phrase) total += 200;
-  else if (e.titleStr.startsWith(phrase)) total += 80;
+  else if (`${e.titleStr} `.startsWith(`${phrase} `) || (phrase.length >= 4 && e.titleStr.startsWith(phrase))) total += 80;
   else if (phrase.includes(' ') && e.titleStr.includes(phrase)) total += 40;
   if (e.titleAltStr === phrase) total += 60;
+  if (e.acr.includes(phrase)) total += 120;
   return total;
 }
 

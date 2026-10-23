@@ -1,6 +1,7 @@
 /* Shared UI components */
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Icon from './Icons.jsx';
+import './header.css';
 
 // === Filigree divider ===
 const Filigree = ({ children }) => (

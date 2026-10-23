@@ -1,0 +1,91 @@
+/* Cabeçalho global: só correções de encaixe (nenhum botão muda de lugar). As regras de
+   styles.css e mobile-styles.css continuam; estas são mais específicas e vêm depois. */
+
+/* 601–719 px: styles.css só dá respiro lateral até 600 px (14 px) e a partir de 720 px
+   (24 px); entre as duas faixas o cabeçalho ficava com 0 e o "EN" encostava na borda. */
+@media (min-width: 601px) and (max-width: 719px) {
+  .app-header { padding-left: 14px; padding-right: 14px; }
+}
+
+/* PT/EN nunca encolhe nem corta ("EN" inteiro em qualquer largura) */
+.app-header .lang-toggle { flex-shrink: 0; }
+
+/* Grimório só com ícone (≤ 420 px): alvo de toque de 40 × 40. Acima disso ele tem a
+   altura dos vizinhos (Admin, Campanhas). */
+.app-header .header-grimoire { justify-content: center; }
+@media (max-width: 420px) {
+  .app-header .header-grimoire { min-width: 40px; min-height: 40px; }
+}
+
+/* 521–860 px com login (tablet, celular deitado): o cabeçalho estourava a tela */
+@media (min-width: 521px) and (max-width: 860px) {
+  .app-header:has(.user-chip) { gap: 8px; }
+  .app-header:has(.user-chip) .brand { flex-shrink: 0; }
+  .app-header:has(.user-chip) .header-actions { min-width: 0; gap: 6px; flex-wrap: nowrap; }
+  .app-header:has(.user-chip) .header-actions .btn-sm { padding: 6px 10px; letter-spacing: 0.08em; }
+  .app-header:has(.user-chip) .user-chip-name { display: none; }
+  .app-header:has(.user-chip) .user-chip { padding-right: 4px; }
+  .app-header:has(.user-chip) .lang-toggle { overflow: visible; }
+  .app-header:has(.user-chip) .lang-toggle button.active { display: none; }
+}
+/* 521–700 px: com mais que Grimório + idioma (Entrar, Campanhas…), o nome da marca
+   quebrava em 2 linhas ou empurrava os botões; fica só o símbolo, como em ≤ 520 px. */
+@media (min-width: 521px) and (max-width: 700px) {
+  .app-header:has(.header-actions > :nth-child(3)) .brand-name { display: none; }
+}
+/* 701–760 px com Admin (5 botões): o nome da marca voltava e espremia o Grimório (o
+   rótulo passava da borda e o ícone sumia). */
+@media (min-width: 701px) and (max-width: 760px) {
+  .app-header:has(.header-actions > :nth-child(5)) .brand-name { display: none; }
+}
+
+/* Celular sem login: há espaço, então PT e EN aparecem juntos, com o ativo destacado */
+@media (max-width: 520px) {
+  .app-header:not(:has(.user-chip)) .lang-toggle button.active { display: inline-block; }
+  .app-header:not(:has(.user-chip)) .lang-toggle button { min-width: 40px; }
+}
+
+/* Com login, PT/EN é um botão só (o idioma para onde troca): um globo antes do rótulo
+   deixa claro que é "trocar idioma", e não o idioma atual. */
+@media (max-width: 860px) {
+  .app-header:has(.user-chip) .lang-toggle button:not(.active) { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+  .app-header:has(.user-chip) .lang-toggle button:not(.active)::before {
+    content: ""; flex: none; width: 13px; height: 13px; background: currentColor;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'><circle cx='12' cy='12' r='9'/><path d='M3 12h18M12 3c2.8 3 2.8 15 0 18M12 3c-2.8 3-2.8 15 0 18'/></svg>") center / contain no-repeat;
+    mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'><circle cx='12' cy='12' r='9'/><path d='M3 12h18M12 3c2.8 3 2.8 15 0 18M12 3c-2.8 3-2.8 15 0 18'/></svg>") center / contain no-repeat;
+  }
+}
+
+/* Celular com Admin (Grimório, Admin, Campanhas, conta e idioma = 5 botões): sem isto,
+   "EN" passava da borda em ≤ 360 px e a página toda arrastava para o lado. Aperta só o
+   necessário em cada faixa; com 4 botões ou menos nada muda. */
+@media (max-width: 600px) {
+  /* 421–600 px (iPhone Pro Max, 430 px): o rótulo "Grimório" empurrava tudo até 48 px
+     para fora; com Admin ele fica só com o ícone, como em ≤ 420 px */
+  .app-header:has(.header-actions > :nth-child(5)) .header-grimoire-label { display: none; }
+  .app-header:has(.header-actions > :nth-child(5)) .header-grimoire { min-width: 40px; min-height: 40px; }
+}
+@media (max-width: 380px) {
+  .app-header:has(.header-actions > :nth-child(5)) { gap: 6px; }
+  .app-header:has(.header-actions > :nth-child(5)) .header-actions .btn-sm { padding-inline: 6px; }
+}
+/* ≤ 360 px: sai o globo (o title e o aria-label continuam dizendo "trocar idioma") */
+@media (max-width: 360px) {
+  .app-header:has(.header-actions > :nth-child(5)) .lang-toggle button:not(.active)::before { display: none; }
+}
+@media (max-width: 350px) {
+  .app-header:has(.header-actions > :nth-child(5)) .header-actions { gap: 3px; }
+  .app-header:has(.header-actions > :nth-child(5)) .header-actions .btn-sm { padding-inline: 5px; letter-spacing: 0; font-size: 0.66rem; }
+  .app-header:has(.header-actions > :nth-child(5)) .lang-toggle button { min-width: 36px; }
+}
+@media (max-width: 330px) {
+  .app-header:has(.header-actions > :nth-child(5)) { gap: 4px; }
+  .app-header:has(.header-actions > :nth-child(5)) .header-actions { gap: 2px; }
+}
+/* < 320 px (300 px): ainda sobravam 9 px (PT) e 4 px (EN); sai um pouco do respiro
+   lateral e o símbolo da marca fica menor */
+@media (max-width: 319px) {
+  .app-header:has(.header-actions > :nth-child(5)) { gap: 2px; padding-left: 6px; padding-right: 6px; }
+  .app-header:has(.header-actions > :nth-child(5)) .brand-mark { width: 28px; height: 28px; }
+  .app-header:has(.header-actions > :nth-child(5)) .header-actions .btn-sm { padding-inline: 4px; }
+}

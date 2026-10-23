@@ -1,6 +1,6 @@
 /* Main app orchestrator */
 import { errorMessage } from './src/api/errors.js';
-import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import Utils from './utils.js';
 import { t } from './data/i18n.js';
 import Icon from './components/Icons.jsx';
@@ -53,14 +53,30 @@ const App = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   // Grimório: aberto pelo cabeçalho ou por link #grimorio/<regra> (volta pra tela anterior).
-  const [grimoire, setGrimoire] = useState(null); // { id, q, from }
+  const [grimoire, setGrimoire] = useState(null); // { id, q, from, n, y }
   const screenRef = useRef(screen);
   screenRef.current = screen;
-  const openGrimoire = useCallback((id = null, q = '') => {
+  // reset (só o botão do cabeçalho): n muda e o Grimório já aberto volta para a capa.
+  // y: rolagem da tela de origem, devolvida quando o "Voltar" do Grimório leva a ela.
+  const openGrimoire = useCallback((id = null, q = '', reset = false) => {
     const prev = screenRef.current;
-    setGrimoire(g => ({ id, q, from: prev === SCREENS.GRIMOIRE ? (g?.from || SCREENS.HOME) : prev }));
+    const y = window.scrollY;
+    setGrimoire(g => (prev === SCREENS.GRIMOIRE
+      ? { id, q, from: g?.from || SCREENS.HOME, n: (g?.n || 0) + (reset ? 1 : 0), y: g?.y || 0 }
+      : { id, q, from: prev, n: (g?.n || 0) + (reset ? 1 : 0), y }));
     setScreen(SCREENS.GRIMOIRE);
   }, []);
+  const restoreY = useRef(null);
+  useLayoutEffect(() => {
+    if (restoreY.current == null) {
+      // A ficha abre no topo (vindo da tela inicial rolada, de uma ficha pronta, do criador…).
+      if (screen === SCREENS.SHEET) window.scrollTo(0, 0);
+      return;
+    }
+    const y = restoreY.current;
+    restoreY.current = null;
+    window.scrollTo(0, y);
+  }, [screen]);
   useEffect(() => {
     const onHash = () => {
       const m = /^#(?:grimorio|grimoire)(?:\/([^?]*))?(?:\?q=(.*))?$/i.exec(window.location.hash);
@@ -104,6 +120,9 @@ const App = () => {
 
   useEffect(() => { localStorage.setItem('dnd5e-forge:lang', lang); }, [lang]);
 
+  // O menu da conta fecha quando a tela muda (ex.: foi para o Grimório).
+  useEffect(() => { setUserMenuOpen(false); }, [screen]);
+
   // "Ver meu plano" (aviso de limite, menu da conta) de qualquer lugar.
   const planFrom = useRef(SCREENS.HOME);
   useEffect(() => onOpenMyPlan(() => {
@@ -112,18 +131,27 @@ const App = () => {
     setScreen(SCREENS.PLAN);
   }), []);
 
-  // Carregar personagens (local ou remoto)
+  // Carregar personagens (local ou remoto). listState: 'loading' só na 1ª carga, na
+  // troca de storage (login/saída) e no "Tentar de novo" depois de erro — não depois
+  // de salvar/importar, senão o esqueleto da tela inicial piscaria sobre a lista.
+  const [listState, setListState] = useState('loading');
+  const listStateRef = useRef('loading');
+  const setList = (s) => { listStateRef.current = s; setListState(s); };
   const refreshCharacters = useCallback(async () => {
     if (auth.loading) return;
+    if (listStateRef.current !== 'ready') setList('loading');
     try {
       const list = await storage.list();
       setCharacters(list);
+      setList('ready');
     } catch (e) {
       console.error('failed to load characters', e);
       setCharacters([]);
+      setList('error');
     }
   }, [storage, auth.loading]);
 
+  useEffect(() => { setList('loading'); }, [storage]);
   useEffect(() => { refreshCharacters(); }, [refreshCharacters]);
 
   // Login/cadastro concluído: sai da tela de entrada.
@@ -581,7 +609,8 @@ const App = () => {
       content = (
         <Suspense fallback={<div className="muted" style={{ padding: 24 }}>{lang === 'pt' ? 'Abrindo o Grimório…' : 'Opening the Grimoire…'}</div>}>
           <GrimoireScreen lang={lang} initialId={grimoire?.id} initialQuery={grimoire?.q || ''}
-            onBack={() => setScreen(grimoire?.from && grimoire.from !== SCREENS.GRIMOIRE ? grimoire.from : SCREENS.HOME)} />
+            openSeq={grimoire?.n || 0} backTo={grimoire?.from}
+            onBack={() => { restoreY.current = grimoire?.y || 0; setScreen(grimoire?.from && grimoire.from !== SCREENS.GRIMOIRE ? grimoire.from : SCREENS.HOME); }} />
         </Suspense>
       );
       break;
@@ -631,12 +660,17 @@ const App = () => {
           lang={lang}
           characters={characters}
           onOpen={(id) => { setActiveId(id); setScreen(SCREENS.SHEET); }}
-          onNew={() => { setEditingChar(null); setInviteJoin(null); setScreen(SCREENS.CREATE); }}
+          onNew={() => { setEditingChar(null); setInviteJoin(null); setActiveId(null); setScreen(SCREENS.CREATE); }}
           onImport={handleImport}
           onImportPdf={handleImportPdf}
           onExportAll={handleExportAll}
           onBlankPdf={() => handleExportPdf({}, { blank: true })}
           onPickPregen={handlePickPregen}
+          listState={listState}
+          onRetry={refreshCharacters}
+          onLogin={() => setScreen(SCREENS.AUTH)}
+          onCampaigns={() => setScreen(SCREENS.CAMPAIGNS)}
+          onGrimoire={() => openGrimoire()}
         />
       );
       break;
@@ -724,7 +758,7 @@ const App = () => {
   const headerRight = (
     <>
       <button className={`btn btn-ghost btn-sm header-grimoire ${screen === SCREENS.GRIMOIRE ? 'active' : ''}`}
-        onClick={() => openGrimoire()} title={lang === 'pt' ? 'Grimório: regras explicadas' : 'Grimoire: rules explained'}>
+        onClick={() => openGrimoire(null, '', true)} title={lang === 'pt' ? 'Grimório: regras explicadas' : 'Grimoire: rules explained'}>
         <Icon name="book" size={14}/> <span className="header-grimoire-label">{lang === 'pt' ? 'Grimório' : 'Grimoire'}</span>
       </button>
       {auth.user?.isAdmin && !backendOff && (
@@ -765,8 +799,8 @@ const App = () => {
       {auth.backendAvailable === false && (
         <div className="offline-banner" role="status" aria-live="polite">
           ⚠ {lang === 'pt'
-            ? <>Backend offline — funcionando em modo <strong>standalone</strong> (fichas salvas só neste navegador). Login, campanhas e mestre voltam sozinhos quando o servidor responder.</>
-            : <>Backend offline — running in <strong>standalone</strong> mode (sheets saved only in this browser). Login, campaigns and DM features come back automatically once the server responds.</>
+            ? <><strong>Sem conexão com o servidor:</strong> fichas salvas só neste navegador. Entrar e campanhas voltam sozinhos.</>
+            : <><strong>Can't reach the server:</strong> characters are saved only in this browser. Log in and campaigns return on their own.</>
           }
         </div>
       )}
@@ -821,9 +855,19 @@ const App = () => {
 
 function UserChip({ user, open, setOpen, onLogout, onPlan, lang }) {
   const initials = (user.displayName || user.email || '?').slice(0, 1).toUpperCase();
+  // Fecha com clique/toque fora e com Esc.
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('pointerdown', onDown); window.removeEventListener('keydown', onKey); };
+  }, [open, setOpen]);
   return (
-    <div style={{ position: 'relative' }}>
-      <button className="user-chip" onClick={() => setOpen(!open)}>
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button className="user-chip" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="true">
         <span className="avatar">{initials}</span>
         <span className="user-chip-name">{user.displayName}</span>
       </button>

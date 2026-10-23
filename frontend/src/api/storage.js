@@ -22,6 +22,20 @@ async function loadDeps() {
   }
 }
 
+/**
+ * Campos da ficha que vêm do servidor fora de `data`. O CharacterSerializer
+ * manda as datas em snake_case (created_at/updated_at); o app usa camelCase
+ * (a ordem "Recentes"/"Criação" da tela inicial depende delas).
+ */
+export function remoteMeta(c) {
+  return {
+    updatedAt: c.updatedAt ?? c.updated_at,
+    createdAt: c.createdAt ?? c.created_at,
+    inCampaign: c.inCampaign,
+    campaignLeveling: c.campaignLeveling ?? null,
+  };
+}
+
 // Ids de magia renomeados: fichas antigas são corrigidas ao carregar.
 // (Chamado só depois de loadDeps().)
 function migrate(char) {
@@ -72,13 +86,13 @@ export function createStorageAdapter({ remote }) {
     async list() {
       const [res] = await Promise.all([api.listCharacters(), loadDeps()]);
       // O backend retorna { id, name, data, inCampaign, ... } — promove data
-      return res.characters.map(c => migrate({ ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt, inCampaign: c.inCampaign, campaignLeveling: c.campaignLeveling ?? null }));
+      return res.characters.map(c => migrate({ ...c.data, id: c.id, name: c.name, ...remoteMeta(c) }));
     },
     async get(id) {
       try {
         const [res] = await Promise.all([api.getCharacter(id), loadDeps()]);
         const c = res.character;
-        return migrate({ ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt, inCampaign: c.inCampaign, campaignLeveling: c.campaignLeveling ?? null });
+        return migrate({ ...c.data, id: c.id, name: c.name, ...remoteMeta(c) });
       } catch (e) {
         if (e instanceof ApiError && e.status === 404) return null;
         throw e;
@@ -100,7 +114,7 @@ export function createStorageAdapter({ remote }) {
         res = await api.createCharacter(body);
       }
       const c = res.character;
-      return { ...c.data, id: c.id, name: c.name, updatedAt: c.updatedAt, createdAt: c.createdAt, inCampaign: c.inCampaign, campaignLeveling: c.campaignLeveling ?? null };
+      return { ...c.data, id: c.id, name: c.name, ...remoteMeta(c) };
     },
     async remove(id) {
       await api.deleteCharacter(id);
