@@ -23,6 +23,8 @@ import { trainingLines, featName, featPicksText } from '../src/sheet/sheet-text.
 import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '../src/art.js';
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
 import FhTitle from '../src/sheet/FhTitle.jsx';
+import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
+import { hpState, hpStateLabel, useHpFeedback } from '../src/sheet/hp-feedback.js';
 import '../src/sheet/ficha.css';
 
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
@@ -1191,105 +1193,134 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
   };
 
   const hpPct = Math.max(0, Math.min(100, (char.currentHp / Math.max(1, char.maxHp)) * 100));
+  // Só design (src/sheet/hp-feedback.js): estado Firme/Ferido/À beira da morte/Caído pela
+  // fração do PV e o retorno visual quando ele muda (número que sobe, tremor, clarão).
+  const state = hpState(char.currentHp, char.maxHp);
+  const hpFx = useHpFeedback(char);
+  const fxKind = hpFx ? (hpFx.delta < 0 ? 'hit' : 'heal') : '';
+  const fxBeat = hpFx ? (hpFx.id % 2 ? 'a' : 'b') : ''; // alterna o nome da animação para ela recomeçar
+  const pt = lang === 'pt';
 
   return (
     <>
-      <div className="hp-tracker fh-panel">
+      {/* Clarão na borda da tela ao levar dano / ser curado: camada decorativa fixa, fora
+          dos painéis (nada de transform/filter em contêiner com botão que abre Modal). */}
+      {hpFx && <div key={hpFx.id} className={`fh-fx fh-fx-${fxKind}`} aria-hidden="true" />}
+      <FhMedalDefs />
+
+      <section className={`hp-tracker fh-panel fh-hp${fxKind === 'heal' ? ` fh-healed-${fxBeat}` : ''}`} data-state={state}>
         <FhTitle>{t('hp', lang)}</FhTitle>
-        <div className="hp-display">
-          <span className="hp-current">{char.currentHp}</span>
-          <span className="hp-sep">/</span>
-          <span className="hp-max">{char.maxHp}</span>
-          {char.tempHp > 0 && <span style={{ marginLeft: 12, color: 'var(--moss-bright)', fontFamily: 'var(--display)', fontSize: '1.2rem' }}>+{char.tempHp}</span>}
+        <div className="fh-hp-row">
+          <div className="hp-display">
+            <span className={`fh-hp-num${fxKind === 'hit' ? ` fh-shake-${fxBeat}` : ''}`}>
+              <span className="hp-current">{char.currentHp}</span>
+              <span className="hp-sep">/</span>
+              <span className="hp-max">{char.maxHp}</span>
+            </span>
+            {char.tempHp > 0 && <span className="fh-hp-temp-badge" title={t('tempHp', lang)}>+{char.tempHp}</span>}
+            {hpFx && (
+              <span key={hpFx.id} className={`fh-float ${fxKind}`} aria-hidden="true">
+                {hpFx.delta < 0 ? '−' : '+'}{Math.abs(hpFx.delta)}
+              </span>
+            )}
+          </div>
+          <div className="fh-hp-state">{hpStateLabel(state, lang)}</div>
         </div>
-        <div className="hp-bar"><div className="hp-bar-fill" style={{ width: `${hpPct}%` }} /></div>
+        {/* barra-fantasma: anda atrás do preenchimento, com atraso, e mostra o quanto caiu */}
+        <div className="hp-bar" aria-hidden="true">
+          <div className="fh-hp-ghost" style={{ width: `${hpPct}%` }} />
+          <div className="hp-bar-fill" style={{ width: `${hpPct}%` }} />
+        </div>
         <div className="hp-actions">
           <button className="btn btn-sm btn-hurt" onClick={() => apply(-1)} disabled={!delta}>
-            <Icon name="sword" size={14}/> {t('damage', lang)}
+            <Icon name="sword" size={18}/> {t('damage', lang)}
           </button>
           <input
             className="hp-input"
             type="number"
+            inputMode="numeric"
             min="0"
             value={delta}
             onChange={e => setDelta(e.target.value)}
             placeholder="0"
-            style={{ width: 80 }}
+            aria-label={pt ? 'Quantidade de dano ou cura' : 'Damage or healing amount'}
           />
           <button className="btn btn-sm btn-heal" onClick={() => apply(1)} disabled={!delta}>
-            <Icon name="heart" size={14}/> {t('heal', lang)}
+            <Icon name="heart" size={18}/> {t('heal', lang)}
           </button>
         </div>
-        <div className="hp-temp">
-          {t('tempHp', lang)}<GrimoireHint id="pv-temporarios" lang={lang} />:
-          {' '}
+        <div className="hp-temp fh-hp-temp">
+          <span className="fh-hp-temp-label">{t('tempHp', lang)}<GrimoireHint id="pv-temporarios" lang={lang} /></span>
           <input
             type="number" min="0"
+            inputMode="numeric"
             value={char.tempHp || 0}
             onChange={e => update({ tempHp: Math.max(0, +e.target.value || 0) })}
-            style={{ width: 60, display: 'inline-block', padding: '4px 8px', minHeight: 28, fontSize: '0.85rem', textAlign: 'center' }}
+            aria-label={t('tempHp', lang)}
           />
         </div>
 
         {/* Death saves */}
         {char.currentHp === 0 && (
-          <div style={{ marginTop: 14, padding: 12, background: 'var(--blood-deep)', borderRadius: 4, border: '1px solid var(--blood-bright)' }}>
-            <div className="eyebrow text-center" style={{ color: 'var(--blood-bright)' }}>{t('deathSaves', lang)}<GrimoireHint id="testes-contra-a-morte" lang={lang} /></div>
-            <div className="row gap-3" style={{ marginTop: 8, justifyContent: 'center', alignItems: 'center' }}>
-              <span className="text-xs" style={{ color: 'var(--moss-bright)' }}>{t('successes', lang)}:</span>
-              <div className="death-pips">
-                {[0,1,2].map(i => (
-                  <button key={i} type="button" className={`death-pip ${i < char.deathSaves.success ? 'success' : ''}`}
-                    onClick={() => update({ deathSaves: { ...char.deathSaves, success: i < char.deathSaves.success ? i : i + 1 } })}/>
-                ))}
+          <div className="fh-death">
+            <div className="fh-death-title">{t('deathSaves', lang)}<GrimoireHint id="testes-contra-a-morte" lang={lang} /></div>
+            <div className="fh-death-rows">
+              <div className="fh-death-group is-success">
+                <span className="fh-death-label">{t('successes', lang)}:</span>
+                <div className="death-pips">
+                  {[0,1,2].map(i => (
+                    <button key={i} type="button" className={`death-pip ${i < char.deathSaves.success ? 'success' : ''}`}
+                      aria-pressed={i < char.deathSaves.success} aria-label={`${t('successes', lang)}: ${i + 1}`}
+                      onClick={() => update({ deathSaves: { ...char.deathSaves, success: i < char.deathSaves.success ? i : i + 1 } })}/>
+                  ))}
+                </div>
               </div>
-              <span style={{ width: 16 }}/>
-              <span className="text-xs" style={{ color: 'var(--blood-bright)' }}>{t('failures', lang)}:</span>
-              <div className="death-pips">
-                {[0,1,2].map(i => (
-                  <button key={i} type="button" className={`death-pip ${i < char.deathSaves.fail ? 'fail' : ''}`}
-                    onClick={() => update({ deathSaves: { ...char.deathSaves, fail: i < char.deathSaves.fail ? i : i + 1 } })}/>
-                ))}
+              <div className="fh-death-group is-fail">
+                <span className="fh-death-label">{t('failures', lang)}:</span>
+                <div className="death-pips">
+                  {[0,1,2].map(i => (
+                    <button key={i} type="button" className={`death-pip ${i < char.deathSaves.fail ? 'fail' : ''}`}
+                      aria-pressed={i < char.deathSaves.fail} aria-label={`${t('failures', lang)}: ${i + 1}`}
+                      onClick={() => update({ deathSaves: { ...char.deathSaves, fail: i < char.deathSaves.fail ? i : i + 1 } })}/>
+                  ))}
+                </div>
               </div>
             </div>
-            <button className="btn btn-sm btn-ghost" style={{ width: '100%', marginTop: 8 }}
+            <button className="btn btn-sm btn-ghost fh-death-roll"
               onClick={() => roll({ die: 20, label: t('death', lang) })}>
-              <Icon name="dice" size={12}/> {lang === 'pt' ? 'Rolar teste contra morte' : 'Roll death save'}
+              <Icon name="dice" size={14}/> {lang === 'pt' ? 'Rolar teste contra morte' : 'Roll death save'}
             </button>
           </div>
         )}
-      </div>
 
-      {/* Combat trio */}
-      <div className="combat-grid" style={{ marginBottom: 16 }}>
-        <div className="combat-box">
-          <div className="eyebrow">{t('ac', lang)}</div>
-          <div className="combat-box-value">{ac}</div>
-          <div className="combat-box-sub">
-            {acStyleBonuses.length > 0
+        {/* Defesa em medalhões: CA, Iniciativa (toque rola), Deslocamento, Prof., Perc. passiva
+            e Dados de Vida (as antigas grades .combat-grid desta aba) */}
+        <div className="fh-defense">
+          <FhMedal shape="shield" value={ac} label={t('ac', lang)}
+            sub={acStyleBonuses.length > 0
               ? <span title={acStyleBonuses.map(x => x.label[lang]).join(', ')}>{FS.partsLabel(acStyleBonuses, lang)}</span>
-              : <Icon name="shield" size={11}/>}
-          </div>
-          {untrainedArmor.length > 0 && (
-            <div className="text-xs" style={{ color: 'var(--blood-bright)' }}
-              title={lang === 'pt'
-                ? 'Sem treino: desvantagem em testes, salvaguardas e ataques de FOR e DES, e você não pode lançar magias.'
-                : "Untrained: Disadvantage on STR and DEX checks, saves and attacks, and you can't cast spells."}>
-              {lang === 'pt' ? 'Sem treino' : 'Untrained'}: {untrainedArmor.join(', ')}
-            </div>
-          )}
+              : null}>
+            {untrainedArmor.length > 0 && (
+              <div className="fh-medal-warn"
+                title={lang === 'pt'
+                  ? 'Sem treino: desvantagem em testes, salvaguardas e ataques de FOR e DES, e você não pode lançar magias.'
+                  : "Untrained: Disadvantage on STR and DEX checks, saves and attacks, and you can't cast spells."}>
+                {lang === 'pt' ? 'Sem treino' : 'Untrained'}: {untrainedArmor.join(', ')}
+              </div>
+            )}
+          </FhMedal>
+          <FhMedal shape="circle" value={Utils.fmtMod(initBonus)} label={t('initiative', lang)}
+            sub={lang === 'pt' ? 'toque p/ rolar' : 'tap to roll'}
+            onClick={() => roll({ die: 20, mod: initBonus, label: t('initRoll', lang) })} />
+          <FhMedal shape="circle" value={Utils.speedLabel(speed, lang).split(' ')[0]} unit={lang === 'pt' ? 'm' : 'ft'}
+            label={t('speed', lang)} />
+          <FhMedal shape="diamond" value={Utils.fmtMod(profB)} label={lang === 'pt' ? 'Prof.' : 'Prof.'} />
+          <FhMedal shape="diamond" value={passPerc} label={lang === 'pt' ? 'Perc.' : 'Perc.'}
+            hint={<GrimoireHint id="valor-passivo" lang={lang} />} sub={lang === 'pt' ? 'passiva' : 'passive'} />
+          <FhMedal shape="circle" value={Math.max(0, char.level - (char.hitDiceUsed || 0))} label={t('hitDice', lang)}
+            hint={<GrimoireHint id="dados-de-vida" lang={lang} />} sub={`/${Utils.hitDiceLabel(char)}`} />
         </div>
-        <div className="combat-box" onClick={() => roll({ die: 20, mod: initBonus, label: t('initRoll', lang) })} style={{ cursor: 'pointer' }}>
-          <div className="eyebrow">{t('initiative', lang)}</div>
-          <div className="combat-box-value">{Utils.fmtMod(initBonus)}</div>
-          <div className="combat-box-sub">{lang === 'pt' ? 'toque p/ rolar' : 'tap to roll'}</div>
-        </div>
-        <div className="combat-box">
-          <div className="eyebrow">{t('speed', lang)}</div>
-          <div className="combat-box-value">{Utils.speedLabel(speed, lang).split(' ')[0]}</div>
-          <div className="combat-box-sub">{lang === 'pt' ? 'm' : 'ft'}</div>
-        </div>
-      </div>
+      </section>
 
       {/* Quick weapons (attacks) */}
       {(
@@ -1456,23 +1487,6 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
         })}
       </div>
       </section>
-
-      <div className="combat-grid combat-grid-compact" style={{ marginBottom: 16 }}>
-        <div className="combat-box">
-          <div className="eyebrow">{lang === 'pt' ? 'Prof.' : 'Prof.'}</div>
-          <div className="combat-box-value">{Utils.fmtMod(profB)}</div>
-        </div>
-        <div className="combat-box">
-          <div className="eyebrow">{lang === 'pt' ? 'Perc.' : 'Perc.'}<GrimoireHint id="valor-passivo" lang={lang} /></div>
-          <div className="combat-box-value">{passPerc}</div>
-          <div className="combat-box-sub">{lang === 'pt' ? 'passiva' : 'passive'}</div>
-        </div>
-        <div className="combat-box">
-          <div className="eyebrow">{t('hitDice', lang)}<GrimoireHint id="dados-de-vida" lang={lang} /></div>
-          <div className="combat-box-value">{Math.max(0, char.level - (char.hitDiceUsed || 0))}</div>
-          <div className="combat-box-sub">/{Utils.hitDiceLabel(char)}</div>
-        </div>
-      </div>
 
       {/* Descanso: mesma lógica (e endpoint) da aba de magias */}
       <section className="fh-panel">
