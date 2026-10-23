@@ -44,7 +44,7 @@ export default function GrimoirePopup({ id, lang, onClose }) {
           ) : (
             <span className="grim-popup-brand"><span aria-hidden>✦</span> {pt ? 'Grimório' : 'Grimoire'}</span>
           )}
-          <a className="grim-popup-go" href={grimoireHash(article?.id)} onClick={openFull}>
+          <a className="grim-popup-go" href={grimoireHash(article?.id)} onClick={openFull} title={openLabel}>
             <Icon name="book" size={16} /> <span>{openLabel}</span>
           </a>
           <button type="button" className="grim-popup-close" onClick={onClose} aria-label={pt ? 'Fechar' : 'Close'} title={pt ? 'Fechar' : 'Close'}>

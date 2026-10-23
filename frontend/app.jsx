@@ -68,7 +68,11 @@ const App = () => {
   }, []);
   const restoreY = useRef(null);
   useLayoutEffect(() => {
-    if (restoreY.current == null) return;
+    if (restoreY.current == null) {
+      // A ficha abre no topo (vindo da tela inicial rolada, de uma ficha pronta, do criador…).
+      if (screen === SCREENS.SHEET) window.scrollTo(0, 0);
+      return;
+    }
     const y = restoreY.current;
     restoreY.current = null;
     window.scrollTo(0, y);
@@ -656,7 +660,7 @@ const App = () => {
           lang={lang}
           characters={characters}
           onOpen={(id) => { setActiveId(id); setScreen(SCREENS.SHEET); }}
-          onNew={() => { setEditingChar(null); setInviteJoin(null); setScreen(SCREENS.CREATE); }}
+          onNew={() => { setEditingChar(null); setInviteJoin(null); setActiveId(null); setScreen(SCREENS.CREATE); }}
           onImport={handleImport}
           onImportPdf={handleImportPdf}
           onExportAll={handleExportAll}

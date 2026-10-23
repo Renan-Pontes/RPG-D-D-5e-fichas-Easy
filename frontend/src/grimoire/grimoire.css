@@ -113,6 +113,8 @@
 .grim-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; margin: 0 0 4px; }
 .grim-leave { min-width: 0; }
 .grim-leave span { overflow: hidden; text-overflow: ellipsis; }
+/* 320 px com o "✦ Capa" ao lado: o "Voltar a …" quebra linha em vez de virar reticências */
+@media (max-width: 380px) { .grim-leave span { white-space: normal; text-align: left; line-height: 1.2; } }
 .grim-tocover { flex: none; }
 /* Celular: na lista e na página aberta fora de uma busca, a barra fixa logo abaixo já tem
    o "‹ Capa" (mesma ação); o "✦ Capa" da linha 1 só aparece quando a barra volta aos
@@ -491,6 +493,12 @@
 @media (max-width: 380px) {
   .grim-popup-go { padding: 0 10px; letter-spacing: 0.06em; }
   .grim-popup-brand { letter-spacing: 0.1em; }
+}
+/* Celular com "‹ regra anterior": o "Abrir no Grimório" vira só o livro (o texto fica para o leitor
+   de tela e o botão grande no fim da regra), para o nome da regra anterior caber. */
+@media (max-width: 480px) {
+  .grim-popup-bar:has(> .grim-popup-prev) .grim-popup-go { position: relative; width: 44px; padding: 0; justify-content: center; }
+  .grim-popup-bar:has(> .grim-popup-prev) .grim-popup-go > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 
 /* ---------- Brilho que passa no couro ao apontar (desktop, sem reduced-motion) ---------- */

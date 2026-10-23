@@ -56,23 +56,26 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const res = await api.login({ email, password });
-    setUser(res.user);
-    setBackendAvailable(true);
+    // Migra antes de setUser: a troca de usuário recarrega a lista, que assim já
+    // vem com as fichas locais (antes a lista chegava vazia até o F5).
     try {
       const result = await migrateLocalToRemote(createStorageAdapter({ remote: true }));
       if (result.migrated) setMigrated(result.migrated);
     } catch (e) { console.warn('migration failed', e); }
+    setUser(res.user);
+    setBackendAvailable(true);
     return res.user;
   }, []);
 
   const signup = useCallback(async (email, password, displayName) => {
     const res = await api.signup({ email, password, displayName });
-    setUser(res.user);
-    setBackendAvailable(true);
+    // Mesma ordem do login: migra primeiro, depois troca o usuário (lista já completa).
     try {
       const result = await migrateLocalToRemote(createStorageAdapter({ remote: true }));
       if (result.migrated) setMigrated(result.migrated);
     } catch (e) { console.warn('migration failed', e); }
+    setUser(res.user);
+    setBackendAvailable(true);
     return res.user;
   }, []);
 
