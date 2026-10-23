@@ -24,7 +24,7 @@ import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '.
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
 import FhTitle from '../src/sheet/FhTitle.jsx';
 import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
-import { FhHex, FhSkillRow, FhProfLegend } from '../src/sheet/FhChecks.jsx';
+import { FhHex, FhSkillRow, FhProfLegend, FhTapToRoll } from '../src/sheet/FhChecks.jsx';
 import { hpState, hpStateLabel, useHpFeedback } from '../src/sheet/hp-feedback.js';
 import '../src/sheet/ficha.css';
 
@@ -1311,7 +1311,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             )}
           </FhMedal>
           <FhMedal shape="circle" value={Utils.fmtMod(initBonus)} label={t('initiative', lang)}
-            sub={lang === 'pt' ? 'toque p/ rolar' : 'tap to roll'}
+            sub={<FhTapToRoll lang={lang} short />}
             onClick={() => roll({ die: 20, mod: initBonus, label: t('initRoll', lang) })} />
           <FhMedal shape="circle" value={Utils.speedLabel(speed, lang).split(' ')[0]} unit={lang === 'pt' ? 'm' : 'ft'}
             label={t('speed', lang)} />
@@ -1473,7 +1473,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
 
       {/* Abilities at a glance */}
       <section className="fh-panel">
-      <FhTitle sub={<span>{lang === 'pt' ? 'toque para rolar' : 'tap to roll'}</span>}>{t('tabStats', lang)}</FhTitle>
+      <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{t('tabStats', lang)}</FhTitle>
       <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang) + ' ' + t('abilityCheck', lang)} />
       </section>
 
@@ -1529,6 +1529,7 @@ const LanguagesField = ({ char, lang, update }) => {
 
 // Selos de atributo (abas Jogar e Atributos): o mesmo desenho; cada aba mantém o seu
 // rótulo de rolagem ("<Atributo> Teste de habilidade" na Jogar, "<Atributo>" aqui).
+// O nome acessível começa pela sigla visível no selo (quem usa voz diz "FOR").
 const AbilitySeals = ({ char, lang, roll, rollLabel }) => (
   <div className="fh-abil">
     {SRD.ABILITIES.map(k => {
@@ -1537,8 +1538,8 @@ const AbilitySeals = ({ char, lang, roll, rollLabel }) => (
       return (
         <FhHex key={k} abbr={t(k + 'Sh', lang)} mod={Utils.fmtMod(mod)} score={score}
           label={lang === 'pt'
-            ? `${t(k, lang)} ${Utils.fmtMod(mod)}, valor ${score}. Rolar teste`
-            : `${t(k, lang)} ${Utils.fmtMod(mod)}, score ${score}. Roll check`}
+            ? `${t(k + 'Sh', lang)}, ${t(k, lang)} ${Utils.fmtMod(mod)}, valor ${score}. Rolar teste`
+            : `${t(k + 'Sh', lang)}, ${t(k, lang)} ${Utils.fmtMod(mod)}, score ${score}. Roll check`}
           onClick={() => roll({ die: 20, mod, label: rollLabel(k) })} />
       );
     })}
@@ -1551,12 +1552,12 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
   return (
     <>
       <section className="fh-panel">
-      <FhTitle sub={<span>{pt ? 'toque para rolar' : 'tap to roll'}</span>}>{t('abilitiesTitle', lang).split(' ')[0] || lang === 'pt' ? 'Atributos' : 'Abilities'}</FhTitle>
+      <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{pt ? 'Atributos' : 'Abilities'}</FhTitle>
       <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang)} />
       </section>
 
       <section className="fh-panel">
-      <FhTitle sub={<span>{pt ? 'toque para rolar' : 'tap to roll'}</span>}>{lang === 'pt' ? 'Testes de Resistência' : 'Saving Throws'}</FhTitle>
+      <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{lang === 'pt' ? 'Testes de Resistência' : 'Saving Throws'}</FhTitle>
       {/* Em 2 colunas no desktop (3 + 3), na ordem do DOM: --fh-rows = metade das linhas */}
       <div className="fh-skills" style={{ '--fh-rows': Math.ceil(SRD.ABILITIES.length / 2) }}>
         {SRD.ABILITIES.map(k => {
@@ -1579,7 +1580,7 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
       <FhTitle sub={<>
         <span>{t('passivePerception', lang)} <span className="fh-sub-hi">{passPerc}</span></span>
         <span aria-hidden="true">·</span>
-        <span>{pt ? 'toque para rolar' : 'tap to roll'}</span>
+        <span><FhTapToRoll lang={lang} /></span>
       </>}>{t('skills', lang)}</FhTitle>
       <div className="fh-skills" style={{ '--fh-rows': Math.ceil(SRD.SKILLS.length / 2) }}>
         {SRD.SKILLS.map(s => {

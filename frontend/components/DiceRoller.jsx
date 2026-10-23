@@ -164,15 +164,20 @@ const DiceRoller = ({ lang }) => {
       if (!fab || fab.classList.contains('is-hidden')) return;
       const cur = fab.getBoundingClientRect();
       const base = { left: cur.left, right: cur.right, top: cur.top + liftRef.current, bottom: cur.bottom + liftRef.current, width: cur.width, height: cur.height };
+      // Sobe no máximo 3 vezes e cada posição nova é conferida antes de valer. Se nenhuma
+      // ficar livre (ex.: linhas-botão coladas, como as perícias), fica no canto: subir
+      // até o meio da tela e continuar cobrindo uma linha é pior que não mexer.
       let lift = 0;
-      for (let i = 0; i < 3; i++) {
+      let free = false;
+      for (let i = 0; i < 4; i++) {
         const r = { ...base, top: base.top - lift, bottom: base.bottom - lift };
         const top = blockerTop(r);
-        if (top == null) break;
+        if (top == null) { free = true; break; }
+        if (i === 3) break;
         lift = base.bottom - top + 8;
-        if (lift > window.innerHeight * 0.45) { lift = 0; break; } // não dá pra desviar: fica onde está
+        if (lift > window.innerHeight * 0.45) break; // não dá pra desviar: fica onde está
       }
-      lift = Math.max(0, Math.round(lift));
+      lift = free ? Math.max(0, Math.round(lift)) : 0;
       if (lift !== liftRef.current) { liftRef.current = lift; setFabLift(lift); }
     };
     let timer = null;

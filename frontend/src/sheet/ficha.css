@@ -1082,18 +1082,23 @@
    teclado. O hexágono fica no ::before (filete) e no miolo .fh-hex-in, com clip-path só
    neles: o anel de foco do botão não é cortado. Transform e filter só no selo, que é
    folha (não tem botão de Modal dentro). 3 colunas no celular, 6 a partir de 561px
-   (o mesmo corte dos medalhões da defesa). */
+   (o mesmo corte dos medalhões da defesa).
+   Texto ampliado (escala de fonte do celular): o selo é medido em rem e cresce com a
+   letra; no celular a coluna mínima também é em rem, então com letra grande a grade cai
+   para 2 colunas (nunca menos, nem mais de 3). As fontes do miolo têm teto em cqi (% da
+   largura do selo): mesmo num selo apertado a sigla e o valor não saem do hexágono. */
 .ficha .fh-abil {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(max(28%, min(4rem, 45%)), 1fr));
   justify-items: center;
   gap: 12px 10px;
 }
 .ficha .fh-hex {
   position: relative;
   width: 100%;
-  max-width: 100px;
+  max-width: 5.882rem; /* = 100px com a raiz de 17px */
   aspect-ratio: 0.88;
+  container-type: inline-size; /* para o cqi das fontes; o selo é folha */
   display: grid;
   place-items: center;
   padding: 0;
@@ -1127,6 +1132,7 @@
   margin-right: -0.2em; /* compensa o espaçamento da última letra: sigla no centro */
   font-family: var(--display);
   font-size: 0.66rem;
+  font-size: min(0.66rem, 13.5cqi);
   font-weight: 700;
   letter-spacing: 0.2em;
   color: var(--gold);
@@ -1136,10 +1142,11 @@
   font-family: var(--display);
   font-weight: 700;
   font-size: 1.7rem;
+  font-size: min(1.7rem, 35cqi);
   line-height: 1;
   color: var(--ink-primary);
 }
-.ficha .fh-hex-score { font-family: var(--mono); font-size: 0.78rem; color: var(--ink-muted); }
+.ficha .fh-hex-score { font-family: var(--mono); font-size: 0.78rem; font-size: min(0.78rem, 16cqi); color: var(--ink-muted); }
 @media (hover: hover) {
   .ficha .fh-hex:hover { transform: translateY(-3px); filter: drop-shadow(0 6px 14px rgba(240, 190, 90, 0.3)); }
   .ficha .fh-hex:hover .fh-hex-mod { color: var(--fh-gold-hi); }
@@ -1150,11 +1157,11 @@
 .ficha .fh-hex:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
 @media (min-width: 561px) {
   .ficha .fh-abil { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
-  .ficha .fh-hex { max-width: 108px; }
+  .ficha .fh-hex { max-width: 6.353rem; /* = 108px */ }
 }
 @media (max-width: 360px) {
   .ficha .fh-abil { gap: 10px 8px; }
-  .ficha .fh-hex-mod { font-size: 1.5rem; }
+  .ficha .fh-hex-mod { font-size: 1.5rem; font-size: min(1.5rem, 35cqi); }
 }
 
 /* ---------- Salvaguardas e perícias (plano §3, §4.6; FhSkillRow em src/sheet/FhChecks.jsx) ----------
@@ -1231,7 +1238,7 @@
 /* o resto da linha: rola o teste */
 .ficha .fh-skill-roll {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 2.6rem 2.8rem;
+  grid-template-columns: minmax(0, 1fr) min(2.6rem, 56px) min(2.8rem, 64px); /* teto: com letra grande sobra lugar para o nome */
   align-items: center;
   gap: 8px;
   min-width: 0;
@@ -1247,7 +1254,15 @@
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
-.ficha .fh-skill-name { min-width: 0; font-size: 1.02rem; line-height: 1.25; color: var(--ink-secondary); overflow-wrap: anywhere; }
+.ficha .fh-skill-name {
+  min-width: 0;
+  font-size: 1.02rem;
+  line-height: 1.25;
+  color: var(--ink-secondary);
+  overflow-wrap: break-word;
+  -webkit-hyphens: auto;
+  hyphens: auto; /* se a palavra sozinha não couber (letra muito grande), parte na sílaba, com hífen */
+}
 .ficha .fh-skill.is-prof .fh-skill-name { color: var(--ink-primary); }
 .ficha .fh-skill-abil {
   font-family: var(--display);
@@ -1291,13 +1306,20 @@
 .ficha .fh-prof-legend > span { display: inline-flex; align-items: center; gap: 8px; }
 .ficha .fh-prof-mark { display: inline-block; flex: none; width: 8px; height: 8px; }
 .ficha .fh-prof-mark.expert { margin: 0 2px; }
-.ficha .fh-prof-legend-tip { font-style: italic; }
+.ficha .fh-prof-legend > .fh-prof-legend-tip { display: inline; font-style: italic; } /* o verbo (FhTap) e o resto correm como texto */
+
+/* dicas de uso: "toque" no celular, "clique" com mouse (FhTap em src/sheet/FhChecks.jsx) */
+.ficha .fh-tap-mouse { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .ficha .fh-tap-touch { display: none; }
+  .ficha .fh-tap-mouse { display: inline; }
+}
 
 @media (max-width: 600px) {
   .ficha .fh-skill { grid-template-columns: 44px minmax(0, 1fr); }
   .ficha .fh-prof { width: 44px; min-height: 44px; }
   .ficha .fh-prof::before { width: 11px; height: 11px; }
-  .ficha .fh-skill-roll { min-height: 44px; grid-template-columns: minmax(0, 1fr) 2.4rem 2.6rem; gap: 6px; padding-right: 6px; }
+  .ficha .fh-skill-roll { min-height: 44px; grid-template-columns: minmax(0, 1fr) min(2.4rem, 52px) min(2.6rem, 60px); gap: 6px; padding-right: 6px; }
   .ficha .fh-skill-name { font-size: 1rem; }
   .ficha .fh-prof-legend { gap: 4px 12px; font-size: 0.82rem; }
 }

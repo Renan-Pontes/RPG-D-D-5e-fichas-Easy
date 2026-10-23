@@ -41,6 +41,24 @@ export function FhSkillRow({ name, abbr, bonus, level = 0, profTitle, profLabel,
   );
 }
 
+/* FhTap: o verbo das dicas de uso ("toque" / "clique"). Os dois vão no HTML e o CSS
+ * mostra um só: "clique" onde há mouse de verdade, (hover: hover) e (pointer: fine). */
+export function FhTap({ lang }) {
+  const pt = lang === 'pt';
+  return (
+    <>
+      <span className="fh-tap-touch">{pt ? 'toque' : 'tap'}</span>
+      <span className="fh-tap-mouse">{pt ? 'clique' : 'click'}</span>
+    </>
+  );
+}
+
+/* "toque para rolar" / "clique para rolar", para os subtítulos dos painéis */
+export function FhTapToRoll({ lang, short = false }) {
+  const pt = lang === 'pt';
+  return <><FhTap lang={lang} />{pt ? (short ? ' p/ rolar' : ' para rolar') : ' to roll'}</>;
+}
+
 /* Legenda dos losangos, no pé do painel: o ciclo do treino não é óbvio só pelo desenho. */
 export function FhProfLegend({ lang, expert = false }) {
   const pt = lang === 'pt';
@@ -49,7 +67,7 @@ export function FhProfLegend({ lang, expert = false }) {
       <span><i className="fh-prof-mark" aria-hidden="true" />{pt ? 'sem treino' : 'not proficient'}</span>
       <span><i className="fh-prof-mark prof" aria-hidden="true" />{pt ? 'treinado' : 'proficient'}</span>
       {expert && <span><i className="fh-prof-mark expert" aria-hidden="true" />{pt ? 'especialista' : 'expertise'}</span>}
-      <span className="fh-prof-legend-tip">{pt ? 'toque no losango para trocar' : 'tap the diamond to change'}</span>
+      <span className="fh-prof-legend-tip"><FhTap lang={lang} />{pt ? ' no losango para trocar' : ' the diamond to change'}</span>
     </div>
   );
 }
