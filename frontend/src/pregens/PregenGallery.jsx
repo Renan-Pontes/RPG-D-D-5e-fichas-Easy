@@ -1,11 +1,15 @@
 /* "Comece rápido": fichas prontas de nível 1 para quem nunca jogou (data/pregens.json,
- * geradas por scripts/build-pregens.mjs com a mesma lógica da criação). */
+ * geradas por scripts/build-pregens.mjs com a mesma lógica da criação).
+ * Aberta, a galeria é um carrossel de uma linha no celular/tablet e uma grade 4×3
+ * no desktop. variant: 'door' (porta "Pegar uma ficha pronta" da tela inicial vazia),
+ * 'list' (abaixo dos heróis: "Fichas prontas") ou nenhuma (título de sempre). */
 import { useEffect, useState } from 'react';
 import { tName } from '../../data/i18n.js';
 import Utils from '../../utils.js';
 import { Modal } from '../../components/Shared.jsx';
 import Icon from '../../components/Icons.jsx';
 import { hideOnError } from '../art.js';
+import { PregenHead, pregenSectionClass } from './PregenHead.jsx';
 import './pregens.css';
 
 // glob: a build não quebra enquanto data/pregens.json não existir (a galeria some).
@@ -46,23 +50,26 @@ function PregenModal({ p, lang, onClose, onPick, busy }) {
           </>
         )}
         {c.backstory && <p className="muted text-sm">{c.backstory}</p>}
-        <button className="btn btn-primary" style={{ width: '100%', marginTop: 12 }} disabled={busy} onClick={() => onPick(p)}>
-          <Icon name="plus" size={16} /> {busy ? '…' : L(lang, 'Pegar esta ficha', 'Take this character')}
-        </button>
-        <p className="text-xs muted" style={{ textAlign: 'center', marginTop: 6 }}>
-          {L(lang, 'Vira uma cópia sua: dá para trocar o nome, a foto e tudo mais depois.', 'It becomes your own copy: rename it, change the photo and anything else later.')}
-        </p>
+        {/* Rodapé fixo no celular: "Pegar" sempre à vista, sem rolar até o fim. */}
+        <div className="pg-modal-foot">
+          <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy} onClick={() => onPick(p)}>
+            <Icon name="plus" size={16} /> {busy ? '…' : L(lang, 'Pegar esta ficha', 'Take this character')}
+          </button>
+          <p className="text-xs muted" style={{ textAlign: 'center', margin: '6px 0 0' }}>
+            {L(lang, 'Vira uma cópia sua: dá para trocar o nome, a foto e tudo mais depois.', 'It becomes your own copy: rename it, change the photo and anything else later.')}
+          </p>
+        </div>
       </div>
     </Modal>
   );
 }
 
-export default function PregenGallery({ lang, onPick, startOpen = false }) {
+export default function PregenGallery({ lang, onPick, startOpen = false, variant }) {
   if (!hasPregens) return null;
-  return <Gallery lang={lang} onPick={onPick} startOpen={startOpen} />;
+  return <Gallery lang={lang} onPick={onPick} startOpen={startOpen} variant={variant} />;
 }
 
-function Gallery({ lang, onPick, startOpen }) {
+function Gallery({ lang, onPick, startOpen, variant }) {
   const [list, setList] = useState(null);
   const [open, toggle] = useOpenState('forja:pregens-open', startOpen);
   const [sel, setSel] = useState(null);
@@ -81,18 +88,12 @@ function Gallery({ lang, onPick, startOpen }) {
   };
 
   return (
-    <section className={`pg ${open ? 'open' : ''}`}>
-      <button type="button" className="pg-head" onClick={toggle} aria-expanded={open}>
-        <span className="pg-head-icon" aria-hidden>✦</span>
-        <span className="pg-head-text">
-          <strong>{L(lang, 'Nunca jogou? Pegue uma ficha pronta', 'Never played? Grab a ready-made character')}</strong>
-          <span className="muted">{L(lang, '12 heróis de nível 1 montados pelas regras, prontos para a primeira sessão.', '12 level-1 heroes built by the rules, ready for your first session.')}</span>
-        </span>
-        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={18} />
-      </button>
+    <section className={pregenSectionClass(variant, open)}>
+      <PregenHead lang={lang} variant={variant} open={open} onToggle={toggle} />
       {open && (
         <div className="pg-grid">
-          {!list && <p className="muted">{L(lang, 'Carregando…', 'Loading…')}</p>}
+          {!list && <p className="muted pg-note">{L(lang, 'Carregando…', 'Loading…')}</p>}
+          {list && !list.length && <p className="muted pg-note">{L(lang, 'Não deu para carregar as fichas prontas agora.', 'Could not load the ready-made characters right now.')}</p>}
           {list && list.map(p => (
             <button key={p.id} type="button" className="pg-card" onClick={() => setSel(p)}>
               <img className="pg-card-art" src={p.character.avatar} alt="" loading="lazy" onError={hideOnError} />

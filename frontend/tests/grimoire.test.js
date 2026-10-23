@@ -152,3 +152,61 @@ test('termos em negrito viram links para o artigo certo (e nunca para o próprio
   const ids = new Set(ARTICLES.map(a => a.id));
   for (const id of map.values()) assert.ok(ids.has(id));
 });
+
+// ===== Siglas, trecho e destaque (redesenho do Grimório) =====
+
+test('busca: siglas do título vêm em 1º (CA, PV, CD; AC, HP, DC em inglês)', () => {
+  const pt = buildIndex(ARTICLES, 'pt');
+  assert.equal(search(pt, 'ca')[0].id, 'classe-de-armadura');
+  assert.equal(search(pt, 'pv')[0].id, 'pontos-de-vida');
+  assert.equal(search(pt, 'cd')[0].id, 'classe-de-dificuldade');
+  assert.equal(search(pt, 'XP')[0].id, 'nivel-e-experiencia');
+  const en = buildIndex(ARTICLES, 'en');
+  assert.equal(search(en, 'ac')[0].id, 'classe-de-armadura');
+  assert.equal(search(en, 'hp')[0].id, 'pontos-de-vida');
+  assert.equal(search(en, 'dc')[0].id, 'classe-de-dificuldade');
+  // Palavras inteiras continuam como antes.
+  assert.equal(search(pt, 'vantagem')[0].id, 'vantagem-desvantagem');
+  assert.equal(search(pt, 'iniciativa')[0].id, 'iniciativa');
+  assert.equal(search(en, 'grapple')[0].id, 'agarrado');
+});
+
+test('trecho: mostra a frase onde o termo aparece, com até 110 caracteres', async () => {
+  const { snippetFor } = await import('../src/grimoire/snippet.js');
+  const a = byId.get('acao-ajudar');
+  const s = snippetFor(a, 'vantagem', 'pt');
+  assert.ok(s.length <= 110, s);
+  assert.match(normalize(s), /vantagem/);
+  // Sem busca: a 1ª frase da explicação (sem **), como antes.
+  const first = snippetFor(a, '', 'pt');
+  assert.ok(!first.includes('**') && first.length <= 110);
+  assert.ok(normalize(a.simple.pt.replace(/\*\*/g, '')).startsWith(normalize(first.replace(/…$/, ''))));
+  // Acento e maiúsculas não importam; "de" não decide a frase de "bola de fogo".
+  assert.match(snippetFor(byId.get('salvaguarda'), 'Bola de Fogo', 'pt').toLowerCase(), /bola de fogo/);
+  for (const art of ARTICLES) {
+    for (const l of LANGS) assert.ok(snippetFor(art, 'ataque', l).length <= 110, `${art.id} ${l}`);
+  }
+});
+
+test('destaque: todos os termos com 2+ letras, sem acento, no começo da palavra', async () => {
+  const { markRanges } = await import('../src/grimoire/snippet.js');
+  const t = 'Ação de Esconder: role Furtividade.';
+  assert.deepEqual(markRanges(t, 'acao'), [[0, 4]]);
+  assert.deepEqual(markRanges(t, 'esconder furtividade').map(([a, b]) => t.slice(a, b)), ['Esconder', 'Furtividade']);
+  assert.deepEqual(markRanges('Classe de Armadura (CA)', 'ca').map(([a, b]) => 'Classe de Armadura (CA)'.slice(a, b)), ['CA']);
+  assert.deepEqual(markRanges('Vantagens e desvantagem', 'vantagens'), [[0, 9]]);
+  assert.deepEqual(markRanges('texto', ''), []);
+  assert.deepEqual(markRanges('texto', 'x'), []);
+});
+
+test('capítulos: toda categoria tem arte que existe em public/', async () => {
+  const fs = await import('node:fs');
+  const { chapterArt } = await import('../src/grimoire/chapter-art.js');
+  for (const c of CATEGORIES) {
+    const src = chapterArt(c.id);
+    assert.ok(src, `${c.id} sem arte`);
+    assert.ok(fs.existsSync(new URL(`../public${src}`, import.meta.url)), `${c.id}: ${src} não existe`);
+    assert.ok(c.icon, `${c.id} sem emoji de reserva`);
+  }
+  assert.equal(chapterArt('nao-existe'), null);
+});
