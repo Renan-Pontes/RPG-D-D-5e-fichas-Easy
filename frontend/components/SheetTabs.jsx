@@ -20,6 +20,7 @@ import { itemEmoji, schoolIcon, SCHOOL_EMOJI } from '../src/art.js';
 import { itemArtFor } from '../src/items/item-art.js';
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
 import FhTitle from '../src/sheet/FhTitle.jsx';
+import { slotCircleLabel, gemLabel, lockedSlotTitle } from '../src/sheet/gem-text.js';
 
 // Siglas das moedas (PHB em pt: peça de cobre/prata/electro/ouro/platina).
 const COIN_LABEL = { pt: { cp: 'PC', sp: 'PP', ep: 'PE', gp: 'PO', pp: 'PL' }, en: { cp: 'CP', sp: 'SP', ep: 'EP', gp: 'GP', pp: 'PP' } };
@@ -79,15 +80,18 @@ const SheetSpells = ({ char, lang, update, slots, roll }) => {
             if (!max) return null;
             const used = (char.spellSlotsUsed && char.spellSlotsUsed[idx]) || 0;
             const campaignLocked = !!char.inCampaign;
+            const circle = slotCircleLabel(idx + 1, lang);
             return (
-              <div key={idx} className="slot-row">
-                <div className="slot-level">{lang === 'pt' ? 'Nv' : 'Lv'} {idx + 1}</div>
+              <div key={idx} className="slot-row fh-slot-line">
+                <div className="slot-level">{circle}</div>
                 <div className="slot-pips">
                   {Array.from({ length: max }).map((_, i) => (
                     <button
                       key={i} type="button"
                       className={`slot-pip ${i < used ? 'used' : ''} ${campaignLocked || (i < used && !char.cheatMode) ? 'locked' : ''}`}
                       disabled={campaignLocked || (i < used && !char.cheatMode)}
+                      aria-label={gemLabel(circle, i, max, i < used, lang)}
+                      title={campaignLocked || (i < used && !char.cheatMode) ? lockedSlotTitle(campaignLocked, lang) : undefined}
                       onClick={campaignLocked || (i < used && !char.cheatMode) ? undefined : () => {
                         const arr = [...(char.spellSlotsUsed || [])];
                         while (arr.length <= idx) arr.push(0);
@@ -97,7 +101,7 @@ const SheetSpells = ({ char, lang, update, slots, roll }) => {
                     />
                   ))}
                 </div>
-                <span className="text-xs muted mono">{max - used}/{max}</span>
+                <span className="fh-gem-count">{max - used}/{max}</span>
               </div>
             );
           })}

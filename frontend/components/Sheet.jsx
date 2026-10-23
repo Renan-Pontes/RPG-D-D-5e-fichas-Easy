@@ -26,6 +26,8 @@ import FhTitle from '../src/sheet/FhTitle.jsx';
 import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
 import { FhHex, FhSkillRow, FhProfLegend, FhTapToRoll } from '../src/sheet/FhChecks.jsx';
 import { hpState, hpStateLabel, useHpFeedback } from '../src/sheet/hp-feedback.js';
+import { slotCircleLabel, gemLabel, lockedSlotTitle } from '../src/sheet/gem-text.js';
+import { condClasses, FhConditionFx, FhConditionArt } from '../src/sheet/FhConditions.jsx';
 import '../src/sheet/ficha.css';
 
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
@@ -112,8 +114,11 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
 
   // Raiz .ficha: escopo do visual da ficha (src/sheet/ficha.css). Sem transform,
   // filter, isolation nem z-index aqui: os modais da ficha não são portais.
+  // As classes c-* (condições ativas) e is-down (PV 0) só mudam a aparência
+  // (retrato e camadas decorativas: src/sheet/FhConditions.jsx).
   return (
-    <div className="ficha">
+    <div className={['ficha', ...condClasses(char)].join(' ')}>
+      <FhConditionFx conditions={char.conditions} />
       <SheetHero
         char={char}
         lang={lang}
@@ -245,6 +250,7 @@ const SheetHero = ({ char, lang, onAvatar, onBack, onLevelUp, onInspiration, cls
         <div className="fh-hero-art" aria-hidden="true">
           <span className="fh-hero-mono">{letter}</span>
           {portrait && <img key={portrait} src={portrait} alt="" onError={hideBrokenImg} />}
+          <FhConditionArt conditions={char.conditions} down={char.currentHp === 0} />
         </div>
         <div className="fh-hero-body">
           <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
@@ -881,11 +887,12 @@ const WildShapePanel = ({ char, druid, lang, update }) => {
             <button
               key={i} type="button"
               className={`slot-pip ${i < usesUsed ? 'used' : ''}`}
+              aria-label={gemLabel(lang === 'pt' ? 'Forma Selvagem' : 'Wild Shape', i, maxUses, i < usesUsed, lang)}
               onClick={() => update({ wildShapeUses: i < usesUsed ? i : i + 1 })}
             />
           ))}
         </div>
-        <span className="text-xs muted">{Math.max(0, maxUses - usesUsed)}/{maxUses} {lang === 'pt' ? 'usos' : 'uses'} · {currentRules ? (lang === 'pt' ? '+1 por descanso curto' : '+1 per short rest') : (lang === 'pt' ? 'recupera no descanso curto' : 'recover on short rest')}</span>
+        <span className="text-xs muted fh-gem-note"><b className="fh-gem-count">{Math.max(0, maxUses - usesUsed)}/{maxUses}</b> {lang === 'pt' ? 'usos' : 'uses'} · {currentRules ? (lang === 'pt' ? '+1 por descanso curto' : '+1 per short rest') : (lang === 'pt' ? 'recupera no descanso curto' : 'recover on short rest')}</span>
       </div>
       {druid.subclass === 'stars' && (
         <StarryFormSection char={char} level={level} lang={lang} update={update} maxUses={maxUses} usesUsed={usesUsed} cheat={cheat} />
@@ -999,23 +1006,28 @@ const ConditionsPanel = ({ char, lang, update }) => {
       {!active.length && !temps.length && !open && (
         <div className="text-sm muted">{pt ? 'Nenhuma condição ativa.' : 'No active conditions.'}</div>
       )}
+      {/* Pílulas com ícone (src/sheet/ficha.css). A condição ligada também muda a
+          aparência da ficha: retrato e bordas da tela (src/sheet/FhConditions.jsx). */}
       <div className="cond-chips">
         {(open ? STD_CONDITIONS : active).map(id => {
           const on = active.includes(id);
           const chip = (
             <button key={id} type="button" className={`cond-chip ${on ? 'on' : ''}`} onClick={() => toggle(id)}
+              aria-pressed={on}
               title={on ? (pt ? 'Toque para remover' : 'Tap to remove') : ''}>
-              <ArtIcon src={conditionIcon(id)} emoji={CONDITION_EMOJI[id]} size={16} />
-              {tName('condition', id, lang)}{on && !open ? ' ✕' : ''}
+              <ArtIcon src={conditionIcon(id)} emoji={CONDITION_EMOJI[id]} size={30} />
+              {tName('condition', id, lang)}
+              {on && !open ? <span className="fh-cond-x"> ✕</span> : ''}
             </button>
           );
           return on && !open
-            ? <span key={id} className="row" style={{ alignItems: 'center' }}>{chip}<GrimoireHint id={id} lang={lang} label={tName('condition', id, lang)} /></span>
+            ? <span key={id} className="row fh-cond-on" style={{ alignItems: 'center' }}>{chip}<GrimoireHint id={id} lang={lang} label={tName('condition', id, lang)} /></span>
             : chip;
         })}
       </div>
       {temps.map(e => (
-        <div key={e.id} className="row gap-2" style={{ marginTop: 6, alignItems: 'center' }}>
+        <div key={e.id} className="row gap-2 fh-cond-temp" style={{ marginTop: 6, alignItems: 'center' }}>
+          <span className="fh-cond-temp-mark" aria-hidden="true" />
           <input value={e.name} onChange={ev => updateTemp(e.id, { name: ev.target.value })} style={{ flex: 2 }} />
           <input value={e.duration} onChange={ev => updateTemp(e.id, { duration: ev.target.value })}
             placeholder={pt ? 'Duração' : 'Duration'} style={{ flex: 1 }} />
@@ -1023,7 +1035,7 @@ const ConditionsPanel = ({ char, lang, update }) => {
         </div>
       ))}
       {open && (
-        <div className="row gap-2" style={{ marginTop: 8 }}>
+        <div className="row gap-2 fh-cond-add" style={{ marginTop: 8 }}>
           <input value={newEffect} onChange={e => setNewEffect(e.target.value)}
             placeholder={pt ? 'Efeito personalizado (ex.: Bênção, 1 min)' : 'Custom effect (e.g. Bless, 1 min)'}
             onKeyDown={e => e.key === 'Enter' && addTemp()} style={{ flex: 1 }} />
@@ -1429,9 +1441,10 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             const lvl = idx + 1;
             if (!max) return null;
             const used = (char.spellSlotsUsed && char.spellSlotsUsed[idx]) || 0;
+            const circle = slotCircleLabel(lvl, lang);
             return (
-              <div key={lvl} className="slot-row">
-                <div className="slot-level">{lang === 'pt' ? 'Nv' : 'Lv'} {lvl}</div>
+              <div key={lvl} className="slot-row fh-slot-line">
+                <div className="slot-level">{circle}</div>
                 <div className="slot-pips">
                   {Array.from({ length: max }).map((_, i) => {
                     // Sem trapaça: gasta, mas só recupera descansando. Em campanha, use "Conjurar".
@@ -1441,6 +1454,8 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
                         key={i} type="button"
                         className={`slot-pip ${i < used ? 'used' : ''} ${locked ? 'locked' : ''}`}
                         disabled={locked}
+                        aria-label={gemLabel(circle, i, max, i < used, lang)}
+                        title={locked ? lockedSlotTitle(!!char.inCampaign, lang) : undefined}
                         onClick={locked ? undefined : () => {
                           const arr = [...(char.spellSlotsUsed || [])];
                           while (arr.length <= idx) arr.push(0);
@@ -1451,7 +1466,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
                     );
                   })}
                 </div>
-                <span className="text-xs muted mono">{max - used}/{max}</span>
+                <span className="fh-gem-count">{max - used}/{max}</span>
               </div>
             );
           })}

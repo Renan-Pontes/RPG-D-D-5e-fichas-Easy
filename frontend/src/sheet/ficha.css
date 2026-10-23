@@ -1377,3 +1377,335 @@
   .ficha .fh-skill-roll { grid-template-columns: minmax(0, 1fr) 2.1rem 2.3rem; gap: 4px; }
   .ficha .fh-skill-name { font-size: 0.95rem; }
 }
+
+/* ---------- Gemas de recurso (plano §3, §4.7) ----------
+   Espaços de magia (astral), usos da Forma Selvagem (verdete) e recursos de classe (ouro,
+   .fh-res em volta do ResourcesCard). A gema é desenhada DENTRO do mesmo button.slot-pip:
+   ::before é a gema acesa (losango facetado com brilho) e ::after o engaste vazio e
+   rachado da gema gasta. Ficam a marcação, o disabled, o .locked e os handlers.
+   - O global gira o quadrado (rotate 45°): aqui o botão não gira; o losango é o desenho.
+   - Celular: o app força 32×32px (mobile-styles.css). Não brigar com o !important: o
+     ::after cresce para fora do botão e leva a área de toque a 40×44px.
+   - Gastar e recuperar animam por transição (a gema encolhe e some; ao voltar, cresce
+     com um repique). Transição só dispara quando a classe muda: abrir a ficha ou trocar
+     de aba não anima nada. */
+.ficha {
+  --fh-gem-arcane: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 36'><polygon points='15,1 29,12 15,35 1,12' fill='%238c9cff'/><polygon points='15,1 22,12 15,35 8,12' fill='%23e2e8ff' opacity='.55'/><polygon points='1,12 29,12 15,35' fill='%233d48b8' opacity='.55'/><polygon points='15,1 29,12 1,12' fill='%23e2e8ff' opacity='.35'/></svg>");
+  --fh-gem-wild: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 36'><polygon points='15,1 29,12 15,35 1,12' fill='%2374d6b4'/><polygon points='15,1 22,12 15,35 8,12' fill='%23dcfff1' opacity='.55'/><polygon points='1,12 29,12 15,35' fill='%231d6e58' opacity='.55'/><polygon points='15,1 29,12 1,12' fill='%23dcfff1' opacity='.35'/></svg>");
+  --fh-gem-gold: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 36'><polygon points='15,1 29,12 15,35 1,12' fill='%23f0c96d'/><polygon points='15,1 22,12 15,35 8,12' fill='%23fff6d6' opacity='.55'/><polygon points='1,12 29,12 15,35' fill='%239a6c22' opacity='.55'/><polygon points='15,1 29,12 1,12' fill='%23fff6d6' opacity='.35'/></svg>");
+  /* gasta: engaste escuro com contorno visível sobre o couro e a rachadura da demo */
+  --fh-gem-spent: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 36'><polygon points='15,1.5 28.5,12 15,34.5 1.5,12' fill='%23241c17' stroke='%23857360' stroke-width='1'/><polygon points='15,1 22,12 15,35 8,12' fill='%233a302a' opacity='.55'/><polygon points='1,12 29,12 15,35' fill='%23120d0b' opacity='.55'/><polygon points='15,1 29,12 1,12' fill='%233a302a' opacity='.35'/><path d='M10 9 L15 16 L12 22 L17 28' stroke='%23a08c72' stroke-width='1.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+}
+.ficha .slot-pips,
+.ficha .slot-row .slot-pips,
+.ficha .slot-pips.wild { gap: 6px; padding: 0; align-items: center; }
+.ficha .slot-pip,
+.ficha .slot-pips.wild .slot-pip {
+  --fh-gem: var(--fh-gem-arcane);
+  --fh-glow: rgba(140, 160, 255, 0.75);
+  --fh-gem-w: 26px;
+  --fh-gem-h: 31px;
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  box-shadow: none;
+  transform: none;
+  filter: none;
+  opacity: 1;
+  transition: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ficha .slot-pips.wild .slot-pip { --fh-gem: var(--fh-gem-wild); --fh-glow: rgba(116, 214, 180, 0.7); }
+.ficha .fh-res .slot-pip { --fh-gem: var(--fh-gem-gold); --fh-glow: rgba(240, 200, 110, 0.75); }
+.ficha .slot-pip::before,
+.ficha .slot-pip::after {
+  content: "";
+  position: absolute;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+/* gema acesa */
+.ficha .slot-pip::before {
+  left: 50%;
+  top: 50%;
+  width: var(--fh-gem-w);
+  height: var(--fh-gem-h);
+  margin: calc(var(--fh-gem-h) / -2) 0 0 calc(var(--fh-gem-w) / -2);
+  pointer-events: none;
+  background: var(--fh-gem) center / contain no-repeat;
+  filter: drop-shadow(0 0 5px var(--fh-glow));
+  transition: opacity 0.3s var(--fh-ease), transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s;
+}
+/* engaste da gema gasta (centrado no botão; no celular, também a área de toque maior) */
+.ficha .slot-pip::after {
+  inset: 0;
+  background: var(--fh-gem-spent) center / var(--fh-gem-w) var(--fh-gem-h) no-repeat;
+  opacity: 0;
+  transition: opacity 0.3s var(--fh-ease);
+}
+.ficha .slot-pip.used::before { opacity: 0; transform: scale(0.55); }
+.ficha .slot-pip.used::after { opacity: 1; }
+/* travada (sem trapaça a gasta não volta; em campanha, nenhuma responde): o global
+   esmaece o botão inteiro; aqui a gasta continua legível e a acesa perde só o brilho */
+.ficha .slot-pip.locked { opacity: 1; filter: none; cursor: not-allowed; }
+.ficha .slot-pip.locked:not(.used)::before { filter: saturate(0.7) brightness(0.85); }
+.ficha .slot-pip:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 1px; }
+@media (hover: hover) {
+  .ficha .slot-pip:not(:disabled):not(.used):hover::before { transform: translateY(-2px) scale(1.06); filter: drop-shadow(0 0 9px var(--fh-glow)) brightness(1.08); }
+  /* gasta que pode voltar (trapaça): a gema aparece de leve */
+  .ficha .slot-pip.used:not(:disabled):hover::before { opacity: 0.4; transform: scale(0.85); }
+}
+@media (max-width: 720px) {
+  .ficha .slot-pips,
+  .ficha .slot-row .slot-pips,
+  .ficha .slot-pips.wild { gap: 12px 8px; } /* as áreas de toque (40×44) não se sobrepõem */
+  .ficha .slot-pip { --fh-gem-w: 25px; --fh-gem-h: 30px; }
+  .ficha .slot-pip::after { inset: -6px -4px; }
+}
+
+/* Linha de espaços: "1º CÍRCULO" em Cinzel astral à esquerda, gemas e "livres/máx" */
+.ficha .fh-slot-line {
+  grid-template-columns: 6.6rem minmax(0, 1fr) auto;
+  gap: 10px;
+  min-height: 56px;
+}
+.ficha .fh-slot-line .slot-level {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1.25;
+}
+.ficha .fh-gem-count,
+.ficha .fh-res .slot-row > .mono {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-secondary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+/* Forma Selvagem: "1/2 usos · …", com o número em verdete */
+.ficha .fh-gem-note { line-height: 1.35; }
+.ficha .fh-gem-note .fh-gem-count { font-size: 1rem; color: var(--fh-verdigris); }
+/* Recursos com mais de 12 usos: −1 / −5 / +1 no tom do ouro */
+.ficha .fh-res .slot-row .btn-ghost { color: var(--gold-bright); border-color: rgba(240, 200, 110, 0.4); }
+@media (max-width: 600px) {
+  .ficha .fh-slot-line { grid-template-columns: 5.6rem minmax(0, 1fr) auto; min-height: 52px; }
+  .ficha .fh-slot-line .slot-level { letter-spacing: 0.1em; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ficha .slot-pip::before,
+  .ficha .slot-pip::after { transition: none; }
+  .ficha .slot-pip.used::before,
+  .ficha .slot-pip:not(:disabled):hover::before { transform: none; }
+}
+@media (forced-colors: active) {
+  /* o desenho é imagem de fundo: mantém as cores (o estado também vai no nome acessível) */
+  .ficha .slot-pip { forced-color-adjust: none; }
+  .ficha .slot-pip:focus-visible { outline-color: Highlight; }
+}
+
+/* ---------- Condições (plano §3, §4.8; ConditionsPanel em components/Sheet.jsx) ----------
+   Pílulas com ícone; a ligada fica em vinho com brilho. aria-pressed no botão. */
+.ficha .cond-chips { gap: 8px; }
+.ficha .cond-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 4px 14px 4px 4px;
+  border-radius: 999px;
+  font-family: var(--body);
+  font-size: 0.98rem;
+  line-height: 1.2;
+  text-align: left;
+  color: var(--ink-secondary);
+  background: rgba(10, 7, 6, 0.5);
+  border: 1px solid rgba(224, 181, 94, 0.22);
+  transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s, color 0.2s;
+}
+.ficha .cond-chip .art-icon {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(224, 181, 94, 0.3);
+  filter: grayscale(0.7) brightness(0.7);
+  transition: filter 0.3s, transform 0.3s var(--fh-ease), box-shadow 0.3s;
+}
+.ficha .cond-chip .art-icon-emoji { display: inline-block; background: rgba(224, 181, 94, 0.08); }
+.ficha .cond-chip.on {
+  color: #ffd7cf;
+  font-weight: 600;
+  border-color: var(--fh-blood);
+  background: rgba(94, 21, 17, 0.55);
+  box-shadow: 0 0 14px rgba(255, 90, 70, 0.35);
+}
+.ficha .cond-chip.on .art-icon { filter: none; transform: scale(1.08); box-shadow: 0 0 0 1px rgba(255, 106, 90, 0.7); }
+.ficha .fh-cond-x { margin-left: -4px; font-size: 0.8em; opacity: 0.85; }
+.ficha .cond-chip:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.ficha .fh-cond-on { gap: 0; }
+@media (hover: hover) {
+  .ficha .cond-chip:hover { border-color: rgba(255, 106, 90, 0.55); }
+  .ficha .cond-chip:not(.on):hover .art-icon { filter: grayscale(0.25) brightness(0.9); }
+}
+@media (hover: none) {
+  .ficha .cond-chip:active { transform: scale(0.97); } /* botão-folha: não contém nada que abra Modal */
+}
+/* Efeitos personalizados: linha dourada (nome e duração continuam editáveis) */
+.ficha .fh-cond-temp {
+  padding: 6px 6px 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(240, 200, 110, 0.45);
+  background: linear-gradient(90deg, rgba(90, 64, 20, 0.45), rgba(10, 7, 6, 0.5));
+}
+.ficha .fh-cond-temp-mark {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  transform: rotate(45deg); /* elemento-folha */
+  background: var(--fh-gilt);
+  box-shadow: 0 0 8px rgba(240, 200, 110, 0.6);
+}
+.ficha .fh-cond-temp input,
+.ficha .fh-cond-add input { min-width: 0; }
+.ficha .fh-cond-temp input { background: rgba(10, 7, 6, 0.55); }
+
+/* Camadas das condições: a ficha muda de aparência (só design, nada muda número).
+   Raiz .ficha.c-<condição> (e .is-down com PV 0), src/sheet/FhConditions.jsx.
+   1) Retrato do topo: efeito só na <img> (folha), somando as condições ativas por
+      variáveis (o filter de uma regra não somaria com o de outra). */
+.ficha.c-poisoned { --fh-pf-poison: hue-rotate(35deg) saturate(0.8) brightness(0.9); }
+.ficha.c-charmed { --fh-pf-charm: saturate(1.15) brightness(1.05); }
+.ficha.c-frightened { --fh-pf-fear: saturate(0.55) brightness(0.75) contrast(1.1); }
+.ficha.c-paralyzed,
+.ficha.c-stunned { --fh-pf-still: saturate(0.35) brightness(0.9); }
+.ficha.c-petrified { --fh-pf-stone: grayscale(1) contrast(1.25) brightness(0.8); }
+.ficha.c-unconscious,
+.ficha.is-down { --fh-pf-sleep: brightness(0.45) saturate(0.6); }
+.ficha.c-blinded { --fh-pf-blind: blur(5px) brightness(0.4); }
+.ficha.c-invisible { --fh-pf-ghost: saturate(0.4) brightness(1.15); --fh-p-alpha: 0.28; }
+.ficha.c-prone { --fh-p-move: rotate(-8deg) translate(14px, 34px) scale(1.04); }
+.ficha .fh-hero-art img {
+  filter: var(--fh-pf-poison,) var(--fh-pf-charm,) var(--fh-pf-fear,) var(--fh-pf-still,) var(--fh-pf-stone,) var(--fh-pf-sleep,) var(--fh-pf-blind,) var(--fh-pf-ghost,);
+  transform: var(--fh-p-move, none);
+  opacity: var(--fh-p-alpha, 0.94);
+  transition: filter 0.7s var(--fh-ease), transform 0.7s var(--fh-ease), opacity 0.7s var(--fh-ease);
+}
+/* 2) Por cima do retrato (dentro de .fh-hero-art, que é aria-hidden e sem toque) */
+.ficha .fh-cart {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  animation: fh-cart-in 0.6s var(--fh-ease) both;
+}
+@keyframes fh-cart-in { from { opacity: 0; } }
+.ficha .fh-cart-still { background: linear-gradient(180deg, rgba(150, 170, 255, 0.3), rgba(70, 80, 190, 0.42)); mix-blend-mode: color; }
+.ficha .fh-cart-stone {
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0.9 0.6 0 0 -0.55'/></filter><rect width='160' height='160' filter='url(%23s)'/></svg>");
+  mix-blend-mode: overlay;
+}
+.ficha .fh-cart-charm {
+  background:
+    radial-gradient(60% 50% at 55% 35%, rgba(255, 120, 190, 0.55), transparent 70%),
+    radial-gradient(90% 80% at 50% 50%, rgba(255, 90, 170, 0.18), transparent 80%);
+  mix-blend-mode: screen;
+  animation: fh-cart-in 0.6s var(--fh-ease) both, fh-charm 3s ease-in-out 0.6s infinite;
+}
+@keyframes fh-charm { 50% { opacity: 0.55; } }
+.ficha .fh-cart-chains { width: 100%; height: 100%; overflow: visible; }
+.ficha .fh-cart-chains path { fill: none; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.ficha .fh-chain-back { stroke: rgba(10, 7, 6, 0.7); stroke-width: 9; }
+.ficha .fh-chain-link { stroke: #8a7a66; stroke-width: 5; stroke-dasharray: 12 6; animation: fh-chain-in 0.7s var(--fh-ease); }
+.ficha .fh-chain-shine { stroke: #e2d2b0; stroke-width: 1.4; stroke-dasharray: 7 11; stroke-dashoffset: -2; opacity: 0.6; animation: fh-chain-in 0.7s var(--fh-ease); }
+@keyframes fh-chain-in { from { stroke-dashoffset: 300; } }
+.ficha .fh-cart-zz {
+  inset: auto;
+  left: 16%;
+  top: 12%;
+  font-family: var(--fh-deco);
+  font-weight: 900;
+  font-size: 2.4rem;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: #e8e4ff;
+  text-shadow: 0 0 14px rgba(160, 170, 255, 0.85), 0 2px 0 rgba(0, 0, 0, 0.6);
+  animation: fh-cart-in 0.6s var(--fh-ease) both, fh-zz 3.2s ease-in-out 0.6s infinite;
+}
+.ficha .fh-cart-zz small { font-size: 0.62em; }
+.ficha .fh-cart-zz small + small { font-size: 0.45em; }
+@keyframes fh-zz { 50% { transform: translateY(-8px); opacity: 0.7; } }
+@media (min-width: 720px) {
+  .ficha .fh-cart:not(.fh-cart-zz) {
+    -webkit-mask-image: linear-gradient(to left, #000 50%, transparent 100%);
+    mask-image: linear-gradient(to left, #000 50%, transparent 100%);
+  }
+  .ficha .fh-cart-zz { left: 50%; top: 14%; } /* longe do nome (à esquerda) e da estrela (à direita) */
+}
+@media (max-width: 719px) {
+  .ficha .fh-cart:not(.fh-cart-zz) {
+    -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+    mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  }
+}
+/* 3) Bordas da tela: faixas coloridas fixas nas laterais (envenenado, amedrontado,
+   paralisado/atordoado). Só nas laterais e estreitas no celular (22px), para não
+   passarem por cima do texto dos painéis; no desktop ocupam a margem fora da ficha.
+   z-index 3: abaixo do clarão de PV (4), das abas fixas (5), do botão de dados e dos
+   modais. Anima só opacity. */
+.ficha .fh-cfx {
+  --fh-cfx-w: clamp(22px, (100vw - 720px) / 2 - 8px, 240px);
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background:
+    linear-gradient(to right, var(--fh-cfx-c) 0, var(--fh-cfx-c2) 40%, transparent) left / var(--fh-cfx-w) 100% no-repeat,
+    linear-gradient(to left, var(--fh-cfx-c) 0, var(--fh-cfx-c2) 40%, transparent) right / var(--fh-cfx-w) 100% no-repeat;
+  animation: fh-cart-in 0.6s var(--fh-ease) both;
+}
+.ficha .fh-cfx-poison {
+  --fh-cfx-c: rgba(120, 200, 60, 0.5);
+  --fh-cfx-c2: rgba(120, 200, 60, 0.16);
+  animation: fh-cart-in 0.6s var(--fh-ease) both, fh-queasy 4s ease-in-out 0.6s infinite;
+}
+.ficha .fh-cfx-fear {
+  --fh-cfx-c: rgba(150, 18, 40, 0.62);
+  --fh-cfx-c2: rgba(120, 10, 30, 0.2);
+  animation: fh-cart-in 0.6s var(--fh-ease) both, fh-heartbeat 1.3s ease-in-out 0.6s infinite;
+}
+.ficha .fh-cfx-still { --fh-cfx-c: rgba(120, 140, 255, 0.45); --fh-cfx-c2: rgba(110, 130, 255, 0.14); }
+@keyframes fh-queasy { 50% { opacity: 0.6; } }
+@keyframes fh-heartbeat { 0%, 100% { opacity: 0.55; } 12% { opacity: 1; } 24% { opacity: 0.7; } 36% { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  /* as camadas ficam (não são movimento), paradas */
+  .ficha .cond-chip,
+  .ficha .cond-chip .art-icon,
+  .ficha .fh-hero-art img { transition: none; }
+  .ficha .cond-chip:active { transform: none; }
+  .ficha .fh-cart,
+  .ficha .fh-cfx,
+  .ficha .fh-chain-link,
+  .ficha .fh-chain-shine { animation: none; }
+}
+@media (forced-colors: active) {
+  .ficha .cond-chip.on { border: 2px solid Highlight; }
+  .ficha .cond-chip .art-icon { forced-color-adjust: none; }
+  .ficha .fh-cfx { display: none; }
+}
+@media print {
+  .ficha .fh-cfx,
+  .ficha .fh-cart { display: none; }
+  .ficha .cond-chip.on { color: #7a1c12; background: none; box-shadow: none; }
+  .ficha .cond-chip { color: #3a2e22; background: none; }
+}
