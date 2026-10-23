@@ -116,21 +116,18 @@ const TargetPickerModal = ({ onClose, combat, attacker, attack, onPick, lang, bu
   const enemies = combatants.filter(c => c.type === 'monster');
   const allies = combatants.filter(c => c.type === 'pc');
 
+  // Alvo (na ficha: src/sheet/ficha.css, .fh-target): nome, faixa de saúde/PV, CA e distância
   const renderTarget = (c) => {
     const dist = combatantDistance(attacker, c);
     return (
-      <button key={c.id} className="option" onClick={() => onPick(c)} disabled={busy}>
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div className="option-title">{c.name}</div>
-            <div className="option-meta text-xs">
-              {c.current_hp != null
-                ? <>{lang === 'pt' ? 'PV' : 'HP'} {c.current_hp}/{c.stats?.max_hp ?? '?'}</>
-                : <>{healthText(c.health, lang)}</>}
-              {c.stats?.ac != null && <> · {lang === 'pt' ? 'CA' : 'AC'} {c.stats.ac}</>}
-              {dist !== null && ` · ${dist === 0 ? (lang === 'pt' ? 'mesma casa' : 'same square') : `${dist} ${lang === 'pt' ? 'quadrados' : 'sq'}`}`}
-            </div>
-          </div>
+      <button key={c.id} className="option fh-target" data-health={c.current_hp != null ? undefined : c.health} onClick={() => onPick(c)} disabled={busy}>
+        <div className="option-title">{c.name}</div>
+        <div className="option-meta text-xs">
+          {c.current_hp != null
+            ? <>{lang === 'pt' ? 'PV' : 'HP'} {c.current_hp}/{c.stats?.max_hp ?? '?'}</>
+            : <>{healthText(c.health, lang)}</>}
+          {c.stats?.ac != null && <> · {lang === 'pt' ? 'CA' : 'AC'} {c.stats.ac}</>}
+          {dist !== null && ` · ${dist === 0 ? (lang === 'pt' ? 'mesma casa' : 'same square') : `${dist} ${lang === 'pt' ? 'quadrados' : 'sq'}`}`}
         </div>
       </button>
     );
@@ -144,13 +141,13 @@ const TargetPickerModal = ({ onClose, combat, attacker, attack, onPick, lang, bu
         <>
           {enemies.length > 0 && (
             <>
-              <div className="eyebrow" style={{ marginBottom: 8 }}>{lang === 'pt' ? 'Inimigos' : 'Enemies'}</div>
+              <div className="eyebrow fh-target-group is-foe">{lang === 'pt' ? 'Inimigos' : 'Enemies'}</div>
               <div className="options-list">{enemies.map(renderTarget)}</div>
             </>
           )}
           {allies.length > 0 && (
             <>
-              <div className="eyebrow" style={{ marginTop: 16, marginBottom: 8 }}>{lang === 'pt' ? 'Aliados' : 'Allies'}</div>
+              <div className="eyebrow fh-target-group is-ally">{lang === 'pt' ? 'Aliados' : 'Allies'}</div>
               <div className="options-list">{allies.map(renderTarget)}</div>
             </>
           )}
@@ -163,26 +160,29 @@ const TargetPickerModal = ({ onClose, combat, attacker, attack, onPick, lang, bu
   );
 };
 
+// Resultado no visual do overlay de dados (na ficha: src/sheet/ficha.css, .fh-cres):
+// "ataque → alvo", a conta, o TOTAL grande e o veredito; números do servidor.
 const ResultDisplay = ({ result, lang, onClose }) => {
   if (result.kind === 'save') {
     const per = result.save?.per_target?.[0] || {};
     const ok = per.save?.success;
     return (
-      <div>
-        <div style={{ fontFamily: 'var(--display)', fontSize: '1.2rem', color: 'var(--gold-bright)' }}>
+      <div className={`fh-cres ${ok ? 'is-good' : 'is-bad'}`}>
+        <div className="fh-cres-who">
           {result.attack_name} → {result.target_name}
         </div>
-        <div className="mt-2">
-          {lang === 'pt' ? 'Resistência' : 'Save'}: {per.save?.total} vs CD {per.save?.dc} —{' '}
-          <strong style={{ color: ok ? 'var(--moss-bright)' : 'var(--blood-bright)' }}>
-            {ok ? (lang === 'pt' ? 'PASSOU' : 'PASSED') : (lang === 'pt' ? 'FALHOU' : 'FAILED')}
-          </strong>
+        <div className="fh-cres-line">
+          {lang === 'pt' ? 'Resistência' : 'Save'} · vs CD {per.save?.dc}
         </div>
-        <div className="mt-1">
+        <div className="fh-cres-total">{per.save?.total}</div>
+        <strong className="fh-cres-verdict">
+          {ok ? (lang === 'pt' ? 'PASSOU' : 'PASSED') : (lang === 'pt' ? 'FALHOU' : 'FAILED')}
+        </strong>
+        <div className="fh-cres-dmg">
           {lang === 'pt' ? 'Dano' : 'Damage'}: <strong>{per.damage_taken || 0}</strong> {damageTypeLabel(per.damage_type, lang)}
         </div>
-        {per.defeated && <div className="mt-1" style={{ color: 'var(--blood-bright)' }}>💀 {lang === 'pt' ? 'Alvo abatido!' : 'Target defeated!'}</div>}
-        <div className="mt-3"><button className="btn btn-sm btn-primary" onClick={onClose}>OK</button></div>
+        {per.defeated && <div className="fh-cres-down">💀 {lang === 'pt' ? 'Alvo abatido!' : 'Target defeated!'}</div>}
+        <div className="fh-cres-ok"><button className="btn btn-sm btn-primary" onClick={onClose}>OK</button></div>
       </div>
     );
   }
@@ -190,45 +190,46 @@ const ResultDisplay = ({ result, lang, onClose }) => {
   const hit = result.hit;
   const fallout = result.fallout;
   return (
-    <div>
-      <div style={{ fontFamily: 'var(--display)', fontSize: '1.2rem', color: 'var(--gold-bright)' }}>
+    <div className={`fh-cres ${result.crit ? 'is-crit' : hit ? 'is-good' : 'is-bad'}`}>
+      <div className="fh-cres-who">
         {result.attack_name} → {result.target_name}
       </div>
-      <div className="mt-2">
-        d20 {result.attack_roll?.value}{result.attack_total - result.attack_roll?.value >= 0 ? '+' : ''}
-        {result.attack_total - result.attack_roll?.value} = <strong>{result.attack_total}</strong>{result.target_ac != null ? <> {lang === 'pt' ? 'vs CA' : 'vs AC'} {result.target_ac}</> : null} —{' '}
-        <strong style={{ color: hit ? 'var(--moss-bright)' : 'var(--blood-bright)' }}>
-          {result.crit ? (lang === 'pt' ? 'CRÍTICO!' : 'CRITICAL!') : hit ? (lang === 'pt' ? 'ACERTO' : 'HIT') : result.natural_one ? (lang === 'pt' ? 'NATURAL 1' : 'NAT 1') : (lang === 'pt' ? 'ERROU' : 'MISS')}
-        </strong>
+      <div className="fh-cres-line">
+        d20 {result.attack_roll?.value} {result.attack_total - result.attack_roll?.value >= 0 ? '+' : ''}
+        {result.attack_total - result.attack_roll?.value}{result.target_ac != null ? <> · {lang === 'pt' ? 'vs CA' : 'vs AC'} {result.target_ac}</> : null}
       </div>
+      <div className="fh-cres-total">{result.attack_total}</div>
+      <strong className="fh-cres-verdict">
+        {result.crit ? (lang === 'pt' ? 'CRÍTICO!' : 'CRITICAL!') : hit ? (lang === 'pt' ? 'ACERTO' : 'HIT') : result.natural_one ? <>{lang === 'pt' ? 'NATURAL' : 'NAT'} <span className="fh-num">1</span></> : (lang === 'pt' ? 'ERROU' : 'MISS')}
+      </strong>
       {hit && result.damage && (
-        <div className="mt-1">
+        <div className="fh-cres-dmg">
           {lang === 'pt' ? 'Dano' : 'Damage'}: <strong>{result.damage.total}</strong> {damageTypeLabel(result.damage.type, lang)}
-          {result.damage_applied?.defeated && <span style={{ color: 'var(--blood-bright)', marginLeft: 8 }}>💀</span>}
+          {result.damage_applied?.defeated && <span className="fh-cres-skull">💀</span>}
         </div>
       )}
       {fallout && (
-        <div className="mt-3" style={{ padding: 8, borderLeft: '3px solid var(--blood)', background: 'rgba(255,0,0,0.06)' }}>
-          <div style={{ fontFamily: 'var(--display)', color: 'var(--blood-bright)' }}>
+        <div className="fh-cres-fallout">
+          <div className="fh-cres-fallout-title">
             ⚠ {lang === 'pt' ? 'DESVIO!' : 'WILD MISS!'} → {fallout.redirected_to_name}
           </div>
-          <div className="text-sm mt-1">
+          <div className="text-sm">
             ({fallout.reason === 'natural_one' ? (lang === 'pt' ? 'rolagem natural 1' : 'natural 1') : `${lang === 'pt' ? 'errou por' : 'missed by'} ${fallout.miss_margin}+`})
           </div>
-          <div className="mt-1">
+          <div>
             d20 {fallout.second_attack.attack_roll?.value} = <strong>{fallout.second_attack.attack_total}</strong> {lang === 'pt' ? 'vs CA' : 'vs AC'} {fallout.second_attack.target_ac} —{' '}
-            <strong style={{ color: fallout.second_attack.hit ? 'var(--moss-bright)' : 'var(--blood-bright)' }}>
+            <strong className={fallout.second_attack.hit ? 'is-hit' : 'is-miss'}>
               {fallout.second_attack.hit ? (lang === 'pt' ? 'ACERTOU O ALIADO' : 'HIT ALLY') : (lang === 'pt' ? 'errou de novo' : 'missed again')}
             </strong>
           </div>
           {fallout.second_attack.hit && fallout.second_attack.damage && (
-            <div className="mt-1">
+            <div>
               {lang === 'pt' ? 'Dano' : 'Damage'}: <strong>{fallout.second_attack.damage.total}</strong> {damageTypeLabel(fallout.second_attack.damage.type, lang)}
             </div>
           )}
         </div>
       )}
-      <div className="mt-3"><button className="btn btn-sm btn-primary" onClick={onClose}>OK</button></div>
+      <div className="fh-cres-ok"><button className="btn btn-sm btn-primary" onClick={onClose}>OK</button></div>
     </div>
   );
 };
@@ -276,10 +277,12 @@ const CombatActionPanel = ({ char, lang, onUpdate }) => {
   if (!myCombatant) return null;
 
   const attacks = deriveAttacks(char);
+  // Na ficha (src/sheet/ficha.css: .fh-combat): faixa vinho com o título, a rodada e o PV;
+  // um botão por ataque. "SUA VEZ" acende a faixa (is-turn), só visual.
   if (attacks.length === 0) {
     return (
-      <div className="card mb-3" style={{ borderLeft: '3px solid var(--gold)', padding: 12 }}>
-        <strong style={{ color: 'var(--gold)' }}>⚔ {lang === 'pt' ? 'Em combate' : 'In combat'}</strong>
+      <div className="card mb-3 fh-combat is-empty">
+        <strong className="fh-combat-title">⚔ {lang === 'pt' ? 'Em combate' : 'In combat'}</strong>
         <div className="muted small mt-1">
           {lang === 'pt' ? 'Adicione armas ou truques para atacar.' : 'Add weapons or cantrips to attack.'}
         </div>
@@ -322,33 +325,33 @@ const CombatActionPanel = ({ char, lang, onUpdate }) => {
   };
 
   return (
-    <div className="card mb-3" style={{ borderLeft: '3px solid var(--blood)', padding: 12 }}>
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <strong style={{ color: 'var(--blood-bright)' }}>
+    <div className={`card mb-3 fh-combat${isMyTurn ? ' is-turn' : ''}`}>
+      <div className="fh-combat-head">
+        <strong className="fh-combat-title">
           ⚔ {lang === 'pt' ? 'Combate ativo' : 'Combat active'}
-          {isMyTurn && <span style={{ color: 'var(--gold-bright)', marginLeft: 8 }}>· {lang === 'pt' ? 'SUA VEZ' : 'YOUR TURN'}</span>}
+          {isMyTurn && <span className="fh-combat-turn">· {lang === 'pt' ? 'SUA VEZ' : 'YOUR TURN'}</span>}
         </strong>
-        <span className="text-xs muted">
+        <span className="text-xs muted fh-combat-meta">
           {lang === 'pt' ? 'Rodada' : 'Round'} {combat.round} · {lang === 'pt' ? 'PV' : 'HP'} {myCombatant.current_hp}/{myCombatant.stats?.max_hp}
         </span>
       </div>
-      <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
+      <div className="fh-combat-atks">
         {attacks.map(atk => (
           <button
             key={atk.key}
-            className="btn btn-sm btn-primary"
+            className="btn btn-sm btn-primary fh-combat-atk"
             onClick={() => { setResult(null); setPicker({ attack: atk }); }}
             disabled={busy}
             title={atk.save ? `${lang === 'pt' ? 'Resistência de' : 'Save'} ${abilityLabel(atk.save.ability, lang)} ${lang === 'pt' ? 'CD' : 'DC'} ${atk.save.dc}` : `+${atk.attackBonus} ${atk.damage}`}
           >
-            {atk.icon} {atk.name}
-            <span className="text-xs muted" style={{ marginLeft: 6 }}>
+            <span className="fh-combat-atk-name">{atk.icon} {atk.name}</span>
+            <span className="text-xs muted fh-combat-atk-v">
               {atk.save ? `${lang === 'pt' ? 'CD' : 'DC'} ${atk.save.dc}` : `+${atk.attackBonus}`}
             </span>
           </button>
         ))}
       </div>
-      {error && <div className="mt-2" style={{ color: 'var(--blood-bright)', fontSize: '0.85em' }}>{error}</div>}
+      {error && <div className="mt-2 fh-combat-err">{error}</div>}
       {picker && (
         <TargetPickerModal
           onClose={() => { setPicker(null); setResult(null); }}

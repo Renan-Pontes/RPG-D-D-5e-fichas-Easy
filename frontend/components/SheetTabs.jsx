@@ -884,7 +884,7 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
 
   return (
     <>
-      <section className="fh-panel">
+      <section className="fh-panel fh-armor">
         <FhTitle>{t('armorChoice', lang)}</FhTitle>
         <select value={char.armor || ''} onChange={e => update({ armor: e.target.value || null })}>
           <option value="">{t('noArmor', lang)}</option>
@@ -892,17 +892,16 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
             <option key={a.id} value={a.id}>{tName('armor', a.id, lang)} ({lang === 'pt' ? 'CA' : 'AC'} {a.ac}, {armorTypeLabel(a.type, lang)})</option>
           ))}
         </select>
-        <div className="row gap-2 mt-2" style={{ alignItems: 'center' }}>
+        <div className="fh-shield-row">
           <input type="checkbox" id="shield2" checked={char.hasShield}
-            onChange={e => update({ hasShield: e.target.checked })}
-            style={{ width: 'auto', minHeight: 'auto' }}/>
-          <label htmlFor="shield2" style={{ margin: 0, cursor: 'pointer' }}>{t('shield', lang)} (+2 CA)</label>
+            onChange={e => update({ hasShield: e.target.checked })}/>
+          <label htmlFor="shield2">{t('shield', lang)} (+2 CA)</label>
         </div>
       </section>
 
       <section className="fh-panel">
       <FhTitle>{t('weapons', lang)}</FhTitle>
-      <select value="" onChange={e => { if (e.target.value) { addWeapon(e.target.value); e.target.value = ''; } }} style={{ marginBottom: 8 }}>
+      <select className="fh-wpn-add" value="" onChange={e => { if (e.target.value) { addWeapon(e.target.value); e.target.value = ''; } }}>
         <option value="">+ {t('addWeapon', lang)}...</option>
         {['simple-melee','simple-ranged','martial-melee','martial-ranged'].map(t_ => (
           <optgroup key={t_} label={WEAPON_GROUP[t_][lang === 'pt' ? 0 : 1]}>
@@ -919,44 +918,59 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
         const fs = a.fs;
         const atk = a.bonus;
         const dmgMod = a.dmgMod;
+        // Cartão da arma (src/sheet/ficha.css: .fh-wpn): [miniatura][nome][lixeira] /
+        // [dano][tipo] [ATAQUE +5][DANO 1d8+3] (os botões da aba Jogar) / notas.
+        const atkLabel = t('attackRoll', lang);
+        const dmgLabel = t('damageRoll', lang);
         return (
-          <div key={i} className="card" style={{ marginBottom: 8, padding: 12 }}>
-            <div className="row gap-2 mb-2" style={{ alignItems: 'center' }}>
+          <div key={i} className="card fh-wpn">
+            <div className="fh-wpn-top">
               <ArtThumb src={itemArtFor(w)} emoji="⚔️" size={44} lang={lang} />
-              <input value={w.name} onChange={e => updateWeapon(i, { name: e.target.value })} style={{ flex: 1, minWidth: 0 }}/>
-              <button className="btn btn-icon btn-ghost btn-danger" onClick={() => removeWeapon(i)}>
+              <input className="fh-wpn-name" aria-label={lang === 'pt' ? 'Nome da arma' : 'Weapon name'} value={w.name} onChange={e => updateWeapon(i, { name: e.target.value })}/>
+              <button className="btn btn-icon btn-ghost btn-danger" onClick={() => removeWeapon(i)} aria-label={`${lang === 'pt' ? 'Remover' : 'Remove'} ${w.name}`}>
                 <Icon name="trash" size={14}/>
               </button>
             </div>
-            <div className="row gap-2" style={{ alignItems: 'center' }}>
-              <input aria-label="1d8" value={w.damage} onChange={e => updateWeapon(i, { damage: e.target.value })} style={{ width: 90 }} placeholder="1d8"/>
-              <input aria-label={lang === 'pt' ? 'tipo' : 'type'} value={w.dmgType ? Utils.damageLabel(w.dmgType, lang) : ''} onChange={e => updateWeapon(i, { dmgType: e.target.value })} style={{ width: 110 }} placeholder={lang === 'pt' ? 'tipo' : 'type'}/>
-              <button className="btn btn-sm" onClick={() => roll({ die: 20, mod: atk, label: w.name + ' ' + t('attackRoll', lang) })}>
-                <Icon name="dice" size={12}/> {Utils.fmtMod(atk)}
-              </button>
-              <button className="btn btn-sm btn-ghost" onClick={() => {
-                const m = String(a.dice || '').match(/(\d+)d(\d+)/);
-                if (m) roll({ die: +m[2], count: +m[1], mod: dmgMod, label: w.name + ' ' + t('damageRoll', lang) });
-              }}>
-                {t('damageRoll', lang)} {a.damage}
-              </button>
+            <div className="fh-wpn-mid">
+              <div className="fh-wpn-fields">
+                <input className="fh-wpn-dmg" aria-label="1d8" value={w.damage} onChange={e => updateWeapon(i, { damage: e.target.value })} placeholder="1d8"/>
+                <input className="fh-wpn-type" aria-label={lang === 'pt' ? 'tipo' : 'type'} value={w.dmgType ? Utils.damageLabel(w.dmgType, lang) : ''} onChange={e => updateWeapon(i, { dmgType: e.target.value })} placeholder={lang === 'pt' ? 'tipo' : 'type'}/>
+              </div>
+              <div className="fh-wpn-rolls">
+                <button type="button" className="fh-atk-btn is-hit" aria-label={`${w.name}: ${atkLabel} ${Utils.fmtMod(atk)}`}
+                  onClick={() => roll({ die: 20, mod: atk, label: w.name + ' ' + t('attackRoll', lang) })}>
+                  <span className="fh-atk-btn-k">{atkLabel}</span>
+                  <span className="fh-atk-btn-v">{Utils.fmtMod(atk)}</span>
+                </button>
+                <button type="button" className="fh-atk-btn is-dmg" aria-label={`${w.name}: ${dmgLabel} ${a.damage}`} onClick={() => {
+                  const m = String(a.dice || '').match(/(\d+)d(\d+)/);
+                  if (m) roll({ die: +m[2], count: +m[1], mod: dmgMod, label: w.name + ' ' + t('damageRoll', lang) });
+                }}>
+                  <span className="fh-atk-btn-k">{dmgLabel}</span>
+                  <span className="fh-atk-btn-v">{a.damage}</span>
+                </button>
+              </div>
             </div>
-            {wDef && wDef.props && wDef.props.length > 0 && (
-              <div className="text-xs muted mt-2">{propsText(wDef.props, lang)}</div>
-            )}
-            {(fs.attackParts.length > 0 || fs.damageParts.length > 0) && (
-              <div className="text-xs mt-2" style={{ color: 'var(--gold)' }}>
-                {fs.attackParts.length > 0 && <>{lang === 'pt' ? 'Ataque' : 'Attack'} {FS.partsLabel(fs.attackParts, lang)} </>}
-                {fs.damageParts.length > 0 && <>{lang === 'pt' ? 'Dano' : 'Damage'} {FS.partsLabel(fs.damageParts, lang)}</>}
+            {((wDef && wDef.props && wDef.props.length > 0) || fs.attackParts.length > 0 || fs.damageParts.length > 0 || fs.mastery || fs.notes.length > 0 || a.monk) && (
+              <div className="fh-atk-notes fh-wpn-notes">
+                {wDef && wDef.props && wDef.props.length > 0 && (
+                  <div className="fh-atk-note fh-wpn-props">{propsText(wDef.props, lang)}</div>
+                )}
+                {(fs.attackParts.length > 0 || fs.damageParts.length > 0) && (
+                  <div className="fh-atk-note is-gold">
+                    {fs.attackParts.length > 0 && <>{lang === 'pt' ? 'Ataque' : 'Attack'} {FS.partsLabel(fs.attackParts, lang)} </>}
+                    {fs.damageParts.length > 0 && <>{lang === 'pt' ? 'Dano' : 'Damage'} {FS.partsLabel(fs.damageParts, lang)}</>}
+                  </div>
+                )}
+                {fs.mastery && (
+                  <div className="fh-atk-note is-mastery">
+                    {lang === 'pt' ? 'Maestria' : 'Mastery'}: <strong>{fs.mastery.name[lang]}</strong> — {fs.mastery.desc[lang]}
+                  </div>
+                )}
+                {fs.notes.map((n, k) => <div key={k} className="fh-atk-note">{n[lang]}</div>)}
+                {a.monk && <div className="fh-atk-note is-gold">{lang === 'pt' ? `Artes Marciais: arma de monge (usa ${a.ability === 'dex' ? 'DES' : 'FOR'})` : `Martial Arts: Monk weapon (uses ${a.ability === 'dex' ? 'DEX' : 'STR'})`}</div>}
               </div>
             )}
-            {fs.mastery && (
-              <div className="text-xs mt-2" style={{ color: 'var(--moss-bright)' }}>
-                {lang === 'pt' ? 'Maestria' : 'Mastery'}: <strong>{fs.mastery.name[lang]}</strong> — {fs.mastery.desc[lang]}
-              </div>
-            )}
-            {fs.notes.map((n, k) => <div key={k} className="text-xs muted mt-2">{n[lang]}</div>)}
-            {a.monk && <div className="text-xs mt-2" style={{ color: 'var(--gold)' }}>{lang === 'pt' ? `Artes Marciais: arma de monge (usa ${a.ability === 'dex' ? 'DES' : 'FOR'})` : `Martial Arts: Monk weapon (uses ${a.ability === 'dex' ? 'DEX' : 'STR'})`}</div>}
           </div>
         );
       })}
@@ -969,16 +983,16 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
 
       <section className="fh-panel">
         <FhTitle>{t('coins', lang)}</FhTitle>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+        {/* 5 moedas redondas no metal de cada uma (só visual), o campo embaixo */}
+        <div className="fh-coins">
           {['cp','sp','ep','gp','pp'].map(c => (
-            <div key={c} className="text-center">
-              <div className="eyebrow text-xs" title={COIN_NAME[lang === 'pt' ? 'pt' : 'en'][c]}>{COIN_LABEL[lang === 'pt' ? 'pt' : 'en'][c]}</div>
+            <div key={c} className="fh-coin" data-coin={c}>
+              <div className="eyebrow text-xs fh-coin-face" title={COIN_NAME[lang === 'pt' ? 'pt' : 'en'][c]}>{COIN_LABEL[lang === 'pt' ? 'pt' : 'en'][c]}</div>
               <input
                 type="number" min="0"
                 value={(char.coins || {})[c] || 0}
                 aria-label={`${COIN_LABEL[lang === 'pt' ? 'pt' : 'en'][c]} (${COIN_NAME[lang === 'pt' ? 'pt' : 'en'][c]})`}
                 onChange={ev => update({ coins: { ...(char.coins || {}), [c]: +ev.target.value || 0 } })}
-                style={{ textAlign: 'center', padding: 6 }}
               />
             </div>
           ))}
@@ -1002,35 +1016,48 @@ function ClassFeatures({ char, lang, cls }) {
   if (!items.length && char.rulesVersion !== '2024' && cls?.features) items = cls.features.map(f => ({ title: f.name[lang], text: f.desc[lang] }));
   const bgf = backgroundFeature(char, lang);
   if (bgf) items = [...items, { title: `${bgf.name} (${lang === 'pt' ? 'antecedente' : 'background'})`, text: bgf.desc }];
-  return items.map((f, i) => (
-    <div key={i} className="card" style={{ marginBottom: 8, padding: 12 }}>
-      <div style={{ fontFamily: 'var(--display)', color: 'var(--gold)', marginBottom: 4 }}>{f.title}</div>
-      {f.text && <div className="text-sm" style={{ color: 'var(--ink-secondary)' }}>{f.text}</div>}
+  // Linhas de traço (losango + nome) com a origem numa etiqueta: o "(nv. 2 — Druida 2)"
+  // e o "(antecedente)" do fim do título viram a etiqueta, só na apresentação.
+  return (
+    <div className="fh-traits fh-feats">
+      {items.map((f, i) => {
+        const m = String(f.title || '').match(/^(.*\S)\s*\(((?:nv\.|lvl|antecedente|background)[^()]*)\)$/i);
+        return (
+          <div key={i} className="fh-trait">
+            <div className="fh-trait-name">
+              <span>{m ? m[1] : f.title}</span>
+              {m && <span className="fh-origin">{m[2]}</span>}
+            </div>
+            {f.text && <div className="fh-trait-text">{f.text}</div>}
+          </div>
+        );
+      })}
     </div>
-  ));
+  );
 }
 
 // ===== Story =====
 const SheetStory = ({ char, lang, update, cls, race }) => (
   <>
-    <section className="fh-panel">
+    <section className="fh-panel fh-story">
     <FhTitle>{t('stepStory', lang)}</FhTitle>
-    <div style={{ display: 'grid', gap: 12 }}>
+    {/* Campos de pergaminho escuro com filete dourado (src/sheet/ficha.css: .fh-story) */}
+    <div className="fh-story-fields">
       {['personality','ideals','bonds','flaws','backstory','appearance','allies','treasure'].map(field => (
-        <div key={field}>
+        <div key={field} className="fh-field">
           <label>{t(field, lang)}</label>
-          <textarea aria-label={t(field, lang)} value={char[field] || ''} onChange={e => update({ [field]: e.target.value })} style={{ minHeight: field === 'backstory' ? 120 : 60 }}/>
+          <textarea aria-label={t(field, lang)} value={char[field] || ''} onChange={e => update({ [field]: e.target.value })} className={field === 'backstory' ? 'is-long' : undefined}/>
         </div>
       ))}
-      <div className="row gap-3" style={{ flexWrap: 'wrap' }}>
+      <div className="fh-story-short">
         {['age','height','weight','eyes','skin','hair'].map(f => (
-          <div key={f} style={{ flex: '1 1 30%' }}>
+          <div key={f} className="fh-field">
             <label>{t(f, lang)}</label>
             <input aria-label={t(f, lang)} value={char[f] || ''} onChange={e => update({ [f]: e.target.value })}/>
           </div>
         ))}
       </div>
-      <div>
+      <div className="fh-field">
         <label>{t('symbol', lang)}</label>
         <input aria-label={t('symbol', lang)} value={char.symbol || ''} onChange={e => update({ symbol: e.target.value })}/>
       </div>
@@ -1051,30 +1078,34 @@ const SpeciesTraits = ({ char, lang, update, race }) => {
     <section className="fh-panel">
       <FhTitle>{lang === 'pt' ? 'Traços da Espécie' : 'Species Traits'}</FhTitle>
       {(rows.length > 0 || canEdit) && (
-        <div className="card" style={{ marginBottom: 8, padding: 12 }}>
+        <div className="card fh-species-sum">
           {rows.map(([k, v]) => (
-            <div key={k} className="text-sm" style={{ marginBottom: 4 }}>
-              <strong style={{ color: 'var(--gold-deep)' }}>{k}:</strong> <span style={{ color: 'var(--ink-secondary)' }}>{v}</span>
+            <div key={k} className="fh-species-row">
+              <strong>{k}:</strong> <span>{v}</span>
             </div>
           ))}
           {canEdit && (
-            <button className="btn btn-sm btn-ghost no-print" style={{ marginTop: 6 }} onClick={() => setOpen(true)}>
+            <button className="btn btn-sm btn-ghost no-print" onClick={() => setOpen(true)}>
               <Icon name="edit" size={12}/> {lang === 'pt' ? 'Alterar escolhas' : 'Change choices'}
             </button>
           )}
         </div>
       )}
-      {race.traits.map((tr, i) => {
-        const later = tr.level && (char.level || 1) < tr.level;
-        return (
-          <div key={i} className="card" style={{ marginBottom: 8, padding: 12, opacity: later ? 0.6 : 1 }}>
-            <div style={{ fontFamily: 'var(--display)', color: 'var(--gold)', marginBottom: 4 }}>
-              {tr.name[lang]}{tr.level ? <span className="text-xs muted"> · {lang === 'pt' ? 'nível' : 'level'} {tr.level}</span> : null}
+      {/* Traços em linhas (losango + nome); os de nível futuro esmaecidos, com "· nível N" */}
+      <div className="fh-traits fh-feats">
+        {race.traits.map((tr, i) => {
+          const later = tr.level && (char.level || 1) < tr.level;
+          return (
+            <div key={i} className={`fh-trait${later ? ' is-later' : ''}`}>
+              <div className="fh-trait-name">
+                <span>{tr.name[lang]}</span>
+                {tr.level ? <span className="fh-origin">{lang === 'pt' ? 'nível' : 'level'} {tr.level}</span> : null}
+              </div>
+              <div className="fh-trait-text">{tr.desc[lang]}</div>
             </div>
-            <div className="text-sm" style={{ color: 'var(--ink-secondary)' }}>{tr.desc[lang]}</div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
       {open && <SpeciesChoicesModal char={char} lang={lang} onSave={update} onClose={() => setOpen(false)} />}
     </section>
   );
@@ -1094,23 +1125,24 @@ const SheetNotes = ({ char, lang, update }) => {
   return (
     <section className="fh-panel">
       <FhTitle>{t('tabNotes', lang)}</FhTitle>
-      <button className="btn btn-primary btn-sm" onClick={addNote} style={{ marginBottom: 16 }}>
+      <button className="btn btn-primary btn-sm fh-note-add" onClick={addNote}>
         <Icon name="plus" size={14}/> {t('addNote', lang)}
       </button>
       {(char.notes || []).length === 0 && (
-        <div className="card text-center muted" style={{ padding: 'var(--s-6)' }}>
+        <div className="card fh-empty">
           {t('noNotes', lang)}
         </div>
       )}
+      {/* Cada anotação é uma página de pergaminho escuro, com a data em mono */}
       {(char.notes || []).map(n => (
-        <div key={n.id} className="card mb-3" style={{ padding: 12 }}>
-          <div className="row mb-2" style={{ justifyContent: 'space-between' }}>
-            <span className="text-xs muted mono">{n.date}</span>
-            <button className="btn btn-icon btn-ghost btn-danger" onClick={() => removeNote(n.id)}>
+        <div key={n.id} className="card fh-note">
+          <div className="fh-note-head">
+            <span className="fh-note-date mono">{n.date}</span>
+            <button className="btn btn-icon btn-ghost btn-danger" onClick={() => removeNote(n.id)} aria-label={lang === 'pt' ? `Excluir anotação de ${n.date}` : `Delete note from ${n.date}`}>
               <Icon name="trash" size={14}/>
             </button>
           </div>
-          <textarea aria-label={lang === 'pt' ? 'Aventura, encontro, descoberta...' : 'Adventure, encounter, discovery...'} value={n.text} onChange={e => updateNote(n.id, e.target.value)} style={{ minHeight: 90 }} placeholder={lang === 'pt' ? 'Aventura, encontro, descoberta...' : 'Adventure, encounter, discovery...'}/>
+          <textarea aria-label={lang === 'pt' ? 'Aventura, encontro, descoberta...' : 'Adventure, encounter, discovery...'} value={n.text} onChange={e => updateNote(n.id, e.target.value)} placeholder={lang === 'pt' ? 'Aventura, encontro, descoberta...' : 'Adventure, encounter, discovery...'}/>
         </div>
       ))}
     </section>
@@ -1206,14 +1238,14 @@ function InventoryList({ char, lang, update, addItem, updateItem, removeItem }) 
   return (
     <>
       {inCampaign && (
-        <div className="muted small" style={{ fontSize: '0.85em', marginBottom: 6 }}>
+        <div className="muted small fh-inv-lock">
           🔒 {lang === 'pt'
             ? 'Em campanha: o mestre entrega os equipamentos. Você pode equipar, consumir e anotar.'
             : 'In campaign: the DM gives items. You can equip, consume, and add notes.'}
         </div>
       )}
       {items.length === 0 && (
-        <p className="muted small">{lang === 'pt' ? 'Sem itens.' : 'No items.'}</p>
+        <p className="muted small fh-empty">{lang === 'pt' ? 'Sem itens.' : 'No items.'}</p>
       )}
       {items.map((it, i) => (
         <InventoryRow rulesVersion={char.rulesVersion} key={it.id || `legacy-${i}`} item={it} idx={i} lang={lang}
@@ -1227,7 +1259,7 @@ function InventoryList({ char, lang, update, addItem, updateItem, removeItem }) 
         />
       ))}
       {!inCampaign && (
-        <div className="row gap-2" style={{ marginTop: 4 }}>
+        <div className="fh-inv-add">
           <button className="btn btn-sm btn-primary" onClick={() => setPicking(true)}>
             <Icon name="plus" size={14}/> {lang === 'pt' ? 'Adicionar / cadastrar item' : 'Add / create item'}
           </button>
@@ -1261,16 +1293,21 @@ function InventoryRow({ item, idx, lang, rulesVersion, inCampaign, onToggleEquip
     ? (typeof item.description === 'string' ? item.description : (item.description[lang] || item.description.en || item.description.pt || ''))
     : '';
 
+  // Linha do item (src/sheet/ficha.css: .inv-row-v2): o cabeçalho virou <button
+  // aria-expanded> (antes, div clicável) — miniatura redonda, nome, ×N, etiquetas e chevron.
   return (
-    <div className={`inv-row-v2 ${broken ? 'broken' : ''} ${equipped ? 'equipped' : ''}`}>
-      <div className="inv-row-head" onClick={() => setOpen(!open)}>
+    <div className={`inv-row-v2 ${broken ? 'broken' : ''} ${equipped ? 'equipped' : ''} ${open ? 'open' : ''}`}>
+      <button type="button" className="inv-row-head" aria-expanded={open} onClick={() => setOpen(!open)}>
         <ArtThumb src={art} emoji={emoji} size={36} lang={lang} className="inv-type-icon" />
-        <span className="inv-name">{item.name || '?'}</span>
-        {item.qty != null && item.qty !== 1 && <span className="muted small">×{item.qty}</span>}
-        {broken && <span className="inv-tag broken-tag">{lang === 'pt' ? 'QUEBRADO' : 'BROKEN'}</span>}
-        {equipped && <span className="inv-tag equip-tag">{lang === 'pt' ? 'equipado' : 'equipped'}</span>}
-        {attuned && <span className="inv-tag attune-tag">⚝ {lang === 'pt' ? 'em sintonia' : 'attuned'}</span>}
-      </div>
+        <span className="inv-main">
+          <span className="inv-name">{item.name || '?'}</span>
+          {item.qty != null && item.qty !== 1 && <span className="muted small inv-qty">×{item.qty}</span>}
+          {broken && <span className="inv-tag broken-tag">{lang === 'pt' ? 'QUEBRADO' : 'BROKEN'}</span>}
+          {equipped && <span className="inv-tag equip-tag">{lang === 'pt' ? 'equipado' : 'equipped'}</span>}
+          {attuned && <span className="inv-tag attune-tag">⚝ {lang === 'pt' ? 'em sintonia' : 'attuned'}</span>}
+        </span>
+        <span className="inv-chev" aria-hidden="true"><Icon name={open ? 'chevron-up' : 'chevron-down'} size={16}/></span>
+      </button>
       {open && (
         <div className="inv-row-body">
           <div className="item-detail">
@@ -1288,9 +1325,9 @@ function InventoryRow({ item, idx, lang, rulesVersion, inCampaign, onToggleEquip
             <div className="text-xs muted">🛡 {lang === 'pt' ? 'CA' : 'AC'} {item.armor.ac} ({armorTypeLabel(item.armor.type, lang)}){item.armor.stealth === 'disadv' ? (lang === 'pt' ? ' · desvantagem em Furtividade' : ' · Stealth disadvantage') : ''}{item.armor.strReq ? (lang === 'pt' ? ` · exige FOR ${item.armor.strReq}` : ` · STR ${item.armor.strReq} required`) : ''}</div>
           )}
           {item.magic && (
-            <div className="text-xs" style={{ color: 'var(--gold)' }}>✨ {item.magic.effect?.[lang] || item.magic.effect?.en}</div>
+            <div className="text-xs inv-magic">✨ {item.magic.effect?.[lang] || item.magic.effect?.en}</div>
           )}
-          <div className="row gap-2 mt-2" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="inv-acts">
             {(item.type === 'weapon' || item.type === 'armor' || item.type === 'shield' || canAttune) && (
               <button className={`btn btn-sm ${equipped ? 'btn-primary' : 'btn-ghost'}`} onClick={onToggleEquipped}>
                 {equipped ? '✓ ' : ''}{lang === 'pt' ? 'Equipado' : 'Equipped'}
@@ -1308,19 +1345,18 @@ function InventoryRow({ item, idx, lang, rulesVersion, inCampaign, onToggleEquip
             )}
             {/* Em campanha não permite remover */}
             {!inCampaign && (
-              <button className="btn btn-sm btn-ghost btn-danger" onClick={onRemove}>
+              <button className="btn btn-sm btn-ghost btn-danger inv-del" onClick={onRemove} aria-label={`${lang === 'pt' ? 'Remover' : 'Remove'} ${item.name || '?'}`}>
                 <Icon name="trash" size={12}/>
               </button>
             )}
           </div>
-          <label className="row gap-2 mt-2" style={{ alignItems: 'center' }}>
+          <label className="inv-notes">
             <span className="muted small">{lang === 'pt' ? 'Notas' : 'Notes'}:</span>
             <input aria-label={lang === 'pt' ? '...' : '...'}
               value={item.notes || ''}
               onChange={e => onPatchLocal({ notes: e.target.value })}
               onBlur={e => onSetNotes(e.target.value)}
               placeholder={lang === 'pt' ? '...' : '...'}
-              style={{ flex: 1 }}
             />
           </label>
         </div>

@@ -28,6 +28,19 @@ function nowLabel(lang) {
   return new Date().toLocaleTimeString(lang === 'pt' ? 'pt-BR' : 'en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
+// Visual "Ficha Forjada" (src/dice/dice-styles.css): d20 em traço no botão dourado.
+const FabD20 = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true">
+    <polygon points="12,2 21.5,7.5 21.5,16.5 12,22 2.5,16.5 2.5,7.5"/>
+    <polygon points="12,7 17,15 7,15"/>
+    <path d="M12 2v5M21.5 7.5 17 15M2.5 7.5 7 15M12 22v-2.5M7 15l-4.5 1.5M17 15l4.5 1.5M7 15l5 4.5 5-4.5"/>
+  </svg>
+);
+// Rótulo que é só a fórmula ("1d20", "2d6+3"): em mono — no Cinzel "1D20" vira "ID20".
+const isFormulaLabel = (e) => !!e && !e.who && !!e.formula && e.label === e.formula;
+// Faíscas do crítico (decorativas; somem com movimento reduzido)
+const SPARKS = Array.from({ length: 14 }, (_, i) => i);
+
 const DiceRoller = ({ lang }) => {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(1);
@@ -265,7 +278,7 @@ const DiceRoller = ({ lang }) => {
           aria-label={t('rollDice', lang)}
           aria-expanded={false}
         >
-          <Icon name="dice" size={24}/>
+          <FabD20 />
         </button>
       )}
 
@@ -310,7 +323,7 @@ const DiceRoller = ({ lang }) => {
                 onClick={() => repeat(last)} disabled={!last.formula}
                 title={last.formula ? L(lang, 'Rolar de novo', 'Roll again') : undefined}>
                 <span className="dice-last-text">
-                  <span className="dice-last-label">{last.who ? `${last.who} · ` : ''}{last.label}</span>
+                  <span className={`dice-last-label${isFormulaLabel(last) ? ' is-formula' : ''}`}>{last.who ? `${last.who} · ` : ''}{last.label}</span>
                   <span className="dice-last-detail">{breakdown(last)}</span>
                 </span>
                 <span className="dice-last-total">{last.total}</span>
@@ -402,7 +415,7 @@ const DiceRoller = ({ lang }) => {
                     {log.map(e => (
                       <li key={e.id} className={`dice-entry ${e.isCrit ? 'crit' : ''} ${e.isFumble ? 'fumble' : ''}`}>
                         <button type="button" className="dice-entry-btn" onClick={() => repeat(e)} disabled={!e.formula}>
-                          <span className="dice-entry-label">
+                          <span className={`dice-entry-label${isFormulaLabel(e) ? ' is-formula' : ''}`}>
                             {e.who ? `${e.who} · ` : ''}{e.label}
                             {e.adv === 'adv' && <span className="badge badge-adv">VTG</span>}
                             {e.adv === 'dis' && <span className="badge badge-dis">DSV</span>}
@@ -436,7 +449,7 @@ const DiceRoller = ({ lang }) => {
       {overlay && (
         <div className="dice-overlay no-print" onClick={() => setOverlay(null)} role="status" aria-live="polite">
           <div className={`dice-overlay-inner ${overlay.settled && overlay.isCrit ? 'is-crit' : ''} ${overlay.settled && overlay.isFumble ? 'is-fumble' : ''}`}>
-            <div className="dice-overlay-label">{overlay.who ? `${overlay.who} · ` : ''}{overlay.label}</div>
+            <div className={`dice-overlay-label${isFormulaLabel(overlay) ? ' is-formula' : ''}`}>{overlay.who ? `${overlay.who} · ` : ''}{overlay.label}</div>
             <DiceStage
               key={overlay.id}
               groups={overlay.groups}
@@ -447,7 +460,14 @@ const DiceRoller = ({ lang }) => {
             {overlay.settled && (
               <>
                 <div className="dice-overlay-formula">{breakdown(overlay)}</div>
-                <div className="dice-overlay-total">{overlay.total}</div>
+                <div className="dice-overlay-total">
+                  {overlay.total}
+                  {overlay.isCrit && (
+                    <span className="dice-sparks" aria-hidden="true">
+                      {SPARKS.map(i => <i key={i} style={{ '--i': i }} />)}
+                    </span>
+                  )}
+                </div>
                 {overlay.isCrit && <div className="dice-overlay-flair crit-flair">★ {L(lang, 'CRÍTICO!', 'CRITICAL!')} ★</div>}
                 {overlay.isFumble && <div className="dice-overlay-flair fumble-flair">{L(lang, 'FALHA CRÍTICA', 'CRITICAL MISS')}</div>}
                 <span className="dice-overlay-dismiss muted">{L(lang, 'Toque para fechar', 'Tap to dismiss')}</span>

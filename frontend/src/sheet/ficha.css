@@ -2309,3 +2309,930 @@
   .ficha .fh-style-react,
   .ficha .fh-style-react strong { color: #7a1c12; }
 }
+
+/* ---------- Barra de ações (plano §4.14, F12; .action-bar em components/Sheet.jsx) ----------
+   Os mesmos 7 controles, em pílulas de couro com filete dourado fino e ícone dourado.
+   Editar travado (campanha) e trapaça ligada: antes estilo inline, agora classes. */
+.ficha .fh-actions { gap: 8px; margin: 0 0 18px; }
+.ficha .fh-actions .chip {
+  min-height: 40px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(224, 181, 94, 0.28);
+  background: linear-gradient(180deg, rgba(37, 26, 20, 0.92), rgba(20, 14, 11, 0.92));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  font-size: 0.92rem;
+  color: var(--ink-secondary);
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.ficha .fh-actions .chip-icon { color: var(--gold); }
+@media (hover: hover) {
+  .ficha .fh-actions .chip:not(.is-locked):hover { border-color: var(--gold); color: var(--ink-primary); box-shadow: 0 0 14px rgba(240, 190, 90, 0.22); }
+}
+.ficha .fh-actions .chip:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.ficha .fh-actions .chip.is-locked { opacity: 0.55; cursor: not-allowed; }
+.ficha .fh-actions .chip.is-cheat {
+  color: #ffc9c0;
+  border-color: rgba(255, 106, 90, 0.6);
+  background: linear-gradient(180deg, rgba(94, 21, 17, 0.6), rgba(40, 10, 8, 0.65));
+}
+@media (max-width: 600px) {
+  .ficha .fh-actions { gap: 6px; margin-bottom: 14px; }
+  .ficha .fh-actions .chip { padding: 7px 12px; font-size: 0.9rem; }
+}
+
+/* Zona de perigo (Excluir), no pé da ficha: antes estilo inline */
+.ficha .fh-danger-zone {
+  margin-top: var(--s-7);
+  padding-top: var(--s-5);
+  border-top: 1px solid rgba(224, 181, 94, 0.14);
+  text-align: center;
+}
+
+/* ---------- Faixas entre o topo e as abas (plano §4.14, F12) ---------- */
+/* Escolha pendente (subclasse, espécie): o couro da ficha com um brilho dourado à esquerda */
+.ficha .card.fh-banner:not(.modal *) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 18px;
+  margin: 0 0 14px;
+  padding: 18px 20px;
+  background:
+    var(--fh-noise) padding-box,
+    radial-gradient(120% 160% at 0% 0%, rgba(224, 181, 94, 0.17), transparent 58%) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather) 40%, var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
+  box-shadow: 0 0 22px rgba(240, 190, 90, 0.16), 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+.ficha .fh-banner-text { flex: 1 1 260px; min-width: 0; display: grid; gap: 4px; }
+.ficha .fh-banner-eyebrow { margin: 0; font-weight: 600; letter-spacing: 0.18em; color: var(--gold); }
+.ficha .fh-banner-title {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.1rem;
+  line-height: 1.3;
+  letter-spacing: 0.03em;
+  color: var(--ink-primary);
+  overflow-wrap: anywhere;
+}
+.ficha .fh-banner-btn { flex: none; min-height: 44px; padding-inline: 18px; }
+@media (max-width: 600px) {
+  .ficha .card.fh-banner:not(.modal *) { padding: 16px; }
+  .ficha .fh-banner-btn { flex: 1 1 100%; }
+}
+
+/* Subclasse escolhida: faixa compacta, filete dourado à esquerda */
+.ficha .subclass-strip {
+  margin: 0 0 14px;
+  padding: 8px 8px 8px 16px;
+  border: 1px solid rgba(224, 181, 94, 0.26);
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(110, 80, 28, 0.24), rgba(10, 7, 6, 0.5) 72%);
+  box-shadow: inset 3px 0 0 var(--gold), 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.ficha .subclass-strip-text { gap: 1px; }
+.ficha .subclass-strip-text .eyebrow { font-weight: 600; color: var(--gold); }
+.ficha .subclass-strip-name {
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+  color: var(--fh-gold-hi);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ficha .subclass-strip .btn { flex: none; min-height: 40px; }
+.ficha .tag.fh-strip-tag {
+  flex: none;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  padding: 3px 9px;
+  border-radius: 3px;
+  color: var(--fh-verdigris);
+  border-color: rgba(116, 214, 180, 0.45);
+  background: rgba(18, 63, 52, 0.4);
+}
+
+/* Fora de campanha: só uma linha discreta */
+.ficha .campaign-mode-inline { margin: 0 0 14px; padding: 0 2px; font-size: 0.92rem; line-height: 1.4; color: var(--ink-muted); }
+.ficha .campaign-mode-inline strong { font-weight: 600; color: var(--ink-secondary); }
+
+/* Em campanha: faixa verdete (no lugar do musgo) — [🏰] rótulo + nome / travas [Sair] */
+.ficha .campaign-mode-banner.fh-camp {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 0 0 14px;
+  padding: 12px 12px 12px 16px;
+  border: 1px solid rgba(116, 214, 180, 0.38);
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(18, 63, 52, 0.55), rgba(10, 7, 6, 0.55) 78%);
+  box-shadow: inset 3px 0 0 var(--fh-verdigris), 0 4px 14px rgba(0, 0, 0, 0.35);
+  font-size: 1rem;
+  text-align: left;
+}
+.ficha .fh-camp .cmb-icon { font-size: 1.5rem; line-height: 1; }
+.ficha .fh-camp-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; }
+.ficha .fh-camp .cmb-label {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  color: var(--fh-verdigris);
+}
+.ficha .fh-camp .cmb-name {
+  font-family: var(--display);
+  font-style: normal;
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+  color: var(--ink-primary);
+  overflow-wrap: anywhere;
+}
+.ficha .fh-camp-note { flex: 1 1 100%; font-size: 0.88rem; line-height: 1.35; color: var(--ink-muted); }
+.ficha .fh-camp .btn {
+  width: auto;
+  min-height: 40px;
+  color: var(--fh-verdigris);
+  border-color: rgba(116, 214, 180, 0.45);
+}
+@media (hover: hover) {
+  .ficha .fh-camp .btn:hover { background: rgba(18, 63, 52, 0.7); color: var(--ink-primary); border-color: var(--fh-verdigris); }
+}
+@media (max-width: 600px) {
+  .ficha .campaign-mode-banner.fh-camp { gap: 8px 12px; padding: 12px 10px 12px 14px; }
+}
+
+/* Forma Selvagem ativa: verdete, barra como a do PV, sem o brilho pulsando sem parar */
+.ficha .wild-shape-banner {
+  gap: 10px 14px;
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(116, 214, 180, 0.5);
+  border-radius: 8px;
+  background:
+    radial-gradient(120% 160% at 0% 0%, rgba(116, 214, 180, 0.16), transparent 60%),
+    linear-gradient(180deg, rgba(18, 63, 52, 0.6), rgba(8, 28, 23, 0.65));
+  box-shadow: inset 3px 0 0 var(--fh-verdigris), 0 0 18px rgba(116, 214, 180, 0.14), 0 6px 18px rgba(0, 0, 0, 0.4);
+  animation: none;
+  text-align: left;
+}
+.ficha .wsb-icon { font-size: 1.8rem; }
+.ficha .wsb-title { font-weight: 600; font-size: 1.02rem; letter-spacing: 0.04em; color: var(--fh-verdigris); }
+.ficha .wsb-title strong { font-weight: 700; color: var(--ink-primary); }
+.ficha .wsb-hp { flex-wrap: wrap; gap: 6px 10px; margin-top: 8px; }
+.ficha .wsb-hp-bar {
+  flex: 1 1 160px;
+  max-width: 260px;
+  height: 12px;
+  border-radius: 999px;
+  background: #070505;
+  border: 1px solid rgba(116, 214, 180, 0.3);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+.ficha .wsb-hp-fill { border-radius: inherit; background: linear-gradient(90deg, #1f8c6e, var(--fh-verdigris)); }
+.ficha .wsb-hp-text { font-size: 0.85rem; color: var(--ink-secondary); }
+.ficha .wsb-pre { margin-top: 6px; font-size: 0.9rem; color: var(--ink-muted); }
+.ficha .fh-ws-err { margin-top: 6px; font-size: 0.88rem; color: var(--fh-blood); }
+.ficha .wild-shape-banner .btn { color: var(--fh-verdigris); border-color: rgba(116, 214, 180, 0.5); }
+@media (hover: hover) {
+  .ficha .wild-shape-banner .btn:hover { background: rgba(18, 63, 52, 0.8); color: var(--ink-primary); border-color: var(--fh-verdigris); }
+}
+@media (max-width: 600px) {
+  .ficha .wsb-hp-bar { max-width: none; }
+}
+
+/* Pedidos de teste do mestre (src/checks): o cartão também é da Mesa do jogador
+   (src/player/PlayerTable.jsx), por isso só aqui dentro. Aberto: couro com filete e
+   brilho dourado (pede ação); respondido: filete apagado. */
+.ficha .player-checks { gap: 12px; margin: 0 0 14px; }
+.ficha .check-card {
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(224, 181, 94, 0.15), transparent 60%) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
+  box-shadow: 0 0 22px rgba(240, 190, 90, 0.18), 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+.ficha .check-card.is-answered {
+  background:
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather-lo)) padding-box,
+    linear-gradient(rgba(224, 181, 94, 0.28), rgba(224, 181, 94, 0.28)) border-box;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+.ficha .check-card-eyebrow { font-weight: 600; font-size: 0.7rem; letter-spacing: 0.18em; color: var(--gold); }
+.ficha .check-card-later { min-height: 40px; padding: 0 10px; font-size: 0.92rem; color: var(--ink-muted); }
+.ficha .check-card-title strong { font-weight: 600; font-size: 1.3rem; letter-spacing: 0.03em; color: var(--ink-primary); }
+.ficha .check-card-dc,
+.ficha .check-card-adv {
+  font-weight: 600;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 3px;
+  color: var(--ink-secondary);
+  border-color: rgba(224, 181, 94, 0.32);
+  background: rgba(10, 7, 6, 0.55);
+}
+.ficha .check-card-adv { color: var(--fh-verdigris); border-color: rgba(116, 214, 180, 0.45); }
+.ficha .check-card-mod { font-size: 0.92rem; }
+.ficha .check-card-mod strong { color: var(--gold-bright); }
+.ficha .check-physical-mode {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgba(224, 181, 94, 0.3);
+  border-radius: 6px;
+  background: rgba(10, 7, 6, 0.5);
+}
+.ficha .check-physical-mode button { border-radius: 0; min-height: 46px; padding: 0 12px; font-size: 0.92rem; color: var(--ink-muted); }
+.ficha .check-physical-mode button + button { border-left: 1px solid rgba(224, 181, 94, 0.3); }
+.ficha .check-physical-mode button.active { background: rgba(224, 181, 94, 0.18); color: var(--fh-gold-hi); }
+.ficha .check-physical-input { background-color: #0b0807; border-color: rgba(224, 181, 94, 0.35); border-radius: 6px; }
+.ficha .check-card-total {
+  font-weight: 700;
+  font-size: 2.2rem;
+  color: var(--ink-primary);
+  text-shadow: 0 2px 8px #000, 0 0 18px rgba(224, 181, 94, 0.35);
+}
+.ficha .check-card-detail { font-size: 0.92rem; }
+.ficha .check-outcome { font-weight: 600; font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; padding: 3px 9px; border-radius: 3px; border: 1px solid; }
+.ficha .check-outcome.pass { color: var(--fh-verdigris); border-color: rgba(116, 214, 180, 0.45); background: rgba(18, 63, 52, 0.45); }
+.ficha .check-outcome.fail { color: #ffb4a8; border-color: rgba(255, 106, 90, 0.5); background: rgba(94, 21, 17, 0.5); }
+.ficha .check-card-error { color: var(--fh-blood); font-size: 0.9rem; }
+.ficha .player-checks-pill {
+  min-height: 44px;
+  border: 1px dashed rgba(224, 181, 94, 0.6);
+  background: rgba(10, 7, 6, 0.55);
+  color: var(--gold);
+}
+
+/* Painel de combate (src/campaigns/CombatActionPanel.jsx): faixa vinho com filete
+   vermelho-dourado, título, rodada e PV; um botão por ataque. "SUA VEZ" acende a faixa. */
+.ficha .card.fh-combat:not(.modal *) {
+  margin: 0 0 14px;
+  padding: 14px 16px 16px;
+  background:
+    var(--fh-noise) padding-box,
+    radial-gradient(120% 150% at 0% 0%, rgba(255, 106, 90, 0.16), transparent 60%) padding-box,
+    linear-gradient(180deg, #2c1511, var(--fh-leather) 45%, var(--fh-leather-lo)) padding-box,
+    linear-gradient(135deg, #ff9a8c 0%, #6b1a14 28%, #e0604f 52%, #5e1511 76%, #ffb3a6 100%) border-box;
+}
+.ficha .card.fh-combat.is-turn:not(.modal *) {
+  box-shadow: 0 0 0 1px rgba(255, 106, 90, 0.3), 0 0 26px rgba(255, 106, 90, 0.28), 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+.ficha .fh-combat-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin-bottom: 12px; }
+.ficha .fh-combat-title {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.92rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #ff9a8c;
+}
+.ficha .fh-combat-turn { margin-left: 8px; color: var(--fh-gold-hi); text-shadow: 0 0 12px rgba(250, 210, 120, 0.55); }
+.ficha .fh-combat-meta { font-size: 0.88rem; color: var(--ink-muted); font-variant-numeric: lining-nums tabular-nums; }
+.ficha .fh-combat-atks { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); gap: 8px; }
+.ficha .fh-combat.is-empty .fh-combat-title { color: var(--gold); }
+/* os botões de ataque no tom dos da aba Jogar (ouro escuro com filete), não o ouro chapado */
+.ficha .btn.fh-combat-atk {
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 12px;
+  border-radius: 5px;
+  border-color: rgba(224, 181, 94, 0.55);
+  background: linear-gradient(180deg, rgba(110, 80, 28, 0.5), rgba(36, 24, 10, 0.6));
+  box-shadow: none;
+  color: var(--gold-bright);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-align: left;
+}
+.ficha .fh-combat-atk-name { min-width: 0; overflow-wrap: anywhere; }
+.ficha .fh-combat-atk .fh-combat-atk-v {
+  flex: none;
+  font-family: var(--body);
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--fh-gold-hi);
+}
+@media (hover: hover) {
+  .ficha .btn.fh-combat-atk:hover { background: linear-gradient(180deg, rgba(130, 95, 34, 0.6), rgba(46, 31, 12, 0.7)); color: var(--fh-gold-hi); border-color: var(--gold); box-shadow: 0 0 16px rgba(240, 190, 90, 0.3); }
+}
+.ficha .fh-combat-err { color: var(--fh-blood); font-size: 0.9rem; }
+
+/* Modal de alvo: grupos e faixa de saúde (só cor; os textos são os de antes) */
+.ficha .fh-target-group { margin: 0 0 8px; font-weight: 600; }
+.ficha .options-list + .fh-target-group { margin-top: 16px; }
+.ficha .fh-target-group.is-foe { color: #ff9a8c; }
+.ficha .fh-target-group.is-ally { color: var(--fh-verdigris); }
+.ficha .option.fh-target { box-shadow: inset 3px 0 0 rgba(224, 181, 94, 0.35); }
+.ficha .option.fh-target[data-health="unhurt"] { box-shadow: inset 3px 0 0 var(--fh-verdigris); }
+.ficha .option.fh-target[data-health="hurt"] { box-shadow: inset 3px 0 0 var(--amber); }
+.ficha .option.fh-target[data-health="bloodied"] { box-shadow: inset 3px 0 0 var(--fh-blood); }
+
+/* Resultado do ataque no visual do overlay de dados: conta em mono, TOTAL grande,
+   veredito em Cinzel Decorative (acerto verdete, crítico ouro, erro vermelho) */
+.ficha .fh-cres { display: grid; justify-items: center; gap: 4px; padding: 4px 0 0; text-align: center; }
+.ficha .fh-cres-who {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+  overflow-wrap: anywhere;
+}
+.ficha .fh-cres-line { font-family: var(--mono); font-size: 0.9rem; color: var(--ink-muted); }
+.ficha .fh-cres-total {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 3.6rem;
+  line-height: 1.05;
+  color: var(--ink-primary);
+  text-shadow: 0 4px 16px #000, 0 0 30px rgba(224, 181, 94, 0.45);
+}
+.ficha .fh-cres-verdict { font-family: var(--fh-deco); font-weight: 900; font-size: 1.25rem; letter-spacing: 0.06em; }
+.ficha .fh-cres-verdict .fh-num { font-family: var(--body); font-weight: 700; } /* no Cinzel Decorative o "1" vira "I" */
+.ficha .fh-cres.is-good .fh-cres-verdict { color: var(--fh-verdigris); text-shadow: 0 0 14px rgba(116, 214, 180, 0.45); }
+.ficha .fh-cres.is-bad .fh-cres-verdict { color: #ff8a7c; }
+.ficha .fh-cres.is-crit .fh-cres-verdict { color: var(--fh-gold-hi); text-shadow: 0 0 14px rgba(250, 210, 120, 0.6); }
+.ficha .fh-cres.is-crit .fh-cres-total { color: var(--fh-gold-hi); text-shadow: 0 0 24px var(--fh-gold-hi), 0 0 48px var(--gold); }
+.ficha .fh-cres-dmg { margin-top: 4px; font-size: 1.05rem; color: var(--ink-secondary); }
+.ficha .fh-cres-dmg strong { font-size: 1.3rem; color: var(--ink-primary); }
+.ficha .fh-cres-skull { margin-left: 8px; }
+.ficha .fh-cres-down { color: var(--fh-blood); }
+.ficha .fh-cres-fallout {
+  justify-self: stretch;
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 106, 90, 0.45);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(94, 21, 17, 0.5), rgba(40, 10, 8, 0.55));
+  text-align: left;
+  color: var(--ink-secondary);
+}
+.ficha .fh-cres-fallout-title { font-family: var(--display); font-weight: 600; letter-spacing: 0.06em; color: #ff9a8c; }
+.ficha .fh-cres-fallout .is-hit { color: var(--fh-verdigris); }
+.ficha .fh-cres-fallout .is-miss { color: #ff8a7c; }
+.ficha .fh-cres-ok { margin-top: 12px; }
+.ficha .fh-cres-ok .btn { min-width: 128px; min-height: 44px; }
+
+/* ---------- Inventário (plano §4.14, F12; SheetInventory em components/SheetTabs.jsx) ---------- */
+/* Campos no tom da ficha (fundo de tinta, filete dourado fino): inventário, história, diário */
+.ficha :is(.fh-armor, .fh-wpn, .fh-coin, .inv-notes, .fh-story, .fh-note) :is(input:not([type="checkbox"]), select, textarea),
+.ficha select.fh-wpn-add {
+  background-color: #070505;
+  border-color: rgba(224, 181, 94, 0.28);
+  border-radius: 6px;
+}
+.ficha :is(.fh-armor, .fh-wpn, .fh-coin, .inv-notes, .fh-story, .fh-note) :is(input:not([type="checkbox"]), select, textarea):focus,
+.ficha select.fh-wpn-add:focus {
+  border-color: var(--fh-gold-hi);
+  box-shadow: 0 0 0 3px rgba(224, 181, 94, 0.18);
+}
+.ficha .fh-shield-row { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-top: 10px; }
+.ficha .fh-shield-row input[type="checkbox"] {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+.ficha .fh-shield-row label { margin: 0; padding: 10px 0; cursor: pointer; color: var(--ink-secondary); }
+
+/* Arma: [miniatura][nome][lixeira] / [dano][tipo] [ATAQUE +5][DANO 1d8+3] / notas */
+.ficha .fh-wpn-add { margin-bottom: 12px; }
+.ficha .card.fh-wpn { display: grid; gap: 10px; margin: 0 0 10px; padding: 12px; }
+.ficha .card.fh-wpn:last-child { margin-bottom: 0; }
+.ficha .fh-wpn-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ficha .fh-wpn-name { flex: 1 1 auto; min-width: 0; font-family: var(--display); font-weight: 600; letter-spacing: 0.03em; }
+.ficha .fh-wpn-top .btn-icon { flex: none; min-width: 44px; min-height: 44px; }
+.ficha .fh-wpn-mid { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ficha .fh-wpn-fields { display: flex; gap: 8px; flex: 1 1 210px; min-width: 0; }
+.ficha .fh-wpn-dmg { flex: 0 0 84px; min-width: 0; font-variant-numeric: lining-nums; }
+.ficha .fh-wpn-type { flex: 1 1 100px; min-width: 0; }
+.ficha .fh-wpn-rolls { display: flex; gap: 8px; flex: none; }
+.ficha .fh-wpn-notes { grid-area: auto; margin-top: 0; } /* o grid-area: notes do .fh-atk-notes criaria colunas implícitas aqui */
+@media (max-width: 600px) {
+  .ficha .fh-wpn-rolls { flex: 1 1 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ficha .fh-wpn-rolls .fh-atk-btn { min-width: 0; }
+}
+
+/* Equipamento: linha de item (como a da magia) — miniatura redonda, nome em Cinzel,
+   ×N, etiquetas e chevron; aberto ganha o filete dourado e o corpo com as ações */
+.ficha .fh-inv-lock { margin: 0 0 10px; font-size: 0.9rem; line-height: 1.4; color: var(--ink-muted); }
+.ficha .inv-row-v2 {
+  margin: 0 0 8px;
+  border: 1px solid rgba(224, 181, 94, 0.16);
+  border-radius: 6px;
+  background: rgba(10, 7, 6, 0.45);
+  transition: border-color 0.2s, background-color 0.2s;
+}
+.ficha .inv-row-v2.equipped { border-left-width: 1px; border-left-color: rgba(224, 181, 94, 0.16); box-shadow: inset 3px 0 0 var(--gold); }
+.ficha .inv-row-v2.broken { opacity: 1; filter: none; }
+.ficha .inv-row-v2.open { border-color: rgba(224, 181, 94, 0.42); background: linear-gradient(180deg, rgba(110, 80, 28, 0.2), rgba(10, 7, 6, 0.45)); }
+.ficha .inv-row-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  margin: 0;
+  padding: 9px 12px 9px 10px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: hover) {
+  .ficha .inv-row-v2:hover { border-color: rgba(224, 181, 94, 0.3); }
+  .ficha .inv-row-head:hover { background: linear-gradient(90deg, rgba(224, 181, 94, 0.1), transparent 85%); }
+}
+.ficha .inv-row-head:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+.ficha .inv-row-head .art-thumb { margin: 0; border-radius: 50%; box-shadow: 0 0 0 1px rgba(224, 181, 94, 0.5), 0 2px 6px rgba(0, 0, 0, 0.5); }
+.ficha .inv-row-v2.broken .inv-row-head .art-thumb img { filter: grayscale(1) brightness(0.7); } /* só a <img>: elemento-folha */
+.ficha .inv-main { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.ficha .inv-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.25;
+  letter-spacing: 0.03em;
+  color: var(--ink-primary);
+  overflow-wrap: anywhere;
+}
+.ficha .inv-row-v2.broken .inv-name { color: var(--ink-muted); text-decoration-color: rgba(255, 106, 90, 0.7); }
+.ficha .inv-qty { font-weight: 700; font-size: 0.95rem; color: var(--ink-muted); font-variant-numeric: lining-nums tabular-nums; }
+.ficha .inv-tag {
+  font-family: var(--display);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1.5;
+  padding: 1px 7px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.ficha .inv-tag.equip-tag { color: var(--gold-bright); border-color: rgba(224, 181, 94, 0.5); background: rgba(110, 80, 28, 0.3); }
+.ficha .inv-tag.attune-tag { color: var(--arcane-bright); border-color: rgba(159, 176, 240, 0.45); background: rgba(93, 107, 224, 0.16); }
+.ficha .inv-tag.broken-tag { color: #ffb4a8; border-color: rgba(255, 106, 90, 0.5); background: rgba(94, 21, 17, 0.45); }
+.ficha .inv-chev { flex: none; display: grid; color: var(--ink-muted); }
+.ficha .inv-row-v2.open .inv-chev { color: var(--gold); }
+.ficha .inv-row-body {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid rgba(224, 181, 94, 0.16);
+  background: rgba(10, 7, 6, 0.35);
+}
+.ficha .inv-row-body .item-detail { margin: 0; }
+.ficha .inv-row-body .item-desc { font-size: 0.95rem; line-height: 1.5; color: var(--ink-secondary); }
+.ficha .inv-row-body .text-xs { font-size: 0.88rem; line-height: 1.4; }
+.ficha .inv-magic { color: var(--gold); }
+.ficha .inv-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+.ficha .inv-acts .btn { min-height: 40px; }
+.ficha .inv-acts .inv-del { margin-left: auto; min-width: 44px; }
+.ficha .inv-notes { display: flex; align-items: center; gap: 10px; margin: 2px 0 0; }
+.ficha .inv-notes > span { flex: none; }
+.ficha .inv-notes input { flex: 1 1 auto; min-width: 0; }
+.ficha .fh-inv-add { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+@media (max-width: 600px) {
+  .ficha .fh-inv-add .btn { flex: 1 1 auto; min-height: 44px; }
+}
+.ficha .fh-empty { margin: 0 0 8px; padding: 18px 12px; text-align: center; font-style: italic; color: var(--ink-muted); }
+
+/* Moedas: 5 moedas redondas no metal de cada uma (só visual), o campo embaixo */
+.ficha .fh-coins { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.ficha .fh-coin { --c1: #fff0bf; --c2: #e2b65d; --c3: #8e6425; display: grid; justify-items: center; gap: 8px; min-width: 0; }
+.ficha .fh-coin[data-coin="cp"] { --c1: #ffd8bd; --c2: #c4733f; --c3: #5e2a12; }
+.ficha .fh-coin[data-coin="sp"] { --c1: #ffffff; --c2: #c3c7d1; --c3: #5f6472; }
+.ficha .fh-coin[data-coin="ep"] { --c1: #fffbe0; --c2: #cfc68e; --c3: #6f6942; }
+.ficha .fh-coin[data-coin="pp"] { --c1: #ffffff; --c2: #d9e2ef; --c3: #7a879b; }
+.ficha .fh-coin-face {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--c1), var(--c2) 52%, var(--c3) 100%);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.2),
+    inset 0 0 0 4px rgba(0, 0, 0, 0.12),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 4px 10px rgba(0, 0, 0, 0.45);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: #2a1a08;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.ficha .fh-coin input {
+  min-width: 0;
+  padding: 6px 2px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.05rem;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+@media (max-width: 380px) {
+  .ficha .fh-coins { gap: 6px; }
+  .ficha .fh-coin-face { width: 40px; height: 40px; }
+}
+
+/* Características de classe e traços da espécie: linhas de traço com a origem numa
+   etiqueta ("nv. 2 — Druida 2", "antecedente", "nível 5"); os futuros esmaecidos */
+.ficha .fh-feats { gap: 0; }
+.ficha .fh-feats .fh-trait { padding: 12px 0; border-top: 1px solid rgba(224, 181, 94, 0.14); }
+.ficha .fh-feats .fh-trait:first-child { padding-top: 2px; border-top: 0; }
+.ficha .fh-feats .fh-trait:last-child { padding-bottom: 0; }
+.ficha .fh-feats .fh-trait-name { flex-wrap: wrap; row-gap: 4px; }
+.ficha .fh-feats .fh-trait-name > span:first-of-type { min-width: 0; overflow-wrap: anywhere; }
+.ficha .fh-origin {
+  padding: 0 8px;
+  border: 1px solid rgba(224, 181, 94, 0.3);
+  border-radius: 3px;
+  background: rgba(10, 7, 6, 0.5);
+  font-family: var(--body);
+  font-weight: 600;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  font-variant-caps: all-small-caps;
+  font-variant-numeric: lining-nums;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+.ficha .fh-trait.is-later { opacity: 0.6; }
+
+/* ---------- História (F12; SheetStory/SpeciesTraits em components/SheetTabs.jsx) ---------- */
+.ficha .fh-story-fields { display: grid; gap: 14px; }
+.ficha .fh-field > label { margin-bottom: 6px; color: var(--gold); }
+.ficha .fh-story textarea {
+  min-height: 72px;
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+.ficha .fh-story textarea.is-long { min-height: 140px; }
+.ficha .fh-story-short { display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); gap: 12px 10px; }
+.ficha .fh-story-short input { min-width: 0; }
+/* resumo das escolhas da espécie: caixa rebaixada com "chave: valor" */
+.ficha .fh-panel .card.fh-species-sum:not(.modal *) { margin: 0 0 14px; padding: 12px 14px; }
+.ficha .fh-species-row { margin: 0 0 4px; font-size: 0.98rem; line-height: 1.45; color: var(--ink-secondary); }
+.ficha .fh-species-row strong { font-weight: 600; color: var(--gold); }
+.ficha .fh-species-sum .btn { margin-top: 8px; min-height: 40px; }
+
+/* ---------- Diário (F12; SheetNotes): cada anotação é uma página de pergaminho escuro ---------- */
+.ficha .fh-note-add { margin: 0 0 14px; }
+.ficha .fh-panel .card.fh-note:not(.modal *) {
+  margin: 0 0 12px;
+  padding: 10px 12px 12px;
+  border: 1px solid rgba(224, 181, 94, 0.22);
+  border-radius: 6px;
+  background:
+    radial-gradient(140% 90% at 50% 0%, rgba(243, 230, 203, 0.05), transparent 70%),
+    linear-gradient(180deg, rgba(48, 34, 24, 0.6), rgba(20, 14, 11, 0.65));
+  box-shadow: inset 0 1px 0 rgba(255, 230, 170, 0.05), 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+.ficha .fh-note:last-child { margin-bottom: 0; }
+.ficha .fh-note-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 8px; }
+.ficha .fh-note-date { display: inline-flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--gold); }
+.ficha .fh-note-date::before { content: ""; flex: none; width: 6px; height: 6px; transform: rotate(45deg); background: var(--fh-gilt); }
+.ficha .fh-note-head .btn-icon { min-width: 44px; min-height: 44px; }
+/* pauta discreta (linha a cada 26px, a mesma altura da linha do texto) */
+.ficha .fh-note textarea {
+  min-height: 104px;
+  padding: 10px 12px;
+  line-height: 26px;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 25px, rgba(224, 181, 94, 0.08) 25px 26px) 0 10px / 100% 26px local,
+    #0b0807;
+}
+@media (max-width: 600px) {
+  .ficha .fh-note-add { width: 100%; min-height: 44px; }
+}
+
+/* ---------- NPCs (F12; SheetNpcs em components/Sheet.jsx: antes 100% estilo inline) ---------- */
+.ficha [data-rel] { --rel: var(--gold); }
+.ficha [data-rel="ally"] { --rel: var(--fh-verdigris); }
+.ficha [data-rel="enemy"] { --rel: var(--fh-blood); }
+.ficha [data-rel="unknown"] { --rel: var(--ink-muted); }
+.ficha .fh-npcs { display: grid; gap: 10px; }
+.ficha .fh-npc {
+  padding: 12px 12px 12px 16px;
+  border: 1px solid rgba(224, 181, 94, 0.18);
+  border-radius: 6px;
+  background: rgba(10, 7, 6, 0.45);
+  box-shadow: inset 3px 0 0 var(--rel);
+}
+.ficha .fh-npc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.ficha .fh-npc-id { min-width: 0; }
+.ficha .fh-npc-name {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  line-height: 1.25;
+  letter-spacing: 0.03em;
+  color: var(--ink-primary);
+  overflow-wrap: anywhere;
+}
+.ficha .fh-npc-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; font-size: 0.92rem; line-height: 1.35; color: var(--ink-muted); }
+.ficha .fh-npc-rel {
+  padding: 1px 8px;
+  border: 1px solid color-mix(in srgb, var(--rel) 55%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--rel) 13%, transparent);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.6rem;
+  line-height: 1.6;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rel);
+}
+.ficha .fh-npc-acts { flex: none; display: flex; gap: 6px; }
+.ficha .fh-npc-btn {
+  min-width: 44px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid rgba(224, 181, 94, 0.45);
+  border-radius: 5px;
+  background: rgba(10, 7, 6, 0.5);
+  color: var(--gold);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ficha .fh-npc-btn.is-del { padding: 0; font-family: var(--body); font-size: 0.95rem; letter-spacing: 0; color: var(--fh-blood); border-color: rgba(255, 106, 90, 0.45); }
+@media (hover: hover) {
+  .ficha .fh-npc-btn:hover { color: var(--fh-gold-hi); border-color: var(--gold); }
+  .ficha .fh-npc-btn.is-del:hover { color: #ffd7cf; border-color: var(--fh-blood); background: rgba(94, 21, 17, 0.55); }
+}
+.ficha .fh-npc-btn:focus-visible,
+.ficha .fh-rel-pill:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.ficha .fh-npc-notes {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(224, 181, 94, 0.16);
+  font-size: 0.98rem;
+  line-height: 1.45;
+  color: var(--ink-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ficha .btn.fh-npc-add { width: 100%; min-height: 44px; margin-top: 14px; color: var(--gold); border-color: rgba(224, 181, 94, 0.5); }
+/* pílulas de relação no modal (antes inline, agora com aria-pressed) */
+.ficha .fh-rel-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.ficha .fh-rel-pill {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid color-mix(in srgb, var(--rel) 60%, transparent);
+  border-radius: 999px;
+  background: rgba(10, 7, 6, 0.5);
+  color: var(--rel);
+  font-family: var(--body);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.ficha .fh-rel-pill.on { background: var(--rel); border-color: var(--rel); color: #140e0b; font-weight: 700; }
+
+/* ---------- Progressão (F12; src/progression/ProgressionPanel.jsx, children da ficha) ----------
+   O painel vira couro com filete e título em folha de ouro; pendências em âmbar;
+   <details> com chevron, como os grupos de magia. */
+.ficha .progression-panel {
+  position: relative;
+  margin: 0 0 16px;
+  padding: 20px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background:
+    var(--fh-noise) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather) 40%, var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
+  box-shadow: 0 1px 0 rgba(255, 230, 170, 0.06) inset, 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+.ficha .progression-panel::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0.85;
+  background:
+    var(--fh-corner-tl) top left / 22px no-repeat,
+    var(--fh-corner-tr) top right / 22px no-repeat,
+    var(--fh-corner-bl) bottom left / 22px no-repeat,
+    var(--fh-corner-br) bottom right / 22px no-repeat;
+}
+.ficha .progression-panel > h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  line-height: 1.3;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+}
+.ficha .progression-panel > h3::before {
+  content: "";
+  flex: none;
+  align-self: center;
+  width: 8px;
+  height: 8px;
+  transform: rotate(45deg);
+  background: var(--fh-gilt);
+  box-shadow: 0 0 8px rgba(240, 200, 110, 0.6);
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .ficha .progression-panel > h3 {
+    background: var(--fh-foil);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+.ficha .progression-panel p { margin: 0 0 6px; font-size: 0.92rem; color: var(--ink-muted); }
+.ficha .progression-panel a { color: var(--gold); }
+.ficha .prog-section { margin: 14px 0 0; }
+.ficha .prog-label {
+  margin: 0 0 8px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.ficha .prog-section.pending {
+  padding: 12px 14px;
+  border: 1px solid rgba(227, 164, 69, 0.45);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(242, 179, 76, 0.12), rgba(10, 7, 6, 0.4));
+}
+.ficha .prog-section.pending .prog-label { color: var(--amber); }
+.ficha .progression-panel ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.ficha .prog-section.pending li {
+  position: relative;
+  padding-left: 16px;
+  line-height: 1.45;
+  color: var(--ink-secondary);
+}
+.ficha .prog-section.pending li::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  transform: rotate(45deg);
+  background: var(--amber);
+}
+.ficha .prog-section.pending li strong { color: var(--ink-primary); }
+.ficha .prog-choose { display: flex; margin: 8px 0 2px; min-height: 40px; } /* embaixo do item, alvo de 40px */
+.ficha .progression-panel details > summary {
+  position: relative;
+  min-height: 44px;
+  padding: 11px 4px 11px 22px;
+  list-style: none;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(224, 181, 94, 0.16);
+  line-height: 1.4;
+  color: var(--ink-secondary);
+}
+.ficha .progression-panel details > summary::-webkit-details-marker { display: none; }
+.ficha .progression-panel details > summary::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 19px;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid var(--gold);
+  border-bottom: 1.5px solid var(--gold);
+  transform: rotate(-45deg);
+  transition: transform 0.2s var(--fh-ease);
+}
+.ficha .progression-panel details[open] > summary::before { transform: rotate(45deg); top: 16px; }
+.ficha .progression-panel details > summary:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+@media (hover: hover) {
+  .ficha .progression-panel details > summary:hover { color: var(--ink-primary); }
+}
+.ficha .progression-panel details > summary strong { color: var(--fh-gold-hi); }
+.ficha .prog-swap { min-height: 36px; }
+.ficha .progression-panel details > ul { margin: 10px 0 4px; gap: 10px; }
+.ficha .progression-panel details > ul > li {
+  padding-left: 12px;
+  border-left: 1px solid rgba(224, 181, 94, 0.22);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--ink-secondary);
+}
+.ficha .progression-panel details > ul > li strong { color: var(--gold); }
+.ficha .progression-panel details > ul > li em { color: var(--ink-muted); }
+.ficha .prog-section > ul > li { color: var(--ink-secondary); }
+.ficha .prog-chip { padding: 2px 10px; border-color: rgba(224, 181, 94, 0.3); background: rgba(10, 7, 6, 0.5); }
+.ficha .prog-chip.auto { color: var(--gold-bright); border-color: rgba(224, 181, 94, 0.55); }
+.ficha .prog-section.unlocked-banner {
+  border-color: var(--gold);
+  background: radial-gradient(120% 160% at 0% 0%, rgba(224, 181, 94, 0.22), transparent 60%), rgba(10, 7, 6, 0.45);
+}
+.ficha .prog-section.unlocked-banner .prog-label { font-size: 0.82rem; letter-spacing: 0.1em; color: var(--fh-gold-hi); }
+.ficha .prog-actions { margin-top: 16px; }
+.ficha .prog-actions .btn { min-height: 48px; padding-inline: 12px; letter-spacing: 0.08em; }
+@media (max-width: 600px) {
+  .ficha .progression-panel { padding: 16px 14px; margin-bottom: 12px; }
+  .ficha .progression-panel > h3 { letter-spacing: 0.08em; }
+  .ficha .btn-unlock { align-self: stretch; }
+}
+
+/* ---------- Modais abertos da ficha (todos dentro de .ficha: não são portais) ----------
+   Couro com filete dourado e título em ouro. Tela cheia (≤480px) e sheet inferior
+   continuam os do app (mobile-styles.css); só fundo, borda e título mudam. */
+.ficha .modal {
+  border: 1px solid transparent;
+  background:
+    var(--fh-noise) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather) 40%, var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+.ficha .modal > h2,
+.ficha .modal > .modal-close + h3 { padding-right: 36px; color: var(--gold-bright); letter-spacing: 0.06em; }
+.ficha .modal-close { min-width: 44px; min-height: 44px; display: grid; place-items: center; top: 8px; right: 8px; border-radius: 8px; }
+@media (hover: hover) {
+  .ficha .modal-close:hover { color: var(--fh-gold-hi); background: rgba(224, 181, 94, 0.1); }
+}
+.ficha .modal-close:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+
+/* ---------- F12: movimento reduzido, cores forçadas, impressão ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .ficha .prog-section.unlocked-banner,
+  .ficha .check-card { animation: none; }
+  .ficha .inv-row-v2,
+  .ficha .fh-actions .chip,
+  .ficha .progression-panel details > summary::before { transition: none; }
+  .ficha .inv-row-head:active { transform: none; }
+}
+@media (forced-colors: active) {
+  /* modais: o couro é só degradê; sem cor de fundo ficariam transparentes sobre a ficha */
+  .ficha .modal,
+  .ficha .modal:has(.prep-sticky) { background: Canvas; border: 1px solid CanvasText; }
+  .ficha .progression-panel > h3 { background: none; color: CanvasText; }
+  .ficha .progression-panel > h3::before,
+  .ficha .fh-note-date::before { background: CanvasText; box-shadow: none; }
+  .ficha .fh-npc,
+  .ficha .inv-row-v2.equipped,
+  .ficha .subclass-strip,
+  .ficha .fh-camp,
+  .ficha .wild-shape-banner { border-left: 3px solid CanvasText; }
+  .ficha .fh-rel-pill.on,
+  .ficha .check-physical-mode button.active { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  .ficha .fh-coin-face { forced-color-adjust: none; }
+}
+@media print {
+  .ficha .progression-panel::before { display: none; }
+  .ficha .progression-panel > h3 { background: none; color: #6b4f1d; }
+  .ficha .progression-panel,
+  .ficha .fh-npc,
+  .ficha .fh-note,
+  .ficha .inv-row-v2,
+  .ficha .card.fh-wpn { background: none; box-shadow: none; }
+  .ficha .fh-npc-name,
+  .ficha .inv-name,
+  .ficha .fh-trait-text,
+  .ficha .fh-npc-notes { color: #1a1410; }
+}

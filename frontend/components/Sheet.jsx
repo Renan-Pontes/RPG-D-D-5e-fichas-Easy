@@ -147,7 +147,9 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         <CombatActionPanel char={char} lang={lang} onUpdate={onUpdate} />
       )}
 
-      <div className="action-bar no-print">
+      {/* Barra de ações (src/sheet/ficha.css: .fh-actions): os mesmos 7 controles; o
+          travado e a trapaça ligada viraram classes (antes, estilo inline). */}
+      <div className="action-bar fh-actions no-print">
         <button className="chip" onClick={onPrint}><Icon name="print" size={14} className="chip-icon"/> {t('print', lang)}</button>
         <button className="chip" onClick={() => onExportPdf({ flatten: false })} title={lang === 'pt' ? 'Ficha de D&D 5e com campos que você pode preencher e alterar em qualquer leitor de PDF' : 'D&D 5e sheet with fields you can fill and change in any PDF reader'}><Icon name="edit" size={14} className="chip-icon"/> {t('exportPdf', lang)}</button>
         <button className="chip" onClick={() => onExportPdf({ flatten: true })} title={lang === 'pt' ? 'Ficha de D&D 5e com o texto fixo, pronta para imprimir' : 'D&D 5e sheet with fixed text, ready to print'}><Icon name="download" size={14} className="chip-icon"/> {t('exportPdfPrint', lang)}</button>
@@ -157,12 +159,11 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
           <button className="chip" onClick={onEdit}><Icon name="edit" size={14} className="chip-icon"/> {t('edit', lang)}</button>
         )}
         {char.inCampaign && (
-          <span className="chip" style={{ opacity: 0.55, cursor: 'not-allowed' }} title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
+          <span className="chip is-locked" title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
             🔒 <Icon name="edit" size={14} className="chip-icon"/> {t('edit', lang)}
           </span>
         )}
-        <button className="chip" onClick={() => setCheatOpen(true)}
-          style={char.cheatMode ? { borderColor: 'var(--blood-bright)', color: 'var(--blood-bright)' } : undefined}>
+        <button className={`chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
           🎲 {lang === 'pt' ? (char.cheatMode ? 'Trapaça ativa' : 'Modo trapaça') : (char.cheatMode ? 'Cheat on' : 'Cheat mode')}
         </button>
         {/* Inspiração: virou a estrela do topo (SheetHero), com o mesmo handler */}
@@ -216,7 +217,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
       {/* Conteúdo extra da ficha (ex.: painel de Progressão) antes da zona de perigo */}
       {children}
 
-      <div style={{ marginTop: 'var(--s-7)', paddingTop: 'var(--s-5)', borderTop: '1px solid var(--stroke-faint)', textAlign: 'center' }} className="no-print">
+      <div className="fh-danger-zone no-print">
         <button className="btn btn-ghost btn-danger btn-sm" onClick={onDelete}>
           <Icon name="trash" size={14}/> {t('delete', lang)}
         </button>
@@ -365,28 +366,19 @@ const SubclassRow = ({ char, lang, update, showClass }) => {
   const current = subs.find(s => s.id === char.subclass);
 
   if (!current) {
-    // Prominent banner — pick now
+    // Faixa de destaque (src/sheet/ficha.css: .fh-banner) — escolher agora
     return (
       <>
-        <div
-          className="card no-print"
-          style={{
-            marginBottom: 16, padding: 14,
-            background: 'linear-gradient(180deg, rgba(168,141,84,0.12) 0%, rgba(168,141,84,0.04) 100%)',
-            border: '1px solid var(--gold-deep)',
-          }}
-        >
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div>
-              <div className="eyebrow" style={{ color: 'var(--gold)' }}>{label[lang]}</div>
-              <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)', fontSize: '1.05rem' }}>
-                {char.className === 'druid' ? t('chooseCircle', lang) : t('chooseSubclass', lang)}
-              </div>
+        <div className="card no-print fh-banner">
+          <div className="fh-banner-text">
+            <div className="eyebrow fh-banner-eyebrow">{label[lang]}</div>
+            <div className="fh-banner-title">
+              {char.className === 'druid' ? t('chooseCircle', lang) : t('chooseSubclass', lang)}
             </div>
-            <button className="btn btn-sm" onClick={() => setOpen(true)} style={{ background: 'var(--gold)', color: 'var(--bg-deep)' }}>
-              <Icon name="sparkle" size={12}/> {char.className === 'druid' ? t('pickCircle', lang) : t('pickSubclass', lang)}
-            </button>
           </div>
+          <button className="btn btn-sm btn-primary fh-banner-btn" onClick={() => setOpen(true)}>
+            <Icon name="sparkle" size={12}/> {char.className === 'druid' ? t('pickCircle', lang) : t('pickSubclass', lang)}
+          </button>
         </div>
         {open && <SubclassModal char={char} lang={lang} subs={subs} label={label} update={update} onClose={() => setOpen(false)} />}
       </>
@@ -401,7 +393,7 @@ const SubclassRow = ({ char, lang, update, showClass }) => {
           <span className="subclass-strip-name">{current.name[lang]}</span>
         </div>
         {char.subclass === 'land' && char.landType && (
-          <span className="tag" style={{ fontSize: '0.75rem' }}>
+          <span className="tag fh-strip-tag">
             {(current.landTypes || []).find(l => l.id === char.landType)?.name[lang] || char.landType}
           </span>
         )}
@@ -422,18 +414,16 @@ const SpeciesBanner = ({ char, lang, update }) => {
   if (!issues.length && !open) return null;
   return (
     <>
-      <div className="card no-print" style={{ marginBottom: 16, padding: 14, background: 'linear-gradient(180deg, rgba(168,141,84,0.12) 0%, rgba(168,141,84,0.04) 100%)', border: '1px solid var(--gold-deep)' }}>
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div>
-            <div className="eyebrow" style={{ color: 'var(--gold)' }}>{lang === 'pt' ? 'Espécie' : 'Species'} · {tName('race', char.race, lang)}</div>
-            <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)', fontSize: '1.05rem' }}>
-              {issues.map(i => i[lang] || i.pt).join(' · ')}
-            </div>
+      <div className="card no-print fh-banner">
+        <div className="fh-banner-text">
+          <div className="eyebrow fh-banner-eyebrow">{lang === 'pt' ? 'Espécie' : 'Species'} · {tName('race', char.race, lang)}</div>
+          <div className="fh-banner-title">
+            {issues.map(i => i[lang] || i.pt).join(' · ')}
           </div>
-          <button className="btn btn-sm" onClick={() => setOpen(true)} style={{ background: 'var(--gold)', color: 'var(--bg-deep)' }}>
-            <Icon name="sparkle" size={12}/> {lang === 'pt' ? 'Escolher' : 'Choose'}
-          </button>
         </div>
+        <button className="btn btn-sm btn-primary fh-banner-btn" onClick={() => setOpen(true)}>
+          <Icon name="sparkle" size={12}/> {lang === 'pt' ? 'Escolher' : 'Choose'}
+        </button>
       </div>
       {open && <SpeciesChoicesModal char={char} lang={lang} onSave={update} onClose={() => setOpen(false)} />}
     </>
@@ -631,17 +621,19 @@ const CampaignModeBanner = ({ char, lang, onChange }) => {
     );
   }
 
+  // Faixa da campanha (src/sheet/ficha.css: .fh-camp): [🏰] rótulo + nome / travas [Sair]
   return (
-    <div className="campaign-mode-banner in-campaign">
-      <span className="cmb-icon">🏰</span>
-      <span className="cmb-label">{lang === 'pt' ? 'Em campanha' : 'In campaign'}</span>
-      {campInfo && <strong className="cmb-name">{campInfo.name}</strong>}
-      <span className="muted small">
-        {lang === 'pt'
-          ? 'Itens, slots, HP máximo e atributos são gerenciados pelo mestre.'
-          : 'Items, slots, max HP and abilities are managed by the DM.'}
-      </span>
-      <div style={{ flex: 1 }} />
+    <div className="campaign-mode-banner in-campaign fh-camp">
+      <span className="cmb-icon" aria-hidden="true">🏰</span>
+      <div className="fh-camp-text">
+        <span className="cmb-label">{lang === 'pt' ? 'Em campanha' : 'In campaign'}</span>
+        {campInfo && <strong className="cmb-name">{campInfo.name}</strong>}
+        <span className="muted small fh-camp-note">
+          {lang === 'pt'
+            ? 'Itens, slots, HP máximo e atributos são gerenciados pelo mestre.'
+            : 'Items, slots, max HP and abilities are managed by the DM.'}
+        </span>
+      </div>
       {campInfo && (
         <button className="btn btn-ghost btn-sm" onClick={leave} disabled={busy}>
           {busy ? '…' : (lang === 'pt' ? 'Sair' : 'Leave')}
@@ -693,7 +685,7 @@ const WildShapeBanner = ({ char, lang, onChange }) => {
         <div className="wsb-pre">
           {char.rulesVersion === '2024' ? (lang === 'pt' ? 'Mantém seus próprios pontos de vida.' : 'Retains your own hit points.') : `${lang === 'pt' ? 'Forma humanoide guardada:' : 'Stored humanoid:'} ${ws.preTransformHp} HP`}
         </div>
-        {err && <div style={{ color: 'var(--blood-bright)', fontSize: '0.85em' }}>{err}</div>}
+        {err && <div className="fh-ws-err" role="alert">{err}</div>}
       </div>
       <button className="btn btn-ghost" onClick={endShape} disabled={busy}>
         {busy ? '…' : (lang === 'pt' ? 'Sair da forma' : 'Revert form')}
@@ -1055,8 +1047,8 @@ const RELATIONSHIP_OPTS = [
   { id: 'unknown', label: { pt: 'Incerto',  en: 'Unknown' } },
 ];
 
-const RELATIONSHIP_COLOR = { ally: 'var(--moss-bright)', neutral: 'var(--gold)', enemy: 'var(--blood-bright)', unknown: 'var(--ink-secondary)' };
-
+// Cor da relação: no CSS (src/sheet/ficha.css: [data-rel]) — aliado verdete, neutro
+// ouro, inimigo vinho, incerto cinza; no cartão (filete e etiqueta) e nas pílulas do modal.
 const SheetNpcs = ({ char, lang, update }) => {
   const npcs = char.npcs || [];
   const [editing, setEditing] = useState(null); // id or 'new'
@@ -1080,49 +1072,48 @@ const SheetNpcs = ({ char, lang, update }) => {
       <FhTitle>{lang === 'pt' ? 'Personagens Conhecidos' : 'Known Characters'}</FhTitle>
 
       {npcs.length === 0 && (
-        <div className="text-sm muted" style={{ textAlign: 'center', padding: '24px 0' }}>
+        <div className="fh-empty">
           {lang === 'pt' ? 'Nenhum NPC registrado ainda.' : 'No NPCs recorded yet.'}
         </div>
       )}
 
-      <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
-        {npcs.map(npc => (
-          <div key={npc.id} style={{
-            background: 'var(--surface-2)', border: '1px solid var(--stroke-faint)',
-            borderRadius: 8, padding: 12,
-            borderLeft: `3px solid ${RELATIONSHIP_COLOR[npc.relationship] || 'var(--gold)'}`,
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <div style={{ fontFamily: 'var(--display)', fontSize: '1rem', color: 'var(--ink-primary)' }}>{npc.name}</div>
-                <div className="text-xs muted" style={{ marginTop: 2 }}>
-                  {[npc.race, npc.role].filter(Boolean).join(' · ')}
-                  {npc.relationship && (
-                    <span style={{ marginLeft: 8, color: RELATIONSHIP_COLOR[npc.relationship] }}>
-                      {RELATIONSHIP_OPTS.find(r => r.id === npc.relationship)?.label[lang] || npc.relationship}
-                    </span>
-                  )}
+      {/* Cartão por NPC (src/sheet/ficha.css: .fh-npc): nome, "raça · papel", relação
+          em etiqueta colorida, Editar e ✕; as notas embaixo. */}
+      {npcs.length > 0 && (
+        <div className="fh-npcs">
+          {npcs.map(npc => (
+            <article key={npc.id} className="fh-npc" data-rel={npc.relationship || 'neutral'}>
+              <div className="fh-npc-head">
+                <div className="fh-npc-id">
+                  <div className="fh-npc-name">{npc.name}</div>
+                  <div className="fh-npc-sub">
+                    {[npc.race, npc.role].filter(Boolean).join(' · ')}
+                    {npc.relationship && (
+                      <span className="fh-npc-rel">
+                        {RELATIONSHIP_OPTS.find(r => r.id === npc.relationship)?.label[lang] || npc.relationship}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="fh-npc-acts">
+                  <button type="button" className="fh-npc-btn" onClick={() => openEdit(npc)}>
+                    {lang === 'pt' ? 'Editar' : 'Edit'}
+                  </button>
+                  <button type="button" className="fh-npc-btn is-del" onClick={() => remove(npc.id)}
+                    aria-label={`${lang === 'pt' ? 'Remover' : 'Remove'} ${npc.name}`}>
+                    ✕
+                  </button>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button type="button" onClick={() => openEdit(npc)}
-                  style={{ padding: '2px 8px', background: 'transparent', border: '1px solid var(--gold)', borderRadius: 4, color: 'var(--gold)', cursor: 'pointer', fontSize: '0.75rem' }}>
-                  {lang === 'pt' ? 'Editar' : 'Edit'}
-                </button>
-                <button type="button" onClick={() => remove(npc.id)}
-                  style={{ padding: '2px 8px', background: 'transparent', border: '1px solid var(--blood-bright)', borderRadius: 4, color: 'var(--blood-bright)', cursor: 'pointer', fontSize: '0.75rem' }}>
-                  ✕
-                </button>
-              </div>
-            </div>
-            {npc.notes && (
-              <div className="text-sm" style={{ marginTop: 8, color: 'var(--ink-secondary)', whiteSpace: 'pre-wrap' }}>{npc.notes}</div>
-            )}
-          </div>
-        ))}
-      </div>
+              {npc.notes && (
+                <div className="fh-npc-notes">{npc.notes}</div>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
 
-      <button className="btn btn-sm btn-ghost" style={{ width: '100%', marginTop: 16, borderColor: 'var(--gold)', color: 'var(--gold)' }} onClick={openNew}>
+      <button className="btn btn-sm btn-ghost fh-npc-add" onClick={openNew}>
         + {lang === 'pt' ? 'Adicionar NPC' : 'Add NPC'}
       </button>
 
@@ -1148,17 +1139,12 @@ const SheetNpcs = ({ char, lang, update }) => {
             </div>
             <div>
               <label>{lang === 'pt' ? 'Relação' : 'Relationship'}</label>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+              <div className="fh-rel-pills" role="group" aria-label={lang === 'pt' ? 'Relação' : 'Relationship'}>
                 {RELATIONSHIP_OPTS.map(r => (
-                  <button key={r.id} type="button"
-                    onClick={() => setForm(f => ({ ...f, relationship: r.id }))}
-                    style={{
-                      padding: '4px 12px', borderRadius: 20, cursor: 'pointer', fontSize: '0.8rem',
-                      background: form.relationship === r.id ? RELATIONSHIP_COLOR[r.id] : 'var(--surface-2)',
-                      border: `1px solid ${RELATIONSHIP_COLOR[r.id]}`,
-                      color: form.relationship === r.id ? 'var(--surface-1)' : RELATIONSHIP_COLOR[r.id],
-                      fontWeight: form.relationship === r.id ? 700 : 400,
-                    }}>
+                  <button key={r.id} type="button" data-rel={r.id}
+                    className={`fh-rel-pill${form.relationship === r.id ? ' on' : ''}`}
+                    aria-pressed={form.relationship === r.id}
+                    onClick={() => setForm(f => ({ ...f, relationship: r.id }))}>
                     {r.label[lang]}
                   </button>
                 ))}
