@@ -117,3 +117,12 @@ test('app.jsx: a lista só volta a "carregando" fora do estado pronto (sem pisca
   assert.match(s, /setList\('error'\)/);
   assert.match(s, /listState=\{listState\}/);
 });
+
+test('menu da conta fecha com clique fora, Esc e troca de tela; cabeçalho com as correções de encaixe', () => {
+  const s = src('../app.jsx');
+  assert.match(s, /useEffect\(\(\) => \{ setUserMenuOpen\(false\); \}, \[screen\]\)/);
+  assert.match(s, /addEventListener\('pointerdown', onDown\)/);
+  assert.match(s, /e\.key === 'Escape'\) setOpen\(false\)/);
+  assert.match(src('../components/Shared.jsx'), /import '\.\/header\.css';/);
+  assert.match(src('../components/header.css'), /@media \(min-width: 521px\) and \(max-width: 860px\)/);
+});

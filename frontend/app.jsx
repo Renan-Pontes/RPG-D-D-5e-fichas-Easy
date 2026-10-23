@@ -104,6 +104,9 @@ const App = () => {
 
   useEffect(() => { localStorage.setItem('dnd5e-forge:lang', lang); }, [lang]);
 
+  // O menu da conta fecha quando a tela muda (ex.: foi para o Grimório).
+  useEffect(() => { setUserMenuOpen(false); }, [screen]);
+
   // "Ver meu plano" (aviso de limite, menu da conta) de qualquer lugar.
   const planFrom = useRef(SCREENS.HOME);
   useEffect(() => onOpenMyPlan(() => {
@@ -835,9 +838,19 @@ const App = () => {
 
 function UserChip({ user, open, setOpen, onLogout, onPlan, lang }) {
   const initials = (user.displayName || user.email || '?').slice(0, 1).toUpperCase();
+  // Fecha com clique/toque fora e com Esc.
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('pointerdown', onDown); window.removeEventListener('keydown', onKey); };
+  }, [open, setOpen]);
   return (
-    <div style={{ position: 'relative' }}>
-      <button className="user-chip" onClick={() => setOpen(!open)}>
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button className="user-chip" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="true">
         <span className="avatar">{initials}</span>
         <span className="user-chip-name">{user.displayName}</span>
       </button>
