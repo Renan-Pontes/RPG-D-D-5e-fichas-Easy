@@ -22,6 +22,7 @@ import { isArmorProficient } from '../src/creator/start-data.js';
 import { trainingLines, featName, featPicksText } from '../src/sheet/sheet-text.js';
 import { itemArt, conditionIcon, CONDITION_EMOJI } from '../src/art.js';
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
+import FhTitle from '../src/sheet/FhTitle.jsx';
 import '../src/sheet/ficha.css';
 
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
@@ -826,19 +827,14 @@ const WildShapePanel = ({ char, druid, lang, update }) => {
   const usesUsed = char.wildShapeUses || 0;
 
   return (
-    <>
-      <div className="eyebrow mt-4" style={{ marginBottom: 8 }}>
-        {lang === 'pt' ? 'Forma Selvagem' : 'Wild Shape'}
-        {druid.subclass && (
-          <span className="text-xs" style={{ marginLeft: 6, color: 'var(--gold)', fontFamily: 'var(--body)', textTransform: 'none', letterSpacing: 0 }}>
-            {tName('subclass', druid.subclass, lang)}
-          </span>
-        )}
-        <span className="text-xs muted" style={{ marginLeft: 8, fontFamily: 'var(--body)', textTransform: 'none', letterSpacing: 0 }}>
+    <section className="fh-panel">
+      <FhTitle sub={<>
+        {druid.subclass && <span className="fh-sub-hi">{tName('subclass', druid.subclass, lang)}</span>}
+        <span>
           {crLabel}
           {!isMoon && level < 8 && (level < 4 ? (lang === 'pt' ? ' · sem voo/nat.' : ' · no fly/swim') : (lang === 'pt' ? ' · sem voo' : ' · no fly'))}
         </span>
-      </div>
+      </>}>{lang === 'pt' ? 'Forma Selvagem' : 'Wild Shape'}</FhTitle>
       <div className="row gap-2" style={{ marginBottom: 10, alignItems: 'center' }}>
         <div className="slot-pips wild">
           {Array.from({length: maxUses}, (_, i) => i).map(i => (
@@ -921,7 +917,7 @@ const WildShapePanel = ({ char, druid, lang, update }) => {
           }}
         />
       )}
-    </>
+    </section>
   );
 };
 
@@ -951,13 +947,15 @@ const ConditionsPanel = ({ char, lang, update }) => {
 
   // Só o que está ativo fica à vista; a lista completa abre sob demanda.
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <div className="eyebrow">{pt ? 'Condições e efeitos' : 'Conditions & effects'}<GrimoireHint id="condicoes" lang={lang} /></div>
-        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(o => !o)}>
-          {open ? (pt ? 'Fechar' : 'Close') : (pt ? '+ Condição' : '+ Condition')}
-        </button>
-      </div>
+    <section className="fh-panel">
+      <FhTitle
+        hint={<GrimoireHint id="condicoes" lang={lang} />}
+        act={(
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(o => !o)}>
+            {open ? (pt ? 'Fechar' : 'Close') : (pt ? '+ Condição' : '+ Condition')}
+          </button>
+        )}
+      >{pt ? 'Condições e efeitos' : 'Conditions & effects'}</FhTitle>
       {!active.length && !temps.length && !open && (
         <div className="text-sm muted">{pt ? 'Nenhuma condição ativa.' : 'No active conditions.'}</div>
       )}
@@ -992,7 +990,7 @@ const ConditionsPanel = ({ char, lang, update }) => {
           <button type="button" className="btn btn-icon" onClick={addTemp} aria-label={pt ? 'Adicionar' : 'Add'}>+</button>
         </div>
       )}
-    </div>
+    </section>
   );
 };
 
@@ -1025,11 +1023,8 @@ const SheetNpcs = ({ char, lang, update }) => {
   const remove = (id) => update({ npcs: npcs.filter(n => n.id !== id) });
 
   return (
-    <div style={{ padding: '0 0 32px' }}>
-      <div className="eyebrow mt-4" style={{ marginBottom: 12 }}>
-        {lang === 'pt' ? 'Personagens Conhecidos' : 'Known Characters'}
-      </div>
-      <Filigree />
+    <section className="fh-panel">
+      <FhTitle>{lang === 'pt' ? 'Personagens Conhecidos' : 'Known Characters'}</FhTitle>
 
       {npcs.length === 0 && (
         <div className="text-sm muted" style={{ textAlign: 'center', padding: '24px 0' }}>
@@ -1132,7 +1127,7 @@ const SheetNpcs = ({ char, lang, update }) => {
           </div>
         </Modal>
       )}
-    </div>
+    </section>
   );
 };
 
@@ -1162,8 +1157,8 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
 
   return (
     <>
-      <div className="hp-tracker" style={{ marginBottom: 16 }}>
-        <div className="eyebrow text-center">{t('hp', lang)}</div>
+      <div className="hp-tracker fh-panel">
+        <FhTitle>{t('hp', lang)}</FhTitle>
         <div className="hp-display">
           <span className="hp-current">{char.currentHp}</span>
           <span className="hp-sep">/</span>
@@ -1261,8 +1256,8 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
 
       {/* Quick weapons (attacks) */}
       {(
-        <div style={{ marginBottom: 16 }}>
-          <div className="eyebrow mb-2">{lang === 'pt' ? 'Ataques' : 'Attacks'}</div>
+        <section className="fh-panel">
+          <FhTitle>{lang === 'pt' ? 'Ataques' : 'Attacks'}</FhTitle>
           {(char.weapons || []).map((w, i) => {
             // Regra da ficha: proficiência, Artes Marciais do Monge e Estilos de Luta (Utils.attackFor).
             const a = Utils.attackFor(char, w);
@@ -1333,12 +1328,12 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
               </div>
             );
           })()}
-        </div>
+        </section>
       )}
       {/* Estilos de Luta ativos: resumo, sentidos (Luta às Cegas) e lembretes de reação */}
       {styleSummaries.length > 0 && (
-        <div className="card" style={{ marginBottom: 16, padding: 12 }}>
-          <div className="eyebrow mb-2">{lang === 'pt' ? 'Estilos de Luta' : 'Fighting Styles'}</div>
+        <section className="fh-panel">
+          <FhTitle>{lang === 'pt' ? 'Estilos de Luta' : 'Fighting Styles'}</FhTitle>
           {styleSummaries.map(s => (
             <div key={s.id} className="text-sm" style={{ marginBottom: 4 }}>
               <strong style={{ color: 'var(--gold)' }}>{s.name[lang]}</strong>
@@ -1355,12 +1350,12 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
               <strong>{lang === 'pt' ? 'Reação' : 'Reaction'} · {r.name[lang]}:</strong> {r.text[lang]}
             </div>
           ))}
-        </div>
+        </section>
       )}
       {/* Spell slots quick tracker */}
       {slots && slots.length > 0 && (
-        <>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>{t('slots', lang)}</div>
+        <section className="fh-panel">
+          <FhTitle>{t('slots', lang)}</FhTitle>
           {slots.map((max, idx) => {
             const lvl = idx + 1;
             if (!max) return null;
@@ -1391,11 +1386,13 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
               </div>
             );
           })}
-        </>
+        </section>
       )}
 
-      {/* Recursos de classe com usos (Fúria, Canalizar Divindade…) */}
-      <ResourcesCard char={char} lang={lang} update={update} />
+      {/* Recursos de classe com usos (Fúria, Canalizar Divindade…). O componente é
+          compartilhado com o editor do mestre: o painel é só um embrulho daqui
+          (vazio quando não há recursos; o CSS esconde). */}
+      <section className="fh-panel fh-res"><ResourcesCard char={char} lang={lang} update={update} /></section>
 
       {/* Conditions / status effects */}
       <ConditionsPanel char={char} lang={lang} update={update} />
@@ -1406,7 +1403,9 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
       )}
 
       {/* Abilities at a glance */}
-      <div className="abil-grid" style={{ marginBottom: 16 }}>
+      <section className="fh-panel">
+      <FhTitle>{t('tabStats', lang)}</FhTitle>
+      <div className="abil-grid">
         {SRD.ABILITIES.map(k => {
           const score = Utils.abilityWithRace(char, k);
           const mod = Utils.abilityMod(char, k);
@@ -1419,6 +1418,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
           );
         })}
       </div>
+      </section>
 
       <div className="combat-grid combat-grid-compact" style={{ marginBottom: 16 }}>
         <div className="combat-box">
@@ -1438,8 +1438,10 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
       </div>
 
       {/* Descanso: mesma lógica (e endpoint) da aba de magias */}
-      <div className="eyebrow mt-4" style={{ marginBottom: 8 }}>{lang === 'pt' ? 'Descanso' : 'Rest'}<GrimoireHint id="descanso-curto" lang={lang} /></div>
-      <div style={{ marginBottom: 16 }}><RestButtons char={char} lang={lang} update={update} /></div>
+      <section className="fh-panel">
+        <FhTitle hint={<GrimoireHint id="descanso-curto" lang={lang} />}>{lang === 'pt' ? 'Descanso' : 'Rest'}</FhTitle>
+        <RestButtons char={char} lang={lang} update={update} />
+      </section>
     </>
   );
 };
@@ -1488,8 +1490,9 @@ const LanguagesField = ({ char, lang, update }) => {
 const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
   return (
     <>
-      <div className="eyebrow mb-2">{t('abilitiesTitle', lang).split(' ')[0] || lang === 'pt' ? 'Atributos' : 'Abilities'}</div>
-      <div className="abil-grid mb-4">
+      <section className="fh-panel">
+      <FhTitle>{t('abilitiesTitle', lang).split(' ')[0] || lang === 'pt' ? 'Atributos' : 'Abilities'}</FhTitle>
+      <div className="abil-grid">
         {SRD.ABILITIES.map(k => {
           const score = Utils.abilityWithRace(char, k);
           const mod = Utils.abilityMod(char, k);
@@ -1502,9 +1505,11 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
           );
         })}
       </div>
+      </section>
 
-      <Filigree>{lang === 'pt' ? 'Testes de Resistência' : 'Saving Throws'}</Filigree>
-      <div className="skill-display mb-4">
+      <section className="fh-panel">
+      <FhTitle>{lang === 'pt' ? 'Testes de Resistência' : 'Saving Throws'}</FhTitle>
+      <div className="skill-display">
         {SRD.ABILITIES.map(k => {
           const bonus = Utils.saveBonus(char, k);
           const isProf = Utils.hasSaveProf(char, k);
@@ -1525,8 +1530,10 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
           );
         })}
       </div>
+      </section>
 
-      <Filigree>{t('skills', lang)} · {t('passivePerception', lang)} {passPerc}</Filigree>
+      <section className="fh-panel">
+      <FhTitle sub={<span>{t('passivePerception', lang)} {passPerc}</span>}>{t('skills', lang)}</FhTitle>
       <div className="skill-display">
         {SRD.SKILLS.map(s => {
           const bonus = Utils.skillBonus(char, s.id);
@@ -1558,11 +1565,12 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
           );
         })}
       </div>
+      </section>
 
       {(char.feats || []).length > 0 && (
-        <>
-          <Filigree>{lang === 'pt' ? 'Talentos' : 'Feats'}</Filigree>
-          <div style={{ marginBottom: 12 }}>
+        <section className="fh-panel">
+          <FhTitle>{lang === 'pt' ? 'Talentos' : 'Feats'}</FhTitle>
+          <div>
             {char.feats.map((f, i) => (
               <div key={i} className="text-sm" style={{ marginBottom: 4 }}>
                 <strong style={{ color: 'var(--gold-deep)' }}>{featName(char, f, lang)}</strong>
@@ -1574,9 +1582,10 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
               </div>
             ))}
           </div>
-        </>
+        </section>
       )}
-      <Filigree>{lang === 'pt' ? 'Idiomas e Outras Proficiências' : 'Languages & Other Proficiencies'}</Filigree>
+      <section className="fh-panel">
+      <FhTitle>{lang === 'pt' ? 'Idiomas e Outras Proficiências' : 'Languages & Other Proficiencies'}</FhTitle>
       <LanguagesField char={char} lang={lang} update={update} />
       {trainingLines(char, lang).map(tl => (
         <div key={tl.key} className="text-sm" style={{ marginBottom: 6 }}>
@@ -1591,6 +1600,7 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
           placeholder={lang === 'pt' ? 'Ferramentas, armas adicionais...' : 'Tools, extra weapons...'}
         />
       </div>
+      </section>
     </>
   );
 };

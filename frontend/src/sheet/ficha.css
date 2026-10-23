@@ -42,3 +42,247 @@
   --fh-corner-bl: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'><g transform='translate(0 22) scale(1 -1)' fill='none' stroke='%23d9ad5a' stroke-width='1.1'><path d='M1.5 20 V7 Q1.5 1.5 7 1.5 H20'/><path d='M5 14 V8 Q5 5 8 5 H14' opacity='.6'/><rect x='7.2' y='7.2' width='3' height='3' transform='rotate(45 8.7 8.7)' fill='%23e8c070' stroke='none'/></g></svg>");
   --fh-corner-br: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'><g transform='translate(22 22) scale(-1 -1)' fill='none' stroke='%23d9ad5a' stroke-width='1.1'><path d='M1.5 20 V7 Q1.5 1.5 7 1.5 H20'/><path d='M5 14 V8 Q5 5 8 5 H14' opacity='.6'/><rect x='7.2' y='7.2' width='3' height='3' transform='rotate(45 8.7 8.7)' fill='%23e8c070' stroke='none'/></g></svg>");
 }
+
+/* ---------- Painel de couro com filete dourado e cantoneiras (plano §3, §4.1) ----------
+   .fh-panel embrulha os blocos de todas as abas; o .card solto na ficha (CD de magia,
+   faixas, avisos…) herda o mesmo couro. Os modais ficam como estão (:not(.modal *)).
+   Sem transform/filter/isolation/z-index: os painéis têm botões que abrem Modal. */
+.ficha .fh-panel,
+.ficha .card:not(.modal *) {
+  position: relative;
+  min-width: 0;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background:
+    var(--fh-noise) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather) 40%, var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
+  box-shadow: 0 1px 0 rgba(255, 230, 170, 0.06) inset, 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+.ficha .fh-panel { padding: 20px; margin-bottom: 16px; }
+.ficha .fh-panel > :last-child { margin-bottom: 0 !important; } /* vence o marginBottom inline dos cartões */
+/* cantoneiras (no .card, trocam a moldura interna do styles.css) */
+.ficha .fh-panel::before,
+.ficha .card:not(.modal *)::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 0;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0.85;
+  background:
+    var(--fh-corner-tl) top left / 22px no-repeat,
+    var(--fh-corner-tr) top right / 22px no-repeat,
+    var(--fh-corner-bl) bottom left / 22px no-repeat,
+    var(--fh-corner-br) bottom right / 22px no-repeat;
+}
+/* brilho que passa: só onde existe hover de verdade (no toque ficaria preso) */
+.ficha .fh-panel::after,
+.ficha .card:not(.modal *)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 228, 160, 0.07) 50%, transparent 65%) 150% 0 / 250% 100% no-repeat;
+  transition: background-position 0.9s var(--fh-ease);
+}
+@media (hover: hover) {
+  .ficha .fh-panel:hover::after,
+  .ficha .card:not(.modal *):hover::after { background-position: -50% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ficha .fh-panel::after,
+  .ficha .card:not(.modal *)::after { transition: none; }
+}
+@media (max-width: 600px) {
+  .ficha .fh-panel { padding: 16px 14px; margin-bottom: 12px; }
+}
+
+/* Recursos de classe: o ResourcesCard é do app inteiro (editor do mestre também);
+   aqui só o embrulho muda. Sem recursos o componente não desenha nada. */
+.ficha .fh-res:empty { display: none; }
+.ficha .fh-res > div { margin-top: 0 !important; }
+/* Linha do recurso: o .slot-row global reserva 80px (60px no celular) para o nome e
+   espremia "Mapa Estelar (Flecha Guiada grátis)" em 5 linhas. Aqui o nome fica com o
+   espaço livre; no celular ele ocupa a linha de cima e gemas + contador a de baixo. */
+.ficha .fh-res .slot-row { grid-template-columns: minmax(0, 1fr) auto auto; }
+@media (max-width: 600px) {
+  .ficha .fh-res .slot-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px !important; }
+  .ficha .fh-res .slot-row > :first-child { grid-column: 1 / -1; }
+}
+
+/* Dentro do painel, o que era caixa vira linha ou fundo rebaixado (painel em painel pesa) */
+.ficha .fh-panel .card:not(.modal *) {
+  background: rgba(10, 7, 6, 0.45);
+  border: 1px solid rgba(224, 181, 94, 0.18);
+  box-shadow: none;
+}
+.ficha .fh-panel .card:not(.modal *)::before,
+.ficha .fh-panel .card:not(.modal *)::after { display: none; }
+.ficha .fh-panel .slot-row {
+  margin: 0;
+  padding-left: 0;
+  padding-right: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid rgba(224, 181, 94, 0.14);
+}
+.ficha .fh-panel .slot-row:last-child { border-bottom: 0; }
+.ficha .fh-panel .skill-display { gap: 0; }
+.ficha .fh-panel .skill-display-row {
+  background: none;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid rgba(224, 181, 94, 0.12);
+}
+.ficha .fh-panel .skill-display-row:last-child { border-bottom: 0; }
+@media (hover: hover) {
+  .ficha .fh-panel .skill-display-row:hover { background: linear-gradient(90deg, rgba(224, 181, 94, 0.1), transparent 80%); }
+}
+.ficha .fh-panel .abil-box {
+  background: rgba(10, 7, 6, 0.5);
+  border-color: rgba(224, 181, 94, 0.22);
+}
+/* CA / Iniciativa / Deslocamento e Prof. / Perc. / Dados de Vida: ladrilhos do mesmo couro */
+.ficha .combat-box {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background:
+    var(--fh-noise) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- Título com folha de ouro (plano §3, §4.2; componente src/sheet/FhTitle.jsx) ----------
+   [losango][TÍTULO][?]——— [ações]. Sem espaço, as ações descem para a linha de baixo. */
+.ficha .fh-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 14px;
+  min-width: 0;
+}
+.ficha .fh-title-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ficha .fh-title-main::after {
+  content: "";
+  flex: 1 0 20px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--gold-deep), transparent);
+}
+.ficha .fh-title-main > h3 {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  line-height: 1.25;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.ficha .fh-title-main > .grim-hint { flex: none; margin-left: -4px; }
+.ficha .fh-title-act { flex: none; margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.ficha .fh-title-sub {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin-top: -4px;
+  padding-left: 18px;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+.ficha .fh-sub-hi { color: var(--gold); }
+.ficha .fh-gem-mark {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  transform: rotate(45deg); /* elemento-folha: não prende Modal */
+  background: var(--fh-gilt);
+  box-shadow: 0 0 8px rgba(240, 200, 110, 0.6);
+}
+/* Texto em folha de ouro. Sem background-clip: text, fica ouro chapado; em cores
+   forçadas, a cor do sistema (texto transparente sumiria). */
+.ficha .fh-foil { color: var(--gold-bright); }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .ficha .fh-foil {
+    background: var(--fh-foil);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.6)); /* só no <h3>: a dica do Grimório fica fora */
+  }
+}
+@media (forced-colors: active) {
+  .ficha .fh-foil { background: none; color: CanvasText; filter: none; }
+  .ficha .fh-gem-mark { background: CanvasText; box-shadow: none; }
+}
+
+/* Título do ResourcesCard (componente compartilhado): o mesmo desenho, só por CSS */
+.ficha .fh-res > div > .eyebrow:first-child {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px !important;
+  font-weight: 600;
+  font-size: 1.05rem;
+  line-height: 1.25;
+  letter-spacing: 0.14em;
+  color: var(--gold-bright);
+}
+.ficha .fh-res > div > .eyebrow:first-child::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  transform: rotate(45deg);
+  background: var(--fh-gilt);
+  box-shadow: 0 0 8px rgba(240, 200, 110, 0.6);
+}
+.ficha .fh-res > div > .eyebrow:first-child::after {
+  content: "";
+  flex: 1 0 20px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--gold-deep), transparent);
+}
+@media (max-width: 600px) {
+  /* mesmo tamanho do <h3> do painel no celular (styles.css força 1.1rem); espaçamento
+     menor para "Condições e efeitos" e afins caberem numa linha em 390px */
+  .ficha .fh-res > div > .eyebrow:first-child { font-size: 1.1rem; }
+  .ficha .fh-title-main > h3,
+  .ficha .fh-res > div > .eyebrow:first-child { letter-spacing: 0.1em; }
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .ficha .fh-res > div > .eyebrow:first-child {
+    background: var(--fh-foil);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.6));
+  }
+}
+@media (forced-colors: active) {
+  .ficha .fh-res > div > .eyebrow:first-child { background: none; color: CanvasText; filter: none; }
+  .ficha .fh-res > div > .eyebrow:first-child::before { background: CanvasText; box-shadow: none; }
+}
+/* Ctrl+P: o navegador não imprime fundos por padrão. O texto em folha de ouro
+   (transparente sobre degradê) sumiria do papel, e as camadas das cantoneiras e do
+   brilho saem como retângulos brancos por cima do conteúdo do painel. */
+@media print {
+  .ficha .fh-foil,
+  .ficha .fh-res > div > .eyebrow:first-child { background: none; color: #6b4f1d; filter: none; }
+  .ficha .fh-panel::before,
+  .ficha .fh-panel::after,
+  .ficha .card:not(.modal *)::before,
+  .ficha .card:not(.modal *)::after { display: none; }
+}

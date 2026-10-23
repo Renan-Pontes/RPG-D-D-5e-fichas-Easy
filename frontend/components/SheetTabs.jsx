@@ -6,7 +6,7 @@ import Utils from '../utils.js';
 import { restResources } from '../src/progression/resources.js';
 import { t, tName } from '../data/i18n.js';
 import Icon from './Icons.jsx';
-import { Filigree, Modal, NumStepper, Pips } from './Shared.jsx';
+import { Modal, NumStepper, Pips } from './Shared.jsx';
 import ItemPickerModal from '../src/items/ItemPickerModal.jsx';
 import { api } from '../src/api/client.js';
 import * as FS from '../src/progression/fighting-styles.js';
@@ -19,6 +19,7 @@ import { classFeatureList, backgroundFeature } from '../src/sheet/sheet-text.js'
 import { itemEmoji, schoolIcon, SCHOOL_EMOJI } from '../src/art.js';
 import { itemArtFor } from '../src/items/item-art.js';
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
+import FhTitle from '../src/sheet/FhTitle.jsx';
 
 // Siglas das moedas (PHB em pt: peça de cobre/prata/electro/ouro/platina).
 const COIN_LABEL = { pt: { cp: 'PC', sp: 'PP', ep: 'PE', gp: 'PO', pp: 'PL' }, en: { cp: 'CP', sp: 'SP', ep: 'EP', gp: 'GP', pp: 'PP' } };
@@ -67,11 +68,8 @@ const SheetSpells = ({ char, lang, update, slots, roll }) => {
   return (
     <>
       {slots && slots.length > 0 && slots.some(s => s) && (
-        <>
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <div className="eyebrow">{t('slots', lang)}</div>
-            <RestButtons char={char} lang={lang} update={update} />
-          </div>
+        <section className="fh-panel">
+          <FhTitle act={<RestButtons char={char} lang={lang} update={update} />}>{t('slots', lang)}</FhTitle>
           {char.inCampaign && (
             <div className="muted small" style={{ fontSize: '0.8em', marginBottom: 6 }}>
               🔒 {lang === 'pt' ? 'Em campanha: slots travados. Use "Conjurar" nas magias abaixo.' : 'In campaign: slots locked. Use "Cast" on spells below.'}
@@ -103,7 +101,7 @@ const SheetSpells = ({ char, lang, update, slots, roll }) => {
               </div>
             );
           })}
-        </>
+        </section>
       )}
 
 
@@ -139,7 +137,7 @@ const GrantedSpellsSection = ({ char, lang, update, slots, roll }) => {
   }
   return (
     <section className="mt-4">
-      <div className="eyebrow">{pt ? 'Magias de talento e espécie' : 'Feat and species spells'}</div>
+      <FhTitle>{pt ? 'Magias de talento e espécie' : 'Feat and species spells'}</FhTitle>
       <div className="muted text-xs" style={{ marginBottom: 6 }}>
         {pt ? 'Não dependem da classe: truques à vontade; magias de 1º círculo ou mais 1× por descanso longo sem gastar espaço (ou com seus espaços, se tiver).'
           : 'Not tied to your class: cantrips at will; level 1+ spells once per long rest without a slot (or with your slots, if you have them).'}
@@ -877,8 +875,8 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
 
   return (
     <>
-      <Filigree>{t('armorChoice', lang)}</Filigree>
-      <div className="card mb-3">
+      <section className="fh-panel">
+        <FhTitle>{t('armorChoice', lang)}</FhTitle>
         <select value={char.armor || ''} onChange={e => update({ armor: e.target.value || null })}>
           <option value="">{t('noArmor', lang)}</option>
           {SRD.ARMOR.filter(a => a.type !== 'shield').map(a => (
@@ -891,9 +889,10 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
             style={{ width: 'auto', minHeight: 'auto' }}/>
           <label htmlFor="shield2" style={{ margin: 0, cursor: 'pointer' }}>{t('shield', lang)} (+2 CA)</label>
         </div>
-      </div>
+      </section>
 
-      <Filigree>{t('weapons', lang)}</Filigree>
+      <section className="fh-panel">
+      <FhTitle>{t('weapons', lang)}</FhTitle>
       <select value="" onChange={e => { if (e.target.value) { addWeapon(e.target.value); e.target.value = ''; } }} style={{ marginBottom: 8 }}>
         <option value="">+ {t('addWeapon', lang)}...</option>
         {['simple-melee','simple-ranged','martial-melee','martial-ranged'].map(t_ => (
@@ -952,13 +951,15 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
           </div>
         );
       })}
+      </section>
 
-      <Filigree>{t('equipmentList', lang)}</Filigree>
+      <section className="fh-panel">
+      <FhTitle>{t('equipmentList', lang)}</FhTitle>
       <InventoryList char={char} lang={lang} update={update} addItem={addItem} updateItem={updateItem} removeItem={removeItem} />
+      </section>
 
-
-      <Filigree>{t('coins', lang)}</Filigree>
-      <div className="card" style={{ padding: 12 }}>
+      <section className="fh-panel">
+        <FhTitle>{t('coins', lang)}</FhTitle>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
           {['cp','sp','ep','gp','pp'].map(c => (
             <div key={c} className="text-center">
@@ -973,10 +974,12 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      <Filigree>{lang === 'pt' ? 'Características de Classe' : 'Class Features'}</Filigree>
+      <section className="fh-panel">
+      <FhTitle>{lang === 'pt' ? 'Características de Classe' : 'Class Features'}</FhTitle>
       <ClassFeatures char={char} lang={lang} cls={cls} />
+      </section>
     </>
   );
 };
@@ -1001,7 +1004,8 @@ function ClassFeatures({ char, lang, cls }) {
 // ===== Story =====
 const SheetStory = ({ char, lang, update, cls, race }) => (
   <>
-    <Filigree>{t('stepStory', lang)}</Filigree>
+    <section className="fh-panel">
+    <FhTitle>{t('stepStory', lang)}</FhTitle>
     <div style={{ display: 'grid', gap: 12 }}>
       {['personality','ideals','bonds','flaws','backstory','appearance','allies','treasure'].map(field => (
         <div key={field}>
@@ -1022,6 +1026,7 @@ const SheetStory = ({ char, lang, update, cls, race }) => (
         <input aria-label={t('symbol', lang)} value={char.symbol || ''} onChange={e => update({ symbol: e.target.value })}/>
       </div>
     </div>
+    </section>
 
     {race && <SpeciesTraits char={char} lang={lang} update={update} race={race} />}
   </>
@@ -1034,8 +1039,8 @@ const SpeciesTraits = ({ char, lang, update, race }) => {
   const rows = speciesSummary(char, lang);
   const canEdit = speciesChoiceSpecs(char).length > 0 && !char.inCampaign;
   return (
-    <>
-      <Filigree>{lang === 'pt' ? 'Traços da Espécie' : 'Species Traits'}</Filigree>
+    <section className="fh-panel">
+      <FhTitle>{lang === 'pt' ? 'Traços da Espécie' : 'Species Traits'}</FhTitle>
       {(rows.length > 0 || canEdit) && (
         <div className="card" style={{ marginBottom: 8, padding: 12 }}>
           {rows.map(([k, v]) => (
@@ -1062,7 +1067,7 @@ const SpeciesTraits = ({ char, lang, update, race }) => {
         );
       })}
       {open && <SpeciesChoicesModal char={char} lang={lang} onSave={update} onClose={() => setOpen(false)} />}
-    </>
+    </section>
   );
 };
 
@@ -1078,8 +1083,8 @@ const SheetNotes = ({ char, lang, update }) => {
   const removeNote = (id) => update({ notes: char.notes.filter(n => n.id !== id) });
 
   return (
-    <>
-      <Filigree>{t('tabNotes', lang)}</Filigree>
+    <section className="fh-panel">
+      <FhTitle>{t('tabNotes', lang)}</FhTitle>
       <button className="btn btn-primary btn-sm" onClick={addNote} style={{ marginBottom: 16 }}>
         <Icon name="plus" size={14}/> {t('addNote', lang)}
       </button>
@@ -1099,7 +1104,7 @@ const SheetNotes = ({ char, lang, update }) => {
           <textarea aria-label={lang === 'pt' ? 'Aventura, encontro, descoberta...' : 'Adventure, encounter, discovery...'} value={n.text} onChange={e => updateNote(n.id, e.target.value)} style={{ minHeight: 90 }} placeholder={lang === 'pt' ? 'Aventura, encontro, descoberta...' : 'Adventure, encounter, discovery...'}/>
         </div>
       ))}
-    </>
+    </section>
   );
 };
 
