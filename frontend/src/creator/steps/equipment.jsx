@@ -9,6 +9,12 @@ import {
   classPackOptions, backgroundPackOptions, selectedPacks, isGoldOnly, packLines, applyStartingEquipment,
   needsReapply, equipmentWarnings, equipmentIssues, acPreview, weaponEntry, weaponSummary, armorHint,
 } from '../equipment-helpers.js';
+import Utils from '../../../utils.js';
+import { classArt, speciesArt, optionArt } from '../../art.js';
+import { findOption } from '../../progression/options.js';
+import { activeFightingStyles, acBonuses } from '../../progression/fighting-styles.js';
+import { findSpecies } from '../species-helpers.js';
+import { Echo } from '../journey-ui.jsx';
 
 const COINS = ['cp', 'sp', 'ep', 'gp', 'pp'];
 
@@ -167,6 +173,86 @@ function AdvancedEditor({ char, set, lang }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Ecos: escolhas de antes que mudam o equipamento ("Porque você escolheu…")
+// ---------------------------------------------------------------------------
+const ARMOR_WORD = { light: { pt: 'leve', en: 'light' }, medium: { pt: 'média', en: 'medium' }, heavy: { pt: 'pesada', en: 'heavy' } };
+const andJoin = (a, lang) => (a.length > 1 ? `${a.slice(0, -1).join(', ')} ${lang === 'pt' ? 'e' : 'and'} ${a[a.length - 1]}` : a[0] || '');
+
+/** Treinos de armadura/arma em texto ("armadura pesada e armas marciais"). */
+function trainingText(grants, lang) {
+  const k = lang === 'pt' ? 'pt' : 'en';
+  const armor = (grants?.armor || []).map(a => String(a).toLowerCase());
+  const kinds = armor.filter(a => ARMOR_WORD[a]).map(a => ARMOR_WORD[a][k]);
+  const parts = [];
+  if (kinds.length) parts.push(lang === 'pt' ? `armadura ${andJoin(kinds, lang)}` : `${andJoin(kinds, lang)} armor`);
+  if (armor.some(a => a.startsWith('shield'))) parts.push(lang === 'pt' ? 'escudo' : 'shields');
+  if ((grants?.weapons || []).some(w => String(w).toLowerCase() === 'martial')) parts.push(lang === 'pt' ? 'armas marciais' : 'Martial weapons');
+  return andJoin(parts, lang);
+}
+
+/** Lista de ecos: [{ key, art, body }] (body já no idioma). */
+function equipmentEchoes(char, lang) {
+  const out = [];
+  const cls = char.className;
+  if (!cls) return out;
+  const picks = (char.classOptions || []).filter(p => p && p.classId === cls);
+  // Estilo de Luta Defesa: +1 na CA usando armadura (Utils.computeAc já soma).
+  for (const st of activeFightingStyles(char).filter(x => x.effect?.acBonusArmored)) {
+    const on = acBonuses(char).length > 0;
+    out.push({ key: `fs:${st.id}`, art: optionArt(st.id), body: L(lang,
+      <><b>{st.name.pt}</b> (Estilo de Luta): +{st.effect.acBonusArmored} na CA enquanto você usa armadura{on ? ' — já está somado na CA abaixo.' : '. Sem armadura, ele não vale.'}</>,
+      <><b>{st.name.en}</b> (Fighting Style): +{st.effect.acBonusArmored} AC while you wear armor{on ? ' — already added to the AC below.' : '. Without armor it does not apply.'}</>) });
+  }
+  for (const p of picks) {
+    const o = findOption(cls, p.pool, p.id);
+    if (!o) continue;
+    // Armadura das Sombras: Armadura Arcana à vontade (a CA calculada não conta a magia).
+    if (o.id === 'armorOfShadows') {
+      const ac = 13 + Utils.abilityMod(char, 'dex') + (char.hasShield ? 2 : 0);
+      out.push({ key: `o:${o.id}`, art: optionArt(o.id), body: L(lang,
+        <><b>{o.name.pt}</b>: sem armadura, você conjura Armadura Arcana em si quando quiser, sem gastar espaço de magia: CA 13 + Destreza ({ac}{char.hasShield ? ', com o escudo' : ''}). A CA abaixo não conta essa magia.</>,
+        <><b>{o.name.en}</b>: without armor, you can cast Mage Armor on yourself at will, without a spell slot: AC 13 + Dexterity ({ac}{char.hasShield ? ', with the shield' : ''}). The AC below doesn't count that spell.</>) });
+      continue;
+    }
+    // Ordens e domínios que dão treino (Protetor, Guardião, Vida 2014…).
+    const pt = trainingText(o.grants, 'pt');
+    if (pt) {
+      // Nome que já tem dois-pontos ("Vida: Proficiência Bônus") separa com travessão.
+      const sep = (n) => (/:/.test(n) ? ' — ' : ': ');
+      out.push({ key: `o:${o.id}`, art: optionArt(o.id) || classArt(cls), body: L(lang,
+        <><b>{o.name.pt}</b>{sep(o.name.pt)}treino em {pt}, que já conta nos pacotes abaixo.</>,
+        <><b>{o.name.en}</b>{sep(o.name.en)}{trainingText(o.grants, 'en')} training, already counted in the packages below.</>) });
+    }
+  }
+  // Defesa sem Armadura (Bárbaro e Monge): por isso o pacote não traz armadura.
+  if (cls === 'barbarian' || cls === 'monk') {
+    const other = cls === 'barbarian' ? { pt: 'Constituição', en: 'Constitution' } : { pt: 'Sabedoria', en: 'Wisdom' };
+    out.push({ key: 'unarmored', art: classArt(cls), body: L(lang,
+      <><b>{tName('class', cls, 'pt')}</b>: Defesa sem Armadura — sem armadura{cls === 'monk' ? ' e sem escudo' : ''}, sua CA soma Destreza e {other.pt}.</>,
+      <><b>{tName('class', cls, 'en')}</b>: Unarmored Defense — without armor{cls === 'monk' ? ' or a shield' : ''}, your AC adds Dexterity and {other.en}.</>) });
+  }
+  // Treino de armadura da espécie (ex.: Anão da Montanha 2014).
+  const raceArmor = findSpecies(char)?.armor || [];
+  if (raceArmor.length) {
+    const g = { armor: raceArmor };
+    out.push({ key: 'race', art: speciesArt(char.race), body: L(lang,
+      <><b>{tName('race', char.race, 'pt')}</b>: treino em {trainingText(g, 'pt')}.</>,
+      <><b>{tName('race', char.race, 'en')}</b>: {trainingText(g, 'en')} training.</>) });
+  }
+  // Maestria (2024) em armas que vêm no equipamento (o aviso de arma que falta continua abaixo).
+  if (char.rulesVersion !== '2014') {
+    const have = new Set((char.weapons || []).map(w => w?.id).filter(Boolean));
+    const ok = [...new Set(picks.filter(p => p.pool === 'weaponMastery' && have.has(p.id)).map(p => p.id))];
+    if (ok.length) {
+      out.push({ key: 'mastery', art: optionArt(ok[0]), body: L(lang,
+        <><b>Maestria</b> em {andJoin(ok.map(id => tName('weapon', id, 'pt')), 'pt')}: {ok.length > 1 ? 'essas armas vêm' : 'essa arma vem'} no seu equipamento.</>,
+        <><b>Weapon Mastery</b> with {andJoin(ok.map(id => tName('weapon', id, 'en')), 'en')}: {ok.length > 1 ? 'those weapons come' : 'that weapon comes'} with your equipment.</>) });
+    }
+  }
+  return out;
+}
+
 function Comp({ char, set, lang }) {
   // Recalcula ao entrar se a classe/antecedente/escolhas mudaram (ou o idioma), sem duplicar nada.
   useEffect(() => {
@@ -187,6 +273,8 @@ function Comp({ char, set, lang }) {
   const warnings = equipmentWarnings(char);
   const unarmoredClass = char.className === 'barbarian' || char.className === 'monk';
   const gp = (char.coins || {}).gp || 0;
+  let echoes = [];
+  try { echoes = equipmentEchoes(char, lang); } catch { echoes = []; }
 
   return (
     <div>
@@ -195,6 +283,8 @@ function Comp({ char, set, lang }) {
           ? <>Todo herói começa com armas, talvez uma armadura e algumas <Term id="goldPieces" lang={lang}>Peças de Ouro</Term>. Escolha um pacote da classe e um do antecedente. O pacote pronto é o jeito mais fácil: já vem com o que sua classe sabe usar.</>
           : <>Every hero starts with weapons, maybe some armor and a few <Term id="goldPieces" lang={lang}>Gold Pieces</Term>. Pick one package from your class and one from your background. The ready-made kit is the easiest choice: it has what your class knows how to use.</>}
       </StepIntro>
+
+      {echoes.map(e => <Echo key={e.key} art={e.art} lang={lang}>{e.body}</Echo>)}
 
       {classOpts.length > 0 ? (
         <section className="cr-eq-section">

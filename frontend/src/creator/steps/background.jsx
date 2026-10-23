@@ -1,4 +1,5 @@
 /* Etapa "Antecedente": o que o herói fazia antes de aventurar (ver ../README.md). */
+import { useRef } from 'react';
 import { tName, t } from '../../../data/i18n.js';
 import { StepIntro, Term, Callout, ChoiceGrid, ChoiceCard, Counter, L } from '../ui.jsx';
 import { backgroundArt } from '../../art.js';
@@ -11,6 +12,9 @@ import {
 import { expertiseGroups } from '../class-helpers.js';
 import { itemName } from '../equipment-helpers.js';
 import { Expertise } from './skills.jsx';
+import { DecisionPanel, useDecision, useConsidering } from '../journey-ui.jsx';
+import { backgroundTradeoffs } from '../decision.js';
+import { youthLine } from '../chronicle.js';
 
 const bgName = (b, lang) => b?.name?.[lang] || tName('background', b?.id, lang);
 const skillNames = (ids, lang) => (ids || []).map(s => tName('skill', s, lang)).join(lang === 'pt' ? ' e ' : ' and ');
@@ -92,15 +96,111 @@ function ToolChooser({ char, set, lang }) {
   );
 }
 
+/** Tela estreita (celular): o painel da escolha fica longe do cartão tocado. */
+const isNarrow = () => {
+  try { return typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 720px)').matches; } catch { return false; }
+};
+
+const bothName = (b) => ({ pt: bgName(b, 'pt'), en: bgName(b, 'en') });
+
+/** O que o antecedente dá e o que deixa para trás (o painel do peso da decisão). */
+function backgroundInfo(char, b) {
+  if (!b) return null;
+  const is24 = char.rulesVersion !== '2014';
+  const start = backgroundStart(char, b.id);
+  const toolPt = backgroundToolText(char, b.id, 'pt'), toolEn = backgroundToolText(char, b.id, 'en');
+  const of = backgroundOriginFeat(b);
+  const featName = (lang) => (of ? of.feat.name[lang] + (of.picks.spellList ? ` (${tName('class', of.picks.spellList, lang)})` : '') : b.feat);
+  return {
+    art: backgroundArt(b.id), kicker: { pt: 'As raízes', en: 'The roots' }, name: bothName(b),
+    gains: [
+      { pt: `Perícias: ${skillNames(b.skills, 'pt')}`, en: `Skills: ${skillNames(b.skills, 'en')}` },
+      toolPt ? { pt: `Ferramenta: ${toolPt}`, en: `Tool: ${toolEn}` } : null,
+      is24 && b.abilities ? { pt: `Atributos: ${abilityNames(b.abilities, 'pt')} (${SPLIT.pt})`, en: `Abilities: ${abilityNames(b.abilities, 'en')} (${SPLIT.en})` } : null,
+      is24 && b.feat ? { pt: `Talento de origem: ${featName('pt')}`, en: `Origin feat: ${featName('en')}` } : null,
+      !is24 && start?.languages > 0 ? { pt: `Idiomas: +${start.languages} à sua escolha`, en: `Languages: +${start.languages} of your choice` } : null,
+      !is24 && start?.feature ? { pt: `Característica: ${start.feature.pt}`, en: `Feature: ${start.feature.en}` } : null,
+    ],
+    loses: is24 ? backgroundTradeoffs(char, b) : [],
+    tale: { pt: youthLine(b.id, 'pt'), en: youthLine(b.id, 'en') },
+  };
+}
+
+/**
+ * "Seu antecedente: X" (o quadro que já existia), agora dentro do painel da
+ * escolha. `preview` = antecedente em análise, ainda não selado: mostra o que
+ * vai acontecer, mas a escolha de ferramenta só abre depois de selar.
+ */
+function BackgroundDetails({ char, set, lang, goTo, canGoSkills, preview }) {
+  const is24 = char.rulesVersion !== '2014';
+  const sel = findBackground(char);
+  if (!sel) return null;
+  const overlap = skillOverlap(char);
+  const hasFeatChoices = is24 && originFeatSpecs(char).length > 0;
+  const tl = backgroundTool(char);
+  return (
+    <div className="card" style={{ marginTop: 16, padding: 14 }}>
+      <div className="option-title">{L(lang, 'Seu antecedente', 'Your background')}: {bgName(sel, lang)}</div>
+      <p className="text-sm" style={{ margin: '6px 0 0' }}>
+        {L(lang, `Você ganha treino em ${skillNames(sel.skills, 'pt')}.`, `You gain training in ${skillNames(sel.skills, 'en')}.`)}
+        {is24 && sel.abilities && ' ' + L(lang,
+          `Na etapa de atributos você aumenta ${abilityNames(sel.abilities, 'pt')}: ${SPLIT.pt}.`,
+          `In the abilities step you raise ${abilityNames(sel.abilities, 'en')}: ${SPLIT.en}.`)}
+        {is24 && hasFeatChoices && ' ' + L(lang, 'Na próxima etapa você faz as escolhas do talento.', "In the next step you'll make the feat's choices.")}
+      </p>
+
+      {preview
+        ? tl.choose > 0 && (
+          <p className="text-sm muted" style={{ margin: '8px 0 0' }}>
+            {L(lang, `Depois de selar, escolha aqui ${tl.choose} ${toolCategoryName(tl.category, 'pt')}.`, `Once sealed, pick ${tl.choose} ${toolCategoryName(tl.category, 'en')} here.`)}
+          </p>
+        )
+        : <ToolChooser char={char} set={set} lang={lang} />}
+
+      {overlap.length > 0 && (
+        <Callout kind="warn">
+          {L(lang,
+            <>Você já tinha escolhido <strong>{skillNames(overlap, 'pt')}</strong> na etapa Perícias, e o antecedente também dá {overlap.length === 1 ? 'essa perícia' : 'essas perícias'}. Treino repetido não soma nada: troque {overlap.length === 1 ? 'a da classe por outra' : 'as da classe por outras'} (a etapa Perícias vai marcar substitutas como "Recomendado"), ou escolha outro antecedente.</>,
+            <>You had already picked <strong>{skillNames(overlap, 'en')}</strong> in the Skills step, and your background also gives {overlap.length === 1 ? 'that skill' : 'those skills'}. Repeated training adds nothing: swap the class {overlap.length === 1 ? 'one' : 'ones'} (the Skills step will mark replacements as "Recommended"), or pick another background.</>)}
+          {canGoSkills && goTo && (
+            <div style={{ marginTop: 8 }}>
+              <button type="button" className="btn btn-ghost" onClick={() => goTo('skills')}>{L(lang, 'Trocar perícias da classe', 'Change class skills')}</button>
+            </div>
+          )}
+        </Callout>
+      )}
+    </div>
+  );
+}
+
 function Comp({ char, set, lang, goTo, steps }) {
   const is24 = char.rulesVersion !== '2014';
   const cls = classStart(char);
   const sel = findBackground(char);
   const list = [...backgroundList(char)].sort((a, b) => fitsClass(char, b) - fitsClass(char, a));
-  const overlap = sel ? skillOverlap(char) : [];
   const canGoSkills = (steps || []).some(s => s.id === 'skills');
-  const hasFeatChoices = is24 && originFeatSpecs(char).length > 0;
   const className = char.className ? tName('class', char.className, lang) : '';
+  const panelRef = useRef(null);
+  const { propose } = useDecision();
+  const considering = useConsidering('background');
+  const pick = (id) => {
+    // A escolha só vale ao selar (segurar o botão do rodapé); até lá o herói mostra uma prévia.
+    const b = findBackground(char, id);
+    propose({
+      key: 'background', id, current: char.background || null, currentName: sel ? bothName(sel) : null,
+      patch: (c) => applyBackground(c, id),
+      reveal: b ? { kicker: { pt: 'As raízes estão fincadas', en: 'Your roots take hold' }, name: bothName(b), art: backgroundArt(id), tale: { pt: youthLine(id, 'pt'), en: youthLine(id, 'en') } } : null,
+    });
+    // Leva até o painel do peso da escolha (fica abaixo dos cartões).
+    if (isNarrow() || id !== char.background) {
+      setTimeout(() => {
+        try { panelRef.current?.scrollIntoView({ behavior: 'smooth', block: isNarrow() ? 'start' : 'nearest' }); } catch { /* sem rolagem */ }
+      }, 60);
+    }
+  };
+  // Antecedente em análise: o painel mostra como a ficha ficaria (sem gravar nada).
+  const view = considering ? { ...char, ...applyBackground(char, considering) } : char;
+  const shown = findBackground(view);
 
   return (
     <div>
@@ -127,8 +227,8 @@ function Comp({ char, set, lang, goTo, steps }) {
 
       <ChoiceGrid>
         {list.map(b => (
-          <ChoiceCard key={b.id} selected={sel?.id === b.id}
-            onClick={() => set(applyBackground(char, b.id))}
+          <ChoiceCard key={b.id} selected={sel?.id === b.id} considering={considering === b.id}
+            onClick={() => pick(b.id)}
             title={bgName(b, lang)}
             image={backgroundArt(b.id)}
             badge={fitsClass(char, b) ? L(lang, 'Combina com sua classe', 'Fits your class') : null}>
@@ -137,31 +237,11 @@ function Comp({ char, set, lang, goTo, steps }) {
         ))}
       </ChoiceGrid>
 
-      {sel && (
-        <div className="card" style={{ marginTop: 16, padding: 14 }}>
-          <div className="option-title">{L(lang, 'Seu antecedente', 'Your background')}: {bgName(sel, lang)}</div>
-          <p className="text-sm" style={{ margin: '6px 0 0' }}>
-            {L(lang, `Você ganha treino em ${skillNames(sel.skills, 'pt')}.`, `You gain training in ${skillNames(sel.skills, 'en')}.`)}
-            {is24 && sel.abilities && ' ' + L(lang,
-              `Na etapa de atributos você aumenta ${abilityNames(sel.abilities, 'pt')}: ${SPLIT.pt}.`,
-              `In the abilities step you raise ${abilityNames(sel.abilities, 'en')}: ${SPLIT.en}.`)}
-            {is24 && hasFeatChoices && ' ' + L(lang, 'Na próxima etapa você faz as escolhas do talento.', "In the next step you'll make the feat's choices.")}
-          </p>
-
-          <ToolChooser char={char} set={set} lang={lang} />
-
-          {overlap.length > 0 && (
-            <Callout kind="warn">
-              {L(lang,
-                <>Você já tinha escolhido <strong>{skillNames(overlap, 'pt')}</strong> na etapa Perícias, e o antecedente também dá {overlap.length === 1 ? 'essa perícia' : 'essas perícias'}. Treino repetido não soma nada: troque {overlap.length === 1 ? 'a da classe por outra' : 'as da classe por outras'} (a etapa Perícias vai marcar substitutas como "Recomendado"), ou escolha outro antecedente.</>,
-                <>You had already picked <strong>{skillNames(overlap, 'en')}</strong> in the Skills step, and your background also gives {overlap.length === 1 ? 'that skill' : 'those skills'}. Repeated training adds nothing: swap the class {overlap.length === 1 ? 'one' : 'ones'} (the Skills step will mark replacements as "Recommended"), or pick another background.</>)}
-              {canGoSkills && goTo && (
-                <div style={{ marginTop: 8 }}>
-                  <button type="button" className="btn btn-ghost" onClick={() => goTo('skills')}>{L(lang, 'Trocar perícias da classe', 'Change class skills')}</button>
-                </div>
-              )}
-            </Callout>
-          )}
+      {shown && (
+        <div ref={panelRef} style={{ scrollMarginTop: 140 }}>
+          <DecisionPanel char={char} lang={lang} decisionKey="background" sealedId={char.background || null} info={backgroundInfo(char, shown)}>
+            <BackgroundDetails char={view} set={set} lang={lang} goTo={goTo} canGoSkills={canGoSkills} preview={!!considering} />
+          </DecisionPanel>
         </div>
       )}
 

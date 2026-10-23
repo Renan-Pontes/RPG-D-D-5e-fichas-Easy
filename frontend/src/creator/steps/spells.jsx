@@ -3,7 +3,7 @@ import { useState } from 'react';
 import Utils from '../../../utils.js';
 import { tName } from '../../../data/i18n.js';
 import { StepIntro, Term, Callout, ChoiceCard, Counter, L } from '../ui.jsx';
-import { SpellPicker, SpellTitle, GrantedCallout, InvalidCallout, DuplicateCallout, abilityName } from './cantrips.jsx';
+import { SpellPicker, SpellTitle, GrantedCallout, InvalidCallout, DuplicateCallout, GrantEchoes, abilityName } from './cantrips.jsx';
 import {
   spellPlan, hasClassSpells, spellIssues, availableSpells, chosenSpells, preparedFromBook, recommendedSpells,
   invalidChoices, toggleSpell, togglePrepared, fillRecommended, spellDef, expandedSpellIds,
@@ -143,6 +143,7 @@ function SpellsStep({ char, set, lang }) {
           `This number depends on your ${abilityName(plan.ability, lang)} modifier: if you change your ability scores, it changes too.`)}</Callout>
       )}
 
+      <GrantEchoes char={char} lang={lang} cantrips={false} />
       <GrantedCallout char={char} lang={lang} cantrips={false} />
       <DuplicateCallout char={char} lang={lang} cantrips={false} />
       <InvalidCallout char={char} set={set} lang={lang} kind="spell" />

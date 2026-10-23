@@ -3,12 +3,16 @@ import { useState } from 'react';
 import Utils from '../../../utils.js';
 import { t, tName } from '../../../data/i18n.js';
 import { StepIntro, Term, Callout, ChoiceCard, Counter, L } from '../ui.jsx';
-import { schoolIcon, SCHOOL_EMOJI } from '../../art.js';
+import { schoolIcon, SCHOOL_EMOJI, classArt, subclassArt, optionArt, backgroundArt, speciesArt } from '../../art.js';
 import ArtThumb from '../../components/ArtThumb.jsx';
 import {
   spellPlan, hasClassCantrips, cantripIssues, availableCantrips, chosenCantrips, beginnerCantrips,
   grantedSpells, invalidChoices, withoutInvalid, toggleCantrip, fillRecommended, isCoreSpell, duplicateGrantIssues,
+  grantEntries,
 } from '../spell-helpers.js';
+import { findFeat } from '../../../data/feats.js';
+import { findOption, optionPool } from '../../progression/options.js';
+import { Echo } from '../journey-ui.jsx';
 
 /** Título da magia com o emblema da escola (ícone ilustrado quando houver). */
 export function SpellTitle({ sp, lang, prefix = '' }) {
@@ -100,6 +104,82 @@ export function SpellPicker({ char, lang, spells, selected, onToggle, full, sugg
   );
 }
 
+// ---------------------------------------------------------------------------
+// Ecos: de qual escolha vêm os truques/magias extras ("Porque você escolheu…")
+// ---------------------------------------------------------------------------
+const both = (kind, id) => ({ pt: tName(kind, id, 'pt'), en: tName(kind, id, 'en') });
+
+/** A escolha que trouxe uma magia concedida: { key, name: {pt,en}, art }. */
+function grantCause(char, g) {
+  const cls = char.className;
+  const picks = (char.classOptions || []).filter(p => p && (p.classId || cls) === cls);
+  const opt = (p) => findOption(cls, p.pool, p.id);
+  if (g.source === 'class') {
+    // Escolhida num grupo de magias (Truque do Taumaturgo, Pacto do Tomo…): a opção que abriu o grupo.
+    const own = g.chosen ? picks.find(p => p.id === g.id && optionPool(cls, p.pool)?.kind === 'spell') : null;
+    const parent = own && picks.map(p => ({ p, o: opt(p) })).find(x => x.o?.choices && own.pool in x.o.choices);
+    if (parent) return { key: `o:${parent.o.id}`, name: parent.o.name, art: optionArt(parent.o.id) || classArt(cls) };
+    // Concedida por uma opção (Armadura das Sombras, Pacto da Corrente…).
+    const giver = picks.map(p => ({ p, o: opt(p) })).find(x => [...(x.o?.grants?.spells || []), ...(x.o?.grants?.cantrips || [])].includes(g.id));
+    if (giver) return { key: `o:${giver.o.id}`, name: giver.o.name, art: optionArt(giver.o.id) || classArt(cls) };
+    if (own) return { key: `p:${own.pool}`, name: optionPool(cls, own.pool)?.name || both('class', cls), art: classArt(cls) };
+    // Recurso da classe ou da subclasse (domínio 2014, Marca do Caçador…).
+    if (char.subclass) {
+      return { key: 'class', name: { pt: `${tName('class', cls, 'pt')} (${tName('subclass', char.subclass, 'pt')})`, en: `${tName('class', cls, 'en')} (${tName('subclass', char.subclass, 'en')})` },
+        art: subclassArt(cls, char.subclass) || classArt(cls) };
+    }
+    return { key: 'class', name: both('class', cls), art: classArt(cls) };
+  }
+  if (g.source === 'feat') {
+    const entry = (char.feats || []).find(f => f?.id && findFeat(f.id)?.name?.pt === g.from?.pt);
+    if (entry?.origin === 'background' && char.background) {
+      return { key: `f:${entry.id}`, name: { pt: `${tName('background', char.background, 'pt')} (talento ${g.from.pt})`, en: `${tName('background', char.background, 'en')} (${g.from.en} feat)` },
+        art: backgroundArt(char.background) };
+    }
+    if (entry?.origin === 'species' && char.race) {
+      return { key: `f:${entry.id}`, name: { pt: `${tName('race', char.race, 'pt')} (talento ${g.from.pt})`, en: `${tName('race', char.race, 'en')} (${g.from.en} feat)` },
+        art: speciesArt(char.race) };
+    }
+    return { key: `f:${g.from?.pt}`, name: g.from || { pt: 'talento', en: 'feat' }, art: null };
+  }
+  return { key: 'species', name: char.race ? both('race', char.race) : (g.from || { pt: 'espécie', en: 'species' }), art: speciesArt(char.race) };
+}
+
+/**
+ * "Porque você escolheu Taumaturgo: +1 truque (Chama Sagrada)". Uma linha por
+ * escolha que trouxe truques (cantrips) ou magias de círculo 1+ que não ocupam
+ * vaga. A lista completa continua no GrantedCallout logo abaixo.
+ */
+export function GrantEchoes({ char, lang, cantrips }) {
+  let groups = [];
+  try {
+    const seen = new Set();
+    const by = new Map();
+    for (const g of grantEntries(char)) {
+      if ((g.level === 0) !== cantrips || g.level == null || seen.has(g.id)) continue;
+      seen.add(g.id);
+      const c = grantCause(char, g);
+      if (!by.has(c.key)) by.set(c.key, { ...c, ids: [] });
+      by.get(c.key).ids.push(g.id);
+    }
+    groups = [...by.values()];
+  } catch { groups = []; }
+  if (!groups.length) return null;
+  const k = lang === 'pt' ? 'pt' : 'en';
+  return <>{groups.map(x => {
+    const n = x.ids.length;
+    const names = x.ids.map(id => tName('spellName', id, lang)).join(', ');
+    const what = cantrips
+      ? L(lang, `+${n} ${n > 1 ? 'truques' : 'truque'}`, `+${n} ${n > 1 ? 'cantrips' : 'cantrip'}`)
+      : L(lang, `+${n} ${n > 1 ? 'magias' : 'magia'}`, `+${n} ${n > 1 ? 'spells' : 'spell'}`);
+    return (
+      <Echo key={x.key} art={x.art} lang={lang}>
+        <b>{x.name?.[k] || x.name?.pt}</b>: {what} ({names}){L(lang, ', fora do limite.', ', outside the limit.')}
+      </Echo>
+    );
+  })}</>;
+}
+
 /** Aviso: o mesmo truque/magia vem de duas origens (classe, talento, espécie) — trave e diga onde trocar. */
 export function DuplicateCallout({ char, lang, cantrips }) {
   const issues = duplicateGrantIssues(char, cantrips ? 'cantrip' : 'spell');
@@ -182,6 +262,7 @@ function CantripsStep({ char, set, lang }) {
         )}
       </StepIntro>
 
+      <GrantEchoes char={char} lang={lang} cantrips />
       <GrantedCallout char={char} lang={lang} cantrips />
       <DuplicateCallout char={char} lang={lang} cantrips />
       <InvalidCallout char={char} set={set} lang={lang} kind="cantrip" />
