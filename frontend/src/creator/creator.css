@@ -236,3 +236,43 @@
 .cr-seal-item { display: grid; justify-items: center; gap: 4px; width: 78px; text-align: center; }
 .cr-seal-item img { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px var(--cr-wax), 0 0 0 4px rgba(251, 228, 163, 0.7); }
 .cr-seal-item span { font-family: var(--display); font-size: 0.62rem; letter-spacing: 0.06em; color: var(--ink-secondary); line-height: 1.2; }
+
+/* ---------- Celular: painel da decisão em uma coluna, topo e rodapé mais enxutos ---------- */
+@media (max-width: 700px) {
+  .container-creator .wizard { padding-top: 6px; padding-bottom: 6px; }
+  .cr-progress.cr-journey { gap: 4px; padding: 0; }
+  .cr-mile-dot { width: 30px; height: 30px; font-size: 0.72rem; }
+  .cr-miles-path, .cr-miles-fill { top: 16px; }
+  .cr-mile.now .cr-mile-dot { transform: scale(1.06); box-shadow: 0 0 0 3px var(--gold-soft), 0 0 12px rgba(237, 203, 122, 0.4); }
+  .cr-substeps-ch, .cr-substeps-count { display: none; }
+  .cr-substeps { gap: 2px; }
+  .cr-minihero { margin-top: 4px; padding: 4px 8px; }
+  .cr-minihero img { width: 30px; height: 30px; }
+  .cr-chapter-head { margin-bottom: var(--s-3); }
+  .cr-chapter-title { font-size: 1.55rem; }
+  .cr-narr { font-size: 0.98rem; }
+  /* a dica do selo já está no próprio botão; no celular ela cobria o conteúdo */
+  .cr-seal-status { display: none; }
+  .cr-hold-wrap { flex: 1.5; }
+  .cr-hold { white-space: nowrap; letter-spacing: 0.08em; font-size: 0.8rem; padding-inline: 12px; min-height: 48px; }
+  .cr-hold-tip { font-size: 0.8rem; }
+}
+@media (max-width: 620px) {
+  .cr-decision { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 12px; }
+  .cr-dec-art img { aspect-ratio: 16 / 9; max-height: 190px; object-position: 50% 22%; }
+  .cr-wax { width: 44px; height: 44px; font-size: 1.1rem; right: 8px; bottom: -12px; }
+  .cr-dec-body h3 { font-size: 1.3rem; }
+  .cr-dec-diffs { gap: 6px; }
+  .cr-diff { padding: 4px 10px; }
+  .cr-battle { grid-template-columns: 40px minmax(0, 1fr); gap: 10px; padding: 10px; }
+  .cr-battle img { width: 40px; height: 40px; }
+  .cr-b-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; padding: 4px 0; }
+  .cr-b-row b { white-space: normal; font-size: 0.95rem; }
+  .cr-path li { font-size: 0.88rem; }
+  .cr-dec-cols ul { font-size: 0.92rem; }
+}
+/* Painel do herói aberto no celular: fundo opaco e sem o rodapé por trás */
+@media (max-width: 1023px) {
+  .cr-shell.side-open .cr-side { background: var(--bg-deep); }
+  body:has(.cr-shell.side-open) .wizard-footer { display: none; }
+}
