@@ -137,7 +137,7 @@ function Group({ char, set, lang, group }) {
     }
     const sealed = all.find(x => x.id === sealedId);
     propose({
-      key: decisionKey, id: o.id, current: sealedId, currentName: sealed ? sealed.name : null,
+      key: decisionKey, id: o.id, current: sealedId, currentName: sealed ? sealed.name : null, name: o.name,
       // O mesmo toggleGroupPick do clique, com o grupo recalculado na hora de selar.
       patch: (c) => toggleGroupPick(c, choiceGroups(c).find(g => g.key === group.key) || group, o.id),
     });

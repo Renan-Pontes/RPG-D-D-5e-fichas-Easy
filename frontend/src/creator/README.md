@@ -55,6 +55,17 @@ e mostra um `<DecisionPanel>` com a prévia; o botão Avançar do rodapé vira
 "Segure para selar" e, ao completar, o assistente aplica `decision.patch(char)`
 (o mesmo patch que o clique aplicava antes), guarda a "cicatriz" na crônica se
 um selo foi quebrado, mostra a revelação e avança se a etapa ficou completa.
+Quebrar um selo (trocar algo já selado) **não** avança: a pessoa fica na etapa
+e vê o que mudou (ex.: o aviso de troca de classe depois dos atributos).
+
+- Segurar: ponteiro por `HOLD_MS`; Enter/Espaço e o clique de tecnologia
+  assistiva (`click` com `detail === 0`) selam na hora; com movimento reduzido,
+  sela no clique (dá para cancelar arrastando para fora). Depois de um toque
+  curto aparece "Selar sem segurar".
+- Desistir: botão no painel, tocar de novo na escolha selada ou Esc.
+- Enquanto há escolha em análise, o rodapé mostra as pendências que sobrariam
+  depois de selar; avisos importantes aparecem já na prévia (o selo pode avançar).
+- Foco: depois de selar, volta ao cartão (ou vai ao título da etapa nova).
 
 ```js
 propose({
@@ -64,6 +75,7 @@ propose({
   patch: (c) => selectClass(c, id),       // patch puro, aplicado ao selar
   scar: 'class',                          // opcional: frase na crônica ao trocar
   reveal: { kicker, name, art, tale },    // opcional: tela cheia ao selar
+  name: { pt, en },                       // opcional: nome para o leitor de tela (senão reveal.name)
 });
 ```
 

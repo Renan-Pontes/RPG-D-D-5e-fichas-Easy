@@ -42,7 +42,8 @@ export function journeyChapters({ steps, index, visited = [], stepIssues = [], r
     const members = steps.map((s, i) => ({ s, i })).filter(({ s }) => chapterIndexOf(s.id, steps) === ci);
     const seen = members.filter(({ s, i }) => visited.includes(s.id) && i !== index);
     const pending = seen.some(({ i }) => (stepIssues[i] || []).length > 0);
-    const target = members.find(({ i }) => reachable(i));
+    // O "!" leva direto à etapa com pendência; senão, à primeira alcançável.
+    const target = seen.find(({ i }) => reachable(i) && (stepIssues[i] || []).length > 0) || members.find(({ i }) => reachable(i));
     return {
       ...c,
       index: ci,

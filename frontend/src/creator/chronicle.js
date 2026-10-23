@@ -132,6 +132,11 @@ export function birthLine(raceId, lang = 'pt') {
   const base = groupOf(raceId)?.id || String(raceId).split('-')[0];
   return (BIRTH[raceId] || BIRTH[base])?.[k(lang)] || '';
 }
+/** Como birthLine, mas com uma frase genérica para povos sem frase própria (outros livros). */
+export function birthTale(raceId, lang = 'pt') {
+  if (!raceId) return '';
+  return birthLine(raceId, lang) || (k(lang) === 'pt' ? `Você nasceu entre o povo ${tName('race', raceId, lang)}, com uma história própria.` : `You were born among the ${tName('race', raceId, lang)}, with a history of their own.`);
+}
 /** Linha da crônica de uma escolha de classe (id da opção). */
 export const optionTale = (id, lang = 'pt') => TALE[String(id).replace(/2014$/, '')]?.[k(lang)] || '';
 
@@ -167,11 +172,7 @@ const abilitiesDone = (char) => !!char && abilitiesIssues(char).length === 0;
 export function chronicleLines(char, lang = 'pt') {
   const L = k(lang), out = [];
   if (!char) return out;
-  if (char.race) {
-    const base = groupOf(char.race)?.id || String(char.race).split('-')[0];
-    const key = BIRTH[char.race] ? char.race : base;
-    out.push(BIRTH[key]?.[L] || (lang === 'pt' ? `Você nasceu entre o povo ${tName('race', char.race, lang)}, com uma história própria.` : `You were born among the ${tName('race', char.race, lang)}, with a history of their own.`));
-  }
+  if (char.race) out.push(birthTale(char.race, lang));
   if (char.background) {
     const bg = tName('background', char.background, lang), y = YOUTH[char.background]?.[L];
     out.push(lang === 'pt' ? `Cresceu como ${low(bg)}${y ? `, ${y}` : ''}.` : `You grew up as ${/^[aeiou]/i.test(bg) ? 'an' : 'a'} ${low(bg)}${y ? `, ${y}` : ''}.`);

@@ -27,7 +27,6 @@
 .cr-substeps .cr-progress-step { flex: 0 0 auto; flex-direction: row; gap: 6px; min-width: 0; padding: 2px 8px 2px 2px; border-radius: 999px; }
 .cr-substeps .cr-progress-step.active { background: var(--gold-soft); }
 .cr-substeps .cr-progress-label { max-width: 160px; }
-.cr-substeps-count { margin-left: auto; font-size: 0.7rem; color: var(--ink-muted); white-space: nowrap; padding-left: 8px; }
 @media (max-width: 700px) {
   .cr-mile-name { display: none; }
   .cr-mile { flex-basis: 34px; min-width: 34px; }
@@ -244,7 +243,7 @@
   .cr-mile-dot { width: 30px; height: 30px; font-size: 0.72rem; }
   .cr-miles-path, .cr-miles-fill { top: 16px; }
   .cr-mile.now .cr-mile-dot { transform: scale(1.06); box-shadow: 0 0 0 3px var(--gold-soft), 0 0 12px rgba(237, 203, 122, 0.4); }
-  .cr-substeps-ch, .cr-substeps-count { display: none; }
+  .cr-substeps-ch { display: none; }
   .cr-substeps { gap: 2px; }
   .cr-minihero { margin-top: 4px; padding: 4px 8px; }
   .cr-minihero img { width: 30px; height: 30px; }
@@ -301,4 +300,34 @@
   /* antecedente: no cartão ficam as linhas principais; o painel da escolha mostra tudo */
   .cr-stage .options-list .cr-bg-gains { display: -webkit-box; -webkit-line-clamp: 7; -webkit-box-orient: vertical; overflow: hidden; font-size: 0.8rem; line-height: 1.35; }
   .cr-stage .options-list .cr-bg-gains .muted { display: none; }
+}
+
+/* ---------- Ajustes da auditoria (acessibilidade e celular) ---------- */
+.cr-sr { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.cr-chapter-head:focus { outline: none; }
+.cr-step-count { white-space: nowrap; }
+/* O selo de cera do cartão escolhido não cobre o fim do título nem o selo "Recomendado" (cartões sem arte). */
+.cr-stage .option:not(:has(> .cr-card-art)) > .option-title { padding-right: 28px; }
+/* A primeira batalha quebra linha em qualquer largura (antes passava da tela de 320 a 375 px). */
+.cr-b-row { flex-wrap: wrap; }
+.cr-b-row b { white-space: normal; overflow-wrap: anywhere; margin-left: auto; text-align: right; }
+/* Desistir da escolha em análise, ao lado da dica do selo. */
+.cr-seal-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.cr-seal-row .cr-seal-hint { flex: 1 1 220px; }
+.cr-hold-now { margin-left: 4px; padding: 0; border: 0; background: none; font: inherit; color: var(--gold-bright); text-decoration: underline; cursor: pointer; }
+.cr-hold-tip { pointer-events: auto; }
+.cr-after-seal { display: block; font-size: 0.85rem; color: var(--ink-muted); }
+.cr-vital-note { margin-top: -4px; font-size: 0.78rem; font-style: italic; color: var(--ink-muted); }
+/* Textos pequenos demais (9-10 px) */
+.cr-mile-name { font-size: 0.68rem; letter-spacing: 0.08em; color: var(--ink-secondary); }
+.cr-diff span, .cr-vital span, .cr-mini-abil span, .cr-pre-tag, .cr-hero-list b { font-size: 0.68rem; letter-spacing: 0.1em; }
+.cr-vital span { color: var(--ink-secondary); }
+@media (min-width: 1024px) {
+  /* o fim do painel do herói fica acima do rodapé fixo */
+  .cr-side { max-height: calc(100vh - 132px - 150px); }
+}
+@media (max-width: 699px) {
+  /* 2014: o povo com sub-raças ocupa a linha inteira e as sub-raças ficam em 2 colunas largas */
+  .cr-stage .options-list > .option:has(.options-list) { grid-column: 1 / -1; }
+  .cr-stage .options-list > .option:has(.options-list) .options-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

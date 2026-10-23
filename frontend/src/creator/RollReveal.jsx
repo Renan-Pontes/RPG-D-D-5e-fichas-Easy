@@ -55,6 +55,14 @@ export default function RollReveal({ rolls, lang, onClose }) {
   }, []);
   const onKey = (e) => {
     if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+    else if (e.key === 'Tab') {
+      // Foco preso no diálogo: o painel e o "Pular" (quando aparece).
+      e.preventDefault();
+      const box = boxRef.current;
+      const items = [box, ...box.querySelectorAll('button:not([disabled])')];
+      const at = items.indexOf(document.activeElement);
+      items[(at + (e.shiftKey ? -1 : 1) + items.length) % items.length]?.focus({ preventScroll: true });
+    }
     else if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); advance(); }
   };
 

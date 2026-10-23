@@ -51,7 +51,7 @@ export function ChoiceCard({ selected, disabled, onClick, title, subtitle, badge
   const activate = () => { if (!disabled) onClick?.(); };
   return (
     <div role="button" tabIndex={disabled ? -1 : 0} className={`option ${selected ? 'selected' : ''} ${considering ? 'considering' : ''} ${className}`}
-      aria-pressed={!!selected} aria-disabled={disabled || undefined}
+      aria-pressed={selected ? true : considering ? 'mixed' : false} aria-disabled={disabled || undefined}
       onClick={(e) => { if (e.target.closest('button, input, select, textarea, a') && e.target !== e.currentTarget) return; activate(); }}
       onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); activate(); } }}
       style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}>

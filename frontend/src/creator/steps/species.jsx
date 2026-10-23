@@ -9,7 +9,7 @@ import {
   pendingChoiceLabels, selectSpecies, speciesIssues, groupOf,
 } from '../species-helpers.js';
 import { DecisionPanel, useDecision, useConsidering } from '../journey-ui.jsx';
-import { birthLine } from '../chronicle.js';
+import { birthTale } from '../chronicle.js';
 
 const is2014 = (char) => char.rulesVersion === '2014';
 const raceName = (id, lang) => tName('race', id, lang);
@@ -150,7 +150,7 @@ function speciesInfo(char, id) {
         : { pt: 'Tamanho Pequeno', en: 'Small size' }) : null,
       !dv ? { pt: 'Sem visão no escuro', en: 'No darkvision' } : null,
     ],
-    tale: { pt: birthLine(id, 'pt'), en: birthLine(id, 'en') },
+    tale: { pt: birthTale(id, 'pt'), en: birthTale(id, 'en') },
   };
 }
 
@@ -169,7 +169,7 @@ function SpeciesStep({ char, set, lang }) {
     propose({
       key: 'species', id, current: char.race || null, currentName: char.race ? bothName(char.race) : null,
       patch: (c) => selectSpecies(c, id),
-      reveal: { kicker: { pt: 'O sangue foi escolhido', en: 'Your blood is chosen' }, name: bothName(id), art: speciesArt(id), tale: { pt: birthLine(id, 'pt'), en: birthLine(id, 'en') } },
+      reveal: { kicker: { pt: 'O sangue foi escolhido', en: 'Your blood is chosen' }, name: bothName(id), art: speciesArt(id), tale: { pt: birthTale(id, 'pt'), en: birthTale(id, 'en') } },
     });
     // Leva até o painel do peso da escolha (fica abaixo dos cartões).
     if (isNarrow() || id !== char.race) {
@@ -225,6 +225,9 @@ function SpeciesStep({ char, set, lang }) {
               <p className="text-sm muted" style={{ margin: '0 0 8px' }}>
                 {L(lang, `${raceName(shownId, 'pt')} é de outro livro: confirme com o mestre se ${old ? 'essa raça' : 'essa espécie'} vale na mesa.`,
                   `${raceName(shownId, 'en')} is from another book: check with your DM that it is allowed.`)}
+                {!old && findSpecies(char, shownId)?.legacyCompatibility && L(lang,
+                  ' Nas regras 2024 ela não dá idiomas nem bônus de atributo (isso vem da origem e do antecedente).',
+                  ' Under 2024 rules it grants no languages or ability bonuses (those come from origin and background).')}
               </p>
             )}
             <FullDetails char={view} id={shownId} lang={lang} />
