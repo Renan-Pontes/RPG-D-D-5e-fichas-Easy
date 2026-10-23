@@ -24,6 +24,7 @@ import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '.
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
 import FhTitle from '../src/sheet/FhTitle.jsx';
 import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
+import { FhHex, FhSkillRow, FhProfLegend } from '../src/sheet/FhChecks.jsx';
 import { hpState, hpStateLabel, useHpFeedback } from '../src/sheet/hp-feedback.js';
 import '../src/sheet/ficha.css';
 
@@ -1472,20 +1473,8 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
 
       {/* Abilities at a glance */}
       <section className="fh-panel">
-      <FhTitle>{t('tabStats', lang)}</FhTitle>
-      <div className="abil-grid">
-        {SRD.ABILITIES.map(k => {
-          const score = Utils.abilityWithRace(char, k);
-          const mod = Utils.abilityMod(char, k);
-          return (
-            <div key={k} className="abil-box" onClick={() => roll({ die: 20, mod, label: t(k, lang) + ' ' + t('abilityCheck', lang) })} style={{ cursor: 'pointer' }}>
-              <div className="abil-box-name">{t(k + 'Sh', lang)}</div>
-              <div className="abil-box-mod">{Utils.fmtMod(mod)}</div>
-              <div className="abil-box-score">{score}</div>
-            </div>
-          );
-        })}
-      </div>
+      <FhTitle sub={<span>{lang === 'pt' ? 'toque para rolar' : 'tap to roll'}</span>}>{t('tabStats', lang)}</FhTitle>
+      <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang) + ' ' + t('abilityCheck', lang)} />
       </section>
 
       {/* Descanso: mesma lógica (e endpoint) da aba de magias */}
@@ -1538,84 +1527,86 @@ const LanguagesField = ({ char, lang, update }) => {
   );
 };
 
+// Selos de atributo (abas Jogar e Atributos): o mesmo desenho; cada aba mantém o seu
+// rótulo de rolagem ("<Atributo> Teste de habilidade" na Jogar, "<Atributo>" aqui).
+const AbilitySeals = ({ char, lang, roll, rollLabel }) => (
+  <div className="fh-abil">
+    {SRD.ABILITIES.map(k => {
+      const score = Utils.abilityWithRace(char, k);
+      const mod = Utils.abilityMod(char, k);
+      return (
+        <FhHex key={k} abbr={t(k + 'Sh', lang)} mod={Utils.fmtMod(mod)} score={score}
+          label={lang === 'pt'
+            ? `${t(k, lang)} ${Utils.fmtMod(mod)}, valor ${score}. Rolar teste`
+            : `${t(k, lang)} ${Utils.fmtMod(mod)}, score ${score}. Roll check`}
+          onClick={() => roll({ die: 20, mod, label: rollLabel(k) })} />
+      );
+    })}
+  </div>
+);
+
 const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
+  const pt = lang === 'pt';
+  const profText = (level) => level === 2 ? (pt ? 'Especialista' : 'Expertise') : level ? (pt ? 'Treinado' : 'Proficient') : (pt ? 'Sem treino' : 'Not proficient');
   return (
     <>
       <section className="fh-panel">
-      <FhTitle>{t('abilitiesTitle', lang).split(' ')[0] || lang === 'pt' ? 'Atributos' : 'Abilities'}</FhTitle>
-      <div className="abil-grid">
-        {SRD.ABILITIES.map(k => {
-          const score = Utils.abilityWithRace(char, k);
-          const mod = Utils.abilityMod(char, k);
-          return (
-            <div key={k} className="abil-box" onClick={() => roll({ die: 20, mod, label: t(k, lang) })} style={{ cursor: 'pointer' }}>
-              <div className="abil-box-name">{t(k + 'Sh', lang)}</div>
-              <div className="abil-box-mod">{Utils.fmtMod(mod)}</div>
-              <div className="abil-box-score">{score}</div>
-            </div>
-          );
-        })}
-      </div>
+      <FhTitle sub={<span>{pt ? 'toque para rolar' : 'tap to roll'}</span>}>{t('abilitiesTitle', lang).split(' ')[0] || lang === 'pt' ? 'Atributos' : 'Abilities'}</FhTitle>
+      <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang)} />
       </section>
 
       <section className="fh-panel">
-      <FhTitle>{lang === 'pt' ? 'Testes de Resistência' : 'Saving Throws'}</FhTitle>
-      <div className="skill-display">
+      <FhTitle sub={<span>{pt ? 'toque para rolar' : 'tap to roll'}</span>}>{lang === 'pt' ? 'Testes de Resistência' : 'Saving Throws'}</FhTitle>
+      {/* Em 2 colunas no desktop (3 + 3), na ordem do DOM: --fh-rows = metade das linhas */}
+      <div className="fh-skills" style={{ '--fh-rows': Math.ceil(SRD.ABILITIES.length / 2) }}>
         {SRD.ABILITIES.map(k => {
           const bonus = Utils.saveBonus(char, k);
           const isProf = Utils.hasSaveProf(char, k);
           return (
-            <div key={k} className="skill-display-row" onClick={() => roll({ die: 20, mod: bonus, label: t(k, lang) + ' ' + t('saveRoll', lang) })}>
-              <button
-                type="button"
-                className={`skill-prof-dot ${isProf ? 'prof' : ''}`}
-                onClick={(e) => { e.stopPropagation(); update({ saveProfs: isProf ? (char.saveProfs || []).filter(x => x !== k) : [...(char.saveProfs || []), k] }); }}
-                aria-pressed={isProf}
-                title={isProf ? (lang === 'pt' ? 'Treinado' : 'Proficient') : (lang === 'pt' ? 'Sem treino' : 'Not proficient')}
-                style={{ cursor: 'pointer', padding: 0, background: isProf ? 'var(--gold)' : 'none' }}
-              />
-              <span className="skill-display-name">{t(k, lang)}</span>
-              <span className="skill-display-stat">{t(k + 'Sh', lang)}</span>
-              <span className="skill-display-mod">{Utils.fmtMod(bonus)}</span>
-            </div>
+            <FhSkillRow key={k} name={t(k, lang)} abbr={t(k + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
+              level={isProf ? 1 : 0}
+              profTitle={profText(isProf ? 1 : 0)}
+              profLabel={`${t(k, lang)}: ${profText(isProf ? 1 : 0)}`}
+              onToggle={() => update({ saveProfs: isProf ? (char.saveProfs || []).filter(x => x !== k) : [...(char.saveProfs || []), k] })}
+              onRoll={() => roll({ die: 20, mod: bonus, label: t(k, lang) + ' ' + t('saveRoll', lang) })} />
           );
         })}
       </div>
+      <FhProfLegend lang={lang} />
       </section>
 
       <section className="fh-panel">
-      <FhTitle sub={<span>{t('passivePerception', lang)} {passPerc}</span>}>{t('skills', lang)}</FhTitle>
-      <div className="skill-display">
+      <FhTitle sub={<>
+        <span>{t('passivePerception', lang)} <span className="fh-sub-hi">{passPerc}</span></span>
+        <span aria-hidden="true">·</span>
+        <span>{pt ? 'toque para rolar' : 'tap to roll'}</span>
+      </>}>{t('skills', lang)}</FhTitle>
+      <div className="fh-skills" style={{ '--fh-rows': Math.ceil(SRD.SKILLS.length / 2) }}>
         {SRD.SKILLS.map(s => {
           const bonus = Utils.skillBonus(char, s.id);
           const isProf = Utils.hasSkillProf(char, s.id);
           const isExpert = Utils.hasExpertise(char, s.id);
+          const level = isExpert ? 2 : isProf ? 1 : 0;
           return (
-            <div key={s.id} className="skill-display-row" onClick={() => roll({ die: 20, mod: bonus, label: tName('skill', s.id, lang) })}>
-              <button
-                type="button"
-                className={`skill-prof-dot ${isExpert ? 'expert' : isProf ? 'prof' : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isExpert) {
-                    update({ skillExpertise: (char.skillExpertise || []).filter(x => x !== s.id), skillProfs: (char.skillProfs || []).filter(x => x !== s.id) });
-                  } else if (isProf) {
-                    update({ skillExpertise: [...(char.skillExpertise || []), s.id] });
-                  } else {
-                    update({ skillProfs: [...(char.skillProfs || []), s.id] });
-                  }
-                }}
-                aria-pressed={isProf || isExpert}
-                title={isExpert ? (lang === 'pt' ? 'Especialista' : 'Expertise') : isProf ? (lang === 'pt' ? 'Treinado' : 'Proficient') : (lang === 'pt' ? 'Sem treino' : 'Not proficient')}
-                style={{ cursor: 'pointer', padding: 0, background: isProf || isExpert ? 'var(--gold)' : 'none' }}
-              />
-              <span className="skill-display-name">{tName('skill', s.id, lang)}</span>
-              <span className="skill-display-stat">{t(s.stat + 'Sh', lang)}</span>
-              <span className="skill-display-mod">{Utils.fmtMod(bonus)}</span>
-            </div>
+            <FhSkillRow key={s.id} name={tName('skill', s.id, lang)} abbr={t(s.stat + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
+              level={level}
+              profTitle={profText(level)}
+              profLabel={`${tName('skill', s.id, lang)}: ${profText(level)}`}
+              onToggle={() => {
+                // ciclo: sem treino → treinado → especialista → sem treino
+                if (isExpert) {
+                  update({ skillExpertise: (char.skillExpertise || []).filter(x => x !== s.id), skillProfs: (char.skillProfs || []).filter(x => x !== s.id) });
+                } else if (isProf) {
+                  update({ skillExpertise: [...(char.skillExpertise || []), s.id] });
+                } else {
+                  update({ skillProfs: [...(char.skillProfs || []), s.id] });
+                }
+              }}
+              onRoll={() => roll({ die: 20, mod: bonus, label: tName('skill', s.id, lang) })} />
           );
         })}
       </div>
+      <FhProfLegend lang={lang} expert />
       </section>
 
       {(char.feats || []).length > 0 && (

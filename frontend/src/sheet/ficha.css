@@ -131,17 +131,7 @@
   border-bottom: 1px solid rgba(224, 181, 94, 0.14);
 }
 .ficha .fh-panel .slot-row:last-child { border-bottom: 0; }
-.ficha .fh-panel .skill-display { gap: 0; }
-.ficha .fh-panel .skill-display-row {
-  background: none;
-  border: 0;
-  border-radius: 0;
-  border-bottom: 1px solid rgba(224, 181, 94, 0.12);
-}
-.ficha .fh-panel .skill-display-row:last-child { border-bottom: 0; }
-@media (hover: hover) {
-  .ficha .fh-panel .skill-display-row:hover { background: linear-gradient(90deg, rgba(224, 181, 94, 0.1), transparent 80%); }
-}
+/* atributos da fera no BeastModal (os da ficha viraram selos .fh-hex) */
 .ficha .fh-panel .abil-box {
   background: rgba(10, 7, 6, 0.5);
   border-color: rgba(224, 181, 94, 0.22);
@@ -1084,4 +1074,284 @@
   .ficha .fh-fx,
   .ficha .fh-float { display: none; }
   .ficha .fh-hp .hp-current { text-shadow: none; }
+}
+
+/* ---------- Atributos em selos hexagonais (plano §3, §4.5; src/sheet/FhChecks.jsx) ----------
+   Abas Jogar e Atributos. Classe nova .fh-abil (a .abil-grid tem !important no celular e
+   continua servindo o BeastModal). O selo é o próprio <button>: rola pelo toque e pelo
+   teclado. O hexágono fica no ::before (filete) e no miolo .fh-hex-in, com clip-path só
+   neles: o anel de foco do botão não é cortado. Transform e filter só no selo, que é
+   folha (não tem botão de Modal dentro). 3 colunas no celular, 6 a partir de 561px
+   (o mesmo corte dos medalhões da defesa). */
+.ficha .fh-abil {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  justify-items: center;
+  gap: 12px 10px;
+}
+.ficha .fh-hex {
+  position: relative;
+  width: 100%;
+  max-width: 100px;
+  aspect-ratio: 0.88;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px; /* só o anel de foco usa */
+  background: none;
+  color: var(--ink-primary);
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.2s var(--fh-ease), filter 0.2s;
+}
+.ficha .fh-hex::before,
+.ficha .fh-hex-in { clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+.ficha .fh-hex::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--fh-gilt);
+}
+.ficha .fh-hex-in {
+  position: absolute;
+  inset: 2px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  line-height: 1.05;
+  background: radial-gradient(circle at 50% 30%, #2c1f17, #120c09 75%);
+}
+.ficha .fh-hex-abbr {
+  margin-right: -0.2em; /* compensa o espaçamento da última letra: sigla no centro */
+  font-family: var(--display);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--gold);
+}
+.ficha .fh-hex-mod {
+  margin: 2px 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.7rem;
+  line-height: 1;
+  color: var(--ink-primary);
+}
+.ficha .fh-hex-score { font-family: var(--mono); font-size: 0.78rem; color: var(--ink-muted); }
+@media (hover: hover) {
+  .ficha .fh-hex:hover { transform: translateY(-3px); filter: drop-shadow(0 6px 14px rgba(240, 190, 90, 0.3)); }
+  .ficha .fh-hex:hover .fh-hex-mod { color: var(--fh-gold-hi); }
+}
+@media (hover: none) {
+  .ficha .fh-hex:active { transform: scale(0.94); filter: drop-shadow(0 0 10px rgba(240, 190, 90, 0.45)); }
+}
+.ficha .fh-hex:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+@media (min-width: 561px) {
+  .ficha .fh-abil { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+  .ficha .fh-hex { max-width: 108px; }
+}
+@media (max-width: 360px) {
+  .ficha .fh-abil { gap: 10px 8px; }
+  .ficha .fh-hex-mod { font-size: 1.5rem; }
+}
+
+/* ---------- Salvaguardas e perícias (plano §3, §4.6; FhSkillRow em src/sheet/FhChecks.jsx) ----------
+   Linha sem caixa, com filete embaixo: [losango que alterna o treino][nome · sigla · bônus
+   que rola]. Dois botões irmãos. Sem treino o nome fica um tom abaixo; treinado e
+   especialista acendem o losango (e também estão no title / aria-label: não é só cor).
+   No desktop, 2 colunas na ordem do DOM (desce a 1ª, depois a 2ª): --fh-rows vem do JSX. */
+.ficha .fh-skills { display: grid; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 720px) {
+  .ficha .fh-skills {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(var(--fh-rows, 9), auto);
+    grid-auto-flow: column;
+    column-gap: 28px;
+  }
+}
+.ficha .fh-skill {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: stretch;
+  min-width: 0;
+  border-radius: 4px;
+}
+.ficha .fh-skill::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(224, 181, 94, 0.18), transparent);
+}
+@media (hover: hover) {
+  .ficha .fh-skill:hover { background: linear-gradient(90deg, rgba(224, 181, 94, 0.12), transparent 80%); }
+}
+
+/* losango de treino: alvo de 40px (44px no celular), desenho de 10px no ::before */
+.ficha .fh-prof {
+  width: 40px;
+  min-height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ficha .fh-prof::before,
+.ficha .fh-prof-mark {
+  content: "";
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg); /* pseudo-elemento folha */
+  border: 1.5px solid var(--gold-deep);
+  background: rgba(7, 5, 5, 0.5);
+}
+.ficha .fh-prof::before { transition: transform 0.2s var(--fh-ease), background 0.2s, border-color 0.2s, box-shadow 0.2s; }
+.ficha .fh-prof.prof::before,
+.ficha .fh-prof-mark.prof { background: var(--gold); border-color: var(--gold); box-shadow: 0 0 6px rgba(240, 190, 90, 0.5); }
+.ficha .fh-prof.expert::before,
+.ficha .fh-prof-mark.expert { background: var(--fh-gold-hi); border-color: var(--fh-gold-hi); box-shadow: 0 0 0 2px var(--fh-leather), 0 0 0 3px var(--gold), 0 0 10px rgba(240, 190, 90, 0.5); }
+@media (hover: hover) {
+  .ficha .fh-prof:hover::before { transform: rotate(45deg) scale(1.25); border-color: var(--gold-bright); }
+}
+@media (hover: none) {
+  .ficha .fh-prof:active::before { transform: rotate(45deg) scale(1.3); }
+}
+.ficha .fh-prof:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -5px; }
+
+/* o resto da linha: rola o teste */
+.ficha .fh-skill-roll {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.6rem 2.8rem;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 10px 6px 2px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ficha .fh-skill-name { min-width: 0; font-size: 1.02rem; line-height: 1.25; color: var(--ink-secondary); overflow-wrap: anywhere; }
+.ficha .fh-skill.is-prof .fh-skill-name { color: var(--ink-primary); }
+.ficha .fh-skill-abil {
+  font-family: var(--display);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-align: center;
+  color: var(--ink-muted);
+}
+.ficha .fh-skill-mod {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--gold);
+}
+.ficha .fh-skill.is-prof .fh-skill-mod { color: var(--gold-bright); }
+@media (hover: hover) {
+  .ficha .fh-skill-roll:hover .fh-skill-name { color: var(--ink-primary); }
+  .ficha .fh-skill-roll:hover .fh-skill-mod { color: var(--fh-gold-hi); }
+}
+@media (hover: none) {
+  .ficha .fh-skill-roll:active { background: rgba(224, 181, 94, 0.14); }
+}
+.ficha .fh-skill-roll:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+
+/* legenda dos losangos no pé do painel */
+.ficha .fh-prof-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 16px;
+  margin-top: 12px;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  color: var(--ink-muted);
+}
+.ficha .fh-prof-legend > span { display: inline-flex; align-items: center; gap: 8px; }
+.ficha .fh-prof-mark { display: inline-block; flex: none; width: 8px; height: 8px; }
+.ficha .fh-prof-mark.expert { margin: 0 2px; }
+.ficha .fh-prof-legend-tip { font-style: italic; }
+
+@media (max-width: 600px) {
+  .ficha .fh-skill { grid-template-columns: 44px minmax(0, 1fr); }
+  .ficha .fh-prof { width: 44px; min-height: 44px; }
+  .ficha .fh-prof::before { width: 11px; height: 11px; }
+  .ficha .fh-skill-roll { min-height: 44px; grid-template-columns: minmax(0, 1fr) 2.4rem 2.6rem; gap: 6px; padding-right: 6px; }
+  .ficha .fh-skill-name { font-size: 1rem; }
+  .ficha .fh-prof-legend { gap: 4px 12px; font-size: 0.82rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ficha .fh-hex,
+  .ficha .fh-prof::before { transition: none; }
+  .ficha .fh-hex:hover,
+  .ficha .fh-hex:active { transform: none; }
+  .ficha .fh-prof:hover::before,
+  .ficha .fh-prof:active::before { transform: rotate(45deg); }
+}
+@media (forced-colors: active) {
+  /* o hexágono e os losangos são desenho de fundo (sumiriam): cores do sistema */
+  .ficha .fh-hex,
+  .ficha .fh-prof::before,
+  .ficha .fh-prof-mark { forced-color-adjust: none; }
+  .ficha .fh-hex::before { background: CanvasText; }
+  .ficha .fh-hex:hover::before,
+  .ficha .fh-hex:focus-visible::before { background: Highlight; }
+  .ficha .fh-hex-in { background: Canvas; }
+  .ficha .fh-hex-abbr,
+  .ficha .fh-hex-mod,
+  .ficha .fh-hex-score { color: CanvasText; }
+  .ficha .fh-hex:focus-visible { outline-color: Highlight; }
+  .ficha .fh-prof::before,
+  .ficha .fh-prof-mark { border-color: CanvasText; background: Canvas; box-shadow: none; }
+  .ficha .fh-prof.prof::before,
+  .ficha .fh-prof-mark.prof { border-color: Highlight; background: Highlight; }
+  .ficha .fh-prof.expert::before,
+  .ficha .fh-prof-mark.expert { border-color: Highlight; background: Highlight; box-shadow: 0 0 0 2px Canvas, 0 0 0 3.5px Highlight; }
+}
+@media print {
+  /* papel branco: o texto claro sumiria; os desenhos saem com as cores (print-color-adjust) */
+  .ficha .fh-hex::before,
+  .ficha .fh-hex-in,
+  .ficha .fh-prof::before,
+  .ficha .fh-prof-mark { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ficha .fh-hex-in { background: #fff; }
+  .ficha .fh-hex-mod,
+  .ficha .fh-skill-name,
+  .ficha .fh-skill.is-prof .fh-skill-name { color: #1a1410; }
+  .ficha .fh-hex-abbr,
+  .ficha .fh-skill-mod,
+  .ficha .fh-skill.is-prof .fh-skill-mod { color: #6b4f1d; }
+  .ficha .fh-hex-score,
+  .ficha .fh-skill-abil,
+  .ficha .fh-prof-legend { color: #5a4a35; }
+  .ficha .fh-prof:not(.prof):not(.expert)::before,
+  .ficha .fh-prof-mark:not(.prof):not(.expert) { background: #fff; }
+  .ficha .fh-prof-legend-tip { display: none; }
+}
+@media (max-width: 340px) {
+  /* 320px: "Lidar com Animais" cabe numa linha */
+  .ficha .fh-skill-roll { grid-template-columns: minmax(0, 1fr) 2.1rem 2.3rem; gap: 4px; }
+  .ficha .fh-skill-name { font-size: 0.95rem; }
 }
