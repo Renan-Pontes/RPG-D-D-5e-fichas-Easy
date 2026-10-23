@@ -42,13 +42,14 @@ export function ChoiceGrid({ children, cols = 2 }) {
 
 /**
  * Cartão de opção. `badge` = selo curto (ex.: "Bom para começar"); `details`
- * aparece só quando selecionado.
+ * aparece só quando selecionado. `considering` = escolha em análise (o peso da
+ * decisão, ver journey-ui.jsx), ainda não selada.
  */
-export function ChoiceCard({ selected, disabled, onClick, title, subtitle, badge, children, details, image, thumb }) {
+export function ChoiceCard({ selected, disabled, onClick, title, subtitle, badge, children, details, image, thumb, considering }) {
   // div com papel de botão: os detalhes podem ter botões próprios (botão dentro de botão é inválido).
   const activate = () => { if (!disabled) onClick?.(); };
   return (
-    <div role="button" tabIndex={disabled ? -1 : 0} className={`option ${selected ? 'selected' : ''}`}
+    <div role="button" tabIndex={disabled ? -1 : 0} className={`option ${selected ? 'selected' : ''} ${considering ? 'considering' : ''}`}
       aria-pressed={!!selected} aria-disabled={disabled || undefined}
       onClick={(e) => { if (e.target.closest('button, input, select, textarea, a') && e.target !== e.currentTarget) return; activate(); }}
       onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); activate(); } }}

@@ -770,7 +770,7 @@ const App = () => {
           }
         </div>
       )}
-      <main id="main" className={`container ${screen === SCREENS.CAMPAIGN || screen === SCREENS.GRIMOIRE || screen === SCREENS.ADMIN ? 'container-wide' : ''}`} tabIndex={-1}>
+      <main id="main" className={`container ${screen === SCREENS.CAMPAIGN || screen === SCREENS.GRIMOIRE || screen === SCREENS.ADMIN ? 'container-wide' : (screen === SCREENS.CREATE || screen === SCREENS.EDIT) && !editingChar ? 'container-wide container-creator' : ''}`} tabIndex={-1}>
         {screen === SCREENS.AUTH && pendingInvite && !auth.user && (
           <div className="join-hint" role="status" style={{ marginBottom: 'var(--s-4)' }}>
             {lang === 'pt'
