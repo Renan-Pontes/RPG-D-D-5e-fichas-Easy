@@ -1,0 +1,12 @@
+/* Visual "Ficha Forjada" da ficha do personagem (components/Sheet.jsx). Só design:
+   handlers, rótulos e dados continuam os de hoje. Plano: escopo próprio, como o
+   criador (src/creator/creator.css).
+   - Todo seletor começa por .ficha e as classes novas usam o prefixo fh-. Não
+     mudar as regras globais de .card, .slot-pip, .tab, .modal… (outras telas usam).
+   - Tokens novos com o prefixo --fh-, declarados em .ficha. Onde o app já tem
+     equivalente (styles.css :root), usar o do app.
+   - Nada de transform, filter, backdrop-filter, perspective, contain, will-change,
+     isolation ou z-index em .ficha ou em painel que contenha botão que abre Modal:
+     os modais da ficha não são portais (o fundo fixo deixaria de cobrir a tela).
+     Efeitos só em camadas decorativas (aria-hidden, pointer-events: none) ou em
+     elementos-folha (número de PV, <img> do retrato, gema). */

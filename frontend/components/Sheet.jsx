@@ -22,6 +22,7 @@ import { isArmorProficient } from '../src/creator/start-data.js';
 import { trainingLines, featName, featPicksText } from '../src/sheet/sheet-text.js';
 import { itemArt, conditionIcon, CONDITION_EMOJI } from '../src/art.js';
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
+import '../src/sheet/ficha.css';
 
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
   const [tab, setTab] = useState('play');
@@ -105,8 +106,10 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
     if (window.__diceRoll) window.__diceRoll(config);
   };
 
+  // Raiz .ficha: escopo do visual da ficha (src/sheet/ficha.css). Sem transform,
+  // filter, isolation nem z-index aqui: os modais da ficha não são portais.
   return (
-    <>
+    <div className="ficha">
       <SheetHero
         char={char}
         lang={lang}
@@ -210,7 +213,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
           <Icon name="trash" size={14}/> {t('delete', lang)}
         </button>
       </div>
-    </>
+    </div>
   );
 };
 
