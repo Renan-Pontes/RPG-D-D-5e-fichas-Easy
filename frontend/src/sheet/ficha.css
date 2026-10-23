@@ -10,3 +10,35 @@
      os modais da ficha não são portais (o fundo fixo deixaria de cobrir a tela).
      Efeitos só em camadas decorativas (aria-hidden, pointer-events: none) ou em
      elementos-folha (número de PV, <img> do retrato, gema). */
+
+/* ---------- Tokens (plano §2.2) ----------
+   Só o que o app não tem. Os demais vêm de styles.css: --bg-deep/--bg-base (fundo),
+   --ink-primary/-secondary/-muted (texto), --gold/--gold-bright/--gold-deep/--on-gold,
+   --blood-bright (o --blood do app é vinho escuro), --blood-deep, --arcane-bright/
+   --arcane/--arcane-deep (astral), --amber, --display/--body/--mono. */
+.ficha {
+  position: relative; /* sem z-index nem isolation: não cria contexto de empilhamento */
+  /* couro do painel (o degradê depende do trio) */
+  --fh-leather: #1b1310;
+  --fh-leather-hi: #251a14;
+  --fh-leather-lo: #140e0b;
+  /* ouro: realce, filete e folha */
+  --fh-gold-hi: #fbe4a3;
+  --fh-gilt: linear-gradient(135deg, #f7dc93 0%, #8c6427 28%, #ecc777 50%, #7b5721 74%, #f2d38a 100%);
+  --fh-foil: linear-gradient(180deg, #fff3cc 0%, #f1cf7c 38%, #b07f33 52%, #f6d98f 72%, #c99645 100%);
+  /* verdete: cura e PV "firme" (fora do eixo vermelho–verde) */
+  --fh-verdigris: #74d6b4;
+  --fh-verdigris-deep: #123f34;
+  --fh-ember: #ff9446; /* = --cr-ember do criador */
+  --fh-blood: #ff6a5a; /* vermelho vivo da demo; o padrão é --blood-bright */
+  /* Cinzel Decorative carrega em index.html; sem ela (offline), cai no Cinzel */
+  --fh-deco: "Cinzel Decorative", var(--display);
+  --fh-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  /* ruído do couro: uma vez só, reaproveitado pelos painéis */
+  --fh-noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.85 0 0 0 0 0.68 0 0 0 0 0.42 0 0 0 0.07 0'/></filter><rect width='180' height='180' filter='url(%23n)'/></svg>");
+  /* cantoneiras douradas: o mesmo desenho espelhado nos 4 cantos */
+  --fh-corner-tl: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'><g fill='none' stroke='%23d9ad5a' stroke-width='1.1'><path d='M1.5 20 V7 Q1.5 1.5 7 1.5 H20'/><path d='M5 14 V8 Q5 5 8 5 H14' opacity='.6'/><rect x='7.2' y='7.2' width='3' height='3' transform='rotate(45 8.7 8.7)' fill='%23e8c070' stroke='none'/></g></svg>");
+  --fh-corner-tr: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'><g transform='translate(22 0) scale(-1 1)' fill='none' stroke='%23d9ad5a' stroke-width='1.1'><path d='M1.5 20 V7 Q1.5 1.5 7 1.5 H20'/><path d='M5 14 V8 Q5 5 8 5 H14' opacity='.6'/><rect x='7.2' y='7.2' width='3' height='3' transform='rotate(45 8.7 8.7)' fill='%23e8c070' stroke='none'/></g></svg>");
+  --fh-corner-bl: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'><g transform='translate(0 22) scale(1 -1)' fill='none' stroke='%23d9ad5a' stroke-width='1.1'><path d='M1.5 20 V7 Q1.5 1.5 7 1.5 H20'/><path d='M5 14 V8 Q5 5 8 5 H14' opacity='.6'/><rect x='7.2' y='7.2' width='3' height='3' transform='rotate(45 8.7 8.7)' fill='%23e8c070' stroke='none'/></g></svg>");
+  --fh-corner-br: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'><g transform='translate(22 22) scale(-1 -1)' fill='none' stroke='%23d9ad5a' stroke-width='1.1'><path d='M1.5 20 V7 Q1.5 1.5 7 1.5 H20'/><path d='M5 14 V8 Q5 5 8 5 H14' opacity='.6'/><rect x='7.2' y='7.2' width='3' height='3' transform='rotate(45 8.7 8.7)' fill='%23e8c070' stroke='none'/></g></svg>");
+}
