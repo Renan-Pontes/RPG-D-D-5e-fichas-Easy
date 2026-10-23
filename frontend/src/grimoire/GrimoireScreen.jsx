@@ -248,9 +248,11 @@ function Cover({ lang, tx, isDesk, recent, byId, catCount, pathOpen, onTogglePat
       </div>
 
       <div className="grim-cover-actions">
-        <button type="button" className="btn btn-ghost grim-act" onClick={openIndex}>
-          <span aria-hidden>☰</span> <span className="grim-l-short">{tx('indexShort')}</span><span className="grim-l-long">{tx('index')}</span>{' '}
-          <span className="grim-act-n">· {TXT.results[lang](ARTICLES.length)}</span>
+        <button type="button" className="btn btn-ghost grim-act grim-act-index" onClick={openIndex}>
+          <span className="grim-act-main">
+            <span aria-hidden>☰</span> <span className="grim-l-short">{tx('indexShort')}</span><span className="grim-l-long">{tx('index')}</span>
+          </span>{' '}
+          <span className="grim-act-n"><span className="grim-act-dot" aria-hidden>· </span>{TXT.results[lang](ARTICLES.length)}</span>
         </button>
         <button type="button" className="btn btn-ghost grim-act" onClick={openRandom}>
           <span aria-hidden>✦</span> {tx('random')}
@@ -772,7 +774,8 @@ export default function GrimoireScreen({ lang, initialId = null, initialQuery = 
             <button type="button" className="btn btn-ghost grim-btn grim-bar-find" onClick={openFind} aria-label={tx('find')} title={tx('find')}>
               <SearchGlyph />
             </button>
-            <button type="button" className={`btn btn-ghost grim-btn grim-bar-copy ${copied ? 'is-done' : ''}`} onClick={copyLink} title={tx('copy')}>
+            <button type="button" className={`btn btn-ghost grim-btn grim-bar-copy ${copied ? 'is-done' : ''}`} onClick={copyLink} title={tx('copy')}
+              aria-label={copied ? tx('copied') : tx('copy')}>
               <Icon name={copied ? 'check' : 'share'} size={16} />
               <span className="grim-l-short">{copied ? tx('copiedShort') : tx('copyShort')}</span>
               <span className="grim-l-long">{copied ? tx('copied') : tx('copy')}</span>
