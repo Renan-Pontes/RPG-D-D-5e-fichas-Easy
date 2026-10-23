@@ -110,3 +110,10 @@ test('cartão: abrir a ficha é a única ação e não há botão dentro de bot�
   assert.match(s, /onClick=\{\(\) => onOpen\(c\.id\)\}/);
   assert.match(s, /<article/);
 });
+
+test('app.jsx: a lista só volta a "carregando" fora do estado pronto (sem piscar ao salvar)', () => {
+  const s = src('../app.jsx');
+  assert.match(s, /if \(listStateRef\.current !== 'ready'\) setList\('loading'\)/);
+  assert.match(s, /setList\('error'\)/);
+  assert.match(s, /listState=\{listState\}/);
+});

@@ -112,18 +112,27 @@ const App = () => {
     setScreen(SCREENS.PLAN);
   }), []);
 
-  // Carregar personagens (local ou remoto)
+  // Carregar personagens (local ou remoto). listState: 'loading' só na 1ª carga, na
+  // troca de storage (login/saída) e no "Tentar de novo" depois de erro — não depois
+  // de salvar/importar, senão o esqueleto da tela inicial piscaria sobre a lista.
+  const [listState, setListState] = useState('loading');
+  const listStateRef = useRef('loading');
+  const setList = (s) => { listStateRef.current = s; setListState(s); };
   const refreshCharacters = useCallback(async () => {
     if (auth.loading) return;
+    if (listStateRef.current !== 'ready') setList('loading');
     try {
       const list = await storage.list();
       setCharacters(list);
+      setList('ready');
     } catch (e) {
       console.error('failed to load characters', e);
       setCharacters([]);
+      setList('error');
     }
   }, [storage, auth.loading]);
 
+  useEffect(() => { setList('loading'); }, [storage]);
   useEffect(() => { refreshCharacters(); }, [refreshCharacters]);
 
   // Login/cadastro concluído: sai da tela de entrada.
@@ -637,6 +646,11 @@ const App = () => {
           onExportAll={handleExportAll}
           onBlankPdf={() => handleExportPdf({}, { blank: true })}
           onPickPregen={handlePickPregen}
+          listState={listState}
+          onRetry={refreshCharacters}
+          onLogin={() => setScreen(SCREENS.AUTH)}
+          onCampaigns={() => setScreen(SCREENS.CAMPAIGNS)}
+          onGrimoire={() => openGrimoire()}
         />
       );
       break;
@@ -765,8 +779,8 @@ const App = () => {
       {auth.backendAvailable === false && (
         <div className="offline-banner" role="status" aria-live="polite">
           ⚠ {lang === 'pt'
-            ? <>Backend offline — funcionando em modo <strong>standalone</strong> (fichas salvas só neste navegador). Login, campanhas e mestre voltam sozinhos quando o servidor responder.</>
-            : <>Backend offline — running in <strong>standalone</strong> mode (sheets saved only in this browser). Login, campaigns and DM features come back automatically once the server responds.</>
+            ? <><strong>Sem conexão com o servidor:</strong> fichas salvas só neste navegador. Entrar e campanhas voltam sozinhos.</>
+            : <><strong>Can't reach the server:</strong> characters are saved only in this browser. Log in and campaigns return on their own.</>
           }
         </div>
       )}
