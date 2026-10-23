@@ -42,7 +42,7 @@ test('druida 2024: traços revisados substituem o texto do PDF', () => {
 });
 
 test('druida 2024: círculos com traços nos níveis 3/6/10/14', () => {
-  for (const id of ['land', 'moon', 'sea', 'stars', 'dreams', 'shepherd', 'spores', 'wildfire']) {
+  for (const id of ['land', 'moon', 'sea', 'stars', 'dreams', 'shepherd', 'spores', 'wildfire', 'titan']) {
     const p = computeProgression(make(14, { subclass: id }));
     for (const lv of [3, 6, 10, 14]) {
       assert.ok(p.features.some(f => f.level === lv && f.source === 'subclass'), `${id} nível ${lv}`);
@@ -62,6 +62,11 @@ test('druida 2024: magias e truques de círculo', () => {
   assert.ok(spores.autoCantrips.includes('chillTouch') && spores.autoSpells.includes('gentleRepose'));
   const wildfire = computeProgression(make(3, { subclass: 'wildfire' }));
   ['burningHands', 'cureWounds', 'flamingSphere', 'scorchingRay'].forEach(s => assert.ok(wildfire.autoSpells.includes(s), s));
+  // Círculo do Titã (UA, versão revisada): Taumaturgia + magias de círculo.
+  const titan = computeProgression(make(9, { subclass: 'titan' }));
+  assert.ok(titan.autoCantrips.includes('thaumaturgy'));
+  ['enlargeReduce', 'thunderwave', 'fear', 'fireShield', 'destructiveWave'].forEach(s => assert.ok(titan.autoSpells.includes(s), s));
+  assert.equal(druid.subclasses.titan.source, 'UA26VOU');
 });
 
 test('druida 2024: Círculo da Terra traz os 4 terrenos do SRD', () => {

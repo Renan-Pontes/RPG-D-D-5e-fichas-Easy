@@ -1302,6 +1302,9 @@
         },
         "runeknight": {
           "manual": true
+        },
+        "hellknight": {
+          "manual": true
         }
       }
     },
@@ -2316,6 +2319,9 @@
           "manual": true
         },
         "twilight": {
+          "manual": true
+        },
+        "pestilence": {
           "manual": true
         }
       }
@@ -4107,6 +4113,9 @@
           "manual": true
         },
         "lunar": {
+          "manual": true
+        },
+        "demonic": {
           "manual": true
         }
       }
@@ -8304,6 +8313,80 @@
             ]
           },
           "source": "TCE"
+        },
+        "pestilence": {
+          "3": {
+            "features": [
+              {
+                "id": "blightWeaver",
+                "name": "Tecelão da Praga",
+                "desc": "Você tem Resistência a dano Necrótico e Venenoso e não pode ser infectado por contágios mágicos. O dano Necrótico ou Venenoso das suas magias e traços de clérigo ignora Resistência a esses tipos, e você pode trocar um tipo pelo outro ao causá-lo.",
+                "nameEn": "Blight Weaver",
+                "descEn": "You have Resistance to Necrotic and Poison damage and can't be infected by magical contagions. Necrotic or Poison damage from your Cleric spells and features ignores Resistance to those types, and you can swap one type for the other when you deal it."
+              },
+              {
+                "id": "plagueBlessing",
+                "name": "Bênção da Praga",
+                "desc": "Canalizar Divindade, ação Mágica: por 1 minuto, uma emanação de praga de 1,5 m (5 pés) envolve você ou uma criatura voluntária que você tocar (termina se você a dispensar, criá-la de novo ou ficar Incapacitado). Cada criatura à sua escolha que começar o turno nela faz salvaguarda de Constituição contra sua CD ou ganha 1 nível de Exaustão. Este traço não eleva a Exaustão de ninguém acima do seu modificador de Sabedoria (mínimo 1).",
+                "nameEn": "Plague Blessing",
+                "descEn": "Channel Divinity, Magic action: for 1 minute, a 5-foot emanation of plague surrounds you or a willing creature you touch (it ends if you dismiss it, create it again, or are Incapacitated). Each creature of your choice that starts its turn in it makes a Constitution save against your DC or gains 1 Exhaustion level. This feature can't raise anyone's Exhaustion above your Wisdom modifier (minimum 1)."
+              },
+              {
+                "id": "pestilenceDomainSpells",
+                "name": "Magias do Domínio da Pestilência",
+                "desc": "Ao alcançar os níveis de clérigo indicados, você passa a ter sempre preparadas estas magias (não contam no limite de preparadas). Nível 3: Detectar Veneno e Doenças, Proteção contra Veneno, Raio do Enfraquecimento, Raio da Doença; 5: Nuvem Fedorenta, Toque Vampírico; 7: Definhar, Inseto Gigante; 9: Contágio, Praga de Insetos.",
+                "nameEn": "Pestilence Domain Spells",
+                "descEn": "When you reach the listed Cleric levels, you always have these spells prepared (they don't count against your prepared spells). Level 3: Detect Poison and Disease, Protection from Poison, Ray of Enfeeblement, Ray of Sickness; 5: Stinking Cloud, Vampiric Touch; 7: Blight, Giant Insect; 9: Contagion, Insect Plague."
+              }
+            ],
+            "auto_spells": [
+              "detectPoisonAndDisease",
+              "protectionFromPoison",
+              "rayOfEnfeeblement",
+              "rayOfSickness"
+            ]
+          },
+          "5": {
+            "auto_spells": [
+              "stinkingCloud",
+              "vampiricTouch"
+            ]
+          },
+          "6": {
+            "features": [
+              {
+                "id": "virulentBurst",
+                "name": "Explosão Virulenta",
+                "desc": "Reação: quando uma criatura hostil a até 18 m (60 pés) cai a 0 PV, ela explode numa emanação de praga de 3 m (10 pés), ou de 6 m (20 pés) se tinha algum nível de Exaustão. Cada criatura à sua escolha na área faz salvaguarda de Constituição contra sua CD; se falhar, você escolhe: Choque Pútrido (fica Incapacitada e com Deslocamento 0 até o fim do próximo turno dela) ou Infecção Tóxica (3d6 de dano Necrótico ou Venenoso, à sua escolha). Usos: modificador de Sabedoria (mínimo 1) por Descanso Longo.",
+                "nameEn": "Virulent Burst",
+                "descEn": "Reaction: when a hostile creature within 60 feet drops to 0 HP, it bursts into a 10-foot emanation of plague, or 20 feet if it had any Exhaustion. Each creature of your choice in the area makes a Constitution save against your DC; on a failure, you pick: Putrid Shock (Incapacitated and Speed 0 until the end of its next turn) or Toxic Infection (3d6 Necrotic or Poison damage, your choice). Uses: Wisdom modifier (minimum 1) per Long Rest."
+              }
+            ]
+          },
+          "7": {
+            "auto_spells": [
+              "blight",
+              "giantInsect"
+            ]
+          },
+          "9": {
+            "auto_spells": [
+              "contagion",
+              "insectPlague"
+            ]
+          },
+          "17": {
+            "features": [
+              {
+                "id": "verminForm",
+                "name": "Forma de Vermes",
+                "desc": "Ação Bônus: por 10 minutos você vira um enxame Médio de pragas Minúsculas (baratas, larvas, ratos…). Nessa forma: imunidade a Agarrado, Paralisado, Caído e Contido; Resistência a dano Contundente, Cortante e Perfurante; você pode entrar e ficar no espaço de outras criaturas (e elas no seu); e um inimigo cujo espaço você entra, ou que entra no seu ou termina o turno nele, sofre dano Necrótico, Perfurante ou Venenoso (à sua escolha) igual ao seu modificador de Sabedoria, no máximo uma vez por turno. Termina antes se você quiser, ficar Incapacitado ou morrer. Uma vez por Descanso Longo, ou gaste um espaço de nível 5+ para recuperar o uso.",
+                "nameEn": "Vermin Form",
+                "descEn": "Bonus Action: for 10 minutes you become a Medium swarm of Tiny pests (roaches, maggots, rats…). In this form: immunity to Grappled, Paralyzed, Prone, and Restrained; Resistance to Bludgeoning, Piercing, and Slashing damage; you can enter and occupy other creatures' spaces (and they yours); and an enemy whose space you enter, or that enters or ends its turn in yours, takes Necrotic, Piercing, or Poison damage (your choice) equal to your Wisdom modifier, at most once per turn. It ends early if you choose, are Incapacitated, or die. Once per Long Rest, or expend a level 5+ slot to restore the use."
+              }
+            ]
+          },
+          "source": "UA26VO"
         }
       },
       "source": "SRD 5.2.1"
@@ -9363,8 +9446,80 @@
           "source": "XGE"
         },
         "titan": {
-          "legacyCompatibility": true,
-          "manual": true
+          "3": {
+            "features": [
+              {
+                "id": "titanCircleSpells",
+                "name": "Magias do Círculo do Titã",
+                "desc": "Ao alcançar os níveis de druida indicados, você passa a ter sempre preparadas estas magias (não contam no limite de preparadas). Nível 3: Taumaturgia, Aumentar/Reduzir, Onda Trovejante; 5: Medo; 7: Escudo de Fogo; 9: Onda Destrutiva.",
+                "nameEn": "Circle of the Titan Spells",
+                "descEn": "When you reach the listed Druid levels, you always have these spells prepared (they don't count against your prepared spells). Level 3: Thaumaturgy, Enlarge/Reduce, Thunderwave; 5: Fear; 7: Fire Shield; 9: Destructive Wave."
+              },
+              {
+                "id": "titanForms",
+                "name": "Formas de Titã",
+                "desc": "Ao usar Forma Selvagem, você pode assumir uma Forma de Titã Grande em vez de uma Fera: Behemoth (terrestre; Sopro Incandescente em linha, alimentado por espaços de magia, causa dano Radiante e dano dobrado a objetos e estruturas), Leviatã (anfíbio, com natação; Nuvem de Tinta como Reação ao sofrer dano) ou Insectoide (voo; Pólen Energizante cura e reposiciona aliados). Na forma, sua CA é 13 + modificador de Sabedoria, você ataca com Dilacerar e ganha PV temporários iguais a 4 × seu nível de druida. A forma dura 10 minutos (não as horas normais da Forma Selvagem), e você pode conjurar as magias do círculo nela.",
+                "nameEn": "Titan Forms",
+                "descEn": "When you use Wild Shape, you can assume a Large Titan Form instead of a Beast: Behemoth (land; a line-shaped Incandescent Breath, fueled by spell slots, deals Radiant damage and double damage to objects and structures), Leviathan (amphibious, with a Swim Speed; Ink Cloud as a Reaction when damaged), or Insectoid (flying; Energizing Pollen heals and repositions allies). In the form, your AC is 13 + your Wisdom modifier, you attack with Rend, and you gain Temporary HP equal to 4 × your Druid level. The form lasts 10 minutes (not Wild Shape's usual hours), and you can cast your circle spells in it."
+              }
+            ],
+            "auto_spells": [
+              "enlargeReduce",
+              "thunderwave"
+            ],
+            "auto_cantrips": [
+              "thaumaturgy"
+            ]
+          },
+          "5": {
+            "auto_spells": [
+              "fear"
+            ]
+          },
+          "6": {
+            "features": [
+              {
+                "id": "direImpact",
+                "name": "Impacto Terrível",
+                "desc": "Dilacerar Elemental: ao acertar com Dilacerar da Forma de Titã, você pode causar dano Ácido, Elétrico, de Fogo, de Frio ou Trovejante. Onda de Choque: logo após assumir a Forma de Titã, ou como Ação Bônus gastando um espaço de magia de nível 1+ enquanto estiver nela, o chão treme numa emanação de 4,5 m (15 pés); as criaturas na área fazem salvaguarda de Constituição contra sua CD ou ficam Caídas.",
+                "nameEn": "Dire Impact",
+                "descEn": "Elemental Rend: when you hit with your Titan Form's Rend, you can make it deal Acid, Cold, Fire, Lightning, or Thunder damage. Shock Wave: right after you assume a Titan Form, or as a Bonus Action by expending a level 1+ spell slot while in it, the ground heaves in a 15-foot emanation; creatures there make a Constitution save against your DC or have the Prone condition."
+              }
+            ]
+          },
+          "7": {
+            "auto_spells": [
+              "fireShield"
+            ]
+          },
+          "9": {
+            "auto_spells": [
+              "destructiveWave"
+            ]
+          },
+          "10": {
+            "features": [
+              {
+                "id": "primalHavoc",
+                "name": "Devastação Primal",
+                "desc": "Tamanho Enorme: ao assumir a Forma de Titã, você pode ficar Enorme. Couro Endurecido: logo após assumir uma Forma de Titã Enorme ou maior, gaste um espaço de magia de nível 1+ para ganhar bônus na CA igual à metade do nível do espaço (arredondado para cima) enquanto a forma durar. Cada forma ganha ainda a habilidade de nível 10 da sua ficha (como o Fedor Tóxico do Leviatã, que envenena quem começa o turno perto de você).",
+                "nameEn": "Primal Havoc",
+                "descEn": "Huge Size: when you assume a Titan Form, you can become Huge. Toughened Hide: right after you assume a Huge or larger Titan Form, expend a level 1+ spell slot to gain an AC bonus equal to half the slot's level (round up) for the form's duration. Each form also gains the level 10 ability in its stat block (such as the Leviathan's Toxic Stench, which poisons creatures that start their turn near you)."
+              }
+            ]
+          },
+          "14": {
+            "features": [
+              {
+                "id": "monstrousAppetite",
+                "name": "Apetite Monstruoso",
+                "desc": "Tamanho Imenso: ao assumir a Forma de Titã, você pode ficar Imenso. Dilacerar Agarrador: sendo Enorme ou maior, uma vez por turno, ao acertar Dilacerar, você pode deixar o alvo Agarrado. Engolir: sendo Imenso, como Ação Bônus, uma criatura Grande ou menor Agarrada por você faz salvaguarda de Força contra sua CD; se falhar, você a engole (os efeitos de estar engolido estão no documento do UA).",
+                "nameEn": "Monstrous Appetite",
+                "descEn": "Gargantuan Size: when you assume a Titan Form, you can become Gargantuan. Grappling Rend: while Huge or larger, once per turn when you hit with Rend, you can give the target the Grappled condition. Swallow: while Gargantuan, as a Bonus Action, a Large or smaller creature Grappled by you makes a Strength save against your DC; on a failure, you swallow it (the effects of being swallowed are in the UA document)."
+              }
+            ]
+          },
+          "source": "UA26VOU"
         },
         "sea": {
           "3": {
@@ -10410,6 +10565,90 @@
             ]
           },
           "source": "TCE"
+        },
+        "hellknight": {
+          "3": {
+            "grants": {
+              "languages": [
+                "Infernal"
+              ]
+            },
+            "features": [
+              {
+                "id": "diabolicalGift",
+                "name": "Dádiva Diabólica",
+                "desc": "Você aprende o idioma Infernal, ganha Visão Diabólica (como a invocação: enxerga normalmente na penumbra e na escuridão, mágica ou não) e proficiência em uma perícia à escolha: Blefar, Atuação ou Prestidigitação.",
+                "nameEn": "Diabolical Gift",
+                "descEn": "You learn the Infernal language, gain Devil's Sight (as the invocation: you see normally in dim light and darkness, magical or not), and gain proficiency in one skill of your choice: Deception, Performance, or Sleight of Hand."
+              },
+              {
+                "id": "hellForgedWeapon",
+                "name": "Arma Forjada no Inferno",
+                "desc": "Ao realizar a ação Atacar, você pode imbuir de fogo infernal até duas armas que esteja empunhando e escolher dano de Frio, Fogo ou Necrótico: os ataques com elas podem causar esse tipo em vez do normal. Ficam assim até você usar o traço de novo, ficar Inconsciente ou passar 1 minuto ou mais a mais de 1,5 m (5 pés) delas.",
+                "nameEn": "Hell-Forged Weapon",
+                "descEn": "When you take the Attack action, you can imbue up to two weapons you're holding with hellfire and choose Cold, Fire, or Necrotic damage: attacks with them can deal that type instead of the normal one. They stay that way until you use this feature again, are Unconscious, or are more than 5 feet away from them for 1 minute or more."
+              },
+              {
+                "id": "infernalWound",
+                "name": "Ferida Infernal",
+                "desc": "Ao acertar uma criatura com a Arma Forjada no Inferno, você pode causar dano extra do tipo escolhido igual a uma rolagem do seu Dado de Ferida Infernal (d6) e abrir nela uma ferida infernal: no início de cada turno dela, ela sofre de novo uma rolagem do dado. A ferida dura 1 minuto, ou até o alvo recuperar PV ou alguém a até 1,5 m (5 pés) dele usar uma ação para estancá-la. Usos: modificador de Constituição (mínimo 1) por Descanso Curto ou Longo.",
+                "nameEn": "Infernal Wound",
+                "descEn": "When you hit a creature with your Hell-Forged Weapon, you can deal extra damage of the chosen type equal to one roll of your Infernal Wound Die (d6) and open an infernal wound: at the start of each of its turns, it takes another roll of the die. The wound lasts 1 minute, or until the target regains HP or someone within 5 feet of it takes an action to staunch it. Uses: Constitution modifier (minimum 1) per Short or Long Rest."
+              }
+            ]
+          },
+          "7": {
+            "features": [
+              {
+                "id": "infernalEquipment",
+                "name": "Equipamento Infernal",
+                "desc": "Ao terminar um Descanso Curto ou Longo, escolha Frio, Fogo ou Necrótico: você tem Resistência a esse tipo enquanto usar armadura Pesada ou empunhar um Escudo. Além disso, ao rolar o Dado de Ferida Infernal, você pode tratar um 1 como 6.",
+                "nameEn": "Infernal Equipment",
+                "descEn": "When you finish a Short or Long Rest, choose Cold, Fire, or Necrotic: you have Resistance to that type while wearing Heavy armor or holding a Shield. In addition, when you roll your Infernal Wound Die, you can treat a 1 as a 6."
+              },
+              {
+                "id": "advancedWounds",
+                "name": "Feridas Avançadas",
+                "desc": "Sempre que rolar o Dado de Ferida Infernal contra um alvo, aplique um destes efeitos; num 6, a Sorte do Diabo reforça o efeito. Gangrena Estígia: dano de Frio igual ao seu modificador de Constituição e o alvo não pode usar Reações até o início do próximo turno dele (6: Deslocamento dele cai à metade até o fim do próximo turno dele). Purulência de Minauros: cada inimigo numa emanação de 1,5 m (5 pés) do alvo sofre dano Ácido igual ao seu modificador de Constituição, e o alvo fica Envenenado até o fim do próximo turno dele (6: quem sofreu o ácido tem −1 na CA até o fim do seu próximo turno). Ruptura de Cânia: dano de Energia extra (6: penalidade nas salvaguardas do alvo; detalhes no documento do UA).",
+                "nameEn": "Advanced Wounds",
+                "descEn": "Whenever you roll your Infernal Wound Die against a target, apply one of these effects; on a 6, Devil's Luck strengthens it. Stygian Gangrene: Cold damage equal to your Constitution modifier, and the target can't take Reactions until the start of its next turn (6: its Speed is halved until the end of its next turn). Purulence of Minauros: each enemy in a 5-foot emanation from the target takes Acid damage equal to your Constitution modifier, and the target is Poisoned until the end of its next turn (6: those who took the acid have −1 AC until the end of your next turn). Rupture of Cania: extra Force damage (6: a penalty to the target's saving throws; details in the UA document)."
+              }
+            ]
+          },
+          "10": {
+            "features": [
+              {
+                "id": "hellfireSurge",
+                "name": "Surto do Fogo Infernal",
+                "desc": "Ao usar Surto de Ação empunhando uma Arma Forjada no Inferno, o fogo infernal irrompe numa emanação de 6 m (20 pés) a partir de você, até o fim do seu próximo turno. Uma criatura com ferida infernal que começar o turno nela sofre duas rolagens do Dado de Ferida Infernal em vez de uma.",
+                "nameEn": "Hellfire Surge",
+                "descEn": "When you use Action Surge while holding a Hell-Forged Weapon, hellfire erupts in a 20-foot emanation from you until the end of your next turn. A creature with an infernal wound that starts its turn there takes two rolls of your Infernal Wound Die instead of one."
+              }
+            ]
+          },
+          "15": {
+            "features": [
+              {
+                "id": "devilsMisfortune",
+                "name": "Infortúnio do Diabo",
+                "desc": "Reação: quando uma criatura com ferida infernal acertar você com uma jogada de ataque, role o Dado de Ferida Infernal e reduza o dano pelo resultado; a cada 6, role de novo e some (até três rolagens). Um acerto crítico dela vira acerto normal.",
+                "nameEn": "Devil's Misfortune",
+                "descEn": "Reaction: when a creature with an infernal wound hits you with an attack roll, roll your Infernal Wound Die and reduce the damage by the result; on each 6, roll again and add it (up to three rolls). A critical hit from it becomes a normal hit."
+              }
+            ]
+          },
+          "18": {
+            "features": [
+              {
+                "id": "infernalBargain",
+                "name": "Barganha Infernal",
+                "desc": "Se tirar 6 no Dado de Ferida Infernal três ou mais vezes antes do início do seu próximo turno, você ganha Inspiração Heroica. Quando uma criatura que você vê a até 36 m (120 pés) rolar o d20 de um Teste de d20, você pode gastar essa Inspiração Heroica para obrigá-la a rolar de novo; o pacto traz efeitos extras conforme o novo resultado (detalhes no documento do UA).",
+                "nameEn": "Infernal Bargain",
+                "descEn": "If you roll a 6 on your Infernal Wound Die three or more times before the start of your next turn, you gain Heroic Inspiration. When a creature you can see within 120 feet rolls the d20 for a D20 Test, you can expend that Heroic Inspiration to force it to reroll; the bargain adds extra effects depending on the new result (details in the UA document)."
+              }
+            ]
+          },
+          "source": "UA26VOU"
         }
       },
       "source": "SRD 5.2.1"
@@ -15664,6 +15903,87 @@
             ]
           },
           "source": "DSDQ"
+        },
+        "demonic": {
+          "3": {
+            "features": [
+              {
+                "id": "demonicSpells",
+                "name": "Magias Demoníacas",
+                "desc": "Magias sempre preparadas (não contam no limite): nível 3 — Perdição, Sussurros Dissonantes, Crescimento de Espinhos, Teia; 5 — Lançar Maldição, Dissipar Magia; 7 — Inseto Gigante, Terreno Alucinatório; 9 — Contatar Outro Plano, Modificar Memória.",
+                "nameEn": "Demonic Spells",
+                "descEn": "Always prepared (they don't count against your limit): level 3 — Bane, Dissonant Whispers, Spike Growth, Web; 5 — Bestow Curse, Dispel Magic; 7 — Giant Insect, Hallucinatory Terrain; 9 — Contact Other Plane, Modify Memory."
+              },
+              {
+                "id": "abyssalRupture",
+                "name": "Fenda Abissal",
+                "desc": "Ao usar Feitiçaria Inata, você abre uma fenda para o Abismo que preenche uma esfera de 3 m (10 pés) de raio num ponto que você vê a até 9 m (30 pés); ela dura enquanto a Feitiçaria Inata durar e pode ser movida a cada turno. Enquanto isso, como Ação Bônus, escolha um efeito: Chicote Demoníaco (ataque mágico corpo a corpo contra uma criatura a até 1,5 m da fenda: 1d8 de dano Cortante, e um alvo Grande ou menor pode ser puxado até 3 m / 10 pés para o centro) ou Gritos Aterradores (cada criatura na fenda faz salvaguarda de Sabedoria contra sua CD ou sofre 1d4 de dano Psíquico).",
+                "nameEn": "Abyssal Rupture",
+                "descEn": "When you use Innate Sorcery, you tear a rift into the Abyss that fills a 10-foot-radius sphere at a point you can see within 30 feet; it lasts as long as Innate Sorcery and can be moved each turn. Meanwhile, as a Bonus Action, choose an effect: Demonic Lash (melee spell attack against a creature within 5 feet of the rift: 1d8 Slashing damage, and a Large or smaller target can be pulled up to 10 feet toward its center) or Terrifying Screams (each creature in the rift makes a Wisdom save against your DC or takes 1d4 Psychic damage)."
+              }
+            ],
+            "auto_spells": [
+              "bane",
+              "dissonantWhispers",
+              "spikeGrowth",
+              "web"
+            ]
+          },
+          "5": {
+            "auto_spells": [
+              "bestowCurse",
+              "dispelMagic"
+            ]
+          },
+          "6": {
+            "features": [
+              {
+                "id": "abyssalRealm",
+                "name": "Reino Abissal",
+                "desc": "Quando gastar pelo menos 1 ponto de feitiçaria como parte de uma ação de Magia ou Ação Bônus no seu turno, você pode atrair a influência de uma camada do Abismo: escolha um efeito da tabela da subclasse e aplique-o numa emanação de 3 m (10 pés) em volta de você ou dentro da sua Fenda Abissal.",
+                "nameEn": "Abyssal Realm",
+                "descEn": "When you spend at least 1 Sorcery Point as part of a Magic action or Bonus Action on your turn, you can draw on a layer of the Abyss: choose an effect from the subclass table and apply it in a 10-foot emanation around you or inside your Abyssal Rupture."
+              }
+            ]
+          },
+          "7": {
+            "auto_spells": [
+              "giantInsect",
+              "hallucinatoryTerrain"
+            ]
+          },
+          "9": {
+            "auto_spells": [
+              "contactOtherPlane",
+              "modifyMemory"
+            ]
+          },
+          "14": {
+            "features": [
+              {
+                "id": "abyssalConduit",
+                "name": "Conduto Abissal",
+                "desc": "Você tem Invocar Corruptor sempre preparada. Pode conjurá-la sem Concentração; assim, ela dura 1 minuto e o corruptor tem de ser um Demônio. O corruptor invocado tem Vantagem nas jogadas de ataque enquanto estiver dentro da sua Fenda Abissal.",
+                "nameEn": "Abyssal Conduit",
+                "descEn": "You always have Summon Fiend prepared. You can cast it without Concentration; if you do, it lasts 1 minute and the fiend must be a Demon. Your summoned fiend has Advantage on attack rolls while inside your Abyssal Rupture."
+              }
+            ],
+            "auto_spells": [
+              "summonFiend"
+            ]
+          },
+          "18": {
+            "features": [
+              {
+                "id": "abyssalExplosion",
+                "name": "Explosão Abissal",
+                "desc": "Ação de Magia: uma explosão de energia abissal preenche uma esfera de 9 m (30 pés) de raio. Cada criatura na área faz salvaguarda de Constituição contra sua CD; se falhar, uma criatura que não seja Corruptor sofre 8d6 de dano de Energia e fica Incapacitada até o início do seu próximo turno. Uma vez por Descanso Longo, ou gaste 7 pontos de feitiçaria para recuperar o uso.",
+                "nameEn": "Abyssal Explosion",
+                "descEn": "Magic action: an explosion of Abyssal energy fills a 30-foot-radius sphere. Each creature there makes a Constitution save against your DC; on a failure, a creature that isn't a Fiend takes 8d6 Force damage and is Incapacitated until the start of your next turn. Once per Long Rest, or spend 7 Sorcery Points to restore the use."
+              }
+            ]
+          },
+          "source": "UA26VOU"
         }
       },
       "source": "SRD 5.2.1"
@@ -22136,6 +22456,31 @@
           "subclass": [
             "knowledge"
           ]
+        },
+        {
+          "id": "virulentBurst",
+          "uses": {
+            "ability": "wis",
+            "min": 1
+          },
+          "recharge": "long",
+          "minLevel": 6,
+          "subclass": [
+            "pestilence"
+          ],
+          "rules": "2024"
+        },
+        {
+          "id": "verminForm",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "long",
+          "minLevel": 17,
+          "subclass": [
+            "pestilence"
+          ],
+          "rules": "2024"
         }
       ],
       "choices": {
@@ -23401,6 +23746,17 @@
               "prereq": {}
             }
           ]
+        },
+        "hellKnightSkill": {
+          "kind": "skill",
+          "grantAs": "skill",
+          "filter": {
+            "from": [
+              "deception",
+              "performance",
+              "sleightOfHand"
+            ]
+          }
         }
       },
       "resources": [
@@ -23669,6 +24025,19 @@
           "subclass": [
             "echoknight"
           ]
+        },
+        {
+          "id": "infernalWound",
+          "uses": {
+            "ability": "con",
+            "min": 1
+          },
+          "recharge": "short",
+          "minLevel": 3,
+          "subclass": [
+            "hellknight"
+          ],
+          "rules": "2024"
         }
       ],
       "choices": {
@@ -23762,6 +24131,11 @@
         "banneret": {
           "7": {
             "royalEnvoy": 1
+          }
+        },
+        "hellknight": {
+          "3": {
+            "hellKnightSkill": 1
           }
         }
       },
@@ -27765,6 +28139,18 @@
           "subclass": [
             "lunar"
           ]
+        },
+        {
+          "id": "abyssalExplosion",
+          "uses": {
+            "fixed": 1
+          },
+          "recharge": "long",
+          "minLevel": 18,
+          "subclass": [
+            "demonic"
+          ],
+          "rules": "2024"
         }
       ],
       "choices": {

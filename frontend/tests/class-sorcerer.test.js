@@ -74,7 +74,7 @@ test('tempestade: Primordial concedido no nível 3', () => {
 
 test('subclasses: traços nos níveis 3/6/14/18 e magias sempre preparadas', () => {
   const subs = PROGRESSION_RULES_2024.sorcerer.subclassPerLevel;
-  for (const id of ['draconic', 'wildmagic', 'aberrantmind', 'clockworksoul', 'divine', 'shadow', 'storm', 'lunar']) {
+  for (const id of ['draconic', 'wildmagic', 'aberrantmind', 'clockworksoul', 'divine', 'shadow', 'storm', 'lunar', 'demonic']) {
     for (const lv of [3, 6, 14, 18]) assert.ok(subs[id][lv]?.features?.length, `${id} ${lv}`);
     const p = computeProgression(base({ level: 20, subclass: id }));
     assert.ok(p.features.some(x => x.nameEn || x.name), id);
@@ -85,6 +85,9 @@ test('subclasses: traços nos níveis 3/6/14/18 e magias sempre preparadas', () 
   assert.equal(computeProgression(base({ level: 9, subclass: 'lunar' })).autoSpells.length, 15);
   assert.ok(computeProgression(base({ level: 3, subclass: 'shadow' })).autoSpells.includes('darkness'));
   assert.ok(!JSON.stringify(subs.wildmagic).includes('spellBombardment'));
+  // Feitiçaria Demoníaca (UA, versão revisada): 10 magias até o 9 e Invocar Corruptor no 14.
+  assert.equal(computeProgression(base({ level: 9, subclass: 'demonic' })).autoSpells.length, 10);
+  assert.ok(computeProgression(base({ level: 14, subclass: 'demonic' })).autoSpells.includes('summonFiend'));
 });
 
 test('classe base: textos revisados', () => {

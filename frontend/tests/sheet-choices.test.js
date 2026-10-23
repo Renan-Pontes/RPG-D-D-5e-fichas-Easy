@@ -61,10 +61,13 @@ test('subida completa aplica nível, PV, escolha e magias', () => {
 });
 
 test('Círculo do Titã (UA) aparece entre as subclasses de druida', () => {
+  // Fichas 2014: versão manual. Fichas 2024: traços da versão revisada (class-options/druid.js).
   const titan = SRD.SUBCLASSES.druid.find(s => s.id === 'titan');
   assert.ok(titan);
-  assert.equal(titan.source, 'UA26VO');
+  assert.equal(titan.source, 'UA26VOU');
   assert.ok(titan.manualFeatures);
+  const p = computeProgression(druid(14, { subclass: 'titan' }));
+  assert.ok(p.features.some(f => f.level === 3 && f.source === 'subclass' && /Titan Forms/.test(f.nameEn || '')));
 });
 
 test('2014: antecedente Sábio soma 2 idiomas à escolha', () => {
