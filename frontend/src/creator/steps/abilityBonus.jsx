@@ -9,9 +9,36 @@ import {
   ABILITIES, ABILITY_NAMES, SCORE_CAP, bonusMode, bonusChoice, baseBonus, expectedRaceBonus, bonusPatch,
   syncRaceBonusPatch, raceBonusInSync, recommendedBonus, abilityBonusIssues, quickSummary, classAbilityRank,
 } from '../ability-helpers.js';
+import { backgroundArt, speciesArt } from '../../art.js';
+import { Echo } from '../journey-ui.jsx';
+import DoorsPanel from '../DoorsPanel.jsx';
+import '../journey-extra.css';
 
 const fmt = Utils.fmtMod;
 const names = (keys, lang) => keys.map(k => ABILITY_NAMES[k][lang]).join(', ');
+const orNames = (keys, lang) => {
+  const n = keys.map(k => ABILITY_NAMES[k][lang]);
+  return n.length > 1 ? `${n.slice(0, -1).join(', ')}${lang === 'pt' ? ' ou ' : ' or '}${n[n.length - 1]}` : n.join('');
+};
+
+/** "Porque você escolheu…": de onde vem o bônus (antecedente em 2024, raça em 2014). */
+function BonusEcho({ char, lang, mode, srcName }) {
+  if (char.rulesVersion === '2024') {
+    return (
+      <Echo art={backgroundArt(char.background)} lang={lang}>
+        {L(lang, `${srcName}. Em 2024 o bônus de atributo vem do antecedente, e só pode ir para ${orNames(mode.from, 'pt')}.`,
+          `${srcName}. In 2024 the ability bonus comes from your background, and it can only go to ${orNames(mode.from, 'en')}.`)}
+      </Echo>
+    );
+  }
+  const choose = mode.kind === 'flex' || mode.kind === 'other';
+  return (
+    <Echo art={speciesArt(char.race)} lang={lang}>
+      {L(lang, `${srcName}. Nas regras de 2014 é a raça que dá o bônus de atributo${choose ? ', e esta deixa você escolher parte dele aqui.' : '.'}`,
+        `${srcName}. In the 2014 rules your race gives the ability bonus${choose ? ', and this one lets you choose part of it here.' : '.'}`)}
+    </Echo>
+  );
+}
 
 function PickButton({ on, disabled, onClick, children, label }) {
   return (
@@ -224,6 +251,8 @@ function Comp({ char, set, lang }) {
         </StepIntro>
       )}
 
+      <BonusEcho char={char} lang={lang} mode={mode} srcName={srcName} />
+
       {mode.kind === 'fixed' ? (
         <>
           <Callout kind="ok">
@@ -242,6 +271,8 @@ function Comp({ char, set, lang }) {
       )}
 
       <Summary char={char} lang={lang} />
+
+      <DoorsPanel char={char} lang={lang} />
     </div>
   );
 }

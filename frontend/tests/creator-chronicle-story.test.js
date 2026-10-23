@@ -40,6 +40,21 @@ test('funciona com a crônica real (pt/en)', () => {
   }
 });
 
+test('crônica em frases: se só o começo já está lá, acrescenta só o que falta', () => {
+  const before = ['Você nasceu anão.', 'Cresceu como soldado.'];
+  const after = [...before, 'Assim nasceu Brom.'];
+  const s1 = withChronicle('Oi.', before);
+  assert.equal(s1, 'Oi.\n\nVocê nasceu anão. Cresceu como soldado.');
+  assert.equal(hasChronicle(s1, after), false);
+  // O nome entrou depois: só a frase nova, no mesmo parágrafo.
+  assert.equal(withChronicle(s1, after), 'Oi.\n\nVocê nasceu anão. Cresceu como soldado. Assim nasceu Brom.');
+  // O jogador escreveu mais depois da crônica: a frase nova vai num parágrafo próprio.
+  assert.equal(withChronicle(`${s1}\n\nTenho medo do escuro.`, after), `${s1}\n\nTenho medo do escuro.\n\nAssim nasceu Brom.`);
+  // Nada em comum: a crônica inteira.
+  assert.equal(withChronicle('Oi.', ['Outra coisa.', 'Mais.']), 'Oi.\n\nOutra coisa. Mais.');
+  assert.equal(withChronicle('', []), '');
+});
+
 test('prévia curta corta numa palavra', () => {
   assert.equal(chroniclePreview('Curto.'), 'Curto.');
   const long = 'Você nasceu anão, sob montanhas onde a pedra guarda a memória dos ancestrais. '.repeat(5);

@@ -7,7 +7,8 @@
  * (testadas em tests/creator-doors.test.js).
  */
 import { MULTICLASS_PREREQS } from '../progression/multiclass.js';
-import { quickSummary, abilitiesIssues, ABILITY_NAMES } from './ability-helpers.js';
+import { quickSummary, ABILITY_NAMES } from './ability-helpers.js';
+import { abilitiesSet } from './decision.js';
 
 /** Valor mínimo pedido pela multiclasse. */
 export const DOOR_MIN = 13;
@@ -23,11 +24,11 @@ const or = (lang) => (lang === 'pt' ? ' ou ' : ' or ');
 const and = (lang) => (lang === 'pt' ? ' e ' : ' and ');
 
 /**
- * Os atributos já foram distribuídos? Mesma ideia de abilitiesSet (decision.js),
- * mas sem exigir creation.abilityMethod: quem fica no conjunto padrão (o
- * método já marcado) nunca grava o método, e mesmo assim terminou a etapa.
+ * Os atributos já foram distribuídos (etapa Atributos sem pendência)? É o
+ * abilitiesSet de decision.js: não exige creation.abilityMethod, porque quem
+ * fica no conjunto padrão (o método já marcado) nunca grava o método.
  */
-export const abilitiesReady = (char) => !!char && abilitiesIssues(char).length === 0;
+export const abilitiesReady = (char) => abilitiesSet(char);
 
 /** Grupos do pré-requisito que ainda não têm nenhum atributo >= 13. */
 export const missingGroups = (groups, scores) =>
