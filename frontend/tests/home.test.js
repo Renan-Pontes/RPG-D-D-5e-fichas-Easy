@@ -146,3 +146,22 @@ test('menu da conta fecha com clique fora, Esc e troca de tela; cabeçalho com a
   assert.match(src('../components/Shared.jsx'), /import '\.\/header\.css';/);
   assert.match(src('../components/header.css'), /@media \(min-width: 521px\) and \(max-width: 860px\)/);
 });
+
+test('fichas da conta: datas do servidor (snake_case) entram na ordem "Criação"', async () => {
+  const { remoteMeta } = await import('../src/api/storage.js');
+  const { sortCharacters } = await import('../src/home/home-utils.js');
+  // Formato real do CharacterSerializer: created_at/updated_at; a lista vem por -updated_at.
+  const server = [
+    { id: 3, name: 'Elarion', data: {}, created_at: '2026-02-01T10:00:00Z', updated_at: '2026-10-20T10:00:00Z', inCampaign: false },
+    { id: 1, name: 'Bruna', data: {}, created_at: '2026-01-01T10:00:00Z', updated_at: '2026-10-10T10:00:00Z', inCampaign: true },
+    { id: 9, name: 'Dante', data: {}, created_at: '2026-03-01T10:00:00Z', updated_at: '2026-09-01T10:00:00Z' },
+  ];
+  const chars = server.map(c => ({ ...c.data, id: c.id, name: c.name, ...remoteMeta(c) }));
+  assert.equal(chars[0].createdAt, '2026-02-01T10:00:00Z');
+  assert.equal(chars[1].inCampaign, true);
+  assert.equal(chars[0].campaignLeveling, null);
+  assert.deepEqual(sortCharacters(chars, 'created').map(c => c.name), ['Bruna', 'Elarion', 'Dante']);
+  assert.deepEqual(sortCharacters(chars, 'recent').map(c => c.name), ['Elarion', 'Bruna', 'Dante']);
+  // camelCase (formato antigo/local) continua valendo.
+  assert.equal(remoteMeta({ createdAt: 5, updatedAt: 7 }).updatedAt, 7);
+});
