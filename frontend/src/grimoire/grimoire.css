@@ -114,6 +114,12 @@
 .grim-leave { min-width: 0; }
 .grim-leave span { overflow: hidden; text-overflow: ellipsis; }
 .grim-tocover { flex: none; }
+/* Celular: na lista e na página aberta fora de uma busca, a barra fixa logo abaixo já tem
+   o "‹ Capa" (mesma ação); o "✦ Capa" da linha 1 só aparece quando a barra volta aos
+   resultados/capítulo. No desktop a barra não tem esse botão e o "✦ Capa" fica. */
+@media (max-width: 859px) {
+  .grim.v-list .grim-tocover, .grim.v-article:not(.is-browsing) .grim-tocover { display: none; }
+}
 .grim-sigil-mini { color: var(--gold-bright); font-size: 0.9rem; letter-spacing: 0; }
 /* O nome do Grimório fora da capa: no celular só para leitor de tela (o botão "✦ Capa" diz onde se está) */
 .grim-mini-title { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
@@ -239,6 +245,8 @@
 .grim .grim-act { min-height: 48px; justify-content: center; padding: 8px 10px; font-size: 0.72rem; letter-spacing: 0.08em; white-space: normal; text-align: center; line-height: 1.3;
   border-color: var(--gold-deep); }
 .grim .grim-act:hover { background: var(--gold-soft); color: var(--gold-bright); }
+/* "· 124 páginas" não parte no meio: se não couber, desce inteiro para a linha de baixo */
+.grim-act-n { white-space: nowrap; }
 
 /* ---------- Lista: chips, cabeçalho do capítulo e resultados ---------- */
 .grim-chips { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; position: relative; padding: 0 0 8px; margin: 0 0 6px; scrollbar-width: none; overscroll-behavior-x: contain; }

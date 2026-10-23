@@ -6,6 +6,7 @@ import { Modal } from '../../components/Shared.jsx';
 import Icon from '../../components/Icons.jsx';
 import { ARTICLES, CATEGORIES } from '../../data/grimoire/index.js';
 import { findArticle, grimoireHash } from './search.js';
+import { onGrimoireLinkClick } from './link.js';
 import ArticleView from './ArticleView.jsx';
 import './grimoire.css';
 
@@ -21,6 +22,8 @@ export default function GrimoirePopup({ id, lang, onClose }) {
   const openLabel = pt ? 'Abrir no Grimório' : 'Open in the Grimoire';
 
   const openHere = (next) => setStack((s) => (s[s.length - 1] === next ? s : [...s, next]));
+  // "Abrir no Grimório": entrada marcada no histórico (o "Voltar à ficha" usa o voltar de verdade).
+  const openFull = (e) => { onGrimoireLinkClick(e, grimoireHash(article?.id)); onClose(); };
   const back = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
 
   // Trocou de regra: o modal volta ao topo.
@@ -41,7 +44,7 @@ export default function GrimoirePopup({ id, lang, onClose }) {
           ) : (
             <span className="grim-popup-brand"><span aria-hidden>✦</span> {pt ? 'Grimório' : 'Grimoire'}</span>
           )}
-          <a className="grim-popup-go" href={grimoireHash(article?.id)} onClick={onClose}>
+          <a className="grim-popup-go" href={grimoireHash(article?.id)} onClick={openFull}>
             <Icon name="book" size={16} /> <span>{openLabel}</span>
           </a>
           <button type="button" className="grim-popup-close" onClick={onClose} aria-label={pt ? 'Fechar' : 'Close'} title={pt ? 'Fechar' : 'Close'}>
@@ -53,7 +56,7 @@ export default function GrimoirePopup({ id, lang, onClose }) {
         ) : (
           <p className="muted">{pt ? 'Regra não encontrada.' : 'Rule not found.'}</p>
         )}
-        <a className="btn btn-ghost grim-popup-open" href={grimoireHash(article?.id)} onClick={onClose}>
+        <a className="btn btn-ghost grim-popup-open" href={grimoireHash(article?.id)} onClick={openFull}>
           <Icon name="book" size={16} /> {openLabel}
         </a>
       </div>

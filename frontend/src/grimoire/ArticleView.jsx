@@ -50,7 +50,8 @@ export default function ArticleView({ article: a, lang, categories, byId, onOpen
   return (
     <article className={`grim-article ${compact ? 'compact' : 'grim-panel has-corners'}`} key={a.id}>
       {cat && <div className="grim-article-cat"><ChapterIcon cat={cat} size={18} /> {cat.name[lang]}</div>}
-      <h2 className="grim-article-title"><span className="grim-foil">{a.title[lang]}</span></h2>
+      {/* tabIndex -1: no celular, o Grimório leva o foco ao título ao abrir uma página pela lista */}
+      <h2 className="grim-article-title" tabIndex={compact ? undefined : -1}><span className="grim-foil">{a.title[lang]}</span></h2>
       {alt && <div className="grim-article-alt" lang={lang === 'pt' ? 'en' : 'pt'}>{alt}</div>}
       <div className="grim-ornament" aria-hidden><span>✦ ❖ ✦</span></div>
 

@@ -14,6 +14,7 @@ import { buildIndex, search, findArticle, grimoireHash, parseGrimoireHash } from
 import { snippetFor, markRanges } from './snippet.js';
 import ArticleView from './ArticleView.jsx';
 import ChapterIcon from './ChapterIcon.jsx';
+import { GRIM_LINK } from './link.js';
 import { GRIMOIRE_ART, hideOnError } from '../art.js';
 import './grimoire.css';
 
@@ -248,7 +249,8 @@ function Cover({ lang, tx, isDesk, recent, byId, catCount, pathOpen, onTogglePat
 
       <div className="grim-cover-actions">
         <button type="button" className="btn btn-ghost grim-act" onClick={openIndex}>
-          <span aria-hidden>☰</span> <span className="grim-l-short">{tx('indexShort')}</span><span className="grim-l-long">{tx('index')}</span> · {TXT.results[lang](ARTICLES.length)}
+          <span aria-hidden>☰</span> <span className="grim-l-short">{tx('indexShort')}</span><span className="grim-l-long">{tx('index')}</span>{' '}
+          <span className="grim-act-n">· {TXT.results[lang](ARTICLES.length)}</span>
         </button>
         <button type="button" className="btn btn-ghost grim-act" onClick={openRandom}>
           <span aria-hidden>✦</span> {tx('random')}
@@ -319,6 +321,9 @@ export default function GrimoireScreen({ lang, initialId = null, initialQuery = 
   const searchRef = useRef(null);
   const chipsRef = useRef(null);
   const sentinelRef = useRef(null);
+  const rootRef = useRef(null);
+  const barTopPending = useRef(false); // celular: a busca mudou a lista → topo da barra
+  const focusTitle = useRef(false); // celular: página aberta pela lista → foco no título
 
   const index = useMemo(() => buildIndex(ARTICLES, lang), [lang]);
   const byId = useMemo(() => new Map(ARTICLES.map((a) => [a.id, a])), []);
@@ -378,6 +383,8 @@ export default function GrimoireScreen({ lang, initialId = null, initialQuery = 
     // Da lista, a página lembra o nível e a rolagem dela ("‹ Resultados").
     const ret = v === 'list' ? { level: depth.current, y: window.scrollY } : v === 'article' ? cur.ret : null;
     go({ id, q: cur.q, cat: cur.cat, all: cur.all, ret });
+    // No celular a lista some (uma vista por vez): sem isto o foco caía no <body>.
+    if (!isDeskNow()) focusTitle.current = true;
     setCopied(false);
     setFinding(false);
     setRecent((r) => { const nr = [id, ...r.filter((x) => x !== id)].slice(0, 6); saveRecent(nr); return nr; });
@@ -424,6 +431,7 @@ export default function GrimoireScreen({ lang, initialId = null, initialQuery = 
 
   const onType = (v) => {
     const cur = sRef.current;
+    if (!isDeskNow()) barTopPending.current = true;
     if (cur.id && !isDeskNow()) {
       // Celular: a 1ª letra com a página aberta fecha a página e mostra a lista (o "voltar" devolve a página).
       go({ q: v, cat: cur.cat, all: cur.all });
@@ -495,7 +503,17 @@ export default function GrimoireScreen({ lang, initialId = null, initialQuery = 
         depth.current = st.grim;
         base.current = st.base || 'push';
         coverAt.current = st.c0 ?? null;
-        if (!st.id || st.id === cur.id) setS(fromEntry(st));
+        if (!st.id || st.id === cur.id) {
+          setS(fromEntry(st));
+          pendingY.current = st.y ?? 0;
+          setPopN((x) => x + 1);
+        }
+      } else if (isGrimHash() && st?.[GRIM_LINK]) {
+        // Link de dentro do app (popup da ficha, mesa): a entrada anterior é a tela de
+        // origem, como no 'push' — o "Voltar" e o voltar do celular usam o histórico.
+        base.current = 'push';
+        coverAt.current = viewOf(cur) === 'cover' ? 0 : null;
+        history.replaceState(entry(cur), '', hashOf(cur));
       } else if (isGrimHash()) {
         base.current = 'hash';
         coverAt.current = viewOf(cur) === 'cover' ? 0 : null;
@@ -507,6 +525,38 @@ export default function GrimoireScreen({ lang, initialId = null, initialQuery = 
       }
     } catch { /* sem histórico: tudo bem */ }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 1ª montagem: o Grimório começa do topo, e não na rolagem da tela de onde veio (o
+  // atalho da inicial e o "Abrir no Grimório" da ficha caíam no meio da capa ou da
+  // página). Entrada do Grimório restaurada (voltar/recarregar): o efeito acima devolve
+  // a rolagem dela. A rolagem quem cuida é o Grimório — e, na saída, o app, que devolve a
+  // tela de origem ao ponto em que estava: o modo 'manual' vale já para a entrada de
+  // origem (antes do 1º pushState), senão o navegador a "restaurava" para 0 logo depois.
+  useLayoutEffect(() => {
+    try { history.scrollRestoration = 'manual'; } catch { /* ok */ }
+    try { if (isGrimEntry(history.state)) return; } catch { /* ok */ }
+    window.scrollTo(0, 0);
+  }, []);
+
+  // Celular: a busca trocou a capa (ou a página) pela lista, ou mudou a lista, com a tela
+  // rolada para baixo: a vista sobe até o topo da barra fixa, com o contador, os chips e
+  // o melhor resultado à vista. window.scrollTo não tira o foco: o teclado continua aberto.
+  useLayoutEffect(() => {
+    if (!barTopPending.current) return;
+    barTopPending.current = false;
+    const el = sentinelRef.current;
+    if (view !== 'list' || !el || isDeskNow()) return;
+    const top = Math.max(0, Math.round(el.getBoundingClientRect().top + window.scrollY));
+    if (window.scrollY > top) window.scrollTo({ top, behavior: 'auto' });
+  }, [s.q, view]);
+
+  // Celular: a página aberta pela lista recebe o foco (título), e o leitor de tela o anuncia.
+  useLayoutEffect(() => {
+    if (!focusTitle.current) return;
+    focusTitle.current = false;
+    if (!s.id || isDeskNow()) return;
+    rootRef.current?.querySelector('.grim-article-title')?.focus({ preventScroll: true });
+  }, [s]);
 
   // "Voltar" do celular/navegador.
   useEffect(() => {
@@ -550,21 +600,21 @@ export default function GrimoireScreen({ lang, initialId = null, initialQuery = 
     window.scrollTo(0, y);
   }, [popN]);
 
-  // A rolagem quem cuida é o Grimório. Saiu por outro caminho (logo, Campanhas, menu da
-  // conta)? A tela nova ganha uma entrada sem o #grimo… — a URL fica limpa e o "voltar"
-  // reabre a última página do Grimório. O alive separa a saída de verdade da desmontagem
-  // de teste do StrictMode (que remonta na hora).
+  // Saiu por outro caminho (logo, Campanhas, menu da conta)? A tela nova ganha uma
+  // entrada sem o #grimo… — a URL fica limpa e o "voltar" reabre a última página do
+  // Grimório. O alive separa a saída de verdade da desmontagem de teste do StrictMode
+  // (que remonta na hora). A rolagem volta ao modo do navegador só depois da saída (no
+  // mesmo instante, o "voltar" ainda aplicaria a rolagem guardada da entrada de origem).
   const alive = useRef(false);
   useEffect(() => {
     alive.current = true;
-    let prevRestore = null;
-    try { prevRestore = history.scrollRestoration; history.scrollRestoration = 'manual'; } catch { /* ok */ }
     return () => {
       alive.current = false;
       clearTimeout(leaveTimer.current);
-      try { if (prevRestore) history.scrollRestoration = prevRestore; } catch { /* ok */ }
       setTimeout(() => {
-        if (alive.current || !isGrimHash()) return;
+        if (alive.current) return;
+        try { history.scrollRestoration = 'auto'; } catch { /* ok */ }
+        if (!isGrimHash()) return;
         try { history.pushState(null, '', here()); } catch { /* ok */ }
       }, 0);
     };
@@ -653,7 +703,7 @@ export default function GrimoireScreen({ lang, initialId = null, initialQuery = 
   const best = hasQuery ? results[0] : null;
 
   return (
-    <div className={`grim v-${view} ${browsing ? 'is-browsing' : ''} ${finding ? 'is-finding' : ''}`}>
+    <div className={`grim v-${view} ${browsing ? 'is-browsing' : ''} ${finding ? 'is-finding' : ''}`} ref={rootRef}>
       <div className="grim-sky" aria-hidden />
 
       <div className="grim-top">
@@ -692,7 +742,11 @@ export default function GrimoireScreen({ lang, initialId = null, initialQuery = 
             {view === 'article' && <span>{listLabel}</span>}
           </button>
         )}
-        <div className="grim-search">
+        {/* Página aberta no celular: o campo fica recolhido; focar nele (Tab) o abre, e ele só
+            recolhe quando o foco sai da caixa inteira (o X de limpar fica dentro). */}
+        <div className="grim-search"
+          onFocus={() => { if (sRef.current.id && !isDeskNow()) setFinding(true); }}
+          onBlur={(e) => { if (sRef.current.id && !e.currentTarget.contains(e.relatedTarget)) setFinding(false); }}>
           <SearchGlyph />
           <input
             ref={searchRef}
@@ -700,7 +754,6 @@ export default function GrimoireScreen({ lang, initialId = null, initialQuery = 
             enterKeyHint="search"
             value={s.q}
             onChange={(e) => onType(e.target.value)}
-            onBlur={() => { if (sRef.current.id) setFinding(false); }}
             placeholder={tx('searchPh')}
             aria-label={tx('search')}
             autoComplete="off"

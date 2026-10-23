@@ -20,6 +20,7 @@ import SessionPlanPanel from '../play/SessionPlanPanel.jsx';
 import RecapCard from '../play/RecapCard.jsx';
 import { patchState } from '../play/play-api.js';
 import { flash } from '../play/flash.js';
+import { openGrimoireLink } from '../grimoire/link.js';
 import './table-now.css';
 
 const ImproviseModal = lazy(() => import('../world/ImproviseModal.jsx'));
@@ -44,8 +45,10 @@ function slotSummary(data) {
   return max.map((m, i) => ({ lvl: i + 1, max: m, left: Math.max(0, m - (Number(used[i]) || 0)) })).filter(s => s.max > 0);
 }
 
-// Abrir o Grimório reaproveita o link #grimorio que o app já escuta.
+// Abrir o Grimório reaproveita o link #grimorio que o app já escuta (com a entrada
+// marcada: o "Voltar à mesa" volta pelo histórico, sem deixar entrada morta).
 function openGrimoire() {
+  if (openGrimoireLink('#grimorio')) return;
   if (/^#(grimorio|grimoire)$/i.test(window.location.hash)) window.dispatchEvent(new HashChangeEvent('hashchange'));
   else window.location.hash = '#grimorio';
 }

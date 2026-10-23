@@ -1,6 +1,6 @@
 /* Main app orchestrator */
 import { errorMessage } from './src/api/errors.js';
-import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import Utils from './utils.js';
 import { t } from './data/i18n.js';
 import Icon from './components/Icons.jsx';
@@ -53,15 +53,26 @@ const App = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   // Grimório: aberto pelo cabeçalho ou por link #grimorio/<regra> (volta pra tela anterior).
-  const [grimoire, setGrimoire] = useState(null); // { id, q, from, n }
+  const [grimoire, setGrimoire] = useState(null); // { id, q, from, n, y }
   const screenRef = useRef(screen);
   screenRef.current = screen;
   // reset (só o botão do cabeçalho): n muda e o Grimório já aberto volta para a capa.
+  // y: rolagem da tela de origem, devolvida quando o "Voltar" do Grimório leva a ela.
   const openGrimoire = useCallback((id = null, q = '', reset = false) => {
     const prev = screenRef.current;
-    setGrimoire(g => ({ id, q, from: prev === SCREENS.GRIMOIRE ? (g?.from || SCREENS.HOME) : prev, n: (g?.n || 0) + (reset ? 1 : 0) }));
+    const y = window.scrollY;
+    setGrimoire(g => (prev === SCREENS.GRIMOIRE
+      ? { id, q, from: g?.from || SCREENS.HOME, n: (g?.n || 0) + (reset ? 1 : 0), y: g?.y || 0 }
+      : { id, q, from: prev, n: (g?.n || 0) + (reset ? 1 : 0), y }));
     setScreen(SCREENS.GRIMOIRE);
   }, []);
+  const restoreY = useRef(null);
+  useLayoutEffect(() => {
+    if (restoreY.current == null) return;
+    const y = restoreY.current;
+    restoreY.current = null;
+    window.scrollTo(0, y);
+  }, [screen]);
   useEffect(() => {
     const onHash = () => {
       const m = /^#(?:grimorio|grimoire)(?:\/([^?]*))?(?:\?q=(.*))?$/i.exec(window.location.hash);
@@ -595,7 +606,7 @@ const App = () => {
         <Suspense fallback={<div className="muted" style={{ padding: 24 }}>{lang === 'pt' ? 'Abrindo o Grimório…' : 'Opening the Grimoire…'}</div>}>
           <GrimoireScreen lang={lang} initialId={grimoire?.id} initialQuery={grimoire?.q || ''}
             openSeq={grimoire?.n || 0} backTo={grimoire?.from}
-            onBack={() => setScreen(grimoire?.from && grimoire.from !== SCREENS.GRIMOIRE ? grimoire.from : SCREENS.HOME)} />
+            onBack={() => { restoreY.current = grimoire?.y || 0; setScreen(grimoire?.from && grimoire.from !== SCREENS.GRIMOIRE ? grimoire.from : SCREENS.HOME); }} />
         </Suspense>
       );
       break;
