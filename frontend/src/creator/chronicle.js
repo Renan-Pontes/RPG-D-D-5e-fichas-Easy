@@ -158,7 +158,7 @@ export function classOptionLines(char, lang = 'pt') {
   return out;
 }
 
-const abilitiesDone = (char) => !!char?.creation?.abilityMethod && abilitiesIssues(char).length === 0;
+const abilitiesDone = (char) => !!char && abilitiesIssues(char).length === 0;
 
 /**
  * Frases da crônica, na ordem da história (nascimento → juventude → chamado →

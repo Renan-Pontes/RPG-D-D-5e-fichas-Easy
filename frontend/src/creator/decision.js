@@ -21,8 +21,8 @@ export function afterPatch(char, patch) {
   return { ...char, ...(p || {}) };
 }
 
-/** Os atributos já foram distribuídos? Antes disso valem 8 (ver utils makeNew). */
-export const abilitiesSet = (char) => !!(char?.creation?.abilityMethod && abilitiesIssues(char).length === 0);
+/** Os atributos já foram distribuídos (a etapa Atributos não tem pendência)? Antes disso valem 8 (ver utils makeNew). */
+export const abilitiesSet = (char) => !!char && abilitiesIssues(char).length === 0;
 
 /** Antes da etapa Atributos, usa a tabela sugerida da classe para estimar PV/CA. */
 const withAssumedAbilities = (char) => (char?.className && !abilitiesSet(char) && STANDARD_ARRAY_BY_CLASS[char.className]
