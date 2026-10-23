@@ -1,32 +1,84 @@
-/* Comece rápido: fichas prontas */
-.pg { margin: 0 0 var(--s-5); border: 1px solid var(--gold-deep); border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, rgba(214, 176, 100, 0.09), rgba(159, 176, 240, 0.05)); overflow: hidden; }
-.pg-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; background: none; border: none; color: inherit; cursor: pointer; text-align: left; font: inherit; }
-.pg-head-icon { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: var(--bg-deep);
-  background: var(--gold); box-shadow: 0 0 14px rgba(214, 176, 100, 0.5); font-size: 1.1rem; }
+/* Comece rápido: fichas prontas (couro com filete dourado, como o criador e a ficha).
+   Tokens --fh-* vêm da tela inicial (.home); os valores de reserva são os mesmos. */
+.pg { position: relative; margin: 0 0 var(--s-5); border: 1px solid transparent; border-radius: 8px;
+  background:
+    linear-gradient(180deg, var(--fh-leather-hi, #251a14), var(--fh-leather, #1b1310) 40%, var(--fh-leather-lo, #140e0b)) padding-box,
+    var(--fh-gilt, linear-gradient(135deg, #f7dc93 0%, #8c6427 28%, #ecc777 50%, #7b5721 74%, #f2d38a 100%)) border-box;
+  box-shadow: 0 1px 0 rgba(255, 230, 170, 0.06) inset, 0 10px 30px rgba(0, 0, 0, 0.45); }
+.pg-head-wrap { margin: 0; font: inherit; }
+.pg-head { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 12px 14px; background: none; border: none; border-radius: 8px;
+  color: inherit; cursor: pointer; text-align: left; font: inherit; }
+.pg-head:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: -3px; }
+.pg-head > svg { flex: none; color: var(--gold); }
+.pg-head-icon { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: var(--on-gold);
+  background: radial-gradient(circle at 35% 30%, #fff0bf, #e2b65d 45%, #8e6425); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5), 0 0 14px rgba(240, 190, 90, 0.4); font-size: 1.05rem; }
 .pg-head-text { flex: 1; display: grid; gap: 2px; min-width: 0; }
-.pg-head-text strong { font-family: var(--display); color: var(--gold-bright); letter-spacing: 0.03em; }
-.pg-head-text .muted { font-size: 0.85rem; }
-.pg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; padding: 0 14px 14px; }
-@media (max-width: 600px) { .pg-grid { grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 10px 10px; } }
-.pg-card { display: grid; text-align: left; padding: 0; border: 1px solid var(--stroke); border-radius: var(--radius-lg); background: var(--bg-card);
+.pg-head-text strong { font-family: var(--display); font-weight: 600; color: var(--gold-bright); letter-spacing: 0.04em; line-height: 1.2; }
+.pg-head-text .muted { font-size: 0.9rem; line-height: 1.35; color: var(--ink-secondary); }
+
+/* Porta "Pegar uma ficha pronta" (tela inicial sem fichas): três retratos no lugar do ✦ */
+.pg-door .pg-head { min-height: 96px; }
+.pg-door .pg-head-text strong { font-size: 1.05rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.pg-faces { flex: none; display: flex; width: 72px; height: 44px; align-items: center; }
+.pg-faces img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; object-position: 50% 20%; background: var(--bg-deep);
+  box-shadow: 0 0 0 2px var(--fh-leather, #1b1310), 0 0 0 3px var(--gold-deep); }
+.pg-faces img + img { margin-left: -18px; }
+.pg-faces img:nth-child(2) { position: relative; z-index: 1; transform: translateY(-4px); }
+
+/* Aberta: carrossel de uma linha (celular e tablet); a ponta do próximo cartão aparece */
+.pg-grid { display: grid; grid-auto-flow: column; grid-auto-columns: 148px; gap: 10px; align-items: stretch;
+  min-height: 274px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-inline: 14px;
+  padding: 2px 32px 14px 14px; scrollbar-width: thin; scrollbar-color: var(--gold-deep) transparent;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); }
+.pg-note { grid-column: 1 / span 2; align-self: center; margin: 0; padding: 8px 0; font-size: 0.95rem; }
+.pg-card { display: grid; grid-template-rows: auto 1fr; align-content: start; scroll-snap-align: start; text-align: left; padding: 0; min-width: 0; min-height: 258px;
+  border: 1px solid rgba(224, 181, 94, 0.28); border-radius: 6px; background: linear-gradient(180deg, #1f1712, #130d0a);
   overflow: hidden; cursor: pointer; color: inherit; font: inherit; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; }
-.pg-card:hover { transform: translateY(-2px); border-color: var(--gold); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); }
+.pg-card:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+@media (hover: hover) { .pg-card:hover { transform: translateY(-2px); border-color: var(--gold); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); } }
 .pg-card-art { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; object-position: center 20%;
   mask-image: linear-gradient(#000 70%, transparent); -webkit-mask-image: linear-gradient(#000 70%, transparent); }
-.pg-card-body { display: grid; gap: 3px; padding: 0 12px 12px; margin-top: -8px; }
-.pg-card-class { font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
-.pg-card-name { font-family: var(--display); color: var(--gold-bright); font-size: 1rem; }
-.pg-card-pitch { font-size: 0.8rem; color: var(--ink-secondary); line-height: 1.35; }
+.pg-card-body { display: grid; align-content: start; gap: 3px; padding: 0 10px 10px; margin-top: -8px; min-width: 0; }
+.pg-card-class { font-family: var(--display); font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.pg-card-name { font-family: var(--display); color: var(--gold-bright); font-size: 0.92rem; line-height: 1.2;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pg-card-pitch { font-size: 0.82rem; color: var(--ink-secondary); line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .pg-diff { justify-self: start; margin-top: 4px; font-size: 0.68rem; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; }
 .pg-diff-easy { color: var(--moss-bright, #9cc065); }
 .pg-diff-average { color: var(--amber, #d6a24a); }
 .pg-diff-challenging { color: var(--blood-bright, #d0644f); }
-.pg-modal-art { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; object-position: center 20%; border-radius: var(--radius); }
+/* Desktop: grade de 4 colunas × 3 linhas */
+@media (min-width: 1024px) {
+  .pg-card { min-height: 0; }
+  .pg-grid { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; min-height: 0;
+    overflow: visible; padding: 2px 14px 14px; -webkit-mask-image: none; mask-image: none; }
+  .pg-note { grid-column: 1 / -1; }
+}
+
+/* Modal da ficha pronta: couro e o botão "Pegar" num rodapé fixo */
+.modal:has(> .pg-modal) {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, var(--fh-leather-hi, #251a14), var(--fh-leather, #1b1310) 40%, var(--fh-leather-lo, #140e0b)) padding-box,
+    var(--fh-gilt, linear-gradient(135deg, #f7dc93 0%, #8c6427 28%, #ecc777 50%, #7b5721 74%, #f2d38a 100%)) border-box;
+}
+.modal:has(> .pg-modal) > h2 { font-family: var(--display); color: var(--gold-bright); padding-right: 40px; }
+.modal:has(> .pg-modal) > .modal-close { z-index: 3; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 50%;
+  background: rgba(10, 7, 6, 0.72); color: var(--ink-secondary); }
+.pg-modal-art { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; object-position: center 20%; border-radius: var(--radius); box-shadow: 0 0 0 1px var(--gold-deep); }
 .pg-modal-sub { color: var(--gold); font-size: 0.85rem; margin: 8px 0 4px; }
 .pg-pitch { font-size: 1rem; }
 .pg-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; text-align: center; }
-.pg-stats > div { border: 1px solid var(--stroke); border-radius: var(--radius); padding: 8px 4px; display: grid; }
+.pg-stats > div { border: 1px solid rgba(224, 181, 94, 0.3); border-radius: var(--radius); padding: 8px 4px; display: grid; background: rgba(10, 7, 6, 0.45); }
 .pg-stats strong { font-size: 1.4rem; color: var(--gold-bright); font-family: var(--display); }
 .pg-stats span { font-size: 0.7rem; color: var(--ink-muted); }
 .pg-tips { margin: 4px 0 10px; padding-left: 18px; line-height: 1.45; }
+.pg-modal-foot { position: sticky; bottom: 0; z-index: 2; margin-top: 12px; padding: 14px 0 calc(2px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(20, 14, 11, 0), var(--fh-leather-lo, #140e0b) 14px); }
+.pg-modal-foot .btn-primary { min-height: 48px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-card { transition: none; }
+  .pg-card:hover { transform: none; }
+}
