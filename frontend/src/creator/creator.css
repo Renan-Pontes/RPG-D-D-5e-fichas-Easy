@@ -276,3 +276,29 @@
   .cr-shell.side-open .cr-side { background: var(--bg-deep); }
   body:has(.cr-shell.side-open) .wizard-footer { display: none; }
 }
+
+/* Celular: galerias com arte (classe, espécie, antecedente, subclasse) em 2 colunas compactas.
+   Antes cada cartão ocupava a tela toda: a etapa Classe tinha ~5000 px de rolagem. */
+@media (max-width: 699px) {
+  .cr-stage .options-list:has(> .option > .cr-card-art) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .cr-stage .options-list:has(> .option > .cr-card-art) > .option { padding: 10px; display: flex; flex-direction: column; }
+  .cr-stage .options-list:has(> .option > .cr-card-art) > .option > .cr-card-art { aspect-ratio: 1 / 1; width: calc(100% + 20px); margin: -10px -10px 8px; object-position: 50% 20%; }
+  .cr-stage .options-list:has(> .option > .cr-card-art) .option-title { font-size: 0.92rem; line-height: 1.2; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+  .cr-stage .options-list:has(> .option > .cr-card-art) .cr-badge { font-size: 0.6rem; padding: 1px 5px; }
+  .cr-stage .options-list:has(> .option > .cr-card-art) .option-meta { font-size: 0.78rem; gap: 2px 8px; margin-top: 4px;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  /* cartão aberto com detalhes (ex.: subclasse 2014) volta a ocupar a linha inteira */
+  .cr-stage .options-list > .option.selected:has(.cr-details) { grid-column: 1 / -1; }
+  .cr-stage .options-list > .option.selected:has(.cr-details) > .cr-card-art { aspect-ratio: 16 / 9; }
+  .cr-stage .options-list > .option.selected:has(.cr-details) .option-meta { -webkit-line-clamp: unset; display: flex; }
+  .cr-stage .option.selected::before { top: 6px; right: 6px; width: 18px; height: 18px; }
+}
+/* A frase da revelação não anima o espaçamento (ficava ilegível no meio da animação). */
+.cr-rv-t { animation-name: cr-fade-up; text-shadow: 0 2px 12px #000, 0 0 2px #000; }
+@keyframes cr-fade-up { from { opacity: 0; transform: translateY(10px); } }
+@media (max-width: 699px) {
+  .cr-stage .options-list:has(> .option > .cr-card-art) .option-meta > span { display: block; }
+  /* antecedente: no cartão ficam as linhas principais; o painel da escolha mostra tudo */
+  .cr-stage .options-list .cr-bg-gains { display: -webkit-box; -webkit-line-clamp: 7; -webkit-box-orient: vertical; overflow: hidden; font-size: 0.8rem; line-height: 1.35; }
+  .cr-stage .options-list .cr-bg-gains .muted { display: none; }
+}
