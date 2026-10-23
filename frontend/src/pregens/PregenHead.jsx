@@ -17,7 +17,8 @@ export const pregenTitle = (variant, lang) => (variant === 'door'
 
 export function PregenHead({ lang, variant, open, onToggle }) {
   const door = variant === 'door';
-  const Wrap = door ? 'h3' : 'div';
+  // Porta: h3 sob "Como você quer começar?". Lista e erro: seção própria da página (h2).
+  const Wrap = door ? 'h3' : 'h2';
   return (
     <Wrap className="pg-head-wrap">
       <button type="button" className="pg-head" onClick={onToggle} aria-expanded={open}>

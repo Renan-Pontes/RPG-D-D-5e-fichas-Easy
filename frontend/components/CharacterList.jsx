@@ -205,6 +205,8 @@ const CharacterList = ({
 
             {mode === 'list' && (
               <>
+                {/* Título da seção para leitor de tela (o H1 acima é o da página): H1 → H2 → H3 de cada herói */}
+                <h2 className="home-sr">{L(lang, 'Suas fichas', 'Your characters')}</h2>
                 {n > 4 && (
                   <div className="home-find" role="search">
                     <div className="home-find-box">

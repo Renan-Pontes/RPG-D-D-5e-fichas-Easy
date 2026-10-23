@@ -21,13 +21,18 @@
 }
 .home :focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
 
-/* Mais largura no desktop (sem mexer no app.jsx) e espaço para a barra fixa + safe-area */
-.container:has(> .home) { padding-bottom: calc(128px + env(safe-area-inset-bottom, 0px)); }
+/* Mais largura no desktop (sem mexer no app.jsx) */
 @media (min-width: 1024px) { .container:has(> .home) { max-width: 1120px; } }
 
-/* O dado flutuante fica no lugar dele na inicial: o desvio automático (DiceRoller),
-   numa tela cheia de cartões, o fazia subir até o meio (como shell.css na campanha). */
-body:has(.home) .dice-fab.no-print { margin-bottom: 0 !important; }
+/* Celular e tablet com fichas: espaço para a barra fixa + safe-area (é o mesmo do resto
+   do app; fica explícito para a barra nunca cobrir o fim da página). O dado mora na
+   vaga da barra, então fica parado ali: o desvio automático (DiceRoller) o fazia subir
+   até o meio. Nos outros estados (vazio, erro) e no desktop não há barra, e o desvio
+   normal continua valendo (o dado sai de cima de botões e links). */
+@media (max-width: 1023px) {
+  .container:has(> .home.is-list) { padding-bottom: calc(128px + env(safe-area-inset-bottom, 0px)); }
+  body:has(.home.is-list) .dice-fab.no-print { margin-bottom: 0 !important; }
+}
 
 /* Faixa offline (global) mais baixa na inicial do celular: 2 linhas em vez de 4 */
 @media (max-width: 700px) {
@@ -257,9 +262,14 @@ body:has(.home) .dice-fab.no-print { margin-bottom: 0 !important; }
     height: 64px; padding: 0 4px 0 8px; border: 1px solid transparent; border-radius: 12px; background: var(--home-leather);
     box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 230, 170, 0.08) inset; }
   .home-dock .btn-primary { flex: 1; min-width: 0; min-height: 48px; justify-content: center; white-space: nowrap; }
-  /* Vaga do dado: encaixe rebaixado (o dado some ao rolar e a vaga não parece buraco) */
+  /* Vaga do dado: encaixe rebaixado embaixo do botão de dados */
   .home-dock-slot { flex: none; width: 52px; height: 52px; border-radius: 50%; background: radial-gradient(circle at 50% 60%, #241a13, #0b0806 70%);
-    box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.85), inset 0 -1px 0 rgba(255, 230, 170, 0.08), 0 0 0 1px var(--gold-deep), 0 0 0 4px rgba(10, 7, 6, 0.55); }
+    box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.85), inset 0 -1px 0 rgba(255, 230, 170, 0.08), 0 0 0 1px var(--gold-deep), 0 0 0 4px rgba(10, 7, 6, 0.55);
+    transition: width 0.2s var(--fh-ease), margin 0.2s var(--fh-ease), opacity 0.2s ease; }
+  /* O dado some ao rolar para baixo: a vaga encolhe junto (não fica um buraco vazio) e
+     "Novo personagem" ocupa a barra toda; ao subir, os dois voltam. */
+  body:not(:has(.dice-fab.no-print:not(.is-hidden))) .home-dock-slot { width: 0; margin-left: -8px; opacity: 0; }
+  body:not(:has(.dice-fab.no-print:not(.is-hidden))) .home.is-list .home-dock { padding-right: 8px; }
   /* Teclado aberto (busca focada): a barra sai da frente dos resultados */
   .home:has(input:focus, select:focus, textarea:focus) .home-dock { display: none; }
 }
@@ -286,6 +296,6 @@ body:has(.home) .dice-fab.no-print { margin-bottom: 0 !important; }
 @keyframes home-in { from { opacity: 0; transform: translateY(8px); } }
 @keyframes home-fade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .home-card, .home-door, .home-row { transition: none; }
+  .home-card, .home-door, .home-row, .home-dock-slot { transition: none; }
   .home-card:hover, .home-door:hover { transform: none; }
 }

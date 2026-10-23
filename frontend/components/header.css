@@ -4,8 +4,12 @@
 /* PT/EN nunca encolhe nem corta ("EN" inteiro em qualquer largura) */
 .app-header .lang-toggle { flex-shrink: 0; }
 
-/* Grimório só com ícone (≤ 420 px): alvo de toque de 40 × 40 */
-.app-header .header-grimoire { justify-content: center; min-width: 40px; min-height: 40px; }
+/* Grimório só com ícone (≤ 420 px): alvo de toque de 40 × 40. Acima disso ele tem a
+   altura dos vizinhos (Admin, Campanhas). */
+.app-header .header-grimoire { justify-content: center; }
+@media (max-width: 420px) {
+  .app-header .header-grimoire { min-width: 40px; min-height: 40px; }
+}
 
 /* 521–860 px com login (tablet, celular deitado): o cabeçalho estourava a tela */
 @media (min-width: 521px) and (max-width: 860px) {
@@ -23,6 +27,11 @@
 @media (min-width: 521px) and (max-width: 700px) {
   .app-header:has(.header-actions > :nth-child(3)) .brand-name { display: none; }
 }
+/* 701–760 px com Admin (5 botões): o nome da marca voltava e espremia o Grimório (o
+   rótulo passava da borda e o ícone sumia). */
+@media (min-width: 701px) and (max-width: 760px) {
+  .app-header:has(.header-actions > :nth-child(5)) .brand-name { display: none; }
+}
 
 /* Celular sem login: há espaço, então PT e EN aparecem juntos, com o ativo destacado */
 @media (max-width: 520px) {
@@ -39,4 +48,31 @@
     -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'><circle cx='12' cy='12' r='9'/><path d='M3 12h18M12 3c2.8 3 2.8 15 0 18M12 3c-2.8 3-2.8 15 0 18'/></svg>") center / contain no-repeat;
     mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'><circle cx='12' cy='12' r='9'/><path d='M3 12h18M12 3c2.8 3 2.8 15 0 18M12 3c-2.8 3-2.8 15 0 18'/></svg>") center / contain no-repeat;
   }
+}
+
+/* Celular com Admin (Grimório, Admin, Campanhas, conta e idioma = 5 botões): sem isto,
+   "EN" passava da borda em ≤ 360 px e a página toda arrastava para o lado. Aperta só o
+   necessário em cada faixa; com 4 botões ou menos nada muda. */
+@media (max-width: 600px) {
+  /* 421–600 px (iPhone Pro Max, 430 px): o rótulo "Grimório" empurrava tudo até 48 px
+     para fora; com Admin ele fica só com o ícone, como em ≤ 420 px */
+  .app-header:has(.header-actions > :nth-child(5)) .header-grimoire-label { display: none; }
+  .app-header:has(.header-actions > :nth-child(5)) .header-grimoire { min-width: 40px; min-height: 40px; }
+}
+@media (max-width: 380px) {
+  .app-header:has(.header-actions > :nth-child(5)) { gap: 6px; }
+  .app-header:has(.header-actions > :nth-child(5)) .header-actions .btn-sm { padding-inline: 6px; }
+}
+/* ≤ 360 px: sai o globo (o title e o aria-label continuam dizendo "trocar idioma") */
+@media (max-width: 360px) {
+  .app-header:has(.header-actions > :nth-child(5)) .lang-toggle button:not(.active)::before { display: none; }
+}
+@media (max-width: 350px) {
+  .app-header:has(.header-actions > :nth-child(5)) .header-actions { gap: 3px; }
+  .app-header:has(.header-actions > :nth-child(5)) .header-actions .btn-sm { padding-inline: 5px; letter-spacing: 0; font-size: 0.66rem; }
+  .app-header:has(.header-actions > :nth-child(5)) .lang-toggle button { min-width: 36px; }
+}
+@media (max-width: 330px) {
+  .app-header:has(.header-actions > :nth-child(5)) { gap: 4px; }
+  .app-header:has(.header-actions > :nth-child(5)) .header-actions { gap: 2px; }
 }

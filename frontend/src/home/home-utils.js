@@ -69,7 +69,7 @@ export function hpState(currentHp, maxHp) {
 export const HP_STATE_LABEL = {
   ok: ['Firme', 'Steady'],
   warn: ['Ferido', 'Wounded'],
-  crit: ['À beira da morte', 'Near death'],
+  crit: ['Muito ferido', 'Badly hurt'],
   down: ['Caído', 'Down'],
 };
 export const hpStateLabel = (state, lang) => (HP_STATE_LABEL[state] ? HP_STATE_LABEL[state][lang === 'pt' ? 0 : 1] : '');

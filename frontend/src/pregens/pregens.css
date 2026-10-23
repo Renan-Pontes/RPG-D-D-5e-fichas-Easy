@@ -6,6 +6,8 @@
     var(--fh-gilt, linear-gradient(135deg, #f7dc93 0%, #8c6427 28%, #ecc777 50%, #7b5721 74%, #f2d38a 100%)) border-box;
   box-shadow: 0 1px 0 rgba(255, 230, 170, 0.06) inset, 0 10px 30px rgba(0, 0, 0, 0.45); }
 .pg-head-wrap { margin: 0; font: inherit; }
+/* Como <h2> (lista e erro), o título não herda o tamanho, a cor e o espaçamento globais */
+h2.pg-head-wrap { font-size: inherit !important; letter-spacing: inherit; color: inherit; }
 .pg-head { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 12px 14px; background: none; border: none; border-radius: 8px;
   color: inherit; cursor: pointer; text-align: left; font: inherit; }
 .pg-head:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: -3px; }

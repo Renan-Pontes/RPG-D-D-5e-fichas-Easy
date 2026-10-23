@@ -67,7 +67,7 @@ test('hpState: limites do plano da ficha (ok > 50%, warn > 25%, crit > 0, down =
   assert.equal(hpState(null, 10), 'ok');
   assert.equal(hpState(5, 0), null);          // sem maxHp não há barra
   assert.equal(hpStateLabel('down', 'pt'), 'Caído');
-  assert.equal(hpStateLabel('crit', 'en'), 'Near death');
+  assert.equal(hpStateLabel('crit', 'en'), 'Badly hurt');
   assert.equal(hpStateLabel(null, 'pt'), '');
 });
 

@@ -27,7 +27,9 @@ export default function HeroCard({ c, lang, onOpen }) {
           <span className="home-card-letter" aria-hidden="true">{(c.name || '?').charAt(0).toUpperCase()}</span>
           {src && <img className={src === c.avatar ? 'is-photo' : 'is-art'} src={src} alt="" loading="lazy" decoding="async" onError={() => setFailed(n => n + 1)} />}
         </div>
-        <span className="home-seal" id={`${id}-lv`} title={levelLabel}>
+        {/* Sem title: o botão do nome cobre o cartão inteiro e a dica nunca aparecia; o
+            leitor de tela recebe o nível pelo aria-describedby do botão. */}
+        <span className="home-seal" id={`${id}-lv`}>
           <span aria-hidden="true">{level}</span><span className="home-sr">{levelLabel}</span>
         </span>
       </div>
