@@ -42,3 +42,26 @@ class SpeciesSpellsTests(SimpleTestCase):
         self.assertIn('mageHand', ids, 'autos de talento não são apagados pelo servidor')
         self.assertNotIn('dancingLights', ids, 'auto de linhagem antiga sai')
         self.assertTrue(next(s for s in out['spells'] if s['id'] == 'druidcraft').get('species'))
+
+    def test_other_book_races_innate_spells(self):
+        firbolg = {'rulesVersion': '2014', 'race': 'firbolg', 'level': 1}
+        self.assertEqual(sorted(species_spell_ids(firbolg)), ['detectMagic', 'disguiseSelf'])
+        out = apply_autos({**firbolg, 'className': 'fighter', 'spells': []})
+        self.assertEqual(sorted(s['id'] for s in out['spells'] if s.get('species')), ['detectMagic', 'disguiseSelf'])
+        triton = {'rulesVersion': '2014', 'race': 'triton', 'level': 3}
+        self.assertEqual(species_spell_ids(triton), ['fogCloud', 'gustOfWind'])
+        githyanki = {'rulesVersion': '2014', 'race': 'githyanki', 'level': 5, 'speciesChoices': {'spellAbility': 'int'}}
+        self.assertEqual(species_spell_ids(githyanki), ['mageHand', 'jump', 'mistyStep'])
+        astral = {'rulesVersion': '2014', 'race': 'astral-elf', 'level': 1, 'speciesChoices': {'astralFire': 'light'}}
+        self.assertEqual(species_spell_ids(astral), ['light'])
+
+    def test_kobold_sorcery_cantrip_only_with_that_legacy(self):
+        def kobold(sc):
+            return {'rulesVersion': '2014', 'race': 'kobold', 'level': 1, 'speciesChoices': sc}
+        self.assertEqual(species_spell_ids(kobold({'legacy': 'sorcery', 'cantrip': 'fireBolt'})), ['fireBolt'])
+        self.assertEqual(species_spell_ids(kobold({'legacy': 'craftiness', 'cantrip': 'fireBolt'})), [])
+
+    def test_legacy_race_on_2024_sheet_uses_2024_spell_ids(self):
+        water = {'race': 'genasi-water', 'level': 3}
+        self.assertEqual(species_spell_ids({**water, 'rulesVersion': '2014'}), ['shapeWater', 'createDestroyWater'])
+        self.assertEqual(species_spell_ids({**water, 'rulesVersion': '2024'}), ['shapeWater', 'createOrDestroyWater'])

@@ -211,7 +211,9 @@ export function grantEntries(char) {
   }
   const sg = speciesGrants(char || {});
   const race = Utils.races(char || {}).find(r => r.id === char?.race);
-  const raceName = race?.name ? (typeof race.name === 'string' ? b(race.name, race.name) : race.name) : b('espécie', 'species');
+  // Raças de data/srd.js não têm `name` (o nome vem do i18n): "Firbolg", não "espécie".
+  const raceName = race?.name ? (typeof race.name === 'string' ? b(race.name, race.name) : race.name)
+    : race ? b(tName('race', race.id, 'pt'), tName('race', race.id, 'en')) : b('espécie', 'species');
   let chosenCantrip = null;
   try { if (speciesChoiceSpecs(char || {}).some(c => c.key === 'cantrip')) chosenCantrip = char?.speciesChoices?.cantrip || null; } catch { /* sem espécie */ }
   for (const id of [...sg.cantrips, ...sg.spells]) push(id, 'species', raceName, sg.spellAbility, id === chosenCantrip, id === chosenCantrip ? 'speciesChoices' : null);

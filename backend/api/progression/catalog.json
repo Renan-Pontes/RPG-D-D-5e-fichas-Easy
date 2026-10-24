@@ -33196,6 +33196,182 @@
           "light"
         ]
       },
+      "firbolg": {
+        "spells": {
+          "1": [
+            "detectMagic",
+            "disguiseSelf"
+          ]
+        }
+      },
+      "fairy": {
+        "cantrips": [
+          "druidcraft"
+        ],
+        "spells": {
+          "3": [
+            "faerieFire"
+          ],
+          "5": [
+            "enlargeReduce"
+          ]
+        }
+      },
+      "genasi-air": {
+        "cantrips": [
+          "shockingGrasp"
+        ],
+        "spells": {
+          "3": [
+            "featherFall"
+          ]
+        }
+      },
+      "genasi-earth": {
+        "cantrips": [
+          "bladeWard"
+        ],
+        "spells": {
+          "3": [
+            "passWithoutTrace"
+          ]
+        }
+      },
+      "genasi-fire": {
+        "cantrips": [
+          "produceFlame"
+        ],
+        "spells": {
+          "3": [
+            "burningHands"
+          ]
+        }
+      },
+      "genasi-water": {
+        "cantrips": [
+          "shapeWater"
+        ],
+        "spells": {
+          "3": [
+            "createDestroyWater"
+          ]
+        }
+      },
+      "triton": {
+        "spells": {
+          "1": [
+            "fogCloud"
+          ],
+          "3": [
+            "gustOfWind"
+          ],
+          "5": [
+            "wallOfWater"
+          ]
+        }
+      },
+      "yuan-ti": {
+        "cantrips": [
+          "poisonSpray"
+        ],
+        "spells": {
+          "1": [
+            "animalFriendship"
+          ],
+          "3": [
+            "suggestion"
+          ]
+        }
+      },
+      "kobold": {
+        "cantrip": {
+          "when": {
+            "legacy": "sorcery"
+          }
+        }
+      },
+      "aarakocra": {
+        "spells": {
+          "3": [
+            "gustOfWind"
+          ]
+        }
+      },
+      "astral-elf": {
+        "options": {
+          "astralFire": {
+            "dancingLights": {
+              "cantrips": [
+                "dancingLights"
+              ]
+            },
+            "light": {
+              "cantrips": [
+                "light"
+              ]
+            },
+            "sacredFlame": {
+              "cantrips": [
+                "sacredFlame"
+              ]
+            }
+          }
+        }
+      },
+      "deep-gnome": {
+        "spells": {
+          "3": [
+            "disguiseSelf"
+          ],
+          "5": [
+            "nondetection"
+          ]
+        }
+      },
+      "duergar": {
+        "spells": {
+          "3": [
+            "enlargeReduce"
+          ],
+          "5": [
+            "invisibility"
+          ]
+        }
+      },
+      "githyanki": {
+        "cantrips": [
+          "mageHand"
+        ],
+        "spells": {
+          "3": [
+            "jump"
+          ],
+          "5": [
+            "mistyStep"
+          ]
+        }
+      },
+      "githzerai": {
+        "cantrips": [
+          "mageHand"
+        ],
+        "spells": {
+          "3": [
+            "shield"
+          ],
+          "5": [
+            "detectThoughts"
+          ]
+        }
+      },
+      "hexblood": {
+        "spells": {
+          "1": [
+            "disguiseSelf",
+            "hex"
+          ]
+        }
+      },
       "tiefling-baalzebul": {
         "cantrips": [
           "thaumaturgy"
@@ -33661,6 +33837,9 @@
           "light"
         ]
       }
+    },
+    "spellIds2024": {
+      "createDestroyWater": "createOrDestroyWater"
     }
   },
   "speciesResources": {

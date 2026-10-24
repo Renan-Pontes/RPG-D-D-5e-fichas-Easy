@@ -46,10 +46,28 @@ const races = [
   ['custom-lineage', 'Linhagem Personalizada', 'Custom Lineage', 'Medium', 30, 'TCE', 'Um atributo +2; um talento; escolha visão no escuro ou perícia.', 'One ability +2; one feat; choose darkvision or a skill.'],
 ];
 
+// Magia inata (resumo próprio): as magias entram na aba Magias pela tabela de
+// species-2024.js (SPECIES_2014_CHOICES), com o atributo escolhido na espécie.
+const ANY = bilingual('Atributo: Inteligência, Sabedoria ou Carisma (escolha na espécie).', 'Ability: Intelligence, Wisdom or Charisma (pick it in the species step).');
+const ONCE = bilingual('Cada magia 1× por descanso longo sem espaço de magia (ou com seus espaços).', 'Each spell once per long rest without a spell slot (or with your slots).');
+const innate = (pt, en, dpt, den, once = true) => ({
+  name: bilingual(pt, en),
+  desc: bilingual([dpt, once ? ONCE.pt : '', ANY.pt].filter(Boolean).join(' '), [den, once ? ONCE.en : '', ANY.en].filter(Boolean).join(' ')),
+});
+const INNATE = {
+  aarakocra: innate('Chamado do Vento', 'Wind Caller', 'A partir do nível 3, você conjura Rajada de Vento.', 'From level 3, you can cast Gust of Wind.'),
+  'astral-elf': innate('Fogo Astral', 'Astral Fire', 'Você conhece um truque à escolha: Luzes Dançantes, Luz ou Chama Sagrada.', 'You know one cantrip of your choice: Dancing Lights, Light or Sacred Flame.', false),
+  'deep-gnome': innate('Dom dos Svirfneblin', 'Gift of the Svirfneblin', 'A partir do nível 3, você conjura Disfarçar-se; a partir do nível 5, Não Detecção (em você).', 'From level 3, you can cast Disguise Self; from level 5, Nondetection (on yourself).'),
+  duergar: innate('Magia Duergar', 'Duergar Magic', 'A partir do nível 3, você conjura Aumentar/Reduzir (só Aumentar, em você); a partir do nível 5, Invisibilidade (em você).', 'From level 3, you can cast Enlarge/Reduce (Enlarge only, on yourself); from level 5, Invisibility (on yourself).'),
+  githyanki: innate('Psiônica Githyanki', 'Githyanki Psionics', 'Você conhece Mão Mágica (a mão é invisível). A partir do nível 3, conjura Salto; a partir do nível 5, Passo Brumoso.', 'You know Mage Hand (the hand is invisible). From level 3, you can cast Jump; from level 5, Misty Step.'),
+  githzerai: innate('Psiônica Githzerai', 'Githzerai Psionics', 'Você conhece Mão Mágica (a mão é invisível). A partir do nível 3, conjura Escudo Arcano; a partir do nível 5, Detectar Pensamentos.', 'You know Mage Hand (the hand is invisible). From level 3, you can cast Shield; from level 5, Detect Thoughts.'),
+  hexblood: innate('Magia de Bruxa', 'Hex Magic', 'Você conjura Disfarçar-se e Maldição.', 'You can cast Disguise Self and Hex.'),
+};
+
 export const EXTRA_RACES = races.map(([id, pt, en, size, speed, source, descPt, descEn]) => ({
   id, name: bilingual(pt, en), size, speed, source, asi: {}, flexibleAsi: true,
   manualTraits: true, languages: ['Common', '+1 of choice'],
-  traits: [{ name: bilingual('Traços da origem', 'Origin traits'), desc: bilingual(descPt, descEn) }],
+  traits: [{ name: bilingual('Traços da origem', 'Origin traits'), desc: bilingual(descPt, descEn) }, ...(INNATE[id] ? [INNATE[id]] : [])],
 }));
 
 export const SOURCES = {

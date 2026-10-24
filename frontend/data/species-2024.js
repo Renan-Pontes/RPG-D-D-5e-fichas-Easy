@@ -7,7 +7,11 @@
  * Escolhas (`choices`) ficam em char.speciesChoices; o motor é
  * src/progression/species.js. Formato de uma escolha:
  *   { key, label, options?: [{ id, name, desc?, ...efeitos }], from?: [ids], count?, when?: { chave: valor } }
- * Efeitos de espécie/opção: { darkvision, speed, resist: [], cantrips: [], spells: { nível: [ids] }, skills: [] }.
+ * Efeitos de espécie/opção: { darkvision, speed, resist: [], cantrips: [], spells: { nível: [ids] }, skills: [],
+ *   fixedSpellAbility?, spellUses?: { id: 'short' | 'atWill' | 'profBonus' } }.
+ * spellUses: magias que não seguem o padrão (truque à vontade; magia 1× por descanso
+ * longo sem espaço), ex.: Magia Firbolg 1× por descanso curto; Falar com Animais do
+ * Gnomo da Floresta 2024, bônus de proficiência vezes por descanso longo.
  * Chaves especiais: 'feat' (talento em char.feats com origin: 'species'),
  * 'asi' (bônus de atributo da espécie, `pattern`), 'cantrip' (truque de uma lista).
  */
@@ -103,7 +107,7 @@ export const SPECIES_2024_REVISED = {
     ],
     choices: [
       { key: 'lineage', label: b('Linhagem gnômica', 'Gnomish lineage'), options: [
-        { id: 'forest', name: b('Gnomo da Floresta', 'Forest Gnome'), cantrips: ['minorIllusion'], spells: { 1: ['speakWithAnimals'] },
+        { id: 'forest', name: b('Gnomo da Floresta', 'Forest Gnome'), cantrips: ['minorIllusion'], spells: { 1: ['speakWithAnimals'] }, spellUses: { speakWithAnimals: 'profBonus' },
           desc: b('Falar com Animais fica sempre preparada; conjure-a sem espaço um número de vezes igual ao bônus de proficiência por descanso longo (ou com seus espaços).', 'Speak with Animals is always prepared; cast it without a slot a number of times equal to your Proficiency Bonus per Long Rest (or with your slots).') },
         { id: 'rock', name: b('Gnomo das Rochas', 'Rock Gnome'), cantrips: ['mending', 'prestidigitation'],
           desc: b('Gastando 10 minutos com Prestidigitação, crie um dispositivo mecânico Miúdo (CA 5, 1 PV) com um efeito dessa magia, ativado por ação bônus com um toque. Até três ao mesmo tempo; cada um dura 8 horas.', 'Spending 10 minutes casting Prestidigitation, build a Tiny clockwork device (AC 5, 1 HP) holding one of that spell\'s effects, activated with a touch as a Bonus Action. Up to three at a time; each lasts 8 hours.') },
@@ -222,6 +226,48 @@ export const SPECIES_2014_CHOICES = {
     ] },
     { key: 'skill', label: b('Perícia', 'Skill'), when: { bonus: 'skill' } },
   ] },
+  // Magia inata das raças de outros livros (VGM, MPMM, EEPC, AAG, VRGR): as de
+  // data/srd.js seguem o texto do traço; as de data/expanded-catalog.js, o traço
+  // "magia inata" de lá. Livros de 2014 fixam o atributo; os do MPMM deixam escolher.
+  firbolg: { spells: { 1: ['detectMagic', 'disguiseSelf'] }, fixedSpellAbility: 'wis', spellUses: { detectMagic: 'short', disguiseSelf: 'short' } },
+  fairy: { cantrips: ['druidcraft'], spells: { 3: ['faerieFire'], 5: ['enlargeReduce'] }, choices: [SPELL_ABILITY] },
+  'genasi-air': { cantrips: ['shockingGrasp'], spells: { 3: ['featherFall'] }, fixedSpellAbility: 'con' },
+  'genasi-earth': { cantrips: ['bladeWard'], spells: { 3: ['passWithoutTrace'] }, fixedSpellAbility: 'con' },
+  'genasi-fire': { cantrips: ['produceFlame'], spells: { 3: ['burningHands'] }, fixedSpellAbility: 'con' },
+  // Ficha 2024 com esta raça: o id vira createOrDestroyWater (SPECIES_SPELL_IDS_2024).
+  'genasi-water': { cantrips: ['shapeWater'], spells: { 3: ['createDestroyWater'] }, fixedSpellAbility: 'con' },
+  triton: { spells: { 1: ['fogCloud'], 3: ['gustOfWind'], 5: ['wallOfWater'] }, fixedSpellAbility: 'cha' },
+  'yuan-ti': { cantrips: ['poisonSpray'], spells: { 1: ['animalFriendship'], 3: ['suggestion'] }, fixedSpellAbility: 'cha', spellUses: { animalFriendship: 'atWill' } },
+  kobold: { choices: [
+    { key: 'legacy', label: b('Legado kobold', 'Kobold legacy'), options: [
+      { id: 'craftiness', name: b('Manhoso', 'Craftiness'), desc: b('Proficiência em Arcanismo, Investigação, Medicina, Prestidigitação ou Sobrevivência.', 'Proficiency in Arcana, Investigation, Medicine, Sleight of Hand or Survival.') },
+      { id: 'defiance', name: b('Resistente', 'Defiance'), desc: b('Vantagem nas salvaguardas para evitar ou encerrar a condição amedrontado.', 'Advantage on saving throws to avoid or end the frightened condition.') },
+      { id: 'sorcery', name: b('Feitiçaria Dracônica', 'Draconic Sorcery'), desc: b('Um truque de Feiticeiro à escolha, com Inteligência, Sabedoria ou Carisma.', 'One Sorcerer cantrip of your choice, with Intelligence, Wisdom or Charisma.') },
+    ] },
+    { key: 'skill', label: b('Manhoso: perícia', 'Craftiness: skill'), from: ['arcana', 'investigation', 'medicine', 'sleightOfHand', 'survival'], when: { legacy: 'craftiness' } },
+    { key: 'cantrip', label: b('Truque de Feiticeiro', 'Sorcerer cantrip'), list: 'sorcerer', when: { legacy: 'sorcery' } },
+    { ...SPELL_ABILITY, when: { legacy: 'sorcery' } },
+  ] },
+  aarakocra: { spells: { 3: ['gustOfWind'] }, choices: [SPELL_ABILITY] },
+  'astral-elf': { choices: [
+    { key: 'astralFire', label: b('Fogo Astral: truque', 'Astral Fire: cantrip'), options: [
+      { id: 'dancingLights', name: b('Luzes Dançantes', 'Dancing Lights'), cantrips: ['dancingLights'] },
+      { id: 'light', name: b('Luz', 'Light'), cantrips: ['light'] },
+      { id: 'sacredFlame', name: b('Chama Sagrada', 'Sacred Flame'), cantrips: ['sacredFlame'] },
+    ] },
+    SPELL_ABILITY,
+  ] },
+  'deep-gnome': { spells: { 3: ['disguiseSelf'], 5: ['nondetection'] }, choices: [SPELL_ABILITY] },
+  duergar: { spells: { 3: ['enlargeReduce'], 5: ['invisibility'] }, choices: [SPELL_ABILITY] },
+  githyanki: { cantrips: ['mageHand'], spells: { 3: ['jump'], 5: ['mistyStep'] }, choices: [SPELL_ABILITY] },
+  githzerai: { cantrips: ['mageHand'], spells: { 3: ['shield'], 5: ['detectThoughts'] }, choices: [SPELL_ABILITY] },
+  hexblood: { spells: { 1: ['disguiseSelf', 'hex'] }, choices: [SPELL_ABILITY] },
   // Sub-raças de suplementos: data/subraces-2014.js.
   ...SUBRACE_EFFECTS_2014,
 };
+
+/**
+ * Raça 2014 numa ficha 2024 usa o catálogo de magias 2024: ids 2014 que lá têm
+ * outro nome são trocados (speciesGrants e o espelho do servidor, via catalog.json).
+ */
+export const SPECIES_SPELL_IDS_2024 = { createDestroyWater: 'createOrDestroyWater' };

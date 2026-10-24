@@ -5,11 +5,14 @@ frontend/src/progression/species.js, só a parte de magias usada em apply_autos.
 
 A tabela vem de catalog.json['species'] (gerada por scripts/sync-rules.mjs a
 partir de frontend/data/species-2024.js):
-  { '2024': { raceId: { cantrips, spells: { nível: [ids] }, options: { chave: { opção: {…} } }, cantrip: { when, default } } }, '2014': … }
+  { '2024': { raceId: { cantrips, spells: { nível: [ids] }, options: { chave: { opção: {…} } }, cantrip: { when, default } } }, '2014': …,
+    'spellIds2024': { id2014: id2024 } }
+Raça 2014 numa ficha 2024 usa os ids do catálogo 2024 (spellIds2024), como no frontend.
 """
 from .rules import _CATALOG
 
 SPECIES_SPELLS = _CATALOG.get('species', {})
+SPELL_IDS_2024 = SPECIES_SPELLS.get('spellIds2024') or {}
 
 
 def _table(version):
@@ -54,6 +57,8 @@ def species_spell_ids(character):
         cid = cid if isinstance(cid, str) and cid else cantrip.get('default')
         if cid:
             out.append(cid)
+    if character.get('rulesVersion') == '2024':
+        out = [SPELL_IDS_2024.get(sid, sid) for sid in out]
     seen, uniq = set(), []
     for sid in out:
         if sid not in seen:
