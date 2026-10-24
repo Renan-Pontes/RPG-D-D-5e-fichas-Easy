@@ -73,12 +73,7 @@
     font-size: 0.85em;
   }
 
-  /* Condições do DM editor (chip toggle) */
-  .dm-cond-chip {
-    padding: 8px 12px;
-    min-height: 36px;
-    font-size: 0.85em;
-  }
+  /* Condições do DM editor: chips de 44 (.mesa-chip, app-extra-styles.css) */
 
   /* Editor de inventário: rows clicáveis um pouco maiores */
   .inv-row-head {
@@ -106,13 +101,7 @@
   .modal-backdrop {
     padding: 0 !important;
   }
-  .dm-editor-modal {
-    width: 100vw !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
-    border-radius: 0 !important;
-  }
-  .dm-editor-body { padding: 14px; }
+  /* O editor de ficha do mestre é uma MesaSheet de tela cheia (não usa .modal). */
   /* Exceção (área da campanha): as confirmações pequenas (ConfirmDialog,
      useGroupConfirm, usePrepConfirm) ocupam só a altura do conteúdo, como uma
      folha que sobe de baixo, e não a tela inteira. O resto do visual delas fica
@@ -245,14 +234,8 @@
   }
 }
 
-/* === 11. Tabela "dm-slots-row" muito apertada em mobile pequena === */
-@media (max-width: 420px) {
-  .dm-slots-row {
-    grid-template-columns: 30px 1fr 1fr 56px;
-    font-size: 0.8em;
-  }
-  .dm-slots-row input { padding: 6px; }
-}
+/* === 11. Espaços de magia do editor do mestre: uma linha por círculo
+   (.dm-slot em app-extra-styles.css), sem a tabela apertada de antes === */
 
 /* === 12. Dice log e log de rolagens (campo do DM) em mobile === */
 @media (max-width: 600px) {
