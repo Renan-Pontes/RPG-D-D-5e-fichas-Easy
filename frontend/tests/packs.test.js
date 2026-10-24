@@ -197,6 +197,24 @@ test('não soma em arma, item mágico ou outro pacote', () => {
   assert.equal(equipment.filter(e => e.name === 'Mochila').length, 2);
 });
 
+test('não soma em item quebrado nem em item equipado (o do pacote entra novo)', () => {
+  const pack = { id: 'p1', name: 'Pacote de Aventureiro', qty: 1 };
+  const c = char('2024', [
+    { id: 'r', name: 'Corda', qty: 1, broken: true, notes: 'cortada' },
+    { id: 't', name: 'Tocha', qty: 1, equipped: true },
+    { id: 'w', name: 'Cantil', qty: 1, broken: false, equipped: false },
+    pack,
+  ]);
+  const { equipment } = openPack(c, pack, 'pt');
+  assert.deepEqual(equipment.slice(0, 3).map(e => [e.name, e.qty, !!e.broken, !!e.equipped]), [
+    ['Corda', 1, true, false], ['Tocha', 1, false, true], ['Cantil', 2, false, false],
+  ]);
+  const rope = byName(equipment.slice(3), 'Corda 50 pés');
+  assert.deepEqual([rope.qty, rope.broken, rope.notes], [1, false, '']);
+  const torch = byName(equipment.slice(3), 'Tocha');
+  assert.deepEqual([torch.qty, torch.equipped], [10, false]);
+});
+
 test('pacote ×2 fica ×1; notas do pacote vão para a mochila; ×0 (consumido antes) ainda entrega', () => {
   const two = { name: 'Pacote de Erudito', qty: 2, notes: 'do mestre' };
   const r2 = openPack(char('2024', [two, { name: 'Faca', qty: 1 }]), two, 'pt').equipment;

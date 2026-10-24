@@ -114,10 +114,12 @@ const qtyOf = (it) => {
   return Number.isFinite(n) ? n : 1;
 };
 
-/** Item da ficha igual a esta coisa do pacote? Mesmo sourceId, ou mesmo nome (pt, en ou apelido). */
+/** Item da ficha igual a esta coisa do pacote? Mesmo sourceId, ou mesmo nome (pt, en ou apelido).
+ * Item quebrado ou equipado não soma: a corda nova não herda o "quebrado" nem
+ * passa a contar como equipada; entra como item novo. */
 function sameItem(e, c) {
   if (!e || typeof e !== 'object' || packKeyOf(e)) return false;
-  if (e.weapon || e.armor || e.magic) return false;
+  if (e.weapon || e.armor || e.magic || e.broken || e.equipped) return false;
   if (e.sourceId && c.sourceId) return e.sourceId === c.sourceId;
   return c.match.includes(itemKey(pick('pt', e.name))) || c.match.includes(itemKey(pick('en', e.name)));
 }
@@ -132,6 +134,7 @@ const newId = (i) => `item-${Date.now().toString(36)}-${i}${Math.random().toStri
  *    e os itens entram logo depois;
  *  - ×0 (consumido antes, quando consumir só tirava 1): abrir ainda entrega o conteúdo;
  *  - item igual já na ficha: soma a quantidade nele (mesmo que esteja ×0);
+ *  - item quebrado ou equipado não recebe a soma (o do pacote entra novo);
  *  - itens novos herdam `from` do pacote (a criação troca o pacote inteiro se a
  *    classe/antecedente mudar) e as notas do pacote passam para o primeiro item
  *    (a mochila ou o baú), para não se perderem.

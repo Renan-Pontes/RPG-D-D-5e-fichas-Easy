@@ -107,7 +107,8 @@ def _pick(lang, name):
 def _same(existing, content):
     if not isinstance(existing, dict) or pack_key(existing):
         return False
-    if existing.get('weapon') or existing.get('armor') or existing.get('magic'):
+    # Quebrado ou equipado não soma: o item do pacote entra novo.
+    if any(existing.get(k) for k in ('weapon', 'armor', 'magic', 'broken', 'equipped')):
         return False
     if existing.get('sourceId') and content.get('sourceId'):
         return existing['sourceId'] == content['sourceId']
@@ -128,7 +129,8 @@ def open_pack(equipment, idx, rules, lang='pt'):
     """Nova lista de equipamento com o pacote em `idx` aberto, ou None se não for pacote.
 
     Mesmas regras do frontend: ×2 fica ×1 (itens logo depois); ×1 ou ×0 sai e os
-    itens entram no lugar; item igual soma a quantidade; itens novos herdam
+    itens entram no lugar; item igual soma a quantidade (não em item quebrado ou
+    equipado); itens novos herdam
     `from`; as notas do pacote (quando ele sai) vão para o primeiro item.
     """
     items = list(equipment or [])

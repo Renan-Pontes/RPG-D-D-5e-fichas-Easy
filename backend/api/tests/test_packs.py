@@ -71,6 +71,20 @@ class PackLogicTests(TestCase):
         self.assertIn('Incensário', got)
         self.assertNotIn('Água Benta', got)
 
+    def test_does_not_merge_into_broken_or_equipped(self):
+        eq = [
+            {'id': 'r', 'name': 'Corda', 'qty': 1, 'broken': True, 'notes': 'cortada'},
+            {'id': 't', 'name': 'Tocha', 'qty': 1, 'equipped': True},
+            {'id': 'w', 'name': 'Cantil', 'qty': 1, 'broken': False, 'equipped': False},
+            {'id': 'p1', 'name': 'Pacote de Aventureiro', 'qty': 1},
+        ]
+        out = open_pack(eq, 3, 2024, 'pt')
+        self.assertEqual([(e['name'], e['qty']) for e in out[:3]], [('Corda', 1), ('Tocha', 1), ('Cantil', 2)])
+        rope = next(e for e in out[3:] if e['name'] == 'Corda 50 pés')
+        self.assertEqual((rope['qty'], rope['broken'], rope['notes']), (1, False, ''))
+        torch = next(e for e in out[3:] if e['name'] == 'Tocha')
+        self.assertEqual((torch['qty'], torch['equipped']), (10, False))
+
     def test_open_2024_in_place(self):
         pack = {'name': 'Pacote de Aventureiro', 'qty': 1, 'from': 'classPack', 'pack': 'explorer'}
         out = open_pack([{'name': 'Flechas', 'qty': 20}, pack, {'name': 'Aljava', 'qty': 1}], 1, 2024, 'pt')
