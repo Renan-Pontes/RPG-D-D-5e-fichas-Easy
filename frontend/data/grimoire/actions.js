@@ -314,8 +314,8 @@ export default [
       en: 'An orc attacks Kael (17 vs AC 15 → would hit). Kael uses his Reaction to cast Shield: AC becomes 20 until his next turn → the blow misses. When another orc runs from him right after, Kael has no Reaction left for an Opportunity Attack.',
     },
     sheet: {
-      pt: 'Aba Jogar: reações especiais de estilos de luta aparecem como "Reação · ..." abaixo dos ataques.',
-      en: 'Play tab: special reactions from Fighting Styles show up as "Reaction · ..." below your attacks.',
+      pt: 'Aba Jogar → painel Estilos de Luta: reações especiais aparecem como "Reação · ...".',
+      en: 'Play tab → Fighting Styles panel: special reactions show up as "Reaction · ...".',
     },
     srd: {
       text: 'Once you take a Reaction, you can’t take another one until the start of your next turn.',

@@ -302,8 +302,8 @@ export default [
       en: 'Thalion rolls a 4 on the crucial attack against the dragon. He spends his inspiration and rerolls: 16 + 6 = 22 vs AC 19 → hit.',
     },
     sheet: {
-      pt: 'Barra de ações da ficha → chip "Inspiração" (a estrela acende quando você tem).',
-      en: 'Sheet action bar → "Inspiration" chip (the star lights up when you have it).',
+      pt: 'Topo da ficha → estrela "Inspiração" no canto direito do retrato: toque para marcar ou desmarcar; ela acende quando você tem.',
+      en: 'Top of the sheet → the "Inspiration" star on the right edge of the portrait: tap to toggle it; it lights up when you have it.',
     },
     versions: {
       pt: 'Em 2014 se chamava só "Inspiração" e dava **vantagem** em uma rolagem de d20 (ataque, teste ou salvaguarda), decidida antes de rolar. Em 2024 virou "Inspiração heroica": rerrola **qualquer** dado, depois de ver o resultado.',

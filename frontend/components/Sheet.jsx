@@ -1573,7 +1573,8 @@ const LanguagesField = ({ char, lang, update }) => {
 // Selos de atributo (abas Jogar e Atributos): o mesmo desenho; cada aba mantém o seu
 // rótulo de rolagem ("<Atributo> Teste de habilidade" na Jogar, "<Atributo>" aqui).
 // O nome acessível começa pela sigla visível no selo (quem usa voz diz "FOR").
-// data-fab-pass: o botão de dados passa por cima dos selos sem saltar (DiceRoller).
+// data-fab-pass: no celular o botão de dados passa por cima dos selos sem saltar (DiceRoller);
+// no desktop (duas colunas) ele desvia deles como de qualquer botão.
 const AbilitySeals = ({ char, lang, roll, rollLabel }) => (
   <div className="fh-abil" data-fab-pass="">
     {SRD.ABILITIES.map(k => {

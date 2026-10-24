@@ -165,13 +165,18 @@ const App = () => {
   }, [auth.migrated, lang]);
 
   // Abrir ficha compartilhada: #s=<token> (link curto, 24h) ou #share=<json> (links antigos).
+  // Espera o login terminar (storage definitivo) e a lista recarregar antes de abrir a
+  // ficha: senão o "sem ficha ativa" da tela SHEET devolvia para a tela inicial.
+  const shareHandled = useRef(false);
   useEffect(() => {
+    if (auth.loading || shareHandled.current) return;
     const hash = window.location.hash;
+    if (hash.startsWith('#s=') || hash.startsWith('#share=')) shareHandled.current = true;
     const importShared = (data) => {
       if (!data || !data.name) return;
       const fresh = { ...data, id: Utils.uid(), updatedAt: Date.now() };
-      return storage.save(fresh).catch(e => { showPlanLimit(e); throw e; }).then(saved => {
-        refreshCharacters();
+      return storage.save(fresh).catch(e => { showPlanLimit(e); throw e; }).then(async saved => {
+        await refreshCharacters();
         setActiveId(saved.id);
         setScreen(SCREENS.SHEET);
         setToast(lang === 'pt' ? 'Personagem importado!' : 'Character imported!');
@@ -187,7 +192,7 @@ const App = () => {
       try { importShared(Utils.decodeChar(hash.slice(7))); } catch (e) { console.error('share parse fail', e); }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storage]);
+  }, [storage, auth.loading]);
 
   // Convite: /join/<código> ou #join=<código>. Guarda o código (sobrevive ao login/F5) e limpa a URL.
   const [pendingInvite, setPendingInvite] = useState(() => parseJoinRoute(window.location.pathname, window.location.hash) || loadPendingInvite());
