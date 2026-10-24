@@ -358,7 +358,7 @@ A ficha tem **dois modos** identificados pelo campo `inCampaign` (computado: tru
 2. **Anexar personagem depois**: na campanha, tab Membros → "Trocar personagem" → seleciona.
 3. **Sair de campanha**: na ficha do PC, banner gold "🏰 Em campanha: X" tem botão "Sair". Confirma → DELETE da membership → personagem volta a standalone.
 4. **Validação**: personagem só fica em UMA campanha. Tentar anexar a outra retorna 409 `character_in_other_campaign` (antes `character_already_in_campaign`) com `campaignId`/`campaignName` da original; `move: true` troca de mesa (API.md → "Uma campanha por vez").
-5. **Modal "Campanha" da ficha**: na faixa de campanha da ficha (conta logada) → atrelar a uma mesa em que é jogador, entrar com código, desatrelar ou trocar de campanha.
+5. **Modal "Campanha" da ficha**: na faixa de campanha da ficha (conta logada) → atrelar a uma mesa em que é jogador, entrar com código, desatrelar ou trocar de campanha. Vale também em campanha encerrada: o jogador solta a própria ficha (ou troca de mesa) sem esperar a purga; entrar numa encerrada e "Sair" dela continuam 423.
 
 ### Garantia server-side
 

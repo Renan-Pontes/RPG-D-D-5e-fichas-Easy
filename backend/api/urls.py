@@ -35,7 +35,8 @@ def _wp2(module, name):
 # Campanha encerrada é SOMENTE LEITURA: closed_guard responde 423
 # campaign_closed a qualquer escrita nas rotas de campanha (ver api/plans.py).
 # Livres: DELETE da campanha (encerrar de novo é idempotente), /close, /reopen,
-# world/seen e world/<pk>/view (marcas pessoais de leitura).
+# world/seen e world/<pk>/view (marcas pessoais de leitura). O PUT da vaga passa
+# para a view, que só aceita a pessoa soltar a própria ficha (o resto → 423).
 urlpatterns = [
     # Auth
     path('auth/csrf', views_auth.csrf),
@@ -68,7 +69,7 @@ urlpatterns = [
     path('campaigns', views_campaigns.campaign_list),
     path('campaigns/join', views_campaigns.campaign_join),
     path('campaigns/<str:id_or_slug>', closed_guard(views_campaigns.campaign_detail, 'campaign', allow=('DELETE',))),
-    path('campaigns/<str:id_or_slug>/members/<int:membership_id>', closed_guard(views_campaigns.campaign_member, 'campaign')),
+    path('campaigns/<str:id_or_slug>/members/<int:membership_id>', closed_guard(views_campaigns.campaign_member, 'campaign', allow=('PUT',))),
     path('campaigns/<str:id_or_slug>/close', views_campaigns.campaign_close),
     path('campaigns/<str:id_or_slug>/reopen', views_campaigns.campaign_reopen),
     path('campaigns/<str:id_or_slug>/leave', closed_guard(views_campaigns.campaign_leave, 'campaign')),

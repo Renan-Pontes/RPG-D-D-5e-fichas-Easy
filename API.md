@@ -103,7 +103,7 @@ Quem joga na campanha recebe `myMembership: {id, characterId|null, characterName
 ### Uma campanha por vez
 Uma ficha fica em **uma** campanha de cada vez (regra do servidor; o esquema não mudou). Ao atrelar uma ficha (`PUT /campaigns/:id/members/:membershipId` com `characterId` ou `POST /campaigns/join` com `characterId`) que já está em outra campanha:
 - **409** `{error: 'character_in_other_campaign', campaignId, campaignName}` (a outra campanha) e **nada muda**. Antes o código era `character_already_in_campaign` (o app entende os dois).
-- Com `"move": true` no corpo (só o **dono** da ficha; o mestre de uma mesa não tira a ficha de outra): a ficha sai da outra vaga — a pessoa continua jogadora lá, sem personagem, e a vaga emprestada de lá é liberada — e entra nesta, numa transação só. Se a outra campanha estiver encerrada (somente leitura) → **423** `campaign_closed` daquela campanha e nada muda.
+- Com `"move": true` no corpo (só o **dono** da ficha; o mestre de uma mesa não tira a ficha de outra): a ficha sai da outra vaga — a pessoa continua jogadora lá, sem personagem, e a vaga emprestada de lá é liberada — e entra nesta, numa transação só. Vale também quando a outra campanha está encerrada: soltar a própria ficha de uma encerrada é permitido (a ficha não fica presa até a purga); entrar numa encerrada continua **423**.
 - Atrelar a mesma ficha na mesma vaga não muda nada (200). Fichas antigas que já estão em 2 campanhas continuam lendo igual; o próximo `move` deixa só uma.
 - O mestre não joga com ficha na própria mesa: **400** `dm_cannot_be_player` (join com `characterId`, PUT na vaga do mestre e `POST /characters` com o código da própria mesa).
 
@@ -125,7 +125,7 @@ Uma ficha fica em **uma** campanha de cada vez (regra do servidor; o esquema nã
 `dm_settings` aceitos no PUT/PATCH (só o mestre): `onboarding`, `advancedDice`, `immersion` (bool, "Mundo vivo", padrão `true`) e `fogHint` (bool, padrão `false`: deixa o jogador ter uma noção *aproximada* do que ainda não conhece). O GET devolve `immersion` para todos (o jogador precisa saber se mostra os ecos) e `fogHint` só ao mestre.
 
 ### `DELETE /campaigns/:id` (DM) — ENCERRA (alias: `POST /campaigns/:id/close`)
-Não apaga mais na hora: `status:'closed'`, `closed_at`. Durante 30 dias a campanha fica **somente leitura para todos** (toda escrita → **423** `{error:'campaign_closed', campaignId, closedAt, purgeAt}`; leitura normal), para todo mundo baixar as fichas. Encerrar de novo é idempotente (não reinicia o prazo). Jogador = 403.
+Não apaga mais na hora: `status:'closed'`, `closed_at`. Durante 30 dias a campanha fica **somente leitura para todos** (toda escrita → **423** `{error:'campaign_closed', campaignId, closedAt, purgeAt}`; leitura normal), para todo mundo baixar as fichas. O jogador ainda pode soltar a própria ficha dela (ver [Erro `campaign_closed`](#erro-campaign_closed-423)). Encerrar de novo é idempotente (não reinicia o prazo). Jogador = 403.
 → `{ok: true, campaign: {id, status:'closed', closedAt, purgeAt}}`.
 
 Depois de `purgeAt` a campanha é **apagada de vez** (mundo, imagens, ecos, aventuras, diário, combate, itens, pedidos, dados viciados, memberships). Fichas normais só saem da mesa. Fichas em **vaga de mesa** (`sponsored`) — opção A: ficam com o jogador se couberem no plano dele; senão são apagadas. Purga preguiçosa: ao listar campanhas/personagens, no login e `python manage.py purge_closed_campaigns [--dry-run]` (roda no deploy).
@@ -164,7 +164,7 @@ Capa da campanha para a prévia (imagem binária, cache por `?v=`). 60/min por u
 ```
 - O próprio usuário pode mudar seu personagem (precisa ser dele). `null` desatrela: a ficha sai da mesa, a pessoa continua na campanha.
 - DM pode mudar de qualquer jogador (mas o personagem precisa pertencer ao dono da membership).
-- Outro usuário → **403**. Campanha encerrada → **423**. Ficha em outra campanha → **409** `character_in_other_campaign` (ou `move: true` para trocar), vaga do mestre → **400** `dm_cannot_be_player`: ver [Uma campanha por vez](#uma-campanha-por-vez).
+- Outro usuário → **403**. Campanha encerrada → **423**, menos para o próprio jogador desatrelar a ficha dele (`characterId: null` na própria vaga → 200; ele continua na mesa até a purga). Ficha em outra campanha → **409** `character_in_other_campaign` (ou `move: true` para trocar), vaga do mestre → **400** `dm_cannot_be_player`: ver [Uma campanha por vez](#uma-campanha-por-vez).
 → `{ membership: {id, characterId, sponsored} }`.
 
 ### `DELETE /campaigns/:id/members/:membershipId` (DM ou o próprio jogador)
@@ -524,4 +524,4 @@ GET = corpo de `/me/plan` da conta + `{userId, email}`. PATCH `{ plan?: slug, ad
 | `POST /campaigns/:id/world` | `cards` |
 
 ### Erro `campaign_closed` (423)
-Qualquer POST/PUT/PATCH/DELETE nas rotas da campanha encerrada (inclui `world/:pk/*`, `approvals/:pk/*`, `checks/:pk/*`, `rolls/:pk/*`, `dice/rigs/:pk`, `characters/:pk/dm-edit`, entrar/sair). Livres: `DELETE /campaigns/:id` e `/close` (idempotentes), `/reopen`, `world/seen` e `world/:pk/view`. Quem não é da mesa continua recebendo 403. A ficha do jogador (`/characters/:id`, rest/cast/inventário) continua dele e editável. `POST /dice/roll` com `campaignId` de campanha encerrada rola normalmente, mas fora da campanha (sem log, diário nem dado viciado).
+Qualquer POST/PUT/PATCH/DELETE nas rotas da campanha encerrada (inclui `world/:pk/*`, `approvals/:pk/*`, `checks/:pk/*`, `rolls/:pk/*`, `dice/rigs/:pk`, `characters/:pk/dm-edit`, entrar/sair). Livres: `DELETE /campaigns/:id` e `/close` (idempotentes), `/reopen`, `world/seen`, `world/:pk/view` e o jogador soltar a própria ficha (`PUT /members/<a própria>` com `characterId: null`, ou o `move` de uma troca saindo dela). Quem não é da mesa continua recebendo 403. A ficha do jogador (`/characters/:id`, rest/cast/inventário) continua dele e editável. `POST /dice/roll` com `campaignId` de campanha encerrada rola normalmente, mas fora da campanha (sem log, diário nem dado viciado).

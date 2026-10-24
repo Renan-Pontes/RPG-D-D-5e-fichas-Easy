@@ -334,8 +334,9 @@ def campaign_invite_cover(request, code):
 # continua com character nulo/livre): atrelar numa mesa com a ficha já em outra
 # → 409 character_in_other_campaign {campaignId, campaignName} sem mudar nada.
 # Com `move: true` (só o dono da ficha) ela sai da outra vaga — a pessoa continua
-# jogadora lá, sem personagem — e entra aqui, tudo numa transação. A vaga de lá
-# sendo de campanha encerrada (somente leitura) → 423. Fichas antigas que já
+# jogadora lá, sem personagem — e entra aqui, tudo numa transação. Soltar a
+# própria ficha vale também de campanha encerrada (a ficha é da pessoa e não fica
+# presa até a purga); entrar numa encerrada continua 423. Fichas antigas que já
 # estão em 2 campanhas continuam lendo igual; a próxima troca resolve.
 DM_CANNOT_PLAY = {'error': 'dm_cannot_be_player'}
 
@@ -359,9 +360,8 @@ def _in_other_campaign(seat):
 
 
 def _release_seats(seats):
-    """Tira a ficha das outras vagas (o `move`). Encerrada é somente leitura → 423."""
-    for s in seats:
-        P.require_open(s.campaign)
+    """Tira a ficha das outras vagas (o `move`), encerradas inclusive: soltar a
+    própria ficha não escreve nada da mesa."""
     for s in seats:
         s.character = None
         s.sponsored = False
@@ -466,6 +466,11 @@ def campaign_member(request, id_or_slug, membership_id):
         raise PermissionDenied('forbidden')
 
     char_id = request.data.get('characterId', None)
+    # Encerrada é só leitura (o closed_guard deixa o PUT chegar aqui): a única
+    # escrita aceita é a pessoa soltar a PRÓPRIA ficha da vaga dela. Atrelar, ou o
+    # mestre mexer na vaga de alguém → 423.
+    if not (char_id in (None, '') and m.user_id == request.user.id):
+        P.require_open(campaign)
     char = None
     others = []
     if char_id is not None and char_id != '':

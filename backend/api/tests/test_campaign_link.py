@@ -185,13 +185,53 @@ class ClosedCampaignTests(LinkBase):
         self.assertEqual(r.status_code, 423)
         self.assertEqual(self.seats_of(self.velna), [])
 
-    def test_cannot_move_out_of_closed_campaign(self):
+    def test_can_unlink_own_sheet_from_closed_campaign(self):
+        # a ficha é da pessoa: não fica presa na encerrada até a purga
         self.put(self.c_ana, self.a, self.ma, self.velna.id)
         P.close_campaign(self.a)
-        r = self.put(self.c_ana, self.b, self.mb, self.velna.id, move=True)
+        r = self.put(self.c_ana, self.a, self.ma, None)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(self.seats_of(self.velna), [])
+        self.assertTrue(Membership.objects.filter(pk=self.ma.pk).exists())  # continua na mesa
+        r = self.c_ana.get(f'/api/characters/{self.velna.id}')
+        self.assertFalse(r.json()['character']['inCampaign'])
+        # ...mas não volta a atrelar nela
+        r = self.put(self.c_ana, self.a, self.ma, self.velna.id)
         self.assertEqual((r.status_code, r.json()['error']), (423, 'campaign_closed'))
-        self.assertEqual(r.json()['campaignId'], self.a.id)
-        self.assertEqual(self.seats_of(self.velna), [self.a.id])  # nada mudou
+
+    def test_closed_campaign_other_writes_on_seat_still_423(self):
+        self.put(self.c_ana, self.a, self.ma, self.velna.id)
+        P.close_campaign(self.a)
+        # o mestre não mexe na vaga de ninguém na encerrada
+        r = self.put(self.c_dm1, self.a, self.ma, None)
+        self.assertEqual((r.status_code, r.json()['error']), (423, 'campaign_closed'))
+        self.assertEqual(self.seats_of(self.velna), [self.a.id])
+        # trocar por outra ficha também não
+        r = self.put(self.c_ana, self.a, self.ma, self.toco.id)
+        self.assertEqual(r.status_code, 423)
+        # quem não é da mesa continua 403; sair da mesa e expulsar continuam 423
+        self.assertEqual(self.put(self.c_bob, self.a, self.ma, None).status_code, 403)
+        self.assertEqual(self.c_ana.post(f'/api/campaigns/{self.a.id}/leave').status_code, 423)
+        self.assertEqual(self.c_dm1.delete(f'/api/campaigns/{self.a.id}/members/{self.ma.id}').status_code, 423)
+        self.assertEqual(self.seats_of(self.velna), [self.a.id])
+
+    def test_can_move_out_of_closed_campaign(self):
+        self.put(self.c_ana, self.a, self.ma, self.velna.id)
+        P.close_campaign(self.a)
+        r = self.put(self.c_ana, self.b, self.mb, self.velna.id)
+        self.assertEqual((r.status_code, r.json()['campaignId']), (409, self.a.id))
+        r = self.put(self.c_ana, self.b, self.mb, self.velna.id, move=True)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(self.seats_of(self.velna), [self.b.id])
+        self.assertTrue(Membership.objects.filter(pk=self.ma.pk, character=None).exists())
+        # pelo código também
+        self.put(self.c_ana, self.b, self.mb, None)
+        self.put(self.c_ana, self.a, self.ma, None)
+        Membership.objects.filter(pk=self.ma.pk).update(character=self.toco)
+        r = self.c_ana.post('/api/campaigns/join', {'inviteCode': self.b.invite_code, 'characterId': self.toco.id,
+                                                     'move': True}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(self.seats_of(self.toco), [self.b.id])
 
 
 class ListingTests(LinkBase):

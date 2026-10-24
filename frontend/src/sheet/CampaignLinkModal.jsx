@@ -148,13 +148,13 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
             <strong className="cl-current-name">{link.name}</strong>
             {link.status === 'closed' && (
               <p className="cl-note">{closedText(link, lang)} {L(lang,
-                'Enquanto isso ela é só para leitura: a ficha não sai nem troca de mesa. Depois, a ficha fica livre.',
-                "Meanwhile it is read-only: the sheet can't leave or move. After that, the sheet is free.")}</p>
+                'Ela fica só para leitura, mas a ficha é sua: dá para desatrelar ou levar para outra mesa.',
+                "It is read-only, but the sheet is yours: you can unlink it or take it to another table.")}</p>
             )}
             {link.sponsored && link.status !== 'closed' && (
               <p className="cl-note">🪑 {sponsoredText('', lang)}</p>
             )}
-            {links.length > 1 && link.status !== 'closed' && (
+            {links.length > 1 && (
               <button type="button" className="btn btn-ghost cl-btn" onClick={() => detach(link)}>{L(lang, 'Desatrelar daqui', 'Unlink from here')}</button>
             )}
           </div>
@@ -167,11 +167,11 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
         {error && <p className="cl-error" role="alert">{error}</p>}
         <div className="cl-actions cl-actions-main">
           {links.length === 1 && (
-            <button type="button" className="btn btn-ghost cl-btn" onClick={() => detach(current)} disabled={closed}>
+            <button type="button" className="btn btn-ghost cl-btn" onClick={() => detach(current)}>
               {L(lang, 'Desatrelar', 'Unlink')}
             </button>
           )}
-          <button type="button" className="btn btn-primary cl-btn" onClick={() => { setSwitching(true); setError(''); }} disabled={closed}>
+          <button type="button" className="btn btn-primary cl-btn" onClick={() => { setSwitching(true); setError(''); }}>
             {L(lang, 'Trocar de campanha', 'Move to another campaign')}
           </button>
         </div>

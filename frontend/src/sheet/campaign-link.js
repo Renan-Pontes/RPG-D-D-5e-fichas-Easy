@@ -5,6 +5,7 @@
 // Regra do servidor (API.md → "Uma campanha por vez"): a ficha fica em UMA
 // campanha de cada vez. Atrelar com ela em outra → 409 character_in_other_campaign
 // {campaignId, campaignName}; `move: true` tira de lá e põe aqui numa transação.
+// Soltar a própria ficha vale até de campanha encerrada (entrar numa, não).
 import { errorMessage, errorText } from '../api/errors.js';
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
@@ -70,8 +71,8 @@ export function linkErrorText(err, lang = 'pt') {
   const code = err?.data?.error || err?.data?.detail;
   if (err?.status === 423 || code === 'campaign_closed') {
     return L(lang,
-      'Esta campanha foi encerrada: ela é só para leitura, então nenhuma ficha entra nem sai dela.',
-      'This campaign was closed: it is read-only, so no sheet can join or leave it.');
+      'Esta campanha foi encerrada: ela é só para leitura e não recebe fichas.',
+      'This campaign was closed: it is read-only and takes no sheets.');
   }
   if (code === 'invite_invalid' || (err?.status === 404 && !code)) {
     return errorText('invite_invalid', lang);
