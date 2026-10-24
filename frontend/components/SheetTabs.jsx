@@ -1234,8 +1234,17 @@ function InventoryList({ char, lang, update, addItem, updateItem, removeItem }) 
     });
     if (!ok) return;
     if (typeof char.id === 'number') {
-      const r = await callBackend(() => api.invOpenPack(char.id, it.id ? { itemId: it.id, lang } : { index: idx, name: it.name, lang }));
-      if (r) update({ equipment: r.character.data.equipment || [] });
+      try {
+        const r = await api.invOpenPack(char.id, it.id ? { itemId: it.id, lang } : { index: idx, name: it.name, lang });
+        update({ equipment: r.character.data.equipment || [] });
+      } catch (e) {
+        // Servidor ainda sem a rota (404 sem código de erro): fora de campanha abre aqui e
+        // salva como qualquer edição; em campanha o inventário só muda pelo servidor.
+        if (e?.status === 404 && !e?.data?.error && !inCampaign) {
+          const patch = openPack(char, it, lang);
+          if (patch) update(patch);
+        } else alert(errorMessage(e));
+      }
     } else {
       const patch = openPack(char, it, lang);
       if (patch) update(patch);

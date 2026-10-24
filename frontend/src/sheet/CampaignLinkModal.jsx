@@ -67,6 +67,17 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
     return seat != null ? ` ${sponsoredText(seat, lang)}` : '';
   };
 
+  // Depois de uma troca: o servidor antigo ignora o `move` e deixaria a ficha também na
+  // mesa anterior. Solta aqui as outras vagas (no servidor novo já não sobra nenhuma).
+  const keepOnly = async (campaignId) => {
+    try {
+      const l = await api.characterCampaigns(char.id);
+      for (const o of (l.campaigns || []).filter(x => String(x.id) !== String(campaignId) && x.membershipId != null)) {
+        await api.updateMembership(o.id, o.membershipId, { characterId: null }).catch(() => {});
+      }
+    } catch { /* sem a lista: o servidor novo já garante uma campanha por vez */ }
+  };
+
   // PUT na vaga da pessoa naquela mesa (servidor antigo sem myMembership: procura no detalhe).
   const putSeat = async (table, move) => {
     let mid = table.myMembership?.id;
@@ -87,6 +98,7 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
     const seat = seatState(table, char.id);
     const attach = (move) => run(async () => {
       const res = await putSeat(table, move);
+      if (move) await keepOnly(table.id);
       return linkToast(move ? 'switch' : 'attach', { charName, table: table.name, lang }) + seatNote(res, '');
     }, { onConflict: (other) => switchTo(table.name, seat, other.campaignName, () => attach(true)) });
     if (linked) setConfirm(switchTo(table.name, seat, undefined, () => attach(true)));
@@ -99,6 +111,7 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
     const go = (move) => run(async () => {
       const body = { inviteCode: code, characterId: char.id };
       const res = await api.joinCampaign(move ? { ...body, move: true } : body);
+      if (move && res?.campaignId != null) await keepOnly(res.campaignId);
       return linkToast(move ? 'switch' : 'attach', { charName, table: table?.name, lang }) + seatNote(res, table?.dmName);
     }, { onConflict: (other) => switchTo(table?.name, null, other.campaignName, () => go(true)) });
     if (linked) setConfirm(switchTo(table?.name || code, null, undefined, () => go(true)));
