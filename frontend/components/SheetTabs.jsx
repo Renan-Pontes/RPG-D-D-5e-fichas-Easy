@@ -12,7 +12,7 @@ import { api } from '../src/api/client.js';
 import * as FS from '../src/progression/fighting-styles.js';
 import * as Book from '../src/progression/spellbook.js';
 import { SpeciesChoicesModal, speciesSummary } from '../src/progression/SpeciesChoices.jsx';
-import { speciesChoiceSpecs } from '../src/progression/species.js';
+import { speciesChoiceSpecs, speciesGrants } from '../src/progression/species.js';
 import { grantedSpells } from '../src/creator/spell-helpers.js';
 import { propLabel, armorTypeLabel } from '../src/creator/equipment-helpers.js';
 import { classFeatureList, backgroundFeature } from '../src/sheet/sheet-text.js';
@@ -37,6 +37,32 @@ const propsText = (props, lang) => (props || []).map(p => propLabel(p, lang)).jo
 // Magias de talento/espécie (auto + feat/species): ficam fora das listas da classe.
 const isGrantEntry = (s) => !!s && typeof s === 'object' && s.auto && (s.feat || s.species);
 
+// Entradas de talento/espécie da ficha mais as que ela ainda não gravou (ficha salva
+// antes de a espécie ganhar a magia, ex.: Magia Firbolg): aparecem do mesmo jeito e
+// entram em char.spells na próxima gravação (applyAutosToCharacter).
+function grantEntriesOf(char) {
+  const saved = (char.spells || []).filter(isGrantEntry);
+  const have = new Set((char.spells || []).map(s => (typeof s === 'string' ? s : s?.id)));
+  let missing = [];
+  try {
+    missing = grantedSpells(char).filter(g => (g.source === 'feat' || g.source === 'species') && !have.has(g.id))
+      .map(g => ({ id: g.id, prepared: true, auto: true, [g.source]: true }));
+  } catch { /* ficha incompleta */ }
+  return [...saved, ...missing];
+}
+
+// Usos fora do padrão das magias da espécie (Magia Firbolg: 1× por descanso curto;
+// Gnomo da Floresta 2024: bônus de proficiência vezes por descanso longo).
+const USES_TAG = {
+  short: () => ({ pt: '1×/descanso curto', en: '1/short rest' }),
+  atWill: () => ({ pt: 'à vontade', en: 'at will' }),
+  profBonus: (char) => { const n = Utils.profBonus(char); return { pt: `${n}×/descanso longo`, en: `${n}/long rest` }; },
+};
+const UsesTag = ({ uses, char, lang }) => {
+  const text = USES_TAG[uses]?.(char);
+  return text ? <span className="spell-tag-uses">{text[lang] || text.pt}</span> : null;
+};
+
 // Aba Magias: espaços (compartilhados entre as classes) e uma seção por classe
 // conjuradora — em multiclasse cada uma tem atributo, CD, limites e lista próprios.
 const SheetSpells = ({ char, lang, update, slots, roll }) => {
@@ -44,7 +70,7 @@ const SheetSpells = ({ char, lang, update, slots, roll }) => {
   // Só conjura quem tem espaços ou truques no nível atual (Paladino/Patrulheiro 2014 só no nível 2).
   const singleCaster = !!Utils.spellcastingAbility(char) && (Utils.casterViews(char).length > 0 || Utils.spellSlots(char).some(Boolean));
   const casters = multi ? Utils.casterViews(char) : (singleCaster ? [char] : []);
-  const hasGrants = (char.spells || []).some(isGrantEntry);
+  const hasGrants = grantEntriesOf(char).length > 0;
   if (!casters.length && !hasGrants) {
     return (
       <div className="card text-center" style={{ padding: 'var(--s-7)' }}>
@@ -135,10 +161,12 @@ const SheetSpells = ({ char, lang, update, slots, roll }) => {
 const GrantedSpellsSection = ({ char, lang, update, slots, roll }) => {
   const pt = lang === 'pt';
   const catalog = Utils.spellCatalog(char);
-  const entries = (char.spells || []).filter(isGrantEntry)
+  const entries = grantEntriesOf(char)
     .map(s => ({ ...s, def: catalog.find(x => x.id === s.id) })).filter(s => s.def);
   if (!entries.length) return null;
   const sources = grantedSpells(char);
+  let uses = {};
+  try { uses = speciesGrants(char).spellUses || {}; } catch { /* sem espécie */ }
   const groups = [];
   for (const s of entries) {
     const src = sources.find(g => g.id === s.id && g.source === (s.feat ? 'feat' : 'species'));
@@ -166,7 +194,8 @@ const GrantedSpellsSection = ({ char, lang, update, slots, roll }) => {
               </span>
             </summary>
             {g.list.map(s => (
-              <SpellRow key={s.id} spell={s} lang={lang} showPrepared={false} char={char} slots={slots} update={update} spellAtk={atk} roll={roll} />
+              <SpellRow key={s.id} spell={s} lang={lang} showPrepared={false} char={char} slots={slots} update={update} spellAtk={atk} roll={roll}
+                tag={s.species && uses[s.id] ? <UsesTag uses={uses[s.id]} char={char} lang={lang} /> : null} />
             ))}
           </details>
         );
