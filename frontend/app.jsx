@@ -20,6 +20,7 @@ import CampaignList from './src/campaigns/CampaignList.jsx';
 import CampaignDetail from './src/campaigns/CampaignDetail.jsx';
 import ProgressionPanel from './src/progression/ProgressionPanel.jsx';
 import { applyAutosToCharacter, applyLevelUpChoices, applyLevelChoice, applyClassOptions, revertLastLevel } from './src/progression/engine.js';
+import { dropSubclassesBelowLevel } from './src/progression/subclass-lock.js';
 import LevelUpModal from './src/progression/LevelUpModal.jsx';
 import { ClassOptionsModal } from './src/progression/ClassOptionsPicker.jsx';
 import InviteChoice from './src/campaigns/InviteChoice.jsx';
@@ -562,14 +563,9 @@ const App = () => {
       ? `Voltar para o nível ${to}? PV, classe, aumento de atributo/talento e magias ganhos no nível ${active.level} serão desfeitos.`
       : `Go back to level ${to}? HP, ability increase/feat and spells gained at level ${active.level} will be undone.`);
     if (!ok) return;
-    let next = revertLastLevel(active);
-    // Classe que voltou para antes do nível de subclasse perde a subclasse.
-    for (const e of Utils.classEntries(next)) {
-      if (!e.subclass || e.level >= Utils.subclassLevel(Utils.classView(next, e))) continue;
-      next = e.primary
-        ? { ...next, subclass: '', landType: '' }
-        : { ...next, multiclass: next.multiclass.map(m => m.id === e.id ? { ...m, subclass: '', landType: '' } : m) };
-    }
+    // Classe que voltou para antes do nível de subclasse perde a subclasse, mas a
+    // escolha fica guardada: subir de novo devolve a mesma (o círculo continua selado).
+    const next = dropSubclassesBelowLevel(active, revertLastLevel(active));
     const slots = Utils.spellSlots(next);
     if (Array.isArray(next.spellSlotsUsed)) next.spellSlotsUsed = next.spellSlotsUsed.map((u, i) => Math.min(u || 0, slots[i] || 0));
     await storage.save(applyAutosToCharacter(next));

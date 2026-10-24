@@ -22,6 +22,7 @@ import { featGrants } from './feat-rules.js';
 import { speciesGrants } from './species.js';
 import { classOptionState, validateOptionPicks, applyOptionPicks, revertOptionPicks, optionPool, migrateClassOptions } from './options.js';
 import { validateFeatChoice, progHasFightingStyle, featEntry, withFeatAsi } from './feat-rules.js';
+import { restoreSealedSubclass } from './subclass-lock.js';
 import SRD from '../../data/srd.js';
 import { SPELLS_2024 } from '../../data/rules2024.js';
 
@@ -254,9 +255,11 @@ function applyNode(out, node, level, source) {
  * - Magias auto-preparadas: idem, com `prepared: true, auto: true`.
  * - Não duplica entradas já presentes.
  * - Remove autos que sobraram de subclasses anteriores (caso troquem).
+ * - Classe que voltou ao nível da subclasse recebe de volta a escolha selada que
+ *   o "voltar nível" guardou (subclass-lock.js: restoreSealedSubclass).
  */
 export function applyAutosToCharacter(character) {
-  character = migrateClassOptions(character);
+  character = restoreSealedSubclass(migrateClassOptions(character));
   const prog = computeProgression(character);
   const next = { ...character };
   const spells = Array.isArray(next.spells) ? [...next.spells] : [];

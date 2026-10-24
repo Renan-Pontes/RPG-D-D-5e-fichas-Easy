@@ -1680,9 +1680,11 @@ label {
   92%  { transform: translate(0, -2vh) rotate(1760deg) scale(1.04); }
   100% { transform: translate(0, 0) rotate(var(--rot, 1800deg)) scale(1); }
 }
+/* Rolando, o dado fica com a cor do tipo: dourado/vermelho é o tom do crítico/falha,
+   que só chega depois que ele para. O brilho que pulsa é neutro (pergaminho). */
 @keyframes die-shimmer {
-  0%, 100% { filter: drop-shadow(0 0 8px var(--gold)); }
-  50%      { filter: drop-shadow(0 0 18px var(--gold-bright)); }
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(243, 230, 203, 0.25)); }
+  50%      { filter: drop-shadow(0 0 14px rgba(243, 230, 203, 0.5)); }
 }
 .die-shape.rolling {
   animation: die-bounce var(--dur, 1.3s) cubic-bezier(0.34, 0.04, 0.5, 1);
@@ -1690,12 +1692,28 @@ label {
   position: relative;
 }
 .die-shape.rolling .die-poly {
-  fill: var(--gold);
-  stroke: var(--parchment);
   animation: die-shimmer 0.4s ease-in-out infinite;
 }
 .die-shape.rolling .die-number {
   opacity: 0;
+}
+/* Tom do crítico/falha: o DiceStage só passa depois que o dado para (DieShape tone);
+   transição curta da cor normal para o tom (as mesmas cores do 3D, dice-tones.js). */
+.die-poly { transition: fill 0.38s ease-out, stroke 0.38s ease-out, filter 0.38s ease-out; }
+.die-number { transition: color 0.38s ease-out; }
+.die-shape.tone-crit .die-poly { fill: #a8894a; stroke: #edcb7a; filter: drop-shadow(0 0 12px rgba(237, 203, 122, 0.55)); }
+.die-shape.tone-crit .die-number { color: #1a120a; text-shadow: 0 1px 0 rgba(255, 240, 200, 0.35); }
+.die-shape.tone-fumble .die-poly { fill: #3a0f09; stroke: #e0604f; filter: drop-shadow(0 0 12px rgba(224, 96, 79, 0.45)); }
+.die-shape.tone-fumble .die-number { color: #e0604f; }
+.die-shape.tone-crit,
+.die-shape.tone-fumble { animation: die-tone-pop 0.38s ease-out; }
+@keyframes die-tone-pop {
+  0%, 100% { transform: scale(1); }
+  45%      { transform: scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .die-poly, .die-number { transition: none; }
+  .die-shape.tone-crit, .die-shape.tone-fumble { animation: none; }
 }
 
 /* Dice picker grid */
