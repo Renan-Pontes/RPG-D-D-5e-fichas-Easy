@@ -97,6 +97,17 @@ test('modal: foco na 1ª linha, Tab preso no modal, Esc do Modal do app; linhas 
   assert.ok(minH >= 48, `min-height ${minH}`);
 });
 
+test('modal: no celular (em pé ou deitado, < 700 px) é um sheet de borda a borda', () => {
+  const css = src('../src/sheet/ficha.css');
+  // a faixa vai até o ponto em que o .modal-backdrop do app volta a centralizar (700 px)
+  const m = css.match(/@media \(max-width: (\d+)px\) \{\s*\.ficha \.modal:has\(> \.fh-export-list\) \{([^}]*)\}/);
+  assert.ok(m, 'regra do sheet inferior');
+  assert.equal(+m[1], 699);
+  assert.match(m[2], /width: 100%;/);
+  // vence o max-width: 95vw de app-extra-styles.css (≤720 px)
+  assert.match(m[2], /max-width: 100% !important;/);
+});
+
 test('app.jsx: os handlers de saída dizem se deu certo (o modal só fecha nesse caso)', () => {
   const s = src('../app.jsx');
   const body = (name) => s.slice(s.indexOf(`const ${name} =`), s.indexOf('\n  };\n', s.indexOf(`const ${name} =`)));

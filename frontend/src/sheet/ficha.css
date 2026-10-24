@@ -2362,8 +2362,10 @@
 /* ---------- Modal Exportar (src/sheet/FhExport.jsx) ----------
    Imprimir, os dois PDFs, o link e o JSON numa lista de linhas grandes: ícone dourado
    num engaste, nome e o que a saída faz. Cada linha tem 60px ou mais (o toque pede 48).
-   No celular (≤480px) é um sheet inferior em vez da tela cheia dos outros modais: são
-   só cinco linhas, e a ficha continua à vista por trás. */
+   Abaixo de 700px (celular em pé ou deitado, tablet pequeno) é um sheet inferior de
+   borda a borda, em vez da tela cheia (≤480px) ou da caixa de 95vw encostada à direita
+   (481–699px) dos outros modais: são só cinco linhas, e a ficha continua à vista por
+   trás. A partir de 700px volta a ser a caixa centralizada de 460px. */
 .ficha .fh-export-sub { margin: 0 0 14px; color: var(--ink-secondary); font-size: 0.92rem; line-height: 1.45; }
 .ficha .fh-export-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .ficha .fh-export-opt {
@@ -2409,8 +2411,13 @@
 .ficha .fh-export-opt.is-busy .fh-export-desc { color: var(--gold-bright); }
 .ficha .fh-export-opt.is-busy .fh-export-ico { animation: fh-export-pulse 1.1s ease-in-out infinite; }
 @keyframes fh-export-pulse { 50% { opacity: 0.45; } }
-@media (max-width: 480px) {
-  .ficha .modal:has(> .fh-export-list) { height: auto; border-radius: 16px 16px 0 0 !important; }
+@media (max-width: 699px) {
+  .ficha .modal:has(> .fh-export-list) {
+    width: 100%;
+    max-width: 100% !important;
+    height: auto;
+    border-radius: 16px 16px 0 0 !important;
+  }
 }
 @media (forced-colors: active) {
   .ficha .fh-export-opt { background: ButtonFace; border-color: ButtonText; color: ButtonText; box-shadow: none; }
