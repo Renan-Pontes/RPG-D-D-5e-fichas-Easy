@@ -41,6 +41,7 @@ class PackLogicTests(TestCase):
         self.assertEqual(pack_key({'name': 'PACOTE DO ESTUDIOSO'}), 'scholar')
         self.assertEqual(pack_key({'name': 'Pacote de Sacerdote ×2'}), 'priest')
         self.assertEqual(pack_key({'name': 'Kit de Masmorra'}), 'dungeoneer')
+        self.assertEqual(pack_key({'name': 'Pacote de Explorador de Masmorra'}), 'dungeoneer')
         for name in ('Mochila', 'Kit de Curandeiro', 'Ferramentas de Ladrão', 'Box 12', ''):
             self.assertIsNone(pack_key({'name': name}), name)
         self.assertIsNone(pack_key({'name': 'Pacote de Aventureiro', 'type': 'weapon'}))

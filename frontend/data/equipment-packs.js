@@ -88,7 +88,7 @@ export const PACKS = {
   },
   dungeoneer: {
     name: b('Pacote de Explorador de Masmorras', "Dungeoneer's Pack"), catalogId: 'dungeoneersPack',
-    words: ['explorador de masmorras', 'masmorra', 'masmorras'], en: 'dungeoneer',
+    words: ['explorador de masmorras', 'explorador de masmorra', 'masmorra', 'masmorras'], en: 'dungeoneer',
     contents: {
       '2014': [['backpack'], ['crowbar'], ['hammer'], ['piton', 10], ['torch', 10], ['tinderbox'], ['rations', 10], ['waterskin'], ['rope']],
       '2024': [['backpack'], ['caltrops'], ['crowbar'], ['oil', 2], ['rations', 10], ['rope'], ['tinderbox'], ['torch', 10], ['waterskin']],

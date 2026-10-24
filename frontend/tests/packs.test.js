@@ -26,6 +26,8 @@ test('reconhece o pacote pela chave, pelo item do catálogo e pelo nome (pt/en, 
   assert.equal(packKeyOf({ name: 'Mochila de Aventureiro' }), 'dungeoneer');
   assert.equal(packKeyOf({ name: 'Kit de Explorador' }), 'explorer');
   assert.equal(packKeyOf({ name: 'Kit de Masmorra' }), 'dungeoneer');
+  assert.equal(packKeyOf({ name: 'Pacote de Explorador de Masmorra' }), 'dungeoneer');
+  assert.equal(packKeyOf({ name: 'Kit do Explorador de Masmorra' }), 'dungeoneer');
   assert.equal(packKeyOf({ name: 'Kit de Animador' }), 'entertainer');
   // Digitados à mão: caixa, acento, apóstrofo, preço e quantidade no nome.
   assert.equal(packKeyOf({ name: "Explorer's Pack" }), 'explorer');
