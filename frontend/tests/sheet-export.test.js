@@ -66,6 +66,31 @@ test('resultado: fecha quando deu certo; fica aberto quando o handler diz que n�
 // ---------- Contratos da tela (lidos do código, sem renderizar) ----------
 const src = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
+test('Sheet: um botão Exportar no lugar dos 5 soltos, sem duplicar as saídas', () => {
+  const s = src('../components/Sheet.jsx');
+  const bar = s.slice(s.indexOf('<div className="action-bar fh-actions no-print">'), s.indexOf('{cheatOpen &&'));
+  // Exportar, Editar (fora de campanha; em campanha é um <span> travado) e Modo trapaça
+  assert.equal((bar.match(/<button/g) || []).length, 3);
+  assert.match(bar, /onClick=\{\(\) => setExportOpen\(true\)\}/);
+  for (const gone of ['onClick={onPrint}', 'onExportPdf({', 'onClick={onShare}', 'onClick={onExport}']) {
+    assert.ok(!s.includes(gone), gone);
+  }
+  assert.match(s, /handlers=\{\{ onPrint, onExportPdf, onShare, onExport \}\}/);
+  // as props de hoje continuam (app.jsx não muda de contrato)
+  assert.match(s, /const Sheet = \(\{ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport,/);
+});
+
+test('modal: foco na 1ª linha, Tab preso no modal, Esc do Modal do app; linhas >= 48 px', () => {
+  const m = src('../src/sheet/FhExport.jsx');
+  assert.match(m, /querySelector\('\.fh-export-opt'\)\?\.focus\(\)/);
+  assert.match(m, /e\.key !== 'Tab'/);
+  assert.match(m, /<Modal onClose=\{onClose\}>/);
+  assert.match(m, /aria-disabled=/);
+  const css = src('../src/sheet/ficha.css');
+  const minH = +(css.match(/\.ficha \.fh-export-opt \{[^}]*min-height: (\d+)px/) || [])[1];
+  assert.ok(minH >= 48, `min-height ${minH}`);
+});
+
 test('app.jsx: os handlers de saída dizem se deu certo (o modal só fecha nesse caso)', () => {
   const s = src('../app.jsx');
   const body = (name) => s.slice(s.indexOf(`const ${name} =`), s.indexOf('\n  };\n', s.indexOf(`const ${name} =`)));

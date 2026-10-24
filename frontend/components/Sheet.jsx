@@ -32,6 +32,7 @@ import { slotCircleLabel, gemLabel, lockedSlotTitle } from '../src/sheet/gem-tex
 import { condClasses, FhConditionFx, FhConditionArt } from '../src/sheet/FhConditions.jsx';
 import { useLevelCeremony, FhLevelCeremony, useGemRelight } from '../src/sheet/FhCeremonies.jsx';
 import { PLAY_H, splitColumns } from '../src/sheet/play-layout.js';
+import FhExportModal from '../src/sheet/FhExport.jsx';
 import '../src/sheet/ficha.css';
 
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
@@ -39,6 +40,10 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   const [hpDelta, setHpDelta] = useState(0);
   const [tempHpInput, setTempHpInput] = useState(false);
   const [cheatOpen, setCheatOpen] = useState(false);
+  // Modal Exportar: ao fechar, o foco volta para o botão que abriu.
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportBtnRef = useRef(null);
+  const closeExport = () => { setExportOpen(false); exportBtnRef.current?.focus(); };
   // Cerimônias (só visual, src/sheet/FhCeremonies.jsx): o selo quando o nível sobe e as
   // gemas que reacendem (descanso, trapaça, mestre).
   const rootRef = useRef(null);
@@ -156,14 +161,14 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         <CombatActionPanel char={char} lang={lang} onUpdate={onUpdate} />
       )}
 
-      {/* Barra de ações (src/sheet/ficha.css: .fh-actions): os mesmos 7 controles; o
-          travado e a trapaça ligada viraram classes (antes, estilo inline). */}
+      {/* Barra de ações (src/sheet/ficha.css: .fh-actions): Exportar, Editar e Modo trapaça;
+          o travado e a trapaça ligada viraram classes (antes, estilo inline). Imprimir, os
+          dois PDFs, Compartilhar e o JSON eram botões soltos aqui: agora são as linhas do
+          modal Exportar (src/sheet/FhExport.jsx), com os mesmos handlers. */}
       <div className="action-bar fh-actions no-print">
-        <button className="chip" onClick={onPrint}><Icon name="print" size={14} className="chip-icon"/> {t('print', lang)}</button>
-        <button className="chip" onClick={() => onExportPdf({ flatten: false })} title={lang === 'pt' ? 'Ficha de D&D 5e com campos que você pode preencher e alterar em qualquer leitor de PDF' : 'D&D 5e sheet with fields you can fill and change in any PDF reader'}><Icon name="edit" size={14} className="chip-icon"/> {t('exportPdf', lang)}</button>
-        <button className="chip" onClick={() => onExportPdf({ flatten: true })} title={lang === 'pt' ? 'Ficha de D&D 5e com o texto fixo, pronta para imprimir' : 'D&D 5e sheet with fixed text, ready to print'}><Icon name="download" size={14} className="chip-icon"/> {t('exportPdfPrint', lang)}</button>
-        <button className="chip" onClick={onShare}><Icon name="share" size={14} className="chip-icon"/> {t('share', lang)}</button>
-        <button className="chip" onClick={onExport}><Icon name="download" size={14} className="chip-icon"/> {t('export', lang)}</button>
+        <button ref={exportBtnRef} type="button" className="chip fh-export-chip" aria-haspopup="dialog" onClick={() => setExportOpen(true)}>
+          <Icon name="download" size={14} className="chip-icon"/> {t('export', lang)}
+        </button>
         {!char.inCampaign && (
           <button className="chip" onClick={onEdit}><Icon name="edit" size={14} className="chip-icon"/> {t('edit', lang)}</button>
         )}
@@ -179,6 +184,9 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
       </div>
 
       {cheatOpen && <CheatModeModal char={char} lang={lang} update={update} onClose={() => setCheatOpen(false)} />}
+      {exportOpen && (
+        <FhExportModal char={char} lang={lang} handlers={{ onPrint, onExportPdf, onShare, onExport }} onClose={closeExport} />
+      )}
 
       <ScrollTabs className="no-print" activeKey={tab} lang={lang} role="tablist" aria-label={lang === 'pt' ? 'Seções da ficha' : 'Sheet sections'}>
         {[
