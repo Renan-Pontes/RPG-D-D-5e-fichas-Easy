@@ -1,0 +1,84 @@
+/* Modal "Campanha" da ficha (CampaignLinkModal.jsx). Fica dentro de .ficha (os
+   modais da ficha não são portais): o couro e o título em ouro vêm de ficha.css
+   (.ficha .modal). Aqui só o miolo; alvos de toque com 44px. */
+.cl-modal { display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; }
+.cl-modal p { margin: 0; }
+.cl-state { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-3); padding: var(--s-2) 0; }
+.cl-lead { color: var(--ink-secondary); line-height: 1.45; }
+.cl-hint { font-size: 0.88rem; line-height: 1.4; }
+.cl-note {
+  font-size: 0.9rem; line-height: 1.4; color: var(--ink-secondary);
+  padding: var(--s-2) var(--s-3); border-radius: var(--radius); background: var(--amber-soft);
+}
+.cl-error {
+  padding: var(--s-2) var(--s-3); border-radius: var(--radius); line-height: 1.4;
+  background: var(--blood-soft); color: var(--blood-bright); border: 1px solid rgba(224, 96, 79, 0.35);
+}
+.cl-empty { color: var(--ink-muted); line-height: 1.45; }
+
+/* botões: nunca menores que 44px; quebram em linha quando não cabem */
+.cl-modal .cl-btn { min-height: 44px; width: auto; }
+.cl-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); justify-content: flex-end; }
+.cl-actions .btn { flex: 1 1 140px; min-height: 44px; }
+
+/* Campanha atual */
+.cl-current {
+  display: flex; flex-direction: column; gap: var(--s-1); align-items: flex-start;
+  padding: var(--s-3) var(--s-3) var(--s-3) calc(var(--s-3) + 3px);
+  border: 1px solid rgba(116, 214, 180, 0.38); border-radius: 8px;
+  background: linear-gradient(90deg, rgba(18, 63, 52, 0.5), rgba(10, 7, 6, 0.4) 80%);
+  box-shadow: inset 3px 0 0 var(--fh-verdigris, #74d6b4);
+}
+.cl-current.is-closed { border-color: var(--stroke); box-shadow: inset 3px 0 0 var(--ink-muted); background: var(--bg-elevated); }
+.cl-eyebrow {
+  font-family: var(--display); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--fh-verdigris, #74d6b4);
+}
+.cl-current-name {
+  font-family: var(--display); font-weight: 600; font-size: 1.15rem; color: var(--ink-primary);
+  overflow-wrap: anywhere;
+}
+.cl-current .cl-note { align-self: stretch; margin-top: var(--s-1); }
+.cl-current .cl-btn { margin-top: var(--s-1); }
+
+/* Mesas em que a pessoa joga */
+.cl-tables { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-2); }
+.cl-table {
+  display: flex; align-items: center; gap: var(--s-3); min-width: 0;
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-3);
+  border: 1px solid var(--stroke); border-radius: 8px; background: rgba(10, 7, 6, 0.35);
+}
+.cl-table-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.cl-table-text strong { font-family: var(--display); font-weight: 600; color: var(--ink-primary); overflow-wrap: anywhere; }
+.cl-tagline { font-size: 0.86rem; color: var(--ink-muted); overflow-wrap: anywhere; }
+.cl-seat { font-size: 0.84rem; color: var(--ink-secondary); }
+.cl-seat.is-free { color: var(--moss-bright); }
+.cl-seat.is-other { color: var(--amber, #e3a445); }
+.cl-table .cl-btn { flex: none; }
+@media (max-width: 380px) {
+  /* 320px: o botão desce para baixo do nome, largura toda */
+  .cl-table { flex-wrap: wrap; }
+  .cl-table .cl-btn { flex: 1 1 100%; }
+}
+
+/* Código de convite */
+.cl-modal .cl-code-toggle { align-self: flex-start; }
+.cl-code {
+  display: flex; flex-direction: column; gap: var(--s-2);
+  padding: var(--s-3); border: 1px solid var(--stroke); border-radius: 8px; background: rgba(10, 7, 6, 0.35);
+}
+.cl-code-label { font-size: 0.9rem; color: var(--ink-secondary); }
+.cl-code-input {
+  width: 100%; min-height: 44px; font-family: var(--mono); letter-spacing: 3px; font-size: 1.15em; text-transform: uppercase;
+}
+.cl-code .join-card { margin-top: 0; }
+.cl-code .cl-code-go { align-self: stretch; }
+
+/* Confirmação (dentro do próprio modal) */
+.cl-confirm { display: flex; flex-direction: column; gap: var(--s-3); }
+.cl-confirm h3 { margin: 0; font-family: var(--display); font-size: 1.1rem; color: var(--gold-bright); line-height: 1.3; overflow-wrap: anywhere; }
+.cl-confirm p { color: var(--ink-secondary); line-height: 1.5; }
+
+@media (forced-colors: active) {
+  .cl-current, .cl-table, .cl-code { border: 1px solid CanvasText; }
+}
