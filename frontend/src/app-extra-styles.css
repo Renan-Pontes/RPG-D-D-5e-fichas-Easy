@@ -525,6 +525,17 @@
 }
 .dm-editor-section-body { display: flex; flex-direction: column; gap: 8px; }
 
+/* Registro de edições (aba do editor do mestre; edit-log.js) */
+.dm-editlog { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.dm-editlog-item {
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elev, var(--bg-raised));
+  overflow-wrap: anywhere;
+}
+.dm-editlog-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; margin-bottom: 4px; }
+.dm-editlog-added { color: var(--moss-bright); }
+.dm-editlog-removed { color: var(--blood-bright); }
+.dm-editlog-change { color: var(--ink-secondary); }
+
 .dm-num-field, .dm-text-field {
   display: grid;
   grid-template-columns: 200px 1fr;

@@ -5,6 +5,7 @@ import { tName } from '../../data/i18n.js';
 import Utils from '../../utils.js';
 import { classArt, speciesArt } from '../art.js';
 import DMCharacterEditor from '../campaigns/DMCharacterEditor.jsx';
+import { editLogEntries, formatEditLogDate } from '../campaigns/edit-log.js';
 import GiveItemModal from '../campaigns/GiveItemModal.jsx';
 import MoreMenu from './MoreMenu.jsx';
 import { groupApi } from './group-api.js';
@@ -15,7 +16,8 @@ const condName = (c, lang) => (c === 'exhaustion' ? t(lang, 'Exaustão', 'Exhaus
 /**
  * Cards dos jogadores da mesa: retrato, classe/espécie traduzidas, PV, CA e
  * iniciativa (mesmo cálculo da Mesa: Utils.computeAc / Utils.initiative).
- * Mestre: editar ficha, dar item (com aviso), encerrar forma selvagem (só
+ * Mestre: editar ficha, dar item (com aviso), registro de edições (só se a
+ * ficha tiver, ver campaigns/edit-log.js), encerrar forma selvagem (só
  * druida em forma) e remover da mesa. Jogador: trocar o próprio personagem e
  * sair da campanha (com confirmação; a ficha continua com ele).
  */
@@ -94,13 +96,14 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
             assigning={assigning === m.id} characters={characters}
             onAssignStart={() => setAssigning(m.id)} onAssignCancel={() => setAssigning(null)} onAssign={(id) => assign(m, id)}
             onEdit={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data })}
+            onLog={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data, section: 'log' })}
             onGive={() => setGiving({ id: m.character.id, name: m.character.name })}
             onEndForm={() => endForm(m)} onRemove={() => removeMember(m)} onLeave={leave} />
         ))}
       </div>
 
       {editing && (
-        <DMCharacterEditor character={editing} lang={lang} onClose={() => setEditing(null)}
+        <DMCharacterEditor character={editing} lang={lang} initialSection={editing.section} onClose={() => setEditing(null)}
           onSaved={() => { notify?.(t(lang, `Ficha de ${editing.name} salva.`, `${editing.name}'s sheet saved.`)); setEditing(null); onChange?.(); }} />
       )}
       {giving && (
@@ -129,9 +132,10 @@ function Portrait({ stats, name }) {
   return <span className="grp-portrait is-initial" aria-hidden="true">{(name || '?').charAt(0).toUpperCase()}</span>;
 }
 
-function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, assigning, characters, onAssignStart, onAssignCancel, onAssign, onEdit, onGive, onEndForm, onRemove, onLeave }) {
+function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, assigning, characters, onAssignStart, onAssignCancel, onAssign, onEdit, onLog, onGive, onEndForm, onRemove, onLeave }) {
   const c = m.character;
   const s = memberStats(m);
+  const log = isDM ? editLogEntries(c?.data) : [];
   const tone = s ? hpTone(s.hp, s.maxHp) : 'unknown';
   const pct = s?.maxHp ? Math.max(0, Math.min(100, ((s.hp ?? 0) / s.maxHp) * 100)) : 0;
   const xp = s ? xpProgress(s.level, s.xp) : null;
@@ -208,6 +212,12 @@ function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, assigning,
         <footer className="grp-card-actions">
           <button type="button" className="btn btn-ghost btn-sm" onClick={onEdit}>🛠 {t(lang, 'Editar ficha', 'Edit sheet')}</button>
           <button type="button" className="btn btn-ghost btn-sm" onClick={onGive}>🎁 {t(lang, 'Dar item', 'Give item')}</button>
+          {log.length > 0 && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onLog}
+              title={t(lang, `Última edição: ${formatEditLogDate(log[0].at, lang)}`, `Last edit: ${formatEditLogDate(log[0].at, lang)}`)}>
+              📜 {t(lang, 'Registro', 'Edit log')} ({log.length})
+            </button>
+          )}
           {s?.isDruid && s.wildShape && (
             <button type="button" className="btn btn-ghost btn-sm grp-wild-end" onClick={onEndForm}>🐾 {t(lang, 'Encerrar forma', 'End form')}</button>
           )}
