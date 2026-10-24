@@ -103,8 +103,9 @@ def without_log(data):
 def owner_put(old_data, new_data, user, in_campaign):
     """Ficha que o PUT do dono vai gravar: o editLog do cliente é descartado, o salvo
     fica, e em campanha ganha as entradas desta edição (teto MAX_ENTRIES)."""
-    if not isinstance(new_data, dict):
-        return new_data
+    # A view já recusa `data` que não é objeto; aqui, por garantia, o registro salvo
+    # nunca é descartado junto com uma ficha inválida.
+    new_data = new_data if isinstance(new_data, dict) else {}
     out = without_log(new_data)
     log = saved_log(old_data)
     if in_campaign:

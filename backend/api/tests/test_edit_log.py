@@ -3,6 +3,7 @@ Registro de edições para o mestre (data.editLog, api/edit_log.py):
 - PUT do dono numa ficha em campanha que muda 'languages' anota {at, by, field, added, removed}.
 - Fora de campanha não anota.
 - O dono não apaga nem altera o registro (o PUT ignora o editLog do corpo, sem 403).
+- `data` que não é objeto (lista, texto, número, nulo) é recusado com 400: não apaga a ficha nem o registro.
 - O mestre vê o registro (ficha e detalhe da campanha); outro jogador, não.
 - Teto de 100 entradas; reordenar não é edição; ficha nova nasce sem registro.
 """
@@ -107,6 +108,27 @@ class EditLogTests(TestCase):
             self.char.refresh_from_db()
             self.assertEqual(self.char.data['editLog'], original)
             self.assertEqual(self.char.data['currentHp'], 5)
+
+    def test_dono_nao_apaga_o_registro_com_data_que_nao_e_objeto(self):
+        self.put({**BASE, 'languages': ['Common', 'Elvish']})
+        self.char.refresh_from_db()
+        before = self.char.data
+        # Lista, texto, número ou nulo no lugar da ficha: 400 e nada muda.
+        for bad in ([], [1], '', 'x', 0, None):
+            r = self.put(bad)
+            self.assertEqual(r.status_code, 400, (bad, r.content))
+            self.assertEqual(r.json().get('error'), 'invalid_data')
+            self.char.refresh_from_db()
+            self.assertEqual(self.char.data, before)
+        # Fora da campanha também: sair, zerar e voltar não apagaria o registro.
+        Membership.objects.filter(character=self.char).delete()
+        self.assertEqual(self.put([]).status_code, 400)
+        self.char.refresh_from_db()
+        self.assertEqual(self.char.data['editLog'], before['editLog'])
+        # Criação também só aceita objeto.
+        r = self.c_owner.post('/api/characters', {'name': 'Nova', 'data': [1]}, format='json')
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertFalse(Character.objects.filter(name='Nova').exists())
 
     def test_dono_nao_escreve_registro_fora_de_campanha(self):
         solo = Character.objects.create(owner=self.owner, name='Solo', data=dict(BASE))

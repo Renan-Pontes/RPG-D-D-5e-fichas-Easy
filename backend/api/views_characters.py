@@ -23,6 +23,7 @@ def character_list(request):
         P.purge_expired()  # purga preguiçosa (fichas em vaga de campanha vencida — opção A)
         chars = Character.objects.filter(owner=request.user)
         return Response({'characters': CharacterSerializer(chars, many=True).data})
+    _require_object_data(request)
     s = CharacterSerializer(data=request.data)
     s.is_valid(raise_exception=True)
     # Ficha nova nasce sem registro de edições (o editLog é só do servidor).
@@ -79,10 +80,11 @@ def character_detail(request, pk):
     # PUT: em campanha, owner não pode alterar campos sensíveis.
     # Esses campos só mudam via DM editor (PATCH /dm-edit) ou endpoints
     # dedicados (cast/rest/inventory).
+    _require_object_data(request)
     in_camp = Membership.objects.filter(character=obj).exists()
     new_data = request.data.get('data') or {}
     if in_camp and isinstance(new_data, dict):
-        old = obj.data or {}
+        old = obj.data if isinstance(obj.data, dict) else {}
         rejected = []
         for field in OWNER_LOCKED_IN_CAMPAIGN:
             new_v = new_data.get(field, _SENTINEL)
@@ -112,6 +114,17 @@ def character_detail(request, pk):
 
 
 _SENTINEL = object()
+
+
+def _require_object_data(request):
+    """A ficha (`data`) é sempre um objeto: o app manda assim. Lista, texto, número
+    ou nulo no lugar dela apagaria a ficha inteira e, junto, o registro de edições do
+    mestre (data.editLog), então o servidor recusa antes de tudo."""
+    body = request.data
+    if not isinstance(body, dict):
+        raise ValidationError({'error': 'invalid_body'})
+    if 'data' in body and not isinstance(body.get('data'), dict):
+        raise ValidationError({'error': 'invalid_data'})
 
 # Campos que o dono NÃO pode alterar via PUT regular quando o personagem está
 # atribuído a uma campanha. Esses ou só mudam pelo DM (via /dm-edit) ou por
