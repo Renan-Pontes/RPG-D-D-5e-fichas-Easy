@@ -100,6 +100,22 @@ test('2014 (SRD 5.1) e 2024 (SRD 5.2.1) têm conteúdos diferentes', () => {
   assert.equal(packItems('explorer', '2024').find(c => c.gear === 'rope').weight, 5);
 });
 
+test('ficha antiga sem rulesVersion abre o conteúdo de 2014, como o resto da ficha', () => {
+  const pack = { name: 'Pacote de Sacerdote', qty: 1 };
+  const old = { className: 'cleric', level: 1, equipment: [pack] };
+  const p = packPreview(old, pack, 'pt');
+  assert.equal(p.rules, '2014');
+  assert.ok(p.lines.includes('10 × Vela'), p.lines.join(', '));
+  assert.ok(!p.lines.includes('Água Benta'));
+  const names = openPack(old, pack, 'pt').equipment.map(e => e.name);
+  assert.ok(names.includes('Incensário') && names.includes('Vestes Cerimoniais'));
+  assert.ok(!names.includes('Túnica') && !names.includes('Água Benta'));
+  // Sem regra (ou regra desconhecida) = 2014; 2024 só com '2024'.
+  assert.deepEqual(packItems('priest').map(c => c.gear), packItems('priest', '2014').map(c => c.gear));
+  assert.deepEqual(packItems('priest', 'x').map(c => c.gear), packItems('priest', '2014').map(c => c.gear));
+  assert.equal(packPreview({ rulesVersion: '2024', equipment: [pack] }, pack, 'pt').rules, '2024');
+});
+
 test('abrir (2024): o pacote vira os itens no mesmo lugar, com nome traduzido, peso, sourceId e arte', () => {
   const pack = { name: 'Pacote de Aventureiro', qty: 1, from: 'classPack', pack: 'explorer' };
   const c = char('2024', [{ name: 'Flechas', qty: 20 }, pack, { name: 'Aljava', qty: 1 }]);

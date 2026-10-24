@@ -28,7 +28,9 @@ def _by_rules(table, rules):
 
 
 def rules_of(data):
-    return 2014 if (data or {}).get('rulesVersion') == '2014' else 2024
+    # Como o resto da ficha (rules.py, spells.py, admin.py): 2024 só com
+    # rulesVersion '2024'; ficha antiga, de antes do campo existir, é 2014.
+    return 2024 if (data or {}).get('rulesVersion') == '2024' else 2014
 
 
 def item_key(s):

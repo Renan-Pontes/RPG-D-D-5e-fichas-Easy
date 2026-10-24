@@ -12,7 +12,10 @@
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { PACKS, PACK_GEAR } from '../../data/equipment-packs.js';
 
-const rv = (char) => (char?.rulesVersion === '2014' ? '2014' : '2024');
+// Regra da ficha como no motor da ficha (utils.js is2024, progression/*, servidor):
+// 2024 só com rulesVersion '2024'; ficha antiga, de antes do campo existir, é 2014.
+const ruleOf = (r) => (r === '2024' ? '2024' : '2014');
+const rv = (char) => ruleOf(char?.rulesVersion);
 const pick = (lang, o) => (typeof o === 'string' ? o : ((lang === 'en' ? o?.en : o?.pt) || o?.pt || o?.en || ''));
 
 /** Nome → chave de comparação: minúsculas, sem acento nem apóstrofo, hífen vira espaço. */
@@ -89,19 +92,19 @@ function gearDef(gk, rules) {
   };
 }
 
-/** Itens de dentro do pacote na regra ('2014' | '2024'), com a quantidade de cada um. */
-export function packItems(key, rules = '2024') {
-  const list = PACKS[key]?.contents?.[rules === '2014' ? '2014' : '2024'] || [];
-  return list.map(([gk, qty = 1]) => ({ ...gearDef(gk, rules === '2014' ? '2014' : '2024'), qty }));
+/** Itens de dentro do pacote na regra ('2014' | '2024'; outro valor = 2014), com a quantidade de cada um. */
+export function packItems(key, rulesVersion) {
+  const r = ruleOf(rulesVersion);
+  return (PACKS[key]?.contents?.[r] || []).map(([gk, qty = 1]) => ({ ...gearDef(gk, r), qty }));
 }
 
 /** Para a confirmação: { key, name, rules, lines: ['Mochila', '10 × Tocha'…] } ou null. */
 export function packPreview(char, item, lang = 'pt') {
   const key = packKeyOf(item);
   if (!key) return null;
-  const rules = rv(char);
-  const lines = packItems(key, rules).map(c => (c.qty > 1 ? `${c.qty} × ${pick(lang, c.name)}` : pick(lang, c.name)));
-  return { key, name: pick(lang, PACKS[key].name), rules, lines };
+  const r = rv(char);
+  const lines = packItems(key, r).map(c => (c.qty > 1 ? `${c.qty} × ${pick(lang, c.name)}` : pick(lang, c.name)));
+  return { key, name: pick(lang, PACKS[key].name), rules: r, lines };
 }
 
 /** Quantidade do item (antigo sem qty = 1). */

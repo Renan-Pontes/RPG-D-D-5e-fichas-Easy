@@ -15,7 +15,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
 from api.models import Profile, Character, Campaign, Membership
-from api.packs import open_pack, pack_key, pack_items, pack_name_key, item_key
+from api.packs import open_pack, pack_key, pack_items, pack_name_key, item_key, rules_of
 
 User = get_user_model()
 
@@ -58,6 +58,17 @@ class PackLogicTests(TestCase):
         self.assertEqual((rope14['weight'], rope24['weight']), (10, 5))
         self.assertIn('holyWater', [c['gear'] for c in pack_items('priest', 2024)])
         self.assertNotIn('holyWater', [c['gear'] for c in pack_items('priest', 2014)])
+
+    def test_rules_of_legacy_sheet_is_2014(self):
+        # Ficha antiga sem rulesVersion = 2014, como rules.py/spells.py/admin.py.
+        self.assertEqual(rules_of({'className': 'cleric', 'level': 1}), 2014)
+        self.assertEqual(rules_of(None), 2014)
+        self.assertEqual(rules_of({'rulesVersion': '2014'}), 2014)
+        self.assertEqual(rules_of({'rulesVersion': '2024'}), 2024)
+        out = open_pack([{'name': 'Pacote de Sacerdote', 'qty': 1}], 0, rules_of({}), 'pt')
+        got = [e['name'] for e in out]
+        self.assertIn('Incensário', got)
+        self.assertNotIn('Água Benta', got)
 
     def test_open_2024_in_place(self):
         pack = {'name': 'Pacote de Aventureiro', 'qty': 1, 'from': 'classPack', 'pack': 'explorer'}
