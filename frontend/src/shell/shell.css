@@ -670,6 +670,24 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
   }
 }
 
+/* Avisos (toast da casca, do app e do sino) no celular: acima da barra e à
+   esquerda do dado, sem cruzar nenhum dos dois (plano §2.1). */
+@media (max-width: 767px) {
+  body:has(.shell-bottom-bar) .toast {
+    left: max(12px, env(safe-area-inset-left, 0px));
+    right: calc(12px + var(--shell-fab-size, 50px) + 10px);
+    bottom: calc(var(--fab-safe-bottom, 70px) + env(safe-area-inset-bottom, 0px));
+    transform: none;
+    max-width: none;
+    text-align: center;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    line-height: 1.35;
+    animation: shell-toast-in 0.2s ease;
+  }
+}
+@keyframes shell-toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
 /* ---------------------------------------------------------- campanha encerrada (sob a capa) */
 /* fichas em linhas de 56 px, ⬇ PDF / ⬇ JSON e ↺ Reabrir com 44 px */
 .shell-header-closed .pl-closed-sheets li { min-height: 56px; }
@@ -722,6 +740,7 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
 @media (prefers-reduced-motion: reduce) {
   .shell-live-dot { animation: none; }
   .shell-ob-bar span, .shell-area-tab { transition: none; }
+  body:has(.shell-bottom-bar) .toast { animation: none; }
 }
 
 /* ==========================================================

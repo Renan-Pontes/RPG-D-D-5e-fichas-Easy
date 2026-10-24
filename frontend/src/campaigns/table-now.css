@@ -366,6 +366,17 @@
   max-width: min(360px, calc(100vw - 32px));
   pointer-events: none;
 }
+/* Celular, dentro da casca: acima da barra inferior e à esquerda do dado
+   (--fab-safe-bottom e --shell-fab-size vêm de shell.css), por cima da barra. */
+@media (max-width: 767px) {
+  body:has(.shell-bottom-bar) .nudge-toast-slot {
+    left: max(12px, env(safe-area-inset-left, 0px));
+    right: calc(12px + var(--shell-fab-size, 50px) + 10px);
+    bottom: calc(var(--fab-safe-bottom, 70px) + env(safe-area-inset-bottom, 0px));
+    max-width: none;
+    z-index: 120;
+  }
+}
 .nudge-toast {
   pointer-events: auto;
   display: block;
