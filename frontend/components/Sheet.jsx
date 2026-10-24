@@ -1,6 +1,6 @@
 /* Character sheet view — play/stats/spells/inventory/story/journal tabs */
 import { errorMessage } from '../src/api/errors.js';
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
@@ -21,7 +21,9 @@ import PlayerChecksBanner from '../src/checks/PlayerChecksBanner.jsx';
 import * as FS from '../src/progression/fighting-styles.js';
 import GrimoireHint from '../src/grimoire/GrimoireHint.jsx';
 import { isArmorProficient } from '../src/creator/start-data.js';
-import { trainingLines, featName, featPicksText } from '../src/sheet/sheet-text.js';
+import { trainingLines, featName, featPicksText, backgroundFeature } from '../src/sheet/sheet-text.js';
+import { placeFeatures, featureKey } from '../src/sheet/feature-placement.js';
+import FhFeatures, { FhFeatureItem } from '../src/sheet/FhFeatures.jsx';
 import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '../src/art.js';
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
 import FhTitle from '../src/sheet/FhTitle.jsx';
@@ -84,6 +86,15 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   const cls = SRD.CLASSES.find(c => c.id === char.className);
   const race = Utils.races(char).find(r => r.id === char.race);
   const bg = Utils.backgrounds(char).find(b => b.id === char.background);
+
+  // Traços de classe espalhados pela ficha: cada aba mostra os seus, junto do que tratam
+  // (src/sheet/feature-placement.js). A ficha recalcula a cada tecla (notas, PV…); a chave
+  // só muda com classe, nível, subclasse e escolhas, então o cálculo não se repete à toa.
+  // Ficha com dado estranho (antiga, importada): abre como antes, só sem os traços espalhados.
+  const fkey = featureKey(char);
+  const placed = useMemo(() => {
+    try { return placeFeatures(char); } catch { return placeFeatures({}); }
+  }, [fkey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // === HP actions ===
   // Se em Wild Shape: dano vai pra fera. Quando ela chega a 0, o excedente
@@ -233,23 +244,23 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
           <SheetPlay
             char={char} lang={lang} update={update} applyHp={applyHp}
             ac={ac} speed={speed} profB={profB} initBonus={initBonus}
-            passPerc={passPerc} slots={slots} roll={roll}
+            passPerc={passPerc} slots={slots} roll={roll} placed={placed}
           />
         )}
 
         {tab === 'stats' && (
           <SheetStats
             char={char} lang={lang} update={update}
-            profB={profB} passPerc={passPerc} roll={roll}
+            profB={profB} passPerc={passPerc} roll={roll} placed={placed} cls={cls}
           />
         )}
 
         {tab === 'spells' && (
-          <SheetSpells char={char} lang={lang} update={update} slots={slots} roll={roll} />
+          <SheetSpells char={char} lang={lang} update={update} slots={slots} roll={roll} placed={placed} />
         )}
 
         {tab === 'inv' && (
-          <SheetInventory char={char} lang={lang} update={update} roll={roll} cls={cls} bg={bg} />
+          <SheetInventory char={char} lang={lang} update={update} roll={roll} cls={cls} bg={bg} placed={placed} />
         )}
 
         {tab === 'story' && <SheetStory char={char} lang={lang} update={update} cls={cls} race={race} />}
@@ -944,7 +955,8 @@ const StarryFormSection = ({ char, level, lang, update, maxUses, usesUsed, cheat
 };
 
 // `druid` = ficha vista só como druida (nível e círculo próprios, mesmo em multiclasse).
-const WildShapePanel = ({ char, druid, lang, update }) => {
+// `features`: traços de classe que usam a Forma Selvagem (src/sheet/feature-placement.js).
+const WildShapePanel = ({ char, druid, lang, update, features = [], multi = false }) => {
   const [selected, setSelected] = useState(null);
   const [showBeasts, setShowBeasts] = useState(false);
   const cheat = !!char.cheatMode;
@@ -993,6 +1005,8 @@ const WildShapePanel = ({ char, druid, lang, update }) => {
         </div>
         <span className="text-xs muted fh-gem-note"><b className="fh-gem-count">{Math.max(0, maxUses - usesUsed)}/{maxUses}</b> {lang === 'pt' ? 'usos' : 'uses'} · {currentRules ? (lang === 'pt' ? '+1 por descanso curto' : '+1 per short rest') : (lang === 'pt' ? 'recupera no descanso curto' : 'recover on short rest')}</span>
       </div>
+      <FhFeatures items={features} multi={multi} lang={lang} className="fh-wild-feats"
+        label={lang === 'pt' ? 'Traços da Forma Selvagem' : 'Wild Shape features'} />
       {druid.subclass === 'stars' && (
         <StarryFormSection char={char} level={level} lang={lang} update={update} maxUses={maxUses} usesUsed={usesUsed} cheat={cheat} />
       )}
@@ -1277,7 +1291,7 @@ const SheetNpcs = ({ char, lang, update }) => {
 };
 
 // ===== Play tab =====
-const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, passPerc, slots, roll }) => {
+const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, passPerc, slots, roll, placed }) => {
   // Armadura/escudo sem treino: desvantagem em FOR/DES e sem conjurar magias (2014 e 2024).
   const untrainedArmor = [
     ...(char.armor && !isArmorProficient(char, char.armor) ? [tName('armor', char.armor, lang)] : []),
@@ -1320,8 +1334,15 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
   const resourceCount = computeResources(char).length;
   const attackNotes = atks.reduce((n, a) => n + (a.fs.mastery ? 1 : 0) + (a.proficient ? 0 : 1) + (a.monk ? 1 : 0) + a.fs.notes.length, 0);
   const starry = druid?.subclass === 'stars' && druid.level >= (char.rulesVersion === '2024' ? 3 : 2);
+  // Traços de classe desta aba (src/sheet/feature-placement.js): defesa e movimento embaixo dos
+  // medalhões, os de ataque no painel Ataques e os de recurso embaixo da linha do recurso
+  // (os da Forma Selvagem no painel dela; sem esse painel, no de recursos).
+  const feats = placed.by;
+  const wildFeats = druid ? feats.resources.filter(f => f.anchor === 'wildShape') : [];
+  const resFeats = feats.resources.filter(f => !wildFeats.includes(f));
+  const featsH = (n) => (n ? PLAY_H.traitHead + PLAY_H.trait * n : 0);
   const panels = [
-    { h: PLAY_H.hp, el: (
+    { h: PLAY_H.hp + featsH(feats.defense.length) + featsH(feats.movement.length), el: (
         <section key="hp" className={`hp-tracker fh-panel fh-hp${fxKind === 'heal' ? ` fh-healed-${fxBeat}` : ''}`} data-state={state}>
           <FhTitle>{t('hp', lang)}</FhTitle>
           <div className="fh-hp-row">
@@ -1434,9 +1455,11 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             <FhMedal shape="circle" value={Math.max(0, char.level - (char.hitDiceUsed || 0))} label={t('hitDice', lang)}
               hint={<GrimoireHint id="dados-de-vida" lang={lang} />} sub={`/${Utils.hitDiceLabel(char)}`} />
           </div>
+          <FhFeatures items={feats.defense} multi={placed.multi} lang={lang} place="defense" />
+          <FhFeatures items={feats.movement} multi={placed.multi} lang={lang} place="movement" />
         </section>
     ) },
-    { h: PLAY_H.attacks + PLAY_H.attackRow * (atks.length + 1) + PLAY_H.attackNote * attackNotes, el: (
+    { h: PLAY_H.attacks + PLAY_H.attackRow * (atks.length + 1) + PLAY_H.attackNote * attackNotes + featsH(feats.attacks.length), el: (
         /* Ataques: uma linha por arma e o Golpe Desarmado (src/sheet/FhAttack.jsx). Os botões
             "Ataque +X" e "Dano NdX+Y" fazem as mesmas rolagens (rótulos e valores) de antes. */
         <section key="attacks" className="fh-panel">
@@ -1500,6 +1523,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
               );
             })()}
           </div>
+          <FhFeatures items={feats.attacks} multi={placed.multi} lang={lang} place="attacks" />
         </section>
     ) },
     styleSummaries.length > 0 && {
@@ -1573,21 +1597,23 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
         </section>
       ),
     },
-    { h: resourceCount ? PLAY_H.resources + PLAY_H.resourceRow * resourceCount : 0, el: (
-        /* Recursos de classe com usos (Fúria, Canalizar Divindade…). O componente é
-            compartilhado com o editor do mestre: o painel é só um embrulho daqui
-            (vazio quando não há recursos; o CSS esconde). */
-        <section key="resources" className="fh-panel fh-res"><ResourcesCard char={char} lang={lang} update={update} /></section>
+    { h: (resourceCount || resFeats.length) ? PLAY_H.resources + PLAY_H.resourceRow * resourceCount + PLAY_H.trait * resFeats.length : 0, el: (
+        /* Recursos de classe com usos (Fúria, Canalizar Divindade…), cada um com os traços que o
+            usam embaixo. O componente é compartilhado com o editor do mestre: o painel é só um
+            embrulho daqui (vazio quando não há recursos nem traços; o CSS esconde). */
+        <section key="resources" className="fh-panel fh-res">
+          <ResourcesCard char={char} lang={lang} update={update} features={resFeats} multiclass={placed.multi} />
+        </section>
     ) },
     { h: PLAY_H.conditions, el: (
         /* Conditions / status effects */
         <ConditionsPanel key="conditions" char={char} lang={lang} update={update} />
     ) },
     druid && {
-      h: PLAY_H.wild + (starry ? PLAY_H.starry : 0),
+      h: PLAY_H.wild + (starry ? PLAY_H.starry : 0) + featsH(wildFeats.length),
       el: (
         /* Wild Shape — Druid only */
-        <WildShapePanel key="wild" char={char} druid={druid} lang={lang} update={update} />
+        <WildShapePanel key="wild" char={char} druid={druid} lang={lang} update={update} features={wildFeats} multi={placed.multi} />
       ),
     },
     { h: PLAY_H.abilities, el: (
@@ -1698,7 +1724,32 @@ const AbilitySeals = ({ char, lang, roll, rollLabel }) => (
   </div>
 );
 
-const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
+// Outros traços: traços de classe sem seção própria na ficha, escolhas de classe sem o traço
+// que as concede (src/sheet/feature-placement.js; as de ferramenta e instrumento ficam no
+// painel de proficiências) e a característica do antecedente (2014).
+// Antes era a lista "Características de Classe" da aba Inventário, com todos os traços.
+const OtherFeatures = ({ char, lang, placed, cls }) => {
+  const pt = lang === 'pt';
+  const bgf = backgroundFeature(char, lang);
+  // Sem dados de progressão (classe fora das regras): os traços do nível 1 do SRD.
+  const srd = !placed.items.length && char.rulesVersion !== '2024' ? (cls?.features || []) : [];
+  const items = placed.by.other;
+  if (!items.length && !bgf && !srd.length) return null;
+  const both = (v) => ({ pt: v, en: v });
+  return (
+    <section className="fh-panel">
+      <FhTitle>{pt ? 'Outros traços' : 'Other features'}</FhTitle>
+      <FhFeatures items={items} multi={placed.multi} lang={lang} label={null}>
+        {srd.map((f, i) => (
+          <FhFeatureItem key={`srd-${i}`} item={{ name: f.name, desc: f.desc }} lang={lang} tag={pt ? 'Nv. 1' : 'Lv 1'} />
+        ))}
+        {bgf && <FhFeatureItem item={{ name: both(bgf.name), desc: both(bgf.desc) }} lang={lang} tag={pt ? 'antecedente' : 'background'} />}
+      </FhFeatures>
+    </section>
+  );
+};
+
+const SheetStats = ({ char, lang, update, profB, passPerc, roll, placed, cls }) => {
   const pt = lang === 'pt';
   const profText = (level) => level === 2 ? (pt ? 'Especialista' : 'Expertise') : level ? (pt ? 'Treinado' : 'Proficient') : (pt ? 'Sem treino' : 'Not proficient');
   return (
@@ -1761,7 +1812,10 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
         })}
       </div>
       <FhProfLegend lang={lang} expert />
+      <FhFeatures items={placed.by.skills} multi={placed.multi} lang={lang} place="skills" />
       </section>
+
+      <OtherFeatures char={char} lang={lang} placed={placed} cls={cls} />
 
       {(char.feats || []).length > 0 && (
         <section className="fh-panel">
@@ -1788,6 +1842,7 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
           <strong style={{ color: 'var(--gold-deep)' }}>{tl.label}:</strong> {tl.text}
         </div>
       ))}
+      <FhFeatures items={placed.by.proficiencies} multi={placed.multi} lang={lang} place="proficiencies" className="fh-cf-profs" />
       <div>
         <label>{lang === 'pt' ? 'Outras proficiências' : 'Other proficiencies'}</label>
         <textarea aria-label={lang === 'pt' ? 'Outras proficiências' : 'Other proficiencies'}
