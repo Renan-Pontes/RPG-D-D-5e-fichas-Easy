@@ -635,6 +635,8 @@ const BY_PICK = {
   improvedBlessedStrikes: ['blessedStrikes', { divineStrike: 'attacks', potentSpellcasting: 'cantrips' }],
   elementalFury: ['elementalFury', { primalStrike: 'attacks', potentSpellcasting: 'cantrips' }],
   improvedElementalFury: ['elementalFury', { primalStrike: 'attacks', potentSpellcasting: 'cantrips' }],
+  // Paladino/patrulheiro: Guerreiro Abençoado/Druídico troca o estilo por 2 truques.
+  fightingStyle: ['fightingStyle', { blessedWarrior: 'cantrips', druidicWarrior: 'cantrips' }],
 };
 
 // Escolhas de classe (pools de data/class-options/) → traço que as concede, por classe.

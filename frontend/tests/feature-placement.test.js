@@ -155,6 +155,21 @@ test('Sentido Divino: 2024 embaixo do Canalizar Divindade; 2014 (usos próprios)
   assert.equal(old.items.find(i => i.id === 'divineSense').place, 'other');
 });
 
+test('Estilo de Luta: Guerreiro Abençoado/Druídico (2 truques) junto dos truques; estilo comum nos ataques', () => {
+  const build = (classId, style, pool, cantrips) => placeFeatures({
+    rulesVersion: '2024', className: classId, level: 2, abilities: ABILITIES,
+    classOptions: [{ classId, pool: 'fightingStyle', id: style, level: 2 }, ...cantrips.map(id => ({ classId, pool, id, level: 2 }))],
+  }).items.find(i => i.id === 'fightingStyle');
+  for (const [classId, style, pool] of [['paladin', 'blessedWarrior', 'blessedWarriorCantrip'], ['ranger', 'druidicWarrior', 'druidicWarriorCantrip']]) {
+    const fs = build(classId, style, pool, ['guidance']);
+    assert.equal(fs.place, 'cantrips', classId);
+    assert.equal(placeLabel(fs, 'en'), 'Spells tab · cantrips', classId);
+    assert.equal(fs.picks.length, 2, `${classId}: estilo e truques dentro do traço`);
+    assert.equal(build(classId, 'defense', pool, []).place, 'attacks', classId);
+  }
+  assert.equal(build('fighter', 'defense', 'x', []).place, 'attacks');
+});
+
 test('mesmo id com outro sentido na regra ou na classe', () => {
   assert.equal(placeOf({ id: 'favoredEnemy' }, { classId: 'ranger', rules: '2014' }).place, 'skills');
   const r = placeFeatures({ rulesVersion: '2024', className: 'ranger', level: 1, abilities: ABILITIES });
