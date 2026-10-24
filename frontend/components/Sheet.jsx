@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
+import { subclassLock, guardSealedPatch, sealHint } from '../src/progression/subclass-lock.js';
 import { featSummary } from '../src/progression/FeatPicker.jsx';
 import ResourcesCard from '../src/progression/ResourcesCard.jsx';
 import { computeResources } from '../src/progression/resources.js';
@@ -354,14 +355,19 @@ const SUBCLASS_LABEL = {
 
 // Uma faixa por classe: em multiclasse cada classe escolhe a própria subclasse
 // quando chega ao nível dela (grava em multiclass[i] fora da classe inicial).
+// O que já foi escolhido fica selado (guardSealedPatch: defesa atrás dos botões).
 const SubclassBanner = ({ char, lang, update }) => {
   const multi = Utils.isMulticlass(char);
-  return Utils.classEntries(char).map(e => (
-    <SubclassRow key={e.id} char={Utils.classView(char, e)} lang={lang} showClass={multi}
-      update={(patch) => e.primary
-        ? update(patch)
-        : update({ multiclass: char.multiclass.map(m => m.id === e.id ? { ...m, ...patch } : m) })} />
-  ));
+  return Utils.classEntries(char).map(e => {
+    const view = Utils.classView(char, e);
+    const save = (patch) => {
+      const safe = guardSealedPatch(view, patch);
+      if (!Object.keys(safe).length) return;
+      if (e.primary) update(safe);
+      else update({ multiclass: char.multiclass.map(m => m.id === e.id ? { ...m, ...safe } : m) });
+    };
+    return <SubclassRow key={e.id} char={view} lang={lang} showClass={multi} update={save} />;
+  });
 };
 
 const SubclassRow = ({ char, lang, update, showClass }) => {
@@ -398,23 +404,38 @@ const SubclassRow = ({ char, lang, update, showClass }) => {
     );
   }
 
+  // Escolhida, a subclasse fica selada (src/progression/subclass-lock.js): sem o botão
+  // de trocar, com cadeado e dica; com o modo trapaça (fora de campanha) volta o
+  // "Alterar". O terreno do Círculo da Terra segue a regra: a primeira escolha dele
+  // continua aqui, mesmo com o círculo selado.
+  const lock = subclassLock(char);
+  const needsLand = char.subclass === 'land' && !char.landType && (current.landTypes || []).length > 0;
   return (
     <>
-      <div className="subclass-strip no-print">
+      <div className={`subclass-strip no-print${lock.locked ? ' is-sealed' : ''}`}>
         <div className="subclass-strip-text">
           <span className="eyebrow">{label[lang]}</span>
           <span className="subclass-strip-name">{current.name[lang]}</span>
+          {lock.locked && (
+            <span className="fh-strip-lock"><span aria-hidden="true">🔒</span> {sealHint(lock.reason, lang)}</span>
+          )}
         </div>
         {char.subclass === 'land' && char.landType && (
           <span className="tag fh-strip-tag">
             {(current.landTypes || []).find(l => l.id === char.landType)?.name[lang] || char.landType}
           </span>
         )}
-        <button className="btn btn-sm btn-ghost" onClick={() => setOpen(true)} aria-label={lang === 'pt' ? 'Alterar' : 'Change'}>
-          <Icon name="edit" size={12}/> {lang === 'pt' ? 'Alterar' : 'Change'}
-        </button>
+        {!lock.locked ? (
+          <button className="btn btn-sm btn-ghost" onClick={() => setOpen(true)} aria-label={lang === 'pt' ? 'Alterar' : 'Change'}>
+            <Icon name="edit" size={12}/> {lang === 'pt' ? 'Alterar' : 'Change'}
+          </button>
+        ) : needsLand && (
+          <button className="btn btn-sm btn-primary" onClick={() => setOpen(true)}>
+            <Icon name="sparkle" size={12}/> {lang === 'pt' ? 'Escolher terreno' : 'Choose terrain'}
+          </button>
+        )}
       </div>
-      {open && <SubclassModal char={char} lang={lang} subs={subs} label={label} update={update} onClose={() => setOpen(false)} />}
+      {open && <SubclassModal char={char} lang={lang} subs={subs} label={label} update={update} onClose={() => setOpen(false)} landOnly={lock.locked} />}
     </>
   );
 };
@@ -443,7 +464,9 @@ const SpeciesBanner = ({ char, lang, update }) => {
   );
 };
 
-const SubclassModal = ({ char, lang, subs, label, update, onClose }) => {
+// landOnly: círculo já selado, só falta o terreno (a primeira escolha dele) — a lista
+// de subclasses some e o modal só oferece os terrenos.
+const SubclassModal = ({ char, lang, subs, label, update, onClose, landOnly = false }) => {
   const [pendingId, setPendingId] = useState(char.subclass || '');
   const [pendingLand, setPendingLand] = useState(char.landType || '');
   const selected = subs.find(s => s.id === pendingId);
@@ -451,7 +474,7 @@ const SubclassModal = ({ char, lang, subs, label, update, onClose }) => {
   const canSave = pendingId && (!needsLand || pendingLand);
 
   const save = () => {
-    update({
+    update(landOnly ? { landType: pendingLand } : {
       subclass: pendingId,
       landType: needsLand ? pendingLand : '',
     });
@@ -460,7 +483,12 @@ const SubclassModal = ({ char, lang, subs, label, update, onClose }) => {
 
   return (
     <Modal onClose={onClose} title={label[lang]}>
-      <div className="options-list" style={{ marginBottom: 16 }}>
+      {landOnly && selected && (
+        <div className="text-sm" style={{ marginBottom: 12, color: 'var(--ink-secondary)' }}>
+          {selected.name[lang]}: {lang === 'pt' ? 'escolha o seu terreno sagrado.' : 'choose your sacred terrain.'}
+        </div>
+      )}
+      {!landOnly && <div className="options-list" style={{ marginBottom: 16 }}>
         {subs.map(sc => {
           const isSel = pendingId === sc.id;
           return (
@@ -481,7 +509,7 @@ const SubclassModal = ({ char, lang, subs, label, update, onClose }) => {
             </button>
           );
         })}
-      </div>
+      </div>}
 
       {needsLand && (
         <>

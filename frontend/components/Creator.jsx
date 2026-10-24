@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
+import { subclassLock, landTypeLock, classChangeLock } from '../src/progression/subclass-lock.js';
 import * as Book from '../src/progression/spellbook.js';
 import { t, tName } from '../data/i18n.js';
 import LanguagePicker, { chosenLanguages } from './LanguagePicker.jsx';
@@ -208,12 +209,21 @@ const SUBCLASS_LEVEL = {
   monk: 3, paladin: 3, ranger: 3, rogue: 3, sorcerer: 1, warlock: 1, wizard: 2,
 };
 
-const SubclassSelector = ({ char, set, lang }) => {
+// Edição de ficha existente: a subclasse que a ficha SALVA já tem fica selada
+// (src/progression/subclass-lock.js) — trocar só com o modo trapaça, ligado na ficha.
+// O terreno do Círculo da Terra também; escolher o primeiro continua livre.
+const NO_LOCK = { locked: false, reason: null };
+const SubclassSelector = ({ char, set, lang, saved }) => {
   const classId = char.className;
   if (!classId) return null;
   if ((char.level || 1) < Utils.subclassLevel(char)) return <p className="muted">{lang === 'pt' ? 'Subclasse disponível no nível ' : 'Subclass available at level '}{Utils.subclassLevel(char)}.</p>;
-  const subs = subclassesFor(char, classId);
-  if (!subs.length) return null;
+  const allSubs = subclassesFor(char, classId);
+  if (!allSubs.length) return null;
+  const lock = saved ? subclassLock(saved) : NO_LOCK;
+  const landLock = saved ? landTypeLock(saved) : NO_LOCK;
+  // Selada: só a escolhida aparece (sem trocar); subclasse desconhecida não trava a lista.
+  const sealedSub = lock.locked ? allSubs.filter(s => s.id === char.subclass) : [];
+  const subs = sealedSub.length ? sealedSub : allSubs;
 
   const subclassLabelMap = {
     barbarian: { pt: 'Caminho', en: 'Path' },
@@ -231,17 +241,28 @@ const SubclassSelector = ({ char, set, lang }) => {
   };
   const label = subclassLabelMap[classId] || { pt: 'Subclasse', en: 'Subclass' };
   const selectedSub = subs.find(s => s.id === char.subclass);
+  // Terreno selado: só o escolhido (mesmo um id que a lista atual não conhece).
+  const allLands = selectedSub?.landTypes || [];
+  const lands = !landLock.locked ? allLands
+    : [allLands.find(lt => lt.id === char.landType) || { id: char.landType, name: { pt: char.landType, en: char.landType } }];
 
   return (
     <div style={{ marginTop: 24 }}>
       <h3 style={{ color: 'var(--gold)', marginBottom: 8 }}>{label[lang]}</h3>
       <Filigree />
+      {sealedSub.length > 0 && (
+        <div className="card text-sm" style={{ padding: 12, marginTop: 12 }}>
+          🔒 {lang === 'pt'
+            ? 'Subclasse selada: para trocar, ligue o modo trapaça na ficha.'
+            : 'Subclass sealed: to change it, turn on cheat mode on the sheet.'}
+        </div>
+      )}
       <div className="options-list cols-2" style={{ marginTop: 12 }}>
         {subs.map(sc => {
           const isSel = char.subclass === sc.id;
           return (
             <button key={sc.id} className={`option ${isSel ? 'selected' : ''}`}
-              onClick={() => set({ subclass: sc.id, landType: '', starFormType: '' })}>
+              onClick={() => { if (!sealedSub.length) set({ subclass: sc.id, landType: '', starFormType: '' }); }}>
               <div className="option-title">{sc.name[lang]}</div>
               <div className="option-meta text-xs" style={{ marginTop: 4 }}>{sc.desc[lang]}</div>
               {isSel && sc.features && (
@@ -266,10 +287,10 @@ const SubclassSelector = ({ char, set, lang }) => {
             {lang === 'pt' ? 'Terreno Sagrado' : 'Sacred Terrain'}
           </label>
           <div className="options-list cols-4" style={{ marginTop: 4 }}>
-            {selectedSub.landTypes.map(lt => (
+            {lands.map(lt => (
               <button key={lt.id} className={`option ${char.landType === lt.id ? 'selected' : ''}`}
                 style={{ padding: '8px 12px', textAlign: 'center' }}
-                onClick={() => set({ landType: lt.id })}>
+                onClick={() => { if (!landLock.locked) set({ landType: lt.id }); }}>
                 {lt.name[lang]}
               </button>
             ))}
@@ -281,8 +302,12 @@ const SubclassSelector = ({ char, set, lang }) => {
   );
 };
 
-const StepClass = ({ char, set, lang }) => {
+const StepClass = ({ char, set, lang, saved }) => {
+  // Trocar a classe apagaria a subclasse selada (e daria para escolher outra na volta):
+  // na edição, a classe trava junto com ela.
+  const classLock = saved ? classChangeLock(saved) : NO_LOCK;
   const select = (id) => {
+    if (classLock.locked && id !== char.className) return;
     const cls = SRD.CLASSES.find(c => c.id === id);
     set({
       className: id,
@@ -297,8 +322,15 @@ const StepClass = ({ char, set, lang }) => {
     <div>
       <h2>{t('chooseClass', lang)}</h2>
       <Filigree />
+      {classLock.locked && (
+        <div className="card text-sm" style={{ padding: 12, marginBottom: 12 }}>
+          🔒 {lang === 'pt'
+            ? 'Classe selada junto com a subclasse: para trocar, ligue o modo trapaça na ficha.'
+            : 'Class sealed along with the subclass: to change it, turn on cheat mode on the sheet.'}
+        </div>
+      )}
       <div className="options-list cols-2">
-        {SRD.CLASSES.map(c => {
+        {SRD.CLASSES.filter(c => !classLock.locked || c.id === char.className).map(c => {
           const isSel = char.className === c.id;
           const subLv = char.rulesVersion === '2024' ? 3 : SUBCLASS_LEVEL[c.id];
           return (
@@ -323,7 +355,7 @@ const StepClass = ({ char, set, lang }) => {
           );
         })}
       </div>
-      <SubclassSelector char={char} set={set} lang={lang} />
+      <SubclassSelector char={char} set={set} lang={lang} saved={saved} />
     </div>
   );
 };
@@ -1085,7 +1117,7 @@ const Creator = ({ lang, initial, onSave, onCancel }) => {
         </div>
       </div>
 
-      <Cur char={char} set={set} lang={lang} isNew={isNew} />
+      <Cur char={char} set={set} lang={lang} isNew={isNew} saved={initial} />
 
       <div className="wizard-footer no-print">
         {blockedHint && <div className="wizard-hint" role="status" aria-live="polite">{blockedHint}</div>}
