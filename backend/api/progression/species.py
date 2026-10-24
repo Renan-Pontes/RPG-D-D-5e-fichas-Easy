@@ -5,11 +5,14 @@ frontend/src/progression/species.js, só a parte de magias usada em apply_autos.
 
 A tabela vem de catalog.json['species'] (gerada por scripts/sync-rules.mjs a
 partir de frontend/data/species-2024.js):
-  { '2024': { raceId: { cantrips, spells: { nível: [ids] }, options: { chave: { opção: {…} } }, cantrip: { when, default } } }, '2014': … }
+  { '2024': { raceId: { cantrips, spells: { nível: [ids] }, options: { chave: { opção: {…} } }, cantrip: { when, default } } }, '2014': …,
+    'spellIds2024': { id2014: id2024 } }
+Raça 2014 numa ficha 2024 usa os ids do catálogo 2024 (spellIds2024), como no frontend.
 """
 from .rules import _CATALOG
 
 SPECIES_SPELLS = _CATALOG.get('species', {})
+SPELL_IDS_2024 = SPECIES_SPELLS.get('spellIds2024') or {}
 
 
 def _table(version):
@@ -26,8 +29,8 @@ def _row(character):
     return _table(2014).get(race)
 
 
-def species_spell_ids(character):
-    """Ids de truques + magias já liberadas pelo nível do personagem (sem repetição)."""
+def species_spells(character):
+    """[(id, é_truque)] dos truques + magias já liberadas pelo nível do personagem (sem repetição)."""
     row = _row(character)
     if not row:
         return []
@@ -38,10 +41,10 @@ def species_spell_ids(character):
     out = []
 
     def add(src):
-        out.extend(src.get('cantrips') or [])
+        out.extend((sid, True) for sid in src.get('cantrips') or [])
         for lv, ids in (src.get('spells') or {}).items():
             if level >= int(lv):
-                out.extend(ids)
+                out.extend((sid, False) for sid in ids)
 
     add(row)
     for key, opts in (row.get('options') or {}).items():
@@ -53,10 +56,17 @@ def species_spell_ids(character):
         cid = choices.get('cantrip')
         cid = cid if isinstance(cid, str) and cid else cantrip.get('default')
         if cid:
-            out.append(cid)
+            out.append((cid, True))
+    if character.get('rulesVersion') == '2024':
+        out = [(SPELL_IDS_2024.get(sid, sid), is_cantrip) for sid, is_cantrip in out]
     seen, uniq = set(), []
-    for sid in out:
+    for sid, is_cantrip in out:
         if sid not in seen:
             seen.add(sid)
-            uniq.append(sid)
+            uniq.append((sid, is_cantrip))
     return uniq
+
+
+def species_spell_ids(character):
+    """Ids de truques + magias já liberadas pelo nível do personagem (sem repetição)."""
+    return [sid for sid, _ in species_spells(character)]

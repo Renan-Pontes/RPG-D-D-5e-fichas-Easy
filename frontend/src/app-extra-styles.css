@@ -1070,6 +1070,7 @@ textarea:focus-visible {
 .cr-spell-granted { margin: 6px 0 8px; padding-left: 18px; }
 .spell-tag-warn { color: var(--blood-bright, #c0392b); font-size: 0.75rem; border: 1px solid currentColor; border-radius: 6px; padding: 0 5px; margin-left: 6px; }
 .spell-tag-src { color: var(--ink-secondary); font-size: 0.75rem; border: 1px solid var(--stroke); border-radius: 6px; padding: 0 5px; margin-left: 6px; }
+.spell-tag-uses { color: var(--ink-secondary); font-size: 0.75rem; border: 1px solid var(--stroke); border-radius: 6px; padding: 0 5px; margin-left: 6px; white-space: nowrap; }
 
 /* === Criação: etapas class / classChoices / skills === */
 .cr-class-facts { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 0.92rem; line-height: 1.45; }

@@ -178,7 +178,7 @@ const RACES = [
     traits: [
       { name: { pt: 'Tipo Feérico', en: 'Fey' }, desc: { pt: 'Você é uma criatura feérica.', en: 'You are a fey creature.' } },
       { name: { pt: 'Voo', en: 'Flight' }, desc: { pt: 'Velocidade de voo de 30 pés (não pode voar com armadura média/pesada).', en: 'Flying speed 30 ft (no flying in medium/heavy armor).' } },
-      { name: { pt: 'Magia Feérica', en: 'Fairy Magic' }, desc: { pt: 'Truque Arte Druídica. No 3°, Fogo Feérico 1×/dia. No 5°, Aumentar/Reduzir 1×/dia. Use INT, SAB ou CAR.', en: 'Druidcraft cantrip. At 3rd, Faerie Fire 1/day. At 5th, Enlarge/Reduce 1/day.' } },
+      { name: { pt: 'Magia Feérica', en: 'Fairy Magic' }, desc: { pt: 'Truque Arte Druídica. No 3°, Fogo Feérico 1×/dia. No 5°, Aumentar/Reduzir 1×/dia. Use INT, SAB ou CAR.', en: 'Druidcraft cantrip. At 3rd, Faerie Fire 1/day. At 5th, Enlarge/Reduce 1/day. Use INT, WIS or CHA.' } },
     ],
     languages: ['Common', 'Sylvan'],
   },
@@ -186,7 +186,7 @@ const RACES = [
     id: 'firbolg', size: 'Medium', speed: 30,
     asi: { wis: 2, str: 1 },
     traits: [
-      { name: { pt: 'Magia Firbolg', en: 'Firbolg Magic' }, desc: { pt: 'Detectar Magia e Disfarçar-se 1×/descanso curto. Conjuração: SAB.', en: 'Detect Magic and Disguise Self 1/short rest. WIS.' } },
+      { name: { pt: 'Magia Firbolg', en: 'Firbolg Magic' }, desc: { pt: 'Detectar Magia e Disfarçar-se, 1× por descanso curto cada (sem espaço de magia). Conjuração: SAB.', en: 'Detect Magic and Disguise Self, once per short rest each (no spell slot). WIS.' } },
       { name: { pt: 'Passo Furtivo', en: 'Hidden Step' }, desc: { pt: 'Ação bônus: invisível por 1 turno. 1×/descanso curto.', en: 'Bonus action: invisible for 1 turn. 1/short rest.' } },
       { name: { pt: 'Constituição Poderosa', en: 'Powerful Build' }, desc: { pt: 'Conta como uma categoria maior para carregar/empurrar/arrastar.', en: 'Counts as one size larger for carry/push/drag.' } },
       { name: { pt: 'Fala da Fauna e da Flora', en: 'Speech of Beast and Leaf' }, desc: { pt: 'Pode falar com animais e plantas; vantagem em CAR para influenciá-los.', en: 'Can speak to beasts and plants; advantage on CHA checks to influence them.' } },
@@ -198,7 +198,7 @@ const RACES = [
     asi: { con: 2, dex: 1 },
     traits: [
       { name: { pt: 'Respiração Infinita', en: 'Unending Breath' }, desc: { pt: 'Pode segurar a respiração indefinidamente quando não incapacitado.', en: 'Hold your breath indefinitely while not incapacitated.' } },
-      { name: { pt: 'Misturar-se com o Vento', en: 'Mingle with the Wind' }, desc: { pt: 'Truque Toque Chocante. No 3°, Queda Suave 1×/descanso longo. Conjuração: CON.', en: 'Shocking Grasp cantrip. At 3rd, Feather Fall 1/long rest. CON.' } },
+      { name: { pt: 'Misturar-se com o Vento', en: 'Mingle with the Wind' }, desc: { pt: 'Levitar 1×/descanso longo (sem componente material). Conjuração: CON.', en: 'Levitate 1/long rest (no material component). CON.' } },
     ],
     languages: ['Common', 'Primordial'],
   },
@@ -207,7 +207,7 @@ const RACES = [
     asi: { con: 2, str: 1 },
     traits: [
       { name: { pt: 'Caminhar Terreno', en: 'Earth Walk' }, desc: { pt: 'Pode mover-se em terreno difícil de pedra/terra sem custo extra.', en: 'Move across difficult terrain made of earth/stone without extra cost.' } },
-      { name: { pt: 'Fundir-se com a Pedra', en: 'Merge with Stone' }, desc: { pt: 'Truque Brisa Defensora. No 3°, Passar sem Deixar Rastros 1×/descanso longo. Conjuração: CON.', en: 'Blade Ward cantrip. At 3rd, Pass without Trace 1/long rest. CON.' } },
+      { name: { pt: 'Fundir-se com a Pedra', en: 'Merge with Stone' }, desc: { pt: 'Passar sem Rastros 1×/descanso longo (sem componente material). Conjuração: CON.', en: 'Pass without Trace 1/long rest (no material component). CON.' } },
     ],
     languages: ['Common', 'Primordial'],
   },
@@ -228,7 +228,7 @@ const RACES = [
       { name: { pt: 'Resistência ao Ácido', en: 'Acid Resistance' }, desc: { pt: 'Resistência a dano de ácido.', en: 'Resistance to acid damage.' } },
       { name: { pt: 'Anfíbio', en: 'Amphibious' }, desc: { pt: 'Pode respirar ar e água.', en: 'Breathe both air and water.' } },
       { name: { pt: 'Natação', en: 'Swim Speed' }, desc: { pt: 'Velocidade de natação 30 pés.', en: 'Swim speed 30 ft.' } },
-      { name: { pt: 'Chamado da Onda', en: 'Call to the Wave' }, desc: { pt: 'Truque Modelar Água. No 3°, Criar/Destruir Água 1×/descanso longo. Conjuração: CON.', en: 'Shape Water cantrip. At 3rd, Create or Destroy Water 1/long rest. CON.' } },
+      { name: { pt: 'Chamado da Onda', en: 'Call to the Wave' }, desc: { pt: 'Truque Moldar Água. No 3°, Criar ou Destruir Água 1×/descanso longo. Conjuração: CON.', en: 'Shape Water cantrip. At 3rd, Create or Destroy Water 1/long rest. CON.' } },
     ],
     languages: ['Common', 'Primordial'],
   },
@@ -465,7 +465,7 @@ const RACES = [
     asi: { str: 1, con: 1, cha: 1 },
     traits: [
       { name: { pt: 'Anfíbio', en: 'Amphibious' }, desc: { pt: 'Pode respirar ar e água.', en: 'Breathe both air and water.' } },
-      { name: { pt: 'Controle do Ar e da Água', en: 'Control Air and Water' }, desc: { pt: 'Névoa 1×/longo (1°). No 3°, Lufada de Vento. No 5°, Muralha de Água. Conjuração: CAR.', en: 'Fog Cloud 1/long (lvl 1). At 3rd, Gust of Wind. At 5th, Wall of Water. CHA.' } },
+      { name: { pt: 'Controle do Ar e da Água', en: 'Control Air and Water' }, desc: { pt: 'Névoa no 1°. No 3°, Rajada de Vento. No 5°, Muralha de Água. Cada uma 1×/descanso longo. Conjuração: CAR.', en: 'Fog Cloud at 1st. At 3rd, Gust of Wind. At 5th, Wall of Water. Each 1/long rest. CHA.' } },
       { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
       { name: { pt: 'Emissário do Mar', en: 'Emissary of the Sea' }, desc: { pt: 'Pode comunicar ideias simples com bestas aquáticas.', en: 'Communicate simple ideas with water-breathing beasts.' } },
       { name: { pt: 'Guardião das Profundezas', en: 'Guardians of the Depths' }, desc: { pt: 'Resistência a dano de frio.', en: 'Resistance to cold damage.' } },
@@ -489,7 +489,7 @@ const RACES = [
     asi: { cha: 2, int: 1 },
     traits: [
       { name: { pt: 'Visão no Escuro', en: 'Darkvision' }, desc: { pt: '60 pés.', en: '60 ft.' } },
-      { name: { pt: 'Conjuração Inata', en: 'Innate Spellcasting' }, desc: { pt: 'Truque Spray Venenoso. Amizade Animal (apenas serpentes) à vontade. No 3°, Sugestão 1×/longo. Conjuração: CAR.', en: 'Poison Spray cantrip. Animal Friendship (snakes only) at will. At 3rd, Suggestion 1/long. CHA.' } },
+      { name: { pt: 'Conjuração Inata', en: 'Innate Spellcasting' }, desc: { pt: 'Truque Spray de Veneno. Amizade com Animais (apenas serpentes) à vontade. No 3°, Sugestão 1×/descanso longo. Conjuração: CAR.', en: 'Poison Spray cantrip. Animal Friendship (snakes only) at will. At 3rd, Suggestion 1/long rest. CHA.' } },
       { name: { pt: 'Resistência Mágica', en: 'Magic Resistance' }, desc: { pt: 'Vantagem em salvaguardas contra magias.', en: 'Advantage on saves vs spells.' } },
       { name: { pt: 'Imunidade a Veneno', en: 'Poison Immunity' }, desc: { pt: 'Imune a dano de veneno e à condição envenenado.', en: 'Immune to poison damage and the poisoned condition.' } },
     ],

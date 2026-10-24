@@ -258,6 +258,18 @@ function applyNode(out, node, level, source) {
  * - Classe que voltou ao nível da subclasse recebe de volta a escolha selada que
  *   o "voltar nível" guardou (subclass-lock.js: restoreSealedSubclass).
  */
+/**
+ * A entrada comum de magia (escolhida pela classe) dá lugar à magia de talento ou
+ * espécie de mesmo id? Não para autos (classe/subclasse), nem para o grimório:
+ * `inBook`/`fromOption`, ou magia de 1º círculo ou mais do Mago em ficha antiga
+ * (sem `inBook`, ela conta como grimório: spellbook.js isInBook).
+ * Espelha backend/api/progression/engine.py:_grant_takes_over.
+ */
+export function grantTakesOver(character, entry, cantrip) {
+  if (!entry || entry.auto || entry.inBook || entry.fromOption) return false;
+  return !!cantrip || (entry.cls || character?.className) !== 'wizard';
+}
+
 export function applyAutosToCharacter(character) {
   character = restoreSealedSubclass(migrateClassOptions(character));
   const prog = computeProgression(character);
@@ -279,20 +291,37 @@ export function applyAutosToCharacter(character) {
   }
 
   // Magias e truques concedidos por talentos (Iniciado em Magia, Tocado por Fadas…).
+  // `cantrip` só serve para grantTakesOver (não vai para a ficha).
   const fromFeats = featGrants(character);
-  for (const id of [...fromFeats.cantrips, ...fromFeats.spells]) if (!wanted.some(w => w.id === id)) wanted.push({ id, feat: true });
+  for (const [ids, cantrip] of [[fromFeats.cantrips, true], [fromFeats.spells, false]]) {
+    for (const id of ids) if (!wanted.some(w => w.id === id)) wanted.push({ id, feat: true, cantrip });
+  }
 
   // Truques e magias da espécie/linhagem (as de nível 3 e 5 entram com o nível do personagem).
   const fromSpecies = speciesGrants(character);
-  for (const id of [...fromSpecies.cantrips, ...fromSpecies.spells]) if (!wanted.some(w => w.id === id)) wanted.push({ id, species: true });
+  for (const [ids, cantrip] of [[fromSpecies.cantrips, true], [fromSpecies.spells, false]]) {
+    for (const id of ids) if (!wanted.some(w => w.id === id)) wanted.push({ id, species: true, cantrip });
+  }
+
+  // Magia de talento/espécie que a ficha já tinha escolhido pela classe (Firbolg
+  // druida com Detectar Magia preparada): a entrada comum dá lugar à da espécie,
+  // que libera a vaga da classe e vai para o grupo da espécie com os usos.
+  const grantFor = new Map(wanted.filter(w => w.feat || w.species).map(w => [w.id, w]));
+  const swapped = [];
+  for (const s of norm) {
+    const w = grantFor.get(s.id);
+    if (!w || !grantTakesOver(character, s, w.cantrip)) { swapped.push(s); continue; }
+    const { cantrip, ...tag } = w;
+    if (!norm.some(o => o.id === s.id && o.auto)) swapped.push({ ...tag, prepared: true, auto: true });
+  }
 
   // Remove autos antigos que não fazem mais parte do prog
   const validAutoIds = new Set(wanted.map(w => w.id));
-  const filtered = norm.filter(s => !s.auto || validAutoIds.has(s.id));
+  const filtered = swapped.filter(s => !s.auto || validAutoIds.has(s.id));
 
   // Adiciona autos novos
   const existing = new Set(filtered.map(s => s.id));
-  for (const w of wanted) {
+  for (const { cantrip, ...w } of wanted) {
     if (!existing.has(w.id)) filtered.push({ ...w, prepared: true, auto: true });
   }
 
