@@ -32,3 +32,260 @@
   background: linear-gradient(160deg, var(--gold-soft), var(--bg-card) 60%);
 }
 .ip-desc { max-height: 28vh; overflow-y: auto; margin-top: 4px; }
+
+/* ==========================================================
+   Formulário de item (ItemForm.jsx). Sem `sheet`: o desenho de sempre
+   (os mesmos valores que antes eram estilo em linha).
+   ========================================================== */
+.item-form { display: grid; gap: 10px; }
+.item-form-f1 { flex: 1; }
+.item-form-f2 { flex: 2; }
+.item-form-actions { display: grid; gap: 10px; }
+
+/* Dentro de uma folha da mesa (Dar item › Cadastrar novo, Itens da campanha):
+   o formulário ocupa o corpo todo e Cancelar / Salvar ficam no pé da folha */
+.mesa-sheet-body.is-form { display: flex; flex-direction: column; padding-bottom: 0; }
+.mesa-sheet-body.is-form > .item-form.is-sheet { flex: 1 0 auto; }
+.item-form.is-sheet { display: flex; flex-direction: column; gap: 14px; }
+.item-form.is-sheet .item-form-row { flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+/* quebra em linhas quando não cabe: no celular Nome e Tipo ficam um embaixo do outro
+   e o select Tipo mostra "Equipamento" inteiro */
+.item-form.is-sheet .item-form-row > .item-form-f1 { flex: 1 1 160px; min-width: 0; }
+.item-form.is-sheet .item-form-row > .item-form-f2 { flex: 2 1 220px; min-width: 0; }
+.item-form.is-sheet label:not(.item-form-check) {
+  display: block;
+  margin: 0 0 6px;
+  font-family: var(--display);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.item-form.is-sheet :is(input:not([type="checkbox"]), select, textarea) {
+  width: 100%;
+  min-height: 44px;
+  font-size: 16px;
+  background: rgba(10, 7, 6, 0.55);
+}
+.item-form.is-sheet select { padding-right: 32px; text-overflow: ellipsis; }
+.item-form.is-sheet .muted.small { font-size: 0.85rem; }
+.item-form.is-sheet .item-form-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px solid rgba(224, 181, 94, 0.2);
+  border-radius: 8px;
+  background: rgba(214, 176, 100, 0.04);
+  font-family: var(--body);
+  font-size: 1rem;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--ink-primary);
+  cursor: pointer;
+}
+.item-form.is-sheet .item-form-props { gap: 8px; }
+/* Cancelar / Salvar presos no pé da folha (o corpo da folha não tem padding embaixo) */
+.item-form.is-sheet .item-form-actions {
+  position: sticky;
+  bottom: 0;
+  gap: 8px;
+  margin: 2px calc(-1 * var(--mesa-sheet-pad, 16px)) 0;
+  padding: 12px var(--mesa-sheet-pad, 16px) calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgba(224, 181, 94, 0.22);
+  background: linear-gradient(180deg, #1a120e, #140e0b);
+  box-shadow: 0 -8px 16px rgba(0, 0, 0, 0.35);
+  margin-top: auto;
+}
+.item-form.is-sheet .item-form-error {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(224, 96, 79, 0.5);
+  border-radius: 6px;
+  background: rgba(110, 31, 23, 0.35);
+  color: #ffd9d2 !important;
+  font-size: 0.95rem;
+}
+.item-form.is-sheet .item-form-btns { flex-wrap: nowrap; gap: 8px; }
+.item-form.is-sheet .item-form-btns > .mesa-btn { min-width: 0; }
+
+/* ==========================================================
+   Dar item (ItemPickerModal `sheet`, aberto pelo GiveItemModal)
+   ========================================================== */
+.ip-sheet .mesa-sheet-body { display: flex; flex-direction: column; gap: 12px; }
+.ip-sheet .mesa-sheet-body > * { flex: none; }
+.ip-tabs { position: relative; }
+.ip-tabs .mesa-seg-btn { min-width: 0; padding: 4px 8px; white-space: normal; text-align: center; }
+.ip-label {
+  display: block;
+  margin: 0 0 6px;
+  font-family: var(--display);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.ip-search-row { display: flex; gap: 8px; align-items: stretch; }
+.ip-search-row input { flex: 1 1 auto; min-width: 0; min-height: 44px; font-size: 16px; }
+.ip-filter-btn { flex: none; gap: 6px; }
+.ip-filter-btn.has-filters { border-color: var(--gold); color: var(--fh-gold-hi); background: var(--gold-soft); }
+.ip-filter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 10px 12px; }
+.ip-field { min-width: 0; }
+.ip-field select { width: 100%; min-height: 44px; font-size: 16px; }
+.ip-count { margin: 0; color: var(--ink-secondary); font-size: 0.92rem; }
+.ip-empty { margin: 0; color: var(--ink-secondary); }
+.ip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(224, 181, 94, 0.18);
+  border-radius: 10px;
+  background: rgba(10, 7, 6, 0.35);
+}
+.ip-list:empty { display: none; }
+.ip-list > li + li { border-top: 1px solid rgba(224, 181, 94, 0.12); }
+.ip-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ip-row.is-selected {
+  border-left-color: var(--camp-accent, var(--gold));
+  background: color-mix(in srgb, var(--camp-accent, var(--gold)) 18%, transparent);
+}
+.ip-row:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+@media (hover: hover) {
+  .ip-row:not(.is-selected):hover { background: rgba(214, 176, 100, 0.07); }
+}
+.ip-row-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ip-row-title { color: var(--ink-primary); font-size: 1rem; line-height: 1.3; overflow-wrap: anywhere; }
+.ip-row-type { color: var(--ink-muted); font-size: 0.9rem; }
+.ip-row-sub { color: var(--ink-secondary); font-size: 0.9rem; line-height: 1.35; overflow-wrap: anywhere; }
+.ip-row-check { flex: none; color: var(--gold-bright); font-size: 1.1rem; }
+.ip-more-btn { align-self: center; }
+
+/* rodapé preso: item escolhido + Qtd, depois Cancelar · Dar */
+.ip-foot { display: flex; flex-direction: column; gap: 10px; }
+.ip-foot-detail {
+  display: flex;
+  gap: 12px;
+  max-height: 30vh;
+  max-height: 30dvh;
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid rgba(224, 181, 94, 0.3);
+  border-radius: 8px;
+  background: linear-gradient(160deg, rgba(214, 176, 100, 0.12), rgba(10, 7, 6, 0.4) 60%);
+}
+@media (max-height: 640px) { .ip-foot-detail { max-height: 22vh; max-height: 22dvh; } }
+.ip-foot-detail-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ip-foot-detail-text strong { color: var(--gold-bright); font-family: var(--display); font-weight: 600; }
+.ip-foot-meta { color: var(--ink-secondary); font-size: 0.92rem; }
+.ip-foot-effect { margin: 0; color: var(--gold); font-size: 0.95rem; }
+.ip-foot-desc { margin: 0; color: var(--ink-secondary); font-size: 0.95rem; }
+.ip-foot-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "sel qty" "err err" "btns btns";
+  align-items: center;
+  gap: 8px 10px;
+}
+.ip-foot-sel { grid-area: sel; min-width: 0; }
+.ip-qty { grid-area: qty; }
+.ip-error { grid-area: err; }
+.ip-foot-btns { grid-area: btns; display: flex; gap: 8px; }
+.ip-foot-btns > .mesa-btn { flex: 1 1 0; min-width: 0; }
+.ip-foot-btns > .ip-give { flex-grow: 1.6; }
+@media (min-width: 640px) {
+  .ip-foot-grid { grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "sel qty btns" "err err err"; }
+  .ip-foot-btns > .mesa-btn { flex: 0 0 auto; min-width: 120px; }
+}
+.ip-sel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 4px 8px 4px 4px;
+  border: 1px solid rgba(224, 181, 94, 0.3);
+  border-radius: 8px;
+  background: rgba(214, 176, 100, 0.06);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ip-sel:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.ip-sel-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ip-sel-name { color: var(--ink-primary); font-size: 0.98rem; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 420–639: o resumo divide a linha com a Qtd; a miniatura sai (ela já está na linha
+   marcada da lista) e o nome ganha espaço. < 420: o resumo tem a linha inteira e a
+   Qtd vem embaixo, antes de Cancelar · Dar. */
+@media (min-width: 420px) and (max-width: 639px) { .ip-sel .art-thumb { display: none; } .ip-sel { padding-left: 10px; } }
+@media (max-width: 419px) {
+  .ip-foot-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "sel" "qty" "err" "btns"; }
+}
+.ip-sel-hint { color: var(--gold); font-size: 0.85rem; }
+.ip-sel-empty { margin: 0; color: var(--ink-muted); font-size: 0.95rem; line-height: 1.3; }
+.ip-qty { display: flex; align-items: center; gap: 4px; }
+.ip-qty-label {
+  margin: 0 4px 0 0;
+  font-family: var(--display);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.ip-step {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--gold-deep);
+  border-radius: 6px;
+  background: rgba(214, 176, 100, 0.06);
+  color: var(--gold-bright);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.ip-step:disabled { opacity: 0.4; cursor: not-allowed; }
+.ip-step:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+@media (hover: hover) {
+  .ip-step:not(:disabled):hover { background: var(--gold-soft); border-color: var(--gold); }
+}
+.ip-qty-in.input {
+  width: 52px;
+  min-height: 44px;
+  padding: 6px 2px;
+  text-align: center;
+  font-size: 16px;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.ip-qty-in::-webkit-inner-spin-button, .ip-qty-in::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.ip-error {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(224, 96, 79, 0.5);
+  border-radius: 6px;
+  background: rgba(110, 31, 23, 0.35);
+  color: #ffd9d2;
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
