@@ -4,7 +4,7 @@ import { rulesFor } from './rules.js';
 import { subclassName } from './subclasses.js';
 import { classOptionsData } from './options.js';
 import { pickLabel, pickDesc } from './options-catalog.js';
-import { placeFeatures, placeLabel, featureItemKey } from '../sheet/feature-placement.js';
+import { placeFeatures, placeLabel, featureItemKey, featureKey } from '../sheet/feature-placement.js';
 import SRD from '../../data/srd.js';
 import { tName } from '../../data/i18n.js';
 import Utils from '../../utils.js';
@@ -25,9 +25,11 @@ export default function ProgressionPanel({
 }) {
   const prog = useMemo(() => computeProgression(character), [character]);
   // Onde cada traço aparece na ficha (src/sheet/feature-placement.js): o índice abaixo diz.
+  // Mesma chave da ficha: não refaz a cada tecla.
+  const fkey = featureKey(character);
   const placed = useMemo(() => {
-    try { return new Map(placeFeatures(character, prog).items.map(i => [i.key, i])); } catch { return new Map(); }
-  }, [character, prog]);
+    try { return new Map(placeFeatures(character).items.map(i => [i.key, i])); } catch { return new Map(); }
+  }, [fkey]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!prog.classId) return null;
 
   const atMaxLevel = (character.level || 1) >= 20;
