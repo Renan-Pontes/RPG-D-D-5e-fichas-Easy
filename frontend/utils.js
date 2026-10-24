@@ -188,14 +188,97 @@ const LANGUAGES = [
   { id: "Thieves' Cant", pt: 'Gíria de Ladrão', rare: true, secret: true },
 ];
 
+// Idiomas de outros livros oficiais, fora do SRD: dialetos do Primordial e idiomas de
+// criaturas do Livro dos Monstros, Guia de Volo e Tomo de Mordenkainen; povos de
+// Ravnica, Theros e Eberron. Valem nas duas regras e contam como raros (2024) /
+// exóticos (2014) nos limites. No seletor ficam no grupo recolhido "Outros livros".
+const OTHER_BOOK_LANGUAGES = [
+  { id: 'Aquan', pt: 'Aquan' },
+  { id: 'Auran', pt: 'Auran' },
+  { id: 'Ignan', pt: 'Ignan' },
+  { id: 'Terran', pt: 'Terran' },
+  { id: 'Aarakocra', pt: 'Aarakocra' },
+  { id: 'Bullywug', pt: 'Bullywug' },
+  { id: 'Sphinx', pt: 'Esfinge' },
+  { id: 'Gith', pt: 'Gith' },
+  { id: 'Gnoll', pt: 'Gnoll' },
+  { id: 'Grung', pt: 'Grung' },
+  { id: 'Leonin', pt: 'Leonin' },
+  { id: 'Loxodon', pt: 'Loxodon' },
+  { id: 'Minotaur', pt: 'Minotauro' },
+  { id: 'Modron', pt: 'Modron' },
+  { id: 'Quori', pt: 'Quori' },
+  { id: 'Sahuagin', pt: 'Sahuagin' },
+  { id: 'Slaad', pt: 'Slaad' },
+  { id: 'Thri-kreen', pt: 'Thri-kreen' },
+  { id: 'Troglodyte', pt: 'Troglodita' },
+  { id: 'Vedalken', pt: 'Vedalken' },
+  { id: 'Yeti', pt: 'Yeti' },
+].map(l => ({ ...l, rare: true, otherBook: true }));
+
+// Todos os idiomas com nome conhecido (catálogo das duas regras + outros livros).
+const KNOWN_LANGUAGES = [...LANGUAGES, ...OTHER_BOOK_LANGUAGES];
+
 // Idiomas secretos que a classe concede no nível 1.
 const CLASS_LANGUAGES = { druid: ['Druidic'], rogue: ["Thieves' Cant"] };
 
 const CHOICE_RE = /^\+(\d+)/;
 
+// Rótulo do idioma. Ids fora da lista (idioma personalizado, "Féerico") saem como
+// foram digitados, sem tradução.
 function languageLabel(id, lang) {
   if (lang !== 'pt') return id;
-  return LANGUAGES.find(l => l.id === id)?.pt || id;
+  return KNOWN_LANGUAGES.find(l => l.id === id)?.pt || id;
+}
+
+// Idioma personalizado ("Outro idioma…"): espaços aparados, até CUSTOM_LANGUAGE_MAX letras.
+// Sem "+" no começo: "+2 idiomas" seria lido como marcador ("+1 of choice", CHOICE_RE)
+// e sumiria da ficha sem poder ser removido.
+const CUSTOM_LANGUAGE_MAX = 40;
+function normalizeLanguageName(text) {
+  return String(text ?? '').replace(/\s+/g, ' ').replace(/^[+\s]+/, '').trim().slice(0, CUSTOM_LANGUAGE_MAX).trim();
+}
+
+// Chave para comparar nomes de idioma: sem acento, caixa, espaço ou pontuação
+// ("Féerico" = "feerico"; "Thieves Cant" = "Thieves' Cant").
+function languageKey(text) {
+  return normalizeLanguageName(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+}
+
+// Idioma fora de toda lista conhecida (digitado pela pessoa ou de ficha antiga)?
+const isCustomLanguage = (id) => !KNOWN_LANGUAGES.some(l => l.id === id);
+
+/**
+ * O que a pessoa digitou em "Outro idioma…", contra a ficha e os já escolhidos:
+ *   { id, kind } — kind 'empty' (nada digitado), 'known' (idioma fixo: já fala),
+ *   'chosen' (já está na lista), 'catalog' (nome pt/en de um idioma conhecido: marca
+ *   esse id, ex.: "Élfico" → 'Elvish') ou 'custom' (idioma novo, rótulo como digitado).
+ *   Com allowSecret: false (criador), 'secret' para idioma secreto de classe que a
+ *   ficha não tem (Druídico num guerreiro): a lista esconde esses, o campo também barra.
+ * Nunca duplica: compara por languageKey (sem acento/caixa).
+ */
+function resolveLanguageInput(char, text, chosen = [], { allowSecret = true } = {}) {
+  const name = normalizeLanguageName(text);
+  const key = languageKey(name);
+  if (!key) return { id: '', kind: 'empty' };
+  const hit = KNOWN_LANGUAGES.find(l => languageKey(l.id) === key || languageKey(l.pt) === key);
+  const id = hit ? hit.id : name;
+  const same = (x) => languageKey(x) === languageKey(id);
+  const fixed = fixedLanguages(char).find(same);
+  if (fixed) return { id: fixed, kind: 'known' };
+  const dup = (chosen || []).find(same);
+  if (dup) return { id: dup, kind: 'chosen' };
+  if (hit?.secret && !allowSecret) return { id, kind: 'secret' };
+  return { id, kind: hit ? 'catalog' : 'custom' };
+}
+
+// Lista de idiomas a salvar quando a ficha troca só os escolhidos: o que já estava
+// salvo de fixo ou marcador ("+1 of choice") fica onde estava; os escolhidos vêm de
+// `chosen`. Assim o registro do mestre (data.editLog) só mostra o que a pessoa mudou.
+function withChosenLanguages(char, chosen) {
+  const fixed = fixedLanguages(char);
+  const kept = (char.languages || []).filter(l => typeof l === 'string' && (fixed.includes(l) || CHOICE_RE.test(l)));
+  return [...new Set([...kept, ...(chosen || [])])];
 }
 
 // Concessões da progressão (escolhas de classe e subclasses): perícias, expertise,
@@ -225,9 +308,10 @@ function languageCatalog(char) {
   return LANGUAGES.filter(l => !l.only2024).map(l => ('rare2014' in l ? { ...l, rare: l.rare2014 } : l));
 }
 
-// O id é raro (2024) / exótico (2014)? Ids fora do catálogo (fichas antigas) contam como comuns.
+// O id é raro (2024) / exótico (2014)? Os de outros livros contam como raros; ids fora
+// de toda lista (personalizados, fichas antigas) contam como comuns.
 function isRareLanguage(char, id) {
-  return !!languageCatalog(char).find(l => l.id === id)?.rare;
+  return !!(languageCatalog(char).find(l => l.id === id) || OTHER_BOOK_LANGUAGES.find(l => l.id === id))?.rare;
 }
 
 // Idiomas fixos (espécie + classe + talentos), sem os marcadores "+N of choice".
@@ -880,6 +964,8 @@ return {
   applyRaceBonus,
   LANGUAGES, CLASS_LANGUAGES, languageLabel, fixedLanguages, languageChoiceCount, languageChoiceSources, languagesFor,
   languageCatalog, isRareLanguage, rareLanguageAllowance, chosenLanguageIds, languageIssues, trimLanguages,
+  OTHER_BOOK_LANGUAGES, CUSTOM_LANGUAGE_MAX, normalizeLanguageName, languageKey, isCustomLanguage,
+  resolveLanguageInput, withChosenLanguages,
   backgroundSkills, hasSkillProf, hasExpertise, hasSaveProf, classGrants,
   encodeChar, decodeChar,
   rollDie, rollDice,

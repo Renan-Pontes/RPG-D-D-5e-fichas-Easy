@@ -428,8 +428,19 @@ export function sheetValuesToChar(values) {
 
   const profText = get('ProficienciesLang');
   if (profText) {
-    const langs = Utils.LANGUAGES.filter(l => [l.id, l.pt].some(n => new RegExp(`\\b${norm(n)}\\b`).test(norm(profText))));
-    char.languages = langs.map(l => l.id);
+    // Idiomas conhecidos (catálogo e "Outros livros") pelo nome pt/en; o que sobrar na
+    // linha "Idiomas:"/"Languages:" entra como personalizado ("Féerico"), sem repetir.
+    const known = [...Utils.LANGUAGES, ...Utils.OTHER_BOOK_LANGUAGES];
+    const names = (text, l) => [l.id, l.pt].some(n => new RegExp(`\\b${norm(n)}\\b`).test(norm(text)));
+    const langs = known.filter(l => names(profText, l)).map(l => l.id);
+    const line = profText.split('\n').find(s => /^\s*(idiomas|languages)\s*:/i.test(s));
+    for (const item of line ? line.slice(line.indexOf(':') + 1).split(/[,;]/) : []) {
+      const name = Utils.normalizeLanguageName(item);
+      // Pula o vazio, o que cita um idioma conhecido ("Comum e Élfico") e "à escolha".
+      if (!Utils.languageKey(name) || known.some(l => names(item, l)) || /^\d|escolh|choice|choose/i.test(name)) continue;
+      if (!langs.some(id => Utils.languageKey(id) === Utils.languageKey(name))) langs.push(name);
+    }
+    char.languages = langs;
     char.otherProfs = profText;
   }
 
