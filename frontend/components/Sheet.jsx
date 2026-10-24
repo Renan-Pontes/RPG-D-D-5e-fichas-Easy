@@ -1646,7 +1646,7 @@ const LanguagesField = ({ char, lang, update }) => {
     <div style={{ marginBottom: 12 }}>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <label style={{ margin: 0 }}>{t('languages', lang)}</label>
-        <button className="btn btn-sm btn-ghost" onClick={edit}>
+        <button className="btn btn-sm btn-ghost lang-edit-btn" onClick={edit}>
           <Icon name="edit" size={12}/> {pt ? 'Editar idiomas' : 'Edit languages'}
         </button>
       </div>

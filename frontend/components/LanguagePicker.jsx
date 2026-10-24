@@ -53,6 +53,7 @@ export default function LanguagePicker({ char, lang, chosen, onChange, limit, fr
   const custom = chosen.filter(id => !catalog.some(l => l.id === id) && !others.some(l => l.id === id));
   const blockedBy = (id) => (left === 0 ? 'limit' : (isRare(id) && rareChosen >= rareAllow ? 'rare' : null));
   const toggle = (id) => {
+    setMsg(null); // o aviso do último digitado não vale mais
     if (chosen.includes(id)) onChange(chosen.filter(l => l !== id));
     else if (!blockedBy(id)) onChange([...chosen, id]);
   };
@@ -191,11 +192,11 @@ export default function LanguagePicker({ char, lang, chosen, onChange, limit, fr
             <label className="lang-group-title" htmlFor={inputId}>{pt ? 'Outro idioma' : 'Other language'}</label>
             {custom.length > 0 && <div className="lang-grid" style={{ marginBottom: 8 }}>{custom.map(id => option({ id }, { removable: true }))}</div>}
             <div className="lang-custom-row">
-              <input id={inputId} type="text" value={text} maxLength={Utils.CUSTOM_LANGUAGE_MAX} autoComplete="off"
-                placeholder={pt ? 'Outro idioma… (ex.: Féerico)' : 'Other language… (e.g. Fey)'}
+              <input id={inputId} type="text" value={text} maxLength={Utils.CUSTOM_LANGUAGE_MAX} autoComplete="off" disabled={left === 0}
+                placeholder={pt ? 'Ex.: Féerico' : 'E.g. Fey'}
                 onChange={e => { setText(e.target.value); setMsg(null); }}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTyped(); } }} />
-              <button type="button" className="btn btn-ghost" onClick={addTyped} disabled={!text.trim()}>
+              <button type="button" className="btn btn-ghost" onClick={addTyped} disabled={!text.trim() || left === 0}>
                 <Icon name="plus" size={14}/> {pt ? 'Adicionar' : 'Add'}
               </button>
             </div>
