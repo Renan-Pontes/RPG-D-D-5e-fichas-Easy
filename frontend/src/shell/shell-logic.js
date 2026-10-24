@@ -31,16 +31,21 @@ export const SUB_LABELS = {
   checks: ['Testes', 'Checks'],
   screen: ['Telão', 'TV screen'],
   players: ['Jogadores', 'Players'],
+  requests: ['Pedidos', 'Requests'],
   chronicle: ['Crônica', 'Chronicle'],
 };
 
-/** Rótulo curto (celular estreito): cabe numa fileira só. */
+/**
+ * Rótulo curto (celular ≤ 480 px): o segmentado mostra todas as subvistas numa
+ * fileira só, com colunas iguais (4 em 320 px). O longo fica para o leitor de tela.
+ */
 export const SUB_SHORT = {
-  timeline: ['Linha do tempo', 'Timeline'],
+  timeline: ['Tempo', 'Timeline'],
   documents: ['Docs', 'Docs'],
   next: ['Próxima', 'Next'],
   items: ['Itens', 'Items'],
   screen: ['Telão', 'TV'],
+  requests: ['Pedidos', 'Requests'],
 };
 
 /** Ícone de cada subvista — o mesmo em todas as áreas. */
@@ -48,7 +53,7 @@ export const SUB_ICONS = {
   atlas: '📚', map: '🗺', timeline: '⌛', documents: '📄',
   next: '📋', adventures: '🧭', items: '💎',
   scene: '🎭', combat: '⚔', checks: '🎲', screen: '📺',
-  players: '🛡', chronicle: '📜',
+  players: '🛡', requests: '📨', chronicle: '📜',
 };
 
 export const subShortLabel = (sub, lang) => {

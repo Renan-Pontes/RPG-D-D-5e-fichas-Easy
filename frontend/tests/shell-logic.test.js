@@ -5,7 +5,7 @@ import {
   DM_AREAS, PLAYER_AREAS, normalizeArea, legacyTabToArea, initialArea,
   loadRememberedArea, saveRememberedArea, onboardingStatus, onboardingVisible,
   planHasContent, fold, matchScore, searchItems, nextSessionNumber, defaultCoverArt,
-  COVER_ART, isHexColor, subLabel, TONES,
+  COVER_ART, isHexColor, subLabel, subShortLabel, SUB_ICONS, TONES,
 } from '../src/shell/shell-logic.js';
 
 const memStorage = () => {
@@ -132,4 +132,30 @@ test('sessão, cores, capa padrão, rótulos', () => {
   assert.equal(subLabel('next', 'pt'), 'Próxima sessão');
   assert.equal(subLabel('next', 'en'), 'Next session');
   assert.deepEqual(TONES.map(x => x.id), ['heroic', 'dark', 'mystery', 'comic', 'epic']);
+});
+
+test('segmentado: toda subvista tem rótulo, rótulo curto e ícone', () => {
+  const subs = [...new Set([...DM_AREAS, ...PLAYER_AREAS].flatMap(a => a.subs))];
+  for (const s of subs) {
+    for (const lang of ['pt', 'en']) {
+      assert.notEqual(subLabel(s, lang), s, `${s} sem rótulo (${lang})`);
+      assert.ok(subShortLabel(s, lang).length <= 10, `${s}: rótulo curto longo demais (${lang})`);
+    }
+    assert.ok(SUB_ICONS[s], `${s} sem ícone`);
+  }
+});
+
+test('rótulos curtos do celular (plano §4.2) e o longo continua', () => {
+  assert.equal(subShortLabel('timeline', 'pt'), 'Tempo');
+  assert.equal(subLabel('timeline', 'pt'), 'Linha do tempo');
+  assert.equal(subShortLabel('documents', 'pt'), 'Docs');
+  assert.equal(subShortLabel('next', 'pt'), 'Próxima');
+  assert.equal(subShortLabel('items', 'pt'), 'Itens');
+  assert.equal(subLabel('items', 'pt'), 'Itens da campanha');
+  assert.equal(subShortLabel('screen', 'pt'), 'Telão');
+  assert.equal(subShortLabel('screen', 'en'), 'TV');
+  assert.equal(subShortLabel('requests', 'pt'), 'Pedidos');
+  // sem curto próprio, o curto é o longo
+  assert.equal(subShortLabel('scene', 'pt'), 'Cena');
+  assert.equal(subShortLabel('players', 'en'), 'Players');
 });
