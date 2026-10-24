@@ -1,5 +1,5 @@
 import { errorMessage } from '../api/errors.js';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import SRD from '../../data/srd.js';
 import { api } from '../api/client.js';
 import ResourcesCard from '../progression/ResourcesCard.jsx';
@@ -56,6 +56,11 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved, i
   const [error, setError] = useState('');
   const logEntries = editLogEntries(character.data);
   const [section, setSection] = useState(() => (initialSection === 'log' && !logEntries.length ? 'vitals' : initialSection || 'vitals'));
+  // A barra de abas rola de lado no celular: a aba aberta (ex.: Registro, a última) fica à vista.
+  const navRef = useRef(null);
+  useEffect(() => {
+    navRef.current?.querySelector('.dm-editor-tab.active')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }, [section]);
 
   const patch = useCallback((p) => setData(d => ({ ...d, ...p })), []);
   const patchAbility = (k, v) => setData(d => ({ ...d, abilities: { ...(d.abilities || {}), [k]: parseInt(v) || 0 } }));
@@ -113,7 +118,7 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved, i
           <button className="btn-icon" onClick={onClose} aria-label={t(lang, 'Fechar', 'Close')}>×</button>
         </div>
 
-        <nav className="dm-editor-nav" role="tablist">
+        <nav className="dm-editor-nav" role="tablist" ref={navRef}>
           {[
             { id: 'vitals', label: t(lang, 'Vida e estado', 'Vitals & Status') },
             { id: 'abilities', label: t(lang, 'Atributos', 'Abilities') },

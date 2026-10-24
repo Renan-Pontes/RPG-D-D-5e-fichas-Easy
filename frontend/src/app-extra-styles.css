@@ -482,6 +482,8 @@
   flex-wrap: nowrap;
 }
 .dm-editor-tab {
+  /* não encolhe: com 6+ abas a barra rola de lado (antes os rótulos se sobrepunham no celular) */
+  flex: none;
   background: none;
   border: none;
   color: var(--ink-secondary);
