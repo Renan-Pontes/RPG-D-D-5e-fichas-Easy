@@ -1,27 +1,16 @@
 // Palco WebGL dos dados 3D (carregado sob demanda — chunk separado com three).
 //
 // play(dice) recebe valores JÁ DECIDIDOS e anima cada dado caindo e girando
-// até parar exatamente na face correta (ver orientationFor).
+// até parar exatamente na face correta (ver orientationFor). Os dados rolam
+// sempre com a cor do tipo; o tom de crítico/falha só entra depois que param
+// (cores em dice-tones.js).
 import {
   WebGLRenderer, Scene, PerspectiveCamera, AmbientLight, DirectionalLight,
   Mesh, MeshStandardMaterial, CanvasTexture, SRGBColorSpace, Quaternion,
   Vector3, EdgesGeometry, LineSegments, LineBasicMaterial, Group, Color,
 } from 'three';
 import { buildDie, orientationFor } from './dice-geometry.js';
-
-const PALETTE = {
-  d4:   { body: '#6b5a30', ink: '#f3e6cb', edge: '#edcb7a' },
-  d6:   { body: '#2d2319', ink: '#edcb7a', edge: '#d6b064' },
-  d8:   { body: '#262d52', ink: '#f3e6cb', edge: '#9fb0f0' },
-  d10:  { body: '#34401f', ink: '#f3e6cb', edge: '#9cc065' },
-  d100: { body: '#34401f', ink: '#edcb7a', edge: '#9cc065' },
-  d12:  { body: '#5a3d12', ink: '#f3e6cb', edge: '#e3a445' },
-  d20:  { body: '#5c1a10', ink: '#f3e6cb', edge: '#e0604f' },
-};
-const TONES = {
-  crit:   { body: '#a8894a', ink: '#1a120a', edge: '#edcb7a', glow: '#6b5a30' },
-  fumble: { body: '#3a0f09', ink: '#e0604f', edge: '#e0604f', glow: '#5c1a10' },
-};
+import { dieColors, TONES, TONE_REVEAL_MS } from './dice-tones.js';
 
 const geoCache = new Map();
 function dieModel(kind) {
@@ -29,30 +18,39 @@ function dieModel(kind) {
   return geoCache.get(kind);
 }
 
+// Textura de uma face; paint(colors) redesenha (a revelação do tom troca as cores).
 function faceTexture(label, colors, kind) {
   const size = 128;
   const c = document.createElement('canvas');
   c.width = c.height = size;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = colors.body;
-  ctx.fillRect(0, 0, size, size);
   // Tamanho do número conforme o formato da face (triângulo tem menos área útil).
   const scale = { d4: 0.34, d6: 0.5, d8: 0.36, d10: 0.34, d100: 0.3, d12: 0.4, d20: 0.3 }[kind] || 0.34;
   const long = label.length > 1;
-  ctx.font = `700 ${Math.round(size * scale * (long ? 0.85 : 1))}px Cinzel, "EB Garamond", Georgia, serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = colors.ink;
   const cy = kind === 'd4' ? size * 0.56 : kind === 'd10' || kind === 'd100' ? size * 0.44 : size * 0.52;
-  ctx.fillText(label, size / 2, cy);
-  if (label === '6' || label === '9') {
-    ctx.fillRect(size * 0.4, cy + size * scale * 0.42, size * 0.2, Math.max(2, size * 0.03));
-  }
   const tex = new CanvasTexture(c);
+  const paint = (col) => {
+    ctx.fillStyle = col.body;
+    ctx.fillRect(0, 0, size, size);
+    ctx.font = `700 ${Math.round(size * scale * (long ? 0.85 : 1))}px Cinzel, "EB Garamond", Georgia, serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = col.ink;
+    ctx.fillText(label, size / 2, cy);
+    if (label === '6' || label === '9') {
+      ctx.fillRect(size * 0.4, cy + size * scale * 0.42, size * 0.2, Math.max(2, size * 0.03));
+    }
+    tex.needsUpdate = true;
+  };
+  paint(colors);
   tex.colorSpace = SRGBColorSpace;
   tex.anisotropy = 4;
-  return tex;
+  return { tex, paint };
 }
+
+const reducedMotion = () => {
+  try { return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
+};
 
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 // Quique: 3 batidas decrescentes (altura em Z na direção da câmera).
@@ -75,6 +73,9 @@ export function webglAvailable() {
  * Cria o palco num <canvas>. Retorna { play, dispose }.
  * play(dice, { duration, tone }) → Promise que resolve quando todos param.
  *   dice: [{ kind: 'd20'|'d10'|'d100'..., label: '17', dimmed?: bool }]
+ *   tone ('crit' | 'fumble'): os dados rolam na cor normal e, só depois de pararem,
+ *   passam para o tom numa transição curta (TONE_REVEAL_MS; direto com movimento
+ *   reduzido). A Promise resolve na parada, sem esperar a transição.
  */
 export function createDiceStage(canvas) {
   const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
@@ -145,13 +146,15 @@ export function createDiceStage(canvas) {
     const slots = layout(dice.length);
     const items = dice.map((d, i) => {
       const model = dieModel(d.kind);
-      const colors = { ...(PALETTE[d.kind] || PALETTE.d20), ...(tone && !d.dimmed ? TONES[tone] : {}) };
+      const colors = dieColors(d.kind); // sempre a cor normal enquanto rola
+      const painters = [];
       const mats = model.faces.map(f => {
-        const map = faceTexture(f.label, colors, d.kind);
+        const { tex: map, paint } = faceTexture(f.label, colors, d.kind);
+        painters.push(paint);
         const m = new MeshStandardMaterial({
           map, roughness: 0.45, metalness: 0.15, flatShading: true,
           transparent: !!d.dimmed, opacity: d.dimmed ? 0.35 : 1,
-          emissive: new Color(colors.glow || '#000000'), emissiveIntensity: colors.glow ? 0.6 : 0,
+          emissive: new Color(colors.glow), emissiveIntensity: colors.glowIntensity,
         });
         owned.push(map, m);
         return m;
@@ -170,8 +173,34 @@ export function createDiceStage(canvas) {
       const from = new Vector3((Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 3), -4 - Math.random() * 3, 0);
       const delay = i * 90;
       group.add(mesh);
-      return { mesh, final, axis, spins, from, to: slots[i], delay };
+      return { mesh, mats, edges, painters, kind: d.kind, dimmed: !!d.dimmed, final, axis, spins, from, to: slots[i], delay };
     });
+
+    // Revelação do tom, com os dados já parados: cores do normal para o tom e um
+    // leve pulso de tamanho. Dados esmaecidos (descartados) ficam como estão.
+    const paintTone = (k) => {
+      for (const it of items) {
+        if (it.dimmed) continue;
+        const col = dieColors(it.kind, tone, k);
+        for (const paint of it.painters) paint(col);
+        for (const m of it.mats) { m.emissive.set(col.glow); m.emissiveIntensity = col.glowIntensity; }
+        it.edges.material.color.set(col.edge);
+        it.mesh.scale.setScalar(1 + 0.07 * Math.sin(Math.PI * k));
+      }
+      renderer.render(scene, camera);
+    };
+    const reveal = () => {
+      if (!TONES[tone] || disposed) return;
+      if (reducedMotion()) { paintTone(1); return; }
+      const r0 = performance.now();
+      const step = (now) => {
+        if (disposed) return;
+        const k = Math.min(1, (now - r0) / TONE_REVEAL_MS);
+        paintTone(easeOutCubic(k));
+        if (k < 1) raf = requestAnimationFrame(step);
+      };
+      raf = requestAnimationFrame(step);
+    };
 
     return new Promise((resolve) => {
       const t0 = performance.now();
@@ -189,7 +218,7 @@ export function createDiceStage(canvas) {
           it.mesh.quaternion.copy(it.final).premultiply(tmp);
         }
         renderer.render(scene, camera);
-        if (done) { resolve(); return; }
+        if (done) { resolve(); reveal(); return; }
         raf = requestAnimationFrame(step);
       };
       raf = requestAnimationFrame(step);

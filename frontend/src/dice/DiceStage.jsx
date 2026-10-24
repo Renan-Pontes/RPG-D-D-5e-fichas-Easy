@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import DieShape from './DieShape.jsx';
 import { physicalDice, resolveAnimMode } from './dice-math.js';
+import { stageTone } from './dice-tones.js';
 import { getAnimPref, prefersReducedMotion } from './dice-prefs.js';
 
 let webglCache = null;
@@ -32,7 +33,9 @@ const MAX_3D_DICE = 12;
 
 /**
  * groups: [{ die: 20, rolls: [{ value, kept }] | number[] }]
- * tone: 'crit' | 'fumble' | null
+ * tone: 'crit' | 'fumble' | null — só aparece DEPOIS que os dados param (rolar já
+ *   dourado/vermelho entregaria o resultado); o 3D faz a passagem no próprio palco,
+ *   o 2D recebe o tom ao assentar (transição em styles.css: .die-shape.tone-*).
  * onSettled(): chamado quando os dados param (ou imediatamente no modo estático)
  */
 export default function DiceStage({ groups, tone = null, onSettled, mode: forced, size2d = 88, className = '' }) {
@@ -44,10 +47,13 @@ export default function DiceStage({ groups, tone = null, onSettled, mode: forced
     return m === '3d' && physical.length > MAX_3D_DICE ? '2d' : m;
   });
   const [rolling2d, setRolling2d] = useState(mode === '2d');
+  const [settled, setSettled] = useState(false);
+  const shownTone = stageTone(tone, settled);
 
   const settle = () => {
     if (settledRef.current) return;
     settledRef.current = true;
+    setSettled(true);
     onSettled?.();
   };
 
@@ -70,7 +76,8 @@ export default function DiceStage({ groups, tone = null, onSettled, mode: forced
       .then(() => { if (!cancelled) settle(); })
       .catch((err) => {
         console.warn('[dice3d] fallback 2D:', err?.message || err);
-        if (!cancelled) setMode('2d');
+        // Já entra rolando: sem um quadro com o valor (e o tom) antes da animação.
+        if (!cancelled) { setRolling2d(true); setMode('2d'); }
       });
     return () => { cancelled = true; stage?.dispose(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -78,21 +85,21 @@ export default function DiceStage({ groups, tone = null, onSettled, mode: forced
 
   if (mode === '3d') {
     return (
-      <div className={`dice-stage dice-stage-3d ${className}`} data-dice-mode="3d">
+      <div className={`dice-stage dice-stage-3d ${className}`} data-dice-mode="3d" data-dice-tone={shownTone || undefined}>
         <canvas ref={canvasRef} className="dice-stage-canvas" aria-hidden="true" />
       </div>
     );
   }
   let seed = 0;
   return (
-    <div className={`dice-stage dice-stage-2d ${className}`} data-dice-mode={mode}>
+    <div className={`dice-stage dice-stage-2d ${className}`} data-dice-mode={mode} data-dice-tone={shownTone || undefined}>
       {(groups || []).flatMap((g, gi) => (g.rolls || []).map((r, i) => {
         const v = typeof r === 'object' && r ? r.value : r;
         const kept = !(typeof r === 'object' && r && r.kept === false);
         seed += 1;
         return (
           <DieShape key={`${gi}-${i}`} die={g.die} value={rolling2d ? '' : v} rolling={rolling2d}
-            size={size2d} seed={seed} dimmed={!kept} />
+            size={size2d} seed={seed} dimmed={!kept} tone={kept && !rolling2d ? shownTone : null} />
         );
       }))}
     </div>
