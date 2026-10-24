@@ -85,6 +85,19 @@ class PackLogicTests(TestCase):
         torch = next(e for e in out[3:] if e['name'] == 'Tocha')
         self.assertEqual((torch['qty'], torch['equipped']), (10, False))
 
+    def test_keeps_own_name_and_description(self):
+        desc = 'Presente do mestre: tem um mapa costurado no forro.'
+        gift = {'id': 'g', 'name': 'Pacote de Aventureiro', 'qty': 1, 'notes': 'da campanha', 'description': {'pt': desc, 'en': 'A gift.'}}
+        self.assertEqual(open_pack([gift], 0, 2024, 'pt')[0]['notes'], f'da campanha · {desc}')
+        self.assertEqual(open_pack([gift], 0, 2024, 'en')[0]['notes'], 'da campanha · A gift.')
+        named = {'sourceId': 'explorersPack', 'name': 'Pacote do Velho Bran', 'type': 'gear', 'description': 'Cheira a fumo.'}
+        self.assertEqual(open_pack([named], 0, 2024, 'pt')[0]['notes'], 'Pacote do Velho Bran: Cheira a fumo.')
+        only_name = {'pack': 'scholar', 'name': 'Bolsa da Academia', 'qty': 1}
+        self.assertEqual(open_pack([only_name], 0, 2024, 'pt')[0]['notes'], 'Veio de: Bolsa da Academia')
+        self.assertEqual(open_pack([only_name], 0, 2024, 'en')[0]['notes'], 'From: Bolsa da Academia')
+        for name in ('Pacote de Aventureiro', 'Mochila do Explorador', "Explorer's Pack", 'Kit de Explorador ×1'):
+            self.assertEqual(open_pack([{'name': name, 'pack': 'explorer'}], 0, 2024, 'pt')[0]['notes'], '', name)
+
     def test_open_2024_in_place(self):
         pack = {'name': 'Pacote de Aventureiro', 'qty': 1, 'from': 'classPack', 'pack': 'explorer'}
         out = open_pack([{'name': 'Flechas', 'qty': 20}, pack, {'name': 'Aljava', 'qty': 1}], 1, 2024, 'pt')

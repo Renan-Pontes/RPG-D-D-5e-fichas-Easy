@@ -215,6 +215,34 @@ test('não soma em item quebrado nem em item equipado (o do pacote entra novo)',
   assert.deepEqual([torch.qty, torch.equipped], [10, false]);
 });
 
+test('nome próprio e descrição do pacote vão para as notas do primeiro item', () => {
+  const desc = 'Presente do mestre: tem um mapa costurado no forro.';
+  const gift = { id: 'g', name: 'Pacote de Aventureiro', qty: 1, notes: 'da campanha', description: { pt: desc, en: 'A gift.' } };
+  const r1 = openPack(char('2024', [gift]), gift, 'pt').equipment;
+  assert.equal(r1[0].name, 'Mochila');
+  assert.equal(r1[0].notes, `da campanha · ${desc}`);
+  assert.equal(openPack(char('2024', [gift]), gift, 'en').equipment[0].notes, 'da campanha · A gift.');
+
+  // Renomeado (reconhecido pelo sourceId): o nome também fica.
+  const named = { id: 'n', sourceId: 'explorersPack', name: 'Pacote do Velho Bran', type: 'gear', qty: 1, description: 'Cheira a fumo.' };
+  assert.equal(openPack(char('2024', [named]), named, 'pt').equipment[0].notes, 'Pacote do Velho Bran: Cheira a fumo.');
+  const onlyName = { id: 'o', pack: 'scholar', name: 'Bolsa da Academia', qty: 1 };
+  assert.equal(openPack(char('2024', [onlyName]), onlyName, 'pt').equipment[0].notes, 'Veio de: Bolsa da Academia');
+  assert.equal(openPack(char('2024', [onlyName]), onlyName, 'en').equipment[0].notes, 'From: Bolsa da Academia');
+
+  // Nome-padrão (criação, catálogo, en, com ×2) não vira nota.
+  for (const name of ['Pacote de Aventureiro', 'Mochila do Explorador', "Explorer's Pack", 'Kit de Explorador ×1']) {
+    const p = { name, qty: 1, pack: 'explorer' };
+    assert.equal(openPack(char('2024', [p]), p, 'pt').equipment[0].notes, '', name);
+  }
+  // Mochila já na ficha: as notas somam nela.
+  const withBag = { name: 'Pacote de Aventureiro', qty: 1, description: 'Do mestre.' };
+  const rb = openPack(char('2024', [{ name: 'Mochila', qty: 1, notes: 'velha' }, withBag]), withBag, 'pt').equipment;
+  assert.equal(rb[0].notes, 'velha · Do mestre.');
+  // O catálogo não descreve pacotes: toda descrição de pacote é do jogador/mestre.
+  for (const p of Object.values(PACKS)) if (p.catalogId) assert.equal(ITEMS_BY_ID[p.catalogId].description, undefined, p.catalogId);
+});
+
 test('pacote ×2 fica ×1; notas do pacote vão para a mochila; ×0 (consumido antes) ainda entrega', () => {
   const two = { name: 'Pacote de Erudito', qty: 2, notes: 'do mestre' };
   const r2 = openPack(char('2024', [two, { name: 'Faca', qty: 1 }]), two, 'pt').equipment;

@@ -117,6 +117,26 @@ def _same(existing, content):
     return item_key(_pick('pt', name)) in match or item_key(_pick('en', name)) in match
 
 
+def _pack_memo(pack, lang):
+    """Notas do pacote + nome próprio (se não for nome-padrão de pacote) + descrição.
+
+    O catálogo não descreve pacotes, então toda descrição do pacote é
+    personalizada. Igual a packMemo() do frontend.
+    """
+    name = str(_pick(lang, pack.get('name')) or '').strip()
+    own_name = name if name and pack_name_key(name) not in _PACKS.get('names', {}) else ''
+    desc = str(_pick(lang, pack.get('description')) or '').strip()
+    if own_name and desc:
+        about = f'{own_name}: {desc}'
+    elif desc:
+        about = desc
+    elif own_name:
+        about = f"{'From' if lang == 'en' else 'Veio de'}: {own_name}"
+    else:
+        about = ''
+    return ' · '.join(x for x in [str(pack.get('notes') or '').strip(), about] if x)
+
+
 def _new_id(i, taken):
     while True:
         new = f"item-{int(timezone.now().timestamp() * 1000)}-{i}{secrets.token_hex(2)}"
@@ -130,8 +150,8 @@ def open_pack(equipment, idx, rules, lang='pt'):
 
     Mesmas regras do frontend: ×2 fica ×1 (itens logo depois); ×1 ou ×0 sai e os
     itens entram no lugar; item igual soma a quantidade (não em item quebrado ou
-    equipado); itens novos herdam
-    `from`; as notas do pacote (quando ele sai) vão para o primeiro item.
+    equipado); itens novos herdam `from`; as notas do pacote, com o nome próprio
+    e a descrição dele (quando ele sai), vão para o primeiro item.
     """
     items = list(equipment or [])
     if not (0 <= idx < len(items)):
@@ -143,7 +163,7 @@ def open_pack(equipment, idx, rules, lang='pt'):
     out = [dict(e) if isinstance(e, dict) else e for e in items]
     taken = {e.get('id') for e in out if isinstance(e, dict) and e.get('id')}
     left = _qty(pack) - 1
-    pack_notes = '' if left > 0 else str(pack.get('notes') or '').strip()
+    pack_notes = '' if left > 0 else _pack_memo(pack, lang)
     added = []
     for i, c in enumerate(pack_items(key, rules)):
         notes = pack_notes if i == 0 else ''

@@ -124,6 +124,20 @@ function sameItem(e, c) {
   return c.match.includes(itemKey(pick('pt', e.name))) || c.match.includes(itemKey(pick('en', e.name)));
 }
 
+/** O que o pacote tinha de próprio, para não se perder quando ele sai da lista:
+ * as notas, o nome dado pelo jogador/mestre (se não for um nome-padrão de
+ * pacote, ex.: sourceId explorersPack renomeado) e a descrição. O catálogo
+ * (data/items.js) não descreve pacotes (tests/packs.test.js confere), então
+ * toda descrição do pacote é personalizada. Igual a _pack_memo em packs.py. */
+function packMemo(pack, lang) {
+  const name = String(pick(lang, pack.name) || '').trim();
+  const ownName = name && !packNames().has(packNameKey(name)) ? name : '';
+  const desc = String(pick(lang, pack.description) || '').trim();
+  const about = ownName && desc ? `${ownName}: ${desc}`
+    : desc || (ownName ? `${lang === 'en' ? 'From' : 'Veio de'}: ${ownName}` : '');
+  return [String(pack.notes || '').trim(), about].filter(Boolean).join(' · ');
+}
+
 const newId = (i) => `item-${Date.now().toString(36)}-${i}${Math.random().toString(36).slice(2, 6)}`;
 
 /**
@@ -136,8 +150,9 @@ const newId = (i) => `item-${Date.now().toString(36)}-${i}${Math.random().toStri
  *  - item igual já na ficha: soma a quantidade nele (mesmo que esteja ×0);
  *  - item quebrado ou equipado não recebe a soma (o do pacote entra novo);
  *  - itens novos herdam `from` do pacote (a criação troca o pacote inteiro se a
- *    classe/antecedente mudar) e as notas do pacote passam para o primeiro item
- *    (a mochila ou o baú), para não se perderem.
+ *    classe/antecedente mudar) e as notas do pacote, com o nome próprio e a
+ *    descrição dele (packMemo), passam para o primeiro item (a mochila ou o
+ *    baú), para não se perderem.
  */
 export function openPack(char, item, lang = 'pt') {
   const list = Array.isArray(char?.equipment) ? char.equipment : [];
@@ -149,7 +164,7 @@ export function openPack(char, item, lang = 'pt') {
   if (!key) return null;
   const out = list.map(e => (e && typeof e === 'object' ? { ...e } : e));
   const left = qtyOf(pack) - 1;
-  const packNotes = left > 0 ? '' : String(pack.notes || '').trim();
+  const packNotes = left > 0 ? '' : packMemo(pack, lang);
   const added = [];
   packItems(key, rv(char)).forEach((c, i) => {
     const notes = i === 0 ? packNotes : '';
