@@ -108,6 +108,15 @@ test('modal: no celular (em pé ou deitado, < 700 px) é um sheet de borda a bor
   assert.match(m[2], /max-width: 100% !important;/);
 });
 
+test('modal: anuncia-se como diálogo com o nome do título (o botão diz aria-haspopup="dialog")', () => {
+  const m = src('../src/sheet/FhExport.jsx');
+  assert.match(m, /setAttribute\('role', 'dialog'\)/);
+  assert.match(m, /setAttribute\('aria-modal', 'true'\)/);
+  assert.match(m, /setAttribute\('aria-labelledby', 'fh-export-title'\)/);
+  assert.match(m, /<h3 id="fh-export-title"/);
+  assert.match(src('../components/Sheet.jsx'), /aria-haspopup="dialog"/);
+});
+
 test('app.jsx: os handlers de saída dizem se deu certo (o modal só fecha nesse caso)', () => {
   const s = src('../app.jsx');
   const body = (name) => s.slice(s.indexOf(`const ${name} =`), s.indexOf('\n  };\n', s.indexOf(`const ${name} =`)));

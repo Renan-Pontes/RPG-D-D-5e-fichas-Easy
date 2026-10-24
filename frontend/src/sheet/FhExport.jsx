@@ -6,7 +6,8 @@
  *   (aria-disabled, não disabled: o foco fica onde está). Deu certo: o modal fecha. Não
  *   deu (o handler já mostrou o toast do erro): fica aberto para tentar de novo.
  * - Teclado: o foco vai para a 1ª linha ao abrir, Tab circula dentro do modal e Esc fecha
- *   (o Esc é do Modal do app). Quem abriu devolve o foco ao botão "Exportar". */
+ *   (o Esc é do Modal do app). Quem abriu devolve o foco ao botão "Exportar".
+ * - Leitor de tela: a caixa vira role="dialog" aria-modal, com nome no título. */
 import { useEffect, useRef, useState } from 'react';
 import Icon from '../../components/Icons.jsx';
 import { Modal } from '../../components/Shared.jsx';
@@ -25,6 +26,11 @@ export default function FhExportModal({ lang, char, handlers, onClose }) {
     list?.querySelector('.fh-export-opt')?.focus();
     const modal = list?.closest('.modal');
     if (!modal) return undefined;
+    // O Modal do app não se anuncia; este sim (o botão diz aria-haspopup="dialog"): o
+    // leitor de tela ouve "Exportar ficha, diálogo" ao entrar. Só aqui, os outros modais ficam.
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'fh-export-title');
     const onKey = (e) => {
       if (e.key !== 'Tab') return;
       const els = [...modal.querySelectorAll('button:not([disabled])')];
