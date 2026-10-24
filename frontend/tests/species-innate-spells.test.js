@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import SRD from '../data/srd.js';
 import { SPECIES_2024, SPELLS_2024 } from '../data/rules2024.js';
 import Utils from '../utils.js';
-import { applyAutosToCharacter } from '../src/progression/engine.js';
+import { applyAutosToCharacter, grantTakesOver } from '../src/progression/engine.js';
 import { EXTRA_RACES } from '../data/expanded-catalog.js';
 import { speciesGrants, speciesChoiceSpecs, speciesChoiceIssues, SPECIES_TABLE } from '../src/progression/species.js';
 import { grantedSpells } from '../src/creator/spell-helpers.js';
@@ -186,4 +186,51 @@ test('textos dos traços batem com o livro do registro (Genasi do EEPC, Marca de
   const duergar = trait(EXTRA_RACES, 'duergar', 'Duergar Magic');
   assert.doesNotMatch(`${duergar.pt} ${duergar.en}`, /só Aumentar|Enlarge only/);
   assert.match(duergar.pt, /Aumentar\/Reduzir em você/); assert.match(duergar.en, /Enlarge\/Reduce on yourself/);
+});
+
+test('magia da espécie que a ficha já tinha pela classe passa para a espécie e libera a vaga', () => {
+  const druid = { rulesVersion: '2014', race: 'firbolg', className: 'druid', level: 1, abilities: { wis: 16 }, feats: [],
+    spells: [{ id: 'guidance', prepared: true }, { id: 'detectMagic', prepared: true }] };
+  const out = applyAutosToCharacter(druid).spells;
+  assert.deepEqual(out.filter(s => s.id === 'detectMagic'), [{ id: 'detectMagic', species: true, prepared: true, auto: true }]);
+  assert.deepEqual(out.filter(s => s.species).map(s => s.id).sort(), ['detectMagic', 'disguiseSelf']);
+  assert.ok(out.some(s => s.id === 'guidance' && !s.auto), 'truque escolhido pela classe fica');
+  // Idempotente e sem duplicar.
+  const again = applyAutosToCharacter({ ...druid, spells: out }).spells;
+  assert.deepEqual(again, out);
+  // Entrada comum e entrada da espécie juntas (gravação antiga): fica uma só.
+  const both = applyAutosToCharacter({ ...druid, spells: [...druid.spells, { id: 'detectMagic', prepared: true, auto: true, species: true }] }).spells;
+  assert.equal(both.filter(s => s.id === 'detectMagic').length, 1);
+  // Ficha antiga com a magia em texto (string) também troca.
+  const str = applyAutosToCharacter({ ...druid, spells: ['detectMagic'] }).spells;
+  assert.deepEqual(str.filter(s => s.id === 'detectMagic'), [{ id: 'detectMagic', species: true, prepared: true, auto: true }]);
+  // Multiclasse: entrada de outra classe (cls) também troca, e a nova não leva `cls`.
+  const multi = applyAutosToCharacter({ ...druid, spells: [{ id: 'detectMagic', prepared: true, cls: 'cleric' }] }).spells;
+  assert.deepEqual(multi.filter(s => s.id === 'detectMagic'), [{ id: 'detectMagic', species: true, prepared: true, auto: true }]);
+});
+
+test('grimório do Mago não é trocado; truque do Mago e magia de talento são', () => {
+  // Mago Firbolg com Detectar Magia no grimório (formato novo e ficha antiga sem inBook).
+  const wiz = (spells) => applyAutosToCharacter({ rulesVersion: '2014', race: 'firbolg', className: 'wizard', level: 1, abilities: {}, feats: [], spells }).spells;
+  const book = wiz([{ id: 'detectMagic', prepared: true, inBook: true }]);
+  assert.deepEqual(book.filter(s => s.id === 'detectMagic'), [{ id: 'detectMagic', prepared: true, inBook: true }]);
+  const old = wiz([{ id: 'detectMagic', prepared: true }]);
+  assert.deepEqual(old.filter(s => s.id === 'detectMagic'), [{ id: 'detectMagic', prepared: true }]);
+  // Gnomo da Floresta mago com Ilusão Menor escolhida como truque do Mago: vai para a espécie.
+  const gnome = applyAutosToCharacter({ rulesVersion: '2014', race: 'gnome-forest', className: 'wizard', level: 1, abilities: {}, feats: [],
+    spells: [{ id: 'minorIllusion', prepared: true }] }).spells;
+  assert.deepEqual(gnome.filter(s => s.id === 'minorIllusion'), [{ id: 'minorIllusion', species: true, prepared: true, auto: true }]);
+  // Talento (Tocado pelas Fadas, 2014) num Feiticeiro que já conhecia Passo Brumoso pela classe.
+  const sorc = applyAutosToCharacter({ rulesVersion: '2014', race: 'human', className: 'sorcerer', level: 4, abilities: {},
+    feats: [{ id: 'feyTouched', name: 'Fey Touched', level: 4, picks: { spell: 'sleep' } }],
+    spells: [{ id: 'mistyStep', prepared: true }, { id: 'shield', prepared: true }] }).spells;
+  assert.deepEqual(sorc.filter(s => s.id === 'mistyStep'), [{ id: 'mistyStep', feat: true, prepared: true, auto: true }]);
+  assert.ok(sorc.some(s => s.id === 'shield' && !s.auto));
+  // Regra pura.
+  assert.equal(grantTakesOver({ className: 'druid' }, { id: 'x', prepared: true }, false), true);
+  assert.equal(grantTakesOver({ className: 'druid' }, { id: 'x', auto: true }, false), false);
+  assert.equal(grantTakesOver({ className: 'druid' }, { id: 'x', fromOption: true, inBook: true }, false), false);
+  assert.equal(grantTakesOver({ className: 'wizard' }, { id: 'x', prepared: true }, false), false);
+  assert.equal(grantTakesOver({ className: 'wizard' }, { id: 'x', prepared: true }, true), true);
+  assert.equal(grantTakesOver({ className: 'wizard' }, { id: 'x', prepared: true, cls: 'cleric' }, false), true);
 });

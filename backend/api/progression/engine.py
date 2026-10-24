@@ -12,7 +12,7 @@ import math
 from .rules import PROGRESSION_RULES, prof_bonus, rules_for  # re-export
 from .options import class_option_state, validate_option_picks, apply_option_picks
 from .feats import validate_feat_choice, with_feat_asi, feat_entry
-from .species import species_spell_ids
+from .species import species_spells
 from .multiclass import (
     is_multiclass, class_entries, class_view, class_sequence, total_level_for, with_class_level,
     can_multiclass_into, MULTICLASS_SKILL,
@@ -171,6 +171,15 @@ def _apply_node(out, node, level, source):
         out['pending_choices'].append({'level': level, 'type': 'epicBoon', 'reason': 'Escolha uma Dádiva Épica ou outro talento elegível'})
 
 
+def _grant_takes_over(character, entry, is_cantrip):
+    """A entrada comum (escolhida pela classe) dá lugar à magia da espécie de mesmo id?
+    Não para autos nem para o grimório (inBook/fromOption, ou magia de 1º círculo ou
+    mais do Mago, que em ficha antiga conta como grimório). Igual a grantTakesOver do JS."""
+    if entry.get('auto') or entry.get('inBook') or entry.get('fromOption'):
+        return False
+    return bool(is_cantrip) or (entry.get('cls') or character.get('className')) != 'wizard'
+
+
 def apply_autos(character):
     """Adiciona truques automáticos da subclasse ao data do personagem.
     Idempotente — não duplica. Remove autos antigos que não fazem mais parte."""
@@ -191,11 +200,23 @@ def apply_autos(character):
             if sid not in wanted:
                 wanted[sid] = {} if cls == character.get('className') else {'cls': cls}
     # Espécie/linhagem: truques e magias dos níveis 1/3/5 (igual ao frontend).
-    for sid in species_spell_ids(character):
+    species_cantrip = {}
+    for sid, is_cantrip in species_spells(character):
         if sid not in wanted:
             wanted[sid] = {'species': True}
+            species_cantrip[sid] = is_cantrip
+    # Magia da espécie que a ficha já tinha escolhido pela classe: a entrada comum
+    # dá lugar à da espécie (libera a vaga da classe), como no frontend.
+    swapped = []
+    for s in norm:
+        sid = s.get('id')
+        if sid in species_cantrip and _grant_takes_over(character, s, species_cantrip[sid]):
+            if not any(o.get('id') == sid and o.get('auto') for o in norm):
+                swapped.append({'id': sid, 'species': True, 'prepared': True, 'auto': True})
+            continue
+        swapped.append(s)
     # Autos de talentos (marcados `feat`) são calculados só no frontend: mantidos.
-    filtered = [s for s in norm if not s.get('auto') or s.get('id') in wanted or s.get('feat')]
+    filtered = [s for s in swapped if not s.get('auto') or s.get('id') in wanted or s.get('feat')]
     existing = {s['id'] for s in filtered}
     for sid, tag in wanted.items():
         if sid not in existing:

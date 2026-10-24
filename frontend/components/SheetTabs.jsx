@@ -14,6 +14,7 @@ import * as Book from '../src/progression/spellbook.js';
 import { SpeciesChoicesModal, speciesSummary } from '../src/progression/SpeciesChoices.jsx';
 import { speciesChoiceSpecs, speciesGrants } from '../src/progression/species.js';
 import { grantedSpells } from '../src/creator/spell-helpers.js';
+import { grantTakesOver } from '../src/progression/engine.js';
 import { propLabel, armorTypeLabel } from '../src/creator/equipment-helpers.js';
 import { classFeatureList, backgroundFeature } from '../src/sheet/sheet-text.js';
 import { itemEmoji, schoolIcon, SCHOOL_EMOJI } from '../src/art.js';
@@ -37,19 +38,29 @@ const propsText = (props, lang) => (props || []).map(p => propLabel(p, lang)).jo
 // Magias de talento/espécie (auto + feat/species): ficam fora das listas da classe.
 const isGrantEntry = (s) => !!s && typeof s === 'object' && s.auto && (s.feat || s.species);
 
-// Entradas de talento/espécie da ficha mais as que ela ainda não gravou (ficha salva
-// antes de a espécie ganhar a magia, ex.: Magia Firbolg): aparecem do mesmo jeito e
-// entram em char.spells na próxima gravação (applyAutosToCharacter).
-function grantEntriesOf(char) {
-  const saved = (char.spells || []).filter(isGrantEntry);
-  const have = new Set((char.spells || []).map(s => (typeof s === 'string' ? s : s?.id)));
-  let missing = [];
-  try {
-    missing = grantedSpells(char).filter(g => (g.source === 'feat' || g.source === 'species') && !have.has(g.id))
-      .map(g => ({ id: g.id, prepared: true, auto: true, [g.source]: true }));
-  } catch { /* ficha incompleta */ }
-  return [...saved, ...missing];
+const idOf = (s) => (typeof s === 'string' ? s : s?.id);
+
+// Magias de talento/espécie da ficha, já como ficam na próxima gravação
+// (applyAutosToCharacter):
+// - entries: as gravadas mais as que a ficha ainda não gravou (ficha salva antes de
+//   a espécie ganhar a magia, ex.: Magia Firbolg), aparecem do mesmo jeito;
+// - isTakenOver(s): entrada comum da classe com o id de uma delas (Firbolg druida que
+//   preparou Detectar Magia pelo druida). O motor troca pela da espécie, então ela
+//   já sai da lista da classe e não conta nas preparadas (engine.js grantTakesOver).
+function grantStateOf(char) {
+  const spells = char.spells || [];
+  let granted = [];
+  try { granted = grantedSpells(char).filter(g => g.source === 'feat' || g.source === 'species'); } catch { /* ficha incompleta */ }
+  const isTakenOver = (s) => {
+    if (isGrantEntry(s)) return false;
+    const g = granted.find(x => x.id === idOf(s));
+    return !!g && grantTakesOver(char, typeof s === 'string' ? { id: s, prepared: false } : s, g.level === 0);
+  };
+  const have = new Set(spells.filter(s => !isTakenOver(s)).map(idOf));
+  const missing = granted.filter(g => !have.has(g.id)).map(g => ({ id: g.id, prepared: true, auto: true, [g.source]: true }));
+  return { entries: [...spells.filter(isGrantEntry), ...missing], isTakenOver };
 }
+const grantEntriesOf = (char) => grantStateOf(char).entries;
 
 // Usos fora do padrão das magias da espécie (Magia Firbolg: 1× por descanso curto;
 // Gnomo da Floresta 2024: bônus de proficiência vezes por descanso longo).
@@ -218,7 +229,11 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
   const inList = sp => cheat || Utils.inSpellList(char, sp);
 
   const allEntries = char.spells || [];
-  const spellEntries = allEntries.filter(s => !isGrantEntry(s));
+  // Magias de talento/espécie ficam na seção própria (GrantedSpellsSection), fora das
+  // listas e dos limites da classe, inclusive as que a ficha ainda não gravou.
+  const grants = grantStateOf(char);
+  const grantIds = new Set(grants.entries.map(s => s.id));
+  const spellEntries = allEntries.filter(s => !isGrantEntry(s) && !grants.isTakenOver(s));
   const autoIds = new Set(spellEntries.filter(s => s.auto).map(s => s.id));
   // Entradas da classe fora da lista dela (sobras de outra classe, Segredos Mágicos…): sinalizadas.
   const offList = new Set(cheat ? [] : spellEntries.filter(s => {
@@ -238,8 +253,6 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
   // Mago: prepara só magias do grimório.
   const book = Book.usesSpellbook(char);
   const bookIds = new Set(book ? Book.spellbookIds(char) : []);
-  // Magias de talento/espécie ficam na seção própria (GrantedSpellsSection), fora das listas da classe.
-  const grantIds = new Set(allEntries.filter(isGrantEntry).map(s => s.id));
   const classSpells = Utils.spellCatalog(char).filter(sp => !grantIds.has(sp.id) && (((book ? bookIds.has(sp.id) : inList(sp)) && sp.level <= maxLvl) || autoIds.has(sp.id)));
   const classCantrips = Utils.spellCatalog(char).filter(sp => !grantIds.has(sp.id) && (inList(sp) || autoIds.has(sp.id)) && sp.level === 0);
 
@@ -249,7 +262,7 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
   };
 
   // Known caster: ability to add new known spells via dropdown
-  const available = Utils.spellCatalog(char).filter(sp => inList(sp) && sp.level <= maxLvl && !allEntries.find(s => s.id === sp.id));
+  const available = Utils.spellCatalog(char).filter(sp => inList(sp) && sp.level <= maxLvl && !grantIds.has(sp.id) && !allEntries.find(s => s.id === sp.id));
   const addKnownSpell = (id) => {
     const def = Utils.spellCatalog(char).find(s => s.id === id);
     const count = (def?.level === 0 ? cantripIds : preparedIds).filter(id => !autoIds.has(id)).length;
@@ -285,6 +298,7 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
           book={book}
           offList={offList}
           onRemove={removeSpell}
+          isTakenOver={grants.isTakenOver}
         />
       ) : (
         <KnownSpellsView
@@ -317,14 +331,14 @@ const levelLabel = (lvl, lang) => (+lvl === 0 ? t('cantrips', lang) : slotCircle
 
 // Conjuradores preparados: a ficha mostra só o que está pronto, agrupado por círculo
 // (fechado até tocar). A escolha diária acontece no modal "Preparar magias".
-const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, cantripLimit, preparedLimit, maxLvl, spellAtk, roll, slots, update, book = false, offList = new Set(), onRemove }) => {
+const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, cantripLimit, preparedLimit, maxLvl, spellAtk, roll, slots, update, book = false, offList = new Set(), onRemove, isTakenOver = () => false }) => {
   const pt = lang === 'pt';
   const [picking, setPicking] = useState(false);
   const catalog = Utils.spellCatalog(char);
   // Mago: magias do grimório não preparadas ficam só na seção Grimório.
   const ready = (char.spells || [])
     .map(cs => ({ ...cs, def: catalog.find(s => s.id === cs.id) }))
-    .filter(s => s.def && !isGrantEntry(s) && !(book && Book.isInBook(char, s) && !Book.isPreparedEntry(s)));
+    .filter(s => s.def && !isGrantEntry(s) && !isTakenOver(s) && !(book && Book.isInBook(char, s) && !Book.isPreparedEntry(s)));
   const byLevel = groupByLevel(ready);
   const nonAuto = (lvl0) => ready.filter(s => !autoIds.has(s.id) && (s.def.level === 0) === lvl0).length;
   const fmt = (n) => (Number.isFinite(n) ? n : '∞');

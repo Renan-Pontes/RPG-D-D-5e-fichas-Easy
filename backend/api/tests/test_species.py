@@ -73,3 +73,20 @@ class SpeciesSpellsTests(SimpleTestCase):
         healing = {'rulesVersion': '2014', 'race': 'halfling-mark-healing'}
         self.assertEqual(species_spell_ids({**healing, 'level': 1}), ['cureWounds'])
         self.assertEqual(species_spell_ids({**healing, 'level': 3}), ['cureWounds', 'lesserRestoration'])
+
+    def test_class_entry_of_a_species_spell_moves_to_the_species(self):
+        druid = {'rulesVersion': '2014', 'race': 'firbolg', 'className': 'druid', 'level': 1,
+                 'spells': [{'id': 'guidance', 'prepared': True}, {'id': 'detectMagic', 'prepared': True}]}
+        out = apply_autos(druid)['spells']
+        self.assertEqual([s for s in out if s['id'] == 'detectMagic'],
+                         [{'id': 'detectMagic', 'species': True, 'prepared': True, 'auto': True}])
+        self.assertTrue(any(s['id'] == 'guidance' and not s.get('auto') for s in out))
+        self.assertEqual(apply_autos({**druid, 'spells': out})['spells'], out, 'idempotente')
+        # Grimório do Mago fica; truque do Mago com o id de um truque da espécie vai para a espécie.
+        wizard = {**druid, 'className': 'wizard', 'spells': [{'id': 'detectMagic', 'prepared': True}]}
+        self.assertEqual([s for s in apply_autos(wizard)['spells'] if s['id'] == 'detectMagic'],
+                         [{'id': 'detectMagic', 'prepared': True}])
+        gnome = {'rulesVersion': '2014', 'race': 'gnome-forest', 'className': 'wizard', 'level': 1,
+                 'spells': [{'id': 'minorIllusion', 'prepared': True}]}
+        self.assertEqual([s for s in apply_autos(gnome)['spells'] if s['id'] == 'minorIllusion'],
+                         [{'id': 'minorIllusion', 'species': True, 'prepared': True, 'auto': True}])
