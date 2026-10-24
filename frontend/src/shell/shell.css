@@ -205,6 +205,16 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
    abaixo de 64 px o trilho rola (com degradê) em vez de cortar o rótulo */
 .campaign-detail.shell .mesa-seg-btn { min-width: 64px; }
 .shell-seg-ico { font-size: 1.05em; line-height: 1; }
+/* O ativo fica em negrito (mesa.css). Cada rótulo já reserva a largura do negrito
+   (2ª linha invisível, de altura 0), para o segmentado não mudar de largura nem
+   os botões andarem sob o cursor ao trocar de subvista. */
+.shell-seg-label { display: inline-grid; justify-items: center; }
+.shell-seg-label::after {
+  content: attr(data-label);
+  content: attr(data-label) / '';
+  height: 0; overflow: hidden; visibility: hidden;
+  font-weight: 600; pointer-events: none; user-select: none;
+}
 .shell-seg-short { display: none; }
 .shell-seg-badge { min-width: 20px; height: 20px; padding: 0 6px; font-size: 12px; }
 @media (max-width: 767px) {
@@ -238,7 +248,7 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
     position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
   }
-  .shell-seg-short { display: inline; }
+  .shell-seg-short { display: inline-grid; }
 }
 
 /* chips soltos (Ajustes: seções) — até a F8 continuam assim */

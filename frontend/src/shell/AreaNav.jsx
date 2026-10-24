@@ -93,9 +93,10 @@ export function SubChips({ subs, active, onSelect, lang, labels = {}, icons = {}
                 onClick={() => onSelect(s)}
               >
                 {icon && <span className="shell-seg-ico" aria-hidden="true">{icon}</span>}
+                {/* data-label: o CSS reserva a largura do rótulo em negrito (o ativo) */}
                 {short === long
-                  ? <span className="shell-seg-label">{long}</span>
-                  : <><span className="shell-seg-label shell-seg-long">{long}</span><span className="shell-seg-label shell-seg-short" aria-hidden="true">{short}</span></>}
+                  ? <span className="shell-seg-label" data-label={long}>{long}</span>
+                  : <><span className="shell-seg-label shell-seg-long" data-label={long}>{long}</span><span className="shell-seg-label shell-seg-short" data-label={short} aria-hidden="true">{short}</span></>}
                 {badges[s] > 0 && <span className="shell-badge shell-seg-badge" aria-label={badgeLabels[s] || undefined}>{badges[s]}</span>}
               </button>
             );
