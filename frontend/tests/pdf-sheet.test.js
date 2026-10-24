@@ -85,6 +85,22 @@ test('exporta PDF editável e importa de volta (ida e volta)', async () => {
   assert.deepEqual(unmatched, []);
 });
 
+test('idiomas de outros livros e personalizados voltam na importação', () => {
+  const c = wizard({ languages: ['Common', 'Dwarvish', 'Elvish', 'Aquan', 'Gith', 'Féerico'] });
+  for (const lang of ['pt', 'en']) {
+    const { fields } = buildSheetData(c, lang);
+    assert.match(fields.ProficienciesLang, /Aquan, Gith, Féerico/);
+    const back = sheetValuesToChar(fields).char.languages;
+    for (const id of ['Common', 'Dwarvish', 'Elvish', 'Aquan', 'Gith', 'Féerico']) assert.ok(back.includes(id), `${lang}: ${id} em ${back}`);
+    assert.equal(back.filter(id => Utils.languageKey(id) === 'feerico').length, 1);
+  }
+  // Ficha de fora: nome pt de outro livro, personalizado repetido e "à escolha".
+  const { char } = sheetValuesToChar({
+    ProficienciesLang: 'Idiomas: Comum, Esfinge, féerico, Féerico, um à escolha\nOutras: Kit de herbalismo',
+  });
+  assert.deepEqual(char.languages, ['Common', 'Sphinx', 'féerico']);
+});
+
 test('importa valores no formato da ficha oficial (nomes com espaço sobrando, multiclasse)', () => {
   const { char, unmatched } = sheetValuesToChar({
     CharacterName: 'Thorin', ClassLevel: 'Fighter 3 / Rogue 2', 'Race ': 'Hill Dwarf', Background: 'Soldier',
