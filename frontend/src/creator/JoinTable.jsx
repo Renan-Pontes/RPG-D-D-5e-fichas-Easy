@@ -31,7 +31,11 @@ export function TableInviteCard({ table, lang, children, confirmed = false, noti
         {n != null && <div><dt>{L(lang, 'Jogadores', 'Players')}</dt><dd>{n === 0 ? L(lang, 'você será o primeiro', "you'll be the first") : n}</dd></div>}
         <div><dt>{L(lang, 'Sobe de nível', 'Levels up')}</dt><dd>{table.levelingMode === 'xp' ? L(lang, 'por XP', 'by XP') : L(lang, 'quando a história pede (o mestre libera)', 'when the story calls for it (DM unlocks)')}</dd></div>
       </dl>
-      {table.alreadyMember && (
+      {table.isDm ? (
+        <p className="join-card-note">{L(lang,
+          'Você é o mestre desta mesa: o mestre não entra com ficha na própria campanha.',
+          "You're the GM of this table: the GM doesn't join their own campaign with a sheet.")}</p>
+      ) : table.alreadyMember && (
         <p className="join-card-note">{L(lang,
           'Você já participa desta mesa: este personagem passa a ser o seu nela.',
           'You are already in this table: this character becomes yours there.')}</p>
@@ -126,9 +130,12 @@ export function JoinTableBlock({ char, set, lang, joinEnabled = true }) {
           )}
           {error && <div className="join-error" role="alert">{error[lang] || error.pt}</div>}
           {found && (
-            <TableInviteCard table={found} lang={lang} notice={seatNoticeText(my, found.dmName, lang, seatsFree)}>
-              <button type="button" className="btn btn-primary" onClick={confirm}>{L(lang, 'É essa! Entrar nesta mesa', "That's it! Join this table")}</button>
-              <button type="button" className="btn btn-ghost" onClick={() => setFound(null)}>{L(lang, 'Não é essa', 'Not this one')}</button>
+            <TableInviteCard table={found} lang={lang} notice={found.isDm ? '' : seatNoticeText(my, found.dmName, lang, seatsFree)}>
+              {/* Mesa que a pessoa mestra: o cartão explica; só dá para trocar o código. */}
+              {!found.isDm && <button type="button" className="btn btn-primary" onClick={confirm}>{L(lang, 'É essa! Entrar nesta mesa', "That's it! Join this table")}</button>}
+              <button type="button" className="btn btn-ghost" onClick={() => setFound(null)}>
+                {found.isDm ? L(lang, 'Trocar o código', 'Change code') : L(lang, 'Não é essa', 'Not this one')}
+              </button>
             </TableInviteCard>
           )}
         </div>

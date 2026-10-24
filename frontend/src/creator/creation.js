@@ -92,15 +92,19 @@ export function joinFromInvite(code, invite) {
     dmName: String(invite.dmName || ''),
     levelingMode: invite.levelingMode === 'xp' ? 'xp' : 'milestone',
     alreadyMember: !!invite.alreadyMember,
+    isDm: !!invite.isDm, // quem consulta mestra esta mesa: não entra com ficha nela
     members: Number.isFinite(invite.members) ? invite.members : null,
     coverUrl: typeof invite.coverUrl === 'string' && invite.coverUrl.startsWith('/api/') ? invite.coverUrl : null,
   };
 }
 
-/** Patch para o `set` do assistente: guarda a mesa e adota a progressão dela. null remove a mesa. */
+/**
+ * Patch para o `set` do assistente: guarda a mesa e adota a progressão dela. null remove a mesa.
+ * Mesa que a pessoa mestra (isDm) não entra: o mestre não joga com ficha na própria mesa.
+ */
 export function joinPatch(char, join) {
   const creation = { ...(char?.creation || {}) };
-  if (!join) {
+  if (!join || join.isDm) {
     delete creation.join;
     return { creation };
   }
@@ -108,10 +112,10 @@ export function joinPatch(char, join) {
   return { creation, levelingMode: join.levelingMode === 'xp' ? 'xp' : 'milestone' };
 }
 
-/** Mesa escolhida na criação (ou null). */
+/** Mesa escolhida na criação (ou null; a do próprio mestre não conta, nem em rascunho antigo). */
 export const creationJoin = (char) => {
   const j = char?.creation?.join;
-  return j && j.code && j.campaignId != null ? j : null;
+  return j && j.code && j.campaignId != null && !j.isDm ? j : null;
 };
 
 /** Mensagem do "Verificar" que falhou (código errado, sem conexão…). */
@@ -141,8 +145,12 @@ export function joinFailMessage(err, join) {
       en: 'Your sheet was saved, but the table code is no longer valid (the GM may have changed it). Ask for the new code and use Campaigns → "Join with code".',
       retry: false };
   }
-  if (code === 'character_already_in_campaign') {
+  if (code === 'character_already_in_campaign' || code === 'character_in_other_campaign') {
     return { pt: 'Sua ficha foi salva, mas ela já está em outra mesa.', en: 'Your sheet was saved, but it is already in another table.', retry: false };
+  }
+  if (code === 'dm_cannot_be_player') {
+    return { pt: `Sua ficha foi salva, mas você é o mestre d${mesaPt}: o mestre não entra com ficha na própria mesa.`,
+      en: `Your sheet was saved, but you're the GM of ${mesaEn}: the GM doesn't join their own table with a sheet.`, retry: false };
   }
   return { pt: `Sua ficha foi salva, mas não deu para entrar n${mesaPt} agora.`,
     en: `Your sheet was saved, but joining ${mesaEn} failed for now.`, retry: true };

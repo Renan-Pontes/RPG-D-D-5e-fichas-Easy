@@ -363,7 +363,8 @@ function JoinCampaignModal({ lang, onClose, onJoined, initialCode = '', characte
           {error && <div className="auth-error">{error}</div>}
           <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>
             <button type="button" className="btn btn-ghost" onClick={onClose}>{t(lang, 'Cancelar', 'Cancel')}</button>
-            <button type="submit" className="btn btn-primary" disabled={busy || !code}>{busy ? t(lang, 'Entrando…', 'Joining…') : t(lang, 'Entrar', 'Join')}</button>
+            {/* Código da mesa que a pessoa mestra: o cartão explica; não há como entrar. */}
+            <button type="submit" className="btn btn-primary" disabled={busy || !code || !!(table?.isDm && normalizeInviteCode(code) === table.code)}>{busy ? t(lang, 'Entrando…', 'Joining…') : t(lang, 'Entrar', 'Join')}</button>
           </div>
         </form>
       </div>

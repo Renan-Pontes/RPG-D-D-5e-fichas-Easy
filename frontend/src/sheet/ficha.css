@@ -2572,6 +2572,22 @@
 @media (max-width: 600px) {
   .ficha .campaign-mode-banner.fh-camp { gap: 8px 12px; padding: 12px 10px 12px 14px; }
 }
+/* Botões da faixa: [Campanha] (modal atrelar/desatrelar/trocar) e [Sair]. No celular
+   descem para uma linha própria, cada um com metade da largura. */
+.ficha .fh-camp-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+@media (max-width: 600px) {
+  .ficha .fh-camp-actions { grid-column: 1 / -1; }
+  .ficha .fh-camp-actions .btn { flex: 1 1 0; }
+}
+/* Ficha pessoal: a linha discreta ganha o "Atrelar a uma campanha" (ou, no aparelho,
+   a dica de entrar na conta) */
+.ficha .campaign-mode-inline.fh-camp-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.ficha .fh-camp-inline-text { flex: 1 1 240px; min-width: 0; }
+.ficha .fh-camp-inline-hint { display: block; margin-top: 2px; }
+.ficha .fh-camp-link { width: auto; min-height: 40px; }
+@media (max-width: 480px) {
+  .ficha .fh-camp-link { flex: 1 1 100%; }
+}
 
 /* Forma Selvagem ativa: verdete, barra como a do PV, sem o brilho pulsando sem parar */
 .ficha .wild-shape-banner {

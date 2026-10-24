@@ -34,6 +34,9 @@ const E = {
   email_taken: ['E-mail já cadastrado.', 'Email already registered.'],
   invite_invalid: ['Código de convite inválido. Confira com o mestre (letras e números, sem espaços).', 'Invalid invite code. Check it with your DM (letters and numbers, no spaces).'],
   character_already_in_campaign: ['Este personagem já está em outra campanha. Escolha outro ou crie um novo.', 'This character is already in another campaign. Pick another or create a new one.'],
+  // mesmo 409 com o nome novo (o servidor manda campaignName; a ficha oferece "Trocar")
+  character_in_other_campaign: ['Este personagem já está em outra campanha. Escolha outro ou troque a ficha de campanha.', 'This character is already in another campaign. Pick another or move the sheet to this campaign.'],
+  dm_cannot_be_player: ['Você é o mestre desta campanha: o mestre não entra com ficha na própria mesa.', "You're the GM of this campaign: the GM doesn't join their own table with a sheet."],
   cannot_remove_dm: ['O mestre não pode ser removido da campanha.', 'The DM cannot be removed from the campaign.'],
   dm_cannot_leave: ['O mestre não pode sair da própria campanha.', "The DM can't leave their own campaign."],
   fields_locked_in_campaign: ['Em campanha, esses campos só mudam pelo mestre ou pela subida de nível.', 'In a campaign, these fields change only via the DM or leveling up.'],

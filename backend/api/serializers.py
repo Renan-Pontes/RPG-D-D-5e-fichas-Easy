@@ -267,10 +267,27 @@ class CampaignListSerializer(serializers.ModelSerializer):
         return public_state(obj.state)
 
     def to_representation(self, instance):
-        return _lifecycle(super().to_representation(instance), instance)
+        data = _lifecycle(super().to_representation(instance), instance)
+        # A vaga de JOGADOR de quem vê (modal "Campanha" da ficha: qual personagem
+        # ocupa a vaga). Na mesa que a pessoa mestra não vem (nem consulta).
+        m = None if _viewer_is_dm(self, instance) else self._mine(instance)
+        if m:
+            data['myMembership'] = {'id': m['id'], 'characterId': m['character_id'],
+                                    'characterName': m['character__name'], 'sponsored': m['sponsored']}
+        return data
 
     def get_coverUrl(self, obj):
         return _cover_url(obj)
+
+    def _mine(self, obj):
+        """Membership de quem vê nesta campanha (uma consulta leve, sem a ficha)."""
+        cache = self.context.setdefault('_mine', {})
+        if obj.id not in cache:
+            request = self.context.get('request')
+            cache[obj.id] = None if not request or not request.user.is_authenticated else (
+                obj.memberships.filter(user=request.user)
+                .values('id', 'role', 'character_id', 'character__name', 'sponsored').first())
+        return cache[obj.id]
 
     def get_role(self, obj):
         request = self.context.get('request')
@@ -278,8 +295,8 @@ class CampaignListSerializer(serializers.ModelSerializer):
             return None
         if obj.dm_id == request.user.id:
             return 'dm'
-        m = obj.memberships.filter(user=request.user).first()
-        return m.role if m else None
+        m = self._mine(obj)
+        return m['role'] if m else None
 
 
 # === Approval ===

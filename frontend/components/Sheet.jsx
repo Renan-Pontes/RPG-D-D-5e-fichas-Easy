@@ -1,6 +1,6 @@
 /* Character sheet view — play/stats/spells/inventory/story/journal tabs */
 import { errorMessage } from '../src/api/errors.js';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
@@ -36,7 +36,13 @@ import { PLAY_H, splitColumns } from '../src/sheet/play-layout.js';
 import FhExportModal from '../src/sheet/FhExport.jsx';
 import '../src/sheet/ficha.css';
 
-const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
+// Modal "Campanha" (atrelar, desatrelar, trocar): só carrega quando abre.
+const CampaignLinkModal = lazy(() => import('../src/sheet/CampaignLinkModal.jsx'));
+
+// onCampaignChange(msg): a ficha entrou/saiu/trocou de campanha (modal "Campanha") —
+// o app recarrega a lista (char.inCampaign) e mostra `msg`. onLogin: ficha do aparelho,
+// leva à entrada na conta (sem ele, o servidor está fora e a dica não aparece).
+const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, onCampaignChange, onLogin, children }) => {
   const [tab, setTab] = useState('play');
   const [hpDelta, setHpDelta] = useState(0);
   const [tempHpInput, setTempHpInput] = useState(false);
@@ -45,6 +51,15 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   const [exportOpen, setExportOpen] = useState(false);
   const exportBtnRef = useRef(null);
   const closeExport = () => { setExportOpen(false); exportBtnRef.current?.focus(); };
+  // campRev muda a cada atrelar/desatrelar/trocar: a faixa e o painel de combate
+  // buscam a campanha de novo (na troca A→B, inCampaign continua true).
+  const [campOpen, setCampOpen] = useState(false);
+  const [campRev, setCampRev] = useState(0);
+  const campaignChanged = async (msg) => {
+    setCampOpen(false);
+    setCampRev(n => n + 1);
+    await onCampaignChange?.(msg);
+  };
   // Cerimônias (só visual, src/sheet/FhCeremonies.jsx): o selo quando o nível sobe e as
   // gemas que reacendem (descanso, trapaça, mestre).
   const rootRef = useRef(null);
@@ -152,14 +167,20 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
 
       <SubclassBanner char={char} lang={lang} update={update} />
       <SpeciesBanner char={char} lang={lang} update={update} />
-      <CampaignModeBanner char={char} lang={lang} onChange={onUpdate} />
+      <CampaignModeBanner char={char} lang={lang} onChange={onUpdate} rev={campRev}
+        onManage={typeof char.id === 'number' ? () => setCampOpen(true) : null} onLogin={onLogin} />
+      {campOpen && (
+        <Suspense fallback={null}>
+          <CampaignLinkModal char={char} lang={lang} onClose={() => setCampOpen(false)} onDone={campaignChanged} />
+        </Suspense>
+      )}
 
       {char.wildShape?.active && (
         <WildShapeBanner char={char} lang={lang} onChange={onUpdate} />
       )}
 
       {char.inCampaign && (
-        <CombatActionPanel char={char} lang={lang} onUpdate={onUpdate} />
+        <CombatActionPanel key={campRev} char={char} lang={lang} onUpdate={onUpdate} />
       )}
 
       {/* Barra de ações (src/sheet/ficha.css: .fh-actions): Exportar, Editar e Modo trapaça;
@@ -634,9 +655,13 @@ const CheatModeModal = ({ char, lang, update, onClose }) => {
  * Em standalone, mostra um chip discreto "Ficha pessoal".
  * Em campanha, mostra o nome da campanha (busca via API) e botão pra sair.
  */
-const CampaignModeBanner = ({ char, lang, onChange }) => {
+// Faixa da campanha. onManage: abre o modal "Campanha" (só ficha da conta);
+// onLogin: ficha do aparelho, dica para entrar na conta. rev: busca de novo depois
+// de atrelar/desatrelar/trocar.
+const CampaignModeBanner = ({ char, lang, onChange, onManage, onLogin, rev = 0 }) => {
   const [campInfo, setCampInfo] = useState(null);
   const [busy, setBusy] = useState(false);
+  const pt = lang === 'pt';
 
   useEffect(() => {
     if (!char.inCampaign || typeof char.id !== 'number') { setCampInfo(null); return; }
@@ -644,10 +669,10 @@ const CampaignModeBanner = ({ char, lang, onChange }) => {
     api.characterCampaigns(char.id).then(r => {
       if (cancelled) return;
       const c = (r.campaigns || [])[0];
-      if (c) setCampInfo(c);
+      setCampInfo(c || null);
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [char.id, char.inCampaign]);
+  }, [char.id, char.inCampaign, rev]);
 
   const leave = async () => {
     if (!campInfo) return;
@@ -665,10 +690,28 @@ const CampaignModeBanner = ({ char, lang, onChange }) => {
   };
 
   if (!char.inCampaign) {
+    const local = typeof char.id !== 'number';
     return (
-      <div className="campaign-mode-inline no-print">
-        📜 <strong>{lang === 'pt' ? 'Ficha pessoal' : 'Personal sheet'}</strong>
-        <span className="muted"> · {lang === 'pt' ? 'fora de campanha; nível e atributos sobem pela Progressão' : 'not in a campaign; level and abilities change through Progression'}</span>
+      <div className="campaign-mode-inline fh-camp-inline no-print">
+        <span className="fh-camp-inline-text">
+          📜 <strong>{pt ? 'Ficha pessoal' : 'Personal sheet'}</strong>
+          <span className="muted"> · {pt ? 'fora de campanha; nível e atributos sobem pela Progressão' : 'not in a campaign; level and abilities change through Progression'}</span>
+          {local && onLogin && (
+            <span className="muted fh-camp-inline-hint"> {pt
+              ? 'Para jogar numa campanha, entre na sua conta: as fichas deste aparelho vão junto.'
+              : 'To play in a campaign, log in to your account: the sheets on this device come along.'}</span>
+          )}
+        </span>
+        {onManage && (
+          <button type="button" className="btn btn-ghost btn-sm fh-camp-link" onClick={onManage}>
+            🏰 {pt ? 'Atrelar a uma campanha' : 'Link to a campaign'}
+          </button>
+        )}
+        {local && onLogin && (
+          <button type="button" className="btn btn-ghost btn-sm fh-camp-link" onClick={onLogin}>
+            {pt ? 'Entrar na conta' : 'Log in'}
+          </button>
+        )}
       </div>
     );
   }
@@ -686,10 +729,21 @@ const CampaignModeBanner = ({ char, lang, onChange }) => {
             : 'Items, slots, max HP and abilities are managed by the DM.'}
         </span>
       </div>
-      {campInfo && (
-        <button className="btn btn-ghost btn-sm" onClick={leave} disabled={busy}>
-          {busy ? '…' : (lang === 'pt' ? 'Sair' : 'Leave')}
-        </button>
+      {(onManage || campInfo) && (
+        <div className="fh-camp-actions">
+          {onManage && (
+            <button className="btn btn-ghost btn-sm" onClick={onManage}
+              title={pt ? 'Desatrelar a ficha ou trocar de campanha' : 'Unlink the sheet or move it to another campaign'}>
+              {pt ? 'Campanha' : 'Campaign'}
+            </button>
+          )}
+          {campInfo && (
+            <button className="btn btn-ghost btn-sm" onClick={leave} disabled={busy}
+              title={pt ? 'Sair da campanha (a ficha continua com você)' : 'Leave the campaign (the sheet stays with you)'}>
+              {busy ? '…' : (pt ? 'Sair' : 'Leave')}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

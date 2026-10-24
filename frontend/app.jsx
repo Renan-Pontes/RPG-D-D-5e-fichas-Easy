@@ -478,6 +478,14 @@ const App = () => {
   // Approval levelup liberada (status='approved') pro personagem ativo.
   // Null quando não há, ou {id, campaignId, toLevel} quando o jogador pode consumir.
   const [unlockedLevelup, setUnlockedLevelup] = useState(null);
+  // Muda quando a ficha entra/sai/troca de campanha pelo modal "Campanha" da ficha
+  // (busca de novo a subida liberada, que é da campanha).
+  const [campaignRev, setCampaignRev] = useState(0);
+  const handleCampaignChange = async (msg) => {
+    await refreshCharacters();
+    setCampaignRev(n => n + 1);
+    if (msg) setToast(msg);
+  };
 
   // Modal de subida guiada: { mode: 'local' | 'consume' | 'choice', level? }.
   const [levelUpFlow, setLevelUpFlow] = useState(null);
@@ -610,7 +618,7 @@ const App = () => {
       }
     })();
     return () => { alive = false; };
-  }, [active?.id, auth.user?.id]);
+  }, [active?.id, auth.user?.id, campaignRev]);
 
   // === Render ===
   let content;
@@ -726,6 +734,8 @@ const App = () => {
             onDelete={() => handleDelete(active.id)}
             onBack={() => setScreen(SCREENS.HOME)}
             onLevelUp={handleLevelUpRequest}
+            onCampaignChange={handleCampaignChange}
+            onLogin={!auth.user && auth.backendAvailable !== false ? () => setScreen(SCREENS.AUTH) : undefined}
           >
             <div style={{ marginTop: 'var(--s-6)' }}>
               <ProgressionPanel

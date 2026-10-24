@@ -46,7 +46,8 @@ export default function InviteChoice({ code, lang = 'pt', hasCharacters = true, 
         {table && (
           <>
             <TableInviteCard table={table} lang={lang} />
-            <div className="join-choice-options">
+            {/* Mesa que a pessoa mestra: o cartão explica e não há como entrar com ficha. */}
+            {!table.isDm && <div className="join-choice-options">
               <button type="button" className="join-choice-opt primary" onClick={() => onCreate(table)} autoFocus>
                 <strong>{t(lang, 'Criar personagem para esta mesa', 'Create a character for this table')}</strong>
                 <span className="muted text-sm">{t(lang, 'O assistente abre com a mesa já escolhida.', 'The builder opens with this table already chosen.')}</span>
@@ -57,9 +58,9 @@ export default function InviteChoice({ code, lang = 'pt', hasCharacters = true, 
                   ? t(lang, 'Escolha uma das suas fichas para levar à mesa.', 'Pick one of your sheets to bring to the table.')
                   : t(lang, 'Você ainda não tem fichas: dá para entrar agora e escolher depois.', "You don't have sheets yet: you can join now and pick later.")}</span>
               </button>
-            </div>
+            </div>}
             <div className="row gap-2" style={{ justifyContent: 'flex-end', marginTop: 'var(--s-3)' }}>
-              <button type="button" className="btn btn-ghost" onClick={onClose}>{t(lang, 'Agora não', 'Not now')}</button>
+              <button type="button" className="btn btn-ghost" onClick={onClose} autoFocus={table.isDm}>{table.isDm ? t(lang, 'Fechar', 'Close') : t(lang, 'Agora não', 'Not now')}</button>
             </div>
           </>
         )}
