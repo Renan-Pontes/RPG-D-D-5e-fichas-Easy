@@ -138,7 +138,8 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   // Mantém a URL em dia com a tela (replaceState: não enche o histórico).
   useEffect(() => {
     if (!campaign || !nav) return;
-    const h = campaignRoute(campaign.slug || campaign.id, nav.area, nav.sub);
+    // slug com acento (não serve na URL) → o id: #c/1/play/combat
+    const h = campaignRoute(campaign.slug || campaign.id, nav.area, nav.sub, campaign.id);
     if (!h || window.location.hash === h) return;
     try { window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}${h}`); } catch { /* ok */ }
   }, [campaign?.slug, campaign?.id, nav?.area, nav?.sub]); // eslint-disable-line react-hooks/exhaustive-deps

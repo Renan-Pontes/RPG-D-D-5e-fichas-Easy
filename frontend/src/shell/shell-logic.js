@@ -337,9 +337,15 @@ export function screenLink(origin, token) {
 
 const ROUTE_SAFE = /^[A-Za-z0-9_-]{1,80}$/;
 
-/** Monta o hash `#c/<slug>/<área>[/<sub>]`. Sem campanha → ''. */
-export function campaignRoute(slug, area = null, sub = null) {
-  const s = String(slug ?? '').trim();
+/**
+ * Monta o hash `#c/<slug>/<área>[/<sub>]`. Sem campanha → ''.
+ * `fallbackId`: quando o slug não serve na URL (nome com acento, como
+ * "a-maldição-de-brumafria"), usa o id da campanha (`#c/1/play/combat`), que
+ * o servidor e o app também aceitam — assim o F5 volta à mesma tela.
+ */
+export function campaignRoute(slug, area = null, sub = null, fallbackId = null) {
+  let s = String(slug ?? '').trim();
+  if (!ROUTE_SAFE.test(s)) s = String(fallbackId ?? '').trim();
   if (!ROUTE_SAFE.test(s)) return '';
   let h = `#c/${encodeURIComponent(s)}`;
   if (area && ROUTE_SAFE.test(area)) {

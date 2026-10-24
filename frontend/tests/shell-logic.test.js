@@ -6,6 +6,7 @@ import {
   loadRememberedArea, saveRememberedArea, onboardingStatus, onboardingVisible,
   planHasContent, fold, matchScore, searchItems, nextSessionNumber, defaultCoverArt,
   COVER_ART, isHexColor, subLabel, subShortLabel, SUB_ICONS, TONES,
+  campaignRoute, parseCampaignRoute,
 } from '../src/shell/shell-logic.js';
 
 const memStorage = () => {
@@ -158,4 +159,16 @@ test('rótulos curtos do celular (plano §4.2) e o longo continua', () => {
   // sem curto próprio, o curto é o longo
   assert.equal(subShortLabel('scene', 'pt'), 'Cena');
   assert.equal(subShortLabel('players', 'en'), 'Players');
+});
+
+test('rota: slug com acento usa o id da campanha (o F5 volta à mesma tela)', () => {
+  // seed jogo-e-combate: "A Maldição de Brumafria"
+  assert.equal(campaignRoute('a-maldição-de-brumafria', 'play', 'combat', 1), '#c/1/play/combat');
+  assert.deepEqual(parseCampaignRoute('#c/1/play/combat'), { slug: '1', area: 'play', sub: 'combat' });
+  // slug bom continua sendo o slug, mesmo com o id à mão
+  assert.equal(campaignRoute('ecos-de-valdoria', 'world', 'atlas', 7), '#c/ecos-de-valdoria/world/atlas');
+  // sem slug: o id; nada que sirva: vazio
+  assert.equal(campaignRoute('', 'group', null, 3), '#c/3/group');
+  assert.equal(campaignRoute('mesa-nova-de-sábado', 'world', 'atlas'), '');
+  assert.equal(campaignRoute('çã', 'world', null, 'x/y'), '');
 });
