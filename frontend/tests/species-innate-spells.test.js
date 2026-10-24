@@ -7,6 +7,7 @@ import SRD from '../data/srd.js';
 import { SPECIES_2024, SPELLS_2024 } from '../data/rules2024.js';
 import Utils from '../utils.js';
 import { applyAutosToCharacter } from '../src/progression/engine.js';
+import { EXTRA_RACES } from '../data/expanded-catalog.js';
 import { speciesGrants, speciesChoiceSpecs, speciesChoiceIssues, SPECIES_TABLE } from '../src/progression/species.js';
 import { grantedSpells } from '../src/creator/spell-helpers.js';
 
@@ -114,6 +115,17 @@ test('raças de 2014 com magia por nível, atributo fixo ou à escolha', () => {
   assert.deepEqual(ids('2014', 'genasi-fire', 1), ['produceFlame']);
   assert.deepEqual(ids('2014', 'genasi-fire', 3), ['burningHands', 'produceFlame']);
   assert.equal(speciesGrants({ rulesVersion: '2014', race: 'genasi-air', level: 1 }).spellAbility, 'con');
+  // Genasi do EEPC (o registro de srd.js): Ar e Terra só têm a magia, desde o nível 1.
+  assert.deepEqual(ids('2014', 'genasi-air', 1), ['levitate']);
+  assert.deepEqual(ids('2014', 'genasi-air', 20), ['levitate']);
+  assert.deepEqual(ids('2014', 'genasi-earth', 1), ['passWithoutTrace']);
+  assert.deepEqual(ids('2014', 'genasi-earth', 20), ['passWithoutTrace']);
+  assert.equal(speciesGrants({ rulesVersion: '2014', race: 'genasi-earth', level: 1 }).spellAbility, 'con');
+  assert.deepEqual(ids('2024', 'genasi-air', 1), ['levitate']);
+  // Marca de Cura (ERLW, Toque Curativo): Curar Ferimentos; no 3, Restauração Menor (SAB).
+  assert.deepEqual(ids('2014', 'halfling-mark-healing', 1), ['cureWounds']);
+  assert.deepEqual(ids('2014', 'halfling-mark-healing', 3), ['cureWounds', 'lesserRestoration']);
+  assert.equal(speciesGrants({ rulesVersion: '2014', race: 'halfling-mark-healing', level: 3 }).spellAbility, 'wis');
   assert.deepEqual(ids('2014', 'triton', 5), ['fogCloud', 'gustOfWind', 'wallOfWater']);
   assert.deepEqual(ids('2014', 'fairy', 5, { spellAbility: 'cha' }), ['druidcraft', 'enlargeReduce', 'faerieFire']);
   assert.equal(speciesGrants({ rulesVersion: '2014', race: 'fairy', level: 1, speciesChoices: { spellAbility: 'int' } }).spellAbility, 'int');
@@ -158,4 +170,20 @@ test('usos fora do padrão: Gnomo da Floresta 2024 usa o bônus de proficiência
   assert.deepEqual(g.spellUses, { speakWithAnimals: 'profBonus' });
   // Drow e tiferino seguem o padrão (1× por descanso longo): sem marca.
   assert.deepEqual(speciesGrants({ rulesVersion: '2014', race: 'drow', level: 5 }).spellUses, {});
+});
+
+test('textos dos traços batem com o livro do registro (Genasi do EEPC, Marca de Cura, Duergar do MPMM)', () => {
+  const trait = (list, id, en) => list.find(r => r.id === id).traits.find(t => t.name.en === en).desc;
+  const air = trait(SRD.RACES, 'genasi-air', 'Mingle with the Wind');
+  assert.match(air.pt, /Levitar/); assert.match(air.en, /Levitate/);
+  assert.doesNotMatch(`${air.pt} ${air.en}`, /Toque Chocante|Shocking Grasp|Queda de Pena|Feather Fall/);
+  const earth = trait(SRD.RACES, 'genasi-earth', 'Merge with Stone');
+  assert.match(earth.pt, /Passar sem Rastros/); assert.match(earth.en, /Pass without Trace/);
+  assert.doesNotMatch(`${earth.pt} ${earth.en}`, /Proteção de Lâmina|Blade Ward/);
+  const healing = trait(SRD.RACES, 'halfling-mark-healing', 'Healing Touch');
+  assert.match(healing.pt, /Restauração Menor/); assert.match(healing.en, /Lesser Restoration/);
+  // MPMM: Aumentar/Reduzir em você, sem limitar a Aumentar (isso era do MToF).
+  const duergar = trait(EXTRA_RACES, 'duergar', 'Duergar Magic');
+  assert.doesNotMatch(`${duergar.pt} ${duergar.en}`, /só Aumentar|Enlarge only/);
+  assert.match(duergar.pt, /Aumentar\/Reduzir em você/); assert.match(duergar.en, /Enlarge\/Reduce on yourself/);
 });

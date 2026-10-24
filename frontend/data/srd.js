@@ -198,7 +198,7 @@ const RACES = [
     asi: { con: 2, dex: 1 },
     traits: [
       { name: { pt: 'Respiração Infinita', en: 'Unending Breath' }, desc: { pt: 'Pode segurar a respiração indefinidamente quando não incapacitado.', en: 'Hold your breath indefinitely while not incapacitated.' } },
-      { name: { pt: 'Misturar-se com o Vento', en: 'Mingle with the Wind' }, desc: { pt: 'Truque Toque Chocante. No 3°, Queda de Pena 1×/descanso longo. Conjuração: CON.', en: 'Shocking Grasp cantrip. At 3rd, Feather Fall 1/long rest. CON.' } },
+      { name: { pt: 'Misturar-se com o Vento', en: 'Mingle with the Wind' }, desc: { pt: 'Levitar 1×/descanso longo (sem componente material). Conjuração: CON.', en: 'Levitate 1/long rest (no material component). CON.' } },
     ],
     languages: ['Common', 'Primordial'],
   },
@@ -207,7 +207,7 @@ const RACES = [
     asi: { con: 2, str: 1 },
     traits: [
       { name: { pt: 'Caminhar Terreno', en: 'Earth Walk' }, desc: { pt: 'Pode mover-se em terreno difícil de pedra/terra sem custo extra.', en: 'Move across difficult terrain made of earth/stone without extra cost.' } },
-      { name: { pt: 'Fundir-se com a Pedra', en: 'Merge with Stone' }, desc: { pt: 'Truque Proteção de Lâmina. No 3°, Passar sem Rastros 1×/descanso longo. Conjuração: CON.', en: 'Blade Ward cantrip. At 3rd, Pass without Trace 1/long rest. CON.' } },
+      { name: { pt: 'Fundir-se com a Pedra', en: 'Merge with Stone' }, desc: { pt: 'Passar sem Rastros 1×/descanso longo (sem componente material). Conjuração: CON.', en: 'Pass without Trace 1/long rest (no material component). CON.' } },
     ],
     languages: ['Common', 'Primordial'],
   },

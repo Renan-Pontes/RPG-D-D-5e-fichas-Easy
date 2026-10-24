@@ -231,8 +231,9 @@ export const SPECIES_2014_CHOICES = {
   // "magia inata" de lá. Livros de 2014 fixam o atributo; os do MPMM deixam escolher.
   firbolg: { spells: { 1: ['detectMagic', 'disguiseSelf'] }, fixedSpellAbility: 'wis', spellUses: { detectMagic: 'short', disguiseSelf: 'short' } },
   fairy: { cantrips: ['druidcraft'], spells: { 3: ['faerieFire'], 5: ['enlargeReduce'] }, choices: [SPELL_ABILITY] },
-  'genasi-air': { cantrips: ['shockingGrasp'], spells: { 3: ['featherFall'] }, fixedSpellAbility: 'con' },
-  'genasi-earth': { cantrips: ['bladeWard'], spells: { 3: ['passWithoutTrace'] }, fixedSpellAbility: 'con' },
+  // Genasi do EEPC (o registro de srd.js: CON +2 e atributo fixo). Ar e Terra não têm truque.
+  'genasi-air': { spells: { 1: ['levitate'] }, fixedSpellAbility: 'con' },
+  'genasi-earth': { spells: { 1: ['passWithoutTrace'] }, fixedSpellAbility: 'con' },
   'genasi-fire': { cantrips: ['produceFlame'], spells: { 3: ['burningHands'] }, fixedSpellAbility: 'con' },
   // Ficha 2024 com esta raça: o id vira createOrDestroyWater (SPECIES_SPELL_IDS_2024).
   'genasi-water': { cantrips: ['shapeWater'], spells: { 3: ['createDestroyWater'] }, fixedSpellAbility: 'con' },

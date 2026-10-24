@@ -33218,21 +33218,15 @@
         }
       },
       "genasi-air": {
-        "cantrips": [
-          "shockingGrasp"
-        ],
         "spells": {
-          "3": [
-            "featherFall"
+          "1": [
+            "levitate"
           ]
         }
       },
       "genasi-earth": {
-        "cantrips": [
-          "bladeWard"
-        ],
         "spells": {
-          "3": [
+          "1": [
             "passWithoutTrace"
           ]
         }
@@ -33579,6 +33573,9 @@
         "spells": {
           "1": [
             "cureWounds"
+          ],
+          "3": [
+            "lesserRestoration"
           ]
         }
       },

@@ -65,3 +65,11 @@ class SpeciesSpellsTests(SimpleTestCase):
         water = {'race': 'genasi-water', 'level': 3}
         self.assertEqual(species_spell_ids({**water, 'rulesVersion': '2014'}), ['shapeWater', 'createDestroyWater'])
         self.assertEqual(species_spell_ids({**water, 'rulesVersion': '2024'}), ['shapeWater', 'createOrDestroyWater'])
+
+    def test_eepc_genasi_and_mark_of_healing(self):
+        air = {'rulesVersion': '2014', 'race': 'genasi-air', 'level': 1}
+        self.assertEqual(species_spell_ids(air), ['levitate'])
+        self.assertEqual(species_spell_ids({**air, 'race': 'genasi-earth'}), ['passWithoutTrace'])
+        healing = {'rulesVersion': '2014', 'race': 'halfling-mark-healing'}
+        self.assertEqual(species_spell_ids({**healing, 'level': 1}), ['cureWounds'])
+        self.assertEqual(species_spell_ids({**healing, 'level': 3}), ['cureWounds', 'lesserRestoration'])
