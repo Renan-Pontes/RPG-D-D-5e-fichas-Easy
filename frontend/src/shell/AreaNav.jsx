@@ -1,4 +1,6 @@
 // Navegação das áreas: abas no desktop e barra inferior fixa no celular.
+//   Celular, mestre:  Mundo · Preparar · Jogar · Grupo · Mais (folha "Mesa do mestre")
+//   Celular, jogador: Mesa · Mundo · Crônica · Grupo · Buscar
 // Também exporta <SubChips>, o segmentado das subvistas (as áreas usam para
 // ficarem com o mesmo visual da casca).
 import { useRef } from 'react';
@@ -6,7 +8,11 @@ import { areaLabel, SUB_ICONS, subLabel, subShortLabel, t } from './shell-logic.
 import useScrollEdges from './useScrollEdges.js';
 import './mesa.css';
 
-export default function AreaNav({ areas, active, onSelect, onSearch, lang, badges = {}, showKeys = false }) {
+/**
+ * onMore: 5ª casa "Mais" (mestre) — abre a folha; moreOpen marca a casa.
+ * onSearch: 5ª casa "Buscar" (quando não há onMore: o jogador).
+ */
+export default function AreaNav({ areas, active, onSelect, onSearch, onMore, moreOpen = false, lang, badges = {}, showKeys = false }) {
   return (
     <>
       <nav className="shell-areas" role="tablist" aria-label={t(lang, 'Áreas da campanha', 'Campaign areas')}>
@@ -36,7 +42,7 @@ export default function AreaNav({ areas, active, onSelect, onSearch, lang, badge
           <button
             key={a.id}
             type="button"
-            className={`shell-bottom-btn ${active === a.id ? 'active' : ''}`}
+            className={`shell-bottom-btn ${active === a.id && !moreOpen ? 'active' : ''}`}
             aria-current={active === a.id ? 'page' : undefined}
             onClick={() => onSelect(a.id)}
           >
@@ -45,7 +51,14 @@ export default function AreaNav({ areas, active, onSelect, onSearch, lang, badge
             {badges[a.id] > 0 && <span className="shell-badge shell-badge-dot">{badges[a.id]}</span>}
           </button>
         ))}
-        {onSearch && (
+        {onMore ? (
+          <button type="button" className={`shell-bottom-btn shell-bottom-more ${moreOpen ? 'active' : ''}`} onClick={onMore}
+            aria-haspopup="dialog" aria-expanded={moreOpen}
+            aria-label={t(lang, 'Mais: sessão, busca, telão e ajustes', 'More: session, search, TV and settings')}>
+            <span className="shell-bottom-ico" aria-hidden="true">☰</span>
+            <span className="shell-bottom-label" aria-hidden="true">{t(lang, 'Mais', 'More')}</span>
+          </button>
+        ) : onSearch && (
           <button type="button" className="shell-bottom-btn" onClick={onSearch} aria-label={t(lang, 'Buscar', 'Search')}>
             <span className="shell-bottom-ico" aria-hidden="true">🔍</span>
             <span className="shell-bottom-label">{t(lang, 'Buscar', 'Search')}</span>

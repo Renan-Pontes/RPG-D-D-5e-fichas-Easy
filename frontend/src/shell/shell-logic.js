@@ -315,6 +315,64 @@ export function defaultCoverArt(campaign) {
   return COVER_ART[Math.abs(n) % COVER_ART.length];
 }
 
+// ---------------------------------------------------------------------------
+// Ajustes: seções (as mesmas 6 do ⚙ e das linhas da folha "Mais")
+// ---------------------------------------------------------------------------
+
+/** As 6 seções dos Ajustes, na ordem do menu. */
+export const SETTINGS_SECTIONS = [
+  { id: 'identity', icon: '🎨', pt: 'Identidade e capa',     en: 'Identity & cover' },
+  { id: 'table',    icon: '🔗', pt: 'Convite e telão',       en: 'Invite & TV' },
+  { id: 'rules',    icon: '📏', pt: 'Regras da mesa',        en: 'Table rules' },
+  { id: 'world',    icon: '✨', pt: 'Mundo vivo',            en: 'Living world' },
+  { id: 'advanced', icon: '🧰', pt: 'Ferramentas avançadas', en: 'Advanced tools' },
+  { id: 'danger',   icon: '⚠️', pt: 'Zona de perigo',        en: 'Danger zone' },
+];
+
+/** Rótulo de uma seção dos Ajustes (id desconhecido → o próprio id). */
+export function settingsSectionLabel(id, lang) {
+  const s = SETTINGS_SECTIONS.find(x => x.id === id);
+  return s ? (lang === 'en' ? s.en : s.pt) : id;
+}
+
+/**
+ * Resumo de uma linha de cada seção dos Ajustes (folha "Mais", plano §5.J):
+ * "Capa própria · Mistério · Violeta", "Código 6T79AF · link do telão"…
+ * `opts.immersion` (Mundo vivo ligado?) vem de quem chama (living-logic).
+ */
+export function settingsSummary(section, campaign, lang, { immersion = true, worldCount = null, worldMax = 500 } = {}) {
+  const c = campaign || {};
+  const st = c.state || {};
+  const tt = (pt, en) => (lang === 'en' ? en : pt);
+  if (section === 'identity') {
+    const tone = TONES.find(x => x.id === c.tone);
+    return [
+      c.coverVer ? tt('Capa própria', 'Own cover') : tt('Arte padrão', 'Default art'),
+      tone ? (lang === 'en' ? tone.en : tone.pt) : tt('sem tom', 'no tone'),
+      isHexColor(c.accent) ? accentName(c.accent, lang) : null,
+    ].filter(Boolean).join(' · ');
+  }
+  if (section === 'table') {
+    return [c.inviteCode ? tt(`Código ${c.inviteCode}`, `Code ${c.inviteCode}`) : null, tt('link do telão', 'TV link')].filter(Boolean).join(' · ');
+  }
+  if (section === 'rules') {
+    const xp = st.levelingMode === 'xp';
+    const multi = st.allowMulticlass !== false;
+    return `${xp ? 'XP' : tt('Marcos', 'Milestones')} · ${multi ? tt('multiclasse permitida', 'multiclass allowed') : tt('sem multiclasse', 'no multiclass')}`;
+  }
+  if (section === 'world') return immersion ? tt('Mundo vivo ligado', 'Living world on') : tt('Mundo vivo desligado', 'Living world off');
+  if (section === 'advanced') {
+    const dice = c.advancedDice ? tt('Dados preparados ligados', 'Prepared dice on') : tt('Dados preparados desligados', 'Prepared dice off');
+    return worldCount != null ? `${dice} · ${worldCount}/${worldMax} ${tt('cartões', 'cards')}` : dice;
+  }
+  if (section === 'danger') {
+    return c.status === 'closed'
+      ? tt('Campanha encerrada · Reabrir', 'Campaign closed · Reopen')
+      : tt('Esvaziar o Mundo · Encerrar campanha', 'Clear the World · Close campaign');
+  }
+  return '';
+}
+
 /** Próximo número de sessão para o botão "▶ Começar sessão N". */
 export function nextSessionNumber(state) {
   const n = parseInt(state?.session, 10);

@@ -51,45 +51,60 @@
     linear-gradient(90deg, rgba(14, 10, 7, 0.94) 0%, rgba(14, 10, 7, 0.72) 45%, rgba(14, 10, 7, 0.25) 100%),
     linear-gradient(0deg, rgba(14, 10, 7, 0.85) 0%, transparent 60%);
 }
+/* Grade da capa. Desktop: ← no alto, nome, frase e, embaixo, os selos à
+   esquerda e as ações rotuladas à direita. Celular: 2 linhas (ver "celular"). */
 .shell-header-inner {
   position: relative;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: 1fr auto auto auto;
+  grid-template-areas:
+    "back back"
+    "name name"
+    "tag  tag"
+    "meta act";
+  align-items: end;
+  column-gap: 16px;
   padding: 18px 22px 18px;
   min-height: 168px;
 }
-.shell-title-block { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; }
 .shell-back {
-  align-self: flex-start;
-  background: rgba(14, 10, 7, 0.55);
+  grid-area: back;
+  align-self: start;
+  justify-self: start;
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 44px;
+  background: rgba(14, 10, 7, 0.6);
   border: 1px solid var(--stroke);
   color: var(--ink-secondary);
   border-radius: 999px;
-  padding: 4px 12px;
-  font-size: 0.82rem;
+  padding: 4px 16px;
+  font-size: 0.9rem;
   cursor: pointer;
-  margin-bottom: auto;
 }
-.shell-back:hover { color: var(--gold-bright); border-color: var(--stroke-strong); }
+@media (hover: hover) {
+  .shell-back:hover { color: var(--gold-bright); border-color: var(--stroke-strong); }
+}
+.shell-back:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
 .shell-name {
+  grid-area: name;
   font-family: var(--display);
   font-size: clamp(1.35rem, 2.6vw, 2.1rem);
   margin: 10px 0 0;
-  color: var(--ink-primary);
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+  color: var(--gold-bright);
   letter-spacing: 0.02em;
   overflow-wrap: anywhere;
 }
 .shell-tagline {
-  margin: 0;
+  grid-area: tag;
+  margin: 2px 0 0;
   font-style: italic;
   color: var(--ink-secondary);
   font-size: 1.02rem;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
 }
-.shell-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.shell-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.shell-header .role-pill { font-size: 12px; }
 .shell-session {
   font-family: var(--display);
   font-size: 0.78rem;
@@ -100,13 +115,16 @@
   padding: 2px 10px;
   border-radius: 999px;
   background: rgba(14, 10, 7, 0.5);
+  white-space: nowrap;
 }
 .shell-live {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
   color: #fff; background: var(--blood); padding: 2px 10px; border-radius: 999px;
+  white-space: nowrap;
 }
 .shell-live-dot {
+  flex: none;
   width: 8px; height: 8px; border-radius: 50%; background: #ffd9d2;
   animation: shell-pulse 1.4s ease-in-out infinite;
 }
@@ -115,28 +133,64 @@
   color: var(--ink-secondary); font-size: 0.85rem; max-width: 28ch;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.shell-act-short { display: none; }
-.shell-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; flex: 0 0 auto; }
-.shell-actions .btn-ghost { background: rgba(14, 10, 7, 0.6); backdrop-filter: blur(2px); }
+.shell-actions {
+  grid-area: act;
+  align-self: end;
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px;
+  margin-top: 8px;
+}
+.shell-act { white-space: nowrap; }
+/* botões fantasmas sobre a arte da capa: fundo escuro para o texto ler
+   (só os da capa; os do popover do Telão ficam como em qualquer painel) */
+:is(.shell-actions, .shell-tv-wrap) > .mesa-btn:not(.is-primary) { background: rgba(14, 10, 7, 0.72); }
+@media (hover: hover) {
+  :is(.shell-actions, .shell-tv-wrap) > .mesa-btn:not(.is-primary):not(:disabled):hover { background: rgba(40, 30, 18, 0.9); }
+}
 .shell-start { box-shadow: 0 0 0 1px var(--camp-accent), 0 6px 18px rgba(0, 0, 0, 0.4); }
 
+/* Telão: popover do desktop (o conteúdo é o TvPanel, o mesmo da folha "Mais") */
 .shell-tv-wrap { position: relative; }
 .shell-popover {
   position: absolute;
   right: 0; top: calc(100% + 8px);
-  width: min(340px, calc(100vw - 32px));
-  background: var(--bg-card);
-  border: 1px solid var(--stroke-strong);
-  border-radius: 8px;
-  padding: 12px;
-  display: flex; flex-direction: column; gap: 10px;
+  width: min(380px, calc(100vw - 32px));
+  padding: 6px 16px 16px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background:
+    var(--fh-noise) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather) 40%, var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
+  color: var(--ink-primary);
+  text-align: left;
   z-index: 80;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
 }
-.shell-pop-row { display: flex; flex-direction: column; gap: 4px; }
-.shell-pop-now { font-family: var(--display); font-size: 1rem; }
-.shell-pop-link .input { width: 100%; font-family: var(--mono); font-size: 0.8rem; color: var(--gold-bright); }
-.shell-pop-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.shell-pop-head { display: flex; align-items: center; gap: 10px; margin: 0 -10px 6px 0; }
+.campaign-detail .shell-pop-title {
+  flex: 1 1 auto; min-width: 0; margin: 0;
+  font-size: 1rem !important; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+}
+.shell-tv-panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.shell-pop-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.shell-pop-now { font-family: var(--display); font-size: 1.02rem; color: var(--ink-primary); overflow-wrap: anywhere; }
+.shell-pop-note { font-size: 0.92rem; color: var(--ink-secondary); }
+.shell-pop-clear { margin-top: 6px; }
+.shell-pop-link .input { font-family: var(--mono); color: var(--gold-bright); }
+.shell-pop-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.shell-pop-help { margin: 0; color: var(--ink-muted); font-size: 0.92rem; line-height: 1.4; }
+.shell-pop-choose { justify-content: flex-start; padding-left: 0; padding-right: 0; text-align: left; color: var(--gold-bright); }
+
+/* Tablet: as ações rotuladas descem para uma linha própria (ao lado dos
+   selos, os selos ficariam empilhados um por linha) e o popover abre para a direita. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .shell-header-inner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "back" "name" "tag" "meta" "act";
+  }
+  .shell-actions { justify-content: flex-start; margin-top: 12px; }
+  .shell-popover { right: auto; left: 0; }
+}
 
 /* sem a faixa vazia entre o cabeçalho do app e a capa */
 body:has(.campaign-detail.shell) .app-header { margin-bottom: 8px; }
@@ -445,51 +499,94 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
 @media (max-width: 767px) {
   .campaign-detail.shell { padding-bottom: calc(var(--shell-bar-h) + 24px + env(safe-area-inset-bottom)); }
 
+  /* Capa compacta em 2 linhas (plano §2.1), rola junto:
+       ←  Nome da campanha (1 linha, 17 px, reticências; toque mostra tudo)
+       ● Ao vivo · Sessão N · cena…            [▶ Começar sessão N | ■ Encerrar]
+     Telão, Buscar e Ajustes ficam na folha "Mais" (barra de baixo). */
   .shell-header { border-radius: 8px; margin-bottom: 10px; }
-  /* capa compacta (64px, DESIGN 1.1): uma linha só — voltar, nome, ações.
-     A busca já está na barra inferior, então sai do cabeçalho. */
-  .shell-header-inner { min-height: 64px; padding: 8px 10px; flex-direction: row; align-items: center; gap: 8px; }
-  .shell-back { margin: 0; padding: 2px 9px; min-height: 32px; flex: 0 0 auto; }
-  .shell-back-txt { display: none; }
-  .shell-title-block { flex-direction: row; align-items: center; flex-wrap: nowrap; gap: 8px; flex: 1 1 auto; }
-  .shell-name {
-    font-size: 1rem; line-height: 1.15; letter-spacing: 0.01em; margin: 0; flex: 1 1 auto;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-    overflow-wrap: break-word;
+  .shell-header-inner {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "back name name"
+      "tag  tag  tag"
+      "meta meta act";
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 0;
+    min-height: 0;
+    padding: 8px 10px 10px 8px;
   }
-  .shell-tagline, .shell-scene, .shell-meta .role-pill { display: none; }
-  .shell-meta { margin: 0; flex: 0 0 auto; flex-wrap: nowrap; }
-  .shell-header.is-dm .shell-session { display: none; }
-  /* "Ao vivo" vira só o ponto pulsante (o texto continua para leitor de tela) */
-  .shell-live { font-size: 0; gap: 0; padding: 5px; }
-  .shell-actions { gap: 4px; flex-wrap: nowrap; justify-content: flex-end; }
-  .shell-actions [aria-keyshortcuts="Control+K"] { display: none; }
-  .shell-act { padding: 6px 8px; min-height: 36px; letter-spacing: 0.02em; font-size: 0.78rem; }
-  .shell-act-txt { display: none; }
-  .shell-act-short { display: inline; }
-  .shell-popover { position: fixed; left: 16px; right: 16px; top: 80px; width: auto; }
+  .shell-back {
+    align-self: center;
+    width: 44px; height: 44px; padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 1.1rem;
+  }
+  .shell-back-txt { display: none; }
+  /* !important: vence o h1 global do celular (1,7 rem/1,5 rem !important) só aqui */
+  .campaign-detail .shell-header .shell-name {
+    margin: 0;
+    font-size: 17px !important;
+    line-height: 1.35;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    overflow-wrap: normal;
+    cursor: pointer;
+  }
+  .campaign-detail .shell-header.is-name-open .shell-name { white-space: normal; overflow-wrap: anywhere; }
+  .shell-tagline { display: none; margin: 2px 0 0 52px; font-size: 0.95rem; }
+  .shell-header.is-name-open .shell-tagline { display: block; }
+  .shell-meta { flex-wrap: nowrap; gap: 6px; overflow: hidden; margin-top: 6px; padding-left: 4px; }
+  .shell-meta > * { flex: none; }
+  .shell-header.is-dm .shell-meta .role-pill { display: none; }
+  /* selos em caixa mista, menores, mas com texto (≥ 12 px) */
+  .shell-live { font-size: 12px; letter-spacing: 0.03em; text-transform: none; padding: 3px 9px; gap: 5px; }
+  .shell-session { font-family: var(--body); font-size: 13px; letter-spacing: 0.02em; text-transform: none; padding: 2px 9px; }
+  .shell-scene { flex: 1 1 auto; min-width: 0; max-width: none; font-size: 13px; }
+  .shell-actions { flex-wrap: nowrap; gap: 6px; margin-top: 6px; }
+  .shell-desk-only { display: none !important; }
+  .shell-act { min-height: 44px; padding: 6px 12px; font-size: 0.82rem; }
+  .shell-header-closed { padding: 0 8px 10px; }
 
   .shell-areas { display: none; }
+  /* Barra inferior: Mundo · Preparar · Jogar · Grupo · Mais (mestre) ou
+     Mesa · Mundo · Crônica · Grupo · Buscar (jogador). Casas de 56 px. */
   .shell-bottom-bar {
     display: flex;
     position: fixed; left: 0; right: 0; bottom: 0;
     height: calc(var(--shell-bar-h) + env(safe-area-inset-bottom));
-    padding: 4px 4px env(safe-area-inset-bottom);
-    background: rgba(20, 16, 12, 0.97);
-    border-top: 1px solid var(--stroke);
+    padding: 3px max(4px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(4px, env(safe-area-inset-left));
+    background:
+      var(--fh-noise),
+      linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather-lo));
+    border-top: 1px solid rgba(224, 181, 94, 0.38);
     z-index: 40;
     box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
   }
   .shell-bottom-btn {
     flex: 1 1 0;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-    background: transparent; border: 0; color: var(--ink-muted);
-    font-size: 0.7rem; letter-spacing: 0.04em; position: relative; border-radius: 8px;
-    cursor: pointer; min-height: 48px;
+    min-width: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    background: transparent; border: 0; color: var(--ink-secondary);
+    font-family: var(--body); font-size: 12.5px; font-weight: 600; letter-spacing: 0; line-height: 1.1;
+    padding: 0 1px;
+    position: relative; border-radius: 8px;
+    cursor: pointer; min-height: 56px;
   }
-  .shell-bottom-btn.active { color: var(--camp-accent); background: var(--gold-soft); }
-  .shell-bottom-ico { font-size: 1.25rem; line-height: 1; }
-  .shell-badge-dot { position: absolute; top: 2px; right: calc(50% - 22px); }
+  .shell-bottom-label { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .shell-bottom-btn.active {
+    color: var(--camp-accent);
+    background: color-mix(in srgb, var(--camp-accent) 14%, transparent);
+    box-shadow: inset 0 2px 0 var(--camp-accent);
+  }
+  .shell-bottom-btn:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+  .shell-bottom-ico { font-size: 1.3rem; line-height: 1; }
+  .shell-bottom-more .shell-bottom-ico { color: var(--gold); font-size: 1.35rem; }
+  .shell-badge-dot { position: absolute; top: 3px; right: calc(50% - 24px); min-width: 20px; height: 20px; font-size: 12px; }
 
   .shell-settings-body { max-height: calc(85vh - 140px); }
 
@@ -519,6 +616,10 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
   .shell-ob-next { margin-top: 8px; padding: 6px 8px; }
   .shell-ob-next .btn { padding: 4px 10px; min-height: 32px; }
   .shell-search-backdrop { padding-top: 16px !important; }
+}
+@media (max-width: 359px) {
+  /* 320: a cena fica na folha "Mais" (e no Jogar › Cena) */
+  .shell-scene { display: none; }
 }
 
 /* Botão flutuante de dados dentro da campanha (DESIGN 1.3): nunca em cima do
@@ -559,6 +660,44 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
   main.container:has(> .campaign-detail.shell) {
     padding-right: max(var(--s-5, 24px), calc(96px - max(0px, (100vw - 1280px) / 2)));
   }
+}
+
+/* ---------------------------------------------------------- campanha encerrada (sob a capa) */
+/* fichas em linhas de 56 px, ⬇ PDF / ⬇ JSON e ↺ Reabrir com 44 px */
+.shell-header-closed .pl-closed-sheets li { min-height: 56px; }
+.shell-header-closed .pl-closed-sheet-btns .btn,
+.shell-header-closed .pl-closed-reopen { min-height: 44px; min-width: 44px; }
+@media (max-width: 767px) {
+  .shell-header-closed .pl-closed { padding: 12px; }
+  .shell-header-closed .pl-closed-reopen { flex: 1 1 100%; }
+}
+
+/* ---------------------------------------------------------- folha "Mesa do mestre" (MoreSheet) */
+.mesa-sheet.shell-more .mesa-sheet-body { display: flex; flex-direction: column; gap: 14px; }
+/* o corpo é que rola: os blocos não encolhem (a lista com overflow: hidden sumiria) */
+.mesa-sheet.shell-more .mesa-sheet-body > * { flex-shrink: 0; }
+.shell-more-intro { display: flex; flex-direction: column; gap: 8px; }
+.shell-more-tagline { margin: 0; font-style: italic; color: var(--ink-secondary); }
+.shell-more-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.shell-more-meta .role-pill { font-size: 12px; }
+.shell-more-scene { margin: 0; color: var(--ink-primary); overflow-wrap: anywhere; }
+.shell-more .shell-more-list.mesa-panel { padding: 0; overflow: hidden; }
+.shell-more-row:disabled { opacity: 0.5; cursor: not-allowed; }
+.shell-more-row .mesa-row-pic { font-family: var(--body); font-size: 1.15rem; color: var(--gold-bright); }
+.shell-more-row.is-start .mesa-row-pic {
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold) 45%, var(--gold-deep));
+  color: var(--on-gold);
+}
+.shell-more-row.is-session .mesa-row-title { font-family: var(--display); font-weight: 600; letter-spacing: 0.03em; }
+.shell-more-row.is-danger .mesa-row-title { color: #f1a596; }
+.shell-more-chev { flex: none; color: var(--gold-deep); font-size: 1.5rem; line-height: 1; }
+.shell-more-tv { display: flex; flex-direction: column; }
+.shell-more .mesa-title { margin-bottom: 10px; }
+
+/* busca rápida no toque: linhas de 48 px, sem a tecla "Esc" */
+@media (hover: none) {
+  .shell-search-esc { display: none; }
+  .shell-search-item { min-height: 48px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

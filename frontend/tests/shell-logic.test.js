@@ -6,7 +6,7 @@ import {
   loadRememberedArea, saveRememberedArea, onboardingStatus, onboardingVisible,
   planHasContent, fold, matchScore, searchItems, nextSessionNumber, defaultCoverArt,
   COVER_ART, isHexColor, subLabel, subShortLabel, SUB_ICONS, TONES,
-  campaignRoute, parseCampaignRoute,
+  campaignRoute, parseCampaignRoute, SETTINGS_SECTIONS, settingsSectionLabel, settingsSummary,
 } from '../src/shell/shell-logic.js';
 
 const memStorage = () => {
@@ -171,4 +171,28 @@ test('rota: slug com acento usa o id da campanha (o F5 volta à mesma tela)', ()
   assert.equal(campaignRoute('', 'group', null, 3), '#c/3/group');
   assert.equal(campaignRoute('mesa-nova-de-sábado', 'world', 'atlas'), '');
   assert.equal(campaignRoute('çã', 'world', null, 'x/y'), '');
+});
+
+test('Ajustes: as 6 seções da folha "Mais", com rótulo e resumo', () => {
+  assert.deepEqual(SETTINGS_SECTIONS.map(s => s.id), ['identity', 'table', 'rules', 'world', 'advanced', 'danger']);
+  for (const s of SETTINGS_SECTIONS) {
+    assert.ok(s.icon, `${s.id} sem ícone`);
+    assert.notEqual(settingsSectionLabel(s.id, 'pt'), s.id);
+    assert.notEqual(settingsSectionLabel(s.id, 'en'), s.id);
+    assert.ok(settingsSummary(s.id, {}, 'pt').length > 0, `${s.id} sem resumo`);
+  }
+  assert.equal(settingsSectionLabel('danger', 'pt'), 'Zona de perigo');
+  const camp = {
+    coverVer: 3, tone: 'mystery', accent: '#6b5ca5', inviteCode: '6T79AF', advancedDice: true,
+    state: { levelingMode: 'xp', allowMulticlass: true },
+  };
+  assert.equal(settingsSummary('identity', camp, 'pt'), 'Capa própria · Mistério · Violeta');
+  assert.equal(settingsSummary('identity', {}, 'pt'), 'Arte padrão · sem tom');
+  assert.equal(settingsSummary('table', camp, 'pt'), 'Código 6T79AF · link do telão');
+  assert.equal(settingsSummary('rules', camp, 'pt'), 'XP · multiclasse permitida');
+  assert.equal(settingsSummary('rules', { state: { allowMulticlass: false } }, 'en'), 'Milestones · no multiclass');
+  assert.equal(settingsSummary('world', camp, 'pt', { immersion: false }), 'Mundo vivo desligado');
+  assert.equal(settingsSummary('advanced', camp, 'pt', { worldCount: 312, worldMax: 500 }), 'Dados preparados ligados · 312/500 cartões');
+  assert.equal(settingsSummary('danger', camp, 'pt'), 'Esvaziar o Mundo · Encerrar campanha');
+  assert.equal(settingsSummary('danger', { status: 'closed' }, 'pt'), 'Campanha encerrada · Reabrir');
 });

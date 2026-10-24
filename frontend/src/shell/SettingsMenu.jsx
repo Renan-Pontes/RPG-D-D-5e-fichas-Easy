@@ -3,7 +3,7 @@
 // (Dados preparados pelo mestre — desligado por padrão), Mundo vivo (imersão
 // do Mundo) e Zona de perigo (encerrar a campanha — 30 dias só leitura para
 // baixar as fichas — ou reabrir, confirmando pelo nome).
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
@@ -23,13 +23,24 @@ const AdvancedDice = lazy(() => import('./AdvancedDice.jsx'));
 
 const SECTIONS = ['identity', 'table', 'rules', 'world', 'advanced', 'danger'];
 
-export default function SettingsMenu({ campaign, lang, onClose, onChange, worldCount = null, worldMax = 500, onMarkOnboarding, onDeleted, onWorldCleared }) {
-  const [section, setSection] = useState('identity');
+/**
+ * initialSection: abre já numa seção (as linhas da folha "Mais" do celular).
+ * 'dice' = Ferramentas avançadas com os Dados preparados abertos.
+ */
+export default function SettingsMenu({ campaign, lang, onClose, onChange, worldCount = null, worldMax = 500, onMarkOnboarding, onDeleted, onWorldCleared, initialSection = 'identity' }) {
+  const [section, setSection] = useState(() => (initialSection === 'dice' ? 'advanced' : SECTIONS.includes(initialSection) ? initialSection : 'identity'));
+  const chipsRef = useRef(null);
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+  // Aberto numa seção do fim (Zona de perigo): o chip dela aparece na faixa.
+  useEffect(() => {
+    const track = chipsRef.current;
+    const chip = track?.querySelector('[aria-selected="true"]');
+    if (track && chip) track.scrollLeft += chip.getBoundingClientRect().left - track.getBoundingClientRect().left - 8;
+  }, []);
   const labels = {
     identity: t(lang, 'Identidade', 'Identity'),
     table: t(lang, 'Convite e telão', 'Invite & TV'),
@@ -45,7 +56,7 @@ export default function SettingsMenu({ campaign, lang, onClose, onChange, worldC
           <h2 id="shell-settings-title">⚙ {t(lang, 'Ajustes da campanha', 'Campaign settings')}</h2>
           <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} aria-label={t(lang, 'Fechar', 'Close')}>✕</button>
         </div>
-        <div className="shell-subchips" role="tablist">
+        <div className="shell-subchips" role="tablist" ref={chipsRef}>
           {SECTIONS.map(s => (
             <button key={s} type="button" role="tab" aria-selected={section === s}
               className={`shell-subchip ${section === s ? 'active' : ''}`} onClick={() => setSection(s)}>{labels[s]}</button>
@@ -56,7 +67,7 @@ export default function SettingsMenu({ campaign, lang, onClose, onChange, worldC
           {section === 'table' && <TableSection campaign={campaign} lang={lang} onChange={onChange} onMarkOnboarding={onMarkOnboarding} />}
           {section === 'rules' && <RulesSection campaign={campaign} lang={lang} onChange={onChange} />}
           {section === 'world' && <LivingWorldSection campaign={campaign} lang={lang} onChange={onChange} />}
-          {section === 'advanced' && <AdvancedSection campaign={campaign} lang={lang} onChange={onChange} worldCount={worldCount} worldMax={worldMax} />}
+          {section === 'advanced' && <AdvancedSection campaign={campaign} lang={lang} onChange={onChange} worldCount={worldCount} worldMax={worldMax} initialOpen={initialSection === 'dice'} />}
           {section === 'danger' && <DangerSection campaign={campaign} lang={lang} onClose={onClose} onChange={onChange} onDeleted={onDeleted} worldCount={worldCount} onWorldCleared={onWorldCleared} />}
         </div>
       </div>
@@ -241,9 +252,9 @@ function RulesSection({ campaign, lang, onChange }) {
   );
 }
 
-function AdvancedSection({ campaign, lang, onChange, worldCount, worldMax }) {
+function AdvancedSection({ campaign, lang, onChange, worldCount, worldMax, initialOpen = false }) {
   const on = !!campaign.advancedDice;
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const { msg, busy, run } = useStatus();
   const toggle = () => run(async () => {
     await api.patchCampaign(campaign.id, { advancedDice: !on });

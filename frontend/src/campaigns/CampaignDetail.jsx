@@ -30,6 +30,7 @@ import '../shell/mesa.css';
 import '../shell/shell.css';
 
 const SettingsMenu = lazy(() => import('../shell/SettingsMenu.jsx'));
+const MoreSheet = lazy(() => import('../shell/MoreSheet.jsx'));
 const QuickSearch = lazy(() => import('../shell/QuickSearch.jsx'));
 
 // Áreas novas: detectadas em tempo de build. Arquivo ausente → fallback.
@@ -60,7 +61,8 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   const [world, setWorld] = useState(null);       // {entries, count, max} (mestre)
   const [planHas, setPlanHas] = useState(false);
   const [search, setSearch] = useState(false);
-  const [settings, setSettings] = useState(false);
+  const [settings, setSettings] = useState(null); // null = fechado; senão a seção ('identity', 'danger', 'dice'…)
+  const [more, setMore] = useState(false);         // folha "Mesa do mestre" (casa "Mais" do celular)
   const [ending, setEnding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [groupPending, setGroupPending] = useState(null);
@@ -178,7 +180,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   }, [tvUrl, lang, say, markOnboarding]);
 
   const onOnboardingAction = async (step) => {
-    if (step === 'cover') { setSettings(true); return; }
+    if (step === 'cover') { setSettings('identity'); return; }
     if (step === 'firstEntry') { goTo('world', 'atlas', { create: true }); return; }
     if (step === 'prepare') { goTo('prepare', 'next'); return; }
     if (step === 'tv') { window.open(tvUrl, '_blank', 'noopener'); markOnboarding('tv'); return; }
@@ -215,6 +217,9 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
       else say(t(lang, 'Sessão encerrada. Bom jogo!', 'Session ended. Good game!'));
     } catch (e) { say(errorMessage(e, lang)); } finally { setBusy(false); }
   };
+  // Da folha "Mais" para outra janela: fecha a folha primeiro (o foco volta à
+  // casa "Mais") e abre a próxima no tick seguinte, que devolve o foco para lá.
+  const fromMore = (fn) => () => { setMore(false); setTimeout(fn, 0); };
   const clearScreen = async () => {
     try { await api.setScreenCard(campaign.id, null); load(); } catch (e) { say(errorMessage(e, lang)); }
   };
@@ -265,7 +270,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   };
   const ctx = {
     area: nav.area, sub: nav.sub, params: nav.params, goTo, clearParams, isDM, lang, campaign, reload: load,
-    openSearch: () => setSearch(true), openSettings: () => setSettings(true),
+    openSearch: () => setSearch(true), openSettings: (section) => setSettings(typeof section === 'string' ? section : 'identity'),
   };
 
   const content = isDM ? renderDM(nav.area, areaProps, { setGroupPending }) : renderPlayer(nav.area, areaProps);
@@ -276,10 +281,13 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
         <CampaignHeader
           campaign={campaign} lang={lang} isDM={isDM} busy={busy} onBack={onBack}
           onStartSession={startSession} onEndSession={() => setEnding(true)}
-          onSearch={() => setSearch(true)} onSettings={() => setSettings(true)}
+          onSearch={() => setSearch(true)} onSettings={() => setSettings('identity')}
           onTvOpened={() => markOnboarding('tv')} onClearScreen={clearScreen}
+          onChooseScreen={() => goTo('play', 'screen')}
         />
-        <AreaNav areas={areas} active={nav.area} onSelect={(a) => goTo(a)} onSearch={() => setSearch(true)} lang={lang} badges={badges} showKeys={isDM} />
+        <AreaNav areas={areas} active={nav.area} onSelect={(a) => goTo(a)} lang={lang} badges={badges} showKeys={isDM}
+          onSearch={isDM ? undefined : () => setSearch(true)}
+          onMore={isDM ? () => setMore(true) : undefined} moreOpen={more} />
 
         <div className="shell-panel" id="shell-panel" role="tabpanel" aria-labelledby={`area-tab-${nav.area}`}>
           {isDM && nav.area === 'world' && campaign.status !== 'closed' && onboardingVisible(obStatus) && (
@@ -307,9 +315,23 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
               onPick={(r) => { setSearch(false); goTo(r.go[0], r.go[1], r.go[2]); }} />
           </Suspense>
         )}
+        {more && isDM && (
+          <Suspense fallback={null}>
+            <MoreSheet campaign={campaign} lang={lang} busy={busy}
+              worldCount={world?.count ?? null} worldMax={world?.max || 500}
+              onClose={() => setMore(false)}
+              onStartSession={fromMore(startSession)}
+              onEndSession={fromMore(() => setEnding(true))}
+              onSearch={fromMore(() => setSearch(true))}
+              onSettings={(section) => fromMore(() => setSettings(section))()}
+              onBack={fromMore(onBack)}
+              onTvOpened={() => markOnboarding('tv')} onClearScreen={clearScreen}
+              onChooseScreen={fromMore(() => goTo('play', 'screen'))} />
+          </Suspense>
+        )}
         {settings && isDM && (
           <Suspense fallback={null}>
-            <SettingsMenu campaign={campaign} lang={lang} onClose={() => setSettings(false)} onChange={load}
+            <SettingsMenu key={settings} campaign={campaign} lang={lang} initialSection={settings} onClose={() => setSettings(null)} onChange={load}
               worldCount={world?.count ?? null} worldMax={world?.max || 500} onMarkOnboarding={markOnboarding}
               onWorldCleared={async () => { await loadWorld(); setWorldEpoch(e => e + 1); }} />
           </Suspense>
