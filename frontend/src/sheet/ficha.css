@@ -181,7 +181,9 @@
   text-transform: uppercase;
 }
 .ficha .fh-title-main > .grim-hint { flex: none; margin-left: -4px; }
-.ficha .fh-title-act { flex: none; margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.ficha .fh-title-act { flex: 0 1 auto; min-width: 0; max-width: 100%; margin-left: auto; display: flex; align-items: center; gap: 6px; }
+/* texto ampliado no celular: os botões de descanso descem em vez de estourar a largura */
+.ficha .fh-title-act > .row { flex-wrap: wrap; justify-content: flex-end; }
 .ficha .fh-title-sub {
   flex: 1 1 100%;
   display: flex;
@@ -502,13 +504,14 @@
 .ficha .fh-insp:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 3px; }
 @keyframes fh-spin { to { transform: rotate(360deg); } }
 
-/* Estrela de Inspiração: o mesmo handler do antigo chip da barra; aria-pressed.
+/* Estrela de Inspiração (antes um chip na barra de ações): o mesmo handler; aria-pressed.
    Largura fixa de 80px: o centro dela (48px da borda) alinha com o da foto. */
 .ficha .fh-insp {
   position: absolute;
   right: 8px;
   width: 80px;
   display: grid;
+  grid-template-columns: 100%;
   justify-items: center;
   gap: 4px;
   padding: 0;
@@ -530,6 +533,7 @@
   transition: border-color 0.2s, box-shadow 0.3s, color 0.2s;
 }
 .ficha .fh-insp-label {
+  justify-self: end; /* rótulo mais largo (texto ampliado) cresce para dentro do topo, sem ser cortado */
   font-family: var(--display);
   font-size: 0.58rem;
   font-weight: 600;
@@ -2252,6 +2256,13 @@
   /* dentro de um grupo por círculo, a etiqueta repete o título do grupo: no celular sai,
      para o nome ter espaço (nas magias de talento/espécie, agrupadas por origem, fica) */
   .ficha .fh-by-level .fh-lvl { display: none; }
+  /* nas magias de talento/espécie o selo do círculo desce para baixo do nome, em vez de
+     tirar largura dele (os nomes quebravam no meio da palavra: "PRESTIDIGITA/ÇÃO") */
+  .ficha .spell-row-header.fh-spell-toggle { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 0; }
+  .ficha .fh-spell-toggle > .school-badge { grid-column: 1; grid-row: 1 / span 2; }
+  .ficha .fh-spell-toggle > .fh-spell-main { grid-column: 2; grid-row: 1; }
+  .ficha .fh-spell-toggle > .fh-lvl { grid-column: 2; grid-row: 2; justify-self: start; margin-top: 5px; }
+  .ficha .fh-spell-toggle > .fh-spell-chev { grid-column: 3; grid-row: 1 / span 2; }
   .ficha .spell-row-body.fh-spell-body,
   .ficha .fh-spell:has(.fh-spell-star) .fh-spell-body { padding: 2px 12px 14px; }
   /* espaço numa linha (o select com a largura toda); Conjurar e remover na de baixo */

@@ -14,7 +14,7 @@ export default [
       en: 'Mirela, a level 3 wizard, takes the Magic action to cast Magic Missile (level 1): she spends 1 of her 4 level 1 slots, speaks the words (V), gestures (S), and three darts hit automatically for 1d4 + 1 each = 3 + 4 + 2 = 9 damage.',
     },
     sheet: {
-      pt: 'Aba Magias: lista de magias preparadas, CD de Magia, Bônus de Ataque e espaços por nível para marcar o que você gastou.',
+      pt: 'Aba Magias: lista de magias preparadas, CD de Magia, Bônus de Ataque e espaços por círculo para marcar o que você gastou.',
       en: 'Spells tab: prepared spell list, Spell Save DC, Spell Attack bonus and slots per level to mark what you spent.',
     },
     keywords: 'conjurar lançar magia feitiço conjuração cast spell casting spellcasting como usar magia',
@@ -34,7 +34,7 @@ export default [
       en: 'Lia, a level 3 cleric, has 4 level 1 slots and 2 level 2 slots. She casts Cure Wounds with a level 1 slot (3 left), then Spiritual Weapon with a level 2 slot (1 left). With no level 2 slots, she could still cast another level 1 spell.',
     },
     sheet: {
-      pt: 'Aba Jogar e aba Magias → Espaços: toque nas bolinhas de cada nível para marcar os gastos. O Descanso Longo limpa as marcas.',
+      pt: 'Aba Jogar e aba Magias → Espaços: toque nas gemas de cada círculo (1º círculo = espaços de nível 1) para marcar as gastas. O Descanso Longo acende todas de novo.',
       en: 'Play tab and Spells tab → Slots: tap the pips of each level to mark them used. A Long Rest clears them.',
     },
     srd: {

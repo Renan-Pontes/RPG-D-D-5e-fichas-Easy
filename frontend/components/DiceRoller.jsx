@@ -153,6 +153,8 @@ const DiceRoller = ({ lang }) => {
   // salvaguardas/perícias da ficha) não faz o botão subir. Nessas listas de linhas-botão
   // coladas o desvio virava um salto até o meio da tela a cada parada; ali o botão fica
   // no canto e o CSS da ficha deixa a coluna do bônus fora da faixa dele no celular.
+  // Só abaixo de 1024 px (ficha em uma coluna): no desktop a aba Jogar tem duas colunas
+  // e o selo de Carisma fica na faixa do botão, então ali ele volta a desviar.
   const fabRef = useRef(null);
   const [fabLift, setFabLift] = useState(0);
   const liftRef = useRef(0);
@@ -161,13 +163,15 @@ const DiceRoller = ({ lang }) => {
     const INTERACTIVE = 'button, a[href], input, select, textarea, summary, label, [role="button"], [role="tab"], [role="checkbox"], [tabindex]:not([tabindex="-1"])';
     const blockerTop = (rect) => {
       let top = null;
+      const pass = window.matchMedia?.('(max-width: 1023px)').matches;
+      const skip = pass ? '.dice-fab, .dice-sheet, [data-fab-pass]' : '.dice-fab, .dice-sheet';
       const xs = [rect.left + 6, rect.left + rect.width / 2, rect.right - 6];
       const ys = [rect.top + 6, rect.top + rect.height / 2, rect.bottom - 6];
       for (const x of xs) for (const y of ys) {
         for (const el of document.elementsFromPoint(x, y)) {
           if (fabRef.current && (el === fabRef.current || fabRef.current.contains(el))) continue;
           const hit = el.closest(INTERACTIVE);
-          if (hit && !hit.closest('.dice-fab, .dice-sheet, [data-fab-pass]')) {
+          if (hit && !hit.closest(skip)) {
             const r = hit.getBoundingClientRect();
             top = top == null ? r.top : Math.min(top, r.top);
           }
@@ -181,16 +185,16 @@ const DiceRoller = ({ lang }) => {
       if (!fab || fab.classList.contains('is-hidden')) return;
       const cur = fab.getBoundingClientRect();
       const base = { left: cur.left, right: cur.right, top: cur.top + liftRef.current, bottom: cur.bottom + liftRef.current, width: cur.width, height: cur.height };
-      // Sobe no máximo 3 vezes e cada posição nova é conferida antes de valer. Se nenhuma
+      // Sobe até 7 vezes (sem passar de 45% da tela) e cada posição nova é conferida antes de valer. Se nenhuma
       // ficar livre (ex.: linhas-botão coladas, como as perícias), fica no canto: subir
       // até o meio da tela e continuar cobrindo uma linha é pior que não mexer.
       let lift = 0;
       let free = false;
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 8; i++) {
         const r = { ...base, top: base.top - lift, bottom: base.bottom - lift };
         const top = blockerTop(r);
         if (top == null) { free = true; break; }
-        if (i === 3) break;
+        if (i === 7) break;
         lift = base.bottom - top + 8;
         if (lift > window.innerHeight * 0.45) break; // não dá pra desviar: fica onde está
       }
