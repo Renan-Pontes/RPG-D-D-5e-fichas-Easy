@@ -10,7 +10,7 @@ import { normalizeInviteCode, joinFromInvite } from '../creator/creation.js';
 import { closedText, sponsoredFrom, sponsoredText } from '../plans/plans-logic.js';
 import {
   playerTables, dmTableCount, seatState, seatLabel, otherCampaignFrom, linkErrorText,
-  attachConfirm, detachConfirm, switchConfirm, linkToast, findMyMembership,
+  attachConfirm, detachConfirm, switchConfirm, linkToast, findMyMembership, quoteList,
 } from './campaign-link.js';
 import './campaign-link.css';
 
@@ -43,6 +43,7 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
   const linked = links.length > 0;
   const current = links[0] || null;
   const tables = playerTables(data?.campaigns, links.map(l => l.id));
+  const fromNames = links.map(l => l.name); // a troca tira a ficha de TODAS (ficha antiga em 2)
   const charName = char.name;
 
   // Roda uma ação; 409 "está em outra campanha" vira a confirmação de troca. Outro
@@ -77,9 +78,9 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
     return api.updateMembership(table.id, mid, move ? { characterId: char.id, move: true } : { characterId: char.id });
   };
 
-  // Confirmação da troca (de `from`, a atual ou a que o 409 contou, para `to`).
+  // Confirmação da troca (de `from` — as atuais ou a que o 409 contou — para `to`).
   const switchTo = (to, seat, from, again) => ({
-    ...switchConfirm({ charName, from: from ?? current?.name, to, seat, lang }), run: again,
+    ...switchConfirm({ charName, from: from ?? fromNames, to, seat, lang }), run: again,
   });
 
   const pickTable = (table) => {
@@ -186,8 +187,8 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
       <>
         {switching ? (
           <p className="cl-lead">{L(lang,
-            `Para qual mesa ${charName || 'a ficha'} vai? Ela sai de “${current?.name || ''}” (você continua lá, sem personagem).`,
-            `Which table should ${charName || 'the sheet'} go to? It leaves “${current?.name || ''}” (you stay there, without a character).`)}</p>
+            `Para qual mesa ${charName || 'a ficha'} vai? Ela sai de ${quoteList(fromNames, 'pt')} (você continua lá, sem personagem).`,
+            `Which table should ${charName || 'the sheet'} go to? It leaves ${quoteList(fromNames, 'en')} (you stay there, without a character).`)}</p>
         ) : (
           <p className="cl-lead">{L(lang,
             'Esta ficha não está em nenhuma campanha. Escolha uma mesa em que você joga:',

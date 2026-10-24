@@ -81,6 +81,13 @@ export function linkErrorText(err, lang = 'pt') {
 
 const quote = (s) => `“${s}”`;
 
+/** Nomes entre aspas numa frase: “A” · “A” e “B” · “A”, “B” e “C”. Vazios saem. */
+export function quoteList(names, lang = 'pt') {
+  const q = (Array.isArray(names) ? names : [names]).map(n => String(n ?? '').trim()).filter(Boolean).map(quote);
+  if (q.length < 2) return q[0] || '';
+  return `${q.slice(0, -1).join(', ')} ${L(lang, 'e', 'and')} ${q[q.length - 1]}`;
+}
+
 /**
  * Confirmações (sempre claras sobre o que acontece com a ficha e com a vaga).
  * → {title, text, ok}
@@ -118,9 +125,10 @@ export function detachConfirm({ charName, from, sponsored = false, lang = 'pt' }
   };
 }
 
+/** `from`: o nome da campanha de onde a ficha sai, ou a lista (ficha antiga em 2: sai de todas). */
 export function switchConfirm({ charName, from, to, seat, lang = 'pt' }) {
   const who = nameOf(charName, lang);
-  const a = from ? quote(from) : L(lang, 'a campanha atual', 'the current campaign');
+  const a = quoteList(from, lang) || L(lang, 'a campanha atual', 'the current campaign');
   const b = quote(nameOf(to, lang));
   const other = seat?.kind === 'other' ? (seat.name || L(lang, 'o outro personagem', 'the other character')) : '';
   const swap = other

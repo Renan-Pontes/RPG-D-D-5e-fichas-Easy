@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   isAccountSheet, playerTables, dmTableCount, seatState, seatLabel, otherCampaignFrom, linkErrorText,
-  attachConfirm, detachConfirm, switchConfirm, linkToast, findMyMembership,
+  attachConfirm, detachConfirm, switchConfirm, linkToast, findMyMembership, quoteList,
 } from '../src/sheet/campaign-link.js';
 
 const CAMPS = [
@@ -71,6 +71,18 @@ test('confirmações dizem o que acontece com a ficha e com a vaga', () => {
   assert.match(s.text, /sai de “Zéfiro” \(você continua lá, sem personagem\) e entra em “Ecos”/);
   assert.match(s.text, /Toco sai da sua vaga/);
   assert.match(switchConfirm({ charName: '', from: '', to: 'Ecos', lang: 'en' }).text, /Unnamed leaves the current campaign/);
+});
+
+test('troca de ficha antiga em 2 campanhas: a confirmação cita todas de onde ela sai', () => {
+  const s = switchConfirm({ charName: 'Elarion', from: ['Ecos de Valdoria', 'Mar de Cinzas'], to: 'A Torre', lang: 'pt' });
+  assert.match(s.text, /sai de “Ecos de Valdoria” e “Mar de Cinzas” \(você continua lá, sem personagem\) e entra em “A Torre”/);
+  const en = switchConfirm({ charName: 'Elarion', from: ['Ecos', 'Mar'], to: 'Torre', lang: 'en' });
+  assert.match(en.text, /leaves “Ecos” and “Mar”/);
+  assert.match(switchConfirm({ charName: 'E', from: ['Ecos'], to: 'Torre' }).text, /sai de “Ecos” \(/);
+  assert.match(switchConfirm({ charName: 'E', from: [], to: 'Torre' }).text, /a campanha atual/);
+  assert.equal(quoteList(['A', ' ', 'B', 'C']), '“A”, “B” e “C”');
+  assert.equal(quoteList('A'), '“A”');
+  assert.equal(quoteList(null), '');
 });
 
 test('linkToast e findMyMembership', () => {
