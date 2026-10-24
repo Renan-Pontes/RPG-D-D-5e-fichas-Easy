@@ -86,7 +86,7 @@ export default [
       en: 'Tordek is at 0 HP. Turn 1: rolls 13 → 1 success. Turn 2: rolls 4 → 1 failure. A goblin hits him with an arrow → 2 failures. Turn 3: rolls 20 → he\'s back with 1 HP and the counters reset.',
     },
     sheet: {
-      pt: 'Aba Jogar → com 0 PV aparece "Testes contra a Morte": toque nos círculos de Sucessos/Falhas e use "Rolar teste contra morte". O descanso longo zera os contadores.',
+      pt: 'Aba Jogar → com 0 PV aparece "Testes contra a Morte": toque nas marcas de Sucessos/Falhas e use "Rolar teste contra morte". O descanso longo zera os contadores.',
       en: 'Play tab → at 0 HP "Death Saves" appears: tap the Successes/Failures pips and use "Roll death save". A long rest clears the counters.',
     },
     versions: {

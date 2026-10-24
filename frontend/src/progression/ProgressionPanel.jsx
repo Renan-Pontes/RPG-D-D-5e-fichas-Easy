@@ -34,8 +34,8 @@ export default function ProgressionPanel({
       <h3>{t(lang, 'Progressão', 'Progression')} — {prog.classes
         ? Utils.classLabel(character, lang, tName)
         : `${tName('class', prog.classId, lang)} ${prog.level}${prog.subclass ? ` (${subclassName(character, prog.classId, prog.subclass, lang)})` : ''}`}</h3>
-      {prog.classes && <p className="muted text-sm" style={{ margin: '-6px 0 8px' }}>{t(lang, 'Nível total', 'Total level')} {prog.level} · {t(lang, 'proficiência', 'proficiency')} +{prog.profBonus}</p>}
-      <p className="muted text-sm">{character.rulesVersion === '2024' ? 'D&D 5e revisado · SRD 5.2.1' : 'D&D 5e · regras de 2014'} · <a href="/rules/SRD-5.2.1.pdf" target="_blank" rel="noreferrer">{t(lang, 'Referência de regras', 'Rules reference')}</a></p>
+      {prog.classes && <p className="muted text-sm prog-total">{t(lang, 'Nível total', 'Total level')} {prog.level} · {t(lang, 'proficiência', 'proficiency')} +{prog.profBonus}</p>}
+      <p className="muted text-sm prog-rules">{character.rulesVersion === '2024' ? 'D&D 5e revisado · SRD 5.2.1' : 'D&D 5e · regras de 2014'} · <a href="/rules/SRD-5.2.1.pdf" target="_blank" rel="noreferrer">{t(lang, 'Referência de regras', 'Rules reference')}</a></p>
       {(subclassRule?.manual || subclassRule?.legacyCompatibility) && <p className="muted text-sm">{t(lang, 'Opção de suplemento: ações e escolhas especiais são registradas em Traços e resolvidas com o mestre.', 'Supplement option: record special actions and choices under Features and resolve them with your DM.')}</p>}
 
       {prog.autoCantrips.length > 0 && (
@@ -55,12 +55,12 @@ export default function ProgressionPanel({
               <li key={i}>
                 <strong>Nv. {c.level}</strong>{c.classId && prog.classes && <span className="muted"> ({tName('class', c.classId, lang)} {c.classLevel})</span>} — {lang === 'en' && c.reasonEn ? c.reasonEn : c.reason}
                 {onResolveOptions && c.type === 'classOption' && (
-                  <button className="btn btn-sm btn-primary" style={{ marginLeft: 8 }} onClick={() => onResolveOptions(c.classId || prog.classId)}>
+                  <button className="btn btn-sm btn-primary prog-choose" onClick={() => onResolveOptions(c.classId || prog.classId)}>
                     {t(lang, 'Escolher agora', 'Choose now')}
                   </button>
                 )}
                 {onResolveChoice && (c.type === 'asiOrFeat' || c.type === 'epicBoon') && (
-                  <button className="btn btn-sm btn-primary" style={{ marginLeft: 8 }} onClick={() => onResolveChoice(c.level)}>
+                  <button className="btn btn-sm btn-primary prog-choose" onClick={() => onResolveChoice(c.level)}>
                     {t(lang, 'Escolher agora', 'Choose now')}
                   </button>
                 )}
@@ -81,7 +81,7 @@ export default function ProgressionPanel({
                 <summary>
                   <strong>{def?.name[lang] || pool}</strong>{prog.classes && <span className="muted"> ({tName('class', classId, lang)})</span>}: {picks.map(p => pickLabel(classId, p, lang) + (p.detail ? ` (${p.detail})` : '')).join(', ')}
                   {def?.freeSwap && onResolveOptions && (
-                    <button className="btn btn-sm btn-ghost" style={{ marginLeft: 8 }} onClick={(e) => { e.preventDefault(); onResolveOptions(classId); }}>
+                    <button className="btn btn-sm btn-ghost prog-swap" onClick={(e) => { e.preventDefault(); onResolveOptions(classId); }}>
                       {t(lang, 'Trocar', 'Swap')}
                     </button>
                   )}
