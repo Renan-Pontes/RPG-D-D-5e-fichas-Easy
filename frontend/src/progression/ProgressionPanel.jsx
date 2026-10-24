@@ -4,6 +4,7 @@ import { rulesFor } from './rules.js';
 import { subclassName } from './subclasses.js';
 import { classOptionsData } from './options.js';
 import { pickLabel, pickDesc } from './options-catalog.js';
+import { placeFeatures, placeLabel, featureItemKey, featureKey } from '../sheet/feature-placement.js';
 import SRD from '../../data/srd.js';
 import { tName } from '../../data/i18n.js';
 import Utils from '../../utils.js';
@@ -23,6 +24,12 @@ export default function ProgressionPanel({
   onResolveOptions,
 }) {
   const prog = useMemo(() => computeProgression(character), [character]);
+  // Onde cada traço aparece na ficha (src/sheet/feature-placement.js): o índice abaixo diz.
+  // Mesma chave da ficha: não refaz a cada tecla.
+  const fkey = featureKey(character);
+  const placed = useMemo(() => {
+    try { return new Map(placeFeatures(character).items.map(i => [i.key, i])); } catch { return new Map(); }
+  }, [fkey]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!prog.classId) return null;
 
   const atMaxLevel = (character.level || 1) >= 20;
@@ -109,17 +116,28 @@ export default function ProgressionPanel({
         </div>
       )}
 
+      {/* Índice completo dos traços. Cada um também aparece na ficha, junto do que trata
+          (magias na aba Magias, Fúria nas gemas da Fúria…); "→" diz onde. */}
       {(prog.classes || [{ id: prog.classId }]).map(e => {
         const list = prog.features.filter(f => !prog.classes || f.classId === e.id);
         return (
-          <details key={e.id} className="prog-section">
-            <summary>{prog.classes
-              ? t(lang, `${tName('class', e.id, lang)} ${e.level}: ${list.length} traços`, `${tName('class', e.id, lang)} ${e.level}: ${list.length} features`)
-              : t(lang, `${list.length} traços de classe acumulados`, `${list.length} class features accumulated`)}</summary>
+          <details key={e.id} className="prog-section prog-index">
+            <summary>
+              {prog.classes
+                ? t(lang, `${tName('class', e.id, lang)} ${e.level}: ${list.length} traços`, `${tName('class', e.id, lang)} ${e.level}: ${list.length} features`)
+                : t(lang, `${list.length} traços de classe acumulados`, `${list.length} class features accumulated`)}
+              <span className="prog-index-note">{t(lang, 'Índice: cada traço também está na ficha, junto do que trata', 'Index: each feature is also on the sheet, next to what it affects')}</span>
+            </summary>
             <ul>
-              {list.map((f, i) => (
-                <li key={i}><strong>Nv. {f.classLevel ?? f.level}</strong> — {lang === 'en' ? f.nameEn || f.name : f.name}: <em>{lang === 'en' ? f.descEn || f.desc : f.desc}</em></li>
-              ))}
+              {list.map((f, i) => {
+                const item = placed.get(featureItemKey(f, f.classId || prog.classId));
+                return (
+                  <li key={i}>
+                    <strong>{t(lang, 'Nv.', 'Lv')} {f.classLevel ?? f.level}</strong> — {lang === 'en' ? f.nameEn || f.name : f.name}: <em>{lang === 'en' ? f.descEn || f.desc : f.desc}</em>
+                    {item && <span className="prog-where">→ {placeLabel(item, lang)}</span>}
+                  </li>
+                );
+              })}
             </ul>
           </details>
         );

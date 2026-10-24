@@ -3,8 +3,9 @@
  * teclado e do leitor de tela): a 1ª coluna leva os k primeiros e a 2ª o resto, com k
  * escolhido para as duas terminarem perto uma da outra (a página fica mais curta).
  * As alturas são estimativas (px, coluna de ~480–600px) feitas só com o que NÃO muda no
- * meio do jogo (armas, estilos, espaços, recursos, druida): ligar uma condição, abrir uma
- * lista ou levar dano não muda a divisão, então nenhum painel pula de coluna durante o uso. */
+ * meio do jogo (armas, estilos, espaços, recursos, druida, traços de classe fechados): ligar
+ * uma condição, abrir uma lista ou um traço ou levar dano não muda a divisão, então nenhum
+ * painel pula de coluna durante o uso. */
 
 export const PLAY_H = {
   hp: 450,                                  // PV, PV temp e os 6 medalhões
@@ -16,6 +17,7 @@ export const PLAY_H = {
   wild: 330, starry: 180,                   // Forma Selvagem; Forma Estelar (Círculo das Estrelas)
   abilities: 210,
   rest: 115,
+  traitHead: 30, trait: 45,                 // traços de classe de um painel: rótulo; por traço (fechado)
 };
 
 // heights: altura estimada de cada painel, na ordem da página (0 = painel que não aparece).
