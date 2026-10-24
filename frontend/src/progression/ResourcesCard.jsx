@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { computeResources, spendResource } from './resources.js';
 import { api } from '../api/client.js';
 import { tName } from '../../data/i18n.js';
+import { gemLabel } from '../sheet/gem-text.js';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
@@ -54,6 +55,7 @@ export default function ResourcesCard({ char, lang, update, canRestore = !!char.
                   return (
                     <button key={i} type="button" className={`slot-pip ${used ? 'used' : ''} ${locked ? 'locked' : ''}`}
                       disabled={busy || locked}
+                      aria-label={gemLabel(r.name[lang], i, r.max, used, lang)}
                       onClick={() => change(r, used ? -(r.used - i) : i + 1 - r.used)} />
                   );
                 })}

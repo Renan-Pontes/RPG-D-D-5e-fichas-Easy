@@ -6,6 +6,7 @@ import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
 import { featSummary } from '../src/progression/FeatPicker.jsx';
 import ResourcesCard from '../src/progression/ResourcesCard.jsx';
+import { computeResources } from '../src/progression/resources.js';
 import { SpeciesChoicesModal } from '../src/progression/SpeciesChoices.jsx';
 import { t, tName } from '../data/i18n.js';
 import LanguagePicker, { chosenLanguages } from './LanguagePicker.jsx';
@@ -20,14 +21,29 @@ import * as FS from '../src/progression/fighting-styles.js';
 import GrimoireHint from '../src/grimoire/GrimoireHint.jsx';
 import { isArmorProficient } from '../src/creator/start-data.js';
 import { trainingLines, featName, featPicksText } from '../src/sheet/sheet-text.js';
-import { itemArt, conditionIcon, CONDITION_EMOJI } from '../src/art.js';
+import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '../src/art.js';
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
+import FhTitle from '../src/sheet/FhTitle.jsx';
+import FhAttackRow from '../src/sheet/FhAttack.jsx';
+import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
+import { FhHex, FhSkillRow, FhProfLegend, FhTapToRoll } from '../src/sheet/FhChecks.jsx';
+import { hpState, hpStateLabel, useHpFeedback } from '../src/sheet/hp-feedback.js';
+import { slotCircleLabel, gemLabel, lockedSlotTitle } from '../src/sheet/gem-text.js';
+import { condClasses, FhConditionFx, FhConditionArt } from '../src/sheet/FhConditions.jsx';
+import { useLevelCeremony, FhLevelCeremony, useGemRelight } from '../src/sheet/FhCeremonies.jsx';
+import { PLAY_H, splitColumns } from '../src/sheet/play-layout.js';
+import '../src/sheet/ficha.css';
 
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
   const [tab, setTab] = useState('play');
   const [hpDelta, setHpDelta] = useState(0);
   const [tempHpInput, setTempHpInput] = useState(false);
   const [cheatOpen, setCheatOpen] = useState(false);
+  // Cerimônias (só visual, src/sheet/FhCeremonies.jsx): o selo quando o nível sobe e as
+  // gemas que reacendem (descanso, trapaça, mestre).
+  const rootRef = useRef(null);
+  const [levelCer, closeLevelCer] = useLevelCeremony(char);
+  useGemRelight(rootRef);
 
   const update = (patch) => onUpdate({ ...char, ...patch });
   const updateRef = useRef(update);
@@ -105,14 +121,21 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
     if (window.__diceRoll) window.__diceRoll(config);
   };
 
+  // Raiz .ficha: escopo do visual da ficha (src/sheet/ficha.css). Sem transform,
+  // filter, isolation nem z-index aqui: os modais da ficha não são portais.
+  // As classes c-* (condições ativas) e is-down (PV 0) só mudam a aparência
+  // (retrato e camadas decorativas: src/sheet/FhConditions.jsx).
   return (
-    <>
+    <div ref={rootRef} className={['ficha', ...condClasses(char)].join(' ')}>
+      <FhConditionFx conditions={char.conditions} />
+      {levelCer && <FhLevelCeremony key={levelCer.key} cer={levelCer} char={char} lang={lang} onClose={closeLevelCer} />}
       <SheetHero
         char={char}
         lang={lang}
         onAvatar={(av) => update({ avatar: av })}
         onBack={onBack}
         onLevelUp={onLevelUp}
+        onInspiration={() => update({ inspiration: !char.inspiration })}
         cls={cls} race={race} bg={bg}
       />
 
@@ -133,7 +156,9 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         <CombatActionPanel char={char} lang={lang} onUpdate={onUpdate} />
       )}
 
-      <div className="action-bar no-print">
+      {/* Barra de ações (src/sheet/ficha.css: .fh-actions): os mesmos 7 controles; o
+          travado e a trapaça ligada viraram classes (antes, estilo inline). */}
+      <div className="action-bar fh-actions no-print">
         <button className="chip" onClick={onPrint}><Icon name="print" size={14} className="chip-icon"/> {t('print', lang)}</button>
         <button className="chip" onClick={() => onExportPdf({ flatten: false })} title={lang === 'pt' ? 'Ficha de D&D 5e com campos que você pode preencher e alterar em qualquer leitor de PDF' : 'D&D 5e sheet with fields you can fill and change in any PDF reader'}><Icon name="edit" size={14} className="chip-icon"/> {t('exportPdf', lang)}</button>
         <button className="chip" onClick={() => onExportPdf({ flatten: true })} title={lang === 'pt' ? 'Ficha de D&D 5e com o texto fixo, pronta para imprimir' : 'D&D 5e sheet with fixed text, ready to print'}><Icon name="download" size={14} className="chip-icon"/> {t('exportPdfPrint', lang)}</button>
@@ -143,18 +168,14 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
           <button className="chip" onClick={onEdit}><Icon name="edit" size={14} className="chip-icon"/> {t('edit', lang)}</button>
         )}
         {char.inCampaign && (
-          <span className="chip" style={{ opacity: 0.55, cursor: 'not-allowed' }} title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
+          <span className="chip is-locked" title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
             🔒 <Icon name="edit" size={14} className="chip-icon"/> {t('edit', lang)}
           </span>
         )}
-        <button className="chip" onClick={() => setCheatOpen(true)}
-          style={char.cheatMode ? { borderColor: 'var(--blood-bright)', color: 'var(--blood-bright)' } : undefined}>
+        <button className={`chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
           🎲 {lang === 'pt' ? (char.cheatMode ? 'Trapaça ativa' : 'Modo trapaça') : (char.cheatMode ? 'Cheat on' : 'Cheat mode')}
         </button>
-        <button className="chip" onClick={() => update({ inspiration: !char.inspiration })}>
-          <Icon name={char.inspiration ? 'star-fill' : 'star'} size={14} style={{ color: char.inspiration ? 'var(--gold-bright)' : 'var(--gold)' }}/>
-          {t('inspiration', lang)}
-        </button>
+        {/* Inspiração: virou a estrela do topo (SheetHero), com o mesmo handler */}
       </div>
 
       {cheatOpen && <CheatModeModal char={char} lang={lang} update={update} onClose={() => setCheatOpen(false)} />}
@@ -175,73 +196,109 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         ))}
       </ScrollTabs>
 
-      {tab === 'play' && (
-        <SheetPlay
-          char={char} lang={lang} update={update} applyHp={applyHp}
-          ac={ac} speed={speed} profB={profB} initBonus={initBonus}
-          passPerc={passPerc} slots={slots} roll={roll}
-        />
-      )}
+      {/* Conteúdo da aba. No desktop (1024px ou mais, ficha.css: F14) a ficha usa a largura
+          toda: a aba Jogar em duas colunas; as demais numa coluna de leitura centrada. */}
+      <div className={`fh-tab-body${tab === 'play' ? ' is-play' : ''}`}>
+        {tab === 'play' && (
+          <SheetPlay
+            char={char} lang={lang} update={update} applyHp={applyHp}
+            ac={ac} speed={speed} profB={profB} initBonus={initBonus}
+            passPerc={passPerc} slots={slots} roll={roll}
+          />
+        )}
 
-      {tab === 'stats' && (
-        <SheetStats
-          char={char} lang={lang} update={update}
-          profB={profB} passPerc={passPerc} roll={roll}
-        />
-      )}
+        {tab === 'stats' && (
+          <SheetStats
+            char={char} lang={lang} update={update}
+            profB={profB} passPerc={passPerc} roll={roll}
+          />
+        )}
 
-      {tab === 'spells' && (
-        <SheetSpells char={char} lang={lang} update={update} slots={slots} roll={roll} />
-      )}
+        {tab === 'spells' && (
+          <SheetSpells char={char} lang={lang} update={update} slots={slots} roll={roll} />
+        )}
 
-      {tab === 'inv' && (
-        <SheetInventory char={char} lang={lang} update={update} roll={roll} cls={cls} bg={bg} />
-      )}
+        {tab === 'inv' && (
+          <SheetInventory char={char} lang={lang} update={update} roll={roll} cls={cls} bg={bg} />
+        )}
 
-      {tab === 'story' && <SheetStory char={char} lang={lang} update={update} cls={cls} race={race} />}
-      {tab === 'notes' && <SheetNotes char={char} lang={lang} update={update} />}
-      {tab === 'npcs'  && <SheetNpcs char={char} lang={lang} update={update} />}
+        {tab === 'story' && <SheetStory char={char} lang={lang} update={update} cls={cls} race={race} />}
+        {tab === 'notes' && <SheetNotes char={char} lang={lang} update={update} />}
+        {tab === 'npcs'  && <SheetNpcs char={char} lang={lang} update={update} />}
+      </div>
 
       {/* Conteúdo extra da ficha (ex.: painel de Progressão) antes da zona de perigo */}
-      {children}
+      <div className="fh-after">{children}</div>
 
-      <div style={{ marginTop: 'var(--s-7)', paddingTop: 'var(--s-5)', borderTop: '1px solid var(--stroke-faint)', textAlign: 'center' }} className="no-print">
+      <div className="fh-danger-zone no-print">
         <button className="btn btn-ghost btn-danger btn-sm" onClick={onDelete}>
           <Icon name="trash" size={14}/> {t('delete', lang)}
         </button>
       </div>
-    </>
+    </div>
   );
 };
 
 // ===== Sub-components =====
 
-const SheetHero = ({ char, lang, onAvatar, onBack, onLevelUp, cls, race, bg }) => (
-  <>
-    <button className="btn btn-ghost btn-sm no-print" onClick={onBack} style={{ marginBottom: 12 }}>
-      <Icon name="arrow-back" size={14}/> {t('yourHeroes', lang)}
-    </button>
-    <div className="sheet-hero">
-      <AvatarUpload value={char.avatar} onChange={onAvatar} lang={lang} letter={(char.name || '?').charAt(0).toUpperCase()} />
-      <div className="hero-info">
-        <div className="hero-name">{char.name || (lang === 'pt' ? 'Sem nome' : 'Unnamed')}</div>
-        <div className="hero-sub">
-          {race ? tName('race', race.id, lang) : '—'}
-          {cls ? ` · ${Utils.classLabel(char, lang, tName)}` : ''}
-          {bg ? ` · ${tName('background', bg.id, lang)}` : ''}
+// Topo da ficha (visual "Ficha Forjada", src/sheet/ficha.css: .fh-hero).
+// - Retrato grande: só decoração (aria-hidden). Mesma regra do retrato do criador
+//   (portraitOf, src/creator/journey-ui.jsx): a foto do jogador; sem foto, a arte da
+//   espécie; senão, a da classe. Atrás dele fica a inicial em monograma, que aparece
+//   quando não há arte ou a imagem não carrega.
+// - O controle da foto continua sendo o círculo do AvatarUpload (enviar, ver, trocar,
+//   remover), num canto do retrato.
+// - Máscara e animações só em elementos-folha (<img>, anel do selo, estrela): o
+//   AvatarUpload abre um Modal, que não é portal.
+const hideBrokenImg = (e) => { e.currentTarget.style.display = 'none'; };
+
+const SheetHero = ({ char, lang, onAvatar, onBack, onLevelUp, onInspiration, cls, race, bg }) => {
+  const pt = lang === 'pt';
+  const letter = (char.name || '?').charAt(0).toUpperCase();
+  const portrait = char.avatar || speciesArt(char.race) || classArt(char.className);
+  return (
+    <>
+      <button className="btn btn-ghost btn-sm no-print" onClick={onBack} style={{ marginBottom: 12 }}>
+        <Icon name="arrow-back" size={14}/> {t('yourHeroes', lang)}
+      </button>
+      <div className="sheet-hero fh-hero">
+        <div className="fh-hero-art" aria-hidden="true">
+          <span className="fh-hero-mono">{letter}</span>
+          {portrait && <img key={portrait} src={portrait} alt="" onError={hideBrokenImg} />}
+          <FhConditionArt conditions={char.conditions} down={char.currentHp === 0} />
         </div>
-        <div className="hero-tags">
-          {char.alignment && <span className="tag">{tName('alignment', char.alignment, lang)}</span>}
-          {char.player && <span className="tag">{char.player}</span>}
-          {Utils.levelingMode(char) === 'xp' && <span className="tag">{char.xp || 0} XP</span>}
-          {Utils.levelingMode(char) === 'milestone' && <span className="tag" title={lang === 'pt' ? 'Sobe de nível por marcos da história (sem XP)' : 'Levels up at story milestones (no XP)'}>{lang === 'pt' ? 'Marcos' : 'Milestones'}</span>}
-          {char.cheatMode && <span className="tag" style={{ background: 'var(--blood-deep)', color: 'var(--ink-primary)' }}>🎲 {lang === 'pt' ? 'Trapaça' : 'Cheat'}</span>}
+        <div className="fh-hero-body">
+          <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
+          <div className={char.name ? 'hero-name' : 'hero-name is-unnamed'}>
+            {char.name ? <span className="fh-foil">{char.name}</span> : (pt ? 'Sem nome' : 'Unnamed')}
+          </div>
+          <div className="hero-sub">
+            {race ? <b>{tName('race', race.id, lang)}</b> : '—'}
+            {cls ? ` · ${Utils.classLabel(char, lang, tName)}` : ''}
+            {bg ? ` · ${tName('background', bg.id, lang)}` : ''}
+          </div>
+          <div className="hero-tags">
+            {char.alignment && <span className="tag">{tName('alignment', char.alignment, lang)}</span>}
+            {char.player && <span className="tag">{char.player}</span>}
+            {Utils.levelingMode(char) === 'xp' && <span className="tag">{char.xp || 0} XP</span>}
+            {Utils.levelingMode(char) === 'milestone' && <span className="tag" title={pt ? 'Sobe de nível por marcos da história (sem XP)' : 'Levels up at story milestones (no XP)'}>{pt ? 'Marcos' : 'Milestones'}</span>}
+            {char.cheatMode && <span className="tag fh-tag-cheat">🎲 {pt ? 'Trapaça' : 'Cheat'}</span>}
+          </div>
+        </div>
+        {/* Estrela e foto vêm depois do corpo: pintam (e recebem o toque) por cima dele,
+            sem z-index. Ficam no lado direito do retrato. */}
+        <button type="button" className="fh-insp no-print" aria-pressed={!!char.inspiration} onClick={onInspiration}>
+          <span className="fh-insp-gem"><Icon name={char.inspiration ? 'star-fill' : 'star'} size={22}/></span>
+          <span className="fh-insp-label">{t('inspiration', lang)}</span>
+        </button>
+        <div className="fh-hero-photo">
+          <AvatarUpload value={char.avatar} onChange={onAvatar} lang={lang} size={52} letter={letter} />
+          <span className="fh-hero-photo-badge" aria-hidden="true"><Icon name="image" size={11}/></span>
         </div>
       </div>
-      <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
-    </div>
-  </>
-);
+    </>
+  );
+};
 
 // Mesmo fluxo do painel de Progressão: fora de campanha abre a subida guiada;
 // em campanha pede liberação ao mestre.
@@ -251,15 +308,23 @@ const LevelUpButton = ({ char, lang, onLevelUp }) => {
   const canLevelXp = mode === 'xp' && char.level < 20 && (char.xp || 0) >= (XP_THRESHOLDS[char.level] || Infinity);
   const canLevel = char.level < 20 && (mode === 'milestone' || canLevelXp || char.cheatMode);
 
+  // Selo de nível: anel tracejado + núcleo dourado. Com `can`, o anel gira devagar
+  // (nunca com movimento reduzido) e o selinho ↑ continua no canto.
   return (
     <button
-      className={`hero-level no-print ${canLevel ? 'can' : ''}`}
+      className={`hero-level fh-seal no-print ${canLevel ? 'can' : ''}`}
       onClick={() => onLevelUp && onLevelUp()}
       disabled={!canLevel || !onLevelUp}
       title={canLevel ? (lang === 'pt' ? 'Subir de nível' : 'Level up') : (lang === 'pt' ? 'XP insuficiente' : 'Not enough XP')}
     >
-      <span className="hero-level-label">{t('level', lang)}</span>
-      <span className="hero-level-num">{char.level}</span>
+      <svg className="fh-seal-ring" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="30" fill="none" stroke="#e0b55e" strokeWidth="1.2" strokeDasharray="2 4"/>
+        <circle cx="32" cy="32" r="27" fill="none" stroke="#9a7231" strokeWidth="0.8"/>
+      </svg>
+      <span className="fh-seal-core">
+        <span className="hero-level-label">{t('level', lang)}</span>
+        <span className="hero-level-num">{char.level}</span>
+      </span>
       {canLevel && <span className="hero-level-up">↑</span>}
     </button>
   );
@@ -314,28 +379,19 @@ const SubclassRow = ({ char, lang, update, showClass }) => {
   const current = subs.find(s => s.id === char.subclass);
 
   if (!current) {
-    // Prominent banner — pick now
+    // Faixa de destaque (src/sheet/ficha.css: .fh-banner) — escolher agora
     return (
       <>
-        <div
-          className="card no-print"
-          style={{
-            marginBottom: 16, padding: 14,
-            background: 'linear-gradient(180deg, rgba(168,141,84,0.12) 0%, rgba(168,141,84,0.04) 100%)',
-            border: '1px solid var(--gold-deep)',
-          }}
-        >
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div>
-              <div className="eyebrow" style={{ color: 'var(--gold)' }}>{label[lang]}</div>
-              <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)', fontSize: '1.05rem' }}>
-                {char.className === 'druid' ? t('chooseCircle', lang) : t('chooseSubclass', lang)}
-              </div>
+        <div className="card no-print fh-banner">
+          <div className="fh-banner-text">
+            <div className="eyebrow fh-banner-eyebrow">{label[lang]}</div>
+            <div className="fh-banner-title">
+              {char.className === 'druid' ? t('chooseCircle', lang) : t('chooseSubclass', lang)}
             </div>
-            <button className="btn btn-sm" onClick={() => setOpen(true)} style={{ background: 'var(--gold)', color: 'var(--bg-deep)' }}>
-              <Icon name="sparkle" size={12}/> {char.className === 'druid' ? t('pickCircle', lang) : t('pickSubclass', lang)}
-            </button>
           </div>
+          <button className="btn btn-sm btn-primary fh-banner-btn" onClick={() => setOpen(true)}>
+            <Icon name="sparkle" size={12}/> {char.className === 'druid' ? t('pickCircle', lang) : t('pickSubclass', lang)}
+          </button>
         </div>
         {open && <SubclassModal char={char} lang={lang} subs={subs} label={label} update={update} onClose={() => setOpen(false)} />}
       </>
@@ -350,7 +406,7 @@ const SubclassRow = ({ char, lang, update, showClass }) => {
           <span className="subclass-strip-name">{current.name[lang]}</span>
         </div>
         {char.subclass === 'land' && char.landType && (
-          <span className="tag" style={{ fontSize: '0.75rem' }}>
+          <span className="tag fh-strip-tag">
             {(current.landTypes || []).find(l => l.id === char.landType)?.name[lang] || char.landType}
           </span>
         )}
@@ -371,18 +427,16 @@ const SpeciesBanner = ({ char, lang, update }) => {
   if (!issues.length && !open) return null;
   return (
     <>
-      <div className="card no-print" style={{ marginBottom: 16, padding: 14, background: 'linear-gradient(180deg, rgba(168,141,84,0.12) 0%, rgba(168,141,84,0.04) 100%)', border: '1px solid var(--gold-deep)' }}>
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div>
-            <div className="eyebrow" style={{ color: 'var(--gold)' }}>{lang === 'pt' ? 'Espécie' : 'Species'} · {tName('race', char.race, lang)}</div>
-            <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)', fontSize: '1.05rem' }}>
-              {issues.map(i => i[lang] || i.pt).join(' · ')}
-            </div>
+      <div className="card no-print fh-banner">
+        <div className="fh-banner-text">
+          <div className="eyebrow fh-banner-eyebrow">{lang === 'pt' ? 'Espécie' : 'Species'} · {tName('race', char.race, lang)}</div>
+          <div className="fh-banner-title">
+            {issues.map(i => i[lang] || i.pt).join(' · ')}
           </div>
-          <button className="btn btn-sm" onClick={() => setOpen(true)} style={{ background: 'var(--gold)', color: 'var(--bg-deep)' }}>
-            <Icon name="sparkle" size={12}/> {lang === 'pt' ? 'Escolher' : 'Choose'}
-          </button>
         </div>
+        <button className="btn btn-sm btn-primary fh-banner-btn" onClick={() => setOpen(true)}>
+          <Icon name="sparkle" size={12}/> {lang === 'pt' ? 'Escolher' : 'Choose'}
+        </button>
       </div>
       {open && <SpeciesChoicesModal char={char} lang={lang} onSave={update} onClose={() => setOpen(false)} />}
     </>
@@ -580,17 +634,19 @@ const CampaignModeBanner = ({ char, lang, onChange }) => {
     );
   }
 
+  // Faixa da campanha (src/sheet/ficha.css: .fh-camp): [🏰] rótulo + nome / travas [Sair]
   return (
-    <div className="campaign-mode-banner in-campaign">
-      <span className="cmb-icon">🏰</span>
-      <span className="cmb-label">{lang === 'pt' ? 'Em campanha' : 'In campaign'}</span>
-      {campInfo && <strong className="cmb-name">{campInfo.name}</strong>}
-      <span className="muted small">
-        {lang === 'pt'
-          ? 'Itens, slots, HP máximo e atributos são gerenciados pelo mestre.'
-          : 'Items, slots, max HP and abilities are managed by the DM.'}
-      </span>
-      <div style={{ flex: 1 }} />
+    <div className="campaign-mode-banner in-campaign fh-camp">
+      <span className="cmb-icon" aria-hidden="true">🏰</span>
+      <div className="fh-camp-text">
+        <span className="cmb-label">{lang === 'pt' ? 'Em campanha' : 'In campaign'}</span>
+        {campInfo && <strong className="cmb-name">{campInfo.name}</strong>}
+        <span className="muted small fh-camp-note">
+          {lang === 'pt'
+            ? 'Itens, slots, HP máximo e atributos são gerenciados pelo mestre.'
+            : 'Items, slots, max HP and abilities are managed by the DM.'}
+        </span>
+      </div>
       {campInfo && (
         <button className="btn btn-ghost btn-sm" onClick={leave} disabled={busy}>
           {busy ? '…' : (lang === 'pt' ? 'Sair' : 'Leave')}
@@ -642,7 +698,7 @@ const WildShapeBanner = ({ char, lang, onChange }) => {
         <div className="wsb-pre">
           {char.rulesVersion === '2024' ? (lang === 'pt' ? 'Mantém seus próprios pontos de vida.' : 'Retains your own hit points.') : `${lang === 'pt' ? 'Forma humanoide guardada:' : 'Stored humanoid:'} ${ws.preTransformHp} HP`}
         </div>
-        {err && <div style={{ color: 'var(--blood-bright)', fontSize: '0.85em' }}>{err}</div>}
+        {err && <div className="fh-ws-err" role="alert">{err}</div>}
       </div>
       <button className="btn btn-ghost" onClick={endShape} disabled={busy}>
         {busy ? '…' : (lang === 'pt' ? 'Sair da forma' : 'Revert form')}
@@ -823,30 +879,26 @@ const WildShapePanel = ({ char, druid, lang, update }) => {
   const usesUsed = char.wildShapeUses || 0;
 
   return (
-    <>
-      <div className="eyebrow mt-4" style={{ marginBottom: 8 }}>
-        {lang === 'pt' ? 'Forma Selvagem' : 'Wild Shape'}
-        {druid.subclass && (
-          <span className="text-xs" style={{ marginLeft: 6, color: 'var(--gold)', fontFamily: 'var(--body)', textTransform: 'none', letterSpacing: 0 }}>
-            {tName('subclass', druid.subclass, lang)}
-          </span>
-        )}
-        <span className="text-xs muted" style={{ marginLeft: 8, fontFamily: 'var(--body)', textTransform: 'none', letterSpacing: 0 }}>
+    <section className="fh-panel">
+      <FhTitle sub={<>
+        {druid.subclass && <span className="fh-sub-hi">{tName('subclass', druid.subclass, lang)}</span>}
+        <span>
           {crLabel}
           {!isMoon && level < 8 && (level < 4 ? (lang === 'pt' ? ' · sem voo/nat.' : ' · no fly/swim') : (lang === 'pt' ? ' · sem voo' : ' · no fly'))}
         </span>
-      </div>
+      </>}>{lang === 'pt' ? 'Forma Selvagem' : 'Wild Shape'}</FhTitle>
       <div className="row gap-2" style={{ marginBottom: 10, alignItems: 'center' }}>
         <div className="slot-pips wild">
           {Array.from({length: maxUses}, (_, i) => i).map(i => (
             <button
               key={i} type="button"
               className={`slot-pip ${i < usesUsed ? 'used' : ''}`}
+              aria-label={gemLabel(lang === 'pt' ? 'Forma Selvagem' : 'Wild Shape', i, maxUses, i < usesUsed, lang)}
               onClick={() => update({ wildShapeUses: i < usesUsed ? i : i + 1 })}
             />
           ))}
         </div>
-        <span className="text-xs muted">{Math.max(0, maxUses - usesUsed)}/{maxUses} {lang === 'pt' ? 'usos' : 'uses'} · {currentRules ? (lang === 'pt' ? '+1 por descanso curto' : '+1 per short rest') : (lang === 'pt' ? 'recupera no descanso curto' : 'recover on short rest')}</span>
+        <span className="text-xs muted fh-gem-note"><b className="fh-gem-count">{Math.max(0, maxUses - usesUsed)}/{maxUses}</b> {lang === 'pt' ? 'usos' : 'uses'} · {currentRules ? (lang === 'pt' ? '+1 por descanso curto' : '+1 per short rest') : (lang === 'pt' ? 'recupera no descanso curto' : 'recover on short rest')}</span>
       </div>
       {druid.subclass === 'stars' && (
         <StarryFormSection char={char} level={level} lang={lang} update={update} maxUses={maxUses} usesUsed={usesUsed} cheat={cheat} />
@@ -918,7 +970,7 @@ const WildShapePanel = ({ char, druid, lang, update }) => {
           }}
         />
       )}
-    </>
+    </section>
   );
 };
 
@@ -948,33 +1000,40 @@ const ConditionsPanel = ({ char, lang, update }) => {
 
   // Só o que está ativo fica à vista; a lista completa abre sob demanda.
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <div className="eyebrow">{pt ? 'Condições e efeitos' : 'Conditions & effects'}<GrimoireHint id="condicoes" lang={lang} /></div>
-        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(o => !o)}>
-          {open ? (pt ? 'Fechar' : 'Close') : (pt ? '+ Condição' : '+ Condition')}
-        </button>
-      </div>
+    <section className="fh-panel">
+      <FhTitle
+        hint={<GrimoireHint id="condicoes" lang={lang} />}
+        act={(
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(o => !o)}>
+            {open ? (pt ? 'Fechar' : 'Close') : (pt ? '+ Condição' : '+ Condition')}
+          </button>
+        )}
+      >{pt ? 'Condições e efeitos' : 'Conditions & effects'}</FhTitle>
       {!active.length && !temps.length && !open && (
         <div className="text-sm muted">{pt ? 'Nenhuma condição ativa.' : 'No active conditions.'}</div>
       )}
+      {/* Pílulas com ícone (src/sheet/ficha.css). A condição ligada também muda a
+          aparência da ficha: retrato e bordas da tela (src/sheet/FhConditions.jsx). */}
       <div className="cond-chips">
         {(open ? STD_CONDITIONS : active).map(id => {
           const on = active.includes(id);
           const chip = (
             <button key={id} type="button" className={`cond-chip ${on ? 'on' : ''}`} onClick={() => toggle(id)}
+              aria-pressed={on}
               title={on ? (pt ? 'Toque para remover' : 'Tap to remove') : ''}>
-              <ArtIcon src={conditionIcon(id)} emoji={CONDITION_EMOJI[id]} size={16} />
-              {tName('condition', id, lang)}{on && !open ? ' ✕' : ''}
+              <ArtIcon src={conditionIcon(id)} emoji={CONDITION_EMOJI[id]} size={30} />
+              {tName('condition', id, lang)}
+              {on && !open ? <span className="fh-cond-x"> ✕</span> : ''}
             </button>
           );
           return on && !open
-            ? <span key={id} className="row" style={{ alignItems: 'center' }}>{chip}<GrimoireHint id={id} lang={lang} label={tName('condition', id, lang)} /></span>
+            ? <span key={id} className="row fh-cond-on" style={{ alignItems: 'center' }}>{chip}<GrimoireHint id={id} lang={lang} label={tName('condition', id, lang)} /></span>
             : chip;
         })}
       </div>
       {temps.map(e => (
-        <div key={e.id} className="row gap-2" style={{ marginTop: 6, alignItems: 'center' }}>
+        <div key={e.id} className="row gap-2 fh-cond-temp" style={{ marginTop: 6, alignItems: 'center' }}>
+          <span className="fh-cond-temp-mark" aria-hidden="true" />
           <input value={e.name} onChange={ev => updateTemp(e.id, { name: ev.target.value })} style={{ flex: 2 }} />
           <input value={e.duration} onChange={ev => updateTemp(e.id, { duration: ev.target.value })}
             placeholder={pt ? 'Duração' : 'Duration'} style={{ flex: 1 }} />
@@ -982,14 +1041,14 @@ const ConditionsPanel = ({ char, lang, update }) => {
         </div>
       ))}
       {open && (
-        <div className="row gap-2" style={{ marginTop: 8 }}>
+        <div className="row gap-2 fh-cond-add" style={{ marginTop: 8 }}>
           <input value={newEffect} onChange={e => setNewEffect(e.target.value)}
             placeholder={pt ? 'Efeito personalizado (ex.: Bênção, 1 min)' : 'Custom effect (e.g. Bless, 1 min)'}
             onKeyDown={e => e.key === 'Enter' && addTemp()} style={{ flex: 1 }} />
           <button type="button" className="btn btn-icon" onClick={addTemp} aria-label={pt ? 'Adicionar' : 'Add'}>+</button>
         </div>
       )}
-    </div>
+    </section>
   );
 };
 
@@ -1001,8 +1060,8 @@ const RELATIONSHIP_OPTS = [
   { id: 'unknown', label: { pt: 'Incerto',  en: 'Unknown' } },
 ];
 
-const RELATIONSHIP_COLOR = { ally: 'var(--moss-bright)', neutral: 'var(--gold)', enemy: 'var(--blood-bright)', unknown: 'var(--ink-secondary)' };
-
+// Cor da relação: no CSS (src/sheet/ficha.css: [data-rel]) — aliado verdete, neutro
+// ouro, inimigo vinho, incerto cinza; no cartão (filete e etiqueta) e nas pílulas do modal.
 const SheetNpcs = ({ char, lang, update }) => {
   const npcs = char.npcs || [];
   const [editing, setEditing] = useState(null); // id or 'new'
@@ -1022,56 +1081,52 @@ const SheetNpcs = ({ char, lang, update }) => {
   const remove = (id) => update({ npcs: npcs.filter(n => n.id !== id) });
 
   return (
-    <div style={{ padding: '0 0 32px' }}>
-      <div className="eyebrow mt-4" style={{ marginBottom: 12 }}>
-        {lang === 'pt' ? 'Personagens Conhecidos' : 'Known Characters'}
-      </div>
-      <Filigree />
+    <section className="fh-panel">
+      <FhTitle>{lang === 'pt' ? 'Personagens Conhecidos' : 'Known Characters'}</FhTitle>
 
       {npcs.length === 0 && (
-        <div className="text-sm muted" style={{ textAlign: 'center', padding: '24px 0' }}>
+        <div className="fh-empty">
           {lang === 'pt' ? 'Nenhum NPC registrado ainda.' : 'No NPCs recorded yet.'}
         </div>
       )}
 
-      <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
-        {npcs.map(npc => (
-          <div key={npc.id} style={{
-            background: 'var(--surface-2)', border: '1px solid var(--stroke-faint)',
-            borderRadius: 8, padding: 12,
-            borderLeft: `3px solid ${RELATIONSHIP_COLOR[npc.relationship] || 'var(--gold)'}`,
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <div style={{ fontFamily: 'var(--display)', fontSize: '1rem', color: 'var(--ink-primary)' }}>{npc.name}</div>
-                <div className="text-xs muted" style={{ marginTop: 2 }}>
-                  {[npc.race, npc.role].filter(Boolean).join(' · ')}
-                  {npc.relationship && (
-                    <span style={{ marginLeft: 8, color: RELATIONSHIP_COLOR[npc.relationship] }}>
-                      {RELATIONSHIP_OPTS.find(r => r.id === npc.relationship)?.label[lang] || npc.relationship}
-                    </span>
-                  )}
+      {/* Cartão por NPC (src/sheet/ficha.css: .fh-npc): nome, "raça · papel", relação
+          em etiqueta colorida, Editar e ✕; as notas embaixo. */}
+      {npcs.length > 0 && (
+        <div className="fh-npcs">
+          {npcs.map(npc => (
+            <article key={npc.id} className="fh-npc" data-rel={npc.relationship || 'neutral'}>
+              <div className="fh-npc-head">
+                <div className="fh-npc-id">
+                  <div className="fh-npc-name">{npc.name}</div>
+                  <div className="fh-npc-sub">
+                    {[npc.race, npc.role].filter(Boolean).join(' · ')}
+                    {npc.relationship && (
+                      <span className="fh-npc-rel">
+                        {RELATIONSHIP_OPTS.find(r => r.id === npc.relationship)?.label[lang] || npc.relationship}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="fh-npc-acts">
+                  <button type="button" className="fh-npc-btn" onClick={() => openEdit(npc)}>
+                    {lang === 'pt' ? 'Editar' : 'Edit'}
+                  </button>
+                  <button type="button" className="fh-npc-btn is-del" onClick={() => remove(npc.id)}
+                    aria-label={`${lang === 'pt' ? 'Remover' : 'Remove'} ${npc.name}`}>
+                    ✕
+                  </button>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button type="button" onClick={() => openEdit(npc)}
-                  style={{ padding: '2px 8px', background: 'transparent', border: '1px solid var(--gold)', borderRadius: 4, color: 'var(--gold)', cursor: 'pointer', fontSize: '0.75rem' }}>
-                  {lang === 'pt' ? 'Editar' : 'Edit'}
-                </button>
-                <button type="button" onClick={() => remove(npc.id)}
-                  style={{ padding: '2px 8px', background: 'transparent', border: '1px solid var(--blood-bright)', borderRadius: 4, color: 'var(--blood-bright)', cursor: 'pointer', fontSize: '0.75rem' }}>
-                  ✕
-                </button>
-              </div>
-            </div>
-            {npc.notes && (
-              <div className="text-sm" style={{ marginTop: 8, color: 'var(--ink-secondary)', whiteSpace: 'pre-wrap' }}>{npc.notes}</div>
-            )}
-          </div>
-        ))}
-      </div>
+              {npc.notes && (
+                <div className="fh-npc-notes">{npc.notes}</div>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
 
-      <button className="btn btn-sm btn-ghost" style={{ width: '100%', marginTop: 16, borderColor: 'var(--gold)', color: 'var(--gold)' }} onClick={openNew}>
+      <button className="btn btn-sm btn-ghost fh-npc-add" onClick={openNew}>
         + {lang === 'pt' ? 'Adicionar NPC' : 'Add NPC'}
       </button>
 
@@ -1097,17 +1152,12 @@ const SheetNpcs = ({ char, lang, update }) => {
             </div>
             <div>
               <label>{lang === 'pt' ? 'Relação' : 'Relationship'}</label>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+              <div className="fh-rel-pills" role="group" aria-label={lang === 'pt' ? 'Relação' : 'Relationship'}>
                 {RELATIONSHIP_OPTS.map(r => (
-                  <button key={r.id} type="button"
-                    onClick={() => setForm(f => ({ ...f, relationship: r.id }))}
-                    style={{
-                      padding: '4px 12px', borderRadius: 20, cursor: 'pointer', fontSize: '0.8rem',
-                      background: form.relationship === r.id ? RELATIONSHIP_COLOR[r.id] : 'var(--surface-2)',
-                      border: `1px solid ${RELATIONSHIP_COLOR[r.id]}`,
-                      color: form.relationship === r.id ? 'var(--surface-1)' : RELATIONSHIP_COLOR[r.id],
-                      fontWeight: form.relationship === r.id ? 700 : 400,
-                    }}>
+                  <button key={r.id} type="button" data-rel={r.id}
+                    className={`fh-rel-pill${form.relationship === r.id ? ' on' : ''}`}
+                    aria-pressed={form.relationship === r.id}
+                    onClick={() => setForm(f => ({ ...f, relationship: r.id }))}>
                     {r.label[lang]}
                   </button>
                 ))}
@@ -1129,7 +1179,7 @@ const SheetNpcs = ({ char, lang, update }) => {
           </div>
         </Modal>
       )}
-    </div>
+    </section>
   );
 };
 
@@ -1156,215 +1206,250 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
   };
 
   const hpPct = Math.max(0, Math.min(100, (char.currentHp / Math.max(1, char.maxHp)) * 100));
+  // Só design (src/sheet/hp-feedback.js): estado Firme/Ferido/À beira da morte/Caído pela
+  // fração do PV e o retorno visual quando ele muda (número que sobe, tremor, clarão).
+  const state = hpState(char.currentHp, char.maxHp);
+  const hpFx = useHpFeedback(char);
+  const fxKind = hpFx ? (hpFx.delta < 0 ? 'hit' : 'heal') : '';
+  const fxBeat = hpFx ? (hpFx.id % 2 ? 'a' : 'b') : ''; // alterna o nome da animação para ela recomeçar
+  const pt = lang === 'pt';
 
-  return (
-    <>
-      <div className="hp-tracker" style={{ marginBottom: 16 }}>
-        <div className="eyebrow text-center">{t('hp', lang)}</div>
-        <div className="hp-display">
-          <span className="hp-current">{char.currentHp}</span>
-          <span className="hp-sep">/</span>
-          <span className="hp-max">{char.maxHp}</span>
-          {char.tempHp > 0 && <span style={{ marginLeft: 12, color: 'var(--moss-bright)', fontFamily: 'var(--display)', fontSize: '1.2rem' }}>+{char.tempHp}</span>}
-        </div>
-        <div className="hp-bar"><div className="hp-bar-fill" style={{ width: `${hpPct}%` }} /></div>
-        <div className="hp-actions">
-          <button className="btn btn-sm btn-hurt" onClick={() => apply(-1)} disabled={!delta}>
-            <Icon name="sword" size={14}/> {t('damage', lang)}
-          </button>
-          <input
-            className="hp-input"
-            type="number"
-            min="0"
-            value={delta}
-            onChange={e => setDelta(e.target.value)}
-            placeholder="0"
-            style={{ width: 80 }}
-          />
-          <button className="btn btn-sm btn-heal" onClick={() => apply(1)} disabled={!delta}>
-            <Icon name="heart" size={14}/> {t('heal', lang)}
-          </button>
-        </div>
-        <div className="hp-temp">
-          {t('tempHp', lang)}<GrimoireHint id="pv-temporarios" lang={lang} />:
-          {' '}
-          <input
-            type="number" min="0"
-            value={char.tempHp || 0}
-            onChange={e => update({ tempHp: Math.max(0, +e.target.value || 0) })}
-            style={{ width: 60, display: 'inline-block', padding: '4px 8px', minHeight: 28, fontSize: '0.85rem', textAlign: 'center' }}
-          />
-        </div>
+  // Regra da ficha: proficiência, Artes Marciais do Monge e Estilos de Luta (Utils.attackFor).
+  const atks = (char.weapons || []).map(w => Utils.attackFor(char, w));
+  const druidEntry = Utils.classLevel(char, 'druid') >= 2 ? Utils.classEntries(char).find(e => e.id === 'druid') : null;
+  const druid = druidEntry ? Utils.classView(char, druidEntry) : null;
 
-        {/* Death saves */}
-        {char.currentHp === 0 && (
-          <div style={{ marginTop: 14, padding: 12, background: 'var(--blood-deep)', borderRadius: 4, border: '1px solid var(--blood-bright)' }}>
-            <div className="eyebrow text-center" style={{ color: 'var(--blood-bright)' }}>{t('deathSaves', lang)}<GrimoireHint id="testes-contra-a-morte" lang={lang} /></div>
-            <div className="row gap-3" style={{ marginTop: 8, justifyContent: 'center', alignItems: 'center' }}>
-              <span className="text-xs" style={{ color: 'var(--moss-bright)' }}>{t('successes', lang)}:</span>
-              <div className="death-pips">
-                {[0,1,2].map(i => (
-                  <button key={i} type="button" className={`death-pip ${i < char.deathSaves.success ? 'success' : ''}`}
-                    onClick={() => update({ deathSaves: { ...char.deathSaves, success: i < char.deathSaves.success ? i : i + 1 } })}/>
-                ))}
-              </div>
-              <span style={{ width: 16 }}/>
-              <span className="text-xs" style={{ color: 'var(--blood-bright)' }}>{t('failures', lang)}:</span>
-              <div className="death-pips">
-                {[0,1,2].map(i => (
-                  <button key={i} type="button" className={`death-pip ${i < char.deathSaves.fail ? 'fail' : ''}`}
-                    onClick={() => update({ deathSaves: { ...char.deathSaves, fail: i < char.deathSaves.fail ? i : i + 1 } })}/>
-                ))}
-              </div>
+  // Painéis da aba, na ordem do celular (e do teclado): { h: altura estimada, el }.
+  // No desktop a aba vira duas colunas e splitColumns (src/sheet/play-layout.js) escolhe
+  // quantos vão para a 1ª: só layout, a ordem nunca muda. As alturas usam só o que não
+  // muda durante o jogo (nenhum painel troca de coluna ao ligar condição ou levar dano).
+  const slotLevels = (slots || []).filter(Boolean).length;
+  const resourceCount = computeResources(char).length;
+  const attackNotes = atks.reduce((n, a) => n + (a.fs.mastery ? 1 : 0) + (a.proficient ? 0 : 1) + (a.monk ? 1 : 0) + a.fs.notes.length, 0);
+  const starry = druid?.subclass === 'stars' && druid.level >= (char.rulesVersion === '2024' ? 3 : 2);
+  const panels = [
+    { h: PLAY_H.hp, el: (
+        <section key="hp" className={`hp-tracker fh-panel fh-hp${fxKind === 'heal' ? ` fh-healed-${fxBeat}` : ''}`} data-state={state}>
+          <FhTitle>{t('hp', lang)}</FhTitle>
+          <div className="fh-hp-row">
+            <div className="hp-display">
+              <span className={`fh-hp-num${fxKind === 'hit' ? ` fh-shake-${fxBeat}` : ''}`}>
+                <span className="hp-current">{char.currentHp}</span>
+                <span className="hp-sep">/</span>
+                <span className="hp-max">{char.maxHp}</span>
+              </span>
+              {char.tempHp > 0 && <span className="fh-hp-temp-badge" title={t('tempHp', lang)}>+{char.tempHp}</span>}
+              {hpFx && (
+                <span key={hpFx.id} className={`fh-float ${fxKind}`} aria-hidden="true">
+                  {hpFx.delta < 0 ? '−' : '+'}{Math.abs(hpFx.delta)}
+                </span>
+              )}
             </div>
-            <button className="btn btn-sm btn-ghost" style={{ width: '100%', marginTop: 8 }}
-              onClick={() => roll({ die: 20, label: t('death', lang) })}>
-              <Icon name="dice" size={12}/> {lang === 'pt' ? 'Rolar teste contra morte' : 'Roll death save'}
+            <div className="fh-hp-state">{hpStateLabel(state, lang)}</div>
+          </div>
+          {/* barra-fantasma: anda atrás do preenchimento, com atraso, e mostra o quanto caiu */}
+          <div className="hp-bar" aria-hidden="true">
+            <div className="fh-hp-ghost" style={{ width: `${hpPct}%` }} />
+            <div className="hp-bar-fill" style={{ width: `${hpPct}%` }} />
+          </div>
+          <div className="hp-actions">
+            <button className="btn btn-sm btn-hurt" onClick={() => apply(-1)} disabled={!delta}>
+              <Icon name="sword" size={18}/> {t('damage', lang)}
+            </button>
+            <input
+              className="hp-input"
+              type="number"
+              inputMode="numeric"
+              min="0"
+              value={delta}
+              onChange={e => setDelta(e.target.value)}
+              placeholder="0"
+              aria-label={pt ? 'Quantidade de dano ou cura' : 'Damage or healing amount'}
+            />
+            <button className="btn btn-sm btn-heal" onClick={() => apply(1)} disabled={!delta}>
+              <Icon name="heart" size={18}/> {t('heal', lang)}
             </button>
           </div>
-        )}
-      </div>
-
-      {/* Combat trio */}
-      <div className="combat-grid" style={{ marginBottom: 16 }}>
-        <div className="combat-box">
-          <div className="eyebrow">{t('ac', lang)}</div>
-          <div className="combat-box-value">{ac}</div>
-          <div className="combat-box-sub">
-            {acStyleBonuses.length > 0
-              ? <span title={acStyleBonuses.map(x => x.label[lang]).join(', ')}>{FS.partsLabel(acStyleBonuses, lang)}</span>
-              : <Icon name="shield" size={11}/>}
+          <div className="hp-temp fh-hp-temp">
+            <span className="fh-hp-temp-label">{t('tempHp', lang)}<GrimoireHint id="pv-temporarios" lang={lang} /></span>
+            <input
+              type="number" min="0"
+              inputMode="numeric"
+              value={char.tempHp || 0}
+              onChange={e => update({ tempHp: Math.max(0, +e.target.value || 0) })}
+              aria-label={t('tempHp', lang)}
+            />
           </div>
-          {untrainedArmor.length > 0 && (
-            <div className="text-xs" style={{ color: 'var(--blood-bright)' }}
-              title={lang === 'pt'
-                ? 'Sem treino: desvantagem em testes, salvaguardas e ataques de FOR e DES, e você não pode lançar magias.'
-                : "Untrained: Disadvantage on STR and DEX checks, saves and attacks, and you can't cast spells."}>
-              {lang === 'pt' ? 'Sem treino' : 'Untrained'}: {untrainedArmor.join(', ')}
+  
+          {/* Death saves */}
+          {char.currentHp === 0 && (
+            <div className="fh-death">
+              <div className="fh-death-title">{t('deathSaves', lang)}<GrimoireHint id="testes-contra-a-morte" lang={lang} /></div>
+              <div className="fh-death-rows">
+                <div className="fh-death-group is-success">
+                  <span className="fh-death-label">{t('successes', lang)}:</span>
+                  <div className="death-pips">
+                    {[0,1,2].map(i => (
+                      <button key={i} type="button" className={`death-pip ${i < char.deathSaves.success ? 'success' : ''}`}
+                        aria-pressed={i < char.deathSaves.success} aria-label={`${t('successes', lang)}: ${i + 1}`}
+                        onClick={() => update({ deathSaves: { ...char.deathSaves, success: i < char.deathSaves.success ? i : i + 1 } })}/>
+                    ))}
+                  </div>
+                </div>
+                <div className="fh-death-group is-fail">
+                  <span className="fh-death-label">{t('failures', lang)}:</span>
+                  <div className="death-pips">
+                    {[0,1,2].map(i => (
+                      <button key={i} type="button" className={`death-pip ${i < char.deathSaves.fail ? 'fail' : ''}`}
+                        aria-pressed={i < char.deathSaves.fail} aria-label={`${t('failures', lang)}: ${i + 1}`}
+                        onClick={() => update({ deathSaves: { ...char.deathSaves, fail: i < char.deathSaves.fail ? i : i + 1 } })}/>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <button className="btn btn-sm btn-ghost fh-death-roll"
+                onClick={() => roll({ die: 20, label: t('death', lang) })}>
+                <Icon name="dice" size={14}/> {lang === 'pt' ? 'Rolar teste contra morte' : 'Roll death save'}
+              </button>
             </div>
           )}
-        </div>
-        <div className="combat-box" onClick={() => roll({ die: 20, mod: initBonus, label: t('initRoll', lang) })} style={{ cursor: 'pointer' }}>
-          <div className="eyebrow">{t('initiative', lang)}</div>
-          <div className="combat-box-value">{Utils.fmtMod(initBonus)}</div>
-          <div className="combat-box-sub">{lang === 'pt' ? 'toque p/ rolar' : 'tap to roll'}</div>
-        </div>
-        <div className="combat-box">
-          <div className="eyebrow">{t('speed', lang)}</div>
-          <div className="combat-box-value">{Utils.speedLabel(speed, lang).split(' ')[0]}</div>
-          <div className="combat-box-sub">{lang === 'pt' ? 'm' : 'ft'}</div>
-        </div>
-      </div>
-
-      {/* Quick weapons (attacks) */}
-      {(
-        <div style={{ marginBottom: 16 }}>
-          <div className="eyebrow mb-2">{lang === 'pt' ? 'Ataques' : 'Attacks'}</div>
-          {(char.weapons || []).map((w, i) => {
-            // Regra da ficha: proficiência, Artes Marciais do Monge e Estilos de Luta (Utils.attackFor).
-            const a = Utils.attackFor(char, w);
-            const fs = a.fs;
-            const atk = a.bonus;
-            const dmgMod = a.dmgMod;
-            const bonusText = FS.partsLabel([...fs.attackParts.map(p => ({ ...p, label: { pt: `${p.label.pt} (ataque)`, en: `${p.label.en} (attack)` } })), ...fs.damageParts], lang);
-            return (
-              <div key={i} className="slot-row" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
-                <div className="attack-name">
-                <ArtThumb src={itemArt(w)} emoji="⚔️" size={40} lang={lang} />
-                <div>
-                  <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)' }}>{w.name}</div>
-                  <div className="text-xs muted">{a.damage} {a.dmgType ? Utils.damageLabel(a.dmgType, lang) : ''}</div>
-                  {a.monk && <div className="text-xs" style={{ color: 'var(--gold)' }}>{lang === 'pt' ? 'Artes Marciais (arma de monge)' : 'Martial Arts (Monk weapon)'}</div>}
-                  {!a.proficient && <div className="text-xs" style={{ color: 'var(--blood-bright)' }}>{lang === 'pt' ? 'Sem proficiência: não soma o bônus de proficiência' : 'Not proficient: no proficiency bonus'}</div>}
-                  {bonusText && <div className="text-xs" style={{ color: 'var(--gold)' }}>{bonusText}</div>}
+  
+          {/* Defesa em medalhões: CA, Iniciativa (toque rola), Deslocamento, Prof., Perc. passiva
+              e Dados de Vida (as antigas grades .combat-grid desta aba) */}
+          <div className="fh-defense">
+            <FhMedal shape="shield" value={ac} label={t('ac', lang)}
+              sub={acStyleBonuses.length > 0
+                ? <span title={acStyleBonuses.map(x => x.label[lang]).join(', ')}>{FS.partsLabel(acStyleBonuses, lang)}</span>
+                : null}>
+              {untrainedArmor.length > 0 && (
+                <div className="fh-medal-warn"
+                  title={lang === 'pt'
+                    ? 'Sem treino: desvantagem em testes, salvaguardas e ataques de FOR e DES, e você não pode lançar magias.'
+                    : "Untrained: Disadvantage on STR and DEX checks, saves and attacks, and you can't cast spells."}>
+                  {lang === 'pt' ? 'Sem treino' : 'Untrained'}: {untrainedArmor.join(', ')}
+                </div>
+              )}
+            </FhMedal>
+            <FhMedal shape="circle" value={Utils.fmtMod(initBonus)} label={t('initiative', lang)}
+              sub={<FhTapToRoll lang={lang} short />}
+              onClick={() => roll({ die: 20, mod: initBonus, label: t('initRoll', lang) })} />
+            <FhMedal shape="circle" value={Utils.speedLabel(speed, lang).split(' ')[0]} unit={lang === 'pt' ? 'm' : 'ft'}
+              label={t('speed', lang)} />
+            <FhMedal shape="diamond" value={Utils.fmtMod(profB)} label={lang === 'pt' ? 'Prof.' : 'Prof.'} />
+            <FhMedal shape="diamond" value={passPerc} label={lang === 'pt' ? 'Perc.' : 'Perc.'}
+              hint={<GrimoireHint id="valor-passivo" lang={lang} />} sub={lang === 'pt' ? 'passiva' : 'passive'} />
+            <FhMedal shape="circle" value={Math.max(0, char.level - (char.hitDiceUsed || 0))} label={t('hitDice', lang)}
+              hint={<GrimoireHint id="dados-de-vida" lang={lang} />} sub={`/${Utils.hitDiceLabel(char)}`} />
+          </div>
+        </section>
+    ) },
+    { h: PLAY_H.attacks + PLAY_H.attackRow * (atks.length + 1) + PLAY_H.attackNote * attackNotes, el: (
+        /* Ataques: uma linha por arma e o Golpe Desarmado (src/sheet/FhAttack.jsx). Os botões
+            "Ataque +X" e "Dano NdX+Y" fazem as mesmas rolagens (rótulos e valores) de antes. */
+        <section key="attacks" className="fh-panel">
+          <FhTitle>{lang === 'pt' ? 'Ataques' : 'Attacks'}</FhTitle>
+          <div className="fh-atks">
+            {(char.weapons || []).map((w, i) => {
+              const a = atks[i];
+              const fs = a.fs;
+              const atk = a.bonus;
+              const dmgMod = a.dmgMod;
+              const bonusText = FS.partsLabel([...fs.attackParts.map(p => ({ ...p, label: { pt: `${p.label.pt} (ataque)`, en: `${p.label.en} (attack)` } })), ...fs.damageParts], lang);
+              return (
+                <FhAttackRow key={i} lang={lang}
+                  art={<ArtThumb src={itemArt(w)} emoji="⚔️" size={40} lang={lang} />}
+                  name={w.name}
+                  sub={a.dmgType ? Utils.damageLabel(a.dmgType, lang) : null}
+                  atkText={Utils.fmtMod(atk)}
+                  onAttack={() => roll({ die: 20, mod: atk, label: w.name + ' ' + t('attackRoll', lang) })}
+                  dmgText={a.damage}
+                  onDamage={() => {
+                    const m = String(a.dice || '').match(/(\d+)d(\d+)/);
+                    if (m) roll({ die: +m[2], count: +m[1], mod: dmgMod, label: w.name + ' ' + t('damageRoll', lang) });
+                  }}>
+                  {a.monk && <div className="fh-atk-note is-gold">{lang === 'pt' ? 'Artes Marciais (arma de monge)' : 'Martial Arts (Monk weapon)'}</div>}
+                  {!a.proficient && <div className="fh-atk-note is-warn">{lang === 'pt' ? 'Sem proficiência: não soma o bônus de proficiência' : 'Not proficient: no proficiency bonus'}</div>}
+                  {bonusText && <div className="fh-atk-note is-gold">{bonusText}</div>}
                   {fs.mastery && (
-                    <div className="text-xs" style={{ color: 'var(--moss-bright)' }} title={fs.mastery.desc[lang]}>
+                    <div className="fh-atk-note is-mastery" title={fs.mastery.desc[lang]}>
                       {lang === 'pt' ? 'Maestria' : 'Mastery'}: <strong>{fs.mastery.name[lang]}</strong> — {fs.mastery.desc[lang]}
                     </div>
                   )}
-                  {fs.notes.map((n, k) => <div key={k} className="text-xs muted">{n[lang]}</div>)}
-                </div>
-                </div>
-                <button className="btn btn-sm" onClick={() => roll({ die: 20, mod: atk, label: w.name + ' ' + t('attackRoll', lang) })}>
-                  {Utils.fmtMod(atk)}
-                </button>
-                <button className="btn btn-sm btn-ghost" onClick={() => {
-                  const m = String(a.dice || '').match(/(\d+)d(\d+)/);
-                  if (m) roll({ die: +m[2], count: +m[1], mod: dmgMod, label: w.name + ' ' + t('damageRoll', lang) });
-                }}>
-                  <Icon name="dice" size={12}/>
-                </button>
-              </div>
-            );
-          })}
-          {(() => {
-            // Golpe Desarmado: todo mundo é proficiente (1 + FOR de concussão). Monge usa o dado
-            // de Artes Marciais com DES ou FOR; o Estilo de Luta Desarmado troca o 1 por um dado.
-            const u = Utils.unarmedStrike(char);
-            const name = u.name[lang];
-            const m = String(u.dice || '').match(/(\d+)d(\d+)/);
-            return (
-              <div className="slot-row" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
-                <div className="attack-name">
-                <ArtThumb src={null} emoji="👊" size={40} lang={lang} title={name} />
-                <div>
-                  <div style={{ fontFamily: 'var(--display)', color: 'var(--ink-primary)' }}>{name}</div>
-                  <div className="text-xs muted">{u.damage} {Utils.damageLabel(u.dmgType, lang)}</div>
-                  {u.monk && <div className="text-xs" style={{ color: 'var(--gold)' }}>{lang === 'pt' ? 'Artes Marciais' : 'Martial Arts'}</div>}
+                  {fs.notes.map((n, k) => <div key={k} className="fh-atk-note">{n[lang]}</div>)}
+                </FhAttackRow>
+              );
+            })}
+            {(() => {
+              // Golpe Desarmado: todo mundo é proficiente (1 + FOR de concussão). Monge usa o dado
+              // de Artes Marciais com DES ou FOR; o Estilo de Luta Desarmado troca o 1 por um dado.
+              const u = Utils.unarmedStrike(char);
+              const name = u.name[lang];
+              const m = String(u.dice || '').match(/(\d+)d(\d+)/);
+              // com dado, a fórmula vai no botão de dano; sem dado (dano fixo), fica na linha
+              const sub = m ? Utils.damageLabel(u.dmgType, lang) : `${u.damage} ${Utils.damageLabel(u.dmgType, lang)}`;
+              return (
+                <FhAttackRow lang={lang}
+                  art={<ArtThumb src={null} emoji="👊" size={40} lang={lang} title={name} />}
+                  name={name}
+                  sub={sub}
+                  atkText={Utils.fmtMod(u.bonus)}
+                  onAttack={() => roll({ die: 20, mod: u.bonus, label: name + ' ' + t('attackRoll', lang) })}
+                  dmgText={u.damage}
+                  onDamage={m ? () => roll({ die: +m[2], count: +m[1], mod: u.dmgMod, label: name + ' ' + t('damageRoll', lang) }) : null}>
+                  {u.monk && <div className="fh-atk-note is-gold">{lang === 'pt' ? 'Artes Marciais' : 'Martial Arts'}</div>}
                   {unarmed && (
-                    <div className="text-xs" style={{ color: 'var(--gold)' }}>
+                    <div className="fh-atk-note is-gold">
                       {unarmed.name[lang]}: {lang === 'pt' ? `${unarmed.dieFree} com as mãos livres` : `${unarmed.dieFree} with free hands`}
                       {unarmed.grapple ? (lang === 'pt' ? `; ${unarmed.grapple} no agarrado` : `; ${unarmed.grapple} to grappled`) : ''}
                     </div>
                   )}
-                </div>
-                </div>
-                <button className="btn btn-sm" onClick={() => roll({ die: 20, mod: u.bonus, label: name + ' ' + t('attackRoll', lang) })}>
-                  {Utils.fmtMod(u.bonus)}
-                </button>
-                {m ? (
-                  <button className="btn btn-sm btn-ghost" onClick={() => roll({ die: +m[2], count: +m[1], mod: u.dmgMod, label: name + ' ' + t('damageRoll', lang) })}>
-                    <Icon name="dice" size={12}/>
-                  </button>
-                ) : <span />}
+                </FhAttackRow>
+              );
+            })()}
+          </div>
+        </section>
+    ) },
+    styleSummaries.length > 0 && {
+      h: PLAY_H.styles + PLAY_H.style * styleSummaries.length + PLAY_H.styleExtra * (reactions.length + (blindsightFt > 0 ? 1 : 0)),
+      el: (
+        /* Estilos de Luta ativos: resumo, sentidos (Luta às Cegas) e lembretes de reação */
+        <section key="styles" className="fh-panel">
+          <FhTitle>{lang === 'pt' ? 'Estilos de Luta' : 'Fighting Styles'}</FhTitle>
+          <div className="fh-traits">
+            {styleSummaries.map(s => (
+              <div key={s.id} className="fh-trait">
+                <div className="fh-trait-name">{s.name[lang]}</div>
+                {s.summary[lang] && <p className="fh-trait-text">{s.summary[lang]}</p>}
               </div>
-            );
-          })()}
-        </div>
-      )}
-      {/* Estilos de Luta ativos: resumo, sentidos (Luta às Cegas) e lembretes de reação */}
-      {styleSummaries.length > 0 && (
-        <div className="card" style={{ marginBottom: 16, padding: 12 }}>
-          <div className="eyebrow mb-2">{lang === 'pt' ? 'Estilos de Luta' : 'Fighting Styles'}</div>
-          {styleSummaries.map(s => (
-            <div key={s.id} className="text-sm" style={{ marginBottom: 4 }}>
-              <strong style={{ color: 'var(--gold)' }}>{s.name[lang]}</strong>
-              {s.summary[lang] && <span className="muted"> — {s.summary[lang]}</span>}
-            </div>
-          ))}
+            ))}
+          </div>
           {blindsightFt > 0 && (
-            <div className="text-xs mt-2">
+            <div className="fh-style-sense">
               <strong>{lang === 'pt' ? 'Sentidos' : 'Senses'}:</strong> {lang === 'pt' ? `Percepção às Cegas ${Math.round(blindsightFt * 0.3)} m` : `Blindsight ${blindsightFt} ft`}
             </div>
           )}
           {reactions.map(r => (
-            <div key={r.id} className="text-xs mt-2" style={{ color: 'var(--blood-bright)' }}>
+            <div key={r.id} className="fh-style-react">
               <strong>{lang === 'pt' ? 'Reação' : 'Reaction'} · {r.name[lang]}:</strong> {r.text[lang]}
             </div>
           ))}
-        </div>
-      )}
-      {/* Spell slots quick tracker */}
-      {slots && slots.length > 0 && (
-        <>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>{t('slots', lang)}</div>
+        </section>
+      ),
+    },
+    slots && slots.length > 0 && {
+      h: PLAY_H.slots + PLAY_H.slotRow * slotLevels,
+      el: (
+        /* Spell slots quick tracker */
+        <section key="slots" className="fh-panel">
+          <FhTitle>{t('slots', lang)}</FhTitle>
           {slots.map((max, idx) => {
             const lvl = idx + 1;
             if (!max) return null;
             const used = (char.spellSlotsUsed && char.spellSlotsUsed[idx]) || 0;
+            const circle = slotCircleLabel(lvl, lang);
             return (
-              <div key={lvl} className="slot-row">
-                <div className="slot-level">{lang === 'pt' ? 'Nv' : 'Lv'} {lvl}</div>
+              <div key={lvl} className="slot-row fh-slot-line">
+                <div className="slot-level">{circle}</div>
                 <div className="slot-pips">
                   {Array.from({ length: max }).map((_, i) => {
                     // Sem trapaça: gasta, mas só recupera descansando. Em campanha, use "Conjurar".
@@ -1374,6 +1459,8 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
                         key={i} type="button"
                         className={`slot-pip ${i < used ? 'used' : ''} ${locked ? 'locked' : ''}`}
                         disabled={locked}
+                        aria-label={gemLabel(circle, i, max, i < used, lang)}
+                        title={locked ? lockedSlotTitle(!!char.inCampaign, lang) : undefined}
                         onClick={locked ? undefined : () => {
                           const arr = [...(char.spellSlotsUsed || [])];
                           while (arr.length <= idx) arr.push(0);
@@ -1384,59 +1471,60 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
                     );
                   })}
                 </div>
-                <span className="text-xs muted mono">{max - used}/{max}</span>
+                <span className="fh-gem-count">{max - used}/{max}</span>
               </div>
             );
           })}
-        </>
-      )}
+        </section>
+      ),
+    },
+    { h: resourceCount ? PLAY_H.resources + PLAY_H.resourceRow * resourceCount : 0, el: (
+        /* Recursos de classe com usos (Fúria, Canalizar Divindade…). O componente é
+            compartilhado com o editor do mestre: o painel é só um embrulho daqui
+            (vazio quando não há recursos; o CSS esconde). */
+        <section key="resources" className="fh-panel fh-res"><ResourcesCard char={char} lang={lang} update={update} /></section>
+    ) },
+    { h: PLAY_H.conditions, el: (
+        /* Conditions / status effects */
+        <ConditionsPanel key="conditions" char={char} lang={lang} update={update} />
+    ) },
+    druid && {
+      h: PLAY_H.wild + (starry ? PLAY_H.starry : 0),
+      el: (
+        /* Wild Shape — Druid only */
+        <WildShapePanel key="wild" char={char} druid={druid} lang={lang} update={update} />
+      ),
+    },
+    { h: PLAY_H.abilities, el: (
+        /* Abilities at a glance */
+        <section key="abilities" className="fh-panel">
+          <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{t('tabStats', lang)}</FhTitle>
+          <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang) + ' ' + t('abilityCheck', lang)} />
+        </section>
+    ) },
+    { h: PLAY_H.rest, el: (
+        /* Descanso: mesma lógica (e endpoint) da aba de magias */
+        <section key="rest" className="fh-panel">
+          <FhTitle hint={<GrimoireHint id="descanso-curto" lang={lang} />}>{lang === 'pt' ? 'Descanso' : 'Rest'}</FhTitle>
+          <RestButtons char={char} lang={lang} update={update} />
+        </section>
+    ) },
+  ].filter(Boolean);
+  const split = splitColumns(panels.map(p => p.h));
 
-      {/* Recursos de classe com usos (Fúria, Canalizar Divindade…) */}
-      <ResourcesCard char={char} lang={lang} update={update} />
+  return (
+    <>
+      {/* Clarão na borda da tela ao levar dano / ser curado: camada decorativa fixa, fora
+          dos painéis (nada de transform/filter em contêiner com botão que abre Modal). */}
+      {hpFx && <div key={hpFx.id} className={`fh-fx fh-fx-${fxKind}`} aria-hidden="true" />}
+      <FhMedalDefs />
 
-      {/* Conditions / status effects */}
-      <ConditionsPanel char={char} lang={lang} update={update} />
-
-      {/* Wild Shape — Druid only */}
-      {Utils.classLevel(char, 'druid') >= 2 && (
-        <WildShapePanel char={char} druid={Utils.classView(char, Utils.classEntries(char).find(e => e.id === 'druid'))} lang={lang} update={update} />
-      )}
-
-      {/* Abilities at a glance */}
-      <div className="abil-grid" style={{ marginBottom: 16 }}>
-        {SRD.ABILITIES.map(k => {
-          const score = Utils.abilityWithRace(char, k);
-          const mod = Utils.abilityMod(char, k);
-          return (
-            <div key={k} className="abil-box" onClick={() => roll({ die: 20, mod, label: t(k, lang) + ' ' + t('abilityCheck', lang) })} style={{ cursor: 'pointer' }}>
-              <div className="abil-box-name">{t(k + 'Sh', lang)}</div>
-              <div className="abil-box-mod">{Utils.fmtMod(mod)}</div>
-              <div className="abil-box-score">{score}</div>
-            </div>
-          );
-        })}
+      {/* Duas colunas a partir de 1024px (ficha.css: .fh-play). Abaixo disso, ou com o
+          rolador lateral aberto e pouca largura, viram uma coluna só, na mesma ordem. */}
+      <div className="fh-play">
+        <div className="fh-play-col">{panels.slice(0, split).map(p => p.el)}</div>
+        <div className="fh-play-col">{panels.slice(split).map(p => p.el)}</div>
       </div>
-
-      <div className="combat-grid combat-grid-compact" style={{ marginBottom: 16 }}>
-        <div className="combat-box">
-          <div className="eyebrow">{lang === 'pt' ? 'Prof.' : 'Prof.'}</div>
-          <div className="combat-box-value">{Utils.fmtMod(profB)}</div>
-        </div>
-        <div className="combat-box">
-          <div className="eyebrow">{lang === 'pt' ? 'Perc.' : 'Perc.'}<GrimoireHint id="valor-passivo" lang={lang} /></div>
-          <div className="combat-box-value">{passPerc}</div>
-          <div className="combat-box-sub">{lang === 'pt' ? 'passiva' : 'passive'}</div>
-        </div>
-        <div className="combat-box">
-          <div className="eyebrow">{t('hitDice', lang)}<GrimoireHint id="dados-de-vida" lang={lang} /></div>
-          <div className="combat-box-value">{Math.max(0, char.level - (char.hitDiceUsed || 0))}</div>
-          <div className="combat-box-sub">/{Utils.hitDiceLabel(char)}</div>
-        </div>
-      </div>
-
-      {/* Descanso: mesma lógica (e endpoint) da aba de magias */}
-      <div className="eyebrow mt-4" style={{ marginBottom: 8 }}>{lang === 'pt' ? 'Descanso' : 'Rest'}<GrimoireHint id="descanso-curto" lang={lang} /></div>
-      <div style={{ marginBottom: 16 }}><RestButtons char={char} lang={lang} update={update} /></div>
     </>
   );
 };
@@ -1482,84 +1570,95 @@ const LanguagesField = ({ char, lang, update }) => {
   );
 };
 
+// Selos de atributo (abas Jogar e Atributos): o mesmo desenho; cada aba mantém o seu
+// rótulo de rolagem ("<Atributo> Teste de habilidade" na Jogar, "<Atributo>" aqui).
+// O nome acessível começa pela sigla visível no selo (quem usa voz diz "FOR").
+// data-fab-pass: o botão de dados passa por cima dos selos sem saltar (DiceRoller).
+const AbilitySeals = ({ char, lang, roll, rollLabel }) => (
+  <div className="fh-abil" data-fab-pass="">
+    {SRD.ABILITIES.map(k => {
+      const score = Utils.abilityWithRace(char, k);
+      const mod = Utils.abilityMod(char, k);
+      return (
+        <FhHex key={k} abbr={t(k + 'Sh', lang)} mod={Utils.fmtMod(mod)} score={score}
+          label={lang === 'pt'
+            ? `${t(k + 'Sh', lang)}, ${t(k, lang)} ${Utils.fmtMod(mod)}, valor ${score}. Rolar teste`
+            : `${t(k + 'Sh', lang)}, ${t(k, lang)} ${Utils.fmtMod(mod)}, score ${score}. Roll check`}
+          onClick={() => roll({ die: 20, mod, label: rollLabel(k) })} />
+      );
+    })}
+  </div>
+);
+
 const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
+  const pt = lang === 'pt';
+  const profText = (level) => level === 2 ? (pt ? 'Especialista' : 'Expertise') : level ? (pt ? 'Treinado' : 'Proficient') : (pt ? 'Sem treino' : 'Not proficient');
   return (
     <>
-      <div className="eyebrow mb-2">{t('abilitiesTitle', lang).split(' ')[0] || lang === 'pt' ? 'Atributos' : 'Abilities'}</div>
-      <div className="abil-grid mb-4">
-        {SRD.ABILITIES.map(k => {
-          const score = Utils.abilityWithRace(char, k);
-          const mod = Utils.abilityMod(char, k);
-          return (
-            <div key={k} className="abil-box" onClick={() => roll({ die: 20, mod, label: t(k, lang) })} style={{ cursor: 'pointer' }}>
-              <div className="abil-box-name">{t(k + 'Sh', lang)}</div>
-              <div className="abil-box-mod">{Utils.fmtMod(mod)}</div>
-              <div className="abil-box-score">{score}</div>
-            </div>
-          );
-        })}
-      </div>
+      <section className="fh-panel">
+      <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{pt ? 'Atributos' : 'Abilities'}</FhTitle>
+      <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang)} />
+      </section>
 
-      <Filigree>{lang === 'pt' ? 'Testes de Resistência' : 'Saving Throws'}</Filigree>
-      <div className="skill-display mb-4">
+      <section className="fh-panel">
+      <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{lang === 'pt' ? 'Testes de Resistência' : 'Saving Throws'}</FhTitle>
+      {/* Em 2 colunas no desktop (3 + 3), na ordem do DOM: --fh-rows = metade das linhas.
+          data-fab-pass: o botão de dados fica no canto sobre a lista, sem saltar (DiceRoller) */}
+      <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(SRD.ABILITIES.length / 2) }}>
         {SRD.ABILITIES.map(k => {
           const bonus = Utils.saveBonus(char, k);
           const isProf = Utils.hasSaveProf(char, k);
           return (
-            <div key={k} className="skill-display-row" onClick={() => roll({ die: 20, mod: bonus, label: t(k, lang) + ' ' + t('saveRoll', lang) })}>
-              <button
-                type="button"
-                className={`skill-prof-dot ${isProf ? 'prof' : ''}`}
-                onClick={(e) => { e.stopPropagation(); update({ saveProfs: isProf ? (char.saveProfs || []).filter(x => x !== k) : [...(char.saveProfs || []), k] }); }}
-                aria-pressed={isProf}
-                title={isProf ? (lang === 'pt' ? 'Treinado' : 'Proficient') : (lang === 'pt' ? 'Sem treino' : 'Not proficient')}
-                style={{ cursor: 'pointer', padding: 0, background: isProf ? 'var(--gold)' : 'none' }}
-              />
-              <span className="skill-display-name">{t(k, lang)}</span>
-              <span className="skill-display-stat">{t(k + 'Sh', lang)}</span>
-              <span className="skill-display-mod">{Utils.fmtMod(bonus)}</span>
-            </div>
+            <FhSkillRow key={k} name={t(k, lang)} abbr={t(k + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
+              level={isProf ? 1 : 0}
+              profTitle={profText(isProf ? 1 : 0)}
+              profLabel={`${t(k, lang)}: ${profText(isProf ? 1 : 0)}`}
+              onToggle={() => update({ saveProfs: isProf ? (char.saveProfs || []).filter(x => x !== k) : [...(char.saveProfs || []), k] })}
+              onRoll={() => roll({ die: 20, mod: bonus, label: t(k, lang) + ' ' + t('saveRoll', lang) })} />
           );
         })}
       </div>
+      <FhProfLegend lang={lang} />
+      </section>
 
-      <Filigree>{t('skills', lang)} · {t('passivePerception', lang)} {passPerc}</Filigree>
-      <div className="skill-display">
+      <section className="fh-panel">
+      <FhTitle sub={<>
+        <span>{t('passivePerception', lang)} <span className="fh-sub-hi">{passPerc}</span></span>
+        <span aria-hidden="true">·</span>
+        <span><FhTapToRoll lang={lang} /></span>
+      </>}>{t('skills', lang)}</FhTitle>
+      <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(SRD.SKILLS.length / 2) }}>
         {SRD.SKILLS.map(s => {
           const bonus = Utils.skillBonus(char, s.id);
           const isProf = Utils.hasSkillProf(char, s.id);
           const isExpert = Utils.hasExpertise(char, s.id);
+          const level = isExpert ? 2 : isProf ? 1 : 0;
           return (
-            <div key={s.id} className="skill-display-row" onClick={() => roll({ die: 20, mod: bonus, label: tName('skill', s.id, lang) })}>
-              <button
-                type="button"
-                className={`skill-prof-dot ${isExpert ? 'expert' : isProf ? 'prof' : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isExpert) {
-                    update({ skillExpertise: (char.skillExpertise || []).filter(x => x !== s.id), skillProfs: (char.skillProfs || []).filter(x => x !== s.id) });
-                  } else if (isProf) {
-                    update({ skillExpertise: [...(char.skillExpertise || []), s.id] });
-                  } else {
-                    update({ skillProfs: [...(char.skillProfs || []), s.id] });
-                  }
-                }}
-                aria-pressed={isProf || isExpert}
-                title={isExpert ? (lang === 'pt' ? 'Especialista' : 'Expertise') : isProf ? (lang === 'pt' ? 'Treinado' : 'Proficient') : (lang === 'pt' ? 'Sem treino' : 'Not proficient')}
-                style={{ cursor: 'pointer', padding: 0, background: isProf || isExpert ? 'var(--gold)' : 'none' }}
-              />
-              <span className="skill-display-name">{tName('skill', s.id, lang)}</span>
-              <span className="skill-display-stat">{t(s.stat + 'Sh', lang)}</span>
-              <span className="skill-display-mod">{Utils.fmtMod(bonus)}</span>
-            </div>
+            <FhSkillRow key={s.id} name={tName('skill', s.id, lang)} abbr={t(s.stat + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
+              level={level}
+              profTitle={profText(level)}
+              profLabel={`${tName('skill', s.id, lang)}: ${profText(level)}`}
+              onToggle={() => {
+                // ciclo: sem treino → treinado → especialista → sem treino
+                if (isExpert) {
+                  update({ skillExpertise: (char.skillExpertise || []).filter(x => x !== s.id), skillProfs: (char.skillProfs || []).filter(x => x !== s.id) });
+                } else if (isProf) {
+                  update({ skillExpertise: [...(char.skillExpertise || []), s.id] });
+                } else {
+                  update({ skillProfs: [...(char.skillProfs || []), s.id] });
+                }
+              }}
+              onRoll={() => roll({ die: 20, mod: bonus, label: tName('skill', s.id, lang) })} />
           );
         })}
       </div>
+      <FhProfLegend lang={lang} expert />
+      </section>
 
       {(char.feats || []).length > 0 && (
-        <>
-          <Filigree>{lang === 'pt' ? 'Talentos' : 'Feats'}</Filigree>
-          <div style={{ marginBottom: 12 }}>
+        <section className="fh-panel">
+          <FhTitle>{lang === 'pt' ? 'Talentos' : 'Feats'}</FhTitle>
+          <div>
             {char.feats.map((f, i) => (
               <div key={i} className="text-sm" style={{ marginBottom: 4 }}>
                 <strong style={{ color: 'var(--gold-deep)' }}>{featName(char, f, lang)}</strong>
@@ -1571,9 +1670,10 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
               </div>
             ))}
           </div>
-        </>
+        </section>
       )}
-      <Filigree>{lang === 'pt' ? 'Idiomas e Outras Proficiências' : 'Languages & Other Proficiencies'}</Filigree>
+      <section className="fh-panel">
+      <FhTitle>{lang === 'pt' ? 'Idiomas e Outras Proficiências' : 'Languages & Other Proficiencies'}</FhTitle>
       <LanguagesField char={char} lang={lang} update={update} />
       {trainingLines(char, lang).map(tl => (
         <div key={tl.key} className="text-sm" style={{ marginBottom: 6 }}>
@@ -1588,6 +1688,7 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
           placeholder={lang === 'pt' ? 'Ferramentas, armas adicionais...' : 'Tools, extra weapons...'}
         />
       </div>
+      </section>
     </>
   );
 };

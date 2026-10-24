@@ -804,7 +804,9 @@ const App = () => {
           }
         </div>
       )}
-      <main id="main" className={`container ${screen === SCREENS.CAMPAIGN || screen === SCREENS.GRIMOIRE || screen === SCREENS.ADMIN ? 'container-wide' : (screen === SCREENS.CREATE || screen === SCREENS.EDIT) && !editingChar ? 'container-wide container-creator' : ''}`} tabIndex={-1}>
+      {/* container-wide: 1280px só a partir de 1024px (styles.css). A ficha usa para as duas
+          colunas da aba Jogar (src/sheet/ficha.css, F14); abaixo disso continua com 720px. */}
+      <main id="main" className={`container ${screen === SCREENS.CAMPAIGN || screen === SCREENS.GRIMOIRE || screen === SCREENS.ADMIN || screen === SCREENS.SHEET ? 'container-wide' : (screen === SCREENS.CREATE || screen === SCREENS.EDIT) && !editingChar ? 'container-wide container-creator' : ''}`} tabIndex={-1}>
         {screen === SCREENS.AUTH && pendingInvite && !auth.user && (
           <div className="join-hint" role="status" style={{ marginBottom: 'var(--s-4)' }}>
             {lang === 'pt'

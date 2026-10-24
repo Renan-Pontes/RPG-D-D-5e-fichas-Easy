@@ -337,6 +337,9 @@
   margin: 0 0 12px 0;
   color: var(--gold);
 }
+/* antes estilo inline (ProgressionPanel.jsx); o visual da ficha fica em src/sheet/ficha.css */
+.prog-total { margin: -6px 0 8px; }
+.prog-choose, .prog-swap { margin-left: 8px; }
 
 .prog-section {
   margin: 12px 0;
