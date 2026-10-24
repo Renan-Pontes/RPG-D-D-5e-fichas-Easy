@@ -66,11 +66,14 @@ const DiceRoller = ({ lang }) => {
   const present = useCallback((entry) => {
     const full = { id: Date.now() + Math.random(), ts: nowLabel(lang), ...entry };
     setLog(prev => [full, ...prev].slice(0, 30));
-    if (navigator.vibrate) navigator.vibrate(full.isCrit ? [60, 40, 100] : 30);
     if (effectiveAnimMode(animPref) === 'off') {
+      // Sem animação o resultado aparece na hora: o tremor do crítico vem junto.
+      if (navigator.vibrate) navigator.vibrate(full.isCrit ? [60, 40, 100] : 30);
       setOverlay(null);
       setPop(full);
     } else {
+      // Com o dado rolando, o tremor do crítico espera ele parar (onSettled do overlay).
+      if (navigator.vibrate) navigator.vibrate(30);
       setPop(null);
       setOverlay({ ...full, settled: false });
     }
@@ -463,7 +466,10 @@ const DiceRoller = ({ lang }) => {
               groups={overlay.groups}
               tone={overlay.isCrit ? 'crit' : overlay.isFumble ? 'fumble' : null}
               className="dice-overlay-stage"
-              onSettled={() => setOverlay(prev => (prev && prev.id === overlay.id ? { ...prev, settled: true } : prev))}
+              onSettled={() => {
+                if (overlay.isCrit && navigator.vibrate) navigator.vibrate([60, 40, 100]);
+                setOverlay(prev => (prev && prev.id === overlay.id ? { ...prev, settled: true } : prev));
+              }}
             />
             {overlay.settled && (
               <>

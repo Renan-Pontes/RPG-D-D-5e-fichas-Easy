@@ -1,9 +1,10 @@
 /* Character sheet view — play/stats/spells/inventory/story/journal tabs */
 import { errorMessage } from '../src/api/errors.js';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
+import { subclassLock, guardSealedPatch, sealHint } from '../src/progression/subclass-lock.js';
 import { featSummary } from '../src/progression/FeatPicker.jsx';
 import ResourcesCard from '../src/progression/ResourcesCard.jsx';
 import { computeResources } from '../src/progression/resources.js';
@@ -32,13 +33,33 @@ import { slotCircleLabel, gemLabel, lockedSlotTitle } from '../src/sheet/gem-tex
 import { condClasses, FhConditionFx, FhConditionArt } from '../src/sheet/FhConditions.jsx';
 import { useLevelCeremony, FhLevelCeremony, useGemRelight } from '../src/sheet/FhCeremonies.jsx';
 import { PLAY_H, splitColumns } from '../src/sheet/play-layout.js';
+import FhExportModal from '../src/sheet/FhExport.jsx';
 import '../src/sheet/ficha.css';
 
-const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
+// Modal "Campanha" (atrelar, desatrelar, trocar): só carrega quando abre.
+const CampaignLinkModal = lazy(() => import('../src/sheet/CampaignLinkModal.jsx'));
+
+// onCampaignChange(msg): a ficha entrou/saiu/trocou de campanha (modal "Campanha") —
+// o app recarrega a lista (char.inCampaign) e mostra `msg`. onLogin: ficha do aparelho,
+// leva à entrada na conta (sem ele, o servidor está fora e a dica não aparece).
+const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, onCampaignChange, onLogin, children }) => {
   const [tab, setTab] = useState('play');
   const [hpDelta, setHpDelta] = useState(0);
   const [tempHpInput, setTempHpInput] = useState(false);
   const [cheatOpen, setCheatOpen] = useState(false);
+  // Modal Exportar: ao fechar, o foco volta para o botão que abriu.
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportBtnRef = useRef(null);
+  const closeExport = () => { setExportOpen(false); exportBtnRef.current?.focus(); };
+  // campRev muda a cada atrelar/desatrelar/trocar: a faixa e o painel de combate
+  // buscam a campanha de novo (na troca A→B, inCampaign continua true).
+  const [campOpen, setCampOpen] = useState(false);
+  const [campRev, setCampRev] = useState(0);
+  const campaignChanged = async (msg) => {
+    setCampOpen(false);
+    setCampRev(n => n + 1);
+    await onCampaignChange?.(msg);
+  };
   // Cerimônias (só visual, src/sheet/FhCeremonies.jsx): o selo quando o nível sobe e as
   // gemas que reacendem (descanso, trapaça, mestre).
   const rootRef = useRef(null);
@@ -146,24 +167,30 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
 
       <SubclassBanner char={char} lang={lang} update={update} />
       <SpeciesBanner char={char} lang={lang} update={update} />
-      <CampaignModeBanner char={char} lang={lang} onChange={onUpdate} />
+      <CampaignModeBanner char={char} lang={lang} onChange={onUpdate} rev={campRev}
+        onManage={typeof char.id === 'number' ? () => setCampOpen(true) : null} onLogin={onLogin} />
+      {campOpen && (
+        <Suspense fallback={null}>
+          <CampaignLinkModal char={char} lang={lang} onClose={() => setCampOpen(false)} onDone={campaignChanged} />
+        </Suspense>
+      )}
 
       {char.wildShape?.active && (
         <WildShapeBanner char={char} lang={lang} onChange={onUpdate} />
       )}
 
       {char.inCampaign && (
-        <CombatActionPanel char={char} lang={lang} onUpdate={onUpdate} />
+        <CombatActionPanel key={campRev} char={char} lang={lang} onUpdate={onUpdate} />
       )}
 
-      {/* Barra de ações (src/sheet/ficha.css: .fh-actions): os mesmos 7 controles; o
-          travado e a trapaça ligada viraram classes (antes, estilo inline). */}
+      {/* Barra de ações (src/sheet/ficha.css: .fh-actions): Exportar, Editar e Modo trapaça;
+          o travado e a trapaça ligada viraram classes (antes, estilo inline). Imprimir, os
+          dois PDFs, Compartilhar e o JSON eram botões soltos aqui: agora são as linhas do
+          modal Exportar (src/sheet/FhExport.jsx), com os mesmos handlers. */}
       <div className="action-bar fh-actions no-print">
-        <button className="chip" onClick={onPrint}><Icon name="print" size={14} className="chip-icon"/> {t('print', lang)}</button>
-        <button className="chip" onClick={() => onExportPdf({ flatten: false })} title={lang === 'pt' ? 'Ficha de D&D 5e com campos que você pode preencher e alterar em qualquer leitor de PDF' : 'D&D 5e sheet with fields you can fill and change in any PDF reader'}><Icon name="edit" size={14} className="chip-icon"/> {t('exportPdf', lang)}</button>
-        <button className="chip" onClick={() => onExportPdf({ flatten: true })} title={lang === 'pt' ? 'Ficha de D&D 5e com o texto fixo, pronta para imprimir' : 'D&D 5e sheet with fixed text, ready to print'}><Icon name="download" size={14} className="chip-icon"/> {t('exportPdfPrint', lang)}</button>
-        <button className="chip" onClick={onShare}><Icon name="share" size={14} className="chip-icon"/> {t('share', lang)}</button>
-        <button className="chip" onClick={onExport}><Icon name="download" size={14} className="chip-icon"/> {t('export', lang)}</button>
+        <button ref={exportBtnRef} type="button" className="chip fh-export-chip" aria-haspopup="dialog" onClick={() => setExportOpen(true)}>
+          <Icon name="download" size={14} className="chip-icon"/> {t('export', lang)}
+        </button>
         {!char.inCampaign && (
           <button className="chip" onClick={onEdit}><Icon name="edit" size={14} className="chip-icon"/> {t('edit', lang)}</button>
         )}
@@ -179,6 +206,9 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
       </div>
 
       {cheatOpen && <CheatModeModal char={char} lang={lang} update={update} onClose={() => setCheatOpen(false)} />}
+      {exportOpen && (
+        <FhExportModal char={char} lang={lang} handlers={{ onPrint, onExportPdf, onShare, onExport }} onClose={closeExport} />
+      )}
 
       <ScrollTabs className="no-print" activeKey={tab} lang={lang} role="tablist" aria-label={lang === 'pt' ? 'Seções da ficha' : 'Sheet sections'}>
         {[
@@ -354,14 +384,19 @@ const SUBCLASS_LABEL = {
 
 // Uma faixa por classe: em multiclasse cada classe escolhe a própria subclasse
 // quando chega ao nível dela (grava em multiclass[i] fora da classe inicial).
+// O que já foi escolhido fica selado (guardSealedPatch: defesa atrás dos botões).
 const SubclassBanner = ({ char, lang, update }) => {
   const multi = Utils.isMulticlass(char);
-  return Utils.classEntries(char).map(e => (
-    <SubclassRow key={e.id} char={Utils.classView(char, e)} lang={lang} showClass={multi}
-      update={(patch) => e.primary
-        ? update(patch)
-        : update({ multiclass: char.multiclass.map(m => m.id === e.id ? { ...m, ...patch } : m) })} />
-  ));
+  return Utils.classEntries(char).map(e => {
+    const view = Utils.classView(char, e);
+    const save = (patch) => {
+      const safe = guardSealedPatch(view, patch, subclassesFor(view));
+      if (!Object.keys(safe).length) return;
+      if (e.primary) update(safe);
+      else update({ multiclass: char.multiclass.map(m => m.id === e.id ? { ...m, ...safe } : m) });
+    };
+    return <SubclassRow key={e.id} char={view} lang={lang} showClass={multi} update={save} />;
+  });
 };
 
 const SubclassRow = ({ char, lang, update, showClass }) => {
@@ -398,23 +433,38 @@ const SubclassRow = ({ char, lang, update, showClass }) => {
     );
   }
 
+  // Escolhida, a subclasse fica selada (src/progression/subclass-lock.js): sem o botão
+  // de trocar, com cadeado e dica; com o modo trapaça (fora de campanha) volta o
+  // "Alterar". O terreno do Círculo da Terra segue a regra: a primeira escolha dele
+  // continua aqui, mesmo com o círculo selado.
+  const lock = subclassLock(char, subs);
+  const needsLand = char.subclass === 'land' && !char.landType && (current.landTypes || []).length > 0;
   return (
     <>
-      <div className="subclass-strip no-print">
+      <div className={`subclass-strip no-print${lock.locked ? ' is-sealed' : ''}`}>
         <div className="subclass-strip-text">
           <span className="eyebrow">{label[lang]}</span>
           <span className="subclass-strip-name">{current.name[lang]}</span>
+          {lock.locked && (
+            <span className="fh-strip-lock"><span aria-hidden="true">🔒</span> {sealHint(lock.reason, lang)}</span>
+          )}
         </div>
         {char.subclass === 'land' && char.landType && (
           <span className="tag fh-strip-tag">
             {(current.landTypes || []).find(l => l.id === char.landType)?.name[lang] || char.landType}
           </span>
         )}
-        <button className="btn btn-sm btn-ghost" onClick={() => setOpen(true)} aria-label={lang === 'pt' ? 'Alterar' : 'Change'}>
-          <Icon name="edit" size={12}/> {lang === 'pt' ? 'Alterar' : 'Change'}
-        </button>
+        {!lock.locked ? (
+          <button className="btn btn-sm btn-ghost" onClick={() => setOpen(true)} aria-label={lang === 'pt' ? 'Alterar' : 'Change'}>
+            <Icon name="edit" size={12}/> {lang === 'pt' ? 'Alterar' : 'Change'}
+          </button>
+        ) : needsLand && (
+          <button className="btn btn-sm btn-primary" onClick={() => setOpen(true)}>
+            <Icon name="sparkle" size={12}/> {lang === 'pt' ? 'Escolher terreno' : 'Choose terrain'}
+          </button>
+        )}
       </div>
-      {open && <SubclassModal char={char} lang={lang} subs={subs} label={label} update={update} onClose={() => setOpen(false)} />}
+      {open && <SubclassModal char={char} lang={lang} subs={subs} label={label} update={update} onClose={() => setOpen(false)} landOnly={lock.locked} />}
     </>
   );
 };
@@ -443,7 +493,9 @@ const SpeciesBanner = ({ char, lang, update }) => {
   );
 };
 
-const SubclassModal = ({ char, lang, subs, label, update, onClose }) => {
+// landOnly: círculo já selado, só falta o terreno (a primeira escolha dele) — a lista
+// de subclasses some e o modal só oferece os terrenos.
+const SubclassModal = ({ char, lang, subs, label, update, onClose, landOnly = false }) => {
   const [pendingId, setPendingId] = useState(char.subclass || '');
   const [pendingLand, setPendingLand] = useState(char.landType || '');
   const selected = subs.find(s => s.id === pendingId);
@@ -451,7 +503,7 @@ const SubclassModal = ({ char, lang, subs, label, update, onClose }) => {
   const canSave = pendingId && (!needsLand || pendingLand);
 
   const save = () => {
-    update({
+    update(landOnly ? { landType: pendingLand } : {
       subclass: pendingId,
       landType: needsLand ? pendingLand : '',
     });
@@ -460,7 +512,12 @@ const SubclassModal = ({ char, lang, subs, label, update, onClose }) => {
 
   return (
     <Modal onClose={onClose} title={label[lang]}>
-      <div className="options-list" style={{ marginBottom: 16 }}>
+      {landOnly && selected && (
+        <div className="text-sm" style={{ marginBottom: 12, color: 'var(--ink-secondary)' }}>
+          {selected.name[lang]}: {lang === 'pt' ? 'escolha o seu terreno sagrado.' : 'choose your sacred terrain.'}
+        </div>
+      )}
+      {!landOnly && <div className="options-list" style={{ marginBottom: 16 }}>
         {subs.map(sc => {
           const isSel = pendingId === sc.id;
           return (
@@ -481,7 +538,7 @@ const SubclassModal = ({ char, lang, subs, label, update, onClose }) => {
             </button>
           );
         })}
-      </div>
+      </div>}
 
       {needsLand && (
         <>
@@ -526,12 +583,15 @@ const CheatModeModal = ({ char, lang, update, onClose }) => {
     'Editor livre de nível, PV máximo e atributos (aqui embaixo e no botão Editar).',
     'Magias de qualquer lista e acima do limite de truques e magias preparadas/conhecidas.',
     'Forma Selvagem com qualquer fera: sem limite de ND, voo, natação ou usos.',
+    // Fora de campanha a faixa da subclasse manda o jogador para cá (subclass-lock.js).
+    ...(locked ? [] : ['Trocar a subclasse já escolhida (círculo, domínio, juramento, patrono…) e o terreno do Círculo da Terra.']),
     'A ficha ganha o selo 🎲 Trapaça, visível para você e para o mestre.',
     'Desligar não desfaz o que foi alterado.',
   ] : [
     'Free editor for level, max HP and ability scores (below and in Edit).',
     'Spells from any list, above cantrip and prepared/known limits.',
     'Wild Shape into any beast: no CR, fly, swim or use limits.',
+    ...(locked ? [] : ['Change an already chosen subclass (circle, domain, oath, patron…) and the Circle of the Land terrain.']),
     'The sheet gets a 🎲 Cheat badge, visible to you and your DM.',
     'Turning it off does not undo changes.',
   ];
@@ -551,8 +611,8 @@ const CheatModeModal = ({ char, lang, update, onClose }) => {
       {locked && (
         <div className="text-sm" style={{ padding: 10, borderRadius: 6, background: 'var(--bg-elev)', marginBottom: 12 }}>
           🔒 {pt
-            ? 'Esta ficha está numa campanha: o servidor continua travando nível, PV e atributos (só o mestre altera), e a Forma Selvagem é validada pelo servidor. Aqui o modo só libera as magias.'
-            : 'This sheet is in a campaign: the server still locks level, HP and abilities (DM only), and Wild Shape is server-validated. Here the mode only unlocks spells.'}
+            ? 'Esta ficha está numa campanha: o servidor continua travando nível, PV, atributos e a subclasse (só o mestre altera), e a Forma Selvagem é validada pelo servidor. Aqui o modo só libera as magias.'
+            : 'This sheet is in a campaign: the server still locks level, HP, abilities and the subclass (DM only), and Wild Shape is server-validated. Here the mode only unlocks spells.'}
         </div>
       )}
       <button className={`btn ${on ? 'btn-ghost' : 'btn-primary'}`} style={{ width: '100%', marginBottom: 12 }}
@@ -595,9 +655,13 @@ const CheatModeModal = ({ char, lang, update, onClose }) => {
  * Em standalone, mostra um chip discreto "Ficha pessoal".
  * Em campanha, mostra o nome da campanha (busca via API) e botão pra sair.
  */
-const CampaignModeBanner = ({ char, lang, onChange }) => {
+// Faixa da campanha. onManage: abre o modal "Campanha" (só ficha da conta);
+// onLogin: ficha do aparelho, dica para entrar na conta. rev: busca de novo depois
+// de atrelar/desatrelar/trocar.
+const CampaignModeBanner = ({ char, lang, onChange, onManage, onLogin, rev = 0 }) => {
   const [campInfo, setCampInfo] = useState(null);
   const [busy, setBusy] = useState(false);
+  const pt = lang === 'pt';
 
   useEffect(() => {
     if (!char.inCampaign || typeof char.id !== 'number') { setCampInfo(null); return; }
@@ -605,10 +669,10 @@ const CampaignModeBanner = ({ char, lang, onChange }) => {
     api.characterCampaigns(char.id).then(r => {
       if (cancelled) return;
       const c = (r.campaigns || [])[0];
-      if (c) setCampInfo(c);
+      setCampInfo(c || null);
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [char.id, char.inCampaign]);
+  }, [char.id, char.inCampaign, rev]);
 
   const leave = async () => {
     if (!campInfo) return;
@@ -626,10 +690,28 @@ const CampaignModeBanner = ({ char, lang, onChange }) => {
   };
 
   if (!char.inCampaign) {
+    const local = typeof char.id !== 'number';
     return (
-      <div className="campaign-mode-inline no-print">
-        📜 <strong>{lang === 'pt' ? 'Ficha pessoal' : 'Personal sheet'}</strong>
-        <span className="muted"> · {lang === 'pt' ? 'fora de campanha; nível e atributos sobem pela Progressão' : 'not in a campaign; level and abilities change through Progression'}</span>
+      <div className="campaign-mode-inline fh-camp-inline no-print">
+        <span className="fh-camp-inline-text">
+          📜 <strong>{pt ? 'Ficha pessoal' : 'Personal sheet'}</strong>
+          <span className="muted"> · {pt ? 'fora de campanha; nível e atributos sobem pela Progressão' : 'not in a campaign; level and abilities change through Progression'}</span>
+          {local && onLogin && (
+            <span className="muted fh-camp-inline-hint"> {pt
+              ? 'Para jogar numa campanha, entre na sua conta: as fichas deste aparelho vão junto.'
+              : 'To play in a campaign, log in to your account: the sheets on this device come along.'}</span>
+          )}
+        </span>
+        {onManage && (
+          <button type="button" className="btn btn-ghost btn-sm fh-camp-link" onClick={onManage}>
+            🏰 {pt ? 'Atrelar a uma campanha' : 'Link to a campaign'}
+          </button>
+        )}
+        {local && onLogin && (
+          <button type="button" className="btn btn-ghost btn-sm fh-camp-link" onClick={onLogin}>
+            {pt ? 'Entrar na conta' : 'Log in'}
+          </button>
+        )}
       </div>
     );
   }
@@ -647,10 +729,21 @@ const CampaignModeBanner = ({ char, lang, onChange }) => {
             : 'Items, slots, max HP and abilities are managed by the DM.'}
         </span>
       </div>
-      {campInfo && (
-        <button className="btn btn-ghost btn-sm" onClick={leave} disabled={busy}>
-          {busy ? '…' : (lang === 'pt' ? 'Sair' : 'Leave')}
-        </button>
+      {(onManage || campInfo) && (
+        <div className="fh-camp-actions">
+          {onManage && (
+            <button className="btn btn-ghost btn-sm" onClick={onManage}
+              title={pt ? 'Desatrelar a ficha ou trocar de campanha' : 'Unlink the sheet or move it to another campaign'}>
+              {pt ? 'Campanha' : 'Campaign'}
+            </button>
+          )}
+          {campInfo && (
+            <button className="btn btn-ghost btn-sm" onClick={leave} disabled={busy}
+              title={pt ? 'Sair da campanha (a ficha continua com você)' : 'Leave the campaign (the sheet stays with you)'}>
+              {busy ? '…' : (pt ? 'Sair' : 'Leave')}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

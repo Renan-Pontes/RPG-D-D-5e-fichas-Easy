@@ -18,6 +18,8 @@ import { propLabel, armorTypeLabel } from '../src/creator/equipment-helpers.js';
 import { classFeatureList, backgroundFeature } from '../src/sheet/sheet-text.js';
 import { itemEmoji, schoolIcon, SCHOOL_EMOJI } from '../src/art.js';
 import { itemArtFor } from '../src/items/item-art.js';
+import { isPack, openPack, packPreview } from '../src/items/packs.js';
+import { confirmDialog } from './ConfirmDialog.jsx';
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
 import FhTitle from '../src/sheet/FhTitle.jsx';
 import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
@@ -1159,6 +1161,10 @@ const SheetNotes = ({ char, lang, update }) => {
  *
  * Items "legacy" sem `id` (antiga estrutura {name, qty}) ainda aparecem
  * — convertidos para nova estrutura na primeira edição via `update`.
+ *
+ * Pacotes de equipamento (Pacote de Aventureiro…): no lugar de "Consumir", o
+ * botão "Abrir pacote" troca o pacote pelos itens de dentro (src/items/packs.js).
+ * Ficha do servidor (conta/campanha) abre pelo backend, como consumir.
  */
 function InventoryList({ char, lang, update, addItem, updateItem, removeItem }) {
   const inCampaign = !!char.inCampaign;
@@ -1213,6 +1219,38 @@ function InventoryList({ char, lang, update, addItem, updateItem, removeItem }) 
     }
   };
 
+  const openPackAt = async (it, idx) => {
+    const pt = lang === 'pt';
+    const preview = packPreview(char, it, lang);
+    if (!preview) return;
+    const many = (+it.qty || 0) > 1 ? (pt ? ` Abre 1 de ${it.qty}.` : ` Opens 1 of ${it.qty}.`) : '';
+    const ok = await confirmDialog({
+      lang,
+      title: pt ? `Abrir ${it.name || preview.name}?` : `Open ${it.name || preview.name}?`,
+      message: (pt ? `Entram no inventário (regras ${preview.rules}): ` : `Goes into your inventory (${preview.rules} rules): `)
+        + preview.lines.join(', ') + '. '
+        + (pt ? 'Itens que você já tem são somados.' : 'Items you already have are added up.') + many,
+      confirmLabel: pt ? 'Abrir pacote' : 'Open pack',
+    });
+    if (!ok) return;
+    if (typeof char.id === 'number') {
+      try {
+        const r = await api.invOpenPack(char.id, it.id ? { itemId: it.id, lang } : { index: idx, name: it.name, lang });
+        update({ equipment: r.character.data.equipment || [] });
+      } catch (e) {
+        // Servidor ainda sem a rota (404 sem código de erro): fora de campanha abre aqui e
+        // salva como qualquer edição; em campanha o inventário só muda pelo servidor.
+        if (e?.status === 404 && !e?.data?.error && !inCampaign) {
+          const patch = openPack(char, it, lang);
+          if (patch) update(patch);
+        } else alert(errorMessage(e));
+      }
+    } else {
+      const patch = openPack(char, it, lang);
+      if (patch) update(patch);
+    }
+  };
+
   const removeOne = async (it, idx) => {
     if (inCampaign && typeof char.id === 'number') {
       // Em campanha, dono não remove. DM remove via DM editor.
@@ -1240,8 +1278,8 @@ function InventoryList({ char, lang, update, addItem, updateItem, removeItem }) 
       {inCampaign && (
         <div className="muted small fh-inv-lock">
           🔒 {lang === 'pt'
-            ? 'Em campanha: o mestre entrega os equipamentos. Você pode equipar, consumir e anotar.'
-            : 'In campaign: the DM gives items. You can equip, consume, and add notes.'}
+            ? 'Em campanha: o mestre entrega os equipamentos. Você pode equipar, consumir, abrir pacotes e anotar.'
+            : 'In campaign: the DM gives items. You can equip, consume, open packs, and add notes.'}
         </div>
       )}
       {items.length === 0 && (
@@ -1253,6 +1291,7 @@ function InventoryList({ char, lang, update, addItem, updateItem, removeItem }) 
           onToggleEquipped={() => toggleEquipped(it, i)}
           onToggleAttuned={() => toggleAttuned(it, i)}
           onConsume={() => consume(it, i)}
+          onOpenPack={() => openPackAt(it, i)}
           onRemove={() => removeOne(it, i)}
           onSetNotes={(n) => setNotes(it, i, n)}
           onPatchLocal={(p) => updateItem(i, p)}
@@ -1279,13 +1318,14 @@ function InventoryList({ char, lang, update, addItem, updateItem, removeItem }) 
   );
 }
 
-function InventoryRow({ item, idx, lang, rulesVersion, inCampaign, onToggleEquipped, onToggleAttuned, onConsume, onRemove, onSetNotes, onPatchLocal }) {
+function InventoryRow({ item, idx, lang, rulesVersion, inCampaign, onToggleEquipped, onToggleAttuned, onConsume, onOpenPack, onRemove, onSetNotes, onPatchLocal }) {
   const [open, setOpen] = useState(false);
   const isLegacy = !item.id;
   const broken = !!item.broken;
   const equipped = !!item.equipped;
   const attuned = !!item.attuned;
   const canAttune = !!item.attunement;
+  const pack = isPack(item);
   const type = item.type || (isLegacy ? 'gear' : '');
   const art = itemArtFor(item);
   const emoji = itemEmoji({ ...item, type });
@@ -1338,7 +1378,14 @@ function InventoryRow({ item, idx, lang, rulesVersion, inCampaign, onToggleEquip
                 ⚝ {lang === 'pt' ? 'Sintonia' : 'Attune'}
               </button>
             )}
-            {(item.qty || 0) > 0 && (
+            {/* Pacote: consumir = abrir (os itens de dentro entram no inventário).
+                Também com ×0: antes, consumir um pacote só tirava 1 e não dava nada. */}
+            {pack ? (
+              <button className="btn btn-sm btn-primary inv-open-pack" onClick={onOpenPack}
+                title={lang === 'pt' ? 'Troca o pacote pelos itens que vêm dentro' : 'Replaces the pack with the items inside'}>
+                🎒 {lang === 'pt' ? 'Abrir pacote' : 'Open pack'}
+              </button>
+            ) : (item.qty || 0) > 0 && (
               <button className="btn btn-sm btn-ghost" onClick={onConsume} title={lang === 'pt' ? 'Consumir 1' : 'Consume 1'}>
                 − {lang === 'pt' ? 'Consumir' : 'Consume'}
               </button>

@@ -437,8 +437,10 @@ function DramaticRollOverlay({ roll, lang, onDone }) {
     return () => clearTimeout(t1);
   }, []);
 
+  // Brilho dourado/vermelho do crítico/falha só na revelação: antes entregaria o resultado.
+  const revealed = phase === 'reveal';
   return (
-    <div className={`tv-roll-overlay phase-${phase} ${roll.isCritical ? 'crit' : ''} ${roll.isCriticalFail ? 'fail' : ''}`} onClick={onDone}>
+    <div className={`tv-roll-overlay phase-${phase} ${revealed && roll.isCritical ? 'crit' : ''} ${revealed && roll.isCriticalFail ? 'fail' : ''}`} onClick={onDone}>
       <div className="tv-roll-inner">
         <div className="tv-roll-who">{roll.requester}</div>
         <div className="tv-roll-label">{roll.label || roll.diceType}</div>

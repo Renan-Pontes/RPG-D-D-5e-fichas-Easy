@@ -47,6 +47,8 @@ test('joinFromInvite: guarda o essencial da mesa', () => {
   assert.equal(joinFromInvite('X', null), null);
   assert.equal(joinFromInvite('X', {}), null);
   assert.equal(joinFromInvite('X', { campaignId: 1, levelingMode: 'weird' }).levelingMode, 'milestone');
+  assert.equal(j.isDm, false);
+  assert.equal(joinFromInvite('X', { campaignId: 1, isDm: true }).isDm, true);
 });
 
 test('joinPatch: confirmar a mesa adota a progressão dela; tirar devolve a criação sem join', () => {
@@ -59,6 +61,17 @@ test('joinPatch: confirmar a mesa adota a progressão dela; tirar devolve a cria
   c = merge(c, prev => joinPatch(prev, null));
   assert.equal(creationJoin(c), null);
   assert.deepEqual(c.creation, {});
+});
+
+test('mesa que a pessoa mestra não entra na criação (o servidor recusaria: dm_cannot_be_player)', () => {
+  const dm = joinFromInvite('ABCD', { ...INVITE, isDm: true });
+  let c = merge(newCharacter(), prev => joinPatch(prev, dm));
+  assert.equal(creationJoin(c), null);
+  assert.equal(c.levelingMode, 'milestone'); // não adota a progressão da mesa
+  assert.deepEqual(c.creation, {});
+  // rascunho antigo que já guardou a mesa do mestre: não vira inviteCode no salvar
+  c = { ...newCharacter(), creation: { join: dm } };
+  assert.equal(creationJoin(c), null);
 });
 
 test('sem código: nada muda (sem pendência, sem join)', () => {
@@ -106,6 +119,10 @@ test('joinFailMessage: a ficha está salva; só oferece "tentar de novo" quando 
   assert.match(net.pt, /na mesa "Ecos de Valdoria"/);
   assert.equal(joinFailMessage({ status: 404, data: { error: 'invite_invalid' } }, j).retry, false);
   assert.equal(joinFailMessage({ status: 409, data: { error: 'character_already_in_campaign' } }, j).retry, false);
+  assert.equal(joinFailMessage({ status: 409, data: { error: 'character_in_other_campaign' } }, j).retry, false);
+  const dm = joinFailMessage({ status: 400, data: { error: 'dm_cannot_be_player' } }, j);
+  assert.equal(dm.retry, false);
+  assert.match(dm.pt, /mestre da mesa "Ecos de Valdoria"/);
   assert.match(joinFailMessage({ status: 500 }, null).pt, /entrar na mesa agora/);
 });
 

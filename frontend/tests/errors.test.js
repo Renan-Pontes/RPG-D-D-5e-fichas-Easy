@@ -24,7 +24,7 @@ test('issues do backend aparecem como lista', () => {
 });
 
 test('códigos do mundo, telão e convite têm texto nas duas línguas', () => {
-  for (const code of ['version_conflict', 'image_too_large', 'entry_hidden', 'too_many_entries', 'invite_invalid', 'character_already_in_campaign']) {
+  for (const code of ['version_conflict', 'image_too_large', 'entry_hidden', 'too_many_entries', 'invite_invalid', 'character_already_in_campaign', 'character_in_other_campaign', 'dm_cannot_be_player']) {
     const pt = errorText(code, 'pt');
     const en = errorText(code, 'en');
     assert.ok(pt && en && pt !== en, code);

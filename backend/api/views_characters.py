@@ -35,6 +35,8 @@ def character_list(request):
         if not campaign:
             return Response({'error': 'invite_invalid'}, status=404)
         P.require_open(campaign)
+        if campaign.dm_id == request.user.id:  # o mestre não joga com ficha na própria mesa
+            return Response({'error': 'dm_cannot_be_player'}, status=400)
     sponsored = P.check_character_create(request.user, campaign)
     P.check_images(request.user, P.image_bytes(data.get('avatar') if isinstance(data, dict) else None))
     with transaction.atomic():
@@ -443,6 +445,8 @@ def character_campaigns(request, pk):
         Membership.objects
         .filter(character=obj)
         .select_related('campaign')
+        .defer('campaign__cover_image')
+        .order_by('id')
     )
     return Response({
         'campaigns': [
@@ -451,6 +455,10 @@ def character_campaigns(request, pk):
                 'name': m.campaign.name,
                 'slug': m.campaign.slug,
                 'membershipId': m.id,
+                # modal "Campanha" da ficha: encerrada (somente leitura) e vaga emprestada
+                'status': m.campaign.status,
+                'purgeAt': P.purge_at(m.campaign).isoformat() if P.purge_at(m.campaign) else None,
+                'sponsored': m.sponsored,
             }
             for m in memberships
         ],

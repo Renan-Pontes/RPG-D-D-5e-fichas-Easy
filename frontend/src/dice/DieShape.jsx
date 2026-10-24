@@ -1,5 +1,7 @@
 // Dado 2D (SVG) — usado nos botões do rolador e como fallback quando não há
 // WebGL, o usuário prefere menos movimento ou escolheu animação simples.
+// tone ('crit' | 'fumble'): o DiceStage só passa depois que o dado para; a cor
+// muda com uma transição curta (styles.css: .die-shape.tone-*).
 const DICE_FACES = {
   4: 'M50 5 L95 90 L5 90 Z',
   6: 'M15 15 H85 V85 H15 Z',
@@ -10,7 +12,7 @@ const DICE_FACES = {
   100: 'M50 5 L90 28 L90 72 L50 95 L10 72 L10 28 Z',
 };
 
-export default function DieShape({ die, value, rolling = false, size = 56, seed = 0, dimmed = false }) {
+export default function DieShape({ die, value, rolling = false, size = 56, seed = 0, dimmed = false, tone = null }) {
   const rand = (n) => {
     const x = Math.sin(seed * 9999 + n) * 10000;
     return x - Math.floor(x);
@@ -30,7 +32,7 @@ export default function DieShape({ die, value, rolling = false, size = 56, seed 
     '--dur': `${1.2 + rand(10) * 0.4}s`,
   } : { width: size, height: size, opacity: dimmed ? 0.4 : 1 };
   return (
-    <div className={`die-shape die-d${die} ${rolling ? 'rolling' : ''}`} style={style} aria-hidden="true">
+    <div className={`die-shape die-d${die} ${rolling ? 'rolling' : ''}${tone ? ` tone-${tone}` : ''}`} style={style} aria-hidden="true">
       <svg viewBox="0 0 100 100" width={size} height={size}>
         <path d={DICE_FACES[die] || DICE_FACES[20]} className="die-poly"/>
       </svg>

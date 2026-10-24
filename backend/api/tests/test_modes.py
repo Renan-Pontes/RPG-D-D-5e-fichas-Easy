@@ -100,7 +100,9 @@ class SingleCampaignTests(TestCase):
         r = self.c_owner.post('/api/campaigns/join',
             {'inviteCode': self.camp_b.invite_code, 'characterId': self.char.id}, format='json')
         self.assertEqual(r.status_code, 409)
-        self.assertEqual(r.json()['error'], 'character_already_in_campaign')
+        # (antes 'character_already_in_campaign'; o app entende os dois)
+        self.assertEqual(r.json()['error'], 'character_in_other_campaign')
+        self.assertEqual(r.json()['campaignName'], 'A')
 
     def test_join_two_campaigns_without_char_ok(self):
         # Dono pode ser membro de 2 campanhas, só não pode anexar o MESMO char.

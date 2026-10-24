@@ -20,6 +20,7 @@ import CampaignList from './src/campaigns/CampaignList.jsx';
 import CampaignDetail from './src/campaigns/CampaignDetail.jsx';
 import ProgressionPanel from './src/progression/ProgressionPanel.jsx';
 import { applyAutosToCharacter, applyLevelUpChoices, applyLevelChoice, applyClassOptions, revertLastLevel } from './src/progression/engine.js';
+import { dropSubclassesBelowLevel } from './src/progression/subclass-lock.js';
 import LevelUpModal from './src/progression/LevelUpModal.jsx';
 import { ClassOptionsModal } from './src/progression/ClassOptionsPicker.jsx';
 import InviteChoice from './src/campaigns/InviteChoice.jsx';
@@ -362,6 +363,7 @@ const App = () => {
     a.download = `${(char.name || 'character').replace(/[^a-z0-9]/gi, '_')}.json`;
     a.click();
     setToast(t('exported', lang));
+    return true;
   };
 
   const handleExportAll = () => {
@@ -386,6 +388,8 @@ const App = () => {
   };
 
   // PDF no layout da ficha oficial de D&D 5e (pdf-lib só carrega quando usado).
+  // Os handlers de saída da ficha devolvem true/false: o modal Exportar (src/sheet/FhExport.jsx)
+  // fecha quando deu certo e fica aberto quando não deu (o toast é o mesmo de sempre).
   const handleExportPdf = async (char, { flatten = false, blank = false } = {}) => {
     try {
       const [{ downloadDnd5ePdf }, { speciesSummary }] = await Promise.all([
@@ -393,9 +397,11 @@ const App = () => {
       ]);
       await downloadDnd5ePdf(char, lang, { speciesSummary, flatten, blank });
       setToast(lang === 'pt' ? 'PDF gerado.' : 'PDF created.');
+      return true;
     } catch (e) {
       console.error(e);
       setToast(lang === 'pt' ? 'Falha ao gerar o PDF.' : 'Failed to create the PDF.');
+      return false;
     }
   };
 
@@ -430,7 +436,7 @@ const App = () => {
   const handleShare = async (char) => {
     if (!auth.user) {
       setToast(lang === 'pt' ? 'Entre na sua conta para gerar um link de compartilhamento.' : 'Log in to create a share link.');
-      return;
+      return false;
     }
     try {
       const { token } = await api.createShare(char);
@@ -439,8 +445,10 @@ const App = () => {
         () => setToast(lang === 'pt' ? 'Link copiado! Ele vale por 24 horas.' : 'Link copied! It is valid for 24 hours.'),
         () => prompt(t('shareLink', lang), url)
       );
+      return true;
     } catch (e) {
       setToast(lang === 'pt' ? 'Falha ao gerar link.' : 'Failed to generate link.');
+      return false;
     }
   };
 
@@ -458,16 +466,26 @@ const App = () => {
         await downloadDnd5ePdf(active, lang, { speciesSummary, flatten: true, spellbook: true });
         setToast(lang === 'pt' ? 'Pop-up bloqueado: o PDF foi baixado — abra e imprima.' : 'Pop-up blocked: the PDF was downloaded — open it and print.');
       }
+      return true;
     } catch (e) {
       console.error(e);
       if (tab) tab.close();
       setToast(lang === 'pt' ? 'Falha ao gerar o PDF.' : 'Failed to create the PDF.');
+      return false;
     }
   };
 
   // Approval levelup liberada (status='approved') pro personagem ativo.
   // Null quando não há, ou {id, campaignId, toLevel} quando o jogador pode consumir.
   const [unlockedLevelup, setUnlockedLevelup] = useState(null);
+  // Muda quando a ficha entra/sai/troca de campanha pelo modal "Campanha" da ficha
+  // (busca de novo a subida liberada, que é da campanha).
+  const [campaignRev, setCampaignRev] = useState(0);
+  const handleCampaignChange = async (msg) => {
+    await refreshCharacters();
+    setCampaignRev(n => n + 1);
+    if (msg) setToast(msg);
+  };
 
   // Modal de subida guiada: { mode: 'local' | 'consume' | 'choice', level? }.
   const [levelUpFlow, setLevelUpFlow] = useState(null);
@@ -562,14 +580,9 @@ const App = () => {
       ? `Voltar para o nível ${to}? PV, classe, aumento de atributo/talento e magias ganhos no nível ${active.level} serão desfeitos.`
       : `Go back to level ${to}? HP, ability increase/feat and spells gained at level ${active.level} will be undone.`);
     if (!ok) return;
-    let next = revertLastLevel(active);
-    // Classe que voltou para antes do nível de subclasse perde a subclasse.
-    for (const e of Utils.classEntries(next)) {
-      if (!e.subclass || e.level >= Utils.subclassLevel(Utils.classView(next, e))) continue;
-      next = e.primary
-        ? { ...next, subclass: '', landType: '' }
-        : { ...next, multiclass: next.multiclass.map(m => m.id === e.id ? { ...m, subclass: '', landType: '' } : m) };
-    }
+    // Classe que voltou para antes do nível de subclasse perde a subclasse, mas a
+    // escolha fica guardada: subir de novo devolve a mesma (o círculo continua selado).
+    const next = dropSubclassesBelowLevel(active, revertLastLevel(active));
     const slots = Utils.spellSlots(next);
     if (Array.isArray(next.spellSlotsUsed)) next.spellSlotsUsed = next.spellSlotsUsed.map((u, i) => Math.min(u || 0, slots[i] || 0));
     await storage.save(applyAutosToCharacter(next));
@@ -605,7 +618,7 @@ const App = () => {
       }
     })();
     return () => { alive = false; };
-  }, [active?.id, auth.user?.id]);
+  }, [active?.id, auth.user?.id, campaignRev]);
 
   // === Render ===
   let content;
@@ -721,6 +734,8 @@ const App = () => {
             onDelete={() => handleDelete(active.id)}
             onBack={() => setScreen(SCREENS.HOME)}
             onLevelUp={handleLevelUpRequest}
+            onCampaignChange={handleCampaignChange}
+            onLogin={!auth.user && auth.backendAvailable !== false ? () => setScreen(SCREENS.AUTH) : undefined}
           >
             <div style={{ marginTop: 'var(--s-6)' }}>
               <ProgressionPanel

@@ -1,0 +1,197 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import Utils from '../utils.js';
+import { withClassLevel } from '../src/progression/multiclass.js';
+import { subclassesFor } from '../src/progression/subclasses.js';
+import { applyLevelUpChoices, revertLastLevel, applyAutosToCharacter } from '../src/progression/engine.js';
+import {
+  sealLock, subclassLock, landTypeLock, classChangeLock, guardSealedPatch, sealHint,
+  subclassLevelOf, restoreSealed, dropSubclassesBelowLevel, restoreSealedSubclass,
+} from '../src/progression/subclass-lock.js';
+
+const druid = (extra = {}) => ({
+  rulesVersion: '2014', className: 'druid', subclass: '', landType: '', level: 2, race: 'human',
+  background: 'sage', maxHp: 14, currentHp: 14, abilities: { str: 10, dex: 14, con: 14, int: 13, wis: 15, cha: 8 },
+  raceBonus: {}, ...extra,
+});
+
+test('subclasse ainda não escolhida: a primeira escolha é livre (com ou sem trapaça, em campanha também)', () => {
+  assert.deepEqual(subclassLock(druid()), { locked: false, reason: null });
+  assert.equal(subclassLock(druid({ cheatMode: true })).locked, false);
+  assert.equal(subclassLock(druid({ inCampaign: true })).locked, false);
+});
+
+test('subclasse escolhida fica selada; o modo trapaça libera a troca', () => {
+  assert.deepEqual(subclassLock(druid({ subclass: 'moon' })), { locked: true, reason: 'sealed' });
+  assert.deepEqual(subclassLock(druid({ subclass: 'moon', cheatMode: true })), { locked: false, reason: null });
+  assert.equal(sealLock(druid({ subclass: 'moon' })).locked, true); // campo padrão: subclass
+});
+
+test('em campanha a trapaça não libera: só o mestre troca a subclasse', () => {
+  assert.deepEqual(subclassLock(druid({ subclass: 'moon', inCampaign: true })), { locked: true, reason: 'campaign' });
+  assert.deepEqual(subclassLock(druid({ subclass: 'moon', inCampaign: true, cheatMode: true })), { locked: true, reason: 'campaign' });
+});
+
+test('terreno do Círculo da Terra: escolher a primeira vez é livre, trocar depois só com trapaça', () => {
+  assert.equal(landTypeLock(druid({ subclass: 'land' })).locked, false);
+  assert.deepEqual(landTypeLock(druid({ subclass: 'land', landType: 'forest' })), { locked: true, reason: 'sealed' });
+  assert.equal(landTypeLock(druid({ subclass: 'land', landType: 'forest', cheatMode: true })).locked, false);
+  assert.equal(landTypeLock(druid({ subclass: 'land', landType: 'forest', inCampaign: true, cheatMode: true })).reason, 'campaign');
+});
+
+test('trocar a classe na edição apaga a subclasse: trava junto com ela', () => {
+  assert.equal(classChangeLock(druid()).locked, false);
+  assert.equal(classChangeLock(druid({ subclass: 'moon' })).locked, true);
+  assert.equal(classChangeLock(druid({ subclass: 'moon', cheatMode: true })).locked, false);
+});
+
+test('guardSealedPatch: tira a troca proibida e deixa passar a primeira escolha e o resto do patch', () => {
+  const sealed = druid({ subclass: 'moon' });
+  // A troca barrada leva junto o terreno que vinha com ela.
+  assert.deepEqual(guardSealedPatch(sealed, { subclass: 'land', landType: 'forest', notes: 'x' }), { notes: 'x' });
+  // Repetir o valor atual não é troca (o modal manda landType: '' para quem não é da Terra).
+  assert.deepEqual(guardSealedPatch(sealed, { subclass: 'moon', landType: '' }), { subclass: 'moon', landType: '' });
+  assert.deepEqual(guardSealedPatch(druid(), { subclass: 'land', landType: 'forest' }), { subclass: 'land', landType: 'forest' });
+  assert.deepEqual(guardSealedPatch({ ...sealed, cheatMode: true }, { subclass: 'land' }), { subclass: 'land' });
+  // Terra sem terreno: escolhe o terreno, mas não troca o círculo.
+  const land = druid({ subclass: 'land' });
+  assert.deepEqual(guardSealedPatch(land, { subclass: 'land', landType: 'arctic' }), { subclass: 'land', landType: 'arctic' });
+  assert.deepEqual(guardSealedPatch({ ...land, landType: 'arctic' }, { landType: 'coast' }), {});
+  assert.deepEqual(guardSealedPatch(sealed, null), {});
+});
+
+test('multiclasse: cada classe tem a própria trava (a vista da classe traz trapaça e campanha da ficha)', () => {
+  let c = druid({ level: 3, subclass: 'moon' });
+  c = withClassLevel(c, 'cleric');
+  const [dru, cle] = Utils.classEntries(c).map(e => Utils.classView(c, e));
+  assert.equal(subclassLock(dru).locked, true);
+  assert.equal(subclassLock(cle).locked, false); // clérigo ainda vai escolher o domínio
+  const withDomain = { ...c, multiclass: c.multiclass.map(m => ({ ...m, subclass: 'life' })) };
+  const cle2 = Utils.classView(withDomain, Utils.classEntries(withDomain)[1]);
+  assert.equal(subclassLock(cle2).locked, true);
+  assert.equal(subclassLock({ ...cle2, cheatMode: true }).locked, false);
+  assert.equal(subclassLock(Utils.classView({ ...withDomain, inCampaign: true, cheatMode: true }, Utils.classEntries(withDomain)[1])).reason, 'campaign');
+});
+
+test('subclasse que a lista não conhece não conta como selada (a ficha oferece escolher)', () => {
+  const subs = subclassesFor(druid());
+  assert.ok(subs.some(s => s.id === 'moon'));
+  assert.equal(subclassLock(druid({ subclass: 'moon' }), subs).locked, true);
+  assert.equal(subclassLock(druid({ subclass: 'circleOfNowhere' }), subs).locked, false);
+  assert.equal(subclassLock(druid({ subclass: 'circleOfNowhere' })).locked, true); // sem lista: vale o campo
+  assert.equal(classChangeLock(druid({ subclass: 'circleOfNowhere' }), subs).locked, false);
+  assert.deepEqual(guardSealedPatch(druid({ subclass: 'circleOfNowhere' }), { subclass: 'moon' }, subs), { subclass: 'moon' });
+  assert.deepEqual(guardSealedPatch(druid({ subclass: 'stars' }), { subclass: 'moon' }, subs), {});
+});
+
+test('dica curta nos dois idiomas', () => {
+  assert.equal(sealHint('sealed', 'pt'), 'Para trocar, ligue o modo trapaça');
+  assert.equal(sealHint('sealed', 'en'), 'To change it, turn on cheat mode');
+  assert.match(sealHint('campaign', 'pt'), /mestre/);
+  assert.match(sealHint('campaign', 'en'), /DM/);
+  assert.equal(sealHint(null, 'pt'), '');
+});
+
+test('subclassLevelOf é o mesmo de Utils.subclassLevel (todas as classes, 2014 e 2024)', () => {
+  for (const rulesVersion of ['2014', '2024']) {
+    for (const className of ['artificer', 'barbarian', 'bard', 'cleric', 'druid', 'fighter', 'monk', 'paladin', 'ranger', 'rogue', 'sorcerer', 'warlock', 'wizard']) {
+      assert.equal(subclassLevelOf({ rulesVersion, className }), Utils.subclassLevel({ rulesVersion, className }), `${rulesVersion} ${className}`);
+    }
+  }
+});
+
+test('Editar: ao concluir, classe, subclasse e terreno selados voltam como estavam na ficha salva', () => {
+  const saved = druid({ level: 3, subclass: 'land', landType: 'forest', saveProfs: ['int', 'wis'], skillProfs: ['nature', 'perception'] });
+  // Um passo apagou a subclasse (tocar na classe atual) e outro escolheu as Estrelas.
+  const draft = { ...saved, subclass: 'stars', landType: '', starFormType: 'archer', skillProfs: ['nature'] };
+  const out = restoreSealed(saved, draft, subclassesFor(saved));
+  assert.equal(out.subclass, 'land');
+  assert.equal(out.landType, 'forest');
+  assert.equal(out.starFormType, '');
+  assert.deepEqual(out.skillProfs, ['nature']); // o resto do rascunho fica
+  // Classe trocada: volta com os salvamentos dela.
+  const swapped = restoreSealed(saved, { ...saved, className: 'fighter', saveProfs: ['str', 'con'], subclass: '' }, subclassesFor(saved));
+  assert.equal(swapped.className, 'druid');
+  assert.deepEqual(swapped.saveProfs, ['int', 'wis']);
+  assert.equal(swapped.subclass, 'land');
+  // Terreno trocado com o círculo igual: volta o salvo.
+  assert.equal(restoreSealed(saved, { ...saved, landType: 'coast' }, subclassesFor(saved)).landType, 'forest');
+});
+
+test('Editar: a primeira escolha e o modo trapaça continuam livres', () => {
+  const fresh = druid({ level: 3 });
+  assert.equal(restoreSealed(fresh, { ...fresh, subclass: 'moon' }, subclassesFor(fresh)).subclass, 'moon');
+  const land = druid({ level: 3, subclass: 'land' });
+  assert.equal(restoreSealed(land, { ...land, landType: 'arctic' }, subclassesFor(land)).landType, 'arctic');
+  const cheat = druid({ level: 3, subclass: 'moon', cheatMode: true });
+  assert.equal(restoreSealed(cheat, { ...cheat, subclass: 'stars' }, subclassesFor(cheat)).subclass, 'stars');
+  assert.equal(restoreSealed(cheat, null), null);
+});
+
+const lua = (extra = {}) => druid({
+  rulesVersion: '2024', level: 3, subclass: 'moon', maxHp: 24, currentHp: 24,
+  levelHistory: [{ toLevel: 3, hpGain: 5, spellsAdded: [], classId: 'druid' }], ...extra,
+});
+
+test('voltar abaixo do nível da subclasse guarda a escolha; subir de novo devolve a mesma', () => {
+  const down = dropSubclassesBelowLevel(lua(), revertLastLevel(lua()));
+  assert.equal(down.level, 2);
+  assert.equal(down.subclass, '');
+  assert.deepEqual(down.sealedSubclass, { druid: { subclass: 'moon', landType: '' } });
+  // Gravar no nível 2 não devolve antes da hora.
+  assert.equal(applyAutosToCharacter(down).subclass, '');
+  const up = applyLevelUpChoices(down, { toLevel: 3, hpGain: 5, classId: 'druid', spellsAdded: [] });
+  assert.equal(up.level, 3);
+  assert.equal(up.subclass, 'moon');
+  assert.equal(up.sealedSubclass, undefined);
+  // Ainda acima do nível da subclasse: nada a guardar.
+  const four = applyLevelUpChoices(up, { toLevel: 4, hpGain: 5, classId: 'druid', spellsAdded: [] });
+  const back = dropSubclassesBelowLevel(four, revertLastLevel(four));
+  assert.equal(back.subclass, 'moon');
+  assert.equal(back.sealedSubclass, undefined);
+});
+
+test('o terreno do Círculo da Terra volta junto', () => {
+  const land = lua({ subclass: 'land', landType: 'forest' });
+  const down = dropSubclassesBelowLevel(land, revertLastLevel(land));
+  assert.equal(down.landType, '');
+  const up = applyLevelUpChoices(down, { toLevel: 3, hpGain: 5, classId: 'druid', spellsAdded: [] });
+  assert.equal(up.subclass, 'land');
+  assert.equal(up.landType, 'forest');
+});
+
+test('com o modo trapaça a escolha guardada é ignorada (a troca é livre); desligar devolve a guardada', () => {
+  const down = dropSubclassesBelowLevel(lua(), revertLastLevel(lua()));
+  const up = applyLevelUpChoices({ ...down, cheatMode: true }, { toLevel: 3, hpGain: 5, classId: 'druid', spellsAdded: [] });
+  assert.equal(up.subclass, '');
+  // Escolheu outra com a trapaça: a guardada velha sai na próxima gravação sem trapaça.
+  const picked = applyAutosToCharacter({ ...up, subclass: 'stars', cheatMode: false });
+  assert.equal(picked.subclass, 'stars');
+  assert.equal(picked.sealedSubclass, undefined);
+  // Desligou sem escolher: a guardada volta.
+  assert.equal(applyAutosToCharacter({ ...up, cheatMode: false }).subclass, 'moon');
+});
+
+test('em campanha não mexe (lá o servidor trava a subclasse e quem decide é o mestre)', () => {
+  const down = dropSubclassesBelowLevel(lua(), revertLastLevel(lua()));
+  const atThree = { ...down, level: 3, inCampaign: true };
+  assert.equal(restoreSealedSubclass(atThree), atThree);
+  assert.equal(restoreSealedSubclass(null), null);
+  const plain = druid({ level: 3 });
+  assert.equal(restoreSealedSubclass(plain), plain);
+});
+
+test('multiclasse: a classe que sai da ficha guarda a subclasse e volta com ela', () => {
+  // Druida 3 (Lua) + clérigo 1 com domínio (2014: domínio no nível 1).
+  let c = druid({ level: 3, subclass: 'moon', maxHp: 24, currentHp: 24, abilities: { str: 10, dex: 14, con: 14, int: 13, wis: 15, cha: 8 } });
+  c = applyLevelUpChoices(c, { toLevel: 4, hpGain: 5, classId: 'cleric', spellsAdded: [] });
+  c = { ...c, multiclass: c.multiclass.map(m => (m.id === 'cleric' ? { ...m, subclass: 'life' } : m)) };
+  const down = dropSubclassesBelowLevel(c, revertLastLevel(c));
+  assert.equal(down.multiclass, undefined);
+  assert.deepEqual(down.sealedSubclass, { cleric: { subclass: 'life', landType: '' } });
+  assert.equal(down.subclass, 'moon'); // o druida fica como estava
+  const again = applyLevelUpChoices(down, { toLevel: 4, hpGain: 5, classId: 'cleric', spellsAdded: [] });
+  assert.equal(again.multiclass.find(m => m.id === 'cleric').subclass, 'life');
+  assert.equal(again.subclass, 'moon');
+  assert.equal(again.sealedSubclass, undefined);
+});
