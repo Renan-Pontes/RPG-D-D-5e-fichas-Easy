@@ -554,12 +554,15 @@ const CheatModeModal = ({ char, lang, update, onClose }) => {
     'Editor livre de nível, PV máximo e atributos (aqui embaixo e no botão Editar).',
     'Magias de qualquer lista e acima do limite de truques e magias preparadas/conhecidas.',
     'Forma Selvagem com qualquer fera: sem limite de ND, voo, natação ou usos.',
+    // Fora de campanha a faixa da subclasse manda o jogador para cá (subclass-lock.js).
+    ...(locked ? [] : ['Trocar a subclasse já escolhida (círculo, domínio, juramento, patrono…) e o terreno do Círculo da Terra.']),
     'A ficha ganha o selo 🎲 Trapaça, visível para você e para o mestre.',
     'Desligar não desfaz o que foi alterado.',
   ] : [
     'Free editor for level, max HP and ability scores (below and in Edit).',
     'Spells from any list, above cantrip and prepared/known limits.',
     'Wild Shape into any beast: no CR, fly, swim or use limits.',
+    ...(locked ? [] : ['Change an already chosen subclass (circle, domain, oath, patron…) and the Circle of the Land terrain.']),
     'The sheet gets a 🎲 Cheat badge, visible to you and your DM.',
     'Turning it off does not undo changes.',
   ];
@@ -579,8 +582,8 @@ const CheatModeModal = ({ char, lang, update, onClose }) => {
       {locked && (
         <div className="text-sm" style={{ padding: 10, borderRadius: 6, background: 'var(--bg-elev)', marginBottom: 12 }}>
           🔒 {pt
-            ? 'Esta ficha está numa campanha: o servidor continua travando nível, PV e atributos (só o mestre altera), e a Forma Selvagem é validada pelo servidor. Aqui o modo só libera as magias.'
-            : 'This sheet is in a campaign: the server still locks level, HP and abilities (DM only), and Wild Shape is server-validated. Here the mode only unlocks spells.'}
+            ? 'Esta ficha está numa campanha: o servidor continua travando nível, PV, atributos e a subclasse (só o mestre altera), e a Forma Selvagem é validada pelo servidor. Aqui o modo só libera as magias.'
+            : 'This sheet is in a campaign: the server still locks level, HP, abilities and the subclass (DM only), and Wild Shape is server-validated. Here the mode only unlocks spells.'}
         </div>
       )}
       <button className={`btn ${on ? 'btn-ghost' : 'btn-primary'}`} style={{ width: '100%', marginBottom: 12 }}
