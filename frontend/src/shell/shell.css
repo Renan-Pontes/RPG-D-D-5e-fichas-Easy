@@ -241,6 +241,12 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
   .shell-seg-ico { font-size: 1.15rem; }
   /* selo no canto do ícone, sempre dentro do botão */
   .shell-seg-badge { position: absolute; top: 2px; left: calc(50% + 7px); }
+  /* Rolagens programáticas (scrollIntoView, foco) param abaixo da faixa presa
+     (68 px + folga), só na casca que tem a faixa. Quem já se protegia com
+     scroll-margin fica no mesmo lugar de antes (80 e 140 no total). */
+  html:has(.campaign-detail.shell .shell-seg-tabs) { scroll-padding-top: 76px; }
+  html:has(.campaign-detail.shell .shell-seg-tabs) .combatant-card { scroll-margin-top: 4px; }
+  html:has(.campaign-detail.shell .shell-seg-tabs) .ns-step { scroll-margin-top: 64px; }
 }
 @media (max-width: 480px) {
   /* o rótulo longo some da tela mas fica para o leitor de tela */
