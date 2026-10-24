@@ -7,6 +7,9 @@
  * Também aceita só uma string: `await confirm('Apagar sala?')`.
  * Fora de componentes: `import { confirmDialog } from '…/ConfirmDialog.jsx'`.
  * Resolve `true` em Confirmar e `false` em Cancelar / Esc / clique fora.
+ * Dentro da campanha, no celular, vira folha da altura do conteúdo com os botões
+ * empilhados (src/shell/mesa.css, escopo body:has(.campaign-detail.shell)); na
+ * ficha e no criador continua como sempre. Fica por cima das folhas da mesa.
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -37,7 +40,7 @@ export function ConfirmDialogView({ title, message, confirmLabel, cancelLabel, d
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={title ? 'confirm-dialog-title' : undefined}
-        aria-describedby="confirm-dialog-msg"
+        aria-describedby={message ? 'confirm-dialog-msg' : undefined}
         onClick={(e) => e.stopPropagation()}
       >
         {title && <h2 id="confirm-dialog-title" className="confirm-dialog-title">{title}</h2>}

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { t } from './group-model.js';
+import { mesaLayer } from '../shell/MesaSheet.jsx';
 
 /**
  * Confirmação no estilo do app (substitui window.confirm no Grupo e na Crônica).
@@ -8,6 +10,9 @@ import { t } from './group-model.js';
  *      … e renderize {confirmUi}.
  * Quando o useConfirm() compartilhado (components/ConfirmDialog.jsx, WP3)
  * existir, dá para trocar este hook por ele sem mudar quem chama.
+ * Desenhada na camada da mesa (portal, src/shell/MesaSheet.jsx › mesaLayer), por
+ * cima de uma folha aberta; no celular vira folha da altura do conteúdo
+ * (src/shell/mesa.css). O foco volta a quem abriu.
  */
 export function useGroupConfirm(lang) {
   const [req, setReq] = useState(null);
@@ -24,12 +29,18 @@ export function useGroupConfirm(lang) {
     setReq(null);
   }, []);
 
-  const ui = req ? <ConfirmModal lang={lang} {...req} onAnswer={close} /> : null;
+  const modal = req ? <ConfirmModal lang={lang} {...req} onAnswer={close} /> : null;
+  const layer = modal ? mesaLayer() : null;
+  const ui = modal && layer ? createPortal(modal, layer) : modal;
   return [ask, ui];
 }
 
 function ConfirmModal({ lang, title, text, okLabel, cancelLabel, danger, onAnswer }) {
   const okRef = useRef(null);
+  const [opener] = useState(() => (typeof document !== 'undefined' ? document.activeElement : null));
+  useEffect(() => () => {
+    if (opener && opener !== document.body && opener.isConnected) { try { opener.focus({ preventScroll: true }); } catch { /* ok */ } }
+  }, [opener]);
   useEffect(() => {
     okRef.current?.focus();
     const onKey = (e) => { if (e.key === 'Escape') onAnswer(false); };
@@ -37,7 +48,7 @@ function ConfirmModal({ lang, title, text, okLabel, cancelLabel, danger, onAnswe
     return () => window.removeEventListener('keydown', onKey);
   }, [onAnswer]);
   return (
-    <div className="modal-backdrop grp-confirm-backdrop" onClick={() => onAnswer(false)}>
+    <div className="modal-backdrop grp-confirm-backdrop" onClick={(e) => { e.stopPropagation(); onAnswer(false); }}>
       <div className="modal grp-confirm" role="alertdialog" aria-modal="true" aria-labelledby="grp-confirm-title"
         onClick={e => e.stopPropagation()}>
         <h3 id="grp-confirm-title">{title || t(lang, 'Tem certeza?', 'Are you sure?')}</h3>

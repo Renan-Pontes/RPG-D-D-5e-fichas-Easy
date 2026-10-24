@@ -113,6 +113,16 @@
     border-radius: 0 !important;
   }
   .dm-editor-body { padding: 14px; }
+  /* Exceção (área da campanha): as confirmações pequenas (ConfirmDialog,
+     useGroupConfirm, usePrepConfirm) ocupam só a altura do conteúdo, como uma
+     folha que sobe de baixo, e não a tela inteira. O resto do visual delas fica
+     em src/shell/mesa.css. Fora da campanha (ficha, criador) nada muda. */
+  body:has(.campaign-detail.shell) .modal:is(.confirm-dialog, .grp-confirm, .prep-confirm) {
+    height: auto;
+    max-height: 88vh !important;
+    max-height: 88dvh !important;
+    border-radius: 16px 16px 0 0 !important;
+  }
 }
 
 /* === 4. Layout em coluna para áreas que ainda forçam linha === */
