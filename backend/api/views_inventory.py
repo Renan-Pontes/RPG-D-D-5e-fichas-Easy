@@ -6,7 +6,8 @@ Modo standalone (sem Membership pra este personagem):
 
 Modo campanha (existe Membership pra este personagem):
   - Dono pode: equipar/desequipar, marcar consumido (qty--), editar notes,
-    alternar attuned (se attunement=true e limite global de 3 não estourar).
+    alternar attuned (se attunement=true e limite global de 3 não estourar),
+    abrir pacote de equipamento (o conteúdo padrão do SRD, api/packs.py).
   - Dono NÃO pode: criar item, editar broken/attunement/stats, remover.
   - DM da campanha pode tudo (give, patch livre, delete).
 
@@ -27,6 +28,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from .models import Character, Membership
 from .serializers import CharacterSerializer
 from .diary import log_item_given
+from .packs import item_key, open_pack, rules_of
 
 
 # ============================================================
@@ -236,6 +238,50 @@ def inventory_consume(request, pk, item_id):
     else:
         inventory[idx] = new_item
     data['equipment'] = inventory
+    char.data = data
+    char.save()
+    return Response({'character': CharacterSerializer(char).data})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def inventory_open_pack(request, pk):
+    """Abre um pacote de equipamento (Explorer's Pack, Pacote de Sacerdote…):
+    o pacote sai (ou perde 1) e entram os itens de dentro, pela regra da ficha,
+    somando com itens iguais (api/packs.py). Como consumir, vale em qualquer
+    modo: em campanha o jogador não cria item — só recebe o conteúdo padrão do
+    pacote que já tinha. Dono ou mestre da campanha.
+
+    Body: { itemId } ou, para item antigo sem id, { index, name } (o nome tem de
+    bater com o item naquela posição); lang: 'pt' | 'en' (nome dos itens novos).
+    """
+    try:
+        char = Character.objects.get(pk=pk)
+    except Character.DoesNotExist:
+        raise NotFound('not_found')
+    if char.owner_id != request.user.id and not _is_dm_of(request.user, char):
+        raise PermissionDenied('forbidden')
+
+    data = dict(char.data or {})
+    inventory = list(data.get('equipment') or [])
+    item_id = request.data.get('itemId')
+    if item_id:
+        idx, item = _find_item(inventory, item_id)
+    else:
+        idx, item = -1, None
+        index = request.data.get('index')
+        if isinstance(index, int) and not isinstance(index, bool) and 0 <= index < len(inventory):
+            cand = inventory[index]
+            if isinstance(cand, dict) and not cand.get('id') and item_key(cand.get('name')) == item_key(request.data.get('name')):
+                idx, item = index, cand
+    if item is None:
+        raise NotFound('item_not_found')
+
+    lang = 'en' if request.data.get('lang') == 'en' else 'pt'
+    new_inventory = open_pack(inventory, idx, rules_of(data), lang)
+    if new_inventory is None:
+        raise ValidationError({'error': 'not_a_pack'})
+    data['equipment'] = new_inventory
     char.data = data
     char.save()
     return Response({'character': CharacterSerializer(char).data})

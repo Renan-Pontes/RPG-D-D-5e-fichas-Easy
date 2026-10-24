@@ -7,6 +7,7 @@
  *   - itens dos pacotes levam from: 'classPack' | 'backgroundPack' e são
  *     trocados (não duplicados) quando a escolha muda;
  *   - itens com outra origem (ex.: from: 'manual') ficam intactos;
+ *   - pacotes de aventura levam pack: 'explorer' | … (abrir na ficha: src/items/packs.js);
  *   - armadura, escudo e ouro aplicados ficam em char.creation.equipApplied
  *     para que trocar de pacote desfaça só o que o pacote anterior colocou.
  */
@@ -275,7 +276,7 @@ function packPieces(pack, from, char, lang) {
     else if (it.kind === 'shield') shield = true;
     else if (it.kind === 'weapon') weapons.push({ id: it.id, qty: it.qty || 1, note: it.note, from });
     else if (isUnresolvedToolItem(it, char)) continue; // nunca grava o texto "ferramenta escolhida"
-    else equipment.push({ name: itemName(it, char, lang), qty: it.qty || 1, from });
+    else equipment.push({ name: itemName(it, char, lang), qty: it.qty || 1, from, ...(it.pack ? { pack: it.pack } : {}) });
   }
   return { weapons, equipment, armor, shield, gp: pack?.gp || 0 };
 }
@@ -311,7 +312,7 @@ export function applyStartingEquipment(char, lang = 'pt') {
   const packWeapons = mergeBy([...c.weapons, ...g.weapons], w => w.id)
     .map(w => weaponEntry(w.id, char, lang, { qty: w.qty, note: w.note, from: w.from })).filter(Boolean);
   const packEquipment = mergeBy([...c.equipment, ...g.equipment], e => String(e.name || '').trim().toLowerCase())
-    .map(e => ({ name: e.name, qty: e.qty, from: e.from }));
+    .map(e => ({ name: e.name, qty: e.qty, from: e.from, ...(e.pack ? { pack: e.pack } : {}) }));
   const keep = (x) => !PACK_SOURCES.includes(x?.from);
 
   const packArmor = c.armor || g.armor || null;

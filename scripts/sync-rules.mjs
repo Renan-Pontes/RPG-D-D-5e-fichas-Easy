@@ -6,6 +6,7 @@ import { CLASS_OPTIONS } from '../frontend/data/class-options/index.js';
 import { SPECIES_RESOURCES } from '../frontend/src/progression/resources.js';
 import { FEATS } from '../frontend/data/feats.js';
 import { speciesSpellTable } from '../frontend/src/progression/species.js';
+import { packsForBackend } from '../frontend/src/items/packs.js';
 
 const keys = {
   classId: 'class_id', hitDie: 'hit_die', perLevel: 'per_level',
@@ -49,7 +50,9 @@ const feats = FEATS.map(f => ({
 // Espécies: só truques/magias (por linhagem e nível), para o apply_autos do servidor.
 const species = speciesSpellTable();
 const speciesResources = Object.fromEntries(Object.entries(SPECIES_RESOURCES).map(([rv, bySpecies]) => [rv, Object.fromEntries(Object.entries(bySpecies).map(([sp, list]) => [sp, list.map(r => pick(r, ['id', 'uses', 'recharge', 'minLevel']))]))]));
-const text = JSON.stringify({ legacy: convert(PROGRESSION_RULES), current: convert(PROGRESSION_RULES_2024), options, feats, species, speciesResources }, null, 2) + '\n';
+// Pacotes de equipamento: nomes que reconhecem o pacote, itens de dentro por regra (api/packs.py).
+const packs = packsForBackend();
+const text = JSON.stringify({ legacy: convert(PROGRESSION_RULES), current: convert(PROGRESSION_RULES_2024), options, feats, species, speciesResources, packs }, null, 2) + '\n';
 if (process.argv.includes('--check')) {
   if (readFileSync(output, 'utf8') !== text) throw new Error('Run node scripts/sync-rules.mjs to update backend rules.');
 } else writeFileSync(output, text);

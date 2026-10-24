@@ -57,6 +57,7 @@ urlpatterns = [
     path('characters/<int:pk>/class-options', views_characters.character_class_options),
     path('characters/<int:pk>/resource', views_characters.character_resource),
     path('characters/<int:pk>/inventory', views_inventory.inventory_add),
+    path('characters/<int:pk>/inventory/open-pack', views_inventory.inventory_open_pack),
     path('characters/<int:pk>/inventory/<str:item_id>', views_inventory.inventory_item),
     path('characters/<int:pk>/inventory/<str:item_id>/consume', views_inventory.inventory_consume),
     path('campaigns/<str:id_or_slug>/long-rest-all', closed_guard(views_characters.campaign_long_rest_all, 'campaign')),

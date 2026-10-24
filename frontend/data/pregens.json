@@ -138,7 +138,8 @@
         {
           "name": "Pacote de Explorador de Masmorras",
           "qty": 1,
-          "from": "classPack"
+          "from": "classPack",
+          "pack": "dungeoneer"
         },
         {
           "name": "Flechas",
@@ -367,7 +368,8 @@
         {
           "name": "Pacote de Aventureiro",
           "qty": 1,
-          "from": "classPack"
+          "from": "classPack",
+          "pack": "explorer"
         },
         {
           "name": "Ferramentas de Carpinteiro",
@@ -598,7 +600,8 @@
         {
           "name": "Pacote de Assaltante",
           "qty": 1,
-          "from": "classPack"
+          "from": "classPack",
+          "pack": "burglar"
         },
         {
           "name": "Pé de Cabra",
@@ -784,7 +787,8 @@
         {
           "name": "Pacote de Sacerdote",
           "qty": 1,
-          "from": "classPack"
+          "from": "classPack",
+          "pack": "priest"
         },
         {
           "name": "Suprimentos de Calígrafo",
@@ -1023,7 +1027,8 @@
         {
           "name": "Pacote de Erudito",
           "qty": 1,
-          "from": "classPack"
+          "from": "classPack",
+          "pack": "scholar"
         },
         {
           "name": "Suprimentos de Calígrafo",
@@ -1296,7 +1301,8 @@
         {
           "name": "Pacote de Aventureiro",
           "qty": 1,
-          "from": "classPack"
+          "from": "classPack",
+          "pack": "explorer"
         },
         {
           "name": "Ferramentas de Cartógrafo",
@@ -1518,7 +1524,8 @@
         {
           "name": "Pacote de Sacerdote",
           "qty": 1,
-          "from": "classPack"
+          "from": "classPack",
+          "pack": "priest"
         },
         {
           "name": "Dados",
@@ -1721,7 +1728,8 @@
         {
           "name": "Pacote de Artista",
           "qty": 1,
-          "from": "classPack"
+          "from": "classPack",
+          "pack": "entertainer"
         },
         {
           "name": "Tambor",
@@ -1978,7 +1986,8 @@
         {
           "name": "Pacote de Aventureiro",
           "qty": 1,
-          "from": "classPack"
+          "from": "classPack",
+          "pack": "explorer"
         },
         {
           "name": "Kit de Herbalismo",
@@ -2209,7 +2218,8 @@
         {
           "name": "Pacote de Aventureiro",
           "qty": 1,
-          "from": "classPack"
+          "from": "classPack",
+          "pack": "explorer"
         },
         {
           "name": "Ferramentas de Navegador",
@@ -2401,7 +2411,8 @@
         {
           "name": "Pacote de Explorador de Masmorras",
           "qty": 1,
-          "from": "classPack"
+          "from": "classPack",
+          "pack": "dungeoneer"
         },
         {
           "name": "Kit de Falsificação",
@@ -2618,7 +2629,8 @@
         {
           "name": "Pacote de Erudito",
           "qty": 1,
-          "from": "classPack"
+          "from": "classPack",
+          "pack": "scholar"
         },
         {
           "name": "Suprimentos de Calígrafo",

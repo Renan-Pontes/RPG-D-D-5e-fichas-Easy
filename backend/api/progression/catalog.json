@@ -33917,5 +33917,1319 @@
         }
       ]
     }
+  },
+  "packs": {
+    "names": {
+      "mochila do explorador": "explorer",
+      "explorers pack": "explorer",
+      "mochila de aventureiro": "dungeoneer",
+      "dungeoneers pack": "dungeoneer",
+      "mochila do sacerdote": "priest",
+      "priests pack": "priest",
+      "mochila do estudioso": "scholar",
+      "scholars pack": "scholar",
+      "pacote de aventureiro": "explorer",
+      "pacote de explorador de masmorras": "dungeoneer",
+      "pacote de sacerdote": "priest",
+      "pacote de erudito": "scholar",
+      "pacote de assaltante": "burglar",
+      "burglars pack": "burglar",
+      "pacote de diplomata": "diplomat",
+      "diplomats pack": "diplomat",
+      "pacote de artista": "entertainer",
+      "entertainers pack": "entertainer",
+      "pacote do aventureiro": "explorer",
+      "kit de aventureiro": "explorer",
+      "kit do aventureiro": "explorer",
+      "mochila do aventureiro": "explorer",
+      "pacote de explorador": "explorer",
+      "pacote do explorador": "explorer",
+      "kit de explorador": "explorer",
+      "kit do explorador": "explorer",
+      "mochila de explorador": "explorer",
+      "explorer pack": "explorer",
+      "pacote do explorador de masmorras": "dungeoneer",
+      "kit de explorador de masmorras": "dungeoneer",
+      "kit do explorador de masmorras": "dungeoneer",
+      "mochila de explorador de masmorras": "dungeoneer",
+      "mochila do explorador de masmorras": "dungeoneer",
+      "pacote de explorador de masmorra": "dungeoneer",
+      "pacote do explorador de masmorra": "dungeoneer",
+      "kit de explorador de masmorra": "dungeoneer",
+      "kit do explorador de masmorra": "dungeoneer",
+      "mochila de explorador de masmorra": "dungeoneer",
+      "mochila do explorador de masmorra": "dungeoneer",
+      "pacote de masmorra": "dungeoneer",
+      "pacote do masmorra": "dungeoneer",
+      "kit de masmorra": "dungeoneer",
+      "kit do masmorra": "dungeoneer",
+      "mochila de masmorra": "dungeoneer",
+      "mochila do masmorra": "dungeoneer",
+      "pacote de masmorras": "dungeoneer",
+      "pacote do masmorras": "dungeoneer",
+      "kit de masmorras": "dungeoneer",
+      "kit do masmorras": "dungeoneer",
+      "mochila de masmorras": "dungeoneer",
+      "mochila do masmorras": "dungeoneer",
+      "dungeoneer pack": "dungeoneer",
+      "pacote do sacerdote": "priest",
+      "kit de sacerdote": "priest",
+      "kit do sacerdote": "priest",
+      "mochila de sacerdote": "priest",
+      "priest pack": "priest",
+      "pacote do erudito": "scholar",
+      "kit de erudito": "scholar",
+      "kit do erudito": "scholar",
+      "mochila de erudito": "scholar",
+      "mochila do erudito": "scholar",
+      "pacote de estudioso": "scholar",
+      "pacote do estudioso": "scholar",
+      "kit de estudioso": "scholar",
+      "kit do estudioso": "scholar",
+      "mochila de estudioso": "scholar",
+      "scholar pack": "scholar",
+      "pacote do assaltante": "burglar",
+      "kit de assaltante": "burglar",
+      "kit do assaltante": "burglar",
+      "mochila de assaltante": "burglar",
+      "mochila do assaltante": "burglar",
+      "pacote de ladrao": "burglar",
+      "pacote do ladrao": "burglar",
+      "kit de ladrao": "burglar",
+      "kit do ladrao": "burglar",
+      "mochila de ladrao": "burglar",
+      "mochila do ladrao": "burglar",
+      "burglar pack": "burglar",
+      "pacote do diplomata": "diplomat",
+      "kit de diplomata": "diplomat",
+      "kit do diplomata": "diplomat",
+      "mochila de diplomata": "diplomat",
+      "mochila do diplomata": "diplomat",
+      "diplomat pack": "diplomat",
+      "pacote do artista": "entertainer",
+      "kit de artista": "entertainer",
+      "kit do artista": "entertainer",
+      "mochila de artista": "entertainer",
+      "mochila do artista": "entertainer",
+      "pacote de animador": "entertainer",
+      "pacote do animador": "entertainer",
+      "kit de animador": "entertainer",
+      "kit do animador": "entertainer",
+      "mochila de animador": "entertainer",
+      "mochila do animador": "entertainer",
+      "entertainer pack": "entertainer"
+    },
+    "catalogIds": {
+      "explorersPack": "explorer",
+      "dungeoneersPack": "dungeoneer",
+      "priestPack": "priest",
+      "scholarPack": "scholar"
+    },
+    "gear": {
+      "backpack": {
+        "sourceId": "backpack",
+        "type": "gear",
+        "name": {
+          "pt": "Mochila",
+          "en": "Backpack"
+        },
+        "match": [
+          "mochila",
+          "backpack"
+        ],
+        "weight": {
+          "2014": 5,
+          "2024": 5
+        }
+      },
+      "bedroll": {
+        "sourceId": "bedroll",
+        "type": "gear",
+        "name": {
+          "pt": "Saco de Dormir",
+          "en": "Bedroll"
+        },
+        "match": [
+          "saco de dormir",
+          "bedroll"
+        ],
+        "weight": {
+          "2014": 7,
+          "2024": 7
+        }
+      },
+      "blanket": {
+        "sourceId": "blanket",
+        "type": "gear",
+        "name": {
+          "pt": "Cobertor",
+          "en": "Blanket"
+        },
+        "match": [
+          "cobertor",
+          "blanket"
+        ],
+        "weight": {
+          "2014": 3,
+          "2024": 3
+        }
+      },
+      "rope": {
+        "sourceId": "rope50ft",
+        "type": "gear",
+        "name": {
+          "pt": "Corda 50 pés",
+          "en": "Rope (50 ft)"
+        },
+        "match": [
+          "corda 50 pes",
+          "rope (50 ft)",
+          "corda",
+          "rope",
+          "corda (15 m)",
+          "corda de canhamo (15 m)",
+          "hempen rope (50 feet)"
+        ],
+        "weight": {
+          "2014": 10,
+          "2024": 5
+        }
+      },
+      "torch": {
+        "sourceId": "torch",
+        "type": "gear",
+        "name": {
+          "pt": "Tocha",
+          "en": "Torch"
+        },
+        "match": [
+          "tocha",
+          "torch",
+          "tochas",
+          "torches"
+        ],
+        "weight": {
+          "2014": 1,
+          "2024": 1
+        }
+      },
+      "rations": {
+        "sourceId": "rations",
+        "type": "gear",
+        "name": {
+          "pt": "Rações (1 dia)",
+          "en": "Rations (1 day)"
+        },
+        "match": [
+          "racoes (1 dia)",
+          "rations (1 day)",
+          "racoes",
+          "rations",
+          "racao"
+        ],
+        "weight": {
+          "2014": 2,
+          "2024": 2
+        }
+      },
+      "waterskin": {
+        "sourceId": "waterskin",
+        "type": "gear",
+        "name": {
+          "pt": "Cantil",
+          "en": "Waterskin"
+        },
+        "match": [
+          "cantil",
+          "waterskin",
+          "odre"
+        ],
+        "weight": {
+          "2014": 5,
+          "2024": 5
+        }
+      },
+      "tinderbox": {
+        "sourceId": "tinderbox",
+        "type": "gear",
+        "name": {
+          "pt": "Isqueiro",
+          "en": "Tinderbox"
+        },
+        "match": [
+          "isqueiro",
+          "tinderbox",
+          "pederneira"
+        ],
+        "weight": {
+          "2014": 1,
+          "2024": 1
+        }
+      },
+      "oil": {
+        "sourceId": "oilFlask",
+        "type": "gear",
+        "name": {
+          "pt": "Frasco de Óleo",
+          "en": "Oil Flask"
+        },
+        "match": [
+          "frasco de oleo",
+          "oil flask",
+          "oleo (frascos)",
+          "oil (flasks)",
+          "oleo",
+          "oil",
+          "frascos de oleo",
+          "flask of oil"
+        ],
+        "weight": {
+          "2014": 1,
+          "2024": 1
+        }
+      },
+      "candle": {
+        "sourceId": "candle",
+        "type": "gear",
+        "name": {
+          "pt": "Vela",
+          "en": "Candle"
+        },
+        "match": [
+          "vela",
+          "candle",
+          "velas",
+          "candles"
+        ]
+      },
+      "crowbar": {
+        "sourceId": "crowbar",
+        "type": "gear",
+        "name": {
+          "pt": "Pé-de-cabra",
+          "en": "Crowbar"
+        },
+        "match": [
+          "pe de cabra",
+          "crowbar"
+        ],
+        "weight": {
+          "2014": 5,
+          "2024": 5
+        }
+      },
+      "hammer": {
+        "sourceId": "hammer",
+        "type": "gear",
+        "name": {
+          "pt": "Martelo",
+          "en": "Hammer"
+        },
+        "match": [
+          "martelo",
+          "hammer"
+        ],
+        "weight": {
+          "2014": 3,
+          "2024": 3
+        }
+      },
+      "piton": {
+        "sourceId": "piton",
+        "type": "gear",
+        "name": {
+          "pt": "Estaca",
+          "en": "Piton"
+        },
+        "match": [
+          "estaca",
+          "piton",
+          "pitons"
+        ],
+        "weight": {
+          "2014": 0.25,
+          "2024": 0.25
+        }
+      },
+      "holyWater": {
+        "sourceId": "holyWater",
+        "type": "potion",
+        "name": {
+          "pt": "Água Benta",
+          "en": "Holy Water"
+        },
+        "description": {
+          "pt": "Arremesse: 2d6 radiante a celestiais/mortos-vivos.",
+          "en": "Thrown: 2d6 radiant to fiends/undead."
+        },
+        "match": [
+          "agua benta",
+          "holy water",
+          "agua benta (frasco)",
+          "holy water (flask)"
+        ],
+        "weight": {
+          "2014": 1,
+          "2024": 1
+        }
+      },
+      "ballBearings": {
+        "type": "gear",
+        "name": {
+          "pt": "Rolamentos (bolsa com 1.000)",
+          "en": "Ball Bearings (bag of 1,000)"
+        },
+        "match": [
+          "rolamentos (bolsa com 1.000)",
+          "ball bearings (bag of 1,000)",
+          "rolamentos",
+          "ball bearings"
+        ],
+        "weight": {
+          "2014": 2,
+          "2024": 2
+        }
+      },
+      "string": {
+        "type": "gear",
+        "name": {
+          "pt": "Barbante (3 m)",
+          "en": "String (10 feet)"
+        },
+        "match": [
+          "barbante (3 m)",
+          "string (10 feet)"
+        ]
+      },
+      "bell": {
+        "type": "gear",
+        "name": {
+          "pt": "Sino",
+          "en": "Bell"
+        },
+        "match": [
+          "sino",
+          "bell"
+        ]
+      },
+      "hoodedLantern": {
+        "type": "gear",
+        "name": {
+          "pt": "Lanterna Coberta",
+          "en": "Hooded Lantern"
+        },
+        "artId": "lantern",
+        "match": [
+          "lanterna coberta",
+          "hooded lantern"
+        ],
+        "weight": {
+          "2014": 2,
+          "2024": 2
+        }
+      },
+      "bullseyeLantern": {
+        "type": "gear",
+        "name": {
+          "pt": "Lanterna Furta-fogo",
+          "en": "Bullseye Lantern"
+        },
+        "artId": "lantern",
+        "match": [
+          "lanterna furta fogo",
+          "bullseye lantern"
+        ],
+        "weight": {
+          "2014": 2,
+          "2024": 2
+        }
+      },
+      "lamp": {
+        "type": "gear",
+        "name": {
+          "pt": "Lamparina",
+          "en": "Lamp"
+        },
+        "artId": "lantern",
+        "match": [
+          "lamparina",
+          "lamp"
+        ],
+        "weight": {
+          "2014": 1,
+          "2024": 1
+        }
+      },
+      "chest": {
+        "type": "gear",
+        "name": {
+          "pt": "Baú",
+          "en": "Chest"
+        },
+        "match": [
+          "bau",
+          "chest"
+        ],
+        "weight": {
+          "2014": 25,
+          "2024": 25
+        }
+      },
+      "mapCase": {
+        "type": "gear",
+        "name": {
+          "pt": "Estojo de Mapas ou Pergaminhos",
+          "en": "Map or Scroll Case"
+        },
+        "match": [
+          "estojo de mapas ou pergaminhos",
+          "map or scroll case"
+        ],
+        "weight": {
+          "2014": 1,
+          "2024": 1
+        }
+      },
+      "fineClothes": {
+        "type": "gear",
+        "name": {
+          "pt": "Roupas Finas",
+          "en": "Fine Clothes"
+        },
+        "match": [
+          "roupas finas",
+          "fine clothes"
+        ],
+        "weight": {
+          "2014": 6,
+          "2024": 6
+        }
+      },
+      "ink": {
+        "type": "gear",
+        "name": {
+          "pt": "Tinta (frasco)",
+          "en": "Ink (bottle)"
+        },
+        "match": [
+          "tinta (frasco)",
+          "ink (bottle)",
+          "tinta",
+          "ink"
+        ]
+      },
+      "inkPen": {
+        "type": "gear",
+        "name": {
+          "pt": "Pena de Escrever",
+          "en": "Ink Pen"
+        },
+        "match": [
+          "pena de escrever",
+          "ink pen",
+          "quill"
+        ]
+      },
+      "paper": {
+        "type": "gear",
+        "name": {
+          "pt": "Papel (folhas)",
+          "en": "Paper (sheets)"
+        },
+        "match": [
+          "papel (folhas)",
+          "paper (sheets)"
+        ]
+      },
+      "parchment": {
+        "type": "gear",
+        "name": {
+          "pt": "Pergaminho (folhas)",
+          "en": "Parchment (sheets)"
+        },
+        "artId": "spellScroll0",
+        "match": [
+          "pergaminho (folhas)",
+          "parchment (sheets)"
+        ]
+      },
+      "perfume": {
+        "type": "gear",
+        "name": {
+          "pt": "Perfume",
+          "en": "Perfume"
+        },
+        "match": [
+          "perfume"
+        ]
+      },
+      "sealingWax": {
+        "type": "gear",
+        "name": {
+          "pt": "Lacre",
+          "en": "Sealing Wax"
+        },
+        "match": [
+          "lacre",
+          "sealing wax"
+        ]
+      },
+      "soap": {
+        "type": "gear",
+        "name": {
+          "pt": "Sabão",
+          "en": "Soap"
+        },
+        "match": [
+          "sabao",
+          "soap"
+        ]
+      },
+      "costume": {
+        "type": "gear",
+        "name": {
+          "pt": "Fantasia",
+          "en": "Costume"
+        },
+        "match": [
+          "fantasia",
+          "costume"
+        ],
+        "weight": {
+          "2014": 4,
+          "2024": 4
+        }
+      },
+      "disguiseKit": {
+        "type": "gear",
+        "name": {
+          "pt": "Kit de Disfarce",
+          "en": "Disguise Kit"
+        },
+        "match": [
+          "kit de disfarce",
+          "disguise kit"
+        ],
+        "weight": {
+          "2014": 3,
+          "2024": 3
+        }
+      },
+      "messKit": {
+        "type": "gear",
+        "name": {
+          "pt": "Kit de Refeição",
+          "en": "Mess Kit"
+        },
+        "match": [
+          "kit de refeicao",
+          "mess kit"
+        ],
+        "weight": {
+          "2014": 1,
+          "2024": 1
+        }
+      },
+      "almsBox": {
+        "type": "gear",
+        "name": {
+          "pt": "Caixa de Esmolas",
+          "en": "Alms Box"
+        },
+        "match": [
+          "caixa de esmolas",
+          "alms box"
+        ]
+      },
+      "incense": {
+        "type": "gear",
+        "name": {
+          "pt": "Incenso (blocos)",
+          "en": "Incense (blocks)"
+        },
+        "match": [
+          "incenso (blocos)",
+          "incense (blocks)"
+        ]
+      },
+      "censer": {
+        "type": "gear",
+        "name": {
+          "pt": "Incensário",
+          "en": "Censer"
+        },
+        "artId": "censerControllingAirElementals",
+        "match": [
+          "incensario",
+          "censer"
+        ]
+      },
+      "vestments": {
+        "type": "gear",
+        "name": {
+          "pt": "Vestes Cerimoniais",
+          "en": "Vestments"
+        },
+        "match": [
+          "vestes cerimoniais",
+          "vestments"
+        ]
+      },
+      "book": {
+        "type": "gear",
+        "name": {
+          "pt": "Livro",
+          "en": "Book"
+        },
+        "artId": "spellbook",
+        "match": [
+          "livro",
+          "book"
+        ],
+        "weight": {
+          "2014": 5,
+          "2024": 5
+        }
+      },
+      "bookOfLore": {
+        "type": "gear",
+        "name": {
+          "pt": "Livro de Estudo",
+          "en": "Book of Lore"
+        },
+        "artId": "spellbook",
+        "match": [
+          "livro de estudo",
+          "book of lore"
+        ],
+        "weight": {
+          "2014": 5,
+          "2024": 5
+        }
+      },
+      "bagOfSand": {
+        "type": "gear",
+        "name": {
+          "pt": "Saquinho de Areia",
+          "en": "Little Bag of Sand"
+        },
+        "match": [
+          "saquinho de areia",
+          "little bag of sand"
+        ]
+      },
+      "smallKnife": {
+        "type": "gear",
+        "name": {
+          "pt": "Faca Pequena",
+          "en": "Small Knife"
+        },
+        "match": [
+          "faca pequena",
+          "small knife"
+        ]
+      },
+      "caltrops": {
+        "type": "gear",
+        "name": {
+          "pt": "Estrepes (bolsa com 20)",
+          "en": "Caltrops (pouch of 20)"
+        },
+        "match": [
+          "estrepes (bolsa com 20)",
+          "caltrops (pouch of 20)",
+          "estrepes",
+          "caltrops"
+        ],
+        "weight": {
+          "2014": 2,
+          "2024": 2
+        }
+      },
+      "mirror": {
+        "type": "gear",
+        "name": {
+          "pt": "Espelho",
+          "en": "Mirror"
+        },
+        "match": [
+          "espelho",
+          "mirror"
+        ],
+        "weight": {
+          "2014": 0.5,
+          "2024": 0.5
+        }
+      },
+      "robe": {
+        "type": "gear",
+        "name": {
+          "pt": "Túnica",
+          "en": "Robe"
+        },
+        "match": [
+          "tunica",
+          "robe"
+        ],
+        "weight": {
+          "2014": 4,
+          "2024": 4
+        }
+      }
+    },
+    "contents": {
+      "2014": {
+        "explorer": [
+          [
+            "backpack",
+            1
+          ],
+          [
+            "bedroll",
+            1
+          ],
+          [
+            "messKit",
+            1
+          ],
+          [
+            "tinderbox",
+            1
+          ],
+          [
+            "torch",
+            10
+          ],
+          [
+            "rations",
+            10
+          ],
+          [
+            "waterskin",
+            1
+          ],
+          [
+            "rope",
+            1
+          ]
+        ],
+        "dungeoneer": [
+          [
+            "backpack",
+            1
+          ],
+          [
+            "crowbar",
+            1
+          ],
+          [
+            "hammer",
+            1
+          ],
+          [
+            "piton",
+            10
+          ],
+          [
+            "torch",
+            10
+          ],
+          [
+            "tinderbox",
+            1
+          ],
+          [
+            "rations",
+            10
+          ],
+          [
+            "waterskin",
+            1
+          ],
+          [
+            "rope",
+            1
+          ]
+        ],
+        "priest": [
+          [
+            "backpack",
+            1
+          ],
+          [
+            "blanket",
+            1
+          ],
+          [
+            "candle",
+            10
+          ],
+          [
+            "tinderbox",
+            1
+          ],
+          [
+            "almsBox",
+            1
+          ],
+          [
+            "incense",
+            2
+          ],
+          [
+            "censer",
+            1
+          ],
+          [
+            "vestments",
+            1
+          ],
+          [
+            "rations",
+            2
+          ],
+          [
+            "waterskin",
+            1
+          ]
+        ],
+        "scholar": [
+          [
+            "backpack",
+            1
+          ],
+          [
+            "bookOfLore",
+            1
+          ],
+          [
+            "ink",
+            1
+          ],
+          [
+            "inkPen",
+            1
+          ],
+          [
+            "parchment",
+            10
+          ],
+          [
+            "bagOfSand",
+            1
+          ],
+          [
+            "smallKnife",
+            1
+          ]
+        ],
+        "burglar": [
+          [
+            "backpack",
+            1
+          ],
+          [
+            "ballBearings",
+            1
+          ],
+          [
+            "string",
+            1
+          ],
+          [
+            "bell",
+            1
+          ],
+          [
+            "candle",
+            5
+          ],
+          [
+            "crowbar",
+            1
+          ],
+          [
+            "hammer",
+            1
+          ],
+          [
+            "piton",
+            10
+          ],
+          [
+            "hoodedLantern",
+            1
+          ],
+          [
+            "oil",
+            2
+          ],
+          [
+            "rations",
+            5
+          ],
+          [
+            "tinderbox",
+            1
+          ],
+          [
+            "waterskin",
+            1
+          ],
+          [
+            "rope",
+            1
+          ]
+        ],
+        "diplomat": [
+          [
+            "chest",
+            1
+          ],
+          [
+            "mapCase",
+            2
+          ],
+          [
+            "fineClothes",
+            1
+          ],
+          [
+            "ink",
+            1
+          ],
+          [
+            "inkPen",
+            1
+          ],
+          [
+            "lamp",
+            1
+          ],
+          [
+            "oil",
+            2
+          ],
+          [
+            "paper",
+            5
+          ],
+          [
+            "perfume",
+            1
+          ],
+          [
+            "sealingWax",
+            1
+          ],
+          [
+            "soap",
+            1
+          ]
+        ],
+        "entertainer": [
+          [
+            "backpack",
+            1
+          ],
+          [
+            "bedroll",
+            1
+          ],
+          [
+            "costume",
+            2
+          ],
+          [
+            "candle",
+            5
+          ],
+          [
+            "rations",
+            5
+          ],
+          [
+            "waterskin",
+            1
+          ],
+          [
+            "disguiseKit",
+            1
+          ]
+        ]
+      },
+      "2024": {
+        "explorer": [
+          [
+            "backpack",
+            1
+          ],
+          [
+            "bedroll",
+            1
+          ],
+          [
+            "oil",
+            2
+          ],
+          [
+            "rations",
+            10
+          ],
+          [
+            "rope",
+            1
+          ],
+          [
+            "tinderbox",
+            1
+          ],
+          [
+            "torch",
+            10
+          ],
+          [
+            "waterskin",
+            1
+          ]
+        ],
+        "dungeoneer": [
+          [
+            "backpack",
+            1
+          ],
+          [
+            "caltrops",
+            1
+          ],
+          [
+            "crowbar",
+            1
+          ],
+          [
+            "oil",
+            2
+          ],
+          [
+            "rations",
+            10
+          ],
+          [
+            "rope",
+            1
+          ],
+          [
+            "tinderbox",
+            1
+          ],
+          [
+            "torch",
+            10
+          ],
+          [
+            "waterskin",
+            1
+          ]
+        ],
+        "priest": [
+          [
+            "backpack",
+            1
+          ],
+          [
+            "blanket",
+            1
+          ],
+          [
+            "holyWater",
+            1
+          ],
+          [
+            "lamp",
+            1
+          ],
+          [
+            "rations",
+            7
+          ],
+          [
+            "robe",
+            1
+          ],
+          [
+            "tinderbox",
+            1
+          ]
+        ],
+        "scholar": [
+          [
+            "backpack",
+            1
+          ],
+          [
+            "book",
+            1
+          ],
+          [
+            "ink",
+            1
+          ],
+          [
+            "inkPen",
+            1
+          ],
+          [
+            "lamp",
+            1
+          ],
+          [
+            "oil",
+            10
+          ],
+          [
+            "parchment",
+            10
+          ],
+          [
+            "tinderbox",
+            1
+          ]
+        ],
+        "burglar": [
+          [
+            "backpack",
+            1
+          ],
+          [
+            "ballBearings",
+            1
+          ],
+          [
+            "bell",
+            1
+          ],
+          [
+            "candle",
+            10
+          ],
+          [
+            "crowbar",
+            1
+          ],
+          [
+            "hoodedLantern",
+            1
+          ],
+          [
+            "oil",
+            7
+          ],
+          [
+            "rations",
+            5
+          ],
+          [
+            "rope",
+            1
+          ],
+          [
+            "tinderbox",
+            1
+          ],
+          [
+            "waterskin",
+            1
+          ]
+        ],
+        "diplomat": [
+          [
+            "chest",
+            1
+          ],
+          [
+            "fineClothes",
+            1
+          ],
+          [
+            "ink",
+            1
+          ],
+          [
+            "inkPen",
+            5
+          ],
+          [
+            "lamp",
+            1
+          ],
+          [
+            "mapCase",
+            2
+          ],
+          [
+            "oil",
+            4
+          ],
+          [
+            "paper",
+            5
+          ],
+          [
+            "parchment",
+            5
+          ],
+          [
+            "perfume",
+            1
+          ],
+          [
+            "tinderbox",
+            1
+          ]
+        ],
+        "entertainer": [
+          [
+            "backpack",
+            1
+          ],
+          [
+            "bedroll",
+            1
+          ],
+          [
+            "bell",
+            1
+          ],
+          [
+            "bullseyeLantern",
+            1
+          ],
+          [
+            "costume",
+            3
+          ],
+          [
+            "mirror",
+            1
+          ],
+          [
+            "oil",
+            8
+          ],
+          [
+            "rations",
+            9
+          ],
+          [
+            "tinderbox",
+            1
+          ],
+          [
+            "waterskin",
+            1
+          ]
+        ]
+      }
+    }
   }
 }
