@@ -98,7 +98,7 @@ Logado (rate-limited 30/h por usuário). Body `{ character: {...} }` (até ~1,5 
 
 ### `GET /campaigns`
 Lista todas as campanhas onde o user é DM ou jogador. Itens trazem `role: 'dm' | 'player'`.
-Quem tem vaga (membership) na campanha recebe `myMembership: {id, characterId|null, characterName|null, sponsored}` — qual personagem ocupa a sua vaga (modal "Campanha" da ficha). O mestre sem vaga própria não recebe o campo.
+Quem joga na campanha recebe `myMembership: {id, characterId|null, characterName|null, sponsored}` — qual personagem ocupa a sua vaga (modal "Campanha" da ficha). Na mesa que a pessoa mestra o campo não vem (mesmo com vaga de mestre).
 
 ### Uma campanha por vez
 Uma ficha fica em **uma** campanha de cada vez (regra do servidor; o esquema não mudou). Ao atrelar uma ficha (`PUT /campaigns/:id/members/:membershipId` com `characterId` ou `POST /campaigns/join` com `characterId`) que já está em outra campanha:
