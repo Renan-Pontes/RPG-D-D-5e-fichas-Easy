@@ -15,7 +15,6 @@ import { SpeciesChoicesModal, speciesSummary } from '../src/progression/SpeciesC
 import { speciesChoiceSpecs } from '../src/progression/species.js';
 import { grantedSpells } from '../src/creator/spell-helpers.js';
 import { propLabel, armorTypeLabel } from '../src/creator/equipment-helpers.js';
-import { classFeatureList, backgroundFeature } from '../src/sheet/sheet-text.js';
 import { itemEmoji, schoolIcon, SCHOOL_EMOJI } from '../src/art.js';
 import { itemArtFor } from '../src/items/item-art.js';
 import { isPack, openPack, packPreview } from '../src/items/packs.js';
@@ -23,6 +22,7 @@ import { confirmDialog } from './ConfirmDialog.jsx';
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
 import FhTitle from '../src/sheet/FhTitle.jsx';
 import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
+import FhFeatures from '../src/sheet/FhFeatures.jsx';
 import { slotCircleLabel, gemLabel, lockedSlotTitle, slotSpent, slotTap, slotTapTitle } from '../src/sheet/gem-text.js';
 
 // Siglas das moedas (PHB em pt: peça de cobre/prata/electro/ouro/platina).
@@ -39,20 +39,38 @@ const isGrantEntry = (s) => !!s && typeof s === 'object' && s.auto && (s.feat ||
 
 // Aba Magias: espaços (compartilhados entre as classes) e uma seção por classe
 // conjuradora — em multiclasse cada uma tem atributo, CD, limites e lista próprios.
-const SheetSpells = ({ char, lang, update, slots, roll }) => {
+// `placed` (src/sheet/feature-placement.js): os traços de magia e de truques de cada classe
+// ficam na seção dela; os de classe sem seção (ex.: Monge das Sombras), num painel no fim.
+const SheetSpells = ({ char, lang, update, slots, roll, placed }) => {
   const multi = Utils.isMulticlass(char);
   // Só conjura quem tem espaços ou truques no nível atual (Paladino/Patrulheiro 2014 só no nível 2).
   const singleCaster = !!Utils.spellcastingAbility(char) && (Utils.casterViews(char).length > 0 || Utils.spellSlots(char).some(Boolean));
   const casters = multi ? Utils.casterViews(char) : (singleCaster ? [char] : []);
   const hasGrants = (char.spells || []).some(isGrantEntry);
+  const spellFeats = placed?.by.spells || [];
+  const cantripFeats = placed?.by.cantrips || [];
+  const featsOf = (classId) => ({ spells: spellFeats.filter(f => f.classId === classId), cantrips: cantripFeats.filter(f => f.classId === classId) });
+  const withSection = new Set(casters.map(v => v.className));
+  const looseSpells = spellFeats.filter(f => !withSection.has(f.classId));
+  const looseCantrips = cantripFeats.filter(f => !withSection.has(f.classId));
+  const loosePanel = (looseSpells.length > 0 || looseCantrips.length > 0) && (
+    <section className="fh-panel">
+      <FhTitle>{lang === 'pt' ? 'Traços de magia' : 'Spell features'}</FhTitle>
+      <FhFeatures items={looseSpells} multi={placed.multi} lang={lang} label={null} className="fh-cf-first" />
+      <FhFeatures items={looseCantrips} multi={placed.multi} lang={lang} place="cantrips" />
+    </section>
+  );
   if (!casters.length && !hasGrants) {
     return (
-      <div className="card text-center" style={{ padding: 'var(--s-7)' }}>
-        <Icon name="sparkle" size={36} style={{ color: 'var(--gold-deep)', marginBottom: 12 }}/>
-        <p className="muted">{!multi && Utils.spellcastingAbility(char) && ['paladin', 'ranger'].includes(char.className)
-          ? (lang === 'pt' ? 'Você ganha magias a partir do nível 2.' : 'You gain spells starting at level 2.')
-          : t('notSpellcaster', lang)}</p>
-      </div>
+      <>
+        <div className="card text-center" style={{ padding: 'var(--s-7)' }}>
+          <Icon name="sparkle" size={36} style={{ color: 'var(--gold-deep)', marginBottom: 12 }}/>
+          <p className="muted">{!multi && Utils.spellcastingAbility(char) && ['paladin', 'ranger'].includes(char.className)
+            ? (lang === 'pt' ? 'Você ganha magias a partir do nível 2.' : 'You gain spells starting at level 2.')
+            : t('notSpellcaster', lang)}</p>
+        </div>
+        {loosePanel}
+      </>
     );
   }
 
@@ -122,10 +140,12 @@ const SheetSpells = ({ char, lang, update, slots, roll }) => {
 
       {casters.map(v => {
         const { view, save } = scoped(v);
-        return <ClassSpells key={v.className} char={view} lang={lang} update={save} slots={slots} roll={roll} showClass={multi} />;
+        return <ClassSpells key={v.className} char={view} lang={lang} update={save} slots={slots} roll={roll} showClass={multi}
+          feats={featsOf(v.className)} multiFeats={!!placed?.multi} />;
       })}
 
       <GrantedSpellsSection char={char} lang={lang} update={update} slots={slots} roll={roll} />
+      {loosePanel}
     </>
   );
 };
@@ -175,7 +195,9 @@ const GrantedSpellsSection = ({ char, lang, update, slots, roll }) => {
   );
 };
 
-const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
+// feats: { spells, cantrips } — traços desta classe (src/sheet/feature-placement.js): os de magia
+// embaixo dos medalhões; os de truque logo acima dos truques.
+const ClassSpells = ({ char, lang, update, slots, roll, showClass, feats = { spells: [], cantrips: [] }, multiFeats = false }) => {
   const spellAb = Utils.spellcastingAbilityOfClass(char);
   const spellDc = spellAb ? 8 + Utils.profBonus(char) + Utils.abilityMod(char, spellAb) : null;
   const spellAtk = spellAb ? Utils.profBonus(char) + Utils.abilityMod(char, spellAb) : null;
@@ -238,6 +260,7 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
         <FhMedal shape="shield" value={spellDc || '—'} label={t('spellSaveDc', lang)} />
         <FhMedal shape="circle" value={spellAtk !== null ? Utils.fmtMod(spellAtk) : '—'} label={t('spellAttack', lang)} />
       </div>
+      <FhFeatures items={feats.spells} multi={multiFeats} lang={lang} place="spells" className="fh-cf-spells" />
 
       {isPrepared ? (
         <PreparedSpellsView
@@ -256,6 +279,7 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
           book={book}
           offList={offList}
           onRemove={removeSpell}
+          cantripFeats={<FhFeatures items={feats.cantrips} multi={multiFeats} lang={lang} place="cantrips" className="fh-cf-cantrips" />}
         />
       ) : (
         <KnownSpellsView
@@ -270,6 +294,7 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass }) => {
           roll={roll}
           slots={slots}
           update={update}
+          cantripFeats={<FhFeatures items={feats.cantrips} multi={multiFeats} lang={lang} place="cantrips" className="fh-cf-cantrips" />}
         />
       )}
     </section>
@@ -288,7 +313,8 @@ const levelLabel = (lvl, lang) => (+lvl === 0 ? t('cantrips', lang) : slotCircle
 
 // Conjuradores preparados: a ficha mostra só o que está pronto, agrupado por círculo
 // (fechado até tocar). A escolha diária acontece no modal "Preparar magias".
-const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, cantripLimit, preparedLimit, maxLvl, spellAtk, roll, slots, update, book = false, offList = new Set(), onRemove }) => {
+// cantripFeats: os traços de truque da classe (ClassSpells), desenhados logo acima dos truques.
+const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, cantripLimit, preparedLimit, maxLvl, spellAtk, roll, slots, update, book = false, offList = new Set(), onRemove, cantripFeats = null }) => {
   const pt = lang === 'pt';
   const [picking, setPicking] = useState(false);
   const catalog = Utils.spellCatalog(char);
@@ -327,6 +353,7 @@ const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, c
         </div>
       )}
       <OffListWarning lang={lang} char={char} offList={offList} onRemove={onRemove} />
+      {cantripFeats}
 
       {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
         <details key={lvl} className="spell-group fh-by-level">
@@ -599,7 +626,7 @@ const PrepareSpellsModal = ({ lang, char, classCantrips, classSpells, autoIds, c
   );
 };
 
-const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRemove, spellAtk, roll, slots, update, offList = new Set() }) => {
+const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRemove, spellAtk, roll, slots, update, offList = new Set(), cantripFeats = null }) => {
   const known = spellEntries.map(cs => {
     const def = Utils.spellCatalog(char).find(s => s.id === cs.id);
     return { ...cs, def };
@@ -629,6 +656,7 @@ const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRe
       </div>
 
       <OffListWarning lang={lang} char={char} offList={offList} onRemove={onRemove} />
+      {cantripFeats}
 
       {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
         <details key={lvl} className="spell-group fh-by-level">
@@ -869,7 +897,10 @@ const RestButtons = ({ char, lang, update }) => {
 };
 
 // ===== Inventory =====
-const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
+// placed (src/sheet/feature-placement.js): traços de itens (infusões, sintonia…) no Equipamento.
+// Os demais traços de classe ficam espalhados pela ficha (a antiga lista "Características de
+// Classe" daqui virou o painel Outros traços, na aba Atributos).
+const SheetInventory = ({ char, lang, update, roll, cls, bg, placed }) => {
   const cls_ = cls;
   const addWeapon = (id) => {
     const w = SRD.weaponFor(id, char.rulesVersion);
@@ -985,6 +1016,7 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
       <section className="fh-panel">
       <FhTitle>{t('equipmentList', lang)}</FhTitle>
       <InventoryList char={char} lang={lang} update={update} addItem={addItem} updateItem={updateItem} removeItem={removeItem} />
+      <FhFeatures items={placed?.by.items} multi={!!placed?.multi} lang={lang} place="items" />
       </section>
 
       <section className="fh-panel">
@@ -1004,43 +1036,9 @@ const SheetInventory = ({ char, lang, update, roll, cls, bg }) => {
           ))}
         </div>
       </section>
-
-      <section className="fh-panel">
-      <FhTitle>{lang === 'pt' ? 'Características de Classe' : 'Class Features'}</FhTitle>
-      <ClassFeatures char={char} lang={lang} cls={cls} />
-      </section>
     </>
   );
 };
-
-// Características de classe pela regra da ficha (2024 usa os traços de 2024 e as escolhas
-// de classe) + a característica do antecedente nas regras 2014.
-function ClassFeatures({ char, lang, cls }) {
-  let items = [];
-  try { items = classFeatureList(char, lang); } catch { items = []; }
-  // Sem dados de progressão (classe fora das regras): os traços do nível 1 do SRD.
-  if (!items.length && char.rulesVersion !== '2024' && cls?.features) items = cls.features.map(f => ({ title: f.name[lang], text: f.desc[lang] }));
-  const bgf = backgroundFeature(char, lang);
-  if (bgf) items = [...items, { title: `${bgf.name} (${lang === 'pt' ? 'antecedente' : 'background'})`, text: bgf.desc }];
-  // Linhas de traço (losango + nome) com a origem numa etiqueta: o "(nv. 2 — Druida 2)"
-  // e o "(antecedente)" do fim do título viram a etiqueta, só na apresentação.
-  return (
-    <div className="fh-traits fh-feats">
-      {items.map((f, i) => {
-        const m = String(f.title || '').match(/^(.*\S)\s*\(((?:nv\.|lvl|antecedente|background)[^()]*)\)$/i);
-        return (
-          <div key={i} className="fh-trait">
-            <div className="fh-trait-name">
-              <span>{m ? m[1] : f.title}</span>
-              {m && <span className="fh-origin">{m[2]}</span>}
-            </div>
-            {f.text && <div className="fh-trait-text">{f.text}</div>}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 // ===== Story =====
 const SheetStory = ({ char, lang, update, cls, race }) => (

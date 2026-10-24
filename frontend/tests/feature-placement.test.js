@@ -106,6 +106,7 @@ test('clérigo da Vida 2024 nível 5 (exemplo do pedido): cada traço no seu can
   assert.equal(r.orphanPicks.length, 0);
   assert.equal(placeLabel(r.items.find(i => i.id === 'divineSpark'), 'pt'), 'aba Jogar · Canalizar Divindade');
   assert.equal(placeLabel(order, 'en'), 'Spells tab · cantrips');
+  assert.equal(placeLabel(r.items.find(i => i.id === 'spellcasting'), 'pt'), 'aba Magias');
   assert.equal(placeLabel(r.items.find(i => i.id === 'clericSubclass'), 'pt'), 'só no índice');
 });
 
@@ -178,7 +179,8 @@ test('escolhas: invocações dentro de Invocações Místicas; pool sem traço v
     classOptions: [{ classId: 'bard', pool: 'musicalInstrumentStart', id: 'lute', level: 1 }],
   });
   assert.equal(bard.orphanPicks.length, 1);
-  assert.ok(bard.orphanPicks[0].rows[0].name.pt);
+  assert.ok(bard.orphanPicks[0].picks[0].name.pt);
+  assert.equal(bard.orphanPicks[0].level, 1);
 });
 
 test('id desconhecido cai nas palavras-chave do nome em inglês', () => {

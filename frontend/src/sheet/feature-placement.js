@@ -48,7 +48,7 @@ export const PLACES = ['spells', 'cantrips', 'attacks', 'defense', 'movement', '
 
 // Aba e seção de cada lugar (o índice mostra "→ aba Magias · truques").
 export const PLACE_INFO = {
-  spells: { tab: 'spells', pt: 'magias', en: 'spells' },
+  spells: { tab: 'spells', pt: '', en: '' }, // a seção da classe: "aba Magias" basta
   cantrips: { tab: 'spells', pt: 'truques', en: 'cantrips' },
   attacks: { tab: 'play', pt: 'ataques', en: 'attacks' },
   defense: { tab: 'play', pt: 'defesa', en: 'defense' },
@@ -806,7 +806,8 @@ export function featureKey(char) {
  * Devolve { multi, items, by: { <lugar>: items }, orphanPicks } onde item =
  *   { key, id, classId, level (nível na classe), name: {pt,en}, desc: {pt,en}, place,
  *     anchor: 'wildShape'|null, resourceKey, resourceName: {pt,en}|null, picks: [{name,desc}] }
- * e orphanPicks = [{ key, classId, name, rows }] (escolhas sem traço-pai na ficha).
+ * e orphanPicks = [{ key, classId, level, name, desc, picks }] (escolhas sem traço-pai na
+ *   ficha, no mesmo formato de item para a ficha desenhar igual).
  */
 export function placeFeatures(char, prog = computeProgression(char || {})) {
   const out = { multi: !!prog?.classes, items: [], by: Object.fromEntries(PLACES.map(p => [p, []])), orphanPicks: [] };
@@ -846,7 +847,8 @@ export function placeFeatures(char, prog = computeProgression(char || {})) {
     if (parent) parent.picks.push(...rows);
     else {
       const def = optionPool(classId, pool);
-      out.orphanPicks.push({ key: k, classId, name: { pt: def?.name?.pt || pool, en: def?.name?.en || pool }, rows });
+      const level = Math.min(...list.map(p => p.level || 1));
+      out.orphanPicks.push({ key: k, classId, level, name: { pt: def?.name?.pt || pool, en: def?.name?.en || pool }, desc: { pt: '', en: '' }, picks: rows });
     }
   }
   return out;
@@ -866,7 +868,7 @@ export function placeLabel(item, lang = 'pt') {
   const section = item.anchor === 'wildShape' ? L(lang, 'Forma Selvagem', 'Wild Shape')
     : item.resourceName ? item.resourceName[lang === 'pt' ? 'pt' : 'en']
       : L(lang, info.pt, info.en);
-  return `${tab} · ${section}`;
+  return section ? `${tab} · ${section}` : tab;
 }
 
 /** Etiqueta do traço: "Nv. 3" ou, na multiclasse, "Nv. 3 · Clérigo". */
