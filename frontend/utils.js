@@ -361,7 +361,14 @@ function languageChoiceCount(char) {
 // Quantos dos escolhidos podem ser raros. 2014: sem limite (exóticos com aval do mestre).
 function rareLanguageAllowance(char) {
   if (!is2024(char)) return Infinity;
-  return languageChoiceSources(char).filter(x => x.rare).reduce((n, x) => n + x.n, 0);
+  return languageChoiceSources(char).filter(x => x.rare).reduce((n, x) => n + x.n, 0) + extraLanguages(char);
+}
+
+// Idiomas a mais combinados com o mestre na criação (creation.extraLanguages, 0 a 10):
+// somam ao limite das escolhas (podem ser raros), sem mudar o que a regra exige.
+function extraLanguages(char) {
+  const n = Math.floor(Number(char?.creation?.extraLanguages) || 0);
+  return Math.max(0, Math.min(10, n));
 }
 
 // Idiomas escolhidos pelo jogador (char.languages sem fixos e sem marcadores "+N").
@@ -388,21 +395,22 @@ function languageIssues(char) {
   }
   const valid = chosen.filter(id => !bad.includes(id));
   const need = languageChoiceCount(char);
+  const cap = need + extraLanguages(char);
   if (valid.length < need) {
     const n = need - valid.length;
     out.push({
       pt: `Escolha mais ${plural(n, 'idioma', 'idiomas')}.`,
       en: `Pick ${plural(n, 'more language', 'more languages')}.`,
     });
-  } else if (valid.length > need) {
-    const n = valid.length - need;
+  } else if (valid.length > cap) {
+    const n = valid.length - cap;
     out.push({
-      pt: need === 0
+      pt: cap === 0
         ? `Você não tem idiomas à escolha. Desmarque ${plural(n, 'idioma', 'idiomas')}.`
-        : `Você marcou ${plural(n, 'idioma', 'idiomas')} a mais. Desmarque ${n} (o limite é ${need}).`,
-      en: need === 0
+        : `Você marcou ${plural(n, 'idioma', 'idiomas')} a mais. Desmarque ${n} (o limite é ${cap}).`,
+      en: cap === 0
         ? `You have no languages to choose. Unselect ${plural(n, 'language', 'languages')}.`
-        : `You picked ${plural(n, 'language', 'languages')} too many. Unselect ${n} (the limit is ${need}).`,
+        : `You picked ${plural(n, 'language', 'languages')} too many. Unselect ${n} (the limit is ${cap}).`,
     });
   }
   const allow = rareLanguageAllowance(char);
@@ -429,7 +437,7 @@ function trimLanguages(char) {
   const valid = chosenLanguageIds(char).filter(id => !invalidLanguage(char, id));
   let allow = rareLanguageAllowance(char);
   const kept = valid.filter(id => !isRareLanguage(char, id) || allow-- > 0);
-  return kept.slice(0, languageChoiceCount(char));
+  return kept.slice(0, languageChoiceCount(char) + extraLanguages(char));
 }
 
 // Lista final exibida na ficha: fixos + escolhidos (tolerante a fichas antigas).
@@ -963,7 +971,7 @@ return {
   isPreparedCaster, cantripsKnown, preparedSpellsLimit, maxSpellLevel,
   applyRaceBonus,
   LANGUAGES, CLASS_LANGUAGES, languageLabel, fixedLanguages, languageChoiceCount, languageChoiceSources, languagesFor,
-  languageCatalog, isRareLanguage, rareLanguageAllowance, chosenLanguageIds, languageIssues, trimLanguages,
+  languageCatalog, isRareLanguage, rareLanguageAllowance, extraLanguages, chosenLanguageIds, languageIssues, trimLanguages,
   OTHER_BOOK_LANGUAGES, CUSTOM_LANGUAGE_MAX, normalizeLanguageName, languageKey, isCustomLanguage,
   resolveLanguageInput, withChosenLanguages,
   backgroundSkills, hasSkillProf, hasExpertise, hasSaveProf, classGrants,

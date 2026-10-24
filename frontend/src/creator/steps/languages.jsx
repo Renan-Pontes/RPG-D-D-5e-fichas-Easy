@@ -12,7 +12,13 @@ function LanguagesStep({ char, set, lang }) {
   const fixed = fixedLanguageReasons(char);
   const slots = languageSlotReasons(char);
   const need = Utils.languageChoiceCount(char);
+  const extra = Utils.extraLanguages(char);
   const chosen = chosenLanguages(char);
+  // Idiomas a mais combinados com o mestre: mudam o limite; ao diminuir, corta o excesso.
+  const setExtra = (n) => {
+    const creation = { ...(char.creation || {}), extraLanguages: Math.max(0, Math.min(10, n)) };
+    set({ creation, languages: Utils.trimLanguages({ ...char, creation }) });
+  };
   const suggest = languageSuggestions(char);
   const names = (l) => {
     const xs = suggest.ids.map(id => Utils.languageLabel(id, l));
@@ -49,7 +55,7 @@ function LanguagesStep({ char, set, lang }) {
 
       <div className="card" style={{ padding: 14, marginBottom: 12 }}>
         <div className="eyebrow" style={{ marginBottom: 6 }}>
-          {L(lang, 'Idiomas para escolher', 'Languages to choose')} <Counter n={chosen.length} of={need} />
+          {L(lang, 'Idiomas para escolher', 'Languages to choose')} <Counter n={chosen.length} of={need + extra} />
         </div>
         {slots.length > 0 ? (
           <ul style={{ margin: 0, paddingLeft: 18 }}>
@@ -73,10 +79,30 @@ function LanguagesStep({ char, set, lang }) {
 
       {/* O resumo "Você já fala" e o contador do LanguagePicker ficam escondidos (cr-languages): já aparecem acima, com a origem. */}
       <div className="cr-languages">
-        <LanguagePicker char={char} lang={lang} chosen={chosen} onChange={(next) => set({ languages: next })} />
+        <LanguagePicker char={char} lang={lang} chosen={chosen} limit={need + extra} onChange={(next) => set({ languages: next })} />
       </div>
 
-      {need > 0 && chosen.length === need && languagesIssues(char).length === 0 && (
+      <div className="card cr-extra-langs" style={{ padding: 14, marginBottom: 12 }}>
+        <div className="row" style={{ alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ flex: '1 1 200px' }}>
+            <strong>{L(lang, 'Idiomas a mais', 'Extra languages')}</strong>
+            <span className="text-sm muted"> {L(lang, '— combinados com o mestre (história, região, criação do herói).', '— agreed with your DM (backstory, region, upbringing).')}</span>
+          </span>
+          <span className="row" style={{ alignItems: 'center', gap: 6 }}>
+            <button type="button" className="btn btn-ghost" style={{ minWidth: 44, minHeight: 44 }} disabled={extra <= 0} onClick={() => setExtra(extra - 1)}
+              aria-label={L(lang, 'Um idioma a mais a menos', 'One fewer extra language')}>−</button>
+            <b aria-live="polite" style={{ minWidth: 20, textAlign: 'center' }}>{extra}</b>
+            <button type="button" className="btn btn-ghost" style={{ minWidth: 44, minHeight: 44 }} disabled={extra >= 10} onClick={() => setExtra(extra + 1)}
+              aria-label={L(lang, 'Mais um idioma a mais', 'One more extra language')}>+</button>
+          </span>
+        </div>
+        <div className="text-xs muted" style={{ marginTop: 6 }}>
+          {L(lang, 'Depois de criar, a ficha também deixa adicionar idiomas a qualquer momento (em campanha, o mestre vê no registro).',
+            'After creating, the sheet also lets you add languages at any time (in a campaign, the DM sees it in the log).')}
+        </div>
+      </div>
+
+      {need + extra > 0 && chosen.length >= need && languagesIssues(char).length === 0 && (
         <Callout kind="ok">{L(lang, 'Pronto! Seus idiomas estão escolhidos.', 'Done! Your languages are set.')}</Callout>
       )}
     </div>

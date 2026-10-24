@@ -135,3 +135,18 @@ test('withChosenLanguages mantém fixos e marcadores já salvos e troca só os e
   // A lista final da ficha mostra fixos + escolhidos sem repetir.
   assert.deepEqual(Utils.languagesFor({ ...c, languages: Utils.withChosenLanguages(c, ['Féerico']) }), ['Common', 'Elvish', 'Féerico']);
 });
+
+test('idiomas a mais combinados com o mestre: sobem o limite sem mudar o que a regra exige', async () => {
+  const { default: Utils } = await import('../utils.js');
+  const base = { rulesVersion: '2024', race: 'human', className: 'fighter', background: 'soldier', languages: ['Elvish', 'Dwarvish', 'Giant'] };
+  const need = Utils.languageChoiceCount(base);
+  assert.ok(Utils.languageIssues(base).some(x => /a mais/.test(x.pt)), 'sem o extra, 3 passam do limite');
+  const withExtra = { ...base, creation: { extraLanguages: 3 - need } };
+  assert.deepEqual(Utils.languageIssues(withExtra), [], 'com o extra combinado, 3 cabem');
+  assert.equal(Utils.trimLanguages(withExtra).length, 3);
+  assert.equal(Utils.trimLanguages(base).length, need, 'sem extra corta no limite da regra');
+  assert.equal(Utils.extraLanguages({ creation: { extraLanguages: 99 } }), 10);
+  assert.equal(Utils.extraLanguages({ creation: { extraLanguages: -2 } }), 0);
+  // falta escolher continua valendo: o extra não substitui o que a regra exige
+  assert.ok(Utils.languageIssues({ ...base, languages: [], creation: { extraLanguages: 2 } }).some(x => /Escolha mais/.test(x.pt)));
+});
