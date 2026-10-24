@@ -145,6 +145,16 @@ test('Forma Selvagem: traços do druida vão para o painel dela', () => {
   }
 });
 
+test('Sentido Divino: 2024 embaixo do Canalizar Divindade; 2014 (usos próprios) em Outros traços', () => {
+  const now = placeFeatures({ rulesVersion: '2024', className: 'paladin', level: 3, abilities: { cha: 16 } });
+  const sense = now.items.find(i => i.id === 'divineSense');
+  assert.equal(sense.place, 'resources');
+  assert.equal(sense.resourceKey, 'paladin.channelDivinity');
+  assert.equal(placeLabel(sense, 'pt'), 'aba Jogar · Canalizar Divindade');
+  const old = placeFeatures({ rulesVersion: '2014', className: 'paladin', level: 3, abilities: { cha: 16 } });
+  assert.equal(old.items.find(i => i.id === 'divineSense').place, 'other');
+});
+
 test('mesmo id com outro sentido na regra ou na classe', () => {
   assert.equal(placeOf({ id: 'favoredEnemy' }, { classId: 'ranger', rules: '2014' }).place, 'skills');
   const r = placeFeatures({ rulesVersion: '2024', className: 'ranger', level: 1, abilities: ABILITIES });

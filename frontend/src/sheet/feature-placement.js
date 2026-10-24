@@ -366,12 +366,13 @@ const PLACE_IDS = {
       handOfHealing handOfUltimateMercy heightenedFocus ki monksFocus perfectFocus perfectSelf
       uncannyMetabolism wholenessOfBody wingsUnfurled`,
     paladin: `
-      abjureFoes abjureTheExtraplanar ancients_15_0 ancients_20_0 ancients_3_0 ancients_3_1 avengingAngel
-      championChallenge cleansingTouch conqueringPresence controlUndead dreadLord dreadfulAspect
-      elderChampion emissaryOfPeace exaltedChampion faithfulSteed gloriousDefense holyNimbus
-      inspiringSmite invincibleConqueror layOnHands livingLegend mortalBulwark naturesWrath
-      peerlessAthlete rebukeTheViolent restoringTouch sacredWeapon turnTheTide turnUnholy undyingSentinel
-      vengeance_20_0 vengeance_3_0 vengeance_3_1 vowOfEnmity watchersWill`,
+      abjureFoes abjureTheExtraplanar ancients_15_0 ancients_20_0 ancients_3_0 ancients_3_1
+      avengingAngel championChallenge cleansingTouch conqueringPresence controlUndead divineSense
+      dreadLord dreadfulAspect elderChampion emissaryOfPeace exaltedChampion faithfulSteed
+      gloriousDefense holyNimbus inspiringSmite invincibleConqueror layOnHands livingLegend
+      mortalBulwark naturesWrath peerlessAthlete rebukeTheViolent restoringTouch sacredWeapon
+      turnTheTide turnUnholy undyingSentinel vengeance_20_0 vengeance_3_0 vengeance_3_1 vowOfEnmity
+      watchersWill`,
     ranger: `
       bondOfFangAndScale detectPortal drakeCompanion drakesBreath etherealStep favoredEnemy
       feyReinforcements huntersSense magicUsersNemesis mistyWanderer naturesVeil perfectedBond
@@ -446,8 +447,6 @@ const PLACE_IDS = {
       echoAvatar heroicWarrior masterOfRunes runeCarver`,
     monk: `
       bodyAndMind cloakOfShadows hourOfReaping shadow_11_0 visageOfTheAstralSelf`,
-    paladin: `
-      divineSense`,
     ranger: `
       feralSenses huntersLore umbralSight`,
     rogue: `
@@ -489,13 +488,14 @@ const ANCHOR_IDS = {
   'channelDivinity': `
     abjureFoes abjureTheExtraplanar ancients_3_0 ancients_3_1 arcaneAbjuration artisansBlessing
     balmOfPeace championChallenge channelDivinity2 channelDivinity3 charmAnimalsAndPlants
-    conqueringPresence controlUndead destroyUndead destructiveWrath divineSpark dreadfulAspect
-    emissaryOfPeace guidedStrike improvedDuplicity inspiringSmite invokeDuplicity knowledgeOfAges
-    knowledgeOfTheAges masterOfNature naturesWrath ordersDemand pathToTheGrave peerlessAthlete
-    plagueBlessing preserveLife radianceOfDawn radianceOfTheDawn readThoughts rebukeTheViolent
-    sacredWeapon searUndead tempest_2_0 touchOfDeath trickery_17_0 trickery_2_0 trickery_6_0
-    trickstersTransposition turnTheTide turnUndead turnUnholy twilightSanctuary twilightShroud
-    vengeance_3_0 vengeance_3_1 vowOfEnmity warGodsBlessing war_2_0 war_6_0 watchersWill`,
+    conqueringPresence controlUndead destroyUndead destructiveWrath divineSense divineSpark
+    dreadfulAspect emissaryOfPeace guidedStrike improvedDuplicity inspiringSmite invokeDuplicity
+    knowledgeOfAges knowledgeOfTheAges masterOfNature naturesWrath ordersDemand pathToTheGrave
+    peerlessAthlete plagueBlessing preserveLife radianceOfDawn radianceOfTheDawn readThoughts
+    rebukeTheViolent sacredWeapon searUndead tempest_2_0 touchOfDeath trickery_17_0 trickery_2_0
+    trickery_6_0 trickstersTransposition turnTheTide turnUndead turnUnholy twilightSanctuary
+    twilightShroud vengeance_3_0 vengeance_3_1 vowOfEnmity warGodsBlessing war_2_0 war_6_0
+    watchersWill`,
   'darkDelirium': `
     archfey_14_0`,
   'divineIntervention': `
@@ -623,6 +623,7 @@ const CONTEXT_PLACES = {
   '2014:dragonWings': 'movement', // 2014: voo permanente (2024: tem uso)
   '2014:intimidatingPresence': 'other', // 2014: ação sem usos contados
   '2014:coronaOfLight': 'spells', // 2014: ação sem usos contados
+  '2014:divineSense': 'other', // 2014: 1 + CAR usos próprios (2024: opção de Canalizar Divindade)
 };
 const CONTEXT_ANCHORS = { 'druid:stormborn': ['wildShape'] };
 
