@@ -10,8 +10,17 @@ export const gemLabel = (what, i, max, used, lang) => (lang === 'pt'
   ? `${what}: ${i + 1} de ${max}, ${used ? 'gasto' : 'livre'}`
   : `${what}: ${i + 1} of ${max}, ${used ? 'spent' : 'available'}`);
 
-// Por que a gema travada não responde ao toque (a regra é a de hoje: em campanha o gasto
-// é pelo "Conjurar"; fora dela, o espaço gasto só volta no descanso ou no modo trapaça)
+// Espaços de magia gastam da direita para a esquerda: as `used` gemas da ponta direita
+// são as gastas. Um toque numa gema acesa gasta um espaço; numa apagada, devolve um
+// (desfaz um toque errado). Só em campanha elas travam: lá o gasto é pelo "Conjurar".
+export const slotSpent = (i, max, used) => i >= max - used;
+export const slotTap = (used, max, spent) => Math.max(0, Math.min(max, (used || 0) + (spent ? -1 : 1)));
+export const slotTapTitle = (spent, lang) => (spent
+  ? (lang === 'pt' ? 'Gasto: toque para devolver' : 'Spent: tap to get it back')
+  : (lang === 'pt' ? 'Livre: toque para gastar' : 'Available: tap to spend'));
+
+// Por que a gema travada não responde ao toque (em campanha o gasto é pelo "Conjurar";
+// o texto de fora de campanha vale para os recursos de classe)
 export const lockedSlotTitle = (inCampaign, lang) => {
   if (inCampaign) return lang === 'pt' ? 'Em campanha: gaste pelo “Conjurar” das magias' : 'In campaign: spend it with “Cast” on a spell';
   return lang === 'pt' ? 'Gasto: volta no descanso (ou no modo trapaça)' : 'Spent: comes back on a rest (or in cheat mode)';

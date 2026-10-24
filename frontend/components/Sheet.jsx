@@ -29,7 +29,7 @@ import FhAttackRow from '../src/sheet/FhAttack.jsx';
 import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
 import { FhHex, FhSkillRow, FhProfLegend, FhTapToRoll } from '../src/sheet/FhChecks.jsx';
 import { hpState, hpStateLabel, useHpFeedback } from '../src/sheet/hp-feedback.js';
-import { slotCircleLabel, gemLabel, lockedSlotTitle } from '../src/sheet/gem-text.js';
+import { slotCircleLabel, gemLabel, lockedSlotTitle, slotSpent, slotTap, slotTapTitle } from '../src/sheet/gem-text.js';
 import { condClasses, FhConditionFx, FhConditionArt } from '../src/sheet/FhConditions.jsx';
 import { useLevelCeremony, FhLevelCeremony, useGemRelight } from '../src/sheet/FhCeremonies.jsx';
 import { PLAY_H, splitColumns } from '../src/sheet/play-layout.js';
@@ -1545,19 +1545,21 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
                 <div className="slot-level">{circle}</div>
                 <div className="slot-pips">
                   {Array.from({ length: max }).map((_, i) => {
-                    // Sem trapaça: gasta, mas só recupera descansando. Em campanha, use "Conjurar".
-                    const locked = !!char.inCampaign || (i < used && !char.cheatMode);
+                    // Gasta da direita para a esquerda; tocar de novo devolve (toque errado).
+                    // Em campanha trava: o gasto é pelo "Conjurar".
+                    const locked = !!char.inCampaign;
+                    const spent = slotSpent(i, max, used);
                     return (
                       <button
                         key={i} type="button"
-                        className={`slot-pip ${i < used ? 'used' : ''} ${locked ? 'locked' : ''}`}
+                        className={`slot-pip ${spent ? 'used' : ''} ${locked ? 'locked' : ''}`}
                         disabled={locked}
-                        aria-label={gemLabel(circle, i, max, i < used, lang)}
-                        title={locked ? lockedSlotTitle(!!char.inCampaign, lang) : undefined}
+                        aria-label={gemLabel(circle, i, max, spent, lang)}
+                        title={locked ? lockedSlotTitle(true, lang) : slotTapTitle(spent, lang)}
                         onClick={locked ? undefined : () => {
                           const arr = [...(char.spellSlotsUsed || [])];
                           while (arr.length <= idx) arr.push(0);
-                          arr[idx] = i < used ? i : i + 1;
+                          arr[idx] = slotTap(used, max, spent);
                           update({ spellSlotsUsed: arr });
                         }}
                       />
