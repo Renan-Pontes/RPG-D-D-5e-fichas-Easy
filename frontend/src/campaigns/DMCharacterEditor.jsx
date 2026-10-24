@@ -1,9 +1,10 @@
 import { errorMessage } from '../api/errors.js';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import SRD from '../../data/srd.js';
 import { api } from '../api/client.js';
 import ResourcesCard from '../progression/ResourcesCard.jsx';
 import { tName } from '../../data/i18n.js';
+import { editLogEntries, describeEditLogEntry } from './edit-log.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -45,13 +46,21 @@ function defaultSlotsFor(className, level, subclass) {
  * Edita: nome, HP atual/máximo/temp, atributos, level, XP, alinhamento,
  * background, race, className, subclass, slots por nível (atuais + máximos),
  * condições toggle, moedas, notas, descrição, equipamento (lista).
+ * Aba "Registro de edições" (só se a ficha tiver data.editLog, ver edit-log.js):
+ * o que o jogador mudou na campanha. Só leitura; `initialSection="log"` abre nela.
  */
-export default function DMCharacterEditor({ character, lang, onClose, onSaved }) {
+export default function DMCharacterEditor({ character, lang, onClose, onSaved, initialSection }) {
   const [data, setData] = useState(() => ({ ...(character.data || {}) }));
   const [name, setName] = useState(character.name || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [section, setSection] = useState('vitals');
+  const logEntries = editLogEntries(character.data);
+  const [section, setSection] = useState(() => (initialSection === 'log' && !logEntries.length ? 'vitals' : initialSection || 'vitals'));
+  // A barra de abas rola de lado no celular: a aba aberta (ex.: Registro, a última) fica à vista.
+  const navRef = useRef(null);
+  useEffect(() => {
+    navRef.current?.querySelector('.dm-editor-tab.active')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }, [section]);
 
   const patch = useCallback((p) => setData(d => ({ ...d, ...p })), []);
   const patchAbility = (k, v) => setData(d => ({ ...d, abilities: { ...(d.abilities || {}), [k]: parseInt(v) || 0 } }));
@@ -109,7 +118,7 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
           <button className="btn-icon" onClick={onClose} aria-label={t(lang, 'Fechar', 'Close')}>×</button>
         </div>
 
-        <nav className="dm-editor-nav" role="tablist">
+        <nav className="dm-editor-nav" role="tablist" ref={navRef}>
           {[
             { id: 'vitals', label: t(lang, 'Vida e estado', 'Vitals & Status') },
             { id: 'abilities', label: t(lang, 'Atributos', 'Abilities') },
@@ -117,7 +126,8 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
             { id: 'spells', label: t(lang, 'Espaços de magia', 'Spell slots') },
             { id: 'inventory', label: t(lang, 'Inventário e moedas', 'Inventory & Coins') },
             { id: 'story', label: t(lang, 'Identidade', 'Identity') },
-          ].map(s => (
+            logEntries.length > 0 && { id: 'log', label: `${t(lang, 'Registro de edições', 'Edit log')} (${logEntries.length})` },
+          ].filter(Boolean).map(s => (
             <button key={s.id} role="tab" aria-selected={section === s.id}
               className={`dm-editor-tab ${section === s.id ? 'active' : ''}`}
               onClick={() => setSection(s.id)}>{s.label}</button>
@@ -334,6 +344,38 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved })
                 <TextArea label={t(lang, 'História', 'Backstory')} value={data.backstory} onChange={v => patch({ backstory: v })} />
                 <TextArea label={t(lang, 'Aparência', 'Appearance')} value={data.appearance} onChange={v => patch({ appearance: v })} />
                 <TextArea label={t(lang, 'Notas (jornal)', 'Notes (journal)')} value={data.notes} onChange={v => patch({ notes: v })} />
+              </Section>
+            </div>
+          )}
+
+          {section === 'log' && (
+            <div className="col gap-3">
+              <Section title={t(lang, 'Registro de edições', 'Edit log')}>
+                <p className="muted small" style={{ margin: 0 }}>
+                  {t(lang,
+                    'O que o jogador mudou na própria ficha durante a campanha, do mais recente ao mais antigo. O jogador não consegue apagar este registro.',
+                    'What the player changed on their own sheet during the campaign, newest first. The player cannot erase this log.')}
+                </p>
+                <ol className="dm-editlog">
+                  {logEntries.map(raw => {
+                    const e = describeEditLogEntry(raw, lang);
+                    return (
+                      <li key={e.key} className="dm-editlog-item">
+                        <div className="dm-editlog-head">
+                          <strong>{e.field}</strong>
+                          <span className="muted small">{[e.when, e.by].filter(Boolean).join(' · ')}</span>
+                        </div>
+                        {e.added.length > 0 && (
+                          <div className="dm-editlog-added"><span aria-hidden="true">+ </span>{t(lang, 'Entrou', 'Added')}: {e.added.join(', ')}</div>
+                        )}
+                        {e.removed.length > 0 && (
+                          <div className="dm-editlog-removed"><span aria-hidden="true">− </span>{t(lang, 'Saiu', 'Removed')}: {e.removed.join(', ')}</div>
+                        )}
+                        {e.change && <div className="dm-editlog-change">{e.change.from} → {e.change.to}</div>}
+                      </li>
+                    );
+                  })}
+                </ol>
               </Section>
             </div>
           )}

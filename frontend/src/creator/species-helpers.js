@@ -416,7 +416,7 @@ export const chosenLanguages = (char) => (Utils.chosenLanguageIds
   : (char.languages || []).filter(l => !Utils.fixedLanguages(char).includes(l) && !/^\+\d/.test(l)));
 
 /** A etapa só aparece se há idioma para escolher (ou escolhido a mais para desmarcar). */
-export const languagesApply = (char) => Utils.languageChoiceCount(char) > 0 || chosenLanguages(char).length > 0;
+export const languagesApply = (char) => Utils.languageChoiceCount(char) > 0 || chosenLanguages(char).length > 0 || (Utils.extraLanguages?.(char) || 0) > 0;
 
 export function languagesIssues(char) {
   if (typeof Utils.languageIssues === 'function') return Utils.languageIssues(char);

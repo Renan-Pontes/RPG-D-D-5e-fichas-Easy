@@ -11,6 +11,7 @@ from .permissions import can_read_character
 from . import plans as P
 from . import wild_shape as ws_engine
 from . import spells as spells_engine
+from . import edit_log
 from .progression import validate_level_choice, apply_level_choice, validate_class_options, apply_class_options
 from .progression.resources import rest_resources, spend_resource
 
@@ -22,9 +23,11 @@ def character_list(request):
         P.purge_expired()  # purga preguiçosa (fichas em vaga de campanha vencida — opção A)
         chars = Character.objects.filter(owner=request.user)
         return Response({'characters': CharacterSerializer(chars, many=True).data})
+    _require_object_data(request)
     s = CharacterSerializer(data=request.data)
     s.is_valid(raise_exception=True)
-    data = s.validated_data.get('data') or {}
+    # Ficha nova nasce sem registro de edições (o editLog é só do servidor).
+    data = edit_log.without_log(s.validated_data.get('data') or {})
     # Código de mesa opcional: cria e já entra na campanha. Se o jogador está no
     # limite de personagens, a ficha nasce ocupando uma vaga da mesa do mestre.
     invite = request.data.get('inviteCode') if isinstance(request.data, dict) else None
@@ -77,10 +80,11 @@ def character_detail(request, pk):
     # PUT: em campanha, owner não pode alterar campos sensíveis.
     # Esses campos só mudam via DM editor (PATCH /dm-edit) ou endpoints
     # dedicados (cast/rest/inventory).
+    _require_object_data(request)
     in_camp = Membership.objects.filter(character=obj).exists()
     new_data = request.data.get('data') or {}
     if in_camp and isinstance(new_data, dict):
-        old = obj.data or {}
+        old = obj.data if isinstance(obj.data, dict) else {}
         rejected = []
         for field in OWNER_LOCKED_IN_CAMPAIGN:
             new_v = new_data.get(field, _SENTINEL)
@@ -100,15 +104,33 @@ def character_detail(request, pk):
         # Retrato próprio conta no espaço de imagens do dono (arte do site em /art não).
         P.check_images(obj.owner, P.image_bytes(new_data.get('avatar')),
                        P.image_bytes((obj.data or {}).get('avatar')))
-    s.save()
+    if 'data' in s.validated_data:
+        # Registro de edições para o mestre (edit_log.py): o do cliente é ignorado,
+        # o salvo fica e, em campanha, ganha o que mudou (ex.: idiomas).
+        s.save(data=edit_log.owner_put(obj.data, s.validated_data['data'], request.user, in_camp))
+    else:
+        s.save()
     return Response({'character': s.data})
 
 
 _SENTINEL = object()
 
+
+def _require_object_data(request):
+    """A ficha (`data`) é sempre um objeto: o app manda assim. Lista, texto, número
+    ou nulo no lugar dela apagaria a ficha inteira e, junto, o registro de edições do
+    mestre (data.editLog), então o servidor recusa antes de tudo."""
+    body = request.data
+    if not isinstance(body, dict):
+        raise ValidationError({'error': 'invalid_body'})
+    if 'data' in body and not isinstance(body.get('data'), dict):
+        raise ValidationError({'error': 'invalid_data'})
+
 # Campos que o dono NÃO pode alterar via PUT regular quando o personagem está
 # atribuído a uma campanha. Esses ou só mudam pelo DM (via /dm-edit) ou por
 # endpoints dedicados que aplicam regras (cast/rest/inventory/wild-shape).
+# O editLog (registro de edições) não entra aqui: o PUT simplesmente ignora o
+# que vier do cliente (edit_log.owner_put), em vez de recusar a ficha toda.
 OWNER_LOCKED_IN_CAMPAIGN = {
     'maxHp', 'level', 'className', 'subclass', 'race', 'background',
     'alignment', 'xp', 'rulesVersion',
@@ -331,6 +353,9 @@ def character_dm_edit(request, pk):
     patch = request.data.get('data') or {}
     if not isinstance(patch, dict):
         raise ValidationError({'error': 'invalid_patch'})
+    # O registro de edições é do servidor: o editor manda a ficha inteira que abriu,
+    # e um editLog velho nela apagaria o que o jogador mudou nesse meio-tempo.
+    patch = edit_log.without_log(patch)
 
     data = dict(char.data or {})
     # Merge raso: o mestre pode trocar qualquer campo, incluindo sub-objetos

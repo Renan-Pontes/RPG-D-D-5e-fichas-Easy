@@ -103,6 +103,7 @@
 .grp-badge.is-cheat { color: var(--blood-bright); border-color: var(--blood); }
 
 .grp-card-actions { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; border-top: 1px solid var(--stroke-faint); }
+.grp-card-actions .btn { min-height: 40px; }
 .grp-wild-end { color: var(--moss-bright); }
 .grp-assign { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
 .grp-assign-label { display: flex; flex-direction: column; gap: 4px; flex: 1 1 200px; min-width: 0; }

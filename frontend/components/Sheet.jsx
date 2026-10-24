@@ -1625,7 +1625,9 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
 };
 
 // ===== Stats tab (abilities, saves, skills full) =====
-// Idiomas: chips na ficha + modal de escolha (limite = espécie + antecedente/origem).
+// Idiomas: chips na ficha + modal de edição. Livre (sem modo trapaça): além das
+// escolhas iniciais (espécie + antecedente/origem) entram idiomas aprendidos em jogo,
+// de outros livros ou digitados. Em campanha o servidor anota a troca para o mestre.
 const LanguagesField = ({ char, lang, update }) => {
   const pt = lang === 'pt';
   const [open, setOpen] = useState(false);
@@ -1633,15 +1635,19 @@ const LanguagesField = ({ char, lang, update }) => {
   const chosen = chosenLanguages(char);
   const count = Utils.languageChoiceCount(char);
   const missing = Math.max(0, count - chosen.length);
-  // Fichas antigas podem ter idiomas a mais (talento, mestre): nunca trava abaixo do que já tem.
-  const limit = char.cheatMode ? Infinity : Math.max(count, chosen.length);
   const edit = () => { setDraft(chosen); setOpen(true); };
+  const save = () => {
+    const same = draft.length === chosen.length && draft.every(l => chosen.includes(l));
+    // Fixos já salvos ficam onde estavam: o registro do mestre mostra só o que mudou.
+    if (!same) update({ languages: Utils.withChosenLanguages(char, draft) });
+    setOpen(false);
+  };
   return (
     <div style={{ marginBottom: 12 }}>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <label style={{ margin: 0 }}>{t('languages', lang)}</label>
-        <button className="btn btn-sm btn-ghost" onClick={edit}>
-          <Icon name="edit" size={12}/> {pt ? 'Escolher' : 'Choose'}
+        <button className="btn btn-sm btn-ghost lang-edit-btn" onClick={edit}>
+          <Icon name="edit" size={12}/> {pt ? 'Editar idiomas' : 'Edit languages'}
         </button>
       </div>
       <div className="lang-chips">
@@ -1653,11 +1659,17 @@ const LanguagesField = ({ char, lang, update }) => {
         )}
       </div>
       {open && (
-        <Modal onClose={() => setOpen(false)} title={pt ? 'Idiomas' : 'Languages'}>
-          <LanguagePicker char={char} lang={lang} chosen={draft} onChange={setDraft} limit={limit} />
+        <Modal onClose={() => setOpen(false)} title={pt ? 'Editar idiomas' : 'Edit languages'}>
+          <LanguagePicker char={char} lang={lang} chosen={draft} onChange={setDraft} free />
+          {char.inCampaign && (
+            <p className="text-xs muted" style={{ margin: '12px 0 0' }}>
+              {pt ? 'Em campanha: o mestre vê no registro de edições o idioma que entrou e o que saiu.'
+                : 'In a campaign: the DM sees in the edit log which language was added and which was removed.'}
+            </p>
+          )}
           <div className="modal-actions">
             <button className="btn btn-ghost" onClick={() => setOpen(false)}>{pt ? 'Cancelar' : 'Cancel'}</button>
-            <button className="btn btn-primary" onClick={() => { update({ languages: draft }); setOpen(false); }}>{pt ? 'Salvar' : 'Save'}</button>
+            <button className="btn btn-primary" onClick={save}>{pt ? 'Salvar' : 'Save'}</button>
           </div>
         </Modal>
       )}
