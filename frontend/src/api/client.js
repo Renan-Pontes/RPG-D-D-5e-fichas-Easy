@@ -173,6 +173,8 @@ export const api = {
   invPatch:      (charId, itemId, body) => request(`/api/characters/${charId}/inventory/${itemId}`, { method: 'PATCH', body }),
   invDelete:     (charId, itemId) => request(`/api/characters/${charId}/inventory/${itemId}`, { method: 'DELETE' }),
   invConsume:    (charId, itemId) => request(`/api/characters/${charId}/inventory/${itemId}/consume`, { method: 'POST' }),
+  // Abre um pacote de equipamento: { itemId } ou { index, name } (item antigo sem id), lang.
+  invOpenPack:   (charId, body) => request(`/api/characters/${charId}/inventory/open-pack`, { method: 'POST', body }),
   wildShapeTransform: (id, body) => request(`/api/characters/${id}/wild-shape/transform`, { method: 'POST', body }),
   wildShapeEnd:       (id) => request(`/api/characters/${id}/wild-shape/end`, { method: 'POST' }),
   wildShapeForceEnd:  (id, body) => request(`/api/characters/${id}/wild-shape/force-end`, { method: 'POST', body }),

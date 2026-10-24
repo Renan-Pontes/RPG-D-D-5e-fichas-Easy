@@ -271,6 +271,7 @@ Auditoria completa em `backend/api/tests/test_authz_matrix.py` (39 testes).
 | `PATCH /characters/<id>/inventory/<itm>` | ✅ standalone tudo; campanha só `{equipped,qty,notes,attuned}` | ✅ tudo | 403 |
 | `DELETE /characters/<id>/inventory/<itm>` | ✅ standalone; 403 em campanha | ✅ | 403 |
 | `POST /characters/<id>/inventory/<itm>/consume` | ✅ | ✅ | 403 |
+| `POST /characters/<id>/inventory/open-pack` (abre pacote de equipamento: `{itemId}` ou `{index,name}`, `lang`) | ✅ (também em campanha) | ✅ | 403 |
 
 ### Campanhas
 | Endpoint | DM da campanha | Membro | Outro |
