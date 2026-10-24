@@ -14,7 +14,7 @@
  * O talento da espécie (Humano 2024, humano variante e linhagem personalizada 2014)
  * fica em char.feats com origin: 'species'.
  */
-import { SPECIES_2024_REVISED, AASIMAR_2024, SPECIES_2014_CHOICES, RACE_TOOL_NAMES } from '../../data/species-2024.js';
+import { SPECIES_2024_REVISED, AASIMAR_2024, SPECIES_2014_CHOICES, RACE_TOOL_NAMES, SPECIES_SPELL_IDS_2024 } from '../../data/species-2024.js';
 import SRD from '../../data/srd.js';
 import { findFeat } from '../../data/feats.js';
 import { featPicksIssues } from './feat-rules.js';
@@ -122,11 +122,13 @@ export function speciesChoiceIssues(char) {
 
 /**
  * O que a espécie concede no nível atual da ficha:
- * { cantrips, spells, spellsByLevel, skills, resist, tools, darkvision, speed, size, spellAbility, options }.
+ * { cantrips, spells, spellsByLevel, spellUses, skills, resist, tools, darkvision, speed, size, spellAbility, options }.
  * `spells` só traz as magias já liberadas (nível do personagem ≥ nível da linhagem).
+ * `spellUses`: { id: 'short' | 'atWill' | 'profBonus' } das magias fora do padrão (1× por descanso longo).
+ * Ficha 2024 com raça 2014: ids trocados para os do catálogo 2024 (SPECIES_SPELL_IDS_2024).
  */
 export function speciesGrants(char) {
-  const out = { cantrips: [], spells: [], spellsByLevel: {}, skills: [], resist: [], tools: [], darkvision: 0, speed: null, size: null, spellAbility: null, options: {} };
+  const out = { cantrips: [], spells: [], spellsByLevel: {}, spellUses: {}, skills: [], resist: [], tools: [], darkvision: 0, speed: null, size: null, spellAbility: null, options: {} };
   // 2014: visão no escuro e ferramentas fixas vêm do registro da raça (srd.js).
   const race = raceRecord2014(char);
   if (race?.darkvision) out.darkvision = race.darkvision;
@@ -135,6 +137,7 @@ export function speciesGrants(char) {
   if (!def) return out;
   const sc = char.speciesChoices || {};
   const lv = char.level || 1;
+  const sid = char.rulesVersion === '2024' ? (id) => SPECIES_SPELL_IDS_2024[id] || id : (id) => id;
   let fixedAbility = def.fixedSpellAbility || null;
   const add = (src) => {
     // Opção com atributo próprio (ex.: meio-elfo de descendência drow = CAR, truque de mago = INT).
@@ -144,17 +147,18 @@ export function speciesGrants(char) {
     out.resist.push(...(src.resist || []));
     out.skills.push(...(src.skills || []));
     out.tools.push(...(src.tools || []));
-    out.cantrips.push(...(src.cantrips || []));
+    out.cantrips.push(...(src.cantrips || []).map(sid));
     for (const [l, ids] of Object.entries(src.spells || {})) {
-      (out.spellsByLevel[l] ||= []).push(...ids);
-      if (lv >= +l) out.spells.push(...ids);
+      (out.spellsByLevel[l] ||= []).push(...ids.map(sid));
+      if (lv >= +l) out.spells.push(...ids.map(sid));
     }
+    for (const [id, uses] of Object.entries(src.spellUses || {})) out.spellUses[sid(id)] = uses;
   };
   add(def);
   for (const c of speciesChoiceSpecs(char)) {
     const v = sc[c.key];
     if (c.key === 'skill') out.skills.push(...list(v).filter(s => SKILL_IDS.includes(s) && (!c.from || c.from.includes(s))));
-    else if (c.key === 'cantrip') { const id = typeof v === 'string' && v ? v : c.default; if (id) out.cantrips.push(id); }
+    else if (c.key === 'cantrip') { const id = typeof v === 'string' && v ? v : c.default; if (id) out.cantrips.push(sid(id)); }
     else if (c.options) {
       const o = c.options.find(x => x.id === v);
       if (o) { out.options[c.key] = o; add(o); }
@@ -176,7 +180,8 @@ export function speciesAsi(char) {
 
 /**
  * Tabela compacta de truques/magias para o backend (catalog.json):
- * { '2024': { raceId: { cantrips, spells, options: { key: { optId: { cantrips, spells } } }, cantrip?: { when, default } } }, '2014': … }
+ * { '2024': { raceId: { cantrips, spells, options: { key: { optId: { cantrips, spells } } }, cantrip?: { when, default } } }, '2014': …,
+ *   spellIds2024: { id2014: id2024 } }  (raça 2014 em ficha 2024)
  */
 export function speciesSpellTable() {
   const spellPart = (src) => ({
@@ -195,5 +200,5 @@ export function speciesSpellTable() {
     return row;
   };
   const table = (t) => Object.fromEntries(Object.entries(t).map(([id, def]) => [id, conv(def)]).filter(([, r]) => Object.keys(r).length));
-  return { '2024': table(SPECIES_TABLE['2024']), '2014': table(SPECIES_TABLE['2014']) };
+  return { '2024': table(SPECIES_TABLE['2024']), '2014': table(SPECIES_TABLE['2014']), spellIds2024: SPECIES_SPELL_IDS_2024 };
 }

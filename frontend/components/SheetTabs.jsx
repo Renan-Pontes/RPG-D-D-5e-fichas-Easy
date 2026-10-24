@@ -12,8 +12,9 @@ import { api } from '../src/api/client.js';
 import * as FS from '../src/progression/fighting-styles.js';
 import * as Book from '../src/progression/spellbook.js';
 import { SpeciesChoicesModal, speciesSummary } from '../src/progression/SpeciesChoices.jsx';
-import { speciesChoiceSpecs } from '../src/progression/species.js';
+import { speciesChoiceSpecs, speciesGrants } from '../src/progression/species.js';
 import { grantedSpells } from '../src/creator/spell-helpers.js';
+import { grantTakesOver } from '../src/progression/engine.js';
 import { propLabel, armorTypeLabel } from '../src/creator/equipment-helpers.js';
 import { itemEmoji, schoolIcon, SCHOOL_EMOJI } from '../src/art.js';
 import { itemArtFor } from '../src/items/item-art.js';
@@ -37,6 +38,42 @@ const propsText = (props, lang) => (props || []).map(p => propLabel(p, lang)).jo
 // Magias de talento/espécie (auto + feat/species): ficam fora das listas da classe.
 const isGrantEntry = (s) => !!s && typeof s === 'object' && s.auto && (s.feat || s.species);
 
+const idOf = (s) => (typeof s === 'string' ? s : s?.id);
+
+// Magias de talento/espécie da ficha, já como ficam na próxima gravação
+// (applyAutosToCharacter):
+// - entries: as gravadas mais as que a ficha ainda não gravou (ficha salva antes de
+//   a espécie ganhar a magia, ex.: Magia Firbolg), aparecem do mesmo jeito;
+// - isTakenOver(s): entrada comum da classe com o id de uma delas (Firbolg druida que
+//   preparou Detectar Magia pelo druida). O motor troca pela da espécie, então ela
+//   já sai da lista da classe e não conta nas preparadas (engine.js grantTakesOver).
+function grantStateOf(char) {
+  const spells = char.spells || [];
+  let granted = [];
+  try { granted = grantedSpells(char).filter(g => g.source === 'feat' || g.source === 'species'); } catch { /* ficha incompleta */ }
+  const isTakenOver = (s) => {
+    if (isGrantEntry(s)) return false;
+    const g = granted.find(x => x.id === idOf(s));
+    return !!g && grantTakesOver(char, typeof s === 'string' ? { id: s, prepared: false } : s, g.level === 0);
+  };
+  const have = new Set(spells.filter(s => !isTakenOver(s)).map(idOf));
+  const missing = granted.filter(g => !have.has(g.id)).map(g => ({ id: g.id, prepared: true, auto: true, [g.source]: true }));
+  return { entries: [...spells.filter(isGrantEntry), ...missing], isTakenOver };
+}
+const grantEntriesOf = (char) => grantStateOf(char).entries;
+
+// Usos fora do padrão das magias da espécie (Magia Firbolg: 1× por descanso curto;
+// Gnomo da Floresta 2024: bônus de proficiência vezes por descanso longo).
+const USES_TAG = {
+  short: () => ({ pt: '1×/descanso curto', en: '1/short rest' }),
+  atWill: () => ({ pt: 'à vontade', en: 'at will' }),
+  profBonus: (char) => { const n = Utils.profBonus(char); return { pt: `${n}×/descanso longo`, en: `${n}/long rest` }; },
+};
+const UsesTag = ({ uses, char, lang }) => {
+  const text = USES_TAG[uses]?.(char);
+  return text ? <span className="spell-tag-uses">{text[lang] || text.pt}</span> : null;
+};
+
 // Aba Magias: espaços (compartilhados entre as classes) e uma seção por classe
 // conjuradora — em multiclasse cada uma tem atributo, CD, limites e lista próprios.
 // `placed` (src/sheet/feature-placement.js): os traços de magia e de truques de cada classe
@@ -46,7 +83,7 @@ const SheetSpells = ({ char, lang, update, slots, roll, placed }) => {
   // Só conjura quem tem espaços ou truques no nível atual (Paladino/Patrulheiro 2014 só no nível 2).
   const singleCaster = !!Utils.spellcastingAbility(char) && (Utils.casterViews(char).length > 0 || Utils.spellSlots(char).some(Boolean));
   const casters = multi ? Utils.casterViews(char) : (singleCaster ? [char] : []);
-  const hasGrants = (char.spells || []).some(isGrantEntry);
+  const hasGrants = grantEntriesOf(char).length > 0;
   const spellFeats = placed?.by.spells || [];
   const cantripFeats = placed?.by.cantrips || [];
   const featsOf = (classId) => ({ spells: spellFeats.filter(f => f.classId === classId), cantrips: cantripFeats.filter(f => f.classId === classId) });
@@ -155,10 +192,12 @@ const SheetSpells = ({ char, lang, update, slots, roll, placed }) => {
 const GrantedSpellsSection = ({ char, lang, update, slots, roll }) => {
   const pt = lang === 'pt';
   const catalog = Utils.spellCatalog(char);
-  const entries = (char.spells || []).filter(isGrantEntry)
+  const entries = grantEntriesOf(char)
     .map(s => ({ ...s, def: catalog.find(x => x.id === s.id) })).filter(s => s.def);
   if (!entries.length) return null;
   const sources = grantedSpells(char);
+  let uses = {};
+  try { uses = speciesGrants(char).spellUses || {}; } catch { /* sem espécie */ }
   const groups = [];
   for (const s of entries) {
     const src = sources.find(g => g.id === s.id && g.source === (s.feat ? 'feat' : 'species'));
@@ -186,7 +225,8 @@ const GrantedSpellsSection = ({ char, lang, update, slots, roll }) => {
               </span>
             </summary>
             {g.list.map(s => (
-              <SpellRow key={s.id} spell={s} lang={lang} showPrepared={false} char={char} slots={slots} update={update} spellAtk={atk} roll={roll} />
+              <SpellRow key={s.id} spell={s} lang={lang} showPrepared={false} char={char} slots={slots} update={update} spellAtk={atk} roll={roll}
+                tag={s.species && uses[s.id] ? <UsesTag uses={uses[s.id]} char={char} lang={lang} /> : null} />
             ))}
           </details>
         );
@@ -211,7 +251,11 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass, feats = { spe
   const inList = sp => cheat || Utils.inSpellList(char, sp);
 
   const allEntries = char.spells || [];
-  const spellEntries = allEntries.filter(s => !isGrantEntry(s));
+  // Magias de talento/espécie ficam na seção própria (GrantedSpellsSection), fora das
+  // listas e dos limites da classe, inclusive as que a ficha ainda não gravou.
+  const grants = grantStateOf(char);
+  const grantIds = new Set(grants.entries.map(s => s.id));
+  const spellEntries = allEntries.filter(s => !isGrantEntry(s) && !grants.isTakenOver(s));
   const autoIds = new Set(spellEntries.filter(s => s.auto).map(s => s.id));
   // Entradas da classe fora da lista dela (sobras de outra classe, Segredos Mágicos…): sinalizadas.
   const offList = new Set(cheat ? [] : spellEntries.filter(s => {
@@ -231,8 +275,6 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass, feats = { spe
   // Mago: prepara só magias do grimório.
   const book = Book.usesSpellbook(char);
   const bookIds = new Set(book ? Book.spellbookIds(char) : []);
-  // Magias de talento/espécie ficam na seção própria (GrantedSpellsSection), fora das listas da classe.
-  const grantIds = new Set(allEntries.filter(isGrantEntry).map(s => s.id));
   const classSpells = Utils.spellCatalog(char).filter(sp => !grantIds.has(sp.id) && (((book ? bookIds.has(sp.id) : inList(sp)) && sp.level <= maxLvl) || autoIds.has(sp.id)));
   const classCantrips = Utils.spellCatalog(char).filter(sp => !grantIds.has(sp.id) && (inList(sp) || autoIds.has(sp.id)) && sp.level === 0);
 
@@ -242,7 +284,7 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass, feats = { spe
   };
 
   // Known caster: ability to add new known spells via dropdown
-  const available = Utils.spellCatalog(char).filter(sp => inList(sp) && sp.level <= maxLvl && !allEntries.find(s => s.id === sp.id));
+  const available = Utils.spellCatalog(char).filter(sp => inList(sp) && sp.level <= maxLvl && !grantIds.has(sp.id) && !allEntries.find(s => s.id === sp.id));
   const addKnownSpell = (id) => {
     const def = Utils.spellCatalog(char).find(s => s.id === id);
     const count = (def?.level === 0 ? cantripIds : preparedIds).filter(id => !autoIds.has(id)).length;
@@ -280,6 +322,7 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass, feats = { spe
           offList={offList}
           onRemove={removeSpell}
           cantripFeats={<FhFeatures items={feats.cantrips} multi={multiFeats} lang={lang} place="cantrips" className="fh-cf-cantrips" />}
+          isTakenOver={grants.isTakenOver}
         />
       ) : (
         <KnownSpellsView
@@ -314,14 +357,14 @@ const levelLabel = (lvl, lang) => (+lvl === 0 ? t('cantrips', lang) : slotCircle
 // Conjuradores preparados: a ficha mostra só o que está pronto, agrupado por círculo
 // (fechado até tocar). A escolha diária acontece no modal "Preparar magias".
 // cantripFeats: os traços de truque da classe (ClassSpells), desenhados logo acima dos truques.
-const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, cantripLimit, preparedLimit, maxLvl, spellAtk, roll, slots, update, book = false, offList = new Set(), onRemove, cantripFeats = null }) => {
+const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, cantripLimit, preparedLimit, maxLvl, spellAtk, roll, slots, update, book = false, offList = new Set(), onRemove, cantripFeats = null, isTakenOver = () => false }) => {
   const pt = lang === 'pt';
   const [picking, setPicking] = useState(false);
   const catalog = Utils.spellCatalog(char);
   // Mago: magias do grimório não preparadas ficam só na seção Grimório.
   const ready = (char.spells || [])
     .map(cs => ({ ...cs, def: catalog.find(s => s.id === cs.id) }))
-    .filter(s => s.def && !isGrantEntry(s) && !(book && Book.isInBook(char, s) && !Book.isPreparedEntry(s)));
+    .filter(s => s.def && !isGrantEntry(s) && !isTakenOver(s) && !(book && Book.isInBook(char, s) && !Book.isPreparedEntry(s)));
   const byLevel = groupByLevel(ready);
   const nonAuto = (lvl0) => ready.filter(s => !autoIds.has(s.id) && (s.def.level === 0) === lvl0).length;
   const fmt = (n) => (Number.isFinite(n) ? n : '∞');

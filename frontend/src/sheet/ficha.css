@@ -1968,6 +1968,8 @@
 .ficha .fh-offlist-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .ficha .fh-offlist-acts .btn { color: #ffd7cf; border-color: rgba(255, 106, 90, 0.45); }
 .ficha .spell-tag-warn { display: inline-block; white-space: nowrap; font-family: var(--display); font-size: 0.6rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; padding: 1px 6px; border-radius: 3px; vertical-align: 2px; color: var(--fh-blood); }
+/* Usos fora do padrão de magia da espécie (1×/descanso curto, à vontade). */
+.ficha .spell-tag-uses { display: inline-block; white-space: nowrap; font-family: var(--display); font-size: 0.6rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; padding: 1px 6px; margin-left: 6px; border: 1px solid rgba(224, 181, 94, 0.45); border-radius: 3px; vertical-align: 2px; color: var(--fh-gold-hi); }
 
 /* Grupos por círculo (<details>): rótulo astral com losango, contador e chevron. Valem
    também nos modais Preparar e Copiar (estão dentro da ficha). */
