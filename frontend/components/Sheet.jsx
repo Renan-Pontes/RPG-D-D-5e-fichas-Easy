@@ -6,6 +6,7 @@ import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
 import { featSummary } from '../src/progression/FeatPicker.jsx';
 import ResourcesCard from '../src/progression/ResourcesCard.jsx';
+import { computeResources } from '../src/progression/resources.js';
 import { SpeciesChoicesModal } from '../src/progression/SpeciesChoices.jsx';
 import { t, tName } from '../data/i18n.js';
 import LanguagePicker, { chosenLanguages } from './LanguagePicker.jsx';
@@ -29,6 +30,8 @@ import { FhHex, FhSkillRow, FhProfLegend, FhTapToRoll } from '../src/sheet/FhChe
 import { hpState, hpStateLabel, useHpFeedback } from '../src/sheet/hp-feedback.js';
 import { slotCircleLabel, gemLabel, lockedSlotTitle } from '../src/sheet/gem-text.js';
 import { condClasses, FhConditionFx, FhConditionArt } from '../src/sheet/FhConditions.jsx';
+import { useLevelCeremony, FhLevelCeremony, useGemRelight } from '../src/sheet/FhCeremonies.jsx';
+import { PLAY_H, splitColumns } from '../src/sheet/play-layout.js';
 import '../src/sheet/ficha.css';
 
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, children }) => {
@@ -36,6 +39,11 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   const [hpDelta, setHpDelta] = useState(0);
   const [tempHpInput, setTempHpInput] = useState(false);
   const [cheatOpen, setCheatOpen] = useState(false);
+  // Cerimônias (só visual, src/sheet/FhCeremonies.jsx): o selo quando o nível sobe e as
+  // gemas que reacendem (descanso, trapaça, mestre).
+  const rootRef = useRef(null);
+  const [levelCer, closeLevelCer] = useLevelCeremony(char);
+  useGemRelight(rootRef);
 
   const update = (patch) => onUpdate({ ...char, ...patch });
   const updateRef = useRef(update);
@@ -118,8 +126,9 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   // As classes c-* (condições ativas) e is-down (PV 0) só mudam a aparência
   // (retrato e camadas decorativas: src/sheet/FhConditions.jsx).
   return (
-    <div className={['ficha', ...condClasses(char)].join(' ')}>
+    <div ref={rootRef} className={['ficha', ...condClasses(char)].join(' ')}>
       <FhConditionFx conditions={char.conditions} />
+      {levelCer && <FhLevelCeremony key={levelCer.key} cer={levelCer} char={char} lang={lang} onClose={closeLevelCer} />}
       <SheetHero
         char={char}
         lang={lang}
@@ -187,35 +196,39 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         ))}
       </ScrollTabs>
 
-      {tab === 'play' && (
-        <SheetPlay
-          char={char} lang={lang} update={update} applyHp={applyHp}
-          ac={ac} speed={speed} profB={profB} initBonus={initBonus}
-          passPerc={passPerc} slots={slots} roll={roll}
-        />
-      )}
+      {/* Conteúdo da aba. No desktop (1024px ou mais, ficha.css: F14) a ficha usa a largura
+          toda: a aba Jogar em duas colunas; as demais numa coluna de leitura centrada. */}
+      <div className={`fh-tab-body${tab === 'play' ? ' is-play' : ''}`}>
+        {tab === 'play' && (
+          <SheetPlay
+            char={char} lang={lang} update={update} applyHp={applyHp}
+            ac={ac} speed={speed} profB={profB} initBonus={initBonus}
+            passPerc={passPerc} slots={slots} roll={roll}
+          />
+        )}
 
-      {tab === 'stats' && (
-        <SheetStats
-          char={char} lang={lang} update={update}
-          profB={profB} passPerc={passPerc} roll={roll}
-        />
-      )}
+        {tab === 'stats' && (
+          <SheetStats
+            char={char} lang={lang} update={update}
+            profB={profB} passPerc={passPerc} roll={roll}
+          />
+        )}
 
-      {tab === 'spells' && (
-        <SheetSpells char={char} lang={lang} update={update} slots={slots} roll={roll} />
-      )}
+        {tab === 'spells' && (
+          <SheetSpells char={char} lang={lang} update={update} slots={slots} roll={roll} />
+        )}
 
-      {tab === 'inv' && (
-        <SheetInventory char={char} lang={lang} update={update} roll={roll} cls={cls} bg={bg} />
-      )}
+        {tab === 'inv' && (
+          <SheetInventory char={char} lang={lang} update={update} roll={roll} cls={cls} bg={bg} />
+        )}
 
-      {tab === 'story' && <SheetStory char={char} lang={lang} update={update} cls={cls} race={race} />}
-      {tab === 'notes' && <SheetNotes char={char} lang={lang} update={update} />}
-      {tab === 'npcs'  && <SheetNpcs char={char} lang={lang} update={update} />}
+        {tab === 'story' && <SheetStory char={char} lang={lang} update={update} cls={cls} race={race} />}
+        {tab === 'notes' && <SheetNotes char={char} lang={lang} update={update} />}
+        {tab === 'npcs'  && <SheetNpcs char={char} lang={lang} update={update} />}
+      </div>
 
       {/* Conteúdo extra da ficha (ex.: painel de Progressão) antes da zona de perigo */}
-      {children}
+      <div className="fh-after">{children}</div>
 
       <div className="fh-danger-zone no-print">
         <button className="btn btn-ghost btn-danger btn-sm" onClick={onDelete}>
@@ -1201,195 +1214,206 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
   const fxBeat = hpFx ? (hpFx.id % 2 ? 'a' : 'b') : ''; // alterna o nome da animação para ela recomeçar
   const pt = lang === 'pt';
 
-  return (
-    <>
-      {/* Clarão na borda da tela ao levar dano / ser curado: camada decorativa fixa, fora
-          dos painéis (nada de transform/filter em contêiner com botão que abre Modal). */}
-      {hpFx && <div key={hpFx.id} className={`fh-fx fh-fx-${fxKind}`} aria-hidden="true" />}
-      <FhMedalDefs />
+  // Regra da ficha: proficiência, Artes Marciais do Monge e Estilos de Luta (Utils.attackFor).
+  const atks = (char.weapons || []).map(w => Utils.attackFor(char, w));
+  const druidEntry = Utils.classLevel(char, 'druid') >= 2 ? Utils.classEntries(char).find(e => e.id === 'druid') : null;
+  const druid = druidEntry ? Utils.classView(char, druidEntry) : null;
 
-      <section className={`hp-tracker fh-panel fh-hp${fxKind === 'heal' ? ` fh-healed-${fxBeat}` : ''}`} data-state={state}>
-        <FhTitle>{t('hp', lang)}</FhTitle>
-        <div className="fh-hp-row">
-          <div className="hp-display">
-            <span className={`fh-hp-num${fxKind === 'hit' ? ` fh-shake-${fxBeat}` : ''}`}>
-              <span className="hp-current">{char.currentHp}</span>
-              <span className="hp-sep">/</span>
-              <span className="hp-max">{char.maxHp}</span>
-            </span>
-            {char.tempHp > 0 && <span className="fh-hp-temp-badge" title={t('tempHp', lang)}>+{char.tempHp}</span>}
-            {hpFx && (
-              <span key={hpFx.id} className={`fh-float ${fxKind}`} aria-hidden="true">
-                {hpFx.delta < 0 ? '−' : '+'}{Math.abs(hpFx.delta)}
+  // Painéis da aba, na ordem do celular (e do teclado): { h: altura estimada, el }.
+  // No desktop a aba vira duas colunas e splitColumns (src/sheet/play-layout.js) escolhe
+  // quantos vão para a 1ª: só layout, a ordem nunca muda. As alturas usam só o que não
+  // muda durante o jogo (nenhum painel troca de coluna ao ligar condição ou levar dano).
+  const slotLevels = (slots || []).filter(Boolean).length;
+  const resourceCount = computeResources(char).length;
+  const attackNotes = atks.reduce((n, a) => n + (a.fs.mastery ? 1 : 0) + (a.proficient ? 0 : 1) + (a.monk ? 1 : 0) + a.fs.notes.length, 0);
+  const starry = druid?.subclass === 'stars' && druid.level >= (char.rulesVersion === '2024' ? 3 : 2);
+  const panels = [
+    { h: PLAY_H.hp, el: (
+        <section key="hp" className={`hp-tracker fh-panel fh-hp${fxKind === 'heal' ? ` fh-healed-${fxBeat}` : ''}`} data-state={state}>
+          <FhTitle>{t('hp', lang)}</FhTitle>
+          <div className="fh-hp-row">
+            <div className="hp-display">
+              <span className={`fh-hp-num${fxKind === 'hit' ? ` fh-shake-${fxBeat}` : ''}`}>
+                <span className="hp-current">{char.currentHp}</span>
+                <span className="hp-sep">/</span>
+                <span className="hp-max">{char.maxHp}</span>
               </span>
-            )}
-          </div>
-          <div className="fh-hp-state">{hpStateLabel(state, lang)}</div>
-        </div>
-        {/* barra-fantasma: anda atrás do preenchimento, com atraso, e mostra o quanto caiu */}
-        <div className="hp-bar" aria-hidden="true">
-          <div className="fh-hp-ghost" style={{ width: `${hpPct}%` }} />
-          <div className="hp-bar-fill" style={{ width: `${hpPct}%` }} />
-        </div>
-        <div className="hp-actions">
-          <button className="btn btn-sm btn-hurt" onClick={() => apply(-1)} disabled={!delta}>
-            <Icon name="sword" size={18}/> {t('damage', lang)}
-          </button>
-          <input
-            className="hp-input"
-            type="number"
-            inputMode="numeric"
-            min="0"
-            value={delta}
-            onChange={e => setDelta(e.target.value)}
-            placeholder="0"
-            aria-label={pt ? 'Quantidade de dano ou cura' : 'Damage or healing amount'}
-          />
-          <button className="btn btn-sm btn-heal" onClick={() => apply(1)} disabled={!delta}>
-            <Icon name="heart" size={18}/> {t('heal', lang)}
-          </button>
-        </div>
-        <div className="hp-temp fh-hp-temp">
-          <span className="fh-hp-temp-label">{t('tempHp', lang)}<GrimoireHint id="pv-temporarios" lang={lang} /></span>
-          <input
-            type="number" min="0"
-            inputMode="numeric"
-            value={char.tempHp || 0}
-            onChange={e => update({ tempHp: Math.max(0, +e.target.value || 0) })}
-            aria-label={t('tempHp', lang)}
-          />
-        </div>
-
-        {/* Death saves */}
-        {char.currentHp === 0 && (
-          <div className="fh-death">
-            <div className="fh-death-title">{t('deathSaves', lang)}<GrimoireHint id="testes-contra-a-morte" lang={lang} /></div>
-            <div className="fh-death-rows">
-              <div className="fh-death-group is-success">
-                <span className="fh-death-label">{t('successes', lang)}:</span>
-                <div className="death-pips">
-                  {[0,1,2].map(i => (
-                    <button key={i} type="button" className={`death-pip ${i < char.deathSaves.success ? 'success' : ''}`}
-                      aria-pressed={i < char.deathSaves.success} aria-label={`${t('successes', lang)}: ${i + 1}`}
-                      onClick={() => update({ deathSaves: { ...char.deathSaves, success: i < char.deathSaves.success ? i : i + 1 } })}/>
-                  ))}
-                </div>
-              </div>
-              <div className="fh-death-group is-fail">
-                <span className="fh-death-label">{t('failures', lang)}:</span>
-                <div className="death-pips">
-                  {[0,1,2].map(i => (
-                    <button key={i} type="button" className={`death-pip ${i < char.deathSaves.fail ? 'fail' : ''}`}
-                      aria-pressed={i < char.deathSaves.fail} aria-label={`${t('failures', lang)}: ${i + 1}`}
-                      onClick={() => update({ deathSaves: { ...char.deathSaves, fail: i < char.deathSaves.fail ? i : i + 1 } })}/>
-                  ))}
-                </div>
-              </div>
+              {char.tempHp > 0 && <span className="fh-hp-temp-badge" title={t('tempHp', lang)}>+{char.tempHp}</span>}
+              {hpFx && (
+                <span key={hpFx.id} className={`fh-float ${fxKind}`} aria-hidden="true">
+                  {hpFx.delta < 0 ? '−' : '+'}{Math.abs(hpFx.delta)}
+                </span>
+              )}
             </div>
-            <button className="btn btn-sm btn-ghost fh-death-roll"
-              onClick={() => roll({ die: 20, label: t('death', lang) })}>
-              <Icon name="dice" size={14}/> {lang === 'pt' ? 'Rolar teste contra morte' : 'Roll death save'}
+            <div className="fh-hp-state">{hpStateLabel(state, lang)}</div>
+          </div>
+          {/* barra-fantasma: anda atrás do preenchimento, com atraso, e mostra o quanto caiu */}
+          <div className="hp-bar" aria-hidden="true">
+            <div className="fh-hp-ghost" style={{ width: `${hpPct}%` }} />
+            <div className="hp-bar-fill" style={{ width: `${hpPct}%` }} />
+          </div>
+          <div className="hp-actions">
+            <button className="btn btn-sm btn-hurt" onClick={() => apply(-1)} disabled={!delta}>
+              <Icon name="sword" size={18}/> {t('damage', lang)}
+            </button>
+            <input
+              className="hp-input"
+              type="number"
+              inputMode="numeric"
+              min="0"
+              value={delta}
+              onChange={e => setDelta(e.target.value)}
+              placeholder="0"
+              aria-label={pt ? 'Quantidade de dano ou cura' : 'Damage or healing amount'}
+            />
+            <button className="btn btn-sm btn-heal" onClick={() => apply(1)} disabled={!delta}>
+              <Icon name="heart" size={18}/> {t('heal', lang)}
             </button>
           </div>
-        )}
-
-        {/* Defesa em medalhões: CA, Iniciativa (toque rola), Deslocamento, Prof., Perc. passiva
-            e Dados de Vida (as antigas grades .combat-grid desta aba) */}
-        <div className="fh-defense">
-          <FhMedal shape="shield" value={ac} label={t('ac', lang)}
-            sub={acStyleBonuses.length > 0
-              ? <span title={acStyleBonuses.map(x => x.label[lang]).join(', ')}>{FS.partsLabel(acStyleBonuses, lang)}</span>
-              : null}>
-            {untrainedArmor.length > 0 && (
-              <div className="fh-medal-warn"
-                title={lang === 'pt'
-                  ? 'Sem treino: desvantagem em testes, salvaguardas e ataques de FOR e DES, e você não pode lançar magias.'
-                  : "Untrained: Disadvantage on STR and DEX checks, saves and attacks, and you can't cast spells."}>
-                {lang === 'pt' ? 'Sem treino' : 'Untrained'}: {untrainedArmor.join(', ')}
+          <div className="hp-temp fh-hp-temp">
+            <span className="fh-hp-temp-label">{t('tempHp', lang)}<GrimoireHint id="pv-temporarios" lang={lang} /></span>
+            <input
+              type="number" min="0"
+              inputMode="numeric"
+              value={char.tempHp || 0}
+              onChange={e => update({ tempHp: Math.max(0, +e.target.value || 0) })}
+              aria-label={t('tempHp', lang)}
+            />
+          </div>
+  
+          {/* Death saves */}
+          {char.currentHp === 0 && (
+            <div className="fh-death">
+              <div className="fh-death-title">{t('deathSaves', lang)}<GrimoireHint id="testes-contra-a-morte" lang={lang} /></div>
+              <div className="fh-death-rows">
+                <div className="fh-death-group is-success">
+                  <span className="fh-death-label">{t('successes', lang)}:</span>
+                  <div className="death-pips">
+                    {[0,1,2].map(i => (
+                      <button key={i} type="button" className={`death-pip ${i < char.deathSaves.success ? 'success' : ''}`}
+                        aria-pressed={i < char.deathSaves.success} aria-label={`${t('successes', lang)}: ${i + 1}`}
+                        onClick={() => update({ deathSaves: { ...char.deathSaves, success: i < char.deathSaves.success ? i : i + 1 } })}/>
+                    ))}
+                  </div>
+                </div>
+                <div className="fh-death-group is-fail">
+                  <span className="fh-death-label">{t('failures', lang)}:</span>
+                  <div className="death-pips">
+                    {[0,1,2].map(i => (
+                      <button key={i} type="button" className={`death-pip ${i < char.deathSaves.fail ? 'fail' : ''}`}
+                        aria-pressed={i < char.deathSaves.fail} aria-label={`${t('failures', lang)}: ${i + 1}`}
+                        onClick={() => update({ deathSaves: { ...char.deathSaves, fail: i < char.deathSaves.fail ? i : i + 1 } })}/>
+                    ))}
+                  </div>
+                </div>
               </div>
-            )}
-          </FhMedal>
-          <FhMedal shape="circle" value={Utils.fmtMod(initBonus)} label={t('initiative', lang)}
-            sub={<FhTapToRoll lang={lang} short />}
-            onClick={() => roll({ die: 20, mod: initBonus, label: t('initRoll', lang) })} />
-          <FhMedal shape="circle" value={Utils.speedLabel(speed, lang).split(' ')[0]} unit={lang === 'pt' ? 'm' : 'ft'}
-            label={t('speed', lang)} />
-          <FhMedal shape="diamond" value={Utils.fmtMod(profB)} label={lang === 'pt' ? 'Prof.' : 'Prof.'} />
-          <FhMedal shape="diamond" value={passPerc} label={lang === 'pt' ? 'Perc.' : 'Perc.'}
-            hint={<GrimoireHint id="valor-passivo" lang={lang} />} sub={lang === 'pt' ? 'passiva' : 'passive'} />
-          <FhMedal shape="circle" value={Math.max(0, char.level - (char.hitDiceUsed || 0))} label={t('hitDice', lang)}
-            hint={<GrimoireHint id="dados-de-vida" lang={lang} />} sub={`/${Utils.hitDiceLabel(char)}`} />
-        </div>
-      </section>
-
-      {/* Ataques: uma linha por arma e o Golpe Desarmado (src/sheet/FhAttack.jsx). Os botões
-          "Ataque +X" e "Dano NdX+Y" fazem as mesmas rolagens (rótulos e valores) de antes. */}
-      <section className="fh-panel">
-        <FhTitle>{lang === 'pt' ? 'Ataques' : 'Attacks'}</FhTitle>
-        <div className="fh-atks">
-          {(char.weapons || []).map((w, i) => {
-            // Regra da ficha: proficiência, Artes Marciais do Monge e Estilos de Luta (Utils.attackFor).
-            const a = Utils.attackFor(char, w);
-            const fs = a.fs;
-            const atk = a.bonus;
-            const dmgMod = a.dmgMod;
-            const bonusText = FS.partsLabel([...fs.attackParts.map(p => ({ ...p, label: { pt: `${p.label.pt} (ataque)`, en: `${p.label.en} (attack)` } })), ...fs.damageParts], lang);
-            return (
-              <FhAttackRow key={i} lang={lang}
-                art={<ArtThumb src={itemArt(w)} emoji="⚔️" size={40} lang={lang} />}
-                name={w.name}
-                sub={a.dmgType ? Utils.damageLabel(a.dmgType, lang) : null}
-                atkText={Utils.fmtMod(atk)}
-                onAttack={() => roll({ die: 20, mod: atk, label: w.name + ' ' + t('attackRoll', lang) })}
-                dmgText={a.damage}
-                onDamage={() => {
-                  const m = String(a.dice || '').match(/(\d+)d(\d+)/);
-                  if (m) roll({ die: +m[2], count: +m[1], mod: dmgMod, label: w.name + ' ' + t('damageRoll', lang) });
-                }}>
-                {a.monk && <div className="fh-atk-note is-gold">{lang === 'pt' ? 'Artes Marciais (arma de monge)' : 'Martial Arts (Monk weapon)'}</div>}
-                {!a.proficient && <div className="fh-atk-note is-warn">{lang === 'pt' ? 'Sem proficiência: não soma o bônus de proficiência' : 'Not proficient: no proficiency bonus'}</div>}
-                {bonusText && <div className="fh-atk-note is-gold">{bonusText}</div>}
-                {fs.mastery && (
-                  <div className="fh-atk-note is-mastery" title={fs.mastery.desc[lang]}>
-                    {lang === 'pt' ? 'Maestria' : 'Mastery'}: <strong>{fs.mastery.name[lang]}</strong> — {fs.mastery.desc[lang]}
-                  </div>
-                )}
-                {fs.notes.map((n, k) => <div key={k} className="fh-atk-note">{n[lang]}</div>)}
-              </FhAttackRow>
-            );
-          })}
-          {(() => {
-            // Golpe Desarmado: todo mundo é proficiente (1 + FOR de concussão). Monge usa o dado
-            // de Artes Marciais com DES ou FOR; o Estilo de Luta Desarmado troca o 1 por um dado.
-            const u = Utils.unarmedStrike(char);
-            const name = u.name[lang];
-            const m = String(u.dice || '').match(/(\d+)d(\d+)/);
-            // com dado, a fórmula vai no botão de dano; sem dado (dano fixo), fica na linha
-            const sub = m ? Utils.damageLabel(u.dmgType, lang) : `${u.damage} ${Utils.damageLabel(u.dmgType, lang)}`;
-            return (
-              <FhAttackRow lang={lang}
-                art={<ArtThumb src={null} emoji="👊" size={40} lang={lang} title={name} />}
-                name={name}
-                sub={sub}
-                atkText={Utils.fmtMod(u.bonus)}
-                onAttack={() => roll({ die: 20, mod: u.bonus, label: name + ' ' + t('attackRoll', lang) })}
-                dmgText={u.damage}
-                onDamage={m ? () => roll({ die: +m[2], count: +m[1], mod: u.dmgMod, label: name + ' ' + t('damageRoll', lang) }) : null}>
-                {u.monk && <div className="fh-atk-note is-gold">{lang === 'pt' ? 'Artes Marciais' : 'Martial Arts'}</div>}
-                {unarmed && (
-                  <div className="fh-atk-note is-gold">
-                    {unarmed.name[lang]}: {lang === 'pt' ? `${unarmed.dieFree} com as mãos livres` : `${unarmed.dieFree} with free hands`}
-                    {unarmed.grapple ? (lang === 'pt' ? `; ${unarmed.grapple} no agarrado` : `; ${unarmed.grapple} to grappled`) : ''}
-                  </div>
-                )}
-              </FhAttackRow>
-            );
-          })()}
-        </div>
-      </section>
-      {/* Estilos de Luta ativos: resumo, sentidos (Luta às Cegas) e lembretes de reação */}
-      {styleSummaries.length > 0 && (
-        <section className="fh-panel">
+              <button className="btn btn-sm btn-ghost fh-death-roll"
+                onClick={() => roll({ die: 20, label: t('death', lang) })}>
+                <Icon name="dice" size={14}/> {lang === 'pt' ? 'Rolar teste contra morte' : 'Roll death save'}
+              </button>
+            </div>
+          )}
+  
+          {/* Defesa em medalhões: CA, Iniciativa (toque rola), Deslocamento, Prof., Perc. passiva
+              e Dados de Vida (as antigas grades .combat-grid desta aba) */}
+          <div className="fh-defense">
+            <FhMedal shape="shield" value={ac} label={t('ac', lang)}
+              sub={acStyleBonuses.length > 0
+                ? <span title={acStyleBonuses.map(x => x.label[lang]).join(', ')}>{FS.partsLabel(acStyleBonuses, lang)}</span>
+                : null}>
+              {untrainedArmor.length > 0 && (
+                <div className="fh-medal-warn"
+                  title={lang === 'pt'
+                    ? 'Sem treino: desvantagem em testes, salvaguardas e ataques de FOR e DES, e você não pode lançar magias.'
+                    : "Untrained: Disadvantage on STR and DEX checks, saves and attacks, and you can't cast spells."}>
+                  {lang === 'pt' ? 'Sem treino' : 'Untrained'}: {untrainedArmor.join(', ')}
+                </div>
+              )}
+            </FhMedal>
+            <FhMedal shape="circle" value={Utils.fmtMod(initBonus)} label={t('initiative', lang)}
+              sub={<FhTapToRoll lang={lang} short />}
+              onClick={() => roll({ die: 20, mod: initBonus, label: t('initRoll', lang) })} />
+            <FhMedal shape="circle" value={Utils.speedLabel(speed, lang).split(' ')[0]} unit={lang === 'pt' ? 'm' : 'ft'}
+              label={t('speed', lang)} />
+            <FhMedal shape="diamond" value={Utils.fmtMod(profB)} label={lang === 'pt' ? 'Prof.' : 'Prof.'} />
+            <FhMedal shape="diamond" value={passPerc} label={lang === 'pt' ? 'Perc.' : 'Perc.'}
+              hint={<GrimoireHint id="valor-passivo" lang={lang} />} sub={lang === 'pt' ? 'passiva' : 'passive'} />
+            <FhMedal shape="circle" value={Math.max(0, char.level - (char.hitDiceUsed || 0))} label={t('hitDice', lang)}
+              hint={<GrimoireHint id="dados-de-vida" lang={lang} />} sub={`/${Utils.hitDiceLabel(char)}`} />
+          </div>
+        </section>
+    ) },
+    { h: PLAY_H.attacks + PLAY_H.attackRow * (atks.length + 1) + PLAY_H.attackNote * attackNotes, el: (
+        /* Ataques: uma linha por arma e o Golpe Desarmado (src/sheet/FhAttack.jsx). Os botões
+            "Ataque +X" e "Dano NdX+Y" fazem as mesmas rolagens (rótulos e valores) de antes. */
+        <section key="attacks" className="fh-panel">
+          <FhTitle>{lang === 'pt' ? 'Ataques' : 'Attacks'}</FhTitle>
+          <div className="fh-atks">
+            {(char.weapons || []).map((w, i) => {
+              const a = atks[i];
+              const fs = a.fs;
+              const atk = a.bonus;
+              const dmgMod = a.dmgMod;
+              const bonusText = FS.partsLabel([...fs.attackParts.map(p => ({ ...p, label: { pt: `${p.label.pt} (ataque)`, en: `${p.label.en} (attack)` } })), ...fs.damageParts], lang);
+              return (
+                <FhAttackRow key={i} lang={lang}
+                  art={<ArtThumb src={itemArt(w)} emoji="⚔️" size={40} lang={lang} />}
+                  name={w.name}
+                  sub={a.dmgType ? Utils.damageLabel(a.dmgType, lang) : null}
+                  atkText={Utils.fmtMod(atk)}
+                  onAttack={() => roll({ die: 20, mod: atk, label: w.name + ' ' + t('attackRoll', lang) })}
+                  dmgText={a.damage}
+                  onDamage={() => {
+                    const m = String(a.dice || '').match(/(\d+)d(\d+)/);
+                    if (m) roll({ die: +m[2], count: +m[1], mod: dmgMod, label: w.name + ' ' + t('damageRoll', lang) });
+                  }}>
+                  {a.monk && <div className="fh-atk-note is-gold">{lang === 'pt' ? 'Artes Marciais (arma de monge)' : 'Martial Arts (Monk weapon)'}</div>}
+                  {!a.proficient && <div className="fh-atk-note is-warn">{lang === 'pt' ? 'Sem proficiência: não soma o bônus de proficiência' : 'Not proficient: no proficiency bonus'}</div>}
+                  {bonusText && <div className="fh-atk-note is-gold">{bonusText}</div>}
+                  {fs.mastery && (
+                    <div className="fh-atk-note is-mastery" title={fs.mastery.desc[lang]}>
+                      {lang === 'pt' ? 'Maestria' : 'Mastery'}: <strong>{fs.mastery.name[lang]}</strong> — {fs.mastery.desc[lang]}
+                    </div>
+                  )}
+                  {fs.notes.map((n, k) => <div key={k} className="fh-atk-note">{n[lang]}</div>)}
+                </FhAttackRow>
+              );
+            })}
+            {(() => {
+              // Golpe Desarmado: todo mundo é proficiente (1 + FOR de concussão). Monge usa o dado
+              // de Artes Marciais com DES ou FOR; o Estilo de Luta Desarmado troca o 1 por um dado.
+              const u = Utils.unarmedStrike(char);
+              const name = u.name[lang];
+              const m = String(u.dice || '').match(/(\d+)d(\d+)/);
+              // com dado, a fórmula vai no botão de dano; sem dado (dano fixo), fica na linha
+              const sub = m ? Utils.damageLabel(u.dmgType, lang) : `${u.damage} ${Utils.damageLabel(u.dmgType, lang)}`;
+              return (
+                <FhAttackRow lang={lang}
+                  art={<ArtThumb src={null} emoji="👊" size={40} lang={lang} title={name} />}
+                  name={name}
+                  sub={sub}
+                  atkText={Utils.fmtMod(u.bonus)}
+                  onAttack={() => roll({ die: 20, mod: u.bonus, label: name + ' ' + t('attackRoll', lang) })}
+                  dmgText={u.damage}
+                  onDamage={m ? () => roll({ die: +m[2], count: +m[1], mod: u.dmgMod, label: name + ' ' + t('damageRoll', lang) }) : null}>
+                  {u.monk && <div className="fh-atk-note is-gold">{lang === 'pt' ? 'Artes Marciais' : 'Martial Arts'}</div>}
+                  {unarmed && (
+                    <div className="fh-atk-note is-gold">
+                      {unarmed.name[lang]}: {lang === 'pt' ? `${unarmed.dieFree} com as mãos livres` : `${unarmed.dieFree} with free hands`}
+                      {unarmed.grapple ? (lang === 'pt' ? `; ${unarmed.grapple} no agarrado` : `; ${unarmed.grapple} to grappled`) : ''}
+                    </div>
+                  )}
+                </FhAttackRow>
+              );
+            })()}
+          </div>
+        </section>
+    ) },
+    styleSummaries.length > 0 && {
+      h: PLAY_H.styles + PLAY_H.style * styleSummaries.length + PLAY_H.styleExtra * (reactions.length + (blindsightFt > 0 ? 1 : 0)),
+      el: (
+        /* Estilos de Luta ativos: resumo, sentidos (Luta às Cegas) e lembretes de reação */
+        <section key="styles" className="fh-panel">
           <FhTitle>{lang === 'pt' ? 'Estilos de Luta' : 'Fighting Styles'}</FhTitle>
           <div className="fh-traits">
             {styleSummaries.map(s => (
@@ -1410,10 +1434,13 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             </div>
           ))}
         </section>
-      )}
-      {/* Spell slots quick tracker */}
-      {slots && slots.length > 0 && (
-        <section className="fh-panel">
+      ),
+    },
+    slots && slots.length > 0 && {
+      h: PLAY_H.slots + PLAY_H.slotRow * slotLevels,
+      el: (
+        /* Spell slots quick tracker */
+        <section key="slots" className="fh-panel">
           <FhTitle>{t('slots', lang)}</FhTitle>
           {slots.map((max, idx) => {
             const lvl = idx + 1;
@@ -1449,32 +1476,55 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
             );
           })}
         </section>
-      )}
+      ),
+    },
+    { h: resourceCount ? PLAY_H.resources + PLAY_H.resourceRow * resourceCount : 0, el: (
+        /* Recursos de classe com usos (Fúria, Canalizar Divindade…). O componente é
+            compartilhado com o editor do mestre: o painel é só um embrulho daqui
+            (vazio quando não há recursos; o CSS esconde). */
+        <section key="resources" className="fh-panel fh-res"><ResourcesCard char={char} lang={lang} update={update} /></section>
+    ) },
+    { h: PLAY_H.conditions, el: (
+        /* Conditions / status effects */
+        <ConditionsPanel key="conditions" char={char} lang={lang} update={update} />
+    ) },
+    druid && {
+      h: PLAY_H.wild + (starry ? PLAY_H.starry : 0),
+      el: (
+        /* Wild Shape — Druid only */
+        <WildShapePanel key="wild" char={char} druid={druid} lang={lang} update={update} />
+      ),
+    },
+    { h: PLAY_H.abilities, el: (
+        /* Abilities at a glance */
+        <section key="abilities" className="fh-panel">
+          <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{t('tabStats', lang)}</FhTitle>
+          <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang) + ' ' + t('abilityCheck', lang)} />
+        </section>
+    ) },
+    { h: PLAY_H.rest, el: (
+        /* Descanso: mesma lógica (e endpoint) da aba de magias */
+        <section key="rest" className="fh-panel">
+          <FhTitle hint={<GrimoireHint id="descanso-curto" lang={lang} />}>{lang === 'pt' ? 'Descanso' : 'Rest'}</FhTitle>
+          <RestButtons char={char} lang={lang} update={update} />
+        </section>
+    ) },
+  ].filter(Boolean);
+  const split = splitColumns(panels.map(p => p.h));
 
-      {/* Recursos de classe com usos (Fúria, Canalizar Divindade…). O componente é
-          compartilhado com o editor do mestre: o painel é só um embrulho daqui
-          (vazio quando não há recursos; o CSS esconde). */}
-      <section className="fh-panel fh-res"><ResourcesCard char={char} lang={lang} update={update} /></section>
+  return (
+    <>
+      {/* Clarão na borda da tela ao levar dano / ser curado: camada decorativa fixa, fora
+          dos painéis (nada de transform/filter em contêiner com botão que abre Modal). */}
+      {hpFx && <div key={hpFx.id} className={`fh-fx fh-fx-${fxKind}`} aria-hidden="true" />}
+      <FhMedalDefs />
 
-      {/* Conditions / status effects */}
-      <ConditionsPanel char={char} lang={lang} update={update} />
-
-      {/* Wild Shape — Druid only */}
-      {Utils.classLevel(char, 'druid') >= 2 && (
-        <WildShapePanel char={char} druid={Utils.classView(char, Utils.classEntries(char).find(e => e.id === 'druid'))} lang={lang} update={update} />
-      )}
-
-      {/* Abilities at a glance */}
-      <section className="fh-panel">
-      <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{t('tabStats', lang)}</FhTitle>
-      <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang) + ' ' + t('abilityCheck', lang)} />
-      </section>
-
-      {/* Descanso: mesma lógica (e endpoint) da aba de magias */}
-      <section className="fh-panel">
-        <FhTitle hint={<GrimoireHint id="descanso-curto" lang={lang} />}>{lang === 'pt' ? 'Descanso' : 'Rest'}</FhTitle>
-        <RestButtons char={char} lang={lang} update={update} />
-      </section>
+      {/* Duas colunas a partir de 1024px (ficha.css: .fh-play). Abaixo disso, ou com o
+          rolador lateral aberto e pouca largura, viram uma coluna só, na mesma ordem. */}
+      <div className="fh-play">
+        <div className="fh-play-col">{panels.slice(0, split).map(p => p.el)}</div>
+        <div className="fh-play-col">{panels.slice(split).map(p => p.el)}</div>
+      </div>
     </>
   );
 };

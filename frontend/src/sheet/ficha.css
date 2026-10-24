@@ -3236,3 +3236,276 @@
   .ficha .fh-trait-text,
   .ficha .fh-npc-notes { color: #1a1410; }
 }
+
+/* ---------- F13 · Cerimônias (src/sheet/FhCeremonies.jsx; plano §4.12, §4.13) ----------
+   Só visual, derivadas de mudanças que já acontecem. */
+/* texto só para leitor de tela */
+.ficha .fh-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Gema que reacende (descanso, trapaça, mestre): cresce com repique e brilha mais forte,
+   uma depois da outra (--fh-relit-i). O fim da animação não é declarado: volta sozinho
+   ao desenho normal (acesa, ou travada sem brilho em campanha). O engaste rachado fica
+   à vista até a vez da gema. */
+@keyframes fh-relit {
+  0% { opacity: 0; transform: scale(0.55); filter: drop-shadow(0 0 0 var(--fh-glow)); }
+  60% { opacity: 1; transform: scale(1.2); filter: drop-shadow(0 0 16px var(--fh-glow)) brightness(1.25); }
+}
+@keyframes fh-relit-socket { 0%, 35% { opacity: 1; } }
+.ficha .slot-pip.fh-relit::before {
+  animation: fh-relit 0.85s var(--fh-ease) backwards;
+  animation-delay: calc(var(--fh-relit-i, 0) * 80ms);
+}
+.ficha .slot-pip.fh-relit::after {
+  animation: fh-relit-socket 0.45s ease-out backwards;
+  animation-delay: calc(var(--fh-relit-i, 0) * 80ms);
+}
+
+/* Subir de nível: camada fixa por cima da ficha, do botão de dados (50), do sheet de
+   dados (60) e dos modais (100); abaixo do toast "Nível N!" (200) e do resultado de
+   dados (9999). z-index só nesta folha decorativa (não tem modal dentro). Raios girando
+   uma vez (não é laço infinito), selo carimbado, faíscas. Fecha com toque, Esc ou sozinha. */
+.ficha .fh-levelup {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 16px;
+  /* escuro o bastante para o título não brigar com o nome do topo por baixo; o desfoque
+     é desta camada (folha), não de um contêiner da ficha */
+  background: rgba(5, 3, 2, 0.88);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  animation: fh-lu-fade 0.3s ease-out;
+  -webkit-tap-highlight-color: transparent;
+}
+.ficha .fh-lu-box {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  max-width: 34rem;
+  padding: 24px 8px;
+  text-align: center;
+}
+.ficha .fh-lu-rays {
+  position: absolute;
+  left: 50%;
+  top: 99px; /* centro do selo: 24px de respiro + 75px */
+  width: 520px;
+  height: 520px;
+  margin: -260px 0 0 -260px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: repeating-conic-gradient(rgba(250, 210, 120, 0.22) 0 5deg, transparent 5deg 15deg);
+  -webkit-mask-image: radial-gradient(circle, #000 15%, transparent 65%);
+  mask-image: radial-gradient(circle, #000 15%, transparent 65%);
+  animation: fh-lu-rays 6s linear both;
+}
+.ficha .fh-lu-seal {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  line-height: 1;
+  background: radial-gradient(circle at 35% 30%, #fff0bf, #e2b65d 45%, #8e6425 100%);
+  color: #221606;
+  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.5), 0 0 0 6px rgba(251, 228, 163, 0.55), 0 0 60px rgba(250, 200, 100, 0.7);
+  animation: fh-lu-stamp 0.8s var(--fh-ease) both;
+}
+.ficha .fh-lu-seal small {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  margin: 0 0 4px 0.25em; /* compensa o espaçamento da última letra */
+}
+.ficha .fh-lu-num {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 4.2rem;
+  font-variant-numeric: lining-nums;
+}
+.ficha .fh-lu-title {
+  max-width: 100%;
+  font-family: var(--fh-deco);
+  font-weight: 900;
+  font-size: 1.8rem;
+  line-height: 1.2;
+  color: var(--fh-gold-hi);
+  text-shadow: 0 0 20px rgba(250, 200, 100, 0.6), 0 2px 0 rgba(0, 0, 0, 0.6);
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+  animation: fh-lu-rise 0.6s var(--fh-ease) 0.35s both;
+}
+.ficha .fh-lu-sub {
+  font-family: var(--display);
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-secondary);
+  animation: fh-lu-rise 0.6s var(--fh-ease) 0.45s both;
+}
+.ficha .fh-lu-close { font-size: 0.9rem; color: var(--ink-muted); animation: fh-lu-rise 0.6s var(--fh-ease) 0.6s both; }
+/* faíscas: 20 pontos saindo do centro do selo depois do carimbo */
+.ficha .fh-lu-sparks { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+.ficha .fh-lu-sparks i {
+  --a: calc(var(--i) * 18deg);
+  --d: -150px;
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  margin: -3px;
+  border-radius: 50%;
+  background: var(--fh-gold-hi);
+  box-shadow: 0 0 8px var(--fh-gold-hi);
+  opacity: 0;
+  animation: fh-lu-spark 1.4s var(--fh-ease) both;
+  animation-delay: calc(0.3s + var(--i) * 12ms);
+}
+.ficha .fh-lu-sparks i:nth-child(3n) { --d: -200px; background: var(--fh-ember); box-shadow: 0 0 8px var(--fh-ember); }
+.ficha .fh-lu-sparks i:nth-child(3n + 1) { --d: -120px; background: #fff; box-shadow: 0 0 8px #fff; }
+@keyframes fh-lu-fade { from { opacity: 0; } }
+@keyframes fh-lu-rays { from { transform: rotate(0deg); opacity: 0; } 15% { opacity: 1; } to { transform: rotate(40deg); } }
+@keyframes fh-lu-stamp { 0% { transform: scale(2.4); opacity: 0; } 60% { transform: scale(0.92); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes fh-lu-rise { from { opacity: 0; transform: translateY(10px); } }
+@keyframes fh-lu-spark {
+  0% { opacity: 1; transform: rotate(var(--a)) translateY(-70px) scale(1); }
+  100% { opacity: 0; transform: rotate(var(--a)) translateY(var(--d)) scale(0.3); }
+}
+@media (max-width: 600px) {
+  .ficha .fh-lu-seal { width: 128px; height: 128px; }
+  .ficha .fh-lu-num { font-size: 3.6rem; }
+  .ficha .fh-lu-rays { top: 88px; } /* 24px + 64px */
+  .ficha .fh-lu-title { font-size: 1.5rem; }
+  .ficha .fh-lu-sub { font-size: 0.85rem; letter-spacing: 0.08em; }
+}
+
+/* ---------- F14 · Duas colunas no desktop (plano §4.15) ----------
+   A partir de 1024px a ficha recebe o container-wide (app.jsx: 1280px no máximo). A aba
+   Jogar vira duas colunas (.fh-play-col, na ordem do celular); as outras abas, a
+   Progressão e o Excluir ficam numa coluna de leitura de 760px, centrada (campos de
+   texto esticados a 1200px ficam ruins de ler). Topo, faixas, ações e abas usam a
+   largura toda. Só @media (container query na raiz ou num painel com botão que abre
+   Modal é risco: ver a regra 2 do plano). */
+@media (min-width: 1024px) {
+  .ficha .fh-play {
+    display: grid;
+    /* duas colunas de no mínimo 440px; sem largura para isso (rolador aberto, abaixo),
+       viram uma só, na mesma ordem */
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+    gap: 0 18px;
+    align-items: start;
+  }
+  .ficha .fh-play-col { min-width: 0; }
+  .ficha .fh-tab-body:not(.is-play),
+  .ficha .fh-after,
+  .ficha .fh-danger-zone {
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  /* Sheet lateral de dados aberto (400px + 24px da borda, DiceRoller): a página abre
+     espaço à direita para ele não cobrir botões (o sheet continua não-modal). Em telas
+     acima de 1280px a margem que sobra do contêiner já desconta. */
+  body.dice-sheet-open main.container:has(> .ficha) {
+    padding-right: max(var(--s-3, 12px), calc(440px - max(0px, (100vw - 1280px) / 2)));
+  }
+}
+/* Coluna estreita (duas colunas com menos de ~510px: de 1024 a ~1100px, ou com o rolador
+   lateral aberto em telas de 1440 a ~1740px): os 6 medalhões não cabem numa linha
+   ("Deslocamento" é a palavra mais longa) e ficam em 3 + 3, como no celular. */
+@media (min-width: 1024px) and (max-width: 1099px) {
+  .ficha .fh-play .fh-defense { grid-template-columns: repeat(3, minmax(min-content, 1fr)); gap: 16px 6px; }
+}
+@media (min-width: 1440px) and (max-width: 1739px) {
+  body.dice-sheet-open .ficha .fh-play .fh-defense { grid-template-columns: repeat(3, minmax(min-content, 1fr)); gap: 16px 6px; }
+}
+/* Rolador aberto em 1024–1149px: a ficha fica com 560–690px, menos que o topo de desktop
+   já teve (≥ 696px). O corpo do topo ganha largura e o nome um pouco menos de corpo, para
+   não partir a palavra no meio. */
+@media (min-width: 1024px) and (max-width: 1149px) {
+  body.dice-sheet-open .ficha .fh-hero-body { max-width: 78%; }
+  body.dice-sheet-open .ficha .fh-hero .hero-name { font-size: 1.7rem; }
+}
+
+/* ---------- F15 · Polimento: movimento reduzido, cores forçadas, impressão ---------- */
+/* Movimento reduzido: além das regras de cada parte, uma rede de segurança para a ficha
+   inteira (como a demo): nada anima nem transiciona, inclusive o que vem de classes do app
+   usadas aqui dentro (campos, botões, modais). Quem nasce invisível e só aparecia pela
+   animação (faíscas, número que sobe) fica invisível; o resto aparece já no lugar. O
+   rolador de dados fica fora da .ficha e tem as regras dele (src/dice/dice-styles.css). */
+@media (prefers-reduced-motion: reduce) {
+  .ficha *,
+  .ficha *::before,
+  .ficha *::after { animation: none !important; transition: none !important; }
+  .ficha .fh-lu-sparks { display: none; }
+}
+/* Cores forçadas: a cerimônia é só degradê e sombra; vira cores do sistema */
+@media (forced-colors: active) {
+  .ficha .fh-levelup { background: Canvas; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .ficha .fh-lu-rays,
+  .ficha .fh-lu-sparks { display: none; }
+  .ficha .fh-lu-seal { background: Canvas; color: CanvasText; border: 3px solid CanvasText; box-shadow: none; }
+  .ficha .fh-lu-title { color: CanvasText; text-shadow: none; }
+  .ficha .fh-lu-sub,
+  .ficha .fh-lu-close { color: CanvasText; }
+}
+/* Ctrl+P (o "Imprimir" da ficha gera PDF próprio, src/pdf): papel claro, uma coluna,
+   sem as camadas decorativas e sem o que é só tela (.no-print já some no styles.css) */
+@media print {
+  /* Tinta de papel: os tokens claros do app (feitos para o couro escuro) viram tons
+     escuros só dentro da ficha; o que usa var() acompanha sozinho. */
+  .ficha {
+    --ink-primary: #1a1410;
+    --ink-secondary: #3a2e22;
+    --ink-muted: #5a4a35;
+    --gold: #6b4f1d;
+    --gold-bright: #6b4f1d;
+    --gold-deep: #8a6a2e;
+    --fh-gold-hi: #6b4f1d;
+    --arcane-bright: #2f3a99;
+    --fh-verdigris: #17604c;
+    --blood-bright: #8f1d14;
+    --fh-blood: #8f1d14;
+    --amber: #7a4f0c;
+    color: #1a1410;
+  }
+  /* medalhões: o desenho escuro (SVG imprime) vira papel com filete, e o valor, tinta */
+  .ficha .fh-medal-shape svg > * { fill: #fff; stroke: #6b4f1d; }
+  /* cores fixas (sem token) que ficariam claras demais no papel */
+  .ficha .fh-atk-btn .fh-atk-btn-k,
+  .ficha .fh-atk-btn .fh-atk-btn-v { color: inherit; }
+  .ficha .cond-chips .cond-chip.on,
+  .ficha .cond-chip.on .fh-cond-x { color: #7a1c12; }
+  .ficha .lang-chip,
+  .ficha .prog-chip,
+  .ficha .tag { color: #3a2e22; }
+  .ficha .fh-death-title,
+  .ficha .fh-death-group.is-fail .fh-death-label,
+  .ficha .fh-death .fh-death-roll,
+  .ficha .fh-hero .tag.fh-tag-cheat { color: #7a1c12; }
+  .ficha .fh-play { display: block; }
+  .ficha .fh-tab-body,
+  .ficha .fh-after { max-width: none; }
+  .ficha .fh-cfx,
+  .ficha .fh-fx,
+  .ficha .fh-cart,
+  .ficha .fh-levelup { display: none !important; }
+}
