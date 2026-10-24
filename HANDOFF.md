@@ -357,7 +357,8 @@ A ficha tem **dois modos** identificados pelo campo `inCampaign` (computado: tru
 1. **Entrar em campanha**: jogador na tela "Campanhas" → "Entrar com código" → cola `inviteCode` de 6 chars dado pelo DM → escolhe um personagem dele pra anexar (opcional) → vira modo campanha.
 2. **Anexar personagem depois**: na campanha, tab Membros → "Trocar personagem" → seleciona.
 3. **Sair de campanha**: na ficha do PC, banner gold "🏰 Em campanha: X" tem botão "Sair". Confirma → DELETE da membership → personagem volta a standalone.
-4. **Validação**: personagem só fica em UMA campanha. Tentar anexar a outra retorna 409 `character_already_in_campaign` com `campaignId` da original.
+4. **Validação**: personagem só fica em UMA campanha. Tentar anexar a outra retorna 409 `character_in_other_campaign` (antes `character_already_in_campaign`) com `campaignId`/`campaignName` da original; `move: true` troca de mesa (API.md → "Uma campanha por vez").
+5. **Modal "Campanha" da ficha**: na faixa de campanha da ficha (conta logada) → atrelar a uma mesa em que é jogador, entrar com código, desatrelar ou trocar de campanha.
 
 ### Garantia server-side
 

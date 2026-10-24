@@ -1,6 +1,6 @@
 import re
 
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.http import HttpResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -303,6 +303,8 @@ def campaign_invite_preview(request, code):
         'levelingMode': 'xp' if state.get('levelingMode') == 'xp' else 'milestone',
         'allowMulticlass': state.get('allowMulticlass', True) is not False,
         'alreadyMember': already,
+        # o mestre não entra com ficha na própria mesa (dm_cannot_be_player)
+        'isDm': campaign.dm_id == request.user.id,
         'status': campaign.status,
         # vaga de mesa: o jogador no limite de personagens ainda pode entrar/criar
         'slots': P.slots_info(campaign),
@@ -327,6 +329,45 @@ def campaign_invite_cover(request, code):
     return image_response(request, img, campaign.cover_ver)
 
 
+# ---------------------------------------------------------------- 1 campanha por vez
+# Uma ficha fica em UMA campanha de cada vez. É regra (não esquema: Membership
+# continua com character nulo/livre): atrelar numa mesa com a ficha já em outra
+# → 409 character_in_other_campaign {campaignId, campaignName} sem mudar nada.
+# Com `move: true` (só o dono da ficha) ela sai da outra vaga — a pessoa continua
+# jogadora lá, sem personagem — e entra aqui, tudo numa transação. A vaga de lá
+# sendo de campanha encerrada (somente leitura) → 423. Fichas antigas que já
+# estão em 2 campanhas continuam lendo igual; a próxima troca resolve.
+DM_CANNOT_PLAY = {'error': 'dm_cannot_be_player'}
+
+
+def _wants_move(request):
+    return isinstance(request.data, dict) and request.data.get('move') is True
+
+
+def _other_seats(char, exclude_pk=None, exclude_campaign=None):
+    qs = Membership.objects.filter(character=char).select_related('campaign').defer('campaign__cover_image')
+    if exclude_pk is not None:
+        qs = qs.exclude(pk=exclude_pk)
+    if exclude_campaign is not None:
+        qs = qs.exclude(campaign=exclude_campaign)
+    return list(qs.order_by('id'))
+
+
+def _in_other_campaign(seat):
+    return Response({'error': 'character_in_other_campaign', 'campaignId': seat.campaign_id,
+                     'campaignName': seat.campaign.name}, status=409)
+
+
+def _release_seats(seats):
+    """Tira a ficha das outras vagas (o `move`). Encerrada é somente leitura → 423."""
+    for s in seats:
+        P.require_open(s.campaign)
+    for s in seats:
+        s.character = None
+        s.sponsored = False
+        s.save(update_fields=['character', 'sponsored'])
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def campaign_join(request):
@@ -340,27 +381,31 @@ def campaign_join(request):
     P.require_open(campaign)
 
     char = None
+    others = []
     if character_id:
         char = Character.objects.filter(pk=character_id).first()
         if not char or char.owner_id != request.user.id:
             return Response({'error': 'character_forbidden'}, status=403)
-        # Personagem só pode estar em UMA campanha. Bloqueia se já tem outra.
-        other = Membership.objects.filter(character=char).exclude(campaign=campaign).first()
-        if other:
-            return Response({'error': 'character_already_in_campaign',
-                             'campaignId': other.campaign_id}, status=409)
+        # O mestre não joga com ficha na própria mesa.
+        if campaign.dm_id == request.user.id:
+            return Response(DM_CANNOT_PLAY, status=400)
+        others = _other_seats(char, exclude_campaign=campaign)
+        if others and not _wants_move(request):
+            return _in_other_campaign(others[0])
 
-    existing = Membership.objects.filter(campaign=campaign, user=request.user).first()
-    # Jogador no limite de personagens entra ocupando uma vaga do mestre (se houver).
-    sponsored = P.decide_sponsored(request.user, campaign, char, existing)
-    m, _ = Membership.objects.update_or_create(
-        campaign=campaign, user=request.user,
-        defaults={
-            'character': char,
-            'role': 'dm' if campaign.dm_id == request.user.id else 'player',
-            'sponsored': sponsored,
-        },
-    )
+    with transaction.atomic():
+        _release_seats(others)
+        existing = Membership.objects.filter(campaign=campaign, user=request.user).first()
+        # Jogador no limite de personagens entra ocupando uma vaga do mestre (se houver).
+        sponsored = P.decide_sponsored(request.user, campaign, char, existing)
+        m, _ = Membership.objects.update_or_create(
+            campaign=campaign, user=request.user,
+            defaults={
+                'character': char,
+                'role': 'dm' if campaign.dm_id == request.user.id else 'player',
+                'sponsored': sponsored,
+            },
+        )
     return Response(join_payload(campaign, m))
 
 
@@ -421,25 +466,30 @@ def campaign_member(request, id_or_slug, membership_id):
         raise PermissionDenied('forbidden')
 
     char_id = request.data.get('characterId', None)
-    if char_id is None or char_id == '':
-        m.character = None
-    else:
+    char = None
+    others = []
+    if char_id is not None and char_id != '':
         char = Character.objects.filter(pk=char_id).first()
         if not char:
             raise NotFound('character_not_found')
         # garante que o personagem é do dono da membership
         if char.owner_id != m.user_id:
             raise PermissionDenied('character_not_owned')
-        # personagem só pode estar em UMA campanha (excluindo esta própria)
-        other = Membership.objects.filter(character=char).exclude(pk=m.id).first()
-        if other:
-            return Response({'error': 'character_already_in_campaign',
-                             'campaignId': other.campaign_id}, status=409)
-        m.sponsored = P.decide_sponsored(m.user, campaign, char, m)
+        # a vaga do mestre não recebe ficha: ele não joga na própria mesa
+        if m.user_id == campaign.dm_id:
+            return Response(DM_CANNOT_PLAY, status=400)
+        # 1 campanha por vez (ver campaign_join). A mesma ficha na mesma vaga não
+        # muda nada; só o dono pode tirá-la da outra mesa (`move`).
+        if m.character_id != char.id:
+            others = _other_seats(char, exclude_pk=m.id)
+            if others and not (_wants_move(request) and request.user.id == char.owner_id):
+                return _in_other_campaign(others[0])
+    with transaction.atomic():
+        _release_seats(others)
+        # vaga emprestada decidida depois de soltar a outra (ela pode ter sido emprestada)
+        m.sponsored = P.decide_sponsored(m.user, campaign, char, m) if char else False
         m.character = char
-    if m.character is None:
-        m.sponsored = False
-    m.save()
+        m.save()
     return Response({'membership': {'id': m.id, 'characterId': m.character_id, 'sponsored': m.sponsored}})
 
 
