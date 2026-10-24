@@ -75,8 +75,9 @@ test('toda escolha de classe tem traço-pai (que existe no mapa) ou está na lis
   for (const [classId, pools] of Object.entries(allPools())) {
     for (const pool of pools) {
       const listed = parents[classId]?.[pool];
-      const alone = (STANDALONE_POOLS[classId] || []).includes(pool);
+      const alone = STANDALONE_POOLS[classId]?.[pool];
       assert.ok(listed || alone, `${classId}.${pool} sem traço-pai`);
+      if (alone) assert.ok(PLACES.includes(alone) && alone !== 'meta', `${classId}.${pool} → lugar ${alone}`);
       for (const id of (listed || '').split(/\s+/).filter(Boolean)) assert.ok(known.has(id), `${classId}.${pool} → ${id} não é traço conhecido`);
     }
   }
@@ -190,7 +191,7 @@ test('multiclasse: cada traço sabe a classe e usa o recurso da própria classe'
   assert.equal(levelTag(spark, false, 'en'), 'Lv 2');
 });
 
-test('escolhas: invocações dentro de Invocações Místicas; pool sem traço vira avulso', () => {
+test('escolhas: invocações dentro de Invocações Místicas; pool sem traço vira avulso no lugar dele', () => {
   const warlock = placeFeatures({
     rulesVersion: '2014', className: 'warlock', level: 3, abilities: ABILITIES,
     classOptions: [{ classId: 'warlock', pool: 'invocation', id: 'agonizingBlast', level: 2 }, { classId: 'warlock', pool: 'invocation', id: 'devilsSight', level: 2 }],
@@ -206,6 +207,23 @@ test('escolhas: invocações dentro de Invocações Místicas; pool sem traço v
   assert.equal(bard.orphanPicks.length, 1);
   assert.ok(bard.orphanPicks[0].picks[0].name.pt);
   assert.equal(bard.orphanPicks[0].level, 1);
+  // Ferramenta/instrumento sem traço: no painel de proficiências, não em Outros traços.
+  assert.equal(bard.orphanPicks[0].place, 'proficiencies');
+  assert.deepEqual(bard.by.proficiencies.map(i => i.key), ['bard:musicalInstrumentStart']);
+  assert.deepEqual(bard.by.other.filter(i => !i.id), []);
+  const monk = placeFeatures({
+    rulesVersion: '2024', className: 'monk', level: 1, abilities: ABILITIES,
+    classOptions: [{ classId: 'monk', pool: 'tool', id: 'flute', level: 1 }],
+  });
+  assert.ok(monk.by.proficiencies.some(i => i.key === 'monk:tool'));
+  // Opção do TCE sem traço: continua em Outros traços.
+  const ranger = placeFeatures({
+    rulesVersion: '2014', className: 'ranger', level: 1, abilities: ABILITIES,
+    classOptions: [{ classId: 'ranger', pool: 'tceOptional', id: 'deftExplorer', level: 1 }],
+  });
+  const tce = ranger.orphanPicks.find(o => o.key === 'ranger:tceOptional');
+  assert.equal(tce?.place, 'other');
+  assert.ok(ranger.by.other.includes(tce));
 });
 
 test('id desconhecido cai nas palavras-chave do nome em inglês', () => {

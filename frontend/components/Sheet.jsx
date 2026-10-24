@@ -1713,14 +1713,15 @@ const AbilitySeals = ({ char, lang, roll, rollLabel }) => (
 );
 
 // Outros traços: traços de classe sem seção própria na ficha, escolhas de classe sem o traço
-// que as concede (src/sheet/feature-placement.js) e a característica do antecedente (2014).
+// que as concede (src/sheet/feature-placement.js; as de ferramenta e instrumento ficam no
+// painel de proficiências) e a característica do antecedente (2014).
 // Antes era a lista "Características de Classe" da aba Inventário, com todos os traços.
 const OtherFeatures = ({ char, lang, placed, cls }) => {
   const pt = lang === 'pt';
   const bgf = backgroundFeature(char, lang);
   // Sem dados de progressão (classe fora das regras): os traços do nível 1 do SRD.
   const srd = !placed.items.length && char.rulesVersion !== '2024' ? (cls?.features || []) : [];
-  const items = [...placed.by.other, ...placed.orphanPicks];
+  const items = placed.by.other;
   if (!items.length && !bgf && !srd.length) return null;
   const both = (v) => ({ pt: v, en: v });
   return (

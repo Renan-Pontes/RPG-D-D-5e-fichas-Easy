@@ -32,7 +32,8 @@
  * sem o sufixo 2014/Legacy, da mesma classe); sem âncora, o próprio id do traço.
  *
  * Escolhas de classe (invocações, metamagia, manobras…) vão dentro do traço que as
- * concede (POOL_PARENTS); sem esse traço na ficha, no painel Outros traços.
+ * concede (POOL_PARENTS); sem esse traço na ficha, no lugar de STANDALONE_POOLS
+ * (ferramentas e instrumentos no painel de proficiências) ou no painel Outros traços.
  */
 import { computeProgression } from '../progression/engine.js';
 import { computeResources } from '../progression/resources.js';
@@ -641,7 +642,7 @@ const BY_PICK = {
 
 // Escolhas de classe (pools de data/class-options/) → traço que as concede, por classe.
 // A primeira que existir na ficha recebe as escolhas. STANDALONE_POOLS: não têm traço
-// próprio (ficam em Outros traços).
+// próprio (ficam soltas no lugar indicado lá).
 const POOL_PARENTS = {
   artificer: {
     plan: 'replicateMagicItem', replicateItem: 'replicateMagicItem', infusion: 'infuseItem', armorModel: 'armorModel',
@@ -710,10 +711,16 @@ const POOL_PARENTS = {
     transmutersStone: 'transmutersStone transmutation_6_0',
   },
 };
-// Pools sem traço próprio na progressão (proficiência inicial, opções do TCE…).
+// Pools sem traço próprio na progressão → lugar das escolhas soltas: proficiência inicial
+// (ferramenta, instrumento, proficiências de domínio 2014) junto das proficiências; opções
+// do TCE e a Dádiva Feérica em Outros traços.
 export const STANDALONE_POOLS = {
-  artificer: ['artisanTool'], bard: ['musicalInstrument', 'musicalInstrumentStart'], barbarian: ['tceOptional'],
-  cleric: ['legacyDomainProficiencies'], monk: ['tool'], ranger: ['tceOptional', 'feywildGift'],
+  artificer: { artisanTool: 'proficiencies' },
+  bard: { musicalInstrument: 'proficiencies', musicalInstrumentStart: 'proficiencies' },
+  barbarian: { tceOptional: 'other' },
+  cleric: { legacyDomainProficiencies: 'proficiencies' },
+  monk: { tool: 'proficiencies' },
+  ranger: { tceOptional: 'other', feywildGift: 'other' },
 };
 
 // Fallback de id desconhecido: palavras do nome em inglês (o nome em pt se não houver).
@@ -809,8 +816,9 @@ export function featureKey(char) {
  * Devolve { multi, items, by: { <lugar>: items }, orphanPicks } onde item =
  *   { key, id, classId, level (nível na classe), name: {pt,en}, desc: {pt,en}, place,
  *     anchor: 'wildShape'|null, resourceKey, resourceName: {pt,en}|null, picks: [{name,desc}] }
- * e orphanPicks = [{ key, classId, level, name, desc, picks }] (escolhas sem traço-pai na
- *   ficha, no mesmo formato de item para a ficha desenhar igual).
+ * e orphanPicks = [{ key, classId, level, name, desc, place, picks }] (escolhas sem traço-pai
+ *   na ficha, no mesmo formato de item para a ficha desenhar igual). Elas também entram em
+ *   by[place] (depois dos traços): 'proficiencies' (STANDALONE_POOLS) ou 'other'.
  */
 export function placeFeatures(char, prog = computeProgression(char || {})) {
   const out = { multi: !!prog?.classes, items: [], by: Object.fromEntries(PLACES.map(p => [p, []])), orphanPicks: [] };
@@ -851,7 +859,10 @@ export function placeFeatures(char, prog = computeProgression(char || {})) {
     else {
       const def = optionPool(classId, pool);
       const level = Math.min(...list.map(p => p.level || 1));
-      out.orphanPicks.push({ key: k, classId, level, name: { pt: def?.name?.pt || pool, en: def?.name?.en || pool }, desc: { pt: '', en: '' }, picks: rows });
+      const place = STANDALONE_POOLS[classId]?.[pool] || 'other';
+      const orphan = { key: k, classId, level, name: { pt: def?.name?.pt || pool, en: def?.name?.en || pool }, desc: { pt: '', en: '' }, place, picks: rows };
+      out.orphanPicks.push(orphan);
+      out.by[place].push(orphan);
     }
   }
   return out;
