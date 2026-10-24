@@ -69,12 +69,24 @@ export default function AreaNav({ areas, active, onSelect, onSearch, lang, badge
  *   badges: {sub: n}; badgeLabels: {sub: texto do selo para o leitor de tela}.
  */
 export function SubChips({ subs, active, onSelect, lang, labels = {}, icons = {}, badges = {}, badgeLabels = {}, ariaLabel }) {
+  const wrapRef = useRef(null);
   const trackRef = useRef(null);
   const show = !!subs && subs.length >= 2;
   useScrollEdges(trackRef, { active, enabled: show, count: show ? subs.length : 0 });
   if (!show) return null;
+  // Celular: com a faixa presa no topo, a troca manteria a rolagem e a nova
+  // subvista abriria no meio. Volta para onde a faixa fica no fluxo: a subvista
+  // começa logo abaixo dela, em todas as áreas. Rola já (sem animação), antes de
+  // o React trocar o conteúdo: o "Carregando…" das subvistas preguiçosas encolhe
+  // a página e cortaria uma rolagem feita depois. Vem depois do onSelect para
+  // valer sobre o scrollTo(0) do goTo da casca.
+  const pick = (s) => {
+    const top = s === active ? null : stuckFlowTop(wrapRef.current);
+    onSelect(s);
+    if (top != null) window.scrollTo(0, top);
+  };
   return (
-    <div className="shell-seg-tabs">
+    <div ref={wrapRef} className="shell-seg-tabs">
       <div className="mesa-seg has-track">
         <div ref={trackRef} className="mesa-seg-track mesa-scroll" role="tablist" aria-label={ariaLabel || t(lang, 'Subvistas', 'Views')}>
           {subs.map(s => {
@@ -90,7 +102,7 @@ export function SubChips({ subs, active, onSelect, lang, labels = {}, icons = {}
                 aria-selected={on}
                 data-sub={s}
                 className={`mesa-seg-btn shell-seg-tab ${on ? 'active' : ''}`}
-                onClick={() => onSelect(s)}
+                onClick={() => pick(s)}
               >
                 {icon && <span className="shell-seg-ico" aria-hidden="true">{icon}</span>}
                 {/* data-label: o CSS reserva a largura do rótulo em negrito (o ativo) */}
@@ -105,4 +117,15 @@ export function SubChips({ subs, active, onSelect, lang, labels = {}, icons = {}
       </div>
     </div>
   );
+}
+
+/** Se a faixa (sticky) está presa agora, a posição dela no fluxo da página
+ * (o scrollY em que ela começa a prender); senão null. */
+function stuckFlowTop(el) {
+  if (!el || !(window.scrollY > 0) || getComputedStyle(el).position !== 'sticky') return null;
+  const now = el.getBoundingClientRect().top;
+  el.style.position = 'static';
+  const flow = el.getBoundingClientRect().top;
+  el.style.position = '';
+  return flow < now - 1 ? Math.max(0, Math.round(flow + window.scrollY)) : null;
 }
