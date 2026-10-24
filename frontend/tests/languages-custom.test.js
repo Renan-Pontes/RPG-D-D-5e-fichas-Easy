@@ -52,6 +52,21 @@ test('idioma que a ficha já fala (fixo) não entra de novo', () => {
   assert.deepEqual(Utils.resolveLanguageInput(c24({ className: 'druid' }), 'druidico', []), { id: 'Druidic', kind: 'known' });
 });
 
+test('criador: idioma secreto de classe digitado não vira escolha de outra classe', () => {
+  const noSecret = { allowSecret: false };
+  // 2014 guerreiro sábio e 2024 ladino (vaga rara): Druídico/Gíria de Ladrão barrados.
+  assert.deepEqual(Utils.resolveLanguageInput(c14({ background: 'sage' }), 'druidico', [], noSecret), { id: 'Druidic', kind: 'secret' });
+  assert.deepEqual(Utils.resolveLanguageInput(c14(), 'Gíria de Ladrão', [], noSecret), { id: "Thieves' Cant", kind: 'secret' });
+  assert.deepEqual(Utils.resolveLanguageInput(c24({ className: 'rogue', background: 'criminal' }), 'Druídico', [], noSecret), { id: 'Druidic', kind: 'secret' });
+  // A própria classe já fala; e um já marcado (ficha antiga) continua podendo sair.
+  assert.deepEqual(Utils.resolveLanguageInput(c14({ className: 'druid' }), 'druidico', [], noSecret), { id: 'Druidic', kind: 'known' });
+  assert.deepEqual(Utils.resolveLanguageInput(c14(), 'druidico', ['Druidic'], noSecret), { id: 'Druidic', kind: 'chosen' });
+  // Idiomas comuns não mudam.
+  assert.deepEqual(Utils.resolveLanguageInput(c14(), 'Élfico', [], noSecret), { id: 'Elvish', kind: 'catalog' });
+  // Ficha (modo livre, padrão): pode aprender em jogo.
+  assert.deepEqual(Utils.resolveLanguageInput(c14(), 'druidico', []), { id: 'Druidic', kind: 'catalog' });
+});
+
 test('texto vazio não faz nada', () => {
   assert.deepEqual(Utils.resolveLanguageInput(c24(), '   ', []), { id: '', kind: 'empty' });
   assert.deepEqual(Utils.resolveLanguageInput(c24(), '!!', []), { id: '', kind: 'empty' });

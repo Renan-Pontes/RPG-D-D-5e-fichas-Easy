@@ -60,12 +60,19 @@ export default function LanguagePicker({ char, lang, chosen, onChange, limit, fr
 
   const label = (id) => Utils.languageLabel(id, lang);
   const addTyped = () => {
-    const r = Utils.resolveLanguageInput(char, text, chosen);
+    // Secretos de classe (Druídico, Gíria de Ladrão) só no modo livre (ficha), como na lista.
+    const r = Utils.resolveLanguageInput(char, text, chosen, { allowSecret: free });
     if (r.kind === 'empty') return;
     if (r.kind === 'known') {
       setMsg({ pt: `Você já fala ${Utils.languageLabel(r.id, 'pt')}.`, en: `You already speak ${r.id}.` });
     } else if (r.kind === 'chosen') {
       setMsg({ pt: `${Utils.languageLabel(r.id, 'pt')} já está na sua lista.`, en: `${r.id} is already on your list.` });
+    } else if (r.kind === 'secret') {
+      setMsg({
+        pt: `${Utils.languageLabel(r.id, 'pt')} é um idioma secreto de classe: vem com a classe, não entra nas escolhas.`,
+        en: `${r.id} is a secret class language: it comes with the class, not from your choices.`,
+      });
+      return;
     } else if (blockedBy(r.id) === 'limit') {
       setMsg({ pt: 'Você já escolheu todos os idiomas. Desmarque um para trocar.', en: 'You already picked all your languages. Unselect one to swap.' });
       return;

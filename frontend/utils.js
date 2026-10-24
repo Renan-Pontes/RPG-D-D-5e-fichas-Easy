@@ -253,9 +253,11 @@ const isCustomLanguage = (id) => !KNOWN_LANGUAGES.some(l => l.id === id);
  *   { id, kind } — kind 'empty' (nada digitado), 'known' (idioma fixo: já fala),
  *   'chosen' (já está na lista), 'catalog' (nome pt/en de um idioma conhecido: marca
  *   esse id, ex.: "Élfico" → 'Elvish') ou 'custom' (idioma novo, rótulo como digitado).
+ *   Com allowSecret: false (criador), 'secret' para idioma secreto de classe que a
+ *   ficha não tem (Druídico num guerreiro): a lista esconde esses, o campo também barra.
  * Nunca duplica: compara por languageKey (sem acento/caixa).
  */
-function resolveLanguageInput(char, text, chosen = []) {
+function resolveLanguageInput(char, text, chosen = [], { allowSecret = true } = {}) {
   const name = normalizeLanguageName(text);
   const key = languageKey(name);
   if (!key) return { id: '', kind: 'empty' };
@@ -266,6 +268,7 @@ function resolveLanguageInput(char, text, chosen = []) {
   if (fixed) return { id: fixed, kind: 'known' };
   const dup = (chosen || []).find(same);
   if (dup) return { id: dup, kind: 'chosen' };
+  if (hit?.secret && !allowSecret) return { id, kind: 'secret' };
   return { id, kind: hit ? 'catalog' : 'custom' };
 }
 
