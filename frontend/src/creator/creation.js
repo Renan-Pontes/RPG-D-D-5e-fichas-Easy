@@ -98,10 +98,13 @@ export function joinFromInvite(code, invite) {
   };
 }
 
-/** Patch para o `set` do assistente: guarda a mesa e adota a progressão dela. null remove a mesa. */
+/**
+ * Patch para o `set` do assistente: guarda a mesa e adota a progressão dela. null remove a mesa.
+ * Mesa que a pessoa mestra (isDm) não entra: o mestre não joga com ficha na própria mesa.
+ */
 export function joinPatch(char, join) {
   const creation = { ...(char?.creation || {}) };
-  if (!join) {
+  if (!join || join.isDm) {
     delete creation.join;
     return { creation };
   }
@@ -109,10 +112,10 @@ export function joinPatch(char, join) {
   return { creation, levelingMode: join.levelingMode === 'xp' ? 'xp' : 'milestone' };
 }
 
-/** Mesa escolhida na criação (ou null). */
+/** Mesa escolhida na criação (ou null; a do próprio mestre não conta, nem em rascunho antigo). */
 export const creationJoin = (char) => {
   const j = char?.creation?.join;
-  return j && j.code && j.campaignId != null ? j : null;
+  return j && j.code && j.campaignId != null && !j.isDm ? j : null;
 };
 
 /** Mensagem do "Verificar" que falhou (código errado, sem conexão…). */

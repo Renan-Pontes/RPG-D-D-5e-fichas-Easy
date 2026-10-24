@@ -63,6 +63,17 @@ test('joinPatch: confirmar a mesa adota a progressão dela; tirar devolve a cria
   assert.deepEqual(c.creation, {});
 });
 
+test('mesa que a pessoa mestra não entra na criação (o servidor recusaria: dm_cannot_be_player)', () => {
+  const dm = joinFromInvite('ABCD', { ...INVITE, isDm: true });
+  let c = merge(newCharacter(), prev => joinPatch(prev, dm));
+  assert.equal(creationJoin(c), null);
+  assert.equal(c.levelingMode, 'milestone'); // não adota a progressão da mesa
+  assert.deepEqual(c.creation, {});
+  // rascunho antigo que já guardou a mesa do mestre: não vira inviteCode no salvar
+  c = { ...newCharacter(), creation: { join: dm } };
+  assert.equal(creationJoin(c), null);
+});
+
 test('sem código: nada muda (sem pendência, sem join)', () => {
   const c = newCharacter();
   assert.equal(creationJoin(c), null);
