@@ -232,9 +232,11 @@ function languageLabel(id, lang) {
 }
 
 // Idioma personalizado ("Outro idioma…"): espaços aparados, até CUSTOM_LANGUAGE_MAX letras.
+// Sem "+" no começo: "+2 idiomas" seria lido como marcador ("+1 of choice", CHOICE_RE)
+// e sumiria da ficha sem poder ser removido.
 const CUSTOM_LANGUAGE_MAX = 40;
 function normalizeLanguageName(text) {
-  return String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, CUSTOM_LANGUAGE_MAX).trim();
+  return String(text ?? '').replace(/\s+/g, ' ').replace(/^[+\s]+/, '').trim().slice(0, CUSTOM_LANGUAGE_MAX).trim();
 }
 
 // Chave para comparar nomes de idioma: sem acento, caixa, espaço ou pontuação

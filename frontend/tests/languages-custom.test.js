@@ -55,6 +55,21 @@ test('idioma que a ficha já fala (fixo) não entra de novo', () => {
 test('texto vazio não faz nada', () => {
   assert.deepEqual(Utils.resolveLanguageInput(c24(), '   ', []), { id: '', kind: 'empty' });
   assert.deepEqual(Utils.resolveLanguageInput(c24(), '!!', []), { id: '', kind: 'empty' });
+  assert.deepEqual(Utils.resolveLanguageInput(c24(), ' + ', []), { id: '', kind: 'empty' });
+});
+
+test('"+2 idiomas" não vira marcador invisível: o "+" do começo sai', () => {
+  const c = c24({ languages: ['Common', 'Dwarvish', 'Elvish'] });
+  for (const typed of ['+2 idiomas', ' +1', '++ Féerico']) {
+    const r = Utils.resolveLanguageInput(c, typed, []);
+    assert.equal(r.kind, 'custom', typed);
+    assert.doesNotMatch(r.id, /^\+/, typed);
+    // Salvo, continua visível e removível como escolhido.
+    const saved = Utils.withChosenLanguages(c, [r.id]);
+    assert.ok(Utils.chosenLanguageIds({ ...c, languages: saved }).includes(r.id), typed);
+    assert.ok(Utils.languagesFor({ ...c, languages: saved }).includes(r.id), typed);
+  }
+  assert.equal(Utils.normalizeLanguageName('+2 idiomas'), '2 idiomas');
 });
 
 // ---------- "Outros livros" ----------
