@@ -268,8 +268,9 @@ class CampaignListSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = _lifecycle(super().to_representation(instance), instance)
-        # A vaga de quem vê (modal "Campanha" da ficha: qual personagem ocupa a vaga).
-        m = self._mine(instance)
+        # A vaga de JOGADOR de quem vê (modal "Campanha" da ficha: qual personagem
+        # ocupa a vaga). Na mesa que a pessoa mestra não vem (nem consulta).
+        m = None if _viewer_is_dm(self, instance) else self._mine(instance)
         if m:
             data['myMembership'] = {'id': m['id'], 'characterId': m['character_id'],
                                     'characterName': m['character__name'], 'sponsored': m['sponsored']}

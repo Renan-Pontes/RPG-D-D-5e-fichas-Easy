@@ -202,7 +202,8 @@ class ListingTests(LinkBase):
         self.assertEqual(camps[self.a.id]['myMembership'], {'id': self.ma.id, 'characterId': self.velna.id,
                                                             'characterName': 'Velna', 'sponsored': False})
         self.assertEqual(camps[self.b.id]['myMembership']['characterId'], None)
-        # o mestre (sem vaga própria) não recebe myMembership
+        # o mestre não recebe myMembership da mesa que mestra (nem com a vaga 'dm')
+        Membership.objects.create(campaign=self.a, user=self.dm1, role='dm')
         dm_camps = self.c_dm1.get('/api/campaigns').json()['campaigns']
         self.assertEqual(dm_camps[0]['role'], 'dm')
         self.assertNotIn('myMembership', dm_camps[0])
