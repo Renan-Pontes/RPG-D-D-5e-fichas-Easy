@@ -26,23 +26,29 @@ export function sealLock(view, field = 'subclass') {
   return { locked: true, reason: 'sealed' };
 }
 
-export const subclassLock = (view) => sealLock(view, 'subclass');
+/**
+ * `subs` (opcional): as subclasses que a ficha conhece (subclassesFor). Um id que a
+ * lista não tem (ex.: de outra versão das regras) a ficha mostra como "escolher":
+ * não conta como selado, para a escolha não ser barrada sem explicação.
+ */
+export const subclassLock = (view, subs) =>
+  (!subs || subs.some(s => s.id === view?.subclass) ? sealLock(view, 'subclass') : { locked: false, reason: null });
 export const landTypeLock = (view) => sealLock(view, 'landType');
 
 /**
  * Trocar a classe inicial na edição da ficha apaga a subclasse dela (e daria para
  * escolher outra ao voltar): fica travada junto com a subclasse.
  */
-export const classChangeLock = (char) => subclassLock(char);
+export const classChangeLock = (char, subs) => subclassLock(char, subs);
 
 /**
  * O patch sem as trocas que a trava proíbe. Escolher pela primeira vez (campo vazio)
  * passa; repetir o valor atual também. Defesa extra atrás dos botões travados.
  */
-export function guardSealedPatch(view, patch) {
+export function guardSealedPatch(view, patch, subs) {
   const out = { ...(patch || {}) };
   const changes = (f) => f in out && (out[f] || '') !== (view?.[f] || '');
-  if (changes('subclass') && subclassLock(view).locked) {
+  if (changes('subclass') && subclassLock(view, subs).locked) {
     delete out.subclass;
     delete out.landType; // o terreno vinha junto com a subclasse barrada
   }

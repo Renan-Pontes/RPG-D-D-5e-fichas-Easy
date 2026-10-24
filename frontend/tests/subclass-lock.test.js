@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Utils from '../utils.js';
 import { withClassLevel } from '../src/progression/multiclass.js';
+import { subclassesFor } from '../src/progression/subclasses.js';
 import {
   sealLock, subclassLock, landTypeLock, classChangeLock, guardSealedPatch, sealHint,
 } from '../src/progression/subclass-lock.js';
@@ -68,6 +69,17 @@ test('multiclasse: cada classe tem a própria trava (a vista da classe traz trap
   assert.equal(subclassLock(cle2).locked, true);
   assert.equal(subclassLock({ ...cle2, cheatMode: true }).locked, false);
   assert.equal(subclassLock(Utils.classView({ ...withDomain, inCampaign: true, cheatMode: true }, Utils.classEntries(withDomain)[1])).reason, 'campaign');
+});
+
+test('subclasse que a lista não conhece não conta como selada (a ficha oferece escolher)', () => {
+  const subs = subclassesFor(druid());
+  assert.ok(subs.some(s => s.id === 'moon'));
+  assert.equal(subclassLock(druid({ subclass: 'moon' }), subs).locked, true);
+  assert.equal(subclassLock(druid({ subclass: 'circleOfNowhere' }), subs).locked, false);
+  assert.equal(subclassLock(druid({ subclass: 'circleOfNowhere' })).locked, true); // sem lista: vale o campo
+  assert.equal(classChangeLock(druid({ subclass: 'circleOfNowhere' }), subs).locked, false);
+  assert.deepEqual(guardSealedPatch(druid({ subclass: 'circleOfNowhere' }), { subclass: 'moon' }, subs), { subclass: 'moon' });
+  assert.deepEqual(guardSealedPatch(druid({ subclass: 'stars' }), { subclass: 'moon' }, subs), {});
 });
 
 test('dica curta nos dois idiomas', () => {

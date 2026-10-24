@@ -361,7 +361,7 @@ const SubclassBanner = ({ char, lang, update }) => {
   return Utils.classEntries(char).map(e => {
     const view = Utils.classView(char, e);
     const save = (patch) => {
-      const safe = guardSealedPatch(view, patch);
+      const safe = guardSealedPatch(view, patch, subclassesFor(view));
       if (!Object.keys(safe).length) return;
       if (e.primary) update(safe);
       else update({ multiclass: char.multiclass.map(m => m.id === e.id ? { ...m, ...safe } : m) });
@@ -408,7 +408,7 @@ const SubclassRow = ({ char, lang, update, showClass }) => {
   // de trocar, com cadeado e dica; com o modo trapaça (fora de campanha) volta o
   // "Alterar". O terreno do Círculo da Terra segue a regra: a primeira escolha dele
   // continua aqui, mesmo com o círculo selado.
-  const lock = subclassLock(char);
+  const lock = subclassLock(char, subs);
   const needsLand = char.subclass === 'land' && !char.landType && (current.landTypes || []).length > 0;
   return (
     <>

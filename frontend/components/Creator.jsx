@@ -219,7 +219,7 @@ const SubclassSelector = ({ char, set, lang, saved }) => {
   if ((char.level || 1) < Utils.subclassLevel(char)) return <p className="muted">{lang === 'pt' ? 'Subclasse disponível no nível ' : 'Subclass available at level '}{Utils.subclassLevel(char)}.</p>;
   const allSubs = subclassesFor(char, classId);
   if (!allSubs.length) return null;
-  const lock = saved ? subclassLock(saved) : NO_LOCK;
+  const lock = saved ? subclassLock(saved, subclassesFor(saved)) : NO_LOCK;
   const landLock = saved ? landTypeLock(saved) : NO_LOCK;
   // Selada: só a escolhida aparece (sem trocar); subclasse desconhecida não trava a lista.
   const sealedSub = lock.locked ? allSubs.filter(s => s.id === char.subclass) : [];
@@ -305,7 +305,7 @@ const SubclassSelector = ({ char, set, lang, saved }) => {
 const StepClass = ({ char, set, lang, saved }) => {
   // Trocar a classe apagaria a subclasse selada (e daria para escolher outra na volta):
   // na edição, a classe trava junto com ela.
-  const classLock = saved ? classChangeLock(saved) : NO_LOCK;
+  const classLock = saved ? classChangeLock(saved, subclassesFor(saved)) : NO_LOCK;
   const select = (id) => {
     if (classLock.locked && id !== char.className) return;
     const cls = SRD.CLASSES.find(c => c.id === id);
