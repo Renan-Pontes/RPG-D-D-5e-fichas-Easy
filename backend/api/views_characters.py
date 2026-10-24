@@ -11,6 +11,7 @@ from .permissions import can_read_character
 from . import plans as P
 from . import wild_shape as ws_engine
 from . import spells as spells_engine
+from . import edit_log
 from .progression import validate_level_choice, apply_level_choice, validate_class_options, apply_class_options
 from .progression.resources import rest_resources, spend_resource
 
@@ -24,7 +25,8 @@ def character_list(request):
         return Response({'characters': CharacterSerializer(chars, many=True).data})
     s = CharacterSerializer(data=request.data)
     s.is_valid(raise_exception=True)
-    data = s.validated_data.get('data') or {}
+    # Ficha nova nasce sem registro de edições (o editLog é só do servidor).
+    data = edit_log.without_log(s.validated_data.get('data') or {})
     # Código de mesa opcional: cria e já entra na campanha. Se o jogador está no
     # limite de personagens, a ficha nasce ocupando uma vaga da mesa do mestre.
     invite = request.data.get('inviteCode') if isinstance(request.data, dict) else None
@@ -100,7 +102,12 @@ def character_detail(request, pk):
         # Retrato próprio conta no espaço de imagens do dono (arte do site em /art não).
         P.check_images(obj.owner, P.image_bytes(new_data.get('avatar')),
                        P.image_bytes((obj.data or {}).get('avatar')))
-    s.save()
+    if 'data' in s.validated_data:
+        # Registro de edições para o mestre (edit_log.py): o do cliente é ignorado,
+        # o salvo fica e, em campanha, ganha o que mudou (ex.: idiomas).
+        s.save(data=edit_log.owner_put(obj.data, s.validated_data['data'], request.user, in_camp))
+    else:
+        s.save()
     return Response({'character': s.data})
 
 
@@ -109,6 +116,8 @@ _SENTINEL = object()
 # Campos que o dono NÃO pode alterar via PUT regular quando o personagem está
 # atribuído a uma campanha. Esses ou só mudam pelo DM (via /dm-edit) ou por
 # endpoints dedicados que aplicam regras (cast/rest/inventory/wild-shape).
+# O editLog (registro de edições) não entra aqui: o PUT simplesmente ignora o
+# que vier do cliente (edit_log.owner_put), em vez de recusar a ficha toda.
 OWNER_LOCKED_IN_CAMPAIGN = {
     'maxHp', 'level', 'className', 'subclass', 'race', 'background',
     'alignment', 'xp', 'rulesVersion',
@@ -331,6 +340,9 @@ def character_dm_edit(request, pk):
     patch = request.data.get('data') or {}
     if not isinstance(patch, dict):
         raise ValidationError({'error': 'invalid_patch'})
+    # O registro de edições é do servidor: o editor manda a ficha inteira que abriu,
+    # e um editLog velho nela apagaria o que o jogador mudou nesse meio-tempo.
+    patch = edit_log.without_log(patch)
 
     data = dict(char.data or {})
     # Merge raso: o mestre pode trocar qualquer campo, incluindo sub-objetos
