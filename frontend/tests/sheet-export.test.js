@@ -24,6 +24,12 @@ test('cada linha tem ícone, nome e frase do que faz em pt e en (e o texto de "t
   const share = EXPORT_OPTIONS.find(o => o.id === 'share');
   assert.match(exportText(share, 'pt').desc, /24 horas/);
   assert.match(exportText(share, 'pt').desc, /conta/);
+  // o Imprimir não promete livro de magias a quem não tem magias (spellbookSection sai nulo)
+  const print = EXPORT_OPTIONS.find(o => o.id === 'print');
+  assert.doesNotMatch(exportText(print, 'pt').desc, /livro de magias/);
+  assert.doesNotMatch(exportText(print, 'en').desc, /spellbook/);
+  assert.match(exportText(print, 'pt').desc, /se houver/);
+  assert.match(exportText(print, 'en').desc, /if any/);
 });
 
 const spyHandlers = (ret) => {

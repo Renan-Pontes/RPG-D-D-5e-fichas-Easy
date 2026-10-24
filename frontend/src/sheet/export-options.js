@@ -12,8 +12,9 @@ export const EXPORT_OPTIONS = [
     id: 'print', icon: 'print',
     name: { pt: 'Imprimir', en: 'Print' },
     desc: {
-      pt: 'Abre a ficha ornamentada, com o livro de magias, para imprimir.',
-      en: 'Opens the ornate sheet, with the spellbook, ready to print.',
+      // (o livro de magias só sai para quem tem magias: spellbookSection, src/pdf/sheet-data.js)
+      pt: 'Abre a ficha ornamentada (com as magias, se houver) para imprimir.',
+      en: 'Opens the ornate sheet (with spells, if any), ready to print.',
     },
     busy: { pt: 'Preparando a impressão…', en: 'Preparing to print…' },
   },
