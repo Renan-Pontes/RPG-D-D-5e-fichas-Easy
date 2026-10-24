@@ -357,6 +357,7 @@ const App = () => {
     a.download = `${(char.name || 'character').replace(/[^a-z0-9]/gi, '_')}.json`;
     a.click();
     setToast(t('exported', lang));
+    return true;
   };
 
   const handleExportAll = () => {
@@ -381,6 +382,8 @@ const App = () => {
   };
 
   // PDF no layout da ficha oficial de D&D 5e (pdf-lib só carrega quando usado).
+  // Os handlers de saída da ficha devolvem true/false: o modal Exportar (src/sheet/FhExport.jsx)
+  // fecha quando deu certo e fica aberto quando não deu (o toast é o mesmo de sempre).
   const handleExportPdf = async (char, { flatten = false, blank = false } = {}) => {
     try {
       const [{ downloadDnd5ePdf }, { speciesSummary }] = await Promise.all([
@@ -388,9 +391,11 @@ const App = () => {
       ]);
       await downloadDnd5ePdf(char, lang, { speciesSummary, flatten, blank });
       setToast(lang === 'pt' ? 'PDF gerado.' : 'PDF created.');
+      return true;
     } catch (e) {
       console.error(e);
       setToast(lang === 'pt' ? 'Falha ao gerar o PDF.' : 'Failed to create the PDF.');
+      return false;
     }
   };
 
@@ -425,7 +430,7 @@ const App = () => {
   const handleShare = async (char) => {
     if (!auth.user) {
       setToast(lang === 'pt' ? 'Entre na sua conta para gerar um link de compartilhamento.' : 'Log in to create a share link.');
-      return;
+      return false;
     }
     try {
       const { token } = await api.createShare(char);
@@ -434,8 +439,10 @@ const App = () => {
         () => setToast(lang === 'pt' ? 'Link copiado! Ele vale por 24 horas.' : 'Link copied! It is valid for 24 hours.'),
         () => prompt(t('shareLink', lang), url)
       );
+      return true;
     } catch (e) {
       setToast(lang === 'pt' ? 'Falha ao gerar link.' : 'Failed to generate link.');
+      return false;
     }
   };
 
@@ -453,10 +460,12 @@ const App = () => {
         await downloadDnd5ePdf(active, lang, { speciesSummary, flatten: true, spellbook: true });
         setToast(lang === 'pt' ? 'Pop-up bloqueado: o PDF foi baixado — abra e imprima.' : 'Pop-up blocked: the PDF was downloaded — open it and print.');
       }
+      return true;
     } catch (e) {
       console.error(e);
       if (tab) tab.close();
       setToast(lang === 'pt' ? 'Falha ao gerar o PDF.' : 'Failed to create the PDF.');
+      return false;
     }
   };
 
