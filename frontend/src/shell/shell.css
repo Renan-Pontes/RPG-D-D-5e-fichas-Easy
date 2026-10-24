@@ -349,9 +349,8 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
   color: var(--ink-secondary); font-size: 0.8rem; border: 1px dashed var(--stroke-strong);
 }
 
-/* ---------------------------------------------------------- encerrar sessão */
-.modal.shell-end h2 { font-family: var(--display); margin-top: 0; font-size: 1.2rem; }
-.shell-end-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+/* ---------------------------------------------------------- encerrar sessão (MesaSheet) */
+.mesa-sheet.shell-end .mesa-sheet-text { margin: 0; }
 
 /* ---------------------------------------------------------- busca rápida */
 .shell-search-backdrop { place-items: start center !important; padding: 10vh 16px 16px !important; }

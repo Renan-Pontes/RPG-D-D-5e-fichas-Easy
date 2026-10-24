@@ -16,6 +16,7 @@ import { listWorld, createSampleWorld, getSessionPlan } from '../world/world-api
 import CampaignHeader from '../shell/CampaignHeader.jsx';
 import AreaNav from '../shell/AreaNav.jsx';
 import Onboarding from '../shell/Onboarding.jsx';
+import MesaSheet from '../shell/MesaSheet.jsx';
 import { AreaContext, legacyNavigate } from '../shell/useArea.js';
 import {
   AreaBoundary, ChronicleView, GroupFallback, Loading, PlayFallback, PlayerGroupFallback,
@@ -25,6 +26,7 @@ import {
   areasFor, campaignRoute, initialArea, isHexColor, loadRememberedArea, normalizeArea, onboardingStatus,
   onboardingVisible, parseCampaignRoute, planHasContent, saveRememberedArea, screenLink, t,
 } from '../shell/shell-logic.js';
+import '../shell/mesa.css';
 import '../shell/shell.css';
 
 const SettingsMenu = lazy(() => import('../shell/SettingsMenu.jsx'));
@@ -349,26 +351,26 @@ function renderPlayer(area, p) {
   return null;
 }
 
+// "Encerrar a sessão?": folha da altura do conteúdo no celular (botões
+// empilhados, a ação principal por último) e caixa central no desktop.
+// Esc, ✕ e toque fora = Continuar jogando, como antes.
 function EndSessionDialog({ lang, busy, onCancel, onEnd }) {
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onCancel(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onCancel]);
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
-      <div className="modal shell-end" role="dialog" aria-modal="true" aria-labelledby="shell-end-title" onClick={(e) => e.stopPropagation()}>
-        <h2 id="shell-end-title">■ {t(lang, 'Encerrar a sessão?', 'End the session?')}</h2>
-        <p className="muted">{t(lang,
-          'O selo "Ao vivo" sai. Se quiser, já abrimos a Crônica para você escrever o "Anteriormente em…" — é opcional.',
-          'The "Live" badge goes away. If you like, we open the Chronicle so you can write the "Previously on…" — optional.')}</p>
-        <div className="shell-end-actions">
-          <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={busy}>{t(lang, 'Continuar jogando', 'Keep playing')}</button>
-          <button type="button" className="btn btn-ghost" onClick={() => onEnd(false)} disabled={busy}>{t(lang, 'Encerrar', 'End')}</button>
-          <button type="button" className="btn btn-primary" onClick={() => onEnd(true)} disabled={busy}>{t(lang, 'Encerrar e escrever o recap', 'End and write the recap')}</button>
+    <MesaSheet
+      lang={lang} size="auto" width="sm" className="shell-end"
+      icon="■" title={t(lang, 'Encerrar a sessão?', 'End the session?')}
+      onClose={onCancel}
+      footer={(
+        <div className="mesa-actions is-stack">
+          <button type="button" className="mesa-btn" onClick={onCancel} disabled={busy}>{t(lang, 'Continuar jogando', 'Keep playing')}</button>
+          <button type="button" className="mesa-btn" onClick={() => onEnd(false)} disabled={busy}>{t(lang, 'Encerrar', 'End')}</button>
+          <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={() => onEnd(true)} disabled={busy}>{t(lang, 'Encerrar e escrever o recap', 'End and write the recap')}</button>
         </div>
-      </div>
-    </div>
+      )}
+    >
+      <p className="mesa-sheet-text">{t(lang,
+        'O selo "Ao vivo" sai. Se quiser, já abrimos a Crônica para você escrever o "Anteriormente em…" — é opcional.',
+        'The "Live" badge goes away. If you like, we open the Chronicle so you can write the "Previously on…" — optional.')}</p>
+    </MesaSheet>
   );
 }
-
