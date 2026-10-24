@@ -149,6 +149,10 @@ const DiceRoller = ({ lang }) => {
   // Com a página parada, o botão não pode ficar em cima de outro botão/campo
   // (ex.: "Descanso curto" no canto da Mesa agora): se houver algo clicável
   // embaixo dele, ele sobe o suficiente para liberar esse controle.
+  // Exceção: o que estiver dentro de [data-fab-pass] (selos de atributo e listas de
+  // salvaguardas/perícias da ficha) não faz o botão subir. Nessas listas de linhas-botão
+  // coladas o desvio virava um salto até o meio da tela a cada parada; ali o botão fica
+  // no canto e o CSS da ficha deixa a coluna do bônus fora da faixa dele no celular.
   const fabRef = useRef(null);
   const [fabLift, setFabLift] = useState(0);
   const liftRef = useRef(0);
@@ -163,7 +167,7 @@ const DiceRoller = ({ lang }) => {
         for (const el of document.elementsFromPoint(x, y)) {
           if (fabRef.current && (el === fabRef.current || fabRef.current.contains(el))) continue;
           const hit = el.closest(INTERACTIVE);
-          if (hit && !hit.closest('.dice-fab, .dice-sheet')) {
+          if (hit && !hit.closest('.dice-fab, .dice-sheet, [data-fab-pass]')) {
             const r = hit.getBoundingClientRect();
             top = top == null ? r.top : Math.min(top, r.top);
           }

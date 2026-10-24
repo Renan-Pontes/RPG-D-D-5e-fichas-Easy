@@ -131,30 +131,38 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
+  --dice-title-gap: 10px; /* espaço losango–texto e texto–filete */
   font-family: var(--display);
   font-weight: 600;
   font-size: 1rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--dice-gold);
-  white-space: nowrap;
+  /* sem nowrap: o degradê do texto só pinta dentro da caixa, então o que passasse dela
+     sumia ("ROLAR DAD"). Sem lugar, o título quebra em duas linhas, que cabem na altura
+     do botão de fechar (o cabeçalho não cresce). */
+  line-height: 1.15;
 }
 .dice-sheet-title::before {
   content: "";
   flex: none;
   width: 8px;
   height: 8px;
+  margin-right: var(--dice-title-gap);
   transform: rotate(45deg);
   background: var(--dice-gilt);
   box-shadow: 0 0 8px rgba(240, 200, 110, 0.6);
 }
+/* O filete ocupa só a sobra e encolhe até sumir antes de apertar o texto. O espaço antes
+   dele faz parte do próprio filete (o degradê começa depois do --dice-title-gap): sem
+   sobra, some junto, e o texto não perde esses pixels. Com menos de 14px de traço ele
+   nem aparece (o clamp vira 0 ou a largura toda), para não sobrar um tracinho solto. */
 .dice-sheet-title::after {
   content: "";
-  flex: 1 1 12px;
-  min-width: 12px;
+  flex: 1 1 0;
+  min-width: 0;
   height: 1px;
-  background: linear-gradient(90deg, rgba(168, 137, 74, 0.9), transparent);
+  background: linear-gradient(90deg, rgba(168, 137, 74, 0.9), transparent) var(--dice-title-gap) 0 / clamp(0px, (100% - var(--dice-title-gap) - 14px) * 999, 100% - var(--dice-title-gap)) 100% no-repeat;
 }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .dice-sheet-title {
@@ -187,6 +195,14 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   border-radius: 8px;
   color: var(--dice-muted);
   cursor: pointer;
+}
+/* Celular: título, pílula da animação e fechar numa linha só, com qualquer rótulo
+   ("Sem animação" é o mais longo). "ROLAR DADOS" cabe inteiro de 360px para cima; abaixo
+   disso, quebra em duas linhas. */
+@media (max-width: 420px) {
+  .dice-sheet-head { gap: 6px; padding-left: 14px; }
+  .dice-sheet-title { --dice-title-gap: 8px; font-size: 0.95rem; letter-spacing: 0.06em; }
+  .dice-sheet-anim { font-size: 0.78rem; padding: 6px 10px; }
 }
 @media (hover: hover) {
   .dice-sheet-anim:hover { border-color: var(--dice-gold); color: var(--ink-primary); }

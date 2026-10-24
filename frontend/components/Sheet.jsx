@@ -1573,8 +1573,9 @@ const LanguagesField = ({ char, lang, update }) => {
 // Selos de atributo (abas Jogar e Atributos): o mesmo desenho; cada aba mantém o seu
 // rótulo de rolagem ("<Atributo> Teste de habilidade" na Jogar, "<Atributo>" aqui).
 // O nome acessível começa pela sigla visível no selo (quem usa voz diz "FOR").
+// data-fab-pass: o botão de dados passa por cima dos selos sem saltar (DiceRoller).
 const AbilitySeals = ({ char, lang, roll, rollLabel }) => (
-  <div className="fh-abil">
+  <div className="fh-abil" data-fab-pass="">
     {SRD.ABILITIES.map(k => {
       const score = Utils.abilityWithRace(char, k);
       const mod = Utils.abilityMod(char, k);
@@ -1601,8 +1602,9 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
 
       <section className="fh-panel">
       <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{lang === 'pt' ? 'Testes de Resistência' : 'Saving Throws'}</FhTitle>
-      {/* Em 2 colunas no desktop (3 + 3), na ordem do DOM: --fh-rows = metade das linhas */}
-      <div className="fh-skills" style={{ '--fh-rows': Math.ceil(SRD.ABILITIES.length / 2) }}>
+      {/* Em 2 colunas no desktop (3 + 3), na ordem do DOM: --fh-rows = metade das linhas.
+          data-fab-pass: o botão de dados fica no canto sobre a lista, sem saltar (DiceRoller) */}
+      <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(SRD.ABILITIES.length / 2) }}>
         {SRD.ABILITIES.map(k => {
           const bonus = Utils.saveBonus(char, k);
           const isProf = Utils.hasSaveProf(char, k);
@@ -1625,7 +1627,7 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll }) => {
         <span aria-hidden="true">·</span>
         <span><FhTapToRoll lang={lang} /></span>
       </>}>{t('skills', lang)}</FhTitle>
-      <div className="fh-skills" style={{ '--fh-rows': Math.ceil(SRD.SKILLS.length / 2) }}>
+      <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(SRD.SKILLS.length / 2) }}>
         {SRD.SKILLS.map(s => {
           const bonus = Utils.skillBonus(char, s.id);
           const isProf = Utils.hasSkillProf(char, s.id);
