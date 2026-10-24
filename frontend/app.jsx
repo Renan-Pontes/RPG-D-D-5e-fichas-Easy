@@ -439,7 +439,9 @@ const App = () => {
       return false;
     }
     try {
-      const { token } = await api.createShare(char);
+      // O registro de edições (data.editLog) é para o mestre da campanha: não vai no link público.
+      const { editLog, ...shared } = char;
+      const { token } = await api.createShare(shared);
       const url = `${window.location.origin}${window.location.pathname}#s=${token}`;
       navigator.clipboard.writeText(url).then(
         () => setToast(lang === 'pt' ? 'Link copiado! Ele vale por 24 horas.' : 'Link copied! It is valid for 24 hours.'),
