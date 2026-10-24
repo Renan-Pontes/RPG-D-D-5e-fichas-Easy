@@ -92,6 +92,7 @@ export function joinFromInvite(code, invite) {
     dmName: String(invite.dmName || ''),
     levelingMode: invite.levelingMode === 'xp' ? 'xp' : 'milestone',
     alreadyMember: !!invite.alreadyMember,
+    isDm: !!invite.isDm, // quem consulta mestra esta mesa: não entra com ficha nela
     members: Number.isFinite(invite.members) ? invite.members : null,
     coverUrl: typeof invite.coverUrl === 'string' && invite.coverUrl.startsWith('/api/') ? invite.coverUrl : null,
   };
@@ -141,8 +142,12 @@ export function joinFailMessage(err, join) {
       en: 'Your sheet was saved, but the table code is no longer valid (the GM may have changed it). Ask for the new code and use Campaigns → "Join with code".',
       retry: false };
   }
-  if (code === 'character_already_in_campaign') {
+  if (code === 'character_already_in_campaign' || code === 'character_in_other_campaign') {
     return { pt: 'Sua ficha foi salva, mas ela já está em outra mesa.', en: 'Your sheet was saved, but it is already in another table.', retry: false };
+  }
+  if (code === 'dm_cannot_be_player') {
+    return { pt: `Sua ficha foi salva, mas você é o mestre d${mesaPt}: o mestre não entra com ficha na própria mesa.`,
+      en: `Your sheet was saved, but you're the GM of ${mesaEn}: the GM doesn't join their own table with a sheet.`, retry: false };
   }
   return { pt: `Sua ficha foi salva, mas não deu para entrar n${mesaPt} agora.`,
     en: `Your sheet was saved, but joining ${mesaEn} failed for now.`, retry: true };
