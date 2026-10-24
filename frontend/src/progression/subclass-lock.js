@@ -9,6 +9,7 @@
  * - Escolhas presas à subclasse seguem a mesma regra. Hoje: o terreno do Círculo da
  *   Terra (landType) — escolher a primeira vez é livre; trocar depois, só com trapaça.
  *
+ *
  * `view` é a ficha vista como uma classe (Utils.classView): subclass/landType daquela
  * classe, cheatMode e inCampaign da ficha. Funções puras, testáveis no Node.
  */
@@ -53,6 +54,30 @@ export function guardSealedPatch(view, patch, subs) {
     delete out.landType; // o terreno vinha junto com a subclasse barrada
   }
   if (changes('landType') && landTypeLock(view).locked) delete out.landType;
+  return out;
+}
+
+/**
+ * Edição da ficha (tela Editar): ao concluir, o que a ficha SALVA tem selado volta
+ * como estava — classe inicial, subclasse e terreno —, mesmo que algum passo tenha
+ * apagado. Defesa final: os passos já não oferecem a troca. `subs`: subclassesFor(saved).
+ */
+export function restoreSealed(saved, next, subs) {
+  if (!saved || !next) return next;
+  const out = { ...next };
+  if (subclassLock(saved, subs).locked) {
+    if (out.className !== saved.className) {
+      out.className = saved.className;
+      if ('saveProfs' in saved) out.saveProfs = saved.saveProfs;
+    }
+    if ((out.subclass || '') !== (saved.subclass || '')) {
+      out.subclass = saved.subclass;
+      out.landType = saved.landType || '';
+      out.starFormType = saved.starFormType || '';
+    }
+  }
+  // Terreno: só quando o círculo é o mesmo (escolher o primeiro continua livre).
+  if (out.subclass === saved.subclass && landTypeLock(saved).locked) out.landType = saved.landType;
   return out;
 }
 

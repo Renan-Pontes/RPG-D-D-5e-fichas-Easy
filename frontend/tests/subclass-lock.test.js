@@ -5,6 +5,7 @@ import { withClassLevel } from '../src/progression/multiclass.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
 import {
   sealLock, subclassLock, landTypeLock, classChangeLock, guardSealedPatch, sealHint,
+  restoreSealed,
 } from '../src/progression/subclass-lock.js';
 
 const druid = (extra = {}) => ({
@@ -88,4 +89,32 @@ test('dica curta nos dois idiomas', () => {
   assert.match(sealHint('campaign', 'pt'), /mestre/);
   assert.match(sealHint('campaign', 'en'), /DM/);
   assert.equal(sealHint(null, 'pt'), '');
+});
+
+test('Editar: ao concluir, classe, subclasse e terreno selados voltam como estavam na ficha salva', () => {
+  const saved = druid({ level: 3, subclass: 'land', landType: 'forest', saveProfs: ['int', 'wis'], skillProfs: ['nature', 'perception'] });
+  // Um passo apagou a subclasse (tocar na classe atual) e outro escolheu as Estrelas.
+  const draft = { ...saved, subclass: 'stars', landType: '', starFormType: 'archer', skillProfs: ['nature'] };
+  const out = restoreSealed(saved, draft, subclassesFor(saved));
+  assert.equal(out.subclass, 'land');
+  assert.equal(out.landType, 'forest');
+  assert.equal(out.starFormType, '');
+  assert.deepEqual(out.skillProfs, ['nature']); // o resto do rascunho fica
+  // Classe trocada: volta com os salvamentos dela.
+  const swapped = restoreSealed(saved, { ...saved, className: 'fighter', saveProfs: ['str', 'con'], subclass: '' }, subclassesFor(saved));
+  assert.equal(swapped.className, 'druid');
+  assert.deepEqual(swapped.saveProfs, ['int', 'wis']);
+  assert.equal(swapped.subclass, 'land');
+  // Terreno trocado com o círculo igual: volta o salvo.
+  assert.equal(restoreSealed(saved, { ...saved, landType: 'coast' }, subclassesFor(saved)).landType, 'forest');
+});
+
+test('Editar: a primeira escolha e o modo trapaça continuam livres', () => {
+  const fresh = druid({ level: 3 });
+  assert.equal(restoreSealed(fresh, { ...fresh, subclass: 'moon' }, subclassesFor(fresh)).subclass, 'moon');
+  const land = druid({ level: 3, subclass: 'land' });
+  assert.equal(restoreSealed(land, { ...land, landType: 'arctic' }, subclassesFor(land)).landType, 'arctic');
+  const cheat = druid({ level: 3, subclass: 'moon', cheatMode: true });
+  assert.equal(restoreSealed(cheat, { ...cheat, subclass: 'stars' }, subclassesFor(cheat)).subclass, 'stars');
+  assert.equal(restoreSealed(cheat, null), null);
 });

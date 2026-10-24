@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
-import { subclassLock, landTypeLock, classChangeLock } from '../src/progression/subclass-lock.js';
+import { subclassLock, landTypeLock, classChangeLock, restoreSealed } from '../src/progression/subclass-lock.js';
 import * as Book from '../src/progression/spellbook.js';
 import { t, tName } from '../data/i18n.js';
 import LanguagePicker, { chosenLanguages } from './LanguagePicker.jsx';
@@ -222,7 +222,8 @@ const SubclassSelector = ({ char, set, lang, saved }) => {
   const lock = saved ? subclassLock(saved, subclassesFor(saved)) : NO_LOCK;
   const landLock = saved ? landTypeLock(saved) : NO_LOCK;
   // Selada: só a escolhida aparece (sem trocar); subclasse desconhecida não trava a lista.
-  const sealedSub = lock.locked ? allSubs.filter(s => s.id === char.subclass) : [];
+  // Vem da ficha SALVA: o rascunho pode ter perdido a subclasse e não reabre a lista.
+  const sealedSub = lock.locked ? allSubs.filter(s => s.id === saved.subclass) : [];
   const subs = sealedSub.length ? sealedSub : allSubs;
 
   const subclassLabelMap = {
@@ -241,10 +242,10 @@ const SubclassSelector = ({ char, set, lang, saved }) => {
   };
   const label = subclassLabelMap[classId] || { pt: 'Subclasse', en: 'Subclass' };
   const selectedSub = subs.find(s => s.id === char.subclass);
-  // Terreno selado: só o escolhido (mesmo um id que a lista atual não conhece).
+  // Terreno selado: só o escolhido na ficha salva (mesmo um id que a lista atual não conhece).
   const allLands = selectedSub?.landTypes || [];
   const lands = !landLock.locked ? allLands
-    : [allLands.find(lt => lt.id === char.landType) || { id: char.landType, name: { pt: char.landType, en: char.landType } }];
+    : [allLands.find(lt => lt.id === saved.landType) || { id: saved.landType, name: { pt: saved.landType, en: saved.landType } }];
 
   return (
     <div style={{ marginTop: 24 }}>
@@ -262,7 +263,10 @@ const SubclassSelector = ({ char, set, lang, saved }) => {
           const isSel = char.subclass === sc.id;
           return (
             <button key={sc.id} className={`option ${isSel ? 'selected' : ''}`}
-              onClick={() => { if (!sealedSub.length) set({ subclass: sc.id, landType: '', starFormType: '' }); }}>
+              onClick={() => {
+                if (!sealedSub.length) set({ subclass: sc.id, landType: '', starFormType: '' });
+                else if (char.subclass !== saved.subclass) set({ subclass: saved.subclass, landType: saved.landType || '' });
+              }}>
               <div className="option-title">{sc.name[lang]}</div>
               <div className="option-meta text-xs" style={{ marginTop: 4 }}>{sc.desc[lang]}</div>
               {isSel && sc.features && (
@@ -290,7 +294,7 @@ const SubclassSelector = ({ char, set, lang, saved }) => {
             {lands.map(lt => (
               <button key={lt.id} className={`option ${char.landType === lt.id ? 'selected' : ''}`}
                 style={{ padding: '8px 12px', textAlign: 'center' }}
-                onClick={() => { if (!landLock.locked) set({ landType: lt.id }); }}>
+                onClick={() => set({ landType: landLock.locked ? saved.landType : lt.id })}>
                 {lt.name[lang]}
               </button>
             ))}
@@ -307,7 +311,8 @@ const StepClass = ({ char, set, lang, saved }) => {
   // na edição, a classe trava junto com ela.
   const classLock = saved ? classChangeLock(saved, subclassesFor(saved)) : NO_LOCK;
   const select = (id) => {
-    if (classLock.locked && id !== char.className) return;
+    // Tocar de novo na classe atual não zera nada (subclasse, perícias, salvamentos).
+    if (id === char.className || classLock.locked) return;
     const cls = SRD.CLASSES.find(c => c.id === id);
     set({
       className: id,
@@ -1099,7 +1104,8 @@ const Creator = ({ lang, initial, onSave, onCancel }) => {
       languages: Utils.languagesFor(char),
       skillProfs: [...new Set([...(char.skillProfs || []), ...Utils.backgroundSkills(char), ...originFeatSkills(char)])],
     };
-    const final = isNew ? { ...normalized, maxHp, currentHp: maxHp } : normalized;
+    // Ficha existente: o que estava selado (classe, subclasse, terreno) volta como estava.
+    const final = isNew ? { ...normalized, maxHp, currentHp: maxHp } : restoreSealed(initial, normalized, subclassesFor(initial));
     onSave(final);
   };
 
