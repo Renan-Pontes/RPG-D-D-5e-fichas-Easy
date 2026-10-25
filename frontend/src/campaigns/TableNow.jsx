@@ -436,12 +436,18 @@ function CombatStrip({ combat, lang, active, wizardOn, onOpen, onNext, onWrapUp,
     <div className="tn-turn-wrap">
       <div className="mesa-turn is-now tn-turn" role="region" aria-label={L(lang, 'Turno do combate', 'Combat turn')}>
         <button type="button" className="tn-turn-who" onClick={onOpen}
-          aria-label={`${L(lang, 'Rodada', 'Round')} ${combat.round}, ${L(lang, 'vez de', 'now acting')} ${cur?.name || '—'}. ${L(lang, 'Abrir combate', 'Open combat')}`}>
+          aria-label={[
+            `${L(lang, 'Rodada', 'Round')} ${combat.round}, ${L(lang, 'vez de', 'now acting')} ${cur?.name || '—'}`,
+            cur && `${L(lang, 'PV', 'HP')} ${cur.current_hp}/${cur.stats?.max_hp ?? '?'}`,
+            next && `${L(lang, 'Próximo', 'Next')}: ${next.name}`,
+            L(lang, 'Abrir combate', 'Open combat'),
+          ].filter(Boolean).join('. ')}>
           <span className="mesa-turn-label">{L(lang, 'Rodada', 'Round')} {combat.round} · {L(lang, 'Vez de', 'Now')}</span>
           <span className="tn-turn-name">{cur?.name || '—'}</span>
+          {/* quebra em até 2 linhas: no celular o "Próximo: nome" desce inteiro (o · fica preso ao PV) */}
           <span className="tn-turn-sub">
             {cur && <span className="tn-turn-hp">{L(lang, 'PV', 'HP')} {cur.current_hp}/{cur.stats?.max_hp ?? '?'}</span>}
-            {next && <span className="tn-turn-next"> · {L(lang, 'Próximo', 'Next')}: {next.name}</span>}
+            {next && <span className="tn-turn-next">{cur ? ' · ' : ''}{L(lang, 'Próximo', 'Next')}: {next.name}</span>}
           </span>
         </button>
         <button type="button" className="mesa-btn tn-turn-open" onClick={onOpen} aria-label={L(lang, 'Abrir combate', 'Open combat')}>
