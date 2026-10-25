@@ -8,7 +8,7 @@ import CombatGrid from './CombatGrid.jsx';
 import EncounterDifficulty from '../combat/EncounterDifficulty.jsx';
 import { NudgeBell } from './NudgeList.jsx';
 import EndOfEncounterPanel from './EndOfEncounterPanel.jsx';
-import CombatantSheet, { CombatantPanel, ConditionChip, condRounds, removeCondition, sheetConditions } from './CombatantSheet.jsx';
+import CombatantSheet, { CombatantPanel, ConditionChip, condRounds, sheetConditions } from './CombatantSheet.jsx';
 import { isWizardEnabled } from './end-of-encounter.js';
 import { findMonster, monsterForCombat } from '../../data/bestiary.js';
 import SRD from '../../data/srd.js';
@@ -21,6 +21,7 @@ import { monsterArt, monsterEmoji } from '../art.js';
 import ArtThumb from '../components/ArtThumb.jsx';
 import { memberStats } from '../group/group-model.js';
 import { logLine } from './monster-actions.js';
+import { conditionLabel } from '../combat/monster-i18n.js';
 
 // Animais da Forma Selvagem (SRD.BEASTS) não têm ataques estruturados: no combate
 // usamos a versão do bestiário SRD 5.2.1, com ataques reais.
@@ -194,10 +195,6 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
     setSelected(c.id);
     setSheet({ id: c.id, tab: tab || null });
   };
-  const dropCond = async (c, cond) => {
-    try { if (await removeCondition({ campaignId: campaign.id, combatant: c, cond, lang })) load(); }
-    catch (e) { console.warn(e); load(); }
-  };
   const seeCurrent = () => {
     if (!currentTurn) return;
     if (!wide) { openRow(currentTurn, 'actions'); return; }
@@ -329,7 +326,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
                 <li key={c.id} id={`cc-${c.id}`} className={`ct-item ${wide && isSel ? 'is-open' : ''}`}>
                   <CombatantRow combatant={c} campaign={campaign} lang={lang} isTurn={isTurn} isSel={isSel}
                     expanded={wide ? isSel : undefined} pending={!!pendings[c.id]}
-                    onOpen={(tab) => openRow(c, tab)} onDropCondition={(cond) => dropCond(c, cond)} />
+                    onOpen={(tab) => openRow(c, tab)} />
                   {wide && isSel && (
                     <div className="ct-inline mesa-panel is-sunk">
                       <CombatantPanel key={c.id} layout="inline" {...panelProps(c)} />
@@ -349,7 +346,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
                 <p className="mesa-eyebrow">{t(lang, 'Selecionado no mapa', 'Selected on the map')}</p>
                 <CombatantRow combatant={sel} campaign={campaign} lang={lang}
                   isTurn={active && combatants[combat.turnIndex]?.id === sel.id} isSel pending={!!pendings[sel.id]}
-                  onOpen={(tab) => openRow(sel, tab)} onDropCondition={(cond) => dropCond(sel, cond)} />
+                  onOpen={(tab) => openRow(sel, tab)} />
               </div>
             )}
           </div>
@@ -388,11 +385,12 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
 /**
  * Linha do combatente (64–72 px): iniciativa, retrato, nome em até 2 linhas,
  * chips de condição (rodadas restantes), selo Monstro/Personagem e barra de PV.
- * O toque na linha abre a folha (celular) ou o painel (desktop). O chip de
- * condição é outro botão: pergunta antes de remover. As condições da ficha do
- * jogador aparecem marcadas "ficha", só leitura.
+ * O toque em qualquer ponto da linha (chips e barra de PV incluídos) abre a
+ * folha (celular) ou o painel (desktop). Os chips da linha só mostram: tirar
+ * uma condição é na folha/painel (chips de 44 px e a aba Condições, que
+ * perguntam antes). As condições da ficha do jogador aparecem marcadas "ficha".
  */
-function CombatantRow({ combatant: c, campaign, lang, isTurn, isSel, expanded, pending, onOpen, onDropCondition }) {
+function CombatantRow({ combatant: c, campaign, lang, isTurn, isSel, expanded, pending, onOpen }) {
   const conds = c.conditions || [];
   const fromSheet = useMemo(() => sheetConditions(c, campaign), [c, campaign]);
   const member = c.type === 'pc' ? (campaign.members || []).find(m => m.character?.id === c.character_id) : null;
@@ -403,9 +401,17 @@ function CombatantRow({ combatant: c, campaign, lang, isTurn, isSel, expanded, p
   const badge = c.defeated ? t(lang, 'Derrotado', 'Defeated')
     : c.type === 'pc' && down ? t(lang, 'Caído', 'Down')
       : c.type === 'monster' ? t(lang, 'Monstro', 'Monster') : t(lang, 'PJ', 'PC');
+  const condText = [
+    ...conds.map(cond => {
+      const r = condRounds(c, cond);
+      return conditionLabel(cond, lang) + (r != null ? t(lang, ` (${r} rodada(s))`, ` (${r} round(s))`) : '');
+    }),
+    ...fromSheet.map(cond => `${conditionLabel(cond, lang)} (${t(lang, 'ficha', 'sheet')})`),
+  ].join(', ');
   const label = [
     c.name, kind, `${t(lang, 'iniciativa', 'initiative')} ${c.initiative}`,
     `${t(lang, 'PV', 'HP')} ${c.current_hp}/${c.stats?.max_hp ?? '?'}`,
+    condText ? `${t(lang, 'condições', 'conditions')}: ${condText}` : null,
     isTurn ? t(lang, 'vez dele', 'their turn') : null,
     c.defeated ? t(lang, 'derrotado', 'defeated') : null,
     pending ? t(lang, 'sugestão em aberto', 'pending suggestion') : null,
@@ -423,10 +429,9 @@ function CombatantRow({ combatant: c, campaign, lang, isTurn, isSel, expanded, p
         <span className="ct-name">{c.name}</span>
       </button>
       {nChips > 0 && (
-        <div className="ct-conds">
+        <div className="ct-conds" aria-hidden="true">
           {conds.map(cond => (
-            <ConditionChip key={cond} cond={cond} rounds={condRounds(c, cond)} lang={lang} className="is-mini"
-              onRemove={() => onDropCondition(cond)} />
+            <ConditionChip key={cond} cond={cond} rounds={condRounds(c, cond)} lang={lang} className="is-mini" />
           ))}
           {fromSheet.map(cond => <ConditionChip key={`f-${cond}`} cond={cond} lang={lang} fromSheet className="is-mini" />)}
         </div>

@@ -470,8 +470,9 @@
   overflow: hidden;
 }
 .ct-row.has-conds .ct-open { align-self: end; }
-/* lado direito: PV em cima, selo embaixo (36 px no total) */
-.ct-side { grid-area: side; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+/* lado direito: PV em cima, selo embaixo (36 px no total). Só mostra: o toque
+   passa para a linha (a barra de PV tem position e ficaria por cima do ::after). */
+.ct-side { grid-area: side; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; pointer-events: none; }
 .ct-row.has-conds .ct-side { align-self: end; }
 .ct-kind { display: flex; justify-content: flex-end; align-items: center; gap: 4px; min-width: 0; }
 .mesa-hp.ct-hp { height: 18px; }
@@ -542,10 +543,11 @@
   letter-spacing: 0.06em;
   color: var(--gold);
 }
-/* na linha: chip baixo (26 px) para caber nos 72 px; a área de toque cresce para fora */
+/* na linha: chip baixo (26 px) para caber nos 72 px. Só mostra: o toque abre a
+   folha/painel, onde os chips têm 44 px e tirar pede confirmação. */
 .cs-cond.is-mini { min-height: 26px; padding: 1px 8px; gap: 4px; font-size: 13px; }
-.cs-cond.is-mini::before { content: ""; position: absolute; inset: -5px 0; }
 .cs-cond.is-mini .cs-cond-rounds { min-width: 18px; height: 18px; }
+.ct-row .cs-cond { pointer-events: none; }
 button.cs-cond:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
 @media (hover: hover) {
   button.cs-cond:hover { background: rgba(224, 96, 79, 0.26); color: #fff; }
