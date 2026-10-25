@@ -213,6 +213,8 @@ function ItemPickerSheet(props) {
     try { return window.matchMedia('(min-width: 768px)').matches; } catch { return false; }
   });
   const [detailOpen, setDetailOpen] = useState(false);
+  // "Cadastrar novo" com algo digitado: Esc, ✕ e toque fora perguntam antes
+  const [newDirty, setNewDirty] = useState(false);
   const nFilters = [P.type, P.category, P.rarity].filter(Boolean).length;
   const qtyNum = Math.max(1, parseInt(P.qty) || 1);
   const isNew = tab === 'new';
@@ -269,7 +271,7 @@ function ItemPickerSheet(props) {
 
   return (
     <MesaSheet title={title} icon={icon} eyebrow={eyebrow} size="full" width="lg" lang={lang} onClose={onClose}
-      className="ip-sheet" bodyClassName={`ip-sheet-body ${isNew ? 'is-form' : ''}`} footer={footer}>
+      dirty={isNew && newDirty} className="ip-sheet" bodyClassName={`ip-sheet-body ${isNew ? 'is-form' : ''}`} footer={footer}>
       <div className="mesa-seg ip-tabs" role="tablist" aria-label={t(lang, 'De onde vem o item', 'Where the item comes from')}>
         {P.tabs.map(([id, label]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id}
@@ -285,6 +287,7 @@ function ItemPickerSheet(props) {
             sheet
             submitLabel={confirmLabel}
             onCancel={onClose}
+            onDirtyChange={setNewDirty}
             extra={onSaveToCatalog && <SaveToCatalog lang={lang} P={P} className="item-form-check" style={null} />}
             onSubmit={P.submitNew}
           />

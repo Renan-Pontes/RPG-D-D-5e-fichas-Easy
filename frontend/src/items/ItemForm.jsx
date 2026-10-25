@@ -2,9 +2,11 @@
  * Usado pelo mestre (catálogo da campanha) e pelo jogador (ficha pessoal).
  * `sheet`: dentro de uma folha da mesa (MesaSheet) — campos quebram em linhas no
  * celular (o select Tipo mostra "Equipamento" inteiro), alvos de 44 e a fileira
- * Cancelar / Salvar presa no pé da folha. Sem `sheet`, o desenho de sempre. */
+ * Cancelar / Salvar presa no pé da folha. Sem `sheet`, o desenho de sempre.
+ * `onDirtyChange(bool)` (opcional): avisa quando o formulário passa a diferir do
+ * que abriu (ou volta a ser igual), para a folha perguntar antes de descartar. */
 import { errorMessage } from '../api/errors.js';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { ITEM_TYPES } from '../../data/items.js';
 import { DAMAGE_TYPES } from '../combat/monster-i18n.js';
 import {
@@ -18,11 +20,20 @@ export { dmgTypeLabel, formToItem, rarityLabel, typeLabel, weaponPropLabel, weig
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
 
-export default function ItemForm({ lang, initial, submitLabel, onSubmit, onCancel, extra, sheet = false }) {
-  const [f, setF] = useState(() => toForm(initial, lang));
+export default function ItemForm({ lang, initial, submitLabel, onSubmit, onCancel, extra, sheet = false, onDirtyChange }) {
+  const [start] = useState(() => toForm(initial, lang));
+  const [f, setF] = useState(start);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const set = (patch) => setF(prev => ({ ...prev, ...patch }));
+
+  const dirty = f !== start && JSON.stringify(f) !== JSON.stringify(start);
+  const dirtyCb = useRef(onDirtyChange);
+  dirtyCb.current = onDirtyChange;
+  // layout (não passivo): a folha já sabe antes da próxima tecla — um Esc logo
+  // depois de digitar não pode fechar sem perguntar
+  useLayoutEffect(() => { dirtyCb.current?.(dirty); }, [dirty]);
+  useLayoutEffect(() => () => dirtyCb.current?.(false), []);
 
   const submit = async () => {
     if (!f.name.trim()) { setError(t(lang, 'Nome obrigatório', 'Name required')); return; }

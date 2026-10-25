@@ -18,6 +18,7 @@ const text = (v, lang) => (typeof v === 'string' ? v : v?.[lang] || v?.en || '')
 export default function CampaignItemsTab({ campaign, lang, goTo }) {
   const [items, setItems] = useState(null);
   const [editing, setEditing] = useState(null); // null | 'new' | {id, item}
+  const [formDirty, setFormDirty] = useState(false); // Esc, ✕ e toque fora perguntam antes
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
   const [confirm, confirmEl] = usePrepConfirm(lang);
@@ -116,10 +117,11 @@ export default function CampaignItemsTab({ campaign, lang, goTo }) {
           title={editing === 'new' ? t(lang, 'Novo item', 'New item') : t(lang, 'Editar item', 'Edit item')}
           size="full" width="md" lang={lang}
           onClose={() => setEditing(null)}
+          dirty={formDirty}
           className="ci-sheet" bodyClassName="ci-sheet-body is-form"
           initialFocus={editing === 'new' ? '.item-form input' : undefined}
         >
-          <ItemForm lang={lang} sheet initial={editing === 'new' ? null : editing.item} submitLabel={t(lang, 'Salvar', 'Save')} onSubmit={save} onCancel={() => setEditing(null)} />
+          <ItemForm lang={lang} sheet initial={editing === 'new' ? null : editing.item} submitLabel={t(lang, 'Salvar', 'Save')} onSubmit={save} onCancel={() => setEditing(null)} onDirtyChange={setFormDirty} />
         </MesaSheet>
       )}
       {confirmEl}
