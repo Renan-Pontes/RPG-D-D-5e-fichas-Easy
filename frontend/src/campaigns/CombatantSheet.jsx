@@ -232,7 +232,11 @@ export function CombatantPanel({
         {activeTab === 'actions' && (pending ? (
           <PendingSuggestion pending={pending} combatant={c} allCombatants={allCombatants} campaignId={campaignId}
             lang={lang} layout={layout}
-            onDone={(msg) => { setPending(null); if (msg) flash(msg); onChange(); }}
+            onDone={(msg) => {
+              // área aplicada: os alvos marcados saem (como antes), para a próxima não ir nos mesmos sem querer
+              if (pending.kind === 'save') setChoice(pending.index, { targetIds: [] });
+              setPending(null); if (msg) flash(msg); onChange();
+            }}
             onDiscard={() => setPending(null)} />
         ) : (
           <div className="cs-actions">
