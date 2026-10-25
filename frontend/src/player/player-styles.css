@@ -387,8 +387,9 @@ div.pl-table { display: flex; align-items: stretch; grid-template-columns: none;
 .pl-onscreen-body .btn { min-height: 44px; }
 /* pedido ao mestre: Normal / Vantagem / Desvantagem */
 .pl-adv { margin: 0 0 10px; }
+/* colunas pelo tamanho do rótulo: "Desvantagem" (em negrito, quando escolhida) cabe no botão em 320 */
 .pl-adv-row {
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; padding: 3px;
+  display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.3fr); gap: 3px; padding: 3px;
   border-radius: 10px; border: 1px solid var(--stroke-faint); background: var(--bg-elevated);
 }
 .pl-adv-btn {
