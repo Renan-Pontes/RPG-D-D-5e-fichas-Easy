@@ -2,7 +2,9 @@
  * Sem modo trapaça só se gasta: a recuperação vem do descanso (ou do mestre).
  * `features` (só a aba Jogar da ficha; src/sheet/feature-placement.js): os traços de classe
  * que usam cada recurso, embaixo da linha dele (a Fúria junto das gemas da Fúria); os que
- * não têm linha na ficha ficam no fim. O editor do mestre não passa: nada muda lá. */
+ * não têm linha na ficha ficam no fim. O editor do mestre não passa: nada muda lá.
+ * `showDesc` (só o editor do mestre): a descrição de cada recurso em texto, sob
+ * "Recupera: …" — no toque não há hover para ler o `title`. A ficha não passa. */
 import { Fragment, useState } from 'react';
 import { computeResources, spendResource } from './resources.js';
 import { api } from '../api/client.js';
@@ -12,7 +14,7 @@ import FhFeatures from '../sheet/FhFeatures.jsx';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
-export default function ResourcesCard({ char, lang, update, canRestore = !!char.cheatMode && !char.inCampaign, local = false, features = [], multiclass = false }) {
+export default function ResourcesCard({ char, lang, update, canRestore = !!char.cheatMode && !char.inCampaign, local = false, features = [], multiclass = false, showDesc = false }) {
   const [busy, setBusy] = useState(false);
   const list = computeResources(char);
   const keys = new Set(list.map(r => r.key));
@@ -54,6 +56,7 @@ export default function ResourcesCard({ char, lang, update, canRestore = !!char.
                   {multi && <span className="text-xs muted"> · {r.classId === 'species' ? t(lang, 'espécie', 'species') : tName('class', r.classId, lang)}</span>}
                 </div>
                 <div className="text-xs muted">{t(lang, 'Recupera', 'Recovers')}: {rest}</div>
+                {showDesc && r.desc?.[lang] && <div className="text-xs muted slot-desc">{r.desc[lang]}</div>}
               </div>
               {r.max <= 12 ? (
                 <div className="slot-pips">

@@ -654,6 +654,8 @@
 .dm-res .dm-editor-section-body > div { margin-top: 0 !important; }
 .dm-res .eyebrow { display: none; } /* o título da seção já diz "Recursos de classe" */
 .dm-res .text-xs { font-size: 0.85rem; }
+/* descrição do recurso (showDesc): o que na ficha fica só no title, aqui à vista */
+.dm-res .slot-desc { margin-top: 4px; line-height: 1.4; overflow-wrap: anywhere; }
 .dm-res .slot-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

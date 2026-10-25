@@ -223,7 +223,7 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved, i
 
             <Section title={t(lang, 'Recursos de classe', 'Class resources')} className="dm-res">
               {computeResources(data).length > 0
-                ? <ResourcesCard char={data} lang={lang} update={patch} canRestore local />
+                ? <ResourcesCard char={data} lang={lang} update={patch} canRestore local showDesc />
                 : <p className="dm-editor-note">{t(lang, 'Esta ficha não tem recursos de classe com usos.', 'This sheet has no class resources with uses.')}</p>}
             </Section>
 
