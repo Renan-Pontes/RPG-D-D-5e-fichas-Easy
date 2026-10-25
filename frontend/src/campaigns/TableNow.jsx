@@ -1,9 +1,16 @@
-// "Mesa agora" — painel do mestre com tudo da sessão num lugar só:
-// personagens, cena, combate, pendências, avisos e ações rápidas.
+// "Mesa agora" (Jogar › Cena) — painel do mestre com tudo da sessão num lugar só.
 // Regra de produto: aqui só se mostra e se sugere; toda mudança é um clique do mestre.
+//
+// Celular, nesta ordem (o urgente primeiro):
+//   1. faixa do turno (presa ao rolar) · 2. cena compacta (o toque abre os campos)
+//   3. avisos · 4. personagens · 5. pendências · 6. ações rápidas
+//   7. Nesta cena · 8. plano da sessão (recolhido)
+// Pedir teste, Anteriormente em…, Improvisar, Revelar e Configurar avisos abrem
+// em folha (MesaSheet), sem empurrar a página.
+// Desktop (≥ 1024): 2 colunas — à esquerda turno, cena, avisos e personagens;
+// à direita pendências, ações e Nesta cena; o plano embaixo, nas 2 colunas.
 import { errorMessage } from '../api/errors.js';
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import Utils from '../../utils.js';
@@ -20,7 +27,14 @@ import SessionPlanPanel from '../play/SessionPlanPanel.jsx';
 import RecapCard from '../play/RecapCard.jsx';
 import { patchState } from '../play/play-api.js';
 import { flash } from '../play/flash.js';
+import useMedia from '../play/useMedia.js';
 import { openGrimoireLink } from '../grimoire/link.js';
+import MesaSheet from '../shell/MesaSheet.jsx';
+import MesaTitle from '../shell/MesaTitle.jsx';
+import { HpBar, PcPortrait } from '../shell/MesaPc.jsx';
+import { DM_AREAS, legacyTabToArea, subLabel } from '../shell/shell-logic.js';
+import { memberStats } from '../group/group-model.js';
+import './combat-styles.css';
 import './table-now.css';
 
 const ImproviseModal = lazy(() => import('../world/ImproviseModal.jsx'));
@@ -53,23 +67,27 @@ function openGrimoire() {
   else window.location.hash = '#grimorio';
 }
 
+/** "Grupo › Jogadores": para onde leva uma aba antiga (o mapa da casca decide). */
+function routeLabel(tab, lang) {
+  const m = legacyTabToArea(tab);
+  if (!m) return '';
+  const area = DM_AREAS.find(a => a.id === m[0]);
+  const name = area ? (lang === 'en' ? area.en : area.pt) : m[0];
+  return m[1] ? `${name} › ${subLabel(m[1], lang)}` : name;
+}
+
 // onNavigate(tabAntiga) continua aceito; goTo(área, sub, params) é o da casca nova.
-export default function TableNow({ campaign, approvals = [], lang = 'pt', onChange, onNavigate, goTo }) {
+// approvals: lista antiga (só o fallback manda); sem ela, as aprovações vêm do
+// contador campaign.pendingApprovals, que já chega com a campanha (sem consulta nova).
+export default function TableNow({ campaign, approvals, lang = 'pt', onChange, onNavigate, goTo }) {
   const [combat, setCombat] = useState(undefined); // undefined = carregando
   const [pendingRolls, setPendingRolls] = useState([]);
   const [checks, setChecks] = useState([]);
-  const [showCheck, setShowCheck] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const [sheet, setSheet] = useState(null); // 'check' | 'recap' | 'improvise' | 'nudges'
   const [showWrapUp, setShowWrapUp] = useState(false);
-  const [showRecap, setShowRecap] = useState(false);
-  const [showImprovise, setShowImprovise] = useState(false);
-  useEffect(() => {
-    if (!showRecap && !showCheck) return;
-    const el = document.querySelector(showRecap ? '.tn-recap' : '.tn-check');
-    try { el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch { /* ok */ }
-  }, [showRecap, showCheck]);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const wide = useMedia('(min-width: 1024px)');
 
   const load = useCallback(async () => {
     const [cb, rolls, ch] = await Promise.allSettled([
@@ -105,20 +123,20 @@ export default function TableNow({ campaign, approvals = [], lang = 'pt', onChan
   const serverWizard = isWizardEnabled(campaign.state);
   useEffect(() => { setWizardLocal(null); }, [serverWizard]);
   const wizardOn = wizardLocal ?? serverWizard;
-  const pendingApprovals = approvals.filter(a => a.status === 'pending');
-  const levelups = pendingApprovals.filter(a => a.type === 'levelup').length;
   const openChecks = checks.filter(c => c.status === 'open');
+  const closeSheet = () => setSheet(null);
 
-  return (
-    <div className="table-now">
-      <SceneBar campaign={campaign} lang={lang} onSave={saveState} />
+  const turnStrip = combat !== undefined && combatants.length > 0 && (
+    <CombatStrip combat={combat} lang={lang} active={active} wizardOn={wizardOn}
+      onOpen={() => onNavigate?.('combat')}
+      onNext={() => act(() => api.combatNextTurn(campaign.id))}
+      onWrapUp={() => setShowWrapUp(true)} busy={busy} />
+  );
 
-      {combat !== undefined && (combatants.length > 0) && (
-        <CombatStrip combat={combat} lang={lang} active={active} wizardOn={wizardOn}
-          onOpen={() => onNavigate?.('combat')}
-          onNext={() => act(() => api.combatNextTurn(campaign.id))}
-          onWrapUp={() => setShowWrapUp(true)} busy={busy} />
-      )}
+  const main = (
+    <>
+      {turnStrip}
+      <SceneBar campaign={campaign} lang={lang} onSave={saveState} alwaysOpen={wide} />
       {showWrapUp && combat && (
         <div className="tn-wrapup">
           <EndOfEncounterPanel campaign={campaign} combat={combat} lang={lang}
@@ -126,83 +144,113 @@ export default function TableNow({ campaign, approvals = [], lang = 'pt', onChan
         </div>
       )}
 
-      <SessionPlanPanel campaign={campaign} lang={lang} goTo={goTo} onSaveState={saveState} />
-
-      <InScenePanel campaign={campaign} lang={lang} goTo={goTo} />
-
-      <section className="tn-box tn-nudges" aria-labelledby="tn-nudges-h">
-        <div className="tn-box-head">
-          <h3 id="tn-nudges-h">{L(lang, 'Avisos', 'Notices')}
-            {nudges.visible.length > 0 && <span className="tn-count">{nudges.visible.length}</span>}
-          </h3>
-          <button type="button" className="btn btn-ghost btn-sm" aria-expanded={showSettings} onClick={() => setShowSettings(v => !v)}>
-            ⚙ {L(lang, 'Configurar', 'Settings')}
-          </button>
-        </div>
-        {showSettings && <NudgeSettings nudges={nudges} lang={lang} />}
+      <section className="mesa-panel tn-box tn-nudges" aria-labelledby="tn-nudges-h">
+        <MesaTitle id="tn-nudges-h"
+          hint={nudges.visible.length > 0 ? <span className="tn-count" aria-label={`(${nudges.visible.length})`}>{nudges.visible.length}</span> : null}
+          act={(
+            <button type="button" className="mesa-btn is-quiet tn-nudge-cfg" aria-haspopup="dialog" onClick={() => setSheet('nudges')}>
+              ⚙ {L(lang, 'Configurar', 'Settings')}
+            </button>
+          )}>
+          {L(lang, 'Avisos', 'Notices')}
+        </MesaTitle>
+        {nudges.visible.length > 0 && (
+          <p className="mesa-hint tn-nudge-hint">
+            {L(lang, '“Dispensar” esconde só este aviso, neste aparelho.', '“Dismiss” hides only this notice, on this device.')}
+          </p>
+        )}
         <NudgeList nudges={nudges} lang={lang} />
       </section>
 
-      <section className="tn-party" aria-label={L(lang, 'Personagens da mesa', 'Party')}>
-        {party.length === 0 && (
-          <div className="tn-box muted">
-            {L(lang, 'Nenhum personagem na mesa ainda. Convide os jogadores em Grupo › Jogadores.', 'No characters yet. Invite players in Party › Players.')}
-            {goTo && <button type="button" className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }} onClick={() => goTo('group', 'players')}>🛡️ {L(lang, 'Ir para Grupo', 'Go to Party')}</button>}
-          </div>
-        )}
-        {party.map(p => (
-          <PartyCard key={p.characterId} p={p} campaign={campaign} lang={lang} onSaveState={saveState}
-            onToggleInspiration={() => act(() => api.dmEditCharacter(p.characterId, { data: { inspiration: !p.data?.inspiration } }))} />
-        ))}
+      <section className="mesa-panel tn-party-box" aria-labelledby="tn-party-h">
+        <MesaTitle id="tn-party-h"
+          sub={party.length > 0 ? <span>{L(lang, 'Perícias passivas (10 + bônus) · espaços: restantes/máx.', 'Passive skills (10 + bonus) · slots: left/max.')}</span> : null}>
+          {L(lang, 'Personagens', 'Characters')}
+        </MesaTitle>
+        <div className="tn-party">
+          {party.length === 0 && (
+            <div className="tn-party-empty">
+              <p>{L(lang, 'Nenhum personagem na mesa ainda. Convide os jogadores em Grupo › Jogadores.', 'No characters yet. Invite players in Party › Players.')}</p>
+              {goTo && <button type="button" className="mesa-btn" onClick={() => goTo('group', 'players')}>🛡️ {L(lang, 'Ir para Grupo', 'Go to Party')}</button>}
+            </div>
+          )}
+          {party.map(p => (
+            <PartyCard key={p.characterId} p={p} campaign={campaign} lang={lang} onSaveState={saveState}
+              onToggleInspiration={() => act(() => api.dmEditCharacter(p.characterId, { data: { inspiration: !p.data?.inspiration } }))} />
+          ))}
+        </div>
       </section>
+    </>
+  );
 
-      <section className="tn-box tn-pending" aria-labelledby="tn-pending-h">
-        <h3 id="tn-pending-h">{L(lang, 'Pendências', 'Pending')}</h3>
+  const approvalsList = Array.isArray(approvals) ? approvals.filter(a => a.status === 'pending') : null;
+  const levelups = approvalsList ? approvalsList.filter(a => a.type === 'levelup').length : 0;
+  const approvalsCount = approvalsList ? approvalsList.length : Math.max(0, Number(campaign.pendingApprovals) || 0);
+  const toApprovals = routeLabel('approvals', lang);
+  const toTests = routeLabel('rolls', lang);
+  const nothing = !approvalsCount && !pendingRolls.length && !openChecks.length;
+
+  const side = (
+    <>
+      <section className="mesa-panel tn-box tn-pending" aria-labelledby="tn-pending-h">
+        <MesaTitle id="tn-pending-h">{L(lang, 'Pendências', 'Pending')}</MesaTitle>
         <ul className="tn-pending-list">
-          <PendingRow n={levelups} lang={lang} label={L(lang, 'pedido(s) de subida de nível', 'level-up request(s)')} onClick={() => onNavigate?.('approvals')} />
-          <PendingRow n={pendingApprovals.length - levelups} lang={lang} label={L(lang, 'outro(s) pedido(s) de aprovação', 'other approval request(s)')} onClick={() => onNavigate?.('approvals')} />
-          <PendingRow n={pendingRolls.length} lang={lang} label={L(lang, 'pedido(s) de rolagem esperando', 'roll request(s) waiting')} onClick={() => onNavigate?.('rolls')} />
+          {approvalsList ? (
+            <>
+              <PendingRow n={levelups} sub={toApprovals} label={L(lang, 'pedido(s) de subida de nível', 'level-up request(s)')} onClick={() => onNavigate?.('approvals')} />
+              <PendingRow n={approvalsList.length - levelups} sub={toApprovals} label={L(lang, 'outro(s) pedido(s) de aprovação', 'other approval request(s)')} onClick={() => onNavigate?.('approvals')} />
+            </>
+          ) : (
+            <PendingRow n={approvalsCount} sub={toApprovals}
+              label={approvalsCount === 1 ? L(lang, 'pedido esperando você', 'request waiting for you') : L(lang, 'pedidos esperando você', 'requests waiting for you')}
+              onClick={() => onNavigate?.('approvals')} />
+          )}
+          <PendingRow n={pendingRolls.length} sub={toTests}
+            label={pendingRolls.length === 1 ? L(lang, 'pedido de rolagem esperando', 'roll request waiting') : L(lang, 'pedidos de rolagem esperando', 'roll requests waiting')}
+            onClick={() => onNavigate?.('rolls')} />
           {openChecks.map(c => {
             const s = summarize(c);
             return (
               <li key={c.id}>
                 <button type="button" className="tn-pending-item" onClick={() => onNavigate?.('rolls')}>
                   <span className="tn-pending-n">{s.answered}/{s.total}</span>
-                  <span>🎯 {c.label}{c.dc != null ? ` CD ${c.dc}` : ''} — {L(lang, 'responderam', 'answered')}</span>
+                  <span className="tn-pending-text">
+                    <span>🎯 {c.label}{c.dc != null ? ` CD ${c.dc}` : ''} — {L(lang, 'responderam', 'answered')}</span>
+                    <span className="tn-pending-sub">{toTests}</span>
+                  </span>
+                  <span className="tn-pending-go" aria-hidden="true">›</span>
                 </button>
               </li>
             );
           })}
         </ul>
-        {!levelups && !pendingApprovals.length && !pendingRolls.length && !openChecks.length && (
-          <p className="muted small" style={{ margin: 0 }}>{L(lang, 'Nada esperando por você.', 'Nothing waiting for you.')}</p>
-        )}
+        {nothing && <p className="mesa-hint tn-pending-none">{L(lang, 'Nada esperando por você.', 'Nothing waiting for you.')}</p>}
       </section>
 
-      <section className="tn-box tn-actions" aria-labelledby="tn-actions-h">
-        <h3 id="tn-actions-h">{L(lang, 'Ações rápidas', 'Quick actions')}</h3>
+      <section className="mesa-panel tn-box tn-actions" aria-labelledby="tn-actions-h">
+        <MesaTitle id="tn-actions-h">{L(lang, 'Ações rápidas', 'Quick actions')}</MesaTitle>
         <div className="tn-action-grid">
-          <button type="button" className={`btn btn-sm ${showCheck ? 'btn-primary' : 'btn-ghost'}`} aria-expanded={showCheck} onClick={() => setShowCheck(v => !v)}>
-            🎯 {L(lang, 'Pedir teste à mesa', 'Ask for a check')}
+          <button type="button" className="mesa-btn tn-act" aria-haspopup="dialog" onClick={() => setSheet('check')}>
+            <span aria-hidden="true">🎯</span> {L(lang, 'Pedir teste à mesa', 'Ask for a check')}
           </button>
-          <button type="button" className={`btn btn-sm ${showImprovise ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setShowImprovise(true)}
+          <button type="button" className="mesa-btn tn-act" aria-haspopup="dialog" onClick={() => setSheet('improvise')}
             title={L(lang, 'NPC, taverna ou nomes na hora', 'NPC, tavern or names on the spot')}>
-            🎲 {L(lang, 'Improvisar', 'Improvise')}
+            <span aria-hidden="true">🎲</span> {L(lang, 'Improvisar', 'Improvise')}
           </button>
-          <button type="button" className={`btn btn-sm ${showRecap ? 'btn-primary' : 'btn-ghost'}`} aria-expanded={showRecap} onClick={() => setShowRecap(v => !v)}>
-            📜 {L(lang, 'Anteriormente em…', 'Previously on…')}
+          <button type="button" className="mesa-btn tn-act" aria-haspopup="dialog" onClick={() => setSheet('recap')}>
+            <span aria-hidden="true">📜</span> {L(lang, 'Anteriormente em…', 'Previously on…')}
           </button>
-          <button type="button" className="btn btn-ghost btn-sm" disabled={busy || !party.length} onClick={async () => {
+          <button type="button" className="mesa-btn tn-act" disabled={busy || !party.length} onClick={async () => {
             if (await ask(L(lang, 'Aplicar descanso curto em todos os personagens da mesa?', 'Apply a short rest to the whole party?'), L(lang, 'Aplicar', 'Apply'))) {
               act(async () => { await api.campaignShortRestAll(campaign.id); }, L(lang, 'Descanso curto aplicado.', 'Short rest applied.'));
             }
-          }}>☕ {L(lang, 'Descanso curto (mesa)', 'Short rest (party)')}</button>
-          <button type="button" className="btn btn-ghost btn-sm" disabled={busy || !party.length} onClick={async () => {
+          }}><span aria-hidden="true">☕</span> {L(lang, 'Descanso curto (mesa)', 'Short rest (party)')}</button>
+          <button type="button" className="mesa-btn tn-act" disabled={busy || !party.length} onClick={async () => {
             if (await ask(L(lang, 'Aplicar descanso longo em todos os personagens da mesa?', 'Apply a long rest to the whole party?'), L(lang, 'Aplicar', 'Apply'))) {
               act(async () => { await api.campaignLongRestAll(campaign.id); }, L(lang, 'Descanso longo aplicado.', 'Long rest applied.'));
             }
-          }}>🛌 {L(lang, 'Descanso longo (mesa)', 'Long rest (party)')}</button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={openGrimoire}>📖 {L(lang, 'Abrir Grimório', 'Open Grimoire')}</button>
+          }}><span aria-hidden="true">🛌</span> {L(lang, 'Descanso longo (mesa)', 'Long rest (party)')}</button>
+          <button type="button" className="mesa-btn tn-act" onClick={openGrimoire}><span aria-hidden="true">📖</span> {L(lang, 'Abrir Grimório', 'Open Grimoire')}</button>
         </div>
         <label className="tn-toggle">
           <input type="checkbox" checked={wizardOn} disabled={busy}
@@ -215,48 +263,84 @@ export default function TableNow({ campaign, approvals = [], lang = 'pt', onChan
             }} />
           <span>
             <strong>{L(lang, 'Fim de encontro guiado', 'Guided end of encounter')}</strong>
-            <span className="muted small"> — {L(lang,
-              'ao encerrar o combate, abre um painel com XP, descanso, tesouro e nota no Diário (tudo opcional).',
-              'when combat ends, opens a panel with XP, rest, treasure and a Diary note (all optional).')}</span>
+            <span className="tn-toggle-hint">{L(lang,
+              'Ao encerrar o combate: XP, descanso, tesouro e nota no Diário (tudo opcional).',
+              'When combat ends: XP, rest, treasure and a Diary note (all optional).')}</span>
           </span>
         </label>
-        {msg && <p className="small tn-msg" role="status">{msg}</p>}
+        {msg && <p className="tn-msg" role="status">{msg}</p>}
       </section>
 
-      {showCheck && (
-        <div className="tn-check">
-          <GroupCheckPanel campaign={campaign} lang={lang} showList={false} onSent={() => { load(); flash(L(lang, 'Pedido enviado à mesa. Acompanhe em Testes.', 'Request sent. Follow it in Checks.')); }} />
-        </div>
+      <InScenePanel campaign={campaign} lang={lang} goTo={goTo} />
+    </>
+  );
+
+  return (
+    <div className={`table-now ${active ? 'has-turn' : ''}`}>
+      <div className="tn-col tn-col-main">{main}</div>
+      <div className="tn-col tn-col-side">{side}</div>
+      {/* o plano por último; no desktop ocupa as 2 colunas embaixo (grid-area: plan) */}
+      <SessionPlanPanel campaign={campaign} lang={lang} goTo={goTo} onSaveState={saveState} />
+
+      {sheet === 'check' && (
+        <GroupCheckPanel campaign={campaign} lang={lang} showList={false} asSheet onClose={closeSheet}
+          onSent={(body) => { load(); flash(L(lang, `Pedido enviado: ${body?.label || ''}. Acompanhe em Testes.`, `Request sent: ${body?.label || ''}. Follow it in Checks.`)); }} />
       )}
-      {showRecap && (
-        <div className="tn-box tn-recap">
-          <RecapCard campaign={campaign} lang={lang} autoDraft onClose={() => setShowRecap(false)} />
-        </div>
-      )}
-      {showImprovise && createPortal(
+      {sheet === 'recap' && <RecapCard campaign={campaign} lang={lang} autoDraft asSheet onClose={closeSheet} />}
+      {sheet === 'improvise' && (
         <Suspense fallback={null}>
-          <ImproviseModal campaignId={campaign.id} lang={lang} onClose={() => setShowImprovise(false)}
+          <ImproviseModal campaignId={campaign.id} lang={lang} onClose={closeSheet}
             onSaved={(entry) => flash(L(lang, `Salvo no Mundo (oculto): ${entry?.name || ''}`, `Saved to the World (hidden): ${entry?.name || ''}`))} />
-        </Suspense>,
-        document.body,
+        </Suspense>
+      )}
+      {sheet === 'nudges' && (
+        <MesaSheet title={L(lang, 'Avisos: o que avisar', 'Notices: what to flag')} icon="⚙" size="auto" width="md" lang={lang}
+          onClose={closeSheet} className="nudge-settings-sheet"
+          footer={<div className="mesa-actions"><button type="button" className="mesa-btn is-primary" onClick={closeSheet}>{L(lang, 'Pronto', 'Done')}</button></div>}>
+          <NudgeSettings nudges={nudges} lang={lang} />
+        </MesaSheet>
       )}
     </div>
   );
 }
 
-function PendingRow({ n, label, onClick }) {
+function PendingRow({ n, label, sub, onClick }) {
   if (!n) return null;
   return (
     <li>
       <button type="button" className="tn-pending-item" onClick={onClick}>
-        <span className="tn-pending-n">{n}</span><span>{label}</span>
+        <span className="tn-pending-n">{n}</span>
+        <span className="tn-pending-text">
+          <span>{n} {label}</span>
+          {sub && <span className="tn-pending-sub">{sub}</span>}
+        </span>
+        <span className="tn-pending-go" aria-hidden="true">›</span>
       </button>
     </li>
   );
 }
 
-/** Sessão / cena / clima editáveis na própria linha (salva ao sair do campo ou Enter). */
-function SceneBar({ campaign, lang, onSave }) {
+/** Campo da barra da cena que cresce com o texto (Cena e Clima quebram linha). */
+function GrowField({ value, multiline, ...rest }) {
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || !multiline) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight + 2}px`;
+  }, [value, multiline]);
+  return multiline
+    ? <textarea ref={ref} rows={1} value={value} {...rest} />
+    : <input ref={ref} value={value} {...rest} />;
+}
+
+/**
+ * Sessão / cena / clima editáveis (salva ao sair do campo ou com Enter; Esc desfaz;
+ * "✓" por 1,5 s; o polling não atropela o campo em edição).
+ * Celular: uma linha compacta "🎭 Sessão 3 · Taverna… · ☁ Chuva"; o toque abre os
+ * campos. Desktop (alwaysOpen): os campos sempre à vista.
+ */
+function SceneBar({ campaign, lang, onSave, alwaysOpen = false }) {
   const fields = [
     ['session', L(lang, 'Sessão', 'Session'), 'ex: 12'],
     ['scene', L(lang, 'Cena', 'Scene'), L(lang, 'ex: Taverna do Javali Cego', 'e.g.: Blind Boar Tavern')],
@@ -265,6 +349,7 @@ function SceneBar({ campaign, lang, onSave }) {
   const [vals, setVals] = useState(() => Object.fromEntries(fields.map(([k]) => [k, campaign.state?.[k] || ''])));
   const [editing, setEditing] = useState(null);
   const [saved, setSaved] = useState(null);
+  const [open, setOpen] = useState(false);
   const st = campaign.state || {};
   useEffect(() => {
     // Atualiza com o que veio do servidor, sem atropelar o campo em edição.
@@ -277,22 +362,57 @@ function SceneBar({ campaign, lang, onSave }) {
     if ((st[k] || '') === vals[k]) return;
     try { await onSave({ [k]: vals[k] }); setSaved(k); setTimeout(() => setSaved(s => (s === k ? null : s)), 1500); } catch { /* polling corrige */ }
   };
+  const showFields = alwaysOpen || open || !!editing;
+  const anything = vals.session || vals.scene || vals.weather;
+
   return (
-    <div className="tn-scene">
-      {fields.map(([k, label, ph]) => (
-        <label key={k} className={`tn-scene-field tn-scene-${k}`}>
-          <span className="tn-eyebrow">{label}{saved === k && <span className="tn-saved"> ✓</span>}</span>
-          <input className="tn-scene-input" value={vals[k]} placeholder={ph} maxLength={120}
-            onFocus={() => setEditing(k)}
-            onChange={e => setVals(v => ({ ...v, [k]: e.target.value }))}
-            onBlur={() => commit(k)}
-            onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { setVals(v => ({ ...v, [k]: st[k] || '' })); setEditing(null); } }} />
-        </label>
-      ))}
-    </div>
+    <section className={`mesa-panel tn-scene ${showFields ? 'is-open' : ''}`} aria-label={L(lang, 'Sessão, cena e clima', 'Session, scene and weather')}>
+      {!alwaysOpen && (
+        <button type="button" className="tn-scene-sum" aria-expanded={showFields} onClick={() => setOpen(o => !o)}>
+          <span className="tn-scene-sum-ico" aria-hidden="true">🎭</span>
+          <span className="tn-scene-sum-text">
+            {anything ? (
+              <>
+                {vals.session && <span className="tn-scene-sum-session">{L(lang, 'Sessão', 'Session')} {vals.session}</span>}
+                {vals.scene && <span className="tn-scene-sum-scene">{vals.scene}</span>}
+                {vals.weather && <span className="tn-scene-sum-weather">☁ {vals.weather}</span>}
+              </>
+            ) : <span className="tn-scene-sum-empty">{L(lang, 'Sem cena ainda — toque para escrever', 'No scene yet — tap to write one')}</span>}
+            {saved && <span className="tn-saved"> ✓ {L(lang, 'salvo', 'saved')}</span>}
+          </span>
+          <span className="tn-scene-sum-edit">
+            <span aria-hidden="true">{showFields ? '▴' : '✎'}</span>
+            <span>{showFields ? L(lang, 'Fechar', 'Close') : L(lang, 'Editar', 'Edit')}</span>
+          </span>
+        </button>
+      )}
+      {showFields && (
+        <div className="tn-scene-fields">
+          {fields.map(([k, label, ph]) => (
+            <label key={k} className={`tn-scene-field tn-scene-${k}`}>
+              <span className="tn-eyebrow">{label}{saved === k && <span className="tn-saved"> ✓</span>}</span>
+              <GrowField className="tn-scene-input" value={vals[k]} placeholder={ph} maxLength={120} multiline={k !== 'session'}
+                onFocus={() => setEditing(k)}
+                onChange={e => setVals(v => ({ ...v, [k]: e.target.value.replace(/\n/g, ' ') }))}
+                onBlur={() => commit(k)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+                  if (e.key === 'Escape') { setVals(v => ({ ...v, [k]: st[k] || '' })); setEditing(null); }
+                }} />
+            </label>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
+/**
+ * Faixa do combate. Ativo: presa no topo ao rolar — Rodada · Vez de (PV) ·
+ * Próximo, [Próximo turno →] e [⚔ Combate] (abre Jogar › Combate; o toque no
+ * nome também). Montado e parado: "Combate montado, parado", Fim de encontro
+ * (com o guiado ligado) e Abrir combate.
+ */
 function CombatStrip({ combat, lang, active, wizardOn, onOpen, onNext, onWrapUp, busy }) {
   const list = combat.combatants || [];
   const cur = list[combat.turnIndex];
@@ -303,26 +423,35 @@ function CombatStrip({ combat, lang, active, wizardOn, onOpen, onNext, onWrapUp,
   }
   if (!active) {
     return (
-      <div className="tn-combat is-idle">
+      <div className="mesa-panel tn-combat is-idle">
         <span className="tn-combat-label">⚔ {L(lang, 'Combate montado, parado', 'Combat set up, paused')} · {list.length} {L(lang, 'combatentes', 'combatants')}</span>
         <div className="tn-combat-actions">
-          {wizardOn && <button type="button" className="btn btn-ghost btn-sm" onClick={onWrapUp}>{L(lang, 'Fim de encontro', 'Wrap up')}</button>}
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onOpen}>{L(lang, 'Abrir combate', 'Open combat')} →</button>
+          {wizardOn && <button type="button" className="mesa-btn" onClick={onWrapUp}>{L(lang, 'Fim de encontro', 'Wrap up')}</button>}
+          <button type="button" className="mesa-btn" onClick={onOpen}>{L(lang, 'Abrir combate', 'Open combat')} →</button>
         </div>
       </div>
     );
   }
   return (
-    <div className="tn-combat">
-      <div className="tn-combat-info">
-        <span className="tn-combat-round">{L(lang, 'Rodada', 'Round')} {combat.round}</span>
-        <span className="tn-combat-now"><span className="tn-eyebrow">{L(lang, 'Vez de', 'Now')}</span> <strong>{cur?.name || '—'}</strong>
-          {cur && <span className="muted small"> {cur.current_hp}/{cur.stats?.max_hp ?? '?'} PV</span>}</span>
-        {next && <span className="tn-combat-next"><span className="tn-eyebrow">{L(lang, 'Próximo', 'Next')}</span> {next.name}</span>}
-      </div>
-      <div className="tn-combat-actions">
-        <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={onNext}>{L(lang, 'Próximo turno', 'Next turn')} →</button>
-        <button type="button" className="btn btn-primary btn-sm" onClick={onOpen}>⚔ {L(lang, 'Abrir combate', 'Open combat')}</button>
+    <div className="tn-turn-wrap">
+      <div className="mesa-turn is-now tn-turn" role="region" aria-label={L(lang, 'Turno do combate', 'Combat turn')}>
+        <button type="button" className="tn-turn-who" onClick={onOpen}
+          aria-label={`${L(lang, 'Rodada', 'Round')} ${combat.round}, ${L(lang, 'vez de', 'now acting')} ${cur?.name || '—'}. ${L(lang, 'Abrir combate', 'Open combat')}`}>
+          <span className="mesa-turn-label">{L(lang, 'Rodada', 'Round')} {combat.round} · {L(lang, 'Vez de', 'Now')}</span>
+          <span className="tn-turn-name">{cur?.name || '—'}</span>
+          <span className="tn-turn-sub">
+            {cur && <span className="tn-turn-hp">{L(lang, 'PV', 'HP')} {cur.current_hp}/{cur.stats?.max_hp ?? '?'}</span>}
+            {next && <span className="tn-turn-next"> · {L(lang, 'Próximo', 'Next')}: {next.name}</span>}
+          </span>
+        </button>
+        <button type="button" className="mesa-btn tn-turn-open" onClick={onOpen} aria-label={L(lang, 'Abrir combate', 'Open combat')}>
+          <span aria-hidden="true">⚔</span>
+          <span className="tn-turn-open-word" aria-hidden="true">{L(lang, 'Combate', 'Combat')}</span>
+          <span className="tn-turn-open-long" aria-hidden="true">{L(lang, 'Abrir combate', 'Open combat')}</span>
+        </button>
+        <button type="button" className="mesa-btn mesa-btn-lg is-primary tn-next" disabled={busy} onClick={onNext}>
+          <span>{L(lang, 'Próximo turno', 'Next turn')}{' '}<span aria-hidden="true">→</span></span>
+        </button>
       </div>
     </div>
   );
@@ -341,7 +470,13 @@ function PartyCard({ p, campaign, lang, onSaveState, onToggleInspiration }) {
   const ins = safe(() => 10 + Utils.skillBonus(d, 'insight'));
   const slots = slotSummary(d);
   const conds = p.conditions.filter(c => c !== 'unconscious' || p.hp > 0);
+  // Em combate as condições vêm do combatente; as da ficha aparecem junto, marcadas "ficha".
+  const sheetConds = p.inCombat
+    ? [...new Set((Array.isArray(d.conditions) ? d.conditions : []).filter(c => typeof c === 'string' && c && !p.conditions.includes(c)))]
+    : [];
   const ds = p.deathSaves || {};
+  const member = (campaign.members || []).find(m => m.character?.id === p.characterId);
+  const stats = member ? memberStats(member) : null;
 
   const saveConc = async (spell) => {
     await onSaveState({ concentration: stateWithConcentration(campaign.state, `char:${p.characterId}`, spell).concentration });
@@ -351,70 +486,72 @@ function PartyCard({ p, campaign, lang, onSaveState, onToggleInspiration }) {
   return (
     <article className={`tn-card tone-${tone}`}>
       <header className="tn-card-head">
+        <PcPortrait stats={stats} name={p.name} size={40} className="tn-card-pic" />
         <div className="tn-card-who">
           <strong className="tn-card-name">{p.name}</strong>
-          <span className="muted small">{classLine(d, lang)}</span>
+          <span className="tn-card-class">
+            <span>{classLine(d, lang)}</span>
+            {slots.length > 0 && (
+              <span className="tn-slots" title={L(lang, 'Espaços de magia restantes / máximo', 'Spell slots left / max')}>
+                <span className="tn-slots-label">{L(lang, 'Espaços', 'Slots')}</span>
+                {slots.map(s => (
+                  <span key={s.lvl} className={`tn-slot ${s.left === 0 ? 'empty' : ''}`}>{s.lvl}º <strong>{s.left}</strong>/{s.max}</span>
+                ))}
+              </span>
+            )}
+          </span>
         </div>
         <button type="button" className={`tn-insp ${d.inspiration ? 'on' : ''}`} onClick={onToggleInspiration}
-          aria-pressed={!!d.inspiration} title={L(lang, 'Inspiração (clique para alternar)', 'Inspiration (click to toggle)')}>
-          {d.inspiration ? '★' : '☆'}<span className="tn-insp-label">{L(lang, 'Insp.', 'Insp.')}</span>
+          aria-pressed={!!d.inspiration} aria-label={L(lang, `Inspiração de ${p.name}`, `${p.name}'s inspiration`)}
+          title={L(lang, 'Inspiração (toque para alternar)', 'Inspiration (tap to toggle)')}>
+          <span aria-hidden="true">{d.inspiration ? '★' : '☆'}</span><span className="tn-insp-label" aria-hidden="true">{L(lang, 'Insp.', 'Insp.')}</span>
         </button>
       </header>
 
-      <div className={`tn-hp tone-${tone}`} role="img" aria-label={`PV ${p.hp ?? '?'} / ${p.maxHp ?? '?'}`}>
-        <div className="tn-hp-fill" style={{ width: `${pct}%` }} />
-        <span className="tn-hp-text">
-          {L(lang, 'PV', 'HP')} {p.hp ?? '?'}/{p.maxHp ?? '?'}
-          {p.tempHp > 0 && <span className="tn-temp"> +{p.tempHp} {L(lang, 'temp', 'temp')}</span>}
-        </span>
-      </div>
+      <HpBar hp={p.hp} max={p.maxHp} temp={p.tempHp} lang={lang} className="tn-hp" />
 
       <dl className="tn-stats">
         <div><dt>{L(lang, 'CA', 'AC')}</dt><dd>{ac ?? '—'}</dd></div>
-        <div title={L(lang, 'Percepção passiva', 'Passive Perception')}><dt>{L(lang, 'Perc.', 'Perc.')}</dt><dd>{pp ?? '—'}</dd></div>
-        <div title={L(lang, 'Investigação passiva', 'Passive Investigation')}><dt>{L(lang, 'Inv.', 'Inv.')}</dt><dd>{inv ?? '—'}</dd></div>
-        <div title={L(lang, 'Intuição passiva', 'Passive Insight')}><dt>{L(lang, 'Intu.', 'Ins.')}</dt><dd>{ins ?? '—'}</dd></div>
+        <div><dt>{L(lang, 'Percepção', 'Perception')}</dt><dd>{pp ?? '—'}</dd></div>
+        <div><dt>{L(lang, 'Investigação', 'Investigation')}</dt><dd>{inv ?? '—'}</dd></div>
+        <div><dt>{L(lang, 'Intuição', 'Insight')}</dt><dd>{ins ?? '—'}</dd></div>
       </dl>
 
       {p.hp != null && p.hp <= 0 && (
         <div className="tn-death">
           <span>{L(lang, 'Contra a morte', 'Death saves')}</span>
-          <span className="tn-ds ok" aria-label={L(lang, 'sucessos', 'successes')}>{'●'.repeat(ds.success || 0)}{'○'.repeat(Math.max(0, 3 - (ds.success || 0)))}</span>
-          <span className="tn-ds bad" aria-label={L(lang, 'falhas', 'failures')}>{'●'.repeat(ds.fail || 0)}{'○'.repeat(Math.max(0, 3 - (ds.fail || 0)))}</span>
+          <span className="tn-ds ok"><span className="tn-ds-word">{L(lang, 'sucessos', 'successes')}</span> <span aria-hidden="true">{'●'.repeat(ds.success || 0)}{'○'.repeat(Math.max(0, 3 - (ds.success || 0)))}</span><span className="tn-sr">{ds.success || 0}/3</span></span>
+          <span className="tn-ds bad"><span className="tn-ds-word">{L(lang, 'falhas', 'failures')}</span> <span aria-hidden="true">{'●'.repeat(ds.fail || 0)}{'○'.repeat(Math.max(0, 3 - (ds.fail || 0)))}</span><span className="tn-sr">{ds.fail || 0}/3</span></span>
         </div>
       )}
 
-      {conds.length > 0 && (
-        <div className="tn-conds">{conds.map(c => <span key={c} className="tn-cond">{condLabel(c, lang)}</span>)}</div>
-      )}
-
-      <div className="tn-conc">
-        {editConc ? (
-          <form className="tn-conc-form" onSubmit={e => { e.preventDefault(); saveConc(concText); }}>
-            <input className="input" autoFocus value={concText} maxLength={80} onChange={e => setConcText(e.target.value)}
-              placeholder={L(lang, 'Magia (ex.: Bênção)', 'Spell (e.g. Bless)')} aria-label={L(lang, 'Concentrando em', 'Concentrating on')} />
-            <button type="submit" className="btn btn-primary btn-sm" disabled={!concText.trim()}>OK</button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditConc(false)}>×</button>
-          </form>
-        ) : conc ? (
-          <span className="tn-conc-on">
-            ◎ {L(lang, 'Concentrando', 'Concentrating')}: <strong>{conc.spell}</strong>
-            {!conc.fromSheet && (
-              <button type="button" className="btn-link" onClick={() => saveConc('')}>{L(lang, 'encerrar', 'end')}</button>
-            )}
+      <div className="tn-card-extra">
+        {conds.map(c => <span key={c} className="tn-cond">{condLabel(c, lang)}</span>)}
+        {sheetConds.map(c => (
+          <span key={`f-${c}`} className="tn-cond is-sheet" title={L(lang, 'Na ficha do jogador (ele muda na ficha)', "On the player's sheet (they change it there)")}>
+            {condLabel(c, lang)} <em>{L(lang, 'ficha', 'sheet')}</em>
           </span>
-        ) : (
-          <button type="button" className="btn-link tn-conc-add" onClick={() => setEditConc(true)}>◎ {L(lang, 'marcar concentração', 'mark concentration')}</button>
-        )}
-      </div>
-
-      {slots.length > 0 && (
-        <div className="tn-slots" title={L(lang, 'Espaços de magia restantes / máximo', 'Spell slots left / max')}>
-          {slots.map(s => (
-            <span key={s.lvl} className={`tn-slot ${s.left === 0 ? 'empty' : ''}`}>{s.lvl}º <strong>{s.left}</strong>/{s.max}</span>
-          ))}
+        ))}
+        <div className={`tn-conc ${editConc ? 'is-editing' : ''}`}>
+          {editConc ? (
+            <form className="tn-conc-form" onSubmit={e => { e.preventDefault(); saveConc(concText); }}>
+              <input className="input" autoFocus value={concText} maxLength={80} onChange={e => setConcText(e.target.value)}
+                placeholder={L(lang, 'Magia (ex.: Bênção)', 'Spell (e.g. Bless)')} aria-label={L(lang, 'Concentrando em', 'Concentrating on')} />
+              <button type="submit" className="mesa-btn is-primary" disabled={!concText.trim()}>OK</button>
+              <button type="button" className="mesa-icon-btn" onClick={() => setEditConc(false)} aria-label={L(lang, 'Cancelar', 'Cancel')}>✕</button>
+            </form>
+          ) : conc ? (
+            <span className="tn-conc-on">
+              <span>◎ {L(lang, 'Concentrando', 'Concentrating')}: <strong>{conc.spell}</strong></span>
+              {!conc.fromSheet && (
+                <button type="button" className="mesa-btn is-quiet tn-conc-end" onClick={() => saveConc('')}>{L(lang, 'encerrar', 'end')}</button>
+              )}
+            </span>
+          ) : (
+            <button type="button" className="mesa-btn is-quiet tn-conc-add" onClick={() => setEditConc(true)}>◎ {L(lang, 'marcar concentração', 'mark concentration')}</button>
+          )}
         </div>
-      )}
+      </div>
     </article>
   );
 }

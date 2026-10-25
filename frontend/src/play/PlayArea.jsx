@@ -73,7 +73,7 @@ export default function PlayArea(props) {
       <SubChips subs={PLAY_SUBS} active={sub} onSelect={setSub} lang={lang} badges={badges} />
       <Suspense fallback={fallback}>
         {sub === 'scene' && (
-          <TableNow campaign={campaign} approvals={props.approvals || []} lang={lang}
+          <TableNow campaign={campaign} approvals={props.approvals} lang={lang}
             onChange={onChange} onNavigate={onNavigate} goTo={goTo} />
         )}
         {sub === 'combat' && <CombatTab campaign={campaign} lang={lang} onChange={onChange} onNavigate={onNavigate} />}

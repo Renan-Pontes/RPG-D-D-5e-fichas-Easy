@@ -1,6 +1,11 @@
 /* ============================================================
-   Mesa agora (mestre) + avisos + fim de encontro guiado
-   Mobile-first (360px); tablet paisagem/desktop em duas colunas.
+   Mesa agora (Jogar › Cena) + avisos + fim de encontro guiado
+   Celular primeiro: uma coluna, nesta ordem — faixa do turno (presa),
+   cena compacta, avisos, personagens, pendências, ações rápidas, Nesta
+   cena e plano (recolhido). Desktop (≥ 1024): 2 colunas independentes
+   (.tn-col-main | .tn-col-side), sem buraco entre os blocos.
+   Couro e filete dourado das peças da mesa (src/shell/mesa.css); alvos de
+   44/48/56 px, rótulos ≥ 12 px, campos com 16 px.
    ============================================================ */
 
 .table-now {
@@ -9,267 +14,483 @@
   gap: 12px;
   min-width: 0;
 }
-.table-now h3 { margin: 0; font-size: 1rem; }
+/* no celular as colunas somem e os blocos ficam na ordem do documento */
+.tn-col { display: contents; }
+.table-now h3 { margin: 0; }
 .tn-eyebrow {
   font-family: var(--display);
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--gold);
 }
-.tn-box {
-  background: var(--bg-card);
-  border: 1px solid var(--stroke);
-  border-radius: 8px;
-  padding: 12px;
-  min-width: 0;
-}
-.tn-box-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.tn-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .tn-count {
-  display: inline-block;
-  margin-left: 8px;
-  min-width: 22px;
-  padding: 0 6px;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
   border-radius: 999px;
   background: var(--blood-soft);
+  border: 1px solid rgba(224, 96, 79, 0.5);
   color: var(--blood-bright);
   font-family: var(--mono);
-  font-size: 0.8rem;
-  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+@media (max-width: 767px) {
+  .table-now { gap: 10px; }
+  .table-now .mesa-panel { padding: 10px 12px 12px; }
+  .table-now .mesa-title { margin-bottom: 8px; }
+  /* na Cena a casca já reserva a barra e o dado embaixo: sem a folga extra do container */
+  main.container:has(> .campaign-detail.shell .table-now) { padding-bottom: 0; }
+  .table-now .mesa-panel.spp { padding: 0; }
+  .table-now .mesa-panel.spp-empty { padding: 10px 12px; }
 }
 
-/* Ordem no celular: cena, combate, avisos, personagens, pendências, ações */
-.tn-scene { order: 1; }
-.tn-combat { order: 2; }
-.tn-wrapup { order: 3; }
-.tn-nudges { order: 4; }
-.tn-party { order: 5; }
-.tn-pending { order: 6; }
-.tn-actions { order: 7; }
-.tn-check { order: 8; }
-
-/* --- Cena / sessão inline --- */
-.tn-scene {
-  display: grid;
-  grid-template-columns: 72px 1fr;
-  gap: 8px;
+/* ---------------------------------------------------------- faixa do turno (presa) */
+.tn-turn-wrap {
+  position: sticky;
+  top: 64px; /* abaixo do segmentado preso (celular) */
+  z-index: 24; /* abaixo do segmentado (25) e das abas das áreas (30) */
 }
-.tn-scene-weather { grid-column: 1 / -1; }
-.tn-scene-field {
+.mesa-turn.tn-turn { flex-wrap: nowrap; gap: 8px; padding: 6px; }
+.tn-turn-who {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 48px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  background: var(--bg-raised);
-  border: 1px solid var(--stroke-faint);
-  border-radius: 6px;
-  padding: 6px 10px;
-  min-width: 0;
-}
-.tn-scene-field:focus-within { border-color: var(--gold); }
-.tn-scene-input {
-  background: transparent;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1px;
+  padding: 2px 6px;
   border: 0;
-  color: var(--ink-primary);
-  font-family: var(--body);
-  font-size: 1rem;
-  padding: 2px 0;
-  min-height: 30px;
-  width: 100%;
-  min-width: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-.tn-scene-input:focus { outline: none; }
-.tn-scene-input::placeholder { color: var(--ink-muted); }
-.tn-saved { color: var(--moss-bright); }
+.tn-turn-who:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 1px; }
+.tn-turn-name {
+  max-width: 100%;
+  font-family: var(--display);
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--gold-bright);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tn-turn-sub {
+  max-width: 100%;
+  font-size: 0.85rem;
+  line-height: 1.25;
+  color: var(--ink-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tn-turn-open {
+  flex: none;
+  flex-direction: column;
+  gap: 0;
+  min-width: 56px;
+  min-height: 48px;
+  padding: 2px 8px;
+  border-color: rgba(236, 199, 119, 0.45);
+  font-size: 12px;
+  line-height: 1.1;
+}
+.tn-turn-open > :first-child { font-size: 1.1rem; }
+.tn-turn-open-long { display: none; }
+.tn-next { flex: none; max-width: 9.5em; padding-left: 12px; padding-right: 12px; white-space: normal; line-height: 1.15; }
+@media (hover: hover) {
+  button.tn-turn-who:hover { background: rgba(255, 148, 70, 0.1); }
+}
+@media (max-width: 767px) {
+  /* a faixa cobre a margem da página, como o segmentado, para o conteúdo não aparecer dos lados */
+  .tn-turn-wrap {
+    margin: -4px -10px -6px;
+    padding: 0 10px 6px;
+    background: linear-gradient(180deg, var(--bg-base) 78%, rgba(20, 16, 12, 0));
+  }
+  html:has(.table-now .tn-turn-wrap) { scroll-padding-top: 148px; }
+  .tn-next { max-width: 108px; padding-left: 10px; padding-right: 10px; }
+}
+@media (max-width: 380px) {
+  .mesa-turn.tn-turn { gap: 6px; padding: 5px; }
+  .tn-turn-who { padding: 2px 4px; }
+  .tn-turn .mesa-turn-label { letter-spacing: 0.04em; }
+  .tn-turn-name { font-family: var(--body); font-size: 15px; font-weight: 700; }
+  .tn-turn-sub { font-size: 0.8rem; }
+  .tn-turn-open { min-width: 50px; padding: 2px 4px; }
+  .tn-next { max-width: 82px; padding-left: 8px; padding-right: 8px; font-size: 0.8rem; letter-spacing: 0.01em; }
+}
+@media (min-width: 768px) {
+  /* presa logo abaixo das abas das áreas (56 px), com uma faixa do fundo por cima do conteúdo */
+  .tn-turn-wrap { top: 56px; margin: -8px 0 -6px; padding: 8px 0 6px; background: linear-gradient(180deg, var(--bg-base) 80%, rgba(20, 16, 12, 0)); }
+  .tn-turn-open { flex-direction: row; gap: 6px; font-size: 0.86rem; padding: 8px 14px; }
+  .tn-turn-open > :first-child { font-size: 1rem; }
+  .tn-turn-open-word { display: none; }
+  .tn-turn-open-long { display: inline; }
+}
 
-/* --- Faixa do combate --- */
-.tn-combat {
+/* combate montado e parado */
+.tn-combat.is-idle {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px 12px;
   padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--blood);
-  background: linear-gradient(90deg, var(--blood-soft), transparent 80%), var(--bg-card);
 }
-.tn-combat.is-idle { border-color: var(--stroke); background: var(--bg-card); }
-.tn-combat-label { color: var(--ink-secondary); font-size: 0.95rem; }
-.tn-combat-info { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; min-width: 0; }
-.tn-combat-round {
-  font-family: var(--display);
-  color: var(--blood-bright);
-  letter-spacing: 0.08em;
+.tn-combat-label { color: var(--ink-secondary); font-size: 1rem; }
+.tn-combat-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 767px) {
+  .tn-combat-actions { width: 100%; }
+  .tn-combat-actions > .mesa-btn { flex: 1 1 auto; }
 }
-.tn-combat-now strong { color: var(--ink-primary); font-size: 1.05rem; }
-.tn-combat-next { color: var(--ink-secondary); }
-.tn-combat-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 
-/* --- Personagens --- */
+/* ---------------------------------------------------------- cena (SceneBar) */
+.mesa-panel.tn-scene { padding: 0; }
+.tn-scene-sum {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 8px 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tn-scene-sum:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+.tn-scene-sum-ico { flex: none; font-size: 1.1rem; }
+.tn-scene-sum-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: block;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  color: var(--ink-primary);
+  overflow-wrap: anywhere;
+}
+.tn-scene-sum-session { font-family: var(--display); font-size: 0.88rem; color: var(--gold-bright); white-space: nowrap; }
+.tn-scene-sum-scene { overflow-wrap: anywhere; }
+.tn-scene-sum-weather { color: var(--ink-secondary); }
+.tn-scene-sum-text > :is(.tn-scene-sum-scene, .tn-scene-sum-weather):not(:first-child)::before {
+  content: "·";
+  margin: 0 6px;
+  color: var(--gold-deep);
+}
+
+.tn-scene-sum-empty { color: var(--ink-muted); font-style: italic; }
+.tn-scene-sum-edit {
+  flex: none;
+  align-self: center;
+  min-width: 48px;
+  min-height: 44px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0 4px 0 8px;
+  border-left: 1px solid rgba(224, 181, 94, 0.2);
+  font-family: var(--display);
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--gold);
+  white-space: nowrap;
+}
+.tn-scene-sum-edit > [aria-hidden="true"] { font-size: 1rem; }
+@media (hover: hover) {
+  .tn-scene-sum:hover { background: rgba(214, 176, 100, 0.06); }
+}
+.tn-scene-fields {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+.tn-scene .tn-scene-sum + .tn-scene-fields { padding-top: 2px; }
+.mesa-panel.tn-scene:not(:has(.tn-scene-sum)) .tn-scene-fields { padding: 12px; }
+.tn-scene-weather { grid-column: 1 / -1; }
+.tn-scene-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 10px 4px;
+  border: 1px solid rgba(224, 181, 94, 0.2);
+  border-radius: 6px;
+  background: rgba(10, 7, 6, 0.5);
+  cursor: text;
+}
+.tn-scene-field:focus-within { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
+.tn-scene-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-primary);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.35;
+  resize: none;
+  overflow: hidden;
+}
+.tn-scene-input:focus { outline: none; }
+.tn-scene-input::placeholder { color: var(--ink-muted); }
+.tn-saved { color: var(--moss-bright); font-size: 0.9rem; }
+@media (min-width: 768px) {
+  .tn-scene-fields { grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1fr); }
+  .tn-scene-weather { grid-column: auto; }
+}
+
+/* ---------------------------------------------------------- avisos (bloco) */
+.tn-nudge-hint { margin: -2px 0 8px; font-size: 0.88rem; }
+.tn-nudge-cfg { min-height: 44px; padding: 6px 10px; }
+.tn-nudges .nudge-text { font-size: 1rem; }
+.tn-nudges .nudge { padding: 10px 12px; background: rgba(10, 7, 6, 0.45); }
+.tn-nudges .nudge-actions .btn { min-height: 44px; font-size: 0.85rem; }
+.tn-nudges .nudge-mute { min-height: 44px; padding: 0 8px; font-size: 0.9rem; }
+@media (max-width: 767px) {
+  /* [ação (linha inteira)] e embaixo [Dispensar][Não avisar mais isto] */
+  .tn-nudges .nudge-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tn-nudges .nudge-actions > .btn-primary { grid-column: 1 / -1; }
+  .tn-nudges .nudge-mute { text-align: center; line-height: 1.2; }
+}
+.nudge-settings-sheet .nudge-settings { margin: 0; padding: 0; border: 0; background: none; gap: 4px; }
+.nudge-settings-sheet .nudge-settings > p { font-size: 0.95rem; }
+.nudge-settings-sheet .nudge-pref { min-height: 44px; padding: 8px 0; border-bottom: 1px solid rgba(224, 181, 94, 0.14); font-size: 1rem; }
+.nudge-settings-sheet .nudge-pref:last-child { border-bottom: 0; }
+.nudge-settings-sheet .nudge-pref input { width: 22px; height: 22px; margin-top: 2px; }
+.nudge-settings-sheet .nudge-hint { font-size: 0.9rem; }
+.nudge-settings-sheet .nudge-default-off { font-size: 0.85rem; }
+
+/* ---------------------------------------------------------- personagens */
 .tn-party {
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
   min-width: 0;
 }
+.tn-party-empty p { margin: 0 0 8px; color: var(--ink-secondary); }
 .tn-card {
-  background: var(--bg-card);
-  border: 1px solid var(--stroke);
-  border-left: 3px solid var(--moss);
-  border-radius: 8px;
-  padding: 10px 12px;
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
   min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid rgba(224, 181, 94, 0.18);
+  border-left: 3px solid var(--moss);
+  border-radius: 8px;
+  background: rgba(10, 7, 6, 0.45);
 }
 .tn-card.tone-warn { border-left-color: var(--amber); }
 .tn-card.tone-crit { border-left-color: var(--blood-bright); }
-.tn-card.tone-down { border-left-color: var(--blood-bright); background: linear-gradient(180deg, var(--blood-soft), transparent 60%), var(--bg-card); }
-.tn-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.tn-card-who { display: flex; flex-direction: column; min-width: 0; }
+.tn-card.tone-down { border-left-color: var(--blood-bright); background: linear-gradient(180deg, var(--blood-soft), transparent 60%), rgba(10, 7, 6, 0.45); }
+.tn-card-head { display: flex; align-items: center; gap: 10px; }
+.tn-card-who { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
 .tn-card-name {
   font-family: var(--display);
-  font-size: 1.05rem;
+  font-size: 1.02rem;
+  line-height: 1.2;
   color: var(--ink-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
+.tn-card-class { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; font-size: 0.9rem; color: var(--ink-muted); }
 .tn-insp {
+  flex: none;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  min-height: 36px;
-  padding: 0 8px;
-  background: transparent;
-  border: 1px solid var(--stroke-faint);
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid rgba(224, 181, 94, 0.3);
   border-radius: 999px;
-  color: var(--ink-muted);
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: 1.05rem;
   cursor: pointer;
-  font-size: 1rem;
 }
 .tn-insp.on { color: var(--gold-bright); border-color: var(--gold); background: var(--gold-soft); }
-.tn-insp-label { font-size: 0.72rem; font-family: var(--display); letter-spacing: 0.08em; }
-
-.tn-hp {
-  position: relative;
-  height: 24px;
-  border-radius: 4px;
-  background: var(--bg-deep);
-  border: 1px solid var(--stroke-faint);
-  overflow: hidden;
-}
-.tn-hp-fill { position: absolute; inset: 0 auto 0 0; background: var(--moss); transition: width 0.3s; }
-.tn-hp.tone-warn .tn-hp-fill { background: var(--amber-deep); }
-.tn-hp.tone-crit .tn-hp-fill, .tn-hp.tone-down .tn-hp-fill { background: var(--blood); }
-.tn-hp-text {
-  position: relative;
-  display: block;
-  line-height: 22px;
-  padding: 0 8px;
-  font-family: var(--mono);
-  font-size: 0.82rem;
-  color: var(--ink-primary);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-}
-.tn-temp { color: var(--arcane-bright); }
+.tn-insp-label { font-size: 12px; font-family: var(--display); letter-spacing: 0.06em; }
+.tn-insp:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.tn-hp.mesa-hp { height: 24px; }
 
 .tn-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
   margin: 0;
 }
 .tn-stats > div {
-  background: var(--bg-raised);
-  border-radius: 4px;
-  padding: 3px 4px;
-  text-align: center;
+  display: flex;
+  flex-direction: column-reverse; /* número em cima, nome embaixo */
+  align-items: center;
+  justify-content: flex-end;
   min-width: 0;
+  padding: 2px;
+  border-radius: 6px;
+  background: rgba(214, 176, 100, 0.07);
+  text-align: center;
 }
 .tn-stats dt {
-  font-family: var(--display);
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-muted);
+  max-width: 100%;
+  font-family: var(--body);
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--ink-secondary);
+  overflow-wrap: anywhere;
 }
-.tn-stats dd { margin: 0; font-family: var(--mono); font-size: 0.95rem; color: var(--ink-primary); }
+.tn-stats dd { margin: 0; font-family: var(--mono); font-size: 1rem; font-weight: 600; line-height: 1.2; color: var(--ink-primary); }
+@container (max-width: 299px) {
+  .tn-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tn-stats > div { flex-direction: row-reverse; justify-content: space-between; padding: 2px 8px; }
+}
 
-.tn-death { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--ink-secondary); }
-.tn-ds { font-size: 0.9rem; letter-spacing: 2px; }
+.tn-death { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 0.9rem; color: var(--ink-secondary); }
+.tn-ds { font-size: 0.95rem; letter-spacing: 2px; white-space: nowrap; }
+.tn-ds-word { letter-spacing: 0; font-size: 12px; color: var(--ink-muted); }
 .tn-ds.ok { color: var(--moss-bright); }
 .tn-ds.bad { color: var(--blood-bright); }
 
-.tn-conds { display: flex; flex-wrap: wrap; gap: 4px; }
+.tn-card-extra { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; }
 .tn-cond {
-  font-size: 0.75rem;
-  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  padding: 2px 10px;
   border-radius: 999px;
   background: var(--amber-soft);
   border: 1px solid var(--amber-deep);
   color: var(--amber);
+  font-size: 13px;
 }
-.tn-conc { font-size: 0.85rem; color: var(--ink-secondary); min-height: 24px; display: flex; align-items: center; }
+.tn-cond.is-sheet { border-style: dashed; border-color: rgba(214, 176, 100, 0.55); background: rgba(214, 176, 100, 0.08); color: var(--ink-secondary); }
+.tn-cond em { font-style: normal; font-size: 12px; color: var(--gold); }
+.tn-conc { display: flex; align-items: center; min-height: 44px; min-width: 0; font-size: 0.95rem; color: var(--ink-secondary); }
+.tn-conc.is-editing { flex: 1 1 100%; }
+.tn-conc-on { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
 .tn-conc-on strong { color: var(--arcane-bright); }
-.tn-conc .btn-link { font-size: 0.8rem; min-height: 32px; }
-.tn-conc-add { padding: 0 !important; color: var(--ink-muted) !important; text-decoration: none !important; }
-.tn-conc-form { display: flex; gap: 6px; width: 100%; }
-.tn-conc-form .input { flex: 1; min-width: 0; min-height: 36px; padding: 4px 8px; }
-.tn-slots { display: flex; flex-wrap: wrap; gap: 4px; }
+.tn-conc .mesa-btn.is-quiet { min-height: 44px; padding: 6px 8px; font-family: var(--body); font-size: 0.95rem; letter-spacing: 0; color: var(--ink-secondary); }
+.tn-card-extra > .tn-conc:first-child .tn-conc-add { margin-left: -8px; }
+.tn-conc .tn-conc-end { color: var(--gold); text-decoration: underline; }
+.tn-conc-form { display: flex; align-items: center; gap: 6px; width: 100%; }
+.tn-conc-form .input { flex: 1; min-width: 0; min-height: 44px; padding: 6px 10px; font-size: 16px; }
+.tn-slots { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.tn-slots-label { font-size: 12px; color: var(--ink-muted); margin-right: 2px; }
 .tn-slot {
   font-family: var(--mono);
-  font-size: 0.75rem;
-  padding: 2px 6px;
+  font-size: 13px;
+  padding: 2px 7px;
   border-radius: 4px;
   background: var(--arcane-soft);
   color: var(--ink-secondary);
 }
 .tn-slot strong { color: var(--arcane-bright); }
-.tn-slot.empty { background: var(--bg-raised); color: var(--ink-muted); }
+.tn-slot.empty { background: rgba(255, 255, 255, 0.04); color: var(--ink-muted); }
 .tn-slot.empty strong { color: var(--ink-muted); }
 
-/* --- Pendências --- */
-.tn-pending-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+/* ---------------------------------------------------------- pendências */
+.tn-pending-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .tn-pending-list:empty { display: none; }
 .tn-pending-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  min-height: 40px;
-  padding: 4px 8px;
-  background: var(--bg-raised);
-  border: 1px solid var(--stroke-faint);
-  border-radius: 6px;
+  min-height: 56px;
+  padding: 8px 6px 8px 10px;
+  border: 1px solid rgba(224, 181, 94, 0.2);
+  border-radius: 8px;
+  background: rgba(10, 7, 6, 0.45);
   color: var(--ink-primary);
+  font-family: var(--body);
+  font-size: 1rem;
+  line-height: 1.3;
   text-align: left;
   cursor: pointer;
-  font-family: var(--body);
-  font-size: 0.95rem;
 }
-.tn-pending-item:hover { border-color: var(--gold); }
+.tn-pending-item:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+@media (hover: hover) {
+  .tn-pending-item:hover { border-color: var(--gold); background: rgba(214, 176, 100, 0.08); }
+}
 .tn-pending-n {
   flex: none;
-  min-width: 34px;
-  text-align: center;
+  min-width: 40px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid var(--gold-deep);
+  background: rgba(214, 176, 100, 0.1);
   font-family: var(--mono);
+  font-size: 0.95rem;
   color: var(--gold-bright);
 }
+.tn-pending-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.tn-pending-sub { font-size: 0.85rem; color: var(--ink-muted); }
+.tn-pending-go { flex: none; width: 20px; font-size: 1.4rem; line-height: 1; color: var(--gold); text-align: center; }
+.tn-pending-none { margin: 0; }
 
-/* --- Ações rápidas --- */
-.tn-action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
-.tn-action-grid .btn { width: 100%; letter-spacing: 0.06em; }
-.tn-toggle { display: flex; gap: 8px; align-items: flex-start; font-size: 0.9rem; cursor: pointer; }
-.tn-toggle, .tn-toggle span, .nudge-pref, .nudge-pref span {
+/* ---------------------------------------------------------- ações rápidas */
+.tn-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 10px; }
+.tn-act.mesa-btn {
+  min-height: 56px;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 0.84rem;
+  line-height: 1.2;
+  text-align: left;
+  white-space: normal;
+}
+.tn-act > [aria-hidden="true"] { flex: none; font-size: 1.15rem; }
+.tn-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 2px 2px;
+  cursor: pointer;
+  font-family: var(--body);
+  font-size: 1rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.tn-toggle span, .nudge-pref, .nudge-pref span {
   text-transform: none;
   letter-spacing: normal;
   font-family: var(--body);
 }
 .tn-toggle strong, .nudge-pref strong { font-family: var(--display); letter-spacing: 0.03em; color: var(--ink-primary); }
-.tn-toggle input { margin-top: 4px; width: 18px; height: 18px; flex: none; }
-.tn-msg { color: var(--ink-secondary); margin: 8px 0 0; }
+.tn-toggle input { flex: none; width: 22px; height: 22px; margin-top: 2px; accent-color: var(--gold); }
+.tn-toggle-hint { display: block; margin-top: 2px; font-size: 0.9rem; color: var(--ink-muted); }
+.tn-msg { margin: 8px 0 0; color: var(--ink-secondary); font-size: 0.95rem; }
 
 /* ============================================================
    Avisos
@@ -475,64 +696,33 @@
 .eoe-step .eoe-row .input.eoe-xp { width: 110px; }
 
 /* ============================================================
-   Tablet paisagem / desktop: duas colunas
+   Desktop (≥ 1024): 2 colunas independentes, sem buraco entre os blocos
+   (à esquerda turno, cena, avisos e personagens; à direita pendências,
+   ações, Nesta cena e o plano, que fica no fim da coluna dele).
    ============================================================ */
 @media (min-width: 640px) {
-  .tn-scene { grid-template-columns: 90px 1fr 1fr; }
-  .tn-scene-weather { grid-column: auto; }
   .tn-party { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
 }
-@media (min-width: 900px) {
+@media (min-width: 1024px) {
   .table-now {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
     grid-template-areas:
-      "scene   scene"
-      "combat  combat"
-      "wrapup  wrapup"
-      "party   nudges"
-      "party   pending"
-      "party   actions"
-      "party   ."
-      "check   check";
-    grid-template-rows: auto auto auto auto auto auto 1fr auto;
+      "main side"
+      "plan plan";
     align-items: start;
-    gap: 0 16px; /* espaço vertical por margem: linhas vazias (sem combate) não somam gap */
+    gap: 16px;
   }
-  .table-now > * { margin-bottom: 12px; }
-  .tn-scene { grid-area: scene; }
-  .tn-combat { grid-area: combat; }
-  .tn-wrapup { grid-area: wrapup; }
-  .tn-wrapup .eoe-panel { margin: 0; }
-  .tn-party { grid-area: party; }
-  .tn-nudges { grid-area: nudges; }
-  .tn-pending { grid-area: pending; }
-  .tn-actions { grid-area: actions; }
-  .tn-check { grid-area: check; }
+  .tn-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .tn-col-main { grid-area: main; }
+  .tn-col-side { grid-area: side; }
+  .table-now > .spp { grid-area: plan; }
+  .table-now > .spp .spp-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px 20px; }
+  .table-now > .spp .spp-body > .spp-strong,
+  .table-now > .spp .spp-body > .spp-note,
+  .table-now > .spp .spp-body > .spp-edit { grid-column: 1 / -1; }
   .tn-party { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
 }
 @media (min-width: 1280px) {
-  .table-now { grid-template-columns: minmax(0, 1fr) 380px; }
-}
-
-/* ===== Rework Jogar (WP6): "Nesta cena" e "Anteriormente em…" ===== */
-.table-now > .ins { order: 3; margin-bottom: 12px; }
-.tn-recap { order: 9; }
-@media (min-width: 900px) {
-  .table-now {
-    grid-template-areas:
-      "scene   scene"
-      "combat  combat"
-      "wrapup  wrapup"
-      "ins     ins"
-      "party   nudges"
-      "party   pending"
-      "party   actions"
-      "party   ."
-      "check   check"
-      "recap   recap";
-    grid-template-rows: auto auto auto auto auto auto auto 1fr auto auto;
-  }
-  .table-now > .ins { grid-area: ins; }
-  .tn-recap { grid-area: recap; }
+  .table-now { grid-template-columns: minmax(0, 1fr) 400px; }
 }
