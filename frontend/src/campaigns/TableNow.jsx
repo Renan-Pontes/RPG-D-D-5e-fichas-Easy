@@ -514,7 +514,7 @@ function PartyCard({ p, campaign, lang, onSaveState, onToggleInspiration }) {
         </button>
       </header>
 
-      <HpBar hp={p.hp} max={p.maxHp} temp={p.tempHp} lang={lang} className="tn-hp" />
+      <HpBar hp={p.hp} max={p.maxHp} temp={p.tempHp} lang={lang} units className="tn-hp" />
 
       <dl className="tn-stats">
         <div><dt>{L(lang, 'CA', 'AC')}</dt><dd>{ac ?? '—'}</dd></div>

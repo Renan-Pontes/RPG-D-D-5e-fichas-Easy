@@ -36,19 +36,24 @@ export function PcPortrait({ stats, name, size = 40, className = '' }) {
   );
 }
 
-/** Barra de PV com o número dentro, cor pela faixa e temporários ("caído" vai no rótulo). compact: "a/b" sem espaços. */
-export function HpBar({ hp, max, temp = 0, lang = 'pt', className = '', label, compact = false }) {
+/**
+ * Barra de PV com o número dentro, cor pela faixa e temporários ("caído" vai no rótulo). compact: "a/b" sem espaços.
+ * units: escreve "PV a / b" e "+n temp" (numa pílula escura, legível sobre a barra) — a Cena usa.
+ */
+export function HpBar({ hp, max, temp = 0, lang = 'pt', className = '', label, compact = false, units = false }) {
   const tone = hpTone(hp, max);
   const pct = max ? Math.max(0, Math.min(100, ((hp ?? 0) / max) * 100)) : 0;
   const tmp = Number(temp) || 0;
   const text = compact ? `${hp ?? '?'}/${max ?? '?'}` : `${hp ?? '?'} / ${max ?? '?'}`;
   return (
-    <span className={`mesa-hp tone-${tone} ${className}`.trim()}
+    <span className={['mesa-hp', `tone-${tone}`, units && 'has-units', className].filter(Boolean).join(' ')}
       role="img" aria-label={label || `${t(lang, 'PV', 'HP')} ${text}${tmp ? ` (+${tmp} ${t(lang, 'temporários', 'temporary')})` : ''}${tone === 'down' ? ` · ${t(lang, 'caído', 'down')}` : ''}`}>
       <span className="mesa-hp-fill" style={{ width: `${pct}%` }} aria-hidden="true" />
       <span className="mesa-hp-text" aria-hidden="true">
-        {text}
-        {tmp > 0 && <span className="mesa-hp-temp"> +{tmp}</span>}
+        {units ? <span>{t(lang, 'PV', 'HP')} {text}</span> : text}
+        {tmp > 0 && (units
+          ? <span className="mesa-hp-temp">+{tmp} temp</span>
+          : <span className="mesa-hp-temp"> +{tmp}</span>)}
       </span>
     </span>
   );

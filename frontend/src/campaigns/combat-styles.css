@@ -200,6 +200,15 @@
   white-space: nowrap;
 }
 .mesa-hp-temp { color: var(--arcane-bright); }
+/* units ("PV a / b" e "+n temp"): o temporário numa pílula escura, legível sobre qualquer cor da barra */
+.mesa-hp.has-units .mesa-hp-text { gap: 6px; }
+.mesa-hp.has-units .mesa-hp-temp {
+  padding: 0 5px;
+  border-radius: 4px;
+  background: rgba(10, 7, 6, 0.82);
+  line-height: 1.35;
+  text-shadow: none;
+}
 @media (prefers-reduced-motion: reduce) { .mesa-hp-fill { transition: none; } }
 
 /* ---------- faixa do turno (presa) ---------- */
