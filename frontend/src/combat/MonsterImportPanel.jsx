@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { importMonsters } from '../campaigns/import-5emm.js';
 import { estimateCr } from './cr-estimate.js';
 import './monster-tools.css';
@@ -10,9 +10,13 @@ const MAX_BYTES = 2 * 1024 * 1024;
  * Importar monstro de JSON: arquivo .5emm.json (5e Monster Maker) ou criatura
  * do Open5e (v1/v2). Mostra o resultado antes de salvar na lista local.
  */
-export default function MonsterImportPanel({ lang, onSave, onCancel }) {
+export default function MonsterImportPanel({ lang, onSave, onCancel, onDirty }) {
   const [text, setText] = useState('');
   const [result, setResult] = useState(null);
+  const ids = useId();
+  // algo colado ou convertido e ainda não salvo: a folha pergunta antes de fechar
+  const dirty = !!text.trim() || !!result?.monsters?.length;
+  useEffect(() => { onDirty?.(dirty); }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const run = (input) => setResult(importMonsters(input, { lang }));
 
@@ -32,26 +36,26 @@ export default function MonsterImportPanel({ lang, onSave, onCancel }) {
 
   return (
     <div className="mi-panel">
-      <p className="muted small" style={{ margin: 0 }}>
+      <p className="mi-intro">
         {t(lang,
           'Aceita arquivos .5emm.json do 5e Monster Maker e criaturas do Open5e (v1 /monsters ou v2 /creatures). Os monstros ficam só neste navegador.',
           'Accepts .5emm.json files from 5e Monster Maker and Open5e creatures (v1 /monsters or v2 /creatures). Monsters stay in this browser only.')}
       </p>
-      <label className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start', margin: 0 }}>
+      <label className="mesa-btn mi-file">
         📂 {t(lang, 'Escolher arquivo…', 'Choose file…')}
-        <input type="file" accept=".json,application/json" onChange={onFile} style={{ display: 'none' }} />
+        <input type="file" accept=".json,application/json" onChange={onFile} className="mi-file-input" />
       </label>
-      <label style={{ margin: 0 }}>
-        <span className="muted small">{t(lang, '…ou cole o JSON aqui', '…or paste the JSON here')}</span>
-        <textarea value={text} onChange={e => setText(e.target.value)} spellCheck={false} placeholder='{ "saveVersion": 11, "name": "…" }' />
-      </label>
-      <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
-        <button type="button" className="btn btn-ghost btn-sm" disabled={!text.trim()} onClick={() => run(text)}>
+      <div className="mi-paste">
+        <label className="mp-num-label" htmlFor={`${ids}-json`}>{t(lang, '…ou cole o JSON aqui', '…or paste the JSON here')}</label>
+        <textarea id={`${ids}-json`} value={text} onChange={e => setText(e.target.value)} spellCheck={false} placeholder='{ "saveVersion": 11, "name": "…" }' />
+      </div>
+      <div className="mi-convert">
+        <button type="button" className="mesa-btn" disabled={!text.trim()} onClick={() => run(text)}>
           {t(lang, 'Converter', 'Convert')}
         </button>
       </div>
 
-      {result?.errors?.map((e, i) => <div key={`e${i}`} className="mi-msg err">{e}</div>)}
+      {result?.errors?.map((e, i) => <div key={`e${i}`} className="mi-msg err" role="alert">{e}</div>)}
       {result?.warnings?.map((w, i) => <div key={`w${i}`} className="mi-msg warn">{w}</div>)}
       {result?.monsters?.map(m => {
         const est = estimateCr(m);
@@ -59,21 +63,21 @@ export default function MonsterImportPanel({ lang, onSave, onCancel }) {
           <div key={m.id} className="mi-result">
             <div>
               <strong>{m.name.en}</strong>
-              <div className="muted small">
-                {m.size} {m.type} · CA {m.ac} · PV {m.hp} · {t(lang, 'ações', 'actions')} {m.actions.length}
+              <div className="mi-result-sub">
+                {m.size} {m.type} · {t(lang, 'CA', 'AC')} {m.ac} · {t(lang, 'PV', 'HP')} {m.hp} · {t(lang, 'ações', 'actions')} {m.actions.length}
               </div>
             </div>
-            <div className="muted small" style={{ textAlign: 'right' }}>
-              ND {m.cr}<br />{t(lang, 'estimado', 'estimated')} {est.cr}
+            <div className="mi-result-cr">
+              {t(lang, 'ND', 'CR')} {m.cr}<br />{t(lang, 'estimado', 'estimated')} {est.cr}
             </div>
           </div>
         );
       })}
 
-      <div className="mp-footer">
+      <div className="mp-footer is-pinned">
         <span className="mp-spacer" />
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>{t(lang, 'Voltar', 'Back')}</button>
-        <button type="button" className="btn btn-primary btn-sm" disabled={!result?.monsters?.length} onClick={() => onSave(result.monsters)}>
+        <button type="button" className="mesa-btn mesa-btn-lg" onClick={onCancel}>{t(lang, 'Voltar', 'Back')}</button>
+        <button type="button" className="mesa-btn mesa-btn-lg is-primary" disabled={!result?.monsters?.length} onClick={() => onSave(result.monsters)}>
           {t(lang, 'Salvar na minha lista', 'Save to my list')}{result?.monsters?.length > 1 ? ` (${result.monsters.length})` : ''}
         </button>
       </div>

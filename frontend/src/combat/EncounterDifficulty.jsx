@@ -1,5 +1,5 @@
 import { errorMessage } from '../api/errors.js';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { api } from '../api/client.js';
 import { findMonster } from '../../data/bestiary.js';
 import { loadCustomMonsters } from './custom-monsters.js';
@@ -23,6 +23,7 @@ export default function EncounterDifficulty({ campaign, combatants, lang }) {
   const [awarded, setAwarded] = useState(null);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false); // detalhamento do orçamento (tocável no celular)
+  const detailId = useId();
   const xpMode = (campaign?.state?.levelingMode || 'milestone') === 'xp';
 
   const info = useMemo(() => {
@@ -74,32 +75,36 @@ export default function EncounterDifficulty({ campaign, combatants, lang }) {
     } finally { setBusy(false); }
   };
 
+  // Uma linha que abre o orçamento (no celular não existe hover: nada fica só no title).
   return (
-    <div className="enc-diff" title={budgetTitle}>
-      <span>{t(lang, 'Encontro', 'Encounter')}:</span>
-      <button type="button" className={`enc-label enc-toggle ${info.rating}`} aria-expanded={open}
-        onClick={() => setOpen(o => !o)} title={t(lang, 'Ver orçamento de XP do grupo', 'Show party XP budget')}>
-        {label} <span aria-hidden="true">{open ? '▴' : '▾'}</span>
+    <div className={`enc-diff ${open ? 'is-open' : ''}`}>
+      <button type="button" className={`enc-toggle enc-row ${info.rating}`} aria-expanded={open} aria-controls={detailId}
+        onClick={() => setOpen(o => !o)} title={budgetTitle}>
+        <span className="enc-row-main">
+          <span className="enc-k">{t(lang, 'Encontro', 'Encounter')}</span>
+          <span className={`enc-label ${info.rating}`}>{label}</span>
+          <span className="enc-chev" aria-hidden="true">{open ? '▴' : '▾'}</span>
+        </span>
+        {info.levels.length > 0 && (
+          <span className={`enc-meter ${info.rating}`} aria-hidden="true"><span style={{ width: `${pct}%` }} /></span>
+        )}
+        <span className="enc-party">{partyText}{xpMode ? ` · ${info.estimated ? '≈ ' : ''}${info.totalXp.toLocaleString()} XP` : ''}</span>
       </button>
-      {info.levels.length > 0 && (
-        <span className={`enc-meter ${info.rating}`} aria-hidden="true"><span style={{ width: `${pct}%` }} /></span>
-      )}
-      <span className="muted small">{partyText}</span>
       {xpMode && (
-        <>
-          <span>{info.estimated ? '≈ ' : ''}{info.totalXp.toLocaleString()} XP</span>
-          <button type="button" className="btn btn-ghost btn-sm" disabled={busy || !info.totalXp || awarded === info.totalXp} onClick={award}>
-            {awarded === info.totalXp ? t(lang, 'XP entregue ✓', 'XP awarded ✓') : t(lang, 'Dar XP ao grupo', 'Award XP to party')}
-          </button>
-        </>
+        <button type="button" className="mesa-btn enc-award" disabled={busy || !info.totalXp || awarded === info.totalXp} onClick={award}>
+          {awarded === info.totalXp
+            ? t(lang, 'XP entregue ✓', 'XP awarded ✓')
+            : <span>{t(lang, 'Dar XP', 'Award XP')}<span className="enc-award-long">{t(lang, ' ao grupo', ' to party')}</span></span>}
+        </button>
       )}
       {open && (
-        <div className="enc-breakdown" role="note">
+        <div className="enc-breakdown" role="note" id={detailId}>
+          <span className="enc-party-in">{partyText}{xpMode ? ` · ${info.estimated ? '≈ ' : ''}${info.totalXp.toLocaleString()} XP` : ''}</span>
           <span>{t(lang, 'Monstros', 'Monsters')}: <strong>{info.estimated ? '≈ ' : ''}{info.totalXp.toLocaleString()} XP</strong></span>
           <span className="enc-b low">{t(lang, 'Baixa', 'Low')} {info.budget.low.toLocaleString()}</span>
           <span className="enc-b moderate">{t(lang, 'Moderada', 'Moderate')} {info.budget.moderate.toLocaleString()}</span>
           <span className="enc-b high">{t(lang, 'Alta', 'High')} {info.budget.high.toLocaleString()}</span>
-          <span className="muted small">
+          <span className="enc-note">
             {t(lang, 'Orçamento do grupo (SRD 5.2.1)', 'Party budget (SRD 5.2.1)')}
             {info.fromCombat ? '' : t(lang, ' · grupo todo da campanha', ' · whole campaign party')}
             {info.estimated ? t(lang, ' · XP estimado para monstro sem ND', ' · estimated XP for monsters without CR') : ''}
