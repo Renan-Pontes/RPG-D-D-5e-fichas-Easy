@@ -154,7 +154,8 @@
 }
 .cg-tools .mesa-hint { margin: 0; }
 .cg-tools-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.cg-grow { flex: 1 1 auto; }
+/* cresce só na linha: na seção (coluna) esticaria o botão na altura */
+.cg-tools-row > .cg-grow { flex: 1 1 auto; }
 .cg-clear { flex: 0 0 auto; }
 .cg-gs { display: flex; flex-direction: column; gap: 4px; }
 .cg-gs-label { margin: 0; color: var(--ink-secondary); font-size: 0.95rem; }
@@ -175,16 +176,20 @@
 .cg-size .mesa-chip { justify-content: center; white-space: normal; text-align: center; }
 .cg-tools .mesa-field select { font-size: 16px; }
 
-/* desktop: painel acima do mapa, seções lado a lado */
+/* desktop: painel acima do mapa. As três seções ficam lado a lado (filete à
+   esquerda) só quando cabem; mais estreito, empilham como na folha (filete em cima). */
 .cg-tools-inline {
+  container-type: inline-size;
   padding: 12px;
   border: 1px solid rgba(224, 181, 94, 0.18);
   border-radius: 8px;
   background: rgba(10, 7, 6, 0.45);
 }
-.cg-tools.is-inline { flex-direction: row; flex-wrap: wrap; gap: 14px 18px; }
-.cg-tools.is-inline .cg-tools-sec { flex: 1 1 200px; }
-.cg-tools.is-inline .cg-tools-sec + .cg-tools-sec { padding-top: 0; border-top: 0; padding-left: 16px; border-left: 1px solid rgba(224, 181, 94, 0.18); }
+@container (min-width: 600px) {
+  .cg-tools.is-inline { flex-direction: row; gap: 18px; }
+  .cg-tools.is-inline .cg-tools-sec { flex: 1 1 0; }
+  .cg-tools.is-inline .cg-tools-sec + .cg-tools-sec { padding-top: 0; border-top: 0; padding-left: 16px; border-left: 1px solid rgba(224, 181, 94, 0.18); }
+}
 
 /* desktop: o mapa preso ao lado da lista cabe na altura da tela */
 @media (min-width: 1024px) {
