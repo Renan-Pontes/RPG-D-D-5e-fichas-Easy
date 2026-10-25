@@ -322,14 +322,16 @@
 .nudge-hint { display: block; }
 .nudge-default-off { color: var(--ink-muted); font-size: 0.8rem; }
 
-/* Sino do combate: contador + lista suspensa + toast leve (sem modal) */
+/* Sino do combate: contador + lista (folha no celular, suspensa no desktop) + toast leve */
 .nudge-bell-wrap { position: relative; display: inline-flex; }
 .nudge-bell {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  min-height: 36px;
-  padding: 0 10px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 12px;
   border-radius: 999px;
   border: 1px solid var(--stroke);
   background: var(--bg-elevated);
@@ -337,25 +339,45 @@
   cursor: pointer;
 }
 .nudge-bell.has-items { border-color: var(--amber); color: var(--amber); }
-.nudge-bell-count { font-family: var(--mono); font-size: 0.85rem; }
-/* Rótulo visível: "🔔 0 avisos" em vez de um número solto (bug #6). */
-.nudge-bell .sr-only {
-  position: static !important; width: auto; height: auto; overflow: visible; clip: auto; white-space: nowrap;
-  margin: 0; padding: 0; font-size: 0.8rem;
+.nudge-bell-count { font-family: var(--mono); font-size: 0.9rem; }
+/* Rótulo visível: "🔔 2 avisos" em vez de um número solto (bug #6). Na faixa do
+   turno (compact) o celular estreito fica só com 🔔 + número; o leitor de tela
+   ouve "2 avisos" pelo aria-label. */
+.nudge-bell-word { font-size: 0.85rem; white-space: nowrap; }
+@media (max-width: 480px) {
+  .nudge-bell-wrap.is-compact .nudge-bell-word { display: none; }
+  .nudge-bell-wrap.is-compact .nudge-bell { padding: 0 8px; }
 }
+.nudge-bell:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
 .nudge-pop {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
   z-index: 30;
-  width: min(380px, calc(100vw - 32px));
-  max-height: 60vh;
+  width: min(400px, calc(100vw - 16px));
+  max-height: min(70vh, 640px);
   overflow: auto;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid var(--stroke-strong);
-  background: var(--bg-card);
+  overscroll-behavior: contain;
+  padding: 10px 12px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background:
+    var(--fh-noise) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather) 40%, var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
   box-shadow: var(--shadow-deep);
+  text-align: left;
+}
+.nudge-pop-head strong { font-family: var(--display); color: var(--gold-bright); letter-spacing: 0.06em; }
+.nudge-pop-hint { margin: 0 0 8px; color: var(--ink-muted); font-size: 0.88rem; }
+/* Na folha e na lista suspensa: Aplicar, Dispensar e "Não avisar mais isto" com 44 px */
+:is(.nudge-sheet, .nudge-pop) .nudge-actions .btn { min-height: 44px; font-size: 0.85rem; }
+:is(.nudge-sheet, .nudge-pop) .nudge-mute { min-height: 44px; padding: 0 8px; font-size: 0.9rem; }
+.nudge-sheet .nudge-text { font-size: 1rem; }
+.nudge-sheet .nudge { padding: 10px 12px; }
+@media (max-width: 767px) {
+  .nudge-sheet .nudge-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .nudge-sheet .nudge-actions > :only-child, .nudge-sheet .nudge-actions .nudge-mute { grid-column: 1 / -1; }
 }
 .nudge-pop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .nudge-toast-slot {
@@ -401,6 +423,21 @@
 /* ============================================================
    Fim de encontro guiado
    ============================================================ */
+/* Fim de encontro em folha (MesaSheet): o lugar antigo na Cena fica vazio */
+.tn-wrapup:empty { display: none; }
+.eoe-sheet-body { display: flex; flex-direction: column; gap: 10px; }
+.eoe-sheet-body .eoe-steps { margin: 0; gap: 10px; }
+.eoe-sheet-body .eoe-step { padding: 12px; gap: 8px; border-color: rgba(224, 181, 94, 0.22); background: rgba(10, 7, 6, 0.4); }
+.eoe-sheet-body .eoe-step.is-done { border-color: rgba(156, 192, 101, 0.6); }
+.eoe-sheet-body .eoe-step-title { font-size: 0.95rem; color: var(--gold-bright); }
+.eoe-sheet-body .eoe-row { gap: 8px; }
+.eoe-sheet-body .eoe-row .input.eoe-xp { width: 120px; min-height: 44px; font-size: 16px; }
+.eoe-sheet-body .eoe-step .input { min-height: 44px; font-size: 16px; }
+.eoe-sheet-body .eoe-body { min-height: 110px; }
+.eoe-sheet-body .muted.small { font-size: 0.9rem; }
+.eoe-sheet .mesa-actions > .mesa-btn { min-width: 140px; }
+@media (max-width: 767px) { .eoe-sheet .mesa-actions > .mesa-btn { flex: 1 1 auto; } }
+
 .eoe-panel {
   border: 1px solid var(--gold);
   border-radius: 10px;

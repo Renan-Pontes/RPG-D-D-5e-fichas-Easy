@@ -1,13 +1,15 @@
 // Avisos da mesa (UI). A lógica fica em nudges.js; aqui só mostramos e, quando o
 // mestre clica em "Aplicar", chamamos a API já existente. Nada é automático.
 import { errorMessage } from '../api/errors.js';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
 import Utils from '../../utils.js';
 import {
   NUDGE_TYPES, buildNudges, nudgePrefs, pruneDismissed, stateWithConcentration, stateWithNudgePref, visibleNudges,
 } from './nudges.js';
 import { patchState } from '../play/play-api.js';
+import MesaSheet, { mesaLayer } from '../shell/MesaSheet.jsx';
 import './table-now.css';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
@@ -161,15 +163,38 @@ export function NudgeSettings({ nudges, lang }) {
   );
 }
 
+function useNarrow(q = '(max-width: 767px)') {
+  const [on, setOn] = useState(() => { try { return window.matchMedia(q).matches; } catch { return false; } });
+  useEffect(() => {
+    let mq;
+    try { mq = window.matchMedia(q); } catch { return undefined; }
+    const upd = () => setOn(mq.matches);
+    upd();
+    mq.addEventListener?.('change', upd);
+    return () => mq.removeEventListener?.('change', upd);
+  }, [q]);
+  return on;
+}
+
 /**
  * Contador leve para a aba de combate: sino com número, toast discreto quando
- * surge um aviso novo e lista suspensa. Sem modal.
+ * surge um aviso novo e a lista dos avisos.
+ * - Celular (≤ 767): a lista abre numa folha da mesa (MesaSheet), sempre
+ *   inteira dentro da tela, com os botões de 44 px.
+ * - Tablet/desktop: lista suspensa ancorada no sino, empurrada para dentro da
+ *   tela se passar da borda; Esc e toque fora fecham.
+ * - compact: só 🔔 + número (a palavra "avisos" fica para o leitor de tela) —
+ *   usado na faixa do turno, onde o espaço é curto.
+ * O toast vai para a camada da mesa (portal), fora da faixa presa.
  */
-export function NudgeBell({ campaign, combat, lang, onChange }) {
+export function NudgeBell({ campaign, combat, lang, onChange, compact = false }) {
   const nudges = useNudges({ campaign, combat, lang, onChange });
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const seen = useRef(null);
+  const wrapRef = useRef(null);
+  const popRef = useRef(null);
+  const narrow = useNarrow();
   const count = nudges.visible.length;
 
   useEffect(() => {
@@ -187,31 +212,68 @@ export function NudgeBell({ campaign, combat, lang, onChange }) {
     return () => clearTimeout(tm);
   }, [toast]);
 
+  // Lista suspensa (desktop): dentro da tela, Esc e toque fora fecham.
+  useLayoutEffect(() => {
+    const el = popRef.current;
+    if (!open || narrow || !el) return;
+    el.style.left = ''; el.style.right = '';
+    const r = el.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    const wrap = wrapRef.current?.getBoundingClientRect();
+    if (!wrap) return;
+    if (r.left < 8) { el.style.right = 'auto'; el.style.left = `${8 - wrap.left}px`; }
+    else if (r.right > vw - 8) { el.style.right = `${wrap.right - (vw - 8)}px`; }
+  }, [open, narrow, count]);
+  useEffect(() => {
+    if (!open || narrow) return undefined;
+    const onDoc = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } };
+    document.addEventListener('pointerdown', onDoc);
+    window.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('pointerdown', onDoc); window.removeEventListener('keydown', onKey); };
+  }, [open, narrow]);
+
+  const word = L(lang, count === 1 ? 'aviso' : 'avisos', count === 1 ? 'notice' : 'notices');
+  const layer = typeof document !== 'undefined' ? mesaLayer() : null;
+  const toastEl = (
+    <div className="nudge-toast-slot" aria-live="polite">
+      {toast && !open && (
+        <button type="button" className={`nudge-toast sev-${toast.severity}`} onClick={() => { setOpen(true); setToast(null); }}>
+          <span aria-hidden="true">{SEV_ICON[toast.severity]}</span> {toast.text}
+        </button>
+      )}
+    </div>
+  );
+
   return (
-    <div className="nudge-bell-wrap">
+    <div className={`nudge-bell-wrap ${compact ? 'is-compact' : ''}`} ref={wrapRef}>
       <button type="button" className={`nudge-bell ${count ? 'has-items' : ''}`} aria-expanded={open}
+        aria-haspopup={narrow ? 'dialog' : undefined}
+        aria-label={`${count} ${word}`}
         onClick={() => { setOpen(v => !v); setToast(null); }}
         title={L(lang, 'Avisos da mesa (só sugestões)', 'Table notices (suggestions only)')}>
         <span aria-hidden="true">🔔</span>
-        <span className="nudge-bell-count">{count}</span>
-        <span className="sr-only">{L(lang, 'avisos', 'notices')}</span>
+        <span className="nudge-bell-count" aria-hidden="true">{count}</span>
+        <span className="nudge-bell-word" aria-hidden="true">{word}</span>
       </button>
-      {open && (
-        <div className="nudge-pop" role="region" aria-label={L(lang, 'Avisos', 'Notices')}>
+      {open && !narrow && (
+        <div className="nudge-pop" role="region" aria-label={L(lang, 'Avisos', 'Notices')} ref={popRef}>
           <div className="nudge-pop-head">
             <strong>{L(lang, 'Avisos', 'Notices')}</strong>
-            <button type="button" className="btn-icon" onClick={() => setOpen(false)} aria-label={L(lang, 'Fechar', 'Close')}>×</button>
+            <button type="button" className="mesa-icon-btn" onClick={() => setOpen(false)} aria-label={L(lang, 'Fechar', 'Close')}>✕</button>
           </div>
+          <p className="nudge-pop-hint">{L(lang, 'Só sugestões: nada é aplicado sem o seu toque.', 'Suggestions only: nothing is applied without your tap.')}</p>
           <NudgeList nudges={nudges} lang={lang} compact />
         </div>
       )}
-      <div className="nudge-toast-slot" aria-live="polite">
-        {toast && !open && (
-          <button type="button" className={`nudge-toast sev-${toast.severity}`} onClick={() => { setOpen(true); setToast(null); }}>
-            <span aria-hidden="true">{SEV_ICON[toast.severity]}</span> {toast.text}
-          </button>
-        )}
-      </div>
+      {open && narrow && (
+        <MesaSheet title={L(lang, 'Avisos', 'Notices')} icon="🔔" size="auto" width="sm" lang={lang}
+          onClose={() => setOpen(false)} className="nudge-sheet">
+          <p className="mesa-sheet-text">{L(lang, 'Só sugestões: nada é aplicado sem o seu toque.', 'Suggestions only: nothing is applied without your tap.')}</p>
+          <NudgeList nudges={nudges} lang={lang} />
+        </MesaSheet>
+      )}
+      {layer ? createPortal(toastEl, layer) : toastEl}
     </div>
   );
 }
