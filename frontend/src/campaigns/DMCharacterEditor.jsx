@@ -502,7 +502,9 @@ function NumInput({ label, value, onChange, min = -999, max = 9999, stepper, lan
           <button type="button" className="dm-step" disabled={v <= min}
             aria-label={t(lang, `Diminuir ${label}`, `Decrease ${label}`)} onClick={() => onChange(clamp((parseInt(v) || 0) - 1))}>−</button>
         )}
-        <input id={id} type="number" className="input" min={min} max={max} inputMode="numeric"
+        {/* inputmode=numeric só quando o campo não aceita negativo: no iPhone esse
+            teclado não tem o "−" (Bônus extra de CA −1, por exemplo) */}
+        <input id={id} type="number" className="input" min={min} max={max} inputMode={min >= 0 ? 'numeric' : undefined}
           value={v} onChange={e => onChange(parseInt(e.target.value) || 0)} />
         {stepper && (
           <button type="button" className="dm-step" disabled={v >= max}
