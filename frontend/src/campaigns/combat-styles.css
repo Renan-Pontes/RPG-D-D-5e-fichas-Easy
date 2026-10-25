@@ -619,6 +619,10 @@ button.cs-cond:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-off
   /* o número vai para o canto do ícone: o rótulo cabe em 4 colunas a 320 px */
   .cs-tab-n { position: absolute; top: 3px; left: calc(50% + 8px); min-width: 18px; height: 18px; padding: 0 4px; }
 }
+/* painel na lista do desktop (~460 px, abas de ~104 px): o mesmo desenho, com o
+   número no canto do ícone, para o rótulo não ficar embaixo dele */
+.cs-panel.is-inline .cs-tab { flex-direction: column; gap: 2px; font-size: 13px; letter-spacing: 0; }
+.cs-panel.is-inline .cs-tab-n { position: absolute; top: 3px; left: calc(50% + 8px); min-width: 18px; height: 18px; padding: 0 4px; }
 .cs-tabpanel { min-width: 0; }
 .cs-label {
   margin: 0;
