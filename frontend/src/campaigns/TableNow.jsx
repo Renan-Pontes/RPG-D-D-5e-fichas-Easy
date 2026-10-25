@@ -9,6 +9,8 @@
 // em folha (MesaSheet), sem empurrar a página.
 // Desktop (≥ 1024): 2 colunas — à esquerda turno, cena, avisos e personagens;
 // à direita pendências, ações e Nesta cena; o plano embaixo, nas 2 colunas.
+// Se uma coluna fica > 200 px mais comprida, Avisos e Ações rápidas trocam de
+// coluna (table-now-layout.js); no celular a ordem é sempre a de cima.
 import { errorMessage } from '../api/errors.js';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api } from '../api/client.js';
@@ -34,6 +36,7 @@ import MesaTitle from '../shell/MesaTitle.jsx';
 import { HpBar, PcPortrait } from '../shell/MesaPc.jsx';
 import { DM_AREAS, legacyTabToArea, subLabel } from '../shell/shell-logic.js';
 import { memberStats } from '../group/group-model.js';
+import { shouldSwapColumns } from './table-now-layout.js';
 import './combat-styles.css';
 import './table-now.css';
 
@@ -126,11 +129,117 @@ export default function TableNow({ campaign, approvals, lang = 'pt', onChange, o
   const openChecks = checks.filter(c => c.status === 'open');
   const closeSheet = () => setSheet(null);
 
+  // Desktop: Avisos e Ações rápidas trocam de coluna quando uma coluna fica bem mais
+  // comprida que a outra (table-now-layout.js). Mede as alturas reais, sem consulta nova.
+  const [swapCols, setSwapCols] = useState(false);
+  const swap = wide && swapCols;
+  const mainColRef = useRef(null);
+  const sideColRef = useRef(null);
+  const swapTry = useRef(null);    // {before, to}: a última troca, para conferir se ajudou
+  const swapStuck = useRef(null);  // a troca não ajudou com este combate/grupo: não tenta de novo
+  const layoutKey = combat === undefined ? null : `${active ? 1 : 0}|${party.length}`; // null = carregando
+  useLayoutEffect(() => {
+    const m = mainColRef.current;
+    const s = sideColRef.current;
+    if (!wide || layoutKey == null || !m || !s || typeof ResizeObserver === 'undefined') return undefined;
+    const check = () => {
+      const h = (el) => (el ? el.getBoundingClientRect().height : 0);
+      const main = h(m);
+      const side = h(s);
+      const diff = Math.abs(main - side);
+      if (swapTry.current) {
+        if (swapTry.current.to !== swapCols) return; // a troca ainda não foi desenhada
+        const { before } = swapTry.current;
+        swapTry.current = null;
+        if (diff >= before) { swapStuck.current = layoutKey; setSwapCols(!swapCols); return; }
+      }
+      if (swapStuck.current === layoutKey) return;
+      const nudgesEl = m.querySelector(':scope > .tn-nudges') || s.querySelector(':scope > .tn-nudges');
+      const actionsEl = m.querySelector(':scope > .tn-actions') || s.querySelector(':scope > .tn-actions');
+      // não tira de baixo do foco (teclado) o bloco em uso
+      if ([nudgesEl, actionsEl].some(el => el && el.contains(document.activeElement))) return;
+      if (shouldSwapColumns({ main, side, nudges: h(nudgesEl), actions: h(actionsEl), swapped: swapCols })) {
+        swapTry.current = { before: diff, to: !swapCols };
+        setSwapCols(!swapCols);
+      }
+    };
+    const ro = new ResizeObserver(check);
+    ro.observe(m);
+    ro.observe(s);
+    return () => ro.disconnect();
+  }, [wide, swapCols, layoutKey]);
+
   const turnStrip = combat !== undefined && combatants.length > 0 && (
     <CombatStrip combat={combat} lang={lang} active={active} wizardOn={wizardOn}
       onOpen={() => onNavigate?.('combat')}
       onNext={() => act(() => api.combatNextTurn(campaign.id))}
       onWrapUp={() => setShowWrapUp(true)} busy={busy} />
+  );
+
+  const nudgesBox = (
+    <section className="mesa-panel tn-box tn-nudges" aria-labelledby="tn-nudges-h">
+      <MesaTitle id="tn-nudges-h"
+        hint={nudges.visible.length > 0 ? <span className="tn-count" aria-label={`(${nudges.visible.length})`}>{nudges.visible.length}</span> : null}
+        act={(
+          <button type="button" className="mesa-btn is-quiet tn-nudge-cfg" aria-haspopup="dialog" onClick={() => setSheet('nudges')}>
+            ⚙ {L(lang, 'Configurar', 'Settings')}
+          </button>
+        )}>
+        {L(lang, 'Avisos', 'Notices')}
+      </MesaTitle>
+      {nudges.visible.length > 0 && (
+        <p className="mesa-hint tn-nudge-hint">
+          {L(lang, '“Dispensar” esconde só este aviso, neste aparelho.', '“Dismiss” hides only this notice, on this device.')}
+        </p>
+      )}
+      <NudgeList nudges={nudges} lang={lang} />
+    </section>
+  );
+
+  const actionsBox = (
+    <section className="mesa-panel tn-box tn-actions" aria-labelledby="tn-actions-h">
+      <MesaTitle id="tn-actions-h">{L(lang, 'Ações rápidas', 'Quick actions')}</MesaTitle>
+      <div className="tn-action-grid">
+        <button type="button" className="mesa-btn tn-act" aria-haspopup="dialog" onClick={() => setSheet('check')}>
+          <span aria-hidden="true">🎯</span> {L(lang, 'Pedir teste à mesa', 'Ask for a check')}
+        </button>
+        <button type="button" className="mesa-btn tn-act" aria-haspopup="dialog" onClick={() => setSheet('improvise')}
+          title={L(lang, 'NPC, taverna ou nomes na hora', 'NPC, tavern or names on the spot')}>
+          <span aria-hidden="true">🎲</span> {L(lang, 'Improvisar', 'Improvise')}
+        </button>
+        <button type="button" className="mesa-btn tn-act" aria-haspopup="dialog" onClick={() => setSheet('recap')}>
+          <span aria-hidden="true">📜</span> {L(lang, 'Anteriormente em…', 'Previously on…')}
+        </button>
+        <button type="button" className="mesa-btn tn-act" disabled={busy || !party.length} onClick={async () => {
+          if (await ask(L(lang, 'Aplicar descanso curto em todos os personagens da mesa?', 'Apply a short rest to the whole party?'), L(lang, 'Aplicar', 'Apply'))) {
+            act(async () => { await api.campaignShortRestAll(campaign.id); }, L(lang, 'Descanso curto aplicado.', 'Short rest applied.'));
+          }
+        }}><span aria-hidden="true">☕</span> {L(lang, 'Descanso curto (mesa)', 'Short rest (party)')}</button>
+        <button type="button" className="mesa-btn tn-act" disabled={busy || !party.length} onClick={async () => {
+          if (await ask(L(lang, 'Aplicar descanso longo em todos os personagens da mesa?', 'Apply a long rest to the whole party?'), L(lang, 'Aplicar', 'Apply'))) {
+            act(async () => { await api.campaignLongRestAll(campaign.id); }, L(lang, 'Descanso longo aplicado.', 'Long rest applied.'));
+          }
+        }}><span aria-hidden="true">🛌</span> {L(lang, 'Descanso longo (mesa)', 'Long rest (party)')}</button>
+        <button type="button" className="mesa-btn tn-act" onClick={openGrimoire}><span aria-hidden="true">📖</span> {L(lang, 'Abrir Grimório', 'Open Grimoire')}</button>
+      </div>
+      <label className="tn-toggle">
+        <input type="checkbox" checked={wizardOn} disabled={busy}
+          onChange={e => {
+            const on = e.target.checked;
+            setWizardLocal(on);
+            act(async () => {
+              try { await saveState({ endOfEncounterWizard: stateWithWizard(campaign.state, on).endOfEncounterWizard }); } catch (err) { setWizardLocal(null); throw err; }
+            }, on ? L(lang, 'Fim de encontro guiado ligado.', 'Guided wrap-up on.') : L(lang, 'Fim de encontro guiado desligado.', 'Guided wrap-up off.'));
+          }} />
+        <span>
+          <strong>{L(lang, 'Fim de encontro guiado', 'Guided end of encounter')}</strong>
+          <span className="tn-toggle-hint">{L(lang,
+            'Ao encerrar o combate: XP, descanso, tesouro e nota no Diário (tudo opcional).',
+            'When combat ends: XP, rest, treasure and a Diary note (all optional).')}</span>
+        </span>
+      </label>
+      {msg && <p className="tn-msg" role="status">{msg}</p>}
+    </section>
   );
 
   const main = (
@@ -144,23 +253,7 @@ export default function TableNow({ campaign, approvals, lang = 'pt', onChange, o
         </div>
       )}
 
-      <section className="mesa-panel tn-box tn-nudges" aria-labelledby="tn-nudges-h">
-        <MesaTitle id="tn-nudges-h"
-          hint={nudges.visible.length > 0 ? <span className="tn-count" aria-label={`(${nudges.visible.length})`}>{nudges.visible.length}</span> : null}
-          act={(
-            <button type="button" className="mesa-btn is-quiet tn-nudge-cfg" aria-haspopup="dialog" onClick={() => setSheet('nudges')}>
-              ⚙ {L(lang, 'Configurar', 'Settings')}
-            </button>
-          )}>
-          {L(lang, 'Avisos', 'Notices')}
-        </MesaTitle>
-        {nudges.visible.length > 0 && (
-          <p className="mesa-hint tn-nudge-hint">
-            {L(lang, '“Dispensar” esconde só este aviso, neste aparelho.', '“Dismiss” hides only this notice, on this device.')}
-          </p>
-        )}
-        <NudgeList nudges={nudges} lang={lang} />
-      </section>
+      {!swap && nudgesBox}
 
       <section className="mesa-panel tn-party-box" aria-labelledby="tn-party-h">
         <MesaTitle id="tn-party-h"
@@ -180,6 +273,7 @@ export default function TableNow({ campaign, approvals, lang = 'pt', onChange, o
           ))}
         </div>
       </section>
+      {swap && actionsBox}
     </>
   );
 
@@ -192,6 +286,7 @@ export default function TableNow({ campaign, approvals, lang = 'pt', onChange, o
 
   const side = (
     <>
+      {swap && nudgesBox}
       <section className="mesa-panel tn-box tn-pending" aria-labelledby="tn-pending-h">
         <MesaTitle id="tn-pending-h">{L(lang, 'Pendências', 'Pending')}</MesaTitle>
         <ul className="tn-pending-list">
@@ -227,49 +322,7 @@ export default function TableNow({ campaign, approvals, lang = 'pt', onChange, o
         {nothing && <p className="mesa-hint tn-pending-none">{L(lang, 'Nada esperando por você.', 'Nothing waiting for you.')}</p>}
       </section>
 
-      <section className="mesa-panel tn-box tn-actions" aria-labelledby="tn-actions-h">
-        <MesaTitle id="tn-actions-h">{L(lang, 'Ações rápidas', 'Quick actions')}</MesaTitle>
-        <div className="tn-action-grid">
-          <button type="button" className="mesa-btn tn-act" aria-haspopup="dialog" onClick={() => setSheet('check')}>
-            <span aria-hidden="true">🎯</span> {L(lang, 'Pedir teste à mesa', 'Ask for a check')}
-          </button>
-          <button type="button" className="mesa-btn tn-act" aria-haspopup="dialog" onClick={() => setSheet('improvise')}
-            title={L(lang, 'NPC, taverna ou nomes na hora', 'NPC, tavern or names on the spot')}>
-            <span aria-hidden="true">🎲</span> {L(lang, 'Improvisar', 'Improvise')}
-          </button>
-          <button type="button" className="mesa-btn tn-act" aria-haspopup="dialog" onClick={() => setSheet('recap')}>
-            <span aria-hidden="true">📜</span> {L(lang, 'Anteriormente em…', 'Previously on…')}
-          </button>
-          <button type="button" className="mesa-btn tn-act" disabled={busy || !party.length} onClick={async () => {
-            if (await ask(L(lang, 'Aplicar descanso curto em todos os personagens da mesa?', 'Apply a short rest to the whole party?'), L(lang, 'Aplicar', 'Apply'))) {
-              act(async () => { await api.campaignShortRestAll(campaign.id); }, L(lang, 'Descanso curto aplicado.', 'Short rest applied.'));
-            }
-          }}><span aria-hidden="true">☕</span> {L(lang, 'Descanso curto (mesa)', 'Short rest (party)')}</button>
-          <button type="button" className="mesa-btn tn-act" disabled={busy || !party.length} onClick={async () => {
-            if (await ask(L(lang, 'Aplicar descanso longo em todos os personagens da mesa?', 'Apply a long rest to the whole party?'), L(lang, 'Aplicar', 'Apply'))) {
-              act(async () => { await api.campaignLongRestAll(campaign.id); }, L(lang, 'Descanso longo aplicado.', 'Long rest applied.'));
-            }
-          }}><span aria-hidden="true">🛌</span> {L(lang, 'Descanso longo (mesa)', 'Long rest (party)')}</button>
-          <button type="button" className="mesa-btn tn-act" onClick={openGrimoire}><span aria-hidden="true">📖</span> {L(lang, 'Abrir Grimório', 'Open Grimoire')}</button>
-        </div>
-        <label className="tn-toggle">
-          <input type="checkbox" checked={wizardOn} disabled={busy}
-            onChange={e => {
-              const on = e.target.checked;
-              setWizardLocal(on);
-              act(async () => {
-                try { await saveState({ endOfEncounterWizard: stateWithWizard(campaign.state, on).endOfEncounterWizard }); } catch (err) { setWizardLocal(null); throw err; }
-              }, on ? L(lang, 'Fim de encontro guiado ligado.', 'Guided wrap-up on.') : L(lang, 'Fim de encontro guiado desligado.', 'Guided wrap-up off.'));
-            }} />
-          <span>
-            <strong>{L(lang, 'Fim de encontro guiado', 'Guided end of encounter')}</strong>
-            <span className="tn-toggle-hint">{L(lang,
-              'Ao encerrar o combate: XP, descanso, tesouro e nota no Diário (tudo opcional).',
-              'When combat ends: XP, rest, treasure and a Diary note (all optional).')}</span>
-          </span>
-        </label>
-        {msg && <p className="tn-msg" role="status">{msg}</p>}
-      </section>
+      {!swap && actionsBox}
 
       <InScenePanel campaign={campaign} lang={lang} goTo={goTo} />
     </>
@@ -277,8 +330,8 @@ export default function TableNow({ campaign, approvals, lang = 'pt', onChange, o
 
   return (
     <div className={`table-now ${active ? 'has-turn' : ''}`}>
-      <div className="tn-col tn-col-main">{main}</div>
-      <div className="tn-col tn-col-side">{side}</div>
+      <div ref={mainColRef} className="tn-col tn-col-main">{main}</div>
+      <div ref={sideColRef} className="tn-col tn-col-side">{side}</div>
       {/* o plano por último; no desktop ocupa as 2 colunas embaixo (grid-area: plan) */}
       <SessionPlanPanel campaign={campaign} lang={lang} goTo={goTo} onSaveState={saveState} />
 

@@ -707,7 +707,9 @@
 /* ============================================================
    Desktop (≥ 1024): 2 colunas independentes, sem buraco entre os blocos
    (à esquerda turno, cena, avisos e personagens; à direita pendências,
-   ações, Nesta cena e o plano, que fica no fim da coluna dele).
+   ações e Nesta cena; o plano embaixo, nas 2). Se uma coluna passa a
+   outra em > 200 px, Avisos e Ações rápidas trocam de coluna (o
+   TableNow mede; table-now-layout.js decide).
    ============================================================ */
 @media (min-width: 640px) {
   .tn-party { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
