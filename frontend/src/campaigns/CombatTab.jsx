@@ -220,7 +220,8 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
     isCurrentTurn: !!currentTurn && currentTurn.id === c.id,
   });
   const showList = wide || view === 'list';
-  const showMap = wide || view === 'map';
+  // combate vazio: o mapa fica à vista (fundo, quadrado e grade antes de montar o encontro)
+  const showMap = wide || view === 'map' || combatants.length === 0;
   const turnLabel = <span className="mesa-turn-label">{t(lang, 'Rodada', 'Round')} {combat.round} · {t(lang, 'Vez de', 'Now acting')}</span>;
 
   return (
