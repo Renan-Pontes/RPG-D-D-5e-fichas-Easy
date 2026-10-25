@@ -179,7 +179,8 @@
   font-family: var(--display); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-muted);
 }
 .ins-list { display: flex; flex-direction: column; min-width: 0; border-top: 1px solid rgba(224, 181, 94, 0.14); }
-.ins-row.mesa-row { min-height: 60px; padding: 4px 0; gap: 6px; }
+/* folga vertical pequena: a linha de 60 px vem do min-height; a que quebra (subtítulo embaixo do selo) cresce só o texto */
+.ins-row.mesa-row { min-height: 60px; padding: 2px 0; gap: 6px; }
 .ins-row-open {
   flex: 1 1 auto;
   min-width: 0;
@@ -187,7 +188,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px;
+  padding: 2px 4px;
   border: 0;
   border-radius: 6px;
   background: none;
@@ -212,14 +213,16 @@
 }
 .ins-row-img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .ins-row-name { font-family: var(--body); font-weight: 600; font-size: 1.02rem; line-height: 1.2; }
-.ins-row-sub { display: flex; align-items: center; gap: 2px 8px; min-width: 0; font-size: 0.88rem; }
-.ins-row .wl-seal { position: static; flex: none; padding: 1px 8px 1px 6px; font-size: 12px; backdrop-filter: none; }
-.ins-row .wl-seal-txt { display: inline; }
+/* o subtítulo desce para a linha de baixo quando não cabe ao lado do selo: usa a largura toda e só corta no fim */
+.ins-row-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 1px 8px; min-width: 0; font-size: 0.88rem; }
+/* o selo não passa da coluna (em 320 "Conhecido de nome" cobria o "Quem vê…"): quebra em 2 linhas se precisar */
+.ins-row .wl-seal { position: static; flex: 0 1 auto; max-width: 100%; padding: 1px 8px 1px 6px; border-radius: 10px; font-size: 12px; backdrop-filter: none; }
+.ins-row .wl-seal-txt { display: inline; min-width: 0; line-height: 1.25; overflow-wrap: anywhere; }
 .ins-row-kind { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ins-row-act { gap: 4px; }
 @media (max-width: 480px) {
   .ins-row-pic { width: 40px; height: 40px; }
-  .ins-row-open { gap: 8px; padding: 4px 2px; }
+  .ins-row-open { gap: 8px; padding: 2px; }
 }
 .ins-act {
   flex: none;
