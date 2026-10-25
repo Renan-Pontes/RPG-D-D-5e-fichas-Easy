@@ -203,20 +203,59 @@
 .ins-reveal { max-width: 560px; }
 
 /* ---------- Testes (lista única) ---------- */
-.tests-panel { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.tl-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
-.tl-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tests-panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.tests-ask-btn { width: 100%; }
+.tl-tabs.mesa-seg { margin: 0 0 12px; }
+.tl-tab.mesa-seg-btn { min-width: 0; min-height: 44px; padding: 4px 6px; font-size: 0.92rem; }
 .tl-count {
-  display: inline-grid; place-items: center; min-width: 1.4em; height: 1.4em; margin-left: 6px; padding: 0 4px;
-  border-radius: 999px; background: var(--gold); color: var(--on-gold); font-size: 0.72rem; font-weight: 700;
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px; margin-left: 6px; padding: 0 5px;
+  border-radius: 999px; background: var(--gold); color: var(--on-gold); font-size: 12px; font-weight: 700; line-height: 1;
+}
+@media (max-width: 380px) {
+  /* filtro em 1 linha em 320: o número vai para o canto do botão */
+  .tl-tab.mesa-seg-btn { font-size: 0.86rem; padding: 4px 2px; }
+  .tl-tab .tl-count { position: absolute; top: 1px; right: 2px; margin: 0; min-width: 18px; height: 18px; font-size: 12px; }
 }
 .tl-empty { margin: 4px 0; }
 .tl-kind {
   display: inline-block; margin-right: 8px; padding: 1px 8px; border-radius: 999px;
-  border: 1px solid var(--stroke); font-size: 0.72rem; color: var(--ink-secondary);
+  border: 1px solid rgba(224, 181, 94, 0.3); font-size: 12px; color: var(--ink-secondary); vertical-align: 2px;
 }
-.tl-physical { align-items: center; flex-wrap: wrap; background: var(--gold-soft); padding: 6px 8px; border-radius: 6px; }
-.tl-roll { border: 1px solid var(--stroke); border-radius: 10px; padding: 10px 12px !important; }
+.tests-panel .gc-list { gap: 10px; }
+.tl-roll.roll-row {
+  display: flex; flex-direction: column; align-items: stretch; gap: 8px;
+  padding: 10px 12px !important;
+  border: 1px solid rgba(224, 181, 94, 0.22); border-radius: 10px;
+  background: rgba(10, 7, 6, 0.45);
+}
+.tl-roll-head { display: flex; align-items: flex-start; gap: 6px; }
+.tl-roll-what { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.tl-roll-what strong { font-family: var(--display); }
+.tl-roll-label { color: var(--ink-primary); }
+.tl-roll-dice { font-size: 0.9rem; color: var(--ink-muted); }
+.tl-roll-cancel { margin: -6px -8px 0 0; color: var(--blood-bright); }
+.tl-roll-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tl-roll-actions .tl-roll-show { grid-column: 1 / -1; }
+.tl-roll-actions .mesa-btn { padding-left: 8px; padding-right: 8px; white-space: normal; }
+.tl-roll-actions .mesa-btn.is-on { border-color: var(--gold); background: var(--gold-soft); }
+@media (min-width: 640px) {
+  .tl-roll-actions { display: flex; flex-wrap: wrap; }
+}
+.tl-physical {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px;
+  padding: 10px; border-radius: 8px; background: var(--gold-soft); border: 1px dashed var(--gold-deep);
+}
+.tl-physical-field { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--ink-secondary); }
+.tl-physical-field .input { width: 96px; min-height: 44px; font-size: 16px; text-align: center; }
+.tl-physical-sum { align-self: center; font-family: var(--mono); color: var(--gold-bright); }
+.tl-physical-btns { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 220px; }
+.tl-physical-btns .mesa-btn { flex: 1 1 auto; }
+.tl-physical .check-card-error { flex-basis: 100%; }
+.tl-hist-tag { margin-left: 8px; font-size: 0.85rem; color: var(--ink-secondary); white-space: nowrap; }
+@media (min-width: 1024px) {
+  .tests-panel.is-wide { display: grid; grid-template-columns: minmax(340px, 420px) minmax(0, 1fr); align-items: start; gap: 16px; }
+  .tests-ask-col { position: sticky; top: 64px; max-height: calc(100vh - 80px); overflow-y: auto; overscroll-behavior: contain; border-radius: 8px; }
+}
 
 /* ---------- Telão ---------- */
 .scr { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
