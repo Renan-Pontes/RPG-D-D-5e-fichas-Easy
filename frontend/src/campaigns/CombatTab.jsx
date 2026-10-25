@@ -119,6 +119,10 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
 
   const active = !!combat.active;
   const currentTurn = active ? combatants[combat.turnIndex] : null;
+  // A faixa (com o Próximo turno) depende só de haver combate em andamento: a vez
+  // pode apontar para fora da lista (tiraram o último da ordem na vez dele) e o
+  // Próximo turno é o que a traz de volta (o servidor faz (vez + 1) % total).
+  const showTurn = active && combatants.length > 0;
 
   const startCombat = async () => { await api.startCombat(campaign.id); load(); };
   const endCombat = async () => {
@@ -205,7 +209,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
   const sel = combatants.find(c => c.id === selected);
   const sheetC = sheet ? combatants.find(c => c.id === sheet.id) : null;
   const bell = combatants.length > 0 && (
-    <NudgeBell campaign={campaign} combat={combat} lang={lang} compact={!!currentTurn}
+    <NudgeBell campaign={campaign} combat={combat} lang={lang} compact={showTurn}
       onChange={() => { load(); onChange?.(); }} />
   );
   const panelProps = (c) => ({
@@ -217,20 +221,29 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
   });
   const showList = wide || view === 'list';
   const showMap = wide || view === 'map';
+  const turnLabel = <span className="mesa-turn-label">{t(lang, 'Rodada', 'Round')} {combat.round} · {t(lang, 'Vez de', 'Now acting')}</span>;
 
   return (
     <div className={`combat-tab ${wide ? 'is-wide' : 'is-narrow'}`}>
-      {currentTurn && (
+      {showTurn && (
         <div className="ct-turn-wrap">
           <div className="mesa-turn is-now ct-turn" role="region" aria-label={t(lang, 'Turno', 'Turn')}>
-            <button type="button" className="ct-turn-who" onClick={seeCurrent}>
-              <span className="mesa-turn-label">{t(lang, 'Rodada', 'Round')} {combat.round} · {t(lang, 'Vez de', 'Now acting')}</span>
-              <span className="ct-turn-name">{currentTurn.name}</span>
-              <span className="ct-turn-sub">
-                {t(lang, 'PV', 'HP')} {currentTurn.current_hp}/{(currentTurn.stats || {}).max_hp ?? '?'}
-                <span className="ct-turn-see"> · {currentTurn.type === 'monster' ? t(lang, 'Ver ações', 'See actions') : t(lang, 'Ver ficha', 'See card')} ›</span>
-              </span>
-            </button>
+            {currentTurn ? (
+              <button type="button" className="ct-turn-who" onClick={seeCurrent}>
+                {turnLabel}
+                <span className="ct-turn-name">{currentTurn.name}</span>
+                <span className="ct-turn-sub">
+                  {t(lang, 'PV', 'HP')} {currentTurn.current_hp}/{(currentTurn.stats || {}).max_hp ?? '?'}
+                  <span className="ct-turn-see"> · {currentTurn.type === 'monster' ? t(lang, 'Ver ações', 'See actions') : t(lang, 'Ver ficha', 'See card')} ›</span>
+                </span>
+              </button>
+            ) : (
+              <div className="ct-turn-who is-none">
+                {turnLabel}
+                <span className="ct-turn-name">—</span>
+                <span className="ct-turn-sub">{t(lang, 'Toque em Próximo turno para seguir', 'Tap Next turn to continue')}</span>
+              </div>
+            )}
             {bell}
             <button type="button" className="mesa-btn mesa-btn-lg is-primary ct-next" onClick={nextTurn}
               aria-keyshortcuts="N" title={t(lang, 'Atalho: tecla N', 'Shortcut: N key')}>
@@ -247,7 +260,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
               ? <>{t(lang, 'Em andamento', 'In progress')} · {t(lang, 'rodada', 'round')} {combat.round}</>
               : combatants.length > 0 ? t(lang, 'Parado', 'Paused') : t(lang, 'Vazio', 'Empty')}
           </span>
-          {!currentTurn && bell}
+          {!showTurn && bell}
         </>}>
         {t(lang, 'Combate', 'Combat')}
       </MesaTitle>

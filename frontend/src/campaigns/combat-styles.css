@@ -293,6 +293,8 @@
   cursor: pointer;
 }
 .ct-turn-who:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 1px; }
+/* vez fora da lista ("Vez de —"): só texto, o Próximo turno continua ao lado */
+.ct-turn-who.is-none { cursor: default; }
 .ct-turn-name {
   max-width: 100%;
   font-family: var(--display);
@@ -310,8 +312,11 @@
 .ct-turn-see { color: var(--fh-gold-hi); }
 .ct-next { flex: none; max-width: 9.5em; padding-left: 12px; padding-right: 12px; white-space: normal; line-height: 1.15; }
 .ct-turn .nudge-bell { min-height: 48px; }
+/* o sino não encolhe abaixo de 44 px quando o texto ao lado é comprido (o
+   ".campaign-detail.shell * { min-width: 0 }" tira o min-width dele) */
+.ct-turn .nudge-bell-wrap { flex: none; }
 @media (hover: hover) {
-  .ct-turn-who:hover { background: rgba(255, 148, 70, 0.1); }
+  button.ct-turn-who:hover { background: rgba(255, 148, 70, 0.1); }
 }
 @media (min-width: 768px) {
   /* presa logo abaixo das abas das áreas (56 px), com uma faixa do fundo por cima do conteúdo */
