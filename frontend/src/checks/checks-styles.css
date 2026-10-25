@@ -24,20 +24,23 @@
   text-transform: uppercase;
   color: var(--gold);
 }
-.check-card-later {
+.check-card-later,
+.player-checks .check-card .check-card-later /* vence o .ficha .check-card-later de 40 px */ {
   background: transparent;
   border: 0;
-  color: var(--ink-muted);
-  font-size: 0.85rem;
-  min-height: 36px;
-  padding: 0 6px;
+  color: var(--ink-secondary);
+  font-size: 0.95rem;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 10px;
+  margin: -6px -8px -6px 0;
   cursor: pointer;
 }
 .check-card-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
 .check-card-title strong { font-family: var(--display); font-size: 1.25rem; color: var(--ink-primary); }
 .check-card-dc, .check-card-adv, .gc-card-dc, .gc-card-adv {
   font-family: var(--display);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   letter-spacing: 0.06em;
   padding: 2px 8px;
   border-radius: 999px;
@@ -62,18 +65,29 @@
   gap: 2px;
 }
 .check-physical-mode button {
+  flex: 1 1 0;
+  min-width: 44px;
   background: transparent;
   border: 0;
   color: var(--ink-secondary);
   border-radius: 6px;
   padding: 0 10px;
-  min-height: 42px;
-  font-size: 0.85rem;
+  min-height: 44px;
+  font-size: 0.9rem;
   cursor: pointer;
 }
 .check-physical-mode button.active { background: var(--gold-deep); color: var(--parchment); }
-.check-physical-input { min-height: 48px; font-size: 1.1rem; text-align: center; min-width: 0; }
-.check-physical-send { min-height: 48px; white-space: nowrap; }
+.check-physical-input { min-height: 48px; font-size: 1.1rem; text-align: center; min-width: 64px; width: 100%; }
+.check-physical-send { min-height: 48px; min-width: 64px; white-space: nowrap; }
+/* Celular estreito (até 400 px, na Mesa e no banner da ficha): [Dado | Total]
+   numa linha e, embaixo, [campo do dado ≥ 64 px] [Enviar N] — o campo nunca some. */
+.check-physical { grid-template-columns: auto minmax(64px, 1fr) auto; }
+@media (max-width: 400px) {
+  .check-physical { grid-template-columns: minmax(64px, 1fr) auto; }
+  .check-physical-mode { grid-column: 1 / -1; }
+  .check-physical-send { padding-left: 14px; padding-right: 14px; }
+}
+.check-card .check-card-fix, .check-card .check-card-cancel { min-height: 44px; padding-left: 14px; padding-right: 14px; }
 .check-card-result { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .check-card-total { font-family: var(--display); font-size: 2rem; line-height: 1; color: var(--gold-bright); }
 .check-card-detail { font-size: 0.85rem; color: var(--ink-secondary); }
@@ -94,7 +108,7 @@
   color: var(--gold);
   border-radius: 999px;
   padding: 8px 14px;
-  min-height: 40px;
+  min-height: 44px;
   cursor: pointer;
 }
 

@@ -127,6 +127,9 @@ function DiceSection({ campaign, lang }) {
   const [modifier, setModifier] = useState(0);
   const [label, setLabel] = useState('');
   const [ask, setAsk] = useState(false);
+  // Pedido ao mestre: Normal / Vantagem / Desvantagem (o servidor rola 2d20 e
+  // fica com o maior ou o menor; o mestre vê a marca no pedido, em Testes).
+  const [adv, setAdv] = useState('normal');
   const [last, setLast] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -162,12 +165,14 @@ function DiceSection({ campaign, lang }) {
     setBusy(true); setError('');
     try {
       if (ask) {
+        const d20 = diceType === 'd20';
         await api.createRoll(campaign.id, {
           label: label || L(lang, 'Rolagem', 'Roll'), diceType, count, modifier,
-          hasAdvantage: false, hasDisadvantage: false,
+          hasAdvantage: d20 && adv === 'adv', hasDisadvantage: d20 && adv === 'dis',
         });
         await loadPending();
         setLabel('');
+        setAdv('normal');
       } else {
         const r = await api.rollDice({ diceType, count, campaignId: campaign.id, label });
         const total = r.total + (modifier || 0);
@@ -214,9 +219,22 @@ function DiceSection({ campaign, lang }) {
         <input type="checkbox" checked={ask} onChange={e => setAsk(e.target.checked)} />
         <span>{L(lang, 'Pedir ao mestre (ele decide se mostra no telão)', 'Ask the DM (they decide whether to show it on the TV)')}</span>
       </label>
+      {ask && (
+        <div className="pl-adv">
+          <div className="pl-adv-row" role="group" aria-label={L(lang, 'Vantagem ou desvantagem', 'Advantage or disadvantage')}>
+            {[['normal', L(lang, 'Normal', 'Normal')], ['adv', L(lang, 'Vantagem', 'Advantage')], ['dis', L(lang, 'Desvantagem', 'Disadvantage')]].map(([k, lbl]) => (
+              <button key={k} type="button" className={`pl-adv-btn ${k} ${adv === k ? 'active' : ''}`} aria-pressed={adv === k}
+                disabled={diceType !== 'd20'} onClick={() => setAdv(k)}>{lbl}</button>
+            ))}
+          </div>
+          {diceType !== 'd20' && <p className="pl-adv-hint">{L(lang, 'Vantagem e desvantagem valem para o d20.', 'Advantage and disadvantage apply to the d20.')}</p>}
+        </div>
+      )}
       <button type="button" className="btn btn-primary pl-roll-btn" onClick={roll} disabled={busy}>
         {busy ? '…' : ask
-          ? L(lang, `Pedir ${count}${diceType}`, `Request ${count}${diceType}`)
+          ? (diceType === 'd20' && adv !== 'normal'
+            ? L(lang, `Pedir ${count}${diceType} com ${adv === 'adv' ? 'vantagem' : 'desvantagem'}`, `Request ${count}${diceType} with ${adv === 'adv' ? 'advantage' : 'disadvantage'}`)
+            : L(lang, `Pedir ${count}${diceType}`, `Request ${count}${diceType}`))
           : L(lang, `Rolar ${count}${diceType}${modifier ? (modifier > 0 ? `+${modifier}` : modifier) : ''}`, `Roll ${count}${diceType}${modifier ? (modifier > 0 ? `+${modifier}` : modifier) : ''}`)}
       </button>
       {error && <p className="pl-error" role="alert">{error}</p>}
@@ -224,7 +242,12 @@ function DiceSection({ campaign, lang }) {
       {pending.length > 0 && (
         <ul className="pl-pending">
           {pending.map(r => (
-            <li key={r.id}><span>{r.label || r.diceType}</span> <span className="muted small">{L(lang, 'aguardando o mestre…', 'waiting for the DM…')}</span></li>
+            <li key={r.id}>
+              <span>{r.label || r.diceType}</span>
+              {r.hasAdvantage && <span className="pl-pending-adv"> · {L(lang, 'vantagem', 'advantage')}</span>}
+              {r.hasDisadvantage && <span className="pl-pending-adv"> · {L(lang, 'desvantagem', 'disadvantage')}</span>}
+              {' '}<span className="muted small">{L(lang, 'aguardando o mestre…', 'waiting for the DM…')}</span>
+            </li>
           ))}
         </ul>
       )}
