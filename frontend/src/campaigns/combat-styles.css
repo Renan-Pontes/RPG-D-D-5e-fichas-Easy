@@ -47,57 +47,7 @@
 }
 .member-pick:hover { border-color: var(--gold, var(--gold)); }
 
-/* === Combat Grid (canvas) === */
-.combat-grid-wrapper {
-  background: var(--bg);
-  border: 2px solid var(--border);
-  border-radius: 8px;
-  padding: 10px;
-  overflow: hidden;
-}
-
-.grid-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-  padding: 6px;
-  background: var(--bg-elev);
-  border-radius: 4px;
-}
-
-.grid-ctl-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.85em;
-  color: var(--ink-secondary);
-}
-.grid-ctl-label input[type=range] { width: 120px; }
-
-.grid-token-ctl {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  padding-left: 12px;
-  border-left: 1px dashed var(--border);
-}
-
-.grid-canvas-frame {
-  overflow: auto;
-  max-height: 70vh;
-  border-radius: 4px;
-  background: #000;
-}
-
-.grid-canvas-frame canvas {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  user-select: none;
-}
+/* === Combat Grid (canvas): src/campaigns/combat-grid.css === */
 
 /* === Rolls panel === */
 .rolls-panel .roll-row {
@@ -170,24 +120,9 @@
 .add-pc-actions { display: flex; align-items: center; gap: 6px; }
 .add-pc-actions .input { width: 72px; text-align: center; }
 
-/* Barra do mapa recolhível */
-.grid-controls-toggle { display: none; }
-@media (max-width: 720px) {
-  .grid-controls-toggle { display: inline-flex; margin-bottom: 8px; }
-  .grid-controls.is-collapsed { display: none; }
-  .grid-controls { gap: 6px; }
-  .grid-ctl-label input[type=range] { width: 90px; }
-  .grid-token-ctl { margin-left: 0; padding-left: 0; border-left: 0; flex-wrap: wrap; }
-  .combat-grid-wrapper { padding: 6px; }
-}
-
 /* Checkbox de vantagem/desvantagem do pedido de rolagem (antes viravam quadrados brancos no celular) */
 .roll-check { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; font-size: 0.9rem; color: var(--ink-secondary); }
 .roll-check input[type=checkbox] { width: 18px; height: 18px; margin: 0; accent-color: var(--gold); flex: 0 0 auto; }
-/* A margem negativa "sangrando" do mapa estourava 390px na casca nova. */
-@media (max-width: 720px) {
-  .combat-tab .combat-grid-wrapper { margin-left: 0; margin-right: 0; max-width: 100%; }
-}
 
 /* Combate vazio: orientação (bug #6) */
 .combat-empty-hint {

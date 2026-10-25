@@ -340,7 +340,9 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
 
         {showMap && (
           <div className="ct-map">
-            <CombatGrid combat={combat} campaignId={campaign.id} lang={lang} onChange={load} selectedId={selected} setSelectedId={setSelected} />
+            {/* toque no token: no celular abre a folha do combatente; no desktop seleciona (o painel abre na lista) */}
+            <CombatGrid combat={combat} campaignId={campaign.id} lang={lang} onChange={load} selectedId={selected} setSelectedId={setSelected}
+              onTokenTap={(c) => { if (!wide) openRow(c); }} />
             {!wide && sel && (
               <div className="ct-map-sel">
                 <p className="mesa-eyebrow">{t(lang, 'Selecionado no mapa', 'Selected on the map')}</p>
