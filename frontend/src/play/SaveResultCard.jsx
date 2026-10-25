@@ -19,7 +19,8 @@ const rollExpr = (expr) => {
 };
 const d20 = () => 1 + Math.floor(Math.random() * 20);
 
-export default function SaveResultCard({ campaignId, attacker, action, actionIndex, targets, status, lang = 'pt', onApplied, onDiscard }) {
+// pinned: "✓ Aplicar · ✕ Descartar" presos embaixo enquanto o cartão está à vista.
+export default function SaveResultCard({ campaignId, attacker, action, actionIndex, targets, status, lang = 'pt', onApplied, onDiscard, pinned = false }) {
   const [draft, setDraft] = useState(() => saveDraft(action, targets, { roll: rollExpr, d20 }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -49,7 +50,7 @@ export default function SaveResultCard({ campaignId, attacker, action, actionInd
   };
 
   return (
-    <section className="arc tone-hit" aria-label={L(lang, 'Resultado do efeito (sugestão)', 'Effect result (suggestion)')}>
+    <section className={`arc tone-hit ${pinned ? 'is-pinned' : ''}`} aria-label={L(lang, 'Resultado do efeito (sugestão)', 'Effect result (suggestion)')}>
       <header className="arc-head">
         <span className="arc-eyebrow">{L(lang, 'Sugestão — nada foi aplicado ainda', 'Suggestion — nothing applied yet')}</span>
         <div className="arc-title">
@@ -85,7 +86,7 @@ export default function SaveResultCard({ campaignId, attacker, action, actionInd
                 onChange={e => setTarget(i, { total: e.target.value, override: null })}
                 aria-label={L(lang, `Total da resistência de ${t.name}`, `${t.name} save total`)} />
               <span className="muted small">{t.mod != null ? `(${t.mod >= 0 ? '+' : ''}${t.mod})` : ''}</span>
-              <button type="button" className={`gc-chip ${r.success ? 'active' : ''}`} aria-pressed={r.success}
+              <button type="button" className={`mesa-chip src-chip ${r.success ? 'is-pass' : 'is-fail'}`} aria-pressed={r.success}
                 onClick={() => setTarget(i, { override: !r.success })}>
                 {r.success ? L(lang, '✓ passou', '✓ saved') : L(lang, '✗ falhou', '✗ failed')}
               </button>
@@ -100,8 +101,8 @@ export default function SaveResultCard({ campaignId, attacker, action, actionInd
 
       {error && <p className="arc-error" role="alert">{error}</p>}
       <div className="arc-actions">
-        <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={apply}>✓ {L(lang, 'Aplicar', 'Apply')}</button>
-        <button type="button" className="btn btn-ghost btn-sm arc-discard" disabled={busy} onClick={onDiscard}>✕ {L(lang, 'Descartar', 'Discard')}</button>
+        <button type="button" className="mesa-btn mesa-btn-lg is-primary arc-apply" disabled={busy} onClick={apply}>✓ {L(lang, 'Aplicar', 'Apply')}{draft.targets.length > 1 ? ` (${draft.targets.length})` : ''}</button>
+        <button type="button" className="mesa-btn mesa-btn-lg is-quiet arc-discard" disabled={busy} onClick={onDiscard}>✕ {L(lang, 'Descartar', 'Discard')}</button>
       </div>
     </section>
   );

@@ -88,6 +88,50 @@
   .arc-discard { margin-left: 0; }
 }
 
+/* Mesa (F4): alvos de 44 px, campos de 16 px, rótulos ≥ 12 px e, com `pinned`,
+   "✓ Aplicar · ✍ Ajustar · ✕ Descartar" presos embaixo enquanto o cartão está à
+   vista (na folha do combatente e no painel do desktop). */
+.arc-eyebrow { font-size: 12px; }
+.arc-d20-input.input { width: 4.4em; min-height: 44px; font-size: 16px; }
+.arc-dmg-input.input { width: 5.5em; min-height: 44px; font-size: 16px; }
+.arc-type.input { min-height: 44px; font-size: 16px; max-width: 13em; }
+.arc-cond { min-height: 44px; font-size: 0.9rem; }
+.arc-cond input { width: 22px; height: 22px; }
+.arc-hitchips .mesa-chip { flex: 1 1 auto; justify-content: center; }
+.arc-adjust-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 10px; }
+.arc-hint { color: var(--ink-muted); font-size: 0.85rem; }
+.arc .muted.small { font-size: 0.85rem; }
+.arc-actions .mesa-btn { flex: 1 1 auto; min-width: 0; padding-left: 10px; padding-right: 10px; }
+.arc-actions .arc-apply { flex-grow: 1.4; }
+.arc-actions .arc-discard { margin-left: 0; }
+.arc-actions .arc-on { border-color: var(--gold) !important; color: var(--fh-gold-hi) !important; background: var(--gold-soft) !important; }
+.arc.is-pinned .arc-actions {
+  position: sticky;
+  bottom: var(--arc-pin-bottom, 0px);
+  z-index: 2;
+  margin: 12px -14px -12px;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgba(224, 181, 94, 0.3);
+  border-radius: 0 0 9px 9px;
+  background: linear-gradient(180deg, #221812, #170f0c);
+  box-shadow: 0 -8px 18px rgba(0, 0, 0, 0.45);
+}
+@media (max-width: 480px) {
+  .arc.is-pinned .arc-actions { margin: 12px -10px -10px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)); gap: 6px; }
+}
+@media (max-width: 360px) {
+  .arc-actions .mesa-btn { padding-left: 6px; padding-right: 6px; font-size: 0.8rem; letter-spacing: 0; gap: 4px; }
+}
+/* dentro da folha (corpo com recuo): presos rente à borda de baixo */
+.mesa-sheet-body .arc { --arc-pin-bottom: calc(-1 * var(--mesa-sheet-pad, 16px)); }
+.src-total.input { width: 5.5em; min-height: 44px; font-size: 16px; }
+.src-target { padding: 8px 10px; gap: 8px 10px; }
+.src-name { font-size: 1rem; }
+.src-chip { min-width: 8.5em; justify-content: center; }
+.src-chip.is-pass { border-color: rgba(156, 192, 101, 0.7); color: var(--moss-bright); background: rgba(156, 192, 101, 0.12); }
+.src-chip.is-fail { border-color: rgba(224, 96, 79, 0.65); color: var(--blood-bright); background: rgba(224, 96, 79, 0.1); }
+.src-out { font-size: 1.05rem; }
+
 /* ---------- Aviso rápido (flash) ---------- */
 .play-flash {
   position: fixed;

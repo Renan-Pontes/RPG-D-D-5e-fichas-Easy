@@ -15,7 +15,9 @@ import './play-styles.css';
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
 
-export default function AttackResultCard({ preview, campaignId, attacker, target, lang = 'pt', onApplied, onDiscard }) {
+// pinned: os botões ficam presos embaixo enquanto o cartão está à vista (na folha do
+// combatente e no painel do desktop), para "✓ Aplicar" nunca ficar abaixo da dobra.
+export default function AttackResultCard({ preview, campaignId, attacker, target, lang = 'pt', onApplied, onDiscard, pinned = false }) {
   // Dano extra condicional ("se o ataque teve Vantagem") começa desligado: o mestre marca.
   const conditions = useMemo(
     () => damagePartConditions(attacker?.stats?.actions?.[preview?.actionIndex ?? 0]),
@@ -78,7 +80,7 @@ export default function AttackResultCard({ preview, campaignId, attacker, target
   const tone = !r.valid ? 'idle' : r.hit ? (r.crit ? 'crit' : 'hit') : 'miss';
 
   return (
-    <section className={`arc tone-${tone}`} aria-live="polite" aria-label={L(lang, 'Resultado do ataque (sugestão)', 'Attack result (suggestion)')}>
+    <section className={`arc tone-${tone} ${pinned ? 'is-pinned' : ''}`} aria-live="polite" aria-label={L(lang, 'Resultado do ataque (sugestão)', 'Attack result (suggestion)')}>
       <header className="arc-head">
         <span className="arc-eyebrow">{L(lang, 'Sugestão — nada foi aplicado ainda', 'Suggestion — nothing applied yet')}</span>
         <div className="arc-title">
@@ -118,7 +120,7 @@ export default function AttackResultCard({ preview, campaignId, attacker, target
       {adjusting && (
         <div className="arc-hitchips" role="group" aria-label={L(lang, 'Acertou?', 'Hit?')}>
           {[[null, L(lang, 'Pela regra', 'By the rules')], [true, L(lang, 'Acertou', 'Hit')], [false, L(lang, 'Errou', 'Missed')]].map(([v, lbl]) => (
-            <button key={String(v)} type="button" className={`gc-chip ${draft.hitOverride === v ? 'active' : ''}`}
+            <button key={String(v)} type="button" className={`mesa-chip arc-chip ${draft.hitOverride === v ? 'active' : ''}`}
               aria-pressed={draft.hitOverride === v} onClick={() => set({ hitOverride: v })}>{lbl}</button>
           ))}
         </div>
@@ -169,6 +171,16 @@ export default function AttackResultCard({ preview, campaignId, attacker, target
         </div>
       )}
 
+      {adjusting && (
+        <div className="arc-adjust-tools">
+          <button type="button" className="mesa-btn arc-reroll" disabled={busy || !r.valid} onClick={reroll}
+            aria-describedby={`arc-reroll-${draft.actionIndex}`}>
+            🎲 {L(lang, 'Rolar dano de novo', 'Re-roll damage')}
+          </button>
+          <span className="arc-hint" id={`arc-reroll-${draft.actionIndex}`}>{L(lang, 'Com este d20; nada é aplicado.', 'With this d20; nothing applied.')}</span>
+        </div>
+      )}
+
       {draft.rigged && !adjusted && (
         <p className="muted small arc-note">★ {L(lang, 'd20 veio de um valor preparado (Ferramentas avançadas).', 'd20 came from a prepared value (Advanced tools).')}</p>
       )}
@@ -176,20 +188,14 @@ export default function AttackResultCard({ preview, campaignId, attacker, target
       {error && <p className="arc-error" role="alert">{error}</p>}
 
       <div className="arc-actions">
-        <button type="button" className="btn btn-primary btn-sm" disabled={busy || !r.valid} onClick={apply}>
+        <button type="button" className="mesa-btn mesa-btn-lg is-primary arc-apply" disabled={busy || !r.valid} onClick={apply}>
           ✓ {L(lang, 'Aplicar', 'Apply')}
         </button>
-        <button type="button" className={`btn btn-sm btn-ghost ${adjusting ? 'arc-on' : ''}`} aria-pressed={adjusting}
+        <button type="button" className={`mesa-btn mesa-btn-lg ${adjusting ? 'arc-on' : ''}`} aria-pressed={adjusting}
           disabled={busy} onClick={() => setAdjusting(v => !v)}>
           ✍ {adjusting ? L(lang, 'Pronto', 'Done') : L(lang, 'Ajustar', 'Adjust')}
         </button>
-        {adjusting && (
-          <button type="button" className="btn btn-ghost btn-sm" disabled={busy || !r.valid} onClick={reroll}
-            title={L(lang, 'Rola o dano de novo com este d20 (nada é aplicado)', 'Re-rolls damage with this d20 (nothing applied)')}>
-            🎲 {L(lang, 'Rolar dano de novo', 'Re-roll damage')}
-          </button>
-        )}
-        <button type="button" className="btn btn-ghost btn-sm arc-discard" disabled={busy} onClick={onDiscard}>
+        <button type="button" className="mesa-btn mesa-btn-lg is-quiet arc-discard" disabled={busy} onClick={onDiscard}>
           ✕ {L(lang, 'Descartar', 'Discard')}
         </button>
       </div>
