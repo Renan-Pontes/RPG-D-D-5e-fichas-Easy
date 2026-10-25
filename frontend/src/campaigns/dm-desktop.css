@@ -198,17 +198,27 @@
     max-width: 760px;
   }
 
-  /* === Combat tab — flex melhor === */
-  /* Lista de combatentes à esquerda, mapa ocupando o resto */
+  /* === Combat tab ===
+     Lista de 420–460 px à esquerda (nomes em até 2 linhas; o painel do
+     combatente abre embaixo da linha) e o mapa à direita, preso ao rolar
+     logo abaixo das abas das áreas e da faixa do turno (--ct-map-top). */
   .campaign-detail.is-dm .combat-body {
     display: grid;
-    grid-template-columns: minmax(280px, 340px) 1fr;
+    grid-template-columns: minmax(420px, 460px) minmax(0, 1fr);
     gap: 18px;
     align-items: start;
   }
   .campaign-detail.is-dm .combat-body > * { min-width: 0; }
   .campaign-detail.is-dm .combat-body .combatants-list { grid-column: 1; grid-row: 1; }
-  .campaign-detail.is-dm .combat-body .combat-grid-wrapper { grid-column: 2; grid-row: 1; }
+  .campaign-detail.is-dm .combat-body .ct-map {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: var(--ct-map-top, 72px);
+  }
+  .campaign-detail.is-dm .combat-body .ct-row { grid-template-columns: 30px 40px minmax(0, 1fr) 112px; column-gap: 10px; padding-left: 8px; }
+  .campaign-detail.is-dm .combat-body .mesa-hp.ct-hp { height: 22px; }
+  .campaign-detail.is-dm .combat-body .ct-hp .mesa-hp-text { font-size: 13px; }
 }
 
 /* === Telas muito largas (>=1400) — mais respiro e 3 colunas em members === */
