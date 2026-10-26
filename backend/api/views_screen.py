@@ -42,7 +42,7 @@ def _public_character(data, name, char_id):
         'maxHp': d.get('maxHp'),
         'tempHp': d.get('tempHp', 0),
         'armorClass': ac_estimate,
-        'speed': d.get('speedOverride') or 30,
+        'speed': d.get('speedOverride') or d.get('speed') or 30,  # o que a ficha calculou ao salvar
         'conditions': d.get('conditions', []),
         'inspiration': bool(d.get('inspiration')),
         'deathSaves': d.get('deathSaves') or {'success': 0, 'fail': 0},

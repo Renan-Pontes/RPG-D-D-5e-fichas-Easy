@@ -255,6 +255,7 @@ const App = () => {
   const createAtTable = async (char, join) => {
     const { id, createdAt, updatedAt, inCampaign, campaignLeveling, ...data } = char;
     try { if (char.className) data.armorClass = Utils.computeAc(char); } catch { /* ficha incompleta */ }
+    try { if (char.className) data.speed = Utils.speed(char); } catch { /* ficha incompleta */ }
     let res;
     try {
       res = await plansApi.createCharacterAtTable({ name: char.name || 'Sem nome', data }, join.code);

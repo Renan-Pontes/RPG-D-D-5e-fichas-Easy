@@ -461,7 +461,7 @@ def combat_add_combatant(request, id_or_slug):
             combatant['stats'] = {
                 'ac': ac,
                 'max_hp': d.get('maxHp', combatant['current_hp']),
-                'speed': d.get('speedOverride') or 30,
+                'speed': d.get('speedOverride') or d.get('speed') or 30,  # o que a ficha calculou ao salvar
                 'abilities': abilities,
                 'saves': {},
                 'actions': [],
