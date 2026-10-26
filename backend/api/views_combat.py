@@ -1212,7 +1212,9 @@ def roll_resolve(request, pk):
             override_value = int(override_raw)
         except (TypeError, ValueError):
             raise ValidationError({'error': 'invalid_override_value'})
-        if override_value < 1 or override_value > sides:
+        # Vários dados (ex.: 8d6): o mestre digita o TOTAL que saiu nos dados físicos.
+        n = max(1, rr.count)
+        if override_value < n or override_value > n * sides:
             raise ValidationError({'error': 'override_out_of_range'})
 
     rolls = []
@@ -1224,8 +1226,8 @@ def roll_resolve(request, pk):
         # Pega o valor digitado como a rolagem; marca como overridden.
         rolls.append({'value': override_value, 'kept': True, 'rigged': True, 'override': True})
         rigged = True
-        if rr.dice_type == 'd20' and override_value == 20: is_crit = True
-        if rr.dice_type == 'd20' and override_value == 1: is_critfail = True
+        if rr.dice_type == 'd20' and max(1, rr.count) == 1 and override_value == 20: is_crit = True
+        if rr.dice_type == 'd20' and max(1, rr.count) == 1 and override_value == 1: is_critfail = True
     else:
         for _ in range(max(1, rr.count)):
             forced = _maybe_consume_rig(rr.campaign, rr.requested_by_id, rr.dice_type)
@@ -1237,8 +1239,10 @@ def roll_resolve(request, pk):
             elif rr.dice_type == 'd20' and (rr.has_advantage or rr.has_disadvantage):
                 a, b = engine.roll_die(20), engine.roll_die(20)
                 keep = max(a, b) if rr.has_advantage else min(a, b)
-                rolls.append({'value': a, 'kept': keep == a, 'rigged': False})
-                rolls.append({'value': b, 'kept': keep == b, 'rigged': False})
+                # Empate: só um dos dois conta (como em views_checks.py), senão o total soma os dois.
+                keep_first = (a >= b) if rr.has_advantage else (a <= b)
+                rolls.append({'value': a, 'kept': keep_first, 'rigged': False})
+                rolls.append({'value': b, 'kept': not keep_first, 'rigged': False})
                 if keep == 20: is_crit = True
                 if keep == 1: is_critfail = True
             else:

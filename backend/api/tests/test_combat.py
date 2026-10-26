@@ -390,6 +390,30 @@ class RollRequestEndpointTests(TestCase):
             {'visibility': 'public', 'overrideValue': 0}, format='json')
         self.assertEqual(r.status_code, 400)
 
+    def test_advantage_tie_keeps_only_one_die(self):
+        # Os dois d20 iguais: só um conta (antes o total somava os dois).
+        from unittest import mock
+        for adv in ('has_advantage', 'has_disadvantage'):
+            rr = RollRequest.objects.create(campaign=self.camp, requested_by=self.player,
+                                             dice_type='d20', modifier=2, **{adv: True})
+            with mock.patch('api.views_combat.engine.roll_die', return_value=12):
+                r = self.c_dm.post(f'/api/rolls/{rr.id}/resolve', {'visibility': 'public'}, format='json')
+            body = r.json()['roll']
+            self.assertEqual(body['total'], 14, adv)
+            self.assertEqual([x['kept'] for x in body['rolls']].count(True), 1, adv)
+
+    def test_dm_override_total_for_several_dice(self):
+        # 8d6 com dado físico: o mestre digita o TOTAL (8 a 48), não um dado só.
+        rr = RollRequest.objects.create(campaign=self.camp, requested_by=self.player,
+                                         dice_type='d6', count=8, modifier=0)
+        for bad in (7, 49):
+            r = self.c_dm.post(f'/api/rolls/{rr.id}/resolve', {'visibility': 'public', 'overrideValue': bad}, format='json')
+            self.assertEqual(r.status_code, 400, bad)
+        r = self.c_dm.post(f'/api/rolls/{rr.id}/resolve', {'visibility': 'public', 'overrideValue': 30}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()['roll']['total'], 30)
+        self.assertFalse(r.json()['roll']['isCritical'])
+
     def test_dm_override_does_not_consume_dice_rig(self):
         # Se DM forçar o valor, rig pendente NÃO é consumido.
         rig = DiceRig.objects.create(campaign=self.camp, target_user=self.player,

@@ -28,6 +28,9 @@ export function PendingPlayerRow({ r, lang }) {
 
 export function PendingDMRow({ r, lang, onResolve, onCancel }) {
   const sides = { d4: 4, d6: 6, d8: 8, d10: 10, d12: 12, d20: 20, d100: 100 }[r.diceType] || 20;
+  // Vários dados (ex.: 8d6): o mestre digita o total que saiu, de N a N×lados.
+  const count = Math.max(1, r.count || 1);
+  const lo = count, hi = count * sides;
   const [override, setOverride] = useState('');
   const [show, setShow] = useState(false);
   const [error, setError] = useState('');
@@ -35,8 +38,8 @@ export function PendingDMRow({ r, lang, onResolve, onCancel }) {
   const handleShowOverride = (e) => {
     e?.preventDefault?.();
     const n = parseInt(override, 10);
-    if (!override || Number.isNaN(n) || n < 1 || n > sides) {
-      setError(t(lang, `Digite um valor entre 1 e ${sides}.`, `Enter a value between 1 and ${sides}.`));
+    if (!override || Number.isNaN(n) || n < lo || n > hi) {
+      setError(t(lang, `Digite um valor entre ${lo} e ${hi}.`, `Enter a value between ${lo} and ${hi}.`));
       return;
     }
     setError('');
@@ -73,8 +76,8 @@ export function PendingDMRow({ r, lang, onResolve, onCancel }) {
         <form className="tl-physical" onSubmit={handleShowOverride}>
           <label className="tl-physical-field">
             <span>{t(lang, 'Valor que saiu', 'Value rolled')}</span>
-            <input aria-label={t(lang, `Valor que saiu (1 a ${sides})`, `Value rolled (1 to ${sides})`)} type="number" inputMode="numeric" className="input" min={1} max={sides}
-              value={override} onChange={e => setOverride(e.target.value)} placeholder={`1-${sides}`} autoFocus />
+            <input aria-label={count > 1 ? t(lang, `Total que saiu (${lo} a ${hi})`, `Total rolled (${lo} to ${hi})`) : t(lang, `Valor que saiu (1 a ${sides})`, `Value rolled (1 to ${sides})`)} type="number" inputMode="numeric" className="input" min={lo} max={hi}
+              value={override} onChange={e => setOverride(e.target.value)} placeholder={`${lo}-${hi}`} autoFocus />
           </label>
           {r.modifier ? (
             <span className="tl-physical-sum">

@@ -97,7 +97,7 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
             onAssignStart={() => setAssigning(m.id)} onAssignCancel={() => setAssigning(null)} onAssign={(id) => assign(m, id)}
             onEdit={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data })}
             onLog={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data, section: 'log' })}
-            onGive={() => setGiving({ id: m.character.id, name: m.character.name })}
+            onGive={campaign.status === 'closed' ? null : () => setGiving({ id: m.character.id, name: m.character.name })}
             onEndForm={() => endForm(m)} onRemove={() => removeMember(m)} onLeave={leave} />
         ))}
       </div>
@@ -211,7 +211,8 @@ function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, assigning,
       {isDM && c?.data && (
         <footer className="grp-card-actions">
           <button type="button" className="btn btn-ghost btn-sm" onClick={onEdit}>🛠 {t(lang, 'Editar ficha', 'Edit sheet')}</button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onGive}>🎁 {t(lang, 'Dar item', 'Give item')}</button>
+          {/* campanha encerrada é só leitura: sem Dar item (o servidor responde 423) */}
+          {onGive && <button type="button" className="btn btn-ghost btn-sm" onClick={onGive}>🎁 {t(lang, 'Dar item', 'Give item')}</button>}
           {log.length > 0 && (
             <button type="button" className="btn btn-ghost btn-sm" onClick={onLog}
               title={t(lang, `Última edição: ${formatEditLogDate(log[0].at, lang)}`, `Last edit: ${formatEditLogDate(log[0].at, lang)}`)}>
