@@ -1300,6 +1300,8 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
   // Estilos de Luta / Maestria (src/progression/fighting-styles.js)
   const styles = FS.activeFightingStyles(char);
   const acStyleBonuses = FS.acBonuses(char, styles);
+  // Monge e Bárbaro somam pés ao deslocamento: o medalhão diz quanto e de onde.
+  const speedBonuses = Utils.speedBonuses(char);
   const unarmed = FS.unarmedStrike(char, styles);
   const styleSummaries = FS.styleSummaries(char, styles);
   const blindsightFt = FS.blindsight(char, styles);
@@ -1448,7 +1450,10 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
               sub={<FhTapToRoll lang={lang} short />}
               onClick={() => roll({ die: 20, mod: initBonus, label: t('initRoll', lang) })} />
             <FhMedal shape="circle" value={Utils.speedLabel(speed, lang).split(' ')[0]} unit={lang === 'pt' ? 'm' : 'ft'}
-              label={t('speed', lang)} />
+              label={t('speed', lang)}
+              sub={speedBonuses.length > 0
+                ? <span title={speedBonuses.map(x => x.name[lang] || x.name.pt).join(', ')}>{Utils.speedBonusText(speedBonuses, lang)}</span>
+                : null} />
             <FhMedal shape="diamond" value={Utils.fmtMod(profB)} label={lang === 'pt' ? 'Prof.' : 'Prof.'} />
             <FhMedal shape="diamond" value={passPerc} label={lang === 'pt' ? 'Perc.' : 'Perc.'}
               hint={<GrimoireHint id="valor-passivo" lang={lang} />} sub={lang === 'pt' ? 'passiva' : 'passive'} />

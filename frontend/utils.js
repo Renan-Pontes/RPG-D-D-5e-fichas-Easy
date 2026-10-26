@@ -650,11 +650,41 @@ function maxHpDefault(char) {
   return hp;
 }
 
+/**
+ * Pés que as classes somam ao deslocamento (2014 e 2024 iguais), pelo nível NA classe
+ * (multiclasse conta cada uma): [{ id, value, label, name }]. Vazio com deslocamento fixo.
+ * - Movimento sem Armadura (Monge 2+): +10, +15 no 6, +20 no 10, +25 no 14, +30 no 18;
+ *   só sem armadura e sem escudo (a mesma condição das Artes Marciais).
+ * - Movimento Rápido (Bárbaro 5+): +10 sem armadura pesada.
+ * Talentos (Móvel, Veloz: grants.speed), traços de subclasse, itens e condições não
+ * entram no número: ficam no texto da ficha, e o mestre usa o deslocamento fixo.
+ */
+function speedBonuses(char) {
+  if (char.speedOverride) return [];
+  const out = [];
+  const monk = MC.classLevel(char, 'monk');
+  if (monk >= 2 && !char.armor && !char.hasShield) {
+    out.push({ id: 'unarmoredMovement', value: monk >= 18 ? 30 : monk >= 14 ? 25 : monk >= 10 ? 20 : monk >= 6 ? 15 : 10,
+      label: { pt: 'Monge', en: 'Monk' }, name: { pt: 'Movimento sem Armadura', en: 'Unarmored Movement' } });
+  }
+  const armor = char.armor && SRD.ARMOR.find(a => a.id === char.armor);
+  if (MC.classLevel(char, 'barbarian') >= 5 && armor?.type !== 'heavy') {
+    out.push({ id: 'fastMovement', value: 10,
+      label: { pt: 'Bárbaro', en: 'Barbarian' }, name: { pt: 'Movimento Rápido', en: 'Fast Movement' } });
+  }
+  return out;
+}
+
+/** Texto curto dos bônus para o medalhão: '+4,5 m Monge' (pt) ou '+15 ft Monk'. */
+function speedBonusText(parts, lang) {
+  return parts.map(p => `+${speedLabel(p.value, lang)} ${p.label[lang] || p.label.pt}`).join(', ');
+}
+
 function speed(char) {
   if (char.speedOverride) return char.speedOverride;
   const race = racesFor(char).find(r => r.id === char.race);
   const fromSpecies = Species.speciesGrants(char).speed; // Elfo da Floresta: 35
-  const base = fromSpecies || (race ? race.speed : 30);
+  const base = (fromSpecies || (race ? race.speed : 30)) + speedBonuses(char).reduce((n, b) => n + b.value, 0);
   // Armadura pesada sem a Força mínima: −10 pés (anão 2014 ignora).
   const armor = char.armor && SRD.ARMOR.find(a => a.id === char.armor);
   const dwarf2014 = char.rulesVersion !== '2024' && String(char.race || '').startsWith('dwarf');
@@ -965,7 +995,7 @@ return {
   makeNew,
   abilityWithRace, abilityMod, profBonus, saveBonus, skillBonus, wisdomSkillBonus, passivePerception,
   attackFor, unarmedStrike, martialArtsDie, isMonkWeapon, damageLabel, speedLabel,
-  computeAc, maxHpDefault, speed, initiative, sizeOf,
+  computeAc, maxHpDefault, speed, speedBonuses, speedBonusText, initiative, sizeOf,
   speciesGrants: Species.speciesGrants, speciesChoiceIssues: Species.speciesChoiceIssues,
   spellcastingAbility, spellSaveDc, spellAttackBonus, spellSlots, spellListClass, spellListClasses, inSpellList,
   isPreparedCaster, cantripsKnown, preparedSpellsLimit, maxSpellLevel,
