@@ -4,11 +4,10 @@
    Tudo prefixado com .pl- (o CSS é global).
    ===================================================================== */
 
-.pl-world, .pl-table { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-/* A Mesa usa o mesmo nome de classe da tabela de planos (src/plans/plans.css:
-   .pl-table em grade, align-items: center), que encolhia os blocos da Mesa no
-   meio da tela quando aquele CSS já estava carregado. */
-div.pl-table { display: flex; align-items: stretch; grid-template-columns: none; }
+/* A Mesa usa o mesmo nome de classe da linha da tabela de planos (src/plans/plans.css:
+   li.pl-table em grade): só o div da Mesa, senão um CSS desmancha o outro. */
+.pl-world, div.pl-table { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+div.pl-table { align-items: stretch; grid-template-columns: none; }
 .pl-eyebrow {
   font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.24em; text-transform: uppercase;
   color: var(--gold); opacity: 0.85;

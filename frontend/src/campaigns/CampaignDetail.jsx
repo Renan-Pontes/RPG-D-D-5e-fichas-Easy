@@ -271,7 +271,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   };
   const ctx = {
     area: nav.area, sub: nav.sub, params: nav.params, goTo, clearParams, isDM, lang, campaign, reload: load,
-    openSearch: () => setSearch(true), openSettings: (section) => setSettings(typeof section === 'string' ? section : 'identity'),
+    openSearch: () => setSearch(true), openSettings: (section) => { setSettings(typeof section === 'string' ? section : 'identity'); if (isDM) loadWorld(); },
   };
 
   const content = isDM ? renderDM(nav.area, areaProps, { setGroupPending }) : renderPlayer(nav.area, areaProps);
@@ -282,13 +282,13 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
         <CampaignHeader
           campaign={campaign} lang={lang} isDM={isDM} busy={busy} onBack={onBack}
           onStartSession={startSession} onEndSession={() => setEnding(true)}
-          onSearch={() => setSearch(true)} onSettings={() => setSettings('identity')}
+          onSearch={() => setSearch(true)} onSettings={() => { setSettings('identity'); if (isDM) loadWorld(); }}
           onTvOpened={() => markOnboarding('tv')} onClearScreen={clearScreen}
           onChooseScreen={() => goTo('play', 'screen')}
         />
         <AreaNav areas={areas} active={nav.area} onSelect={(a) => goTo(a)} lang={lang} badges={badges} showKeys={isDM}
           onSearch={isDM ? undefined : () => setSearch(true)}
-          onMore={isDM ? () => setMore(true) : undefined} moreOpen={more} />
+          onMore={isDM ? () => { setMore(true); loadWorld(); } : undefined} moreOpen={more} />
 
         <div className="shell-panel" id="shell-panel" role="tabpanel" aria-labelledby={`area-tab-${nav.area}`}>
           {isDM && nav.area === 'world' && campaign.status !== 'closed' && onboardingVisible(obStatus) && (

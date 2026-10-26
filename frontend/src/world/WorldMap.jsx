@@ -234,6 +234,8 @@ function MapCanvas({ map, pins, byId, lang, adding, selected, onAdd, onSelect, o
 
   const onPointerDown = (e) => {
     if (e.button !== undefined && e.button > 0) return;
+    // ＋ − ⤢: a captura do ponteiro roubaria o clique do mouse desses botões.
+    if (e.target.closest?.('.wl-map-zoom')) return;
     boxRef.current.setPointerCapture?.(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const pinId = e.target.closest?.('[data-pin]')?.getAttribute('data-pin');
