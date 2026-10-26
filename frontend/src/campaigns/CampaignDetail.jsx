@@ -230,7 +230,8 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     if (!campaign) return;
     const onKey = (e) => {
       if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) {
-        e.preventDefault(); setSearch(true); return;
+        // Com folha ou diálogo aberto a busca ficaria escondida atrás dele (e o Esc fecharia os dois).
+        e.preventDefault(); if (!modalOpen()) setSearch(true); return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target) || modalOpen()) return;
       if (/^[1-4]$/.test(e.key)) {

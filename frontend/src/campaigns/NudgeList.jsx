@@ -223,6 +223,8 @@ export function NudgeBell({ campaign, combat, lang, onChange, compact = false })
     if (!wrap) return;
     if (r.left < 8) { el.style.right = 'auto'; el.style.left = `${8 - wrap.left}px`; }
     else if (r.right > vw - 8) { el.style.right = `${wrap.right - (vw - 8)}px`; }
+    // A lista abre para baixo: não passa do fim da janela (rola por dentro, .nudge-pop tem overflow:auto).
+    el.style.maxHeight = `${Math.max(220, window.innerHeight - r.top - 8)}px`;
   }, [open, narrow, count]);
   useEffect(() => {
     if (!open || narrow) return undefined;

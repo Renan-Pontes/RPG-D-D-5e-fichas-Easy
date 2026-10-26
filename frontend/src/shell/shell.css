@@ -808,3 +808,6 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
   .camp-wizard-actions > .btn { flex: 1 1 0; justify-content: center; white-space: nowrap; letter-spacing: 0.06em; padding-left: 10px; padding-right: 10px; }
   .camp-wizard-actions:has(> .btn:nth-of-type(3)) > .btn-primary { flex-basis: 100%; order: 3; }
 }
+
+/* Lista de campanhas: o "← Voltar" com alvo de toque inteiro */
+.camp-list-back { min-height: 44px; display: inline-flex; align-items: center; }

@@ -19,7 +19,7 @@
 .check-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .check-card-eyebrow {
   font-family: var(--display);
-  font-size: 0.72rem;
+  font-size: max(12px, 0.72rem); /* na ficha a raiz é menor: nunca abaixo de 12 px */
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--gold);
@@ -40,7 +40,7 @@
 .check-card-title strong { font-family: var(--display); font-size: 1.25rem; color: var(--ink-primary); }
 .check-card-dc, .check-card-adv, .gc-card-dc, .gc-card-adv {
   font-family: var(--display);
-  font-size: 0.82rem;
+  font-size: max(12px, 0.82rem);
   letter-spacing: 0.06em;
   padding: 2px 8px;
   border-radius: 999px;
@@ -94,7 +94,7 @@
 .check-card-error { color: var(--blood-bright); font-size: 0.85rem; }
 .check-outcome {
   font-family: var(--display);
-  font-size: 0.85rem;
+  font-size: max(12px, 0.85rem);
   letter-spacing: 0.06em;
   padding: 2px 8px;
   border-radius: 999px;

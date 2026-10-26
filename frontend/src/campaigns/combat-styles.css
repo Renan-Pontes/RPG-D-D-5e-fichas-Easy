@@ -254,7 +254,7 @@
 }
 .ct-turn-sub { max-width: 100%; font-size: 0.85rem; line-height: 1.2; color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ct-turn-see { color: var(--fh-gold-hi); }
-.ct-next { flex: none; max-width: 9.5em; padding-left: 12px; padding-right: 12px; white-space: normal; line-height: 1.15; }
+.mesa-btn.ct-next { flex: none; max-width: 9.5em; padding-left: 12px; padding-right: 12px; white-space: normal; line-height: 1.15; }
 .ct-turn .nudge-bell { min-height: 48px; }
 /* o sino não encolhe abaixo de 44 px quando o texto ao lado é comprido (o
    ".campaign-detail.shell * { min-width: 0 }" tira o min-width dele) */
@@ -275,7 +275,7 @@
   }
   html:has(.combat-tab .ct-turn-wrap) { scroll-padding-top: 148px; }
   /* "Próximo / turno →" em 2 linhas: sobra espaço para "Vez de" e o nome */
-  .ct-next { max-width: 108px; padding-left: 10px; padding-right: 10px; }
+  .mesa-btn.ct-next { max-width: 108px; padding-left: 10px; padding-right: 10px; }
 }
 @media (max-width: 380px) {
   .mesa-turn.ct-turn { gap: 6px; padding: 5px; }
@@ -283,11 +283,11 @@
   .ct-turn .mesa-turn-label { letter-spacing: 0.04em; }
   .ct-turn-name { font-family: var(--body); font-size: 15px; font-weight: 700; }
   .ct-turn-sub { font-size: 0.8rem; }
-  .ct-next { max-width: 82px; padding-left: 8px; padding-right: 8px; font-size: 0.8rem; letter-spacing: 0.01em; }
+  .mesa-btn.ct-next { max-width: 82px; padding-left: 8px; padding-right: 8px; font-size: 0.8rem; letter-spacing: 0.01em; }
 }
 
 /* ---------- título, estado e controles ---------- */
-.ct-title { margin: 0; }
+.mesa-title.ct-title { margin: 0; }
 .ct-state {
   display: inline-flex;
   align-items: center;
@@ -540,10 +540,12 @@ button.cs-cond:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-off
   color: #ffd9d2 !important;
   font-size: 0.95rem;
 }
-.cs-tabs { grid-auto-columns: minmax(0, 1fr); }
+/* Os ajustes abaixo levam a classe da peça da mesa junto (.mesa-seg-btn.cs-tab, .mesa-chip.cs-cond-btn…):
+   no build o mesa.css pode carregar depois deste arquivo e, com a mesma especificidade, venceria. */
+.mesa-seg.cs-tabs { grid-auto-columns: minmax(0, 1fr); }
 /* na folha, as abas ficam presas no alto do corpo (que tem recuo) */
 .cs-panel.is-sheet .cs-tabs { position: sticky; top: calc(-1 * var(--mesa-sheet-pad, 16px)); z-index: 3; }
-.cs-tab { min-width: 0 !important; min-height: 48px; padding: 4px; gap: 6px; white-space: normal; text-align: center; line-height: 1.1; }
+.mesa-seg-btn.cs-tab { min-width: 0 !important; min-height: 48px; padding: 4px; gap: 6px; white-space: normal; text-align: center; line-height: 1.1; }
 .cs-tab-ico { font-size: 1rem; line-height: 1; }
 .cs-tab-dot { position: absolute; top: 5px; left: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--fh-ember); box-shadow: 0 0 6px rgba(255, 148, 70, 0.8); }
 .cs-tab-n {
@@ -561,13 +563,13 @@ button.cs-cond:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-off
   color: var(--ink-primary);
 }
 @media (max-width: 480px) {
-  .cs-tab { flex-direction: column; gap: 2px; font-size: 12px; letter-spacing: 0; }
+  .mesa-seg-btn.cs-tab { flex-direction: column; gap: 2px; font-size: 12px; letter-spacing: 0; }
   /* o número vai para o canto do ícone: o rótulo cabe em 4 colunas a 320 px */
   .cs-tab-n { position: absolute; top: 3px; left: calc(50% + 8px); min-width: 18px; height: 18px; padding: 0 4px; }
 }
 /* painel na lista do desktop (~460 px, abas de ~104 px): o mesmo desenho, com o
    número no canto do ícone, para o rótulo não ficar embaixo dele */
-.cs-panel.is-inline .cs-tab { flex-direction: column; gap: 2px; font-size: 13px; letter-spacing: 0; }
+.cs-panel.is-inline .mesa-seg-btn.cs-tab { flex-direction: column; gap: 2px; font-size: 13px; letter-spacing: 0; }
 .cs-panel.is-inline .cs-tab-n { position: absolute; top: 3px; left: calc(50% + 8px); min-width: 18px; height: 18px; padding: 0 4px; }
 .cs-tabpanel { min-width: 0; }
 .cs-label {
@@ -768,13 +770,13 @@ button.cs-cond:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-off
 .cs-dmg-amount input { min-height: 48px !important; font-size: 20px !important; text-align: center; }
 .cs-dmg-type select { min-height: 48px !important; }
 .cs-dmg-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.cs-heal { border-color: rgba(156, 192, 101, 0.6); color: var(--moss-bright); background: rgba(156, 192, 101, 0.1); }
+.mesa-btn.cs-heal { border-color: rgba(156, 192, 101, 0.6); color: var(--moss-bright); background: rgba(156, 192, 101, 0.1); }
 
 /* condições: duração + 15 chips de 44 em grade de 3 */
 .cs-condtab { display: flex; flex-direction: column; gap: 10px; }
 .cs-rounds { max-width: 18rem; }
 .cs-cond-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.cs-cond-btn {
+.mesa-chip.cs-cond-btn {
   flex-direction: column;
   justify-content: center;
   gap: 2px;
@@ -789,7 +791,7 @@ button.cs-cond:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-off
 }
 .cs-sheet-note strong { color: var(--ink-primary); font-weight: 600; }
 @media (min-width: 768px) {
-  .cs-cond-btn { flex-direction: row; gap: 6px; }
+  .mesa-chip.cs-cond-btn { flex-direction: row; gap: 6px; }
 }
 .cs-remove { display: flex; justify-content: flex-end; padding-top: 10px; border-top: 1px dashed rgba(224, 96, 79, 0.3); }
 
@@ -820,12 +822,12 @@ button.cs-cond:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-off
 .ct-addpc-row .add-pc-actions .mesa-btn { flex: 1 1 auto; margin-left: 0; }
 .ct-roll { border: 1px solid var(--gold-deep); border-radius: 6px; }
 .ct-addpc-in { grid-area: act; color: var(--moss-bright); font-size: 0.95rem; }
-.ct-addpc-foot { flex-wrap: nowrap; }
+.mesa-actions.ct-addpc-foot { flex-wrap: nowrap; }
 .ct-addpc-foot > .mesa-btn { flex: 1 1 0; min-width: 0; }
 @media (min-width: 560px) {
   .add-pc-row.ct-addpc-row { grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: "pic who act"; }
   .ct-addpc-row .add-pc-actions { width: auto; }
-  .ct-addpc-foot { justify-content: flex-end; }
+  .mesa-actions.ct-addpc-foot { justify-content: flex-end; }
   .ct-addpc-foot > .mesa-btn { flex: 0 0 auto; min-width: 140px; }
 }
 

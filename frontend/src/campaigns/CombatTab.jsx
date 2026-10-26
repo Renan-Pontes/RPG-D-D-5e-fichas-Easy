@@ -197,7 +197,8 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
   };
   const seeCurrent = () => {
     if (!currentTurn) return;
-    if (!wide) { openRow(currentTurn, 'actions'); return; }
+    // Monstro abre nas Ações; PJ (o jogador age pela ficha) na aba padrão dele (Dano/Cura).
+    if (!wide) { openRow(currentTurn, currentTurn.type === 'pc' ? null : 'actions'); return; }
     setSelected(currentTurn.id);
     requestAnimationFrame(() => document.getElementById(`cc-${currentTurn.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };

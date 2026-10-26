@@ -477,6 +477,8 @@
   line-height: 1.2;
   text-align: left;
   white-space: normal;
+  overflow-wrap: anywhere; /* "Anteriormente em…" em 320 px */
+  hyphens: auto;
 }
 .tn-act > [aria-hidden="true"] { flex: none; font-size: 1.15rem; }
 .tn-toggle {
