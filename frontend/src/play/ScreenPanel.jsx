@@ -1,12 +1,15 @@
 // Jogar › Telão: o que está na TV agora e o que mostrar (cartão do Mundo,
 // "Anteriormente em…", cena ou nada), mais o link do telão.
 // Mostrar no telão é sempre um toque do mestre; cartão oculto não vai à TV.
+// Celular: uma coluna, chips e linhas de 44+ px. Desktop (≥ 1024): 2 colunas
+// (prévia e link | o que mostrar).
 import { useCallback, useMemo, useState } from 'react';
 import { API_BASE } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { usePolling } from '../api/polling.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
-import EntryCard from '../world/EntryCard.jsx';
+import MesaTitle from '../shell/MesaTitle.jsx';
+import { EntryRow } from './InScenePanel.jsx';
 import { listWorld, showEntryOnScreen, worldErrorText } from '../world/world-api.js';
 import { defaultArt } from '../world/world-model.js';
 import RecapCard from './RecapCard.jsx';
@@ -102,11 +105,11 @@ export default function ScreenPanel({ campaign, lang = 'pt', onChange }) {
 
   return (
     <div className="scr">
-      <section className="scr-tv-wrap" aria-labelledby="scr-h">
-        <div className="scr-tv-head">
-          <h3 id="scr-h">📺 {L(lang, 'Na TV agora', 'On the TV now')}</h3>
-          {card && <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={clear}>{L(lang, 'Tirar do telão', 'Clear screen')}</button>}
-        </div>
+      <section className="mesa-panel scr-tv-wrap" aria-labelledby="scr-h">
+        <MesaTitle id="scr-h"
+          act={card ? <button type="button" className="mesa-btn" disabled={busy} onClick={clear}>{L(lang, 'Tirar do telão', 'Clear screen')}</button> : null}>
+          {L(lang, 'Na TV agora', 'On the TV now')}
+        </MesaTitle>
         <div className="scr-tv" style={campaign.accent ? { '--scr-accent': campaign.accent } : undefined}>
           {cover && <img className="scr-tv-bg" src={cover} alt="" />}
           <div className="scr-tv-shade" />
@@ -145,18 +148,21 @@ export default function ScreenPanel({ campaign, lang = 'pt', onChange }) {
         </div>
         <div className="scr-link">
           <input className="input" readOnly value={url} onFocus={e => e.target.select()} aria-label={L(lang, 'Link do telão', 'Screen link')} />
-          <button type="button" className="btn btn-primary btn-sm" onClick={copy}>{L(lang, 'Copiar link', 'Copy link')}</button>
-          <a className="btn btn-ghost btn-sm" href={url} target="_blank" rel="noreferrer">{L(lang, 'Abrir', 'Open')} ↗</a>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={rotate}>{L(lang, 'Gerar novo link', 'New link')}</button>
+          <button type="button" className="mesa-btn is-primary" onClick={copy}>{L(lang, 'Copiar link', 'Copy link')}</button>
+          <a className="mesa-btn" href={url} target="_blank" rel="noreferrer">{L(lang, 'Abrir', 'Open')} ↗</a>
+          <button type="button" className="mesa-btn is-quiet" onClick={rotate}>{L(lang, 'Gerar novo link', 'New link')}</button>
         </div>
+        <p className="mesa-hint">{L(lang, 'Abra o link na TV ou no tablet. “Gerar novo link” desliga o antigo.', 'Open the link on the TV or tablet. “New link” turns the old one off.')}</p>
       </section>
 
-      <section className="info-box scr-show" aria-labelledby="scr-show-h">
-        <h3 id="scr-show-h" style={{ marginTop: 0 }}>{L(lang, 'Mostrar no telão', 'Show on screen')}</h3>
-        <div className="gc-chips" role="tablist" aria-label={L(lang, 'O que mostrar', 'What to show')}>
-          {[['entry', L(lang, 'Cartão do Mundo', 'World card')], ['recap', L(lang, 'Anteriormente em…', 'Previously on…')],
-            ['scene', L(lang, 'Cena', 'Scene')], ['none', L(lang, 'Nada (capa)', 'Nothing (cover)')]].map(([k, label]) => (
-            <button key={k} type="button" role="tab" aria-selected={mode === k} className={`gc-chip ${mode === k ? 'active' : ''}`} onClick={() => setMode(k)}>{label}</button>
+      <section className="mesa-panel scr-show" aria-labelledby="scr-show-h">
+        <MesaTitle id="scr-show-h">{L(lang, 'Mostrar no telão', 'Show on screen')}</MesaTitle>
+        <div className="scr-modes" role="tablist" aria-label={L(lang, 'O que mostrar', 'What to show')}>
+          {[['entry', '🗺️', L(lang, 'Cartão do Mundo', 'World card')], ['recap', '📜', L(lang, 'Anteriormente em…', 'Previously on…')],
+            ['scene', '🎭', L(lang, 'Cena', 'Scene')], ['none', '🖼️', L(lang, 'Nada (capa)', 'Nothing (cover)')]].map(([k, icon, label]) => (
+            <button key={k} type="button" role="tab" aria-selected={mode === k} className={`mesa-chip ${mode === k ? 'active' : ''}`} onClick={() => setMode(k)}>
+              <span aria-hidden="true">{icon}</span> {label}
+            </button>
           ))}
         </div>
 
@@ -166,14 +172,18 @@ export default function ScreenPanel({ campaign, lang = 'pt', onChange }) {
               aria-label={L(lang, 'Procurar cartão', 'Find a card')} />
             {entries === null && <p className="muted small">{L(lang, 'Carregando…', 'Loading…')}</p>}
             {entries && shown.length === 0 && (
-              <p className="muted small">
+              <p className="mesa-hint">
                 {L(lang, 'Nenhum cartão revelado ainda. Só cartões revelados (ou conhecidos de nome) podem ir ao telão.', 'No revealed card yet. Only revealed (or known-by-name) cards can go on screen.')}
                 {hiddenCount > 0 && ` ${L(lang, `${hiddenCount} oculto(s) no Mundo.`, `${hiddenCount} hidden in the World.`)}`}
               </p>
             )}
-            <div className="ins-grid">
+            {entries && shown.length > 0 && hiddenCount > 0 && (
+              <p className="mesa-hint">{L(lang, `${hiddenCount} oculto(s) no Mundo não aparecem aqui.`, `${hiddenCount} hidden in the World are not listed.`)}</p>
+            )}
+            <div className="ins-list">
               {shown.slice(0, 40).map(e => (
-                <EntryCard key={e.id} entry={e} mode="dm" lang={lang} compact onOpen={showEntry} onShow={busy ? undefined : showEntry} />
+                <EntryRow key={e.id} entry={e} lang={lang} onOpen={busy ? undefined : showEntry}
+                  openLabel={L(lang, 'Mostrar no telão', 'Show on screen')} onShow={showEntry} busy={busy} />
               ))}
             </div>
           </div>
@@ -189,19 +199,19 @@ export default function ScreenPanel({ campaign, lang = 'pt', onChange }) {
           <div className="scr-pane">
             {scene ? (
               <>
-                <p style={{ margin: 0 }}><strong>{scene.node.name}</strong> <span className="muted small">· {scene.adventure.name}</span></p>
-                <div><button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={showScene}>📺 {L(lang, 'Mostrar a cena', 'Show the scene')}</button></div>
+                <p style={{ margin: 0 }}><strong>{scene.node.name}</strong> <span className="muted">· {scene.adventure.name}</span></p>
+                <div><button type="button" className="mesa-btn is-primary" disabled={busy} onClick={showScene}>📺 {L(lang, 'Mostrar a cena', 'Show the scene')}</button></div>
               </>
             ) : (
-              <p className="muted small">{L(lang, 'Nenhuma sala em jogo. Em Preparar › Aventuras, use "Conduzir" e marque onde o grupo está.', 'No room in play. In Prepare › Adventures, use "Run" and mark where the party is.')}</p>
+              <p className="mesa-hint">{L(lang, 'Nenhuma sala em jogo. Em Preparar › Aventuras, use "Conduzir" e marque onde o grupo está.', 'No room in play. In Prepare › Adventures, use "Run" and mark where the party is.')}</p>
             )}
           </div>
         )}
 
         {mode === 'none' && (
           <div className="scr-pane">
-            <p className="muted small" style={{ margin: 0 }}>{L(lang, 'O telão volta para a capa da campanha, com o nome e a frase.', 'The screen goes back to the campaign cover, with name and tagline.')}</p>
-            <div><button type="button" className="btn btn-primary btn-sm" disabled={busy || !card} onClick={clear}>{L(lang, 'Deixar só a capa', 'Show only the cover')}</button></div>
+            <p className="mesa-hint" style={{ margin: 0 }}>{L(lang, 'O telão volta para a capa da campanha, com o nome e a frase.', 'The screen goes back to the campaign cover, with name and tagline.')}</p>
+            <div><button type="button" className="mesa-btn is-primary" disabled={busy || !card} onClick={clear}>{L(lang, 'Deixar só a capa', 'Show only the cover')}</button></div>
           </div>
         )}
       </section>

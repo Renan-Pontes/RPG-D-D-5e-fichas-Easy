@@ -1,6 +1,8 @@
 // Cartão do jogador para um pedido de teste do mestre.
 // Duas saídas, ambas com um toque: rolar no app (o servidor rola) ou digitar
 // o dado físico. Não é modal — não interrompe a ficha.
+// Em cartão estreito (320–360 px), [Dado | Total] vai para uma linha própria e
+// o campo do dado (≥ 64 px) fica ao lado de "Enviar" (checks-styles.css).
 import { errorMessage } from '../api/errors.js';
 import { useState } from 'react';
 import { api } from '../api/client.js';
@@ -103,7 +105,7 @@ export default function CheckRequestCard({ check, char, lang = 'pt', onAnswered,
           )}
           {!check.outcome && <span className="muted small">{L(lang, 'Enviado ao mestre', 'Sent to the DM')}</span>}
           {resp.mode === 'physical' && check.status === 'open' && (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setEditing(true); setError(''); }}>
+            <button type="button" className="btn btn-ghost btn-sm check-card-fix" onClick={() => { setEditing(true); setError(''); }}>
               {L(lang, 'Corrigir', 'Fix')}
             </button>
           )}
@@ -148,7 +150,7 @@ export default function CheckRequestCard({ check, char, lang = 'pt', onAnswered,
               </button>
             </form>
             {editing && (
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>{L(lang, 'Cancelar', 'Cancel')}</button>
+              <button type="button" className="btn btn-ghost btn-sm check-card-cancel" onClick={() => setEditing(false)}>{L(lang, 'Cancelar', 'Cancel')}</button>
             )}
           </div>
         </>

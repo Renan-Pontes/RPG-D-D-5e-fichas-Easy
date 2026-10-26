@@ -28,6 +28,9 @@ export function PendingPlayerRow({ r, lang }) {
 
 export function PendingDMRow({ r, lang, onResolve, onCancel }) {
   const sides = { d4: 4, d6: 6, d8: 8, d10: 10, d12: 12, d20: 20, d100: 100 }[r.diceType] || 20;
+  // Vários dados (ex.: 8d6): o mestre digita o total que saiu, de N a N×lados.
+  const count = Math.max(1, r.count || 1);
+  const lo = count, hi = count * sides;
   const [override, setOverride] = useState('');
   const [show, setShow] = useState(false);
   const [error, setError] = useState('');
@@ -35,50 +38,58 @@ export function PendingDMRow({ r, lang, onResolve, onCancel }) {
   const handleShowOverride = (e) => {
     e?.preventDefault?.();
     const n = parseInt(override, 10);
-    if (!override || Number.isNaN(n) || n < 1 || n > sides) {
-      setError(t(lang, `Digite um valor entre 1 e ${sides}.`, `Enter a value between 1 and ${sides}.`));
+    if (!override || Number.isNaN(n) || n < lo || n > hi) {
+      setError(t(lang, `Digite um valor entre ${lo} e ${hi}.`, `Enter a value between ${lo} and ${hi}.`));
       return;
     }
     setError('');
     onResolve(r.id, 'public', { overrideValue: n });
   };
 
+  const who = r.requestedBy?.displayName;
   return (
-    <div className="roll-row tl-roll" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
-      <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-        <div>
+    <div className="roll-row tl-roll">
+      <div className="tl-roll-head">
+        <div className="tl-roll-what">
           <span className="tl-kind">🎲 {t(lang, 'Rolagem pedida', 'Roll request')}</span>
-          <strong>{r.requestedBy?.displayName}</strong>
-          <span style={{ marginLeft: 6 }}>{r.label || r.diceType}</span>
-          <span className="muted small" style={{ marginLeft: 6 }}>{diceText(r, lang)}</span>
+          <strong>{who}</strong>
+          <span className="tl-roll-label">{r.label || r.diceType}</span>
+          <span className="tl-roll-dice">{diceText(r, lang)}</span>
         </div>
-        <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => onResolve(r.id, 'public')}>
-            📺 {t(lang, 'Rolar e mostrar', 'Roll and show')}
-          </button>
-          <button type="button" className="btn btn-ghost btn-sm" aria-expanded={show} onClick={() => setShow(v => !v)}
-            title={t(lang, 'Anotar o valor do dado físico que saiu na mesa', 'Enter the physical die value rolled at the table')}>
-            ✍ {t(lang, 'Dado físico', 'Physical die')}
-          </button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => onResolve(r.id, 'private')}>
-            🔒 {t(lang, 'Rolar em segredo', 'Roll privately')}
-          </button>
-          <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--blood-bright)' }}
-            aria-label={t(lang, 'Cancelar pedido', 'Cancel request')} onClick={() => onCancel(r.id)}>×</button>
-        </div>
+        <button type="button" className="mesa-icon-btn tl-roll-cancel"
+          aria-label={t(lang, `Cancelar pedido de ${who || ''}`, `Cancel ${who || ''}'s request`)}
+          title={t(lang, 'Cancelar pedido', 'Cancel request')} onClick={() => onCancel(r.id)}>✕</button>
+      </div>
+      <div className="tl-roll-actions">
+        <button type="button" className="mesa-btn is-primary tl-roll-show" onClick={() => onResolve(r.id, 'public')}>
+          📺 {t(lang, 'Rolar e mostrar', 'Roll and show')}
+        </button>
+        <button type="button" className={`mesa-btn ${show ? 'is-on' : ''}`} aria-expanded={show} onClick={() => setShow(v => !v)}
+          title={t(lang, 'Anotar o valor do dado físico que saiu na mesa', 'Enter the physical die value rolled at the table')}>
+          ✍ {t(lang, 'Dado físico', 'Physical die')}
+        </button>
+        <button type="button" className="mesa-btn" onClick={() => onResolve(r.id, 'private')}>
+          🔒 {t(lang, 'Rolar em segredo', 'Roll privately')}
+        </button>
       </div>
       {show && (
-        <form className="row gap-2 tl-physical" onSubmit={handleShowOverride}>
-          <span className="muted small">{t(lang, 'Valor que saiu', 'Value rolled')}:</span>
-          <input aria-label={`1-${sides}`} type="number" inputMode="numeric" className="input" min={1} max={sides}
-            value={override} onChange={e => setOverride(e.target.value)} style={{ width: 80 }} placeholder={`1-${sides}`} autoFocus />
-          <span className="muted small">
-            {r.modifier ? `${r.modifier >= 0 ? '+' : ''}${r.modifier} = ${(parseInt(override, 10) || 0) + r.modifier}` : ''}
-          </span>
-          <button type="submit" className="btn btn-primary btn-sm">📺 {t(lang, 'Mostrar este valor', 'Show this value')}</button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setShow(false); setOverride(''); setError(''); }}>
-            {t(lang, 'Cancelar', 'Cancel')}
-          </button>
+        <form className="tl-physical" onSubmit={handleShowOverride}>
+          <label className="tl-physical-field">
+            <span>{t(lang, 'Valor que saiu', 'Value rolled')}</span>
+            <input aria-label={count > 1 ? t(lang, `Total que saiu (${lo} a ${hi})`, `Total rolled (${lo} to ${hi})`) : t(lang, `Valor que saiu (1 a ${sides})`, `Value rolled (1 to ${sides})`)} type="number" inputMode="numeric" className="input" min={lo} max={hi}
+              value={override} onChange={e => setOverride(e.target.value)} placeholder={`${lo}-${hi}`} autoFocus />
+          </label>
+          {r.modifier ? (
+            <span className="tl-physical-sum">
+              {`${r.modifier >= 0 ? '+' : ''}${r.modifier} = ${(parseInt(override, 10) || 0) + r.modifier}`}
+            </span>
+          ) : null}
+          <div className="tl-physical-btns">
+            <button type="submit" className="mesa-btn is-primary">📺 {t(lang, 'Mostrar este valor', 'Show this value')}</button>
+            <button type="button" className="mesa-btn is-quiet" onClick={() => { setShow(false); setOverride(''); setError(''); }}>
+              {t(lang, 'Cancelar', 'Cancel')}
+            </button>
+          </div>
           {error && <span className="check-card-error" role="alert">{error}</span>}
         </form>
       )}
@@ -92,8 +103,8 @@ export function RollHistoryRow({ r, lang }) {
       <div>
         <strong>{r.requestedBy?.displayName}</strong>
         <span style={{ marginLeft: 6 }}>{r.label || r.diceType}</span>
-        {r.status === 'public' && <span className="pill pill-pending" style={{ marginLeft: 8 }} title={t(lang, 'Mostrado no telão', 'Shown on screen')}>📺</span>}
-        {r.status === 'private' && <span className="muted small" style={{ marginLeft: 8 }} title={t(lang, 'Em segredo', 'Private')}>🔒</span>}
+        {r.status === 'public' && <span className="tl-hist-tag" title={t(lang, 'Mostrado no telão', 'Shown on screen')}>📺 {t(lang, 'telão', 'screen')}</span>}
+        {r.status === 'private' && <span className="tl-hist-tag" title={t(lang, 'Em segredo', 'Private')}>🔒 {t(lang, 'segredo', 'private')}</span>}
         {r.status === 'cancelled' && <span className="muted small" style={{ marginLeft: 8 }}>{t(lang, 'cancelado', 'cancelled')}</span>}
       </div>
       {r.status !== 'cancelled' && (

@@ -19,25 +19,28 @@
 .check-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .check-card-eyebrow {
   font-family: var(--display);
-  font-size: 0.72rem;
+  font-size: max(12px, 0.72rem); /* na ficha a raiz é menor: nunca abaixo de 12 px */
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--gold);
 }
-.check-card-later {
+.check-card-later,
+.player-checks .check-card .check-card-later /* vence o .ficha .check-card-later de 40 px */ {
   background: transparent;
   border: 0;
-  color: var(--ink-muted);
-  font-size: 0.85rem;
-  min-height: 36px;
-  padding: 0 6px;
+  color: var(--ink-secondary);
+  font-size: 0.95rem;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 10px;
+  margin: -6px -8px -6px 0;
   cursor: pointer;
 }
 .check-card-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
 .check-card-title strong { font-family: var(--display); font-size: 1.25rem; color: var(--ink-primary); }
 .check-card-dc, .check-card-adv, .gc-card-dc, .gc-card-adv {
   font-family: var(--display);
-  font-size: 0.8rem;
+  font-size: max(12px, 0.82rem);
   letter-spacing: 0.06em;
   padding: 2px 8px;
   border-radius: 999px;
@@ -62,25 +65,36 @@
   gap: 2px;
 }
 .check-physical-mode button {
+  flex: 1 1 0;
+  min-width: 44px;
   background: transparent;
   border: 0;
   color: var(--ink-secondary);
   border-radius: 6px;
   padding: 0 10px;
-  min-height: 42px;
-  font-size: 0.85rem;
+  min-height: 44px;
+  font-size: 0.9rem;
   cursor: pointer;
 }
 .check-physical-mode button.active { background: var(--gold-deep); color: var(--parchment); }
-.check-physical-input { min-height: 48px; font-size: 1.1rem; text-align: center; min-width: 0; }
-.check-physical-send { min-height: 48px; white-space: nowrap; }
+.check-physical-input { min-height: 48px; font-size: 1.1rem; text-align: center; min-width: 64px; width: 100%; }
+.check-physical-send { min-height: 48px; min-width: 64px; white-space: nowrap; }
+/* Celular estreito (até 400 px, na Mesa e no banner da ficha): [Dado | Total]
+   numa linha e, embaixo, [campo do dado ≥ 64 px] [Enviar N] — o campo nunca some. */
+.check-physical { grid-template-columns: auto minmax(64px, 1fr) auto; }
+@media (max-width: 400px) {
+  .check-physical { grid-template-columns: minmax(64px, 1fr) auto; }
+  .check-physical-mode { grid-column: 1 / -1; }
+  .check-physical-send { padding-left: 14px; padding-right: 14px; }
+}
+.check-card .check-card-fix, .check-card .check-card-cancel { min-height: 44px; padding-left: 14px; padding-right: 14px; }
 .check-card-result { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .check-card-total { font-family: var(--display); font-size: 2rem; line-height: 1; color: var(--gold-bright); }
 .check-card-detail { font-size: 0.85rem; color: var(--ink-secondary); }
 .check-card-error { color: var(--blood-bright); font-size: 0.85rem; }
 .check-outcome {
   font-family: var(--display);
-  font-size: 0.85rem;
+  font-size: max(12px, 0.85rem);
   letter-spacing: 0.06em;
   padding: 2px 8px;
   border-radius: 999px;
@@ -94,81 +108,97 @@
   color: var(--gold);
   border-radius: 999px;
   padding: 8px 14px;
-  min-height: 40px;
+  min-height: 44px;
   cursor: pointer;
 }
 
-/* --- Painel do mestre --- */
-.group-checks { display: flex; flex-direction: column; gap: 12px; }
-.group-checks-head { display: flex; flex-direction: column; gap: 4px; }
-.group-checks-config { display: flex; flex-direction: column; gap: 8px; }
-.gc-field { display: grid; grid-template-columns: 56px 1fr; gap: 8px; align-items: center; }
+/* --- Painel do mestre (GroupCheckPanel, DMCheckCard) ---
+   Visual da mesa (src/shell/mesa.css): chips de 44 px, atalhos em grade de 3
+   com 48 px, resistências 3×2, campos com 16 px e rótulos de 12 px. Em folha
+   (.is-sheet) o "Próximo pedido vai para…" fica preso no rodapé. */
+.group-checks { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.group-checks.mesa-panel > .mesa-title { margin-bottom: 0; }
+.group-checks-config { display: flex; flex-direction: column; gap: 14px; }
+.gc-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .gc-label {
   font-family: var(--display);
-  font-size: 0.7rem;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ink-muted);
-}
-.gc-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.gc-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--stroke-faint);
   color: var(--ink-secondary);
-  border-radius: 999px;
-  padding: 0 12px;
-  min-height: 38px;
-  font-size: 0.88rem;
-  cursor: pointer;
 }
-.gc-chip:disabled { opacity: 0.45; cursor: not-allowed; }
-.gc-chip.active { background: var(--gold-deep); border-color: var(--gold); color: var(--parchment); }
-.gc-chip.active.adv { background: var(--moss); border-color: var(--moss-bright); }
-.gc-chip.active.dis { background: var(--blood-deep); border-color: var(--blood-bright); }
-.gc-dc-input { width: 64px; min-height: 38px; text-align: center; }
-.gc-quick { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
-.gc-quick-saves { grid-template-columns: auto repeat(6, 1fr); align-items: center; }
+.gc-hint { margin: 0; font-size: 0.88rem; color: var(--ink-muted); line-height: 1.35; }
+.gc-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.gc-chip.mesa-chip { padding: 6px 14px; }
+.gc-chip.mesa-chip:disabled { opacity: 0.45; cursor: not-allowed; }
+.gc-chip.mesa-chip.active.adv { background: color-mix(in srgb, var(--moss) 55%, #1a120e); border-color: var(--moss-bright); }
+.gc-chip.mesa-chip.active.dis { background: color-mix(in srgb, var(--blood-deep) 70%, #1a120e); border-color: var(--blood-bright); }
+.gc-dc .gc-chip.mesa-chip:not(.gc-secret) { min-width: 48px; justify-content: center; padding: 6px 10px; }
+.gc-dc-input.input { width: 72px; min-height: 44px; font-size: 16px; text-align: center; }
+.gc-adv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.gc-adv .gc-chip.mesa-chip { justify-content: center; padding: 6px 8px; }
+.gc-quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .gc-quick-btn {
+  min-width: 0;
   min-height: 48px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--stroke);
+  padding: 4px 6px;
+  border: 1px solid var(--gold-deep);
   border-radius: 8px;
+  background: rgba(214, 176, 100, 0.07);
   color: var(--ink-primary);
-  font-family: var(--display);
-  font-size: 0.9rem;
-  letter-spacing: 0.03em;
+  font-family: var(--body);
+  font-size: 0.95rem;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  hyphens: auto;
   cursor: pointer;
-  padding: 0 6px;
 }
-.gc-quick-btn:hover:not(:disabled) { border-color: var(--gold); background: var(--bg-card); }
-.gc-quick-btn:active:not(:disabled) { transform: scale(0.97); }
+.gc-quick-btn.is-save { font-family: var(--display); font-size: 0.9rem; letter-spacing: 0.06em; }
+@media (hover: hover) {
+  .gc-quick-btn:hover:not(:disabled) { border-color: var(--gold); background: var(--gold-soft); }
+}
+.gc-quick-btn:active:not(:disabled) { background: var(--gold-soft); border-color: var(--fh-gold-hi); }
 .gc-quick-btn:disabled { opacity: 0.5; cursor: progress; }
-.gc-quick-btn.is-save { padding: 0 2px; font-size: 0.82rem; }
-.gc-more { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; }
-@media (max-width: 560px) {
-  .gc-more { grid-template-columns: 1fr auto; }
-  .gc-more select { grid-column: 1 / -1; }
-  .gc-quick-saves { grid-template-columns: repeat(6, 1fr); }
-  .gc-quick-saves .gc-label { grid-column: 1 / -1; }
-  .gc-field { grid-template-columns: 1fr; gap: 4px; }
+.gc-quick-btn:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.gc-more { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.gc-more select { grid-column: 1 / -1; }
+.gc-more .input { min-height: 44px; font-size: 16px; min-width: 0; }
+.gc-more-send { min-width: 80px; }
+.gc-summary { margin: 0; font-size: 0.92rem; color: var(--ink-secondary); line-height: 1.35; overflow-wrap: anywhere; }
+.gc-summary strong { color: var(--ink-primary); }
+.gc-sent { margin: 0; font-size: 0.92rem; color: var(--moss-bright); line-height: 1.35; }
+/* em folha */
+.gc-foot { display: flex; align-items: center; gap: 12px; }
+.gc-foot-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.gc-done { flex: none; min-width: 96px; }
+@media (min-width: 768px) {
+  .gc-quick { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+  .gc-quick-saves { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .gc-sheet .gc-quick-saves { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
+@media (min-width: 1024px) {
+  /* coluna fixa de Testes (estreita): grade de 3 e resistências 3×2 */
+  .tests-ask-col .gc-quick { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tests-ask-col .gc-quick-saves { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* cartão de teste (lista de Testes) */
 .gc-list { display: flex; flex-direction: column; gap: 10px; }
 .gc-card {
-  border: 1px solid var(--stroke);
-  border-radius: 10px;
-  padding: 10px 12px;
-  background: var(--bg-raised);
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(224, 181, 94, 0.22);
+  border-radius: 10px;
+  background: rgba(10, 7, 6, 0.45);
 }
 .gc-card.on-screen { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-shadow); }
-.gc-card.is-closed { opacity: 0.8; }
+.gc-card.is-closed { opacity: 0.85; }
 .gc-card-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 10px; align-items: baseline; }
-.gc-card-head strong { font-family: var(--display); margin-right: 8px; }
+.gc-card-what { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-width: 0; }
+.gc-card-head strong { font-family: var(--display); font-size: 1.05rem; }
+.gc-card-count { font-size: 0.92rem; color: var(--ink-secondary); }
 .gc-card-head .ok { color: var(--moss-bright); }
 .gc-card-head .bad { color: var(--blood-bright); }
 .gc-targets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -177,33 +207,24 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 10px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  background: var(--bg-card);
-  min-height: 44px;
+  min-height: 56px;
+  padding: 6px 6px 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
 }
 .gc-target.pass { box-shadow: inset 3px 0 0 var(--moss-bright); }
 .gc-target.fail { box-shadow: inset 3px 0 0 var(--blood-bright); }
-.gc-target-name { flex: 1 1 110px; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gc-target-result { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
-.gc-target-total { font-family: var(--display); font-size: 1.2rem; color: var(--gold-bright); min-width: 26px; text-align: right; }
-.gc-note { display: flex; gap: 4px; flex-basis: 100%; }
-.gc-note .input { width: 90px; min-height: 40px; }
-.gc-note-btn { min-height: 38px; letter-spacing: 0.02em; white-space: nowrap; padding: 0 10px; }
-.gc-card-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.gc-card-actions .btn { min-height: 40px; }
-.gc-remove { margin-left: auto; color: var(--blood-bright); }
-.gc-closed summary { cursor: pointer; color: var(--ink-secondary); min-height: 36px; display: flex; align-items: center; }
-
-/* "Sobrevivência", "Investigação": o texto cabe no botão (quebra com hífen se preciso). */
-.gc-quick { grid-template-columns: repeat(auto-fill, minmax(min(132px, 100%), 1fr)); }
-.gc-quick-btn {
-  min-width: 0;
-  font-size: 0.86rem;
-  letter-spacing: 0.01em;
-  line-height: 1.15;
-  overflow-wrap: anywhere;
-  hyphens: auto;
-  padding: 4px 6px;
-}
+.gc-target-name { flex: 1 1 110px; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.gc-target-result { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-left: auto; }
+.gc-target-mode { font-size: 0.85rem; color: var(--ink-muted); white-space: nowrap; }
+.gc-target-detail { font-size: 0.85rem; color: var(--ink-secondary); font-family: var(--mono); }
+.gc-target-wait { font-size: 0.9rem; color: var(--ink-muted); }
+.gc-target-total { font-family: var(--display); font-size: 1.25rem; color: var(--gold-bright); min-width: 26px; text-align: right; }
+.gc-note { display: flex; align-items: center; gap: 6px; flex-basis: 100%; }
+.gc-note .input { width: 96px; min-height: 44px; font-size: 16px; }
+.gc-note-btn.mesa-btn { padding: 6px 12px; white-space: nowrap; }
+.gc-card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.gc-card-actions .mesa-btn { flex: 1 1 auto; padding-left: 10px; padding-right: 10px; }
+.gc-remove.mesa-btn { flex: 0 0 auto; margin-left: auto; color: var(--blood-bright); }
+.gc-closed summary { cursor: pointer; color: var(--ink-secondary); min-height: 44px; display: flex; align-items: center; }
 .gc-card-adv { text-transform: none; }

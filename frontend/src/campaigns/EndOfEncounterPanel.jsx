@@ -1,11 +1,14 @@
-// Fim de encontro guiado (opt-in). Painel não bloqueante com passos opcionais;
-// cada passo só chama a API quando o mestre clica.
+// Fim de encontro guiado (opt-in). Folha da mesa (MesaSheet "tall", pela Cena e
+// pelo Combate) com passos opcionais; cada passo só chama a API quando o mestre
+// toca. Não empurra mais o topo da tela. Com a nota do Diário mexida e ainda não
+// salva, ✕/Esc/toque fora perguntam antes de fechar.
 import { errorMessage } from '../api/errors.js';
 import { useMemo, useState } from 'react';
 import { api } from '../api/client.js';
 import { findMonster } from '../../data/bestiary.js';
 import { loadCustomMonsters } from '../combat/custom-monsters.js';
 import GiveItemModal from './GiveItemModal.jsx';
+import MesaSheet from '../shell/MesaSheet.jsx';
 import './table-now.css';
 import { diaryDraft, encounterSummary, suggestXp, wizardSteps, xpRecipients } from './end-of-encounter.js';
 
@@ -44,19 +47,21 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
   const amount = parseInt(xpAmount, 10);
   const nRecipients = recipients === 'all' ? players.length : recipients.length;
 
+  const noteDirty = !done.diary && (title !== draft.title || body !== draft.body);
+  const roundsText = L(lang, `${summary.rounds} rodada${summary.rounds > 1 ? 's' : ''}`, `${summary.rounds} round${summary.rounds > 1 ? 's' : ''}`);
+  const footer = (
+    <div className="mesa-actions">
+      <button type="button" className="mesa-btn mesa-btn-lg is-primary eoe-done" onClick={onClose}>✓ {L(lang, 'Pronto', 'Done')}</button>
+    </div>
+  );
+
   return (
-    <section className="eoe-panel" aria-label={L(lang, 'Fim de encontro', 'End of encounter')}>
-      <header className="eoe-head">
-        <div>
-          <span className="eoe-eyebrow">{L(lang, 'Fim de encontro', 'End of encounter')}</span>
-          <strong className="eoe-title">
-            {L(lang, `${summary.rounds} rodada${summary.rounds > 1 ? 's' : ''}`, `${summary.rounds} round${summary.rounds > 1 ? 's' : ''}`)}
-            {summary.defeated.length > 0 && <> · {L(lang, 'derrotados', 'defeated')}: {summary.defeated.length}</>}
-          </strong>
-          <span className="muted small">{L(lang, 'Passos opcionais — nada é aplicado sem o seu clique.', 'Optional steps — nothing is applied without your click.')}</span>
-        </div>
-        <button type="button" className="btn-icon" onClick={onClose} aria-label={L(lang, 'Fechar', 'Close')}>×</button>
-      </header>
+    <MesaSheet title={<>{roundsText}{summary.defeated.length > 0 && <> · {L(lang, 'derrotados', 'defeated')}: {summary.defeated.length}</>}</>}
+      eyebrow={L(lang, 'Fim de encontro', 'End of encounter')} icon="⚑" size="tall" width="md" lang={lang}
+      onClose={onClose} footer={footer} dirty={noteDirty}
+      dirtyText={L(lang, 'A nota do Diário ainda não foi salva.', 'The Diary note has not been saved yet.')}
+      className="eoe-sheet" bodyClassName="eoe-sheet-body">
+      <p className="mesa-sheet-text">{L(lang, 'Passos opcionais — nada é aplicado sem o seu toque.', 'Optional steps — nothing is applied without your tap.')}</p>
       {error && <div className="nudge-error" role="alert">{error}</div>}
 
       <ol className="eoe-steps">
@@ -68,15 +73,15 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
                 <div className="eoe-row">
                   <input className="input eoe-xp" type="number" min="1" inputMode="numeric" value={xpAmount}
                     onChange={e => setXpAmount(e.target.value)} aria-label="XP" />
-                  <button type="button" className="gc-chip" onClick={() => setXpAmount(String(xp.total))}>
+                  <button type="button" className="mesa-chip" aria-pressed={xpAmount === String(xp.total)} onClick={() => setXpAmount(String(xp.total))}>
                     {L(lang, 'Todos', 'All')} {xp.estimated ? '≈' : ''}{xp.total}
                   </button>
                   {xp.defeatedXp !== xp.total && (
-                    <button type="button" className="gc-chip" onClick={() => setXpAmount(String(xp.defeatedXp))}>
+                    <button type="button" className="mesa-chip" aria-pressed={xpAmount === String(xp.defeatedXp)} onClick={() => setXpAmount(String(xp.defeatedXp))}>
                       {L(lang, 'Só derrotados', 'Defeated only')} {xp.defeatedXp}
                     </button>
                   )}
-                  <button type="button" className="btn btn-primary btn-sm" disabled={!!busy || !(amount > 0) || !!done.xp || !nRecipients}
+                  <button type="button" className="mesa-btn is-primary" disabled={!!busy || !(amount > 0) || !!done.xp || !nRecipients}
                     onClick={() => run('xp', async () => {
                       const r = await api.awardXp(campaign.id, { amount, characterIds: recipients, split: true });
                       return L(lang, `+${r.each} XP para cada`, `+${r.each} XP each`);
@@ -94,7 +99,7 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
               <>
                 <div className="eoe-step-title">☕ {L(lang, 'Descanso curto', 'Short rest')}</div>
                 <div className="eoe-row">
-                  <button type="button" className="btn btn-ghost btn-sm" disabled={!!busy || !!done.shortRest}
+                  <button type="button" className="mesa-btn" disabled={!!busy || !!done.shortRest}
                     onClick={() => run('shortRest', async () => {
                       const r = await api.campaignShortRestAll(campaign.id);
                       return L(lang, `${r.restedCharacters.length} descansaram`, `${r.restedCharacters.length} rested`);
@@ -112,12 +117,12 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
                 <div className="eoe-step-title">🎁 {L(lang, 'Tesouro', 'Treasure')}</div>
                 <div className="eoe-row">
                   {onNavigate && (
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => onNavigate('items')}>
+                    <button type="button" className="mesa-btn" onClick={() => onNavigate('items')}>
                       {L(lang, 'Itens da campanha', 'Campaign items')} →
                     </button>
                   )}
                   {players.map(m => (
-                    <button key={m.id} type="button" className="gc-chip" onClick={() => setGivingTo({ id: m.character.id, name: m.character.name })}>
+                    <button key={m.id} type="button" className="mesa-chip" onClick={() => setGivingTo({ id: m.character.id, name: m.character.name })}>
                       {L(lang, 'Dar a', 'Give to')} {m.character.name}
                     </button>
                   ))}
@@ -131,7 +136,7 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
                 <input className="input" value={title} maxLength={200} onChange={e => setTitle(e.target.value)} aria-label={L(lang, 'Título', 'Title')} />
                 <textarea className="input eoe-body" rows={4} value={body} onChange={e => setBody(e.target.value)} aria-label={L(lang, 'Texto', 'Text')} />
                 <div className="eoe-row">
-                  <button type="button" className="btn btn-primary btn-sm" disabled={!!busy || !!done.diary || !(title.trim() || body.trim())}
+                  <button type="button" className="mesa-btn is-primary" disabled={!!busy || !!done.diary || !(title.trim() || body.trim())}
                     onClick={() => run('diary', async () => {
                       await api.createDiaryNote(campaign.id, { title: title.trim(), body: body.trim() });
                       return L(lang, 'salvo', 'saved');
@@ -154,6 +159,6 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
             onChange?.();
           }} />
       )}
-    </section>
+    </MesaSheet>
   );
 }

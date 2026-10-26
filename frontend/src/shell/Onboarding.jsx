@@ -29,28 +29,29 @@ export default function Onboarding({ lang, status, onAction, onDismiss, onSample
     if (k === 'invite' && r !== false) { setCopied(true); setTimeout(() => setCopied(false), 1800); }
   };
   return (
-    <section className={`shell-onboarding ${open ? 'is-open' : 'is-collapsed'}`} aria-labelledby="shell-ob-title">
+    <section className={`shell-onboarding mesa-panel ${open ? 'is-open' : 'is-collapsed'}`} aria-labelledby="shell-ob-title">
+      {/* Celular: 2 linhas — título e progresso / Ver passos e Dispensar (44 px) */}
       <div className="shell-ob-head">
-        <div>
-          <span className="eyebrow">{t(lang, 'Primeiros passos', 'First steps')}</span>
-          <h2 id="shell-ob-title" className="shell-ob-title">{t(lang, 'Sua campanha está nascendo', 'Your campaign is being born')}</h2>
+        <div className="shell-ob-heading">
+          <span className="mesa-eyebrow">{t(lang, 'Primeiros passos', 'First steps')}</span>
+          <h2 id="shell-ob-title" className="shell-ob-title"><span className="mesa-foil">{t(lang, 'Sua campanha está nascendo', 'Your campaign is being born')}</span></h2>
         </div>
         <div className="shell-ob-progress" aria-label={t(lang, `${status.count} de ${status.total} concluídos`, `${status.count} of ${status.total} done`)}>
           <span className="shell-ob-count">{status.count}/{status.total}</span>
           <span className="shell-ob-bar"><span style={{ width: `${(status.count / status.total) * 100}%` }} /></span>
         </div>
         <div className="shell-ob-head-actions">
-          <button type="button" className="btn btn-ghost btn-sm shell-ob-toggle" onClick={() => setOpen(v => !v)}
+          <button type="button" className="mesa-btn shell-ob-toggle" onClick={() => setOpen(v => !v)}
             aria-expanded={open} aria-controls="shell-ob-list">
             {open ? t(lang, 'Recolher', 'Collapse') : t(lang, 'Ver passos', 'Show steps')}
           </button>
-          <button type="button" className="btn btn-ghost btn-sm shell-ob-dismiss" onClick={onDismiss}>{t(lang, 'Dispensar', 'Dismiss')}</button>
+          <button type="button" className="mesa-btn is-quiet shell-ob-dismiss" onClick={onDismiss}>{t(lang, 'Dispensar', 'Dismiss')}</button>
         </div>
       </div>
       {!open && nextStep && (
         <div className="shell-ob-next">
           <span className="text-sm"><span className="muted">{t(lang, 'Próximo:', 'Next:')}</span> <strong>{tx(nextStep, 0)}</strong></span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => act(nextStep)}>
+          <button type="button" className="mesa-btn is-primary" onClick={() => act(nextStep)}>
             {nextStep === 'invite' && copied ? t(lang, 'Copiado ✓', 'Copied ✓') : tx(nextStep, 4)}
           </button>
         </div>
@@ -66,7 +67,7 @@ export default function Onboarding({ lang, status, onAction, onDismiss, onSample
                 <span className="muted text-sm">{tx(k, 2)}</span>
               </span>
               {!done && (
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => act(k)}>
+                <button type="button" className="mesa-btn" onClick={() => act(k)}>
                   {k === 'invite' && copied ? t(lang, 'Copiado ✓', 'Copied ✓') : tx(k, 4)}
                 </button>
               )}
@@ -78,7 +79,7 @@ export default function Onboarding({ lang, status, onAction, onDismiss, onSample
       {worldEmpty && onSample && (
         <div className="shell-ob-sample">
           <span className="muted text-sm">{t(lang, 'Quer ver como fica um mundo pronto?', 'Want to see a finished world?')}</span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onSample} disabled={sampleBusy}>
+          <button type="button" className="mesa-btn" onClick={onSample} disabled={sampleBusy}>
             {sampleBusy ? t(lang, 'Criando…', 'Creating…') : t(lang, 'Começar com o exemplo "Vale de Brumafria"', 'Start with the "Mistfrost Vale" sample')}
           </button>
         </div>

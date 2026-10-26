@@ -5,7 +5,8 @@ import {
   DM_AREAS, PLAYER_AREAS, normalizeArea, legacyTabToArea, initialArea,
   loadRememberedArea, saveRememberedArea, onboardingStatus, onboardingVisible,
   planHasContent, fold, matchScore, searchItems, nextSessionNumber, defaultCoverArt,
-  COVER_ART, isHexColor, subLabel, TONES,
+  COVER_ART, isHexColor, subLabel, subShortLabel, SUB_ICONS, TONES,
+  campaignRoute, parseCampaignRoute, SETTINGS_SECTIONS, settingsSectionLabel, settingsSummary,
 } from '../src/shell/shell-logic.js';
 
 const memStorage = () => {
@@ -132,4 +133,66 @@ test('sessão, cores, capa padrão, rótulos', () => {
   assert.equal(subLabel('next', 'pt'), 'Próxima sessão');
   assert.equal(subLabel('next', 'en'), 'Next session');
   assert.deepEqual(TONES.map(x => x.id), ['heroic', 'dark', 'mystery', 'comic', 'epic']);
+});
+
+test('segmentado: toda subvista tem rótulo, rótulo curto e ícone', () => {
+  const subs = [...new Set([...DM_AREAS, ...PLAYER_AREAS].flatMap(a => a.subs))];
+  for (const s of subs) {
+    for (const lang of ['pt', 'en']) {
+      assert.notEqual(subLabel(s, lang), s, `${s} sem rótulo (${lang})`);
+      assert.ok(subShortLabel(s, lang).length <= 10, `${s}: rótulo curto longo demais (${lang})`);
+    }
+    assert.ok(SUB_ICONS[s], `${s} sem ícone`);
+  }
+});
+
+test('rótulos curtos do celular (plano §4.2) e o longo continua', () => {
+  assert.equal(subShortLabel('timeline', 'pt'), 'Tempo');
+  assert.equal(subLabel('timeline', 'pt'), 'Linha do tempo');
+  assert.equal(subShortLabel('documents', 'pt'), 'Docs');
+  assert.equal(subShortLabel('next', 'pt'), 'Próxima');
+  assert.equal(subShortLabel('items', 'pt'), 'Itens');
+  assert.equal(subLabel('items', 'pt'), 'Itens da campanha');
+  assert.equal(subShortLabel('screen', 'pt'), 'Telão');
+  assert.equal(subShortLabel('screen', 'en'), 'TV');
+  assert.equal(subShortLabel('requests', 'pt'), 'Pedidos');
+  // sem curto próprio, o curto é o longo
+  assert.equal(subShortLabel('scene', 'pt'), 'Cena');
+  assert.equal(subShortLabel('players', 'en'), 'Players');
+});
+
+test('rota: slug com acento usa o id da campanha (o F5 volta à mesma tela)', () => {
+  // seed jogo-e-combate: "A Maldição de Brumafria"
+  assert.equal(campaignRoute('a-maldição-de-brumafria', 'play', 'combat', 1), '#c/1/play/combat');
+  assert.deepEqual(parseCampaignRoute('#c/1/play/combat'), { slug: '1', area: 'play', sub: 'combat' });
+  // slug bom continua sendo o slug, mesmo com o id à mão
+  assert.equal(campaignRoute('ecos-de-valdoria', 'world', 'atlas', 7), '#c/ecos-de-valdoria/world/atlas');
+  // sem slug: o id; nada que sirva: vazio
+  assert.equal(campaignRoute('', 'group', null, 3), '#c/3/group');
+  assert.equal(campaignRoute('mesa-nova-de-sábado', 'world', 'atlas'), '');
+  assert.equal(campaignRoute('çã', 'world', null, 'x/y'), '');
+});
+
+test('Ajustes: as 6 seções da folha "Mais", com rótulo e resumo', () => {
+  assert.deepEqual(SETTINGS_SECTIONS.map(s => s.id), ['identity', 'table', 'rules', 'world', 'advanced', 'danger']);
+  for (const s of SETTINGS_SECTIONS) {
+    assert.ok(s.icon, `${s.id} sem ícone`);
+    assert.notEqual(settingsSectionLabel(s.id, 'pt'), s.id);
+    assert.notEqual(settingsSectionLabel(s.id, 'en'), s.id);
+    assert.ok(settingsSummary(s.id, {}, 'pt').length > 0, `${s.id} sem resumo`);
+  }
+  assert.equal(settingsSectionLabel('danger', 'pt'), 'Zona de perigo');
+  const camp = {
+    coverVer: 3, tone: 'mystery', accent: '#6b5ca5', inviteCode: '6T79AF', advancedDice: true,
+    state: { levelingMode: 'xp', allowMulticlass: true },
+  };
+  assert.equal(settingsSummary('identity', camp, 'pt'), 'Capa própria · Mistério · Violeta');
+  assert.equal(settingsSummary('identity', {}, 'pt'), 'Arte padrão · sem tom');
+  assert.equal(settingsSummary('table', camp, 'pt'), 'Código 6T79AF · link do telão');
+  assert.equal(settingsSummary('rules', camp, 'pt'), 'XP · multiclasse permitida');
+  assert.equal(settingsSummary('rules', { state: { allowMulticlass: false } }, 'en'), 'Milestones · no multiclass');
+  assert.equal(settingsSummary('world', camp, 'pt', { immersion: false }), 'Mundo vivo desligado');
+  assert.equal(settingsSummary('advanced', camp, 'pt', { worldCount: 312, worldMax: 500 }), 'Dados preparados ligados · 312/500 cartões');
+  assert.equal(settingsSummary('danger', camp, 'pt'), 'Esvaziar o Mundo · Encerrar campanha');
+  assert.equal(settingsSummary('danger', { status: 'closed' }, 'pt'), 'Campanha encerrada · Reabrir');
 });

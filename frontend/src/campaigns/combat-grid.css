@@ -1,0 +1,202 @@
+/* ==========================================================
+   Mapa do combate (src/campaigns/CombatGrid.jsx)
+   - Base (.combat-grid-wrapper / .grid-canvas-frame): o telão (/tv) usa
+     assim mesmo, com os ajustes de src/screen/tv-styles.css. Não mudar sem
+     conferir o telão.
+   - Mestre (.combat-grid-wrapper.is-live): couro com filete dourado, barra de
+     zoom (＋ − ⤢, 44 px) e "Ferramentas", caixa do mapa com touch-action: none
+     (só ela: fora do mapa a página rola) e as ferramentas em folha
+     (celular/tablet) ou num painel acima do mapa (desktop).
+   ========================================================== */
+
+/* ---------------------------------------------------------- base (telão) */
+.combat-grid-wrapper {
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  overflow: hidden;
+}
+.grid-canvas-frame {
+  overflow: auto;
+  max-height: 70vh;
+  border-radius: 4px;
+  background: #000;
+}
+.grid-canvas-frame canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  user-select: none;
+}
+
+/* ---------------------------------------------------------- mestre */
+.combat-grid-wrapper.is-live {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px;
+  overflow: visible;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background:
+    var(--fh-noise) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather) 40%, var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
+  box-shadow: 0 1px 0 rgba(255, 230, 170, 0.06) inset, 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* barra: zoom à esquerda, ferramentas à direita (quebra em 2 linhas se não couber) */
+.cg-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.cg-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid rgba(224, 181, 94, 0.28);
+  border-radius: 10px;
+  background: rgba(10, 7, 6, 0.45);
+}
+.cg-zbtn {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gold-bright);
+  font-family: var(--body);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.cg-zbtn:disabled { opacity: 0.38; cursor: not-allowed; }
+.cg-zbtn:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 1px; }
+@media (hover: hover) {
+  .cg-zbtn:not(:disabled):hover { background: var(--gold-soft); border-color: var(--gold-deep); }
+}
+.cg-zval {
+  min-width: 2.7em;
+  text-align: center;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.85rem;
+  color: var(--ink-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.cg-tools-btn { flex: 0 1 auto; padding-left: 10px; padding-right: 12px; gap: 6px; }
+
+/* caixa do mapa: o canvas ocupa a caixa inteira e desenha já na escala da tela */
+.cg-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--cg-ratio, 3 / 2);
+  min-height: 160px;
+  max-height: 70vh;
+  border-radius: 6px;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 40%, #1d140f 0%, #0b0806 75%);
+  box-shadow: inset 0 0 0 1px rgba(224, 181, 94, 0.28), inset 0 0 28px rgba(0, 0, 0, 0.65);
+  touch-action: none;
+  overscroll-behavior: contain;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.cg-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+/* celular e tablet: caixa mais alta que o mapa 3:2 (mais casas à vista no zoom),
+   deixando tela de sobra para rolar a página por fora dela */
+@media (max-width: 1023px) {
+  .cg-box { min-height: min(44svh, 360px); max-height: 62svh; }
+}
+.cg-hint {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+/* ---------------------------------------------------------- ferramentas */
+.cg-tools { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.cg-tools-sec { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cg-tools-sec + .cg-tools-sec { padding-top: 14px; border-top: 1px solid rgba(224, 181, 94, 0.18); }
+/* !important: vence o h3 do celular (styles.css, mobile-styles.css) só aqui */
+.cg-tools-h {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 12px !important;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.cg-tools .mesa-hint { margin: 0; }
+.cg-tools-row { display: flex; flex-wrap: wrap; gap: 8px; }
+/* cresce só na linha: na seção (coluna) esticaria o botão na altura */
+.cg-tools-row > .cg-grow { flex: 1 1 auto; }
+.cg-clear { flex: 0 0 auto; }
+.cg-gs { display: flex; flex-direction: column; gap: 4px; }
+.cg-gs-label { margin: 0; color: var(--ink-secondary); font-size: 0.95rem; }
+.cg-size-label { margin: 4px 0 0; font-family: var(--display); font-size: 0.76rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-secondary); }
+.cg-gs-label strong { color: var(--ink-primary); font-variant-numeric: tabular-nums; }
+.cg-gs-ctl { display: flex; align-items: center; gap: 6px; }
+.cg-gs-ctl .cg-zbtn { border-color: rgba(224, 181, 94, 0.28); background: rgba(10, 7, 6, 0.45); }
+.cg-range {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 44px;
+  margin: 0;
+  accent-color: var(--gold);
+  background: transparent;
+  touch-action: pan-y;
+}
+.cg-size { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 128px), 1fr)); gap: 6px; }
+.cg-size .mesa-chip { justify-content: center; white-space: normal; text-align: center; }
+.cg-tools .mesa-field select { font-size: 16px; }
+
+/* desktop: painel acima do mapa. As três seções ficam lado a lado (filete à
+   esquerda) só quando cabem; mais estreito, empilham como na folha (filete em cima). */
+.cg-tools-inline {
+  container-type: inline-size;
+  padding: 12px;
+  border: 1px solid rgba(224, 181, 94, 0.18);
+  border-radius: 8px;
+  background: rgba(10, 7, 6, 0.45);
+}
+@container (min-width: 600px) {
+  .cg-tools.is-inline { flex-direction: row; gap: 18px; }
+  .cg-tools.is-inline .cg-tools-sec { flex: 1 1 0; }
+  .cg-tools.is-inline .cg-tools-sec + .cg-tools-sec { padding-top: 0; border-top: 0; padding-left: 16px; border-left: 1px solid rgba(224, 181, 94, 0.18); }
+}
+
+/* desktop: o mapa preso ao lado da lista cabe na altura da tela */
+@media (min-width: 1024px) {
+  .combat-tab .cg-box { max-height: calc(100vh - var(--ct-map-top, 72px) - 150px); }
+}
+
+@media (forced-colors: active) {
+  .cg-box { border: 1px solid CanvasText; }
+  .cg-zbtn { border-color: ButtonText; }
+}

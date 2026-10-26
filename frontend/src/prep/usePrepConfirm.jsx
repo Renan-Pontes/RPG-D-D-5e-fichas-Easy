@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { mesaLayer } from '../shell/MesaSheet.jsx';
 import './next-session.css';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
@@ -8,6 +10,9 @@ const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
  * Uso: const [confirm, confirmEl] = usePrepConfirm(lang);
  *      if (!(await confirm({ title, text, ok, danger }))) return;  … render {confirmEl}
  * (Quando o `useConfirm()` compartilhado do WP3 existir, dá para trocar aqui.)
+ * Desenhada na camada da mesa (portal, src/shell/MesaSheet.jsx › mesaLayer), por
+ * cima de uma folha aberta; no celular vira folha da altura do conteúdo
+ * (src/shell/mesa.css). O foco volta a quem abriu.
  */
 export default function usePrepConfirm(lang) {
   const [ask, setAsk] = useState(null);
@@ -22,12 +27,18 @@ export default function usePrepConfirm(lang) {
   const close = (v) => { resolver.current?.(v); resolver.current = null; setAsk(null); };
   useEffect(() => () => resolver.current?.(false), []);
 
-  const el = ask ? <ConfirmModal ask={ask} lang={lang} onClose={close} /> : null;
+  const modal = ask ? <ConfirmModal ask={ask} lang={lang} onClose={close} /> : null;
+  const layer = modal ? mesaLayer() : null;
+  const el = modal && layer ? createPortal(modal, layer) : modal;
   return [confirm, el];
 }
 
 function ConfirmModal({ ask, lang, onClose }) {
   const okRef = useRef(null);
+  const [opener] = useState(() => (typeof document !== 'undefined' ? document.activeElement : null));
+  useEffect(() => () => {
+    if (opener && opener !== document.body && opener.isConnected) { try { opener.focus({ preventScroll: true }); } catch { /* ok */ } }
+  }, [opener]);
   useEffect(() => {
     okRef.current?.focus();
     const onKey = (e) => { if (e.key === 'Escape') onClose(false); };
@@ -35,7 +46,7 @@ function ConfirmModal({ ask, lang, onClose }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
-    <div className="modal-backdrop prep-confirm-backdrop" onClick={() => onClose(false)}>
+    <div className="modal-backdrop prep-confirm-backdrop" onClick={(e) => { e.stopPropagation(); onClose(false); }}>
       <div className="modal prep-confirm" role="alertdialog" aria-modal="true" aria-labelledby="prep-confirm-title" onClick={e => e.stopPropagation()}>
         <h3 id="prep-confirm-title">{ask.title || t(lang, 'Tem certeza?', 'Are you sure?')}</h3>
         {ask.text && <p>{ask.text}</p>}

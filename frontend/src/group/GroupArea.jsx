@@ -3,6 +3,7 @@ import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import DiaryTab from '../campaigns/DiaryTab.jsx';
 import { SubChips } from '../shell/AreaNav.jsx';
+import { useArea } from '../shell/useArea.js';
 import InviteCard from './InviteCard.jsx';
 import PlayersPanel from './PlayersPanel.jsx';
 import RequestsPanel from './RequestsPanel.jsx';
@@ -32,8 +33,10 @@ function writeSub(id, v) {
  *  - hasJoinRoute: o app abre /join/<código>? (decide o que "Copiar link" copia)
  *  - onPendingCount(n): opcional, avisa a casca do nº de pedidos pendentes
  *  - onLeaveCampaign(): jogador saiu da mesa → a casca volta para Campanhas
+ *  - params.recap: "Encerrar e escrever o recap" — a Crônica abre já no rascunho do recap
  */
-export default function GroupArea({ campaign, lang = 'pt', isDM, characters = [], onChange, sub, onSubChange, hasJoinRoute = false, onPendingCount, onLeaveCampaign }) {
+export default function GroupArea({ campaign, lang = 'pt', isDM, characters = [], onChange, sub, onSubChange, hasJoinRoute = false, onPendingCount, onLeaveCampaign, params }) {
+  const { clearParams } = useArea();
   const [ownSub, setOwnSub] = useState(() => readSub(campaign.id) || 'players');
   const current = !isDM ? 'players' : (SUBS.includes(sub) ? sub : ownSub);
   const setSub = (v) => { if (onSubChange) onSubChange(v); else setOwnSub(v); writeSub(campaign.id, v); };
@@ -89,7 +92,8 @@ export default function GroupArea({ campaign, lang = 'pt', isDM, characters = []
 
       {current === 'chronicle' && (
         <div role="tabpanel">
-          <DiaryTab campaign={campaign} lang={lang} isDM={isDM} onCampaignChange={onChange} showStartSession={false} />
+          <DiaryTab campaign={campaign} lang={lang} isDM={isDM} onCampaignChange={onChange} showStartSession={false}
+            autoRecap={!!params?.recap} onAutoRecap={clearParams} />
         </div>
       )}
 

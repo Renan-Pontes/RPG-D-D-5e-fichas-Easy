@@ -51,45 +51,60 @@
     linear-gradient(90deg, rgba(14, 10, 7, 0.94) 0%, rgba(14, 10, 7, 0.72) 45%, rgba(14, 10, 7, 0.25) 100%),
     linear-gradient(0deg, rgba(14, 10, 7, 0.85) 0%, transparent 60%);
 }
+/* Grade da capa. Desktop: ← no alto, nome, frase e, embaixo, os selos à
+   esquerda e as ações rotuladas à direita. Celular: 2 linhas (ver "celular"). */
 .shell-header-inner {
   position: relative;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: 1fr auto auto auto;
+  grid-template-areas:
+    "back back"
+    "name name"
+    "tag  tag"
+    "meta act";
+  align-items: end;
+  column-gap: 16px;
   padding: 18px 22px 18px;
   min-height: 168px;
 }
-.shell-title-block { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; }
 .shell-back {
-  align-self: flex-start;
-  background: rgba(14, 10, 7, 0.55);
+  grid-area: back;
+  align-self: start;
+  justify-self: start;
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 44px;
+  background: rgba(14, 10, 7, 0.6);
   border: 1px solid var(--stroke);
   color: var(--ink-secondary);
   border-radius: 999px;
-  padding: 4px 12px;
-  font-size: 0.82rem;
+  padding: 4px 16px;
+  font-size: 0.9rem;
   cursor: pointer;
-  margin-bottom: auto;
 }
-.shell-back:hover { color: var(--gold-bright); border-color: var(--stroke-strong); }
+@media (hover: hover) {
+  .shell-back:hover { color: var(--gold-bright); border-color: var(--stroke-strong); }
+}
+.shell-back:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
 .shell-name {
+  grid-area: name;
   font-family: var(--display);
   font-size: clamp(1.35rem, 2.6vw, 2.1rem);
   margin: 10px 0 0;
-  color: var(--ink-primary);
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+  color: var(--gold-bright);
   letter-spacing: 0.02em;
   overflow-wrap: anywhere;
 }
 .shell-tagline {
-  margin: 0;
+  grid-area: tag;
+  margin: 2px 0 0;
   font-style: italic;
   color: var(--ink-secondary);
   font-size: 1.02rem;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
 }
-.shell-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.shell-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.shell-header .role-pill { font-size: 12px; }
 .shell-session {
   font-family: var(--display);
   font-size: 0.78rem;
@@ -100,13 +115,16 @@
   padding: 2px 10px;
   border-radius: 999px;
   background: rgba(14, 10, 7, 0.5);
+  white-space: nowrap;
 }
 .shell-live {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
   color: #fff; background: var(--blood); padding: 2px 10px; border-radius: 999px;
+  white-space: nowrap;
 }
 .shell-live-dot {
+  flex: none;
   width: 8px; height: 8px; border-radius: 50%; background: #ffd9d2;
   animation: shell-pulse 1.4s ease-in-out infinite;
 }
@@ -115,28 +133,64 @@
   color: var(--ink-secondary); font-size: 0.85rem; max-width: 28ch;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.shell-act-short { display: none; }
-.shell-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; flex: 0 0 auto; }
-.shell-actions .btn-ghost { background: rgba(14, 10, 7, 0.6); backdrop-filter: blur(2px); }
+.shell-actions {
+  grid-area: act;
+  align-self: end;
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px;
+  margin-top: 8px;
+}
+.shell-act { white-space: nowrap; }
+/* botões fantasmas sobre a arte da capa: fundo escuro para o texto ler
+   (só os da capa; os do popover do Telão ficam como em qualquer painel) */
+:is(.shell-actions, .shell-tv-wrap) > .mesa-btn:not(.is-primary) { background: rgba(14, 10, 7, 0.72); }
+@media (hover: hover) {
+  :is(.shell-actions, .shell-tv-wrap) > .mesa-btn:not(.is-primary):not(:disabled):hover { background: rgba(40, 30, 18, 0.9); }
+}
 .shell-start { box-shadow: 0 0 0 1px var(--camp-accent), 0 6px 18px rgba(0, 0, 0, 0.4); }
 
+/* Telão: popover do desktop (o conteúdo é o TvPanel, o mesmo da folha "Mais") */
 .shell-tv-wrap { position: relative; }
 .shell-popover {
   position: absolute;
   right: 0; top: calc(100% + 8px);
-  width: min(340px, calc(100vw - 32px));
-  background: var(--bg-card);
-  border: 1px solid var(--stroke-strong);
-  border-radius: 8px;
-  padding: 12px;
-  display: flex; flex-direction: column; gap: 10px;
+  width: min(380px, calc(100vw - 32px));
+  padding: 6px 16px 16px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background:
+    var(--fh-noise) padding-box,
+    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather) 40%, var(--fh-leather-lo)) padding-box,
+    var(--fh-gilt) border-box;
+  color: var(--ink-primary);
+  text-align: left;
   z-index: 80;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
 }
-.shell-pop-row { display: flex; flex-direction: column; gap: 4px; }
-.shell-pop-now { font-family: var(--display); font-size: 1rem; }
-.shell-pop-link .input { width: 100%; font-family: var(--mono); font-size: 0.8rem; color: var(--gold-bright); }
-.shell-pop-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.shell-pop-head { display: flex; align-items: center; gap: 10px; margin: 0 -10px 6px 0; }
+.campaign-detail .shell-pop-title {
+  flex: 1 1 auto; min-width: 0; margin: 0;
+  font-size: 1rem !important; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+}
+.shell-tv-panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.shell-pop-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.shell-pop-now { font-family: var(--display); font-size: 1.02rem; color: var(--ink-primary); overflow-wrap: anywhere; }
+.shell-pop-note { font-size: 0.92rem; color: var(--ink-secondary); }
+.shell-pop-clear { margin-top: 6px; }
+.shell-pop-link .input { font-family: var(--mono); color: var(--gold-bright); }
+.shell-pop-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.shell-pop-help { margin: 0; color: var(--ink-muted); font-size: 0.92rem; line-height: 1.4; }
+.shell-pop-choose { justify-content: flex-start; padding-left: 0; padding-right: 0; text-align: left; color: var(--gold-bright); }
+
+/* Tablet: as ações rotuladas descem para uma linha própria (ao lado dos
+   selos, os selos ficariam empilhados um por linha) e o popover abre para a direita. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .shell-header-inner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "back" "name" "tag" "meta" "act";
+  }
+  .shell-actions { justify-content: flex-start; margin-top: 12px; }
+  .shell-popover { right: auto; left: 0; }
+}
 
 /* sem a faixa vazia entre o cabeçalho do app e a capa */
 body:has(.campaign-detail.shell) .app-header { margin-bottom: 8px; }
@@ -193,7 +247,71 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
 /* barra inferior (celular) */
 .shell-bottom-bar { display: none; }
 
-/* ---------------------------------------------------------- chips de subvista */
+/* ---------------------------------------------------------- subvistas: segmentado (SubChips) */
+/* <div .shell-seg-tabs>                       faixa (presa no topo no celular)
+     <div .mesa-seg>                           trilho de couro (src/shell/mesa.css)
+       <div .mesa-seg-track.mesa-scroll role=tablist>  colunas iguais; rola se não couber
+         <button .mesa-seg-btn.shell-seg-tab role=tab>ícone · rótulo · selo
+   Desktop/tablet: o segmentado de sempre, no tamanho do conteúdo, com 44 px. */
+.shell-seg-tabs { margin-bottom: 14px; min-width: 0; }
+.shell-seg-tabs > .mesa-seg { width: fit-content; max-width: 100%; }
+/* o "min-width: 0" da casca (.campaign-detail.shell *) não pode encolher o botão:
+   abaixo de 64 px o trilho rola (com degradê) em vez de cortar o rótulo */
+.campaign-detail.shell .mesa-seg-btn { min-width: 64px; }
+.shell-seg-ico { font-size: 1.05em; line-height: 1; }
+/* O ativo fica em negrito (mesa.css). Cada rótulo já reserva a largura do negrito
+   (2ª linha invisível, de altura 0), para o segmentado não mudar de largura nem
+   os botões andarem sob o cursor ao trocar de subvista. */
+.shell-seg-label { display: inline-grid; justify-items: center; }
+.shell-seg-label::after {
+  content: attr(data-label);
+  content: attr(data-label) / '';
+  height: 0; overflow: hidden; visibility: hidden;
+  font-weight: 600; pointer-events: none; user-select: none;
+}
+.shell-seg-short { display: none; }
+.shell-seg-badge { min-width: 20px; height: 20px; padding: 0 6px; font-size: 12px; }
+@media (max-width: 767px) {
+  /* Celular: largura total e preso no topo ao rolar (aqui as abas das áreas
+     não aparecem; a barra de baixo faz esse papel). A faixa cobre a margem da
+     página, para o conteúdo não passar dos lados enquanto rola por baixo. */
+  .shell-seg-tabs {
+    --seg-gutter: max(var(--s-3, 12px), env(safe-area-inset-left, 0px));
+    position: sticky;
+    top: 0;
+    z-index: 25;
+    margin: 0 calc(-1 * var(--seg-gutter)) 10px;
+    padding: 4px var(--seg-gutter) 8px;
+    background: linear-gradient(180deg, var(--bg-base) 82%, rgba(20, 16, 12, 0));
+  }
+  .shell-seg-tabs > .mesa-seg { width: auto; max-width: none; }
+  .shell-seg-tabs .shell-seg-tab {
+    flex-direction: column;
+    gap: 2px;
+    min-height: 48px;
+    padding: 4px 6px;
+    font-size: 0.8rem;
+  }
+  .shell-seg-ico { font-size: 1.15rem; }
+  /* selo no canto do ícone, sempre dentro do botão */
+  .shell-seg-badge { position: absolute; top: 2px; left: calc(50% + 7px); }
+  /* Rolagens programáticas (scrollIntoView, foco) param abaixo da faixa presa
+     (68 px + folga), só na casca que tem a faixa. Quem já se protegia com
+     scroll-margin fica no mesmo lugar de antes (80 e 140 no total). */
+  html:has(.campaign-detail.shell .shell-seg-tabs) { scroll-padding-top: 76px; }
+  html:has(.campaign-detail.shell .shell-seg-tabs) .combatant-card { scroll-margin-top: 4px; }
+  html:has(.campaign-detail.shell .shell-seg-tabs) .ns-step { scroll-margin-top: 64px; }
+}
+@media (max-width: 480px) {
+  /* o rótulo longo some da tela mas fica para o leitor de tela */
+  .shell-seg-long {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .shell-seg-short { display: inline-grid; }
+}
+
+/* chips soltos (Ajustes: seções) — até a F8 continuam assim */
 .shell-subchips {
   display: flex; flex-wrap: nowrap; gap: 6px; margin-bottom: 14px;
   overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin;
@@ -202,16 +320,6 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
 }
 .shell-subchips::-webkit-scrollbar { height: 4px; }
 .shell-subchips::-webkit-scrollbar-thumb { background: var(--stroke); border-radius: 2px; }
-.shell-subchip-ico { font-size: 0.95em; line-height: 1; }
-.shell-subchip-short { display: none; }
-@media (max-width: 480px) {
-  /* o longo some da tela mas fica para o leitor de tela */
-  .shell-subchip-long {
-    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
-    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
-  }
-  .shell-subchip-short { display: inline; }
-}
 .shell-subchip {
   flex: 0 0 auto; white-space: nowrap; position: relative;
   padding: 6px 14px;
@@ -233,35 +341,36 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
 }
 
 /* ---------------------------------------------------------- primeiros passos */
-.shell-onboarding {
-  position: relative;
-  border: 1px solid color-mix(in srgb, var(--camp-accent) 50%, transparent);
-  background:
-    radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--camp-accent) 16%, transparent), transparent 60%),
-    var(--bg-card);
-  border-radius: 10px;
-  padding: 16px 18px;
-  margin-bottom: 18px;
+/* Painel de couro (.mesa-panel), com o brilho da cor da campanha no canto. */
+.shell-onboarding { margin-bottom: 18px; }
+.shell-onboarding::after {
+  content: "";
+  position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--camp-accent) 14%, transparent), transparent 60%);
 }
-.shell-ob-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.shell-ob-head > div:first-child { flex: 1 1 220px; }
-.shell-ob-head-actions { display: flex; gap: 6px; align-items: center; }
+.shell-ob-head { display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap; }
+.shell-ob-heading { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.campaign-detail .shell-ob-title {
+  margin: 2px 0 0;
+  font-size: 1.2rem !important; font-weight: 600; letter-spacing: 0.04em; line-height: 1.25;
+}
+.shell-ob-head-actions { display: flex; gap: 8px; align-items: center; }
 .shell-ob-next {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
-  margin-top: 10px; padding: 8px 10px; border-radius: 8px;
-  border: 1px solid var(--stroke-faint); background: rgba(14, 10, 7, 0.35);
+  position: relative; z-index: 1;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap;
+  margin-top: 12px; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid rgba(224, 181, 94, 0.18); background: rgba(10, 7, 6, 0.45);
 }
 .shell-ob-list[hidden] { display: none; }
-.shell-ob-title { font-family: var(--display); font-size: 1.2rem; margin: 2px 0 0; }
 .shell-ob-progress { display: flex; align-items: center; gap: 8px; }
-.shell-ob-count { font-family: var(--display); color: var(--camp-accent); }
-.shell-ob-bar { width: 110px; height: 6px; border-radius: 3px; background: var(--bg-elevated); overflow: hidden; display: block; }
+.shell-ob-count { font-family: var(--display); color: var(--camp-accent); font-size: 1rem; }
+.shell-ob-bar { width: 110px; height: 6px; border-radius: 3px; background: rgba(10, 7, 6, 0.6); overflow: hidden; display: block; box-shadow: inset 0 0 0 1px rgba(224, 181, 94, 0.18); }
 .shell-ob-bar span { display: block; height: 100%; background: var(--camp-accent); transition: width 0.4s; }
-.shell-ob-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.shell-ob-list { position: relative; z-index: 1; list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .shell-ob-item {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 12px; border-radius: 8px;
-  border: 1px solid var(--stroke-faint); background: rgba(14, 10, 7, 0.35);
+  border: 1px solid rgba(224, 181, 94, 0.18); background: rgba(10, 7, 6, 0.45);
   flex-wrap: wrap;
 }
 .shell-ob-item.done { opacity: 0.65; }
@@ -274,6 +383,7 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
 .shell-ob-item.done .shell-ob-check { background: var(--camp-accent); border-color: var(--camp-accent); }
 .shell-ob-text { display: flex; flex-direction: column; flex: 1 1 140px; }
 .shell-ob-sample {
+  position: relative; z-index: 1;
   margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--stroke);
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
@@ -349,9 +459,8 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
   color: var(--ink-secondary); font-size: 0.8rem; border: 1px dashed var(--stroke-strong);
 }
 
-/* ---------------------------------------------------------- encerrar sessão */
-.modal.shell-end h2 { font-family: var(--display); margin-top: 0; font-size: 1.2rem; }
-.shell-end-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+/* ---------------------------------------------------------- encerrar sessão (MesaSheet) */
+.mesa-sheet.shell-end .mesa-sheet-text { margin: 0; }
 
 /* ---------------------------------------------------------- busca rápida */
 .shell-search-backdrop { place-items: start center !important; padding: 10vh 16px 16px !important; }
@@ -392,80 +501,133 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
 @media (max-width: 767px) {
   .campaign-detail.shell { padding-bottom: calc(var(--shell-bar-h) + 24px + env(safe-area-inset-bottom)); }
 
+  /* Capa compacta em 2 linhas (plano §2.1), rola junto:
+       ←  Nome da campanha (1 linha, 17 px, reticências; toque mostra tudo)
+       ● Ao vivo · Sessão N · cena…            [▶ Começar sessão N | ■ Encerrar]
+     Telão, Buscar e Ajustes ficam na folha "Mais" (barra de baixo). */
   .shell-header { border-radius: 8px; margin-bottom: 10px; }
-  /* capa compacta (64px, DESIGN 1.1): uma linha só — voltar, nome, ações.
-     A busca já está na barra inferior, então sai do cabeçalho. */
-  .shell-header-inner { min-height: 64px; padding: 8px 10px; flex-direction: row; align-items: center; gap: 8px; }
-  .shell-back { margin: 0; padding: 2px 9px; min-height: 32px; flex: 0 0 auto; }
-  .shell-back-txt { display: none; }
-  .shell-title-block { flex-direction: row; align-items: center; flex-wrap: nowrap; gap: 8px; flex: 1 1 auto; }
-  .shell-name {
-    font-size: 1rem; line-height: 1.15; letter-spacing: 0.01em; margin: 0; flex: 1 1 auto;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-    overflow-wrap: break-word;
+  .shell-header-inner {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "back name name"
+      "tag  tag  tag"
+      "meta meta act";
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 0;
+    min-height: 0;
+    padding: 8px 10px 10px 8px;
   }
-  .shell-tagline, .shell-scene, .shell-meta .role-pill { display: none; }
-  .shell-meta { margin: 0; flex: 0 0 auto; flex-wrap: nowrap; }
-  .shell-header.is-dm .shell-session { display: none; }
-  /* "Ao vivo" vira só o ponto pulsante (o texto continua para leitor de tela) */
-  .shell-live { font-size: 0; gap: 0; padding: 5px; }
-  .shell-actions { gap: 4px; flex-wrap: nowrap; justify-content: flex-end; }
-  .shell-actions [aria-keyshortcuts="Control+K"] { display: none; }
-  .shell-act { padding: 6px 8px; min-height: 36px; letter-spacing: 0.02em; font-size: 0.78rem; }
-  .shell-act-txt { display: none; }
-  .shell-act-short { display: inline; }
-  .shell-popover { position: fixed; left: 16px; right: 16px; top: 80px; width: auto; }
+  .shell-back {
+    align-self: center;
+    width: 44px; height: 44px; padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 1.1rem;
+  }
+  .shell-back-txt { display: none; }
+  /* !important: vence o h1 global do celular (1,7 rem/1,5 rem !important) só aqui */
+  .campaign-detail .shell-header .shell-name {
+    margin: 0;
+    font-size: 17px !important;
+    line-height: 1.35;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    overflow-wrap: normal;
+    cursor: pointer;
+  }
+  .campaign-detail .shell-header.is-name-open .shell-name { white-space: normal; overflow-wrap: anywhere; }
+  .shell-tagline { display: none; margin: 2px 0 0 52px; font-size: 0.95rem; }
+  .shell-header.is-name-open .shell-tagline { display: block; }
+  .shell-meta { flex-wrap: nowrap; gap: 6px; overflow: hidden; margin-top: 6px; padding-left: 4px; }
+  .shell-meta > * { flex: none; }
+  .shell-header.is-dm .shell-meta .role-pill { display: none; }
+  /* selos em caixa mista, menores, mas com texto (≥ 12 px) */
+  .shell-live { font-size: 12px; letter-spacing: 0.03em; text-transform: none; padding: 3px 9px; gap: 5px; }
+  .shell-session { font-family: var(--body); font-size: 13px; letter-spacing: 0.02em; text-transform: none; padding: 2px 9px; }
+  .shell-scene { flex: 1 1 auto; min-width: 0; max-width: none; font-size: 13px; }
+  .shell-actions { flex-wrap: nowrap; gap: 6px; margin-top: 6px; }
+  .shell-desk-only { display: none !important; }
+  .shell-act { min-height: 44px; padding: 6px 12px; font-size: 0.82rem; }
+  .shell-header-closed { padding: 0 8px 10px; }
 
   .shell-areas { display: none; }
+  /* Barra inferior: Mundo · Preparar · Jogar · Grupo · Mais (mestre) ou
+     Mesa · Mundo · Crônica · Grupo · Buscar (jogador). Casas de 56 px. */
   .shell-bottom-bar {
     display: flex;
     position: fixed; left: 0; right: 0; bottom: 0;
     height: calc(var(--shell-bar-h) + env(safe-area-inset-bottom));
-    padding: 4px 4px env(safe-area-inset-bottom);
-    background: rgba(20, 16, 12, 0.97);
-    border-top: 1px solid var(--stroke);
+    padding: 3px max(4px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(4px, env(safe-area-inset-left));
+    background:
+      var(--fh-noise),
+      linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather-lo));
+    border-top: 1px solid rgba(224, 181, 94, 0.38);
     z-index: 40;
     box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
   }
   .shell-bottom-btn {
     flex: 1 1 0;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-    background: transparent; border: 0; color: var(--ink-muted);
-    font-size: 0.7rem; letter-spacing: 0.04em; position: relative; border-radius: 8px;
-    cursor: pointer; min-height: 48px;
+    min-width: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    background: transparent; border: 0; color: var(--ink-secondary);
+    font-family: var(--body); font-size: 12.5px; font-weight: 600; letter-spacing: 0; line-height: 1.1;
+    padding: 0 1px;
+    position: relative; border-radius: 8px;
+    cursor: pointer; min-height: 56px;
   }
-  .shell-bottom-btn.active { color: var(--camp-accent); background: var(--gold-soft); }
-  .shell-bottom-ico { font-size: 1.25rem; line-height: 1; }
-  .shell-badge-dot { position: absolute; top: 2px; right: calc(50% - 22px); }
+  .shell-bottom-label { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .shell-bottom-btn.active {
+    color: var(--camp-accent);
+    background: color-mix(in srgb, var(--camp-accent) 14%, transparent);
+    box-shadow: inset 0 2px 0 var(--camp-accent);
+  }
+  .shell-bottom-btn:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+  .shell-bottom-ico { font-size: 1.3rem; line-height: 1; }
+  .shell-bottom-more .shell-bottom-ico { color: var(--gold); font-size: 1.35rem; }
+  .shell-badge-dot { position: absolute; top: 3px; right: calc(50% - 24px); min-width: 20px; height: 20px; font-size: 12px; }
 
   .shell-settings-body { max-height: calc(85vh - 140px); }
 
-  /* primeiros passos mais enxutos no celular */
-  .shell-onboarding { padding: 12px; }
-  .shell-ob-title { font-size: 1.02rem; }
-  .shell-ob-head { gap: 8px; }
+  /* Primeiros passos: cabeçalho em 2 linhas — título e progresso / Ver passos
+     e Dispensar (44 px) —, sem passar da tela em 320. */
+  .shell-onboarding { padding: 12px; margin-bottom: 12px; }
+  .shell-ob-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "heading heading"
+      "progress progress"
+      "actions actions";
+    gap: 8px 10px;
+  }
+  .shell-onboarding.is-collapsed .shell-ob-head { grid-template-areas: "heading progress" "actions actions"; }
+  .shell-ob-heading { grid-area: heading; }
+  .shell-ob-progress { grid-area: progress; }
+  .shell-ob-head-actions { grid-area: actions; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .shell-ob-head-actions .mesa-btn { width: 100%; padding: 6px 10px; }
+  .campaign-detail .shell-ob-title { font-size: 1.05rem !important; }
+  .shell-ob-bar { flex: 1 1 auto; width: auto; min-width: 48px; }
+  .shell-onboarding.is-collapsed .shell-ob-bar { flex: 0 0 56px; }
+  .shell-onboarding.is-collapsed .shell-ob-heading .mesa-eyebrow { white-space: nowrap; letter-spacing: 0.1em; }
+  /* recolhido: o título fica só para o leitor de tela */
+  .shell-onboarding.is-collapsed .shell-ob-title {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .shell-ob-next { flex-direction: column; align-items: stretch; margin-top: 10px; padding: 10px; }
   .shell-ob-list { gap: 6px; }
-  .shell-ob-item { padding: 8px 10px; }
-  .shell-ob-item.done .shell-ob-text .muted, .shell-ob-item .shell-ob-text .muted { display: none; }
-  .shell-ob-item .btn { padding: 4px 10px; }
-  .shell-ob-head .shell-ob-progress { order: 3; flex: 1 1 100%; }
-  .shell-ob-head > div:first-child { flex: 1 1 140px; }
-  .shell-ob-bar { flex: 1 1 auto; }
-  .shell-onboarding.is-collapsed { margin-bottom: 12px; padding: 10px 12px; }
-  /* recolhido: uma linha (rótulo + progresso + botões) e o próximo passo */
-  .shell-onboarding.is-collapsed .shell-ob-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .shell-onboarding.is-collapsed .shell-ob-head { flex-wrap: nowrap; gap: 8px; }
-  .shell-onboarding.is-collapsed .shell-ob-head > div:first-child { flex: 0 0 auto; }
-  .shell-onboarding.is-collapsed .shell-ob-head .shell-ob-progress { order: 0; flex: 1 1 auto; }
-  .shell-ob-head-actions { flex: 0 0 auto; gap: 4px; }
-  .shell-ob-head-actions .btn { padding: 4px 8px; min-height: 32px; letter-spacing: 0.04em; font-size: 0.72rem; white-space: nowrap; }
-  .shell-onboarding.is-collapsed .shell-ob-bar { display: none; }
-  .shell-onboarding.is-collapsed .eyebrow { letter-spacing: 0.08em; white-space: nowrap; font-size: 0.66rem; }
-  .shell-onboarding.is-collapsed .shell-ob-head { gap: 6px; }
-  .shell-onboarding.is-collapsed .shell-ob-head .shell-ob-progress { flex: 0 0 auto; margin-right: auto; }
-  .shell-ob-next { margin-top: 8px; padding: 6px 8px; }
-  .shell-ob-next .btn { padding: 4px 10px; min-height: 32px; }
+  .shell-ob-item { padding: 10px; }
+  /* a ação do passo vai para a linha de baixo, alinhada ao texto */
+  .shell-ob-item .mesa-btn { flex: 1 1 calc(100% - 32px); margin-left: 32px; }
+  .shell-ob-sample { flex-direction: column; align-items: stretch; }
   .shell-search-backdrop { padding-top: 16px !important; }
+}
+@media (max-width: 359px) {
+  /* 320: a cena fica na folha "Mais" (e no Jogar › Cena) */
+  .shell-scene { display: none; }
 }
 
 /* Botão flutuante de dados dentro da campanha (DESIGN 1.3): nunca em cima do
@@ -508,15 +670,83 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
   }
 }
 
+/* Avisos (toast da casca, do app e do sino) no celular: acima da barra e à
+   esquerda do dado, sem cruzar nenhum dos dois (plano §2.1). */
+@media (max-width: 767px) {
+  body:has(.shell-bottom-bar) .toast {
+    left: max(12px, env(safe-area-inset-left, 0px));
+    right: calc(12px + var(--shell-fab-size, 50px) + 10px);
+    bottom: calc(var(--fab-safe-bottom, 70px) + env(safe-area-inset-bottom, 0px));
+    transform: none;
+    max-width: none;
+    text-align: center;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    line-height: 1.35;
+    animation: shell-toast-in 0.2s ease;
+  }
+}
+@keyframes shell-toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ---------------------------------------------------------- campanha encerrada (sob a capa) */
+/* fichas em linhas de 56 px, ⬇ PDF / ⬇ JSON e ↺ Reabrir com 44 px */
+.shell-header-closed .pl-closed-sheets li { min-height: 56px; }
+.shell-header-closed .pl-closed-sheet-btns .btn,
+.shell-header-closed .pl-closed-reopen { min-height: 44px; min-width: 44px; }
+@media (max-width: 767px) {
+  .shell-header-closed .pl-closed { padding: 12px; }
+  .shell-header-closed .pl-closed-reopen { flex: 1 1 100%; }
+}
+
+/* ---------------------------------------------------------- folha "Mesa do mestre" (MoreSheet) */
+.mesa-sheet.shell-more .mesa-sheet-body { display: flex; flex-direction: column; gap: 14px; }
+/* o corpo é que rola: os blocos não encolhem (a lista com overflow: hidden sumiria) */
+.mesa-sheet.shell-more .mesa-sheet-body > * { flex-shrink: 0; }
+.shell-more-intro { display: flex; flex-direction: column; gap: 8px; }
+.shell-more-tagline { margin: 0; font-style: italic; color: var(--ink-secondary); }
+.shell-more-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.shell-more-meta .role-pill { font-size: 12px; }
+.shell-more-scene { margin: 0; color: var(--ink-primary); overflow-wrap: anywhere; }
+.shell-more .shell-more-list.mesa-panel { padding: 0; overflow: hidden; }
+.shell-more-row:disabled { opacity: 0.5; cursor: not-allowed; }
+.shell-more-row .mesa-row-pic { font-family: var(--body); font-size: 1.15rem; color: var(--gold-bright); }
+.shell-more-row.is-start .mesa-row-pic {
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold) 45%, var(--gold-deep));
+  color: var(--on-gold);
+}
+.shell-more-row.is-session .mesa-row-title { font-family: var(--display); font-weight: 600; letter-spacing: 0.03em; }
+.shell-more-row.is-danger .mesa-row-title { color: #f1a596; }
+.shell-more-chev { flex: none; color: var(--gold-deep); font-size: 1.5rem; line-height: 1; }
+.shell-more-tv { display: flex; flex-direction: column; }
+.shell-more .mesa-title { margin-bottom: 10px; }
+
+/* ---------------------------------------------------------- lista de campanhas */
+.campaign-list .page-head-actions .btn { min-height: 48px; }
+@media (max-width: 600px) {
+  /* lado a lado (50% cada) sem empurrar a página: o texto quebra se precisar */
+  .campaign-list .page-head-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .campaign-list .page-head-actions .btn { min-width: 0; white-space: normal; line-height: 1.2; }
+}
+@media (max-width: 340px) {
+  .campaign-list .page-head-actions { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* busca rápida no toque: linhas de 48 px, sem a tecla "Esc" */
+@media (hover: none) {
+  .shell-search-esc { display: none; }
+  .shell-search-item { min-height: 48px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .shell-live-dot { animation: none; }
   .shell-ob-bar span, .shell-area-tab { transition: none; }
+  body:has(.shell-bottom-bar) .toast { animation: none; }
 }
 
 /* ==========================================================
    Lista de campanhas: cartões com capa + assistente de criação
    ========================================================== */
-.camp-cover-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.camp-cover-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); }
 .camp-card {
   --camp-accent: var(--gold);
   position: relative; display: flex; flex-direction: column; justify-content: flex-end;
@@ -535,6 +765,7 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
 .camp-card-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(14, 10, 7, 0.96) 10%, rgba(14, 10, 7, 0.35) 70%, rgba(14, 10, 7, 0.15)); }
 .camp-card-body { position: relative; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 4px; }
 .camp-card-top { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.camp-card .role-pill { font-size: 12px; }
 .camp-card-tone { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--camp-accent); }
 .camp-card-name { margin: 4px 0 0; font-family: var(--display); font-size: 1.25rem; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8); }
 .camp-card-tagline { margin: 0; font-style: italic; color: var(--ink-secondary); font-size: 0.95rem;
@@ -577,3 +808,6 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
   .camp-wizard-actions > .btn { flex: 1 1 0; justify-content: center; white-space: nowrap; letter-spacing: 0.06em; padding-left: 10px; padding-right: 10px; }
   .camp-wizard-actions:has(> .btn:nth-of-type(3)) > .btn-primary { flex-basis: 100%; order: 3; }
 }
+
+/* Lista de campanhas: o "← Voltar" com alvo de toque inteiro */
+.camp-list-back { min-height: 44px; display: inline-flex; align-items: center; }

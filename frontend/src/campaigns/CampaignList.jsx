@@ -49,7 +49,7 @@ export default function CampaignList({ lang = 'pt', onOpen, onBack, joinCode = n
 
   return (
     <div className="campaign-list">
-      {onBack && <button className="btn btn-ghost btn-sm" onClick={onBack}>← {t(lang, 'Voltar', 'Back')}</button>}
+      {onBack && <button className="btn btn-ghost btn-sm camp-list-back" onClick={onBack}>← {t(lang, 'Voltar', 'Back')}</button>}
       <div className="page-head">
         <h1>{t(lang, 'Campanhas', 'Campaigns')}</h1>
         <div className="page-head-actions">

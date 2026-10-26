@@ -121,6 +121,17 @@ class CampaignInventoryTests(TestCase):
         self.char.refresh_from_db()
         self.assertEqual(len(self.char.data['equipment']), 1)
 
+    def test_dm_cannot_give_item_in_closed_campaign(self):
+        # Campanha encerrada é só leitura: o mestre não dá item (nem grava na Crônica).
+        from django.utils import timezone
+        self.camp.status = 'closed'; self.camp.closed_at = timezone.now(); self.camp.save()
+        r = self.c_dm.post(f'/api/characters/{self.char.id}/inventory',
+                            {'item': base_item(name='Clava', type='weapon')}, format='json')
+        self.assertEqual(r.status_code, 423, r.content)
+        self.assertEqual(r.json().get('error'), 'campaign_closed')
+        self.char.refresh_from_db()
+        self.assertEqual(len(self.char.data['equipment']), 0)
+
     def test_owner_in_campaign_cannot_create_item(self):
         r = self.c_owner.post(f'/api/characters/{self.char.id}/inventory',
                               {'item': base_item()}, format='json')

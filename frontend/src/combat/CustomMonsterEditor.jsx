@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CR_TABLE, CR_TABLE_NOTE, estimateCr, parseMultiattack, crToNumber, xpForCr } from './cr-estimate.js';
 import { multiattackAction } from '../campaigns/import-5emm.js';
 import { newCustomId } from './custom-monsters.js';
@@ -144,8 +144,14 @@ function Field({ label, children, sub }) {
  * Editor de monstro personalizado (clona do catálogo ou começa do zero),
  * com ND estimado ao vivo (método do DMG 2014, via cr-estimate.js).
  */
-export default function CustomMonsterEditor({ lang, base, xpMode, onSave, onCancel }) {
+export default function CustomMonsterEditor({ lang, base, xpMode, onSave, onCancel, onDirty }) {
   const [d, setD] = useState(() => toDraft(base, lang));
+  // qualquer mudança no rascunho: a folha pergunta antes de fechar
+  const first = useRef(d);
+  const dirty = d !== first.current;
+  useEffect(() => { onDirty?.(dirty); }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
+  // No celular as seções longas começam recolhidas (Básico e Ataques abertos).
+  const [wideForm] = useState(() => { try { return window.matchMedia('(min-width: 768px)').matches; } catch { return true; } });
   const set = (patch) => setD(prev => ({ ...prev, ...patch }));
   const setRow = (i, patch) => setD(prev => ({ ...prev, rows: prev.rows.map((r, j) => (j === i ? { ...r, ...patch } : r)) }));
 
@@ -182,8 +188,8 @@ export default function CustomMonsterEditor({ lang, base, xpMode, onSave, onCanc
       </div>
       <div className="me-layout">
         <div className="me-form">
-          <section className="me-section">
-            <h4>{t(lang, 'Básico', 'Basics')}</h4>
+          <details className="me-section" open>
+            <summary><h4>{t(lang, 'Básico', 'Basics')}</h4><span className="me-sum">{d.name || '—'} · {t(lang, 'CA', 'AC')} {d.ac} · {t(lang, 'PV', 'HP')} {d.hp}</span></summary>
             <div className="me-grid">
               <div style={{ gridColumn: '1 / -1' }}>
                 <Field label={t(lang, 'Nome', 'Name')}>
@@ -214,10 +220,10 @@ export default function CustomMonsterEditor({ lang, base, xpMode, onSave, onCanc
                 </select>
               </Field>
             </div>
-          </section>
+          </details>
 
-          <section className="me-section">
-            <h4>{t(lang, 'Atributos e salvaguardas', 'Abilities and saves')}</h4>
+          <details className="me-section" open={wideForm}>
+            <summary><h4>{t(lang, 'Atributos e salvaguardas', 'Abilities and saves')}</h4><span className="me-sum">{ABILS.map(k => `${lang === 'pt' ? ABIL_PT[k] : k.toUpperCase()} ${d.abilities[k]}`).join(' · ')}</span></summary>
             <div className="me-grid abil">
               {ABILS.map(k => (
                 <Field key={k} label={lang === 'pt' ? ABIL_PT[k] : k.toUpperCase()} sub={signed(mod(d.abilities[k]))}>
@@ -235,10 +241,10 @@ export default function CustomMonsterEditor({ lang, base, xpMode, onSave, onCanc
                 </Field>
               ))}
             </div>
-          </section>
+          </details>
 
-          <section className="me-section">
-            <h4>{t(lang, 'Ataques e efeitos', 'Attacks and effects')}</h4>
+          <details className="me-section" open>
+            <summary><h4>{t(lang, 'Ataques e efeitos', 'Attacks and effects')}</h4><span className="me-sum">{d.rows.length} {t(lang, d.rows.length === 1 ? 'linha' : 'linhas', d.rows.length === 1 ? 'row' : 'rows')}</span></summary>
             {d.rows.map((r, i) => (
               <div key={i} className="me-action">
                 <Field label={r.kind === 'attack' ? t(lang, 'Ataque', 'Attack') : t(lang, 'Efeito com salvaguarda', 'Saving throw effect')}>
@@ -255,7 +261,7 @@ export default function CustomMonsterEditor({ lang, base, xpMode, onSave, onCanc
                     <Field label={t(lang, 'Tipo', 'Type')}>
                       <select value={r.damageType} onChange={e => setRow(i, { damageType: e.target.value })}>{DAMAGE_TYPES.map(x => <option key={x} value={x}>{damageTypeLabel(x, lang)}</option>)}</select>
                     </Field>
-                    <Field label={t(lang, 'Nº/turno', 'Per turn')}>
+                    <Field label={t(lang, 'Nº/turno', 'Per turn')} sub={t(lang, '0 = fora do multiataque', '0 = not in multiattack')}>
                       <input type="number" inputMode="numeric" min={0} max={8} value={r.count} title={t(lang, 'Quantas vezes no multiataque (0 = fora do multiataque)', 'Times in the multiattack (0 = not part of it)')}
                         onChange={e => setRow(i, { count: e.target.value })} />
                     </Field>
@@ -276,7 +282,7 @@ export default function CustomMonsterEditor({ lang, base, xpMode, onSave, onCanc
                     </Field>
                   </>
                 )}
-                <button type="button" className="btn btn-ghost btn-icon danger" aria-label={t(lang, 'Remover', 'Remove')} onClick={() => set({ rows: d.rows.filter((_, j) => j !== i) })}>×</button>
+                <button type="button" className="mesa-icon-btn me-del" aria-label={t(lang, `Remover ${r.name || ''}`.trim(), `Remove ${r.name || ''}`.trim())} onClick={() => set({ rows: d.rows.filter((_, j) => j !== i) })}>×</button>
                 {r.kind === 'save' && (
                   <div className="me-chips" style={{ gridColumn: '1 / -1' }}>
                     <label className="me-check"><input type="checkbox" checked={r.half} onChange={e => setRow(i, { half: e.target.checked })} />{t(lang, 'metade no sucesso', 'half on success')}</label>
@@ -292,13 +298,13 @@ export default function CustomMonsterEditor({ lang, base, xpMode, onSave, onCanc
               </p>
             )}
             <div className="row gap-2" style={{ flexWrap: 'wrap', marginTop: 8 }}>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => addRow('attack')}>✚ {t(lang, 'Ataque', 'Attack')}</button>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => addRow('save')}>✚ {t(lang, 'Efeito com CD', 'DC effect')}</button>
+              <button type="button" className="mesa-btn" onClick={() => addRow('attack')}>✚ {t(lang, 'Ataque', 'Attack')}</button>
+              <button type="button" className="mesa-btn" onClick={() => addRow('save')}>✚ {t(lang, 'Efeito com CD', 'DC effect')}</button>
             </div>
-          </section>
+          </details>
 
-          <section className="me-section">
-            <h4>{t(lang, 'Defesas', 'Defenses')}</h4>
+          <details className="me-section" open={wideForm}>
+            <summary><h4>{t(lang, 'Defesas', 'Defenses')}</h4><span className="me-sum">{[...d.resist, ...d.immune, ...d.vuln].length || t(lang, 'nenhuma', 'none')}{d.magicRes ? t(lang, ' · Resist. à Magia', ' · Magic Res.') : ''}</span></summary>
             <p className="me-legend">{t(lang, 'Toque para alternar: resistência → imunidade → vulnerabilidade → nada.', 'Tap to cycle: resistance → immunity → vulnerability → none.')}</p>
             <div className="me-chips">
               {[PHYSICAL, ...DAMAGE_TYPES].map(type => (
@@ -316,7 +322,7 @@ export default function CustomMonsterEditor({ lang, base, xpMode, onSave, onCanc
               <input type="checkbox" checked={d.magicRes} onChange={e => set({ magicRes: e.target.checked })} />
               {t(lang, 'Resistência à Magia (vantagem contra magias)', 'Magic Resistance (advantage vs spells)')}
             </label>
-          </section>
+          </details>
         </div>
 
         <aside className="me-cr" aria-live="polite">
@@ -347,10 +353,10 @@ export default function CustomMonsterEditor({ lang, base, xpMode, onSave, onCanc
         </aside>
       </div>
 
-      <div className="mp-footer">
+      <div className="mp-footer is-pinned">
         <span className="mp-spacer" />
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>{t(lang, 'Voltar', 'Back')}</button>
-        <button type="button" className="btn btn-primary btn-sm" onClick={() => {
+        <button type="button" className="mesa-btn mesa-btn-lg" onClick={onCancel}>{t(lang, 'Voltar', 'Back')}</button>
+        <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={() => {
           const m = monster();
           if (!m.id) m.id = newCustomId(m.name.en);
           onSave(m);

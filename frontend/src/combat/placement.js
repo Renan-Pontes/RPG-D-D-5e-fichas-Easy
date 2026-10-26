@@ -51,3 +51,22 @@ export function freePositions(combatants, count = 1, { grid = 50, width = DEFAUL
   while (out.length < count) out.push({ x: start.x, y: start.y });
   return out;
 }
+
+/**
+ * Encaixe na grade ao soltar o token: o centro vai para o meio da casa (token
+ * de 1 ou 3 casas) ou para o cruzamento das linhas (2 ou 4 casas), sem sair do
+ * mapa. Antes o centro arredondava para a linha e somava meia casa: o token
+ * caía uma casa ao lado de onde o dedo/mouse soltou.
+ */
+export function snapToGrid(v, grid = 50, scale = 1, limit = Infinity) {
+  const g = Number(grid) > 0 ? Number(grid) : 50;
+  const span = spanOf(scale);
+  const off = span % 2 ? g / 2 : 0;
+  const half = (span * g) / 2;
+  const lo = half, hi = Number.isFinite(limit) ? Math.max(half, limit - half) : Infinity;
+  const raw = Math.min(hi, Math.max(lo, Number(v) || 0));
+  let s = Math.round((raw - off) / g) * g + off;
+  if (s > hi) s -= g;
+  if (s < lo) s += g;
+  return s;
+}

@@ -2,6 +2,8 @@
 // recolhível — começo forte, cenas com "aconteceu", pistas com "descoberta" e
 // um lembrete dos NPCs preparados (os cartões ficam em "Nesta cena"). Marcar uma pista NUNCA revela nada: se ela está ligada a
 // um cartão do Mundo, o painel só PERGUNTA "Revelar no cartão?".
+// Aberto/fechado é lembrado por aparelho; sem escolha guardada, começa
+// recolhido no celular (o plano é o último bloco da Cena) e aberto no desktop.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePolling } from '../api/polling.js';
 import { getEntry, getSessionPlan, listWorld, revealEntry, saveSessionPlan, worldErrorText } from '../world/world-api.js';
@@ -9,13 +11,15 @@ import { getAdventure } from './play-api.js';
 import { normalizePlan, revealBodyFor, toggleDiscovered, updateItem } from '../prep/next-session.js';
 import { nextScene, playPlanView, sceneFieldText } from './plan-model.js';
 import { flash } from './flash.js';
+import { mediaNow } from './useMedia.js';
 import './play-styles.css';
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
 const OPEN_KEY = (id) => `forja.play.planOpen.${id}`;
 
 function readOpen(id) {
-  try { const v = window.localStorage.getItem(OPEN_KEY(id)); return v == null ? true : v === '1'; } catch { return true; }
+  const byDefault = mediaNow('(min-width: 768px)', true);
+  try { const v = window.localStorage.getItem(OPEN_KEY(id)); return v == null ? byDefault : v === '1'; } catch { return byDefault; }
 }
 function writeOpen(id, open) {
   try { window.localStorage.setItem(OPEN_KEY(id), open ? '1' : '0'); } catch { /* sem storage */ }
@@ -131,10 +135,10 @@ export default function SessionPlanPanel({ campaign, lang = 'pt', goTo, onSaveSt
 
   if (!view.hasContent) {
     return (
-      <section className="spp spp-empty" aria-label={L(lang, 'Plano da sessão', 'Session plan')}>
+      <section className="mesa-panel spp spp-empty" aria-label={L(lang, 'Plano da sessão', 'Session plan')}>
         <span>📜 {L(lang, 'Sem plano para esta sessão.', 'No plan for this session.')}</span>
         {goTo && (
-          <button type="button" className="btn-link" onClick={() => goTo('prepare', 'next')}>
+          <button type="button" className="mesa-btn" onClick={() => goTo('prepare', 'next')}>
             {L(lang, 'Preparar a próxima sessão →', 'Prepare the next session →')}
           </button>
         )}
@@ -146,13 +150,15 @@ export default function SessionPlanPanel({ campaign, lang = 'pt', goTo, onSaveSt
   const pg = view.progress;
 
   return (
-    <details className="spp" open={open} onToggle={toggleOpen}>
+    <details className="mesa-panel spp" open={open} onToggle={toggleOpen}>
       <summary className="spp-summary">
-        <span className="spp-title">📜 {L(lang, 'Plano da sessão', 'Session plan')}</span>
-        <span className="spp-progress muted small">
-          {pg.scenes > 0 && <span>🎬 {pg.scenesDone}/{pg.scenes}</span>}
-          {pg.clues > 0 && <span>🗝 {pg.cluesFound}/{pg.clues}</span>}
+        <span className="mesa-gem" aria-hidden="true" />
+        <span className="spp-title"><span className="mesa-foil">{L(lang, 'Plano da sessão', 'Session plan')}</span></span>
+        <span className="spp-progress">
+          {pg.scenes > 0 && <span aria-label={L(lang, `${pg.scenesDone} de ${pg.scenes} cenas`, `${pg.scenesDone} of ${pg.scenes} scenes`)}>🎬 {pg.scenesDone}/{pg.scenes}</span>}
+          {pg.clues > 0 && <span aria-label={L(lang, `${pg.cluesFound} de ${pg.clues} pistas`, `${pg.cluesFound} of ${pg.clues} clues`)}>🗝 {pg.cluesFound}/{pg.clues}</span>}
         </span>
+        <span className="spp-toggle-word" aria-hidden="true">{open ? L(lang, 'Recolher', 'Collapse') : L(lang, 'Abrir', 'Open')}</span>
       </summary>
 
       <div className="spp-body">
@@ -182,7 +188,7 @@ export default function SessionPlanPanel({ campaign, lang = 'pt', goTo, onSaveSt
                     {onSaveState && !s.done && (
                       isCurrent
                         ? <span className="spp-now">{L(lang, 'cena atual', 'current')}</span>
-                        : <button type="button" className="btn btn-ghost btn-sm spp-use"
+                        : <button type="button" className="mesa-btn spp-use"
                             title={L(lang, 'Põe esta cena no campo “Cena” lá em cima', 'Puts this scene in the “Scene” field above')}
                             onClick={() => applyScene(s)}>
                             {suggestion?.id === s.id ? '▶ ' : ''}{L(lang, 'Usar como cena', 'Use as scene')}
@@ -212,8 +218,8 @@ export default function SessionPlanPanel({ campaign, lang = 'pt', goTo, onSaveSt
                   {ask?.secretItemId === c.id && (
                     <div className="spp-ask" role="group" aria-label={L(lang, 'Revelar no cartão?', 'Reveal on the card?')}>
                       <span>{L(lang, `Revelar também no cartão “${ask.entryName || '…'}”?`, `Also reveal it on “${ask.entryName || '…'}”?`)}</span>
-                      <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={doReveal}>👁 {L(lang, 'Revelar no cartão', 'Reveal on card')}</button>
-                      <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setAsk(null)}>{L(lang, 'Agora não', 'Not now')}</button>
+                      <button type="button" className="mesa-btn is-primary" disabled={busy} onClick={doReveal}>👁 {L(lang, 'Revelar no cartão', 'Reveal on card')}</button>
+                      <button type="button" className="mesa-btn is-quiet" disabled={busy} onClick={() => setAsk(null)}>{L(lang, 'Agora não', 'Not now')}</button>
                     </div>
                   )}
                 </li>
@@ -223,9 +229,9 @@ export default function SessionPlanPanel({ campaign, lang = 'pt', goTo, onSaveSt
         )}
 
         {(view.npcs.length > 0 || view.places.length > 0) && (
-          <p className="muted small spp-note">
-            🧑 {L(lang, `${view.npcs.length + view.places.length} NPC(s)/lugar(es) preparados — os cartões estão logo abaixo, em “Nesta cena”.`,
-              `${view.npcs.length + view.places.length} prepared NPC(s)/place(s) — their cards are just below, in “In this scene”.`)}
+          <p className="mesa-hint spp-note">
+            🧑 {L(lang, `${view.npcs.length + view.places.length} NPC(s)/lugar(es) preparados — os cartões estão em “Nesta cena”.`,
+              `${view.npcs.length + view.places.length} prepared NPC(s)/place(s) — their cards are in “In this scene”.`)}
           </p>
         )}
 
@@ -237,7 +243,7 @@ export default function SessionPlanPanel({ campaign, lang = 'pt', goTo, onSaveSt
         )}
 
         {goTo && (
-          <button type="button" className="btn-link spp-edit" onClick={() => goTo('prepare', 'next')}>
+          <button type="button" className="mesa-btn is-quiet spp-edit" onClick={() => goTo('prepare', 'next')}>
             ✎ {L(lang, 'Editar o plano em Preparar', 'Edit the plan in Prepare')}
           </button>
         )}

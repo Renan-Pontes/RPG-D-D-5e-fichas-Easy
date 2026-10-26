@@ -4,7 +4,10 @@
    Tudo prefixado com .pl- (o CSS é global).
    ===================================================================== */
 
-.pl-world, .pl-table { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+/* A Mesa usa o mesmo nome de classe da linha da tabela de planos (src/plans/plans.css:
+   li.pl-table em grade): só o div da Mesa, senão um CSS desmancha o outro. */
+.pl-world, div.pl-table { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+div.pl-table { align-items: stretch; grid-template-columns: none; }
 .pl-eyebrow {
   font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.24em; text-transform: uppercase;
   color: var(--gold); opacity: 0.85;
@@ -368,6 +371,37 @@
 .pl-last-die { min-width: 30px; text-align: center; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--stroke-strong); font-family: var(--mono, monospace); }
 .pl-last-mod { font-family: var(--mono, monospace); color: var(--ink-secondary); padding: 2px 0; }
 .pl-last-total { font-family: var(--display); font-size: 1.8rem; color: var(--gold-bright); }
+
+/* ---------------------------------------------------------------- Mesa: alvos de 44 px (F6) */
+.pl-die { min-height: 44px; font-size: 0.9rem; }
+@media (max-width: 400px) {
+  /* 7 dados não cabem com 44 px numa fileira: 4 + 3 */
+  .pl-dice-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+}
+.pl-field { font-size: 0.85rem; color: var(--ink-secondary); }
+.pl-field .input { min-height: 44px; font-size: 16px; }
+.pl-ask { min-height: 44px; align-items: center; font-size: 0.95rem; }
+.pl-ask input { width: 22px; height: 22px; margin: 0; flex: none; accent-color: var(--gold); }
+.pl-roll-btn { min-height: 48px; }
+.pl-onscreen-body .btn { min-height: 44px; }
+/* pedido ao mestre: Normal / Vantagem / Desvantagem */
+.pl-adv { margin: 0 0 10px; }
+/* colunas pelo tamanho do rótulo: "Desvantagem" (em negrito, quando escolhida) cabe no botão em 320 */
+.pl-adv-row {
+  display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.3fr); gap: 3px; padding: 3px;
+  border-radius: 10px; border: 1px solid var(--stroke-faint); background: var(--bg-elevated);
+}
+.pl-adv-btn {
+  min-width: 0; min-height: 44px; padding: 0 4px; border: 0; border-radius: 7px; background: transparent;
+  color: var(--ink-secondary); font-family: var(--body); font-size: 0.95rem; cursor: pointer;
+}
+.pl-adv-btn.active { background: var(--gold-deep); color: var(--parchment); font-weight: 600; }
+.pl-adv-btn.active.adv { background: var(--moss); color: #fff; }
+.pl-adv-btn.active.dis { background: var(--blood-deep); color: #fff; }
+.pl-adv-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.pl-adv-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.pl-adv-hint { margin: 4px 0 0; font-size: 0.85rem; color: var(--ink-muted); }
+.pl-pending-adv { color: var(--gold); }
 
 /* ---------------------------------------------------------------- menos movimento */
 @media (prefers-reduced-motion: reduce) {

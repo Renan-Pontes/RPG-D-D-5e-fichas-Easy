@@ -26,7 +26,9 @@ function fmtDay(day, lang) {
 
 // showStartSession: false quando a casca já tem o "Começar sessão" no cabeçalho
 // (um só lugar para começar a sessão).
-export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange, showStartSession = true }) {
+// autoRecap: veio de "Encerrar e escrever o recap" — abre o rascunho do recap assim que o
+// diário carrega (uma vez) e avisa onAutoRecap() para a casca limpar o pedido.
+export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange, showStartSession = true, autoRecap = false, onAutoRecap }) {
   const [entries, setEntries] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [current, setCurrent] = useState(null);
@@ -121,6 +123,13 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
     const draft = buildRecap(g?.entries || [], { lang, session: g?.session ?? null, title: info?.title, campaignName: campaign.name });
     setRecap({ key: g?.key || null, session: g?.session ?? null, ...draft });
   }, [entries, pending, sessionInfo, lang, campaign.name]);
+  const autoRecapDone = useRef(false);
+  useEffect(() => {
+    if (!autoRecap || autoRecapDone.current || !loaded || recap || !entries.length) return;
+    autoRecapDone.current = true;
+    openRecap(null);
+    onAutoRecap?.();
+  }, [autoRecap, loaded, recap, entries.length, openRecap, onAutoRecap]);
   const onScreen = campaign.state?.screenCard;
   const flash = (text) => setToast({ id: `m${Date.now()}`, text });
   useEffect(() => {

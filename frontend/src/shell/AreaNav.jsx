@@ -1,9 +1,18 @@
 // Navegação das áreas: abas no desktop e barra inferior fixa no celular.
-// Também exporta <SubChips>, os chips segmentados das subvistas (as áreas podem
-// usar para ficarem com o mesmo visual da casca).
+//   Celular, mestre:  Mundo · Preparar · Jogar · Grupo · Mais (folha "Mesa do mestre")
+//   Celular, jogador: Mesa · Mundo · Crônica · Grupo · Buscar
+// Também exporta <SubChips>, o segmentado das subvistas (as áreas usam para
+// ficarem com o mesmo visual da casca).
+import { useRef } from 'react';
 import { areaLabel, SUB_ICONS, subLabel, subShortLabel, t } from './shell-logic.js';
+import useScrollEdges from './useScrollEdges.js';
+import './mesa.css';
 
-export default function AreaNav({ areas, active, onSelect, onSearch, lang, badges = {}, showKeys = false }) {
+/**
+ * onMore: 5ª casa "Mais" (mestre) — abre a folha; moreOpen marca a casa.
+ * onSearch: 5ª casa "Buscar" (quando não há onMore: o jogador).
+ */
+export default function AreaNav({ areas, active, onSelect, onSearch, onMore, moreOpen = false, lang, badges = {}, showKeys = false }) {
   return (
     <>
       <nav className="shell-areas" role="tablist" aria-label={t(lang, 'Áreas da campanha', 'Campaign areas')}>
@@ -33,7 +42,7 @@ export default function AreaNav({ areas, active, onSelect, onSearch, lang, badge
           <button
             key={a.id}
             type="button"
-            className={`shell-bottom-btn ${active === a.id ? 'active' : ''}`}
+            className={`shell-bottom-btn ${active === a.id && !moreOpen ? 'active' : ''}`}
             aria-current={active === a.id ? 'page' : undefined}
             onClick={() => onSelect(a.id)}
           >
@@ -42,7 +51,14 @@ export default function AreaNav({ areas, active, onSelect, onSearch, lang, badge
             {badges[a.id] > 0 && <span className="shell-badge shell-badge-dot">{badges[a.id]}</span>}
           </button>
         ))}
-        {onSearch && (
+        {onMore ? (
+          <button type="button" className={`shell-bottom-btn shell-bottom-more ${moreOpen ? 'active' : ''}`} onClick={onMore}
+            aria-haspopup="dialog" aria-expanded={moreOpen}
+            aria-label={t(lang, 'Mais: sessão, busca, telão e ajustes', 'More: session, search, TV and settings')}>
+            <span className="shell-bottom-ico" aria-hidden="true">☰</span>
+            <span className="shell-bottom-label" aria-hidden="true">{t(lang, 'Mais', 'More')}</span>
+          </button>
+        ) : onSearch && (
           <button type="button" className="shell-bottom-btn" onClick={onSearch} aria-label={t(lang, 'Buscar', 'Search')}>
             <span className="shell-bottom-ico" aria-hidden="true">🔍</span>
             <span className="shell-bottom-label">{t(lang, 'Buscar', 'Search')}</span>
@@ -54,36 +70,75 @@ export default function AreaNav({ areas, active, onSelect, onSearch, lang, badge
 }
 
 /**
- * Chips segmentados das subvistas de uma área — o MESMO visual em Mundo,
- * Preparar, Jogar e Grupo (DESIGN 1.2). Ícone padrão por subvista (SUB_ICONS),
- * rótulo curto no celular estreito e rolagem horizontal se ainda não couber.
- *   labels: {sub: texto} substitui o rótulo; icons: {sub: '🗺'|null} idem p/ ícone.
+ * Segmentado das subvistas de uma área — o MESMO em Mundo, Preparar, Jogar,
+ * Grupo, no Mundo do jogador e nas telas antigas (Fallbacks). Plano §4.2:
+ *  - celular (≤ 767): largura total, preso no topo ao rolar, colunas iguais,
+ *    ícone em cima e rótulo curto embaixo (≤ 480), 48 px, selo no canto;
+ *  - se ainda não couber: rola de lado, com degradê na ponta que tem mais e
+ *    rolagem até a subvista ativa (useScrollEdges);
+ *  - desktop: o segmentado de sempre, com 44 px.
+ * O rótulo longo continua para o leitor de tela. Mesmas props de antes:
+ *   labels: {sub: texto} substitui o rótulo; icons: {sub: '🗺'|null} idem p/ ícone;
+ *   badges: {sub: n}; badgeLabels: {sub: texto do selo para o leitor de tela}.
  */
 export function SubChips({ subs, active, onSelect, lang, labels = {}, icons = {}, badges = {}, badgeLabels = {}, ariaLabel }) {
-  if (!subs || subs.length < 2) return null;
+  const wrapRef = useRef(null);
+  const trackRef = useRef(null);
+  const show = !!subs && subs.length >= 2;
+  useScrollEdges(trackRef, { active, enabled: show, count: show ? subs.length : 0 });
+  if (!show) return null;
+  // Celular: com a faixa presa no topo, a troca manteria a rolagem e a nova
+  // subvista abriria no meio. Volta para onde a faixa fica no fluxo: a subvista
+  // começa logo abaixo dela, em todas as áreas. Rola já (sem animação), antes de
+  // o React trocar o conteúdo: o "Carregando…" das subvistas preguiçosas encolhe
+  // a página e cortaria uma rolagem feita depois. Vem depois do onSelect para
+  // valer sobre o scrollTo(0) do goTo da casca.
+  const pick = (s) => {
+    const top = s === active ? null : stuckFlowTop(wrapRef.current);
+    onSelect(s);
+    if (top != null) window.scrollTo(0, top);
+  };
   return (
-    <div className="shell-subchips" role="tablist" aria-label={ariaLabel || t(lang, 'Subvistas', 'Views')}>
-      {subs.map(s => {
-        const icon = s in icons ? icons[s] : SUB_ICONS[s];
-        const long = labels[s] || subLabel(s, lang);
-        const short = labels[s] || subShortLabel(s, lang);
-        return (
-          <button
-            key={s}
-            type="button"
-            role="tab"
-            aria-selected={active === s}
-            className={`shell-subchip ${active === s ? 'active' : ''}`}
-            onClick={() => onSelect(s)}
-          >
-            {icon && <span className="shell-subchip-ico" aria-hidden="true">{icon}</span>}
-            {short === long
-              ? <span>{long}</span>
-              : <><span className="shell-subchip-long">{long}</span><span className="shell-subchip-short" aria-hidden="true">{short}</span></>}
-            {badges[s] > 0 && <span className="shell-badge" aria-label={badgeLabels[s] || undefined}>{badges[s]}</span>}
-          </button>
-        );
-      })}
+    <div ref={wrapRef} className="shell-seg-tabs">
+      <div className="mesa-seg has-track">
+        <div ref={trackRef} className="mesa-seg-track mesa-scroll" role="tablist" aria-label={ariaLabel || t(lang, 'Subvistas', 'Views')}>
+          {subs.map(s => {
+            const icon = s in icons ? icons[s] : SUB_ICONS[s];
+            const long = labels[s] || subLabel(s, lang);
+            const short = labels[s] || subShortLabel(s, lang);
+            const on = active === s;
+            return (
+              <button
+                key={s}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                data-sub={s}
+                className={`mesa-seg-btn shell-seg-tab ${on ? 'active' : ''}`}
+                onClick={() => pick(s)}
+              >
+                {icon && <span className="shell-seg-ico" aria-hidden="true">{icon}</span>}
+                {/* data-label: o CSS reserva a largura do rótulo em negrito (o ativo) */}
+                {short === long
+                  ? <span className="shell-seg-label" data-label={long}>{long}</span>
+                  : <><span className="shell-seg-label shell-seg-long" data-label={long}>{long}</span><span className="shell-seg-label shell-seg-short" data-label={short} aria-hidden="true">{short}</span></>}
+                {badges[s] > 0 && <span className="shell-badge shell-seg-badge" aria-label={badgeLabels[s] || undefined}>{badges[s]}</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
+}
+
+/** Se a faixa (sticky) está presa agora, a posição dela no fluxo da página
+ * (o scrollY em que ela começa a prender); senão null. */
+function stuckFlowTop(el) {
+  if (!el || !(window.scrollY > 0) || getComputedStyle(el).position !== 'sticky') return null;
+  const now = el.getBoundingClientRect().top;
+  el.style.position = 'static';
+  const flow = el.getBoundingClientRect().top;
+  el.style.position = '';
+  return flow < now - 1 ? Math.max(0, Math.round(flow + window.scrollY)) : null;
 }

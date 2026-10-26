@@ -5,7 +5,7 @@
 // digitando o dado físico; o mestre também pode anotar o que ouviu na mesa.
 // Nada vai para o telão sem o mestre tocar em "Mostrar no telão".
 import { errorMessage } from '../api/errors.js';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import { tName } from '../../data/i18n.js';
@@ -15,41 +15,57 @@ import {
 } from './check-logic.js';
 import { formatMod } from '../dice/dice-math.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
+import MesaSheet from '../shell/MesaSheet.jsx';
+import MesaTitle from '../shell/MesaTitle.jsx';
 import './checks-styles.css';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const DC_PRESETS = [10, 12, 15, 18, 20];
 
+// Para quem, CD e dado ficam guardados por campanha enquanto o app está aberto:
+// fechar e abrir a folha de novo não perde a configuração do próximo pedido.
+const lastConfig = new Map();
+const EMPTY_CFG = { dc: '', dcHidden: false, advantage: 'normal', targets: [] };
+
 // showList=false: só o formulário de pedir (a lista fica na lista única de
 // Testes, em Jogar › Testes); onSent é chamado depois de cada pedido enviado.
-export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true, onSent }) {
+// asSheet: abre como folha da mesa (MesaSheet, onClose fecha), com o "Próximo
+// pedido vai para…" preso no rodapé. Sem asSheet: painel de couro na página.
+export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true, onSent, asSheet = false, onClose }) {
   const players = (campaign.members || []).filter(m => m.role !== 'dm' && m.user?.id !== campaign.dmId);
-  const [dc, setDc] = useState('');
-  const [dcHidden, setDcHidden] = useState(false);
-  const [advantage, setAdvantage] = useState('normal');
-  const [targets, setTargets] = useState([]); // [] = todos
+  const [cfg, setCfg] = useState(() => ({ ...EMPTY_CFG, ...(lastConfig.get(campaign.id) || {}) }));
+  const { dc, dcHidden, advantage, targets } = cfg;
+  const setDc = (v) => setCfg(c => ({ ...c, dc: v }));
+  const setDcHidden = (fn) => setCfg(c => ({ ...c, dcHidden: typeof fn === 'function' ? fn(c.dcHidden) : fn }));
+  const setAdvantage = (v) => setCfg(c => ({ ...c, advantage: v }));
+  const setTargets = (fn) => setCfg(c => ({ ...c, targets: typeof fn === 'function' ? fn(c.targets) : fn }));
+  useEffect(() => { lastConfig.set(campaign.id, cfg); }, [campaign.id, cfg]);
   const [checks, setChecks] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [sent, setSent] = useState('');
   const [other, setOther] = useState('');
   const [custom, setCustom] = useState('');
 
   const load = useCallback(async () => {
-    if (!showList) { onSent?.(); return; }
+    if (!showList) return;
     try {
       const r = await api.listChecks(campaign.id);
       setChecks(r.checks || []);
     } catch { /* polling */ }
-  }, [campaign.id, showList, onSent]);
+  }, [campaign.id, showList]);
   usePolling(async () => { if (showList) await load(); }, 2500, [campaign.id, showList]);
 
   const send = async (spec) => {
     if (!players.length) { setError(L(lang, 'Nenhum jogador na campanha ainda.', 'No players in this campaign yet.')); return; }
-    setBusy(true); setError('');
+    setBusy(true); setError(''); setSent('');
     try {
-      await api.createCheck(campaign.id, buildCheckPayload({ ...spec, dc, dcHidden, advantage, targets }, lang));
+      const body = buildCheckPayload({ ...spec, dc, dcHidden, advantage, targets }, lang);
+      await api.createCheck(campaign.id, body);
       if (navigator.vibrate) navigator.vibrate(20);
+      setSent(body.label);
       await load();
+      onSent?.(body);
     } catch (e) {
       setError(errorMessage(e));
     } finally { setBusy(false); }
@@ -67,24 +83,17 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
     ? L(lang, 'todos', 'everyone')
     : players.filter(p => targets.includes(p.user.id)).map(p => p.character?.name || p.user.displayName).join(', ');
 
-  return (
-    <div className="info-box group-checks">
-      <div className="group-checks-head">
-        <h3 style={{ margin: 0 }}>🎯 {L(lang, 'Pedir teste à mesa', 'Ask the table for a check')}</h3>
-        <span className="muted small">
-          {L(lang, 'Um toque envia. Os jogadores rolam no app ou digitam o dado físico.', 'One tap sends. Players roll in the app or type their physical die.')}
-        </span>
-      </div>
-
+  const form = (
+    <>
       <div className="group-checks-config">
         <div className="gc-field">
           <span className="gc-label">{L(lang, 'Para', 'To')}</span>
           <div className="gc-chips">
-            <button type="button" className={`gc-chip ${targets.length === 0 ? 'active' : ''}`} aria-pressed={targets.length === 0} onClick={() => setTargets([])}>
+            <button type="button" className={`mesa-chip gc-chip ${targets.length === 0 ? 'active' : ''}`} aria-pressed={targets.length === 0} onClick={() => setTargets([])}>
               {L(lang, 'Todos', 'Everyone')}
             </button>
             {players.map(p => (
-              <button key={p.user.id} type="button" className={`gc-chip ${targets.includes(p.user.id) ? 'active' : ''}`}
+              <button key={p.user.id} type="button" className={`mesa-chip gc-chip ${targets.includes(p.user.id) ? 'active' : ''}`}
                 aria-pressed={targets.includes(p.user.id)} onClick={() => toggleTarget(p.user.id)}>
                 {p.character?.name || p.user.displayName}
               </button>
@@ -93,71 +102,115 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
         </div>
         <div className="gc-field">
           <span className="gc-label">CD</span>
-          <div className="gc-chips">
-            <button type="button" className={`gc-chip ${dc === '' ? 'active' : ''}`} onClick={() => setDc('')}>{L(lang, 'sem', 'none')}</button>
+          <div className="gc-chips gc-dc">
+            <button type="button" className={`mesa-chip gc-chip ${dc === '' ? 'active' : ''}`} aria-pressed={dc === ''} onClick={() => setDc('')}>{L(lang, 'sem', 'none')}</button>
             {DC_PRESETS.map(v => (
-              <button key={v} type="button" className={`gc-chip ${String(dc) === String(v) ? 'active' : ''}`} onClick={() => setDc(String(v))}>{v}</button>
+              <button key={v} type="button" className={`mesa-chip gc-chip ${String(dc) === String(v) ? 'active' : ''}`} aria-pressed={String(dc) === String(v)} onClick={() => setDc(String(v))}>{v}</button>
             ))}
             <input className="input gc-dc-input" type="number" inputMode="numeric" min={1} max={40} value={dc}
               onChange={e => setDc(e.target.value)} aria-label={L(lang, 'CD personalizada', 'Custom DC')} placeholder="…" />
-            <button type="button" className={`gc-chip gc-secret ${dcHidden && dc !== '' ? 'active' : ''}`} aria-pressed={dcHidden && dc !== ''}
+            <button type="button" className={`mesa-chip gc-chip gc-secret ${dcHidden && dc !== '' ? 'active' : ''}`} aria-pressed={dcHidden && dc !== ''}
               disabled={dc === ''} onClick={() => setDcHidden(v => !v)}
               title={L(lang, 'Jogadores e telão não veem a CD', 'Players and TV do not see the DC')}>
               🔒 {L(lang, 'CD secreta', 'Secret DC')}
             </button>
           </div>
+          <p className="gc-hint">{L(lang, 'CD secreta: os jogadores e o telão não veem o número; você vê quem passou.', 'Secret DC: players and the TV do not see the number; you see who passed.')}</p>
         </div>
         <div className="gc-field">
           <span className="gc-label">{L(lang, 'Dado', 'Roll')}</span>
-          <div className="gc-chips">
+          <div className="gc-chips gc-adv">
             {[['normal', L(lang, 'Normal', 'Normal')], ['adv', L(lang, 'Vantagem', 'Advantage')], ['dis', L(lang, 'Desvantagem', 'Disadvantage')]].map(([k, lbl]) => (
-              <button key={k} type="button" className={`gc-chip ${advantage === k ? 'active' : ''} ${k}`} aria-pressed={advantage === k} onClick={() => setAdvantage(k)}>{lbl}</button>
+              <button key={k} type="button" className={`mesa-chip gc-chip ${advantage === k ? 'active' : ''} ${k}`} aria-pressed={advantage === k} onClick={() => setAdvantage(k)}>{lbl}</button>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="gc-quick" aria-label={L(lang, 'Atalhos de perícia', 'Skill shortcuts')}>
-        {QUICK_SKILLS.map(k => (
-          <button key={k} type="button" className="gc-quick-btn" disabled={busy} onClick={() => send({ kind: 'skill', key: k })}>
-            {tName('skill', k, lang)}
-          </button>
-        ))}
+      <div className="gc-field">
+        <span className="gc-label">{L(lang, 'Perícia (um toque envia)', 'Skill (one tap sends)')}</span>
+        <div className="gc-quick" aria-label={L(lang, 'Atalhos de perícia', 'Skill shortcuts')}>
+          {QUICK_SKILLS.map(k => (
+            <button key={k} type="button" className="gc-quick-btn" disabled={busy} onClick={() => send({ kind: 'skill', key: k })}>
+              {tName('skill', k, lang)}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="gc-quick gc-quick-saves">
+      <div className="gc-field">
         <span className="gc-label">{L(lang, 'Resistência', 'Save')}</span>
-        {QUICK_SAVES.map(k => (
-          <button key={k} type="button" className="gc-quick-btn is-save" disabled={busy} onClick={() => send({ kind: 'save', key: k })}>
-            {abilityAbbr(k, lang)}
+        <div className="gc-quick gc-quick-saves">
+          {QUICK_SAVES.map(k => (
+            <button key={k} type="button" className="gc-quick-btn is-save" disabled={busy} onClick={() => send({ kind: 'save', key: k })}>
+              {abilityAbbr(k, lang)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="gc-field">
+        <span className="gc-label">{L(lang, 'Outro teste', 'Other check')}</span>
+        <div className="gc-more">
+          <select className="input" value={other} onChange={e => setOther(e.target.value)} aria-label={L(lang, 'Outro teste', 'Other check')}>
+            <option value="">{L(lang, 'Outro teste…', 'Other check…')}</option>
+            <optgroup label={L(lang, 'Perícias', 'Skills')}>
+              {SRD.SKILLS.map(s => <option key={s.id} value={`skill:${s.id}`}>{tName('skill', s.id, lang)}</option>)}
+            </optgroup>
+            <optgroup label={L(lang, 'Atributo puro', 'Ability check')}>
+              {ABILITIES.map(a => <option key={a} value={`ability:${a}`}>{checkLabel({ kind: 'ability', key: a }, lang)}</option>)}
+            </optgroup>
+          </select>
+          <input aria-label={L(lang, 'ou nome livre (ex.: Ferramentas de ladrão)', 'or free text (e.g. Thieves’ tools)')} className="input" value={custom} onChange={e => setCustom(e.target.value)} maxLength={120}
+            placeholder={L(lang, 'ou nome livre (ex.: Ferramentas de ladrão)', 'or free text (e.g. Thieves’ tools)')} />
+          <button type="button" className="mesa-btn is-primary gc-more-send" disabled={busy || (!other && !custom.trim())} onClick={() => {
+            const [kind, key] = other ? other.split(':') : ['custom', ''];
+            send({ kind, key, label: custom.trim() || undefined });
+            setOther(''); setCustom('');
+          }}>
+            {L(lang, 'Pedir', 'Ask')}
           </button>
-        ))}
-      </div>
-      <div className="gc-more">
-        <select className="input" value={other} onChange={e => setOther(e.target.value)} aria-label={L(lang, 'Outro teste', 'Other check')}>
-          <option value="">{L(lang, 'Outro teste…', 'Other check…')}</option>
-          <optgroup label={L(lang, 'Perícias', 'Skills')}>
-            {SRD.SKILLS.map(s => <option key={s.id} value={`skill:${s.id}`}>{tName('skill', s.id, lang)}</option>)}
-          </optgroup>
-          <optgroup label={L(lang, 'Atributo puro', 'Ability check')}>
-            {ABILITIES.map(a => <option key={a} value={`ability:${a}`}>{checkLabel({ kind: 'ability', key: a }, lang)}</option>)}
-          </optgroup>
-        </select>
-        <input aria-label={L(lang, 'ou nome livre (ex.: Ferramentas de ladrão)', 'or free text (e.g. Thieves’ tools)')} className="input" value={custom} onChange={e => setCustom(e.target.value)} maxLength={120}
-          placeholder={L(lang, 'ou nome livre (ex.: Ferramentas de ladrão)', 'or free text (e.g. Thieves’ tools)')} />
-        <button type="button" className="btn btn-primary" disabled={busy || (!other && !custom.trim())} onClick={() => {
-          const [kind, key] = other ? other.split(':') : ['custom', ''];
-          send({ kind, key, label: custom.trim() || undefined });
-          setOther(''); setCustom('');
-        }}>
-          {L(lang, 'Pedir', 'Ask')}
-        </button>
-      </div>
-      <div className="muted small">
-        {L(lang, 'Próximo pedido vai para', 'Next request goes to')}: <strong>{targetText}</strong>
-        {dc !== '' && <> · CD {dc}{dcHidden ? ` (${L(lang, 'secreta', 'secret')})` : ''}</>}
-        {advantage !== 'normal' && <> · {advantage === 'adv' ? L(lang, 'vantagem', 'advantage') : L(lang, 'desvantagem', 'disadvantage')}</>}
+        </div>
       </div>
       {error && <div className="check-card-error" role="alert">{error}</div>}
+    </>
+  );
+
+  const summary = (
+    <p className="gc-summary">
+      {L(lang, 'Próximo pedido vai para', 'Next request goes to')}: <strong>{targetText}</strong>
+      {dc !== '' && <> · CD {dc}{dcHidden ? ` (${L(lang, 'secreta', 'secret')})` : ''}</>}
+      {advantage !== 'normal' && <> · {advantage === 'adv' ? L(lang, 'vantagem', 'advantage') : L(lang, 'desvantagem', 'disadvantage')}</>}
+    </p>
+  );
+  const sentLine = sent
+    ? <p className="gc-sent" role="status">✓ {L(lang, `Pedido enviado: ${sent}. Acompanhe em Testes › Abertos.`, `Request sent: ${sent}. Follow it in Checks › Open.`)}</p>
+    : null;
+
+  if (asSheet) {
+    return (
+      <MesaSheet title={L(lang, 'Pedir teste à mesa', 'Ask the table for a check')} icon="🎯" size="tall" width="md" lang={lang}
+        onClose={onClose} className="gc-sheet" bodyClassName="group-checks is-sheet"
+        footer={(
+          <div className="gc-foot">
+            <div className="gc-foot-text">{sentLine}{summary}</div>
+            <button type="button" className="mesa-btn is-primary gc-done" onClick={onClose}>{L(lang, 'Pronto', 'Done')}</button>
+          </div>
+        )}>
+        <p className="mesa-sheet-text">
+          {L(lang, 'Um toque numa perícia envia. Os jogadores rolam no app ou digitam o dado físico.', 'One tap on a skill sends. Players roll in the app or type their physical die.')}
+        </p>
+        {form}
+      </MesaSheet>
+    );
+  }
+
+  return (
+    <section className="mesa-panel group-checks" aria-labelledby="gc-h">
+      <MesaTitle id="gc-h" sub={L(lang, 'Um toque numa perícia envia. Os jogadores rolam no app ou digitam o dado físico.', 'One tap on a skill sends. Players roll in the app or type their physical die.')}>
+        {L(lang, 'Pedir teste à mesa', 'Ask the table for a check')}
+      </MesaTitle>
+      {form}
+      {sentLine}
+      {summary}
 
       {showList && open.length > 0 && (
         <div className="gc-list">
@@ -172,7 +225,7 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
           </div>
         </details>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -182,12 +235,13 @@ export function DMCheckCard({ check, campaign, lang, act }) {
   return (
     <article className={`gc-card ${isOpen ? 'is-open' : 'is-closed'} ${check.showOnScreen ? 'on-screen' : ''}`}>
       <header className="gc-card-head">
-        <div>
+        <div className="gc-card-what">
+          <span className="tl-kind">🎯 {L(lang, 'Teste à mesa', 'Table check')}</span>
           <strong>{check.label}</strong>
-          {check.dc != null && <span className="gc-card-dc">CD {check.dc}{check.dcHidden ? ' 🔒' : ''}</span>}
+          {check.dc != null && <span className="gc-card-dc">CD {check.dc}{check.dcHidden ? ` 🔒 ${L(lang, 'secreta', 'secret')}` : ''}</span>}
           {check.advantage !== 'normal' && <span className="gc-card-adv">{check.advantage === 'adv' ? L(lang, 'vantagem', 'advantage') : L(lang, 'desvantagem', 'disadvantage')}</span>}
         </div>
-        <span className="muted small">
+        <span className="gc-card-count">
           {s.answered}/{s.total} {L(lang, 'responderam', 'answered')}
           {check.dc != null && s.answered > 0 && <> · <span className="ok">{s.passed}✓</span> <span className="bad">{s.failed}✗</span></>}
         </span>
@@ -198,18 +252,18 @@ export function DMCheckCard({ check, campaign, lang, act }) {
         ))}
       </ul>
       <div className="gc-card-actions">
-        <button type="button" className={`btn btn-sm ${check.showOnScreen ? 'btn-primary' : 'btn-ghost'}`}
+        <button type="button" className={`mesa-btn ${check.showOnScreen ? 'is-primary' : ''}`}
           onClick={() => act(() => api.screenCheck(check.id, !check.showOnScreen))}>
           📺 {check.showOnScreen ? L(lang, 'Tirar do telão', 'Hide from TV') : L(lang, 'Mostrar no telão', 'Show on TV')}
         </button>
-        <button type="button" className="btn btn-sm btn-ghost" onClick={() => act(() => api.closeCheck(check.id, { reopen: !isOpen }))}>
+        <button type="button" className="mesa-btn" onClick={() => act(() => api.closeCheck(check.id, { reopen: !isOpen }))}>
           {isOpen ? L(lang, 'Encerrar', 'Close') : L(lang, 'Reabrir', 'Reopen')}
         </button>
-        <button type="button" className="btn btn-sm btn-ghost gc-remove" aria-label={L(lang, 'Remover pedido', 'Remove request')}
+        <button type="button" className="mesa-btn is-quiet gc-remove" aria-label={L(lang, 'Remover pedido', 'Remove request')}
           onClick={async () => {
             if (await confirmDialog({ lang, danger: true, message: L(lang, 'Remover este pedido?', 'Remove this request?'), confirmLabel: L(lang, 'Remover', 'Remove') })) act(() => api.deleteCheck(check.id));
           }}>
-          {L(lang, 'Remover', 'Remove')}
+          🗑 {L(lang, 'Remover', 'Remove')}
         </button>
       </div>
     </article>
@@ -227,14 +281,14 @@ function TargetRow({ t, check, lang, act }) {
     act(() => api.respondCheck(check.id, { userId: t.userId, mode: 'physical', total: n })).then(() => { setEditing(false); setVal(''); });
   };
   const modeIcon = r ? ({ app: '📱', physical: '🎲', dm: '✍' }[r.mode] || '') : '';
-  const modeTitle = r ? ({ app: L(lang, 'rolou no app', 'rolled in app'), physical: L(lang, 'dado físico', 'physical die'), dm: L(lang, 'anotado por você', 'entered by you') }[r.mode]) : '';
+  const modeTitle = r ? ({ app: L(lang, 'no app', 'in app'), physical: L(lang, 'dado físico', 'physical die'), dm: L(lang, 'anotado por você', 'entered by you') }[r.mode]) : '';
   return (
     <li className={`gc-target ${t.outcome || (r ? 'answered' : 'waiting')}`}>
       <span className="gc-target-name">{t.characterName || t.displayName}</span>
       {r ? (
         <span className="gc-target-result">
-          <span className="gc-target-mode" title={modeTitle}>{modeIcon}</span>
-          <span className="gc-target-detail muted small">
+          <span className="gc-target-mode"><span aria-hidden="true">{modeIcon}</span> {modeTitle}</span>
+          <span className="gc-target-detail">
             {r.natural != null ? `${r.natural}${r.modifier ? formatMod(r.modifier) : ''}` : ''}
             {r.rigged ? ' ★' : ''}
           </span>
@@ -242,18 +296,18 @@ function TargetRow({ t, check, lang, act }) {
           {t.outcome && <span className={`check-outcome ${t.outcome}`}>{t.outcome === 'pass' ? '✓' : '✗'}</span>}
         </span>
       ) : (
-        <span className="gc-target-result muted small">{L(lang, 'aguardando…', 'waiting…')}</span>
+        <span className="gc-target-result gc-target-wait">{L(lang, 'aguardando…', 'waiting…')}</span>
       )}
       {check.status === 'open' && (
         editing ? (
           <form className="gc-note" onSubmit={save}>
             <input className="input" type="number" inputMode="numeric" autoFocus value={val} onChange={e => setVal(e.target.value)}
               placeholder={L(lang, 'total', 'total')} aria-label={L(lang, `Total de ${t.characterName || t.displayName}`, `Total for ${t.characterName || t.displayName}`)} />
-            <button type="submit" className="btn btn-sm btn-primary">OK</button>
-            <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEditing(false)}>×</button>
+            <button type="submit" className="mesa-btn is-primary">OK</button>
+            <button type="button" className="mesa-icon-btn" onClick={() => setEditing(false)} aria-label={L(lang, 'Cancelar', 'Cancel')}>✕</button>
           </form>
         ) : (
-          <button type="button" className="btn btn-sm btn-ghost gc-note-btn" onClick={() => setEditing(true)}
+          <button type="button" className="mesa-btn gc-note-btn" onClick={() => setEditing(true)}
             title={L(lang, 'Anotar o total que o jogador falou na mesa', 'Enter the total the player said at the table')}>
             ✍ {r ? L(lang, 'Corrigir', 'Fix') : L(lang, 'Anotar', 'Enter')}
           </button>

@@ -29,6 +29,7 @@ from .models import Character, Membership
 from .serializers import CharacterSerializer
 from .diary import log_item_given
 from .packs import item_key, open_pack, rules_of
+from .plans import CampaignClosed
 
 
 # ============================================================
@@ -86,6 +87,10 @@ def inventory_add(request, pk):
     if in_camp:
         if not is_dm:
             raise PermissionDenied('dm_gives_items_in_campaign')
+        # Campanha encerrada é só leitura (como o editor da ficha): o mestre não dá item.
+        camp = Membership.objects.filter(character=char, campaign__dm=request.user).select_related('campaign').first().campaign
+        if camp.status == 'closed':
+            raise CampaignClosed(camp)
     else:
         if not is_owner:
             raise PermissionDenied('forbidden')

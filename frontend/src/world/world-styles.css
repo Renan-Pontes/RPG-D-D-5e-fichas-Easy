@@ -373,31 +373,32 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-session-title { font-size: 0.9rem; }
 
 /* ---------------------------------------------------------------- Improvisar */
-.wl-impro-backdrop { z-index: 120; }
-.wl-impro { max-width: 640px; background: radial-gradient(ellipse at top, rgba(214,176,100,0.08), transparent 60%), var(--bg-card); }
-.wl-impro-title { font-family: var(--display); color: var(--gold-bright); margin: 0 40px 4px 0; }
-.wl-impro-close { font-size: 1.6rem; line-height: 1; }
-.wl-impro-sheet { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 10px; border: 1px solid var(--stroke); background:
-    linear-gradient(180deg, rgba(232,217,184,0.05), rgba(232,217,184,0.02)), var(--bg-deep); }
+/* Em folha da mesa (MesaSheet .wl-impro-mesa): couro da folha, alvos de 44 px,
+   campos com 16 px, rótulos de 12 px; Rolar tudo · Copiar · Salvar no rodapé. */
+.wl-impro-body .wl-seg { margin: 10px 0 12px; }
+.wl-impro-body .wl-seg button { min-height: 44px; font-size: 0.86rem; }
+.wl-impro-sheet { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; border: 1px solid rgba(224, 181, 94, 0.22); background: rgba(10, 7, 6, 0.45); }
 .wl-impro-row { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: 8px; align-items: start; }
-.wl-impro-label { font-family: var(--display); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); padding-top: 10px; }
-.wl-impro-value input, .wl-impro-value textarea { width: 100%; }
-.wl-impro-value textarea { min-height: 48px; }
+.wl-impro-label { font-family: var(--display); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); padding-top: 12px; }
+.wl-impro-value input, .wl-impro-value textarea { width: 100%; min-height: 44px; font-size: 16px; }
+.wl-impro-value textarea { min-height: 64px; }
 .wl-impro-row.is-name .wl-impro-value input { font-family: var(--display); font-size: 1.15rem; color: var(--gold-bright); }
 .wl-impro-row.is-secret .wl-impro-value textarea { border-color: rgba(227,164,69,0.4); background: rgba(90,61,18,0.18); }
 .wl-impro-btns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
-.wl-die { width: 40px; height: 40px; border-radius: 8px; border: 1px solid var(--stroke); background: var(--bg-card); font-size: 1.1rem; cursor: pointer; transition: transform 0.3s; }
+.wl-die { width: 44px; height: 44px; border-radius: 8px; border: 1px solid var(--stroke); background: var(--bg-card); font-size: 1.1rem; cursor: pointer; transition: transform 0.3s; }
 .wl-die:hover { border-color: var(--gold); transform: rotate(90deg); }
 .wl-impro-gender { display: inline-flex; gap: 2px; padding: 2px; margin-bottom: 6px; border-radius: 999px; background: var(--bg-deep); border: 1px solid var(--stroke-faint); }
-.wl-impro-gender button { border: 0; background: none; color: var(--ink-muted); font-size: 0.78rem; padding: 4px 12px; min-height: 30px; border-radius: 999px; cursor: pointer; }
+.wl-impro-gender button { border: 0; background: none; color: var(--ink-secondary); font-size: 0.9rem; padding: 4px 16px; min-height: 44px; min-width: 56px; border-radius: 999px; cursor: pointer; }
 .wl-impro-gender button.is-on { background: var(--gold-soft); color: var(--gold-bright); box-shadow: 0 0 0 1px var(--gold) inset; }
-.wl-impro-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.wl-impro-create { min-height: 44px; }
+.wl-impro-foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.wl-impro-body .wl-hint { font-size: 0.95rem; }
 @media (max-width: 560px) {
   .wl-impro-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'label btns' 'value value'; }
   .wl-impro-label { grid-area: label; padding-top: 6px; }
   .wl-impro-value { grid-area: value; }
   .wl-impro-btns { grid-area: btns; }
-  .wl-impro-foot .btn { flex: 1 1 auto; }
+  .wl-impro-foot .mesa-btn { flex: 1 1 auto; }
 }
 
 /* ---------------------------------------------------------------- celular */

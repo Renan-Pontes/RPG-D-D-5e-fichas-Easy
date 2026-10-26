@@ -94,11 +94,18 @@ function deriveAttacks(char) {
   return attacks;
 }
 
-function combatantDistance(a, b) {
+/**
+ * Distância em quadrados da grade (casa de `grid` px, 50 se o mapa não disser):
+ * a maior das diferenças em x e y, dividida pela casa e arredondada. Antes
+ * mostrava os pixels ("925 quadrados" em vez de 19).
+ */
+function combatantDistance(a, b, grid = 50) {
   const pa = a.position || {};
   const pb = b.position || {};
   if (typeof pa.x !== 'number' || typeof pb.x !== 'number') return null;
-  return Math.max(Math.abs(pa.x - pb.x), Math.abs(pa.y - pb.y));
+  const g = Number(grid) > 0 ? Number(grid) : 50;
+  const dy = typeof pa.y === 'number' && typeof pb.y === 'number' ? Math.abs(pa.y - pb.y) : 0;
+  return Math.round(Math.max(Math.abs(pa.x - pb.x), dy) / g);
 }
 
 // Jogador não vê PV de monstro: só a faixa pública de saúde.
@@ -118,7 +125,7 @@ const TargetPickerModal = ({ onClose, combat, attacker, attack, onPick, lang, bu
 
   // Alvo (na ficha: src/sheet/ficha.css, .fh-target): nome, faixa de saúde/PV, CA e distância
   const renderTarget = (c) => {
-    const dist = combatantDistance(attacker, c);
+    const dist = combatantDistance(attacker, c, combat?.map?.grid_size_px);
     return (
       <button key={c.id} className="option fh-target" data-health={c.current_hp != null ? undefined : c.health} onClick={() => onPick(c)} disabled={busy}>
         <div className="option-title">{c.name}</div>
@@ -127,7 +134,7 @@ const TargetPickerModal = ({ onClose, combat, attacker, attack, onPick, lang, bu
             ? <>{lang === 'pt' ? 'PV' : 'HP'} {c.current_hp}/{c.stats?.max_hp ?? '?'}</>
             : <>{healthText(c.health, lang)}</>}
           {c.stats?.ac != null && <> · {lang === 'pt' ? 'CA' : 'AC'} {c.stats.ac}</>}
-          {dist !== null && ` · ${dist === 0 ? (lang === 'pt' ? 'mesma casa' : 'same square') : `${dist} ${lang === 'pt' ? 'quadrados' : 'sq'}`}`}
+          {dist !== null && ` · ${dist === 0 ? (lang === 'pt' ? 'mesma casa' : 'same square') : `${dist} ${lang === 'pt' ? (dist === 1 ? 'quadrado' : 'quadrados') : 'sq'}`}`}
         </div>
       </button>
     );

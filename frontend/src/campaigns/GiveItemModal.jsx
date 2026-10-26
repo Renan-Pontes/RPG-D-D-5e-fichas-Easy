@@ -6,8 +6,10 @@ import { flash } from '../play/flash.js';
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
 /**
- * Modal pro DM dar item a um personagem da campanha: catálogo da campanha,
- * catálogo SRD ou cadastro novo (opcionalmente salvo no catálogo da campanha).
+ * Folha (MesaSheet, via ItemPickerModal `sheet`) pro DM dar item a um personagem
+ * da campanha: catálogo da campanha, catálogo SRD ou cadastro novo (opcionalmente
+ * salvo no catálogo da campanha). ✕ e Esc fecham; o rodapé "Qtd · Cancelar · Dar"
+ * fica sempre à vista.
  */
 // notify=false: quem chama mostra a própria confirmação.
 export default function GiveItemModal({ campaign, character, lang, onClose, onGiven, notify = true }) {
@@ -22,7 +24,9 @@ export default function GiveItemModal({ campaign, character, lang, onClose, onGi
   return (
     <ItemPickerModal
       lang={lang}
-      title={<>🎁 {t(lang, 'Dar item', 'Give item')} <span className="muted small" style={{ marginLeft: 6 }}>→ {character.name}</span></>}
+      sheet
+      icon="🎁"
+      title={`${t(lang, 'Dar item', 'Give item')} → ${character.name}`}
       confirmLabel={t(lang, 'Dar', 'Give')}
       campaignItems={campaign ? campaignItems : undefined}
       onSaveToCatalog={campaign ? (item) => api.createCampaignItem(campaign.id, item) : undefined}
