@@ -4,7 +4,7 @@ import {
   SCENE_BLOCKS, sceneView, presentBlocks, writeBlock, linkScene, unlinkScene, hasRoomPockets, roomHasPockets,
   nodeCheckToCheck, checkToNodeCheck, encounterToFight, fightToEncounter, sceneSnap, snapSize, snapCount, fightEntry,
   sceneMoments, spotKey, parseSpot, sceneMomentIdeas, sceneCheckIdea, fightDifficulty, sceneIcons, sceneHeading, whatField, closeScene,
-  showOnStartVisible, lightNode, nodeWithoutImage, firstImageRef, SCENE_LIMITS,
+  showOnStartVisible, lightNode, nodeWithoutImage, firstImageRef, SCENE_LIMITS, DC_CHIPS, parseDc, customDc,
 } from '../src/prep/scene-model.js';
 
 const world = [
@@ -72,11 +72,62 @@ test('writeBlock: um lugar por dado', () => {
     { node: { checks: [{ skill: 'save:dex', dc: 15, note: '' }] } });
   assert.deepEqual(writeBlock('fight', [{ monsterId: 'goblin', name: 'Goblin', cr: 0.25, count: 2 }], { linked: true }),
     { node: { encounter: [{ monsterId: 'goblin', name: 'Goblin', count: 2, crNum: 0.25 }] } });
-  // imagem na cena ligada: o cartão vai ao 1º lugar dos cartões da sala; tirar o tira de lá
+  // imagem na cena ligada: o cartão vai ao 1º lugar dos cartões da sala
   assert.deepEqual(writeBlock('show', { kind: 'entry', id: 7 }, { linked: true, refs: [3, 7, 9] }), { node: { refs: [7, 3, 9] } });
-  assert.deepEqual(writeBlock('show', null, { linked: true, refs: [7, 3], showFrom: 'ref', show: { kind: 'entry', id: 7 } }), { node: { refs: [3] } });
-  assert.equal(writeBlock('show', null, { linked: true, refs: [], showFrom: 'room', show: { kind: 'node' } }), null, 'a imagem da sala muda em Aventuras');
   assert.deepEqual(writeBlock('show', null, { linked: false }), { scene: { show: null } });
+});
+
+test('cena ligada: tirar a imagem não tira o cartão da sala (fica no plano: showOff)', () => {
+  const s = { id: 'c2', text: 'Templo', nodeRef: { adventureId: 1, nodeId: 'n2' } };
+  const node = { ...room, refs: [7, 9, 3] };
+  const v = sceneView(s, node, { world });
+  assert.deepEqual(v.show, { kind: 'entry', id: 7 });
+  // "Tirar" / ✕: só o plano muda; a sala continua com os 3 cartões
+  const off = writeBlock('show', null, { linked: true, refs: v.refs, showFrom: v.showFrom, show: v.show, showOff: v.showOff, world });
+  assert.deepEqual(off, { scene: { showOff: true } });
+  const v2 = sceneView({ ...s, ...off.scene }, node, { world });
+  assert.equal(v2.show, null, 'nenhuma imagem: nem a do próximo cartão');
+  assert.equal(v2.showFrom, null);
+  assert.deepEqual(v2.refs, [7, 9, 3], '🎭 Quem aparece continua igual');
+  assert.equal(presentBlocks(v2).includes('show'), false);
+  assert.equal(showOnStartVisible({ ...v2, read: '' }), false);
+  // ↶ Desfazer (o mesmo cartão, que já é o 1º com imagem): volta sem regravar a sala
+  assert.deepEqual(writeBlock('show', v.show, { linked: true, refs: v2.refs, showFrom: v2.showFrom, show: v2.show, showOff: v2.showOff, world }),
+    { scene: { showOff: false } });
+  // escolher outro cartão: ele vai ao 1º lugar e a cena volta a ter imagem
+  assert.deepEqual(writeBlock('show', { kind: 'entry', id: 9 }, { linked: true, refs: v2.refs, showOff: true, world }),
+    { scene: { showOff: false }, node: { refs: [9, 7, 3] } });
+  // a imagem própria da sala: tirar e desfazer também só mexem no plano
+  const vr = sceneView(s, { ...room, refs: [3], hasImage: true }, { world });
+  assert.deepEqual(writeBlock('show', null, { linked: true, refs: vr.refs, showFrom: vr.showFrom, show: vr.show, world }), { scene: { showOff: true } });
+  assert.deepEqual(writeBlock('show', vr.show, { linked: true, refs: vr.refs, showOff: true, world }), { scene: { showOff: false } });
+  assert.equal(writeBlock('show', null, { linked: true, refs: [3], world }), null, 'sem imagem: nada a gravar');
+  // ligar de novo (a outra sala) e desligar limpam o "sem imagem"
+  assert.equal(linkScene({ ...s, showOff: true, nodeRef: null }, { adventureId: 1, nodeId: 'n3' }, null, { carry: false }).scene.showOff, false);
+  assert.equal(unlinkScene({ ...s, showOff: true }, node, { copy: false }).showOff, false);
+  const copied = unlinkScene({ ...s, showOff: true }, node, { world });
+  assert.equal(copied.show, null, 'copiar não traz a imagem que o mestre tirou');
+  assert.deepEqual(copied.refs, [7, 9, 3]);
+  assert.equal(sceneView({ id: 'c9', text: 'solta', showOff: true, show: { kind: 'entry', id: 7 } }).show.id, 7, 'a cena solta não usa showOff');
+});
+
+test('🎯 CD: os chips são atalhos; a CD livre vai de 1 a 40 e volta igual da sala', () => {
+  assert.deepEqual(DC_CHIPS, [10, 12, 13, 15, 18, 20]);
+  assert.equal(parseDc('14'), 14);
+  assert.equal(parseDc(' 7 '), 7);
+  for (const bad of ['', '0', '41', '1.5', 'x', '-3', '100', null, undefined]) assert.equal(parseDc(bad), null, String(bad));
+  assert.equal(customDc(14), 14);
+  assert.equal(customDc(13), null, '13 é um chip');
+  assert.equal(customDc(undefined), null);
+  // a CD 14 que veio da sala (as aventuras prontas têm várias) não se perde ao editar outro campo
+  const s = { id: 'c2', text: 'Templo', nodeRef: { adventureId: 1, nodeId: 'n2' } };
+  const node = { ...room, checks: [{ skill: 'investigation', dc: 14, note: 'achar o alçapão' }] };
+  const v = sceneView(s, node, { world });
+  assert.equal(v.checks[0].dc, 14);
+  const edited = v.checks.map(c => ({ ...c, note: 'o alçapão sob o altar' }));
+  assert.deepEqual(writeBlock('check', edited, { linked: true }).node.checks, [{ skill: 'investigation', dc: 14, note: 'o alçapão sob o altar' }]);
+  const solto = writeBlock('check', [{ kind: 'skill', key: 'investigation', dc: 14 }].map(c => ({ ...c, dcHidden: true })), { linked: false });
+  assert.deepEqual(solto.scene.check, { kind: 'skill', key: 'investigation', dc: 14, dcHidden: true });
 });
 
 test('testes e combate passam de cena para sala e voltam iguais', () => {

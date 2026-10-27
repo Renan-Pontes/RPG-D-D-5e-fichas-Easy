@@ -699,6 +699,8 @@ SCENE_POCKETS = {
     'read': lambda v: long_text(v, 1000),
     'show': _scene_show,
     'showOnStart': bool,
+    # cena ligada sem imagem: o mestre tirou a imagem sem tirar o cartão da sala
+    'showOff': bool,
     'refs': lambda v: _id_list(v, 8),
     'fight': _scene_fight,
     'check': _scene_check,

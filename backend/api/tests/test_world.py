@@ -508,7 +508,7 @@ class SessionPlanTests(WorldBase):
 
     POCKETS = {
         'what': 'Goblins esperam sob a ponte', 'read': 'A ponte range.', 'show': {'kind': 'entry', 'id': 12},
-        'showOnStart': True, 'refs': [3, 3, 4], 'fight': [{'monsterId': 'goblin', 'name': 'Goblin', 'cr': 0.25, 'count': 2}],
+        'showOnStart': True, 'showOff': True, 'refs': [3, 3, 4], 'fight': [{'monsterId': 'goblin', 'name': 'Goblin', 'cr': 0.25, 'count': 2}],
         'check': {'kind': 'skill', 'key': 'perception', 'dc': 13, 'dcHidden': True}, 'spots': ['12:m1'], 'notes': 'só eu',
     }
 

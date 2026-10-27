@@ -8,7 +8,8 @@
  *   cena solta  → tudo no plano (scene.read, show, refs, fight, check…);
  *   cena ligada → ler, imagem, quem aparece, combate e teste moram na SALA
  *                 (node.readAloud, refs, encounter, checks): a folha edita a sala.
- *   O momento, o "Mostrar ao começar", o que acontece e as notas ficam sempre no plano.
+ *   O momento, o "Mostrar ao começar", o que acontece e as notas ficam sempre no plano, e
+ *   também o "sem imagem" da cena ligada (`showOff`): tirar a imagem não tira o cartão da sala.
  * A folha vê os dois casos com os mesmos blocos (sceneView) e grava pelo mesmo caminho
  * (writeBlock → {scene, node}: o que vai ao plano e o que vai à sala).
  */
@@ -42,8 +43,18 @@ export const SCENE_LIMITS = {
   snapBytes: 8000, snaps: 4, snapDesc: 300,
   nodeRead: 5000, nodeNotes: 10000, nodeRefs: 20, nodeFight: 30, nodeCount: 50, nodeChecks: 20,
 };
-/** As CDs de um toque do bloco 🎯. */
+/** As CDs de um toque do bloco 🎯; as outras (1 a 40, como a sala e o servidor aceitam) vão no "Outra…". */
 export const DC_CHIPS = [10, 12, 13, 15, 18, 20];
+export const DC_RANGE = { min: 1, max: 40 };
+/** A CD digitada → inteiro de 1 a 40, ou null (vazio, letra, fora da faixa). */
+export function parseDc(v) {
+  const s = String(v ?? '').trim();
+  if (!/^\d{1,2}$/.test(s)) return null;
+  const n = Number(s);
+  return n >= DC_RANGE.min && n <= DC_RANGE.max ? n : null;
+}
+/** A CD que não é um dos chips (14, 11, 25…): o chip "Outra…" a mostra marcada ("14 ✎"). */
+export const customDc = (dc) => (Number.isInteger(dc) && !DC_CHIPS.includes(dc) ? dc : null);
 
 // ---------------------------------------------------------------- testes: cena ↔ sala
 /** Teste da sala ({skill: 'perception' | 'save:dex' | 'ability:str', dc, note, dcHidden}) → o da cena. */
@@ -166,6 +177,8 @@ export function firstImageRef(ids, world) {
  * (ainda carregando, sala apagada) a cena ligada mostra só o que é do plano.
  * → {linked, name, notesInText, what, read, show, showFrom, refs, fight, checks, spots, notes, showOnStart}
  *   showFrom: 'scene' | 'ref' (o 1º cartão da sala com imagem) | 'room' (a imagem da sala) | null
+ *   Cena ligada com `scene.showOff` (o mestre tirou a imagem): sem imagem, e os cartões
+ *   continuam na sala.
  */
 export function sceneView(scene, node = null, { world = [] } = {}) {
   const s = scene || {};
@@ -177,6 +190,7 @@ export function sceneView(scene, node = null, { world = [] } = {}) {
     spots: Array.isArray(s.spots) ? s.spots : [],
     notes: typeof s.notes === 'string' ? s.notes : '',
     showOnStart: s.showOnStart !== false,
+    showOff: linked && !!s.showOff,
   };
   if (!linked) {
     return {
@@ -192,7 +206,8 @@ export function sceneView(scene, node = null, { world = [] } = {}) {
   const refs = Array.isArray(n.refs) ? n.refs : [];
   const imgRef = firstImageRef(refs, world);
   let show = null; let showFrom = null;
-  if (imgRef) { show = { kind: 'entry', id: imgRef }; showFrom = 'ref'; }
+  if (s.showOff) { /* o mestre tirou a imagem da cena: nenhuma vai à Tela */ }
+  else if (imgRef) { show = { kind: 'entry', id: imgRef }; showFrom = 'ref'; }
   else if (n.hasImage || n.image) { show = { kind: 'node', advId: s.nodeRef.adventureId, nodeId: s.nodeRef.nodeId }; showFrom = 'room'; }
   const read = typeof n.readAloud === 'string' ? n.readAloud : '';
   return {
@@ -226,13 +241,14 @@ export const showOnStartVisible = (view) => !!(view?.show || filled(view?.read))
  * ligada, ler/imagem/quem aparece/combate/teste vão à sala; o resto, sempre ao plano.
  * Tirar um bloco = gravar o vazio ('' · [] · null): o servidor guarda o vazio e o bolso
  * some (o que não vem fica, pelo merge por id).
- *   key 'show': value {kind:'entry', id} | null; na cena ligada o cartão vai para o 1º
- *   lugar dos cartões da sala (`refs` = os de agora) e tirar o tira de lá.
+ *   key 'show': value {kind:'entry', id} | {kind:'node'} | null. Na cena ligada, escolher
+ *   um cartão o põe no 1º lugar dos cartões da sala (`refs` = os de agora; se ele já é o
+ *   1º com imagem pelo `world`, a sala não muda); tirar NÃO mexe na sala: grava no plano
+ *   `showOff` (os cartões continuam em 🎭 Quem aparece). `showOff` = o de agora.
  *   key 'check': value = a lista de testes (a cena solta guarda só o 1º).
- * → {scene?: patch, node?: patch} | null (nada a gravar: a imagem própria da sala só
- *   muda em Aventuras).
+ * → {scene?: patch, node?: patch} | null (nada a gravar)
  */
-export function writeBlock(key, value, { linked = false, refs = [], showFrom = null, show = null } = {}) {
+export function writeBlock(key, value, { linked = false, refs = [], showFrom = null, show = null, showOff = false, world = null } = {}) {
   if (key === 'what' || key === 'spots' || key === 'notes' || key === 'showOnStart') return { scene: { [key]: value } };
   if (!linked) {
     if (key === 'check') return { scene: { check: cleanCheck((value || [])[0]) } };
@@ -245,9 +261,13 @@ export function writeBlock(key, value, { linked = false, refs = [], showFrom = n
   if (key === 'check') return { node: { checks: (value || []).slice(0, SCENE_LIMITS.nodeChecks).map(checkToNodeCheck).filter(Boolean) } };
   if (key === 'show') {
     const cur = refs || [];
-    if (value?.kind === 'entry') return { node: { refs: [value.id, ...cur.filter(id => id !== value.id)].slice(0, SCENE_LIMITS.nodeRefs) } };
-    if (showFrom === 'ref' && show?.kind === 'entry') return { node: { refs: cur.filter(id => id !== show.id) } };
-    return null;
+    const on = showOff ? { scene: { showOff: false } } : {};
+    if (value?.kind === 'entry') {
+      if (world && cur.includes(value.id) && firstImageRef(cur, world) === value.id) return showOff ? on : null;
+      return { ...on, node: { refs: [value.id, ...cur.filter(id => id !== value.id)].slice(0, SCENE_LIMITS.nodeRefs) } };
+    }
+    if (value?.kind === 'node') return showOff ? on : null;   // a imagem própria da sala volta
+    return show || showFrom ? { scene: { showOff: true } } : null;
   }
   return null;
 }
@@ -266,7 +286,7 @@ export const hasRoomPockets = (scene) => {
  * `node` = a sala de agora (sem nada, se ainda não chegou). → {scene, node|null}
  */
 export function linkScene(scene, ref, node = null, { carry = true } = {}) {
-  const clear = { nodeRef: ref, read: '', show: null, refs: [], fight: [], check: null };
+  const clear = { nodeRef: ref, read: '', show: null, refs: [], fight: [], check: null, ...(scene?.showOff ? { showOff: false } : {}) };
   if (!carry) return { scene: clear, node: null };
   const v = sceneView({ ...scene, nodeRef: null });
   const n = node || {};
@@ -290,7 +310,8 @@ export function linkScene(scene, ref, node = null, { carry = true } = {}) {
  * monstros" o plano ainda guarda (4 no plano): os outros vêm só com o nome. → o patch da cena.
  */
 export function unlinkScene(scene, node, { copy = true, world = [], snapsLeft = SCENE_LIMITS.snaps } = {}) {
-  if (!copy || !node) return { nodeRef: null };
+  const off = scene?.showOff ? { showOff: false } : {};
+  if (!copy || !node) return { nodeRef: null, ...off };
   const v = sceneView(scene, node, { world });
   let left = Math.max(0, snapsLeft);
   const fight = v.fight.slice(0, SCENE_LIMITS.fight).map(f => {
@@ -302,7 +323,7 @@ export function unlinkScene(scene, node, { copy = true, world = [], snapsLeft = 
     return out;
   });
   return {
-    nodeRef: null,
+    nodeRef: null, ...off,
     read: v.read.slice(0, SCENE_LIMITS.read),
     show: v.show,
     refs: v.refs.slice(0, SCENE_LIMITS.refs),

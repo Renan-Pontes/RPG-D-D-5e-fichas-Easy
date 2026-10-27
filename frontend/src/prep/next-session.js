@@ -18,7 +18,7 @@ export const SECRET_GOAL = 10;
 /** Linhas de pista à vista num plano novo (só na tela). */
 export const SECRET_ROWS = 3;
 /** Os bolsos da cena que o app guarda e devolve como vieram (a folha da Cena os edita). */
-export const SCENE_POCKETS = ['what', 'read', 'show', 'showOnStart', 'refs', 'fight', 'check', 'spots', 'notes'];
+export const SCENE_POCKETS = ['what', 'read', 'show', 'showOnStart', 'showOff', 'refs', 'fight', 'check', 'spots', 'notes'];
 
 export function emptyPlan() {
   return { strongStart: '', scenes: [], secrets: [], npcIds: [], placeIds: [], monsters: '', rewards: '', forSession: null, _rev: 0 };
