@@ -109,7 +109,7 @@ test('Testes: lista única com Percepção CD 15 em Abertos', () => {
   assert.deepEqual(unifyTests(), { open: [], answered: [], history: [] });
 });
 
-import { evaluateSave, saveApplyBody, saveApplyOps, saveDraft, saveDraftFromPreview, saveModifier, savePortion } from '../src/play/attack-model.js';
+import { evaluateSave, saveApplyBody, saveApplyOps, saveDraft, saveDraftFromPreview, saveModifier, savePortion, sheetSaveMods } from '../src/play/attack-model.js';
 
 test('efeito com resistência é sugestão: rascunho, metade no sucesso e chamadas na ordem', () => {
   const breath = { name: 'Sopro de Fogo', recharge: 5, damage: '8d6', damageType: 'fire',
@@ -143,6 +143,30 @@ test('efeito com resistência é sugestão: rascunho, metade no sucesso e chamad
     { action: 'add_condition', targetId: 't', condition: 'prone' },
     { action: 'damage', targetId: 'x', amount: 10, damageType: 'fire' },
   ]);
+});
+
+// V10-fix — a salvaguarda do PJ pela ficha (proficiência e espécie), não pelo atributo-base do combatente.
+test('salvaguarda do PJ: o modificador vem da ficha da vaga (Utils.saveBonus)', async () => {
+  const { default: Utils } = await import('../utils.js');
+  const { modifierFor } = await import('../src/checks/check-logic.js');
+  const rogue = { ...Utils.makeNew(), className: 'rogue', level: 1, race: 'human', saveProfs: ['dex', 'int'],
+    abilities: { str: 8, dex: 15, con: 12, int: 10, wis: 14, cha: 10 } };
+  const halfling = { ...rogue, race: 'halfling', rulesVersion: '2014', raceBonus: { dex: 2 } };
+  const members = [{ character: { id: 7, data: rogue } }, { character: { id: 8, data: halfling } }, { character: null }];
+  const targets = [
+    { id: 'p1', type: 'pc', character_id: 7, stats: { abilities: { dex: 15 } } },   // o combatente: só o atributo-base
+    { id: 'p2', type: 'pc', character_id: 8, stats: { abilities: { dex: 15 } } },
+    { id: 'p3', type: 'pc', character_id: 8, wild_shape: true, stats: { abilities: { dex: 16 } } },
+    { id: 'g', type: 'monster', stats: { saves: { dex: 2 } } },
+    { id: 'p4', type: 'pc', character_id: 99, stats: {} },
+  ];
+  const mods = sheetSaveMods(targets, members, 'DEX', modifierFor);
+  assert.deepEqual(mods, { p1: 4, p2: 5 });          // Ladino nível 1, DES 15 → +4; halfling 2014 → +5
+  assert.equal(saveModifier(targets[0], 'dex'), 2);   // o que o servidor usaria sem a ficha
+  assert.equal(sheetSaveMods(targets, members, 'wis', modifierFor).p1, 2);   // sem proficiência em SAB
+  // sem rede: o rascunho local usa os mesmos números
+  const d = saveDraft({ save: { ability: 'dex', dc: 13 } }, targets.slice(0, 4), { d20: () => 9, mods });
+  assert.deepEqual(d.targets.map(t => t.total), ['13', '14', '12', '11']);
 });
 
 // V10 — a salvaguarda em área rolada no servidor e aplicada numa chamada (+ 📺 a linha-resumo).

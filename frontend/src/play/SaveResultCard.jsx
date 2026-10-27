@@ -5,11 +5,14 @@
 // nada aplicado); sem rede, rola no aparelho como antes (e diz). "Aplicar" vai numa
 // chamada só (save_apply) e, com "📺 Vai à Tela" (a regra "Dos monstros" do palco),
 // a Tela ganha 1 linha-resumo: "Sopro de Fogo · DES CD 13 · Dagna 9 ✗ · Pipo 17 ✓".
+// A salvaguarda de cada PJ vai pela ficha (sheetSaveMods: espécie e proficiência,
+// o mesmo número dos testes pedidos); o combatente só tem os atributos-base.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { errorMessage } from '../api/errors.js';
 import { parseFormula, rollFormula } from '../dice/dice-math.js';
 import { combatAction, savePreview } from './play-api.js';
-import { evaluateSave, saveApplyBody, saveDraft, saveDraftFromPreview } from './attack-model.js';
+import { evaluateSave, saveApplyBody, saveDraft, saveDraftFromPreview, sheetSaveMods } from './attack-model.js';
+import { modifierFor } from '../checks/check-logic.js';
 import { useArea } from '../shell/useArea.js';
 import useStage from '../stage/useStage.js';
 import { abilityLabel, conditionLabel, damageTypeLabel } from '../combat/monster-i18n.js';
@@ -41,10 +44,11 @@ export default function SaveResultCard({ campaignId, attacker, action, actionInd
   const req = useRef(null);
   useEffect(() => {
     let alive = true;
-    if (!req.current) req.current = savePreview(campaignId, { attackerId: attacker?.id, actionIndex, targetIds: (targets || []).map(t => t.id) });
+    const mods = sheetSaveMods(targets, campaign?.members, action?.save?.ability, modifierFor);
+    if (!req.current) req.current = savePreview(campaignId, { attackerId: attacker?.id, actionIndex, targetIds: (targets || []).map(t => t.id), saveMods: mods });
     req.current
       .then(p => { if (alive) setDraft(saveDraftFromPreview(p, action)); })
-      .catch(() => { if (alive) { setLocal(true); setDraft(saveDraft(action, targets, { roll: rollExpr, d20 })); } });
+      .catch(() => { if (alive) { setLocal(true); setDraft(saveDraft(action, targets, { roll: rollExpr, d20, mods })); } });
     return () => { alive = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const results = useMemo(() => (draft ? evaluateSave(draft) : []), [draft]);

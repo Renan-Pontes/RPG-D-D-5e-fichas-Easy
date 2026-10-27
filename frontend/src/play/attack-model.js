@@ -154,10 +154,34 @@ export function savePortion(full, success, half) {
 }
 
 /**
- * Rascunho do efeito. `roll(expr)` devolve o total rolado (injeção para teste);
- * `d20()` o d20 de cada alvo.
+ * A salvaguarda de cada PJ PELA FICHA: {combatenteId: n} (o `saveMods` do POST
+ * …/save-preview e do rascunho sem rede). O combatente do PJ guarda só os
+ * atributos-base, sem o bônus de espécie nem a proficiência; a ficha da vaga
+ * (campaign.members — o mestre recebe o `data` inteiro) dá o mesmo número dos
+ * testes pedidos. Forma Selvagem fica de fora (a fera usa os atributos dela).
+ * `modFor(char, {kind, key})` é o modifierFor de checks/check-logic.js (injeção).
  */
-export function saveDraft(action, targets, { roll = () => 0, d20 = () => 10 } = {}) {
+export function sheetSaveMods(targets, members, ability, modFor) {
+  const sheets = new Map();
+  for (const m of members || []) {
+    if (m?.character?.id != null && m.character.data) sheets.set(String(m.character.id), m.character.data);
+  }
+  const key = String(ability || 'dex').toLowerCase();
+  const out = {};
+  for (const t of targets || []) {
+    if (t?.type !== 'pc' || t.wild_shape || t.character_id == null) continue;
+    const sheet = sheets.get(String(t.character_id));
+    const n = sheet && typeof modFor === 'function' ? modFor(sheet, { kind: 'save', key }) : null;
+    if (Number.isFinite(n)) out[t.id] = n;
+  }
+  return out;
+}
+
+/**
+ * Rascunho do efeito. `roll(expr)` devolve o total rolado (injeção para teste);
+ * `d20()` o d20 de cada alvo; `mods` a salvaguarda da ficha de cada PJ (sheetSaveMods).
+ */
+export function saveDraft(action, targets, { roll = () => 0, d20 = () => 10, mods = {} } = {}) {
   const save = action?.save || {};
   const ability = String(save.ability || 'dex').toLowerCase();
   const dc = Number(save.dc) || 10;
@@ -173,7 +197,7 @@ export function saveDraft(action, targets, { roll = () => 0, d20 = () => 10 } = 
     conditions: [...(save.conditions || [])],
     parts,
     targets: (targets || []).map(t => {
-      const mod = saveModifier(t, ability);
+      const mod = Number.isFinite(mods?.[t.id]) ? mods[t.id] : saveModifier(t, ability);
       const nat = d20();
       return { id: t.id, name: t.name, mod, d20: nat, total: mod == null ? '' : String(nat + mod), override: null };
     }),
