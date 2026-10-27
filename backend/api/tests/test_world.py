@@ -589,9 +589,25 @@ class SessionPlanTests(WorldBase):
 
     def test_empty_lines_do_not_make_a_plan(self):
         self.assertTrue(R.session_plan_is_empty({'secrets': [{'text': ' '}] * 10, 'scenes': [{'text': ''}]}))
-        self.assertFalse(R.session_plan_is_empty({'secrets': [{'text': '', 'ref': {'entryId': 3}}]}))
+        # só pistas (as levadas adiante): ainda vazio para quem preenche, como as 3 portas (N2)
+        self.assertTrue(R.session_plan_is_empty({'secrets': [{'text': '', 'ref': {'entryId': 3}}, {'text': 'O moleiro mente'}]}))
         self.assertFalse(R.session_plan_is_empty({'scenes': [{'text': 'Ponte'}]}))
+        self.assertFalse(R.session_plan_is_empty({'scenes': [{'text': '', 'nodeRef': {'adventureId': 1, 'nodeId': 'n1'}}]}))
         self.assertFalse(R.session_plan_is_empty({'strongStart': 'Boom'}))
+
+    def test_fill_keeps_the_masters_clues_and_session(self):
+        cur = {'forSession': 4, 'secrets': [{'id': 'p1', 'text': 'O moleiro mente', 'ref': None, 'discovered': True},
+                                            {'id': 'p2', 'text': ' ', 'ref': None, 'discovered': False}]}
+        patch = R.clean_session_plan_patch({'strongStart': 'Boom', 'secrets': [{'text': f'Pista {i}'} for i in range(30)]})
+        plan = R.fill_empty_session_plan(cur, patch, {'session': '3', 'live': True})
+        self.assertEqual(plan['secrets'][0], cur['secrets'][0], 'a do mestre vem antes, como estava')
+        self.assertEqual(len(plan['secrets']), 30)
+        self.assertEqual(len({s['id'] for s in plan['secrets']}), 30, 'nenhum id repetido')
+        self.assertEqual(plan['secrets'][1]['text'], 'Pista 0')
+        self.assertEqual(plan['forSession'], 4, '"Começar o plano da Sessão 4" com a 3 ao vivo: continua o da 4')
+        # o plano de uma sessão já jogada vira o da próxima
+        plan = R.fill_empty_session_plan({'forSession': 3}, patch, {'session': '3', 'live': False})
+        self.assertEqual(plan['forSession'], 4)
 
 
 class WorldRulesUnitTests(TestCase):

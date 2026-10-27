@@ -741,21 +741,25 @@ def plan_session_number(state):
     return max(1, cur if state.get('live') and cur else cur + 1)
 
 
+def _filled_items(items, ref):
+    return [x for x in items or [] if isinstance(x, dict) and (str(x.get('text') or '').strip() or x.get(ref))]
+
+
 def session_plan_is_empty(plan):
-    """Plano "vazio" para quem preenche sozinho (aventura pronta, exemplo): sem começo,
-    sem cena e sem pista de verdade. Linhas vazias não contam (são só da tela)."""
+    """Plano "vazio" para quem preenche sozinho (aventura pronta, exemplo): sem começo e
+    sem cena de verdade, a mesma regra das 3 portas do Plano (N2). As pistas não contam:
+    as do mestre ficam e as do pacote vêm depois (fill_empty_session_plan), e "Começar o
+    plano da Sessão N" leva adiante as não achadas. Linhas vazias não contam (são só da tela)."""
     plan = plan if isinstance(plan, dict) else {}
-    filled = lambda items, ref: any(
-        isinstance(x, dict) and (str(x.get('text') or '').strip() or x.get(ref)) for x in items or [])
-    return not (str(plan.get('strongStart') or '').strip()
-                or filled(plan.get('scenes'), 'nodeRef') or filled(plan.get('secrets'), 'ref'))
+    return not (str(plan.get('strongStart') or '').strip() or _filled_items(plan.get('scenes'), 'nodeRef'))
 
 
 def fill_empty_session_plan(current, patch, state):
-    """Plano vazio + o que veio (aventura pronta, exemplo). As pessoas e os lugares que o
-    mestre já tinha escolhido ficam, e as anotações dele vêm antes das do pacote; as linhas
-    vazias saem (as cenas novas não herdam bolsos pelo id). O plano é o da sessão de hoje
-    (ao vivo) ou o da próxima."""
+    """Plano vazio + o que veio (aventura pronta, exemplo). As pessoas, os lugares e as
+    pistas que o mestre já tinha ficam, e as anotações e pistas dele vêm antes das do
+    pacote; as linhas vazias saem (as cenas novas não herdam bolsos pelo id). O plano
+    continua sendo o da sessão que o mestre escolheu ("Começar o plano da Sessão N");
+    sem ela, ou se ela já foi jogada, é o da sessão de hoje (ao vivo) ou o da próxima."""
     cur = current if isinstance(current, dict) else {}
     patch = dict(patch)
     for key in ('npcIds', 'placeIds'):
@@ -765,8 +769,18 @@ def fill_empty_session_plan(current, patch, state):
         old = str(cur.get(key) or '').strip()
         if key in patch and old:
             patch[key] = long_text(f'{old}\n{patch[key]}', 4000)
+    mine = _filled_items(cur.get('secrets'), 'ref')
+    used, extra = {s.get('id') for s in mine}, []
+    for s in patch.get('secrets') or []:
+        sid = s['id']
+        while sid in used:   # a pista do pacote nunca pega o id de uma pista do mestre
+            sid = f'{sid}x'
+        used.add(sid)
+        extra.append({**s, 'id': sid})
+    patch['secrets'] = (mine + extra)[:30]
     plan = merged_session_plan({**cur, 'scenes': [], 'secrets': []}, patch)
-    plan['forSession'] = None
+    fs = to_int(cur.get('forSession'), 1, 9999)
+    plan['forSession'] = fs if fs and fs >= plan_session_number(state) else None
     return bump_session_plan(plan, state)
 
 

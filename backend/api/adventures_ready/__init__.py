@@ -201,8 +201,9 @@ def imported_adventure_id(campaign, pack_id):
 
 
 def _plan_is_empty(plan):
-    """Sem começo, sem cena e sem pista com texto: as linhas vazias que o Plano antigo
-    gravava ao abrir (10 pistas em branco) não impedem a aventura de preencher o plano."""
+    """Sem começo e sem cena com texto (as pistas do mestre ficam, antes das do pacote): as
+    linhas vazias que o Plano antigo gravava ao abrir (10 pistas em branco) e as pistas
+    levadas adiante não impedem a aventura de preencher o plano."""
     return R.session_plan_is_empty(plan)
 
 
