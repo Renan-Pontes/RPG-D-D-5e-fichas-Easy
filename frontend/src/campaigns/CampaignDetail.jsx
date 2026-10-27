@@ -18,7 +18,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { usePolling } from '../api/polling.js';
-import { TableContext, useTableStore } from '../play/table-store.js';
+import { TableContext, useOnRev, useTableStore } from '../play/table-store.js';
 import { clearDiceTable, setDiceTable } from '../dice/dice-table.js';
 import useMedia from '../play/useMedia.js';
 import TableBar from '../stage/TableBar.jsx';
@@ -36,7 +36,7 @@ import {
 } from '../shell/Fallbacks.jsx';
 import {
   areasFor, areaTapSub, campaignRoute, groupBadgeCount, initialArea, isHexColor, loadRememberedArea, normalizeArea, onboardingStatus,
-  onboardingVisible, parseCampaignRoute, planHasContent, saveRememberedArea, screenLink, t,
+  onboardingVisible, parseCampaignRoute, planFlags, prepareMarks, saveRememberedArea, screenLink, t,
 } from '../shell/shell-logic.js';
 import '../shell/mesa.css';
 import '../shell/shell.css';
@@ -75,7 +75,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   const [nav, setNav] = useState(null);           // {area, sub, params}
   const [worldEpoch, setWorldEpoch] = useState(0); // muda ao esvaziar o Mundo → remonta a área
   const [world, setWorld] = useState(null);       // {entries, count, max} (mestre)
-  const [planHas, setPlanHas] = useState(false);
+  const [planInfo, setPlanInfo] = useState(null);  // {has, blank} do plano (Primeiros passos e o "!" de Preparar)
   const [search, setSearch] = useState(false);
   const [settings, setSettings] = useState(null); // null = fechado; senão a seção ('identity', 'danger', 'dice'…)
   const [more, setMore] = useState(false);         // folha "Mesa do mestre" (casa "Mais" do celular)
@@ -162,15 +162,31 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     catch { setWorld(w => w || { entries: [], count: 0, max: 500 }); }
   }, [campaign?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Dados de apoio do mestre: lista leve do Mundo (onboarding + busca) e plano.
+  // Dados de apoio do mestre: lista leve do Mundo (onboarding + busca).
   useEffect(() => {
     if (!campaign?.id || !isDM) return;
     loadWorld();
-    if (!campaign.onboarding?.dismissed) {
-      getSessionPlan(campaign.id).then(p => setPlanHas(planHasContent(p))).catch(() => {});
-    }
   }, [campaign?.id, isDM]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // O plano (Primeiros passos e o "!" de Preparar): 1 GET quando a área inicial é decidida;
+  // depois, só quando o `planRev` do pulso muda fora da sessão ao vivo (ao vivo o selo some)
+  // e fora do Plano (o Plano aberto avisa a cada mudança por `onPlan`, sem GET).
+  const navRef = useRef(null);
+  navRef.current = nav;
+  const reportPlan = useCallback((plan) => {
+    const f = planFlags(plan);
+    setPlanInfo(prev => (prev && f && prev.has === f.has && prev.blank === f.blank ? prev : f));
+  }, []);
+  const fetchPlan = useCallback(() => {
+    if (!campaign?.id || !isDM || campaign.status === 'closed') return;
+    if (navRef.current?.area === 'prepare' && navRef.current?.sub === 'next') return;
+    getSessionPlan(campaign.id).then(reportPlan).catch(() => { /* sem o plano: sem selo */ });
+  }, [campaign?.id, campaign?.status, isDM, reportPlan]);
+  useEffect(() => { if (nav) fetchPlan(); }, [campaign?.id, isDM, !!nav]); // eslint-disable-line react-hooks/exhaustive-deps
+  const liveNow = table.pulse ? !!table.pulse.live : !!campaign?.state?.live;
+  useOnRev(liveNow ? 'live' : table.pulse?.planRev, fetchPlan, { table, fallbackMs: Infinity, safetyMs: Infinity, initial: false });
+
+  const planHas = !!planInfo?.has;
   const obStatus = useMemo(() => (isDM && campaign
     ? onboardingStatus(campaign, { worldCount: world?.count || 0, planHasContent: planHas })
     : null), [isDM, campaign, world?.count, planHas]);
@@ -345,10 +361,12 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   const showBar = isDM && mobile && barVisible(vis);
   const win = isDM && !mobile ? windowMode({ ...vis, forced: !!winLiveAt }) : 'hidden';
   const tableCtx = isDM ? { ...tableValue, win, bar: showBar } : null;
-  // Selos de Jogar: "● ao vivo" e "⚔" com combate ativo (texto para o leitor de tela).
+  // Selos: Jogar "● ao vivo" e "⚔" com combate ativo; Preparar "!" com o plano em branco
+  // fora da sessão ao vivo (texto para o leitor de tela).
   const marks = isDM ? {
     play: [vis.live && { k: 'live', icon: '●', label: t(lang, 'ao vivo', 'live') },
       fighting && { k: 'combat', icon: '⚔', label: t(lang, 'combate', 'combat') }].filter(Boolean),
+    prepare: prepareMarks({ flags: planInfo, live: vis.live, closed: vis.closed, lang }),
   } : {};
   const openActor = (id) => { setLiveOpen(false); goTo('play', 'combat', { actor: id, at: Date.now() }); };
   const endCombatFromBar = () => goTo('play', 'combat', { endCombat: Date.now() });
@@ -369,6 +387,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   const ctx = {
     area: nav.area, sub: nav.sub, params: nav.params, goTo, clearParams, isDM, lang, campaign, reload: load,
     startSession: isDM ? startSession : undefined,   // o "▶ Começar a Sessão N" do Plano é o mesmo da capa
+    onPlan: isDM ? reportPlan : undefined,           // o Plano aberto: o "!" de Preparar sem GET
     openSearch: () => setSearch(true), openSettings: (section) => { setSettings(typeof section === 'string' ? section : 'identity'); if (isDM) loadWorld(); },
   };
 

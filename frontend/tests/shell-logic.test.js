@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   DM_AREAS, PLAYER_AREAS, normalizeArea, legacyTabToArea, areaTapSub, groupBadgeCount, initialArea,
   loadRememberedArea, saveRememberedArea, onboardingStatus, onboardingVisible,
-  planHasContent, fold, matchScore, searchItems, nextSessionNumber, defaultCoverArt,
+  planHasContent, planFlags, prepareMarks, fold, matchScore, searchItems, nextSessionNumber, defaultCoverArt,
   COVER_ART, isHexColor, subLabel, subShortLabel, SUB_ICONS, TONES,
   campaignRoute, parseCampaignRoute, SETTINGS_SECTIONS, settingsSectionLabel, settingsSummary,
 } from '../src/shell/shell-logic.js';
@@ -129,6 +129,21 @@ test('planHasContent', () => {
   assert.equal(planHasContent({ strongStart: 'Emboscada na ponte' }), true);
   assert.equal(planHasContent({ secrets: [{ text: 'O prefeito mente' }] }), true);
   assert.equal(planHasContent({ npcIds: [3] }), true);
+});
+
+test('selo "!" de Preparar: plano em branco (sem começo e sem cena) fora da sessão ao vivo', () => {
+  const blank = planFlags({ strongStart: ' ', scenes: [{ text: '' }], secrets: [{ text: 'O moleiro mente' }] });
+  assert.deepEqual(blank, { has: true, blank: true }, 'só pistas: tem conteúdo, mas está em branco para preparar');
+  assert.deepEqual(prepareMarks({ flags: blank, lang: 'pt' }), [{ k: 'empty', icon: '!', label: 'plano vazio' }]);
+  assert.equal(prepareMarks({ flags: blank, lang: 'en' })[0].label, 'empty plan');
+  assert.deepEqual(prepareMarks({ flags: blank, live: true }), [], 'ao vivo: nada');
+  assert.deepEqual(prepareMarks({ flags: blank, closed: true }), [], 'encerrada: nada');
+  assert.deepEqual(prepareMarks({ flags: null }), [], 'plano ainda não lido (ou servidor sem a rota): nada');
+  assert.equal(planFlags(null), null);
+  assert.deepEqual(prepareMarks({ flags: planFlags({ strongStart: 'O sino toca' }) }), []);
+  assert.deepEqual(prepareMarks({ flags: planFlags({ scenes: [{ text: '', nodeRef: { adventureId: 1, nodeId: 'n1' } }] }) }), [],
+    'cena ligada a uma sala conta como cena');
+  assert.deepEqual(prepareMarks({ flags: planFlags({}) }).length, 1);
 });
 
 test('busca: ignora acento e caixa, prioriza começo do nome', () => {

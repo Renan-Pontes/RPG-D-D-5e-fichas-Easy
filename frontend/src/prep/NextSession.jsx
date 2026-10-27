@@ -48,7 +48,7 @@ const HANDY_KINDS = ['npc', 'faction', 'place'];
  * Nenhum polling: o plano é lido ao abrir e depois de uma porta (aventura pronta, exemplo).
  */
 export default function NextSession({ campaign, lang, goTo }) {
-  const { reload, startSession: startFromShell } = useArea();
+  const { reload, startSession: startFromShell, onPlan } = useArea();
   const table = useTable();
   const desk = useMedia('(min-width: 1024px)');       // PC: 2 colunas (passos à esquerda, o passo aberto à direita)
   const narrow = useMedia('(max-width: 767px)');      // celular: À mão numa linha só
@@ -329,6 +329,9 @@ export default function NextSession({ campaign, lang, goTo }) {
   const shownOnce = useRef(false);   // só a 1ª abertura espera: depois, a sala que chega troca o cartão (useSettled)
   const holdNodes = !shownOnce.current && advIds.some(id => !(id in nodesByAdv)) && !waitOver;
   const fights = useMemo(() => sceneFights(plan, nodesByAdv), [plan, nodesByAdv]);
+
+  // a casca põe o "!" em Preparar com o plano em branco (o Plano aberto avisa a cada mudança)
+  useEffect(() => { if (plan) onPlan?.(plan); }, [plan, onPlan]);
 
   const computed = useMemo(() => (plan && adventures != null && !holdRx && !holdNodes ? nextStep({
     campaign, plan, pulse: table ? { tvLive: table.tvLive } : null, insights,

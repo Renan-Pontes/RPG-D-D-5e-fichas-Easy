@@ -1,4 +1,5 @@
 // Lógica pura da casca da campanha (sem React) — testada em tests/shell-logic.test.js.
+import { planIsBlank } from '../prep/next-session.js';
 
 export const t = (lang, pt, en) => (lang === 'en' ? en : pt);
 
@@ -171,6 +172,26 @@ export function planHasContent(plan) {
     if (Array.isArray(plan[k]) && plan[k].some(x => (x?.text || '').trim())) return true;
   }
   return (plan.npcIds?.length || 0) + (plan.placeIds?.length || 0) > 0;
+}
+
+/**
+ * O que a casca guarda do plano (1 GET ao abrir a campanha, de novo quando o `planRev` do
+ * pulso muda fora do Plano; o Plano aberto avisa a cada mudança): `has` para os Primeiros
+ * passos e `blank` para o selo de Preparar. Sem plano (não lido, servidor sem a rota): null.
+ */
+export function planFlags(plan) {
+  if (!plan || typeof plan !== 'object') return null;
+  return { has: planHasContent(plan), blank: planIsBlank(plan) };
+}
+
+/**
+ * Selos de Preparar (§2.1): "!" quando o plano está em branco (sem começo e sem cena, as 3
+ * portas do Plano) e a sessão não está ao vivo. Campanha encerrada ou plano ainda não
+ * lido: nenhum.
+ */
+export function prepareMarks({ flags, live = false, closed = false, lang = 'pt' } = {}) {
+  if (!flags?.blank || live || closed) return [];
+  return [{ k: 'empty', icon: '!', label: t(lang, 'plano vazio', 'empty plan') }];
 }
 
 // ---------------------------------------------------------------------------
