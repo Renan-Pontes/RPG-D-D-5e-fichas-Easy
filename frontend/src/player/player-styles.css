@@ -367,7 +367,13 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 }
 .pl-fight.is-mine .pl-fight-icon, .pl-fight.is-mine .pl-fight-title { color: var(--on-gold); }
 .pl-fight.is-mine .pl-fight-title { font-family: var(--display); font-weight: 700; letter-spacing: 0.1em; }
-.pl-fight.is-mine .pl-fight-sub { color: rgba(26, 18, 10, 0.8); }
+/* na vez dele o botão de 48 px estreita o texto: a rodada e quem vem depois quebram em
+   até 2 linhas (cabem nos 64 px com o título numa linha), para o nome não sumir em "…" */
+.pl-fight.is-mine .pl-fight-sub {
+  color: rgba(26, 18, 10, 0.8); white-space: normal; overflow-wrap: anywhere; line-height: 1.2;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
+.pl-fight.is-mine .pl-fight-title { line-height: 1.2; }
 .pl-fight-go {
   flex: 0 1 auto; max-width: 48%; min-height: 48px; padding: 4px 12px; border-radius: 8px;
   border: 1px solid var(--on-gold); background: var(--bg-deep); color: var(--gold-bright);
