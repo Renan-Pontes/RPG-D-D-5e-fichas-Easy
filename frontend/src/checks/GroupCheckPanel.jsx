@@ -49,21 +49,23 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
   const [sent, setSent] = useState('');
   const [other, setOther] = useState('');
   const [custom, setCustom] = useState('');
-  // "melhor: Pipo +7 · 65%" — na CD escolhida; sem CD, na 15 (a de referência do Raio-X)
+  // "melhor: Pipo +7 · 65%" — na CD escolhida (sem CD, na 15, a de referência do Raio-X) e
+  // com o dado escolhido aqui (vantagem: 1 − (1 − p)²; desvantagem: p²)
   const refDc = dc !== '' && Number.isFinite(+dc) && +dc > 0 ? +dc : 15;
   const members = campaign.members;
   const best = useMemo(() => {
     const out = {};
-    for (const k of QUICK_SKILLS) out[`skill:${k}`] = bestAt(members, 'skill', k, refDc);
-    for (const k of QUICK_SAVES) out[`save:${k}`] = bestAt(members, 'save', k, refDc);
+    for (const k of QUICK_SKILLS) out[`skill:${k}`] = bestAt(members, 'skill', k, refDc, { mode: advantage });
+    for (const k of QUICK_SAVES) out[`save:${k}`] = bestAt(members, 'save', k, refDc, { mode: advantage });
     return out;
-  }, [members, refDc]);
+  }, [members, refDc, advantage]);
+  const modeText = advantage === 'adv' ? L(lang, ' com vantagem', ' with advantage') : advantage === 'dis' ? L(lang, ' com desvantagem', ' with disadvantage') : '';
   const bestLine = (b) => {
     if (!b) return null;
     const who = b.who.length > 2 ? L(lang, `${b.who.length} empatados`, `${b.who.length} tied`) : b.who.map(firstName).join('/');
     return `${L(lang, 'melhor', 'best')}: ${who} ${formatMod(b.best)} · ${b.p}%`;
   };
-  const bestAria = (b) => (b ? L(lang, `, melhor da mesa: ${b.who.join(', ')} ${formatMod(b.best)}, ${b.p}% na CD ${refDc}`, `, best at the table: ${b.who.join(', ')} ${formatMod(b.best)}, ${b.p}% at DC ${refDc}`) : '');
+  const bestAria = (b) => (b ? L(lang, `, melhor da mesa: ${b.who.join(', ')} ${formatMod(b.best)}, ${b.p}% na CD ${refDc}${modeText}`, `, best at the table: ${b.who.join(', ')} ${formatMod(b.best)}, ${b.p}% at DC ${refDc}${modeText}`) : '');
   const hasBest = Object.values(best).some(Boolean);
 
   const load = useCallback(async () => {
@@ -150,8 +152,8 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
         <span className="gc-label">{L(lang, 'Perícia (um toque envia)', 'Skill (one tap sends)')}</span>
         {hasBest && (
           <p className="gc-hint">{dc === ''
-            ? L(lang, `Embaixo de cada atalho: o melhor da mesa e a chance dele na CD ${refDc} (sem CD escolhida).`, `Under each shortcut: the best at the table and their chance at DC ${refDc} (no DC picked).`)
-            : L(lang, `Embaixo de cada atalho: o melhor da mesa e a chance dele na CD ${refDc}.`, `Under each shortcut: the best at the table and their chance at DC ${refDc}.`)}</p>
+            ? L(lang, `Embaixo de cada atalho: o melhor da mesa e a chance dele na CD ${refDc}${modeText} (sem CD escolhida).`, `Under each shortcut: the best at the table and their chance at DC ${refDc}${modeText} (no DC picked).`)
+            : L(lang, `Embaixo de cada atalho: o melhor da mesa e a chance dele na CD ${refDc}${modeText}.`, `Under each shortcut: the best at the table and their chance at DC ${refDc}${modeText}.`)}</p>
         )}
         <div className="gc-quick" aria-label={L(lang, 'Atalhos de perícia', 'Skill shortcuts')}>
           {QUICK_SKILLS.map(k => (

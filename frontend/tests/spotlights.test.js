@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import Utils from '../utils.js';
 import * as M from '../src/group/party-metrics.js';
 import * as S from '../src/group/spotlights.js';
+import { rollChance } from '../src/group/party-best.js';
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/party-jogo-e-combate.json', import.meta.url), 'utf8'));
 const party = M.partyMembers(fixture.members);
@@ -184,6 +185,12 @@ test('Oportunidades: momentos aceitos que faltam vêm antes das sugestões; os q
 test('ganchos: melhor da mesa no Pedir teste, papéis no cartão de jogador e a linha da Próxima sessão', () => {
   const stealth = M.bestAt(party, 'skill', 'stealth', 15);
   assert.deepEqual([M.firstName(stealth.who[0]), stealth.best, stealth.p, stealth.group], ['Pipo', 7, 65, 88]);
+  // o dado da folha Pedir teste: +5 na CD 12 → 70% normal, 91% com vantagem, 49% com desvantagem
+  const dex = (mode) => M.bestAt(party, 'save', 'dex', 12, mode ? { mode } : undefined);
+  assert.deepEqual([M.firstName(dex().who[0]), dex().best], ['Pipo', 5]);
+  assert.deepEqual([dex().p, dex('normal').p, dex('adv').p, dex('dis').p], [70, 70, 91, 49]);
+  assert.ok(dex('adv').group >= dex('adv').p && dex('dis').group < dex().group, 'o "pelo menos 1 passa" usa o mesmo dado');
+  assert.deepEqual([rollChance(0.7), rollChance(0.7, 'adv'), rollChance(0.7, 'dis')].map(M.pct), [70, 91, 49]);
   const wis = M.bestAt(party, 'save', 'wis', 13);
   assert.deepEqual([M.firstName(wis.who[0]), wis.best, wis.p], ['Dagna', 5, 65]);
   assert.equal(M.bestAt([], 'skill', 'stealth'), null);
