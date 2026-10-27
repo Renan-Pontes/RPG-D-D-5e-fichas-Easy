@@ -142,7 +142,8 @@ class WorldLightDataTests(Base):
         self.assertEqual(e['Velna']['data'], {'role': 'Taverneira'})
         self.assertEqual(e['Vila']['data'], {'placeType': 'village'})
         self.assertEqual(e['Espada']['data'], {'rarity': 'rare'})
-        self.assertEqual(e['Carta']['data'], {'style': 'letter'})
+        # recipients só para o mestre: o 📺 dele explica "Documento só para …: não vai à Tela".
+        self.assertEqual(e['Carta']['data'], {'style': 'letter', 'recipients': [self.m2.id]})
 
     def test_player_filtered(self):
         e = self.entries(self.c1)

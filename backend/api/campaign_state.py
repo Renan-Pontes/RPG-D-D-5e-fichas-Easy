@@ -9,7 +9,8 @@ as chaves do patch.
 
 Whitelists:
   - PATCHABLE_KEYS: o que o mestre pode mudar por PATCH /campaigns/:id/state.
-  - SERVER_KEYS: chaves que só o servidor escreve (diarySessions, screenCard).
+  - SERVER_KEYS: chaves que só o servidor escreve (diarySessions, screenCard,
+    stage e stageRecap — o palco da Tela, ver api/stage.py).
   - SCREEN_KEYS: o que vai para o telão público (sem login).
   - PLAYER_KEYS: o que o jogador recebe no GET da campanha.
 
@@ -25,7 +26,7 @@ PATCHABLE_KEYS = (
     'session', 'scene', 'sceneText', 'weather', 'live', 'nudges', 'concentration',
     'endOfEncounterWizard', 'levelingMode', 'allowMulticlass',
 )
-SERVER_KEYS = ('diarySessions', 'screenCard')
+SERVER_KEYS = ('diarySessions', 'screenCard', 'stage', 'stageRecap')
 SCREEN_KEYS = ('session', 'scene', 'sceneText', 'weather', 'live')
 PLAYER_KEYS = SCREEN_KEYS + ('levelingMode', 'allowMulticlass')
 

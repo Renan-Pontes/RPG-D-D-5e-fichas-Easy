@@ -177,6 +177,18 @@ class ScreenCardTests(Base):
         self.camp.refresh_from_db()
         self.assertEqual(self.camp.state['scene'], 'Taverna')
 
+    def test_stage_projection_has_no_dm_fields(self):
+        # O palco cru (label, prev, prefs do mestre) nunca sai na TV nem para o jogador.
+        self.c_dm.post(f'/api/campaigns/{self.camp.id}/stage',
+                       {'op': 'show', 'target': {'kind': 'image', 'ref': {'entryId': self.hidden.id}}}, format='json')
+        self.c_dm.post(f'/api/campaigns/{self.camp.id}/stage', {'op': 'show', 'target': {'kind': 'text', 'text': 'Chuva.'}},
+                       format='json')
+        for payload in (self.screen(), self.c_p1.get(f'/api/campaigns/{self.camp.id}').json()['campaign']):
+            raw = str(payload)
+            for leak in ('Lorde Sombrio', "'label'", "'prev'", "'lit'", "'players'", "'monsters'", 'zzz999'):
+                self.assertNotIn(leak, raw, leak)
+        self.assertEqual(self.screen()['stage']['front'], {'kind': 'text', 'text': 'Chuva.'})
+
     def test_only_dm_and_validation(self):
         self.assertEqual(self.show({'type': 'recap', 'title': 'x'}, self.c_p1).status_code, 403)
         self.assertEqual(self.show({'type': 'bogus'}).status_code, 400)

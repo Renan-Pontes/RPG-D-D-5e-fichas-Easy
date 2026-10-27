@@ -490,6 +490,9 @@ def serialize_light(entry, for_dm, visible_ids=None):
         'revealedAt': _iso(entry.revealed_at), 'updatedAt': _iso(entry.updated_at),
     }
     ldata = light_data(entry, for_dm)
+    if for_dm and entry.kind == 'handout' and isinstance((entry.data or {}).get('recipients'), list):
+        # O 📺 do mestre explica por escrito: "Documento só para Ana: não vai à Tela".
+        ldata['recipients'] = list(entry.data['recipients'])
     if ldata:  # só quando há rótulo (o front lê `entry.data?.role` etc.)
         base['data'] = ldata
     if for_dm:

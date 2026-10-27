@@ -151,7 +151,8 @@ def serialize_for_player(cr, user, character_id=None):
 
 
 def serialize_for_screen(cr):
-    """Resumo público para o telão (sem CD se oculta)."""
+    """Resumo público para a Tela. CD secreta: nem a CD nem o ✓/✗ (que
+    entregariam a CD); só os totais."""
     data = serialize_for_dm(cr)
     return {
         'id': cr.id,
@@ -164,7 +165,7 @@ def serialize_for_screen(cr):
                 'name': t['characterName'] or t['displayName'],
                 'total': t['response']['total'] if t['response'] else None,
                 'natural': t['response']['natural'] if t['response'] else None,
-                'outcome': t['outcome'],
+                'outcome': None if cr.dc_hidden else t['outcome'],
             }
             for t in data['targets']
         ],
@@ -269,7 +270,13 @@ def check_close(request, pk):
     reopen = bool(request.data.get('reopen'))
     cr.status = 'open' if reopen else 'closed'
     cr.closed_at = None if reopen else timezone.now()
-    cr.save(update_fields=['status', 'closed_at'])
+    fields = ['status', 'closed_at']
+    if not reopen and cr.show_on_screen:
+        # Encerrado sai da Tela (antes o painel ficava na TV para sempre).
+        cr.show_on_screen = False
+        cr.screen_at = None
+        fields += ['show_on_screen', 'screen_at']
+    cr.save(update_fields=fields)
     return Response({'check': serialize_for_dm(cr)})
 
 

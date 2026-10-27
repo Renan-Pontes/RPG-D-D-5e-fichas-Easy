@@ -7,6 +7,13 @@ GET /screen/<token>                   estado PÚBLICO (whitelist), cartão "Most
 GET /screen/<token>/image/<entryId>   imagem de uma entrada do Mundo que NÃO está oculta.
 GET /screen/<token>/cover             capa da campanha.
 GET /screen/<token>/map               fundo do mapa de combate (cacheável por ?v=).
+GET /screen/<token>/stage-image?v=    a imagem que está na FRENTE da Tela agora (cartão
+                                      oculto em "só a imagem", sala, mapa de lugar); outra
+                                      versão ou outra frente → 404.
+
+O palco (`stage`, api/stage.py) é o que manda na Tela: frente, fundo e as
+sobreposições. `card`, `publicCheck` e o resto continuam por 1 versão (TV aberta
+com o JS antigo).
 
 Tudo o que é só do mestre (nudges, concentration, diarySessions, screenCard cru,
 PV/CA/ações de monstro, notas e segredos do Mundo) fica de fora.
@@ -21,6 +28,7 @@ from .progression.multiclass import class_entries
 from .campaign_state import public_state
 from .image_data import image_response, image_ver
 from .screen_card import is_private_handout, resolve_screen_card
+from .stage import public_stage, stage_image_data
 from .dice_privacy import scrub_dice
 
 
@@ -76,22 +84,25 @@ def screen(request, token):
         .filter(campaign=campaign, status='public')
         .select_related('requested_by', 'requested_by__profile')[:1]
     )
-    # Pedido de teste que o mestre escolheu mostrar (no máximo um).
+    # Pedido de teste que o mestre escolheu mostrar (no máximo um; encerrado sai da Tela).
     shown_check = (
         CheckRequest.objects
-        .filter(campaign=campaign, show_on_screen=True)
+        .filter(campaign=campaign, show_on_screen=True, status='open')
         .prefetch_related('responses')
         .first()
     )
+    public_check = _check_for_screen(shown_check) if shown_check else None
     combat_payload = None
     if combat:
         combat_payload = _serialize_combat(combat, for_dm=False)
         combat_payload.pop('log', None)
         combat_payload['map'] = _public_map(combat_payload.get('map') or {}, token)
+    stage = public_stage(campaign, token=token, test=public_check, card=card)
     return Response({
         'state': state,
         'card': card,
         'combat': combat_payload,
+        'stage': stage,
         'campaign': {
             'id': campaign.id,
             'name': campaign.name,
@@ -131,7 +142,7 @@ def screen(request, token):
                 }
                 for r in public_rolls
             ],
-            'publicCheck': _check_for_screen(shown_check) if shown_check else None,
+            'publicCheck': public_check,
         }
     })
 
@@ -203,6 +214,22 @@ def screen_map(request, token):
     if not bg:
         raise NotFound('not_found')
     return image_response(request, bg)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def screen_stage_image(request, token):
+    """Imagem da frente da Tela (sem login). Só a frente ATUAL e só com a versão
+    certa: o "só a imagem" de um cartão oculto não fica acessível depois de sair."""
+    campaign = (Campaign.objects.filter(screen_token=token)
+                .only('id', 'state', 'screen_token').first())
+    if not campaign:
+        raise NotFound('not_found')
+    found = stage_image_data(campaign, request.GET.get('v') or '')
+    if not found:
+        raise NotFound('not_found')
+    return image_response(request, found[0], found[1])
 
 
 def _display_name(user):

@@ -12,6 +12,11 @@ Saída resolvida (telão e celular do jogador), só com dados públicos:
 
 A resolução acontece na LEITURA: se o mestre esconder a entrada depois de
 mostrar, o cartão some; segredos só aparecem se já estiverem revelados.
+
+Desde o palco da Tela (api/stage.py) este cartão é a COMPATIBILIDADE: quem manda
+é `state.stage`, e o palco regrava `screenCard` para cartão, cena de sala e
+"Anteriormente em…" (TV aberta com o JS antigo; toast "O mestre revelou" do
+jogador, que leva `revealedAt` para só avisar quando houve revelação).
 """
 import re
 
@@ -111,6 +116,27 @@ def _entry_image_url(entry, *, token=None):
     return f'/api/world/{entry.id}/image?v={entry.image_ver}'
 
 
+def entry_card(entry, secret_ids, *, token=None, at=None):
+    """Cartão público de uma entrada visível (revelada ou conhecida de nome)."""
+    labels = KIND_LABELS.get(entry.kind, ('', ''))
+    if entry.visibility == 'revealed':
+        text = plain_text(entry.body) or entry.summary
+        wanted = set(secret_ids or [])
+        secrets = [s.get('text', '') for s in (entry.secrets or [])
+                   if isinstance(s, dict) and s.get('id') in wanted and s.get('revealed')]
+        if secrets:
+            text = '\n\n'.join([t for t in [text] + secrets if t])
+    else:  # partial: só o que se conhece de nome
+        text = entry.summary
+    return {
+        'type': 'entry', 'entryId': entry.id, 'kind': entry.kind,
+        'title': entry.name, 'kindLabel': labels[0], 'kindLabelEn': labels[1],
+        'text': text or '', 'imageUrl': _entry_image_url(entry, token=token),
+        'partial': entry.visibility == 'partial', 'at': at,
+        'revealedAt': entry.revealed_at.isoformat() if entry.revealed_at else None,
+    }
+
+
 def resolve_screen_card(campaign, *, token=None):
     """Cartão público resolvido ou None. `token` → URLs de imagem do telão
     (sem login); sem token → URLs autenticadas (celular do jogador)."""
@@ -124,31 +150,24 @@ def resolve_screen_card(campaign, *, token=None):
         entry = WorldEntry.objects.filter(campaign=campaign, pk=raw.get('entryId')).first()
         if not entry or entry.visibility == 'hidden' or is_private_handout(entry):
             return None
-        labels = KIND_LABELS.get(entry.kind, ('', ''))
-        if entry.visibility == 'revealed':
-            text = plain_text(entry.body) or entry.summary
-            wanted = set(raw.get('secretIds') or [])
-            secrets = [s.get('text', '') for s in (entry.secrets or [])
-                       if isinstance(s, dict) and s.get('id') in wanted and s.get('revealed')]
-            if secrets:
-                text = '\n\n'.join([t for t in [text] + secrets if t])
-        else:  # partial: só o que se conhece de nome
-            text = entry.summary
-        return {
-            'type': 'entry', 'entryId': entry.id, 'kind': entry.kind,
-            'title': entry.name, 'kindLabel': labels[0], 'kindLabelEn': labels[1],
-            'text': text or '', 'imageUrl': _entry_image_url(entry, token=token),
-            'partial': entry.visibility == 'partial', 'at': at,
-        }
+        return entry_card(entry, raw.get('secretIds') or [], token=token, at=at)
     if kind == 'recap':
         return {'type': 'recap', 'title': raw.get('title') or '', 'kindLabel': 'Anteriormente…',
                 'kindLabelEn': 'Previously…', 'text': raw.get('text') or '', 'imageUrl': None, 'at': at}
     if kind == 'scene':
+        state = campaign.state or {}
+        # O palco já gravou o nome e o texto da sala: não precisa abrir a aventura
+        # inteira a cada poll (TV e GET de todos).
+        front = (state.get('stage') or {}).get('front') if isinstance(state.get('stage'), dict) else None
+        ref = (front or {}).get('ref') if isinstance(front, dict) else None
+        if isinstance(ref, dict) and ref.get('advId') == raw.get('adventureId') and ref.get('nodeId') == raw.get('nodeId'):
+            return {'type': 'scene', 'title': front.get('title') or state.get('scene') or '',
+                    'kindLabel': 'Cena', 'kindLabelEn': 'Scene',
+                    'text': front.get('text') or state.get('sceneText') or '', 'imageUrl': None, 'at': at}
         adv = campaign.adventures.filter(pk=raw.get('adventureId')).first()
         node = next((n for n in ((adv.data or {}).get('nodes') or []) if n.get('id') == raw.get('nodeId')), None) if adv else None
         if not node:
             return None
-        state = campaign.state or {}
         return {'type': 'scene', 'title': node.get('name') or state.get('scene') or '',
                 'kindLabel': 'Cena', 'kindLabelEn': 'Scene',
                 'text': state.get('sceneText') or '', 'imageUrl': None, 'at': at}

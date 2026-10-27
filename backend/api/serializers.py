@@ -166,8 +166,9 @@ class CampaignSerializer(serializers.ModelSerializer):
 
     Mestre: state inteiro, inviteCode, screenToken, onboarding, advancedDice,
     pendingApprovals. Jogador: state recortado (campaign_state.PLAYER_KEYS),
-    worldNewCount e o cartão do telão resolvido (screenCard) para o toast
-    "O mestre revelou…"."""
+    worldNewCount, o palco público da Tela (stage, a mesma projeção da TV) e
+    o cartão resolvido (screenCard) para o toast "O mestre revelou…".
+    Todos: combatNow {active, round} (a regra da Tela: combate é o fundo)."""
     role = serializers.SerializerMethodField()
     members = serializers.SerializerMethodField()
     inviteCode = serializers.CharField(source='invite_code', read_only=True)
@@ -210,15 +211,19 @@ class CampaignSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         from .campaign_state import public_state, PLAYER_KEYS
         from .screen_card import resolve_screen_card
+        from .stage import combat_now, dm_stage, public_stage
         data = super().to_representation(instance)
         request = self.context.get('request')
         is_dm = _viewer_is_dm(self, instance)
         _lifecycle(data, instance)
-        data['screenCard'] = resolve_screen_card(instance)
+        card = resolve_screen_card(instance)
+        data['screenCard'] = card
+        data['combatNow'] = combat_now(instance)
         settings = instance.dm_settings if isinstance(instance.dm_settings, dict) else {}
         # "Mundo vivo" (padrão ligado): o jogador precisa saber para mostrar os ecos
         data['immersion'] = settings.get('immersion') is not False
         if is_dm:
+            data['stage'] = dm_stage(instance, card)   # o palco cru (com os nomes que só o mestre lê)
             data['onboarding'] = settings.get('onboarding') or {}
             data['advancedDice'] = bool(settings.get('advancedDice'))
             data['fogHint'] = settings.get('fogHint') is True
@@ -231,6 +236,7 @@ class CampaignSerializer(serializers.ModelSerializer):
             data.pop('inviteCode', None)
             data.pop('screenToken', None)
             data['state'] = public_state(instance.state, PLAYER_KEYS)
+            data['stage'] = public_stage(instance, card=card)
             data['worldNewCount'] = _world_new_count(instance, request)
         return data
 

@@ -82,6 +82,9 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/state', closed_guard(_wp2('views_campaigns', 'campaign_state_patch'), 'campaign')),
     path('campaigns/<str:id_or_slug>/cover', closed_guard(_wp2('views_campaigns', 'campaign_cover'), 'campaign')),
     path('campaigns/<str:id_or_slug>/screen-card', closed_guard(_wp2('views_campaigns', 'campaign_screen_card'), 'campaign')),
+    # Palco da Tela (frente, fundo, ↶, 🧹, ◐) e a imagem da frente (V3, api/stage.py)
+    path('campaigns/<str:id_or_slug>/stage', closed_guard(views_campaigns.campaign_stage, 'campaign')),
+    path('campaigns/<str:id_or_slug>/stage-image', views_campaigns.campaign_stage_image),
 
     # Mundo da campanha (lugares, NPCs, facções, itens, lore, documentos)
     path('campaigns/<str:id_or_slug>/world', closed_guard(views_world.world_list, 'campaign')),
@@ -160,6 +163,7 @@ urlpatterns = [
     path('screen/<str:token>/image/<int:entry_id>', _wp2('views_screen', 'screen_image')),
     path('screen/<str:token>/cover', _wp2('views_screen', 'screen_cover')),
     path('screen/<str:token>/map', views_screen.screen_map),
+    path('screen/<str:token>/stage-image', views_screen.screen_stage_image),
 
     # Combat
     path('combat/campaign/<str:id_or_slug>', closed_guard(views_combat.combat_get, 'campaign')),
