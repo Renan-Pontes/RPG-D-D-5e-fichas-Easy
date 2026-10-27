@@ -43,7 +43,8 @@ export default function StageThumb({ campaign, stage, test = null, lang = 'pt', 
       )}
       <span className="stage-thumb-band" aria-hidden="true">
         <span className="stage-thumb-l1">{line1}</span>
-        {line2 && <span className="stage-thumb-l2">{line2}</span>}
+        {/* a 2ª linha fica sempre (vazia ou não): a faixa não muda de altura quando a Tela muda */}
+        <span className="stage-thumb-l2">{line2 || '\u00a0'}</span>
       </span>
     </div>
   );

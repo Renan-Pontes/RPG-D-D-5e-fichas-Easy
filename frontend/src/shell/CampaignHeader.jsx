@@ -157,8 +157,11 @@ export function TvPanel({ campaign, lang, onOpened, onChanged, onChoose }) {
         {now.held && (
           <span className="shell-pop-note muted">{t(lang, 'Atrás da Tela escurecida: ', 'Behind the blacked-out screen: ')}{frontLabel(now.held, lang, { dm: true })}</span>
         )}
+        {now.gone && (
+          <span className="shell-pop-note muted">{frontLabel(now.gone, lang, { dm: true })}{t(lang, ' · não aparece na Tela (oculto ou apagado)', ' · not on screen (hidden or deleted)')}</span>
+        )}
         <div className="shell-pop-clear-row">
-          {(now.front || now.waiting) && (
+          {(now.front || now.waiting || now.gone) && (
             <button type="button" className="mesa-btn shell-pop-clear" disabled={busy}
               onClick={() => act(() => stageBack(campaign.id), t(lang, 'Tirado ✓', 'Removed ✓'))}>
               ✕ {t(lang, 'Tirar', 'Remove')}
@@ -169,7 +172,7 @@ export function TvPanel({ campaign, lang, onOpened, onChanged, onChoose }) {
               onClick={() => act(() => stageDark(campaign.id, false), t(lang, 'Tela acesa ✓', 'Screen lit ✓'))}>
               ◑ {t(lang, 'Acender', 'Light up')}
             </button>
-          ) : (now.front || now.waiting) ? (
+          ) : (now.front || now.waiting || now.gone) ? (
             <button type="button" className="mesa-btn shell-pop-clear" disabled={busy}
               onClick={() => act(() => stageClear(campaign.id), t(lang, 'Tela limpa ✓', 'Screen cleared ✓'))}>
               🧹 {t(lang, 'Limpar a tela', 'Clear screen')}

@@ -4,9 +4,12 @@
 //      "▶ Ver ao vivo" (a TV de verdade num iframe, só enquanto ligado; pausa
 //      sozinha em 3 min parada ou com a aba escondida);
 //   2. NA TELA AGORA: uma linha por camada (Frente · Fundo · Teste, sempre as 3)
-//      com ✕ Tirar (por cima do combate: ⚔ Voltar para o combate), e sempre os
+//      com ✕ Tirar (por cima do combate: ⚔ Voltar ao combate), e sempre os
 //      mesmos ↶ Voltar para… · 🧹 Limpar · ◐ Escurecer/◑ Acender — nada muda de
-//      lugar quando a Tela muda sozinha;
+//      lugar quando a Tela muda sozinha nem depois de um toque: as linhas e os
+//      botões têm tamanho fixo (texto cortado com reticências, a linha de baixo
+//      da Frente sempre reservada; o nome inteiro fica no texto da página, no
+//      `title` e na prévia), o que chega troca só o texto (princípio 8);
 //   3. MOSTRAR: Imagens · Cenas · Texto · Mapa (ShowPicker, o 📺 único);
 //   4. LIGAR A TELA: link, Copiar (marca o passo "tv" dos primeiros passos),
 //      Abrir na TV ↗, Gerar novo link (confirma).
@@ -39,6 +42,8 @@ export default function StagePanel({ campaign, lang = 'pt', onChange, shownCheck
   const now = stageNow({ stage, combat });
   const lines = stageLines({ stage, combat, test: shownCheck, lang, all: true });
   const undo = undoLabel(stage, lang);
+  // Nada a limpar: nem frente (na tela, esperando, atrás da escura ou ocultada depois) nem teste.
+  const clean = !now.front && !now.held && !now.waiting && !now.gone && !shownCheck;
   const url = screenLink(window.location.origin, campaign.screenToken);
   const [busy, setBusy] = useState(false);
   const cid = campaign.id;
@@ -59,7 +64,7 @@ export default function StagePanel({ campaign, lang = 'pt', onChange, shownCheck
     return null;
   };
   const removeLabel = (line) => (line.remove === 'light' ? `◑ ${L(lang, 'Acender', 'Light up')}`
-    : line.over ? `⚔ ${L(lang, 'Voltar para o combate', 'Back to combat')}` : `✕ ${L(lang, 'Tirar', 'Remove')}`);
+    : line.over ? `⚔ ${L(lang, 'Voltar ao combate', 'Back to combat')}` : `✕ ${L(lang, 'Tirar', 'Remove')}`);
 
   const copy = async () => {
     const ok = await copyText(url);
@@ -85,35 +90,34 @@ export default function StagePanel({ campaign, lang = 'pt', onChange, shownCheck
         <LivePreview campaign={campaign} stage={stage} test={shownCheck} lang={lang} />
         <div className="stage-lines" role="list">
           {lines.map(line => (
-            <div key={line.layer} className={`mesa-row stage-line is-${line.layer} ${line.empty ? 'is-empty' : ''}`} role="listitem">
+            <div key={line.layer} className={`mesa-row stage-line is-${line.layer} ${line.empty ? 'is-empty' : ''}`} role="listitem"
+              title={[line.text, line.sub].filter(Boolean).join(' · ')}>
               <span className="stage-line-layer">{line.title}</span>
-              <span className="mesa-row-main">
-                <span className="mesa-row-title stage-line-text">{line.text}</span>
-                {line.sub && <span className="mesa-row-sub">{line.sub}</span>}
-              </span>
+              <span className="stage-line-text">{line.text}</span>
+              {line.layer === 'front' && <span className="stage-line-sub">{line.sub || '\u00a0'}</span>}
               {line.remove && (
                 <button type="button" className="mesa-btn stage-line-x" disabled={busy} onClick={() => removeLine(line)}
-                  aria-label={`${removeLabel(line)}: ${line.title}`}>{removeLabel(line)}</button>
+                  aria-label={`${removeLabel(line)}: ${line.title}`}><span className="stage-clamp">{removeLabel(line)}</span></button>
               )}
             </div>
           ))}
         </div>
-        {/* Sempre os mesmos 3 botões, no mesmo lugar (o rótulo diz o que fazem agora). */}
+        {/* Sempre os mesmos 3 botões, no mesmo lugar e da mesma altura (o rótulo diz o que fazem agora). */}
         <div className="stage-ctl">
-          <button type="button" className="mesa-btn stage-ctl-btn" disabled={busy || !undo}
+          <button type="button" className="mesa-btn stage-ctl-btn is-undo" disabled={busy || !undo} title={undo || undefined}
             onClick={() => act(() => stageUndo(cid), { done: L(lang, 'Desfeito ✓', 'Undone ✓') })}>
-            {undo || L(lang, '↶ Nada para desfazer', '↶ Nothing to undo')}
+            <span className="stage-clamp is-one">{undo || L(lang, '↶ Nada para desfazer', '↶ Nothing to undo')}</span>
           </button>
-          <button type="button" className="mesa-btn stage-ctl-btn" disabled={busy || (!now.front && !now.held && !now.waiting && !shownCheck)}
+          <button type="button" className="mesa-btn stage-ctl-btn" disabled={busy || clean}
             onClick={() => act(() => stageClear(cid), { done: L(lang, 'Tela limpa ✓', 'Screen cleared ✓'), name: L(lang, 'só o fundo', 'background only') })}>
-            🧹 {(!now.front && !now.held && !now.waiting && !shownCheck) ? L(lang, 'Limpar: já está limpa', 'Clear: already clear') : L(lang, 'Limpar a tela', 'Clear screen')}
+            <span className="stage-clamp">🧹 {clean ? L(lang, 'Limpar: já está limpa', 'Clear: already clear') : L(lang, 'Limpar a tela', 'Clear screen')}</span>
           </button>
           {now.mode === 'dark' ? (
             <button type="button" className="mesa-btn is-primary stage-ctl-btn" disabled={busy}
-              onClick={() => act(() => stageDark(cid, false), { done: L(lang, 'Tela acesa ✓', 'Screen lit ✓') })}>◑ {L(lang, 'Acender', 'Light up')}</button>
+              onClick={() => act(() => stageDark(cid, false), { done: L(lang, 'Tela acesa ✓', 'Screen lit ✓') })}><span className="stage-clamp">◑ {L(lang, 'Acender', 'Light up')}</span></button>
           ) : (
             <button type="button" className="mesa-btn stage-ctl-btn" disabled={busy}
-              onClick={() => act(() => stageDark(cid, true), { done: L(lang, 'Tela escurecida ✓', 'Screen blacked out ✓') })}>◐ {L(lang, 'Escurecer', 'Black out')}</button>
+              onClick={() => act(() => stageDark(cid, true), { done: L(lang, 'Tela escurecida ✓', 'Screen blacked out ✓') })}><span className="stage-clamp">◐ {L(lang, 'Escurecer', 'Black out')}</span></button>
           )}
         </div>
       </section>

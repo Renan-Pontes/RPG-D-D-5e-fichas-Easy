@@ -91,6 +91,22 @@ test('↶ Desfazer diz o que volta', () => {
   assert.equal(undoLabel({ prev: { bg: 'auto', front: { kind: 'card', label: 'Vale de Brumafria' } } }, 'pt'), '↶ Voltar para: Vale de Brumafria');
   assert.equal(undoLabel({ prev: { bg: 'auto', front: null } }, 'en'), '↶ Back to: the background');
   assert.equal(undoLabel({}, 'pt'), '');
+  // palco gravado sem o nome (campanha de antes do palco): nunca "Voltar para:" vazio
+  assert.equal(undoLabel({ prev: { bg: 'auto', front: { kind: 'card', entryId: 2, label: '' } } }, 'pt'), '↶ Voltar para: o cartão anterior');
+  assert.equal(undoLabel({ prev: { bg: 'auto', front: { kind: 'scene', title: '' } } }, 'en'), '↶ Back to: what was there before');
+});
+
+test('cartão ocultado depois de mostrado (gone): a Tela não mente para o mestre', () => {
+  const gone = { ...card, gone: true };
+  const now = stageNow({ stage: { front: gone, focus: true }, combat: FIGHT });
+  assert.equal(now.mode, 'combat');
+  assert.equal(now.front, null);
+  assert.equal(now.gone, gone);
+  assert.equal(stageNow({ stage: { front: gone } }).mode, 'rest');
+  assert.equal(screenLine({ stage: { front: gone }, lang: 'pt' }), 'capa');
+  const lines = stageLines({ stage: { front: gone, focus: true }, combat: FIGHT, lang: 'pt', all: true });
+  assert.deepEqual([lines[0].text, lines[0].sub, lines[0].remove, lines[0].over], ['🗺 Irmã Velna', 'não aparece na Tela (oculto ou apagado)', 'back', false]);
+  assert.equal(lines[1].text, '⚔ Combate · rodada 2');
 });
 
 test('linha curta, fundo, teste e imagem do mestre', () => {

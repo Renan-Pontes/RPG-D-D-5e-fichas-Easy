@@ -46,6 +46,8 @@ export function normalizeStage(raw) {
  *             over: boolean,        // a frente está por cima do combate (tarja do turno)
  *             waiting: object|null, // frente guardada para depois do combate
  *             held: object|null,    // frente guardada atrás da Tela escurecida
+ *             gone: object|null,    // cartão na frente que foi ocultado depois (só o mestre:
+ *                                   // a TV e os jogadores mostram o fundo; `front.gone` do servidor)
  *             bg: 'combat'|'map'|'cover'|'dark', round: number|null }}
  */
 export function stageNow({ stage, combat } = {}) {
@@ -53,10 +55,13 @@ export function stageNow({ stage, combat } = {}) {
   const fighting = !!combat?.active;
   const round = fighting ? (combat.round ?? null) : null;
   const bg = st.bg === 'dark' ? 'dark' : fighting ? 'combat' : st.bg === 'map' ? 'map' : 'cover';
-  const base = { front: null, over: false, waiting: null, held: null, bg, round };
-  if (st.bg === 'dark') return { ...base, mode: 'dark', held: st.front };
-  if (st.front && (!fighting || st.focus)) return { ...base, mode: 'front', front: st.front, over: fighting };
-  if (fighting) return { ...base, mode: 'combat', waiting: st.front };
+  // A Tela nunca mente: o cartão ocultado depois de mostrado não está na TV.
+  const gone = st.front?.gone ? st.front : null;
+  const front = gone ? null : st.front;
+  const base = { front: null, over: false, waiting: null, held: null, gone, bg, round };
+  if (st.bg === 'dark') return { ...base, mode: 'dark', held: front };
+  if (front && (!fighting || st.focus)) return { ...base, mode: 'front', front, over: fighting };
+  if (fighting) return { ...base, mode: 'combat', waiting: front };
   if (st.bg === 'map') return { ...base, mode: 'map' };
   return { ...base, mode: 'rest' };
 }
@@ -116,6 +121,8 @@ export function testLabel(test) {
  *   combate") · 'bg' (✕ tira o mapa) · 'light' (◑ acende) · 'test'
  * `all`: sempre as 3 linhas (as vazias dizem "nada"), para nada mudar de lugar
  * quando a Tela muda sozinha (princípio 8: nada mexe debaixo do dedo).
+ * Cartão ocultado depois de mostrado (`gone`): a linha diz que ele não aparece
+ * e o ✕ continua (a Tela nunca mente).
  */
 export function stageLines({ stage, combat, test, lang = 'pt', dm = true, all = false } = {}) {
   const now = stageNow({ stage, combat });
@@ -123,7 +130,8 @@ export function stageLines({ stage, combat, test, lang = 'pt', dm = true, all = 
   const lines = [];
   if (st.front) {
     let sub = null;
-    if (now.mode === 'front' && now.over) sub = L(lang, 'por cima do ⚔ combate', 'over the ⚔ combat');
+    if (now.gone) sub = L(lang, 'não aparece na Tela (oculto ou apagado)', 'not on screen (hidden or deleted)');
+    else if (now.mode === 'front' && now.over) sub = L(lang, 'por cima do ⚔ combate', 'over the ⚔ combat');
     else if (now.waiting) sub = L(lang, 'espera o fim do combate', 'waits for combat to end');
     else if (now.held) sub = L(lang, 'atrás da Tela escurecida', 'behind the blacked-out screen');
     lines.push({ layer: 'front', title: L(lang, 'Frente', 'Front'), text: `${frontIcon(st.front)} ${frontLabel(st.front, lang, { dm })}`,
@@ -147,7 +155,12 @@ export function undoLabel(stage, lang = 'pt') {
   if (!st.prev) return '';
   const p = st.prev;
   if (p.bg === 'dark') return L(lang, '↶ Voltar para: Tela escurecida', '↶ Back to: blacked out');
-  if (p.front) return `${L(lang, '↶ Voltar para', '↶ Back to')}: ${frontLabel(p.front, lang, { dm: true })}`;
+  if (p.front) {
+    // Palco gravado antes de o nome existir (campanha de antes do palco): nunca "Voltar para:" vazio.
+    const name = frontLabel(p.front, lang, { dm: true })
+      || (p.front.kind === 'card' ? L(lang, 'o cartão anterior', 'the previous card') : L(lang, 'o que estava antes', 'what was there before'));
+    return `${L(lang, '↶ Voltar para', '↶ Back to')}: ${name}`;
+  }
   return `${L(lang, '↶ Voltar para', '↶ Back to')}: ${p.bg === 'map' ? L(lang, 'mapa do combate', 'combat map') : L(lang, 'o fundo', 'the background')}`;
 }
 
