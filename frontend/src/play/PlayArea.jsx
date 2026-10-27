@@ -4,10 +4,14 @@
 //   campaign, lang, onChange (recarrega a campanha), approvals? (lista antiga)
 //   sub?, onSubChange?(sub) | onSub?(sub), goTo?   — da casca; sem eles usa useArea() (C4)
 // A subvista vem de useArea().sub; trocar de subvista chama goTo('play', sub).
+// V4: com a loja da mesa (casca do mestre), a faixa do turno do PC fica aqui, presa
+// no topo das 4 subvistas (no celular o turno e o Próximo moram na barra da mesa),
+// e o selo de Testes só busca quando o pulso diz que os testes mudaram.
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { api } from '../api/client.js';
-import { usePolling } from '../api/polling.js';
 import { testsBadge, unifyTests } from './scene-model.js';
+import { useOnRev, useTable } from './table-store.js';
+import { TurnStrip } from '../stage/TableBar.jsx';
 import { useArea } from '../shell/useArea.js';
 import { SubChips } from '../shell/AreaNav.jsx';
 import { legacyTabToArea } from '../shell/shell-logic.js';
@@ -46,7 +50,10 @@ export default function PlayArea(props) {
       pendingRolls: p.status === 'fulfilled' ? (p.value.rolls || []) : [],
     })));
   }, [campaignId]);
-  usePolling(refreshTests, 6000, [campaignId]);
+  const table = useTable();
+  // Com o pulso: só quando os testes mudam (e 1 vez por minuto); sem ele, a cada 6 s, como antes.
+  useOnRev(table?.pulse?.checksRev, refreshTests, { table, fallbackMs: 6000 });
+  const inShell = !!table?.enabled;
 
   const shellGoTo = props.goTo || (area.campaign != null ? area.goTo : null);
   const onSub = props.onSubChange || props.onSub;
@@ -75,12 +82,18 @@ export default function PlayArea(props) {
   return (
     <div className="play-area">
       <SubChips subs={PLAY_SUBS} active={sub} onSelect={setSub} lang={lang} badges={badges} />
+      {inShell && (
+        <TurnStrip lang={lang} onOpenActor={(id) => (shellGoTo ? shellGoTo('play', 'combat', { actor: id, at: Date.now() }) : setSub('combat'))} />
+      )}
       <Suspense fallback={fallback}>
         {sub === 'scene' && (
           <TableNow campaign={campaign} approvals={props.approvals} lang={lang}
-            onChange={onChange} onNavigate={onNavigate} goTo={goTo} />
+            onChange={onChange} onNavigate={onNavigate} goTo={goTo} turnStrip={!inShell} />
         )}
-        {sub === 'combat' && <CombatTab campaign={campaign} lang={lang} onChange={onChange} onNavigate={onNavigate} />}
+        {sub === 'combat' && (
+          <CombatTab campaign={campaign} lang={lang} onChange={onChange} onNavigate={onNavigate} turnStrip={!inShell}
+            params={area.area === 'play' ? area.params : null} />
+        )}
         {sub === 'checks' && <TestsPanel campaign={campaign} lang={lang} onChange={onChange} onCount={setTestsWaiting} />}
         {sub === 'screen' && (
           <StagePanel campaign={campaign} lang={lang} shownCheck={shownCheck}

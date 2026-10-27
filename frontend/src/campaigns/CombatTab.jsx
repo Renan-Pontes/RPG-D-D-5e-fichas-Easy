@@ -2,7 +2,8 @@ import { errorMessage } from '../api/errors.js';
 import { freePositions } from '../combat/placement.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
-import { usePolling } from '../api/polling.js';
+import { COMBAT_EVENT, useOnRev, useTable } from '../play/table-store.js';
+import { DockedScreen } from '../stage/ScreenWindow.jsx';
 import MonsterPicker from './MonsterPicker.jsx';
 import CombatGrid from './CombatGrid.jsx';
 import EncounterDifficulty from '../combat/EncounterDifficulty.jsx';
@@ -67,8 +68,16 @@ function useWide() {
  *   mapa fica preso ao lado.
  * - Sugestões de ataque/salvaguarda ficam guardadas aqui, por combatente: nada
  *   é aplicado antes do "Aplicar".
+ * Na casca do mestre (V4, `turnStrip={false}`): a faixa do turno sai daqui (no
+ * celular ela mora na barra da mesa, embaixo; no PC, presa no topo de Jogar), o
+ * combate só é buscado quando o pulso diz que ele mudou (`pulse.combat.ver`) ou
+ * quando uma ação devolve o combate novo (evento da loja da mesa), e a janela da
+ * Tela fica encaixada no topo do mapa. `params.actor` abre quem age (o [Ações] da
+ * Tela ao vivo e a faixa do PC); `params.endCombat` é o "Encerrar o combate" da
+ * barra quando todos os monstros caíram.
  */
-export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
+export default function CombatTab({ campaign, lang, onChange, onNavigate, turnStrip: ownStrip = true, params = null }) {
+  const table = useTable();
   const [combat, setCombat] = useState(null);
   const [showPicker, setShowPicker] = useState(false);
   const [showAddPC, setShowAddPC] = useState(false);
@@ -89,7 +98,31 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
   }, [campaign.id]);
 
   useEffect(() => { load(); }, [load]);
-  usePolling(load, 2500, [campaign.id]);
+  // Com o pulso: só quando o combate muda (e 1 vez por minuto); sem ele, a cada 2,5 s, como antes.
+  useOnRev(table?.combat?.ver, load, { table, fallbackMs: 2500, initial: false });
+  // O combate que voltou de uma ação da barra, da faixa ou da tecla N: na hora, sem buscar de novo.
+  useEffect(() => {
+    const on = (e) => { if (String(e.detail?.campaignId) === String(campaign.id) && e.detail?.combat) setCombat(e.detail.combat); };
+    window.addEventListener(COMBAT_EVENT, on);
+    return () => window.removeEventListener(COMBAT_EVENT, on);
+  }, [campaign.id]);
+
+  // Vindo de outro lugar: [Ações] (abre quem age) ou "Encerrar o combate" (barra da mesa).
+  const handled = useRef(null);
+  const endCombatRef = useRef(null);
+  useEffect(() => {
+    if (!combat || !params) return;
+    const key = params.actor ? `a:${params.actor}:${params.at || ''}` : params.endCombat ? `e:${params.endCombat}` : null;
+    if (!key || handled.current === key) return;
+    handled.current = key;
+    if (params.endCombat) { endCombatRef.current?.(); return; }
+    const who = (combat.combatants || []).find(c => c.id === params.actor);
+    if (!who) return;
+    setSelected(who.id);
+    // Monstro abre nas Ações; PJ (o jogador age pela ficha) na aba padrão dele.
+    if (!wide) setSheet({ id: who.id, tab: who.type === 'monster' ? 'actions' : null });
+    else requestAnimationFrame(() => document.getElementById(`cc-${who.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, [combat, params, wide]);
 
   // Quando a vez muda, quem age fica selecionado (destaque na lista e no mapa).
   // Só seleciona — não rola a tela, não abre folha, não age por ninguém.
@@ -123,7 +156,8 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
   // A faixa (com o Próximo turno) depende só de haver combate em andamento: a vez
   // pode apontar para fora da lista (tiraram o último da ordem na vez dele) e o
   // Próximo turno é o que a traz de volta (o servidor faz (vez + 1) % total).
-  const showTurn = active && combatants.length > 0;
+  // Na casca do mestre ela mora na barra da mesa (celular) e no topo de Jogar (PC).
+  const showTurn = ownStrip && active && combatants.length > 0;
 
   const startCombat = async () => { await api.startCombat(campaign.id); load(); };
   const endCombat = async () => {
@@ -131,12 +165,19 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
     const r = await api.endCombat(campaign.id); load();
     if (isWizardEnabled(campaign.state)) setWrapUp(r?.combat || combat);
   };
+  endCombatRef.current = endCombat;
   const resetCombat = async () => {
     if (!await ask(lang, t(lang, 'Recomeçar do zero? Todos os combatentes saem do combate.', 'Start over? All combatants are removed.'), { danger: true, confirmLabel: t(lang, 'Recomeçar', 'Start over') })) return;
     setShowMore(false);
     await api.resetCombat(campaign.id); load();
   };
-  const nextTurn = async () => { await api.combatNextTurn(campaign.id); load(); };
+  // Próximo turno com a vez que está à vista (o servidor recusa se ela já mudou).
+  const nextTurn = async () => {
+    const expect = { round: combat.round, turnIndex: combat.turnIndex };
+    if (table?.enabled) { table.nextTurn(expect); return; }
+    try { await api.combatNextTurn(campaign.id, expect); } catch { /* 409: a vez já tinha passado */ }
+    load();
+  };
 
   const gridOpts = () => {
     const m = combat?.map || {};
@@ -341,6 +382,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
 
         {showMap && (
           <div className="ct-map">
+            {wide && <DockedScreen campaign={campaign} lang={lang} />}
             {/* toque no token: no celular abre a folha do combatente; no desktop seleciona (o painel abre na lista) */}
             <CombatGrid combat={combat} campaignId={campaign.id} lang={lang} onChange={load} selectedId={selected} setSelectedId={setSelected}
               onTokenTap={(c) => { if (!wide) openRow(c); }} />

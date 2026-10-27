@@ -9,6 +9,9 @@
 // em folha (MesaSheet), sem empurrar a página.
 // Desktop (≥ 1024): 2 colunas — à esquerda turno, cena, avisos e personagens;
 // à direita pendências, ações e Nesta cena; o plano embaixo, nas 2 colunas.
+// Na casca do mestre (V4, `turnStrip={false}`): a faixa do turno sai daqui (no
+// celular o turno e o Próximo moram na barra da mesa; no PC, na faixa presa de
+// Jogar) e a janela da Tela fica encaixada no topo da coluna da direita.
 // Se uma coluna fica > 200 px mais comprida, Avisos e Ações rápidas trocam de
 // coluna (table-now-layout.js); no celular a ordem é sempre a de cima.
 import { errorMessage } from '../api/errors.js';
@@ -38,6 +41,8 @@ import { HpBar, PcPortrait } from '../shell/MesaPc.jsx';
 import { DM_AREAS, legacyTabToArea, subLabel } from '../shell/shell-logic.js';
 import { memberStats } from '../group/group-model.js';
 import { shouldSwapColumns } from './table-now-layout.js';
+import { DockedScreen } from '../stage/ScreenWindow.jsx';
+import { useTable } from '../play/table-store.js';
 import './combat-styles.css';
 import './table-now.css';
 
@@ -83,7 +88,8 @@ function routeLabel(tab, lang) {
 // onNavigate(tabAntiga) continua aceito; goTo(área, sub, params) é o da casca nova.
 // approvals: lista antiga (só o fallback manda); sem ela, as aprovações vêm do
 // contador campaign.pendingApprovals, que já chega com a campanha (sem consulta nova).
-export default function TableNow({ campaign, approvals, lang = 'pt', onChange, onNavigate, goTo }) {
+export default function TableNow({ campaign, approvals, lang = 'pt', onChange, onNavigate, goTo, turnStrip: ownStrip = true }) {
+  const table = useTable();
   const [combat, setCombat] = useState(undefined); // undefined = carregando
   const [pendingRolls, setPendingRolls] = useState([]);
   const [checks, setChecks] = useState([]);
@@ -170,11 +176,18 @@ export default function TableNow({ campaign, approvals, lang = 'pt', onChange, o
     return () => ro.disconnect();
   }, [wide, swapCols, layoutKey]);
 
-  const turnStrip = combat !== undefined && combatants.length > 0 && (
+  // Próximo turno com a vez que está à vista (o servidor recusa se ela já mudou).
+  const nextTurn = () => {
+    const expect = { round: combat.round, turnIndex: combat.turnIndex };
+    if (table?.enabled) { table.nextTurn(expect); return; }
+    act(() => api.combatNextTurn(campaign.id, expect));
+  };
+  // Na casca: a faixa ativa sai (barra da mesa / faixa do PC); o combate montado e parado fica.
+  const turnStrip = combat !== undefined && combatants.length > 0 && (ownStrip || !active) && (
     <CombatStrip combat={combat} lang={lang} active={active} wizardOn={wizardOn}
       onOpen={() => onNavigate?.('combat')}
-      onNext={() => act(() => api.combatNextTurn(campaign.id))}
-      onWrapUp={() => setShowWrapUp(true)} busy={busy} />
+      onNext={nextTurn}
+      onWrapUp={() => setShowWrapUp(true)} busy={busy || !!table?.busy} />
   );
 
   const nudgesBox = (
@@ -291,6 +304,7 @@ export default function TableNow({ campaign, approvals, lang = 'pt', onChange, o
 
   const side = (
     <>
+      {wide && <DockedScreen campaign={campaign} lang={lang} />}
       {swap && nudgesBox}
       <section className="mesa-panel tn-box tn-pending" aria-labelledby="tn-pending-h">
         <MesaTitle id="tn-pending-h">{L(lang, 'Pendências', 'Pending')}</MesaTitle>
@@ -358,7 +372,7 @@ export default function TableNow({ campaign, approvals, lang = 'pt', onChange, o
       )}
       {sheet === 'nudges' && (
         <MesaSheet title={L(lang, 'Avisos: o que avisar', 'Notices: what to flag')} icon="⚙" size="auto" width="md" lang={lang}
-          onClose={closeSheet} className="nudge-settings-sheet"
+          onClose={closeSheet} className="nudge-settings-sheet" dock="bar"
           footer={<div className="mesa-actions"><button type="button" className="mesa-btn is-primary" onClick={closeSheet}>{L(lang, 'Pronto', 'Done')}</button></div>}>
           <NudgeSettings nudges={nudges} lang={lang} />
         </MesaSheet>
