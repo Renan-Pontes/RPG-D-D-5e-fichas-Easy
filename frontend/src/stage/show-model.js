@@ -77,5 +77,33 @@ export function mapRows(entries = []) {
   return (entries || []).filter(e => e?.isMap && hasImage(e)).map(e => ({ key: `map-${e.id}`, entry: e, name: e.name }));
 }
 
+/**
+ * Os botões da folha de decisão do 📺 (ShowOnTable, §4.8), sem React.
+ * Mostrar nunca revela: só "◐ Mostrar só o nome" e "👁 Revelar e mostrar" pedem o
+ * reveal (op 'reveal'), e só pelo toque do mestre nesses botões. "Guardar para
+ * depois do combate" muda só QUANDO (focus false), nunca O QUÊ:
+ *   - cartão oculto (mode 'image' | 'name') → `keep: 'toggle'`, a caixa
+ *     "☐ Guardar para depois do combate" que vale para o botão que ele tocar;
+ *   - o resto (revelado, cena…) → `keep: 'link'`, o link que mostra guardado.
+ * @param {'show'|'image'|'name'} mode  cardShowMode() do alvo ('show' p/ não-cartão)
+ * @param {{fighting?: boolean, keep?: boolean}} o  keep = a caixa marcada
+ * @returns {{ buttons: {id:'image'|'name'|'reveal'|'show'|'keep', op:'image'|'reveal'|'show',
+ *             visibility?: 'partial'|'revealed', focus: boolean, primary?: boolean, link?: boolean}[],
+ *             keep: 'toggle'|'link'|null }}
+ */
+export function decideActions(mode, { fighting = false, keep = false } = {}) {
+  const hidden = mode === 'image' || mode === 'name';
+  const focus = !(fighting && hidden && keep);
+  const buttons = [];
+  if (mode === 'image') buttons.push({ id: 'image', op: 'image', focus, primary: true });
+  if (mode === 'name') buttons.push({ id: 'name', op: 'reveal', visibility: 'partial', focus, primary: true });
+  if (hidden) buttons.push({ id: 'reveal', op: 'reveal', visibility: 'revealed', focus });
+  else buttons.push({ id: 'show', op: 'show', focus: true, primary: true });
+  if (!fighting) return { buttons, keep: null };
+  if (hidden) return { buttons, keep: 'toggle' };
+  buttons.push({ id: 'keep', op: 'show', focus: false, link: true });
+  return { buttons, keep: 'link' };
+}
+
 export const TEXT_MAX = 1000;
 export const CAPTION_MAX = 140;

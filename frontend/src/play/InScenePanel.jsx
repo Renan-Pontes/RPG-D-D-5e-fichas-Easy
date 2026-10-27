@@ -26,7 +26,7 @@ const L = (lang, pt, en) => (lang === 'en' ? en : pt);
  * o toque na linha chama onOpen. À direita, 👁 Quem vê…/Revelar e o 📺 único
  * (com `campaign`), cada um com 44 px e o nome escrito.
  */
-export function EntryRow({ entry, lang = 'pt', onOpen, onReveal, campaign, onShown, busy = false, openLabel }) {
+export function EntryRow({ entry, lang = 'pt', onOpen, onReveal, campaign, onShown, onRevealed, busy = false, openLabel }) {
   const vis = entry.visibility || 'hidden';
   const meta = KIND_META[entry.kind] || KIND_META.lore;
   const sub = subtitleOf(entry, lang) || entry.summary || kindLabel(entry.kind, lang);
@@ -55,7 +55,7 @@ export function EntryRow({ entry, lang = 'pt', onOpen, onReveal, campaign, onSho
           )}
           {campaign && (
             <ShowOnTable campaign={campaign} target={{ kind: 'card', entry }} lang={lang} className="ins-act" reason="short"
-              disabled={busy} onShown={onShown} ariaLabel={`${L(lang, 'Mostrar na Tela', 'Show on screen')}: ${entry.name}`}>
+              disabled={busy} onShown={onShown} onRevealed={onRevealed} ariaLabel={`${L(lang, 'Mostrar na Tela', 'Show on screen')}: ${entry.name}`}>
               <span aria-hidden="true">📺</span>
               <span className="ins-act-label" aria-hidden="true">{L(lang, 'Mostrar', 'Show')}</span>
             </ShowOnTable>
@@ -120,7 +120,7 @@ export default function InScenePanel({ campaign, lang = 'pt', goTo }) {
   const openLabel = L(lang, 'Abrir no Mundo', 'Open in the World');
   const row = (e) => (
     <EntryRow key={e.id} entry={e} lang={lang} onOpen={open} openLabel={openLabel}
-      onReveal={openReveal} campaign={campaign} busy={busyId === e.id} />
+      onReveal={openReveal} campaign={campaign} onRevealed={patchLocal} busy={busyId === e.id} />
   );
 
   return (
@@ -181,7 +181,8 @@ export default function InScenePanel({ campaign, lang = 'pt', goTo }) {
           size="auto" width="md" lang={lang} onClose={() => setRevealing(null)} className="ins-reveal"
           footer={(
             <div className="mesa-actions">
-              <ShowOnTable campaign={campaign} lang={lang} className="mesa-btn" target={{ kind: 'card', entry: revealing }}>
+              <ShowOnTable campaign={campaign} lang={lang} className="mesa-btn" target={{ kind: 'card', entry: revealing }}
+                onRevealed={(next) => { setRevealing(next); patchLocal(next); }}>
                 📺 {L(lang, 'Mostrar na Tela', 'Show on screen')}
               </ShowOnTable>
               <button type="button" className="mesa-btn is-primary" onClick={() => setRevealing(null)}>{L(lang, 'Pronto', 'Done')}</button>

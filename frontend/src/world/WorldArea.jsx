@@ -184,7 +184,7 @@ export default function WorldArea(props) {
       ) : sub === 'atlas' ? (
         <Atlas entries={list} lang={lang} selectedId={openId} onOpen={openEntry}
           onCreate={closed ? null : create} onImprovise={closed ? null : () => setImprovise(true)} onReorder={closed ? null : reorder}
-          onReveal={closed ? null : quickReveal} showCampaign={closed ? null : campaign}
+          onReveal={closed ? null : quickReveal} showCampaign={closed ? null : campaign} onRevealed={upsert}
           onSample={list.length === 0 && !closed ? sample : null} sampleBusy={sampleBusy} count={meta.count} max={meta.max} createNonce={createNonce}
           top={immersion && list.length > 0 ? (
             <Suspense fallback={null}>
@@ -226,7 +226,8 @@ export default function WorldArea(props) {
             </div>
             <RevealControl entry={revealFor} lang={lang} showSecrets onChange={(next) => { setRevealFor(next); upsert(next); }} />
             <div className="modal-actions">
-              <ShowOnTable campaign={campaign} target={{ kind: 'card', entry: revealFor }} lang={lang} className="btn btn-ghost btn-sm">📺 {t(lang, 'Mostrar na Tela', 'Show on screen')}</ShowOnTable>
+              <ShowOnTable campaign={campaign} target={{ kind: 'card', entry: revealFor }} lang={lang} className="btn btn-ghost btn-sm"
+                onRevealed={(next) => { setRevealFor(next); upsert(next); }}>📺 {t(lang, 'Mostrar na Tela', 'Show on screen')}</ShowOnTable>
               <button type="button" className="btn btn-primary btn-sm" onClick={() => setRevealFor(null)}>{t(lang, 'Pronto', 'Done')}</button>
             </div>
           </div>

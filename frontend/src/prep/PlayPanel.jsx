@@ -190,7 +190,8 @@ export default function PlayPanel({
                       👁 {e.visibility === 'partial' ? t(lang, 'Revelar tudo', 'Reveal all') : t(lang, 'Revelar', 'Reveal')}
                     </button>
                   )}
-                  <ShowOnTable campaign={campaign} target={{ kind: 'card', entry: e }} lang={lang} className="btn btn-ghost btn-sm" reason="short">
+                  <ShowOnTable campaign={campaign} target={{ kind: 'card', entry: e }} lang={lang} className="btn btn-ghost btn-sm" reason="short"
+                    onRevealed={(next) => onWorldChange?.(next)}>
                     📺 {t(lang, 'Mostrar', 'Show')}
                   </ShowOnTable>
                 </div>

@@ -47,3 +47,37 @@ test('Cenas: a sala em jogo primeiro, sem repetir a mesma sala do plano', () => 
 test('Mapa: só lugares com mapa e imagem', () => {
   assert.deepEqual(mapRows(entries).map(x => x.key), ['map-1']);
 });
+
+test('folha de decisão: "Guardar para depois do combate" nunca revela', async () => {
+  const { decideActions } = await import('../src/stage/show-model.js');
+  for (const mode of ['show', 'image', 'name']) {
+    for (const fighting of [false, true]) {
+      for (const keep of [false, true]) {
+        const r = decideActions(mode, { fighting, keep });
+        const k = r.buttons.find(b => b.id === 'keep');
+        if (k) assert.notEqual(k.op, 'reveal', `${mode} ${fighting} ${keep}`);
+        // só os botões com nome de revelar chamam o reveal
+        for (const b of r.buttons.filter(x => x.op === 'reveal')) assert.ok(['name', 'reveal'].includes(b.id));
+      }
+    }
+  }
+  // oculto sem imagem no combate: não há link solto; a caixa só muda o "quando"
+  const name = decideActions('name', { fighting: true });
+  assert.equal(name.keep, 'toggle');
+  assert.equal(name.buttons.some(b => b.id === 'keep'), false);
+  assert.deepEqual(name.buttons.map(b => [b.id, b.focus]), [['name', true], ['reveal', true]]);
+  const kept = decideActions('name', { fighting: true, keep: true });
+  assert.deepEqual(kept.buttons.map(b => [b.id, b.op, b.visibility, b.focus]),
+    [['name', 'reveal', 'partial', false], ['reveal', 'reveal', 'revealed', false]]);
+  // oculto com imagem: "só a imagem" guardada continua sem revelar
+  const img = decideActions('image', { fighting: true, keep: true });
+  assert.deepEqual(img.buttons[0], { id: 'image', op: 'image', focus: false, primary: true });
+  // revelado no combate: mostrar por cima ou o link "Guardar" (mostra sem foco)
+  const show = decideActions('show', { fighting: true });
+  assert.equal(show.keep, 'link');
+  assert.deepEqual(show.buttons.map(b => [b.id, b.op, b.focus]), [['show', 'show', true], ['keep', 'show', false]]);
+  // fora do combate a caixa não existe e nada fica guardado
+  const calm = decideActions('name', { fighting: false, keep: true });
+  assert.equal(calm.keep, null);
+  assert.equal(calm.buttons.every(b => b.focus), true);
+});

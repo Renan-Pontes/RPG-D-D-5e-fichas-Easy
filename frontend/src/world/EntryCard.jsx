@@ -8,6 +8,7 @@
 //   onReveal?(entry)       botão 👁 (mestre) — quem chama decide o que revelar
 //   showCampaign?          campanha do mestre → o 📺 único (ShowOnTable: oculto
 //                          pergunta "Só a imagem"; documento privado diz o motivo)
+//   onRevealed?(full)      o 📺 revelou o cartão ("👁 Revelar e mostrar" / "◐ Só o nome")
 //   compact  linha horizontal com miniatura (listas, painéis laterais)
 //   lang     'pt' | 'en' (padrão 'pt')
 //   selected destaca o cartão
@@ -67,7 +68,7 @@ export function EntryImage({ entry, className = '', alt = '' }) {
 }
 
 export default function EntryCard({
-  entry, mode = 'dm', isNew = false, onOpen, onReveal, showCampaign = null, compact = false, lang = 'pt', selected = false, extra = null,
+  entry, mode = 'dm', isNew = false, onOpen, onReveal, showCampaign = null, onRevealed, compact = false, lang = 'pt', selected = false, extra = null,
 }) {
   if (!entry) return null;
   const dm = mode === 'dm';
@@ -92,7 +93,7 @@ export default function EntryCard({
       )}
       {showCampaign && (
         <ShowOnTable campaign={showCampaign} target={{ kind: 'card', entry }} lang={lang} className="wl-act" reason="short"
-          ariaLabel={`${t(lang, 'Mostrar na Tela', 'Show on screen')}: ${entry.name}`}>
+          onRevealed={onRevealed} ariaLabel={`${t(lang, 'Mostrar na Tela', 'Show on screen')}: ${entry.name}`}>
           <span aria-hidden="true">📺</span> {t(lang, 'Mostrar', 'Show')}
         </ShowOnTable>
       )}

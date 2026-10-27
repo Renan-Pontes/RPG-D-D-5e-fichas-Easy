@@ -50,12 +50,19 @@ function useShowData(campaignId) {
     });
   }, [campaignId]);
   useEffect(() => { load(); }, [load]);
-  return [data, load];
+  // "👁 Revelar e mostrar" / "◐ Só o nome" pela folha do 📺: a linha deixa de dizer
+  // "🔒 só a imagem" na hora (sem ler a lista de novo).
+  const patchEntry = useCallback((full) => {
+    if (!full?.id) return;
+    setData(d => ({ ...d, entries: (d.entries || []).map(e => (e.id === full.id
+      ? { ...e, visibility: full.visibility, revealedAt: full.revealedAt, version: full.version } : e)) }));
+  }, []);
+  return [data, load, patchEntry];
 }
 
 export function ShowPicker({ campaign, stage, lang = 'pt', onChange }) {
   const [tab, setTab] = useState('images');
-  const [data, reload] = useShowData(campaign.id);
+  const [data, reload, patchEntry] = useShowData(campaign.id);
   const [query, setQuery] = useState('');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -85,7 +92,8 @@ export function ShowPicker({ campaign, stage, lang = 'pt', onChange }) {
           </span>
         </span>
         <span className="mesa-row-act">
-          <ShowOnTable campaign={campaign} target={{ kind: 'card', entry: e }} lang={lang} className="mesa-btn stage-show" reason="short" onShown={done} />
+          <ShowOnTable campaign={campaign} target={{ kind: 'card', entry: e }} lang={lang} className="mesa-btn stage-show" reason="short"
+            onShown={done} onRevealed={patchEntry} />
         </span>
       </div>
     );

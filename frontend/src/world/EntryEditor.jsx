@@ -244,7 +244,7 @@ export default function EntryEditor({
 
       <div className="wl-ed-quick">
         {onShow && campaign && (
-          <ShowOnTable campaign={campaign} target={{ kind: 'card', entry }} lang={lang} className="btn btn-ghost btn-sm">
+          <ShowOnTable campaign={campaign} target={{ kind: 'card', entry }} lang={lang} className="btn btn-ghost btn-sm" onRevealed={afterReveal}>
             📺 {t(lang, 'Mostrar na Tela', 'Show on screen')}
           </ShowOnTable>
         )}

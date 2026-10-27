@@ -18,13 +18,17 @@
 //     ◐ Mostrar só o nome (sem imagem) · 👁 Revelar e mostrar · Cancelar;
 //   documento só para alguns jogadores → botão apagado com o motivo ESCRITO;
 //   durante o combate → a mesma folha pequena: vai por cima do combate, com
-//     "Guardar para depois do combate" como link secundário.
-// Mostrar nunca revela; revelar é sempre o toque do mestre na folha.
+//     "Guardar para depois do combate" como link secundário (cartão oculto: a
+//     caixa "☐ Guardar para depois do combate", que vale para o botão tocado).
+// Mostrar nunca revela; revelar é sempre o toque do mestre num botão que diz
+// revelar (as regras da folha: show-model.js › decideActions).
+// onRevealed(entry): a entrada que o reveal devolveu, para a lista de quem
+// chamou parar de mostrar o cartão como oculto.
 import { useState } from 'react';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import { revealEntry } from '../world/world-api.js';
 import { cardShowMode, frontLabel, L, privateReason, privateShort } from './stage-now.js';
-import { CAPTION_MAX } from './show-model.js';
+import { CAPTION_MAX, decideActions } from './show-model.js';
 import { sendToStage, showCheckOnStage, showOnStage } from './stage-api.js';
 import './stage.css';
 
@@ -55,7 +59,7 @@ function apiTarget(target) {
 
 export default function ShowOnTable({
   campaign, target, lang = 'pt', className = 'mesa-btn', children, disabled = false,
-  reason = 'full', onShown, ariaLabel,
+  reason = 'full', onShown, onRevealed, ariaLabel,
 }) {
   const [decide, setDecide] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -120,7 +124,8 @@ export default function ShowOnTable({
             () => showOnStage(cid, { kind: 'image', ref: { entryId: entry.id } }, { focus, caption }),
             `${name} ${L(lang, '(só a imagem)', '(image only)')}`)}
           onReveal={(visibility, focus) => run(async () => {
-            await revealEntry(entry.id, { visibility, logDiary: logPref(), lang });
+            const next = await revealEntry(entry.id, { visibility, logDiary: logPref(), lang });
+            if (next) onRevealed?.(next);
             return showOnStage(cid, { kind: 'card', entryId: entry.id }, { focus });
           })} />
       )}
@@ -128,42 +133,40 @@ export default function ShowOnTable({
   );
 }
 
-/** A folha pequena de decisão: cartão oculto e/ou combate na Tela. */
+/** A folha pequena de decisão: cartão oculto e/ou combate na Tela (regras em decideActions). */
 function DecideSheet({ lang, name, mode, fighting, busy, onClose, onShow, onImage, onReveal }) {
   const [caption, setCaption] = useState('');
-  const hidden = mode === 'image' || mode === 'name';
-  // Guardar para depois do combate faz a opção segura (nunca revela).
-  const keep = () => (mode === 'image' ? onImage(caption.trim(), false) : mode === 'name' ? onReveal('partial', false) : onShow(false));
+  const [keep, setKeep] = useState(false);
+  const { buttons, keep: keepKind } = decideActions(mode, { fighting, keep });
+  const LABEL = {
+    image: `🖼 ${L(lang, 'Mostrar só a imagem', 'Show image only')}`,
+    name: `◐ ${L(lang, 'Mostrar só o nome', 'Show name only')}`,
+    reveal: `👁 ${L(lang, 'Revelar e mostrar', 'Reveal and show')}`,
+    show: `📺 ${L(lang, 'Mostrar por cima do combate', 'Show over the combat')}`,
+    keep: L(lang, 'Guardar para depois do combate', 'Keep for after combat'),
+  };
+  const press = (b) => {
+    if (b.op === 'image') return onImage(caption.trim(), b.focus);
+    if (b.op === 'reveal') return onReveal(b.visibility, b.focus);
+    return onShow(b.focus);
+  };
   return (
     <MesaSheet title={name || L(lang, 'Mostrar na Tela', 'Show on screen')} icon="📺" size="auto" width="sm" lang={lang}
       onClose={onClose} className="sot-sheet"
       footer={(
         <div className="sot-foot">
-          {mode === 'image' && (
-            <button type="button" className="mesa-btn is-primary mesa-btn-lg" disabled={busy} onClick={() => onImage(caption.trim(), true)}>
-              🖼 {L(lang, 'Mostrar só a imagem', 'Show image only')}
-            </button>
+          {keepKind === 'toggle' && (
+            <label className="sot-keep-box">
+              <input type="checkbox" checked={keep} disabled={busy} onChange={e => setKeep(e.target.checked)} />
+              <span>{L(lang, 'Guardar para depois do combate', 'Keep for after combat')}</span>
+            </label>
           )}
-          {mode === 'name' && (
-            <button type="button" className="mesa-btn is-primary mesa-btn-lg" disabled={busy} onClick={() => onReveal('partial', true)}>
-              ◐ {L(lang, 'Mostrar só o nome', 'Show name only')}
+          {buttons.map(b => (
+            <button key={b.id} type="button" disabled={busy} onClick={() => press(b)}
+              className={b.link ? 'mesa-btn is-quiet sot-keep' : `mesa-btn mesa-btn-lg ${b.primary ? 'is-primary' : ''}`.trim()}>
+              {LABEL[b.id]}
             </button>
-          )}
-          {hidden && (
-            <button type="button" className="mesa-btn mesa-btn-lg" disabled={busy} onClick={() => onReveal('revealed', true)}>
-              👁 {L(lang, 'Revelar e mostrar', 'Reveal and show')}
-            </button>
-          )}
-          {!hidden && (
-            <button type="button" className="mesa-btn is-primary mesa-btn-lg" disabled={busy} onClick={() => onShow(true)}>
-              📺 {L(lang, 'Mostrar por cima do combate', 'Show over the combat')}
-            </button>
-          )}
-          {fighting && (
-            <button type="button" className="mesa-btn is-quiet sot-keep" disabled={busy} onClick={keep}>
-              {L(lang, 'Guardar para depois do combate', 'Keep for after combat')}
-            </button>
-          )}
+          ))}
           <button type="button" className="mesa-btn is-quiet" disabled={busy} onClick={onClose}>{L(lang, 'Cancelar', 'Cancel')}</button>
         </div>
       )}>
@@ -181,7 +184,9 @@ function DecideSheet({ lang, name, mode, fighting, busy, onClose, onShow, onImag
         <p className="mesa-sheet-text">{L(lang, 'Oculto no Mundo e sem imagem. "Só o nome" deixa o cartão conhecido de nome (os jogadores veem o nome e a frase).', 'Hidden in the World and without an image. "Name only" makes the card known by name (players see the name and tagline).')}</p>
       )}
       {fighting && (
-        <p className="mesa-sheet-text">{L(lang, 'Há um combate na Tela. Isto vai por cima, grande, com a tarja do turno; ⚔ Voltar para o combate tira.', 'There is a combat on screen. This goes over it, full size, with the turn banner; ⚔ Back to combat removes it.')}</p>
+        <p className="mesa-sheet-text">{keepKind === 'toggle'
+          ? L(lang, 'Há um combate na Tela. Isto vai por cima, grande, com a tarja do turno; marcando "Guardar para depois do combate", espera o combate acabar (revelar continua sendo só o botão que diz revelar).', 'There is a combat on screen. This goes over it, full size, with the turn banner; ticking "Keep for after combat" makes it wait for the combat to end (revealing is still only the button that says reveal).')
+          : L(lang, 'Há um combate na Tela. Isto vai por cima, grande, com a tarja do turno; ⚔ Voltar ao combate tira.', 'There is a combat on screen. This goes over it, full size, with the turn banner; ⚔ Back to combat removes it.')}</p>
       )}
     </MesaSheet>
   );
