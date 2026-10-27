@@ -8,6 +8,9 @@ POST /api/combat/campaign/<id>/combatants    (DM)  body: {snapshot, type}
 DEL  /api/combat/campaign/<id>/combatants/<cid>  (DM)
 PUT  /api/combat/campaign/<id>/combatants/<cid>  (DM)  body: campos a atualizar
 POST /api/combat/campaign/<id>/action   (DM)  body: ataque/save/condição/dano/cura/death_save
+                                              ataque com `show` → 1 linha na Tela (V10);
+                                              save_apply: a salvaguarda em área numa chamada (+ `show`)
+POST /api/combat/campaign/<id>/save-preview (DM) a salvaguarda em área ROLADA NO SERVIDOR, sem aplicar
 POST /api/combat/campaign/<id>/next-turn (DM)  body: {expect?: {round, turnIndex}} → 409 stale_turn se a vez já mudou
 POST /api/combat/campaign/<id>/prev-turn (DM)  body: {expect?} → ↶ Voltar turno (restaura a foto do Próximo)
 POST /api/combat/campaign/<id>/map      (DM)  body: {background_image, grid_size_px, grid_visible}
@@ -17,7 +20,8 @@ GET  /api/combat/campaign/<id>/actions/<ref>      (DM) as ações de um stat blo
 
 POST /api/rolls/campaign/<id>           (member)
 GET  /api/rolls/campaign/<id>/pending   (member)
-GET  /api/rolls/campaign/<id>/recent    (public via screen)
+GET  /api/rolls/campaign/<id>/recent    (member) pedidos resolvidos (sem as rolagens de mesa);
+                                         ?table=1 (DM): as rolagens de mesa (@mesa:, api/table_rolls.py)
 POST /api/rolls/<id>/resolve            (DM)  body: {visibility: 'public'|'private'}
 POST /api/rolls/<id>/cancel             (DM ou owner)
 """
@@ -29,8 +33,8 @@ from django.db import transaction
 from django.db.models import F
 from django.http import HttpResponseNotModified
 from django.utils import timezone
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
@@ -41,6 +45,7 @@ from . import combat as engine
 from .diary import log_combat_start, log_combat_end, log_roll_request
 from .image_data import image_link, image_response, image_ver, validate_data_url
 from . import plans as P
+from . import table_rolls
 
 # Fundo do mapa de combate: o canvas comprime para ≤1600 px em JPEG 0,82.
 MAX_MAP_IMAGE_CHARS = 2_000_000
@@ -70,10 +75,10 @@ def _uses_def(d):
     return out
 
 
-def _action_name(action):
+def _action_name(action, lang='pt'):
     n = action.get('name')
     if isinstance(n, dict):
-        return n.get('pt') or n.get('en') or '?'
+        return n.get(lang) or n.get('pt') or n.get('en') or '?'
     return n or '?'
 
 
@@ -706,6 +711,7 @@ def combat_action(request, id_or_slug):
     combatants = list(c.combatants or [])
     log_entry = {'type': action_type}
     response_payload = {}
+    show_after = None   # a linha da Tela (V10), gravada depois do combate
 
     if action_type == 'attack':
         # body: {attackerId, targetId, actionIndex, advantage?, disadvantage?, force?,
@@ -768,6 +774,8 @@ def combat_action(request, id_or_slug):
         if downed:
             log_entry['downed'] = tgt.get('name')
         response_payload['result'] = result
+        if request.data.get('show') is True and att.get('type') != 'pc':
+            show_after = lambda: _show_attack(campaign, request.user, att, tgt, result, parts)  # noqa: E731
 
     elif action_type == 'damage':
         # body: {targetId, amount, damageType}
@@ -823,6 +831,62 @@ def combat_action(request, id_or_slug):
                           'dc': result['dc'], 'ability': result['ability'],
                           'per_target': result['per_target']})
         response_payload['result'] = result
+
+    elif action_type == 'save_apply':
+        # A salvaguarda em área como está na tela do mestre (SaveResultCard), numa
+        # chamada só: gasto da ação (recarga/usos/lendária), o dano por alvo e tipo
+        # (resistências contam) e as condições de quem falhou; o registro é o mesmo
+        # do save_aoe (avisos de concentração e diário leem dali). Com `show`, 1
+        # linha-resumo na Tela: "Sopro de Fogo · DES CD 13 · Dagna 9 ✗ · …".
+        # body: {attackerId, actionIndex, consume?, force?, show?,
+        #        targets: [{id, total, success, damage:[{amount,type}], conditions:[…], d20?}]}
+        att = engine.find_combatant(combatants, request.data.get('attackerId'))
+        if not att:
+            raise NotFound('attacker_not_found')
+        idx = _int(request.data.get('actionIndex'), 0)
+        actions = (att.get('stats') or {}).get('actions') or []
+        action_data = actions[idx] if 0 <= idx < len(actions) else None
+        if not action_data or not action_data.get('save'):
+            raise ValidationError({'error': 'action_has_no_save'})
+        plan = _save_plan(request.data.get('targets'), combatants)
+        if request.data.get('consume'):
+            combatants, att = _check_and_consume(combatants, att, idx, force=bool(request.data.get('force')))
+        save = action_data.get('save') or {}
+        ability, dc = str(save.get('ability') or 'DEX'), _int(save.get('dc'), 10)
+        before = {x.get('id'): x for x in combatants}
+        per_target, changed = [], []
+        for p in plan:
+            tgt = engine.find_combatant(combatants, p['id'])
+            cur, taken, applied_conds = tgt, 0, []
+            if p['damage']:
+                applied = engine.apply_damage_parts(cur, p['damage'])
+                cur, taken = applied['combatant'], applied['damage_taken']
+            for cond in p['conditions']:
+                r = engine.add_condition(cur, cond)
+                cur = r['combatant']
+                if r['applied']:
+                    applied_conds.append(cond)
+            if cur is not tgt:
+                combatants = engine.replace_combatant(combatants, cur)
+                changed.append(cur.get('id'))
+            per_target.append({
+                'target_id': tgt.get('id'), 'target_name': tgt.get('name'),
+                'save': {'success': p['success'], 'total': p['total'], 'dc': dc},
+                'damage_taken': taken, 'damage_type': (p['damage'][0]['type'] if p['damage'] else None),
+                'damage_parts': p['damage'], 'conditions': p['conditions'], 'conditions_applied': applied_conds,
+                'new_hp': cur.get('current_hp'), 'defeated': cur.get('defeated', False),
+            })
+        _sync_changed(combatants, changed)
+        downs = [x.get('name') for x in combatants
+                 if x.get('id') in changed and _went_down(before.get(x.get('id')) or {}, x)]
+        log_entry['type'] = 'save_aoe'
+        if downs:
+            log_entry['downed_list'] = downs
+        log_entry.update({'attacker': att.get('name'), 'action_name': _action_name(action_data),
+                          'dc': dc, 'ability': ability, 'per_target': per_target})
+        response_payload['result'] = {'ability': ability, 'dc': dc, 'per_target': per_target}
+        if request.data.get('show') is True:
+            show_after = lambda: _show_save(campaign, request.user, att, action_data, ability, dc, plan, combatants)  # noqa: E731
 
     elif action_type == 'use_action':
         # Gasta a ação sem resolver (ações especiais, lendárias "faz um ataque", Multiataque…)
@@ -899,8 +963,63 @@ def combat_action(request, id_or_slug):
     c.combatants = combatants
     _append_log(c, log_entry)
     c.save()
+    if show_after:
+        response_payload['shown'] = show_after().id
     response_payload['combat'] = _serialize_combat(c, for_dm=True)
     return Response(response_payload)
+
+
+def _save_plan(raw, combatants):
+    """Valida os alvos do save_apply: [{id, total, success, damage, conditions, d20}]."""
+    if not isinstance(raw, list) or not raw or len(raw) > 30:
+        raise ValidationError({'error': 'missing_targets'})
+    out, seen = [], set()
+    for t in raw:
+        if not isinstance(t, dict) or not engine.find_combatant(combatants, t.get('id')) or t.get('id') in seen:
+            raise ValidationError({'error': 'invalid_target'})
+        seen.add(t.get('id'))
+        total = None if t.get('total') in (None, '') else _int(t.get('total'))
+        dmg = t.get('damage') or []
+        if not isinstance(dmg, list) or len(dmg) > 6:
+            raise ValidationError({'error': 'invalid_damage'})
+        parts = []
+        for d in dmg:
+            amount = _int((d or {}).get('amount') if isinstance(d, dict) else None)
+            if not 0 <= amount <= 9999:
+                raise ValidationError({'error': 'invalid_damage'})
+            if amount:
+                parts.append({'amount': amount, 'type': str(d.get('type') or 'force')[:30]})
+        conds = [c for c in (t.get('conditions') or []) if c in engine.ALL_CONDITIONS] \
+            if isinstance(t.get('conditions'), list) else []
+        d20 = None if t.get('d20') in (None, '') else _int(t.get('d20'))
+        out.append({'id': t['id'], 'total': total, 'success': bool(t.get('success')), 'damage': parts,
+                    'conditions': conds, 'd20': d20 if d20 and 1 <= d20 <= 20 else None})
+    return out
+
+
+def _show_attack(campaign, user, att, tgt, result, parts):
+    """A linha da Tela do ataque de monstro: "Goblin #2 ⚔ Dagna · d20 11 · ACERTA ·
+    6 cortante". Só o d20 natural (o bônus do monstro não vai) e o dano da parte."""
+    d20 = result.get('attack_roll') or {}
+    nat = _int(d20.get('value'), 0)
+    hit = bool(result.get('hit'))
+    die = {'value': nat, 'kept': True, 'die': 'd20', 'hit': hit,
+           'dmg': [{'n': int(p['amount']), 't': p['type']} for p in parts] if hit else []}
+    return table_rolls.record(campaign, user, 'monster', label=tgt.get('name') or '', rolls=[die], total=nat,
+                              crit=bool(result.get('crit')) and hit, fail=nat == 1,
+                              who=att.get('name') or '', rigged=bool(d20.get('forced')))
+
+
+def _show_save(campaign, user, att, action, ability, dc, plan, combatants):
+    """A linha-resumo da salvaguarda em área: cada alvo com o total e ✓/✗."""
+    rows = []
+    for p in plan:
+        tgt = engine.find_combatant(combatants, p['id']) or {}
+        rows.append({'who': tgt.get('name') or '?', 'total': p['total'], 'ok': p['success'],
+                     'value': p['d20'], 'ab': ability.lower()[:3], 'dc': dc})
+    lang = (campaign.dm_settings or {}).get('lang') if isinstance(campaign.dm_settings, dict) else None
+    return table_rolls.record(campaign, user, 'save', label=_action_name(action, lang if lang in ('pt', 'en') else 'pt'),
+                              count=len(rows), rolls=rows, who=att.get('name') or '')
 
 
 @api_view(['POST'])
@@ -963,6 +1082,80 @@ def combat_attack_preview(request, id_or_slug):
         'effectiveDamage': effective, 'newHp': new_hp, 'note': note,
         'available': available, 'unavailableReason': None if available else reason,
         'rigged': rigged,
+    })
+
+
+def _save_mod(target, ability):
+    """Modificador de resistência (a regra do app: saves → atributo); None se a ficha não diz."""
+    stats = target.get('stats') or {}
+    ab = str(ability or 'dex').lower()
+    raw = (stats.get('saves') or {}).get(ab)
+    if raw is not None:
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            pass
+    score = (stats.get('abilities') or {}).get(ab)
+    try:
+        return (int(score) - 10) // 2 if score is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def combat_save_preview(request, id_or_slug):
+    """Salvaguarda em área ROLADA NO SERVIDOR (V10; antes era Math.random no
+    aparelho do mestre), sem aplicar nada: o d20 de cada alvo e o dano. O mestre
+    confere, ajusta (dado físico) e aplica com POST /action {action:'save_apply'}.
+
+    body: {attackerId, actionIndex, targetIds}
+    resposta: {ability, dc, half, conditions, damage:[{dice, type, rolled, rolls}],
+               targets:[{id, name, d20, rolls, modifier, total, success}], available, unavailableReason}
+    `modifier`/`total` são None quando a ficha do alvo não diz o atributo (o mestre digita).
+    """
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    c = _get_combat(campaign, create=False)
+    combatants = list((c.combatants if c else None) or [])
+    att = engine.find_combatant(combatants, request.data.get('attackerId'))
+    if not att:
+        raise NotFound('attacker_not_found')
+    idx = _int(request.data.get('actionIndex'), 0)
+    actions = (att.get('stats') or {}).get('actions') or []
+    action = actions[idx] if 0 <= idx < len(actions) else None
+    if not action or not action.get('save'):
+        raise ValidationError({'error': 'action_has_no_save'})
+    ids = request.data.get('targetIds')
+    if not isinstance(ids, list) or not ids or len(ids) > 30:
+        raise ValidationError({'error': 'missing_targets'})
+    targets = [t for t in (engine.find_combatant(combatants, i) for i in dict.fromkeys(ids)) if t]
+    if not targets:
+        raise NotFound('combatant_not_found')
+    save = action.get('save') or {}
+    ability = str(save.get('ability') or 'dex').lower()
+    dc = _int(save.get('dc'), 10)
+    damage = []
+    for expr, dtype in [(action.get('damage'), action.get('damageType') or 'force')] + [
+            (e.get('damage'), e.get('damageType') or action.get('damageType') or 'force')
+            for e in action.get('extraDamage') or [] if isinstance(e, dict)]:
+        if expr and str(expr) != '0':
+            r = engine.roll_dice(expr)
+            damage.append({'dice': str(expr), 'type': dtype, 'rolled': r['total'], 'rolls': r['rolls']})
+    out = []
+    for t in targets:
+        d20 = engine.roll_die(20)
+        mod = _save_mod(t, ability)
+        total = None if mod is None else d20 + mod
+        out.append({'id': t.get('id'), 'name': t.get('name'), 'd20': d20, 'rolls': [d20], 'modifier': mod,
+                    'total': total, 'success': total is not None and total >= dc})
+    available, reason = engine.action_availability(att, idx)
+    return Response({
+        'attackerId': att.get('id'), 'actionIndex': idx, 'actionName': _action_name(action),
+        'ability': ability, 'dc': dc, 'half': bool(save.get('halfOnSave')),
+        'conditions': [x for x in (save.get('conditions') or []) if x in engine.ALL_CONDITIONS],
+        'damage': damage, 'targets': out,
+        'available': available, 'unavailableReason': None if available else reason,
     })
 
 
@@ -1497,10 +1690,18 @@ def roll_create(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_member(request.user, campaign)
     body = request.data
+    # O personagem do pedido (a Tela mostra o nome dele, não o do usuário): o que
+    # veio, se é de quem pede; senão o da ficha da vaga.
+    char_id = body.get('characterId')
+    if char_id is not None and not Character.objects.filter(pk=char_id, owner=request.user).exists():
+        char_id = None
+    if char_id is None:
+        char_id = (Membership.objects.filter(campaign=campaign, user=request.user)
+                   .values_list('character_id', flat=True).first())
     rr = RollRequest.objects.create(
         campaign=campaign,
         requested_by=request.user,
-        character_id=body.get('characterId'),
+        character_id=char_id,
         label=(body.get('label') or '')[:120],
         dice_type=body.get('diceType') or 'd20',
         count=int(body.get('count') or 1),
@@ -1532,22 +1733,17 @@ def roll_list_recent(request, id_or_slug):
     require_member(request.user, campaign)
     qs = RollRequest.objects.filter(campaign=campaign).exclude(status='pending').select_related('requested_by', 'requested_by__profile')
     dm = is_dm(request.user, campaign)
+    if dm and request.query_params.get('table') == '1':
+        # Testes › 🎲 Rolagens na Tela: as rolagens de mesa (📺 e 🔒), a mais nova primeiro
+        qs = (qs.filter(note__startswith=table_rolls.PREFIX).select_related('character')
+              .order_by('-resolved_at', '-id'))
+        return Response({'rolls': [table_rolls.dm_row(r, _serialize_roll(r, for_dm=True)) for r in qs[:30]]})
+    # O Histórico de rolagens continua só com os pedidos (as rolagens de mesa têm o filtro delas).
+    qs = qs.exclude(note__startswith=table_rolls.PREFIX)
     if not dm:
         from django.db.models import Q
         qs = qs.filter(Q(status='public') | Q(requested_by=request.user))
     return Response({'rolls': [_serialize_roll(r, for_dm=dm) for r in qs[:30]]})
-
-
-@api_view(['GET'])
-@permission_classes([AllowAny])
-@authentication_classes([])
-def roll_public_screen(request, token):
-    """Rota pública (telão): últimas rolagens com status=public da campanha."""
-    campaign = Campaign.objects.filter(screen_token=token).first()
-    if not campaign:
-        raise NotFound('not_found')
-    qs = RollRequest.objects.filter(campaign=campaign, status='public').select_related('requested_by', 'requested_by__profile')[:5]
-    return Response({'rolls': [_serialize_roll(r) for r in qs]})
 
 
 @api_view(['POST'])

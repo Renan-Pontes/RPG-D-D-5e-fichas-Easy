@@ -7,7 +7,7 @@ GET /api/campaigns/<id>/pulse   (só o mestre)
       live, session, scene, sceneId, startedAt, endedAt,
       screen: { bg, front:{kind,title,imageUrl,hidden,caption,focus}|null,
                 test:{id,label,done,total}|null,
-                roll:{id,who,label,total,crit,fail,at}|null, tvLive:n },
+                roll:{id,kind,who,label,total,crit,fail,at}|null, tvLive:n },
       combat: { active, ver, round, turnIndex, turnName, turnHp, nextName, acted,
                 count, allMonstersDown, order:[{id,name,kind,acted,defeated}] } | null,
       counts: { openChecks, pendingRolls, approvals, dangers } }
@@ -55,6 +55,7 @@ from rest_framework.response import Response
 from .models import (Adventure, Approval, Campaign, CheckRequest, CheckResponse, CombatInstance, Membership,
                      RollRequest, WorldEntry)
 from .stage import get_stage
+from .table_rolls import parse_note
 
 TV_TTL = 30            # s: aba da TV sem pedir há mais que isso não conta
 TV_MAX_TABS = 12       # teto de abas guardadas por campanha (cache pequeno)
@@ -302,17 +303,24 @@ def _shown_test(campaign_id, seats):
 
 
 def _last_roll(campaign_id):
-    """A rolagem pública mais nova (pelo relógio do servidor), com o nome do personagem."""
+    """A rolagem pública mais nova (pelo relógio do servidor), com o nome do personagem.
+    Rolagem de mesa (V10, `@mesa:` no note): `kind` diz de onde veio; o mestre vai com
+    `who` vazio (a barra escreve "Mestre") e o monstro com o nome dele."""
     rows = _fetch(
         'SELECT r.id, r.label, r.total, r.is_critical, r.is_critical_fail, r.resolved_at, ch.name, '
-        'p.display_name, u.username FROM {r} r JOIN {u} u ON u.id = r.requested_by_id '
+        'p.display_name, u.username, r.note FROM {r} r JOIN {u} u ON u.id = r.requested_by_id '
         'LEFT JOIN {ch} ch ON ch.id = r.character_id LEFT JOIN {p} p ON p.user_id = r.requested_by_id '
         "WHERE r.campaign_id = %s AND r.status = 'public' AND r.resolved_at IS NOT NULL "
         'ORDER BY r.resolved_at DESC, r.id DESC LIMIT 1', [campaign_id])
     if not rows:
         return None
-    rid, label, total, crit, fail, at, char_name, display, username = rows[0]
-    return {'id': rid, 'who': char_name or display or username or '', 'label': label, 'total': total,
+    rid, label, total, crit, fail, at, char_name, display, username, note = rows[0]
+    kind, who = parse_note(note)
+    if kind == 'dm':
+        who = ''
+    elif kind not in ('monster', 'save'):
+        who = char_name or display or username or ''
+    return {'id': rid, 'kind': kind or 'request', 'who': who, 'label': label, 'total': total,
             'crit': bool(crit), 'fail': bool(fail), 'at': _iso(at)}
 
 

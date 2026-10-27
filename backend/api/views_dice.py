@@ -11,6 +11,7 @@ from .permissions import get_campaign_or_404, require_dm, is_dm
 from .rate_limit import rate_limit
 from .diary import log_dice_roll
 from .dice_privacy import scrub_dice
+from . import table_rolls
 
 DICE_SIDES = {'d4': 4, 'd6': 6, 'd8': 8, 'd10': 10, 'd12': 12, 'd20': 20, 'd100': 100}
 VALID_TYPES = set(DICE_SIDES.keys()) | {'any'}
@@ -86,21 +87,63 @@ def rig_detail(request, pk):
     return Response({'rig': DiceRigSerializer(rig).data})
 
 
+MAX_GROUPS = 6
+MAX_DICE = 40
+
+
+def _int_in(value, lo, hi, default=0):
+    try:
+        return max(lo, min(hi, int(value)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _groups(data):
+    """Os grupos da fórmula: `groups` [{diceType, count, sign}] (fórmula mista do
+    rolador do mestre, "1d8+2d6+3") ou o par de sempre `diceType` + `count`."""
+    raw = data.get('groups')
+    if isinstance(raw, list) and raw:
+        if len(raw) > MAX_GROUPS:
+            raise ValidationError({'error': 'too_many_groups'})
+        out = []
+        for g in raw:
+            if not isinstance(g, dict) or g.get('diceType') not in DICE_SIDES:
+                raise ValidationError({'error': 'invalid_dice_type'})
+            out.append({'die': g['diceType'], 'count': _int_in(g.get('count', 1), 1, 20, 1),
+                        'sign': -1 if g.get('sign') in (-1, '-1') else 1})
+        if sum(g['count'] for g in out) > MAX_DICE:
+            raise ValidationError({'error': 'too_many_dice'})
+        return out
+    dice_type = data.get('diceType', 'd20')
+    if dice_type not in DICE_SIDES:
+        raise ValidationError({'error': 'invalid_dice_type'})
+    return [{'die': dice_type, 'count': _int_in(data.get('count', 1), 1, 20, 1), 'sign': 1}]
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @rate_limit(key='dice_roll', max_attempts=120, window=60, per_user=True)  # 120 rolagens/min por user
 def dice_roll(request):
-    """Rola N dados pelo servidor. Se em campanha, consome rigs pendentes."""
-    dice_type = request.data.get('diceType', 'd20')
-    if dice_type not in DICE_SIDES:
-        raise ValidationError({'error': 'invalid_dice_type'})
-    campaign_id = request.data.get('campaignId')
-    label = (request.data.get('label') or '')[:120]
-    try:
-        count = int(request.data.get('count', 1))
-    except (TypeError, ValueError):
-        count = 1
-    count = max(1, min(20, count))
+    """Rola N dados pelo servidor. Se em campanha, consome rigs pendentes.
+
+    Rolagens na Tela (V10, api/table_rolls.py), só em campanha aberta:
+      · o MESTRE manda `table` (o 🔒 Só eu · 📺 Na tela do rolador dele): true grava
+        a linha pública `@mesa:dm` (a TV mostra "Mestre"), false a privada (fica no
+        registro dele); sem `table` (rolador antigo), nada além do DiceLog;
+      · o JOGADOR (rolador da Mesa) grava a linha `@mesa:player` quando a política
+        "Dos jogadores" do mestre deixa (Todas · Só críticos · Nenhuma) e a
+        resposta diz `shown` ("📺 apareceu na Tela").
+    Extras opcionais: `modifier` (vai na linha da Tela; `total` continua sendo só a
+    soma dos dados, como antes), `adv` ('adv'|'dis', para 1d20) e `groups`.
+    """
+    data = request.data
+    groups = _groups(data)
+    campaign_id = data.get('campaignId')
+    label = (data.get('label') or '')[:120]
+    modifier = _int_in(data.get('modifier', 0), -50, 50, 0)
+    adv = data.get('adv') if data.get('adv') in ('adv', 'dis') else None
+    if adv and not (len(groups) == 1 and groups[0]['die'] == 'd20' and groups[0]['count'] == 1):
+        adv = None
 
     campaign = None
     if campaign_id:
@@ -117,18 +160,61 @@ def dice_roll(request):
             campaign = None
 
     results = []
-    for _ in range(count):
-        results.append(_consume_or_roll(request.user, dice_type, campaign, label))
-    log_dice_roll(campaign, request.user, dice_type, results, label)
+    for g in groups:
+        rolled = []
+        for _ in range(2 if adv else g['count']):
+            rolled.append({**_consume_or_roll(request.user, g['die'], campaign, label), 'die': g['die']})
+        if adv:
+            # 2d20, fica o maior (vantagem) ou o menor; no empate só um conta
+            a, b = rolled[0]['value'], rolled[1]['value']
+            keep_first = (a >= b) if adv == 'adv' else (a <= b)
+            rolled[0]['kept'], rolled[1]['kept'] = keep_first, not keep_first
+        else:
+            for r in rolled:
+                r['kept'] = True
+        log_dice_roll(campaign, request.user, g['die'], [r for r in rolled if r['kept']], label)
+        if g['sign'] < 0:
+            for r in rolled:
+                r['sign'] = -1
+        results.append(rolled)
+    flat = [r for rolled in results for r in rolled]
+    total = sum(r['value'] * r.get('sign', 1) for r in flat if r.get('kept', True))
 
-    total = sum(r['value'] for r in results)
+    payload = {'results': flat, 'total': total}
+    dice_type = groups[0]['die'] if len(groups) == 1 else 'mixed'
+    if campaign is not None:
+        row = _table_row(request, campaign, flat, dice_type, sum(g['count'] for g in groups),
+                         label, modifier, total)
+        if row is not None:
+            payload['shown'] = row.status == 'public'
+            payload['rollId'] = row.id
+        elif campaign.dm_id != request.user.id:
+            payload['shown'] = False
     # Dado viciado é segredo do mestre: quem não é o mestre recebe só o valor.
     if not (campaign and campaign.dm_id == request.user.id):
-        results = scrub_dice(results)
-    return Response({
-        'results': results,
-        'total': total,
-    })
+        payload['results'] = scrub_dice(flat)
+    return Response(payload)
+
+
+def _table_row(request, campaign, flat, dice_type, count, label, modifier, total):
+    """A linha da Tela desta rolagem (ou None): 🔒/📺 do mestre ou a política dos jogadores."""
+    rigged = any(r.get('rigged') for r in flat)
+    dice = [{'value': r['value'], 'kept': r.get('kept', True), 'die': r['die'],
+             **({'sign': -1} if r.get('sign') == -1 else {}), **({'rigged': True} if r.get('rigged') else {})}
+            for r in flat]
+    crit, fail = table_rolls.natural_crit(dice)
+    common = dict(label=label, dice_type=dice_type, count=count, modifier=modifier, rolls=dice,
+                  total=total + modifier, crit=crit, fail=fail, rigged=rigged)
+    if campaign.dm_id == request.user.id:
+        if 'table' not in request.data:
+            return None
+        return table_rolls.record(campaign, request.user, 'dm', public=bool(request.data.get('table')), **common)
+    if not table_rolls.players_allow(table_rolls.prefs_of(campaign), dice):
+        return None
+    character = (Membership.objects.filter(campaign=campaign, user=request.user)
+                 .select_related('character').first())
+    return table_rolls.record(campaign, request.user, 'player',
+                              character=character.character if character else None, **common)
 
 
 def _consume_or_roll(user, dice_type, campaign, label):

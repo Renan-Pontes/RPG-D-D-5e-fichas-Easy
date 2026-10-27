@@ -80,7 +80,7 @@ class Base(TestCase):
 class ScreenPayloadTests(Base):
     def test_each_piece_goes_once(self):
         d = self.screen().json()
-        self.assertEqual(set(d), {'v', 'lang', 'card', 'stage', 'campaign', 'combat', 'state'})
+        self.assertEqual(set(d), {'v', 'lang', 'now', 'rolls', 'card', 'stage', 'campaign', 'combat', 'state'})
         c = d['campaign']
         for key in ('state', 'members', 'combat', 'publicRolls', 'publicCheck'):
             self.assertIn(key, c)          # onde a TV de antes já lê (1 versão de transição)

@@ -164,7 +164,6 @@ urlpatterns = [
 
     # Screen (público)
     path('screen/<str:token>', views_screen.screen),
-    path('screen/<str:token>/rolls', views_combat.roll_public_screen),
     path('screen/<str:token>/image/<int:entry_id>', _wp2('views_screen', 'screen_image')),
     path('screen/<str:token>/cover', _wp2('views_screen', 'screen_cover')),
     path('screen/<str:token>/map', views_screen.screen_map),
@@ -183,6 +182,8 @@ urlpatterns = [
     path('combat/campaign/<str:id_or_slug>/action', closed_guard(views_combat.combat_action, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/player-attack', closed_guard(views_combat.combat_player_attack, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/attack-preview', closed_guard(_wp2('views_combat', 'combat_attack_preview'), 'campaign')),
+    # salvaguarda em área rolada no servidor, sem aplicar (V10)
+    path('combat/campaign/<str:id_or_slug>/save-preview', closed_guard(views_combat.combat_save_preview, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/next-turn', closed_guard(views_combat.combat_next_turn, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/prev-turn', closed_guard(views_combat.combat_prev_turn, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/map', closed_guard(views_combat.combat_set_map, 'campaign')),

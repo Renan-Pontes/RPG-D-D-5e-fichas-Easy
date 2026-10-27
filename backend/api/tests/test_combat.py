@@ -5,6 +5,7 @@ Cobre: ataque, crítico dobra dano, save aplica metade, dano respeita
 resistência/imunidade/vulnerabilidade, HP zero marca defeated/unconscious,
 condições aplicadas/expiram, death saves, RollRequest workflow.
 """
+from django.utils import timezone
 from django.test import TestCase, SimpleTestCase
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -391,16 +392,22 @@ class RollRequestEndpointTests(TestCase):
         self.assertTrue(body['rigged'])
 
     def test_screen_exposes_public_rolls_only(self):
+        # a TV lê a janela pelo relógio do servidor (resolved_at), V10
         rr = RollRequest.objects.create(campaign=self.camp, requested_by=self.player,
                                          dice_type='d20', status='public', total=15,
-                                         rolls=[{'value': 15, 'kept': True}], modifier=0)
+                                         rolls=[{'value': 15, 'kept': True}], modifier=0,
+                                         resolved_at=timezone.now())
         rr_priv = RollRequest.objects.create(campaign=self.camp, requested_by=self.player,
-                                              dice_type='d20', status='private', total=8)
+                                              dice_type='d20', status='private', total=8,
+                                              resolved_at=timezone.now())
         c = APIClient()  # anônimo
         r = c.get(f'/api/screen/{self.camp.screen_token}')
         self.assertEqual(r.status_code, 200)
         rolls = r.json()['campaign']['publicRolls']
         ids = [x['id'] for x in rolls]
+        self.assertIn(rr.id, ids)
+        self.assertNotIn(rr_priv.id, ids)
+        ids = [x['id'] for x in r.json()['rolls']]
         self.assertIn(rr.id, ids)
         self.assertNotIn(rr_priv.id, ids)
 

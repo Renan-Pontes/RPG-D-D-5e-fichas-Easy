@@ -20,6 +20,14 @@ O palco (`stage`, api/stage.py) é o que manda na Tela: frente, fundo e as
 sobreposições. `card`, `publicCheck` e o resto continuam por 1 versão (TV aberta
 com o JS antigo).
 
+Rolagens (V10, api/table_rolls.py): `rolls` traz a JANELA pelo relógio do
+servidor — até 6 públicas dos últimos 90 s, em ordem (resolved_at, id), com o
+nome do personagem (não o do usuário) — e `now` é a hora do servidor; a TV
+enfileira, guarda os ids vistos e só faz o dado grande com menos de 10 s
+(frontend/src/screen/roll-queue.js). `publicRolls` (a TV de antes) sai da mesma
+consulta: a mais nova da janela. O `GET /screen/<t>/rolls`, que ninguém usava,
+saiu.
+
 Payload magro (V9): cada coisa vai UMA vez (antes `state`, `card` e `combat` iam
 no topo e de novo dentro de `campaign`). Ficam onde a TV de antes já lê:
 `card` e `stage` no topo; `state`, `members`, `combat`, `publicRolls` e
@@ -33,20 +41,24 @@ app dele em dm_settings.lang); sem ele, a TV usa o do aparelho.
 Tudo o que é só do mestre (nudges, concentration, diarySessions, screenCard cru,
 PV/CA/ações de monstro, notas e segredos do Mundo) fica de fora.
 """
+import hashlib
+import json
+
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
 
 from django.db.models.fields.json import KT
+from django.utils import timezone
 
-from .models import Campaign, Character, CombatInstance, RollRequest, CheckRequest
+from .models import Campaign, Character, CombatInstance, CheckRequest
 from .progression.multiclass import class_entries
 from .campaign_state import public_state
 from .image_data import image_link, image_response
 from .screen_card import is_private_handout, resolve_screen_card
 from .stage import public_stage, stage_image_data
-from .dice_privacy import scrub_dice
+from .table_rolls import screen_rolls
 
 
 def armor_class(d):
@@ -112,15 +124,14 @@ def screen(request, token):
     from .views_combat import _serialize_combat
     state = public_state(campaign.state)
     card = resolve_screen_card(campaign, token=token)
-    memberships = campaign.memberships.select_related('user', 'user__profile', 'character').all()
+    memberships = list(campaign.memberships.select_related('user', 'user__profile', 'character').all())
     combat = CombatInstance.objects.filter(campaign=campaign).first()
-    # publicRolls é só pra DISPARAR overlay dramático no TV (não renderizamos lista).
-    # Limitamos a 1 — o mais recente — pra evitar payload inflado.
-    public_rolls = list(
-        RollRequest.objects
-        .filter(campaign=campaign, status='public')
-        .select_related('requested_by', 'requested_by__profile')[:1]
-    )
+    # Rolagens: a janela de 90 s pelo relógio do servidor (1 consulta). O pedido sem
+    # personagem leva o da ficha da vaga de quem pediu.
+    now = timezone.now()
+    char_by_user = {m.user_id: m.character.name for m in memberships if m.character}
+    window, rolls = screen_rolls(campaign.id, now, char_by_user)
+    public_rolls = [(window[-1], rolls[-1])] if window else []
     # Pedido de teste que o mestre escolheu mostrar (no máximo um; encerrado sai da Tela).
     shown_check = (
         CheckRequest.objects
@@ -134,9 +145,11 @@ def screen(request, token):
         combat_payload = _serialize_combat(combat, for_dm=False, token=token)
         combat_payload.pop('log', None)
     stage = public_stage(campaign, token=token, test=public_check, card=card)
-    return Response({
+    payload = {
         'v': 2,
         'lang': campaign._lang if campaign._lang in ('pt', 'en') else None,
+        'now': now.isoformat(),
+        'rolls': rolls,
         'card': card,
         'stage': stage,
         # 1 versão de transição: o app do mestre de antes (📺 do cabeçalho e Jogar › Telão)
@@ -167,25 +180,33 @@ def screen(request, token):
                 for m in memberships
             ],
             'combat': combat_payload,
+            # a TV de antes (1 versão): só a mais nova, para o dado dramático dela
             'publicRolls': [
                 {
                     'id': r.id,
-                    'requester': _display_name(r.requested_by),
+                    'requester': p['who'] or 'Mestre',
                     'label': r.label,
                     'diceType': r.dice_type,
                     'count': r.count,
                     'modifier': r.modifier,
-                    'rolls': scrub_dice(r.rolls or []),
+                    'rolls': p['rolls'],
                     'total': r.total,
                     'isCritical': r.is_critical,
                     'isCriticalFail': r.is_critical_fail,
                     'resolvedAt': r.resolved_at.isoformat() if r.resolved_at else None,
                 }
-                for r in public_rolls
+                for r, p in public_rolls
             ],
             'publicCheck': public_check,
         }
-    })
+    }
+    resp = Response(payload)
+    # ETag sem o `now` (V10): parada, a TV continua recebendo 304 sem corpo; a hora do
+    # servidor só importa quando chega rolagem nova — e aí a resposta muda.
+    body = json.dumps({k: v for k, v in payload.items() if k != 'now'}, sort_keys=True, default=str,
+                      separators=(',', ':'))
+    resp['ETag'] = f'"s{hashlib.md5(body.encode()).hexdigest()}"'
+    return resp
 
 
 def _campaign_by_token(token, *fields):
