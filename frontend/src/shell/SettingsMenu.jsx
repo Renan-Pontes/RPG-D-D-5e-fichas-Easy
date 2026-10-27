@@ -491,7 +491,7 @@ function DeleteCampaignDialog({ campaign, lang, onCancel, onDone }) {
           </p>
           <ul className="lv-danger-list">
             <li>{t(lang, 'todo o mundo: lugares, NPCs, facções, segredos, mapas e imagens;', 'the whole world: places, NPCs, factions, secrets, maps and images;')}</li>
-            <li>{t(lang, 'as aventuras e o plano da próxima sessão;', 'the adventures and the next-session plan;')}</li>
+            <li>{t(lang, 'as aventuras e o Plano da Sessão;', 'the adventures and the session Plan;')}</li>
             <li>{t(lang, 'o diário, a crônica, o combate e os itens da mesa.', 'the diary, the chronicle, combat and the table\'s items.')}</li>
           </ul>
           <p className="muted text-sm" style={{ margin: 0 }}>

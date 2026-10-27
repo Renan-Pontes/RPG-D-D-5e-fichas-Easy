@@ -7,6 +7,7 @@ import { readyApi } from '../ready/ready-logic.js';
 import CoverPicker from './CoverPicker.jsx';
 import ToneAccentFields from '../shell/ToneAccentFields.jsx';
 import { defaultCoverArt, isHexColor, saveRememberedArea, TONES } from '../shell/shell-logic.js';
+import { writeSkip } from '../shell/next-step.js';
 import '../shell/shell.css';
 import { TableInviteCard } from '../creator/JoinTable.jsx';
 import { normalizeInviteCode, joinFromInvite, joinToast } from '../creator/creation.js';
@@ -119,7 +120,7 @@ function CampaignCard({ c, lang, onOpen }) {
 
 /**
  * Assistente de criação em 3 passos curtos (todos puláveis depois do nome):
- * 1. nome e frase · 2. capa, tom e cor · 3. mundo em branco ou exemplo.
+ * 1. nome e frase · 2. capa, tom e cor · 3. como começar (as 3 portas do Plano).
  */
 function CreateCampaignModal({ lang, onClose, onCreated }) {
   const [step, setStep] = useState(0);
@@ -167,12 +168,13 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
       if (start === 'sample') {
         try { await createSampleWorld(c.id, lang); } catch { /* segue */ }
       }
-      let imported = false;
       if (start === 'ready' && readyId) {
-        try { await readyApi.importInto(c.id, readyId, lang); imported = true; } catch { /* segue: dá para importar em Preparar */ }
+        try { await readyApi.importInto(c.id, readyId, lang); } catch { /* segue: dá para importar no Plano */ }
       }
-      // Primeira visita: com aventura pronta, cai na aventura; senão, no Mundo (Primeiros passos).
-      saveRememberedArea(c.id, imported ? { area: 'prepare', sub: 'adventures' } : { area: 'world', sub: 'atlas' });
+      // Primeira visita: o Plano da Sessão 1 (com a aventura pronta ou o exemplo ele já vem
+      // preenchido). "Passo a passo" já escolheu a porta: o Plano abre nos 5 passos, sem as portas.
+      saveRememberedArea(c.id, { area: 'prepare', sub: 'next' });
+      if (start === 'blank') writeSkip(c.id, 'N2', 'empty');
       onCreated(c);
     } catch (err) {
       const lim = planLimitFrom(err);
@@ -231,24 +233,25 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
 
           {step === 2 && (
             <div className="camp-wizard-starts" role="radiogroup" aria-label={t(lang, 'Como começar', 'How to start')}>
-              <button type="button" role="radio" aria-checked={start === 'blank'} className={`camp-start ${start === 'blank' ? 'active' : ''}`} onClick={() => setStart('blank')}>
-                <span className="camp-start-ico" aria-hidden="true">📜</span>
-                <strong>{t(lang, 'Mundo em branco', 'Blank world')}</strong>
-                <span className="muted text-sm">{t(lang, 'Você cria tudo do seu jeito, um cartão de cada vez.', 'You build everything your way, one card at a time.')}</span>
-              </button>
-              <button type="button" role="radio" aria-checked={start === 'sample'} className={`camp-start ${start === 'sample' ? 'active' : ''}`} onClick={() => setStart('sample')}>
-                <span className="camp-start-ico" aria-hidden="true">🏔️</span>
-                <strong>{t(lang, 'Começar com um exemplo', 'Start with a sample')}</strong>
-                <span className="muted text-sm">{t(lang,
-                  'A vila "Vale de Brumafria": um mapa, 3 NPCs, uma facção, um rumor, um segredo e uma aventura de 3 salas. Tudo editável e apagável.',
-                  'The village "Mistfrost Vale": a map, 3 NPCs, a faction, a rumor, a secret and a 3-room adventure. All editable and deletable.')}</span>
-              </button>
+              {/* as mesmas 3 portas do Plano (Preparar › Plano), com as mesmas palavras */}
               <button type="button" role="radio" aria-checked={start === 'ready'} className={`camp-start ${start === 'ready' ? 'active' : ''}`} onClick={() => { setStart('ready'); setError(''); }}>
                 <span className="camp-start-ico" aria-hidden="true">📖</span>
-                <strong>{t(lang, 'Começar com uma aventura pronta', 'Start with a ready adventure')}</strong>
+                <strong>{t(lang, 'Usar uma aventura pronta', 'Use a ready adventure')}</strong>
                 <span className="muted text-sm">{t(lang,
-                  'Uma aventura completa para iniciantes: mundo, personagens, salas, pistas e dicas para conduzir.',
-                  'A complete beginner adventure: world, characters, rooms, clues and tips for running it.')}</span>
+                  'Cenas, pessoas, combates e imagens já prontos: o mundo, as salas, as pistas e o Plano da 1ª sessão.',
+                  'Scenes, people, fights and images ready: the world, the rooms, the clues and the session 1 Plan.')}</span>
+              </button>
+              <button type="button" role="radio" aria-checked={start === 'blank'} className={`camp-start ${start === 'blank' ? 'active' : ''}`} onClick={() => setStart('blank')}>
+                <span className="camp-start-ico" aria-hidden="true">✎</span>
+                <strong>{t(lang, 'Montar a minha, passo a passo', 'Build my own, step by step')}</strong>
+                <span className="muted text-sm">{t(lang, 'Mundo em branco: o Plano mostra 5 passos curtos e você cria tudo do seu jeito.', 'Blank world: the Plan shows 5 short steps and you build everything your way.')}</span>
+              </button>
+              <button type="button" role="radio" aria-checked={start === 'sample'} className={`camp-start ${start === 'sample' ? 'active' : ''}`} onClick={() => setStart('sample')}>
+                <span className="camp-start-ico" aria-hidden="true">✨</span>
+                <strong>{t(lang, 'Começar com um exemplo', 'Start with an example')}</strong>
+                <span className="muted text-sm">{t(lang,
+                  'Uma vila pronta para você mexer: o "Vale de Brumafria", com mapa, 3 NPCs, uma facção, um rumor, um segredo, uma aventura de 3 salas e um Plano com 2 cenas. Tudo editável e apagável.',
+                  'A village ready for you to play with: "Mistfrost Vale", with a map, 3 NPCs, a faction, a rumor, a secret, a 3-room adventure and a Plan with 2 scenes. All editable and deletable.')}</span>
               </button>
             </div>
           )}

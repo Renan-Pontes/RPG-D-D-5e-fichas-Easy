@@ -175,10 +175,10 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     ? onboardingStatus(campaign, { worldCount: world?.count || 0, planHasContent: planHas })
     : null), [isDM, campaign, world?.count, planHas]);
 
-  // Área inicial (uma vez por campanha, quando os dados chegam).
+  // Área inicial (uma vez por campanha, quando os dados chegam). Sem nada lembrado, o
+  // mestre cai em Preparar › Plano (as 3 portas), não mais no Mundo dos primeiros passos.
   useEffect(() => {
     if (!campaign || nav) return;
-    if (isDM && world == null) return; // espera o Mundo para decidir pelo onboarding
     let alive = true;
     (async () => {
       let combatActive = false;
@@ -191,14 +191,13 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
       const fromUrl = route && (route.slug === campaign.slug || route.slug === String(campaign.id)) ? route : null;
       const first = initialArea({
         isDM, live: !!campaign.state?.live, combatActive,
-        onboardingPending: onboardingVisible(obStatus),
         remembered: loadRememberedArea(campaign.id),
         fromUrl,
       });
       setNav({ ...first, params: {} });
     })();
     return () => { alive = false; };
-  }, [campaign, isDM, world, nav, obStatus]);
+  }, [campaign, isDM, nav]);
 
   // Mantém a URL em dia com a tela (replaceState: não enche o histórico).
   useEffect(() => {
@@ -369,6 +368,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   };
   const ctx = {
     area: nav.area, sub: nav.sub, params: nav.params, goTo, clearParams, isDM, lang, campaign, reload: load,
+    startSession: isDM ? startSession : undefined,   // o "▶ Começar a Sessão N" do Plano é o mesmo da capa
     openSearch: () => setSearch(true), openSettings: (section) => { setSettings(typeof section === 'string' ? section : 'identity'); if (isDM) loadWorld(); },
   };
 

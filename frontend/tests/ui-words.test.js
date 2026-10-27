@@ -11,6 +11,9 @@ import { codeFiles, stripComments } from './stage-api-calls.test.js';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const GONE = [
   { word: /tel[ãa]o/i, now: 'Tela' },   // V3
+  // V5: a subvista e o título "Próxima sessão" viraram "Plano" / "Plano da Sessão N" (o "até a
+  // próxima sessão" da barra da mesa continua: é a próxima sessão mesmo, não o nome do plano)
+  { word: /Pr[óo]xima sess[ãa]o|\bNext session\b/, now: 'Plano' },
 ];
 
 test('palavras que saíram do app não voltam', () => {

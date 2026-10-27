@@ -23,9 +23,9 @@ export const SUB_LABELS = {
   map: ['Mapa', 'Map'],
   timeline: ['Linha do tempo', 'Timeline'],
   documents: ['Documentos', 'Documents'],
-  next: ['Próxima sessão', 'Next session'],
+  next: ['Plano', 'Plan'],
   adventures: ['Aventuras', 'Adventures'],
-  items: ['Itens da campanha', 'Campaign items'],
+  items: ['Itens', 'Items'],
   scene: ['Cena', 'Scene'],
   combat: ['Combate', 'Combat'],
   checks: ['Testes', 'Checks'],
@@ -43,8 +43,6 @@ export const SUB_LABELS = {
 export const SUB_SHORT = {
   timeline: ['Tempo', 'Timeline'],
   documents: ['Docs', 'Docs'],
-  next: ['Próxima', 'Next'],
-  items: ['Itens', 'Items'],
   screen: ['Tela', 'Screen'],
   requests: ['Pedidos', 'Requests'],
 };
@@ -180,15 +178,14 @@ export function planHasContent(plan) {
 // ---------------------------------------------------------------------------
 
 /**
- * Primeira tela que o mestre vê (DESIGN 1.4):
- *  - sessão ao vivo ou combate ativo → Jogar › Cena;
+ * Primeira tela que o mestre vê (especificação §2.4):
+ *  - combate ativo → Jogar › Combate; sessão ao vivo → Jogar › Agora (sub `scene`);
  *  - senão, a última área lembrada;
- *  - senão, primeiros passos pendentes → Mundo;
- *  - senão → Preparar › Próxima sessão.
+ *  - senão (campanha nova, outro aparelho) → Preparar › Plano, com as 3 portas.
  * Jogador: lembrada ou Mesa.
  * `fromUrl` ({area, sub} lido da URL) vem antes de tudo, para o F5 voltar à mesma tela.
  */
-export function initialArea({ isDM, live = false, combatActive = false, onboardingPending = false, remembered = null, fromUrl = null }) {
+export function initialArea({ isDM, live = false, combatActive = false, remembered = null, fromUrl = null }) {
   // A URL (#c/<slug>/<área>/<sub>, ex.: depois de um F5) manda em tudo.
   const url = fromUrl && fromUrl.area ? normalizeArea(isDM, fromUrl.area, fromUrl.sub) : null;
   if (url) return url;
@@ -198,7 +195,6 @@ export function initialArea({ isDM, live = false, combatActive = false, onboardi
   if (live || combatActive) return { area: 'play', sub: combatActive ? 'combat' : 'scene' };
   const rem = remembered && normalizeArea(true, remembered.area, remembered.sub);
   if (rem) return rem;
-  if (onboardingPending) return { area: 'world', sub: 'atlas' };
   return { area: 'prepare', sub: 'next' };
 }
 

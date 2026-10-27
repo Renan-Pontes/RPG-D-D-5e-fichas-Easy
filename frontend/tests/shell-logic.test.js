@@ -68,16 +68,20 @@ test('Grupo do mestre: Jogadores · Pedidos · Raio-X · Crônica; o contador le
   assert.deepEqual(normalizeArea(false, 'group', 'requests'), { area: 'group', sub: null });
 });
 
-test('área inicial do mestre (DESIGN 1.4)', () => {
-  // ao vivo ou combate → Jogar
+test('área inicial do mestre (especificação §2.4)', () => {
+  // ao vivo → Jogar › Agora (sub `scene`); combate → Jogar › Combate
   assert.deepEqual(initialArea({ isDM: true, live: true, remembered: { area: 'world' } }), { area: 'play', sub: 'scene' });
   assert.deepEqual(initialArea({ isDM: true, combatActive: true }), { area: 'play', sub: 'combat' });
   // lembrada
-  assert.deepEqual(initialArea({ isDM: true, onboardingPending: true, remembered: { area: 'group', sub: 'chronicle' } }), { area: 'group', sub: 'chronicle' });
-  // onboarding pendente → Mundo
-  assert.deepEqual(initialArea({ isDM: true, onboardingPending: true }), { area: 'world', sub: 'atlas' });
-  // resto → Preparar › Próxima sessão
+  assert.deepEqual(initialArea({ isDM: true, remembered: { area: 'group', sub: 'chronicle' } }), { area: 'group', sub: 'chronicle' });
+  // nada lembrado (campanha nova, outro aparelho) → Preparar › Plano, com as 3 portas
+  // (os primeiros passos pendentes não levam mais ao Mundo)
+  assert.deepEqual(initialArea({ isDM: true, onboardingPending: true }), { area: 'prepare', sub: 'next' });
   assert.deepEqual(initialArea({ isDM: true }), { area: 'prepare', sub: 'next' });
+  assert.equal(subLabel('next', 'pt'), 'Plano');
+  assert.equal(subLabel('next', 'en'), 'Plan');
+  assert.equal(subLabel('items', 'pt'), 'Itens');
+  assert.equal(subShortLabel('next', 'pt'), 'Plano');
   // lembrança inválida é ignorada
   assert.deepEqual(initialArea({ isDM: true, remembered: { area: 'table' } }), { area: 'prepare', sub: 'next' });
 });
@@ -162,8 +166,8 @@ test('sessão, cores, capa padrão, rótulos', () => {
   assert.equal(defaultCoverArt({ id: 3 }), defaultCoverArt({ id: 3 }));
   assert.ok(COVER_ART.includes(defaultCoverArt({ id: 12345 })));
   assert.ok(COVER_ART.includes(defaultCoverArt(null)));
-  assert.equal(subLabel('next', 'pt'), 'Próxima sessão');
-  assert.equal(subLabel('next', 'en'), 'Next session');
+  assert.equal(subLabel('next', 'pt'), 'Plano');
+  assert.equal(subLabel('next', 'en'), 'Plan');
   assert.deepEqual(TONES.map(x => x.id), ['heroic', 'dark', 'mystery', 'comic', 'epic']);
 });
 
@@ -182,9 +186,10 @@ test('rótulos curtos do celular (plano §4.2) e o longo continua', () => {
   assert.equal(subShortLabel('timeline', 'pt'), 'Tempo');
   assert.equal(subLabel('timeline', 'pt'), 'Linha do tempo');
   assert.equal(subShortLabel('documents', 'pt'), 'Docs');
-  assert.equal(subShortLabel('next', 'pt'), 'Próxima');
+  // Preparar: Plano · Aventuras · Itens (§9.1), iguais no curto e no longo
+  assert.equal(subShortLabel('next', 'pt'), 'Plano');
   assert.equal(subShortLabel('items', 'pt'), 'Itens');
-  assert.equal(subLabel('items', 'pt'), 'Itens da campanha');
+  assert.equal(subLabel('items', 'pt'), 'Itens');
   assert.equal(subShortLabel('screen', 'pt'), 'Tela');
   assert.equal(subShortLabel('screen', 'en'), 'Screen');
   assert.equal(subShortLabel('requests', 'pt'), 'Pedidos');
