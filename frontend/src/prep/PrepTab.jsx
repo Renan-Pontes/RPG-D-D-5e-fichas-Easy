@@ -385,24 +385,27 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
   const selEdge = selected?.type === 'edge' ? data.edges.find(e => e.id === selected.id) : null;
   const current = data.nodes.find(n => n.id === play.current) || null;
 
-  const panelFor = (node) => (mode === 'prep'
-    ? (
-      <NodeEditor key={node.id} node={node} data={data} adventures={adventures} currentAdventureId={advId}
-        campaign={campaign} campaignItems={campaignItems} levels={levels} lang={lang}
-        world={world} onCreateEntry={createEntry} onOpenEntry={openEntry}
-        onChange={(patch) => changeData(d => updateNode(d, node.id, patch))}
-        onDelete={() => deleteNode(node)}
-        onDataChange={addEdgeObj}
-        onSelectEdge={(id) => setSelected({ type: 'edge', id })} />
-    ) : (
-      <PlayPanel key={node.id} adventure={adv} node={node} campaign={campaign} levels={levels} lang={lang}
-        logDiary={logDiary} onLogDiary={setLogDiary} onPlay={onPlay} onOpenAdventure={openOther} onOpenTab={onOpenTab}
-        goTo={goTo} world={world} onWorldChange={patchWorld} onOpenEntry={openEntry}
-        onSelectNode={(id) => setSelected({ type: 'node', id })} />
-    ));
+  // Editar: a sala abre na folha da Cena em modo sala (NodeEditor; no PC, painel à direita do
+  // mapa). Na mesa (Conduzir): o painel da sala, no lugar de sempre.
+  const panelFor = (node) => (mode === 'prep' ? null : (
+    <PlayPanel key={node.id} adventure={adv} node={node} campaign={campaign} levels={levels} lang={lang}
+      logDiary={logDiary} onLogDiary={setLogDiary} onPlay={onPlay} onOpenAdventure={openOther} onOpenTab={onOpenTab}
+      goTo={goTo} world={world} onWorldChange={patchWorld} onOpenEntry={openEntry}
+      onSelectNode={(id) => setSelected({ type: 'node', id })} />
+  ));
+  const roomSheet = mode === 'prep' && selNode ? (
+    <NodeEditor key={selNode.id} node={selNode} data={data} adventures={adventures} currentAdventureId={advId}
+      campaign={campaign} campaignItems={campaignItems} levels={levels} lang={lang} saveState={saveState}
+      world={world} onCreateEntry={createEntry} onOpenEntry={openEntry}
+      onChange={(patch) => changeData(d => updateNode(d, selNode.id, patch))}
+      onDelete={() => deleteNode(selNode)}
+      onDataChange={addEdgeObj}
+      onSelectEdge={(id) => setSelected({ type: 'edge', id })}
+      onClose={() => setSelected(null)} />
+  ) : null;
 
   let side;
-  if (selNode) side = panelFor(selNode);
+  if (selNode && mode !== 'prep') side = panelFor(selNode);
   else if (selEdge && mode === 'prep') {
     side = (
       <EdgeEditor key={selEdge.id} edge={selEdge} data={data} adventures={adventures} currentAdventureId={advId} lang={lang}
@@ -534,6 +537,7 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
           {selEdge && <aside className="prep-side">{side}</aside>}
         </div>
       )}
+      {roomSheet}
       {confirmEl}
     </div>
   );

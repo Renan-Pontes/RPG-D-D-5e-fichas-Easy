@@ -60,7 +60,7 @@ export default function NodeList({ data, play, mode, selectedId, available, lang
                   ))}
                 </ul>
               )}
-              {selectedId === n.id && renderPanel && <div className="prep-list-panel">{renderPanel(n)}</div>}
+              {selectedId === n.id && renderPanel?.(n) && <div className="prep-list-panel">{renderPanel(n)}</div>}
             </li>
           );
         })}

@@ -74,9 +74,11 @@ export default function PlayPanel({
     `${enc.monsters} monster(s) added${withPcs ? ' + PCs' : ''}${startNow ? ' · combat started' : ''}. Adjust initiative under Play › Combat.`));
 
   const askCheck = (c) => run(`chk-${c.skill}`, async () => {
-    const isSave = c.skill.startsWith('save:');
+    // 'save:dex' · 'ability:str' (a folha da Cena grava atributos assim) · perícia
+    const [head, rest] = c.skill.includes(':') ? c.skill.split(':') : [null, c.skill];
+    const kind = head === 'save' ? 'save' : head === 'ability' ? 'ability' : 'skill';
     await api.createCheck(campaign.id, buildCheckPayload({
-      kind: isSave ? 'save' : 'skill', key: isSave ? c.skill.slice(5) : c.skill,
+      kind, key: head ? rest : c.skill,
       label: checkText(c.skill, lang), dc: c.dc ?? '', dcHidden: true, targets: [],
     }, lang));
   }, t(lang, 'Pedido enviado à mesa (CD oculta).', 'Check sent to the table (hidden DC).'));
