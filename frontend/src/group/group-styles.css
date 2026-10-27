@@ -89,9 +89,13 @@
 .grp-xp-bar { height: 6px; border-radius: 999px; background: var(--bg-deep); overflow: hidden; }
 .grp-xp-bar > div { height: 100%; background: linear-gradient(90deg, var(--arcane), var(--arcane-bright)); }
 
-/* 2 chips do Raio-X (mestre): altura reservada enquanto as contas carregam */
-.grp-roles { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 44px; }
-.grp-role-chip.mesa-chip { padding: 6px 12px; font-size: 0.92rem; color: var(--ink-primary); }
+/* 2 chips do Raio-X (mestre): altura reservada enquanto as contas carregam; sempre numa
+   linha (quebrar em 2 empurrava o cartão de baixo): o nome encolhe com "…", o número não */
+.grp-roles { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-height: 44px; min-width: 0; }
+.grp-role-chip.mesa-chip { flex: 0 1 auto; min-width: 0; gap: 4px; padding: 6px 10px; font-size: 0.92rem; color: var(--ink-primary); white-space: nowrap; }
+.grp-role-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.grp-role-v { flex: none; }
+@media (max-width: 359px) { .grp-role-chip.mesa-chip { gap: 3px; padding: 6px 8px; } }
 .grp-badges { display: flex; flex-wrap: wrap; gap: 4px; }
 .grp-badges:empty { display: none; }
 .grp-badge {

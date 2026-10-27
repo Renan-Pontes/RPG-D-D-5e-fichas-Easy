@@ -18,6 +18,8 @@ import useRaioX from '../group/useRaioX.js';
 import './next-session.css';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
+// Quanto a página espera as contas do Raio-X junto com o plano (o passo 1 nasce inteiro).
+const RX_WAIT_MS = 3000;
 
 const STEPS = [
   { id: 'party',       icon: '🛡', pt: 'O grupo',                 en: 'The party' },
@@ -192,7 +194,22 @@ export default function NextSession({ campaign, lang, goTo }) {
 
   // Passo 1 com o Raio-X: "brilha em…, fraco em…", o estilo do jogador e os momentos que
   // ainda não aconteceram (as contas e os ajustes chegam sob demanda: useRaioX).
-  const rx = useRaioX(campaign.id, party.some(m => m.character?.data));
+  // Nada empurra o campo em que o mestre digita (princípio 8): a página espera as contas
+  // junto com o plano (até RX_WAIT_MS) e o passo 1 já nasce com as linhas; se elas chegarem
+  // depois, ficam atrás de "✦ Mostrar o Raio-X do grupo", numa linha de altura fixa que já
+  // estava lá desde o 1º desenho.
+  const wantRx = party.some(m => m.character?.data);
+  const rx = useRaioX(campaign.id, wantRx);
+  const [rxTimeout, setRxTimeout] = useState(false);
+  const [rxOpen, setRxOpen] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setRxTimeout(true), RX_WAIT_MS);
+    return () => clearTimeout(id);
+  }, [campaign.id]);
+  const holdRx = wantRx && !rx && !rxTimeout;
+  const rxInline = useRef(null);   // decidido no 1º desenho do passo 1: linhas à vista ou atrás do botão
+  if (plan && !holdRx && rxInline.current === null) rxInline.current = !wantRx || !!rx;
+  const showRx = !!rx && (rxInline.current || rxOpen);
   const sheetsKey = party.map(m => `${m.character?.id}:${JSON.stringify(m.character?.data || null)}`).join('|');
   const raiox = useMemo(() => {
     if (!rx) return null;
@@ -200,7 +217,7 @@ export default function NextSession({ campaign, lang, goTo }) {
     return { facts, byId: Object.fromEntries(facts.map(f => [f.id, f])) };
   }, [rx, sheetsKey, lang]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!plan) {
+  if (!plan || holdRx) {
     return (
       <div className="ns">
         {error ? <p className="prep-error" role="alert">{error}</p> : <p className="muted">{t(lang, 'Carregando…', 'Loading…')}</p>}
@@ -254,7 +271,7 @@ export default function NextSession({ campaign, lang, goTo }) {
               const sum = m.character?.summary || {};
               const cls = d.className || sum.className;
               const avatar = d.avatar || sum.avatar;
-              const f = raiox?.byId[m.character?.id];
+              const f = showRx ? raiox?.byId[m.character?.id] : null;
               const key = String(m.character?.id);
               const style = rx?.ins.style?.[key] || [];
               const open = (rx?.ins.spotlights?.[key] || []).filter(x => x.done == null);
@@ -282,6 +299,11 @@ export default function NextSession({ campaign, lang, goTo }) {
               );
             })}
           </ul>
+        )}
+        {wantRx && !showRx && (
+          <p className="ns-party-rx">{rx
+            ? <button type="button" className="mesa-btn is-quiet" onClick={() => setRxOpen(true)}>✦ {t(lang, 'Mostrar o Raio-X do grupo', 'Show the party X-ray')}</button>
+            : <span className="muted small" role="status">{t(lang, 'Raio-X do grupo…', 'Party X-ray…')}</span>}</p>
         )}
       </Step>
 

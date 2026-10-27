@@ -154,7 +154,7 @@ function usePartyRoles(campaign, isDM, lang) {
     const facts = PM.partyFacts(PM.partyMembers(members), lang);
     const opts = { w: ins.w, base: ins.base, hidden: ins.hidden };
     const avg = PM.partyAxes(facts, opts).axes;
-    return Object.fromEntries(facts.map(f => [f.id, PM.topRoles(f, { ...opts, avg }).map(r => ({ ...r, label: `${PM.axisLabel(r.key, lang)} ${PM.fmt(r.v, lang)}` }))]));
+    return Object.fromEntries(facts.map(f => [f.id, PM.topRoles(f, { ...opts, avg }).map(r => ({ ...r, name: PM.axisLabel(r.key, lang), value: PM.fmt(r.v, lang), label: `${PM.axisLabel(r.key, lang)} ${PM.fmt(r.v, lang)}` }))]));
   }, [rx, key, lang]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
@@ -203,7 +203,8 @@ function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, assigning,
               <span className="muted small">{xp.next ? `${xp.xp} / ${xp.next} XP` : `${xp.xp} XP · ${t(lang, 'nível máximo', 'max level')}`}</span>
             </div>
           )}
-          {/* mestre: o lugar dos 2 chips fica reservado enquanto as contas chegam (nada pula) */}
+          {/* mestre: o lugar dos 2 chips fica reservado enquanto as contas chegam (nada pula):
+              os 2 cabem numa linha só, a 320 também (o nome encolhe com "…", o número fica) */}
           {roles !== undefined && (
             <div className="grp-roles" role="group" aria-label={t(lang, `Papéis mais fortes de ${c.name} no Raio-X`, `${c.name}'s strongest roles in the X-ray`)}>
               {roles === null
@@ -211,7 +212,7 @@ function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, assigning,
                 : roles.map(r => (
                   <button key={r.key} type="button" className="mesa-chip grp-role-chip" onClick={onRoles}
                     aria-label={t(lang, `${r.label}: abrir o Raio-X com ${c.name} em destaque`, `${r.label}: open the X-ray highlighting ${c.name}`)}>
-                    ✦ {r.label}
+                    <span aria-hidden="true">✦</span><span className="grp-role-name">{r.name}</span><span className="grp-role-v">{r.value}</span>
                   </button>
                 ))}
             </div>

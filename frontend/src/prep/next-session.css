@@ -76,6 +76,9 @@
 .ns-party-line.is-style { color: var(--ink-muted); }
 .ns-party-line.is-moment { color: var(--ink-primary); }
 .ns .ns-party-go { align-self: flex-start; justify-content: flex-start; padding-left: 0; text-align: left; }
+/* Raio-X que chegou depois do 1º desenho: uma linha de altura fixa (o "…" e o botão medem o mesmo) */
+.ns-party-rx { display: flex; align-items: center; min-height: 44px; margin: 6px 0 0; }
+.ns .ns-party-rx .mesa-btn { padding-left: 0; justify-content: flex-start; text-align: left; }
 .ns-party img, .ns-party-ph { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--gold-deep); display: grid; place-items: center; flex: 0 0 auto; }
 
 .ns-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; counter-reset: ns; }
