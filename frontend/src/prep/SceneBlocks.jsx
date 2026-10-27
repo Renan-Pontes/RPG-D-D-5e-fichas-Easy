@@ -10,6 +10,7 @@ import { tName } from '../../data/i18n.js';
 import { checkLabel, ABILITIES } from '../checks/check-logic.js';
 import { bestAt, firstName } from '../group/party-best.js';
 import { loadCustomMonsters } from '../combat/custom-monsters.js';
+import { CR_TABLE } from '../combat/cr-estimate.js';
 import MonsterPicker from '../campaigns/MonsterPicker.jsx';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import WorldRefs from './WorldRefs.jsx';
@@ -67,22 +68,23 @@ const HELP = {
 };
 
 /** Moldura de um bloco: título com o ícone, "?" (2–3 frases) e ✕ (tira, com Desfazer). */
-export function BlockFrame({ id, lang, onRemove, removeLabel, help, extra = null, children }) {
+export function BlockFrame({ id, lang, onRemove, removeLabel, help, title, extra = null, children }) {
   const [helpOpen, setHelpOpen] = useState(false);
   const b = SCENE_BLOCKS.find(x => x.id === id);
   const h = help || HELP[id];
+  const label = title || blockLabel(id, lang);
   return (
     <section className="ss-block" id={`ss-b-${id}`} aria-labelledby={`ss-bh-${id}`}>
       <header className="ss-block-head">
-        <h3 className="ss-block-h" id={`ss-bh-${id}`}><span aria-hidden="true">{b?.icon}</span> {blockLabel(id, lang)}</h3>
+        <h3 className="ss-block-h" id={`ss-bh-${id}`}><span aria-hidden="true">{b?.icon}</span> {label}</h3>
         {extra}
         {h && (
           <button type="button" className="mesa-icon-btn ss-help" aria-expanded={helpOpen} onClick={() => setHelpOpen(v => !v)}
-            aria-label={t(lang, `Ajuda: ${blockLabel(id, lang)}`, `Help: ${blockLabel(id, lang)}`)}>?</button>
+            aria-label={t(lang, `Ajuda: ${label}`, `Help: ${label}`)}>?</button>
         )}
         {onRemove && (
           <button type="button" className="mesa-icon-btn ss-x" onClick={onRemove}
-            aria-label={removeLabel || t(lang, `Tirar ${blockLabel(id, lang)} da cena`, `Remove ${blockLabel(id, lang)} from the scene`)}>✕</button>
+            aria-label={removeLabel || t(lang, `Tirar ${label} da cena`, `Remove ${label} from the scene`)}>✕</button>
         )}
       </header>
       {helpOpen && h && <p className="ss-help-text">{t(lang, h[0], h[1])}</p>}
@@ -207,13 +209,13 @@ export function PeopleBlock({ lang, world, ids, max, disabled, kinds = HANDY_KIN
  * ⚔ Combate: "Goblin Guerreiro [−] 2 [+] [×]", a dificuldade escrita contra a mesa, a linha
  * "× grupo" por monstro e "＋ Monstro" (o Escolher monstro de sempre, com "Pôr na cena (N)").
  */
-export function FightBlock({ lang, fight, levels, members, levelingMode, disabled, maxRows, maxCount, versusLine, onChange, onAdd, onRemove, error, confirmLabel }) {
+export function FightBlock({ lang, fight, levels, members, levelingMode, disabled, maxRows, maxCount, versusLine, onChange, onAdd, onRemove, error, confirmLabel, title }) {
   const lookup = useMonsterLookup();
   const [picker, setPicker] = useState(false);
   const diff = fightDifficulty(fight, levels, (id) => lookup(id), lang);
   const setCount = (i, n) => onChange(fight.map((f, j) => (j === i ? { ...f, count: Math.max(1, Math.min(maxCount, n)) } : f)));
   return (
-    <BlockFrame id="fight" lang={lang} onRemove={disabled ? null : onRemove}>
+    <BlockFrame id="fight" lang={lang} title={title} onRemove={disabled ? null : onRemove}>
       {fight.length === 0 && <p className="ss-hint">{t(lang, 'Nenhum monstro ainda.', 'No monsters yet.')}</p>}
       <ul className="ss-fight">
         {fight.map((f, i) => {
@@ -223,7 +225,7 @@ export function FightBlock({ lang, fight, levels, members, levelingMode, disable
           return (
             <li key={`${f.monsterId}-${i}`} className="ss-fight-row">
               <div className="ss-fight-line">
-                <span className="ss-fight-name">{name}{f.snap ? <span className="ss-hint"> · {t(lang, 'meu', 'mine')}</span> : null}</span>
+                <span className="ss-fight-name">{name}<span className="ss-hint"> · {t(lang, 'ND', 'CR')} {m?.cr ?? CR_TABLE.find(r => r.numeric === f.cr)?.cr ?? f.cr ?? '?'}{f.snap ? t(lang, ' · meu', ' · mine') : ''}</span></span>
                 <span className="ss-count" role="group" aria-label={t(lang, `Quantos ${name}`, `How many ${name}`)}>
                   <button type="button" className="mesa-icon-btn" disabled={disabled || f.count <= 1} onClick={() => setCount(i, f.count - 1)} aria-label={t(lang, `Um ${name} a menos`, `One less ${name}`)}>−</button>
                   <span className="ss-count-n" aria-live="polite">{f.count}</span>

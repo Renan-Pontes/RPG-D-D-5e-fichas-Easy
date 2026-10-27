@@ -471,7 +471,7 @@ export default function SceneSheet({
           </label>
         )}
 
-        <details className="ss-more" open={linked || undefined}>
+        <details className="ss-more">
           <summary>{linked ? t(lang, 'Mais opções (a sala da aventura)', 'More options (the adventure room)') : t(lang, 'Mais opções (usar uma sala de aventura)', 'More options (use an adventure room)')}</summary>
           {error && <p className="ss-error" role="alert">{error}</p>}
           {linked ? (

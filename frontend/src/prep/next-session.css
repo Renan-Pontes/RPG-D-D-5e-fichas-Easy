@@ -331,7 +331,7 @@ body:has(.mesa-bar) .ns-flash { bottom: calc(var(--fab-safe-bottom, 16px) + var(
 .pw-refs.is-pills .pw-chips .pw-add { border-radius: 999px; }
 
 /* ③ Cenas (V6): a linha abre a folha da Cena; os ícones do que a cena tem, escritos */
-.ns-scene .ns-row-line { min-height: 56px; }
+.ns-scene .ns-row-line { min-height: 64px; }
 .ns-scene-open {
   display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; min-height: 56px; padding: 6px 4px 6px 0;
   border: 0; background: none; color: var(--ink-primary); font: inherit; text-align: left; cursor: pointer;

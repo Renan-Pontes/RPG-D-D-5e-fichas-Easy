@@ -201,7 +201,7 @@ export default function NodeEditor({
         {shown('fight') && (
           <FightBlock lang={lang} fight={fight} levels={levels} members={campaign.members} levelingMode={campaign.state?.levelingMode || 'milestone'}
             maxRows={SCENE_LIMITS.nodeFight} maxCount={SCENE_LIMITS.nodeCount} error={fightError}
-            confirmLabel={t(lang, 'Pôr na sala', 'Put in the room')}
+            confirmLabel={t(lang, 'Pôr na sala', 'Put in the room')} title={t(lang, 'Combate desta sala', "This room's combat")}
             onChange={v => setList('encounter', v.map(fightToEncounter))} onAdd={addMonster} onRemove={() => removeBlock('fight')} />
         )}
         {shown('check') && (
