@@ -16,6 +16,7 @@ import { tName } from '../../data/i18n.js';
 import { computeProgression } from '../progression/engine.js';
 import { computeResources } from '../progression/resources.js';
 import { knownSpells } from '../creator/creation.js';
+import { grantEntries } from '../creator/spell-helpers.js';
 import TAGS from '../../data/spell-tags.json' with { type: 'json' };
 
 export const t = (lang, pt, en) => (lang === 'en' ? en : pt);
@@ -124,14 +125,20 @@ export function spellTags(id, rulesVersion) {
 // ---------------------------------------------------------------- CD e ataque por classe
 /**
  * Atributo de conjuração de UMA magia: o da classe de origem (a lista onde a magia
- * está; com mais de uma, a de melhor modificador); talento com atributo escolhido usa
- * o dele; espécie e o resto, o maior de INT/SAB/CAR. Hoje Utils.spellSaveDc usa só a
- * 1ª classe conjuradora (um Clérigo 1/Mago 3 teria as magias de Mago com SAB).
+ * está; com mais de uma, a de melhor modificador); talento e espécie usam o mesmo da
+ * ficha (grantEntries: o escolhido, o aumentado no Tocado pelas Fadas, o fixo do Alto
+ * Elfo 2014); o resto, o maior de INT/SAB/CAR. Hoje Utils.spellSaveDc usa só a 1ª
+ * classe conjuradora (um Clérigo 1/Mago 3 teria as magias de Mago com SAB).
  */
 export function spellAbilityFor(c, spellId, source = 'class') {
   const mod = (a) => Utils.abilityMod(c, a);
   const best = (list) => list.reduce((a, b) => (mod(b) > mod(a) ? b : a));
+  if (source === 'feat' || source === 'species') {
+    const g = safe(() => grantEntries(c).find(x => x.id === spellId && x.source === source && ABILS.includes(x.ability)));
+    if (g) return g.ability;
+  }
   if (source === 'feat') {
+    // fichas antigas: talento sem `grants` conhecidos, com a magia solta nos picks
     const f = (c.feats || []).find(x => Object.values(x?.picks || {}).some(v => (Array.isArray(v) ? v : [v]).includes(spellId)));
     if (ABILS.includes(f?.picks?.spellAbility)) return f.picks.spellAbility;
   }

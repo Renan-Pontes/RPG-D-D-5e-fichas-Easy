@@ -143,6 +143,26 @@ test('talento com atributo escolhido: a magia usa o atributo do talento', () => 
   const odd = { ...dagna, feats: [{ id: 'magicInitiate', picks: { spellAbility: 'cha', spell: ['healingWord'] } }] };
   assert.equal(M.spellAbilityFor(odd, 'healingWord', 'feat'), 'cha');
   assert.equal(M.spellAbilityFor({ ...dagna, feats: [] }, 'x', 'species'), 'wis', 'espécie: o maior de INT/SAB/CAR');
+  // Tocado pelas Fadas: o atributo que o talento aumentou (choices.spellAbility = 'asi')
+  const fey = make('2024', 'fighter', 4, { abilities: { str: 16, dex: 12, con: 14, int: 10, wis: 13, cha: 14 },
+    feats: [{ id: 'feyTouched', asi: { wis: 1 }, picks: { spell: ['bless'] } }] });
+  assert.equal(M.spellAbilityFor(fey, 'mistyStep', 'feat'), 'wis', 'CAR 14 > SAB 13, mas o talento aumentou SAB');
+});
+
+test('espécie: a magia usa o atributo da espécie (fixo em 2014, escolhido em 2024)', () => {
+  // Alto Elfo 2014: o truque da espécie é de INT, mesmo com CAR maior
+  const elf = make('2014', 'rogue', 1, { race: 'elf-high', speciesChoices: { cantrip: 'fireBolt' },
+    abilities: { str: 10, dex: 16, con: 12, int: 10, wis: 12, cha: 14 } });
+  assert.equal(Utils.speciesGrants(elf).spellAbility, 'int');
+  assert.equal(M.spellAbilityFor(elf, 'fireBolt', 'species'), 'int');
+  // Tiferino 2024 com CAR escolhido: SAB 15 > CAR 12 não importa
+  const tief = make('2024', 'fighter', 3, { race: 'tiefling', speciesChoices: { lineage: 'infernal', spellAbility: 'cha' },
+    abilities: { str: 15, dex: 12, con: 14, int: 10, wis: 15, cha: 12 } });
+  for (const id of ['fireBolt', 'thaumaturgy', 'hellishRebuke']) {
+    assert.equal(M.spellAbilityFor(tief, id, 'species'), 'cha', id);
+    assert.equal(M.spellDcFor(tief, id, 'species'), 8 + 2 + 1, `CD de ${id}`);
+    assert.equal(M.spellAttackFor(tief, id, 'species'), 2 + 1, `ataque de ${id}`);
+  }
 });
 
 test('Monge 6 sem armadura soma +15 de deslocamento na Mobilidade', () => {
