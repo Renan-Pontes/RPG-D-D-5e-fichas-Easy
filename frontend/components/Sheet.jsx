@@ -16,7 +16,7 @@ import ScrollTabs from './ScrollTabs.jsx';
 import { Filigree, Modal, NumStepper, Pips, AvatarUpload } from './Shared.jsx';
 import { SheetSpells, SheetInventory, SheetStory, SheetNotes, RestButtons } from './SheetTabs.jsx';
 import { api, ApiError } from '../src/api/client.js';
-import CombatActionPanel from '../src/campaigns/CombatActionPanel.jsx';
+import CombatActionPanel, { useCombatPanel } from '../src/campaigns/CombatActionPanel.jsx';
 import PlayerChecksBanner from '../src/checks/PlayerChecksBanner.jsx';
 import * as FS from '../src/progression/fighting-styles.js';
 import GrimoireHint from '../src/grimoire/GrimoireHint.jsx';
@@ -46,7 +46,8 @@ const CampaignLinkModal = lazy(() => import('../src/sheet/CampaignLinkModal.jsx'
 // onCampaignChange(msg): a ficha entrou/saiu/trocou de campanha (modal "Campanha") —
 // o app recarrega a lista (char.inCampaign) e mostra `msg`. onLogin: ficha do aparelho,
 // leva à entrada na conta (sem ele, o servidor está fora e a dica não aparece).
-const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, onCampaignChange, onLogin, children }) => {
+// backLabel: o texto do "voltar" quando a ficha foi aberta de outro lugar (a Mesa, V13).
+const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, backLabel, onLevelUp, onCampaignChange, onLogin, children }) => {
   const [tab, setTab] = useState('play');
   const [hpDelta, setHpDelta] = useState(0);
   const [tempHpInput, setTempHpInput] = useState(false);
@@ -64,6 +65,11 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
     setCampRev(n => n + 1);
     await onCampaignChange?.(msg);
   };
+  // Painel de combate (V13): na vez do jogador sobe para o topo da ficha (logo abaixo do
+  // "voltar", antes do retrato); fora dela, fica no lugar de sempre. Um estado só para
+  // os dois lugares (src/campaigns/CombatActionPanel.jsx, useCombatPanel).
+  const combatPanel = useCombatPanel(char, { rev: campRev, onUpdate });
+  const turnOnTop = !!char.inCampaign && combatPanel.isMyTurn;
   // Cerimônias (só visual, src/sheet/FhCeremonies.jsx): o selo quando o nível sobe e as
   // gemas que reacendem (descanso, trapaça, mestre).
   const rootRef = useRef(null);
@@ -178,6 +184,8 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         lang={lang}
         onAvatar={(av) => update({ avatar: av })}
         onBack={onBack}
+        backLabel={backLabel}
+        turnPanel={turnOnTop ? <CombatActionPanel panel={combatPanel} char={char} lang={lang} /> : null}
         onLevelUp={onLevelUp}
         onInspiration={() => update({ inspiration: !char.inspiration })}
         cls={cls} race={race} bg={bg}
@@ -202,8 +210,8 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         <WildShapeBanner char={char} lang={lang} onChange={onUpdate} />
       )}
 
-      {char.inCampaign && (
-        <CombatActionPanel key={campRev} char={char} lang={lang} onUpdate={onUpdate} />
+      {char.inCampaign && !turnOnTop && (
+        <CombatActionPanel panel={combatPanel} char={char} lang={lang} />
       )}
 
       {/* Barra de ações (src/sheet/ficha.css: .fh-actions): Exportar, Editar e Modo trapaça;
@@ -305,15 +313,16 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
 //   AvatarUpload abre um Modal, que não é portal.
 const hideBrokenImg = (e) => { e.currentTarget.style.display = 'none'; };
 
-const SheetHero = ({ char, lang, onAvatar, onBack, onLevelUp, onInspiration, cls, race, bg }) => {
+const SheetHero = ({ char, lang, onAvatar, onBack, backLabel, turnPanel, onLevelUp, onInspiration, cls, race, bg }) => {
   const pt = lang === 'pt';
   const letter = (char.name || '?').charAt(0).toUpperCase();
   const portrait = char.avatar || speciesArt(char.race) || classArt(char.className);
   return (
     <>
       <button className="btn btn-ghost btn-sm no-print" onClick={onBack} style={{ marginBottom: 12 }}>
-        <Icon name="arrow-back" size={14}/> {t('yourHeroes', lang)}
+        <Icon name="arrow-back" size={14}/> {backLabel || t('yourHeroes', lang)}
       </button>
+      {turnPanel}
       <div className="sheet-hero fh-hero">
         <div className="fh-hero-art" aria-hidden="true">
           <span className="fh-hero-mono">{letter}</span>
