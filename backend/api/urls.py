@@ -92,6 +92,7 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/world/echoes', closed_guard(views_world.world_echoes, 'campaign')),
     path('campaigns/<str:id_or_slug>/session-plan', closed_guard(views_world.session_plan, 'campaign')),
     path('campaigns/<str:id_or_slug>/party-insights', closed_guard(views_insights.party_insights, 'campaign')),
+    path('campaigns/<str:id_or_slug>/party-insights/history', views_insights.party_insights_history),
     path('world/<int:pk>', closed_guard(views_world.world_detail, 'world')),
     path('world/<int:pk>/image', closed_guard(views_world.world_image, 'world')),
     path('world/<int:pk>/reveal', closed_guard(views_world.world_reveal, 'world')),

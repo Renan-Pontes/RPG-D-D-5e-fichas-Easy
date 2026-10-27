@@ -2,16 +2,20 @@
 Raio-X do grupo: GET/PUT /api/campaigns/:id/party-insights (só o mestre), em
 dm_settings.partyInsights — merge por chave, limites, campanha encerrada e o PATCH
 da campanha que não apaga o Raio-X nem o plano da sessão gravados no meio do pedido.
+E o histórico do Equilíbrio na mesa (GET /party-insights/history): contagens por
+sessão, só números, com cache de 60 s.
 """
+from datetime import timedelta
 from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from api import world_rules as R
-from api.models import Campaign, Character, Membership, Profile
+from api.models import Campaign, Character, CheckRequest, CheckResponse, DiaryEntry, Membership, Profile
 
 User = get_user_model()
 IVAN_WIZARD = [5, 2, 5, 1, 5, 1, 5, 4, 2, 1, 2]
@@ -195,3 +199,105 @@ class ConcurrentCampaignPatchTests(PartyInsightsBase):
         self.assertEqual(r.status_code, 400)
         self.camp.refresh_from_db()
         self.assertEqual(self.camp.name, 'Mesa')
+
+
+class HistoryTests(PartyInsightsBase):
+    """Sessões 2 (sem diarySessions: o início vem da 1ª entrada do diário) e 3 (com
+    startedAt): testes pedidos/respondidos/passados por personagem e quedas no combate."""
+
+    def setUp(self):
+        super().setUp()
+        self.bruno = make_user('bruno@x.com')
+        self.kael = Character.objects.create(owner=self.bruno, name='Kaelor', data={'level': 1})
+        Membership.objects.create(campaign=self.camp, user=self.bruno, character=self.kael, role='player')
+        self.hurl = f'{self.url}/history'
+        now = timezone.now()
+        self.t2, self.t3 = now - timedelta(days=7), now - timedelta(hours=2)
+        self.camp.state = {'session': '3', 'diarySessions': {'3': {'title': '', 'startedAt': self.t3.isoformat()}}}
+        self.camp.save()
+        DiaryEntry.objects.create(campaign=self.camp, session=2, subtype='note', title='Chegada', occurred_at=self.t2)
+        DiaryEntry.objects.create(campaign=self.camp, session=3, subtype='combat', title='Combate encerrado',
+                                  occurred_at=self.t3 + timedelta(minutes=50),
+                                  data={'phase': 'end', 'downs': {'Pipo': 2, 'Fulano de fora': 1}})
+        # sessão 2: Percepção CD 15 para todos (Pipo passa, Kaelor não responde)
+        self.check(self.t2 + timedelta(minutes=10), dc=15, answers={self.ana: 17})
+        # sessão 3: CON CD 13 só para o Kaelor (falha) e um teste sem CD para todos
+        self.check(self.t3 + timedelta(minutes=5), dc=13, targets=[self.bruno.id], answers={self.bruno: 9})
+        self.check(self.t3 + timedelta(minutes=20), dc=None, answers={self.ana: 12, self.bruno: 20})
+        # antes de qualquer sessão: não conta
+        self.check(self.t2 - timedelta(days=30), dc=10, answers={self.ana: 18})
+
+    def check(self, when, dc, targets=(), answers=None):
+        cr = CheckRequest.objects.create(campaign=self.camp, created_by=self.dm, label='Teste', kind='skill',
+                                         key='perception', dc=dc, target_user_ids=list(targets))
+        CheckRequest.objects.filter(pk=cr.pk).update(created_at=when)
+        for user, total in (answers or {}).items():
+            char = self.char if user == self.ana else self.kael
+            CheckResponse.objects.create(check_request=cr, user=user, character=char, total=total)
+        return cr
+
+    def test_only_the_dm(self):
+        self.assertEqual(self.c_dm.get(self.hurl).status_code, 200)
+        for client in (self.c_ana, self.c_out):
+            self.assertEqual(client.get(self.hurl).status_code, 403)
+        self.assertIn(self.anon.get(self.hurl).status_code, (401, 403))
+
+    def test_counts_by_session(self):
+        r = self.c_dm.get(self.hurl).json()
+        pipo, kael = str(self.char.id), str(self.kael.id)
+        self.assertEqual(r['current'], 3)
+        self.assertEqual([s['number'] for s in r['sessions']], [3, 2])      # a mais nova primeiro
+        s3, s2 = r['sessions']
+        self.assertEqual(s2['checks'], {pipo: {'asked': 1, 'answered': 1, 'passed': 1},
+                                        kael: {'asked': 1, 'answered': 0, 'passed': 0}})
+        self.assertEqual(s3['checks'], {pipo: {'asked': 1, 'answered': 1, 'passed': 0},
+                                        kael: {'asked': 2, 'answered': 2, 'passed': 0}})
+        self.assertEqual(s3['downs'], {pipo: 2})                           # quem não é da mesa não entra
+        self.assertEqual(s2['downs'], {})
+        self.assertEqual(s3['startedAt'], self.t3.isoformat())
+        self.assertIsNotNone(s2['startedAt'])                              # veio da 1ª entrada do diário
+
+    def test_only_numbers_no_other_fields(self):
+        r = self.c_dm.get(self.hurl).json()
+        self.assertEqual(set(r), {'current', 'sessions'})
+        for s in r['sessions']:
+            self.assertEqual(set(s), {'number', 'startedAt', 'checks', 'downs'})
+            for row in s['checks'].values():
+                self.assertEqual(set(row), {'asked', 'answered', 'passed'})
+                self.assertTrue(all(isinstance(v, int) for v in row.values()))
+            self.assertTrue(all(isinstance(v, int) for v in s['downs'].values()))
+        body = self.c_dm.get(self.hurl).content.decode()
+        for leak in ('Teste', 'perception', 'Chegada', 'Combate', 'Pipo', 'Kaelor', '"total"', 'Fulano'):
+            self.assertNotIn(leak, body)
+
+    def test_cached_for_60_seconds_and_by_session(self):
+        first = self.c_dm.get(self.hurl).json()
+        self.check(self.t3 + timedelta(minutes=30), dc=10, answers={self.ana: 15})
+        with self.assertNumQueries(3):                     # sessão de login, usuário e campanha; nada de contagem
+            again = self.c_dm.get(self.hurl).json()
+        self.assertEqual(again, first)
+        with mock.patch('api.views_insights.cache.get', return_value=None):
+            fresh = self.c_dm.get(self.hurl).json()
+        self.assertEqual(fresh['sessions'][0]['checks'][str(self.char.id)]['asked'], 2)
+        # começar a sessão 4 muda a chave: não espera o cache vencer
+        self.c_dm.post(f'/api/campaigns/{self.camp.id}/diary/sessions', {'number': 4}, format='json')
+        r = self.c_dm.get(self.hurl).json()
+        self.assertEqual((r['current'], r['sessions'][0]['number']), (4, 4))
+        self.assertEqual(r['sessions'][0]['checks'], {})
+
+    def test_last_five_sessions(self):
+        for n in range(4, 10):
+            DiaryEntry.objects.create(campaign=self.camp, session=n, subtype='note', title=f'S{n}',
+                                      occurred_at=self.t3 + timedelta(minutes=60 + n))
+        r = self.c_dm.get(self.hurl).json()
+        self.assertEqual([s['number'] for s in r['sessions']], [9, 8, 7, 6, 5])
+
+    def test_empty_campaign(self):
+        self.camp.state = {}
+        self.camp.save()
+        DiaryEntry.objects.all().delete()
+        self.assertEqual(self.c_dm.get(self.hurl).json(), {'current': None, 'sessions': []})
+
+    def test_closed_campaign_still_reads(self):
+        self.assertEqual(self.c_dm.delete(f'/api/campaigns/{self.camp.id}').status_code, 200)
+        self.assertEqual(self.c_dm.get(self.hurl).status_code, 200)
