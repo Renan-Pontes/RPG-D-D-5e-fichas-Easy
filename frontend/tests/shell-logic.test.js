@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DM_AREAS, PLAYER_AREAS, normalizeArea, legacyTabToArea, initialArea,
+  DM_AREAS, PLAYER_AREAS, normalizeArea, legacyTabToArea, areaTapSub, initialArea,
   loadRememberedArea, saveRememberedArea, onboardingStatus, onboardingVisible,
   planHasContent, fold, matchScore, searchItems, nextSessionNumber, defaultCoverArt,
   COVER_ART, isHexColor, subLabel, subShortLabel, SUB_ICONS, TONES,
@@ -28,16 +28,37 @@ test('normalizeArea: sub inválida cai na padrão; área inválida → null', ()
   assert.deepEqual(normalizeArea(false, 'table', 'x'), { area: 'table', sub: null });
   // Grupo › Raio-X (só o mestre): a rota #c/1/group/insights volta ao Raio-X no F5
   assert.deepEqual(normalizeArea(true, 'group', 'insights'), { area: 'group', sub: 'insights' });
-  assert.deepEqual(DM_AREAS.find(a => a.id === 'group').subs, ['players', 'insights', 'chronicle']);
+  assert.deepEqual(DM_AREAS.find(a => a.id === 'group').subs, ['players', 'requests', 'insights', 'chronicle']);
   assert.deepEqual(initialArea({ isDM: true, fromUrl: { area: 'group', sub: 'insights' } }), { area: 'group', sub: 'insights' });
 });
 
 test('abas antigas viram áreas novas', () => {
   assert.deepEqual(legacyTabToArea('combat'), ['play', 'combat']);
-  assert.deepEqual(legacyTabToArea('approvals'), ['group', 'players']);
+  assert.deepEqual(legacyTabToArea('approvals'), ['group', 'requests']);
+  assert.deepEqual(legacyTabToArea('members'), ['group', 'players']);
   assert.deepEqual(legacyTabToArea('rolls'), ['play', 'checks']);
   assert.deepEqual(legacyTabToArea('prep'), ['prepare', 'adventures']);
   assert.equal(legacyTabToArea('dice'), null);
+});
+
+test('Grupo do mestre: Jogadores · Pedidos · Raio-X · Crônica; o contador leva a Pedidos', () => {
+  assert.deepEqual(DM_AREAS.find(a => a.id === 'group').subs, ['players', 'requests', 'insights', 'chronicle']);
+  assert.deepEqual(normalizeArea(true, 'group', 'requests'), { area: 'group', sub: 'requests' });
+  assert.deepEqual(normalizeArea(true, 'group'), { area: 'group', sub: 'players' });
+  assert.equal(subLabel('requests', 'pt'), 'Pedidos');
+  assert.equal(subShortLabel('requests', 'en'), 'Requests');
+  assert.ok(SUB_ICONS.requests);
+  // tocar no Grupo com pedidos esperando → Pedidos; sem pedidos → a padrão
+  assert.equal(areaTapSub(true, 'group', { group: 4 }), 'requests');
+  assert.equal(areaTapSub(true, 'group', { group: 0 }), null);
+  assert.equal(areaTapSub(true, 'group', {}), null);
+  assert.equal(areaTapSub(true, 'play', { group: 4 }), null);
+  assert.equal(areaTapSub(false, 'group', { group: 4 }), null, 'o jogador não tem Pedidos');
+  // F5 em #c/1/group/requests volta para Pedidos
+  assert.deepEqual(initialArea({ isDM: true, live: true, fromUrl: parseCampaignRoute('#c/1/group/requests') }), { area: 'group', sub: 'requests' });
+  assert.equal(campaignRoute('ecos-de-valdoria', 'group', 'requests'), '#c/ecos-de-valdoria/group/requests');
+  // o jogador continua com uma vista só
+  assert.deepEqual(normalizeArea(false, 'group', 'requests'), { area: 'group', sub: null });
 });
 
 test('área inicial do mestre (DESIGN 1.4)', () => {

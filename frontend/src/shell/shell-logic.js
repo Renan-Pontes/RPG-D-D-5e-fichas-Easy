@@ -7,7 +7,7 @@ export const DM_AREAS = [
   { id: 'world',   icon: '🗺️', pt: 'Mundo',    en: 'World',   subs: ['atlas', 'map', 'timeline'] },
   { id: 'prepare', icon: '📜', pt: 'Preparar', en: 'Prepare', subs: ['next', 'adventures', 'items'] },
   { id: 'play',    icon: '⚔️', pt: 'Jogar',    en: 'Play',    subs: ['scene', 'combat', 'checks', 'screen'] },
-  { id: 'group',   icon: '🛡️', pt: 'Grupo',    en: 'Party',   subs: ['players', 'insights', 'chronicle'] },
+  { id: 'group',   icon: '🛡️', pt: 'Grupo',    en: 'Party',   subs: ['players', 'requests', 'insights', 'chronicle'] },
 ];
 
 /** Abas do jogador. */
@@ -97,13 +97,23 @@ export const LEGACY_TAB_TO_AREA = {
   prep: ['prepare', 'adventures'],
   items: ['prepare', 'items'],
   members: ['group', 'players'],
-  approvals: ['group', 'players'],
+  approvals: ['group', 'requests'],
   diary: ['group', 'chronicle'],
   world: ['world', 'atlas'],
 };
 
 export function legacyTabToArea(tab) {
   return LEGACY_TAB_TO_AREA[tab] || null;
+}
+
+/**
+ * Subvista ao tocar numa área (aba do desktop, casa da barra do celular ou
+ * tecla 1–4): o contador vermelho do Grupo do mestre (pedidos esperando) leva
+ * direto a Grupo › Pedidos. Sem contador, null (a subvista padrão da área).
+ */
+export function areaTapSub(isDM, area, badges = {}) {
+  if (isDM && area === 'group' && Number(badges?.group) > 0) return 'requests';
+  return null;
 }
 
 // ---------------------------------------------------------------------------
