@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   encounterGroups, encounterBody, groupsTotal, initiativeRows, legacyBodies, openInitiativeCheck, setupSteps,
-  pickInitiatives, startLabel,
+  pickInitiatives, startLabel, lateInitiatives, lateLabel, fightLine,
 } from '../src/combat/encounter-setup.js';
+import { logLine } from '../src/campaigns/monster-actions.js';
 import { findMonster, monsterForCombat } from '../data/bestiary.js';
 
 const resolve = (e) => findMonster(e.monsterId) || e.snapshot || null;
@@ -92,4 +93,40 @@ test('servidor antigo: 1 POST por combatente, mas cada um numa casa livre e inic
   const more = legacyBodies({ groups: [{ monster: { id: 'g' }, name: 'Goblin', count: 1, initiative: 8 }],
     combatants: [{ name: 'Goblin #1' }, { name: 'Goblin #2' }] });
   assert.equal(more[0].monster.name, 'Goblin #3');
+});
+
+test('"Já iniciar": as respostas que chegam com o combate andando entram pelo "Pôr na ordem (N de M)"', () => {
+  const rows = [
+    { id: 'a', name: 'Dagna', total: 14, answered: true, guess: true },
+    { id: 'b', name: 'Elarion', total: null, answered: false, guess: true },
+    { id: 'c', name: 'Kaelor', total: 9, answered: true, guess: false },   // já tinha a digitada: fica
+    { id: 'd', name: 'Pipo', total: null, answered: false, guess: true },
+  ];
+  const late = lateInitiatives(rows);
+  assert.deepEqual(late.initiatives, [{ id: 'a', initiative: 14 }]);
+  assert.deepEqual([late.answered, late.total, late.close], [1, 3, false]);
+  assert.equal(lateLabel(late, 'pt'), 'Pôr na ordem (1 de 3)');
+  assert.equal(lateLabel(late, 'en'), 'Put in order (1 of 3)');
+  assert.equal(lateLabel(lateInitiatives([rows[1]]), 'pt'), 'Esperando as respostas');
+  // todos os que faltavam responderam: entra e o teste fecha
+  const all = lateInitiatives([{ ...rows[1], total: 17, answered: true }, { ...rows[3], total: 3, answered: true }]);
+  assert.deepEqual([all.answered, all.total, all.close], [2, 2, true]);
+  assert.equal(lateInitiatives([]).close, false);
+});
+
+test('a linha do combate da sala sai na língua do app (pelo catálogo; o nome salvo é a reserva)', () => {
+  const enc = [
+    { monsterId: 'goblin-warrior', name: 'Goblin Guerreiro', count: 2 },
+    { monsterId: 'cultist', name: 'Cultista', count: 3 },
+    { monsterId: 'meu-bicho', name: 'Sombra Espectral', count: 1 },
+  ];
+  assert.equal(fightLine(enc, { resolve: findMonster, lang: 'en' }), '2 Goblin Warrior · 3 Cultist · 1 Sombra Espectral');
+  assert.equal(fightLine(enc, { resolve: findMonster, lang: 'pt', sep: ' × ' }), '2 × Goblin Guerreiro · 3 × Cultista · 1 × Sombra Espectral');
+  // servidor antigo (currentFight sem monsterId): o nome como veio
+  assert.equal(fightLine([{ name: 'Goblin Guerreiro', count: 2 }], { resolve: findMonster, lang: 'en', sep: ' × ' }), '2 × Goblin Guerreiro');
+});
+
+test('o Registro recente não mostra "Combate montado (0 monstros, 0 personagens)"', () => {
+  assert.equal(logLine({ type: 'encounter', mode: 'add', monsters: 0, pcs: 0, opId: 'x' }, 'pt'), '');
+  assert.match(logLine({ type: 'encounter', mode: 'add', monsters: 2, pcs: 4 }, 'pt'), /Combate montado \(2 monstros, 4 personagens\)/);
 });

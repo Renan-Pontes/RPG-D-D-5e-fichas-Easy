@@ -3,6 +3,7 @@
 //
 // Celular, nesta ordem (o urgente primeiro):
 //   1. faixa do turno (presa ao rolar) · 2. cena compacta (o toque abre os campos)
+//   2b. "⚔ 2 Goblin Guerreiro [Começar o combate]" quando a sala em jogo tem combate (V8)
 //   3. avisos · 4. personagens · 5. pendências · 6. ações rápidas
 //   7. Nesta cena · 8. plano da sessão (recolhido)
 // Pedir teste, Anteriormente em…, Mostrar na Tela…, Improvisar, Revelar e Configurar avisos abrem
@@ -27,7 +28,7 @@ import { concentrationOf, conditionLabel, partyStatus, stateWithConcentration } 
 import { isWizardEnabled, stateWithWizard } from './end-of-encounter.js';
 import EndOfEncounterPanel from './EndOfEncounterPanel.jsx';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
-import InScenePanel from '../play/InScenePanel.jsx';
+import InScenePanel, { SceneFight } from '../play/InScenePanel.jsx';
 import SessionPlanPanel from '../play/SessionPlanPanel.jsx';
 import RecapCard from '../play/RecapCard.jsx';
 const ShowSheet = lazy(() => import('../stage/ShowSheet.jsx'));
@@ -97,6 +98,7 @@ export default function TableNow({ campaign, approvals, lang = 'pt', onChange, o
   const [showWrapUp, setShowWrapUp] = useState(false);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [inScene, setInScene] = useState(null);   // a sala em jogo (InScenePanel), para a linha do combate
   const wide = useMedia('(min-width: 1024px)');
 
   const load = useCallback(async () => {
@@ -264,6 +266,12 @@ export default function TableNow({ campaign, approvals, lang = 'pt', onChange, o
     <>
       {turnStrip}
       <SceneBar campaign={campaign} lang={lang} onSave={saveState} alwaysOpen={wide} />
+      {/* a sala em jogo tem combate: "⚔ 2 Goblin Guerreiro [Começar o combate]" no topo (V8) */}
+      {inScene?.node?.encounter?.length > 0 && (
+        <section className="mesa-panel tn-fight" aria-label={L(lang, 'Combate da cena', 'Scene combat')}>
+          <SceneFight campaign={campaign} scene={inScene} lang={lang} goTo={goTo} />
+        </section>
+      )}
       {showWrapUp && combat && (
         <div className="tn-wrapup">
           <EndOfEncounterPanel campaign={campaign} combat={combat} lang={lang}
@@ -343,7 +351,7 @@ export default function TableNow({ campaign, approvals, lang = 'pt', onChange, o
 
       {!swap && actionsBox}
 
-      <InScenePanel campaign={campaign} lang={lang} goTo={goTo} />
+      <InScenePanel campaign={campaign} lang={lang} goTo={goTo} onScene={setInScene} />
     </>
   );
 

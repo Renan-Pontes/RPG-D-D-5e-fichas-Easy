@@ -10,6 +10,9 @@
 // - initiativeRows / pickInitiatives: as respostas do teste de iniciativa na linha de
 //   cada personagem ("⚡ Dagna 14") e o "Usar e começar (3 de 4)" (quem não
 //   respondeu fica com 10 e "✎").
+// - lateInitiatives: com o combate já andando ("Já iniciar"), as respostas que
+//   chegam entram pelo "Pôr na ordem (2 de 4)".
+// - fightLine: "2 Goblin Guerreiro · 1 Sombra" na língua do app (pelo catálogo).
 // - legacyBodies: servidor ainda sem /encounter → os POSTs de antes, 1 por
 //   combatente, mas com as casas livres contadas em sequência (D1) e a iniciativa
 //   rolada por monstro aqui.
@@ -108,6 +111,40 @@ export function pickInitiatives(rows) {
     answered: list.filter(r => r.answered || !r.guess).length,
     total: list.length,
   };
+}
+
+/**
+ * Combate andando com a iniciativa pedida (o "Já iniciar" da folha): quem ainda está com
+ * "✎" e já respondeu entra na ordem pelo "Pôr na ordem (2 de 4)" (o servidor refaz a
+ * ordem com a vez ainda de quem a tinha). Só quem respondeu vai; o teste fecha quando
+ * ninguém mais falta. → {initiatives, answered, total, close}
+ */
+export function lateInitiatives(rows) {
+  const waiting = (rows || []).filter(r => r.guess);
+  const ready = waiting.filter(r => r.answered);
+  return {
+    initiatives: ready.map(r => ({ id: r.id, initiative: r.total })),
+    answered: ready.length,
+    total: waiting.length,
+    close: waiting.length > 0 && ready.length === waiting.length,
+  };
+}
+
+export function lateLabel({ answered, total }, lang = 'pt') {
+  if (!answered) return L(lang, 'Esperando as respostas', 'Waiting for answers');
+  return L(lang, `Pôr na ordem (${answered} de ${total})`, `Put in order (${answered} of ${total})`);
+}
+
+/**
+ * O combate da sala numa linha: "2 Goblin Guerreiro · 1 Sombra" (`sep` = ' × ' dá
+ * "2 × Goblin Guerreiro"). O nome vem do catálogo na língua do app (`resolve(monsterId)`
+ * → monstro com name {pt, en}); o nome salvo na sala fica de reserva.
+ */
+export function fightLine(entries, { resolve, lang = 'pt', sep = ' ' } = {}) {
+  return (entries || []).filter(Boolean).map(e => {
+    const m = e.monsterId && resolve ? resolve(e.monsterId) : null;
+    return `${e.count || 1}${sep}${nameOf(m || e.snapshot || e.snap, lang, e.name)}`;
+  }).join(' · ');
 }
 
 export function startLabel({ answered, total }, lang = 'pt') {

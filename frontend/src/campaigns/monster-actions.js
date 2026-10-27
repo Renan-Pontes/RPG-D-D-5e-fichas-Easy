@@ -201,6 +201,8 @@ export function logLine(e, lang) {
     case 'undo':
       return `↶ ${pick(lang, 'Desfeito', 'Undone')}${e.target ? `: ${e.target}` : ''}`;
     case 'encounter':
+      // sem ninguém novo (▶ Iniciar, "Usar e começar", "Pôr na ordem"): só guarda o opId
+      if (!e.monsters && !e.pcs) return '';
       return pick(lang, `Combate montado (${e.monsters || 0} monstros, ${e.pcs || 0} personagens)`, `Combat set up (${e.monsters || 0} monsters, ${e.pcs || 0} characters)`);
     case 'add_condition':
       return `${e.target}: + ${conditionLabel(e.condition, lang)}`;

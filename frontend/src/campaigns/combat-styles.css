@@ -918,7 +918,8 @@ button.cs-cond:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-off
 .ct-setup-go .mesa-btn { width: 100%; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* linha do combatente: 56 px, pílula de PV 72×44 (abre o teclado de dano) */
+/* linha do combatente: 56 px, pílula de PV 72×48 (ação ao vivo; abre o teclado de dano).
+   A marca da vez fica embaixo do nome, na mesma célula: a linha só cresce com chips. */
 .ct-row { min-height: 56px; grid-template-columns: 28px 36px minmax(0, 1fr) 72px; }
 @media (max-width: 360px) {
   .ct-row { grid-template-columns: 26px 36px minmax(0, 1fr) 72px; column-gap: 5px; }
@@ -927,7 +928,7 @@ button.cs-cond:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-off
 .ct-hp-pill {
   grid-area: side; position: relative; z-index: 1; align-self: center;
   display: flex; align-items: center; justify-content: center;
-  width: 100%; min-width: 72px; height: 44px; padding: 0 4px;
+  width: 100%; min-width: 72px; height: 48px; padding: 0 4px;
   border: 1px solid rgba(224, 181, 94, 0.45); border-radius: 10px;
   background: rgba(10, 7, 6, 0.55); cursor: pointer;
 }
@@ -935,8 +936,12 @@ button.cs-cond:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-off
 .ct-hp-pill .mesa-hp-text { font-size: 14px; font-weight: 700; }
 .ct-hp-pill:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
 .ct-row.has-conds .ct-hp-pill { grid-row: 1; align-self: center; }
-/* a marca da vez: ✓ agiu (esmaecida) · ▶ agora (dourada) · † caiu */
-.ct-mark { font-family: var(--display); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; line-height: 26px; color: var(--ink-secondary); white-space: nowrap; }
+/* a marca da vez: ✓ agiu (esmaecida) · ▶ agora (dourada) · † caiu — embaixo do nome */
+.ct-open { flex-direction: column; align-items: flex-start; justify-content: center; }
+.ct-mark {
+  max-width: 100%; font-family: var(--display); font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+  line-height: 14px; color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .ct-mark.is-now { color: var(--fh-gold-hi); }
 .ct-mark.is-down { color: var(--blood-bright); }
 .ct-row.mark-acted { opacity: 0.68; }
@@ -1022,14 +1027,14 @@ button.cs-stat.cs-init-btn.is-guess { border-color: var(--gold-bright); color: v
 .mesa-btn.dp-link { flex: none; padding-left: 4px; padding-right: 4px; white-space: nowrap; }
 @media (max-width: 359px) { .mesa-btn.dp-link { font-size: 0.78rem; letter-spacing: 0; } }
 .dp-hint, .dp-error { margin: 0; }
+.dp-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.dp-error > span { flex: 1 1 160px; min-width: 0; }
+.mesa-btn.dp-retry { flex: none; min-height: 48px; }
 @media (max-width: 359px) {
   .dp-keys { grid-template-columns: repeat(3, 64px); }
   .dp-main { grid-template-columns: 204px minmax(0, 1fr); gap: 6px; }
   .mesa-btn.dp-act { font-size: 0.82rem; padding: 2px 4px; letter-spacing: 0; }
 }
-.dp-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
-.dp-error > span { flex: 1 1 160px; min-width: 0; }
-.mesa-btn.dp-retry { flex: none; min-height: 48px; }
 
 /* folha "Começar o combate" */
 .sc-groups { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -1054,9 +1059,23 @@ button.cs-stat.cs-init-btn.is-guess { border-color: var(--gold-bright); color: v
 .sc-foot .sc-go { width: 100%; }
 .sc-why { margin: 0; }
 
-/* Jogar › Cena: a linha do combate da sala */
+/* Jogar › Cena: a linha do combate da sala (no topo da Cena; sem a casca, no "Nesta cena") */
 .mesa-row.ins-fight { margin: 8px 0; }
 .mesa-btn.ins-fight-go { min-height: 48px; white-space: normal; }
+.mesa-panel.tn-fight { padding-top: 6px; padding-bottom: 6px; }
+.mesa-panel.tn-fight .mesa-row.ins-fight { margin: 0; flex-wrap: wrap; row-gap: 6px; }
+.mesa-panel.tn-fight .mesa-row-main { flex: 1 1 180px; }
+.mesa-panel.tn-fight .mesa-row-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 479px) {
+  /* celular: o texto numa linha e o botão inteiro embaixo (a linha não vira uma coluna estreita) */
+  .mesa-panel.tn-fight .mesa-row-act { flex: 1 1 100%; }
+  .mesa-panel.tn-fight .ins-fight-go { width: 100%; }
+}
+
+/* Combate andando com a iniciativa chegando ("Já iniciar"): as respostas e "Pôr na ordem" */
+.mesa-panel.ct-late { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; }
+.ct-late-line { flex: 1 1 200px; min-width: 0; }
+.mesa-btn.ct-late-go { flex: 1 1 180px; min-height: 48px; white-space: normal; }
 
 /* fim guiado: o tesouro da cena */
 .eoe-scene-treasure { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }

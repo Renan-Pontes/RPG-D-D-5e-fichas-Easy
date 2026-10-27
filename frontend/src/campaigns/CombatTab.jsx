@@ -27,8 +27,12 @@ import GroupCheckPanel from '../checks/GroupCheckPanel.jsx';
 import { initiativePayload } from '../checks/check-logic.js';
 import DamagePad from '../play/DamagePad.jsx';
 import StartCombatSheet, { sceneOfNode } from '../play/StartCombatSheet.jsx';
-import { encounterBody, initiativeRows, openInitiativeCheck, setupSteps, pickInitiatives, startLabel } from '../combat/encounter-setup.js';
-import { markLabel, newOpId, shouldScrollTo, toggleMark, turnMarks, TOUCH_QUIET_MS } from '../play/damage-model.js';
+import {
+  encounterBody, fightLine, initiativeRows, lateInitiatives, lateLabel, openInitiativeCheck, setupSteps, pickInitiatives, startLabel,
+} from '../combat/encounter-setup.js';
+import {
+  failText, heldOpId, markLabel, newerCombat, newOpId, quietSlot, shouldScrollTo, toggleMark, turnMarks, TOUCH_QUIET_MS,
+} from '../play/damage-model.js';
 import { startEncounter } from '../play/combat-actions.js';
 import { activeScene } from '../play/scene-model.js';
 import { getAdventure, listAdventures, patchState } from '../play/play-api.js';
@@ -85,6 +89,8 @@ const modalOpen = () => !!document.querySelector('.modal-backdrop, [role="dialog
  * - Combate parado: "Monte o combate em 3 passos" (① Monstros ② Personagens
  *   ③ Iniciativa, cada um com ✓), o atalho "Usar o combate da cena X" e, com a
  *   iniciativa pedida à mesa, as respostas na linha ("⚡ 14") e "Usar e começar (3 de 4)".
+ * - Combate andando com a iniciativa ainda chegando ("Já iniciar"): as respostas na
+ *   linha e "Pôr na ordem (2 de 4)" (a vez fica com quem a tinha).
  * - Cada combatente é uma linha de 56 px (CombatantRow) com a marca da vez (✓ agiu ·
  *   ▶ agora · † caiu) e a pílula de PV, que abre o teclado de dano (DamagePad);
  *   "Vários alvos" liga caixas nas linhas e o "½ passou". No celular o toque na linha
@@ -130,22 +136,30 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   const roomy = useMedia('(min-width: 1280px)');   // a Tela encaixada ganha a 3ª coluna
 
   const seeRef = useRef(() => {});
+  const opRef = useRef({}); // {monster, use, late}: o opId de cada pedido até dar certo (heldOpId)
   // Nada mexe debaixo do dedo: o último toque na tela. O combate que chega pelo pulso
-  // nos 600 ms depois de um toque espera esse tempo para entrar (e a lista não rola).
+  // nos 600 ms depois de um toque espera esse tempo para entrar (e a lista não rola);
+  // a espera é conferida de novo quando o timer dispara (o 2º toque no meio adia) e,
+  // se chegaram dois, entra só o mais novo (quietSlot).
   const touchedAt = useRef(0);
   useEffect(() => {
     const mark = () => { touchedAt.current = Date.now(); };
     document.addEventListener('pointerdown', mark, true);
     return () => document.removeEventListener('pointerdown', mark, true);
   }, []);
+  const combatSlot = useMemo(() => quietSlot((c) => {
+    // a resposta de uma ação pode ter chegado durante a espera: não volta para trás
+    setCombat(cur => newerCombat(cur, c));
+    seeRef.current(c?.updatedAt);
+  }, () => touchedAt.current), []);
+  const checksSlot = useMemo(() => quietSlot((checks) => setInitCheck(openInitiativeCheck(checks || [])), () => touchedAt.current), []);
+  useEffect(() => () => { combatSlot.cancel(); checksSlot.cancel(); }, [combatSlot, checksSlot]);
   const load = useCallback(async () => {
     try {
       const r = await api.getCombat(campaign.id);
-      const apply = () => { setCombat(r.combat); seeRef.current(r.combat?.updatedAt); };
-      const wait = touchedAt.current + TOUCH_QUIET_MS - Date.now();
-      if (wait > 0) setTimeout(apply, wait); else apply();
+      combatSlot.push(r.combat);
     } catch (e) { console.warn(e); }
-  }, [campaign.id]);
+  }, [campaign.id, combatSlot]);
 
   useEffect(() => { load(); }, [load]);
   // Com o pulso: só quando o combate muda (e 1 vez por minuto); sem ele, a cada 2,5 s, como antes.
@@ -173,11 +187,14 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   const combatants = combat?.combatants || [];
   const active = !!combat?.active;
 
-  // A iniciativa pedida à mesa: só enquanto o combate está sendo montado e já tem
-  // personagem. Busca quando o pulso diz que os testes mudaram (sem pulso, a cada 6 s),
-  // e só nesse período. (Servidor antigo: os personagens entram sem o "✎", mas as
-  // respostas do teste aberto entram igual pelo "Usar e começar".)
-  const waitingInit = !!combat && !active && combatants.some(c => c.type === 'pc');
+  // A iniciativa pedida à mesa: enquanto o combate está sendo montado e já tem
+  // personagem, e com ele andando enquanto algum personagem ainda está com "✎" (o "Já
+  // iniciar" da folha: as respostas entram pelo "Pôr na ordem"). Busca quando o pulso
+  // diz que os testes mudaram (sem pulso, a cada 6 s), e só nesse período. (Servidor
+  // antigo: os personagens entram sem o "✎", mas as respostas do teste aberto entram
+  // igual pelo "Usar e começar".)
+  const waitingInit = !!combat && combatants.some(c => c.type === 'pc')
+    && (!active || combatants.some(c => c.type === 'pc' && c.init_guess));
   const waitRef = useRef(waitingInit);
   waitRef.current = waitingInit;
   const loadChecks = useCallback(async () => {
@@ -185,11 +202,9 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
     try {
       const r = await api.listChecks(campaign.id);
       // as respostas que chegam nos 600 ms depois de um toque esperam (nada mexe debaixo do dedo)
-      const apply = () => setInitCheck(openInitiativeCheck(r.checks || []));
-      const wait = touchedAt.current + TOUCH_QUIET_MS - Date.now();
-      if (wait > 0) setTimeout(apply, wait); else apply();
+      checksSlot.push(r.checks || []);
     } catch { /* o próximo tenta de novo */ }
-  }, [campaign.id]);
+  }, [campaign.id, checksSlot]);
   useOnRev(table?.pulse?.checksRev, loadChecks, { table, fallbackMs: 6000, initial: false });
   useEffect(() => { if (waitingInit) loadChecks(); else setInitCheck(null); }, [waitingInit, loadChecks]);
 
@@ -301,6 +316,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   const answers = new Map(rows.filter(r => r.answered).map(r => [r.id, r.total]));
   const steps = setupSteps(combat, { askedInitiative: !!initCheck });
   const picked = pickInitiatives(rows);
+  const late = active && initCheck ? lateInitiatives(rows) : null;   // "Já iniciar": respostas chegando
   const backToNow = () => { if (goTo) goTo('play', 'scene'); };
 
   const startCombat = async () => {
@@ -328,7 +344,13 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
     setShowMore(false);
     try {
       const r = await api.resetCombat(campaign.id, keepMap ? undefined : { keepMap: false });
-      applyCombat(r?.combat);
+      let fresh = r?.combat;
+      if (!keepMap && (fresh?.map?.backgroundUrl || fresh?.map?.background_image)) {
+        // Servidor antigo: não conhece o keepMap e o fundo ficou. Tira pelo caminho de antes.
+        try { fresh = (await api.setCombatMap(campaign.id, { background_image: null }))?.combat || fresh; }
+        catch { flash(t(lang, 'O mapa ficou: falta atualizar o servidor.', 'The map stayed: the server needs updating.'), { error: true }); }
+      }
+      applyCombat(fresh);
     } catch (e) { flash(`${t(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`, { error: true }); }
     load();
   };
@@ -341,18 +363,22 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   };
 
   // ✚ Monstro: uma chamada (POST /encounter, casas livres e iniciativa por monstro no
-  // servidor); servidor antigo: 1 POST por monstro, como antes.
+  // servidor); servidor antigo: 1 POST por monstro, como antes. O opId (e o do "Usar e
+  // começar") fica o mesmo até dar certo: o "tentar de novo" depois de uma resposta
+  // perdida não põe os monstros 2× (o servidor responde `duplicate`).
   const addMonster = async (monster, count, initiative) => {
     // Snapshot do bestiário (ações/bônus/reações/lendárias numa lista com `kind`).
     const snap = monsterForCombat(resolveCatalogMonster(monster));
     const name = (typeof snap.name === 'object' ? (snap.name?.[lang] || snap.name?.en) : snap.name) || 'Monster';
     const tokenScale = snap.size === 'Large' ? 2 : snap.size === 'Huge' ? 3 : snap.size === 'Gargantuan' ? 4 : snap.size === 'Tiny' ? 0.5 : 1;
     const groups = [{ monster: snap, name, count, initiative, tokenScale }];
+    opRef.current.monster = heldOpId(opRef.current.monster, { id: snap.id || name, count, initiative });
     try {
-      const r = await startEncounter(campaign.id, encounterBody({ opId: newOpId(), groups, pcs: false, lang }),
+      const r = await startEncounter(campaign.id, encounterBody({ opId: opRef.current.monster.id, groups, pcs: false, lang }),
         { groups, combatants, map: combat?.map || {} });
+      opRef.current.monster = null;
       applyCombat(r?.combat);
-    } catch (e) { flash(`${t(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`, { error: true }); }
+    } catch (e) { flash(`${failText(e, lang)} · ${errorMessage(e, lang)}`, { error: true }); }
     setShowPicker(false);
     load();
   };
@@ -390,7 +416,9 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
     if (busy) return;
     setBusy('use');
     try {
-      const body = { opId: newOpId(), initiatives: picked.initiatives, start: true, ...(initCheck ? { closeCheck: initCheck.id } : {}) };
+      const content = { initiatives: picked.initiatives, start: true, ...(initCheck ? { closeCheck: initCheck.id } : {}) };
+      opRef.current.use = heldOpId(opRef.current.use, content);
+      const body = { opId: opRef.current.use.id, ...content };
       let r;
       try { r = await api.combatEncounter(campaign.id, body); }
       catch (e) {
@@ -403,10 +431,27 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
         if (initCheck) await api.closeCheck(initCheck.id).catch(() => {});
         r = await api.startCombat(campaign.id);
       }
+      opRef.current.use = null;
       applyCombat(r?.combat);
       setInitCheck(null);
-    } catch (e) { flash(`${t(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`, { error: true }); }
+    } catch (e) { flash(`${failText(e, lang)} · ${errorMessage(e, lang)}`, { error: true }); }
     finally { setBusy(''); load(); }
+  };
+  // "Pôr na ordem (2 de 4)": com o combate andando, as respostas que chegaram entram na
+  // ordem (o servidor reordena e a vez continua com quem a tinha); o teste fecha quando
+  // ninguém mais falta. Sem start: o combate segue.
+  const putInOrder = async () => {
+    if (busy || !late?.answered) return;
+    setBusy('late');
+    try {
+      const content = { initiatives: late.initiatives, ...(late.close && initCheck ? { closeCheck: initCheck.id } : {}) };
+      opRef.current.late = heldOpId(opRef.current.late, content);
+      const r = await api.combatEncounter(campaign.id, { opId: opRef.current.late.id, ...content });
+      opRef.current.late = null;
+      applyCombat(r?.combat);
+      if (late.close) setInitCheck(null);
+    } catch (e) { flash(`${failText(e, lang)} · ${errorMessage(e, lang)}`, { error: true }); }
+    finally { setBusy(''); loadChecks(); }
   };
 
   // "Usar o combate da cena X": a sala inteira (com os stat blocks) só ao tocar.
@@ -549,7 +594,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
             </button>
           )}
           {empty && sceneFight && (
-            <p className="mesa-hint">{sceneFight.fight.monsters.map(m => `${m.count} × ${m.name}`).join(' · ')}</p>
+            <p className="mesa-hint">{fightLine(sceneFight.fight.monsters, { resolve: findMonster, lang, sep: ' × ' })}</p>
           )}
           <ol className="ct-steps">
             {steps.map((s, i) => (
@@ -607,6 +652,17 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
               {t(lang, 'Ou monte com calma em Preparar →', 'Or set it up calmly in Prepare →')}
             </button>
           )}
+        </section>
+      )}
+
+      {late && late.total > 0 && (
+        <section className="mesa-panel ct-late" aria-label={t(lang, 'Iniciativa chegando', 'Initiative coming in')}>
+          <p className="ct-init-line ct-late-line" aria-live="polite">
+            ⚡ {rows.filter(r => r.guess).map(r => `${r.name} ${r.answered ? r.total : '…'}`).join(' · ')}
+          </p>
+          <button type="button" className="mesa-btn mesa-btn-lg is-primary ct-late-go" disabled={!late.answered || busy === 'late'} onClick={putInOrder}>
+            {busy === 'late' ? '…' : <>⚡ {lateLabel(late, lang)}</>}
+          </button>
         </section>
       )}
 
@@ -743,13 +799,15 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
 }
 
 /**
- * Linha do combatente (56 px): iniciativa, retrato, nome em até 2 linhas, a marca da
- * vez (✓ agiu esmaecida · ▶ agora dourada · † caiu) e os chips de condição; à direita
- * a pílula de PV (72×44), que abre o teclado de dano. O toque no resto da linha abre a
- * folha (celular) ou o painel (desktop). Com "Vários alvos" (`marking`), a caixa de
- * 48 px marca o alvo e o chip "½ passou" aparece no marcado. Os chips de condição da
- * linha só mostram: tirar é na folha (que pergunta antes). Com a iniciativa pedida à
- * mesa, a resposta aparece na linha ("⚡ 14"); "✎" = entrou com 10, sem responder.
+ * Linha do combatente (56 px): iniciativa, retrato, nome em até 2 linhas com a marca da
+ * vez logo abaixo, na mesma célula (✓ agiu esmaecida · ▶ agora dourada · † caiu, 12 px,
+ * uma linha) — a linha não cresce por causa dela; à direita a pílula de PV (72×48), que
+ * abre o teclado de dano. A 2ª linha é só dos chips de condição (e do "½ passou"). O
+ * toque no resto da linha abre a folha (celular) ou o painel (desktop). Com "Vários
+ * alvos" (`marking`), a caixa de 48 px marca o alvo e o chip "½ passou" aparece no
+ * marcado. Os chips de condição da linha só mostram: tirar é na folha (que pergunta
+ * antes). Com a iniciativa pedida à mesa, a resposta aparece na linha ("⚡ 14"); "✎" =
+ * entrou com 10, sem responder.
  */
 function CombatantRow({
   combatant: c, campaign, lang, isTurn, isSel, expanded, pending, mark = null, answer = null,
@@ -784,8 +842,9 @@ function CombatantRow({
     pending ? t(lang, 'sugestão em aberto', 'pending suggestion') : null,
   ].filter(Boolean).join(', ');
   const hpText = `${c.current_hp ?? '?'}/${c.stats?.max_hp ?? '?'}`;
+  const statusLine = [status, pending ? '⚔' : null].filter(Boolean).join(' ');
   return (
-    <div className={`ct-row type-${c.type} ${isTurn ? 'is-turn' : ''} ${isSel ? 'is-sel' : ''} ${c.defeated ? 'is-defeated' : ''} ${nChips || status ? 'has-conds' : ''} ${mark ? `mark-${mark}` : ''} ${marking ? 'is-marking' : ''} ${marked ? 'is-marked' : ''}`}>
+    <div className={`ct-row type-${c.type} ${isTurn ? 'is-turn' : ''} ${isSel ? 'is-sel' : ''} ${c.defeated ? 'is-defeated' : ''} ${nChips || marked ? 'has-conds' : ''} ${mark ? `mark-${mark}` : ''} ${marking ? 'is-marking' : ''} ${marked ? 'is-marked' : ''}`}>
       {marking ? (
         <button type="button" className={`ct-mark-box ${marked ? 'is-on' : ''}`} role="checkbox" aria-checked={!!marked}
           aria-label={t(lang, `Alvo: ${c.name}`, `Target: ${c.name}`)} onClick={() => onOpen()}>
@@ -802,11 +861,10 @@ function CombatantRow({
       <button type="button" className="ct-open" onClick={() => onOpen()} aria-label={label}
         aria-expanded={marking ? undefined : expanded} aria-haspopup={!marking && expanded === undefined ? 'dialog' : undefined}>
         <span className="ct-name">{c.name}</span>
+        {statusLine && <span className={`ct-mark ${mark ? `is-${mark}` : ''}`} aria-hidden="true">{statusLine}</span>}
       </button>
-      {(nChips > 0 || status || marked) && (
+      {(nChips > 0 || marked) && (
         <div className="ct-conds">
-          {status && <span className={`ct-mark ${mark ? `is-${mark}` : ''}`} aria-hidden="true">{status}</span>}
-          {pending && <span className="ct-pending" aria-hidden="true">⚔</span>}
           {conds.map(cond => (
             <ConditionChip key={cond} cond={cond} rounds={condRounds(c, cond)} lang={lang} className="is-mini" />
           ))}
@@ -832,7 +890,7 @@ function MoreSheet({ campaign, combat, lang, active, hasMap, onClose, onStart, o
   const [wizardLocal, setWizardLocal] = useState(null);
   const [saving, setSaving] = useState(false);
   const wizardOn = wizardLocal ?? isWizardEnabled(campaign.state);
-  const lines = (combat.log || []).slice(-8).map(e => logLine(e, lang)).filter(Boolean).reverse();
+  const lines = (combat.log || []).map(e => logLine(e, lang)).filter(Boolean).slice(-8).reverse();
   const n = (combat.combatants || []).length;
   const setWizard = async (on) => {
     setWizardLocal(on); setSaving(true);
