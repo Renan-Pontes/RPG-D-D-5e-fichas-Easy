@@ -129,7 +129,8 @@ def dice_roll(request):
     Rolagens na Tela (V10, api/table_rolls.py), só em campanha aberta:
       · o MESTRE manda `table` (o 🔒 Só eu · 📺 Na tela do rolador dele): true grava
         a linha pública `@mesa:dm` (a TV mostra "Mestre"), false a privada (fica no
-        registro dele); sem `table` (rolador antigo), nada além do DiceLog;
+        registro dele e o 20/1 natural NÃO entra no Diário, que os jogadores leem);
+        sem `table` (rolador antigo), nada além do DiceLog;
       · o JOGADOR (rolador da Mesa) grava a linha `@mesa:player` quando a política
         "Dos jogadores" do mestre deixa (Todas · Só críticos · Nenhuma) e a
         resposta diz `shown` ("📺 apareceu na Tela").
@@ -159,6 +160,9 @@ def dice_roll(request):
             # rolando, mas fora da campanha (sem log, sem diário, sem dado viciado).
             campaign = None
 
+    # 🔒 Só eu do mestre: o rolador diz "Só você viu" — nada vai ao Diário da mesa
+    secret = (campaign is not None and campaign.dm_id == request.user.id
+              and 'table' in data and not data.get('table'))
     results = []
     for g in groups:
         rolled = []
@@ -172,7 +176,8 @@ def dice_roll(request):
         else:
             for r in rolled:
                 r['kept'] = True
-        log_dice_roll(campaign, request.user, g['die'], [r for r in rolled if r['kept']], label)
+        if not secret:
+            log_dice_roll(campaign, request.user, g['die'], [r for r in rolled if r['kept']], label)
         if g['sign'] < 0:
             for r in rolled:
                 r['sign'] = -1

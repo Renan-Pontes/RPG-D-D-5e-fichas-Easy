@@ -16,7 +16,10 @@ Nada é aplicado na ficha — é só informação para o mestre decidir.
 Rolagens na Tela (V10): uma resposta com 20 ou 1 natural vira uma linha
 `@mesa:check` (api/table_rolls.py) — o dado grande na TV, com o nome do
 personagem —, a não ser que a política "Dos jogadores" do mestre seja Nenhuma.
-Corrigir para o mesmo natural não grava de novo.
+Só quando o teste é da mesa: está na Tela (📺) ou foi pedido a todos os jogadores
+sem 🔒 CD secreta. O teste particular (a um jogador só, a uma parte da mesa ou
+com a CD secreta) nunca vai à TV sozinho. Corrigir para o mesmo natural não grava
+de novo.
 """
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -334,7 +337,9 @@ def check_respond(request, pk):
         target_user_id = _int_or_none(body.get('userId'), 'user')
     else:
         target_user_id = request.user.id
-    membership = next((m for m in _targets(cr) if m.user_id == target_user_id), None)
+    players = list(_player_memberships(campaign))
+    targets = _targets(cr, players)
+    membership = next((m for m in targets if m.user_id == target_user_id), None)
     if not membership:
         raise PermissionDenied('not_a_target')
     if not dm and target_user_id != request.user.id:
@@ -388,7 +393,8 @@ def check_respond(request, pk):
     except IntegrityError:  # corrida entre dois envios simultâneos
         raise ValidationError({'error': 'already_answered'})
 
-    if natural in (1, 20) and not (existing and existing.natural == natural) \
+    of_table = cr.show_on_screen or (len(targets) == len(players) and not cr.dc_hidden)
+    if natural in (1, 20) and of_table and not (existing and existing.natural == natural) \
             and (table_rolls.prefs_of(campaign).get('players') or 'crits') != 'off':
         table_rolls.record(campaign, membership.user, 'check', label=cr.label, dice_type='d20',
                            modifier=modifier or 0, rolls=[{**r, 'die': 'd20'} for r in rolls], total=total,

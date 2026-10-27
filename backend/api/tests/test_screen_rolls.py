@@ -6,16 +6,19 @@ V10 · Rolagens na Tela ("as roladas acontecem nela", especificação §5.4).
   menos de 2 s aparecem as 2, a idade não depende do relógio da TV; o nome é o do
   personagem; parada, a Tela continua 304 (o ETag não leva o `now`).
 - 🎲 do mestre: 📺 Na tela → linha pública `@mesa:dm` ("Mestre"); 🔒 Só eu → só o
-  registro dele (DiceLog + linha privada), nada na TV.
+  registro dele (DiceLog + linha privada), nada na TV nem no Diário dos jogadores.
 - Ataque de monstro aplicado com `show` → 1 linha sem o bônus; salvaguarda em área
   rolada no servidor (save-preview, nada aplicado) e aplicada numa chamada
   (save_apply) com 1 linha-resumo.
 - Política "Dos jogadores" no rolador da Mesa (Todas · Só críticos · Nenhuma) e
-  respostas de teste com 20/1 natural.
+  respostas de teste com 20/1 natural (só do teste da mesa: na Tela, ou para todos
+  sem CD secreta). Salvaguarda de PJ com o modificador da ficha (`saveMods`).
+- Testes › 🎲 Rolagens na Tela: com a sessão ao vivo, só as desta sessão.
 - Arrumação: só as 300 rolagens `@mesa:` mais novas ficam; pedidos e o Histórico
   de rolagens de Testes não mudam. O `GET /screen/<t>/rolls` não existe mais.
 """
 from datetime import timedelta
+from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -152,6 +155,28 @@ class DmDiceTests(Base):
         rr = RollRequest.objects.get(pk=r.json()['rollId'])
         self.assertEqual((rr.status, rr.note), ('private', '@mesa:dm'))
 
+    def diary_titles(self, client):
+        r = client.get(f'/api/campaigns/{self.camp.id}/diary?limit=200')
+        self.assertEqual(r.status_code, 200, r.content)
+        return [f"{e['title']} {e['body']}" for e in r.json()['entries']]
+
+    def test_only_me_natural_20_stays_out_of_the_players_diary(self):
+        # o 🔒 Só eu diz "Só você viu": o 20 natural não vira "Rolagens marcantes" no Diário
+        with mock.patch('api.views_dice.roll_fair', return_value=20):
+            r = self.c_dm.post('/api/dice/roll', {'campaignId': self.camp.id, 'label': 'Emboscada secreta',
+                                                  'groups': [{'diceType': 'd20', 'count': 1}], 'table': False},
+                               format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()['total'], 20)
+        self.assertFalse(any('Emboscada' in t for t in self.diary_titles(self.c_ana)))
+        self.assertFalse(any('Emboscada' in t for t in self.diary_titles(self.c_dm)))
+        self.assertEqual(DiceLog.objects.filter(result=20).count(), 1)     # o registro dele continua
+        # 📺 Na tela é da mesa: o 20 entra no Diário como antes
+        with mock.patch('api.views_dice.roll_fair', return_value=20):
+            self.c_dm.post('/api/dice/roll', {'campaignId': self.camp.id, 'label': 'Sorte da mesa',
+                                              'diceType': 'd20', 'table': True}, format='json')
+        self.assertTrue(any('Sorte da mesa' in t for t in self.diary_titles(self.c_ana)))
+
     def test_old_roller_without_table_writes_nothing_new(self):
         self.c_dm.post('/api/dice/roll', {'diceType': 'd20', 'campaignId': self.camp.id}, format='json')
         self.assertFalse(RollRequest.objects.exists())
@@ -221,6 +246,29 @@ class PlayerTableRollerTests(Base):
         self.assertEqual(len(self.screen()['rolls']), 1)
         self.assertEqual(CheckResponse.objects.count(), 2)
 
+    def test_private_check_never_goes_to_the_tv(self):
+        # teste só para a Ana (uma Intuição para pegar a mentira): o 20 não vai à TV
+        solo = self.c_dm.post(f'/api/checks/campaign/{self.camp.id}', {'label': 'Intuição',
+                              'targetUserIds': [self.ana.id]}, format='json').json()['check']
+        self.c_ana.post(f'/api/checks/{solo["id"]}/respond', {'mode': 'physical', 'natural': 20}, format='json')
+        # para todos, mas com 🔒 CD secreta: também não
+        hidden = self.c_dm.post(f'/api/checks/campaign/{self.camp.id}', {'label': 'Percepção', 'dc': 15,
+                                'dcHidden': True}, format='json').json()['check']
+        self.c_bruno.post(f'/api/checks/{hidden["id"]}/respond', {'mode': 'physical', 'natural': 1}, format='json')
+        self.assertEqual(self.screen()['rolls'], [])
+        # o mestre põe o teste particular na Tela: aí o natural da resposta vai
+        solo2 = self.c_dm.post(f'/api/checks/campaign/{self.camp.id}', {'label': 'Atletismo',
+                               'targetUserIds': [self.bruno.id]}, format='json').json()['check']
+        self.c_dm.post(f'/api/checks/{solo2["id"]}/screen', {'show': True}, format='json')
+        self.c_bruno.post(f'/api/checks/{solo2["id"]}/respond', {'mode': 'physical', 'natural': 20}, format='json')
+        self.assertEqual([(x['kind'], x['who'], x['label']) for x in self.screen()['rolls']],
+                         [('check', 'Pipo', 'Atletismo')])
+        # pedido aos dois pelo nome (a mesa toda) conta como da mesa
+        both = self.c_dm.post(f'/api/checks/campaign/{self.camp.id}', {'label': 'Furtividade',
+                              'targetUserIds': [self.ana.id, self.bruno.id]}, format='json').json()['check']
+        self.c_ana.post(f'/api/checks/{both["id"]}/respond', {'mode': 'physical', 'natural': 1}, format='json')
+        self.assertEqual(len(self.screen()['rolls']), 2)
+
     def test_check_crit_respects_none(self):
         self.prefs(players='off')
         cr = self.c_dm.post(f'/api/checks/campaign/{self.camp.id}', {'label': 'Percepção'}, format='json').json()['check']
@@ -283,6 +331,23 @@ class CombatRollTests(Base):
         self.assertEqual(p['damage'][0]['dice'], '6d6')
         self.assertEqual(CombatInstance.objects.get(pk=self.combat.pk).combatants, before)
 
+    def test_save_preview_uses_the_sheet_modifier_of_each_pc(self):
+        # o app do mestre manda a salvaguarda da ficha (Utils.saveBonus: proficiência,
+        # espécie); o combatente do PJ só tem os atributos-base. Monstro ignora.
+        r = self.c_dm.post(f'{self.url}/save-preview', {
+            'attackerId': 'dr', 'actionIndex': 0, 'targetIds': ['d1', 'p1', 'g2'],
+            'saveMods': {'d1': 4, 'p1': '7', 'g2': 9}}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        t = {x['id']: x for x in r.json()['targets']}
+        self.assertEqual((t['d1']['modifier'], t['d1']['total']), (4, t['d1']['d20'] + 4))
+        self.assertEqual(t['p1']['modifier'], 7)
+        self.assertEqual(t['g2']['modifier'], 2)          # DES 14 do stat block, não o 9
+        self.assertEqual(t['d1']['success'], t['d1']['d20'] + 4 >= 13)
+        # lixo no saveMods: fica a regra de sempre
+        r = self.c_dm.post(f'{self.url}/save-preview', {'attackerId': 'dr', 'actionIndex': 0, 'targetIds': ['d1'],
+                                                        'saveMods': {'d1': 'x'}}, format='json')
+        self.assertEqual(r.json()['targets'][0]['modifier'], 0)
+
     def test_save_apply_in_one_call_with_summary_line(self):
         r = self.c_dm.post(f'{self.url}/action', {
             'action': 'save_apply', 'attackerId': 'dr', 'actionIndex': 0, 'consume': True, 'show': True,
@@ -342,6 +407,20 @@ class PruneAndHistoryTests(Base):
         rows = self.c_dm.get(f'/api/rolls/campaign/{self.camp.id}/recent?table=1').json()['rolls']
         self.assertEqual([(r['kind'], r['status']) for r in rows], [('dm', 'private')])
         self.assertEqual(self.c_ana.get(f'/api/rolls/campaign/{self.camp.id}/recent?table=1').json()['rolls'], [])
+
+    def test_table_filter_is_only_this_session_when_live(self):
+        start = timezone.now() - timedelta(minutes=30)
+        old = table_rolls.record(self.camp, self.dm, 'dm', label='sessão 3', rolls=[{'value': 4}], total=4)
+        RollRequest.objects.filter(pk=old.pk).update(resolved_at=start - timedelta(days=7))
+        table_rolls.record(self.camp, self.dm, 'dm', label='sessão 4', rolls=[{'value': 5}], total=5)
+        url = f'/api/rolls/campaign/{self.camp.id}/recent?table=1'
+        self.camp.state = {'session': '4', 'live': True, 'diarySessions': {'4': {'title': '', 'startedAt': start.isoformat()}}}
+        self.camp.save(update_fields=['state'])
+        self.assertEqual([r['label'] for r in self.c_dm.get(url).json()['rolls']], ['sessão 4'])
+        # sem sessão ao vivo: as 30 mais novas, de qualquer sessão
+        self.camp.state = {**self.camp.state, 'live': False}
+        self.camp.save(update_fields=['state'])
+        self.assertEqual([r['label'] for r in self.c_dm.get(url).json()['rolls']], ['sessão 4', 'sessão 3'])
 
     def test_other_campaign_is_untouched(self):
         other = Campaign.objects.create(dm=self.dm, name='Outra', slug='outra')

@@ -33,6 +33,7 @@ from django.db import transaction
 from django.db.models import F
 from django.http import HttpResponseNotModified
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -1109,10 +1110,15 @@ def combat_save_preview(request, id_or_slug):
     aparelho do mestre), sem aplicar nada: o d20 de cada alvo e o dano. O mestre
     confere, ajusta (dado físico) e aplica com POST /action {action:'save_apply'}.
 
-    body: {attackerId, actionIndex, targetIds}
+    body: {attackerId, actionIndex, targetIds, saveMods?: {combatenteId: n}}
     resposta: {ability, dc, half, conditions, damage:[{dice, type, rolled, rolls}],
                targets:[{id, name, d20, rolls, modifier, total, success}], available, unavailableReason}
     `modifier`/`total` são None quando a ficha do alvo não diz o atributo (o mestre digita).
+    `saveMods`: a salvaguarda de cada PJ calculada pelo app do mestre com a ficha
+    (Utils.saveBonus: atributo com o bônus de espécie + proficiência pelo nível
+    total, talentos e classe — o mesmo número dos testes pedidos). O combatente do
+    PJ só guarda os atributos-base, então sem ela o PJ ficaria sem a proficiência.
+    Vale só para PJ fora da Forma Selvagem (a fera usa os atributos dela).
     """
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
@@ -1142,10 +1148,17 @@ def combat_save_preview(request, id_or_slug):
         if expr and str(expr) != '0':
             r = engine.roll_dice(expr)
             damage.append({'dice': str(expr), 'type': dtype, 'rolled': r['total'], 'rolls': r['rolls']})
+    sheet_mods = request.data.get('saveMods')
+    sheet_mods = sheet_mods if isinstance(sheet_mods, dict) else {}
     out = []
     for t in targets:
         d20 = engine.roll_die(20)
         mod = _save_mod(t, ability)
+        if t.get('type') == 'pc' and not t.get('wild_shape') and str(t.get('id')) in sheet_mods:
+            try:
+                mod = max(-10, min(30, int(sheet_mods[str(t.get('id'))])))
+            except (TypeError, ValueError):
+                pass
         total = None if mod is None else d20 + mod
         out.append({'id': t.get('id'), 'name': t.get('name'), 'd20': d20, 'rolls': [d20], 'modifier': mod,
                     'total': total, 'success': total is not None and total >= dc})
@@ -1734,9 +1747,14 @@ def roll_list_recent(request, id_or_slug):
     qs = RollRequest.objects.filter(campaign=campaign).exclude(status='pending').select_related('requested_by', 'requested_by__profile')
     dm = is_dm(request.user, campaign)
     if dm and request.query_params.get('table') == '1':
-        # Testes › 🎲 Rolagens na Tela: as rolagens de mesa (📺 e 🔒), a mais nova primeiro
+        # Testes › 🎲 Rolagens na Tela: as rolagens de mesa (📺 e 🔒), a mais nova primeiro.
+        # Com a sessão ao vivo, só as desta sessão (desde o startedAt dela); sem sessão,
+        # as 30 mais novas.
         qs = (qs.filter(note__startswith=table_rolls.PREFIX).select_related('character')
               .order_by('-resolved_at', '-id'))
+        started = _live_session_start(campaign)
+        if started is not None:
+            qs = qs.filter(resolved_at__gte=started)
         return Response({'rolls': [table_rolls.dm_row(r, _serialize_roll(r, for_dm=True)) for r in qs[:30]]})
     # O Histórico de rolagens continua só com os pedidos (as rolagens de mesa têm o filtro delas).
     qs = qs.exclude(note__startswith=table_rolls.PREFIX)
@@ -1744,6 +1762,20 @@ def roll_list_recent(request, id_or_slug):
         from django.db.models import Q
         qs = qs.filter(Q(status='public') | Q(requested_by=request.user))
     return Response({'rolls': [_serialize_roll(r, for_dm=dm) for r in qs[:30]]})
+
+
+def _live_session_start(campaign):
+    """Início da sessão ao vivo (state.diarySessions[session].startedAt) ou None."""
+    state = campaign.state if isinstance(campaign.state, dict) else {}
+    meta = state.get('diarySessions') if isinstance(state.get('diarySessions'), dict) else {}
+    cur = meta.get(str(state.get('session') or ''))
+    if not state.get('live') or not isinstance(cur, dict) or not isinstance(cur.get('startedAt'), str):
+        return None
+    try:
+        dt = parse_datetime(cur['startedAt'])
+    except ValueError:
+        return None
+    return timezone.make_aware(dt) if dt is not None and timezone.is_naive(dt) else dt
 
 
 @api_view(['POST'])
