@@ -14,13 +14,17 @@
 // toque 2× tira PV uma vez) e o aviso "Goblin #1 −7 (0/10, derrotado) · ↶ Desfazer"
 // (6 s), que restaura a foto do combatente no servidor (POST …/undo). Servidor
 // antigo (sem opId na resposta): aplica igual, sem o Desfazer.
+// O opId fica o mesmo até dar certo (heldOpId): sem resposta (rede, os 15 s do
+// servidor lento) o aviso diz "Talvez não enviado · Tentar de novo" e o novo toque
+// reenvia o MESMO id — se o 1º tinha chegado, o servidor responde `duplicate` e o
+// PV não sai 2×. Mudou o número, o alvo, a operação ou o tipo: id novo.
 // O mesmo corpo (DamagePadBody) é a aba PV da folha do combatente.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MesaSheet, { topmostModal } from '../shell/MesaSheet.jsx';
 import { DAMAGE_TYPES, damageTypeLabel } from '../combat/monster-i18n.js';
 import { errorMessage } from '../api/errors.js';
 import {
-  PAD_KEYS, hpFlash, manyFlash, multiTargets, newOpId, padPress, padValue, readTypeMemory, rememberType,
+  PAD_KEYS, failText, heldOpId, hpFlash, manyFlash, multiTargets, padPress, padValue, readTypeMemory, rememberType,
   typeChips, writeTypeMemory,
 } from './damage-model.js';
 import { applyHp, undoHp } from './combat-actions.js';
@@ -72,8 +76,9 @@ export function DamagePadBody({
   const table = useTable();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);           // {text, op} do pedido que falhou
   const [allTypes, setAllTypes] = useState(false);
+  const opRef = useRef(null);                         // {key, id}: o opId até dar certo
   const [memory, setMemory] = useState(() => readTypeMemory(campaign.id));
   const multi = !!marks;
   const chipInfo = useMemo(() => typeChips(memory, target?.id ?? '*', actorType(combat)), [memory, target?.id, combat]);
@@ -81,15 +86,17 @@ export function DamagePadBody({
   const amount = padValue(text);
   const order = useMemo(() => (combat?.combatants || []).map(c => c.id), [combat]);
 
-  const press = useCallback((k) => { setError(''); setText(v => padPress(v, k)); }, []);
+  const press = useCallback((k) => { setError(null); setText(v => padPress(v, k)); }, []);
   const apply = useCallback(async (op) => {
     if (!amount || busy) return;
     const targets = multi ? multiTargets(marks, amount, order) : [{ id: target.id, amount }];
     if (!targets.length) return;
-    const opId = newOpId();
-    setBusy(op); setError('');
+    opRef.current = heldOpId(opRef.current, { op, targets, type });
+    const opId = opRef.current.id;
+    setBusy(op); setError(null);
     try {
       const r = await applyHp(campaign.id, { op, targets, damageType: type, opId, combat });
+      opRef.current = null;
       const fresh = r?.combat;
       if (fresh) {
         if (table?.applyCombat) table.applyCombat(fresh);
@@ -108,7 +115,7 @@ export function DamagePadBody({
       setText('');
     } catch (e) {
       if (e?.data?.combat) table?.applyCombat?.(e.data.combat);
-      setError(`${t(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`);
+      setError({ text: `${failText(e, lang)} · ${errorMessage(e, lang)}`, op });
     } finally { setBusy(''); }
   }, [amount, busy, multi, marks, order, target, campaign.id, type, combat, table, onApplied, memory, lang]);
 
@@ -176,7 +183,14 @@ export function DamagePadBody({
           )}
         </div>
       </div>
-      {error && <p className="cc-action-error dp-error" role="alert">{error}</p>}
+      {error && (
+        <p className="cc-action-error dp-error" role="alert">
+          <span>{error.text}</span>
+          <button type="button" className="mesa-btn dp-retry" disabled={!!busy} onClick={() => apply(error.op)}>
+            {t(lang, 'Tentar de novo', 'Try again')}
+          </button>
+        </p>
+      )}
       {(onConditions || onSheet || info) && (
         <div className="dp-links">
           {onConditions ? <button type="button" className="mesa-btn is-quiet dp-link" onClick={onConditions}>{t(lang, 'Condições', 'Conditions')} ›</button> : <span />}

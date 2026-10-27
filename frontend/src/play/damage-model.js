@@ -12,6 +12,10 @@
 //   já ordenada por iniciativa (nenhum dado novo).
 // - A lista só rola até quem age se ele estiver fora da vista, e nunca nos 600 ms
 //   depois de um toque (princípio 8: nada mexe debaixo do dedo).
+// - O opId fica o mesmo até dar certo (heldOpId): o "tentar de novo" depois de uma
+//   resposta perdida não aplica o dano 2× (o servidor responde `duplicate`).
+// - O que chega pelo pulso espera o dedo sair (quietSlot), conferindo de novo quando
+//   o timer dispara: o 2º toque no meio da espera adia outra vez.
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
 
@@ -144,6 +148,35 @@ export function newOpId(rand = Math.random) {
   return `${hex()}-${hex()}-${hex()}`;
 }
 
+/**
+ * O opId de um pedido que ainda não deu certo. `held` ({key, id} | null) é o que o
+ * componente guarda num useRef; `body` é o conteúdo do pedido ({op, alvos, valor,
+ * tipo}). O mesmo conteúdo reusa o id (a resposta que se perdeu no caminho — o
+ * PythonAnywhere passando dos 15 s — já pode ter sido aplicada: o 2º toque recebe
+ * `duplicate` em vez de tirar o PV de novo); conteúdo novo, id novo. Quem chama
+ * esquece o `held` depois de uma resposta OK. → {key, id}
+ */
+export function heldOpId(held, body, make = newOpId) {
+  const key = JSON.stringify(body ?? null);
+  return held && held.key === key ? held : { key, id: make() };
+}
+
+/**
+ * O pedido que falhou pode ter sido aplicado? Sem resposta (rede, os 15 s do
+ * AbortSignal.timeout) ou erro 5xx do servidor: talvez. Um 4xx é recusa: não foi.
+ */
+export function maybeApplied(e) {
+  if (!e) return false;
+  if (e.name === 'TypeError' || e.name === 'AbortError' || e.name === 'TimeoutError') return true;
+  const s = Number(e.status);
+  return !Number.isFinite(s) || s === 0 || s >= 500;
+}
+
+/** "Não enviado" (recusado) ou "Talvez não enviado" (pode ter chegado), antes do motivo. */
+export function failText(e, lang = 'pt') {
+  return maybeApplied(e) ? L(lang, 'Talvez não enviado', 'Maybe not sent') : L(lang, 'Não enviado', 'Not sent');
+}
+
 // ------------------------------------------------------------------ marcas de vez
 const isDown = (c) => !!c?.defeated || (typeof c?.current_hp === 'number' && c.current_hp <= 0);
 
@@ -178,4 +211,49 @@ export function shouldScrollTo(rect, { top = 0, bottom = Infinity, lastTouchAt =
   if (!rect) return false;
   if (now - lastTouchAt < TOUCH_QUIET_MS) return false;
   return rect.top < top || rect.bottom > bottom;
+}
+
+// ------------------------------------------------------------------ nada mexe debaixo do dedo
+/** Quanto falta para passarem os 600 ms do último toque (0 = já pode mexer). */
+export function quietDelay(touchedAt, now = Date.now()) {
+  return Math.max(0, (Number(touchedAt) || 0) + TOUCH_QUIET_MS - now);
+}
+
+/**
+ * Lugar único para o dado que chega pelo pulso (o combate, os testes): guarda o mais
+ * novo e o entrega (`deliver`) só quando passaram 600 ms do último toque. A espera é
+ * conferida de novo quando o timer dispara — o 2º toque no meio dela adia outra vez —
+ * até `tries` adiamentos (o dado não fica preso com o mestre tocando sem parar).
+ * Dois dados no meio da espera: entra só o último (a ordem nunca se inverte).
+ * `touchedAt()` lê o último toque. → {push(valor), cancel()}
+ */
+export function quietSlot(deliver, touchedAt, {
+  now = () => Date.now(), setTimer = setTimeout, clearTimer = clearTimeout, tries = 5,
+} = {}) {
+  let pending;
+  let timer = null;
+  let left = tries;
+  const fire = () => {
+    timer = null;
+    const wait = quietDelay(touchedAt(), now());
+    if (wait > 0 && left > 0) { left -= 1; timer = setTimer(fire, wait); return; }
+    left = tries;
+    const v = pending;
+    pending = undefined;
+    deliver(v);
+  };
+  return {
+    push(v) { pending = v; if (timer == null) fire(); },
+    cancel() { if (timer != null) clearTimer(timer); timer = null; pending = undefined; left = tries; },
+  };
+}
+
+/**
+ * O combate que chegou pelo pulso só entra se não for mais velho que o da tela (a
+ * resposta de uma ação do mestre pode ter chegado durante a espera dos 600 ms).
+ */
+export function newerCombat(cur, next) {
+  if (!next) return cur || next;
+  if (!cur?.updatedAt || !next.updatedAt) return next;
+  return String(next.updatedAt) >= String(cur.updatedAt) ? next : cur;
 }

@@ -9,7 +9,8 @@
 //   ▸ Mais opções: iniciativa dos monstros · mapa · ☑ já iniciar
 //   [                ⚔ Começar                ]
 //
-// - Trocar/Somar só aparece com um combate já montado.
+// - Trocar/Somar só aparece com um combate já montado. Trocar um combate andando o
+//   encerra (o resumo vai ao Diário, como no ⏸ Encerrar) antes de montar o novo.
 // - O botão fica desligado enquanto envia; o mesmo opId vale até dar certo (o 2º
 //   toque e a rede que reenvia não duplicam nada).
 // - "Já iniciar" acompanha o "Pedir a iniciativa" (pedindo, o combate começa pelo
@@ -23,7 +24,7 @@ import MonsterPicker from '../campaigns/MonsterPicker.jsx';
 import { encounterBody, encounterGroups, groupsTotal, MAX_ENCOUNTER_MONSTERS } from '../combat/encounter-setup.js';
 import { findMonster, monsterForCombat } from '../../data/bestiary.js';
 import { loadCustomMonsters } from '../combat/custom-monsters.js';
-import { newOpId } from './damage-model.js';
+import { failText, newOpId } from './damage-model.js';
 import { startEncounter } from './combat-actions.js';
 import { useTable } from './table-store.js';
 import { flash } from './flash.js';
@@ -120,7 +121,8 @@ export default function StartCombatSheet({ campaign, lang = 'pt', scene = {}, co
       onStarted?.(r);
       onClose?.();
     } catch (e) {
-      setError(`${t(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`);
+      // sem resposta pode ter chegado ("Talvez não enviado"): o opId é o mesmo no reenvio
+      setError(`${failText(e, lang)} · ${errorMessage(e, lang)}`);
     } finally { setBusy(false); }
   };
 
@@ -179,7 +181,9 @@ export default function StartCombatSheet({ campaign, lang = 'pt', scene = {}, co
           </legend>
           <label className="cs-check sc-radio">
             <input type="radio" name="sc-mode" checked={mode === 'replace'} onChange={() => setMode('replace')} />
-            <span>{t(lang, 'Trocar por este', 'Replace it')} <em className="sc-sub">{t(lang, '(os monstros de antes saem)', '(the old monsters leave)')}</em></span>
+            <span>{t(lang, 'Trocar por este', 'Replace it')} <em className="sc-sub">{running
+              ? t(lang, '(o combate de agora é encerrado e vai ao Diário; os monstros dele saem)', '(the current combat ends and goes to the Diary; its monsters leave)')
+              : t(lang, '(os monstros de antes saem)', '(the old monsters leave)')}</em></span>
           </label>
           <label className="cs-check sc-radio">
             <input type="radio" name="sc-mode" checked={mode === 'add'} onChange={() => setMode('add')} />

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   padPress, padValue, rememberType, typeChips, readTypeMemory, writeTypeMemory, multiTargets, toggleMark,
   hpFlash, manyFlash, newOpId, turnMarks, markLabel, shouldScrollTo, PAD_KEYS,
+  heldOpId, maybeApplied, failText, quietDelay, quietSlot, newerCombat,
 } from '../src/play/damage-model.js';
 
 test('teclado próprio: algarismos, ½, ⌫ e o teto de 4 algarismos', () => {
@@ -98,4 +99,87 @@ test('a lista só rola até quem age se ele estiver fora da vista e sem toque h�
   assert.equal(shouldScrollTo({ top: 760, bottom: 816 }, { ...view, now: 5000, lastTouchAt: 4600 }), false);
   assert.equal(shouldScrollTo({ top: 20, bottom: 76 }, { ...view, now: 5000, lastTouchAt: 4000 }), true);
   assert.equal(shouldScrollTo(null, view), false);
+});
+
+test('opId preso até dar certo: o "tentar de novo" depois da resposta perdida manda o mesmo id', () => {
+  let n = 0;
+  const make = () => `op-${++n}`;
+  const body = { op: 'damage', targets: [{ id: 'g1', amount: 7 }], type: 'slashing' };
+  let held = heldOpId(null, body, make);
+  assert.equal(held.id, 'op-1');
+  // a resposta se perdeu (rede cortada, 15 s do servidor lento): o 2º toque leva o mesmo id
+  held = heldOpId(held, { ...body, targets: [{ id: 'g1', amount: 7 }] }, make);
+  assert.equal(held.id, 'op-1');
+  // o mestre mudou o número, o alvo, a operação ou o tipo: id novo
+  assert.equal(heldOpId(held, { ...body, targets: [{ id: 'g1', amount: 8 }] }, make).id, 'op-2');
+  assert.equal(heldOpId(held, { ...body, targets: [{ id: 'g2', amount: 7 }] }, make).id, 'op-3');
+  assert.equal(heldOpId(held, { ...body, op: 'heal' }, make).id, 'op-4');
+  assert.equal(heldOpId(held, { ...body, type: 'fire' }, make).id, 'op-5');
+  // depois de um OK quem chama esquece o held: o próximo dano igual é outro
+  assert.equal(heldOpId(null, body, make).id, 'op-6');
+});
+
+test('"Talvez não enviado" quando a resposta não veio; "Não enviado" quando o servidor recusou', () => {
+  assert.equal(maybeApplied({ name: 'TypeError' }), true);              // conexão cortada
+  assert.equal(maybeApplied({ name: 'TimeoutError' }), true);           // os 15 s do AbortSignal.timeout
+  assert.equal(maybeApplied({ status: 502, message: 'backend_unavailable' }), true);
+  assert.equal(maybeApplied({ status: 400, data: { error: 'invalid_amount' } }), false);
+  assert.equal(maybeApplied({ status: 409 }), false);
+  assert.equal(failText({ name: 'TypeError' }, 'pt'), 'Talvez não enviado');
+  assert.equal(failText({ name: 'TypeError' }, 'en'), 'Maybe not sent');
+  assert.equal(failText({ status: 403 }, 'pt'), 'Não enviado');
+});
+
+test('nada mexe debaixo do dedo: o 2º toque no meio da espera adia de novo', () => {
+  assert.equal(quietDelay(1000, 1100), 500);
+  assert.equal(quietDelay(1000, 1700), 0);
+  // relógio e timers falsos
+  let clock = 0;
+  let touched = -10000;
+  const timers = [];
+  const setTimer = (fn, ms) => { timers.push({ fn, at: clock + ms }); return timers.length; };
+  const clearTimer = () => {};
+  const run = (until) => {
+    for (;;) {
+      timers.sort((a, b) => a.at - b.at);
+      const next = timers[0];
+      if (!next || next.at > until) break;
+      timers.shift();
+      clock = next.at;
+      next.fn();
+    }
+    clock = until;
+  };
+  const got = [];
+  const slot = quietSlot((v) => got.push([v, clock]), () => touched, { now: () => clock, setTimer, clearTimer });
+  // sem toque recente: entra na hora
+  slot.push('a');
+  assert.deepEqual(got, [['a', 0]]);
+  // 1º toque em 1000; o dado chega em 1100; 2º toque em 1559 (o caso do revisor)
+  clock = 1000; touched = 1000;
+  run(1100); slot.push('b');
+  run(1559); touched = 1559;
+  run(2000);
+  assert.equal(got.length, 1);                            // ainda esperando: o 2º toque adiou
+  run(2200);
+  assert.deepEqual(got[1], ['b', 2159]);                  // 600 ms depois do 2º toque
+  // dois dados no meio da espera: entra só o último
+  touched = 3000; clock = 3000;
+  slot.push('c'); run(3100); slot.push('d'); run(4000);
+  assert.deepEqual(got.slice(2), [['d', 3600]]);
+  // teto de adiamentos: com o mestre tocando sem parar, o dado entra mesmo assim
+  const seen = [];
+  const busySlot = quietSlot((v) => seen.push(v), () => clock - 1, { now: () => clock, setTimer, clearTimer, tries: 3 });
+  busySlot.push('e'); run(clock + 5000);
+  assert.deepEqual(seen, ['e']);
+});
+
+test('o combate que esperou o dedo sair não volta para trás', () => {
+  const v1 = { updatedAt: '2026-10-27T10:00:01+00:00' };
+  const v2 = { updatedAt: '2026-10-27T10:00:02+00:00' };
+  assert.equal(newerCombat(v2, v1), v2);                  // a resposta da ação (v2) já estava na tela
+  assert.equal(newerCombat(v1, v2), v2);
+  assert.equal(newerCombat(null, v1), v1);
+  assert.equal(newerCombat(v1, null), v1);
+  assert.equal(newerCombat({}, v1), v1);
 });

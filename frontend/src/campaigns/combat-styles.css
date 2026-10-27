@@ -1027,6 +1027,9 @@ button.cs-stat.cs-init-btn.is-guess { border-color: var(--gold-bright); color: v
   .dp-main { grid-template-columns: 204px minmax(0, 1fr); gap: 6px; }
   .mesa-btn.dp-act { font-size: 0.82rem; padding: 2px 4px; letter-spacing: 0; }
 }
+.dp-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.dp-error > span { flex: 1 1 160px; min-width: 0; }
+.mesa-btn.dp-retry { flex: none; min-height: 48px; }
 
 /* folha "Começar o combate" */
 .sc-groups { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
