@@ -1,0 +1,893 @@
+{
+ "_fonte": "GET /api/campaigns/1 do seed jogo-e-combate (mestre@x.com), só as fichas da mesa — fixture do Raio-X",
+ "state": {
+  "session": "3"
+ },
+ "members": [
+  {
+   "role": "player",
+   "user": {
+    "displayName": "Ana"
+   },
+   "character": {
+    "id": 1,
+    "name": "Dagna Brasaforte",
+    "data": {
+     "rulesVersion": "2024",
+     "createdAt": 0,
+     "updatedAt": 0,
+     "name": "Dagna Brasaforte",
+     "player": "",
+     "race": "dwarf",
+     "className": "cleric",
+     "level": 1,
+     "background": "acolyte",
+     "alignment": "LG",
+     "xp": 0,
+     "levelingMode": "milestone",
+     "abilities": {
+      "str": 14,
+      "dex": 8,
+      "con": 13,
+      "int": 10,
+      "wis": 15,
+      "cha": 12
+     },
+     "raceBonus": {
+      "wis": 2,
+      "cha": 1
+     },
+     "skillProfs": [
+      "insight",
+      "religion",
+      "medicine",
+      "persuasion"
+     ],
+     "skillExpertise": [],
+     "saveProfs": [
+      "wis",
+      "cha"
+     ],
+     "languages": [
+      "Common",
+      "Dwarvish",
+      "Elvish"
+     ],
+     "otherProfs": "Ferramentas: Suprimentos de Calígrafo",
+     "currentHp": 3,
+     "maxHp": 10,
+     "tempHp": 0,
+     "hitDiceUsed": 0,
+     "deathSaves": {
+      "success": 0,
+      "fail": 0
+     },
+     "inspiration": false,
+     "armor": "chainShirt",
+     "hasShield": true,
+     "extraAcBonus": 0,
+     "speedOverride": 0,
+     "weapons": [
+      {
+       "id": "mace",
+       "name": "Maça",
+       "damage": "1d6",
+       "dmgType": "bludgeoning",
+       "props": [],
+       "mastery": "sap",
+       "from": "classPack"
+      }
+     ],
+     "equipment": [
+      {
+       "name": "Símbolo Sagrado",
+       "qty": 2,
+       "from": "classPack"
+      },
+      {
+       "name": "Pacote de Sacerdote",
+       "qty": 1,
+       "from": "classPack",
+       "pack": "priest"
+      },
+      {
+       "name": "Suprimentos de Calígrafo",
+       "qty": 1,
+       "from": "backgroundPack"
+      },
+      {
+       "name": "Livro (orações)",
+       "qty": 1,
+       "from": "backgroundPack"
+      },
+      {
+       "name": "Pergaminho (folhas)",
+       "qty": 10,
+       "from": "backgroundPack"
+      },
+      {
+       "name": "Túnica",
+       "qty": 1,
+       "from": "backgroundPack"
+      }
+     ],
+     "treasure": "",
+     "coins": {
+      "cp": 0,
+      "sp": 0,
+      "ep": 0,
+      "gp": 15,
+      "pp": 0
+     },
+     "spells": [
+      {
+       "id": "sacredFlame",
+       "prepared": true
+      },
+      {
+       "id": "guidance",
+       "prepared": true
+      },
+      {
+       "id": "thaumaturgy",
+       "prepared": true
+      },
+      {
+       "id": "cureWounds",
+       "prepared": true
+      },
+      {
+       "id": "bless",
+       "prepared": true
+      },
+      {
+       "id": "guidingBolt",
+       "prepared": true
+      },
+      {
+       "id": "shieldOfFaith",
+       "prepared": true
+      }
+     ],
+     "spellSlotsUsed": [],
+     "personality": "Teimosa, calorosa e sempre com um provérbio do templo na ponta da língua.",
+     "ideals": "",
+     "bonds": "",
+     "flaws": "",
+     "backstory": "Dagna serviu por anos na forja-templo do seu clã, onde aprendeu que fé também se martela. Quando uma praga atingiu a cidade vizinha, foi a única sacerdotisa que aceitou descer da montanha para ajudar. Lá percebeu que o mundo precisa de mais cura do que o templo podia dar. Partiu levando só o escudo e o símbolo sagrado.",
+     "appearance": "Baixa e robusta, barba ruiva trançada com contas de bronze e olhos cor de brasa.",
+     "age": "",
+     "height": "",
+     "weight": "",
+     "eyes": "",
+     "skin": "",
+     "hair": "",
+     "allies": "",
+     "notes": "",
+     "symbol": "",
+     "subclass": "",
+     "landType": "",
+     "starFormType": "",
+     "wildShapeUses": 0,
+     "conditions": [
+      "poisoned"
+     ],
+     "tempEffects": [],
+     "npcs": [],
+     "customFeatures": [],
+     "classOptions": [
+      {
+       "classId": "cleric",
+       "pool": "divineOrder",
+       "id": "protector",
+       "level": 1
+      }
+     ],
+     "toolProfs": [
+      "calligraphersSupplies"
+     ],
+     "originFeat": "Magic Initiate (Cleric)",
+     "feats": [
+      {
+       "name": "Magic Initiate (Cleric)",
+       "id": "magicInitiate",
+       "level": 1,
+       "origin": "background",
+       "note": "",
+       "picks": {
+        "spellList": "cleric",
+        "spellAbility": "wis",
+        "cantrip": [
+         "light",
+         "spareTheDying"
+        ],
+        "spell": [
+         "healingWord"
+        ]
+       }
+      }
+     ],
+     "speciesChoices": {},
+     "pregenId": "cleric",
+     "concentration": "Bênção",
+     "armorClass": 14
+    }
+   }
+  },
+  {
+   "role": "player",
+   "user": {
+    "displayName": "Bruno"
+   },
+   "character": {
+    "id": 2,
+    "name": "Elarion Folhaclara",
+    "data": {
+     "rulesVersion": "2024",
+     "createdAt": 0,
+     "updatedAt": 0,
+     "name": "Elarion Folhaclara",
+     "player": "",
+     "race": "elf",
+     "className": "wizard",
+     "level": 1,
+     "background": "sage",
+     "alignment": "NG",
+     "xp": 0,
+     "levelingMode": "milestone",
+     "abilities": {
+      "str": 8,
+      "dex": 12,
+      "con": 13,
+      "int": 15,
+      "wis": 14,
+      "cha": 10
+     },
+     "raceBonus": {
+      "int": 2,
+      "wis": 1
+     },
+     "skillProfs": [
+      "arcana",
+      "history",
+      "investigation",
+      "insight",
+      "perception"
+     ],
+     "skillExpertise": [],
+     "saveProfs": [
+      "int",
+      "wis"
+     ],
+     "languages": [
+      "Common",
+      "Elvish",
+      "Dwarvish"
+     ],
+     "otherProfs": "Ferramentas: Suprimentos de Calígrafo",
+     "currentHp": 7,
+     "maxHp": 7,
+     "tempHp": 0,
+     "hitDiceUsed": 0,
+     "deathSaves": {
+      "success": 0,
+      "fail": 0
+     },
+     "inspiration": false,
+     "armor": null,
+     "hasShield": false,
+     "extraAcBonus": 0,
+     "speedOverride": 0,
+     "weapons": [
+      {
+       "id": "dagger",
+       "name": "Adaga ×2",
+       "damage": "1d4",
+       "dmgType": "piercing",
+       "props": [
+        "finesse",
+        "light",
+        "thrown"
+       ],
+       "range": "20/60",
+       "mastery": "nick",
+       "qty": 2,
+       "from": "classPack"
+      },
+      {
+       "id": "quarterstaff",
+       "name": "Bordão ×2",
+       "damage": "1d6",
+       "dmgType": "bludgeoning",
+       "props": [
+        "versatile"
+       ],
+       "versatile": "1d8",
+       "mastery": "topple",
+       "qty": 2,
+       "note": "Foco arcano",
+       "from": "classPack"
+      }
+     ],
+     "equipment": [
+      {
+       "name": "Túnica",
+       "qty": 2,
+       "from": "classPack"
+      },
+      {
+       "name": "Grimório",
+       "qty": 1,
+       "from": "classPack"
+      },
+      {
+       "name": "Pacote de Erudito",
+       "qty": 1,
+       "from": "classPack",
+       "pack": "scholar"
+      },
+      {
+       "name": "Suprimentos de Calígrafo",
+       "qty": 1,
+       "from": "backgroundPack"
+      },
+      {
+       "name": "Livro (história)",
+       "qty": 1,
+       "from": "backgroundPack"
+      },
+      {
+       "name": "Pergaminho (folhas)",
+       "qty": 8,
+       "from": "backgroundPack"
+      }
+     ],
+     "treasure": "",
+     "coins": {
+      "cp": 0,
+      "sp": 0,
+      "ep": 0,
+      "gp": 13,
+      "pp": 0
+     },
+     "spells": [
+      {
+       "id": "rayOfFrost",
+       "prepared": true
+      },
+      {
+       "id": "light",
+       "prepared": true
+      },
+      {
+       "id": "mageHand",
+       "prepared": true
+      },
+      {
+       "id": "magicMissile",
+       "prepared": true,
+       "inBook": true
+      },
+      {
+       "id": "mageArmor",
+       "prepared": true,
+       "inBook": true
+      },
+      {
+       "id": "sleep",
+       "prepared": true,
+       "inBook": true
+      },
+      {
+       "id": "thunderwave",
+       "prepared": true,
+       "inBook": true
+      },
+      {
+       "id": "detectMagic",
+       "prepared": false,
+       "inBook": true
+      },
+      {
+       "id": "featherFall",
+       "prepared": false,
+       "inBook": true
+      }
+     ],
+     "spellSlotsUsed": [
+      2
+     ],
+     "personality": "Educado, distraído e incapaz de passar por uma biblioteca sem entrar.",
+     "ideals": "",
+     "bonds": "",
+     "flaws": "",
+     "backstory": "Elarion passou mais de um século copiando tomos antigos numa torre élfica. Ao encontrar um mapa rasurado que apontava para uma biblioteca perdida, percebeu que tinha lido sobre o mundo, mas nunca o visto. Saiu para encontrar a biblioteca e aprender o que os livros não contam. Anota tudo num caderno que já está quase cheio.",
+     "appearance": "Esguio, cabelo prateado longo, óculos redondos e uma túnica azul manchada de tinta.",
+     "age": "",
+     "height": "",
+     "weight": "",
+     "eyes": "",
+     "skin": "",
+     "hair": "",
+     "allies": "",
+     "notes": "",
+     "symbol": "",
+     "subclass": "",
+     "landType": "",
+     "starFormType": "",
+     "wildShapeUses": 0,
+     "conditions": [],
+     "tempEffects": [],
+     "npcs": [],
+     "customFeatures": [],
+     "classOptions": [],
+     "toolProfs": [
+      "calligraphersSupplies"
+     ],
+     "originFeat": "Magic Initiate (Wizard)",
+     "feats": [
+      {
+       "name": "Magic Initiate (Wizard)",
+       "id": "magicInitiate",
+       "level": 1,
+       "origin": "background",
+       "note": "",
+       "picks": {
+        "spellList": "wizard",
+        "spellAbility": "int",
+        "cantrip": [
+         "fireBolt",
+         "minorIllusion"
+        ],
+        "spell": [
+         "shield"
+        ]
+       }
+      }
+     ],
+     "speciesChoices": {
+      "lineage": "high",
+      "skill": "perception",
+      "spellAbility": "int"
+     },
+     "pregenId": "wizard",
+     "armorClass": 11
+    }
+   }
+  },
+  {
+   "role": "player",
+   "user": {
+    "displayName": "Carla"
+   },
+   "character": {
+    "id": 3,
+    "name": "Kaelor Escama-de-Ouro",
+    "data": {
+     "rulesVersion": "2024",
+     "createdAt": 0,
+     "updatedAt": 0,
+     "name": "Kaelor Escama-de-Ouro",
+     "player": "",
+     "race": "dragonborn",
+     "className": "paladin",
+     "level": 1,
+     "background": "noble",
+     "alignment": "LG",
+     "xp": 0,
+     "levelingMode": "milestone",
+     "abilities": {
+      "str": 15,
+      "dex": 10,
+      "con": 13,
+      "int": 8,
+      "wis": 12,
+      "cha": 14
+     },
+     "raceBonus": {
+      "str": 2,
+      "cha": 1
+     },
+     "skillProfs": [
+      "history",
+      "persuasion",
+      "athletics",
+      "insight",
+      "perception",
+      "medicine",
+      "intimidation"
+     ],
+     "skillExpertise": [],
+     "saveProfs": [
+      "wis",
+      "cha"
+     ],
+     "languages": [
+      "Common",
+      "Draconic",
+      "Dwarvish"
+     ],
+     "otherProfs": "Ferramentas: Dados",
+     "currentHp": 11,
+     "maxHp": 11,
+     "tempHp": 5,
+     "hitDiceUsed": 0,
+     "deathSaves": {
+      "success": 0,
+      "fail": 0
+     },
+     "inspiration": true,
+     "armor": "chainMail",
+     "hasShield": true,
+     "extraAcBonus": 0,
+     "speedOverride": 0,
+     "weapons": [
+      {
+       "id": "longsword",
+       "name": "Espada Longa",
+       "damage": "1d8",
+       "dmgType": "slashing",
+       "props": [
+        "versatile"
+       ],
+       "versatile": "1d10",
+       "mastery": "sap",
+       "from": "classPack"
+      },
+      {
+       "id": "javelin",
+       "name": "Azagaia ×6",
+       "damage": "1d6",
+       "dmgType": "piercing",
+       "props": [
+        "thrown"
+       ],
+       "range": "30/120",
+       "mastery": "slow",
+       "qty": 6,
+       "from": "classPack"
+      }
+     ],
+     "equipment": [
+      {
+       "name": "Símbolo Sagrado",
+       "qty": 1,
+       "from": "classPack"
+      },
+      {
+       "name": "Pacote de Sacerdote",
+       "qty": 1,
+       "from": "classPack",
+       "pack": "priest"
+      },
+      {
+       "name": "Dados",
+       "qty": 1,
+       "from": "backgroundPack"
+      },
+      {
+       "name": "Roupas Finas",
+       "qty": 1,
+       "from": "backgroundPack"
+      },
+      {
+       "name": "Perfume",
+       "qty": 1,
+       "from": "backgroundPack"
+      }
+     ],
+     "treasure": "",
+     "coins": {
+      "cp": 0,
+      "sp": 0,
+      "ep": 0,
+      "gp": 38,
+      "pp": 0
+     },
+     "spells": [
+      {
+       "id": "searingSmite",
+       "prepared": true
+      },
+      {
+       "id": "heroism",
+       "prepared": true
+      }
+     ],
+     "spellSlotsUsed": [],
+     "personality": "Cortês, orgulhoso da família e incapaz de ignorar um pedido de socorro.",
+     "ideals": "",
+     "bonds": "",
+     "flaws": "",
+     "backstory": "Kaelor é o filho mais novo de uma casa nobre que descende de um antigo dragão dourado. Cresceu ouvindo histórias de ancestrais heroicos, mas viu a família trocar a honra por ouro. Fez um juramento diante do altar da cidade de devolver ao nome da casa o seu brilho. Leva o brasão no escudo para não esquecer a promessa.",
+     "appearance": "Escamas douradas, olhos âmbar, armadura polida e uma capa vermelha com o brasão da família.",
+     "age": "",
+     "height": "",
+     "weight": "",
+     "eyes": "",
+     "skin": "",
+     "hair": "",
+     "allies": "",
+     "notes": "",
+     "symbol": "",
+     "subclass": "",
+     "landType": "",
+     "starFormType": "",
+     "wildShapeUses": 0,
+     "conditions": [
+      "frightened"
+     ],
+     "tempEffects": [],
+     "npcs": [],
+     "customFeatures": [],
+     "classOptions": [
+      {
+       "classId": "paladin",
+       "pool": "weaponMastery",
+       "id": "longsword",
+       "level": 1
+      },
+      {
+       "classId": "paladin",
+       "pool": "weaponMastery",
+       "id": "javelin",
+       "level": 1
+      }
+     ],
+     "toolProfs": [
+      "diceSet"
+     ],
+     "originFeat": "Skilled",
+     "feats": [
+      {
+       "name": "Skilled",
+       "id": "skilled",
+       "level": 1,
+       "origin": "background",
+       "note": "",
+       "picks": {
+        "skillOrTool": [
+         "perception",
+         "medicine",
+         "intimidation"
+        ]
+       }
+      }
+     ],
+     "speciesChoices": {
+      "ancestry": "gold"
+     },
+     "pregenId": "paladin",
+     "armorClass": 18
+    }
+   }
+  },
+  {
+   "role": "player",
+   "user": {
+    "displayName": "Davi Albuquerque"
+   },
+   "character": {
+    "id": 4,
+    "name": "Pipo Mão-Leve",
+    "data": {
+     "rulesVersion": "2024",
+     "createdAt": 0,
+     "updatedAt": 0,
+     "name": "Pipo Mão-Leve",
+     "player": "",
+     "race": "halfling",
+     "className": "rogue",
+     "level": 1,
+     "background": "criminal",
+     "alignment": "CG",
+     "xp": 0,
+     "levelingMode": "milestone",
+     "abilities": {
+      "str": 12,
+      "dex": 15,
+      "con": 13,
+      "int": 14,
+      "wis": 10,
+      "cha": 8
+     },
+     "raceBonus": {
+      "dex": 2,
+      "int": 1
+     },
+     "skillProfs": [
+      "sleightOfHand",
+      "stealth",
+      "perception",
+      "acrobatics",
+      "investigation",
+      "insight"
+     ],
+     "skillExpertise": [],
+     "saveProfs": [
+      "dex",
+      "int"
+     ],
+     "languages": [
+      "Common",
+      "Thieves' Cant",
+      "Halfling",
+      "Dwarvish",
+      "Elvish"
+     ],
+     "otherProfs": "Ferramentas: Ferramentas de Ladrão",
+     "currentHp": 0,
+     "maxHp": 9,
+     "tempHp": 0,
+     "hitDiceUsed": 0,
+     "deathSaves": {
+      "success": 1,
+      "fail": 2
+     },
+     "inspiration": false,
+     "armor": "leather",
+     "hasShield": false,
+     "extraAcBonus": 0,
+     "speedOverride": 0,
+     "weapons": [
+      {
+       "id": "dagger",
+       "name": "Adaga ×4",
+       "damage": "1d4",
+       "dmgType": "piercing",
+       "props": [
+        "finesse",
+        "light",
+        "thrown"
+       ],
+       "range": "20/60",
+       "mastery": "nick",
+       "qty": 4,
+       "from": "classPack"
+      },
+      {
+       "id": "shortsword",
+       "name": "Espada Curta",
+       "damage": "1d6",
+       "dmgType": "piercing",
+       "props": [
+        "finesse",
+        "light"
+       ],
+       "mastery": "vex",
+       "from": "classPack"
+      },
+      {
+       "id": "shortbow",
+       "name": "Arco Curto",
+       "damage": "1d6",
+       "dmgType": "piercing",
+       "props": [
+        "ammo",
+        "two-handed"
+       ],
+       "range": "80/320",
+       "mastery": "vex",
+       "from": "classPack"
+      }
+     ],
+     "equipment": [
+      {
+       "name": "Flechas",
+       "qty": 20,
+       "from": "classPack"
+      },
+      {
+       "name": "Aljava",
+       "qty": 1,
+       "from": "classPack"
+      },
+      {
+       "name": "Ferramentas de Ladrão",
+       "qty": 2,
+       "from": "classPack"
+      },
+      {
+       "name": "Pacote de Assaltante",
+       "qty": 1,
+       "from": "classPack",
+       "pack": "burglar"
+      },
+      {
+       "name": "Pé de Cabra",
+       "qty": 1,
+       "from": "backgroundPack"
+      },
+      {
+       "name": "Bolsa",
+       "qty": 2,
+       "from": "backgroundPack"
+      },
+      {
+       "name": "Roupas de Viajante",
+       "qty": 1,
+       "from": "backgroundPack"
+      }
+     ],
+     "treasure": "",
+     "coins": {
+      "cp": 0,
+      "sp": 0,
+      "ep": 0,
+      "gp": 24,
+      "pp": 0
+     },
+     "spells": [],
+     "spellSlotsUsed": [],
+     "personality": "Brincalhão, curioso e incapaz de resistir a uma porta trancada.",
+     "ideals": "",
+     "bonds": "",
+     "flaws": "",
+     "backstory": "Pipo cresceu nas docas de uma cidade grande, abrindo fechaduras para uma quadrilha em troca de comida. Um dia a quadrilha o deixou para trás numa fuga, e ele jurou nunca mais depender de quem não confia. Hoje usa seus talentos para o bem, quase sempre. Coleciona chaves de portas que já abriu.",
+     "appearance": "Baixinho, cabelo cacheado ruivo, roupas escuras cheias de bolsos e pés descalços.",
+     "age": "",
+     "height": "",
+     "weight": "",
+     "eyes": "",
+     "skin": "",
+     "hair": "",
+     "allies": "",
+     "notes": "",
+     "symbol": "",
+     "subclass": "",
+     "landType": "",
+     "starFormType": "",
+     "wildShapeUses": 0,
+     "conditions": [
+      "unconscious"
+     ],
+     "tempEffects": [],
+     "npcs": [],
+     "customFeatures": [],
+     "classOptions": [
+      {
+       "classId": "rogue",
+       "pool": "weaponMastery",
+       "id": "dagger",
+       "level": 1
+      },
+      {
+       "classId": "rogue",
+       "pool": "weaponMastery",
+       "id": "shortsword",
+       "level": 1
+      },
+      {
+       "classId": "rogue",
+       "pool": "expertise",
+       "id": "stealth",
+       "level": 1
+      },
+      {
+       "classId": "rogue",
+       "pool": "expertise",
+       "id": "sleightOfHand",
+       "level": 1
+      }
+     ],
+     "toolProfs": [
+      "thievesTools"
+     ],
+     "originFeat": "Alert",
+     "feats": [
+      {
+       "name": "Alert",
+       "id": "alert",
+       "level": 1,
+       "origin": "background",
+       "note": ""
+      }
+     ],
+     "speciesChoices": {},
+     "pregenId": "rogue",
+     "armorClass": 14
+    }
+   }
+  }
+ ]
+}

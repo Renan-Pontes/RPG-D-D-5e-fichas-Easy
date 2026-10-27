@@ -68,6 +68,17 @@
   display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border: 1px solid var(--stroke-faint);
   border-radius: 999px; background: var(--bg-card); min-width: 0;
 }
+/* com fichas na mesa (o Raio-X): um cartão por personagem, na largura toda */
+.ns-party.has-raiox { flex-direction: column; flex-wrap: nowrap; }
+.ns-party.has-raiox li { align-items: flex-start; border-radius: var(--radius); padding: 8px 10px 8px 8px; }
+.ns-party-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ns-party-line { font-size: 0.95rem; line-height: 1.35; color: var(--ink-secondary); overflow-wrap: anywhere; }
+.ns-party-line.is-style { color: var(--ink-muted); }
+.ns-party-line.is-moment { color: var(--ink-primary); }
+.ns .ns-party-go { align-self: flex-start; justify-content: flex-start; padding-left: 0; text-align: left; }
+/* Raio-X que chegou depois do 1º desenho: uma linha de altura fixa (o "…" e o botão medem o mesmo) */
+.ns-party-rx { display: flex; align-items: center; min-height: 44px; margin: 6px 0 0; }
+.ns .ns-party-rx .mesa-btn { padding-left: 0; justify-content: flex-start; text-align: left; }
 .ns-party img, .ns-party-ph { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--gold-deep); display: grid; place-items: center; flex: 0 0 auto; }
 
 .ns-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; counter-reset: ns; }
@@ -80,6 +91,7 @@
 .ns-tick { display: grid; place-items: center; width: 40px; height: 40px; margin: 0; cursor: pointer; }
 .ns-tick input { width: 20px; height: 20px; accent-color: var(--gold); cursor: pointer; }
 .ns-row-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ns-row-note { margin: 0; font-size: 0.9rem; line-height: 1.35; color: var(--ink-secondary); overflow-wrap: anywhere; }
 .ns-row-tools { display: flex; gap: 2px; }
 .ns-row-tools .btn-icon { min-width: 32px; min-height: 36px; padding: 0 6px; }
 .ns-row-tools .danger { color: var(--blood-bright); }

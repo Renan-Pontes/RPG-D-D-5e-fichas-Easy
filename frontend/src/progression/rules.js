@@ -677,7 +677,7 @@ const MONK = {
     ] },
     2: { features: [
       { id: 'ki', name: 'Ki', desc: 'Pontos de ki = nível (descanso curto). Rajada de Golpes, Defesa Paciente, Passo do Vento.' },
-      { id: 'unarmoredMovement', name: 'Movimento sem Armadura', desc: '+10 pés sem armadura.' },
+      { id: 'unarmoredMovement', name: 'Movimento sem Armadura', desc: 'Sem armadura e sem escudo: +10 pés (+15 no 6, +20 no 10, +25 no 14, +30 no 18).' },
     ] },
     3: { subclassChoice: true, features: [{ id: 'deflectMissiles', name: 'Aparar Projéteis', desc: 'Reação: reduza dano à distância.' }] },
     4: { asiOrFeat: true, features: [{ id: 'slowFall', name: 'Queda Lenta', desc: 'Reação: -5×nível dano de queda.' }] },

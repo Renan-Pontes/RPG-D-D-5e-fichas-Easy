@@ -1,0 +1,391 @@
+/* ==========================================================
+   Grupo › Raio-X (PartyInsights.jsx, InsightsSheets.jsx, Radar.jsx)
+   Celular primeiro (320–412), PC a partir de 1024. Peças da mesa (mesa.css):
+   painel de couro, títulos em folha de ouro, chips e botões de 44 px.
+   Cores de dado (validadas no fundo do cartão #221a13): média azul e melhor
+   laranja SÓ no Papel do grupo; uma por personagem no resto. O dourado fica
+   nas molduras e títulos, nunca no dado. Texto sempre nas tintas do app.
+   ========================================================== */
+.ins {
+  --ins-avg: #3987e5;
+  --ins-best: #d95926;
+  --ins-series: #9fb0f0;              /* série única (perícias do grupo) */
+  --ins-gray: #7d6d57;                /* os outros, nos pequenos múltiplos */
+  --ins-grid: rgba(214, 176, 100, 0.16);
+  --ins-grid-mark: rgba(214, 176, 100, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.ins-loading { margin: 16px 0; }
+.ins p { margin: 0; }
+.ins-dot { flex: none; display: inline-block; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 2px var(--bg-card); }
+
+/* ---------------------------------------------------------- cabeçalho e "Quem entra" */
+.ins-head { display: flex; flex-direction: column; gap: 10px; }
+.ins-head .mesa-title { margin-bottom: 0; }
+.ins-meta { font-size: 0.95rem; color: var(--ink-secondary); }
+.ins-note { font-size: 0.95rem; color: var(--ink-muted); }
+.ins-note.is-warn { color: var(--amber); }
+.ins-who { display: flex; flex-direction: column; gap: 6px; }
+.ins-who-label {
+  font-family: var(--display); font-size: 12px; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--gold);
+  line-height: 24px; height: 24px; overflow: hidden;   /* "Salvando…" não empurra os chips */
+}
+.ins-save-line { font-family: var(--body); font-size: 0.9rem; line-height: inherit; letter-spacing: 0; text-transform: none; color: var(--ink-muted); }
+.ins-who-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ins-who-chip { white-space: normal; text-align: left; }
+.ins-who-chip[aria-pressed="false"] { opacity: 0.7; border-style: dashed; }
+.ins-who-chip[aria-pressed="false"] .ins-dot { background: transparent !important; box-shadow: inset 0 0 0 2px var(--ink-muted); }
+.ins-who-name { color: var(--ink-primary); }
+.ins-who-class { font-size: 0.85rem; color: var(--ink-muted); }
+.ins-empty { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; font-size: 1rem; }
+
+/* ---------------------------------------------------------- G0: os 4 quadros */
+.ins-quads { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 360px) { .ins-quads { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1024px) { .ins-quads { grid-template-columns: repeat(4, 1fr); } }
+.ins-quad.mesa-panel { display: flex; flex-direction: column; gap: 6px; padding: 12px; min-width: 0; }
+/* !important: vence o h3 do celular (styles.css, 1.1rem) só aqui; sem quebra no meio da palavra */
+.ins-quad .mesa-eyebrow { font-size: 12px !important; letter-spacing: 0.08em; }
+.ins-quad.is-strengths { box-shadow: inset 0 3px 0 rgba(156, 192, 101, 0.55), 0 10px 30px rgba(0, 0, 0, 0.5); }
+.ins-quad.is-weaknesses { box-shadow: inset 0 3px 0 rgba(227, 164, 69, 0.6), 0 10px 30px rgba(0, 0, 0, 0.5); }
+.ins-quad.is-opportunities { box-shadow: inset 0 3px 0 rgba(159, 176, 240, 0.55), 0 10px 30px rgba(0, 0, 0, 0.5); }
+.ins-quad.is-threats { box-shadow: inset 0 3px 0 rgba(224, 96, 79, 0.6), 0 10px 30px rgba(0, 0, 0, 0.5); }
+.ins-quad-help { font-size: 0.85rem; color: var(--ink-muted); line-height: 1.3; }
+.ins-quad-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.ins-quad-list li { font-size: 0.95rem; line-height: 1.3; color: var(--ink-primary); overflow-wrap: anywhere; padding-left: 12px; position: relative; }
+.ins-quad-list li::before { content: ""; position: absolute; left: 0; top: 0.55em; width: 5px; height: 5px; transform: rotate(45deg); background: var(--gold-deep); }
+.ins-quad-none { font-size: 0.95rem; color: var(--ink-muted); }
+.ins .ins-more { align-self: flex-start; min-height: 44px; min-width: 44px; padding-left: 8px; padding-right: 8px; }
+
+/* ---------------------------------------------------------- blocos */
+.ins-block { display: flex; flex-direction: column; gap: 10px; }
+.ins-block .mesa-title { margin-bottom: 0; }
+.ins-adj-help { font-size: 0.9rem; color: var(--ink-muted); line-height: 1.35; }
+.ins-pair { display: flex; flex-wrap: wrap; gap: 6px; }
+.ins-pair.is-small .mesa-chip { padding: 6px 12px; font-size: 0.92rem; }
+.ins-imp { color: var(--amber); font-size: 0.85rem; }
+
+/* ideias de cena */
+.ins-idea-list, .ins-gap-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.ins-idea, .ins-gap {
+  display: flex; flex-direction: column; gap: 6px; padding: 10px 0;
+  border-bottom: 1px solid rgba(224, 181, 94, 0.14);
+}
+.ins-idea:last-child, .ins-gap:last-child { border-bottom: 0; }
+.ins-idea-text, .ins-gap-text { font-size: 1rem; line-height: 1.35; color: var(--ink-primary); }
+.ins-idea-act { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ins-plan-ok { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; color: var(--success); font-size: 0.95rem; }
+
+/* ---------------------------------------------------------- G1: papel do grupo */
+.ins-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.9rem; color: var(--ink-secondary); }
+.ins-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.ins-mk { display: inline-block; width: 12px; height: 12px; }
+.ins-mk.is-avg { border-radius: 50%; background: var(--ins-avg); box-shadow: 0 0 0 2px var(--bg-card); }
+.ins-mk.is-best { width: 11px; height: 11px; transform: rotate(45deg); background: var(--ins-best); box-shadow: 0 0 0 2px var(--bg-card); }
+.ins-mk.is-ref { width: 2px; height: 14px; background: var(--ins-grid-mark); }
+.ins-roles-body, .ins-skills-body { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ins-axis-rows, .ins-bars { margin: 0; padding: 0; list-style: none; min-width: 0; }
+.ins-axis-btn {
+  display: grid;
+  grid-template-columns: minmax(84px, 7.5rem) minmax(64px, 1fr) minmax(0, 9.5rem);
+  align-items: center;
+  gap: 4px 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 6px 4px;
+  border: 0;
+  border-bottom: 1px solid rgba(224, 181, 94, 0.14);
+  background: none;
+  color: var(--ink-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ins-axis-rows li:last-child .ins-axis-btn { border-bottom: 0; }
+.ins-axis-name { font-size: 1rem; line-height: 1.2; overflow-wrap: anywhere; }
+.ins-axis-nums { font-size: 0.95rem; line-height: 1.25; color: var(--ink-secondary); text-align: right; overflow-wrap: anywhere; }
+.ins-track { position: relative; height: 20px; margin: 0 6px; }
+.ins-track::before { content: ""; position: absolute; left: 0; right: 0; top: 9px; height: 2px; border-radius: 2px; background: var(--ins-grid); }
+.ins-track-ref { position: absolute; top: 2px; width: 2px; height: 16px; margin-left: -1px; background: var(--ins-grid-mark); }
+.ins-track .ins-mk { position: absolute; top: 4px; margin-left: -6px; }
+.ins-track .ins-mk.is-best { top: 4.5px; margin-left: -5.5px; }
+@media (max-width: 599px) {
+  /* no celular a linha quebra em 2: nome e números em cima, o trilho na largura toda
+     embaixo (numa linha só, a 390 px, o trilho ficava com uns 50 px) */
+  .ins-axis-btn { grid-template-columns: 1fr auto; grid-template-areas: "name nums" "track track"; }
+  .ins-axis-name { grid-area: name; }
+  .ins-axis-nums { grid-area: nums; max-width: 10rem; }
+  .ins-track { grid-area: track; }
+}
+@media (hover: hover) {
+  .ins-axis-btn:hover, .ins-bar-row:hover, .ins-dmg:hover { background: var(--gold-soft); }
+}
+:is(.ins-axis-btn, .ins-bar-row, .ins-dmg, .ins-fold-head):focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+
+/* ---------------------------------------------------------- radar */
+.ins-radar { display: block; max-width: 100%; height: auto; overflow: visible; }
+.ins-radar-grid polygon, .ins-radar-grid line { fill: none; stroke: var(--ins-grid); stroke-width: 1; }
+.ins-radar-grid polygon.is-mark { stroke: var(--ins-grid-mark); stroke-width: 1.5; }
+.ins-radar-dot { stroke: var(--bg-card); stroke-width: 2; }
+.ins-radar-label { fill: var(--ink-secondary); font-family: var(--body); }
+@media (min-width: 1024px) {
+  .ins-roles-body, .ins-skills-body { flex-direction: row; align-items: flex-start; gap: 24px; }
+  .ins-roles-body > .ins-radar, .ins-skills-body > .ins-radar { flex: none; }
+  .ins-roles-body > .ins-axis-rows { flex: 1 1 auto; }
+}
+
+/* ---------------------------------------------------------- G2: perícias */
+.ins-bar-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 4px;
+  border: 0;
+  border-bottom: 1px solid rgba(224, 181, 94, 0.14);
+  background: none;
+  color: var(--ink-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ins-bar-name { font-size: 1rem; }
+.ins-warn { color: var(--amber); font-size: 0.85rem; }
+.ins-bar { position: relative; display: block; height: 12px; border-radius: 2px; background: var(--ins-grid); }
+.ins-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; background: var(--ins-series); }
+.ins-bar-tick { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--ins-grid-mark); }
+.ins-bar-nums { font-size: 0.9rem; color: var(--ink-secondary); line-height: 1.3; }
+.ins-bar-nums strong { color: var(--ink-primary); font-size: 1rem; }
+@media (min-width: 1024px) {
+  .ins-skills-body > .ins-bars { flex: 1 1 auto; display: grid; grid-template-columns: 1fr 1fr; column-gap: 20px; align-content: start; }
+}
+
+/* ---------------------------------------------------------- G3: dano */
+.ins-dmg-grid { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (min-width: 1024px) { .ins-dmg-grid { grid-template-columns: repeat(4, 1fr); } }
+.ins-dmg {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  width: 100%; height: 100%; min-height: 56px; padding: 8px 10px;
+  border: 1px solid rgba(224, 181, 94, 0.28); border-radius: 6px;
+  background: rgba(10, 7, 6, 0.35); color: var(--ink-primary); font: inherit; text-align: left; cursor: pointer;
+}
+.ins-dmg.is-none { border-style: dashed; border-color: rgba(171, 154, 126, 0.6); background: none; }
+.ins-dmg-type { font-family: var(--display); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold-bright); }
+.ins-dmg-who { display: flex; flex-direction: column; gap: 2px; font-size: 0.9rem; line-height: 1.3; color: var(--ink-secondary); overflow-wrap: anywhere; }
+.ins-dmg-who.is-none { color: var(--ink-muted); font-style: italic; }
+
+/* ---------------------------------------------------------- G7: lacunas */
+.ins-gap-group { display: flex; flex-direction: column; gap: 2px; }
+/* !important: vence o h4 do celular (styles.css, 0.95rem) só aqui */
+.ins-gap-label { margin: 6px 0 0; font-family: var(--display); font-size: 12px !important; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+
+/* ---------------------------------------------------------- seções recolhíveis */
+.ins-fold { gap: 0; }
+.ins-fold-head {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 0;
+  border: 0; background: none; font: inherit; text-align: left; cursor: pointer;
+}
+.ins-fold-title { flex: 1 1 auto; font-family: var(--display); font-weight: 600; font-size: 1.02rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.ins-fold-ico { color: var(--gold); font-size: 1.1rem; }
+.ins-fold-body { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; min-width: 0; }
+
+/* ---------------------------------------------------------- G4: escolas */
+.ins-school-grid { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (min-width: 1024px) { .ins-school-grid { grid-template-columns: repeat(4, 1fr); } }
+.ins-school { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 1px solid rgba(224, 181, 94, 0.22); border-radius: 6px; min-width: 0; }
+.ins-school.is-none { border-style: dashed; }
+.ins-school-name { font-family: var(--display); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.04em; color: var(--gold-bright); }
+.ins-school-row { display: flex; flex-direction: column; gap: 2px; font-size: 0.9rem; color: var(--ink-secondary); }
+.ins-school-row.is-none { color: var(--ink-muted); font-style: italic; }
+.ins-mini-bar { display: block; height: 6px; border-radius: 2px; background: var(--ins-grid); }
+.ins-mini-bar > span { display: block; height: 100%; border-radius: 0 3px 3px 0; }
+
+/* ---------------------------------------------------------- G5: pequenos múltiplos */
+.ins-multiples { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 360px) { .ins-multiples { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1024px) { .ins-multiples { grid-template-columns: repeat(4, 1fr); } }
+.ins-multiple { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 4px; border: 1px solid rgba(224, 181, 94, 0.14); border-radius: 6px; min-width: 0; }
+.ins-multiple.is-focus { border-color: rgba(224, 181, 94, 0.5); }
+.ins-multiple .ins-radar { width: 100%; max-width: 200px; }
+.ins-multiple figcaption { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.ins-mult-name { display: inline-flex; align-items: center; gap: 6px; font-size: 1rem; color: var(--ink-primary); }
+.ins-mult-vals { font-size: 0.85rem; color: var(--ink-secondary); line-height: 1.3; overflow-wrap: anywhere; }
+@media (max-width: 359px) { .ins-multiple .ins-radar { max-width: 220px; } }
+.ins-overlay { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+
+/* ---------------------------------------------------------- G6: tabela */
+.ins-table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid rgba(224, 181, 94, 0.22); border-radius: 6px; }
+.ins .ins-table { border-collapse: separate; border-spacing: 0; min-width: 100%; font-size: 0.95rem; }
+.ins-table th, .ins-table td { padding: 6px 12px; border-bottom: 1px solid rgba(224, 181, 94, 0.1); text-align: left; white-space: nowrap; }
+.ins-table thead th { font-family: var(--display); font-size: 0.85rem; letter-spacing: 0.04em; color: var(--gold-bright); background: var(--bg-raised); }
+.ins-table tbody th { font-weight: 400; color: var(--ink-secondary); }
+.ins-table :is(thead, tbody) th:first-child { position: sticky; left: 0; z-index: 1; background: var(--bg-raised); box-shadow: 1px 0 0 rgba(224, 181, 94, 0.22); }
+.ins-table td { color: var(--ink-primary); }
+.ins-cards { display: flex; flex-direction: column; gap: 8px; }
+.ins-card { border: 1px solid rgba(224, 181, 94, 0.22); border-radius: 6px; }
+.ins-card > summary { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-height: 48px; padding: 6px 12px; cursor: pointer; font-size: 1rem; }
+.ins-card-sub { font-size: 0.9rem; color: var(--ink-muted); }
+.ins-card-dl { margin: 0; padding: 4px 12px 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+.ins-card-dl > div { display: flex; flex-direction: column; min-width: 0; padding: 4px 0; border-bottom: 1px solid rgba(224, 181, 94, 0.08); }
+.ins-card-dl dt { font-size: 0.8rem; color: var(--ink-muted); }
+.ins-card-dl dd { margin: 0; font-size: 0.95rem; color: var(--ink-primary); overflow-wrap: anywhere; }
+
+/* ---------------------------------------------------------- G10: contra quem? */
+.mesa-actions.is-start { justify-content: flex-start; }
+.ins-vs { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid rgba(224, 181, 94, 0.28); border-radius: 6px; background: rgba(10, 7, 6, 0.35); }
+.ins-vs-head { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; }
+.ins-vs-head .mesa-icon-btn { margin-left: auto; }
+.ins-vs-line { font-size: 1rem; line-height: 1.35; color: var(--ink-primary); }
+.ins-vs-line.is-calm { color: var(--ink-secondary); }
+.ins-vs-rows { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 0.95rem; color: var(--ink-secondary); }
+.ins-vs-rows li { display: block; line-height: 1.35; overflow-wrap: anywhere; }
+.ins-plan-pick { display: flex; flex-direction: column; gap: 6px; }
+
+/* ---------------------------------------------------------- G8: momentos */
+.ins-mom-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 1024px) { .ins-mom-grid { grid-template-columns: 1fr 1fr; align-items: start; } }
+.ins-mom-card {
+  display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 10px 12px;
+  border: 1px solid rgba(224, 181, 94, 0.22); border-radius: 6px; background: rgba(10, 7, 6, 0.25);
+  scroll-margin-top: 72px;              /* o segmentado preso não cobre o nome */
+}
+.ins-mom-card.is-focus { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-deep); }
+.ins-mom-head { display: flex; flex-direction: column; gap: 2px; }
+/* !important: vence o h3 do celular (styles.css) só aqui */
+.ins-mom-name { margin: 0; display: flex; align-items: center; gap: 8px; font-family: var(--display); font-size: 1rem !important; font-weight: 600; letter-spacing: 0.06em; color: var(--ink-primary); overflow-wrap: anywhere; }
+.ins-mom-count, .ins-mom-style { font-size: 0.9rem; color: var(--ink-secondary); }
+.ins-mom-warn { font-size: 0.95rem; }
+.ins .ins-style-toggle { align-self: flex-start; padding-left: 0; padding-right: 8px; }
+.ins-style-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ins-mom-list, .ins-sug-list, .ins-scene-list, .ins-bal-rows { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.ins-mom { display: flex; align-items: flex-start; gap: 10px; min-height: 56px; padding: 6px 0; border-bottom: 1px solid rgba(224, 181, 94, 0.12); }
+.ins-mom:last-child { border-bottom: 0; }
+/* a caixa de "aconteceu": 48 × 48 (ação ao vivo) */
+.ins-mom-box {
+  flex: none; display: grid; place-items: center; width: 48px; height: 48px; padding: 0;
+  border: 2px solid var(--gold-deep); border-radius: 6px; background: rgba(10, 7, 6, 0.4);
+  color: var(--bg-deep); font-size: 1.4rem; font-weight: 700; cursor: pointer;
+}
+.ins-mom-box[aria-checked="true"] { background: var(--gold); border-color: var(--fh-gold-hi); }
+.ins-mom-box:disabled { cursor: not-allowed; opacity: 0.6; }
+.ins-mom-box:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.ins-mom-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 2px; }
+.ins-mom-text, .ins-sug-text { font-size: 1rem; line-height: 1.35; color: var(--ink-primary); overflow-wrap: anywhere; }
+.ins-mom.is-done .ins-mom-text { color: var(--ink-secondary); }
+.ins-mom-kind { font-family: var(--display); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; color: var(--gold-bright); white-space: nowrap; }
+.ins-mom-meta { font-size: 0.9rem; color: var(--ink-muted); }
+.ins-mom-act { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ins-mom-act .grp-more { margin-left: auto; }        /* o menu abre para dentro do cartão */
+.ins-mom-act .grp-more-btn { min-width: 44px; min-height: 44px; }
+.ins-mom-act .grp-more-item { min-height: 44px; }
+.ins-sug { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; margin-top: 6px; border: 1px dashed rgba(171, 154, 126, 0.55); border-radius: 6px; }
+.ins-sug-text { color: var(--ink-secondary); }
+.ins-sug-tag { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted); }
+.ins-mom-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+/* Momentos: alvos de 48 px (§6.6) — filtro, Aceitar, Dispensar, → Cena, ⋯, Escrever, Mais, estilo */
+.ins-moments :is(.mesa-btn, .mesa-chip, .grp-more-btn, .grp-more-item) { min-height: 48px; }
+.ins-moments .grp-more-btn { min-width: 48px; }
+/* "Sugestão dispensada · ↶ Desfazer" (6 s): aviso curto acima da barra de baixo, à esquerda
+   do dado no celular (§1.4); no PC, no canto de baixo à esquerda */
+.ins-undo {
+  position: fixed; z-index: 120; left: max(12px, env(safe-area-inset-left, 0px));
+  bottom: calc(var(--fab-safe-bottom, 16px) + 8px + env(safe-area-inset-bottom, 0px));
+  max-width: min(440px, calc(100vw - 34px - var(--shell-fab-size, 0px)));
+  display: flex; align-items: center; gap: 12px; padding: 4px 4px 4px 14px;
+  font-size: 15px; color: var(--ink-primary); background: var(--bg-elevated);
+  border: 1px solid var(--gold); border-radius: var(--radius-lg); box-shadow: var(--shadow-deep);
+}
+.ins-undo > span { min-width: 0; overflow-wrap: anywhere; }
+.ins-undo .mesa-btn { flex: none; }
+.ins-write-label { display: block; margin: 12px 0 4px; font-size: 0.95rem; color: var(--ink-secondary); }
+.ins-write-text { width: 100%; font-size: 16px; }
+.ins-write-count { margin: 4px 0 0; font-size: 0.9rem; color: var(--ink-muted); text-align: right; }
+.ins-write-count.is-warn { color: var(--amber); text-align: left; }
+.ins-scene-list { margin-top: 8px; }
+.ins-scene-row {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; min-height: 56px; padding: 8px 4px;
+  border: 0; border-bottom: 1px solid rgba(224, 181, 94, 0.14); background: none; color: var(--ink-primary); font: inherit; text-align: left; cursor: pointer;
+}
+.ins-scene-n { font-family: var(--display); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em; color: var(--gold-bright); }
+.ins-scene-text { font-size: 1rem; line-height: 1.3; overflow-wrap: anywhere; white-space: pre-line; }
+.ins-scene-row:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+@media (hover: hover) { .ins-scene-row:hover { background: var(--gold-soft); } }
+
+/* ---------------------------------------------------------- G9: equilíbrio na mesa */
+.ins-bal-row { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; border-bottom: 1px solid rgba(224, 181, 94, 0.12); }
+.ins-bal-row:last-child { border-bottom: 0; }
+.ins-bal-name { display: inline-flex; align-items: center; gap: 8px; font-size: 1rem; color: var(--ink-primary); }
+.ins-bal-line { display: grid; grid-template-columns: minmax(60px, 1fr) auto; align-items: center; gap: 10px; }
+.ins-bal-bar { height: 10px; }
+.ins-bal-bar.is-checks > span { background: var(--ins-series); }
+.ins-bal-num { font-size: 0.9rem; color: var(--ink-secondary); text-align: right; }
+.ins-bal-num strong { color: var(--ink-primary); font-size: 1rem; }
+.ins-bal-warn { font-size: 0.95rem; }
+.ins-bal-status { min-height: 44px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; }
+@media (max-width: 359px) { .ins-bal-line { grid-template-columns: 1fr; gap: 2px; } .ins-bal-num { text-align: left; } }
+
+/* ---------------------------------------------------------- folhas */
+.ins-sheet-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
+.ins-adj { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-bottom: 1px solid rgba(224, 181, 94, 0.14); }
+.ins-adj:last-child { border-bottom: 0; }
+.ins-adj-title { margin: 0; font-family: var(--display); font-size: 0.9rem !important; font-weight: 600; letter-spacing: 0.08em; color: var(--gold-bright); }
+.ins-adj-now { font-size: 0.95rem; color: var(--ink-secondary); }
+.ins-steps { display: flex; align-items: center; gap: 2px; flex-wrap: nowrap; max-width: 100%; }
+.ins-steps-end { font-size: 0.9rem; color: var(--ink-secondary); padding: 0 4px; }
+.ins-step { flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; background: none; cursor: pointer; }
+.ins-step > span { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--gold-deep); background: transparent; }
+.ins-step.is-on > span { width: 20px; height: 20px; background: var(--gold); border-color: var(--fh-gold-hi); }
+.ins-step:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; border-radius: 50%; }
+@media (max-width: 359px) {
+  /* a 320 os 5 passos de 44 px cabem, os rótulos na mesma fileira não ("Ficha" passava
+     da borda da folha): "Tabela" e "Ficha" sobem para uma linha própria, nas pontas */
+  .ins-steps { display: grid; grid-template-columns: repeat(5, 44px); justify-content: space-between; }
+  .ins-steps-end { grid-row: 1; padding: 0; }
+  .ins-steps-end:first-child { grid-column: 1 / span 2; justify-self: start; }
+  .ins-steps-end:last-child { grid-column: 4 / span 2; justify-self: end; }
+  .ins-step { grid-row: 2; }
+}
+.ins-dc { min-width: 52px; justify-content: center; }
+.ins-axis-list, .ins-class-rows { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.ins-axis-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.ins-axis-show { min-width: 9.5rem; }
+.ins-axis-show[aria-pressed="false"] { opacity: 0.75; border-style: dashed; }
+.ins-adv-toggle { align-self: flex-start; padding-left: 0; }
+.ins-classtable { display: flex; flex-direction: column; gap: 10px; }
+.ins-class-row { display: grid; grid-template-columns: minmax(0, 1fr) 44px 2.2rem 44px; align-items: center; gap: 4px; min-height: 44px; }
+.ins-class-axis { display: flex; flex-direction: column; font-size: 0.95rem; color: var(--ink-primary); }
+.ins-stepper { border: 1px solid var(--gold-deep); border-radius: 6px; color: var(--gold-bright); font-size: 1.2rem; }
+.ins-stepper:disabled { opacity: 0.4; cursor: not-allowed; }
+.ins-class-val { text-align: center; font-size: 1.05rem; color: var(--ink-primary); }
+.ins-class-val.is-edited { color: var(--amber); }
+.ins-class-ivan { font-size: 0.85rem; color: var(--amber); }
+.ins-why-lead { font-size: 1rem; color: var(--ink-primary); line-height: 1.35; overflow-wrap: anywhere; }
+.ins-why-list { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.ins-why-row { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid rgba(224, 181, 94, 0.14); }
+.ins-why-row:last-child { border-bottom: 0; }
+.ins-why-row.is-line { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; }
+.ins-why-who { display: inline-flex; align-items: center; gap: 8px; font-size: 1rem; }
+.ins-why-nums { font-size: 0.95rem; color: var(--ink-secondary); }
+.ins-why-nums strong { color: var(--ink-primary); font-size: 1.05rem; }
+.ins-why-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ins-why-chip { padding: 3px 10px; border: 1px solid rgba(224, 181, 94, 0.3); border-radius: 999px; font-size: 0.9rem; color: var(--ink-secondary); background: rgba(214, 176, 100, 0.05); }
+.ins-mon-list { margin: 8px 0 0; padding: 0; list-style: none; }
+.ins-mon-row { cursor: pointer; }
+
+@media (forced-colors: active) {
+  .ins-mk, .ins-bar-fill, .ins-mini-bar > span, .ins-dot { forced-color-adjust: none; }
+  .ins-mom-box[aria-checked="true"] { background: Highlight; }
+}
+.ins-card > summary { list-style: none; }
+.ins-card > summary::-webkit-details-marker { display: none; }
+.ins-card > summary::after { content: "▸"; margin-left: auto; color: var(--gold); }
+.ins-card[open] > summary::after { content: "▾"; }
+
+/* "?" de ajuda */
+.ins-help { border: 1px solid var(--gold-deep); font-family: var(--display); font-weight: 700; color: var(--gold-bright); }
+.ins-help-text { margin: 0 0 10px; font-size: 1rem; line-height: 1.45; color: var(--ink-primary); }

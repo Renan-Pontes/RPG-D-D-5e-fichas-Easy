@@ -4147,7 +4147,7 @@
             {
               "id": "unarmoredMovement",
               "name": "Movimento sem Armadura",
-              "desc": "+10 pés sem armadura."
+              "desc": "Sem armadura e sem escudo: +10 pés (+15 no 6, +20 no 10, +25 no 14, +30 no 18)."
             }
           ]
         },

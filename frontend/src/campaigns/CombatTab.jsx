@@ -376,7 +376,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
         <EndOfEncounterPanel campaign={campaign} combat={wrapUp} lang={lang} onNavigate={onNavigate}
           onClose={() => setWrapUp(null)} onChange={() => { load(); onChange?.(); }} />
       )}
-      {showPicker && <MonsterPicker lang={lang} levelingMode={campaign.state?.levelingMode || 'milestone'} onPick={addMonster} onClose={() => setShowPicker(false)} />}
+      {showPicker && <MonsterPicker lang={lang} levelingMode={campaign.state?.levelingMode || 'milestone'} members={campaign.members} onPick={addMonster} onClose={() => setShowPicker(false)} />}
       {showAddPC && (
         <AddCharacterSheet campaign={campaign} lang={lang} combatants={combatants}
           onAdd={addPC} onClose={() => setShowAddPC(false)} />

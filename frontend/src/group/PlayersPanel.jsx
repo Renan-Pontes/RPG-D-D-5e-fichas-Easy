@@ -1,41 +1,73 @@
-import { useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { tName } from '../../data/i18n.js';
 import Utils from '../../utils.js';
-import { classArt, speciesArt } from '../art.js';
 import DMCharacterEditor from '../campaigns/DMCharacterEditor.jsx';
 import { editLogEntries, formatEditLogDate } from '../campaigns/edit-log.js';
 import GiveItemModal from '../campaigns/GiveItemModal.jsx';
+import MesaSheet from '../shell/MesaSheet.jsx';
+import { HpBar, PcBadges, PcPortrait } from '../shell/MesaPc.jsx';
+import { useArea } from '../shell/useArea.js';
 import MoreMenu from './MoreMenu.jsx';
 import { groupApi } from './group-api.js';
-import { charLine, fmtMod, hpTone, levelupFor, memberStats, t, xpProgress } from './group-model.js';
-
-const condName = (c, lang) => (c === 'exhaustion' ? t(lang, 'Exaustão', 'Exhaustion') : tName('condition', c, lang));
+import useRaioX from './useRaioX.js';
+import { charLine, hpTone, levelupFor, memberStats, statPills, t, xpKnown, xpProgress } from './group-model.js';
 
 /**
- * Cards dos jogadores da mesa: retrato, classe/espécie traduzidas, PV, CA e
- * iniciativa (mesmo cálculo da Mesa: Utils.computeAc / Utils.initiative).
- * Mestre: editar ficha, dar item (com aviso), registro de edições (só se a
- * ficha tiver, ver campaigns/edit-log.js), encerrar forma selvagem (só
- * druida em forma) e remover da mesa. Jogador: trocar o próprio personagem e
- * sair da campanha (com confirmação; a ficha continua com ele).
+ * Cards dos jogadores da mesa (PlayerCard, plano §4.3): retrato, classe/espécie
+ * traduzidas, PV, pastilhas de CA, iniciativa e nível (só as que têm valor;
+ * mesmo cálculo da Mesa: Utils.computeAc / Utils.initiative), XP (só com dado)
+ * e selos (PcBadges).
+ * Mestre: 🛠 Editar ficha e 🎁 Dar item no rodapé; no ⋯, 📜 Registro (só se a
+ * ficha tiver, ver campaigns/edit-log.js), 🐾 Encerrar forma (só druida em
+ * forma) e Remover da mesa. Jogador: no ⋯ do próprio cartão, Trocar personagem
+ * (folha com as fichas) e Sair da campanha (com confirmação; a ficha continua
+ * com ele). O jogador vê o próprio cartão primeiro, com `afterMine` (Meus
+ * pedidos) logo abaixo.
+ * Mestre: 2 chips com os papéis mais fortes de cada personagem no Raio-X ("Cura 5 ·
+ * Magia 5"); tocar abre Grupo › Raio-X com ele em destaque (useRaioX: as contas chegam
+ * por import dinâmico e os ajustes do mestre 1 vez por campanha).
+ * focusMember: id da vaga para trazer à vista (busca rápida).
  */
-export default function PlayersPanel({ campaign, lang, isDM, characters = [], approvals = [], ask, notify, onChange, onLeft }) {
+export default function PlayersPanel({ campaign, lang, isDM, characters = [], approvals = [], ask, notify, onChange, onLeft, afterMine = null, focusMember = null }) {
   const [editing, setEditing] = useState(null);
   const [giving, setGiving] = useState(null);
   const [assigning, setAssigning] = useState(null);
+  const gridRef = useRef(null);
+  // fichas que saíram desta mesa agora: a lista do app (`characters`) ainda diz "em campanha"
+  // até recarregar, e a folha de troca não pode deixá-las apagadas
+  const released = useRef(new Set());
   const xpMode = campaign.state?.levelingMode === 'xp';
   const members = campaign.members || [];
   const dm = members.find(m => m.role === 'dm');
   const players = members.filter(m => m.role !== 'dm');
   const meId = typeof window !== 'undefined' ? window.__currentUserId__ : null;
+  const { goTo } = useArea();
+  const roles = usePartyRoles(campaign, isDM, lang);
+  // o jogador se vê primeiro (com os próprios pedidos logo abaixo); o mestre vê a ordem da mesa
+  const ordered = isDM ? players : [...players.filter(m => m.user?.id === meId), ...players.filter(m => m.user?.id !== meId)];
+  const assigningMember = assigning != null ? players.find(m => m.id === assigning) : null;
+
+  // busca rápida (membro) → traz o cartão à vista e acende por um instante
+  useEffect(() => {
+    if (focusMember == null) return undefined;
+    const el = gridRef.current?.querySelector(`[data-mid="${CSS.escape(String(focusMember))}"]`);
+    if (!el) return undefined;
+    try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { el.scrollIntoView(); }
+    el.classList.add('is-found');
+    const id = setTimeout(() => el.classList.remove('is-found'), 1800);
+    return () => clearTimeout(id);
+  }, [focusMember]);
 
   const run = async (fn, ok) => {
     try { await fn(); if (ok) notify?.(ok); onChange?.(); } catch (e) { notify?.(errorMessage(e, lang), 'error'); }
   };
   const assign = (m, charId) => run(async () => {
-    await api.updateMembership(campaign.id, m.id, { characterId: charId ? Number(charId) || charId : null });
+    const id = charId ? Number(charId) || charId : null;
+    await api.updateMembership(campaign.id, m.id, { characterId: id });
+    if (m.character && m.character.id !== id) released.current.add(m.character.id);
+    if (id != null) released.current.delete(id);
     setAssigning(null);
   }, t(lang, 'Personagem da mesa atualizado.', 'Table character updated.'));
 
@@ -88,20 +120,36 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
         </div>
       )}
 
-      <div className="grp-card-grid">
-        {players.map(m => (
-          <PlayerCard key={m.id} m={m} lang={lang} isDM={isDM} xpMode={xpMode} isMe={m.user?.id === meId}
-            pending={m.character ? levelupFor(approvals, m.character.id, 'pending') : null}
-            unlocked={m.character ? levelupFor(approvals, m.character.id, 'approved') : null}
-            assigning={assigning === m.id} characters={characters}
-            onAssignStart={() => setAssigning(m.id)} onAssignCancel={() => setAssigning(null)} onAssign={(id) => assign(m, id)}
-            onEdit={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data })}
-            onLog={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data, section: 'log' })}
-            onGive={campaign.status === 'closed' ? null : () => setGiving({ id: m.character.id, name: m.character.name })}
-            onEndForm={() => endForm(m)} onRemove={() => removeMember(m)} onLeave={leave} />
-        ))}
-      </div>
+      {players.length > 0 && (
+        <div className="grp-card-grid" ref={gridRef}>
+          {ordered.map(m => {
+            const isMe = m.user?.id === meId;
+            return (
+              <Fragment key={m.id}>
+                <PlayerCard m={m} lang={lang} isDM={isDM} xpMode={xpMode} isMe={isMe}
+                  pending={m.character ? levelupFor(approvals, m.character.id, 'pending') : null}
+                  unlocked={m.character ? levelupFor(approvals, m.character.id, 'approved') : null}
+                  onAssignStart={() => setAssigning(m.id)}
+                  onEdit={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data })}
+                  onLog={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data, section: 'log' })}
+                  onGive={campaign.status === 'closed' ? null : () => setGiving({ id: m.character.id, name: m.character.name })}
+                  onEndForm={() => endForm(m)} onRemove={() => removeMember(m)} onLeave={leave}
+                  roles={isDM && m.character?.data ? (roles ? roles[m.character.id] || [] : null) : undefined}
+                  onRoles={() => goTo('group', 'insights', { focus: m.character.id })} />
+                {isMe && !isDM && afterMine && <div className="grp-after-mine">{afterMine}</div>}
+              </Fragment>
+            );
+          })}
+        </div>
+      )}
 
+      {/* sem o próprio cartão na lista (ainda sem a conta carregada): os pedidos vêm depois */}
+      {!isDM && afterMine && !ordered.some(m => m.user?.id === meId) && <div className="grp-after-mine">{afterMine}</div>}
+
+      {assigningMember && (
+        <AssignSheet lang={lang} member={assigningMember} characters={characters}
+          released={released.current} onPick={(id) => assign(assigningMember, id)} onClose={() => setAssigning(null)} />
+      )}
       {editing && (
         <DMCharacterEditor character={editing} lang={lang} initialSection={editing.section} onClose={() => setEditing(null)}
           onSaved={() => { notify?.(t(lang, `Ficha de ${editing.name} salva.`, `${editing.name}'s sheet saved.`)); setEditing(null); onChange?.(); }} />
@@ -123,107 +171,154 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
   );
 }
 
-function Portrait({ stats, name }) {
-  const [broken, setBroken] = useState(false);
-  const art = stats?.avatar || speciesArt(stats?.race) || classArt(stats?.classId);
-  if (art && !broken) {
-    return <img className={`grp-portrait ${stats?.avatar ? 'is-avatar' : 'is-art'}`} src={art} alt="" loading="lazy" onError={() => setBroken(true)} />;
-  }
-  return <span className="grp-portrait is-initial" aria-hidden="true">{(name || '?').charAt(0).toUpperCase()}</span>;
+/** {id da ficha: [{key, label, v}]} — os 2 papéis mais fortes no Raio-X (null enquanto carrega). */
+function usePartyRoles(campaign, isDM, lang) {
+  const members = campaign.members || [];
+  const has = isDM && members.some(m => m.role !== 'dm' && m.character?.data);
+  const rx = useRaioX(campaign.id, has);
+  // a mesma ficha → as mesmas contas (o GET da campanha chega a cada poucos segundos)
+  const key = members.map(m => `${m.character?.id}:${JSON.stringify(m.character?.data || null)}`).join('|');
+  return useMemo(() => {
+    if (!rx) return null;
+    const { PM, ins } = rx;
+    const facts = PM.partyFacts(PM.partyMembers(members), lang);
+    const opts = { w: ins.w, base: ins.base, hidden: ins.hidden };
+    const avg = PM.partyAxes(facts, opts).axes;
+    return Object.fromEntries(facts.map(f => [f.id, PM.topRoles(f, { ...opts, avg }).map(r => ({ ...r, name: PM.axisLabel(r.key, lang), value: PM.fmt(r.v, lang), label: `${PM.axisLabel(r.key, lang)} ${PM.fmt(r.v, lang)}` }))]));
+  }, [rx, key, lang]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, assigning, characters, onAssignStart, onAssignCancel, onAssign, onEdit, onLog, onGive, onEndForm, onRemove, onLeave }) {
+function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, onAssignStart, onEdit, onLog, onGive, onEndForm, onRemove, onLeave, roles, onRoles }) {
   const c = m.character;
   const s = memberStats(m);
+  const name = c?.name || m.user?.displayName;
   const log = isDM ? editLogEntries(c?.data) : [];
   const tone = s ? hpTone(s.hp, s.maxHp) : 'unknown';
-  const pct = s?.maxHp ? Math.max(0, Math.min(100, ((s.hp ?? 0) / s.maxHp) * 100)) : 0;
-  const xp = s ? xpProgress(s.level, s.xp) : null;
+  const pills = statPills(s, lang);
+  const xp = s && xpMode && xpKnown(s) ? xpProgress(s.level, s.xp) : null;
+  const wild = !!(isDM && c?.data && s?.isDruid && s.wildShape);
   const menu = [
+    isDM && c?.data && log.length > 0 && {
+      id: 'log', label: `📜 ${t(lang, 'Registro', 'Edit log')} (${log.length})`, onSelect: onLog,
+      hint: t(lang, `Última edição: ${formatEditLogDate(log[0].at, lang)}`, `Last edit: ${formatEditLogDate(log[0].at, lang)}`),
+    },
+    wild && { id: 'wild', label: `🐾 ${t(lang, 'Encerrar forma', 'End form')}`, onSelect: onEndForm,
+      hint: t(lang, 'Tira o personagem da forma selvagem (com confirmação).', 'Takes the character out of wild shape (asks first).') },
     isMe && { id: 'swap', label: t(lang, 'Trocar personagem', 'Change character'), onSelect: onAssignStart },
-    isDM && { id: 'remove', label: t(lang, 'Remover da mesa', 'Remove from table'), onSelect: onRemove, danger: true },
-    isMe && !isDM && { id: 'leave', label: t(lang, 'Sair da campanha', 'Leave campaign'), onSelect: onLeave, danger: true },
+    isDM && { id: 'remove', label: t(lang, 'Remover da mesa', 'Remove from table'), onSelect: onRemove, danger: true,
+      hint: t(lang, 'A ficha continua com o jogador.', 'The sheet stays with the player.') },
+    isMe && !isDM && { id: 'leave', label: t(lang, 'Sair da campanha', 'Leave campaign'), onSelect: onLeave, danger: true,
+      hint: t(lang, 'Sua ficha continua com você.', 'Your sheet stays with you.') },
   ].filter(Boolean);
 
+  // Cartão de ≤ 260 px no celular, de cima para baixo: cabeça (retrato, nome, classe, jogador; o ⋯ no
+  // canto), PV com CA e Inic. na mesma linha, XP fina, selos, os 2 chips do Raio-X e o rodapé.
   return (
-    <article className={`grp-card tone-${tone} ${s?.hp != null && s.hp <= 0 ? 'is-down' : ''}`}>
+    <article className={`grp-card mesa-panel tone-${tone} ${s?.hp != null && s.hp <= 0 ? 'is-down' : ''} ${isMe ? 'is-me' : ''} ${menu.length ? 'has-more' : ''}`} data-mid={m.id}>
       <header className="grp-card-head">
-        <Portrait stats={s} name={c?.name || m.user?.displayName} />
+        <PcPortrait stats={s} name={name} size={48} className="grp-card-pic" />
         <div className="grp-card-who">
-          <strong className="grp-card-name">{c?.name || m.user?.displayName}</strong>
+          <strong className="grp-card-name">{name}</strong>
           <span className="grp-card-line">{c ? charLine(c.summary || c.data, lang) : t(lang, 'Sem personagem ainda', 'No character yet')}</span>
-          <span className="grp-card-player muted">{t(lang, 'Jogador', 'Player')}: {m.user?.displayName}</span>
+          <span className="grp-card-player">{t(lang, 'Jogador', 'Player')}: {m.user?.displayName}{isMe && !isDM ? ` · ${t(lang, 'você', 'you')}` : ''}</span>
         </div>
-        <MoreMenu items={menu} label={t(lang, 'Mais ações', 'More actions')} />
+        <MoreMenu items={menu} lang={lang} label={t(lang, `Mais ações: ${name}`, `More actions: ${name}`)} sheetTitle={name} />
       </header>
 
       {s && (
         <>
-          <div className={`grp-hp tone-${tone}`} role="img" aria-label={t(lang, `Pontos de vida ${s.hp ?? '?'} de ${s.maxHp ?? '?'}`, `Hit points ${s.hp ?? '?'} of ${s.maxHp ?? '?'}`)}>
-            <div className="grp-hp-fill" style={{ width: `${pct}%` }} />
-            <span className="grp-hp-text">
-              {t(lang, 'PV', 'HP')} {s.hp ?? '?'}/{s.maxHp ?? '?'}
-              {s.tempHp > 0 && <span className="grp-temp"> +{s.tempHp} {t(lang, 'temp.', 'temp')}</span>}
-            </span>
+          <div className="grp-card-vitals">
+            <HpBar hp={s.hp} max={s.maxHp} temp={s.tempHp} lang={lang} units className="grp-card-hp" />
+            {pills.map(p => (
+              <span key={p.id} className={`grp-pill is-${p.id}`} aria-label={`${p.long}: ${p.value}`}>
+                <span className="grp-pill-k" aria-hidden="true">{p.label}</span>
+                <span className="grp-pill-v" aria-hidden="true">{p.value}</span>
+              </span>
+            ))}
           </div>
-          <dl className="grp-stats">
-            <div title={t(lang, 'Classe de Armadura', 'Armor Class')}><dt>{t(lang, 'CA', 'AC')}</dt><dd>{s.ac ?? '—'}</dd></div>
-            <div title={t(lang, 'Iniciativa', 'Initiative')}><dt>{t(lang, 'Inic.', 'Init.')}</dt><dd>{s.init == null ? '—' : fmtMod(s.init)}</dd></div>
-            <div><dt>{t(lang, 'Nível', 'Level')}</dt><dd>{s.level}</dd></div>
-          </dl>
-          {xpMode && xp && (
-            <div className="grp-xp" title={xp.next ? `${xp.xp} / ${xp.next} XP` : `${xp.xp} XP`}>
-              <div className="grp-xp-bar"><div style={{ width: `${xp.pct}%` }} /></div>
-              <span className="muted small">{xp.next ? `${xp.xp} / ${xp.next} XP` : `${xp.xp} XP · ${t(lang, 'nível máximo', 'max level')}`}</span>
+          {xp && (
+            <div className="grp-xp">
+              <span className="grp-xp-bar" aria-hidden="true"><span style={{ width: `${xp.pct}%` }} /></span>
+              <span className="grp-xp-text">{xp.next ? `${xp.xp} / ${xp.next} XP` : `${xp.xp} XP · ${t(lang, 'nível máximo', 'max level')}`}</span>
             </div>
           )}
-          <div className="grp-badges">
-            {s.inspiration && <span className="grp-badge is-insp" title={t(lang, 'Tem inspiração', 'Has inspiration')}>★ {t(lang, 'Inspiração', 'Inspiration')}</span>}
-            {s.conditions.map(cd => <span key={cd} className="grp-badge is-cond">{condName(cd, lang)}</span>)}
-            {s.isDruid && s.wildShape && (
-              <span className="grp-badge is-wild">🐾 {t(lang, 'Forma selvagem', 'Wild shape')}{s.wildShape.beast ? `: ${s.wildShape.beast}` : ''}
-                {s.wildShape.hp != null && ` (${s.wildShape.hp}/${s.wildShape.maxHp ?? '?'})`}</span>
-            )}
-            {unlocked && <span className="grp-badge is-unlocked">✨ {t(lang, `Nível ${unlocked.payload?.toLevel ?? s.level + 1} liberado`, `Level ${unlocked.payload?.toLevel ?? s.level + 1} unlocked`)}</span>}
-            {pending && <span className="grp-badge is-pending">⬆ {t(lang, 'Pediu para subir', 'Asked to level up')}</span>}
-            {isDM && s.cheatMode && <span className="grp-badge is-cheat" title={t(lang, 'Modo trapaça ativo nesta ficha', 'Cheat mode active on this sheet')}>🎲 {t(lang, 'Trapaça', 'Cheat')}</span>}
-          </div>
+          <PcBadges stats={s} lang={lang} isDM={isDM} asked={!!pending}
+            unlockedTo={unlocked ? (unlocked.payload?.toLevel ?? s.level + 1) : null} />
+          {/* mestre: o lugar dos 2 chips fica reservado enquanto as contas chegam (nada pula):
+              os 2 cabem numa linha só, a 320 também (o nome encolhe com "…", o número fica) */}
+          {roles !== undefined && (
+            <div className="grp-roles" role="group" aria-label={t(lang, `Papéis mais fortes de ${c.name} no Raio-X`, `${c.name}'s strongest roles in the X-ray`)}>
+              {roles === null
+                ? <span className="grp-roles-wait muted small">{t(lang, 'Raio-X…', 'X-ray…')}</span>
+                : roles.map(r => (
+                  <button key={r.key} type="button" className="mesa-chip grp-role-chip" onClick={onRoles}
+                    aria-label={t(lang, `${r.label}: abrir o Raio-X com ${c.name} em destaque`, `${r.label}: open the X-ray highlighting ${c.name}`)}>
+                    <span aria-hidden="true">✦</span><span className="grp-role-name">{r.name}</span><span className="grp-role-v">{r.value}</span>
+                  </button>
+                ))}
+            </div>
+          )}
         </>
       )}
 
-      {assigning && (
-        <div className="grp-assign">
-          <label className="grp-assign-label">
-            <span className="small">{t(lang, 'Personagem nesta mesa', 'Character at this table')}</span>
-            <select className="input" defaultValue={c?.id ?? ''} onChange={e => onAssign(e.target.value || null)}>
-              <option value="">— {t(lang, 'Nenhum', 'None')} —</option>
-              {characters.map(ch => <option key={ch.id} value={ch.id}>{ch.name} ({Utils.classLabel(ch, lang, tName)})</option>)}
-            </select>
-          </label>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onAssignCancel}>{t(lang, 'Cancelar', 'Cancel')}</button>
-        </div>
-      )}
-
-      {!c && isMe && !assigning && (
-        <button type="button" className="btn btn-primary btn-sm" onClick={onAssignStart}>{t(lang, 'Escolher meu personagem', 'Choose my character')}</button>
+      {!c && isMe && (
+        <button type="button" className="mesa-btn mesa-btn-lg is-primary grp-card-choose" onClick={onAssignStart}>{t(lang, 'Escolher meu personagem', 'Choose my character')}</button>
       )}
 
       {isDM && c?.data && (
         <footer className="grp-card-actions">
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onEdit}>🛠 {t(lang, 'Editar ficha', 'Edit sheet')}</button>
+          <button type="button" className="mesa-btn" onClick={onEdit}>🛠 {t(lang, 'Editar ficha', 'Edit sheet')}</button>
           {/* campanha encerrada é só leitura: sem Dar item (o servidor responde 423) */}
-          {onGive && <button type="button" className="btn btn-ghost btn-sm" onClick={onGive}>🎁 {t(lang, 'Dar item', 'Give item')}</button>}
-          {log.length > 0 && (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={onLog}
-              title={t(lang, `Última edição: ${formatEditLogDate(log[0].at, lang)}`, `Last edit: ${formatEditLogDate(log[0].at, lang)}`)}>
-              📜 {t(lang, 'Registro', 'Edit log')} ({log.length})
-            </button>
-          )}
-          {s?.isDruid && s.wildShape && (
-            <button type="button" className="btn btn-ghost btn-sm grp-wild-end" onClick={onEndForm}>🐾 {t(lang, 'Encerrar forma', 'End form')}</button>
-          )}
+          {onGive && <button type="button" className="mesa-btn" onClick={onGive}>🎁 {t(lang, 'Dar item', 'Give item')}</button>}
         </footer>
       )}
     </article>
+  );
+}
+
+/**
+ * "Trocar personagem" / "Escolher meu personagem": folha com as fichas da conta
+ * (no lugar do select que cortava o nome). Tocar numa ficha já põe na mesa;
+ * fichas que estão em outra mesa aparecem desabilitadas, com o motivo (o
+ * servidor também recusa: uma ficha numa campanha por vez). `released`: as que
+ * acabaram de sair desta mesa (a lista do app ainda as marca em campanha).
+ */
+function AssignSheet({ lang, member, characters, released, onPick, onClose }) {
+  const cur = member.character?.id ?? null;
+  return (
+    <MesaSheet lang={lang} size="auto" width="sm" icon="🛡"
+      title={cur != null ? t(lang, 'Trocar personagem', 'Change character') : t(lang, 'Escolher meu personagem', 'Choose my character')}
+      onClose={onClose}
+      footer={<div className="mesa-actions"><button type="button" className="mesa-btn" onClick={onClose}>{t(lang, 'Cancelar', 'Cancel')}</button></div>}>
+      <p className="mesa-sheet-text">{t(lang, 'Personagem nesta mesa', 'Character at this table')}</p>
+      <div className="grp-assign-list mesa-panel is-sunk" role="radiogroup" aria-label={t(lang, 'Personagem nesta mesa', 'Character at this table')}>
+        {characters.map(ch => {
+          const here = ch.id === cur;
+          const busy = !!ch.inCampaign && !here && !released?.has(ch.id);
+          let cls = '';
+          try { cls = Utils.classLabel(ch, lang, tName); } catch { cls = ''; }
+          return (
+            <button key={ch.id} type="button" role="radio" aria-checked={here} disabled={busy}
+              className={`mesa-row grp-assign-row ${here ? 'is-on' : ''}`} onClick={() => (here ? onClose() : onPick(ch.id))}>
+              <span className="grp-assign-mark" aria-hidden="true">{here ? '✓' : ''}</span>
+              <span className="mesa-row-main">
+                <span className="mesa-row-title">{ch.name || t(lang, 'Sem nome', 'Unnamed')}</span>
+                <span className="mesa-row-sub">
+                  {[cls, here ? t(lang, 'nesta mesa', 'at this table') : busy ? t(lang, 'já está em outra mesa', 'already at another table') : ''].filter(Boolean).join(' · ')}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+        <button type="button" role="radio" aria-checked={cur == null} className={`mesa-row grp-assign-row ${cur == null ? 'is-on' : ''}`}
+          onClick={() => (cur == null ? onClose() : onPick(null))}>
+          <span className="grp-assign-mark" aria-hidden="true">{cur == null ? '✓' : ''}</span>
+          <span className="mesa-row-main">
+            <span className="mesa-row-title">— {t(lang, 'Nenhum', 'None')} —</span>
+            <span className="mesa-row-sub">{t(lang, 'Fico na mesa sem ficha por enquanto', 'Stay at the table without a sheet for now')}</span>
+          </span>
+        </button>
+      </div>
+    </MesaSheet>
   );
 }

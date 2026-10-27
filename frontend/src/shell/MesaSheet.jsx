@@ -16,6 +16,8 @@
 // - Trava a rolagem da página, põe body.mesa-sheet-open (esconde o dado e os
 //   avisos flutuantes) e devolve o foco a quem abriu.
 // - Cabeçalho e rodapé presos; um só corpo rolável.
+// - footer pode ser uma função ({ close }) → nó: o "Fechar" do rodapé chama
+//   close e passa pela mesma pergunta do ✕ e do Esc.
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
@@ -190,7 +192,7 @@ export default function MesaSheet({
           </button>
         </header>
         <div className={`mesa-sheet-body ${bodyClassName}`.trim()}>{children}</div>
-        {footer && <footer className="mesa-sheet-foot">{footer}</footer>}
+        {footer && <footer className="mesa-sheet-foot">{typeof footer === 'function' ? footer({ close: requestClose }) : footer}</footer>}
       </div>
     </div>
   );

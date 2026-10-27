@@ -650,16 +650,69 @@ function maxHpDefault(char) {
   return hp;
 }
 
+/**
+ * Pés que as classes somam ao deslocamento, pelo nível NA classe (multiclasse conta
+ * cada uma): [{ id, value, label, name }]. Vazio com deslocamento fixo.
+ * - Movimento sem Armadura (Monge 2+, 2014 e 2024): +10, +15 no 6, +20 no 10, +25 no 14,
+ *   +30 no 18; só sem armadura e sem escudo (a mesma condição das Artes Marciais).
+ * - Movimento Rápido (Bárbaro 5+, 2014 e 2024): +10 sem armadura pesada.
+ * - Andarilho (Patrulheiro 6+, só 2024): +10 sem armadura pesada. O Andarilho opcional
+ *   do Tasha (2014, Explorador Hábil, +5) fica no texto da ficha.
+ * Talentos (Móvel, Veloz: grants.speed), traços de subclasse, itens e condições não
+ * entram no número: ficam no texto da ficha, e o mestre usa o deslocamento fixo.
+ */
+function speedBonuses(char) {
+  if (char.speedOverride) return [];
+  const out = [];
+  const monk = MC.classLevel(char, 'monk');
+  if (monk >= 2 && !char.armor && !char.hasShield) {
+    out.push({ id: 'unarmoredMovement', value: monk >= 18 ? 30 : monk >= 14 ? 25 : monk >= 10 ? 20 : monk >= 6 ? 15 : 10,
+      label: { pt: 'Monge', en: 'Monk' }, name: { pt: 'Movimento sem Armadura', en: 'Unarmored Movement' } });
+  }
+  const armor = char.armor && SRD.ARMOR.find(a => a.id === char.armor);
+  if (MC.classLevel(char, 'barbarian') >= 5 && armor?.type !== 'heavy') {
+    out.push({ id: 'fastMovement', value: 10,
+      label: { pt: 'Bárbaro', en: 'Barbarian' }, name: { pt: 'Movimento Rápido', en: 'Fast Movement' } });
+  }
+  if (char.rulesVersion === '2024' && MC.classLevel(char, 'ranger') >= 6 && armor?.type !== 'heavy') {
+    out.push({ id: 'roving', value: 10,
+      label: { pt: 'Patrulheiro', en: 'Ranger' }, name: { pt: 'Andarilho', en: 'Roving' } });
+  }
+  return out;
+}
+
+/**
+ * Texto curto dos bônus para o medalhão: '+4,5 m Monge' (pt) ou '+15 ft Monk'. Dentro de
+ * cada item os espaços não quebram: a linha só quebra na vírgula entre um item e outro.
+ */
+function speedBonusText(parts, lang) {
+  return parts.map(p => `+${speedLabel(p.value, lang)} ${p.label[lang] || p.label.pt}`.replace(/ /g, '\u00a0')).join(', ');
+}
+
 function speed(char) {
   if (char.speedOverride) return char.speedOverride;
   const race = racesFor(char).find(r => r.id === char.race);
   const fromSpecies = Species.speciesGrants(char).speed; // Elfo da Floresta: 35
-  const base = fromSpecies || (race ? race.speed : 30);
+  const base = (fromSpecies || (race ? race.speed : 30)) + speedBonuses(char).reduce((n, b) => n + b.value, 0);
   // Armadura pesada sem a Força mínima: −10 pés (anão 2014 ignora).
   const armor = char.armor && SRD.ARMOR.find(a => a.id === char.armor);
   const dwarf2014 = char.rulesVersion !== '2024' && String(char.race || '').startsWith('dwarf');
   if (armor?.strReq && abilityWithRace(char, 'str') < armor.strReq && !dwarf2014) return Math.max(0, base - 10);
   return base;
+}
+
+/**
+ * Números que a ficha grava em data para o servidor, que não conhece as regras (combate e
+ * Tela): a CA e o deslocamento AUTOMÁTICO. O fixo do mestre fica em speedOverride e o
+ * servidor o confere antes; assim, quando o mestre volta o fixo a 0, vale o número certo.
+ * Sem classe: {} (o servidor fica com o que já tinha, ou com o padrão).
+ */
+function serverNumbers(char) {
+  const out = {};
+  if (!char?.className) return out;
+  try { out.armorClass = computeAc(char); } catch { /* ficha incompleta */ }
+  try { out.speed = speed({ ...char, speedOverride: 0 }); } catch { /* ficha incompleta */ }
+  return out;
 }
 
 // Iniciativa: DES + Alerta (2024: + Bônus de Proficiência; 2014: +5).
@@ -965,7 +1018,7 @@ return {
   makeNew,
   abilityWithRace, abilityMod, profBonus, saveBonus, skillBonus, wisdomSkillBonus, passivePerception,
   attackFor, unarmedStrike, martialArtsDie, isMonkWeapon, damageLabel, speedLabel,
-  computeAc, maxHpDefault, speed, initiative, sizeOf,
+  computeAc, maxHpDefault, speed, speedBonuses, speedBonusText, serverNumbers, initiative, sizeOf,
   speciesGrants: Species.speciesGrants, speciesChoiceIssues: Species.speciesChoiceIssues,
   spellcastingAbility, spellSaveDc, spellAttackBonus, spellSlots, spellListClass, spellListClasses, inSpellList,
   isPreparedCaster, cantripsKnown, preparedSpellsLimit, maxSpellLevel,

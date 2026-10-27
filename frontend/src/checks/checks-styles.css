@@ -154,6 +154,10 @@
   cursor: pointer;
 }
 .gc-quick-btn.is-save { font-family: var(--display); font-size: 0.9rem; letter-spacing: 0.06em; }
+/* o gancho do Raio-X sob o atalho: "melhor: Pipo +7 · 65%" (quebra em 2 linhas a 320) */
+.gc-quick-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.gc-quick-name { display: block; }
+.gc-quick-best { display: block; font-family: var(--body); font-size: 12px; letter-spacing: 0; line-height: 1.2; color: var(--ink-secondary); overflow-wrap: anywhere; }
 @media (hover: hover) {
   .gc-quick-btn:hover:not(:disabled) { border-color: var(--gold); background: var(--gold-soft); }
 }

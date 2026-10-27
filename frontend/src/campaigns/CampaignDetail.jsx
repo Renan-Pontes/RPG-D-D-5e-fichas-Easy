@@ -23,7 +23,7 @@ import {
   PlayerTableFallback, PrepareFallback, WorldFallback,
 } from '../shell/Fallbacks.jsx';
 import {
-  areasFor, campaignRoute, initialArea, isHexColor, loadRememberedArea, normalizeArea, onboardingStatus,
+  areasFor, areaTapSub, campaignRoute, groupBadgeCount, initialArea, isHexColor, loadRememberedArea, normalizeArea, onboardingStatus,
   onboardingVisible, parseCampaignRoute, planHasContent, saveRememberedArea, screenLink, t,
 } from '../shell/shell-logic.js';
 import '../shell/mesa.css';
@@ -236,7 +236,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
       if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target) || modalOpen()) return;
       if (/^[1-4]$/.test(e.key)) {
         const a = areas[parseInt(e.key, 10) - 1];
-        if (a) { e.preventDefault(); goTo(a.id, nav?.area === a.id ? nav.sub : null); }
+        if (a) { e.preventDefault(); goTo(a.id, nav?.area === a.id ? nav.sub : areaTapSub(isDM, a.id, { group: groupBadgeCount(nav?.area, groupPending, campaign.pendingApprovals) })); }
       } else if (isDM && (e.key === 'n' || e.key === 'N') && nav?.area === 'play' && nav?.sub === 'combat') {
         e.preventDefault();
         api.combatNextTurn(campaign.id).then(load).catch(() => {});
@@ -246,7 +246,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [campaign, areas, isDM, nav, goTo, load, copyTv]);
+  }, [campaign, areas, isDM, nav, goTo, load, copyTv, groupPending]);
 
   if (error && !campaign) {
     return (
@@ -260,7 +260,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
 
   const accent = isHexColor(campaign.accent) ? campaign.accent : null;
   const badges = isDM
-    ? { group: groupPending ?? campaign.pendingApprovals ?? 0 }
+    ? { group: groupBadgeCount(nav.area, groupPending, campaign.pendingApprovals) }
     : { world: campaign.worldNewCount || 0 };
   const areaProps = {
     worldEpoch,
@@ -286,7 +286,8 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
           onTvOpened={() => markOnboarding('tv')} onClearScreen={clearScreen}
           onChooseScreen={() => goTo('play', 'screen')}
         />
-        <AreaNav areas={areas} active={nav.area} onSelect={(a) => goTo(a)} lang={lang} badges={badges} showKeys={isDM}
+        {/* o contador vermelho do Grupo leva direto a Grupo › Pedidos */}
+        <AreaNav areas={areas} active={nav.area} onSelect={(a) => goTo(a, areaTapSub(isDM, a, badges))} lang={lang} badges={badges} showKeys={isDM}
           onSearch={isDM ? undefined : () => setSearch(true)}
           onMore={isDM ? () => { setMore(true); loadWorld(); } : undefined} moreOpen={more} />
 

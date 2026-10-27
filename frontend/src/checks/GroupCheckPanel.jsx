@@ -4,8 +4,10 @@
 // com a CD/vantagem configuradas acima. Cada jogador responde no app ou
 // digitando o dado físico; o mestre também pode anotar o que ouviu na mesa.
 // Nada vai para o telão sem o mestre tocar em "Mostrar no telão".
+// Sob cada atalho, o gancho do Raio-X: quem é o melhor da mesa e a chance dele na CD
+// ("melhor: Pipo +7 · 65%"), calculado na hora com as fichas que o mestre já tem.
 import { errorMessage } from '../api/errors.js';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import { tName } from '../../data/i18n.js';
@@ -17,6 +19,7 @@ import { formatMod } from '../dice/dice-math.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
+import { bestAt, firstName } from '../group/party-best.js';
 import './checks-styles.css';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
@@ -46,6 +49,24 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
   const [sent, setSent] = useState('');
   const [other, setOther] = useState('');
   const [custom, setCustom] = useState('');
+  // "melhor: Pipo +7 · 65%" — na CD escolhida (sem CD, na 15, a de referência do Raio-X) e
+  // com o dado escolhido aqui (vantagem: 1 − (1 − p)²; desvantagem: p²)
+  const refDc = dc !== '' && Number.isFinite(+dc) && +dc > 0 ? +dc : 15;
+  const members = campaign.members;
+  const best = useMemo(() => {
+    const out = {};
+    for (const k of QUICK_SKILLS) out[`skill:${k}`] = bestAt(members, 'skill', k, refDc, { mode: advantage });
+    for (const k of QUICK_SAVES) out[`save:${k}`] = bestAt(members, 'save', k, refDc, { mode: advantage });
+    return out;
+  }, [members, refDc, advantage]);
+  const modeText = advantage === 'adv' ? L(lang, ' com vantagem', ' with advantage') : advantage === 'dis' ? L(lang, ' com desvantagem', ' with disadvantage') : '';
+  const bestLine = (b) => {
+    if (!b) return null;
+    const who = b.who.length > 2 ? L(lang, `${b.who.length} empatados`, `${b.who.length} tied`) : b.who.map(firstName).join('/');
+    return `${L(lang, 'melhor', 'best')}: ${who} ${formatMod(b.best)} · ${b.p}%`;
+  };
+  const bestAria = (b) => (b ? L(lang, `, melhor da mesa: ${b.who.join(', ')} ${formatMod(b.best)}, ${b.p}% na CD ${refDc}${modeText}`, `, best at the table: ${b.who.join(', ')} ${formatMod(b.best)}, ${b.p}% at DC ${refDc}${modeText}`) : '');
+  const hasBest = Object.values(best).some(Boolean);
 
   const load = useCallback(async () => {
     if (!showList) return;
@@ -129,10 +150,17 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
 
       <div className="gc-field">
         <span className="gc-label">{L(lang, 'Perícia (um toque envia)', 'Skill (one tap sends)')}</span>
+        {hasBest && (
+          <p className="gc-hint">{dc === ''
+            ? L(lang, `Embaixo de cada atalho: o melhor da mesa e a chance dele na CD ${refDc}${modeText} (sem CD escolhida).`, `Under each shortcut: the best at the table and their chance at DC ${refDc}${modeText} (no DC picked).`)
+            : L(lang, `Embaixo de cada atalho: o melhor da mesa e a chance dele na CD ${refDc}${modeText}.`, `Under each shortcut: the best at the table and their chance at DC ${refDc}${modeText}.`)}</p>
+        )}
         <div className="gc-quick" aria-label={L(lang, 'Atalhos de perícia', 'Skill shortcuts')}>
           {QUICK_SKILLS.map(k => (
-            <button key={k} type="button" className="gc-quick-btn" disabled={busy} onClick={() => send({ kind: 'skill', key: k })}>
-              {tName('skill', k, lang)}
+            <button key={k} type="button" className="gc-quick-btn" disabled={busy} onClick={() => send({ kind: 'skill', key: k })}
+              aria-label={`${tName('skill', k, lang)}${bestAria(best[`skill:${k}`])}`}>
+              <span className="gc-quick-name">{tName('skill', k, lang)}</span>
+              {best[`skill:${k}`] && <span className="gc-quick-best" aria-hidden="true">{bestLine(best[`skill:${k}`])}</span>}
             </button>
           ))}
         </div>
@@ -141,8 +169,10 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
         <span className="gc-label">{L(lang, 'Resistência', 'Save')}</span>
         <div className="gc-quick gc-quick-saves">
           {QUICK_SAVES.map(k => (
-            <button key={k} type="button" className="gc-quick-btn is-save" disabled={busy} onClick={() => send({ kind: 'save', key: k })}>
-              {abilityAbbr(k, lang)}
+            <button key={k} type="button" className="gc-quick-btn is-save" disabled={busy} onClick={() => send({ kind: 'save', key: k })}
+              aria-label={`${abilityAbbr(k, lang)}${bestAria(best[`save:${k}`])}`}>
+              <span className="gc-quick-name">{abilityAbbr(k, lang)}</span>
+              {best[`save:${k}`] && <span className="gc-quick-best" aria-hidden="true">{bestLine(best[`save:${k}`])}</span>}
             </button>
           ))}
         </div>

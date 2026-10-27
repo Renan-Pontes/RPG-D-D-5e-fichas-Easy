@@ -1,6 +1,7 @@
 import { errorMessage } from '../api/errors.js';
 import { useEffect, useState, useCallback, useMemo, useRef, useId } from 'react';
 import SRD from '../../data/srd.js';
+import Utils from '../../utils.js';
 import { api } from '../api/client.js';
 import ResourcesCard from '../progression/ResourcesCard.jsx';
 import { computeResources } from '../progression/resources.js';
@@ -105,7 +106,8 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved, i
   const save = async () => {
     setSaving(true); setError('');
     try {
-      const res = await api.dmEditCharacter(character.id, { data, name });
+      // Nível, atributos e escudo mudam a CA e o deslocamento que o combate e a Tela usam.
+      const res = await api.dmEditCharacter(character.id, { data: { ...data, ...Utils.serverNumbers(data) }, name });
       onSaved?.(res.character);
       onClose();
     } catch (e) {

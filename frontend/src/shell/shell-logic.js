@@ -7,7 +7,7 @@ export const DM_AREAS = [
   { id: 'world',   icon: '🗺️', pt: 'Mundo',    en: 'World',   subs: ['atlas', 'map', 'timeline'] },
   { id: 'prepare', icon: '📜', pt: 'Preparar', en: 'Prepare', subs: ['next', 'adventures', 'items'] },
   { id: 'play',    icon: '⚔️', pt: 'Jogar',    en: 'Play',    subs: ['scene', 'combat', 'checks', 'screen'] },
-  { id: 'group',   icon: '🛡️', pt: 'Grupo',    en: 'Party',   subs: ['players', 'chronicle'] },
+  { id: 'group',   icon: '🛡️', pt: 'Grupo',    en: 'Party',   subs: ['players', 'requests', 'insights', 'chronicle'] },
 ];
 
 /** Abas do jogador. */
@@ -32,6 +32,7 @@ export const SUB_LABELS = {
   screen: ['Telão', 'TV screen'],
   players: ['Jogadores', 'Players'],
   requests: ['Pedidos', 'Requests'],
+  insights: ['Raio-X', 'X-ray'],
   chronicle: ['Crônica', 'Chronicle'],
 };
 
@@ -53,7 +54,7 @@ export const SUB_ICONS = {
   atlas: '📚', map: '🗺', timeline: '⌛', documents: '📄',
   next: '📋', adventures: '🧭', items: '💎',
   scene: '🎭', combat: '⚔', checks: '🎲', screen: '📺',
-  players: '🛡', requests: '📨', chronicle: '📜',
+  players: '🛡', requests: '📨', insights: '✦', chronicle: '📜',
 };
 
 export const subShortLabel = (sub, lang) => {
@@ -96,13 +97,34 @@ export const LEGACY_TAB_TO_AREA = {
   prep: ['prepare', 'adventures'],
   items: ['prepare', 'items'],
   members: ['group', 'players'],
-  approvals: ['group', 'players'],
+  approvals: ['group', 'requests'],
   diary: ['group', 'chronicle'],
   world: ['world', 'atlas'],
 };
 
 export function legacyTabToArea(tab) {
   return LEGACY_TAB_TO_AREA[tab] || null;
+}
+
+/**
+ * Subvista ao tocar numa área (aba do desktop, casa da barra do celular ou
+ * tecla 1–4): o contador vermelho do Grupo do mestre (pedidos esperando) leva
+ * direto a Grupo › Pedidos. Sem contador, null (a subvista padrão da área).
+ */
+export function areaTapSub(isDM, area, badges = {}) {
+  if (isDM && area === 'group' && Number(badges?.group) > 0) return 'requests';
+  return null;
+}
+
+/**
+ * Contador do Grupo na barra (e o que areaTapSub e a tecla 4 leem). Dentro do
+ * Grupo vale a conta viva da área (a lista de pedidos, a 6 s); fora dele, a do
+ * GET da campanha (a casca busca a 2,5 s). A conta da área é só dela: a última
+ * que ela mandou antes de desmontar não pode esconder um pedido novo.
+ */
+export function groupBadgeCount(area, groupPending, campaignPending) {
+  const n = area === 'group' && groupPending != null ? groupPending : campaignPending;
+  return Math.max(0, Number(n) || 0);
 }
 
 // ---------------------------------------------------------------------------

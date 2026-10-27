@@ -134,6 +134,23 @@ def update_state(campaign, fn):
     return state
 
 
+def locked_dm_settings(campaign_pk):
+    """Relê `Campaign.dm_settings` já com o lock de escrita. Chame dentro de
+    transaction.atomic() e grave antes de sair dela.
+
+    O plano da sessão, o Raio-X e o PATCH da campanha escrevem chaves diferentes do
+    mesmo JSON; quem grava a partir do objeto lido no começo do pedido apagaria o
+    que outro gravou no meio do caminho. O UPDATE sem mudança pega o lock primeiro
+    (no SQLite isso serializa os escritores; no Postgres trava a linha) e não mexe
+    em `updated_at` (os ajustes do mestre não são mudança de mesa)."""
+    from django.db.models import F
+    from .models import Campaign
+    Campaign.objects.filter(pk=campaign_pk).update(dm_settings=F('dm_settings'))
+    current = (Campaign.objects.select_for_update()
+               .filter(pk=campaign_pk).values_list('dm_settings', flat=True).first())
+    return dict(current) if isinstance(current, dict) else {}
+
+
 def public_state(state, keys=SCREEN_KEYS):
     """Recorte do estado por whitelist (telão ou jogador)."""
     state = state if isinstance(state, dict) else {}
