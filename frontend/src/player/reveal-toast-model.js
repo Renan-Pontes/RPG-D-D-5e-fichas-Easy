@@ -22,19 +22,32 @@ export const revealKey = (entry) => `${entry?.id}@${entry?.revealedAt || ''}`;
  *   max        quantas revelações novas o contador indicou (count - prev)
  *   toasted    Set de revealKey() já avisadas nesta sessão
  *   shownCards Map entryId → card.at dos cartões já toastados pelo telão
+ *
+ * As `max` revelações que o contador indicou são as mais novas. Uma delas que
+ * o cartão da Tela já avisou ("👁 Revelar e mostrar": o cartão e o contador
+ * chegam no mesmo poll) GASTA a sua vaga: o aviso não pode cair numa revelação
+ * antiga (D9: "O mestre revelou: Irmã Velna", de dois dias atrás, no lugar de
+ * Morvane). Já avisada por outro caminho só sai da lista (não gasta a vaga).
  */
 export function freshReveals(entries, seenAt, max, toasted = new Set(), shownCards = new Map()) {
-  const n = Math.max(0, Math.floor(Number(max) || 0));
-  if (!n) return [];
-  return revealedSince(entries, seenAt)
-    .filter(e => !toasted.has(revealKey(e)))
-    .filter(e => {
-      const shownAt = ts(shownCards.get(e.id));
-      if (!Number.isFinite(shownAt)) return true;
-      const r = ts(e.revealedAt);
-      return Number.isFinite(r) && r > shownAt;
-    })
-    .slice(0, n);
+  let n = Math.max(0, Math.floor(Number(max) || 0));
+  const out = [];
+  for (const e of revealedSince(entries, seenAt)) {
+    if (!n) break;
+    if (coveredByShown(e, shownCards)) { n -= 1; continue; }
+    if (toasted.has(revealKey(e))) continue;
+    out.push(e);
+    n -= 1;
+  }
+  return out;
+}
+
+/** A revelação aconteceu até o instante em que o cartão da Tela a avisou? */
+function coveredByShown(e, shownCards) {
+  const shownAt = ts(shownCards.get(e.id));
+  if (!Number.isFinite(shownAt)) return false;
+  const r = ts(e.revealedAt);
+  return !Number.isFinite(r) || r <= shownAt;
 }
 
 export const REVEAL_SHOW_WINDOW_MS = 120_000;

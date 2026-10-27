@@ -29,6 +29,20 @@ test('telão cobre só o que foi revelado até o instante do telão', () => {
   assert.deepEqual(freshReveals([e(7, '2026-10-06T20:02:00Z')], seen, 1, new Set(), shown).map(x => x.id), [7]);
 });
 
+test('"👁 Revelar e mostrar": o cartão da Tela já avisou e o contador não troca o aviso por uma revelação antiga (D9)', () => {
+  // Morvane revelada agora e avisada pelo cartão da Tela; Irmã Velna revelada há dois dias.
+  const morvane = e(4, '2026-10-26T20:10:00Z', 'Morvane');
+  const velna = e(3, '2026-10-24T18:00:00Z', 'Irmã Velna');
+  const toasted = new Set([revealKey(morvane)]);
+  const shown = new Map([[4, '2026-10-26T20:10:01Z']]);
+  assert.deepEqual(freshReveals([morvane, velna], null, 1, toasted, shown), []);
+  // duas revelações no mesmo poll (Borin pelo Mundo + Morvane pela Tela): só Borin
+  const borin = e(2, '2026-10-26T20:09:30Z', 'Borin');
+  assert.deepEqual(freshReveals([morvane, borin, velna], null, 2, toasted, shown).map(x => x.name), ['Borin']);
+  // um segredo novo de Morvane depois de mostrada: avisa de novo
+  assert.deepEqual(freshReveals([e(4, '2026-10-26T20:20:00Z', 'Morvane'), velna], null, 1, toasted, shown).map(x => x.id), [4]);
+});
+
 test('sem aumento no contador, sem toast', () => {
   assert.deepEqual(freshReveals([e(1, '2026-10-06T20:00:00Z')], null, 0), []);
 });
