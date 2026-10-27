@@ -254,8 +254,7 @@ const App = () => {
   // Cria a ficha pela mesa (POST /api/characters com inviteCode): usa vaga do mestre.
   const createAtTable = async (char, join) => {
     const { id, createdAt, updatedAt, inCampaign, campaignLeveling, ...data } = char;
-    try { if (char.className) data.armorClass = Utils.computeAc(char); } catch { /* ficha incompleta */ }
-    try { if (char.className) data.speed = Utils.speed(char); } catch { /* ficha incompleta */ }
+    Object.assign(data, Utils.serverNumbers(char)); // CA e deslocamento para o combate e a Tela
     let res;
     try {
       res = await plansApi.createCharacterAtTable({ name: char.name || 'Sem nome', data }, join.code);

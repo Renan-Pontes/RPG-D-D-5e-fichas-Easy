@@ -89,6 +89,22 @@ for (const rv of RULES) {
   });
 }
 
+test('números para o servidor: CA e deslocamento automático, sem o fixo do mestre', () => {
+  // O fixo do mestre fica em speedOverride (o servidor confere antes); data.speed é o automático,
+  // para a Tela e o combate voltarem ao número certo quando o mestre põe o fixo em 0.
+  const dagna = make('2024', { race: 'dwarf', className: 'fighter', level: 3, armor: 'chainMail', speedOverride: 35 });
+  assert.equal(Utils.speed(dagna), 35, 'a ficha mostra o fixo');
+  assert.deepEqual(Utils.serverNumbers(dagna), { armorClass: Utils.computeAc(dagna), speed: 30 });
+  assert.equal(Utils.serverNumbers(monk('2024', 6, { speedOverride: 35 })).speed, 45);
+  assert.equal(Utils.serverNumbers(monk('2014', 6, { hasShield: true })).speed, 30);
+  assert.equal(Utils.serverNumbers(monk('2014', 6, { hasShield: true })).armorClass, Utils.computeAc(monk('2014', 6, { hasShield: true })));
+  // Monge que o mestre sobe de nível pelo Editar ficha: o número acompanha.
+  assert.equal(Utils.serverNumbers(monk('2014', 5)).speed, 40);
+  assert.equal(Utils.serverNumbers(monk('2014', 6)).speed, 45);
+  // Sem classe: nada (o servidor fica com o que tinha).
+  assert.deepEqual(Utils.serverNumbers({ ...Utils.makeNew(), className: '' }), {});
+});
+
 test('espécie entra como base: Elfo da Floresta 2014 Monge 6 anda 50; anão 2014 Bárbaro 5 anda 35', () => {
   assert.equal(Utils.speed(make('2014', { race: 'elf-wood', className: 'monk', level: 6 })), 50);
   assert.equal(Utils.speed(make('2014', { race: 'dwarf-hill', className: 'barbarian', level: 5 })), 35);

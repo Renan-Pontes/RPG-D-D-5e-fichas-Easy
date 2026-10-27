@@ -692,6 +692,20 @@ function speed(char) {
   return base;
 }
 
+/**
+ * Números que a ficha grava em data para o servidor, que não conhece as regras (combate e
+ * Tela): a CA e o deslocamento AUTOMÁTICO. O fixo do mestre fica em speedOverride e o
+ * servidor o confere antes; assim, quando o mestre volta o fixo a 0, vale o número certo.
+ * Sem classe: {} (o servidor fica com o que já tinha, ou com o padrão).
+ */
+function serverNumbers(char) {
+  const out = {};
+  if (!char?.className) return out;
+  try { out.armorClass = computeAc(char); } catch { /* ficha incompleta */ }
+  try { out.speed = speed({ ...char, speedOverride: 0 }); } catch { /* ficha incompleta */ }
+  return out;
+}
+
 // Iniciativa: DES + Alerta (2024: + Bônus de Proficiência; 2014: +5).
 function initiative(char) {
   const dex = abilityMod(char, 'dex');
@@ -995,7 +1009,7 @@ return {
   makeNew,
   abilityWithRace, abilityMod, profBonus, saveBonus, skillBonus, wisdomSkillBonus, passivePerception,
   attackFor, unarmedStrike, martialArtsDie, isMonkWeapon, damageLabel, speedLabel,
-  computeAc, maxHpDefault, speed, speedBonuses, speedBonusText, initiative, sizeOf,
+  computeAc, maxHpDefault, speed, speedBonuses, speedBonusText, serverNumbers, initiative, sizeOf,
   speciesGrants: Species.speciesGrants, speciesChoiceIssues: Species.speciesChoiceIssues,
   spellcastingAbility, spellSaveDc, spellAttackBonus, spellSlots, spellListClass, spellListClasses, inSpellList,
   isPreparedCaster, cantripsKnown, preparedSpellsLimit, maxSpellLevel,
