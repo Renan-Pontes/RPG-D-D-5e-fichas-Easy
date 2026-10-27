@@ -203,6 +203,44 @@ class PrevTurnTests(Base):
         self.assertNotIn('photo', public[0])
         self.assertNotIn('from', public[0])
 
+    def test_undo_when_who_had_the_turn_left_does_nothing(self):
+        # Vez do último (Dagna) → Próximo vira a rodada → tiram a Dagna → Voltar turno.
+        self.combat.turn_index = 2; self.combat.save()
+        self.next({'round': 1, 'turnIndex': 2})
+        self.assertEqual(self.c_dm.delete(self.url('combatants/d')).status_code, 200)
+        r = self.prev({'round': 2, 'turnIndex': 0})
+        self.assertEqual(r.status_code, 409, r.content)
+        self.assertEqual(r.json()['error'], 'nothing_to_undo')
+        c = self.db()
+        self.assertEqual((c.round_number, c.turn_index, len(c.combatants)), (2, 0, 2))   # nada mudou
+        # e o Próximo seguinte segue a ordem (Dragão), sem pular o Pipo nem voltar à rodada 1
+        r = self.next({'round': 2, 'turnIndex': 0})
+        self.assertEqual((r.json()['combat']['round'], r.json()['combat']['turnIndex']), (2, 1))
+
+    def test_undo_finds_who_had_the_turn_by_id(self):
+        # Entrou alguém antes da Dagna depois do Próximo: a vez volta para ELA, na posição nova.
+        self.combat.turn_index = 2; self.combat.save()
+        self.next({'round': 1, 'turnIndex': 2})                       # Dagna → (rodada 2) Pipo
+        c = self.db()
+        c.combatants = c.combatants[:2] + [{'id': 'n', 'name': 'Novo', 'type': 'monster', 'current_hp': 5,
+                                             'stats': {'max_hp': 5}}] + c.combatants[2:]
+        c.save()
+        self.assertEqual(self.prev({'round': 2, 'turnIndex': 0}).status_code, 200)
+        c = self.db()
+        self.assertEqual((c.round_number, c.turn_index), (1, 3))
+        self.assertEqual(c.combatants[3]['name'], 'Dagna')
+        self.assertEqual(c.action_log[-1]['whose'], 'Dagna')
+
+    def test_undo_of_an_old_entry_pointing_out_of_the_list_does_nothing(self):
+        # Entrada gravada antes do `from.id`: a posição que já não existe não é restaurada.
+        c = self.db()
+        c.round_number, c.turn_index = 2, 0
+        c.action_log = [{'type': 'next_turn', 'round': 2, 'index': 0, 'from': {'round': 1, 'index': 5}, 'photo': []}]
+        c.save()
+        r = self.prev({'round': 2, 'turnIndex': 0})
+        self.assertEqual(r.status_code, 409)
+        self.assertEqual((self.db().round_number, self.db().turn_index), (2, 0))
+
     def test_player_cannot_undo(self):
         self.next({'round': 1, 'turnIndex': 0})
         r = self.c_p1.post(self.url('prev-turn'), {'expect': {'round': 1, 'turnIndex': 1}}, format='json')

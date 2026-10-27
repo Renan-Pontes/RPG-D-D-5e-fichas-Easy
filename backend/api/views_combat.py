@@ -1196,9 +1196,11 @@ def combat_next_turn(request, id_or_slug):
                 photo = _merge_photo(photo, p)
             if started['recharge_rolls']:
                 recharge = {'type': 'recharge', 'target': nxt.get('name'), 'rolls': started['recharge_rolls']}
+        # `from.id`: quem tinha a vez (o Voltar turno acha a pessoa, não a posição).
+        was = combatants[cur_idx].get('id') if 0 <= cur_idx < len(combatants) else None
         log = _log_add(log, {'type': 'next_turn', 'round': next_round, 'index': next_idx,
                              'whose': combatants[next_idx].get('name'),
-                             'from': {'round': c.round_number, 'index': cur_idx}, 'photo': photo})
+                             'from': {'round': c.round_number, 'index': cur_idx, 'id': was}, 'photo': photo})
         if recharge:
             log = _log_add(log, recharge)
         return combatants, log, next_round, next_idx
@@ -1224,6 +1226,15 @@ def combat_prev_turn(request, id_or_slug):
         if not entry or (entry.get('round'), entry.get('index')) != (c.round_number, c.turn_index):
             return Response({'error': 'nothing_to_undo', 'combat': _serialize_combat(c, for_dm=True)}, status=409)
         combatants = [dict(x) for x in (c.combatants or [])]
+        # A vez volta para QUEM a tinha (pelo id): se essa pessoa saiu do combate (ou a
+        # vez de antes já apontava para fora da lista), não há para onde voltar.
+        back = entry['from']
+        if 'id' in back:
+            idx = next((k for k, x in enumerate(combatants) if back['id'] is not None and x.get('id') == back['id']), None)
+        else:   # entrada de antes desta versão: só a posição
+            idx = back.get('index') if isinstance(back.get('index'), int) and back['index'] >= 0 else None
+        if idx is None or idx >= len(combatants):
+            return Response({'error': 'nothing_to_undo', 'combat': _serialize_combat(c, for_dm=True)}, status=409)
         kept = []
         for p in entry.get('photo') or []:
             i = next((k for k, x in enumerate(combatants) if x.get('id') == p.get('id')), None)
@@ -1240,11 +1251,9 @@ def combat_prev_turn(request, id_or_slug):
                     cb.pop(field, None)
                 else:
                     cb[field] = old
-        back = entry['from']
         log[pos] = {**entry, 'undone': True}
         rnd = max(1, int(back.get('round') or 1))
-        idx = max(0, int(back.get('index') or 0))
-        whose = combatants[idx].get('name') if idx < len(combatants) else None
+        whose = combatants[idx].get('name')
         log = _log_add(log, {'type': 'prev_turn', 'round': rnd, 'index': idx, 'whose': whose,
                              **({'kept': sorted(set(kept))} if kept else {})})
         return combatants, log, rnd, idx
