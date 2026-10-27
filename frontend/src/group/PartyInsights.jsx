@@ -558,14 +558,14 @@ function Damage({ calc, lang, onWhy }) {
 function Gaps({ gaps, facts, lang, expanded, setExpanded, planned, onTake, onOpenPlan, readOnly }) {
   const groups = gapGroups(gaps, lang);
   const total = groups.reduce((n, g) => n + g.items.length, 0);
-  let left = expanded ? Infinity : 3;
+  // recolhido: as 3 mais sérias da lista inteira (ainda agrupadas), não as 3 dos primeiros grupos
+  const shown = (x) => expanded || x.rank < 3;
   return (
     <section className="mesa-panel ins-block ins-gaps" id="ins-gaps">
       <MesaTitle sub={t(lang, 'o que falta no grupo, das mais sérias para as menos', 'what the party lacks, most serious first')}>{t(lang, 'Lacunas', 'Gaps')}</MesaTitle>
       {!total && <p className="ins-adj-help">{t(lang, 'Nenhuma lacuna: o grupo cobre tudo o que o Raio-X mede.', 'No gaps: the party covers everything the X-ray measures.')}</p>}
       {groups.map(g => {
-        const items = g.items.slice(0, Math.max(0, left));
-        left -= items.length;
+        const items = g.items.filter(shown);
         if (!items.length) return null;
         return (
           <div key={g.id} className="ins-gap-group">

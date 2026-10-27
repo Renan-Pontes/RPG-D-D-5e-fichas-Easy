@@ -127,10 +127,16 @@ export function readableGaps(gaps, lang = 'pt') {
   return out;
 }
 
-/** Lacunas por grupo (Perícias · Dano · Salvaguardas · Papel · Sentidos e ferramentas). */
+/**
+ * Lacunas por grupo (Perícias · Dano · Salvaguardas · Papel · Sentidos e ferramentas), na
+ * ordem da lista (Importante, depois a gravidade): o grupo da lacuna mais séria vem antes.
+ * `rank` é a posição de cada lacuna na lista inteira (as "3 primeiras" são rank < 3).
+ */
 export function gapGroups(gaps, lang = 'pt') {
-  const list = readableGaps(gaps, lang);
-  return GAP_GROUPS.map(g => ({ id: g.id, label: L2(g.label, lang), items: list.filter(x => g.kinds.includes(x.kind)) })).filter(g => g.items.length);
+  const list = readableGaps(gaps, lang).map((x, rank) => ({ ...x, rank }));
+  return GAP_GROUPS.map(g => ({ id: g.id, label: L2(g.label, lang), items: list.filter(x => g.kinds.includes(x.kind)) }))
+    .filter(g => g.items.length)
+    .sort((a, b) => a.items[0].rank - b.items[0].rank);
 }
 
 // ---------------------------------------------------------------- momentos (G8) e estilo

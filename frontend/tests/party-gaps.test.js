@@ -30,8 +30,10 @@ test('G7: a lista junta os tipos de dano numa linha e agrupa por assunto', () =>
   const list = S.readableGaps(gaps, 'pt');
   assert.equal(list.length, 7);
   assert.equal(list.find(g => g.kind === 'damage').text, 'Nenhum dano ácido, elétrico, necrótico, veneno ou psíquico');
+  // os grupos na ordem da lacuna mais séria de cada um (ponto único > perícia > salvaguarda > dano)
   assert.deepEqual(S.gapGroups(gaps, 'pt').map(g => [g.label, g.items.length]),
-    [['Perícias', 2], ['Dano', 1], ['Salvaguardas', 3], ['Papel', 1]]);
+    [['Papel', 1], ['Perícias', 2], ['Salvaguardas', 3], ['Dano', 1]]);
+  assert.deepEqual(S.gapGroups(gaps, 'pt').flatMap(g => g.items.map(x => x.rank)).sort(), [0, 1, 2, 3, 4, 5, 6]);
   assert.equal(S.readableGaps(S.partyGaps(facts, axes, { lang: 'en' }), 'en').find(g => g.kind === 'damage').text,
     'No acid, lightning, necrotic, poison or psychic damage');
 });
@@ -41,6 +43,14 @@ test('Ajustar: Importante muda só a ordem; eixo escondido não gera lacuna; CD 
   assert.deepEqual(social.slice(0, 2).map(g => g.key), ['deception', 'performance']);
   assert.ok(social[0].important);
   assert.equal(social.length, gaps.length, 'a importância não cria nem apaga lacuna');
+  // Importante em Controle: o grupo Papel vem primeiro e o ponto único fica nas 3 primeiras
+  const control = S.gapGroups(S.partyGaps(facts, axes, { focus: { control: 2 } }), 'pt');
+  assert.equal(control[0].label, 'Papel');
+  const spof = control[0].items.find(x => x.kind === 'spof');
+  assert.equal(spof.key, 'control');
+  assert.ok(spof.rank < 3 && spof.important, 'o ponto único de Controle está nas 3 primeiras');
+  // Importante em Social: as perícias sociais sobem, e o grupo Perícias passa à frente
+  assert.equal(S.gapGroups(social, 'pt')[0].label, 'Perícias');
   const noControl = S.partyGaps(facts, axes, { hidden: ['control'] });
   assert.equal(noControl.some(g => g.kind === 'spof'), false);
   assert.match(S.partyGaps(facts, axes, { dc: 12 }).find(g => g.kind === 'skill').text, /CD 12 passa 55%/);
