@@ -207,7 +207,7 @@ function MomentCard({ f, lang, readOnly, session, filter, list, style, dismissed
                   {!readOnly && (
                     <div className="ins-mom-act">
                       {!m.plan && !done && <button type="button" className="mesa-btn" onClick={() => onScene(m)}>→ {t(lang, 'Cena', 'Scene')}</button>}
-                      <MoreMenu items={menu} label={t(lang, `Mais ações: ${m.text}`, `More actions: ${m.text}`)} />
+                      <MoreMenu items={menu} lang={lang} label={t(lang, `Mais ações: ${m.text}`, `More actions: ${m.text}`)} sheetTitle={t(lang, 'Momento', 'Moment')} />
                     </div>
                   )}
                 </div>

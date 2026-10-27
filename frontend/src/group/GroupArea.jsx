@@ -8,6 +8,7 @@ import InviteCard from './InviteCard.jsx';
 import PlayersPanel from './PlayersPanel.jsx';
 import RequestsPanel from './RequestsPanel.jsx';
 import { GroupToast, useGroupConfirm } from './GroupConfirm.jsx';
+import useTouchHold from './useTouchHold.js';
 import { groupApi } from './group-api.js';
 import { pendingCount, t } from './group-model.js';
 import './group-styles.css';
@@ -15,7 +16,7 @@ import './group-styles.css';
 // Raio-X do grupo: as contas e os gráficos só carregam quando o mestre abre a subvista.
 const PartyInsights = lazy(() => import('./PartyInsights.jsx'));
 
-const SUBS = ['players', 'insights', 'chronicle'];
+const SUBS = ['players', 'requests', 'insights', 'chronicle'];
 const subKey = (id) => `forja:group-sub:${id}`;
 function readSub(id) {
   try { const v = localStorage.getItem(subKey(id)); return SUBS.includes(v) ? v : null; } catch { return null; }
@@ -25,21 +26,27 @@ function writeSub(id, v) {
 }
 
 /**
- * Área "Grupo" (mestre e jogador): Jogadores (cards, convite, pedidos de
- * nível/XP), Raio-X do grupo (só o mestre: métricas, lacunas e ideias de cena) e
- * Crônica (diário + "Anteriormente em…").
+ * Área "Grupo".
+ *  - Mestre: segmentado Jogadores · Pedidos (n) · Raio-X · Crônica.
+ *    Jogadores: cartões (PlayersPanel) e o convite (grande no topo com a mesa
+ *    vazia; senão no fim). Pedidos: RequestsPanel (pedidos, nível de cada um,
+ *    evolução, aguardando, histórico). Raio-X: métricas, lacunas e ideias de
+ *    cena (PartyInsights). Crônica: diário + "Anteriormente em…".
+ *  - Jogador: uma vista só, com o próprio cartão primeiro e "Meus pedidos"
+ *    logo abaixo dele (a Crônica dele é uma área própria na casca).
  *
  * Props:
  *  - campaign, lang, isDM, characters (fichas do usuário, p/ "Trocar personagem")
  *  - onChange(): recarrega a campanha na casca
  *  - sub / onSubChange(sub): subvista controlada pela casca (useArea); sem
  *    elas, a área lembra a última subvista por campanha (localStorage)
+ *  - params: efêmeros da casca ({ membershipId } da busca rápida traz o cartão
+ *    à vista; { recap: true } de "Encerrar e escrever o recap" abre o recap)
  *  - hasJoinRoute: o app abre /join/<código>? (decide o que "Copiar link" copia)
  *  - onPendingCount(n): opcional, avisa a casca do nº de pedidos pendentes
  *  - onLeaveCampaign(): jogador saiu da mesa → a casca volta para Campanhas
- *  - params.recap: "Encerrar e escrever o recap" — a Crônica abre já no rascunho do recap
  */
-export default function GroupArea({ campaign, lang = 'pt', isDM, characters = [], onChange, sub, onSubChange, hasJoinRoute = false, onPendingCount, onLeaveCampaign, params }) {
+export default function GroupArea({ campaign, lang = 'pt', isDM, characters = [], onChange, sub, onSubChange, params, hasJoinRoute = false, onPendingCount, onLeaveCampaign }) {
   const { clearParams } = useArea();
   const [ownSub, setOwnSub] = useState(() => readSub(campaign.id) || 'players');
   const current = !isDM ? 'players' : (SUBS.includes(sub) ? sub : ownSub);
@@ -50,10 +57,18 @@ export default function GroupArea({ campaign, lang = 'pt', isDM, characters = []
   const [toast, setToast] = useState(null);
   const [ask, confirmUi] = useGroupConfirm(lang);
 
-  const loadApprovals = useCallback(async () => {
+  // Nada mexe debaixo do dedo: o que chega pelo polling (pedidos a 6 s, campanha a 2,5 s na
+  // casca) logo depois de um toque espera 600 ms. A recarga depois de uma ação do mestre
+  // entra na hora (é a resposta ao toque dele).
+  const hold = useTouchHold();
+  const loadApprovals = useCallback(async (fromPoll = false) => {
     const r = await api.listApprovals(campaign.id);
-    setApprovals(r.approvals || []);
-  }, [campaign.id]);
+    const apply = () => setApprovals(r.approvals || []);
+    if (fromPoll) hold(apply, 'approvals'); else apply();
+  }, [campaign.id, hold]);
+  const [held, setHeld] = useState(campaign);
+  useEffect(() => { hold(() => setHeld(campaign), 'campaign'); }, [campaign, hold]);
+  const shown = held.id === campaign.id ? held : campaign;
   const loadXp = useCallback(async () => {
     if (!isDM) return;
     try { const r = await groupApi.xpEvents(campaign.id); setXpEvents(r.entries || []); } catch { /* histórico de XP é opcional */ }
@@ -62,7 +77,7 @@ export default function GroupArea({ campaign, lang = 'pt', isDM, characters = []
   // No Raio-X os pedidos não aparecem: a contagem vem do GET da campanha (que a casca
   // já busca) e o polling dos pedidos para — a subvista fica nos 24 pedidos/min da casca.
   const onInsights = current === 'insights';
-  usePolling(() => (onInsights ? null : loadApprovals()), 6000, [campaign.id, onInsights]);
+  usePolling(() => (onInsights ? null : loadApprovals(true)), 6000, [campaign.id, onInsights]);
   useEffect(() => { loadXp(); }, [loadXp]);
 
   const count = approvals && !onInsights ? pendingCount(approvals) : (campaign.pendingApprovals ?? 0);
@@ -70,31 +85,47 @@ export default function GroupArea({ campaign, lang = 'pt', isDM, characters = []
 
   const notify = useCallback((text, kind = 'ok') => setToast({ text, kind, id: Date.now() }), []);
   const clearToast = useCallback(() => setToast(null), []);
+  // devolve a promessa dos pedidos: o painel só religa os botões com a lista nova à vista
   const refresh = useCallback(() => {
-    loadApprovals().catch(() => {});
     loadXp();
     onChange?.();
+    return loadApprovals().catch(() => {});
   }, [loadApprovals, loadXp, onChange]);
 
+  const tableEmpty = !(shown.members || []).some(m => m.role !== 'dm');
+  const invite = (compact) => (
+    <InviteCard campaign={shown} lang={lang} hasJoinRoute={hasJoinRoute} compact={compact} />
+  );
+  const loadingRequests = <p className="grp-none">{t(lang, 'Carregando pedidos…', 'Loading requests…')}</p>;
+  const requests = (
+    approvals == null ? loadingRequests
+      : <RequestsPanel campaign={shown} approvals={approvals} xpEvents={xpEvents} lang={lang} isDM={isDM}
+          ask={ask} notify={notify} onChange={refresh} />
+  );
+
   return (
-    <div className="grp-area">
+    <div className={`grp-area ${isDM ? 'is-dm' : 'is-player'}`}>
       {/* Jogador: a Crônica é uma área própria na casca; aqui só Jogadores. */}
       {isDM && (
         <SubChips subs={SUBS} active={current} onSelect={setSub} lang={lang}
-          ariaLabel={t(lang, 'Grupo', 'Group')} badges={{ players: count }}
-          badgeLabels={{ players: t(lang, `${count} pedido(s) pendente(s)`, `${count} pending request(s)`) }} />
+          ariaLabel={t(lang, 'Grupo', 'Group')} badges={{ requests: count }}
+          badgeLabels={{ requests: t(lang, `${count} pedido(s) pendente(s)`, `${count} pending request(s)`) }} />
       )}
 
       {current === 'players' && (
         <div className="grp-players-view" role="tabpanel">
-          {isDM && <InviteCard campaign={campaign} lang={lang} hasJoinRoute={hasJoinRoute} compact={(campaign.members || []).length > 2} />}
-          <PlayersPanel campaign={campaign} lang={lang} isDM={isDM} characters={characters} approvals={approvals || []}
-            ask={ask} notify={notify} onChange={refresh} onLeft={onLeaveCampaign} />
-          {approvals == null
-            ? <p className="muted small">{t(lang, 'Carregando pedidos…', 'Loading requests…')}</p>
-            : <RequestsPanel campaign={campaign} approvals={approvals} xpEvents={xpEvents} lang={lang} isDM={isDM}
-                ask={ask} notify={notify} onChange={refresh} />}
+          {/* convite: grande no topo com a mesa vazia; com gente, no fim (compacto com mais de 2) */}
+          {isDM && tableEmpty && invite(false)}
+          <PlayersPanel campaign={shown} lang={lang} isDM={isDM} characters={characters} approvals={approvals || []}
+            ask={ask} notify={notify} onChange={refresh} onLeft={onLeaveCampaign}
+            focusMember={params?.membershipId ?? null}
+            afterMine={!isDM ? requests : null} />
+          {isDM && !tableEmpty && invite((shown.members || []).length > 2)}
         </div>
+      )}
+
+      {current === 'requests' && isDM && (
+        <div className="grp-requests-view" role="tabpanel">{requests}</div>
       )}
 
       {current === 'insights' && (

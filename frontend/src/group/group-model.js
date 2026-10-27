@@ -49,6 +49,8 @@ export function memberStats(member) {
     ac: full ? safe(() => Utils.computeAc(full), full.armorClass ?? null) : null,
     init: full ? safe(() => Utils.initiative(full)) : null,
     level: info.level || classes.reduce((s, e) => s + (e.level || 0), 0) || 1,
+    // uma classe só: a linha "Espécie · Classe N" (charLine) já diz o nível
+    levelInLine: classes.length === 1 && (classes[0].level || 0) === (info.level || classes[0].level || 0),
     xp: info.xp ?? null,
     conditions: Array.isArray(info.conditions) ? info.conditions : [],
     cheatMode: !!info.cheatMode,
@@ -56,6 +58,30 @@ export function memberStats(member) {
     wildShape: wild?.active ? { beast: wild.beastName || '', hp: wild.beastCurrentHp ?? null, maxHp: wild.beastMaxHp ?? null } : null,
     inspiration: !!full?.inspiration,
   };
+}
+
+/**
+ * Pastilhas do cartão do jogador (na linha da vida): CA, Iniciativa e Nível,
+ * só as que têm valor. O Nível só entra quando a linha "Espécie · Classe N" não
+ * o diz (multiclasse ou sem classe). Quem não é dono da ficha (resumo público)
+ * nunca vê caixas "—".
+ */
+export function statPills(stats, lang) {
+  if (!stats) return [];
+  return [
+    stats.ac != null && { id: 'ac', label: t(lang, 'CA', 'AC'), long: t(lang, 'Classe de Armadura', 'Armor Class'), value: String(stats.ac) },
+    stats.init != null && { id: 'init', label: t(lang, 'Inic.', 'Init.'), long: t(lang, 'Iniciativa', 'Initiative'), value: fmtMod(stats.init) },
+    stats.level != null && !stats.levelInLine && { id: 'level', label: t(lang, 'Nível', 'Level'), long: t(lang, 'Nível', 'Level'), value: String(stats.level) },
+  ].filter(Boolean);
+}
+
+/**
+ * A barra de XP só aparece quando o dado vem: a ficha completa (mestre ou
+ * dono; sem `xp` = 0) ou um resumo que traga `xp`. O resumo dos colegas não
+ * traz, e mostrar "0 / 2700 XP" seria dado errado.
+ */
+export function xpKnown(stats) {
+  return !!stats && (stats.full || stats.xp != null);
 }
 
 /** Faixa de vida para cor da barra. */
@@ -97,6 +123,30 @@ export function splitApprovals(approvals) {
 }
 
 export const pendingCount = (approvals) => splitApprovals(approvals).pending.length;
+
+/**
+ * Ordem dos pedidos esperando o mestre: subidas de nível primeiro (seguram a
+ * ficha do jogador), depois os outros; em cada grupo, o mais antigo primeiro
+ * (fila de chegada).
+ */
+export function sortPending(pending) {
+  const when = a => String(a.created_at || a.createdAt || '');
+  return [...(pending || [])].sort((a, b) => ((a.type === 'levelup' ? 0 : 1) - (b.type === 'levelup' ? 0 : 1))
+    || when(a).localeCompare(when(b)) || (a.id || 0) - (b.id || 0));
+}
+
+/**
+ * Ordem estável da lista à vista (nada mexe debaixo do dedo): quem já estava
+ * fica na ordem de antes (`prevIds`), quem chegou entra no fim, na ordem de
+ * `items`. Sem ordem anterior, a de `items`.
+ */
+export function keepOrder(prevIds, items, idOf = (x) => x.id) {
+  const list = items || [];
+  if (!prevIds?.length) return [...list];
+  const pos = new Map(prevIds.map((id, i) => [id, i]));
+  const old = list.filter(x => pos.has(idOf(x))).sort((a, b) => pos.get(idOf(a)) - pos.get(idOf(b)));
+  return [...old, ...list.filter(x => !pos.has(idOf(x)))];
+}
 
 /** Pedido de nível aberto (pendente ou liberado) de um personagem. */
 export function levelupFor(approvals, charId, status) {
