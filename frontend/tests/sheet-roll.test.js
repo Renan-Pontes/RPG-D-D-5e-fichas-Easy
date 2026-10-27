@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { parseFormula, rollFormula } from '../src/dice/dice-math.js';
 import {
   clearSheetRolls, createSender, getSheetRolls, GAP_MS, MAX_WAITING, maybeRecheck, noteFor, outcomeOf, planSheetRoll,
-  readSecret, RECHECK_MS, RESP_GAP_MS, secretKey, setSheetAllowed, setSheetRecheck, setSheetRolls, setSheetSecret,
+  readSecret, RECHECK_MS, RESP_GAP_MS, secretKey, setSheetAllowed, setSheetPolicy, setSheetRecheck, setSheetRolls, setSheetSecret,
   sheetRollBody, STALE_MS, subscribeSheetRolls, writeSecret,
 } from '../src/dice/sheet-roll.js';
 
@@ -104,6 +104,40 @@ test('regra desligada pelo mestre: nada sai do aparelho e a faixa pergunta de no
   setSheetRecheck(null);
   setSheetAllowed(7, false, 0);
   assert.equal(maybeRecheck(999_999), false);                         // sem a faixa: nada
+  clearSheetRolls(7);
+});
+
+test('sem sessão ao vivo: nada sai do aparelho; um 204 para o envio e a faixa pergunta no máximo a cada 30 s', async () => {
+  const entry = entryOf('1d20+3', { label: 'Percepção', preset: [12] });
+  assert.deepEqual(planSheetRoll({ characterId: 7, allowed: true, live: false }, entry), { skip: 'idle' });
+  assert.deepEqual(planSheetRoll({ characterId: 7, allowed: false, live: false }, entry), { skip: 'off' });
+  assert.equal(planSheetRoll({ characterId: 7, allowed: true, live: null }, entry).body.total, 15, 'servidor sem o live: manda');
+
+  const asked = [];
+  setSheetRolls({ characterId: 7, name: 'Dagna' }, memory());
+  setSheetRecheck((id) => asked.push(id));
+  setSheetPolicy(7, { allowed: true, live: false }, 1_000);          // a faixa soube: sessão parada
+  assert.equal(getSheetRolls().live, false);
+  // 3 toques seguidos: nenhum POST (o DiceRoller só chama maybeRecheck)
+  for (let i = 0; i < 3; i++) assert.deepEqual(planSheetRoll(getSheetRolls(), entry), { skip: 'idle' });
+  assert.equal(maybeRecheck(1_000 + 5_000), false);
+  assert.equal(maybeRecheck(1_000 + RECHECK_MS), true);              // no máximo 1 vez a cada 30 s
+  assert.deepEqual(asked, [7]);
+  setSheetPolicy(7, { live: true }, 40_000);                         // a sessão começou: volta a mandar
+  assert.equal(planSheetRoll(getSheetRolls(), entry).body.total, 15);
+  assert.equal(getSheetRolls().allowed, true, 'o que não veio fica como estava');
+
+  // o mestre encerrou a sessão com a ficha aberta: o 204 para o envio e pergunta 1 vez qual foi
+  let clock = 100_000;
+  const posts = [];
+  const send = createSender({ post: async () => { posts.push(clock); return null; }, now: () => clock, wait: async (ms) => { clock += ms; }, offline: () => false });
+  assert.equal(await send(7, { label: 'Atletismo' }), 'skipped');
+  assert.equal(getSheetRolls().live, false);
+  assert.deepEqual(asked, [7, 7], 'pergunta de novo na hora (1 GET), não a cada rolagem');
+  assert.deepEqual(planSheetRoll(getSheetRolls(), entry), { skip: 'idle' });
+  assert.equal(maybeRecheck(clock + 1_000), false);
+  assert.equal(posts.length, 1);
+  setSheetRecheck(null);
   clearSheetRolls(7);
 });
 

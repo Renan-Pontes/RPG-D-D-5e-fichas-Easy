@@ -153,8 +153,9 @@ const DiceRoller = ({ lang }) => {
     const ctx = getSheetRolls();
     const plan = planSheetRoll(ctx, entry);
     if (plan.skip === 'secret') { patchEntry(entry.id, { tableNote: noteFor('secret') }); return; }
-    // o mestre deixou as fichas fora da Tela: nada sai; de vez em quando a faixa pergunta se ele religou
-    if (plan.skip === 'off') { maybeRecheck(); return; }
+    // o mestre deixou as fichas fora da Tela, ou não há sessão ao vivo: nada sai; de vez em
+    // quando a faixa pergunta se ele religou ou começou a sessão
+    if (plan.skip === 'off' || plan.skip === 'idle') { maybeRecheck(); return; }
     if (!plan.body) return;
     sheetSend(ctx.characterId, plan.body).then((outcome) => {
       const note = noteFor(outcome);
@@ -417,7 +418,8 @@ const DiceRoller = ({ lang }) => {
   const sheetLine = !sheetMode ? '' : sheetNote ? tableNoteText(sheetNote, lang)
     : sheet.secret ? L(lang, 'Só você vê o que rola nesta ficha: nada sai do aparelho.', 'Only you see what you roll on this sheet: nothing leaves this device.')
       : sheet.allowed === false ? L(lang, 'O mestre deixou as rolagens das fichas fora da Tela.', 'The GM keeps sheet rolls off the screen.')
-        : L(lang, `Na sessão ao vivo, a Tela da mesa mostra o que ${sheet.name || 'a ficha'} rola.`, `During the live session, the table screen shows what ${sheet.name || 'this sheet'} rolls.`);
+        : sheet.live === false ? L(lang, 'Sem sessão ao vivo agora: o que você rola fica no seu aparelho.', 'No live session right now: what you roll stays on your device.')
+          : L(lang, `Na sessão ao vivo, a Tela da mesa mostra o que ${sheet.name || 'a ficha'} rola.`, `During the live session, the table screen shows what ${sheet.name || 'this sheet'} rolls.`);
   const animLabel = { '3d': '3D', '2d': '2D', off: L(lang, 'Sem animação', 'No animation') }[animPref];
 
   return (

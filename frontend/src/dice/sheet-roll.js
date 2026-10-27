@@ -7,8 +7,10 @@
 //   POST /api/characters/:id/table-roll {label, dice:[{die, value, kept?, sign?}], modifier, total, adv?}
 //   · 201 {shown} → foi à Tela ("📺 Na Tela ✓");
 //   · 204 → sem sessão ao vivo ou o mestre desligou "Rolagens das fichas": nada.
-//     Com a regra desligada já sabida (GET /characters/:id/campaigns → sheetRolls
-//     false), a ficha nem manda: nada sai do aparelho, como a faixa diz;
+//     Com a regra desligada ou a sessão parada já sabidas (GET /characters/:id/campaigns
+//     → sheetRolls false ou live false), a ficha nem manda: nada sai do aparelho, como a
+//     faixa diz (fora da sessão ao vivo, nenhum pedido: como antes da V15). Um 204 diz
+//     que uma das duas mudou: a ficha para de mandar e pergunta de novo (1 GET);
 //   · erro de rede, 429 ou 5xx → não insiste; no máximo o aviso discreto
 //     "não foi para a Tela" (no tempo limite, sem aviso: pode ter chegado, e a Tela
 //     nunca mente);
@@ -49,7 +51,8 @@ export function writeSecret(characterId, on, storage = local()) {
 }
 
 // ---------------------------------------------------------------- a ficha aberta
-// {characterId, name, secret, allowed (a regra do mestre, se a ficha já soube), blocked}
+// {characterId, name, secret, allowed (a regra do mestre, se a ficha já soube),
+//  live (a sessão ao vivo, se a ficha já soube), blocked}
 let current = null;
 const subs = new Set();
 let recheck = null;            // a faixa pergunta de novo a regra do mestre (abaixo)
@@ -63,7 +66,8 @@ function emit(next) {
 export function setSheetRolls({ characterId, name = '' } = {}, storage = local()) {
   if (characterId == null) { emit(null); return; }
   if (current && current.characterId === characterId && current.name === name) return;
-  emit({ characterId, name, secret: readSecret(characterId, storage), allowed: current?.characterId === characterId ? current.allowed : null, blocked: false });
+  const same = current?.characterId === characterId;
+  emit({ characterId, name, secret: readSecret(characterId, storage), allowed: same ? current.allowed : null, live: same ? current.live : null, blocked: false });
 }
 /** A ficha fechou (só limpa se ainda é ela). */
 export function clearSheetRolls(characterId) {
@@ -80,22 +84,34 @@ export function setSheetSecret(on, storage = local()) {
   writeSecret(current.characterId, !!on, storage);
   emit({ ...current, secret: !!on });
 }
-/** O que a ficha sabe da regra do mestre (GET /characters/:id/campaigns → sheetRolls). */
-export function setSheetAllowed(characterId, allowed, now = Date.now()) {
+/**
+ * O que a ficha sabe da mesa (GET /characters/:id/campaigns): a regra do mestre
+ * (`allowed` ← sheetRolls) e a sessão ao vivo (`live`). O que não vier fica como estava
+ * (servidor de antes do `live`: a ficha manda, e o 204 ensina).
+ */
+export function setSheetPolicy(characterId, { allowed, live } = {}, now = Date.now()) {
   if (!current || current.characterId !== characterId) return;
   checkedAt = now;
-  if (current.allowed !== allowed) emit({ ...current, allowed });
+  const next = { ...current };
+  if (typeof allowed === 'boolean') next.allowed = allowed;
+  if (typeof live === 'boolean') next.live = live;
+  if (next.allowed !== current.allowed || next.live !== current.live) emit(next);
+}
+/** Só a regra do mestre (compatível com a V15). */
+export function setSheetAllowed(characterId, allowed, now = Date.now()) {
+  setSheetPolicy(characterId, { allowed }, now);
 }
 
-// Regra desligada: a ficha não manda nada. Para o mestre poder religar no meio da
-// sessão sem o jogador recarregar, a faixa da campanha (Sheet.jsx) pergunta de novo
-// quando a ficha volta à vista e quando o jogador rola — só enquanto desligada e no
-// máximo 1 vez a cada 30 s (nenhum polling novo).
+// Regra desligada ou sessão parada: a ficha não manda nada. Para valer de novo assim
+// que o mestre religar ou começar a sessão, sem o jogador recarregar, a faixa da
+// campanha (Sheet.jsx) pergunta de novo quando a ficha volta à vista e quando o
+// jogador rola — só enquanto parada e no máximo 1 vez a cada 30 s (nenhum polling novo).
+const idle = (c) => c.allowed === false || c.live === false;
 /** Quem pergunta de novo a regra (a faixa); null ao sair. */
 export function setSheetRecheck(fn) { recheck = typeof fn === 'function' ? fn : null; }
-/** Pergunta de novo se está desligada e já faz 30 s → true quando perguntou. */
+/** Pergunta de novo se está parada e já faz 30 s → true quando perguntou. */
 export function maybeRecheck(now = Date.now(), ms = RECHECK_MS) {
-  if (!recheck || !current || current.allowed !== false || now - checkedAt < ms) return false;
+  if (!recheck || !current || !idle(current) || now - checkedAt < ms) return false;
   checkedAt = now;
   try { recheck(current.characterId); } catch { /* a faixa tenta na próxima */ }
   return true;
@@ -141,14 +157,15 @@ export function sheetRollBody(entry) {
 /**
  * Manda ou não? → {body} ou {skip}: 'none' (a ficha não está numa campanha),
  * 'secret' (🔒 Só eu: nada sai do aparelho), 'blocked' (403/423 antes), 'off' (o
- * mestre deixou as rolagens das fichas fora da Tela: o servidor só diria 204) e
- * 'local' (o servidor não aceitaria; fica só no aparelho).
+ * mestre deixou as rolagens das fichas fora da Tela: o servidor só diria 204), 'idle'
+ * (sem sessão ao vivo: idem) e 'local' (o servidor não aceitaria; fica só no aparelho).
  */
 export function planSheetRoll(ctx, entry) {
   if (!ctx || ctx.characterId == null) return { skip: 'none' };
   if (ctx.secret) return { skip: 'secret' };
   if (ctx.blocked) return { skip: 'blocked' };
   if (ctx.allowed === false) return { skip: 'off' };
+  if (ctx.live === false) return { skip: 'idle' };
   const body = sheetRollBody(entry);
   return body ? { body } : { skip: 'local' };
 }
@@ -203,7 +220,9 @@ export function createSender({
       try { outcome = outcomeOf(await post(characterId, body)); } catch (err) { outcome = outcomeOf(null, err); }
       doneAt = now();
       if (outcome === 'blocked') block(characterId);
-      if (outcome === 'shown') setSheetAllowed(characterId, true);
+      if (outcome === 'shown') setSheetPolicy(characterId, { allowed: true, live: true });
+      // 204: a sessão parou ou o mestre desligou — para de mandar e pergunta qual (1 GET)
+      if (outcome === 'skipped') { const t2 = now(); setSheetPolicy(characterId, { live: false }, t2); maybeRecheck(t2, 0); }
       return outcome;
     }).finally(() => { waiting -= 1; });
     turn = run.catch(() => {});

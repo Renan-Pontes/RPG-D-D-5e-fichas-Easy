@@ -3,7 +3,7 @@
  * O mesmo seletor do topo do rolador (components/DiceRoller.jsx), lembrado por
  * personagem no aparelho (src/dice/sheet-roll.js). Só eu: nada do que a ficha rola
  * sai do aparelho. A linha de baixo explica a regra em texto (nada só por ícone) e
- * diz quando o mestre deixou as rolagens das fichas fora da Tela.
+ * diz quando o mestre deixou as rolagens das fichas fora da Tela ou não há sessão ao vivo.
  */
 import { useSyncExternalStore } from 'react';
 import { getSheetRolls, setSheetSecret, subscribeSheetRolls } from '../dice/sheet-roll.js';
@@ -18,7 +18,9 @@ export default function SheetRollTarget({ lang }) {
     ? L(lang, 'Só você vê o que rola nesta ficha: nada sai do aparelho.', 'Only you see what you roll on this sheet: nothing leaves this device.')
     : ctx.allowed === false
       ? L(lang, 'O mestre deixou as rolagens das fichas fora da Tela: por enquanto tudo fica no seu aparelho.', 'The GM keeps sheet rolls off the screen: for now everything stays on your device.')
-      : L(lang, 'Na sessão ao vivo, a Tela da mesa mostra o que você rola aqui (perícias, ataques, dano…).', 'During the live session, the table screen shows what you roll here (skills, attacks, damage…).');
+      : ctx.live === false
+        ? L(lang, 'Sem sessão ao vivo agora: tudo fica no seu aparelho. Na sessão, a Tela da mesa mostra o que você rola aqui.', 'No live session right now: everything stays on your device. During the session, the table screen shows what you roll here.')
+        : L(lang, 'Na sessão ao vivo, a Tela da mesa mostra o que você rola aqui (perícias, ataques, dano…).', 'During the live session, the table screen shows what you roll here (skills, attacks, damage…).');
   return (
     <div className="fh-camp-rolls">
       <span className="fh-camp-rolls-title" id="fh-camp-rolls-t">🎲 {L(lang, 'Suas rolagens', 'Your rolls')}</span>

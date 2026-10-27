@@ -172,10 +172,14 @@ class SheetRollTests(Base):
         self.assertFalse(RollRequest.objects.exists())
 
     def test_without_live_session_204_and_nothing_written(self):
+        url = f'/api/characters/{self.dagna.id}/campaigns'
+        self.assertIs(self.c_ana.get(url).json()['campaigns'][0]['live'], True)
         Campaign.objects.filter(pk=self.camp.pk).update(state={'session': '4', 'live': False})
         r = self.post(percepcao())
         self.assertEqual(r.status_code, 204)
         self.assertFalse(RollRequest.objects.exists())
+        # a ficha sabe pela faixa da campanha e nem manda (src/dice/sheet-roll.js)
+        self.assertIs(self.c_ana.get(url).json()['campaigns'][0]['live'], False)
 
     def test_dm_turns_sheet_rolls_off_and_on(self):
         self.assertTrue(self.c_ana.get(f'/api/characters/{self.dagna.id}/campaigns').json()['campaigns'][0]['sheetRolls'])

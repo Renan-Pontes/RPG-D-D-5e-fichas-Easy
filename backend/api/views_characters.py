@@ -493,6 +493,8 @@ def character_campaigns(request, pk):
                 'sponsored': m.sponsored,
                 # V15: o mestre deixa as rolagens das fichas irem à Tela? (Jogar › Tela)
                 'sheetRolls': bool(get_stage(m.campaign.state)['prefs'].get('sheets', True)),
+                # …e há sessão ao vivo? Fora dela a ficha não manda nada (o POST só daria 204)
+                'live': bool((m.campaign.state or {}).get('live')),
             }
             for m in memberships
         ],
