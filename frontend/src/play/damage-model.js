@@ -124,9 +124,13 @@ export function hpFlash({ op, name, amount, taken, after }, lang = 'pt') {
   return `${who} −${n} (${hpText(after)}${down})`;
 }
 
-/** Vários alvos: "Bola de fogo · Goblin #1 −8 · Goblin #2 −4 (½)" curto, para o aviso. */
-export function manyFlash(results, marks, lang = 'pt') {
-  const parts = (results || []).map(r => `${r.name} −${r.damage_taken ?? r.amount ?? 0}${marks?.[r.id]?.half ? ' (½)' : ''}`);
+/** Vários alvos: "Vários alvos: Goblin #1 −8 · Goblin #2 −4 (½)" (cura e temp com +). */
+export function manyFlash(results, marks, lang = 'pt', op = 'damage') {
+  const parts = (results || []).map(r => {
+    const n = op === 'damage' ? (r.damage_taken ?? r.amount ?? 0) : (r.amount ?? 0);
+    const sign = op === 'damage' ? '−' : '+';
+    return `${r.name} ${sign}${n}${op === 'temp' ? ' temp' : ''}${marks?.[r.id]?.half ? ' (½)' : ''}`;
+  });
   return `${L(lang, 'Vários alvos', 'Several targets')}: ${parts.join(' · ')}`;
 }
 

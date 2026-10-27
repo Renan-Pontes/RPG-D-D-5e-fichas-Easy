@@ -193,9 +193,15 @@ export function logLine(e, lang) {
     case 'prev_turn':
       return `↶ ${pick(lang, 'Turno desfeito', 'Turn undone')} — ${pick(lang, 'Rodada', 'Round')} ${e.round}, ${pick(lang, 'vez de', 'turn of')} ${e.whose || '—'}`;
     case 'damage':
-      return `${e.target}: −${e.amount}`;
+      return `${e.target}: −${e.amount}${e.undone ? pick(lang, ' (desfeito)', ' (undone)') : ''}`;
     case 'heal':
-      return `${e.target}: +${e.healed}`;
+      return `${e.target}: +${e.healed}${e.undone ? pick(lang, ' (desfeito)', ' (undone)') : ''}`;
+    case 'temp_hp':
+      return `${e.target}: ${e.temp} ${pick(lang, 'PV temporários', 'temp HP')}${e.undone ? pick(lang, ' (desfeito)', ' (undone)') : ''}`;
+    case 'undo':
+      return `↶ ${pick(lang, 'Desfeito', 'Undone')}${e.target ? `: ${e.target}` : ''}`;
+    case 'encounter':
+      return pick(lang, `Combate montado (${e.monsters || 0} monstros, ${e.pcs || 0} personagens)`, `Combat set up (${e.monsters || 0} monsters, ${e.pcs || 0} characters)`);
     case 'add_condition':
       return `${e.target}: + ${conditionLabel(e.condition, lang)}`;
     case 'remove_condition':

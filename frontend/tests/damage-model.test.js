@@ -64,6 +64,7 @@ test('o aviso do dano diz o PV que ficou e se caiu', () => {
   assert.equal(hpFlash({ op: 'temp', amount: 5, after: { ...pc, temp_hp: 8 } }, 'pt'), 'Dagna +5 temp (8 temp)');
   assert.equal(manyFlash([{ id: 'a', name: 'Goblin #1', damage_taken: 8 }, { id: 'b', name: 'Goblin #2', damage_taken: 4 }],
     { b: { half: true } }, 'pt'), 'Vários alvos: Goblin #1 −8 · Goblin #2 −4 (½)');
+  assert.equal(manyFlash([{ id: 'a', name: 'Dagna', amount: 5 }], {}, 'en', 'heal'), 'Several targets: Dagna +5');
 });
 
 test('opId: um id por toque', () => {

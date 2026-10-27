@@ -294,7 +294,7 @@ export const api = {
   getCombat:        (id) => combatRequest(`/api/combat/campaign/${id}`),
   startCombat:      (id) => combatRequest(`/api/combat/campaign/${id}/start`, { method: 'POST' }),
   endCombat:        (id) => combatRequest(`/api/combat/campaign/${id}/end`, { method: 'POST' }),
-  resetCombat:      (id) => combatRequest(`/api/combat/campaign/${id}/reset`, { method: 'POST' }),
+  resetCombat:      (id, body) => combatRequest(`/api/combat/campaign/${id}/reset`, { method: 'POST', body }),
   addCombatant:     (id, body) => combatRequest(`/api/combat/campaign/${id}/combatants`, { method: 'POST', body }),
   updateCombatant:  (id, cid, body) => combatRequest(`/api/combat/campaign/${id}/combatants/${cid}`, { method: 'PUT', body }),
   removeCombatant:  (id, cid) => combatRequest(`/api/combat/campaign/${id}/combatants/${cid}`, { method: 'DELETE' }),
@@ -304,6 +304,10 @@ export const api = {
   combatNextTurn:   (id, expect) => combatRequest(`/api/combat/campaign/${id}/next-turn`, { method: 'POST', body: expect ? { expect } : undefined }),
   combatPrevTurn:   (id, expect) => combatRequest(`/api/combat/campaign/${id}/prev-turn`, { method: 'POST', body: expect ? { expect } : undefined }),
   setCombatMap:     (id, body) => combatRequest(`/api/combat/campaign/${id}/map`, { method: 'POST', body }),
+  // V8: montar o combate numa chamada (opId), ↶ Desfazer por foto, o mapa da cena sem reenviar a imagem
+  combatEncounter:  (id, body) => combatRequest(`/api/combat/campaign/${id}/encounter`, { method: 'POST', body }),
+  combatUndo:       (id, opId) => combatRequest(`/api/combat/campaign/${id}/undo`, { method: 'POST', body: { opId } }),
+  combatMapFrom:    (id, ref) => combatRequest(`/api/combat/campaign/${id}/map-from`, { method: 'POST', body: ref }),
 
   // RollRequest
   createRoll:       (id, body) => request(`/api/rolls/campaign/${id}`, { method: 'POST', body }),

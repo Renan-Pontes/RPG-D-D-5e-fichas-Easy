@@ -97,13 +97,15 @@ export function initiativeRows(combat, check) {
 
 /**
  * "Usar e começar (3 de 4)": as iniciativas para o POST (quem respondeu leva o total;
- * quem não respondeu, 10 com "✎") e a contagem do botão.
+ * quem não respondeu e estava com "✎", 10 com "✎"; quem já tinha a iniciativa
+ * digitada pelo mestre fica como está) e a contagem do botão.
  */
 export function useInitiatives(rows) {
   const list = rows || [];
   return {
-    initiatives: list.map(r => (r.answered ? { id: r.id, initiative: r.total } : { id: r.id, initiative: 10, guess: true })),
-    answered: list.filter(r => r.answered).length,
+    initiatives: list.filter(r => r.answered || r.guess)
+      .map(r => (r.answered ? { id: r.id, initiative: r.total } : { id: r.id, initiative: 10, guess: true })),
+    answered: list.filter(r => r.answered || !r.guess).length,
     total: list.length,
   };
 }
