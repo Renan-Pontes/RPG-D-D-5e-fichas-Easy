@@ -11,8 +11,15 @@ import './mesa.css';
 /**
  * onMore: 5ª casa "Mais" (mestre) — abre a folha; moreOpen marca a casa.
  * onSearch: 5ª casa "Buscar" (quando não há onMore: o jogador).
+ * marks: {área: [{k, icon, label}]} — selos que não são número (Jogar: "● ao vivo"
+ * e "⚔" com combate ativo, V4); o ícone com o texto para o leitor de tela.
  */
-export default function AreaNav({ areas, active, onSelect, onSearch, onMore, moreOpen = false, lang, badges = {}, showKeys = false }) {
+export default function AreaNav({ areas, active, onSelect, onSearch, onMore, moreOpen = false, lang, badges = {}, marks = {}, showKeys = false }) {
+  const markSpans = (id, cls) => (marks[id] || []).map(m => (
+    <span key={m.k} className={`shell-mark is-${m.k} ${cls}`}>
+      <span aria-hidden="true">{m.icon}</span><span className="sr-only"> {m.label}</span>
+    </span>
+  ));
   return (
     <>
       <nav className="shell-areas" role="tablist" aria-label={t(lang, 'Áreas da campanha', 'Campaign areas')}>
@@ -31,6 +38,7 @@ export default function AreaNav({ areas, active, onSelect, onSearch, onMore, mor
           >
             <span className="shell-area-ico" aria-hidden="true">{a.icon}</span>
             <span className="shell-area-label">{areaLabel(a, lang)}</span>
+            {markSpans(a.id, 'is-tab')}
             {badges[a.id] > 0 && <span className="shell-badge" aria-label={t(lang, `${badges[a.id]} novo(s)`, `${badges[a.id]} new`)}>{badges[a.id]}</span>}
             {showKeys && <kbd className="shell-area-key" aria-hidden="true">{i + 1}</kbd>}
           </button>
@@ -48,6 +56,7 @@ export default function AreaNav({ areas, active, onSelect, onSearch, onMore, mor
           >
             <span className="shell-bottom-ico" aria-hidden="true">{a.icon}</span>
             <span className="shell-bottom-label">{areaLabel(a, lang)}</span>
+            {(marks[a.id] || []).length > 0 && <span className="shell-marks">{markSpans(a.id, 'is-bottom')}</span>}
             {badges[a.id] > 0 && <span className="shell-badge shell-badge-dot">{badges[a.id]}</span>}
           </button>
         ))}

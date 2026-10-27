@@ -6,11 +6,11 @@
 //     2ª: "● Ao vivo", "Sessão N", cena (some em < 360) e, à direita,
 //         ▶ Começar sessão N / ■ Encerrar com texto e 44 px.
 //   Tela, Buscar e Ajustes ficam na folha "Mais" (shell/MoreSheet.jsx).
-// - Desktop: a capa larga, com tudo rotulado: Começar/Encerrar, 📺 Tela
-//   (popover com ✕), 🔍 Buscar e ⚙ Ajustes.
-// Exporta também <TvPanel>, o conteúdo da Tela (o popover e a folha "Mais"
-// usam o mesmo).
-import { useEffect, useRef, useState } from 'react';
+// - Desktop: a capa larga, com tudo rotulado: Começar/Encerrar, 📺 Tela (abre a
+//   janela da Tela já "ao vivo", V4 — o popover de antes saiu: o que estava nele
+//   mora na janela, na folha Tela ao vivo e em Jogar › Tela), 🔍 Buscar e ⚙ Ajustes.
+// Exporta também <TvPanel>, o conteúdo da Tela da folha "Mais" (celular).
+import { useState } from 'react';
 import { api } from '../api/client.js';
 import { defaultCoverArt, nextSessionNumber, screenLink, t } from './shell-logic.js';
 import { frontIcon, frontLabel, screenLine, stageNow } from '../stage/stage-now.js';
@@ -20,20 +20,14 @@ import ClosedCampaignBanner from '../plans/ClosedCampaignBanner.jsx';
 import './mesa.css';
 
 export default function CampaignHeader({
-  campaign, lang, isDM, onBack, onStartSession, onEndSession, onSearch, onSettings, onTvOpened, onScreenChange, onChooseScreen, busy,
+  campaign, lang, isDM, onBack, onStartSession, onEndSession, onSearch, onSettings, onOpenScreen, busy,
 }) {
   const st = campaign.state || {};
   const live = !!st.live;
   const session = parseInt(st.session, 10);
   const cover = api.campaignCoverUrl(campaign) || defaultCoverArt(campaign);
-  const [tvOpen, setTvOpen] = useState(false);
   const [nameOpen, setNameOpen] = useState(false);
-  const tvBtn = useRef(null);
   const closed = campaign.status === 'closed';
-  const closeTv = (refocus) => {
-    setTvOpen(false);
-    if (refocus) { try { tvBtn.current?.focus({ preventScroll: true }); } catch { /* ok */ } }
-  };
 
   return (
     <header className={`shell-header ${live ? 'is-live' : ''} ${isDM ? 'is-dm' : 'is-player'} ${closed ? 'is-closed' : ''} ${nameOpen ? 'is-name-open' : ''}`}>
@@ -71,14 +65,10 @@ export default function CampaignHeader({
               </button>
             )}
             <div className="shell-tv-wrap shell-desk-only">
-              <button type="button" ref={tvBtn} className="mesa-btn shell-act" onClick={() => setTvOpen(v => !v)}
-                aria-expanded={tvOpen} aria-haspopup="dialog" title={t(lang, 'Tela (tecla T copia o link)', 'Screen (T copies the link)')}>
+              <button type="button" className="mesa-btn shell-act" onClick={onOpenScreen}
+                title={t(lang, 'Abre a janela da Tela ao vivo (tecla T copia o link)', 'Opens the live screen window (T copies the link)')}>
                 <span aria-hidden="true">📺</span> <span className="shell-act-txt">{t(lang, 'Tela', 'Screen')}</span>
               </button>
-              {tvOpen && (
-                <TvPopover campaign={campaign} lang={lang} onClose={closeTv} onOpened={onTvOpened} onChanged={onScreenChange}
-                  onChoose={onChooseScreen ? () => { setTvOpen(false); onChooseScreen(); } : undefined} />
-              )}
             </div>
             <button type="button" className="mesa-btn shell-act shell-desk-only" onClick={onSearch}
               title={t(lang, 'Buscar (Ctrl+K)', 'Search (Ctrl+K)')} aria-keyshortcuts="Control+K">
@@ -99,37 +89,12 @@ export default function CampaignHeader({
   );
 }
 
-/** Popover da Tela (desktop): o TvPanel com ✕; fecha também com Esc e clique fora. */
-function TvPopover({ campaign, lang, onClose, onOpened, onChanged, onChoose }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target) && !e.target.closest?.('.shell-tv-wrap')) onClose(false); };
-    const onKey = (e) => { if (e.key === 'Escape') onClose(true); };
-    document.addEventListener('mousedown', onDoc);
-    window.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('mousedown', onDoc); window.removeEventListener('keydown', onKey); };
-  }, [onClose]);
-  return (
-    <div className="shell-popover" role="dialog" aria-labelledby="shell-pop-title" ref={ref}>
-      <div className="shell-pop-head">
-        <span className="mesa-gem" aria-hidden="true" />
-        <h2 id="shell-pop-title" className="shell-pop-title"><span className="mesa-foil">{t(lang, 'Tela', 'Screen')}</span></h2>
-        <button type="button" className="mesa-icon-btn shell-pop-x" onClick={() => onClose(true)}
-          aria-label={t(lang, 'Fechar', 'Close')} title={t(lang, 'Fechar (Esc)', 'Close (Esc)')}>
-          <span aria-hidden="true">✕</span>
-        </button>
-      </div>
-      <TvPanel campaign={campaign} lang={lang} onOpened={onOpened} onChanged={onChanged} onChoose={onChoose} />
-    </div>
-  );
-}
-
 /**
- * Conteúdo da Tela (popover do PC e folha "Mais"): "Na tela agora" pela regra
- * única (stage-now.js), ✕ Tirar (volta para o fundo) e 🧹 Limpar a tela, o link
- * (Copiar marca o passo dos primeiros passos; Abrir na TV ↗) e o atalho para o
- * controle completo (Jogar › Tela). Lê o palco do GET da campanha que a casca
- * já faz (nenhum polling próprio; antes lia /api/screen a cada 4 s).
+ * Conteúdo da Tela da folha "Mais" (e, antes da V4, do popover do PC): "Na tela
+ * agora" pela regra única (stage-now.js), ✕ Tirar (volta para o fundo) e
+ * 🧹 Limpar a tela, o link (Copiar marca o passo dos primeiros passos; Abrir na
+ * TV ↗) e o atalho para o controle completo (Jogar › Tela). Lê o palco do GET da
+ * campanha que a casca já faz (nenhum polling próprio).
  */
 export function TvPanel({ campaign, lang, onOpened, onChanged, onChoose }) {
   const [copied, setCopied] = useState(false);

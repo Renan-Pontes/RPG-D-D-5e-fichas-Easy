@@ -54,6 +54,20 @@ const CONDITIONS = {
 // Sem `stage` (servidor antigo), vale o cartão (screenMode), como antes.
 // Tudo o que chega aqui já vem filtrado pelo backend (whitelist da Tela).
 // Animações respeitam prefers-reduced-motion (CSS).
+// "TV conectada" (V4): a TV de verdade pede com ?tv=1&c=<aba> (o servidor marca a
+// aba no cache em memória; nenhuma escrita no banco) e avisa no
+// BroadcastChannel `forja-tv-<campanha>` (o app do mestre no mesmo navegador
+// conta sem servidor). A prévia do mestre (/tv/<t>?preview=1) não conta.
+const IS_PREVIEW = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1';
+function tvTab() {
+  try {
+    let id = sessionStorage.getItem('forja:tv-tab');
+    if (!id) { id = Math.random().toString(36).slice(2, 12); sessionStorage.setItem('forja:tv-tab', id); }
+    return id;
+  } catch { return Math.random().toString(36).slice(2, 12); }
+}
+const TV_QUERY = IS_PREVIEW ? '?preview=1' : `?tv=1&c=${tvTab()}`;
+
 export default function TVScreen({ token, lang = 'pt' }) {
   const [data, setData] = useState(null);
   const [card, setCard] = useState(null);
@@ -79,7 +93,14 @@ export default function TVScreen({ token, lang = 'pt' }) {
   const load = useCallback(async () => {
     if (deadRef.current) return;
     try {
-      const res = await api.screen(token);
+      const res = await api.screen(token, TV_QUERY);
+      if (!IS_PREVIEW && res.campaign?.id != null && typeof BroadcastChannel !== 'undefined') {
+        try {
+          const ch = new BroadcastChannel(`forja-tv-${res.campaign.id}`);
+          ch.postMessage({ tab: TV_QUERY.slice(TV_QUERY.indexOf('c=') + 2) });
+          ch.close();
+        } catch { /* sem BroadcastChannel: só o servidor conta */ }
+      }
       setData(res.campaign);
       setCard(res.card ?? res.campaign?.card ?? null);
       setStage(res.stage ?? null);

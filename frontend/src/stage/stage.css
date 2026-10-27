@@ -171,3 +171,177 @@
   .stage-link-box { grid-column: 1; grid-row: 2; }
   .stage-show-box { grid-column: 2; grid-row: 1 / span 2; }
 }
+
+/* ==========================================================
+   V4 · Barra da mesa (celular), janela da Tela e faixa do turno (PC),
+   folha "Tela ao vivo". Alvos de 48 px nas ações ao vivo (🎲, Próximo,
+   Próximo turno), 44 px no resto; textos de verdade ≥ 13 px.
+   ========================================================== */
+
+/* ---------- miniatura sem texto (72×40; 56×32 a 320 px) ---------- */
+.stage-thumb.is-mini {
+  display: block; width: 72px; height: 40px; aspect-ratio: auto; border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.stage-thumb.is-mini .stage-thumb-emblem { inset: 0; font-size: 18px; }
+.stage-thumb-corner {
+  position: absolute; top: 2px; right: 2px; padding: 0 3px; border-radius: 4px;
+  background: rgba(10, 6, 4, 0.82); color: var(--fh-ember); font-size: 12px; line-height: 16px;
+}
+
+/* ---------- barra da mesa (só no celular) ---------- */
+.mesa-bar { display: none; }
+@media (max-width: 767px) {
+  .mesa-bar {
+    position: fixed; left: 0; right: 0; z-index: 41;
+    bottom: calc(var(--shell-bar-h, 62px) + env(safe-area-inset-bottom, 0px));
+    height: var(--mesa-bar-h, 64px);
+    display: flex; align-items: center; gap: 4px;
+    padding: 0 max(8px, env(safe-area-inset-right, 0px)) 0 env(safe-area-inset-left, 0px);
+    background: var(--fh-noise), linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather-lo));
+    border-top: 1px solid rgba(224, 181, 94, 0.45);
+    box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.45);
+  }
+  /* some com o teclado aberto e atrás das folhas que não são de Jogar */
+  .mesa-bar.is-keyboard, body.mesa-sheet-covers .mesa-bar { display: none; }
+  .mesa-bar-main {
+    flex: 1 1 auto; min-width: 0; height: 64px; display: flex; align-items: center; gap: 6px;
+    padding: 0 4px 0 0; border: 0; background: transparent; color: inherit; font: inherit;
+    text-align: left; cursor: pointer;
+  }
+  .mesa-bar-main:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+  .mesa-bar-thumb { flex: none; width: 80px; height: 64px; display: grid; place-items: center; }
+  .mesa-bar-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .mesa-bar-l1, .mesa-bar-l2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mesa-bar-l1 { color: var(--ink-primary); font-size: 14px; line-height: 18px; font-weight: 600; }
+  .mesa-bar-l2 { color: var(--ink-secondary); font-size: 13px; line-height: 17px; }
+  .mesa-bar-l2.is-error { color: var(--blood-bright); font-weight: 600; }
+  .mesa-bar-l2.is-roll, .mesa-bar-l2.is-sent { color: var(--gold-bright); }
+  .mesa-bar-dice { flex: none; width: 48px; height: 48px; min-height: 48px; padding: 0; font-size: 22px; justify-content: center; }
+  .mesa-bar-act {
+    flex: none; width: 88px; height: 48px; min-height: 48px; padding: 2px 4px;
+    justify-content: center; text-align: center; font-size: 14px; line-height: 1.15; letter-spacing: 0.02em;
+  }
+  .mesa-bar-act.is-end { font-size: 13px; }
+
+  /* a página com a barra: folga embaixo, o dado mora nela, avisos logo acima */
+  body:has(.mesa-bar) {
+    --fab-safe-bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bar-h, 64px) + 8px);
+  }
+  body:has(.mesa-bar) .campaign-detail.shell {
+    padding-bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bottom-safe, 76px) + env(safe-area-inset-bottom, 0px));
+  }
+  body:has(.mesa-bar) .dice-fab { display: none !important; }
+  body:has(.mesa-bar) .play-flash {
+    left: max(12px, env(safe-area-inset-left, 0px)); right: auto; transform: none;
+    bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bar-h, 64px) + 10px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100vw - 24px);
+    animation-name: stage-flash-in;
+  }
+  body:has(.mesa-bar) .toast {
+    right: 12px;
+    bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bar-h, 64px) + 10px + env(safe-area-inset-bottom, 0px));
+  }
+}
+@media (max-width: 359px) {
+  .mesa-bar-thumb { width: 60px; }
+  .stage-thumb.is-mini { width: 56px; height: 32px; }
+  .mesa-bar-act { width: 80px; }
+}
+@keyframes stage-flash-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ---------- faixa do turno do PC (Jogar, com combate) ---------- */
+.turn-strip { display: none; }
+@media (min-width: 768px) {
+  .turn-strip {
+    position: sticky; top: 0; z-index: 24;
+    display: grid; grid-template-columns: minmax(180px, auto) minmax(0, 1fr) auto; align-items: center; gap: 12px;
+    margin: 0 0 14px; padding: 8px 10px;
+  }
+  .turn-strip-who {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; min-height: 48px;
+    padding: 2px 6px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  }
+  .turn-strip-name { font-family: var(--display); font-size: 1.05rem; color: var(--ink-primary); }
+  .turn-strip-sub { color: var(--ink-secondary); font-size: 13px; }
+  .turn-strip-ribbon { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0; padding: 0; list-style: none; min-width: 0; }
+  .turn-strip-mark { font-size: 13px; line-height: 1.4; color: var(--ink-secondary); white-space: nowrap; }
+  .turn-strip-mark.is-acted { color: var(--ink-muted); }
+  .turn-strip-mark.is-now { color: var(--gold-bright); font-weight: 600; }
+  .turn-strip-mark.is-down { color: var(--ink-muted); text-decoration: line-through; }
+  /* largura fixa: "Enviando…" não move o botão debaixo do cursor */
+  .turn-strip-next { min-height: 48px; min-width: 12em; white-space: nowrap; justify-content: center; }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .turn-strip { grid-template-columns: minmax(0, 1fr) auto; }
+  .turn-strip-ribbon { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* ---------- janela da Tela (PC) ---------- */
+.screen-win { display: none; }
+@media (min-width: 768px) {
+  .screen-win {
+    display: block; border: 1px solid transparent; border-radius: 10px; overflow: hidden;
+    background:
+      var(--fh-noise) padding-box,
+      linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather-lo)) padding-box,
+      var(--fh-gilt) border-box;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  }
+  .screen-win.is-float { position: fixed; right: 24px; bottom: 24px; width: 320px; z-index: 45; }
+  .screen-win.is-float.is-left { right: auto; left: 24px; }
+  .screen-win.is-float.is-live { width: 480px; }
+  .screen-win.is-pill {
+    position: fixed; right: 24px; bottom: 24px; z-index: 45; display: inline-flex; align-items: center; gap: 6px;
+    max-width: 320px; min-height: 44px; padding: 0 16px; color: var(--ink-primary); font: inherit; font-size: 14px; cursor: pointer;
+    border-radius: 999px;
+  }
+  .screen-win.is-pill.is-left { right: auto; left: 24px; }
+  .screen-win-pill-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .screen-win-thumb { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; }
+  .screen-win-thumb .stage-thumb { border: 0; border-radius: 0; box-shadow: none; }
+  .screen-win .stage-live { border: 0; border-radius: 0; }
+  /* legenda em 2 linhas (P2): o que está na Tela (toque abre a Tela ao vivo) e as ferramentas */
+  .screen-win-cap { display: flex; flex-direction: column; align-items: stretch; padding: 0 4px 2px; }
+  .screen-win-line {
+    display: block; width: 100%; min-width: 0; min-height: 44px; padding: 0 6px; border: 0; background: none; color: var(--ink-primary);
+    font: inherit; font-size: 14px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+  }
+  .screen-win-tools { display: flex; align-items: center; justify-content: space-between; gap: 0; border-top: 1px solid var(--stroke-faint); }
+  .screen-win.is-docked .screen-win-tools { justify-content: flex-start; gap: 8px; padding-top: 2px; }
+  /* o fim da página sobe além da janela (nada fica preso embaixo dela) */
+  body:has(.screen-win.is-float) main.container:has(> .campaign-detail.shell) { padding-bottom: 320px; }
+  .screen-win.is-docked { position: relative; width: 100%; margin: 0 0 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+  .screen-win-head { display: flex; justify-content: space-between; gap: 8px; margin: 0; padding: 8px 10px 6px; }
+  .screen-win.is-docked .screen-win-tools .mesa-btn { min-height: 44px; }
+  /* o 🎲 flutuante fica à esquerda da janela (não embaixo dela) */
+  body:has(.screen-win.is-float.is-right) .dice-fab { right: calc(24px + 320px + 16px); }
+  body:has(.screen-win.is-float.is-right.is-live) .dice-fab { right: calc(24px + 480px + 16px); }
+  body:has(.screen-win.is-pill.is-right) .dice-fab { bottom: calc(24px + 44px + 12px); }
+}
+.live-tv-dot { color: var(--ink-muted); }
+.live-tv-dot.is-on { color: #7fc48a; }
+
+/* ---------- folha "Tela ao vivo" ---------- */
+.live-sheet .mesa-sheet-body { display: flex; flex-direction: column; gap: 14px; }
+.live-sheet .mesa-sheet-body > * { flex-shrink: 0; }
+.live-tv-state { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: 15px; }
+.live-tv-link { display: flex; flex-wrap: wrap; gap: 8px; }
+.live-tv-link .mesa-btn { min-height: 44px; }
+.live-now { display: flex; flex-direction: column; gap: 6px; }
+.live-now .stage-rule { margin: 0; }
+.live-turn { display: flex; flex-direction: column; gap: 8px; }
+.live-next { width: 100%; min-height: 48px; justify-content: center; }
+.live-turn-who { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.live-turn-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 15px; }
+.live-turn-text strong { overflow-wrap: anywhere; }
+.live-actor { flex: none; min-height: 44px; }
+.live-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.live-row .mesa-btn { min-height: 48px; padding: 2px 6px; justify-content: center; text-align: center; white-space: normal; }
+.live-full { justify-content: flex-start; padding-left: 0; padding-right: 0; text-align: left; color: var(--gold-bright); white-space: normal; }
+.live-prefs { display: flex; flex-direction: column; gap: 8px; }
+.live-prefs .mesa-eyebrow { margin: 0; }
+.live-prefs-seg .mesa-seg-btn { min-width: 0; padding: 4px 6px; white-space: normal; text-align: center; line-height: 1.15; }
+.live-hide { align-self: flex-start; white-space: normal; text-align: left; }
+.shell-more-live { margin-bottom: 12px; }
+.shell-more-tv .live-prefs { margin-top: 14px; }

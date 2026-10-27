@@ -8,6 +8,9 @@
  *     window.__diceRoll({ die, count, mod, label, advMode })  → rola local
  *     window.__diceShow({ label, groups, mod, total, isCrit, isFumble, who })
  *       → só MOSTRA um resultado já decidido (servidor, mestre, dado físico).
+ *     window.__diceOpen() → abre o rolador (o 🎲 da barra da mesa e da janela da
+ *       Tela, V4: com a barra à vista, o botão flutuante some — o CSS da barra o
+ *       esconde — e o dado mora nela).
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Icon from './Icons.jsx';
@@ -113,7 +116,8 @@ const DiceRoller = ({ lang }) => {
   useEffect(() => {
     window.__diceRoll = performRoll;
     window.__diceShow = showResult;
-    return () => { window.__diceRoll = null; window.__diceShow = null; };
+    window.__diceOpen = () => setOpen(true);
+    return () => { window.__diceRoll = null; window.__diceShow = null; window.__diceOpen = null; };
   }, [performRoll, showResult]);
 
   // Sheet aberto: pré-carrega o 3D e reserva espaço no fim da página.

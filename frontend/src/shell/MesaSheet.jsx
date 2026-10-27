@@ -16,6 +16,9 @@
 // - Trava a rolagem da página, põe body.mesa-sheet-open (esconde o dado e os
 //   avisos flutuantes) e devolve o foco a quem abriu.
 // - Cabeçalho e rodapé presos; um só corpo rolável.
+// - dock="bar" (só as folhas de Jogar, V4): no celular a folha para ACIMA da
+//   barra da mesa, que continua à vista e tocável (o Próximo turno nunca some).
+//   As outras folhas escondem a barra (body.mesa-sheet-covers).
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
@@ -52,6 +55,7 @@ export function topmostModal() {
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 let openSheets = 0;
+let coverSheets = 0;   // folhas que cobrem a barra da mesa (todas menos as dock="bar")
 
 function readAccent() {
   try {
@@ -64,8 +68,9 @@ function readAccent() {
 export default function MesaSheet({
   title, icon, eyebrow, onClose, footer, children,
   size = 'auto', width, dirty = false, dirtyText, initialFocus,
-  lang, role = 'dialog', closeLabel, describedBy, className = '', bodyClassName = '',
+  lang, role = 'dialog', closeLabel, describedBy, className = '', bodyClassName = '', dock,
 }) {
+  const docked = dock === 'bar';
   const L = lang || langNow();
   const titleId = useId();
   const dialogRef = useRef(null);
@@ -105,6 +110,7 @@ export default function MesaSheet({
   useLayoutEffect(() => {
     openSheets += 1;
     document.body.classList.add('mesa-sheet-open');
+    if (!docked) { coverSheets += 1; document.body.classList.add('mesa-sheet-covers'); }
     const d = dialogRef.current;
     let target = null;
     if (initialFocus && typeof initialFocus === 'object' && 'current' in initialFocus) target = initialFocus.current;
@@ -113,6 +119,10 @@ export default function MesaSheet({
     return () => {
       openSheets = Math.max(0, openSheets - 1);
       if (!openSheets) document.body.classList.remove('mesa-sheet-open');
+      if (!docked) {
+        coverSheets = Math.max(0, coverSheets - 1);
+        if (!coverSheets) document.body.classList.remove('mesa-sheet-covers');
+      }
       const back = () => {
         if (opener && opener !== document.body && opener.isConnected && typeof opener.focus === 'function') {
           try { opener.focus({ preventScroll: true }); } catch { /* ok */ }
@@ -154,7 +164,7 @@ export default function MesaSheet({
   const w = width || (size === 'full' ? 'lg' : size === 'tall' ? 'md' : 'sm');
   const sheet = (
     <div
-      className="mesa-sheet-backdrop"
+      className={`mesa-sheet-backdrop ${docked ? 'is-dock-bar' : ''}`.trim()}
       style={accent ? { '--camp-accent': accent } : undefined}
       onPointerDown={(e) => { downOnBackdrop.current = e.target === e.currentTarget; }}
       onClick={(e) => {

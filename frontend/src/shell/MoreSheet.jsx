@@ -2,8 +2,9 @@
 // Junta o que no desktop fica na capa, em linhas de 56 px com texto:
 //   cabeçalho: nome completo, frase, Mestre, Sessão N, Ao vivo e a cena inteira;
 //   Sessão (▶ Começar sessão N / ■ Encerrar sessão) · 🔍 Buscar;
-//   📺 Tela (o mesmo TvPanel do popover: lê o palco do GET da campanha, sem
-//   polling próprio) · 🎲 Dados preparados (só com a opção ligada);
+//   📺 Tela (TvPanel: lê o palco do GET da campanha, sem polling próprio;
+//   "Abrir a Tela ao vivo" e "Barra da mesa: Sempre · Só ao vivo · Nunca", V4) ·
+//   🎲 Dados preparados (só com a opção ligada);
 //   ⚙ Ajustes: as 6 seções, cada uma abrindo os Ajustes já nela;
 //   ← Voltar para Campanhas.
 // Quem chama fecha a folha antes de abrir a próxima janela (ver CampaignDetail).
@@ -11,6 +12,7 @@ import { useId } from 'react';
 import MesaSheet from './MesaSheet.jsx';
 import MesaTitle from './MesaTitle.jsx';
 import { TvPanel } from './CampaignHeader.jsx';
+import { BarPrefs } from '../stage/LiveScreenSheet.jsx';
 import { nextSessionNumber, SETTINGS_SECTIONS, settingsSectionLabel, settingsSummary, t } from './shell-logic.js';
 import { immersionOn } from '../world/living/living-logic.js';
 
@@ -30,6 +32,7 @@ function Row({ icon, title, sub, onClick, disabled, className = '' }) {
 export default function MoreSheet({
   campaign, lang, busy = false, worldCount = null, worldMax = 500,
   onClose, onStartSession, onEndSession, onSearch, onSettings, onBack, onTvOpened, onScreenChange, onChooseScreen,
+  onOpenLive, barPrefs, onBarPrefs,
 }) {
   const tvId = useId();
   const setId = useId();
@@ -77,7 +80,14 @@ export default function MoreSheet({
 
       <section className="shell-more-tv mesa-panel is-sunk" aria-labelledby={tvId}>
         <MesaTitle as="h3" id={tvId}>{t(lang, 'Tela', 'Screen')}</MesaTitle>
+        {onOpenLive && (
+          <div className="shell-more-list mesa-panel is-sunk shell-more-live">
+            <Row icon="📺" onClick={onOpenLive} title={t(lang, 'Abrir a Tela ao vivo', 'Open the live screen')}
+              sub={t(lang, 'A TV de verdade, o que está nela e o Próximo turno', 'The real TV, what is on it and the Next turn')} />
+          </div>
+        )}
         <TvPanel campaign={campaign} lang={lang} onOpened={onTvOpened} onChanged={onScreenChange} onChoose={onChooseScreen} />
+        {barPrefs && onBarPrefs && <BarPrefs prefs={barPrefs} onPrefs={onBarPrefs} session={st.session} lang={lang} />}
       </section>
 
       {campaign.advancedDice && (
