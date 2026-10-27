@@ -8,10 +8,12 @@
 import { useState } from 'react';
 import { api, API_BASE } from '../api/client.js';
 import { defaultCoverArt } from '../shell/shell-logic.js';
-import { bgLabel, dmFrontImage, frontIcon, frontLabel, L, stageNow, testLabel } from './stage-now.js';
+import { bgLabel, dmFrontImage, dmMapImage, frontIcon, frontLabel, L, stageNow, testLabel } from './stage-now.js';
 import './stage.css';
 
 const abs = (url) => (!url ? null : /^(https?:|data:|blob:)/.test(url) ? url : `${API_BASE || ''}${url}`);
+// Imagens que falharam (ex.: o ?v=0 de um combate sem mapa): nenhuma miniatura pede de novo.
+const failed = new Set();
 
 export default function StageThumb({ campaign, stage, test = null, lang = 'pt', className = '', mini = false, combat }) {
   // `combat` ({active, round}, do pulso) vale sobre o combatNow do GET completo, que chega depois.
@@ -19,7 +21,13 @@ export default function StageThumb({ campaign, stage, test = null, lang = 'pt', 
   const [broken, setBroken] = useState('');
   const cover = api.campaignCoverUrl(campaign) || defaultCoverArt(campaign);
   const frontImg = now.mode === 'front' ? abs(dmFrontImage(campaign.id, now.front)) : null;
-  const img = now.mode === 'dark' ? null : frontImg && broken !== frontImg ? frontImg : (now.mode === 'rest' || now.mode === 'front' ? cover : null);
+  // combate (ou o mapa como fundo): o mapa da luta, como na TV, com ⚔/🗺 no canto
+  const mapped = now.mode === 'combat' || now.mode === 'map';
+  const mapImg0 = mapped ? abs(dmMapImage(campaign)) : null;
+  const mapImg = mapImg0 && broken !== mapImg0 && !failed.has(mapImg0) ? mapImg0 : null;
+  const img = now.mode === 'dark' ? null : mapImg || (frontImg && broken !== frontImg ? frontImg : (now.mode === 'rest' || now.mode === 'front' ? cover : null));
+  const onError = () => { if (img === mapImg0) failed.add(img); setBroken(img); };
+  const modeIcon = now.mode === 'combat' ? '⚔' : '🗺';
   const contain = !!frontImg && now.front?.kind === 'image';
   let line1;
   if (now.mode === 'dark') line1 = `◐ ${L(lang, 'Tela escurecida', 'Screen blacked out')}`;
@@ -33,10 +41,11 @@ export default function StageThumb({ campaign, stage, test = null, lang = 'pt', 
   if (mini) {
     return (
       <span className={`stage-thumb is-mini is-${now.mode} ${className}`.trim()} aria-hidden="true">
-        {img && <img className={`stage-thumb-img ${contain ? 'is-contain' : ''}`} src={img} alt="" onError={() => setBroken(img)} />}
-        {(now.mode === 'dark' || now.mode === 'combat' || now.mode === 'map' || (now.mode === 'front' && !img)) && (
-          <span className="stage-thumb-emblem">{now.mode === 'dark' ? '◐' : now.mode === 'combat' ? '⚔' : now.mode === 'map' ? '🗺' : frontIcon(now.front)}</span>
+        {img && <img className={`stage-thumb-img ${contain ? 'is-contain' : ''}`} src={img} alt="" onError={onError} />}
+        {(now.mode === 'dark' || (mapped && !mapImg) || (now.mode === 'front' && !img)) && (
+          <span className="stage-thumb-emblem">{now.mode === 'dark' ? '◐' : mapped ? modeIcon : frontIcon(now.front)}</span>
         )}
+        {mapped && mapImg && <span className="stage-thumb-corner">{modeIcon}</span>}
         {now.mode === 'front' && now.over && <span className="stage-thumb-corner">⚔</span>}
       </span>
     );
@@ -45,9 +54,10 @@ export default function StageThumb({ campaign, stage, test = null, lang = 'pt', 
     <div className={`stage-thumb is-${now.mode} ${className}`.trim()} role="img"
       aria-label={[line1, line2].filter(Boolean).join(' · ')}>
       {img && <img className={`stage-thumb-img ${contain ? 'is-contain' : ''}`} src={img} alt=""
-        onError={() => setBroken(img)} />}
+        onError={onError} />}
       {now.mode === 'dark' && <span className="stage-thumb-emblem" aria-hidden="true">◐</span>}
-      {(now.mode === 'combat' || now.mode === 'map') && <span className="stage-thumb-emblem" aria-hidden="true">{now.mode === 'combat' ? '⚔' : '🗺'}</span>}
+      {mapped && !mapImg && <span className="stage-thumb-emblem" aria-hidden="true">{modeIcon}</span>}
+      {mapped && mapImg && <span className="stage-thumb-corner is-big" aria-hidden="true">{modeIcon}</span>}
       {now.mode === 'front' && now.over && (
         <span className="stage-thumb-tarja" aria-hidden="true">⚔ {L(lang, 'Rodada', 'Round')} {now.round ?? '—'}</span>
       )}

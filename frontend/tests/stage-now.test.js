@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   stageNow, normalizeStage, stageLines, undoLabel, frontLabel, playerScreen, screenLine, dmFrontImage,
-  newestStage, cardShowMode, privateReason, privateShort, bgLabel, testLabel, frontPlace,
+  newestStage, cardShowMode, privateReason, privateShort, bgLabel, testLabel, frontPlace, dmMapImage,
 } from '../src/stage/stage-now.js';
 
 const FIGHT = { active: true, round: 2 };
@@ -44,6 +44,13 @@ test('onde está o recap: na TV, esperando o combate ou atrás da Tela escurecid
   assert.equal(frontPlace(stageNow({ stage: { front: recap, bg: 'dark' } }), 'recap'), 'held');
   assert.equal(frontPlace(stageNow({ stage: { front: card } }), 'recap'), null);
   assert.equal(frontPlace(stageNow({ stage: {} }), 'recap'), null);
+});
+
+test('miniatura do mestre: o mapa do combate pela versão gravada no estado', () => {
+  assert.equal(dmMapImage({ id: 1, state: { combatMapVer: 'ab12' } }), '/api/combat/campaign/1/map-image?v=ab12');
+  assert.equal(dmMapImage({ id: 1, state: { combatMapVer: '' } }), null, 'sem mapa');
+  assert.equal(dmMapImage({ id: 1, state: {} }), '/api/combat/campaign/1/map-image?v=0', 'mapa de antes da chave');
+  assert.equal(dmMapImage(null), null);
 });
 
 test('sem frente: o fundo (combate, mapa ou capa)', () => {

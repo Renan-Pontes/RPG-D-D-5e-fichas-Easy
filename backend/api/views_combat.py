@@ -14,6 +14,8 @@ POST /api/combat/campaign/<id>/save-preview (DM) a salvaguarda em área ROLADA N
 POST /api/combat/campaign/<id>/next-turn (DM)  body: {expect?: {round, turnIndex}} → 409 stale_turn se a vez já mudou
 POST /api/combat/campaign/<id>/prev-turn (DM)  body: {expect?} → ↶ Voltar turno (restaura a foto do Próximo)
 POST /api/combat/campaign/<id>/map      (DM)  body: {background_image, grid_size_px, grid_visible}
+                                              trocar o fundo grava `state.combatMapVer` (a miniatura
+                                              da Tela do mestre usa map-image?v= sem ler o base64)
 GET  /api/combat/campaign/<id>/map-image?v=       (member) fundo do mapa (binário; o JSON leva só a URL)
 GET  /api/combat/campaign/<id>/token/<cid>?v=     (member) imagem do token (idem)
 GET  /api/combat/campaign/<id>/actions/<ref>      (DM) as ações de um stat block pelo hash (?sets=1)
@@ -40,6 +42,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
 from .models import Campaign, CombatInstance, RollRequest, Character, DiceRig, DiceLog, Membership
+from .campaign_state import MAP_VER_KEY, merge_state
 from .dice_privacy import scrub_dice
 from .permissions import get_campaign_or_404, require_dm, require_member, is_dm
 from . import combat as engine
@@ -1620,6 +1623,13 @@ def combat_set_map(request, id_or_slug):
             map_data[k] = None if v in (None, '') else max(1, min(10000, _int(v, 1)))
     c.map_data = map_data
     c.save()
+    if 'background_image' in payload:
+        # A versão do fundo vai ao estado (1 escrita por troca de mapa, toque do mestre):
+        # a barra da mesa, a janela do PC e Jogar › Tela mostram o mapa por
+        # map-image?v=<ver> sem que o pulso leia o base64. '' = sem mapa.
+        ver = image_ver(map_data.get('background_image') or '')
+        if (campaign.state or {}).get(MAP_VER_KEY) != ver:
+            merge_state(campaign, {MAP_VER_KEY: ver})
     return Response({'combat': _serialize_combat(c, for_dm=True)})
 
 

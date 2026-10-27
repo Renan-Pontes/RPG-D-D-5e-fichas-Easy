@@ -336,6 +336,31 @@ class CombatImagesByUrlTests(TestCase):
         self.assertEqual(self.c_dm.get(bg).status_code, 404)
         self.assertIsNone(self.c_dm.get(self.url).json()['combat']['map']['background_image'])
 
+    def test_map_change_records_its_version_for_the_dm_thumbnail(self):
+        # a miniatura da Tela do mestre lê state.combatMapVer (o pulso nunca lê o base64)
+        new_bg = 'data:image/png;base64,' + __import__('base64').b64encode(b'\x89PNG\r\n\x1a\n' + b'n' * 900).decode()
+        r = self.c_dm.post(f'{self.url}/map', {'background_image': new_bg}, format='json')
+        self.assertEqual(r.status_code, 200)
+        self.camp.refresh_from_db()
+        ver = self.camp.state['combatMapVer']
+        self.assertEqual(r.json()['combat']['map']['backgroundVer'], ver)
+        self.assertEqual(self.c_dm.get(f'{self.url}/map-image?v={ver}').status_code, 200)
+        self.assertEqual(self.c_dm.get(f'/api/campaigns/{self.camp.id}').json()['campaign']['state']['combatMapVer'], ver)
+        self.assertNotIn('combatMapVer', self.c_p.get(f'/api/campaigns/{self.camp.id}').json()['campaign']['state'])
+        # só a grade: o estado não é escrito de novo
+        before = self.camp.updated_at
+        self.c_dm.post(f'{self.url}/map', {'grid_size_px': 60}, format='json')
+        self.camp.refresh_from_db()
+        self.assertEqual(self.camp.updated_at, before)
+        # sem mapa: '' (a miniatura não pede a imagem)
+        self.c_dm.post(f'{self.url}/map', {'background_image': None}, format='json')
+        self.camp.refresh_from_db()
+        self.assertEqual(self.camp.state['combatMapVer'], '')
+        # o PUT antigo do state inteiro não sobrescreve a chave do servidor
+        self.c_dm.patch(f'/api/campaigns/{self.camp.id}', {'state': {'combatMapVer': 'x', 'weather': 'chuva'}}, format='json')
+        self.camp.refresh_from_db()
+        self.assertEqual(self.camp.state['combatMapVer'], '')
+
     def test_put_with_the_url_keeps_the_token_image(self):
         sprite = self.c_dm.get(self.url).json()['combat']['combatants'][0]['sprite']
         r = self.c_dm.put(f'{self.url}/combatants/g1', {'sprite': sprite, 'initiative': 15}, format='json')

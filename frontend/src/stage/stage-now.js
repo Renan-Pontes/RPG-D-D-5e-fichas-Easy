@@ -230,6 +230,17 @@ export function dmFrontImage(campaignId, front) {
   return null;
 }
 
+/**
+ * URL (relativa à API) do mapa do combate para a miniatura do MESTRE (modos 'combat' e
+ * 'map'): a rota do fundo com a versão gravada em state.combatMapVer ('' = sem mapa).
+ * Mapa de antes dessa chave: ?v=0 (ele só muda por combat_set_map, que grava a chave).
+ */
+export function dmMapImage(campaign) {
+  const ver = campaign?.state?.combatMapVer;
+  if (campaign?.id == null || ver === '') return null;
+  return `/api/combat/campaign/${campaign.id}/map-image?v=${ver || '0'}`;
+}
+
 /** O mais novo entre o palco do GET da campanha e o que voltou do último POST. */
 export function newestStage(a, b) {
   if (!a) return b || null;

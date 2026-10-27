@@ -215,6 +215,8 @@
   position: absolute; top: 2px; right: 2px; padding: 0 3px; border-radius: 4px;
   background: rgba(10, 6, 4, 0.82); color: var(--fh-ember); font-size: 12px; line-height: 16px;
 }
+/* o ⚔/🗺 sobre o mapa do combate, na prévia grande e na janela do PC */
+.stage-thumb-corner.is-big { top: 8px; right: 8px; padding: 2px 8px; font-size: 16px; line-height: 22px; }
 
 /* ---------- barra da mesa (só no celular) ---------- */
 .mesa-bar { display: none; }
