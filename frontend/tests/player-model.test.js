@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   isNewEntry, newEntryIds, cardKey, shouldToastCard, revealedSince, toastTitle,
   paragraphs, atlasEntries, kindCounts, charLine, healthLabel, screenMode, absUrl, handoutStyle,
-  secretSessionLabel,
+  secretSessionLabel, combatStrip, turnJustStarted, myCombatTurn,
 } from '../src/player/player-model.js';
 
 const NOW = Date.parse('2026-10-06T20:00:00Z');
@@ -94,4 +94,46 @@ test('absUrl junta a base só em caminhos relativos', () => {
   assert.equal(absUrl('', '/api/a'), '/api/a');
   assert.equal(absUrl('https://x.com', 'data:image/png;base64,AA'), 'data:image/png;base64,AA');
   assert.equal(absUrl('x', null), null);
+});
+
+test('faixa do combate da Mesa (V13): vez, rodada, depois e SUA VEZ', () => {
+  assert.equal(combatStrip(null), null);
+  assert.equal(combatStrip({ active: false, round: 2 }), null, 'montado ou encerrado: sem faixa');
+  const other = { active: true, round: 2, turnName: 'Goblin #2', nextName: 'Dagna', isMine: false, nextIsMine: true };
+  assert.deepEqual(combatStrip(other), { mine: false, title: 'Vez de Goblin #2', sub: 'Rodada 2 · depois: você' });
+  assert.deepEqual(combatStrip(other, 'en'), { mine: false, title: "Goblin #2's turn", sub: 'Round 2 · next: you' });
+  const mine = { active: true, round: 3, turnName: 'Dagna', nextName: 'Elarion', isMine: true, nextIsMine: false };
+  assert.deepEqual(combatStrip(mine), { mine: true, title: 'SUA VEZ', sub: 'Rodada 3 · depois: Elarion' });
+  assert.deepEqual(combatStrip(mine, 'en'), { mine: true, title: 'YOUR TURN', sub: 'Round 3 · next: Elarion' });
+  // só ela de pé: na vez dela não diz "depois: você"
+  assert.equal(combatStrip({ ...mine, nextName: 'Dagna', nextIsMine: true }).sub, 'Rodada 3');
+  // sem nome de quem age (vez fora da lista) e sem próximo
+  assert.deepEqual(combatStrip({ active: true, round: 1, turnName: '', nextName: '' }),
+    { mine: false, title: 'Combate', sub: 'Rodada 1' });
+});
+
+test('a vez chegou: vibra 1 vez, nunca ao abrir a Mesa', () => {
+  const mine = { active: true, isMine: true };
+  const theirs = { active: true, isMine: false };
+  assert.equal(turnJustStarted(undefined, mine), false, 'abriu a Mesa já na vez dela');
+  assert.equal(turnJustStarted(theirs, mine), true);
+  assert.equal(turnJustStarted(null, mine), true, 'o combate começou na vez dela');
+  assert.equal(turnJustStarted(mine, mine), false, 'a mesma vez não vibra de novo');
+  assert.equal(turnJustStarted(mine, theirs), false);
+  assert.equal(turnJustStarted(theirs, null), false);
+});
+
+test('painel de combate da ficha: o combatente dela e a vez', () => {
+  const combat = { active: true, turnIndex: 1, combatants: [
+    { id: 'g', type: 'monster', name: 'Goblin' },
+    { id: 'd', type: 'pc', character_id: 7, name: 'Dagna' },
+    { id: 'e', type: 'pc', character_id: 8, name: 'Elarion' },
+  ] };
+  assert.deepEqual(myCombatTurn(combat, 7), { me: combat.combatants[1], isMyTurn: true });
+  assert.deepEqual(myCombatTurn(combat, 8), { me: combat.combatants[2], isMyTurn: false });
+  assert.deepEqual(myCombatTurn(combat, '7'), { me: combat.combatants[1], isMyTurn: true }, 'id em texto');
+  assert.deepEqual(myCombatTurn(combat, 9), { me: null, isMyTurn: false }, 'fora do combate');
+  assert.deepEqual(myCombatTurn({ ...combat, active: false }, 7), { me: null, isMyTurn: false });
+  assert.deepEqual(myCombatTurn(combat, null), { me: null, isMyTurn: false });
+  assert.deepEqual(myCombatTurn(null, 7), { me: null, isMyTurn: false });
 });

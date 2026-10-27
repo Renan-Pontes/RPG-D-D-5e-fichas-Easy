@@ -347,6 +347,39 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
   .pl-onscreen-img { width: 100%; height: auto; max-height: 220px; }
 }
 
+/* Faixa do combate (V13): a vez no combate, do pulso do jogador. Altura fixa (64 px) nos
+   dois estados, para "SUA VEZ" e o botão não empurrarem a Mesa; no celular fica presa no
+   topo ao rolar. Na vez dele, dourada, com [Ir para a minha ficha] de 48 px. */
+.pl-fight {
+  display: flex; align-items: center; gap: 10px; height: 64px; min-width: 0; padding: 0 8px 0 12px;
+  border-radius: 10px; border: 1px solid var(--blood);
+  background: linear-gradient(90deg, var(--blood-soft), transparent), var(--bg-card);
+}
+.pl-fight-icon { flex: 0 0 auto; font-size: 1.25rem; line-height: 1; color: var(--gold-bright); }
+.pl-fight-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pl-fight-title, .pl-fight-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* quem age em letra de texto (nome de monstro é longo: o Cinzel não caberia a 320) */
+.pl-fight-title { font-size: 1.05rem; font-weight: 600; color: var(--gold-bright); }
+.pl-fight-sub { font-size: 0.875rem; color: var(--ink-secondary); }
+.pl-fight.is-mine {
+  border-color: var(--gold-bright); background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  box-shadow: 0 0 18px rgba(237, 203, 122, 0.35);
+}
+.pl-fight.is-mine .pl-fight-icon, .pl-fight.is-mine .pl-fight-title { color: var(--on-gold); }
+.pl-fight.is-mine .pl-fight-title { font-family: var(--display); font-weight: 700; letter-spacing: 0.1em; }
+.pl-fight.is-mine .pl-fight-sub { color: rgba(26, 18, 10, 0.8); }
+.pl-fight-go {
+  flex: 0 1 auto; max-width: 48%; min-height: 48px; padding: 4px 12px; border-radius: 8px;
+  border: 1px solid var(--on-gold); background: var(--bg-deep); color: var(--gold-bright);
+  font-family: var(--display); font-size: 0.85rem; line-height: 1.15; letter-spacing: 0.02em; text-align: center; cursor: pointer;
+}
+.pl-fight-go:focus-visible { outline: 2px solid var(--on-gold); outline-offset: 2px; }
+@media (max-width: 360px) { .pl-fight-go { max-width: 44%; padding: 4px 8px; font-size: 0.8rem; letter-spacing: 0; } }
+@media (max-width: 767px) {
+  .pl-fight { position: sticky; top: 0; z-index: 20; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45); }
+  .pl-fight.is-mine { box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45), 0 0 18px rgba(237, 203, 122, 0.35); }
+}
+
 .pl-section { padding: 14px; border-radius: 10px; border: 1px solid var(--stroke); background: var(--bg-card); min-width: 0; }
 .pl-section-title { margin: 0 0 10px; font-family: var(--display); color: var(--gold-bright); font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
 .pl-count { font-size: 0.75rem; padding: 0 8px; border-radius: 999px; background: var(--blood); color: #fff; font-family: var(--body); }

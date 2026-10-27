@@ -19,6 +19,11 @@
 // `pulse.tableRollsRev` (tableRollsRev(), V15) mudam.
 // Servidor sem /pulse (deploy fora de ordem): `missing` → a casca volta ao GET
 // completo a cada 2,5 s, como antes.
+// Jogador (V13): a mesma loja lê o pulso DELE (a mesma rota; o servidor manda a
+// projeção do jogador: a vez no combate, `checksRev`, `rollsRev`). Vai por outro
+// contexto (usePlayerPulse), porque useTable() quer dizer "a mesa do mestre" para
+// quem lê. Servidor antigo (o pulso dá 403 ao jogador): `missing`, e a Mesa volta
+// ao GET completo de 2,5 s e à lista de testes de 3 s, sem a faixa do combate.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage, isOldServer } from '../api/errors.js';
@@ -37,6 +42,9 @@ const TV_LOCAL_TTL = 30_000;
 export const TableContext = createContext(null);
 /** A loja da mesa (null fora da casca do mestre: quem usa cai no comportamento antigo). */
 export const useTable = () => useContext(TableContext);
+export const PlayerPulseContext = createContext(null);
+/** A loja com o pulso do jogador (null para o mestre e fora da campanha). */
+export const usePlayerPulse = () => useContext(PlayerPulseContext);
 
 function emitCombat(campaignId, combat) {
   if (!combat || typeof window === 'undefined') return;
