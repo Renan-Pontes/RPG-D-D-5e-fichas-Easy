@@ -162,6 +162,9 @@ const PUSH_SKILLS = ['perception', 'insight', 'athletics', 'persuasion', 'stealt
 const PUSH_SAVES = ['dex', 'con', 'wis'];
 const INT_SKILLS = ['arcana', 'history', 'investigation', 'nature', 'religion'];
 
+// As perícias de cada estilo (Investigação e Natureza são de INT e de explorar: valem nos dois).
+const TOPIC_SKILLS = { puzzle: INT_SKILLS, explore: EXPLORE_SKILLS, talk: SOCIAL_SKILLS };
+
 /** De que assunto é uma sugestão (o estilo do jogador puxa as do assunto dele para cima). */
 function topicOf(auto) {
   const [kind, key = ''] = String(auto).split(':');
@@ -174,6 +177,13 @@ function topicOf(auto) {
   if (kind === 'tool' || kind === 'sense') return 'explore';
   if (kind === 'dmg' || auto === 'role:control' || auto === 'axis:melee' || auto === 'axis:dmg' || auto === 'axis:mit') return 'combat';
   return null;
+}
+
+/** A sugestão é do assunto do estilo? Perícia: pela lista do estilo (Investigação é enigma E explorar). */
+function inTopic(auto, topic) {
+  const [kind, key = ''] = String(auto).split(':');
+  if (kind === 'skill' && TOPIC_SKILLS[topic]) return TOPIC_SKILLS[topic].includes(key);
+  return topicOf(auto) === topic;
 }
 
 /**
@@ -233,12 +243,12 @@ export function momentSuggestions(facts, { lang = 'pt', dc = 15, style = {}, axi
       shines.push({ kind: 'shine', auto: `axis:${ax}`, text: t(lang, `papel mais forte: ${axisLabel(ax, lang)} ${fmt(scores[ax].final, lang)}`, `strongest role: ${axisLabel(ax, lang)} ${fmt(scores[ax].final, lang)}`) });
     }
     // o estilo puxa as sugestões do assunto dele: enigma → INT, explorar, conversar
+    // (a perícia nova nunca repete a chave de uma sugestão que já está na lista)
     for (const topic of ['puzzle', 'explore', 'talk']) {
       if (!st.includes(topic) || (topic === 'talk' && quiet)) continue;
-      if (!shines.some(x => topicOf(x.auto) === topic)) {
-        const keys = topic === 'puzzle' ? INT_SKILLS : topic === 'explore' ? EXPLORE_SKILLS : SOCIAL_SKILLS;
-        shines.push(skillShine(bestOf(keys), styleLabel(topic, lang)));
-      }
+      if (shines.some(x => inTopic(x.auto, topic))) continue;
+      const k = bestOf(TOPIC_SKILLS[topic].filter(x => !shines.some(s => s.auto === `skill:${x}`)));
+      if (k) shines.push(skillShine(k, styleLabel(topic, lang)));
     }
     if (st.includes('combat') && party) {
       // linha de frente ou o maior dano do grupo, quando é dele
@@ -262,7 +272,7 @@ export function momentSuggestions(facts, { lang = 'pt', dc = 15, style = {}, axi
     }
     const wanted = st.filter(x => ['combat', 'puzzle', 'explore', 'talk'].includes(x) && !(x === 'talk' && quiet));
     if (wanted.length) {
-      const rank = (x) => { const i = wanted.indexOf(topicOf(x.auto)); return i < 0 ? wanted.length : i; };
+      const rank = (x) => { const i = wanted.findIndex(w => inTopic(x.auto, w)); return i < 0 ? wanted.length : i; };
       const head = quiet ? shines.slice(0, 1) : [];
       shines = [...head, ...shines.slice(head.length).map((x, i) => ({ x, i })).sort((a, b) => rank(a.x) - rank(b.x) || a.i - b.i).map(o => o.x)];
     }

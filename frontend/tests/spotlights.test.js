@@ -77,6 +77,28 @@ test('os outros estilos puxam as sugestões do assunto deles', () => {
   assert.equal(dag[0].auto, 'skill:religion');
 });
 
+test('nenhum estilo repete a chave de uma sugestão (Investigação é enigma e explorar)', () => {
+  // dois guerreiros de INT 14; só a Mia tem Investigação: ela lidera numa perícia de INT que também é de explorar
+  const mk = (o) => ({ ...Utils.makeNew(), rulesVersion: '2024', race: 'human', className: 'fighter', level: 1, ...o });
+  const mia = mk({ name: 'Mia', abilities: { str: 14, dex: 12, con: 14, int: 14, wis: 10, cha: 8 }, skillProfs: ['investigation', 'athletics'] });
+  const bruto = mk({ name: 'Bruto', abilities: { str: 16, dex: 12, con: 14, int: 14, wis: 10, cha: 8 }, skillProfs: ['athletics', 'intimidation'] });
+  const duo = M.partyFacts(M.partyMembers([mia, bruto].map((data, i) => ({ role: 'player', character: { id: 70 + i, name: data.name, data } }))), 'pt');
+  const puzzle = S.momentSuggestions(duo, { style: { 70: ['puzzle'] } })[70];
+  assert.deepEqual(puzzle.filter(s => s.auto === 'skill:investigation').length, 1, puzzle.map(s => s.auto).join(' '));
+  assert.equal(puzzle[0].auto, 'skill:investigation', 'a perícia de INT que ele já lidera sobe para o topo');
+  // as 64 combinações de estilo, nas fichas do seed e nas duas sintéticas
+  const ids = S.STYLES.map(x => x.id);
+  for (const group of [facts, duo]) {
+    for (let mask = 0; mask < 64; mask++) {
+      const st = ids.filter((_, i) => mask & (1 << i));
+      for (const f of group) {
+        const keys = S.momentSuggestions(group, { style: { [f.id]: st } })[f.id].map(x => x.auto);
+        assert.equal(new Set(keys).size, keys.length, `${f.name} ${st.join('+')}: ${keys.join(' ')}`);
+      }
+    }
+  }
+});
+
 test('aceitar, escrever (até 160), dispensar e o limite de 12 por personagem', () => {
   const sug = S.momentSuggestions(facts, {})[PIPO];
   let list = S.acceptMoment([], sug[0]);
