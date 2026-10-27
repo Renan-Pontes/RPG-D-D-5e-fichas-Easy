@@ -6,7 +6,7 @@ import { setScreenCard } from '../stage/stage-api.js';
 const cid = (c) => encodeURIComponent(c);
 
 export const prepApi = {
-  // Plano da próxima sessão (só mestre). PUT faz merge por chave no servidor.
+  // Plano da Sessão N (só mestre). PUT faz merge por chave no servidor (as cenas, por id).
   getSessionPlan: (campaignId) => request(`/api/campaigns/${cid(campaignId)}/session-plan`),
   saveSessionPlan: (campaignId, patch) => request(`/api/campaigns/${cid(campaignId)}/session-plan`, { method: 'PUT', body: { plan: patch } }),
   // Mundo (lista leve, detalhe, criação rápida, revelar, mostrar na Tela)

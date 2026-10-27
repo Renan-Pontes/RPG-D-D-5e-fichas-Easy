@@ -63,7 +63,7 @@ function download(name, obj) {
  * caminhos, encontro, tesouro, telão, cartões do Mundo da sala). Jogadores
  * nunca veem esta área nem os dados.
  */
-export default function PrepTab({ campaign, lang, onOpenTab, goTo, initialAdventureId, initialNodeId, onConsumedParams }) {
+export default function PrepTab({ campaign, lang, onOpenTab, goTo, initialAdventureId, initialNodeId, onConsumedParams, onReady }) {
   const [adventures, setAdventures] = useState(null);
   const [error, setError] = useState('');
   const [openId, setOpenId] = useState(initialAdventureId || null);
@@ -124,12 +124,23 @@ export default function PrepTab({ campaign, lang, onOpenTab, goTo, initialAdvent
 
   return (
     <div className="prep-tab">
+      {/* no topo: as aventuras prontas (o plano vem junto) */}
+      {onReady && (
+        <button type="button" className="prep-ready-card" onClick={onReady}>
+          <span className="prep-ready-title">📖 {t(lang, 'Aventuras prontas', 'Ready adventures')}</span>
+          <span className="prep-ready-sub">{t(lang, '2 toques e o plano vem pronto.', '2 taps and the plan comes ready.')}</span>
+          <span className="prep-ready-go" aria-hidden="true">›</span>
+        </button>
+      )}
       <div className="prep-intro">
         <div>
           <h2>{t(lang, 'Aventuras', 'Adventures')}</h2>
           <p className="muted">{t(lang,
-            'Monte cada aventura como um mapa de salas e cenas ligadas por caminhos e ligue os cartões do seu Mundo a cada sala. Na sessão, use “Conduzir” para marcar por onde o grupo passa. Só você vê isto.',
-            'Build each adventure as a map of rooms and scenes linked by paths, and link your World cards to each room. During the session, use “Run” to mark where the party goes. Only you see this.')}</p>
+            'Aventura = um mapa de salas. Bom para masmorras e viagens. Para uma sessão simples, o Plano basta.',
+            'Adventure = a map of rooms. Good for dungeons and journeys. For a simple session, the Plan is enough.')}</p>
+          <p className="muted">{t(lang,
+            'Ligue os cartões do seu Mundo a cada sala e, na sessão, use “Conduzir” para marcar por onde o grupo passa. Só você vê isto.',
+            'Link your World cards to each room and, during the session, use “Run” to mark where the party goes. Only you see this.')}</p>
         </div>
       </div>
       <form className="prep-create" onSubmit={create}>

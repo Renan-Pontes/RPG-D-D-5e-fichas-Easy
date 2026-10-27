@@ -51,8 +51,8 @@ export function importedNote(result, lang = 'pt') {
   const name = result.name || '';
   if (lang === 'en') {
     return `“${name}” is in Prepare › Adventures, as a Draft. Its World cards are hidden until you reveal them.`
-      + (result.sessionPlanFilled ? ' The next session plan already has the strong start, scenes and clues.' : '');
+      + (result.sessionPlanFilled ? ' The session plan (Prepare › Plan) already has the opening, scenes and clues.' : '');
   }
   return `“${name}” está em Preparar › Aventuras, como Rascunho. Os cartões do Mundo ficam ocultos até você revelar.`
-    + (result.sessionPlanFilled ? ' O plano da próxima sessão já tem o começo forte, as cenas e as pistas.' : '');
+    + (result.sessionPlanFilled ? ' O Plano da Sessão (Preparar › Plano) já tem o começo, as cenas e as pistas.' : '');
 }

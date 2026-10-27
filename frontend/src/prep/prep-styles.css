@@ -13,8 +13,20 @@
 .linklike:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 /* ---------- lista de aventuras ---------- */
+/* no topo: "📖 Aventuras prontas · 2 toques e o plano vem pronto" (linha de 64 px) */
+.prep-ready-card {
+  position: relative; display: flex; flex-direction: column; gap: 2px; width: 100%; min-height: 64px; padding: 10px 40px 10px 14px;
+  border: 1px solid var(--gold-deep); border-radius: 8px; background: linear-gradient(135deg, var(--gold-soft), rgba(10, 7, 6, 0.4));
+  color: var(--ink-primary); font: inherit; text-align: left; cursor: pointer;
+}
+.prep-ready-card:focus-visible { outline: 2px solid var(--fh-gold-hi, var(--gold-bright)); outline-offset: 2px; }
+.prep-ready-title { font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--gold-bright); }
+.prep-ready-sub { font-size: 14px; color: var(--ink-secondary); }
+.prep-ready-go { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-size: 1.3rem; color: var(--gold); }
+@media (hover: hover) { .prep-ready-card:hover { border-color: var(--gold); } }
 .prep-intro h2 { margin: 0 0 4px; }
 .prep-intro p { margin: 0; max-width: 70ch; }
+.prep-intro p + p { margin-top: 4px; }
 .prep-create { display: flex; gap: 8px; flex-wrap: wrap; }
 .prep-create .input { flex: 1 1 260px; width: auto; }
 .prep-empty { padding: 24px; border: 1px dashed var(--stroke); border-radius: var(--radius-lg); text-align: center; color: var(--ink-muted); }

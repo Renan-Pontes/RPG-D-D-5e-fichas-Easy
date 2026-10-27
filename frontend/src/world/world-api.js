@@ -88,13 +88,13 @@ export function markWorldSeen(campaignId) {
   return request(`/api/campaigns/${cid(campaignId)}/world/seen`, { method: 'POST', body: {} });
 }
 
-/** Plano da próxima sessão (mestre). → plan */
+/** Plano da Sessão N (mestre; Preparar › Plano). → plan */
 export async function getSessionPlan(campaignId) {
   const r = await request(`/api/campaigns/${cid(campaignId)}/session-plan`);
   return r.plan;
 }
 
-/** Merge por chave no servidor. → plan */
+/** Merge por chave no servidor (as cenas, por id: o bolso que não veio fica). → plan */
 export async function saveSessionPlan(campaignId, patch) {
   const r = await request(`/api/campaigns/${cid(campaignId)}/session-plan`, { method: 'PUT', body: { plan: patch } });
   return r.plan;

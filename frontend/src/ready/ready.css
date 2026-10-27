@@ -60,13 +60,6 @@
 }
 .ready-error { margin: 0; color: var(--blood-bright); font-size: .9rem; }
 
-/* Botão e janela em Preparar › Aventuras */
-.ready-entry { display: none; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
-.ready-entry:has(~ .prep-tab > .prep-intro) { display: flex; }
-.ready-entry .muted { font-size: .86rem; }
-.ready-modal { max-width: 860px; position: relative; }
-.ready-modal h2 { margin: 0 0 4px; font-family: var(--display); }
-.ready-modal .ready-intro { margin: 0 0 12px; color: var(--ink-secondary); font-size: .9rem; }
 
 /* Assistente: no celular, a galeria vira uma coluna e o rádio fica compacto */
 @media (max-width: 560px) {
