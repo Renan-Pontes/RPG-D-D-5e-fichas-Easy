@@ -56,7 +56,7 @@ export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount })
     try { const m = await api.listTableRolls(campaign.id); setTableRolls(m.rolls || []); } catch { /* o próximo tenta */ }
   }, [campaign.id]);
   useEffect(() => { if (view === 'table') loadTable(); }, [view, loadTable]);
-  useOnRev(table?.pulse?.checksRev, loadTable, { table, fallbackMs: 6000, initial: false });
+  useOnRev(table?.pulse?.checksRev, loadTable, { table, fallbackMs: 6000, safetyMs: Infinity, initial: false });
 
   const groups = useMemo(() => unifyTests(data), [data]);
   const waiting = testsBadge(groups);

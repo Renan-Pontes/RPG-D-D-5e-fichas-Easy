@@ -156,8 +156,10 @@ const RULES = [
   ['players', (lang) => L(lang, 'Dos jogadores', 'Players'), [
     ['all', (lang) => L(lang, 'Todas', 'All')], ['crits', (lang) => L(lang, 'Só críticos', 'Crits only')], ['off', (lang) => L(lang, 'Nenhuma', 'None')]],
   (v, lang) => ({
-    all: L(lang, 'Toda rolagem do rolador da Mesa vai à Tela.', 'Every roll from the table roller goes on screen.'),
-    crits: L(lang, 'Só 20 e 1 naturais no d20 (do rolador da Mesa e dos testes) vão à Tela.', 'Only natural 20s and 1s on the d20 (table roller and checks) go on screen.'),
+    all: L(lang, 'Toda rolagem do rolador da Mesa vai à Tela. Dos testes, só o 20 e o 1 naturais dos testes da mesa (na Tela ou pedidos a todos, sem 🔒 CD secreta).',
+      'Every roll from the table roller goes on screen. From checks, only natural 20s and 1s of table checks (on screen or asked of everyone, without a 🔒 secret DC).'),
+    crits: L(lang, 'Só 20 e 1 naturais no d20 vão à Tela: do rolador da Mesa e dos testes da mesa (na Tela ou pedidos a todos, sem 🔒 CD secreta). Teste para um jogador só não aparece.',
+      'Only natural 20s and 1s on the d20 go on screen: from the table roller and from table checks (on screen or asked of everyone, without a 🔒 secret DC). A check for a single player never shows.'),
     off: L(lang, 'Nada dos jogadores vai à Tela (os pedidos que você mostrar continuam indo).', "Nothing from the players goes on screen (the requests you show still do)."),
   })[v]],
   ['dm', (lang) => L(lang, 'Do mestre', 'GM'), [
@@ -187,7 +189,8 @@ function RollRules({ campaign, stage, lang, onChange }) {
     try { const r = await api.listTableRolls(cid); setRolls((r.rolls || []).slice(0, 5)); } catch { /* fica o que estava */ }
   }, [cid]);
   useEffect(() => { load(); }, [load]);
-  useOnRev(table?.pulse?.checksRev, load, { table, fallbackMs: 15_000, initial: false });
+  // o checksRev muda a cada rolagem (COUNT e MAX(id)): sem a busca de segurança de 60 s
+  useOnRev(table?.pulse?.checksRev, load, { table, fallbackMs: 15_000, safetyMs: Infinity, initial: false });
   const set = async (key, value) => {
     if (busy || prefs[key] === value) return;
     setBusy(true);
@@ -232,10 +235,11 @@ function RollRules({ campaign, stage, lang, onChange }) {
         <p className="mesa-hint stage-rule-why">{L(lang, 'Os monstros aparecem sempre só com a faixa de saúde.', 'Monsters always show only a health band.')}</p>
       </div>
       <div className="stage-rule-row">
-        <span className="stage-rule-title">{L(lang, 'Últimas 5', 'Last 5')}</span>
-        {rolls === null && <p className="muted small">{L(lang, 'Carregando…', 'Loading…')}</p>}
-        {rolls?.length === 0 && <p className="muted small">{L(lang, 'Nenhuma rolagem de mesa ainda.', 'No table rolls yet.')}</p>}
-        <div className="rolls-panel stage-rolls-list">
+        <span className="stage-rule-title" id="stage-rolls-last">{L(lang, 'Últimas 5', 'Last 5')}</span>
+        {/* Altura fixa com rolagem própria: a rolagem que chega não empurra "Ligar a Tela" (princípio 8) */}
+        <div className="rolls-panel stage-rolls-list" role="region" aria-labelledby="stage-rolls-last" tabIndex={0}>
+          {rolls === null && <p className="muted small">{L(lang, 'Carregando…', 'Loading…')}</p>}
+          {rolls?.length === 0 && <p className="muted small">{L(lang, 'Nenhuma rolagem de mesa ainda.', 'No table rolls yet.')}</p>}
           {(rolls || []).map(r => <TableRollRow key={r.id} r={r} lang={lang} compact />)}
         </div>
       </div>

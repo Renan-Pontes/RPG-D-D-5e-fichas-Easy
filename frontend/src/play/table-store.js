@@ -252,6 +252,8 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) 
  * Sem a loja (tela antiga, servidor sem pulso): cai no polling de `fallbackMs`.
  *   useOnRev(table?.pulse?.checksRev, load, { table, fallbackMs: 6000 })
  * `initial: false`: quem chama já busca ao abrir (não repete a 1ª busca).
+ * `safetyMs: Infinity`: sem a busca de segurança quando a versão já cobre tudo o que
+ * a tela mostra (ex.: o checksRev muda a cada linha RollRequest — COUNT e MAX(id)).
  * Devolve `see(rev)`: marca uma versão que já chegou por outro caminho (a resposta
  * de uma ação) como vista, para o pulso não buscar a mesma coisa de novo.
  */
@@ -271,6 +273,7 @@ export function useOnRev(rev, fn, { table, fallbackMs = 2500, safetyMs = 60_000,
   }, [pulsing, rev, initial]);
   useEffect(() => {
     const ms = pulsing ? safetyMs : fallbackMs;
+    if (!Number.isFinite(ms)) return undefined;   // setTimeout(…, Infinity) dispararia na hora
     let alive = true;
     let timer = null;
     const tick = async () => {

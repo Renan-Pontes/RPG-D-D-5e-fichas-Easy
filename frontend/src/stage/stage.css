@@ -185,7 +185,17 @@
 .stage-rule-checks { display: flex; flex-wrap: wrap; gap: 8px; }
 .stage-rule-check { cursor: pointer; }
 .stage-rule-check input { width: 20px; height: 20px; accent-color: var(--gold); }
-.stage-rolls-list { display: flex; flex-direction: column; }
+/* Últimas 5: altura fixa (cerca de 5 linhas) com rolagem própria — a lista que cresce
+   não empurra os botões de "Ligar a Tela" (nada mexe debaixo do dedo). Sem âncora de
+   rolagem dentro dela: a linha nova empurra as outras para baixo e o navegador rolava a
+   página junto para "seguir" a linha que desceu. */
+.stage-rolls-list {
+  display: flex; flex-direction: column; height: 17.5rem; overflow-y: auto; overscroll-behavior: contain;
+  overflow-anchor: none;
+  border: 1px solid var(--stroke); border-radius: 6px; padding: 0 10px;
+}
+.stage-rolls-list:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.stage-rolls-list > p { margin: 10px 0; }
 
 /* ==========================================================
    V4 · Barra da mesa (celular), janela da Tela e faixa do turno (PC),
