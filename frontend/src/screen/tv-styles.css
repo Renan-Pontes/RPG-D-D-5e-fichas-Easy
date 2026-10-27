@@ -659,6 +659,7 @@
    e a Tela escurecida.
    ======================================================================== */
 .tv-turn-tarja {
+  position: relative; z-index: 3;   /* por cima das tarjas de cinema do recap */
   flex: none; display: flex; align-items: baseline; gap: 0.5em; flex-wrap: wrap;
   margin: -3cqh -2.6cqw 0; padding: 1.2cqh 2.6cqw;
   background: rgba(7, 5, 4, 0.88); border-bottom: 1px solid var(--tv-gold-deep);
