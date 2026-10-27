@@ -379,11 +379,13 @@ export function nextStepId(id) {
 
 /**
  * "Pronto para jogar" (fim da sanfona, só leitura): o que já está de pé para a sessão.
- * [{id, ok, text}] — `tv` = a Tela já foi aberta numa TV.
+ * [{id, ok, text}] — `tv` = a Tela já foi aberta numa TV. `withImage` = cenas com imagem
+ * contadas por quem sabe das salas (a imagem da cena ligada mora na sala); sem ele, o
+ * bolso 📺 de cada cena.
  */
-export function readyChecklist(plan, { party = [], tv = false, lang = 'pt' } = {}) {
+export function readyChecklist(plan, { party = [], tv = false, lang = 'pt', withImage: imgCount = null } = {}) {
   const scenes = plan.scenes.filter(realScene);
-  const withImage = scenes.filter(s => s.show).length;
+  const withImage = Number.isInteger(imgCount) ? imgCount : scenes.filter(s => s.show).length;
   const sheets = party.filter(m => m.character).length;
   const clues = clueCount(plan).total;
   return [

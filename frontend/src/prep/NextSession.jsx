@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, apiUrl } from '../api/client.js';
 import { errorMessage, isOldServer } from '../api/errors.js';
 import { tName } from '../../data/i18n.js';
-import { prepApi } from './prep-api.js';
+import { prepApi, loadRooms } from './prep-api.js';
+import { sceneView, sceneIcons, sceneMoments, closeScene, lightNode } from './scene-model.js';
+import { partyLevels } from './prep-graph.js';
 import {
   normalizePlan, addScene, addSecret, updateItem, removeItem, moveItem, toggleId, padSecrets,
   toggleDiscovered, revealBodyFor, planDiff, carryOver, textForRef, PLAN_LIMITS, PLAN_STEPS,
@@ -21,6 +23,7 @@ import { WORLD_KINDS } from './prep-world.js';
 // Ícones e nomes dos tipos vêm do Mundo, para casar com o Atlas (🧑 NPCs, ⚜️ Facções, 📜 Histórias).
 import { kindIcon, kindLabel } from '../world/world-model.js';
 import { createSampleWorld } from '../world/world-api.js';
+import { toLight } from '../world/world-model.js';
 import WorldRefs from './WorldRefs.jsx';
 import ReadySheet from './ReadySheet.jsx';
 import usePrepConfirm from './usePrepConfirm.jsx';
@@ -28,6 +31,11 @@ import useRaioX from '../group/useRaioX.js';
 import { cachedInsights, insightsApi, rememberInsights, withDefaults } from '../group/insights-api.js';
 import '../group/group-styles.css';
 import './next-session.css';
+
+// A folha da Cena (e o Escolher monstro, o bestiário…) só baixa quando a 1ª cena abre;
+// o editor do cartão, quando o 1º chip abre.
+const SceneSheet = lazy(() => import('./SceneSheet.jsx'));
+const EntrySheet = lazy(() => import('./EntrySheet.jsx'));
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 // Quanto a página espera as contas do Raio-X e as salas das cenas ligadas junto com o
@@ -67,6 +75,8 @@ export default function NextSession({ campaign, lang, goTo }) {
   const [idea, setIdea] = useState(0);
   const [busy, setBusy] = useState(null);             // ação do cartão em andamento
   const [sheet, setSheet] = useState(null);           // {kind:'ready'} | {kind:'idea', step} | {kind:'moments', charId}
+  const [sceneSheet, setSceneSheet] = useState(null); // {id, fresh}: a folha da Cena aberta
+  const [entrySheet, setEntrySheet] = useState(null); // id do cartão aberto no editor (sem sair do Preparar)
   const [reorder, setReorder] = useState(false);
   const [focusId, setFocusId] = useState(null);       // campo a focar depois de criar (cena/pista)
   const [confirm, confirmEl] = usePrepConfirm(lang);
@@ -187,10 +197,12 @@ export default function NextSession({ campaign, lang, goTo }) {
     return light;
   };
 
-  const nodesCache = useRef(new Map()); // adventureId -> Promise<nodes>
+  // as salas das cenas ligadas, leves (sem textos nem imagens: GET …/nodes; o servidor
+  // antigo cai na aventura inteira), 1 vez por aventura
+  const nodesCache = useRef(new Map()); // adventureId -> Promise<salas leves>
   const loadNodes = useCallback((advId) => {
     if (!nodesCache.current.has(advId)) {
-      const p = api.getAdventure(campaign.id, advId).then(r => r.adventure?.data?.nodes || []);
+      const p = loadRooms(campaign.id, advId);
       // falhou (aventura apagada, sem rede): o N5 segue sem as salas dela; quem abrir a sala tenta de novo
       p.then(nodes => setNodesByAdv(m => ({ ...m, [advId]: nodes })))
         .catch(() => { nodesCache.current.delete(advId); setNodesByAdv(m => (advId in m ? m : { ...m, [advId]: [] })); });
@@ -199,7 +211,8 @@ export default function NextSession({ campaign, lang, goTo }) {
     return nodesCache.current.get(advId);
   }, [campaign.id]);
 
-  const openEntry = goTo ? (e) => goTo('world', 'atlas', { entryId: e.id }) : null;
+  // tocar num chip (À mão, 🎭 Quem aparece) abre o editor do cartão numa folha, sem sair do Preparar
+  const openEntry = (e) => setEntrySheet(e.id);
 
   // ---------------------------------------------------------------- pistas
   const onDiscover = async (id) => {
@@ -330,6 +343,21 @@ export default function NextSession({ campaign, lang, goTo }) {
   const holdNodes = !shownOnce.current && advIds.some(id => !(id in nodesByAdv)) && !waitOver;
   const fights = useMemo(() => sceneFights(plan, nodesByAdv), [plan, nodesByAdv]);
 
+  // a sala que a folha da Cena gravou: a linha leve dela (ícones da cena, N5) sem novo GET
+  const onRoomSaved = useCallback((ref, node) => {
+    if (!node) return;
+    setNodesByAdv(m => (m[ref.adventureId]
+      ? { ...m, [ref.adventureId]: m[ref.adventureId].map(n => (n.id === node.id ? lightNode(node) : n)) } : m));
+  }, []);
+  const upsertWorld = (light) => setWorld(w => {
+    const l = w || [];
+    const i = l.findIndex(e => e.id === light.id);
+    if (i < 0) return [...l, light];
+    const next = l.slice();
+    next[i] = { ...l[i], ...light };
+    return next;
+  });
+
   // a casca põe o "!" em Preparar com o plano em branco (o Plano aberto avisa a cada mudança)
   useEffect(() => { if (plan) onPlan?.(plan); }, [plan, onPlan]);
 
@@ -365,10 +393,26 @@ export default function NextSession({ campaign, lang, goTo }) {
     if (focus) setFocusId(focus);
     else setTimeout(() => document.getElementById(`ns-step-${id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 0);
   };
+  // A cena que sai da folha sem nome: vazia some; com algo, ganha "Cena N" (o nome é obrigatório).
+  const settleScene = (id) => {
+    if (closed) return;
+    const list = planRef.current?.scenes || [];
+    const i = list.findIndex(x => x.id === id);
+    if (i < 0) return;
+    const r = closeScene(list[i], i, lang);
+    if (r.action === 'remove') change(p => removeItem(p, 'scenes', id));
+    else if (r.action === 'name') change(p => updateItem(p, 'scenes', id, { text: withSceneName(list[i].text, r.text) }));
+  };
+  const openScene = (id, fresh = false) => {
+    if (sceneSheet && sceneSheet.id !== id) settleScene(sceneSheet.id);
+    setSceneSheet({ id, fresh });
+  };
+  // "＋ Cena" abre a folha da Cena com o nome em foco (o passo ③ fica aberto atrás)
   const addSceneAndFocus = () => {
     const id = freshSceneId(planRef.current.scenes);
     change(p => addScene(p, '', null, id));
-    openStep('scenes', `ns-scene-${id}`);
+    setOpen('scenes');
+    openScene(id, true);
   };
   const addClueAndFocus = () => {
     const empty = planRef.current.secrets.find(s => !s.text && !s.ref);
@@ -456,6 +500,29 @@ export default function NextSession({ campaign, lang, goTo }) {
   const worldCount = (world || []).length;
   const totalMoments = insights ? insights.chars.reduce((n, c) => n + c.moments, 0) : null;
   const clues = clueCount(plan);
+  // a linha de cada cena (③): os ícones do que ela tem, escritos; a cena ligada lê a sala leve
+  const firstNames = raiox ? Object.fromEntries(raiox.facts.map(f => [f.id, rx.PM.firstName(f.name)])) : {};
+  const roomOf = (sc) => (sc.nodeRef ? (nodesByAdv[sc.nodeRef.adventureId] || []).find(n => n.id === sc.nodeRef.nodeId) || null : null);
+  const sceneInfo = (sc) => {
+    const room = roomOf(sc);
+    const v = sceneView(sc, room, { world });
+    return { icons: sceneIcons(v, { lang, moments: sceneMoments(sc, ins?.spotlights || {}), names: firstNames }), room: room?.name || null, image: !!v.show };
+  };
+  const withImage = plan.scenes.filter(realScene).filter(sc => sceneInfo(sc).image).length;
+  // ★ Momento na folha da Cena: o mesmo Raio-X já carregado aqui (ideias, estilo, gravar)
+  const momentApi = raiox && insOk ? {
+    facts: raiox.facts, firstName: rx.PM.firstName, kindIcon: rx.S.kindIcon,
+    nameOf: (id) => raiox.byId[id]?.name || '?',
+    styleOf: (id) => (ins?.style?.[String(id)] || []).map(x => rx.S.styleLabel(x, lang)),
+    ideasFor: (id) => insights?.chars.find(c => c.id === id)?.ideas || [],
+    dismissedOf: (id) => ins?.dismissed?.[String(id)] || [],
+    momentsOf, accept: rx.S.acceptMoment, write: rx.S.writeMoment, save: saveMoments,
+    spotlights: ins?.spotlights || {},
+  } : null;
+  const momentsNote = !wantRx
+    ? t(lang, 'Os momentos vêm do Raio-X do grupo: precisam de personagens com ficha.', 'Moments come from the party X-ray: they need characters with sheets.')
+    : !rx ? t(lang, 'Carregando o Raio-X do grupo…', 'Loading the party X-ray…')
+      : t(lang, 'Os momentos precisam do servidor atualizado.', 'Moments need the updated server.');
   const handyIds = [...plan.npcIds, ...plan.placeIds];
   const toggleHandy = (id) => {
     const e = (world || []).find(x => x.id === id);
@@ -488,14 +555,11 @@ export default function NextSession({ campaign, lang, goTo }) {
     ),
     scenes: (
       <ScenesStep plan={plan} lang={lang} closed={closed} reorder={reorder} setReorder={setReorder} narrow={narrow}
-        adventures={adventures} loadNodes={loadNodes} world={world} worldError={worldError} handyIds={handyIds}
+        world={world} worldError={worldError} handyIds={handyIds} sceneInfo={sceneInfo}
         onToggleHandy={toggleHandy} onCreateEntry={createEntry} onOpenEntry={openEntry}
-        onAdd={addSceneAndFocus}
+        onAdd={addSceneAndFocus} onOpenScene={(id) => openScene(id)}
         onChange={(id, patch) => change(p => updateItem(p, 'scenes', id, patch))}
-        onMove={(id, dir) => change(p => moveItem(p, 'scenes', id, dir))}
-        onRemove={(s) => removeWithUndo('scenes', s, t(lang, 'Cena apagada', 'Scene deleted'))}
-        onOpenRoom={goTo ? (ref) => goTo('prepare', 'adventures', { adventureId: ref.adventureId, nodeId: ref.nodeId }) : null}
-        onAdventures={goTo ? () => goTo('prepare', 'adventures') : null} />
+        onMove={(id, dir) => change(p => moveItem(p, 'scenes', id, dir))} />
     ),
     clues: (
       <CluesStep plan={plan} lang={lang} closed={closed} clues={clues} world={world} asks={asks} logDiary={logDiary}
@@ -519,7 +583,8 @@ export default function NextSession({ campaign, lang, goTo }) {
             aria-label={t(lang, 'Anotações de monstros', 'Monster notes')}
             placeholder={t(lang, 'Ex.: 4 goblins, 1 lobo atroz; o afogado do sino (chefe)', 'E.g. 4 goblins, 1 dire wolf; the drowned one of the bell (boss)')}
             onChange={e => change(p => ({ ...p, monsters: e.target.value }))} />
-          <p className="ns-hint">{t(lang, 'Para um combate de verdade, monte-o em Jogar › Combate ou numa sala de aventura.', 'For a real fight, set it up in Play › Combat or in an adventure room.')}</p>
+          <p className="ns-hint">{t(lang, 'Para um combate de verdade, use ⚔ Combate dentro da cena.', 'For a real fight, use ⚔ Combat inside the scene.')}</p>
+          <button type="button" className="mesa-btn is-quiet ns-link-btn" onClick={() => openStep('scenes')}>⚔ {t(lang, 'Pôr um combate numa cena', 'Put a fight in a scene')} →</button>
           {goTo && <button type="button" className="mesa-btn is-quiet ns-link-btn" onClick={() => goTo('prepare', 'adventures')}>{t(lang, 'Montar encontros nas Aventuras', 'Build encounters in Adventures')} →</button>}
         </details>
       </div>
@@ -579,24 +644,31 @@ export default function NextSession({ campaign, lang, goTo }) {
       )}
 
       <div className="ns-acc">
-        {PLAN_STEPS.map(s => (
-          <AccStep key={s.id} id={s.id} n={s.n} lang={lang} open={shownOpen === s.id} side={desk}
-            summary={stepSummary(s.id, plan, { party, moments: totalMoments, lang })}
-            onToggle={() => setOpen(shownOpen === s.id && !desk ? null : s.id)}
-            onNext={() => goNext(s.id)}>
-            {desk ? null : body[s.id]}
-          </AccStep>
-        ))}
+        {PLAN_STEPS.map(s => {
+          // PC (P2) com a folha da Cena aberta: as cenas descem para a coluna da esquerda e a
+          // folha ocupa a da direita (tocar noutra cena troca a folha)
+          const side = desk && !(sceneSheet && s.id === 'scenes');
+          return (
+            <AccStep key={s.id} id={s.id} n={s.n} lang={lang} open={shownOpen === s.id} side={side}
+              summary={stepSummary(s.id, plan, { party, moments: totalMoments, lang })}
+              onToggle={() => setOpen(shownOpen === s.id && !desk ? null : s.id)}
+              onNext={() => goNext(s.id)}>
+              {side ? null : body[s.id]}
+            </AccStep>
+          );
+        })}
       </div>
 
-      <ReadyToPlay plan={plan} lang={lang} party={party} heading={heading} closed={closed} compact={!desk && !!shownOpen}
+      <ReadyToPlay plan={plan} lang={lang} party={party} heading={heading} closed={closed} compact={!desk && !!shownOpen} withImage={withImage}
         tv={!!(campaign.onboarding?.tv || table?.tvLive)} busy={busy === 'startSession'}
         onCopyTv={copyTv} onStart={startSession} onRehearse={goTo ? () => goTo('play', 'scene') : null} />
      </div>
 
       {desk && (
         <aside className="ns-side mesa-panel" aria-labelledby={sideStep ? 'ns-side-h' : undefined} aria-label={sideStep ? undefined : t(lang, 'Passo aberto', 'Open step')}>
-          {sideStep ? (
+          {sideStep && sceneSheet && sideStep.id === 'scenes' ? (
+            <p className="ns-hint ns-side-empty">{t(lang, 'A cena está aberta no painel à direita.', 'The scene is open in the panel on the right.')}</p>
+          ) : sideStep ? (
             <>
               <h3 className="ns-side-h" id="ns-side-h"><span aria-hidden="true">{sideStep.n}</span> {stepLabel(sideStep.id, lang)}</h3>
               <div className="ns-step-body">{body[sideStep.id]}</div>
@@ -651,6 +723,30 @@ export default function NextSession({ campaign, lang, goTo }) {
           onSave={(list) => saveMoments(sheet.charId, list)}
           onXray={goTo ? () => { setSheet(null); goTo('group', 'insights', { focus: sheet.charId }); } : null}
           onClose={() => setSheet(null)} />
+      )}
+      {sceneSheet && (
+        <Suspense fallback={null}>
+          <SceneSheet key={sceneSheet.id} campaign={campaign} lang={lang} plan={plan} sceneId={sceneSheet.id} closed={closed}
+            planSave={saveState} world={world} adventures={adventures} levels={partyLevels(campaign)}
+            moments={momentApi} momentsNote={momentsNote} autoFocusName={sceneSheet.fresh}
+            onChange={(id, patch) => change(p => updateItem(p, 'scenes', id, patch))}
+            onRemove={(sc) => { setSceneSheet(null); removeWithUndo('scenes', sc, t(lang, 'Cena apagada', 'Scene deleted')); }}
+            onDiscard={(sc) => change(p => removeItem(p, 'scenes', sc.id))}
+            onClose={() => setSceneSheet(null)}
+            onCreateEntry={createEntry} onWorldEntry={upsertWorld} onOpenEntry={openEntry}
+            onRoomSaved={onRoomSaved} onAdventureCreated={(a) => setAdventures(l => [a, ...(l || [])])}
+            goTo={goTo} flushPlan={flush} />
+        </Suspense>
+      )}
+      {entrySheet && (
+        <Suspense fallback={null}>
+          <EntrySheet entryId={entrySheet} campaign={campaign} world={world} plan={plan} lang={lang}
+            onClose={() => setEntrySheet(null)}
+            onSaved={(full) => { if (full?.id) { details.current.delete(full.id); upsertWorld(toLight(full)); } }}
+            onDeleted={(id) => { setWorld(w => (w || []).filter(e => e.id !== id)); setEntrySheet(null); }}
+            onOpenEntry={(id) => setEntrySheet(id)}
+            onOpenMap={goTo ? (id) => { setEntrySheet(null); goTo('world', 'map', { mapId: id }); } : undefined} />
+        </Suspense>
       )}
       {confirmEl}
     </div>
@@ -799,14 +895,14 @@ function PartyStep({ party, lang, raiox, insights, rx, onInvite, onRemind, onMom
 }
 
 /**
- * ③ Cenas: linhas de 64 px (aconteceu, nome, ⋯), ＋ Cena, ⇅ Mudar a ordem e À mão na sessão
- * toda (no celular, as pílulas numa linha que rola de lado, com "Ver todas" quando não cabem).
+ * ③ Cenas: linhas de 64 px (aconteceu · nº · nome com os ícones do que a cena tem, escritos ·
+ * ›); tocar abre a folha da Cena. ＋ Cena, ⇅ Mudar a ordem (↑ ↓ de 44 px no lugar do ›) e À mão
+ * na sessão toda (no celular, as pílulas numa linha que rola de lado, com "Ver todas").
  */
 function ScenesStep({
-  plan, lang, closed, reorder, setReorder, narrow = false, adventures, loadNodes, world, worldError, handyIds,
-  onToggleHandy, onCreateEntry, onOpenEntry, onAdd, onChange, onMove, onRemove, onOpenRoom, onAdventures,
+  plan, lang, closed, reorder, setReorder, narrow = false, world, worldError, handyIds, sceneInfo,
+  onToggleHandy, onCreateEntry, onOpenEntry, onAdd, onOpenScene, onChange, onMove,
 }) {
-  const [linking, setLinking] = useState(null);   // id da cena com o "Usar uma sala" aberto
   const [allHandy, setAllHandy] = useState(false);
   const [handyOver, setHandyOver] = useState(false);
   const handyCount = (world || []).filter(e => handyIds.includes(e.id)).length;
@@ -816,42 +912,43 @@ function ScenesStep({
       {list.length === 0 && <p className="ns-empty-line">{t(lang, 'Nenhuma cena ainda.', 'No scenes yet.')}</p>}
       <ol className="ns-list">
         {list.map((s, i) => {
-          const { name, notes } = sceneParts(s.text);
+          const { name } = sceneParts(s.text);
+          const info = sceneInfo(s);
+          const label = name || t(lang, '(sem nome)', '(no name)');
+          const main = (
+            <>
+              <span className="ns-row-n" aria-hidden="true">{i + 1}</span>
+              <span className="ns-scene-main">
+                <span className="ns-scene-name">{label}{s.done && <span className="ns-scene-done"> · ✓ {t(lang, 'jogada', 'played')}</span>}</span>
+                {(info.room || info.icons.length > 0) && (
+                  <span className="ns-scene-icons">{[info.room && `🗺 ${info.room}`, ...info.icons].filter(Boolean).join(' · ')}</span>
+                )}
+              </span>
+            </>
+          );
           return (
-            <li key={s.id} className={`ns-row ${s.done ? 'is-done' : ''}`}>
+            <li key={s.id} className={`ns-row ns-scene ${s.done ? 'is-done' : ''}`}>
               <div className="ns-row-line">
                 <label className="ns-tick">
                   <input type="checkbox" checked={s.done} disabled={closed} onChange={() => onChange(s.id, { done: !s.done })}
                     aria-label={t(lang, `Cena ${i + 1} aconteceu`, `Scene ${i + 1} happened`)} />
                 </label>
-                <span className="ns-row-n" aria-hidden="true">{i + 1}</span>
-                <input id={`ns-scene-${s.id}`} className="input ns-row-input" value={name} disabled={closed}
-                  maxLength={Math.max(1, PLAN_LIMITS.text - (notes ? notes.length + 1 : 0))}
-                  aria-label={t(lang, `Nome da cena ${i + 1}`, `Scene ${i + 1} name`)}
-                  placeholder={t(lang, 'Ex.: Negociar com a sacerdotisa no templo alagado', 'E.g. Bargain with the priestess in the flooded temple')}
-                  onChange={e => onChange(s.id, { text: withSceneName(s.text, e.target.value) })} />
                 {reorder ? (
-                  <span className="ns-order">
-                    <button type="button" className="mesa-icon-btn" disabled={i === 0} onClick={() => onMove(s.id, -1)} aria-label={t(lang, `Subir a cena ${i + 1}`, `Move scene ${i + 1} up`)}>↑</button>
-                    <button type="button" className="mesa-icon-btn" disabled={i === list.length - 1} onClick={() => onMove(s.id, 1)} aria-label={t(lang, `Descer a cena ${i + 1}`, `Move scene ${i + 1} down`)}>↓</button>
-                  </span>
-                ) : !closed && (
-                  <MoreMenu lang={lang} label={t(lang, `Mais ações da cena ${i + 1}`, `More actions for scene ${i + 1}`)} sheetTitle={name || t(lang, `Cena ${i + 1}`, `Scene ${i + 1}`)}
-                    items={[
-                      s.nodeRef && onOpenRoom && { id: 'open', label: t(lang, '🗺 Abrir a sala', '🗺 Open the room'), onSelect: () => onOpenRoom(s.nodeRef) },
-                      { id: 'room', label: s.nodeRef ? t(lang, '🗺 Trocar a sala de aventura', '🗺 Change the adventure room') : t(lang, '🗺 Usar uma sala de aventura', '🗺 Use an adventure room'),
-                        hint: t(lang, 'A sala traz o texto para ler, o encontro e os cartões dela para a mesa.', 'The room brings its read-aloud text, encounter and cards to the table.'),
-                        onSelect: () => setLinking(s.id) },
-                      s.nodeRef && { id: 'unlink', label: t(lang, 'Desligar da sala', 'Unlink from the room'), onSelect: () => onChange(s.id, { nodeRef: null }) },
-                      { id: 'del', label: t(lang, '🗑 Apagar a cena', '🗑 Delete the scene'), danger: true, hint: t(lang, 'Dá para desfazer por 6 s.', 'You can undo for 6 s.'), onSelect: () => onRemove(s) },
-                    ].filter(Boolean)} />
+                  <>
+                    <span className="ns-scene-open is-static">{main}</span>
+                    <span className="ns-order">
+                      <button type="button" className="mesa-icon-btn" disabled={i === 0} onClick={() => onMove(s.id, -1)} aria-label={t(lang, `Subir a cena ${i + 1}`, `Move scene ${i + 1} up`)}>↑</button>
+                      <button type="button" className="mesa-icon-btn" disabled={i === list.length - 1} onClick={() => onMove(s.id, 1)} aria-label={t(lang, `Descer a cena ${i + 1}`, `Move scene ${i + 1} down`)}>↓</button>
+                    </span>
+                  </>
+                ) : (
+                  <button type="button" className="ns-scene-open" onClick={() => onOpenScene(s.id)}
+                    aria-label={t(lang, `Cena ${i + 1}: ${label}. Abrir a cena`, `Scene ${i + 1}: ${label}. Open the scene`)}>
+                    {main}
+                    <span className="ns-step-chev" aria-hidden="true">›</span>
+                  </button>
                 )}
               </div>
-              {notes && <p className="ns-row-note">🔒 {t(lang, 'Notas (só você vê)', 'Notes (only you see)')}: {notes.split('\n').filter(x => x.trim()).join(' · ')}</p>}
-              <SceneLink value={s.nodeRef} adventures={adventures} lang={lang} loadNodes={loadNodes} editing={linking === s.id}
-                onEditing={(v) => setLinking(v ? s.id : null)}
-                onChange={(ref) => { onChange(s.id, { nodeRef: ref }); setLinking(null); }}
-                onAdventures={onAdventures} />
             </li>
           );
         })}
@@ -947,8 +1044,8 @@ function CluesStep({ plan, lang, closed, clues, world, asks, logDiary, setLogDia
  * Fim da sanfona (só leitura): o que já está de pé, ▶ Ensaiar e ▶ Começar a Sessão N. Com um
  * passo aberto no celular (`compact`), só a conta e os botões: a lista volta ao fechar o passo.
  */
-function ReadyToPlay({ plan, lang, party, heading, closed, tv, busy, compact = false, onCopyTv, onStart, onRehearse }) {
-  const rows = readyChecklist(plan, { party, tv, lang });
+function ReadyToPlay({ plan, lang, party, heading, closed, tv, busy, compact = false, withImage = null, onCopyTv, onStart, onRehearse }) {
+  const rows = readyChecklist(plan, { party, tv, lang, withImage });
   const ok = rows.filter(r => r.ok).length;
   return (
     <section className={`mesa-panel is-sunk ns-ready ${compact ? 'is-compact' : ''}`} id="ns-ready" aria-labelledby="ns-ready-h">
@@ -1066,64 +1163,6 @@ function MomentsSheet({ lang, rx, plan, fact, closed, moments, suggestions, styl
         </>
       )}
     </MesaSheet>
-  );
-}
-
-/** "🗺 Usar uma sala de aventura": liga a cena a uma sala (opcional); ligada, uma linha com a sala. */
-function SceneLink({ value, adventures, lang, loadNodes, editing, onEditing, onChange, onAdventures }) {
-  const [advId, setAdvId] = useState('');
-  const [nodes, setNodes] = useState(null);
-  const [nodeName, setNodeName] = useState('');
-  const adv = value ? (adventures || []).find(a => a.id === value.adventureId) : null;
-
-  useEffect(() => {
-    let alive = true;
-    setNodeName('');
-    if (value?.adventureId) {
-      loadNodes(value.adventureId).then(list => {
-        if (alive) setNodeName(list.find(n => n.id === value.nodeId)?.name || '');
-      }).catch(() => {});
-    }
-    return () => { alive = false; };
-  }, [value?.adventureId, value?.nodeId, loadNodes]);
-
-  const pickAdventure = async (id) => {
-    setAdvId(id);
-    setNodes(null);
-    if (!id) return;
-    try { setNodes(await loadNodes(Number(id))); } catch { setNodes([]); }
-  };
-
-  if (!editing) {
-    if (!value) return null;
-    return (
-      <p className="ns-room">🗺 {nodeName || (adv ? adv.name : t(lang, 'Aventura apagada', 'Deleted adventure'))}{nodeName && adv ? ` · ${adv.name}` : ''}</p>
-    );
-  }
-  if (!(adventures || []).length) {
-    return (
-      <div className="ns-link-edit">
-        <p className="ns-hint">{t(lang, 'Ainda não há aventuras. Uma aventura é um mapa de salas, bom para masmorras e viagens.', 'There are no adventures yet. An adventure is a map of rooms, good for dungeons and journeys.')}</p>
-        {onAdventures && <button type="button" className="mesa-btn" onClick={onAdventures}>{t(lang, 'Abrir Aventuras', 'Open Adventures')} →</button>}
-        <button type="button" className="mesa-btn is-quiet" onClick={() => onEditing(false)}>{t(lang, 'Cancelar', 'Cancel')}</button>
-      </div>
-    );
-  }
-  return (
-    <div className="ns-link-edit">
-      <select className="input" value={advId} onChange={e => pickAdventure(e.target.value)} aria-label={t(lang, 'Aventura', 'Adventure')}>
-        <option value="">{t(lang, 'Aventura…', 'Adventure…')}</option>
-        {adventures.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-      </select>
-      {advId && (
-        <select className="input" defaultValue="" disabled={!nodes} aria-label={t(lang, 'Sala', 'Room')}
-          onChange={e => { if (e.target.value) onChange({ adventureId: Number(advId), nodeId: e.target.value }); }}>
-          <option value="">{nodes ? (nodes.length ? t(lang, 'Sala…', 'Room…') : t(lang, 'Sem salas ainda', 'No rooms yet')) : t(lang, 'Carregando…', 'Loading…')}</option>
-          {(nodes || []).map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
-        </select>
-      )}
-      <button type="button" className="mesa-btn is-quiet" onClick={() => onEditing(false)}>{t(lang, 'Cancelar', 'Cancel')}</button>
-    </div>
   );
 }
 
