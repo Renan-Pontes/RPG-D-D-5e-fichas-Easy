@@ -24,7 +24,7 @@ const hasDetails = (e) => !!(e && (e.body || e.dmNotes || (e.secrets || []).leng
   || (e.tags || []).length || e.whenLabel || Object.values(e.data || {}).some(v => v && (typeof v !== 'object' || Object.keys(v).length))));
 
 export default function EntryEditor({
-  entryId, campaign, entries = [], adventures = [], lang = 'pt', onClose, onSaved, onDeleted, onOpenEntry, onOpenMap, onShow, autoFocusName = false,
+  entryId, campaign, entries = [], adventures = [], plan = null, lang = 'pt', onClose, onSaved, onDeleted, onOpenEntry, onOpenMap, onShow, autoFocusName = false,
 }) {
   const [entry, setEntry] = useState(null);
   const [loadError, setLoadError] = useState('');
@@ -161,7 +161,7 @@ export default function EntryEditor({
   }, [entry?.kind, campaign?.id, items]);
 
   const tagSuggestions = useMemo(() => allTags(entries), [entries]);
-  const back = useMemo(() => (entry ? backlinks(entries, entry.id, adventures) : []), [entries, entry?.id, adventures]); // eslint-disable-line react-hooks/exhaustive-deps
+  const back = useMemo(() => (entry ? backlinks(entries, entry.id, adventures, plan) : []), [entries, entry?.id, adventures, plan]); // eslint-disable-line react-hooks/exhaustive-deps
   const kids = useMemo(() => (entry ? childrenOf(entries, entry.id) : []), [entries, entry?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Esc fecha (salvando antes)
@@ -359,6 +359,11 @@ export default function EntryEditor({
                         {kindIcon(b.entry.kind)} {b.entry.name}
                         <span className="wl-muted"> · {backVia(b, lang)}</span>
                       </button>
+                    ) : b.via === 'scene' ? (
+                      <span className="wl-tag">📋 {t(lang, 'Plano', 'Plan')} › {String(b.scene.text || '').split('\n')[0] || t(lang, `Cena ${b.n}`, `Scene ${b.n}`)}
+                        <span className="wl-muted"> · {t(lang, `cena ${b.n}`, `scene ${b.n}`)}</span></span>
+                    ) : b.via === 'handy' ? (
+                      <span className="wl-tag">📋 {t(lang, 'Plano › À mão na sessão toda', 'Plan › Handy all session')}</span>
                     ) : (
                       <span className="wl-tag">🧭 {b.adventure.name} › {b.node.name || b.node.title || b.node.id}</span>
                     )}

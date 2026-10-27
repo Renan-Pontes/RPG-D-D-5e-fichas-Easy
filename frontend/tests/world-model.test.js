@@ -102,6 +102,17 @@ test('backlinks: links, menções, "fica em", pins e nós de aventura', () => {
   assert.deepEqual(childrenOf(WORLD_LIGHT_DM, 1).map(e => e.id), [2, 3, 5]);
 });
 
+test('backlinks: as cenas do plano e o "À mão na sessão toda" (a cena ligada vem pela sala)', () => {
+  const plan = { npcIds: [9], placeIds: [], scenes: [
+    { id: 'c1', text: 'Ponte velha\nnotas', refs: [9] },
+    { id: 'c2', text: 'Lago', show: { kind: 'entry', id: 9 } },
+    { id: 'c3', text: 'Cripta', refs: [9], nodeRef: { adventureId: 1, nodeId: 'n3' } },
+  ] };
+  const bl = backlinks([], 9, [], plan);
+  assert.deepEqual(bl.map(b => `${b.via}:${b.n ?? ''}`), ['scene:1', 'scene:2', 'handy:']);
+  assert.deepEqual(backlinks([], 9, []), []);
+});
+
 test('"Novo!" do jogador', () => {
   assert.equal(isNewFor({ revealedAt: '2026-10-03T00:00:00Z' }, '2026-10-01T00:00:00Z'), true);
   assert.equal(isNewFor({ revealedAt: '2026-09-03T00:00:00Z' }, '2026-10-01T00:00:00Z'), false);

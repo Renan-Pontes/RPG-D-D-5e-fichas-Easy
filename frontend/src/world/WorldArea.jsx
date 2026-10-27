@@ -11,7 +11,7 @@ import { Toast } from '../../components/Shared.jsx';
 import useArea from '../shell/useArea.js';
 import { SubChips } from '../shell/AreaNav.jsx';
 import {
-  createEntry, createSampleWorld, getEntry, getWorldEchoes, isConflict, listWorld, updateEntry, worldErrorText,
+  createEntry, createSampleWorld, getEntry, getSessionPlan, getWorldEchoes, isConflict, listWorld, updateEntry, worldErrorText,
 } from './world-api.js';
 import { applyPatches, t, toLight } from './world-model.js';
 import Atlas from './Atlas.jsx';
@@ -57,6 +57,8 @@ export default function WorldArea(props) {
   const [sampleBusy, setSampleBusy] = useState(false);
   const [adventures, setAdventures] = useState([]);
   const advLoaded = useRef(false);
+  const [plan, setPlan] = useState(null);   // o Plano da Sessão N: as cenas no "Aparece em"
+  const planLoaded = useRef(false);
   const [echoes, setEchoes] = useState(null);
   // "Mundo vivo" (⚙ Ajustes): a campanha manda `immersion`; a lista também.
   const [listImmersion, setListImmersion] = useState(true);
@@ -95,6 +97,13 @@ export default function WorldArea(props) {
     if (params?.mapId) { setMapId(Number(params.mapId)); clearParams?.(); }
     if (params?.create) { setCreateNonce(n => n + 1); clearParams?.(); }
   }, [params?.entryId, params?.mapId, params?.create]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // O plano (para as cenas no "aparece em"): só quando um cartão abre, 1 vez.
+  useEffect(() => {
+    if (!openId || planLoaded.current || !cid) return;
+    planLoaded.current = true;
+    getSessionPlan(cid).then(p => setPlan(p || null)).catch(() => {});
+  }, [openId, cid]);
 
   // Aventuras (para "aparece em" no editor): só quando um cartão abre.
   useEffect(() => {
@@ -204,7 +213,7 @@ export default function WorldArea(props) {
       {openId && (
         <>
           <div className="wl-editor-scrim" onClick={() => setOpenId(null)} aria-hidden="true" />
-          <EntryEditor key={openId} entryId={openId} campaign={campaign} entries={list} adventures={adventures} lang={lang}
+          <EntryEditor key={openId} entryId={openId} campaign={campaign} entries={list} adventures={adventures} plan={plan} lang={lang}
             onClose={() => setOpenId(null)} onSaved={upsert}
             onDeleted={(id) => { removeLocal(id); setOpenId(null); setMeta(m => ({ ...m, count: Math.max(0, m.count - 1) })); setToast(t(lang, 'Cartão apagado.', 'Card deleted.')); }}
             onOpenEntry={openEntry} onOpenMap={openMap} onShow={!closed} />

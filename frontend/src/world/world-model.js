@@ -232,7 +232,13 @@ export function timelineEntries(entries) {
  *  - nós de aventura com refs (opcional: adventures = [{id, name, nodes:[{id,name,refs}]}]).
  * → [{entry?, adventure?, node?, via: 'link'|'mention'|'parent'|'pin'|'node', rel?}]
  */
-export function backlinks(entries, id, adventures = []) {
+/**
+ * Quem aponta para o cartão `id`: outros cartões (relação, menção, "fica em", pin), as salas
+ * das aventuras (`refs`) e, com o `plan` (Plano da Sessão N), as cenas soltas que o têm em
+ * 🎭 Quem aparece ou em 📺 Imagem (`via: 'scene'`, `n` = nº da cena) e o "À mão na sessão
+ * toda" (`via: 'handy'`). A cena ligada aparece pela sala (os cartões dela moram na sala).
+ */
+export function backlinks(entries, id, adventures = [], plan = null) {
   const out = [];
   for (const e of entries || []) {
     if (e.id === id) continue;
@@ -246,6 +252,11 @@ export function backlinks(entries, id, adventures = []) {
       if ((n.refs || []).includes(id)) out.push({ adventure: adv, node: n, via: 'node' });
     }
   }
+  (plan?.scenes || []).forEach((sc, i) => {
+    if (sc?.nodeRef) return;
+    if ((sc.refs || []).includes(id) || (sc.show?.kind === 'entry' && sc.show.id === id)) out.push({ scene: sc, n: i + 1, via: 'scene' });
+  });
+  if ((plan?.npcIds || []).includes(id) || (plan?.placeIds || []).includes(id)) out.push({ handy: true, via: 'handy' });
   return out;
 }
 
