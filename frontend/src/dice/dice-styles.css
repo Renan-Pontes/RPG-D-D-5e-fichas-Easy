@@ -342,6 +342,9 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
 .dice-table-note.is-offline, .dice-table-note.is-offline-secret, .dice-table-note.is-local,
 .dice-table-note.is-refused, .dice-table-note.is-refused-secret, .dice-table-note.is-timeout,
 .dice-table-note.is-timeout-secret, .dice-table-note.is-slow { color: #ffb4a8; }
+/* Ficha (V15): "não foi para a Tela" é só um aviso discreto (a rolagem valeu no aparelho) */
+.dice-table-note.is-sheet-failed { color: var(--dice-muted); }
+.dice-table-note.is-sheet-secret { color: var(--dice-muted); }
 /* Celular: com a mesa ligada a folha pode subir um pouco mais (a fileira do topo não
    empurra o d20 para fora da tela a 320×568) */
 @media (max-width: 899px) {

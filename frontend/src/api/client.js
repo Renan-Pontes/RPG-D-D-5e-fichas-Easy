@@ -278,6 +278,8 @@ export const api = {
   consumeApproval: (approvalId, body = {}) => request(`/api/approvals/${approvalId}/consume`, { method: 'POST', body }),
   // Dice
   rollDice:      (body) => request('/api/dice/roll', { method: 'POST', body }),
+  // V15: a rolagem da ficha, já rolada no aparelho, na fila da Tela (src/dice/sheet-roll.js)
+  sheetRoll:     (characterId, body) => request(`/api/characters/${characterId}/table-roll`, { method: 'POST', body }),
   listRigs:      (campaignId) => request(`/api/dice/campaign/${campaignId}/rigs`),
   createRig:     (campaignId, body) => request(`/api/dice/campaign/${campaignId}/rigs`, { method: 'POST', body }),
   updateRig:     (rigId, body) => request(`/api/dice/rigs/${rigId}`, { method: 'PUT', body }),

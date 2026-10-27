@@ -20,8 +20,16 @@
  *   "Enviando… (a Tela está lenta)" e o resultado do servidor quando chegar; sem rede,
  *   rola no aparelho e avisa "não foi à Tela" (sendFailure). A dica e os avisos moram
  *   numa linha reservada logo abaixo dos dados. O `__diceRoll` da ficha continua local.
+ * - Ficha numa campanha (V15, src/dice/sheet-roll.js; decisão D-1 do dono): a rolagem
+ *   continua LOCAL e instantânea (crítico/falha, histórico e vantagem como sempre; os
+ *   dados preparados do mestre não valem). Depois de aparecer, sem bloquear nada, o
+ *   resultado vai pronto para a fila da Tela: os botões da ficha (`__diceRoll` com
+ *   `sheet: true`) e os toques deste rolador com a ficha aberta. No topo, "📺 Na Tela ·
+ *   🔒 Só eu" (o mesmo da faixa da campanha na ficha, lembrado por personagem; Só eu
+ *   nunca sai do aparelho); a linha abaixo dos dados diz "📺 Na Tela ✓" quando chegou
+ *   ou, discreto, "não foi para a Tela". O "PV de nível" (LevelUpModal) não vai.
  */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from 'react';
 import Icon from './Icons.jsx';
 import { t } from '../data/i18n.js';
 import DieShape from '../src/dice/DieShape.jsx';
@@ -33,6 +41,9 @@ import {
 } from '../src/dice/dice-table.js';
 import { api } from '../src/api/client.js';
 import {
+  createSender, getSheetRolls, noteFor, planSheetRoll, setSheetSecret, subscribeSheetRolls,
+} from '../src/dice/sheet-roll.js';
+import {
   getAnimPref, setAnimPref, loadHistory, saveHistory, loadRecentFormulas, saveRecentFormulas,
 } from '../src/dice/dice-prefs.js';
 import '../src/dice/dice-styles.css';
@@ -40,6 +51,8 @@ import '../src/dice/dice-styles.css';
 const DICE = [4, 6, 8, 10, 12, 20, 100];
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const ANIM_NEXT = { '3d': '2d', '2d': 'off', off: '3d' };
+// Um envio para o app inteiro (espaça os POSTs da ficha; nunca tenta de novo).
+const sheetSend = createSender({ post: (characterId, body) => api.sheetRoll(characterId, body) });
 
 function nowLabel(lang) {
   return new Date().toLocaleTimeString(lang === 'pt' ? 'pt-BR' : 'en-US', { hour: '2-digit', minute: '2-digit' });
@@ -69,6 +82,10 @@ const tableNoteText = (note, lang) => ({
   timeout: L(lang, '⚠ A Tela não respondeu. Confira a TV antes de rolar de novo.', '⚠ The screen did not answer. Check the TV before rolling again.'),
   'timeout-secret': L(lang, '⚠ O servidor não respondeu: rolado no aparelho', '⚠ The server did not answer: rolled on this device'),
   local: L(lang, '⚠ Fórmula grande demais para a Tela: rolado no aparelho', '⚠ Formula too big for the screen: rolled on this device'),
+  // rolagens da ficha (V15): o resultado já está na tela; isto só diz onde ele foi
+  'sheet-shown': L(lang, '📺 Na Tela ✓', '📺 On screen ✓'),
+  'sheet-secret': L(lang, '🔒 Só você viu', '🔒 Only you saw it'),
+  'sheet-failed': L(lang, 'Não foi para a Tela', 'Did not reach the screen'),
 }[note] || '');
 
 const DiceRoller = ({ lang }) => {
@@ -100,6 +117,9 @@ const DiceRoller = ({ lang }) => {
   const [notice, setNotice] = useState(null);    // aviso sem resultado (a Tela não respondeu)
   const [hintFor, setHintFor] = useState(null);  // trocou 🔒/📺 depois desta rolagem: a linha volta à dica
   const sendingRef = useRef(false);
+  // Ficha de um personagem em campanha aberta (V15): a mesa da ficha
+  const sheet = useSyncExternalStore(subscribeSheetRolls, getSheetRolls, getSheetRolls);
+  const sheetMode = !table && !!sheet;
 
   useEffect(() => { saveHistory(log); }, [log]);
 
@@ -121,6 +141,25 @@ const DiceRoller = ({ lang }) => {
     return full;
   }, [lang, animPref]);
 
+  // Um resultado já à vista ganha o aviso de para onde foi (a resposta chega depois).
+  const patchEntry = useCallback((id, patch) => {
+    setLog(prev => prev.map(e => (e.id === id ? { ...e, ...patch } : e)));
+    setOverlay(prev => (prev && prev.id === id ? { ...prev, ...patch } : prev));
+    setPop(prev => (prev && prev.id === id ? { ...prev, ...patch } : prev));
+  }, []);
+
+  // Rolagem da ficha → fila da Tela, DEPOIS de aparecer e sem esperar (V15).
+  const toTable = useCallback((entry) => {
+    const ctx = getSheetRolls();
+    const plan = planSheetRoll(ctx, entry);
+    if (plan.skip === 'secret') { patchEntry(entry.id, { tableNote: noteFor('secret') }); return; }
+    if (!plan.body) return;
+    sheetSend(ctx.characterId, plan.body).then((outcome) => {
+      const note = noteFor(outcome);
+      if (note) patchEntry(entry.id, { tableNote: note });
+    });
+  }, [patchEntry]);
+
   const rollParsed = useCallback((parsed, { label, adv = 'normal' } = {}) => {
     const r = rollFormula(parsed, { adv });
     return present({
@@ -131,18 +170,26 @@ const DiceRoller = ({ lang }) => {
     });
   }, [present]);
 
-  // Compatível com a ficha: { die, count, mod, label, advMode }.
-  const performRoll = useCallback(({ die = 20, count: cnt = 1, mod: m = 0, label = '', advMode: am } = {}) => {
+  // Compatível com a ficha: { die, count, mod, label, advMode }. `sheet`: é um botão da
+  // ficha (perícia, salvaguarda, ataque, dano, iniciativa) e vai à Tela (V15).
+  const performRoll = useCallback(({ die = 20, count: cnt = 1, mod: m = 0, label = '', advMode: am, sheet: fromSheet } = {}) => {
     const parsed = parseFormula(`${cnt}d${die}${formatMod(m)}`);
     if (!parsed) return null;
-    return rollParsed(parsed, { label, adv: am ?? advMode });
-  }, [rollParsed, advMode]);
+    const entry = rollParsed(parsed, { label, adv: am ?? advMode });
+    if (fromSheet && entry) toTable(entry);
+    return entry;
+  }, [rollParsed, advMode, toTable]);
 
   // Os toques do rolador. Mestre na campanha: pelo servidor (📺 Na tela ou 🔒 Só eu).
   // Lento não é sem rede: o pedido não é cortado (a TV mostraria o número do servidor);
   // aos 1,5 s o aviso "a Tela está lenta". Sem rede, no aparelho com o aviso. Fora: local.
   const rollUi = useCallback(async (parsed, { label, adv = 'normal' } = {}) => {
-    if (!table) return rollParsed(parsed, { label, adv });
+    if (!table) {
+      // jogador: no aparelho, e da ficha aberta também à Tela (toTable não faz nada sem ela)
+      const entry = rollParsed(parsed, { label, adv });
+      if (entry) toTable(entry);
+      return entry;
+    }
     if (sendingRef.current) return null;
     const text = label || purposeLabel(purpose, lang) || parsed.text;
     const shown = target === 'shown';
@@ -169,8 +216,9 @@ const DiceRoller = ({ lang }) => {
       clearTimeout(slowTimer);
       sendingRef.current = false; setSending(false); setSlow(false);
     }
-  }, [table, purpose, target, lang, rollParsed, present]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [table, purpose, target, lang, rollParsed, present, toTable]); // eslint-disable-line react-hooks/exhaustive-deps
   const pickTarget = (v) => { setTargetState(v); writeTarget(table, v); setNotice(null); setHintFor(log[0]?.id ?? null); };
+  const pickSheet = (v) => { setSheetSecret(v === 'secret'); setHintFor(log[0]?.id ?? null); };
 
   const showResult = useCallback((res = {}) => present({
     label: res.label || '',
@@ -362,6 +410,12 @@ const DiceRoller = ({ lang }) => {
           ? L(lang, 'A TV mostra o dado grande com “Mestre”.', 'The TV shows the big die as “GM”.')
           : L(lang, 'Só você vê; fica no seu registro de rolagens.', 'Only you see it; it stays in your roll log.');
   const tableTone = sending ? (slow ? 'slow' : 'sending') : notice || (last?.id !== hintFor && last?.tableNote) || 'hint';
+  // A mesma linha com a ficha aberta (V15): onde foi a última rolagem da ficha › a dica.
+  const sheetNote = sheetMode && last?.id !== hintFor && /^sheet-/.test(last?.tableNote || '') ? last.tableNote : '';
+  const sheetLine = !sheetMode ? '' : sheetNote ? tableNoteText(sheetNote, lang)
+    : sheet.secret ? L(lang, 'Só você vê o que rola nesta ficha: nada sai do aparelho.', 'Only you see what you roll on this sheet: nothing leaves this device.')
+      : sheet.allowed === false ? L(lang, 'O mestre deixou as rolagens das fichas fora da Tela.', 'The GM keeps sheet rolls off the screen.')
+        : L(lang, `Na sessão ao vivo, a Tela da mesa mostra o que ${sheet.name || 'a ficha'} rola.`, `During the live session, the table screen shows what ${sheet.name || 'this sheet'} rolls.`);
   const animLabel = { '3d': '3D', '2d': '2D', off: L(lang, 'Sem animação', 'No animation') }[animPref];
 
   return (
@@ -383,7 +437,7 @@ const DiceRoller = ({ lang }) => {
       {open && (
         <section
           ref={sheetRef}
-          className={`dice-sheet no-print ${table ? 'has-table' : ''}`}
+          className={`dice-sheet no-print ${table || sheetMode ? 'has-table' : ''}`}
           role="dialog"
           aria-modal="false"
           aria-label={t('rollDice', lang)}
@@ -430,6 +484,16 @@ const DiceRoller = ({ lang }) => {
                     <button key={k} type="button" aria-pressed={purpose === k}
                       className={`dice-purpose-chip ${purpose === k ? 'active' : ''}`}
                       onClick={() => setPurpose(purpose === k ? '' : k)}>{purposeLabel(k, lang)}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {sheetMode && (
+              <div className="dice-table">
+                <div className="dice-target" role="radiogroup" aria-label={L(lang, 'Quem vê o que a ficha rola', 'Who sees what the sheet rolls')}>
+                  {[['shown', L(lang, '📺 Na Tela', '📺 On screen')], ['secret', L(lang, '🔒 Só eu', '🔒 Only me')]].map(([v, lbl]) => (
+                    <button key={v} type="button" role="radio" aria-checked={(sheet.secret ? 'secret' : 'shown') === v}
+                      className={`dice-target-btn ${(sheet.secret ? 'secret' : 'shown') === v ? 'active' : ''}`} onClick={() => pickSheet(v)}>{lbl}</button>
                   ))}
                 </div>
               </div>
@@ -518,6 +582,7 @@ const DiceRoller = ({ lang }) => {
             {/* a linha fica reservada (2 linhas) logo abaixo dos dados: o aviso que chega
                 não empurra nada do que se toca (princípio 8) */}
             {table && <p className={`dice-table-note dice-table-line is-${tableTone}`} role="status">{tableLine}</p>}
+            {sheetMode && <p className={`dice-table-note dice-table-line is-${sheetNote || 'hint'}`} role="status">{sheetLine}</p>}
             <div className="dice-sheet-foot muted">
               {L(lang, 'Toque num dado para rolar', 'Tap a die to roll')} <code>{`${count}dX${formatMod(mod)}`}</code>
             </div>
