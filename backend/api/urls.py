@@ -117,6 +117,9 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/adventures/<int:pk>', closed_guard(views_adventures.adventure_detail, 'campaign')),
     path('campaigns/<str:id_or_slug>/adventures/<int:pk>/play', closed_guard(views_adventures.adventure_play, 'campaign')),
     path('campaigns/<str:id_or_slug>/adventures/<int:pk>/screen', closed_guard(views_adventures.adventure_screen, 'campaign')),
+    # uma sala por vez (a folha da Cena ligada) e as salas leves (o Plano), sem as imagens
+    path('campaigns/<str:id_or_slug>/adventures/<int:pk>/nodes', closed_guard(views_adventures.adventure_nodes, 'campaign')),
+    path('campaigns/<str:id_or_slug>/adventures/<int:pk>/node/<str:node_id>', closed_guard(views_adventures.adventure_node, 'campaign')),
     # Aventuras prontas da Forja (pacotes originais: mundo + aventura)
     path('ready-adventures', views_ready.ready_catalog),
     path('campaigns/<str:id_or_slug>/ready-adventure', closed_guard(views_ready.campaign_ready_adventure, 'campaign')),

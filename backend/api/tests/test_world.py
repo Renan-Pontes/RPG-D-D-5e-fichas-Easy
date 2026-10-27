@@ -557,6 +557,38 @@ class SessionPlanTests(WorldBase):
         self.assertEqual(c1['spots'], ['ok-1', 'a', 'b', 'c'])   # até 4, só os ids que valem
         self.assertNotIn('junk', c1)
 
+    def test_custom_monster_snap_in_the_scene(self):
+        # "meus monstros" vão no snap: sem imagem, descrições cortadas
+        snap = {'id': 'custom-ogro-1', 'custom': True, 'name': {'pt': 'Ogro do Brejo'}, 'ac': 11, 'hp': 59,
+                'portrait': 'data:image/png;base64,AAAA', 'description': 'x' * 2000,
+                'actions': [{'name': 'Clava', 'desc': 'Melee Weapon Attack: +6 to hit. ' + 'y' * 900}]}
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'Brejo', 'fight': [
+            {'monsterId': 'custom-ogro-1', 'name': 'Ogro do Brejo', 'cr': 2, 'count': 1, 'snap': snap}]}]}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        kept = r.json()['plan']['scenes'][0]['fight'][0]['snap']
+        self.assertNotIn('portrait', kept)
+        self.assertEqual(len(kept['description']), 300)
+        self.assertEqual(len(kept['actions'][0]['desc']), 300)
+        self.assertEqual(kept['hp'], 59)
+
+    def test_custom_monster_snap_limits(self):
+        big = {'id': 'custom-big', 'name': 'Grande', 'actions': [{'name': f'Golpe {i}', 'desc': 'z' * 290} for i in range(40)]}
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'x', 'fight': [
+            {'monsterId': 'custom-big', 'name': 'Grande', 'count': 1, 'snap': big}]}]}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()['error'], 'scene_monster_too_large')
+        small = lambda i: {'monsterId': f'custom-{i}', 'name': f'M{i}', 'count': 1, 'snap': {'id': f'custom-{i}', 'hp': 10}}
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'a', 'fight': [small(1), small(2)]},
+                                                  {'id': 'c2', 'text': 'b', 'fight': [small(3), small(4)]}]}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        # o 5º no plano (mesmo numa cena que veio sem os bolsos das outras) → 400
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'a'}, {'id': 'c2', 'text': 'b'},
+                                                  {'id': 'c3', 'text': 'c', 'fight': [small(5)]}]}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()['error'], 'too_many_scene_monsters')
+        self.camp.refresh_from_db()
+        self.assertEqual(len(self.camp.dm_settings['sessionPlan']['scenes']), 2, 'nada foi gravado')
+
     def test_new_scene_without_id_never_takes_a_sent_id(self):
         # [cena nova sem id, c1]: a nova não pode virar "c1" e herdar os bolsos guardados da c1
         self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'Ponte', 'read': 'A ponte range.'}]}, format='json')

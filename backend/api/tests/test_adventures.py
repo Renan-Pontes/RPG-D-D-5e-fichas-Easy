@@ -230,3 +230,63 @@ class AdventureTests(TestCase):
         self.camp.refresh_from_db()
         self.assertNotIn('sceneText', self.camp.state)
         self.assertEqual(self.camp.state['scene'], 'Entrada')
+
+    # --- uma sala por vez (folha da Cena ligada, V6) ---
+    def test_node_get_has_no_image(self):
+        data = sample_data()
+        data['nodes'][0]['image'] = 'data:image/png;base64,' + 'A' * 400
+        adv = self.create(data=data)
+        r = self.c_dm.get(f'{self.base}/{adv["id"]}/node/n1')
+        self.assertEqual(r.status_code, 200, r.content)
+        node = r.json()['node']
+        self.assertNotIn('image', node)
+        self.assertTrue(node['hasImage'])
+        self.assertEqual(node['readAloud'], 'Um corredor úmido.')
+        self.assertEqual(r.json()['adventure'], {'id': adv['id'], 'name': 'A Cripta'})
+        self.assertNotIn('AAAA', r.content.decode())
+        self.assertEqual(self.c_dm.get(f'{self.base}/{adv["id"]}/node/nada').status_code, 404)
+        # salas leves: nomes e contagens, sem textos nem imagem
+        r = self.c_dm.get(f'{self.base}/{adv["id"]}/nodes')
+        self.assertEqual(r.status_code, 200)
+        n1, n2 = r.json()['nodes']
+        self.assertEqual((n1['id'], n1['name'], n1['hasImage'], n1['hasRead']), ('n1', 'Entrada', True, True))
+        self.assertEqual(n1['encounter'], [{'monsterId': 'goblin-warrior', 'name': 'Goblin', 'crNum': 0.25, 'count': 3}])
+        self.assertNotIn('readAloud', n1)
+        self.assertNotIn('notes', n1)
+        self.assertFalse(n2['hasImage'])
+        self.assertNotIn('AAAA', r.content.decode())
+
+    def test_node_patch_merges_only_that_room(self):
+        data = sample_data()
+        data['nodes'][0]['image'] = 'data:image/png;base64,' + 'A' * 400
+        adv = self.create(data=data)
+        url = f'{self.base}/{adv["id"]}/node/n1'
+        r = self.c_dm.patch(url, {'readAloud': 'A ponte range.', 'refs': [7, 7, 8],
+                                  'checks': [{'skill': 'save:dex', 'dc': 13, 'dcHidden': True}],
+                                  'image': '', 'x': 999, 'id': 'zz'}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        node = r.json()['node']
+        self.assertEqual(node['readAloud'], 'A ponte range.')
+        self.assertEqual(node['refs'], [7, 8])
+        self.assertEqual(node['checks'], [{'skill': 'save:dex', 'dc': 13, 'note': '', 'dcHidden': True}])
+        obj = Adventure.objects.get(pk=adv['id'])
+        n1, n2 = obj.data['nodes']
+        self.assertEqual((n1['id'], n1['x'], n1['name']), ('n1', 0, 'Entrada'), 'id e posição não mudam por aqui')
+        self.assertTrue(n1['image'].startswith('data:image/png'), 'a imagem só muda em Aventuras')
+        self.assertEqual(n1['encounter'][0]['count'], 3, 'o que não veio fica')
+        self.assertEqual(n2['name'], 'Cripta')
+        self.assertEqual(len(obj.data['edges']), 2)
+        # validação igual à da aventura inteira
+        r = self.c_dm.patch(url, {'encounter': 'lixo'}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(self.c_dm.patch(f'{self.base}/{adv["id"]}/node/nada', {'notes': 'x'}, format='json').status_code, 404)
+
+    def test_node_endpoints_are_dm_only(self):
+        adv = self.create(data=sample_data())
+        for url in (f'{self.base}/{adv["id"]}/node/n1', f'{self.base}/{adv["id"]}/nodes'):
+            self.assertEqual(self.c1.get(url).status_code, 403)
+            self.assertEqual(self.c_out.get(url).status_code, 403)
+            self.assertEqual(APIClient().get(url).status_code, 403)
+        self.assertEqual(self.c1.patch(f'{self.base}/{adv["id"]}/node/n1', {'notes': 'x'}, format='json').status_code, 403)
+        other = Adventure.objects.create(campaign=self.other, name='Alheia', data=sample_data())
+        self.assertEqual(self.c_dm.get(f'{self.base}/{other.id}/node/n1').status_code, 404)

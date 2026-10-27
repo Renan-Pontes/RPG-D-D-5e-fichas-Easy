@@ -598,11 +598,51 @@ def _items(raw, limit, prefix, make):
 # Os bolsos da cena (§3.7 da especificação da área do mestre v2): cada um só entra no
 # patch quando VEIO no item. O que não veio fica como estava (merge por id da cena),
 # para um app antigo em cache, que regrava `scenes` só com texto/feita/sala, não apagar
-# o que o novo pôs na cena. Os limites dos monstros personalizados (`snap`) vêm com a folha
-# da Cena (V6); até lá eles não são guardados.
+# o que o novo pôs na cena. Monstro personalizado ("meus monstros", que só existe no
+# navegador do mestre) vai no `snap` do ⚔ da cena: sem imagens, descrições cortadas em
+# 300 caracteres, no máximo 8 KB cada e 4 no plano (o teto de 40 KB das aventuras não vale
+# aqui: o plano inteiro tem 60 KB). Maior que isso → 400 e a folha pede uma aventura.
 SCENE_CORE = ('text', 'nodeRef', 'done')
 CHECK_KINDS = ('skill', 'save', 'ability')
 SPOT_RE = re.compile(r'^[A-Za-z0-9_:-]{1,40}$')
+MAX_SCENE_SNAP_BYTES = 8_000
+MAX_SCENE_SNAPS = 4
+SNAP_DESC = 300
+SNAP_LISTS = ('traits', 'actions', 'bonusActions', 'reactions', 'legendaryActions')
+SNAP_TEXTS = ('desc', 'description', 'lore', 'notes')
+
+
+def _snap_text(v):
+    if isinstance(v, str):
+        return v[:SNAP_DESC]
+    if isinstance(v, dict):
+        return {k: x[:SNAP_DESC] for k, x in v.items() if k in ('pt', 'en') and isinstance(x, str)}
+    return v
+
+
+def _snap_value(v):
+    """Tira as imagens (data:…) de qualquer nível e corta as descrições das listas de ações."""
+    if isinstance(v, str):
+        return None if v.startswith('data:') else v
+    if isinstance(v, list):
+        return [x for x in (_snap_value(i) for i in v[:40]) if x is not None]
+    if isinstance(v, dict):
+        out = {}
+        for k, x in v.items():
+            x = _snap_text(x) if k in SNAP_TEXTS else _snap_value(x)
+            if x is not None:
+                out[k] = x
+        return out
+    return v
+
+
+def _scene_snap(v):
+    if not isinstance(v, dict):
+        return None
+    snap = _snap_value(v)
+    if json_size(snap) > MAX_SCENE_SNAP_BYTES:
+        _bad('scene_monster_too_large')
+    return snap
 
 
 def _scene_show(v):
@@ -631,7 +671,11 @@ def _scene_fight(v):
             continue
         cr = m.get('cr')
         cr = float(cr) if isinstance(cr, numbers.Number) and not isinstance(cr, bool) and 0 <= cr <= 30 else None
-        out.append({'monsterId': mid, 'name': name, 'cr': cr, 'count': to_int(m.get('count'), 1, 20, 1)})
+        item = {'monsterId': mid, 'name': name, 'cr': cr, 'count': to_int(m.get('count'), 1, 20, 1)}
+        snap = _scene_snap(m.get('snap'))
+        if snap:
+            item['snap'] = snap
+        out.append(item)
     return out
 
 
@@ -717,6 +761,9 @@ def merged_session_plan(current, patch):
     patch = dict(patch)
     if 'scenes' in patch:
         patch['scenes'] = _merge_scenes(plan.get('scenes'), patch['scenes'])
+        snaps = sum(1 for sc in patch['scenes'] for m in sc.get('fight') or [] if isinstance(m, dict) and m.get('snap'))
+        if snaps > MAX_SCENE_SNAPS:
+            _bad('too_many_scene_monsters')
     plan.update(patch)
     if json_size(plan) > MAX_SESSION_PLAN_BYTES:
         _bad('session_plan_too_large')
