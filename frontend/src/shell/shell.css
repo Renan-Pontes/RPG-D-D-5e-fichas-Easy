@@ -411,41 +411,176 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
 .shell-fallback-card.is-focus { border-color: var(--camp-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--camp-accent) 40%, transparent); }
 .shell-fallback-kind { font-size: 0.75rem; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.08em; }
 
-/* ---------------------------------------------------------- ajustes */
-.modal.shell-settings { max-width: 640px; width: 100%; display: flex; flex-direction: column; gap: 12px; }
-.shell-settings-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.shell-settings-head h2 { margin: 0; font-family: var(--display); font-size: 1.25rem; }
-.shell-settings-body { overflow-y: auto; max-height: calc(90vh - 140px); padding-right: 2px; }
-.shell-h3 { font-family: var(--display); font-size: 1rem; margin: 0; color: var(--gold-bright); letter-spacing: 0.04em; }
-/* rótulo de campo que não é <label> (Tom, Cor de destaque): igual ao global */
+/* ---------------------------------------------------------- ajustes (SettingsMenu: uma MesaSheet)
+   Um só corpo rolável. Celular: a lista das 6 seções → a página da seção, com
+   "← Ajustes" no cabeçalho; ≥ 768: 880 px de altura fixa, com a navegação das 6
+   seções presa à esquerda. O Salvar da Identidade fica no rodapé da folha. */
+.mesa-sheet.shell-settings:is(.is-wide, .is-list) .mesa-sheet-heading > .mesa-eyebrow { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shell-set-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 44px; margin: -8px 0 -6px -10px; padding: 0 12px 0 10px;
+  border: 0; border-radius: 6px; background: none; cursor: pointer;
+  font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--gold);
+}
+.shell-set-back:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 0; }
+@media (hover: hover) { .shell-set-back:hover { color: var(--fh-gold-hi); background: var(--gold-soft); } }
+
+.shell-set-nav { display: flex; flex-direction: column; min-width: 0; }
+.shell-set-nav-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 4px;
+  border: 0; border-bottom: 1px solid rgba(224, 181, 94, 0.14); border-radius: 0;
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.shell-set-nav-row:last-child { border-bottom: 0; }
+.shell-set-nav-row:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+.shell-set-nav-ico {
+  flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  background: #120c09; box-shadow: 0 0 0 1px var(--gold-deep); font-size: 1.1rem;
+}
+.shell-set-nav-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.shell-set-nav-title { color: var(--ink-primary); font-size: 1rem; line-height: 1.25; }
+.shell-set-nav-sub { color: var(--ink-muted); font-size: 0.86rem; line-height: 1.3; overflow-wrap: anywhere; }
+.shell-set-nav-chev { flex: none; color: var(--gold); font-size: 1.35rem; line-height: 1; }
+.shell-set-nav-row.is-danger .shell-set-nav-title { color: var(--blood-bright); }
+.shell-set-nav-row[aria-current="page"] {
+  background: color-mix(in srgb, var(--camp-accent, var(--gold)) 16%, transparent);
+  box-shadow: inset 3px 0 0 var(--camp-accent, var(--gold));
+}
+@media (hover: hover) { .shell-set-nav-row:not([aria-current]):hover { background: rgba(214, 176, 100, 0.06); } }
+.shell-set-page { min-width: 0; }
+/* !important: vence o h3 do celular (styles.css) só aqui */
+.shell-set-page-title { margin: 0 0 14px; font-family: var(--display); font-size: 1.08rem !important; letter-spacing: 0.06em; color: var(--gold-bright); }
+@media (min-width: 768px) {
+  .mesa-sheet.shell-settings { height: min(88vh, 960px); }
+  .shell-set-grid.has-nav { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 20px; align-items: start; }
+  .shell-set-grid.has-nav .shell-set-nav {
+    position: sticky; top: 0; padding-right: 12px; border-right: 1px solid rgba(224, 181, 94, 0.18);
+  }
+  .shell-set-nav-row { min-height: 56px; padding: 6px 8px; border-bottom: 0; border-radius: 6px; }
+  .shell-set-nav-ico { width: 34px; height: 34px; font-size: 1rem; }
+  .shell-set-nav-sub { font-size: 0.8rem; }
+}
+
+/* títulos e textos das seções */
+.shell-h3 {
+  margin: 0; font-family: var(--display); font-size: 0.86rem !important; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
+}
+/* rótulo de campo que não é <label> (Tom, Cor de destaque): como o .mesa-field (≥ 12 px) */
 .shell-label {
-  display: block; font-family: var(--display); font-size: 0.7rem; letter-spacing: 0.2em;
+  display: block; font-family: var(--display); font-size: 0.76rem; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--ink-secondary);
 }
 .shell-settings-form > section + section { border-top: 1px solid var(--stroke-faint); padding-top: 16px; }
-.shell-settings-form .shell-h3 { margin-bottom: 2px; }
-.shell-settings-form .invite-code-display { margin: 6px 0 8px; }
-.shell-save-row { align-items: center; flex-wrap: wrap; margin-top: 4px; }
-.shell-link-input { font-family: var(--mono); font-size: 0.82rem; color: var(--gold-bright); }
-.shell-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.shell-chip {
-  padding: 6px 14px; border-radius: 999px; border: 1px solid var(--stroke);
-  background: var(--bg-raised); color: var(--ink-secondary); cursor: pointer;
+.shell-settings-form .invite-code-display { margin: 4px 0; font-size: 2rem; letter-spacing: 6px; padding: 12px; }
+.shell-set-hint { margin: 0; color: var(--ink-muted); font-size: 0.92rem; line-height: 1.45; }
+.shell-set-status { margin: 0; min-height: 1.4em; color: var(--gold-bright); font-size: 0.92rem; line-height: 1.4; }
+/* o motivo embaixo do "Abrir dados preparados" guarda 2 linhas (ligar/desligar não muda a altura) */
+.shell-set-why { min-height: 2.9em; }
+.shell-set-opts { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.shell-set-opts li.is-on strong { color: var(--gold-bright); }
+.shell-settings .rule-toggle.is-off { opacity: 0.55; cursor: not-allowed; }
+.shell-set-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.shell-set-actions > .mesa-btn { flex: 1 1 auto; }
+.shell-link-input { font-family: var(--mono) !important; color: var(--gold-bright) !important; }
+.shell-set-seg { align-self: flex-start; min-width: min(260px, 100%); }
+.shell-set-open, .shell-set-reopen { align-self: flex-start; }
+.shell-set-page > .shell-set-back { margin: 0 0 8px -10px; font-family: var(--display); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; }
+/* interruptores (Permitir multiclasse, Mundo vivo, Dados preparados…): 48 px */
+.shell-settings .rule-toggle, .shell-name-confirm .rule-toggle { min-height: 48px; align-items: center; margin: 0; }
+.shell-settings .rule-toggle input, .shell-name-confirm .rule-toggle input { width: 22px; height: 22px; margin: 0; }
+.shell-settings .lv-btn-danger, .shell-name-confirm .lv-btn-danger { min-height: 44px; }
+/* a galeria de capas não tem rolagem própria dentro da folha (um só corpo rolável) */
+.shell-settings .cvp-grid { max-height: none; }
+@media (min-width: 561px) { .shell-settings .cvp-grid { overflow: visible; } }
+
+/* rodapé da Identidade: o motivo escrito ao lado do Salvar */
+.shell-set-save { display: flex; align-items: center; gap: 8px 12px; min-height: 48px; }
+/* até 2 linhas, sempre com a mesma altura: o Salvar não se mexe quando o aviso muda */
+.shell-set-save-msg {
+  flex: 1 1 auto; min-width: 0; min-height: 2.7em; margin: 0; display: flex; align-items: center;
+  color: var(--ink-muted); font-size: 0.9rem; line-height: 1.35;
 }
-.shell-chip.active { background: var(--camp-accent); border-color: var(--camp-accent); color: var(--on-gold); font-weight: 600; }
-.shell-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.shell-set-save-msg.is-dirty { color: var(--amber); }
+.shell-set-save-btn { flex: 0 0 auto; min-width: 124px; }
+
+/* tom e cores: chips de 44 px, o nome da cor escrito */
+.shell-chip-row, .shell-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.shell-swatch-chip { padding-left: 8px; gap: 8px; }
 .shell-swatch {
-  width: 32px; height: 32px; border-radius: 50%; background: var(--sw);
-  border: 2px solid rgba(0, 0, 0, 0.4); cursor: pointer;
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.12);
+  flex: none; display: inline-block; width: 26px; height: 26px; border-radius: 50%; background: var(--sw);
+  border: 2px solid rgba(0, 0, 0, 0.4); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.12);
 }
-.shell-swatch.active { outline: 2px solid var(--ink-primary); outline-offset: 2px; }
-.shell-segmented { display: inline-flex; border: 1px solid var(--stroke); border-radius: 8px; overflow: hidden; align-self: flex-start; }
-.shell-seg { padding: 8px 18px; background: var(--bg-raised); color: var(--ink-secondary); border: 0; cursor: pointer; }
-.shell-seg + .shell-seg { border-left: 1px solid var(--stroke); }
-.shell-seg.active { background: var(--camp-accent); color: var(--on-gold); font-weight: 700; }
+.shell-swatch-chip.active .shell-swatch { outline: 2px solid var(--ink-primary); outline-offset: 1px; }
+.shell-swatch-name { font-size: 0.92rem; }
 .shell-meter { height: 8px; border-radius: 4px; background: var(--bg-elevated); overflow: hidden; }
 .shell-meter span { display: block; height: 100%; background: var(--camp-accent); }
+
+/* confirmações de digitar o nome (Esvaziar o Mundo, Encerrar campanha) */
+.shell-name-confirm .mesa-actions.is-stack > .mesa-btn { min-height: 48px; }
+
+/* ---------------------------------------------------------- dados preparados (AdvancedDice)
+   Um cartão por jogador com tudo dentro; sem caixa rolável própria. */
+.adv-intro { margin: 0; color: var(--ink-secondary); font-size: 0.95rem; line-height: 1.5; }
+.adv-card { display: flex; flex-direction: column; gap: 12px; }
+.adv-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.adv-card-who { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
+.adv-card-who strong { color: var(--ink-primary); font-size: 1.05rem; overflow-wrap: anywhere; }
+.adv-card-char { color: var(--ink-muted); font-size: 0.9rem; overflow-wrap: anywhere; }
+.adv-card-count {
+  flex: none; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--stroke);
+  color: var(--ink-muted); font-size: 0.85rem; white-space: nowrap;
+}
+.adv-card-count.has-queue { color: var(--gold-bright); border-color: var(--gold-deep); background: var(--gold-soft); }
+.adv-empty { margin: 0; color: var(--ink-muted); font-style: italic; font-size: 0.92rem; }
+.adv-queue { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.adv-q {
+  flex: 1 1 260px; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 48px;
+  padding: 2px 2px 2px 12px; border-radius: 8px; border: 1px solid rgba(224, 181, 94, 0.25);
+  border-left: 3px solid var(--gold); background: rgba(10, 7, 6, 0.5);
+}
+.adv-q.is-used { opacity: 0.65; padding-right: 12px; border-left-color: var(--stroke); }
+.adv-q-num { min-width: 2.2ch; font-family: var(--mono); font-size: 1.2rem; font-weight: 700; text-align: right; color: var(--gold-bright); }
+.adv-q.is-used .adv-q-num { color: var(--ink-secondary); text-decoration: line-through; }
+.adv-q-die { flex: 1 1 auto; min-width: 0; color: var(--ink-muted); font-size: 0.88rem; overflow-wrap: anywhere; }
+.adv-q-used { font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-secondary); }
+.adv-q-act { flex: none; display: flex; }
+.adv-q-btn { border-radius: 8px; font-size: 1.2rem; color: var(--gold-bright); }
+.adv-q-btn.is-x { color: var(--blood-bright); }
+.adv-q-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.adv-add { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 8px; align-items: end; }
+.adv-add-btn, .adv-hint { grid-column: 1 / -1; }
+.adv-hint { margin: 0; color: var(--ink-muted); font-size: 0.86rem; line-height: 1.4; }
+.adv-next { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.adv-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.adv-msg { flex: 1 1 160px; margin: 0; color: var(--gold-bright); font-size: 0.9rem; }
+.adv-hint.is-err, .adv-msg.is-err { color: var(--blood-bright); }
+.mesa-btn.adv-clear { margin-left: auto; color: var(--blood-bright); }
+@media (min-width: 560px) {
+  .adv-add { grid-template-columns: 104px minmax(0, 1fr) auto; }
+  .adv-add-btn { grid-column: auto; }
+}
+.adv-history > summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px;
+  cursor: pointer; list-style: none; font-family: var(--display); font-size: 0.9rem; letter-spacing: 0.06em; color: var(--gold);
+}
+.adv-history > summary::-webkit-details-marker { display: none; }
+.adv-history > summary::after { content: "▾"; margin-left: 4px; color: var(--gold); }
+.adv-history[open] > summary::after { content: "▴"; }
+.adv-history-n { margin-left: auto; font-family: var(--mono); font-size: 0.85rem; color: var(--ink-muted); }
+.adv-history-empty { margin: 4px 0 0; font-size: 0.92rem; }
+.adv-log { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; }
+.adv-log-row { display: flex; align-items: center; gap: 12px; padding: 8px 4px; border-bottom: 1px dashed rgba(224, 181, 94, 0.15); }
+.adv-log-row:last-child { border-bottom: 0; }
+.adv-log-result { flex: none; min-width: 3ch; font-family: var(--mono); font-size: 1.15rem; font-weight: 700; text-align: right; color: var(--ink-primary); }
+.adv-log-row.is-rigged .adv-log-result { color: var(--gold-bright); }
+.adv-log-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.adv-log-who { color: var(--ink-primary); font-size: 0.95rem; overflow-wrap: anywhere; }
+.adv-log-label { color: var(--ink-secondary); font-style: italic; }
+.adv-log-meta { display: flex; flex-wrap: wrap; gap: 2px 10px; color: var(--ink-muted); font-size: 0.85rem; }
+.adv-log-die { font-family: var(--mono); }
+.adv-log-flag { color: var(--gold); }
+.adv-log-time { font-family: var(--mono); font-size: 0.82rem; }
 
 .shell-cover-picker { display: flex; flex-direction: column; gap: 10px; }
 .shell-cover-current { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -594,7 +729,6 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
   .shell-bottom-more .shell-bottom-ico { color: var(--gold); font-size: 1.35rem; }
   .shell-badge-dot { position: absolute; top: 3px; right: calc(50% - 24px); min-width: 20px; height: 20px; font-size: 12px; }
 
-  .shell-settings-body { max-height: calc(85vh - 140px); }
 
   /* Primeiros passos: cabeçalho em 2 linhas — título e progresso / Ver passos
      e Dispensar (44 px) —, sem passar da tela em 320. */
