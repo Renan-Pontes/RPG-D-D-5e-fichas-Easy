@@ -26,6 +26,15 @@ export function applyAttack(campaignId, body) {
   return combatRequest(`/api/combat/campaign/${cid(campaignId)}/action`, { method: 'POST', body: { action: 'attack', ...body } });
 }
 
+/**
+ * Salvaguarda em área ROLADA NO SERVIDOR (V10), sem aplicar nada: o d20 de cada alvo
+ * e o dano. body: {attackerId, actionIndex, targetIds} →
+ * {ability, dc, half, conditions, damage:[{dice, type, rolled}], targets:[{id, name, d20, modifier, total, success}]}
+ */
+export function savePreview(campaignId, body) {
+  return request(`/api/combat/campaign/${cid(campaignId)}/save-preview`, { method: 'POST', body });
+}
+
 /** Ação de combate genérica (dano, cura, condição…). */
 export function combatAction(campaignId, body) {
   return combatRequest(`/api/combat/campaign/${cid(campaignId)}/action`, { method: 'POST', body });

@@ -5,8 +5,13 @@
 //   Aplicar   → manda exatamente os valores da tela
 //   Ajustar   → abre os campos editáveis
 //   Descartar → some sem deixar rastro
+// "📺 vai à Tela" (V10): o Aplicar leva `show` e o servidor grava 1 linha na Tela —
+// "Goblin #2 ⚔ Dagna · d20 11 · ACERTA · 6 cortante", SEM o bônus. Começa pela
+// regra "Dos monstros" do palco (Jogar › Tela; padrão Na tela) e vale só para este ataque.
 import { useMemo, useState } from 'react';
 import { errorMessage } from '../api/errors.js';
+import { useArea } from '../shell/useArea.js';
+import useStage from '../stage/useStage.js';
 import { applyAttack, attackPreview } from './play-api.js';
 import { applyBody, critDice, draftFromPreview, evaluateDraft, isAdjusted, serverTotalsValid } from './attack-model.js';
 import { damageTypeLabel, DAMAGE_TYPES } from '../combat/monster-i18n.js';
@@ -27,6 +32,10 @@ export default function AttackResultCard({ preview, campaignId, attacker, target
   const [adjusting, setAdjusting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const { campaign } = useArea();
+  const stage = useStage(campaign);
+  const canShow = !!campaign && attacker?.type !== 'pc';
+  const [show, setShow] = useState(() => canShow && (stage?.prefs?.monsters || 'shown') === 'shown');
   const r = useMemo(() => evaluateDraft(draft), [draft]);
   if (!draft || !r) return null;
 
@@ -47,8 +56,8 @@ export default function AttackResultCard({ preview, campaignId, attacker, target
     if (!body) { setError(L(lang, 'Confira o d20 (1 a 20) e o dano.', 'Check the d20 (1 to 20) and the damage.')); return; }
     setBusy(true); setError('');
     try {
-      const res = await applyAttack(campaignId, body);
-      onApplied?.(res, { hit: r.hit, damage: dmgShown, targetName: target?.name });
+      const res = await applyAttack(campaignId, canShow && show ? { ...body, show: true } : body);
+      onApplied?.(res, { hit: r.hit, damage: dmgShown, targetName: target?.name, shown: res?.shown != null });
     } catch (e) {
       setError(errorMessage(e, lang));
     } finally { setBusy(false); }
@@ -187,6 +196,12 @@ export default function AttackResultCard({ preview, campaignId, attacker, target
       {adjusted && <p className="muted small arc-note">✍ {L(lang, 'Valores ajustados pelo mestre.', 'Values adjusted by the DM.')}</p>}
       {error && <p className="arc-error" role="alert">{error}</p>}
 
+      {canShow && (
+        <button type="button" className={`mesa-chip arc-show ${show ? 'active' : ''}`} aria-pressed={show}
+          disabled={busy} onClick={() => setShow(v => !v)}>
+          {show ? `📺 ${L(lang, 'Vai à Tela (sem o bônus)', 'Goes on screen (no bonus)')}` : `🔒 ${L(lang, 'Fica com você', 'Stays with you')}`}
+        </button>
+      )}
       <div className="arc-actions">
         <button type="button" className="mesa-btn mesa-btn-lg is-primary arc-apply" disabled={busy || !r.valid} onClick={apply}>
           ✓ {L(lang, 'Aplicar', 'Apply')}

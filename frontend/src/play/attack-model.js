@@ -175,7 +175,47 @@ export function saveDraft(action, targets, { roll = () => 0, d20 = () => 10 } = 
     targets: (targets || []).map(t => {
       const mod = saveModifier(t, ability);
       const nat = d20();
-      return { id: t.id, name: t.name, mod, total: mod == null ? '' : String(nat + mod), override: null };
+      return { id: t.id, name: t.name, mod, d20: nat, total: mod == null ? '' : String(nat + mod), override: null };
+    }),
+  };
+}
+
+/**
+ * Rascunho a partir da salvaguarda ROLADA NO SERVIDOR (V10, POST …/save-preview):
+ * o mesmo formato de saveDraft, com o d20 de cada alvo. `server: true` diz ao
+ * cartão que os dados vieram do servidor (sem rede, o cartão rola no aparelho).
+ */
+export function saveDraftFromPreview(p, action) {
+  const save = action?.save || {};
+  return {
+    ability: String(p?.ability || save.ability || 'dex').toLowerCase(),
+    dc: Number(p?.dc ?? save.dc) || 10,
+    half: p?.half != null ? !!p.half : !!save.halfOnSave,
+    conditions: [...(p?.conditions || save.conditions || [])],
+    parts: (p?.damage || []).map(d => ({ dice: String(d.dice || ''), type: d.type || 'force', amount: String(d.rolled ?? 0) })),
+    targets: (p?.targets || []).map(t => ({
+      id: t.id, name: t.name, mod: t.modifier ?? null, d20: t.d20 ?? null,
+      total: t.total == null ? '' : String(t.total), override: null,
+    })),
+    server: true,
+  };
+}
+
+/**
+ * Corpo do POST /action {action:'save_apply'} (V10): o efeito como está na tela,
+ * numa chamada só (gasto da ação, dano por alvo e tipo, condições). O d20 de cada
+ * alvo só vai se o total ainda é o rolado (o mestre digitou o dado físico → sem d20).
+ * `show`: 1 linha-resumo na Tela ("Sopro de Fogo · DES CD 13 · Dagna 9 ✗ · …").
+ */
+export function saveApplyBody(d, { attackerId, actionIndex, consume = false, force = false, show = false } = {}) {
+  const results = evaluateSave(d);
+  return {
+    action: 'save_apply', attackerId, actionIndex, consume: !!consume, force: !!force, show: !!show,
+    targets: results.map((r, i) => {
+      const t = d.targets[i] || {};
+      const rolled = t.d20 != null && t.mod != null && r.total === t.d20 + t.mod && t.override == null;
+      return { id: r.id, total: r.total, success: r.success, damage: r.damage, conditions: r.conditions,
+        d20: rolled ? t.d20 : null };
     }),
   };
 }
