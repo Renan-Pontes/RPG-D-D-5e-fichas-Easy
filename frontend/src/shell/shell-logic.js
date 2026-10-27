@@ -7,7 +7,7 @@ export const DM_AREAS = [
   { id: 'world',   icon: '🗺️', pt: 'Mundo',    en: 'World',   subs: ['atlas', 'map', 'timeline'] },
   { id: 'prepare', icon: '📜', pt: 'Preparar', en: 'Prepare', subs: ['next', 'adventures', 'items'] },
   { id: 'play',    icon: '⚔️', pt: 'Jogar',    en: 'Play',    subs: ['scene', 'combat', 'checks', 'screen'] },
-  { id: 'group',   icon: '🛡️', pt: 'Grupo',    en: 'Party',   subs: ['players', 'chronicle'] },
+  { id: 'group',   icon: '🛡️', pt: 'Grupo',    en: 'Party',   subs: ['players', 'insights', 'chronicle'] },
 ];
 
 /** Abas do jogador. */
@@ -32,6 +32,7 @@ export const SUB_LABELS = {
   screen: ['Telão', 'TV screen'],
   players: ['Jogadores', 'Players'],
   requests: ['Pedidos', 'Requests'],
+  insights: ['Raio-X', 'X-ray'],
   chronicle: ['Crônica', 'Chronicle'],
 };
 
@@ -53,7 +54,7 @@ export const SUB_ICONS = {
   atlas: '📚', map: '🗺', timeline: '⌛', documents: '📄',
   next: '📋', adventures: '🧭', items: '💎',
   scene: '🎭', combat: '⚔', checks: '🎲', screen: '📺',
-  players: '🛡', requests: '📨', chronicle: '📜',
+  players: '🛡', requests: '📨', insights: '✦', chronicle: '📜',
 };
 
 export const subShortLabel = (sub, lang) => {

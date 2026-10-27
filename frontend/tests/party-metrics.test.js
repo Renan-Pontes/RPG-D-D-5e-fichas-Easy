@@ -203,3 +203,16 @@ test('data/spell-tags.json está atualizado com o gerador (scripts/build-spell-t
   assert.equal(M.spellTags('cureWounds', '2014').heal, 4.5);
   assert.equal(M.spellTags('fireball', '2014').half, 1);
 });
+
+test('Ajustar no aparelho: o merge local é o do servidor e os patches pendentes se juntam', async () => {
+  const I = await import('../src/group/insights-api.js');
+  const cur = I.withDefaults({ dc: 12, base: { wizard: [5, 2, 5, 1, 5, 1, 5, 4, 2, 1, 2] }, include: [1, 2], hidden: 'x' });
+  assert.deepEqual(cur.hidden, [], 'valor torto volta ao padrão');
+  const next = I.mergeInsights(cur, { base: { cleric: [2, 2, 5, 5, 2, 1, 4, 3, 1, 4, 1], wizard: null }, w: null, rep: 'top2', include: null });
+  assert.deepEqual(Object.keys(next.base), ['cleric'], 'nos mapas, null apaga só o item');
+  assert.deepEqual([next.w, next.rep, next.dc, next.include], [0.5, 'top2', 12, null]);
+  assert.deepEqual(I.mergeInsights(next, I.RESET_PATCH).base, {});
+  // dois toques antes do PUT: um patch só, os mapas juntos item por item
+  assert.deepEqual(I.joinPatches({ focus: { social: 2 }, dc: 10 }, { focus: { explore: 2 }, dc: 12 }), { focus: { social: 2, explore: 2 }, dc: 12 });
+  assert.equal(I.SAVE_DELAY, 800);
+});

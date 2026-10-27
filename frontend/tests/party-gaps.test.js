@@ -94,7 +94,7 @@ test('G0: os 4 quadros', () => {
 test('3 ideias de cena, de tipos diferentes, e o texto que vai para o plano', () => {
   const ideas = S.sceneIdeas(gaps, facts, 'pt');
   assert.deepEqual(ideas.map(i => i.text), [
-    'Uma luta em que Elarion está ocupado: o grupo precisa de outro jeito de controlar a luta',
+    'Uma luta que ocupa Elarion: o grupo precisa de outro jeito de controlar a luta',
     'Uma cena em que só Blefar resolve (ninguém é bom nisso)',
     'Um perigo de salvaguarda de DES com saída',
   ]);

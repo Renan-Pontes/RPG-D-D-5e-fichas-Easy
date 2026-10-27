@@ -138,11 +138,32 @@ export function searchMonsters(monsters, query, limit = 8) {
   return (monsters || []).filter(m => fold(monsterName(m, 'pt')).includes(q) || fold(monsterName(m, 'en')).includes(q)).slice(0, limit);
 }
 
-/** Monstros citados no texto "Monstros" do plano da sessão (nome pt ou en). */
-export function planMonsters(monsters, text) {
-  const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+// Palavras que não dizem qual é o monstro ("Goblin Guerreiro" → goblin)
+const NAME_STOP = new Set(['guerreiro', 'chefe', 'jovem', 'adulto', 'anciao', 'filhote', 'gigante', 'lacaio', 'capitao', 'enxame',
+  'warrior', 'young', 'adult', 'ancient', 'giant', 'swarm', 'minion', 'captain', 'wyrmling']);
+
+/**
+ * Monstros citados no texto do plano da sessão: primeiro os de nome inteiro ("esqueleto"),
+ * depois os que têm uma palavra do nome ("3 goblins afogados" → Goblin Lacaio, Chefe Goblin…).
+ */
+export function planMonsters(monsters, text, limit = 12) {
+  const fold = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const body = fold(text);
   if (!body.trim()) return [];
-  const hit = (n) => n.length >= 3 && new RegExp(`(^|[^a-z])${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}s?([^a-z]|$)`).test(body);
-  return (monsters || []).filter(m => hit(fold(monsterName(m, 'pt'))) || hit(fold(monsterName(m, 'en'))));
+  const esc = (n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // posição da 1ª menção (-1 = não citado)
+  const at = (n) => { if (n.length < 3) return -1; const x = new RegExp(`(^|[^a-z])${esc(n)}(s|es)?([^a-z]|$)`).exec(body); return x ? x.index : -1; };
+  const words = (n) => fold(n).split(/[^a-z]+/).filter(w => w.length >= 5 && !NAME_STOP.has(w));
+  const full = [], partial = [];
+  for (const m of monsters || []) {
+    const pt = monsterName(m, 'pt'), en = monsterName(m, 'en');
+    const f = Math.max(at(fold(pt)), at(fold(en)));
+    if (f >= 0) { full.push({ m, i: f }); continue; }
+    const hits = [...words(pt), ...words(en)].map(w => ({ w, i: at(w) })).filter(x => x.i >= 0).sort((a, b) => a.i - b.i);
+    if (hits.length) partial.push({ m, i: hits[0].i, w: hits[0].w });
+  }
+  // na ordem do texto; no máximo 4 por palavra ("dragão" acharia 40 dragões)
+  const per = {};
+  const some = partial.sort((a, b) => a.i - b.i).filter(x => (per[x.w] = (per[x.w] || 0) + 1) <= 4);
+  return [...full.sort((a, b) => a.i - b.i), ...some].map(x => x.m).slice(0, limit);
 }

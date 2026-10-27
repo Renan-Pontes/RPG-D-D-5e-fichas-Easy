@@ -60,4 +60,9 @@ test('procurar monstro e achar os do plano', () => {
   const ids = V.planMonsters(BESTIARY, '2 goblins na ponte e um Esqueleto; talvez o fantasma').map(m => m.id);
   assert.ok(ids.includes('skeleton') && ids.includes('ghost'), ids.join(','));
   assert.deepEqual(V.planMonsters(BESTIARY, ''), []);
+  // o plano do seed: "3 goblins afogados, 1 bugbear, o Dragão do Lago" — acha pela palavra do nome
+  const seed = V.planMonsters(BESTIARY, '3 goblins afogados, 1 bugbear, o Dragão do Lago (se a mesa estiver forte)').map(m => m.id);
+  assert.ok(seed.includes('goblin-warrior') || seed.some(id => id.startsWith('goblin')), seed.join(','));
+  assert.ok(seed.some(id => id.startsWith('bugbear')), seed.join(','));
+  assert.ok(seed.length <= 12);
 });

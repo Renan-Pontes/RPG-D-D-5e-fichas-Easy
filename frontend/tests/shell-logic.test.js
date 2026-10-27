@@ -26,6 +26,10 @@ test('normalizeArea: sub inválida cai na padrão; área inválida → null', ()
   assert.equal(normalizeArea(true, 'table'), null);           // aba de jogador
   assert.equal(normalizeArea(false, 'prepare'), null);        // área de mestre
   assert.deepEqual(normalizeArea(false, 'table', 'x'), { area: 'table', sub: null });
+  // Grupo › Raio-X (só o mestre): a rota #c/1/group/insights volta ao Raio-X no F5
+  assert.deepEqual(normalizeArea(true, 'group', 'insights'), { area: 'group', sub: 'insights' });
+  assert.deepEqual(DM_AREAS.find(a => a.id === 'group').subs, ['players', 'insights', 'chronicle']);
+  assert.deepEqual(initialArea({ isDM: true, fromUrl: { area: 'group', sub: 'insights' } }), { area: 'group', sub: 'insights' });
 });
 
 test('abas antigas viram áreas novas', () => {
@@ -156,6 +160,8 @@ test('rótulos curtos do celular (plano §4.2) e o longo continua', () => {
   assert.equal(subShortLabel('screen', 'pt'), 'Telão');
   assert.equal(subShortLabel('screen', 'en'), 'TV');
   assert.equal(subShortLabel('requests', 'pt'), 'Pedidos');
+  assert.equal(subLabel('insights', 'pt'), 'Raio-X');
+  assert.equal(subLabel('insights', 'en'), 'X-ray');
   // sem curto próprio, o curto é o longo
   assert.equal(subShortLabel('scene', 'pt'), 'Cena');
   assert.equal(subShortLabel('players', 'en'), 'Players');

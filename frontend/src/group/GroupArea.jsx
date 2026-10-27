@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import DiaryTab from '../campaigns/DiaryTab.jsx';
@@ -12,7 +12,10 @@ import { groupApi } from './group-api.js';
 import { pendingCount, t } from './group-model.js';
 import './group-styles.css';
 
-const SUBS = ['players', 'chronicle'];
+// Raio-X do grupo: as contas e os gráficos só carregam quando o mestre abre a subvista.
+const PartyInsights = lazy(() => import('./PartyInsights.jsx'));
+
+const SUBS = ['players', 'insights', 'chronicle'];
 const subKey = (id) => `forja:group-sub:${id}`;
 function readSub(id) {
   try { const v = localStorage.getItem(subKey(id)); return SUBS.includes(v) ? v : null; } catch { return null; }
@@ -23,7 +26,8 @@ function writeSub(id, v) {
 
 /**
  * Área "Grupo" (mestre e jogador): Jogadores (cards, convite, pedidos de
- * nível/XP) e Crônica (diário + "Anteriormente em…").
+ * nível/XP), Raio-X do grupo (só o mestre: métricas, lacunas e ideias de cena) e
+ * Crônica (diário + "Anteriormente em…").
  *
  * Props:
  *  - campaign, lang, isDM, characters (fichas do usuário, p/ "Trocar personagem")
@@ -55,10 +59,13 @@ export default function GroupArea({ campaign, lang = 'pt', isDM, characters = []
     try { const r = await groupApi.xpEvents(campaign.id); setXpEvents(r.entries || []); } catch { /* histórico de XP é opcional */ }
   }, [campaign.id, isDM]);
 
-  usePolling(loadApprovals, 6000, [campaign.id]);
+  // No Raio-X os pedidos não aparecem: a contagem vem do GET da campanha (que a casca
+  // já busca) e o polling dos pedidos para — a subvista fica nos 24 pedidos/min da casca.
+  const onInsights = current === 'insights';
+  usePolling(() => (onInsights ? null : loadApprovals()), 6000, [campaign.id, onInsights]);
   useEffect(() => { loadXp(); }, [loadXp]);
 
-  const count = approvals ? pendingCount(approvals) : (campaign.pendingApprovals ?? 0);
+  const count = approvals && !onInsights ? pendingCount(approvals) : (campaign.pendingApprovals ?? 0);
   useEffect(() => { onPendingCount?.(count); }, [count, onPendingCount]);
 
   const notify = useCallback((text, kind = 'ok') => setToast({ text, kind, id: Date.now() }), []);
@@ -73,7 +80,7 @@ export default function GroupArea({ campaign, lang = 'pt', isDM, characters = []
     <div className="grp-area">
       {/* Jogador: a Crônica é uma área própria na casca; aqui só Jogadores. */}
       {isDM && (
-        <SubChips subs={['players', 'chronicle']} active={current} onSelect={setSub} lang={lang}
+        <SubChips subs={SUBS} active={current} onSelect={setSub} lang={lang}
           ariaLabel={t(lang, 'Grupo', 'Group')} badges={{ players: count }}
           badgeLabels={{ players: t(lang, `${count} pedido(s) pendente(s)`, `${count} pending request(s)`) }} />
       )}
@@ -88,6 +95,12 @@ export default function GroupArea({ campaign, lang = 'pt', isDM, characters = []
             : <RequestsPanel campaign={campaign} approvals={approvals} xpEvents={xpEvents} lang={lang} isDM={isDM}
                 ask={ask} notify={notify} onChange={refresh} />}
         </div>
+      )}
+
+      {current === 'insights' && (
+        <Suspense fallback={<p className="muted" role="status">{t(lang, 'Carregando o Raio-X…', 'Loading the X-ray…')}</p>}>
+          <PartyInsights campaign={campaign} lang={lang} />
+        </Suspense>
       )}
 
       {current === 'chronicle' && (

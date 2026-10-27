@@ -240,7 +240,7 @@ export function sceneIdeas(gaps, facts, lang = 'pt', limit = 3) {
     if (g.kind === 'skill') text = t(lang, `Uma cena em que só ${skillLabel(g.key, lang)} resolve (ninguém é bom nisso)`, `A scene only ${skillLabel(g.key, lang)} can solve (nobody is good at it)`);
     else if (g.kind === 'spof') {
       const who = joinAnd((g.who || []).map(nameOf), lang);
-      text = t(lang, `Uma luta em que ${who} está ocupado: o grupo precisa de outro jeito de ${L2(AXIS_VERB[g.key], lang)}`,
+      text = t(lang, `Uma luta que ocupa ${who}: o grupo precisa de outro jeito de ${L2(AXIS_VERB[g.key], lang)}`,
         `A fight where ${who} is busy: the party needs another way to ${L2(AXIS_VERB[g.key], lang)}`);
     } else if (g.kind === 'save') text = t(lang, `Um perigo de salvaguarda de ${abilShort(g.key, lang)} com saída`, `A ${abilShort(g.key, lang)} saving throw danger with a way out`);
     else if (g.kind === 'damage') {
