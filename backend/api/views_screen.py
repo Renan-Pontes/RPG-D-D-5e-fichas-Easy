@@ -17,6 +17,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
 
 from .models import Campaign, CombatInstance, RollRequest, CheckRequest
+from .combat import sheet_speed
 from .progression.multiclass import class_entries
 from .campaign_state import public_state
 from .image_data import image_response, image_ver
@@ -42,7 +43,7 @@ def _public_character(data, name, char_id):
         'maxHp': d.get('maxHp'),
         'tempHp': d.get('tempHp', 0),
         'armorClass': ac_estimate,
-        'speed': d.get('speedOverride') or d.get('speed') or 30,  # o que a ficha calculou ao salvar
+        'speed': sheet_speed(d),  # fixo do mestre, senão o que a ficha calculou ao salvar
         'conditions': d.get('conditions', []),
         'inspiration': bool(d.get('inspiration')),
         'deathSaves': d.get('deathSaves') or {'success': 0, 'fail': 0},
