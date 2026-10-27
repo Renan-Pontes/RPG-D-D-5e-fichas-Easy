@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   stageNow, normalizeStage, stageLines, undoLabel, frontLabel, playerScreen, screenLine, dmFrontImage,
-  newestStage, cardShowMode, privateReason, privateShort, bgLabel, testLabel,
+  newestStage, cardShowMode, privateReason, privateShort, bgLabel, testLabel, frontPlace,
 } from '../src/stage/stage-now.js';
 
 const FIGHT = { active: true, round: 2 };
@@ -34,6 +34,16 @@ test('escurecida: preta, com a frente guardada atrás', () => {
   assert.equal(now.mode, 'dark');
   assert.equal(now.held, card);
   assert.equal(now.bg, 'dark');
+});
+
+test('onde está o recap: na TV, esperando o combate ou atrás da Tela escurecida', () => {
+  const recap = { kind: 'recap', label: 'Anteriormente' };
+  assert.equal(frontPlace(stageNow({ stage: { front: recap } }), 'recap'), 'front');
+  assert.equal(frontPlace(stageNow({ stage: { front: recap, focus: true }, combat: FIGHT }), 'recap'), 'front');
+  assert.equal(frontPlace(stageNow({ stage: { front: recap, focus: false }, combat: FIGHT }), 'recap'), 'waiting');
+  assert.equal(frontPlace(stageNow({ stage: { front: recap, bg: 'dark' } }), 'recap'), 'held');
+  assert.equal(frontPlace(stageNow({ stage: { front: card } }), 'recap'), null);
+  assert.equal(frontPlace(stageNow({ stage: {} }), 'recap'), null);
 });
 
 test('sem frente: o fundo (combate, mapa ou capa)', () => {

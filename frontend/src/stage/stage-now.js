@@ -66,6 +66,18 @@ export function stageNow({ stage, combat } = {}) {
   return { ...base, mode: 'rest' };
 }
 
+/**
+ * Onde uma frente de um tipo está (a Crônica pergunta pelo "Anteriormente em…"):
+ * 'front' na TV agora · 'waiting' guardada para depois do combate · 'held' atrás da
+ * Tela escurecida · null fora do palco.
+ */
+export function frontPlace(now, kind) {
+  if (now?.mode === 'front' && now.front?.kind === kind) return 'front';
+  if (now?.waiting?.kind === kind) return 'waiting';
+  if (now?.held?.kind === kind) return 'held';
+  return null;
+}
+
 const KIND_ICON = { card: '🗺', image: '🖼', scene: '🎭', text: '📝', recap: '📜' };
 export const frontIcon = (front) => (front ? KIND_ICON[front.kind] || '📺' : '');
 

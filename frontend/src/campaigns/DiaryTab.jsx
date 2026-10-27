@@ -12,6 +12,8 @@ import useScrollEdges from '../shell/useScrollEdges.js';
 import './diary-styles.css';
 import '../group/group-styles.css';
 import { sendToStage, showOnStage, stageBack } from '../stage/stage-api.js';
+import { frontPlace, stageNow } from '../stage/stage-now.js';
+import useStage from '../stage/useStage.js';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const UNDO_MS = 5000;
@@ -154,7 +156,12 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
     onAutoRecap?.();
   }, [autoRecap, isDM, loaded, recap, entries.length, openRecap, onAutoRecap]);
 
-  const onScreen = campaign.state?.screenCard;
+  // O recap na Tela pela regra de sempre (stage-now): na TV, esperando o combate ou atrás
+  // da Tela escurecida — nunca pelo screenCard de compatibilidade (princípio 7).
+  const stage = useStage(campaign);
+  const recapPlace = frontPlace(stageNow({ stage, combat: campaign.combatNow }), 'recap');
+  const stageRecap = campaign.state?.stageRecap;
+  const onScreen = recapPlace ? { place: recapPlace, title: stageRecap?.title || '', text: stageRecap?.text || '' } : null;
   const flash = (text) => setToast({ id: `m${Date.now()}`, text });
   useEffect(() => {
     if (!toast || toast.undo) return undefined;
@@ -205,9 +212,11 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
             )}
           </div>
         )}
-        {isDM && onScreen?.type === 'recap' && (
+        {isDM && onScreen && (
           <div className="diary-on-tv" role="status">
-            <span>📺 {t(lang, 'O recap está na Tela agora.', 'The recap is on screen now.')}</span>
+            <span>📺 {onScreen.place === 'front' ? t(lang, 'O recap está na Tela agora.', 'The recap is on screen now.')
+              : onScreen.place === 'waiting' ? t(lang, 'O recap espera o fim do combate.', 'The recap waits for combat to end.')
+                : t(lang, 'O recap está atrás da Tela escurecida.', 'The recap is behind the blacked-out screen.')}</span>
             <button type="button" className="mesa-btn" onClick={() => clearScreen()}>{t(lang, 'Tirar da Tela', 'Remove from screen')}</button>
           </div>
         )}
@@ -499,7 +508,8 @@ function RecapSheet({ campaign, lang, recap, onScreen, onShow, onClearScreen, on
   const [touched, setTouched] = useState(false);
   const [err, setErr] = useState('');
   useEffect(() => { setTitle(recap.title); setText(recap.text); setTouched(false); setErr(''); }, [recap]);
-  const live = onScreen?.type === 'recap' && onScreen.title === title.trim() && onScreen.text === text;
+  // "Na Tela agora" só com este texto na TV de verdade (frente do palco e state.stageRecap)
+  const live = onScreen?.place === 'front' && onScreen.title === title.trim() && onScreen.text === text;
   const tooLong = text.length > 5000;
   const empty = !text.trim() && !title.trim();
 
