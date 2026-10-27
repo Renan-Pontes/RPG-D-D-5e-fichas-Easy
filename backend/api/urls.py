@@ -179,6 +179,7 @@ urlpatterns = [
     path('combat/campaign/<str:id_or_slug>/player-attack', closed_guard(views_combat.combat_player_attack, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/attack-preview', closed_guard(_wp2('views_combat', 'combat_attack_preview'), 'campaign')),
     path('combat/campaign/<str:id_or_slug>/next-turn', closed_guard(views_combat.combat_next_turn, 'campaign')),
+    path('combat/campaign/<str:id_or_slug>/prev-turn', closed_guard(views_combat.combat_prev_turn, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/map', closed_guard(views_combat.combat_set_map, 'campaign')),
 
     # RollRequest

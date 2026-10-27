@@ -8,7 +8,8 @@ POST /api/combat/campaign/<id>/combatants    (DM)  body: {snapshot, type}
 DEL  /api/combat/campaign/<id>/combatants/<cid>  (DM)
 PUT  /api/combat/campaign/<id>/combatants/<cid>  (DM)  body: campos a atualizar
 POST /api/combat/campaign/<id>/action   (DM)  body: ataque/save/condição/dano/cura/death_save
-POST /api/combat/campaign/<id>/next-turn (DM)
+POST /api/combat/campaign/<id>/next-turn (DM)  body: {expect?: {round, turnIndex}} → 409 stale_turn se a vez já mudou
+POST /api/combat/campaign/<id>/prev-turn (DM)  body: {expect?} → ↶ Voltar turno (restaura a foto do Próximo)
 POST /api/combat/campaign/<id>/map      (DM)  body: {background_image, grid_size_px, grid_visible}
 
 POST /api/rolls/campaign/<id>           (member)
@@ -18,6 +19,8 @@ POST /api/rolls/<id>/resolve            (DM)  body: {visibility: 'public'|'priva
 POST /api/rolls/<id>/cancel             (DM ou owner)
 """
 import secrets
+from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -1053,40 +1056,200 @@ def _sync_pc_to_character(combatant):
     char.save()
 
 
+# ============================================================
+# Próximo turno e ↶ Voltar turno (V4, especificação §4.7 C1)
+# ============================================================
+# O cliente manda `expect: {round, turnIndex}` (a vez que ele estava vendo). Se a
+# vez já mudou (2 toques com o servidor lento, outro aparelho do mestre), o
+# servidor responde 409 `stale_turn` SEM mexer em nada e devolve o combate atual.
+# A leitura e a gravação ficam numa transação que já começa com o lock de escrita
+# (o SQLite ignora o select_for_update), e a gravação ainda é um "compare-and-swap"
+# por `updated_at`: se outra escrita entrou no meio, relê e confere de novo.
+#
+# A entrada `next_turn` do action_log guarda a FOTO do fim do turno: a vez e a
+# rodada de antes (`from`) e, de cada combatente que `tick_effects`/`start_turn`
+# mudaram, os campos antes e depois (efeitos, condições com duração, recargas,
+# ações lendárias) — nunca imagens. "↶ Voltar turno" restaura essa foto: cada
+# campo só volta se ainda está como o próximo turno deixou (mexeram depois →
+# fica como está).
+TURN_PHOTO_FIELDS = ('effects', 'conditions', 'action_state', 'legendary')
+
+
+def _expect(data):
+    """`expect: {round, turnIndex}` do corpo → (round, turnIndex) ou None."""
+    raw = data.get('expect') if isinstance(data, dict) else None
+    if not isinstance(raw, dict):
+        return None
+    try:
+        return int(raw.get('round')), int(raw.get('turnIndex'))
+    except (TypeError, ValueError):
+        raise ValidationError({'error': 'invalid_expect'})
+
+
+def _stale(c):
+    from rest_framework import status
+    return Response({'error': 'stale_turn', 'combat': _serialize_combat(c, for_dm=True)}, status=status.HTTP_409_CONFLICT)
+
+
+def _turn_photo(before, after):
+    """Campos de turno que mudaram num combatente: {id, before, after} ou None."""
+    b = {k: before.get(k) for k in TURN_PHOTO_FIELDS}
+    a = {k: after.get(k) for k in TURN_PHOTO_FIELDS}
+    changed = [k for k in TURN_PHOTO_FIELDS if b[k] != a[k]]
+    if not changed:
+        return None
+    return {'id': after.get('id'), 'before': {k: b[k] for k in changed}, 'after': {k: a[k] for k in changed}}
+
+
+def _merge_photo(photo, p):
+    """Junta a foto de um combatente que mudou duas vezes (sozinho no combate:
+    fim e começo do turno dele): `before` fica o original, `after` o final."""
+    for x in photo:
+        if x['id'] == p['id']:
+            for k, v in p['before'].items():
+                x['before'].setdefault(k, v)
+            x['after'].update(p['after'])
+            return photo
+    photo.append(p)
+    return photo
+
+
+def _swap_turn(c, combatants, log, round_number, turn_index):
+    """Grava a vez nova só se ninguém escreveu no combate desde a leitura. → bool"""
+    now = timezone.now()
+    n = (CombatInstance.objects.filter(pk=c.pk, updated_at=c.updated_at)
+         .update(combatants=combatants, action_log=log, round_number=round_number, turn_index=turn_index,
+                 updated_at=now))
+    if n:
+        c.combatants, c.action_log, c.round_number, c.turn_index, c.updated_at = (
+            combatants, log, round_number, turn_index, now)
+    return bool(n)
+
+
+def _log_add(log, entry):
+    log.append({**entry, 'ts': timezone.now().isoformat()})
+    return log[-100:]
+
+
+def _turn_write(campaign, expect, compute):
+    """Lê o combate, confere a vez esperada e grava `compute(c)` com CAS (até 3
+    tentativas). compute(c) → (combatants, log, round, turn_index) ou uma Response."""
+    seen = None
+    for _ in range(3):
+        with transaction.atomic():
+            # Pega o lock de escrita ANTES de ler (como campaign_state.merge_state): no
+            # SQLite, dois Próximos ao mesmo tempo esperam um pelo outro e o 2º lê a vez
+            # nova (→ 409), em vez de travar os dois ("database is locked").
+            CombatInstance.objects.filter(campaign=campaign).update(turn_index=F('turn_index'))
+            c = CombatInstance.objects.select_for_update().filter(campaign=campaign).first()
+            if c is None:
+                c = _get_combat(campaign)
+            want = expect or seen
+            if want is not None and (c.round_number, c.turn_index) != want:
+                return _stale(c)
+            seen = (c.round_number, c.turn_index)
+            out = compute(c)
+            if isinstance(out, Response):
+                return out
+            if _swap_turn(c, *out):
+                return Response({'combat': _serialize_combat(c, for_dm=True)})
+    c = _get_combat(campaign)
+    return _stale(c)
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def combat_next_turn(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
-    c = _get_combat(campaign)
-    combatants = list(c.combatants or [])
-    if not combatants:
-        return Response({'combat': _serialize_combat(c, for_dm=True)})
+    expect = _expect(request.data)
 
-    # Tick effects do combatente que terminou o turno (atual antes de avançar)
-    cur_idx = c.turn_index
-    if 0 <= cur_idx < len(combatants):
-        ticked = engine.tick_effects(combatants[cur_idx])
-        combatants[cur_idx] = ticked['combatant']
-        if ticked['expired']:
-            _append_log(c, {'type': 'effects_expired', 'target': combatants[cur_idx].get('name'), 'expired': ticked['expired']})
+    def compute(c):
+        combatants = [dict(x) for x in (c.combatants or [])]
+        if not combatants:
+            return Response({'combat': _serialize_combat(c, for_dm=True)})
+        log = list(c.action_log or [])
+        photo = []
+        # Tick effects do combatente que terminou o turno (atual antes de avançar)
+        cur_idx = c.turn_index
+        if 0 <= cur_idx < len(combatants):
+            before = combatants[cur_idx]
+            ticked = engine.tick_effects(before)
+            combatants[cur_idx] = ticked['combatant']
+            p = _turn_photo(before, combatants[cur_idx])
+            if p:
+                photo.append(p)
+            if ticked['expired']:
+                log = _log_add(log, {'type': 'effects_expired', 'target': combatants[cur_idx].get('name'), 'expired': ticked['expired']})
 
-    next_idx = (cur_idx + 1) % len(combatants)
-    next_round = c.round_number + 1 if next_idx == 0 else c.round_number
-    c.turn_index = next_idx
-    c.round_number = next_round
-    _append_log(c, {'type': 'next_turn', 'round': next_round, 'index': next_idx, 'whose': combatants[next_idx].get('name')})
+        next_idx = (cur_idx + 1) % len(combatants)
+        next_round = c.round_number + 1 if next_idx == 0 else c.round_number
 
-    # Início do turno do monstro: rola recarga (d6) e restaura ações lendárias.
-    nxt = combatants[next_idx]
-    if nxt.get('type') == 'monster':
-        started = engine.start_turn(nxt)
-        combatants[next_idx] = started['combatant']
-        if started['recharge_rolls']:
-            _append_log(c, {'type': 'recharge', 'target': nxt.get('name'), 'rolls': started['recharge_rolls']})
-    c.combatants = combatants
-    c.save()
-    return Response({'combat': _serialize_combat(c, for_dm=True)})
+        # Início do turno do monstro: rola recarga (d6) e restaura ações lendárias.
+        nxt = combatants[next_idx]
+        recharge = None
+        if nxt.get('type') == 'monster':
+            started = engine.start_turn(nxt)
+            combatants[next_idx] = started['combatant']
+            p = _turn_photo(nxt, combatants[next_idx])
+            if p:
+                photo = _merge_photo(photo, p)
+            if started['recharge_rolls']:
+                recharge = {'type': 'recharge', 'target': nxt.get('name'), 'rolls': started['recharge_rolls']}
+        log = _log_add(log, {'type': 'next_turn', 'round': next_round, 'index': next_idx,
+                             'whose': combatants[next_idx].get('name'),
+                             'from': {'round': c.round_number, 'index': cur_idx}, 'photo': photo})
+        if recharge:
+            log = _log_add(log, recharge)
+        return combatants, log, next_round, next_idx
+
+    return _turn_write(campaign, expect, compute)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def combat_prev_turn(request, id_or_slug):
+    """↶ Voltar turno: restaura a foto guardada pelo último Próximo turno."""
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    expect = _expect(request.data)
+
+    def compute(c):
+        log = [dict(e) if isinstance(e, dict) else e for e in (c.action_log or [])]
+        pos = next((i for i in range(len(log) - 1, -1, -1)
+                    if isinstance(log[i], dict) and log[i].get('type') == 'next_turn'
+                    and isinstance(log[i].get('from'), dict) and not log[i].get('undone')), None)
+        entry = log[pos] if pos is not None else None
+        # A foto só vale se a vez ainda é a que aquele Próximo turno deixou.
+        if not entry or (entry.get('round'), entry.get('index')) != (c.round_number, c.turn_index):
+            return Response({'error': 'nothing_to_undo', 'combat': _serialize_combat(c, for_dm=True)}, status=409)
+        combatants = [dict(x) for x in (c.combatants or [])]
+        kept = []
+        for p in entry.get('photo') or []:
+            i = next((k for k, x in enumerate(combatants) if x.get('id') == p.get('id')), None)
+            if i is None:
+                continue
+            cb = combatants[i]
+            for field, old in (p.get('before') or {}).items():
+                if field not in TURN_PHOTO_FIELDS:
+                    continue
+                if cb.get(field) != (p.get('after') or {}).get(field):
+                    kept.append(field)       # mexeram depois: fica como está
+                    continue
+                if old is None:
+                    cb.pop(field, None)
+                else:
+                    cb[field] = old
+        back = entry['from']
+        log[pos] = {**entry, 'undone': True}
+        rnd = max(1, int(back.get('round') or 1))
+        idx = max(0, int(back.get('index') or 0))
+        whose = combatants[idx].get('name') if idx < len(combatants) else None
+        log = _log_add(log, {'type': 'prev_turn', 'round': rnd, 'index': idx, 'whose': whose,
+                             **({'kept': sorted(set(kept))} if kept else {})})
+        return combatants, log, rnd, idx
+
+    return _turn_write(campaign, expect, compute)
 
 
 @api_view(['POST'])
