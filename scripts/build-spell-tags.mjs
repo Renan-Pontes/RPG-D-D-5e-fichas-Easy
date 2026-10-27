@@ -14,6 +14,7 @@
 //   dmg: ['fire', …]  tipos de dano que a magia causa      avg: dano médio por alvo
 //   atk: 1 ataque mágico · save: 1 salvaguarda · half: 1 metade no sucesso
 //   area: 1 atinge uma área (conta 2 alvos)                 rider: 1 dano só junto do ataque com arma
+//                                                           (sem `dmg`: do tipo da arma)
 //   heal: cura média · hm: 1 soma o modificador de conjuração
 //   ctl: 'single' | 'area' (condição, empurrão, terreno, velocidade)
 //   mob: 1 movimento · soc: 1 social · exp: 1 exploração
@@ -31,7 +32,7 @@ const DAMAGE_TYPES = ['acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning
 const DT = DAMAGE_TYPES.join('|');
 const RE_DMG = new RegExp(`(\\d+d\\d+)(?:\\s*\\+\\s*\\d+)?\\s+(${DT})\\b`, 'i');
 const RE_DMG_TYPE = new RegExp(`\\b(${DT})\\s+damage\\b`, 'gi');
-const RE_CHOOSE = /choose\s+((?:acid|cold|fire|lightning|poison|thunder|necrotic|radiant|psychic|force)(?:,?\s*(?:or\s+)?(?:acid|cold|fire|lightning|poison|thunder|necrotic|radiant|psychic|force))+)/i;
+const RE_CHOOSE = /choose:?\s+((?:acid|cold|fire|lightning|poison|thunder|necrotic|radiant|psychic|force)(?:,?\s*(?:or\s+)?(?:acid|cold|fire|lightning|poison|thunder|necrotic|radiant|psychic|force))+)/i;
 const RE_HEAL = /\bregains?\b[^.]*?(\d+d\d+)|\bheal(?:s|ing)?\s+(\d+d\d+)|\b(?:regains?|restores?|restoring)\s+(\d+)\s+hit points?/i;
 const RE_HEAL_MOD = /plus your spellcasting ability modifier|\+\s*spellcasting mod/i;
 const RE_CONTROL = /\b(charmed|frightened|paralyzed|restrained|incapacitated|stunned|prone|blinded|petrified|unconscious|grappled|banish(?:ed)?|fall asleep|asleep|pushed|push(?:es)?|difficult terrain|can't take reactions|follow the command|speed (?:is )?(?:reduced|halved|becomes 0|decreases)|speed -\d+|-\d+ (?:ft|feet) speed)\b/i;
@@ -65,6 +66,12 @@ const FIX = {
   rimesBindingIce: { avg: 13.5, save: 1, half: 1, ctl: 'area' }, guardianOfFaith: { avg: 20, auto: 1, area: 1 },
   abiDalzimsHorridWilting: { avg: 54, save: 1, half: 1 }, maddeningDarkness: { avg: 36, save: 1, half: 1 },
   gravitySinkhole: { avg: 27.5, save: 1, half: 1, area: 1 }, sickeningRadiance: { avg: 22, save: 1, area: 1 },
+  frostbite: { dmg: ['cold'], avg: 3.5, save: 1 }, mindSliver: { dmg: ['psychic'], avg: 3.5, save: 1 },
+  primalSavagery: { dmg: ['acid'], avg: 5.5, atk: 1 }, wordOfRadiance: { dmg: ['radiant'], avg: 3.5, save: 1, area: 1 },
+  createBonfire: { dmg: ['fire'], avg: 4.5, save: 1 }, lightningLure: { dmg: ['lightning'], avg: 4.5, save: 1, ctl: 'single' },
+  thunderclap: { dmg: ['thunder'], avg: 3.5, save: 1, area: 1 }, magicStone: { dmg: ['bludgeoning'], avg: 5.5, atk: 1 },
+  chaosBolt: { dmg: ['acid', 'cold', 'fire', 'force', 'lightning', 'poison', 'psychic', 'thunder'], avg: 12.5, atk: 1 },
+  catapult: { dmg: ['bludgeoning'], avg: 13.5, save: 1 },
   // falam de um tipo de dano, mas para proteger (resistência, imunidade) ou de passagem
   bladeWard: { dmg: null }, auraOfLife: { dmg: null, heal: null, hm: null }, mindBlank: { dmg: null, ctl: null }, protectionFromPoison: { dmg: null },
   stoneskin: { dmg: null }, etherealness: { dmg: null }, gaseousForm: { dmg: null }, silence: { dmg: null },
@@ -90,11 +97,13 @@ const FIX = {
   banishingSmite: { rider: 1, dmg: ['force'] }, shiningSmite: { rider: 1, dmg: ['radiant'] }, trueStrike: { rider: 1, dmg: ['radiant'] },
   shillelagh: { rider: 1 }, crusadersMantle: { rider: 1 }, flameArrows: { rider: 1 }, holyWeapon: { rider: 1 },
   fountOfMoonlight: { rider: 1 }, armorOfAgathys: { rider: 1 }, divineFavor: { rider: 1 },
+  boomingBlade: { rider: 1, dmg: ['thunder'] }, greenFlameBlade: { rider: 1, dmg: ['fire'] },
   // Mísseis Mágicos: 3 dardos que sempre acertam
   magicMissile: { avg: 10.5, atk: null, save: null, auto: 1 },
 };
 const FIX_2014 = {
-  huntersMark: { rider: 1, dmg: null },          // 2014: dano do mesmo tipo da arma
+  huntersMark: { rider: 1, dmg: null },          // 2014: dano do mesmo tipo da arma (não é utilidade)
+  iceKnife: { dmg: ['cold', 'piercing'] },       // o resumo 2014 diz "2d6 cold" sem "damage"
   trueStrike: { rider: null, dmg: null, avg: null },  // 2014: só vantagem no próximo ataque
 };
 
@@ -145,7 +154,8 @@ const ORDER = ['dmg', 'avg', 'atk', 'save', 'half', 'auto', 'area', 'rider', 'he
 function fixed(t, fix) {
   const out = { ...t };
   for (const [k, v] of Object.entries(fix || {})) { if (v == null) delete out[k]; else out[k] = v; }
-  if (!out.dmg) { for (const k of ['avg', 'atk', 'save', 'half', 'auto', 'rider']) delete out[k]; }
+  // sem tipo de dano não há como acertar; `rider` sozinho fica (o dano é o da arma)
+  if (!out.dmg) { for (const k of ['avg', 'atk', 'save', 'half', 'auto']) delete out[k]; }
   return Object.fromEntries(ORDER.filter(k => k in out).map(k => [k, out[k]]));
 }
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);

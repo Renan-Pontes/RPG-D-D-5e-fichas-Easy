@@ -325,7 +325,8 @@ export function sheetFacts(c, lang = 'pt') {
   const tools = c.toolProfs || [];
   const expertise = SKILLS.filter(k => safe(() => Utils.hasExpertise(c, k), false)).length;
   const langs = safe(() => Utils.languagesFor(c).length, 0) || 0;
-  const utilSpells = spells.filter(s => !s.tags.dmg && !s.tags.heal && !s.tags.ctl);
+  // dano junto do acerto (Marca do Caçador 2014: `rider` sem tipo) não é utilidade
+  const utilSpells = spells.filter(s => !s.tags.dmg && !s.tags.rider && !s.tags.heal && !s.tags.ctl);
   const thieves = tools.includes('thievesTools');
   const utility = 0.5 * utilSpells.length + 0.25 * utilSpells.filter(s => s.ritual).length + 0.5 * tools.length
     + (thieves ? 0.5 : 0) + 0.5 * expertise + 0.25 * Math.max(0, langs - 2);

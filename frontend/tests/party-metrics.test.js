@@ -209,6 +209,19 @@ test('números em pt e en', () => {
   assert.equal(M.partyFacts(party, 'en')[0].why.dmg.length > 0, true);
 });
 
+test('Explosão Feiticeira dá dano e tipos; Marca do Caçador 2014 não é utilidade', () => {
+  const sorc = make('2024', 'sorcerer', 1, { abilities: { str: 8, dex: 14, con: 14, int: 10, wis: 12, cha: 16 },
+    spells: [{ id: 'sorcerousBurst' }, { id: 'mageHand' }], weapons: [{ id: 'dagger', name: 'Adaga' }] });
+  const f = M.sheetFacts(sorc, 'pt');
+  assert.deepEqual(f.why.dmg, ['Explosão Feiticeira'], 'a magia vence a adaga');
+  for (const k of ['acid', 'cold', 'fire', 'lightning', 'poison', 'psychic', 'thunder']) assert.ok(f.dmgTypes[k], k);
+  assert.deepEqual(f.why.utility, ['Mão Mágica']);
+  const ranger = make('2014', 'ranger', 2, { spells: [{ id: 'huntersMark', prepared: true }], weapons: [{ id: 'longbow', name: 'Arco' }] });
+  const g = M.sheetFacts(ranger, 'pt');
+  assert.ok(g.riders.includes('Marca do Caçador'));
+  assert.equal(g.why.utility.includes('Marca do Caçador'), false);
+});
+
 test('data/spell-tags.json está atualizado com o gerador (scripts/build-spell-tags.mjs)', () => {
   const file = JSON.parse(readFileSync(new URL('../data/spell-tags.json', import.meta.url), 'utf8'));
   assert.deepEqual(file, buildSpellTags());
@@ -218,7 +231,13 @@ test('data/spell-tags.json está atualizado com o gerador (scripts/build-spell-t
   assert.equal(M.spellTags('heal', '2024').heal, 70);
   assert.equal(M.spellTags('alarm', '2024').ctl, undefined);
   assert.equal(M.spellTags('huntersMark', '2024').rider, 1);
-  assert.deepEqual(M.spellTags('huntersMark', '2014'), {});
+  assert.deepEqual(M.spellTags('huntersMark', '2014'), { rider: 1 }, '2014: dano do tipo da arma, não é utilidade');
+  assert.deepEqual(M.spellTags('sorcerousBurst', '2024').dmg, ['acid', 'cold', 'fire', 'lightning', 'poison', 'psychic', 'thunder'], '"of a type you choose:"');
+  assert.deepEqual(M.spellTags('iceKnife', '2014').dmg, ['cold', 'piercing'], 'a explosão de frio do resumo 2014');
+  assert.deepEqual(M.spellTags('boomingBlade', '2024'), { dmg: ['thunder'], rider: 1 });
+  for (const id of ['frostbite', 'mindSliver', 'primalSavagery', 'wordOfRadiance', 'createBonfire', 'lightningLure', 'thunderclap', 'magicStone', 'chaosBolt', 'catapult']) {
+    assert.ok(M.spellTags(id, '2024').dmg?.length && M.spellTags(id, '2024').avg > 0, `${id}: texto curto, revisão à mão`);
+  }
   assert.equal(M.spellTags('cureWounds', '2024').heal, 9);
   assert.equal(M.spellTags('cureWounds', '2014').heal, 4.5);
   assert.equal(M.spellTags('fireball', '2014').half, 1);
