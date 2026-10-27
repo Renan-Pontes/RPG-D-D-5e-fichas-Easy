@@ -9,6 +9,7 @@ from . import views_ready
 from . import views_share
 from . import views_admin
 from . import views_plans
+from . import views_pulse
 from .plans import closed_guard
 from . import views_auth, views_characters, views_campaigns, views_approvals, views_dice, views_screen, views_combat, views_inventory, views_items, views_diary
 
@@ -85,6 +86,8 @@ urlpatterns = [
     # Palco da Tela (frente, fundo, ↶, 🧹, ◐) e a imagem da frente (V3, api/stage.py)
     path('campaigns/<str:id_or_slug>/stage', closed_guard(views_campaigns.campaign_stage, 'campaign')),
     path('campaigns/<str:id_or_slug>/stage-image', views_campaigns.campaign_stage_image),
+    # pulso do mestre (V4): no lugar do GET completo no polling; 304 parado
+    path('campaigns/<str:id_or_slug>/pulse', views_pulse.campaign_pulse),
 
     # Mundo da campanha (lugares, NPCs, facções, itens, lore, documentos)
     path('campaigns/<str:id_or_slug>/world', closed_guard(views_world.world_list, 'campaign')),

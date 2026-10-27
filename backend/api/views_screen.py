@@ -4,6 +4,9 @@ Endpoints públicos do telão. Não exigem autenticação — só o screen_token
 GET /screen/<token>                   estado PÚBLICO (whitelist), cartão "Mostrar agora"
                                       resolvido, combate filtrado (monstros só com nome,
                                       condições e faixa de saúde), PJs, rolagem/teste públicos.
+                                      ?tv=1&c=<aba>: a TV de verdade avisa que está aberta
+                                      ("TV conectada" do mestre, só no cache em memória);
+                                      ?preview=1 (a prévia do mestre) não conta.
 GET /screen/<token>/image/<entryId>   imagem de uma entrada do Mundo que NÃO está oculta.
 GET /screen/<token>/cover             capa da campanha.
 GET /screen/<token>/map               fundo do mapa de combate (cacheável por ?v=).
@@ -72,6 +75,9 @@ def screen(request, token):
     )
     if not campaign:
         raise NotFound('not_found')
+    if request.GET.get('tv') == '1' and request.GET.get('preview') != '1':
+        from .views_pulse import mark_tv
+        mark_tv(campaign.id, request.GET.get('c'))
     from .views_combat import _serialize_combat
     state = public_state(campaign.state)
     card = resolve_screen_card(campaign, token=token)
