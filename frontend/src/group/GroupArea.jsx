@@ -44,6 +44,7 @@ function writeSub(id, v) {
  *    à vista; { recap: true } de "Encerrar e escrever o recap" abre o recap)
  *  - hasJoinRoute: o app abre /join/<código>? (decide o que "Copiar link" copia)
  *  - onPendingCount(n): opcional, avisa a casca do nº de pedidos pendentes
+ *    (null ao desmontar: a casca volta a contar pelo GET da campanha)
  *  - onLeaveCampaign(): jogador saiu da mesa → a casca volta para Campanhas
  */
 export default function GroupArea({ campaign, lang = 'pt', isDM, characters = [], onChange, sub, onSubChange, params, hasJoinRoute = false, onPendingCount, onLeaveCampaign }) {
@@ -82,6 +83,8 @@ export default function GroupArea({ campaign, lang = 'pt', isDM, characters = []
 
   const count = approvals && !onInsights ? pendingCount(approvals) : (campaign.pendingApprovals ?? 0);
   useEffect(() => { onPendingCount?.(count); }, [count, onPendingCount]);
+  // fora do Grupo o selo volta a seguir a campanha (a conta daqui envelhece)
+  useEffect(() => () => onPendingCount?.(null), [onPendingCount]);
 
   const notify = useCallback((text, kind = 'ok') => setToast({ text, kind, id: Date.now() }), []);
   const clearToast = useCallback(() => setToast(null), []);

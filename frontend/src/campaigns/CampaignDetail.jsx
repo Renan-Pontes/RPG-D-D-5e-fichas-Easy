@@ -23,7 +23,7 @@ import {
   PlayerTableFallback, PrepareFallback, WorldFallback,
 } from '../shell/Fallbacks.jsx';
 import {
-  areasFor, areaTapSub, campaignRoute, initialArea, isHexColor, loadRememberedArea, normalizeArea, onboardingStatus,
+  areasFor, areaTapSub, campaignRoute, groupBadgeCount, initialArea, isHexColor, loadRememberedArea, normalizeArea, onboardingStatus,
   onboardingVisible, parseCampaignRoute, planHasContent, saveRememberedArea, screenLink, t,
 } from '../shell/shell-logic.js';
 import '../shell/mesa.css';
@@ -236,7 +236,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
       if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target) || modalOpen()) return;
       if (/^[1-4]$/.test(e.key)) {
         const a = areas[parseInt(e.key, 10) - 1];
-        if (a) { e.preventDefault(); goTo(a.id, nav?.area === a.id ? nav.sub : areaTapSub(isDM, a.id, { group: groupPending ?? campaign.pendingApprovals })); }
+        if (a) { e.preventDefault(); goTo(a.id, nav?.area === a.id ? nav.sub : areaTapSub(isDM, a.id, { group: groupBadgeCount(nav?.area, groupPending, campaign.pendingApprovals) })); }
       } else if (isDM && (e.key === 'n' || e.key === 'N') && nav?.area === 'play' && nav?.sub === 'combat') {
         e.preventDefault();
         api.combatNextTurn(campaign.id).then(load).catch(() => {});
@@ -260,7 +260,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
 
   const accent = isHexColor(campaign.accent) ? campaign.accent : null;
   const badges = isDM
-    ? { group: groupPending ?? campaign.pendingApprovals ?? 0 }
+    ? { group: groupBadgeCount(nav.area, groupPending, campaign.pendingApprovals) }
     : { world: campaign.worldNewCount || 0 };
   const areaProps = {
     worldEpoch,

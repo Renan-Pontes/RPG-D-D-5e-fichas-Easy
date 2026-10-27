@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DM_AREAS, PLAYER_AREAS, normalizeArea, legacyTabToArea, areaTapSub, initialArea,
+  DM_AREAS, PLAYER_AREAS, normalizeArea, legacyTabToArea, areaTapSub, groupBadgeCount, initialArea,
   loadRememberedArea, saveRememberedArea, onboardingStatus, onboardingVisible,
   planHasContent, fold, matchScore, searchItems, nextSessionNumber, defaultCoverArt,
   COVER_ART, isHexColor, subLabel, subShortLabel, SUB_ICONS, TONES,
@@ -54,6 +54,13 @@ test('Grupo do mestre: Jogadores · Pedidos · Raio-X · Crônica; o contador le
   assert.equal(areaTapSub(true, 'group', {}), null);
   assert.equal(areaTapSub(true, 'play', { group: 4 }), null);
   assert.equal(areaTapSub(false, 'group', { group: 4 }), null, 'o jogador não tem Pedidos');
+  // o selo fora do Grupo segue a campanha: a conta que o Grupo mandou ao sair (0) não esconde o pedido novo
+  assert.equal(groupBadgeCount('world', 0, 1), 1);
+  assert.equal(areaTapSub(true, 'group', { group: groupBadgeCount('world', 0, 1) }), 'requests');
+  assert.equal(groupBadgeCount('group', 2, 1), 2, 'no Grupo vale a lista viva da área');
+  assert.equal(groupBadgeCount('group', 0, 1), 0, 'no Grupo, o recém-resolvido não volta pelo GET atrasado');
+  assert.equal(groupBadgeCount('group', null, 3), 3, 'o Grupo ainda não contou: vale a campanha');
+  assert.equal(groupBadgeCount('play', null, undefined), 0);
   // F5 em #c/1/group/requests volta para Pedidos
   assert.deepEqual(initialArea({ isDM: true, live: true, fromUrl: parseCampaignRoute('#c/1/group/requests') }), { area: 'group', sub: 'requests' });
   assert.equal(campaignRoute('ecos-de-valdoria', 'group', 'requests'), '#c/ecos-de-valdoria/group/requests');

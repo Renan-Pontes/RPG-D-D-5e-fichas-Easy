@@ -116,6 +116,17 @@ export function areaTapSub(isDM, area, badges = {}) {
   return null;
 }
 
+/**
+ * Contador do Grupo na barra (e o que areaTapSub e a tecla 4 leem). Dentro do
+ * Grupo vale a conta viva da área (a lista de pedidos, a 6 s); fora dele, a do
+ * GET da campanha (a casca busca a 2,5 s). A conta da área é só dela: a última
+ * que ela mandou antes de desmontar não pode esconder um pedido novo.
+ */
+export function groupBadgeCount(area, groupPending, campaignPending) {
+  const n = area === 'group' && groupPending != null ? groupPending : campaignPending;
+  return Math.max(0, Number(n) || 0);
+}
+
 // ---------------------------------------------------------------------------
 // Primeiros passos (onboarding do mestre)
 // ---------------------------------------------------------------------------
