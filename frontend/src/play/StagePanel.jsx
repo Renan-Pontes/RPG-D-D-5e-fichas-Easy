@@ -11,8 +11,9 @@
 //      da Frente sempre reservada; o nome inteiro fica no texto da página, no
 //      `title` e na prévia), o que chega troca só o texto (princípio 8);
 //   3. MOSTRAR: Imagens · Cenas · Texto · Mapa (ShowPicker, o 📺 único);
-//   4. ROLAGENS NA TELA (V10): as regras, explicadas por escrito — Dos jogadores
-//      (Todas · Só críticos · Nenhuma), Do mestre (🔒 Só eu · 📺 Na tela: o padrão do
+//   4. ROLAGENS NA TELA (V10): as regras, explicadas por escrito — Do rolador da Mesa
+//      e dos testes (Todas · Só críticos · Nenhuma), Das fichas dos jogadores (V15:
+//      📺 Na tela · Desligado), Do mestre (🔒 Só eu · 📺 Na tela: o padrão do
 //      🎲, que pode trocar a cada rolagem) e Dos monstros (📺 Na tela · 🔒 Só eu: o
 //      padrão do "📺 vai à Tela" dos ataques e salvaguardas, sem o bônus) —, o que a
 //      Tela mostra no combate (☑ ordem de iniciativa · ☑ PV do grupo) e as últimas 5;
@@ -154,14 +155,18 @@ export default function StagePanel({ campaign, lang = 'pt', onChange, shownCheck
 }
 
 const RULES = [
-  ['players', (lang) => L(lang, 'Dos jogadores', 'Players'), [
+  // Vale para o rolador da Mesa do jogador e para os testes; as rolagens da FICHA têm
+  // a regra delas logo abaixo (V15) — cada texto diz isso, para "Nenhuma" não prometer
+  // uma TV limpa que as fichas ainda enchem.
+  ['players', (lang) => L(lang, 'Do rolador da Mesa e dos testes', 'Table roller and checks'), [
     ['all', (lang) => L(lang, 'Todas', 'All')], ['crits', (lang) => L(lang, 'Só críticos', 'Crits only')], ['off', (lang) => L(lang, 'Nenhuma', 'None')]],
   (v, lang) => ({
-    all: L(lang, 'Toda rolagem do rolador da Mesa vai à Tela. Dos testes, só o 20 e o 1 naturais dos testes da mesa (na Tela ou pedidos a todos, sem 🔒 CD secreta).',
-      'Every roll from the table roller goes on screen. From checks, only natural 20s and 1s of table checks (on screen or asked of everyone, without a 🔒 secret DC).'),
-    crits: L(lang, 'Só 20 e 1 naturais no d20 vão à Tela: do rolador da Mesa e dos testes da mesa (na Tela ou pedidos a todos, sem 🔒 CD secreta). Teste para um jogador só não aparece.',
-      'Only natural 20s and 1s on the d20 go on screen: from the table roller and from table checks (on screen or asked of everyone, without a 🔒 secret DC). A check for a single player never shows.'),
-    off: L(lang, 'Nada dos jogadores vai à Tela (os pedidos que você mostrar continuam indo).', "Nothing from the players goes on screen (the requests you show still do)."),
+    all: L(lang, 'Toda rolagem do rolador da Mesa vai à Tela. Dos testes, só o 20 e o 1 naturais dos testes da mesa (na Tela ou pedidos a todos, sem 🔒 CD secreta). As fichas seguem a regra de baixo.',
+      'Every roll from the table roller goes on screen. From checks, only natural 20s and 1s of table checks (on screen or asked of everyone, without a 🔒 secret DC). Sheets follow the rule below.'),
+    crits: L(lang, 'Só 20 e 1 naturais no d20 vão à Tela: do rolador da Mesa e dos testes da mesa (na Tela ou pedidos a todos, sem 🔒 CD secreta). Teste para um jogador só não aparece. As fichas seguem a regra de baixo.',
+      'Only natural 20s and 1s on the d20 go on screen: from the table roller and from table checks (on screen or asked of everyone, without a 🔒 secret DC). A check for a single player never shows. Sheets follow the rule below.'),
+    off: L(lang, 'Nada do rolador da Mesa nem dos testes vai à Tela (os pedidos que você mostrar continuam indo). As rolagens das fichas seguem a regra de baixo.',
+      'Nothing from the table roller or from checks goes on screen (the requests you show still do). Sheet rolls follow the rule below.'),
   })[v]],
   // V15 (decisão D-1 do dono): o que o jogador rola na PRÓPRIA FICHA, rolado no aparelho
   ['sheets', (lang) => L(lang, 'Das fichas dos jogadores', "From the players' sheets"), [
