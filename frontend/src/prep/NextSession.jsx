@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api } from '../api/client.js';
+import { api, apiUrl } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { HERO_ART } from '../art.js';
 import { tName } from '../../data/i18n.js';
@@ -241,7 +241,7 @@ export default function NextSession({ campaign, lang, goTo }) {
               const d = m.character?.data || {};
               const sum = m.character?.summary || {};
               const cls = d.className || sum.className;
-              const avatar = d.avatar || sum.avatar;
+              const avatar = d.avatar || sum.avatar || apiUrl(m.character?.avatarUrl);
               return (
                 <li key={m.id}>
                   {avatar ? <img src={avatar} alt="" /> : <span className="ns-party-ph" aria-hidden="true">🛡</span>}

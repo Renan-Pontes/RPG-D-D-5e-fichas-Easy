@@ -1,7 +1,7 @@
 import { errorMessage } from '../api/errors.js';
 import { freePositions } from '../combat/placement.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api } from '../api/client.js';
+import { api, apiUrl } from '../api/client.js';
 import { COMBAT_EVENT, useOnRev, useTable } from '../play/table-store.js';
 import { DockedScreen } from '../stage/ScreenWindow.jsx';
 import useMedia from '../play/useMedia.js';
@@ -484,7 +484,7 @@ function CombatantRow({ combatant: c, campaign, lang, isTurn, isSel, expanded, p
       <span className="ct-init" aria-hidden="true">{c.initiative}</span>
       <span className="ct-pic" aria-hidden="true">
         {c.type === 'monster'
-          ? <ArtThumb src={c.sprite || monsterArt(c.monster_id)} emoji={monsterEmoji(c.stats?.type)} size={40} round lang={lang} />
+          ? <ArtThumb src={apiUrl(c.sprite) || monsterArt(c.monster_id)} emoji={monsterEmoji(c.stats?.type)} size={40} round lang={lang} />
           : <PcPortrait stats={stats} name={c.name} size={40} />}
       </span>
       <button type="button" className="ct-open" onClick={() => onOpen()} aria-label={label}

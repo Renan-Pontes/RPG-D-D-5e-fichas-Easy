@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { api } from '../api/client.js';
+import { api, apiUrl } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { tName } from '../../data/i18n.js';
 import Utils from '../../utils.js';
@@ -125,9 +125,10 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
 
 function Portrait({ stats, name }) {
   const [broken, setBroken] = useState(false);
-  const art = stats?.avatar || speciesArt(stats?.race) || classArt(stats?.classId);
+  const photo = stats?.avatar || apiUrl(stats?.avatarUrl);
+  const art = photo || speciesArt(stats?.race) || classArt(stats?.classId);
   if (art && !broken) {
-    return <img className={`grp-portrait ${stats?.avatar ? 'is-avatar' : 'is-art'}`} src={art} alt="" loading="lazy" onError={() => setBroken(true)} />;
+    return <img className={`grp-portrait ${photo ? 'is-avatar' : 'is-art'}`} src={art} alt="" loading="lazy" onError={() => setBroken(true)} />;
   }
   return <span className="grp-portrait is-initial" aria-hidden="true">{(name || '?').charAt(0).toUpperCase()}</span>;
 }

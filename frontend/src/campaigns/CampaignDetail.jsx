@@ -126,6 +126,17 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   }, [load]);
   const table = useTableStore(campaign, { enabled: isDM, lang, onPulse });
   const pulsing = table.enabled;
+  // A Tela fala a língua da campanha (V9): o idioma do app do mestre vai à campanha
+  // (dm_settings.lang) uma vez por troca; a TV lê no /api/screen, não do aparelho dela.
+  // Servidor sem o campo (deploy fora de ordem): nada é enviado.
+  const langSent = useRef('');
+  useEffect(() => {
+    if (!isDM || !campaign?.id || campaign.status === 'closed' || !('lang' in campaign)) return;
+    const key = `${campaign.id}:${lang}`;
+    if (campaign.lang === lang || langSent.current === key) return;
+    langSent.current = key;
+    api.patchCampaign(campaign.id, { lang }).catch(() => { /* fica para a próxima troca de idioma */ });
+  }, [isDM, campaign?.id, campaign?.lang, campaign?.status, lang]); // eslint-disable-line react-hooks/exhaustive-deps
   // Jogador (e o mestre sem o pulso no servidor): o GET completo a cada 2,5 s, como antes.
   usePolling(async () => {
     if (isDMRef.current && pulsing) return;
