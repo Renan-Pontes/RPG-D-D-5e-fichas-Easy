@@ -274,4 +274,16 @@ test('Ajustar no aparelho: o merge local é o do servidor e os patches pendentes
   // dois toques antes do PUT: um patch só, os mapas juntos item por item
   assert.deepEqual(I.joinPatches({ focus: { social: 2 }, dc: 10 }, { focus: { explore: 2 }, dc: 12 }), { focus: { social: 2, explore: 2 }, dc: 12 });
   assert.equal(I.SAVE_DELAY, 800);
+  // "Restaurar padrão" e, antes do PUT, Importante em Dano: o reset do mapa não se perde
+  const server = I.withDefaults({ focus: { social: 2 }, base: { wizard: [5, 2, 5, 1, 5, 1, 5, 4, 2, 1, 2] } });
+  const reset = I.expandResets(I.RESET_PATCH, server);
+  assert.deepEqual([reset.focus, reset.base, reset.w], [{ social: null }, { wizard: null }, null]);
+  const joined = I.joinPatches(reset, I.expandResets({ focus: { dmg: 2 } }, I.mergeInsights(server, reset)));
+  assert.deepEqual(joined.focus, { social: null, dmg: 2 });
+  assert.deepEqual(I.mergeInsights(server, joined).focus, { dmg: 2 }, 'o servidor fica só com Dano');
+  assert.deepEqual(I.mergeInsights(server, joined).base, {});
+  // "Restaurar a do Ivan" (base: null) e logo um ± na tabela de classes
+  const ivan = I.joinPatches(I.expandResets({ base: null }, server), { base: { cleric: [2, 2, 5, 5, 2, 1, 4, 3, 1, 4, 1] } });
+  assert.deepEqual(Object.keys(I.mergeInsights(server, ivan).base), ['cleric']);
+  assert.deepEqual(I.expandResets({ dismissed: null }, I.withDefaults({})).dismissed, {}, 'mapa vazio: nada a apagar');
 });

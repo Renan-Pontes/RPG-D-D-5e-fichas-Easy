@@ -21,7 +21,7 @@ import Radar from './Radar.jsx';
 import * as PM from './party-metrics.js';
 import { currentSession, gapGroups, ideaSceneText, momentSuggestions, partyGaps, quadrants, sceneIdeas, tableBalance } from './spotlights.js';
 import { planMonsters, threatMonsters, versus } from './versus.js';
-import { insightsApi, joinPatches, mergeInsights, rememberInsights, SAVE_DELAY, withDefaults } from './insights-api.js';
+import { expandResets, insightsApi, joinPatches, mergeInsights, rememberInsights, SAVE_DELAY, withDefaults } from './insights-api.js';
 import { AdjustSheet, Dot, HelpButton, MonsterSheet, WhySheet } from './InsightsSheets.jsx';
 import { Balance, Moments } from './Moments.jsx';
 import './insights.css';
@@ -70,6 +70,8 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
   const [save, setSave] = useState('idle');   // idle · waiting · saving · saved · error
   const [saveErr, setSaveErr] = useState('');
   const pending = useRef(null);
+  const latestIns = useRef(null);
+  latestIns.current = ins;
   const timer = useRef(null);
   const seq = useRef(0);
   const [view, setView] = useView(campaign.id);
@@ -112,9 +114,14 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
   // Saiu do Raio-X com algo esperando: envia já.
   useEffect(() => () => { if (pending.current) flush(); }, [flush]);
 
-  const update = useCallback((patch) => {
+  const update = useCallback((raw) => {
     if (readOnly) return;
-    setIns(cur => { const next = mergeInsights(cur, patch); rememberInsights(campaign.id, next); return next; });
+    // o reset de um mapa vira "apagar cada item", para não se perder ao juntar com o toque seguinte
+    const patch = expandResets(raw, latestIns.current);
+    const next = mergeInsights(latestIns.current, patch);
+    latestIns.current = next;   // dois toques antes de a tela redesenhar: o 2º parte do 1º
+    rememberInsights(campaign.id, next);
+    setIns(next);
     pending.current = joinPatches(pending.current, patch);
     setSave('waiting');
     clearTimeout(timer.current);

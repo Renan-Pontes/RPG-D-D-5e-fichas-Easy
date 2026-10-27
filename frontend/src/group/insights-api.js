@@ -70,6 +70,22 @@ export function mergeInsights(current, patch) {
   return out;
 }
 
+/**
+ * Troca o `null` de um mapa ("Restaurar padrão", "Restaurar a do Ivan") por um null em cada
+ * item que ele tem agora: {focus: null} vira {focus: {social: null}}. Assim um toque logo
+ * depois no mesmo mapa ({focus: {dmg: 2}}) se junta ao patch pendente sem perder o reset
+ * (o servidor apaga e grava item por item).
+ */
+export function expandResets(patch, current) {
+  const out = { ...(patch || {}) };
+  for (const k of MAP_KEYS) {
+    if (out[k] !== null) continue;
+    const had = current?.[k] && typeof current[k] === 'object' ? Object.keys(current[k]) : [];
+    out[k] = Object.fromEntries(had.map(x => [x, null]));
+  }
+  return out;
+}
+
 /** Junta dois patches pendentes (o 2º manda; nos mapas, item por item). */
 export function joinPatches(a, b) {
   const out = { ...(a || {}) };
