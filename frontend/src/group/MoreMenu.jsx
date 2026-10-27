@@ -11,7 +11,8 @@ const isPhone = () => {
  * - Botão de 44×44.
  * - Celular (≤ 767): abre uma folha da altura do conteúdo, com as ações
  *   escritas por extenso em linhas de 56 px (e a linha de ajuda `hint`).
- * - Desktop: o menu suspenso de sempre, com itens de 44.
+ * - Desktop: o menu suspenso de sempre, com itens de 44 e a mesma linha de
+ *   ajuda embaixo do rótulo (nada fica só no celular).
  * A ação roda depois que a folha/menu fecha (o foco volta ao ⋯ e uma
  * confirmação aberta pela ação devolve o foco para lá).
  * sheetTitle: título da folha (padrão: `label`).
@@ -59,7 +60,12 @@ export default function MoreMenu({ items, label = 'Mais ações', className = ''
           {list.map(it => (
             <button key={it.id} type="button" role="menuitem" className={`grp-more-item ${it.danger ? 'danger' : ''}`}
               onClick={(e) => { e.stopPropagation(); pick(it); }}>
-              {it.label}
+              {it.hint ? (
+                <>
+                  <span className="grp-more-label">{it.label}</span>
+                  <span className="grp-more-hint">{it.hint}</span>
+                </>
+              ) : it.label}
             </button>
           ))}
         </div>
