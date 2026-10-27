@@ -285,6 +285,8 @@ def combat_summary(round_number, combatants, action_log=None):
         log = log[starts[-1]:]
     downs = {}
     for e in log:
+        if e.get('undone'):
+            continue   # ↶ Desfazer (V8): a queda não aconteceu
         names = list(e.get('downed_list') or [])
         if e.get('downed'):
             names.append(e['downed'])

@@ -58,6 +58,48 @@ def decode_data_url(value):
         return None
 
 
+def image_size(data_url):
+    """(largura, altura) em px lidos do cabeçalho do arquivo (PNG, GIF, JPEG, WebP), ou
+    None. Sem biblioteca de imagem: o "mapa da cena" copiado no servidor (V8, map-from)
+    precisa do tamanho para a grade, como o app fazia com o <img> antes de reenviar."""
+    decoded = decode_data_url(data_url)
+    if not decoded:
+        return None
+    _, b = decoded
+    try:
+        if b[:8] == b'\x89PNG\r\n\x1a\n' and b[12:16] == b'IHDR':
+            return int.from_bytes(b[16:20], 'big'), int.from_bytes(b[20:24], 'big')
+        if b[:6] in (b'GIF87a', b'GIF89a'):
+            return int.from_bytes(b[6:8], 'little'), int.from_bytes(b[8:10], 'little')
+        if b[:4] == b'RIFF' and b[8:12] == b'WEBP':
+            chunk = b[12:16]
+            if chunk == b'VP8X':
+                return 1 + int.from_bytes(b[24:27], 'little'), 1 + int.from_bytes(b[27:30], 'little')
+            if chunk == b'VP8L':
+                bits = int.from_bytes(b[21:25], 'little')
+                return (bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1
+            if chunk == b'VP8 ':
+                return int.from_bytes(b[26:28], 'little') & 0x3FFF, int.from_bytes(b[28:30], 'little') & 0x3FFF
+        if b[:2] == b'\xff\xd8':
+            i = 2
+            while i + 9 < len(b):
+                if b[i] != 0xFF:
+                    i += 1
+                    continue
+                marker = b[i + 1]
+                if marker in (0xD8, 0x01, 0xFF) or 0xD0 <= marker <= 0xD7:
+                    i += 1 if marker == 0xFF else 2
+                    continue
+                seg = int.from_bytes(b[i + 2:i + 4], 'big')
+                # SOF0–SOF15, menos DHT (C4), JPG (C8) e DAC (CC)
+                if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+                    return int.from_bytes(b[i + 7:i + 9], 'big'), int.from_bytes(b[i + 5:i + 7], 'big')
+                i += 2 + seg
+    except (IndexError, ValueError):
+        return None
+    return None
+
+
 def image_response(request, data_url, ver=None, *, public=False):
     """Serve a data URL como binário. 304 se o If-None-Match bater com a versão."""
     ver = ver or image_ver(data_url)

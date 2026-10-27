@@ -476,6 +476,146 @@ def apply_save_results(combatants, result):
     return combatants, changed
 
 
+def apply_temp_hp(combatant, amount):
+    """+ Temp (teclado de dano, V8): PV temporário não soma — fica o maior (5e)."""
+    amount = max(0, int(amount))
+    old = combatant.get('temp_hp') or 0
+    next_c = dict(combatant)
+    next_c['temp_hp'] = max(old, amount)
+    return {'combatant': next_c, 'gained': next_c['temp_hp'] - old}
+
+
+# ============================================================
+# FOTO DO COMBATENTE (V8, especificação §4.7 C2)
+# ============================================================
+# Toda ação de PV guarda, na entrada do action_log, a foto ANTES e DEPOIS de cada
+# combatente que ela mexeu. "↶ Desfazer" restaura a foto "antes" se o combatente
+# ainda está igual à "depois" (nunca aplica "o contrário": a cura não devolve PV
+# temporário, testes contra a morte nem "derrotado"). Do atacante entram só as
+# recargas/usos/lendárias que o ataque gastou. `effects` fica de fora: o Próximo
+# turno mexe neles (tick_effects) e o dano não.
+HP_PHOTO_FIELDS = ('current_hp', 'temp_hp', 'conditions', 'death_saves', 'defeated', 'concentration')
+RESOURCE_PHOTO_FIELDS = ('action_state', 'legendary')
+
+
+def photo_of(before, after, fields=HP_PHOTO_FIELDS, *, only_changed=False):
+    """{id, before, after} dos campos `fields` (só os que mudaram, com only_changed) ou None."""
+    keys = [k for k in fields if not only_changed or before.get(k) != after.get(k)]
+    if not keys:
+        return None
+    return {'id': after.get('id'), 'before': {k: before.get(k) for k in keys},
+            'after': {k: after.get(k) for k in keys}}
+
+
+def photo_conflicts(combatants, photo):
+    """Nomes dos combatentes da foto que mudaram depois (ou saíram do combate)."""
+    out = []
+    for p in photo or []:
+        cur = find_combatant(combatants, p.get('id'))
+        if cur is None or any(cur.get(k) != v for k, v in (p.get('after') or {}).items()):
+            out.append((cur or {}).get('name') or p.get('id'))
+    return out
+
+
+def restore_photo(combatants, photo):
+    """Combatentes com a foto "antes" de volta (quem chama já conferiu os conflitos)."""
+    out = [dict(c) for c in combatants]
+    for p in photo or []:
+        for cur in out:
+            if cur.get('id') != p.get('id'):
+                continue
+            for k, v in (p.get('before') or {}).items():
+                if v is None:
+                    cur.pop(k, None)
+                else:
+                    cur[k] = v
+    return out
+
+
+# ============================================================
+# MONTAR O COMBATE (V8): casas livres e iniciativa dos monstros
+# ============================================================
+# A mesma conta de frontend/src/combat/placement.js (freePositions): o servidor
+# espalha monstros e personagens numa chamada só (antes "Adicionar todos" punha os
+# 4 personagens na mesma casa, D1).
+def _span(scale):
+    try:
+        s = float(scale or 1)
+    except (TypeError, ValueError):
+        s = 1
+    return max(1, int(-(-s // 1)))   # teto, no mínimo 1
+
+
+def occupied_cells(combatants, grid=50):
+    """Casas (col, linha) ocupadas pelos tokens."""
+    taken = set()
+    for c in combatants or []:
+        pos = c.get('position') if isinstance(c, dict) else None
+        try:
+            x, y = float(pos.get('x')), float(pos.get('y'))
+        except (AttributeError, TypeError, ValueError):
+            continue
+        try:
+            scale = float(c.get('token_scale') or 1)
+        except (TypeError, ValueError):
+            scale = 1
+        half = grid * scale / 2
+        c0, c1 = int((x - half) // grid), int((x + half - 1) // grid)
+        r0, r1 = int((y - half) // grid), int((y + half - 1) // grid)
+        for col in range(c0, max(c0, c1) + 1):
+            for row in range(r0, max(r0, r1) + 1):
+                taken.add((col, row))
+    return taken
+
+
+def free_positions(combatants, count=1, *, grid=50, width=1200, height=800, start=(100, 100), scale=1, taken=None):
+    """`count` centros de casas livres, linha a linha a partir de `start` (px). `taken`
+    (o conjunto de casas) é atualizado: chamadas seguidas não se sobrepõem. Mapa
+    cheio: volta a empilhar no início."""
+    g = grid if isinstance(grid, (int, float)) and not isinstance(grid, bool) and grid > 0 else 50
+    cols = max(1, int((width or 1200) // g))
+    rows = max(1, int((height or 800) // g))
+    span = _span(scale)
+    if taken is None:
+        taken = occupied_cells(combatants, g)
+    start_col = max(0, min(cols - span, int(start[0] // g)))
+    start_row = max(0, min(rows - span, int(start[1] // g)))
+
+    def fits(col, row):
+        return all((col + dc, row + dr) not in taken for dc in range(span) for dr in range(span))
+
+    out = []
+    total = rows * cols
+    for k in range(total):
+        if len(out) >= count:
+            break
+        idx = (start_row * cols + start_col + k) % total
+        row, col = idx // cols, idx % cols
+        if col + span > cols or row + span > rows or not fits(col, row):
+            continue
+        for dc in range(span):
+            for dr in range(span):
+                taken.add((col + dc, row + dr))
+        out.append({'x': col * g + span * g / 2, 'y': row * g + span * g / 2})
+    while len(out) < count:
+        out.append({'x': start[0], 'y': start[1]})
+    return out
+
+
+def initiative_bonus(monster):
+    """Bônus de iniciativa do stat block: `initiative` (2024) ou o modificador de DES."""
+    init = monster.get('initiative') if isinstance(monster, dict) else None
+    if isinstance(init, (int, float)) and not isinstance(init, bool):
+        return int(init)
+    if isinstance(init, dict) and isinstance(init.get('bonus'), (int, float)) and not isinstance(init.get('bonus'), bool):
+        return int(init['bonus'])
+    try:
+        dex = int(((monster or {}).get('abilities') or {}).get('dex', 10))
+    except (TypeError, ValueError):
+        dex = 10
+    return (dex - 10) // 2
+
+
 def apply_healing(combatant, amount):
     """Cura. Não passa do max_hp. Tira condição unconscious se voltar > 0."""
     stats = combatant.get('stats') or {}
