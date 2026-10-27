@@ -6,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   afterLine, barAction, barLines, barVisible, combatSummary, freshRoll, offlineLine, offlineSeconds, readBarPrefs, ribbon,
-  seenSuffix, staleText, turnLine, turnParts, tvLine, tvShort, tvState, windowCorner, windowMode, writeBarPrefs,
+  seenSuffix, staleText, tableRollsRev, turnLine, turnParts, tvLine, tvShort, tvState, windowCorner, windowMode, writeBarPrefs,
   OFFLINE_AFTER_MS, ROLL_SHOW_MS,
 } from '../src/stage/table-bar-model.js';
 
@@ -255,4 +255,10 @@ test('rolagem nova: 8 s na barra; a que já existia ao abrir não reprisa', () =
   assert.equal(freshRoll(roll, { id: 5, at: now - ROLL_SHOW_MS }, now), null);
   assert.equal(freshRoll(roll, { id: 4, at: now }, now), null);
   assert.equal(freshRoll(null, { id: 5, at: now }, now), null);
+});
+
+test('V15: as listas de rolagens de mesa seguem o tableRollsRev (servidor de antes: o checksRev)', () => {
+  assert.equal(tableRollsRev({ checksRev: 'c1', tableRollsRev: 't1' }), 't1');
+  assert.equal(tableRollsRev({ checksRev: 'c1' }), 'c1');
+  assert.equal(tableRollsRev(null), undefined);
 });

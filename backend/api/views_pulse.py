@@ -3,7 +3,7 @@ Pulso da mesa do mestre (V4, especificação §5.9) — no lugar do GET completo
 campanha no polling de 2,5 s.
 
 GET /api/campaigns/<id>/pulse   (só o mestre)
-    { rev, planRev, worldRev, advRev, checksRev, now,
+    { rev, planRev, worldRev, advRev, checksRev, tableRollsRev, now,
       live, session, scene, sceneId, startedAt, endedAt,
       screen: { bg, front:{kind,title,imageUrl,hidden,caption,focus}|null,
                 test:{id,label,done,total}|null,
@@ -26,6 +26,17 @@ Consultas leves (5 ou 6, nenhuma ficha serializada, nenhuma imagem):
   4. o teste que está na Tela, com a contagem de respostas;
   5. a última rolagem pública;
   6. (só com um cartão na frente) o cartão, para o `rev`.
+
+`checksRev` (testes, respostas e PEDIDOS de rolagem) não conta as rolagens de mesa
+(`@mesa:`, api/table_rolls.py): elas não mudam nem os testes nem os pedidos, e a
+rolagem da ficha (V15) é o gesto mais frequente do jogador — com elas ali, cada
+rolagem fazia o mestre buscar Testes de novo (3 GET a mais por rolagem). Dos pedidos
+bastam quantos são e quantos esperam: um pedido nunca muda de volta nem ganha o
+marcador (pedido novo muda a conta; resolver ou cancelar muda os que esperam). As
+listas de rolagens de mesa (Jogar › Tela › Últimas 5 e Testes › 🎲 Na Tela) seguem o
+`tableRollsRev` (quantas e a mais nova, só das `@mesa:`). Custo: a conta de todas e
+a dos pendentes saem do índice (campanha, status); só as `@mesa:` leem as linhas,
+numa subconsulta (o MAX(resolved_at) de antes, que também lia, saiu).
 
 `rev` muda quando qualquer campo do GET completo do mestre muda (o teste
 api/tests/test_pulse.py confere campo a campo): a casca então busca o GET
@@ -55,7 +66,7 @@ from rest_framework.response import Response
 from .models import (Adventure, Approval, Campaign, CheckRequest, CheckResponse, CombatInstance, Membership,
                      RollRequest, WorldEntry)
 from .stage import get_stage
-from .table_rolls import parse_note
+from .table_rolls import PREFIX, parse_note
 
 TV_TTL = 30            # s: aba da TV sem pedir há mais que isso não conta
 TV_MAX_TABS = 12       # teto de abas guardadas por campanha (cache pequeno)
@@ -103,8 +114,11 @@ def _sub(model, expr, *, via='campaign'):
 _ROW_FIELDS = (
     'id', 'dm_id', 'state', 'updated_at', 'status', 'plan_rev', 'dm_plan_at', 'n_approvals',
     'world_n', 'world_at', 'adv_n', 'adv_at', 'checks_n', 'checks_max', 'checks_open', 'checks_closed',
-    'checks_screen', 'checks_shown', 'resp_n', 'resp_at', 'rolls_n', 'rolls_max', 'rolls_pending', 'rolls_at',
+    'checks_screen', 'checks_shown', 'resp_n', 'resp_at', 'rolls_n', 'rolls_pending',
 )
+# As rolagens de mesa: o mesmo `note__startswith` (LIKE) das listas e da arrumação.
+# `%%`: o SQL vai com parâmetros (%s); o Django devolve um `%` só ao SQLite.
+_MESA = f" AND x.note LIKE '{PREFIX}%%'"
 
 
 def _row_sql():
@@ -130,8 +144,9 @@ def _row_sql():
         sub(T['CheckRequest'], 'MAX(x.closed_at)'), sub(T['CheckRequest'], 'MAX(x.screen_at)'),
         sub(T['CheckRequest'], 'COUNT(*)', ' AND x.show_on_screen'),
         resp.format('COUNT(*)'), resp.format('MAX(r.updated_at)'),
-        sub(T['RollRequest'], 'COUNT(*)'), sub(T['RollRequest'], 'MAX(x.id)'),
-        sub(T['RollRequest'], 'COUNT(*)', " AND x.status = 'pending'"), sub(T['RollRequest'], 'MAX(x.resolved_at)'),
+        sub(T['RollRequest'], 'COUNT(*)'), sub(T['RollRequest'], 'COUNT(*)', " AND x.status = 'pending'"),
+        # as de mesa numa varredura só: 'quantas maior-id' (separado em _campaign_row)
+        sub(T['RollRequest'], "COUNT(*) || ' ' || IFNULL(MAX(x.id), 0)", _MESA),
     ]
     return f'SELECT {", ".join(cols)} FROM "{T["Campaign"]}" c WHERE '
 
@@ -156,7 +171,9 @@ def _campaign_row(id_or_slug):
                 row = cur.fetchone()
         if not row:
             raise NotFound('campaign_not_found')
-        out = dict(zip(_ROW_FIELDS, row))
+        out = dict(zip(_ROW_FIELDS + ('mesa',), row))
+        n, _, top = str(out.pop('mesa') or '0 0').partition(' ')
+        out['mesa_n'], out['mesa_max'] = int(n), (int(top) or None)
         try:
             out['state'] = json.loads(out['state']) if isinstance(out['state'], str) else (out['state'] or {})
         except ValueError:
@@ -166,6 +183,7 @@ def _campaign_row(id_or_slug):
 
 
 def _campaign_row_orm(key):
+    mesa = Q(note__startswith=PREFIX)
     qs = Campaign.objects.annotate(
         plan_rev=KT('dm_settings__planRev'), dm_plan_at=F('dm__user_plan__updated_at'),
         n_approvals=_sub(Approval, Count('id', filter=Q(status='pending'))),
@@ -177,10 +195,10 @@ def _campaign_row_orm(key):
         checks_shown=_sub(CheckRequest, Count('id', filter=Q(show_on_screen=True))),
         resp_n=_sub(CheckResponse, Count('id'), via='check_request__campaign'),
         resp_at=_sub(CheckResponse, Max('updated_at'), via='check_request__campaign'),
-        rolls_n=_sub(RollRequest, Count('id')), rolls_max=_sub(RollRequest, Max('id')),
+        rolls_n=_sub(RollRequest, Count('id')),
         rolls_pending=_sub(RollRequest, Count('id', filter=Q(status='pending'))),
-        rolls_at=_sub(RollRequest, Max('resolved_at')),
-    ).values(*_ROW_FIELDS)
+        mesa_n=_sub(RollRequest, Count('id', filter=mesa)), mesa_max=_sub(RollRequest, Max('id', filter=mesa)),
+    ).values(*_ROW_FIELDS, 'mesa_n', 'mesa_max')
     row = qs.filter(id=key).first() if key.isdigit() else None
     row = row or qs.filter(slug=key).first()
     if not row:
@@ -411,7 +429,8 @@ def build_pulse(id_or_slug, user):
         'advRev': adv_rev,
         'checksRev': _h(row['checks_n'], row['checks_max'], row['checks_open'], row['checks_closed'],
                         row['checks_screen'], row['checks_shown'], row['resp_n'], row['resp_at'],
-                        row['rolls_n'], row['rolls_max'], row['rolls_pending'], row['rolls_at']),
+                        (row['rolls_n'] or 0) - (row['mesa_n'] or 0), row['rolls_pending']),
+        'tableRollsRev': _h(row['mesa_n'] or 0, row['mesa_max']),
         'live': bool(state.get('live')),
         'session': session,
         'scene': str(state.get('scene') or ''),

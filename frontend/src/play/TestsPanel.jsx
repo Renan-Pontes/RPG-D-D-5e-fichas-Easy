@@ -6,8 +6,8 @@
 // Desktop (≥ 1024): 2 colunas, o pedir fixo à esquerda e a lista à direita.
 // V10: o filtro "🎲 Rolagens na Tela" lista as rolagens de MESA (o 🎲 do mestre 📺/🔒,
 // ataques e salvaguardas de monstro, 20/1 dos testes e o rolador da Mesa dos
-// jogadores; GET …/recent?table=1, ao abrir o filtro e quando o pulso muda). O Histórico
-// continua só com os pedidos, como antes.
+// jogadores; GET …/recent?table=1, ao abrir o filtro e quando o tableRollsRev do
+// pulso muda). O Histórico continua só com os pedidos, como antes.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
@@ -17,7 +17,7 @@ import MesaTitle from '../shell/MesaTitle.jsx';
 import { PendingDMRow, RollHistoryRow, TableRollRow } from './RollRows.jsx';
 import { testsBadge, unifyTests } from './scene-model.js';
 import { flash } from './flash.js';
-import { useOnRev, useTable } from './table-store.js';
+import { tableRollsRev, useOnRev, useTable } from './table-store.js';
 import useMedia from './useMedia.js';
 import '../checks/checks-styles.css';
 import '../campaigns/combat-styles.css';
@@ -56,7 +56,7 @@ export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount })
     try { const m = await api.listTableRolls(campaign.id); setTableRolls(m.rolls || []); } catch { /* o próximo tenta */ }
   }, [campaign.id]);
   useEffect(() => { if (view === 'table') loadTable(); }, [view, loadTable]);
-  useOnRev(table?.pulse?.checksRev, loadTable, { table, fallbackMs: 6000, safetyMs: Infinity, initial: false });
+  useOnRev(tableRollsRev(table?.pulse), loadTable, { table, fallbackMs: 6000, safetyMs: Infinity, initial: false });
 
   const groups = useMemo(() => unifyTests(data), [data]);
   const waiting = testsBadge(groups);

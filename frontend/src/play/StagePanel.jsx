@@ -20,7 +20,8 @@
 //      Abrir na TV ↗, Gerar novo link (confirma).
 // Não faz polling: o palco vem do GET da campanha (poll da casca) e da resposta
 // de cada toque (useStage); o teste mostrado vem do selo de Testes da área Jogar;
-// as últimas 5 rolagens só são buscadas quando o pulso diz que algo mudou.
+// as últimas 5 rolagens só são buscadas quando o pulso diz que as rolagens de mesa
+// mudaram (tableRollsRev).
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
@@ -36,7 +37,7 @@ import {
 } from '../stage/stage-api.js';
 import { writeTarget } from '../dice/dice-table.js';
 import { TableRollRow } from './RollRows.jsx';
-import { useOnRev, useTable } from './table-store.js';
+import { tableRollsRev, useOnRev, useTable } from './table-store.js';
 import { flash } from './flash.js';
 import '../stage/stage.css';
 
@@ -198,8 +199,9 @@ function RollRules({ campaign, stage, lang, onChange }) {
     try { const r = await api.listTableRolls(cid); setRolls((r.rolls || []).slice(0, 5)); } catch { /* fica o que estava */ }
   }, [cid]);
   useEffect(() => { load(); }, [load]);
-  // o checksRev muda a cada rolagem (COUNT e MAX(id)): sem a busca de segurança de 60 s
-  useOnRev(table?.pulse?.checksRev, load, { table, fallbackMs: 15_000, safetyMs: Infinity, initial: false });
+  // o tableRollsRev muda a cada rolagem de mesa (COUNT e MAX(id)): sem a busca de
+  // segurança de 60 s (servidor de antes dele: o checksRev, que as contava junto)
+  useOnRev(tableRollsRev(table?.pulse), load, { table, fallbackMs: 15_000, safetyMs: Infinity, initial: false });
   const set = async (key, value) => {
     if (busy || prefs[key] === value) return;
     setBusy(true);

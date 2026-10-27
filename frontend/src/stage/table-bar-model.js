@@ -321,3 +321,15 @@ export function freshRoll(roll, seen, now = Date.now()) {
   if (!roll || roll.id == null || !seen || seen.id !== roll.id || !seen.at) return null;
   return now - seen.at < ROLL_SHOW_MS ? roll : null;
 }
+
+/**
+ * A versão das ROLAGENS DE MESA no pulso (V15): Jogar › Tela › Últimas 5 e Testes ›
+ * 🎲 Na Tela buscam a lista quando ela muda. O `checksRev` não conta mais essas
+ * rolagens (a da ficha é o gesto mais frequente do jogador: com elas lá, cada rolagem
+ * fazia o mestre buscar Testes de novo). Servidor de antes (sem `tableRollsRev`): o
+ * `checksRev`, que as contava junto.
+ */
+export function tableRollsRev(pulse) {
+  if (!pulse) return undefined;
+  return pulse.tableRollsRev ?? pulse.checksRev;
+}

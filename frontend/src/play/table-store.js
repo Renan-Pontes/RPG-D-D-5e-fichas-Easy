@@ -14,8 +14,9 @@
 //     `expect`, desligado enquanto envia, 409 → "A vez já tinha passado: agora é
 //     de X"), ↶ Voltar turno, ▶ Iniciar e "não enviado · Tentar de novo".
 // A casca busca o GET completo quando `pulse.rev` muda (e 1 vez por minuto, de
-// segurança). Combate completo (Jogar › Combate) e testes (Jogar) só são buscados
-// quando `pulse.combat.ver` / `pulse.checksRev` mudam.
+// segurança). Combate completo (Jogar › Combate), testes (Jogar) e as listas de
+// rolagens de mesa só são buscados quando `pulse.combat.ver` / `pulse.checksRev` /
+// `pulse.tableRollsRev` (tableRollsRev(), V15) mudam.
 // Servidor sem /pulse (deploy fora de ordem): `missing` → a casca volta ao GET
 // completo a cada 2,5 s, como antes.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -25,6 +26,8 @@ import { STAGE_EVENT, STAGE_SENDING_EVENT } from '../stage/stage-api.js';
 import { frontLabel, L } from '../stage/stage-now.js';
 import { combatSummary, offlineSeconds, SENT_SHOW_MS, staleText, turnLine } from '../stage/table-bar-model.js';
 import { flash } from './flash.js';
+
+export { tableRollsRev } from '../stage/table-bar-model.js';
 
 export const PULSE_MS = 2500;
 export const COMBAT_EVENT = 'forja:combat';     // {campaignId, combat}: o combate completo que voltou de uma ação
@@ -253,7 +256,7 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) 
  *   useOnRev(table?.pulse?.checksRev, load, { table, fallbackMs: 6000 })
  * `initial: false`: quem chama já busca ao abrir (não repete a 1ª busca).
  * `safetyMs: Infinity`: sem a busca de segurança quando a versão já cobre tudo o que
- * a tela mostra (ex.: o checksRev muda a cada linha RollRequest — COUNT e MAX(id)).
+ * a tela mostra (ex.: o tableRollsRev muda a cada rolagem de mesa — COUNT e MAX(id)).
  * Devolve `see(rev)`: marca uma versão que já chegou por outro caminho (a resposta
  * de uma ação) como vista, para o pulso não buscar a mesma coisa de novo.
  */

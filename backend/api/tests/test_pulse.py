@@ -8,7 +8,7 @@ campo a campo do GET completo do mestre, que uma mudança daquele campo muda o
 
 Também: só o mestre (jogador 403, sem login 401/403), 304 parado, "TV
 conectada" pelo cache em memória (a prévia do mestre não conta), o resumo do
-combate da barra da mesa, `checksRev`, `planRev`, `worldRev` e `advRev`.
+combate da barra da mesa, `checksRev`, `tableRollsRev`, `planRev`, `worldRev` e `advRev`.
 """
 import time
 from datetime import timedelta
@@ -16,14 +16,15 @@ from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.db import transaction
+from django.db import connection, transaction
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from api.models import (Adventure, Approval, Campaign, CheckRequest, CheckResponse, Character, CombatInstance,
                         Membership, Plan, Profile, RollRequest, UserPlan, WorldEntry)
-from api import views_pulse
+from api import table_rolls, views_pulse
 
 User = get_user_model()
 
@@ -264,6 +265,53 @@ class OtherRevTests(Base):
         self.assertEqual(p['counts']['openChecks'], 0)
         self.assertEqual(p['screen']['roll']['who'], 'Dagna')
         self.assertEqual(p['screen']['roll']['total'], 18)
+
+    def test_table_rolls_have_their_own_rev(self):
+        """V15: as rolagens de mesa (`@mesa:`; a da ficha é o gesto mais frequente do
+        jogador) não mudam o checksRev — o mestre não busca Testes de novo a cada
+        rolagem — e mudam o tableRollsRev (Últimas 5 e Testes › 🎲 Na Tela)."""
+        p0 = self.pulse().json()
+        r = self.c_p1.post(f'/api/characters/{self.dagna.id}/table-roll', {
+            'label': 'Percepção', 'dice': [{'die': 'd20', 'value': 12}], 'modifier': 3, 'total': 15}, format='json')
+        self.assertEqual(r.status_code, 201, r.content)
+        p1 = self.pulse().json()
+        self.assertEqual(p1['checksRev'], p0['checksRev'])
+        self.assertNotEqual(p1['tableRollsRev'], p0['tableRollsRev'])
+        self.assertEqual((p1['screen']['roll']['kind'], p1['screen']['roll']['who']), ('sheet', 'Dagna'))
+        # o 🎲 do mestre (🔒 Só eu também) e a arrumação: só o tableRollsRev
+        table_rolls.record(self.camp, self.dm, 'dm', label='d20', rolls=[{'value': 4}], total=4, public=False)
+        p2 = self.pulse().json()
+        self.assertEqual(p2['checksRev'], p0['checksRev'])
+        self.assertNotEqual(p2['tableRollsRev'], p1['tableRollsRev'])
+        # um pedido de rolagem (novo, cancelado) continua no checksRev, e não no das de mesa
+        rr = RollRequest.objects.create(campaign=self.camp, requested_by=self.p1, character=self.dagna, label='Atletismo')
+        p3 = self.pulse().json()
+        self.assertNotEqual(p3['checksRev'], p2['checksRev'])
+        self.assertEqual(p3['tableRollsRev'], p2['tableRollsRev'])
+        self.assertEqual(p3['counts']['pendingRolls'], 1)
+        rr.status = 'cancelled'; rr.save()
+        p4 = self.pulse().json()
+        self.assertNotEqual(p4['checksRev'], p3['checksRev'])
+        self.assertEqual(p4['tableRollsRev'], p3['tableRollsRev'])
+        # a arrumação das velhas (só de mesa) muda o das de mesa e não o dos testes
+        table_rolls.prune(self.camp.id, keep=1)
+        p5 = self.pulse().json()
+        self.assertEqual(p5['checksRev'], p4['checksRev'])
+        self.assertNotEqual(p5['tableRollsRev'], p4['tableRollsRev'])
+        # o SQL pronto e o ORM (outro banco) contam igual
+        sql, orm = views_pulse._campaign_row(self.camp.id), views_pulse._campaign_row_orm(str(self.camp.id))
+        for k in ('rolls_n', 'rolls_pending', 'mesa_n', 'mesa_max'):
+            self.assertEqual(sql[k], orm[k], k)
+        self.assertEqual((sql['rolls_n'], sql['mesa_n']), (2, 1))
+
+    def test_table_rolls_rev_without_any_roll(self):
+        # com o cursor de depuração (DEBUG=True, como no runserver): o `%` do LIKE escapado
+        with CaptureQueriesContext(connection):
+            self.assertEqual(self.pulse().status_code, 200)
+        sql, orm = views_pulse._campaign_row(self.camp.id), views_pulse._campaign_row_orm(str(self.camp.id))
+        self.assertEqual((sql['mesa_n'], sql['mesa_max']), (0, None))
+        self.assertEqual(orm['mesa_max'], None)
+        self.assertIsNone(self.pulse().json()['screen']['roll'])
 
     def test_plan_rev_changes_when_the_plan_is_saved(self):
         p0 = self.pulse().json()['planRev']
