@@ -13,8 +13,9 @@
 // Cada resposta boa avisa a casca (evento `forja:stage`), para Jogar › Tela e o
 // 📺 do cabeçalho mostrarem o palco novo sem esperar o próximo poll.
 import { request } from '../api/client.js';
-import { errorText } from '../api/errors.js';
+import { errorText, isOldServer } from '../api/errors.js';
 import { flash } from '../play/flash.js';
+import { legacyScreenCard } from './stage-legacy.js';
 
 const cid = (id) => encodeURIComponent(id);
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
@@ -37,9 +38,33 @@ function emit(campaignId, stage) {
 
 /** Um op do palco. → {stage, changed} */
 export async function stageOp(campaignId, body) {
-  const r = await request(`/api/campaigns/${cid(campaignId)}/stage`, { method: 'POST', body });
+  let r;
+  try {
+    r = await request(`/api/campaigns/${cid(campaignId)}/stage`, { method: 'POST', body });
+  } catch (e) {
+    if (!isOldServer(e)) throw e;
+    return legacyStageOp(campaignId, body);
+  }
   emit(campaignId, r?.stage);
   return r;
+}
+
+/**
+ * Servidor ainda sem o palco (atualizado depois do front): o que o `screen-card` antigo
+ * sabe fazer vai por ele — mostrar cartão, resumo ou sala de aventura, e tirar/limpar.
+ * O resto (só a imagem, texto, cena do plano, ↶, ◐, fundo, regras) diz "falta atualizar".
+ * `changed: false` tira o "↶ Desfazer" do aviso, que o servidor antigo não tem.
+ */
+async function legacyStageOp(campaignId, body) {
+  const card = legacyScreenCard(body);
+  if (card === undefined) {
+    const err = new Error('server_outdated');
+    err.status = 409;
+    err.data = { error: 'server_outdated' };
+    throw err;
+  }
+  await setScreenCard(campaignId, card);
+  return { stage: null, changed: false, legacy: true };
 }
 
 /**
