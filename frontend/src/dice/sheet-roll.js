@@ -16,11 +16,16 @@
 // rolador (components/DiceRoller.jsx) é um só para o app e não sabe de ficha. O
 // "🔒 Só eu" do jogador fica lembrado POR PERSONAGEM no aparelho
 // (`forja:sheet-roll-secret:<id>`) e rolagem secreta nunca sai do aparelho.
-// Envios espaçados de 1,2 s (o servidor aceita 1 por segundo por usuário): ataque e
-// dano tocados em seguida vão os dois, um depois do outro.
+// Um envio de cada vez, na ordem dos toques: 1,2 s depois da saída do anterior e
+// 1 s depois da resposta dele (o servidor aceita 1 por segundo por usuário, em média,
+// contado pela hora em que o pedido CHEGA; esperar a resposta garante a folga mesmo
+// quando a rede atrasa um e não o outro). Ataque e dano tocados em seguida vão os
+// dois; o que esperou demais (a Tela já passou dele) fica só no aparelho.
 // Lógica pura aqui (sem React); testada em tests/sheet-roll.test.js.
 
 export const GAP_MS = 1200;
+export const RESP_GAP_MS = 1000;
+export const STALE_MS = 6000;
 export const MAX_WAITING = 3;
 export const MAX_DICE = 20;
 export const MAX_MOD = 50;
@@ -146,32 +151,40 @@ export function noteFor(outcome) {
 const deviceOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
 
 /**
- * O envio, fora do caminho da ficha: espaça os POSTs (GAP_MS), não guarda mais de
- * MAX_WAITING na fila (o resto → 'busy', fica só no aparelho) e nunca tenta de novo.
+ * O envio, fora do caminho da ficha: um POST de cada vez, na ordem, GAP_MS depois da
+ * saída do anterior e RESP_GAP_MS depois da resposta dele; não guarda mais de
+ * MAX_WAITING na fila (o resto → 'busy', fica só no aparelho), não manda o que
+ * esperou mais de STALE_MS (servidor lento: → 'failed') e nunca tenta de novo.
  * `post(characterId, body)` devolve a resposta do servidor (null no 204).
  */
 export function createSender({
   post, now = () => Date.now(), wait = (ms) => new Promise(r => setTimeout(r, ms)),
-  gapMs = GAP_MS, maxWaiting = MAX_WAITING, offline = deviceOffline,
+  gapMs = GAP_MS, respGapMs = RESP_GAP_MS, staleMs = STALE_MS, maxWaiting = MAX_WAITING, offline = deviceOffline,
 } = {}) {
-  let nextAt = 0;
+  let turn = Promise.resolve();   // a vez de cada envio
+  let sentAt = -Infinity;
+  let doneAt = -Infinity;
   let waiting = 0;
-  return async function send(characterId, body) {
-    if (offline()) return 'failed';
-    if (waiting >= maxWaiting) return 'busy';
-    const t = now();
-    const at = Math.max(t, nextAt);
-    nextAt = at + gapMs;
+  return function send(characterId, body) {
+    if (offline()) return Promise.resolve('failed');
+    if (waiting >= maxWaiting) return Promise.resolve('busy');
     waiting += 1;
-    try {
+    const calledAt = now();
+    const run = turn.then(async () => {
+      const t = now();
+      const at = Math.max(t, sentAt + gapMs, doneAt + respGapMs);
       if (at > t) await wait(at - t);
+      if (now() - calledAt > staleMs) return 'failed';           // a Tela já passou desta
+      if (current && current.characterId === characterId && current.blocked) return 'blocked';
+      sentAt = now();
       let outcome;
       try { outcome = outcomeOf(await post(characterId, body)); } catch (err) { outcome = outcomeOf(null, err); }
+      doneAt = now();
       if (outcome === 'blocked') block(characterId);
       if (outcome === 'shown') setSheetAllowed(characterId, true);
       return outcome;
-    } finally {
-      waiting -= 1;
-    }
+    }).finally(() => { waiting -= 1; });
+    turn = run.catch(() => {});
+    return run;
   };
 }

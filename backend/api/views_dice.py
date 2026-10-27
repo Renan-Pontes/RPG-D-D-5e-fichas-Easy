@@ -225,7 +225,10 @@ def _table_row(request, campaign, flat, dice_type, count, label, modifier, total
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-@rate_limit(key='sheet_roll', max_attempts=1, window=1, per_ip=False, per_user=True)  # 1 por segundo por user
+# 1 por segundo por user, em média: aceita uma rajada de 3 em 3 s (o limite conta pela
+# hora em que o pedido CHEGA; ataque e dano saem 1,2 s um do outro, mas a rede móvel
+# ou a fila do servidor podem juntá-los na chegada)
+@rate_limit(key='sheet_roll', max_attempts=3, window=3, per_ip=False, per_user=True)
 def sheet_roll(request, pk):
     """Rolagem da FICHA na Tela (V15, decisão D-1 do dono): a ficha rola no aparelho,
     na hora, como sempre (os dados preparados do mestre NÃO valem nela) e depois,
@@ -234,7 +237,7 @@ def sheet_roll(request, pk):
     marcado `@mesa:sheet` com o personagem.
 
     Só quem joga ESTE personagem na campanha (a vaga dele; o mestre usa o 🎲 dele).
-    Campanha encerrada → 423 (closed_guard, em urls.py); mais de 1 por segundo → 429;
+    Campanha encerrada → 423 (closed_guard, em urls.py); mais de 3 em 3 s → 429;
     sem sessão ao vivo ou com "Rolagens das fichas" desligada pelo mestre
     (`stage.prefs.sheets`) → 204 sem gravar. 1 consulta (a vaga, com só `live` e o
     palco do `state`) e, quando vai à Tela, 1 escrita + a arrumação.

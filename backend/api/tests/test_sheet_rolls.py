@@ -6,7 +6,8 @@ de rolagens da Tela da V10 (`POST /api/characters/:id/table-roll`):
 - só quem joga ESTE personagem na campanha (nem outro jogador, nem o mestre);
 - valida tamanho e formato: até 20 dados, lados conhecidos, valor dentro do dado,
   vantagem coerente e total = dados que contam + modificador;
-- 1 por segundo por usuário (429 acima);
+- 1 por segundo por usuário, em média: uma rajada de 3 em 3 s passa (a rede junta
+  ataque e dano na chegada), a 4ª dá 429;
 - campanha encerrada → 423; sem sessão ao vivo ou com "Rolagens das fichas"
   desligada pelo mestre → 204 sem gravar;
 - vai à mesma janela da TV (nome do personagem, rótulo, dados, total) e à mesma
@@ -146,16 +147,23 @@ class SheetRollTests(Base):
         self.assertEqual(self.post(twenty).status_code, 201)
 
     def test_one_per_second_per_user(self):
+        # ataque e dano saem 1,2 s um do outro, mas a variação da rede os junta na chegada:
+        # a rajada de 3 passa; a 4ª nos mesmos 3 s dá 429
         with mock.patch('api.rate_limit.time.time', return_value=1000.0):
             self.assertEqual(self.post(percepcao(10)).status_code, 201)
-            r = self.post(percepcao(11), fresh=False)
+        with mock.patch('api.rate_limit.time.time', return_value=1000.3):
+            self.assertEqual(self.post(percepcao(11), fresh=False).status_code, 201)
+            self.assertEqual(self.post(percepcao(12), fresh=False).status_code, 201)
+            r = self.post(percepcao(13), fresh=False)
             self.assertEqual(r.status_code, 429)
             self.assertEqual(r.json()['error'], 'rate_limited')
             # outro usuário tem o próprio limite
-            self.assertEqual(self.post(percepcao(12), char=self.pipo, client=self.c_bruno, fresh=False).status_code, 201)
-        with mock.patch('api.rate_limit.time.time', return_value=1001.2):
-            self.assertEqual(self.post(percepcao(13), fresh=False).status_code, 201)
-        self.assertEqual(RollRequest.objects.filter(note='@mesa:sheet').count(), 3)
+            self.assertEqual(self.post(percepcao(14), char=self.pipo, client=self.c_bruno, fresh=False).status_code, 201)
+        # 3 s depois da 1ª, cabe uma de novo (média de 1 por segundo)
+        with mock.patch('api.rate_limit.time.time', return_value=1003.1):
+            self.assertEqual(self.post(percepcao(15), fresh=False).status_code, 201)
+            self.assertEqual(self.post(percepcao(16), fresh=False).status_code, 429)
+        self.assertEqual(RollRequest.objects.filter(note='@mesa:sheet').count(), 5)
 
     def test_closed_campaign_is_423(self):
         Campaign.objects.filter(pk=self.camp.pk).update(status='closed')

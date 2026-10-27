@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 import { parseFormula, rollFormula } from '../src/dice/dice-math.js';
 import {
   clearSheetRolls, createSender, getSheetRolls, GAP_MS, MAX_WAITING, noteFor, outcomeOf, planSheetRoll, readSecret,
-  secretKey, setSheetAllowed, setSheetRolls, setSheetSecret, sheetRollBody, subscribeSheetRolls, writeSecret,
+  RESP_GAP_MS, secretKey, setSheetAllowed, setSheetRolls, setSheetSecret, sheetRollBody, STALE_MS, subscribeSheetRolls,
+  writeSecret,
 } from '../src/dice/sheet-roll.js';
 
 const memory = () => {
@@ -164,7 +165,57 @@ test('envio: rajada maior que a fila → as de fora ficam só no aparelho ("busy
   const runs = Array.from({ length: MAX_WAITING + 2 }, (_, i) => send(1, { label: `r${i}` }));
   const extra = await Promise.all(runs.slice(MAX_WAITING));
   assert.deepEqual(extra, ['busy', 'busy']);
-  await new Promise(r => setTimeout(r, 0));
-  pending.forEach(r => r({ shown: true }));
+  // um de cada vez: o 2º só sai depois da resposta do 1º
+  for (let i = 0; i < MAX_WAITING; i++) {
+    await new Promise(r => setTimeout(r, 0));
+    assert.equal(pending.length, 1);
+    pending.shift()({ shown: true });
+  }
   assert.deepEqual(await Promise.all(runs.slice(0, MAX_WAITING)), Array(MAX_WAITING).fill('shown'));
+});
+
+// Um servidor de mentira com o relógio dele: conta pela hora em que o pedido CHEGA.
+function fakeNet({ up = () => 0, down = () => 50, perSecond = 1 } = {}) {
+  const net = { clock: 0, arrivals: [], statuses: [] };
+  net.now = () => net.clock;
+  net.wait = async (ms) => { net.clock += ms; };
+  net.post = async (id, body) => {
+    const i = net.arrivals.length;
+    net.clock += up(i);
+    const at = net.clock;
+    // o limite do servidor mais duro (1 em 1 s), para mostrar a folga que o envio garante
+    const ok = !net.arrivals.length || at - net.arrivals[net.arrivals.length - 1] >= 1000 / perSecond;
+    net.arrivals.push(at);
+    net.clock += down(i);
+    net.statuses.push(ok ? 201 : 429);
+    if (!ok) throw Object.assign(new Error('rate_limited'), { status: 429 });
+    return { shown: true, label: body.label };
+  };
+  return net;
+}
+
+test('envio: latência desigual (a 1ª chega 600 ms atrasada) — ataque e dano chegam com mais de 1 s entre eles', async () => {
+  for (const delay of [250, 600, 1500]) {
+    const net = fakeNet({ up: (i) => (i === 0 ? delay : 30) });
+    const send = createSender({ post: net.post, now: net.now, wait: net.wait, offline: () => false });
+    const [atk, dmg] = await Promise.all([send(1, { label: 'Ataque' }), send(1, { label: 'Dano' })]);
+    assert.deepEqual([atk, dmg], ['shown', 'shown'], `atraso de ${delay} ms`);
+    assert.ok(net.arrivals[1] - net.arrivals[0] >= 1000, `${net.arrivals}`);
+  }
+  // sem atraso nenhum continua 1,2 s entre as saídas (a resposta rápida não atrasa nada)
+  const net = fakeNet({ up: () => 20, down: () => 20 });
+  const sent = [];
+  const send = createSender({ post: (id, b) => { sent.push(net.clock); return net.post(id, b); }, now: net.now, wait: net.wait, offline: () => false });
+  await Promise.all([send(1, { label: 'a' }), send(1, { label: 'b' }), send(1, { label: 'c' })]);
+  assert.deepEqual(sent.map((t, i) => (i ? t - sent[i - 1] : 0)), [0, GAP_MS, GAP_MS]);
+  assert.ok(RESP_GAP_MS + 40 <= GAP_MS);
+});
+
+test('envio: servidor lento — o que esperou mais de 6 s na fila não vai (a Tela já passou dele)', async () => {
+  const net = fakeNet({ up: () => 4000, down: () => 2500 });
+  const send = createSender({ post: net.post, now: net.now, wait: net.wait, offline: () => false });
+  const out = await Promise.all([send(1, { label: 'Ataque' }), send(1, { label: 'Dano' })]);
+  assert.deepEqual(out, ['shown', 'failed']);
+  assert.equal(net.arrivals.length, 1);                               // o 2º nem saiu
+  assert.ok(STALE_MS < 4000 + 2500 + RESP_GAP_MS);
 });
