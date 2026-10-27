@@ -218,7 +218,7 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
 
   if (asSheet) {
     return (
-      <MesaSheet title={L(lang, 'Pedir teste à mesa', 'Ask the table for a check')} icon="🎯" size="tall" width="md" lang={lang}
+      <MesaSheet title={L(lang, 'Pedir teste à mesa', 'Ask the table for a check')} icon="🎯" size="tall" width="md" lang={lang} dock="play"
         onClose={onClose} className="gc-sheet" bodyClassName="group-checks is-sheet"
         footer={(
           <div className="gc-foot">

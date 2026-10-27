@@ -177,7 +177,7 @@ export default function InScenePanel({ campaign, lang = 'pt', goTo }) {
       )}
 
       {revealing && (
-        <MesaSheet title={revealing.name} icon="👁"
+        <MesaSheet title={revealing.name} icon="👁" dock="play"
           size="auto" width="md" lang={lang} onClose={() => setRevealing(null)} className="ins-reveal"
           footer={(
             <div className="mesa-actions">

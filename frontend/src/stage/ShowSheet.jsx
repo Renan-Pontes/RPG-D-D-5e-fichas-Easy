@@ -272,7 +272,7 @@ export function ShowPicker({ campaign, stage, lang = 'pt', onChange }) {
 /** A folha "Mostrar na Tela" (o mesmo conteúdo de Jogar › Tela › Mostrar). */
 export default function ShowSheet({ campaign, stage, lang = 'pt', onClose, onChange }) {
   return (
-    <MesaSheet title={L(lang, 'Mostrar na Tela', 'Show on screen')} icon="📺" size="tall" width="md" lang={lang} onClose={onClose}>
+    <MesaSheet title={L(lang, 'Mostrar na Tela', 'Show on screen')} icon="📺" size="tall" width="md" lang={lang} onClose={onClose} dock="play">
       <ShowPicker campaign={campaign} stage={stage} lang={lang} onChange={onChange} />
     </MesaSheet>
   );

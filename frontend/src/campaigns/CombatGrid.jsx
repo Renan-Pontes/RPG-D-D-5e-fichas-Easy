@@ -560,7 +560,7 @@ function LiveGrid({ combat, campaignId, lang, onChange, selectedId, setSelectedI
       </p>
 
       {!wide && toolsOpen && (
-        <MesaSheet title={t(lang, 'Ferramentas do mapa', 'Map tools')} icon="🛠" size="auto" width="sm" lang={lang}
+        <MesaSheet title={t(lang, 'Ferramentas do mapa', 'Map tools')} icon="🛠" size="auto" width="sm" lang={lang} dock="play"
           onClose={() => setToolsOpen(false)} className="cg-tools-sheet"
           footer={(
             <div className="mesa-actions">

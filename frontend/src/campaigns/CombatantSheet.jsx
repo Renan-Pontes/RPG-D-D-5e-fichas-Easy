@@ -573,7 +573,7 @@ export default function CombatantSheet({ combatant: c, onClose, lang, isCurrentT
     c.defeated ? t(lang, 'Derrotado', 'Defeated') : null,
   ].filter(Boolean).join(' · ');
   return (
-    <MesaSheet title={c.name} eyebrow={eyebrow} size="tall" width="md" lang={lang} onClose={onClose}
+    <MesaSheet title={c.name} eyebrow={eyebrow} size="tall" width="md" lang={lang} onClose={onClose} dock="play"
       className="cs-sheet" bodyClassName="cs-sheet-body">
       <CombatantPanel combatant={c} lang={lang} layout="sheet" tab={tab} onTab={setTab} {...rest} />
     </MesaSheet>

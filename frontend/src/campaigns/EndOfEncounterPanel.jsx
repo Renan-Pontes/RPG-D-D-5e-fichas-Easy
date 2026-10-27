@@ -60,7 +60,7 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
       eyebrow={L(lang, 'Fim de encontro', 'End of encounter')} icon="⚑" size="tall" width="md" lang={lang}
       onClose={onClose} footer={footer} dirty={noteDirty}
       dirtyText={L(lang, 'A nota do Diário ainda não foi salva.', 'The Diary note has not been saved yet.')}
-      className="eoe-sheet" bodyClassName="eoe-sheet-body">
+      className="eoe-sheet" bodyClassName="eoe-sheet-body" dock="play">
       <p className="mesa-sheet-text">{L(lang, 'Passos opcionais — nada é aplicado sem o seu toque.', 'Optional steps — nothing is applied without your tap.')}</p>
       {error && <div className="nudge-error" role="alert">{error}</div>}
 

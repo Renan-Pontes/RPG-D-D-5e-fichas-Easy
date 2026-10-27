@@ -151,7 +151,7 @@ function DecideSheet({ lang, name, mode, fighting, busy, onClose, onShow, onImag
     return onShow(b.focus);
   };
   return (
-    <MesaSheet title={name || L(lang, 'Mostrar na Tela', 'Show on screen')} icon="📺" size="auto" width="sm" lang={lang}
+    <MesaSheet title={name || L(lang, 'Mostrar na Tela', 'Show on screen')} icon="📺" size="auto" width="sm" lang={lang} dock="play"
       onClose={onClose} className="sot-sheet"
       footer={(
         <div className="sot-foot">

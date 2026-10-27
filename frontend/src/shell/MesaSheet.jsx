@@ -20,10 +20,13 @@
 //   close e passa pela mesma pergunta do ✕ e do Esc.
 // - dock="bar" (só as folhas de Jogar, V4): no celular a folha para ACIMA da
 //   barra da mesa, que continua à vista e tocável (o Próximo turno nunca some).
+//   dock="play": o mesmo, mas só quando aberta dentro de Jogar (folhas que também
+//   abrem de outras áreas: Pedir teste, Mostrar na Tela, Avisos, Escolher monstro…).
 //   As outras folhas escondem a barra (body.mesa-sheet-covers).
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
+import { useArea } from './useArea.js';
 import './mesa.css';
 
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
@@ -72,7 +75,8 @@ export default function MesaSheet({
   size = 'auto', width, dirty = false, dirtyText, initialFocus,
   lang, role = 'dialog', closeLabel, describedBy, className = '', bodyClassName = '', dock,
 }) {
-  const docked = dock === 'bar';
+  const { area } = useArea();
+  const docked = dock === 'bar' || (dock === 'play' && area === 'play');
   const L = lang || langNow();
   const titleId = useId();
   const dialogRef = useRef(null);

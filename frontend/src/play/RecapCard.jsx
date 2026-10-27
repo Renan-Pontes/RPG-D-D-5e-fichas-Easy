@@ -74,7 +74,7 @@ export default function RecapCard({ campaign, lang = 'pt', autoDraft = false, on
 
   if (asSheet) {
     return (
-      <MesaSheet title={L(lang, 'Anteriormente em…', 'Previously on…')} icon="📜" size="tall" width="md" lang={lang}
+      <MesaSheet title={L(lang, 'Anteriormente em…', 'Previously on…')} icon="📜" size="tall" width="md" lang={lang} dock="play"
         onClose={onClose} dirty={touched}
         dirtyText={L(lang, 'O texto que você mexeu não foi para a Tela e não fica guardado.', 'The text you edited did not go to the screen and is not kept.')}
         bodyClassName="recap-card is-sheet"

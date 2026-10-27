@@ -422,7 +422,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, turnSt
         <CombatantSheet key={sheetC.id} initialTab={sheet.tab} {...panelProps(sheetC)} onClose={() => setSheet(null)} />
       )}
       {showMore && (
-        <MesaSheet title={t(lang, 'Mais do combate', 'More combat actions')} icon="⋯" size="auto" width="sm" lang={lang}
+        <MesaSheet title={t(lang, 'Mais do combate', 'More combat actions')} icon="⋯" size="auto" width="sm" lang={lang} dock="play"
           onClose={() => setShowMore(false)} className="ct-more-sheet">
           <div className="ct-more-list">
             <button type="button" className="mesa-btn mesa-btn-lg is-danger" onClick={resetCombat}>
@@ -558,7 +558,7 @@ function AddCharacterSheet({ campaign, lang, combatants, onAdd, onClose }) {
     </div>
   );
   return (
-    <MesaSheet title={t(lang, 'Adicionar personagem ao combate', 'Add character to combat')} icon="✚" size="tall" width="md"
+    <MesaSheet title={t(lang, 'Adicionar personagem ao combate', 'Add character to combat')} icon="✚" size="tall" width="md" dock="play"
       lang={lang} onClose={onClose} footer={footer} className="ct-addpc-sheet">
       <p className="mesa-sheet-text">
         {t(lang, 'Digite a iniciativa que cada jogador rolou (dado físico). Em branco = 10. O 🎲 só preenche o campo com d20 + bônus.', 'Type the initiative each player rolled (physical die). Blank = 10. 🎲 just fills the field with d20 + bonus.')}

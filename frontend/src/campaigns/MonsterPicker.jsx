@@ -188,7 +188,7 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
 
   // Folha da mesa (portal na camada da mesa): fica acima das abas/barras fixas da casca.
   return (
-    <MesaSheet title={title} icon={view === 'list' ? '🐉' : view === 'import' ? '⇪' : '✎'} size="full" width="lg" lang={lang}
+    <MesaSheet title={title} icon={view === 'list' ? '🐉' : view === 'import' ? '⇪' : '✎'} size="full" width="lg" lang={lang} dock="play"
       onClose={onClose} dirty={(view === 'edit' && editDirty) || (view === 'import' && importDirty)}
       dirtyText={t(lang, 'O monstro ainda não foi salvo na sua lista.', 'The monster has not been saved to your list yet.')}
       className={`mp-sheet is-${view}`} bodyClassName="mp-sheet-body" footer={view === 'list' ? listFooter : null}
