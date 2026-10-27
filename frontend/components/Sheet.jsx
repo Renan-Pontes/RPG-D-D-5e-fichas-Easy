@@ -37,7 +37,7 @@ import { useLevelCeremony, FhLevelCeremony, useGemRelight } from '../src/sheet/F
 import { PLAY_H, splitColumns } from '../src/sheet/play-layout.js';
 import FhExportModal from '../src/sheet/FhExport.jsx';
 import SheetRollTarget from '../src/sheet/SheetRollTarget.jsx';
-import { clearSheetRolls, setSheetAllowed, setSheetRolls } from '../src/dice/sheet-roll.js';
+import { clearSheetRolls, maybeRecheck, setSheetAllowed, setSheetRecheck, setSheetRolls } from '../src/dice/sheet-roll.js';
 import '../src/sheet/ficha.css';
 
 // Modal "Campanha" (atrelar, desatrelar, trocar): só carrega quando abre.
@@ -684,10 +684,15 @@ const CheatModeModal = ({ char, lang, update, onClose }) => {
 const CampaignModeBanner = ({ char, lang, onChange, onManage, onLogin, rev = 0 }) => {
   const [campInfo, setCampInfo] = useState(null);
   const [busy, setBusy] = useState(false);
+  // V15: com as rolagens das fichas desligadas pelo mestre a ficha não manda nada;
+  // esta busca de novo (no máximo a cada 30 s, só enquanto desligada) quando a ficha
+  // volta à vista ou o jogador rola, para valer de novo assim que ele religar.
+  const [recheck, setRecheck] = useState(0);
   const pt = lang === 'pt';
+  const inTable = !!char.inCampaign && typeof char.id === 'number';
 
   useEffect(() => {
-    if (!char.inCampaign || typeof char.id !== 'number') { setCampInfo(null); return; }
+    if (!inTable) { setCampInfo(null); return; }
     let cancelled = false;
     api.characterCampaigns(char.id).then(r => {
       if (cancelled) return;
@@ -696,7 +701,15 @@ const CampaignModeBanner = ({ char, lang, onChange, onManage, onLogin, rev = 0 }
       if (c && typeof c.sheetRolls === 'boolean') setSheetAllowed(char.id, c.sheetRolls);
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [char.id, char.inCampaign, rev]);
+  }, [char.id, inTable, rev, recheck]);
+
+  useEffect(() => {
+    if (!inTable) return undefined;
+    setSheetRecheck(() => setRecheck(n => n + 1));
+    const onVis = () => { if (!document.hidden) maybeRecheck(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { setSheetRecheck(null); document.removeEventListener('visibilitychange', onVis); };
+  }, [inTable, char.id]);
 
   const leave = async () => {
     if (!campInfo) return;

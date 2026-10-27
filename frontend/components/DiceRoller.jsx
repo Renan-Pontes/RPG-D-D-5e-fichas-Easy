@@ -41,7 +41,7 @@ import {
 } from '../src/dice/dice-table.js';
 import { api } from '../src/api/client.js';
 import {
-  createSender, getSheetRolls, noteFor, planSheetRoll, setSheetSecret, subscribeSheetRolls,
+  createSender, getSheetRolls, maybeRecheck, noteFor, planSheetRoll, setSheetSecret, subscribeSheetRolls,
 } from '../src/dice/sheet-roll.js';
 import {
   getAnimPref, setAnimPref, loadHistory, saveHistory, loadRecentFormulas, saveRecentFormulas,
@@ -153,6 +153,8 @@ const DiceRoller = ({ lang }) => {
     const ctx = getSheetRolls();
     const plan = planSheetRoll(ctx, entry);
     if (plan.skip === 'secret') { patchEntry(entry.id, { tableNote: noteFor('secret') }); return; }
+    // o mestre deixou as fichas fora da Tela: nada sai; de vez em quando a faixa pergunta se ele religou
+    if (plan.skip === 'off') { maybeRecheck(); return; }
     if (!plan.body) return;
     sheetSend(ctx.characterId, plan.body).then((outcome) => {
       const note = noteFor(outcome);

@@ -5,9 +5,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseFormula, rollFormula } from '../src/dice/dice-math.js';
 import {
-  clearSheetRolls, createSender, getSheetRolls, GAP_MS, MAX_WAITING, noteFor, outcomeOf, planSheetRoll, readSecret,
-  RESP_GAP_MS, secretKey, setSheetAllowed, setSheetRolls, setSheetSecret, sheetRollBody, STALE_MS, subscribeSheetRolls,
-  writeSecret,
+  clearSheetRolls, createSender, getSheetRolls, GAP_MS, MAX_WAITING, maybeRecheck, noteFor, outcomeOf, planSheetRoll,
+  readSecret, RECHECK_MS, RESP_GAP_MS, secretKey, setSheetAllowed, setSheetRecheck, setSheetRolls, setSheetSecret,
+  sheetRollBody, STALE_MS, subscribeSheetRolls, writeSecret,
 } from '../src/dice/sheet-roll.js';
 
 const memory = () => {
@@ -80,6 +80,31 @@ test('só-eu: lembrado por personagem; com ele ligado nada é montado para envia
   assert.deepEqual(planSheetRoll({ characterId: 7, blocked: true }, entry), { skip: 'blocked' });
   assert.deepEqual(planSheetRoll({ characterId: 7 }, entryOf('21d6')), { skip: 'local' });
   assert.equal(planSheetRoll({ characterId: 7 }, entry).body.total, 15);
+  assert.equal(planSheetRoll({ characterId: 7, allowed: null }, entry).body.total, 15);   // ainda não soube: manda
+  assert.equal(planSheetRoll({ characterId: 7, allowed: true }, entry).body.total, 15);
+});
+
+test('regra desligada pelo mestre: nada sai do aparelho e a faixa pergunta de novo só de vez em quando', () => {
+  const entry = entryOf('1d20+3', { label: 'Percepção', preset: [12] });
+  assert.deepEqual(planSheetRoll({ characterId: 7, allowed: false }, entry), { skip: 'off' });
+  assert.deepEqual(planSheetRoll({ characterId: 7, allowed: false, secret: true }, entry), { skip: 'secret' });
+
+  const asked = [];
+  setSheetRolls({ characterId: 7, name: 'Dagna' }, memory());
+  setSheetRecheck((id) => asked.push(id));
+  assert.equal(maybeRecheck(1_000), false);                           // ainda não sabe a regra: o POST descobre
+  setSheetAllowed(7, false, 1_000);                                   // a faixa soube: desligada
+  assert.equal(maybeRecheck(1_000 + RECHECK_MS - 1), false);          // no máximo 1 vez a cada 30 s
+  assert.equal(maybeRecheck(1_000 + RECHECK_MS), true);
+  assert.equal(maybeRecheck(1_000 + RECHECK_MS + 5), false);
+  assert.deepEqual(asked, [7]);
+  setSheetAllowed(7, true, 40_000);                                   // o mestre religou: volta a mandar
+  assert.equal(planSheetRoll(getSheetRolls(), entry).body.total, 15);
+  assert.equal(maybeRecheck(999_999), false);                         // ligada: nunca pergunta
+  setSheetRecheck(null);
+  setSheetAllowed(7, false, 0);
+  assert.equal(maybeRecheck(999_999), false);                         // sem a faixa: nada
+  clearSheetRolls(7);
 });
 
 test('a ficha aberta: o Sheet diz o personagem, o só-eu vem do aparelho e fechar limpa só se é ela', () => {
