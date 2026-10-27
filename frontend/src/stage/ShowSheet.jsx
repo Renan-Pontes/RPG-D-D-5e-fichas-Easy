@@ -211,9 +211,13 @@ export function ShowPicker({ campaign, stage, lang = 'pt', onChange }) {
               placeholder={L(lang, 'Ex.: "O sino toca três vezes."', 'E.g. "The bell rings three times."')} />
           </label>
           <div className="mesa-actions stage-free-act">
-            <ShowOnTable campaign={campaign} lang={lang} className="mesa-btn is-primary" disabled={!text.trim()} onShown={done}
+            <ShowOnTable campaign={campaign} lang={lang} className="mesa-btn is-primary stage-show" disabled={!text.trim()} onShown={done}
               target={{ kind: 'text', text: text.trim() }}>📺 {L(lang, 'Mostrar o texto', 'Show the text')}</ShowOnTable>
           </div>
+          {/* O motivo do botão apagado, escrito (princípio 6); a linha fica sempre, para nada pular ao digitar. */}
+          <p className="mesa-hint stage-why" aria-live="polite">{text.trim()
+            ? L(lang, 'A Tela mostra o texto grande, na frente; ✕ tira.', 'The screen shows the text large, in front; ✕ removes it.')
+            : L(lang, 'Escreva o texto acima para mostrar.', 'Write the text above to show it.')}</p>
         </div>
       )}
 
