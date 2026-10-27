@@ -78,13 +78,12 @@ export async function refreshCsrf() {
   return ensureCsrf(true);
 }
 
-// `timeout` (ms): o padrão é 15 s; o 🎲 do mestre "Na tela" usa 1,5 s e rola no aparelho sem resposta.
-async function request(path, { method = 'GET', body, headers = {}, timeout = 15000, _csrfRetry = false } = {}) {
+async function request(path, { method = 'GET', body, headers = {}, _csrfRetry = false } = {}) {
   const isMutation = method !== 'GET' && method !== 'HEAD';
   if (isMutation) await ensureCsrf();
   const csrftoken = csrfTokenCache || getCookie('csrftoken');
   const res = await fetch(`${API_BASE}${path}`, {
-    signal: AbortSignal.timeout(timeout),
+    signal: AbortSignal.timeout(15000),
     method,
     credentials: 'include',
     headers: {
@@ -113,7 +112,7 @@ async function request(path, { method = 'GET', body, headers = {}, timeout = 150
       if (!_csrfRetry) {
         csrfTokenCache = null;
         await ensureCsrf(true);
-        return request(path, { method, body, headers, timeout, _csrfRetry: true });
+        return request(path, { method, body, headers, _csrfRetry: true });
       }
     }
     const msg = data?.error || data?.detail || res.statusText;
@@ -278,7 +277,7 @@ export const api = {
   reviewApproval: (approvalId, body) => request(`/api/approvals/${approvalId}/review`, { method: 'POST', body }),
   consumeApproval: (approvalId, body = {}) => request(`/api/approvals/${approvalId}/consume`, { method: 'POST', body }),
   // Dice
-  rollDice:      (body, { timeout } = {}) => request('/api/dice/roll', { method: 'POST', body, timeout }),
+  rollDice:      (body) => request('/api/dice/roll', { method: 'POST', body }),
   listRigs:      (campaignId) => request(`/api/dice/campaign/${campaignId}/rigs`),
   createRig:     (campaignId, body) => request(`/api/dice/campaign/${campaignId}/rigs`, { method: 'POST', body }),
   updateRig:     (rigId, body) => request(`/api/dice/rigs/${rigId}`, { method: 'PUT', body }),

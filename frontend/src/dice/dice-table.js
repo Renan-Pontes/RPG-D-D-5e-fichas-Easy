@@ -9,11 +9,17 @@
 //     linha pública da Tela ("Mestre");
 //   · 🔒 Só eu → o mesmo POST com table:false: DiceLog + a linha privada (fica no
 //     registro dele, nunca na TV);
-//   · sem resposta em 1,5 s (sem rede): rola no aparelho e avisa "não foi à Tela".
+//   · sem rede (navigator.onLine falso ou o pedido nem chega: TypeError): rola no
+//     aparelho e avisa "não foi à Tela" na hora;
+//   · servidor LENTO não é falta de rede: o pedido nunca é cortado em 1,5 s (o
+//     servidor gravaria a linha e a TV mostraria outro número). Aos 1,5 s o rolador só
+//     diz "Enviando… (a Tela está lenta)" e mostra o resultado do servidor quando ele
+//     chega; no tempo limite normal (15 s) do cliente, "📺 Na tela" NÃO rola no
+//     aparelho — avisa para conferir a TV (a Tela nunca mente) — e "🔒 Só eu" rola.
 // A escolha fica lembrada por campanha (`forja:dm-dice-target:<id>`).
 // Lógica pura aqui (sem React); testada em tests/dice-table.test.js.
 
-export const TARGET_TIMEOUT_MS = 1500;
+export const SLOW_MS = 1500;
 const MAX_GROUP = 20;
 const MAX_DICE = 40;
 const MAX_GROUPS = 6;
@@ -95,4 +101,26 @@ export function rollBody(ctx, parsed, { label = '', adv = 'normal', shown = fals
 /** Os valores que o servidor rolou, na ordem, para o rolador desenhar (rollFormula `preset`). */
 export function presetFromServer(res) {
   return (res?.results || []).map(r => Number(r.value)).filter(Number.isFinite);
+}
+
+/** Sem rede pelo aparelho (navigator.onLine falso): nem tenta o servidor. */
+export function deviceOffline(nav = (typeof navigator !== 'undefined' ? navigator : null)) {
+  return !!nav && nav.onLine === false;
+}
+
+/**
+ * O POST falhou: rola no aparelho (`local`) e com que aviso (`note`)?
+ *   · tempo limite (TimeoutError/AbortError): o pedido pode ter chegado e a TV pode
+ *     estar mostrando o número do servidor → em "📺 Na tela" não rola aqui ('timeout':
+ *     "confira a TV"); em "🔒 Só eu" rola ('timeout-secret');
+ *   · o servidor respondeu com erro (status): nada foi gravado → rola ('refused');
+ *   · sem rede (TypeError e afins): o pedido não chegou → rola ('offline').
+ */
+export function sendFailure(err, { shown = false } = {}) {
+  const name = err?.name || '';
+  if (name === 'TimeoutError' || name === 'AbortError') {
+    return shown ? { local: false, note: 'timeout' } : { local: true, note: 'timeout-secret' };
+  }
+  if (typeof err?.status === 'number' && err.status > 0) return { local: true, note: shown ? 'refused' : 'refused-secret' };
+  return { local: true, note: shown ? 'offline' : 'offline-secret' };
 }

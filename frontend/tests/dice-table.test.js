@@ -4,8 +4,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseFormula, rollFormula } from '../src/dice/dice-math.js';
 import {
-  clearDiceTable, getDiceTable, presetFromServer, purposeLabel, readTarget, rollBody, serverGroups, setDiceTable,
-  subscribeDiceTable, targetKey, writeTarget,
+  clearDiceTable, deviceOffline, getDiceTable, presetFromServer, purposeLabel, readTarget, rollBody, sendFailure,
+  serverGroups, setDiceTable, subscribeDiceTable, targetKey, writeTarget,
 } from '../src/dice/dice-table.js';
 
 const memory = () => {
@@ -72,4 +72,19 @@ test('os valores do servidor desenham o mesmo resultado no rolador', () => {
   assert.deepEqual(r.groups[0].rolls, [{ value: 4, kept: false }, { value: 17, kept: true }]);
   const mixed = rollFormula(parseFormula('1d8+2d6'), { preset: presetFromServer({ results: [{ value: 5 }, { value: 2 }, { value: 6 }] }) });
   assert.equal(mixed.total, 13);
+});
+
+// V10-fix: servidor lento não é falta de rede (a TV mostraria outro número).
+test('falha do envio: só rola no aparelho quando a Tela com certeza não mostrou', () => {
+  const timeout = Object.assign(new Error('t'), { name: 'TimeoutError' });
+  assert.deepEqual(sendFailure(timeout, { shown: true }), { local: false, note: 'timeout' });
+  assert.deepEqual(sendFailure(Object.assign(new Error('a'), { name: 'AbortError' }), { shown: true }).local, false);
+  assert.deepEqual(sendFailure(timeout, { shown: false }), { local: true, note: 'timeout-secret' });
+  assert.deepEqual(sendFailure(new TypeError('Failed to fetch'), { shown: true }), { local: true, note: 'offline' });
+  assert.deepEqual(sendFailure(new TypeError('Failed to fetch')), { local: true, note: 'offline-secret' });
+  assert.deepEqual(sendFailure(Object.assign(new Error('rate'), { status: 429 }), { shown: true }), { local: true, note: 'refused' });
+  assert.deepEqual(sendFailure(Object.assign(new Error('x'), { status: 500 })), { local: true, note: 'refused-secret' });
+  assert.equal(deviceOffline({ onLine: false }), true);
+  assert.equal(deviceOffline({ onLine: true }), false);
+  assert.equal(deviceOffline(null), false);
 });

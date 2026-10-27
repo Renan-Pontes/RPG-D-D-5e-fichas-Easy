@@ -11,12 +11,15 @@
  *     window.__diceOpen() → abre o rolador (o 🎲 da barra da mesa e da janela da
  *       Tela, V4: com a barra à vista, o botão flutuante some — o CSS da barra o
  *       esconde — e o dado mora nela).
- * - Mestre na campanha (V10, src/dice/dice-table.js): no topo, "🔒 Só eu · 📺 Na
- *   tela" (lembrado por campanha; o padrão é a regra "Do mestre" do palco) e
- *   "Para quê?" (Ataque, Dano, Salvaguarda, Sorte). Os toques do rolador vão ao
- *   servidor (dados preparados valem, o DiceLog registra): Na tela → a TV mostra o
- *   dado com "Mestre"; Só eu → só o registro dele. Sem resposta em 1,5 s, rola no
- *   aparelho e avisa "não foi à Tela". O `__diceRoll` da ficha continua local.
+ * - Mestre na campanha (V10, src/dice/dice-table.js): no topo, numa fileira só
+ *   (com rolagem lateral própria, para os dados continuarem à vista a 320×568),
+ *   "🔒 Só eu · 📺 Na tela" (lembrado por campanha; o padrão é a regra "Do mestre"
+ *   do palco) e "Para quê?" (Ataque, Dano, Salvaguarda, Sorte). Os toques do rolador
+ *   vão ao servidor (dados preparados valem, o DiceLog registra): Na tela → a TV
+ *   mostra o dado com "Mestre"; Só eu → só o registro dele. Servidor lento: aos 1,5 s
+ *   "Enviando… (a Tela está lenta)" e o resultado do servidor quando chegar; sem rede,
+ *   rola no aparelho e avisa "não foi à Tela" (sendFailure). A dica e os avisos moram
+ *   numa linha reservada logo abaixo dos dados. O `__diceRoll` da ficha continua local.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Icon from './Icons.jsx';
@@ -25,8 +28,8 @@ import DieShape from '../src/dice/DieShape.jsx';
 import DiceStage, { preloadDice3D, effectiveAnimMode } from '../src/dice/DiceStage.jsx';
 import { parseFormula, rollFormula, breakdown, formatMod } from '../src/dice/dice-math.js';
 import {
-  getDiceTable, presetFromServer, purposeLabel, PURPOSES, readTarget, rollBody, subscribeDiceTable,
-  TARGET_TIMEOUT_MS, writeTarget,
+  deviceOffline, getDiceTable, presetFromServer, purposeLabel, PURPOSES, readTarget, rollBody, sendFailure,
+  SLOW_MS, subscribeDiceTable, writeTarget,
 } from '../src/dice/dice-table.js';
 import { api } from '../src/api/client.js';
 import {
@@ -61,6 +64,10 @@ const tableNoteText = (note, lang) => ({
   secret: L(lang, '🔒 Só você viu', '🔒 Only you saw it'),
   offline: L(lang, '⚠ Sem conexão: rolado no aparelho, não foi à Tela', '⚠ Offline: rolled on this device, not sent to the screen'),
   'offline-secret': L(lang, '⚠ Sem conexão: rolado no aparelho, fora do registro', '⚠ Offline: rolled on this device, not logged'),
+  refused: L(lang, '⚠ O servidor não aceitou: rolado no aparelho, não foi à Tela', '⚠ The server refused: rolled on this device, not sent to the screen'),
+  'refused-secret': L(lang, '⚠ O servidor não aceitou: rolado no aparelho, fora do registro', '⚠ The server refused: rolled on this device, not logged'),
+  timeout: L(lang, '⚠ A Tela não respondeu. Confira a TV antes de rolar de novo.', '⚠ The screen did not answer. Check the TV before rolling again.'),
+  'timeout-secret': L(lang, '⚠ O servidor não respondeu: rolado no aparelho', '⚠ The server did not answer: rolled on this device'),
   local: L(lang, '⚠ Fórmula grande demais para a Tela: rolado no aparelho', '⚠ Formula too big for the screen: rolled on this device'),
 }[note] || '');
 
@@ -89,6 +96,9 @@ const DiceRoller = ({ lang }) => {
   useEffect(() => { setTargetState(readTarget(table)); }, [table?.campaignId, table?.dmDefault]); // eslint-disable-line react-hooks/exhaustive-deps
   const [purpose, setPurpose] = useState('');
   const [sending, setSending] = useState(false);
+  const [slow, setSlow] = useState(false);       // passou de 1,5 s sem resposta
+  const [notice, setNotice] = useState(null);    // aviso sem resultado (a Tela não respondeu)
+  const [hintFor, setHintFor] = useState(null);  // trocou 🔒/📺 depois desta rolagem: a linha volta à dica
   const sendingRef = useRef(false);
 
   useEffect(() => { saveHistory(log); }, [log]);
@@ -128,8 +138,9 @@ const DiceRoller = ({ lang }) => {
     return rollParsed(parsed, { label, adv: am ?? advMode });
   }, [rollParsed, advMode]);
 
-  // Os toques do rolador. Mestre na campanha: pelo servidor (📺 Na tela ou 🔒 Só eu),
-  // com 1,5 s de tempo limite; sem resposta, no aparelho com o aviso. Fora: local.
+  // Os toques do rolador. Mestre na campanha: pelo servidor (📺 Na tela ou 🔒 Só eu).
+  // Lento não é sem rede: o pedido não é cortado (a TV mostraria o número do servidor);
+  // aos 1,5 s o aviso "a Tela está lenta". Sem rede, no aparelho com o aviso. Fora: local.
   const rollUi = useCallback(async (parsed, { label, adv = 'normal' } = {}) => {
     if (!table) return rollParsed(parsed, { label, adv });
     if (sendingRef.current) return null;
@@ -140,18 +151,26 @@ const DiceRoller = ({ lang }) => {
       groups: r.groups.map(g => ({ die: g.sides, sign: g.sign, rolls: g.rolls })),
       mod: r.mod, total: r.total, isCrit: r.isCrit, isFumble: r.isFumble, adv: r.adv, ...extra,
     });
+    setNotice(null);
     const body = rollBody(table, parsed, { label: text, adv, shown });
     if (!body) return show(rollFormula(parsed, { adv }), { tableNote: 'local' });
+    if (deviceOffline()) return show(rollFormula(parsed, { adv }), { tableNote: shown ? 'offline' : 'offline-secret' });
     sendingRef.current = true; setSending(true);
+    const slowTimer = setTimeout(() => setSlow(true), SLOW_MS);
     try {
-      const res = await api.rollDice(body, { timeout: TARGET_TIMEOUT_MS });
+      const res = await api.rollDice(body);
       const r = rollFormula(parsed, { adv: body.adv || 'normal', preset: presetFromServer(res) });
       return show(r, { source: 'server', tableNote: res?.shown ? 'shown' : 'secret' });
-    } catch {
-      return show(rollFormula(parsed, { adv }), { tableNote: shown ? 'offline' : 'offline-secret' });
-    } finally { sendingRef.current = false; setSending(false); }
+    } catch (err) {
+      const fail = sendFailure(err, { shown });
+      if (!fail.local) { setNotice(fail.note); return null; }
+      return show(rollFormula(parsed, { adv }), { tableNote: fail.note });
+    } finally {
+      clearTimeout(slowTimer);
+      sendingRef.current = false; setSending(false); setSlow(false);
+    }
   }, [table, purpose, target, lang, rollParsed, present]); // eslint-disable-line react-hooks/exhaustive-deps
-  const pickTarget = (v) => { setTargetState(v); writeTarget(table, v); };
+  const pickTarget = (v) => { setTargetState(v); writeTarget(table, v); setNotice(null); setHintFor(log[0]?.id ?? null); };
 
   const showResult = useCallback((res = {}) => present({
     label: res.label || '',
@@ -333,6 +352,16 @@ const DiceRoller = ({ lang }) => {
   };
 
   const last = log[0];
+  // A linha reservada abaixo dos dados (mesa ligada): enviando › aviso › onde foi a
+  // última rolagem › a dica do destino escolhido.
+  const tableLine = !table ? '' : sending
+    ? (slow ? L(lang, 'Enviando… (a Tela está lenta)', 'Sending… (the screen is slow)') : L(lang, 'Enviando…', 'Sending…'))
+    : notice ? tableNoteText(notice, lang)
+      : last?.tableNote && last.id !== hintFor ? tableNoteText(last.tableNote, lang)
+        : target === 'shown'
+          ? L(lang, 'A TV mostra o dado grande com “Mestre”.', 'The TV shows the big die as “GM”.')
+          : L(lang, 'Só você vê; fica no seu registro de rolagens.', 'Only you see it; it stays in your roll log.');
+  const tableTone = sending ? (slow ? 'slow' : 'sending') : notice || (last?.id !== hintFor && last?.tableNote) || 'hint';
   const animLabel = { '3d': '3D', '2d': '2D', off: L(lang, 'Sem animação', 'No animation') }[animPref];
 
   return (
@@ -354,7 +383,7 @@ const DiceRoller = ({ lang }) => {
       {open && (
         <section
           ref={sheetRef}
-          className="dice-sheet no-print"
+          className={`dice-sheet no-print ${table ? 'has-table' : ''}`}
           role="dialog"
           aria-modal="false"
           aria-label={t('rollDice', lang)}
@@ -395,9 +424,6 @@ const DiceRoller = ({ lang }) => {
                       className={`dice-target-btn ${target === v ? 'active' : ''}`} onClick={() => pickTarget(v)}>{lbl}</button>
                   ))}
                 </div>
-                <p className="dice-table-hint" aria-live="polite">{sending ? L(lang, 'Enviando…', 'Sending…') : target === 'shown'
-                  ? L(lang, 'A TV mostra o dado grande com “Mestre”.', 'The TV shows the big die as “GM”.')
-                  : L(lang, 'Só você vê; fica no seu registro de rolagens.', 'Only you see it; it stays in your roll log.')}</p>
                 <div className="dice-purpose" role="group" aria-label={L(lang, 'Para quê?', 'What for?')}>
                   <span className="dice-purpose-label">{L(lang, 'Para quê?', 'What for?')}</span>
                   {PURPOSES.map(([k]) => (
@@ -418,10 +444,6 @@ const DiceRoller = ({ lang }) => {
                 </span>
                 <span className="dice-last-total">{last.total}</span>
               </button>
-            )}
-            {/* a linha fica reservada na mesa: o aviso que chega não empurra os dados (princípio 8) */}
-            {table && (
-              <p className={`dice-table-note is-${last?.tableNote || 'none'}`} role="status">{last?.tableNote ? tableNoteText(last.tableNote, lang) : '\u00a0'}</p>
             )}
 
             <form className="dice-formula" onSubmit={submitFormula}>
@@ -493,6 +515,9 @@ const DiceRoller = ({ lang }) => {
                 </button>
               ))}
             </div>
+            {/* a linha fica reservada (2 linhas) logo abaixo dos dados: o aviso que chega
+                não empurra nada do que se toca (princípio 8) */}
+            {table && <p className={`dice-table-note dice-table-line is-${tableTone}`} role="status">{tableLine}</p>}
             <div className="dice-sheet-foot muted">
               {L(lang, 'Toque num dado para rolar', 'Tap a die to roll')} <code>{`${count}dX${formatMod(mod)}`}</code>
             </div>
