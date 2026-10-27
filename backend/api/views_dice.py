@@ -12,6 +12,7 @@ from .rate_limit import rate_limit
 from .diary import log_dice_roll
 from .dice_privacy import scrub_dice
 from . import table_rolls
+from .stage import get_stage
 
 DICE_SIDES = {'d4': 4, 'd6': 6, 'd8': 8, 'd10': 10, 'd12': 12, 'd20': 20, 'd100': 100}
 VALID_TYPES = set(DICE_SIDES.keys()) | {'any'}
@@ -220,6 +221,37 @@ def _table_row(request, campaign, flat, dice_type, count, label, modifier, total
                  .select_related('character').first())
     return table_rolls.record(campaign, request.user, 'player',
                               character=character.character if character else None, **common)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@rate_limit(key='sheet_roll', max_attempts=1, window=1, per_ip=False, per_user=True)  # 1 por segundo por user
+def sheet_roll(request, pk):
+    """Rolagem da FICHA na Tela (V15, decisão D-1 do dono): a ficha rola no aparelho,
+    na hora, como sempre (os dados preparados do mestre NÃO valem nela) e depois,
+    sem bloquear nada, manda o resultado pronto para a fila da Tela da V10 (a mesma
+    linha `RollRequest` já resolvida, a mesma janela da TV, a mesma arrumação),
+    marcado `@mesa:sheet` com o personagem.
+
+    Só quem joga ESTE personagem na campanha (a vaga dele; o mestre usa o 🎲 dele).
+    Campanha encerrada → 423 (closed_guard, em urls.py); mais de 1 por segundo → 429;
+    sem sessão ao vivo ou com "Rolagens das fichas" desligada pelo mestre
+    (`stage.prefs.sheets`) → 204 sem gravar. 1 consulta (a vaga, com só `live` e o
+    palco do `state`) e, quando vai à Tela, 1 escrita + a arrumação.
+    """
+    seat = (Membership.objects.filter(character_id=pk, user=request.user).exclude(role='dm')
+            .values('campaign_id', 'campaign__status', 'campaign__state__live', 'campaign__state__stage')
+            .first())
+    if seat is None:
+        raise PermissionDenied('not_a_member')
+    roll = table_rolls.clean_sheet_roll(request.data)
+    if seat['campaign__status'] == 'closed':  # o closed_guard já respondeu; aqui só por garantia
+        return Response({'error': 'campaign_closed'}, status=423)
+    prefs = get_stage({'stage': seat['campaign__state__stage']})['prefs']
+    if not seat['campaign__state__live'] or not prefs.get('sheets', True):
+        return Response(status=204)
+    rr = table_rolls.record(seat['campaign_id'], request.user, 'sheet', character=int(pk), **roll)
+    return Response({'shown': True, 'rollId': rr.id}, status=201)
 
 
 def _consume_or_roll(user, dice_type, campaign, label):

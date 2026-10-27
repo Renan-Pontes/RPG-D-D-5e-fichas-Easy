@@ -145,6 +145,8 @@ urlpatterns = [
     path('shares/<str:token>', views_share.share_get),
 
     path('dice/roll', views_dice.dice_roll),
+    # V15: a rolagem da ficha (já rolada no aparelho) na fila da Tela
+    path('characters/<int:pk>/table-roll', closed_guard(views_dice.sheet_roll, 'character')),
     path('dice/campaign/<str:id_or_slug>/rigs', closed_guard(views_dice.campaign_rigs, 'campaign')),
     path('dice/campaign/<str:id_or_slug>/log', closed_guard(views_dice.campaign_dice_log, 'campaign')),
     path('dice/rigs/<int:pk>', closed_guard(views_dice.rig_detail, 'rig')),

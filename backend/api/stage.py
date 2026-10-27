@@ -18,7 +18,7 @@ jogadores rebaixarem a campanha):
            | {kind:'recap', label}               o texto fica em state.stageRecap (até 5000)
       focus: true,                             false = "Guardar para depois do combate"
       prev:  {bg, front, focus} | null,        ↶ Desfazer
-      prefs: {players, dm, monsters, initiative, party},
+      prefs: {players, dm, monsters, initiative, party, sheets},
       at: iso }
 
 `label` é o nome que SÓ o mestre lê (o cartão oculto mostrado como "só a
@@ -45,7 +45,9 @@ RECAP_KEY = 'stageRecap'
 BGS = ('auto', 'map', 'dark')
 OPS = ('show', 'clear', 'back', 'undo', 'dark', 'bg', 'prefs')
 FRONT_KINDS = ('card', 'image', 'scene', 'text', 'recap')
-PREFS_DEFAULT = {'players': 'crits', 'dm': 'secret', 'monsters': 'shown', 'initiative': True, 'party': True}
+# sheets (V15): as rolagens das FICHAS dos jogadores vão à Tela na sessão ao vivo (padrão ligado)
+PREFS_DEFAULT = {'players': 'crits', 'dm': 'secret', 'monsters': 'shown', 'initiative': True, 'party': True,
+                 'sheets': True}
 PREFS_CHOICES = {'players': ('all', 'crits', 'off'), 'dm': ('secret', 'shown'), 'monsters': ('shown', 'secret')}
 PUBLIC_PREFS = ('initiative', 'party')
 
@@ -314,7 +316,7 @@ def clean_prefs(raw):
         if key in PREFS_CHOICES:
             if value not in PREFS_CHOICES[key]:
                 _bad(f'invalid_{key}')
-        elif key in ('initiative', 'party'):
+        elif key in ('initiative', 'party', 'sheets'):
             if not isinstance(value, bool):
                 _bad(f'invalid_{key}')
         else:

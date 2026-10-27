@@ -12,6 +12,9 @@ pedido do jogador ao mestre — levam o marcador no `note`:
     @mesa:save      salvaguarda em área aplicada com "📺 vai à Tela" (1 linha-resumo)
     @mesa:check     resposta de teste com 20 ou 1 natural
     @mesa:player    rolador da Mesa do jogador, quando a política do mestre deixa
+    @mesa:sheet     rolagem da FICHA do jogador (V15, decisão D-1 do dono): rolada
+                    no aparelho e mandada pronta, sem bloquear a ficha
+                    (`clean_sheet_roll`; POST /characters/:id/table-roll)
 
 `note = '@mesa:<tipo>[ <quem>]'` — `quem` é o nome do monstro (o mestre não tem
 personagem); jogador e teste usam `RollRequest.character`. O marcador separa as
@@ -20,7 +23,7 @@ igual) e é o que a arrumação apaga: ao gravar uma rolagem de mesa, ficam só 
 300 mais novas da campanha COM o marcador (os pedidos nunca são tocados).
 
 Detalhe por tipo (em `rolls`, que já é JSON e não tem teto):
-  · dm/player/check: os dados [{value, kept, die}] (fórmula mista: `die` por dado);
+  · dm/player/check/sheet: os dados [{value, kept, die}] (fórmula mista: `die` por dado);
   · monster: [{value: d20 natural, kept, die:'d20', hit, dmg:[{n, t}]}] e
     `total` = o d20 natural — o bônus do monstro NUNCA é gravado aqui;
   · save: um por alvo [{who, total, ok, value (d20), ab, dc}]; a Tela recebe só
@@ -40,7 +43,7 @@ from django.utils import timezone
 from .dice_privacy import scrub_dice
 
 PREFIX = '@mesa:'
-KINDS = ('dm', 'monster', 'save', 'check', 'player')
+KINDS = ('dm', 'monster', 'save', 'check', 'player', 'sheet')
 KEEP = 300            # rolagens de mesa guardadas por campanha (a arrumação apaga as mais velhas)
 WINDOW_S = 90         # a TV lê as rolagens públicas dos últimos 90 s (relógio do servidor)
 MAX_ROWS = 6          # no máximo 6 por resposta da TV
@@ -93,19 +96,92 @@ def prefs_of(campaign):
 
 def record(campaign, user, kind, *, label='', dice_type='d20', count=1, modifier=0, rolls=(),
            total=None, crit=False, fail=False, character=None, who='', rigged=False, public=True):
-    """Grava UMA rolagem de mesa já resolvida (1 escrita) e arruma as velhas."""
+    """Grava UMA rolagem de mesa já resolvida (1 escrita) e arruma as velhas.
+    `campaign` e `character` aceitam o objeto ou só o id (a ficha não carrega a campanha)."""
     from .models import RollRequest
     now = timezone.now()
+    campaign_id = getattr(campaign, 'id', campaign)
     rr = RollRequest.objects.create(
-        campaign=campaign, requested_by=user, character=character,
+        campaign_id=campaign_id, requested_by=user, character_id=getattr(character, 'id', character),
         label=str(label or '')[:MAX_LABEL], dice_type=dice_type if dice_type else 'd20',
         count=max(1, int(count or 1)), modifier=int(modifier or 0),
         status='public' if public else 'private', rolls=list(rolls or []), total=total,
         is_critical=bool(crit), is_critical_fail=bool(fail), rigged=bool(rigged),
         note=note_for(kind, who), resolved_at=now,
     )
-    prune(campaign.id)
+    prune(campaign_id)
     return rr
+
+
+# ------------------------------------------------------------------ rolagem da ficha (V15)
+SHEET_DICE = {'d4': 4, 'd6': 6, 'd8': 8, 'd10': 10, 'd12': 12, 'd20': 20, 'd100': 100}
+MAX_SHEET_DICE = 20     # dados por rolagem (o 2º d20 da vantagem conta)
+MAX_SHEET_MOD = 50
+
+
+def _bad(code):
+    from rest_framework.exceptions import ValidationError
+    raise ValidationError({'error': code})
+
+
+def _plain_int(v):
+    return isinstance(v, int) and not isinstance(v, bool)
+
+
+def clean_sheet_roll(data):
+    """Valida a rolagem que a ficha já rolou no aparelho e manda pronta:
+    {label, dice:[{die, value, kept?, sign?}], modifier, total, adv?}. No máximo 20
+    dados de lados conhecidos, cada valor dentro do dado, vantagem só com 2 d20 (fica
+    o maior; desvantagem, o menor) e o total = soma dos que contam + modificador.
+    → os campos de `record` (crítico/falha só no d20 sozinho, como a ficha mostra)."""
+    data = data if isinstance(data, dict) else {}
+    label = data.get('label', '')
+    if not isinstance(label, str):
+        _bad('invalid_label')
+    label = ' '.join(label.split())
+    if len(label) > MAX_LABEL:
+        _bad('label_too_long')
+    raw = data.get('dice')
+    if not isinstance(raw, list) or not raw:
+        _bad('invalid_dice')
+    if len(raw) > MAX_SHEET_DICE:
+        _bad('too_many_dice')
+    dice = []
+    for d in raw:
+        if not isinstance(d, dict) or d.get('die') not in SHEET_DICE:
+            _bad('invalid_dice_type')
+        value = d.get('value')
+        if not _plain_int(value) or not 1 <= value <= SHEET_DICE[d['die']]:
+            _bad('invalid_value')
+        kept = d.get('kept', True)
+        sign = d.get('sign', 1)
+        if not isinstance(kept, bool) or sign not in (1, -1):
+            _bad('invalid_dice')
+        dice.append({'value': value, 'kept': kept, 'die': d['die'], **({'sign': -1} if sign == -1 else {})})
+    kept = [d for d in dice if d['kept']]
+    if not kept:
+        _bad('invalid_dice')
+    adv = data.get('adv')
+    if adv in ('adv', 'dis'):
+        a, b = dice[0]['value'], dice[-1]['value']
+        if (len(dice) != 2 or any(d['die'] != 'd20' or d.get('sign') for d in dice) or len(kept) != 1
+                or kept[0]['value'] != (max(a, b) if adv == 'adv' else min(a, b))):
+            _bad('incoherent_advantage')
+    elif adv not in (None, '', 'normal') or len(kept) != len(dice):
+        _bad('incoherent_advantage')
+    modifier = data.get('modifier', 0)
+    if not _plain_int(modifier) or abs(modifier) > MAX_SHEET_MOD:
+        _bad('invalid_modifier')
+    total = data.get('total')
+    if not _plain_int(total) or total != sum(d['value'] * d.get('sign', 1) for d in kept) + modifier:
+        _bad('incoherent_total')
+    types = {d['die'] for d in dice}
+    alone = types == {'d20'} and len(kept) == 1 and not kept[0].get('sign')
+    return {
+        'label': label, 'dice_type': types.pop() if len(types) == 1 else 'mixed', 'count': len(kept),
+        'modifier': modifier, 'rolls': dice, 'total': total,
+        'crit': alone and kept[0]['value'] == 20, 'fail': alone and kept[0]['value'] == 1,
+    }
 
 
 def prune(campaign_id, keep=KEEP):
