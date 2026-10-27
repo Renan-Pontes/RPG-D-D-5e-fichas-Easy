@@ -234,9 +234,13 @@ class StageOpsTests(Base):
         self.stage({'op': 'show', 'target': {'kind': 'image', 'ref': {'entryId': self.crypt.id}}})
         self.stage({'op': 'show', 'target': {'kind': 'card', 'entryId': self.velna.id}})
         self.stage({'op': 'show', 'target': {'kind': 'card', 'entryId': self.velna.id}})   # repetido: nada
+        self.stage({'op': 'show', 'target': {'kind': 'image', 'ref': {'entryId': self.crypt.id}}, 'caption': 'Uma porta'})
         self.camp.refresh_from_db()
         shown = self.camp.state['diarySessions']['3']['shown']
-        self.assertEqual(shown, [{'t': 'Cripta sob a capela', 'k': 'image'}, {'t': 'Irmã Velna', 'k': 'card'}])
+        # "Só a imagem" de oculto: nunca o nome (o rascunho do resumo vai à Tela) — a legenda ou 'Imagem'.
+        self.assertEqual(shown, [{'t': 'Imagem', 'k': 'image', 'h': True}, {'t': 'Irmã Velna', 'k': 'card'},
+                                 {'t': 'Uma porta', 'k': 'image', 'h': True}])
+        self.assertNotIn('Cripta', str(self.camp.state['diarySessions']))
         self.assertNotIn('Cripta', str(self.c_p1.get(f'/api/campaigns/{self.camp.id}').json()))
         for i in range(25):
             self.stage({'op': 'show', 'target': {'kind': 'text', 'text': f'linha {i}'}})
@@ -277,10 +281,26 @@ class CompatTests(Base):
         self.c_dm.post(url, {'nodeId': 'n1', 'text': True}, format='json')
         self.assertEqual(self.screen()['stage']['front']['text'], 'A ponte range sob a chuva.')
         self.assertEqual(self.screen()['card']['title'], 'Ponte velha')   # TV antiga, sem abrir a aventura
-        self.c_dm.post(url, {'nodeId': None}, format='json')
+        r = self.c_dm.post(url, {'nodeId': None}, format='json')
+        self.assertEqual(r.json()['changed'], True)
         self.assertIsNone(self.raw()['front'])
         self.camp.refresh_from_db()
         self.assertNotIn('sceneText', self.camp.state)
+
+    def test_conduct_remove_text_with_something_else_on_screen_changes_nothing(self):
+        # Sala com texto → Velna pela Tela → "Tirar texto da Tela": o palco não muda
+        # (changed False: o aviso não oferece o ↶, que voltaria a sala COM o texto).
+        url = f'/api/campaigns/{self.camp.id}/adventures/{self.adv.id}/screen'
+        self.c_dm.post(url, {'nodeId': 'n1', 'text': True}, format='json')
+        self.stage({'op': 'show', 'target': {'kind': 'card', 'entryId': self.velna.id}})
+        r = self.c_dm.post(url, {'nodeId': None}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()['changed'], False)
+        self.assertNotIn('sceneText', r.json()['state'])
+        self.assertEqual(self.raw()['front']['entryId'], self.velna.id)
+        # mostrar a mesma sala de novo, igualzinha: a Tela não muda
+        self.c_dm.post(url, {'nodeId': 'n1', 'text': False}, format='json')
+        self.assertEqual(self.c_dm.post(url, {'nodeId': 'n1', 'text': False}, format='json').json()['changed'], False)
 
     def test_player_toast_card_carries_revealed_at(self):
         from django.utils import timezone
@@ -303,10 +323,31 @@ class CompatTests(Base):
         self.assertEqual((st['front']['title'], st['focus']), ('Irmã Velna', False))
         dm = self.c_dm.get(f'/api/campaigns/{self.camp.id}').json()['campaign']
         self.assertEqual(dm['stage']['front']['label'], 'Irmã Velna')
-        # ✕ Tirar funciona sobre ela e grava o palco de verdade
-        self.stage({'op': 'back'})
+        # ✕ Tirar funciona sobre ela e grava o palco de verdade, com o nome no ↶
+        # ("↶ Voltar para: Irmã Velna"; o screenCard antigo não tinha o nome)
+        r = self.stage({'op': 'back'})
+        self.assertEqual(r.json()['stage']['prev']['front']['label'], 'Irmã Velna')
         self.assertIsNone(self.screen()['stage']['front'])
         self.assertEqual(self.raw()['prev']['front']['entryId'], self.velna.id)
+        self.assertEqual(self.raw()['prev']['front']['label'], 'Irmã Velna')
+
+    def test_hidden_after_shown_is_marked_gone_for_the_dm(self):
+        # A Tela nunca mente: o cartão na frente foi ocultado depois → a TV e o jogador
+        # mostram o fundo, e o mestre vê a frente com `gone` (não "Na tela").
+        self.stage({'op': 'show', 'target': {'kind': 'card', 'entryId': self.velna.id}})
+        self.c_dm.post(f'/api/world/{self.velna.id}/reveal', {'visibility': 'hidden'}, format='json')
+        dm = self.c_dm.get(f'/api/campaigns/{self.camp.id}').json()['campaign']['stage']
+        self.assertEqual((dm['front']['entryId'], dm['front'].get('gone')), (self.velna.id, True))
+        self.assertIsNone(self.screen()['stage']['front'])
+        self.assertIsNone(self.c_p1.get(f'/api/campaigns/{self.camp.id}').json()['campaign']['stage']['front'])
+        # revelado de novo: volta à Tela e o `gone` some
+        self.c_dm.post(f'/api/world/{self.velna.id}/reveal', {'visibility': 'revealed'}, format='json')
+        dm = self.c_dm.get(f'/api/campaigns/{self.camp.id}').json()['campaign']['stage']
+        self.assertNotIn('gone', dm['front'])
+        # ✕ Tirar continua valendo sobre a frente oculta
+        self.c_dm.post(f'/api/world/{self.velna.id}/reveal', {'visibility': 'hidden'}, format='json')
+        self.assertTrue(self.stage({'op': 'back'}).json()['changed'])
+        self.assertIsNone(self.raw()['front'])
 
     def test_stage_is_server_only(self):
         r = self.c_dm.patch(f'/api/campaigns/{self.camp.id}/state', {'patch': {'stage': {'bg': 'dark'}}}, format='json')

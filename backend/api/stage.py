@@ -444,19 +444,24 @@ def apply_stage_op(campaign, op, extra=None):
     """Grava o op (POST /stage). Não escreve nada se o palco não mudou (cada
     escrita muda `updated_at` e faz todos rebaixarem a campanha). `extra` são
     chaves do `state` gravadas na mesma escrita (ex.: o nome da cena).
-    → (palco normalizado, mudou?)"""
+    → (palco normalizado, mudou?) — "mudou" é a Tela (palco ou texto do
+    "Anteriormente em…"), não as chaves de `extra`: sem mudança na Tela, o aviso
+    não oferece ↶ Desfazer (que desfaria a mudança anterior)."""
     from .models import Campaign, CheckRequest
     if op['op'] == 'clear':
         # 🧹 Limpar a Tela: tira também o teste (uma chamada só).
         CheckRequest.objects.filter(campaign=campaign, show_on_screen=True).update(show_on_screen=False, screen_at=None)
     current = Campaign.objects.filter(pk=campaign.pk).values_list('state', flat=True).first() or {}
     _, changed = next_stage(get_stage(current), op)
-    if not changed and not extra and not (op['op'] == 'show' and op.get('recap')
-                                          and (current.get(RECAP_KEY) or {}) != op['recap']):
+    recap_changed = bool(op['op'] == 'show' and op.get('recap') and (current.get(RECAP_KEY) or {}) != op['recap'])
+    if not changed and not extra and not recap_changed:
         return get_stage(current), False
+    legacy_name = _legacy_card_name(campaign, current)
+    seen = {'moved': False}
 
     def fn(state):
-        stage, moved = next_stage(get_stage(state), op)
+        stage, moved = next_stage(_named_legacy(get_stage(state), state, legacy_name), op)
+        seen['moved'] = moved
         patch = {**(extra or {}), STAGE_KEY: stage}
         if op['op'] == 'show' and op.get('recap'):
             patch[RECAP_KEY] = op['recap']
@@ -469,12 +474,37 @@ def apply_stage_op(campaign, op, extra=None):
         return patch
 
     state = update_state(campaign, fn)
-    return get_stage(state), True
+    return get_stage(state), seen['moved'] or recap_changed
+
+
+def _legacy_card_name(campaign, state):
+    """Campanha de antes do palco cuja frente antiga é um cartão: o nome dele (1
+    leitura, só no 1º toque na Tela), para o ↶ dizer "Voltar para: Borin" — o
+    `screenCard` antigo não guardava o nome. None quando não precisa."""
+    from .models import WorldEntry
+    if not isinstance(state, dict) or isinstance(state.get(STAGE_KEY), dict):
+        return None
+    front = legacy_front(state)
+    if not front or front.get('kind') != 'card' or front.get('label'):
+        return None
+    name = WorldEntry.objects.filter(campaign=campaign, pk=front['entryId']).values_list('name', flat=True).first()
+    return (name or '')[:MAX_LABEL] or None
+
+
+def _named_legacy(stage, state, name):
+    """O palco montado do `screenCard` antigo, com o nome do cartão na frente."""
+    front = stage.get('front')
+    if not name or isinstance((state or {}).get(STAGE_KEY), dict) or not front \
+            or front.get('kind') != 'card' or front.get('label'):
+        return stage
+    return {**stage, 'front': {**front, 'label': name}}
 
 
 def shown_in_session(state, front):
     """diarySessions com o que foi mostrado na sessão ao vivo (`shown`: [{t, k}],
-    as 20 últimas), para o rascunho do Resumo da sessão. None = nada a gravar."""
+    as 20 últimas), para o rascunho do Resumo da sessão. None = nada a gravar.
+    "Só a imagem" de cartão oculto grava a legenda (ou 'Imagem') e `h: true`,
+    nunca o nome: o rascunho do resumo vai à Tela."""
     import re
     if not (isinstance(state, dict) and state.get('live') and front):
         return None
@@ -483,7 +513,10 @@ def shown_in_session(state, front):
     if not m or m.group() not in meta or not isinstance(meta[m.group()], dict):
         return None
     key = m.group()
-    item = {'t': str(front.get('label') or front.get('title') or '')[:60], 'k': front.get('kind')}
+    if front.get('kind') == 'image' and front.get('hidden'):
+        item = {'t': str(front.get('caption') or 'Imagem')[:60], 'k': 'image', 'h': True}
+    else:
+        item = {'t': str(front.get('label') or front.get('title') or '')[:60], 'k': front.get('kind')}
     shown = [x for x in (meta[key].get('shown') or []) if isinstance(x, dict)]
     if shown and shown[-1] == item:
         return None
@@ -608,11 +641,21 @@ def combat_now(campaign):
 
 def dm_stage(campaign, card=None):
     """O palco do MESTRE (cru, com os nomes) para o GET da campanha. Numa campanha
-    de antes do palco, o nome do cartão vem do screenCard já resolvido."""
+    de antes do palco, o nome do cartão vem do screenCard já resolvido.
+
+    A Tela nunca mente (princípio 7): um cartão na frente que depois foi ocultado
+    (ou apagado) não aparece na TV nem para os jogadores — o screenCard dele
+    resolve para None no mesmo pedido —, então a frente do mestre leva
+    `gone: True` ("Irmã Velna · não aparece na Tela (oculto ou apagado)"), sem
+    consulta a mais."""
     stage = get_stage(campaign.state)
     front = stage['front']
     if front and not front.get('label') and isinstance(card, dict) and card.get('title'):
-        stage['front'] = {**front, 'label': card['title'][:MAX_LABEL]}
+        stage['front'] = front = {**front, 'label': card['title'][:MAX_LABEL]}
+    if front and front.get('kind') == 'card' and card is None:
+        raw = (campaign.state or {}).get('screenCard')
+        if isinstance(raw, dict) and raw.get('type') == 'entry' and raw.get('entryId') == front.get('entryId'):
+            stage['front'] = {**front, 'gone': True}
     return stage
 
 

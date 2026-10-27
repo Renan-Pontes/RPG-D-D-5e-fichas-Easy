@@ -430,7 +430,8 @@ def adventure_screen(request, id_or_slug, pk):
     """Mostra (ou tira) a cena do nó na Tela: nome em state.scene e, se pedido,
     o texto para ler em voz alta em state.sceneText; a sala vai à frente do
     palco (api/stage.py), com a imagem dela. Uma escrita só, com merge no
-    servidor para não sobrescrever o resto do estado da campanha."""
+    servidor para não sobrescrever o resto do estado da campanha.
+    → {state, changed}"""
     from .stage import apply_stage_op, get_stage, node_scene_front
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
@@ -444,17 +445,20 @@ def adventure_screen(request, id_or_slug, pk):
             'sceneText': (node.get('readAloud') or '')[:5000] if body.get('text') else None,
         }
         front = node_scene_front(campaign, obj.id, node_id, with_text=bool(body.get('text')))
-        apply_stage_op(campaign, {'op': 'show', 'front': front, 'recap': None, 'focus': True}, extra=extra)
+        _, changed = apply_stage_op(campaign, {'op': 'show', 'front': front, 'recap': None, 'focus': True}, extra=extra)
     else:
         extra = {'sceneText': None}
         if body.get('clearScene'):
             extra['scene'] = ''
         front = get_stage(campaign.state)['front'] or {}
         ref = front.get('ref') if front.get('kind') == 'scene' else None
-        op = {'op': 'back'} if isinstance(ref, dict) and ref.get('advId') == obj.id else {'op': 'noop'}
-        if op['op'] == 'noop':
-            merge_state(campaign, extra)
+        if isinstance(ref, dict) and ref.get('advId') == obj.id:
+            _, changed = apply_stage_op(campaign, {'op': 'back'}, extra=extra)
         else:
-            apply_stage_op(campaign, op, extra=extra)
+            merge_state(campaign, extra)
+            changed = False
     campaign.refresh_from_db(fields=['state'])
-    return Response({'state': campaign.state})
+    # changed: a Tela mudou? "Tirar texto" com outra coisa na frente só apaga o
+    # sceneText; sem mudança, o aviso não oferece ↶ Desfazer (que desfaria a
+    # mudança ANTERIOR da Tela, não esta).
+    return Response({'state': campaign.state, 'changed': changed})
