@@ -314,3 +314,4 @@ body:has(.mesa-bar) .ns-flash { bottom: calc(var(--fab-safe-bottom, 16px) + var(
 
 /* folha "Aventuras prontas" (ReadySheet): os botões da galeria com 44 px */
 .ready-sheet .ready-actions .btn { min-height: 44px; }
+.pw-refs.is-pills .pw-chips .pw-add { border-radius: 999px; }

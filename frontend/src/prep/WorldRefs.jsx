@@ -66,6 +66,11 @@ export default function WorldRefs({
   const [open, setOpen] = useState(false);
   const chosen = useMemo(() => pickEntries(ids, entries), [ids, entries]);
   const loading = entries == null;
+  const add = !readOnly && (
+    <button type="button" className="mesa-btn pw-add" disabled={loading} onClick={() => setOpen(true)}>
+      {loading ? t(lang, 'Carregando o Mundo…', 'Loading the World…') : `＋ ${addLabel || t(lang, 'Escolher do Mundo', 'Pick from the World')}`}
+    </button>
+  );
   return (
     <div className={`pw-refs ${compact ? 'is-compact' : ''} ${pills ? 'is-pills' : ''}`}>
       {chosen.length > 0 && (
@@ -73,12 +78,11 @@ export default function WorldRefs({
           {chosen.map(e => (pills
             ? <WorldPill key={e.id} entry={e} lang={lang} onOpen={onOpen} onRemove={readOnly ? null : () => onToggle(e.id)} />
             : <WorldChip key={e.id} entry={e} lang={lang} onOpen={onOpen} onRemove={readOnly ? null : () => onToggle(e.id)} />))}
+          {pills && add}
         </div>
       )}
       {!loading && chosen.length === 0 && emptyText && <p className="muted small pw-empty">{emptyText}</p>}
-      {!readOnly && <button type="button" className="mesa-btn pw-add" disabled={loading} onClick={() => setOpen(true)}>
-        {loading ? t(lang, 'Carregando o Mundo…', 'Loading the World…') : `＋ ${addLabel || t(lang, 'Escolher do Mundo', 'Pick from the World')}`}
-      </button>}
+      {(!pills || chosen.length === 0) && add}
       {open && (
         <WorldPickerModal entries={entries || []} ids={ids} kinds={kinds} lang={lang} max={max}
           onToggle={onToggle} onCreate={onCreate} onClose={() => setOpen(false)} />
