@@ -106,7 +106,7 @@
      useGroupConfirm, usePrepConfirm) ocupam só a altura do conteúdo, como uma
      folha que sobe de baixo, e não a tela inteira. O resto do visual delas fica
      em src/shell/mesa.css. Fora da campanha (ficha, criador) nada muda. */
-  body:has(.campaign-detail.shell) .modal:is(.confirm-dialog, .grp-confirm, .prep-confirm) {
+  :is(body:has(.campaign-detail.shell), body.mesa-sheet-open) .modal:is(.confirm-dialog, .grp-confirm, .prep-confirm) {
     height: auto;
     max-height: 88vh !important;
     max-height: 88dvh !important;

@@ -911,17 +911,20 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
 .camp-card-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--ink-muted); font-size: 0.85rem; margin-top: 6px; }
 @media (prefers-reduced-motion: reduce) { .camp-card { transition: none; } }
 
-.modal.camp-wizard { max-width: 620px; width: 100%; }
-.camp-wizard-steps { list-style: none; padding: 0; margin: 0 0 16px; display: flex; gap: 6px; flex-wrap: wrap; }
+/* Assistente "Nova campanha" (MesaSheet full no celular, 880 px no PC): ✕ em todos
+   os passos, trilha de 44 px e o rodapé preso fora do corpo rolável. */
+.camp-wizard-steps { list-style: none; padding: 0; margin: 0 0 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .camp-wizard-steps button {
-  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 999px;
-  border: 1px solid var(--stroke-faint); background: transparent; color: var(--ink-muted); cursor: pointer; font-size: 0.85rem;
+  display: flex; align-items: center; gap: 6px; width: 100%; min-height: 44px; padding: 4px 8px 4px 5px; border-radius: 22px;
+  border: 1px solid var(--stroke-faint); background: transparent; color: var(--ink-muted); cursor: pointer;
+  font: inherit; font-size: 0.86rem; line-height: 1.15; text-align: left;
 }
+.camp-wizard-steps button:disabled { cursor: not-allowed; opacity: 0.6; }
 .camp-wizard-steps li.active button { border-color: var(--gold); color: var(--ink-primary); }
 .camp-wizard-steps li.done button { color: var(--ink-secondary); }
 .camp-wizard-num {
-  display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
-  background: var(--bg-elevated); font-weight: 700; font-size: 0.75rem;
+  flex: none; display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--bg-elevated); font-weight: 700; font-size: 0.8rem;
 }
 .camp-wizard-steps li.active .camp-wizard-num, .camp-wizard-steps li.done .camp-wizard-num { background: var(--gold); color: var(--on-gold); }
 .camp-wizard-preview { width: 100%; max-height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid var(--stroke); }
@@ -932,20 +935,27 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
 }
 .camp-start.active { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-soft); background: linear-gradient(180deg, var(--gold-soft), var(--bg-raised)); }
 .camp-start-ico { font-size: 1.6rem; }
-.camp-wizard-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+/* rodapé: Cancelar/← Voltar · Criar agora · Próximo/Criar campanha; o motivo escrito
+   quando o principal está desligado */
+.camp-wizard-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.camp-wizard-actions > .auth-error, .camp-wizard-actions > .camp-wizard-why { flex: 1 1 100%; margin: 0; }
+.camp-wizard-why { margin: 0; color: var(--ink-muted); font-size: 0.88rem; }
 .camp-wizard-spacer { flex: 1 1 auto; }
-/* Celular: secundários lado a lado; a ação principal ocupa a linha de baixo
-   inteira quando há três botões (com dois, ficam os dois na mesma linha). */
+/* PC: a prévia da capa não ocupa a altura do diálogo inteiro (a galeria fica à vista) */
+@media (min-width: 768px) { .camp-wizard .cvp-preview { max-width: 560px; } }
 @media (max-width: 560px) {
-  .camp-wizard-actions {
-    position: sticky; bottom: -1px; z-index: 2;
-    margin: 12px -4px 0; padding: 10px 4px 4px;
-    background: linear-gradient(180deg, transparent, var(--bg-card) 30%);
-  }
   .camp-wizard-spacer { display: none; }
-  .camp-wizard-actions > .btn { flex: 1 1 0; justify-content: center; white-space: nowrap; letter-spacing: 0.06em; padding-left: 10px; padding-right: 10px; }
-  .camp-wizard-actions:has(> .btn:nth-of-type(3)) > .btn-primary { flex-basis: 100%; order: 3; }
+  .camp-wizard-actions > .mesa-btn { flex: 1 1 0; }
+  /* três botões: os dois secundários lado a lado e o principal na linha de baixo inteira */
+  .camp-wizard-actions:has(> .mesa-btn:nth-of-type(3)) > .is-primary { flex-basis: 100%; order: 3; }
 }
+/* Entrar com código: a lista de fichas não rola sozinha (um só corpo rolável) */
+.camp-join .join-chars { max-height: none; overflow: visible; }
+.camp-join-actions { display: flex; flex-direction: column; gap: 8px; }
+.camp-join-actions > .auth-error { margin: 0; }
+/* cartão da mesa dentro das folhas de entrada: rótulos de 12 px no mínimo */
+:is(.camp-join, .join-choice) :is(.join-card-eyebrow, .join-card-meta dt) { font-size: 0.76rem; }
+.join-choice .join-choice-opt { min-height: 56px; }
 
 /* Lista de campanhas: o "← Voltar" com alvo de toque inteiro */
 .camp-list-back { min-height: 44px; display: inline-flex; align-items: center; }
