@@ -536,6 +536,30 @@ body.mesa-sheet-open :is(.dice-fab, .nudge-toast-slot) { display: none !importan
   .mesa-sheet-grip { display: none; }
   .mesa-sheet-foot { border-radius: 0 0 9px 9px; padding-bottom: 14px; }
 }
+/* side (PC): painel de 520 px preso à direita, sem fundo escuro; a página atrás continua
+   tocável (o Plano, o mapa da aventura) */
+@media (min-width: 1024px) {
+  .mesa-sheet-backdrop.is-side {
+    left: auto;
+    width: min(520px, 100%);
+    padding: 0;
+    align-items: stretch;
+    justify-content: flex-end;
+    background: transparent;
+    animation: none;
+  }
+  .mesa-sheet-backdrop.is-side .mesa-sheet {
+    width: 100%;
+    height: 100vh; height: 100dvh;
+    max-height: 100vh; max-height: 100dvh;
+    border-radius: 0;
+    box-shadow: -14px 0 40px rgba(0, 0, 0, 0.6);
+    animation-name: mesa-side-in;
+  }
+  .mesa-sheet-backdrop.is-side .mesa-sheet-head,
+  .mesa-sheet-backdrop.is-side .mesa-sheet-foot { border-radius: 0; }
+}
+@keyframes mesa-side-in { from { transform: translateX(24px); opacity: 0; } }
 @keyframes mesa-fade { from { opacity: 0; } }
 @keyframes mesa-sheet-up { from { transform: translateY(24px); opacity: 0.4; } }
 @keyframes mesa-sheet-in { from { transform: translateY(8px) scale(0.985); opacity: 0; } }

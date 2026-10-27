@@ -23,6 +23,11 @@
 //   dock="play": o mesmo, mas só quando aberta dentro de Jogar (folhas que também
 //   abrem de outras áreas: Pedir teste, Mostrar na Tela, Avisos, Escolher monstro…).
 //   As outras folhas escondem a barra (body.mesa-sheet-covers).
+// - side (PC ≥ 1024): painel de 520 px preso à direita, da altura da janela, que NÃO
+//   bloqueia a página (a folha da Cena ao lado do Plano, a sala ao lado do mapa da
+//   aventura): sem fundo escuro, sem travar a rolagem, tocar fora não fecha. Esc fecha
+//   com o foco dentro dele. No celular é a folha de sempre.
+// - aside: um pedaço no cabeçalho, antes do ✕ (o "✓ Salvo" da folha da Cena).
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
@@ -73,10 +78,15 @@ function readAccent() {
 export default function MesaSheet({
   title, icon, eyebrow, onClose, footer, children,
   size = 'auto', width, dirty = false, dirtyText, initialFocus,
-  lang, role = 'dialog', closeLabel, describedBy, className = '', bodyClassName = '', dock,
+  lang, role = 'dialog', closeLabel, describedBy, className = '', bodyClassName = '', dock, side = false, aside = null,
 }) {
   const { area } = useArea();
-  const docked = dock === 'bar' || (dock === 'play' && area === 'play');
+  // o painel lateral só vale no PC; decidido ao abrir (girar o tablet não troca a folha aberta)
+  const [isSide] = useState(() => {
+    if (!side || typeof window === 'undefined') return false;
+    try { return window.matchMedia('(min-width: 1024px)').matches; } catch { return false; }
+  });
+  const docked = dock === 'bar' || (dock === 'play' && area === 'play') || isSide;
   const L = lang || langNow();
   const titleId = useId();
   const dialogRef = useRef(null);
@@ -114,8 +124,10 @@ export default function MesaSheet({
 
   // Abrir: trava a página, foco para dentro. Fechar: devolve o foco.
   useLayoutEffect(() => {
-    openSheets += 1;
-    document.body.classList.add('mesa-sheet-open');
+    if (!isSide) {
+      openSheets += 1;
+      document.body.classList.add('mesa-sheet-open');
+    }
     if (!docked) { coverSheets += 1; document.body.classList.add('mesa-sheet-covers'); }
     const d = dialogRef.current;
     let target = null;
@@ -123,8 +135,10 @@ export default function MesaSheet({
     else if (typeof initialFocus === 'string') target = d?.querySelector(initialFocus);
     try { (target || d)?.focus({ preventScroll: true }); } catch { /* ok */ }
     return () => {
-      openSheets = Math.max(0, openSheets - 1);
-      if (!openSheets) document.body.classList.remove('mesa-sheet-open');
+      if (!isSide) {
+        openSheets = Math.max(0, openSheets - 1);
+        if (!openSheets) document.body.classList.remove('mesa-sheet-open');
+      }
       if (!docked) {
         coverSheets = Math.max(0, coverSheets - 1);
         if (!coverSheets) document.body.classList.remove('mesa-sheet-covers');
@@ -147,7 +161,15 @@ export default function MesaSheet({
   useEffect(() => {
     const onKey = (e) => {
       const d = dialogRef.current;
-      if (!d || topmostModal() !== d) return;
+      if (!d) return;
+      if (isSide) {
+        // painel lateral: não prende o Tab; Esc só com o foco nele e sem outra folha por cima
+        if (e.key !== 'Escape' || topmostModal() || !d.contains(document.activeElement)) return;
+        e.preventDefault();
+        requestClose();
+        return;
+      }
+      if (topmostModal() !== d) return;
       if (e.key === 'Escape') {
         e.preventDefault();
         requestClose();
@@ -165,18 +187,18 @@ export default function MesaSheet({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [requestClose]);
+  }, [requestClose, isSide]);
 
   const w = width || (size === 'full' ? 'lg' : size === 'tall' ? 'md' : 'sm');
   const sheet = (
     <div
-      className={`mesa-sheet-backdrop ${docked ? 'is-dock-bar' : ''}`.trim()}
+      className={`mesa-sheet-backdrop ${docked && !isSide ? 'is-dock-bar' : ''} ${isSide ? 'is-side' : ''}`.trim()}
       style={accent ? { '--camp-accent': accent } : undefined}
       onPointerDown={(e) => { downOnBackdrop.current = e.target === e.currentTarget; }}
       onClick={(e) => {
         // o portal repassa os cliques aos componentes "pais" no React: param aqui
         e.stopPropagation();
-        if (e.target === e.currentTarget && downOnBackdrop.current) requestClose();
+        if (e.target === e.currentTarget && downOnBackdrop.current && !isSide) requestClose();
         downOnBackdrop.current = false;
       }}
     >
@@ -184,7 +206,7 @@ export default function MesaSheet({
         ref={dialogRef}
         className={`mesa-sheet is-${size} w-${w} ${className}`.trim()}
         role={role}
-        aria-modal="true"
+        aria-modal={isSide ? 'false' : 'true'}
         aria-labelledby={title ? titleId : undefined}
         aria-describedby={describedBy}
         tabIndex={-1}
@@ -200,6 +222,7 @@ export default function MesaSheet({
               </h2>
             )}
           </div>
+          {aside}
           <button type="button" className="mesa-icon-btn mesa-sheet-x" onClick={requestClose}
             aria-label={closeLabel || t(L, 'Fechar', 'Close')} title={closeLabel || t(L, 'Fechar (Esc)', 'Close (Esc)')}>
             <span aria-hidden="true">✕</span>
