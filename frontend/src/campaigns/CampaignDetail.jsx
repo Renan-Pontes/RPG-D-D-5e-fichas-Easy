@@ -109,9 +109,11 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
       isDMRef.current = r.campaign?.role === 'dm';
       setCampaign(r.campaign);
       setError('');
+      return true;
     } catch (e) {
       // Falha no polling com a campanha já na tela: mantém o que está aberto.
       setError(errorMessage(e, lang));
+      return false;
     }
   }, [campaignId]); // eslint-disable-line react-hooks/exhaustive-deps
   // Trocou de campanha: zera a tela (o usePolling já busca na hora).
@@ -121,11 +123,13 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   }, [campaignId]);
 
   const isDM = campaign?.role === 'dm';
-  // Mestre: o pulso; o GET completo quando o `rev` muda (ou a cada minuto, de segurança).
+  // Mestre: o pulso; o GET completo quando o `rev` muda (ou a cada minuto, de segurança:
+  // esse entra no lugar do pulso daquele tick, para o minuto não ter 1 pedido a mais).
   const onPulse = useCallback((p, { revChanged }) => {
-    if (revChanged || Date.now() - lastFullAt.current > FULL_SAFETY_MS) load();
+    if (revChanged) load();
   }, [load]);
-  const table = useTableStore(campaign, { enabled: isDM, lang, onPulse });
+  const fullInstead = useCallback(() => Date.now() - lastFullAt.current > FULL_SAFETY_MS, []);
+  const table = useTableStore(campaign, { enabled: isDM, lang, onPulse, fullInstead, onFull: load });
   const pulsing = table.enabled;
   // O 🎲 do mestre na mesa (V10, dice/dice-table.js): o rolador global passa a saber a
   // campanha e a regra "Do mestre" do palco (🔒 Só eu · 📺 Na tela).

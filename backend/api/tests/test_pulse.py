@@ -86,10 +86,13 @@ class AccessTests(Base):
     def test_304_when_nothing_changed_and_200_when_it_did(self):
         r = self.pulse()
         etag = r['ETag']
-        self.assertIn('no-cache', r['Cache-Control'])
         r2 = self.pulse(HTTP_IF_NONE_MATCH=etag)
         self.assertEqual(r2.status_code, 304)
         self.assertEqual(r2.content, b'')
+        # o 304 do middleware: só ETag/Date/Vary (nem o Allow do DRF nem o X-Frame-Options)
+        self.assertEqual(r2['ETag'], etag)
+        for h in ('Allow', 'X-Frame-Options', 'Cache-Control'):
+            self.assertNotIn(h, r2, h)
         self.c_dm.patch(f'/api/campaigns/{self.camp.id}/state', {'patch': {'scene': 'Ponte velha'}}, format='json')
         r3 = self.pulse(HTTP_IF_NONE_MATCH=etag)
         self.assertEqual(r3.status_code, 200)

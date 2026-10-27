@@ -44,9 +44,12 @@ function emitCombat(campaignId, combat) {
 
 /**
  * @param {object} campaign  a campanha (só o id e o idioma importam aqui)
- * @param {{enabled: boolean, lang: string, onPulse?: (pulse, {revChanged}) => void}} opts
+ * @param {{enabled: boolean, lang: string, onPulse?: (pulse, {revChanged}) => void,
+ *          fullInstead?: () => boolean, onFull?: () => Promise<boolean>}} opts
+ *   `fullInstead`: o tick faz o GET completo (`onFull`, que diz se deu certo) NO LUGAR do
+ *   pulso (o GET de segurança de 60 s da casca): 1 pedido no tick, não 2.
  */
-export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) {
+export function useTableStore(campaign, { enabled, lang = 'pt', onPulse, fullInstead, onFull } = {}) {
   const id = campaign?.id ?? null;
   const [pulse, setPulse] = useState(null);
   const [lastOkAt, setLastOkAt] = useState(0);
@@ -63,6 +66,8 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) 
   const revRef = useRef(null);
   const onPulseRef = useRef(onPulse);
   onPulseRef.current = onPulse;
+  const fullRef = useRef({ fullInstead, onFull });
+  fullRef.current = { fullInstead, onFull };
   const kick = useRef(() => {});
   const live = !!enabled && id != null && !missing;
   // Campanha encerrada: só leitura (o servidor responde 423 a tudo que escreve).
@@ -85,6 +90,15 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) 
       clearTimeout(timer);
       if (!alive) return;
       if (typeof document !== 'undefined' && document.hidden) { timer = setTimeout(tick, PULSE_MS); return; }
+      // o GET completo de segurança entra no lugar do pulso deste tick
+      const full = fullRef.current;
+      if (full.onFull && full.fullInstead?.()) {
+        const ok = await full.onFull();
+        if (!alive) return;
+        if (ok) { okRef.current = Date.now(); setLastOkAt(okRef.current); setOfflineFor(0); }
+        timer = setTimeout(tick, PULSE_MS);
+        return;
+      }
       try {
         const p = await api.getPulse(id);
         if (!alive) return;

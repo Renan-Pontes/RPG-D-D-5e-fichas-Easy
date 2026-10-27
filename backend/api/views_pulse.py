@@ -13,8 +13,9 @@ GET /api/campaigns/<id>/pulse   (só o mestre)
       counts: { openChecks, pendingRolls, approvals, dangers } }
 
 ~0,8 KB, com ETag: parado, a resposta é 304 sem corpo (o navegador revalida
-sozinho: Cache-Control no-cache). `now` fica fora do ETag — é a hora do
-servidor quando este pulso mudou.
+sozinho: sem Cache-Control nem Last-Modified, nada fica "fresco"; o 304 sai do
+ConditionalGetMiddleware, com os mesmos poucos cabeçalhos do GET da campanha).
+`now` fica fora do ETag — é a hora do servidor quando este pulso mudou.
 
 Consultas leves (5 ou 6, nenhuma ficha serializada, nenhuma imagem):
   1. a campanha só com `state`, `updated_at` e os agregados em subconsultas
@@ -56,7 +57,6 @@ from django.core.cache import cache
 from django.db import OperationalError, connection
 from django.db.models import Count, F, Max, OuterRef, Q, Subquery
 from django.db.models.fields.json import KT
-from django.http import HttpResponseNotModified
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -461,12 +461,10 @@ def build_pulse(id_or_slug, user):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def campaign_pulse(request, id_or_slug):
+    # O 304 é do ConditionalGetMiddleware (settings), como o do GET da campanha: ele só
+    # leva ETag, Date e Vary (sem o Allow da view do DRF nem o X-Frame-Options) — o
+    # pulso parado sai menor que o 304 do GET completo que ele substitui.
     pulse, etag = build_pulse(id_or_slug, request.user)
-    inm = request.META.get('HTTP_IF_NONE_MATCH', '')
-    if inm and etag in [t.strip() for t in inm.split(',')]:
-        resp = HttpResponseNotModified()
-    else:
-        resp = Response(pulse)
+    resp = Response(pulse)
     resp['ETag'] = etag
-    resp['Cache-Control'] = 'private, no-cache'
     return resp
