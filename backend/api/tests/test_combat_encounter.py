@@ -14,6 +14,7 @@ V8 · Montar o combate numa chamada (POST /api/combat/campaign/<id>/encounter).
 - O combate de quem está andando não pula a vez quando entra alguém antes na ordem.
 """
 import base64
+from datetime import timedelta
 from unittest import mock
 
 from django.contrib.auth import get_user_model
@@ -193,6 +194,99 @@ class EncounterTests(Base):
         self.assertEqual(second['label'], 'Initiative')
         self.assertEqual(CheckRequest.objects.get(pk=first['id']).status, 'closed')
 
+    def test_initiative_zero_and_negative_are_kept(self):
+        # Zumbi (DES 6, −2) com d20 2 = 0; Lodo (DES 3, −4) com d20 1 = −3: antes viravam 10
+        zombie = {'id': 'zombie', 'name': 'Zumbi', 'hp': 15, 'ac': 8, 'abilities': {'dex': 6}, 'actions': []}
+        ooze = {'id': 'ooze', 'name': 'Lodo', 'hp': 22, 'ac': 8, 'abilities': {'dex': 3}, 'actions': []}
+        with mock.patch.object(engine, 'roll_die', side_effect=[2, 1]):
+            data = self.encounter(opId='op-init-zero1', monsters=[{'monster': zombie, 'count': 1}, {'monster': ooze, 'count': 1}],
+                                  pcs=[{'characterId': self.chars[0].id, 'initiative': 0}])
+        self.assertEqual([(r['name'], r['initiative']) for r in data['rolled']], [('Zumbi', 0), ('Lodo', -3)])
+        got = {c['name']: c['initiative'] for c in data['combat']['combatants']}
+        self.assertEqual(got, {'Zumbi': 0, 'Lodo': -3, 'Dagna': 0})        # o 0 digitado no ✚ Personagem também
+        self.assertNotIn('init_guess', next(c for c in data['combat']['combatants'] if c['type'] == 'pc'))
+        # POST …/combatants de antes: 0 continua 0; sem o campo, 10
+        self.c.post(self.url('reset'), {}, format='json')
+        r = self.c.post(self.url('combatants'), {'type': 'monster', 'monster': zombie, 'initiative': 0}, format='json')
+        self.assertEqual([c['initiative'] for c in r.json()['combat']['combatants']], [0])
+        r = self.c.post(self.url('combatants'), {'type': 'monster', 'monster': ooze}, format='json')
+        self.assertEqual([c['initiative'] for c in r.json()['combat']['combatants']], [10, 0])
+
+    def test_open_initiative_check_closes_on_end_reset_and_replace(self):
+        def asked():
+            return self.encounter(monsters=[{'monster': GOBLIN, 'count': 1}], pcs='all', askInitiative=True, start=True)['check']
+        check = asked()                                                     # "Já iniciar" + "Pedir a iniciativa"
+        self.c.post(self.url('end'), {}, format='json')
+        self.assertEqual(CheckRequest.objects.get(pk=check['id']).status, 'closed')
+        check = asked()
+        self.c.post(self.url('reset'), {}, format='json')
+        self.assertEqual(CheckRequest.objects.get(pk=check['id']).status, 'closed')
+        check = asked()
+        self.encounter(mode='replace', monsters=[{'monster': OGRE, 'count': 1}])
+        self.assertEqual(CheckRequest.objects.get(pk=check['id']).status, 'closed')
+
+    def test_start_from_the_bar_ignores_old_check_and_typed_initiatives(self):
+        # um teste de iniciativa que sobrou aberto de um combate de antes (app/servidor de antes)
+        old = CheckRequest.objects.create(campaign=self.camp, created_by=self.dm, label='Iniciativa', kind='custom',
+                                          key='initiative', advantage='normal', target_user_ids=[])
+        for u, total in zip(self.players[:2], (15, 10)):
+            cl = APIClient(); cl.force_login(u)
+            cl.post(f'/api/checks/{old.id}/respond', {'mode': 'physical', 'total': total}, format='json')
+        CheckRequest.objects.filter(pk=old.id).update(created_at=old.created_at - timedelta(minutes=30))
+        # combate novo: o mestre digita 3 para todos (dado físico) e toca ▶ Iniciar da barra
+        self.encounter(opId='op-typed-0001', monsters=[{'monster': GOBLIN, 'count': 1, 'initiative': 11}],
+                       pcs=[{'characterId': ch.id, 'initiative': 3} for ch in self.chars])
+        out = self.encounter(opId='op-typed-0002', start=True, fromCheck=True)['combat']
+        self.assertEqual({c['name']: c['initiative'] for c in out['combatants'] if c['type'] == 'pc'},
+                         {'Dagna': 3, 'Kaelor': 3, 'Elarion': 3, 'Pipo': 3})
+        self.assertEqual(CheckRequest.objects.get(pk=old.id).status, 'open')   # não era deste combate
+        # teste deste combate: só quem está com "✎" recebe a resposta
+        self.c.post(self.url('reset'), {}, format='json')
+        data = self.encounter(monsters=[{'monster': GOBLIN, 'count': 1, 'initiative': 11}],
+                              pcs=[{'characterId': self.chars[0].id, 'initiative': 4}, {'characterId': self.chars[1].id}],
+                              askInitiative=True)
+        for u, total in zip(self.players[:2], (19, 16)):
+            cl = APIClient(); cl.force_login(u)
+            cl.post(f'/api/checks/{data["check"]["id"]}/respond', {'mode': 'physical', 'total': total}, format='json')
+        out = self.encounter(opId='op-typed-0003', start=True, fromCheck=True)['combat']
+        self.assertEqual({c['name']: c['initiative'] for c in out['combatants'] if c['type'] == 'pc'},
+                         {'Dagna': 4, 'Kaelor': 16})
+
+    def test_late_answers_go_into_the_order_while_running(self):
+        # "Já iniciar" com a iniciativa pedida: as respostas entram depois ("Pôr na ordem")
+        data = self.encounter(monsters=[{'monster': GOBLIN, 'count': 1, 'initiative': 12}],
+                              pcs=[{'characterId': self.chars[0].id}, {'characterId': self.chars[1].id}],
+                              askInitiative=True, start=True)
+        self.c.post(self.url('next-turn'), {}, format='json')               # a vez passa ao 2º da ordem
+        before = self.combat()
+        whose = before.combatants[before.turn_index]['id']
+        pcs = {c['character_id']: c['id'] for c in data['combat']['combatants'] if c['type'] == 'pc'}
+        out = self.encounter(opId='op-late-00001', initiatives=[{'id': pcs[self.chars[0].id], 'initiative': 20}])['combat']
+        self.assertTrue(out['active'])
+        self.assertEqual(out['combatants'][0]['initiative'], 20)
+        self.assertEqual(out['combatants'][out['turnIndex']]['id'], whose)   # a vez continua com quem a tinha
+        self.assertEqual(CheckRequest.objects.get(pk=data['check']['id']).status, 'open')
+        entry = self.combat().action_log[-1]
+        self.assertEqual((entry['type'], entry['monsters'], entry['pcs']), ('encounter', 0, 0))   # o Registro esconde
+
+    def test_replace_while_running_ends_the_old_combat_in_the_diary(self):
+        from api.models import DiaryEntry
+        data = self.encounter(monsters=[{'monster': GOBLIN, 'count': 1, 'initiative': 12}],
+                              pcs=[{'characterId': self.chars[0].id, 'initiative': 15}], start=True)
+        gob = next(c for c in data['combat']['combatants'] if c['type'] == 'monster')
+        self.c.post(self.url('action'), {'action': 'damage', 'targetId': gob['id'], 'amount': 10}, format='json')
+        self.c.post(self.url('next-turn'), {}, format='json')
+        out = self.encounter(mode='replace', monsters=[{'monster': OGRE, 'count': 1}])['combat']
+        self.assertFalse(out['active'])
+        self.assertEqual([c['name'] for c in out['combatants'] if c['type'] == 'monster'], ['Ogro'])
+        end = DiaryEntry.objects.filter(campaign=self.camp, subtype='combat', data__phase='end').get()
+        self.assertIn('Goblin Guerreiro', end.body)
+        self.assertEqual(end.data['winner'], 'party')
+        self.assertIn('end', [e['type'] for e in self.combat().action_log])
+        # sem combate andando, Trocar não escreve outro fim
+        self.encounter(mode='replace', monsters=[{'monster': GOBLIN, 'count': 1}])
+        self.assertEqual(DiaryEntry.objects.filter(campaign=self.camp, subtype='combat', data__phase='end').count(), 1)
+
     def test_pc_must_be_in_the_campaign(self):
         stranger = make_user('s@x.com', 'Fora')
         ch = Character.objects.create(owner=stranger, name='Intruso', data={})
@@ -267,7 +361,7 @@ class SceneMapTests(Base):
         r = self.c.get(f'/api/campaigns/{self.camp.id}/adventures')
         fight = r.json()['adventures'][0]['currentFight']
         self.assertEqual(fight, {'nodeId': 'n1', 'name': 'Ponte velha',
-                                 'monsters': [{'name': 'Goblin Guerreiro', 'count': 2}]})
+                                 'monsters': [{'name': 'Goblin Guerreiro', 'count': 2, 'monsterId': 'goblin-warrior'}]})
 
 
 class ImageSizeTests(TestCase):

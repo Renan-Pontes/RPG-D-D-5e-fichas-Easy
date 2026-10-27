@@ -176,6 +176,59 @@ class UndoTests(Base):
         self.assertEqual(self.cb('g2')['current_hp'], 10)
         self.assertEqual(self.cb('g1')['action_state']['0'], {'charged': True})
 
+    def druid(self, rules):
+        """Elarion transformado em Lobo (11 PV de fera; o druida tem 30), no combate pela ficha."""
+        u = make_user(f'druida{rules}@x.com', 'Bruno')
+        ws = {'active': True, 'beastName': 'Lobo', 'beastCurrentHp': 11, 'beastMaxHp': 11, 'beastAc': 13,
+              'preTransformHp': 30, 'preTransformTempHp': 0, 'beastStats': {'str': 12, 'dex': 15}}
+        hp = 30 if rules == '2014' else 18
+        ch = Character.objects.create(owner=u, name='Elarion', data={
+            'level': 4, 'rulesVersion': rules, 'maxHp': 30, 'currentHp': hp, 'tempHp': 0, 'conditions': [], 'wildShape': ws})
+        Membership.objects.create(campaign=self.camp, user=u, character=ch, role='player')
+        r = self.c.post(self.url('combatants'), {'type': 'pc', 'characterId': ch.id, 'initiative': 12}, format='json')
+        cb = next(x for x in r.json()['combat']['combatants'] if x.get('character_id') == ch.id)
+        return ch, cb
+
+    def test_undo_after_the_wild_shape_beast_drops_2014(self):
+        ch, cb = self.druid('2014')
+        self.assertEqual((cb['name'], cb['current_hp'], cb['wild_shape']), ('Elarion (Lobo)', 11, True))
+        self.act(action='damage', targetId=cb['id'], amount=11, damageType='slashing', opId='ws-2014-0001')
+        ch.refresh_from_db()
+        self.assertEqual((ch.data['currentHp'], ch.data['wildShape']), (30, {'active': False}))   # a forma acaba
+        self.undo('ws-2014-0001')
+        back = self.cb(cb['id'])
+        self.assertEqual((back['current_hp'], back['wild_shape']), (11, True))
+        ch.refresh_from_db()
+        # a ficha volta como estava: o druida com os 30 PV dele e a forma de Lobo (antes: 11 e sem forma)
+        self.assertEqual(ch.data['currentHp'], 30)
+        self.assertTrue(ch.data['wildShape']['active'])
+        self.assertEqual(ch.data['wildShape']['beastCurrentHp'], 11)
+
+    def test_undo_after_the_wild_shape_ends_2024(self):
+        ch, cb = self.druid('2024')
+        self.assertEqual(cb['current_hp'], 18)                              # 2024: o PV é o do druida
+        self.act(action='hp_many', op='damage', damageType='fire', opId='ws-2024-0001',
+                 targets=[{'id': cb['id'], 'amount': 25}, {'id': 'g2', 'amount': 3}])
+        ch.refresh_from_db()
+        self.assertEqual((ch.data['currentHp'], ch.data['wildShape']), (0, {'active': False}))
+        self.undo('ws-2024-0001')
+        ch.refresh_from_db()
+        self.assertEqual(ch.data['currentHp'], 18)
+        self.assertTrue(ch.data['wildShape']['active'])
+        self.assertEqual(self.cb('g2')['current_hp'], 10)
+
+    def test_sheet_changed_since_gives_409(self):
+        self.act(action='damage', targetId='d', amount=2, opId='dmg-sheet-001')
+        self.char.refresh_from_db()
+        self.assertEqual(self.char.data['tempHp'], 3)
+        data = dict(self.char.data); data['tempHp'] = 0                   # o jogador mexeu na ficha depois
+        self.char.data = data; self.char.save()
+        out = self.undo('dmg-sheet-001', status=409)
+        self.assertEqual((out['error'], out['names']), ('changed_since', ['Dagna']))
+        self.assertEqual(self.cb('d')['temp_hp'], 3)                         # nada mudou
+        self.char.refresh_from_db()
+        self.assertEqual(self.char.data['tempHp'], 0)
+
     def test_only_dm(self):
         cl = APIClient(); cl.force_login(self.ana)
         r = cl.post(self.url('undo'), {'opId': 'whatever-01'}, format='json')

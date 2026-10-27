@@ -282,13 +282,15 @@ def _clean_play(play, data):
 
 def _current_fight(data, current):
     """O combate da sala em jogo, em poucos bytes (V8: o atalho "Usar o combate da cena"
-    do Combate vazio sem baixar a aventura): {nodeId, name, monsters: [{name, count}]}."""
+    do Combate vazio sem baixar a aventura): {nodeId, name, monsters: [{name, count, monsterId?}]}
+    (com o `monsterId`, o app traduz o nome pelo catálogo; `name` é o nome como foi salvo)."""
     node = next((n for n in (data.get('nodes') or []) if isinstance(n, dict) and n.get('id') == current), None) if current else None
     enc = [e for e in ((node or {}).get('encounter') or []) if isinstance(e, dict)]
     if not enc:
         return None
     return {'nodeId': node.get('id'), 'name': node.get('name') or '',
-            'monsters': [{'name': e.get('name') or e.get('monsterId') or '?', 'count': e.get('count') or 1} for e in enc[:12]]}
+            'monsters': [{'name': e.get('name') or e.get('monsterId') or '?', 'count': e.get('count') or 1,
+                          **({'monsterId': str(e['monsterId'])[:80]} if e.get('monsterId') else {})} for e in enc[:12]]}
 
 
 def _summary(obj):
