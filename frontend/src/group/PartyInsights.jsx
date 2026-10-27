@@ -1,6 +1,7 @@
 // Grupo › Raio-X (só o mestre): forças, fraquezas, oportunidades e ameaças do grupo, e
 // os gráficos do documento do Ivan — Papel do grupo (11 eixos), Perícias (0–20), Dano,
-// Escolas, Cada personagem e a Tabela —, as lacunas e o "Contra quem?".
+// Escolas, Cada personagem e a Tabela —, as lacunas, os Momentos com o estilo do
+// jogador e o Equilíbrio na mesa (Moments.jsx) e o "Contra quem?".
 // - As contas são do navegador (party-metrics.js, spotlights.js, versus.js) com as
 //   fichas que o GET da campanha já traz: 0 pedido a mais; recalcula só quando uma
 //   ficha muda (useMemo pela chave das fichas).
@@ -18,14 +19,15 @@ import { getSessionPlan, saveSessionPlan } from '../world/world-api.js';
 import { errorMessage } from '../api/errors.js';
 import Radar from './Radar.jsx';
 import * as PM from './party-metrics.js';
-import { gapGroups, ideaSceneText, partyGaps, quadrants, sceneIdeas, shineSuggestions } from './spotlights.js';
+import { currentSession, gapGroups, ideaSceneText, momentSuggestions, partyGaps, quadrants, sceneIdeas, tableBalance } from './spotlights.js';
 import { planMonsters, threatMonsters, versus } from './versus.js';
-import { insightsApi, joinPatches, mergeInsights, SAVE_DELAY, withDefaults } from './insights-api.js';
+import { insightsApi, joinPatches, mergeInsights, rememberInsights, SAVE_DELAY, withDefaults } from './insights-api.js';
 import { AdjustSheet, Dot, HelpButton, MonsterSheet, WhySheet } from './InsightsSheets.jsx';
+import { Balance, Moments } from './Moments.jsx';
 import './insights.css';
 
 const t = PM.t;
-const VIEW_DEFAULT = { skillsOrder: 'weak', schools: 'have', chars: 'abil', focusChar: null, overlay: [], open: {} };
+const VIEW_DEFAULT = { skillsOrder: 'weak', schools: 'have', chars: 'abil', focusChar: null, overlay: [], open: {}, moments: 'session' };
 const viewKey = (id) => `forja:insights-view:${id}`;
 
 /** Seletores só visuais (ordem das perícias, escolas, personagens, seções abertas): no aparelho. */
@@ -58,7 +60,8 @@ function useWide() {
 const classLine = (f, lang) => [f.primary, f.secondary].filter(Boolean).map(id => tName('class', id, lang)).join('/');
 const pos = (v, min, max) => `${Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100))}%`;
 
-export default function PartyInsights({ campaign, lang = 'pt' }) {
+// params.focus = id da ficha (cartão de Grupo › Jogadores): abre com ele em destaque.
+export default function PartyInsights({ campaign, lang = 'pt', params, onParamsDone }) {
   const { goTo } = useArea();
   const wide = useWide();
   const readOnly = campaign.status === 'closed';
@@ -79,7 +82,11 @@ export default function PartyInsights({ campaign, lang = 'pt' }) {
   // ---------------------------------------------------------------- servidor
   const load = useCallback(async () => {
     setLoadErr('');
-    try { setIns(withDefaults(await insightsApi.get(campaign.id))); } catch (e) {
+    try {
+      const got = withDefaults(await insightsApi.get(campaign.id));
+      rememberInsights(campaign.id, got);
+      setIns(got);
+    } catch (e) {
       setLoadErr(errorMessage(e, lang));
       setIns(cur => cur || withDefaults({}));
     }
@@ -96,7 +103,7 @@ export default function PartyInsights({ campaign, lang = 'pt' }) {
     setSave('saving');
     try {
       const server = await insightsApi.put(campaign.id, patch);
-      if (my === seq.current && !pending.current) { setIns(withDefaults(server)); setSave('saved'); }
+      if (my === seq.current && !pending.current) { setIns(withDefaults(server)); rememberInsights(campaign.id, server); setSave('saved'); }
     } catch (e) {
       pending.current = joinPatches(patch, pending.current);
       if (my === seq.current) { setSave('error'); setSaveErr(errorMessage(e, lang)); }
@@ -107,16 +114,43 @@ export default function PartyInsights({ campaign, lang = 'pt' }) {
 
   const update = useCallback((patch) => {
     if (readOnly) return;
-    setIns(cur => mergeInsights(cur, patch));
+    setIns(cur => { const next = mergeInsights(cur, patch); rememberInsights(campaign.id, next); return next; });
     pending.current = joinPatches(pending.current, patch);
     setSave('waiting');
     clearTimeout(timer.current);
     timer.current = setTimeout(flush, SAVE_DELAY);
-  }, [flush, readOnly]);
+  }, [flush, readOnly, campaign.id]);
+
+  // Vindo do cartão de um jogador: destaque nele (Momentos e Cada personagem)
+  const [focusId, setFocusId] = useState(null);
+  const focusParam = params?.focus;
+  useEffect(() => {
+    if (focusParam == null || !ins) return;
+    const id = Number(focusParam);
+    setFocusId(id);
+    setView({ focusChar: id });
+    onParamsDone?.();
+  }, [focusParam, ins]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------------------------------------------------------------- contas
+  const touchedAt = useRef(0);   // último toque na tela (pointerdown)
+
+  // Equilíbrio na mesa e "⚠ sem momento": o histórico vem uma vez, quando os Momentos chegam
+  // perto da tela (Moments.jsx); chegando logo depois de um toque, espera os 600 ms.
+  const [history, setHistory] = useState(null);
+  const [histState, setHistState] = useState('idle');   // idle · loading · ok · error
+  const loadHistory = useCallback(async () => {
+    setHistState('loading');
+    try {
+      const h = await insightsApi.history(campaign.id);
+      const wait = touchedAt.current + 600 - Date.now();
+      if (wait > 0) await new Promise(r => setTimeout(r, wait));
+      setHistory(h);
+      setHistState('ok');
+    } catch { setHistState('error'); }
+  }, [campaign.id]);
+
   // Ficha nova chegando logo depois de um toque espera 600 ms (nada mexe debaixo do dedo).
-  const touchedAt = useRef(0);
   const sheetKey = (campaign.members || []).map(m => `${m.role}:${m.character?.id}:${JSON.stringify(m.character?.data || null)}`).join('|');
   const [members, setMembers] = useState(campaign.members);
   useEffect(() => {
@@ -137,17 +171,21 @@ export default function PartyInsights({ campaign, lang = 'pt' }) {
     const axes = PM.partyAxes(facts, opts);
     const skills = PM.partySkills(facts, settings.dc);
     const gaps = partyGaps(facts, axes, { lang, dc: settings.dc, focus: settings.focus, hidden: settings.hidden });
-    const suggestions = shineSuggestions(facts, { lang, dc: settings.dc });
+    const suggestions = momentSuggestions(facts, { lang, dc: settings.dc, style: settings.style, axisOpts: { w: settings.w, base: settings.base } });
     const threats = threatMonsters(monsters, facts, lang, { limit: 3 });
     return {
       axes, skills, gaps, threats,
       damage: PM.partyDamage(facts),
       schools: PM.partySchools(facts),
       classSchools: PM.classSchools(party.filter(p => inIds.includes(p.id))),
-      quads: quadrants({ facts, party: axes, skills, gaps, lang, focus: settings.focus, hidden: settings.hidden, suggestions, dismissed: settings.dismissed, threats }),
+      suggestions,
+      quads: quadrants({ facts, party: axes, skills, gaps, lang, focus: settings.focus, hidden: settings.hidden, suggestions, dismissed: settings.dismissed, spotlights: settings.spotlights, threats }),
       ideas: sceneIdeas(gaps, facts, lang),
     };
-  }, [facts, settings.w, settings.base, settings.rep, settings.dc, settings.focus, settings.hidden, settings.dismissed, lang, monsters]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [facts, settings.w, settings.base, settings.rep, settings.dc, settings.focus, settings.hidden, settings.dismissed, settings.style, settings.spotlights, lang, monsters]); // eslint-disable-line react-hooks/exhaustive-deps
+  const session = currentSession(campaign.state);
+  const balance = useMemo(() => tableBalance({ facts, spotlights: settings.spotlights, style: settings.style, history, state: campaign.state }),
+    [facts, settings.spotlights, settings.style, history, campaign.state]);
   const shownAxes = PM.AXES.filter(k => !settings.hidden.includes(k));
 
   const toggleIn = (id) => {
@@ -246,7 +284,8 @@ export default function PartyInsights({ campaign, lang = 'pt' }) {
       ) : (
         <>
           <Quadrants q={calc.quads} lang={lang} expanded={expanded} setExpanded={setExpanded}
-            onAllGaps={() => { setExpanded(e => ({ ...e, gaps: true })); document.getElementById('ins-gaps')?.scrollIntoView({ block: 'start' }); }} />
+            onAllGaps={() => { setExpanded(e => ({ ...e, gaps: true })); document.getElementById('ins-gaps')?.scrollIntoView({ block: 'start' }); }}
+            onMoments={() => document.getElementById('ins-moments')?.scrollIntoView({ block: 'start' })} />
           <Ideas ideas={calc.ideas} lang={lang} planned={planned} onTake={takeToPlan} onOpenPlan={() => goTo('prepare', 'next')} readOnly={readOnly} />
           <Roles calc={calc} facts={facts} axes={shownAxes} settings={settings} lang={lang} wide={wide} onWhy={(k) => setSheet({ kind: 'why', why: { kind: 'axis', key: k } })} />
           <Skills calc={calc} settings={settings} lang={lang} wide={wide} view={view} setView={setView} onWhy={(k) => setSheet({ kind: 'why', why: { kind: 'skill', key: k } })} />
@@ -262,6 +301,10 @@ export default function PartyInsights({ campaign, lang = 'pt' }) {
           <Fold id="table" title={t(lang, 'Tabela', 'Table')} view={view} setView={setView} wide={wide}>
             <Table facts={facts} lang={lang} wide={wide} sessionNo={sessionNo} />
           </Fold>
+          <Moments facts={facts} settings={settings} update={update} suggestions={calc.suggestions} session={session} balance={balance}
+            lang={lang} readOnly={readOnly} focusId={focusId} filter={view.moments || 'session'} setFilter={(v) => setView({ moments: v })}
+            campaignId={campaign.id} onOpenPlan={() => goTo('prepare', 'next')} historyState={histState} onNear={loadHistory} />
+          <Balance balance={balance} history={history} state={histState} onLoad={loadHistory} lang={lang} />
           <Versus facts={facts} lang={lang} monster={monster} setMonster={setMonster} planPick={planPick} setPlanPick={setPlanPick}
             onPick={() => setSheet({ kind: 'monster' })} onPlan={openPlanCombat} />
         </>
@@ -283,7 +326,7 @@ const QUADS = [
   { id: 'threats', title: ['Ameaças', 'Threats'], help: ['o que pode derrubar o grupo', 'what could take the party down'] },
 ];
 
-function Quadrants({ q, lang, expanded, setExpanded, onAllGaps }) {
+function Quadrants({ q, lang, expanded, setExpanded, onAllGaps, onMoments }) {
   return (
     <section className="ins-quads" aria-label={t(lang, 'O que isso quer dizer', 'What this means')}>
       {QUADS.map(d => {
@@ -299,6 +342,8 @@ function Quadrants({ q, lang, expanded, setExpanded, onAllGaps }) {
             ) : <p className="ins-quad-none">{t(lang, 'Nada por aqui.', 'Nothing here.')}</p>}
             {items.length > 2 && (d.id === 'weaknesses'
               ? <button type="button" className="mesa-btn is-quiet ins-more" onClick={onAllGaps}>{t(lang, `Ver todas (${items.length})`, `See all (${items.length})`)}</button>
+              : d.id === 'opportunities'
+              ? <button type="button" className="mesa-btn is-quiet ins-more" onClick={onMoments}>{t(lang, `Ver os momentos (${items.length})`, `See the moments (${items.length})`)}</button>
               : <button type="button" className="mesa-btn is-quiet ins-more" aria-expanded={open} onClick={() => setExpanded(e => ({ ...e, [d.id]: !open }))}>
                 {open ? t(lang, 'Menos', 'Less') : `+${items.length - 2}`}</button>)}
           </article>

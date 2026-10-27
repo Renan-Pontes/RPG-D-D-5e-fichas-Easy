@@ -14,7 +14,31 @@ export const insightsApi = {
   get: (campaignId) => request(`/api/campaigns/${campaignId}/party-insights`).then(r => r.insights),
   put: (campaignId, patch) =>
     request(`/api/campaigns/${campaignId}/party-insights`, { method: 'PUT', body: { insights: patch } }).then(r => r.insights),
+  // Equilíbrio na mesa (G9): contagens por sessão, sob demanda (cache de 60 s no servidor)
+  history: (campaignId) => request(`/api/campaigns/${campaignId}/party-insights/history`),
 };
+
+// O último Raio-X lido ou gravado neste aparelho, por campanha: os ganchos fora do Raio-X
+// (cartão de Grupo › Jogadores, Próxima sessão) usam os mesmos ajustes, estilos e momentos
+// com 1 GET por campanha enquanto o app está aberto (o Raio-X sempre lê de novo ao abrir).
+const memo = new Map();
+export function rememberInsights(campaignId, value) {
+  memo.set(String(campaignId), { value: withDefaults(value) });
+}
+export function cachedInsights(campaignId) {
+  return memo.get(String(campaignId))?.value || null;
+}
+export function loadInsightsOnce(campaignId) {
+  const key = String(campaignId);
+  const hit = memo.get(key);
+  if (hit?.value) return Promise.resolve(hit.value);
+  if (hit?.promise) return hit.promise;
+  const promise = insightsApi.get(campaignId)
+    .then(v => { rememberInsights(campaignId, v); return cachedInsights(campaignId); })
+    .catch(e => { memo.delete(key); throw e; });
+  memo.set(key, { promise });
+  return promise;
+}
 
 /** O gravado com os padrões (o que vier faltando ou torto volta ao padrão). */
 export function withDefaults(raw) {

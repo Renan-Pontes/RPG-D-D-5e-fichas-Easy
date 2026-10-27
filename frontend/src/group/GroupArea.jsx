@@ -99,7 +99,7 @@ export default function GroupArea({ campaign, lang = 'pt', isDM, characters = []
 
       {current === 'insights' && (
         <Suspense fallback={<p className="muted" role="status">{t(lang, 'Carregando o Raio-X…', 'Loading the X-ray…')}</p>}>
-          <PartyInsights campaign={campaign} lang={lang} />
+          <PartyInsights campaign={campaign} lang={lang} params={params} onParamsDone={clearParams} />
         </Suspense>
       )}
 
