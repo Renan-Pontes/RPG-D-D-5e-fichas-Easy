@@ -313,6 +313,9 @@ export function CombatantPanel({
   );
 }
 
+// V10: o aviso diz quando a rolagem foi à Tela ("📺 vai à Tela" do cartão).
+const onScreen = (info, lang) => (info?.shown ? t(lang, ' 📺 Na tela ✓', ' 📺 On screen ✓') : '');
+
 /** A sugestão em aberto (ataque ou salvaguarda), no lugar da lista, com os botões presos. */
 function PendingSuggestion({ pending, combatant, allCombatants, campaignId, lang, layout, onDone, onDiscard }) {
   const ref = useRef(null);
@@ -332,7 +335,7 @@ function PendingSuggestion({ pending, combatant, allCombatants, campaignId, lang
       <div className="cs-pending" ref={ref}>
         <SaveResultCard key={pending.key} campaignId={campaignId} attacker={combatant} action={action} actionIndex={pending.index}
           targets={pending.targets} status={actionStatus(combatant, pending.index)} lang={lang} pinned
-          onApplied={() => onDone(t(lang, `Aplicado: ${name}.`, `Applied: ${name}.`))}
+          onApplied={(_, info) => onDone(t(lang, `Aplicado: ${name}.`, `Applied: ${name}.`) + onScreen(info, lang))}
           onDiscard={onDiscard} />
       </div>
     );
@@ -344,9 +347,9 @@ function PendingSuggestion({ pending, combatant, allCombatants, campaignId, lang
         attacker={combatant} target={target} lang={lang}
         onApplied={(res, info) => {
           const who = info?.targetName || '';
-          onDone(info?.hit
+          onDone((info?.hit
             ? t(lang, `Aplicado: ${who} sofreu ${info.damage} de dano.`, `Applied: ${who} took ${info.damage} damage.`)
-            : t(lang, `Aplicado: o ataque errou ${who}.`, `Applied: the attack missed ${who}.`));
+            : t(lang, `Aplicado: o ataque errou ${who}.`, `Applied: the attack missed ${who}.`)) + onScreen(info, lang));
         }}
         onDiscard={onDiscard} />
     </div>
@@ -570,7 +573,7 @@ export default function CombatantSheet({ combatant: c, onClose, lang, isCurrentT
     c.defeated ? t(lang, 'Derrotado', 'Defeated') : null,
   ].filter(Boolean).join(' · ');
   return (
-    <MesaSheet title={c.name} eyebrow={eyebrow} size="tall" width="md" lang={lang} onClose={onClose}
+    <MesaSheet title={c.name} eyebrow={eyebrow} size="tall" width="md" lang={lang} onClose={onClose} dock="play"
       className="cs-sheet" bodyClassName="cs-sheet-body">
       <CombatantPanel combatant={c} lang={lang} layout="sheet" tab={tab} onTab={setTab} {...rest} />
     </MesaSheet>

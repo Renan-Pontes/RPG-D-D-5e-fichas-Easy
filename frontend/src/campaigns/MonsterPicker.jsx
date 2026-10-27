@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import { BESTIARY, MONSTER_TYPES, monsterForCombat } from '../../data/bestiary.js';
 import { CR_TABLE, estimateCr } from '../combat/cr-estimate.js';
@@ -24,9 +24,13 @@ const crText = (n) => CR_TABLE.find(r => r.numeric === n)?.cr ?? String(n);
  * monstro personalizado. Na lista, o rodapé preso tem o escolhido, a
  * quantidade, a iniciativa e "Adicionar ao combate"; no importar e no editor,
  * Voltar/Salvar ficam presos embaixo. Também atende o Preparar.
+ *
+ * `members` (campaign.members, opcional): o gancho do Raio-X — a linha "× grupo" (o monstro
+ * contra o dano principal e as salvaguardas da mesa) nos resultados da busca e no escolhido.
+ * As contas do Raio-X só carregam quando a folha abre com uma mesa.
  */
 // showInitiative=false: contexto sem combate (Preparação), onde iniciativa não se aplica.
-export default function MonsterPicker({ lang, onPick, onClose, levelingMode, confirmLabel, showInitiative = true }) {
+export default function MonsterPicker({ lang, onPick, onClose, levelingMode, confirmLabel, showInitiative = true, members = null }) {
   const [view, setView] = useState('list'); // 'list' | 'import' | 'edit'
   const [editBase, setEditBase] = useState(null);
   const [custom, setCustom] = useState(() => loadCustomMonsters());
@@ -50,6 +54,35 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
   const [finePointer] = useState(() => { try { return window.matchMedia('(pointer: fine)').matches; } catch { return false; } });
 
   const all = useMemo(() => [...custom, ...BESTIARY], [custom]);
+
+  // "× grupo": versus.js e as fichas em números (party-metrics) chegam por import dinâmico;
+  // se chegarem logo depois de um toque, esperam 600 ms (nada mexe debaixo do dedo).
+  const [vs, setVs] = useState(null);
+  const touchedAt = useRef(0);
+  useEffect(() => {
+    const mark = () => { touchedAt.current = Date.now(); };
+    document.addEventListener('pointerdown', mark, true);
+    return () => document.removeEventListener('pointerdown', mark, true);
+  }, []);
+  useEffect(() => {
+    if (!(members || []).some(m => m.role !== 'dm' && m.character?.data)) return undefined;
+    let alive = true;
+    let timer = null;
+    Promise.all([import('../group/party-metrics.js'), import('../group/versus.js')]).then(([PM, V]) => {
+      if (!alive) return;
+      const facts = PM.partyFacts(PM.partyMembers(members), lang);
+      if (!facts.length) return;
+      const apply = () => { if (alive) setVs({ facts, versus: V.versus, cache: new Map() }); };
+      const wait = touchedAt.current + 600 - Date.now();
+      if (wait > 0) timer = setTimeout(apply, wait); else apply();
+    }).catch(() => { /* sem a linha "× grupo": a folha funciona igual */ });
+    return () => { alive = false; clearTimeout(timer); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const vsLine = (m) => {
+    if (!vs) return '';
+    if (!vs.cache.has(m.id)) vs.cache.set(m.id, vs.versus(m, vs.facts, lang).line);
+    return vs.cache.get(m.id);
+  };
 
   const allFiltered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -155,7 +188,7 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
 
   // Folha da mesa (portal na camada da mesa): fica acima das abas/barras fixas da casca.
   return (
-    <MesaSheet title={title} icon={view === 'list' ? '🐉' : view === 'import' ? '⇪' : '✎'} size="full" width="lg" lang={lang}
+    <MesaSheet title={title} icon={view === 'list' ? '🐉' : view === 'import' ? '⇪' : '✎'} size="full" width="lg" lang={lang} dock="play"
       onClose={onClose} dirty={(view === 'edit' && editDirty) || (view === 'import' && importDirty)}
       dirtyText={t(lang, 'O monstro ainda não foi salvo na sua lista.', 'The monster has not been saved to your list yet.')}
       className={`mp-sheet is-${view}`} bodyClassName="mp-sheet-body" footer={view === 'list' ? listFooter : null}
@@ -249,6 +282,7 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
                       </span>
                       <span className="mp-pick-sub">{t(lang, 'ND', 'CR')} {m.cr} · {monsterTypeLabel(m.type, lang)}</span>
                       <span className="mp-pick-sub">{t(lang, 'CA', 'AC')} {m.ac} · {t(lang, 'PV', 'HP')} {m.hp} · {sizeLabel(m.size, lang)}</span>
+                      {(on || query.trim()) && vsLine(m) && <span className="mp-pick-vs">× {t(lang, 'grupo', 'party')}: {vsLine(m)}</span>}
                     </span>
                     {on && <span className="mp-pick-check" aria-hidden="true">✓</span>}
                   </button>

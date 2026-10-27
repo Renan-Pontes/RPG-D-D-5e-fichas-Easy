@@ -53,6 +53,24 @@ export function nextId(list, prefix) {
   return `${prefix}${i}`;
 }
 
+/**
+ * Nome e notas de uma cena, no mesmo texto: a 1ª linha é o nome (o que "Usar como cena" leva
+ * à Tela e ao jogador, play/plan-model.sceneFieldText) e o resto são notas que só o mestre vê
+ * (o momento do "→ Cena" e a lacuna do "Levar para o plano", do Raio-X).
+ */
+export function sceneParts(text) {
+  const [name = '', ...rest] = String(text ?? '').split('\n');
+  const notes = rest.join('\n');
+  return { name, notes: notes.trim() ? notes : '' };
+}
+
+/** O campo de uma linha edita só o nome; as notas ficam (um input tiraria a quebra de linha). */
+export function withSceneName(text, name) {
+  const { notes } = sceneParts(text);
+  const clean = String(name ?? '').replace(/[\r\n]+/g, ' ');
+  return (notes ? `${clean}\n${notes}` : clean).slice(0, PLAN_LIMITS.text);
+}
+
 export function addScene(plan, text = '', ref = null) {
   if (plan.scenes.length >= PLAN_LIMITS.scenes) return plan;
   return { ...plan, scenes: [...plan.scenes, { id: nextId(plan.scenes, 'c'), text, nodeRef: nodeRef(ref), done: false }] };

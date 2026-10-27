@@ -8,29 +8,48 @@ POST /api/combat/campaign/<id>/combatants    (DM)  body: {snapshot, type}
 DEL  /api/combat/campaign/<id>/combatants/<cid>  (DM)
 PUT  /api/combat/campaign/<id>/combatants/<cid>  (DM)  body: campos a atualizar
 POST /api/combat/campaign/<id>/action   (DM)  body: ataque/save/condição/dano/cura/death_save
-POST /api/combat/campaign/<id>/next-turn (DM)
+                                              ataque com `show` → 1 linha na Tela (V10);
+                                              save_apply: a salvaguarda em área numa chamada (+ `show`)
+POST /api/combat/campaign/<id>/save-preview (DM) a salvaguarda em área ROLADA NO SERVIDOR, sem aplicar
+POST /api/combat/campaign/<id>/next-turn (DM)  body: {expect?: {round, turnIndex}} → 409 stale_turn se a vez já mudou
+POST /api/combat/campaign/<id>/prev-turn (DM)  body: {expect?} → ↶ Voltar turno (restaura a foto do Próximo)
 POST /api/combat/campaign/<id>/map      (DM)  body: {background_image, grid_size_px, grid_visible}
+                                              trocar o fundo grava `state.combatMapVer` (a miniatura
+                                              da Tela do mestre usa map-image?v= sem ler o base64)
+GET  /api/combat/campaign/<id>/map-image?v=       (member) fundo do mapa (binário; o JSON leva só a URL)
+GET  /api/combat/campaign/<id>/token/<cid>?v=     (member) imagem do token (idem)
+GET  /api/combat/campaign/<id>/actions/<ref>      (DM) as ações de um stat block pelo hash (?sets=1)
 
 POST /api/rolls/campaign/<id>           (member)
 GET  /api/rolls/campaign/<id>/pending   (member)
-GET  /api/rolls/campaign/<id>/recent    (public via screen)
+GET  /api/rolls/campaign/<id>/recent    (member) pedidos resolvidos (sem as rolagens de mesa);
+                                         ?table=1 (DM): as rolagens de mesa (@mesa:, api/table_rolls.py)
 POST /api/rolls/<id>/resolve            (DM)  body: {visibility: 'public'|'private'}
 POST /api/rolls/<id>/cancel             (DM ou owner)
 """
+import functools
+import hashlib
+import json
 import secrets
+from django.db import transaction
+from django.db.models import F
+from django.http import HttpResponseNotModified
 from django.utils import timezone
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.utils.dateparse import parse_datetime
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
 from .models import Campaign, CombatInstance, RollRequest, Character, DiceRig, DiceLog, Membership
+from .campaign_state import MAP_VER_KEY, merge_state
 from .dice_privacy import scrub_dice
 from .permissions import get_campaign_or_404, require_dm, require_member, is_dm
 from . import combat as engine
 from .diary import log_combat_start, log_combat_end, log_roll_request
-from .image_data import validate_data_url
+from .image_data import image_link, image_response, image_ver, validate_data_url
 from . import plans as P
+from . import table_rolls
 
 # Fundo do mapa de combate: o canvas comprime para ≤1600 px em JPEG 0,82.
 MAX_MAP_IMAGE_CHARS = 2_000_000
@@ -60,10 +79,10 @@ def _uses_def(d):
     return out
 
 
-def _action_name(action):
+def _action_name(action, lang='pt'):
     n = action.get('name')
     if isinstance(n, dict):
-        return n.get('pt') or n.get('en') or '?'
+        return n.get(lang) or n.get('pt') or n.get('en') or '?'
     return n or '?'
 
 
@@ -97,6 +116,7 @@ def _get_combat(campaign, create=True):
 # Campos do log que jogador/telão podem ver (sem CA, totais nem dano de monstro).
 PUBLIC_LOG_KEYS = ('type', 'attacker', 'target', 'action_name', 'attack_name', 'hit', 'crit',
                    'round', 'whose', 'condition', 'name', 'ts', 'downed')
+SERVER_LOG_KEYS = ('photo', 'from')
 EMPTY_COMBAT = {'active': False, 'round': 1, 'turnIndex': 0, 'combatants': [], 'map': {},
                 'log': [], 'updatedAt': None}
 
@@ -136,21 +156,63 @@ def public_combatant(cb):
     return base
 
 
-def _serialize_combat(c, *, for_dm=False):
-    """Combat instance → dict. Jogador e telão recebem a versão filtrada."""
+PUBLIC_MAP_KEYS = ('grid_size_px', 'grid_visible', 'width_px', 'height_px', 'backgroundVer', 'backgroundUrl')
+
+
+def map_payload(map_data, url, *, public=False):
+    """Mapa do combate SEM o fundo em base64 (V9: 85 KB → poucos bytes): grade,
+    tamanho e o fundo por `backgroundUrl` (`url?v=<backgroundVer>`, binário com
+    ETag e cache de 1 ano). App: também `background_image` com a mesma URL (o JS
+    de antes punha o valor direto no <img>; vazio = sem fundo). Tela (`public`):
+    só as chaves da whitelist."""
+    md = map_data if isinstance(map_data, dict) else {}
+    bg = md.get('background_image')
+    out = {k: v for k, v in md.items() if k != 'background_image'}
+    link = None
+    if isinstance(bg, str) and bg.startswith('data:'):
+        ver = image_ver(bg)
+        link = f'{url}?v={ver}'
+        out.update(backgroundVer=ver, backgroundUrl=link)
+    if public:
+        return {k: out[k] for k in PUBLIC_MAP_KEYS if k in out}
+    out['background_image'] = link
+    return out
+
+
+def _sprite_link(cb, base):
+    """`sprite` do combatente: a URL da imagem do token (nunca o base64)."""
+    if not cb.get('sprite'):
+        return cb
+    return {**cb, 'sprite': image_link(cb['sprite'], f'{base}/token/{cb.get("id")}')}
+
+
+def _serialize_combat(c, *, for_dm=False, token=None):
+    """Combat instance → dict. Jogador e Tela recebem a versão filtrada.
+
+    Imagens (V9) só por URL: o fundo do mapa e as imagens dos tokens saem pelas
+    rotas da campanha (`/api/combat/campaign/<id>/map-image`, `/token/<cid>`, com
+    login) ou, com `token`, pelas públicas da Tela (`/api/screen/<t>/map`,
+    `/token/<cid>`). O GET do combate e a resposta do Próximo turno deixam de
+    levar o mapa e os tokens inteiros a cada mudança."""
     if c is None:
         return {**EMPTY_COMBAT, 'combatants': [], 'map': {}, 'log': []}
-    log = c.action_log[-30:] if c.action_log else []   # últimas 30 entradas
+    log = _recent_log(c.action_log)
     combatants = c.combatants or []
     if not for_dm:
         combatants = [public_combatant(x) for x in combatants if isinstance(x, dict)]
         log = [{k: v for k, v in e.items() if k in PUBLIC_LOG_KEYS} for e in log if isinstance(e, dict)]
+    else:
+        # A foto do turno (`photo`, `from`) é do servidor (↶ Voltar turno lê do banco):
+        # não viaja a cada mudança.
+        log = [{k: v for k, v in e.items() if k not in SERVER_LOG_KEYS} if isinstance(e, dict) else e for e in log]
+    base = f'/api/screen/{token}' if token else f'/api/combat/campaign/{c.campaign_id}'
+    combatants = [_sprite_link(x, base) for x in combatants if isinstance(x, dict)]
     return {
         'active': c.active,
         'round': c.round_number,
         'turnIndex': c.turn_index,
         'combatants': combatants,
-        'map': c.map_data or {},
+        'map': map_payload(c.map_data, f'{base}/map' if token else f'{base}/map-image', public=bool(token)),
         'log': log,
         'updatedAt': c.updated_at.isoformat() if c.updated_at else None,
     }
@@ -159,6 +221,65 @@ def _serialize_combat(c, *, for_dm=False):
 def _serialize_combat_public(c):
     """Vista do telão: igual à do jogador (monstros só com nome/condições/faixa de saúde)."""
     return _serialize_combat(c, for_dm=False)
+
+
+TURN_MARKERS = ('start', 'next_turn')
+
+
+def _recent_log(log, keep=10, cap=30):
+    """O pedaço do registro que vai a cada mudança. O app mostra as 8 últimas linhas
+    (Registro recente) e os avisos do mestre leem o turno atual e o anterior (desde o
+    penúltimo 'start'/'next_turn', nudges.js recentLog): vai isso, com no mínimo `keep`
+    e no máximo `cap` entradas (antes iam sempre 30, ~2 KB com dados reais)."""
+    log = list((log or [])[-cap:])
+    seen = 0
+    for i in range(len(log) - 1, -1, -1):
+        if isinstance(log[i], dict) and log[i].get('type') in TURN_MARKERS:
+            seen += 1
+            if seen == 2:
+                return log[min(i, max(0, len(log) - keep)):]
+    return log
+
+
+def actions_ref(actions):
+    """Hash curto e estável das ações de um stat block (o mesmo conteúdo dá o mesmo ref)."""
+    raw = json.dumps(actions, sort_keys=True, ensure_ascii=False, separators=(',', ':'))
+    return hashlib.sha1(raw.encode('utf-8')).hexdigest()[:12]
+
+
+def with_action_refs(combat):
+    """Combate do mestre com as ações de cada stat block trocadas por `stats.actionsRef`.
+
+    As ações (nome, dano e o texto das regras em pt e en) são quase tudo o que o
+    combate pesa: com um Dragão Vermelho Adulto e mais 4 monstros do bestiário, ~15 KB
+    a cada mudança, dos quais ~8 KB são ações que não mudam. O app busca cada conjunto
+    uma vez em /actions/<ref> (cache de 1 ano) e o devolve a `stats.actions`
+    (src/api/combat-sets.js); monstros iguais (3 goblins) dividem o mesmo ref."""
+    out = []
+    for cb in combat.get('combatants') or []:
+        st = cb.get('stats') if isinstance(cb, dict) else None
+        acts = st.get('actions') if isinstance(st, dict) else None
+        if isinstance(acts, list) and acts:
+            st = {k: v for k, v in st.items() if k != 'actions'}
+            st['actionsRef'] = actions_ref(acts)
+            cb = {**cb, 'stats': st}
+        out.append(cb)
+    return {**combat, 'combatants': out}
+
+
+def action_sets(view):
+    """Com `?sets=1` (o app desta versão), o `combat` da resposta vai com
+    `with_action_refs`. Sem o parâmetro (o app de antes, aberto durante a troca de
+    versão), as ações vão inteiras, como antes. Fica embaixo do @api_view: mexe na
+    Response antes de ela virar JSON."""
+    @functools.wraps(view)
+    def wrapped(request, *args, **kwargs):
+        resp = view(request, *args, **kwargs)
+        data = getattr(resp, 'data', None)
+        if request.query_params.get('sets') == '1' and isinstance(data, dict) and isinstance(data.get('combat'), dict):
+            data['combat'] = with_action_refs(data['combat'])
+        return resp
+    return wrapped
 
 
 def _serialize_roll(rr, for_dm=False):
@@ -330,6 +451,7 @@ def _peek_rig(campaign, user_id, dice_type):
 # ============================================================
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_get(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_member(request.user, campaign)
@@ -339,6 +461,7 @@ def combat_get(request, id_or_slug):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_start(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
@@ -354,6 +477,7 @@ def combat_start(request, id_or_slug):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_end(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
@@ -367,6 +491,7 @@ def combat_end(request, id_or_slug):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_reset(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
@@ -385,6 +510,7 @@ def combat_reset(request, id_or_slug):
 # ============================================================
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_add_combatant(request, id_or_slug):
     """Adiciona combatente.
     body: {
@@ -461,7 +587,7 @@ def combat_add_combatant(request, id_or_slug):
             combatant['stats'] = {
                 'ac': ac,
                 'max_hp': d.get('maxHp', combatant['current_hp']),
-                'speed': d.get('speedOverride') or 30,
+                'speed': engine.sheet_speed(d),  # fixo do mestre, senão o que a ficha calculou ao salvar
                 'abilities': abilities,
                 'saves': {},
                 'actions': [],
@@ -515,6 +641,7 @@ def combat_add_combatant(request, id_or_slug):
 
 @api_view(['PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_combatant(request, id_or_slug, combatant_id):
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
@@ -536,6 +663,10 @@ def combat_combatant(request, id_or_slug, combatant_id):
                 'current_hp', 'temp_hp', 'conditions', 'defeated', 'death_saves']:
         if key in patch:
             updated[key] = patch[key]
+    # A imagem do token só muda com uma imagem nova (data URL) ou vazio: a URL que o
+    # GET devolve (V9), se voltar num PUT, não apaga a imagem guardada.
+    if isinstance(patch.get('sprite'), str) and patch['sprite'] and not patch['sprite'].startswith('data:'):
+        updated['sprite'] = target.get('sprite')
     # stats parciais
     if 'stats' in patch and isinstance(patch['stats'], dict):
         stats = dict(updated.get('stats') or {})
@@ -570,6 +701,7 @@ def _maybe_consume_rig(campaign, user_id, dice_type):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_action(request, id_or_slug):
     """Resolve uma ação de combate.
 
@@ -583,6 +715,7 @@ def combat_action(request, id_or_slug):
     combatants = list(c.combatants or [])
     log_entry = {'type': action_type}
     response_payload = {}
+    show_after = None   # a linha da Tela (V10), gravada depois do combate
 
     if action_type == 'attack':
         # body: {attackerId, targetId, actionIndex, advantage?, disadvantage?, force?,
@@ -645,6 +778,8 @@ def combat_action(request, id_or_slug):
         if downed:
             log_entry['downed'] = tgt.get('name')
         response_payload['result'] = result
+        if request.data.get('show') is True and att.get('type') != 'pc':
+            show_after = lambda: _show_attack(campaign, request.user, att, tgt, result, parts)  # noqa: E731
 
     elif action_type == 'damage':
         # body: {targetId, amount, damageType}
@@ -700,6 +835,62 @@ def combat_action(request, id_or_slug):
                           'dc': result['dc'], 'ability': result['ability'],
                           'per_target': result['per_target']})
         response_payload['result'] = result
+
+    elif action_type == 'save_apply':
+        # A salvaguarda em área como está na tela do mestre (SaveResultCard), numa
+        # chamada só: gasto da ação (recarga/usos/lendária), o dano por alvo e tipo
+        # (resistências contam) e as condições de quem falhou; o registro é o mesmo
+        # do save_aoe (avisos de concentração e diário leem dali). Com `show`, 1
+        # linha-resumo na Tela: "Sopro de Fogo · DES CD 13 · Dagna 9 ✗ · …".
+        # body: {attackerId, actionIndex, consume?, force?, show?,
+        #        targets: [{id, total, success, damage:[{amount,type}], conditions:[…], d20?}]}
+        att = engine.find_combatant(combatants, request.data.get('attackerId'))
+        if not att:
+            raise NotFound('attacker_not_found')
+        idx = _int(request.data.get('actionIndex'), 0)
+        actions = (att.get('stats') or {}).get('actions') or []
+        action_data = actions[idx] if 0 <= idx < len(actions) else None
+        if not action_data or not action_data.get('save'):
+            raise ValidationError({'error': 'action_has_no_save'})
+        plan = _save_plan(request.data.get('targets'), combatants)
+        if request.data.get('consume'):
+            combatants, att = _check_and_consume(combatants, att, idx, force=bool(request.data.get('force')))
+        save = action_data.get('save') or {}
+        ability, dc = str(save.get('ability') or 'DEX'), _int(save.get('dc'), 10)
+        before = {x.get('id'): x for x in combatants}
+        per_target, changed = [], []
+        for p in plan:
+            tgt = engine.find_combatant(combatants, p['id'])
+            cur, taken, applied_conds = tgt, 0, []
+            if p['damage']:
+                applied = engine.apply_damage_parts(cur, p['damage'])
+                cur, taken = applied['combatant'], applied['damage_taken']
+            for cond in p['conditions']:
+                r = engine.add_condition(cur, cond)
+                cur = r['combatant']
+                if r['applied']:
+                    applied_conds.append(cond)
+            if cur is not tgt:
+                combatants = engine.replace_combatant(combatants, cur)
+                changed.append(cur.get('id'))
+            per_target.append({
+                'target_id': tgt.get('id'), 'target_name': tgt.get('name'),
+                'save': {'success': p['success'], 'total': p['total'], 'dc': dc},
+                'damage_taken': taken, 'damage_type': (p['damage'][0]['type'] if p['damage'] else None),
+                'damage_parts': p['damage'], 'conditions': p['conditions'], 'conditions_applied': applied_conds,
+                'new_hp': cur.get('current_hp'), 'defeated': cur.get('defeated', False),
+            })
+        _sync_changed(combatants, changed)
+        downs = [x.get('name') for x in combatants
+                 if x.get('id') in changed and _went_down(before.get(x.get('id')) or {}, x)]
+        log_entry['type'] = 'save_aoe'
+        if downs:
+            log_entry['downed_list'] = downs
+        log_entry.update({'attacker': att.get('name'), 'action_name': _action_name(action_data),
+                          'dc': dc, 'ability': ability, 'per_target': per_target})
+        response_payload['result'] = {'ability': ability, 'dc': dc, 'per_target': per_target}
+        if request.data.get('show') is True:
+            show_after = lambda: _show_save(campaign, request.user, att, action_data, ability, dc, plan, combatants)  # noqa: E731
 
     elif action_type == 'use_action':
         # Gasta a ação sem resolver (ações especiais, lendárias "faz um ataque", Multiataque…)
@@ -776,8 +967,63 @@ def combat_action(request, id_or_slug):
     c.combatants = combatants
     _append_log(c, log_entry)
     c.save()
+    if show_after:
+        response_payload['shown'] = show_after().id
     response_payload['combat'] = _serialize_combat(c, for_dm=True)
     return Response(response_payload)
+
+
+def _save_plan(raw, combatants):
+    """Valida os alvos do save_apply: [{id, total, success, damage, conditions, d20}]."""
+    if not isinstance(raw, list) or not raw or len(raw) > 30:
+        raise ValidationError({'error': 'missing_targets'})
+    out, seen = [], set()
+    for t in raw:
+        if not isinstance(t, dict) or not engine.find_combatant(combatants, t.get('id')) or t.get('id') in seen:
+            raise ValidationError({'error': 'invalid_target'})
+        seen.add(t.get('id'))
+        total = None if t.get('total') in (None, '') else _int(t.get('total'))
+        dmg = t.get('damage') or []
+        if not isinstance(dmg, list) or len(dmg) > 6:
+            raise ValidationError({'error': 'invalid_damage'})
+        parts = []
+        for d in dmg:
+            amount = _int((d or {}).get('amount') if isinstance(d, dict) else None)
+            if not 0 <= amount <= 9999:
+                raise ValidationError({'error': 'invalid_damage'})
+            if amount:
+                parts.append({'amount': amount, 'type': str(d.get('type') or 'force')[:30]})
+        conds = [c for c in (t.get('conditions') or []) if c in engine.ALL_CONDITIONS] \
+            if isinstance(t.get('conditions'), list) else []
+        d20 = None if t.get('d20') in (None, '') else _int(t.get('d20'))
+        out.append({'id': t['id'], 'total': total, 'success': bool(t.get('success')), 'damage': parts,
+                    'conditions': conds, 'd20': d20 if d20 and 1 <= d20 <= 20 else None})
+    return out
+
+
+def _show_attack(campaign, user, att, tgt, result, parts):
+    """A linha da Tela do ataque de monstro: "Goblin #2 ⚔ Dagna · d20 11 · ACERTA ·
+    6 cortante". Só o d20 natural (o bônus do monstro não vai) e o dano da parte."""
+    d20 = result.get('attack_roll') or {}
+    nat = _int(d20.get('value'), 0)
+    hit = bool(result.get('hit'))
+    die = {'value': nat, 'kept': True, 'die': 'd20', 'hit': hit,
+           'dmg': [{'n': int(p['amount']), 't': p['type']} for p in parts] if hit else []}
+    return table_rolls.record(campaign, user, 'monster', label=tgt.get('name') or '', rolls=[die], total=nat,
+                              crit=bool(result.get('crit')) and hit, fail=nat == 1,
+                              who=att.get('name') or '', rigged=bool(d20.get('forced')))
+
+
+def _show_save(campaign, user, att, action, ability, dc, plan, combatants):
+    """A linha-resumo da salvaguarda em área: cada alvo com o total e ✓/✗."""
+    rows = []
+    for p in plan:
+        tgt = engine.find_combatant(combatants, p['id']) or {}
+        rows.append({'who': tgt.get('name') or '?', 'total': p['total'], 'ok': p['success'],
+                     'value': p['d20'], 'ab': ability.lower()[:3], 'dc': dc})
+    lang = (campaign.dm_settings or {}).get('lang') if isinstance(campaign.dm_settings, dict) else None
+    return table_rolls.record(campaign, user, 'save', label=_action_name(action, lang if lang in ('pt', 'en') else 'pt'),
+                              count=len(rows), rolls=rows, who=att.get('name') or '')
 
 
 @api_view(['POST'])
@@ -843,8 +1089,95 @@ def combat_attack_preview(request, id_or_slug):
     })
 
 
+def _save_mod(target, ability):
+    """Modificador de resistência (a regra do app: saves → atributo); None se a ficha não diz."""
+    stats = target.get('stats') or {}
+    ab = str(ability or 'dex').lower()
+    raw = (stats.get('saves') or {}).get(ab)
+    if raw is not None:
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            pass
+    score = (stats.get('abilities') or {}).get(ab)
+    try:
+        return (int(score) - 10) // 2 if score is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def combat_save_preview(request, id_or_slug):
+    """Salvaguarda em área ROLADA NO SERVIDOR (V10; antes era Math.random no
+    aparelho do mestre), sem aplicar nada: o d20 de cada alvo e o dano. O mestre
+    confere, ajusta (dado físico) e aplica com POST /action {action:'save_apply'}.
+
+    body: {attackerId, actionIndex, targetIds, saveMods?: {combatenteId: n}}
+    resposta: {ability, dc, half, conditions, damage:[{dice, type, rolled, rolls}],
+               targets:[{id, name, d20, rolls, modifier, total, success}], available, unavailableReason}
+    `modifier`/`total` são None quando a ficha do alvo não diz o atributo (o mestre digita).
+    `saveMods`: a salvaguarda de cada PJ calculada pelo app do mestre com a ficha
+    (Utils.saveBonus: atributo com o bônus de espécie + proficiência pelo nível
+    total, talentos e classe — o mesmo número dos testes pedidos). O combatente do
+    PJ só guarda os atributos-base, então sem ela o PJ ficaria sem a proficiência.
+    Vale só para PJ fora da Forma Selvagem (a fera usa os atributos dela).
+    """
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    c = _get_combat(campaign, create=False)
+    combatants = list((c.combatants if c else None) or [])
+    att = engine.find_combatant(combatants, request.data.get('attackerId'))
+    if not att:
+        raise NotFound('attacker_not_found')
+    idx = _int(request.data.get('actionIndex'), 0)
+    actions = (att.get('stats') or {}).get('actions') or []
+    action = actions[idx] if 0 <= idx < len(actions) else None
+    if not action or not action.get('save'):
+        raise ValidationError({'error': 'action_has_no_save'})
+    ids = request.data.get('targetIds')
+    if not isinstance(ids, list) or not ids or len(ids) > 30:
+        raise ValidationError({'error': 'missing_targets'})
+    targets = [t for t in (engine.find_combatant(combatants, i) for i in dict.fromkeys(ids)) if t]
+    if not targets:
+        raise NotFound('combatant_not_found')
+    save = action.get('save') or {}
+    ability = str(save.get('ability') or 'dex').lower()
+    dc = _int(save.get('dc'), 10)
+    damage = []
+    for expr, dtype in [(action.get('damage'), action.get('damageType') or 'force')] + [
+            (e.get('damage'), e.get('damageType') or action.get('damageType') or 'force')
+            for e in action.get('extraDamage') or [] if isinstance(e, dict)]:
+        if expr and str(expr) != '0':
+            r = engine.roll_dice(expr)
+            damage.append({'dice': str(expr), 'type': dtype, 'rolled': r['total'], 'rolls': r['rolls']})
+    sheet_mods = request.data.get('saveMods')
+    sheet_mods = sheet_mods if isinstance(sheet_mods, dict) else {}
+    out = []
+    for t in targets:
+        d20 = engine.roll_die(20)
+        mod = _save_mod(t, ability)
+        if t.get('type') == 'pc' and not t.get('wild_shape') and str(t.get('id')) in sheet_mods:
+            try:
+                mod = max(-10, min(30, int(sheet_mods[str(t.get('id'))])))
+            except (TypeError, ValueError):
+                pass
+        total = None if mod is None else d20 + mod
+        out.append({'id': t.get('id'), 'name': t.get('name'), 'd20': d20, 'rolls': [d20], 'modifier': mod,
+                    'total': total, 'success': total is not None and total >= dc})
+    available, reason = engine.action_availability(att, idx)
+    return Response({
+        'attackerId': att.get('id'), 'actionIndex': idx, 'actionName': _action_name(action),
+        'ability': ability, 'dc': dc, 'half': bool(save.get('halfOnSave')),
+        'conditions': [x for x in (save.get('conditions') or []) if x in engine.ALL_CONDITIONS],
+        'damage': damage, 'targets': out,
+        'available': available, 'unavailableReason': None if available else reason,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@action_sets
 def combat_player_attack(request, id_or_slug):
     """PC ataca alvo durante seu turno em combate.
 
@@ -1053,44 +1386,216 @@ def _sync_pc_to_character(combatant):
     char.save()
 
 
+# ============================================================
+# Próximo turno e ↶ Voltar turno (V4, especificação §4.7 C1)
+# ============================================================
+# O cliente manda `expect: {round, turnIndex}` (a vez que ele estava vendo). Se a
+# vez já mudou (2 toques com o servidor lento, outro aparelho do mestre), o
+# servidor responde 409 `stale_turn` SEM mexer em nada e devolve o combate atual.
+# A leitura e a gravação ficam numa transação que já começa com o lock de escrita
+# (o SQLite ignora o select_for_update), e a gravação ainda é um "compare-and-swap"
+# por `updated_at`: se outra escrita entrou no meio, relê e confere de novo.
+#
+# A entrada `next_turn` do action_log guarda a FOTO do fim do turno: a vez e a
+# rodada de antes (`from`) e, de cada combatente que `tick_effects`/`start_turn`
+# mudaram, os campos antes e depois (efeitos, condições com duração, recargas,
+# ações lendárias) — nunca imagens. "↶ Voltar turno" restaura essa foto: cada
+# campo só volta se ainda está como o próximo turno deixou (mexeram depois →
+# fica como está).
+TURN_PHOTO_FIELDS = ('effects', 'conditions', 'action_state', 'legendary')
+
+
+def _expect(data):
+    """`expect: {round, turnIndex}` do corpo → (round, turnIndex) ou None."""
+    raw = data.get('expect') if isinstance(data, dict) else None
+    if not isinstance(raw, dict):
+        return None
+    try:
+        return int(raw.get('round')), int(raw.get('turnIndex'))
+    except (TypeError, ValueError):
+        raise ValidationError({'error': 'invalid_expect'})
+
+
+def _stale(c):
+    from rest_framework import status
+    return Response({'error': 'stale_turn', 'combat': _serialize_combat(c, for_dm=True)}, status=status.HTTP_409_CONFLICT)
+
+
+def _turn_photo(before, after):
+    """Campos de turno que mudaram num combatente: {id, before, after} ou None."""
+    b = {k: before.get(k) for k in TURN_PHOTO_FIELDS}
+    a = {k: after.get(k) for k in TURN_PHOTO_FIELDS}
+    changed = [k for k in TURN_PHOTO_FIELDS if b[k] != a[k]]
+    if not changed:
+        return None
+    return {'id': after.get('id'), 'before': {k: b[k] for k in changed}, 'after': {k: a[k] for k in changed}}
+
+
+def _merge_photo(photo, p):
+    """Junta a foto de um combatente que mudou duas vezes (sozinho no combate:
+    fim e começo do turno dele): `before` fica o original, `after` o final."""
+    for x in photo:
+        if x['id'] == p['id']:
+            for k, v in p['before'].items():
+                x['before'].setdefault(k, v)
+            x['after'].update(p['after'])
+            return photo
+    photo.append(p)
+    return photo
+
+
+def _swap_turn(c, combatants, log, round_number, turn_index):
+    """Grava a vez nova só se ninguém escreveu no combate desde a leitura. → bool"""
+    now = timezone.now()
+    n = (CombatInstance.objects.filter(pk=c.pk, updated_at=c.updated_at)
+         .update(combatants=combatants, action_log=log, round_number=round_number, turn_index=turn_index,
+                 updated_at=now))
+    if n:
+        c.combatants, c.action_log, c.round_number, c.turn_index, c.updated_at = (
+            combatants, log, round_number, turn_index, now)
+    return bool(n)
+
+
+def _log_add(log, entry):
+    log.append({**entry, 'ts': timezone.now().isoformat()})
+    return log[-100:]
+
+
+def _turn_write(campaign, expect, compute):
+    """Lê o combate, confere a vez esperada e grava `compute(c)` com CAS (até 3
+    tentativas). compute(c) → (combatants, log, round, turn_index) ou uma Response."""
+    seen = None
+    for _ in range(3):
+        with transaction.atomic():
+            # Pega o lock de escrita ANTES de ler (como campaign_state.merge_state): no
+            # SQLite, dois Próximos ao mesmo tempo esperam um pelo outro e o 2º lê a vez
+            # nova (→ 409), em vez de travar os dois ("database is locked").
+            CombatInstance.objects.filter(campaign=campaign).update(turn_index=F('turn_index'))
+            c = CombatInstance.objects.select_for_update().filter(campaign=campaign).first()
+            if c is None:
+                c = _get_combat(campaign)
+            want = expect or seen
+            if want is not None and (c.round_number, c.turn_index) != want:
+                return _stale(c)
+            seen = (c.round_number, c.turn_index)
+            out = compute(c)
+            if isinstance(out, Response):
+                return out
+            if _swap_turn(c, *out):
+                return Response({'combat': _serialize_combat(c, for_dm=True)})
+    c = _get_combat(campaign)
+    return _stale(c)
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_next_turn(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
-    c = _get_combat(campaign)
-    combatants = list(c.combatants or [])
-    if not combatants:
-        return Response({'combat': _serialize_combat(c, for_dm=True)})
+    expect = _expect(request.data)
 
-    # Tick effects do combatente que terminou o turno (atual antes de avançar)
-    cur_idx = c.turn_index
-    if 0 <= cur_idx < len(combatants):
-        ticked = engine.tick_effects(combatants[cur_idx])
-        combatants[cur_idx] = ticked['combatant']
-        if ticked['expired']:
-            _append_log(c, {'type': 'effects_expired', 'target': combatants[cur_idx].get('name'), 'expired': ticked['expired']})
+    def compute(c):
+        combatants = [dict(x) for x in (c.combatants or [])]
+        if not combatants:
+            return Response({'combat': _serialize_combat(c, for_dm=True)})
+        log = list(c.action_log or [])
+        photo = []
+        # Tick effects do combatente que terminou o turno (atual antes de avançar)
+        cur_idx = c.turn_index
+        if 0 <= cur_idx < len(combatants):
+            before = combatants[cur_idx]
+            ticked = engine.tick_effects(before)
+            combatants[cur_idx] = ticked['combatant']
+            p = _turn_photo(before, combatants[cur_idx])
+            if p:
+                photo.append(p)
+            if ticked['expired']:
+                log = _log_add(log, {'type': 'effects_expired', 'target': combatants[cur_idx].get('name'), 'expired': ticked['expired']})
 
-    next_idx = (cur_idx + 1) % len(combatants)
-    next_round = c.round_number + 1 if next_idx == 0 else c.round_number
-    c.turn_index = next_idx
-    c.round_number = next_round
-    _append_log(c, {'type': 'next_turn', 'round': next_round, 'index': next_idx, 'whose': combatants[next_idx].get('name')})
+        next_idx = (cur_idx + 1) % len(combatants)
+        next_round = c.round_number + 1 if next_idx == 0 else c.round_number
 
-    # Início do turno do monstro: rola recarga (d6) e restaura ações lendárias.
-    nxt = combatants[next_idx]
-    if nxt.get('type') == 'monster':
-        started = engine.start_turn(nxt)
-        combatants[next_idx] = started['combatant']
-        if started['recharge_rolls']:
-            _append_log(c, {'type': 'recharge', 'target': nxt.get('name'), 'rolls': started['recharge_rolls']})
-    c.combatants = combatants
-    c.save()
-    return Response({'combat': _serialize_combat(c, for_dm=True)})
+        # Início do turno do monstro: rola recarga (d6) e restaura ações lendárias.
+        nxt = combatants[next_idx]
+        recharge = None
+        if nxt.get('type') == 'monster':
+            started = engine.start_turn(nxt)
+            combatants[next_idx] = started['combatant']
+            p = _turn_photo(nxt, combatants[next_idx])
+            if p:
+                photo = _merge_photo(photo, p)
+            if started['recharge_rolls']:
+                recharge = {'type': 'recharge', 'target': nxt.get('name'), 'rolls': started['recharge_rolls']}
+        # `from.id`: quem tinha a vez (o Voltar turno acha a pessoa, não a posição).
+        was = combatants[cur_idx].get('id') if 0 <= cur_idx < len(combatants) else None
+        log = _log_add(log, {'type': 'next_turn', 'round': next_round, 'index': next_idx,
+                             'whose': combatants[next_idx].get('name'),
+                             'from': {'round': c.round_number, 'index': cur_idx, 'id': was}, 'photo': photo})
+        if recharge:
+            log = _log_add(log, recharge)
+        return combatants, log, next_round, next_idx
+
+    return _turn_write(campaign, expect, compute)
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@action_sets
+def combat_prev_turn(request, id_or_slug):
+    """↶ Voltar turno: restaura a foto guardada pelo último Próximo turno."""
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    expect = _expect(request.data)
+
+    def compute(c):
+        log = [dict(e) if isinstance(e, dict) else e for e in (c.action_log or [])]
+        pos = next((i for i in range(len(log) - 1, -1, -1)
+                    if isinstance(log[i], dict) and log[i].get('type') == 'next_turn'
+                    and isinstance(log[i].get('from'), dict) and not log[i].get('undone')), None)
+        entry = log[pos] if pos is not None else None
+        # A foto só vale se a vez ainda é a que aquele Próximo turno deixou.
+        if not entry or (entry.get('round'), entry.get('index')) != (c.round_number, c.turn_index):
+            return Response({'error': 'nothing_to_undo', 'combat': _serialize_combat(c, for_dm=True)}, status=409)
+        combatants = [dict(x) for x in (c.combatants or [])]
+        # A vez volta para QUEM a tinha (pelo id): se essa pessoa saiu do combate (ou a
+        # vez de antes já apontava para fora da lista), não há para onde voltar.
+        back = entry['from']
+        if 'id' in back:
+            idx = next((k for k, x in enumerate(combatants) if back['id'] is not None and x.get('id') == back['id']), None)
+        else:   # entrada de antes desta versão: só a posição
+            idx = back.get('index') if isinstance(back.get('index'), int) and back['index'] >= 0 else None
+        if idx is None or idx >= len(combatants):
+            return Response({'error': 'nothing_to_undo', 'combat': _serialize_combat(c, for_dm=True)}, status=409)
+        kept = []
+        for p in entry.get('photo') or []:
+            i = next((k for k, x in enumerate(combatants) if x.get('id') == p.get('id')), None)
+            if i is None:
+                continue
+            cb = combatants[i]
+            for field, old in (p.get('before') or {}).items():
+                if field not in TURN_PHOTO_FIELDS:
+                    continue
+                if cb.get(field) != (p.get('after') or {}).get(field):
+                    kept.append(field)       # mexeram depois: fica como está
+                    continue
+                if old is None:
+                    cb.pop(field, None)
+                else:
+                    cb[field] = old
+        log[pos] = {**entry, 'undone': True}
+        rnd = max(1, int(back.get('round') or 1))
+        whose = combatants[idx].get('name')
+        log = _log_add(log, {'type': 'prev_turn', 'round': rnd, 'index': idx, 'whose': whose,
+                             **({'kept': sorted(set(kept))} if kept else {})})
+        return combatants, log, rnd, idx
+
+    return _turn_write(campaign, expect, compute)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@action_sets
 def combat_set_map(request, id_or_slug):
     """Define o mapa (background base64, grid). DM only."""
     campaign = get_campaign_or_404(id_or_slug)
@@ -1118,7 +1623,84 @@ def combat_set_map(request, id_or_slug):
             map_data[k] = None if v in (None, '') else max(1, min(10000, _int(v, 1)))
     c.map_data = map_data
     c.save()
+    if 'background_image' in payload:
+        # A versão do fundo vai ao estado (1 escrita por troca de mapa, toque do mestre):
+        # a barra da mesa, a janela do PC e Jogar › Tela mostram o mapa por
+        # map-image?v=<ver> sem que o pulso leia o base64. '' = sem mapa.
+        ver = image_ver(map_data.get('background_image') or '')
+        if (campaign.state or {}).get(MAP_VER_KEY) != ver:
+            merge_state(campaign, {MAP_VER_KEY: ver})
     return Response({'combat': _serialize_combat(c, for_dm=True)})
+
+
+def _member_campaign(request, id_or_slug):
+    """Campanha só com o necessário para a permissão (as rotas de imagem não
+    carregam a capa nem o estado)."""
+    qs = Campaign.objects.only('id', 'dm_id', 'slug')
+    obj = (qs.filter(id=id_or_slug).first() if str(id_or_slug).isdigit() else None) or qs.filter(slug=id_or_slug).first()
+    if not obj:
+        raise NotFound('campaign_not_found')
+    require_member(request.user, obj)
+    return obj
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def combat_map_image(request, id_or_slug):
+    """GET /combat/campaign/:id/map-image?v= (membros) — o fundo do mapa como
+    binário (o JSON do combate leva só `map.backgroundUrl`)."""
+    campaign = _member_campaign(request, id_or_slug)
+    c = CombatInstance.objects.filter(campaign=campaign).only('map_data').first()
+    bg = ((c.map_data if c else None) or {}).get('background_image')
+    if not bg:
+        raise NotFound('not_found')
+    return image_response(request, bg)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def combat_actions(request, id_or_slug, ref):
+    """GET /combat/campaign/:id/actions/<ref> (mestre) — as ações de um stat block do
+    combate pelo `stats.actionsRef`. O mesmo ref é sempre o mesmo conteúdo: cache de
+    1 ano e 304 pelo ETag sem ler o combate. Ref que não está no combate → 404 (o app
+    então lê o combate inteiro, sem ?sets)."""
+    qs = Campaign.objects.only('id', 'dm_id', 'slug')
+    campaign = (qs.filter(id=id_or_slug).first() if str(id_or_slug).isdigit() else None) or qs.filter(slug=id_or_slug).first()
+    if not campaign:
+        raise NotFound('campaign_not_found')
+    require_dm(request.user, campaign)
+    etag = f'"{ref}"'
+    cache = 'private, max-age=31536000, immutable'
+    if etag in [t.strip() for t in request.META.get('HTTP_IF_NONE_MATCH', '').split(',')]:
+        resp = HttpResponseNotModified()
+        resp['ETag'], resp['Cache-Control'] = etag, cache
+        return resp
+    c = CombatInstance.objects.filter(campaign=campaign).only('combatants').first()
+    for cb in (c.combatants if c else None) or []:
+        acts = ((cb.get('stats') or {}) if isinstance(cb, dict) else {}).get('actions')
+        if isinstance(acts, list) and acts and actions_ref(acts) == ref:
+            resp = Response({'ref': ref, 'actions': acts})
+            resp['ETag'], resp['Cache-Control'] = etag, cache
+            return resp
+    raise NotFound('not_found')
+
+
+def token_sprite(combat, combatant_id):
+    """A imagem própria (data URL) do token, ou None."""
+    cb = engine.find_combatant((combat.combatants if combat else None) or [], combatant_id)
+    sprite = (cb or {}).get('sprite')
+    return sprite if isinstance(sprite, str) and sprite.startswith('data:') else None
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def combat_token_image(request, id_or_slug, combatant_id):
+    """GET /combat/campaign/:id/token/<cid>?v= (membros) — a imagem do token."""
+    campaign = _member_campaign(request, id_or_slug)
+    sprite = token_sprite(CombatInstance.objects.filter(campaign=campaign).only('combatants').first(), combatant_id)
+    if not sprite:
+        raise NotFound('not_found')
+    return image_response(request, sprite)
 
 
 # ============================================================
@@ -1131,10 +1713,18 @@ def roll_create(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_member(request.user, campaign)
     body = request.data
+    # O personagem do pedido (a Tela mostra o nome dele, não o do usuário): o que
+    # veio, se é de quem pede; senão o da ficha da vaga.
+    char_id = body.get('characterId')
+    if char_id is not None and not Character.objects.filter(pk=char_id, owner=request.user).exists():
+        char_id = None
+    if char_id is None:
+        char_id = (Membership.objects.filter(campaign=campaign, user=request.user)
+                   .values_list('character_id', flat=True).first())
     rr = RollRequest.objects.create(
         campaign=campaign,
         requested_by=request.user,
-        character_id=body.get('characterId'),
+        character_id=char_id,
         label=(body.get('label') or '')[:120],
         dice_type=body.get('diceType') or 'd20',
         count=int(body.get('count') or 1),
@@ -1166,22 +1756,36 @@ def roll_list_recent(request, id_or_slug):
     require_member(request.user, campaign)
     qs = RollRequest.objects.filter(campaign=campaign).exclude(status='pending').select_related('requested_by', 'requested_by__profile')
     dm = is_dm(request.user, campaign)
+    if dm and request.query_params.get('table') == '1':
+        # Testes › 🎲 Rolagens na Tela: as rolagens de mesa (📺 e 🔒), a mais nova primeiro.
+        # Com a sessão ao vivo, só as desta sessão (desde o startedAt dela); sem sessão,
+        # as 30 mais novas.
+        qs = (qs.filter(note__startswith=table_rolls.PREFIX).select_related('character')
+              .order_by('-resolved_at', '-id'))
+        started = _live_session_start(campaign)
+        if started is not None:
+            qs = qs.filter(resolved_at__gte=started)
+        return Response({'rolls': [table_rolls.dm_row(r, _serialize_roll(r, for_dm=True)) for r in qs[:30]]})
+    # O Histórico de rolagens continua só com os pedidos (as rolagens de mesa têm o filtro delas).
+    qs = qs.exclude(note__startswith=table_rolls.PREFIX)
     if not dm:
         from django.db.models import Q
         qs = qs.filter(Q(status='public') | Q(requested_by=request.user))
     return Response({'rolls': [_serialize_roll(r, for_dm=dm) for r in qs[:30]]})
 
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
-@authentication_classes([])
-def roll_public_screen(request, token):
-    """Rota pública (telão): últimas rolagens com status=public da campanha."""
-    campaign = Campaign.objects.filter(screen_token=token).first()
-    if not campaign:
-        raise NotFound('not_found')
-    qs = RollRequest.objects.filter(campaign=campaign, status='public').select_related('requested_by', 'requested_by__profile')[:5]
-    return Response({'rolls': [_serialize_roll(r) for r in qs]})
+def _live_session_start(campaign):
+    """Início da sessão ao vivo (state.diarySessions[session].startedAt) ou None."""
+    state = campaign.state if isinstance(campaign.state, dict) else {}
+    meta = state.get('diarySessions') if isinstance(state.get('diarySessions'), dict) else {}
+    cur = meta.get(str(state.get('session') or ''))
+    if not state.get('live') or not isinstance(cur, dict) or not isinstance(cur.get('startedAt'), str):
+        return None
+    try:
+        dt = parse_datetime(cur['startedAt'])
+    except ValueError:
+        return None
+    return timezone.make_aware(dt) if dt is not None and timezone.is_naive(dt) else dt
 
 
 @api_view(['POST'])

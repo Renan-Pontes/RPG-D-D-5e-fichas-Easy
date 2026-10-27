@@ -507,6 +507,7 @@ def session_plan(request, id_or_slug):
         settings = dict(fresh.dm_settings or {})
         plan = _run(R.merged_session_plan, settings.get('sessionPlan'), patch)
         settings['sessionPlan'] = plan
+        settings['planRev'] = timezone.now().isoformat()   # o pulso do mestre (V4) lê só isto
         Campaign.objects.filter(pk=fresh.pk).update(dm_settings=settings)
     return Response({'plan': plan})
 

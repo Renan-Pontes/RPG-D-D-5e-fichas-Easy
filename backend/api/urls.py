@@ -9,6 +9,8 @@ from . import views_ready
 from . import views_share
 from . import views_admin
 from . import views_plans
+from . import views_insights
+from . import views_pulse
 from .plans import closed_guard
 from . import views_auth, views_characters, views_campaigns, views_approvals, views_dice, views_screen, views_combat, views_inventory, views_items, views_diary
 
@@ -82,6 +84,13 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/state', closed_guard(_wp2('views_campaigns', 'campaign_state_patch'), 'campaign')),
     path('campaigns/<str:id_or_slug>/cover', closed_guard(_wp2('views_campaigns', 'campaign_cover'), 'campaign')),
     path('campaigns/<str:id_or_slug>/screen-card', closed_guard(_wp2('views_campaigns', 'campaign_screen_card'), 'campaign')),
+    # Palco da Tela (frente, fundo, ↶, 🧹, ◐) e a imagem da frente (V3, api/stage.py)
+    path('campaigns/<str:id_or_slug>/stage', closed_guard(views_campaigns.campaign_stage, 'campaign')),
+    path('campaigns/<str:id_or_slug>/stage-image', views_campaigns.campaign_stage_image),
+    # pulso do mestre (V4): no lugar do GET completo no polling; 304 parado
+    path('campaigns/<str:id_or_slug>/pulse', views_pulse.campaign_pulse),
+    # foto do personagem de uma vaga (V9: o GET da campanha leva só `avatarUrl`)
+    path('campaigns/<str:id_or_slug>/members/<int:membership_id>/avatar', views_campaigns.campaign_member_avatar),
 
     # Mundo da campanha (lugares, NPCs, facções, itens, lore, documentos)
     path('campaigns/<str:id_or_slug>/world', closed_guard(views_world.world_list, 'campaign')),
@@ -90,6 +99,8 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/world/seen', views_world.world_seen),
     path('campaigns/<str:id_or_slug>/world/echoes', closed_guard(views_world.world_echoes, 'campaign')),
     path('campaigns/<str:id_or_slug>/session-plan', closed_guard(views_world.session_plan, 'campaign')),
+    path('campaigns/<str:id_or_slug>/party-insights', closed_guard(views_insights.party_insights, 'campaign')),
+    path('campaigns/<str:id_or_slug>/party-insights/history', views_insights.party_insights_history),
     path('world/<int:pk>', closed_guard(views_world.world_detail, 'world')),
     path('world/<int:pk>/image', closed_guard(views_world.world_image, 'world')),
     path('world/<int:pk>/reveal', closed_guard(views_world.world_reveal, 'world')),
@@ -137,6 +148,8 @@ urlpatterns = [
     path('shares/<str:token>', views_share.share_get),
 
     path('dice/roll', views_dice.dice_roll),
+    # V15: a rolagem da ficha (já rolada no aparelho) na fila da Tela
+    path('characters/<int:pk>/table-roll', closed_guard(views_dice.sheet_roll, 'character')),
     path('dice/campaign/<str:id_or_slug>/rigs', closed_guard(views_dice.campaign_rigs, 'campaign')),
     path('dice/campaign/<str:id_or_slug>/log', closed_guard(views_dice.campaign_dice_log, 'campaign')),
     path('dice/rigs/<int:pk>', closed_guard(views_dice.rig_detail, 'rig')),
@@ -156,10 +169,13 @@ urlpatterns = [
 
     # Screen (público)
     path('screen/<str:token>', views_screen.screen),
-    path('screen/<str:token>/rolls', views_combat.roll_public_screen),
     path('screen/<str:token>/image/<int:entry_id>', _wp2('views_screen', 'screen_image')),
     path('screen/<str:token>/cover', _wp2('views_screen', 'screen_cover')),
     path('screen/<str:token>/map', views_screen.screen_map),
+    path('screen/<str:token>/stage-image', views_screen.screen_stage_image),
+    # foto do personagem e imagem do token por URL (V9: nada de base64 no JSON da Tela)
+    path('screen/<str:token>/portrait/<int:char_id>', views_screen.screen_portrait),
+    path('screen/<str:token>/token/<str:combatant_id>', views_screen.screen_token_image),
 
     # Combat
     path('combat/campaign/<str:id_or_slug>', closed_guard(views_combat.combat_get, 'campaign')),
@@ -171,8 +187,16 @@ urlpatterns = [
     path('combat/campaign/<str:id_or_slug>/action', closed_guard(views_combat.combat_action, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/player-attack', closed_guard(views_combat.combat_player_attack, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/attack-preview', closed_guard(_wp2('views_combat', 'combat_attack_preview'), 'campaign')),
+    # salvaguarda em área rolada no servidor, sem aplicar (V10)
+    path('combat/campaign/<str:id_or_slug>/save-preview', closed_guard(views_combat.combat_save_preview, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/next-turn', closed_guard(views_combat.combat_next_turn, 'campaign')),
+    path('combat/campaign/<str:id_or_slug>/prev-turn', closed_guard(views_combat.combat_prev_turn, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/map', closed_guard(views_combat.combat_set_map, 'campaign')),
+    # fundo do mapa e imagens dos tokens por URL (V9; o JSON do combate só leva as URLs)
+    path('combat/campaign/<str:id_or_slug>/map-image', views_combat.combat_map_image),
+    path('combat/campaign/<str:id_or_slug>/token/<str:combatant_id>', views_combat.combat_token_image),
+    # as ações dos stat blocks pelo hash (o JSON do combate com ?sets=1 só leva `stats.actionsRef`)
+    path('combat/campaign/<str:id_or_slug>/actions/<str:ref>', views_combat.combat_actions),
 
     # RollRequest
     path('rolls/campaign/<str:id_or_slug>', closed_guard(views_combat.roll_create, 'campaign')),

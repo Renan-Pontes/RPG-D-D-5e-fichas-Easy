@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { api } from '../api/client.js';
+import { api, apiUrl } from '../api/client.js';
 import { flash } from '../play/flash.js';
 import { labelWidths, tokenLabel } from './token-label.js';
 import { loadNameIndex, needsNameIndex, portraitFor } from '../combat/monster-portrait.js';
@@ -45,8 +45,12 @@ const SIZES = [
  *   gestos nem ferramentas — o desenho é o mesmo de antes, pixel a pixel.
  *
  * Desenho: fundo (contain), grade, tokens (PNG ou círculo com inicial), brilho
- * dourado no token da vez, seleção, barra de PV, nome, X em derrotado e anel
- * vermelho com PV crítico; redesenha a cada 700 ms.
+ * dourado no token da vez, quem já agiu na rodada esmaecido, seleção, barra de
+ * PV, nome, X em derrotado e anel vermelho com PV crítico. Redesenha só quando
+ * algo muda (combate, imagens que chegam, fontes, zoom, seleção, arraste):
+ * parado, o canvas não desenha nada (V9; antes, a cada 700 ms).
+ * Fundo e imagens dos tokens vêm por URL (`map.backgroundUrl`, `sprite`), com
+ * cache do navegador — nunca base64 a cada poll.
  */
 export default function CombatGrid(props) {
   return props.readOnly ? <ReadOnlyGrid {...props} /> : <LiveGrid {...props} />;
@@ -59,12 +63,13 @@ function useMapImages(combat) {
   const [bgImage, setBgImage] = useState(null);
   const [tokenImages, setTokenImages] = useState({}); // id -> HTMLImageElement
 
+  const bgSrc = apiUrl(map.backgroundUrl || map.background_image);
   useEffect(() => {
-    if (!map.background_image) { setBgImage(null); return; }
+    if (!bgSrc) { setBgImage(null); return; }
     const img = new Image();
     img.onload = () => setBgImage(img);
-    img.src = map.background_image;
-  }, [map.background_image]);
+    img.src = bgSrc;
+  }, [bgSrc]);
 
   // Índice nome → retrato (só quando algum monstro não traz o id, ex.: telão/jogador).
   const [nameIndex, setNameIndex] = useState(null);
@@ -81,7 +86,7 @@ function useMapImages(combat) {
   useEffect(() => {
     const next = {};
     (combat?.combatants || []).forEach(c => {
-      const src = c.sprite || portraitFor(c, nameIndex);
+      const src = apiUrl(c.sprite) || portraitFor(c, nameIndex);
       if (!src) return;
       let img = imgCache.current.get(src);
       if (!img) {
@@ -101,6 +106,21 @@ function useMapImages(combat) {
   }, [combat, nameIndex]);
 
   return { bgImage, tokenImages };
+}
+
+/** As fontes (Cinzel, EB Garamond) chegam depois do 1º desenho: desenha de novo uma vez. */
+function useFontsRedraw(redraw) {
+  const ref = useRef(redraw);
+  ref.current = redraw;
+  useEffect(() => {
+    const fonts = typeof document !== 'undefined' ? document.fonts : null;
+    if (!fonts) return undefined;
+    let alive = true;
+    const go = () => { if (alive) ref.current(); };
+    fonts.ready?.then(go).catch(() => {});
+    fonts.addEventListener?.('loadingdone', go);
+    return () => { alive = false; fonts.removeEventListener?.('loadingdone', go); };
+  }, []);
 }
 
 function mapInfo(combat) {
@@ -189,6 +209,8 @@ function drawScene(ctx, { W, H, combat, posOf = defaultPos, bgImage, tokenImages
     const size = gridSize * scale;
     const { x, y } = posOf(c);
     const isCurrent = i === turnIdx;
+    // Quem já agiu nesta rodada (antes da vez, na ordem) fica esmaecido.
+    const acted = !!combat?.active && turnIdx >= 0 && i < turnIdx;
     const isSel = selectedId != null && selectedId === c.id;
     const hpPct = c.stats?.max_hp && c.current_hp != null
       ? Math.max(0, Math.min(1, (c.current_hp || 0) / c.stats.max_hp))
@@ -196,6 +218,7 @@ function drawScene(ctx, { W, H, combat, posOf = defaultPos, bgImage, tokenImages
     const isCrit = hpPct <= 0.3 && !c.defeated;
 
     ctx.save();
+    if (acted && !isSel) ctx.globalAlpha = 0.55;
     // Sombra
     ctx.shadowBlur = blur(isCurrent ? 24 : 8);
     ctx.shadowColor = isCurrent ? tok('--gold') : 'rgba(0,0,0,0.6)';
@@ -205,7 +228,7 @@ function drawScene(ctx, { W, H, combat, posOf = defaultPos, bgImage, tokenImages
       ctx.beginPath();
       ctx.arc(x, y, size / 2, 0, Math.PI * 2);
       ctx.clip();
-      if (c.defeated) ctx.globalAlpha = 0.45;
+      if (c.defeated) ctx.globalAlpha = Math.min(ctx.globalAlpha, 0.45);
       // Retrato retangular: recorta o centro (cover) para não achatar.
       const iw = img.naturalWidth, ih = img.naturalHeight, side = Math.min(iw, ih);
       ctx.drawImage(img, (iw - side) / 2, (ih - side) / 2, side, side, x - size / 2, y - size / 2, size, size);
@@ -321,12 +344,10 @@ function ReadOnlyGrid({ combat }) {
     drawScene(ctx, { W, H, combat, bgImage, tokenImages, gridSize, gridVisible });
   }, [combat, bgImage, tokenImages, W, H, gridSize, gridVisible]);
 
+  // Desenha quando algo do desenho muda (a Tela passa o mesmo `combat` enquanto
+  // nada muda no servidor) e quando as fontes chegam; parado, nada.
   useEffect(() => { draw(); }, [draw]);
-  // Re-draw periódico (PV crítico, retratos que chegam depois)
-  useEffect(() => {
-    const id = setInterval(draw, 700);
-    return () => clearInterval(id);
-  }, [draw]);
+  useFontsRedraw(draw);
 
   return (
     <div className="combat-grid-wrapper">
@@ -367,7 +388,7 @@ function LiveGrid({ combat, campaignId, lang, onChange, selectedId, setSelectedI
   const coarse = useMedia('(pointer: coarse)');
   const [toolsOpen, setToolsOpen] = useState(false);
   const [hover, setHover] = useState(null);
-  const [, redraw] = useState(0);
+  const [nonce, redraw] = useState(0);
 
   // Posição provisória enquanto arrasta; depois de soltar, a posição salva fica
   // valendo até o servidor devolver a mesma (sem o token "voltar" por um instante).
@@ -461,11 +482,18 @@ function LiveGrid({ combat, campaignId, lang, onChange, selectedId, setSelectedI
   };
   const drawRef = useRef(draw);
   drawRef.current = draw;
-  useEffect(() => { drawRef.current(); });
+  // Desenha só quando algo do desenho mudou desde o último (o Combate pode
+  // redesenhar a página por outros motivos): parado, o canvas fica quieto.
+  const lastKey = useRef(null);
   useEffect(() => {
-    const id = setInterval(() => drawRef.current(), 700);
-    return () => clearInterval(id);
-  }, []);
+    const key = [combat, bgImage, tokenImages, W, H, gridSize, gridVisible, selectedId, drag, nonce,
+      pz.scale, pz.view.x, pz.view.y, pz.box.w, pz.box.h, dpr];
+    const prev = lastKey.current;
+    if (prev && prev.every((v, i) => v === key[i])) return;
+    lastKey.current = key;
+    drawRef.current();
+  });
+  useFontsRedraw(() => drawRef.current());
 
   // cursor do mouse: mãozinha sobre o token, "mover" no fundo ampliado
   const onHover = (e) => {
@@ -532,7 +560,7 @@ function LiveGrid({ combat, campaignId, lang, onChange, selectedId, setSelectedI
       </p>
 
       {!wide && toolsOpen && (
-        <MesaSheet title={t(lang, 'Ferramentas do mapa', 'Map tools')} icon="🛠" size="auto" width="sm" lang={lang}
+        <MesaSheet title={t(lang, 'Ferramentas do mapa', 'Map tools')} icon="🛠" size="auto" width="sm" lang={lang} dock="play"
           onClose={() => setToolsOpen(false)} className="cg-tools-sheet"
           footer={(
             <div className="mesa-actions">

@@ -269,7 +269,7 @@ export function NudgeBell({ campaign, combat, lang, onChange, compact = false })
         </div>
       )}
       {open && narrow && (
-        <MesaSheet title={L(lang, 'Avisos', 'Notices')} icon="🔔" size="auto" width="sm" lang={lang}
+        <MesaSheet title={L(lang, 'Avisos', 'Notices')} icon="🔔" size="auto" width="sm" lang={lang} dock="play"
           onClose={() => setOpen(false)} className="nudge-sheet">
           <p className="mesa-sheet-text">{L(lang, 'Só sugestões: nada é aplicado sem o seu toque.', 'Suggestions only: nothing is applied without your tap.')}</p>
           <NudgeList nudges={nudges} lang={lang} />

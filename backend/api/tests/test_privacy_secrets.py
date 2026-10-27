@@ -89,7 +89,7 @@ class RiggedDiceNeverReachesPlayerTests(PrivacyBase):
         self.assertEqual(r.status_code, 200, r.content)
         self.assertEqual(r.json()['results'][0]['value'], 1)
         self.assertNoRigLeak(r.json(), '/dice/roll')
-        self.assertEqual(r.json()['results'][0], {'value': 1})   # nem o id da DiceRig
+        self.assertEqual(r.json()['results'][0], {'value': 1, 'die': 'd20', 'kept': True})   # nem o id da DiceRig
         self.assertTrue(DiceRig.objects.get(pk=rig.pk).values[0]['consumed'])
         # o mestre continua vendo no histórico
         log = self.c_dm.get(f'/api/dice/campaign/{self.camp.id}/log').json()['log']
@@ -135,8 +135,11 @@ class RiggedDiceNeverReachesPlayerTests(PrivacyBase):
             for url in (f'/api/rolls/campaign/{self.camp.id}/recent', f'/api/rolls/campaign/{self.camp.id}/pending'):
                 self.assertNoRigLeak(client.get(url).json(), f'{who} {url}')
         tok = self.camp.screen_token
-        self.assertNoRigLeak(self.anon.get(f'/api/screen/{tok}/rolls').json(), 'telão /rolls')
-        self.assertNoRigLeak(self.anon.get(f'/api/screen/{tok}').json(), 'telão publicRolls')
+        # o /screen/<t>/rolls (código morto) saiu na V10; as rolagens vão no GET da Tela
+        self.assertEqual(self.anon.get(f'/api/screen/{tok}/rolls').status_code, 404)
+        screen = self.anon.get(f'/api/screen/{tok}').json()
+        self.assertTrue(screen['rolls'], 'a rolagem pública está na janela da Tela')
+        self.assertNoRigLeak(screen, 'telão rolls/publicRolls')
         dm_recent = self.c_dm.get(f'/api/rolls/campaign/{self.camp.id}/recent').json()['rolls']
         self.assertTrue(dm_recent[0]['rigged'])
 

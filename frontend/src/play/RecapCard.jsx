@@ -1,13 +1,14 @@
 // "Anteriormente em…" — rascunho editável montado a partir da Crônica (sem IA).
-// Só aparece quando o mestre toca no botão; ir ao telão é outro toque.
-// asSheet: abre numa folha da mesa (Jogar › Cena), com "📺 Mostrar no telão"
-// preso no rodapé; sem asSheet, fica dentro da página (Jogar › Telão).
+// Só aparece quando o mestre toca no botão; ir à Tela é outro toque (o palco:
+// a frente vira o "Anteriormente em…", com o aviso "Na tela ✓ · ↶ Desfazer").
+// asSheet: abre numa folha da mesa (Jogar › Cena), com "📺 Mostrar na Tela"
+// preso no rodapé; sem asSheet, fica dentro da página (Jogar › Tela › Texto).
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { buildRecap, groupEntries, pickRecapGroup } from '../campaigns/diary-summary.js';
 import MesaSheet from '../shell/MesaSheet.jsx';
-import { setScreenCard } from './play-api.js';
+import { sendToStage, showOnStage } from '../stage/stage-api.js';
 import { flash } from './flash.js';
 import './play-styles.css';
 
@@ -39,12 +40,10 @@ export default function RecapCard({ campaign, lang = 'pt', autoDraft = false, on
   const show = async () => {
     setBusy(true);
     try {
-      await setScreenCard(campaign.id, { type: 'recap', title: recap.title, text: recap.text });
-      flash(L(lang, 'Recapitulação no telão.', 'Recap on screen.'));
-      setTouched(false);
-      onShown?.();
-    } catch (e) {
-      flash(errorMessage(e, lang), { error: true });
+      const r = await sendToStage(campaign.id,
+        () => showOnStage(campaign.id, { kind: 'recap', title: recap.title, text: recap.text }),
+        { lang, name: L(lang, 'Anteriormente em…', 'Previously on…') });
+      if (r) { setTouched(false); onShown?.(); }
     } finally { setBusy(false); }
   };
 
@@ -52,7 +51,7 @@ export default function RecapCard({ campaign, lang = 'pt', autoDraft = false, on
   const canShow = !busy && !!(recap.title.trim() || recap.text.trim());
   const showBtn = (
     <button type="button" className="mesa-btn is-primary recap-show" disabled={!canShow} onClick={show}>
-      📺 {L(lang, 'Mostrar no telão', 'Show on screen')}
+      📺 {L(lang, 'Mostrar na Tela', 'Show on screen')}
     </button>
   );
   const body = (
@@ -68,19 +67,19 @@ export default function RecapCard({ campaign, lang = 'pt', autoDraft = false, on
       <label className="mesa-field">
         <span className="mesa-field-label">{L(lang, 'Texto', 'Text')}</span>
         <textarea className="input recap-text" rows={6} maxLength={5000} value={recap.text} onChange={e => edit({ text: e.target.value })}
-          placeholder={L(lang, 'O que aconteceu na última sessão… (leia em voz alta ou mostre no telão)', 'What happened last session… (read it aloud or show it on screen)')} />
+          placeholder={L(lang, 'O que aconteceu na última sessão… (leia em voz alta ou mostre na Tela)', 'What happened last session… (read it aloud or show it on screen)')} />
       </label>
     </>
   );
 
   if (asSheet) {
     return (
-      <MesaSheet title={L(lang, 'Anteriormente em…', 'Previously on…')} icon="📜" size="tall" width="md" lang={lang}
+      <MesaSheet title={L(lang, 'Anteriormente em…', 'Previously on…')} icon="📜" size="tall" width="md" lang={lang} dock="play"
         onClose={onClose} dirty={touched}
-        dirtyText={L(lang, 'O texto que você mexeu não foi para o telão e não fica guardado.', 'The text you edited did not go to the screen and is not kept.')}
+        dirtyText={L(lang, 'O texto que você mexeu não foi para a Tela e não fica guardado.', 'The text you edited did not go to the screen and is not kept.')}
         bodyClassName="recap-card is-sheet"
         footer={<div className="mesa-actions recap-foot">{showBtn}</div>}>
-        <p className="mesa-sheet-text">{L(lang, 'Um rascunho montado da Crônica. Ajuste, leia em voz alta ou mostre no telão.', 'A draft built from the Chronicle. Tweak it, read it aloud or show it on screen.')}</p>
+        <p className="mesa-sheet-text">{L(lang, 'Um rascunho montado da Crônica. Ajuste, leia em voz alta ou mostre na Tela.', 'A draft built from the Chronicle. Tweak it, read it aloud or show it on screen.')}</p>
         {body}
       </MesaSheet>
     );

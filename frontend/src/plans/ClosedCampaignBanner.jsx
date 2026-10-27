@@ -2,6 +2,7 @@
 // data limite + botões de baixar a ficha (PDF/JSON). O jogador vê as próprias
 // fichas; o mestre vê as de toda a mesa e pode reabrir a campanha.
 import { useState } from 'react';
+import { apiUrl } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { L, closedInfo, closedText, isSponsored } from './plans-logic.js';
 import { plansApi, showPlanLimit } from './plans-api.js';
@@ -18,8 +19,26 @@ export function downloadableSheets(campaign, isDM, userId = myId()) {
       name: m.character.name || m.character.data.name || '',
       sponsored: isSponsored(m),
       owner: m.user?.displayName || '',
+      avatarUrl: m.character.avatarUrl || '',
       char: { ...m.character.data, id: m.character.id, name: m.character.name || m.character.data.name },
     }));
+}
+
+/** A foto vem por URL no GET da campanha (V9): a ficha baixada busca a foto para ir inteira. */
+export async function sheetWithPhoto(s) {
+  if (s.char.avatar || !s.avatarUrl) return s.char;
+  try {
+    const res = await fetch(apiUrl(s.avatarUrl), { credentials: 'include' });
+    if (!res.ok) return s.char;
+    const blob = await res.blob();
+    const avatar = await new Promise((ok, fail) => {
+      const r = new FileReader();
+      r.onload = () => ok(r.result);
+      r.onerror = fail;
+      r.readAsDataURL(blob);
+    });
+    return { ...s.char, avatar };
+  } catch { return s.char; }
 }
 
 export async function downloadSheetPdf(char, lang) {
@@ -46,7 +65,7 @@ export default function ClosedCampaignBanner({ campaign, lang = 'pt', isDM = fal
 
   const pdf = async (s) => {
     setBusy(`pdf-${s.id}`); setMsg('');
-    try { await downloadSheetPdf(s.char, lang); }
+    try { await downloadSheetPdf(await sheetWithPhoto(s), lang); }
     catch (e) { console.error(e); setMsg(L(lang, 'Não deu para gerar o PDF. Tente o JSON.', 'Could not create the PDF. Try the JSON.')); }
     finally { setBusy(''); }
   };
@@ -81,7 +100,7 @@ export default function ClosedCampaignBanner({ campaign, lang = 'pt', isDM = fal
                   <button type="button" className="btn btn-primary btn-sm" disabled={!!busy} onClick={() => pdf(s)}>
                     {busy === `pdf-${s.id}` ? '…' : L(lang, '⬇ PDF', '⬇ PDF')}
                   </button>
-                  <button type="button" className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => downloadSheetJson(s.char)}>⬇ JSON</button>
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={!!busy} onClick={async () => downloadSheetJson(await sheetWithPhoto(s))}>⬇ JSON</button>
                 </span>
               </li>
             ))}

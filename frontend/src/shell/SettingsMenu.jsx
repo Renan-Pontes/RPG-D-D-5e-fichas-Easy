@@ -1,5 +1,5 @@
 // ⚙ Ajustes da campanha (DESIGN 1.2): identidade (nome, frase, capa, cor, tom),
-// convite e link do telão, modo de nível e multiclasse, e Ferramentas avançadas
+// convite e link da Tela, modo de nível e multiclasse, e Ferramentas avançadas
 // (Dados preparados pelo mestre — desligado por padrão), Mundo vivo (imersão
 // do Mundo) e Zona de perigo (encerrar a campanha — 30 dias só leitura para
 // baixar as fichas — ou reabrir, confirmando pelo nome).
@@ -43,7 +43,7 @@ export default function SettingsMenu({ campaign, lang, onClose, onChange, worldC
   }, []);
   const labels = {
     identity: t(lang, 'Identidade', 'Identity'),
-    table: t(lang, 'Convite e telão', 'Invite & TV'),
+    table: t(lang, 'Convite e Tela', 'Invite & screen'),
     rules: t(lang, 'Regras da mesa', 'Table rules'),
     world: t(lang, 'Mundo vivo', 'Living world'),
     advanced: t(lang, 'Ferramentas avançadas', 'Advanced tools'),
@@ -150,7 +150,7 @@ function TableSection({ campaign, lang, onChange, onMarkOnboarding }) {
     const ok = await confirmDialog({
       message: kind === 'invite'
         ? t(lang, 'Gerar um novo código de convite? O antigo deixa de funcionar.', 'Generate a new invite code? The old one stops working.')
-        : t(lang, 'Gerar um novo link do telão? O antigo deixa de funcionar.', 'Generate a new TV link? The old one stops working.'),
+        : t(lang, 'Gerar um novo link da Tela? O antigo deixa de funcionar.', 'Generate a new screen link? The old one stops working.'),
       confirmLabel: t(lang, 'Gerar novo', 'Generate new'),
     });
     if (!ok) return;
@@ -171,9 +171,9 @@ function TableSection({ campaign, lang, onChange, onMarkOnboarding }) {
         </div>
       </section>
       <section className="col gap-2">
-        <h3 className="shell-h3">{t(lang, 'Telão', 'TV screen')}</h3>
+        <h3 className="shell-h3">{t(lang, 'Tela', 'Screen')}</h3>
         <p className="muted text-sm" style={{ margin: 0 }}>{t(lang, 'Abra este link na TV ou tablet que a mesa vê.', 'Open this link on the TV or tablet the table watches.')}</p>
-        <input className="input shell-link-input" readOnly value={tv} onFocus={(e) => e.target.select()} aria-label={t(lang, 'Link do telão', 'TV link')} />
+        <input className="input shell-link-input" readOnly value={tv} onFocus={(e) => e.target.select()} aria-label={t(lang, 'Link da Tela', 'Screen link')} />
         <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
           <button type="button" className="btn btn-primary btn-sm" onClick={() => copy(tv, 'tv')}>{t(lang, 'Copiar link', 'Copy link')}</button>
           <a className="btn btn-ghost btn-sm" href={tv} target="_blank" rel="noreferrer" onClick={() => onMarkOnboarding?.('tv')}>{t(lang, 'Abrir', 'Open')}</a>

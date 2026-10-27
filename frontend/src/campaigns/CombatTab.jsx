@@ -1,8 +1,10 @@
 import { errorMessage } from '../api/errors.js';
 import { freePositions } from '../combat/placement.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api } from '../api/client.js';
-import { usePolling } from '../api/polling.js';
+import { api, apiUrl } from '../api/client.js';
+import { COMBAT_EVENT, useOnRev, useTable } from '../play/table-store.js';
+import { DockedScreen } from '../stage/ScreenWindow.jsx';
+import useMedia from '../play/useMedia.js';
 import MonsterPicker from './MonsterPicker.jsx';
 import CombatGrid from './CombatGrid.jsx';
 import EncounterDifficulty from '../combat/EncounterDifficulty.jsx';
@@ -67,8 +69,18 @@ function useWide() {
  *   mapa fica preso ao lado.
  * - Sugestões de ataque/salvaguarda ficam guardadas aqui, por combatente: nada
  *   é aplicado antes do "Aplicar".
+ * Na casca do mestre (V4, `turnStrip={false}`): a faixa do turno sai daqui (no
+ * celular ela mora na barra da mesa, embaixo; no PC, presa no topo de Jogar), o
+ * combate só é buscado quando o pulso diz que ele mudou (`pulse.combat.ver`) ou
+ * quando uma ação devolve o combate novo (evento da loja da mesa), e a janela da
+ * Tela fica encaixada FORA do mapa (que fica inteiro e preso ao lado da lista): numa
+ * 3ª coluna estreita a partir de 1280 px; de 1024 a 1279, compacta no topo da
+ * coluna da lista. `params.actor` abre quem age (o [Ações] da
+ * Tela ao vivo e a faixa do PC); `params.endCombat` é o "Encerrar o combate" da
+ * barra quando todos os monstros caíram.
  */
-export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
+export default function CombatTab({ campaign, lang, onChange, onNavigate, turnStrip: ownStrip = true, params = null }) {
+  const table = useTable();
   const [combat, setCombat] = useState(null);
   const [showPicker, setShowPicker] = useState(false);
   const [showAddPC, setShowAddPC] = useState(false);
@@ -80,16 +92,49 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
   const [choices, setChoices] = useState({}); // alvos escolhidos por combatente:ação
   const [view, setView] = useState(() => readView(campaign.id));
   const wide = useWide();
+  const roomy = useMedia('(min-width: 1280px)');   // a Tela encaixada ganha a 3ª coluna
 
+  const seeRef = useRef(() => {});
   const load = useCallback(async () => {
     try {
       const r = await api.getCombat(campaign.id);
       setCombat(r.combat);
+      seeRef.current(r.combat?.updatedAt);
     } catch (e) { console.warn(e); }
   }, [campaign.id]);
 
   useEffect(() => { load(); }, [load]);
-  usePolling(load, 2500, [campaign.id]);
+  // Com o pulso: só quando o combate muda (e 1 vez por minuto); sem ele, a cada 2,5 s, como antes.
+  // A versão que já chegou (por esta busca ou pela resposta de uma ação) conta como vista:
+  // o pulso que traz o mesmo `ver` não busca o combate de novo.
+  seeRef.current = useOnRev(table?.combat?.ver, load, { table, fallbackMs: 2500, initial: false });
+  // O combate que voltou de uma ação da barra, da faixa ou da tecla N: na hora, sem buscar de novo.
+  useEffect(() => {
+    const on = (e) => {
+      if (String(e.detail?.campaignId) !== String(campaign.id) || !e.detail?.combat) return;
+      setCombat(e.detail.combat);
+      seeRef.current(e.detail.combat.updatedAt);
+    };
+    window.addEventListener(COMBAT_EVENT, on);
+    return () => window.removeEventListener(COMBAT_EVENT, on);
+  }, [campaign.id]);
+
+  // Vindo de outro lugar: [Ações] (abre quem age) ou "Encerrar o combate" (barra da mesa).
+  const handled = useRef(null);
+  const endCombatRef = useRef(null);
+  useEffect(() => {
+    if (!combat || !params) return;
+    const key = params.actor ? `a:${params.actor}:${params.at || ''}` : params.endCombat ? `e:${params.endCombat}` : null;
+    if (!key || handled.current === key) return;
+    handled.current = key;
+    if (params.endCombat) { endCombatRef.current?.(); return; }
+    const who = (combat.combatants || []).find(c => c.id === params.actor);
+    if (!who) return;
+    setSelected(who.id);
+    // Monstro abre nas Ações; PJ (o jogador age pela ficha) na aba padrão dele.
+    if (!wide) setSheet({ id: who.id, tab: who.type === 'monster' ? 'actions' : null });
+    else requestAnimationFrame(() => document.getElementById(`cc-${who.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, [combat, params, wide]);
 
   // Quando a vez muda, quem age fica selecionado (destaque na lista e no mapa).
   // Só seleciona — não rola a tela, não abre folha, não age por ninguém.
@@ -123,7 +168,8 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
   // A faixa (com o Próximo turno) depende só de haver combate em andamento: a vez
   // pode apontar para fora da lista (tiraram o último da ordem na vez dele) e o
   // Próximo turno é o que a traz de volta (o servidor faz (vez + 1) % total).
-  const showTurn = active && combatants.length > 0;
+  // Na casca do mestre ela mora na barra da mesa (celular) e no topo de Jogar (PC).
+  const showTurn = ownStrip && active && combatants.length > 0;
 
   const startCombat = async () => { await api.startCombat(campaign.id); load(); };
   const endCombat = async () => {
@@ -131,12 +177,19 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
     const r = await api.endCombat(campaign.id); load();
     if (isWizardEnabled(campaign.state)) setWrapUp(r?.combat || combat);
   };
+  endCombatRef.current = endCombat;
   const resetCombat = async () => {
     if (!await ask(lang, t(lang, 'Recomeçar do zero? Todos os combatentes saem do combate.', 'Start over? All combatants are removed.'), { danger: true, confirmLabel: t(lang, 'Recomeçar', 'Start over') })) return;
     setShowMore(false);
     await api.resetCombat(campaign.id); load();
   };
-  const nextTurn = async () => { await api.combatNextTurn(campaign.id); load(); };
+  // Próximo turno com a vez que está à vista (o servidor recusa se ela já mudou).
+  const nextTurn = async () => {
+    const expect = { round: combat.round, turnIndex: combat.turnIndex };
+    if (table?.enabled) { table.nextTurn(expect); return; }
+    try { await api.combatNextTurn(campaign.id, expect); } catch { /* 409: a vez já tinha passado */ }
+    load();
+  };
 
   const gridOpts = () => {
     const m = combat?.map || {};
@@ -220,6 +273,8 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
   const showList = wide || view === 'list';
   // combate vazio: o mapa fica à vista (fundo, quadrado e grade antes de montar o encontro)
   const showMap = wide || view === 'map' || combatants.length === 0;
+  // A janela da Tela encaixada (PC, na casca do mestre; a casca decide se ela aparece).
+  const docked = wide && table?.win === 'docked';
   const turnLabel = <span className="mesa-turn-label">{t(lang, 'Rodada', 'Round')} {combat.round} · {t(lang, 'Vez de', 'Now acting')}</span>;
 
   return (
@@ -317,7 +372,12 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
         </div>
       )}
 
-      <div className={`combat-body ${wide ? '' : `is-${view}`}`}>
+      <div className={`combat-body ${wide ? '' : `is-${view}`} ${docked ? 'has-screen' : ''}`}>
+        {docked && (
+          <aside className="ct-screen">
+            <DockedScreen campaign={campaign} lang={lang} compact={!roomy} />
+          </aside>
+        )}
         {showList && combatants.length > 0 && (
           <ol className="combatants-list ct-list" aria-label={t(lang, 'Ordem de iniciativa', 'Initiative order')}>
             {combatants.map((c, i) => {
@@ -362,7 +422,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
         <CombatantSheet key={sheetC.id} initialTab={sheet.tab} {...panelProps(sheetC)} onClose={() => setSheet(null)} />
       )}
       {showMore && (
-        <MesaSheet title={t(lang, 'Mais do combate', 'More combat actions')} icon="⋯" size="auto" width="sm" lang={lang}
+        <MesaSheet title={t(lang, 'Mais do combate', 'More combat actions')} icon="⋯" size="auto" width="sm" lang={lang} dock="play"
           onClose={() => setShowMore(false)} className="ct-more-sheet">
           <div className="ct-more-list">
             <button type="button" className="mesa-btn mesa-btn-lg is-danger" onClick={resetCombat}>
@@ -376,7 +436,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate }) {
         <EndOfEncounterPanel campaign={campaign} combat={wrapUp} lang={lang} onNavigate={onNavigate}
           onClose={() => setWrapUp(null)} onChange={() => { load(); onChange?.(); }} />
       )}
-      {showPicker && <MonsterPicker lang={lang} levelingMode={campaign.state?.levelingMode || 'milestone'} onPick={addMonster} onClose={() => setShowPicker(false)} />}
+      {showPicker && <MonsterPicker lang={lang} levelingMode={campaign.state?.levelingMode || 'milestone'} members={campaign.members} onPick={addMonster} onClose={() => setShowPicker(false)} />}
       {showAddPC && (
         <AddCharacterSheet campaign={campaign} lang={lang} combatants={combatants}
           onAdd={addPC} onClose={() => setShowAddPC(false)} />
@@ -424,7 +484,7 @@ function CombatantRow({ combatant: c, campaign, lang, isTurn, isSel, expanded, p
       <span className="ct-init" aria-hidden="true">{c.initiative}</span>
       <span className="ct-pic" aria-hidden="true">
         {c.type === 'monster'
-          ? <ArtThumb src={c.sprite || monsterArt(c.monster_id)} emoji={monsterEmoji(c.stats?.type)} size={40} round lang={lang} />
+          ? <ArtThumb src={apiUrl(c.sprite) || monsterArt(c.monster_id)} emoji={monsterEmoji(c.stats?.type)} size={40} round lang={lang} />
           : <PcPortrait stats={stats} name={c.name} size={40} />}
       </span>
       <button type="button" className="ct-open" onClick={() => onOpen()} aria-label={label}
@@ -498,7 +558,7 @@ function AddCharacterSheet({ campaign, lang, combatants, onAdd, onClose }) {
     </div>
   );
   return (
-    <MesaSheet title={t(lang, 'Adicionar personagem ao combate', 'Add character to combat')} icon="✚" size="tall" width="md"
+    <MesaSheet title={t(lang, 'Adicionar personagem ao combate', 'Add character to combat')} icon="✚" size="tall" width="md" dock="play"
       lang={lang} onClose={onClose} footer={footer} className="ct-addpc-sheet">
       <p className="mesa-sheet-text">
         {t(lang, 'Digite a iniciativa que cada jogador rolou (dado físico). Em branco = 10. O 🎲 só preenche o campo com d20 + bônus.', 'Type the initiative each player rolled (physical die). Blank = 10. 🎲 just fills the field with d20 + bonus.')}

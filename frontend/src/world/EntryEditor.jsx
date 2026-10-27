@@ -18,6 +18,7 @@ import useAutosave, { saveStateLabel } from './useAutosave.js';
 import RevealControl, { useReveal } from './RevealControl.jsx';
 import { EntryImage, VisibilitySeal } from './EntryCard.jsx';
 import { EntryPicker, MentionTextarea, RelationsEditor, TagsInput } from './LinksField.jsx';
+import ShowOnTable from '../stage/ShowOnTable.jsx';
 
 const hasDetails = (e) => !!(e && (e.body || e.dmNotes || (e.secrets || []).length || (e.links || []).length || e.parentId
   || (e.tags || []).length || e.whenLabel || Object.values(e.data || {}).some(v => v && (typeof v !== 'object' || Object.keys(v).length))));
@@ -242,11 +243,15 @@ export default function EntryEditor({
       <RevealControl entry={entry} lang={lang} onChange={afterReveal} beforeReveal={beforeReveal} reveal={rv} />
 
       <div className="wl-ed-quick">
-        {onShow && (
-          <button type="button" className="btn btn-ghost btn-sm" disabled={entry.visibility === 'hidden'} onClick={() => onShow(entry)}
-            title={entry.visibility === 'hidden' ? t(lang, 'Revele antes de mostrar no telão', 'Reveal before showing on screen') : ''}>
-            📺 {t(lang, 'Mostrar no telão', 'Show on screen')}
-          </button>
+        {onShow && campaign && (
+          <ShowOnTable campaign={campaign} target={{ kind: 'card', entry }} lang={lang} className="btn btn-ghost btn-sm" onRevealed={afterReveal}>
+            📺 {t(lang, 'Mostrar na Tela', 'Show on screen')}
+          </ShowOnTable>
+        )}
+        {onShow && campaign && isMap && entry.imageVer && (
+          <ShowOnTable campaign={campaign} target={{ kind: 'map', entry }} lang={lang} className="btn btn-ghost btn-sm">
+            🗺 {t(lang, 'Mostrar este mapa na Tela', 'Show this map on screen')}
+          </ShowOnTable>
         )}
         {isPlace && (isMap
           ? <button type="button" className="btn btn-ghost btn-sm" onClick={async () => { await autosave.flush(); onOpenMap?.(entry.id); }}>🗺 {t(lang, 'Abrir mapa', 'Open map')}</button>

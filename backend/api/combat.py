@@ -49,6 +49,28 @@ import secrets
 
 
 # ============================================================
+# FICHA
+# ============================================================
+def sheet_speed(data):
+    """Deslocamento da ficha em pés, para a Tela e o combatente PJ (o servidor não calcula
+    regras): o fixo do mestre (speedOverride), senão o automático que a ficha gravou ao
+    salvar (speed), senão 30. Os dois vêm do cliente: só vale um número inteiro de 1 a 999
+    (um objeto ou um texto derrubaria a TV)."""
+    d = data or {}
+    for key in ('speedOverride', 'speed'):
+        value = d.get(key)
+        if isinstance(value, bool):
+            continue
+        try:
+            feet = int(value or 0)
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if 0 < feet < 1000:
+            return feet
+    return 30
+
+
+# ============================================================
 # DICE
 # ============================================================
 def roll_die(sides):

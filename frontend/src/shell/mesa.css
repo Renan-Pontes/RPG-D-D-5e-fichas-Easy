@@ -16,6 +16,14 @@
      seletor escopado, sem mexer na regra global.
    ========================================================== */
 
+/* Barra da mesa (V4, stage/TableBar.jsx): 64 px fixos acima da barra de baixo do
+   celular. A página com ela ganha folga embaixo (--mesa-bottom-safe = barra + 12),
+   e as folhas de Jogar (MesaSheet dock="bar") param acima dela. */
+:root {
+  --mesa-bar-h: 64px;
+  --mesa-bottom-safe: calc(var(--mesa-bar-h) + 12px);
+}
+
 /* ---------------------------------------------------------- painel de couro */
 .mesa-panel {
   position: relative;
@@ -404,6 +412,15 @@
 body.mesa-sheet-open { overflow: hidden; }
 /* o dado flutuante e os avisos flutuantes não ficam por cima da folha */
 body.mesa-sheet-open :is(.dice-fab, .nudge-toast-slot) { display: none !important; }
+/* dock="bar": no celular, com a barra da mesa à vista, a folha para acima dela
+   (a barra, com o Próximo turno, continua tocável). */
+@media (max-width: 767px) {
+  body:has(.mesa-bar) .mesa-sheet-backdrop.is-dock-bar {
+    bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bar-h) + env(safe-area-inset-bottom, 0px));
+  }
+  body:has(.mesa-bar) .mesa-sheet-backdrop.is-dock-bar .mesa-sheet { max-height: 100%; }
+  body:has(.mesa-bar) .mesa-sheet-backdrop.is-dock-bar .mesa-sheet-foot { padding-bottom: 12px; }
+}
 
 .mesa-sheet-backdrop {
   position: fixed;

@@ -79,18 +79,22 @@ class ScreenWhitelistTests(Base):
         for leak in ('nudges', 'diarySessions', 'concentration', 'Segredo do mestre', 'levelingMode',
                      'É a vilã', 'Serve ao culto', 'Cimitarra', "'ac': 15", 'abilities'):
             self.assertNotIn(leak, raw, leak)
-        self.assertEqual(data['state'], {'session': '2', 'scene': 'Taverna', 'weather': 'Chuva', 'live': True})
-        self.assertEqual(data['campaign']['state'], data['state'])
+        # V9: cada coisa vai uma vez, onde a TV de antes já lê (state e combate em `campaign`);
+        # no topo, só o resumo que o app do mestre de antes lê (1 versão)
+        self.assertEqual(data['campaign']['state'], {'session': '2', 'scene': 'Taverna', 'weather': 'Chuva', 'live': True})
+        self.assertEqual(data['state'], {'session': '2', 'scene': 'Taverna', 'live': True})
+        self.assertEqual(data['combat'], {'active': True, 'round': 1, 'turnIndex': 0})
         self.assertEqual(data['campaign']['tagline'], 'Névoa')
         self.assertEqual(data['campaign']['accent'], '#b8862b')
-        gob = next(c for c in data['combat']['combatants'] if c['id'] == 'g1')
+        combat = data['campaign']['combat']
+        gob = next(c for c in combat['combatants'] if c['id'] == 'g1')
         self.assertNotIn('current_hp', gob)
         self.assertNotIn('stats', gob)
         self.assertEqual(gob['health'], 'bloodied')
         self.assertEqual(gob['conditions'], ['prone'])
-        pc = next(c for c in data['combat']['combatants'] if c['id'] == 'p1')
+        pc = next(c for c in combat['combatants'] if c['id'] == 'p1')
         self.assertEqual(pc['current_hp'], 18)
-        self.assertNotIn('log', data['combat'])
+        self.assertNotIn('log', combat)
 
     def test_health_bands(self):
         self.assertEqual(health_band(7, 7), 'unhurt')
@@ -176,6 +180,18 @@ class ScreenCardTests(Base):
         # o resto do state continua intacto
         self.camp.refresh_from_db()
         self.assertEqual(self.camp.state['scene'], 'Taverna')
+
+    def test_stage_projection_has_no_dm_fields(self):
+        # O palco cru (label, prev, prefs do mestre) nunca sai na TV nem para o jogador.
+        self.c_dm.post(f'/api/campaigns/{self.camp.id}/stage',
+                       {'op': 'show', 'target': {'kind': 'image', 'ref': {'entryId': self.hidden.id}}}, format='json')
+        self.c_dm.post(f'/api/campaigns/{self.camp.id}/stage', {'op': 'show', 'target': {'kind': 'text', 'text': 'Chuva.'}},
+                       format='json')
+        for payload in (self.screen(), self.c_p1.get(f'/api/campaigns/{self.camp.id}').json()['campaign']):
+            raw = str(payload)
+            for leak in ('Lorde Sombrio', "'label'", "'prev'", "'lit'", "'players'", "'monsters'", 'zzz999'):
+                self.assertNotIn(leak, raw, leak)
+        self.assertEqual(self.screen()['stage']['front'], {'kind': 'text', 'text': 'Chuva.'})
 
     def test_only_dm_and_validation(self):
         self.assertEqual(self.show({'type': 'recap', 'title': 'x'}, self.c_p1).status_code, 403)

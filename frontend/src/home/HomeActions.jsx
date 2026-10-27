@@ -57,7 +57,7 @@ export function HomeLinks({ lang, auth, onGrimoire, onCampaigns, onLogin, first 
           onClick={onGrimoire} />}
         {campaigns && (
           <Row art={TAVERN_ART} title={L(lang, 'Campanhas', 'Campaigns')}
-            desc={L(lang, 'Suas mesas, convites com código e o telão.', 'Your tables, invite codes and the TV screen.')}
+            desc={L(lang, 'Suas mesas, convites com código e a Tela.', 'Your tables, invite codes and the screen.')}
             onClick={onCampaigns} />
         )}
         {group && (

@@ -73,6 +73,8 @@ test('linha do personagem traduzida (nada de "elf-wood druid 2")', () => {
 test('rótulos pt/en', () => {
   assert.equal(healthLabel('bloodied', 'pt'), 'Sangrando');
   assert.equal(healthLabel('down', 'en'), 'Down');
+  // a TV mostra a faixa e a condição lado a lado: 0 PV não pode se chamar "Caído" (prone)
+  assert.equal(healthLabel('down', 'pt'), 'Derrotado');
   assert.equal(handoutStyle('wanted'), 'wanted');
   assert.equal(handoutStyle('zzz'), 'scroll');
   assert.equal(secretSessionLabel({ session: 3 }, 'pt'), 'Descoberto na sessão 3');

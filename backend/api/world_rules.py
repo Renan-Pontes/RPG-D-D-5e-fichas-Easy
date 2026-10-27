@@ -490,6 +490,9 @@ def serialize_light(entry, for_dm, visible_ids=None):
         'revealedAt': _iso(entry.revealed_at), 'updatedAt': _iso(entry.updated_at),
     }
     ldata = light_data(entry, for_dm)
+    if for_dm and entry.kind == 'handout' and isinstance((entry.data or {}).get('recipients'), list):
+        # O 📺 do mestre explica por escrito: "Documento só para Ana: não vai à Tela".
+        ldata['recipients'] = list(entry.data['recipients'])
     if ldata:  # só quando há rótulo (o front lê `entry.data?.role` etc.)
         base['data'] = ldata
     if for_dm:
@@ -623,6 +626,194 @@ def merged_session_plan(current, patch):
     if json_size(plan) > MAX_SESSION_PLAN_BYTES:
         _bad('session_plan_too_large')
     return plan
+
+
+# ------------------------------------------------------------------ Raio-X do grupo
+# Ajustes e momentos do Raio-X (Grupo › Raio-X), em Campaign.dm_settings.partyInsights.
+# Os gráficos são calculados no navegador do mestre com as fichas; aqui só fica o que
+# o mestre escolhe: quem entra (null = todos), o peso Tabela × Ficha (w), os eixos
+# escondidos e os importantes, "melhor" ou "2 melhores", a CD de referência, a tabela
+# de classes editada (só as classes mudadas) e, por personagem (chave = id da ficha,
+# em texto), os momentos, o estilo do jogador e as sugestões dispensadas.
+PARTY_AXES = ('dmg', 'mit', 'magic', 'heal', 'ranged', 'melee', 'control', 'utility',
+              'mobility', 'social', 'explore')
+PARTY_CLASSES = ('artificer', 'barbarian', 'bard', 'cleric', 'druid', 'fighter', 'monk',
+                 'paladin', 'ranger', 'rogue', 'sorcerer', 'warlock', 'wizard')
+PARTY_STYLES = ('talk', 'quiet', 'combat', 'puzzle', 'explore', 'story')
+SPOTLIGHT_KINDS = ('shine', 'push', 'hook')
+PARTY_DCS = (10, 12, 15, 18, 20)
+PARTY_REPS = ('best', 'top2')
+MAX_PARTY_CHARS = 12
+MAX_SPOTLIGHTS = 12
+MAX_SPOTLIGHT_TEXT = 160
+MAX_DISMISSED = 40
+MAX_PARTY_INSIGHTS_BYTES = 20_000
+# Quem entra: `exclude` são as fichas que o mestre tirou (o padrão é todos, e quem chega à
+# mesa entra sozinho); `include` é a lista antiga de quem entra, ainda respeitada se vier.
+PARTY_INSIGHTS_DEFAULT = {'v': 1, 'include': None, 'exclude': [], 'w': 0.5, 'hidden': [], 'focus': {},
+                          'rep': 'best', 'dc': 15, 'base': {}, 'style': {}, 'spotlights': {}, 'dismissed': {}}
+# Mapas: o merge entra um nível (null num item apaga só aquele item).
+PARTY_MAP_KEYS = ('focus', 'base', 'style', 'spotlights', 'dismissed')
+_CHAR_KEY = re.compile(r'^\d{1,10}$')
+
+
+def _party_bad():
+    _bad('invalid_party_insights')
+
+
+def _char_map(raw, clean_item):
+    """{"<id da ficha>": valor | null}, no máximo MAX_PARTY_CHARS personagens."""
+    if not isinstance(raw, dict):
+        _party_bad()
+    if len(raw) > MAX_PARTY_CHARS:
+        _bad('party_insights_too_large')
+    out = {}
+    for k, v in raw.items():
+        if not _CHAR_KEY.match(str(k)):
+            _party_bad()
+        out[str(k)] = None if v is None else clean_item(v)
+    return out
+
+
+def _clean_spotlights(raw):
+    """Momentos de um personagem: [{id, kind, text, auto, done, plan}], até 12."""
+    if not isinstance(raw, list):
+        _party_bad()
+    if len(raw) > MAX_SPOTLIGHTS:
+        _bad('party_insights_too_large')
+    out, used = [], set()
+    for i, it in enumerate(raw):
+        if not isinstance(it, dict):
+            _party_bad()
+        if it.get('kind') not in SPOTLIGHT_KINDS:
+            _bad('invalid_spotlight_kind')
+        sid = short_id(it.get('id')) or f's{i + 1}'
+        while sid in used:
+            sid = f'{sid}x'
+        used.add(sid)
+        done = it.get('done')
+        out.append({
+            'id': sid, 'kind': it['kind'],
+            'text': long_text(it.get('text'), MAX_SPOTLIGHT_TEXT).strip(),
+            'auto': text(it.get('auto'), 60) or None,                 # chave da sugestão que virou momento
+            'done': None if done is None else to_int(done, 0, 10**6),  # nº da sessão em que aconteceu
+            'plan': short_id(it.get('plan'), 40) or None,              # cena do plano
+        })
+    return out
+
+
+def _clean_style(raw):
+    if not isinstance(raw, list) or any(x not in PARTY_STYLES for x in raw):
+        _party_bad()
+    return [s for s in PARTY_STYLES if s in raw]
+
+
+def _clean_dismissed(raw):
+    if not isinstance(raw, list):
+        _party_bad()
+    if len(raw) > MAX_DISMISSED:
+        _bad('party_insights_too_large')
+    out = []
+    for x in raw:
+        k = text(x, 60)
+        if k and k not in out:
+            out.append(k)
+    return out
+
+
+def _clean_base_row(row):
+    """11 notas inteiras de 1 a 5, na ordem de PARTY_AXES."""
+    if not isinstance(row, list) or len(row) != len(PARTY_AXES) or any(
+            isinstance(n, bool) or not isinstance(n, int) or not 1 <= n <= 5 for n in row):
+        _party_bad()
+    return list(row)
+
+
+def clean_party_insights_patch(raw):
+    """Valida as chaves presentes (merge por chave no servidor). `null` numa chave volta
+    ao padrão. Chave desconhecida é ignorada; valor fora da regra → 400."""
+    if not isinstance(raw, dict):
+        _party_bad()
+    out = {}
+    for key, v in raw.items():
+        if key not in PARTY_INSIGHTS_DEFAULT or key == 'v':
+            continue
+        if v is None:
+            out[key] = None
+        elif key in ('include', 'exclude'):
+            if not isinstance(v, list) or len(v) > MAX_PARTY_CHARS:
+                _party_bad()
+            out[key] = _id_list(v, MAX_PARTY_CHARS)
+        elif key == 'w':
+            if isinstance(v, bool) or not isinstance(v, numbers.Number) or not 0 <= v <= 1:
+                _party_bad()
+            out[key] = round(v * 4) / 4                       # 5 passos: Tabela · · · Ficha
+        elif key == 'hidden':
+            if not isinstance(v, list) or any(x not in PARTY_AXES for x in v):
+                _party_bad()
+            out[key] = [a for a in PARTY_AXES if a in v]
+        elif key == 'focus':
+            if not isinstance(v, dict) or any(k not in PARTY_AXES or x not in (None, 1, 2) or isinstance(x, bool)
+                                              for k, x in v.items()):
+                _party_bad()
+            out[key] = dict(v)
+        elif key == 'rep':
+            if v not in PARTY_REPS:
+                _party_bad()
+            out[key] = v
+        elif key == 'dc':
+            if isinstance(v, bool) or v not in PARTY_DCS:
+                _party_bad()
+            out[key] = int(v)
+        elif key == 'base':
+            if not isinstance(v, dict):
+                _party_bad()
+            if any(k not in PARTY_CLASSES for k in v):
+                _bad('invalid_class')
+            out[key] = {k: None if row is None else _clean_base_row(row) for k, row in v.items()}
+        elif key == 'style':
+            out[key] = _char_map(v, _clean_style)
+        elif key == 'spotlights':
+            out[key] = _char_map(v, _clean_spotlights)
+        elif key == 'dismissed':
+            out[key] = _char_map(v, _clean_dismissed)
+    return out
+
+
+def merged_party_insights(current, patch, keep_ids=None):
+    """O gravado (com os padrões) + o patch já limpo. Nos mapas, o patch troca só os
+    itens que traz; o resto fica (dois aparelhos mexendo em personagens diferentes).
+    `keep_ids` (função que devolve os ids das fichas na mesa, chamada só se preciso): um
+    mapa por personagem que passa de MAX_PARTY_CHARS perde antes as fichas que saíram
+    da mesa (estilo, momentos e dispensas de quem trocou de ficha), e só então dá 400."""
+    cur = current if isinstance(current, dict) else {}
+    out = {}
+    for key, default in PARTY_INSIGHTS_DEFAULT.items():
+        v = cur.get(key, default)
+        out[key] = dict(v) if isinstance(default, dict) and isinstance(v, dict) else (
+            {} if isinstance(default, dict) else v)
+    out['v'] = 1
+    for key, v in (patch or {}).items():
+        if v is None:
+            default = PARTY_INSIGHTS_DEFAULT[key]
+            out[key] = {} if isinstance(default, dict) else ([] if isinstance(default, list) else default)
+        elif key in PARTY_MAP_KEYS:
+            for k, item in v.items():
+                if item is None:
+                    out[key].pop(k, None)
+                else:
+                    out[key][k] = item
+            if key in ('style', 'spotlights', 'dismissed') and len(out[key]) > MAX_PARTY_CHARS:
+                if keep_ids is not None:
+                    keep = {str(i) for i in keep_ids()} | set(v)
+                    out[key] = {k: item for k, item in out[key].items() if k in keep}
+                if len(out[key]) > MAX_PARTY_CHARS:
+                    _bad('party_insights_too_large')
+        else:
+            out[key] = v
+    if json_size(out) > MAX_PARTY_INSIGHTS_BYTES:
+        _bad('party_insights_too_large')
+    return out
 
 
 # ------------------------------------------------------------------ ecos da mesa

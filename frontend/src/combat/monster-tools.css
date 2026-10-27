@@ -306,6 +306,8 @@
 .mp-pick-title { color: var(--ink-primary); font-size: 1rem; line-height: 1.3; overflow-wrap: anywhere; }
 .mp-pick-sub { color: var(--ink-secondary); font-size: 0.9rem; line-height: 1.3; }
 .mp-pick-check { flex: none; color: var(--gold-bright); font-size: 1.1rem; }
+/* gancho do Raio-X: o monstro contra o dano e as salvaguardas da mesa */
+.mp-pick-vs { color: var(--amber); font-size: 0.9rem; line-height: 1.3; overflow-wrap: anywhere; }
 .mp-sheet .mp-badge { font-size: 12px; padding: 0 8px; }
 .mp-del { margin-right: 4px; color: var(--blood-bright); }
 .mp-empty { margin: 0; color: var(--ink-secondary); }

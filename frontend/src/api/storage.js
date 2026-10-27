@@ -100,10 +100,11 @@ export function createStorageAdapter({ remote }) {
     },
     async save(char) {
       const { id, createdAt, updatedAt, inCampaign, campaignLeveling, ...data } = char;
-      // CA calculada (armadura, escudo, estilos de luta…) para o combate no servidor.
+      // CA e deslocamento automático (armadura, escudo, estilos de luta, Monge/Bárbaro…)
+      // para o combate e a Tela no servidor, que não conhece as regras.
       if (char.className) {
         await loadDeps();
-        try { data.armorClass = Utils.computeAc(char); } catch { /* ficha incompleta */ }
+        Object.assign(data, Utils.serverNumbers(char));
       }
       const body = { name: char.name || 'Sem nome', data };
       let res;

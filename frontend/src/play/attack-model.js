@@ -154,10 +154,34 @@ export function savePortion(full, success, half) {
 }
 
 /**
- * Rascunho do efeito. `roll(expr)` devolve o total rolado (injeção para teste);
- * `d20()` o d20 de cada alvo.
+ * A salvaguarda de cada PJ PELA FICHA: {combatenteId: n} (o `saveMods` do POST
+ * …/save-preview e do rascunho sem rede). O combatente do PJ guarda só os
+ * atributos-base, sem o bônus de espécie nem a proficiência; a ficha da vaga
+ * (campaign.members — o mestre recebe o `data` inteiro) dá o mesmo número dos
+ * testes pedidos. Forma Selvagem fica de fora (a fera usa os atributos dela).
+ * `modFor(char, {kind, key})` é o modifierFor de checks/check-logic.js (injeção).
  */
-export function saveDraft(action, targets, { roll = () => 0, d20 = () => 10 } = {}) {
+export function sheetSaveMods(targets, members, ability, modFor) {
+  const sheets = new Map();
+  for (const m of members || []) {
+    if (m?.character?.id != null && m.character.data) sheets.set(String(m.character.id), m.character.data);
+  }
+  const key = String(ability || 'dex').toLowerCase();
+  const out = {};
+  for (const t of targets || []) {
+    if (t?.type !== 'pc' || t.wild_shape || t.character_id == null) continue;
+    const sheet = sheets.get(String(t.character_id));
+    const n = sheet && typeof modFor === 'function' ? modFor(sheet, { kind: 'save', key }) : null;
+    if (Number.isFinite(n)) out[t.id] = n;
+  }
+  return out;
+}
+
+/**
+ * Rascunho do efeito. `roll(expr)` devolve o total rolado (injeção para teste);
+ * `d20()` o d20 de cada alvo; `mods` a salvaguarda da ficha de cada PJ (sheetSaveMods).
+ */
+export function saveDraft(action, targets, { roll = () => 0, d20 = () => 10, mods = {} } = {}) {
   const save = action?.save || {};
   const ability = String(save.ability || 'dex').toLowerCase();
   const dc = Number(save.dc) || 10;
@@ -173,9 +197,49 @@ export function saveDraft(action, targets, { roll = () => 0, d20 = () => 10 } = 
     conditions: [...(save.conditions || [])],
     parts,
     targets: (targets || []).map(t => {
-      const mod = saveModifier(t, ability);
+      const mod = Number.isFinite(mods?.[t.id]) ? mods[t.id] : saveModifier(t, ability);
       const nat = d20();
-      return { id: t.id, name: t.name, mod, total: mod == null ? '' : String(nat + mod), override: null };
+      return { id: t.id, name: t.name, mod, d20: nat, total: mod == null ? '' : String(nat + mod), override: null };
+    }),
+  };
+}
+
+/**
+ * Rascunho a partir da salvaguarda ROLADA NO SERVIDOR (V10, POST …/save-preview):
+ * o mesmo formato de saveDraft, com o d20 de cada alvo. `server: true` diz ao
+ * cartão que os dados vieram do servidor (sem rede, o cartão rola no aparelho).
+ */
+export function saveDraftFromPreview(p, action) {
+  const save = action?.save || {};
+  return {
+    ability: String(p?.ability || save.ability || 'dex').toLowerCase(),
+    dc: Number(p?.dc ?? save.dc) || 10,
+    half: p?.half != null ? !!p.half : !!save.halfOnSave,
+    conditions: [...(p?.conditions || save.conditions || [])],
+    parts: (p?.damage || []).map(d => ({ dice: String(d.dice || ''), type: d.type || 'force', amount: String(d.rolled ?? 0) })),
+    targets: (p?.targets || []).map(t => ({
+      id: t.id, name: t.name, mod: t.modifier ?? null, d20: t.d20 ?? null,
+      total: t.total == null ? '' : String(t.total), override: null,
+    })),
+    server: true,
+  };
+}
+
+/**
+ * Corpo do POST /action {action:'save_apply'} (V10): o efeito como está na tela,
+ * numa chamada só (gasto da ação, dano por alvo e tipo, condições). O d20 de cada
+ * alvo só vai se o total ainda é o rolado (o mestre digitou o dado físico → sem d20).
+ * `show`: 1 linha-resumo na Tela ("Sopro de Fogo · DES CD 13 · Dagna 9 ✗ · …").
+ */
+export function saveApplyBody(d, { attackerId, actionIndex, consume = false, force = false, show = false } = {}) {
+  const results = evaluateSave(d);
+  return {
+    action: 'save_apply', attackerId, actionIndex, consume: !!consume, force: !!force, show: !!show,
+    targets: results.map((r, i) => {
+      const t = d.targets[i] || {};
+      const rolled = t.d20 != null && t.mod != null && r.total === t.d20 + t.mod && t.override == null;
+      return { id: r.id, total: r.total, success: r.success, damage: r.damage, conditions: r.conditions,
+        d20: rolled ? t.d20 : null };
     }),
   };
 }

@@ -9,6 +9,7 @@ const E = {
   // Conexão / sessão
   network: ['Sem conexão com o servidor. Verifique a internet e tente de novo.', 'No connection to the server. Check your internet and try again.'],
   backend_unavailable: ['O servidor não respondeu direito. Tente de novo em instantes.', 'The server did not respond properly. Try again shortly.'],
+  server_outdated: ['O servidor ainda não foi atualizado: isto passa a funcionar depois da atualização.', "The server hasn't been updated yet: this works after the update."],
   auth_required: ['Sua sessão expirou. Entre de novo.', 'Your session expired. Please log in again.'],
   auth_failed: ['Não foi possível confirmar seu login. Entre de novo.', 'Could not verify your login. Please log in again.'],
   rate_limited: ['Muitas tentativas seguidas. Espere um pouco e tente de novo.', 'Too many attempts. Wait a moment and try again.'],
@@ -138,12 +139,12 @@ const E = {
   invalid_mode: ['Modo inválido.', 'Invalid mode.'],
   invalid_amount: ['Quantidade inválida.', 'Invalid amount.'],
   invalid_pagination: ['Página inválida.', 'Invalid page.'],
-  // Mundo / telão
+  // Mundo / Tela
   version_conflict: ['Este cartão foi alterado em outra aba ou aparelho. Recarregue para ver a versão mais nova antes de salvar.', 'This card was changed in another tab or device. Reload to see the latest version before saving.'],
   entry_hidden: ['Este cartão está oculto. Revele (ou deixe conhecido de nome) antes de mostrar aos jogadores.', 'This card is hidden. Reveal it (or make it known by name) before showing it to players.'],
   entry_not_found: ['Cartão do mundo não encontrado (pode ter sido apagado).', 'World card not found (it may have been deleted).'],
   too_many_entries: ['O mundo desta campanha atingiu o limite de cartões.', "This campaign's world reached its card limit."],
-  handout_private: ['Este material é só para alguns jogadores; não dá para mostrar no telão.', "This handout is for specific players only; it can't go on the shared screen."],
+  handout_private: ['Documento só para alguns jogadores: não vai à Tela.', "Handout for some players only: it can't go on screen."],
   world_not_empty: ['O mundo já tem cartões; o modelo inicial só entra num mundo vazio.', 'The world already has cards; the starter template only goes into an empty world.'],
   scene_not_found: ['Cena não encontrada (a aventura pode ter mudado).', 'Scene not found (the adventure may have changed).'],
   empty_recap: ['Escreva o resumo antes de mostrar.', 'Write the recap before showing it.'],
@@ -188,6 +189,7 @@ export function errorText(code, lang = currentLang()) {
 export function errorMessage(e, lang = currentLang(), fallback) {
   if (!e) return fallback || errorText('invalid', lang);
   if (typeof e === 'string') return errorText(e, lang) || e;
+  if (isOldServer(e)) return errorText('server_outdated', lang);
   const data = e.data || {};
   if (Array.isArray(data.issues) && data.issues.length) return data.issues.join(' · ');
   if (data.error === 'plan_limit' && PLAN_LIMIT[data.limit]) return lang === 'en' ? PLAN_LIMIT[data.limit][1] : PLAN_LIMIT[data.limit][0];
@@ -202,4 +204,13 @@ export function errorMessage(e, lang = currentLang(), fallback) {
     return lang === 'en' ? `Could not complete the action (code: ${code}).` : `Não foi possível concluir a ação (código: ${code}).`;
   }
   return code || (lang === 'en' ? 'Something went wrong. Try again.' : 'Algo deu errado. Tente de novo.');
+}
+
+/**
+ * O front novo falando com um servidor ainda não atualizado (o front sai na Vercel no
+ * merge; o PythonAnywhere é atualizado à mão depois): a rota nova não existe e o Django
+ * devolve a página HTML de 404, não um JSON. Um 404 do servidor novo sempre vem em JSON.
+ */
+export function isOldServer(e) {
+  return !!e && e.status === 404 && e.message === 'backend_unavailable' && !e.data;
 }

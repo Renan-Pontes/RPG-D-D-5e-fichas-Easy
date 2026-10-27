@@ -1,7 +1,11 @@
 // API da área Jogar (contrato C5): usa o `request` de src/api/client.js,
-// sem editar client.js. Endpoints do WP2 (prévia de ataque, PATCH de state,
-// cartão do telão) e leitura de aventuras para o painel "Nesta cena".
-import { request } from '../api/client.js';
+// sem editar client.js. Endpoints do WP2 (prévia de ataque, PATCH de state)
+// e leitura de aventuras para o painel "Nesta cena". A Tela (palco, cartão
+// antigo, link) é do src/stage/stage-api.js; os nomes ficam aqui por
+// compatibilidade.
+import { request, combatRequest } from '../api/client.js';
+
+export { getScreen, rotateScreenToken, setScreenCard } from '../stage/stage-api.js';
 
 const cid = (id) => encodeURIComponent(id);
 
@@ -19,31 +23,26 @@ export function attackPreview(campaignId, body) {
  * body: {attackerId, targetId, actionIndex, attackRoll, damage: [{amount, type}], hit, crit, force?, consumeRig?}
  */
 export function applyAttack(campaignId, body) {
-  return request(`/api/combat/campaign/${cid(campaignId)}/action`, { method: 'POST', body: { action: 'attack', ...body } });
+  return combatRequest(`/api/combat/campaign/${cid(campaignId)}/action`, { method: 'POST', body: { action: 'attack', ...body } });
+}
+
+/**
+ * Salvaguarda em área ROLADA NO SERVIDOR (V10), sem aplicar nada: o d20 de cada alvo
+ * e o dano. body: {attackerId, actionIndex, targetIds} →
+ * {ability, dc, half, conditions, damage:[{dice, type, rolled}], targets:[{id, name, d20, modifier, total, success}]}
+ */
+export function savePreview(campaignId, body) {
+  return request(`/api/combat/campaign/${cid(campaignId)}/save-preview`, { method: 'POST', body });
 }
 
 /** Ação de combate genérica (dano, cura, condição…). */
 export function combatAction(campaignId, body) {
-  return request(`/api/combat/campaign/${cid(campaignId)}/action`, { method: 'POST', body });
+  return combatRequest(`/api/combat/campaign/${cid(campaignId)}/action`, { method: 'POST', body });
 }
 
 /** PATCH de state por chave (merge no servidor). → {state} */
 export function patchState(campaignId, patch) {
   return request(`/api/campaigns/${cid(campaignId)}/state`, { method: 'PATCH', body: { patch } });
-}
-
-/** "Mostrar agora" no telão. card: {type:'entry'|'recap'|'scene', …} ou null (tira). → {card} */
-export function setScreenCard(campaignId, card) {
-  return request(`/api/campaigns/${cid(campaignId)}/screen-card`, { method: 'POST', body: card ? card : { card: null } });
-}
-
-/** O que o telão está mostrando agora (rota pública, filtrada). */
-export function getScreen(token) {
-  return request(`/api/screen/${encodeURIComponent(token)}`);
-}
-
-export function rotateScreenToken(campaignId) {
-  return request(`/api/campaigns/${cid(campaignId)}/rotate-screen-token`, { method: 'POST' });
 }
 
 export function listAdventures(campaignId) {

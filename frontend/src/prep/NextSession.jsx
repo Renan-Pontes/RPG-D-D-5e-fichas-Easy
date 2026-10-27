@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api } from '../api/client.js';
+import { api, apiUrl } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { HERO_ART } from '../art.js';
 import { tName } from '../../data/i18n.js';
@@ -7,15 +7,19 @@ import { prepApi } from './prep-api.js';
 import {
   normalizePlan, addScene, addSecret, updateItem, removeItem, moveItem, toggleId, padSecrets,
   toggleDiscovered, revealBodyFor, planDiff, planProgress, carryOver, textForRef, SECRET_GOAL, PLAN_LIMITS,
+  sceneParts, withSceneName,
 } from './next-session.js';
 import { WORLD_KINDS } from './prep-world.js';
 // Ícones e nomes dos tipos vêm do Mundo, para casar com o Atlas (🧑 NPCs, ⚜️ Facções, 📜 Histórias).
 import { kindIcon, kindLabel } from '../world/world-model.js';
 import WorldRefs from './WorldRefs.jsx';
 import usePrepConfirm from './usePrepConfirm.jsx';
+import useRaioX from '../group/useRaioX.js';
 import './next-session.css';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
+// Quanto a página espera as contas do Raio-X junto com o plano (o passo 1 nasce inteiro).
+const RX_WAIT_MS = 3000;
 
 const STEPS = [
   { id: 'party',       icon: '🛡', pt: 'O grupo',                 en: 'The party' },
@@ -188,7 +192,32 @@ export default function NextSession({ campaign, lang, goTo }) {
   const progress = useMemo(() => (plan ? planProgress(plan) : null), [plan]);
   const party = (campaign.members || []).filter(m => m.role !== 'dm');
 
-  if (!plan) {
+  // Passo 1 com o Raio-X: "brilha em…, fraco em…", o estilo do jogador e os momentos que
+  // ainda não aconteceram (as contas e os ajustes chegam sob demanda: useRaioX).
+  // Nada empurra o campo em que o mestre digita (princípio 8): a página espera as contas
+  // junto com o plano (até RX_WAIT_MS) e o passo 1 já nasce com as linhas; se elas chegarem
+  // depois, ficam atrás de "✦ Mostrar o Raio-X do grupo", numa linha de altura fixa que já
+  // estava lá desde o 1º desenho.
+  const wantRx = party.some(m => m.character?.data);
+  const rx = useRaioX(campaign.id, wantRx);
+  const [rxTimeout, setRxTimeout] = useState(false);
+  const [rxOpen, setRxOpen] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setRxTimeout(true), RX_WAIT_MS);
+    return () => clearTimeout(id);
+  }, [campaign.id]);
+  const holdRx = wantRx && !rx && !rxTimeout;
+  const rxInline = useRef(null);   // decidido no 1º desenho do passo 1: linhas à vista ou atrás do botão
+  if (plan && !holdRx && rxInline.current === null) rxInline.current = !wantRx || !!rx;
+  const showRx = !!rx && (rxInline.current || rxOpen);
+  const sheetsKey = party.map(m => `${m.character?.id}:${JSON.stringify(m.character?.data || null)}`).join('|');
+  const raiox = useMemo(() => {
+    if (!rx) return null;
+    const facts = rx.PM.partyFacts(rx.PM.partyMembers(campaign.members), lang);
+    return { facts, byId: Object.fromEntries(facts.map(f => [f.id, f])) };
+  }, [rx, sheetsKey, lang]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!plan || holdRx) {
     return (
       <div className="ns">
         {error ? <p className="prep-error" role="alert">{error}</p> : <p className="muted">{t(lang, 'Carregando…', 'Loading…')}</p>}
@@ -236,25 +265,45 @@ export default function NextSession({ campaign, lang, goTo }) {
           <p className="muted small">{t(lang, 'Ninguém entrou ainda. Convide os jogadores em Grupo.', 'Nobody has joined yet. Invite players under Party.')}
             {goTo && <> <button type="button" className="linklike" onClick={() => goTo('group', 'players')}>{t(lang, 'Ir para Grupo', 'Go to Party')} →</button></>}</p>
         ) : (
-          <ul className="ns-party">
+          <ul className={`ns-party ${party.some(m => m.character?.data) ? 'has-raiox' : ''}`}>
             {party.map(m => {
               const d = m.character?.data || {};
               const sum = m.character?.summary || {};
               const cls = d.className || sum.className;
-              const avatar = d.avatar || sum.avatar;
+              const avatar = d.avatar || sum.avatar || apiUrl(m.character?.avatarUrl);
+              const f = showRx ? raiox?.byId[m.character?.id] : null;
+              const key = String(m.character?.id);
+              const style = rx?.ins.style?.[key] || [];
+              const open = (rx?.ins.spotlights?.[key] || []).filter(x => x.done == null);
               return (
                 <li key={m.id}>
                   {avatar ? <img src={avatar} alt="" /> : <span className="ns-party-ph" aria-hidden="true">🛡</span>}
-                  <span>
+                  <span className="ns-party-who">
                     <strong>{m.character?.name || m.user?.displayName || '?'}</strong>
                     <span className="muted small">{m.character
                       ? ` ${cls ? tName('class', cls, lang) : ''} ${t(lang, 'nível', 'level')} ${d.level || sum.level || 1}`
                       : ` ${t(lang, 'sem personagem', 'no character')}`}</span>
+                    {f && <span className="ns-party-line">{rx.S.partyLine(f, raiox.facts, lang)}</span>}
+                    {f && style.length > 0 && <span className="ns-party-line is-style">{style.map(x => rx.S.styleLabel(x, lang)).join(' · ')}</span>}
+                    {f && open.slice(0, 2).map(x => (
+                      <span key={x.id} className="ns-party-line is-moment">{rx.S.kindIcon(x.kind)} {x.text}{x.plan ? ` · ${t(lang, '📜 numa cena', '📜 in a scene')}` : ''}</span>
+                    ))}
+                    {f && open.length > 2 && <span className="ns-party-line is-moment">{t(lang, `+${open.length - 2} momento(s)`, `+${open.length - 2} moment(s)`)}</span>}
+                    {f && goTo && (
+                      <button type="button" className="mesa-btn is-quiet ns-party-go" onClick={() => goTo('group', 'insights', { focus: m.character.id })}>
+                        ✦ {t(lang, 'Momentos no Raio-X ›', 'Moments in the X-ray ›')}
+                      </button>
+                    )}
                   </span>
                 </li>
               );
             })}
           </ul>
+        )}
+        {wantRx && !showRx && (
+          <p className="ns-party-rx">{rx
+            ? <button type="button" className="mesa-btn is-quiet" onClick={() => setRxOpen(true)}>✦ {t(lang, 'Mostrar o Raio-X do grupo', 'Show the party X-ray')}</button>
+            : <span className="muted small" role="status">{t(lang, 'Raio-X do grupo…', 'Party X-ray…')}</span>}</p>
         )}
       </Step>
 
@@ -271,17 +320,23 @@ export default function NextSession({ campaign, lang, goTo }) {
       <Step id="scenes" n={3} lang={lang} done={stepDone.scenes}
         hint={t(lang, 'Algumas cenas que podem acontecer. Não é roteiro: o grupo decide a ordem.', 'A few scenes that might happen. Not a script: the party picks the order.')}>
         <ol className="ns-list">
-          {plan.scenes.map((s, i) => (
+          {plan.scenes.map((s, i) => {
+            // o campo edita só o nome (1ª linha); as notas do mestre ficam embaixo, só para ele
+            const { name, notes } = sceneParts(s.text);
+            return (
             <li key={s.id} className={`ns-row ${s.done ? 'is-done' : ''}`}>
               <label className="ns-tick" title={t(lang, 'Aconteceu', 'Happened')}>
                 <input type="checkbox" checked={s.done} onChange={() => change(p => updateItem(p, 'scenes', s.id, { done: !s.done }))}
                   aria-label={t(lang, `Cena ${i + 1} aconteceu`, `Scene ${i + 1} happened`)} />
               </label>
               <div className="ns-row-body">
-                <input className="input" value={s.text} maxLength={PLAN_LIMITS.text}
+                <input className="input" value={name} maxLength={Math.max(1, PLAN_LIMITS.text - (notes ? notes.length + 1 : 0))}
                   aria-label={t(lang, `Cena ${i + 1}`, `Scene ${i + 1}`)}
                   placeholder={t(lang, 'Ex.: Negociar com a sacerdotisa no templo alagado', 'E.g. Bargain with the priestess in the flooded temple')}
-                  onChange={e => change(p => updateItem(p, 'scenes', s.id, { text: e.target.value }))} />
+                  onChange={e => change(p => updateItem(p, 'scenes', s.id, { text: withSceneName(s.text, e.target.value) }))} />
+                {notes && (
+                  <p className="ns-row-note">🔒 {t(lang, 'Notas (só você vê)', 'Notes (only you see)')}: {notes.split('\n').filter(x => x.trim()).join(' · ')}</p>
+                )}
                 <SceneLink value={s.nodeRef} adventures={adventures} lang={lang} loadNodes={loadNodes}
                   onChange={(ref) => change(p => updateItem(p, 'scenes', s.id, { nodeRef: ref }))}
                   onOpen={goTo ? (ref) => goTo('prepare', 'adventures', { adventureId: ref.adventureId, nodeId: ref.nodeId }) : null} />
@@ -290,7 +345,8 @@ export default function NextSession({ campaign, lang, goTo }) {
                 onUp={() => change(p => moveItem(p, 'scenes', s.id, -1))} onDown={() => change(p => moveItem(p, 'scenes', s.id, 1))}
                 onRemove={() => change(p => removeItem(p, 'scenes', s.id))} />
             </li>
-          ))}
+            );
+          })}
         </ol>
         {plan.scenes.length === 0 && <p className="muted small">{t(lang, 'Nenhuma cena ainda. Três ou quatro já bastam.', 'No scenes yet. Three or four are plenty.')}</p>}
         <button type="button" className="btn btn-ghost btn-sm" disabled={plan.scenes.length >= PLAN_LIMITS.scenes} onClick={() => change(p => addScene(p))}>＋ {t(lang, 'Cena', 'Scene')}</button>

@@ -8,10 +8,22 @@
 // Props passadas a toda área: { campaign, lang, isDM, characters, sub, params,
 // goTo, onSubChange, onChange (recarrega a campanha), onOpenTab/onNavigate
 // (ids de aba antigos → área nova) }. O mesmo vem por contexto em useArea().
+//
+// Mestre (V4): o polling da campanha é o PULSO (play/table-store.js, ~0,8 KB,
+// 304 parado); o GET completo só vem quando `pulse.rev` muda (e 1 vez por minuto,
+// de segurança). A loja da mesa vai por contexto (useTable) para a barra da mesa
+// (celular), a janela da Tela (PC), a folha Tela ao vivo, a faixa do turno do PC,
+// Jogar › Combate e o selo de Testes. Jogador: o GET completo a cada 2,5 s, como antes.
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { usePolling } from '../api/polling.js';
+import { TableContext, useTableStore } from '../play/table-store.js';
+import { clearDiceTable, setDiceTable } from '../dice/dice-table.js';
+import useMedia from '../play/useMedia.js';
+import TableBar from '../stage/TableBar.jsx';
+import ScreenWindow from '../stage/ScreenWindow.jsx';
+import { barVisible, readBarPrefs, windowCorner, windowMode, writeBarPrefs } from '../stage/table-bar-model.js';
 import { listWorld, createSampleWorld, getSessionPlan } from '../world/world-api.js';
 import CampaignHeader from '../shell/CampaignHeader.jsx';
 import AreaNav from '../shell/AreaNav.jsx';
@@ -23,13 +35,14 @@ import {
   PlayerTableFallback, PrepareFallback, WorldFallback,
 } from '../shell/Fallbacks.jsx';
 import {
-  areasFor, campaignRoute, initialArea, isHexColor, loadRememberedArea, normalizeArea, onboardingStatus,
+  areasFor, areaTapSub, campaignRoute, groupBadgeCount, initialArea, isHexColor, loadRememberedArea, normalizeArea, onboardingStatus,
   onboardingVisible, parseCampaignRoute, planHasContent, saveRememberedArea, screenLink, t,
 } from '../shell/shell-logic.js';
 import '../shell/mesa.css';
 import '../shell/shell.css';
 
 const SettingsMenu = lazy(() => import('../shell/SettingsMenu.jsx'));
+const LiveScreenSheet = lazy(() => import('../stage/LiveScreenSheet.jsx'));
 const MoreSheet = lazy(() => import('../shell/MoreSheet.jsx'));
 const QuickSearch = lazy(() => import('../shell/QuickSearch.jsx'));
 
@@ -52,6 +65,9 @@ const isTyping = (el) => {
   return tag === 'input' || tag === 'textarea' || tag === 'select' || !!el?.isContentEditable;
 };
 const modalOpen = () => !!document.querySelector('.modal-backdrop, [role="dialog"][aria-modal="true"]');
+const FULL_SAFETY_MS = 60_000;   // GET completo de segurança do mestre, mesmo com o rev parado
+const CORNER_KEY = 'forja:win-corner';
+const readCorner = () => { try { return localStorage.getItem(CORNER_KEY) === 'left' ? 'left' : 'right'; } catch { return 'right'; } };
 
 export default function CampaignDetail({ lang = 'pt', campaignId, onBack, characters = [] }) {
   const [campaign, setCampaign] = useState(null);
@@ -68,7 +84,16 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   const [groupPending, setGroupPending] = useState(null);
   const [toast, setToast] = useState('');
   const [sampleBusy, setSampleBusy] = useState(false);
+  const [liveOpen, setLiveOpen] = useState(false);   // folha "Tela ao vivo"
+  const [barPrefs, setBarPrefsState] = useState(() => readBarPrefs(campaignId));
+  const [corner, setCorner] = useState(readCorner);
+  const [winLiveAt, setWinLiveAt] = useState(0);      // 📺 Tela da capa: a janela abre já "ao vivo"
+  const [page, setPage] = useState(null);             // a página aberta pede a janela à esquerda ('adventure')
+  const mobile = useMedia('(max-width: 767px)');
+  const twoCols = useMedia('(min-width: 1024px)');     // Agora e Combate em colunas: a janela encaixa
   const toastTimer = useRef(null);
+  const lastFullAt = useRef(0);
+  const isDMRef = useRef(false);
 
   const say = useCallback((msg) => {
     setToast(msg);
@@ -80,18 +105,56 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   const load = useCallback(async () => {
     try {
       const r = await api.getCampaign(campaignId);
+      lastFullAt.current = Date.now();
+      isDMRef.current = r.campaign?.role === 'dm';
       setCampaign(r.campaign);
       setError('');
+      return true;
     } catch (e) {
       // Falha no polling com a campanha já na tela: mantém o que está aberto.
       setError(errorMessage(e, lang));
+      return false;
     }
   }, [campaignId]); // eslint-disable-line react-hooks/exhaustive-deps
   // Trocou de campanha: zera a tela (o usePolling já busca na hora).
-  useEffect(() => { setCampaign(null); setNav(null); setWorld(null); setError(''); }, [campaignId]);
-  usePolling(load, 2500, [campaignId]);
+  useEffect(() => {
+    setCampaign(null); setNav(null); setWorld(null); setError(''); setLiveOpen(false);
+    setBarPrefsState(readBarPrefs(campaignId));
+  }, [campaignId]);
 
   const isDM = campaign?.role === 'dm';
+  // Mestre: o pulso; o GET completo quando o `rev` muda (ou a cada minuto, de segurança:
+  // esse entra no lugar do pulso daquele tick, para o minuto não ter 1 pedido a mais).
+  const onPulse = useCallback((p, { revChanged }) => {
+    if (revChanged) load();
+  }, [load]);
+  const fullInstead = useCallback(() => Date.now() - lastFullAt.current > FULL_SAFETY_MS, []);
+  const table = useTableStore(campaign, { enabled: isDM, lang, onPulse, fullInstead, onFull: load });
+  const pulsing = table.enabled;
+  // O 🎲 do mestre na mesa (V10, dice/dice-table.js): o rolador global passa a saber a
+  // campanha e a regra "Do mestre" do palco (🔒 Só eu · 📺 Na tela).
+  const dmDice = campaign?.stage?.prefs?.dm;
+  useEffect(() => {
+    if (!isDM || !campaign?.id || campaign.status === 'closed') return undefined;
+    setDiceTable({ campaignId: campaign.id, dmDefault: dmDice === 'shown' ? 'shown' : 'secret' });
+    return () => clearDiceTable(campaign.id);
+  }, [isDM, campaign?.id, campaign?.status, dmDice]);
+  // A Tela fala a língua da campanha (V9): o idioma do app do mestre vai à campanha
+  // (dm_settings.lang) uma vez por troca; a TV lê no /api/screen, não do aparelho dela.
+  // Servidor sem o campo (deploy fora de ordem): nada é enviado.
+  const langSent = useRef('');
+  useEffect(() => {
+    if (!isDM || !campaign?.id || campaign.status === 'closed' || !('lang' in campaign)) return;
+    const key = `${campaign.id}:${lang}`;
+    if (campaign.lang === lang || langSent.current === key) return;
+    langSent.current = key;
+    api.patchCampaign(campaign.id, { lang }).catch(() => { /* fica para a próxima troca de idioma */ });
+  }, [isDM, campaign?.id, campaign?.lang, campaign?.status, lang]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Jogador (e o mestre sem o pulso no servidor): o GET completo a cada 2,5 s, como antes.
+  usePolling(async () => {
+    if (isDMRef.current && pulsing) return;
+    await load();
+  }, 2500, [campaignId, pulsing]);
 
   const loadWorld = useCallback(async () => {
     if (!campaign) return;
@@ -175,7 +238,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
 
   const tvUrl = campaign ? screenLink(window.location.origin, campaign.screenToken) : '';
   const copyTv = useCallback(async () => {
-    try { await navigator.clipboard?.writeText(tvUrl); say(t(lang, 'Link do telão copiado', 'TV link copied')); } catch { /* ok */ }
+    try { await navigator.clipboard?.writeText(tvUrl); say(t(lang, 'Link da Tela copiado', 'Screen link copied')); } catch { /* ok */ }
     markOnboarding('tv');
   }, [tvUrl, lang, say, markOnboarding]);
 
@@ -220,12 +283,11 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   // Da folha "Mais" para outra janela: fecha a folha primeiro (o foco volta à
   // casa "Mais") e abre a próxima no tick seguinte, que devolve o foco para lá.
   const fromMore = (fn) => () => { setMore(false); setTimeout(fn, 0); };
-  const clearScreen = async () => {
-    try { await api.setScreenCard(campaign.id, null); load(); } catch (e) { say(errorMessage(e, lang)); }
-  };
 
-  // Atalhos: 1–4 áreas · Ctrl+K busca · N próximo turno (Jogar › Combate) · T copia o telão.
+  // Atalhos: 1–4 áreas · Ctrl+K busca · N próximo turno (toda a área Jogar) · T copia o link da Tela.
   const areas = areasFor(isDM);
+  const tableRef = useRef(table);
+  tableRef.current = table;
   useEffect(() => {
     if (!campaign) return;
     const onKey = (e) => {
@@ -236,17 +298,28 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
       if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target) || modalOpen()) return;
       if (/^[1-4]$/.test(e.key)) {
         const a = areas[parseInt(e.key, 10) - 1];
-        if (a) { e.preventDefault(); goTo(a.id, nav?.area === a.id ? nav.sub : null); }
-      } else if (isDM && (e.key === 'n' || e.key === 'N') && nav?.area === 'play' && nav?.sub === 'combat') {
+        if (a) { e.preventDefault(); goTo(a.id, nav?.area === a.id ? nav.sub : areaTapSub(isDM, a.id, { group: groupBadgeCount(nav?.area, groupPending, campaign.pendingApprovals) })); }
+      } else if (isDM && (e.key === 'n' || e.key === 'N') && nav?.area === 'play' && campaign.status !== 'closed') {
+        // N em toda a área Jogar: o mesmo Próximo turno da barra (com a vez esperada).
         e.preventDefault();
-        api.combatNextTurn(campaign.id).then(load).catch(() => {});
+        if (tableRef.current.enabled) tableRef.current.nextTurn();
+        else api.combatNextTurn(campaign.id).then(load).catch(() => {});
       } else if (isDM && (e.key === 't' || e.key === 'T')) {
         e.preventDefault(); copyTv();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [campaign, areas, isDM, nav, goTo, load, copyTv]);
+  }, [campaign, areas, isDM, nav, goTo, load, copyTv, groupPending]);
+
+  const setBarPrefs = useCallback((next) => {
+    setBarPrefsState(next);
+    writeBarPrefs(campaignId, next);
+  }, [campaignId]);
+  const tableValue = useMemo(() => ({
+    ...table, prefs: barPrefs, setPrefs: setBarPrefs, openLive: () => setLiveOpen(true), setPage,
+    win: null, bar: false,   // completados abaixo, quando a área já é conhecida
+  }), [table, barPrefs, setBarPrefs]);
 
   if (error && !campaign) {
     return (
@@ -260,8 +333,33 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
 
   const accent = isHexColor(campaign.accent) ? campaign.accent : null;
   const badges = isDM
-    ? { group: groupPending ?? campaign.pendingApprovals ?? 0 }
+    ? { group: groupBadgeCount(nav.area, groupPending, campaign.pendingApprovals) }
     : { world: campaign.worldNewCount || 0 };
+  // Barra da mesa (celular) e janela da Tela (PC): table-bar-model decide quando.
+  const st = campaign.state || {};
+  const fighting = !!(table.combat ? table.combat.active : campaign.combatNow?.active);
+  const vis = {
+    prefs: barPrefs, session: table.pulse?.session ?? st.session, live: table.pulse ? table.pulse.live : !!st.live,
+    combatActive: fighting, tvLive: table.tvLive, area: nav.area, sub: nav.sub, dockable: twoCols,
+    closed: campaign.status === 'closed',
+  };
+  const showBar = isDM && mobile && barVisible(vis);
+  const win = isDM && !mobile ? windowMode({ ...vis, forced: !!winLiveAt }) : 'hidden';
+  const tableCtx = isDM ? { ...tableValue, win, bar: showBar } : null;
+  // Selos de Jogar: "● ao vivo" e "⚔" com combate ativo (texto para o leitor de tela).
+  const marks = isDM ? {
+    play: [vis.live && { k: 'live', icon: '●', label: t(lang, 'ao vivo', 'live') },
+      fighting && { k: 'combat', icon: '⚔', label: t(lang, 'combate', 'combat') }].filter(Boolean),
+  } : {};
+  const openActor = (id) => { setLiveOpen(false); goTo('play', 'combat', { actor: id, at: Date.now() }); };
+  const endCombatFromBar = () => goTo('play', 'combat', { endCombat: Date.now() });
+  const openScreen = () => {
+    // 📺 Tela da capa (PC): a janela aparece já "ao vivo", mesmo escondida pelo ✕.
+    // Onde ela não flutua (encaixada em Agora/Combate, escondida em Jogar › Tela): a folha Tela ao vivo.
+    if (windowMode({ ...vis, forced: true }) !== 'float') { setLiveOpen(true); return; }
+    if (barPrefs.winSession != null) setBarPrefs({ ...barPrefs, winSession: null });
+    setWinLiveAt(Date.now());
+  };
   const areaProps = {
     worldEpoch,
     campaign, lang, isDM, characters, sub: nav.sub, params: nav.params, goTo, onSubChange,
@@ -278,15 +376,16 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
 
   return (
     <AreaContext.Provider value={ctx}>
+     <TableContext.Provider value={tableCtx}>
       <div className={`campaign-detail shell ${isDM ? 'is-dm' : 'is-player'}`} style={accent ? { '--camp-accent': accent } : undefined}>
         <CampaignHeader
           campaign={campaign} lang={lang} isDM={isDM} busy={busy} onBack={onBack}
           onStartSession={startSession} onEndSession={() => setEnding(true)}
           onSearch={() => setSearch(true)} onSettings={() => { setSettings('identity'); if (isDM) loadWorld(); }}
-          onTvOpened={() => markOnboarding('tv')} onClearScreen={clearScreen}
-          onChooseScreen={() => goTo('play', 'screen')}
+          onOpenScreen={openScreen}
         />
-        <AreaNav areas={areas} active={nav.area} onSelect={(a) => goTo(a)} lang={lang} badges={badges} showKeys={isDM}
+        {/* o contador vermelho do Grupo leva direto a Grupo › Pedidos */}
+        <AreaNav areas={areas} active={nav.area} onSelect={(a) => goTo(a, areaTapSub(isDM, a, badges))} lang={lang} badges={badges} marks={marks} showKeys={isDM}
           onSearch={isDM ? undefined : () => setSearch(true)}
           onMore={isDM ? () => { setMore(true); loadWorld(); } : undefined} moreOpen={more} />
 
@@ -302,6 +401,23 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
           )}
           {content}
         </div>
+
+        {showBar && (
+          <TableBar campaign={campaign} lang={lang} onOpenLive={() => setLiveOpen(true)} onEndCombat={endCombatFromBar} />
+        )}
+        {win === 'float' && (
+          <ScreenWindow key={campaign.id} campaign={campaign} lang={lang} liveAt={winLiveAt}
+            corner={windowCorner({ corner, area: nav.area, sub: nav.sub, page })}
+            onCorner={(c) => { setCorner(c); try { localStorage.setItem(CORNER_KEY, c); } catch { /* ok */ } }}
+            onHide={() => { setWinLiveAt(0); setBarPrefs({ ...barPrefs, winSession: String(vis.session ?? '') }); }} />
+        )}
+        {liveOpen && isDM && (
+          <Suspense fallback={null}>
+            <LiveScreenSheet campaign={campaign} lang={lang} desk={!mobile} onClose={() => setLiveOpen(false)}
+              onFullControl={() => { setLiveOpen(false); goTo('play', 'screen'); }}
+              onActor={openActor} onTvLink={() => markOnboarding('tv')} />
+          </Suspense>
+        )}
 
         {!isDM && RevealToast && (
           <AreaBoundary lang={lang} resetKey="toast">
@@ -326,8 +442,10 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
               onSearch={fromMore(() => setSearch(true))}
               onSettings={(section) => fromMore(() => setSettings(section))()}
               onBack={fromMore(onBack)}
-              onTvOpened={() => markOnboarding('tv')} onClearScreen={clearScreen}
-              onChooseScreen={fromMore(() => goTo('play', 'screen'))} />
+              onTvOpened={() => markOnboarding('tv')} onScreenChange={load}
+              onChooseScreen={fromMore(() => goTo('play', 'screen'))}
+              onOpenLive={fromMore(() => setLiveOpen(true))}
+              barPrefs={barPrefs} onBarPrefs={setBarPrefs} />
           </Suspense>
         )}
         {settings && isDM && (
@@ -340,6 +458,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
         {ending && <EndSessionDialog lang={lang} busy={busy} onCancel={() => setEnding(false)} onEnd={endSession} />}
         {toast && <div className="toast shell-toast" role="status">{toast}</div>}
       </div>
+     </TableContext.Provider>
     </AreaContext.Provider>
   );
 }

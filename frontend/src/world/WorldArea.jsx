@@ -11,7 +11,7 @@ import { Toast } from '../../components/Shared.jsx';
 import useArea from '../shell/useArea.js';
 import { SubChips } from '../shell/AreaNav.jsx';
 import {
-  createEntry, createSampleWorld, getEntry, getWorldEchoes, isConflict, listWorld, showEntryOnScreen, updateEntry, worldErrorText,
+  createEntry, createSampleWorld, getEntry, getWorldEchoes, isConflict, listWorld, updateEntry, worldErrorText,
 } from './world-api.js';
 import { applyPatches, t, toLight } from './world-model.js';
 import Atlas from './Atlas.jsx';
@@ -21,6 +21,7 @@ import RevealControl from './RevealControl.jsx';
 import Timeline from './Timeline.jsx';
 import WorldMap from './WorldMap.jsx';
 import { EntryImage } from './EntryCard.jsx';
+import ShowOnTable from '../stage/ShowOnTable.jsx';
 import { immersionOn } from './living/living-logic.js';
 const LivingWorld = lazy(() => import('./living/LivingWorld.jsx'));
 import './world-styles.css';
@@ -146,13 +147,6 @@ export default function WorldArea(props) {
     }
   };
 
-  const show = async (entry) => {
-    try {
-      await showEntryOnScreen(cid, entry.id);
-      setToast(t(lang, `📺 No telão: ${entry.name}`, `📺 On screen: ${entry.name}`));
-    } catch (e) { setToast(worldErrorText(e, lang)); }
-  };
-
   const quickReveal = async (entry) => {
     try { setRevealFor(await getEntry(entry.id)); } catch (e) { setError(worldErrorText(e, lang)); }
   };
@@ -190,7 +184,7 @@ export default function WorldArea(props) {
       ) : sub === 'atlas' ? (
         <Atlas entries={list} lang={lang} selectedId={openId} onOpen={openEntry}
           onCreate={closed ? null : create} onImprovise={closed ? null : () => setImprovise(true)} onReorder={closed ? null : reorder}
-          onReveal={closed ? null : quickReveal} onShow={closed ? null : show}
+          onReveal={closed ? null : quickReveal} showCampaign={closed ? null : campaign} onRevealed={upsert}
           onSample={list.length === 0 && !closed ? sample : null} sampleBusy={sampleBusy} count={meta.count} max={meta.max} createNonce={createNonce}
           top={immersion && list.length > 0 ? (
             <Suspense fallback={null}>
@@ -200,6 +194,7 @@ export default function WorldArea(props) {
           ) : null} />
       ) : sub === 'map' ? (
         <WorldMap campaign={campaign} readOnly={closed} entries={list} lang={lang} mapId={mapId} onMapChange={setMapId}
+          showCampaign={closed ? null : campaign}
           onOpenEntry={openEntry} onEntrySaved={upsert} onEntryCreated={(e) => { upsert(e); }} />
       ) : (
         <Timeline campaign={campaign} entries={list} lang={lang} onOpenEntry={openEntry} onEntrySaved={upsert} onReload={load}
@@ -212,7 +207,7 @@ export default function WorldArea(props) {
           <EntryEditor key={openId} entryId={openId} campaign={campaign} entries={list} adventures={adventures} lang={lang}
             onClose={() => setOpenId(null)} onSaved={upsert}
             onDeleted={(id) => { removeLocal(id); setOpenId(null); setMeta(m => ({ ...m, count: Math.max(0, m.count - 1) })); setToast(t(lang, 'Cartão apagado.', 'Card deleted.')); }}
-            onOpenEntry={openEntry} onOpenMap={openMap} onShow={show} />
+            onOpenEntry={openEntry} onOpenMap={openMap} onShow={!closed} />
         </>
       )}
 
@@ -231,7 +226,8 @@ export default function WorldArea(props) {
             </div>
             <RevealControl entry={revealFor} lang={lang} showSecrets onChange={(next) => { setRevealFor(next); upsert(next); }} />
             <div className="modal-actions">
-              <button type="button" className="btn btn-ghost btn-sm" disabled={revealFor.visibility === 'hidden'} onClick={() => show(revealFor)}>📺 {t(lang, 'Mostrar no telão', 'Show on screen')}</button>
+              <ShowOnTable campaign={campaign} target={{ kind: 'card', entry: revealFor }} lang={lang} className="btn btn-ghost btn-sm"
+                onRevealed={(next) => { setRevealFor(next); upsert(next); }}>📺 {t(lang, 'Mostrar na Tela', 'Show on screen')}</ShowOnTable>
               <button type="button" className="btn btn-primary btn-sm" onClick={() => setRevealFor(null)}>{t(lang, 'Pronto', 'Done')}</button>
             </div>
           </div>

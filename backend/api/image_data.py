@@ -1,8 +1,9 @@
 """
 Imagens guardadas como data URL (base64) no banco, servidas como binário com
 ETag e cache longo — o cliente pede com `?v=<ver>` e o navegador nunca baixa
-de novo a mesma versão. Usado pela capa da campanha e pelas rotas públicas do
-telão. Funções puras + um builder de HttpResponse.
+de novo a mesma versão. Usado pela capa da campanha, pelas rotas públicas da
+Tela e (V9) pelos retratos, tokens e fundo do mapa, que deixaram de ir em
+base64 no JSON (`image_link`). Funções puras + um builder de HttpResponse.
 """
 import base64
 import binascii
@@ -32,6 +33,18 @@ def validate_data_url(value, *, max_chars=MAX_IMAGE_CHARS, allow_gif=False):
 def image_ver(value):
     """Hash curto e estável da imagem (vai no ETag e no ?v=)."""
     return hashlib.sha1(value.encode('utf-8')).hexdigest()[:12] if value else ''
+
+
+def image_link(value, path):
+    """O que vai no JSON no lugar de uma imagem guardada em base64 (retrato do
+    personagem, imagem do token, fundo do mapa): data URL → `path?v=<ver>` (a
+    rota serve o binário com ETag e cache de 1 ano); outro texto (a arte do site,
+    `/art/…`) → ele mesmo, como sempre foi; vazio → None. Nunca o base64."""
+    if not value or not isinstance(value, str):
+        return None
+    if value.startswith('data:'):
+        return f'{path}?v={image_ver(value)}'
+    return value
 
 
 def decode_data_url(value):

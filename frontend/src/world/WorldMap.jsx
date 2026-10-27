@@ -9,11 +9,12 @@ import { KIND_META, clampUnit, freshId, isTouchUi, kindIcon, pinCountText, sortE
 import useAutosave, { saveStateLabel } from './useAutosave.js';
 import { LogDiaryCheck, useReveal } from './RevealControl.jsx';
 import { EntryPicker } from './LinksField.jsx';
+import ShowOnTable from '../stage/ShowOnTable.jsx';
 
 const MIN_Z = 1;
 const MAX_Z = 6;
 
-export default function WorldMap({ campaign, readOnly = false, entries = [], lang = 'pt', mapId: mapIdProp, onMapChange, onOpenEntry, onEntrySaved, onEntryCreated }) {
+export default function WorldMap({ campaign, readOnly = false, entries = [], lang = 'pt', mapId: mapIdProp, onMapChange, onOpenEntry, onEntrySaved, onEntryCreated, showCampaign = null }) {
   const maps = useMemo(() => sortEntries(entries.filter(e => e.isMap)), [entries]);
   const [mapId, setMapIdState] = useState(mapIdProp || null);
   const [trail, setTrail] = useState([]); // mapas anteriores (aninhados)
@@ -123,6 +124,11 @@ export default function WorldMap({ campaign, readOnly = false, entries = [], lan
               📍 {adding ? t(lang, `${tap} no mapa…`, `${tap} the map…`) : t(lang, 'Marcador', 'Pin')}
             </button>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => onOpenEntry?.(map.id)}>✎ {t(lang, 'Editar lugar', 'Edit place')}</button>
+            {showCampaign && map.imageVer && (
+              <ShowOnTable campaign={showCampaign} target={{ kind: 'map', entry: map }} lang={lang} className="btn btn-ghost btn-sm">
+                📺 {t(lang, 'Mostrar este mapa na Tela', 'Show this map on screen')}
+              </ShowOnTable>
+            )}
             <LogDiaryCheck value={rv.logDiary} onChange={rv.setLogDiary} lang={lang} />
           </div>
 

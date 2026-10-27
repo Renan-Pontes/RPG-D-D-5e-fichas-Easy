@@ -1,9 +1,14 @@
-// Peças do personagem na mesa (plano §4.3): retrato e barra de PV, as mesmas em
-// todas as telas do mestre (Combate agora; Grupo e Cena nas próximas fatias).
-//   <PcPortrait stats={{ avatar, race, classId }} name="Dagna" size={40} />
+// Peças do personagem na mesa (plano §4.3): retrato, barra de PV e selos, as
+// mesmas em todas as telas do mestre (Combate, Cena e Grupo).
+//   <PcPortrait stats={{ avatar, avatarUrl, race, classId }} name="Dagna" size={40} />
+// A foto vem por URL (`avatarUrl`, V9: o GET da campanha não leva mais o base64);
+// `avatar` ainda vale (ficha aberta pelo dono, arte do site).
 //   <HpBar hp={3} max={10} temp={2} lang="pt" />
+//   <PcBadges stats={memberStats(m)} lang="pt" isDM unlockedTo={4} asked />
 // O desenho fica em src/campaigns/combat-styles.css (bloco "MesaPc").
 import { useEffect, useState } from 'react';
+import { tName } from '../../data/i18n.js';
+import { apiUrl } from '../api/client.js';
 import { classArt, speciesArt } from '../art.js';
 
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
@@ -18,13 +23,14 @@ export function hpTone(hp, max) {
 
 /** Retrato: avatar do jogador, ou a arte da espécie/classe, ou a inicial. */
 export function PcPortrait({ stats, name, size = 40, className = '' }) {
-  const art = stats?.avatar || speciesArt(stats?.race) || classArt(stats?.classId);
+  const photo = stats?.avatar || apiUrl(stats?.avatarUrl);
+  const art = photo || speciesArt(stats?.race) || classArt(stats?.classId);
   const [broken, setBroken] = useState(false);
   useEffect(() => { setBroken(false); }, [art]);
   const style = { '--pc-pic': `${size}px` };
   if (art && !broken) {
     return (
-      <img className={`mesa-pc-pic ${stats?.avatar ? 'is-avatar' : 'is-art'} ${className}`.trim()} style={style}
+      <img className={`mesa-pc-pic ${photo ? 'is-avatar' : 'is-art'} ${className}`.trim()} style={style}
         src={art} alt="" width={size} height={size} loading="lazy" decoding="async" draggable={false}
         onError={() => setBroken(true)} />
     );
@@ -52,9 +58,36 @@ export function HpBar({ hp, max, temp = 0, lang = 'pt', className = '', label, c
       <span className="mesa-hp-text" aria-hidden="true">
         {units ? <span>{t(lang, 'PV', 'HP')} {text}</span> : text}
         {tmp > 0 && (units
-          ? <span className="mesa-hp-temp">+{tmp} temp</span>
+          ? <span className="mesa-hp-temp">+{tmp}<span className="mesa-hp-temp-word"> temp</span></span>
           : <span className="mesa-hp-temp"> +{tmp}</span>)}
       </span>
     </span>
   );
+}
+
+const condName = (c, lang) => (c === 'exhaustion' ? t(lang, 'Exaustão', 'Exhaustion') : tName('condition', c, lang));
+
+/**
+ * Selos do personagem (texto ≥ 12 px, nada só no hover): ★ Inspiração,
+ * condições, 🐾 Forma selvagem (fera e PV), ✨ Nível N liberado, ⬆ Pediu para
+ * subir e 🎲 Trapaça (só o mestre vê). `stats` no formato do memberStats
+ * (src/group/group-model.js). Sem selo nenhum, não desenha nada.
+ */
+export function PcBadges({ stats, lang = 'pt', isDM = false, unlockedTo = null, asked = false, className = '' }) {
+  if (!stats) return null;
+  const items = [];
+  if (stats.inspiration) items.push(<span key="insp" className="mesa-pc-badge is-insp">★ {t(lang, 'Inspiração', 'Inspiration')}</span>);
+  for (const cd of stats.conditions || []) items.push(<span key={`c-${cd}`} className="mesa-pc-badge is-cond">{condName(cd, lang)}</span>);
+  if (stats.isDruid && stats.wildShape) {
+    const w = stats.wildShape;
+    items.push(
+      <span key="wild" className="mesa-pc-badge is-wild">🐾 {t(lang, 'Forma selvagem', 'Wild shape')}{w.beast ? `: ${w.beast}` : ''}
+        {w.hp != null && ` (${w.hp}/${w.maxHp ?? '?'})`}</span>,
+    );
+  }
+  if (unlockedTo != null) items.push(<span key="up" className="mesa-pc-badge is-unlocked">✨ {t(lang, `Nível ${unlockedTo} liberado`, `Level ${unlockedTo} unlocked`)}</span>);
+  if (asked) items.push(<span key="ask" className="mesa-pc-badge is-pending">⬆ {t(lang, 'Pediu para subir', 'Asked to level up')}</span>);
+  if (isDM && stats.cheatMode) items.push(<span key="cheat" className="mesa-pc-badge is-cheat">🎲 {t(lang, 'Trapaça', 'Cheat')}</span>);
+  if (!items.length) return null;
+  return <div className={`mesa-pc-badges ${className}`.trim()}>{items}</div>;
 }

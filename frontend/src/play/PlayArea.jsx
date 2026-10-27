@@ -1,13 +1,17 @@
-// Área Jogar (mesa ao vivo): Cena · Combate · Testes · Telão.
+// Área Jogar (mesa ao vivo): Cena · Combate · Testes · Tela.
 //
 // Montada pela casca (WP3) com lazy(). Props aceitas:
 //   campaign, lang, onChange (recarrega a campanha), approvals? (lista antiga)
 //   sub?, onSubChange?(sub) | onSub?(sub), goTo?   — da casca; sem eles usa useArea() (C4)
 // A subvista vem de useArea().sub; trocar de subvista chama goTo('play', sub).
+// V4: com a loja da mesa (casca do mestre), a faixa do turno do PC fica aqui, presa
+// no topo das 4 subvistas (no celular o turno e o Próximo moram na barra da mesa),
+// e o selo de Testes só busca quando o pulso diz que os testes mudaram.
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { api } from '../api/client.js';
-import { usePolling } from '../api/polling.js';
 import { testsBadge, unifyTests } from './scene-model.js';
+import { useOnRev, useTable } from './table-store.js';
+import { TurnStrip } from '../stage/TableBar.jsx';
 import { useArea } from '../shell/useArea.js';
 import { SubChips } from '../shell/AreaNav.jsx';
 import { legacyTabToArea } from '../shell/shell-logic.js';
@@ -16,7 +20,7 @@ import './play-styles.css';
 const TableNow = lazy(() => import('../campaigns/TableNow.jsx'));
 const CombatTab = lazy(() => import('../campaigns/CombatTab.jsx'));
 const TestsPanel = lazy(() => import('./TestsPanel.jsx'));
-const ScreenPanel = lazy(() => import('./ScreenPanel.jsx'));
+const StagePanel = lazy(() => import('./StagePanel.jsx'));
 
 export const PLAY_SUBS = ['scene', 'combat', 'checks', 'screen'];
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
@@ -31,18 +35,25 @@ export default function PlayArea(props) {
   const rawSub = props.sub || ctxSub || localSub;
   const sub = PLAY_SUBS.includes(rawSub) ? rawSub : 'scene';
   const [testsWaiting, setTestsWaiting] = useState(0);
+  // O teste que está na Tela (para Jogar › Tela, sem polling próprio).
+  const [shownCheck, setShownCheck] = useState(null);
   // Selo de Testes sempre atual, mesmo com outra subvista aberta (#37).
   const campaignId = campaign?.id;
   const refreshTests = useCallback(async () => {
     if (!campaignId) return;
     const [c, p] = await Promise.allSettled([api.listChecks(campaignId), api.listPendingRolls(campaignId)]);
     if (c.status !== 'fulfilled' && p.status !== 'fulfilled') return;
+    const checks = c.status === 'fulfilled' ? (c.value.checks || []) : null;
+    if (checks) setShownCheck(checks.find(x => x.showOnScreen && x.status === 'open') || null);
     setTestsWaiting(testsBadge(unifyTests({
-      checks: c.status === 'fulfilled' ? (c.value.checks || []) : [],
+      checks: checks || [],
       pendingRolls: p.status === 'fulfilled' ? (p.value.rolls || []) : [],
     })));
   }, [campaignId]);
-  usePolling(refreshTests, 6000, [campaignId]);
+  const table = useTable();
+  // Com o pulso: só quando os testes mudam (e 1 vez por minuto); sem ele, a cada 6 s, como antes.
+  useOnRev(table?.pulse?.checksRev, refreshTests, { table, fallbackMs: 6000 });
+  const inShell = !!table?.enabled;
 
   const shellGoTo = props.goTo || (area.campaign != null ? area.goTo : null);
   const onSub = props.onSubChange || props.onSub;
@@ -71,14 +82,23 @@ export default function PlayArea(props) {
   return (
     <div className="play-area">
       <SubChips subs={PLAY_SUBS} active={sub} onSelect={setSub} lang={lang} badges={badges} />
+      {inShell && (
+        <TurnStrip lang={lang} onOpenActor={(id) => (shellGoTo ? shellGoTo('play', 'combat', { actor: id, at: Date.now() }) : setSub('combat'))} />
+      )}
       <Suspense fallback={fallback}>
         {sub === 'scene' && (
           <TableNow campaign={campaign} approvals={props.approvals} lang={lang}
-            onChange={onChange} onNavigate={onNavigate} goTo={goTo} />
+            onChange={onChange} onNavigate={onNavigate} goTo={goTo} turnStrip={!inShell} />
         )}
-        {sub === 'combat' && <CombatTab campaign={campaign} lang={lang} onChange={onChange} onNavigate={onNavigate} />}
+        {sub === 'combat' && (
+          <CombatTab campaign={campaign} lang={lang} onChange={onChange} onNavigate={onNavigate} turnStrip={!inShell}
+            params={area.area === 'play' ? area.params : null} />
+        )}
         {sub === 'checks' && <TestsPanel campaign={campaign} lang={lang} onChange={onChange} onCount={setTestsWaiting} />}
-        {sub === 'screen' && <ScreenPanel campaign={campaign} lang={lang} onChange={onChange} />}
+        {sub === 'screen' && (
+          <StagePanel campaign={campaign} lang={lang} shownCheck={shownCheck}
+            onChange={() => { onChange?.(); refreshTests(); }} />
+        )}
       </Suspense>
     </div>
   );

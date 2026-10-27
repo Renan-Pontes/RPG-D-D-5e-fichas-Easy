@@ -5,34 +5,29 @@
 //     1ª: ← (44×44) + nome numa linha (toque no nome mostra o nome todo).
 //     2ª: "● Ao vivo", "Sessão N", cena (some em < 360) e, à direita,
 //         ▶ Começar sessão N / ■ Encerrar com texto e 44 px.
-//   Telão, Buscar e Ajustes ficam na folha "Mais" (shell/MoreSheet.jsx).
-// - Desktop: a capa larga, com tudo rotulado: Começar/Encerrar, 📺 Telão
-//   (popover com ✕), 🔍 Buscar e ⚙ Ajustes.
-// Exporta também <TvPanel>, o conteúdo do Telão (o popover e a folha "Mais"
-// usam o mesmo).
-import { useEffect, useRef, useState } from 'react';
+//   Tela, Buscar e Ajustes ficam na folha "Mais" (shell/MoreSheet.jsx).
+// - Desktop: a capa larga, com tudo rotulado: Começar/Encerrar, 📺 Tela (abre a
+//   janela da Tela já "ao vivo", V4 — o popover de antes saiu: o que estava nele
+//   mora na janela, na folha Tela ao vivo e em Jogar › Tela), 🔍 Buscar e ⚙ Ajustes.
+// Exporta também <TvPanel>, o conteúdo da Tela da folha "Mais" (celular).
+import { useState } from 'react';
 import { api } from '../api/client.js';
 import { defaultCoverArt, nextSessionNumber, screenLink, t } from './shell-logic.js';
-import { getScreen } from '../play/play-api.js';
-import { cardKind, screenNow } from '../play/screen-now.js';
+import { frontIcon, frontLabel, screenLine, stageNow } from '../stage/stage-now.js';
+import { sendToStage, stageBack, stageClear, stageDark } from '../stage/stage-api.js';
+import useStage from '../stage/useStage.js';
 import ClosedCampaignBanner from '../plans/ClosedCampaignBanner.jsx';
 import './mesa.css';
 
 export default function CampaignHeader({
-  campaign, lang, isDM, onBack, onStartSession, onEndSession, onSearch, onSettings, onTvOpened, onClearScreen, onChooseScreen, busy,
+  campaign, lang, isDM, onBack, onStartSession, onEndSession, onSearch, onSettings, onOpenScreen, busy,
 }) {
   const st = campaign.state || {};
   const live = !!st.live;
   const session = parseInt(st.session, 10);
   const cover = api.campaignCoverUrl(campaign) || defaultCoverArt(campaign);
-  const [tvOpen, setTvOpen] = useState(false);
   const [nameOpen, setNameOpen] = useState(false);
-  const tvBtn = useRef(null);
   const closed = campaign.status === 'closed';
-  const closeTv = (refocus) => {
-    setTvOpen(false);
-    if (refocus) { try { tvBtn.current?.focus({ preventScroll: true }); } catch { /* ok */ } }
-  };
 
   return (
     <header className={`shell-header ${live ? 'is-live' : ''} ${isDM ? 'is-dm' : 'is-player'} ${closed ? 'is-closed' : ''} ${nameOpen ? 'is-name-open' : ''}`}>
@@ -70,14 +65,10 @@ export default function CampaignHeader({
               </button>
             )}
             <div className="shell-tv-wrap shell-desk-only">
-              <button type="button" ref={tvBtn} className="mesa-btn shell-act" onClick={() => setTvOpen(v => !v)}
-                aria-expanded={tvOpen} aria-haspopup="dialog" title={t(lang, 'Telão (tecla T copia o link)', 'TV screen (T copies the link)')}>
-                <span aria-hidden="true">📺</span> <span className="shell-act-txt">{t(lang, 'Telão', 'TV')}</span>
+              <button type="button" className="mesa-btn shell-act" onClick={onOpenScreen}
+                title={t(lang, 'Abre a janela da Tela ao vivo (tecla T copia o link)', 'Opens the live screen window (T copies the link)')}>
+                <span aria-hidden="true">📺</span> <span className="shell-act-txt">{t(lang, 'Tela', 'Screen')}</span>
               </button>
-              {tvOpen && (
-                <TvPopover campaign={campaign} lang={lang} onClose={closeTv} onOpened={onTvOpened} onClear={onClearScreen}
-                  onChoose={onChooseScreen ? () => { setTvOpen(false); onChooseScreen(); } : undefined} />
-              )}
             </div>
             <button type="button" className="mesa-btn shell-act shell-desk-only" onClick={onSearch}
               title={t(lang, 'Buscar (Ctrl+K)', 'Search (Ctrl+K)')} aria-keyshortcuts="Control+K">
@@ -98,53 +89,24 @@ export default function CampaignHeader({
   );
 }
 
-/** Popover do Telão (desktop): o TvPanel com ✕; fecha também com Esc e clique fora. */
-function TvPopover({ campaign, lang, onClose, onOpened, onClear, onChoose }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target) && !e.target.closest?.('.shell-tv-wrap')) onClose(false); };
-    const onKey = (e) => { if (e.key === 'Escape') onClose(true); };
-    document.addEventListener('mousedown', onDoc);
-    window.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('mousedown', onDoc); window.removeEventListener('keydown', onKey); };
-  }, [onClose]);
-  return (
-    <div className="shell-popover" role="dialog" aria-labelledby="shell-pop-title" ref={ref}>
-      <div className="shell-pop-head">
-        <span className="mesa-gem" aria-hidden="true" />
-        <h2 id="shell-pop-title" className="shell-pop-title"><span className="mesa-foil">{t(lang, 'Telão', 'TV screen')}</span></h2>
-        <button type="button" className="mesa-icon-btn shell-pop-x" onClick={() => onClose(true)}
-          aria-label={t(lang, 'Fechar', 'Close')} title={t(lang, 'Fechar (Esc)', 'Close (Esc)')}>
-          <span aria-hidden="true">✕</span>
-        </button>
-      </div>
-      <TvPanel campaign={campaign} lang={lang} onOpened={onOpened} onClear={onClear} onChoose={onChoose} />
-    </div>
-  );
-}
-
 /**
- * Conteúdo do Telão: "Na tela agora", Tirar o cartão / Voltar para a capa,
- * link (Copiar marca o passo dos primeiros passos; Abrir em nova aba) e o
- * atalho para escolher o que mostrar (Jogar › Telão).
- * Lê o MESMO estado da TV (/api/screen/<token>) a cada 4 s, só enquanto está
- * montado (popover ou folha "Mais" abertos).
+ * Conteúdo da Tela da folha "Mais" (e, antes da V4, do popover do PC): "Na tela
+ * agora" pela regra única (stage-now.js), ✕ Tirar (volta para o fundo) e
+ * 🧹 Limpar a tela, o link (Copiar marca o passo dos primeiros passos; Abrir na
+ * TV ↗) e o atalho para o controle completo (Jogar › Tela). Lê o palco do GET da
+ * campanha que a casca já faz (nenhum polling próprio).
  */
-export function TvPanel({ campaign, lang, onOpened, onClear, onChoose }) {
+export function TvPanel({ campaign, lang, onOpened, onChanged, onChoose }) {
   const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
   const url = screenLink(window.location.origin, campaign.screenToken);
-  const [screen, setScreen] = useState(null);
-  const [tick, setTick] = useState(0);
-  useEffect(() => {
-    if (!campaign.screenToken) return undefined;
-    let alive = true;
-    getScreen(campaign.screenToken).then(r => { if (alive) setScreen(r); }).catch(() => {});
-    const tm = setTimeout(() => setTick(n => n + 1), 4000);
-    return () => { alive = false; clearTimeout(tm); };
-  }, [campaign.screenToken, tick]);
-  const card = screen ? (screen.card || null) : (campaign.screenCard || null);
-  const now = screenNow({ combat: screen?.combat, card });
-  const clear = async () => { await onClear?.(); setTick(n => n + 1); };
+  const stage = useStage(campaign);
+  const now = stageNow({ stage, combat: campaign.combatNow });
+  const line = screenLine({ stage, combat: campaign.combatNow, lang });
+  const act = async (send, done) => {
+    setBusy(true);
+    try { await sendToStage(campaign.id, send, { lang, done, onDone: () => onChanged?.() }); } finally { setBusy(false); }
+  };
   const copy = async () => {
     try { await navigator.clipboard?.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1600); } catch { /* sem clipboard */ }
     onOpened?.();
@@ -153,43 +115,55 @@ export function TvPanel({ campaign, lang, onOpened, onClear, onChoose }) {
     <div className="shell-tv-panel">
       <div className="shell-pop-row">
         <span className="mesa-eyebrow">{t(lang, 'Na tela agora', 'On screen now')}</span>
-        <strong className="shell-pop-now">
-          {now.mode === 'combat'
-            ? <>⚔ {t(lang, 'Combate', 'Combat')}{now.round ? <span className="muted"> · {t(lang, 'rodada', 'round')} {now.round}</span> : null}</>
-            : now.card?.title
-              ? <>{cardKind(now.card, lang) ? <span className="muted">{cardKind(now.card, lang)} · </span> : null}{now.card.title}</>
-              : t(lang, 'Capa da campanha', 'Campaign cover')}
-        </strong>
-        {now.overlay && (
-          <span className="shell-pop-note">
-            <span className="muted">{t(lang, 'Junto, ao lado: ', 'Alongside: ')}</span>
-            {cardKind(now.overlay, lang) ? `${cardKind(now.overlay, lang)} · ` : ''}{now.overlay.title}
-          </span>
-        )}
+        <strong className="shell-pop-now">{now.mode === 'front' ? `${frontIcon(now.front)} ` : ''}{line}</strong>
         {now.waiting && (
-          <span className="shell-pop-note muted">{t(lang, 'Depois do combate: ', 'After combat: ')}{now.waiting.title}</span>
+          <span className="shell-pop-note muted">{t(lang, 'Depois do combate: ', 'After combat: ')}{frontLabel(now.waiting, lang, { dm: true })}</span>
         )}
-        {card && onClear && (
-          <button type="button" className="mesa-btn shell-pop-clear" onClick={clear}>
-            {now.mode === 'combat' ? t(lang, 'Tirar o cartão', 'Remove the card') : t(lang, 'Voltar para a capa', 'Back to cover')}
-          </button>
+        {now.held && (
+          <span className="shell-pop-note muted">{t(lang, 'Atrás da Tela escurecida: ', 'Behind the blacked-out screen: ')}{frontLabel(now.held, lang, { dm: true })}</span>
+        )}
+        {now.gone && (
+          <span className="shell-pop-note muted">{frontLabel(now.gone, lang, { dm: true })}{t(lang, ' · não aparece na Tela (oculto ou apagado)', ' · not on screen (hidden or deleted)')}</span>
+        )}
+        {campaign.status === 'closed' ? (
+          <p className="shell-pop-help" role="note">{t(lang, 'Campanha encerrada: a Tela fica só para ver.', 'Campaign closed: the screen is view-only.')}</p>
+        ) : (
+        <div className="shell-pop-clear-row">
+          {(now.front || now.waiting || now.gone) && (
+            <button type="button" className="mesa-btn shell-pop-clear" disabled={busy}
+              onClick={() => act(() => stageBack(campaign.id), t(lang, 'Tirado ✓', 'Removed ✓'))}>
+              ✕ {t(lang, 'Tirar', 'Remove')}
+            </button>
+          )}
+          {now.mode === 'dark' ? (
+            <button type="button" className="mesa-btn shell-pop-clear" disabled={busy}
+              onClick={() => act(() => stageDark(campaign.id, false), t(lang, 'Tela acesa ✓', 'Screen lit ✓'))}>
+              ◑ {t(lang, 'Acender', 'Light up')}
+            </button>
+          ) : (now.front || now.waiting || now.gone) ? (
+            <button type="button" className="mesa-btn shell-pop-clear" disabled={busy}
+              onClick={() => act(() => stageClear(campaign.id), t(lang, 'Tela limpa ✓', 'Screen cleared ✓'))}>
+              🧹 {t(lang, 'Limpar a tela', 'Clear screen')}
+            </button>
+          ) : null}
+        </div>
         )}
       </div>
       <div className="shell-pop-link mesa-field">
-        <label htmlFor={`tv-link-${campaign.id}`} className="mesa-field-label">{t(lang, 'Link do telão', 'TV link')}</label>
+        <label htmlFor={`tv-link-${campaign.id}`} className="mesa-field-label">{t(lang, 'Link da Tela', 'Screen link')}</label>
         <input id={`tv-link-${campaign.id}`} className="input" readOnly value={url} onFocus={(e) => e.target.select()} />
       </div>
       <div className="shell-pop-actions">
         <button type="button" className="mesa-btn is-primary" onClick={copy}>{copied ? t(lang, 'Copiado ✓', 'Copied ✓') : t(lang, 'Copiar link', 'Copy link')}</button>
-        <a className="mesa-btn" href={url} target="_blank" rel="noreferrer" onClick={() => onOpened?.()}>{t(lang, 'Abrir em nova aba', 'Open in new tab')}</a>
+        <a className="mesa-btn" href={url} target="_blank" rel="noreferrer" onClick={() => onOpened?.()}>{t(lang, 'Abrir na TV', 'Open on TV')} ↗</a>
       </div>
-      <p className="shell-pop-help">{t(lang, 'Abra este link na TV ou tablet que a mesa vê.', 'Open this link on the TV or tablet the table watches.')}</p>
+      <p className="shell-pop-help">{t(lang, 'Abra este link no navegador da TV, do notebook ligado na TV ou de um tablet.', 'Open this link in the browser of the TV, of a laptop connected to the TV or of a tablet.')}</p>
       {onChoose ? (
         <button type="button" className="mesa-btn is-quiet shell-pop-choose" onClick={onChoose}>
-          {t(lang, 'Escolher o que mostrar → Jogar › Telão', 'Choose what to show → Play › TV screen')}
+          {t(lang, 'Abrir o controle completo → Jogar › Tela', 'Open full control → Play › Screen')}
         </button>
       ) : (
-        <p className="shell-pop-help">{t(lang, 'O que aparece lá você escolhe em Jogar › Telão.', 'Choose what shows there in Play › TV screen.')}</p>
+        <p className="shell-pop-help">{t(lang, 'O que aparece lá você escolhe em Jogar › Tela.', 'Choose what shows there in Play › Screen.')}</p>
       )}
     </div>
   );

@@ -210,6 +210,27 @@
   text-shadow: none;
 }
 @media (prefers-reduced-motion: reduce) { .mesa-hp-fill { transition: none; } }
+/* selos (PcBadges): texto de 12,5 px, cor pelo tipo */
+.mesa-pc-badges { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.mesa-pc-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 1px 8px;
+  border: 1px solid rgba(224, 181, 94, 0.3);
+  border-radius: 999px;
+  background: rgba(10, 7, 6, 0.55);
+  color: var(--ink-secondary);
+  font-size: 12.5px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.mesa-pc-badge.is-insp { color: var(--gold-bright); border-color: var(--gold); }
+.mesa-pc-badge.is-cond { color: var(--amber); border-color: var(--amber-deep); }
+.mesa-pc-badge.is-wild { color: var(--moss-bright); border-color: var(--moss); }
+.mesa-pc-badge.is-unlocked { color: var(--moss-bright); border-color: var(--moss); background: var(--moss-soft); }
+.mesa-pc-badge.is-pending { color: var(--gold-bright); border-color: var(--gold); background: var(--gold-soft); }
+.mesa-pc-badge.is-cheat { color: var(--blood-bright); border-color: var(--blood); }
 
 /* ---------- faixa do turno (presa) ---------- */
 .ct-turn-wrap {

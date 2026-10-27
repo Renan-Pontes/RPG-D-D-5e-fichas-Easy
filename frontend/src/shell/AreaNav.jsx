@@ -6,16 +6,27 @@
 import { useRef } from 'react';
 import { areaLabel, SUB_ICONS, subLabel, subShortLabel, t } from './shell-logic.js';
 import useScrollEdges from './useScrollEdges.js';
+import { OfflineNote } from '../stage/TableBar.jsx';
 import './mesa.css';
 
 /**
  * onMore: 5ª casa "Mais" (mestre) — abre a folha; moreOpen marca a casa.
  * onSearch: 5ª casa "Buscar" (quando não há onMore: o jogador).
+ * marks: {área: [{k, icon, label}]} — selos que não são número (Jogar: "● ao vivo"
+ * e "⚔" com combate ativo, V4); o ícone com o texto para o leitor de tela.
+ * No PC, com a mesa sem resposta há 8 s, as abas (presas no topo) terminam em
+ * "⟳ Sem conexão há N s" (OfflineNote; só no mestre, que tem a loja da mesa).
  */
-export default function AreaNav({ areas, active, onSelect, onSearch, onMore, moreOpen = false, lang, badges = {}, showKeys = false }) {
+export default function AreaNav({ areas, active, onSelect, onSearch, onMore, moreOpen = false, lang, badges = {}, marks = {}, showKeys = false }) {
+  const markSpans = (id, cls) => (marks[id] || []).map(m => (
+    <span key={m.k} className={`shell-mark is-${m.k} ${cls}`}>
+      <span aria-hidden="true">{m.icon}</span><span className="sr-only"> {m.label}</span>
+    </span>
+  ));
   return (
     <>
-      <nav className="shell-areas" role="tablist" aria-label={t(lang, 'Áreas da campanha', 'Campaign areas')}>
+      <nav className="shell-areas" aria-label={t(lang, 'Áreas da campanha', 'Campaign areas')}>
+       <div className="shell-areas-tabs" role="tablist" aria-label={t(lang, 'Áreas da campanha', 'Campaign areas')}>
         {areas.map((a, i) => (
           <button
             key={a.id}
@@ -31,10 +42,13 @@ export default function AreaNav({ areas, active, onSelect, onSearch, onMore, mor
           >
             <span className="shell-area-ico" aria-hidden="true">{a.icon}</span>
             <span className="shell-area-label">{areaLabel(a, lang)}</span>
+            {markSpans(a.id, 'is-tab')}
             {badges[a.id] > 0 && <span className="shell-badge" aria-label={t(lang, `${badges[a.id]} novo(s)`, `${badges[a.id]} new`)}>{badges[a.id]}</span>}
             {showKeys && <kbd className="shell-area-key" aria-hidden="true">{i + 1}</kbd>}
           </button>
         ))}
+       </div>
+        <OfflineNote lang={lang} className="is-areas" />
       </nav>
 
       <nav className="shell-bottom-bar no-print" aria-label={t(lang, 'Áreas da campanha', 'Campaign areas')}>
@@ -48,13 +62,14 @@ export default function AreaNav({ areas, active, onSelect, onSearch, onMore, mor
           >
             <span className="shell-bottom-ico" aria-hidden="true">{a.icon}</span>
             <span className="shell-bottom-label">{areaLabel(a, lang)}</span>
+            {(marks[a.id] || []).length > 0 && <span className="shell-marks">{markSpans(a.id, 'is-bottom')}</span>}
             {badges[a.id] > 0 && <span className="shell-badge shell-badge-dot">{badges[a.id]}</span>}
           </button>
         ))}
         {onMore ? (
           <button type="button" className={`shell-bottom-btn shell-bottom-more ${moreOpen ? 'active' : ''}`} onClick={onMore}
             aria-haspopup="dialog" aria-expanded={moreOpen}
-            aria-label={t(lang, 'Mais: sessão, busca, telão e ajustes', 'More: session, search, TV and settings')}>
+            aria-label={t(lang, 'Mais: sessão, busca, Tela e ajustes', 'More: session, search, screen and settings')}>
             <span className="shell-bottom-ico" aria-hidden="true">☰</span>
             <span className="shell-bottom-label" aria-hidden="true">{t(lang, 'Mais', 'More')}</span>
           </button>
@@ -100,6 +115,8 @@ export function SubChips({ subs, active, onSelect, lang, labels = {}, icons = {}
   };
   return (
     <div ref={wrapRef} className="shell-seg-tabs">
+      {/* celular sem a barra da mesa: "⟳ Sem conexão há N s" numa faixa fina sob o segmentado */}
+      <OfflineNote lang={lang} className="is-seg" />
       <div className="mesa-seg has-track">
         <div ref={trackRef} className="mesa-seg-track mesa-scroll" role="tablist" aria-label={ariaLabel || t(lang, 'Subvistas', 'Views')}>
           {subs.map(s => {

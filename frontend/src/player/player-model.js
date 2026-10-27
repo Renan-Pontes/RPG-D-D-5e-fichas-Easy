@@ -5,7 +5,10 @@
 // - filtro do Atlas do jogador e rótulos que só o jogador/telão usam;
 // (tipos, menções, linha do tempo e "aparece em" vêm de src/world/world-model.js)
 // - linha do personagem traduzida para o telão.
-import { tName } from '../../data/i18n.js';
+// Nada aqui puxa o SRD nem a progressão (a Tela importa este arquivo): a linha
+// do personagem usa a tabela leve de nomes (src/screen/tv-names.json, gerada por
+// scripts/tv-names.mjs a partir do tName).
+import TV_NAMES from '../screen/tv-names.json' with { type: 'json' };
 import { isNewFor } from '../world/world-model.js';
 
 export const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
@@ -103,19 +106,27 @@ export const secretSessionLabel = (s, lang = 'pt') => (s?.session
   : L(lang, 'Descoberto', 'Discovered'));
 
 // ------------------------------------------------------------------ telão
+/** Nome de espécie ou classe pela tabela leve (o mesmo do tName; o id se não houver). */
+export function tvName(kind, id, lang = 'pt') {
+  const row = TV_NAMES[kind]?.[id];
+  return row ? row[lang === 'pt' ? 0 : 1] : id;
+}
+
 /** "Elfo da Floresta · Druida 2 / Guerreiro 1" (dados públicos do telão). */
 export function charLine(c, lang = 'pt') {
   if (!c) return '';
   const classes = Array.isArray(c.classes) && c.classes.length
     ? c.classes
     : (c.className ? [{ id: c.className, level: c.level || 1 }] : []);
-  const cls = classes.map(e => `${tName('class', e.id, lang)} ${e.level}`).join(' / ');
-  return [c.race && tName('race', c.race, lang), cls].filter(Boolean).join(' · ');
+  const cls = classes.map(e => `${tvName('class', e.id, lang)} ${e.level}`).join(' / ');
+  return [c.race && tvName('race', c.race, lang), cls].filter(Boolean).join(' · ');
 }
 
+// "Caído" é a condição (prone, CONDITIONS.prone): quem chegou a 0 PV é "Derrotado"
+// (o mesmo texto para o monstro e para o PJ na ordem da TV).
 const HEALTH = {
   unhurt: ['Ileso', 'Unhurt'], hurt: ['Ferido', 'Hurt'],
-  bloodied: ['Sangrando', 'Bloodied'], down: ['Caído', 'Down'],
+  bloodied: ['Sangrando', 'Bloodied'], down: ['Derrotado', 'Down'],
 };
 export const healthLabel = (band, lang = 'pt') => (HEALTH[band] || HEALTH.unhurt)[lang === 'pt' ? 0 : 1];
 

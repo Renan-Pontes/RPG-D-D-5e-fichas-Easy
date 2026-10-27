@@ -9,6 +9,8 @@
 //
 // API_BASE vem de VITE_API_URL em produção; em dev cai pra localhost:4000.
 
+import { combatCampaignId, missingRefs, remember, withActions, withSetsParam } from './combat-sets.js';
+
 const DEFAULT_BASE = import.meta.env?.VITE_API_URL || '';
 const API_BASE = (typeof window !== 'undefined' && window.__API_BASE__) || DEFAULT_BASE;
 
@@ -123,6 +125,48 @@ async function request(path, { method = 'GET', body, headers = {}, _csrfRetry = 
   return data;
 }
 
+// Combate do mestre sem as ações dos stat blocks a cada mudança (V9, combat-sets.js): o
+// pedido vai com ?sets=1, as ações chegam por ref (uma vez; o navegador guarda por 1 ano) e
+// voltam para `stats.actions` antes de a resposta sair daqui — também no 409 da vez.
+const actionSets = new Map();
+const actionsLoading = new Map();   // ref → pedido em andamento (duas telas pedem o mesmo ref juntas)
+
+function loadActions(campaignId, ref) {
+  if (!actionsLoading.has(ref)) {
+    actionsLoading.set(ref, request(`/api/combat/campaign/${encodeURIComponent(campaignId)}/actions/${ref}`)
+      .then(r => { remember(actionSets, ref, r?.actions); })
+      .catch(() => { /* fica faltando: quem pediu lê o combate inteiro */ })
+      .finally(() => actionsLoading.delete(ref)));
+  }
+  return actionsLoading.get(ref);
+}
+
+async function fullActions(campaignId, combat) {
+  const need = missingRefs(combat, actionSets);
+  if (need.length) await Promise.all(need.map(ref => loadActions(campaignId, ref)));
+  const full = withActions(combat, actionSets);
+  if (full) return full;
+  // O ref sumiu entre as duas leituras (o monstro saiu do combate) ou a rede falhou:
+  // o combate inteiro, sem ?sets, como o app de antes.
+  return (await request(`/api/combat/campaign/${encodeURIComponent(campaignId)}`))?.combat ?? combat;
+}
+
+async function combatRequest(path, opts) {
+  const id = combatCampaignId(path);
+  if (id == null) return request(path, opts);
+  let data;
+  try {
+    data = await request(withSetsParam(path), opts);
+  } catch (e) {
+    if (e?.data?.combat) {
+      try { e.data.combat = await fullActions(id, e.data.combat); } catch { /* o erro de antes vale */ }
+    }
+    throw e;
+  }
+  if (data?.combat) data.combat = await fullActions(id, data.combat);
+  return data;
+}
+
 function withCsrfRefresh(data) {
   csrfTokenCache = null;
   ensureCsrf(true).catch(() => {});
@@ -181,6 +225,8 @@ export const api = {
   // Campaigns
   listCampaigns:   () => request('/api/campaigns'),
   getCampaign:     (idOrSlug) => request(`/api/campaigns/${idOrSlug}`),
+  // Pulso do mestre (~0,8 KB; parado o navegador recebe 304): src/play/table-store.js
+  getPulse:        (idOrSlug) => request(`/api/campaigns/${idOrSlug}/pulse`),
   createCampaign:  (body) => request('/api/campaigns', { method: 'POST', body }),
   updateCampaign:  (id, body) => request(`/api/campaigns/${id}`, { method: 'PUT', body }),
   deleteCampaign:  (id) => request(`/api/campaigns/${id}`, { method: 'DELETE' }),
@@ -200,9 +246,6 @@ export const api = {
   // Capa: dataURL (jpeg/png/webp ≤ 450k) ou null para remover → {coverVer}
   setCampaignCover:(id, image) => request(`/api/campaigns/${id}/cover`, { method: image ? 'PUT' : 'DELETE', body: image ? { image } : undefined }),
   campaignCoverUrl:(c) => (c?.coverVer ? `${API_BASE}/api/campaigns/${c.id}/cover?v=${encodeURIComponent(c.coverVer)}` : null),
-  // "Mostrar agora" no telão: {type:'entry', entryId, secretIds?} | {type:'recap', title, text}
-  // | {type:'scene', adventureId, nodeId} | null (limpa)
-  setScreenCard:   (id, card) => request(`/api/campaigns/${id}/screen-card`, { method: 'POST', body: card ?? { type: null } }),
   // Approvals
   listApprovals:  (campaignId) => request(`/api/approvals/campaign/${campaignId}`),
   grantLevelup:   (campaignId, body) => request(`/api/approvals/campaign/${campaignId}/grant-levelup`, { method: 'POST', body }),
@@ -235,31 +278,39 @@ export const api = {
   consumeApproval: (approvalId, body = {}) => request(`/api/approvals/${approvalId}/consume`, { method: 'POST', body }),
   // Dice
   rollDice:      (body) => request('/api/dice/roll', { method: 'POST', body }),
+  // V15: a rolagem da ficha, já rolada no aparelho, na fila da Tela (src/dice/sheet-roll.js)
+  sheetRoll:     (characterId, body) => request(`/api/characters/${characterId}/table-roll`, { method: 'POST', body }),
   listRigs:      (campaignId) => request(`/api/dice/campaign/${campaignId}/rigs`),
   createRig:     (campaignId, body) => request(`/api/dice/campaign/${campaignId}/rigs`, { method: 'POST', body }),
   updateRig:     (rigId, body) => request(`/api/dice/rigs/${rigId}`, { method: 'PUT', body }),
   deleteRig:     (rigId) => request(`/api/dice/rigs/${rigId}`, { method: 'DELETE' }),
   diceLog:       (campaignId) => request(`/api/dice/campaign/${campaignId}/log`),
-  // Screen (público — não exige CSRF/sessão)
-  screen:        (token) => request(`/api/screen/${token}`),
+  // Tela pública (não exige CSRF/sessão). O que vai à Tela: src/stage/stage-api.js
+  // ?tv=1&c=<aba>: a TV de verdade avisa que está aberta ("TV conectada"); ?preview=1 não conta.
+  screen:        (token, query = '') => request(`/api/screen/${token}${query}`),
 
   // Combat
-  getCombat:        (id) => request(`/api/combat/campaign/${id}`),
-  startCombat:      (id) => request(`/api/combat/campaign/${id}/start`, { method: 'POST' }),
-  endCombat:        (id) => request(`/api/combat/campaign/${id}/end`, { method: 'POST' }),
-  resetCombat:      (id) => request(`/api/combat/campaign/${id}/reset`, { method: 'POST' }),
-  addCombatant:     (id, body) => request(`/api/combat/campaign/${id}/combatants`, { method: 'POST', body }),
-  updateCombatant:  (id, cid, body) => request(`/api/combat/campaign/${id}/combatants/${cid}`, { method: 'PUT', body }),
-  removeCombatant:  (id, cid) => request(`/api/combat/campaign/${id}/combatants/${cid}`, { method: 'DELETE' }),
-  combatAction:     (id, body) => request(`/api/combat/campaign/${id}/action`, { method: 'POST', body }),
-  combatPlayerAttack:(id, body) => request(`/api/combat/campaign/${id}/player-attack`, { method: 'POST', body }),
-  combatNextTurn:   (id) => request(`/api/combat/campaign/${id}/next-turn`, { method: 'POST' }),
-  setCombatMap:     (id, body) => request(`/api/combat/campaign/${id}/map`, { method: 'POST', body }),
+  // (combatRequest: as ações dos stat blocks vêm por ref e voltam inteiras aqui)
+  getCombat:        (id) => combatRequest(`/api/combat/campaign/${id}`),
+  startCombat:      (id) => combatRequest(`/api/combat/campaign/${id}/start`, { method: 'POST' }),
+  endCombat:        (id) => combatRequest(`/api/combat/campaign/${id}/end`, { method: 'POST' }),
+  resetCombat:      (id) => combatRequest(`/api/combat/campaign/${id}/reset`, { method: 'POST' }),
+  addCombatant:     (id, body) => combatRequest(`/api/combat/campaign/${id}/combatants`, { method: 'POST', body }),
+  updateCombatant:  (id, cid, body) => combatRequest(`/api/combat/campaign/${id}/combatants/${cid}`, { method: 'PUT', body }),
+  removeCombatant:  (id, cid) => combatRequest(`/api/combat/campaign/${id}/combatants/${cid}`, { method: 'DELETE' }),
+  combatAction:     (id, body) => combatRequest(`/api/combat/campaign/${id}/action`, { method: 'POST', body }),
+  combatPlayerAttack:(id, body) => combatRequest(`/api/combat/campaign/${id}/player-attack`, { method: 'POST', body }),
+  // expect {round, turnIndex}: a vez que o mestre via; já mudou → 409 stale_turn (nada muda)
+  combatNextTurn:   (id, expect) => combatRequest(`/api/combat/campaign/${id}/next-turn`, { method: 'POST', body: expect ? { expect } : undefined }),
+  combatPrevTurn:   (id, expect) => combatRequest(`/api/combat/campaign/${id}/prev-turn`, { method: 'POST', body: expect ? { expect } : undefined }),
+  setCombatMap:     (id, body) => combatRequest(`/api/combat/campaign/${id}/map`, { method: 'POST', body }),
 
   // RollRequest
   createRoll:       (id, body) => request(`/api/rolls/campaign/${id}`, { method: 'POST', body }),
   listPendingRolls: (id) => request(`/api/rolls/campaign/${id}/pending`),
   listRecentRolls:  (id) => request(`/api/rolls/campaign/${id}/recent`),
+  // Testes › 🎲 Rolagens na Tela (V10, só o mestre): as rolagens de mesa, 📺 e 🔒
+  listTableRolls:   (id) => request(`/api/rolls/campaign/${id}/recent?table=1`),
   resolveRoll:      (rid, body) => request(`/api/rolls/${rid}/resolve`, { method: 'POST', body }),
   cancelRoll:       (rid) => request(`/api/rolls/${rid}/cancel`, { method: 'POST' }),
 
@@ -269,8 +320,14 @@ export const api = {
   myChecks:      () => request('/api/checks/mine'),
   respondCheck:  (cid, body) => request(`/api/checks/${cid}/respond`, { method: 'POST', body }),
   closeCheck:    (cid, body = {}) => request(`/api/checks/${cid}/close`, { method: 'POST', body }),
-  screenCheck:   (cid, show) => request(`/api/checks/${cid}/screen`, { method: 'POST', body: { show } }),
   deleteCheck:   (cid) => request(`/api/checks/${cid}`, { method: 'DELETE' }),
 };
 
-export { ApiError, API_BASE, request };
+/**
+ * Endereço de uma imagem que o servidor manda por URL (V9: foto do personagem,
+ * token, fundo do mapa — `/api/…?v=`): com o servidor noutro domínio, ganha o
+ * API_BASE. Arte do site (`/art/…`), data URL e endereço completo ficam como estão.
+ */
+const apiUrl = (url) => (typeof url === 'string' && url.startsWith('/api/') ? `${API_BASE}${url}` : (url || null));
+
+export { ApiError, API_BASE, apiUrl, request, combatRequest };

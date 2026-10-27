@@ -3,9 +3,11 @@
 // Toque num atalho ("Percepção") → pedido enviado para os alvos marcados,
 // com a CD/vantagem configuradas acima. Cada jogador responde no app ou
 // digitando o dado físico; o mestre também pode anotar o que ouviu na mesa.
-// Nada vai para o telão sem o mestre tocar em "Mostrar no telão".
+// Nada vai para a Tela sem o mestre tocar em "Mostrar na Tela".
+// Sob cada atalho, o gancho do Raio-X: quem é o melhor da mesa e a chance dele na CD
+// ("melhor: Pipo +7 · 65%"), calculado na hora com as fichas que o mestre já tem.
 import { errorMessage } from '../api/errors.js';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import { tName } from '../../data/i18n.js';
@@ -17,7 +19,9 @@ import { formatMod } from '../dice/dice-math.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
+import { bestAt, firstName } from '../group/party-best.js';
 import './checks-styles.css';
+import ShowOnTable from '../stage/ShowOnTable.jsx';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const DC_PRESETS = [10, 12, 15, 18, 20];
@@ -46,6 +50,24 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
   const [sent, setSent] = useState('');
   const [other, setOther] = useState('');
   const [custom, setCustom] = useState('');
+  // "melhor: Pipo +7 · 65%" — na CD escolhida (sem CD, na 15, a de referência do Raio-X) e
+  // com o dado escolhido aqui (vantagem: 1 − (1 − p)²; desvantagem: p²)
+  const refDc = dc !== '' && Number.isFinite(+dc) && +dc > 0 ? +dc : 15;
+  const members = campaign.members;
+  const best = useMemo(() => {
+    const out = {};
+    for (const k of QUICK_SKILLS) out[`skill:${k}`] = bestAt(members, 'skill', k, refDc, { mode: advantage });
+    for (const k of QUICK_SAVES) out[`save:${k}`] = bestAt(members, 'save', k, refDc, { mode: advantage });
+    return out;
+  }, [members, refDc, advantage]);
+  const modeText = advantage === 'adv' ? L(lang, ' com vantagem', ' with advantage') : advantage === 'dis' ? L(lang, ' com desvantagem', ' with disadvantage') : '';
+  const bestLine = (b) => {
+    if (!b) return null;
+    const who = b.who.length > 2 ? L(lang, `${b.who.length} empatados`, `${b.who.length} tied`) : b.who.map(firstName).join('/');
+    return `${L(lang, 'melhor', 'best')}: ${who} ${formatMod(b.best)} · ${b.p}%`;
+  };
+  const bestAria = (b) => (b ? L(lang, `, melhor da mesa: ${b.who.join(', ')} ${formatMod(b.best)}, ${b.p}% na CD ${refDc}${modeText}`, `, best at the table: ${b.who.join(', ')} ${formatMod(b.best)}, ${b.p}% at DC ${refDc}${modeText}`) : '');
+  const hasBest = Object.values(best).some(Boolean);
 
   const load = useCallback(async () => {
     if (!showList) return;
@@ -111,11 +133,11 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
               onChange={e => setDc(e.target.value)} aria-label={L(lang, 'CD personalizada', 'Custom DC')} placeholder="…" />
             <button type="button" className={`mesa-chip gc-chip gc-secret ${dcHidden && dc !== '' ? 'active' : ''}`} aria-pressed={dcHidden && dc !== ''}
               disabled={dc === ''} onClick={() => setDcHidden(v => !v)}
-              title={L(lang, 'Jogadores e telão não veem a CD', 'Players and TV do not see the DC')}>
+              title={L(lang, 'Jogadores e a Tela não veem a CD', 'Players and the screen do not see the DC')}>
               🔒 {L(lang, 'CD secreta', 'Secret DC')}
             </button>
           </div>
-          <p className="gc-hint">{L(lang, 'CD secreta: os jogadores e o telão não veem o número; você vê quem passou.', 'Secret DC: players and the TV do not see the number; you see who passed.')}</p>
+          <p className="gc-hint">{L(lang, 'CD secreta: os jogadores e a Tela não veem o número nem quem passou; você vê.', 'Secret DC: players and the screen see neither the number nor who passed; you do.')}</p>
         </div>
         <div className="gc-field">
           <span className="gc-label">{L(lang, 'Dado', 'Roll')}</span>
@@ -129,10 +151,17 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
 
       <div className="gc-field">
         <span className="gc-label">{L(lang, 'Perícia (um toque envia)', 'Skill (one tap sends)')}</span>
+        {hasBest && (
+          <p className="gc-hint">{dc === ''
+            ? L(lang, `Embaixo de cada atalho: o melhor da mesa e a chance dele na CD ${refDc}${modeText} (sem CD escolhida).`, `Under each shortcut: the best at the table and their chance at DC ${refDc}${modeText} (no DC picked).`)
+            : L(lang, `Embaixo de cada atalho: o melhor da mesa e a chance dele na CD ${refDc}${modeText}.`, `Under each shortcut: the best at the table and their chance at DC ${refDc}${modeText}.`)}</p>
+        )}
         <div className="gc-quick" aria-label={L(lang, 'Atalhos de perícia', 'Skill shortcuts')}>
           {QUICK_SKILLS.map(k => (
-            <button key={k} type="button" className="gc-quick-btn" disabled={busy} onClick={() => send({ kind: 'skill', key: k })}>
-              {tName('skill', k, lang)}
+            <button key={k} type="button" className="gc-quick-btn" disabled={busy} onClick={() => send({ kind: 'skill', key: k })}
+              aria-label={`${tName('skill', k, lang)}${bestAria(best[`skill:${k}`])}`}>
+              <span className="gc-quick-name">{tName('skill', k, lang)}</span>
+              {best[`skill:${k}`] && <span className="gc-quick-best" aria-hidden="true">{bestLine(best[`skill:${k}`])}</span>}
             </button>
           ))}
         </div>
@@ -141,8 +170,10 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
         <span className="gc-label">{L(lang, 'Resistência', 'Save')}</span>
         <div className="gc-quick gc-quick-saves">
           {QUICK_SAVES.map(k => (
-            <button key={k} type="button" className="gc-quick-btn is-save" disabled={busy} onClick={() => send({ kind: 'save', key: k })}>
-              {abilityAbbr(k, lang)}
+            <button key={k} type="button" className="gc-quick-btn is-save" disabled={busy} onClick={() => send({ kind: 'save', key: k })}
+              aria-label={`${abilityAbbr(k, lang)}${bestAria(best[`save:${k}`])}`}>
+              <span className="gc-quick-name">{abilityAbbr(k, lang)}</span>
+              {best[`save:${k}`] && <span className="gc-quick-best" aria-hidden="true">{bestLine(best[`save:${k}`])}</span>}
             </button>
           ))}
         </div>
@@ -187,7 +218,7 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
 
   if (asSheet) {
     return (
-      <MesaSheet title={L(lang, 'Pedir teste à mesa', 'Ask the table for a check')} icon="🎯" size="tall" width="md" lang={lang}
+      <MesaSheet title={L(lang, 'Pedir teste à mesa', 'Ask the table for a check')} icon="🎯" size="tall" width="md" lang={lang} dock="play"
         onClose={onClose} className="gc-sheet" bodyClassName="group-checks is-sheet"
         footer={(
           <div className="gc-foot">
@@ -252,10 +283,13 @@ export function DMCheckCard({ check, campaign, lang, act }) {
         ))}
       </ul>
       <div className="gc-card-actions">
-        <button type="button" className={`mesa-btn ${check.showOnScreen ? 'is-primary' : ''}`}
-          onClick={() => act(() => api.screenCheck(check.id, !check.showOnScreen))}>
-          📺 {check.showOnScreen ? L(lang, 'Tirar do telão', 'Hide from TV') : L(lang, 'Mostrar no telão', 'Show on TV')}
-        </button>
+        {/* O 📺 único: mostra/tira o teste da Tela com o aviso de sempre (Encerrar também tira). */}
+        {isOpen ? (
+          <ShowOnTable campaign={campaign} lang={lang} target={{ kind: 'check', check }}
+            className={`mesa-btn ${check.showOnScreen ? 'is-primary' : ''}`} onShown={() => act(async () => {})} />
+        ) : (
+          <button type="button" className="mesa-btn" disabled>📺 {L(lang, 'Encerrado: reabra para mostrar', 'Closed: reopen to show')}</button>
+        )}
         <button type="button" className="mesa-btn" onClick={() => act(() => api.closeCheck(check.id, { reopen: !isOpen }))}>
           {isOpen ? L(lang, 'Encerrar', 'Close') : L(lang, 'Reabrir', 'Reopen')}
         </button>

@@ -1,4 +1,4 @@
-/* Área Jogar (WP6): cartão de ataque sugerido, "Nesta cena", Telão e Testes. */
+/* Área Jogar (WP6): cartão de ataque sugerido, "Nesta cena", Tela e Testes. */
 
 /* ---------- AttackResultCard ---------- */
 .arc {
@@ -98,6 +98,10 @@
 .arc-cond { min-height: 44px; font-size: 0.9rem; }
 .arc-cond input { width: 22px; height: 22px; }
 .arc-hitchips .mesa-chip { flex: 1 1 auto; justify-content: center; }
+/* V10: "📺 Vai à Tela" (ação ao vivo, 48 px; texto de verdade, nunca só o ícone) */
+.arc .arc-show { display: flex; width: 100%; min-height: 48px; margin-top: 10px; justify-content: center; white-space: normal; text-align: center; }
+.arc .arc-show.active { border-color: var(--gold); color: var(--gold-bright); background: var(--gold-soft); }
+.arc .src-source { margin: 6px 0 0; font-size: 0.85rem; color: var(--ink-muted); }
 .arc-adjust-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 10px; }
 .arc-hint { color: var(--ink-muted); font-size: 0.85rem; }
 .arc .muted.small { font-size: 0.85rem; }
@@ -152,6 +156,19 @@
   pointer-events: none;
 }
 .play-flash.is-error { border-color: var(--blood-bright); }
+/* Aviso reversível ("Na tela ✓ · ↶ Desfazer"): o botão recebe o toque. */
+.play-flash.has-action {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 4px 4px 16px; text-align: left; pointer-events: auto;
+  width: max-content; max-width: min(calc(100vw - 32px), 520px);
+}
+.play-flash-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.play-flash-act {
+  flex: none; min-height: 44px; min-width: 44px; padding: 0 14px;
+  border: 1px solid var(--gold); border-radius: 8px; background: transparent;
+  color: var(--gold-bright); font: inherit; font-size: 0.95rem; cursor: pointer;
+}
+.play-flash-act:hover, .play-flash-act:focus-visible { background: var(--gold-soft); outline: none; }
 @keyframes play-flash-in { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
 @media (prefers-reduced-motion: reduce) { .play-flash { animation: none; } }
 
@@ -271,9 +288,13 @@
   border-radius: 999px; background: var(--gold); color: var(--on-gold); font-size: 12px; font-weight: 700; line-height: 1;
 }
 @media (max-width: 380px) {
-  /* filtro em 1 linha em 320: o número vai para o canto do botão */
+  /* filtro em 320: o número vai para o canto do botão */
   .tl-tab.mesa-seg-btn { font-size: 0.86rem; padding: 4px 2px; }
   .tl-tab .tl-count { position: absolute; top: 1px; right: 2px; margin: 0; min-width: 18px; height: 18px; font-size: 12px; }
+}
+/* V10: com o 4º filtro (🎲 Na Tela), o celular usa 2 × 2 (nenhum rótulo cortado) */
+@media (max-width: 559px) {
+  .tl-tabs.mesa-seg { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .tl-empty { margin: 4px 0; }
 .tl-kind {
@@ -311,64 +332,27 @@
 .tl-physical-btns .mesa-btn { flex: 1 1 auto; }
 .tl-physical .check-card-error { flex-basis: 100%; }
 .tl-hist-tag { margin-left: 8px; font-size: 0.85rem; color: var(--ink-secondary); white-space: nowrap; }
+/* V10: rolagens de mesa (Testes › 🎲 Na Tela e as Últimas 5 de Jogar › Tela) */
+.tl-table-hint { margin: 0 0 8px; }
+/* uma coluna em toda largura: a linha (o mesmo texto da TV) e, embaixo, a hora e as marcas */
+.rolls-panel .roll-row.tl-table-roll { flex-direction: column; align-items: stretch; gap: 2px; }
+.tl-table-roll-text { flex: none; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.tl-table-roll-text .tl-hist-tag { margin-left: 0; }
+.tl-table-roll-line { min-width: 0; overflow-wrap: anywhere; color: var(--ink-primary); }
+.tl-table-roll .roll-result { flex-wrap: wrap; justify-content: flex-start; gap: 4px 10px; }
+.tl-table-roll.is-compact { padding: 6px 0; }
 @media (min-width: 1024px) {
   .tests-panel.is-wide { display: grid; grid-template-columns: minmax(340px, 420px) minmax(0, 1fr); align-items: start; gap: 16px; }
   .tests-ask-col { position: sticky; top: 64px; max-height: calc(100vh - 80px); overflow-y: auto; overscroll-behavior: contain; border-radius: 8px; }
 }
 
-/* ---------- Telão (ScreenPanel) ---------- */
-.scr { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.scr-tv-wrap { display: flex; flex-direction: column; gap: 10px; }
-.scr-tv-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.scr-tv-head h3 { margin: 0; }
-.scr-tv {
-  --scr-accent: var(--gold);
-  position: relative;
-  aspect-ratio: 16 / 9;
-  width: 100%;
-  max-width: 760px;
-  overflow: hidden;
-  border-radius: 14px;
-  border: 3px solid #1a140e;
-  outline: 1px solid var(--scr-accent);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55), inset 0 0 60px rgba(0, 0, 0, 0.6);
-  background: radial-gradient(120% 120% at 50% 0%, #2a1f15, #0c0907);
-}
-.scr-tv-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.55; }
-.scr-tv-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.75)); }
-.scr-tv-body {
-  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px;
-  padding: clamp(12px, 4%, 28px); color: var(--parchment);
-}
-.scr-tv-body.is-rest { justify-content: center; align-items: center; text-align: center; }
-.scr-tv-body.has-img { flex-direction: row; align-items: flex-end; gap: 14px; }
-.scr-tv-img {
-  width: 34%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 8px;
-  border: 2px solid var(--scr-accent); box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-}
-.scr-tv-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.scr-tv-kind { font-family: var(--display); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--scr-accent); }
-.scr-tv-title { font-family: var(--display); font-size: clamp(1.1rem, 3.6vw, 1.9rem); color: var(--gold-bright); text-shadow: 0 2px 8px rgba(0,0,0,0.8); overflow-wrap: anywhere; }
-.scr-tv-text {
-  font-size: clamp(0.8rem, 2vw, 0.98rem); color: var(--parchment); opacity: 0.92; white-space: pre-line;
-  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
-}
+/* ---------- Ligar a Tela (Jogar › Tela, StagePanel): link + Copiar · Abrir · Gerar ---------- */
 .scr-link { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; max-width: 760px; }
 .scr-link .input { flex: 1 1 100%; min-width: 0; min-height: 44px; font-family: 'JetBrains Mono', monospace; font-size: 16px; }
 .scr-link .mesa-btn { flex: 1 1 auto; }
-.scr-pane { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; min-width: 0; }
-.scr-pane > .input { min-height: 44px; font-size: 16px; }
-.scr-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.scr-modes .mesa-chip { justify-content: center; white-space: normal; text-align: center; border-radius: 10px; padding: 6px 10px; overflow-wrap: anywhere; }
-.scr-modes .mesa-chip > [aria-hidden] { flex: none; } /* o ícone não encolhe por cima do texto em 320 px */
 @media (min-width: 640px) {
-  .scr-modes { display: flex; flex-wrap: wrap; }
-  .scr-modes .mesa-chip { border-radius: 999px; }
   .scr-link .input { flex: 1 1 260px; }
   .scr-link .mesa-btn { flex: 0 0 auto; }
-}
-@media (min-width: 1024px) {
-  .scr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 16px; }
 }
 
 /* ---------- Anteriormente em… ---------- */
@@ -381,13 +365,6 @@
 .recap-foot .mesa-btn { min-width: 200px; }
 @media (max-width: 767px) { .recap-foot .mesa-btn { flex: 1 1 auto; } }
 
-@media (max-width: 480px) {
-  .scr-tv { aspect-ratio: 4 / 3; }
-  .scr-tv-body.has-img { gap: 10px; }
-  .scr-tv-img { width: 30%; }
-  .scr-tv-text { -webkit-line-clamp: 4; }
-}
-
 /* Efeito com resistência (SaveResultCard) */
 .src-targets { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .src-target {
@@ -399,14 +376,6 @@
 .src-name { flex: 1 1 120px; min-width: 0; overflow-wrap: anywhere; }
 .src-total { width: 5em; text-align: center; }
 .src-out { font-family: var(--display); color: var(--blood-bright); min-width: 3em; text-align: right; }
-
-/* Telão: cartão sobreposto ao combate / guardado para depois (#34) */
-.scr-tv-overlay {
-  display: block; margin-top: 6px; padding: 4px 8px; border-radius: 6px;
-  background: rgba(0, 0, 0, 0.35); border-left: 3px solid var(--gold);
-  font-size: 0.85rem; color: var(--parchment, var(--ink));
-}
-.scr-tv-overlay.is-waiting { border-left-color: var(--ink-secondary); opacity: 0.85; }
 
 /* ---------- Plano da sessão em Jogar › Cena (#26) ---------- */
 .spp.mesa-panel { padding: 0; min-width: 0; }

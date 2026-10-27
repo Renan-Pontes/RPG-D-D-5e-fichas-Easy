@@ -1,6 +1,7 @@
 // "Nesta cena" (Jogar › Cena): os cartões do Mundo ligados à sala onde o grupo
 // está (nó ativo da aventura em "Conduzir"), mais os NPCs e lugares escolhidos
-// no plano da próxima sessão. Cada cartão tem 👁 Revelar e 📺 Mostrar no telão.
+// no plano da próxima sessão. Cada cartão tem 👁 Revelar e o 📺 único
+// (ShowOnTable: oculto pergunta "Só a imagem / Revelar e mostrar").
 // Regra: nada é revelado nem mostrado sem o toque do mestre.
 // No celular, cada cartão é uma linha (EntryRow): o toque abre o cartão no
 // Mundo e os botões ficam à direita, com 44 px; "Quem vê…" abre uma folha.
@@ -8,11 +9,12 @@ import { useCallback, useMemo, useState } from 'react';
 import { usePolling } from '../api/polling.js';
 import { EntryImage, VisibilitySeal } from '../world/EntryCard.jsx';
 import RevealControl from '../world/RevealControl.jsx';
-import { getEntry, getSessionPlan, listWorld, showEntryOnScreen, worldErrorText } from '../world/world-api.js';
+import { getEntry, getSessionPlan, listWorld, worldErrorText } from '../world/world-api.js';
 import { KIND_META, kindLabel, subtitleOf } from '../world/world-model.js';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
-import { getAdventure, listAdventures, setScreenCard } from './play-api.js';
+import ShowOnTable from '../stage/ShowOnTable.jsx';
+import { getAdventure, listAdventures } from './play-api.js';
 import { activeScene, sceneEntries } from './scene-model.js';
 import { flash } from './flash.js';
 import './play-styles.css';
@@ -21,10 +23,10 @@ const L = (lang, pt, en) => (lang === 'en' ? en : pt);
 
 /**
  * Linha de um cartão do Mundo (modo mestre): miniatura, nome, tipo e quem vê;
- * o toque na linha chama onOpen. À direita, 👁 Quem vê…/Revelar e 📺 Mostrar
- * (desabilitado se oculto), cada um com 44 px e o nome escrito.
+ * o toque na linha chama onOpen. À direita, 👁 Quem vê…/Revelar e o 📺 único
+ * (com `campaign`), cada um com 44 px e o nome escrito.
  */
-export function EntryRow({ entry, lang = 'pt', onOpen, onReveal, onShow, busy = false, openLabel }) {
+export function EntryRow({ entry, lang = 'pt', onOpen, onReveal, campaign, onShown, onRevealed, busy = false, openLabel }) {
   const vis = entry.visibility || 'hidden';
   const meta = KIND_META[entry.kind] || KIND_META.lore;
   const sub = subtitleOf(entry, lang) || entry.summary || kindLabel(entry.kind, lang);
@@ -42,7 +44,7 @@ export function EntryRow({ entry, lang = 'pt', onOpen, onReveal, onShow, busy = 
           </span>
         </span>
       </button>
-      {(onReveal || onShow) && (
+      {(onReveal || campaign) && (
         <span className="mesa-row-act ins-row-act">
           {onReveal && (
             <button type="button" className="ins-act" disabled={busy} onClick={stop(onReveal)}
@@ -51,13 +53,12 @@ export function EntryRow({ entry, lang = 'pt', onOpen, onReveal, onShow, busy = 
               <span className="ins-act-label">{vis === 'hidden' ? L(lang, 'Revelar', 'Reveal') : L(lang, 'Quem vê…', 'Who sees…')}</span>
             </button>
           )}
-          {onShow && (
-            <button type="button" className="ins-act" disabled={busy || vis === 'hidden'} onClick={stop(onShow)}
-              aria-label={vis === 'hidden' ? L(lang, `Mostrar ${entry.name} no telão (revele antes)`, `Show ${entry.name} on screen (reveal first)`) : L(lang, `Mostrar ${entry.name} no telão`, `Show ${entry.name} on screen`)}
-              title={vis === 'hidden' ? L(lang, 'Revele antes de mostrar no telão', 'Reveal before showing on screen') : L(lang, 'Mostrar no telão', 'Show on screen')}>
+          {campaign && (
+            <ShowOnTable campaign={campaign} target={{ kind: 'card', entry }} lang={lang} className="ins-act" reason="short"
+              disabled={busy} onShown={onShown} onRevealed={onRevealed} ariaLabel={`${L(lang, 'Mostrar na Tela', 'Show on screen')}: ${entry.name}`}>
               <span aria-hidden="true">📺</span>
               <span className="ins-act-label" aria-hidden="true">{L(lang, 'Mostrar', 'Show')}</span>
-            </button>
+            </ShowOnTable>
           )}
         </span>
       )}
@@ -114,32 +115,12 @@ export default function InScenePanel({ campaign, lang = 'pt', goTo }) {
     } finally { setBusyId(null); }
   };
 
-  const show = async (entry) => {
-    setBusyId(entry.id);
-    try {
-      await showEntryOnScreen(campaign.id, entry.id);
-      flash(L(lang, `No telão: ${entry.name}`, `On screen: ${entry.name}`));
-    } catch (e) {
-      flash(worldErrorText(e, lang), { error: true });
-    } finally { setBusyId(null); }
-  };
-
-  const showScene = async () => {
-    if (!scene) return;
-    try {
-      await setScreenCard(campaign.id, { type: 'scene', adventureId: scene.adventure.id, nodeId: scene.node.id });
-      flash(L(lang, `No telão: ${scene.node.name}`, `On screen: ${scene.node.name}`));
-    } catch (e) {
-      flash(worldErrorText(e, lang), { error: true });
-    }
-  };
-
   const open = goTo ? (entry) => goTo('world', 'atlas', { entryId: entry.id }) : undefined;
   const total = groups.scene.length + groups.planned.length;
   const openLabel = L(lang, 'Abrir no Mundo', 'Open in the World');
   const row = (e) => (
     <EntryRow key={e.id} entry={e} lang={lang} onOpen={open} openLabel={openLabel}
-      onReveal={openReveal} onShow={show} busy={busyId === e.id} />
+      onReveal={openReveal} campaign={campaign} onRevealed={patchLocal} busy={busyId === e.id} />
   );
 
   return (
@@ -147,10 +128,10 @@ export default function InScenePanel({ campaign, lang = 'pt', goTo }) {
       <div className="ins-top">
         <p className="mesa-eyebrow ins-eyebrow">{L(lang, 'Nesta cena', 'In this scene')}</p>
         {scene && (
-          <button type="button" className="mesa-btn ins-show-scene" onClick={showScene}
-            title={L(lang, 'Mostra o nome e o texto da sala no telão', 'Shows the room name and text on screen')}>
+          <ShowOnTable campaign={campaign} lang={lang} className="mesa-btn ins-show-scene"
+            target={{ kind: 'scene', advId: scene.adventure.id, nodeId: scene.node.id, name: scene.node.name }}>
             📺 {L(lang, 'Mostrar a cena', 'Show the scene')}
-          </button>
+          </ShowOnTable>
         )}
       </div>
       <MesaTitle id="ins-h" className="ins-title"
@@ -196,20 +177,19 @@ export default function InScenePanel({ campaign, lang = 'pt', goTo }) {
       )}
 
       {revealing && (
-        <MesaSheet title={revealing.name} icon="👁"
+        <MesaSheet title={revealing.name} icon="👁" dock="play"
           size="auto" width="md" lang={lang} onClose={() => setRevealing(null)} className="ins-reveal"
           footer={(
             <div className="mesa-actions">
-              <button type="button" className="mesa-btn" disabled={revealing.visibility === 'hidden'}
-                title={revealing.visibility === 'hidden' ? L(lang, 'Revele antes de mostrar no telão', 'Reveal before showing on screen') : undefined}
-                onClick={() => show(revealing)}>
-                📺 {L(lang, 'Mostrar no telão', 'Show on screen')}
-              </button>
+              <ShowOnTable campaign={campaign} lang={lang} className="mesa-btn" target={{ kind: 'card', entry: revealing }}
+                onRevealed={(next) => { setRevealing(next); patchLocal(next); }}>
+                📺 {L(lang, 'Mostrar na Tela', 'Show on screen')}
+              </ShowOnTable>
               <button type="button" className="mesa-btn is-primary" onClick={() => setRevealing(null)}>{L(lang, 'Pronto', 'Done')}</button>
             </div>
           )}>
           {revealing.visibility === 'hidden' && (
-            <p className="mesa-hint ins-reveal-hint">{L(lang, 'Oculto: revele antes de mostrar no telão.', 'Hidden: reveal it before showing it on screen.')}</p>
+            <p className="mesa-hint ins-reveal-hint">{L(lang, 'Oculto: o 📺 pergunta se vai só a imagem (sem o nome) ou se você revela antes.', 'Hidden: 📺 asks whether only the image goes (without the name) or whether you reveal it first.')}</p>
           )}
           <RevealControl entry={revealing} lang={lang} showSecrets
             onChange={(next) => { setRevealing(next); patchLocal(next); }} />

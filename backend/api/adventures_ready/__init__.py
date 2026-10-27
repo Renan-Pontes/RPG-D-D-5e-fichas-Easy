@@ -326,6 +326,7 @@ def import_ready_adventure(campaign, pack_id, lang='pt'):
             'rewards': '\n'.join(rewards),
         })
         settings['sessionPlan'] = R.merged_session_plan(settings.get('sessionPlan'), patch)
+        settings['planRev'] = timezone.now().isoformat()   # o pulso do mestre (V4)
         plan_filled = True
 
     ready = dict(settings.get('readyAdventures') or {})

@@ -5,6 +5,7 @@ Cobre: ataque, crítico dobra dano, save aplica metade, dano respeita
 resistência/imunidade/vulnerabilidade, HP zero marca defeated/unconscious,
 condições aplicadas/expiram, death saves, RollRequest workflow.
 """
+from django.utils import timezone
 from django.test import TestCase, SimpleTestCase
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -279,6 +280,100 @@ class CombatEndpointTests(TestCase):
         self.assertEqual(r.status_code, 403)
 
 
+class CombatImagesByUrlTests(TestCase):
+    """V9: o GET do combate e a resposta do Próximo turno levam o fundo do mapa e
+    as imagens dos tokens por URL (rotas da campanha, só para quem é da mesa)."""
+    BG = 'data:image/png;base64,' + __import__('base64').b64encode(b'\x89PNG\r\n\x1a\n' + b'm' * 60_000).decode()
+    SPRITE = 'data:image/png;base64,' + __import__('base64').b64encode(b'\x89PNG\r\n\x1a\n' + b's' * 30_000).decode()
+
+    def setUp(self):
+        cache.clear()
+        self.dm = make_user('dm@x.com', 'DM')
+        self.player = make_user('p@x.com', 'Player')
+        self.out = make_user('o@x.com', 'Fora')
+        self.c_dm = APIClient(); self.c_dm.force_login(self.dm)
+        self.c_p = APIClient(); self.c_p.force_login(self.player)
+        self.c_out = APIClient(); self.c_out.force_login(self.out)
+        self.camp = Campaign.objects.create(dm=self.dm, name='C', slug='c')
+        Membership.objects.create(campaign=self.camp, user=self.player, role='player')
+        CombatInstance.objects.create(campaign=self.camp, active=True, combatants=[
+            {'id': 'g1', 'type': 'monster', 'name': 'Goblin', 'initiative': 12, 'current_hp': 7,
+             'sprite': self.SPRITE, 'stats': {'ac': 15, 'max_hp': 7}},
+            {'id': 'g2', 'type': 'monster', 'name': 'Goblin #2', 'initiative': 10, 'current_hp': 7,
+             'stats': {'ac': 15, 'max_hp': 7}},
+        ], map_data={'background_image': self.BG, 'grid_size_px': 50})
+        self.url = f'/api/combat/campaign/{self.camp.id}'
+
+    def test_get_and_next_turn_carry_urls_only(self):
+        for client in (self.c_dm, self.c_p):
+            r = client.get(self.url)
+            self.assertNotIn(b'base64', r.content)
+            m = r.json()['combat']['map']
+            self.assertTrue(m['backgroundUrl'].startswith(f'{self.url}/map-image?v='))
+            self.assertEqual(m['background_image'], m['backgroundUrl'])   # o JS de antes punha isto no <img>
+            self.assertEqual(m['grid_size_px'], 50)
+            g1 = next(c for c in r.json()['combat']['combatants'] if c['id'] == 'g1')
+            self.assertTrue(g1['sprite'].startswith(f'{self.url}/token/g1?v='))
+        r = self.c_dm.post(f'{self.url}/next-turn', {'expect': {'round': 1, 'turnIndex': 0}}, format='json')
+        self.assertEqual(r.status_code, 200)
+        self.assertNotIn(b'base64', r.content)
+        self.assertLess(len(r.content), 4000)
+
+    def test_image_routes_members_only(self):
+        r = self.c_dm.get(self.url).json()['combat']
+        bg, sprite = r['map']['backgroundUrl'], r['combatants'][0]['sprite']
+        for client in (self.c_dm, self.c_p):
+            img = client.get(bg)
+            self.assertEqual(img.status_code, 200)
+            self.assertEqual(img['Content-Type'], 'image/png')
+            self.assertEqual(client.get(bg, HTTP_IF_NONE_MATCH=img['ETag']).status_code, 304)
+            self.assertEqual(client.get(sprite).status_code, 200)
+        self.assertEqual(self.c_out.get(bg).status_code, 403)
+        self.assertEqual(self.c_out.get(sprite).status_code, 403)
+        self.assertIn(APIClient().get(bg).status_code, (401, 403))
+        self.assertEqual(self.c_dm.get(f'{self.url}/token/g2').status_code, 404)    # sem imagem própria
+        self.c_dm.post(f'{self.url}/map', {'background_image': None}, format='json')
+        self.assertEqual(self.c_dm.get(bg).status_code, 404)
+        self.assertIsNone(self.c_dm.get(self.url).json()['combat']['map']['background_image'])
+
+    def test_map_change_records_its_version_for_the_dm_thumbnail(self):
+        # a miniatura da Tela do mestre lê state.combatMapVer (o pulso nunca lê o base64)
+        new_bg = 'data:image/png;base64,' + __import__('base64').b64encode(b'\x89PNG\r\n\x1a\n' + b'n' * 900).decode()
+        r = self.c_dm.post(f'{self.url}/map', {'background_image': new_bg}, format='json')
+        self.assertEqual(r.status_code, 200)
+        self.camp.refresh_from_db()
+        ver = self.camp.state['combatMapVer']
+        self.assertEqual(r.json()['combat']['map']['backgroundVer'], ver)
+        self.assertEqual(self.c_dm.get(f'{self.url}/map-image?v={ver}').status_code, 200)
+        self.assertEqual(self.c_dm.get(f'/api/campaigns/{self.camp.id}').json()['campaign']['state']['combatMapVer'], ver)
+        self.assertNotIn('combatMapVer', self.c_p.get(f'/api/campaigns/{self.camp.id}').json()['campaign']['state'])
+        # só a grade: o estado não é escrito de novo
+        before = self.camp.updated_at
+        self.c_dm.post(f'{self.url}/map', {'grid_size_px': 60}, format='json')
+        self.camp.refresh_from_db()
+        self.assertEqual(self.camp.updated_at, before)
+        # sem mapa: '' (a miniatura não pede a imagem)
+        self.c_dm.post(f'{self.url}/map', {'background_image': None}, format='json')
+        self.camp.refresh_from_db()
+        self.assertEqual(self.camp.state['combatMapVer'], '')
+        # o PUT antigo do state inteiro não sobrescreve a chave do servidor
+        self.c_dm.patch(f'/api/campaigns/{self.camp.id}', {'state': {'combatMapVer': 'x', 'weather': 'chuva'}}, format='json')
+        self.camp.refresh_from_db()
+        self.assertEqual(self.camp.state['combatMapVer'], '')
+
+    def test_put_with_the_url_keeps_the_token_image(self):
+        sprite = self.c_dm.get(self.url).json()['combat']['combatants'][0]['sprite']
+        r = self.c_dm.put(f'{self.url}/combatants/g1', {'sprite': sprite, 'initiative': 15}, format='json')
+        self.assertEqual(r.status_code, 200)
+        cb = CombatInstance.objects.get(campaign=self.camp).combatants
+        g1 = next(c for c in cb if c['id'] == 'g1')
+        self.assertEqual(g1['sprite'], self.SPRITE)
+        self.assertEqual(g1['initiative'], 15)
+        self.c_dm.put(f'{self.url}/combatants/g1', {'sprite': None}, format='json')
+        g1 = next(c for c in CombatInstance.objects.get(campaign=self.camp).combatants if c['id'] == 'g1')
+        self.assertIsNone(g1['sprite'])
+
+
 class RollRequestEndpointTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -322,16 +417,22 @@ class RollRequestEndpointTests(TestCase):
         self.assertTrue(body['rigged'])
 
     def test_screen_exposes_public_rolls_only(self):
+        # a TV lê a janela pelo relógio do servidor (resolved_at), V10
         rr = RollRequest.objects.create(campaign=self.camp, requested_by=self.player,
                                          dice_type='d20', status='public', total=15,
-                                         rolls=[{'value': 15, 'kept': True}], modifier=0)
+                                         rolls=[{'value': 15, 'kept': True}], modifier=0,
+                                         resolved_at=timezone.now())
         rr_priv = RollRequest.objects.create(campaign=self.camp, requested_by=self.player,
-                                              dice_type='d20', status='private', total=8)
+                                              dice_type='d20', status='private', total=8,
+                                              resolved_at=timezone.now())
         c = APIClient()  # anônimo
         r = c.get(f'/api/screen/{self.camp.screen_token}')
         self.assertEqual(r.status_code, 200)
         rolls = r.json()['campaign']['publicRolls']
         ids = [x['id'] for x in rolls]
+        self.assertIn(rr.id, ids)
+        self.assertNotIn(rr_priv.id, ids)
+        ids = [x['id'] for x in r.json()['rolls']]
         self.assertIn(rr.id, ids)
         self.assertNotIn(rr_priv.id, ids)
 
