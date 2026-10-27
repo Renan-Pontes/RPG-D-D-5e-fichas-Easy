@@ -41,6 +41,7 @@ export function memberStats(member) {
     full: !!full,
     name: c.name,
     avatar: info.avatar || '',
+    avatarUrl: c.avatarUrl || '',   // a foto por URL (V9); resolva com apiUrl()
     race: info.race || '',
     classId: classes[0]?.id || info.className || '',
     hp: info.currentHp ?? null,

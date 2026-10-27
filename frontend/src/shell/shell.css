@@ -148,48 +148,28 @@
 }
 .shell-start { box-shadow: 0 0 0 1px var(--camp-accent), 0 6px 18px rgba(0, 0, 0, 0.4); }
 
-/* Telão: popover do desktop (o conteúdo é o TvPanel, o mesmo da folha "Mais") */
+/* 📺 Tela da capa (PC): abre a janela da Tela (V4). O TvPanel é o da folha "Mais". */
 .shell-tv-wrap { position: relative; }
-.shell-popover {
-  position: absolute;
-  right: 0; top: calc(100% + 8px);
-  width: min(380px, calc(100vw - 32px));
-  padding: 6px 16px 16px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background:
-    var(--fh-noise) padding-box,
-    linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather) 40%, var(--fh-leather-lo)) padding-box,
-    var(--fh-gilt) border-box;
-  color: var(--ink-primary);
-  text-align: left;
-  z-index: 80;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
-}
-.shell-pop-head { display: flex; align-items: center; gap: 10px; margin: 0 -10px 6px 0; }
-.campaign-detail .shell-pop-title {
-  flex: 1 1 auto; min-width: 0; margin: 0;
-  font-size: 1rem !important; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
-}
 .shell-tv-panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .shell-pop-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .shell-pop-now { font-family: var(--display); font-size: 1.02rem; color: var(--ink-primary); overflow-wrap: anywhere; }
 .shell-pop-note { font-size: 0.92rem; color: var(--ink-secondary); }
 .shell-pop-clear { margin-top: 6px; }
+.shell-pop-clear-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.shell-pop-clear-row:empty { display: none; }
 .shell-pop-link .input { font-family: var(--mono); color: var(--gold-bright); }
 .shell-pop-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .shell-pop-help { margin: 0; color: var(--ink-muted); font-size: 0.92rem; line-height: 1.4; }
 .shell-pop-choose { justify-content: flex-start; padding-left: 0; padding-right: 0; text-align: left; color: var(--gold-bright); }
 
 /* Tablet: as ações rotuladas descem para uma linha própria (ao lado dos
-   selos, os selos ficariam empilhados um por linha) e o popover abre para a direita. */
+   selos, os selos ficariam empilhados um por linha). */
 @media (min-width: 768px) and (max-width: 1023px) {
   .shell-header-inner {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "back" "name" "tag" "meta" "act";
   }
   .shell-actions { justify-content: flex-start; margin-top: 12px; }
-  .shell-popover { right: auto; left: 0; }
 }
 
 /* sem a faixa vazia entre o cabeçalho do app e a capa */
@@ -209,6 +189,7 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
   top: 0;
   z-index: 30;
 }
+.shell-areas-tabs { display: flex; gap: 6px; flex: 1 1 auto; min-width: 0; }
 .shell-area-tab {
   flex: 1 1 0;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -244,6 +225,16 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
   font: 700 0.7rem/1 var(--body);
 }
 
+/* Selos que não são número (V4): Jogar "● ao vivo" (vermelho, pulsa como o da
+   capa) e "⚔" com combate ativo. */
+.shell-mark { display: inline-grid; place-items: center; font-size: 12px; line-height: 1; color: var(--gold-bright); }
+.shell-mark.is-live { color: var(--blood-bright); }
+.shell-mark.is-tab { margin-left: 2px; }
+.shell-marks {
+  position: absolute; top: 3px; left: calc(50% + 10px); display: inline-flex; gap: 2px;
+  padding: 1px 4px; border-radius: 999px; background: rgba(14, 10, 7, 0.85);
+}
+
 /* barra inferior (celular) */
 .shell-bottom-bar { display: none; }
 
@@ -275,32 +266,45 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
   /* Celular: largura total e preso no topo ao rolar (aqui as abas das áreas
      não aparecem; a barra de baixo faz esse papel). A faixa cobre a margem da
      página, para o conteúdo não passar dos lados enquanto rola por baixo. */
+  /* 48 px presos ao todo (V4, §2.1: segmentado 48 + barra da mesa 64 + barra de
+     baixo 62 = 174 px em Jogar com combate): moldura de 1 px + botões de 44 px; o
+     degradê que separa do conteúdo fica num ::after fora da altura presa. */
   .shell-seg-tabs {
     --seg-gutter: max(var(--s-3, 12px), env(safe-area-inset-left, 0px));
     position: sticky;
     top: 0;
     z-index: 25;
     margin: 0 calc(-1 * var(--seg-gutter)) 10px;
-    padding: 4px var(--seg-gutter) 8px;
-    background: linear-gradient(180deg, var(--bg-base) 82%, rgba(20, 16, 12, 0));
+    padding: 0 var(--seg-gutter);
+    background: var(--bg-base);
   }
-  .shell-seg-tabs > .mesa-seg { width: auto; max-width: none; }
+  .shell-seg-tabs::after {
+    content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 8px; pointer-events: none;
+    background: linear-gradient(180deg, var(--bg-base), rgba(20, 16, 12, 0));
+  }
+  .shell-seg-tabs > .mesa-seg { width: auto; max-width: none; padding: 1px; }
   .shell-seg-tabs .shell-seg-tab {
     flex-direction: column;
     gap: 2px;
-    min-height: 48px;
-    padding: 4px 6px;
+    min-height: 44px;
+    padding: 2px 6px;
     font-size: 0.8rem;
   }
   .shell-seg-ico { font-size: 1.15rem; }
   /* selo no canto do ícone, sempre dentro do botão */
   .shell-seg-badge { position: absolute; top: 2px; left: calc(50% + 7px); }
   /* Rolagens programáticas (scrollIntoView, foco) param abaixo da faixa presa
-     (68 px + folga), só na casca que tem a faixa. Quem já se protegia com
+     (48 px + folga), só na casca que tem a faixa. Quem já se protegia com
      scroll-margin fica no mesmo lugar de antes (80 e 140 no total). */
-  html:has(.campaign-detail.shell .shell-seg-tabs) { scroll-padding-top: 76px; }
+  html:has(.campaign-detail.shell .shell-seg-tabs) { scroll-padding-top: 56px; }
   html:has(.campaign-detail.shell .shell-seg-tabs) .combatant-card { scroll-margin-top: 4px; }
   html:has(.campaign-detail.shell .shell-seg-tabs) .ns-step { scroll-margin-top: 64px; }
+}
+/* Celular deitado (altura útil < 640) com a barra da mesa: só ela fica presa
+   (com a barra de baixo, 126 px); o segmentado rola junto. */
+@media (max-width: 767px) and (max-height: 639px) {
+  body:has(.mesa-bar) .shell-seg-tabs { position: relative; }
+  body:has(.mesa-bar) .shell-seg-tabs::after { display: none; }
 }
 @media (max-width: 480px) {
   /* o rótulo longo some da tela mas fica para o leitor de tela */

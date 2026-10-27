@@ -29,7 +29,7 @@ export const SUB_LABELS = {
   scene: ['Cena', 'Scene'],
   combat: ['Combate', 'Combat'],
   checks: ['Testes', 'Checks'],
-  screen: ['Telão', 'TV screen'],
+  screen: ['Tela', 'Screen'],
   players: ['Jogadores', 'Players'],
   requests: ['Pedidos', 'Requests'],
   insights: ['Raio-X', 'X-ray'],
@@ -45,7 +45,7 @@ export const SUB_SHORT = {
   documents: ['Docs', 'Docs'],
   next: ['Próxima', 'Next'],
   items: ['Itens', 'Items'],
-  screen: ['Telão', 'TV'],
+  screen: ['Tela', 'Screen'],
   requests: ['Pedidos', 'Requests'],
 };
 
@@ -119,7 +119,7 @@ export function areaTapSub(isDM, area, badges = {}) {
 /**
  * Contador do Grupo na barra (e o que areaTapSub e a tecla 4 leem). Dentro do
  * Grupo vale a conta viva da área (a lista de pedidos, a 6 s); fora dele, a do
- * GET da campanha (a casca busca a 2,5 s). A conta da área é só dela: a última
+ * GET da campanha (que a casca do mestre busca quando o pulso muda; o jogador, a 2,5 s). A conta da área é só dela: a última
  * que ela mandou antes de desmontar não pode esconder um pedido novo.
  */
 export function groupBadgeCount(area, groupPending, campaignPending) {
@@ -136,7 +136,7 @@ export const ONBOARDING_STEPS = ['cover', 'firstEntry', 'invite', 'prepare', 'tv
 /**
  * Situação de cada passo. Os passos se marcam sozinhos a partir dos dados
  * (capa existe, mundo tem entrada, há jogador…) ou da flag gravada em
- * `campaign.onboarding` (ex.: o mestre copiou o convite / abriu o telão).
+ * `campaign.onboarding` (ex.: o mestre copiou o convite / abriu a Tela).
  */
 export function onboardingStatus(campaign, { worldCount = 0, planHasContent = false } = {}) {
   const ob = (campaign && campaign.onboarding) || {};
@@ -344,7 +344,7 @@ export function defaultCoverArt(campaign) {
 /** As 6 seções dos Ajustes, na ordem do menu. */
 export const SETTINGS_SECTIONS = [
   { id: 'identity', icon: '🎨', pt: 'Identidade e capa',     en: 'Identity & cover' },
-  { id: 'table',    icon: '🔗', pt: 'Convite e telão',       en: 'Invite & TV' },
+  { id: 'table',    icon: '🔗', pt: 'Convite e Tela',        en: 'Invite & screen' },
   { id: 'rules',    icon: '📏', pt: 'Regras da mesa',        en: 'Table rules' },
   { id: 'world',    icon: '✨', pt: 'Mundo vivo',            en: 'Living world' },
   { id: 'advanced', icon: '🧰', pt: 'Ferramentas avançadas', en: 'Advanced tools' },
@@ -359,7 +359,7 @@ export function settingsSectionLabel(id, lang) {
 
 /**
  * Resumo de uma linha de cada seção dos Ajustes (folha "Mais", plano §5.J):
- * "Capa própria · Mistério · Violeta", "Código 6T79AF · link do telão"…
+ * "Capa própria · Mistério · Violeta", "Código 6T79AF · link da Tela"…
  * `opts.immersion` (Mundo vivo ligado?) vem de quem chama (living-logic).
  */
 export function settingsSummary(section, campaign, lang, { immersion = true, worldCount = null, worldMax = 500 } = {}) {
@@ -375,7 +375,7 @@ export function settingsSummary(section, campaign, lang, { immersion = true, wor
     ].filter(Boolean).join(' · ');
   }
   if (section === 'table') {
-    return [c.inviteCode ? tt(`Código ${c.inviteCode}`, `Code ${c.inviteCode}`) : null, tt('link do telão', 'TV link')].filter(Boolean).join(' · ');
+    return [c.inviteCode ? tt(`Código ${c.inviteCode}`, `Code ${c.inviteCode}`) : null, tt('link da Tela', 'screen link')].filter(Boolean).join(' · ');
   }
   if (section === 'rules') {
     const xp = st.levelingMode === 'xp';

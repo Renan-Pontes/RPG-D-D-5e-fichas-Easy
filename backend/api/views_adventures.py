@@ -427,9 +427,12 @@ def adventure_play(request, id_or_slug, pk):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def adventure_screen(request, id_or_slug, pk):
-    """Mostra (ou tira) a cena do nó no telão: nome em state.scene e, se pedido,
-    o texto para ler em voz alta em state.sceneText. Merge no servidor para não
-    sobrescrever o resto do estado da campanha."""
+    """Mostra (ou tira) a cena do nó na Tela: nome em state.scene e, se pedido,
+    o texto para ler em voz alta em state.sceneText; a sala vai à frente do
+    palco (api/stage.py), com a imagem dela. Uma escrita só, com merge no
+    servidor para não sobrescrever o resto do estado da campanha.
+    → {state, changed}"""
+    from .stage import apply_stage_op, get_stage, node_scene_front
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
     obj = _get(campaign, pk)
@@ -437,19 +440,25 @@ def adventure_screen(request, id_or_slug, pk):
     node_id = _id(body.get('nodeId'))
     if node_id:
         node = _node(obj, node_id)
-        patch = {
+        extra = {
             'scene': node['name'],
             'sceneText': (node.get('readAloud') or '')[:5000] if body.get('text') else None,
-            # O telão mostra a cena como cartão (contrato C2 · ScreenCard).
-            'screenCard': {'type': 'scene', 'adventureId': obj.id, 'nodeId': node_id,
-                           'at': timezone.now().isoformat()},
         }
+        front = node_scene_front(campaign, obj.id, node_id, with_text=bool(body.get('text')))
+        _, changed = apply_stage_op(campaign, {'op': 'show', 'front': front, 'recap': None, 'focus': True}, extra=extra)
     else:
-        patch = {'sceneText': None}
+        extra = {'sceneText': None}
         if body.get('clearScene'):
-            patch['scene'] = ''
-        card = (campaign.state or {}).get('screenCard')
-        if isinstance(card, dict) and card.get('type') == 'scene':
-            patch['screenCard'] = None
-    state = merge_state(campaign, patch)
-    return Response({'state': state})
+            extra['scene'] = ''
+        front = get_stage(campaign.state)['front'] or {}
+        ref = front.get('ref') if front.get('kind') == 'scene' else None
+        if isinstance(ref, dict) and ref.get('advId') == obj.id:
+            _, changed = apply_stage_op(campaign, {'op': 'back'}, extra=extra)
+        else:
+            merge_state(campaign, extra)
+            changed = False
+    campaign.refresh_from_db(fields=['state'])
+    # changed: a Tela mudou? "Tirar texto" com outra coisa na frente só apaga o
+    # sceneText; sem mudança, o aviso não oferece ↶ Desfazer (que desfaria a
+    # mudança ANTERIOR da Tela, não esta).
+    return Response({'state': campaign.state, 'changed': changed})

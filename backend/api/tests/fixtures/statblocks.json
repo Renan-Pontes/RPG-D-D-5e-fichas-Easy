@@ -1,0 +1,233 @@
+{
+ "adult-red-dragon": {
+  "ac": 19,
+  "max_hp": 256,
+  "speed": 40,
+  "abilities": {
+   "str": 27,
+   "dex": 10,
+   "con": 25,
+   "int": 16,
+   "wis": 13,
+   "cha": 23
+  },
+  "saves": {
+   "str": 8,
+   "dex": 6,
+   "con": 7,
+   "int": 3,
+   "wis": 7,
+   "cha": 6
+  },
+  "damage_resistances": [],
+  "damage_immunities": [
+   "fire"
+  ],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "actions": [
+   {
+    "name": {
+     "pt": "Multiataque",
+     "en": "Multiattack"
+    },
+    "type": "special",
+    "desc": {
+     "en": "The dragon makes three Rend attacks. It can replace one attack with a use of Spellcasting to cast Scorching Ray.",
+     "pt": "O dragão faz três ataques de Dilacerar. Pode substituir um ataque por um uso de Conjuração para conjurar Raio Ardente."
+    },
+    "kind": "action"
+   },
+   {
+    "name": {
+     "pt": "Dilacerar",
+     "en": "Rend"
+    },
+    "type": "melee",
+    "atk": 14,
+    "range": "10 ft",
+    "damage": "1d10+8",
+    "damageType": "slashing",
+    "extraDamage": [
+     {
+      "damage": "2d4",
+      "damageType": "fire"
+     }
+    ],
+    "desc": {
+     "en": "Melee Attack Roll: +14, reach 10 ft. 13 (1d10 + 8) Slashing damage plus 5 (2d4) Fire damage.",
+     "pt": "Jogada de Ataque Corpo a Corpo: +14, alcance 3 m. 13 (1d10 + 8) de dano Cortante mais 5 (2d4) de dano de Fogo."
+    },
+    "kind": "action"
+   },
+   {
+    "name": {
+     "pt": "Sopro de Fogo",
+     "en": "Fire Breath"
+    },
+    "type": "save",
+    "save": {
+     "ability": "DEX",
+     "dc": 21,
+     "targets": "each creature in a 60-foot Cone",
+     "area": true,
+     "halfOnSave": true
+    },
+    "damage": "17d6",
+    "damageType": "fire",
+    "recharge": 5,
+    "desc": {
+     "en": "Dexterity Saving Throw: DC 21, each creature in a 60-foot Cone. Failure: 59 (17d6) Fire damage. Success: Half damage.",
+     "pt": "Teste de Resistência de Destreza: CD 21, cada criatura em um Cone de 18 m. Falha: 59 (17d6) de dano de Fogo. Sucesso: Metade do dano."
+    },
+    "kind": "action"
+   },
+   {
+    "name": {
+     "pt": "Conjuração",
+     "en": "Spellcasting"
+    },
+    "type": "special",
+    "desc": {
+     "en": "The dragon casts one of the following spells, requiring no Material components and using Charisma as the spellcasting ability (spell save DC 20, +12 to hit with spell attacks):\n\n- **At Will:** Command, Detect Magic, Scorching Ray\n- **1/Day Each:** Fireball",
+     "pt": "O dragão conjura uma das magias a seguir, sem precisar de componentes Materiais e usando Carisma como atributo de conjuração (CD de resistência de magia 20, +12 para acertar com ataques de magia):\n\n- **À vontade:** Comando, Detectar Magia, Raio Ardente\n- **1/dia cada:** Bola de Fogo"
+    },
+    "kind": "action"
+   },
+   {
+    "name": {
+     "pt": "Presença de Comando",
+     "en": "Commanding Presence"
+    },
+    "type": "special",
+    "cost": 1,
+    "desc": {
+     "en": "The dragon uses Spellcasting to cast Command (level 2 version). The dragon can't take this action again until the start of its next turn.",
+     "pt": "O dragão usa Conjuração para conjurar Comando (versão de nível 2). O dragão não pode usar esta ação de novo até o início do seu próximo turno."
+    },
+    "kind": "legendary"
+   },
+   {
+    "name": {
+     "pt": "Raios Flamejantes",
+     "en": "Fiery Rays"
+    },
+    "type": "special",
+    "cost": 1,
+    "desc": {
+     "en": "The dragon uses Spellcasting to cast Scorching Ray. The dragon can't take this action again until the start of its next turn.",
+     "pt": "O dragão usa Conjuração para conjurar Raio Ardente. O dragão não pode usar esta ação de novo até o início do seu próximo turno."
+    },
+    "kind": "legendary"
+   },
+   {
+    "name": {
+     "pt": "Bote",
+     "en": "Pounce"
+    },
+    "type": "special",
+    "cost": 1,
+    "desc": {
+     "en": "The dragon moves up to half its Speed, and it makes one Rend attack.",
+     "pt": "O dragão se move até metade do seu Deslocamento e faz um ataque de Dilacerar."
+    },
+    "kind": "legendary"
+   }
+  ],
+  "cr": "17",
+  "xp": 18000,
+  "legendary": {
+   "uses": 3,
+   "lairUses": 4
+  },
+  "legendary_resistance": {
+   "uses": 3,
+   "lairUses": 4
+  }
+ },
+ "goblin-warrior": {
+  "ac": 15,
+  "max_hp": 10,
+  "speed": 30,
+  "abilities": {
+   "str": 8,
+   "dex": 15,
+   "con": 10,
+   "int": 10,
+   "wis": 8,
+   "cha": 8
+  },
+  "saves": {
+   "str": -1,
+   "dex": 2,
+   "con": 0,
+   "int": 0,
+   "wis": -1,
+   "cha": -1
+  },
+  "damage_resistances": [],
+  "damage_immunities": [],
+  "damage_vulnerabilities": [],
+  "condition_immunities": [],
+  "actions": [
+   {
+    "name": {
+     "pt": "Cimitarra",
+     "en": "Scimitar"
+    },
+    "type": "melee",
+    "atk": 4,
+    "range": "5 ft",
+    "damage": "1d6+2",
+    "damageType": "slashing",
+    "extraDamage": [
+     {
+      "damage": "1d4",
+      "damageType": "slashing"
+     }
+    ],
+    "desc": {
+     "en": "Melee Attack Roll: +4, reach 5 ft. 5 (1d6 + 2) Slashing damage, plus 2 (1d4) Slashing damage if the attack roll had Advantage.",
+     "pt": "Jogada de Ataque Corpo a Corpo: +4, alcance 1,5 m. 5 (1d6 + 2) de dano Cortante mais 2 (1d4) de dano Cortante se a jogada de ataque tiver Vantagem."
+    },
+    "kind": "action"
+   },
+   {
+    "name": {
+     "pt": "Arco Curto",
+     "en": "Shortbow"
+    },
+    "type": "ranged",
+    "atk": 4,
+    "range": "80/320 ft",
+    "damage": "1d6+2",
+    "damageType": "piercing",
+    "extraDamage": [
+     {
+      "damage": "1d4",
+      "damageType": "piercing"
+     }
+    ],
+    "desc": {
+     "en": "Ranged Attack Roll: +4, range 80/320 ft. 5 (1d6 + 2) Piercing damage, plus 2 (1d4) Piercing damage if the attack roll had Advantage.",
+     "pt": "Jogada de Ataque à Distância: +4, distância 24/96 m. 5 (1d6 + 2) de dano Perfurante mais 2 (1d4) de dano Perfurante se a jogada de ataque tiver Vantagem."
+    },
+    "kind": "action"
+   },
+   {
+    "name": {
+     "pt": "Fuga Ágil",
+     "en": "Nimble Escape"
+    },
+    "type": "special",
+    "desc": {
+     "en": "The goblin takes the Disengage or Hide action.",
+     "pt": "O goblin realiza a ação Desengajar ou Esconder."
+    },
+    "kind": "bonus"
+   }
+  ],
+  "cr": "1/4",
+  "xp": 50
+ }
+}

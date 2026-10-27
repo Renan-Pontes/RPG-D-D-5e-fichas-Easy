@@ -1,5 +1,5 @@
 // Abas antigas da campanha, mantidas como FALLBACK da casca enquanto os
-// substitutos (GroupArea, PlayArea › Telão, PlayerTable…) não existem.
+// substitutos (GroupArea, PlayArea › Tela, PlayerTable…) não existem.
 // Movidas sem mudança de comportamento de CampaignDetail.jsx; só trocam
 // window.confirm pelo diálogo do app e o PUT do state pelo PATCH por chave.
 import { useState, useEffect, useCallback } from 'react';
@@ -498,7 +498,7 @@ export function ScreenTab({ campaign, lang, onChange }) {
   const url = `${window.location.origin}/tv/${campaign.screenToken}`;
   return (
     <div className="info-box">
-      <h3 style={{ marginTop: 0 }}>{t(lang, 'Telão para TV', 'TV screen')}</h3>
+      <h3 style={{ marginTop: 0 }}>{t(lang, 'Tela para a TV', 'Screen for the TV')}</h3>
       <p>{t(lang, 'Abra este link na TV ou tablet onde os jogadores acompanham o jogo:', 'Open this link on the TV or tablet that players watch:')}</p>
       <div className="row gap-2">
         <input className="input" readOnly value={url} onClick={e => e.target.select()} style={{ flex: 1, fontFamily: 'monospace' }} />
@@ -506,7 +506,7 @@ export function ScreenTab({ campaign, lang, onChange }) {
         <button className="btn btn-ghost" onClick={rotate}>{t(lang, 'Renovar', 'Rotate')}</button>
       </div>
       <p style={{ marginTop: 16 }}>
-        <a href={url} target="_blank" rel="noreferrer">{t(lang, 'Abrir o telão em nova aba', 'Open the TV view in a new tab')}</a>
+        <a href={url} target="_blank" rel="noreferrer">{t(lang, 'Abrir a Tela em nova aba', 'Open the screen in a new tab')}</a>
       </p>
     </div>
   );

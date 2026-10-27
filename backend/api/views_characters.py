@@ -12,6 +12,7 @@ from . import plans as P
 from . import wild_shape as ws_engine
 from . import spells as spells_engine
 from . import edit_log
+from .stage import get_stage
 from .progression import validate_level_choice, apply_level_choice, validate_class_options, apply_class_options
 from .progression.resources import rest_resources, spend_resource
 
@@ -98,6 +99,12 @@ def character_detail(request, pk):
                 'hint': 'use_dm_editor_or_dedicated_endpoint',
             })
 
+    # A foto não vem em todo lugar (V9: o GET da campanha leva só a URL dela): uma
+    # ficha regravada SEM a chave `avatar` mantém a foto guardada. Tirar a foto é
+    # mandar `avatar: ''`.
+    old_avatar = (obj.data or {}).get('avatar') if isinstance(obj.data, dict) else None
+    if isinstance(new_data, dict) and 'avatar' not in new_data and old_avatar:
+        request.data['data'] = {**new_data, 'avatar': old_avatar}
     s = CharacterSerializer(obj, data=request.data)
     s.is_valid(raise_exception=True)
     if isinstance(new_data, dict) and 'avatar' in new_data:
@@ -484,6 +491,8 @@ def character_campaigns(request, pk):
                 'status': m.campaign.status,
                 'purgeAt': P.purge_at(m.campaign).isoformat() if P.purge_at(m.campaign) else None,
                 'sponsored': m.sponsored,
+                # V15: o mestre deixa as rolagens das fichas irem à Tela? (Jogar › Tela)
+                'sheetRolls': bool(get_stage(m.campaign.state)['prefs'].get('sheets', True)),
             }
             for m in memberships
         ],

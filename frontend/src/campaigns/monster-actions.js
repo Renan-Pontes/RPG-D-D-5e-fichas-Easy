@@ -189,7 +189,9 @@ export function logLine(e, lang) {
     case 'recharge':
       return `${e.target}: ` + (e.rolls || []).map(r => `${r.name} d6=${r.roll} ${r.recharged ? pick(lang, 'recarregou', 'recharged') : pick(lang, 'não recarregou', 'not recharged')}`).join('; ');
     case 'next_turn':
-      return `${pick(lang, 'Rodada', 'Round')} ${e.round} — ${pick(lang, 'vez de', 'turn of')} ${e.whose}`;
+      return `${pick(lang, 'Rodada', 'Round')} ${e.round} — ${pick(lang, 'vez de', 'turn of')} ${e.whose}${e.undone ? pick(lang, ' (desfeito)', ' (undone)') : ''}`;
+    case 'prev_turn':
+      return `↶ ${pick(lang, 'Turno desfeito', 'Turn undone')} — ${pick(lang, 'Rodada', 'Round')} ${e.round}, ${pick(lang, 'vez de', 'turn of')} ${e.whose || '—'}`;
     case 'damage':
       return `${e.target}: −${e.amount}`;
     case 'heal':

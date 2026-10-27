@@ -4,7 +4,6 @@ import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import { DIARY_TYPES, buildRecap, entryBody, entryIcon, entryTitle, groupEntries, matchesFilter, pickRecapGroup } from './diary-summary.js';
 import MoreMenu from '../group/MoreMenu.jsx';
-import { groupApi } from '../group/group-api.js';
 import { copyText } from '../group/InviteCard.jsx';
 import useTouchHold from '../group/useTouchHold.js';
 import MesaSheet from '../shell/MesaSheet.jsx';
@@ -12,6 +11,7 @@ import MesaTitle from '../shell/MesaTitle.jsx';
 import useScrollEdges from '../shell/useScrollEdges.js';
 import './diary-styles.css';
 import '../group/group-styles.css';
+import { sendToStage, showOnStage, stageBack } from '../stage/stage-api.js';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const UNDO_MS = 5000;
@@ -162,19 +162,16 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
     return () => clearTimeout(id);
   }, [toast]);
 
-  // onErr: quem pediu mostra o erro (a folha do recap mostra o dela, por cima de tudo)
-  const showOnScreen = async (title, text, onErr = setError) => {
-    try {
-      await groupApi.showOnScreen(campaign.id, { type: 'recap', title: String(title || '').slice(0, 200), text: String(text || '').slice(0, 5000) });
-      flash(t(lang, '📺 No telão agora.', '📺 On the TV now.'));
-      onCampaignChange?.();
-      return true;
-    } catch (e) { onErr(errMsg(e)); return false; }
+  // O 📺 do resumo vai ao palco da Tela, com o aviso de sempre ("Na tela ✓ · ↶ Desfazer"
+  // ou "Não enviado · <motivo>", que aparece por cima da folha do recap).
+  const showOnScreen = async (title, text) => {
+    const r = await sendToStage(campaign.id, () => showOnStage(campaign.id, {
+      kind: 'recap', title: String(title || '').slice(0, 200), text: String(text || '').slice(0, 5000),
+    }), { lang, name: t(lang, 'Anteriormente em…', 'Previously on…'), onDone: () => onCampaignChange?.() });
+    return !!r;
   };
-  const clearScreen = async (onErr = setError) => {
-    try { await groupApi.showOnScreen(campaign.id, null); flash(t(lang, 'Telão de volta à capa.', 'TV back to the cover.')); onCampaignChange?.(); }
-    catch (e) { onErr(errMsg(e)); }
-  };
+  const clearScreen = () => sendToStage(campaign.id, () => stageBack(campaign.id),
+    { lang, done: t(lang, 'Tirado da Tela ✓', 'Removed from the screen ✓'), onDone: () => onCampaignChange?.() });
   const closed = campaign.status === 'closed';
 
   return (
@@ -199,7 +196,7 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
                 ✎ {t(lang, 'Nova nota', 'New note')}
               </button>
             )}
-            {/* encerrada: o recap continua (ler e copiar); o telão e o salvar dizem o motivo na folha */}
+            {/* encerrada: o recap continua (ler e copiar); a Tela e o salvar dizem o motivo na folha */}
             {isDM && (
               <button type="button" className="mesa-btn diary-recap-open" onClick={() => openRecap(null)} disabled={!loaded || !entries.length}
                 aria-label={t(lang, 'Anteriormente em…: montar recap', 'Previously on…: draft recap')}>
@@ -210,8 +207,8 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
         )}
         {isDM && onScreen?.type === 'recap' && (
           <div className="diary-on-tv" role="status">
-            <span>📺 {t(lang, 'O recap está no telão agora.', 'The recap is on the TV now.')}</span>
-            <button type="button" className="mesa-btn" onClick={() => clearScreen()}>{t(lang, 'Tirar do telão', 'Remove from TV')}</button>
+            <span>📺 {t(lang, 'O recap está na Tela agora.', 'The recap is on screen now.')}</span>
+            <button type="button" className="mesa-btn" onClick={() => clearScreen()}>{t(lang, 'Tirar da Tela', 'Remove from screen')}</button>
           </div>
         )}
       </section>
@@ -444,7 +441,7 @@ function DiaryItem({ entry, lang, isDM, onPatch, onDelete, onShow }) {
     { id: 'edit', label: `✎ ${t(lang, 'Editar', 'Edit')}`, onSelect: startEdit },
     { id: 'hide', label: entry.hidden ? `👁 ${t(lang, 'Mostrar aos jogadores', 'Show to players')}` : `🙈 ${t(lang, 'Ocultar dos jogadores', 'Hide from players')}`,
       onSelect: () => onPatch(entry.id, { hidden: !entry.hidden }), hidden: !isDM },
-    { id: 'tv', label: `📺 ${t(lang, 'Mostrar no telão', 'Show on TV')}`, onSelect: () => onShow?.(entry),
+    { id: 'tv', label: `📺 ${t(lang, 'Mostrar na Tela', 'Show on screen')}`, onSelect: () => onShow?.(entry),
       hidden: !isDM || entry.hidden || !(shownBody || shownTitle) },
     { id: 'del', label: `🗑 ${t(lang, 'Excluir', 'Delete')}`, onSelect: () => onDelete(entry), danger: true,
       hint: t(lang, 'Some na hora; dá para desfazer por 5 segundos.', 'Gone right away; you can undo for 5 seconds.') },
@@ -491,9 +488,9 @@ function DiaryItem({ entry, lang, isDM, onPatch, onDelete, onShow }) {
 
 /**
  * Editor do "Anteriormente em…", em folha alta: rascunho montado dos eventos
- * (sem IA), que o mestre edita antes de mostrar no telão ou salvar na crônica.
- * Nada vai à TV sem o toque dele. Rodapé preso: 📺 Mostrar no telão (ou Tirar
- * do telão, com "● No telão agora") · Salvar na crônica · Copiar · Fechar.
+ * (sem IA), que o mestre edita antes de mostrar na Tela ou salvar na crônica.
+ * Nada vai à TV sem o toque dele. Rodapé preso: 📺 Mostrar na Tela (ou Tirar
+ * da Tela, com "● Na Tela agora") · Salvar na crônica · Copiar · Fechar.
  */
 function RecapSheet({ campaign, lang, recap, onScreen, onShow, onClearScreen, onClose, onSaved, onCopied }) {
   const [title, setTitle] = useState(recap.title);
@@ -515,7 +512,7 @@ function RecapSheet({ campaign, lang, recap, onScreen, onShow, onClearScreen, on
     } catch (er) { setErr(errMsg(er)); }
     setBusy(false);
   };
-  const show = async () => { setBusy(true); if (await onShow(title.trim(), text, setErr)) setTouched(false); setBusy(false); };
+  const show = async () => { setBusy(true); if (await onShow(title.trim(), text)) setTouched(false); setBusy(false); };
   const copy = async () => {
     if (await copyText(`${title}\n\n${text}`)) { setErr(''); onCopied(); }
     else setErr(t(lang, 'Não deu para copiar: selecione o texto e copie à mão.', 'Could not copy: select the text and copy it by hand.'));
@@ -525,14 +522,14 @@ function RecapSheet({ campaign, lang, recap, onScreen, onShow, onClearScreen, on
     <MesaSheet lang={lang} size="tall" width="md" icon="✨" title={t(lang, 'Anteriormente em…', 'Previously on…')}
       eyebrow={recap.session != null ? `${t(lang, 'a partir da sessão', 'from session')} ${recap.session}` : undefined}
       onClose={onClose} dirty={touched && !live} className="diary-recap-sheet" bodyClassName="diary-recap"
-      dirtyText={t(lang, 'O texto que você mexeu não foi para o telão nem para a crônica.', 'The text you edited did not go to the TV or the chronicle.')}
+      dirtyText={t(lang, 'O texto que você mexeu não foi para a Tela nem para a crônica.', 'The text you edited did not go to the screen or the chronicle.')}
       footer={({ close }) => (
         <div className="diary-recap-foot">
           <SheetError text={err} onDismiss={() => setErr('')} />
-          {live && <p className="diary-recap-live" role="status">● {t(lang, 'No telão agora', 'On the TV now')}</p>}
+          {live && <p className="diary-recap-live" role="status">● {t(lang, 'Na Tela agora', 'On screen now')}</p>}
           {live
-            ? <button type="button" className="mesa-btn mesa-btn-lg diary-recap-main" disabled={busy} onClick={() => onClearScreen(setErr)}>{t(lang, 'Tirar do telão', 'Remove from TV')}</button>
-            : <button type="button" className="mesa-btn mesa-btn-lg is-primary diary-recap-main" disabled={busy || tooLong || empty} onClick={show}>📺 {t(lang, 'Mostrar no telão', 'Show on TV')}</button>}
+            ? <button type="button" className="mesa-btn mesa-btn-lg diary-recap-main" disabled={busy} onClick={() => onClearScreen()}>{t(lang, 'Tirar da Tela', 'Remove from screen')}</button>
+            : <button type="button" className="mesa-btn mesa-btn-lg is-primary diary-recap-main" disabled={busy || tooLong || empty} onClick={show}>📺 {t(lang, 'Mostrar na Tela', 'Show on screen')}</button>}
           <div className="diary-recap-more">
             <button type="button" className="mesa-btn" disabled={busy || empty} onClick={save}>{t(lang, 'Salvar na crônica', 'Save to chronicle')}</button>
             <button type="button" className="mesa-btn" onClick={copy}>{t(lang, 'Copiar', 'Copy')}</button>
@@ -542,8 +539,8 @@ function RecapSheet({ campaign, lang, recap, onScreen, onShow, onClearScreen, on
         </div>
       )}>
       <p className="mesa-sheet-text diary-recap-hint">
-        {t(lang, 'Rascunho montado com o que ficou na crônica (o que está oculto fica de fora). Edite à vontade: só vai para o telão quando você mandar.',
-          'Draft built from the chronicle (hidden entries are left out). Edit freely: it only goes to the TV when you say so.')}
+        {t(lang, 'Rascunho montado com o que ficou na crônica (o que está oculto fica de fora). Edite à vontade: só vai para a Tela quando você mandar.',
+          'Draft built from the chronicle (hidden entries are left out). Edit freely: it only goes to the screen when you say so.')}
       </p>
       <label className="mesa-field">
         <span className="mesa-field-label">{t(lang, 'Título do recap', 'Recap title')}</span>
@@ -554,7 +551,7 @@ function RecapSheet({ campaign, lang, recap, onScreen, onShow, onClearScreen, on
         <textarea className="input diary-recap-text" rows={Math.min(14, Math.max(6, text.split('\n').length + 2))} value={text}
           onChange={e => { setText(e.target.value); setTouched(true); setErr(''); }} />
       </label>
-      {tooLong && <p className="diary-error">{t(lang, 'Texto longo demais para o telão (máx. 5000 caracteres).', 'Too long for the TV (max 5000 characters).')}</p>}
+      {tooLong && <p className="diary-error">{t(lang, 'Texto longo demais para a Tela (máx. 5000 caracteres).', 'Too long for the screen (max 5000 characters).')}</p>}
     </MesaSheet>
   );
 }

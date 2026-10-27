@@ -14,6 +14,7 @@ from .campaign_state import (clean_state_patch, clean_state_value, locked_dm_set
                              PATCHABLE_KEYS, SERVER_KEYS)
 from .image_data import validate_data_url, image_ver, image_response
 from .screen_card import clean_screen_card, resolve_screen_card
+from .stage import apply_stage_op, clean_stage_op, stage_from_screen_card, stage_image_data, with_combat_now
 from .rate_limit import rate_limit
 from . import plans as P
 
@@ -26,8 +27,9 @@ MAX_ONBOARDING_KEYS = 30
 
 
 def _get_light(id_or_slug):
-    """Como get_campaign_or_404, sem carregar a capa (o GET da campanha é polling)."""
-    qs = Campaign.objects.defer('cover_image')
+    """Como get_campaign_or_404, sem carregar a capa (o GET da campanha é polling).
+    Traz junto, no mesmo SELECT, o "combate ativo/rodada" da regra da Tela."""
+    qs = with_combat_now(Campaign.objects.defer('cover_image'))
     obj = qs.filter(id=id_or_slug).first() if str(id_or_slug).isdigit() else None
     obj = obj or qs.filter(slug=id_or_slug).first()
     if not obj:
@@ -54,7 +56,7 @@ def _apply_identity(obj, data):
         obj.tone = v
 
 
-DM_SETTINGS_KEYS = ('onboarding', 'advancedDice', 'immersion', 'fogHint')
+DM_SETTINGS_KEYS = ('onboarding', 'advancedDice', 'immersion', 'fogHint', 'lang')
 
 
 def _apply_dm_settings(obj, data):
@@ -85,6 +87,11 @@ def _apply_dm_settings(obj, data):
             if not isinstance(data.get(key), bool):
                 raise ValidationError({'error': f'invalid_{key}'})
             settings[key] = data[key]
+    # Idioma da campanha (o do app do mestre; a Tela fala nele — V9).
+    if 'lang' in data:
+        if data.get('lang') not in ('pt', 'en'):
+            raise ValidationError({'error': 'invalid_lang'})
+        settings['lang'] = data['lang']
     obj.dm_settings = settings
     return True
 
@@ -270,12 +277,61 @@ def campaign_screen_card(request, id_or_slug):
     body: {type:'entry', entryId, secretIds?} | {type:'recap', title, text}
         | {type:'scene', adventureId, nodeId} | null  (ou {card: ...})
     → {card: <cartão resolvido como o telão vê> | null}
-    Entrada oculta → 400 entry_hidden (mostrar não revela: o mestre revela antes)."""
+    Entrada oculta → 400 entry_hidden (mostrar não revela: o mestre revela antes).
+    COMPATIBILIDADE: escreve o palco da Tela (POST /stage é o caminho novo)."""
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
     card = clean_screen_card(campaign, request.data)
-    merge_state(campaign, {'screenCard': card})
+    apply_stage_op(campaign, stage_from_screen_card(campaign, card))
     return Response({'card': resolve_screen_card(campaign, token=campaign.screen_token)})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def campaign_stage(request, id_or_slug):
+    """POST /campaigns/:id/stage — o palco da Tela (só mestre; ver api/stage.py).
+    body: {op:'show', target, focus?, caption?} | {op:'back'} (✕ Tirar a frente)
+        | {op:'clear'} (🧹 frente e teste) | {op:'undo'} (↶) | {op:'dark', on}
+        | {op:'bg', bg:'auto'|'map'} | {op:'prefs', prefs}
+    → {stage, changed}. Não grava nada se o palco não mudou."""
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    op = clean_stage_op(campaign, request.data)
+    stage, changed = apply_stage_op(campaign, op)
+    return Response({'stage': stage, 'changed': changed})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def campaign_stage_image(request, id_or_slug):
+    """GET /campaigns/:id/stage-image?v=<ver> (membros) — a imagem que está na
+    frente da Tela AGORA (cartão oculto em "só a imagem", sala, mapa de lugar).
+    Outra versão ou outra frente → 404."""
+    campaign = _get_light(id_or_slug)
+    require_member(request.user, campaign)
+    found = stage_image_data(campaign, request.GET.get('v') or '')
+    if not found:
+        return HttpResponse(status=404)
+    return image_response(request, found[0], found[1])
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def campaign_member_avatar(request, id_or_slug, membership_id):
+    """GET /campaigns/:id/members/:mid/avatar?v= (membros) — a foto do personagem
+    daquela vaga, como binário (V9: o GET da campanha leva só `avatarUrl`, não o
+    base64 de cada foto a cada poll)."""
+    qs = Campaign.objects.only('id', 'dm_id', 'slug')
+    campaign = (qs.filter(id=id_or_slug).first() if str(id_or_slug).isdigit() else None) \
+        or qs.filter(slug=id_or_slug).first()
+    if not campaign:
+        raise NotFound('campaign_not_found')
+    require_member(request.user, campaign)
+    ch = Character.objects.filter(memberships__pk=membership_id, memberships__campaign=campaign).only('id', 'data').first()
+    avatar = ((ch.data if ch else None) or {}).get('avatar')
+    if not (isinstance(avatar, str) and avatar.startswith('data:')):
+        return HttpResponse(status=404)
+    return image_response(request, avatar)
 
 
 _INVITE_CODE = re.compile(r'^[A-Z0-9]{4,10}$')

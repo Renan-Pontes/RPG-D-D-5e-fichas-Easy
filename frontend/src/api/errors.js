@@ -138,12 +138,12 @@ const E = {
   invalid_mode: ['Modo inválido.', 'Invalid mode.'],
   invalid_amount: ['Quantidade inválida.', 'Invalid amount.'],
   invalid_pagination: ['Página inválida.', 'Invalid page.'],
-  // Mundo / telão
+  // Mundo / Tela
   version_conflict: ['Este cartão foi alterado em outra aba ou aparelho. Recarregue para ver a versão mais nova antes de salvar.', 'This card was changed in another tab or device. Reload to see the latest version before saving.'],
   entry_hidden: ['Este cartão está oculto. Revele (ou deixe conhecido de nome) antes de mostrar aos jogadores.', 'This card is hidden. Reveal it (or make it known by name) before showing it to players.'],
   entry_not_found: ['Cartão do mundo não encontrado (pode ter sido apagado).', 'World card not found (it may have been deleted).'],
   too_many_entries: ['O mundo desta campanha atingiu o limite de cartões.', "This campaign's world reached its card limit."],
-  handout_private: ['Este material é só para alguns jogadores; não dá para mostrar no telão.', "This handout is for specific players only; it can't go on the shared screen."],
+  handout_private: ['Documento só para alguns jogadores: não vai à Tela.', "Handout for some players only: it can't go on screen."],
   world_not_empty: ['O mundo já tem cartões; o modelo inicial só entra num mundo vazio.', 'The world already has cards; the starter template only goes into an empty world.'],
   scene_not_found: ['Cena não encontrada (a aventura pode ter mudado).', 'Scene not found (the adventure may have changed).'],
   empty_recap: ['Escreva o resumo antes de mostrar.', 'Write the recap before showing it.'],

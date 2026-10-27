@@ -2581,6 +2581,55 @@
   .ficha .fh-camp-actions { grid-column: 1 / -1; }
   .ficha .fh-camp-actions .btn { flex: 1 1 0; }
 }
+/* Rolagens desta ficha na Tela (V15, src/sheet/SheetRollTarget.jsx): linha inteira no pé
+   da faixa, "📺 Na Tela · 🔒 Só eu" (44 px) e a regra escrita embaixo. No celular o
+   seletor ocupa a largura toda. */
+.ficha .fh-camp-rolls {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(116, 214, 180, 0.22);
+}
+.ficha .fh-camp-rolls-title {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  color: var(--fh-verdigris);
+}
+.ficha .fh-camp-rolls-seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-left: auto;
+  overflow: hidden;
+  border: 1px solid rgba(116, 214, 180, 0.45);
+  border-radius: 6px;
+}
+.ficha .fh-camp-rolls-btn {
+  min-height: 44px;
+  min-width: 0;
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ficha .fh-camp-rolls-btn + .fh-camp-rolls-btn { border-left: 1px solid rgba(116, 214, 180, 0.45); }
+.ficha .fh-camp-rolls-btn.active { background: rgba(18, 63, 52, 0.85); color: var(--ink-primary); }
+.ficha .fh-camp-rolls-btn:focus-visible { outline: 2px solid var(--fh-verdigris); outline-offset: -3px; }
+.ficha .fh-camp-rolls-why { flex: 1 1 100%; margin: 0; font-size: 0.85rem; line-height: 1.35; color: var(--ink-muted); }
+@media (max-width: 600px) {
+  .ficha .fh-camp-rolls-seg { flex: 1 1 100%; margin-left: 0; }
+}
 /* Ficha pessoal: a linha discreta ganha o "Atrelar a uma campanha" (ou, no aparelho,
    a dica de entrar na conta) */
 .ficha .campaign-mode-inline.fh-camp-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
@@ -3473,6 +3522,7 @@
   .ficha .fh-camp,
   .ficha .wild-shape-banner { border-left: 3px solid CanvasText; }
   .ficha .fh-rel-pill.on,
+  .ficha .fh-camp-rolls-btn.active,
   .ficha .check-physical-mode button.active { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .ficha .fh-coin-face { forced-color-adjust: none; }
 }

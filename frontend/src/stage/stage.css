@@ -1,0 +1,422 @@
+/* Palco da Tela (V3): o 📺 único, a folha de decisão, o resumo 16:9 (StageThumb),
+   a folha "Mostrar na Tela" e Jogar › Tela. Prefixo stage- / sot-; peças da
+   mesa (mesa-row, mesa-btn, mesa-seg) por baixo. Celular primeiro: 320–412 sem
+   rolagem lateral, alvos ≥ 44 px, textos ≥ 12 px. */
+
+/* ---------- 📺 apagado com o motivo escrito ---------- */
+.sot-blocked { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 0; max-width: 100%; }
+.sot-why { color: var(--ink-muted); font-size: 12px; line-height: 1.3; text-align: right; overflow-wrap: anywhere; }
+.sot-blocked.is-short .sot-why { max-width: 9.5em; }
+
+/* ---------- folha de decisão ---------- */
+.sot-foot { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 100%; }
+.sot-foot .mesa-btn { width: 100%; justify-content: center; white-space: normal; text-align: center; }
+.sot-keep { text-decoration: underline; text-underline-offset: 3px; }
+/* "☐ Guardar para depois do combate" (cartão oculto): muda só QUANDO, nunca revela. */
+.sot-keep-box {
+  display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 2px 4px;
+  color: var(--ink-secondary); font-size: 15px; line-height: 1.3; cursor: pointer;
+}
+.sot-keep-box input { flex: none; width: 22px; height: 22px; margin: 0; accent-color: var(--gold); }
+@media (min-width: 768px) {
+  .sot-foot { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; }
+  .sot-foot .mesa-btn { width: auto; }
+  .sot-keep-box { flex: 1 0 100%; }
+}
+
+/* ---------- resumo 16:9 desenhado pelo app ---------- */
+.stage-thumb {
+  /* overflow-anchor: none — o texto da faixa (preso embaixo) não serve de âncora de
+     rolagem: trocar o que a Tela mostra nunca rola a página (princípio 8). */
+  position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; overflow-anchor: none;
+  border-radius: 10px; border: 1px solid var(--stroke-strong);
+  background: var(--fh-noise), radial-gradient(120% 120% at 50% 30%, var(--fh-leather-hi), var(--fh-leather-lo));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.stage-thumb.is-dark { background: #000; }
+.stage-thumb-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
+.stage-thumb-img.is-contain { object-fit: contain; opacity: 1; }
+.stage-thumb.is-rest .stage-thumb-img { opacity: 0.55; }
+.stage-thumb-emblem {
+  position: absolute; inset: 0 0 34% 0; display: grid; place-items: center;
+  font-size: clamp(28px, 10vw, 56px); color: var(--gold); opacity: 0.85; pointer-events: none;
+}
+.stage-thumb.is-dark .stage-thumb-emblem { color: var(--gold-deep); }
+.stage-thumb-emblem.is-soft { opacity: 0.5; }
+.stage-thumb-tarja {
+  position: absolute; top: 0; left: 0; right: 0; padding: 4px 10px;
+  background: rgba(10, 6, 4, 0.82); border-bottom: 1px solid var(--gold-deep);
+  color: var(--fh-ember); font-family: var(--display); font-size: 12px; letter-spacing: 0.08em;
+}
+.stage-thumb-band {
+  position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 12px; background: linear-gradient(180deg, rgba(8, 5, 3, 0.15), rgba(8, 5, 3, 0.92) 30%);
+}
+.stage-thumb-l1 { color: var(--ink-primary); font-size: 15px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage-thumb-l2 { color: var(--ink-secondary); font-size: 13px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- Jogar › Tela ---------- */
+.stage-panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.stage-rule { margin: 0 0 10px; color: var(--ink-secondary); font-size: 15px; line-height: 1.4; }
+.stage-preview { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.stage-preview-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.stage-preview-note { margin: 0; flex: 1 1 160px; }
+.stage-live-btn { flex: 0 0 auto; }
+.stage-live {
+  position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px;
+  border: 1px solid var(--stroke-strong); background: #000;
+}
+.stage-live-frame {
+  /* A TV de verdade em 1280×720, reduzida para caber (o CSS dela mede a janela do iframe). */
+  position: absolute; top: 0; left: 0; width: 1280px; height: 720px; border: 0;
+  transform-origin: 0 0; transform: scale(var(--stage-live-k, 0.28)); pointer-events: none;
+}
+.stage-live.is-paused {
+  display: grid; place-items: center; color: var(--ink-secondary); font: inherit; font-size: 15px; cursor: pointer;
+  background: var(--fh-noise), var(--fh-leather-lo);
+}
+
+.stage-lines { display: flex; flex-direction: column; border-top: 1px solid var(--stroke-faint); }
+/* Nada mexe debaixo do dedo (princípio 8): cada camada tem altura FIXA e o botão
+   tem largura e altura fixas; o que muda na Tela troca só o texto. A Frente tem o
+   texto em até 2 linhas (no celular) com reticências e a linha de baixo ("por
+   cima do ⚔ combate"…) sempre reservada; Fundo e Teste, 1 linha. No celular a
+   camada vira um sobretítulo (o texto ganha a largura); de 480 px para cima,
+   uma coluna à esquerda e o texto em 1 linha. */
+.stage-line.mesa-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 16px 20px;
+  grid-template-areas: "layer x" "text x";
+  align-items: center; align-content: center; column-gap: 10px; row-gap: 2px;
+  height: 60px; min-height: 0; padding: 6px 4px; overflow: hidden;
+}
+.stage-line.is-front.mesa-row { grid-template-rows: 16px 40px 18px; grid-template-areas: "layer x" "text x" "sub x"; height: 92px; }
+.stage-line-layer {
+  grid-area: layer; font-family: var(--display); font-size: 12px; line-height: 16px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--gold-deep);
+}
+.stage-line-text, .stage-line-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage-line-text { grid-area: text; color: var(--ink-primary); font-size: 15px; line-height: 20px; }
+.stage-line.is-front .stage-line-text {
+  white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.stage-line-sub { grid-area: sub; color: var(--ink-muted); font-size: 13px; line-height: 18px; }
+.stage-line-x {
+  grid-area: x; width: 112px; height: 48px; min-height: 48px; padding: 2px 6px; font-size: 0.8rem; line-height: 1.15;
+}
+.stage-line.is-empty .stage-line-text { color: var(--ink-muted); font-style: italic; }
+@media (min-width: 480px) {
+  .stage-line.mesa-row { grid-template-columns: 64px minmax(0, 1fr) auto; grid-template-rows: 20px; grid-template-areas: "layer text x"; height: 56px; }
+  .stage-line.is-front.mesa-row { grid-template-rows: 20px 18px; grid-template-areas: "layer text x" "layer sub x"; height: 60px; }
+  .stage-line.is-front .stage-line-text { display: block; white-space: nowrap; }
+  .stage-line-x { width: 128px; }
+}
+/* Rótulo dentro de um botão de tamanho fixo: até 2 linhas (.is-one: 1 linha), com reticências. */
+.stage-clamp {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  min-width: 0; max-width: 100%; overflow-wrap: anywhere;
+}
+.stage-clamp.is-one { display: block; -webkit-line-clamp: none; white-space: nowrap; text-overflow: ellipsis; }
+.stage-ctl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 52px; gap: 8px; margin-top: 10px; }
+.stage-ctl-btn { min-width: 0; height: 52px; min-height: 48px; padding: 2px 8px; text-align: center; justify-content: center; }
+/* ↶ (que diz o nome do que volta) na largura toda; 🧹 e ◐ lado a lado embaixo. */
+.stage-ctl-btn:first-child { grid-column: 1 / -1; }
+@media (min-width: 560px) {
+  .stage-ctl { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); }
+  .stage-ctl-btn:first-child { grid-column: auto; }
+  .stage-ctl-btn.is-undo .stage-clamp.is-one { display: -webkit-box; white-space: normal; -webkit-line-clamp: 2; }
+}
+
+/* ---------- Mostrar (Imagens · Cenas · Texto · Mapa) ---------- */
+.stage-pick { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.stage-tabs.mesa-seg { margin: 0; }
+.stage-tab.mesa-seg-btn { min-width: 0; padding: 4px 4px; font-size: 0.92rem; }
+@media (max-width: 380px) {
+  .stage-tab.mesa-seg-btn { flex-direction: column; gap: 0; font-size: 12px; line-height: 1.1; }
+}
+.stage-pane { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.stage-search { min-height: 44px; font-size: 16px; }
+.stage-sub { margin: 6px 0 0; }
+.stage-list { display: flex; flex-direction: column; min-width: 0; }
+.stage-row { min-height: 56px; }
+.stage-row-pic { flex: none; width: 44px; height: 44px; border-radius: 6px; overflow: hidden; border: 1px solid var(--stroke); }
+.stage-row-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.stage-row-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 13px; }
+.stage-tag { color: var(--amber); font-size: 12px; white-space: nowrap; }
+/* 📺 Mostrar é ação ao vivo: ≥ 48 px (§12.0). */
+.stage-show { min-width: 44px; min-height: 48px; padding: 0 10px; white-space: nowrap; }
+.stage-why { margin: 0; }
+.stage-read { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-top: 1px solid var(--stroke-faint); }
+.stage-read-text {
+  margin: 0; color: var(--ink-secondary); font-size: 15px; line-height: 1.45; white-space: pre-line;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.stage-free textarea { font-size: 16px; min-height: 88px; }
+.stage-free-act, .stage-map-act { justify-content: flex-start; }
+.stage-map-act .mesa-btn { white-space: normal; text-align: center; }
+.stage-reload { align-self: flex-start; }
+
+/* Linhas estreitas: o nome quebra e o 📺 fica à direita, sempre com 44 px. */
+@media (max-width: 359px) {
+  .stage-row-pic { width: 36px; height: 36px; }
+}
+
+@media (min-width: 1024px) {
+  /* 2 colunas: Na tela agora + Ligar à esquerda; Mostrar (longa) à direita. A 2ª linha
+     fica com a sobra (1fr), para "Ligar a Tela" não descer junto com a lista. */
+  .stage-panel {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto 1fr;
+    align-items: start; gap: 16px;
+  }
+  .stage-now-box { grid-column: 1; grid-row: 1; }
+  .stage-link-box { grid-column: 1; grid-row: 2; }
+  .stage-show-box { grid-column: 2; grid-row: 1 / span 2; }
+  .stage-panel { grid-template-rows: auto auto 1fr; }
+  .stage-rolls-box { grid-column: 1; grid-row: 2; }
+  .stage-link-box { grid-row: 3; }
+  .stage-show-box { grid-row: 1 / span 3; }
+}
+
+/* V10 · Rolagens na Tela: as regras (segmentado de 44 px, explicado por escrito) e as últimas 5 */
+.stage-rule-row { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-top: 1px dashed var(--stroke); min-width: 0; }
+.stage-rule-row:first-of-type { border-top: 0; }
+.stage-rule-title { font-family: var(--display); font-size: 0.85rem; letter-spacing: 0.06em; color: var(--gold); }
+.stage-rule-seg .mesa-seg-btn { min-height: 44px; white-space: normal; text-align: center; line-height: 1.15; }
+.stage-rule-why { margin: 0; }
+.stage-rule-checks { display: flex; flex-wrap: wrap; gap: 8px; }
+.stage-rule-check { cursor: pointer; }
+.stage-rule-check input { width: 20px; height: 20px; accent-color: var(--gold); }
+/* Últimas 5: altura fixa (cerca de 5 linhas) com rolagem própria — a lista que cresce
+   não empurra os botões de "Ligar a Tela" (nada mexe debaixo do dedo). Sem âncora de
+   rolagem dentro dela: a linha nova empurra as outras para baixo e o navegador rolava a
+   página junto para "seguir" a linha que desceu. */
+.stage-rolls-list {
+  display: flex; flex-direction: column; height: 17.5rem; overflow-y: auto; overscroll-behavior: contain;
+  overflow-anchor: none;
+  border: 1px solid var(--stroke); border-radius: 6px; padding: 0 10px;
+}
+.stage-rolls-list:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.stage-rolls-list > p { margin: 10px 0; }
+
+/* ==========================================================
+   V4 · Barra da mesa (celular), janela da Tela e faixa do turno (PC),
+   folha "Tela ao vivo". Alvos de 48 px nas ações ao vivo (🎲, Próximo,
+   Próximo turno), 44 px no resto; textos de verdade ≥ 13 px.
+   ========================================================== */
+
+/* ---------- miniatura sem texto (72×40; 56×32 a 320 px) ---------- */
+.stage-thumb.is-mini {
+  display: block; width: 72px; height: 40px; aspect-ratio: auto; border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.stage-thumb.is-mini .stage-thumb-emblem { inset: 0; font-size: 18px; }
+.stage-thumb-corner {
+  position: absolute; top: 2px; right: 2px; padding: 0 3px; border-radius: 4px;
+  background: rgba(10, 6, 4, 0.82); color: var(--fh-ember); font-size: 12px; line-height: 16px;
+}
+
+/* ---------- barra da mesa (só no celular) ---------- */
+.mesa-bar { display: none; }
+@media (max-width: 767px) {
+  .mesa-bar {
+    position: fixed; left: 0; right: 0; z-index: 41;
+    bottom: calc(var(--shell-bar-h, 62px) + env(safe-area-inset-bottom, 0px));
+    height: var(--mesa-bar-h, 64px);
+    display: flex; align-items: center; gap: 4px;
+    padding: 0 max(8px, env(safe-area-inset-right, 0px)) 0 env(safe-area-inset-left, 0px);
+    background: var(--fh-noise), linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather-lo));
+    border-top: 1px solid rgba(224, 181, 94, 0.45);
+    box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.45);
+  }
+  /* some com o teclado aberto e atrás das folhas que não são de Jogar */
+  .mesa-bar.is-keyboard, body.mesa-sheet-covers .mesa-bar { display: none; }
+  .mesa-bar-main {
+    flex: 1 1 auto; min-width: 0; height: 64px; display: flex; align-items: center; gap: 6px;
+    padding: 0 4px 0 0; border: 0; background: transparent; color: inherit; font: inherit;
+    text-align: left; cursor: pointer;
+  }
+  .mesa-bar-main:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+  .mesa-bar-thumb { flex: none; width: 80px; height: 64px; display: grid; place-items: center; }
+  .mesa-bar-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .mesa-bar-l1, .mesa-bar-l2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mesa-bar-l1 { color: var(--ink-primary); font-size: 14px; line-height: 18px; font-weight: 600; }
+  /* a vez: só o nome encolhe ("Goblin Afog… #2"); rodada e número ficam inteiros */
+  .mesa-bar-l1.is-turn { display: flex; align-items: baseline; text-overflow: clip; }
+  .mesa-bar-l1.is-turn > span { flex: none; white-space: pre; }
+  .mesa-bar-l1.is-turn > .mesa-bar-who { flex: 0 1 auto; min-width: 1.5em; overflow: hidden; text-overflow: ellipsis; }
+  .mesa-bar-l2 { color: var(--ink-secondary); font-size: 13px; line-height: 17px; }
+  .mesa-bar-l2.is-error { color: var(--blood-bright); font-weight: 600; }
+  .mesa-bar-l2.is-roll, .mesa-bar-l2.is-sent { color: var(--gold-bright); }
+  .mesa-bar-dice { flex: none; width: 48px; height: 48px; min-height: 48px; padding: 0; font-size: 22px; justify-content: center; }
+  .mesa-bar-act {
+    flex: none; width: 88px; height: 48px; min-height: 48px; padding: 2px 4px;
+    justify-content: center; text-align: center; font-size: 14px; line-height: 1.15; letter-spacing: 0.02em;
+  }
+  .mesa-bar-act.is-end { font-size: 13px; }
+
+  /* a página com a barra: folga embaixo, o dado mora nela, avisos logo acima */
+  body:has(.mesa-bar) {
+    --fab-safe-bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bar-h, 64px) + 8px);
+  }
+  body:has(.mesa-bar) .campaign-detail.shell {
+    padding-bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bottom-safe, 76px) + env(safe-area-inset-bottom, 0px));
+  }
+  body:has(.mesa-bar) .dice-fab { display: none !important; }
+  body:has(.mesa-bar) .play-flash {
+    left: max(12px, env(safe-area-inset-left, 0px)); right: auto; transform: none;
+    bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bar-h, 64px) + 10px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100vw - 24px);
+    animation-name: stage-flash-in;
+  }
+  body:has(.mesa-bar) .toast {
+    right: 12px;
+    bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bar-h, 64px) + 10px + env(safe-area-inset-bottom, 0px));
+  }
+}
+@media (max-width: 359px) {
+  .mesa-bar-thumb { width: 60px; }
+  .stage-thumb.is-mini { width: 56px; height: 32px; }
+  .mesa-bar-act { width: 80px; }
+}
+@keyframes stage-flash-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ---------- faixa do turno do PC (Jogar, com combate) ---------- */
+.turn-strip { display: none; }
+@media (min-width: 768px) {
+  /* presa logo ABAIXO das abas das áreas (.shell-areas: presas em 0, 59 px de altura,
+     z-index 30): nada dela passa por baixo delas, e o clique no Próximo nunca cai
+     numa aba. A altura dela (--turn-strip-h, medida pelo TurnStrip) empurra para
+     baixo o que também prende no topo: o mapa do Combate e a coluna de Testes. */
+  .turn-strip {
+    position: sticky; top: var(--areas-stick, 64px); z-index: 24;
+    display: grid; grid-template-columns: minmax(180px, auto) minmax(0, 1fr) auto; align-items: center; gap: 12px;
+    margin: 0 0 14px; padding: 8px 10px;
+  }
+  .turn-strip-who {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; min-height: 48px;
+    padding: 2px 6px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  }
+  .turn-strip-name { font-family: var(--display); font-size: 1.05rem; color: var(--ink-primary); }
+  .turn-strip-sub { color: var(--ink-secondary); font-size: 13px; }
+  .turn-strip-ribbon { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0; padding: 0; list-style: none; min-width: 0; }
+  .turn-strip-mark { font-size: 13px; line-height: 1.4; color: var(--ink-secondary); white-space: nowrap; }
+  .turn-strip-mark.is-acted { color: var(--ink-muted); }
+  .turn-strip-mark.is-now { color: var(--gold-bright); font-weight: 600; }
+  .turn-strip-mark.is-down { color: var(--ink-muted); text-decoration: line-through; }
+  /* largura fixa: "Enviando…" não move o botão debaixo do cursor */
+  .turn-strip-next { min-height: 48px; min-width: 12em; white-space: nowrap; justify-content: center; }
+  .play-area:has(> .turn-strip) { --below-strip: calc(var(--areas-stick, 64px) + var(--turn-strip-h, 88px) + 8px); }
+  .play-area:has(> .turn-strip) .combat-tab { --ct-map-top: var(--below-strip); }
+  .play-area:has(> .turn-strip) .tests-ask-col { top: var(--below-strip); max-height: calc(100vh - var(--below-strip) - 16px); }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .turn-strip { grid-template-columns: minmax(0, 1fr) auto; }
+  .turn-strip-ribbon { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* ---------- janela da Tela (PC) ---------- */
+.screen-win { display: none; }
+@media (min-width: 768px) {
+  .screen-win {
+    display: block; border: 1px solid transparent; border-radius: 10px; overflow: hidden;
+    background:
+      var(--fh-noise) padding-box,
+      linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather-lo)) padding-box,
+      var(--fh-gilt) border-box;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  }
+  .screen-win.is-float { position: fixed; right: 24px; bottom: 24px; width: 320px; z-index: 45; }
+  .screen-win.is-float.is-left { right: auto; left: 24px; }
+  .screen-win.is-float.is-live { width: 480px; }
+  .screen-win.is-pill {
+    position: fixed; right: 24px; bottom: 24px; z-index: 45; display: inline-flex; align-items: center; gap: 6px;
+    max-width: 320px; min-height: 44px; padding: 0 16px; color: var(--ink-primary); font: inherit; font-size: 14px; cursor: pointer;
+    border-radius: 999px;
+  }
+  .screen-win.is-pill.is-left { right: auto; left: 24px; }
+  .screen-win-pill-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .screen-win-thumb { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; }
+  .screen-win-thumb .stage-thumb { border: 0; border-radius: 0; box-shadow: none; }
+  .screen-win .stage-live { border: 0; border-radius: 0; }
+  /* legenda em 2 linhas (P2): o que está na Tela (toque abre a Tela ao vivo) e as ferramentas */
+  .screen-win-cap { display: flex; flex-direction: column; align-items: stretch; padding: 0 4px 2px; }
+  .screen-win-line {
+    display: block; width: 100%; min-width: 0; min-height: 44px; padding: 0 6px; border: 0; background: none; color: var(--ink-primary);
+    font: inherit; font-size: 14px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+  }
+  .screen-win-tools { display: flex; align-items: center; justify-content: space-between; gap: 0; border-top: 1px solid var(--stroke-faint); }
+  .screen-win.is-docked .screen-win-tools { justify-content: flex-start; gap: 8px; padding-top: 2px; }
+  /* o fim da página sobe além da janela (nada fica preso embaixo dela) */
+  body:has(.screen-win.is-float) main.container:has(> .campaign-detail.shell) { padding-bottom: 320px; }
+  .screen-win.is-docked { position: relative; width: 100%; margin: 0 0 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+  .screen-win-head { display: flex; justify-content: space-between; gap: 8px; margin: 0; padding: 8px 10px 6px; }
+  .screen-win.is-docked .screen-win-tools .mesa-btn { min-height: 44px; }
+  /* ⤢ Ao vivo com texto (não só o ícone) e o 🎲 com 48 px (ação ao vivo; conta nos tablets de toque) */
+  .screen-win-live-btn { min-height: 44px; padding: 0 12px; white-space: nowrap; }
+  .screen-win .screen-win-dice { width: 48px; height: 48px; min-width: 48px; min-height: 48px; font-size: 22px; }
+  .screen-win.is-float .screen-win-tools { gap: 2px; }
+  /* encaixada compacta (Combate de 1024 a 1279): uma linha no topo da coluna da lista */
+  .screen-win.is-compact { display: flex; align-items: center; gap: 6px; margin: 0; padding: 4px 6px; }
+  .screen-win-compact {
+    flex: 1 1 auto; min-width: 0; min-height: 48px; display: flex; align-items: center; gap: 10px;
+    padding: 0 4px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  }
+  .screen-win-compact .stage-thumb.is-mini { flex: none; }
+  .screen-win-compact-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .screen-win-compact-what, .screen-win-compact .live-tv-dot {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .screen-win-compact-what { color: var(--ink-primary); font-size: 14px; }
+  .screen-win-compact .live-tv-dot { font-size: 13px; }
+  .ct-screen .screen-win.is-docked:not(.is-compact) { margin: 0; }
+  /* o 🎲 flutuante fica à esquerda da janela (não embaixo dela) */
+  body:has(.screen-win.is-float.is-right) .dice-fab { right: calc(24px + 320px + 16px); }
+  body:has(.screen-win.is-float.is-right.is-live) .dice-fab { right: calc(24px + 480px + 16px); }
+  body:has(.screen-win.is-pill.is-right) .dice-fab { bottom: calc(24px + 44px + 12px); }
+}
+.live-tv-dot { color: var(--ink-muted); }
+.live-tv-dot.is-on { color: #7fc48a; }
+
+/* ---------- "⟳ Sem conexão há N s" fora da barra (OfflineNote) ---------- */
+.table-offline { margin: 0; color: var(--blood-bright); font-size: 13px; line-height: 1.3; font-weight: 600; }
+/* PC: no fim das abas das áreas, que ficam presas no topo */
+.table-offline.is-areas { flex: none; align-self: center; padding: 0 10px; white-space: nowrap; }
+/* tablet (768–1023): o aviso em 2 linhas e sem as teclas 1–4, para as abas não se apertarem */
+@media (max-width: 1023px) {
+  .table-offline.is-areas { white-space: normal; max-width: 7.5em; padding: 0 6px; text-align: right; line-height: 1.25; }
+  .shell-areas:has(.table-offline) .shell-area-key { display: none; }
+}
+/* celular sem a barra da mesa: faixa fina logo abaixo do segmentado preso; não empurra
+   nada nem pega o toque (o que está embaixo continua tocável) */
+.table-offline.is-seg { display: none; }
+@media (max-width: 767px) {
+  .table-offline.is-seg {
+    display: block; position: absolute; left: 0; right: 0; top: 100%; z-index: 1; pointer-events: none;
+    padding: 4px var(--seg-gutter, 12px);
+    background: rgba(20, 16, 12, 0.95); border-bottom: 1px solid rgba(224, 96, 79, 0.55);
+  }
+}
+.table-offline.is-sheet { padding: 6px 10px; border: 1px solid rgba(224, 96, 79, 0.55); border-radius: 8px; }
+
+/* ---------- folha "Tela ao vivo" ---------- */
+.live-sheet .mesa-sheet-body { display: flex; flex-direction: column; gap: 14px; }
+.live-sheet .mesa-sheet-body > * { flex-shrink: 0; }
+.live-tv-state { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: 15px; }
+.live-tv-link { display: flex; flex-wrap: wrap; gap: 8px; }
+.live-tv-link .mesa-btn { min-height: 44px; }
+.live-now { display: flex; flex-direction: column; gap: 6px; }
+.live-now .stage-rule { margin: 0; }
+.live-turn { display: flex; flex-direction: column; gap: 8px; }
+.live-next { width: 100%; min-height: 48px; justify-content: center; }
+.live-turn-who { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.live-turn-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 15px; }
+.live-turn-text strong { overflow-wrap: anywhere; }
+.live-actor { flex: none; min-height: 44px; }
+.live-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.live-row .mesa-btn { min-height: 48px; padding: 2px 6px; justify-content: center; text-align: center; white-space: normal; }
+.live-full { justify-content: flex-start; padding-left: 0; padding-right: 0; text-align: left; color: var(--gold-bright); white-space: normal; }
+.live-prefs { display: flex; flex-direction: column; gap: 8px; }
+.live-prefs .mesa-eyebrow { margin: 0; }
+.live-prefs-seg .mesa-seg-btn { min-width: 0; padding: 4px 6px; white-space: normal; text-align: center; line-height: 1.15; }
+.live-hide { align-self: flex-start; white-space: normal; text-align: left; }
+.shell-more-live { margin-bottom: 12px; }
+.shell-more-tv .live-prefs { margin-top: 14px; }

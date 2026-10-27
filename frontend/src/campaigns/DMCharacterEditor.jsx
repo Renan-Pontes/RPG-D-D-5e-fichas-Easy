@@ -106,7 +106,8 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved, i
   const save = async () => {
     setSaving(true); setError('');
     try {
-      // Nível, atributos e escudo mudam a CA e o deslocamento que o combate e a Tela usam.
+      // O combate e a Tela leem a CA e o deslocamento gravados na ficha (o app do jogador
+      // recalcula ao salvar): nível, atributos e escudo mudados aqui mudam os dois também.
       const res = await api.dmEditCharacter(character.id, { data: { ...data, ...Utils.serverNumbers(data) }, name });
       onSaved?.(res.character);
       onClose();

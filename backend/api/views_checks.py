@@ -12,6 +12,14 @@ Fluxo:
      O mestre também pode anotar o resultado por um jogador (mode='dm').
   3. O mestre vê quem passou/falhou e decide se mostra no telão.
 Nada é aplicado na ficha — é só informação para o mestre decidir.
+
+Rolagens na Tela (V10): uma resposta com 20 ou 1 natural vira uma linha
+`@mesa:check` (api/table_rolls.py) — o dado grande na TV, com o nome do
+personagem —, a não ser que a política "Dos jogadores" do mestre seja Nenhuma.
+Só quando o teste é da mesa: está na Tela (📺) ou foi pedido a todos os jogadores
+sem 🔒 CD secreta. O teste particular (a um jogador só, a uma parte da mesa ou
+com a CD secreta) nunca vai à TV sozinho. Corrigir para o mesmo natural não grava
+de novo.
 """
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -25,6 +33,7 @@ from .permissions import get_campaign_or_404, is_dm, require_member
 from .rate_limit import rate_limit
 from .views_dice import _consume_or_roll
 from .dice_privacy import scrub_dice
+from . import table_rolls
 
 KINDS = {'skill', 'save', 'ability', 'custom'}
 ADV = {'normal', 'adv', 'dis'}
@@ -151,7 +160,8 @@ def serialize_for_player(cr, user, character_id=None):
 
 
 def serialize_for_screen(cr):
-    """Resumo público para o telão (sem CD se oculta)."""
+    """Resumo público para a Tela. CD secreta: nem a CD nem o ✓/✗ (que
+    entregariam a CD); só os totais."""
     data = serialize_for_dm(cr)
     return {
         'id': cr.id,
@@ -164,7 +174,7 @@ def serialize_for_screen(cr):
                 'name': t['characterName'] or t['displayName'],
                 'total': t['response']['total'] if t['response'] else None,
                 'natural': t['response']['natural'] if t['response'] else None,
-                'outcome': t['outcome'],
+                'outcome': None if cr.dc_hidden else t['outcome'],
             }
             for t in data['targets']
         ],
@@ -269,7 +279,13 @@ def check_close(request, pk):
     reopen = bool(request.data.get('reopen'))
     cr.status = 'open' if reopen else 'closed'
     cr.closed_at = None if reopen else timezone.now()
-    cr.save(update_fields=['status', 'closed_at'])
+    fields = ['status', 'closed_at']
+    if not reopen and cr.show_on_screen:
+        # Encerrado sai da Tela (antes o painel ficava na TV para sempre).
+        cr.show_on_screen = False
+        cr.screen_at = None
+        fields += ['show_on_screen', 'screen_at']
+    cr.save(update_fields=fields)
     return Response({'check': serialize_for_dm(cr)})
 
 
@@ -321,7 +337,9 @@ def check_respond(request, pk):
         target_user_id = _int_or_none(body.get('userId'), 'user')
     else:
         target_user_id = request.user.id
-    membership = next((m for m in _targets(cr) if m.user_id == target_user_id), None)
+    players = list(_player_memberships(campaign))
+    targets = _targets(cr, players)
+    membership = next((m for m in targets if m.user_id == target_user_id), None)
     if not membership:
         raise PermissionDenied('not_a_target')
     if not dm and target_user_id != request.user.id:
@@ -374,6 +392,13 @@ def check_respond(request, pk):
                 check_request=cr, user_id=target_user_id, defaults=fields)
     except IntegrityError:  # corrida entre dois envios simultâneos
         raise ValidationError({'error': 'already_answered'})
+
+    of_table = cr.show_on_screen or (len(targets) == len(players) and not cr.dc_hidden)
+    if natural in (1, 20) and of_table and not (existing and existing.natural == natural) \
+            and (table_rolls.prefs_of(campaign).get('players') or 'crits') != 'off':
+        table_rolls.record(campaign, membership.user, 'check', label=cr.label, dice_type='d20',
+                           modifier=modifier or 0, rolls=[{**r, 'die': 'd20'} for r in rolls], total=total,
+                           crit=natural == 20, fail=natural == 1, character=membership.character, rigged=rigged)
 
     cr = CheckRequest.objects.select_related('campaign').prefetch_related('responses').get(pk=cr.pk)
     payload = serialize_for_dm(cr) if dm else serialize_for_player(cr, request.user)

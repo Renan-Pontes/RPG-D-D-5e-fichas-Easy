@@ -1,7 +1,8 @@
 // Toast grande no celular do jogador: "✨ O mestre revelou: Irmã Velna".
 //
 // Duas origens, ambas vindas do poll da campanha que a casca já faz:
-//   1. campaign.screenCard (o mestre clicou "Mostrar no telão") — usa card.at;
+//   1. campaign.screenCard (o mestre REVELOU e mostrou na Tela) — usa card.at;
+//      mostrar um cartão já revelado não avisa (D9, isRevealShow);
 //   2. campaign.worldNewCount subiu (o mestre revelou sem mostrar) — busca a
 //      lista leve uma vez para saber o nome.
 // Some sozinho em 10 s; "Ver no Mundo" abre o cartão. Não interrompe nada
@@ -13,7 +14,7 @@ import useArea from '../shell/useArea.js';
 import { listWorld, worldImageUrl } from '../world/world-api.js';
 import { defaultArt, kindIcon } from '../world/world-model.js';
 import { cardKey, L, shouldToastCard, toastTitle } from './player-model.js';
-import { freshReveals, revealKey } from './reveal-toast-model.js';
+import { cardRevealKey, freshReveals, isRevealShow, revealKey } from './reveal-toast-model.js';
 import './player-styles.css';
 
 const SHOW_MS = 10_000;
@@ -36,15 +37,17 @@ export default function RevealToast({ campaign, lang = 'pt', onOpenWorld }) {
     try { navigator.vibrate?.([30, 50, 30]); } catch { /* ignore */ }
   };
 
-  // 1) Cartão do telão
+  // 1) Cartão da Tela — só quando o "mostrar" veio junto com uma revelação (D9)
   const card = campaign?.screenCard;
   const ck = cardKey(card);
   useEffect(() => {
     if (!isPlayer) return;
     if (lastCardRef.current === null) lastCardRef.current = readStore(campaignId);
-    if (shouldToastCard(card, lastCardRef.current, Date.now(), 10 * 60_000)) {
+    if (shouldToastCard(card, lastCardRef.current, Date.now(), 10 * 60_000)
+        && isRevealShow(card) && !toastedRef.current.has(cardRevealKey(card))) {
       lastCardRef.current = ck;
       writeStore(campaignId, ck);
+      toastedRef.current.add(cardRevealKey(card));
       if (card.entryId != null) shownCardsRef.current.set(card.entryId, card.at);
       show({
         title: toastTitle([card.title], lang),

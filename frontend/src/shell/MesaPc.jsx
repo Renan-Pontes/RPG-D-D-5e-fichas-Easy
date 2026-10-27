@@ -1,11 +1,14 @@
 // Peças do personagem na mesa (plano §4.3): retrato, barra de PV e selos, as
 // mesmas em todas as telas do mestre (Combate, Cena e Grupo).
-//   <PcPortrait stats={{ avatar, race, classId }} name="Dagna" size={40} />
+//   <PcPortrait stats={{ avatar, avatarUrl, race, classId }} name="Dagna" size={40} />
+// A foto vem por URL (`avatarUrl`, V9: o GET da campanha não leva mais o base64);
+// `avatar` ainda vale (ficha aberta pelo dono, arte do site).
 //   <HpBar hp={3} max={10} temp={2} lang="pt" />
 //   <PcBadges stats={memberStats(m)} lang="pt" isDM unlockedTo={4} asked />
 // O desenho fica em src/campaigns/combat-styles.css (bloco "MesaPc").
 import { useEffect, useState } from 'react';
 import { tName } from '../../data/i18n.js';
+import { apiUrl } from '../api/client.js';
 import { classArt, speciesArt } from '../art.js';
 
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
@@ -20,13 +23,14 @@ export function hpTone(hp, max) {
 
 /** Retrato: avatar do jogador, ou a arte da espécie/classe, ou a inicial. */
 export function PcPortrait({ stats, name, size = 40, className = '' }) {
-  const art = stats?.avatar || speciesArt(stats?.race) || classArt(stats?.classId);
+  const photo = stats?.avatar || apiUrl(stats?.avatarUrl);
+  const art = photo || speciesArt(stats?.race) || classArt(stats?.classId);
   const [broken, setBroken] = useState(false);
   useEffect(() => { setBroken(false); }, [art]);
   const style = { '--pc-pic': `${size}px` };
   if (art && !broken) {
     return (
-      <img className={`mesa-pc-pic ${stats?.avatar ? 'is-avatar' : 'is-art'} ${className}`.trim()} style={style}
+      <img className={`mesa-pc-pic ${photo ? 'is-avatar' : 'is-art'} ${className}`.trim()} style={style}
         src={art} alt="" width={size} height={size} loading="lazy" decoding="async" draggable={false}
         onError={() => setBroken(true)} />
     );

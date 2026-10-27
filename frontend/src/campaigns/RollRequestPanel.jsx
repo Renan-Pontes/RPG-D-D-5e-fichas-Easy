@@ -28,7 +28,7 @@ export default function RollRequestPanel(props) {
 /**
  * Painel de rolagens DM-gated (lado do jogador):
  *  - Jogador: form pra criar pedido + lista das próprias pendentes + histórico.
- *  - DM: lista de pendings com botões "Mostrar no telão" / "Privado" / cancelar.
+ *  - DM: lista de pendings com botões "Mostrar na Tela" / "Privado" / cancelar.
  *      Pode injetar valor via DiceRig antes de aprovar (já é automático: se houver
  *      rig pra esse jogador+dado, será consumido).
  */
@@ -110,7 +110,7 @@ function PlayerRollPanel({ campaign, lang, isDM, onChange }) {
       <div className="info-box">
         <h3 style={{ marginTop: 0 }}>{t(lang, 'Pedir rolagem ao mestre', 'Request a roll')}</h3>
         <p style={{ color: 'var(--ink-secondary)', marginTop: 0, fontSize: '0.9em' }}>
-          {t(lang, 'Você manda o pedido; o mestre decide se mostra no telão ou rola em segredo.', 'You send the request; the DM decides whether it shows on the TV or rolls privately.')}
+          {t(lang, 'Você manda o pedido; o mestre decide se mostra na Tela ou rola em segredo.', 'You send the request; the DM decides whether it shows on screen or rolls privately.')}
         </p>
         <div className="row gap-2" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
           <input aria-label={t(lang, 'rótulo (ex: percepção)', 'label (e.g. perception)')} className="input" placeholder={t(lang, 'rótulo (ex: percepção)', 'label (e.g. perception)')} value={label} onChange={e => setLabel(e.target.value)} style={{ flex: 1, minWidth: 140 }} />

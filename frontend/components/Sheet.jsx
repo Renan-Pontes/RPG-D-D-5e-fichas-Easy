@@ -36,6 +36,8 @@ import { condClasses, FhConditionFx, FhConditionArt } from '../src/sheet/FhCondi
 import { useLevelCeremony, FhLevelCeremony, useGemRelight } from '../src/sheet/FhCeremonies.jsx';
 import { PLAY_H, splitColumns } from '../src/sheet/play-layout.js';
 import FhExportModal from '../src/sheet/FhExport.jsx';
+import SheetRollTarget from '../src/sheet/SheetRollTarget.jsx';
+import { clearSheetRolls, maybeRecheck, setSheetAllowed, setSheetRecheck, setSheetRolls } from '../src/dice/sheet-roll.js';
 import '../src/sheet/ficha.css';
 
 // Modal "Campanha" (atrelar, desatrelar, trocar): só carrega quando abre.
@@ -75,6 +77,14 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
     window.__updateChar = (patch) => updateRef.current(patch);
     return () => { window.__updateChar = null; };
   }, []);
+  // Rolagens da ficha na Tela (V15, src/dice/sheet-roll.js): ficha da conta numa
+  // campanha → o rolador sabe qual personagem rola e manda o resultado à Tela.
+  const inTable = !!char.inCampaign && typeof char.id === 'number';
+  useEffect(() => {
+    if (!inTable) return undefined;
+    setSheetRolls({ characterId: char.id, name: char.name || '' });
+    return () => clearSheetRolls(char.id);
+  }, [inTable, char.id, char.name]);
 
   const ac = Utils.computeAc(char);
   const initBonus = Utils.initiative(char);
@@ -149,8 +159,10 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
     setHpDelta(0);
   };
 
+  // O ponto comum das rolagens da ficha (perícia, salvaguarda, ataque, dano, iniciativa,
+  // morte, magia): rola no aparelho e, numa campanha, vai também à Tela (V15).
   const roll = (config) => {
-    if (window.__diceRoll) window.__diceRoll(config);
+    if (window.__diceRoll) window.__diceRoll({ ...config, sheet: true });
   };
 
   // Raiz .ficha: escopo do visual da ficha (src/sheet/ficha.css). Sem transform,
@@ -672,18 +684,32 @@ const CheatModeModal = ({ char, lang, update, onClose }) => {
 const CampaignModeBanner = ({ char, lang, onChange, onManage, onLogin, rev = 0 }) => {
   const [campInfo, setCampInfo] = useState(null);
   const [busy, setBusy] = useState(false);
+  // V15: com as rolagens das fichas desligadas pelo mestre a ficha não manda nada;
+  // esta busca de novo (no máximo a cada 30 s, só enquanto desligada) quando a ficha
+  // volta à vista ou o jogador rola, para valer de novo assim que ele religar.
+  const [recheck, setRecheck] = useState(0);
   const pt = lang === 'pt';
+  const inTable = !!char.inCampaign && typeof char.id === 'number';
 
   useEffect(() => {
-    if (!char.inCampaign || typeof char.id !== 'number') { setCampInfo(null); return; }
+    if (!inTable) { setCampInfo(null); return; }
     let cancelled = false;
     api.characterCampaigns(char.id).then(r => {
       if (cancelled) return;
       const c = (r.campaigns || [])[0];
       setCampInfo(c || null);
+      if (c && typeof c.sheetRolls === 'boolean') setSheetAllowed(char.id, c.sheetRolls);
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [char.id, char.inCampaign, rev]);
+  }, [char.id, inTable, rev, recheck]);
+
+  useEffect(() => {
+    if (!inTable) return undefined;
+    setSheetRecheck(() => setRecheck(n => n + 1));
+    const onVis = () => { if (!document.hidden) maybeRecheck(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { setSheetRecheck(null); document.removeEventListener('visibilitychange', onVis); };
+  }, [inTable, char.id]);
 
   const leave = async () => {
     if (!campInfo) return;
@@ -756,6 +782,8 @@ const CampaignModeBanner = ({ char, lang, onChange, onManage, onLogin, rev = 0 }
           )}
         </div>
       )}
+      {/* 📺 Na Tela · 🔒 Só eu das rolagens desta ficha (V15); só ficha da conta */}
+      {typeof char.id === 'number' && campInfo?.status !== 'closed' && <SheetRollTarget lang={lang} />}
     </div>
   );
 };

@@ -184,7 +184,8 @@ class CheckRequestTests(TestCase):
         self.assertEqual(pc['label'], 'Percepção')
         self.assertIsNone(pc['dc'])  # CD oculta não vai pro telão
         thal = next(x for x in pc['results'] if x['name'] == 'Thal')
-        self.assertEqual((thal['total'], thal['outcome']), (20, 'pass'))
+        # CD secreta: a Tela mostra o total, mas não o ✓/✗ (entregaria a CD).
+        self.assertEqual((thal['total'], thal['outcome']), (20, None))
         brom = next(x for x in pc['results'] if x['name'] == 'Brom')
         self.assertIsNone(brom['total'])
         # só um no telão por vez
