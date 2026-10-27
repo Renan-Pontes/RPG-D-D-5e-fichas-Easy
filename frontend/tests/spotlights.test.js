@@ -184,6 +184,35 @@ test('"→ Cena" + "Usar como cena": nada do momento chega à Tela nem ao jogado
   assert.deepEqual(sceneParts('Só nome\n  \n'), { name: 'Só nome', notes: '' });
 });
 
+test('Desfazer: Dispensar e Apagar voltam sem perder o que mudou depois', () => {
+  // dispensar → desfazer tira só aquela chave; lista vazia vira null (apaga o item no merge)
+  assert.equal(S.undismissKey(S.dismissKey([], 'tool:thievesTools'), 'tool:thievesTools'), null);
+  assert.deepEqual(S.undismissKey(['skill:stealth', 'tool:thievesTools', 'text:bonds'], 'tool:thievesTools'), ['skill:stealth', 'text:bonds']);
+  // apagar → desfazer põe a foto de volta no mesmo lugar
+  let list = S.writeMoment([], 'shine', 'a').list;
+  list = S.writeMoment(list, 'push', 'b').list;
+  list = S.toggleDone(S.writeMoment(list, 'hook', 'c').list, 'm2', 3);
+  const gone = list[1];
+  const after = S.removeMoment(list, 'm2');
+  assert.deepEqual(S.restoreMoment(after, gone, 1), list);
+  // o que mudou no meio-tempo fica; tocar 2 vezes no Desfazer não duplica
+  const plus = S.writeMoment(after, 'shine', 'd').list;
+  const back = S.restoreMoment(plus, gone, 1);
+  assert.deepEqual(back.map(m => m.text), ['a', 'b', 'c', 'd']);
+  assert.equal(back[1].done, 3);
+  assert.equal(S.restoreMoment(back, gone, 1), back);
+  // id reusado por um momento novo: o que volta ganha outro id (nada de chave repetida)
+  const reused = S.writeMoment(S.removeMoment(list, 'm3'), 'shine', 'novo').list;
+  assert.equal(reused.at(-1).id, 'm3');
+  const r = S.restoreMoment(reused, list[2], 2);
+  assert.equal(new Set(r.map(m => m.id)).size, r.length);
+  assert.equal(r[2].text, 'c');
+  // cheio (12): não passa do limite
+  let full = [];
+  for (let i = 0; i < 12; i++) full = S.writeMoment(full, 'shine', `x${i}`).list;
+  assert.equal(S.restoreMoment(full, gone, 0), full);
+});
+
 test('G9: Equilíbrio na mesa — momentos nas últimas 5 sessões, testes nas últimas 3 e o alerta', () => {
   const history = {
     current: 3,
@@ -199,14 +228,18 @@ test('G9: Equilíbrio na mesa — momentos nas últimas 5 sessões, testes nas �
   assert.equal(row(PIPO).moments, 1);
   assert.deepEqual(row(PIPO).checks, { asked: 3, answered: 3, passed: 2 });
   assert.equal(row(PIPO).warn, false);
-  // Kaelor fala pouco e passou as 2 sessões sem momento: ⚠
+  // Kaelor fala pouco e passou as 2 sessões sem momento: ⚠ (e a marca de quem fala pouco)
   assert.deepEqual([row(KAELOR).drought, row(KAELOR).quiet, row(KAELOR).warn], [2, true, true]);
-  // quem não é "fala pouco" só ganha o alerta com 3 sessões
-  assert.deepEqual([row(idOf('Dagna')).drought, row(idOf('Dagna')).warn], [2, false]);
+  // §6.6: N ≥ 2 para todos (W6: "Dagna 0 ⚠ sem momento há 2 sessões", sem 🤐)
+  assert.equal(S.DROUGHT_WARN, 2);
+  assert.deepEqual([row(idOf('Dagna')).drought, row(idOf('Dagna')).quiet, row(idOf('Dagna')).warn], [2, false, true]);
+  const one = S.tableBalance({ facts, spotlights: spot, history: { sessions: [history.sessions[0]] } });
+  assert.equal(one.rows.find(r => r.id === idOf('Dagna')).warn, false, '1 sessão sem momento ainda não avisa');
   const three = { sessions: [{ number: 4, checks: {} }, ...history.sessions] };
   const b3 = S.tableBalance({ facts, spotlights: spot, history: three });
   assert.equal(b3.rows.find(r => r.id === idOf('Dagna')).warn, true);
   assert.equal(b3.rows.find(r => r.id === PIPO).drought, 1, 'o momento da sessão 3 corta a seca');
+  assert.equal(b3.rows.find(r => r.id === PIPO).warn, false);
   // só as últimas 3 sessões contam nos testes e as últimas 5 nos momentos
   const many = { sessions: [6, 5, 4, 3, 2, 1].map(n => ({ number: n, checks: { [PIPO]: { asked: 1, answered: 0, passed: 0 } } })) };
   const old = { [PIPO]: [{ id: 'm1', kind: 'shine', text: 'a', done: 1 }, { id: 'm2', kind: 'shine', text: 'b', done: 4 }] };

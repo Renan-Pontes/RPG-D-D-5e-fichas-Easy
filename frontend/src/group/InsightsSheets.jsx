@@ -46,6 +46,7 @@ export function AdjustSheet({ settings, update, lang, readOnly, saveLine, onClos
   const wId = useId();
   const table = PM.baseTable(settings.base);
   const edited = Object.keys(settings.base || {});
+  const nDismissed = Object.values(settings.dismissed || {}).reduce((n, l) => n + (Array.isArray(l) ? l.length : 0), 0);
   const setRow = (i, delta) => {
     const row = [...table[cls]];
     row[i] = Math.max(1, Math.min(5, row[i] + delta));
@@ -160,6 +161,15 @@ export function AdjustSheet({ settings, update, lang, readOnly, saveLine, onClos
       <section className="ins-adj">
         <button type="button" className="mesa-btn" disabled={dis} onClick={() => update(RESET_PATCH)}>{t(lang, 'Restaurar padrão', 'Restore defaults')}</button>
         <p className="ins-adj-help">{t(lang, 'Volta Tabela × Ficha, eixos, melhor, CD e a tabela de classes. Quem entra fica.', "Resets Table × Sheet, axes, best, DC and the class table. Who's in stays.")}</p>
+      </section>
+      {/* o caminho de volta do "Dispensar" dos Momentos (o Restaurar padrão não mexe nele) */}
+      <section className="ins-adj">
+        <button type="button" className="mesa-btn" disabled={dis || !nDismissed} onClick={() => update({ dismissed: null })}>
+          {t(lang, `Mostrar de novo as sugestões dispensadas (${nDismissed})`, `Show the dismissed suggestions again (${nDismissed})`)}
+        </button>
+        <p className="ins-adj-help">{nDismissed
+          ? t(lang, 'As sugestões de momento que você dispensou nos cartões voltam a aparecer. Os momentos gravados ficam.', 'The moment suggestions you dismissed on the cards show up again. Saved moments stay.')
+          : t(lang, 'Nenhuma sugestão de momento dispensada.', 'No moment suggestion dismissed.')}</p>
       </section>
     </MesaSheet>
   );

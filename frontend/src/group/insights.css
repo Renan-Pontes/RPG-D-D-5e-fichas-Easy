@@ -287,6 +287,21 @@
 .ins-sug-text { color: var(--ink-secondary); }
 .ins-sug-tag { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted); }
 .ins-mom-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+/* Momentos: alvos de 48 px (§6.6) — filtro, Aceitar, Dispensar, → Cena, ⋯, Escrever, Mais, estilo */
+.ins-moments :is(.mesa-btn, .mesa-chip, .grp-more-btn, .grp-more-item) { min-height: 48px; }
+.ins-moments .grp-more-btn { min-width: 48px; }
+/* "Sugestão dispensada · ↶ Desfazer" (6 s): aviso curto acima da barra de baixo, à esquerda
+   do dado no celular (§1.4); no PC, no canto de baixo à esquerda */
+.ins-undo {
+  position: fixed; z-index: 120; left: max(12px, env(safe-area-inset-left, 0px));
+  bottom: calc(var(--fab-safe-bottom, 16px) + 8px + env(safe-area-inset-bottom, 0px));
+  max-width: min(440px, calc(100vw - 34px - var(--shell-fab-size, 0px)));
+  display: flex; align-items: center; gap: 12px; padding: 4px 4px 4px 14px;
+  font-size: 15px; color: var(--ink-primary); background: var(--bg-elevated);
+  border: 1px solid var(--gold); border-radius: var(--radius-lg); box-shadow: var(--shadow-deep);
+}
+.ins-undo > span { min-width: 0; overflow-wrap: anywhere; }
+.ins-undo .mesa-btn { flex: none; }
 .ins-write-label { display: block; margin: 12px 0 4px; font-size: 0.95rem; color: var(--ink-secondary); }
 .ins-write-text { width: 100%; font-size: 16px; }
 .ins-write-count { margin: 4px 0 0; font-size: 0.9rem; color: var(--ink-muted); text-align: right; }

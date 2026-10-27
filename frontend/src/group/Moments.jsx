@@ -5,6 +5,8 @@
 //   Apagar) e a caixa "Aconteceu" de 48 px, que grava o nº da sessão.
 // - Aceitar, Dispensar e desmarcar mudam a lista: os botões da lista do personagem
 //   ignoram toques por 400 ms (o 2º toque de um toque duplo não cai na sugestão seguinte).
+// - Dispensar e Apagar não perguntam: mostram "↶ Desfazer" por 6 s (princípio 5), que
+//   põe de volta a chave ou a foto do momento na lista de agora (spotlights.js).
 // - O histórico do servidor (Equilíbrio e o "⚠ sem momento") é lido uma vez, quando os
 //   Momentos chegam perto da tela: a resposta chega antes de os cartões aparecerem.
 import { useEffect, useRef, useState } from 'react';
@@ -16,12 +18,14 @@ import MoreMenu from './MoreMenu.jsx';
 import { Dot, HelpButton } from './InsightsSheets.jsx';
 import * as PM from './party-metrics.js';
 import {
-  acceptMoment, dismissKey, filterMoments, kindIcon, kindLabel, MAX_MOMENT_TEXT, MAX_MOMENTS, MOMENT_KINDS,
-  momentSceneText, openSuggestions, removeMoment, spreadKinds, STYLES, styleLabel, toggleDone, updateMoment, writeMoment,
+  acceptMoment, DROUGHT_WARN, dismissKey, filterMoments, kindIcon, kindLabel, MAX_MOMENT_TEXT, MAX_MOMENTS, MOMENT_KINDS,
+  momentSceneText, openSuggestions, removeMoment, restoreMoment, spreadKinds, STYLES, styleLabel, toggleDone, undismissKey,
+  updateMoment, writeMoment,
 } from './spotlights.js';
 
 const t = PM.t;
 const SETTLE_MS = 400;
+const UNDO_MS = 6000;
 const FILTERS = [
   { id: 'session', label: ['Desta sessão', 'This session'] },
   { id: 'all', label: ['Todos', 'All'] },
@@ -31,11 +35,31 @@ const SUGGESTIONS_SHOWN = 3;
 
 const sessionsText = (n, lang) => (n === 1 ? t(lang, '1 sessão', '1 session') : t(lang, `${n} sessões`, `${n} sessions`));
 export const droughtText = (n, lang) => t(lang, `⚠ sem momento há ${sessionsText(n, lang)}`, `⚠ no moment for ${sessionsText(n, lang)}`);
+// "na última sessão" / "nas últimas 3 sessões"
+const lastText = (n, lang) => (n === 1 ? t(lang, 'na última sessão', 'in the last session') : t(lang, `nas últimas ${n} sessões`, `in the last ${n} sessions`));
+/** Subtítulo do G9: momentos nas últimas 5 sessões e testes nas últimas 3 (juntos quando dá o mesmo número). */
+export function balanceSub(n, lang) {
+  if (!n) return t(lang, 'ainda sem sessões no diário', 'no sessions in the diary yet');
+  const m = Math.min(n, 5);
+  const c = Math.min(n, 3);
+  return m === c
+    ? t(lang, `momentos e testes pedidos ${lastText(m, lang)}`, `moments and checks asked ${lastText(m, lang)}`)
+    : t(lang, `momentos ${lastText(m, lang)} · testes pedidos ${lastText(c, lang)}`, `moments ${lastText(m, lang)} · checks asked ${lastText(c, lang)}`);
+}
 
 /** G8: um cartão por personagem de quem entra. */
 export function Moments({ facts, settings, update, suggestions, session, balance, lang, readOnly, focusId, filter, setFilter, campaignId, onOpenPlan, historyState, onNear }) {
   const [sheet, setSheet] = useState(null);   // {kind:'write'|'scene', id, moment?}
+  const [undo, setUndo] = useState(null);     // {id, text, run}: o "↶ Desfazer" de 6 s
   const ref = useRef(null);
+  const latest = useRef(settings);            // o Desfazer mexe na lista de agora, não na do toque
+  latest.current = settings;
+  useEffect(() => {
+    if (!undo) return undefined;
+    const id = setTimeout(() => setUndo(u => (u === undo ? null : u)), UNDO_MS);
+    return () => clearTimeout(id);
+  }, [undo]);
+  const offerUndo = (text, run) => setUndo({ id: Date.now(), text, run });
   // sob demanda: o histórico só é pedido quando os Momentos chegam perto da tela (uma vez)
   useEffect(() => {
     if (historyState !== 'idle') return undefined;
@@ -47,6 +71,20 @@ export function Moments({ facts, settings, update, suggestions, session, balance
   }, [historyState, onNear]);
   const warn = Object.fromEntries((balance?.rows || []).map(r => [r.id, r]));
   const setList = (id, list) => update({ spotlights: { [String(id)]: list } });
+  const dismiss = (id, auto) => {
+    const key = String(id);
+    update({ dismissed: { [key]: dismissKey(settings.dismissed?.[key], auto) } });
+    offerUndo(t(lang, 'Sugestão dispensada', 'Suggestion dismissed'),
+      () => update({ dismissed: { [key]: undismissKey(latest.current.dismissed?.[key], auto) } }));
+  };
+  const remove = (id, moment) => {
+    const key = String(id);
+    const cur = settings.spotlights?.[key] || [];
+    const index = cur.findIndex(m => m.id === moment.id);
+    setList(id, removeMoment(cur, moment.id));
+    offerUndo(t(lang, 'Momento apagado', 'Moment deleted'),
+      () => setList(id, restoreMoment(latest.current.spotlights?.[key] || [], moment, index)));
+  };
   return (
     <section ref={ref} className="mesa-panel ins-block ins-moments" id="ins-moments">
       <MesaTitle sub={t(lang, 'um momento para cada um brilhar, ser desafiado ou viver a história dele', 'a moment for each one to shine, be challenged or live their story')}
@@ -69,7 +107,7 @@ export function Moments({ facts, settings, update, suggestions, session, balance
             row={warn[f.id]} focus={focusId === f.id}
             setList={(list) => setList(f.id, list)}
             setStyle={(st) => update({ style: { [String(f.id)]: st.length ? st : null } })}
-            dismiss={(auto) => update({ dismissed: { [String(f.id)]: dismissKey(settings.dismissed?.[String(f.id)], auto) } })}
+            dismiss={(auto) => dismiss(f.id, auto)} remove={(m) => remove(f.id, m)}
             onWrite={(moment) => setSheet({ kind: 'write', id: f.id, moment })}
             onScene={(moment) => setSheet({ kind: 'scene', id: f.id, moment })} />
         ))}
@@ -89,11 +127,17 @@ export function Moments({ facts, settings, update, suggestions, session, balance
           onClose={() => setSheet(null)} onOpenPlan={onOpenPlan}
           onLinked={(sceneId) => setList(sheet.id, updateMoment(settings.spotlights?.[String(sheet.id)] || [], sheet.moment.id, { plan: sceneId }))} />
       )}
+      {undo && (
+        <div className="ins-undo" role="status" aria-live="polite">
+          <span>{undo.text}</span>
+          <button type="button" className="mesa-btn" onClick={() => { undo.run(); setUndo(null); }}>↶ {t(lang, 'Desfazer', 'Undo')}</button>
+        </div>
+      )}
     </section>
   );
 }
 
-function MomentCard({ f, lang, readOnly, session, filter, list, style, dismissed, suggestions, row, focus, setList, setStyle, dismiss, onWrite, onScene }) {
+function MomentCard({ f, lang, readOnly, session, filter, list, style, dismissed, suggestions, row, focus, setList, setStyle, dismiss, remove, onWrite, onScene }) {
   const [styleOpen, setStyleOpen] = useState(false);
   const [more, setMore] = useState(false);
   const lockedUntil = useRef(0);
@@ -142,7 +186,7 @@ function MomentCard({ f, lang, readOnly, session, filter, list, style, dismissed
             const menu = [
               { id: 'edit', label: t(lang, 'Editar', 'Edit'), onSelect: () => onWrite(m) },
               m.plan && { id: 'unlink', label: t(lang, 'Tirar da cena', 'Remove from scene'), onSelect: () => setList(updateMoment(list, m.id, { plan: null })) },
-              { id: 'delete', label: t(lang, 'Apagar', 'Delete'), danger: true, onSelect: guard(() => setList(removeMoment(list, m.id))) },
+              { id: 'delete', label: t(lang, 'Apagar', 'Delete'), danger: true, onSelect: guard(() => remove(m)) },
             ].filter(Boolean);
             return (
               <li key={m.id} className={`ins-mom ${done ? 'is-done' : ''}`}>
@@ -313,12 +357,10 @@ export function Balance({ balance, history, state, onLoad, lang }) {
   const n = balance.sessions.length;
   return (
     <section className="mesa-panel ins-block ins-balance">
-      <MesaTitle sub={n
-        ? t(lang, `momentos nas últimas ${sessionsText(Math.min(n, 5), lang)} · testes pedidos nas últimas ${sessionsText(Math.min(n, 3), lang)}`, `moments in the last ${sessionsText(Math.min(n, 5), lang)} · checks asked in the last ${sessionsText(Math.min(n, 3), lang)}`)
-        : t(lang, 'ainda sem sessões no diário', 'no sessions in the diary yet')}
+      <MesaTitle sub={balanceSub(n, lang)}
         hint={<HelpButton lang={lang} title={t(lang, 'Equilíbrio na mesa', 'Table balance')} text={[
           t(lang, 'Todos tiveram o seu momento? A barra conta os momentos marcados como "aconteceu" nas últimas 5 sessões; embaixo, quantos testes você pediu a cada um nas últimas 3.', 'Did everyone get their moment? The bar counts the moments ticked as "it happened" in the last 5 sessions; below, how many checks you asked each one in the last 3.'),
-          t(lang, 'O aviso aparece depois de 3 sessões seguidas sem momento, ou de 2 para quem fala pouco.', 'The warning shows after 3 sessions in a row without a moment, or 2 for a quiet player.'),
+          t(lang, `O aviso aparece depois de ${DROUGHT_WARN} sessões seguidas sem momento; quem fala pouco leva a marca 🤐 junto.`, `The warning shows after ${DROUGHT_WARN} sessions in a row without a moment; a quiet player gets the 🤐 mark too.`),
         ]} />}>{t(lang, 'Equilíbrio na mesa', 'Table balance')}</MesaTitle>
       {/* uma linha de altura fixa para o estado: o histórico chegando não empurra nada */}
       {state === 'error' ? (

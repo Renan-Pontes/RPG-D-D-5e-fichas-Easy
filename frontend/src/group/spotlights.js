@@ -352,6 +352,20 @@ export function writeMoment(list, kind, text) {
 export const updateMoment = (list, id, patch) => (list || []).map(m => (m.id === id ? { ...m, ...patch } : m));
 export const removeMoment = (list, id) => (list || []).filter(m => m.id !== id);
 
+/**
+ * "↶ Desfazer" do Apagar: põe de volta a foto do momento apagado, no mesmo lugar, sem
+ * perder o que mudou na lista nesse meio-tempo (se o id já foi reusado, ganha um novo).
+ */
+export function restoreMoment(list, moment, index) {
+  const cur = list || [];
+  if (!moment || cur.length >= MAX_MOMENTS) return cur;
+  const same = cur.find(m => m.id === moment.id);
+  if (same && same.text === moment.text && same.kind === moment.kind) return cur;   // já voltou
+  const back = same ? { ...moment, id: nextMomentId(cur) } : moment;
+  const at = Math.max(0, Math.min(cur.length, Number.isInteger(index) ? index : cur.length));
+  return [...cur.slice(0, at), back, ...cur.slice(at)];
+}
+
 /** "Aconteceu": grava o nº da sessão (tocar de novo desmarca). */
 export const toggleDone = (list, id, session) => updateMoment(list, id, {
   done: (list || []).find(m => m.id === id)?.done != null ? null : (Number.isInteger(session) ? session : 0),
@@ -361,6 +375,12 @@ export const toggleDone = (list, id, session) => updateMoment(list, id, {
 export function dismissKey(list, auto) {
   const cur = (list || []).filter(k => k !== auto);
   return [...cur, auto].slice(-MAX_DISMISSED);
+}
+
+/** "↶ Desfazer" do Dispensar: a sugestão volta (a chave sai da lista; vazia → null apaga o item). */
+export function undismissKey(list, auto) {
+  const cur = (list || []).filter(k => k !== auto);
+  return cur.length ? cur : null;
 }
 
 /**
@@ -396,9 +416,11 @@ export function momentSceneText(moment, name, lang = 'pt') {
 /**
  * Equilíbrio na mesa (G9): por personagem, momentos que aconteceram nas últimas 5
  * sessões, testes pedidos nas últimas 3 (do histórico do servidor) e há quantas sessões
- * seguidas ele está sem momento. O alerta sai com 3 sessões, ou com 2 para quem "fala pouco".
- * Sem o histórico, as sessões vêm do próprio estado (a atual e as do diário).
+ * seguidas ele está sem momento. O alerta sai a partir de 2 sessões (§6.6), para todos; a
+ * linha de quem "fala pouco" leva a marca. Sem o histórico, as sessões vêm do próprio estado
+ * (a atual e as do diário).
  */
+export const DROUGHT_WARN = 2;
 export function tableBalance({ facts, spotlights = {}, style = {}, history = null, state = null }) {
   let sessions = (history?.sessions || []).map(s => s.number);
   if (!history) {
@@ -421,7 +443,7 @@ export function tableBalance({ facts, spotlights = {}, style = {}, history = nul
     let drought = 0;
     for (const n of last5) { if (done.includes(n)) break; drought += 1; }
     const quiet = (style[id] || []).includes('quiet');
-    return { id: f.id, name: f.name, color: f.color, moments, checks, drought, quiet, warn: drought >= (quiet ? 2 : 3) };
+    return { id: f.id, name: f.name, color: f.color, moments, checks, drought, quiet, warn: drought >= DROUGHT_WARN };
   });
   return {
     sessions: last5, rows,
