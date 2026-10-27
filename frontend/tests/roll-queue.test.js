@@ -61,6 +61,9 @@ test('com mais de 10 s de idade vai só ao feed', () => {
 test('rolagem normal do jogador vai ao feed; 20 natural vai grande', () => {
   assert.equal(isBig({ kind: 'player' }), false);
   assert.equal(isBig({ kind: 'player', crit: true }), true);
+  // V15: a rolagem da ficha vai ao feed; 20/1 natural ganha o dado grande
+  assert.equal(isBig({ kind: 'sheet' }), false);
+  assert.equal(isBig({ kind: 'sheet', fail: true }), true);
   for (const kind of ['monster', 'save', 'dm', 'request']) assert.equal(isBig({ kind }), true, kind);
   let q = ingest(createQueue(), { rolls: [], now: NOW });
   q = ingest(q, { rolls: [roll(1, { kind: 'player' }), roll(2, { kind: 'player', crit: true })], now: NOW }, 100);

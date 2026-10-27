@@ -136,6 +136,8 @@ export function TableRollRow({ r, lang, compact = false }) {
     <div className={`roll-row history tl-table-roll ${compact ? 'is-compact' : ''} ${r.isCritical ? 'critical' : ''} ${r.isCriticalFail ? 'critfail' : ''}`}>
       <div className="tl-table-roll-text">
         <span className="tl-hist-tag">{shown ? `📺 ${t(lang, 'Tela', 'screen')}` : `🔒 ${t(lang, 'só você', 'only you')}`}</span>
+        {/* V15: rolada na ficha do jogador, no aparelho dele (os dados preparados não valem) */}
+        {r.kind === 'sheet' && <span className="tl-hist-tag">📜 {t(lang, 'ficha', 'sheet')}</span>}
         <span className="tl-table-roll-line">{rollLine(row, lang, labels)}</span>
       </div>
       <div className="roll-result">

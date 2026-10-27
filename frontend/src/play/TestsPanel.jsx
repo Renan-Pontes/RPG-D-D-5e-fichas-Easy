@@ -107,8 +107,8 @@ export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount })
         {view === 'table' && (
           <>
             <p className="mesa-hint tl-table-hint">{L(lang,
-              'As rolagens da mesa: o seu 🎲 (📺 na Tela ou 🔒 só você), os monstros, os 20 e 1 dos testes e o rolador da Mesa dos jogadores. As regras ficam em Jogar › Tela.',
-              'Table rolls: your 🎲 (📺 on screen or 🔒 only you), the monsters, natural 20s and 1s of checks and the players’ table roller. The rules live in Play › Screen.')}</p>
+              'As rolagens da mesa: o seu 🎲 (📺 na Tela ou 🔒 só você), os monstros, os 20 e 1 dos testes, o rolador da Mesa e as fichas dos jogadores (📜). As regras ficam em Jogar › Tela.',
+              'Table rolls: your 🎲 (📺 on screen or 🔒 only you), the monsters, natural 20s and 1s of checks, the players’ table roller and their sheets (📜). The rules live in Play › Screen.')}</p>
             {tableRolls === null && <p className="muted small">{L(lang, 'Carregando…', 'Loading…')}</p>}
             {tableRolls?.length === 0 && (
               <p className="muted tl-empty">{L(lang, 'Nenhuma rolagem de mesa ainda. Toque no 🎲 e escolha “📺 Na tela”.', 'No table rolls yet. Tap 🎲 and pick “📺 On screen”.')}</p>

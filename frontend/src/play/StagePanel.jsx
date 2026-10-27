@@ -162,6 +162,13 @@ const RULES = [
       'Only natural 20s and 1s on the d20 go on screen: from the table roller and from table checks (on screen or asked of everyone, without a 🔒 secret DC). A check for a single player never shows.'),
     off: L(lang, 'Nada dos jogadores vai à Tela (os pedidos que você mostrar continuam indo).', "Nothing from the players goes on screen (the requests you show still do)."),
   })[v]],
+  // V15 (decisão D-1 do dono): o que o jogador rola na PRÓPRIA FICHA, rolado no aparelho
+  ['sheets', (lang) => L(lang, 'Das fichas dos jogadores', "From the players' sheets"), [
+    [true, (lang) => L(lang, '📺 Na tela', '📺 On screen')], [false, (lang) => L(lang, 'Desligado', 'Off')]],
+  (v, lang) => (v
+    ? L(lang, 'Na sessão ao vivo, o que cada um rola na própria ficha (perícia, ataque, dano…) aparece no canto da TV; 20 e 1 naturais viram dado grande. Os dados preparados não valem ali, e o jogador pode marcar “🔒 Só eu”.',
+      'During the live session, what each player rolls on their own sheet (skill, attack, damage…) shows in the corner of the TV; natural 20s and 1s get the big die. Prepared dice don’t apply there, and players can pick “🔒 Only me”.')
+    : L(lang, 'As rolagens das fichas ficam só no aparelho de cada jogador.', "Sheet rolls stay on each player's device."))],
   ['dm', (lang) => L(lang, 'Do mestre', 'GM'), [
     ['secret', (lang) => L(lang, '🔒 Só eu', '🔒 Only me')], ['shown', (lang) => L(lang, '📺 Na tela', '📺 On screen')]],
   (v, lang) => (v === 'shown'
@@ -180,7 +187,9 @@ const RULES = [
  * de mesa (📺 ou 🔒), buscadas só quando o pulso muda.
  */
 function RollRules({ campaign, stage, lang, onChange }) {
-  const prefs = stage?.prefs || {};
+  const raw = stage?.prefs || {};
+  // "Das fichas" é ligado por padrão (servidor de antes da V15: sem a chave)
+  const prefs = { ...raw, sheets: raw.sheets !== false };
   const cid = campaign.id;
   const [busy, setBusy] = useState(false);
   const [rolls, setRolls] = useState(null);

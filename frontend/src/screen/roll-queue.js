@@ -41,7 +41,7 @@ export function rollAgeS(roll, now) {
   return Math.max(0, (n - at) / 1000);
 }
 
-/** Merece o dado grande? (rolagem normal de jogador vai só ao feed) */
+/** Merece o dado grande? (rolagem normal de jogador, da Mesa ou da ficha, vai só ao feed) */
 export function isBig(roll) {
   if (!roll) return false;
   if (roll.crit || roll.fail) return true;
