@@ -58,7 +58,7 @@ export function HpBar({ hp, max, temp = 0, lang = 'pt', className = '', label, c
       <span className="mesa-hp-text" aria-hidden="true">
         {units ? <span>{t(lang, 'PV', 'HP')} {text}</span> : text}
         {tmp > 0 && (units
-          ? <span className="mesa-hp-temp">+{tmp} temp</span>
+          ? <span className="mesa-hp-temp">+{tmp}<span className="mesa-hp-temp-word"> temp</span></span>
           : <span className="mesa-hp-temp"> +{tmp}</span>)}
       </span>
     </span>

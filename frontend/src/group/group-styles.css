@@ -94,6 +94,10 @@
 /* PV e as pastilhas (CA, Inic.; Nível só na multiclasse) numa linha: a barra fica com o que sobra */
 .grp-card-vitals { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; min-width: 0; }
 .grp-card-vitals .grp-card-hp { flex: 1 1 120px; height: 26px; }
+/* "PV 11 / 11" nunca encolhe (o PV máximo não some atrás do "+5 temp"); abaixo de 360 px
+   o temporário fica só "+5" (o aria-label da barra diz "+5 temporários") */
+.grp-card-hp .mesa-hp-text > span:first-child { flex: none; }
+@media (max-width: 359px) { .grp-card-hp .mesa-hp-temp-word { display: none; } }
 .grp-pill {
   flex: none; display: inline-flex; align-items: baseline; gap: 4px; min-height: 26px; padding: 3px 7px;
   border: 1px solid rgba(224, 181, 94, 0.28); border-radius: 6px; background: rgba(10, 7, 6, 0.5);
