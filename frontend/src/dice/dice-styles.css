@@ -310,6 +310,33 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   .dice-chip:hover { border-color: var(--dice-gold); color: var(--ink-primary); }
 }
 
+/* Mestre na campanha (V10): 🔒 Só eu · 📺 Na tela (48 px, ação ao vivo) e "Para quê?" */
+.dice-table { display: flex; flex-direction: column; gap: 6px; }
+.dice-target {
+  display: grid; grid-template-columns: 1fr 1fr; overflow: hidden;
+  border: 1px solid var(--dice-line); border-radius: 6px; background: rgba(10, 7, 6, 0.5);
+}
+.dice-target-btn {
+  min-height: 48px; padding: 4px 8px; border: 0; border-radius: 0; background: transparent; cursor: pointer;
+  font-family: var(--display); font-size: 0.9rem; font-weight: 600; letter-spacing: 0.04em; color: var(--dice-muted);
+}
+.dice-target-btn + .dice-target-btn { border-left: 1px solid var(--dice-line); }
+.dice-target-btn.active { background: rgba(224, 181, 94, 0.18); color: var(--dice-gold-hi); }
+.dice-target-btn:focus-visible { outline: 2px solid var(--dice-gold-hi); outline-offset: -3px; }
+.dice-table-hint { margin: 0; font-size: 0.8rem; color: var(--dice-muted); }
+.dice-purpose { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.dice-purpose-label { font-size: 0.8rem; color: var(--dice-muted); margin-right: 2px; }
+.dice-purpose-chip {
+  min-height: 44px; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  background: var(--dice-tile); border: 1px solid var(--dice-line); color: var(--ink-secondary); font-size: 0.85rem;
+}
+.dice-purpose-chip.active { border-color: var(--dice-gold-hi); color: var(--dice-gold-hi); background: rgba(224, 181, 94, 0.14); }
+.dice-table-note { margin: 0; font-size: 0.8rem; color: var(--dice-gold); }
+.dice-table-note.is-offline, .dice-table-note.is-offline-secret, .dice-table-note.is-local { color: #ffb4a8; }
+.dice-overlay .dice-table-note { margin-top: 8px; font-size: 0.9rem; }
+.dice-pop .dice-table-note { display: block; margin-top: 2px; }
+.dice-sheet :is(.dice-picker-btn, .dice-chip, .dice-formula-go):disabled { opacity: 0.6; cursor: progress; }
+
 /* Vantagem / Normal / Desvantagem: segmentado com filete (demo: .tray-adv) */
 .dice-sheet .adv-toggle {
   margin-bottom: 0;

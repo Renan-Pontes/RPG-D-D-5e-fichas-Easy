@@ -19,6 +19,7 @@ import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { usePolling } from '../api/polling.js';
 import { TableContext, useTableStore } from '../play/table-store.js';
+import { clearDiceTable, setDiceTable } from '../dice/dice-table.js';
 import useMedia from '../play/useMedia.js';
 import TableBar from '../stage/TableBar.jsx';
 import ScreenWindow from '../stage/ScreenWindow.jsx';
@@ -126,6 +127,14 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   }, [load]);
   const table = useTableStore(campaign, { enabled: isDM, lang, onPulse });
   const pulsing = table.enabled;
+  // O 🎲 do mestre na mesa (V10, dice/dice-table.js): o rolador global passa a saber a
+  // campanha e a regra "Do mestre" do palco (🔒 Só eu · 📺 Na tela).
+  const dmDice = campaign?.stage?.prefs?.dm;
+  useEffect(() => {
+    if (!isDM || !campaign?.id || campaign.status === 'closed') return undefined;
+    setDiceTable({ campaignId: campaign.id, dmDefault: dmDice === 'shown' ? 'shown' : 'secret' });
+    return () => clearDiceTable(campaign.id);
+  }, [isDM, campaign?.id, campaign?.status, dmDice]);
   // A Tela fala a língua da campanha (V9): o idioma do app do mestre vai à campanha
   // (dm_settings.lang) uma vez por troca; a TV lê no /api/screen, não do aparelho dela.
   // Servidor sem o campo (deploy fora de ordem): nada é enviado.

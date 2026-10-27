@@ -78,12 +78,13 @@ export async function refreshCsrf() {
   return ensureCsrf(true);
 }
 
-async function request(path, { method = 'GET', body, headers = {}, _csrfRetry = false } = {}) {
+// `timeout` (ms): o padrão é 15 s; o 🎲 do mestre "Na tela" usa 1,5 s e rola no aparelho sem resposta.
+async function request(path, { method = 'GET', body, headers = {}, timeout = 15000, _csrfRetry = false } = {}) {
   const isMutation = method !== 'GET' && method !== 'HEAD';
   if (isMutation) await ensureCsrf();
   const csrftoken = csrfTokenCache || getCookie('csrftoken');
   const res = await fetch(`${API_BASE}${path}`, {
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(timeout),
     method,
     credentials: 'include',
     headers: {
@@ -112,7 +113,7 @@ async function request(path, { method = 'GET', body, headers = {}, _csrfRetry = 
       if (!_csrfRetry) {
         csrfTokenCache = null;
         await ensureCsrf(true);
-        return request(path, { method, body, headers, _csrfRetry: true });
+        return request(path, { method, body, headers, timeout, _csrfRetry: true });
       }
     }
     const msg = data?.error || data?.detail || res.statusText;
@@ -277,7 +278,7 @@ export const api = {
   reviewApproval: (approvalId, body) => request(`/api/approvals/${approvalId}/review`, { method: 'POST', body }),
   consumeApproval: (approvalId, body = {}) => request(`/api/approvals/${approvalId}/consume`, { method: 'POST', body }),
   // Dice
-  rollDice:      (body) => request('/api/dice/roll', { method: 'POST', body }),
+  rollDice:      (body, { timeout } = {}) => request('/api/dice/roll', { method: 'POST', body, timeout }),
   listRigs:      (campaignId) => request(`/api/dice/campaign/${campaignId}/rigs`),
   createRig:     (campaignId, body) => request(`/api/dice/campaign/${campaignId}/rigs`, { method: 'POST', body }),
   updateRig:     (rigId, body) => request(`/api/dice/rigs/${rigId}`, { method: 'PUT', body }),
@@ -307,6 +308,8 @@ export const api = {
   createRoll:       (id, body) => request(`/api/rolls/campaign/${id}`, { method: 'POST', body }),
   listPendingRolls: (id) => request(`/api/rolls/campaign/${id}/pending`),
   listRecentRolls:  (id) => request(`/api/rolls/campaign/${id}/recent`),
+  // Testes › 🎲 Rolagens na Tela (V10, só o mestre): as rolagens de mesa, 📺 e 🔒
+  listTableRolls:   (id) => request(`/api/rolls/campaign/${id}/recent?table=1`),
   resolveRoll:      (rid, body) => request(`/api/rolls/${rid}/resolve`, { method: 'POST', body }),
   cancelRoll:       (rid) => request(`/api/rolls/${rid}/cancel`, { method: 'POST' }),
 
