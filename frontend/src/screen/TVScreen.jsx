@@ -13,6 +13,11 @@ import { defaultArt } from '../world/world-model.js';
 import { stageNow } from '../stage/stage-now.js';
 import { conditionsShown, initiativeRows, isDeadScreenLink, lengthClass, partyRow, recapSubtitle, splitNumbered, turnNow, tvLang, tvMode } from './tv-logic.js';
 import { fitAll } from './tv-fit.js';
+import {
+  attackOutcome, bigDuration, createQueue, currentBig, feedNextExpiry, ingest, nextBig, pruneFeed, rollGroups,
+  rollLine, rollWho, saveHead, showsSum,
+} from './roll-queue.js';
+import { abilityLabel, damageTypeLabel } from '../combat/monster-i18n.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -71,6 +76,12 @@ const CONDITIONS = {
 // Idioma: o da campanha (`lang` do /api/screen, o do mestre); sem ele, o do
 // aparelho. Fotos e tokens por URL; a resposta igual à anterior não redesenha
 // nada (e o mapa parado não redesenha o canvas).
+// Rolagens (V10, roll-queue.js): o /api/screen traz a janela das rolagens públicas
+// dos últimos 90 s pelo relógio do servidor (`rolls` + `now`, fora do ETag). Ao
+// abrir, tudo é "visto" (nada reprisado); o que chega depois entra em FILA: o
+// dado grande no centro (só com menos de 10 s; 8 s cada, 4 s com fila) e o resto
+// no FEED do canto de baixo à esquerda (até 4 linhas, somem 12 s depois de chegar).
+// Servidor antigo (sem `rolls`): a regra de antes (`publicRolls[0]`, < 20 s).
 const IS_PREVIEW = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1';
 function tvTab() {
   try {
@@ -90,8 +101,10 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
   const lang = tvLang(campaignLang, deviceLang);
   const langRef = useRef(lang);
   langRef.current = lang;
-  // Overlay de rolagem dramática
-  const [activeRoll, setActiveRoll] = useState(null);
+  // Rolagens: a fila (dado grande + feed); `legacyRoll` é o dado de um servidor antigo.
+  const [queue, setQueue] = useState(createQueue);
+  const queueRef = useRef(queue);
+  const [legacyRoll, setLegacyRoll] = useState(null);
   // Retratos dos monstros no combate (pelo nome do bestiário; carregado só em combate).
   const [foeIndex, setFoeIndex] = useState(null);
   const wantsFoeIndex = !!data?.combat?.active && needsNameIndex(data?.combat?.combatants);
@@ -120,21 +133,26 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
         } catch { /* sem BroadcastChannel: só o servidor conta */ }
       }
       setError('');
-      const sig = JSON.stringify(res);
+      // `now` (a hora do servidor) muda a cada pedido: fica fora da comparação.
+      const { now: serverNow, ...same } = res;
+      const sig = JSON.stringify(same);
       if (sig === sigRef.current) return;
       sigRef.current = sig;
       setData(res.campaign);
       setCard(res.card ?? res.campaign?.card ?? null);
       setStage(res.stage ?? null);
       setCampaignLang(res.lang ?? null);
-      // Detecta nova rolagem pública e dispara overlay
-      const rolls = res.campaign.publicRolls || [];
-      const newest = rolls[0];
+      if (Array.isArray(res.rolls)) {
+        const q = ingest(queueRef.current, { rolls: res.rolls, now: serverNow }, Date.now());
+        if (q !== queueRef.current) { queueRef.current = q; setQueue(q); }
+        return;
+      }
+      // Servidor antigo: a rolagem pública mais nova, se fresca (< 20 s pelo relógio da TV)
+      const newest = (res.campaign.publicRolls || [])[0];
       if (newest && newest.id !== lastRollIdRef.current) {
-        // Só dispara se a rolagem é fresca (< 20s)
         if (newest.resolvedAt && (Date.now() - new Date(newest.resolvedAt).getTime()) < 20000) {
           lastRollIdRef.current = newest.id;
-          setActiveRoll(newest);
+          setLegacyRoll({ ...newest, kind: 'request', who: newest.requester, crit: newest.isCritical, fail: newest.isCriticalFail });
         } else if (!lastRollIdRef.current) {
           lastRollIdRef.current = newest.id; // marca pra evitar trigger antigo
         }
@@ -148,12 +166,32 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
 
   usePolling(load, 2000, [token]);
 
-  // Auto-fecha overlay após 8s
+  // A fila anda: o dado grande dura 8 s (4 s com outra esperando; conta desde que
+  // apareceu); o feed perde cada linha 12 s depois de chegar.
+  const big = currentBig(queue) || legacyRoll;
+  const busy = (queue.big?.length || 0) > 1;
+  const bigShownAt = useRef(0);
+  const advance = useCallback((id) => {
+    if (legacyRoll && legacyRoll.id === id) { setLegacyRoll(null); return; }
+    const q = nextBig(queueRef.current, id);
+    if (q !== queueRef.current) { queueRef.current = q; setQueue(q); }
+  }, [legacyRoll]);
   useEffect(() => {
-    if (!activeRoll) return;
-    const id = setTimeout(() => setActiveRoll(null), 8000);
+    if (!big) return undefined;
+    if (!bigShownAt.current) bigShownAt.current = Date.now();
+    const left = bigShownAt.current + (legacyRoll ? 8000 : bigDuration(queue)) - Date.now();
+    const id = setTimeout(() => { bigShownAt.current = 0; advance(big.id); }, Math.max(0, left));
     return () => clearTimeout(id);
-  }, [activeRoll]);
+  }, [big?.id, busy]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const wait = feedNextExpiry(queue, Date.now());
+    if (wait == null) return undefined;
+    const id = setTimeout(() => {
+      const q = pruneFeed(queueRef.current, Date.now());
+      if (q !== queueRef.current) { queueRef.current = q; setQueue(q); }
+    }, wait + 50);
+    return () => clearTimeout(id);
+  }, [queue]);
 
   // A Tela não tem menu: o título da aba ajuda a achar a janela certa.
   useEffect(() => {
@@ -248,7 +286,7 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
     <div className="tv-frame">
       <div
         ref={screenRef}
-        className={`tv-screen tv-mode-${mode} ${activeRoll && !dark ? 'has-roll-overlay' : ''} ${stg?.over ? 'is-over-combat' : ''} ${test ? 'has-test' : ''}`}
+        className={`tv-screen tv-mode-${mode} ${big && !dark ? 'has-roll-overlay' : ''} ${stg?.over ? 'is-over-combat' : ''} ${test ? 'has-test' : ''}`}
         style={accent ? { '--tv-accent': accent } : undefined}
         lang={lang}
       >
@@ -347,8 +385,13 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
 
         {error && <div className="tv-offline" role="status">{t(lang, 'Reconectando…', 'Reconnecting…')}</div>}
 
-        {/* Overlay dramático — TV limpa, sem histórico (M1: telão limpo) */}
-        {activeRoll && !dark && <DramaticRollOverlay roll={activeRoll} lang={lang} onDone={() => setActiveRoll(null)} />}
+        {/* Feed: as rolagens pequenas no canto (texto de verdade; crítico com filete dourado) */}
+        {!dark && queue.feed.length > 0 && <RollFeed rolls={queue.feed} lang={lang} />}
+        {/* O dado grande — um por vez, em fila */}
+        {big && !dark && (
+          <DramaticRollOverlay key={big.id} roll={big} lang={lang} quick={busy}
+            onDone={() => { bigShownAt.current = 0; advance(big.id); }} />
+        )}
       </div>
     </div>
   );
@@ -629,51 +672,87 @@ function ConditionChip({ cond, lang }) {
   );
 }
 
+const ROLL_LABELS = (lang) => ({ damageLabel: (ty) => damageTypeLabel(ty, lang), abilityLabel: (a) => abilityLabel(a, lang) });
+
+/** O feed (V10): até 4 linhas pequenas no canto de baixo à esquerda. */
+function RollFeed({ rolls, lang }) {
+  const labels = ROLL_LABELS(lang);
+  return (
+    <ul className="tv-roll-feed" aria-label={t(lang, 'Rolagens', 'Rolls')} aria-live="polite">
+      {rolls.map(r => (
+        <li key={r.id} className={`tv-feed-item ${r.crit ? 'is-crit' : ''} ${r.fail ? 'is-fail' : ''}`}>
+          <span className="tv-feed-ico" aria-hidden="true">🎲</span>
+          <span className="tv-feed-text">{rollLine(r, lang, labels)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /**
- * Overlay dramático que aparece quando o mestre torna uma rolagem pública.
- * Dado 3D (three.js, sob demanda) rola e para no valor que veio do servidor;
- * sem WebGL / com movimento reduzido cai no 2D. Depois revela o total.
+ * O dado grande: quem rolou, o quê, o dado 3D (three.js, sob demanda) que para no
+ * valor do servidor (sem WebGL / com movimento reduzido cai no 2D) e o total.
+ * Ataque de monstro: só o d20 natural (sem o bônus) e "ACERTA · 6 cortante".
+ * Salvaguarda em área: o resumo por alvo (sem dados: o d20 entregaria o bônus).
  */
-function DramaticRollOverlay({ roll, lang, onDone }) {
-  const [phase, setPhase] = useState('rolling'); // 'rolling' → 'reveal'
-  const die = parseInt(String(roll.diceType || 'd20').replace(/^d/i, ''), 10) || 20;
-  const groups = [{ die, rolls: (roll.rolls || []).map(r => ({ value: r.value, kept: r.kept !== false })) }];
-  // Segurança: revela mesmo se a animação falhar/demorar.
+function DramaticRollOverlay({ roll, lang, onDone, quick = false }) {
+  const isSave = roll.kind === 'save';
+  const groups = rollGroups(roll);
+  const [phase, setPhase] = useState(isSave || !groups.length ? 'reveal' : 'rolling'); // 'rolling' → 'reveal'
+  // Segurança: revela mesmo se a animação falhar/demorar (mais cedo com fila).
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase('reveal'), 3500);
+    const t1 = setTimeout(() => setPhase('reveal'), quick ? 2500 : 3500);
     return () => clearTimeout(t1);
-  }, []);
+  }, [quick]);
+  const labels = ROLL_LABELS(lang);
+  const sub = roll.kind === 'monster' ? `⚔ ${roll.label || ''}` : isSave ? saveHead(roll, lang, labels) : (roll.label || roll.diceType);
+  const kept = groups.flatMap(g => g.rolls.filter(r => r.kept).map(r => ({ ...r, sign: g.sign })));
 
   // Brilho dourado/vermelho do crítico/falha só na revelação: antes entregaria o resultado.
   const revealed = phase === 'reveal';
   return (
-    <div className={`tv-roll-overlay phase-${phase} ${revealed && roll.isCritical ? 'crit' : ''} ${revealed && roll.isCriticalFail ? 'fail' : ''}`} onClick={onDone}>
+    <div className={`tv-roll-overlay phase-${phase} ${revealed && roll.crit ? 'crit' : ''} ${revealed && roll.fail ? 'fail' : ''} ${isSave ? 'is-save' : ''}`} onClick={onDone}>
       <div className="tv-roll-inner">
-        <div className="tv-roll-who">{roll.requester}</div>
-        <div className="tv-roll-label">{roll.label || roll.diceType}</div>
-        <DiceStage
-          groups={groups}
-          tone={roll.isCritical ? 'crit' : roll.isCriticalFail ? 'fumble' : null}
-          className="tv-dice-stage"
-          size2d={140}
-          onSettled={() => setPhase('reveal')}
-        />
-        {phase === 'reveal' && (
+        <div className="tv-roll-who">{rollWho(roll, lang)}</div>
+        <div className="tv-roll-label">{sub}</div>
+        {isSave ? (
+          <ul className="tv-roll-saves">
+            {(roll.targets || []).map((x, i) => (
+              <li key={i} className={x.ok ? 'is-pass' : 'is-fail'}>
+                <span className="tv-roll-save-name">{x.who}</span>
+                <span className="tv-roll-save-total">{x.total ?? '—'}</span>
+                <span className="tv-roll-save-mark">{x.ok ? `✓ ${t(lang, 'passou', 'saved')}` : `✗ ${t(lang, 'falhou', 'failed')}`}</span>
+              </li>
+            ))}
+          </ul>
+        ) : groups.length > 0 && (
+          <DiceStage
+            groups={groups}
+            tone={roll.crit ? 'crit' : roll.fail ? 'fumble' : null}
+            className="tv-dice-stage"
+            size2d={140}
+            onSettled={() => setPhase('reveal')}
+          />
+        )}
+        {revealed && !isSave && (
           <div className="tv-roll-dice">
             <div className="tv-roll-numbers">
-              {groups[0].rolls.filter(r => r.kept).map((r, i) => (
-                <span key={i} className="tv-die-result">{r.value}</span>
+              {kept.map((r, i) => (
+                <span key={i} className="tv-die-result">{r.sign < 0 ? '−' : ''}{r.value}</span>
               ))}
-              {roll.modifier !== 0 && (
-                <span className="tv-roll-mod">{roll.modifier >= 0 ? '+' : ''}{roll.modifier}</span>
+              {showsSum(roll) && (
+                <>
+                  {roll.modifier !== 0 && <span className="tv-roll-mod">{roll.modifier >= 0 ? '+' : ''}{roll.modifier}</span>}
+                  <span className="tv-roll-equals">=</span>
+                  <span className="tv-roll-total">{roll.total}</span>
+                </>
               )}
-              <span className="tv-roll-equals">=</span>
-              <span className="tv-roll-total">{roll.total}</span>
             </div>
           </div>
         )}
-        {phase === 'reveal' && roll.isCritical && <div className="tv-roll-tag tv-crit-tag">⚔ {t(lang, 'CRÍTICO', 'CRITICAL')}</div>}
-        {phase === 'reveal' && roll.isCriticalFail && <div className="tv-roll-tag tv-fail-tag">💀 {t(lang, 'FALHA CRÍTICA', 'FUMBLE')}</div>}
+        {revealed && roll.kind === 'monster' && <div className={`tv-roll-tag ${roll.hit ? 'tv-hit-tag' : 'tv-miss-tag'}`}>{attackOutcome(roll, lang, labels)}</div>}
+        {revealed && roll.kind !== 'monster' && roll.crit && <div className="tv-roll-tag tv-crit-tag">⚔ {t(lang, 'CRÍTICO', 'CRITICAL')}</div>}
+        {revealed && roll.kind !== 'monster' && roll.fail && <div className="tv-roll-tag tv-fail-tag">💀 {t(lang, 'FALHA CRÍTICA', 'FUMBLE')}</div>}
       </div>
     </div>
   );

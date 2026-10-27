@@ -659,6 +659,47 @@
 .tv-roll-overlay.phase-reveal .tv-dice-stage { height: 22cqh; transition: height 0.4s ease; }
 .tv-roll-overlay.phase-reveal .tv-roll-dice { min-height: 0; }
 
+/* Ataque de monstro: "ACERTA · 6 cortante" (o d20 natural fica no dado, sem o bônus) */
+.tv-roll-tag.tv-hit-tag { color: var(--tv-gold); letter-spacing: 0.12em; animation: none; }
+.tv-roll-tag.tv-miss-tag { color: var(--tv-ink-soft); letter-spacing: 0.12em; animation: none; }
+.tv-roll-overlay.crit .tv-roll-tag.tv-hit-tag { animation: tv-tag-pulse 1s ease-in-out infinite; }
+/* Salvaguarda em área: um alvo por linha, total e ✓/✗ escritos (sem dados) */
+.tv-roll-saves {
+  list-style: none; margin: 1cqh auto 0; padding: 0; display: grid; gap: 1cqh;
+  grid-template-columns: repeat(auto-fit, minmax(22cqw, 1fr)); max-width: 80cqw;
+}
+.tv-roll-saves li {
+  display: flex; align-items: baseline; gap: 1cqw; padding: 1cqh 1.4cqw; border-radius: 0.8cqw;
+  border: 2px solid rgba(214, 176, 100, 0.4); background: rgba(255, 255, 255, 0.04);
+  font-size: max(var(--tv-min), 2.2cqw); animation: tv-roll-zoom 500ms ease-out both;
+}
+.tv-roll-saves li.is-pass { border-color: var(--moss-bright); }
+.tv-roll-saves li.is-fail { border-color: var(--blood-bright); }
+.tv-roll-save-name { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-roll-save-total { font-family: 'Cinzel', serif; font-weight: 700; color: var(--tv-gold); }
+.tv-roll-save-mark { font-weight: 700; font-size: 0.8em; }
+.tv-roll-saves li.is-pass .tv-roll-save-mark { color: var(--moss-bright); }
+.tv-roll-saves li.is-fail .tv-roll-save-mark { color: var(--blood-bright); }
+
+/* === Feed (V10): as rolagens pequenas no canto de baixo à esquerda (somem em 12 s) === */
+.tv-roll-feed {
+  position: absolute; left: 1.2cqw; bottom: 2cqh; z-index: 60;
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6cqh;
+  max-width: 40cqw; pointer-events: none;
+}
+.tv-feed-item {
+  display: flex; align-items: center; gap: 0.6cqw; min-width: 0;
+  padding: 0.6cqh 1cqw; border-radius: 0.6cqw;
+  background: rgba(7, 5, 4, 0.86); border: 1px solid rgba(214, 176, 100, 0.25);
+  color: var(--tv-ink); font-size: max(var(--tv-min), 1.4cqw); line-height: 1.3;
+  animation: tv-feed-in 0.3s ease-out;
+}
+.tv-feed-item.is-crit { border: 2px solid var(--tv-gold); box-shadow: 0 0 18px rgba(214, 176, 100, 0.35); }
+.tv-feed-item.is-fail { border-color: var(--blood-bright); }
+.tv-feed-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes tv-feed-in { from { transform: translateX(-2cqw); opacity: 0; } to { transform: none; opacity: 1; } }
+.tv-screen.has-roll-overlay .tv-roll-feed { opacity: 0; }
+
 /* === Teste mostrado pelo mestre: faixa ≤ 18% da altura que EMPURRA o resto === */
 .tv-check-panel {
   flex: none; max-height: 18cqh; overflow: hidden;
@@ -804,7 +845,8 @@
   .tv-cover-title, .tv-cover-tagline,
   .tv-recap-bar, .tv-recap-eyebrow, .tv-recap-campaign, .tv-recap-title, .tv-recap-text p,
   .tv-mini-card, .tv-live-dot, .tv-inspiration, .tv-combat-pill, .tv-now-acting,
-  .tv-front-image-box, .tv-scene-front, .tv-text-front, .tv-check-panel {
+  .tv-front-image-box, .tv-scene-front, .tv-text-front, .tv-check-panel,
+  .tv-feed-item, .tv-roll-saves li, .tv-roll-tag {
     animation: none !important;
   }
   .tv-backdrop img { transition: none; }
