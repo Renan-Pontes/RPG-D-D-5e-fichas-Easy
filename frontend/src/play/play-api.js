@@ -3,7 +3,7 @@
 // e leitura de aventuras para o painel "Nesta cena". A Tela (palco, cartão
 // antigo, link) é do src/stage/stage-api.js; os nomes ficam aqui por
 // compatibilidade.
-import { request } from '../api/client.js';
+import { request, combatRequest } from '../api/client.js';
 
 export { getScreen, rotateScreenToken, setScreenCard } from '../stage/stage-api.js';
 
@@ -23,12 +23,12 @@ export function attackPreview(campaignId, body) {
  * body: {attackerId, targetId, actionIndex, attackRoll, damage: [{amount, type}], hit, crit, force?, consumeRig?}
  */
 export function applyAttack(campaignId, body) {
-  return request(`/api/combat/campaign/${cid(campaignId)}/action`, { method: 'POST', body: { action: 'attack', ...body } });
+  return combatRequest(`/api/combat/campaign/${cid(campaignId)}/action`, { method: 'POST', body: { action: 'attack', ...body } });
 }
 
 /** Ação de combate genérica (dano, cura, condição…). */
 export function combatAction(campaignId, body) {
-  return request(`/api/combat/campaign/${cid(campaignId)}/action`, { method: 'POST', body });
+  return combatRequest(`/api/combat/campaign/${cid(campaignId)}/action`, { method: 'POST', body });
 }
 
 /** PATCH de state por chave (merge no servidor). → {state} */
