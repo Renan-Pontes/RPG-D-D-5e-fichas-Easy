@@ -34,7 +34,9 @@ function fmtDay(day, lang) {
  * Começa pela história: cabeçalho curto com [✎ Nova nota] e [✨ Anteriormente
  * em…], os 10 filtros num trilho de 44 px e as sessões. A nota nova e o editor
  * do recap abrem em folha (MesaSheet), com a ação principal presa no rodapé.
- * Lê a crônica a cada 8 s (como sempre).
+ * Lê a crônica a cada 8 s (como sempre). O erro de uma folha aparece nela
+ * (o aviso do topo ficaria atrás do fundo da folha). Campanha encerrada: sem
+ * "Nova nota", com o motivo por escrito.
  * showStartSession: false quando a casca já tem o "Começar sessão" no cabeçalho
  * (um só lugar para começar a sessão).
  * autoRecap: veio de "Encerrar e escrever o recap" — abre o rascunho do recap assim que a
@@ -160,21 +162,23 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
     return () => clearTimeout(id);
   }, [toast]);
 
-  const showOnScreen = async (title, text) => {
+  // onErr: quem pediu mostra o erro (a folha do recap mostra o dela, por cima de tudo)
+  const showOnScreen = async (title, text, onErr = setError) => {
     try {
       await groupApi.showOnScreen(campaign.id, { type: 'recap', title: String(title || '').slice(0, 200), text: String(text || '').slice(0, 5000) });
       flash(t(lang, '📺 No telão agora.', '📺 On the TV now.'));
       onCampaignChange?.();
       return true;
-    } catch (e) { setError(errMsg(e)); return false; }
+    } catch (e) { onErr(errMsg(e)); return false; }
   };
-  const clearScreen = async () => {
+  const clearScreen = async (onErr = setError) => {
     try { await groupApi.showOnScreen(campaign.id, null); flash(t(lang, 'Telão de volta à capa.', 'TV back to the cover.')); onCampaignChange?.(); }
-    catch (e) { setError(errMsg(e)); }
+    catch (e) { onErr(errMsg(e)); }
   };
+  const closed = campaign.status === 'closed';
 
   return (
-    <div className={`diary ${isDM ? 'is-dm' : 'is-player'}`}>
+    <div className={`diary ${isDM ? 'is-dm' : 'is-player'} ${closed ? 'is-closed' : ''}`}>
       {error && <p className="diary-error" role="alert" onClick={() => setError('')}>{error}</p>}
 
       <section className="diary-head mesa-panel" aria-labelledby="diary-head-h">
@@ -185,21 +189,29 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
           📜 {t(lang, 'Crônica', 'Chronicle')}
         </MesaTitle>
         {isDM && showStartSession && <StartSession campaign={campaign} lang={lang} current={current} onDone={load} onError={setError} />}
-        <div className="diary-head-actions">
-          <button type="button" className="mesa-btn diary-new-note" onClick={() => setNoteOpen(true)}>
-            ✎ {t(lang, 'Nova nota', 'New note')}
-          </button>
-          {isDM && (
-            <button type="button" className="mesa-btn diary-recap-open" onClick={() => openRecap(null)} disabled={!loaded || !entries.length}
-              aria-label={t(lang, 'Anteriormente em…: montar recap', 'Previously on…: draft recap')}>
-              ✨ {t(lang, 'Anteriormente em…', 'Previously on…')}
-            </button>
-          )}
-        </div>
+        {closed && (
+          <p className="diary-readonly">{t(lang, 'Campanha encerrada: a crônica fica só para ler.', 'Campaign closed: the chronicle is read-only.')}</p>
+        )}
+        {(!closed || isDM) && (
+          <div className="diary-head-actions">
+            {!closed && (
+              <button type="button" className="mesa-btn diary-new-note" onClick={() => setNoteOpen(true)}>
+                ✎ {t(lang, 'Nova nota', 'New note')}
+              </button>
+            )}
+            {/* encerrada: o recap continua (ler e copiar); o telão e o salvar dizem o motivo na folha */}
+            {isDM && (
+              <button type="button" className="mesa-btn diary-recap-open" onClick={() => openRecap(null)} disabled={!loaded || !entries.length}
+                aria-label={t(lang, 'Anteriormente em…: montar recap', 'Previously on…: draft recap')}>
+                ✨ {t(lang, 'Anteriormente em…', 'Previously on…')}
+              </button>
+            )}
+          </div>
+        )}
         {isDM && onScreen?.type === 'recap' && (
           <div className="diary-on-tv" role="status">
             <span>📺 {t(lang, 'O recap está no telão agora.', 'The recap is on the TV now.')}</span>
-            <button type="button" className="mesa-btn" onClick={clearScreen}>{t(lang, 'Tirar do telão', 'Remove from TV')}</button>
+            <button type="button" className="mesa-btn" onClick={() => clearScreen()}>{t(lang, 'Tirar do telão', 'Remove from TV')}</button>
           </div>
         )}
       </section>
@@ -236,15 +248,13 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
 
       {noteOpen && (
         <NoteSheet campaign={campaign} lang={lang} isDM={isDM} onClose={() => setNoteOpen(false)}
-          onDone={() => { setNoteOpen(false); flash(t(lang, 'Nota adicionada à crônica.', 'Note added to the chronicle.')); load().catch(() => {}); }}
-          onError={setError} />
+          onDone={() => { setNoteOpen(false); flash(t(lang, 'Nota adicionada à crônica.', 'Note added to the chronicle.')); load().catch(() => {}); }} />
       )}
       {isDM && recap && (
         <RecapSheet campaign={campaign} lang={lang} recap={recap} onScreen={onScreen}
           onShow={showOnScreen} onClearScreen={clearScreen} onClose={() => setRecap(null)}
           onSaved={() => { setRecap(null); flash(t(lang, 'Recap salvo na crônica.', 'Recap saved to the chronicle.')); load(); }}
-          onCopied={() => flash(t(lang, 'Texto copiado.', 'Text copied.'))}
-          onError={setError} />
+          onCopied={() => flash(t(lang, 'Texto copiado.', 'Text copied.'))} />
       )}
 
       {toast && (
@@ -301,13 +311,25 @@ function StartSession({ campaign, lang, current, onDone, onError }) {
   );
 }
 
+/**
+ * Erro de uma folha, preso no rodapé dela (o aviso do topo da Crônica fica
+ * atrás do fundo escuro da folha). Toque some com ele.
+ */
+function SheetError({ text, onDismiss }) {
+  if (!text) return null;
+  return <p className="diary-error diary-sheet-err" role="alert" onClick={onDismiss}>{text}</p>;
+}
+
 /** Nota nova, em folha: título opcional, texto, ☐ Oculta dos jogadores (só o mestre) e Adicionar. */
-function NoteSheet({ campaign, lang, isDM, onClose, onDone, onError }) {
+function NoteSheet({ campaign, lang, isDM, onClose, onDone }) {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [hidden, setHidden] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
   const empty = !body.trim() && !title.trim();
+  // mexeu no texto: o erro antigo sai (o próximo toque em Adicionar diz de novo, se for o caso)
+  const edit = (set) => (e) => { set(e.target.type === 'checkbox' ? e.target.checked : e.target.value); setErr(''); };
 
   const submit = async (e) => {
     e?.preventDefault?.();
@@ -317,7 +339,7 @@ function NoteSheet({ campaign, lang, isDM, onClose, onDone, onError }) {
       await api.createDiaryNote(campaign.id, { title, body, ...(isDM && hidden ? { hidden: true } : {}) });
       setBusy(false);
       onDone();
-    } catch (err) { onError(errMsg(err)); setBusy(false); }
+    } catch (er) { setErr(errMsg(er)); setBusy(false); }
   };
 
   return (
@@ -326,6 +348,7 @@ function NoteSheet({ campaign, lang, isDM, onClose, onDone, onError }) {
       dirtyText={t(lang, 'A nota que você escreveu ainda não foi para a crônica.', 'The note you wrote has not gone to the chronicle yet.')}
       footer={(
         <div className="mesa-actions">
+          <SheetError text={err} onDismiss={() => setErr('')} />
           <button type="submit" form="diary-note-form" className="mesa-btn mesa-btn-lg is-primary diary-note-add" disabled={busy || empty}>
             ✎ {t(lang, 'Adicionar nota', 'Add note')}
           </button>
@@ -334,17 +357,17 @@ function NoteSheet({ campaign, lang, isDM, onClose, onDone, onError }) {
       <form id="diary-note-form" className="diary-form" onSubmit={submit}>
         <label className="mesa-field">
           <span className="mesa-field-label">{t(lang, 'Título (opcional)', 'Title (optional)')}</span>
-          <input className="input" value={title} maxLength={200} onChange={e => setTitle(e.target.value)}
+          <input className="input" value={title} maxLength={200} onChange={edit(setTitle)}
             placeholder={t(lang, 'Título da nota (opcional)', 'Note title (optional)')} />
         </label>
         <label className="mesa-field">
           <span className="mesa-field-label">{t(lang, 'Texto da nota', 'Note text')}</span>
-          <textarea className="input" rows={5} value={body} onChange={e => setBody(e.target.value)}
+          <textarea className="input" rows={5} value={body} onChange={edit(setBody)}
             placeholder={t(lang, 'O que aconteceu? Pistas, nomes, promessas…', 'What happened? Clues, names, promises…')} />
         </label>
         {isDM && (
           <label className="diary-check">
-            <input type="checkbox" checked={hidden} onChange={e => setHidden(e.target.checked)} />
+            <input type="checkbox" checked={hidden} onChange={edit(setHidden)} />
             <span>{t(lang, 'Oculta dos jogadores', 'Hidden from players')}</span>
           </label>
         )}
@@ -472,12 +495,13 @@ function DiaryItem({ entry, lang, isDM, onPatch, onDelete, onShow }) {
  * Nada vai à TV sem o toque dele. Rodapé preso: 📺 Mostrar no telão (ou Tirar
  * do telão, com "● No telão agora") · Salvar na crônica · Copiar · Fechar.
  */
-function RecapSheet({ campaign, lang, recap, onScreen, onShow, onClearScreen, onClose, onSaved, onCopied, onError }) {
+function RecapSheet({ campaign, lang, recap, onScreen, onShow, onClearScreen, onClose, onSaved, onCopied }) {
   const [title, setTitle] = useState(recap.title);
   const [text, setText] = useState(recap.text);
   const [busy, setBusy] = useState(false);
   const [touched, setTouched] = useState(false);
-  useEffect(() => { setTitle(recap.title); setText(recap.text); setTouched(false); }, [recap]);
+  const [err, setErr] = useState('');
+  useEffect(() => { setTitle(recap.title); setText(recap.text); setTouched(false); setErr(''); }, [recap]);
   const live = onScreen?.type === 'recap' && onScreen.title === title.trim() && onScreen.text === text;
   const tooLong = text.length > 5000;
   const empty = !text.trim() && !title.trim();
@@ -488,26 +512,32 @@ function RecapSheet({ campaign, lang, recap, onScreen, onShow, onClearScreen, on
       await api.createDiaryNote(campaign.id, { subtype: 'summary', title: title.trim().slice(0, 200), body: text, session: recap.session });
       setTouched(false);
       onSaved();
-    } catch (err) { onError(errMsg(err)); }
+    } catch (er) { setErr(errMsg(er)); }
     setBusy(false);
   };
-  const show = async () => { setBusy(true); if (await onShow(title.trim(), text)) setTouched(false); setBusy(false); };
+  const show = async () => { setBusy(true); if (await onShow(title.trim(), text, setErr)) setTouched(false); setBusy(false); };
+  const copy = async () => {
+    if (await copyText(`${title}\n\n${text}`)) { setErr(''); onCopied(); }
+    else setErr(t(lang, 'Não deu para copiar: selecione o texto e copie à mão.', 'Could not copy: select the text and copy it by hand.'));
+  };
 
   return (
     <MesaSheet lang={lang} size="tall" width="md" icon="✨" title={t(lang, 'Anteriormente em…', 'Previously on…')}
       eyebrow={recap.session != null ? `${t(lang, 'a partir da sessão', 'from session')} ${recap.session}` : undefined}
       onClose={onClose} dirty={touched && !live} className="diary-recap-sheet" bodyClassName="diary-recap"
       dirtyText={t(lang, 'O texto que você mexeu não foi para o telão nem para a crônica.', 'The text you edited did not go to the TV or the chronicle.')}
-      footer={(
+      footer={({ close }) => (
         <div className="diary-recap-foot">
+          <SheetError text={err} onDismiss={() => setErr('')} />
           {live && <p className="diary-recap-live" role="status">● {t(lang, 'No telão agora', 'On the TV now')}</p>}
           {live
-            ? <button type="button" className="mesa-btn mesa-btn-lg diary-recap-main" disabled={busy} onClick={onClearScreen}>{t(lang, 'Tirar do telão', 'Remove from TV')}</button>
+            ? <button type="button" className="mesa-btn mesa-btn-lg diary-recap-main" disabled={busy} onClick={() => onClearScreen(setErr)}>{t(lang, 'Tirar do telão', 'Remove from TV')}</button>
             : <button type="button" className="mesa-btn mesa-btn-lg is-primary diary-recap-main" disabled={busy || tooLong || empty} onClick={show}>📺 {t(lang, 'Mostrar no telão', 'Show on TV')}</button>}
           <div className="diary-recap-more">
             <button type="button" className="mesa-btn" disabled={busy || empty} onClick={save}>{t(lang, 'Salvar na crônica', 'Save to chronicle')}</button>
-            <button type="button" className="mesa-btn" onClick={async () => { if (await copyText(`${title}\n\n${text}`)) onCopied(); }}>{t(lang, 'Copiar', 'Copy')}</button>
-            <button type="button" className="mesa-btn" onClick={onClose}>{t(lang, 'Fechar', 'Close')}</button>
+            <button type="button" className="mesa-btn" onClick={copy}>{t(lang, 'Copiar', 'Copy')}</button>
+            {/* o mesmo fechar do ✕ e do Esc: com texto mexido, pergunta antes */}
+            <button type="button" className="mesa-btn" onClick={close}>{t(lang, 'Fechar', 'Close')}</button>
           </div>
         </div>
       )}>
@@ -517,12 +547,12 @@ function RecapSheet({ campaign, lang, recap, onScreen, onShow, onClearScreen, on
       </p>
       <label className="mesa-field">
         <span className="mesa-field-label">{t(lang, 'Título do recap', 'Recap title')}</span>
-        <input className="input diary-recap-title" value={title} maxLength={200} onChange={e => { setTitle(e.target.value); setTouched(true); }} />
+        <input className="input diary-recap-title" value={title} maxLength={200} onChange={e => { setTitle(e.target.value); setTouched(true); setErr(''); }} />
       </label>
       <label className="mesa-field diary-recap-textfield">
         <span className="mesa-field-label">{t(lang, 'Texto do recap', 'Recap text')}</span>
         <textarea className="input diary-recap-text" rows={Math.min(14, Math.max(6, text.split('\n').length + 2))} value={text}
-          onChange={e => { setText(e.target.value); setTouched(true); }} />
+          onChange={e => { setText(e.target.value); setTouched(true); setErr(''); }} />
       </label>
       {tooLong && <p className="diary-error">{t(lang, 'Texto longo demais para o telão (máx. 5000 caracteres).', 'Too long for the TV (max 5000 characters).')}</p>}
     </MesaSheet>

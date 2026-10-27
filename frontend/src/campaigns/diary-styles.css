@@ -11,6 +11,9 @@
   color: var(--blood-bright); background: var(--blood-soft); border: 1px solid var(--blood);
   border-radius: 6px; padding: 8px 12px; margin: 0; cursor: pointer;
 }
+/* erro de uma folha (nota, recap): linha inteira no topo do rodapé preso */
+.diary-sheet-err { flex: 1 1 100%; text-align: left; overflow-wrap: anywhere; }
+.diary-readonly { margin: 0; color: var(--ink-muted); font-size: 0.95rem; }
 
 /* cabeçalho */
 .diary-head.mesa-panel { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; }
@@ -18,6 +21,7 @@
 .diary-head-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 /* mestre: Nova nota · Anteriormente em… (o segundo rótulo é mais longo) */
 .diary.is-dm .diary-head-actions { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+.diary.is-dm.is-closed .diary-head-actions { grid-template-columns: minmax(0, 1fr); } /* só o recap */
 .diary-head-actions .mesa-btn { width: 100%; padding-inline: 8px; white-space: normal; }
 .diary-on-tv {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px;
