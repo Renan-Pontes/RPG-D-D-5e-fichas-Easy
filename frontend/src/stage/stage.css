@@ -170,7 +170,22 @@
   .stage-now-box { grid-column: 1; grid-row: 1; }
   .stage-link-box { grid-column: 1; grid-row: 2; }
   .stage-show-box { grid-column: 2; grid-row: 1 / span 2; }
+  .stage-panel { grid-template-rows: auto auto 1fr; }
+  .stage-rolls-box { grid-column: 1; grid-row: 2; }
+  .stage-link-box { grid-row: 3; }
+  .stage-show-box { grid-row: 1 / span 3; }
 }
+
+/* V10 · Rolagens na Tela: as regras (segmentado de 44 px, explicado por escrito) e as últimas 5 */
+.stage-rule-row { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-top: 1px dashed var(--stroke); min-width: 0; }
+.stage-rule-row:first-of-type { border-top: 0; }
+.stage-rule-title { font-family: var(--display); font-size: 0.85rem; letter-spacing: 0.06em; color: var(--gold); }
+.stage-rule-seg .mesa-seg-btn { min-height: 44px; white-space: normal; text-align: center; line-height: 1.15; }
+.stage-rule-why { margin: 0; }
+.stage-rule-checks { display: flex; flex-wrap: wrap; gap: 8px; }
+.stage-rule-check { cursor: pointer; }
+.stage-rule-check input { width: 20px; height: 20px; accent-color: var(--gold); }
+.stage-rolls-list { display: flex; flex-direction: column; }
 
 /* ==========================================================
    V4 · Barra da mesa (celular), janela da Tela e faixa do turno (PC),

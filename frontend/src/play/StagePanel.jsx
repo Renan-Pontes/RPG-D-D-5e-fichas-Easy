@@ -11,11 +11,17 @@
 //      da Frente sempre reservada; o nome inteiro fica no texto da página, no
 //      `title` e na prévia), o que chega troca só o texto (princípio 8);
 //   3. MOSTRAR: Imagens · Cenas · Texto · Mapa (ShowPicker, o 📺 único);
-//   4. LIGAR A TELA: link, Copiar (marca o passo "tv" dos primeiros passos),
+//   4. ROLAGENS NA TELA (V10): as regras, explicadas por escrito — Dos jogadores
+//      (Todas · Só críticos · Nenhuma), Do mestre (🔒 Só eu · 📺 Na tela: o padrão do
+//      🎲, que pode trocar a cada rolagem) e Dos monstros (📺 Na tela · 🔒 Só eu: o
+//      padrão do "📺 vai à Tela" dos ataques e salvaguardas, sem o bônus) —, o que a
+//      Tela mostra no combate (☑ ordem de iniciativa · ☑ PV do grupo) e as últimas 5;
+//   5. LIGAR A TELA: link, Copiar (marca o passo "tv" dos primeiros passos),
 //      Abrir na TV ↗, Gerar novo link (confirma).
 // Não faz polling: o palco vem do GET da campanha (poll da casca) e da resposta
-// de cada toque (useStage); o teste mostrado vem do selo de Testes da área Jogar.
-import { useEffect, useRef, useState } from 'react';
+// de cada toque (useStage); o teste mostrado vem do selo de Testes da área Jogar;
+// as últimas 5 rolagens só são buscadas quando o pulso diz que algo mudou.
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
@@ -26,8 +32,11 @@ import { ShowPicker } from '../stage/ShowSheet.jsx';
 import useStage from '../stage/useStage.js';
 import { L, ruleText, stageLines, stageNow, undoLabel } from '../stage/stage-now.js';
 import {
-  rotateScreenToken, sendToStage, showCheckOnStage, stageBack, stageBg, stageClear, stageDark, stageUndo,
+  rotateScreenToken, sendToStage, showCheckOnStage, stageBack, stageBg, stageClear, stageDark, stagePrefs, stageUndo,
 } from '../stage/stage-api.js';
+import { writeTarget } from '../dice/dice-table.js';
+import { TableRollRow } from './RollRows.jsx';
+import { useOnRev, useTable } from './table-store.js';
 import { flash } from './flash.js';
 import '../stage/stage.css';
 
@@ -127,6 +136,8 @@ export default function StagePanel({ campaign, lang = 'pt', onChange, shownCheck
         <ShowPicker campaign={campaign} stage={stage} lang={lang} onChange={onChange} />
       </section>
 
+      <RollRules campaign={campaign} stage={stage} lang={lang} onChange={onChange} />
+
       <section className="mesa-panel stage-link-box" aria-labelledby="stage-link-h">
         <MesaTitle id="stage-link-h">{L(lang, 'Ligar a Tela', 'Connect the screen')}</MesaTitle>
         <div className="scr-link">
@@ -138,6 +149,97 @@ export default function StagePanel({ campaign, lang = 'pt', onChange, shownCheck
         <p className="mesa-hint">{L(lang, 'Abra este link no navegador da TV, do notebook ligado na TV ou de um tablet. “Gerar novo link” desliga o antigo.', 'Open this link in the browser of the TV, of a laptop connected to the TV or of a tablet. “New link” turns the old one off.')}</p>
       </section>
     </div>
+  );
+}
+
+const RULES = [
+  ['players', (lang) => L(lang, 'Dos jogadores', 'Players'), [
+    ['all', (lang) => L(lang, 'Todas', 'All')], ['crits', (lang) => L(lang, 'Só críticos', 'Crits only')], ['off', (lang) => L(lang, 'Nenhuma', 'None')]],
+  (v, lang) => ({
+    all: L(lang, 'Toda rolagem do rolador da Mesa vai à Tela.', 'Every roll from the table roller goes on screen.'),
+    crits: L(lang, 'Só 20 e 1 naturais no d20 (do rolador da Mesa e dos testes) vão à Tela.', 'Only natural 20s and 1s on the d20 (table roller and checks) go on screen.'),
+    off: L(lang, 'Nada dos jogadores vai à Tela (os pedidos que você mostrar continuam indo).', "Nothing from the players goes on screen (the requests you show still do)."),
+  })[v]],
+  ['dm', (lang) => L(lang, 'Do mestre', 'GM'), [
+    ['secret', (lang) => L(lang, '🔒 Só eu', '🔒 Only me')], ['shown', (lang) => L(lang, '📺 Na tela', '📺 On screen')]],
+  (v, lang) => (v === 'shown'
+    ? L(lang, 'O seu 🎲 começa em “📺 Na tela”: a TV mostra o dado com “Mestre”. Dá para trocar a cada rolagem.', 'Your 🎲 starts on “📺 On screen”: the TV shows the die as “GM”. You can switch on each roll.')
+    : L(lang, 'O seu 🎲 começa em “🔒 Só eu”: só você vê. Dá para trocar a cada rolagem.', 'Your 🎲 starts on “🔒 Only me”: only you see it. You can switch on each roll.'))],
+  ['monsters', (lang) => L(lang, 'Dos monstros', 'Monsters'), [
+    ['shown', (lang) => L(lang, '📺 Na tela', '📺 On screen')], ['secret', (lang) => L(lang, '🔒 Só eu', '🔒 Only me')]],
+  (v, lang) => (v === 'shown'
+    ? L(lang, 'Ataques e salvaguardas aplicados vão à Tela, sem o bônus do monstro.', 'Applied attacks and saves go on screen, without the monster’s bonus.')
+    : L(lang, 'Ataques e salvaguardas ficam com você (o cartão deixa mandar um por um).', 'Attacks and saves stay with you (the card lets you send one by one).'))],
+];
+
+/**
+ * Rolagens na Tela (§5.3 item 4) e o que a Tela mostra no combate (item 5): as regras
+ * gravadas no palco (`stage.prefs`, POST /stage {op:'prefs'}) e as últimas 5 rolagens
+ * de mesa (📺 ou 🔒), buscadas só quando o pulso muda.
+ */
+function RollRules({ campaign, stage, lang, onChange }) {
+  const prefs = stage?.prefs || {};
+  const cid = campaign.id;
+  const [busy, setBusy] = useState(false);
+  const [rolls, setRolls] = useState(null);
+  const table = useTable();
+  const load = useCallback(async () => {
+    try { const r = await api.listTableRolls(cid); setRolls((r.rolls || []).slice(0, 5)); } catch { /* fica o que estava */ }
+  }, [cid]);
+  useEffect(() => { load(); }, [load]);
+  useOnRev(table?.pulse?.checksRev, load, { table, fallbackMs: 15_000, initial: false });
+  const set = async (key, value) => {
+    if (busy || prefs[key] === value) return;
+    setBusy(true);
+    try {
+      await stagePrefs(cid, { [key]: value });
+      // o 🎲 do mestre passa a começar pela regra nova neste aparelho
+      if (key === 'dm') writeTarget({ campaignId: cid }, value);
+      flash(L(lang, 'Regra salva ✓', 'Rule saved ✓'));
+      onChange?.();
+    } catch {
+      flash(L(lang, 'Não salvou · confira a conexão', 'Not saved · check the connection'), { error: true });
+    } finally { setBusy(false); }
+  };
+  return (
+    <section className="mesa-panel stage-rolls-box" aria-labelledby="stage-rolls-h">
+      <MesaTitle id="stage-rolls-h">{L(lang, 'Rolagens na Tela', 'Rolls on screen')}</MesaTitle>
+      <p className="mesa-hint">{L(lang,
+        'As rolagens aparecem na TV em fila: as importantes no centro, o resto num cantinho que some sozinho.',
+        'Rolls show up on the TV in a queue: the important ones in the middle, the rest in a corner that fades by itself.')}</p>
+      {RULES.map(([key, title, options, explain]) => (
+        <div key={key} className="stage-rule-row">
+          <span className="stage-rule-title" id={`stage-rule-${key}`}>{title(lang)}</span>
+          <div className="mesa-seg stage-rule-seg" role="radiogroup" aria-labelledby={`stage-rule-${key}`}>
+            {options.map(([v, label]) => (
+              <button key={v} type="button" role="radio" aria-checked={prefs[key] === v} disabled={busy}
+                className={`mesa-seg-btn ${prefs[key] === v ? 'active' : ''}`} onClick={() => set(key, v)}>{label(lang)}</button>
+            ))}
+          </div>
+          <p className="mesa-hint stage-rule-why">{explain(prefs[key], lang)}</p>
+        </div>
+      ))}
+      <div className="stage-rule-row">
+        <span className="stage-rule-title">{L(lang, 'Durante o combate a Tela mostra', 'During combat the screen shows')}</span>
+        <div className="stage-rule-checks">
+          {[['initiative', L(lang, 'Ordem de iniciativa', 'Initiative order')], ['party', L(lang, 'PV do grupo', "Party's HP")]].map(([k, label]) => (
+            <label key={k} className="mesa-chip stage-rule-check">
+              <input type="checkbox" checked={prefs[k] !== false} disabled={busy} onChange={e => set(k, e.target.checked)} />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
+        <p className="mesa-hint stage-rule-why">{L(lang, 'Os monstros aparecem sempre só com a faixa de saúde.', 'Monsters always show only a health band.')}</p>
+      </div>
+      <div className="stage-rule-row">
+        <span className="stage-rule-title">{L(lang, 'Últimas 5', 'Last 5')}</span>
+        {rolls === null && <p className="muted small">{L(lang, 'Carregando…', 'Loading…')}</p>}
+        {rolls?.length === 0 && <p className="muted small">{L(lang, 'Nenhuma rolagem de mesa ainda.', 'No table rolls yet.')}</p>}
+        <div className="rolls-panel stage-rolls-list">
+          {(rolls || []).map(r => <TableRollRow key={r.id} r={r} lang={lang} compact />)}
+        </div>
+      </div>
+    </section>
   );
 }
 

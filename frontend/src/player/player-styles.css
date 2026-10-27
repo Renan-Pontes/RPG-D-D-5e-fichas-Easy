@@ -376,6 +376,8 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 .pl-last-die { min-width: 30px; text-align: center; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--stroke-strong); font-family: var(--mono, monospace); }
 .pl-last-mod { font-family: var(--mono, monospace); color: var(--ink-secondary); padding: 2px 0; }
 .pl-last-total { font-family: var(--display); font-size: 1.8rem; color: var(--gold-bright); }
+/* V10: a regra do mestre levou a rolagem à Tela */
+.pl-last-shown { flex-basis: 100%; font-size: 0.9rem; color: var(--gold); }
 
 /* ---------------------------------------------------------------- Mesa: alvos de 44 px (F6) */
 .pl-die { min-height: 44px; font-size: 0.9rem; }

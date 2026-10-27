@@ -242,11 +242,18 @@ export function seenSuffix(offline, lang = 'pt') {
   return offline ? L(lang, ' (última vez visto)', ' (last seen)') : '';
 }
 
-/** "🎲 Dagna 18 · Percepção" (★ no 20, ✗ no 1) */
+/**
+ * "🎲 Dagna 18 · Percepção" (★ no 20, ✗ no 1). Rolagens de mesa (V10, `kind` do
+ * pulso): o 🎲 do mestre sai como "Mestre"; o ataque de monstro como "🎲 Goblin #2 ⚔
+ * Dagna · d20 11" (sem o bônus); a salvaguarda em área como "🎲 Dragão · Sopro de Fogo".
+ */
 export function rollLine(roll, lang = 'pt') {
   if (!roll) return '';
+  const who = roll.kind === 'dm' && !roll.who ? L(lang, 'Mestre', 'GM') : (roll.who || L(lang, 'Rolagem', 'Roll'));
+  if (roll.kind === 'save') return `🎲 ${who}${roll.label ? ` · ${roll.label}` : ''}`;
   const mark = roll.crit ? ' ★' : roll.fail ? ' ✗' : '';
-  return `🎲 ${roll.who || L(lang, 'Rolagem', 'Roll')} ${roll.total ?? '?'}${mark}${roll.label ? ` · ${roll.label}` : ''}`;
+  if (roll.kind === 'monster') return `🎲 ${who} ⚔ ${roll.label || '?'} · d20 ${roll.total ?? '?'}${mark}`;
+  return `🎲 ${who} ${roll.total ?? '?'}${mark}${roll.label ? ` · ${roll.label}` : ''}`;
 }
 
 /**

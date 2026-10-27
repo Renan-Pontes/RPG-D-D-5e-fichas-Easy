@@ -1,7 +1,11 @@
 // Linhas de pedido de rolagem (RollRequest) usadas na lista única de Testes
 // e no painel do jogador. O mestre decide: mostrar na Tela, privado, ou
 // anotar o valor do dado físico que saiu na mesa.
+// TableRollRow (V10): uma rolagem de MESA (Testes › 🎲 Rolagens na Tela e as
+// "Últimas 5" de Jogar › Tela) — o mesmo texto que a TV mostra, com 📺 ou 🔒.
 import { useState } from 'react';
+import { rollLine } from '../screen/roll-queue.js';
+import { abilityLabel, damageTypeLabel } from '../combat/monster-i18n.js';
 
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
 
@@ -118,6 +122,30 @@ export function RollHistoryRow({ r, lang }) {
           {r.isCriticalFail && <span className="critfail-tag">{t(lang, 'FALHA', 'FUMBLE')}</span>}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Uma rolagem de mesa (📺 foi à Tela · 🔒 só o mestre). Texto de verdade; nada só por ícone. */
+export function TableRollRow({ r, lang, compact = false }) {
+  const row = { ...r, crit: r.isCritical, fail: r.isCriticalFail };
+  const labels = { damageLabel: (ty) => damageTypeLabel(ty, lang), abilityLabel: (a) => abilityLabel(a, lang) };
+  const at = r.resolvedAt ? new Date(r.resolvedAt).toLocaleTimeString(lang === 'en' ? 'en-US' : 'pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+  const shown = r.status === 'public';
+  return (
+    <div className={`roll-row history tl-table-roll ${compact ? 'is-compact' : ''} ${r.isCritical ? 'critical' : ''} ${r.isCriticalFail ? 'critfail' : ''}`}>
+      <div className="tl-table-roll-text">
+        <span className="tl-hist-tag">{shown ? `📺 ${t(lang, 'Tela', 'screen')}` : `🔒 ${t(lang, 'só você', 'only you')}`}</span>
+        <span className="tl-table-roll-line">{rollLine(row, lang, labels)}</span>
+      </div>
+      <div className="roll-result">
+        {at && <span className="muted small">{at}</span>}
+        {r.kind === 'save' && r.targets?.some(x => x.d20 != null) && (
+          <span className="muted small">d20 {r.targets.map(x => x.d20 ?? '—').join(' · ')}</span>
+        )}
+        {r.isCritical && <span className="crit-tag">{t(lang, 'CRÍTICO', 'CRIT')}</span>}
+        {r.isCriticalFail && <span className="critfail-tag">{t(lang, 'FALHA', 'FUMBLE')}</span>}
+      </div>
     </div>
   );
 }

@@ -232,6 +232,11 @@ test('linha 2: a 1ª que valer — sem conexão › rolagem › enviando › com
   assert.equal(barLines(base).l2, '● TV conectada (1)');
   assert.equal(barLines({ ...base, offlineFor: 9, lang: 'en' }).l2, '⟳ Offline for 9 s');
   assert.equal(barLines({ ...base, roll: { ...roll, crit: true } }).l2, '🎲 Dagna 18 ★ · Percepção');
+  // rolagens de mesa (V10): o mestre como "Mestre", o monstro sem o bônus, a salvaguarda resumida
+  assert.equal(barLines({ ...base, roll: { id: 7, kind: 'dm', who: '', label: 'Sorte', total: 12 } }).l2, '🎲 Mestre 12 · Sorte');
+  assert.equal(barLines({ ...base, lang: 'en', roll: { id: 7, kind: 'dm', who: '', label: '', total: 12 } }).l2, '🎲 GM 12');
+  assert.equal(barLines({ ...base, roll: { id: 8, kind: 'monster', who: 'Goblin #2', label: 'Dagna', total: 11 } }).l2, '🎲 Goblin #2 ⚔ Dagna · d20 11');
+  assert.equal(barLines({ ...base, roll: { id: 9, kind: 'save', who: 'Dragão', label: 'Sopro de Fogo', total: null } }).l2, '🎲 Dragão · Sopro de Fogo');
 });
 
 test('sem conexão: só depois de 8 s sem resposta', () => {

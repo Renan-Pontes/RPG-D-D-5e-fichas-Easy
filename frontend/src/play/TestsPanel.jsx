@@ -4,15 +4,20 @@
 // botão flutuante de dados.
 // Celular: a lista vem primeiro; "🎯 Pedir teste à mesa" abre uma folha.
 // Desktop (≥ 1024): 2 colunas, o pedir fixo à esquerda e a lista à direita.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+// V10: o filtro "🎲 Rolagens na Tela" lista as rolagens de MESA (o 🎲 do mestre 📺/🔒,
+// ataques e salvaguardas de monstro, 20/1 dos testes e o rolador da Mesa dos
+// jogadores; GET …/recent?table=1, ao abrir o filtro e quando o pulso muda). O Histórico
+// continua só com os pedidos, como antes.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { usePolling } from '../api/polling.js';
 import GroupCheckPanel, { DMCheckCard } from '../checks/GroupCheckPanel.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
-import { PendingDMRow, RollHistoryRow } from './RollRows.jsx';
+import { PendingDMRow, RollHistoryRow, TableRollRow } from './RollRows.jsx';
 import { testsBadge, unifyTests } from './scene-model.js';
 import { flash } from './flash.js';
+import { useOnRev, useTable } from './table-store.js';
 import useMedia from './useMedia.js';
 import '../checks/checks-styles.css';
 import '../campaigns/combat-styles.css';
@@ -24,6 +29,7 @@ export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount })
   const [data, setData] = useState({ checks: [], pendingRolls: [], recentRolls: [] });
   const [loaded, setLoaded] = useState(false);
   const [view, setView] = useState('open');
+  const [tableRolls, setTableRolls] = useState(null);   // null = ainda não buscou
   const [error, setError] = useState('');
   const [asking, setAsking] = useState(false);
   const wide = useMedia('(min-width: 1024px)');
@@ -40,6 +46,17 @@ export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount })
     setLoaded(true);
   }, [campaign.id]);
   usePolling(load, 3000, [campaign.id]);
+  // 🎲 Rolagens na Tela: busca ao abrir o filtro e quando o pulso diz que as rolagens
+  // mudaram (nenhum pedido a mais parado; sem o pulso, a cada 6 s com o filtro aberto).
+  const table = useTable();
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const loadTable = useCallback(async () => {
+    if (viewRef.current !== 'table') return;
+    try { const m = await api.listTableRolls(campaign.id); setTableRolls(m.rolls || []); } catch { /* o próximo tenta */ }
+  }, [campaign.id]);
+  useEffect(() => { if (view === 'table') loadTable(); }, [view, loadTable]);
+  useOnRev(table?.pulse?.checksRev, loadTable, { table, fallbackMs: 6000, initial: false });
 
   const groups = useMemo(() => unifyTests(data), [data]);
   const waiting = testsBadge(groups);
@@ -54,11 +71,12 @@ export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount })
   const cancel = (id) => act(() => api.cancelRoll(id));
   const onSent = () => { load(); setView('open'); };
 
-  const list = groups[view] || [];
+  const list = view === 'table' ? [] : (groups[view] || []);
   const tabs = [
     ['open', L(lang, 'Abertos', 'Open'), groups.open.length],
     ['answered', L(lang, 'Respondidos', 'Answered'), groups.answered.length],
     ['history', L(lang, 'Histórico', 'History'), groups.history.length],
+    ['table', L(lang, '🎲 Na Tela', '🎲 Screen'), 0, L(lang, 'Rolagens na Tela', 'Rolls on screen')],
   ];
 
   return (
@@ -76,8 +94,9 @@ export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount })
       <section className="mesa-panel tl-box" aria-labelledby="tl-h">
         <MesaTitle id="tl-h">{L(lang, 'Testes e rolagens', 'Checks and rolls')}</MesaTitle>
         <div className="mesa-seg tl-tabs" role="tablist" aria-label={L(lang, 'Filtrar', 'Filter')}>
-          {tabs.map(([k, label, n]) => (
-            <button key={k} type="button" role="tab" aria-selected={view === k}
+          {tabs.map(([k, label, n, full]) => (
+            <button key={k} type="button" role="tab" aria-selected={view === k} title={full}
+              aria-label={full ? `${full}` : undefined}
               className={`mesa-seg-btn tl-tab ${view === k ? 'active' : ''}`} onClick={() => setView(k)}>
               <span>{label}</span>{n > 0 && <span className="tl-count" aria-label={`(${n})`}>{n}</span>}
             </button>
@@ -85,7 +104,21 @@ export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount })
         </div>
         {error && <div className="check-card-error" role="alert">{error}</div>}
         {!loaded && <p className="muted small">{L(lang, 'Carregando…', 'Loading…')}</p>}
-        {loaded && list.length === 0 && (
+        {view === 'table' && (
+          <>
+            <p className="mesa-hint tl-table-hint">{L(lang,
+              'As rolagens da mesa: o seu 🎲 (📺 na Tela ou 🔒 só você), os monstros, os 20 e 1 dos testes e o rolador da Mesa dos jogadores. As regras ficam em Jogar › Tela.',
+              'Table rolls: your 🎲 (📺 on screen or 🔒 only you), the monsters, natural 20s and 1s of checks and the players’ table roller. The rules live in Play › Screen.')}</p>
+            {tableRolls === null && <p className="muted small">{L(lang, 'Carregando…', 'Loading…')}</p>}
+            {tableRolls?.length === 0 && (
+              <p className="muted tl-empty">{L(lang, 'Nenhuma rolagem de mesa ainda. Toque no 🎲 e escolha “📺 Na tela”.', 'No table rolls yet. Tap 🎲 and pick “📺 On screen”.')}</p>
+            )}
+            <div className="gc-list rolls-panel">
+              {(tableRolls || []).map(r => <TableRollRow key={r.id} r={r} lang={lang} />)}
+            </div>
+          </>
+        )}
+        {view !== 'table' && loaded && list.length === 0 && (
           <p className="muted tl-empty">
             {view === 'open' && (wide
               ? L(lang, 'Nada esperando. Toque numa perícia ao lado para pedir um teste à mesa.', 'Nothing waiting. Tap a skill on the left to ask the table for a check.')

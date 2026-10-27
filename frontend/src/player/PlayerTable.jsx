@@ -145,7 +145,12 @@ function ChecksSection({ campaign, char, lang }) {
   );
 }
 
-/** Rolador do jogador. "Pedir ao mestre" manda um pedido que ele resolve (na Tela ou privado). */
+/**
+ * Rolador do jogador. "Pedir ao mestre" manda um pedido que ele resolve (na Tela ou privado).
+ * Sem pedir (V10): o servidor rola e, quando a regra "Dos jogadores" do mestre deixa
+ * (Todas · Só críticos · Nenhuma), a rolagem aparece na Tela com o nome do personagem —
+ * o resultado diz "📺 apareceu na Tela".
+ */
 function DiceSection({ campaign, lang }) {
   const [diceType, setDiceType] = useState('d20');
   const [count, setCount] = useState(1);
@@ -199,14 +204,15 @@ function DiceSection({ campaign, lang }) {
         setLabel('');
         setAdv('normal');
       } else {
-        const r = await api.rollDice({ diceType, count, campaignId: campaign.id, label });
+        const r = await api.rollDice({ diceType, count, campaignId: campaign.id, label, modifier: modifier || 0 });
         const total = r.total + (modifier || 0);
-        setLast({ label, results: r.results, total, modifier });
+        setLast({ label, results: r.results, total, modifier, shown: !!r.shown });
         window.__diceShow?.({
           label: label || `${count}${diceType}`,
           groups: [{ die: parseInt(diceType.slice(1), 10), rolls: r.results.map(x => ({ value: x.value, kept: true })) }],
           mod: modifier || 0,
           total,
+          tableNote: r.shown ? 'player-shown' : undefined,
         });
       }
     } catch (e) {
@@ -285,6 +291,7 @@ function DiceSection({ campaign, lang }) {
             {last.modifier ? <span className="pl-last-mod">{last.modifier > 0 ? `+${last.modifier}` : last.modifier}</span> : null}
           </span>
           <span className="pl-last-total">{last.total}</span>
+          {last.shown && <span className="pl-last-shown">📺 {L(lang, 'apareceu na Tela', 'shown on the screen')}</span>}
         </div>
       )}
     </section>

@@ -98,6 +98,10 @@
 .arc-cond { min-height: 44px; font-size: 0.9rem; }
 .arc-cond input { width: 22px; height: 22px; }
 .arc-hitchips .mesa-chip { flex: 1 1 auto; justify-content: center; }
+/* V10: "📺 Vai à Tela" (ação ao vivo, 48 px; texto de verdade, nunca só o ícone) */
+.arc .arc-show { display: flex; width: 100%; min-height: 48px; margin-top: 10px; justify-content: center; white-space: normal; text-align: center; }
+.arc .arc-show.active { border-color: var(--gold); color: var(--gold-bright); background: var(--gold-soft); }
+.arc .src-source { margin: 6px 0 0; font-size: 0.85rem; color: var(--ink-muted); }
 .arc-adjust-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 10px; }
 .arc-hint { color: var(--ink-muted); font-size: 0.85rem; }
 .arc .muted.small { font-size: 0.85rem; }
@@ -284,9 +288,13 @@
   border-radius: 999px; background: var(--gold); color: var(--on-gold); font-size: 12px; font-weight: 700; line-height: 1;
 }
 @media (max-width: 380px) {
-  /* filtro em 1 linha em 320: o número vai para o canto do botão */
+  /* filtro em 320: o número vai para o canto do botão */
   .tl-tab.mesa-seg-btn { font-size: 0.86rem; padding: 4px 2px; }
   .tl-tab .tl-count { position: absolute; top: 1px; right: 2px; margin: 0; min-width: 18px; height: 18px; font-size: 12px; }
+}
+/* V10: com o 4º filtro (🎲 Na Tela), o celular usa 2 × 2 (nenhum rótulo cortado) */
+@media (max-width: 559px) {
+  .tl-tabs.mesa-seg { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .tl-empty { margin: 4px 0; }
 .tl-kind {
@@ -324,6 +332,15 @@
 .tl-physical-btns .mesa-btn { flex: 1 1 auto; }
 .tl-physical .check-card-error { flex-basis: 100%; }
 .tl-hist-tag { margin-left: 8px; font-size: 0.85rem; color: var(--ink-secondary); white-space: nowrap; }
+/* V10: rolagens de mesa (Testes › 🎲 Na Tela e as Últimas 5 de Jogar › Tela) */
+.tl-table-hint { margin: 0 0 8px; }
+/* uma coluna em toda largura: a linha (o mesmo texto da TV) e, embaixo, a hora e as marcas */
+.rolls-panel .roll-row.tl-table-roll { flex-direction: column; align-items: stretch; gap: 2px; }
+.tl-table-roll-text { flex: none; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.tl-table-roll-text .tl-hist-tag { margin-left: 0; }
+.tl-table-roll-line { min-width: 0; overflow-wrap: anywhere; color: var(--ink-primary); }
+.tl-table-roll .roll-result { flex-wrap: wrap; justify-content: flex-start; gap: 4px 10px; }
+.tl-table-roll.is-compact { padding: 6px 0; }
 @media (min-width: 1024px) {
   .tests-panel.is-wide { display: grid; grid-template-columns: minmax(340px, 420px) minmax(0, 1fr); align-items: start; gap: 16px; }
   .tests-ask-col { position: sticky; top: 64px; max-height: calc(100vh - 80px); overflow-y: auto; overscroll-behavior: contain; border-radius: 8px; }
