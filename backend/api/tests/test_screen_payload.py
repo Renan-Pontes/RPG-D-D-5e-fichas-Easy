@@ -78,12 +78,21 @@ class Base(TestCase):
 class ScreenPayloadTests(Base):
     def test_each_piece_goes_once(self):
         d = self.screen().json()
-        self.assertEqual(set(d), {'v', 'lang', 'card', 'stage', 'campaign'})
+        self.assertEqual(set(d), {'v', 'lang', 'card', 'stage', 'campaign', 'combat', 'state'})
         c = d['campaign']
         for key in ('state', 'members', 'combat', 'publicRolls', 'publicCheck'):
             self.assertIn(key, c)          # onde a TV de antes já lê (1 versão de transição)
         self.assertNotIn('card', c)        # o cartão só no topo (a TV de antes lê res.card primeiro)
         self.assertEqual(c['state'], {'session': '4', 'live': True})
+        # no topo, só o resumo que o app do mestre de antes lê (📺 do cabeçalho, Jogar › Telão)
+        self.assertEqual(d['combat'], {'active': True, 'round': 1, 'turnIndex': 0})
+        self.assertEqual(d['state'], {'session': '4', 'live': True})
+        self.combat.delete()
+        self.camp.state = {**self.camp.state, 'scene': 'Ponte velha', 'sceneText': 'x' * 900}
+        self.camp.save()
+        d = self.screen().json()
+        self.assertIsNone(d['combat'])
+        self.assertEqual(d['state'], {'session': '4', 'live': True, 'scene': 'Ponte velha'})
 
     def test_no_base64_and_small(self):
         r = self.screen()

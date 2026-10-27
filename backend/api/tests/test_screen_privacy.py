@@ -79,9 +79,11 @@ class ScreenWhitelistTests(Base):
         for leak in ('nudges', 'diarySessions', 'concentration', 'Segredo do mestre', 'levelingMode',
                      'É a vilã', 'Serve ao culto', 'Cimitarra', "'ac': 15", 'abilities'):
             self.assertNotIn(leak, raw, leak)
-        # V9: cada coisa vai uma vez, onde a TV de antes já lê (state e combate em `campaign`)
+        # V9: cada coisa vai uma vez, onde a TV de antes já lê (state e combate em `campaign`);
+        # no topo, só o resumo que o app do mestre de antes lê (1 versão)
         self.assertEqual(data['campaign']['state'], {'session': '2', 'scene': 'Taverna', 'weather': 'Chuva', 'live': True})
-        self.assertNotIn('state', data)
+        self.assertEqual(data['state'], {'session': '2', 'scene': 'Taverna', 'live': True})
+        self.assertEqual(data['combat'], {'active': True, 'round': 1, 'turnIndex': 0})
         self.assertEqual(data['campaign']['tagline'], 'Névoa')
         self.assertEqual(data['campaign']['accent'], '#b8862b')
         combat = data['campaign']['combat']

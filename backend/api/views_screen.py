@@ -23,7 +23,8 @@ com o JS antigo).
 Payload magro (V9): cada coisa vai UMA vez (antes `state`, `card` e `combat` iam
 no topo e de novo dentro de `campaign`). Ficam onde a TV de antes já lê:
 `card` e `stage` no topo; `state`, `members`, `combat`, `publicRolls` e
-`publicCheck` dentro de `campaign`. Foto do personagem (`avatar`), imagem do
+`publicCheck` dentro de `campaign`. No topo fica só um resumo de `combat` e de
+`state` para o app do mestre de antes (1 versão). Foto do personagem (`avatar`), imagem do
 token (`sprite`) e fundo do mapa (`backgroundUrl`) vão por URL com `?v=` (binário
 com ETag e cache de 1 ano): com fotos e tokens de verdade, cada mudança caiu de
 ~1 MB para poucos KB. `lang` é o idioma da campanha (o do mestre, gravado pelo
@@ -138,6 +139,12 @@ def screen(request, token):
         'lang': campaign._lang if campaign._lang in ('pt', 'en') else None,
         'card': card,
         'stage': stage,
+        # 1 versão de transição: o app do mestre de antes (📺 do cabeçalho e Jogar › Telão)
+        # lê `combat.active`/`round` e `state.scene` aqui no topo. Só o resumo (~150 bytes);
+        # o combate e o estado inteiros estão em `campaign`.
+        'combat': ({'active': combat_payload['active'], 'round': combat_payload['round'],
+                    'turnIndex': combat_payload['turnIndex']} if combat_payload else None),
+        'state': {k: state[k] for k in ('scene', 'session', 'live') if k in state},
         'campaign': {
             'id': campaign.id,
             'name': campaign.name,
