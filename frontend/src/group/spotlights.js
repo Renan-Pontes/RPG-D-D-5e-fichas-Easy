@@ -537,9 +537,13 @@ export function sceneIdeas(gaps, facts, lang = 'pt', limit = 3) {
   return out;
 }
 
-/** Texto da cena nova no plano ("＋ Levar para o plano"): a ideia e, embaixo, a lacuna. */
+/**
+ * Texto da cena nova no plano ("＋ Levar para o plano", "Usar numa cena"). Como no
+ * momentSceneText, a 1ª linha (o nome, que "Usar como cena" leva à Tela e ao jogador) fica
+ * neutra; a ideia e a lacuna vão nas notas, que só o mestre vê (§8: o jogador nunca vê o Raio-X).
+ */
 export function ideaSceneText(idea, lang = 'pt') {
-  return `${idea.text}\n${t(lang, 'Lacuna do grupo', 'Party gap')}: ${idea.gap}`.slice(0, 1000);
+  return `${t(lang, 'Cena nova', 'New scene')}\n${idea.text}\n${t(lang, 'Lacuna do grupo', 'Party gap')}: ${idea.gap}`.slice(0, 1000);
 }
 
 /**

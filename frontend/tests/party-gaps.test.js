@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import Utils from '../utils.js';
 import * as M from '../src/group/party-metrics.js';
 import * as S from '../src/group/spotlights.js';
+import { sceneFieldText } from '../src/play/plan-model.js';
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/party-jogo-e-combate.json', import.meta.url), 'utf8'));
 const party = M.partyMembers(fixture.members);
@@ -111,6 +112,12 @@ test('3 ideias de cena, de tipos diferentes, e o texto que vai para o plano', ()
   const dmgOnly = S.sceneIdeas(gaps.filter(g => g.kind === 'damage'), facts, 'pt');
   assert.match(dmgOnly[0].text, /^Um inimigo que resiste a .+: o grupo precisa de outro plano$/);
   const text = S.ideaSceneText(ideas[1], 'pt');
-  assert.equal(text, 'Uma cena em que só Blefar resolve (ninguém é bom nisso)\nLacuna do grupo: Ninguém é bom em Blefar (melhor +2; CD 15 passa 40%)');
+  assert.equal(text, 'Cena nova\nUma cena em que só Blefar resolve (ninguém é bom nisso)\nLacuna do grupo: Ninguém é bom em Blefar (melhor +2; CD 15 passa 40%)');
   assert.ok(text.length <= 1000, 'cabe numa cena do plano');
+  // "Usar como cena" leva só a 1ª linha à Tela e ao jogador: nada do Raio-X (§8)
+  for (const lang of ['pt', 'en']) {
+    for (const idea of S.sceneIdeas(gaps, facts, lang, 9)) {
+      assert.equal(sceneFieldText({ text: S.ideaSceneText(idea, lang) }), lang === 'pt' ? 'Cena nova' : 'New scene');
+    }
+  }
 });
