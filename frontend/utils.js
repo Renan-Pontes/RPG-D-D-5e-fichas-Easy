@@ -651,11 +651,13 @@ function maxHpDefault(char) {
 }
 
 /**
- * Pés que as classes somam ao deslocamento (2014 e 2024 iguais), pelo nível NA classe
- * (multiclasse conta cada uma): [{ id, value, label, name }]. Vazio com deslocamento fixo.
- * - Movimento sem Armadura (Monge 2+): +10, +15 no 6, +20 no 10, +25 no 14, +30 no 18;
- *   só sem armadura e sem escudo (a mesma condição das Artes Marciais).
- * - Movimento Rápido (Bárbaro 5+): +10 sem armadura pesada.
+ * Pés que as classes somam ao deslocamento, pelo nível NA classe (multiclasse conta
+ * cada uma): [{ id, value, label, name }]. Vazio com deslocamento fixo.
+ * - Movimento sem Armadura (Monge 2+, 2014 e 2024): +10, +15 no 6, +20 no 10, +25 no 14,
+ *   +30 no 18; só sem armadura e sem escudo (a mesma condição das Artes Marciais).
+ * - Movimento Rápido (Bárbaro 5+, 2014 e 2024): +10 sem armadura pesada.
+ * - Andarilho (Patrulheiro 6+, só 2024): +10 sem armadura pesada. O Andarilho opcional
+ *   do Tasha (2014, Explorador Hábil, +5) fica no texto da ficha.
  * Talentos (Móvel, Veloz: grants.speed), traços de subclasse, itens e condições não
  * entram no número: ficam no texto da ficha, e o mestre usa o deslocamento fixo.
  */
@@ -672,12 +674,19 @@ function speedBonuses(char) {
     out.push({ id: 'fastMovement', value: 10,
       label: { pt: 'Bárbaro', en: 'Barbarian' }, name: { pt: 'Movimento Rápido', en: 'Fast Movement' } });
   }
+  if (char.rulesVersion === '2024' && MC.classLevel(char, 'ranger') >= 6 && armor?.type !== 'heavy') {
+    out.push({ id: 'roving', value: 10,
+      label: { pt: 'Patrulheiro', en: 'Ranger' }, name: { pt: 'Andarilho', en: 'Roving' } });
+  }
   return out;
 }
 
-/** Texto curto dos bônus para o medalhão: '+4,5 m Monge' (pt) ou '+15 ft Monk'. */
+/**
+ * Texto curto dos bônus para o medalhão: '+4,5 m Monge' (pt) ou '+15 ft Monk'. Dentro de
+ * cada item os espaços não quebram: a linha só quebra na vírgula entre um item e outro.
+ */
 function speedBonusText(parts, lang) {
-  return parts.map(p => `+${speedLabel(p.value, lang)} ${p.label[lang] || p.label.pt}`).join(', ');
+  return parts.map(p => `+${speedLabel(p.value, lang)} ${p.label[lang] || p.label.pt}`.replace(/ /g, '\u00a0')).join(', ');
 }
 
 function speed(char) {

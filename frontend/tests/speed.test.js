@@ -4,7 +4,7 @@ import Utils from '../utils.js';
 import { buildSheetData } from '../src/pdf/sheet-data.js';
 
 // Deslocamento da ficha (Utils.speed): Movimento sem Armadura do Monge e Movimento
-// Rápido do Bárbaro, nas duas regras, pelo nível na classe.
+// Rápido do Bárbaro, nas duas regras, e Andarilho do Patrulheiro 2024, pelo nível na classe.
 const RULES = ['2014', '2024'];
 const ABIL = { str: 15, dex: 16, con: 14, int: 10, wis: 14, cha: 8 };
 const make = (rulesVersion, extra = {}) => ({
@@ -83,11 +83,33 @@ for (const rv of RULES) {
     // Ficha antiga com o Monge também na lista de multiclasse: conta uma vez.
     assert.equal(Utils.speed(monk(rv, 6, { multiclass: [{ id: 'monk' }] })), 45);
     // Classes sem bônus continuam iguais.
-    for (const className of ['fighter', 'rogue', 'cleric', 'paladin', 'wizard', 'ranger']) {
+    for (const className of ['fighter', 'rogue', 'cleric', 'paladin', 'wizard']) {
       assert.equal(Utils.speed(make(rv, { className, level: 10 })), 30, className);
     }
   });
 }
+
+test('Patrulheiro: Andarilho só em 2024, no nível 6, menos com armadura pesada', () => {
+  const ranger = (rv, level, extra) => make(rv, { className: 'ranger', level, ...extra });
+  assert.equal(Utils.speed(ranger('2014', 6)), 30, '2014 não tem Andarilho na regra-base');
+  assert.equal(Utils.speed(ranger('2014', 20, { armor: 'leather' })), 30);
+  assert.equal(Utils.speed(ranger('2024', 5, { armor: 'leather' })), 30);
+  assert.equal(Utils.speed(ranger('2024', 6, { armor: 'leather' })), 40, 'humano 30 + 10');
+  assert.equal(Utils.speed(ranger('2024', 6, { armor: 'breastplate', hasShield: true })), 40, 'média e escudo não tiram');
+  assert.equal(Utils.speed(ranger('2024', 6, { armor: 'chainMail' })), 30, 'pesada tira (FOR 15 ≥ 13)');
+  assert.equal(Utils.speed(ranger('2024', 20)), 40, 'o bônus não cresce');
+  assert.deepEqual(Utils.speedBonuses(ranger('2024', 6)).map(b => [b.id, b.value]), [['roving', 10]]);
+  assert.deepEqual(Utils.speedBonuses(ranger('2024', 6, { speedOverride: 25 })), []);
+  // Multiclasse pelo nível na classe: Guerreiro 4 / Patrulheiro 6 sim; Patrulheiro 5 / Monge 2 só o Monge.
+  const f4r6 = make('2024', { className: 'fighter', level: 10, multiclass: [{ id: 'ranger' }],
+    classSequence: [...Array(4).fill('fighter'), ...Array(6).fill('ranger')] });
+  assert.equal(Utils.speed(f4r6), 40);
+  const r5m2 = make('2024', { className: 'ranger', level: 7, multiclass: [{ id: 'monk' }],
+    classSequence: [...Array(5).fill('ranger'), 'monk', 'monk'] });
+  assert.deepEqual(Utils.speedBonuses(r5m2).map(b => b.id), ['unarmoredMovement']);
+  assert.equal(Utils.speed(r5m2), 40);
+  assert.equal(Utils.speedBonusText(Utils.speedBonuses(ranger('2024', 6)), 'pt'), '+3\u00a0m\u00a0Patrulheiro');
+});
 
 test('números para o servidor: CA e deslocamento automático, sem o fixo do mestre', () => {
   // O fixo do mestre fica em speedOverride (o servidor confere antes); data.speed é o automático,
@@ -113,19 +135,24 @@ test('espécie entra como base: Elfo da Floresta 2014 Monge 6 anda 50; anão 201
   assert.equal(Utils.speed(make('2024', { race: 'goliath', className: 'barbarian', level: 5 })), 45);
 });
 
-test('texto do bônus no medalhão: pt em metros, en em pés', () => {
-  assert.equal(Utils.speedBonusText(Utils.speedBonuses(monk('2024', 6)), 'pt'), '+4,5 m Monge');
-  assert.equal(Utils.speedBonusText(Utils.speedBonuses(monk('2024', 6)), 'en'), '+15 ft Monk');
-  assert.equal(Utils.speedBonusText(Utils.speedBonuses(monk2barb5('2014')), 'pt'), '+3 m Monge, +3 m Bárbaro');
-  assert.equal(Utils.speedBonusText(Utils.speedBonuses(monk2barb5('2014')), 'en'), '+10 ft Monk, +10 ft Barbarian');
+test('texto do bônus no medalhão: pt em metros, en em pés; só quebra entre um item e outro', () => {
+  const nb = (s) => s.replace(/ /g, '\u00a0'); // espaço não separável dentro do item
+  assert.equal(Utils.speedBonusText(Utils.speedBonuses(monk('2024', 6)), 'pt'), nb('+4,5 m Monge'));
+  assert.equal(Utils.speedBonusText(Utils.speedBonuses(monk('2024', 6)), 'en'), nb('+15 ft Monk'));
+  assert.equal(Utils.speedBonusText(Utils.speedBonuses(monk2barb5('2014')), 'pt'), `${nb('+3 m Monge')}, ${nb('+3 m Bárbaro')}`);
+  assert.equal(Utils.speedBonusText(Utils.speedBonuses(monk2barb5('2014')), 'en'), `${nb('+10 ft Monk')}, ${nb('+10 ft Barbarian')}`);
   assert.equal(Utils.speedBonusText([], 'pt'), '');
 });
 
-test('PDF: Monge 6 humano sai com 45 ft (13,5 m)', () => {
+test('PDF: Monge 6 humano sai com 45 ft (13,5 m); Patrulheiro 2024 6 com 40 ft', () => {
   for (const rv of RULES) {
     const c = monk(rv, 6, { name: 'Irmã Ventania' });
     assert.equal(buildSheetData(c, 'en').fields.Speed, '45 ft');
     assert.equal(buildSheetData(c, 'pt').fields.Speed, '13,5 m');
     assert.equal(buildSheetData({ ...c, armor: 'leather' }, 'en').fields.Speed, '30 ft');
   }
+  // Patrulheiro 2024 nível 6 de couro: 40 ft (12 m).
+  const ranger = make('2024', { className: 'ranger', level: 6, armor: 'leather', name: 'Patrulheira Seis' });
+  assert.equal(buildSheetData(ranger, 'en').fields.Speed, '40 ft');
+  assert.equal(buildSheetData(ranger, 'pt').fields.Speed, '12 m');
 });
