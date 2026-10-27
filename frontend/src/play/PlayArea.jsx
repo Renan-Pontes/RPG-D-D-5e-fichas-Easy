@@ -91,7 +91,7 @@ export default function PlayArea(props) {
             onChange={onChange} onNavigate={onNavigate} goTo={goTo} turnStrip={!inShell} />
         )}
         {sub === 'combat' && (
-          <CombatTab campaign={campaign} lang={lang} onChange={onChange} onNavigate={onNavigate} turnStrip={!inShell}
+          <CombatTab campaign={campaign} lang={lang} onChange={onChange} onNavigate={onNavigate} goTo={goTo} turnStrip={!inShell}
             params={area.area === 'play' ? area.params : null} />
         )}
         {sub === 'checks' && <TestsPanel campaign={campaign} lang={lang} onChange={onChange} onCount={setTestsWaiting} />}

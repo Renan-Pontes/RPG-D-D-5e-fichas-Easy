@@ -885,3 +885,183 @@ button.cs-cond:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-off
   .ct-row.is-sel, .cs-target.is-on { outline: 2px solid Highlight; }
   .cs-gem::before { filter: none; }
 }
+
+/* ==========================================================
+   V8 · Combate rápido e seguro (especificação §4.6, W4)
+   ========================================================== */
+/* linha de ações (48 px, sempre no mesmo lugar): 🎯 Pedir teste · 📺 Mostrar · ⋯ Combate */
+.ct-acts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.mesa-btn.ct-act { min-width: 0; padding: 4px 6px; gap: 6px; white-space: normal; line-height: 1.15; }
+.ct-acts .ct-more-label { display: inline; }
+.combat-tab.is-wide .ct-acts { grid-template-columns: repeat(3, max-content); }
+.mesa-btn.ct-end { min-height: 44px; padding: 6px 12px; }
+.ct-adds { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+
+/* "Monte o combate em 3 passos" */
+.mesa-panel.ct-setup { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+.ct-setup .mesa-eyebrow { margin: 0; }
+.mesa-btn.ct-scene-fight { white-space: normal; text-align: left; justify-content: flex-start; }
+.ct-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ct-step {
+  display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 8px;
+  min-height: 56px; padding: 4px 8px; border: 1px solid rgba(224, 181, 94, 0.2); border-radius: 8px;
+  background: rgba(10, 7, 6, 0.35);
+}
+.ct-step-n { font-size: 20px; line-height: 1; text-align: center; color: var(--gold); }
+.ct-step.is-done .ct-step-n { color: var(--moss-bright); }
+.ct-step-main { display: flex; flex-direction: column; min-width: 0; }
+.ct-step-main strong { font-family: var(--display); font-size: 0.92rem; color: var(--ink-primary); }
+.ct-step-sub { font-size: 13px; color: var(--ink-secondary); }
+.mesa-btn.ct-step-btn { padding: 6px 10px; white-space: nowrap; }
+.ct-init-line { margin: 0; padding: 8px 10px; border-radius: 8px; background: rgba(214, 176, 100, 0.08); color: var(--gold-bright); font-size: 15px; overflow-wrap: anywhere; }
+.ct-setup-go { display: flex; flex-direction: column; gap: 6px; }
+.ct-setup-go .mesa-btn { width: 100%; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* linha do combatente: 56 px, pílula de PV 72×44 (abre o teclado de dano) */
+.ct-row { min-height: 56px; grid-template-columns: 28px 36px minmax(0, 1fr) 72px; }
+@media (max-width: 360px) {
+  .ct-row { grid-template-columns: 26px 36px minmax(0, 1fr) 72px; column-gap: 5px; }
+}
+.ct-init.is-guess { border-style: dashed; color: var(--gold-bright); font-size: 12px; }
+.ct-hp-pill {
+  grid-area: side; position: relative; z-index: 1; align-self: center;
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; min-width: 72px; height: 44px; padding: 0 4px;
+  border: 1px solid rgba(224, 181, 94, 0.45); border-radius: 10px;
+  background: rgba(10, 7, 6, 0.55); cursor: pointer;
+}
+.ct-hp-pill .mesa-hp.ct-hp { width: 100%; height: 26px; }
+.ct-hp-pill .mesa-hp-text { font-size: 14px; font-weight: 700; }
+.ct-hp-pill:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+.ct-row.has-conds .ct-hp-pill { grid-row: 1; align-self: center; }
+/* a marca da vez: ✓ agiu (esmaecida) · ▶ agora (dourada) · † caiu */
+.ct-mark { font-family: var(--display); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; line-height: 26px; color: var(--ink-secondary); white-space: nowrap; }
+.ct-mark.is-now { color: var(--fh-gold-hi); }
+.ct-mark.is-down { color: var(--blood-bright); }
+.ct-row.mark-acted { opacity: 0.68; }
+.ct-row.mark-now { border-color: color-mix(in srgb, var(--gold) 80%, transparent); }
+/* "Vários alvos": caixa de 48 px no lugar da iniciativa e o "½ passou" no marcado */
+.ct-row.is-marking { grid-template-columns: 48px 36px minmax(0, 1fr) 72px; }
+.ct-mark-box {
+  grid-area: init; position: relative; z-index: 1; width: 48px; height: 48px; padding: 0;
+  border: 2px solid var(--gold-deep); border-radius: 8px; background: rgba(10, 7, 6, 0.55);
+  color: var(--fh-gold-hi); font-size: 22px; font-weight: 700; cursor: pointer;
+}
+.ct-mark-box.is-on { background: rgba(214, 176, 100, 0.25); border-color: var(--gold-bright); }
+.ct-row.is-marked { box-shadow: inset 0 0 0 2px var(--gold-bright); }
+.mesa-chip.ct-half { position: relative; z-index: 1; min-height: 44px; padding: 4px 12px; font-size: 13px; }
+.ct-mark-hint { margin: 0; }
+.ct-multi-bar {
+  position: fixed; z-index: 42; left: 0; right: 0;
+  bottom: calc(var(--shell-bar-h, 62px) + env(safe-area-inset-bottom, 0px));
+  display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.4fr); align-items: center; gap: 8px;
+  padding: 8px max(12px, env(safe-area-inset-right, 0px)) 8px max(12px, env(safe-area-inset-left, 0px));
+  background: linear-gradient(180deg, #1d140f, #140e0b); border-top: 1px solid var(--gold-deep);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.5);
+}
+.ct-multi-bar .mesa-btn { min-width: 0; padding-left: 8px; padding-right: 8px; white-space: normal; }
+.ct-multi-n { font-family: var(--display); font-size: 13px; color: var(--gold-bright); white-space: nowrap; }
+body:has(.mesa-bar) .ct-multi-bar { bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bar-h, 64px) + env(safe-area-inset-bottom, 0px)); }
+.combat-tab.is-marking { padding-bottom: 80px; }
+@media (min-width: 768px) {
+  .ct-multi-bar { left: 50%; right: auto; bottom: 16px; transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); border: 1px solid var(--gold-deep); border-radius: 12px; }
+}
+
+/* ⋯ Combate: Recomeçar (pergunta "Manter o mapa?") e o fim guiado */
+.ct-reset { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid rgba(224, 96, 79, 0.55); border-radius: 8px; background: rgba(110, 31, 23, 0.18); }
+.ct-reset p { margin: 0; }
+.ct-reset-btns { display: flex; flex-direction: column; gap: 8px; }
+.cs-check.ct-wizard { align-items: flex-start; padding-top: 10px; padding-bottom: 10px; }
+.ct-wizard > span { display: flex; flex-direction: column; gap: 2px; }
+.ct-wizard-hint { font-size: 13px; color: var(--ink-secondary); }
+
+/* folha do combatente: "Tirar …?" na linha e a iniciativa editável */
+.cs-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid rgba(224, 96, 79, 0.6); border-radius: 8px; background: rgba(110, 31, 23, 0.2); }
+.cs-ask-q { flex: 1 1 160px; margin: 0; font-size: 15px; }
+.cs-ask-btns { display: flex; gap: 8px; }
+button.cs-stat.cs-init-btn { min-height: 44px; padding: 0 12px; border: 1px dashed var(--gold-deep); border-radius: 6px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+button.cs-stat.cs-init-btn.is-guess { border-color: var(--gold-bright); color: var(--gold-bright); }
+.cs-init-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cs-init-edit .input { width: 5.5rem; min-height: 44px; font-size: 16px; }
+.cs-init-note { margin: 0; }
+
+/* teclado de dano (folha baixa, para acima da barra da mesa; e a aba PV) */
+.mesa-sheet.dp-sheet { max-height: min(92vh, 470px); }
+.mesa-sheet-body.dp-sheet-body { padding-top: 6px; padding-bottom: 4px; }
+.dp { display: flex; flex-direction: column; gap: 6px; }
+.dp-top { display: grid; grid-template-columns: minmax(84px, 120px) minmax(0, 1fr); gap: 8px; align-items: center; }
+.dp-screen {
+  display: flex; align-items: center; justify-content: center; height: 46px; padding: 0 10px;
+  border: 1px solid var(--gold-deep); border-radius: 8px; background: rgba(10, 7, 6, 0.7);
+  font-family: var(--mono); font-size: 28px; font-weight: 700; color: var(--fh-gold-hi); overflow: hidden;
+}
+.dp-screen-ph { color: var(--ink-muted); }
+.dp-types { display: flex; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: 2px; scrollbar-width: thin; }
+.mesa-chip.dp-type { flex: none; min-height: 44px; padding: 4px 12px; font-size: 13px; white-space: nowrap; }
+.mesa-chip.dp-type.is-more { min-width: 44px; justify-content: center; font-size: 18px; }
+.dp-main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(88px, 1.3fr); gap: 8px; }
+.dp-keys { display: grid; grid-template-columns: repeat(3, minmax(64px, 1fr)); grid-auto-rows: 52px; gap: 6px; }
+.dp-key {
+  min-width: 64px; height: 52px; padding: 0; border: 1px solid rgba(224, 181, 94, 0.4); border-radius: 8px;
+  background: linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather-lo)); color: var(--ink-primary);
+  font-family: var(--mono); font-size: 22px; font-weight: 700; cursor: pointer; touch-action: manipulation;
+}
+.dp-key.is-fn { color: var(--gold-bright); font-family: var(--body); }
+.dp-key:active { background: rgba(214, 176, 100, 0.22); }
+.dp-key:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 1px; }
+.dp-acts { display: grid; grid-template-rows: 56px 56px 48px 48px; gap: 6px; }
+.mesa-btn.dp-act { min-width: 0; min-height: 48px; padding: 4px 6px; gap: 4px; flex-wrap: wrap; white-space: normal; line-height: 1.1; font-size: 0.9rem; }
+.mesa-btn.dp-act.is-dmg, .mesa-btn.dp-act.is-heal { min-height: 56px; }
+.mesa-btn.dp-act.is-dmg { background: linear-gradient(180deg, #8c2a1f, #6e1f17); border-color: var(--blood-bright); color: #ffe5df; }
+.mesa-btn.dp-act.is-heal { background: rgba(156, 192, 101, 0.16); border-color: rgba(156, 192, 101, 0.7); color: var(--moss-bright); }
+.mesa-btn.dp-act.is-temp { color: var(--arcane-bright); border-color: rgba(159, 176, 240, 0.6); }
+.dp-act-n { font-family: var(--mono); font-size: 1.05rem; }
+.dp-links { display: flex; justify-content: space-between; align-items: center; gap: 6px; min-height: 44px; }
+.dp-info { flex: 1 1 auto; min-width: 0; text-align: center; font-family: var(--display); font-size: 12px; letter-spacing: 0.06em; color: var(--ink-secondary); overflow-wrap: anywhere; }
+.mesa-btn.dp-link { flex: none; padding-left: 4px; padding-right: 4px; white-space: nowrap; }
+@media (max-width: 359px) { .mesa-btn.dp-link { font-size: 0.78rem; letter-spacing: 0; } }
+.dp-hint, .dp-error { margin: 0; }
+@media (max-width: 359px) {
+  .dp-keys { grid-template-columns: repeat(3, 64px); }
+  .dp-main { grid-template-columns: 204px minmax(0, 1fr); gap: 6px; }
+  .mesa-btn.dp-act { font-size: 0.82rem; padding: 2px 4px; letter-spacing: 0; }
+}
+
+/* folha "Começar o combate" */
+.sc-groups { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sc-group { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 52px; padding: 4px 8px; border: 1px solid rgba(224, 181, 94, 0.25); border-radius: 8px; }
+.sc-group.is-off { opacity: 0.55; }
+.sc-group-name { min-width: 0; overflow-wrap: anywhere; }
+.sc-step { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.mesa-icon-btn.sc-step-btn { width: 44px; height: 44px; font-size: 20px; }
+.sc-step-n { min-width: 24px; text-align: center; font-family: var(--mono); font-size: 18px; }
+.mesa-btn.sc-add { margin-bottom: 10px; }
+.sc-opts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.cs-check.sc-check, .cs-check.sc-radio { align-items: flex-start; padding-top: 10px; padding-bottom: 10px; line-height: 1.3; }
+.sc-mode { display: flex; flex-direction: column; gap: 6px; margin: 0 0 10px; padding: 0; border: 0; }
+.sc-mode legend { margin-bottom: 4px; padding: 0; }
+.sc-sub { font-style: normal; font-size: 13px; color: var(--ink-secondary); }
+.mesa-btn.sc-more { padding-left: 0; }
+.sc-more-body { display: flex; flex-direction: column; gap: 8px; }
+.sc-label { margin: 6px 0 0; font-family: var(--display); font-size: 12px; letter-spacing: 0.08em; color: var(--gold); }
+.sc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sc-chips .mesa-chip { min-height: 44px; }
+.sc-foot { display: flex; flex-direction: column; gap: 6px; }
+.sc-foot .sc-go { width: 100%; }
+.sc-why { margin: 0; }
+
+/* Jogar › Cena: a linha do combate da sala */
+.mesa-row.ins-fight { margin: 8px 0; }
+.mesa-btn.ins-fight-go { min-height: 48px; white-space: normal; }
+
+/* fim guiado: o tesouro da cena */
+.eoe-scene-treasure { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.eoe-scene-text { margin: 0; }
+/* celular estreito: a linha de ações e os 3 passos cabem sem cortar o texto */
+.ct-step-main strong { overflow-wrap: break-word; }
+@media (max-width: 400px) {
+  .mesa-btn.ct-act { font-size: 0.76rem; letter-spacing: 0; padding: 4px; gap: 4px; }
+  .mesa-btn.ct-step-btn { max-width: 9.5rem; white-space: normal; font-size: 0.78rem; letter-spacing: 0; padding: 4px 8px; }
+  .ct-step-main strong { font-family: var(--body); font-size: 15px; font-weight: 700; letter-spacing: 0; }
+}

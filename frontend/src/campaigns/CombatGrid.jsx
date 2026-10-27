@@ -379,7 +379,7 @@ const zoomText = (z, lang) => {
   return `${lang === 'pt' ? s.replace('.', ',') : s}×`;
 };
 
-function LiveGrid({ combat, campaignId, lang, onChange, selectedId, setSelectedId, onTokenTap }) {
+function LiveGrid({ combat, campaignId, lang, onChange, selectedId, setSelectedId, onTokenTap, toolsSignal = 0 }) {
   const canvasRef = useRef(null);
   const { bgImage, tokenImages } = useMapImages(combat);
   const { W, H, gridSize, gridVisible } = mapInfo(combat);
@@ -387,6 +387,8 @@ function LiveGrid({ combat, campaignId, lang, onChange, selectedId, setSelectedI
   const wide = useMedia('(min-width: 1024px)', true);
   const coarse = useMedia('(pointer: coarse)');
   const [toolsOpen, setToolsOpen] = useState(false);
+  // "⋯ Combate › Ferramentas do mapa" (V8) abre as ferramentas daqui de fora.
+  useEffect(() => { if (toolsSignal) setToolsOpen(true); }, [toolsSignal]);
   const [hover, setHover] = useState(null);
   const [nonce, redraw] = useState(0);
 

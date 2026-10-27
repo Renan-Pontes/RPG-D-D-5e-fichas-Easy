@@ -1,12 +1,11 @@
 import { errorMessage } from '../api/errors.js';
 import { useMemo, useState } from 'react';
 import { api } from '../api/client.js';
-import { monsterForCombat } from '../../data/bestiary.js';
 import { DIFFICULTY_LABEL } from '../combat/encounter.js';
 import { buildCheckPayload } from '../checks/check-logic.js';
 import GiveItemModal from '../campaigns/GiveItemModal.jsx';
 import {
-  NODE_KIND, pathsFrom, nodeEncounter, encounterCombatants, edgeText, treasureSummary, hasTreasure,
+  NODE_KIND, pathsFrom, nodeEncounter, edgeText, treasureSummary, hasTreasure,
   coinsText, addCoins, COINS, COIN_LABEL,
 } from './prep-graph.js';
 import { checkText, monsterLookup } from './NodeEditor.jsx';
@@ -16,6 +15,8 @@ import { WorldChip } from './WorldRefs.jsx';
 import usePrepConfirm from './usePrepConfirm.jsx';
 import ShowOnTable from '../stage/ShowOnTable.jsx';
 import { sendToStage, showOnStage } from '../stage/stage-api.js';
+import StartCombatSheet, { sceneOfNode } from '../play/StartCombatSheet.jsx';
+import { sceneAsMap } from '../play/combat-actions.js';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
@@ -32,8 +33,7 @@ export default function PlayPanel({
   const play = adventure.play;
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState('');
-  const [startNow, setStartNow] = useState(false);
-  const [withPcs, setWithPcs] = useState(true);
+  const [starting, setStarting] = useState(false);   // a folha "Começar o combate" (V8)
   const [giving, setGiving] = useState(false);
   const [confirm, confirmEl] = usePrepConfirm(lang);
   const lookup = useMemo(() => monsterLookup(), []);
@@ -50,28 +50,6 @@ export default function PlayPanel({
       setMsg(`${t(lang, 'Falhou', 'Failed')}: ${errorMessage(e, lang)}`);
     } finally { setBusy(''); }
   };
-
-  const startEncounter = () => run('enc', async () => {
-    const bodies = encounterCombatants(node, {
-      resolve: (e) => lookup(e.monsterId) || e.snapshot || null, toCombat: monsterForCombat, lang,
-    });
-    if (!bodies.length) throw new Error(t(lang, 'monstros não encontrados no catálogo', 'monsters not found in the catalog'));
-    let pcs = [];
-    if (withPcs) {
-      const combat = await api.getCombat(campaign.id).catch(() => null);
-      const inFight = new Set((combat?.combat?.combatants || []).filter(c => c.type === 'pc').map(c => c.character_id));
-      pcs = (campaign.members || []).filter(m => m.role !== 'dm' && m.character && !inFight.has(m.character.id));
-    }
-    for (const b of bodies) await api.addCombatant(campaign.id, b);
-    for (const [i, m] of pcs.entries()) {
-      await api.addCombatant(campaign.id, {
-        type: 'pc', characterId: m.character.id, initiative: 10, position: { x: 100 + i * 60, y: 220 }, tokenScale: 1,
-      });
-    }
-    if (startNow) await api.startCombat(campaign.id);
-  }, t(lang,
-    `${enc.monsters} monstro(s) no combate${withPcs ? ' + PJs' : ''}${startNow ? ' · combate iniciado' : ''}. Ajuste as iniciativas em Jogar › Combate.`,
-    `${enc.monsters} monster(s) added${withPcs ? ' + PCs' : ''}${startNow ? ' · combat started' : ''}. Adjust initiative under Play › Combat.`));
 
   const askCheck = (c) => run(`chk-${c.skill}`, async () => {
     const isSave = c.skill.startsWith('save:');
@@ -117,12 +95,9 @@ export default function PlayPanel({
       text: t(lang, 'Esta imagem vira o mapa do combate e da Tela. O mapa atual será substituído.', 'This image becomes the combat and screen map. The current map will be replaced.'),
       ok: t(lang, 'Usar imagem', 'Use image'),
     }))) return;
-    run('map', () => new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => api.setCombatMap(campaign.id, { background_image: node.image, width_px: img.width, height_px: img.height }).then(resolve, reject);
-      img.onerror = () => reject(new Error('image'));
-      img.src = node.image;
-    }), t(lang, 'Mapa do combate atualizado.', 'Combat map updated.'));
+    // V8: o servidor copia a imagem da sala (map-from); o servidor antigo recebe de novo
+    run('map', () => sceneAsMap(campaign.id, { advId: adventure.id, nodeId: node.id }, node.image),
+      t(lang, 'Mapa do combate atualizado.', 'Combat map updated.'));
   };
 
   const diffLabel = DIFFICULTY_LABEL[enc.rating]?.[lang] || DIFFICULTY_LABEL[enc.rating]?.en;
@@ -260,12 +235,9 @@ export default function PlayPanel({
             `dificuldade: fácil até ${enc.budget.low}, média até ${enc.budget.moderate}, difícil até ${enc.budget.high} XP`,
             `difficulty: easy up to ${enc.budget.low}, medium up to ${enc.budget.moderate}, hard up to ${enc.budget.high} XP`)}</p>
           <div className="adv-row wrap">
-            <label className="me-check small"><input type="checkbox" checked={withPcs} onChange={e => setWithPcs(e.target.checked)} />{t(lang, 'Incluir PJs que faltam', 'Add missing PCs')}</label>
-            <label className="me-check small"><input type="checkbox" checked={startNow} onChange={e => setStartNow(e.target.checked)} />{t(lang, 'Já iniciar o combate', 'Start combat now')}</label>
-          </div>
-          <div className="adv-row wrap">
-            <button type="button" className="btn btn-primary btn-sm" disabled={busy === 'enc'} onClick={startEncounter}>
-              ⚔ {busy === 'enc' ? '…' : t(lang, 'Começar encontro', 'Start encounter')}
+            {/* incluir os personagens, pedir a iniciativa, Trocar/Somar e "já iniciar" ficam na folha */}
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => setStarting(true)}>
+              ⚔ {t(lang, 'Começar o combate', 'Start combat')}
             </button>
             {(goTo || onOpenTab) && <button type="button" className="btn btn-ghost btn-sm" onClick={goCombat}>{t(lang, 'Ir para Combate', 'Go to Combat')} →</button>}
           </div>
@@ -310,6 +282,10 @@ export default function PlayPanel({
       {msg && <p className="prep-msg" role="status">{msg}</p>}
 
       {confirmEl}
+      {starting && (
+        <StartCombatSheet campaign={campaign} lang={lang} scene={sceneOfNode(adventure, node, lang)}
+          onClose={() => setStarting(false)} onStarted={() => goCombat()} />
+      )}
       {giving && (
         <TreasureModal node={node} campaign={campaign} adventure={adventure} lang={lang}
           onClose={() => setGiving(false)} onDone={(text) => { setGiving(false); setMsg(text); }} />
@@ -322,7 +298,7 @@ export default function PlayPanel({
  * Entregar tesouro do nó a um personagem: escolhe itens e moedas; itens vão por
  * api.invAdd (o diário registra sozinho), moedas pela edição do mestre.
  */
-function TreasureModal({ node, campaign, adventure, lang, onClose, onDone }) {
+export function TreasureModal({ node, campaign, adventure, lang, onClose, onDone }) {
   const players = (campaign.members || []).filter(m => m.role !== 'dm' && m.character);
   const [charId, setCharId] = useState(players[0]?.character.id || '');
   const [picked, setPicked] = useState(() => new Set((node.treasure?.items || []).map((_, i) => i)));

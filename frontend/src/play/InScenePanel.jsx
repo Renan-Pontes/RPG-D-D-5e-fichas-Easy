@@ -3,6 +3,8 @@
 // no plano da próxima sessão. Cada cartão tem 👁 Revelar e o 📺 único
 // (ShowOnTable: oculto pergunta "Só a imagem / Revelar e mostrar").
 // Regra: nada é revelado nem mostrado sem o toque do mestre.
+// V8: a sala com combate ganha a linha "⚔ 2 Goblin Guerreiro [Começar o combate]",
+// que abre a folha Começar o combate (StartCombatSheet) e leva a Jogar › Combate.
 // No celular, cada cartão é uma linha (EntryRow): o toque abre o cartão no
 // Mundo e os botões ficam à direita, com 44 px; "Quem vê…" abre uma folha.
 import { useCallback, useMemo, useState } from 'react';
@@ -17,6 +19,7 @@ import ShowOnTable from '../stage/ShowOnTable.jsx';
 import { getAdventure, listAdventures } from './play-api.js';
 import { activeScene, sceneEntries } from './scene-model.js';
 import { flash } from './flash.js';
+import StartCombatSheet, { sceneOfNode } from './StartCombatSheet.jsx';
 import './play-styles.css';
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
@@ -72,6 +75,7 @@ export default function InScenePanel({ campaign, lang = 'pt', goTo }) {
   const [plan, setPlan] = useState(null);
   const [revealing, setRevealing] = useState(null);   // WorldEntryFull em revelação
   const [busyId, setBusyId] = useState(null);
+  const [starting, setStarting] = useState(null);     // a folha "Começar o combate" (V8)
 
   const load = useCallback(async () => {
     const [w, advs, p] = await Promise.allSettled([
@@ -144,6 +148,20 @@ export default function InScenePanel({ campaign, lang = 'pt', goTo }) {
         {scene ? scene.node.name : L(lang, 'Quem e o que está por perto', 'Who and what is around')}
       </MesaTitle>
 
+      {scene && (scene.node.encounter || []).length > 0 && (
+        <div className="mesa-row ins-fight">
+          <span className="mesa-row-main">
+            <span className="mesa-row-title"><span aria-hidden="true">⚔</span> {scene.node.encounter.map(e => `${e.count || 1} ${e.name}`).join(' · ')}</span>
+            <span className="mesa-row-sub">{L(lang, 'o combate desta cena', "this scene's combat")}</span>
+          </span>
+          <span className="mesa-row-act">
+            <button type="button" className="mesa-btn is-primary ins-fight-go" onClick={() => setStarting(sceneOfNode(scene.adventure, scene.node, lang))}>
+              {L(lang, 'Começar o combate', 'Start combat')}
+            </button>
+          </span>
+        </div>
+      )}
+
       {entries === null && <p className="muted small">{L(lang, 'Carregando o mundo…', 'Loading the world…')}</p>}
 
       {entries !== null && total === 0 && (
@@ -174,6 +192,11 @@ export default function InScenePanel({ campaign, lang = 'pt', goTo }) {
           <div className="ins-sub">{L(lang, 'Preparados para a sessão', 'Prepared for the session')}</div>
           <div className="ins-list">{groups.planned.map(row)}</div>
         </>
+      )}
+
+      {starting && (
+        <StartCombatSheet campaign={campaign} lang={lang} scene={starting} onClose={() => setStarting(null)}
+          onStarted={() => goTo?.('play', 'combat')} />
       )}
 
       {revealing && (
