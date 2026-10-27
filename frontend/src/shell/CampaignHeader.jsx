@@ -125,6 +125,9 @@ export function TvPanel({ campaign, lang, onOpened, onChanged, onChoose }) {
         {now.gone && (
           <span className="shell-pop-note muted">{frontLabel(now.gone, lang, { dm: true })}{t(lang, ' · não aparece na Tela (oculto ou apagado)', ' · not on screen (hidden or deleted)')}</span>
         )}
+        {campaign.status === 'closed' ? (
+          <p className="shell-pop-help" role="note">{t(lang, 'Campanha encerrada: a Tela fica só para ver.', 'Campaign closed: the screen is view-only.')}</p>
+        ) : (
         <div className="shell-pop-clear-row">
           {(now.front || now.waiting || now.gone) && (
             <button type="button" className="mesa-btn shell-pop-clear" disabled={busy}
@@ -144,6 +147,7 @@ export function TvPanel({ campaign, lang, onOpened, onChanged, onChoose }) {
             </button>
           ) : null}
         </div>
+        )}
       </div>
       <div className="shell-pop-link mesa-field">
         <label htmlFor={`tv-link-${campaign.id}`} className="mesa-field-label">{t(lang, 'Link da Tela', 'Screen link')}</label>

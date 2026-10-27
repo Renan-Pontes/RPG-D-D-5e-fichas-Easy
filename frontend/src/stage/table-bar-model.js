@@ -54,9 +54,12 @@ const hiddenNow = (mark, session) => mark != null && String(mark) === String(ses
  *  - Jogar › Tela fora de combate: não (a prévia grande já está ali);
  *  - "Nunca" ou escondida até a próxima sessão: não (fora de combate em Jogar);
  *  - "Sempre": sim; "Só ao vivo" (padrão): sessão ao vivo, combate ativo ou TV conectada.
+ *  - campanha encerrada: nunca (nada ali escreve mais: o servidor responde 423; a Tela
+ *    fica só para ver em Jogar › Tela).
  * A folha aberta e o teclado escondem por CSS/medida (TableBar), não aqui.
  */
-export function barVisible({ prefs, session, live = false, combatActive = false, tvLive = 0, area, sub }) {
+export function barVisible({ prefs, session, live = false, combatActive = false, tvLive = 0, area, sub, closed = false }) {
+  if (closed) return false;
   const p = prefs || { pref: 'live' };
   const inPlay = area === 'play';
   if (combatActive && inPlay) return true;
@@ -70,9 +73,11 @@ export function barVisible({ prefs, session, live = false, combatActive = false,
  * A janela da Tela no PC: 'hidden' | 'docked' (encaixada no topo da coluna da
  * direita em Jogar › Agora e Combate, com as 2 colunas: `dockable`, ≥ 1024 px) |
  * 'float' (canto de baixo). Fora da sessão só aparece com TV conectada ou
- * "Sempre"; ✕ esconde até a próxima sessão.
+ * "Sempre"; ✕ esconde até a próxima sessão. Campanha encerrada: nunca (o 📺 da capa abre
+ * a Tela ao vivo, só para ver).
  */
-export function windowMode({ prefs, session, live = false, combatActive = false, tvLive = 0, area, sub, forced = false, dockable = true }) {
+export function windowMode({ prefs, session, live = false, combatActive = false, tvLive = 0, area, sub, forced = false, dockable = true, closed = false }) {
+  if (closed) return 'hidden';
   const p = prefs || { pref: 'live' };
   if (area === 'play' && sub === 'screen') return 'hidden';
   const dock = dockable && area === 'play' && (sub === 'scene' || sub === 'combat');

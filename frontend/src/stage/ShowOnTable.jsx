@@ -84,6 +84,8 @@ export default function ShowOnTable({
     );
   }
 
+  // Campanha encerrada: a Tela fica só para ver (o servidor responderia 423).
+  if (campaign?.status === 'closed') return null;
   const name = targetName(target, lang);
   const run = async (send, shownName = name, undo, done) => {
     setBusy(true);

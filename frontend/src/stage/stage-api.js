@@ -95,6 +95,8 @@ const STAGE_ERRORS = {
   scene_not_found: ['Essa cena não existe mais.', 'That scene no longer exists.'],
   entry_not_found: ['Esse cartão não existe mais.', 'That card no longer exists.'],
   empty_scene: ['A cena ainda não tem nome.', "The scene doesn't have a name yet."],
+  // o texto geral (errors.js) fala com o jogador ("baixe sua ficha…"): aqui é o mestre
+  campaign_closed: ['Campanha encerrada: a Tela fica só para ver.', 'Campaign closed: the screen is view-only.'],
 };
 
 /** Texto do erro do palco (cai no texto geral do app). */
@@ -137,7 +139,7 @@ export async function sendToStage(campaignId, send, { lang = 'pt', name = '', un
   } catch (e) {
     emitSent(campaignId, { ok: false });
     const status = e?.status;
-    const retry = !status || status >= 500;
+    const retry = (!status || status >= 500) && e?.data?.error !== 'campaign_closed';
     flash(`${L(lang, 'Não enviado', 'Not sent')} · ${stageErrorText(e, lang)}`, {
       error: true,
       action: retry ? { label: L(lang, 'Tentar de novo', 'Try again'), onClick: () => sendToStage(campaignId, send, { lang, name, undo, onDone, done }) } : null,

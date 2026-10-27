@@ -126,10 +126,12 @@ export default function LiveScreenSheet({ campaign, lang = 'pt', onClose, onFull
   const [busy, setBusy] = useState(false);
   const [show, setShow] = useState(false);
   const clean = !now.front && !now.held && !now.waiting && !now.gone && !test;
+  // Campanha encerrada: a folha fica só para ver (nada que escreva; o servidor daria 423).
+  const closed = campaign.status === 'closed';
   const session = table?.pulse?.session ?? campaign.state?.session;
 
   const act = async (send, opts = {}) => {
-    if (busy) return;
+    if (busy || closed) return;
     setBusy(true);
     try { await sendToStage(cid, send, { lang, ...opts }); } finally { setBusy(false); table?.refresh(); }
   };
@@ -177,13 +179,14 @@ export default function LiveScreenSheet({ campaign, lang = 'pt', onClose, onFull
               <span className="stage-line-layer">{line.title}</span>
               <span className="stage-line-text">{line.text}</span>
               {line.layer === 'front' && <span className="stage-line-sub">{line.sub || ' '}</span>}
-              {line.remove && (
+              {line.remove && !closed && (
                 <button type="button" className="mesa-btn stage-line-x" disabled={busy} onClick={() => removeLine(line)}
                   aria-label={`${removeLabel(line)}: ${line.title}`}><span className="stage-clamp">{removeLabel(line)}</span></button>
               )}
             </div>
           ))}
         </div>
+        {closed ? <p className="mesa-hint stage-closed-note" role="note">{L(lang, 'Campanha encerrada: a Tela fica só para ver.', 'Campaign closed: the screen is view-only.')}</p> : (
         <div className="stage-ctl live-ctl">
           <button type="button" className="mesa-btn stage-ctl-btn is-undo" disabled={busy || !undo} title={undo || undefined}
             onClick={() => act(() => stageUndo(cid), { done: L(lang, 'Desfeito ✓', 'Undone ✓') })}>
@@ -199,9 +202,10 @@ export default function LiveScreenSheet({ campaign, lang = 'pt', onClose, onFull
               : fighting ? L(lang, 'O combate já está na Tela', 'Combat is already on screen') : L(lang, 'Voltar ao combate: sem combate', 'Back to combat: no combat')}</span>
           </button>
         </div>
+        )}
       </section>
 
-      {fighting && (
+      {fighting && !closed && (
         <section className="live-turn" aria-label={L(lang, 'Turno', 'Turn')}>
           <button type="button" className="mesa-btn mesa-btn-lg is-primary live-next" disabled={!!table?.busy}
             onClick={() => table?.nextTurn()} aria-keyshortcuts="N">
@@ -222,9 +226,9 @@ export default function LiveScreenSheet({ campaign, lang = 'pt', onClose, onFull
       )}
 
       <div className="live-row">
-        <button type="button" className="mesa-btn" onClick={() => setShow(true)} aria-haspopup="dialog">📺 {L(lang, 'Mostrar…', 'Show…')}</button>
+        {!closed && <button type="button" className="mesa-btn" onClick={() => setShow(true)} aria-haspopup="dialog">📺 {L(lang, 'Mostrar…', 'Show…')}</button>}
         <button type="button" className="mesa-btn" onClick={() => { onClose?.(); setTimeout(openDice, 0); }}>🎲 {L(lang, 'Rolar', 'Roll')}</button>
-        {now.mode === 'dark' ? (
+        {closed ? null : now.mode === 'dark' ? (
           <button type="button" className="mesa-btn is-primary" disabled={busy}
             onClick={() => act(() => stageDark(cid, false), { done: L(lang, 'Tela acesa ✓', 'Screen lit ✓') })}>◑ {L(lang, 'Acender', 'Light up')}</button>
         ) : (

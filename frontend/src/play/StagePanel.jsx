@@ -59,9 +59,11 @@ export default function StagePanel({ campaign, lang = 'pt', onChange, shownCheck
   const url = screenLink(window.location.origin, campaign.screenToken);
   const [busy, setBusy] = useState(false);
   const cid = campaign.id;
+  // Campanha encerrada: Jogar › Tela só para ver (nada que escreva; o servidor daria 423).
+  const closed = campaign.status === 'closed';
 
   const act = async (send, opts = {}) => {
-    if (busy) return;
+    if (busy || closed) return;
     setBusy(true);
     try { await sendToStage(cid, send, { lang, onDone: () => onChange?.(), ...opts }); }
     finally { setBusy(false); }
@@ -107,14 +109,15 @@ export default function StagePanel({ campaign, lang = 'pt', onChange, shownCheck
               <span className="stage-line-layer">{line.title}</span>
               <span className="stage-line-text">{line.text}</span>
               {line.layer === 'front' && <span className="stage-line-sub">{line.sub || '\u00a0'}</span>}
-              {line.remove && (
+              {line.remove && !closed && (
                 <button type="button" className="mesa-btn stage-line-x" disabled={busy} onClick={() => removeLine(line)}
                   aria-label={`${removeLabel(line)}: ${line.title}`}><span className="stage-clamp">{removeLabel(line)}</span></button>
               )}
             </div>
           ))}
         </div>
-        {/* Sempre os mesmos 3 botões, no mesmo lugar e da mesma altura (o rótulo diz o que fazem agora). */}
+        {closed ? <p className="mesa-hint stage-closed-note" role="note">{L(lang, 'Campanha encerrada: a Tela fica só para ver.', 'Campaign closed: the screen is view-only.')}</p> : (
+        /* Sempre os mesmos 3 botões, no mesmo lugar e da mesma altura (o rótulo diz o que fazem agora). */
         <div className="stage-ctl">
           <button type="button" className="mesa-btn stage-ctl-btn is-undo" disabled={busy || !undo} title={undo || undefined}
             onClick={() => act(() => stageUndo(cid), { done: L(lang, 'Desfeito ✓', 'Undone ✓') })}>
@@ -132,14 +135,17 @@ export default function StagePanel({ campaign, lang = 'pt', onChange, shownCheck
               onClick={() => act(() => stageDark(cid, true), { done: L(lang, 'Tela escurecida ✓', 'Screen blacked out ✓') })}><span className="stage-clamp">◐ {L(lang, 'Escurecer', 'Black out')}</span></button>
           )}
         </div>
+        )}
       </section>
 
-      <section className="mesa-panel stage-show-box" aria-labelledby="stage-show-h">
-        <MesaTitle id="stage-show-h">{L(lang, 'Mostrar', 'Show')}</MesaTitle>
-        <ShowPicker campaign={campaign} stage={stage} lang={lang} onChange={onChange} />
-      </section>
+      {!closed && (
+        <section className="mesa-panel stage-show-box" aria-labelledby="stage-show-h">
+          <MesaTitle id="stage-show-h">{L(lang, 'Mostrar', 'Show')}</MesaTitle>
+          <ShowPicker campaign={campaign} stage={stage} lang={lang} onChange={onChange} />
+        </section>
+      )}
 
-      <RollRules campaign={campaign} stage={stage} lang={lang} onChange={onChange} />
+      <RollRules campaign={campaign} stage={stage} lang={lang} onChange={onChange} readOnly={closed} />
 
       <section className="mesa-panel stage-link-box" aria-labelledby="stage-link-h">
         <MesaTitle id="stage-link-h">{L(lang, 'Ligar a Tela', 'Connect the screen')}</MesaTitle>
@@ -147,7 +153,7 @@ export default function StagePanel({ campaign, lang = 'pt', onChange, shownCheck
           <input className="input" readOnly value={url} onFocus={e => e.target.select()} aria-label={L(lang, 'Link da Tela', 'Screen link')} />
           <button type="button" className="mesa-btn is-primary" onClick={copy}>{L(lang, 'Copiar link', 'Copy link')}</button>
           <a className="mesa-btn" href={url} target="_blank" rel="noreferrer">{L(lang, 'Abrir na TV', 'Open on TV')} ↗</a>
-          <button type="button" className="mesa-btn is-quiet" onClick={rotate}>{L(lang, 'Gerar novo link', 'New link')}</button>
+          {!closed && <button type="button" className="mesa-btn is-quiet" onClick={rotate}>{L(lang, 'Gerar novo link', 'New link')}</button>}
         </div>
         <p className="mesa-hint">{L(lang, 'Abra este link no navegador da TV, do notebook ligado na TV ou de um tablet. “Gerar novo link” desliga o antigo.', 'Open this link in the browser of the TV, of a laptop connected to the TV or of a tablet. “New link” turns the old one off.')}</p>
       </section>
@@ -193,7 +199,7 @@ const RULES = [
  * gravadas no palco (`stage.prefs`, POST /stage {op:'prefs'}) e as últimas 5 rolagens
  * de mesa (📺 ou 🔒), buscadas só quando o pulso muda.
  */
-function RollRules({ campaign, stage, lang, onChange }) {
+function RollRules({ campaign, stage, lang, onChange, readOnly = false }) {
   const raw = stage?.prefs || {};
   // "Das fichas" é ligado por padrão (servidor de antes da V15: sem a chave)
   const prefs = { ...raw, sheets: raw.sheets !== false };
@@ -209,7 +215,7 @@ function RollRules({ campaign, stage, lang, onChange }) {
   // segurança de 60 s (servidor de antes dele: o checksRev, que as contava junto)
   useOnRev(tableRollsRev(table?.pulse), load, { table, fallbackMs: 15_000, safetyMs: Infinity, initial: false });
   const set = async (key, value) => {
-    if (busy || prefs[key] === value) return;
+    if (busy || readOnly || prefs[key] === value) return;
     setBusy(true);
     try {
       await stagePrefs(cid, { [key]: value });
@@ -227,12 +233,13 @@ function RollRules({ campaign, stage, lang, onChange }) {
       <p className="mesa-hint">{L(lang,
         'As rolagens aparecem na TV em fila: as importantes no centro, o resto num cantinho que some sozinho.',
         'Rolls show up on the TV in a queue: the important ones in the middle, the rest in a corner that fades by itself.')}</p>
+      {readOnly && <p className="mesa-hint stage-closed-note" role="note">{L(lang, 'Campanha encerrada: as regras ficam só para ver.', 'Campaign closed: the rules are view-only.')}</p>}
       {RULES.map(([key, title, options, explain]) => (
         <div key={key} className="stage-rule-row">
           <span className="stage-rule-title" id={`stage-rule-${key}`}>{title(lang)}</span>
           <div className="mesa-seg stage-rule-seg" role="radiogroup" aria-labelledby={`stage-rule-${key}`}>
             {options.map(([v, label]) => (
-              <button key={v} type="button" role="radio" aria-checked={prefs[key] === v} disabled={busy}
+              <button key={v} type="button" role="radio" aria-checked={prefs[key] === v} disabled={busy || readOnly}
                 className={`mesa-seg-btn ${prefs[key] === v ? 'active' : ''}`} onClick={() => set(key, v)}>{label(lang)}</button>
             ))}
           </div>
@@ -244,7 +251,7 @@ function RollRules({ campaign, stage, lang, onChange }) {
         <div className="stage-rule-checks">
           {[['initiative', L(lang, 'Ordem de iniciativa', 'Initiative order')], ['party', L(lang, 'PV do grupo', "Party's HP")]].map(([k, label]) => (
             <label key={k} className="mesa-chip stage-rule-check">
-              <input type="checkbox" checked={prefs[k] !== false} disabled={busy} onChange={e => set(k, e.target.checked)} />
+              <input type="checkbox" checked={prefs[k] !== false} disabled={busy || readOnly} onChange={e => set(k, e.target.checked)} />
               <span>{label}</span>
             </label>
           ))}

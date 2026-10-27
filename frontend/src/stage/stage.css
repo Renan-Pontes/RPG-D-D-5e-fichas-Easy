@@ -198,6 +198,8 @@
 }
 .stage-rolls-list:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .stage-rolls-list > p { margin: 10px 0; }
+/* campanha encerrada: no lugar dos botões que escreveriam (Tirar, Limpar, Escurecer, Mostrar…) */
+.stage-closed-note { margin: 8px 0 0; font-size: 14px; }
 
 /* ==========================================================
    V4 · Barra da mesa (celular), janela da Tela e faixa do turno (PC),

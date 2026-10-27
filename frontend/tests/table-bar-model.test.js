@@ -141,6 +141,8 @@ test('barVisible: só ao vivo (padrão), sempre, nunca, escondida e Jogar', () =
   // Jogar › Tela fora de combate: a prévia grande já está ali
   assert.equal(barVisible({ ...base, live: true, area: 'play', sub: 'screen' }), false);
   assert.equal(barVisible({ ...base, live: true, area: 'play', sub: 'scene' }), true);
+  // campanha encerrada: nem em combate (o Próximo daria 423)
+  assert.equal(barVisible({ ...base, prefs: { pref: 'always' }, combatActive: true, area: 'play', sub: 'combat', closed: true }), false);
 });
 
 test('windowMode: flutua, encaixa em Agora/Combate, some em Tela e com o ✕', () => {
@@ -159,6 +161,7 @@ test('windowMode: flutua, encaixa em Agora/Combate, some em Tela e com o ✕', (
   assert.equal(windowMode({ ...base, prefs: { pref: 'live', winSession: '3' }, session: '4' }), 'float');
   // o 📺 Tela da capa força a janela
   assert.equal(windowMode({ ...base, live: false, forced: true }), 'float');
+  assert.equal(windowMode({ ...base, forced: true, closed: true }), 'hidden', 'campanha encerrada');
   assert.equal(windowCorner({ corner: 'right', area: 'world', sub: 'map' }), 'left');
   assert.equal(windowCorner({ corner: 'left', area: 'world', sub: 'atlas' }), 'left');
   assert.equal(windowCorner({ area: 'play', sub: 'checks' }), 'right');

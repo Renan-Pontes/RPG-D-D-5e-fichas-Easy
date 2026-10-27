@@ -65,6 +65,10 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) 
   onPulseRef.current = onPulse;
   const kick = useRef(() => {});
   const live = !!enabled && id != null && !missing;
+  // Campanha encerrada: só leitura (o servidor responde 423 a tudo que escreve).
+  const closed = campaign?.status === 'closed';
+  const closedRef = useRef(closed);
+  closedRef.current = closed;
 
   // Trocou de campanha: zera.
   useEffect(() => {
@@ -195,6 +199,11 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) 
   }, [id]);
 
   const failed = useCallback((e, retry) => {
+    // campanha encerrada: o texto do mestre e nenhum "Tentar de novo" (nunca vai funcionar)
+    if (e?.status === 423 || e?.data?.error === 'campaign_closed') {
+      flash(`${L(lang, 'Não enviado', 'Not sent')} · ${L(lang, 'Campanha encerrada: a mesa fica só para ver.', 'Campaign closed: the table is view-only.')}`, { error: true });
+      return;
+    }
     flash(`${L(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang, L(lang, 'confira a conexão', 'check the connection'))}`, {
       error: true, action: { label: L(lang, 'Tentar de novo', 'Try again'), onClick: retry },
     });
@@ -202,7 +211,7 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) 
 
   /** Próximo turno ('next') ou ↶ Voltar turno ('prev'), com a vez que o mestre está vendo. */
   const turn = useCallback(async (kind, expectArg) => {
-    if (busyRef.current || id == null) return;
+    if (busyRef.current || id == null || closedRef.current) return;
     const c = pulseRef.current?.combat;
     const expect = expectArg || (c?.active ? { round: c.round, turnIndex: c.turnIndex } : null);
     if (!expect) return;
@@ -238,7 +247,7 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) 
 
   /** ▶ Iniciar (combate montado e parado). */
   const startCombat = useCallback(async () => {
-    if (busyRef.current || id == null) return;
+    if (busyRef.current || id == null || closedRef.current) return;
     busyRef.current = 'start'; setBusy('start');
     try { const r = await api.startCombat(id); applyCombat(r?.combat); }
     catch (e) { failed(e, () => startRef.current()); }

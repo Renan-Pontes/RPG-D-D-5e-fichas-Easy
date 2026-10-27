@@ -295,7 +295,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
       if (/^[1-4]$/.test(e.key)) {
         const a = areas[parseInt(e.key, 10) - 1];
         if (a) { e.preventDefault(); goTo(a.id, nav?.area === a.id ? nav.sub : areaTapSub(isDM, a.id, { group: groupBadgeCount(nav?.area, groupPending, campaign.pendingApprovals) })); }
-      } else if (isDM && (e.key === 'n' || e.key === 'N') && nav?.area === 'play') {
+      } else if (isDM && (e.key === 'n' || e.key === 'N') && nav?.area === 'play' && campaign.status !== 'closed') {
         // N em toda a área Jogar: o mesmo Próximo turno da barra (com a vez esperada).
         e.preventDefault();
         if (tableRef.current.enabled) tableRef.current.nextTurn();
@@ -337,6 +337,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   const vis = {
     prefs: barPrefs, session: table.pulse?.session ?? st.session, live: table.pulse ? table.pulse.live : !!st.live,
     combatActive: fighting, tvLive: table.tvLive, area: nav.area, sub: nav.sub, dockable: twoCols,
+    closed: campaign.status === 'closed',
   };
   const showBar = isDM && mobile && barVisible(vis);
   const win = isDM && !mobile ? windowMode({ ...vis, forced: !!winLiveAt }) : 'hidden';
