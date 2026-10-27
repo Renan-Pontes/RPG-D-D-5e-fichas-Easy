@@ -1,6 +1,13 @@
 /* ========================================================================
-   Telão para TV — dark fantasy, leitura a 2-3 metros, alto contraste.
-   Pensado pra 1080p+. Em telas grandes (>1600px) tudo escala maior.
+   A Tela (TV da mesa) — dark fantasy, leitura a 2-3 metros, alto contraste.
+
+   V9 (especificação §5.7): um palco 16:9 com tarja preta. `.tv-frame` ocupa a
+   janela; `.tv-screen` é a caixa 16:9 que cabe nela (largura min(100vw, 177,78vh))
+   com `container-type: size`; tudo dentro mede em cqw/cqh (1cqw = 1% da largura
+   do palco, 1cqh = 1% da altura), então o desenho é o mesmo em 1280×720,
+   1920×1080, num tablet em pé (768×1024: tarjas em cima e embaixo) e na prévia
+   do mestre (iframe pequeno). Ninguém rola a TV: nada passa da altura.
+   Tudo escopado em .tv-* (este arquivo é importado no app inteiro).
    ======================================================================== */
 
 :root {
@@ -19,361 +26,35 @@
   --tv-cond-ink: #ffd4d4;
 }
 
+/* === O palco 16:9 ======================================================= */
+.tv-frame {
+  position: fixed; inset: 0; overflow: hidden;
+  display: grid; place-items: center;
+  background: #000;
+}
 .tv-screen {
-  min-height: 100vh;
+  --tv-accent: var(--tv-gold);
+  position: relative; isolation: isolate; overflow: hidden;
+  width: min(100vw, calc(100vh * 16 / 9));
+  height: min(100vh, calc(100vw * 9 / 16));
+  container-type: size;
+  color: var(--tv-ink);
+  font-family: 'EB Garamond', Georgia, serif;
   background:
     radial-gradient(ellipse at top, rgba(214, 176, 100, 0.08), transparent 60%),
     linear-gradient(135deg, var(--tv-bg-0) 0%, var(--tv-bg-1) 100%);
-  color: var(--tv-ink);
-  padding: 32px 32px 120px;
-  font-family: 'EB Garamond', Georgia, serif;
 }
-
-.tv-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
-  border-bottom: 2px solid var(--tv-border);
-  padding-bottom: 20px;
-  gap: 24px;
+/* A coluna do palco: cada modo põe as suas partes; a faixa do teste vai por último. */
+.tv-canvas {
+  position: absolute; inset: 0; z-index: 1;
+  display: flex; flex-direction: column; gap: 1.6cqh;
+  padding: 3cqh 2.6cqw;
+  font-size: 1.6cqw;
+  min-height: 0;
 }
+.tv-canvas > * { min-height: 0; }
 
-.tv-title {
-  font-family: 'Cinzel', 'Trajan Pro', serif;
-  font-size: clamp(2.2rem, 4vw, 3.6rem);
-  margin: 0;
-  color: var(--tv-gold);
-  letter-spacing: 2px;
-  line-height: 1.1;
-}
-
-.tv-scene {
-  font-size: clamp(1.2rem, 2vw, 1.9rem);
-  font-weight: 400;
-  font-style: italic;
-  color: var(--tv-ink);
-  margin: 6px 0 0 0;
-  opacity: 0.92;
-}
-
-/* Texto "ler em voz alta" mandado pela Preparação do mestre */
-.tv-read-aloud {
-  margin: 0 0 24px;
-  padding: 18px 24px;
-  border-left: 4px solid var(--tv-gold);
-  background: rgba(0, 0, 0, 0.35);
-  color: var(--tv-ink);
-  font-size: clamp(1.1rem, 1.8vw, 1.7rem);
-  font-style: italic;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  max-height: 40vh;
-  overflow: auto;
-}
-
-.tv-meta {
-  text-align: right;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  font-size: clamp(1rem, 1.3vw, 1.3rem);
-  color: var(--tv-ink-soft);
-}
-
-.tv-session-pill {
-  background: rgba(214, 176, 100, 0.15);
-  border: 1px solid var(--tv-gold);
-  color: var(--tv-gold);
-  padding: 3px 12px;
-  border-radius: 999px;
-  font-family: 'Cinzel', serif;
-  font-size: 0.95em;
-  letter-spacing: 1px;
-}
-
-.tv-weather { font-style: italic; }
-
-.tv-clock {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: clamp(1.1rem, 1.6vw, 1.6rem);
-  margin-top: 4px;
-  color: var(--tv-gold);
-  font-feature-settings: 'tnum';
-}
-
-/* === Now Acting (turno atual destacado) === */
-.tv-now-acting {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-  padding: 14px 24px;
-  margin-bottom: 24px;
-  background: linear-gradient(90deg, rgba(214, 176, 100, 0.20), transparent);
-  border-left: 4px solid var(--tv-gold);
-  border-radius: 4px;
-  animation: tv-pulse 2.4s ease-in-out infinite;
-}
-
-.tv-now-label {
-  font-family: 'Cinzel', serif;
-  font-size: 0.85em;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: var(--tv-ink-soft);
-}
-
-.tv-now-name {
-  font-family: 'Cinzel', serif;
-  font-size: clamp(1.6rem, 3vw, 2.4rem);
-  color: var(--tv-gold);
-  font-weight: 600;
-}
-
-@keyframes tv-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(214, 176, 100, 0); }
-  50%      { box-shadow: 0 0 24px 0 rgba(214, 176, 100, 0.3); }
-}
-
-/* === Grid de personagens === */
-.tv-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  gap: 20px;
-}
-
-.tv-char-card {
-  background: linear-gradient(180deg, rgba(255, 240, 200, 0.06), rgba(255, 240, 200, 0.02));
-  border: 2px solid var(--tv-border);
-  border-radius: 12px;
-  padding: 18px 20px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
-  transition: border-color 280ms ease, transform 280ms ease, box-shadow 280ms;
-  position: relative;
-}
-
-.tv-char-card.is-active-turn {
-  border-color: var(--tv-gold);
-  transform: translateY(-2px);
-  box-shadow: 0 0 0 1px var(--tv-gold) inset, 0 6px 26px rgba(214, 176, 100, 0.35);
-}
-
-.tv-char-card.is-dead {
-  filter: grayscale(0.6);
-  opacity: 0.75;
-}
-
-.tv-char-head {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 14px;
-}
-
-.tv-char-id { flex: 1; min-width: 0; }
-
-.tv-avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid var(--tv-gold);
-  flex-shrink: 0;
-}
-
-.tv-avatar-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--tv-border);
-  font-family: 'Cinzel', serif;
-  font-size: 1.8rem;
-  color: var(--tv-gold);
-}
-
-.tv-char-name {
-  font-family: 'Cinzel', serif;
-  font-size: clamp(1.3rem, 1.8vw, 1.7rem);
-  color: var(--tv-ink);
-  line-height: 1.1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tv-char-sub {
-  font-size: 0.95rem;
-  color: var(--tv-ink-soft);
-  margin-top: 4px;
-  font-style: italic;
-}
-
-.tv-inspiration {
-  color: var(--tv-gold);
-  font-size: 2rem;
-  text-shadow: 0 0 12px rgba(214, 176, 100, 0.6);
-  animation: tv-twinkle 2s ease-in-out infinite;
-}
-@keyframes tv-twinkle {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.15); }
-}
-
-/* === HP bar === */
-.tv-hp-bar {
-  position: relative;
-  height: 36px;
-  background: var(--bg-elevated);
-  border-radius: 6px;
-  overflow: hidden;
-  margin-bottom: 12px;
-  border: 1px solid var(--tv-border);
-}
-
-.tv-hp-fill {
-  height: 100%;
-  transition: width 600ms cubic-bezier(0.22, 1, 0.36, 1), background-color 600ms;
-  position: relative;
-}
-
-.tv-hp-ok   .tv-hp-fill { background: linear-gradient(90deg, var(--tv-hp-ok), var(--moss-bright)); }
-.tv-hp-warn .tv-hp-fill { background: linear-gradient(90deg, var(--tv-hp-warn), var(--gold-bright)); }
-.tv-hp-crit .tv-hp-fill {
-  background: linear-gradient(90deg, var(--tv-hp-crit), var(--blood-bright));
-  animation: tv-low-hp 1.6s ease-in-out infinite;
-}
-
-@keyframes tv-low-hp {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.7; }
-}
-
-.tv-hp-text {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.15rem;
-  font-weight: 600;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
-  letter-spacing: 0.5px;
-}
-
-.tv-hp-temp { color: #9dc8e6; margin-left: 6px; }
-
-/* === Stat blocks === */
-.tv-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-  margin-bottom: 10px;
-  font-size: 1.15rem;
-}
-
-.tv-stat-block {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.tv-stats .lbl {
-  color: var(--tv-ink-soft);
-  font-family: 'Cinzel', serif;
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-}
-
-.tv-stats .val {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.4rem;
-  color: var(--tv-ink);
-}
-
-.tv-death .val { color: var(--tv-hp-crit); }
-.tv-death-succ { color: var(--tv-hp-ok); margin-right: 6px; }
-.tv-death-fail { color: var(--tv-hp-crit); }
-
-/* === Condições com ícones === */
-.tv-conditions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.tv-condition {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--tv-cond-bg);
-  border: 1px solid var(--tv-cond-border);
-  border-radius: 999px;
-  padding: 4px 12px 4px 6px;
-  font-size: 0.92rem;
-  color: var(--tv-cond-ink);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-family: 'Cinzel', serif;
-}
-
-.tv-cond-icon { width: 18px; height: 18px; flex-shrink: 0; }
-
-/* === Iniciativa fixa === */
-.tv-initiative {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  background: rgba(20, 14, 10, 0.97);
-  border: 2px solid var(--tv-gold);
-  border-radius: 10px;
-  padding: 16px 22px;
-  min-width: 260px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65);
-  z-index: 10;
-}
-
-.tv-initiative h3 {
-  margin: 0 0 10px 0;
-  font-family: 'Cinzel', serif;
-  color: var(--tv-gold);
-  font-size: 1.1rem;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  text-align: center;
-}
-
-.tv-initiative ol {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  font-size: 1.1rem;
-}
-
-.tv-initiative li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 10px;
-  border-radius: 4px;
-  border-left: 3px solid transparent;
-  color: var(--tv-ink-soft);
-}
-
-.tv-initiative li.current {
-  color: var(--tv-gold);
-  font-weight: 600;
-  background: rgba(214, 176, 100, 0.12);
-  border-left-color: var(--tv-gold);
-}
-
-.tv-init-name { font-family: 'EB Garamond', serif; }
-.tv-init-value { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
-
-/* === Estados de loading/erro === */
+/* === Estados de loading/erro (fora do palco) === */
 .tv-loading, .tv-error {
   min-height: 100vh;
   background: var(--tv-bg-0);
@@ -384,424 +65,8 @@
   font-family: 'Cinzel', serif;
 }
 
-/* === Scaling para TVs grandes (1080p+ a 4K) === */
-@media (min-width: 1600px) {
-  .tv-screen { padding: 48px; }
-  .tv-grid { grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 28px; }
-  .tv-char-name { font-size: 2rem; }
-  .tv-hp-text { font-size: 1.5rem; }
-  .tv-stats .val { font-size: 1.7rem; }
-}
-
-/* === Telas pequenas (preview no celular do mestre) === */
-@media (max-width: 720px) {
-  .tv-screen { padding: 16px; }
-  .tv-header { flex-direction: column; gap: 12px; }
-  .tv-meta { align-items: flex-start; text-align: left; }
-  .tv-initiative {
-    position: static;
-    margin-top: 24px;
-    width: 100%;
-  }
-  .tv-grid { grid-template-columns: 1fr; gap: 14px; }
-  .tv-combat-main { grid-template-columns: 1fr; }
-  .tv-combat-side { flex-direction: row; flex-wrap: wrap; }
-}
-
-/* === Combat mode === */
-.tv-combat-pill {
-  background: var(--blood);
-  color: #fff;
-  padding: 4px 14px;
-  border-radius: 999px;
-  font-family: 'Cinzel', serif;
-  font-size: 0.85em;
-  letter-spacing: 2px;
-  animation: tv-pulse 2.4s ease-in-out infinite;
-}
-
-.tv-combat-main {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 24px;
-}
-
-.tv-grid-container {
-  background: rgba(0,0,0,0.5);
-  border: 2px solid var(--tv-border);
-  border-radius: 8px;
-  overflow: hidden;
-  max-height: calc(100vh - 280px);
-}
-.tv-grid-container .combat-grid-wrapper {
-  padding: 0;
-  border: none;
-  background: transparent;
-}
-.tv-grid-container .grid-canvas-frame {
-  max-height: none;
-  background: transparent;
-}
-
-.tv-combat-side {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.tv-combat-hp-card {
-  background: rgba(255, 240, 200, 0.06);
-  border: 2px solid var(--tv-border);
-  border-radius: 8px;
-  padding: 12px;
-  transition: border-color 200ms;
-}
-.tv-combat-hp-card.is-turn {
-  border-color: var(--tv-gold);
-  box-shadow: 0 0 16px rgba(214, 176, 100, 0.3);
-}
-.tv-combat-hp-card.is-dead { opacity: 0.5; filter: grayscale(0.7); }
-
-.tv-combat-name {
-  font-family: 'Cinzel', serif;
-  font-size: 1.3rem;
-  color: var(--tv-ink);
-  margin-bottom: 8px;
-}
-
-.tv-conditions.tiny .tv-condition {
-  font-size: 0.75rem;
-  padding: 2px 6px;
-}
-.tv-conditions.tiny .tv-cond-icon { width: 12px; height: 12px; }
-
-/* === Log de rolagens recentes no telão (rodapé) === */
-.tv-rolls-log {
-  position: fixed;
-  left: 24px;
-  bottom: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background: rgba(20, 14, 10, 0.92);
-  border: 1px solid var(--tv-border);
-  border-radius: 8px;
-  padding: 8px 12px;
-  min-width: 280px;
-  max-width: 380px;
-  pointer-events: none;
-  z-index: 5;
-}
-.tv-roll-entry {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 8px;
-  align-items: center;
-  padding: 2px 4px;
-  font-size: 0.95rem;
-  font-family: 'EB Garamond', serif;
-  color: var(--tv-ink-soft);
-}
-.tv-roll-entry.crit { color: var(--tv-gold); }
-.tv-roll-entry.fail { color: var(--blood-bright); }
-.tv-roll-who { color: var(--tv-ink); font-weight: 600; }
-.tv-roll-label { font-style: italic; }
-.tv-roll-total {
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 700;
-  font-size: 1.1em;
-}
-
-/* === Overlay dramático === */
-.tv-roll-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  animation: tv-fade-in 300ms ease-out;
-  cursor: pointer;
-}
-@keyframes tv-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-/* Brilho do crítico/falha: .crit/.fail só chegam na revelação (TVScreen, depois que o
-   dado para) e entram num fade curto — gradiente não transiciona, então vive num ::before. */
-.tv-roll-overlay::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 400ms ease-out;
-}
-.tv-roll-overlay.crit::before {
-  background: radial-gradient(circle at center, rgba(214, 176, 100, 0.40), rgba(0, 0, 0, 0.92));
-  opacity: 1;
-}
-.tv-roll-overlay.fail::before {
-  background: radial-gradient(circle at center, rgba(224, 96, 79, 0.40), rgba(0, 0, 0, 0.92));
-  opacity: 1;
-}
-
-.tv-roll-inner {
-  position: relative; /* por cima do brilho (::before) */
-  text-align: center;
-  color: var(--tv-ink);
-  animation: tv-roll-zoom 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-@keyframes tv-roll-zoom {
-  from { transform: scale(0.3); opacity: 0; }
-  to   { transform: scale(1);   opacity: 1; }
-}
-
-.tv-roll-overlay .tv-roll-who {
-  font-family: 'Cinzel', serif;
-  font-size: clamp(1.5rem, 3vw, 2.5rem);
-  color: var(--tv-gold);
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  margin-bottom: 8px;
-}
-.tv-roll-overlay .tv-roll-label {
-  font-family: 'EB Garamond', serif;
-  font-size: clamp(1.5rem, 3vw, 2.5rem);
-  font-style: italic;
-  color: var(--tv-ink);
-  margin-bottom: 24px;
-}
-
-.tv-roll-dice {
-  min-height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tv-die {
-  font-size: clamp(6rem, 12vw, 10rem);
-  filter: drop-shadow(0 0 20px rgba(214, 176, 100, 0.6));
-}
-.tv-die-spinning {
-  animation: tv-die-spin 1.4s ease-out;
-}
-@keyframes tv-die-spin {
-  0%   { transform: rotateY(0deg)    rotateZ(0deg)   scale(0.6); }
-  50%  { transform: rotateY(540deg)  rotateZ(360deg) scale(1.1); }
-  100% { transform: rotateY(1080deg) rotateZ(720deg) scale(1);   }
-}
-
-.tv-roll-numbers {
-  display: flex;
-  align-items: center;
-  gap: clamp(8px, 1.5vw, 24px);
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.tv-die-result {
-  font-family: 'Cinzel', serif;
-  font-size: clamp(4rem, 8vw, 7rem);
-  font-weight: 700;
-  color: var(--tv-gold);
-  background: var(--tv-bg-1);
-  border: 4px solid var(--tv-gold);
-  border-radius: 12px;
-  padding: 16px 28px;
-  min-width: clamp(80px, 12vw, 140px);
-  text-align: center;
-  box-shadow: 0 0 40px rgba(214, 176, 100, 0.4);
-}
-
-.tv-roll-overlay.crit .tv-die-result {
-  animation: tv-crit-glow 1.5s ease-in-out infinite;
-}
-@keyframes tv-crit-glow {
-  0%, 100% { box-shadow: 0 0 30px rgba(214, 176, 100, 0.5); }
-  50%      { box-shadow: 0 0 80px rgba(214, 176, 100, 1); }
-}
-
-.tv-roll-overlay.fail .tv-die-result {
-  color: var(--blood-bright);
-  border-color: var(--blood-bright);
-  box-shadow: 0 0 40px rgba(224, 96, 79, 0.6);
-}
-
-.tv-roll-mod, .tv-roll-equals {
-  font-family: 'Cinzel', serif;
-  font-size: clamp(3rem, 6vw, 5rem);
-  color: var(--tv-ink-soft);
-}
-
-.tv-roll-total {
-  font-family: 'Cinzel', serif;
-  font-size: clamp(5rem, 9vw, 8rem);
-  font-weight: 700;
-  color: var(--tv-ink);
-  text-shadow: 0 0 30px rgba(255, 255, 255, 0.4);
-}
-
-.tv-roll-overlay.crit .tv-roll-total { color: var(--tv-gold); }
-.tv-roll-overlay.fail .tv-roll-total { color: var(--blood-bright); }
-
-.tv-roll-tag {
-  margin-top: 24px;
-  font-family: 'Cinzel', serif;
-  font-size: clamp(2rem, 4vw, 3.5rem);
-  font-weight: 700;
-  letter-spacing: 6px;
-  text-transform: uppercase;
-  animation: tv-tag-pulse 1s ease-in-out infinite;
-}
-.tv-roll-tag.tv-crit-tag  { color: var(--tv-gold); }
-.tv-roll-tag.tv-fail-tag  { color: var(--blood-bright); }
-/* (Antes usava .crit-tag/.fail-tag, que colidiam com a etiqueta pequena de
-   crítico do painel de rolagens: aparecia uma barra dourada no rodapé.) */
-@keyframes tv-tag-pulse {
-  0%, 100% { transform: scale(1);   opacity: 1;   }
-  50%      { transform: scale(1.1); opacity: 0.7; }
-}
-
-/* === Dado 3D do telão === */
-.tv-roll-overlay .tv-dice-stage {
-  width: min(80vw, 900px);
-  height: min(40vh, 420px);
-  margin: 0 auto;
-}
-.tv-roll-overlay .tv-dice-stage.dice-stage-2d { height: auto; min-height: 180px; }
-.tv-roll-overlay.phase-reveal .tv-dice-stage { height: min(22vh, 260px); transition: height 0.4s ease; }
-.tv-roll-overlay.phase-reveal .tv-roll-dice { min-height: 0; }
-
-/* === Pedido de teste mostrado pelo mestre === */
-.tv-check-panel {
-  position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
-  width: min(94vw, 1200px);
-  z-index: 40;
-  background: rgba(14, 10, 7, 0.92);
-  border: 2px solid var(--tv-gold);
-  border-radius: 14px;
-  padding: 14px 20px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
-  animation: tv-check-in 0.35s ease-out;
-}
-@keyframes tv-check-in {
-  from { transform: translate(-50%, 30px); opacity: 0; }
-  to   { transform: translate(-50%, 0); opacity: 1; }
-}
-.tv-check-head {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-.tv-check-eyebrow {
-  font-family: 'Cinzel', serif;
-  color: var(--tv-gold);
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  font-size: clamp(0.9rem, 1.4vw, 1.2rem);
-}
-.tv-check-label {
-  font-family: 'Cinzel', serif;
-  color: var(--tv-ink);
-  font-size: clamp(1.4rem, 2.6vw, 2.4rem);
-  font-weight: 700;
-}
-.tv-check-dc {
-  font-family: 'Cinzel', serif;
-  color: var(--tv-ink-soft);
-  font-size: clamp(1.1rem, 2vw, 1.8rem);
-  border: 1px solid var(--tv-gold);
-  border-radius: 999px;
-  padding: 0 14px;
-}
-.tv-check-count { margin-left: auto; color: var(--tv-ink-soft); font-size: clamp(1rem, 1.6vw, 1.4rem); }
-.tv-check-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 10px;
-}
-.tv-check-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(214, 176, 100, 0.3);
-  font-size: clamp(1.1rem, 1.8vw, 1.6rem);
-  color: var(--tv-ink);
-}
-.tv-check-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tv-check-total { font-family: 'Cinzel', serif; font-weight: 700; color: var(--tv-gold); }
-.tv-check-mark { font-weight: 700; font-size: 1.3em; }
-.tv-check-item.pass { border-color: var(--moss-bright); background: rgba(156, 192, 101, 0.14); }
-.tv-check-item.pass .tv-check-mark { color: var(--moss-bright); }
-.tv-check-item.fail { border-color: var(--blood-bright); background: rgba(224, 96, 79, 0.14); }
-.tv-check-item.fail .tv-check-mark { color: var(--blood-bright); }
-.tv-check-item.waiting { opacity: 0.55; }
-
-/* Revelação do dado: o painel do teste à mesa sai de cena enquanto o overlay
-   está aberto (os números ficavam por cima dele). */
-.tv-check-panel { transition: opacity 0.25s ease; }
-.tv-screen.has-roll-overlay .tv-check-panel { opacity: 0; pointer-events: none; }
-.tv-roll-overlay { background: rgba(0, 0, 0, 0.92); }
-
-/* Celular: a coluna lateral do combate vazava 2px (itens de grid sem min-width) */
-.tv-combat-main > * { min-width: 0; }
-@media (max-width: 720px) {
-  /* a regra de 2 colunas vem depois da media query antiga e a anulava */
-  .tv-combat-main { grid-template-columns: 1fr; }
-  /* a base (.tv-combat-side column) vem depois da regra antiga de 720px:
-     sobrava column + wrap, que quebrava em colunas para a direita */
-  .tv-combat-side { flex-direction: column; flex-wrap: nowrap; }
-}
-@media (max-width: 600px) {
-  /* cada bloco da coluna lateral ocupa a linha toda e pode encolher
-     (inimigos e cartão vazavam: scrollWidth 563+ em 390px) */
-  .tv-combat-side > * { flex: 0 0 auto; min-width: 0; max-width: 100%; }
-  .tv-foe { padding: 6px 10px; }
-  .tv-foe-name { flex: 1 1 8em; overflow-wrap: anywhere; font-size: 1rem; }
-  .tv-foe-band { white-space: nowrap; }
-  .tv-combat-name, .tv-mini-title { overflow-wrap: anywhere; }
-}
-
-/* ========================================================================
-   Rework do telão (WP5): capa em repouso, carta virada, recap de série.
-   Tudo escopado em .tv-* (este arquivo é importado no app inteiro).
-   ======================================================================== */
-.tv-screen { position: relative; isolation: isolate; --tv-accent: var(--tv-gold); }
-.tv-screen.tv-mode-rest,
-.tv-screen.tv-mode-card,
-.tv-screen.tv-mode-recap,
-.tv-screen.tv-mode-scene,
-.tv-screen.tv-mode-text,
-.tv-screen.tv-mode-image,
-.tv-screen.tv-mode-map,
-.tv-screen.tv-mode-dark {
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: #070504;
-}
-.tv-cover-top, .tv-cover, .tv-stage, .tv-party, .tv-recap,
-.tv-front-image, .tv-scene-front, .tv-text-front, .tv-map-only, .tv-turn-tarja { position: relative; z-index: 1; }
-
-/* Fundo: capa da campanha (ou arte padrão) com zoom lento */
-.tv-backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; background: #070504; }
+/* === Fundo: capa da campanha (ou arte padrão) com zoom lento === */
+.tv-backdrop { position: absolute; inset: 0; z-index: 0; overflow: hidden; background: #070504; }
 .tv-backdrop img {
   width: 100%; height: 100%; object-fit: cover; display: block;
   animation: tv-kenburns 48s ease-in-out infinite alternate;
@@ -818,72 +83,345 @@
 .tv-backdrop.is-recap img { filter: blur(3px) brightness(0.45) saturate(0.85); animation-duration: 30s; }
 @keyframes tv-kenburns { from { transform: scale(1); } to { transform: scale(1.09) translate(-1%, 1%); } }
 
-.tv-cover-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
-.tv-cover-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: clamp(1rem, 1.3vw, 1.3rem); }
-.tv-cover-pills .tv-weather { color: var(--tv-ink-soft); }
+/* === Topo: ao vivo, sessão, clima e relógio === */
+.tv-cover-top { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 1.2cqw; }
+.tv-cover-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 0.9cqw; font-size: 1.45cqw; }
+.tv-weather { color: var(--tv-ink-soft); font-style: italic; }
 .tv-live {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 3px 14px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 0.6cqw;
+  padding: 0.3cqh 1.1cqw; border-radius: 999px;
   background: rgba(158, 51, 34, 0.85); color: #fff;
-  font-family: 'Cinzel', serif; letter-spacing: 2px; text-transform: uppercase; font-size: 0.85em;
+  font-family: 'Cinzel', serif; letter-spacing: 0.15em; text-transform: uppercase; font-size: 0.85em;
 }
-.tv-live-dot { width: 10px; height: 10px; border-radius: 50%; background: #ffb4a6; animation: tv-pulse 1.6s ease-in-out infinite; }
+.tv-live-dot { width: 0.8cqw; height: 0.8cqw; border-radius: 50%; background: #ffb4a6; animation: tv-pulse 1.6s ease-in-out infinite; }
+.tv-session-pill {
+  background: rgba(214, 176, 100, 0.15);
+  border: 1px solid var(--tv-gold);
+  color: var(--tv-gold);
+  padding: 0.2cqh 1cqw;
+  border-radius: 999px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.9em;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.tv-clock {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.6cqw;
+  color: var(--tv-gold);
+  font-feature-settings: 'tnum';
+  white-space: nowrap;
+}
+@keyframes tv-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(214, 176, 100, 0); }
+  50%      { box-shadow: 0 0 2cqw 0 rgba(214, 176, 100, 0.3); }
+}
 
-/* Repouso: capa com o nome da campanha */
+/* === Repouso: capa com o nome da campanha === */
 .tv-cover {
-  flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
-  text-align: center; padding: 4vh 4vw; gap: 14px;
+  flex: 1 1 auto; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  text-align: center; gap: 1.4cqh;
 }
-.tv-cover-ornament { color: var(--tv-accent); font-size: clamp(1.4rem, 2.4vw, 2.4rem); opacity: 0.85; text-shadow: 0 0 18px rgba(214, 176, 100, 0.6); }
+.tv-cover-ornament { flex: none; color: var(--tv-accent); font-size: 2.2cqw; opacity: 0.85; text-shadow: 0 0 18px rgba(214, 176, 100, 0.6); }
 .tv-cover-title {
-  margin: 0; font-family: 'Cinzel', 'Trajan Pro', serif; font-weight: 700;
-  font-size: clamp(2.6rem, 7vw, 7.5rem); line-height: 1.02; letter-spacing: 0.04em;
+  flex: none; margin: 0; font-family: 'Cinzel', 'Trajan Pro', serif; font-weight: 700;
+  font-size: 6cqw; line-height: 1.02; letter-spacing: 0.04em;
   color: var(--gold-bright);
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6), 0 0 42px rgba(214, 176, 100, 0.35);
   animation: tv-rise 1.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .tv-cover-tagline {
-  margin: 0; max-width: 46ch; font-style: italic; color: var(--tv-ink);
-  font-size: clamp(1.15rem, 2.2vw, 2.1rem); line-height: 1.35; opacity: 0.92;
+  flex: none; margin: 0; max-width: 46ch; font-style: italic; color: var(--tv-ink);
+  font-size: 2cqw; line-height: 1.3; opacity: 0.92;
   animation: tv-rise 1.4s 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .tv-cover-scene {
-  margin-top: 2vh; display: inline-flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 10px 28px; border-top: 1px solid var(--stroke-strong); border-bottom: 1px solid var(--stroke-strong);
+  flex: none; display: inline-flex; flex-direction: column; align-items: center; gap: 0.4cqh;
+  padding: 1cqh 2.2cqw; border-top: 1px solid var(--stroke-strong); border-bottom: 1px solid var(--stroke-strong);
   background: linear-gradient(90deg, transparent, rgba(7, 5, 4, 0.55), transparent);
 }
-.tv-cover-eyebrow { font-family: 'Cinzel', serif; letter-spacing: 0.3em; text-transform: uppercase; color: var(--tv-accent); font-size: clamp(0.8rem, 1vw, 1rem); }
-.tv-cover-scene-name { font-family: 'Cinzel', serif; font-size: clamp(1.3rem, 2.4vw, 2.4rem); color: var(--tv-ink); }
-.tv-cover .tv-read-aloud { max-width: min(1100px, 92vw); text-align: left; margin: 1vh 0 0; background: rgba(7, 5, 4, 0.6); backdrop-filter: blur(4px); }
+.tv-cover-eyebrow { font-family: 'Cinzel', serif; letter-spacing: 0.3em; text-transform: uppercase; color: var(--tv-accent); font-size: 1.15cqw; }
+.tv-cover-scene-name { font-family: 'Cinzel', serif; font-size: 2.2cqw; color: var(--tv-ink); }
+/* Texto "ler em voz alta" da cena: encolhe pelo comprimento, nunca rola */
+.tv-read-aloud {
+  flex: 0 1 auto; min-height: 0; overflow: hidden;
+  max-width: 86cqw; margin: 0.6cqh 0 0; text-align: left;
+  padding: 1.4cqh 1.8cqw;
+  border-left: 0.3cqw solid var(--tv-gold);
+  background: rgba(7, 5, 4, 0.6); backdrop-filter: blur(4px);
+  color: var(--tv-ink);
+  font-size: 1.75cqw; font-style: italic; line-height: 1.45;
+  white-space: pre-wrap;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 7; line-clamp: 7;
+}
+.tv-cover.is-medium .tv-read-aloud { font-size: 1.5cqw; -webkit-line-clamp: 8; line-clamp: 8; }
+.tv-cover.is-long .tv-read-aloud, .tv-cover.is-xlong .tv-read-aloud { font-size: 1.3cqw; line-height: 1.38; -webkit-line-clamp: 10; line-clamp: 10; }
+.tv-cover:is(.is-medium, .is-long, .is-xlong) .tv-cover-title { font-size: 4.4cqw; }
+.tv-cover:is(.is-medium, .is-long, .is-xlong) .tv-cover-tagline { display: none; }
 @keyframes tv-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
 
-/* Grupo no rodapé da capa */
-.tv-party {
-  display: grid; gap: 16px; margin-top: auto;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 380px)); justify-content: center;
-}
-.tv-party .tv-char-card { background: rgba(14, 10, 7, 0.72); backdrop-filter: blur(6px); }
-.tv-party.is-compact { grid-template-columns: repeat(auto-fit, minmax(200px, 280px)); gap: 10px; }
-.tv-char-card.is-compact { padding: 10px 12px; border-width: 1px; }
-.tv-char-card.is-compact .tv-char-head { margin-bottom: 8px; gap: 10px; }
-.tv-char-card.is-compact .tv-avatar { width: 40px; height: 40px; }
-.tv-char-card.is-compact .tv-char-name { font-size: clamp(1rem, 1.3vw, 1.25rem); }
-.tv-char-card.is-compact .tv-hp-bar { height: 22px; margin-bottom: 0; }
-.tv-char-card.is-compact .tv-hp-text { font-size: 0.95rem; }
-.tv-char-player { font-size: 0.85rem; color: var(--tv-ink-soft); opacity: 0.8; }
+/* Com o teste na Tela (faixa embaixo), a capa encolhe para o grupo continuar à vista */
+.tv-screen.has-test .tv-cover-title { font-size: 4.2cqw; }
+.tv-screen.has-test .tv-cover-ornament,
+.tv-screen.has-test .tv-cover-tagline { display: none; }
+.tv-screen.has-test .tv-read-aloud { -webkit-line-clamp: 4; line-clamp: 4; font-size: 1.35cqw; }
 
-/* Cartão revelado: a carta vira no centro */
-.tv-stage {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 16px; padding: 2vh 0; perspective: 1800px;
+/* === Grupo: até 6 cartões numa linha (repouso) ou compactos (cartão) === */
+.tv-party {
+  flex: none; display: grid; gap: 1cqw; justify-content: center;
+  grid-template-columns: repeat(var(--n, 4), minmax(0, 22cqw));
 }
-.tv-stage-campaign { font-family: 'Cinzel', serif; letter-spacing: 0.3em; text-transform: uppercase; color: var(--tv-accent); opacity: 0.8; font-size: clamp(0.85rem, 1.1vw, 1.1rem); }
-.tv-card { width: min(1180px, 92vw); }
+.tv-party-more {
+  display: grid; place-items: center; border: 1px dashed var(--stroke-strong); border-radius: 0.9cqw;
+  font-family: 'Cinzel', serif; color: var(--tv-gold); font-size: 2.4cqw; background: rgba(14, 10, 7, 0.6);
+}
+.tv-char-card {
+  min-width: 0;
+  background: rgba(14, 10, 7, 0.78); backdrop-filter: blur(6px);
+  border: 1px solid var(--tv-border);
+  border-radius: 0.9cqw;
+  padding: 1.2cqh 0.9cqw;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  display: flex; flex-direction: column; gap: 0.8cqh;
+  transition: border-color 280ms ease, box-shadow 280ms;
+  position: relative;
+}
+.tv-char-card.is-active-turn {
+  border-color: var(--tv-gold);
+  box-shadow: 0 0 0 1px var(--tv-gold) inset, 0 6px 26px rgba(214, 176, 100, 0.35);
+}
+.tv-char-card.is-dead { filter: grayscale(0.6); opacity: 0.75; }
+.tv-char-head { display: flex; align-items: center; gap: 0.7cqw; min-width: 0; }
+.tv-char-id { flex: 1; min-width: 0; }
+.tv-avatar {
+  width: 3.9cqw; height: 3.9cqw;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--tv-gold);
+  flex-shrink: 0;
+}
+.tv-avatar-placeholder {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--tv-border);
+  font-family: 'Cinzel', serif; font-size: 1.8cqw; color: var(--tv-gold);
+}
+.tv-char-name {
+  font-family: 'Cinzel', serif; font-size: 1.35cqw; color: var(--tv-ink); line-height: 1.1;
+  overflow: hidden; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
+.tv-char-sub, .tv-char-player {
+  font-size: 1.05cqw; color: var(--tv-ink-soft); margin-top: 0.3cqh; font-style: italic;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tv-char-player { font-style: normal; opacity: 0.85; }
+.tv-inspiration {
+  color: var(--tv-gold); font-size: 1.8cqw; flex: none;
+  text-shadow: 0 0 12px rgba(214, 176, 100, 0.6);
+  animation: tv-twinkle 2s ease-in-out infinite;
+}
+@keyframes tv-twinkle { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+.tv-char-card.is-compact { padding: 0.8cqh 0.8cqw; gap: 0.6cqh; }
+.tv-char-card.is-compact .tv-avatar { width: 2.6cqw; height: 2.6cqw; }
+.tv-char-card.is-compact .tv-char-name { font-size: 1.15cqw; display: block; white-space: nowrap; text-overflow: ellipsis; }
+.tv-char-card.is-compact .tv-hp-bar { height: 2.6cqh; }
+.tv-char-card.is-compact .tv-hp-text { font-size: 1cqw; }
+.tv-screen.has-test .tv-char-card:not(.is-compact) { padding: 0.8cqh 0.8cqw; gap: 0.5cqh; }
+
+/* === Barra de PV === */
+.tv-hp-bar {
+  display: block;
+  position: relative;
+  height: 3.6cqh;
+  background: var(--bg-elevated);
+  border-radius: 0.4cqw;
+  overflow: hidden;
+  border: 1px solid var(--tv-border);
+}
+.tv-hp-fill {
+  display: block;
+  height: 100%;
+  transition: width 600ms cubic-bezier(0.22, 1, 0.36, 1), background-color 600ms;
+  position: relative;
+}
+.tv-hp-ok   .tv-hp-fill { background: linear-gradient(90deg, var(--tv-hp-ok), var(--moss-bright)); }
+.tv-hp-warn .tv-hp-fill { background: linear-gradient(90deg, var(--tv-hp-warn), var(--gold-bright)); }
+.tv-hp-crit .tv-hp-fill {
+  background: linear-gradient(90deg, var(--tv-hp-crit), var(--blood-bright));
+  animation: tv-low-hp 1.6s ease-in-out infinite;
+}
+@keyframes tv-low-hp { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+.tv-hp-text {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.15cqw; font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  white-space: nowrap;
+}
+.tv-hp-temp { color: #9dc8e6; margin-left: 0.3cqw; }
+
+/* === CA, deslocamento, morte === */
+.tv-stats { display: flex; flex-wrap: wrap; gap: 0.4cqh 1cqw; font-size: 1.1cqw; }
+.tv-stat-block { display: flex; align-items: baseline; gap: 0.4cqw; }
+.tv-stats .lbl {
+  color: var(--tv-ink-soft);
+  font-family: 'Cinzel', serif;
+  font-size: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.tv-stats .val { font-family: 'JetBrains Mono', monospace; font-size: 1.3cqw; color: var(--tv-ink); }
+.tv-death .val { color: var(--tv-hp-crit); }
+.tv-death-succ { color: var(--tv-hp-ok); margin-right: 0.3cqw; }
+.tv-death-fail { color: var(--tv-hp-crit); }
+
+/* === Condições com ícones === */
+.tv-conditions { display: flex; flex-wrap: wrap; gap: 0.4cqw; }
+.tv-condition {
+  display: inline-flex; align-items: center; gap: 0.35cqw;
+  background: var(--tv-cond-bg);
+  border: 1px solid var(--tv-cond-border);
+  border-radius: 999px;
+  padding: 0.25cqh 0.7cqw 0.25cqh 0.35cqw;
+  font-size: 0.95cqw;
+  color: var(--tv-cond-ink);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-family: 'Cinzel', serif;
+  white-space: nowrap;
+}
+.tv-condition.is-icon { padding: 0.2cqh 0.25cqw; }
+.tv-cond-icon { width: 1.3cqw; height: 1.3cqw; flex-shrink: 0; }
+.tv-conditions.tiny .tv-condition { font-size: 0.85cqw; padding: 0.15cqh 0.4cqw; }
+.tv-conditions.tiny .tv-cond-icon { width: 1cqw; height: 1cqw; }
+
+/* === Combate (T1): cabeçalho de 1 linha, mapa 70% e a coluna 30% === */
+.tv-screen.tv-mode-combat .tv-canvas { padding: 2cqh 1.6cqw; gap: 1.4cqh; }
+.tv-header {
+  flex: none; display: flex; align-items: center; gap: 1.2cqw; min-width: 0;
+  padding-bottom: 1cqh; border-bottom: 2px solid var(--tv-border);
+}
+.tv-title {
+  flex: 0 1 auto; min-width: 18cqw; margin: 0;
+  font-family: 'Cinzel', 'Trajan Pro', serif; font-size: 2.3cqw; line-height: 1.1;
+  color: var(--tv-gold); letter-spacing: 0.06em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tv-scene {
+  flex: 1 1 0; min-width: 0; font-size: 1.5cqw; font-style: italic; color: var(--tv-ink); opacity: 0.9;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tv-meta { flex: none; margin-left: auto; display: flex; align-items: center; gap: 1cqw; color: var(--tv-ink-soft); }
+.tv-combat-pill {
+  background: var(--blood); color: #fff;
+  padding: 0.3cqh 1.1cqw; border-radius: 999px;
+  font-family: 'Cinzel', serif; font-size: 1.3cqw; letter-spacing: 0.12em; white-space: nowrap;
+  animation: tv-pulse 2.4s ease-in-out infinite;
+}
+.tv-combat-main {
+  flex: 1 1 auto; min-height: 0;
+  display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 3fr); gap: 1.2cqw;
+}
+.tv-combat-main > * { min-width: 0; min-height: 0; }
+/* O mapa: o mapa inteiro, ajustado à área (contain) */
+.tv-grid-container {
+  min-height: 0; height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid var(--tv-border);
+  border-radius: 0.6cqw;
+  overflow: hidden;
+}
+.tv-grid-container .combat-grid-wrapper { height: 100%; padding: 0; border: none; background: transparent; }
+.tv-grid-container .grid-canvas-frame { height: 100%; max-height: none; overflow: hidden; background: transparent; }
+.tv-grid-container .grid-canvas-frame canvas { width: 100%; height: 100%; max-width: none; object-fit: contain; }
+
+.tv-combat-side { display: flex; flex-direction: column; gap: 1cqh; min-height: 0; overflow: hidden; }
+.tv-now-acting {
+  flex: none; display: flex; flex-direction: column; gap: 0.2cqh;
+  padding: 1cqh 1.1cqw;
+  background: linear-gradient(90deg, rgba(214, 176, 100, 0.22), transparent);
+  border-left: 0.3cqw solid var(--tv-gold);
+  border-radius: 0.3cqw;
+  animation: tv-pulse 2.4s ease-in-out infinite;
+}
+.tv-now-label { font-family: 'Cinzel', serif; font-size: 1.05cqw; text-transform: uppercase; letter-spacing: 0.15em; color: var(--tv-ink-soft); }
+.tv-now-name {
+  font-family: 'Cinzel', serif; font-size: 2cqw; color: var(--tv-gold); font-weight: 600; line-height: 1.1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Ordem de iniciativa: ✓ agiu (esmaecido) · ▶ a vez (dourado) · o resto */
+.tv-order {
+  flex: 1 1 auto; min-height: 0; margin: 0; padding: 0; list-style: none;
+  display: grid; gap: 0.6cqh; align-content: start;
+  grid-template-rows: repeat(var(--rows, 10), minmax(0, 7cqh));
+}
+.tv-order-row {
+  min-height: 0; min-width: 0; overflow: hidden;
+  display: grid; grid-template-columns: 1.3cqw 2.8cqw minmax(0, 1fr) minmax(0, 7.6cqw); align-items: center; column-gap: 0.6cqw;
+  padding: 0 0.7cqw;
+  border-radius: 0.4cqw; border: 1px solid transparent;
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 1.35cqw;
+}
+.tv-order-row.is-now { border-color: var(--tv-gold); background: rgba(214, 176, 100, 0.16); box-shadow: 0 0 1.2cqw rgba(214, 176, 100, 0.3); }
+.tv-order-row.is-acted { opacity: 0.55; }
+.tv-order-row.is-down .tv-order-name { text-decoration: line-through; text-decoration-color: rgba(224, 96, 79, 0.7); }
+.tv-order-mark { font-family: 'Cinzel', serif; color: var(--tv-gold); text-align: center; }
+.tv-order-row.is-acted .tv-order-mark { color: var(--moss-bright); }
+.tv-order-name {
+  font-family: 'Cinzel', serif; color: var(--tv-ink); line-height: 1.1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tv-order-row.is-now .tv-order-name { color: var(--gold-bright); font-weight: 600; }
+.tv-order-row.is-monster .tv-order-name { color: #f0d3c9; }
+.tv-order-hp.tv-hp-bar { height: 2.8cqh; margin: 0; border-radius: 0.3cqw; }
+.tv-order-hp .tv-hp-text { font-size: 1.05cqw; }
+.tv-order-band {
+  justify-self: end; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 1.05cqw; padding: 0.1cqh 0.6cqw; border-radius: 999px; border: 1px solid currentColor;
+}
+.tv-order-conds { grid-column: 3 / -1; display: flex; gap: 0.3cqw; }
+.tv-order-pic { --art-size: 2.8cqw !important; }
+.tv-order-row:has(.tv-order-conds) :is(.tv-order-mark, .tv-order-pic) { grid-row: 1 / span 2; }
+.tv-order-pic .art-thumb-emoji { font-size: 1.4cqw; }
+.tv-order.is-plain .tv-order-row { grid-template-columns: 0 2.8cqw minmax(0, 1fr) minmax(0, 7.6cqw); }
+.tv-order-row.is-acted .tv-order-pic { filter: grayscale(0.4); }
+.tv-order-row:has(.tv-order-conds) { grid-template-rows: auto auto; align-content: center; row-gap: 0.2cqh; }
+.tv-order-row.is-more {
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Cinzel', serif; color: var(--tv-gold); background: transparent; border: 1px dashed var(--stroke-strong);
+}
+
+/* Faixa de saúde (monstros sempre; PJs quando o mestre tira o "PV do grupo") */
+.tv-foe-unhurt { color: var(--moss-bright); }
+.tv-foe-hurt { color: var(--gold); }
+.tv-foe-bloodied { color: var(--blood-bright); }
+.tv-foe-down { color: var(--tv-ink-soft); }
+
+/* Combate: cartão do Mundo pequeno (TV de antes do palco) */
+.tv-mini-card {
+  flex: none; display: flex; gap: 0.8cqw; align-items: center; padding: 0.8cqh 0.8cqw; border-radius: 0.7cqw;
+  border: 1px solid var(--tv-accent); background: rgba(214, 176, 100, 0.08);
+  animation: tv-rise 0.8s ease both;
+}
+.tv-mini-card img { width: 4.4cqw; height: 4.4cqw; object-fit: cover; border-radius: 0.5cqw; flex-shrink: 0; }
+.tv-mini-title { font-family: 'Cinzel', serif; font-size: 1.3cqw; color: var(--gold-bright); overflow-wrap: anywhere; }
+
+/* === Cartão revelado: a carta vira no centro === */
+.tv-stage {
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1.2cqh; perspective: 1800px;
+}
+.tv-stage-campaign { flex: none; font-family: 'Cinzel', serif; letter-spacing: 0.3em; text-transform: uppercase; color: var(--tv-accent); opacity: 0.8; font-size: 1.05cqw; }
+.tv-card { width: min(88cqw, 100%); flex: 0 1 auto; min-height: 0; display: flex; }
 .tv-card-inner {
-  position: relative; transform-style: preserve-3d;
+  position: relative; transform-style: preserve-3d; flex: 1; min-height: 0; display: flex;
   animation: tv-flip 1.25s cubic-bezier(0.3, 1.15, 0.4, 1) both;
 }
-.tv-card-back, .tv-card-front { backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 14px; }
+.tv-card-back, .tv-card-front { backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 1.1cqw; }
 .tv-card-back {
   position: absolute; inset: 0; transform: rotateY(180deg);
   display: flex; align-items: center; justify-content: center;
@@ -891,41 +429,48 @@
     repeating-linear-gradient(45deg, rgba(214, 176, 100, 0.08) 0 2px, transparent 2px 16px),
     radial-gradient(circle at 50% 50%, #3a2a16, #120c07 70%);
   border: 3px double var(--tv-gold);
-  color: var(--tv-gold); font-size: 6rem; text-shadow: 0 0 30px rgba(214, 176, 100, 0.7);
+  color: var(--tv-gold); font-size: 6cqw; text-shadow: 0 0 30px rgba(214, 176, 100, 0.7);
 }
 .tv-card-front {
-  position: relative; display: grid; grid-template-columns: minmax(0, 38%) minmax(0, 1fr); gap: 0;
+  position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 38%) minmax(0, 1fr); gap: 0;
   background:
     radial-gradient(ellipse at 20% 0%, rgba(214, 176, 100, 0.14), transparent 60%),
     linear-gradient(160deg, #2a1f14 0%, #160f09 100%);
   border: 2px solid var(--tv-accent);
   box-shadow: 0 0 0 6px rgba(7, 5, 4, 0.8), 0 0 0 7px var(--stroke-strong), 0 30px 80px rgba(0, 0, 0, 0.75), 0 0 60px rgba(214, 176, 100, 0.18);
-  overflow: hidden; max-height: 74vh;
+  overflow: hidden; height: 58cqh;
 }
+.tv-screen.has-test .tv-card-front { height: 42cqh; }
 .tv-card.no-img .tv-card-front { grid-template-columns: minmax(0, 24%) minmax(0, 1fr); }
-.tv-card-art { position: relative; min-height: 100%; background: #0b0805; }
-.tv-card-art img { width: 100%; height: 100%; max-height: 74vh; object-fit: cover; display: block; }
+.tv-card-art { position: relative; min-height: 0; background: #0b0805; }
+.tv-card-art img { width: 100%; height: 100%; object-fit: cover; display: block; position: absolute; inset: 0; }
 .tv-card-art.is-default img { filter: sepia(0.3) brightness(0.8); }
 .tv-card-art::after { content: ''; position: absolute; inset: 0; box-shadow: inset -40px 0 50px -20px #160f09; pointer-events: none; }
 .tv-card-emblem {
-  display: flex; align-items: center; justify-content: center; font-size: clamp(4rem, 9vw, 8rem);
+  display: flex; align-items: center; justify-content: center; font-size: 7cqw;
   background: radial-gradient(circle, rgba(214, 176, 100, 0.18), transparent 65%);
   border-right: 1px solid var(--stroke);
 }
-.tv-card-body { padding: clamp(20px, 3vw, 48px); display: flex; flex-direction: column; gap: 10px; min-width: 0; overflow: hidden; }
-.tv-card-kind { font-family: 'Cinzel', serif; letter-spacing: 0.28em; text-transform: uppercase; color: var(--tv-accent); font-size: clamp(0.85rem, 1.1vw, 1.15rem); }
+.tv-card-body { padding: 2.6cqh 2.4cqw; display: flex; flex-direction: column; gap: 0.9cqh; min-width: 0; min-height: 0; overflow: hidden; }
+.tv-card-kind { flex: none; font-family: 'Cinzel', serif; letter-spacing: 0.28em; text-transform: uppercase; color: var(--tv-accent); font-size: 1.1cqw; }
 .tv-card-title {
-  margin: 0; font-family: 'Cinzel', serif; font-weight: 700; line-height: 1.05;
-  font-size: clamp(2rem, 4.6vw, 4.6rem); color: var(--gold-bright);
+  flex: none; margin: 0; font-family: 'Cinzel', serif; font-weight: 700; line-height: 1.05;
+  font-size: 3.8cqw; color: var(--gold-bright);
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
 }
-.tv-card-title::after { content: ''; display: block; width: 120px; height: 2px; margin-top: 14px; background: linear-gradient(90deg, var(--tv-accent), transparent); }
-.tv-card-text { font-size: clamp(1.1rem, 1.7vw, 1.75rem); line-height: 1.5; color: var(--tv-ink); overflow: hidden; }
-.tv-card-text p { margin: 0 0 0.7em; }
+.tv-card-title::after { content: ''; display: block; width: 9cqw; height: 2px; margin-top: 1.2cqh; background: linear-gradient(90deg, var(--tv-accent), transparent); }
+.tv-card-text {
+  flex: 1 1 auto; min-height: 0; font-size: 1.55cqw; line-height: 1.45; color: var(--tv-ink); overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, #000 85%, transparent);
+  mask-image: linear-gradient(180deg, #000 85%, transparent);
+}
+.tv-card-text p { margin: 0 0 0.6em; }
+.tv-card.is-medium .tv-card-title { font-size: 3cqw; }
+.tv-card:is(.is-long, .is-xlong) .tv-card-title { font-size: 2.4cqw; }
 .tv-card-rumor {
-  align-self: flex-start; font-family: 'Cinzel', serif; font-style: italic; letter-spacing: 0.12em;
-  color: var(--parchment); padding: 2px 14px; border: 1px dashed var(--stroke-strong); border-radius: 999px;
-  background: rgba(214, 176, 100, 0.08);
+  flex: none; align-self: flex-start; font-family: 'Cinzel', serif; font-style: italic; letter-spacing: 0.12em;
+  color: var(--parchment); padding: 0.2cqh 1.1cqw; border: 1px dashed var(--stroke-strong); border-radius: 999px;
+  background: rgba(214, 176, 100, 0.08); font-size: 1.2cqw;
 }
 .tv-card.is-partial .tv-card-text { color: var(--tv-ink-soft); font-style: italic; }
 .tv-card.is-partial .tv-card-art img { filter: sepia(0.35) contrast(0.95); }
@@ -935,34 +480,50 @@
   100% { transform: rotateY(0deg) scale(1) translateY(0); opacity: 1; }
 }
 
-/* Recap — "Anteriormente em…" */
-.tv-recap { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; padding: 14vh 6vw; }
-.tv-recap-bar { position: fixed; left: 0; right: 0; height: 11vh; background: #000; z-index: 2; animation: tv-letterbox 1.2s ease-out both; }
+/* === Recap — "Anteriormente em…" (tarjas de cinema) === */
+.tv-recap {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+  padding: 7cqh 2cqw;
+}
+.tv-recap-bar { position: absolute; left: 0; right: 0; height: 9cqh; background: #000; z-index: 2; animation: tv-letterbox 1.2s ease-out both; }
 .tv-recap-bar.top { top: 0; transform-origin: top; }
 .tv-recap-bar.bottom { bottom: 0; transform-origin: bottom; }
-.tv-recap-content { max-width: 1200px; display: flex; flex-direction: column; align-items: center; gap: 1.6vh; }
+.tv-recap-content { max-width: 92cqw; min-height: 0; max-height: 100%; display: flex; flex-direction: column; align-items: center; gap: 1.4cqh; overflow: hidden; }
 .tv-recap-eyebrow {
-  font-family: 'Cinzel', serif; text-transform: uppercase; letter-spacing: 0.5em; color: var(--tv-ink-soft);
-  font-size: clamp(0.9rem, 1.4vw, 1.4rem); animation: tv-fade 1.2s 0.5s ease both;
+  flex: none; font-family: 'Cinzel', serif; text-transform: uppercase; letter-spacing: 0.5em; color: var(--tv-ink-soft);
+  font-size: 1.3cqw; animation: tv-fade 1.2s 0.5s ease both;
 }
 .tv-recap-campaign {
-  margin: 0; font-family: 'Cinzel', serif; font-weight: 700; color: var(--gold-bright);
-  font-size: clamp(2.4rem, 6.5vw, 6.5rem); line-height: 1.02; letter-spacing: 0.05em;
+  flex: none; margin: 0; font-family: 'Cinzel', serif; font-weight: 700; color: var(--gold-bright);
+  font-size: 5.6cqw; line-height: 1.02; letter-spacing: 0.05em;
   text-shadow: 0 0 50px rgba(214, 176, 100, 0.45);
   animation: tv-glow-in 2.2s 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-.tv-recap-title { margin: 0; font-family: 'Cinzel', serif; font-weight: 400;
+.tv-recap-title { flex: none; margin: 0; font-family: 'Cinzel', serif; font-weight: 400;
   /* a cor da campanha clareada: roxo/vermelho puros sumiam no fundo escuro */
   color: color-mix(in srgb, var(--tv-accent, #d6b064) 45%, #f4e7c9);
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.85); font-size: clamp(1.2rem, 2.4vw, 2.3rem); animation: tv-fade 1.2s 1.8s ease both; }
-.tv-recap-text { margin-top: 2vh; max-width: 62ch; }
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.85); font-size: 2.1cqw; animation: tv-fade 1.2s 1.8s ease both; }
+.tv-recap-text { margin-top: 1cqh; max-width: 62ch; min-height: 0; overflow: hidden; font-size: 1.8cqw; }
 .tv-recap-text p {
-  margin: 0 0 1.1em; font-size: clamp(1.15rem, 2vw, 2rem); line-height: 1.5; font-style: italic; color: var(--tv-ink);
+  margin: 0 0 1em; line-height: 1.45; font-style: italic; color: var(--tv-ink);
   animation: tv-rise 1.6s calc(2.6s + var(--i, 0) * 2.4s) cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-.tv-recap.is-medium .tv-recap-text p { font-size: clamp(1rem, 1.6vw, 1.6rem); margin-bottom: 0.8em; }
-.tv-recap.is-long .tv-recap-text p { font-size: clamp(0.95rem, 1.3vw, 1.3rem); margin-bottom: 0.6em; }
-.tv-recap.is-long .tv-recap-campaign { font-size: clamp(2rem, 4.5vw, 4.5rem); }
+.tv-recap.is-medium .tv-recap-text { font-size: 1.5cqw; }
+.tv-recap.is-medium .tv-recap-text p { margin-bottom: 0.7em; }
+.tv-recap.is-long .tv-recap-text { font-size: 1.28cqw; max-width: 80ch; }
+.tv-recap.is-long .tv-recap-text p { margin-bottom: 0.55em; line-height: 1.38; }
+.tv-recap:is(.is-long, .is-xlong) .tv-recap-campaign { font-size: 3.8cqw; }
+.tv-recap:is(.is-long, .is-xlong) .tv-recap-title { font-size: 1.6cqw; }
+/* muito longo: duas colunas, letra menor; o que sobrar some num degradê (a TV não rola) */
+.tv-recap.is-xlong .tv-recap-text {
+  max-width: 90cqw; font-size: 1.12cqw; columns: 2; column-gap: 3cqw; text-align: left;
+  -webkit-mask-image: linear-gradient(180deg, #000 90%, transparent);
+  mask-image: linear-gradient(180deg, #000 90%, transparent);
+}
+.tv-recap.is-xlong .tv-recap-text p { margin-bottom: 0.5em; line-height: 1.34; break-inside: avoid-column; }
+.tv-screen.tv-mode-recap.has-test .tv-recap { padding-bottom: 1cqh; }
+.tv-screen.tv-mode-recap.has-test .tv-recap-bar.bottom { display: none; }
 @keyframes tv-letterbox { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @keyframes tv-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes tv-glow-in {
@@ -970,57 +531,200 @@
   to   { opacity: 1; letter-spacing: 0.05em; filter: blur(0); }
 }
 
-/* Combate: cartão pequeno e inimigos por faixa de saúde */
-.tv-mini-card {
-  display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 10px;
-  border: 1px solid var(--tv-accent); background: rgba(214, 176, 100, 0.08);
-  animation: tv-rise 0.8s ease both;
+/* === Rolagem dramática (por cima de tudo, um de cada vez) === */
+.tv-roll-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  animation: tv-fade-in 300ms ease-out;
+  cursor: pointer;
 }
-.tv-mini-card img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
-.tv-mini-title { font-family: 'Cinzel', serif; font-size: 1.3rem; color: var(--gold-bright); }
-.tv-foes { display: flex; flex-direction: column; gap: 6px; }
-.tv-foe {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
-  padding: 6px 12px; border-radius: 8px; border: 1px solid var(--tv-border); background: rgba(0, 0, 0, 0.3);
+@keyframes tv-fade-in { from { opacity: 0; } to { opacity: 1; } }
+/* Brilho do crítico/falha: .crit/.fail só chegam na revelação (TVScreen, depois que o
+   dado para) e entram num fade curto — gradiente não transiciona, então vive num ::before. */
+.tv-roll-overlay::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  opacity: 0; transition: opacity 400ms ease-out;
 }
-.tv-foe.is-turn { border-color: var(--tv-gold); box-shadow: 0 0 14px rgba(214, 176, 100, 0.3); }
-.tv-foe-name { flex: 1; min-width: 0; font-family: 'Cinzel', serif; font-size: 1.1rem; }
-.tv-foe-band { font-size: 0.95rem; padding: 1px 10px; border-radius: 999px; border: 1px solid currentColor; }
-.tv-foe-unhurt .tv-foe-band { color: var(--moss-bright); }
-.tv-foe-hurt .tv-foe-band { color: var(--gold); }
-.tv-foe-bloodied .tv-foe-band { color: var(--blood-bright); }
-.tv-foe-down { opacity: 0.5; }
-.tv-foe-down .tv-foe-band { color: var(--tv-ink-soft); }
+.tv-roll-overlay.crit::before { background: radial-gradient(circle at center, rgba(214, 176, 100, 0.40), rgba(0, 0, 0, 0.92)); opacity: 1; }
+.tv-roll-overlay.fail::before { background: radial-gradient(circle at center, rgba(224, 96, 79, 0.40), rgba(0, 0, 0, 0.92)); opacity: 1; }
+.tv-roll-inner {
+  position: relative; /* por cima do brilho (::before) */
+  text-align: center; color: var(--tv-ink);
+  max-height: 100%;
+  animation: tv-roll-zoom 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes tv-roll-zoom { from { transform: scale(0.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.tv-roll-overlay .tv-roll-who {
+  font-family: 'Cinzel', serif; font-size: 2.6cqw; color: var(--tv-gold);
+  letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.8cqh;
+}
+.tv-roll-overlay .tv-roll-label {
+  font-family: 'EB Garamond', serif; font-size: 2.6cqw; font-style: italic; color: var(--tv-ink); margin-bottom: 2cqh;
+}
+.tv-roll-dice { min-height: 18cqh; display: flex; align-items: center; justify-content: center; }
+.tv-roll-numbers { display: flex; align-items: center; gap: 1.4cqw; flex-wrap: wrap; justify-content: center; }
+.tv-die-result {
+  font-family: 'Cinzel', serif; font-size: 6.4cqw; font-weight: 700;
+  color: var(--tv-gold); background: var(--tv-bg-1);
+  border: 4px solid var(--tv-gold); border-radius: 1cqw;
+  padding: 1.6cqh 2cqw; min-width: 9cqw; text-align: center;
+  box-shadow: 0 0 40px rgba(214, 176, 100, 0.4);
+}
+.tv-roll-overlay.crit .tv-die-result { animation: tv-crit-glow 1.5s ease-in-out infinite; }
+@keyframes tv-crit-glow {
+  0%, 100% { box-shadow: 0 0 30px rgba(214, 176, 100, 0.5); }
+  50%      { box-shadow: 0 0 80px rgba(214, 176, 100, 1); }
+}
+.tv-roll-overlay.fail .tv-die-result { color: var(--blood-bright); border-color: var(--blood-bright); box-shadow: 0 0 40px rgba(224, 96, 79, 0.6); }
+.tv-roll-mod, .tv-roll-equals { font-family: 'Cinzel', serif; font-size: 4.4cqw; color: var(--tv-ink-soft); }
+.tv-roll-total { font-family: 'Cinzel', serif; font-size: 7.4cqw; font-weight: 700; color: var(--tv-ink); text-shadow: 0 0 30px rgba(255, 255, 255, 0.4); }
+.tv-roll-overlay.crit .tv-roll-total { color: var(--tv-gold); }
+.tv-roll-overlay.fail .tv-roll-total { color: var(--blood-bright); }
+.tv-roll-tag {
+  margin-top: 2cqh; font-family: 'Cinzel', serif; font-size: 3.4cqw; font-weight: 700;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  animation: tv-tag-pulse 1s ease-in-out infinite;
+}
+.tv-roll-tag.tv-crit-tag { color: var(--tv-gold); }
+.tv-roll-tag.tv-fail-tag { color: var(--blood-bright); }
+/* (Antes usava .crit-tag/.fail-tag, que colidiam com a etiqueta pequena de
+   crítico do painel de rolagens: aparecia uma barra dourada no rodapé.) */
+@keyframes tv-tag-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.7; } }
+/* Dado 3D da Tela */
+.tv-roll-overlay .tv-dice-stage { width: 70cqw; height: 40cqh; margin: 0 auto; }
+.tv-roll-overlay .tv-dice-stage.dice-stage-2d { height: auto; min-height: 18cqh; }
+.tv-roll-overlay.phase-reveal .tv-dice-stage { height: 22cqh; transition: height 0.4s ease; }
+.tv-roll-overlay.phase-reveal .tv-roll-dice { min-height: 0; }
 
+/* === Teste mostrado pelo mestre: faixa ≤ 18% da altura que EMPURRA o resto === */
+.tv-check-panel {
+  flex: none; max-height: 18cqh; overflow: hidden;
+  display: flex; align-items: center; gap: 1.4cqw;
+  background: rgba(14, 10, 7, 0.92);
+  border: 2px solid var(--tv-gold);
+  border-radius: 1cqw;
+  padding: 1.2cqh 1.4cqw;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  animation: tv-check-in 0.35s ease-out;
+  position: relative; z-index: 3;
+  transition: opacity 0.25s ease;
+}
+@keyframes tv-check-in { from { transform: translateY(2cqh); opacity: 0; } to { transform: none; opacity: 1; } }
+.tv-check-head { flex: 0 0 auto; display: flex; flex-direction: column; gap: 0.3cqh; max-width: 30cqw; }
+.tv-check-eyebrow { font-family: 'Cinzel', serif; color: var(--tv-gold); letter-spacing: 0.2em; text-transform: uppercase; font-size: 1.1cqw; }
+.tv-check-label {
+  font-family: 'Cinzel', serif; color: var(--tv-ink); font-size: 2.1cqw; font-weight: 700; line-height: 1.1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tv-check-sub { display: flex; align-items: center; gap: 0.8cqw; }
+.tv-check-dc {
+  font-family: 'Cinzel', serif; color: var(--tv-ink-soft); font-size: 1.3cqw;
+  border: 1px solid var(--tv-gold); border-radius: 999px; padding: 0 0.9cqw;
+}
+.tv-check-count { color: var(--tv-ink-soft); font-size: 1.3cqw; }
+.tv-check-list {
+  flex: 1 1 auto; min-width: 0; list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(15cqw, 1fr)); gap: 0.8cqh 0.8cqw;
+  max-height: 14cqh; overflow: hidden;
+}
+.tv-check-item {
+  display: flex; align-items: center; gap: 0.7cqw; min-width: 0;
+  padding: 0.6cqh 0.9cqw; border-radius: 0.6cqw;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(214, 176, 100, 0.3);
+  font-size: 1.5cqw; color: var(--tv-ink);
+}
+.tv-check-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-check-total { font-family: 'Cinzel', serif; font-weight: 700; color: var(--tv-gold); }
+.tv-check-mark { font-weight: 700; font-size: 1.2em; }
+.tv-check-item.pass { border-color: var(--moss-bright); background: rgba(156, 192, 101, 0.14); }
+.tv-check-item.pass .tv-check-mark { color: var(--moss-bright); }
+.tv-check-item.fail { border-color: var(--blood-bright); background: rgba(224, 96, 79, 0.14); }
+.tv-check-item.fail .tv-check-mark { color: var(--blood-bright); }
+.tv-check-item.waiting { opacity: 0.55; }
+/* Revelação do dado: o teste sai de vista enquanto o overlay está aberto (o lugar fica: nada pula) */
+.tv-screen.has-roll-overlay .tv-check-panel { opacity: 0; pointer-events: none; }
+
+/* === "Reconectando…" === */
 .tv-offline {
-  position: fixed; left: 16px; bottom: 16px; z-index: 5; padding: 4px 12px; border-radius: 999px;
-  background: rgba(0, 0, 0, 0.7); color: var(--tv-ink-soft); font-size: 0.9rem;
+  position: absolute; left: 1.2cqw; bottom: 2cqh; z-index: 50; padding: 0.4cqh 1cqw; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.75); color: var(--tv-ink-soft); font-size: 1.2cqw;
 }
 
-@media (max-width: 720px) {
-  .tv-card-front, .tv-card.no-img .tv-card-front { grid-template-columns: 1fr; max-height: none; }
-  .tv-card-art img { max-height: 40vh; }
-  .tv-card-emblem { border-right: 0; border-bottom: 1px solid var(--stroke); padding: 18px 0; }
-  .tv-card-art::after { box-shadow: inset 0 -40px 50px -20px #160f09; }
-  .tv-screen.tv-mode-card, .tv-screen.tv-mode-recap { overflow: auto; }
-  .tv-party { grid-template-columns: 1fr; }
-  .tv-recap-bar { height: 6vh; }
+/* ========================================================================
+   Palco da Tela (V3): a frente por cima do combate com a tarja do turno,
+   "só a imagem" em tela cheia (contain), cena, texto livre, mapa como fundo
+   e a Tela escurecida.
+   ======================================================================== */
+.tv-turn-tarja {
+  flex: none; display: flex; align-items: baseline; gap: 0.5em; flex-wrap: wrap;
+  margin: -3cqh -2.6cqw 0; padding: 1.2cqh 2.6cqw;
+  background: rgba(7, 5, 4, 0.88); border-bottom: 1px solid var(--tv-gold-deep);
+  font-family: 'Cinzel', serif; letter-spacing: 0.08em; color: var(--fh-ember, #ff9446);
+  font-size: 1.8cqw;
 }
+.tv-turn-tarja strong { color: var(--gold-bright); }
 
-/* Sem animação para quem pede menos movimento */
-@media (prefers-reduced-motion: reduce) {
-  .tv-backdrop img,
-  .tv-card-inner,
-  .tv-cover-title, .tv-cover-tagline,
-  .tv-recap-bar, .tv-recap-eyebrow, .tv-recap-campaign, .tv-recap-title, .tv-recap-text p,
-  .tv-mini-card, .tv-live-dot, .tv-inspiration, .tv-combat-pill {
-    animation: none !important;
-  }
-  .tv-backdrop img { transition: none; }
-  .tv-roll-overlay::before { transition: none; }
+/* ◐ Escurecida: preta, só o emblema */
+.tv-screen.tv-mode-dark { background: #000; }
+.tv-dark { flex: 1; display: grid; place-items: center; }
+.tv-dark-emblem { font-size: 6cqw; color: var(--tv-gold-deep); opacity: 0.35; }
+
+/* Imagem inteira (cartão oculto "só a imagem", sala, mapa de lugar): a imagem cabe
+   inteira na caixa (contain), fundo de couro nas sobras, a legenda embaixo. */
+.tv-front-image { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 1.4cqh; }
+.tv-front-image-box {
+  position: relative; flex: 1 1 auto; min-height: 0; display: grid; place-items: center; overflow: hidden; border-radius: 1cqw;
+  background:
+    radial-gradient(ellipse at center, rgba(214, 176, 100, 0.06), transparent 70%),
+    linear-gradient(160deg, #1d150e, #0c0805);
+  box-shadow: inset 0 0 0 1px var(--stroke), 0 20px 60px rgba(0, 0, 0, 0.6);
+  animation: tv-front-in 0.6s ease-out both;
 }
+.tv-front-image-box img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
+.tv-front-caption {
+  flex: none; margin: 0; text-align: center; font-style: italic; color: var(--parchment);
+  font-size: 2cqw; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+@keyframes tv-front-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
 
-/* Link do telão que não existe mais (404) */
+/* Cena: imagem à esquerda (40%) + nome + texto para ler */
+.tv-scene-front {
+  flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 3cqw; align-items: center;
+  animation: tv-front-in 0.6s ease-out both;
+}
+.tv-scene-front.has-img { grid-template-columns: minmax(0, 40%) minmax(0, 1fr); }
+.tv-scene-art { height: 100%; min-height: 0; border-radius: 1cqw; overflow: hidden; border: 2px solid var(--tv-accent); }
+.tv-scene-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tv-scene-body { display: flex; flex-direction: column; gap: 1.2cqh; min-width: 0; min-height: 0; max-height: 100%; overflow: hidden; }
+.tv-scene-title { flex: none; margin: 0; font-family: 'Cinzel', serif; color: var(--gold-bright); line-height: 1.05; font-size: 4.4cqw; }
+.tv-scene-text { font-size: 2cqw; line-height: 1.45; color: var(--tv-ink); min-height: 0; overflow: hidden; }
+.tv-scene-text p { margin: 0 0 0.6em; }
+.tv-scene-front.is-medium .tv-scene-text { font-size: 1.6cqw; }
+.tv-scene-front.is-long .tv-scene-text { font-size: 1.3cqw; }
+.tv-scene-front.is-long .tv-scene-title { font-size: 3.4cqw; }
+
+/* Texto livre */
+.tv-text-front {
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+  padding: 0 6cqw; font-size: 3.4cqw; line-height: 1.32; color: var(--parchment); overflow: hidden;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8); animation: tv-front-in 0.6s ease-out both;
+}
+.tv-text-front p { margin: 0 0 0.5em; }
+.tv-text-front.is-medium { font-size: 2.6cqw; }
+.tv-text-front.is-long { font-size: 1.9cqw; }
+
+/* Mapa do combate como fundo (sem combate): só o mapa e os tokens */
+.tv-screen.tv-mode-map .tv-canvas { padding: 1.6cqh 1.2cqw; }
+.tv-map-only { flex: 1 1 auto; min-height: 0; display: flex; }
+.tv-map-only > * { flex: 1; min-width: 0; }
+.tv-map-empty { display: grid; place-items: center; font-family: 'Cinzel', serif; color: var(--tv-gold); font-size: 3cqw; }
+
+/* ========================================================================
+   Link da Tela que não existe mais (404)
+   ======================================================================== */
 .tv-dead { padding: 24px; }
 .tv-dead-box {
   max-width: 640px; text-align: center; padding: 32px 28px; border-radius: 14px;
@@ -1032,75 +736,16 @@
 .tv-dead h1 { font-family: 'Cinzel', serif; color: var(--gold-bright, #edcb7a); font-size: clamp(1.4rem, 3vw, 2.2rem); margin: 0 0 12px; }
 .tv-dead p { font-family: 'EB Garamond', Georgia, serif; margin: 0; color: var(--tv-ink-soft, #c0b090); font-size: clamp(1rem, 1.6vw, 1.3rem); line-height: 1.5; }
 
-/* ========================================================================
-   Palco da Tela (V3): a frente por cima do combate com a tarja do turno,
-   "só a imagem" em tela cheia (contain), cena, texto livre, mapa como fundo
-   e a Tela escurecida.
-   ======================================================================== */
-.tv-turn-tarja {
-  display: flex; align-items: baseline; gap: 0.5em; flex-wrap: wrap;
-  margin: -32px -32px 16px; padding: 12px 32px;
-  background: rgba(7, 5, 4, 0.88); border-bottom: 1px solid var(--tv-gold-deep);
-  font-family: 'Cinzel', serif; letter-spacing: 0.08em; color: var(--fh-ember, #ff9446);
-  font-size: clamp(1.1rem, 1.9vw, 2rem);
-}
-.tv-turn-tarja strong { color: var(--gold-bright); }
-
-/* ◐ Escurecida: preta, só o emblema */
-.tv-screen.tv-mode-dark { background: #000; padding: 0; }
-.tv-dark { flex: 1; display: grid; place-items: center; }
-.tv-dark-emblem { font-size: clamp(3rem, 8vw, 7rem); color: var(--tv-gold-deep); opacity: 0.35; }
-
-/* Imagem inteira (cartão oculto "só a imagem", sala, mapa de lugar): a altura é a
-   da TV (ninguém rola a TV); a imagem cabe inteira na caixa, a legenda embaixo. */
-.tv-screen.tv-mode-image { padding: 32px; height: 100vh; height: 100dvh; }
-.tv-front-image { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 14px; }
-.tv-front-image-box {
-  position: relative; flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; border-radius: 12px;
-  background:
-    radial-gradient(ellipse at center, rgba(214, 176, 100, 0.06), transparent 70%),
-    linear-gradient(160deg, #1d150e, #0c0805);
-  box-shadow: inset 0 0 0 1px var(--stroke), 0 20px 60px rgba(0, 0, 0, 0.6);
-  animation: tv-front-in 0.6s ease-out both;
-}
-.tv-front-image-box img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
-.tv-front-caption {
-  margin: 0; text-align: center; font-style: italic; color: var(--parchment);
-  font-size: clamp(1.2rem, 2vw, 2.1rem); text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
-}
-@keyframes tv-front-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
-
-/* Cena: imagem à esquerda (40%) + nome + texto para ler */
-.tv-scene-front {
-  flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 3vw; align-items: center;
-  padding: 2vh 2vw; animation: tv-front-in 0.6s ease-out both;
-}
-.tv-scene-front.has-img { grid-template-columns: minmax(0, 40%) minmax(0, 1fr); }
-.tv-scene-art { height: 100%; max-height: 72vh; border-radius: 12px; overflow: hidden; border: 2px solid var(--tv-accent); }
-.tv-scene-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.tv-scene-body { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.tv-scene-title { margin: 0; font-family: 'Cinzel', serif; color: var(--gold-bright); line-height: 1.05; font-size: clamp(2.2rem, 5vw, 5rem); }
-.tv-scene-text { font-size: clamp(1.2rem, 2vw, 2.1rem); line-height: 1.5; color: var(--tv-ink); }
-.tv-scene-text p { margin: 0 0 0.6em; }
-.tv-scene-front.is-medium .tv-scene-text { font-size: clamp(1.05rem, 1.6vw, 1.7rem); }
-.tv-scene-front.is-long .tv-scene-text { font-size: clamp(0.95rem, 1.3vw, 1.4rem); }
-
-/* Texto livre */
-.tv-text-front {
-  flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
-  padding: 4vh 10vw; font-size: clamp(1.6rem, 3.4vw, 3.6rem); line-height: 1.35; color: var(--parchment);
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8); animation: tv-front-in 0.6s ease-out both;
-}
-.tv-text-front p { margin: 0 0 0.5em; }
-.tv-text-front.is-medium { font-size: clamp(1.3rem, 2.6vw, 2.7rem); }
-.tv-text-front.is-long { font-size: clamp(1.05rem, 1.9vw, 2rem); }
-
-/* Mapa do combate como fundo (sem combate): só o mapa e os tokens */
-.tv-screen.tv-mode-map { padding: 16px; }
-.tv-map-only { flex: 1; min-height: 0; display: flex; }
-.tv-map-only > * { flex: 1; }
-.tv-map-empty { display: grid; place-items: center; font-family: 'Cinzel', serif; color: var(--tv-gold); font-size: 2rem; }
-
+/* Sem animação para quem pede menos movimento */
 @media (prefers-reduced-motion: reduce) {
-  .tv-front-image-box, .tv-scene-front, .tv-text-front { animation: none; }
+  .tv-backdrop img,
+  .tv-card-inner,
+  .tv-cover-title, .tv-cover-tagline,
+  .tv-recap-bar, .tv-recap-eyebrow, .tv-recap-campaign, .tv-recap-title, .tv-recap-text p,
+  .tv-mini-card, .tv-live-dot, .tv-inspiration, .tv-combat-pill, .tv-now-acting,
+  .tv-front-image-box, .tv-scene-front, .tv-text-front, .tv-check-panel {
+    animation: none !important;
+  }
+  .tv-backdrop img { transition: none; }
+  .tv-roll-overlay::before { transition: none; }
 }

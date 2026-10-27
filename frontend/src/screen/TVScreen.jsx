@@ -1,6 +1,6 @@
 import { errorMessage } from '../api/errors.js';
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { api, API_BASE } from '../api/client.js';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { api, API_BASE, apiUrl } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import CombatGrid from '../campaigns/CombatGrid.jsx';
 import DiceStage from '../dice/DiceStage.jsx';
@@ -11,7 +11,7 @@ import { loadNameIndex, needsNameIndex, portraitFor } from '../combat/monster-po
 import { absUrl, cardKey, charLine, healthLabel, paragraphs, screenMode } from '../player/player-model.js';
 import { defaultArt } from '../world/world-model.js';
 import { stageNow } from '../stage/stage-now.js';
-import { isDeadScreenLink, recapSubtitle, tvMode } from './tv-logic.js';
+import { initiativeRows, isDeadScreenLink, lengthClass, partyRow, recapSubtitle, turnNow, tvLang, tvMode } from './tv-logic.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -58,6 +58,16 @@ const CONDITIONS = {
 // aba no cache em memória; nenhuma escrita no banco) e avisa no
 // BroadcastChannel `forja-tv-<campanha>` (o app do mestre no mesmo navegador
 // conta sem servidor). A prévia do mestre (/tv/<t>?preview=1) não conta.
+// TV em 16:9 (V9, especificação §5.7): o palco é uma caixa 16:9 com tarja preta
+// (`.tv-frame` > `.tv-screen`, `container-type: size`); tudo dentro mede em
+// cqw/cqh, então cabe igual em 1280×720, 1920×1080, num tablet em pé e na
+// prévia do mestre (iframe). Ninguém rola a TV: texto longo encolhe
+// (lengthClass) e o teste é uma faixa que EMPURRA o resto, não cobre.
+// Combate em 70/30: o mapa à esquerda e, à direita, "Vez de X" e a ordem de
+// iniciativa (✓ agiu · ▶ a vez; até 10 + "+N"; PV dos PJs se o mestre deixa).
+// Idioma: o da campanha (`lang` do /api/screen, o do mestre); sem ele, o do
+// aparelho. Fotos e tokens por URL; a resposta igual à anterior não redesenha
+// nada (e o mapa parado não redesenha o canvas).
 const IS_PREVIEW = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1';
 function tvTab() {
   try {
@@ -68,12 +78,15 @@ function tvTab() {
 }
 const TV_QUERY = IS_PREVIEW ? '?preview=1' : `?tv=1&c=${tvTab()}`;
 
-export default function TVScreen({ token, lang = 'pt' }) {
+export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
   const [data, setData] = useState(null);
   const [card, setCard] = useState(null);
   const [stage, setStage] = useState(null);
+  const [campaignLang, setCampaignLang] = useState(null);
   const [error, setError] = useState('');
-  const [now, setNow] = useState(new Date());
+  const lang = tvLang(campaignLang, deviceLang);
+  const langRef = useRef(lang);
+  langRef.current = lang;
   // Overlay de rolagem dramática
   const [activeRoll, setActiveRoll] = useState(null);
   // Retratos dos monstros no combate (pelo nome do bestiário; carregado só em combate).
@@ -89,6 +102,8 @@ export default function TVScreen({ token, lang = 'pt' }) {
   // Link apagado/trocado (404): para de perguntar ao servidor e explica o que fazer.
   const [dead, setDead] = useState(false);
   const deadRef = useRef(false);
+  // A mesma resposta de antes (304 parado): nada muda, nada redesenha.
+  const sigRef = useRef('');
 
   const load = useCallback(async () => {
     if (deadRef.current) return;
@@ -101,10 +116,14 @@ export default function TVScreen({ token, lang = 'pt' }) {
           ch.close();
         } catch { /* sem BroadcastChannel: só o servidor conta */ }
       }
+      setError('');
+      const sig = JSON.stringify(res);
+      if (sig === sigRef.current) return;
+      sigRef.current = sig;
       setData(res.campaign);
       setCard(res.card ?? res.campaign?.card ?? null);
       setStage(res.stage ?? null);
-      setError('');
+      setCampaignLang(res.lang ?? null);
       // Detecta nova rolagem pública e dispara overlay
       const rolls = res.campaign.publicRolls || [];
       const newest = rolls[0];
@@ -119,16 +138,12 @@ export default function TVScreen({ token, lang = 'pt' }) {
       }
     } catch (e) {
       if (isDeadScreenLink(e)) { deadRef.current = true; setDead(true); return; }
-      setError(errorMessage(e, lang, lang === 'en' ? 'Could not load the screen.' : 'Falha ao carregar a Tela.'));
+      const l = langRef.current;
+      setError(errorMessage(e, l, l === 'en' ? 'Could not load the screen.' : 'Falha ao carregar a Tela.'));
     }
-  }, [token, lang]);
+  }, [token]);
 
   usePolling(load, 2000, [token]);
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
 
   // Auto-fecha overlay após 8s
   useEffect(() => {
@@ -141,6 +156,11 @@ export default function TVScreen({ token, lang = 'pt' }) {
   useEffect(() => {
     if (data?.name) document.title = `${data.name} · ${t(lang, 'Tela', 'Screen')}`;
   }, [data?.name, lang]);
+
+  // A grade só muda quando o combate muda (o mesmo objeto enquanto a resposta é a mesma).
+  const combat = data?.combat || null;
+  const grid = useMemo(() => (combat ? gridCombat(combat) : null), [combat]);
+  const mapGrid = useMemo(() => (combat ? { ...grid, active: false } : null), [grid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (dead) {
     return (
@@ -158,7 +178,6 @@ export default function TVScreen({ token, lang = 'pt' }) {
   if (error && !data) return <div className="tv-error"><h1>{error}</h1></div>;
   if (!data) return <div className="tv-loading"><h1>{t(lang, 'Carregando…', 'Loading…')}</h1></div>;
 
-  const combat = data.combat;
   const fighting = !!combat?.active;
   // O palco decide (stage-now); sem ele, a regra antiga do cartão.
   const stg = stage ? stageNow({ stage, combat: fighting ? { active: true, round: combat.round } : null }) : null;
@@ -173,140 +192,196 @@ export default function TVScreen({ token, lang = 'pt' }) {
   const inCombat = mode === 'combat';
   const dark = mode === 'dark';
   const test = dark ? null : (stage ? stage.overlays?.test : data.publicCheck) || null;
+  const prefs = stage?.prefs || {};
   const state = data.state || {};
-  const playerMembers = (data.members || []).filter(m => m.character && m.role !== 'dm');
-  const currentTurnName = fighting ? combat.combatants[combat.turnIndex]?.name : null;
+  const party = partyRow(data.members);
+  const turn = turnNow(combat);
+  const photos = new Map((data.members || []).filter(m => m.character).map(m => [m.character.id, m.character.avatar]));
+  const portraitOf = (c) => (c.type === 'pc' ? apiUrl(photos.get(c.character_id)) : apiUrl(c.sprite) || portraitFor(c, foeIndex));
   // Frente por cima do combate: a tarja do turno no topo.
   const tarja = stg?.over ? (
     <div className="tv-turn-tarja" aria-live="polite">
-      ⚔ {t(lang, 'Rodada', 'Round')} {combat.round}{currentTurnName ? <> · {t(lang, 'vez de', 'turn of')} <strong>{currentTurnName}</strong></> : null}
+      ⚔ {t(lang, 'Rodada', 'Round')} {combat.round}{turn?.name ? <> · {t(lang, 'vez de', 'turn of')} <strong>{turn.name}</strong></> : null}
     </div>
   ) : null;
   const coverUrl = absUrl(API_BASE, data.coverUrl) || HERO_ART;
   const accent = /^#[0-9a-f]{3,8}$/i.test(data.accent || '') ? data.accent : null;
-  const clock = now.toLocaleTimeString(lang === 'pt' ? 'pt-BR' : 'en-US', { hour: '2-digit', minute: '2-digit' });
 
+  const pills = (
+    <div className="tv-cover-pills">
+      {state.live && <span className="tv-live"><span className="tv-live-dot" aria-hidden="true" />{t(lang, 'Ao vivo', 'Live')}</span>}
+      {state.session && <span className="tv-session-pill">{t(lang, 'Sessão', 'Session')} {state.session}</span>}
+      {state.weather && <span className="tv-weather">☁ {state.weather}</span>}
+    </div>
+  );
   const coverTop = tarja || (
     <header className="tv-cover-top">
-      <div className="tv-cover-pills">
-        {state.live && <span className="tv-live"><span className="tv-live-dot" aria-hidden="true" />{t(lang, 'Ao vivo', 'Live')}</span>}
-        {state.session && <span className="tv-session-pill">{t(lang, 'Sessão', 'Session')} {state.session}</span>}
-        {state.weather && <span className="tv-weather">☁ {state.weather}</span>}
-      </div>
-      <div className="tv-clock">{clock}</div>
+      {pills}
+      <Clock lang={lang} />
     </header>
   );
+  const partyFooter = (compact) => (party.shown.length > 0 ? (
+    <footer className={`tv-party ${compact ? 'is-compact' : ''}`} style={{ '--n': party.shown.length + (party.more ? 1 : 0) }}>
+      {party.shown.map(m => <CharCard key={m.id} member={m} lang={lang} compact={compact} />)}
+      {party.more > 0 && <div className="tv-party-more" aria-label={t(lang, `mais ${party.more}`, `${party.more} more`)}>+{party.more}</div>}
+    </footer>
+  ) : null);
 
   return (
-    <div
-      className={`tv-screen tv-mode-${mode} ${activeRoll && !dark ? 'has-roll-overlay' : ''} ${stg?.over ? 'is-over-combat' : ''}`}
-      style={accent ? { '--tv-accent': accent } : undefined}
-    >
-      {!inCombat && !dark && mode !== 'map' && <TVBackdrop url={coverUrl} dim={mode !== 'rest'} recap={mode === 'recap'} />}
+    <div className="tv-frame">
+      <div
+        className={`tv-screen tv-mode-${mode} ${activeRoll && !dark ? 'has-roll-overlay' : ''} ${stg?.over ? 'is-over-combat' : ''} ${test ? 'has-test' : ''}`}
+        style={accent ? { '--tv-accent': accent } : undefined}
+        lang={lang}
+      >
+        {!inCombat && !dark && mode !== 'map' && <TVBackdrop url={coverUrl} dim={mode !== 'rest'} recap={mode === 'recap'} />}
 
-      {dark ? (
-        <main className="tv-dark" aria-label={t(lang, 'Tela escurecida', 'Screen blacked out')}>
-          <span className="tv-dark-emblem" aria-hidden="true">✦</span>
-        </main>
-      ) : inCombat ? (
-        <>
-          <header className="tv-header">
-            <div>
-              <h1 className="tv-title">{data.name}</h1>
-              {state.scene && <h2 className="tv-scene">{state.scene}</h2>}
-            </div>
-            <div className="tv-meta">
-              {state.session && <div className="tv-session-pill">{t(lang, 'Sessão', 'Session')} {state.session}</div>}
-              <div className="tv-combat-pill">⚔ {t(lang, 'EM COMBATE', 'IN COMBAT')} · {t(lang, 'Rodada', 'Round')} {combat.round}</div>
-              <div className="tv-clock">{clock}</div>
-            </div>
-          </header>
-          {currentTurnName && (
-            <div className="tv-now-acting" aria-live="polite">
-              <span className="tv-now-label">{t(lang, 'Vez de', 'Now acting')}</span>
-              <span className="tv-now-name">{currentTurnName}</span>
-            </div>
-          )}
-          <main className="tv-combat-main">
-            <div className="tv-grid-container">
-              <CombatGrid combat={gridCombat(combat)} readOnly={true} lang={lang} />
-            </div>
-            <aside className="tv-combat-side">
-              {!stg && card && card.type === 'entry' && <TVMiniCard card={card} lang={lang} />}
-              {combat.combatants
-                .filter(c => c.type === 'pc')
-                .map(c => <CombatHpCard key={c.id} c={c} lang={lang} isTurn={combat.combatants[combat.turnIndex]?.id === c.id} />)}
-              {combat.combatants.some(c => c.type !== 'pc') && (
-                <div className="tv-foes">
-                  {combat.combatants.filter(c => c.type !== 'pc').map(c => <FoeChip key={c.id} c={c} lang={lang} portrait={c.sprite || portraitFor(c, foeIndex)} isTurn={combat.combatants[combat.turnIndex]?.id === c.id} />)}
-                </div>
-              )}
-            </aside>
-          </main>
-        </>
-      ) : mode === 'map' ? (
-        <main className="tv-map-only">
-          {combat?.map?.backgroundUrl || (combat?.combatants || []).length
-            ? <CombatGrid combat={gridCombat({ ...combat, active: false })} readOnly={true} lang={lang} />
-            : <div className="tv-map-empty">{data.name}</div>}
-        </main>
-      ) : mode === 'recap' ? (
-        <>
-          {tarja}
-          <TVRecap key={showKey} card={shown} campaign={data} lang={lang} />
-        </>
-      ) : mode === 'image' ? (
-        <TVImageFront key={showKey} front={front} tarja={tarja} />
-      ) : mode === 'scene' ? (
-        <>
-          {coverTop}
-          <TVSceneFront key={showKey} front={front} lang={lang} />
-        </>
-      ) : mode === 'text' ? (
-        <>
-          {coverTop}
-          <TVTextFront key={showKey} front={front} />
-        </>
-      ) : (
-        <>
-          {coverTop}
-
-          {mode === 'card' ? (
-            <main className="tv-stage">
-              <div className="tv-stage-campaign">{data.name}</div>
-              <TVCard key={showKey} card={shown} lang={lang} />
+        <div className="tv-canvas">
+          {dark ? (
+            <main className="tv-dark" aria-label={t(lang, 'Tela escurecida', 'Screen blacked out')}>
+              <span className="tv-dark-emblem" aria-hidden="true">✦</span>
             </main>
+          ) : inCombat ? (
+            <>
+              <header className="tv-header">
+                <h1 className="tv-title">{data.name}</h1>
+                {state.scene && <span className="tv-scene">{state.scene}</span>}
+                <div className="tv-meta">
+                  {pills}
+                  <span className="tv-combat-pill">⚔ {t(lang, 'Rodada', 'Round')} {combat.round}</span>
+                  <Clock lang={lang} />
+                </div>
+              </header>
+              <main className="tv-combat-main">
+                <div className="tv-grid-container">
+                  <CombatGrid combat={grid} readOnly={true} lang={lang} />
+                </div>
+                <aside className="tv-combat-side">
+                  {turn?.name && (
+                    <div className="tv-now-acting" aria-live="polite">
+                      <span className="tv-now-label">{t(lang, 'Vez de', 'Now acting')}</span>
+                      <span className="tv-now-name">{turn.name}</span>
+                    </div>
+                  )}
+                  {!stg && card && card.type === 'entry' && <TVMiniCard card={card} lang={lang} />}
+                  <InitiativeOrder combat={combat} party={prefs.party !== false} order={prefs.initiative !== false}
+                    portraitOf={portraitOf} lang={lang} />
+                </aside>
+              </main>
+            </>
+          ) : mode === 'map' ? (
+            <main className="tv-map-only">
+              {combat?.map?.backgroundUrl || (combat?.combatants || []).length
+                ? <div className="tv-grid-container"><CombatGrid combat={mapGrid} readOnly={true} lang={lang} /></div>
+                : <div className="tv-map-empty">{data.name}</div>}
+            </main>
+          ) : mode === 'recap' ? (
+            <>
+              {tarja}
+              <TVRecap key={showKey} card={shown} campaign={data} lang={lang} />
+            </>
+          ) : mode === 'image' ? (
+            <TVImageFront key={showKey} front={front} tarja={tarja} />
+          ) : mode === 'scene' ? (
+            <>
+              {coverTop}
+              <TVSceneFront key={showKey} front={front} lang={lang} />
+            </>
+          ) : mode === 'text' ? (
+            <>
+              {coverTop}
+              <TVTextFront key={showKey} front={front} />
+            </>
+          ) : mode === 'card' ? (
+            <>
+              {coverTop}
+              <main className="tv-stage">
+                <div className="tv-stage-campaign">{data.name}</div>
+                <TVCard key={showKey} card={shown} lang={lang} />
+              </main>
+              {partyFooter(true)}
+            </>
           ) : (
-            <main className="tv-cover">
-              <div className="tv-cover-ornament" aria-hidden="true">✦</div>
-              <h1 className="tv-cover-title">{data.name}</h1>
-              {data.tagline && <p className="tv-cover-tagline">{data.tagline}</p>}
-              {state.scene && (
-                <div className="tv-cover-scene">
-                  <span className="tv-cover-eyebrow">{t(lang, 'Agora', 'Now')}</span>
-                  <span className="tv-cover-scene-name">{state.scene}</span>
-                </div>
-              )}
-              {state.sceneText && <section className="tv-read-aloud" aria-live="polite">{state.sceneText}</section>}
-            </main>
+            <>
+              {coverTop}
+              <main className={`tv-cover ${lengthClass(state.sceneText, [220, 520, 900])}`}>
+                <div className="tv-cover-ornament" aria-hidden="true">✦</div>
+                <h1 className="tv-cover-title">{data.name}</h1>
+                {data.tagline && <p className="tv-cover-tagline">{data.tagline}</p>}
+                {state.scene && (
+                  <div className="tv-cover-scene">
+                    <span className="tv-cover-eyebrow">{t(lang, 'Agora', 'Now')}</span>
+                    <span className="tv-cover-scene-name">{state.scene}</span>
+                  </div>
+                )}
+                {state.sceneText && <section className="tv-read-aloud" aria-live="polite">{state.sceneText}</section>}
+              </main>
+              {partyFooter(false)}
+            </>
           )}
 
-          {playerMembers.length > 0 && (
-            <footer className={`tv-party ${mode === 'card' ? 'is-compact' : ''}`}>
-              {playerMembers.map(m => <CharCard key={m.id} member={m} lang={lang} compact={mode === 'card'} />)}
-            </footer>
-          )}
-        </>
-      )}
+          {/* O teste é uma faixa no fim da coluna: empurra o resto, não cobre o grupo. */}
+          {test && <CheckScreenPanel check={test} lang={lang} />}
+        </div>
 
-      {test && <CheckScreenPanel check={test} lang={lang} />}
-      {error && <div className="tv-offline" role="status">{t(lang, 'Reconectando…', 'Reconnecting…')}</div>}
+        {error && <div className="tv-offline" role="status">{t(lang, 'Reconectando…', 'Reconnecting…')}</div>}
 
-      {/* Overlay dramático — TV limpa, sem histórico (M1: telão limpo) */}
-      {activeRoll && !dark && <DramaticRollOverlay roll={activeRoll} lang={lang} onDone={() => setActiveRoll(null)} />}
+        {/* Overlay dramático — TV limpa, sem histórico (M1: telão limpo) */}
+        {activeRoll && !dark && <DramaticRollOverlay roll={activeRoll} lang={lang} onDone={() => setActiveRoll(null)} />}
+      </div>
     </div>
   );
 }
+
+/** O relógio da Tela (o próprio intervalo: o resto da TV não redesenha a cada segundo). */
+function Clock({ lang }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return <div className="tv-clock">{now.toLocaleTimeString(lang === 'pt' ? 'pt-BR' : 'en-US', { hour: '2-digit', minute: '2-digit' })}</div>;
+}
+
+/**
+ * A coluna da direita do combate (T1): a ordem de iniciativa — ✓ agiu · ▶ a vez ·
+ * o resto; até 10 + "+N". Cada linha: retrato, nome, PV do PJ (se o mestre deixa)
+ * ou a faixa de saúde, e as condições. Sem a ordem (`order` false, preferência do
+ * mestre): PJs e depois monstros, sem ✓/▶.
+ */
+function InitiativeOrder({ combat, party, order, portraitOf, lang }) {
+  const { rows, more } = initiativeRows(combat, { max: 10, party, order });
+  const byId = new Map((combat.combatants || []).map(c => [c.id, c]));
+  return (
+    <ol className={`tv-order ${order ? '' : 'is-plain'}`} aria-label={order ? t(lang, 'Ordem de iniciativa', 'Initiative order') : t(lang, 'No combate', 'In combat')}
+      style={{ '--rows': rows.length + (more ? 1 : 0) }}>
+      {rows.map(r => (
+        <li key={r.id} className={`tv-order-row is-${r.state} is-${r.kind} ${r.down ? 'is-down' : ''}`} aria-current={r.state === 'now' ? 'true' : undefined}>
+          <span className="tv-order-mark" aria-hidden="true">{r.mark}</span>
+          <ArtThumb src={portraitOf(byId.get(r.id) || {})} emoji={r.kind === 'pc' ? (r.name || '?').charAt(0).toUpperCase() : '👹'} size={36} round lang={lang} className="tv-order-pic" />
+          <span className="tv-order-name">{r.name}</span>
+          {r.hp ? (
+            <span className={`tv-order-hp tv-hp-bar tv-hp-${hpToneTv(r.hp.cur, r.hp.max)}`}>
+              <span className="tv-hp-fill" style={{ width: `${hpPctTv(r.hp.cur, r.hp.max)}%` }} />
+              <span className="tv-hp-text">{r.down ? t(lang, 'caído', 'down') : `${r.hp.cur}/${r.hp.max ?? '?'}`}{r.hp.temp ? <span className="tv-hp-temp"> +{r.hp.temp}</span> : null}</span>
+            </span>
+          ) : (
+            <span className={`tv-order-band tv-foe-${r.band}`}>{healthLabel(r.band, lang)}</span>
+          )}
+          {r.conditions.length > 0 && (
+            <span className="tv-order-conds">
+              {r.conditions.slice(0, 3).map(cond => <ConditionChip key={cond} cond={cond} lang={lang} iconOnly />)}
+            </span>
+          )}
+        </li>
+      ))}
+      {more > 0 && <li className="tv-order-row is-more">+{more}</li>}
+    </ol>
+  );
+}
+
+const hpPctTv = (cur, max) => (max ? Math.max(0, Math.min(100, (cur / max) * 100)) : 0);
+const hpToneTv = (cur, max) => { const p = hpPctTv(cur, max); return p > 60 ? 'ok' : p > 30 ? 'warn' : 'crit'; };
 
 /** "Só a imagem", imagem de sala ou mapa de lugar: a imagem inteira, com a legenda do mestre. */
 function TVImageFront({ front, tarja }) {
@@ -328,7 +403,7 @@ function TVSceneFront({ front, lang }) {
   const img = absUrl(API_BASE, front?.imageUrl);
   const [ok, setOk] = useState(true);
   const text = front?.text || '';
-  const size = text.length > 700 ? 'is-long' : text.length > 350 ? 'is-medium' : '';
+  const size = lengthClass(text, [350, 700]);
   return (
     <main className={`tv-scene-front ${img && ok ? 'has-img' : ''} ${size}`} aria-live="polite">
       {img && ok && <div className="tv-scene-art"><img src={img} alt="" onError={() => setOk(false)} /></div>}
@@ -344,7 +419,7 @@ function TVSceneFront({ front, lang }) {
 /** Texto livre do mestre, grande e centrado. */
 function TVTextFront({ front }) {
   const text = front?.text || '';
-  const size = text.length > 500 ? 'is-long' : text.length > 200 ? 'is-medium' : '';
+  const size = lengthClass(text, [200, 500]);
   return (
     <main className={`tv-text-front ${size}`} aria-live="polite">
       {paragraphs(text).map((p, i) => <p key={i}>{p}</p>)}
@@ -386,7 +461,7 @@ function TVCard({ card, lang }) {
   const paras = paragraphs(card.text);
   const isPartial = !!card.partial;
   return (
-    <article className={`tv-card tv-card-${card.kind || card.type} ${isPartial ? 'is-partial' : ''} ${(img && imgOk) || card.type === 'entry' ? 'has-img' : 'no-img'}`} aria-live="polite">
+    <article className={`tv-card tv-card-${card.kind || card.type} ${isPartial ? 'is-partial' : ''} ${(img && imgOk) || card.type === 'entry' ? 'has-img' : 'no-img'} ${lengthClass(card.title, [28, 48])}`} aria-live="polite">
       <div className="tv-card-inner">
         <div className="tv-card-back" aria-hidden="true"><span>✦</span></div>
         <div className="tv-card-front">
@@ -432,7 +507,8 @@ function TVMiniCard({ card, lang }) {
 /** "Anteriormente em…": tarjas de cinema, título e parágrafos que surgem um a um. */
 function TVRecap({ card, campaign, lang }) {
   const paras = paragraphs(card.text);
-  const size = (card.text || '').length > 900 ? 'is-long' : (card.text || '').length > 450 ? 'is-medium' : '';
+  // Muito longo: duas colunas e letra menor (a TV não rola).
+  const size = lengthClass(card.text, [450, 900, 1800]);
   const subtitle = recapSubtitle(card.title, campaign.name);
   return (
     <main className={`tv-recap ${size}`} aria-live="polite">
@@ -450,52 +526,18 @@ function TVRecap({ card, campaign, lang }) {
   );
 }
 
-function FoeChip({ c, lang, isTurn, portrait }) {
-  const band = c.health || 'unhurt';
-  return (
-    <div className={`tv-foe tv-foe-${band} ${isTurn ? 'is-turn' : ''}`}>
-      <ArtThumb src={portrait} emoji="👹" size={52} round lang={lang} className="tv-foe-portrait" />
-      <span className="tv-foe-name">{c.name}</span>
-      <span className="tv-foe-band">{healthLabel(band, lang)}</span>
-      {(c.conditions || []).length > 0 && (
-        <span className="tv-conditions tiny">
-          {c.conditions.map(cond => <ConditionChip key={cond} cond={cond} lang={lang} />)}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function CombatHpCard({ c, lang, isTurn }) {
-  const hpPct = c.stats?.max_hp ? Math.max(0, Math.min(100, (c.current_hp / c.stats.max_hp) * 100)) : 0;
-  const tone = hpPct > 60 ? 'ok' : hpPct > 30 ? 'warn' : 'crit';
-  return (
-    <div className={`tv-combat-hp-card ${isTurn ? 'is-turn' : ''} ${c.defeated ? 'is-dead' : ''}`}>
-      <div className="tv-combat-name">{c.name}</div>
-      <div className={`tv-hp-bar tv-hp-${tone}`}>
-        <div className="tv-hp-fill" style={{ width: `${hpPct}%` }} />
-        <div className="tv-hp-text">{c.current_hp} / {c.stats?.max_hp}</div>
-      </div>
-      {(c.conditions || []).length > 0 && (
-        <div className="tv-conditions tiny">
-          {c.conditions.map(cond => <ConditionChip key={cond} cond={cond} lang={lang} />)}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function CharCard({ member, lang, isActiveTurn, compact = false }) {
   const c = member.character;
   const hpPct = c.maxHp ? Math.max(0, Math.min(100, (c.currentHp / c.maxHp) * 100)) : 0;
   const tone = hpPct > 60 ? 'ok' : hpPct > 30 ? 'warn' : 'crit';
   const dead = c.currentHp != null && c.currentHp <= 0;
   const line = charLine(c, lang);
+  const photo = apiUrl(c.avatar);
   return (
     <article className={`tv-char-card ${compact ? 'is-compact' : ''} ${isActiveTurn ? 'is-active-turn' : ''} ${dead ? 'is-dead' : ''}`}>
       <div className="tv-char-head">
-        {c.avatar
-          ? <img src={c.avatar} alt="" className="tv-avatar" />
+        {photo
+          ? <img src={photo} alt="" className="tv-avatar" />
           : <div className="tv-avatar tv-avatar-placeholder">{(c.name || '?').slice(0, 1).toUpperCase()}</div>}
         <div className="tv-char-id">
           <div className="tv-char-name">{c.name}</div>
@@ -534,17 +576,17 @@ function CharCard({ member, lang, isActiveTurn, compact = false }) {
   );
 }
 
-function ConditionChip({ cond, lang }) {
+function ConditionChip({ cond, lang, iconOnly = false }) {
   const def = CONDITIONS[cond];
   if (!def) return <span className="tv-condition">{cond}</span>;
   return (
-    <span className="tv-condition" title={def[lang]}>
+    <span className={`tv-condition ${iconOnly ? 'is-icon' : ''}`} title={def[lang]} aria-label={iconOnly ? def[lang] : undefined}>
       {conditionIcon(cond) ? <ArtIcon src={conditionIcon(cond)} size={22} className="tv-cond-icon" /> : (
         <svg className="tv-cond-icon" viewBox="0 0 24 24" aria-hidden="true">
           <path d={def.icon} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
-      <span className="tv-cond-label">{def[lang]}</span>
+      {!iconOnly && <span className="tv-cond-label">{def[lang]}</span>}
     </span>
   );
 }
@@ -607,8 +649,10 @@ function CheckScreenPanel({ check, lang }) {
       <header className="tv-check-head">
         <span className="tv-check-eyebrow">🎯 {t(lang, 'Teste', 'Check')}</span>
         <span className="tv-check-label">{check.label}</span>
-        {check.dc != null && <span className="tv-check-dc">{t(lang, 'CD', 'DC')} {check.dc}</span>}
-        <span className="tv-check-count">{done}/{check.results.length}</span>
+        <span className="tv-check-sub">
+          {check.dc != null && <span className="tv-check-dc">{t(lang, 'CD', 'DC')} {check.dc}</span>}
+          <span className="tv-check-count">{done}/{check.results.length}</span>
+        </span>
       </header>
       <ul className="tv-check-list">
         {check.results.map((r, i) => (

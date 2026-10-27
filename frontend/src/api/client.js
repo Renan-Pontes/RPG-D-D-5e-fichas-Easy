@@ -274,4 +274,11 @@ export const api = {
   deleteCheck:   (cid) => request(`/api/checks/${cid}`, { method: 'DELETE' }),
 };
 
-export { ApiError, API_BASE, request };
+/**
+ * Endereço de uma imagem que o servidor manda por URL (V9: foto do personagem,
+ * token, fundo do mapa — `/api/…?v=`): com o servidor noutro domínio, ganha o
+ * API_BASE. Arte do site (`/art/…`), data URL e endereço completo ficam como estão.
+ */
+const apiUrl = (url) => (typeof url === 'string' && url.startsWith('/api/') ? `${API_BASE}${url}` : (url || null));
+
+export { ApiError, API_BASE, apiUrl, request };

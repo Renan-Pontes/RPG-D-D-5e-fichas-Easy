@@ -932,3 +932,9 @@ export const tName = (kind, id, lang) => {
   const dict = (NAMES[lang] && NAMES[lang][kind]) || NAMES.en[kind] || {};
   return dict[id] || EXTRA_NAMES[kind]?.find(entry => entry.id === id)?.name[lang] || id;
 };
+
+/** Todos os ids com nome de um tipo (gera a tabela leve da Tela: scripts/tv-names.mjs). */
+export const nameIds = (kind) => [...new Set([
+  ...Object.keys(NAMES.pt[kind] || {}), ...Object.keys(NAMES.en[kind] || {}),
+  ...(EXTRA_NAMES[kind] || []).map(entry => entry.id),
+])];
