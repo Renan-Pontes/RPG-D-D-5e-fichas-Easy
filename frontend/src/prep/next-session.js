@@ -136,6 +136,35 @@ export const realSecret = (s) => !!s && (filled(s.text) || !!s.ref);
 export const realScene = (s) => !!s && (filled(s.text) || !!s.nodeRef);
 
 /**
+ * Plano "em branco": sem começo e sem cena de verdade (as pistas não contam). É quando o
+ * Plano mostra as 3 portas (N2), Preparar ganha o selo "!" e a aventura pronta e o exemplo
+ * preenchem o plano (world_rules.session_plan_is_empty, no servidor).
+ */
+export const planIsBlank = (plan) => !filled(plan?.strongStart) && !(plan?.scenes || []).some(realScene);
+
+/**
+ * As aventuras das salas ligadas às cenas que ainda vão acontecer: o Plano lê as salas
+ * delas junto com o plano, para o N5 saber do combate da sala sem depender do passo ③.
+ */
+export function linkedAdventureIds(plan) {
+  const out = [];
+  for (const s of plan?.scenes || []) {
+    const id = realScene(s) && !s.done ? s.nodeRef?.adventureId : null;
+    if (id && !out.includes(id)) out.push(id);
+  }
+  return out;
+}
+
+/**
+ * Ids das cenas com combate (N5): o bolso ⚔ da cena ou o encontro da sala ligada.
+ * `nodesByAdv` = {aventura: [salas]} (as que já chegaram; as outras ainda não contam).
+ */
+export function sceneFights(plan, nodesByAdv = {}) {
+  const roomFight = (ref) => (nodesByAdv?.[ref.adventureId] || []).find(n => n.id === ref.nodeId)?.encounter?.length > 0;
+  return (plan?.scenes || []).filter(s => (s.fight || []).length > 0 || (s.nodeRef && roomFight(s.nodeRef))).map(s => s.id);
+}
+
+/**
  * Linhas de pista para escrever: completa até `rows` linhas na TELA (as vazias nunca
  * são gravadas: planDiff as ignora). Já completo → o mesmo objeto.
  */

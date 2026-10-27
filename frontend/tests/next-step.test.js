@@ -3,8 +3,8 @@
 // aparelho até os dados da regra mudarem.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { joinNames, nextStep, PLAN_RULES, readSkips, reminderText, writeSkip } from '../src/shell/next-step.js';
-import { addScene, addSecret, emptyPlan, normalizePlan } from '../src/prep/next-session.js';
+import { joinNames, nextStep, PLAN_RULES, prepSession, readSkips, reminderText, writeSkip } from '../src/shell/next-step.js';
+import { addScene, addSecret, emptyPlan, normalizePlan, planHeading, sceneFights } from '../src/prep/next-session.js';
 
 const ana = { id: 11, role: 'player', user: { displayName: 'Ana' }, character: { id: 1, name: 'Pipo Gorgulho' } };
 const bruno = { id: 12, role: 'player', user: { displayName: 'Bruno' }, character: null };
@@ -97,6 +97,49 @@ test('N5: cena feita não pede ficha; vários sem ficha no plural', () => {
   assert.equal(joinNames(['Ana', 'Bruno', 'Carla'], 'en'), 'Ana, Bruno and Carla');
   assert.match(reminderText({ names: ['Bruno'], campaign: 'Mesa', session: 5, link: 'https://x/join/AB', lang: 'pt' }),
     /^Oi, Bruno! Antes da Sessão 5 de “Mesa”, crie o seu personagem.*https:\/\/x\/join\/AB$/);
+});
+
+test('N5: o combate da sala ligada conta sem o passo ③ aberto (sceneFights com as salas do plano)', () => {
+  // aventura pronta: a cena 1 é a sala n1 (sem combate) e a cena 2 é a sala n2 (2 goblins)
+  let plan = { ...emptyPlan(), strongStart: 'O moinho range' };
+  plan = addScene(plan, 'Portão do moinho', { adventureId: 9, nodeId: 'n1' }, 'c1');
+  plan = addScene(plan, 'Porão', { adventureId: 9, nodeId: 'n2' }, 'c2');
+  plan = addSecret(plan, 'O moleiro mente');
+  const nodes = { 9: [{ id: 'n1', encounter: [] }, { id: 'n2', encounter: [{ monsterId: 'goblin', count: 2 }] }] };
+  const ctx = { campaign: camp({ members: [dm, ana, bruno] }), plan, lang: 'pt' };
+  assert.equal(nextStep({ ...ctx, fights: sceneFights(plan, nodes) }).text,
+    'O combate da cena 2 precisa dos personagens: Bruno ainda não tem ficha.');
+  // as salas ainda não chegaram: o N5 não vale (por isso o Plano as lê junto com o plano)
+  assert.equal(nextStep({ ...ctx, fights: sceneFights(plan, {}) }).id, 'N9');
+});
+
+test('N9: plano de uma sessão já jogada aponta o plano da próxima (o número certo)', () => {
+  // jogo-e-combate: o plano é da Sessão 3, que foi jogada e encerrada
+  const plan = { ...ready(), forSession: 3 };
+  const ctx = { campaign: camp({ state: { session: '3', live: false } }), plan, lang: 'pt' };
+  const step = nextStep(ctx);
+  assert.equal(step.id, 'N9');
+  assert.equal(step.text, 'A Sessão 3 já foi jogada: comece o plano da Sessão 4.');
+  assert.equal(step.action.id, 'newPlan');
+  assert.equal(step.action.label, '↻ Começar o plano da Sessão 4');
+  assert.ok(step.help && !('helpId' in step));
+  assert.equal(nextStep({ ...ctx, lang: 'en' }).action.label, '↻ Start the session 4 plan');
+  // o lembrete do N5 fala da Sessão 4, não da 3 que já foi
+  const n5 = nextStep({ ...ctx, campaign: camp({ state: { session: '3' }, members: [dm, ana, bruno] }), fights: ['c2'] });
+  assert.equal(n5.id, 'N5');
+  assert.equal(n5.payload.session, 4);
+  assert.equal(prepSession(planHeading(plan, { session: '3' })), 4);
+  // plano em branco de uma sessão jogada: as portas são da próxima
+  assert.equal(nextStep({ ...ctx, plan: { ...emptyPlan(), forSession: 3 } }).text, 'Escolha como preparar a Sessão 4.');
+  // plano da próxima (não velho): o de sempre
+  assert.equal(nextStep({ ...ctx, plan: { ...ready(), forSession: 4 } }).action.label, '▶ Começar a Sessão 4');
+  // ao vivo, o plano de hoje: N5 lembra a sessão de hoje
+  assert.equal(prepSession(planHeading({ ...emptyPlan(), forSession: 3 }, { session: '3', live: true })), 3);
+});
+
+test('N2: um plano só com pistas ainda mostra as 3 portas (o servidor o preenche)', () => {
+  const plan = addSecret(emptyPlan(), 'O moleiro mente');
+  assert.equal(nextStep({ campaign: camp(), plan, lang: 'pt' }).id, 'N2');
 });
 
 test('N7: "Outra ideia" passa para a próxima; sem ideia, ver os momentos', () => {

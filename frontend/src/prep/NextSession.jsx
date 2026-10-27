@@ -7,9 +7,9 @@ import {
   normalizePlan, addScene, addSecret, updateItem, removeItem, moveItem, toggleId, padSecrets,
   toggleDiscovered, revealBodyFor, planDiff, carryOver, textForRef, PLAN_LIMITS, PLAN_STEPS,
   sceneParts, withSceneName, planHeading, stepSummary, initialStep, nextStepId, stepLabel, clueCount,
-  readyChecklist, planExport, realScene, freshSceneId,
+  readyChecklist, planExport, realScene, freshSceneId, sceneFights, linkedAdventureIds,
 } from './next-session.js';
-import { nextStep, readSkips, reminderText, writeSkip } from '../shell/next-step.js';
+import { nextStep, prepSession, readSkips, reminderText, writeSkip } from '../shell/next-step.js';
 import { inviteLink, screenLink } from '../shell/shell-logic.js';
 import { useArea } from '../shell/useArea.js';
 import { useTable } from '../play/table-store.js';
@@ -30,9 +30,10 @@ import '../group/group-styles.css';
 import './next-session.css';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
-// Quanto a página espera as contas do Raio-X junto com o plano (o cartão e o passo 1
-// nascem inteiros: a ideia de momento do N7 não aparece depois, debaixo do dedo).
-const RX_WAIT_MS = 3000;
+// Quanto a página espera as contas do Raio-X e as salas das cenas ligadas junto com o
+// plano (o cartão e o passo 1 nascem inteiros: a ideia de momento do N7 e o combate da
+// sala do N5 não aparecem depois, debaixo do dedo).
+const WAIT_MS = 3000;
 const FLASH_MS = 6000;   // aviso curto e o "↶ Desfazer" de apagar cena/pista
 const HANDY_KINDS = ['npc', 'faction', 'place'];
 
@@ -189,7 +190,9 @@ export default function NextSession({ campaign, lang, goTo }) {
   const loadNodes = useCallback((advId) => {
     if (!nodesCache.current.has(advId)) {
       const p = api.getAdventure(campaign.id, advId).then(r => r.adventure?.data?.nodes || []);
-      p.then(nodes => setNodesByAdv(m => ({ ...m, [advId]: nodes }))).catch(() => nodesCache.current.delete(advId));
+      // falhou (aventura apagada, sem rede): o N5 segue sem as salas dela; quem abrir a sala tenta de novo
+      p.then(nodes => setNodesByAdv(m => ({ ...m, [advId]: nodes })))
+        .catch(() => { nodesCache.current.delete(advId); setNodesByAdv(m => (advId in m ? m : { ...m, [advId]: [] })); });
       nodesCache.current.set(advId, p);
     }
     return nodesCache.current.get(advId);
@@ -264,13 +267,13 @@ export default function NextSession({ campaign, lang, goTo }) {
   const party = (campaign.members || []).filter(m => m.role !== 'dm');
   const wantRx = party.some(m => m.character?.data);
   const rx = useRaioX(campaign.id, wantRx);
-  const [rxTimeout, setRxTimeout] = useState(false);
+  const [waitOver, setWaitOver] = useState(false);
   const [insLocal, setInsLocal] = useState(null);     // os momentos gravados daqui (Usar a ideia, → Cena)
   useEffect(() => {
-    const id = setTimeout(() => setRxTimeout(true), RX_WAIT_MS);
+    const id = setTimeout(() => setWaitOver(true), WAIT_MS);
     return () => clearTimeout(id);
   }, [campaign.id]);
-  const holdRx = wantRx && !rx && !rxTimeout;
+  const holdRx = wantRx && !rx && !waitOver;
   // servidor sem o Raio-X (ainda não atualizado): sem momentos gravados, a N7 não pede nada
   const insOk = !!rx && (!!insLocal || !!cachedInsights(campaign.id));
   const ins = insLocal || rx?.ins || null;
@@ -316,15 +319,20 @@ export default function NextSession({ campaign, lang, goTo }) {
     }
   };
 
-  // N5: as cenas com combate (o bolso ⚔ da cena ou o encontro da sala ligada, quando a sala já veio)
-  const fights = useMemo(() => (plan?.scenes || []).filter(s => (s.fight || []).length
-    || (s.nodeRef && (nodesByAdv[s.nodeRef.adventureId] || []).find(n => n.id === s.nodeRef.nodeId)?.encounter?.length)).map(s => s.id),
-  [plan, nodesByAdv]);
+  // N5: as cenas com combate (o bolso ⚔ da cena ou o encontro da sala ligada). As salas das
+  // cenas ligadas vêm junto com o plano (1 GET por aventura, uma vez), não do passo ③ aberto.
+  const advIds = useMemo(() => linkedAdventureIds(plan), [plan]);
+  useEffect(() => {
+    for (const id of advIds) if (!(id in nodesByAdv)) loadNodes(id).catch(() => {});
+  }, [advIds.join(','), nodesByAdv, loadNodes]); // eslint-disable-line react-hooks/exhaustive-deps
+  const shownOnce = useRef(false);   // só a 1ª abertura espera: depois, a sala que chega troca o cartão (useSettled)
+  const holdNodes = !shownOnce.current && advIds.some(id => !(id in nodesByAdv)) && !waitOver;
+  const fights = useMemo(() => sceneFights(plan, nodesByAdv), [plan, nodesByAdv]);
 
-  const computed = useMemo(() => (plan && adventures != null && !holdRx ? nextStep({
+  const computed = useMemo(() => (plan && adventures != null && !holdRx && !holdNodes ? nextStep({
     campaign, plan, pulse: table ? { tvLive: table.tvLive } : null, insights,
     adventures: adventures.length, fights, skips, idea, lang,
-  }) : null), [campaign, plan, table?.tvLive, insights, adventures, fights, skips, idea, lang, holdRx]); // eslint-disable-line react-hooks/exhaustive-deps
+  }) : null), [campaign, plan, table?.tvLive, insights, adventures, fights, skips, idea, lang, holdRx, holdNodes]); // eslint-disable-line react-hooks/exhaustive-deps
   // O cartão que muda sozinho (a TV ligou, alguém entrou na mesa…) espera 600 ms depois do
   // último toque: o que está embaixo dele não sobe nem desce debaixo do dedo (princípio 8).
   // (o toque no próprio cartão — Pular, Outra ideia — troca na hora: `release`.)
@@ -332,7 +340,8 @@ export default function NextSession({ campaign, lang, goTo }) {
 
   // o passo que abre ao entrar segue o cartão (decidido uma vez, no 1º desenho inteiro:
   // `shownOpen` já vale nesse desenho, e o efeito o guarda para o cartão mudar depois sem fechar nada)
-  const ready = !!plan && adventures != null && !holdRx;
+  const ready = !!plan && adventures != null && !holdRx && !holdNodes;
+  if (ready) shownOnce.current = true;
   // no PC a coluna da direita mostra o passo aberto: com cenas, abre nelas (P2); sem, no ①
   const firstStep = () => initialStep(plan, step?.id || null) || (desk ? (plan.scenes.some(realScene) ? 'scenes' : 'party') : null);
   const shownOpen = open === undefined ? (ready ? firstStep() : null) : open;
@@ -393,6 +402,7 @@ export default function NextSession({ campaign, lang, goTo }) {
     else if (id === 'moments') setSheet({ kind: 'moments', charId: s.payload.charId });
     else if (id === 'tvLink') copyTv();
     else if (id === 'startSession') startSession();
+    else if (id === 'newPlan') newSession();
   };
 
   // ---------------------------------------------------------------- as 3 portas
@@ -459,7 +469,7 @@ export default function NextSession({ campaign, lang, goTo }) {
   const body = {
     party: (
       <PartyStep party={party} lang={lang} raiox={raiox} insights={insights} rx={rx} onInvite={copyInvite}
-        onRemind={(names) => copy(reminderText({ names, campaign: campaign.name, session: heading.n, link: window.location.origin, lang }),
+        onRemind={(names) => copy(reminderText({ names, campaign: campaign.name, session: prepSession(heading), link: window.location.origin, lang }),
           t(lang, 'Lembrete copiado. Cole no grupo da mesa.', 'Reminder copied. Paste it in your group chat.'))}
         onMoments={(charId) => setSheet({ kind: 'moments', charId })}
         onXray={goTo ? () => goTo('group', 'insights') : null} />

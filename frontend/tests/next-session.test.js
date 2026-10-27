@@ -4,7 +4,7 @@ import {
   emptyPlan, normalizePlan, addScene, addSecret, updateItem, removeItem, moveItem, toggleId, padSecrets,
   toggleDiscovered, revealBodyFor, planDiff, carryOver, missingIds, textForRef, nextId, freshSceneId,
   planHeading, stepSummary, initialStep, nextStepId, readyChecklist, clueCount, planExport, stateSession,
-  SECRET_ROWS, PLAN_LIMITS,
+  planIsBlank, linkedAdventureIds, sceneFights, SECRET_ROWS, PLAN_LIMITS,
 } from '../src/prep/next-session.js';
 import { searchEntries, pickEntries, entryImage, kindArt, kindLabel } from '../src/prep/prep-world.js';
 import { freeSpotIn, panToShow, makeNode, addNode, emptyData, NODE_W, NODE_H } from '../src/prep/prep-graph.js';
@@ -269,4 +269,27 @@ test('panToShow desliza a tela até a sala ficar visível', () => {
   const v3 = panToShow({ x: 0, y: 0, k: 0.5 }, { x: -400, y: 900 }, 800, 500, 24);
   assert.ok(-400 * 0.5 + v3.x >= 24);
   assert.ok((900 + NODE_H) * 0.5 + v3.y <= 500 - 24);
+});
+
+test('planIsBlank, linkedAdventureIds e sceneFights: o N2 e o N5 sem depender da tela', () => {
+  assert.equal(planIsBlank(emptyPlan()), true);
+  assert.equal(planIsBlank(null), true);
+  assert.equal(planIsBlank(addSecret(emptyPlan(), 'O moleiro mente')), true, 'as pistas não contam');
+  assert.equal(planIsBlank({ ...emptyPlan(), strongStart: 'Boom' }), false);
+  assert.equal(planIsBlank(addScene(emptyPlan(), '', { adventureId: 3, nodeId: 'n1' }, 'c1')), false, 'cena ligada a uma sala');
+  assert.equal(planIsBlank(addScene(emptyPlan(), '  ', null, 'c1')), true, 'linha vazia de cena');
+
+  let p = addScene(emptyPlan(), 'Portão', { adventureId: 9, nodeId: 'n1' }, 'c1');
+  p = addScene(p, 'Porão', { adventureId: 9, nodeId: 'n2' }, 'c2');
+  p = addScene(p, 'Torre', { adventureId: 4, nodeId: 'n7' }, 'c3');
+  p = addScene(p, 'Ponte', null, 'c4');
+  p = updateItem(p, 'scenes', 'c3', { done: true });
+  assert.deepEqual(linkedAdventureIds(p), [9], 'uma vez por aventura; a cena jogada não pede a dela');
+  assert.deepEqual(linkedAdventureIds(null), []);
+
+  p = updateItem(p, 'scenes', 'c4', { fight: [{ monsterId: 'wolf', name: 'Lobo', count: 2 }] });
+  const nodes = { 9: [{ id: 'n1', encounter: [] }, { id: 'n2', encounter: [{ monsterId: 'goblin', count: 2 }] }] };
+  assert.deepEqual(sceneFights(p, nodes), ['c2', 'c4'], 'o encontro da sala e o bolso ⚔ da cena');
+  assert.deepEqual(sceneFights(p, {}), ['c4'], 'sala que ainda não chegou não conta');
+  assert.deepEqual(sceneFights(null), []);
 });

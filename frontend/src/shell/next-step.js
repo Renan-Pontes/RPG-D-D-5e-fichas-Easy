@@ -8,8 +8,9 @@
 //   N1 ninguém na mesa · N2 plano vazio e nenhuma aventura (as 3 portas, nunca é pulado)
 //   N3 sem começo · N4 menos de 2 cenas · N5 combate numa cena e alguém sem ficha
 //   N6 nenhuma pista · N7 alguém sem momento neste plano (com o Raio-X; sem ele, pulada)
-//   N8 a Tela nunca foi aberta · N9 tudo pronto (▶ Começar a Sessão N; ao vivo, nada)
-import { clueCount, planHeading, realScene } from '../prep/next-session.js';
+//   N8 a Tela nunca foi aberta · N9 tudo pronto (▶ Começar a Sessão N; ao vivo, nada;
+//   plano de uma sessão já jogada: "comece o plano da Sessão N", o ↻ do ⋯)
+import { clueCount, planHeading, planIsBlank, realScene } from '../prep/next-session.js';
 
 const tt = (lang, pt, en) => (lang === 'en' ? en : pt);
 const filled = (s) => typeof s === 'string' && s.trim().length > 0;
@@ -45,8 +46,15 @@ const HELP = {
   N7: ['Um momento é uma cena para alguém brilhar, ser desafiado ou viver a história dele. A ideia vem da ficha e do estilo do jogador.', "A moment is a scene for someone to shine, be challenged or live their story. The idea comes from the sheet and the player's style."],
   N8: ['A Tela é a TV, o monitor ou o tablet que todos veem. Abra o link nela antes do dia para ver se está tudo certo.', 'The screen is the TV, monitor or tablet everyone sees. Open the link on it before game day to check it works.'],
   N9: ['Na mesa, o plano vira botões: as cenas, as pistas e o que vai à Tela. Dá para ensaiar antes em Jogar › Agora.', 'At the table the plan turns into buttons: scenes, clues and what goes on screen. You can rehearse first in Play › Now.'],
+  stale: ['O plano novo começa vazio, mas leva as pistas que o grupo ainda não achou, as pessoas e os lugares. Para jogar com este plano mesmo, use o ▶ Começar no fim da página.', "The new plan starts empty but carries over the clues the party hasn't found, people and places. To play with this plan anyway, use ▶ Start at the bottom of the page."],
 };
 export const stepHelp = (id, lang) => (HELP[id] ? tt(lang, HELP[id][0], HELP[id][1]) : '');
+
+/**
+ * A sessão que o mestre está preparando: a do plano ou, se o plano é de uma sessão que já
+ * foi jogada (`heading.stale`), a próxima — a mesma do "▶ Começar a Sessão N" do fim do Plano.
+ */
+export const prepSession = (heading) => (heading.stale ? heading.next : heading.n);
 
 /**
  * As regras do Plano, na ordem. Cada uma devolve null (não vale) ou o cartão.
@@ -56,13 +64,13 @@ export const stepHelp = (id, lang) => (HELP[id] ? tt(lang, HELP[id][0], HELP[id]
  *   pulse      {tvLive} do pulso do mestre (ou null)
  *   insights   null (sem o Raio-X: N7 é pulada) ou {chars: [{id, name, moments, ideas: [{kind, text, auto}], style: ['🤐 fala pouco']}]}
  *   adventures nº de aventuras da campanha (N2)
- *   fights     ids das cenas com combate (N5)
+ *   fights     ids das cenas com combate (N5; next-session.sceneFights)
  *   idea       qual ideia da N7 ("Outra ideia" soma 1)
  */
 function planRules({ campaign, plan, pulse, insights, adventures = 0, fights = [], idea = 0, lang = 'pt' }) {
   const party = (campaign?.members || []).filter(m => m.role !== 'dm');
   const heading = planHeading(plan, campaign?.state, lang);
-  const n = heading.n;
+  const n = prepSession(heading);
   const scenes = plan.scenes.filter(realScene);
   const ob = campaign?.onboarding || {};
   return [
@@ -73,7 +81,7 @@ function planRules({ campaign, plan, pulse, insights, adventures = 0, fights = [
       action: { id: 'invite', label: tt(lang, '🔗 Copiar link de convite', '🔗 Copy invite link') },
       secondary: { id: 'share', label: tt(lang, 'Compartilhar…', 'Share…') },
     }),
-    () => (filled(plan.strongStart) || scenes.length || adventures > 0 ? null : {
+    () => (!planIsBlank(plan) || adventures > 0 ? null : {
       id: 'N2', sig: 'empty', canSkip: false, doors: true,
       text: tt(lang, `Escolha como preparar a Sessão ${n}.`, `Choose how to prepare session ${n}.`),
       why: tt(lang, 'Dá para mudar tudo depois.', 'You can change everything later.'),
@@ -144,7 +152,13 @@ function planRules({ campaign, plan, pulse, insights, adventures = 0, fights = [
       why: tt(lang, 'É o que todos veem: a capa, as imagens e o combate.', "It's what everyone sees: the cover, images and combat."),
       action: { id: 'tvLink', label: tt(lang, 'Copiar link da Tela', 'Copy screen link') },
     }),
-    () => (campaign?.state?.live ? null : {
+    () => (campaign?.state?.live ? null : heading.stale ? {
+      // o plano é de uma sessão que já foi: o próximo passo é o plano da próxima (↻ do ⋯)
+      id: 'N9', sig: `stale:${heading.n}`, canSkip: true, helpId: 'stale',
+      text: tt(lang, `A Sessão ${heading.n} já foi jogada: comece o plano da Sessão ${n}.`, `Session ${heading.n} has been played: start the session ${n} plan.`),
+      why: tt(lang, 'As pistas não achadas, as pessoas e os lugares passam para ele.', 'Unfound clues, people and places carry over.'),
+      action: { id: 'newPlan', label: tt(lang, `↻ Começar o plano da Sessão ${n}`, `↻ Start the session ${n} plan`) },
+    } : {
       id: 'N9', sig: `ready:${n}`, canSkip: true,
       text: tt(lang, `Tudo pronto para a Sessão ${n}.`, `All set for session ${n}.`),
       why: tt(lang, 'Na mesa, o plano vira botões: cenas, pistas e a Tela.', 'At the table the plan turns into buttons: scenes, clues and the screen.'),
@@ -165,7 +179,8 @@ export function nextStep(ctx = {}) {
     const step = rule();
     if (!step) continue;
     if (skips[step.id] && skips[step.id] === step.sig) continue;
-    return { ...step, help: stepHelp(step.id, ctx.lang) };
+    const { helpId, ...card } = step;
+    return { ...card, help: stepHelp(helpId || step.id, ctx.lang) };
   }
   return null;
 }
