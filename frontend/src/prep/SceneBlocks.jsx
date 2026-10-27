@@ -15,7 +15,7 @@ import MonsterPicker from '../campaigns/MonsterPicker.jsx';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import WorldRefs from './WorldRefs.jsx';
 import { entryImage, kindIcon, kindLabel, visLabel } from './prep-world.js';
-import { SCENE_BLOCKS, DC_CHIPS, blockLabel, fightDifficulty } from './scene-model.js';
+import { SCENE_BLOCKS, DC_CHIPS, DC_RANGE, parseDc, customDc, blockLabel, fightDifficulty } from './scene-model.js';
 
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
 export const HANDY_KINDS = ['npc', 'faction', 'place'];
@@ -130,19 +130,22 @@ export function ImageBlock({ lang, show, showFrom, world, roomName, disabled, bu
     </div>
   );
   return (
-    <BlockFrame id="show" lang={lang} onRemove={disabled || showFrom === 'room' ? null : onRemoveBlock}>
+    <BlockFrame id="show" lang={lang} onRemove={disabled ? null : onRemoveBlock}>
       {entry ? (
         <div className="ss-image">
           <img className="ss-image-pic" src={entryImage(entry, API_BASE)} alt="" loading="lazy" />
           <div className="ss-image-text">
             <p className="ss-image-name"><strong>{entry.name}</strong> · {kindIcon(entry.kind)} {kindLabel(entry.kind, lang)}</p>
             <p className="ss-hint">{visWord(entry, lang)}</p>
+            {showFrom === 'ref' && (
+              <p className="ss-hint">{t(lang, 'Vem do 1º cartão com imagem em 🎭 Quem aparece. Tirar não tira o cartão da sala.', 'Comes from the 1st card with an image in 🎭 Who shows up. Removing it keeps the card in the room.')}</p>
+            )}
           </div>
         </div>
       ) : show?.kind === 'entry' ? (
         <p className="ss-hint">{t(lang, 'O cartão desta imagem não está mais no Mundo.', 'The card of this image is no longer in the World.')}</p>
       ) : showFrom === 'room' ? (
-        <p className="ss-hint">🖼 {t(lang, `A imagem da sala ${roomName || ''} vai à Tela. Ela muda em Preparar › Aventuras.`, `The image of the room ${roomName || ''} goes to the screen. It changes in Prepare › Adventures.`)}</p>
+        <p className="ss-hint">🖼 {t(lang, `A imagem da sala ${roomName || ''} vai à Tela. Ela muda em Preparar › Aventuras; ✕ tira só desta cena.`, `The image of the room ${roomName || ''} goes to the screen. It changes in Prepare › Adventures; ✕ removes it only from this scene.`)}</p>
       ) : null}
       {entry && fresh === entry.id && !disabled && (
         <div className="ss-kinds" role="group" aria-label={t(lang, 'Tipo do cartão', 'Card type')}>
@@ -263,12 +266,15 @@ const checkValue = (c) => `${c.kind}:${c.key}`;
  */
 export function CheckBlock({ lang, checks, members, multi, disabled, onChange, onRemove }) {
   const uid = useId();
+  const [freeAt, setFreeAt] = useState(null);   // o teste com o campo "Outra CD" aberto
   const list = checks.length ? checks : [];
   const set = (i, patch) => onChange(list.map((c, j) => (j === i ? { ...c, ...patch } : c)));
   return (
     <BlockFrame id="check" lang={lang} onRemove={disabled ? null : onRemove}>
       {list.map((c, i) => {
-        const best = c.kind === 'ability' ? null : bestAt(members, c.kind === 'save' ? 'save' : 'skill', c.key, c.dc || 15);
+        const dc = Number.isInteger(c.dc) ? c.dc : 15;
+        const best = c.kind === 'ability' ? null : bestAt(members, c.kind === 'save' ? 'save' : 'skill', c.key, dc);
+        const other = customDc(c.dc);
         return (
           <div key={i} className="ss-check">
             <div className="ss-check-line">
@@ -292,10 +298,26 @@ export function CheckBlock({ lang, checks, members, multi, disabled, onChange, o
             </div>
             <div className="ss-dcs" role="group" aria-label={t(lang, 'CD', 'DC')}>
               <span className="ss-dc-label" aria-hidden="true">{t(lang, 'CD', 'DC')}</span>
-              {DC_CHIPS.map(dc => (
-                <button key={dc} type="button" className="mesa-chip ss-dc" aria-pressed={c.dc === dc} disabled={disabled}
-                  aria-label={t(lang, `CD ${dc}`, `DC ${dc}`)} onClick={() => set(i, { dc: c.dc === dc ? undefined : dc })}>{dc}</button>
+              {DC_CHIPS.map(v => (
+                <button key={v} type="button" className="mesa-chip ss-dc" aria-pressed={c.dc === v} disabled={disabled}
+                  aria-label={t(lang, `CD ${v}`, `DC ${v}`)} onClick={() => set(i, { dc: c.dc === v ? undefined : v })}>{v}</button>
               ))}
+              {/* a CD que não é chip (14, 11, 25…): marcada no "14 ✎"; tocar abre o campo (1 a 40) no mesmo lugar */}
+              {freeAt === i && !disabled ? (
+                <input type="number" inputMode="numeric" min={DC_RANGE.min} max={DC_RANGE.max} className="input ss-dc ss-dc-free" autoFocus
+                  defaultValue={other ?? ''} aria-label={t(lang, 'Outra CD (1 a 40)', 'Other DC (1 to 40)')}
+                  onChange={e => { const v = parseDc(e.target.value); if (v) set(i, { dc: v }); }}
+                  onBlur={() => setFreeAt(null)}
+                  onKeyDown={e => {
+                    // Enter/Esc fecham só o campo (o Esc não fecha a folha inteira)
+                    if (e.key === 'Escape') e.stopPropagation();
+                    if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur();
+                  }} />
+              ) : (
+                <button type="button" className="mesa-chip ss-dc ss-dc-free" aria-pressed={!!other} disabled={disabled}
+                  aria-label={other ? t(lang, `CD ${other} (mudar)`, `DC ${other} (change)`) : t(lang, 'Outra CD (1 a 40)', 'Other DC (1 to 40)')}
+                  onClick={() => setFreeAt(i)}>{other ? `${other} ✎` : t(lang, 'Outra…', 'Other…')}</button>
+              )}
               <button type="button" className="mesa-chip ss-dc" aria-pressed={!!c.dcHidden} disabled={disabled}
                 aria-label={t(lang, 'CD secreta', 'Secret DC')} onClick={() => set(i, { dcHidden: !c.dcHidden })}>🔒</button>
             </div>
@@ -307,9 +329,9 @@ export function CheckBlock({ lang, checks, members, multi, disabled, onChange, o
             )}
             {best && (
               <p className="ss-best">{t(lang,
-                `melhor do grupo: ${best.who.map(firstName).join(', ')} ${best.best >= 0 ? '+' : ''}${best.best} · ${best.p}% · pelo menos 1 passa: ${best.group}%`,
-                `party's best: ${best.who.map(firstName).join(', ')} ${best.best >= 0 ? '+' : ''}${best.best} · ${best.p}% · at least 1 passes: ${best.group}%`)}
-                {!c.dc && <span className="ss-hint"> {t(lang, '(na CD 15)', '(at DC 15)')}</span>}</p>
+                `melhor do grupo: ${best.who.map(firstName).join(', ')} ${best.best >= 0 ? '+' : ''}${best.best} · ${best.p}% na CD ${dc} · pelo menos 1 passa: ${best.group}%`,
+                `party's best: ${best.who.map(firstName).join(', ')} ${best.best >= 0 ? '+' : ''}${best.best} · ${best.p}% at DC ${dc} · at least 1 passes: ${best.group}%`)}
+                {!Number.isInteger(c.dc) && <span className="ss-hint"> {t(lang, '(sem CD escolhida: conta a 15)', '(no DC picked: counts 15)')}</span>}</p>
             )}
           </div>
         );

@@ -17,6 +17,7 @@ export const prepApi = {
   getEntry: (entryId) => request(`/api/world/${entryId}`),
   createEntry: (campaignId, body) => request(`/api/campaigns/${cid(campaignId)}/world`, { method: 'POST', body }),
   updateEntry: (entryId, body) => request(`/api/world/${entryId}`, { method: 'PATCH', body }),
+  deleteEntry: (entryId) => request(`/api/world/${entryId}`, { method: 'DELETE' }),
   putEntryImage: (entryId, image) => request(`/api/world/${entryId}/image`, { method: 'PUT', body: { image } }),
   reveal: (entryId, body) => request(`/api/world/${entryId}/reveal`, { method: 'POST', body }),
   showOnScreen: (campaignId, card) => setScreenCard(campaignId, card),

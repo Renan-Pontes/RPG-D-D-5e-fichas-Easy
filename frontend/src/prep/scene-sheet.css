@@ -8,6 +8,9 @@
 .ss-save.s-error { color: var(--blood-bright); }
 
 .ss-body { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+/* os blocos abaixo da paleta: fora do fluxo só enquanto a sala da cena ligada chega */
+.ss-rest { display: contents; }
+.ss-rest[hidden] { display: none; }
 .ss-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .ss-label {
   display: block; margin: 0; font-family: var(--body); font-size: 15px; letter-spacing: normal; text-transform: none; color: var(--ink-secondary);
@@ -90,6 +93,9 @@
 .ss-dcs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .ss-dc-label { font-size: 14px; color: var(--ink-muted); margin-right: 2px; }
 .ss .ss-dc { min-width: 44px; justify-content: center; padding: 6px 8px; font-variant-numeric: tabular-nums; }
+/* "Outra…" e o campo que ele abre ocupam o mesmo lugar (nada ao lado mexe ao trocar) */
+.ss .ss-dc-free { width: 84px; min-width: 84px; }
+.ss input.ss-dc-free { min-height: 44px; height: 44px; padding: 6px 8px; border-radius: 999px; text-align: center; font-size: 16px; }
 .ss-best { margin: 0; font-size: 14px; line-height: 1.4; color: var(--moss-bright); overflow-wrap: anywhere; }
 
 /* ★ momento */

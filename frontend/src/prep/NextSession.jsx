@@ -742,6 +742,7 @@ export default function NextSession({ campaign, lang, goTo }) {
         <Suspense fallback={null}>
           <EntrySheet entryId={entrySheet} campaign={campaign} world={world} plan={plan} lang={lang}
             onClose={() => setEntrySheet(null)}
+            onWorldRemoved={(id) => setWorld(w => (w || []).filter(e => e.id !== id))}
             onSaved={(full) => { if (full?.id) { details.current.delete(full.id); upsertWorld(toLight(full)); } }}
             onDeleted={(id) => { setWorld(w => (w || []).filter(e => e.id !== id)); setEntrySheet(null); }}
             onOpenEntry={(id) => setEntrySheet(id)}

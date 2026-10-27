@@ -80,11 +80,13 @@ function useRoomSaver(campaignId, ref, onSaved, onRejected) {
  * props: campaign, lang, plan, sceneId, closed, planSave ('saved'|'dirty'|'saving'|'error'),
  * world, adventures, levels, moments (o Raio-X do Plano, ou null), autoFocusName,
  * onChange(sceneId, patch), onRemove(scene), onDiscard(scene), onClose(), onCreateEntry(kind, name),
- * onWorldEntry(light), onOpenEntry(entry), onRoomSaved(ref, node), onAdventureCreated(adv), goTo, flushPlan()
+ * onWorldEntry(light), onWorldRemoved(id), onOpenEntry(entry), onRoomSaved(ref, node), onAdventureCreated(adv),
+ * goTo, flushPlan()
  */
 export default function SceneSheet({
   campaign, lang, plan, sceneId, closed, planSave, world, adventures, levels, moments, momentsNote, autoFocusName = false,
-  onChange, onRemove, onDiscard, onClose, onCreateEntry, onWorldEntry, onOpenEntry, onRoomSaved, onAdventureCreated, goTo, flushPlan,
+  onChange, onRemove, onDiscard, onClose, onCreateEntry, onWorldEntry, onWorldRemoved, onOpenEntry, onRoomSaved, onAdventureCreated,
+  goTo, flushPlan,
 }) {
   const scene = plan.scenes.find(s => s.id === sceneId) || null;
   const index = plan.scenes.findIndex(s => s.id === sceneId);
@@ -114,15 +116,31 @@ export default function SceneSheet({
   const onRejected = useCallback(() => setRoomNonce(n => n + 1), []);
   const saver = useRoomSaver(campaign.id, ref, onSaved, onRejected);
 
-  // a sala da cena ligada: 1 GET dela (sem a imagem), quando liga ou troca
+  // nada mexe debaixo do dedo: o que chega logo depois de um toque (a sala, o versus.js)
+  // espera 600 ms desde o último toque para entrar na folha
+  const touchedAt = useRef(0);
+  useEffect(() => {
+    const mark = () => { touchedAt.current = Date.now(); };
+    document.addEventListener('pointerdown', mark, true);
+    return () => document.removeEventListener('pointerdown', mark, true);
+  }, []);
+  const settle = (apply) => {
+    const wait = touchedAt.current + 600 - Date.now();
+    if (wait <= 0) { apply(); return null; }
+    return setTimeout(apply, wait);
+  };
+
+  // a sala da cena ligada: 1 GET dela (sem a imagem), quando liga ou troca. Enquanto ela não
+  // chega, a folha não desenha nada abaixo do "Carregando a sala…" (os blocos dela entram ali)
   useEffect(() => {
     let alive = true;
+    let timer = null;
     if (!ref) { setRoom(null); setRoomState('none'); return undefined; }
     if (!roomNonce) setRoomState('loading');
     loadRoom(campaign.id, ref.adventureId, ref.nodeId)
-      .then(r => { if (alive) { setRoom(r); setRoomState('ok'); } })
-      .catch(e => { if (alive) { setRoom(null); setRoomState(e?.status === 404 ? 'gone' : 'error'); } });
-    return () => { alive = false; };
+      .then(r => { if (alive) timer = settle(() => { if (alive) { setRoom(r); setRoomState('ok'); } }); })
+      .catch(e => { if (alive) timer = settle(() => { if (alive) { setRoom(null); setRoomState(e?.status === 404 ? 'gone' : 'error'); } }); });
+    return () => { alive = false; clearTimeout(timer); };
   }, [campaign.id, ref?.adventureId, ref?.nodeId, roomNonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => () => clearTimeout(flashTimer.current), []);
@@ -133,6 +151,12 @@ export default function SceneSheet({
   };
 
   const view = useMemo(() => sceneView(scene, room?.node || null, { world }), [scene, room, world]);
+  // o ↶ Desfazer roda depois de outros desenhos: grava contra a cena de agora, não a do ✕
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const momentsRef = useRef(moments);
+  momentsRef.current = moments;
+  const unlinking = useRef(Promise.resolve());   // o ✕ do ★ em andamento (o Desfazer espera)
   const spotlights = moments?.spotlights || {};
   const momentItems = useMemo(() => (scene ? sceneMoments(scene, spotlights) : []), [scene, spotlights]);
   const present = useMemo(() => {
@@ -143,17 +167,12 @@ export default function SceneSheet({
   const shown = (id) => present.has(id) || opened.has(id);
   const roomReady = !linked || roomState === 'ok';
   const lockedRoom = linked && !roomReady;   // os blocos da sala esperam a sala chegar
+  const roomLoading = linked && roomState === 'loading';
 
   // "× grupo" (o monstro contra o dano e as salvaguardas da mesa) e as salvaguardas que o
-  // combate cobra (para as ideias de momento): versus.js chega por import dinâmico; se chegar
-  // logo depois de um toque, espera 600 ms (nada mexe debaixo do dedo)
+  // combate cobra (para as ideias de momento): versus.js chega por import dinâmico (com a
+  // mesma espera de 600 ms depois de um toque)
   const [vs, setVs] = useState(null);
-  const touchedAt = useRef(0);
-  useEffect(() => {
-    const mark = () => { touchedAt.current = Date.now(); };
-    document.addEventListener('pointerdown', mark, true);
-    return () => document.removeEventListener('pointerdown', mark, true);
-  }, []);
   useEffect(() => {
     if (!(campaign.members || []).some(m => m.role !== 'dm' && m.character?.data)) return undefined;
     let alive = true;
@@ -162,9 +181,7 @@ export default function SceneSheet({
       if (!alive) return;
       const facts = PM.partyFacts(PM.partyMembers(campaign.members), lang);
       if (!facts.length) return;
-      const apply = () => { if (alive) setVs({ facts, V, cache: new Map() }); };
-      const wait = touchedAt.current + 600 - Date.now();
-      if (wait > 0) timer = setTimeout(apply, wait); else apply();
+      timer = settle(() => { if (alive) setVs({ facts, V, cache: new Map() }); });
     }).catch(() => { /* sem a linha "× grupo": a folha funciona igual */ });
     return () => { alive = false; clearTimeout(timer); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -184,7 +201,8 @@ export default function SceneSheet({
 
   // ---------------------------------------------------------------- gravar
   const write = (key, value) => {
-    const w = writeBlock(key, value, { linked, refs: view.refs, showFrom: view.showFrom, show: view.show });
+    const v = viewRef.current;
+    const w = writeBlock(key, value, { linked: v.linked, refs: v.refs, showFrom: v.showFrom, show: v.show, showOff: v.showOff, world });
     if (!w) return;
     if (w.scene) onChange(scene.id, w.scene);
     if (w.node) {
@@ -216,15 +234,21 @@ export default function SceneSheet({
   const pickImage = (entry) => { setPicker(null); setImgError(''); write('show', { kind: 'entry', id: entry.id }); };
   const uploadImage = async (file) => {
     setImgBusy(true); setImgError('');
+    let light = null;
     try {
       const url = await compressForEntry(file, { kind: 'place' });
       const name = (view.name || '').trim() || t(lang, `Cena ${index + 1}`, `Scene ${index + 1}`);
-      const light = await onCreateEntry('place', name.slice(0, 120));
+      light = await onCreateEntry('place', name.slice(0, 120));
       const r = await prepApi.putEntryImage(light.id, url);
       onWorldEntry?.({ ...light, imageVer: r.imageVer, imageUrl: r.imageUrl || null });
       setFresh(light.id);
       write('show', { kind: 'entry', id: light.id });
     } catch (e) {
+      // a imagem foi recusada (limite do plano, grande demais): o cartão vazio criado para
+      // ela sai do Mundo (senão sobra um oculto sem imagem a cada tentativa)
+      if (light?.id) {
+        try { await prepApi.deleteEntry(light.id); onWorldRemoved?.(light.id); } catch { /* fica no Mundo, oculto */ }
+      }
       if (showPlanLimit(e)) return;
       setImgError(e?.message === 'image_too_large'
         ? t(lang, 'Imagem grande demais mesmo depois de comprimir.', 'Image still too large after compression.')
@@ -290,16 +314,36 @@ export default function SceneSheet({
     const { list } = moments.write(cur, 'shine', text);
     return linkMoment(charId, list, list.length > cur.length ? list[list.length - 1] : null);
   };
+  // ligar (plan = a cena) ou desligar (plan = null) os momentos `items` no Raio-X, um
+  // personagem por vez, com o Raio-X de agora (momentsRef: o ↶ Desfazer roda depois)
+  const savePlanOf = async (items, plan) => {
+    const api = momentsRef.current;
+    if (!api) return;
+    for (const charId of [...new Set(items.map(x => x.charId))]) {
+      const ids = new Set(items.filter(x => x.charId === charId).map(x => x.moment.id));
+      await api.save(charId, api.momentsOf(charId).map(m => (ids.has(m.id) && (plan ? m.plan !== plan : m.plan === scene.id) ? { ...m, plan } : m)));
+    }
+  };
   const unlinkMoments = async (items) => {
     const keys = new Set(items.map(x => x.key));
-    write('spots', (view.spots || []).filter(k => !keys.has(k)));
+    write('spots', (viewRef.current.spots || []).filter(k => !keys.has(k)));
     setMomBusy(true);
-    try {
-      for (const charId of [...new Set(items.filter(x => x.moment.plan === scene.id).map(x => x.charId))]) {
-        const ids = new Set(items.filter(x => x.charId === charId).map(x => x.moment.id));
-        await moments.save(charId, moments.momentsOf(charId).map(m => (ids.has(m.id) && m.plan === scene.id ? { ...m, plan: null } : m)));
-      }
-    } finally { setMomBusy(false); }
+    try { await savePlanOf(items.filter(x => x.moment.plan === scene.id), null); } finally { setMomBusy(false); }
+  };
+  // ✕ do bloco ★: tira todos e oferece "↶ Desfazer" (os spots e o plan de cada momento voltam)
+  const removeMoments = () => {
+    const items = momentItems;
+    const spots = viewRef.current.spots || [];
+    const planned = items.filter(x => x.moment.plan === scene.id);
+    unlinking.current = unlinkMoments(items);
+    setOpened(s => { const n = new Set(s); n.delete('spots'); return n; });
+    say(t(lang, 'Tirado da cena.', 'Removed from the scene.'), async () => {
+      write('spots', spots);
+      setOpened(s => new Set(s).add('spots'));
+      await unlinking.current;
+      setMomBusy(true);
+      try { await savePlanOf(planned, scene.id); } finally { setMomBusy(false); }
+    });
   };
 
   // ---------------------------------------------------------------- ligar / desligar a sala
@@ -422,126 +466,126 @@ export default function SceneSheet({
           ? <p className="ss-linked-note">🗺 {t(lang, `Guardada na aventura ${advName}. Mudar aqui muda a aventura.`, `Stored in the adventure ${advName}. Changing it here changes the adventure.`)}</p>
           : roomNote)}
 
-        {shown('read') && (
-          <TextBlock id="read" lang={lang} value={view.read} max={linked ? SCENE_LIMITS.nodeRead : SCENE_LIMITS.read} disabled={disabled || lockedRoom}
-            placeholder={t(lang, 'A ponte range. A névoa sobe do rio e…', 'The bridge creaks. Mist rises from the river and…')}
-            onChange={v => write('read', v)} onRemove={() => removeBlock('read')} />
-        )}
-        {shown('show') && (
-          <ImageBlock lang={lang} show={view.show} showFrom={view.showFrom} world={world} roomName={roomName}
-            disabled={disabled || lockedRoom} busy={imgBusy} error={imgError} fresh={fresh}
-            onPickWorld={() => setPicker('image')} onUpload={uploadImage} onKind={changeKind}
-            onRemove={() => removeBlock('show')} onRemoveBlock={() => removeBlock('show')} />
-        )}
-        {shown('refs') && (
-          <PeopleBlock lang={lang} world={world} ids={view.refs} max={linked ? SCENE_LIMITS.nodeRefs : SCENE_LIMITS.refs} disabled={disabled || lockedRoom}
-            onToggle={(id) => write('refs', view.refs.includes(id) ? view.refs.filter(x => x !== id) : [...view.refs, id])}
-            onCreate={onCreateEntry} onOpen={onOpenEntry} onRemove={() => removeBlock('refs')} />
-        )}
-        {shown('fight') && (
-          <FightBlock lang={lang} fight={view.fight} levels={levels} members={campaign.members} levelingMode={campaign.state?.levelingMode || 'milestone'}
-            disabled={disabled || lockedRoom} maxRows={linked ? SCENE_LIMITS.nodeFight : SCENE_LIMITS.fight} maxCount={linked ? SCENE_LIMITS.nodeCount : SCENE_LIMITS.count}
-            versusLine={versusLine} error={fightError} onChange={v => write('fight', v)} onAdd={addMonster} onRemove={() => removeBlock('fight')} />
-        )}
-        {shown('check') && (
-          <CheckBlock lang={lang} checks={view.checks} members={campaign.members} multi={linked} disabled={disabled || lockedRoom}
-            onChange={list => write('check', list)} onRemove={() => removeBlock('check')} />
-        )}
-        {shown('spots') && (
-          <MomentBlock lang={lang} items={momentItems} api={momentApi} ideasFor={ideasFor} disabled={disabled} max={SCENE_LIMITS.spots}
-            busy={momBusy} note={momentApi ? null : (momentsNote || t(lang, 'Os momentos vêm do Raio-X do grupo: precisam de personagens com ficha.', 'Moments come from the party X-ray: they need characters with sheets.'))}
-            onAccept={acceptIdea} onWrite={writeOwn} onUnlink={(x) => unlinkMoments([x])}
-            onRemove={() => {
-              const items = momentItems;
-              unlinkMoments(items);
-              setOpened(s => { const n = new Set(s); n.delete('spots'); return n; });
-            }} />
-        )}
-        {shown('notes') && (
-          <TextBlock id="notes" lang={lang} value={view.notes} max={SCENE_LIMITS.notes} disabled={disabled}
-            placeholder={t(lang, 'Ex.: se fugirem, os goblins seguem até a vila.', 'E.g. if they flee, the goblins follow them to the village.')}
-            onChange={v => write('notes', v)} onRemove={() => removeBlock('notes')} />
-        )}
+        {/* a sala ainda chegando: nada tocável abaixo do aviso (os blocos dela entram aqui e
+            empurrariam ★, 🔒, Mostrar ao começar e Mais opções debaixo do dedo). Escondido, não
+            desmontado: "Mais opções" continua aberto depois de ligar a cena a uma sala. */}
+        <div className="ss-rest" hidden={roomLoading}>
+          {shown('read') && (
+            <TextBlock id="read" lang={lang} value={view.read} max={linked ? SCENE_LIMITS.nodeRead : SCENE_LIMITS.read} disabled={disabled || lockedRoom}
+              placeholder={t(lang, 'A ponte range. A névoa sobe do rio e…', 'The bridge creaks. Mist rises from the river and…')}
+              onChange={v => write('read', v)} onRemove={() => removeBlock('read')} />
+          )}
+          {shown('show') && (
+            <ImageBlock lang={lang} show={view.show} showFrom={view.showFrom} world={world} roomName={roomName}
+              disabled={disabled || lockedRoom} busy={imgBusy} error={imgError} fresh={fresh}
+              onPickWorld={() => setPicker('image')} onUpload={uploadImage} onKind={changeKind}
+              onRemove={() => removeBlock('show')} onRemoveBlock={() => removeBlock('show')} />
+          )}
+          {shown('refs') && (
+            <PeopleBlock lang={lang} world={world} ids={view.refs} max={linked ? SCENE_LIMITS.nodeRefs : SCENE_LIMITS.refs} disabled={disabled || lockedRoom}
+              onToggle={(id) => write('refs', view.refs.includes(id) ? view.refs.filter(x => x !== id) : [...view.refs, id])}
+              onCreate={onCreateEntry} onOpen={onOpenEntry} onRemove={() => removeBlock('refs')} />
+          )}
+          {shown('fight') && (
+            <FightBlock lang={lang} fight={view.fight} levels={levels} members={campaign.members} levelingMode={campaign.state?.levelingMode || 'milestone'}
+              disabled={disabled || lockedRoom} maxRows={linked ? SCENE_LIMITS.nodeFight : SCENE_LIMITS.fight} maxCount={linked ? SCENE_LIMITS.nodeCount : SCENE_LIMITS.count}
+              versusLine={versusLine} error={fightError} onChange={v => write('fight', v)} onAdd={addMonster} onRemove={() => removeBlock('fight')} />
+          )}
+          {shown('check') && (
+            <CheckBlock lang={lang} checks={view.checks} members={campaign.members} multi={linked} disabled={disabled || lockedRoom}
+              onChange={list => write('check', list)} onRemove={() => removeBlock('check')} />
+          )}
+          {shown('spots') && (
+            <MomentBlock lang={lang} items={momentItems} api={momentApi} ideasFor={ideasFor} disabled={disabled} max={SCENE_LIMITS.spots}
+              busy={momBusy} note={momentApi ? null : (momentsNote || t(lang, 'Os momentos vêm do Raio-X do grupo: precisam de personagens com ficha.', 'Moments come from the party X-ray: they need characters with sheets.'))}
+              onAccept={acceptIdea} onWrite={writeOwn} onUnlink={(x) => unlinkMoments([x])} onRemove={removeMoments} />
+          )}
+          {shown('notes') && (
+            <TextBlock id="notes" lang={lang} value={view.notes} max={SCENE_LIMITS.notes} disabled={disabled}
+              placeholder={t(lang, 'Ex.: se fugirem, os goblins seguem até a vila.', 'E.g. if they flee, the goblins follow them to the village.')}
+              onChange={v => write('notes', v)} onRemove={() => removeBlock('notes')} />
+          )}
 
-        {showOnStartVisible(view) && (
-          <label className="ss-switch">
-            <input type="checkbox" checked={view.showOnStart} disabled={disabled} onChange={e => write('showOnStart', e.target.checked)} />
-            <span>{t(lang, 'Ao começar esta cena, mostrar na Tela: nome, imagem e texto para ler', 'When this scene starts, show on screen: name, image and read-aloud text')}
-              <span className="ss-hint"> · {t(lang, 'nada vai à Tela sem o seu toque em ▶ Começar esta cena.', 'nothing goes on screen until you tap ▶ Start this scene.')}</span></span>
-          </label>
-        )}
+          {showOnStartVisible(view) && (
+            <label className="ss-switch">
+              <input type="checkbox" checked={view.showOnStart} disabled={disabled} onChange={e => write('showOnStart', e.target.checked)} />
+              <span>{t(lang, 'Ao começar esta cena, mostrar na Tela: nome, imagem e texto para ler', 'When this scene starts, show on screen: name, image and read-aloud text')}
+                <span className="ss-hint"> · {t(lang, 'nada vai à Tela sem o seu toque em ▶ Começar esta cena.', 'nothing goes on screen until you tap ▶ Start this scene.')}</span></span>
+            </label>
+          )}
 
-        <details className="ss-more">
-          <summary>{linked ? t(lang, 'Mais opções (a sala da aventura)', 'More options (the adventure room)') : t(lang, 'Mais opções (usar uma sala de aventura)', 'More options (use an adventure room)')}</summary>
-          {error && <p className="ss-error" role="alert">{error}</p>}
-          {linked ? (
-            <div className="ss-more-body">
-              <p className="ss-text-line">🗺 {t(lang, 'Guardada na aventura', 'Stored in the adventure')} <strong>{advName || '…'}</strong>{roomName ? <> · {t(lang, 'sala', 'room')} <strong>{roomName}</strong></> : null}</p>
-              <p className="ss-hint">{t(lang, 'Mudar aqui muda a aventura: o texto para ler, a imagem, quem aparece, o combate e os testes moram na sala.', 'Changing it here changes the adventure: read-aloud, image, who shows up, combat and checks live in the room.')}</p>
-              {room?.node && ((room.node.hazards || []).length > 0 || hasTreasure(room.node)) && (
-                <div className="ss-adv">
-                  <p className="mesa-eyebrow">{t(lang, 'da aventura ▸', 'from the adventure ▸')}</p>
-                  {(room.node.hazards || []).map((h, i) => <p key={i} className="ss-text-line">⚠ {h.name}{h.dc ? ` · ${t(lang, 'CD', 'DC')} ${h.dc}` : ''}{h.damage ? ` · ${h.damage}` : ''}</p>)}
-                  {hasTreasure(room.node) && <p className="ss-text-line">💰 {treasureSummary(room.node.treasure, lang)}</p>}
-                  <p className="ss-hint">{t(lang, 'Perigos, tesouro e caminhos mudam no mapa da aventura.', 'Hazards, treasure and paths change on the adventure map.')}</p>
+          <details className="ss-more">
+            <summary>{linked ? t(lang, 'Mais opções (a sala da aventura)', 'More options (the adventure room)') : t(lang, 'Mais opções (usar uma sala de aventura)', 'More options (use an adventure room)')}</summary>
+            {error && <p className="ss-error" role="alert">{error}</p>}
+            {linked ? (
+              <div className="ss-more-body">
+                <p className="ss-text-line">🗺 {t(lang, 'Guardada na aventura', 'Stored in the adventure')} <strong>{advName || '…'}</strong>{roomName ? <> · {t(lang, 'sala', 'room')} <strong>{roomName}</strong></> : null}</p>
+                <p className="ss-hint">{t(lang, 'Mudar aqui muda a aventura: o texto para ler, a imagem, quem aparece, o combate e os testes moram na sala.', 'Changing it here changes the adventure: read-aloud, image, who shows up, combat and checks live in the room.')}</p>
+                {room?.node && ((room.node.hazards || []).length > 0 || hasTreasure(room.node)) && (
+                  <div className="ss-adv">
+                    <p className="mesa-eyebrow">{t(lang, 'da aventura ▸', 'from the adventure ▸')}</p>
+                    {(room.node.hazards || []).map((h, i) => <p key={i} className="ss-text-line">⚠ {h.name}{h.dc ? ` · ${t(lang, 'CD', 'DC')} ${h.dc}` : ''}{h.damage ? ` · ${h.damage}` : ''}</p>)}
+                    {hasTreasure(room.node) && <p className="ss-text-line">💰 {treasureSummary(room.node.treasure, lang)}</p>}
+                    <p className="ss-hint">{t(lang, 'Perigos, tesouro e caminhos mudam no mapa da aventura.', 'Hazards, treasure and paths change on the adventure map.')}</p>
+                  </div>
+                )}
+                <div className="ss-row-btns">
+                  {goTo && <button type="button" className="mesa-btn" onClick={openMap}>{t(lang, 'Abrir o mapa da aventura', 'Open the adventure map')} →</button>}
+                  {!disabled && <button type="button" className="mesa-btn is-quiet" disabled={busy === 'link'} onClick={askUnlink}>{t(lang, 'Desligar da sala', 'Unlink from the room')}</button>}
                 </div>
-              )}
-              <div className="ss-row-btns">
-                {goTo && <button type="button" className="mesa-btn" onClick={openMap}>{t(lang, 'Abrir o mapa da aventura', 'Open the adventure map')} →</button>}
-                {!disabled && <button type="button" className="mesa-btn is-quiet" disabled={busy === 'link'} onClick={askUnlink}>{t(lang, 'Desligar da sala', 'Unlink from the room')}</button>}
               </div>
-            </div>
-          ) : (
-            <div className="ss-more-body">
-              {(adventures || []).length === 0 ? (
-                <>
-                  <p className="ss-hint">{t(lang, 'Ainda não há aventuras. Uma aventura é um mapa de salas, bom para masmorras e viagens.', 'There are no adventures yet. An adventure is a map of rooms, good for dungeons and journeys.')}</p>
-                  {!disabled && <button type="button" className="mesa-btn" disabled={busy === 'create'} onClick={createAdventure}>{busy === 'create' ? '…' : t(lang, '🗺 Criar uma aventura com esta cena', '🗺 Create an adventure with this scene')}</button>}
-                </>
-              ) : !linking ? (
-                !disabled && <button type="button" className="mesa-btn" onClick={() => setLinking({ advId: '', rooms: null })}>🗺 {t(lang, 'Usar uma sala de aventura', 'Use an adventure room')}</button>
-              ) : (
-                <div className="ss-link-edit">
-                  <p className="ss-hint">{t(lang, 'A sala traz o texto para ler, o combate e os cartões dela para a mesa. O que a cena tiver passa a morar na sala.', 'The room brings its read-aloud text, fight and cards to the table. What the scene has moves into the room.')}</p>
-                  <select className="input" value={linking.advId} onChange={e => pickAdventure(e.target.value)} aria-label={t(lang, 'Aventura', 'Adventure')}>
-                    <option value="">{t(lang, 'Aventura…', 'Adventure…')}</option>
-                    {adventures.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
-                  {linking.advId && (
-                    <select className="input" defaultValue="" disabled={!linking.rooms} aria-label={t(lang, 'Sala', 'Room')}
-                      onChange={e => { if (e.target.value) chooseRoom(e.target.value); }}>
-                      <option value="">{linking.rooms ? (linking.rooms.length ? t(lang, 'Sala…', 'Room…') : t(lang, 'Sem salas ainda', 'No rooms yet')) : t(lang, 'Carregando…', 'Loading…')}</option>
-                      {(linking.rooms || []).map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+            ) : (
+              <div className="ss-more-body">
+                {(adventures || []).length === 0 ? (
+                  <>
+                    <p className="ss-hint">{t(lang, 'Ainda não há aventuras. Uma aventura é um mapa de salas, bom para masmorras e viagens.', 'There are no adventures yet. An adventure is a map of rooms, good for dungeons and journeys.')}</p>
+                    {!disabled && <button type="button" className="mesa-btn" disabled={busy === 'create'} onClick={createAdventure}>{busy === 'create' ? '…' : t(lang, '🗺 Criar uma aventura com esta cena', '🗺 Create an adventure with this scene')}</button>}
+                  </>
+                ) : !linking ? (
+                  !disabled && <button type="button" className="mesa-btn" onClick={() => setLinking({ advId: '', rooms: null })}>🗺 {t(lang, 'Usar uma sala de aventura', 'Use an adventure room')}</button>
+                ) : (
+                  <div className="ss-link-edit">
+                    <p className="ss-hint">{t(lang, 'A sala traz o texto para ler, o combate e os cartões dela para a mesa. O que a cena tiver passa a morar na sala.', 'The room brings its read-aloud text, fight and cards to the table. What the scene has moves into the room.')}</p>
+                    <select className="input" value={linking.advId} onChange={e => pickAdventure(e.target.value)} aria-label={t(lang, 'Aventura', 'Adventure')}>
+                      <option value="">{t(lang, 'Aventura…', 'Adventure…')}</option>
+                      {adventures.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                     </select>
-                  )}
-                  <button type="button" className="mesa-btn is-quiet" onClick={() => setLinking(null)}>{t(lang, 'Cancelar', 'Cancel')}</button>
+                    {linking.advId && (
+                      <select className="input" defaultValue="" disabled={!linking.rooms} aria-label={t(lang, 'Sala', 'Room')}
+                        onChange={e => { if (e.target.value) chooseRoom(e.target.value); }}>
+                        <option value="">{linking.rooms ? (linking.rooms.length ? t(lang, 'Sala…', 'Room…') : t(lang, 'Sem salas ainda', 'No rooms yet')) : t(lang, 'Carregando…', 'Loading…')}</option>
+                        {(linking.rooms || []).map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                      </select>
+                    )}
+                    <button type="button" className="mesa-btn is-quiet" onClick={() => setLinking(null)}>{t(lang, 'Cancelar', 'Cancel')}</button>
+                  </div>
+                )}
+              </div>
+            )}
+            {ask?.type === 'link' && (
+              <div className="ss-ask" role="group" aria-label={t(lang, 'Levar para a sala?', 'Take to the room?')}>
+                <p>{t(lang, 'Levar o que está na cena para a sala?', 'Take what is in the scene to the room?')}</p>
+                <p className="ss-hint">{t(lang, 'Texto para ler, imagem, quem aparece, combate e teste passam a morar na sala. "Usar só o da sala" deixa a sala como está e tira isso da cena.', 'Read-aloud, image, who shows up, combat and check move into the room. "Use only the room\'s" keeps the room as it is and removes them from the scene.')}</p>
+                <div className="ss-row-btns">
+                  <button type="button" className="mesa-btn is-primary" disabled={busy === 'link'} onClick={() => doLink(ask.ref, true)}>{t(lang, 'Levar', 'Take it')}</button>
+                  <button type="button" className="mesa-btn" disabled={busy === 'link'} onClick={() => doLink(ask.ref, false)}>{t(lang, 'Usar só o da sala', "Use only the room's")}</button>
+                  <button type="button" className="mesa-btn is-quiet" onClick={() => setAsk(null)}>{t(lang, 'Cancelar', 'Cancel')}</button>
                 </div>
-              )}
-            </div>
-          )}
-          {ask?.type === 'link' && (
-            <div className="ss-ask" role="group" aria-label={t(lang, 'Levar para a sala?', 'Take to the room?')}>
-              <p>{t(lang, 'Levar o que está na cena para a sala?', 'Take what is in the scene to the room?')}</p>
-              <p className="ss-hint">{t(lang, 'Texto para ler, imagem, quem aparece, combate e teste passam a morar na sala. "Usar só o da sala" deixa a sala como está e tira isso da cena.', 'Read-aloud, image, who shows up, combat and check move into the room. "Use only the room\'s" keeps the room as it is and removes them from the scene.')}</p>
-              <div className="ss-row-btns">
-                <button type="button" className="mesa-btn is-primary" disabled={busy === 'link'} onClick={() => doLink(ask.ref, true)}>{t(lang, 'Levar', 'Take it')}</button>
-                <button type="button" className="mesa-btn" disabled={busy === 'link'} onClick={() => doLink(ask.ref, false)}>{t(lang, 'Usar só o da sala', "Use only the room's")}</button>
-                <button type="button" className="mesa-btn is-quiet" onClick={() => setAsk(null)}>{t(lang, 'Cancelar', 'Cancel')}</button>
               </div>
-            </div>
-          )}
-          {ask?.type === 'unlink' && (
-            <div className="ss-ask" role="group" aria-label={t(lang, 'Copiar para a cena?', 'Copy to the scene?')}>
-              <p>{t(lang, 'Copiar o que a sala tem para a cena?', 'Copy what the room has to the scene?')}</p>
-              <p className="ss-hint">{t(lang, 'A sala continua igual na aventura. Copiar traz o texto, a imagem, quem aparece, o combate e o 1º teste para a cena.', 'The room stays the same in the adventure. Copy brings the read-aloud, image, who shows up, combat and the 1st check to the scene.')}</p>
-              <div className="ss-row-btns">
-                <button type="button" className="mesa-btn is-primary" onClick={() => doUnlink(true)}>{t(lang, 'Copiar', 'Copy')}</button>
-                <button type="button" className="mesa-btn" onClick={() => doUnlink(false)}>{t(lang, 'Não, só desligar', 'No, just unlink')}</button>
-                <button type="button" className="mesa-btn is-quiet" onClick={() => setAsk(null)}>{t(lang, 'Cancelar', 'Cancel')}</button>
+            )}
+            {ask?.type === 'unlink' && (
+              <div className="ss-ask" role="group" aria-label={t(lang, 'Copiar para a cena?', 'Copy to the scene?')}>
+                <p>{t(lang, 'Copiar o que a sala tem para a cena?', 'Copy what the room has to the scene?')}</p>
+                <p className="ss-hint">{t(lang, 'A sala continua igual na aventura. Copiar traz o texto, a imagem, quem aparece, o combate e o 1º teste para a cena.', 'The room stays the same in the adventure. Copy brings the read-aloud, image, who shows up, combat and the 1st check to the scene.')}</p>
+                <div className="ss-row-btns">
+                  <button type="button" className="mesa-btn is-primary" onClick={() => doUnlink(true)}>{t(lang, 'Copiar', 'Copy')}</button>
+                  <button type="button" className="mesa-btn" onClick={() => doUnlink(false)}>{t(lang, 'Não, só desligar', 'No, just unlink')}</button>
+                  <button type="button" className="mesa-btn is-quiet" onClick={() => setAsk(null)}>{t(lang, 'Cancelar', 'Cancel')}</button>
+                </div>
               </div>
-            </div>
-          )}
-        </details>
+            )}
+          </details>
+        </div>
       </div>
 
       {flash && (
