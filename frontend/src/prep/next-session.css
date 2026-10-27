@@ -84,6 +84,8 @@
 }
 .ns-step-next .mesa-btn { width: 100%; }
 @media (max-width: 767px) {
+  /* como na Agora: a casca já reserva a barra de baixo, a da mesa e o dado; sem a folga extra do container */
+  main.container:has(> .campaign-detail.shell .ns) { padding-bottom: 0; }
   .ns-step-next { bottom: calc(var(--shell-bar-h, 62px) + 8px + env(safe-area-inset-bottom, 0px)); }
   body:has(.mesa-bar) .ns-step-next { bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bar-h) + 8px + env(safe-area-inset-bottom, 0px)); }
 }
@@ -126,6 +128,9 @@
 .ns .ns-add { min-width: 0; }
 .ns-step-body > .ns-add { width: 100%; }
 .ns-handy { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+.ns-handy-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 8px; min-height: 20px; }
+.ns-handy-head .mesa-eyebrow { margin: 0; }
+.ns .ns-handy-all { min-height: 44px; padding-left: 8px; padding-right: 0; color: var(--gold-bright); }
 .ns-count { display: flex; flex-direction: column; gap: 2px; margin: 0; font-size: 15px; }
 /* a sala ligada: uma linha de texto sob o nome (abrir, trocar e desligar ficam no ⋯ da cena) */
 .ns-link { display: flex; gap: 0 8px; align-items: center; font-size: 14px; min-width: 0; padding-left: 50px; }
@@ -173,6 +178,9 @@
 .ns-ready-copy { min-height: 44px; }
 .ns-ready-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .ns-ready-acts .mesa-btn { flex: 1 1 auto; }
+/* com um passo aberto no celular: só a conta e os botões (a página cabe em ~2 telas) */
+.ns-ready.is-compact { gap: 8px; }
+.ns-ready-count { text-transform: none; letter-spacing: normal; font-family: var(--body); font-size: 14px; color: var(--ink-secondary); }
 
 /* folhas: Em qual cena? · Momentos */
 .ns-pick-list, .ns-mom-list { list-style: none; margin: 8px 0 0; padding: 0; }
@@ -235,6 +243,12 @@ body:has(.mesa-bar) .ns-flash { bottom: calc(var(--fab-safe-bottom, 16px) + var(
 .pw-chip .pw-chip-x { color: var(--ink-muted); width: 44px; min-width: 44px; min-height: 44px; }
 /* variante "pílulas" (À mão na sessão toda): nome e × numa pílula de 44 px, várias por linha */
 .pw-refs.is-pills .pw-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+/* no celular (rail): uma linha que rola de lado; "Ver todas" (quem chama) abre todas */
+.pw-refs.is-pills .pw-chips.is-rail {
+  flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none;
+}
+.pw-refs.is-pills .pw-chips.is-rail::-webkit-scrollbar { display: none; }
+.pw-chips.is-rail > .pw-pill { flex: none; max-width: 85%; scroll-snap-align: start; }
 .pw-pill { display: inline-flex; align-items: stretch; max-width: 100%; min-height: 44px; border: 1px solid var(--gold-deep); border-radius: 999px; background: rgba(214, 176, 100, 0.06); }
 .pw-pill.v-hidden { border-style: dashed; }
 .pw-pill-main {

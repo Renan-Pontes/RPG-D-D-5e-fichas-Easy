@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { API_BASE } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import MesaSheet from '../shell/MesaSheet.jsx';
@@ -59,12 +59,28 @@ function WorldPill({ entry, lang, onOpen, onRemove }) {
  * no topo, filtro por tipo e criação rápida (o cartão novo nasce OCULTO no Mundo).
  * `kinds` pode juntar tipos (À mão na sessão toda: pessoas, facções e lugares); quem
  * chama decide em que lista cada id entra (onToggle recebe o id).
+ * `rail` (com `pills`, no celular): as pílulas numa linha só que rola de lado, com o "＋"
+ * embaixo; `onOverflow(bool)` diz se alguma ficou fora, para quem chama oferecer "Ver todas".
  */
 export default function WorldRefs({
   entries, ids, kinds = null, lang, max = 20, onToggle, onCreate, onOpen, emptyText, addLabel, compact = false, readOnly = false, pills = false,
+  rail = false, onOverflow,
 }) {
   const [open, setOpen] = useState(false);
   const chosen = useMemo(() => pickEntries(ids, entries), [ids, entries]);
+  const chipsRef = useRef(null);
+  const inRail = pills && rail;
+  useLayoutEffect(() => {
+    if (!onOverflow) return undefined;
+    const el = chipsRef.current;
+    if (!el || !inRail) { onOverflow(false); return undefined; }
+    const check = () => onOverflow(el.scrollWidth > el.clientWidth + 1);
+    check();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [inRail, chosen.length, onOverflow]);
   const loading = entries == null;
   const add = !readOnly && (
     <button type="button" className="mesa-btn pw-add" disabled={loading} onClick={() => setOpen(true)}>
@@ -74,15 +90,15 @@ export default function WorldRefs({
   return (
     <div className={`pw-refs ${compact ? 'is-compact' : ''} ${pills ? 'is-pills' : ''}`}>
       {chosen.length > 0 && (
-        <div className="pw-chips">
+        <div className={`pw-chips ${inRail ? 'is-rail' : ''}`} ref={chipsRef}>
           {chosen.map(e => (pills
             ? <WorldPill key={e.id} entry={e} lang={lang} onOpen={onOpen} onRemove={readOnly ? null : () => onToggle(e.id)} />
             : <WorldChip key={e.id} entry={e} lang={lang} onOpen={onOpen} onRemove={readOnly ? null : () => onToggle(e.id)} />))}
-          {pills && add}
+          {pills && !inRail && add}
         </div>
       )}
       {!loading && chosen.length === 0 && emptyText && <p className="muted small pw-empty">{emptyText}</p>}
-      {(!pills || chosen.length === 0) && add}
+      {(!pills || inRail || chosen.length === 0) && add}
       {open && (
         <WorldPickerModal entries={entries || []} ids={ids} kinds={kinds} lang={lang} max={max}
           onToggle={onToggle} onCreate={onCreate} onClose={() => setOpen(false)} />

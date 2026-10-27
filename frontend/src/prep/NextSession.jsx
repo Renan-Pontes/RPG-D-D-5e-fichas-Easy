@@ -51,6 +51,7 @@ export default function NextSession({ campaign, lang, goTo }) {
   const { reload, startSession: startFromShell } = useArea();
   const table = useTable();
   const desk = useMedia('(min-width: 1024px)');       // PC: 2 colunas (passos à esquerda, o passo aberto à direita)
+  const narrow = useMedia('(max-width: 767px)');      // celular: À mão numa linha só
   const [plan, setPlan] = useState(null);
   const [error, setError] = useState('');
   const [saveState, setSaveState] = useState('saved');
@@ -483,7 +484,7 @@ export default function NextSession({ campaign, lang, goTo }) {
       </div>
     ),
     scenes: (
-      <ScenesStep plan={plan} lang={lang} closed={closed} reorder={reorder} setReorder={setReorder}
+      <ScenesStep plan={plan} lang={lang} closed={closed} reorder={reorder} setReorder={setReorder} narrow={narrow}
         adventures={adventures} loadNodes={loadNodes} world={world} worldError={worldError} handyIds={handyIds}
         onToggleHandy={toggleHandy} onCreateEntry={createEntry} onOpenEntry={openEntry}
         onAdd={addSceneAndFocus}
@@ -585,7 +586,7 @@ export default function NextSession({ campaign, lang, goTo }) {
         ))}
       </div>
 
-      <ReadyToPlay plan={plan} lang={lang} party={party} heading={heading} closed={closed}
+      <ReadyToPlay plan={plan} lang={lang} party={party} heading={heading} closed={closed} compact={!desk && !!shownOpen}
         tv={!!(campaign.onboarding?.tv || table?.tvLive)} busy={busy === 'startSession'}
         onCopyTv={copyTv} onStart={startSession} onRehearse={goTo ? () => goTo('play', 'scene') : null} />
      </div>
@@ -794,12 +795,18 @@ function PartyStep({ party, lang, raiox, insights, rx, onInvite, onRemind, onMom
   );
 }
 
-/** ③ Cenas: linhas de 64 px (aconteceu, nome, ⋯), ＋ Cena, ⇅ Mudar a ordem e À mão na sessão toda. */
+/**
+ * ③ Cenas: linhas de 64 px (aconteceu, nome, ⋯), ＋ Cena, ⇅ Mudar a ordem e À mão na sessão
+ * toda (no celular, as pílulas numa linha que rola de lado, com "Ver todas" quando não cabem).
+ */
 function ScenesStep({
-  plan, lang, closed, reorder, setReorder, adventures, loadNodes, world, worldError, handyIds,
+  plan, lang, closed, reorder, setReorder, narrow = false, adventures, loadNodes, world, worldError, handyIds,
   onToggleHandy, onCreateEntry, onOpenEntry, onAdd, onChange, onMove, onRemove, onOpenRoom, onAdventures,
 }) {
   const [linking, setLinking] = useState(null);   // id da cena com o "Usar uma sala" aberto
+  const [allHandy, setAllHandy] = useState(false);
+  const [handyOver, setHandyOver] = useState(false);
+  const handyCount = (world || []).filter(e => handyIds.includes(e.id)).length;
   const list = plan.scenes;
   return (
     <>
@@ -859,8 +866,16 @@ function ScenesStep({
       {list.length >= PLAN_LIMITS.scenes && <p className="ns-hint">{t(lang, `O plano chegou a ${PLAN_LIMITS.scenes} cenas.`, `The plan reached ${PLAN_LIMITS.scenes} scenes.`)}</p>}
       <p className="ns-hint">{t(lang, '2 ou 3 cenas bastam. O grupo decide a ordem; não é roteiro.', "2 or 3 scenes are enough. The party picks the order; it's not a script.")}</p>
       <div className="ns-handy">
-        <p className="mesa-eyebrow">{t(lang, 'À mão na sessão toda', 'Handy all session')}</p>
+        <div className="ns-handy-head">
+          <p className="mesa-eyebrow">{t(lang, 'À mão na sessão toda', 'Handy all session')}</p>
+          {narrow && (handyOver || allHandy) && (
+            <button type="button" className="mesa-btn is-quiet ns-handy-all" aria-expanded={allHandy} onClick={() => setAllHandy(v => !v)}>
+              {allHandy ? t(lang, 'Recolher', 'Collapse') : t(lang, `Ver todas (${handyCount})`, `See all (${handyCount})`)}
+            </button>
+          )}
+        </div>
         <WorldRefs entries={world} ids={handyIds} kinds={HANDY_KINDS} lang={lang} max={PLAN_LIMITS.ids * 2} readOnly={closed} pills
+          rail={narrow && !allHandy} onOverflow={setHandyOver}
           onToggle={onToggleHandy} onCreate={onCreateEntry} onOpen={onOpenEntry}
           addLabel={t(lang, 'Pessoa ou lugar', 'Person or place')}
           emptyText={worldError ? t(lang, 'Não consegui carregar o Mundo agora.', 'Could not load the World right now.') : t(lang, 'Pessoas e lugares que podem aparecer em qualquer cena.', 'People and places that may show up in any scene.')} />
@@ -925,20 +940,25 @@ function CluesStep({ plan, lang, closed, clues, world, asks, logDiary, setLogDia
   );
 }
 
-/** Fim da sanfona (só leitura): o que já está de pé, ▶ Ensaiar e ▶ Começar a Sessão N. */
-function ReadyToPlay({ plan, lang, party, heading, closed, tv, busy, onCopyTv, onStart, onRehearse }) {
+/**
+ * Fim da sanfona (só leitura): o que já está de pé, ▶ Ensaiar e ▶ Começar a Sessão N. Com um
+ * passo aberto no celular (`compact`), só a conta e os botões: a lista volta ao fechar o passo.
+ */
+function ReadyToPlay({ plan, lang, party, heading, closed, tv, busy, compact = false, onCopyTv, onStart, onRehearse }) {
   const rows = readyChecklist(plan, { party, tv, lang });
+  const ok = rows.filter(r => r.ok).length;
   return (
-    <section className="mesa-panel is-sunk ns-ready" id="ns-ready" aria-labelledby="ns-ready-h">
-      <p className="mesa-eyebrow" id="ns-ready-h">{t(lang, 'Pronto para jogar', 'Ready to play')}</p>
-      <ul className="ns-ready-list">
+    <section className={`mesa-panel is-sunk ns-ready ${compact ? 'is-compact' : ''}`} id="ns-ready" aria-labelledby="ns-ready-h">
+      <p className="mesa-eyebrow" id="ns-ready-h">{t(lang, 'Pronto para jogar', 'Ready to play')}
+        {compact && <span className="ns-ready-count"> · {t(lang, `${ok} de ${rows.length} prontos`, `${ok} of ${rows.length} ready`)}</span>}</p>
+      {!compact && <ul className="ns-ready-list">
         {rows.map(r => (
           <li key={r.id} className={r.ok ? 'is-ok' : ''}>
             <span aria-hidden="true">{r.ok ? '✓' : '○'}</span> {r.text}
             {r.id === 'tv' && !r.ok && !closed && <button type="button" className="mesa-btn ns-ready-copy" onClick={onCopyTv}>{t(lang, 'Copiar link', 'Copy link')}</button>}
           </li>
         ))}
-      </ul>
+      </ul>}
       {!closed && (
         <div className="ns-ready-acts">
           {onRehearse && !heading.live && <button type="button" className="mesa-btn mesa-btn-lg" onClick={onRehearse}>▶ {t(lang, 'Ensaiar', 'Rehearse')}</button>}
@@ -947,7 +967,7 @@ function ReadyToPlay({ plan, lang, party, heading, closed, tv, busy, onCopyTv, o
             : <button type="button" className="mesa-btn mesa-btn-lg is-primary" disabled={busy} onClick={onStart}>{busy ? '…' : t(lang, `▶ Começar a Sessão ${heading.next}`, `▶ Start session ${heading.next}`)}</button>}
         </div>
       )}
-      {!heading.live && !closed && onRehearse && (
+      {!heading.live && !closed && onRehearse && !compact && (
         <p className="ns-hint">{t(lang, 'Ensaiar abre Jogar › Agora sem começar a sessão: dá para testar a Tela.', 'Rehearse opens Play › Now without starting the session: you can test the screen.')}</p>
       )}
     </section>
