@@ -17,7 +17,7 @@ import { useArea } from '../shell/useArea.js';
 import { useTable } from '../play/table-store.js';
 import useMedia from '../play/useMedia.js';
 import NextStepCard from '../shell/NextStepCard.jsx';
-import MesaSheet from '../shell/MesaSheet.jsx';
+import MesaSheet, { SIDE_MQ } from '../shell/MesaSheet.jsx';
 import MoreMenu from '../group/MoreMenu.jsx';
 import { WORLD_KINDS } from './prep-world.js';
 // Ícones e nomes dos tipos vêm do Mundo, para casar com o Atlas (🧑 NPCs, ⚜️ Facções, 📜 Histórias).
@@ -59,6 +59,7 @@ export default function NextSession({ campaign, lang, goTo }) {
   const { reload, startSession: startFromShell, onPlan } = useArea();
   const table = useTable();
   const desk = useMedia('(min-width: 1024px)');       // PC: 2 colunas (passos à esquerda, o passo aberto à direita)
+  const sidePanel = useMedia(SIDE_MQ);                 // a folha da Cena vira painel à direita (≥ 1280)
   const narrow = useMedia('(max-width: 767px)');      // celular: À mão numa linha só
   const [plan, setPlan] = useState(null);
   const [error, setError] = useState('');
@@ -213,7 +214,6 @@ export default function NextSession({ campaign, lang, goTo }) {
 
   // tocar num chip (À mão, 🎭 Quem aparece) abre o editor do cartão numa folha, sem sair do Preparar
   const openEntry = (e) => setEntrySheet(e.id);
-
   // o "Aparece em" do editor lista as salas como no Mundo: as salas leves das aventuras
   // (as das cenas ligadas já vieram; as outras, 1 GET leve por aventura, ao abrir um cartão)
   useEffect(() => {
@@ -222,6 +222,7 @@ export default function NextSession({ campaign, lang, goTo }) {
   }, [entrySheet, adventures]); // eslint-disable-line react-hooks/exhaustive-deps
   const entryAdventures = useMemo(() => (adventures || []).filter(a => nodesByAdv[a.id])
     .map(a => ({ id: a.id, name: a.name, nodes: nodesByAdv[a.id] })), [adventures, nodesByAdv]);
+
   // ---------------------------------------------------------------- pistas
   const onDiscover = async (id) => {
     const { plan: next, ask } = toggleDiscovered(planRef.current, id);
@@ -629,9 +630,10 @@ export default function NextSession({ campaign, lang, goTo }) {
     setTimeout(() => document.getElementById('ns-ready')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 0);
   };
   const sideStep = desk ? PLAN_STEPS.find(s => s.id === shownOpen) : null;
+  const sheetSide = !!sceneSheet && sidePanel;   // a folha no painel da direita: o Plano numa coluna só
 
   return (
-    <div className={`ns ${desk ? 'is-desk' : ''}`}>
+    <div className={`ns ${desk ? 'is-desk' : ''} ${desk && sheetSide ? 'has-sheet' : ''}`.trim()}>
      <div className="ns-main">
       <header className="ns-head">
         <div className="ns-head-text">
@@ -653,13 +655,13 @@ export default function NextSession({ campaign, lang, goTo }) {
 
       <div className="ns-acc">
         {PLAN_STEPS.map(s => {
-          // PC (P2) com a folha da Cena aberta: as cenas descem para a coluna da esquerda e a
-          // folha ocupa a da direita (tocar noutra cena troca a folha)
-          const side = desk && !(sceneSheet && s.id === 'scenes');
+          // PC (P2) com a folha da Cena aberta: o Plano vira uma coluna só (a sanfona do
+          // celular) à esquerda do painel; tocar noutra cena troca a folha
+          const side = desk && !sheetSide;
           return (
             <AccStep key={s.id} id={s.id} n={s.n} lang={lang} open={shownOpen === s.id} side={side}
               summary={stepSummary(s.id, plan, { party, moments: totalMoments, lang })}
-              onToggle={() => setOpen(shownOpen === s.id && !desk ? null : s.id)}
+              onToggle={() => setOpen(shownOpen === s.id && !side ? null : s.id)}
               onNext={() => goNext(s.id)}>
               {side ? null : body[s.id]}
             </AccStep>
@@ -672,11 +674,9 @@ export default function NextSession({ campaign, lang, goTo }) {
         onCopyTv={copyTv} onStart={startSession} onRehearse={goTo ? () => goTo('play', 'scene') : null} />
      </div>
 
-      {desk && (
+      {desk && !sheetSide && (
         <aside className="ns-side mesa-panel" aria-labelledby={sideStep ? 'ns-side-h' : undefined} aria-label={sideStep ? undefined : t(lang, 'Passo aberto', 'Open step')}>
-          {sideStep && sceneSheet && sideStep.id === 'scenes' ? (
-            <p className="ns-hint ns-side-empty">{t(lang, 'A cena está aberta no painel à direita.', 'The scene is open in the panel on the right.')}</p>
-          ) : sideStep ? (
+          {sideStep ? (
             <>
               <h3 className="ns-side-h" id="ns-side-h"><span aria-hidden="true">{sideStep.n}</span> {stepLabel(sideStep.id, lang)}</h3>
               <div className="ns-step-body">{body[sideStep.id]}</div>
@@ -742,6 +742,7 @@ export default function NextSession({ campaign, lang, goTo }) {
             onDiscard={(sc) => change(p => removeItem(p, 'scenes', sc.id))}
             onClose={() => setSceneSheet(null)}
             onCreateEntry={createEntry} onWorldEntry={upsertWorld} onOpenEntry={openEntry}
+            onWorldRemoved={(id) => setWorld(w => (w || []).filter(e => e.id !== id))}
             onRoomSaved={onRoomSaved} onAdventureCreated={(a) => setAdventures(l => [a, ...(l || [])])}
             goTo={goTo} flushPlan={flush} />
         </Suspense>
@@ -750,7 +751,6 @@ export default function NextSession({ campaign, lang, goTo }) {
         <Suspense fallback={null}>
           <EntrySheet entryId={entrySheet} campaign={campaign} world={world} adventures={entryAdventures} plan={plan} lang={lang}
             onClose={() => setEntrySheet(null)}
-            onWorldRemoved={(id) => setWorld(w => (w || []).filter(e => e.id !== id))}
             onSaved={(full) => { if (full?.id) { details.current.delete(full.id); upsertWorld(toLight(full)); } }}
             onDeleted={(id) => { setWorld(w => (w || []).filter(e => e.id !== id)); setEntrySheet(null); }}
             onOpenEntry={(id) => setEntrySheet(id)}

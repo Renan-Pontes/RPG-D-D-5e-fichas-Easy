@@ -537,8 +537,19 @@ body.mesa-sheet-open :is(.dice-fab, .nudge-toast-slot) { display: none !importan
   .mesa-sheet-foot { border-radius: 0 0 9px 9px; padding-bottom: 14px; }
 }
 /* side (PC): painel de 520 px preso à direita, sem fundo escuro; a página atrás continua
-   tocável (o Plano, o mapa da aventura) */
+   tocável (o Plano, o mapa da aventura). Ele não cobre nada da casca: enquanto está aberto,
+   a casca (cabeçalho, abas, conteúdo) e a barra do app abrem os 520 px à direita; e, com a
+   janela da Tela no canto da direita (P2), o painel para acima dela, que continua à vista.
+   A folha só abre assim a partir de 1280 (SIDE_MQ, MesaSheet.jsx); as regras valem desde
+   1024 para a folha já aberta não mudar de forma se a janela do navegador encolher. */
 @media (min-width: 1024px) {
+  body:has(.mesa-sheet-backdrop.is-side) main.container:has(> .campaign-detail.shell) {
+    padding-right: calc(536px - max(0px, (100vw - 1280px) / 2));
+  }
+  body:has(.mesa-sheet-backdrop.is-side) .app-header { padding-right: 536px; }
+  body:has(.screen-win.is-right:is(.is-float, .is-pill)) .mesa-sheet-backdrop.is-side {
+    bottom: calc(var(--screen-win-h, 276px) + 36px);
+  }
   .mesa-sheet-backdrop.is-side {
     left: auto;
     width: min(520px, 100%);
@@ -550,8 +561,8 @@ body.mesa-sheet-open :is(.dice-fab, .nudge-toast-slot) { display: none !importan
   }
   .mesa-sheet-backdrop.is-side .mesa-sheet {
     width: 100%;
-    height: 100vh; height: 100dvh;
-    max-height: 100vh; max-height: 100dvh;
+    height: 100%;
+    max-height: 100%;
     border-radius: 0;
     box-shadow: -14px 0 40px rgba(0, 0, 0, 0.6);
     animation-name: mesa-side-in;

@@ -23,10 +23,12 @@
 //   dock="play": o mesmo, mas só quando aberta dentro de Jogar (folhas que também
 //   abrem de outras áreas: Pedir teste, Mostrar na Tela, Avisos, Escolher monstro…).
 //   As outras folhas escondem a barra (body.mesa-sheet-covers).
-// - side (PC ≥ 1024): painel de 520 px preso à direita, da altura da janela, que NÃO
-//   bloqueia a página (a folha da Cena ao lado do Plano, a sala ao lado do mapa da
-//   aventura): sem fundo escuro, sem travar a rolagem, tocar fora não fecha. Esc fecha
-//   com o foco dentro dele. No celular é a folha de sempre.
+// - side (PC ≥ 1280, SIDE_MQ): painel de 520 px preso à direita, que NÃO bloqueia a
+//   página (a folha da Cena ao lado do Plano, a sala ao lado do mapa da aventura): sem
+//   fundo escuro, sem travar a rolagem, tocar fora não fecha. Esc fecha com o foco dentro
+//   dele. A casca abre os 520 px (nada dela fica embaixo) e a janela da Tela no canto da
+//   direita fica abaixo dele (P2). Abaixo de 1280 a casca não cabe ao lado (ficaria com
+//   menos que os 720 px do tablet): é a folha de sempre (diálogo central; no celular, de baixo).
 // - aside: um pedaço no cabeçalho, antes do ✕ (o "✓ Salvo" da folha da Cena).
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -67,6 +69,9 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([t
 let openSheets = 0;
 let coverSheets = 0;   // folhas que cobrem a barra da mesa (todas menos as dock="bar")
 
+/** A partir de quando a folha `side` vira painel ao lado da página (a casca fica com ≥ 732 px). */
+export const SIDE_MQ = '(min-width: 1280px)';
+
 function readAccent() {
   try {
     const camp = document.activeElement?.closest?.('.campaign-detail') || document.querySelector('.campaign-detail');
@@ -84,7 +89,7 @@ export default function MesaSheet({
   // o painel lateral só vale no PC; decidido ao abrir (girar o tablet não troca a folha aberta)
   const [isSide] = useState(() => {
     if (!side || typeof window === 'undefined') return false;
-    try { return window.matchMedia('(min-width: 1024px)').matches; } catch { return false; }
+    try { return window.matchMedia(SIDE_MQ).matches; } catch { return false; }
   });
   const docked = dock === 'bar' || (dock === 'play' && area === 'play') || isSide;
   const L = lang || langNow();

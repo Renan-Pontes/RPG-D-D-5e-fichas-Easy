@@ -207,6 +207,8 @@ body:has(.mesa-bar) .ns-flash { bottom: calc(var(--fab-safe-bottom, 16px) + var(
 /* PC (P2): 2 colunas — o índice dos passos à esquerda, o passo aberto à direita */
 .ns-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .ns.is-desk { display: grid; grid-template-columns: minmax(380px, 460px) minmax(0, 1fr); align-items: start; gap: 16px; max-width: none; }
+/* com a folha da Cena no painel da direita: uma coluna só, ao lado do painel (a casca abre espaço) */
+.ns.is-desk.has-sheet { grid-template-columns: minmax(0, 1fr); }
 .ns.is-desk .ns-step.is-open .ns-step-head { background: var(--gold-soft); box-shadow: inset 3px 0 0 var(--gold); }
 .ns-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .ns .ns-side-h { margin: 0; font-family: var(--display); font-size: 1.02rem !important; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-bright); }
