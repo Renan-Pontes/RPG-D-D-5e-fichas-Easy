@@ -21,6 +21,14 @@ const L = (lang, pt, en) => (lang === 'en' ? en : pt);
 export const STAGE_EVENT = 'forja:stage';
 // "Enviando…" na barra da mesa (V4): sai antes de cada envio dos 9 lugares.
 export const STAGE_SENDING_EVENT = 'forja:stage-sending';
+// …e o fim de cada envio, deu certo ou não: {campaignId, ok, label, name}. A barra troca o
+// "Enviando…" pelo mesmo texto do aviso ("Na tela ✓", "Tirado ✓", "Tela limpa ✓") ou o tira.
+export const STAGE_SENT_EVENT = 'forja:stage-sent';
+
+function emitSent(campaignId, detail) {
+  if (typeof window === 'undefined') return;
+  try { window.dispatchEvent(new CustomEvent(STAGE_SENT_EVENT, { detail: { campaignId, ...detail } })); } catch { /* ok */ }
+}
 
 function emit(campaignId, stage) {
   if (!stage || typeof window === 'undefined') return;
@@ -96,7 +104,8 @@ export function stageErrorText(e, lang = 'pt') {
   if (pair) return L(lang, pair[0], pair[1]);
   const shared = errorText(code, lang === 'en' ? 'en' : 'pt');
   if (shared) return shared;
-  return L(lang, 'Não enviado. Confira a conexão.', 'Not sent. Check the connection.');
+  // (o "Não enviado · " já vem na frente, no aviso do sendToStage)
+  return L(lang, 'Confira a conexão.', 'Check the connection.');
 }
 
 /**
@@ -113,17 +122,20 @@ export async function sendToStage(campaignId, send, { lang = 'pt', name = '', un
   try {
     const r = await send();
     const undoFn = undo || (() => stageUndo(campaignId));
-    flash(`${done || L(lang, 'Na tela ✓', 'On screen ✓')}${name ? ` · ${name}` : ''}`, {
+    const label = done || L(lang, 'Na tela ✓', 'On screen ✓');
+    emitSent(campaignId, { ok: true, label, name });
+    flash(`${label}${name ? ` · ${name}` : ''}`, {
       action: r?.changed === false && !undo ? null : {
         label: L(lang, '↶ Desfazer', '↶ Undo'),
         onClick: async () => {
-          try { await undoFn(); onDone?.(); } catch (e) { flash(stageErrorText(e, lang), { error: true }); }
+          try { await undoFn(); onDone?.(); } catch (e) { flash(`${L(lang, 'Não enviado', 'Not sent')} · ${stageErrorText(e, lang)}`, { error: true }); }
         },
       },
     });
     onDone?.(r);
     return r;
   } catch (e) {
+    emitSent(campaignId, { ok: false });
     const status = e?.status;
     const retry = !status || status >= 500;
     flash(`${L(lang, 'Não enviado', 'Not sent')} · ${stageErrorText(e, lang)}`, {

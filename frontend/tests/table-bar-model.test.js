@@ -222,6 +222,8 @@ test('linha 2: a 1ª que valer — sem conexão › rolagem › enviando › com
   r = barLines({ ...all, offlineFor: 0, roll: null });
   assert.equal(r.l2, 'Na tela ✓ · Ponte');
   assert.equal(barLines({ ...all, offlineFor: 0, roll: null, sending: { state: 'sending' } }).l2, 'Enviando…');
+  // o fim do envio diz o mesmo que o aviso: "Tirado ✓", "Tela limpa ✓"…
+  assert.equal(barLines({ ...all, offlineFor: 0, roll: null, sending: { state: 'sent', label: 'Tela limpa ✓', name: 'só o fundo' } }).l2, 'Tela limpa ✓ · só o fundo');
   r = barLines({ ...all, offlineFor: 0, roll: null, sending: null });
   assert.equal(r.l2, '3/10 · depois: Dagna · 2 de 4 agiram');
   // frente por cima do combate: o que cobre a TV

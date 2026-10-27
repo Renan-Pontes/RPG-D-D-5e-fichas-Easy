@@ -22,7 +22,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
-import { STAGE_EVENT, STAGE_SENDING_EVENT } from '../stage/stage-api.js';
+import { STAGE_EVENT, STAGE_SENDING_EVENT, STAGE_SENT_EVENT } from '../stage/stage-api.js';
 import { frontLabel, L } from '../stage/stage-now.js';
 import { combatSummary, offlineSeconds, SENT_SHOW_MS, staleText, turnLine } from '../stage/table-bar-model.js';
 import { flash } from './flash.js';
@@ -146,9 +146,21 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) 
       setSending({ state: 'sent', name: front ? frontLabel(front, lang, { dm: true }) : '', at: Date.now() });
       refresh();
     };
+    // o fim de todo envio (também o teste na Tela, o Conduzir e as falhas): sai do "Enviando…"
+    const onDone = (e) => {
+      if (!mine(e)) return;
+      if (!e.detail?.ok) { setSending(null); return; }
+      setSending(cur => ({ state: 'sent', label: e.detail.label, at: Date.now(),
+        name: e.detail.name || (cur?.state === 'sent' ? cur.name : '') }));
+    };
     window.addEventListener(STAGE_SENDING_EVENT, onSending);
     window.addEventListener(STAGE_EVENT, onSent);
-    return () => { window.removeEventListener(STAGE_SENDING_EVENT, onSending); window.removeEventListener(STAGE_EVENT, onSent); };
+    window.addEventListener(STAGE_SENT_EVENT, onDone);
+    return () => {
+      window.removeEventListener(STAGE_SENDING_EVENT, onSending);
+      window.removeEventListener(STAGE_EVENT, onSent);
+      window.removeEventListener(STAGE_SENT_EVENT, onDone);
+    };
   }, [live, id, lang, refresh]);
   useEffect(() => {
     if (!sending) return undefined;

@@ -296,7 +296,7 @@ export function barLines({
     l2 = rollLine(roll, lang); tone = 'roll';
   } else if (sending) {
     l2 = sending.state === 'sending' ? L(lang, 'Enviando…', 'Sending…')
-      : `${L(lang, 'Na tela ✓', 'On screen ✓')}${sending.name ? ` · ${sending.name}` : ''}`;
+      : `${sending.label || L(lang, 'Na tela ✓', 'On screen ✓')}${sending.name ? ` · ${sending.name}` : ''}`;
     tone = 'sent';
   } else if (fighting && now.mode === 'front' && now.over) {
     l2 = `📺 ${L(lang, 'Por cima', 'Over it')}: ${frontLabel(now.front, lang, { dm: true })}`;
