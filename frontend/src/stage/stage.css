@@ -253,8 +253,12 @@
 /* ---------- faixa do turno do PC (Jogar, com combate) ---------- */
 .turn-strip { display: none; }
 @media (min-width: 768px) {
+  /* presa logo ABAIXO das abas das áreas (.shell-areas: presas em 0, 59 px de altura,
+     z-index 30): nada dela passa por baixo delas, e o clique no Próximo nunca cai
+     numa aba. A altura dela (--turn-strip-h, medida pelo TurnStrip) empurra para
+     baixo o que também prende no topo: o mapa do Combate e a coluna de Testes. */
   .turn-strip {
-    position: sticky; top: 0; z-index: 24;
+    position: sticky; top: var(--areas-stick, 64px); z-index: 24;
     display: grid; grid-template-columns: minmax(180px, auto) minmax(0, 1fr) auto; align-items: center; gap: 12px;
     margin: 0 0 14px; padding: 8px 10px;
   }
@@ -271,6 +275,9 @@
   .turn-strip-mark.is-down { color: var(--ink-muted); text-decoration: line-through; }
   /* largura fixa: "Enviando…" não move o botão debaixo do cursor */
   .turn-strip-next { min-height: 48px; min-width: 12em; white-space: nowrap; justify-content: center; }
+  .play-area:has(> .turn-strip) { --below-strip: calc(var(--areas-stick, 64px) + var(--turn-strip-h, 88px) + 8px); }
+  .play-area:has(> .turn-strip) .combat-tab { --ct-map-top: var(--below-strip); }
+  .play-area:has(> .turn-strip) .tests-ask-col { top: var(--below-strip); max-height: calc(100vh - var(--below-strip) - 16px); }
 }
 @media (min-width: 768px) and (max-width: 1023px) {
   .turn-strip { grid-template-columns: minmax(0, 1fr) auto; }

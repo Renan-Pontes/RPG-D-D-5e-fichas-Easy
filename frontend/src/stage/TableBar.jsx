@@ -122,12 +122,25 @@ export function TurnStrip({ lang = 'pt', onOpenActor }) {
   const table = useTable();
   const combat = table?.combat;
   const armed = useRearm(combat?.allMonstersDown ? 'end' : 'next');
+  const ref = useRef(null);
+  // A altura da faixa (a fita pode quebrar em 2 linhas) vai para a área Jogar como
+  // --turn-strip-h: o mapa do Combate e a coluna de Testes prendem logo abaixo dela.
+  useEffect(() => {
+    const el = ref.current;
+    const host = el?.parentElement;
+    if (!el || !host || typeof ResizeObserver === 'undefined') return undefined;
+    const fit = () => host.style.setProperty('--turn-strip-h', `${Math.ceil(el.offsetHeight)}px`);
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => { ro.disconnect(); host.style.removeProperty('--turn-strip-h'); };
+  }, [combat?.active]);
   if (!combat?.active) return null;
   const busy = !!table.busy;
   const marks = ribbon(combat);
   const after = afterLine(combat, lang);
   return (
-    <div className="mesa-turn is-now turn-strip no-print" role="region" aria-label={L(lang, 'Turno do combate', 'Combat turn')}>
+    <div ref={ref} className="mesa-turn is-now turn-strip no-print" role="region" aria-label={L(lang, 'Turno do combate', 'Combat turn')}>
       <button type="button" className="turn-strip-who" onClick={() => onOpenActor?.(combat.turnId)}
         title={L(lang, 'Ver quem age', 'See who acts')}>
         <span className="mesa-turn-label">{L(lang, 'Rodada', 'Round')} {combat.round} · {L(lang, 'Vez de', 'Now')}</span>
