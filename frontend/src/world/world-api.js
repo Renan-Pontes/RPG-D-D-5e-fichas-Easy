@@ -7,6 +7,7 @@
 // Outros pacotes importam daqui — mantenha os nomes estáveis.
 import { request, API_BASE } from '../api/client.js';
 import { errorText as appErrorText } from '../api/errors.js';
+import { setScreenCard, showOnStage } from '../stage/stage-api.js';
 
 const cid = (id) => encodeURIComponent(id);
 
@@ -100,17 +101,18 @@ export async function saveSessionPlan(campaignId, patch) {
 }
 
 /**
- * "Mostrar no telão". card: {type:'entry', entryId, secretIds?} | {type:'recap', title, text}
- * | {type:'scene', adventureId, nodeId} | null (limpa). → {card}
+ * Cartão antigo da Tela (compatibilidade; o caminho novo é stage-api.showOnStage).
+ * card: {type:'entry', entryId, secretIds?} | {type:'recap', title, text}
+ * | {type:'scene', adventureId, nodeId} | null (tira). → {card}
  * Entrada oculta → 400 entry_hidden (mostrar não revela).
  */
 export function showOnScreen(campaignId, card) {
-  return request(`/api/campaigns/${cid(campaignId)}/screen-card`, { method: 'POST', body: card === null ? { card: null } : card });
+  return setScreenCard(campaignId, card);
 }
 
-/** Atalho: mostra um cartão do Mundo no telão. */
+/** Atalho: mostra um cartão do Mundo na Tela (o palco; ver ShowOnTable). → {stage, changed} */
 export function showEntryOnScreen(campaignId, entryId, secretIds) {
-  return showOnScreen(campaignId, { type: 'entry', entryId, ...(secretIds?.length ? { secretIds } : {}) });
+  return showOnStage(campaignId, { kind: 'card', entryId, ...(secretIds?.length ? { secretIds } : {}) });
 }
 
 // ------------------------------------------------------------ Mundo vivo (ecos da mesa)
@@ -163,7 +165,7 @@ const WORLD_ERRORS = {
   confirm_name: ['O nome digitado não confere com o da campanha.', 'The typed name does not match the campaign.'],
   world_not_empty: ['O exemplo só pode ser criado num mundo vazio.', 'The sample can only be created in an empty world.'],
   missing_name: ['Dê um nome ao cartão.', 'Give the card a name.'],
-  entry_hidden: ['Revele o cartão antes de mostrar no telão.', 'Reveal the card before showing it on screen.'],
+  entry_hidden: ['Cartão oculto: escolha "Só a imagem" ou revele antes de mostrar na Tela.', 'Hidden card: pick "Image only" or reveal it before showing it on screen.'],
   too_many_secrets: ['No máximo 20 segredos por cartão.', 'At most 20 secrets per card.'],
   too_many_pins: ['No máximo 100 marcadores por mapa.', 'At most 100 pins per map.'],
   too_many_links: ['No máximo 40 ligações por cartão.', 'At most 40 links per card.'],

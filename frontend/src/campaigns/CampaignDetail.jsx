@@ -175,7 +175,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
 
   const tvUrl = campaign ? screenLink(window.location.origin, campaign.screenToken) : '';
   const copyTv = useCallback(async () => {
-    try { await navigator.clipboard?.writeText(tvUrl); say(t(lang, 'Link do telão copiado', 'TV link copied')); } catch { /* ok */ }
+    try { await navigator.clipboard?.writeText(tvUrl); say(t(lang, 'Link da Tela copiado', 'Screen link copied')); } catch { /* ok */ }
     markOnboarding('tv');
   }, [tvUrl, lang, say, markOnboarding]);
 
@@ -220,11 +220,8 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   // Da folha "Mais" para outra janela: fecha a folha primeiro (o foco volta à
   // casa "Mais") e abre a próxima no tick seguinte, que devolve o foco para lá.
   const fromMore = (fn) => () => { setMore(false); setTimeout(fn, 0); };
-  const clearScreen = async () => {
-    try { await api.setScreenCard(campaign.id, null); load(); } catch (e) { say(errorMessage(e, lang)); }
-  };
 
-  // Atalhos: 1–4 áreas · Ctrl+K busca · N próximo turno (Jogar › Combate) · T copia o telão.
+  // Atalhos: 1–4 áreas · Ctrl+K busca · N próximo turno (Jogar › Combate) · T copia o link da Tela.
   const areas = areasFor(isDM);
   useEffect(() => {
     if (!campaign) return;
@@ -283,7 +280,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
           campaign={campaign} lang={lang} isDM={isDM} busy={busy} onBack={onBack}
           onStartSession={startSession} onEndSession={() => setEnding(true)}
           onSearch={() => setSearch(true)} onSettings={() => { setSettings('identity'); if (isDM) loadWorld(); }}
-          onTvOpened={() => markOnboarding('tv')} onClearScreen={clearScreen}
+          onTvOpened={() => markOnboarding('tv')} onScreenChange={load}
           onChooseScreen={() => goTo('play', 'screen')}
         />
         <AreaNav areas={areas} active={nav.area} onSelect={(a) => goTo(a)} lang={lang} badges={badges} showKeys={isDM}
@@ -326,7 +323,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
               onSearch={fromMore(() => setSearch(true))}
               onSettings={(section) => fromMore(() => setSettings(section))()}
               onBack={fromMore(onBack)}
-              onTvOpened={() => markOnboarding('tv')} onClearScreen={clearScreen}
+              onTvOpened={() => markOnboarding('tv')} onScreenChange={load}
               onChooseScreen={fromMore(() => goTo('play', 'screen'))} />
           </Suspense>
         )}

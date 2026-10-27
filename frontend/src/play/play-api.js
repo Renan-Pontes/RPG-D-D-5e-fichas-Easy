@@ -1,7 +1,11 @@
 // API da área Jogar (contrato C5): usa o `request` de src/api/client.js,
-// sem editar client.js. Endpoints do WP2 (prévia de ataque, PATCH de state,
-// cartão do telão) e leitura de aventuras para o painel "Nesta cena".
+// sem editar client.js. Endpoints do WP2 (prévia de ataque, PATCH de state)
+// e leitura de aventuras para o painel "Nesta cena". A Tela (palco, cartão
+// antigo, link) é do src/stage/stage-api.js; os nomes ficam aqui por
+// compatibilidade.
 import { request } from '../api/client.js';
+
+export { getScreen, rotateScreenToken, setScreenCard } from '../stage/stage-api.js';
 
 const cid = (id) => encodeURIComponent(id);
 
@@ -30,20 +34,6 @@ export function combatAction(campaignId, body) {
 /** PATCH de state por chave (merge no servidor). → {state} */
 export function patchState(campaignId, patch) {
   return request(`/api/campaigns/${cid(campaignId)}/state`, { method: 'PATCH', body: { patch } });
-}
-
-/** "Mostrar agora" no telão. card: {type:'entry'|'recap'|'scene', …} ou null (tira). → {card} */
-export function setScreenCard(campaignId, card) {
-  return request(`/api/campaigns/${cid(campaignId)}/screen-card`, { method: 'POST', body: card ? card : { card: null } });
-}
-
-/** O que o telão está mostrando agora (rota pública, filtrada). */
-export function getScreen(token) {
-  return request(`/api/screen/${encodeURIComponent(token)}`);
-}
-
-export function rotateScreenToken(campaignId) {
-  return request(`/api/campaigns/${cid(campaignId)}/rotate-screen-token`, { method: 'POST' });
 }
 
 export function listAdventures(campaignId) {

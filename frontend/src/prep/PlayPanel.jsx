@@ -14,12 +14,14 @@ import { prepApi } from './prep-api.js';
 import { pickEntries } from './prep-world.js';
 import { WorldChip } from './WorldRefs.jsx';
 import usePrepConfirm from './usePrepConfirm.jsx';
+import ShowOnTable from '../stage/ShowOnTable.jsx';
+import { sendToStage, showOnStage } from '../stage/stage-api.js';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 
 /**
  * Painel "Conduzir" de uma sala: ler em voz alta, cartões do Mundo ligados
- * (revelar / mostrar no telão), caminhos, encontro, perigos, testes, tesouro.
+ * (revelar / o 📺 único da Tela), caminhos, encontro, perigos, testes, tesouro.
  * Cada ação é um clique do mestre; nada automático.
  */
 export default function PlayPanel({
@@ -79,10 +81,26 @@ export default function PlayPanel({
     }, lang));
   }, t(lang, 'Pedido enviado à mesa (CD oculta).', 'Check sent to the table (hidden DC).'));
 
-  const toScreen = (text) => run('tv', () => api.adventureScreen(campaign.id, adventure.id, { nodeId: node.id, text }),
-    text ? t(lang, 'Nome e texto no telão.', 'Name and text on the TV.') : t(lang, 'Nome da cena no telão.', 'Scene name on the TV.'));
-  const clearScreen = () => run('tv', () => api.adventureScreen(campaign.id, adventure.id, { nodeId: null }),
-    t(lang, 'Texto tirado do telão.', 'Text removed from the TV.'));
+  // Nome (ou nome + texto) da sala na Tela: o servidor grava a cena e põe a sala na
+  // frente do palco; o aviso é o mesmo dos outros 📺 ("Na tela ✓ · ↶ Desfazer").
+  const toScreen = async (text) => {
+    setBusy('tv'); setMsg('');
+    await sendToStage(campaign.id, () => api.adventureScreen(campaign.id, adventure.id, { nodeId: node.id, text }),
+      { lang, name: text ? t(lang, `${node.name} (nome e texto)`, `${node.name} (name and text)`) : node.name });
+    setBusy('');
+  };
+  const clearScreen = async () => {
+    setBusy('tv'); setMsg('');
+    await sendToStage(campaign.id, () => api.adventureScreen(campaign.id, adventure.id, { nodeId: null }),
+      { lang, done: t(lang, 'Texto tirado da Tela ✓', 'Text removed from the screen ✓') });
+    setBusy('');
+  };
+  const showImage = async () => {
+    setBusy('tv'); setMsg('');
+    await sendToStage(campaign.id, () => showOnStage(campaign.id, { kind: 'image', ref: { advId: adventure.id, nodeId: node.id } }),
+      { lang, name: t(lang, `${node.name} (só a imagem)`, `${node.name} (image only)`) });
+    setBusy('');
+  };
 
   const reveal = (entry, visibility) => run(`rv-${entry.id}`, async () => {
     const r = await prepApi.reveal(entry.id, { visibility, logDiary, lang });
@@ -91,15 +109,12 @@ export default function PlayPanel({
     ? t(lang, `Os jogadores agora conhecem “${entry.name}” de nome.`, `Players now know “${entry.name}” by name.`)
     : t(lang, `“${entry.name}” revelado aos jogadores.`, `“${entry.name}” revealed to the players.`));
 
-  const showEntry = (entry) => run(`tv-${entry.id}`, () => prepApi.showOnScreen(campaign.id, { type: 'entry', entryId: entry.id }),
-    t(lang, `“${entry.name}” no telão.`, `“${entry.name}” on the TV.`));
-
   const goCombat = () => (goTo ? goTo('play', 'combat') : onOpenTab?.('combat'));
 
   const imageToMap = async () => {
     if (!(await confirm({
       title: t(lang, 'Usar como mapa do combate?', 'Use as the combat map?'),
-      text: t(lang, 'Esta imagem vira o mapa do combate e do telão. O mapa atual será substituído.', 'This image becomes the combat and TV map. The current map will be replaced.'),
+      text: t(lang, 'Esta imagem vira o mapa do combate e da Tela. O mapa atual será substituído.', 'This image becomes the combat and screen map. The current map will be replaced.'),
       ok: t(lang, 'Usar imagem', 'Use image'),
     }))) return;
     run('map', () => new Promise((resolve, reject) => {
@@ -151,9 +166,10 @@ export default function PlayPanel({
         </section>
       )}
       <div className="adv-row wrap">
-        <button type="button" className="btn btn-ghost btn-sm" disabled={busy === 'tv'} onClick={() => toScreen(false)}>📺 {t(lang, 'Nome no telão', 'Name on TV')}</button>
-        {node.readAloud && <button type="button" className="btn btn-ghost btn-sm" disabled={busy === 'tv'} onClick={() => toScreen(true)}>📺 {t(lang, 'Nome + texto no telão', 'Name + text on TV')}</button>}
-        {campaign.state?.sceneText && <button type="button" className="btn btn-ghost btn-sm" disabled={busy === 'tv'} onClick={clearScreen}>{t(lang, 'Tirar texto do telão', 'Remove text from TV')}</button>}
+        <button type="button" className="btn btn-ghost btn-sm" disabled={busy === 'tv'} onClick={() => toScreen(false)}>📺 {t(lang, 'Nome na Tela', 'Name on screen')}</button>
+        {node.readAloud && <button type="button" className="btn btn-ghost btn-sm" disabled={busy === 'tv'} onClick={() => toScreen(true)}>📺 {t(lang, 'Nome + texto na Tela', 'Name + text on screen')}</button>}
+        {node.image && <button type="button" className="btn btn-ghost btn-sm" disabled={busy === 'tv'} onClick={showImage}>🖼 {t(lang, 'Imagem na Tela', 'Image on screen')}</button>}
+        {campaign.state?.sceneText && <button type="button" className="btn btn-ghost btn-sm" disabled={busy === 'tv'} onClick={clearScreen}>{t(lang, 'Tirar texto da Tela', 'Remove text from the screen')}</button>}
         {node.image && <button type="button" className="btn btn-ghost btn-sm" disabled={busy === 'map'} onClick={imageToMap}>🗺 {t(lang, 'Imagem como mapa do combate', 'Image as combat map')}</button>}
       </div>
 
@@ -174,10 +190,9 @@ export default function PlayPanel({
                       👁 {e.visibility === 'partial' ? t(lang, 'Revelar tudo', 'Reveal all') : t(lang, 'Revelar', 'Reveal')}
                     </button>
                   )}
-                  <button type="button" className="btn btn-ghost btn-sm" disabled={e.visibility === 'hidden' || busy === `tv-${e.id}`} onClick={() => showEntry(e)}
-                    title={e.visibility === 'hidden' ? t(lang, 'Revele antes de mostrar no telão', 'Reveal before showing on the TV') : undefined}>
+                  <ShowOnTable campaign={campaign} target={{ kind: 'card', entry: e }} lang={lang} className="btn btn-ghost btn-sm" reason="short">
                     📺 {t(lang, 'Mostrar', 'Show')}
-                  </button>
+                  </ShowOnTable>
                 </div>
               </li>
             ))}

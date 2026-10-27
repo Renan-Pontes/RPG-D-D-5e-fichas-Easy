@@ -4,10 +4,10 @@ import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import { DIARY_TYPES, buildRecap, entryBody, entryIcon, entryTitle, groupEntries, matchesFilter, pickRecapGroup } from './diary-summary.js';
 import MoreMenu from '../group/MoreMenu.jsx';
-import { groupApi } from '../group/group-api.js';
 import { copyText } from '../group/InviteCard.jsx';
 import './diary-styles.css';
 import '../group/group-styles.css';
+import { sendToStage, showOnStage, stageBack } from '../stage/stage-api.js';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const UNDO_MS = 5000;
@@ -138,18 +138,15 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
     return () => clearTimeout(id);
   }, [toast]);
 
+  // O 📺 do resumo vai ao palco da Tela, com o aviso de sempre ("Na tela ✓ · ↶ Desfazer").
   const showOnScreen = async (title, text) => {
-    try {
-      await groupApi.showOnScreen(campaign.id, { type: 'recap', title: String(title || '').slice(0, 200), text: String(text || '').slice(0, 5000) });
-      flash(t(lang, '📺 No telão agora.', '📺 On the TV now.'));
-      onCampaignChange?.();
-      return true;
-    } catch (e) { setError(errMsg(e)); return false; }
+    const r = await sendToStage(campaign.id, () => showOnStage(campaign.id, {
+      kind: 'recap', title: String(title || '').slice(0, 200), text: String(text || '').slice(0, 5000),
+    }), { lang, name: t(lang, 'Anteriormente em…', 'Previously on…'), onDone: () => onCampaignChange?.() });
+    return !!r;
   };
-  const clearScreen = async () => {
-    try { await groupApi.showOnScreen(campaign.id, null); flash(t(lang, 'Telão de volta à capa.', 'TV back to the cover.')); onCampaignChange?.(); }
-    catch (e) { setError(errMsg(e)); }
-  };
+  const clearScreen = () => sendToStage(campaign.id, () => stageBack(campaign.id),
+    { lang, done: t(lang, 'Tirado da Tela ✓', 'Removed from the screen ✓'), onDone: () => onCampaignChange?.() });
 
   return (
     <div className="diary col gap-3">
@@ -181,12 +178,12 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
               <strong className="diary-recap-cta-title">✨ {t(lang, 'Anteriormente em…', 'Previously on…')}</strong>
               <span className="muted small">
                 {onScreen?.type === 'recap'
-                  ? t(lang, 'O recap está no telão agora.', 'The recap is on the TV now.')
+                  ? t(lang, 'O recap está na Tela agora.', 'The recap is on screen now.')
                   : t(lang, 'Monte o resumo da última sessão para abrir a próxima. Você edita antes de mostrar.', 'Draft a recap of last session to open the next one. You edit it before showing.')}
               </span>
             </div>
             <div className="diary-actions">
-              {onScreen?.type === 'recap' && <button type="button" className="btn btn-ghost btn-sm" onClick={clearScreen}>{t(lang, 'Tirar do telão', 'Remove from TV')}</button>}
+              {onScreen?.type === 'recap' && <button type="button" className="btn btn-ghost btn-sm" onClick={clearScreen}>{t(lang, 'Tirar da Tela', 'Remove from screen')}</button>}
               <button type="button" className="btn btn-primary btn-sm" onClick={() => openRecap(null)} disabled={!entries.length}>
                 {t(lang, 'Montar recap', 'Draft recap')}
               </button>
@@ -384,7 +381,7 @@ function DiaryItem({ entry, lang, isDM, onPatch, onDelete, onShow }) {
     { id: 'edit', label: `✎ ${t(lang, 'Editar', 'Edit')}`, onSelect: startEdit },
     { id: 'hide', label: entry.hidden ? `👁 ${t(lang, 'Mostrar aos jogadores', 'Show to players')}` : `🙈 ${t(lang, 'Ocultar dos jogadores', 'Hide from players')}`,
       onSelect: () => onPatch(entry.id, { hidden: !entry.hidden }), hidden: !isDM },
-    { id: 'tv', label: `📺 ${t(lang, 'Mostrar no telão', 'Show on TV')}`, onSelect: () => onShow?.(entry),
+    { id: 'tv', label: `📺 ${t(lang, 'Mostrar na Tela', 'Show on screen')}`, onSelect: () => onShow?.(entry),
       hidden: !isDM || entry.hidden || !(shownBody || shownTitle) },
     { id: 'del', label: `🗑 ${t(lang, 'Excluir', 'Delete')}`, onSelect: () => onDelete(entry), danger: true },
   ] : [];
@@ -425,7 +422,7 @@ function DiaryItem({ entry, lang, isDM, onPatch, onDelete, onShow }) {
 
 /**
  * Editor do "Anteriormente em…": rascunho montado dos eventos (sem IA), que o
- * mestre edita antes de mostrar no telão ou salvar na crônica. Nada vai à TV
+ * mestre edita antes de mostrar na Tela ou salvar na crônica. Nada vai à TV
  * sem o clique dele.
  */
 function RecapEditor({ campaign, lang, recap, onScreen, onShow, onClearScreen, onClose, onSaved, onCopied, onError }) {
@@ -453,23 +450,23 @@ function RecapEditor({ campaign, lang, recap, onScreen, onShow, onClearScreen, o
         {recap.session != null && <span className="muted small">{t(lang, 'a partir da sessão', 'from session')} {recap.session}</span>}
       </div>
       <p className="muted small diary-recap-hint">
-        {t(lang, 'Rascunho montado com o que ficou na crônica (o que está oculto fica de fora). Edite à vontade: só vai para o telão quando você mandar.',
-          'Draft built from the chronicle (hidden entries are left out). Edit freely: it only goes to the TV when you say so.')}
+        {t(lang, 'Rascunho montado com o que ficou na crônica (o que está oculto fica de fora). Edite à vontade: só vai para a Tela quando você mandar.',
+          'Draft built from the chronicle (hidden entries are left out). Edit freely: it only goes to the screen when you say so.')}
       </p>
       <input className="input diary-recap-title" value={title} maxLength={200} onChange={e => setTitle(e.target.value)}
         aria-label={t(lang, 'Título do recap', 'Recap title')} />
       <textarea className="input diary-recap-text" rows={Math.min(14, Math.max(5, text.split('\n').length + 2))} value={text}
         onChange={e => setText(e.target.value)} aria-label={t(lang, 'Texto do recap', 'Recap text')} />
-      {tooLong && <p className="diary-error small">{t(lang, 'Texto longo demais para o telão (máx. 5000 caracteres).', 'Too long for the TV (max 5000 characters).')}</p>}
+      {tooLong && <p className="diary-error small">{t(lang, 'Texto longo demais para a Tela (máx. 5000 caracteres).', 'Too long for the screen (max 5000 characters).')}</p>}
       <div className="diary-actions">
         <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>{t(lang, 'Fechar', 'Close')}</button>
         <button type="button" className="btn btn-ghost btn-sm" onClick={async () => { if (await copyText(`${title}\n\n${text}`)) onCopied(); }}>{t(lang, 'Copiar', 'Copy')}</button>
         <button type="button" className="btn btn-ghost btn-sm" disabled={busy || (!text.trim() && !title.trim())} onClick={save}>{t(lang, 'Salvar na crônica', 'Save to chronicle')}</button>
         {live
-          ? <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={onClearScreen}>{t(lang, 'Tirar do telão', 'Remove from TV')}</button>
-          : <button type="button" className="btn btn-primary btn-sm" disabled={busy || tooLong || (!text.trim() && !title.trim())} onClick={show}>📺 {t(lang, 'Mostrar no telão', 'Show on TV')}</button>}
+          ? <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={onClearScreen}>{t(lang, 'Tirar da Tela', 'Remove from screen')}</button>
+          : <button type="button" className="btn btn-primary btn-sm" disabled={busy || tooLong || (!text.trim() && !title.trim())} onClick={show}>📺 {t(lang, 'Mostrar na Tela', 'Show on screen')}</button>}
       </div>
-      {live && <p className="diary-recap-live small" role="status">● {t(lang, 'No telão agora', 'On the TV now')}</p>}
+      {live && <p className="diary-recap-live small" role="status">● {t(lang, 'Na Tela agora', 'On screen now')}</p>}
     </section>
   );
 }

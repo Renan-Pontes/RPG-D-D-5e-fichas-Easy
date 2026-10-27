@@ -47,7 +47,7 @@ export function QuickCreate({ lang, defaultKind = 'npc', onCreate, onCancel, bus
 }
 
 export default function Atlas({
-  entries, lang = 'pt', selectedId, onOpen, onReveal, onShow, onCreate, onImprovise, onReorder, onSample, sampleBusy = false,
+  entries, lang = 'pt', selectedId, onOpen, onReveal, showCampaign = null, onCreate, onImprovise, onReorder, onSample, sampleBusy = false,
   count, max = 500, initialKind = 'all', createNonce = 0, top = null,
 }) {
   const [kind, setKind] = useState(initialKind);
@@ -160,7 +160,7 @@ export default function Atlas({
               onDragOver={ev => { if (dragId == null) return; ev.preventDefault(); if (overId !== e.id) setOverId(e.id); }}
               onDragEnd={() => { setDragId(null); setOverId(null); }}
               onDrop={ev => { ev.preventDefault(); drop(e.id); }}>
-              <EntryCard entry={e} mode="dm" lang={lang} selected={selectedId === e.id} onOpen={() => onOpen?.(e.id)} onReveal={onReveal} onShow={onShow} />
+              <EntryCard entry={e} mode="dm" lang={lang} selected={selectedId === e.id} onOpen={() => onOpen?.(e.id)} onReveal={onReveal} showCampaign={showCampaign} />
             </div>
           ))}
         </div>

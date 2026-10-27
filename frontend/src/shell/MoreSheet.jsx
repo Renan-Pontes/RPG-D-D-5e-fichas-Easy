@@ -2,8 +2,8 @@
 // Junta o que no desktop fica na capa, em linhas de 56 px com texto:
 //   cabeçalho: nome completo, frase, Mestre, Sessão N, Ao vivo e a cena inteira;
 //   Sessão (▶ Começar sessão N / ■ Encerrar sessão) · 🔍 Buscar;
-//   📺 Telão (o mesmo TvPanel do popover: lê o telão a cada 4 s só enquanto a
-//   folha está aberta) · 🎲 Dados preparados (só com a opção ligada);
+//   📺 Tela (o mesmo TvPanel do popover: lê o palco do GET da campanha, sem
+//   polling próprio) · 🎲 Dados preparados (só com a opção ligada);
 //   ⚙ Ajustes: as 6 seções, cada uma abrindo os Ajustes já nela;
 //   ← Voltar para Campanhas.
 // Quem chama fecha a folha antes de abrir a próxima janela (ver CampaignDetail).
@@ -29,7 +29,7 @@ function Row({ icon, title, sub, onClick, disabled, className = '' }) {
 
 export default function MoreSheet({
   campaign, lang, busy = false, worldCount = null, worldMax = 500,
-  onClose, onStartSession, onEndSession, onSearch, onSettings, onBack, onTvOpened, onClearScreen, onChooseScreen,
+  onClose, onStartSession, onEndSession, onSearch, onSettings, onBack, onTvOpened, onScreenChange, onChooseScreen,
 }) {
   const tvId = useId();
   const setId = useId();
@@ -76,8 +76,8 @@ export default function MoreSheet({
       </div>
 
       <section className="shell-more-tv mesa-panel is-sunk" aria-labelledby={tvId}>
-        <MesaTitle as="h3" id={tvId}>{t(lang, 'Telão', 'TV screen')}</MesaTitle>
-        <TvPanel campaign={campaign} lang={lang} onOpened={onTvOpened} onClear={onClearScreen} onChoose={onChooseScreen} />
+        <MesaTitle as="h3" id={tvId}>{t(lang, 'Tela', 'Screen')}</MesaTitle>
+        <TvPanel campaign={campaign} lang={lang} onOpened={onTvOpened} onChanged={onScreenChange} onChoose={onChooseScreen} />
       </section>
 
       {campaign.advancedDice && (

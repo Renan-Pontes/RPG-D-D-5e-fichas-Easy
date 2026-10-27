@@ -1,10 +1,15 @@
-// "O que está na TV agora" — uma regra só para o cabeçalho (📺 Telão) e para
-// Jogar › Telão, igual ao que o /tv desenha (src/screen/TVScreen.jsx):
-//   combate ativo → mapa + iniciativa; cartão do Mundo aparece sobreposto ao lado;
+// "O que está na Tela agora" — INVÓLUCRO. A regra única mora em
+// src/stage/stage-now.js (o palco: frente, fundo e sobreposições), usada pela
+// TV, por Jogar › Tela, pelo 📺 do cabeçalho e pela Mesa do jogador.
+// Fica aqui a regra antiga, só do cartão (`screenCard`), para quem ainda não
+// tem o palco (resposta de um servidor antigo):
+//   combate ativo → mapa; cartão do Mundo aparece sobreposto ao lado;
 //                   "Anteriormente…" e cena ficam guardados até o combate acabar.
 //   sem combate   → o cartão (entrada, cena, recapitulação) ou a capa.
 // Sem React; testado em tests/play-model.test.js.
 import { screenMode } from '../player/player-model.js';
+
+export { stageNow, screenLine } from '../stage/stage-now.js';
 
 /**
  * @returns {{ mode: 'combat'|'recap'|'card'|'rest', round: number|null,

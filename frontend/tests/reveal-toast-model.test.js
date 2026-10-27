@@ -32,3 +32,19 @@ test('telão cobre só o que foi revelado até o instante do telão', () => {
 test('sem aumento no contador, sem toast', () => {
   assert.deepEqual(freshReveals([e(1, '2026-10-06T20:00:00Z')], null, 0), []);
 });
+
+test('mostrar não é revelar (D9): o cartão da Tela só avisa junto com a revelação', async () => {
+  const { isRevealShow, cardRevealKey } = await import('../src/player/reveal-toast-model.js');
+  const at = '2026-10-26T20:10:00Z';
+  // "👁 Revelar e mostrar": revelado meio segundo antes de ir à Tela → avisa
+  assert.equal(isRevealShow({ type: 'entry', entryId: 3, at, revealedAt: '2026-10-26T20:09:59.500Z' }), true);
+  // cartão revelado há uma hora e só mostrado agora → não avisa
+  assert.equal(isRevealShow({ type: 'entry', entryId: 3, at, revealedAt: '2026-10-26T19:10:00Z' }), false);
+  // sem revealedAt (servidor antigo), recap ou nada → não avisa
+  assert.equal(isRevealShow({ type: 'entry', entryId: 3, at }), false);
+  assert.equal(isRevealShow({ type: 'recap', at, revealedAt: at }), false);
+  assert.equal(isRevealShow(null), false);
+  // revelado depois de mostrar (o worldNewCount avisa; este caminho não)
+  assert.equal(isRevealShow({ type: 'entry', entryId: 3, at, revealedAt: '2026-10-26T20:12:00Z' }), false);
+  assert.equal(cardRevealKey({ entryId: 3, revealedAt: at }), `3@${at}`);
+});

@@ -5,7 +5,7 @@
 //   1. faixa do turno (presa ao rolar) · 2. cena compacta (o toque abre os campos)
 //   3. avisos · 4. personagens · 5. pendências · 6. ações rápidas
 //   7. Nesta cena · 8. plano da sessão (recolhido)
-// Pedir teste, Anteriormente em…, Improvisar, Revelar e Configurar avisos abrem
+// Pedir teste, Anteriormente em…, Mostrar na Tela…, Improvisar, Revelar e Configurar avisos abrem
 // em folha (MesaSheet), sem empurrar a página.
 // Desktop (≥ 1024): 2 colunas — à esquerda turno, cena, avisos e personagens;
 // à direita pendências, ações e Nesta cena; o plano embaixo, nas 2 colunas.
@@ -27,6 +27,7 @@ import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import InScenePanel from '../play/InScenePanel.jsx';
 import SessionPlanPanel from '../play/SessionPlanPanel.jsx';
 import RecapCard from '../play/RecapCard.jsx';
+const ShowSheet = lazy(() => import('../stage/ShowSheet.jsx'));
 import { patchState } from '../play/play-api.js';
 import { flash } from '../play/flash.js';
 import useMedia from '../play/useMedia.js';
@@ -210,6 +211,10 @@ export default function TableNow({ campaign, approvals, lang = 'pt', onChange, o
         <button type="button" className="mesa-btn tn-act" aria-haspopup="dialog" onClick={() => setSheet('recap')}>
           <span aria-hidden="true">📜</span> {L(lang, 'Anteriormente em…', 'Previously on…')}
         </button>
+        <button type="button" className="mesa-btn tn-act" aria-haspopup="dialog" onClick={() => setSheet('show')}
+          title={L(lang, 'Imagens, cenas, texto e mapa para a Tela', 'Images, scenes, text and map for the screen')}>
+          <span aria-hidden="true">📺</span> {L(lang, 'Mostrar na Tela…', 'Show on screen…')}
+        </button>
         <button type="button" className="mesa-btn tn-act" disabled={busy || !party.length} onClick={async () => {
           if (await ask(L(lang, 'Aplicar descanso curto em todos os personagens da mesa?', 'Apply a short rest to the whole party?'), L(lang, 'Aplicar', 'Apply'))) {
             act(async () => { await api.campaignShortRestAll(campaign.id); }, L(lang, 'Descanso curto aplicado.', 'Short rest applied.'));
@@ -340,6 +345,11 @@ export default function TableNow({ campaign, approvals, lang = 'pt', onChange, o
           onSent={(body) => { load(); flash(L(lang, `Pedido enviado: ${body?.label || ''}. Acompanhe em Testes.`, `Request sent: ${body?.label || ''}. Follow it in Checks.`)); }} />
       )}
       {sheet === 'recap' && <RecapCard campaign={campaign} lang={lang} autoDraft asSheet onClose={closeSheet} />}
+      {sheet === 'show' && (
+        <Suspense fallback={null}>
+          <ShowSheet campaign={campaign} stage={campaign.stage || campaign.state?.stage} lang={lang} onClose={closeSheet} onChange={onChange} />
+        </Suspense>
+      )}
       {sheet === 'improvise' && (
         <Suspense fallback={null}>
           <ImproviseModal campaignId={campaign.id} lang={lang} onClose={closeSheet}

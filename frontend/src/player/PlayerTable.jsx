@@ -1,7 +1,9 @@
 // Mesa do jogador (WP5): o que está acontecendo agora.
 //
 //   - cena: sessão, "Ao vivo", nome da cena, clima e o texto lido pelo mestre;
-//   - "No telão agora": o cartão/recap que o mestre está mostrando (imagem da cena);
+//   - "Na tela agora": a mesma regra da TV (src/stage/stage-now.js, sobre o palco
+//     público): no combate diz "⚔ Combate · rodada N" e mostra a frente que estiver
+//     por cima; "só a imagem" aparece sem o nome e sem "Ver no Mundo";
 //   - testes que o mestre pediu (rolar no app OU digitar o dado físico);
 //   - rolador de dados (sem aviso de valores pré-definidos) e "pedir ao mestre".
 //
@@ -17,6 +19,7 @@ import '../checks/checks-styles.css';
 import { worldImageUrl } from '../world/world-api.js';
 import { kindIcon } from '../world/world-model.js';
 import { absUrl, L, paragraphs } from './player-model.js';
+import { playerScreen } from '../stage/stage-now.js';
 import './player-styles.css';
 
 const DICE = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'];
@@ -56,7 +59,9 @@ export default function PlayerTable({ campaign, lang = 'pt', onOpenWorld }) {
         </div>
       </section>
 
-      {card && <OnScreenNow card={card} lang={lang} onOpen={openWorld} />}
+      {campaign.stage
+        ? <OnScreenNow now={playerScreen({ stage: campaign.stage, combat: campaign.combatNow, lang })} lang={lang} onOpen={openWorld} />
+        : card && <OnScreenNow now={legacyNow(card, lang)} lang={lang} onOpen={openWorld} />}
 
       <ChecksSection campaign={campaign} char={char} lang={lang} />
 
@@ -65,28 +70,48 @@ export default function PlayerTable({ campaign, lang = 'pt', onOpenWorld }) {
   );
 }
 
-/** O que o mestre está mostrando no telão agora (o celular vira uma segunda tela). */
-function OnScreenNow({ card, lang, onOpen }) {
-  const img = worldImageUrl(card.imageUrl);
+/** O cartão antigo (servidor sem o palco) no formato de playerScreen(). */
+function legacyNow(card, lang) {
+  return {
+    kind: card.type === 'entry' ? 'card' : card.type, title: card.title, text: card.text, imageUrl: card.imageUrl,
+    eyebrow: card.type === 'recap' ? L(lang, 'Anteriormente…', 'Previously…') : (lang === 'pt' ? card.kindLabel : card.kindLabelEn) || card.kindLabel,
+    entryId: card.entryId ?? null, entryKind: card.kind, partial: !!card.partial,
+  };
+}
+
+/** O que está na Tela agora (o celular vira uma segunda tela). `now` vem de playerScreen(). */
+function OnScreenNow({ now, lang, onOpen }) {
   const [imgOk, setImgOk] = useState(true);
-  const label = card.type === 'recap'
-    ? L(lang, 'Anteriormente…', 'Previously…')
-    : (lang === 'pt' ? card.kindLabel : card.kindLabelEn) || card.kindLabel;
-  const paras = paragraphs(card.text);
+  if (!now) return null;
+  const img = worldImageUrl(now.imageUrl);
+  const head = (
+    <div className="pl-section-eyebrow">📺 {L(lang, 'Na tela agora', 'On screen now')}{now.over ? <span className="pl-onscreen-over"> · {now.over}</span> : null}</div>
+  );
+  if (now.kind === 'combat' || now.kind === 'dark' || now.kind === 'map') {
+    return (
+      <section className={`pl-onscreen pl-onscreen-${now.kind}`} aria-label={L(lang, 'Na tela agora', 'On screen now')}>
+        {head}
+        <p className="pl-onscreen-line">{now.title}</p>
+      </section>
+    );
+  }
+  const paras = paragraphs(now.text);
+  const icon = now.kind === 'recap' ? '📖' : now.kind === 'scene' ? '🎭' : now.kind === 'image' ? '🖼' : now.kind === 'text' ? '📝' : kindIcon(now.entryKind);
   return (
-    <section className={`pl-onscreen pl-onscreen-${card.type}`} aria-label={L(lang, 'No telão agora', 'On the TV now')}>
-      <div className="pl-section-eyebrow">📺 {L(lang, 'No telão agora', 'On the TV now')}</div>
+    <section className={`pl-onscreen pl-onscreen-${now.kind}`} aria-label={L(lang, 'Na tela agora', 'On screen now')}>
+      {head}
       <div className="pl-onscreen-card">
         {img && imgOk
-          ? <img className="pl-onscreen-img" src={img} alt="" onError={() => setImgOk(false)} />
-          : <div className="pl-onscreen-icon" aria-hidden="true">{card.type === 'recap' ? '📖' : card.type === 'scene' ? '🎭' : kindIcon(card.kind)}</div>}
+          ? <img className={`pl-onscreen-img ${now.kind === 'image' ? 'is-contain' : ''}`} src={img} alt="" onError={() => setImgOk(false)} />
+          : <div className="pl-onscreen-icon" aria-hidden="true">{icon}</div>}
         <div className="pl-onscreen-body">
-          {label && <div className="pl-onscreen-kind">{label}</div>}
-          <h3 className="pl-onscreen-title">{card.title}</h3>
-          {card.partial && <div className="pl-rumor-tag">{L(lang, 'Rumores…', 'Rumors…')}</div>}
-          {paras.slice(0, card.type === 'recap' ? 8 : 3).map((p, i) => <p key={i}>{p}</p>)}
-          {card.type === 'entry' && card.entryId && (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onOpen(card.entryId)}>{L(lang, 'Ver no Mundo', 'See in World')}</button>
+          {now.eyebrow && <div className="pl-onscreen-kind">{now.eyebrow}</div>}
+          {now.title && <h3 className="pl-onscreen-title">{now.title}</h3>}
+          {now.caption && <p className="pl-onscreen-caption">{now.caption}</p>}
+          {now.partial && <div className="pl-rumor-tag">{L(lang, 'Rumores…', 'Rumors…')}</div>}
+          {paras.slice(0, now.kind === 'recap' ? 8 : 3).map((p, i) => <p key={i}>{p}</p>)}
+          {now.kind === 'card' && now.entryId && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onOpen(now.entryId)}>{L(lang, 'Ver no Mundo', 'See in World')}</button>
           )}
         </div>
       </div>
@@ -120,7 +145,7 @@ function ChecksSection({ campaign, char, lang }) {
   );
 }
 
-/** Rolador do jogador. "Pedir ao mestre" manda um pedido que ele resolve (telão ou privado). */
+/** Rolador do jogador. "Pedir ao mestre" manda um pedido que ele resolve (na Tela ou privado). */
 function DiceSection({ campaign, lang }) {
   const [diceType, setDiceType] = useState('d20');
   const [count, setCount] = useState(1);
@@ -217,7 +242,7 @@ function DiceSection({ campaign, lang }) {
       </div>
       <label className="pl-ask">
         <input type="checkbox" checked={ask} onChange={e => setAsk(e.target.checked)} />
-        <span>{L(lang, 'Pedir ao mestre (ele decide se mostra no telão)', 'Ask the DM (they decide whether to show it on the TV)')}</span>
+        <span>{L(lang, 'Pedir ao mestre (ele decide se mostra na Tela)', 'Ask the DM (they decide whether to show it on screen)')}</span>
       </label>
       {ask && (
         <div className="pl-adv">

@@ -200,9 +200,6 @@ export const api = {
   // Capa: dataURL (jpeg/png/webp ≤ 450k) ou null para remover → {coverVer}
   setCampaignCover:(id, image) => request(`/api/campaigns/${id}/cover`, { method: image ? 'PUT' : 'DELETE', body: image ? { image } : undefined }),
   campaignCoverUrl:(c) => (c?.coverVer ? `${API_BASE}/api/campaigns/${c.id}/cover?v=${encodeURIComponent(c.coverVer)}` : null),
-  // "Mostrar agora" no telão: {type:'entry', entryId, secretIds?} | {type:'recap', title, text}
-  // | {type:'scene', adventureId, nodeId} | null (limpa)
-  setScreenCard:   (id, card) => request(`/api/campaigns/${id}/screen-card`, { method: 'POST', body: card ?? { type: null } }),
   // Approvals
   listApprovals:  (campaignId) => request(`/api/approvals/campaign/${campaignId}`),
   grantLevelup:   (campaignId, body) => request(`/api/approvals/campaign/${campaignId}/grant-levelup`, { method: 'POST', body }),
@@ -240,7 +237,7 @@ export const api = {
   updateRig:     (rigId, body) => request(`/api/dice/rigs/${rigId}`, { method: 'PUT', body }),
   deleteRig:     (rigId) => request(`/api/dice/rigs/${rigId}`, { method: 'DELETE' }),
   diceLog:       (campaignId) => request(`/api/dice/campaign/${campaignId}/log`),
-  // Screen (público — não exige CSRF/sessão)
+  // Tela pública (não exige CSRF/sessão). O que vai à Tela: src/stage/stage-api.js
   screen:        (token) => request(`/api/screen/${token}`),
 
   // Combat
@@ -269,7 +266,6 @@ export const api = {
   myChecks:      () => request('/api/checks/mine'),
   respondCheck:  (cid, body) => request(`/api/checks/${cid}/respond`, { method: 'POST', body }),
   closeCheck:    (cid, body = {}) => request(`/api/checks/${cid}/close`, { method: 'POST', body }),
-  screenCheck:   (cid, show) => request(`/api/checks/${cid}/screen`, { method: 'POST', body: { show } }),
   deleteCheck:   (cid) => request(`/api/checks/${cid}`, { method: 'DELETE' }),
 };
 

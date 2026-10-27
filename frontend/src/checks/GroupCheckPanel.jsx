@@ -3,7 +3,7 @@
 // Toque num atalho ("Percepção") → pedido enviado para os alvos marcados,
 // com a CD/vantagem configuradas acima. Cada jogador responde no app ou
 // digitando o dado físico; o mestre também pode anotar o que ouviu na mesa.
-// Nada vai para o telão sem o mestre tocar em "Mostrar no telão".
+// Nada vai para a Tela sem o mestre tocar em "Mostrar na Tela".
 import { errorMessage } from '../api/errors.js';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client.js';
@@ -18,6 +18,7 @@ import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
 import './checks-styles.css';
+import ShowOnTable from '../stage/ShowOnTable.jsx';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const DC_PRESETS = [10, 12, 15, 18, 20];
@@ -111,11 +112,11 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
               onChange={e => setDc(e.target.value)} aria-label={L(lang, 'CD personalizada', 'Custom DC')} placeholder="…" />
             <button type="button" className={`mesa-chip gc-chip gc-secret ${dcHidden && dc !== '' ? 'active' : ''}`} aria-pressed={dcHidden && dc !== ''}
               disabled={dc === ''} onClick={() => setDcHidden(v => !v)}
-              title={L(lang, 'Jogadores e telão não veem a CD', 'Players and TV do not see the DC')}>
+              title={L(lang, 'Jogadores e a Tela não veem a CD', 'Players and the screen do not see the DC')}>
               🔒 {L(lang, 'CD secreta', 'Secret DC')}
             </button>
           </div>
-          <p className="gc-hint">{L(lang, 'CD secreta: os jogadores e o telão não veem o número; você vê quem passou.', 'Secret DC: players and the TV do not see the number; you see who passed.')}</p>
+          <p className="gc-hint">{L(lang, 'CD secreta: os jogadores e a Tela não veem o número nem quem passou; você vê.', 'Secret DC: players and the screen see neither the number nor who passed; you do.')}</p>
         </div>
         <div className="gc-field">
           <span className="gc-label">{L(lang, 'Dado', 'Roll')}</span>
@@ -252,10 +253,13 @@ export function DMCheckCard({ check, campaign, lang, act }) {
         ))}
       </ul>
       <div className="gc-card-actions">
-        <button type="button" className={`mesa-btn ${check.showOnScreen ? 'is-primary' : ''}`}
-          onClick={() => act(() => api.screenCheck(check.id, !check.showOnScreen))}>
-          📺 {check.showOnScreen ? L(lang, 'Tirar do telão', 'Hide from TV') : L(lang, 'Mostrar no telão', 'Show on TV')}
-        </button>
+        {/* O 📺 único: mostra/tira o teste da Tela com o aviso de sempre (Encerrar também tira). */}
+        {isOpen ? (
+          <ShowOnTable campaign={campaign} lang={lang} target={{ kind: 'check', check }}
+            className={`mesa-btn ${check.showOnScreen ? 'is-primary' : ''}`} onShown={() => act(async () => {})} />
+        ) : (
+          <button type="button" className="mesa-btn" disabled>📺 {L(lang, 'Encerrado: reabra para mostrar', 'Closed: reopen to show')}</button>
+        )}
         <button type="button" className="mesa-btn" onClick={() => act(() => api.closeCheck(check.id, { reopen: !isOpen }))}>
           {isOpen ? L(lang, 'Encerrar', 'Close') : L(lang, 'Reabrir', 'Reopen')}
         </button>

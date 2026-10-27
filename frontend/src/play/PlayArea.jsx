@@ -1,4 +1,4 @@
-// Área Jogar (mesa ao vivo): Cena · Combate · Testes · Telão.
+// Área Jogar (mesa ao vivo): Cena · Combate · Testes · Tela.
 //
 // Montada pela casca (WP3) com lazy(). Props aceitas:
 //   campaign, lang, onChange (recarrega a campanha), approvals? (lista antiga)
@@ -16,7 +16,7 @@ import './play-styles.css';
 const TableNow = lazy(() => import('../campaigns/TableNow.jsx'));
 const CombatTab = lazy(() => import('../campaigns/CombatTab.jsx'));
 const TestsPanel = lazy(() => import('./TestsPanel.jsx'));
-const ScreenPanel = lazy(() => import('./ScreenPanel.jsx'));
+const StagePanel = lazy(() => import('./StagePanel.jsx'));
 
 export const PLAY_SUBS = ['scene', 'combat', 'checks', 'screen'];
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
@@ -31,14 +31,18 @@ export default function PlayArea(props) {
   const rawSub = props.sub || ctxSub || localSub;
   const sub = PLAY_SUBS.includes(rawSub) ? rawSub : 'scene';
   const [testsWaiting, setTestsWaiting] = useState(0);
+  // O teste que está na Tela (para Jogar › Tela, sem polling próprio).
+  const [shownCheck, setShownCheck] = useState(null);
   // Selo de Testes sempre atual, mesmo com outra subvista aberta (#37).
   const campaignId = campaign?.id;
   const refreshTests = useCallback(async () => {
     if (!campaignId) return;
     const [c, p] = await Promise.allSettled([api.listChecks(campaignId), api.listPendingRolls(campaignId)]);
     if (c.status !== 'fulfilled' && p.status !== 'fulfilled') return;
+    const checks = c.status === 'fulfilled' ? (c.value.checks || []) : null;
+    if (checks) setShownCheck(checks.find(x => x.showOnScreen && x.status === 'open') || null);
     setTestsWaiting(testsBadge(unifyTests({
-      checks: c.status === 'fulfilled' ? (c.value.checks || []) : [],
+      checks: checks || [],
       pendingRolls: p.status === 'fulfilled' ? (p.value.rolls || []) : [],
     })));
   }, [campaignId]);
@@ -78,7 +82,10 @@ export default function PlayArea(props) {
         )}
         {sub === 'combat' && <CombatTab campaign={campaign} lang={lang} onChange={onChange} onNavigate={onNavigate} />}
         {sub === 'checks' && <TestsPanel campaign={campaign} lang={lang} onChange={onChange} onCount={setTestsWaiting} />}
-        {sub === 'screen' && <ScreenPanel campaign={campaign} lang={lang} onChange={onChange} />}
+        {sub === 'screen' && (
+          <StagePanel campaign={campaign} lang={lang} shownCheck={shownCheck}
+            onChange={() => { onChange?.(); refreshTests(); }} />
+        )}
       </Suspense>
     </div>
   );

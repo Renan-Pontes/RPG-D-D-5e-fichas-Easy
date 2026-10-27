@@ -337,6 +337,11 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 .pl-onscreen-kind { font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); }
 .pl-onscreen-title { margin: 0; font-family: var(--display); color: var(--gold-bright); font-size: 1.2rem; }
 .pl-onscreen-recap .pl-onscreen-body p { font-style: italic; }
+/* Palco (V3): "só a imagem" inteira, com a legenda; combate e Tela escurecida numa linha. */
+.pl-onscreen-img.is-contain { object-fit: contain; background: var(--bg-deep); }
+.pl-onscreen-caption { margin: 0; font-style: italic; color: var(--parchment); }
+.pl-onscreen-over { color: var(--fh-ember, var(--gold)); letter-spacing: 0.06em; }
+.pl-onscreen-line { margin: 4px 0 0; font-family: var(--display); color: var(--gold-bright); font-size: 1.05rem; }
 @media (max-width: 420px) {
   .pl-onscreen-card { flex-direction: column; }
   .pl-onscreen-img { width: 100%; height: auto; max-height: 220px; }

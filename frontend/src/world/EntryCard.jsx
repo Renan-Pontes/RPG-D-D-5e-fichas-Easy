@@ -6,13 +6,15 @@
 //   isNew    selo "Novo!" (jogador)
 //   onOpen(entry)          clique no cartão
 //   onReveal?(entry)       botão 👁 (mestre) — quem chama decide o que revelar
-//   onShow?(entry)         botão 📺 "Mostrar no telão" (mestre; desabilitado se oculto)
+//   showCampaign?          campanha do mestre → o 📺 único (ShowOnTable: oculto
+//                          pergunta "Só a imagem"; documento privado diz o motivo)
 //   compact  linha horizontal com miniatura (listas, painéis laterais)
 //   lang     'pt' | 'en' (padrão 'pt')
 //   selected destaca o cartão
 //   extra    nó React opcional renderizado no rodapé
 import { useState } from 'react';
 import { worldImageUrl } from './world-api.js';
+import ShowOnTable from '../stage/ShowOnTable.jsx';
 import { KIND_META, VIS_META, defaultArt, kindLabel, subtitleOf, t, visLabel } from './world-model.js';
 import { entryWhispers } from './living/living-logic.js';
 import './world-styles.css';
@@ -65,7 +67,7 @@ export function EntryImage({ entry, className = '', alt = '' }) {
 }
 
 export default function EntryCard({
-  entry, mode = 'dm', isNew = false, onOpen, onReveal, onShow, compact = false, lang = 'pt', selected = false, extra = null,
+  entry, mode = 'dm', isNew = false, onOpen, onReveal, showCampaign = null, compact = false, lang = 'pt', selected = false, extra = null,
 }) {
   if (!entry) return null;
   const dm = mode === 'dm';
@@ -80,7 +82,7 @@ export default function EntryCard({
   const stop = (fn) => (e) => { e.stopPropagation(); fn(entry); };
   const style = { '--wl-kind': meta.color };
 
-  const actions = dm && (onReveal || onShow) ? (
+  const actions = dm && (onReveal || showCampaign) ? (
     <div className="wl-card-actions">
       {onReveal && (
         <button type="button" className="wl-act" onClick={stop(onReveal)}
@@ -88,11 +90,11 @@ export default function EntryCard({
           <span aria-hidden="true">👁</span> {vis === 'hidden' ? t(lang, 'Revelar', 'Reveal') : t(lang, 'Quem vê…', 'Who sees…')}
         </button>
       )}
-      {onShow && (
-        <button type="button" className="wl-act" onClick={stop(onShow)} disabled={vis === 'hidden'}
-          title={vis === 'hidden' ? t(lang, 'Revele antes de mostrar no telão', 'Reveal before showing on screen') : t(lang, 'Mostrar no telão', 'Show on screen')}>
+      {showCampaign && (
+        <ShowOnTable campaign={showCampaign} target={{ kind: 'card', entry }} lang={lang} className="wl-act" reason="short"
+          ariaLabel={`${t(lang, 'Mostrar na Tela', 'Show on screen')}: ${entry.name}`}>
           <span aria-hidden="true">📺</span> {t(lang, 'Mostrar', 'Show')}
-        </button>
+        </ShowOnTable>
       )}
     </div>
   ) : null;

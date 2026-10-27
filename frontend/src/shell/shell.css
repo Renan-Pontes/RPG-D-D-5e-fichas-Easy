@@ -176,6 +176,8 @@
 .shell-pop-now { font-family: var(--display); font-size: 1.02rem; color: var(--ink-primary); overflow-wrap: anywhere; }
 .shell-pop-note { font-size: 0.92rem; color: var(--ink-secondary); }
 .shell-pop-clear { margin-top: 6px; }
+.shell-pop-clear-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.shell-pop-clear-row:empty { display: none; }
 .shell-pop-link .input { font-family: var(--mono); color: var(--gold-bright); }
 .shell-pop-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .shell-pop-help { margin: 0; color: var(--ink-muted); font-size: 0.92rem; line-height: 1.4; }

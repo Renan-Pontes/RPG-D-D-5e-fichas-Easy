@@ -1,0 +1,131 @@
+/* Palco da Tela (V3): o 📺 único, a folha de decisão, o resumo 16:9 (StageThumb),
+   a folha "Mostrar na Tela" e Jogar › Tela. Prefixo stage- / sot-; peças da
+   mesa (mesa-row, mesa-btn, mesa-seg) por baixo. Celular primeiro: 320–412 sem
+   rolagem lateral, alvos ≥ 44 px, textos ≥ 12 px. */
+
+/* ---------- 📺 apagado com o motivo escrito ---------- */
+.sot-blocked { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 0; max-width: 100%; }
+.sot-why { color: var(--ink-muted); font-size: 12px; line-height: 1.3; text-align: right; overflow-wrap: anywhere; }
+.sot-blocked.is-short .sot-why { max-width: 9.5em; }
+
+/* ---------- folha de decisão ---------- */
+.sot-foot { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 100%; }
+.sot-foot .mesa-btn { width: 100%; justify-content: center; white-space: normal; text-align: center; }
+.sot-keep { text-decoration: underline; text-underline-offset: 3px; }
+@media (min-width: 768px) {
+  .sot-foot { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; }
+  .sot-foot .mesa-btn { width: auto; }
+}
+
+/* ---------- resumo 16:9 desenhado pelo app ---------- */
+.stage-thumb {
+  position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden;
+  border-radius: 10px; border: 1px solid var(--stroke-strong);
+  background: var(--fh-noise), radial-gradient(120% 120% at 50% 30%, var(--fh-leather-hi), var(--fh-leather-lo));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.stage-thumb.is-dark { background: #000; }
+.stage-thumb-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
+.stage-thumb-img.is-contain { object-fit: contain; opacity: 1; }
+.stage-thumb.is-rest .stage-thumb-img { opacity: 0.55; }
+.stage-thumb-emblem {
+  position: absolute; inset: 0 0 34% 0; display: grid; place-items: center;
+  font-size: clamp(28px, 10vw, 56px); color: var(--gold); opacity: 0.85; pointer-events: none;
+}
+.stage-thumb.is-dark .stage-thumb-emblem { color: var(--gold-deep); }
+.stage-thumb-emblem.is-soft { opacity: 0.5; }
+.stage-thumb-tarja {
+  position: absolute; top: 0; left: 0; right: 0; padding: 4px 10px;
+  background: rgba(10, 6, 4, 0.82); border-bottom: 1px solid var(--gold-deep);
+  color: var(--fh-ember); font-family: var(--display); font-size: 12px; letter-spacing: 0.08em;
+}
+.stage-thumb-band {
+  position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 12px; background: linear-gradient(180deg, rgba(8, 5, 3, 0.15), rgba(8, 5, 3, 0.92) 30%);
+}
+.stage-thumb-l1 { color: var(--ink-primary); font-size: 15px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage-thumb-l2 { color: var(--ink-secondary); font-size: 13px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- Jogar › Tela ---------- */
+.stage-panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.stage-rule { margin: 0 0 10px; color: var(--ink-secondary); font-size: 15px; line-height: 1.4; }
+.stage-preview { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.stage-preview-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.stage-preview-note { margin: 0; flex: 1 1 160px; }
+.stage-live-btn { flex: 0 0 auto; }
+.stage-live {
+  position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px;
+  border: 1px solid var(--stroke-strong); background: #000;
+}
+.stage-live-frame {
+  /* A TV de verdade em 1280×720, reduzida para caber (o CSS dela mede a janela do iframe). */
+  position: absolute; top: 0; left: 0; width: 1280px; height: 720px; border: 0;
+  transform-origin: 0 0; transform: scale(var(--stage-live-k, 0.28)); pointer-events: none;
+}
+.stage-live.is-paused {
+  display: grid; place-items: center; color: var(--ink-secondary); font: inherit; font-size: 15px; cursor: pointer;
+  background: var(--fh-noise), var(--fh-leather-lo);
+}
+
+.stage-lines { display: flex; flex-direction: column; border-top: 1px solid var(--stroke-faint); }
+.stage-line { min-height: 56px; gap: 10px; }
+.stage-line-layer {
+  flex: 0 0 64px; font-family: var(--display); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--gold-deep);
+}
+.stage-line-text { font-size: 15px; }
+.stage-line-x { flex: none; min-width: 44px; padding: 0 10px; white-space: normal; text-align: center; max-width: 46%; }
+.stage-line.is-empty .stage-line-text { color: var(--ink-muted); font-style: italic; }
+.stage-ctl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.stage-ctl-btn { min-width: 0; min-height: 48px; padding: 4px 8px; white-space: normal; text-align: center; justify-content: center; }
+/* ↶ (que diz o nome do que volta) na largura toda; 🧹 e ◐ lado a lado embaixo. */
+.stage-ctl-btn:first-child { grid-column: 1 / -1; }
+@media (min-width: 560px) {
+  .stage-ctl { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); }
+  .stage-ctl-btn:first-child { grid-column: auto; }
+}
+
+/* ---------- Mostrar (Imagens · Cenas · Texto · Mapa) ---------- */
+.stage-pick { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.stage-tabs.mesa-seg { margin: 0; }
+.stage-tab.mesa-seg-btn { min-width: 0; padding: 4px 4px; font-size: 0.92rem; }
+@media (max-width: 380px) {
+  .stage-tab.mesa-seg-btn { flex-direction: column; gap: 0; font-size: 12px; line-height: 1.1; }
+}
+.stage-pane { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.stage-search { min-height: 44px; font-size: 16px; }
+.stage-sub { margin: 6px 0 0; }
+.stage-list { display: flex; flex-direction: column; min-width: 0; }
+.stage-row { min-height: 56px; }
+.stage-row-pic { flex: none; width: 44px; height: 44px; border-radius: 6px; overflow: hidden; border: 1px solid var(--stroke); }
+.stage-row-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.stage-row-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 13px; }
+.stage-tag { color: var(--amber); font-size: 12px; white-space: nowrap; }
+.stage-show { min-width: 44px; padding: 0 10px; white-space: nowrap; }
+.stage-read { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-top: 1px solid var(--stroke-faint); }
+.stage-read-text {
+  margin: 0; color: var(--ink-secondary); font-size: 15px; line-height: 1.45; white-space: pre-line;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.stage-free textarea { font-size: 16px; min-height: 88px; }
+.stage-free-act, .stage-map-act { justify-content: flex-start; }
+.stage-map-act .mesa-btn { white-space: normal; text-align: center; }
+.stage-reload { align-self: flex-start; }
+
+/* Linhas estreitas: o nome quebra e o 📺 fica à direita, sempre com 44 px. */
+@media (max-width: 359px) {
+  .stage-row-pic { width: 36px; height: 36px; }
+  .stage-line-layer { flex-basis: 52px; }
+}
+
+@media (min-width: 1024px) {
+  /* 2 colunas: Na tela agora + Ligar à esquerda; Mostrar (longa) à direita. A 2ª linha
+     fica com a sobra (1fr), para "Ligar a Tela" não descer junto com a lista. */
+  .stage-panel {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto 1fr;
+    align-items: start; gap: 16px;
+  }
+  .stage-now-box { grid-column: 1; grid-row: 1; }
+  .stage-link-box { grid-column: 1; grid-row: 2; }
+  .stage-show-box { grid-column: 2; grid-row: 1 / span 2; }
+}
