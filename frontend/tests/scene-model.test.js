@@ -101,6 +101,14 @@ test('cena ligada: tirar a imagem não tira o cartão da sala (fica no plano: sh
   const vr = sceneView(s, { ...room, refs: [3], hasImage: true }, { world });
   assert.deepEqual(writeBlock('show', null, { linked: true, refs: vr.refs, showFrom: vr.showFrom, show: vr.show, world }), { scene: { showOff: true } });
   assert.deepEqual(writeBlock('show', vr.show, { linked: true, refs: vr.refs, showOff: true, world }), { scene: { showOff: false } });
+  // passado o Desfazer: a folha ainda sabe que a sala tem imagem e oferece usá-la de novo
+  const vrOff = sceneView({ ...s, showOff: true }, { ...room, refs: [3], hasImage: true }, { world });
+  assert.equal(vrOff.show, null);
+  assert.equal(vrOff.roomImage, true);
+  assert.deepEqual(writeBlock('show', { kind: 'node' }, { linked: true, refs: vrOff.refs, showOff: vrOff.showOff, world }), { scene: { showOff: false } });
+  assert.deepEqual(sceneView({ ...s, ...{ showOff: false } }, { ...room, refs: [3], hasImage: true }, { world }).show,
+    { kind: 'node', advId: 1, nodeId: 'n2' }, 'a imagem da sala volta');
+  assert.equal(sceneView(s, { ...room, refs: [3] }, { world }).roomImage, false);
   assert.equal(writeBlock('show', null, { linked: true, refs: [3], world }), null, 'sem imagem: nada a gravar');
   // ligar de novo (a outra sala) e desligar limpam o "sem imagem"
   assert.equal(linkScene({ ...s, showOff: true, nodeRef: null }, { adventureId: 1, nodeId: 'n3' }, null, { carry: false }).scene.showOff, false);

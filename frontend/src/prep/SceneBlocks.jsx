@@ -115,9 +115,10 @@ const CARD_KINDS = ['place', 'npc', 'faction', 'item', 'lore'];
 /**
  * 📺 Imagem para a Tela: escolher do Mundo (cartões com imagem; os ocultos vão como "só a
  * imagem") ou subir uma (vira um cartão OCULTO do tipo Lugar, com o nome da cena; o tipo
- * muda num chip). A cena guarda só a referência. `roomName` = a imagem é a da sala ligada.
+ * muda num chip). A cena guarda só a referência. `roomName` = a imagem é a da sala ligada;
+ * `onUseRoom` = a sala tem imagem própria que o mestre tirou desta cena (volta num toque).
  */
-export function ImageBlock({ lang, show, showFrom, world, roomName, disabled, busy, error, fresh, onPickWorld, onUpload, onRemove, onKind, onRemoveBlock }) {
+export function ImageBlock({ lang, show, showFrom, world, roomName, disabled, busy, error, fresh, onPickWorld, onUpload, onRemove, onKind, onRemoveBlock, onUseRoom = null }) {
   const inputRef = useRef(null);
   const [changing, setChanging] = useState(false);
   const entry = show?.kind === 'entry' ? (world || []).find(e => e.id === show.id) : null;
@@ -127,6 +128,9 @@ export function ImageBlock({ lang, show, showFrom, world, roomName, disabled, bu
       <button type="button" className="mesa-btn" disabled={disabled || busy} onClick={() => { setChanging(false); onPickWorld(); }}>🌍 {t(lang, 'Escolher do Mundo', 'Pick from the World')}</button>
       <button type="button" className="mesa-btn" disabled={disabled || busy} onClick={pickFile}>{busy ? t(lang, 'Enviando…', 'Uploading…') : `⬆ ${t(lang, 'Subir imagem', 'Upload image')}`}</button>
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { setChanging(false); onUpload(f); } }} />
+      {!show && onUseRoom && (
+        <button type="button" className="mesa-btn" disabled={disabled || busy} onClick={onUseRoom}>🖼 {t(lang, 'Usar a imagem da sala', "Use the room's image")}</button>
+      )}
     </div>
   );
   return (

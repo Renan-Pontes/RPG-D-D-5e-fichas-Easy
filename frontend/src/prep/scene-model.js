@@ -175,7 +175,8 @@ export function firstImageRef(ids, world) {
  * O que a folha mostra de uma cena — os mesmos campos para a cena solta e a ligada.
  * `node` = a sala (GET …/node/:id, sem a imagem) quando a cena está ligada; sem ela
  * (ainda carregando, sala apagada) a cena ligada mostra só o que é do plano.
- * → {linked, name, notesInText, what, read, show, showFrom, refs, fight, checks, spots, notes, showOnStart}
+ * → {linked, name, notesInText, what, read, show, showFrom, refs, fight, checks, spots, notes, showOnStart,
+ *    showOff, roomImage (só a ligada)}
  *   showFrom: 'scene' | 'ref' (o 1º cartão da sala com imagem) | 'room' (a imagem da sala) | null
  *   Cena ligada com `scene.showOff` (o mestre tirou a imagem): sem imagem, e os cartões
  *   continuam na sala.
@@ -214,7 +215,8 @@ export function sceneView(scene, node = null, { world = [] } = {}) {
     ...base,
     // a sala leve do Plano (…/nodes) só diz se há texto (`hasRead`), sem o texto
     read, hasRead: filled(read) || !!n.hasRead,
-    show, showFrom, refs,
+    // roomImage: a sala tem imagem própria (tirada da cena, a folha oferece usá-la de novo)
+    show, showFrom, refs, roomImage: !!(n.hasImage || n.image),
     fight: (n.encounter || []).map(e => encounterToFight(e, { limit: SCENE_LIMITS.nodeCount, raw: true })),
     checks: (n.checks || []).map(nodeCheckToCheck).filter(Boolean),
   };

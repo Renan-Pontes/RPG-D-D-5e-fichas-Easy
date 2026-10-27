@@ -197,6 +197,20 @@ export default function SceneSheet({
     return out;
   }, [vs, view.fight, lookup]);
 
+  // rolar até um bloco e pôr o foco no 1º campo dele. Um chip da paleta tocado com a sala ainda
+  // chegando: o bloco nasce escondido (.ss-rest) e a folha rola até ele quando a sala entra
+  const goToBlock = (id) => setTimeout(() => {
+    const el = document.getElementById(`ss-b-${id}`);
+    el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    el?.querySelector('textarea, input:not([type="file"]), select')?.focus({ preventScroll: true });
+  }, 30);
+  const pendingOpen = useRef(null);
+  useEffect(() => {
+    if (roomLoading || !pendingOpen.current) return;
+    goToBlock(pendingOpen.current);
+    pendingOpen.current = null;
+  }, [roomLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!scene) return null;
 
   // ---------------------------------------------------------------- gravar
@@ -216,11 +230,8 @@ export default function SceneSheet({
     setOpened(s => new Set(s).add(id));
     // o 🎯 nasce com Percepção CD 13 (troca-se num toque); os outros nascem vazios
     if (id === 'check' && !view.checks.length && !lockedRoom && !closed) write('check', [{ kind: 'skill', key: 'perception', dc: 13 }]);
-    setTimeout(() => {
-      const el = document.getElementById(`ss-b-${id}`);
-      el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-      el?.querySelector('textarea, input:not([type="file"]), select')?.focus({ preventScroll: true });
-    }, 30);
+    if (roomLoading) pendingOpen.current = id;
+    else goToBlock(id);
   };
   // ✕ num bloco: tira já e oferece "↶ Desfazer" por 6 s (a foto do valor volta)
   const removeBlock = (key) => {
@@ -479,6 +490,7 @@ export default function SceneSheet({
             <ImageBlock lang={lang} show={view.show} showFrom={view.showFrom} world={world} roomName={roomName}
               disabled={disabled || lockedRoom} busy={imgBusy} error={imgError} fresh={fresh}
               onPickWorld={() => setPicker('image')} onUpload={uploadImage} onKind={changeKind}
+              onUseRoom={view.showOff && view.roomImage ? () => { setImgError(''); write('show', { kind: 'node' }); } : null}
               onRemove={() => removeBlock('show')} onRemoveBlock={() => removeBlock('show')} />
           )}
           {shown('refs') && (
