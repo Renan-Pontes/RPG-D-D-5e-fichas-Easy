@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client.js';
-import { usePolling } from '../api/polling.js';
+import { useOnRev, useTable } from '../play/table-store.js';
 import DiaryTab from '../campaigns/DiaryTab.jsx';
 import { SubChips } from '../shell/AreaNav.jsx';
 import { useArea } from '../shell/useArea.js';
@@ -58,8 +58,8 @@ export default function GroupArea({ campaign, lang = 'pt', isDM, characters = []
   const [toast, setToast] = useState(null);
   const [ask, confirmUi] = useGroupConfirm(lang);
 
-  // Nada mexe debaixo do dedo: o que chega pelo polling (pedidos a 6 s, campanha a 2,5 s na
-  // casca) logo depois de um toque espera 600 ms. A recarga depois de uma ação do mestre
+  // Nada mexe debaixo do dedo: o que chega sozinho (os pedidos e a campanha que a casca
+  // busca) logo depois de um toque espera 600 ms. A recarga depois de uma ação do mestre
   // entra na hora (é a resposta ao toque dele).
   const hold = useTouchHold();
   const loadApprovals = useCallback(async (fromPoll = false) => {
@@ -75,10 +75,16 @@ export default function GroupArea({ campaign, lang = 'pt', isDM, characters = []
     try { const r = await groupApi.xpEvents(campaign.id); setXpEvents(r.entries || []); } catch { /* histórico de XP é opcional */ }
   }, [campaign.id, isDM]);
 
-  // No Raio-X os pedidos não aparecem: a contagem vem do GET da campanha (que a casca
-  // já busca) e o polling dos pedidos para — a subvista fica nos 24 pedidos/min da casca.
+  // Mestre com o pulso da mesa (V4): os pedidos só são buscados de novo quando o `rev` do
+  // pulso muda (ele conta os pendentes e vê a ficha de cada vaga mudar) e 1 vez por minuto,
+  // de segurança. Jogador (e o mestre sem o pulso no servidor): a cada 6 s, como antes.
+  // No Raio-X os pedidos não aparecem: a contagem vem do GET da campanha e nada é buscado.
+  const table = useTable();
   const onInsights = current === 'insights';
-  usePolling(() => (onInsights ? null : loadApprovals(true)), 6000, [campaign.id, onInsights]);
+  const pollApprovals = useCallback(() => (onInsights ? null : loadApprovals(true).catch(() => {})),
+    [onInsights, loadApprovals]);
+  useEffect(() => { pollApprovals(); }, [campaign.id, onInsights]); // eslint-disable-line react-hooks/exhaustive-deps
+  useOnRev(table?.pulse?.rev, pollApprovals, { table, fallbackMs: 6000, initial: false });
   useEffect(() => { loadXp(); }, [loadXp]);
 
   const count = approvals && !onInsights ? pendingCount(approvals) : (campaign.pendingApprovals ?? 0);
