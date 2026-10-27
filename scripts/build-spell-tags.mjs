@@ -18,6 +18,8 @@
 //   heal: cura média · hm: 1 soma o modificador de conjuração
 //   ctl: 'single' | 'area' (condição, empurrão, terreno, velocidade)
 //   mob: 1 movimento · soc: 1 social · exp: 1 exploração
+//   reach: alcance em pés da magia de dano com alcance "Pessoal" (o catálogo 2024 diz só
+//          "Self"; o 2014 diz "Self (100-ft line)"): o maior N da área (linha, cone…)
 // Magia sem nenhuma etiqueta fica de fora (conta como utilidade no Raio-X).
 import { readFileSync, writeFileSync } from 'node:fs';
 import SRD from '../frontend/data/srd.js';
@@ -40,6 +42,8 @@ const RE_CONTROL = /\b(charmed|frightened|paralyzed|restrained|incapacitated|stu
 const RE_PROTECT = /[^.]*\b(?:immune|immunity|can't be|advantage on saving throws against|advantage on saves against|ends? (?:the|one|any)|remove[sd]?|end one)\b[^.]*\./gi;
 const RE_AREA = /\b\d+[- ](?:foot|ft)[- ]?(?:-?radius|-?long|-?wide)?\s*(?:radius|cone|cube|line|sphere|cylinder|emanation)\b|\beach creature (?:in|within)\b|\((?:\d+-ft|\d+-foot) (?:cone|cube|line|sphere|radius)/i;
 const RE_RIDER = /extra \d+d\d+|\+\d+d\d+ damage|whenever you hit|from the attack/i;
+// tamanho da área de quem lança de si mesmo ("100-foot-long", "60-foot Cone", "Self (15-ft cone)")
+const RE_REACH = /(\d+)[- ](?:foot|ft)(?:-long\b|-radius\b|\s+(?:cone|cube|line|sphere|emanation|radius|cylinder)\b)/gi;
 
 const MOBILITY = ['mistyStep', 'jump', 'longstrider', 'expeditiousRetreat', 'fly', 'dimensionDoor', 'teleport', 'spiderClimb', 'haste', 'freedomOfMovement', 'thunderStep', 'farStep', 'windWalk', 'transportViaPlants', 'treeStride', 'gaseousForm', 'waterWalk', 'stepsOfTheWind', 'featherFall', 'levitate', 'blink', 'passwall', 'etherealness', 'teleportationCircle', 'wordOfRecall'];
 const EXPLORE = ['detectMagic', 'findTraps', 'passWithoutTrace', 'locateObject', 'locateCreature', 'findFamiliar', 'darkvision', 'seeInvisibility', 'clairvoyance', 'speakWithAnimals', 'detectPoisonAndDisease', 'detectEvilAndGood', 'identify', 'light', 'dancingLights', 'knock', 'waterBreathing', 'guidance', 'arcaneEye', 'commune', 'communeWithNature', 'divination', 'augury', 'findTheWay', 'scrying', 'tongues', 'comprehendLanguages'];
@@ -77,7 +81,8 @@ const FIX = {
   stoneskin: { dmg: null }, etherealness: { dmg: null }, gaseousForm: { dmg: null }, silence: { dmg: null },
   windWalk: { dmg: null }, wallOfStone: { dmg: null }, meldIntoStone: { dmg: null, ctl: null }, web: { dmg: null, ctl: 'area' },
   // "área" lida de outra frase do texto
-  produceFlame: { area: null }, flameBlade: { area: null }, starryWisp: { area: null },
+  // (Produzir Chama: arremessa a 60 pés; a luz de 20 pés não é o alcance)
+  produceFlame: { area: null, reach: 60 }, flameBlade: { area: null }, starryWisp: { area: null },
   // falsos positivos de controle (só falam de condição para proteger ou de outra coisa)
   alarm: { ctl: null }, mirrorImage: { ctl: null }, magicCircle: { ctl: null },
   haste: { ctl: null }, protectionFromEvilAndGood: { ctl: null }, heroism: { ctl: null }, sanctuary: { ctl: null },
@@ -105,6 +110,7 @@ const FIX_2014 = {
   huntersMark: { rider: 1, dmg: null },          // 2014: dano do mesmo tipo da arma (não é utilidade)
   iceKnife: { dmg: ['cold', 'piercing'] },       // o resumo 2014 diz "2d6 cold" sem "damage"
   trueStrike: { rider: null, dmg: null, avg: null },  // 2014: só vantagem no próximo ataque
+  produceFlame: { reach: 30 },                    // 2014: arremessa a 30 pés
 };
 
 const avgDice = (expr) => {
@@ -145,17 +151,22 @@ function read(sp) {
   if (MOBILITY.includes(sp.id)) t.mob = 1;
   if (SOCIAL.includes(sp.id)) t.soc = 1;
   if (EXPLORE.includes(sp.id)) t.exp = 1;
+  if (t.dmg && /^\s*self\b/i.test(String(sp?.range || ''))) {
+    let reach = 0;
+    for (const m of `${sp.range} ${en}`.matchAll(RE_REACH)) reach = Math.max(reach, +m[1]);
+    if (reach) t.reach = reach;
+  }
   // "área" sozinha (sem dano, cura nem controle) não diz nada ao Raio-X
   if (Object.keys(t).length === 1 && t.area) delete t.area;
   return t;
 }
 
-const ORDER = ['dmg', 'avg', 'atk', 'save', 'half', 'auto', 'area', 'rider', 'heal', 'hm', 'ctl', 'mob', 'soc', 'exp'];
+const ORDER = ['dmg', 'avg', 'atk', 'save', 'half', 'auto', 'area', 'reach', 'rider', 'heal', 'hm', 'ctl', 'mob', 'soc', 'exp'];
 function fixed(t, fix) {
   const out = { ...t };
   for (const [k, v] of Object.entries(fix || {})) { if (v == null) delete out[k]; else out[k] = v; }
   // sem tipo de dano não há como acertar; `rider` sozinho fica (o dano é o da arma)
-  if (!out.dmg) { for (const k of ['avg', 'atk', 'save', 'half', 'auto']) delete out[k]; }
+  if (!out.dmg) { for (const k of ['avg', 'atk', 'save', 'half', 'auto', 'reach']) delete out[k]; }
   return Object.fromEntries(ORDER.filter(k => k in out).map(k => [k, out[k]]));
 }
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);

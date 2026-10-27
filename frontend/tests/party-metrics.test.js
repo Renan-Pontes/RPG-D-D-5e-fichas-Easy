@@ -165,6 +165,26 @@ test('espécie: a magia usa o atributo da espécie (fixo em 2014, escolhido em 2
   }
 });
 
+test('alcance "Pessoal" com área longa (Relâmpago, Cone de Frio) é à distância nas duas regras', () => {
+  // o catálogo 2024 diz só "Self" (o 2014, "Self (100-ft line)"): o tamanho vem de `reach`
+  assert.equal(M.spellTags('lightningBolt', '2024').reach, 100);
+  assert.equal(M.spellTags('coneOfCold', '2024').reach, 60);
+  assert.equal(M.spellTags('burningHands', '2024').reach, 15);
+  assert.equal(M.spellTags('thunderwave', '2024').reach, 15);
+  const facts = {};
+  for (const rv of ['2014', '2024']) {
+    const mage = make(rv, 'wizard', 5, { abilities: { str: 8, dex: 14, con: 14, int: 16, wis: 12, cha: 10 },
+      spells: ['fireBolt', 'lightningBolt', 'magicMissile', 'burningHands', 'produceFlame'].map(id => ({ id, prepared: true })) });
+    const f = facts[rv] = M.sheetFacts(mage, 'pt');
+    const row = (id) => f.spellDmg.find(s => s.id === id);
+    assert.deepEqual([row('lightningBolt').ranged, row('lightningBolt').melee], [true, false], `${rv}: Relâmpago`);
+    assert.deepEqual([row('burningHands').ranged, row('burningHands').melee], [false, true], `${rv}: Mãos Flamejantes`);
+    assert.equal(row('produceFlame').ranged, true, `${rv}: Produzir Chama é arremessada`);
+  }
+  assert.equal(facts['2024'].rangedDpr, facts['2014'].rangedDpr, 'a mesma Distância nas duas regras');
+  assert.equal(facts['2024'].meleeDpr, facts['2014'].meleeDpr, 'o mesmo Corpo a corpo nas duas regras');
+});
+
 test('Monge 6 sem armadura soma +15 de deslocamento na Mobilidade', () => {
   const monk = make('2024', 'monk', 6, { abilities: { str: 10, dex: 16, con: 14, int: 10, wis: 15, cha: 8 } });
   const f = M.sheetFacts(monk, 'pt');

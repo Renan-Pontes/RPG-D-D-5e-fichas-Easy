@@ -178,7 +178,8 @@ export function sheetFacts(c, lang = 'pt') {
     const dc = safe(() => spellDcFor(c, s.id, s.source), null);
     const atk = safe(() => spellAttackFor(c, s.id, s.source), null);
     const range = String(byId.get(s.id)?.range || '');
-    const rangeFt = /touch/i.test(range) ? 5 : /self/i.test(range) && !/\(/.test(range) ? 0 : (+(/(\d+)/.exec(range) || [])[1] || 0);
+    // "Pessoal" sem a área (o catálogo 2024 diz só "Self"): o tamanho da área vem das etiquetas
+    const rangeFt = /touch/i.test(range) ? 5 : /self/i.test(range) && !/\(/.test(range) ? (tags.reach || 0) : (+(/(\d+)/.exec(range) || [])[1] || 0);
     return { ...s, tags, dc, atk, rangeFt, ritual: !!byId.get(s.id)?.ritual };
   });
   const knows = (id) => spells.some(s => s.id === id);
