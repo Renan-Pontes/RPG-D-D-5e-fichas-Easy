@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   attackOutcome, bigDuration, createQueue, currentBig, feedNextExpiry, ingest, isBig, nextBig, pruneFeed,
-  rollAgeS, rollGroups, rollLine, rollWho, saveHead, showsSum, BIG_MS, BIG_MS_BUSY, FEED_MS,
+  rollAgeS, rollGroups, rollLine, rollParts, rollWho, saveHead, showsSum, BIG_MS, BIG_MS_BUSY, FEED_MS,
 } from '../src/screen/roll-queue.js';
 
 const NOW = '2026-10-27T20:00:30.000Z';
@@ -79,6 +79,26 @@ test('feed: até 4 linhas, somem 12 s depois de chegar à TV', () => {
   assert.equal(feedNextExpiry(createQueue(), 0), null);
 });
 
+// V10-fix: o feed fica escondido durante o dado grande — o relógio dele para junto.
+test('feed: os 12 s só contam com a linha à vista (param durante o dado grande)', () => {
+  let q = ingest(createQueue(), { rolls: [], now: NOW }, 0);
+  q = ingest(q, { rolls: [roll(1, { kind: 'player' })], now: NOW }, 1000);            // feed, à vista
+  q = ingest(q, { rolls: [roll(2, { kind: 'monster' })], now: NOW }, 5000);           // dado grande: o feed some
+  assert.equal(q.feedHeldAt, 5000);
+  q = ingest(q, { rolls: [roll(3, { kind: 'player' })], now: NOW }, 6000);            // chega escondida
+  q = ingest(q, { rolls: [roll(4, { kind: 'dm' })], now: NOW }, 7000);                // outra grande na fila
+  assert.equal(feedNextExpiry(q, 20000), null, 'parado: nenhum prazo');
+  assert.equal(pruneFeed(q, 40000), q, 'parado: nada vence');
+  q = nextBig(q, 2, 13000);
+  assert.equal(q.feedHeldAt, 5000, 'ainda há grande na fila');
+  q = nextBig(q, 4, 30000);                                                         // o feed volta aos 30 s
+  assert.equal(q.feedHeldAt, null);
+  // a 1 já tinha 4 s à vista (1 s → 5 s): sobram 8 s; a 3 começa agora (12 s)
+  assert.deepEqual(q.feed.map(r => [r.id, r.arrivedAt]), [[1, 26000], [3, 30000]]);
+  assert.equal(feedNextExpiry(q, 30000), 8000);
+  assert.deepEqual(pruneFeed(q, 38000).feed.map(r => r.id), [3]);
+});
+
 test('ids vistos não crescem sem fim', () => {
   let q = ingest(createQueue(), { rolls: [], now: NOW });
   for (let i = 1; i <= 260; i++) q = ingest(q, { rolls: [roll(i, { kind: 'player', at: at(30) })], now: NOW }, i);
@@ -104,6 +124,12 @@ test('textos: monstro sem o bônus, salvaguarda resumida, mestre como "Mestre"',
   assert.equal(rollWho({ kind: 'dm', who: '' }, 'en'), 'GM');
   assert.equal(rollLine(roll(3), 'pt'), 'Dagna · Percepção · 14');
   assert.equal(rollLine({ id: 4, kind: 'dm', who: '', label: '', count: 2, diceType: 'd6', total: 7 }, 'en'), 'GM · 2d6 · 7');
+  // o feed corta só o rótulo: o resultado vem à parte
+  assert.deepEqual(rollParts(atk, 'pt', labels), { head: 'Goblin #2 ⚔ Dagna', tail: 'd20 11 · ACERTA · 6 cortante' });
+  assert.deepEqual(rollParts(save, 'pt', labels), { head: 'Dragão · Sopro de Fogo · DES CD 13', tail: 'Dagna 9 ✗ · Kaelor 15 ✓' });
+  assert.deepEqual(rollParts(roll(5, { label: 'Investigação na biblioteca abandonada de Brumafria' }), 'pt'),
+    { head: 'Dagna · Investigação na biblioteca abandonada de Brumafria', tail: '14' });
+  assert.deepEqual(rollParts(null), { head: '', tail: '' });
 });
 
 test('grupos do dado grande: fórmula mista e vantagem', () => {

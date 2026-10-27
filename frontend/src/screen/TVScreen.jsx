@@ -15,7 +15,7 @@ import { conditionsShown, initiativeRows, isDeadScreenLink, lengthClass, partyRo
 import { fitAll } from './tv-fit.js';
 import {
   attackOutcome, bigDuration, createQueue, currentBig, feedNextExpiry, ingest, nextBig, pruneFeed, rollGroups,
-  rollLine, rollWho, saveHead, showsSum,
+  rollParts, rollWho, saveHead, showsSum,
 } from './roll-queue.js';
 import { abilityLabel, damageTypeLabel } from '../combat/monster-i18n.js';
 
@@ -80,7 +80,9 @@ const CONDITIONS = {
 // dos últimos 90 s pelo relógio do servidor (`rolls` + `now`, fora do ETag). Ao
 // abrir, tudo é "visto" (nada reprisado); o que chega depois entra em FILA: o
 // dado grande no centro (só com menos de 10 s; 8 s cada, 4 s com fila) e o resto
-// no FEED do canto de baixo à esquerda (até 4 linhas, somem 12 s depois de chegar).
+// no FEED do canto de baixo à esquerda (até 4 linhas, somem 12 s depois de chegar;
+// o relógio delas para enquanto o dado grande as esconde). No feed, só o rótulo
+// ganha reticências: o resultado fica sempre inteiro.
 // Servidor antigo (sem `rolls`): a regra de antes (`publicRolls[0]`, < 20 s).
 const IS_PREVIEW = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1';
 function tvTab() {
@@ -674,18 +676,34 @@ function ConditionChip({ cond, lang }) {
 
 const ROLL_LABELS = (lang) => ({ damageLabel: (ty) => damageTypeLabel(ty, lang), abilityLabel: (a) => abilityLabel(a, lang) });
 
-/** O feed (V10): até 4 linhas pequenas no canto de baixo à esquerda. */
+/**
+ * O feed (V10): até 4 linhas pequenas no canto de baixo à esquerda. O rótulo (quem e
+ * o quê) vai até 2 linhas com reticências; o resultado (total, "ACERTA · 6 cortante",
+ * os alvos da salvaguarda) nunca é cortado.
+ */
 function RollFeed({ rolls, lang }) {
   const labels = ROLL_LABELS(lang);
   return (
     <ul className="tv-roll-feed" aria-label={t(lang, 'Rolagens', 'Rolls')} aria-live="polite">
-      {rolls.map(r => (
-        <li key={r.id} className={`tv-feed-item ${r.crit ? 'is-crit' : ''} ${r.fail ? 'is-fail' : ''}`}>
-          <span className="tv-feed-ico" aria-hidden="true">🎲</span>
-          <span className="tv-feed-text">{rollLine(r, lang, labels)}</span>
-        </li>
-      ))}
+      {rolls.map(r => {
+        const { head, tail } = rollParts(r, lang, labels);
+        return (
+          <li key={r.id} className={`tv-feed-item ${r.kind === 'save' ? 'is-save' : ''} ${r.crit ? 'is-crit' : ''} ${r.fail ? 'is-fail' : ''}`}>
+            <span className="tv-feed-ico" aria-hidden="true">🎲</span>
+            <span className="tv-feed-text">{head}</span>
+            {tail && <span className="tv-feed-res">{tail}</span>}
+          </li>
+        );
+      })}
     </ul>
+  );
+}
+
+/** O alvo da salvaguarda: o nome pode quebrar a linha, o " #N" do monstro nunca se separa. */
+function SaveName({ name }) {
+  const { base, num } = splitNumbered(name);
+  return (
+    <span className="tv-roll-save-name">{base}{num && <> <span className="tv-name-num">{num}</span></>}</span>
   );
 }
 
@@ -716,12 +734,14 @@ function DramaticRollOverlay({ roll, lang, onDone, quick = false }) {
         <div className="tv-roll-who">{rollWho(roll, lang)}</div>
         <div className="tv-roll-label">{sub}</div>
         {isSave ? (
-          <ul className="tv-roll-saves">
+          <ul className={`tv-roll-saves ${(roll.targets || []).length > 9 ? 'is-many' : ''}`}>
             {(roll.targets || []).map((x, i) => (
               <li key={i} className={x.ok ? 'is-pass' : 'is-fail'}>
-                <span className="tv-roll-save-name">{x.who}</span>
-                <span className="tv-roll-save-total">{x.total ?? '—'}</span>
-                <span className="tv-roll-save-mark">{x.ok ? `✓ ${t(lang, 'passou', 'saved')}` : `✗ ${t(lang, 'falhou', 'failed')}`}</span>
+                <SaveName name={x.who} />
+                <span className="tv-roll-save-res">
+                  <span className="tv-roll-save-total">{x.total ?? '—'}</span>
+                  <span className="tv-roll-save-mark">{x.ok ? `✓ ${t(lang, 'passou', 'saved')}` : `✗ ${t(lang, 'falhou', 'failed')}`}</span>
+                </span>
               </li>
             ))}
           </ul>

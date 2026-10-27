@@ -12,7 +12,10 @@
 //     crítico/falha, ataque e salvaguarda de monstro, 🎲 do mestre "Na tela",
 //     "📺 Rolar e mostrar" e 20/1 de teste; o resto vai ao FEED (até 4 linhas
 //     pequenas no canto, que somem 12 s depois de chegar à TV, pelo relógio dela);
-//   · as grandes vão em fila: 8 s cada, ou 4 s quando há mais de uma esperando.
+//   · as grandes vão em fila: 8 s cada, ou 4 s quando há mais de uma esperando;
+//   · enquanto há dado grande o feed fica escondido e o relógio dele PARA
+//     (`feedHeldAt`): os 12 s de cada linha só contam com ela à vista, então uma
+//     fila de dados grandes não faz linha nenhuma sumir sem ter aparecido.
 // Isso corrige os 3 bugs medidos: pedido antigo resolvido depois de um novo
 // (ordem por resolved_at), 2 rolagens em menos de 2 s (fila) e TV com o relógio
 // errado (idade pelo relógio do servidor).
@@ -27,7 +30,7 @@ export const SEEN_MAX = 200;
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
 
 export function createQueue() {
-  return { primed: false, seen: [], big: [], feed: [] };
+  return { primed: false, seen: [], big: [], feed: [], feedHeldAt: null };
 }
 
 /** Idade da rolagem em segundos pelo relógio do SERVIDOR (sem a hora: velha). */
@@ -65,7 +68,9 @@ export function ingest(queue, { rolls = [], now } = {}, tvNow = Date.now()) {
     if (isBig(r) && rollAgeS(r, now) < BIG_FRESH_S) big.push(r);
     else feed.push({ ...r, arrivedAt: tvNow });
   }
-  return { ...q, seen: [...q.seen, ...fresh.map(r => r.id)].slice(-SEEN_MAX), big, feed: feed.slice(-FEED_MAX) };
+  // chegou dado grande: o feed se esconde e o relógio dele para
+  const feedHeldAt = q.feedHeldAt ?? (big.length ? tvNow : null);
+  return { ...q, seen: [...q.seen, ...fresh.map(r => r.id)].slice(-SEEN_MAX), big, feed: feed.slice(-FEED_MAX), feedHeldAt };
 }
 
 /** A grande que está na tela agora (a 1ª da fila) e quanto ela dura. */
@@ -76,22 +81,29 @@ export function bigDuration(queue) {
   return (queue?.big?.length || 0) > 1 ? BIG_MS_BUSY : BIG_MS;
 }
 
-/** A grande atual terminou (tempo ou toque): passa para a próxima. */
-export function nextBig(queue, id) {
+/**
+ * A grande atual terminou (tempo ou toque): passa para a próxima. Sem mais nenhuma,
+ * o feed volta e cada linha recomeça de onde parou (o tempo escondida não conta).
+ */
+export function nextBig(queue, id, tvNow = Date.now()) {
   if (!queue?.big?.length || (id != null && queue.big[0].id !== id)) return queue;
-  return { ...queue, big: queue.big.slice(1) };
+  const big = queue.big.slice(1);
+  if (big.length || queue.feedHeldAt == null) return { ...queue, big };
+  const held = queue.feedHeldAt;
+  const feed = queue.feed.map(r => ({ ...r, arrivedAt: tvNow - Math.max(0, held - (r.arrivedAt || 0)) }));
+  return { ...queue, big, feed, feedHeldAt: null };
 }
 
-/** O feed sem o que já passou de 12 s na TV. */
+/** O feed sem o que já passou de 12 s À VISTA na TV (parado enquanto há dado grande). */
 export function pruneFeed(queue, tvNow = Date.now()) {
-  if (!queue?.feed?.length) return queue;
+  if (!queue?.feed?.length || queue.feedHeldAt != null) return queue;
   const feed = queue.feed.filter(r => tvNow - (r.arrivedAt || 0) < FEED_MS);
   return feed.length === queue.feed.length ? queue : { ...queue, feed };
 }
 
-/** Quando o próximo item do feed vence (ms a partir de tvNow) ou null. */
+/** Quando o próximo item do feed vence (ms a partir de tvNow) ou null (vazio ou parado). */
 export function feedNextExpiry(queue, tvNow = Date.now()) {
-  if (!queue?.feed?.length) return null;
+  if (!queue?.feed?.length || queue.feedHeldAt != null) return null;
   const first = Math.min(...queue.feed.map(r => (r.arrivedAt || 0) + FEED_MS));
   return Math.max(0, first - tvNow);
 }
@@ -131,22 +143,32 @@ export function saveTargets(roll) {
 }
 
 /**
+ * A linha em 2 partes: `head` (quem e o quê) e `tail` (o resultado). No feed da TV
+ * só o `head` ganha reticências; o `tail` (o total, "d20 11 · ACERTA · 6 cortante",
+ * os alvos da salvaguarda) nunca é cortado.
+ */
+export function rollParts(roll, lang = 'pt', labels = {}) {
+  if (!roll) return { head: '', tail: '' };
+  const who = rollWho(roll, lang);
+  if (roll.kind === 'monster') {
+    return { head: `${who} ⚔ ${roll.label || '?'}`, tail: `d20 ${roll.total ?? '?'} · ${attackOutcome(roll, lang, labels)}` };
+  }
+  if (roll.kind === 'save') {
+    return { head: [who, saveHead(roll, lang, labels)].filter(Boolean).join(' · '), tail: saveTargets(roll) };
+  }
+  const what = roll.label || `${roll.count > 1 ? roll.count : ''}${roll.diceType === 'mixed' ? '' : roll.diceType || ''}`;
+  return { head: [who, what].filter(Boolean).join(' · '), tail: roll.total != null ? String(roll.total) : '' };
+}
+
+/**
  * A linha do feed (e da lista do mestre): texto de verdade, nada só por ícone.
  *   monstro:     "Goblin #2 ⚔ Dagna · d20 11 · ACERTA · 6 cortante"
  *   salvaguarda: "Dragão · Sopro de Fogo · DES CD 13 · Dagna 9 ✗ · Pipo 17 ✓"
  *   o resto:     "Dagna · Percepção · 14"
  */
 export function rollLine(roll, lang = 'pt', labels = {}) {
-  if (!roll) return '';
-  const who = rollWho(roll, lang);
-  if (roll.kind === 'monster') {
-    return `${who} ⚔ ${roll.label || '?'} · d20 ${roll.total ?? '?'} · ${attackOutcome(roll, lang, labels)}`;
-  }
-  if (roll.kind === 'save') {
-    return [who, saveHead(roll, lang, labels), saveTargets(roll)].filter(Boolean).join(' · ');
-  }
-  const what = roll.label || `${roll.count > 1 ? roll.count : ''}${roll.diceType === 'mixed' ? '' : roll.diceType || ''}`;
-  return [who, what, roll.total != null ? String(roll.total) : ''].filter(Boolean).join(' · ');
+  const { head, tail } = rollParts(roll, lang, labels);
+  return [head, tail].filter(Boolean).join(' · ');
 }
 
 /**
