@@ -4,6 +4,7 @@
 //      conectada"), em 16:9, sem toque nem foco; só existe com a folha aberta e
 //      pausa sozinha depois de 3 min sem toque ou com a aba escondida;
 //   2. "● TV conectada (1)" ou "○ Nenhuma TV detectada · [Copiar link] [Abrir na TV ↗]";
+//      sem conexão: "⟳ Sem conexão há N s", o ponto cinza e "(última vez visto)";
 //   3. a regra de uma frase e NA TELA AGORA (Frente · Fundo · Teste, com ✕) +
 //      [↶ Desfazer] [🧹 Limpar] [⚔ Voltar ao combate];
 //   4. com combate: [Próximo turno →] (48, largura toda) e "Vez de X · [Ações]";
@@ -22,7 +23,7 @@ import { useTable } from '../play/table-store.js';
 import useStage from './useStage.js';
 import { L, ruleText, stageLines, stageNow, undoLabel } from './stage-now.js';
 import { sendToStage, showCheckOnStage, stageBack, stageBg, stageClear, stageDark, stageUndo } from './stage-api.js';
-import { BAR_PREFS, afterLine, tvLine, turnLine } from './table-bar-model.js';
+import { BAR_PREFS, afterLine, offlineLine, seenSuffix, tvLine, tvState, turnLine } from './table-bar-model.js';
 import { openDice } from './TableBar.jsx';
 import './stage.css';
 
@@ -119,6 +120,7 @@ export default function LiveScreenSheet({ campaign, lang = 'pt', onClose, onFull
   const lines = stageLines({ stage, combat: combatNow, test, lang, all: true });
   const undo = undoLabel(stage, lang);
   const tvLive = table?.tvLive || 0;
+  const offlineFor = table?.offlineFor || 0;
   const url = screenLink(window.location.origin, campaign.screenToken);
   const cid = campaign.id;
   const [busy, setBusy] = useState(false);
@@ -154,9 +156,10 @@ export default function LiveScreenSheet({ campaign, lang = 'pt', onClose, onFull
     <MesaSheet lang={lang} size="tall" width="md" className="live-sheet" icon="📺"
       title={L(lang, 'Tela ao vivo', 'Live screen')} onClose={onClose}>
       <LiveTv token={campaign.screenToken} lang={lang} />
+      {offlineFor > 0 && <p className="table-offline is-sheet" role="status">{offlineLine(offlineFor, lang)}</p>}
       <div className="live-tv-state">
-        <span className={`live-tv-dot ${tvLive > 0 ? 'is-on' : ''}`} role="status">{tvLine(tvLive, lang)}</span>
-        {tvLive === 0 && (
+        <span className={`live-tv-dot is-${tvState(tvLive, offlineFor > 0)}`} role="status">{tvLine(tvLive, lang, offlineFor > 0)}</span>
+        {(tvLive === 0 || offlineFor > 0) && (
           <span className="live-tv-link">
             <button type="button" className="mesa-btn" onClick={copy}>{L(lang, 'Copiar link', 'Copy link')}</button>
             <a className="mesa-btn" href={url} target="_blank" rel="noreferrer" onClick={() => onTvLink?.()}>{L(lang, 'Abrir na TV', 'Open on TV')} ↗</a>
@@ -165,7 +168,7 @@ export default function LiveScreenSheet({ campaign, lang = 'pt', onClose, onFull
       </div>
 
       <section className="live-now" aria-labelledby="live-now-h">
-        <p className="mesa-eyebrow" id="live-now-h">{L(lang, 'Na tela agora', 'On screen now')}</p>
+        <p className="mesa-eyebrow" id="live-now-h">{L(lang, 'Na tela agora', 'On screen now')}{seenSuffix(offlineFor > 0, lang)}</p>
         <p className="stage-rule">{ruleText(lang)}</p>
         <div className="stage-lines" role="list">
           {lines.map(line => (

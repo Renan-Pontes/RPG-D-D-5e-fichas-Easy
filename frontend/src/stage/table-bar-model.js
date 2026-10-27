@@ -136,20 +136,42 @@ export function combatSummary(combat) {
   };
 }
 
-/** "⚔ R2 · Vez de Goblin #2 · 3/10" */
-export function turnLine(combat, lang = 'pt') {
-  if (!combat?.active) return '';
+/**
+ * A vez em pedaços, para a linha 1 da barra cortar só o NOME (o dado mais
+ * importante) e nunca o número dele: "Goblin Afog… #2".
+ *   {lead: '⚔ R2', pre: 'Vez de ', name: 'Goblin', num: ' #2', post: ''}  (en: post "'s turn")
+ * `short`: sem "Vez de" / "'s turn" (quando o nome não cabe inteiro).
+ */
+export function turnParts(combat, lang = 'pt', { short = false } = {}) {
+  if (!combat?.active) return null;
   const who = combat.turnName || '—';
-  const hp = combat.turnHp ? ` · ${combat.turnHp}` : '';
-  return L(lang, `⚔ R${combat.round ?? '?'} · Vez de ${who}${hp}`, `⚔ R${combat.round ?? '?'} · ${who}'s turn${hp}`);
+  const m = /^(.*\S)(\s+#?\d+)$/.exec(who);
+  return {
+    lead: `⚔ R${combat.round ?? '?'}`,
+    pre: short ? '' : L(lang, 'Vez de ', ''),
+    name: m ? m[1] : who,
+    num: m ? m[2] : '',
+    post: short ? '' : L(lang, '', "'s turn"),
+  };
 }
 
-/** "depois: Dagna · 3 de 7 agiram" */
-export function afterLine(combat, lang = 'pt') {
+/**
+ * "⚔ R2 · Vez de Goblin #2 · 3/10". `hp: false` deixa o PV para a linha 2 (barra
+ * do celular); `short: true` tira o "Vez de" (o nome inteiro primeiro).
+ */
+export function turnLine(combat, lang = 'pt', { hp = true, short = false } = {}) {
+  const p = turnParts(combat, lang, { short });
+  if (!p) return '';
+  const tail = hp && combat.turnHp ? ` · ${combat.turnHp}` : '';
+  return `${p.lead} · ${p.pre}${p.name}${p.num}${p.post}${tail}`;
+}
+
+/** "depois: Dagna · 3 de 7 agiram" (`hp: true`: "3/10 · depois: …", a linha 2 da barra). */
+export function afterLine(combat, lang = 'pt', { hp = false } = {}) {
   if (!combat?.active) return '';
   const next = combat.nextName ? L(lang, `depois: ${combat.nextName}`, `next: ${combat.nextName}`) : '';
   const acted = L(lang, `${combat.acted} de ${combat.count} agiram`, `${combat.acted} of ${combat.count} acted`);
-  return [next, acted].filter(Boolean).join(' · ');
+  return [hp ? combat.turnHp : '', next, acted].filter(Boolean).join(' · ');
 }
 
 /** O 409 do Próximo turno: "A vez já tinha passado: agora é de Dagna." */
@@ -185,8 +207,34 @@ export function offlineSeconds(lastOkAt, now = Date.now()) {
   return ms >= OFFLINE_AFTER_MS ? Math.floor(ms / 1000) : 0;
 }
 
-export function tvLine(tvLive, lang = 'pt') {
+/** "⟳ Sem conexão há 12 s" (vermelho na barra, na faixa sob o segmentado e nas abas do PC). */
+export function offlineLine(seconds, lang = 'pt') {
+  return L(lang, `⟳ Sem conexão há ${seconds} s`, `⟳ Offline for ${seconds} s`);
+}
+
+/**
+ * A TV como o mestre a vê: 'on' · 'off' · 'unknown'. Sem conexão o pulso não
+ * chega, e o último "TV conectada" pode não valer mais: o ponto fica cinza.
+ */
+export function tvState(tvLive, offline = false) {
+  if (offline) return 'unknown';
+  return tvLive > 0 ? 'on' : 'off';
+}
+
+export function tvLine(tvLive, lang = 'pt', offline = false) {
+  if (offline) return L(lang, '○ TV: sem conexão', '○ TV: offline');
   return tvLive > 0 ? L(lang, `● TV conectada (${tvLive})`, `● TV connected (${tvLive})`) : L(lang, '○ Nenhuma TV detectada', '○ No TV detected');
+}
+
+/** O começo curto da legenda da janela do PC: "● TV" · "○ Nenhuma TV" · "○ TV: sem conexão". */
+export function tvShort(tvLive, lang = 'pt', offline = false) {
+  if (offline) return tvLine(0, lang, true);
+  return tvLive > 0 ? '● TV' : L(lang, '○ Nenhuma TV', '○ No TV');
+}
+
+/** Sem conexão, o que o app diz que está na Tela é o último que ele viu. */
+export function seenSuffix(offline, lang = 'pt') {
+  return offline ? L(lang, ' (última vez visto)', ' (last seen)') : '';
 }
 
 /** "🎲 Dagna 18 · Percepção" (★ no 20, ✗ no 1) */
@@ -199,34 +247,39 @@ export function rollLine(roll, lang = 'pt') {
 /**
  * As 2 linhas da barra (§5.8). Recebe o palco CRU do mestre (para o nome da
  * frente) e o resumo do combate.
- *   l1: em combate "⚔ R2 · Vez de X · 3/10" (todos caídos: "Todos os monstros
+ *   l1: em combate "⚔ R2 · Vez de X" (todos caídos: "Todos os monstros
  *       caíram"; montado e parado: "⚔ Combate montado · N"); fora: "📺 Na tela:
  *       <frente>" / "📺 Na tela: capa" / "◐ Tela escurecida"; ao vivo, sem TV e
  *       sem combate: "📺 A Tela não está ligada" (convite).
  *   l2: a 1ª que valer — sem conexão → rolagem nova → enviando/na tela ✓ → em
- *       combate "📺 Por cima: X" ou "depois: …" → teste na Tela (+ TV) → TV.
- * → {l1, l2, tone: 'error'|'roll'|'sent'|null, invite, action}
+ *       combate "📺 Por cima: X" ou "3/10 · depois: …" → teste na Tela (+ TV) → TV.
+ * Sem conexão, o "Na tela" da linha 1 ganha "(última vez visto)".
+ * → {l1, l2, tone: 'error'|'roll'|'sent'|null, invite, turn (turnParts, em combate), action}
  */
 export function barLines({
   stage, combat = null, test = null, tvLive = 0, tvSeen = false, live = false, offlineFor = 0, roll = null, sending = null, lang = 'pt',
 } = {}) {
   const now = stageNow({ stage, combat: combat ? { active: combat.active, round: combat.round } : null });
   const fighting = !!combat?.active;
+  const offline = offlineFor > 0;
   // Convite só enquanto nenhuma TV apareceu nesta visita; a que sumiu vira "○ Nenhuma TV detectada".
   const invite = !fighting && live && !(tvLive > 0) && !tvSeen;
+  // Em combate, a linha 1 é a vez (o nome primeiro); o PV vai para a linha 2.
+  const turn = fighting && !combat.allMonstersDown ? turnParts(combat, lang) : null;
+  const seen = seenSuffix(offline, lang);
   let l1;
-  if (fighting) l1 = combat.allMonstersDown ? L(lang, '⚔ Todos os monstros caíram', '⚔ All monsters are down') : turnLine(combat, lang);
+  if (fighting) l1 = turn ? turnLine(combat, lang, { hp: false }) : L(lang, '⚔ Todos os monstros caíram', '⚔ All monsters are down');
   else if (invite) l1 = L(lang, '📺 A Tela não está ligada', "📺 The screen isn't on");
-  else if (now.mode === 'dark') l1 = `◐ ${L(lang, 'Tela escurecida', 'Screen blacked out')}`;
-  else if (now.mode === 'front') l1 = `📺 ${L(lang, 'Na tela', 'On screen')}: ${frontLabel(now.front, lang, { dm: true })}`;
-  else if (now.mode === 'map') l1 = `📺 ${L(lang, 'Na tela: mapa do combate', 'On screen: combat map')}`;
+  else if (now.mode === 'dark') l1 = `◐ ${L(lang, 'Tela escurecida', 'Screen blacked out')}${seen}`;
+  else if (now.mode === 'front') l1 = `📺 ${L(lang, 'Na tela', 'On screen')}: ${frontLabel(now.front, lang, { dm: true })}${seen}`;
+  else if (now.mode === 'map') l1 = `📺 ${L(lang, 'Na tela: mapa do combate', 'On screen: combat map')}${seen}`;
   else if (combat?.setup) l1 = L(lang, `⚔ Combate montado · ${combat.count}`, `⚔ Combat set up · ${combat.count}`);
-  else l1 = `📺 ${L(lang, 'Na tela: capa', 'On screen: cover')}`;
+  else l1 = `📺 ${L(lang, 'Na tela: capa', 'On screen: cover')}${seen}`;
 
   let l2 = '';
   let tone = null;
-  if (offlineFor > 0) {
-    l2 = L(lang, `⟳ Sem conexão há ${offlineFor} s`, `⟳ Offline for ${offlineFor} s`); tone = 'error';
+  if (offline) {
+    l2 = offlineLine(offlineFor, lang); tone = 'error';
   } else if (roll) {
     l2 = rollLine(roll, lang); tone = 'roll';
   } else if (sending) {
@@ -236,7 +289,7 @@ export function barLines({
   } else if (fighting && now.mode === 'front' && now.over) {
     l2 = `📺 ${L(lang, 'Por cima', 'Over it')}: ${frontLabel(now.front, lang, { dm: true })}`;
   } else if (fighting) {
-    l2 = afterLine(combat, lang);
+    l2 = afterLine(combat, lang, { hp: !!turn });
   } else if (invite) {
     l2 = test ? `${testLabel(test)} · ${L(lang, 'Toque para ligar na TV', 'Tap to open it on the TV')}` : L(lang, 'Toque para ligar na TV', 'Tap to open it on the TV');
   } else if (test) {
@@ -244,7 +297,7 @@ export function barLines({
   } else {
     l2 = tvLine(tvLive, lang);
   }
-  return { l1, l2, tone, invite, action: barAction(combat) };
+  return { l1, l2, tone, invite, turn, action: barAction(combat) };
 }
 
 /**

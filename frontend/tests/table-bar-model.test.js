@@ -5,8 +5,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  afterLine, barAction, barLines, barVisible, combatSummary, freshRoll, offlineSeconds, readBarPrefs, ribbon,
-  staleText, turnLine, tvLine, windowCorner, windowMode, writeBarPrefs, OFFLINE_AFTER_MS, ROLL_SHOW_MS,
+  afterLine, barAction, barLines, barVisible, combatSummary, freshRoll, offlineLine, offlineSeconds, readBarPrefs, ribbon,
+  seenSuffix, staleText, turnLine, turnParts, tvLine, tvShort, tvState, windowCorner, windowMode, writeBarPrefs,
+  OFFLINE_AFTER_MS, ROLL_SHOW_MS,
 } from '../src/stage/table-bar-model.js';
 
 const memory = () => {
@@ -69,6 +70,51 @@ test('textos do turno em pt e en', () => {
   assert.equal(tvLine(1, 'pt'), '● TV conectada (1)');
   assert.equal(tvLine(0, 'pt'), '○ Nenhuma TV detectada');
   assert.equal(tvLine(0, 'en'), '○ No TV detected');
+});
+
+test('linha da vez: o nome primeiro, o número dele nunca cortado, o PV na linha 2', () => {
+  const s = combatSummary({ ...COMBAT, combatants: COMBAT.combatants.map(c => (c.id === 'g2' ? { ...c, name: 'Goblin Afogado #2' } : c)) });
+  // a forma curta (sem "Vez de"), para quando o nome não cabe inteiro (320–412 px)
+  assert.equal(turnLine(s, 'pt', { hp: false, short: true }), '⚔ R2 · Goblin Afogado #2');
+  assert.equal(turnLine(s, 'en', { hp: false, short: true }), '⚔ R2 · Goblin Afogado #2');
+  assert.equal(turnLine(s, 'pt', { hp: false }), '⚔ R2 · Vez de Goblin Afogado #2');
+  // em pedaços: só o nome encolhe (com "…"); a rodada e o "#2" ficam inteiros
+  assert.deepEqual(turnParts(s, 'pt'), { lead: '⚔ R2', pre: 'Vez de ', name: 'Goblin Afogado', num: ' #2', post: '' });
+  assert.deepEqual(turnParts(s, 'en', { short: true }), { lead: '⚔ R2', pre: '', name: 'Goblin Afogado', num: ' #2', post: '' });
+  assert.equal(turnParts({ ...s, turnName: 'Dagna' }, 'pt').num, '');
+  assert.equal(turnParts({ ...s, turnName: 'Lobo 3' }, 'pt').num, ' 3');
+  assert.equal(turnParts({ ...s, turnName: '#2' }, 'pt').name, '#2');
+  assert.equal(turnParts({ ...s, active: false }, 'pt'), null);
+  // o PV que saiu da linha 1 abre a linha 2
+  assert.equal(afterLine(s, 'pt', { hp: true }), '3/10 · depois: Dagna · 2 de 4 agiram');
+  const bar = barLines({ live: true, tvLive: 1, stage: { bg: 'auto' }, combat: s });
+  assert.equal(bar.l1, '⚔ R2 · Vez de Goblin Afogado #2');
+  assert.equal(bar.l2, '3/10 · depois: Dagna · 2 de 4 agiram');
+  assert.equal(bar.turn.name, 'Goblin Afogado');
+  assert.equal(barLines({ live: true, stage: { bg: 'auto' }, combat: combatSummary({ ...COMBAT, combatants: COMBAT.combatants.map(c => (c.type === 'monster' ? { ...c, defeated: true } : c)) }) }).turn, null);
+});
+
+test('sem conexão: TV desconhecida (ponto cinza) e o que está na Tela "(última vez visto)"', () => {
+  assert.equal(offlineLine(12, 'pt'), '⟳ Sem conexão há 12 s');
+  assert.equal(offlineLine(12, 'en'), '⟳ Offline for 12 s');
+  assert.equal(tvState(1, false), 'on');
+  assert.equal(tvState(0, false), 'off');
+  assert.equal(tvState(1, true), 'unknown');           // o último "TV conectada" pode não valer mais
+  assert.equal(tvLine(1, 'pt', true), '○ TV: sem conexão');
+  assert.equal(tvLine(1, 'en', true), '○ TV: offline');
+  assert.equal(tvShort(1, 'pt'), '● TV');
+  assert.equal(tvShort(0, 'pt'), '○ Nenhuma TV');
+  assert.equal(tvShort(2, 'pt', true), '○ TV: sem conexão');
+  assert.equal(seenSuffix(true, 'pt'), ' (última vez visto)');
+  assert.equal(seenSuffix(true, 'en'), ' (last seen)');
+  assert.equal(seenSuffix(false, 'pt'), '');
+  const off = barLines({ live: true, tvLive: 1, stage: STAGE_IMG, offlineFor: 12 });
+  assert.equal(off.l1, '📺 Na tela: Ponte velha (só a imagem) (última vez visto)');
+  assert.equal(off.l2, '⟳ Sem conexão há 12 s');
+  assert.equal(barLines({ live: true, tvLive: 1, stage: { bg: 'auto' }, offlineFor: 9, lang: 'en' }).l1, '📺 On screen: cover (last seen)');
+  assert.equal(barLines({ live: true, tvLive: 1, stage: { bg: 'dark' }, offlineFor: 9 }).l1, '◐ Tela escurecida (última vez visto)');
+  // em combate a linha 1 continua a vez (a 2ª diz que está sem conexão)
+  assert.equal(barLines({ live: true, tvLive: 1, stage: { bg: 'auto' }, combat: combatSummary(COMBAT), offlineFor: 9 }).l1, '⚔ R2 · Vez de Goblin #2');
 });
 
 test('fita do PC: ✓ agiu · ● agora · ○ falta · † caiu', () => {
@@ -138,7 +184,7 @@ test('linha 1: o que está na Tela, o turno, o convite', () => {
   assert.equal(barLines({ ...live, stage: { bg: 'dark' } }).l1, '◐ Tela escurecida');
   assert.equal(barLines({ ...live, stage: { bg: 'auto' }, lang: 'en' }).l1, '📺 On screen: cover');
   const c = combatSummary(COMBAT);
-  assert.equal(barLines({ ...live, stage: STAGE_IMG, combat: c }).l1, '⚔ R2 · Vez de Goblin #2 · 3/10');
+  assert.equal(barLines({ ...live, stage: STAGE_IMG, combat: c }).l1, '⚔ R2 · Vez de Goblin #2');
   // ao vivo, sem TV e sem combate: convite
   const invite = barLines({ live: true, tvLive: 0, stage: { bg: 'auto' } });
   assert.equal(invite.l1, '📺 A Tela não está ligada');
@@ -173,7 +219,7 @@ test('linha 2: a 1ª que valer — sem conexão › rolagem › enviando › com
   assert.equal(r.l2, 'Na tela ✓ · Ponte');
   assert.equal(barLines({ ...all, offlineFor: 0, roll: null, sending: { state: 'sending' } }).l2, 'Enviando…');
   r = barLines({ ...all, offlineFor: 0, roll: null, sending: null });
-  assert.equal(r.l2, 'depois: Dagna · 2 de 4 agiram');
+  assert.equal(r.l2, '3/10 · depois: Dagna · 2 de 4 agiram');
   // frente por cima do combate: o que cobre a TV
   r = barLines({ ...all, stage: STAGE_IMG, offlineFor: 0, roll: null, sending: null });
   assert.equal(r.l2, '📺 Por cima: Ponte velha (só a imagem)');

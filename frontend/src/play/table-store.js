@@ -3,10 +3,12 @@
 // A casca (CampaignDetail) cria a loja com useTableStore e a distribui por
 // contexto (<TableContext.Provider>); quem precisa lê com useTable():
 //   - o PULSO (GET /campaigns/:id/pulse a cada 2,5 s, no lugar do GET completo;
-//     parado, o navegador recebe 304): `pulse`, `lastOkAt` (para "⟳ Sem conexão
-//     há N s"), `tvLive` (do servidor ou de uma TV no mesmo navegador, pelo
-//     BroadcastChannel `forja-tv-<id>`), a rolagem nova e o "Enviando…/Na tela ✓"
-//     do último 📺;
+//     parado, o navegador recebe 304): `pulse`, `lastOkAt` e `offlineFor` (os
+//     segundos sem resposta depois dos 8 s: "⟳ Sem conexão há N s" na barra, na
+//     faixa sob o segmentado e nas abas do PC; 0 com a rede boa), `tvLive` (do
+//     servidor ou de uma TV no mesmo navegador, pelo BroadcastChannel
+//     `forja-tv-<id>`; sem conexão é o último visto e `offlineFor > 0` diz que ele
+//     pode não valer mais), a rolagem nova e o "Enviando…/Na tela ✓" do último 📺;
 //   - as ações do turno, compartilhadas pela barra da mesa, pela janela e pela
 //     faixa do PC, pela folha Tela ao vivo e pela tecla N: Próximo turno (com
 //     `expect`, desligado enquanto envia, 409 → "A vez já tinha passado: agora é
@@ -21,7 +23,7 @@ import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { STAGE_EVENT, STAGE_SENDING_EVENT } from '../stage/stage-api.js';
 import { frontLabel, L } from '../stage/stage-now.js';
-import { combatSummary, SENT_SHOW_MS, staleText, turnLine } from '../stage/table-bar-model.js';
+import { combatSummary, offlineSeconds, SENT_SHOW_MS, staleText, turnLine } from '../stage/table-bar-model.js';
 import { flash } from './flash.js';
 
 export const PULSE_MS = 2500;
@@ -50,6 +52,8 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) 
   const [rollSeen, setRollSeen] = useState(null);     // {id, at}: at = 0 para a que já existia ao abrir
   const [sending, setSending] = useState(null);       // {state:'sending'|'sent', name, at}
   const [localTv, setLocalTv] = useState(0);
+  const [offlineFor, setOfflineFor] = useState(0);
+  const okRef = useRef(0);       // a última resposta (ou a volta da aba escondida: o relógio parou ali)
   const busyRef = useRef('');
   const pulseRef = useRef(null);
   const sigRef = useRef('');
@@ -62,7 +66,7 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) 
   // Trocou de campanha: zera.
   useEffect(() => {
     setPulse(null); pulseRef.current = null; sigRef.current = ''; revRef.current = null;
-    setRollSeen(null); setSending(null); setMissing(false); setLastOkAt(0);
+    setRollSeen(null); setSending(null); setMissing(false); setLastOkAt(0); setOfflineFor(0);
   }, [id]);
 
   // O laço do pulso (pausa com a aba escondida, como o usePolling).
@@ -77,7 +81,9 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) 
       try {
         const p = await api.getPulse(id);
         if (!alive) return;
-        setLastOkAt(Date.now());
+        okRef.current = Date.now();
+        setLastOkAt(okRef.current);
+        setOfflineFor(0);
         const sig = JSON.stringify(p);
         if (sig !== sigRef.current) {       // 304: o mesmo corpo → nada a desenhar
           sigRef.current = sig;
@@ -101,8 +107,10 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) 
       if (alive) timer = setTimeout(tick, PULSE_MS);
     };
     kick.current = () => { clearTimeout(timer); tick(); };
+    okRef.current = Date.now();
     tick();
-    const onVis = () => { if (!document.hidden) { clearTimeout(timer); tick(); } };
+    // A aba escondida não pergunta nada: ao voltar, o relógio do "sem conexão" recomeça.
+    const onVis = () => { if (!document.hidden) { okRef.current = Math.max(okRef.current, Date.now()); clearTimeout(timer); tick(); } };
     document.addEventListener('visibilitychange', onVis);
     return () => {
       alive = false;
@@ -113,6 +121,16 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) 
   }, [live, id]);
 
   const refresh = useCallback(() => kick.current(), []);
+
+  // "⟳ Sem conexão há N s": 1 relógio só, aqui (quem mostra não precisa do seu).
+  // Com a rede boa o valor fica 0 e ninguém redesenha.
+  useEffect(() => {
+    if (!live) return undefined;
+    const t = setInterval(() => {
+      setOfflineFor(typeof document !== 'undefined' && document.hidden ? 0 : offlineSeconds(okRef.current));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [live]);
 
   // "Enviando…" / "Na tela ✓" do último 📺 (os 9 lugares passam pelo stage-api).
   useEffect(() => {
@@ -220,13 +238,13 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) 
   useEffect(() => { if (tvLive > 0) setTvSeen(true); }, [tvLive]);
   useEffect(() => { setTvSeen(false); }, [id]);
   return useMemo(() => ({
-    enabled: live, missing, pulse, lastOkAt, tvLive, tvSeen, rollSeen, sending, busy,
+    enabled: live, missing, pulse, lastOkAt, offlineFor, tvLive, tvSeen, rollSeen, sending, busy,
     combat: pulse?.combat || null,
     refresh, applyCombat,
     nextTurn: (expect) => turn('next', expect),
     prevTurn: (expect) => turn('prev', expect),
     startCombat,
-  }), [live, missing, pulse, lastOkAt, tvLive, tvSeen, rollSeen, sending, busy, refresh, applyCombat, turn, startCombat]);
+  }), [live, missing, pulse, lastOkAt, offlineFor, tvLive, tvSeen, rollSeen, sending, busy, refresh, applyCombat, turn, startCombat]);
 }
 
 /**

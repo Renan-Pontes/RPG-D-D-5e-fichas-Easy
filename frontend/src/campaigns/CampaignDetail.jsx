@@ -87,6 +87,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   const [barPrefs, setBarPrefsState] = useState(() => readBarPrefs(campaignId));
   const [corner, setCorner] = useState(readCorner);
   const [winLiveAt, setWinLiveAt] = useState(0);      // 📺 Tela da capa: a janela abre já "ao vivo"
+  const [page, setPage] = useState(null);             // a página aberta pede a janela à esquerda ('adventure')
   const mobile = useMedia('(max-width: 767px)');
   const twoCols = useMedia('(min-width: 1024px)');     // Agora e Combate em colunas: a janela encaixa
   const toastTimer = useRef(null);
@@ -292,8 +293,8 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     writeBarPrefs(campaignId, next);
   }, [campaignId]);
   const tableValue = useMemo(() => ({
-    ...table, prefs: barPrefs, setPrefs: setBarPrefs, openLive: () => setLiveOpen(true),
-    win: null,   // completado abaixo, quando a área já é conhecida
+    ...table, prefs: barPrefs, setPrefs: setBarPrefs, openLive: () => setLiveOpen(true), setPage,
+    win: null, bar: false,   // completados abaixo, quando a área já é conhecida
   }), [table, barPrefs, setBarPrefs]);
 
   if (error && !campaign) {
@@ -319,7 +320,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   };
   const showBar = isDM && mobile && barVisible(vis);
   const win = isDM && !mobile ? windowMode({ ...vis, forced: !!winLiveAt }) : 'hidden';
-  const tableCtx = isDM ? { ...tableValue, win } : null;
+  const tableCtx = isDM ? { ...tableValue, win, bar: showBar } : null;
   // Selos de Jogar: "● ao vivo" e "⚔" com combate ativo (texto para o leitor de tela).
   const marks = isDM ? {
     play: [vis.live && { k: 'live', icon: '●', label: t(lang, 'ao vivo', 'live') },

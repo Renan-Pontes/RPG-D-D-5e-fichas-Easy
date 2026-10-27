@@ -6,6 +6,7 @@
 import { useRef } from 'react';
 import { areaLabel, SUB_ICONS, subLabel, subShortLabel, t } from './shell-logic.js';
 import useScrollEdges from './useScrollEdges.js';
+import { OfflineNote } from '../stage/TableBar.jsx';
 import './mesa.css';
 
 /**
@@ -13,6 +14,8 @@ import './mesa.css';
  * onSearch: 5ª casa "Buscar" (quando não há onMore: o jogador).
  * marks: {área: [{k, icon, label}]} — selos que não são número (Jogar: "● ao vivo"
  * e "⚔" com combate ativo, V4); o ícone com o texto para o leitor de tela.
+ * No PC, com a mesa sem resposta há 8 s, as abas (presas no topo) terminam em
+ * "⟳ Sem conexão há N s" (OfflineNote; só no mestre, que tem a loja da mesa).
  */
 export default function AreaNav({ areas, active, onSelect, onSearch, onMore, moreOpen = false, lang, badges = {}, marks = {}, showKeys = false }) {
   const markSpans = (id, cls) => (marks[id] || []).map(m => (
@@ -22,7 +25,8 @@ export default function AreaNav({ areas, active, onSelect, onSearch, onMore, mor
   ));
   return (
     <>
-      <nav className="shell-areas" role="tablist" aria-label={t(lang, 'Áreas da campanha', 'Campaign areas')}>
+      <nav className="shell-areas" aria-label={t(lang, 'Áreas da campanha', 'Campaign areas')}>
+       <div className="shell-areas-tabs" role="tablist" aria-label={t(lang, 'Áreas da campanha', 'Campaign areas')}>
         {areas.map((a, i) => (
           <button
             key={a.id}
@@ -43,6 +47,8 @@ export default function AreaNav({ areas, active, onSelect, onSearch, onMore, mor
             {showKeys && <kbd className="shell-area-key" aria-hidden="true">{i + 1}</kbd>}
           </button>
         ))}
+       </div>
+        <OfflineNote lang={lang} className="is-areas" />
       </nav>
 
       <nav className="shell-bottom-bar no-print" aria-label={t(lang, 'Áreas da campanha', 'Campaign areas')}>
@@ -109,6 +115,8 @@ export function SubChips({ subs, active, onSelect, lang, labels = {}, icons = {}
   };
   return (
     <div ref={wrapRef} className="shell-seg-tabs">
+      {/* celular sem a barra da mesa: "⟳ Sem conexão há N s" numa faixa fina sob o segmentado */}
+      <OfflineNote lang={lang} className="is-seg" />
       <div className="mesa-seg has-track">
         <div ref={trackRef} className="mesa-seg-track mesa-scroll" role="tablist" aria-label={ariaLabel || t(lang, 'Subvistas', 'Views')}>
           {subs.map(s => {

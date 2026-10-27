@@ -10,15 +10,20 @@
 // destino). Some com o teclado aberto e atrás das folhas que não são de Jogar
 // (CSS: body.mesa-sheet-covers). Os dados vêm da loja da mesa (pulso), sem
 // pedido novo; o relógio de "Sem conexão há N s" é só do aparelho.
+// Em combate a linha 1 é a vez, e quem encolhe é só o nome ("Goblin Afog… #2");
+// se nem assim ele cabe inteiro, o "Vez de" sai (o leitor de tela ouve a frase toda).
+//
+// <OfflineNote> — "⟳ Sem conexão há N s" onde a barra não está à vista: nas abas
+// das áreas (PC) e numa faixa fina sob o segmentado (celular sem a barra).
 //
 // <TurnStrip> — PC (≥ 768), presa no topo de Jogar com combate: "RODADA 2 · VEZ
 // DE X · PV 3/10 · depois: Dagna", a fita de iniciativa (✓ agiu · ● agora ·
 // ○ falta · † caiu, só leitura) e [Próximo turno →] (48, tecla N).
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import StageThumb from './StageThumb.jsx';
 import useStage from './useStage.js';
 import { L } from './stage-now.js';
-import { REARM_MS, afterLine, barLines, freshRoll, offlineSeconds, ribbon } from './table-bar-model.js';
+import { REARM_MS, afterLine, barLines, freshRoll, offlineLine, ribbon } from './table-bar-model.js';
 import { useTable } from '../play/table-store.js';
 import './stage.css';
 
@@ -58,6 +63,36 @@ export function openDice() {
   try { window.__diceOpen?.(); } catch { /* sem o rolador */ }
 }
 
+/**
+ * O texto que encolhe (o nome de quem age) cabe inteiro? Mede depois de desenhar
+ * e, se não cabe, pede a forma curta; mede de novo quando o texto ou a largura
+ * da tela mudam. Antes da pintura: o mestre não vê a troca.
+ */
+function useTight(key) {
+  const ref = useRef(null);
+  const [tight, setTight] = useState(false);
+  const [width, setWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 0));
+  useEffect(() => {
+    const on = () => setWidth(window.innerWidth);
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
+  useLayoutEffect(() => { setTight(false); }, [key, width]);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!tight && el && el.scrollWidth > el.clientWidth + 1) setTight(true);
+  });
+  return [ref, tight];
+}
+
+/** "⟳ Sem conexão há N s" fora da barra da mesa (abas do PC; faixa sob o segmentado no celular). */
+export function OfflineNote({ lang = 'pt', className = '' }) {
+  const table = useTable();
+  const sec = table?.offlineFor || 0;
+  if (!sec || (className.includes('is-seg') && table?.bar)) return null;
+  return <p className={`table-offline ${className}`.trim()} role="status">{offlineLine(sec, lang)}</p>;
+}
+
 const ACTION_LABEL = {
   next: ['Próximo →', 'Next →', 'Próximo turno', 'Next turn'],
   end: ['Encerrar o combate', 'End combat', 'Encerrar o combate', 'End combat'],
@@ -70,7 +105,7 @@ export default function TableBar({ campaign, lang = 'pt', onOpenLive, onEndComba
   const now = useNow(1000);
   const keyboard = useKeyboardOpen();
   const combat = table?.combat || null;
-  const offlineFor = offlineSeconds(table?.lastOkAt, now);
+  const offlineFor = table?.offlineFor || 0;
   const lines = barLines({
     stage, combat, test: table?.pulse?.screen?.test || null, tvLive: table?.tvLive || 0, tvSeen: !!table?.tvSeen,
     live: table?.pulse ? !!table.pulse.live : !!campaign.state?.live, offlineFor,
@@ -88,6 +123,8 @@ export default function TableBar({ campaign, lang = 'pt', onOpenLive, onEndComba
     else if (action === 'end') onEndCombat?.();
   };
   const label = action ? ACTION_LABEL[action] : null;
+  const turn = lines.turn;
+  const [nameRef, tight] = useTight(turn ? `${turn.lead}|${turn.name}|${turn.num}|${lang}` : '');
   return (
     <div className={`mesa-bar no-print ${keyboard ? 'is-keyboard' : ''} ${action ? 'has-action' : ''}`}
       role="region" aria-label={L(lang, 'Barra da mesa', 'Table bar')}>
@@ -98,7 +135,13 @@ export default function TableBar({ campaign, lang = 'pt', onOpenLive, onEndComba
             combat={combat ? { active: combat.active, round: combat.round } : null} />
         </span>
         <span className="mesa-bar-text" aria-hidden="true">
-          <span className="mesa-bar-l1">{lines.l1}</span>
+          {turn ? (
+            <span className="mesa-bar-l1 is-turn">
+              <span>{turn.lead} · {tight ? '' : turn.pre}</span>
+              <span className="mesa-bar-who" ref={nameRef}>{turn.name}</span>
+              {(turn.num || (!tight && turn.post)) && <span>{turn.num}{tight ? '' : turn.post}</span>}
+            </span>
+          ) : <span className="mesa-bar-l1">{lines.l1}</span>}
           <span className={`mesa-bar-l2 ${lines.tone ? `is-${lines.tone}` : ''}`} aria-live="polite">{lines.l2}</span>
         </span>
       </button>

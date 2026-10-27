@@ -189,6 +189,7 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
   top: 0;
   z-index: 30;
 }
+.shell-areas-tabs { display: flex; gap: 6px; flex: 1 1 auto; min-width: 0; }
 .shell-area-tab {
   flex: 1 1 0;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
