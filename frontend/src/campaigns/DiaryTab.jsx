@@ -6,12 +6,17 @@ import { DIARY_TYPES, buildRecap, entryBody, entryIcon, entryTitle, groupEntries
 import MoreMenu from '../group/MoreMenu.jsx';
 import { groupApi } from '../group/group-api.js';
 import { copyText } from '../group/InviteCard.jsx';
+import useTouchHold from '../group/useTouchHold.js';
+import MesaSheet from '../shell/MesaSheet.jsx';
+import MesaTitle from '../shell/MesaTitle.jsx';
+import useScrollEdges from '../shell/useScrollEdges.js';
 import './diary-styles.css';
 import '../group/group-styles.css';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const UNDO_MS = 5000;
 const errMsg = e => errorMessage(e);
+const FILTERS = [{ id: 'all', icon: '', pt: 'Tudo', en: 'All' }, ...DIARY_TYPES];
 
 function fmtTime(iso, lang) {
   try {
@@ -24,10 +29,17 @@ function fmtDay(day, lang) {
   return new Date(y, m - 1, d).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-US', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// showStartSession: false quando a casca já tem o "Começar sessão" no cabeçalho
-// (um só lugar para começar a sessão).
-// autoRecap: veio de "Encerrar e escrever o recap" — abre o rascunho do recap assim que o
-// diário carrega (uma vez) e avisa onAutoRecap() para a casca limpar o pedido.
+/**
+ * Crônica da campanha: Grupo › Crônica (mestre) e a área Crônica (jogador).
+ * Começa pela história: cabeçalho curto com [✎ Nova nota] e [✨ Anteriormente
+ * em…], os 10 filtros num trilho de 44 px e as sessões. A nota nova e o editor
+ * do recap abrem em folha (MesaSheet), com a ação principal presa no rodapé.
+ * Lê a crônica a cada 8 s (como sempre).
+ * showStartSession: false quando a casca já tem o "Começar sessão" no cabeçalho
+ * (um só lugar para começar a sessão).
+ * autoRecap: veio de "Encerrar e escrever o recap" — abre o rascunho do recap assim que a
+ * crônica chega (uma vez) e avisa onAutoRecap() para a casca limpar o pedido.
+ */
 export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange, showStartSession = true, autoRecap = false, onAutoRecap }) {
   const [entries, setEntries] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -38,21 +50,29 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
   const [error, setError] = useState('');
   const [pending, setPending] = useState({}); // id -> true (exclusão aguardando "desfazer")
   const [toast, setToast] = useState(null);
+  const [noteOpen, setNoteOpen] = useState(false);
   const timers = useRef({});
   const countRef = useRef(0);
+  const railRef = useRef(null);
+  useScrollEdges(railRef, { active: filter, count: FILTERS.length });
 
-  const load = useCallback(async () => {
+  // o que chega pelo polling logo depois de um toque espera 600 ms (nada mexe debaixo do dedo)
+  const hold = useTouchHold();
+  const load = useCallback(async (fromPoll = false) => {
     const limit = Math.min(200, Math.max(100, countRef.current));
     const r = await api.listDiary(campaign.id, { limit });
-    setEntries(r.entries || []);
-    countRef.current = (r.entries || []).length;
-    setHasMore(!!r.hasMore);
-    setSessions(r.sessions || []);
-    setCurrent(r.currentSession ?? null);
-    setLoaded(true);
-  }, [campaign.id]);
+    const apply = () => {
+      setEntries(r.entries || []);
+      countRef.current = (r.entries || []).length;
+      setHasMore(!!r.hasMore);
+      setSessions(r.sessions || []);
+      setCurrent(r.currentSession ?? null);
+      setLoaded(true);
+    };
+    if (fromPoll) hold(apply, 'diary'); else apply();
+  }, [campaign.id, hold]);
 
-  usePolling(() => load().catch(e => setError(errMsg(e))), 8000, [campaign.id]);
+  usePolling(() => load(true).catch(e => setError(errMsg(e))), 8000, [campaign.id]);
 
   const loadMore = async () => {
     try {
@@ -123,13 +143,15 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
     const draft = buildRecap(g?.entries || [], { lang, session: g?.session ?? null, title: info?.title, campaignName: campaign.name });
     setRecap({ key: g?.key || null, session: g?.session ?? null, ...draft });
   }, [entries, pending, sessionInfo, lang, campaign.name]);
+  // "Encerrar e escrever o recap": abre o editor quando a crônica chega (uma vez)
   const autoRecapDone = useRef(false);
   useEffect(() => {
-    if (!autoRecap || autoRecapDone.current || !loaded || recap || !entries.length) return;
+    if (!autoRecap || !isDM || autoRecapDone.current || !loaded || recap || !entries.length) return;
     autoRecapDone.current = true;
     openRecap(null);
     onAutoRecap?.();
-  }, [autoRecap, loaded, recap, entries.length, openRecap, onAutoRecap]);
+  }, [autoRecap, isDM, loaded, recap, entries.length, openRecap, onAutoRecap]);
+
   const onScreen = campaign.state?.screenCard;
   const flash = (text) => setToast({ id: `m${Date.now()}`, text });
   useEffect(() => {
@@ -152,64 +174,51 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
   };
 
   return (
-    <div className="diary col gap-3">
+    <div className={`diary ${isDM ? 'is-dm' : 'is-player'}`}>
       {error && <p className="diary-error" role="alert" onClick={() => setError('')}>{error}</p>}
 
-      <div className="info-box diary-head">
-        <div className="info-box-head">
-          <h3>📜 {t(lang, 'Crônica da campanha', 'Campaign chronicle')}</h3>
-          <span className="muted small">
-            {current != null
-              ? `${t(lang, 'Sessão atual', 'Current session')}: ${current}${currentTitle ? ` — ${currentTitle}` : ''}`
-              : t(lang, 'Sem sessão numerada — agrupado por dia', 'No numbered session — grouped by day')}
-          </span>
-        </div>
+      <section className="diary-head mesa-panel" aria-labelledby="diary-head-h">
+        <MesaTitle id="diary-head-h"
+          sub={<span>{current != null
+            ? `${t(lang, 'Sessão atual', 'Current session')}: ${current}${currentTitle ? ` — ${currentTitle}` : ''}`
+            : t(lang, 'Sem sessão numerada — agrupado por dia', 'No numbered session — grouped by day')}</span>}>
+          📜 {t(lang, 'Crônica', 'Chronicle')}
+        </MesaTitle>
         {isDM && showStartSession && <StartSession campaign={campaign} lang={lang} current={current} onDone={load} onError={setError} />}
-        <NoteComposer campaign={campaign} lang={lang} isDM={isDM} onDone={load} onError={setError} />
-      </div>
-
-      {isDM && loaded && (
-        recap ? (
-          <RecapEditor campaign={campaign} lang={lang} recap={recap} onScreen={onScreen}
-            onShow={showOnScreen} onClearScreen={clearScreen} onClose={() => setRecap(null)}
-            onSaved={() => { setRecap(null); flash(t(lang, 'Recap salvo na crônica.', 'Recap saved to the chronicle.')); load(); }}
-            onCopied={() => flash(t(lang, 'Texto copiado.', 'Text copied.'))}
-            onError={setError} />
-        ) : (
-          <div className="diary-recap-cta">
-            <div>
-              <strong className="diary-recap-cta-title">✨ {t(lang, 'Anteriormente em…', 'Previously on…')}</strong>
-              <span className="muted small">
-                {onScreen?.type === 'recap'
-                  ? t(lang, 'O recap está no telão agora.', 'The recap is on the TV now.')
-                  : t(lang, 'Monte o resumo da última sessão para abrir a próxima. Você edita antes de mostrar.', 'Draft a recap of last session to open the next one. You edit it before showing.')}
-              </span>
-            </div>
-            <div className="diary-actions">
-              {onScreen?.type === 'recap' && <button type="button" className="btn btn-ghost btn-sm" onClick={clearScreen}>{t(lang, 'Tirar do telão', 'Remove from TV')}</button>}
-              <button type="button" className="btn btn-primary btn-sm" onClick={() => openRecap(null)} disabled={!entries.length}>
-                {t(lang, 'Montar recap', 'Draft recap')}
-              </button>
-            </div>
+        <div className="diary-head-actions">
+          <button type="button" className="mesa-btn diary-new-note" onClick={() => setNoteOpen(true)}>
+            ✎ {t(lang, 'Nova nota', 'New note')}
+          </button>
+          {isDM && (
+            <button type="button" className="mesa-btn diary-recap-open" onClick={() => openRecap(null)} disabled={!loaded || !entries.length}
+              aria-label={t(lang, 'Anteriormente em…: montar recap', 'Previously on…: draft recap')}>
+              ✨ {t(lang, 'Anteriormente em…', 'Previously on…')}
+            </button>
+          )}
+        </div>
+        {isDM && onScreen?.type === 'recap' && (
+          <div className="diary-on-tv" role="status">
+            <span>📺 {t(lang, 'O recap está no telão agora.', 'The recap is on the TV now.')}</span>
+            <button type="button" className="mesa-btn" onClick={clearScreen}>{t(lang, 'Tirar do telão', 'Remove from TV')}</button>
           </div>
-        )
-      )}
+        )}
+      </section>
 
-      <div className="diary-filters" role="toolbar" aria-label={t(lang, 'Filtrar por tipo', 'Filter by type')}>
-        {[{ id: 'all', icon: '', pt: 'Tudo', en: 'All' }, ...DIARY_TYPES].map(tp => (
-          <button key={tp.id} className={`chip ${filter === tp.id ? 'active' : ''}`} aria-pressed={filter === tp.id}
+      <div className="diary-filters mesa-scroll" ref={railRef} role="toolbar" aria-label={t(lang, 'Filtrar por tipo', 'Filter by type')}>
+        {FILTERS.map(tp => (
+          <button key={tp.id} type="button" className={`mesa-chip ${filter === tp.id ? 'active' : ''}`} aria-pressed={filter === tp.id}
             onClick={() => setFilter(tp.id)}>
             {tp.icon && <span className="chip-icon" aria-hidden="true">{tp.icon}</span>}{t(lang, tp.pt, tp.en)}
           </button>
         ))}
       </div>
 
-      {!loaded && <p className="muted">{t(lang, 'Carregando…', 'Loading…')}</p>}
+      {!loaded && <p className="diary-none">{t(lang, 'Carregando…', 'Loading…')}</p>}
       {loaded && groups.length === 0 && (
-        <p className="muted diary-empty">
+        <p className="diary-none diary-empty">
           {filter === 'all'
-            ? t(lang, 'A crônica ainda está em branco. Combates, revelações, subidas de nível, XP, itens entregues e rolagens marcantes aparecem aqui sozinhos — e você pode escrever notas acima.',
-                'The chronicle is still blank. Combats, reveals, level-ups, XP, items given and notable rolls show up here on their own — and you can write notes above.')
+            ? t(lang, 'A crônica ainda está em branco. Combates, revelações, subidas de nível, XP, itens entregues e rolagens marcantes aparecem aqui sozinhos — e você pode escrever notas em "Nova nota".',
+                'The chronicle is still blank. Combats, reveals, level-ups, XP, items given and notable rolls show up here on their own — and you can write notes with "New note".')
             : t(lang, 'Nada deste tipo por enquanto.', 'Nothing of this type yet.')}
         </p>
       )}
@@ -222,13 +231,26 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
       ))}
 
       {hasMore && (
-        <button className="btn btn-ghost btn-sm diary-more" onClick={loadMore}>{t(lang, 'Carregar mais antigas', 'Load older')}</button>
+        <button type="button" className="mesa-btn diary-more" onClick={loadMore}>{t(lang, 'Carregar mais antigas', 'Load older')}</button>
+      )}
+
+      {noteOpen && (
+        <NoteSheet campaign={campaign} lang={lang} isDM={isDM} onClose={() => setNoteOpen(false)}
+          onDone={() => { setNoteOpen(false); flash(t(lang, 'Nota adicionada à crônica.', 'Note added to the chronicle.')); load().catch(() => {}); }}
+          onError={setError} />
+      )}
+      {isDM && recap && (
+        <RecapSheet campaign={campaign} lang={lang} recap={recap} onScreen={onScreen}
+          onShow={showOnScreen} onClearScreen={clearScreen} onClose={() => setRecap(null)}
+          onSaved={() => { setRecap(null); flash(t(lang, 'Recap salvo na crônica.', 'Recap saved to the chronicle.')); load(); }}
+          onCopied={() => flash(t(lang, 'Texto copiado.', 'Text copied.'))}
+          onError={setError} />
       )}
 
       {toast && (
         <div className="diary-toast" role="status">
           <span>{toast.text}</span>
-          {toast.undo && <button className="btn btn-ghost btn-sm" onClick={() => undoDelete(toast.id)}>{t(lang, 'Desfazer', 'Undo')}</button>}
+          {toast.undo && <button type="button" className="mesa-btn" onClick={() => undoDelete(toast.id)}>{t(lang, 'Desfazer', 'Undo')}</button>}
         </div>
       )}
     </div>
@@ -252,70 +274,82 @@ function StartSession({ campaign, lang, current, onDone, onError }) {
 
   if (!open) {
     return (
-      <button className="btn btn-primary btn-sm diary-start" onClick={() => setOpen(true)}>
+      <button type="button" className="mesa-btn is-primary diary-start" onClick={() => setOpen(true)}>
         📖 {t(lang, `Começar sessão ${next}`, `Start session ${next}`)}
       </button>
     );
   }
   return (
-    <form className="diary-form" onSubmit={submit}>
+    <form className="diary-form diary-start-form" onSubmit={submit}>
       <div className="diary-form-row">
-        <label className="col gap-1 diary-num">
-          <span className="eyebrow">{t(lang, 'Nº', 'No.')}</span>
+        <label className="mesa-field diary-num">
+          <span className="mesa-field-label">{t(lang, 'Nº', 'No.')}</span>
           <input aria-label={String(next)} className="input" type="number" min="0" inputMode="numeric" value={number} placeholder={String(next)}
             onChange={e => setNumber(e.target.value)} />
         </label>
-        <label className="col gap-1 grow">
-          <span className="eyebrow">{t(lang, 'Título (opcional)', 'Title (optional)')}</span>
+        <label className="mesa-field grow">
+          <span className="mesa-field-label">{t(lang, 'Título (opcional)', 'Title (optional)')}</span>
           <input aria-label={t(lang, 'ex: A cripta', 'e.g.: The crypt')} className="input" value={title} maxLength={200} placeholder={t(lang, 'ex: A cripta', 'e.g.: The crypt')}
             onChange={e => setTitle(e.target.value)} />
         </label>
       </div>
       <div className="diary-actions">
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>{t(lang, 'Cancelar', 'Cancel')}</button>
-        <button type="submit" className="btn btn-primary btn-sm">{t(lang, 'Começar', 'Start')}</button>
+        <button type="button" className="mesa-btn" onClick={() => setOpen(false)}>{t(lang, 'Cancelar', 'Cancel')}</button>
+        <button type="submit" className="mesa-btn is-primary">{t(lang, 'Começar', 'Start')}</button>
       </div>
     </form>
   );
 }
 
-function NoteComposer({ campaign, lang, isDM, onDone, onError }) {
+/** Nota nova, em folha: título opcional, texto, ☐ Oculta dos jogadores (só o mestre) e Adicionar. */
+function NoteSheet({ campaign, lang, isDM, onClose, onDone, onError }) {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [hidden, setHidden] = useState(false);
   const [busy, setBusy] = useState(false);
+  const empty = !body.trim() && !title.trim();
 
   const submit = async (e) => {
-    e.preventDefault();
-    if (!body.trim() && !title.trim()) return;
+    e?.preventDefault?.();
+    if (empty) return;
     setBusy(true);
     try {
       await api.createDiaryNote(campaign.id, { title, body, ...(isDM && hidden ? { hidden: true } : {}) });
-      setTitle(''); setBody(''); setHidden(false);
+      setBusy(false);
       onDone();
-    } catch (err) { onError(errMsg(err)); }
-    setBusy(false);
+    } catch (err) { onError(errMsg(err)); setBusy(false); }
   };
 
   return (
-    <form className="diary-form" onSubmit={submit}>
-      <input className="input" value={title} maxLength={200} onChange={e => setTitle(e.target.value)}
-        placeholder={t(lang, 'Título da nota (opcional)', 'Note title (optional)')} aria-label={t(lang, 'Título', 'Title')} />
-      <textarea className="input" rows={3} value={body} onChange={e => setBody(e.target.value)}
-        placeholder={t(lang, 'O que aconteceu? Pistas, nomes, promessas…', 'What happened? Clues, names, promises…')}
-        aria-label={t(lang, 'Texto da nota', 'Note text')} />
-      <div className="diary-actions">
+    <MesaSheet lang={lang} size="auto" width="md" icon="✎" title={t(lang, 'Nova nota', 'New note')} onClose={onClose}
+      dirty={!empty && !busy} className="diary-note-sheet"
+      dirtyText={t(lang, 'A nota que você escreveu ainda não foi para a crônica.', 'The note you wrote has not gone to the chronicle yet.')}
+      footer={(
+        <div className="mesa-actions">
+          <button type="submit" form="diary-note-form" className="mesa-btn mesa-btn-lg is-primary diary-note-add" disabled={busy || empty}>
+            ✎ {t(lang, 'Adicionar nota', 'Add note')}
+          </button>
+        </div>
+      )}>
+      <form id="diary-note-form" className="diary-form" onSubmit={submit}>
+        <label className="mesa-field">
+          <span className="mesa-field-label">{t(lang, 'Título (opcional)', 'Title (optional)')}</span>
+          <input className="input" value={title} maxLength={200} onChange={e => setTitle(e.target.value)}
+            placeholder={t(lang, 'Título da nota (opcional)', 'Note title (optional)')} />
+        </label>
+        <label className="mesa-field">
+          <span className="mesa-field-label">{t(lang, 'Texto da nota', 'Note text')}</span>
+          <textarea className="input" rows={5} value={body} onChange={e => setBody(e.target.value)}
+            placeholder={t(lang, 'O que aconteceu? Pistas, nomes, promessas…', 'What happened? Clues, names, promises…')} />
+        </label>
         {isDM && (
           <label className="diary-check">
             <input type="checkbox" checked={hidden} onChange={e => setHidden(e.target.checked)} />
-            {t(lang, 'Oculta dos jogadores', 'Hidden from players')}
+            <span>{t(lang, 'Oculta dos jogadores', 'Hidden from players')}</span>
           </label>
         )}
-        <button type="submit" className="btn btn-primary btn-sm" disabled={busy || (!body.trim() && !title.trim())}>
-          ✎ {t(lang, 'Adicionar nota', 'Add note')}
-        </button>
-      </div>
-    </form>
+      </form>
+    </MesaSheet>
   );
 }
 
@@ -330,32 +364,35 @@ function SessionGroup({ group, info, campaign, lang, isDM, onReload, onError, on
     try { await api.renameDiarySession(campaign.id, group.session, title); setEditingTitle(false); onReload(); }
     catch (err) { onError(errMsg(err)); }
   };
+  const label = group.session != null ? `${t(lang, 'Sessão', 'Session')} ${group.session}` : fmtDay(group.day, lang);
 
   return (
-    <section className="diary-group" aria-label={group.session != null ? `${t(lang, 'Sessão', 'Session')} ${group.session}` : group.day}>
-      <header className="diary-group-head">
-        {editingTitle ? (
-          <form className="diary-title-form" onSubmit={saveTitle}>
-            <span className="diary-group-num">{t(lang, 'Sessão', 'Session')} {group.session} —</span>
+    <section className="diary-group mesa-panel" aria-label={group.session != null ? `${t(lang, 'Sessão', 'Session')} ${group.session}` : group.day}>
+      {editingTitle ? (
+        <form className="diary-title-form" onSubmit={saveTitle}>
+          <label className="mesa-field grow">
+            <span className="mesa-field-label">{t(lang, 'Sessão', 'Session')} {group.session} — {t(lang, 'título', 'title')}</span>
             <input className="input" autoFocus value={title} maxLength={200} onChange={e => setTitle(e.target.value)}
               aria-label={t(lang, 'Título da sessão', 'Session title')} />
-            <button type="submit" className="btn btn-primary btn-sm">{t(lang, 'Salvar', 'Save')}</button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditingTitle(false)} aria-label={t(lang, 'Cancelar', 'Cancel')}>✕</button>
-          </form>
-        ) : (
-          <h4 className="diary-group-title">
-            {group.session != null
-              ? <>{t(lang, 'Sessão', 'Session')} {group.session}{info?.title ? <span className="diary-group-sub"> — {info.title}</span> : null}</>
-              : fmtDay(group.day, lang)}
-          </h4>
-        )}
-        {isDM && !editingTitle && (
-          <MoreMenu label={t(lang, 'Ações da sessão', 'Session actions')} items={[
-            { id: 'recap', label: `📜 ${t(lang, 'Recap desta sessão', 'Recap this session')}`, onSelect: onRecap },
-            { id: 'rename', label: `✎ ${t(lang, 'Renomear sessão', 'Rename session')}`, onSelect: () => setEditingTitle(true), hidden: group.session == null },
-          ]} />
-        )}
-      </header>
+          </label>
+          <div className="diary-actions">
+            <button type="button" className="mesa-btn" onClick={() => setEditingTitle(false)}>{t(lang, 'Cancelar', 'Cancel')}</button>
+            <button type="submit" className="mesa-btn is-primary">{t(lang, 'Salvar', 'Save')}</button>
+          </div>
+        </form>
+      ) : (
+        <MesaTitle as="h4" className="diary-group-head"
+          sub={group.session != null && info?.title ? <span className="diary-group-sub">{info.title}</span> : null}
+          act={isDM ? (
+            <MoreMenu lang={lang} label={t(lang, `Ações da sessão: ${label}`, `Session actions: ${label}`)} sheetTitle={label} items={[
+              { id: 'recap', label: `📜 ${t(lang, 'Recap desta sessão', 'Recap this session')}`, onSelect: onRecap,
+                hint: t(lang, 'Rascunho do "Anteriormente em…" com o que houve nela.', 'A "Previously on…" draft from what happened in it.') },
+              { id: 'rename', label: `✎ ${t(lang, 'Renomear sessão', 'Rename session')}`, onSelect: () => setEditingTitle(true), hidden: group.session == null },
+            ]} />
+          ) : null}>
+          {label}
+        </MesaTitle>
+      )}
 
       <ol className="diary-timeline">
         {group.entries.map(e => (
@@ -386,7 +423,8 @@ function DiaryItem({ entry, lang, isDM, onPatch, onDelete, onShow }) {
       onSelect: () => onPatch(entry.id, { hidden: !entry.hidden }), hidden: !isDM },
     { id: 'tv', label: `📺 ${t(lang, 'Mostrar no telão', 'Show on TV')}`, onSelect: () => onShow?.(entry),
       hidden: !isDM || entry.hidden || !(shownBody || shownTitle) },
-    { id: 'del', label: `🗑 ${t(lang, 'Excluir', 'Delete')}`, onSelect: () => onDelete(entry), danger: true },
+    { id: 'del', label: `🗑 ${t(lang, 'Excluir', 'Delete')}`, onSelect: () => onDelete(entry), danger: true,
+      hint: t(lang, 'Some na hora; dá para desfazer por 5 segundos.', 'Gone right away; you can undo for 5 seconds.') },
   ] : [];
   return (
     <li className={cls}>
@@ -394,13 +432,18 @@ function DiaryItem({ entry, lang, isDM, onPatch, onDelete, onShow }) {
       <div className="diary-card">
         {editing ? (
           <form className="diary-form" onSubmit={save}>
-            <input className="input" value={title} maxLength={200} onChange={e => setTitle(e.target.value)}
-              aria-label={t(lang, 'Título', 'Title')} />
-            <textarea className="input" rows={Math.max(3, Math.min(14, body.split('\n').length + 1))} value={body}
-              onChange={e => setBody(e.target.value)} aria-label={t(lang, 'Texto', 'Text')} />
+            <label className="mesa-field">
+              <span className="mesa-field-label">{t(lang, 'Título', 'Title')}</span>
+              <input className="input" value={title} maxLength={200} onChange={e => setTitle(e.target.value)} />
+            </label>
+            <label className="mesa-field">
+              <span className="mesa-field-label">{t(lang, 'Texto', 'Text')}</span>
+              <textarea className="input" rows={Math.max(3, Math.min(14, body.split('\n').length + 1))} value={body}
+                onChange={e => setBody(e.target.value)} />
+            </label>
             <div className="diary-actions">
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>{t(lang, 'Cancelar', 'Cancel')}</button>
-              <button type="submit" className="btn btn-primary btn-sm">{t(lang, 'Salvar', 'Save')}</button>
+              <button type="button" className="mesa-btn" onClick={() => setEditing(false)}>{t(lang, 'Cancelar', 'Cancel')}</button>
+              <button type="submit" className="mesa-btn is-primary">{t(lang, 'Salvar', 'Save')}</button>
             </div>
           </form>
         ) : (
@@ -408,7 +451,7 @@ function DiaryItem({ entry, lang, isDM, onPatch, onDelete, onShow }) {
             <div className="diary-card-head">
               {shownTitle && <strong className="diary-card-title">{shownTitle}</strong>}
               {entry.hidden && <span className="diary-tag">{t(lang, 'oculta', 'hidden')}</span>}
-              <MoreMenu items={menu} label={t(lang, 'Ações da entrada', 'Entry actions')} className="diary-more-menu" />
+              <MoreMenu items={menu} lang={lang} label={t(lang, 'Ações da entrada', 'Entry actions')} sheetTitle={shownTitle || t(lang, 'Entrada da crônica', 'Chronicle entry')} className="diary-more-menu" />
             </div>
             {shownBody && <p className="diary-body">{shownBody}</p>}
             <div className="diary-meta">
@@ -424,52 +467,64 @@ function DiaryItem({ entry, lang, isDM, onPatch, onDelete, onShow }) {
 }
 
 /**
- * Editor do "Anteriormente em…": rascunho montado dos eventos (sem IA), que o
- * mestre edita antes de mostrar no telão ou salvar na crônica. Nada vai à TV
- * sem o clique dele.
+ * Editor do "Anteriormente em…", em folha alta: rascunho montado dos eventos
+ * (sem IA), que o mestre edita antes de mostrar no telão ou salvar na crônica.
+ * Nada vai à TV sem o toque dele. Rodapé preso: 📺 Mostrar no telão (ou Tirar
+ * do telão, com "● No telão agora") · Salvar na crônica · Copiar · Fechar.
  */
-function RecapEditor({ campaign, lang, recap, onScreen, onShow, onClearScreen, onClose, onSaved, onCopied, onError }) {
+function RecapSheet({ campaign, lang, recap, onScreen, onShow, onClearScreen, onClose, onSaved, onCopied, onError }) {
   const [title, setTitle] = useState(recap.title);
   const [text, setText] = useState(recap.text);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { setTitle(recap.title); setText(recap.text); }, [recap]);
+  const [touched, setTouched] = useState(false);
+  useEffect(() => { setTitle(recap.title); setText(recap.text); setTouched(false); }, [recap]);
   const live = onScreen?.type === 'recap' && onScreen.title === title.trim() && onScreen.text === text;
   const tooLong = text.length > 5000;
+  const empty = !text.trim() && !title.trim();
 
   const save = async () => {
     setBusy(true);
     try {
       await api.createDiaryNote(campaign.id, { subtype: 'summary', title: title.trim().slice(0, 200), body: text, session: recap.session });
+      setTouched(false);
       onSaved();
     } catch (err) { onError(errMsg(err)); }
     setBusy(false);
   };
-  const show = async () => { setBusy(true); await onShow(title.trim(), text); setBusy(false); };
+  const show = async () => { setBusy(true); if (await onShow(title.trim(), text)) setTouched(false); setBusy(false); };
 
   return (
-    <section className="diary-recap" aria-labelledby="diary-recap-h">
-      <div className="diary-recap-head">
-        <span className="eyebrow" id="diary-recap-h">✨ {t(lang, 'Anteriormente em…', 'Previously on…')}</span>
-        {recap.session != null && <span className="muted small">{t(lang, 'a partir da sessão', 'from session')} {recap.session}</span>}
-      </div>
-      <p className="muted small diary-recap-hint">
+    <MesaSheet lang={lang} size="tall" width="md" icon="✨" title={t(lang, 'Anteriormente em…', 'Previously on…')}
+      eyebrow={recap.session != null ? `${t(lang, 'a partir da sessão', 'from session')} ${recap.session}` : undefined}
+      onClose={onClose} dirty={touched && !live} className="diary-recap-sheet" bodyClassName="diary-recap"
+      dirtyText={t(lang, 'O texto que você mexeu não foi para o telão nem para a crônica.', 'The text you edited did not go to the TV or the chronicle.')}
+      footer={(
+        <div className="diary-recap-foot">
+          {live && <p className="diary-recap-live" role="status">● {t(lang, 'No telão agora', 'On the TV now')}</p>}
+          {live
+            ? <button type="button" className="mesa-btn mesa-btn-lg diary-recap-main" disabled={busy} onClick={onClearScreen}>{t(lang, 'Tirar do telão', 'Remove from TV')}</button>
+            : <button type="button" className="mesa-btn mesa-btn-lg is-primary diary-recap-main" disabled={busy || tooLong || empty} onClick={show}>📺 {t(lang, 'Mostrar no telão', 'Show on TV')}</button>}
+          <div className="diary-recap-more">
+            <button type="button" className="mesa-btn" disabled={busy || empty} onClick={save}>{t(lang, 'Salvar na crônica', 'Save to chronicle')}</button>
+            <button type="button" className="mesa-btn" onClick={async () => { if (await copyText(`${title}\n\n${text}`)) onCopied(); }}>{t(lang, 'Copiar', 'Copy')}</button>
+            <button type="button" className="mesa-btn" onClick={onClose}>{t(lang, 'Fechar', 'Close')}</button>
+          </div>
+        </div>
+      )}>
+      <p className="mesa-sheet-text diary-recap-hint">
         {t(lang, 'Rascunho montado com o que ficou na crônica (o que está oculto fica de fora). Edite à vontade: só vai para o telão quando você mandar.',
           'Draft built from the chronicle (hidden entries are left out). Edit freely: it only goes to the TV when you say so.')}
       </p>
-      <input className="input diary-recap-title" value={title} maxLength={200} onChange={e => setTitle(e.target.value)}
-        aria-label={t(lang, 'Título do recap', 'Recap title')} />
-      <textarea className="input diary-recap-text" rows={Math.min(14, Math.max(5, text.split('\n').length + 2))} value={text}
-        onChange={e => setText(e.target.value)} aria-label={t(lang, 'Texto do recap', 'Recap text')} />
-      {tooLong && <p className="diary-error small">{t(lang, 'Texto longo demais para o telão (máx. 5000 caracteres).', 'Too long for the TV (max 5000 characters).')}</p>}
-      <div className="diary-actions">
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>{t(lang, 'Fechar', 'Close')}</button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={async () => { if (await copyText(`${title}\n\n${text}`)) onCopied(); }}>{t(lang, 'Copiar', 'Copy')}</button>
-        <button type="button" className="btn btn-ghost btn-sm" disabled={busy || (!text.trim() && !title.trim())} onClick={save}>{t(lang, 'Salvar na crônica', 'Save to chronicle')}</button>
-        {live
-          ? <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={onClearScreen}>{t(lang, 'Tirar do telão', 'Remove from TV')}</button>
-          : <button type="button" className="btn btn-primary btn-sm" disabled={busy || tooLong || (!text.trim() && !title.trim())} onClick={show}>📺 {t(lang, 'Mostrar no telão', 'Show on TV')}</button>}
-      </div>
-      {live && <p className="diary-recap-live small" role="status">● {t(lang, 'No telão agora', 'On the TV now')}</p>}
-    </section>
+      <label className="mesa-field">
+        <span className="mesa-field-label">{t(lang, 'Título do recap', 'Recap title')}</span>
+        <input className="input diary-recap-title" value={title} maxLength={200} onChange={e => { setTitle(e.target.value); setTouched(true); }} />
+      </label>
+      <label className="mesa-field diary-recap-textfield">
+        <span className="mesa-field-label">{t(lang, 'Texto do recap', 'Recap text')}</span>
+        <textarea className="input diary-recap-text" rows={Math.min(14, Math.max(6, text.split('\n').length + 2))} value={text}
+          onChange={e => { setText(e.target.value); setTouched(true); }} />
+      </label>
+      {tooLong && <p className="diary-error">{t(lang, 'Texto longo demais para o telão (máx. 5000 caracteres).', 'Too long for the TV (max 5000 characters).')}</p>}
+    </MesaSheet>
   );
 }
