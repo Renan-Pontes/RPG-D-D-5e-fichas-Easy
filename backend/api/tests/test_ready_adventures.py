@@ -246,6 +246,23 @@ class ReadyImportTests(TestCase):
         self.assertEqual(settings['sessionPlan']['strongStart'], 'Meu começo')
         self.assertIn('lanterna-do-moinho', settings['readyAdventures'])
 
+    def test_plan_with_only_empty_lines_is_filled(self):
+        # o Plano antigo gravava 10 pistas vazias só de abrir: a aventura pronta preenche igual
+        self.camp.dm_settings = {'sessionPlan': {'strongStart': ' ', 'scenes': [{'id': 'c1', 'text': ''}],
+                                                 'secrets': [{'id': f'p{i}', 'text': ''} for i in range(10)],
+                                                 'npcIds': [999], 'monsters': 'meus goblins'}}
+        self.camp.save()
+        r = self.c_dm.post(self.url, {'id': 'lanterna-do-moinho'}, format='json')
+        self.assertEqual(r.status_code, 201)
+        self.assertTrue(r.json()['sessionPlanFilled'])
+        plan = Campaign.objects.get(pk=self.camp.pk).dm_settings['sessionPlan']
+        self.assertEqual(len(plan['scenes']), 7)
+        self.assertEqual(len(plan['secrets']), 8)
+        self.assertTrue(all(x['text'] for x in plan['secrets']))
+        self.assertEqual(plan['npcIds'][0], 999, 'o NPC que o mestre escolheu fica')
+        self.assertTrue(plan['monsters'].startswith('meus goblins\n'))
+        self.assertEqual((plan['forSession'], plan['_rev']), (1, 1))
+
     def test_all_three_import_together_with_existing_world(self):
         WorldEntry.objects.create(campaign=self.camp, kind='place', name='Meu lugar', sort=40)
         for pid in READY.pack_ids():

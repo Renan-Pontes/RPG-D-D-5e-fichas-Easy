@@ -7,10 +7,11 @@ do mestre (PATCH/reveal); nada é revelado sozinho.
 
 GET    /api/campaigns/<c>/world              lista leve (membro; jogador filtrado)
 POST   /api/campaigns/<c>/world              cria (mestre)  { kind, name, ... }
-POST   /api/campaigns/<c>/world/sample       mundo de exemplo (mestre) { lang } — 409 se já houver entradas
+POST   /api/campaigns/<c>/world/sample       mundo de exemplo (mestre) { lang } — 409 se já houver entradas;
+                                             com o plano vazio, preenche o Plano (sessionPlanFilled)
 POST   /api/campaigns/<c>/world/seen         jogador marca o Mundo como visto
-GET    /api/campaigns/<c>/session-plan       plano da próxima sessão (mestre)
-PUT    /api/campaigns/<c>/session-plan       merge por chave (mestre)
+GET    /api/campaigns/<c>/session-plan       Plano da Sessão N (mestre)
+PUT    /api/campaigns/<c>/session-plan       merge por chave; as cenas por id (mestre)
 GET    /api/world/<pk>                       detalhe (membro; jogador filtrado; hidden = 404)
 PATCH  /api/world/<pk>                       { ...campos, version } — 409 {entry} se a versão divergir
 DELETE /api/world/<pk>
@@ -450,7 +451,8 @@ def world_sample(request, id_or_slug):
     with transaction.atomic():
         result = create_sample_world(campaign, lang)
     entries = [R.serialize_light(e, True) for e in WorldEntry.objects.filter(campaign=campaign).defer('dm_notes')]
-    return Response({'entries': entries, 'adventureId': result.get('adventureId')}, status=201)
+    return Response({'entries': entries, 'adventureId': result.get('adventureId'),
+                     'sessionPlanFilled': result.get('sessionPlanFilled', False)}, status=201)
 
 
 @api_view(['POST'])
@@ -492,8 +494,9 @@ def world_seen(request, id_or_slug):
 @api_view(['GET', 'PUT', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def session_plan(request, id_or_slug):
-    """Plano da próxima sessão (checklist do "Mestre Preguiçoso"), em
-    Campaign.dm_settings.sessionPlan. PUT/PATCH fazem merge por chave."""
+    """Plano da sessão (Preparar › Plano), em Campaign.dm_settings.sessionPlan.
+    PUT/PATCH fazem merge por chave (as cenas, por id: o bolso que não veio fica).
+    Cada gravação sobe o `_rev`; a 1ª de um plano sem dono marca `forSession`."""
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
     if request.method == 'GET':
@@ -506,7 +509,7 @@ def session_plan(request, id_or_slug):
         fresh = Campaign.objects.select_for_update().get(pk=campaign.pk)
         settings = dict(fresh.dm_settings or {})
         plan = _run(R.merged_session_plan, settings.get('sessionPlan'), patch)
-        settings['sessionPlan'] = plan
+        settings['sessionPlan'] = R.bump_session_plan(plan, fresh.state)
         settings['planRev'] = timezone.now().isoformat()   # o pulso do mestre (V4) lê só isto
         Campaign.objects.filter(pk=fresh.pk).update(dm_settings=settings)
     return Response({'plan': plan})

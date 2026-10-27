@@ -576,11 +576,18 @@ def _items(raw, limit, prefix, make):
         _bad('invalid_session_plan')
     if len(raw) > limit:
         _bad('session_plan_too_large')
+    # o id gerado (item sem id) nunca repete um id que veio na lista: senão herdaria
+    # os bolsos guardados da cena dona daquele id (merge por id, merged_session_plan)
+    sent = {short_id(it.get('id')) for it in raw if isinstance(it, dict)} - {''}
     out, used = [], set()
     for i, it in enumerate(raw):
         if not isinstance(it, dict):
             continue
-        sid = short_id(it.get('id')) or f'{prefix}{i + 1}'
+        sid = short_id(it.get('id'))
+        if not sid:
+            sid = f'{prefix}{i + 1}'
+            while sid in sent:
+                sid = f'{sid}x'
         while sid in used:
             sid = f'{sid}x'
         used.add(sid)
@@ -588,21 +595,98 @@ def _items(raw, limit, prefix, make):
     return out
 
 
+# Os bolsos da cena (§3.7 da especificação da área do mestre v2): cada um só entra no
+# patch quando VEIO no item. O que não veio fica como estava (merge por id da cena),
+# para um app antigo em cache, que regrava `scenes` só com texto/feita/sala, não apagar
+# o que o novo pôs na cena. Os limites dos monstros personalizados (`snap`) vêm com a folha
+# da Cena (V6); até lá eles não são guardados.
+SCENE_CORE = ('text', 'nodeRef', 'done')
+CHECK_KINDS = ('skill', 'save', 'ability')
+SPOT_RE = re.compile(r'^[A-Za-z0-9_:-]{1,40}$')
+
+
+def _scene_show(v):
+    if not isinstance(v, dict):
+        return None
+    if v.get('kind') == 'entry':
+        eid = to_int(v.get('id'), 1, 10**10)
+        return {'kind': 'entry', 'id': eid} if eid else None
+    if v.get('kind') == 'node':
+        aid = to_int(v.get('advId'), 1, 10**10)
+        nid = short_id(v.get('nodeId'), 40)
+        return {'kind': 'node', 'advId': aid, 'nodeId': nid} if aid and nid else None
+    return None
+
+
+def _scene_fight(v):
+    if not isinstance(v, list):
+        return []
+    out = []
+    for m in v[:6]:
+        if not isinstance(m, dict):
+            continue
+        mid = short_id(m.get('monsterId'), 60)
+        name = text(m.get('name'), 80)
+        if not mid and not name:
+            continue
+        cr = m.get('cr')
+        cr = float(cr) if isinstance(cr, numbers.Number) and not isinstance(cr, bool) and 0 <= cr <= 30 else None
+        out.append({'monsterId': mid, 'name': name, 'cr': cr, 'count': to_int(m.get('count'), 1, 20, 1)})
+    return out
+
+
+def _scene_check(v):
+    if not isinstance(v, dict) or v.get('kind') not in CHECK_KINDS:
+        return None
+    key = short_id(v.get('key'), 30)
+    if not key:
+        return None
+    out = {'kind': v['kind'], 'key': key}
+    dc = to_int(v.get('dc'), 1, 40)
+    if dc:
+        out['dc'] = dc
+    if v.get('dcHidden'):
+        out['dcHidden'] = True
+    return out
+
+
+SCENE_POCKETS = {
+    'what': lambda v: long_text(v, 500),
+    'read': lambda v: long_text(v, 1000),
+    'show': _scene_show,
+    'showOnStart': bool,
+    'refs': lambda v: _id_list(v, 8),
+    'fight': _scene_fight,
+    'check': _scene_check,
+    'spots': lambda v: [x for x in v[:20] if isinstance(x, str) and SPOT_RE.match(x)][:4] if isinstance(v, list) else [],
+    'notes': lambda v: long_text(v, 1000),
+}
+
+
+def _clean_scene(it):
+    out = {'text': long_text(it.get('text'), 1000), 'nodeRef': _ref_node(it.get('nodeRef')),
+           'done': bool(it.get('done'))}
+    for key, clean in SCENE_POCKETS.items():
+        if key in it:
+            out[key] = clean(it[key])
+    return out
+
+
 SESSION_PLAN_DEFAULT = {'strongStart': '', 'scenes': [], 'secrets': [], 'npcIds': [],
-                        'placeIds': [], 'monsters': '', 'rewards': ''}
+                        'placeIds': [], 'monsters': '', 'rewards': '',
+                        # de qual sessão é o plano (o título diz) e a versão (sobe a cada PUT)
+                        'forSession': None, '_rev': 0}
 
 
 def clean_session_plan_patch(raw):
-    """Valida as chaves presentes (merge por chave no servidor)."""
+    """Valida as chaves presentes (merge por chave no servidor; `_rev` é só do servidor)."""
     if not isinstance(raw, dict):
         _bad('invalid_session_plan')
     out = {}
     if 'strongStart' in raw:
         out['strongStart'] = long_text(raw['strongStart'], 4000)
     if 'scenes' in raw:
-        out['scenes'] = _items(raw['scenes'], 30, 'c', lambda it: {
-            'text': long_text(it.get('text'), 1000), 'nodeRef': _ref_node(it.get('nodeRef')),
-            'done': bool(it.get('done'))})
+        out['scenes'] = _items(raw['scenes'], 30, 'c', _clean_scene)
     if 'secrets' in raw:
         out['secrets'] = _items(raw['secrets'], 30, 'p', lambda it: {
             'text': long_text(it.get('text'), 1000), 'ref': _ref_entry(it.get('ref')),
@@ -615,17 +699,75 @@ def clean_session_plan_patch(raw):
         out['monsters'] = long_text(raw['monsters'], 4000)
     if 'rewards' in raw:
         out['rewards'] = long_text(raw['rewards'], 4000)
+    if 'forSession' in raw:
+        out['forSession'] = to_int(raw['forSession'], 1, 9999)
     return out
+
+
+def _merge_scenes(current, incoming):
+    """Cenas do patch por cima das guardadas, pelo id: o bolso que não veio continua."""
+    before = {s.get('id'): s for s in current or [] if isinstance(s, dict) and s.get('id')}
+    return [{**before.get(s['id'], {}), **s} for s in incoming]
 
 
 def merged_session_plan(current, patch):
     plan = dict(SESSION_PLAN_DEFAULT)
     if isinstance(current, dict):
         plan.update({k: v for k, v in current.items() if k in SESSION_PLAN_DEFAULT})
+    patch = dict(patch)
+    if 'scenes' in patch:
+        patch['scenes'] = _merge_scenes(plan.get('scenes'), patch['scenes'])
     plan.update(patch)
     if json_size(plan) > MAX_SESSION_PLAN_BYTES:
         _bad('session_plan_too_large')
     return plan
+
+
+def bump_session_plan(plan, state):
+    """Antes de gravar: `_rev` + 1 e, no 1º PUT de um plano sem dono, a sessão dele
+    (a de hoje com a sessão ao vivo; senão a próxima)."""
+    plan['_rev'] = (to_int(plan.get('_rev'), 0, 10**9, 0) or 0) + 1
+    if not plan.get('forSession'):
+        plan['forSession'] = plan_session_number(state)
+    return plan
+
+
+def plan_session_number(state):
+    """Nº da sessão de um plano novo: a ao vivo (é o plano de hoje) ou a próxima."""
+    state = state if isinstance(state, dict) else {}
+    raw = state.get('session')
+    m = re.search(r'\d+', str(raw if raw is not None else ''))
+    cur = int(m.group()) if m and not isinstance(raw, bool) else 0
+    return max(1, cur if state.get('live') and cur else cur + 1)
+
+
+def session_plan_is_empty(plan):
+    """Plano "vazio" para quem preenche sozinho (aventura pronta, exemplo): sem começo,
+    sem cena e sem pista de verdade. Linhas vazias não contam (são só da tela)."""
+    plan = plan if isinstance(plan, dict) else {}
+    filled = lambda items, ref: any(
+        isinstance(x, dict) and (str(x.get('text') or '').strip() or x.get(ref)) for x in items or [])
+    return not (str(plan.get('strongStart') or '').strip()
+                or filled(plan.get('scenes'), 'nodeRef') or filled(plan.get('secrets'), 'ref'))
+
+
+def fill_empty_session_plan(current, patch, state):
+    """Plano vazio + o que veio (aventura pronta, exemplo). As pessoas e os lugares que o
+    mestre já tinha escolhido ficam, e as anotações dele vêm antes das do pacote; as linhas
+    vazias saem (as cenas novas não herdam bolsos pelo id). O plano é o da sessão de hoje
+    (ao vivo) ou o da próxima."""
+    cur = current if isinstance(current, dict) else {}
+    patch = dict(patch)
+    for key in ('npcIds', 'placeIds'):
+        if key in patch:
+            patch[key] = _id_list(list(cur.get(key) or []) + list(patch[key]), 60)
+    for key in ('monsters', 'rewards'):
+        old = str(cur.get(key) or '').strip()
+        if key in patch and old:
+            patch[key] = long_text(f'{old}\n{patch[key]}', 4000)
+    plan = merged_session_plan({**cur, 'scenes': [], 'secrets': []}, patch)
+    plan['forSession'] = None
+    return bump_session_plan(plan, state)
 
 
 # ------------------------------------------------------------------ Raio-X do grupo
