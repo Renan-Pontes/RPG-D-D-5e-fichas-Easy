@@ -88,6 +88,7 @@
 .ns-tick { display: grid; place-items: center; width: 40px; height: 40px; margin: 0; cursor: pointer; }
 .ns-tick input { width: 20px; height: 20px; accent-color: var(--gold); cursor: pointer; }
 .ns-row-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ns-row-note { margin: 0; font-size: 0.9rem; line-height: 1.35; color: var(--ink-secondary); overflow-wrap: anywhere; }
 .ns-row-tools { display: flex; gap: 2px; }
 .ns-row-tools .btn-icon { min-width: 32px; min-height: 36px; padding: 0 6px; }
 .ns-row-tools .danger { color: var(--blood-bright); }

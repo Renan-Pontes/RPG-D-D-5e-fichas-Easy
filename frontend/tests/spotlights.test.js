@@ -8,6 +8,8 @@ import Utils from '../utils.js';
 import * as M from '../src/group/party-metrics.js';
 import * as S from '../src/group/spotlights.js';
 import { rollChance } from '../src/group/party-best.js';
+import { sceneFieldText } from '../src/play/plan-model.js';
+import { sceneParts, withSceneName } from '../src/prep/next-session.js';
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/party-jogo-e-combate.json', import.meta.url), 'utf8'));
 const party = M.partyMembers(fixture.members);
@@ -151,8 +153,35 @@ test('aconteceu grava o nº da sessão (a regra do servidor) e o filtro da lista
   assert.deepEqual(S.filterMoments(S.updateMoment(old, 'm1', { done: null }), 'session', 3).map(m => m.id), ['m1']);
   assert.equal(S.filterMoments(old, 'all', 3).length, 2);
   assert.deepEqual(S.removeMoment(old, 'm1').map(m => m.id), ['m2']);
-  assert.equal(S.momentSceneText(list[0], 'Pipo Mão-Leve', 'pt'), '★ Pipo · Brilha: Fechadura que só o Pipo abre');
-  assert.equal(S.momentSceneText({ kind: 'push', text: 'Medo' }, 'Kaelor', 'en'), '↗ Kaelor · Challenges: Medo');
+  assert.equal(S.momentSceneText(list[0], 'Pipo Mão-Leve', 'pt'), 'Cena nova\n★ Pipo · Brilha: Fechadura que só o Pipo abre');
+  assert.equal(S.momentSceneText({ kind: 'push', text: 'Medo' }, 'Kaelor', 'en'), 'New scene\n↗ Kaelor · Challenges: Medo');
+});
+
+test('"→ Cena" + "Usar como cena": nada do momento chega à Tela nem ao jogador (§6.8)', () => {
+  // as sugestões de todos (com % e CD) e um momento escrito à mão, nas duas línguas
+  const all = Object.entries(S.momentSuggestions(facts, { dc: 15 })).flatMap(([id, l]) => l.map(s => [id, s]));
+  const hand = S.writeMoment([], 'shine', 'Uma fechadura que só ele abre').list[0];
+  for (const lang of ['pt', 'en']) {
+    for (const [id, m] of [...all, [PIPO, hand]]) {
+      const name = party.find(p => String(p.id) === String(id)).name;
+      const text = S.momentSceneText(m, name, lang);
+      // a regra de "Usar como cena" (play/plan-model.sceneFieldText): só a 1ª linha vai para state.scene
+      const onScreen = sceneFieldText({ text });
+      assert.equal(onScreen, lang === 'pt' ? 'Cena nova' : 'New scene');
+      for (const bad of ['%', 'CD', 'DC', '★', '↗', '✎', 'Desafia', 'Brilha', 'Gancho', 'Challenges', 'Shines', 'Hook', M.firstName(name)]) {
+        assert.ok(!onScreen.includes(bad), `${lang} ${m.auto}: "${onScreen}" tem ${bad}`);
+      }
+    }
+  }
+  // na Próxima sessão o campo de uma linha edita só o nome: as notas (o momento) ficam na 2ª linha
+  const text = S.momentSceneText(hand, 'Pipo Mão-Leve', 'pt');
+  assert.deepEqual(sceneParts(text), { name: 'Cena nova', notes: '★ Pipo · Brilha: Uma fechadura que só ele abre' });
+  const renamed = withSceneName(text, 'O cofre do porto');
+  assert.equal(renamed, 'O cofre do porto\n★ Pipo · Brilha: Uma fechadura que só ele abre');
+  assert.equal(sceneFieldText({ text: renamed }), 'O cofre do porto');
+  assert.equal(withSceneName('Taverna', 'Taverna do Malte'), 'Taverna do Malte', 'cena sem notas continua de uma linha');
+  assert.equal(withSceneName(text, 'a\nb'), 'a b\n★ Pipo · Brilha: Uma fechadura que só ele abre', 'quebra no nome não vira linha nova');
+  assert.deepEqual(sceneParts('Só nome\n  \n'), { name: 'Só nome', notes: '' });
 });
 
 test('G9: Equilíbrio na mesa — momentos nas últimas 5 sessões, testes nas últimas 3 e o alerta', () => {

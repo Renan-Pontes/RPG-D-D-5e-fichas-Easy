@@ -384,9 +384,13 @@ export function filterMoments(list, filter, session) {
   return cur.filter(m => m.done == null || m.done === session);
 }
 
-/** Texto da cena nova que o "→ Cena" põe no plano. */
+/**
+ * Texto da cena nova que o "→ Cena" põe no plano. A 1ª linha é o nome da cena e é a que
+ * "Usar como cena" leva à Tela e ao jogador (plan-model.sceneFieldText): fica neutra. O
+ * momento (★/↗, o nome, %, CD) vai da 2ª linha em diante, que só o mestre vê (§6.8).
+ */
 export function momentSceneText(moment, name, lang = 'pt') {
-  return `${kindIcon(moment.kind)} ${firstName(name)} · ${kindLabel(moment.kind, lang)}: ${moment.text}`.slice(0, 1000);
+  return `${t(lang, 'Cena nova', 'New scene')}\n${kindIcon(moment.kind)} ${firstName(name)} · ${kindLabel(moment.kind, lang)}: ${moment.text}`.slice(0, 1000);
 }
 
 /**

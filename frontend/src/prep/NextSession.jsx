@@ -7,6 +7,7 @@ import { prepApi } from './prep-api.js';
 import {
   normalizePlan, addScene, addSecret, updateItem, removeItem, moveItem, toggleId, padSecrets,
   toggleDiscovered, revealBodyFor, planDiff, planProgress, carryOver, textForRef, SECRET_GOAL, PLAN_LIMITS,
+  sceneParts, withSceneName,
 } from './next-session.js';
 import { WORLD_KINDS } from './prep-world.js';
 // Ícones e nomes dos tipos vêm do Mundo, para casar com o Atlas (🧑 NPCs, ⚜️ Facções, 📜 Histórias).
@@ -297,17 +298,23 @@ export default function NextSession({ campaign, lang, goTo }) {
       <Step id="scenes" n={3} lang={lang} done={stepDone.scenes}
         hint={t(lang, 'Algumas cenas que podem acontecer. Não é roteiro: o grupo decide a ordem.', 'A few scenes that might happen. Not a script: the party picks the order.')}>
         <ol className="ns-list">
-          {plan.scenes.map((s, i) => (
+          {plan.scenes.map((s, i) => {
+            // o campo edita só o nome (1ª linha); as notas do mestre ficam embaixo, só para ele
+            const { name, notes } = sceneParts(s.text);
+            return (
             <li key={s.id} className={`ns-row ${s.done ? 'is-done' : ''}`}>
               <label className="ns-tick" title={t(lang, 'Aconteceu', 'Happened')}>
                 <input type="checkbox" checked={s.done} onChange={() => change(p => updateItem(p, 'scenes', s.id, { done: !s.done }))}
                   aria-label={t(lang, `Cena ${i + 1} aconteceu`, `Scene ${i + 1} happened`)} />
               </label>
               <div className="ns-row-body">
-                <input className="input" value={s.text} maxLength={PLAN_LIMITS.text}
+                <input className="input" value={name} maxLength={Math.max(1, PLAN_LIMITS.text - (notes ? notes.length + 1 : 0))}
                   aria-label={t(lang, `Cena ${i + 1}`, `Scene ${i + 1}`)}
                   placeholder={t(lang, 'Ex.: Negociar com a sacerdotisa no templo alagado', 'E.g. Bargain with the priestess in the flooded temple')}
-                  onChange={e => change(p => updateItem(p, 'scenes', s.id, { text: e.target.value }))} />
+                  onChange={e => change(p => updateItem(p, 'scenes', s.id, { text: withSceneName(s.text, e.target.value) }))} />
+                {notes && (
+                  <p className="ns-row-note">🔒 {t(lang, 'Notas (só você vê)', 'Notes (only you see)')}: {notes.split('\n').filter(x => x.trim()).join(' · ')}</p>
+                )}
                 <SceneLink value={s.nodeRef} adventures={adventures} lang={lang} loadNodes={loadNodes}
                   onChange={(ref) => change(p => updateItem(p, 'scenes', s.id, { nodeRef: ref }))}
                   onOpen={goTo ? (ref) => goTo('prepare', 'adventures', { adventureId: ref.adventureId, nodeId: ref.nodeId }) : null} />
@@ -316,7 +323,8 @@ export default function NextSession({ campaign, lang, goTo }) {
                 onUp={() => change(p => moveItem(p, 'scenes', s.id, -1))} onDown={() => change(p => moveItem(p, 'scenes', s.id, 1))}
                 onRemove={() => change(p => removeItem(p, 'scenes', s.id))} />
             </li>
-          ))}
+            );
+          })}
         </ol>
         {plan.scenes.length === 0 && <p className="muted small">{t(lang, 'Nenhuma cena ainda. Três ou quatro já bastam.', 'No scenes yet. Three or four are plenty.')}</p>}
         <button type="button" className="btn btn-ghost btn-sm" disabled={plan.scenes.length >= PLAN_LIMITS.scenes} onClick={() => change(p => addScene(p))}>＋ {t(lang, 'Cena', 'Scene')}</button>
