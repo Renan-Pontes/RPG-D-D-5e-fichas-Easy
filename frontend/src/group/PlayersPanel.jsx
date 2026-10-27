@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { tName } from '../../data/i18n.js';
@@ -8,7 +8,9 @@ import DMCharacterEditor from '../campaigns/DMCharacterEditor.jsx';
 import { editLogEntries, formatEditLogDate } from '../campaigns/edit-log.js';
 import GiveItemModal from '../campaigns/GiveItemModal.jsx';
 import MoreMenu from './MoreMenu.jsx';
+import { useArea } from '../shell/useArea.js';
 import { groupApi } from './group-api.js';
+import useRaioX from './useRaioX.js';
 import { charLine, fmtMod, hpTone, levelupFor, memberStats, t, xpProgress } from './group-model.js';
 
 const condName = (c, lang) => (c === 'exhaustion' ? t(lang, 'Exaustão', 'Exhaustion') : tName('condition', c, lang));
@@ -20,6 +22,9 @@ const condName = (c, lang) => (c === 'exhaustion' ? t(lang, 'Exaustão', 'Exhaus
  * ficha tiver, ver campaigns/edit-log.js), encerrar forma selvagem (só
  * druida em forma) e remover da mesa. Jogador: trocar o próprio personagem e
  * sair da campanha (com confirmação; a ficha continua com ele).
+ * Mestre: 2 chips com os papéis mais fortes de cada personagem no Raio-X ("Cura 5 ·
+ * Magia 5"); tocar abre Grupo › Raio-X com ele em destaque (useRaioX: as contas chegam
+ * por import dinâmico e os ajustes do mestre 1 vez por campanha).
  */
 export default function PlayersPanel({ campaign, lang, isDM, characters = [], approvals = [], ask, notify, onChange, onLeft }) {
   const [editing, setEditing] = useState(null);
@@ -30,6 +35,8 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
   const dm = members.find(m => m.role === 'dm');
   const players = members.filter(m => m.role !== 'dm');
   const meId = typeof window !== 'undefined' ? window.__currentUserId__ : null;
+  const { goTo } = useArea();
+  const roles = usePartyRoles(campaign, isDM, lang);
 
   const run = async (fn, ok) => {
     try { await fn(); if (ok) notify?.(ok); onChange?.(); } catch (e) { notify?.(errorMessage(e, lang), 'error'); }
@@ -98,7 +105,9 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
             onEdit={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data })}
             onLog={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data, section: 'log' })}
             onGive={campaign.status === 'closed' ? null : () => setGiving({ id: m.character.id, name: m.character.name })}
-            onEndForm={() => endForm(m)} onRemove={() => removeMember(m)} onLeave={leave} />
+            onEndForm={() => endForm(m)} onRemove={() => removeMember(m)} onLeave={leave}
+            roles={isDM && m.character?.data ? (roles ? roles[m.character.id] || [] : null) : undefined}
+            onRoles={() => goTo('group', 'insights', { focus: m.character.id })} />
         ))}
       </div>
 
@@ -132,7 +141,24 @@ function Portrait({ stats, name }) {
   return <span className="grp-portrait is-initial" aria-hidden="true">{(name || '?').charAt(0).toUpperCase()}</span>;
 }
 
-function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, assigning, characters, onAssignStart, onAssignCancel, onAssign, onEdit, onLog, onGive, onEndForm, onRemove, onLeave }) {
+/** {id da ficha: [{key, label, v}]} — os 2 papéis mais fortes no Raio-X (null enquanto carrega). */
+function usePartyRoles(campaign, isDM, lang) {
+  const members = campaign.members || [];
+  const has = isDM && members.some(m => m.role !== 'dm' && m.character?.data);
+  const rx = useRaioX(campaign.id, has);
+  // a mesma ficha → as mesmas contas (o GET da campanha chega a cada poucos segundos)
+  const key = members.map(m => `${m.character?.id}:${JSON.stringify(m.character?.data || null)}`).join('|');
+  return useMemo(() => {
+    if (!rx) return null;
+    const { PM, ins } = rx;
+    const facts = PM.partyFacts(PM.partyMembers(members), lang);
+    const opts = { w: ins.w, base: ins.base, hidden: ins.hidden };
+    const avg = PM.partyAxes(facts, opts).axes;
+    return Object.fromEntries(facts.map(f => [f.id, PM.topRoles(f, { ...opts, avg }).map(r => ({ ...r, label: `${PM.axisLabel(r.key, lang)} ${PM.fmt(r.v, lang)}` }))]));
+  }, [rx, key, lang]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, assigning, characters, onAssignStart, onAssignCancel, onAssign, onEdit, onLog, onGive, onEndForm, onRemove, onLeave, roles, onRoles }) {
   const c = m.character;
   const s = memberStats(m);
   const log = isDM ? editLogEntries(c?.data) : [];
@@ -175,6 +201,19 @@ function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, assigning,
             <div className="grp-xp" title={xp.next ? `${xp.xp} / ${xp.next} XP` : `${xp.xp} XP`}>
               <div className="grp-xp-bar"><div style={{ width: `${xp.pct}%` }} /></div>
               <span className="muted small">{xp.next ? `${xp.xp} / ${xp.next} XP` : `${xp.xp} XP · ${t(lang, 'nível máximo', 'max level')}`}</span>
+            </div>
+          )}
+          {/* mestre: o lugar dos 2 chips fica reservado enquanto as contas chegam (nada pula) */}
+          {roles !== undefined && (
+            <div className="grp-roles" role="group" aria-label={t(lang, `Papéis mais fortes de ${c.name} no Raio-X`, `${c.name}'s strongest roles in the X-ray`)}>
+              {roles === null
+                ? <span className="grp-roles-wait muted small">{t(lang, 'Raio-X…', 'X-ray…')}</span>
+                : roles.map(r => (
+                  <button key={r.key} type="button" className="mesa-chip grp-role-chip" onClick={onRoles}
+                    aria-label={t(lang, `${r.label}: abrir o Raio-X com ${c.name} em destaque`, `${r.label}: open the X-ray highlighting ${c.name}`)}>
+                    ✦ {r.label}
+                  </button>
+                ))}
             </div>
           )}
           <div className="grp-badges">

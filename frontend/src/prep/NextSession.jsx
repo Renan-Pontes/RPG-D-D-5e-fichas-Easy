@@ -13,6 +13,7 @@ import { WORLD_KINDS } from './prep-world.js';
 import { kindIcon, kindLabel } from '../world/world-model.js';
 import WorldRefs from './WorldRefs.jsx';
 import usePrepConfirm from './usePrepConfirm.jsx';
+import useRaioX from '../group/useRaioX.js';
 import './next-session.css';
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
@@ -188,6 +189,16 @@ export default function NextSession({ campaign, lang, goTo }) {
   const progress = useMemo(() => (plan ? planProgress(plan) : null), [plan]);
   const party = (campaign.members || []).filter(m => m.role !== 'dm');
 
+  // Passo 1 com o Raio-X: "brilha em…, fraco em…", o estilo do jogador e os momentos que
+  // ainda não aconteceram (as contas e os ajustes chegam sob demanda: useRaioX).
+  const rx = useRaioX(campaign.id, party.some(m => m.character?.data));
+  const sheetsKey = party.map(m => `${m.character?.id}:${JSON.stringify(m.character?.data || null)}`).join('|');
+  const raiox = useMemo(() => {
+    if (!rx) return null;
+    const facts = rx.PM.partyFacts(rx.PM.partyMembers(campaign.members), lang);
+    return { facts, byId: Object.fromEntries(facts.map(f => [f.id, f])) };
+  }, [rx, sheetsKey, lang]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!plan) {
     return (
       <div className="ns">
@@ -236,20 +247,35 @@ export default function NextSession({ campaign, lang, goTo }) {
           <p className="muted small">{t(lang, 'Ninguém entrou ainda. Convide os jogadores em Grupo.', 'Nobody has joined yet. Invite players under Party.')}
             {goTo && <> <button type="button" className="linklike" onClick={() => goTo('group', 'players')}>{t(lang, 'Ir para Grupo', 'Go to Party')} →</button></>}</p>
         ) : (
-          <ul className="ns-party">
+          <ul className={`ns-party ${party.some(m => m.character?.data) ? 'has-raiox' : ''}`}>
             {party.map(m => {
               const d = m.character?.data || {};
               const sum = m.character?.summary || {};
               const cls = d.className || sum.className;
               const avatar = d.avatar || sum.avatar;
+              const f = raiox?.byId[m.character?.id];
+              const key = String(m.character?.id);
+              const style = rx?.ins.style?.[key] || [];
+              const open = (rx?.ins.spotlights?.[key] || []).filter(x => x.done == null);
               return (
                 <li key={m.id}>
                   {avatar ? <img src={avatar} alt="" /> : <span className="ns-party-ph" aria-hidden="true">🛡</span>}
-                  <span>
+                  <span className="ns-party-who">
                     <strong>{m.character?.name || m.user?.displayName || '?'}</strong>
                     <span className="muted small">{m.character
                       ? ` ${cls ? tName('class', cls, lang) : ''} ${t(lang, 'nível', 'level')} ${d.level || sum.level || 1}`
                       : ` ${t(lang, 'sem personagem', 'no character')}`}</span>
+                    {f && <span className="ns-party-line">{rx.S.partyLine(f, raiox.facts, lang)}</span>}
+                    {f && style.length > 0 && <span className="ns-party-line is-style">{style.map(x => rx.S.styleLabel(x, lang)).join(' · ')}</span>}
+                    {f && open.slice(0, 2).map(x => (
+                      <span key={x.id} className="ns-party-line is-moment">{rx.S.kindIcon(x.kind)} {x.text}{x.plan ? ` · ${t(lang, '📜 numa cena', '📜 in a scene')}` : ''}</span>
+                    ))}
+                    {f && open.length > 2 && <span className="ns-party-line is-moment">{t(lang, `+${open.length - 2} momento(s)`, `+${open.length - 2} moment(s)`)}</span>}
+                    {f && goTo && (
+                      <button type="button" className="mesa-btn is-quiet ns-party-go" onClick={() => goTo('group', 'insights', { focus: m.character.id })}>
+                        ✦ {t(lang, 'Momentos no Raio-X ›', 'Moments in the X-ray ›')}
+                      </button>
+                    )}
                   </span>
                 </li>
               );

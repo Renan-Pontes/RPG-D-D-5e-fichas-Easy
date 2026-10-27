@@ -89,6 +89,9 @@
 .grp-xp-bar { height: 6px; border-radius: 999px; background: var(--bg-deep); overflow: hidden; }
 .grp-xp-bar > div { height: 100%; background: linear-gradient(90deg, var(--arcane), var(--arcane-bright)); }
 
+/* 2 chips do Raio-X (mestre): altura reservada enquanto as contas carregam */
+.grp-roles { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 44px; }
+.grp-role-chip.mesa-chip { padding: 6px 12px; font-size: 0.92rem; color: var(--ink-primary); }
 .grp-badges { display: flex; flex-wrap: wrap; gap: 4px; }
 .grp-badges:empty { display: none; }
 .grp-badge {

@@ -284,7 +284,7 @@ export default function NodeEditor({
       </div>
 
       {picker === 'monster' && (
-        <MonsterPicker lang={lang} levelingMode={campaign.state?.levelingMode || 'milestone'} showInitiative={false}
+        <MonsterPicker lang={lang} levelingMode={campaign.state?.levelingMode || 'milestone'} showInitiative={false} members={campaign.members}
           confirmLabel={t(lang, 'Adicionar ao encontro', 'Add to encounter')}
           onClose={() => setPicker(null)}
           onPick={(monster, count) => {
