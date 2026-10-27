@@ -514,6 +514,34 @@ export function mainDamage(f) {
     .sort((a, b) => b.exp - a.exp);
 }
 
+// ---------------------------------------------------------------- ganchos (fora do Raio-X)
+/**
+ * Pedir teste: o melhor da mesa numa perícia ou salvaguarda e a chance na CD — só com
+ * Utils.skillBonus/saveBonus (sem a ficha inteira em números, que a folha não precisa).
+ * `party` = partyMembers(members).
+ */
+export function bestAt(party, kind, key, dc = 15) {
+  const vals = (party || []).map(p => ({
+    id: p.id, name: p.name,
+    b: safe(() => (kind === 'save' ? Utils.saveBonus(p.data, key) : Utils.skillBonus(p.data, key)), 0) || 0,
+  }));
+  if (!vals.length) return null;
+  const best = Math.max(...vals.map(v => v.b));
+  const who = vals.filter(v => v.b === best);
+  return { best, who: who.map(v => v.name), whoIds: who.map(v => v.id), p: pct(chance(best, dc)), group: pct(groupChance(vals.map(v => v.b), dc)), dc };
+}
+
+/**
+ * Os papéis mais fortes de um personagem (cartão de Grupo › Jogadores): "Cura 5 · Magia 5".
+ * Empate: vem antes o papel em que ele mais passa da média do grupo (`avg` = partyAxes().axes).
+ */
+export function topRoles(f, { w = 0.5, base = null, hidden = [], avg = null } = {}, n = 2) {
+  const s = axisScores(f, { w, base });
+  const lift = (k) => s[k].final - (avg?.[k]?.avg ?? 0);
+  return AXES.filter(k => !hidden.includes(k)).map(k => ({ key: k, v: s[k].final }))
+    .sort((a, b) => b.v - a.v || lift(b.key) - lift(a.key) || AXES.indexOf(a.key) - AXES.indexOf(b.key)).slice(0, n);
+}
+
 // ---------------------------------------------------------------- "Por quê"
 /** Folha "Por quê" de um eixo, para um personagem: base → ficha → final e os motivos. */
 export function whyAxis(f, axis, { w = 0.5, base = null } = {}) {

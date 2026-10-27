@@ -1,4 +1,4 @@
-// Monstro × grupo (Raio-X › Contra quem? e, depois, o Escolher monstro): sem React —
+// Monstro × grupo (Raio-X › Contra quem? e a linha "× grupo" do Escolher monstro): sem React —
 // testado em tests/versus.test.js. Cruza o monstro (data/bestiary.js ou "meus
 // monstros") com os fatos do grupo (party-metrics.sheetFacts):
 //  - o dano principal de cada um × resistência / imunidade / vulnerabilidade;
@@ -74,9 +74,10 @@ export function versus(m, facts, lang = 'pt', { lowChance = 40 } = {}) {
   for (const r of rows) {
     if (!r.main || r.k >= 1) continue;
     const who = firstName(r.name);
+    // "resiste a trovejante (o melhor dano de Elarion)": o tipo primeiro, quem perde depois
     parts.push(r.k === 0
-      ? tx(`imune ao melhor dano de ${who} (${damageLabel(r.main.type, lang)})`, `immune to ${who}'s best damage (${r.main.type})`)
-      : tx(`resiste ao melhor dano de ${who} (${damageLabel(r.main.type, lang)})`, `resists ${who}'s best damage (${r.main.type})`));
+      ? tx(`imune a ${damageLabel(r.main.type, lang)} (o melhor dano de ${who})`, `immune to ${r.main.type} (${who}'s best damage)`)
+      : tx(`resiste a ${damageLabel(r.main.type, lang)} (o melhor dano de ${who})`, `resists ${r.main.type} (${who}'s best damage)`));
   }
   for (const s of saves) {
     const weak = s.chances.filter(c => c.p <= lowChance);

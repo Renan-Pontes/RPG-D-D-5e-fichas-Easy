@@ -1,10 +1,11 @@
-// Raio-X do grupo: lacunas (G7), os 4 quadros (G0), as 3 ideias de cena e as
-// sugestões de "brilhar" — sem React, testado em tests/party-gaps.test.js.
-// Regras fixas no navegador (§6.3.6 e §6.3.7); nada aqui é gravado: o que o mestre
-// aceita vai para partyInsights pelo PUT (os momentos completos entram na V2).
+// Raio-X do grupo: lacunas (G7), os 4 quadros (G0), as 3 ideias de cena, os Momentos
+// (G8: sugerir, aceitar, escrever, dispensar, aconteceu), o estilo do jogador e o
+// Equilíbrio na mesa (G9) — sem React, testado em tests/party-gaps.test.js e
+// tests/spotlights.test.js. Regras fixas no navegador (§6.3.6, §6.3.7, §6.5 e §6.6);
+// nada aqui é gravado: o que o mestre aceita vai para partyInsights pelo PUT.
 import {
-  ABILS, abilShort, AXES, axisLabel, chance, DAMAGE_TYPES, damageLabel, firstName, fmt, mainDamage,
-  partyLevel, pct, bRef, SKILLS, skillLabel, t,
+  ABILS, abilShort, AXES, axisLabel, axisScores, chance, DAMAGE_TYPES, damageLabel, firstName, fmt, fmtMod, mainDamage,
+  partyAxes, partyLevel, pct, bRef, SKILLS, skillLabel, t,
 } from './party-metrics.js';
 
 export const SOCIAL_SKILLS = ['persuasion', 'deception', 'intimidation', 'performance', 'insight'];
@@ -132,62 +133,280 @@ export function gapGroups(gaps, lang = 'pt') {
   return GAP_GROUPS.map(g => ({ id: g.id, label: L2(g.label, lang), items: list.filter(x => g.kinds.includes(x.kind)) })).filter(g => g.items.length);
 }
 
+// ---------------------------------------------------------------- momentos (G8) e estilo
+// Os 3 tipos de momento (ícone E palavra) e as 6 marcas do estilo do jogador (§6.5).
+export const MOMENT_KINDS = ['shine', 'push', 'hook'];
+const KIND_INFO = {
+  shine: { icon: '★', label: ['Brilha', 'Shines'] },
+  push: { icon: '↗', label: ['Desafia', 'Challenges'] },
+  hook: { icon: '✎', label: ['Gancho', 'Hook'] },
+};
+export const kindIcon = (k) => KIND_INFO[k]?.icon || '★';
+export const kindLabel = (k, lang) => L2(KIND_INFO[k]?.label || KIND_INFO.shine.label, lang);
+export const STYLES = [
+  { id: 'talk', icon: '🗣', label: ['gosta de conversar', 'likes to talk'] },
+  { id: 'quiet', icon: '🤐', label: ['fala pouco', 'quiet'] },
+  { id: 'combat', icon: '⚔', label: ['gosta de luta', 'likes combat'] },
+  { id: 'puzzle', icon: '🧩', label: ['gosta de enigma', 'likes puzzles'] },
+  { id: 'explore', icon: '🧭', label: ['gosta de explorar', 'likes exploring'] },
+  { id: 'story', icon: '📖', label: ['gosta de história', 'likes story'] },
+];
+export const styleLabel = (id, lang) => { const s = STYLES.find(x => x.id === id); return s ? `${s.icon} ${L2(s.label, lang)}` : id; };
+// Os mesmos limites do servidor (world_rules.py: MAX_SPOTLIGHTS, MAX_SPOTLIGHT_TEXT, MAX_DISMISSED).
+export const MAX_MOMENTS = 12;
+export const MAX_MOMENT_TEXT = 160;
+export const MAX_DISMISSED = 40;
+// Falar em público: o que o "fala pouco" nunca recebe como desafio e não ganha como 1º ★.
+export const PUBLIC_SKILLS = ['persuasion', 'deception', 'intimidation', 'performance'];
+const PUSH_SKILLS = ['perception', 'insight', 'athletics', 'persuasion', 'stealth'];
+const PUSH_SAVES = ['dex', 'con', 'wis'];
+const INT_SKILLS = ['arcana', 'history', 'investigation', 'nature', 'religion'];
+
+/** De que assunto é uma sugestão (o estilo do jogador puxa as do assunto dele para cima). */
+function topicOf(auto) {
+  const [kind, key = ''] = String(auto).split(':');
+  if (kind === 'skill') {
+    if (SOCIAL_SKILLS.includes(key)) return 'talk';
+    if (INT_SKILLS.includes(key) && !EXPLORE_SKILLS.includes(key)) return 'puzzle';
+    if (EXPLORE_SKILLS.includes(key)) return 'explore';
+    return null;
+  }
+  if (kind === 'tool' || kind === 'sense') return 'explore';
+  if (kind === 'dmg' || auto === 'role:control' || auto === 'axis:melee' || auto === 'axis:dmg' || auto === 'axis:mit') return 'combat';
+  return null;
+}
+
 /**
- * Sugestões de "brilhar" (★) e o gancho da história (✎) por personagem — a semente
- * dos Momentos (V2). `auto` é a chave estável da sugestão (dispensar grava só ela).
+ * Sugestões de momento por personagem (calculadas aqui, NÃO gravadas): ★ Brilha, ↗ Desafia
+ * e ✎ Gancho (§6.6), já com o estilo do jogador (§6.5). `auto` é a chave estável da
+ * sugestão (Aceitar grava junto; Dispensar grava só ela). `style` = partyInsights.style;
+ * `axisOpts` = {w, base} do Ajustar (o "papel mais forte" usa as mesmas notas do G1).
  */
-export function shineSuggestions(facts, { lang = 'pt', dc = 15 } = {}) {
+export function momentSuggestions(facts, { lang = 'pt', dc = 15, style = {}, axisOpts = {} } = {}) {
   const res = {};
+  const party = facts.length > 1 ? partyAxes(facts, axisOpts).axes : null;
   for (const f of facts) {
+    const st = style?.[String(f.id)] || [];
+    const quiet = st.includes('quiet');
     const others = facts.filter(o => o !== f);
-    const items = [];
     const me = firstName(f.name);
-    const lead = SKILLS.map(k => ({ k, b: f.skills[k], second: others.length ? Math.max(...others.map(o => o.skills[k])) : -5 }))
+    const second = (k) => (others.length ? Math.max(...others.map(o => o.skills[k])) : -5);
+    const skillShine = (k, extra = '') => ({ kind: 'shine', auto: `skill:${k}`, text: t(lang,
+      `${skillLabel(k, lang)} ${pct(chance(f.skills[k], dc))}%${extra && ` · ${extra}`}`,
+      `${skillLabel(k, lang)} ${pct(chance(f.skills[k], dc))}%${extra && ` · ${extra}`}`) });
+    let shines = [];
+    const lead = SKILLS.map(k => ({ k, b: f.skills[k], second: second(k) }))
       .filter(x => x.b - x.second >= 2).sort((a, b) => (b.b - b.second) - (a.b - a.second) || b.b - a.b).slice(0, 2);
     for (const x of lead) {
-      items.push({ kind: 'shine', auto: `skill:${x.k}`, text: t(lang,
+      shines.push({ kind: 'shine', auto: `skill:${x.k}`, text: t(lang,
         `${skillLabel(x.k, lang)} ${pct(chance(x.b, dc))}% (2º ${pct(chance(x.second, dc))}%)`,
         `${skillLabel(x.k, lang)} ${pct(chance(x.b, dc))}% (2nd ${pct(chance(x.second, dc))}%)`) });
     }
     if (f.healDay > 0 && !others.some(o => o.healDay > 0)) {
-      items.push({ kind: 'shine', auto: 'role:heal', text: t(lang, `único que cura (${f.healWhy.slice(0, 2).join(', ')})`, `the only healer (${f.healWhy.slice(0, 2).join(', ')})`) });
+      shines.push({ kind: 'shine', auto: 'role:heal', text: t(lang, `único que cura (${f.healWhy.slice(0, 2).join(', ')})`, `the only healer (${f.healWhy.slice(0, 2).join(', ')})`) });
     }
     const solo = Object.keys(f.dmgTypes).filter(k => !PHYSICAL.includes(k) && !others.some(o => o.dmgTypes[k]));
     if (solo.length) {
-      items.push({ kind: 'shine', auto: `dmg:${solo.join(',')}`, text: t(lang,
+      shines.push({ kind: 'shine', auto: `dmg:${solo.join(',')}`, text: t(lang,
         `único com dano ${joinAnd(solo.map(k => damageLabel(k, lang)), lang)}`, `the only one with ${joinAnd(solo, lang)} damage`) });
     }
     if (f.control > 0 && !others.some(o => o.control >= f.control)) {
-      items.push({ kind: 'shine', auto: 'role:control', text: t(lang, `maior controle (${f.ctlWhy.slice(0, 3).join(', ')})`, `most control (${f.ctlWhy.slice(0, 3).join(', ')})`) });
+      shines.push({ kind: 'shine', auto: 'role:control', text: t(lang, `maior controle (${f.ctlWhy.slice(0, 3).join(', ')})`, `most control (${f.ctlWhy.slice(0, 3).join(', ')})`) });
     }
     if (f.thieves && !others.some(o => o.thieves)) {
-      items.push({ kind: 'shine', auto: 'tool:thievesTools', text: t(lang, 'único com Ferramentas de Ladrão', "the only one with Thieves' Tools") });
+      shines.push({ kind: 'shine', auto: 'tool:thievesTools', text: t(lang, 'único com Ferramentas de Ladrão', "the only one with Thieves' Tools") });
     }
     if (f.darkvision > 0 && others.length && others.every(o => !o.darkvision)) {
-      items.push({ kind: 'shine', auto: 'sense:darkvision', text: t(lang, `único que enxerga no escuro (${f.darkvision} pés)`, `the only one with darkvision (${f.darkvision} ft)`) });
+      shines.push({ kind: 'shine', auto: 'sense:darkvision', text: t(lang, `único que enxerga no escuro (${f.darkvision} pés)`, `the only one with darkvision (${f.darkvision} ft)`) });
     }
-    if (!items.length) {
-      // nada único: a melhor perícia dele (mesmo empatada) — dê a cena a ele
-      const k = SKILLS.slice().sort((a, b) => f.skills[b] - f.skills[a])[0];
+    const bestOf = (keys) => keys.slice().sort((a, b) => f.skills[b] - f.skills[a] || SKILLS.indexOf(a) - SKILLS.indexOf(b))[0];
+    const scores = axisScores(f, axisOpts);
+    if (!shines.length) {
+      // nada único: a melhor perícia dele (mesmo empatada) — dê a cena a ele — e o eixo mais forte
+      const k = bestOf(quiet ? SKILLS.filter(x => !PUBLIC_SKILLS.includes(x)) : SKILLS);
       const tie = others.filter(o => o.skills[k] >= f.skills[k]).map(o => firstName(o.name));
-      items.push({ kind: 'shine', auto: `skill:${k}`, text: t(lang,
+      shines.push({ kind: 'shine', auto: `skill:${k}`, text: t(lang,
         `${skillLabel(k, lang)} ${pct(chance(f.skills[k], dc))}%${tie.length ? ` (divide com ${joinAnd(tie, lang)}: dê a cena a ${me})` : ''}`,
         `${skillLabel(k, lang)} ${pct(chance(f.skills[k], dc))}%${tie.length ? ` (shared with ${joinAnd(tie, lang)}: give ${me} the scene)` : ''}`) });
+      const ax = AXES.slice().sort((a, b) => scores[b].final - scores[a].final)[0];
+      shines.push({ kind: 'shine', auto: `axis:${ax}`, text: t(lang, `papel mais forte: ${axisLabel(ax, lang)} ${fmt(scores[ax].final, lang)}`, `strongest role: ${axisLabel(ax, lang)} ${fmt(scores[ax].final, lang)}`) });
     }
+    // o estilo puxa as sugestões do assunto dele: enigma → INT, explorar, conversar
+    for (const topic of ['puzzle', 'explore', 'talk']) {
+      if (!st.includes(topic) || (topic === 'talk' && quiet)) continue;
+      if (!shines.some(x => topicOf(x.auto) === topic)) {
+        const keys = topic === 'puzzle' ? INT_SKILLS : topic === 'explore' ? EXPLORE_SKILLS : SOCIAL_SKILLS;
+        shines.push(skillShine(bestOf(keys), styleLabel(topic, lang)));
+      }
+    }
+    if (st.includes('combat') && party) {
+      // linha de frente ou o maior dano do grupo, quando é dele
+      for (const ax of ['melee', 'dmg']) {
+        if (shines.some(x => topicOf(x.auto) === 'combat')) break;
+        if (party[ax]?.bestIds.includes(f.id)) {
+          shines.push({ kind: 'shine', auto: `axis:${ax}`, text: ax === 'melee'
+            ? t(lang, `linha de frente (${axisLabel(ax, lang)} ${fmt(scores[ax].final, lang)})`, `front line (${axisLabel(ax, lang)} ${fmt(scores[ax].final, lang)})`)
+            : t(lang, `maior dano do grupo (${fmt(scores[ax].final, lang)})`, `the party's top damage (${fmt(scores[ax].final, lang)})`) });
+        }
+      }
+    }
+    if (quiet) {
+      // fala pouco: o 1º ★ é de uma perícia que ele já domina e que não pede falar em público
+      if (!shines.some(x => x.auto.startsWith('skill:') && !PUBLIC_SKILLS.includes(x.auto.slice(6)))) {
+        shines.unshift(skillShine(bestOf(SKILLS.filter(x => !PUBLIC_SKILLS.includes(x)))));
+      }
+      const isPublic = (x) => x.auto.startsWith('skill:') && PUBLIC_SKILLS.includes(x.auto.slice(6));
+      const firstSkill = shines.findIndex(x => x.auto.startsWith('skill:') && !isPublic(x));
+      shines = [shines[firstSkill], ...shines.filter((x, i) => i !== firstSkill && !isPublic(x)), ...shines.filter(isPublic)];
+    }
+    const wanted = st.filter(x => ['combat', 'puzzle', 'explore', 'talk'].includes(x) && !(x === 'talk' && quiet));
+    if (wanted.length) {
+      const rank = (x) => { const i = wanted.indexOf(topicOf(x.auto)); return i < 0 ? wanted.length : i; };
+      const head = quiet ? shines.slice(0, 1) : [];
+      shines = [...head, ...shines.slice(head.length).map((x, i) => ({ x, i })).sort((a, b) => rank(a.x) - rank(b.x) || a.i - b.i).map(o => o.x)];
+    }
+
+    // ↗ Desafia: a pior salvaguarda entre DES, CON e SAB e a pior perícia "de todo mundo"
+    const pushes = [];
+    const sv = PUSH_SAVES.slice().sort((a, b) => f.saves[a] - f.saves[b])[0];
+    pushes.push({ kind: 'push', auto: `push:save:${sv}`, text: t(lang,
+      `salvaguarda de ${abilShort(sv, lang)} ${fmtMod(f.saves[sv])} · CD 13 passa ${pct(chance(f.saves[sv], 13))}%`,
+      `${abilShort(sv, lang)} save ${fmtMod(f.saves[sv])} · DC 13 passes ${pct(chance(f.saves[sv], 13))}%`) });
+    const sk = PUSH_SKILLS.filter(k => !(quiet && PUBLIC_SKILLS.includes(k))).sort((a, b) => f.skills[a] - f.skills[b])[0];
+    pushes.push({ kind: 'push', auto: `push:skill:${sk}`, text: t(lang,
+      `${skillLabel(sk, lang)} ${fmtMod(f.skills[sk])} · tentar sem o especialista do grupo`,
+      `${skillLabel(sk, lang)} ${fmtMod(f.skills[sk])} · try it without the party's expert`) });
+
+    // ✎ Gancho: o 1º texto que o jogador escreveu na ficha
+    const hooks = [];
     for (const k of ['bonds', 'ideals', 'flaws', 'personality']) {
       const v = String(f.story?.[k] || '').trim();
-      if (v) { items.push({ kind: 'hook', auto: `text:${k}`, text: `“${v.length > 110 ? `${v.slice(0, 110)}…` : v}”` }); break; }
+      if (v) { hooks.push({ kind: 'hook', auto: `text:${k}`, text: `“${v.length > 110 ? `${v.slice(0, 110)}…` : v}”` }); break; }
     }
-    res[f.id] = items;
+    res[f.id] = st.includes('story') ? [...hooks, ...shines, ...pushes] : [...shines, ...pushes, ...hooks];
   }
   return res;
+}
+
+/** Só os ★ e ✎ (o quadro Oportunidades não usa os desafios). */
+export function shineSuggestions(facts, opts = {}) {
+  const all = momentSuggestions(facts, opts);
+  return Object.fromEntries(Object.entries(all).map(([id, list]) => [id, list.filter(s => s.kind !== 'push')]));
+}
+
+/** Sugestões que ainda valem: nem aceitas (mesma chave) nem dispensadas. */
+export function openSuggestions(suggestions = [], moments = [], dismissed = []) {
+  const used = new Set((moments || []).map(m => m.auto).filter(Boolean));
+  return (suggestions || []).filter(s => !used.has(s.auto) && !(dismissed || []).includes(s.auto));
+}
+
+/** Texto do momento no limite do servidor (160): `cut` avisa que o resto foi cortado. */
+export function clipMomentText(text) {
+  const clean = String(text ?? '').replace(/\s+/g, ' ').trim();
+  return { text: [...clean].slice(0, MAX_MOMENT_TEXT).join(''), cut: [...clean].length > MAX_MOMENT_TEXT };
+}
+
+function nextMomentId(list) {
+  const n = Math.max(0, ...(list || []).map(m => +(/^m(\d+)$/.exec(m.id || '') || [])[1] || 0));
+  return `m${n + 1}`;
+}
+
+/** Aceitar uma sugestão: vira momento gravado (com a chave dela). */
+export function acceptMoment(list, sug) {
+  const cur = list || [];
+  if (cur.length >= MAX_MOMENTS) return cur;
+  return [...cur, { id: nextMomentId(cur), kind: sug.kind, text: clipMomentText(sug.text).text, auto: sug.auto || null, done: null, plan: null }];
+}
+
+/** "Escrever o meu": momento sem chave de sugestão. */
+export function writeMoment(list, kind, text) {
+  const cur = list || [];
+  const c = clipMomentText(text);
+  if (!c.text || cur.length >= MAX_MOMENTS) return { list: cur, cut: c.cut };
+  return { list: [...cur, { id: nextMomentId(cur), kind: MOMENT_KINDS.includes(kind) ? kind : 'shine', text: c.text, auto: null, done: null, plan: null }], cut: c.cut };
+}
+
+export const updateMoment = (list, id, patch) => (list || []).map(m => (m.id === id ? { ...m, ...patch } : m));
+export const removeMoment = (list, id) => (list || []).filter(m => m.id !== id);
+
+/** "Aconteceu": grava o nº da sessão (tocar de novo desmarca). */
+export const toggleDone = (list, id, session) => updateMoment(list, id, {
+  done: (list || []).find(m => m.id === id)?.done != null ? null : (Number.isInteger(session) ? session : 0),
+});
+
+/** Dispensar grava só a chave; passa do limite → esquece as mais antigas. */
+export function dismissKey(list, auto) {
+  const cur = (list || []).filter(k => k !== auto);
+  return [...cur, auto].slice(-MAX_DISMISSED);
+}
+
+/**
+ * Nº da sessão atual, a mesma regra do servidor (diary.current_session: os dígitos de
+ * state.session); sem número, a maior chave de diarySessions; sem nada, null.
+ */
+export function currentSession(state) {
+  const raw = state?.session;
+  if (Number.isInteger(raw)) return raw >= 0 ? raw : null;
+  const m = /\d+/.exec(String(raw ?? ''));
+  if (m) return +m[0];
+  const keys = Object.keys(state?.diarySessions || {}).filter(k => /^\d+$/.test(k)).map(Number);
+  return keys.length ? Math.max(...keys) : null;
+}
+
+/** Filtro da lista: Desta sessão (os que faltam + os de hoje) · Todos · Aconteceram. */
+export function filterMoments(list, filter, session) {
+  const cur = list || [];
+  if (filter === 'done') return cur.filter(m => m.done != null);
+  if (filter === 'all') return cur;
+  return cur.filter(m => m.done == null || m.done === session);
+}
+
+/** Texto da cena nova que o "→ Cena" põe no plano. */
+export function momentSceneText(moment, name, lang = 'pt') {
+  return `${kindIcon(moment.kind)} ${firstName(name)} · ${kindLabel(moment.kind, lang)}: ${moment.text}`.slice(0, 1000);
+}
+
+/**
+ * Equilíbrio na mesa (G9): por personagem, momentos que aconteceram nas últimas 5
+ * sessões, testes pedidos nas últimas 3 (do histórico do servidor) e há quantas sessões
+ * seguidas ele está sem momento. O alerta sai com 3 sessões, ou com 2 para quem "fala pouco".
+ * Sem o histórico, as sessões vêm do próprio estado (a atual e as do diário).
+ */
+export function tableBalance({ facts, spotlights = {}, style = {}, history = null, state = null }) {
+  let sessions = (history?.sessions || []).map(s => s.number);
+  if (!history) {
+    const cur = currentSession(state);
+    const keys = Object.keys(state?.diarySessions || {}).filter(k => /^\d+$/.test(k)).map(Number);
+    sessions = [...new Set([...(cur != null ? [cur] : []), ...keys])].sort((a, b) => b - a);
+  }
+  const last5 = sessions.slice(0, 5);
+  const last3 = new Set(sessions.slice(0, 3));
+  const rows = facts.map(f => {
+    const id = String(f.id);
+    const done = (spotlights[id] || []).filter(m => m.done != null).map(m => m.done);
+    const moments = done.filter(n => last5.includes(n)).length;
+    const checks = { asked: 0, answered: 0, passed: 0 };
+    for (const s of history?.sessions || []) {
+      if (!last3.has(s.number)) continue;
+      const c = s.checks?.[id];
+      if (c) for (const k of Object.keys(checks)) checks[k] += c[k] || 0;
+    }
+    let drought = 0;
+    for (const n of last5) { if (done.includes(n)) break; drought += 1; }
+    const quiet = (style[id] || []).includes('quiet');
+    return { id: f.id, name: f.name, color: f.color, moments, checks, drought, quiet, warn: drought >= (quiet ? 2 : 3) };
+  });
+  return {
+    sessions: last5, rows,
+    maxMoments: Math.max(1, ...rows.map(r => r.moments)), maxAsked: Math.max(1, ...rows.map(r => r.checks.asked)),
+  };
 }
 
 /**
  * Os 4 quadros (G0) em frases curtas, cada um com a lista inteira (a tela mostra 2 e
  * "+N"): Forças, Fraquezas, Oportunidades e Ameaças (§6.3.7).
  */
-export function quadrants({ facts, party, skills, gaps, lang = 'pt', focus = {}, hidden = [], suggestions = {}, dismissed = {}, threats = [] }) {
+export function quadrants({ facts, party, skills, gaps, lang = 'pt', focus = {}, hidden = [], suggestions = {}, dismissed = {}, spotlights = {}, threats = [] }) {
   const strengths = AXES.filter(k => !hidden.includes(k) && party.axes[k]?.best >= 4)
     .sort((a, b) => ((focus[b] === 2) - (focus[a] === 2)) || (party.axes[b].best - party.axes[a].best) || (party.axes[a].bestWho.length - party.axes[b].bestWho.length))
     .slice(0, 2)
@@ -197,9 +416,16 @@ export function quadrants({ facts, party, skills, gaps, lang = 'pt', focus = {},
 
   const weaknesses = readableGaps(gaps, lang).map(g => ({ key: `${g.kind}:${g.key}`, text: g.text }));
 
-  // uma sugestão de cada personagem por vez (o holofote se espalha)
-  const lists = facts.map(f => (suggestions[f.id] || []).filter(s => s.kind !== 'push' && !(dismissed[String(f.id)] || []).includes(s.auto))
-    .map(s => ({ key: `${f.id}:${s.auto}`, id: f.id, text: `${firstName(f.name)}: ${s.text}` })));
+  // uma de cada personagem por vez (o holofote se espalha): primeiro os momentos aceitos que
+  // ainda não aconteceram, depois as sugestões que ainda valem (nem aceitas nem dispensadas)
+  const lists = facts.map(f => {
+    const mine = spotlights[String(f.id)] || [];
+    const kept = mine.filter(m => m.kind !== 'push' && m.done == null)
+      .map(m => ({ key: `${f.id}:${m.id}`, id: f.id, text: `${firstName(f.name)}: ${m.text}` }));
+    const open = openSuggestions(suggestions[f.id], mine, dismissed[String(f.id)]).filter(s => s.kind !== 'push')
+      .map(s => ({ key: `${f.id}:${s.auto}`, id: f.id, text: `${firstName(f.name)}: ${s.text}` }));
+    return [...kept, ...open];
+  });
   const opportunities = [];
   for (let i = 0; lists.some(l => l[i]); i++) for (const l of lists) if (l[i]) opportunities.push(l[i]);
 
@@ -259,4 +485,20 @@ export function sceneIdeas(gaps, facts, lang = 'pt', limit = 3) {
 /** Texto da cena nova no plano ("＋ Levar para o plano"): a ideia e, embaixo, a lacuna. */
 export function ideaSceneText(idea, lang = 'pt') {
   return `${idea.text}\n${t(lang, 'Lacuna do grupo', 'Party gap')}: ${idea.gap}`.slice(0, 1000);
+}
+
+/**
+ * A linha do grupo na Próxima sessão (passo 1): "brilha em Prestidigitação e Furtividade ·
+ * fraco em salvaguarda de SAB (+0)" — as perícias em que é o melhor por ≥ 2 (senão a
+ * melhor dele) e a pior salvaguarda entre DES, CON e SAB.
+ */
+export function partyLine(f, facts, lang = 'pt') {
+  const others = facts.filter(o => o.id !== f.id);
+  const second = (k) => (others.length ? Math.max(...others.map(o => o.skills[k])) : -5);
+  let lead = SKILLS.filter(k => f.skills[k] - second(k) >= 2).sort((a, b) => (f.skills[b] - second(b)) - (f.skills[a] - second(a)) || f.skills[b] - f.skills[a]).slice(0, 2);
+  if (!lead.length) lead = [SKILLS.slice().sort((a, b) => f.skills[b] - f.skills[a])[0]];
+  const sv = PUSH_SAVES.slice().sort((a, b) => f.saves[a] - f.saves[b])[0];
+  return t(lang,
+    `brilha em ${joinAnd(lead.map(k => skillLabel(k, lang)), lang)} · fraco em salvaguarda de ${abilShort(sv, lang)} (${fmtMod(f.saves[sv])})`,
+    `shines at ${joinAnd(lead.map(k => skillLabel(k, lang)), lang)} · weak at ${abilShort(sv, lang)} saves (${fmtMod(f.saves[sv])})`);
 }

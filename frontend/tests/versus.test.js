@@ -20,10 +20,10 @@ test('Fantasma: resiste ao melhor dano do Elarion e cobra SAB CD 13 (Pipo 40%)',
   const wis = v.saves.find(s => s.ab === 'wis');
   assert.equal(wis.dc, 13);
   assert.deepEqual(wis.chances[0], { id: facts.find(f => f.name.startsWith('Pipo')).id, name: 'Pipo Mão-Leve', p: 40 });
-  assert.ok(v.line.includes('resiste ao melhor dano de Elarion (trovejante)'), v.line);
+  assert.ok(v.line.startsWith('resiste a trovejante (o melhor dano de Elarion) · cobra SAB CD 13: Pipo 40%'), v.line);
   assert.ok(v.line.includes('cobra SAB CD 13: Pipo 40%'), v.line);
   assert.ok(v.ctlBlocked && v.ctlBlocked.name.startsWith('Elarion'), 'imune às condições do controle do Elarion');
-  assert.match(V.versus(mon('ghost'), facts, 'en').line, /resists Elarion's best damage \(thunder\)/);
+  assert.match(V.versus(mon('ghost'), facts, 'en').line, /^resists thunder \(Elarion's best damage\) · calls for WIS DC 13: Pipo 40%/);
 });
 
 test('Carniçal: nada que importe → sem linha "× grupo"', () => {
@@ -39,7 +39,7 @@ test('fator de dano: imune 0 · resiste 0,5 · vulnerável 2, também em texto i
   assert.equal(V.damageFactor(m, 'radiant'), 2);
   assert.equal(V.damageFactor(m, 'cold'), 1);
   const immune = V.versus({ name: 'Golem', damageImmunities: ['thunder', 'force'] }, facts, 'pt');
-  assert.ok(immune.line.startsWith('imune ao melhor dano de Elarion'), immune.line);
+  assert.ok(immune.line.startsWith('imune a trovejante (o melhor dano de Elarion)'), immune.line);
 });
 
 test('ameaças do quadro: só ND perto do nível do grupo (±2) e quem perde mais dano antes', () => {
