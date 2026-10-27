@@ -429,7 +429,7 @@ function InitiativeOrder({ combat, party, order, portraitOf, lang }) {
           {r.hp ? (
             <span className={`tv-order-hp tv-hp-bar tv-hp-${hpToneTv(r.hp.cur, r.hp.max)}`}>
               <span className="tv-hp-fill" style={{ width: `${hpPctTv(r.hp.cur, r.hp.max)}%` }} />
-              <span className="tv-hp-text">{r.down ? t(lang, 'caído', 'down') : `${r.hp.cur}/${r.hp.max ?? '?'}`}{r.hp.temp ? <span className="tv-hp-temp"> +{r.hp.temp}</span> : null}</span>
+              <span className="tv-hp-text">{r.down ? healthLabel('down', lang) : `${r.hp.cur}/${r.hp.max ?? '?'}`}{r.hp.temp ? <span className="tv-hp-temp"> +{r.hp.temp}</span> : null}</span>
             </span>
           ) : (
             <span className={`tv-order-band tv-foe-${r.band}`}>{healthLabel(r.band, lang)}</span>
