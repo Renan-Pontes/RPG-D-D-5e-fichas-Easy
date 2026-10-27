@@ -236,3 +236,107 @@ test('screenNow: combate com cartão do Mundo sobreposto; recap espera o combate
   assert.equal(screenNow({ combat: { active: false }, card: entry }).card, entry);
   assert.equal(screenNow({}).mode, 'rest');
 });
+
+// ---------------------------------------------------------------- Jogar › Agora (V7)
+import {
+  checkLine, clockText, currentScene, firstOpenScene, momentBody, momentCounters, nextSceneAfter, pickCounter,
+  planChips, recapShown, scenePosition, sessionClock, sessionLength, sessionTests, startChoices, testsBadge as nowBadge,
+} from '../src/play/now-model.js';
+
+const PLAN = {
+  scenes: [
+    { id: 'c1', text: 'Taverna do Javali\nBorin sabe', done: true },
+    { id: 'c2', text: 'Ponte velha', done: false },
+    { id: 'c3', text: '', nodeRef: { adventureId: 1, nodeId: 'n3' }, done: false },
+    { id: 'c4', text: '', done: false },                 // sem nome: não conta
+    { id: 'c5', text: 'Sino', done: false },
+  ],
+};
+
+test('Agora: a cena agora pelo id gravado e, sem ele, pelo nome', () => {
+  assert.equal(currentScene(PLAN, { sceneId: 'c2', scene: 'outra' }).id, 'c2');
+  assert.equal(currentScene(PLAN, { scene: 'taverna do javali' }).id, 'c1');
+  assert.equal(currentScene(PLAN, { scene: 'Cripta' }, { c3: 'Cripta' }).id, 'c3');
+  assert.equal(currentScene(PLAN, { sceneId: 'c4' }), null);              // cena sem nome não é cena
+  assert.equal(currentScene(PLAN, { scene: 'Taverna do Javali Cego — salão lotado' }), null);
+  assert.equal(currentScene(null, { sceneId: 'c2' }), null);
+});
+
+test('Agora: posição, próxima cena e os chips do plano', () => {
+  assert.deepEqual(scenePosition(PLAN, 'c3'), { pos: 3, total: 4 });
+  assert.equal(firstOpenScene(PLAN).id, 'c2');
+  assert.equal(nextSceneAfter(PLAN, 'c2').id, 'c3');
+  assert.equal(nextSceneAfter(PLAN, 'c5').id, 'c2');      // depois da última, volta à 1ª que falta
+  assert.equal(nextSceneAfter({ scenes: [{ id: 'a', text: 'A' }] }, 'a'), null);
+  assert.deepEqual(planChips(PLAN, 'c2', { c3: 'Cripta' }).map(c => `${c.icon} ${c.name}`),
+    ['✓ Taverna do Javali', '▶ Ponte velha', '○ Cripta', '○ Sino']);
+});
+
+test('Agora: selo de Testes só desta sessão; o resto em "De sessões passadas"', () => {
+  const since = '2026-10-27T20:00:00Z';
+  const checks = [
+    { id: 1, status: 'open', createdAt: '2026-10-24T18:05:42Z' },
+    { id: 2, status: 'open', createdAt: '2026-10-27T20:10:00Z' },
+    { id: 3, status: 'closed', createdAt: '2026-10-27T20:11:00Z' },
+  ];
+  const pendingRolls = [{ id: 1, createdAt: '2026-10-24T18:05:42Z' }, { id: 2, createdAt: '2026-10-24T18:05:43Z' }];
+  const t = sessionTests({ checks, pendingRolls, since });
+  assert.deepEqual(t.checks.map(c => c.id), [2]);
+  assert.deepEqual(t.rolls, []);
+  assert.deepEqual(t.old.rolls.map(r => r.id), [1, 2]);
+  assert.deepEqual(t.old.checks.map(c => c.id), [1]);
+  assert.deepEqual(nowBadge({ checks: 1, rolls: 2 }), { short: '1·2', long: '1 teste · 2 rolagens' });
+  assert.deepEqual(nowBadge({ checks: 0, rolls: 0 }), { short: '', long: '0 testes · 0 rolagens' });
+  assert.equal(nowBadge({ checks: 1, rolls: 1 }, 'en').long, '1 check · 1 roll');
+  // sem sessão começada: tudo conta
+  assert.equal(sessionTests({ checks, pendingRolls }).rolls.length, 2);
+});
+
+test('Agora: painel do momento — contadores e a regra anti-surpresa', () => {
+  assert.deepEqual(momentCounters({}), []);
+  assert.deepEqual(momentCounters({ checks: 1, rolls: 2, approvals: 1, levelups: 1, dangers: 1 }).map(c => `${c.icon} ${c.n} ${c.label}`),
+    ['🎯 1 teste', '🎲 2 pedidos', '⬆ 1 nível', '⚠ 1 perigo']);
+  assert.equal(momentCounters({ approvals: 1, levelups: 0 })[0].label, 'aprovação');
+  const a = { id: 5, createdAt: '2026-10-27T20:00:00Z' };
+  const b = { id: 6, createdAt: '2026-10-27T20:05:00Z' };
+  // sem escolha: o teste aberto mais novo; sem teste, o 1º perigo; sem nada, a lista
+  assert.deepEqual(momentBody(null, { checks: [a, b] }), { kind: 'check', id: 6 });
+  assert.deepEqual(momentBody(null, { dangers: [{ id: 'zeroHp:1' }] }), { kind: 'danger', id: 'zeroHp:1' });
+  assert.deepEqual(momentBody(null, {}), { kind: 'list' });
+  // o que chega só muda o número: a escolha fica enquanto existir
+  assert.deepEqual(momentBody({ kind: 'check', id: 5 }, { checks: [a, b] }), { kind: 'check', id: 5 });
+  assert.deepEqual(momentBody({ kind: 'list' }, { checks: [a, b] }), { kind: 'list' });
+  // o item do corpo acabou (teste encerrado): volta ao padrão
+  assert.deepEqual(momentBody({ kind: 'check', id: 9 }, { checks: [a] }), { kind: 'check', id: 5 });
+  assert.deepEqual(momentBody({ kind: 'rolls' }, { rolls: 0 }), { kind: 'list' });
+  // o toque num contador
+  assert.deepEqual(pickCounter('checks', { checks: [a, b] }), { kind: 'check', id: 6 });
+  assert.deepEqual(pickCounter('approvals'), { kind: 'approvals' });
+});
+
+test('Agora: a linha do teste com as respostas escritas', () => {
+  const check = { label: 'Percepção', dc: 13, dcHidden: false, targets: [
+    { userId: 1, characterName: 'Elarion Vento', response: { total: 16 }, outcome: 'pass' },
+    { userId: 2, characterName: 'Kaelor', response: { total: 7 }, outcome: 'fail' },
+    { userId: 3, characterName: 'Pipo', response: null },
+  ] };
+  const l = checkLine(check);
+  assert.equal(l.head, 'Percepção CD 13 · 2 de 3');
+  assert.deepEqual(l.answers.map(x => x.text), ['Elarion 16 ✓', 'Kaelor 7 ✗', 'Pipo…']);
+  assert.equal(checkLine({ ...check, dcHidden: true }).head, 'Percepção CD 13 🔒 · 2 de 3');
+});
+
+test('Agora: relógio e duração da sessão; o resumo já mostrado; onde começa', () => {
+  assert.equal(clockText(65 * 60000), '1h05');
+  assert.equal(sessionClock('2026-10-27T20:00:00Z', Date.parse('2026-10-27T20:42:30Z')), '0h42');
+  assert.equal(sessionClock(null), null);
+  assert.equal(sessionLength('2026-10-27T18:00:00Z', '2026-10-27T20:10:00Z'), '2h10');
+  assert.equal(sessionLength('2026-10-27T18:00:00Z', null), null);
+  assert.equal(recapShown({ session: '4', diarySessions: { 4: { shown: [{ t: 'x', k: 'recap' }] } } }), true);
+  assert.equal(recapShown({ session: '4', diarySessions: { 3: { shown: [{ k: 'recap' }] } } }), false);
+  const choices = startChoices(PLAN, { scene: 'Taverna do Javali', sceneId: 'c1' });
+  assert.deepEqual(choices.map(c => c.id), ['scene', 'continue', 'other', 'unsure']);
+  assert.equal(choices[0].sceneId, 'c2');
+  assert.equal(choices[1].label, 'Continuar de onde paramos: Taverna do Javali');
+  assert.deepEqual(startChoices({ scenes: [] }, {}).map(c => c.id), ['other', 'unsure']);
+});

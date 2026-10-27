@@ -187,3 +187,92 @@ test('a escolha de uma porta (✎ passo a passo) responde o N2 sem botão Pular'
   assert.equal(n2.id, 'N2');
   assert.equal(nextStep({ ...ctx, skips: { N2: n2.sig } }).id, 'N3');
 });
+
+// ---------------------------------------------------------------- Jogar › Agora (J1–J6, V7)
+import { NOW_RULES, readyItems } from '../src/shell/next-step.js';
+
+const T0 = '2026-10-24T18:00:00Z';
+const live = (over = {}) => camp({ state: { session: '4', live: true, diarySessions: { 4: { startedAt: T0 } } }, ...over });
+const stopped = (over = {}) => camp({ state: { session: '3', diarySessions: { 3: { startedAt: T0 } } }, ...over });
+const played = () => ({ ...ready(), forSession: 3 });   // o plano da sessão que já foi jogada (stale)
+const allDone = () => { const p = ready(); return { ...p, scenes: p.scenes.map(s => ({ ...s, done: true })) }; };
+
+// [regra, contexto mínimo que a dispara]
+const NOW_ROWS = [
+  ['J1', { where: 'now', campaign: stopped(), plan: ready(), live: false, recap: { has: true } }],
+  ['J2', { where: 'now', campaign: stopped(), plan: played(), live: false, length: '2h10' }],
+  ['J3', { where: 'now', campaign: live(), plan: ready(), live: true, recap: { has: true, shown: false } }],
+  ['J4', { where: 'now', campaign: live(), plan: ready(), live: true }],
+  ['J5', { where: 'now', campaign: live(), plan: allDone(), live: true }],
+  ['J6', { where: 'now', campaign: live(), plan: emptyPlan(), live: true }],
+];
+
+test('Agora: uma linha por regra J1–J6 com os dados mínimos', () => {
+  assert.deepEqual(NOW_ROWS.map(r => r[0]), NOW_RULES);
+  for (const [id, ctx] of NOW_ROWS) {
+    const step = nextStep({ lang: 'pt', ...ctx });
+    assert.equal(step?.id, id, `${id}: veio ${step?.id}`);
+    assert.ok(step.text && step.text.length <= 90, `${id}: 1 frase curta`);
+    assert.ok(step.help, `${id}: tem "?"`);
+    assert.ok(step.sig && step.action?.id, `${id}: assinatura e 1 botão`);
+  }
+});
+
+test('Agora: textos e botões das regras J', () => {
+  const at = (i, lang = 'pt') => nextStep({ lang, ...NOW_ROWS[i][1] });
+  const j1 = at(0);
+  assert.equal(j1.text, 'Pronto para a Sessão 4?');
+  assert.equal(j1.action.label, '▶ Começar a Sessão 4');
+  assert.equal(j1.note, 'Ensaio: dá para olhar as cenas e testar a Tela antes.');
+  assert.deepEqual(j1.items.map(x => [x.id, x.ok, x.text]), [
+    ['plan', true, 'plano (2 cenas)'], ['party', true, '1 com ficha'], ['tv', true, 'Tela testada'], ['recap', true, 'resumo da 3'],
+  ]);
+  assert.equal(at(0, 'en').text, 'Ready for session 4?');
+  const j2 = at(1);
+  assert.equal(j2.text, 'Sessão 3 encerrada · 2h10');
+  assert.equal(j2.action.label, '📜 Escrever o resumo');
+  assert.equal(j2.secondary.label, '📋 Preparar a Sessão 4');
+  assert.equal(nextStep({ ...NOW_ROWS[1][1], length: null }).text, 'Sessão 3 encerrada');
+  assert.equal(at(2).action.id, 'showRecap');
+  assert.equal(at(2).secondary.id, 'readRecap');
+  const j4 = at(3);
+  assert.equal(j4.text, 'Comece pela primeira cena: Taverna.');
+  assert.equal(j4.why, '⚡ Comece assim: O sino toca');
+  assert.equal(j4.action.label, '▶ Começar esta cena');
+  assert.deepEqual(j4.payload, { sceneId: 'c1' });
+  assert.equal(at(4).secondary.id, 'endSession');
+  assert.equal(at(5).action.id, 'sceneNow');
+  assert.equal(at(5).secondary.id, 'plan');
+});
+
+test('Agora: no máximo 1 cartão — com uma cena em andamento quem guia é a Cena agora', () => {
+  const ctx = NOW_ROWS[3][1];
+  assert.equal(nextStep({ ...ctx, sceneNow: ctx.plan.scenes[0] }), null);
+  // sessão parada (ensaio): o J1 aparece mesmo com uma cena destacada no aparelho
+  assert.equal(nextStep({ ...NOW_ROWS[0][1], sceneNow: ctx.plan.scenes[0] }).id, 'J1');
+  // o "Anteriormente em…" já mostrado hoje: segue para a 1ª cena
+  assert.equal(nextStep({ ...NOW_ROWS[2][1], recap: { has: true, shown: true } }).id, 'J4');
+  // a cena escolhida na folha Começar vem no lugar da 1ª
+  const pick = nextStep({ ...ctx, startScene: 'c2' });
+  assert.equal(pick.text, 'Comece pela cena: Ponte.');
+  assert.deepEqual(pick.payload, { sceneId: 'c2' });
+  // campanha encerrada: nada
+  assert.equal(nextStep({ ...ctx, campaign: live({ status: 'closed' }) }), null);
+});
+
+test('Agora: o J1 diz o que falta (fichas, Tela, resumo) e o Pular do J2 lembrado', () => {
+  const items = readyItems({ campaign: stopped({ members: [dm, ana, bruno], onboarding: {} }), plan: emptyPlan(), recap: { has: false }, lang: 'pt' });
+  assert.deepEqual(items.map(x => [x.id, x.ok, x.text]), [
+    ['plan', false, 'plano sem cenas'], ['party', false, '1 de 2 com ficha'], ['tv', false, 'Tela'], ['recap', false, 'sem resumo da 3'],
+  ]);
+  assert.equal(items[2].action.id, 'tvLink');
+  // sem saber do resumo (ainda carregando) o item não aparece; 1ª sessão também não
+  assert.equal(readyItems({ campaign: stopped(), plan: ready(), recap: null }).length, 3);
+  assert.equal(readyItems({ campaign: camp({ state: {} }), plan: ready(), recap: { has: false } }).length, 3);
+  const mem = new Map();
+  const storage = { getItem: k => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, v) };
+  const j2 = nextStep(NOW_ROWS[1][1]);
+  const skips = writeSkip(7, j2.id, j2.sig, storage);
+  assert.equal(nextStep({ ...NOW_ROWS[1][1], skips }).id, 'J1');
+  assert.deepEqual(readSkips(7, storage), { J2: 'ended:3' });
+});
