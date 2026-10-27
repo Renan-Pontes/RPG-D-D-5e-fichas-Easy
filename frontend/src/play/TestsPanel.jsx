@@ -90,7 +90,7 @@ export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount })
             {view === 'open' && (wide
               ? L(lang, 'Nada esperando. Toque numa perícia ao lado para pedir um teste à mesa.', 'Nothing waiting. Tap a skill on the left to ask the table for a check.')
               : L(lang, 'Nada esperando. Toque em “Pedir teste à mesa” para pedir um teste.', 'Nothing waiting. Tap “Ask the table for a check” to ask for one.'))}
-            {view === 'answered' && L(lang, 'Quando todos responderem um teste, ele aparece aqui para você encerrar ou mostrar no telão.', 'When everyone answers a check it shows up here for you to close or show on screen.')}
+            {view === 'answered' && L(lang, 'Quando todos responderem um teste, ele aparece aqui para você encerrar ou mostrar na Tela.', 'When everyone answers a check it shows up here for you to close or show on screen.')}
             {view === 'history' && L(lang, 'Ainda não há testes encerrados nem rolagens resolvidas.', 'No closed checks or resolved rolls yet.')}
           </p>
         )}

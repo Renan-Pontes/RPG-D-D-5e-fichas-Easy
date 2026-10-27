@@ -1,5 +1,5 @@
 // Linhas de pedido de rolagem (RollRequest) usadas na lista única de Testes
-// e no painel do jogador. O mestre decide: mostrar no telão, privado, ou
+// e no painel do jogador. O mestre decide: mostrar na Tela, privado, ou
 // anotar o valor do dado físico que saiu na mesa.
 import { useState } from 'react';
 
@@ -103,7 +103,7 @@ export function RollHistoryRow({ r, lang }) {
       <div>
         <strong>{r.requestedBy?.displayName}</strong>
         <span style={{ marginLeft: 6 }}>{r.label || r.diceType}</span>
-        {r.status === 'public' && <span className="tl-hist-tag" title={t(lang, 'Mostrado no telão', 'Shown on screen')}>📺 {t(lang, 'telão', 'screen')}</span>}
+        {r.status === 'public' && <span className="tl-hist-tag" title={t(lang, 'Mostrado na Tela', 'Shown on screen')}>📺 {t(lang, 'Tela', 'screen')}</span>}
         {r.status === 'private' && <span className="tl-hist-tag" title={t(lang, 'Em segredo', 'Private')}>🔒 {t(lang, 'segredo', 'private')}</span>}
         {r.status === 'cancelled' && <span className="muted small" style={{ marginLeft: 8 }}>{t(lang, 'cancelado', 'cancelled')}</span>}
       </div>

@@ -15,7 +15,7 @@ const STEP_TEXT = {
   firstEntry: ['Crie seu primeiro lugar ou NPC', 'Create your first place or NPC', 'Só o nome já basta — o resto vem depois.', 'Just the name is enough — the rest comes later.', 'Criar no Mundo', 'Create in World'],
   invite:     ['Convide os jogadores', 'Invite your players', 'Mande o código para a mesa entrar.', 'Send the code so the table can join.', 'Copiar código de convite', 'Copy invite code'],
   prepare:    ['Prepare a 1ª sessão', 'Prepare session 1', 'Um começo forte, algumas cenas e pistas.', 'A strong start, a few scenes and clues.', 'Abrir Próxima sessão', 'Open Next session'],
-  tv:         ['Abra o telão na TV', 'Open the TV screen', 'Os jogadores veem a capa, as revelações e o combate.', 'Players see the cover, reveals and combat.', 'Abrir o telão', 'Open TV screen'],
+  tv:         ['Abra a Tela na TV', 'Open the screen on the TV', 'Os jogadores veem a capa, as revelações e o combate.', 'Players see the cover, reveals and combat.', 'Abrir a Tela', 'Open the screen'],
 };
 
 export default function Onboarding({ lang, status, onAction, onDismiss, onSample, sampleBusy = false, worldEmpty = false }) {

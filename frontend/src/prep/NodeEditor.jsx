@@ -121,8 +121,8 @@ export default function NodeEditor({
       <section className="prep-section prep-world-refs">
         <header><h4>🌍 {t(lang, 'Cartões do Mundo nesta sala', 'World cards in this room')}</h4></header>
         <p className="muted small prep-note">{t(lang,
-          'Quem está aqui, onde fica, que segredo se esconde. Em “Conduzir” eles aparecem prontos para revelar ou mostrar no telão.',
-          'Who is here, where it is, what secret hides here. In “Run” they show up ready to reveal or show on the TV.')}</p>
+          'Quem está aqui, onde fica, que segredo se esconde. Em “Conduzir” eles aparecem prontos para revelar ou mostrar na Tela.',
+          'Who is here, where it is, what secret hides here. In “Run” they show up ready to reveal or show on screen.')}</p>
         <WorldRefs entries={world} ids={node.refs || []} lang={lang} max={LIMITS.refs} compact
           onToggle={(id) => {
             const cur = node.refs || [];

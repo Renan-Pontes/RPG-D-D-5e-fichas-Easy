@@ -39,7 +39,7 @@ export default function AuthScreen({ onSkip, lang = 'pt' }) {
         </h1>
         <p style={{ color: 'var(--ink-secondary)', marginTop: 0 }}>
           {t(
-            'Salve seus personagens na nuvem, entre em campanhas e participe do telão do mestre.',
+            'Salve seus personagens na nuvem, entre em campanhas e acompanhe a Tela do mestre.',
             'Save your characters in the cloud, join campaigns, and the DM screen.'
           )}
         </p>

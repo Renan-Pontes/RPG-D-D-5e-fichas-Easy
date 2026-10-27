@@ -54,7 +54,7 @@ export default function AreaNav({ areas, active, onSelect, onSearch, onMore, mor
         {onMore ? (
           <button type="button" className={`shell-bottom-btn shell-bottom-more ${moreOpen ? 'active' : ''}`} onClick={onMore}
             aria-haspopup="dialog" aria-expanded={moreOpen}
-            aria-label={t(lang, 'Mais: sessão, busca, telão e ajustes', 'More: session, search, TV and settings')}>
+            aria-label={t(lang, 'Mais: sessão, busca, Tela e ajustes', 'More: session, search, screen and settings')}>
             <span className="shell-bottom-ico" aria-hidden="true">☰</span>
             <span className="shell-bottom-label" aria-hidden="true">{t(lang, 'Mais', 'More')}</span>
           </button>

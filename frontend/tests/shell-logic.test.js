@@ -153,8 +153,8 @@ test('rótulos curtos do celular (plano §4.2) e o longo continua', () => {
   assert.equal(subShortLabel('next', 'pt'), 'Próxima');
   assert.equal(subShortLabel('items', 'pt'), 'Itens');
   assert.equal(subLabel('items', 'pt'), 'Itens da campanha');
-  assert.equal(subShortLabel('screen', 'pt'), 'Telão');
-  assert.equal(subShortLabel('screen', 'en'), 'TV');
+  assert.equal(subShortLabel('screen', 'pt'), 'Tela');
+  assert.equal(subShortLabel('screen', 'en'), 'Screen');
   assert.equal(subShortLabel('requests', 'pt'), 'Pedidos');
   // sem curto próprio, o curto é o longo
   assert.equal(subShortLabel('scene', 'pt'), 'Cena');
@@ -188,7 +188,7 @@ test('Ajustes: as 6 seções da folha "Mais", com rótulo e resumo', () => {
   };
   assert.equal(settingsSummary('identity', camp, 'pt'), 'Capa própria · Mistério · Violeta');
   assert.equal(settingsSummary('identity', {}, 'pt'), 'Arte padrão · sem tom');
-  assert.equal(settingsSummary('table', camp, 'pt'), 'Código 6T79AF · link do telão');
+  assert.equal(settingsSummary('table', camp, 'pt'), 'Código 6T79AF · link da Tela');
   assert.equal(settingsSummary('rules', camp, 'pt'), 'XP · multiclasse permitida');
   assert.equal(settingsSummary('rules', { state: { allowMulticlass: false } }, 'en'), 'Milestones · no multiclass');
   assert.equal(settingsSummary('world', camp, 'pt', { immersion: false }), 'Mundo vivo desligado');
