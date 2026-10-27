@@ -214,6 +214,14 @@ export default function NextSession({ campaign, lang, goTo }) {
   // tocar num chip (À mão, 🎭 Quem aparece) abre o editor do cartão numa folha, sem sair do Preparar
   const openEntry = (e) => setEntrySheet(e.id);
 
+  // o "Aparece em" do editor lista as salas como no Mundo: as salas leves das aventuras
+  // (as das cenas ligadas já vieram; as outras, 1 GET leve por aventura, ao abrir um cartão)
+  useEffect(() => {
+    if (!entrySheet) return;
+    for (const a of (adventures || []).slice(0, 12)) if (!(a.id in nodesByAdv)) loadNodes(a.id).catch(() => {});
+  }, [entrySheet, adventures]); // eslint-disable-line react-hooks/exhaustive-deps
+  const entryAdventures = useMemo(() => (adventures || []).filter(a => nodesByAdv[a.id])
+    .map(a => ({ id: a.id, name: a.name, nodes: nodesByAdv[a.id] })), [adventures, nodesByAdv]);
   // ---------------------------------------------------------------- pistas
   const onDiscover = async (id) => {
     const { plan: next, ask } = toggleDiscovered(planRef.current, id);
@@ -740,7 +748,7 @@ export default function NextSession({ campaign, lang, goTo }) {
       )}
       {entrySheet && (
         <Suspense fallback={null}>
-          <EntrySheet entryId={entrySheet} campaign={campaign} world={world} plan={plan} lang={lang}
+          <EntrySheet entryId={entrySheet} campaign={campaign} world={world} adventures={entryAdventures} plan={plan} lang={lang}
             onClose={() => setEntrySheet(null)}
             onWorldRemoved={(id) => setWorld(w => (w || []).filter(e => e.id !== id))}
             onSaved={(full) => { if (full?.id) { details.current.delete(full.id); upsertWorld(toLight(full)); } }}
