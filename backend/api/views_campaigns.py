@@ -10,7 +10,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from .models import Campaign, Character, Membership, new_screen_token, new_invite_code, slugify_clean, new_slug
 from .serializers import CampaignSerializer, CampaignListSerializer
 from .permissions import get_campaign_or_404, is_dm, require_member, require_dm
-from .campaign_state import (clean_state_patch, clean_state_value, merge_state,
+from .campaign_state import (clean_state_patch, clean_state_value, locked_dm_settings, merge_state,
                              PATCHABLE_KEYS, SERVER_KEYS)
 from .image_data import validate_data_url, image_ver, image_response
 from .screen_card import clean_screen_card, resolve_screen_card
@@ -54,9 +54,18 @@ def _apply_identity(obj, data):
         obj.tone = v
 
 
+DM_SETTINGS_KEYS = ('onboarding', 'advancedDice', 'immersion', 'fogHint')
+
+
 def _apply_dm_settings(obj, data):
-    """onboarding (merge raso de flags) e advancedDice — só o mestre vê (dm_settings)."""
-    settings = dict(obj.dm_settings or {})
+    """onboarding (merge raso de flags) e advancedDice — só o mestre vê (dm_settings).
+
+    Chame dentro de transaction.atomic(): relê dm_settings com o lock de escrita (o
+    `obj` foi lido no começo do pedido; o plano da sessão e o Raio-X gravam no mesmo
+    JSON pelos endpoints deles). Devolve True se há o que gravar em dm_settings."""
+    if not any(k in data for k in DM_SETTINGS_KEYS):
+        return False
+    settings = locked_dm_settings(obj.pk)
     if 'onboarding' in data:
         ob = data.get('onboarding')
         if not isinstance(ob, dict) or len(ob) > MAX_ONBOARDING_KEYS or not all(
@@ -77,6 +86,7 @@ def _apply_dm_settings(obj, data):
                 raise ValidationError({'error': f'invalid_{key}'})
             settings[key] = data[key]
     obj.dm_settings = settings
+    return True
 
 
 @api_view(['GET', 'POST'])
@@ -149,9 +159,8 @@ def campaign_detail(request, id_or_slug):
             raise ValidationError({'error': 'invalid_description'})
         obj.description = (data.get('description') or '')[:MAX_DESCRIPTION]
     _apply_identity(obj, data)
-    _apply_dm_settings(obj, data)
     deprecated = False
-    fields = ['name', 'description', 'tagline', 'accent', 'tone', 'dm_settings', 'updated_at']
+    patch = None
     if 'state' in data:
         # DEPRECIADO: PUT do state inteiro (cópia do cliente). Prefira
         # PATCH /campaigns/:id/state {patch}. Mantido por compatibilidade, mas
@@ -167,10 +176,16 @@ def campaign_detail(request, id_or_slug):
             if key in SERVER_KEYS:
                 continue
             patch[key] = clean_state_value(key, value) if key in PATCHABLE_KEYS else value
+    with transaction.atomic():
+        # dm_settings só entra no UPDATE quando o pedido muda alguma chave dele, e
+        # relida com lock: um PATCH do nome não apaga o plano nem o Raio-X gravados
+        # depois que este pedido leu a campanha.
+        fields = ['name', 'description', 'tagline', 'accent', 'tone', 'updated_at']
+        if _apply_dm_settings(obj, data):
+            fields.append('dm_settings')
         obj.save(update_fields=fields)
+    if patch is not None:
         merge_state(obj, patch)
-    else:
-        obj.save(update_fields=fields)
     resp = Response({'campaign': CampaignSerializer(obj, context={'request': request}).data})
     if deprecated:
         resp['Deprecation'] = 'true'
