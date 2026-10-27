@@ -325,6 +325,24 @@
   .screen-win.is-docked { position: relative; width: 100%; margin: 0 0 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
   .screen-win-head { display: flex; justify-content: space-between; gap: 8px; margin: 0; padding: 8px 10px 6px; }
   .screen-win.is-docked .screen-win-tools .mesa-btn { min-height: 44px; }
+  /* ⤢ Ao vivo com texto (não só o ícone) e o 🎲 com 48 px (ação ao vivo; conta nos tablets de toque) */
+  .screen-win-live-btn { min-height: 44px; padding: 0 12px; white-space: nowrap; }
+  .screen-win .screen-win-dice { width: 48px; height: 48px; min-width: 48px; min-height: 48px; font-size: 22px; }
+  .screen-win.is-float .screen-win-tools { gap: 2px; }
+  /* encaixada compacta (Combate de 1024 a 1279): uma linha no topo da coluna da lista */
+  .screen-win.is-compact { display: flex; align-items: center; gap: 6px; margin: 0; padding: 4px 6px; }
+  .screen-win-compact {
+    flex: 1 1 auto; min-width: 0; min-height: 48px; display: flex; align-items: center; gap: 10px;
+    padding: 0 4px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  }
+  .screen-win-compact .stage-thumb.is-mini { flex: none; }
+  .screen-win-compact-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .screen-win-compact-what, .screen-win-compact .live-tv-dot {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .screen-win-compact-what { color: var(--ink-primary); font-size: 14px; }
+  .screen-win-compact .live-tv-dot { font-size: 13px; }
+  .ct-screen .screen-win.is-docked:not(.is-compact) { margin: 0; }
   /* o 🎲 flutuante fica à esquerda da janela (não embaixo dela) */
   body:has(.screen-win.is-float.is-right) .dice-fab { right: calc(24px + 320px + 16px); }
   body:has(.screen-win.is-float.is-right.is-live) .dice-fab { right: calc(24px + 480px + 16px); }

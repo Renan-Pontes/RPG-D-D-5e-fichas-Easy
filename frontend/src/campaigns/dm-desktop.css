@@ -216,9 +216,24 @@
     position: sticky;
     top: var(--ct-map-top, 72px);
   }
+  /* A janela da Tela encaixada (V4) nunca entra no mapa: de 1024 a 1279 ela fica
+     compacta no topo da coluna da lista (o mapa ocupa as 2 linhas, preso); a partir
+     de 1280, numa 3ª coluna estreita, presa como o mapa (P1). */
+  .campaign-detail.is-dm .combat-body.has-screen .ct-screen { grid-column: 1; grid-row: 1; min-width: 0; }
+  .campaign-detail.is-dm .combat-body.has-screen .combatants-list { grid-row: 2; }
+  .campaign-detail.is-dm .combat-body.has-screen .ct-map { grid-row: 1 / span 2; }
   .campaign-detail.is-dm .combat-body .ct-row { grid-template-columns: 30px 40px minmax(0, 1fr) 112px; column-gap: 10px; padding-left: 8px; }
   .campaign-detail.is-dm .combat-body .mesa-hp.ct-hp { height: 22px; }
   .campaign-detail.is-dm .combat-body .ct-hp .mesa-hp-text { font-size: 13px; }
+}
+
+@media (min-width: 1280px) {
+  .campaign-detail.is-dm .combat-body.has-screen { grid-template-columns: minmax(360px, 400px) minmax(0, 1fr) 280px; }
+  .campaign-detail.is-dm .combat-body.has-screen .ct-screen {
+    grid-column: 3; grid-row: 1; position: sticky; top: var(--ct-map-top, 72px);
+  }
+  .campaign-detail.is-dm .combat-body.has-screen .combatants-list { grid-row: 1; }
+  .campaign-detail.is-dm .combat-body.has-screen .ct-map { grid-row: 1; }
 }
 
 /* === Telas muito largas (>=1400) — mais respiro e 3 colunas em members === */

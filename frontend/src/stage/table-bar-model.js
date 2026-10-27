@@ -84,9 +84,14 @@ export function windowMode({ prefs, session, live = false, combatActive = false,
   return dock ? 'docked' : 'float';
 }
 
-/** Páginas com controles no canto de baixo à direita põem a janela à esquerda sozinhas. */
-export function windowCorner({ corner = 'right', area, sub } = {}) {
+/**
+ * Páginas com controles no canto de baixo à direita põem a janela à esquerda
+ * sozinhas: Mundo › Mapas e o mapa da aventura aberta (Preparar › Aventuras, com
+ * os botões de Conduzir à direita; a aventura avisa a casca com `page: 'adventure'`).
+ */
+export function windowCorner({ corner = 'right', area, sub, page = null } = {}) {
   if (area === 'world' && sub === 'map') return 'left';
+  if (area === 'prepare' && sub === 'adventures' && page === 'adventure') return 'left';
   return corner === 'left' ? 'left' : 'right';
 }
 

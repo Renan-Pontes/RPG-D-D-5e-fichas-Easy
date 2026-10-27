@@ -7,6 +7,7 @@ import NodeEditor, { EdgeEditor } from './NodeEditor.jsx';
 import PlayPanel from './PlayPanel.jsx';
 import usePrepConfirm from './usePrepConfirm.jsx';
 import { prepApi } from './prep-api.js';
+import { useTable } from '../play/table-store.js';
 import {
   emptyPlay, makeNode, makeEdge, addNode, updateNode, removeNode, addEdge, updateEdge, removeEdge, reverseEdge,
   availableTargets, highlightedEdges, validateAdventure, partyLevels, freeSpot, startNode, exportAdventure,
@@ -192,6 +193,14 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
   const timer = useRef(null);
   const dirtySince = useRef(0);
   const chain = useRef(Promise.resolve());
+  // Aventura aberta: os botões de Conduzir ficam no canto de baixo à direita, e a
+  // janela da Tela do PC (V4) vai para a esquerda sozinha enquanto ela está aberta.
+  const setPage = useTable()?.setPage;
+  useEffect(() => {
+    if (!setPage) return undefined;
+    setPage('adventure');
+    return () => setPage(null);
+  }, [setPage]);
 
   useEffect(() => {
     let alive = true;

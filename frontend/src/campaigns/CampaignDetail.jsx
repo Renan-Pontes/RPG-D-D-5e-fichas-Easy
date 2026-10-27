@@ -381,7 +381,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
         )}
         {win === 'float' && (
           <ScreenWindow key={campaign.id} campaign={campaign} lang={lang} liveAt={winLiveAt}
-            corner={windowCorner({ corner, area: nav.area, sub: nav.sub })}
+            corner={windowCorner({ corner, area: nav.area, sub: nav.sub, page })}
             onCorner={(c) => { setCorner(c); try { localStorage.setItem(CORNER_KEY, c); } catch { /* ok */ } }}
             onHide={() => { setWinLiveAt(0); setBarPrefs({ ...barPrefs, winSession: String(vis.session ?? '') }); }} />
         )}

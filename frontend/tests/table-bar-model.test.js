@@ -162,6 +162,10 @@ test('windowMode: flutua, encaixa em Agora/Combate, some em Tela e com o ✕', (
   assert.equal(windowCorner({ corner: 'right', area: 'world', sub: 'map' }), 'left');
   assert.equal(windowCorner({ corner: 'left', area: 'world', sub: 'atlas' }), 'left');
   assert.equal(windowCorner({ area: 'play', sub: 'checks' }), 'right');
+  // o mapa da aventura aberta: os botões de Conduzir ficam no canto de baixo à direita
+  assert.equal(windowCorner({ corner: 'right', area: 'prepare', sub: 'adventures', page: 'adventure' }), 'left');
+  assert.equal(windowCorner({ corner: 'right', area: 'prepare', sub: 'adventures' }), 'right');   // a lista de aventuras
+  assert.equal(windowCorner({ corner: 'right', area: 'world', sub: 'atlas', page: 'adventure' }), 'right');
 });
 
 test('preferências no aparelho: lê o padrão, grava e aguenta lixo', () => {

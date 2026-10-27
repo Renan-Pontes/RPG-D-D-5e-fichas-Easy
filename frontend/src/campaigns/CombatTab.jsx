@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { COMBAT_EVENT, useOnRev, useTable } from '../play/table-store.js';
 import { DockedScreen } from '../stage/ScreenWindow.jsx';
+import useMedia from '../play/useMedia.js';
 import MonsterPicker from './MonsterPicker.jsx';
 import CombatGrid from './CombatGrid.jsx';
 import EncounterDifficulty from '../combat/EncounterDifficulty.jsx';
@@ -72,7 +73,9 @@ function useWide() {
  * celular ela mora na barra da mesa, embaixo; no PC, presa no topo de Jogar), o
  * combate só é buscado quando o pulso diz que ele mudou (`pulse.combat.ver`) ou
  * quando uma ação devolve o combate novo (evento da loja da mesa), e a janela da
- * Tela fica encaixada no topo do mapa. `params.actor` abre quem age (o [Ações] da
+ * Tela fica encaixada FORA do mapa (que fica inteiro e preso ao lado da lista): numa
+ * 3ª coluna estreita a partir de 1280 px; de 1024 a 1279, compacta no topo da
+ * coluna da lista. `params.actor` abre quem age (o [Ações] da
  * Tela ao vivo e a faixa do PC); `params.endCombat` é o "Encerrar o combate" da
  * barra quando todos os monstros caíram.
  */
@@ -89,6 +92,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, turnSt
   const [choices, setChoices] = useState({}); // alvos escolhidos por combatente:ação
   const [view, setView] = useState(() => readView(campaign.id));
   const wide = useWide();
+  const roomy = useMedia('(min-width: 1280px)');   // a Tela encaixada ganha a 3ª coluna
 
   const seeRef = useRef(() => {});
   const load = useCallback(async () => {
@@ -269,6 +273,8 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, turnSt
   const showList = wide || view === 'list';
   // combate vazio: o mapa fica à vista (fundo, quadrado e grade antes de montar o encontro)
   const showMap = wide || view === 'map' || combatants.length === 0;
+  // A janela da Tela encaixada (PC, na casca do mestre; a casca decide se ela aparece).
+  const docked = wide && table?.win === 'docked';
   const turnLabel = <span className="mesa-turn-label">{t(lang, 'Rodada', 'Round')} {combat.round} · {t(lang, 'Vez de', 'Now acting')}</span>;
 
   return (
@@ -366,7 +372,12 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, turnSt
         </div>
       )}
 
-      <div className={`combat-body ${wide ? '' : `is-${view}`}`}>
+      <div className={`combat-body ${wide ? '' : `is-${view}`} ${docked ? 'has-screen' : ''}`}>
+        {docked && (
+          <aside className="ct-screen">
+            <DockedScreen campaign={campaign} lang={lang} compact={!roomy} />
+          </aside>
+        )}
         {showList && combatants.length > 0 && (
           <ol className="combatants-list ct-list" aria-label={t(lang, 'Ordem de iniciativa', 'Initiative order')}>
             {combatants.map((c, i) => {
@@ -390,7 +401,6 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, turnSt
 
         {showMap && (
           <div className="ct-map">
-            {wide && <DockedScreen campaign={campaign} lang={lang} />}
             {/* toque no token: no celular abre a folha do combatente; no desktop seleciona (o painel abre na lista) */}
             <CombatGrid combat={combat} campaignId={campaign.id} lang={lang} onChange={load} selectedId={selected} setSelectedId={setSelected}
               onTokenTap={(c) => { if (!wide) openRow(c); }} />
