@@ -106,7 +106,7 @@
 .diary-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 4px; font-size: 0.82rem; color: var(--ink-muted); }
 .diary-more { align-self: center; }
 
-/* toast (exclusão com Desfazer, recap no telão): no celular, acima da barra e à esquerda do dado */
+/* toast (exclusão com Desfazer, recap na Tela): no celular, acima da barra e à esquerda do dado */
 .diary-toast {
   position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
   z-index: 120; display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 32px);
