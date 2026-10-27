@@ -60,6 +60,8 @@
 .stage-rule { margin: 0 0 10px; color: var(--ink-secondary); font-size: 15px; line-height: 1.4; }
 .stage-preview { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .stage-preview-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+/* "● TV conectada (1)" / "○ Nenhuma TV detectada · [Copiar link]": a linha toda, em cima */
+.stage-preview-tv { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
 .stage-preview-note { margin: 0; flex: 1 1 160px; }
 .stage-live-btn { flex: 0 0 auto; }
 .stage-live {

@@ -37,6 +37,7 @@ import {
   rotateScreenToken, sendToStage, showCheckOnStage, stageBack, stageBg, stageClear, stageDark, stagePrefs, stageUndo,
 } from '../stage/stage-api.js';
 import { writeTarget } from '../dice/dice-table.js';
+import { tvLine, tvState } from '../stage/table-bar-model.js';
 import { TableRollRow } from './RollRows.jsx';
 import { tableRollsRev, useOnRev, useTable } from './table-store.js';
 import { flash } from './flash.js';
@@ -98,7 +99,7 @@ export default function StagePanel({ campaign, lang = 'pt', onChange, shownCheck
       <section className="mesa-panel stage-now-box" aria-labelledby="stage-now-h">
         <MesaTitle id="stage-now-h">{L(lang, 'Na tela agora', 'On screen now')}</MesaTitle>
         <p className="stage-rule">{ruleText(lang)}</p>
-        <LivePreview campaign={campaign} stage={stage} test={shownCheck} lang={lang} />
+        <LivePreview campaign={campaign} stage={stage} test={shownCheck} lang={lang} onCopy={copy} />
         <div className="stage-lines" role="list">
           {lines.map(line => (
             <div key={line.layer} className={`mesa-row stage-line is-${line.layer} ${line.empty ? 'is-empty' : ''}`} role="listitem"
@@ -268,8 +269,12 @@ function RollRules({ campaign, stage, lang, onChange }) {
  * num iframe (+28 pedidos/min só enquanto ligado). O iframe só existe ligado e
  * desmonta sozinho depois de 3 min sem toque ou com a aba escondida.
  */
-function LivePreview({ campaign, stage, test, lang }) {
+function LivePreview({ campaign, stage, test, lang, onCopy }) {
   const [live, setLive] = useState(readLive);
+  // "● TV conectada (1)" ou "○ Nenhuma TV detectada · [Copiar link]" (o pulso da mesa, 0 pedido)
+  const table = useTable();
+  const tvLive = table?.tvLive || 0;
+  const offline = (table?.offlineFor || 0) > 0;
   const [paused, setPaused] = useState(false);
   const timer = useRef(null);
   const arm = () => {
@@ -317,6 +322,12 @@ function LivePreview({ campaign, stage, test, lang }) {
         <StageThumb campaign={campaign} stage={stage} test={test} lang={lang} />
       )}
       <div className="stage-preview-bar">
+        <span className="stage-preview-tv">
+          <span className={`live-tv-dot is-${tvState(tvLive, offline)}`} role="status">{tvLine(tvLive, lang, offline)}</span>
+          {(tvLive === 0 || offline) && onCopy && (
+            <button type="button" className="mesa-btn" onClick={onCopy}>{L(lang, 'Copiar link', 'Copy link')}</button>
+          )}
+        </span>
         <span className="mesa-hint stage-preview-note">
           {live ? L(lang, 'A TV de verdade (pausa sozinha em 3 min).', 'The real TV (pauses itself after 3 min).')
             : L(lang, 'Resumo do que a TV mostra.', 'Summary of what the TV shows.')}
