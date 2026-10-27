@@ -1,5 +1,5 @@
 import { errorMessage } from '../api/errors.js';
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { api, API_BASE, apiUrl } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import CombatGrid from '../campaigns/CombatGrid.jsx';
@@ -11,7 +11,8 @@ import { loadNameIndex, needsNameIndex, portraitFor } from '../combat/monster-po
 import { absUrl, cardKey, charLine, healthLabel, paragraphs, screenMode } from '../player/player-model.js';
 import { defaultArt } from '../world/world-model.js';
 import { stageNow } from '../stage/stage-now.js';
-import { initiativeRows, isDeadScreenLink, lengthClass, partyRow, recapSubtitle, turnNow, tvLang, tvMode } from './tv-logic.js';
+import { conditionsShown, initiativeRows, isDeadScreenLink, lengthClass, partyRow, recapSubtitle, splitNumbered, turnNow, tvLang, tvMode } from './tv-logic.js';
+import { fitAll } from './tv-fit.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 
@@ -61,8 +62,10 @@ const CONDITIONS = {
 // TV em 16:9 (V9, especificação §5.7): o palco é uma caixa 16:9 com tarja preta
 // (`.tv-frame` > `.tv-screen`, `container-type: size`); tudo dentro mede em
 // cqw/cqh, então cabe igual em 1280×720, 1920×1080, num tablet em pé e na
-// prévia do mestre (iframe). Ninguém rola a TV: texto longo encolhe
-// (lengthClass) e o teste é uma faixa que EMPURRA o resto, não cobre.
+// prévia do mestre (iframe). Ninguém rola a TV e nada é cortado: o texto longo
+// (texto lido, recap, cartão, cena) e os nomes encolhem medindo a própria caixa
+// (tv-fit.js, `data-fit`), até um piso legível e depois em 2 colunas; o teste é
+// uma faixa que EMPURRA o resto, não cobre.
 // Combate em 70/30: o mapa à esquerda e, à direita, "Vez de X" e a ordem de
 // iniciativa (✓ agiu · ▶ a vez; até 10 + "+N"; PV dos PJs se o mestre deixa).
 // Idioma: o da campanha (`lang` do /api/screen, o do mestre); sem ele, o do
@@ -157,6 +160,17 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
     if (data?.name) document.title = `${data.name} · ${t(lang, 'Tela', 'Screen')}`;
   }, [data?.name, lang]);
 
+  // Encaixe medido (tv-fit.js) depois de cada desenho, ao mudar o tamanho da janela e
+  // quando as fontes terminam de carregar (Cinzel mais larga que a fonte de reserva).
+  const screenRef = useRef(null);
+  useLayoutEffect(() => { fitAll(screenRef.current); });
+  useEffect(() => {
+    const refit = () => fitAll(screenRef.current);
+    window.addEventListener('resize', refit);
+    document.fonts?.ready?.then(refit).catch(() => {});
+    return () => window.removeEventListener('resize', refit);
+  }, []);
+
   // A grade só muda quando o combate muda (o mesmo objeto enquanto a resposta é a mesma).
   const combat = data?.combat || null;
   const grid = useMemo(() => (combat ? gridCombat(combat) : null), [combat]);
@@ -204,6 +218,7 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
       ⚔ {t(lang, 'Rodada', 'Round')} {combat.round}{turn?.name ? <> · {t(lang, 'vez de', 'turn of')} <strong>{turn.name}</strong></> : null}
     </div>
   ) : null;
+  const nowName = splitNumbered(turn?.name);
   const coverUrl = absUrl(API_BASE, data.coverUrl) || HERO_ART;
   const accent = /^#[0-9a-f]{3,8}$/i.test(data.accent || '') ? data.accent : null;
 
@@ -220,9 +235,11 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
       <Clock lang={lang} />
     </header>
   );
+  const partyCols = party.shown.length + (party.more ? 1 : 0);
+  const readSize = lengthClass(state.sceneText, [220, 520, 900]);
   const partyFooter = (compact) => (party.shown.length > 0 ? (
-    <footer className={`tv-party ${compact ? 'is-compact' : ''}`} style={{ '--n': party.shown.length + (party.more ? 1 : 0) }}>
-      {party.shown.map(m => <CharCard key={m.id} member={m} lang={lang} compact={compact} />)}
+    <footer className={`tv-party ${compact ? 'is-compact' : ''} ${partyCols >= 5 ? 'is-dense' : ''}`} style={{ '--n': partyCols }}>
+      {party.shown.map(m => <CharCard key={m.id} member={m} lang={lang} compact={compact} dense={partyCols >= 5} />)}
       {party.more > 0 && <div className="tv-party-more" aria-label={t(lang, `mais ${party.more}`, `${party.more} more`)}>+{party.more}</div>}
     </footer>
   ) : null);
@@ -230,6 +247,7 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
   return (
     <div className="tv-frame">
       <div
+        ref={screenRef}
         className={`tv-screen tv-mode-${mode} ${activeRoll && !dark ? 'has-roll-overlay' : ''} ${stg?.over ? 'is-over-combat' : ''} ${test ? 'has-test' : ''}`}
         style={accent ? { '--tv-accent': accent } : undefined}
         lang={lang}
@@ -245,7 +263,7 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
             <>
               <header className="tv-header">
                 <h1 className="tv-title">{data.name}</h1>
-                {state.scene && <span className="tv-scene">{state.scene}</span>}
+                {state.scene && <span className="tv-scene" data-fit="0.75">{state.scene}</span>}
                 <div className="tv-meta">
                   {pills}
                   <span className="tv-combat-pill">⚔ {t(lang, 'Rodada', 'Round')} {combat.round}</span>
@@ -260,7 +278,9 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
                   {turn?.name && (
                     <div className="tv-now-acting" aria-live="polite">
                       <span className="tv-now-label">{t(lang, 'Vez de', 'Now acting')}</span>
-                      <span className="tv-now-name">{turn.name}</span>
+                      <span className="tv-now-name" data-fit="0.6">
+                        {nowName.base}{nowName.num && <span className="tv-name-num"> {nowName.num}</span>}
+                      </span>
                     </div>
                   )}
                   {!stg && card && card.type === 'entry' && <TVMiniCard card={card} lang={lang} />}
@@ -304,7 +324,7 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
           ) : (
             <>
               {coverTop}
-              <main className={`tv-cover ${lengthClass(state.sceneText, [220, 520, 900])}`}>
+              <main className={`tv-cover ${readSize}`}>
                 <div className="tv-cover-ornament" aria-hidden="true">✦</div>
                 <h1 className="tv-cover-title">{data.name}</h1>
                 {data.tagline && <p className="tv-cover-tagline">{data.tagline}</p>}
@@ -314,9 +334,10 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
                     <span className="tv-cover-scene-name">{state.scene}</span>
                   </div>
                 )}
-                {state.sceneText && <section className="tv-read-aloud" aria-live="polite">{state.sceneText}</section>}
+                {state.sceneText && <section className="tv-read-aloud" aria-live="polite" data-fit="0.5" data-fit-cols="2">{state.sceneText}</section>}
               </main>
-              {partyFooter(false)}
+              {/* texto lido muito longo tem prioridade: o grupo fica nos cartões compactos */}
+              {partyFooter(readSize === 'is-xlong')}
             </>
           )}
 
@@ -359,7 +380,7 @@ function InitiativeOrder({ combat, party, order, portraitOf, lang }) {
         <li key={r.id} className={`tv-order-row is-${r.state} is-${r.kind} ${r.down ? 'is-down' : ''}`} aria-current={r.state === 'now' ? 'true' : undefined}>
           <span className="tv-order-mark" aria-hidden="true">{r.mark}</span>
           <ArtThumb src={portraitOf(byId.get(r.id) || {})} emoji={r.kind === 'pc' ? (r.name || '?').charAt(0).toUpperCase() : '👹'} size={36} round lang={lang} className="tv-order-pic" />
-          <span className="tv-order-name">{r.name}</span>
+          <OrderName name={r.name} />
           {r.hp ? (
             <span className={`tv-order-hp tv-hp-bar tv-hp-${hpToneTv(r.hp.cur, r.hp.max)}`}>
               <span className="tv-hp-fill" style={{ width: `${hpPctTv(r.hp.cur, r.hp.max)}%` }} />
@@ -368,15 +389,22 @@ function InitiativeOrder({ combat, party, order, portraitOf, lang }) {
           ) : (
             <span className={`tv-order-band tv-foe-${r.band}`}>{healthLabel(r.band, lang)}</span>
           )}
-          {r.conditions.length > 0 && (
-            <span className="tv-order-conds">
-              {r.conditions.slice(0, 3).map(cond => <ConditionChip key={cond} cond={cond} lang={lang} iconOnly />)}
-            </span>
-          )}
+          {r.conditions.length > 0 && <Conditions list={r.conditions} max={2} lang={lang} className="tv-order-conds" />}
         </li>
       ))}
       {more > 0 && <li className="tv-order-row is-more">+{more}</li>}
     </ol>
+  );
+}
+
+/** Nome na ordem: o " #N" do monstro sempre à vista; as reticências só no nome. */
+function OrderName({ name }) {
+  const { base, num } = splitNumbered(name);
+  return (
+    <span className="tv-order-name">
+      <span className="tv-name-base" data-fit="0.7">{base}</span>
+      {num && <span className="tv-name-num">{num}</span>}
+    </span>
   );
 }
 
@@ -410,7 +438,7 @@ function TVSceneFront({ front, lang }) {
       <div className="tv-scene-body">
         <div className="tv-card-kind">{t(lang, 'Cena', 'Scene')}</div>
         <h1 className="tv-scene-title">{front?.title}</h1>
-        {text && <div className="tv-scene-text">{paragraphs(text).map((p, i) => <p key={i}>{p}</p>)}</div>}
+        {text && <div className="tv-scene-text" data-fit="0.5" data-fit-cols="2">{paragraphs(text).map((p, i) => <p key={i}>{p}</p>)}</div>}
       </div>
     </main>
   );
@@ -421,7 +449,7 @@ function TVTextFront({ front }) {
   const text = front?.text || '';
   const size = lengthClass(text, [200, 500]);
   return (
-    <main className={`tv-text-front ${size}`} aria-live="polite">
+    <main className={`tv-text-front ${size}`} aria-live="polite" data-fit="0.4" data-fit-cols="1">
       {paragraphs(text).map((p, i) => <p key={i}>{p}</p>)}
     </main>
   );
@@ -461,7 +489,7 @@ function TVCard({ card, lang }) {
   const paras = paragraphs(card.text);
   const isPartial = !!card.partial;
   return (
-    <article className={`tv-card tv-card-${card.kind || card.type} ${isPartial ? 'is-partial' : ''} ${(img && imgOk) || card.type === 'entry' ? 'has-img' : 'no-img'} ${lengthClass(card.title, [28, 48])}`} aria-live="polite">
+    <article className={`tv-card tv-card-${card.kind || card.type} ${isPartial ? 'is-partial' : ''} ${(img && imgOk) || card.type === 'entry' ? 'has-img' : 'no-img'} ${lengthClass(card.title, [28, 48])} ${String(card.text || '').length > 900 ? 'is-text-long' : ''}`} aria-live="polite">
       <div className="tv-card-inner">
         <div className="tv-card-back" aria-hidden="true"><span>✦</span></div>
         <div className="tv-card-front">
@@ -476,8 +504,8 @@ function TVCard({ card, lang }) {
             <div className="tv-card-kind">{cardKindLabel(card, lang)}</div>
             <h2 className="tv-card-title">{card.title}</h2>
             {isPartial && <div className="tv-card-rumor">{t(lang, 'Rumores…', 'Rumors…')}</div>}
-            <div className="tv-card-text">
-              {paras.slice(0, 6).map((p, i) => <p key={i}>{p}</p>)}
+            <div className="tv-card-text" data-fit="0.5" data-fit-cols="2">
+              {paras.map((p, i) => <p key={i}>{p}</p>)}
             </div>
           </div>
         </div>
@@ -507,7 +535,7 @@ function TVMiniCard({ card, lang }) {
 /** "Anteriormente em…": tarjas de cinema, título e parágrafos que surgem um a um. */
 function TVRecap({ card, campaign, lang }) {
   const paras = paragraphs(card.text);
-  // Muito longo: duas colunas e letra menor (a TV não rola).
+  // Longo: o título encolhe; a letra do texto e as colunas vêm do encaixe medido (tv-fit.js).
   const size = lengthClass(card.text, [450, 900, 1800]);
   const subtitle = recapSubtitle(card.title, campaign.name);
   return (
@@ -517,7 +545,7 @@ function TVRecap({ card, campaign, lang }) {
         <div className="tv-recap-eyebrow">{t(lang, 'Anteriormente em', 'Previously on')}</div>
         <h1 className="tv-recap-campaign">{campaign.name}</h1>
         {subtitle && <h2 className="tv-recap-title">{subtitle}</h2>}
-        <div className="tv-recap-text">
+        <div className="tv-recap-text" data-fit="0.45" data-fit-cols="3">
           {paras.map((p, i) => <p key={i} style={{ '--i': i }}>{p}</p>)}
         </div>
       </div>
@@ -526,7 +554,7 @@ function TVRecap({ card, campaign, lang }) {
   );
 }
 
-function CharCard({ member, lang, isActiveTurn, compact = false }) {
+function CharCard({ member, lang, isActiveTurn, compact = false, dense = false }) {
   const c = member.character;
   const hpPct = c.maxHp ? Math.max(0, Math.min(100, (c.currentHp / c.maxHp) * 100)) : 0;
   const tone = hpPct > 60 ? 'ok' : hpPct > 30 ? 'warn' : 'crit';
@@ -534,18 +562,17 @@ function CharCard({ member, lang, isActiveTurn, compact = false }) {
   const line = charLine(c, lang);
   const photo = apiUrl(c.avatar);
   return (
-    <article className={`tv-char-card ${compact ? 'is-compact' : ''} ${isActiveTurn ? 'is-active-turn' : ''} ${dead ? 'is-dead' : ''}`}>
+    <article className={`tv-char-card ${compact ? 'is-compact' : ''} ${dense ? 'is-dense' : ''} ${isActiveTurn ? 'is-active-turn' : ''} ${dead ? 'is-dead' : ''}`}>
       <div className="tv-char-head">
         {photo
           ? <img src={photo} alt="" className="tv-avatar" />
           : <div className="tv-avatar tv-avatar-placeholder">{(c.name || '?').slice(0, 1).toUpperCase()}</div>}
-        <div className="tv-char-id">
-          <div className="tv-char-name">{c.name}</div>
-          {!compact && <div className="tv-char-sub">{line}</div>}
-          {!compact && member.user?.displayName && <div className="tv-char-player">{member.user.displayName}</div>}
-        </div>
-        {c.inspiration && <div className="tv-inspiration" title={t(lang, 'Inspiração', 'Inspiration')}>★</div>}
+        {/* nome em até 2 linhas sem partir palavra; a letra encolhe (tv-fit) antes de usar a 3ª */}
+        <div className="tv-char-name" data-fit="0.7">{c.name}</div>
+        {c.inspiration && <div className="tv-inspiration" aria-label={t(lang, 'Inspiração', 'Inspiration')}>★</div>}
       </div>
+      {!compact && <div className="tv-char-sub" data-fit="0.8">{line}</div>}
+      {!compact && member.user?.displayName && <div className="tv-char-player" data-fit="0.8">{member.user.displayName}</div>}
       <div className={`tv-hp-bar tv-hp-${tone}`} role="meter" aria-label={t(lang, 'Pontos de vida', 'Hit points')} aria-valuenow={c.currentHp} aria-valuemin={0} aria-valuemax={c.maxHp}>
         <div className="tv-hp-fill" style={{ width: `${hpPct}%` }} />
         <div className="tv-hp-text">
@@ -568,25 +595,36 @@ function CharCard({ member, lang, isActiveTurn, compact = false }) {
         </div>
       )}
       {c.conditions?.length > 0 && (
-        <div className={`tv-conditions ${compact ? 'tiny' : ''}`}>
-          {c.conditions.map(cond => <ConditionChip key={cond} cond={cond} lang={lang} />)}
-        </div>
+        <Conditions list={c.conditions} max={compact || dense ? 1 : 2} lang={lang} className={`tv-conditions ${compact ? 'tiny' : ''}`} />
       )}
     </article>
   );
 }
 
-function ConditionChip({ cond, lang, iconOnly = false }) {
+/** Condições em uma linha: ícone + nome das `max` primeiras e "+N" com as outras (nenhuma some sem aviso). */
+function Conditions({ list, max, lang, className }) {
+  const { shown, more, rest } = conditionsShown(list, max);
+  const names = rest.map(c => CONDITIONS[c]?.[lang] || c).join(', ');
+  return (
+    <span className={className}>
+      {shown.map(cond => <ConditionChip key={cond} cond={cond} lang={lang} />)}
+      {more > 0 && <span className="tv-condition is-more" aria-label={t(lang, `mais ${more}: ${names}`, `${more} more: ${names}`)}>+{more}</span>}
+    </span>
+  );
+}
+
+// Condição sempre com ícone e nome (nunca só o ícone; §1.4).
+function ConditionChip({ cond, lang }) {
   const def = CONDITIONS[cond];
   if (!def) return <span className="tv-condition">{cond}</span>;
   return (
-    <span className={`tv-condition ${iconOnly ? 'is-icon' : ''}`} title={def[lang]} aria-label={iconOnly ? def[lang] : undefined}>
+    <span className="tv-condition">
       {conditionIcon(cond) ? <ArtIcon src={conditionIcon(cond)} size={22} className="tv-cond-icon" /> : (
         <svg className="tv-cond-icon" viewBox="0 0 24 24" aria-hidden="true">
           <path d={def.icon} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
-      {!iconOnly && <span className="tv-cond-label">{def[lang]}</span>}
+      <span className="tv-cond-label">{def[lang]}</span>
     </span>
   );
 }
@@ -657,7 +695,7 @@ function CheckScreenPanel({ check, lang }) {
       <ul className="tv-check-list">
         {check.results.map((r, i) => (
           <li key={i} className={`tv-check-item ${r.outcome || (r.total == null ? 'waiting' : 'answered')}`}>
-            <span className="tv-check-name">{r.name}</span>
+            <span className="tv-check-name" data-fit="0.75">{r.name}</span>
             <span className="tv-check-total">{r.total == null ? '…' : r.total}</span>
             {r.outcome && <span className="tv-check-mark">{r.outcome === 'pass' ? '✓' : '✗'}</span>}
           </li>

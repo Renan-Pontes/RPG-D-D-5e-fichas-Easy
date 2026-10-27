@@ -1,7 +1,7 @@
 // Tela: subtítulo do recap sem repetição, detecção de link morto e o modo de desenho.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { recapSubtitle, isDeadScreenLink, tvMode } from '../src/screen/tv-logic.js';
+import { recapSubtitle, isDeadScreenLink, tvMode, splitNumbered, conditionsShown, bestScale } from '../src/screen/tv-logic.js';
 import { stageNow } from '../src/stage/stage-now.js';
 
 test('recapSubtitle esconde títulos que só repetem "Anteriormente em <campanha>"', () => {
@@ -144,4 +144,37 @@ test('tabela leve de nomes da Tela = tName (rode node scripts/tv-names.mjs se fa
   }
   assert.equal(charLine({ race: 'dragonborn', classes: [{ id: 'paladin', level: 3 }] }, 'en'), 'Dragonborn · Paladin 3');
   assert.equal(tvName('race', 'nao-existe', 'pt'), 'nao-existe');
+});
+
+// ---------------------------------------------------------------- V9: nada cortado
+test('splitNumbered separa o " #N" do monstro', () => {
+  assert.deepEqual(splitNumbered('Esqueleto Guardião da Cripta #2'), { base: 'Esqueleto Guardião da Cripta', num: '#2' });
+  assert.deepEqual(splitNumbered('Goblin Afogado #12'), { base: 'Goblin Afogado', num: '#12' });
+  assert.deepEqual(splitNumbered('Goblin#3'), { base: 'Goblin', num: '#3' });
+  assert.deepEqual(splitNumbered('Kaelor Escama-de-Ouro'), { base: 'Kaelor Escama-de-Ouro', num: '' });
+  assert.deepEqual(splitNumbered('#3'), { base: '#3', num: '' });              // só o número: fica como nome
+  assert.deepEqual(splitNumbered('Sala #2 do porão'), { base: 'Sala #2 do porão', num: '' });
+  assert.deepEqual(splitNumbered(null), { base: '', num: '' });
+});
+
+test('conditionsShown: as primeiras e "+N" com o resto, nada some sem aviso', () => {
+  const five = ['poisoned', 'prone', 'frightened', 'restrained', 'blinded'];
+  assert.deepEqual(conditionsShown(five, 2), { shown: ['poisoned', 'prone'], more: 3, rest: ['frightened', 'restrained', 'blinded'] });
+  assert.deepEqual(conditionsShown(['prone'], 2), { shown: ['prone'], more: 0, rest: [] });
+  assert.deepEqual(conditionsShown(['a', 'b'], 2), { shown: ['a', 'b'], more: 0, rest: [] });
+  assert.deepEqual(conditionsShown(five, 0).more, 5);
+  assert.deepEqual(conditionsShown(null), { shown: [], more: 0, rest: [] });
+});
+
+test('bestScale acha a maior letra que cabe, com poucas medidas', () => {
+  let calls = 0;
+  const upTo = (limit) => (s) => { calls += 1; return s <= limit; };
+  assert.equal(bestScale(upTo(1)), 1);
+  assert.equal(bestScale(upTo(0.72), { min: 0.5, step: 0.05 }), 0.7);
+  calls = 0;
+  assert.equal(bestScale(upTo(0.55), { min: 0.4, step: 0.05 }), 0.55);
+  assert.ok(calls <= 6, `medidas: ${calls}`);
+  assert.equal(bestScale(upTo(0.3), { min: 0.5 }), null);       // nem a menor: quem chama tenta colunas
+  assert.equal(bestScale(() => false, { min: 1 }), null);
+  assert.equal(bestScale(upTo(0.5), { min: 0.5, step: 0.05 }), 0.5);
 });

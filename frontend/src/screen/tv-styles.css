@@ -7,6 +7,10 @@
    do palco, 1cqh = 1% da altura), então o desenho é o mesmo em 1280×720,
    1920×1080, num tablet em pé (768×1024: tarjas em cima e embaixo) e na prévia
    do mestre (iframe pequeno). Ninguém rola a TV: nada passa da altura.
+   Nada é cortado: texto longo e nomes encolhem medindo a própria caixa
+   (src/screen/tv-fit.js: `data-fit` põe `--fit` (escala da letra) e
+   `--fit-cols` (colunas)). `--tv-min` é o piso de legibilidade (12 px) nas TVs
+   de verdade; na prévia pequena do mestre (iframe) o desenho é só ilustrativo.
    Tudo escopado em .tv-* (este arquivo é importado no app inteiro).
    ======================================================================== */
 
@@ -53,6 +57,13 @@
   min-height: 0;
 }
 .tv-canvas > * { min-height: 0; }
+/* Piso da letra: 12 px num palco de TV/monitor; a prévia do mestre (iframe de ~360 px) não tem. */
+.tv-canvas { --tv-min: 0px; }
+@container (min-width: 1000px) { .tv-canvas { --tv-min: 12px; } }
+/* Texto que nem a menor letra fez caber: em colunas (tv-fit.js); o parágrafo não se parte
+   entre colunas (inline-block é inteiro: se não couber, o encaixe mede e encolhe mais) */
+.tv-canvas .is-fit-cols { columns: var(--fit-cols, 2); }
+.tv-canvas .is-fit-cols > p { display: inline-block; width: 100%; vertical-align: top; }
 
 /* === Estados de loading/erro (fora do palco) === */
 .tv-loading, .tv-error {
@@ -151,25 +162,32 @@
   border-left: 0.3cqw solid var(--tv-gold);
   background: rgba(7, 5, 4, 0.6); backdrop-filter: blur(4px);
   color: var(--tv-ink);
-  font-size: 1.75cqw; font-style: italic; line-height: 1.45;
+  /* tamanho e colunas pelo encaixe medido (tv-fit.js), nunca cortado */
+  font-size: max(var(--tv-min), calc(var(--fit, 1) * 1.75cqw)); font-style: italic; line-height: 1.42;
+  column-gap: 2.4cqw;
   white-space: pre-wrap;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 7; line-clamp: 7;
 }
-.tv-cover.is-medium .tv-read-aloud { font-size: 1.5cqw; -webkit-line-clamp: 8; line-clamp: 8; }
-.tv-cover.is-long .tv-read-aloud, .tv-cover.is-xlong .tv-read-aloud { font-size: 1.3cqw; line-height: 1.38; -webkit-line-clamp: 10; line-clamp: 10; }
 .tv-cover:is(.is-medium, .is-long, .is-xlong) .tv-cover-title { font-size: 4.4cqw; }
 .tv-cover:is(.is-medium, .is-long, .is-xlong) .tv-cover-tagline { display: none; }
+/* texto lido longo: o título e a cena dão lugar a ele */
+.tv-cover:is(.is-long, .is-xlong) .tv-cover-scene-name { font-size: 1.7cqw; }
+.tv-cover.is-xlong .tv-cover-title { font-size: 3.2cqw; }
+.tv-cover.is-xlong .tv-cover-ornament { display: none; }
+.tv-cover.is-xlong .tv-read-aloud { max-width: 94cqw; line-height: 1.32; padding: 1cqh 1.4cqw; }
+.tv-screen.has-test .tv-cover.is-xlong { gap: 0.6cqh; }
+.tv-screen.has-test .tv-cover.is-xlong .tv-cover-title { display: none; }
+.tv-screen.has-test .tv-cover.is-xlong .tv-cover-scene { padding: 0.4cqh 2cqw; }
+.tv-screen.has-test .tv-cover.is-xlong .tv-read-aloud { max-width: none; margin: 0; padding: 0.6cqh 1.2cqw; line-height: 1.22; }
 @keyframes tv-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
 
 /* Com o teste na Tela (faixa embaixo), a capa encolhe para o grupo continuar à vista */
 .tv-screen.has-test .tv-cover-title { font-size: 4.2cqw; }
 .tv-screen.has-test .tv-cover-ornament,
 .tv-screen.has-test .tv-cover-tagline { display: none; }
-.tv-screen.has-test .tv-read-aloud { -webkit-line-clamp: 4; line-clamp: 4; font-size: 1.35cqw; }
 
 /* === Grupo: até 6 cartões numa linha (repouso) ou compactos (cartão) === */
 .tv-party {
-  flex: none; display: grid; gap: 1cqw; justify-content: center;
+  flex: none; display: grid; gap: 1cqw; justify-content: center; align-items: start;
   grid-template-columns: repeat(var(--n, 4), minmax(0, 22cqw));
 }
 .tv-party-more {
@@ -193,7 +211,6 @@
 }
 .tv-char-card.is-dead { filter: grayscale(0.6); opacity: 0.75; }
 .tv-char-head { display: flex; align-items: center; gap: 0.7cqw; min-width: 0; }
-.tv-char-id { flex: 1; min-width: 0; }
 .tv-avatar {
   width: 3.9cqw; height: 3.9cqw;
   border-radius: 50%;
@@ -206,16 +223,26 @@
   background: var(--tv-border);
   font-family: 'Cinzel', serif; font-size: 1.8cqw; color: var(--tv-gold);
 }
+/* Nome, classe e jogador: até 2 linhas (o jogador, 1) sem partir palavra; a letra encolhe
+   (tv-fit) e, se nem assim couber, ganha mais linhas (.is-fit-over) — nunca "…". */
 .tv-char-name {
-  font-family: 'Cinzel', serif; font-size: 1.35cqw; color: var(--tv-ink); line-height: 1.1;
-  overflow: hidden; overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  flex: 1; min-width: 0;
+  font-family: 'Cinzel', serif; color: var(--tv-ink); line-height: 1.15;
+  font-size: max(var(--tv-min), calc(var(--fit, 1) * 1.35cqw));
+  overflow: hidden; overflow-wrap: break-word; hyphens: manual;
+  max-height: calc(2 * 1.15em);
 }
 .tv-char-sub, .tv-char-player {
-  font-size: 1.05cqw; color: var(--tv-ink-soft); margin-top: 0.3cqh; font-style: italic;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--tv-ink-soft); font-style: italic; line-height: 1.25;
+  font-size: max(var(--tv-min), calc(var(--fit, 1) * 1.05cqw));
+  overflow: hidden; overflow-wrap: break-word;
+  max-height: calc(2 * 1.25em);
 }
-.tv-char-player { font-style: normal; opacity: 0.85; }
+.tv-char-player { font-style: normal; opacity: 0.85; max-height: calc(1 * 1.25em); }
+.tv-char-name.is-fit-over { max-height: calc(3 * 1.15em); }
+.tv-char-sub.is-fit-over { max-height: calc(3 * 1.25em); }
+.tv-char-player.is-fit-over { max-height: calc(2 * 1.25em); }
+:is(.tv-char-name, .tv-char-sub, .tv-char-player).is-fit-free { max-height: none; }
 .tv-inspiration {
   color: var(--tv-gold); font-size: 1.8cqw; flex: none;
   text-shadow: 0 0 12px rgba(214, 176, 100, 0.6);
@@ -224,9 +251,12 @@
 @keyframes tv-twinkle { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
 .tv-char-card.is-compact { padding: 0.8cqh 0.8cqw; gap: 0.6cqh; }
 .tv-char-card.is-compact .tv-avatar { width: 2.6cqw; height: 2.6cqw; }
-.tv-char-card.is-compact .tv-char-name { font-size: 1.15cqw; display: block; white-space: nowrap; text-overflow: ellipsis; }
+.tv-char-card.is-compact .tv-char-name { font-size: max(var(--tv-min), calc(var(--fit, 1) * 1.15cqw)); }
+/* 5 ou 6 cartões numa linha: retrato menor, mais espaço para o nome */
+.tv-char-card.is-dense { padding: 1cqh 0.8cqw; }
+.tv-char-card.is-dense .tv-avatar { width: 3cqw; height: 3cqw; }
 .tv-char-card.is-compact .tv-hp-bar { height: 2.6cqh; }
-.tv-char-card.is-compact .tv-hp-text { font-size: 1cqw; }
+.tv-char-card.is-compact .tv-hp-text { font-size: max(var(--tv-min), 1cqw); }
 .tv-screen.has-test .tv-char-card:not(.is-compact) { padding: 0.8cqh 0.8cqw; gap: 0.5cqh; }
 
 /* === Barra de PV === */
@@ -256,7 +286,7 @@
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 1.15cqw; font-weight: 600;
+  font-size: max(var(--tv-min), 1.15cqw); font-weight: 600;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
   white-space: nowrap;
 }
@@ -268,7 +298,7 @@
 .tv-stats .lbl {
   color: var(--tv-ink-soft);
   font-family: 'Cinzel', serif;
-  font-size: 0.8em;
+  font-size: max(var(--tv-min), 0.88cqw);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
@@ -277,24 +307,27 @@
 .tv-death-succ { color: var(--tv-hp-ok); margin-right: 0.3cqw; }
 .tv-death-fail { color: var(--tv-hp-crit); }
 
-/* === Condições com ícones === */
+/* === Condições: ícone + nome; as que não cabem viram "+N" (Conditions, conditionsShown) === */
 .tv-conditions { display: flex; flex-wrap: wrap; gap: 0.4cqw; }
 .tv-condition {
-  display: inline-flex; align-items: center; gap: 0.35cqw;
+  display: inline-flex; align-items: center; gap: 0.35cqw; min-width: 0; max-width: 100%;
   background: var(--tv-cond-bg);
   border: 1px solid var(--tv-cond-border);
   border-radius: 999px;
   padding: 0.25cqh 0.7cqw 0.25cqh 0.35cqw;
-  font-size: 0.95cqw;
+  font-size: max(var(--tv-min), 0.98cqw);
   color: var(--tv-cond-ink);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-family: 'Cinzel', serif;
   white-space: nowrap;
 }
-.tv-condition.is-icon { padding: 0.2cqh 0.25cqw; }
+/* 5 ou 6 cartões: a condição e o "+N" cabem numa linha (sem caixa alta, que é mais larga) */
+.tv-char-card.is-dense .tv-conditions { flex-wrap: nowrap; }
+.tv-char-card.is-dense .tv-condition { text-transform: none; letter-spacing: 0; }
+.tv-condition.is-more { padding: 0.25cqh 0.7cqw; letter-spacing: 0; font-family: 'JetBrains Mono', monospace; }
 .tv-cond-icon { width: 1.3cqw; height: 1.3cqw; flex-shrink: 0; }
-.tv-conditions.tiny .tv-condition { font-size: 0.85cqw; padding: 0.15cqh 0.4cqw; }
+.tv-conditions.tiny .tv-condition { font-size: max(var(--tv-min), 0.85cqw); padding: 0.15cqh 0.4cqw; }
 .tv-conditions.tiny .tv-cond-icon { width: 1cqw; height: 1cqw; }
 
 /* === Combate (T1): cabeçalho de 1 linha, mapa 70% e a coluna 30% === */
@@ -305,12 +338,12 @@
 }
 .tv-title {
   flex: 0 1 auto; min-width: 18cqw; margin: 0;
-  font-family: 'Cinzel', 'Trajan Pro', serif; font-size: 2.3cqw; line-height: 1.1;
+  font-family: 'Cinzel', 'Trajan Pro', serif; font-size: 2.3cqw; line-height: 1.25;
   color: var(--tv-gold); letter-spacing: 0.06em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .tv-scene {
-  flex: 1 1 0; min-width: 0; font-size: 1.5cqw; font-style: italic; color: var(--tv-ink); opacity: 0.9;
+  flex: 1 1 0; min-width: 0; font-size: max(var(--tv-min), calc(var(--fit, 1) * 1.5cqw)); font-style: italic; color: var(--tv-ink); opacity: 0.9;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .tv-meta { flex: none; margin-left: auto; display: flex; align-items: center; gap: 1cqw; color: var(--tv-ink-soft); }
@@ -346,11 +379,15 @@
   border-radius: 0.3cqw;
   animation: tv-pulse 2.4s ease-in-out infinite;
 }
-.tv-now-label { font-family: 'Cinzel', serif; font-size: 1.05cqw; text-transform: uppercase; letter-spacing: 0.15em; color: var(--tv-ink-soft); }
+.tv-now-label { font-family: 'Cinzel', serif; font-size: max(var(--tv-min), 1.05cqw); text-transform: uppercase; letter-spacing: 0.15em; color: var(--tv-ink-soft); }
+/* Quem age: até 2 linhas (a letra encolhe antes da 3ª), com o " #N" do monstro sempre junto */
 .tv-now-name {
-  font-family: 'Cinzel', serif; font-size: 2cqw; color: var(--tv-gold); font-weight: 600; line-height: 1.1;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: 'Cinzel', serif; font-size: calc(var(--fit, 1) * 2cqw); color: var(--tv-gold); font-weight: 600; line-height: 1.2;
+  overflow: hidden; overflow-wrap: break-word; max-height: calc(2 * 1.2em);
 }
+.tv-now-name.is-fit-over { max-height: calc(3 * 1.2em); }
+.tv-now-name.is-fit-free { max-height: none; }
+.tv-name-num { white-space: nowrap; }
 
 /* Ordem de iniciativa: ✓ agiu (esmaecido) · ▶ a vez (dourado) · o resto */
 .tv-order {
@@ -371,19 +408,31 @@
 .tv-order-row.is-down .tv-order-name { text-decoration: line-through; text-decoration-color: rgba(224, 96, 79, 0.7); }
 .tv-order-mark { font-family: 'Cinzel', serif; color: var(--tv-gold); text-align: center; }
 .tv-order-row.is-acted .tv-order-mark { color: var(--moss-bright); }
+/* Nome na ordem: o " #N" fica sempre à vista (flex: none); as reticências só no nome.
+   Sem condições, o nome usa até 2 linhas. */
 .tv-order-name {
-  font-family: 'Cinzel', serif; color: var(--tv-ink); line-height: 1.1;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: last baseline; gap: 0.35em; min-width: 0;
+  font-family: 'Cinzel', serif; color: var(--tv-ink); line-height: 1.2;
+}
+.tv-order-name .tv-name-base { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: max(var(--tv-min), calc(var(--fit, 1) * 1em)); }
+.tv-order-name .tv-name-num { flex: none; }
+.tv-order-row:not(:has(.tv-order-conds)) .tv-name-base {
+  white-space: normal; overflow-wrap: break-word;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
 }
 .tv-order-row.is-now .tv-order-name { color: var(--gold-bright); font-weight: 600; }
 .tv-order-row.is-monster .tv-order-name { color: #f0d3c9; }
 .tv-order-hp.tv-hp-bar { height: 2.8cqh; margin: 0; border-radius: 0.3cqw; }
-.tv-order-hp .tv-hp-text { font-size: 1.05cqw; }
+.tv-order-hp .tv-hp-text { font-size: max(var(--tv-min), 1.05cqw); }
 .tv-order-band {
   justify-self: end; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 1.05cqw; padding: 0.1cqh 0.6cqw; border-radius: 999px; border: 1px solid currentColor;
+  font-size: max(var(--tv-min), 1.05cqw); padding: 0.1cqh 0.6cqw; border-radius: 999px; border: 1px solid currentColor;
 }
-.tv-order-conds { grid-column: 3 / -1; display: flex; gap: 0.3cqw; }
+/* Condições da linha: ícone + nome numa 2ª linha, até 2 e "+N" com as outras */
+.tv-order-conds { grid-column: 3 / -1; display: flex; gap: 0.3cqw; min-width: 0; overflow: hidden; }
+.tv-order-conds .tv-condition { padding: 0 0.5cqw 0 0.2cqw; font-size: max(var(--tv-min), 0.9cqw); }
+.tv-order-conds .tv-cond-icon { width: 1.1cqw; height: 1.1cqw; }
+.tv-order-conds .tv-condition:not(.is-more) { flex: 0 1 auto; overflow: hidden; }
 .tv-order-pic { --art-size: 2.8cqw !important; }
 .tv-order-row:has(.tv-order-conds) :is(.tv-order-mark, .tv-order-pic) { grid-row: 1 / span 2; }
 .tv-order-pic .art-thumb-emoji { font-size: 1.4cqw; }
@@ -417,6 +466,11 @@
 }
 .tv-stage-campaign { flex: none; font-family: 'Cinzel', serif; letter-spacing: 0.3em; text-transform: uppercase; color: var(--tv-accent); opacity: 0.8; font-size: 1.05cqw; }
 .tv-card { width: min(88cqw, 100%); flex: 0 1 auto; min-height: 0; display: flex; }
+/* Texto longo: o cartão usa a altura toda que sobra e a arte fica mais estreita */
+.tv-card.is-text-long { flex: 1 1 auto; }
+.tv-card.is-text-long .tv-card-front { height: auto; min-height: 58cqh; }
+.tv-card.is-text-long.has-img .tv-card-front { grid-template-columns: minmax(0, 26%) minmax(0, 1fr); }
+.tv-screen.has-test .tv-card.is-text-long .tv-card-front { min-height: 0; }
 .tv-card-inner {
   position: relative; transform-style: preserve-3d; flex: 1; min-height: 0; display: flex;
   animation: tv-flip 1.25s cubic-bezier(0.3, 1.15, 0.4, 1) both;
@@ -460,9 +514,17 @@
 }
 .tv-card-title::after { content: ''; display: block; width: 9cqw; height: 2px; margin-top: 1.2cqh; background: linear-gradient(90deg, var(--tv-accent), transparent); }
 .tv-card-text {
-  flex: 1 1 auto; min-height: 0; font-size: 1.55cqw; line-height: 1.45; color: var(--tv-ink); overflow: hidden;
-  -webkit-mask-image: linear-gradient(180deg, #000 85%, transparent);
-  mask-image: linear-gradient(180deg, #000 85%, transparent);
+  flex: 1 1 auto; min-height: 0; line-height: 1.42; color: var(--tv-ink); overflow: hidden;
+  font-size: max(var(--tv-min), calc(var(--fit, 1) * 1.55cqw));
+  column-gap: 2cqw;
+}
+.tv-card-text p { break-inside: avoid-column; }
+/* a margem do último parágrafo não conta como texto que passou da caixa */
+:is(.tv-card-text, .tv-recap-text, .tv-scene-text, .tv-text-front) > p:last-child { margin-bottom: 0; }
+/* nem a menor letra em 2 colunas coube: termina num degradê (há mais) */
+.tv-card-text.is-fit-over, .tv-recap-text.is-fit-over, .tv-read-aloud.is-fit-over, .tv-scene-text.is-fit-over {
+  -webkit-mask-image: linear-gradient(180deg, #000 88%, transparent);
+  mask-image: linear-gradient(180deg, #000 88%, transparent);
 }
 .tv-card-text p { margin: 0 0 0.6em; }
 .tv-card.is-medium .tv-card-title { font-size: 3cqw; }
@@ -504,24 +566,23 @@
   /* a cor da campanha clareada: roxo/vermelho puros sumiam no fundo escuro */
   color: color-mix(in srgb, var(--tv-accent, #d6b064) 45%, #f4e7c9);
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.85); font-size: 2.1cqw; animation: tv-fade 1.2s 1.8s ease both; }
-.tv-recap-text { margin-top: 1cqh; max-width: 62ch; min-height: 0; overflow: hidden; font-size: 1.8cqw; }
+/* Letra e colunas pelo encaixe medido (tv-fit.js): 1 coluna de ~60cqw; 2 ou 3 colunas na
+   largura toda quando nem a menor letra cabe. */
+.tv-recap-text {
+  margin-top: 1cqh; min-height: 0; overflow: hidden;
+  width: min(92cqw, calc(30cqw + var(--fit-cols, 1) * 30cqw));
+  font-size: max(var(--tv-min), calc(var(--fit, 1) * 1.8cqw));
+  column-gap: 3cqw;
+}
 .tv-recap-text p {
-  margin: 0 0 1em; line-height: 1.45; font-style: italic; color: var(--tv-ink);
+  margin: 0 0 0.7em; line-height: 1.4; font-style: italic; color: var(--tv-ink);
+  break-inside: avoid-column;
   animation: tv-rise 1.6s calc(2.6s + var(--i, 0) * 2.4s) cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-.tv-recap.is-medium .tv-recap-text { font-size: 1.5cqw; }
-.tv-recap.is-medium .tv-recap-text p { margin-bottom: 0.7em; }
-.tv-recap.is-long .tv-recap-text { font-size: 1.28cqw; max-width: 80ch; }
-.tv-recap.is-long .tv-recap-text p { margin-bottom: 0.55em; line-height: 1.38; }
 .tv-recap:is(.is-long, .is-xlong) .tv-recap-campaign { font-size: 3.8cqw; }
 .tv-recap:is(.is-long, .is-xlong) .tv-recap-title { font-size: 1.6cqw; }
-/* muito longo: duas colunas, letra menor; o que sobrar some num degradê (a TV não rola) */
-.tv-recap.is-xlong .tv-recap-text {
-  max-width: 90cqw; font-size: 1.12cqw; columns: 2; column-gap: 3cqw; text-align: left;
-  -webkit-mask-image: linear-gradient(180deg, #000 90%, transparent);
-  mask-image: linear-gradient(180deg, #000 90%, transparent);
-}
-.tv-recap.is-xlong .tv-recap-text p { margin-bottom: 0.5em; line-height: 1.34; break-inside: avoid-column; }
+.tv-recap-text.is-fit-cols { text-align: left; }
+.tv-recap-text.is-fit-cols p { margin-bottom: 0.45em; line-height: 1.32; }
 .tv-screen.tv-mode-recap.has-test .tv-recap { padding-bottom: 1cqh; }
 .tv-screen.tv-mode-recap.has-test .tv-recap-bar.bottom { display: none; }
 @keyframes tv-letterbox { from { transform: scaleY(0); } to { transform: scaleY(1); } }
@@ -615,7 +676,7 @@
 .tv-check-head { flex: 0 0 auto; display: flex; flex-direction: column; gap: 0.3cqh; max-width: 30cqw; }
 .tv-check-eyebrow { font-family: 'Cinzel', serif; color: var(--tv-gold); letter-spacing: 0.2em; text-transform: uppercase; font-size: 1.1cqw; }
 .tv-check-label {
-  font-family: 'Cinzel', serif; color: var(--tv-ink); font-size: 2.1cqw; font-weight: 700; line-height: 1.1;
+  font-family: 'Cinzel', serif; color: var(--tv-ink); font-size: 2.1cqw; font-weight: 700; line-height: 1.25;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .tv-check-sub { display: flex; align-items: center; gap: 0.8cqw; }
@@ -636,7 +697,7 @@
   border: 1px solid rgba(214, 176, 100, 0.3);
   font-size: 1.5cqw; color: var(--tv-ink);
 }
-.tv-check-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-check-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: max(var(--tv-min), calc(var(--fit, 1) * 1em)); }
 .tv-check-total { font-family: 'Cinzel', serif; font-weight: 700; color: var(--tv-gold); }
 .tv-check-mark { font-weight: 700; font-size: 1.2em; }
 .tv-check-item.pass { border-color: var(--moss-bright); background: rgba(156, 192, 101, 0.14); }
@@ -701,21 +762,20 @@
 .tv-scene-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tv-scene-body { display: flex; flex-direction: column; gap: 1.2cqh; min-width: 0; min-height: 0; max-height: 100%; overflow: hidden; }
 .tv-scene-title { flex: none; margin: 0; font-family: 'Cinzel', serif; color: var(--gold-bright); line-height: 1.05; font-size: 4.4cqw; }
-.tv-scene-text { font-size: 2cqw; line-height: 1.45; color: var(--tv-ink); min-height: 0; overflow: hidden; }
-.tv-scene-text p { margin: 0 0 0.6em; }
-.tv-scene-front.is-medium .tv-scene-text { font-size: 1.6cqw; }
-.tv-scene-front.is-long .tv-scene-text { font-size: 1.3cqw; }
+.tv-scene-text {
+  font-size: max(var(--tv-min), calc(var(--fit, 1) * 2cqw)); line-height: 1.42; color: var(--tv-ink);
+  min-height: 0; overflow: hidden; column-gap: 2cqw;
+}
+.tv-scene-text p { margin: 0 0 0.6em; break-inside: avoid-column; }
 .tv-scene-front.is-long .tv-scene-title { font-size: 3.4cqw; }
 
 /* Texto livre */
 .tv-text-front {
-  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
-  padding: 0 6cqw; font-size: 3.4cqw; line-height: 1.32; color: var(--parchment); overflow: hidden;
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: safe center; align-items: center; text-align: center;
+  padding: 0 6cqw; font-size: max(var(--tv-min), calc(var(--fit, 1) * 3.4cqw)); line-height: 1.32; color: var(--parchment); overflow: hidden;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8); animation: tv-front-in 0.6s ease-out both;
 }
 .tv-text-front p { margin: 0 0 0.5em; }
-.tv-text-front.is-medium { font-size: 2.6cqw; }
-.tv-text-front.is-long { font-size: 1.9cqw; }
 
 /* Mapa do combate como fundo (sem combate): só o mapa e os tokens */
 .tv-screen.tv-mode-map .tv-canvas { padding: 1.6cqh 1.2cqw; }
