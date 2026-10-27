@@ -540,6 +540,274 @@ def stage_from_screen_card(campaign, card):
     return {'op': 'show', 'front': front, 'recap': recap, 'focus': True}
 
 
+# ------------------------------------------------------------------ ▶ Começar esta cena (V7)
+# POST /campaigns/:id/stage/scene {sceneId, show?, focus?, log?}: a cena do plano vira a
+# "cena agora" numa chamada — o nome em state.scene (o que os jogadores, a capa e a TV
+# leem), o id em state.sceneId (só o mestre), a sala da cena ligada vira a sala atual da
+# aventura ("O grupo entrou aqui", com o registro na Crônica se pedido), a cena que estava
+# "agora" fica feita no plano e, com "Mostrar ao começar", a cena vai à frente da Tela com
+# o título, o texto e a versão da imagem GRAVADOS no palco (a TV não abre a aventura a cada
+# leitura). A resposta traz `undo`: o que o ↶ Desfazer manda de volta ({undo: …}) para
+# voltar tudo — o nome, o id, a Tela, a cena feita, a sala atual e o registro.
+MAX_SCENE_NAME = 200      # o mesmo teto de state.scene
+MAX_SCENE_TEXT = 5000     # o de state.sceneText (o texto lido que a Mesa do jogador mostra)
+
+
+def _scene_name(scene):
+    return ((scene.get('text') or '').strip().split('\n', 1)[0]).strip()
+
+
+def _first_ref_image(campaign, ids):
+    """O 1º cartão com imagem de uma lista de ids (na ordem dela), sem documento privado."""
+    from .models import WorldEntry
+    ids = [i for i in ids or [] if isinstance(i, int) and not isinstance(i, bool)][:20]
+    if not ids:
+        return None
+    rows = {e.id: e for e in WorldEntry.objects.filter(campaign=campaign, pk__in=ids).only('id', 'kind', 'data', 'image_ver')}
+    for i in ids:
+        e = rows.get(i)
+        if e and e.image_ver and not is_private_handout(e):
+            return e
+    return None
+
+
+def _maybe_node(campaign, adv_id, node_id):
+    try:
+        return _node(campaign, adv_id, node_id)
+    except NotFound:
+        return None
+
+
+def plan_scene_front(campaign, scene, scene_id):
+    """A frente "cena" de uma cena do plano, com o que ela tem (um lugar por dado, §3.3):
+    cena solta → `scene.read` e `scene.show`; cena ligada → o texto e a imagem da SALA (o
+    1º cartão com imagem da sala, senão a imagem dela; nenhuma com `showOff`). Sala apagada:
+    fica só o que é do plano. → (frente, texto inteiro, sala|None, (aventura, sala)|None)"""
+    ref = scene.get('nodeRef') if isinstance(scene.get('nodeRef'), dict) else None
+    node = room = None
+    if ref and isinstance(ref.get('adventureId'), int) and isinstance(ref.get('nodeId'), str):
+        node = _maybe_node(campaign, ref['adventureId'], ref['nodeId'])
+        room = (ref['adventureId'], ref['nodeId']) if node is not None else None
+    name = _scene_name(scene) or ((node or {}).get('name') or '').strip()
+    if not name:
+        _bad('empty_scene')
+    front = {'kind': 'scene', 'sceneId': scene_id, 'title': name[:MAX_TITLE], 'label': name[:MAX_LABEL]}
+    image, image_ver = None, ''
+    if node is not None:
+        text = node.get('readAloud') or ''
+        front['ref'] = {'advId': room[0], 'nodeId': room[1]}
+        if not scene.get('showOff'):
+            e = _first_ref_image(campaign, node.get('refs'))
+            if e:
+                image, image_ver = {'entryId': e.id}, e.image_ver
+            elif node.get('image'):
+                image, image_ver = {'advId': room[0], 'nodeId': room[1]}, len(node['image'])
+    else:
+        text = scene.get('read') if isinstance(scene.get('read'), str) else ''
+        show = scene.get('show') if isinstance(scene.get('show'), dict) else {}
+        if show.get('kind') == 'entry' and isinstance(show.get('id'), int):
+            e = _first_ref_image(campaign, [show['id']])
+            if e:
+                image, image_ver = {'entryId': e.id}, e.image_ver
+        elif show.get('kind') == 'node' and isinstance(show.get('advId'), int) and isinstance(show.get('nodeId'), str):
+            n = _maybe_node(campaign, show['advId'], show['nodeId'])
+            if n and n.get('image'):
+                image, image_ver = {'advId': show['advId'], 'nodeId': show['nodeId']}, len(n['image'])
+    text = str(text or '').strip()
+    if text:
+        front['text'] = text[:MAX_TEXT]
+    if image:
+        front['image'] = image
+        front['ver'] = _ver('scene', scene_id, json.dumps(image, sort_keys=True), image_ver, _now())
+    return front, text[:MAX_SCENE_TEXT], node, room
+
+
+def set_scene_done(campaign, scene_id, done):
+    """Marca (ou desmarca) uma cena do plano como feita, com a trava do dm_settings e o
+    `_rev`/`planRev` subindo como num PUT do plano. → True se mudou."""
+    from django.db import transaction
+    from .campaign_state import locked_dm_settings
+    from .models import Campaign
+    from .world_rules import bump_session_plan
+    with transaction.atomic():
+        settings = locked_dm_settings(campaign.pk)
+        plan = settings.get('sessionPlan') if isinstance(settings.get('sessionPlan'), dict) else None
+        scenes = plan.get('scenes') if plan else None
+        if not isinstance(scenes, list):
+            return False
+        hit = False
+        out = []
+        for sc in scenes:
+            if isinstance(sc, dict) and sc.get('id') == scene_id and bool(sc.get('done')) != bool(done):
+                sc = {**sc, 'done': bool(done)}
+                hit = True
+            out.append(sc)
+        if not hit:
+            return False
+        state = Campaign.objects.filter(pk=campaign.pk).values_list('state', flat=True).first() or {}
+        settings['sessionPlan'] = bump_session_plan({**plan, 'scenes': out}, state)
+        settings['planRev'] = _now()   # o pulso do mestre (V4) lê só isto
+        Campaign.objects.filter(pk=campaign.pk).update(dm_settings=settings)
+    campaign.dm_settings = settings
+    return True
+
+
+def _enter_room(campaign, room, *, name='', log=True, user=None):
+    """A sala da cena ligada vira a sala atual da aventura (o "O grupo entrou aqui" do modo
+    Na mesa, com o mesmo registro na Crônica). → o que o ↶ precisa para voltar
+    ({advId, nodeId, current, visited, status, diaryId?}) ou None (já era a sala atual)."""
+    from django.db import transaction
+    from .diary import log_diary
+    from .models import Adventure
+    from .views_adventures import _clean_play
+    adv_id, node_id = room
+    with transaction.atomic():
+        adv = Adventure.objects.select_for_update().filter(campaign=campaign, pk=adv_id).first()
+        if not adv:
+            return None
+        play = _clean_play(adv.play, adv.data or {})
+        if play['current'] == node_id:
+            return None
+        back = {'advId': adv.id, 'nodeId': node_id, 'current': play['current'],
+                'visited': node_id in play['visited'], 'status': adv.status}
+        play['current'] = node_id
+        if node_id not in play['visited']:
+            play['visited'].append(node_id)
+        if adv.status == 'draft':
+            adv.status = 'playing'
+        adv.play = play
+        adv.save(update_fields=['play', 'status', 'updated_at'])
+    if log:
+        entry = log_diary(campaign, 'custom', f'O grupo entrou em {name}'[:200], '',
+                          {'adventureId': adv.id, 'adventureName': adv.name, 'nodeId': node_id}, user=user)
+        if entry:
+            back['diaryId'] = entry.id
+    return back
+
+
+def _leave_room(campaign, back):
+    """↶ da sala: a sala atual de antes, o "visitado" e a situação de antes; o registro sai."""
+    from django.db import transaction
+    from .models import Adventure, DiaryEntry
+    from .views_adventures import _clean_play
+    with transaction.atomic():
+        adv = Adventure.objects.select_for_update().filter(campaign=campaign, pk=back['advId']).first()
+        if adv:
+            play = _clean_play(adv.play, adv.data or {})
+            node_ids = {n.get('id') for n in (adv.data or {}).get('nodes') or []}
+            play['current'] = back['current'] if back['current'] in node_ids else None
+            if not back['visited']:
+                play['visited'] = [v for v in play['visited'] if v != back['nodeId']]
+            if back.get('status') in ('draft', 'playing', 'done'):
+                adv.status = back['status']
+            adv.play = play
+            adv.save(update_fields=['play', 'status', 'updated_at'])
+    if back.get('diaryId'):
+        DiaryEntry.objects.filter(campaign=campaign, pk=back['diaryId'], subtype='custom').delete()
+
+
+def _bool_opt(body, key, default):
+    v = body.get(key, default)
+    if v is None:
+        return default
+    if not isinstance(v, bool):
+        _bad(f'invalid_{key}')
+    return v
+
+
+def start_scene(campaign, body, *, user=None):
+    """▶ Começar esta cena. body: {sceneId, show?, focus?, log?}
+      show  — mostrar na Tela (padrão: o "Mostrar ao começar" da cena, quando ela tem
+              imagem ou texto para ler; sem nada disso, só o nome vai a state.scene)
+      focus — false = "Guardar para depois do combate"
+      log   — registrar na Crônica a entrada na sala da cena ligada (padrão sim)
+    → {stage, changed, shown, scene, sceneId, doneId, undo}"""
+    from .campaign_state import merge_state
+    from .models import Campaign
+    body = body if isinstance(body, dict) else {}
+    scene_id = _short_id(body.get('sceneId'), 'invalid_scene')
+    show_opt = body.get('show')
+    if show_opt is not None and not isinstance(show_opt, bool):
+        _bad('invalid_show')
+    focus = _bool_opt(body, 'focus', True)
+    log = _bool_opt(body, 'log', True)
+    scene = _plan_scene(campaign, scene_id)
+    front, full_text, node, room = plan_scene_front(campaign, scene, scene_id)
+    has_media = bool(front.get('text') or front.get('image'))
+    show = show_opt if isinstance(show_opt, bool) else (scene.get('showOnStart') is not False and has_media)
+    current = Campaign.objects.filter(pk=campaign.pk).values_list('state', flat=True).first() or {}
+    prev_id = current.get('sceneId') if isinstance(current.get('sceneId'), str) else None
+    undo = {
+        'scene': str(current.get('scene') or '')[:MAX_SCENE_NAME],
+        'sceneId': prev_id,
+        'sceneText': current.get('sceneText') if isinstance(current.get('sceneText'), str) else None,
+    }
+    extra = {'scene': front['title'][:MAX_SCENE_NAME], 'sceneId': scene_id,
+             # o texto lido (a Mesa do jogador mostra) só quando a cena vai à Tela com ele
+             'sceneText': full_text if show and full_text else None}
+    if show:
+        stage, changed = apply_stage_op(campaign, {'op': 'show', 'front': front, 'recap': None, 'focus': focus}, extra=extra)
+    else:
+        merge_state(campaign, extra)
+        stage, changed = get_stage(campaign.state), False
+    done_id = prev_id if prev_id and prev_id != scene_id and set_scene_done(campaign, prev_id, True) else None
+    room_back = _enter_room(campaign, room, name=(node or {}).get('name') or front['title'], log=log, user=user) if room else None
+    undo.update(stage=changed, doneId=done_id, room=room_back)
+    return {'stage': stage, 'changed': changed, 'shown': show, 'scene': extra['scene'], 'sceneId': scene_id,
+            'doneId': done_id, 'undo': undo}
+
+
+def _clean_undo(raw):
+    if not isinstance(raw, dict):
+        _bad('invalid_undo')
+    scene = raw.get('scene')
+    if not isinstance(scene, str) or len(scene) > MAX_SCENE_NAME:
+        _bad('invalid_undo')
+    out = {'scene': scene, 'stage': raw.get('stage') is True}
+    for key in ('sceneId', 'doneId'):
+        v = raw.get(key)
+        out[key] = _short_id(v, 'invalid_undo') if v is not None else None
+    text = raw.get('sceneText')
+    if text is not None and (not isinstance(text, str) or len(text) > MAX_SCENE_TEXT):
+        _bad('invalid_undo')
+    out['sceneText'] = text
+    room = raw.get('room')
+    if room is not None:
+        if not isinstance(room, dict):
+            _bad('invalid_undo')
+        cur = room.get('current')
+        diary = room.get('diaryId')
+        out['room'] = {
+            'advId': _int_id(room.get('advId'), 'invalid_undo'),
+            'nodeId': _short_id(room.get('nodeId'), 'invalid_undo'),
+            'current': _short_id(cur, 'invalid_undo') if cur is not None else None,
+            'visited': room.get('visited') is True,
+            'status': room.get('status') if room.get('status') in ('draft', 'playing', 'done') else None,
+            'diaryId': _int_id(diary, 'invalid_undo') if diary is not None else None,
+        }
+    else:
+        out['room'] = None
+    return out
+
+
+def undo_scene_start(campaign, raw):
+    """↶ Desfazer do ▶ Começar esta cena: o `undo` que a resposta trouxe.
+    → {stage, changed, scene, sceneId}"""
+    from .campaign_state import merge_state
+    u = _clean_undo(raw)
+    extra = {'scene': u['scene'], 'sceneId': u['sceneId'], 'sceneText': u['sceneText']}   # None tira a chave
+    if u['stage']:
+        stage, changed = apply_stage_op(campaign, {'op': 'undo'}, extra=extra)
+    else:
+        merge_state(campaign, extra)
+        stage, changed = get_stage(campaign.state), False
+    if u['doneId']:
+        set_scene_done(campaign, u['doneId'], False)
+    if u['room']:
+        _leave_room(campaign, u['room'])
+    return {'stage': stage, 'changed': changed, 'scene': u['scene'], 'sceneId': u['sceneId']}
+
+
 # ------------------------------------------------------------------ projeção pública
 def stage_image_url(campaign, front, *, token=None):
     ver = front.get('ver')

@@ -86,6 +86,8 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/screen-card', closed_guard(_wp2('views_campaigns', 'campaign_screen_card'), 'campaign')),
     # Palco da Tela (frente, fundo, ↶, 🧹, ◐) e a imagem da frente (V3, api/stage.py)
     path('campaigns/<str:id_or_slug>/stage', closed_guard(views_campaigns.campaign_stage, 'campaign')),
+    # ▶ Começar esta cena (V7): nome, id, sala atual, cena feita e a Tela numa chamada
+    path('campaigns/<str:id_or_slug>/stage/scene', closed_guard(views_campaigns.campaign_stage_scene, 'campaign')),
     path('campaigns/<str:id_or_slug>/stage-image', views_campaigns.campaign_stage_image),
     # pulso do mestre (V4): no lugar do GET completo no polling; 304 parado
     path('campaigns/<str:id_or_slug>/pulse', views_pulse.campaign_pulse),

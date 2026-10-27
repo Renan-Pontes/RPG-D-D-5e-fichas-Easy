@@ -69,6 +69,22 @@ class StatePatchTests(Base):
         self.assertEqual(self.camp.state['scene'], 'A')
         self.assertEqual(self.camp.state['weather'], 'Sol')
 
+    def test_scene_id_is_patchable_and_dm_only(self):
+        # V7: o id da cena do plano que está "agora"; só o mestre lê (fora de SCREEN/PLAYER_KEYS)
+        r = self.patch(self.c_dm, {'scene': 'Ponte', 'sceneId': 'c2'})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()['state']['sceneId'], 'c2')
+        for bad in ('', 'a b', 'x' * 41, 3):
+            self.assertEqual(self.patch(self.c_dm, {'sceneId': bad}).status_code, 400, bad)
+        player = self.c_p1.get(f'/api/campaigns/{self.camp.id}').json()['campaign']
+        self.assertEqual(player['state']['scene'], 'Ponte')
+        self.assertNotIn('sceneId', player['state'])
+        tv = self.client.get(f'/api/screen/{self.camp.screen_token}').json()
+        self.assertNotIn('sceneId', str(tv))
+        self.assertEqual(self.patch(self.c_dm, {'sceneId': None}).status_code, 200)
+        self.camp.refresh_from_db()
+        self.assertNotIn('sceneId', self.camp.state)
+
     def test_null_removes_key(self):
         self.patch(self.c_dm, {'sceneText': 'Leia isto'})
         r = self.patch(self.c_dm, {'sceneText': None})
