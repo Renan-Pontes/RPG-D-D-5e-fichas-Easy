@@ -27,7 +27,7 @@ import GroupCheckPanel from '../checks/GroupCheckPanel.jsx';
 import { initiativePayload } from '../checks/check-logic.js';
 import DamagePad from '../play/DamagePad.jsx';
 import StartCombatSheet, { sceneOfNode } from '../play/StartCombatSheet.jsx';
-import { encounterBody, initiativeRows, openInitiativeCheck, setupSteps, useInitiatives, useLabel } from '../combat/encounter-setup.js';
+import { encounterBody, initiativeRows, openInitiativeCheck, setupSteps, pickInitiatives, startLabel } from '../combat/encounter-setup.js';
 import { markLabel, newOpId, shouldScrollTo, toggleMark, turnMarks, TOUCH_QUIET_MS } from '../play/damage-model.js';
 import { startEncounter } from '../play/combat-actions.js';
 import { activeScene } from '../play/scene-model.js';
@@ -182,8 +182,13 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   waitRef.current = waitingInit;
   const loadChecks = useCallback(async () => {
     if (!waitRef.current) return;
-    try { const r = await api.listChecks(campaign.id); setInitCheck(openInitiativeCheck(r.checks || [])); }
-    catch { /* o próximo tenta de novo */ }
+    try {
+      const r = await api.listChecks(campaign.id);
+      // as respostas que chegam nos 600 ms depois de um toque esperam (nada mexe debaixo do dedo)
+      const apply = () => setInitCheck(openInitiativeCheck(r.checks || []));
+      const wait = touchedAt.current + TOUCH_QUIET_MS - Date.now();
+      if (wait > 0) setTimeout(apply, wait); else apply();
+    } catch { /* o próximo tenta de novo */ }
   }, [campaign.id]);
   useOnRev(table?.pulse?.checksRev, loadChecks, { table, fallbackMs: 6000, initial: false });
   useEffect(() => { if (waitingInit) loadChecks(); else setInitCheck(null); }, [waitingInit, loadChecks]);
@@ -295,13 +300,18 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   const rows = initiativeRows(combat, initCheck);
   const answers = new Map(rows.filter(r => r.answered).map(r => [r.id, r.total]));
   const steps = setupSteps(combat, { askedInitiative: !!initCheck });
-  const use = useInitiatives(rows);
+  const picked = pickInitiatives(rows);
   const backToNow = () => { if (goTo) goTo('play', 'scene'); };
 
   const startCombat = async () => {
     setShowMore(false);
     if (table?.enabled) { await table.startCombat(); return; }
-    await api.startCombat(campaign.id); load();
+    try { applyCombat((await api.combatEncounter(campaign.id, { opId: newOpId(), start: true, fromCheck: true }))?.combat); }
+    catch (e) {
+      if (isOldServer(e)) await api.startCombat(campaign.id).catch(() => {});
+      else flash(`${t(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`, { error: true });
+    }
+    load();
   };
   const endCombat = async () => {
     if (!await ask(lang, t(lang, 'Encerrar o combate?', 'End combat?'), { confirmLabel: t(lang, 'Encerrar', 'End') })) return;
@@ -380,13 +390,13 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
     if (busy) return;
     setBusy('use');
     try {
-      const body = { opId: newOpId(), initiatives: use.initiatives, start: true, ...(initCheck ? { closeCheck: initCheck.id } : {}) };
+      const body = { opId: newOpId(), initiatives: picked.initiatives, start: true, ...(initCheck ? { closeCheck: initCheck.id } : {}) };
       let r;
       try { r = await api.combatEncounter(campaign.id, body); }
       catch (e) {
         if (!isOldServer(e)) throw e;
         // servidor antigo: uma iniciativa por vez e o ▶ Iniciar de antes
-        for (const x of use.initiatives) {
+        for (const x of picked.initiatives) {
           // eslint-disable-next-line no-await-in-loop
           await api.updateCombatant(campaign.id, x.id, { initiative: x.initiative });
         }
@@ -552,7 +562,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
                     {s.id === 'pcs' && (nPc ? t(lang, `${nPc} no combate`, `${nPc} in combat`) : t(lang, 'nenhum ainda', 'none yet'))}
                     {s.id === 'init' && (!nPc ? t(lang, 'depois dos personagens', 'after the characters')
                       : s.done ? t(lang, 'todos com iniciativa', 'everyone has initiative')
-                        : initCheck ? t(lang, `${use.answered} de ${use.total} responderam`, `${use.answered} of ${use.total} answered`)
+                        : initCheck ? t(lang, `${picked.answered} de ${picked.total} responderam`, `${picked.answered} of ${picked.total} answered`)
                           : t(lang, 'peça à mesa ou digite na linha', 'ask the table or type it on the row'))}
                     {s.done ? <span className="sr-only"> ✓</span> : null}
                   </span>
@@ -580,14 +590,14 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
             <div className="ct-setup-go">
               {initCheck ? (
                 <button type="button" className="mesa-btn mesa-btn-lg is-primary" disabled={busy === 'use'} onClick={useAndStart}>
-                  {busy === 'use' ? '…' : <>▶ {useLabel(use, lang)}</>}
+                  {busy === 'use' ? '…' : <>▶ {startLabel(picked, lang)}</>}
                 </button>
               ) : (
                 <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={startCombat} disabled={table?.busy === 'start'}>
                   ▶ {t(lang, 'Iniciar combate', 'Start combat')}
                 </button>
               )}
-              {initCheck && use.answered < use.total && (
+              {initCheck && picked.answered < picked.total && (
                 <p className="mesa-hint">{t(lang, 'Quem não respondeu entra com 10 e fica com ✎ (dá para mudar na folha).', "Whoever didn't answer starts at 10 with ✎ (change it on the card).")}</p>
               )}
             </div>

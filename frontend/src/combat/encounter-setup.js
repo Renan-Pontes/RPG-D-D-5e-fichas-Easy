@@ -7,7 +7,7 @@
 // - encounterBody: o corpo do POST, com o opId (o 2º toque não duplica).
 // - setupSteps: "Monte o combate em 3 passos" (① Monstros ② Personagens ③ Iniciativa,
 //   cada um com ✓).
-// - initiativeRows / useInitiatives: as respostas do teste de iniciativa na linha de
+// - initiativeRows / pickInitiatives: as respostas do teste de iniciativa na linha de
 //   cada personagem ("⚡ Dagna 14") e o "Usar e começar (3 de 4)" (quem não
 //   respondeu fica com 10 e "✎").
 // - legacyBodies: servidor ainda sem /encounter → os POSTs de antes, 1 por
@@ -100,7 +100,7 @@ export function initiativeRows(combat, check) {
  * quem não respondeu e estava com "✎", 10 com "✎"; quem já tinha a iniciativa
  * digitada pelo mestre fica como está) e a contagem do botão.
  */
-export function useInitiatives(rows) {
+export function pickInitiatives(rows) {
   const list = rows || [];
   return {
     initiatives: list.filter(r => r.answered || r.guess)
@@ -110,7 +110,7 @@ export function useInitiatives(rows) {
   };
 }
 
-export function useLabel({ answered, total }, lang = 'pt') {
+export function startLabel({ answered, total }, lang = 'pt') {
   return total && answered < total
     ? L(lang, `Usar e começar (${answered} de ${total})`, `Use and start (${answered} of ${total})`)
     : L(lang, 'Usar e começar', 'Use and start');

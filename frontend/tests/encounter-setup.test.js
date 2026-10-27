@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   encounterGroups, encounterBody, groupsTotal, initiativeRows, legacyBodies, openInitiativeCheck, setupSteps,
-  useInitiatives, useLabel,
+  pickInitiatives, startLabel,
 } from '../src/combat/encounter-setup.js';
 import { findMonster, monsterForCombat } from '../data/bestiary.js';
 
@@ -56,15 +56,15 @@ test('as respostas da iniciativa entram na linha; "Usar e começar (3 de 4)" dei
   const rows = initiativeRows(combat, check);
   assert.deepEqual(rows.map(r => [r.name, r.total, r.answered]), [
     ['Dagna', 14, true], ['Kaelor', 4, true], ['Elarion', 18, true], ['Pipo', null, false]]);
-  const use = useInitiatives(rows);
-  assert.deepEqual(use.initiatives, [
+  const picked = pickInitiatives(rows);
+  assert.deepEqual(picked.initiatives, [
     { id: 'a', initiative: 14 }, { id: 'b', initiative: 4 }, { id: 'c', initiative: 18 }, { id: 'd', initiative: 10, guess: true }]);
-  assert.equal(useLabel(use, 'pt'), 'Usar e começar (3 de 4)');
+  assert.equal(startLabel(picked, 'pt'), 'Usar e começar (3 de 4)');
   // quem já tinha a iniciativa digitada (sem ✎) e não respondeu fica como estava
-  const typed = useInitiatives(rows.map(r => (r.name === 'Pipo' ? { ...r, guess: false } : r)));
+  const typed = pickInitiatives(rows.map(r => (r.name === 'Pipo' ? { ...r, guess: false } : r)));
   assert.deepEqual(typed.initiatives.map(x => x.id), ['a', 'b', 'c']);
-  assert.equal(useLabel(typed, 'pt'), 'Usar e começar');
-  assert.equal(useLabel({ answered: 4, total: 4 }, 'en'), 'Use and start');
+  assert.equal(startLabel(typed, 'pt'), 'Usar e começar');
+  assert.equal(startLabel({ answered: 4, total: 4 }, 'en'), 'Use and start');
   assert.equal(openInitiativeCheck([{ ...check, id: 1, createdAt: '2026-10-26' }, check, { kind: 'skill', status: 'open' }]).id, 9);
   assert.equal(openInitiativeCheck([{ ...check, status: 'closed' }]), null);
 });

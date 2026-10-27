@@ -169,6 +169,23 @@ class EncounterTests(Base):
         self.assertIn(('Pipo', 10, True), order)                             # ✎ quem não respondeu
         self.assertEqual(CheckRequest.objects.get(pk=check['id']).status, 'closed')
 
+    def test_start_from_the_bar_uses_the_open_initiative_answers(self):
+        data = self.encounter(monsters=[{'monster': GOBLIN, 'count': 1, 'initiative': 11}], pcs='all', askInitiative=True)
+        check = data['check']
+        cl = APIClient(); cl.force_login(self.players[1])
+        cl.post(f'/api/checks/{check["id"]}/respond', {'mode': 'physical', 'total': 17}, format='json')
+        out = self.encounter(opId='op-bar-start-1', start=True, fromCheck=True)['combat']
+        self.assertTrue(out['active'])
+        first = out['combatants'][0]
+        self.assertEqual((first['name'], first['initiative']), ('Kaelor', 17))
+        self.assertNotIn('init_guess', first)
+        self.assertTrue(all(c.get('init_guess') for c in out['combatants'] if c['type'] == 'pc' and c['name'] != 'Kaelor'))
+        self.assertEqual(CheckRequest.objects.get(pk=check['id']).status, 'closed')
+        # sem teste aberto, só começa
+        self.c.post(self.url('reset'), {}, format='json')
+        self.encounter(monsters=[{'monster': GOBLIN, 'count': 1}])
+        self.assertTrue(self.encounter(opId='op-bar-start-2', start=True, fromCheck=True)['combat']['active'])
+
     def test_initiative_check_only_for_who_is_in_combat_and_old_one_is_closed(self):
         first = self.encounter(pcs=[{'characterId': self.chars[0].id}], askInitiative=True)['check']
         self.assertEqual(first['targetUserIds'], [self.players[0].id])
@@ -219,6 +236,14 @@ class SceneMapTests(Base):
         # o jogador e a Tela não veem de onde veio o combate
         pl = APIClient(); pl.force_login(self.players[0])
         self.assertNotIn('scene', pl.get(self.url('').rstrip('/')).json()['combat']['map'])
+
+    def test_replace_without_scene_forgets_the_old_scene(self):
+        self.encounter(monsters=[{'monster': GOBLIN, 'count': 1}], scene={'advId': self.adv.id, 'nodeId': 'n1', 'name': 'Ponte'})
+        self.assertIn('scene', self.combat().map_data)
+        self.encounter(mode='add', monsters=[{'monster': OGRE, 'count': 1}])
+        self.assertIn('scene', self.combat().map_data)                     # Somar: continua a mesma luta
+        self.encounter(mode='replace', monsters=[{'monster': OGRE, 'count': 1}])
+        self.assertNotIn('scene', self.combat().map_data)
 
     def test_map_from_endpoint_and_reset_without_map(self):
         r = self.c.post(self.url('map-from'), {'advId': self.adv.id, 'nodeId': 'n1'}, format='json')

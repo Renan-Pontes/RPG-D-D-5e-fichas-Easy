@@ -971,6 +971,19 @@ def _initiative_check(campaign, user, combatants, lang):
         target_user_ids=[] if len(targets) == len(players) else targets)
 
 
+def _answers_of_open_check(campaign, combatants):
+    """As respostas do teste de iniciativa aberto mais novo → ([{id, initiative}], check id)."""
+    from .models import CheckRequest
+    cr = (CheckRequest.objects.filter(campaign=campaign, status='open', kind='custom', key=INITIATIVE_KEY)
+          .order_by('-created_at').prefetch_related('responses').first())
+    if not cr:
+        return [], None
+    totals = {r.character_id: r.total for r in cr.responses.all() if r.character_id and r.total is not None}
+    out = [{'id': x['id'], 'initiative': max(-10, min(60, int(totals[x.get('character_id')]))), 'guess': False}
+           for x in combatants if x.get('type') == 'pc' and x.get('character_id') in totals]
+    return out, cr.id
+
+
 def _close_check(campaign, check_id):
     from .models import CheckRequest
     if check_id in (None, ''):
@@ -1003,7 +1016,7 @@ def combat_encounter(request, id_or_slug):
            askInitiative?: bool,                         o teste de iniciativa à mesa (kind custom)
            initiatives?: [{id, initiative, guess?}],     "Usar e começar": as respostas na ordem
            closeCheck?: id, map?: 'keep'|'none'|{advId,nodeId}|{entryId}, scene?: {advId,nodeId,name},
-           start?: bool, lang?}
+           start?: bool, fromCheck?: bool (o ▶ Iniciar da barra: usa as respostas do teste aberto), lang?}
     → {combat, check?, opId, rolled: [{id, name, initiative, d20, bonus}]}
 
     Idempotente pelo `opId` (guardado na entrada 'encounter' do registro): o 2º toque
@@ -1089,6 +1102,12 @@ def combat_encounter(request, id_or_slug):
                 cb['init_guess'] = True
             combatants.append(cb)
 
+        # ▶ Iniciar da barra da mesa / da faixa do PC (`fromCheck`): as respostas do teste de
+        # iniciativa aberto entram como no "Usar e começar" (quem não respondeu fica com o ✎).
+        if body.get('fromCheck') is True and not inits:
+            inits, from_check = _answers_of_open_check(campaign, combatants)
+            if from_check:
+                body = {**body, 'closeCheck': from_check}
         # "Usar e começar": as respostas do teste de iniciativa entram na linha.
         for x in inits:
             cb = engine.find_combatant(combatants, x['id'])
@@ -1108,6 +1127,9 @@ def combat_encounter(request, id_or_slug):
             map_changed = _set_map_background(campaign, c, map_image)
         if scene:
             c.map_data = {**(c.map_data or {}), 'scene': scene}
+        elif mode == 'replace' and groups and (c.map_data or {}).get('scene'):
+            # combate novo sem cena: o tesouro da sala de antes não aparece no fim guiado
+            c.map_data = {k: v for k, v in c.map_data.items() if k != 'scene'}
 
         check = _initiative_check(campaign, request.user, combatants, lang) if body.get('askInitiative') else None
         _close_check(campaign, body.get('closeCheck'))

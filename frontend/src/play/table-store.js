@@ -21,11 +21,12 @@
 // completo a cada 2,5 s, como antes.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
-import { errorMessage } from '../api/errors.js';
+import { errorMessage, isOldServer } from '../api/errors.js';
 import { STAGE_EVENT, STAGE_SENDING_EVENT, STAGE_SENT_EVENT } from '../stage/stage-api.js';
 import { frontLabel, L } from '../stage/stage-now.js';
 import { combatSummary, offlineSeconds, SENT_SHOW_MS, staleText, turnLine } from '../stage/table-bar-model.js';
 import { flash } from './flash.js';
+import { newOpId } from './damage-model.js';
 
 export { tableRollsRev } from '../stage/table-bar-model.js';
 
@@ -259,11 +260,20 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse, fullIns
   const turnRef = useRef(turn);
   turnRef.current = turn;
 
-  /** ▶ Iniciar (combate montado e parado). */
+  /**
+   * ▶ Iniciar (combate montado e parado). V8: pelo POST /encounter com `fromCheck`, que
+   * põe na ordem as respostas do teste de iniciativa aberto (quem não respondeu fica
+   * com 10 e "✎"); servidor antigo (404 em HTML): o /start de antes.
+   */
   const startCombat = useCallback(async () => {
     if (busyRef.current || id == null || closedRef.current) return;
     busyRef.current = 'start'; setBusy('start');
-    try { const r = await api.startCombat(id); applyCombat(r?.combat); }
+    try {
+      let r;
+      try { r = await api.combatEncounter(id, { opId: newOpId(), start: true, fromCheck: true }); }
+      catch (e) { if (!isOldServer(e)) throw e; r = await api.startCombat(id); }
+      applyCombat(r?.combat);
+    }
     catch (e) { failed(e, () => startRef.current()); }
     finally { busyRef.current = ''; setBusy(''); refresh(); }
   }, [id, applyCombat, failed, refresh]);
