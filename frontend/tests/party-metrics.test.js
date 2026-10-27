@@ -217,6 +217,11 @@ test('cores: uma por personagem, pela posição na mesa — tirar alguém não r
   assert.deepEqual(M.includedIds(party, [ids[0], ids[2], 999]), [ids[0], ids[2]]);
   const without = party.filter(p => M.includedIds(party, [ids[0], ids[2], ids[3]]).includes(p.id));
   assert.deepEqual(without.map(p => p.color), [party[0].color, party[2].color, party[3].color]);
+  // Quem entra grava quem sai: uma ficha nova (ou trocada) entra sozinha
+  assert.deepEqual(M.includedIds(party, null, [ids[1]]), [ids[0], ids[2], ids[3]]);
+  const swapped = [...party.slice(0, 3), { ...party[3], id: 555 }];
+  assert.deepEqual(M.includedIds(swapped, null, [ids[1]]), [ids[0], ids[2], 555], 'a ficha nova do Davi entra');
+  assert.deepEqual(M.includedIds(party, [ids[0], ids[1]], [ids[1]]), [ids[0]], 'a lista antiga ainda filtra');
   assert.equal(M.partyMembers([{ role: 'dm', character: { id: 9, data: {} } }, { role: 'player', character: null }]).length, 0);
 });
 

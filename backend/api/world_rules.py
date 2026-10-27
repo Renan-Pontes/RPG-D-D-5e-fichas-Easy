@@ -648,8 +648,10 @@ MAX_SPOTLIGHTS = 12
 MAX_SPOTLIGHT_TEXT = 160
 MAX_DISMISSED = 40
 MAX_PARTY_INSIGHTS_BYTES = 20_000
-PARTY_INSIGHTS_DEFAULT = {'v': 1, 'include': None, 'w': 0.5, 'hidden': [], 'focus': {}, 'rep': 'best',
-                          'dc': 15, 'base': {}, 'style': {}, 'spotlights': {}, 'dismissed': {}}
+# Quem entra: `exclude` são as fichas que o mestre tirou (o padrão é todos, e quem chega à
+# mesa entra sozinho); `include` é a lista antiga de quem entra, ainda respeitada se vier.
+PARTY_INSIGHTS_DEFAULT = {'v': 1, 'include': None, 'exclude': [], 'w': 0.5, 'hidden': [], 'focus': {},
+                          'rep': 'best', 'dc': 15, 'base': {}, 'style': {}, 'spotlights': {}, 'dismissed': {}}
 # Mapas: o merge entra um nível (null num item apaga só aquele item).
 PARTY_MAP_KEYS = ('focus', 'base', 'style', 'spotlights', 'dismissed')
 _CHAR_KEY = re.compile(r'^\d{1,10}$')
@@ -738,7 +740,7 @@ def clean_party_insights_patch(raw):
             continue
         if v is None:
             out[key] = None
-        elif key == 'include':
+        elif key in ('include', 'exclude'):
             if not isinstance(v, list) or len(v) > MAX_PARTY_CHARS:
                 _party_bad()
             out[key] = _id_list(v, MAX_PARTY_CHARS)
@@ -778,9 +780,12 @@ def clean_party_insights_patch(raw):
     return out
 
 
-def merged_party_insights(current, patch):
+def merged_party_insights(current, patch, keep_ids=None):
     """O gravado (com os padrões) + o patch já limpo. Nos mapas, o patch troca só os
-    itens que traz; o resto fica (dois aparelhos mexendo em personagens diferentes)."""
+    itens que traz; o resto fica (dois aparelhos mexendo em personagens diferentes).
+    `keep_ids` (função que devolve os ids das fichas na mesa, chamada só se preciso): um
+    mapa por personagem que passa de MAX_PARTY_CHARS perde antes as fichas que saíram
+    da mesa (estilo, momentos e dispensas de quem trocou de ficha), e só então dá 400."""
     cur = current if isinstance(current, dict) else {}
     out = {}
     for key, default in PARTY_INSIGHTS_DEFAULT.items():
@@ -799,7 +804,11 @@ def merged_party_insights(current, patch):
                 else:
                     out[key][k] = item
             if key in ('style', 'spotlights', 'dismissed') and len(out[key]) > MAX_PARTY_CHARS:
-                _bad('party_insights_too_large')
+                if keep_ids is not None:
+                    keep = {str(i) for i in keep_ids()} | set(v)
+                    out[key] = {k: item for k, item in out[key].items() if k in keep}
+                if len(out[key]) > MAX_PARTY_CHARS:
+                    _bad('party_insights_too_large')
         else:
             out[key] = v
     if json_size(out) > MAX_PARTY_INSIGHTS_BYTES:

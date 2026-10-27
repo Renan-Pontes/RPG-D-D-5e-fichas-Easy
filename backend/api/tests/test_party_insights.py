@@ -73,8 +73,8 @@ class AccessTests(PartyInsightsBase):
 class MergeTests(PartyInsightsBase):
     def test_defaults(self):
         ins = self.c_dm.get(self.url).json()['insights']
-        self.assertEqual(ins, {'v': 1, 'include': None, 'w': 0.5, 'hidden': [], 'focus': {}, 'rep': 'best', 'dc': 15,
-                               'base': {}, 'style': {}, 'spotlights': {}, 'dismissed': {}})
+        self.assertEqual(ins, {'v': 1, 'include': None, 'exclude': [], 'w': 0.5, 'hidden': [], 'focus': {}, 'rep': 'best',
+                               'dc': 15, 'base': {}, 'style': {}, 'spotlights': {}, 'dismissed': {}})
 
     def test_merge_by_key(self):
         self.put({'w': 0, 'dc': 12})
@@ -104,6 +104,10 @@ class MergeTests(PartyInsightsBase):
         ins = self.put({'include': [11, '12', 'x', 11]}).json()['insights']
         self.assertEqual(ins['include'], [11, 12])
         self.assertIsNone(self.put({'include': None}).json()['insights']['include'])   # null = todos
+        # quem sai fica gravado (quem chega à mesa entra sozinho)
+        ins = self.put({'exclude': [self.char.id, str(self.char.id), 'x'], 'include': None}).json()['insights']
+        self.assertEqual((ins['exclude'], ins['include']), ([self.char.id], None))
+        self.assertEqual(self.put({'exclude': None}).json()['insights']['exclude'], [])
         sp = [{'id': 's1', 'kind': 'shine', 'text': 'x' * 200, 'auto': 'tool:thievesTools', 'done': 3, 'plan': 'c7'},
               {'kind': 'hook', 'text': ' Porta trancada '}]
         ins = self.put({'spotlights': {str(self.char.id): sp}, 'dismissed': {str(self.char.id): ['skill:stealth'] * 3}}).json()['insights']
@@ -145,7 +149,28 @@ class LimitTests(PartyInsightsBase):
         self.bad({'spotlights': {'14': [{'kind': 'shine', 'text': 'x'}] * 13}}, 'party_insights_too_large')
         self.bad({'dismissed': {'14': [f'k{i}' for i in range(41)]}}, 'party_insights_too_large')
         self.bad({'include': list(range(1, 14))})
+        self.bad({'exclude': list(range(1, 14))})
+        self.bad({'exclude': 'all'})
         self.assertIsNone(self.stored())
+
+    def test_cap_drops_sheets_that_left_first(self):
+        # 12 fichas antigas (fora da mesa) com dispensas e estilo: o personagem atual ainda grava
+        old = {str(100 + i): ['skill:stealth'] for i in range(12)}
+        self.assertEqual(self.put({'dismissed': old, 'style': {k: ['quiet'] for k in old}}).status_code, 200)
+        mine = str(self.char.id)
+        r = self.put({'dismissed': {mine: ['skill:stealth']}})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()['insights']['dismissed'], {mine: ['skill:stealth']})
+        self.assertEqual(len(r.json()['insights']['style']), 12, 'só o mapa que passou do teto é podado')
+        r = self.put({'style': {mine: ['talk']}})
+        self.assertEqual(r.json()['insights']['style'], {mine: ['talk']})
+        # 13 fichas que estão na mesa: aí sim, 400 (nada de quem está na mesa é apagado)
+        for i in range(12):
+            ch = Character.objects.create(owner=self.ana, name=f'P{i}', data={'level': 1})
+            Membership.objects.create(campaign=self.camp, user=make_user(f'p{i}@x.com'), character=ch, role='player')
+        here = list(Membership.objects.filter(campaign=self.camp, character__isnull=False).values_list('character_id', flat=True))
+        self.assertEqual(self.put({'spotlights': {str(c): [{'kind': 'shine', 'text': 'x'}] for c in here[:12]}}).status_code, 200)
+        self.bad({'spotlights': {str(here[12]): [{'kind': 'shine', 'text': 'x'}]}}, 'party_insights_too_large')
 
     def test_total_size_limit(self):
         # 12 personagens × 12 momentos de 160 caracteres ≈ 30 KB > 20 KB

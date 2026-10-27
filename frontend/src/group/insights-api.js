@@ -3,8 +3,10 @@
 // a tela muda na hora e o PUT sai 800 ms depois do último toque, com o que mudou.
 import { request } from '../api/client.js';
 
+// Quem entra: `exclude` são as fichas que o mestre tirou (quem chega à mesa entra sozinho);
+// `include` é a lista antiga de quem entra, ainda respeitada se vier gravada.
 export const DEFAULT_INSIGHTS = {
-  v: 1, include: null, w: 0.5, hidden: [], focus: {}, rep: 'best', dc: 15,
+  v: 1, include: null, exclude: [], w: 0.5, hidden: [], focus: {}, rep: 'best', dc: 15,
   base: {}, style: {}, spotlights: {}, dismissed: {},
 };
 export const MAP_KEYS = ['focus', 'base', 'style', 'spotlights', 'dismissed'];

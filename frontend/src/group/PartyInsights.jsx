@@ -169,7 +169,7 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
   const party = useMemo(() => PM.partyMembers(members), [members]);
   const allFacts = useMemo(() => PM.partyFacts(party, lang), [party, lang]);
   const settings = ins || withDefaults({});
-  const inIds = PM.includedIds(party, settings.include);
+  const inIds = PM.includedIds(party, settings.include, settings.exclude);
   const inKey = inIds.join(',');
   const facts = useMemo(() => allFacts.filter(f => inIds.includes(f.id)), [allFacts, inKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const monsters = useMemo(() => [...loadCustomMonsters().map(m => ({ ...m, custom: true })), ...BESTIARY], []);
@@ -197,7 +197,8 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
 
   const toggleIn = (id) => {
     const next = inIds.includes(id) ? inIds.filter(x => x !== id) : [...inIds, id];
-    update({ include: next.length === party.length ? null : party.map(p => p.id).filter(x => next.includes(x)) });
+    // grava quem sai (só de quem está na mesa agora); a lista antiga de quem entra se apaga
+    update({ exclude: party.map(p => p.id).filter(x => !next.includes(x)), include: null });
   };
 
   const takeToPlan = async (idea) => {
@@ -286,7 +287,7 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
       ) : !facts.length ? (
         <section className="mesa-panel ins-empty">
           <p>{t(lang, 'Ninguém entra: toque num nome acima para pôr de volta.', "Nobody's in: tap a name above to put them back.")}</p>
-          <button type="button" className="mesa-btn is-primary mesa-btn-lg" disabled={readOnly} onClick={() => update({ include: null })}>{t(lang, 'Pôr todos', 'Add everyone')}</button>
+          <button type="button" className="mesa-btn is-primary mesa-btn-lg" disabled={readOnly} onClick={() => update({ include: null, exclude: null })}>{t(lang, 'Pôr todos', 'Add everyone')}</button>
         </section>
       ) : (
         <>

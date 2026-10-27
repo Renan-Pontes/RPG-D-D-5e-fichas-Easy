@@ -11,6 +11,7 @@ GET  /api/campaigns/<c>/party-insights   → {insights}
 PUT  /api/campaigns/<c>/party-insights   {insights: {...}} (ou as chaves soltas) → {insights}
      merge por chave; nos mapas (focus, base, style, spotlights, dismissed) o merge
      entra um nível e null apaga o item. Validação em world_rules.clean_party_insights_patch.
+     Quem entra: `exclude` (as fichas que o mestre tirou; quem chega entra sozinho).
 GET  /api/campaigns/<c>/party-insights/history → {current, sessions: [...]}
      o Equilíbrio na mesa (G9): por sessão das últimas 5, contagens dos testes pedidos,
      respondidos e passados por personagem e das quedas no combate. Só números (nada de
@@ -55,9 +56,13 @@ def party_insights(request, id_or_slug):
     body = request.data if isinstance(request.data, dict) else {}
     raw = body.get('insights') if isinstance(body.get('insights'), dict) else body
     patch = _run(R.clean_party_insights_patch, raw)
+
+    def at_table():   # só quando um mapa passa do teto (fichas que saíram da mesa)
+        return Membership.objects.filter(campaign=campaign, character__isnull=False).values_list('character_id', flat=True)
+
     with transaction.atomic():
         settings = locked_dm_settings(campaign.pk)
-        insights = _run(R.merged_party_insights, settings.get('partyInsights'), patch)
+        insights = _run(R.merged_party_insights, settings.get('partyInsights'), patch, at_table)
         settings['partyInsights'] = insights
         Campaign.objects.filter(pk=campaign.pk).update(dm_settings=settings)
     return Response({'insights': insights})

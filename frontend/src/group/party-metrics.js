@@ -546,11 +546,13 @@ export function partyMembers(members) {
   return out.map((p, i) => ({ ...p, color: CHAR_COLORS[i % CHAR_COLORS.length] }));
 }
 
-/** Quem entra: `include` (ids) do Ajustar; null/vazio de quem ainda está na mesa = todos. */
-export function includedIds(party, include) {
-  const all = party.map(p => p.id);
-  if (!Array.isArray(include)) return all;
-  return all.filter(id => include.includes(id));
+/**
+ * Quem entra: todos menos os que o mestre tirou (`exclude`, ids). Uma ficha nova na mesa
+ * (ou trocada) entra sozinha. `include` (a lista antiga de quem entra) ainda filtra se vier.
+ */
+export function includedIds(party, include, exclude) {
+  const out = Array.isArray(exclude) ? exclude : [];
+  return party.map(p => p.id).filter(id => !out.includes(id) && (!Array.isArray(include) || include.includes(id)));
 }
 
 /** Os fatos de cada personagem (com id, cor e jogador). */
