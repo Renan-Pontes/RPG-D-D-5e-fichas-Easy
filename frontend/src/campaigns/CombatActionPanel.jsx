@@ -6,11 +6,11 @@
  * - Envia /player-attack ao backend; mostra resultado (acerto, crit, desvio).
  *
  * V13: o estado mora em useCombatPanel (a ficha chama uma vez): na vez do jogador a
- * ficha põe o painel no topo e, fora dela, no lugar de sempre — o alvo escolhido e o
- * resultado aberto não se perdem quando ele muda de lugar.
+ * ficha pode pôr o painel no topo (player-model.js, combatPanelSpot) — o alvo escolhido
+ * e o resultado aberto não se perdem quando ele muda de lugar.
  */
 import { errorMessage } from '../api/errors.js';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import SRD from '../../data/srd.js';
 import Utils from '../../utils.js';
@@ -18,6 +18,7 @@ import { Modal } from '../../components/Shared.jsx';
 import * as FS from '../progression/fighting-styles.js';
 import { abilityLabel, damageTypeLabel } from '../combat/monster-i18n.js';
 import { myCombatTurn } from '../player/player-model.js';
+import { newerCombat, quietSlot } from '../play/damage-model.js';
 
 const ABILITY_MOD = (score) => Math.floor((score - 10) / 2);
 
@@ -274,6 +275,19 @@ export function useCombatPanel(char, { rev = 0, onUpdate } = {}) {
     return () => { cancelled = true; };
   }, [char.id, char.inCampaign, rev]);
 
+  // Nada mexe debaixo do dedo (princípio 8): o combate que chega pelo polling entra só
+  // 600 ms depois do último toque na tela (play/damage-model.js, quietSlot, como na faixa
+  // da Mesa e no Combate do mestre). É nesse momento que o painel aparece, some, acende
+  // "SUA VEZ" e muda de lugar na ficha. A resposta do próprio ataque entra na hora, e a
+  // busca que chegar depois dela não volta para trás (newerCombat).
+  const touchedAt = useRef(0);
+  const slot = useMemo(() => quietSlot((c) => setCombat(cur => (c ? newerCombat(cur, c) : null)), () => touchedAt.current), []);
+  useEffect(() => {
+    const mark = () => { touchedAt.current = Date.now(); };
+    document.addEventListener('pointerdown', mark, true);
+    return () => { document.removeEventListener('pointerdown', mark, true); slot.cancel(); };
+  }, [slot]);
+
   // Polling do estado de combate
   useEffect(() => {
     if (!campaignId) return;
@@ -281,13 +295,13 @@ export function useCombatPanel(char, { rev = 0, onUpdate } = {}) {
     const fetch = async () => {
       try {
         const r = await api.getCombat(campaignId);
-        if (!cancelled) setCombat(r.combat);
+        if (!cancelled) slot.push(r.combat);
       } catch (e) { /* ignora */ }
     };
     fetch();
     const id = setInterval(fetch, 5000);
-    return () => { cancelled = true; clearInterval(id); };
-  }, [campaignId]);
+    return () => { cancelled = true; clearInterval(id); slot.cancel(); };
+  }, [campaignId, slot]);
 
   const { me: myCombatant, isMyTurn } = myCombatTurn(combat, char.id);
 
@@ -327,6 +341,12 @@ export function useCombatPanel(char, { rev = 0, onUpdate } = {}) {
   return { combat, campaignId, myCombatant, isMyTurn, picker, setPicker, busy, result, setResult, error, fire };
 }
 
+// "SUA VEZ" no título: fora da vez o lugar fica reservado (invisível), para acender não
+// mudar a altura do painel nem tirar o ataque de baixo do dedo de quem espera a vez.
+const TurnMark = ({ on, lang }) => (
+  <span className={`fh-combat-turn${on ? '' : ' is-off'}`}>· {lang === 'pt' ? 'SUA VEZ' : 'YOUR TURN'}</span>
+);
+
 const CombatActionPanel = ({ panel, char, lang }) => {
   const { combat, myCombatant, isMyTurn, picker, setPicker, busy, result, setResult, error, fire } = panel;
   if (!myCombatant) return null;
@@ -339,7 +359,7 @@ const CombatActionPanel = ({ panel, char, lang }) => {
       <div className={`card mb-3 fh-combat is-empty${isMyTurn ? ' is-turn' : ''}`}>
         <strong className="fh-combat-title">
           ⚔ {lang === 'pt' ? 'Em combate' : 'In combat'}
-          {isMyTurn && <span className="fh-combat-turn">· {lang === 'pt' ? 'SUA VEZ' : 'YOUR TURN'}</span>}
+          <TurnMark on={isMyTurn} lang={lang} />
         </strong>
         <div className="muted small mt-1">
           {lang === 'pt' ? 'Adicione armas ou truques para atacar.' : 'Add weapons or cantrips to attack.'}
@@ -353,7 +373,7 @@ const CombatActionPanel = ({ panel, char, lang }) => {
       <div className="fh-combat-head">
         <strong className="fh-combat-title">
           ⚔ {lang === 'pt' ? 'Combate ativo' : 'Combat active'}
-          {isMyTurn && <span className="fh-combat-turn">· {lang === 'pt' ? 'SUA VEZ' : 'YOUR TURN'}</span>}
+          <TurnMark on={isMyTurn} lang={lang} />
         </strong>
         <span className="text-xs muted fh-combat-meta">
           {lang === 'pt' ? 'Rodada' : 'Round'} {combat.round} · {lang === 'pt' ? 'PV' : 'HP'} {myCombatant.current_hp}/{myCombatant.stats?.max_hp}

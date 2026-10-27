@@ -1,6 +1,6 @@
 /* Character sheet view — play/stats/spells/inventory/story/journal tabs */
 import { errorMessage } from '../src/api/errors.js';
-import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
@@ -17,6 +17,7 @@ import { Filigree, Modal, NumStepper, Pips, AvatarUpload } from './Shared.jsx';
 import { SheetSpells, SheetInventory, SheetStory, SheetNotes, RestButtons } from './SheetTabs.jsx';
 import { api, ApiError } from '../src/api/client.js';
 import CombatActionPanel, { useCombatPanel } from '../src/campaigns/CombatActionPanel.jsx';
+import { combatPanelSpot } from '../src/player/player-model.js';
 import PlayerChecksBanner from '../src/checks/PlayerChecksBanner.jsx';
 import * as FS from '../src/progression/fighting-styles.js';
 import GrimoireHint from '../src/grimoire/GrimoireHint.jsx';
@@ -65,16 +66,30 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
     setCampRev(n => n + 1);
     await onCampaignChange?.(msg);
   };
-  // Painel de combate (V13): na vez do jogador sobe para o topo da ficha (logo abaixo do
-  // "voltar", antes do retrato); fora dela, fica no lugar de sempre. Um estado só para
-  // os dois lugares (src/campaigns/CombatActionPanel.jsx, useCombatPanel).
-  const combatPanel = useCombatPanel(char, { rev: campRev, onUpdate });
-  const turnOnTop = !!char.inCampaign && combatPanel.isMyTurn;
   // Cerimônias (só visual, src/sheet/FhCeremonies.jsx): o selo quando o nível sobe e as
   // gemas que reacendem (descanso, trapaça, mestre).
   const rootRef = useRef(null);
   const [levelCer, closeLevelCer] = useLevelCeremony(char);
   useGemRelight(rootRef);
+  // Painel de combate (V13): na vez do jogador sobe para o topo da ficha (logo abaixo do
+  // "voltar", antes do retrato) se não está inteiro à vista no lugar de sempre e o topo
+  // está à vista; senão fica e só acende "SUA VEZ". Depois de subir, fica no topo até a
+  // luta acabar (src/player/player-model.js, combatPanelSpot). O combate novo só entra
+  // 600 ms depois do último toque (useCombatPanel), e o lugar é decidido nessa hora,
+  // medido antes de pintar. Um estado só para os dois lugares (CombatActionPanel.jsx).
+  const combatPanel = useCombatPanel(char, { rev: campRev, onUpdate });
+  const inCombat = !!char.inCampaign && !!combatPanel.myCombatant;
+  const [panelSpot, setPanelSpot] = useState('base');
+  const panelBaseRef = useRef(null);  // o lugar de sempre (vazio quando o painel está no topo)
+  useLayoutEffect(() => {
+    const r = panelBaseRef.current?.getBoundingClientRect();
+    const hero = rootRef.current?.querySelector('.sheet-hero')?.getBoundingClientRect();
+    setPanelSpot(prev => combatPanelSpot(prev, {
+      inCombat, isMyTurn: combatPanel.isMyTurn, rect: r || null, topAt: hero ? hero.top : null,
+      viewBottom: window.innerHeight,
+    }));
+  }, [inCombat, combatPanel.isMyTurn]);
+  const turnOnTop = inCombat && panelSpot === 'top';
 
   const update = (patch) => onUpdate({ ...char, ...patch });
   const updateRef = useRef(update);
@@ -210,8 +225,10 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         <WildShapeBanner char={char} lang={lang} onChange={onUpdate} />
       )}
 
-      {char.inCampaign && !turnOnTop && (
-        <CombatActionPanel panel={combatPanel} char={char} lang={lang} />
+      {char.inCampaign && (
+        <div ref={panelBaseRef}>
+          {!turnOnTop && <CombatActionPanel panel={combatPanel} char={char} lang={lang} />}
+        </div>
       )}
 
       {/* Barra de ações (src/sheet/ficha.css: .fh-actions): Exportar, Editar e Modo trapaça;

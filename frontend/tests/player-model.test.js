@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   isNewEntry, newEntryIds, cardKey, shouldToastCard, revealedSince, toastTitle,
   paragraphs, atlasEntries, kindCounts, charLine, healthLabel, screenMode, absUrl, handoutStyle,
-  secretSessionLabel, combatStrip, turnJustStarted, myCombatTurn,
+  secretSessionLabel, combatStrip, turnJustStarted, myCombatTurn, combatPanelSpot,
 } from '../src/player/player-model.js';
 
 const NOW = Date.parse('2026-10-06T20:00:00Z');
@@ -136,4 +136,38 @@ test('painel de combate da ficha: o combatente dela e a vez', () => {
   assert.deepEqual(myCombatTurn({ ...combat, active: false }, 7), { me: null, isMyTurn: false });
   assert.deepEqual(myCombatTurn(combat, null), { me: null, isMyTurn: false });
   assert.deepEqual(myCombatTurn(null, 7), { me: null, isMyTurn: false });
+});
+
+test('painel de combate da ficha: na vez sobe só para aparecer, nunca sai da vista', () => {
+  // 390 × 780: o retrato começa em y 151 com a ficha lá em cima
+  const view = { viewTop: 0, viewBottom: 780 };
+  const on = (rect, topAt, extra = {}) => ({ inCombat: true, isMyTurn: true, rect, topAt, ...view, ...extra });
+  // a ficha aberta lá em cima ([Ir para a minha ficha]): o painel a 938 px, fora da vista
+  assert.equal(combatPanelSpot('base', on({ top: 938, bottom: 1110 }, 151)), 'top');
+  // o jogador espera a vez olhando o painel (inteiro à vista): fica e só acende
+  assert.equal(combatPanelSpot('base', on({ top: 489, bottom: 659 }, -272)), 'base');
+  // a cabeça aparece embaixo, os ataques não: sobe, o topo está à vista
+  assert.equal(combatPanelSpot('base', on({ top: 700, bottom: 870 }, 151)), 'top');
+  // PC (1280 × 900): o painel cortado no pé da tela vai para o topo
+  assert.equal(combatPanelSpot('base', on({ top: 757, bottom: 927 }, 140, { viewBottom: 900 })), 'top');
+  // os ataques à vista com a cabeça cortada em cima: fica (está olhando para ele)
+  assert.equal(combatPanelSpot('base', on({ top: -40, bottom: 130 }, -827)), 'base');
+  // o resultado aberto deixa o painel alto e ele está rolado no meio: subir o tiraria da vista
+  assert.equal(combatPanelSpot('base', on({ top: 300, bottom: 900 }, -349)), 'base');
+  // rolou além dele (nas abas): fica, é o primeiro que ele encontra voltando
+  assert.equal(combatPanelSpot('base', on({ top: -600, bottom: -428 }, -1387)), 'base');
+  // o topo à vista mas sem lugar para a cabeça e o 1º ataque: fica
+  assert.equal(combatPanelSpot('base', on({ top: 1500, bottom: 1670 }, 700)), 'base');
+  // painel mais alto que a tela, enchendo a vista: fica
+  assert.equal(combatPanelSpot('base', on({ top: -10, bottom: 900 }, -800)), 'base');
+  // sem medida (sem tela): o topo, como era
+  assert.equal(combatPanelSpot('base', on(null, null)), 'top');
+  // fora da vez, no lugar de sempre
+  assert.equal(combatPanelSpot('base', on({ top: 938, bottom: 1110 }, 151, { isMyTurn: false })), 'base');
+  // depois de subir, fica no topo até a luta acabar (a vez passar não o faz descer)
+  assert.equal(combatPanelSpot('top', on({ top: 0, bottom: 0 }, 151, { isMyTurn: false })), 'top');
+  assert.equal(combatPanelSpot('top', on({ top: 400, bottom: 400 }, -600)), 'top');
+  // a luta acabou (ou ela saiu dela): a próxima começa do zero
+  assert.equal(combatPanelSpot('top', { inCombat: false, isMyTurn: false }), 'base');
+  assert.equal(combatPanelSpot('base', {}), 'base');
 });

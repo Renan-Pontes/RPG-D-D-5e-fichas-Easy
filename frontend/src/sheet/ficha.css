@@ -2772,6 +2772,7 @@
   color: #ff9a8c;
 }
 .ficha .fh-combat-turn { margin-left: 8px; color: var(--fh-gold-hi); text-shadow: 0 0 12px rgba(250, 210, 120, 0.55); }
+.ficha .fh-combat-turn.is-off { visibility: hidden; } /* o lugar fica: acender não muda a altura */
 .ficha .fh-combat-meta { font-size: 0.88rem; color: var(--ink-muted); font-variant-numeric: lining-nums tabular-nums; }
 .ficha .fh-combat-atks { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); gap: 8px; }
 .ficha .fh-combat.is-empty .fh-combat-title { color: var(--gold); }

@@ -5,7 +5,7 @@
 // - filtro do Atlas do jogador e rótulos que só o jogador/telão usam;
 // (tipos, menções, linha do tempo e "aparece em" vêm de src/world/world-model.js)
 // - linha do personagem traduzida para o telão;
-// - a faixa do combate da Mesa e a vez do jogador na ficha (V13).
+// - a faixa do combate da Mesa, a vez do jogador e o lugar do painel na ficha (V13).
 // Nada aqui puxa o SRD nem a progressão (a Tela importa este arquivo): a linha
 // do personagem usa a tabela leve de nomes (src/screen/tv-names.json, gerada por
 // scripts/tv-names.mjs a partir do tName).
@@ -181,4 +181,33 @@ export function myCombatTurn(combat, charId) {
   const list = combat.combatants || [];
   const i = list.findIndex(c => c?.type === 'pc' && c.character_id != null && String(c.character_id) === String(charId));
   return { me: i >= 0 ? list[i] : null, isMyTurn: i >= 0 && i === combat.turnIndex };
+}
+
+/**
+ * Onde fica o painel de combate da ficha: 'top' (logo abaixo do "voltar") ou 'base' (o
+ * lugar de sempre, depois do retrato). Decide quando o combate novo entra (já passados os
+ * 600 ms do último toque), com o que está na tela nessa hora: `rect` = o painel no lugar
+ * de sempre (do getBoundingClientRect), `topAt` = onde ele entraria no topo (o y do
+ * retrato) e a área visível `viewTop`–`viewBottom`. Princípio 8: o painel nunca sai da
+ * vista de quem olha para ele, e só muda de lugar para aparecer.
+ * - fora do combate: 'base' (a próxima luta começa do zero);
+ * - depois de subir, fica no topo até a luta acabar: a vez passar não o faz descer (o
+ *   resultado aberto não some, e a próxima vez dele não mexe em nada);
+ * - na vez dele, inteiro à vista no lugar de sempre: fica e só acende "SUA VEZ";
+ * - senão, sobe só se o topo da ficha está à vista e cabe a cabeça e o 1º ataque
+ *   (`minSeen`), como na ficha aberta pelo [Ir para a minha ficha]. Rolado além do topo
+ *   (nas abas, ou olhando o resultado mais abaixo), fica: subir o tiraria da vista, e no
+ *   lugar de sempre é o primeiro que ele encontra rolando de volta.
+ */
+export function combatPanelSpot(prev, { inCombat, isMyTurn, rect, topAt, viewTop = 0, viewBottom = Infinity, minSeen = 120 } = {}) {
+  if (!inCombat) return 'base';
+  if (prev === 'top') return 'top';
+  if (!isMyTurn) return 'base';
+  if (rect) {
+    const h = Math.max(0, rect.bottom - rect.top);
+    const seen = Math.min(rect.bottom, viewBottom) - Math.max(rect.top, viewTop);
+    if (seen >= Math.min(h, viewBottom - viewTop) - 1) return 'base';   // inteiro à vista (ou enche a tela)
+  }
+  if (topAt == null) return 'top';
+  return topAt >= viewTop && topAt + minSeen <= viewBottom ? 'top' : 'base';
 }
