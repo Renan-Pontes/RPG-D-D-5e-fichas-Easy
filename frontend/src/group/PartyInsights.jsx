@@ -8,7 +8,7 @@
 //   800 ms depois do último toque. Nenhum polling.
 // - Celular primeiro: listas e barras; os radares só no PC (≥ 1024). Todo número do
 //   gráfico está escrito na lista ou na tabela; nada só no hover.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import MesaTitle from '../shell/MesaTitle.jsx';
 import { useArea } from '../shell/useArea.js';
 import { tName } from '../../data/i18n.js';
@@ -308,12 +308,25 @@ function Quadrants({ q, lang, expanded, setExpanded, onAllGaps }) {
   );
 }
 
+// Botão que acabou de mudar de sentido ignora toques por 400 ms (princípio 8): sem isso, o
+// 2º toque de um toque duplo em "＋ Levar para o plano" cai em "Abrir o plano ›", que
+// aparece no mesmo lugar assim que o PUT volta, e tira o mestre do Raio-X.
+const SETTLE_MS = 400;
+
 function PlanButton({ idea, planned, onTake, onOpenPlan, readOnly, lang, label }) {
   const st = planned[idea.key];
+  const okAt = useRef(0);
+  const was = useRef(st);
+  // antes da pintura: nenhum toque chega entre o botão novo aparecer e a trava valer
+  useLayoutEffect(() => {
+    if (st === 'ok' && was.current !== 'ok') okAt.current = Date.now();
+    was.current = st;
+  }, [st]);
   if (st === 'ok') {
+    const open = () => { if (Date.now() - okAt.current >= SETTLE_MS) onOpenPlan(); };
     return (
       <span className="ins-plan-ok" role="status">✓ {t(lang, 'No plano', 'In the plan')}{' '}
-        <button type="button" className="mesa-btn is-quiet" onClick={onOpenPlan}>{t(lang, 'Abrir o plano ›', 'Open the plan ›')}</button></span>
+        <button type="button" className="mesa-btn is-quiet" onClick={open}>{t(lang, 'Abrir o plano ›', 'Open the plan ›')}</button></span>
     );
   }
   return (
