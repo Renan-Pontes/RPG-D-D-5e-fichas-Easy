@@ -1,6 +1,7 @@
 import { errorMessage } from '../api/errors.js';
 import { useEffect, useState, useCallback, useMemo, useRef, useId } from 'react';
 import SRD from '../../data/srd.js';
+import Utils from '../../utils.js';
 import { api } from '../api/client.js';
 import ResourcesCard from '../progression/ResourcesCard.jsx';
 import { computeResources } from '../progression/resources.js';
@@ -105,7 +106,11 @@ export default function DMCharacterEditor({ character, lang, onClose, onSaved, i
   const save = async () => {
     setSaving(true); setError('');
     try {
-      const res = await api.dmEditCharacter(character.id, { data, name });
+      // O combate e a Tela leem a CA gravada na ficha (data.armorClass, que o app do jogador
+      // recalcula ao salvar): atributos, nível e escudo mudados aqui mudam a CA também.
+      const out = { ...data };
+      if (out.className) { try { out.armorClass = Utils.computeAc(out); } catch { /* ficha incompleta */ } }
+      const res = await api.dmEditCharacter(character.id, { data: out, name });
       onSaved?.(res.character);
       onClose();
     } catch (e) {
