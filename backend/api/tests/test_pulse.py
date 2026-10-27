@@ -344,6 +344,16 @@ class CombatSummaryTests(Base):
         self.touch(c)
         self.assertNotEqual(self.pulse().json()['combat']['ver'], v0)
 
+    def test_combat_ver_is_the_combat_updated_at(self):
+        # O app compara pulse.combat.ver com o updatedAt do combate que já tem:
+        # o mesmo texto nos dois (senão cada Próximo turno buscaria o combate 2× a mais).
+        CombatInstance.objects.create(campaign=self.camp, active=True, combatants=[
+            {'id': 'g', 'name': 'Goblin', 'type': 'monster', 'current_hp': 7, 'stats': {'max_hp': 7}}])
+        full = self.c_dm.get(f'/api/combat/campaign/{self.camp.id}').json()['combat']
+        self.assertEqual(self.pulse().json()['combat']['ver'], full['updatedAt'])
+        with mock.patch.object(views_pulse.connection, 'vendor', 'postgresql'):   # plano B (sem json_each)
+            self.assertEqual(views_pulse._combat_rows(self.camp.id)[3], full['updatedAt'])
+
 
 class TvLiveTests(Base):
     def screen(self, query=''):

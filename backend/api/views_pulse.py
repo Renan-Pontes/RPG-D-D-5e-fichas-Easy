@@ -238,7 +238,9 @@ def _combat_rows(campaign_id):
             head = rows[0]
             fighters = [{'id': r[4], 'name': r[5], 'type': r[6], 'defeated': bool(r[7]),
                          'current_hp': r[8], 'max_hp': r[9]} for r in rows if r[4] is not None or r[5] is not None]
-            return bool(head[0]), head[1], head[2], str(head[3]), fighters
+            # `ver` no MESMO formato do `updatedAt` do GET do combate (ISO com fuso): o
+            # app compara os dois e, se o formato mudasse, buscaria o combate de novo.
+            return bool(head[0]), head[1], head[2], _iso(head[3]), fighters
     c = (CombatInstance.objects.filter(campaign_id=campaign_id)
          .only('active', 'round_number', 'turn_index', 'updated_at', 'combatants').first())
     if not c:

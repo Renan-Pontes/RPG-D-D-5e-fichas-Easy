@@ -234,6 +234,8 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse } = {}) 
  * Sem a loja (tela antiga, servidor sem pulso): cai no polling de `fallbackMs`.
  *   useOnRev(table?.pulse?.checksRev, load, { table, fallbackMs: 6000 })
  * `initial: false`: quem chama já busca ao abrir (não repete a 1ª busca).
+ * Devolve `see(rev)`: marca uma versão que já chegou por outro caminho (a resposta
+ * de uma ação) como vista, para o pulso não buscar a mesma coisa de novo.
  */
 export function useOnRev(rev, fn, { table, fallbackMs = 2500, safetyMs = 60_000, initial = true } = {}) {
   const fnRef = useRef(fn);
@@ -262,4 +264,5 @@ export function useOnRev(rev, fn, { table, fallbackMs = 2500, safetyMs = 60_000,
     timer = setTimeout(tick, pulsing ? ms : (initial ? 0 : ms));
     return () => { alive = false; clearTimeout(timer); };
   }, [pulsing, fallbackMs, safetyMs, initial]);
+  return useCallback((key) => { if (seen.current !== undefined && key != null) seen.current = key; }, []);
 }

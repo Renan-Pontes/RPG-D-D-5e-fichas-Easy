@@ -90,19 +90,27 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, turnSt
   const [view, setView] = useState(() => readView(campaign.id));
   const wide = useWide();
 
+  const seeRef = useRef(() => {});
   const load = useCallback(async () => {
     try {
       const r = await api.getCombat(campaign.id);
       setCombat(r.combat);
+      seeRef.current(r.combat?.updatedAt);
     } catch (e) { console.warn(e); }
   }, [campaign.id]);
 
   useEffect(() => { load(); }, [load]);
   // Com o pulso: só quando o combate muda (e 1 vez por minuto); sem ele, a cada 2,5 s, como antes.
-  useOnRev(table?.combat?.ver, load, { table, fallbackMs: 2500, initial: false });
+  // A versão que já chegou (por esta busca ou pela resposta de uma ação) conta como vista:
+  // o pulso que traz o mesmo `ver` não busca o combate de novo.
+  seeRef.current = useOnRev(table?.combat?.ver, load, { table, fallbackMs: 2500, initial: false });
   // O combate que voltou de uma ação da barra, da faixa ou da tecla N: na hora, sem buscar de novo.
   useEffect(() => {
-    const on = (e) => { if (String(e.detail?.campaignId) === String(campaign.id) && e.detail?.combat) setCombat(e.detail.combat); };
+    const on = (e) => {
+      if (String(e.detail?.campaignId) !== String(campaign.id) || !e.detail?.combat) return;
+      setCombat(e.detail.combat);
+      seeRef.current(e.detail.combat.updatedAt);
+    };
     window.addEventListener(COMBAT_EVENT, on);
     return () => window.removeEventListener(COMBAT_EVENT, on);
   }, [campaign.id]);
