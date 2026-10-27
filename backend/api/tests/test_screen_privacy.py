@@ -79,18 +79,20 @@ class ScreenWhitelistTests(Base):
         for leak in ('nudges', 'diarySessions', 'concentration', 'Segredo do mestre', 'levelingMode',
                      'É a vilã', 'Serve ao culto', 'Cimitarra', "'ac': 15", 'abilities'):
             self.assertNotIn(leak, raw, leak)
-        self.assertEqual(data['state'], {'session': '2', 'scene': 'Taverna', 'weather': 'Chuva', 'live': True})
-        self.assertEqual(data['campaign']['state'], data['state'])
+        # V9: cada coisa vai uma vez, onde a TV de antes já lê (state e combate em `campaign`)
+        self.assertEqual(data['campaign']['state'], {'session': '2', 'scene': 'Taverna', 'weather': 'Chuva', 'live': True})
+        self.assertNotIn('state', data)
         self.assertEqual(data['campaign']['tagline'], 'Névoa')
         self.assertEqual(data['campaign']['accent'], '#b8862b')
-        gob = next(c for c in data['combat']['combatants'] if c['id'] == 'g1')
+        combat = data['campaign']['combat']
+        gob = next(c for c in combat['combatants'] if c['id'] == 'g1')
         self.assertNotIn('current_hp', gob)
         self.assertNotIn('stats', gob)
         self.assertEqual(gob['health'], 'bloodied')
         self.assertEqual(gob['conditions'], ['prone'])
-        pc = next(c for c in data['combat']['combatants'] if c['id'] == 'p1')
+        pc = next(c for c in combat['combatants'] if c['id'] == 'p1')
         self.assertEqual(pc['current_hp'], 18)
-        self.assertNotIn('log', data['combat'])
+        self.assertNotIn('log', combat)
 
     def test_health_bands(self):
         self.assertEqual(health_band(7, 7), 'unhurt')

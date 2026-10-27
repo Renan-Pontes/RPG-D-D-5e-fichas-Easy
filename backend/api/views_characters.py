@@ -98,6 +98,12 @@ def character_detail(request, pk):
                 'hint': 'use_dm_editor_or_dedicated_endpoint',
             })
 
+    # A foto não vem em todo lugar (V9: o GET da campanha leva só a URL dela): uma
+    # ficha regravada SEM a chave `avatar` mantém a foto guardada. Tirar a foto é
+    # mandar `avatar: ''`.
+    old_avatar = (obj.data or {}).get('avatar') if isinstance(obj.data, dict) else None
+    if isinstance(new_data, dict) and 'avatar' not in new_data and old_avatar:
+        request.data['data'] = {**new_data, 'avatar': old_avatar}
     s = CharacterSerializer(obj, data=request.data)
     s.is_valid(raise_exception=True)
     if isinstance(new_data, dict) and 'avatar' in new_data:

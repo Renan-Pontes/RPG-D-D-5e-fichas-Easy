@@ -88,6 +88,8 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/stage-image', views_campaigns.campaign_stage_image),
     # pulso do mestre (V4): no lugar do GET completo no polling; 304 parado
     path('campaigns/<str:id_or_slug>/pulse', views_pulse.campaign_pulse),
+    # foto do personagem de uma vaga (V9: o GET da campanha leva só `avatarUrl`)
+    path('campaigns/<str:id_or_slug>/members/<int:membership_id>/avatar', views_campaigns.campaign_member_avatar),
 
     # Mundo da campanha (lugares, NPCs, facções, itens, lore, documentos)
     path('campaigns/<str:id_or_slug>/world', closed_guard(views_world.world_list, 'campaign')),
@@ -167,6 +169,9 @@ urlpatterns = [
     path('screen/<str:token>/cover', _wp2('views_screen', 'screen_cover')),
     path('screen/<str:token>/map', views_screen.screen_map),
     path('screen/<str:token>/stage-image', views_screen.screen_stage_image),
+    # foto do personagem e imagem do token por URL (V9: nada de base64 no JSON da Tela)
+    path('screen/<str:token>/portrait/<int:char_id>', views_screen.screen_portrait),
+    path('screen/<str:token>/token/<str:combatant_id>', views_screen.screen_token_image),
 
     # Combat
     path('combat/campaign/<str:id_or_slug>', closed_guard(views_combat.combat_get, 'campaign')),
@@ -181,6 +186,9 @@ urlpatterns = [
     path('combat/campaign/<str:id_or_slug>/next-turn', closed_guard(views_combat.combat_next_turn, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/prev-turn', closed_guard(views_combat.combat_prev_turn, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/map', closed_guard(views_combat.combat_set_map, 'campaign')),
+    # fundo do mapa e imagens dos tokens por URL (V9; o JSON do combate só leva as URLs)
+    path('combat/campaign/<str:id_or_slug>/map-image', views_combat.combat_map_image),
+    path('combat/campaign/<str:id_or_slug>/token/<str:combatant_id>', views_combat.combat_token_image),
 
     # RollRequest
     path('rolls/campaign/<str:id_or_slug>', closed_guard(views_combat.roll_create, 'campaign')),

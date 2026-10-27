@@ -178,6 +178,7 @@ class RevCoverageTests(Base):
             'tone': patch_campaign({'tone': 'dark'}),
             'onboarding': patch_campaign({'onboarding': {'tv': True}}),
             'advancedDice': patch_campaign({'advancedDice': True}),
+            'lang': patch_campaign({'lang': 'en'}),
             'fogHint': model(dm_settings={'fogHint': True}),
             'immersion': model(dm_settings={'immersion': False}),
             'slug': model(slug='brumafria-2'),

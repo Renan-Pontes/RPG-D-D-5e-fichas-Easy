@@ -159,7 +159,7 @@ class ScreenTests(Base):
         CombatInstance.objects.create(campaign=self.camp, map_data={'background_image': PNG_1PX, 'grid_size_px': 50})
         r = self.anon.get(f'/api/screen/{self.camp.screen_token}')
         self.assertEqual(r.status_code, 200)
-        m = r.json()['combat']['map']
+        m = r.json()['campaign']['combat']['map']
         self.assertNotIn('background_image', m)
         self.assertEqual(m['grid_size_px'], 50)
         self.assertNotIn('base64', r.content.decode())

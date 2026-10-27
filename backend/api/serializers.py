@@ -6,6 +6,7 @@ from .models import (
     Profile, Character, Campaign, Membership, Approval, DiceRig, DiceLog,
 )
 from .progression.multiclass import class_entries
+from .image_data import image_link
 
 User = get_user_model()
 
@@ -116,17 +117,29 @@ class MembershipSerializer(serializers.ModelSerializer):
             return None
         request = self.context.get('request')
         is_dm = self.context.get('is_dm', False)
+        d = obj.character.data or {}
+        # A foto vai por URL (V9): o GET da campanha é polling e levava o base64 de
+        # cada foto a cada mudança (135–144 KB numa mesa com fotos de verdade). A rota
+        # serve o binário com ETag e cache de 1 ano. O editor do mestre grava só o que
+        # manda (dm-edit faz merge), então a foto guardada não se perde; arte do site
+        # (`/art/…`) continua como estava.
+        avatar = d.get('avatar')
+        photo = isinstance(avatar, str) and avatar.startswith('data:')
+        avatar_url = image_link(avatar, f'/api/campaigns/{obj.campaign_id}/members/{obj.id}/avatar')
+        if photo:
+            d = {k: v for k, v in d.items() if k != 'avatar'}
         # DM ou dono vê data completo; outros, só sumário público
         if is_dm or (request and obj.character.owner_id == request.user.id):
             return {
                 'id': obj.character.id,
                 'name': obj.character.name,
-                'data': obj.character.data,
+                'data': d,
+                'avatarUrl': avatar_url,
             }
-        d = obj.character.data or {}
         return {
             'id': obj.character.id,
             'name': obj.character.name,
+            'avatarUrl': avatar_url,
             'summary': {
                 'race': d.get('race', ''),
                 'className': d.get('className', ''),
@@ -224,6 +237,7 @@ class CampaignSerializer(serializers.ModelSerializer):
         data['immersion'] = settings.get('immersion') is not False
         if is_dm:
             data['stage'] = dm_stage(instance, card)   # o palco cru (com os nomes que só o mestre lê)
+            data['lang'] = settings.get('lang') if settings.get('lang') in ('pt', 'en') else None   # o da Tela (V9)
             data['onboarding'] = settings.get('onboarding') or {}
             data['advancedDice'] = bool(settings.get('advancedDice'))
             data['fogHint'] = settings.get('fogHint') is True

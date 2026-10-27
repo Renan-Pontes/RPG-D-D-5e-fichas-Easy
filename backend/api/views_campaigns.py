@@ -78,6 +78,11 @@ def _apply_dm_settings(obj, data):
             if not isinstance(data.get(key), bool):
                 raise ValidationError({'error': f'invalid_{key}'})
             settings[key] = data[key]
+    # Idioma da campanha (o do app do mestre; a Tela fala nele — V9).
+    if 'lang' in data:
+        if data.get('lang') not in ('pt', 'en'):
+            raise ValidationError({'error': 'invalid_lang'})
+        settings['lang'] = data['lang']
     obj.dm_settings = settings
 
 
@@ -293,6 +298,25 @@ def campaign_stage_image(request, id_or_slug):
     if not found:
         return HttpResponse(status=404)
     return image_response(request, found[0], found[1])
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def campaign_member_avatar(request, id_or_slug, membership_id):
+    """GET /campaigns/:id/members/:mid/avatar?v= (membros) — a foto do personagem
+    daquela vaga, como binário (V9: o GET da campanha leva só `avatarUrl`, não o
+    base64 de cada foto a cada poll)."""
+    qs = Campaign.objects.only('id', 'dm_id', 'slug')
+    campaign = (qs.filter(id=id_or_slug).first() if str(id_or_slug).isdigit() else None) \
+        or qs.filter(slug=id_or_slug).first()
+    if not campaign:
+        raise NotFound('campaign_not_found')
+    require_member(request.user, campaign)
+    ch = Character.objects.filter(memberships__pk=membership_id, memberships__campaign=campaign).only('id', 'data').first()
+    avatar = ((ch.data if ch else None) or {}).get('avatar')
+    if not (isinstance(avatar, str) and avatar.startswith('data:')):
+        return HttpResponse(status=404)
+    return image_response(request, avatar)
 
 
 _INVITE_CODE = re.compile(r'^[A-Z0-9]{4,10}$')

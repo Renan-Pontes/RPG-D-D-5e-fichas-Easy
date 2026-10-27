@@ -11,6 +11,8 @@ POST /api/combat/campaign/<id>/action   (DM)  body: ataque/save/condição/dano/
 POST /api/combat/campaign/<id>/next-turn (DM)  body: {expect?: {round, turnIndex}} → 409 stale_turn se a vez já mudou
 POST /api/combat/campaign/<id>/prev-turn (DM)  body: {expect?} → ↶ Voltar turno (restaura a foto do Próximo)
 POST /api/combat/campaign/<id>/map      (DM)  body: {background_image, grid_size_px, grid_visible}
+GET  /api/combat/campaign/<id>/map-image?v=       (member) fundo do mapa (binário; o JSON leva só a URL)
+GET  /api/combat/campaign/<id>/token/<cid>?v=     (member) imagem do token (idem)
 
 POST /api/rolls/campaign/<id>           (member)
 GET  /api/rolls/campaign/<id>/pending   (member)
@@ -32,7 +34,7 @@ from .dice_privacy import scrub_dice
 from .permissions import get_campaign_or_404, require_dm, require_member, is_dm
 from . import combat as engine
 from .diary import log_combat_start, log_combat_end, log_roll_request
-from .image_data import validate_data_url
+from .image_data import image_link, image_response, image_ver, validate_data_url
 from . import plans as P
 
 # Fundo do mapa de combate: o canvas comprime para ≤1600 px em JPEG 0,82.
@@ -100,6 +102,7 @@ def _get_combat(campaign, create=True):
 # Campos do log que jogador/telão podem ver (sem CA, totais nem dano de monstro).
 PUBLIC_LOG_KEYS = ('type', 'attacker', 'target', 'action_name', 'attack_name', 'hit', 'crit',
                    'round', 'whose', 'condition', 'name', 'ts', 'downed')
+SERVER_LOG_KEYS = ('photo', 'from')
 EMPTY_COMBAT = {'active': False, 'round': 1, 'turnIndex': 0, 'combatants': [], 'map': {},
                 'log': [], 'updatedAt': None}
 
@@ -139,8 +142,44 @@ def public_combatant(cb):
     return base
 
 
-def _serialize_combat(c, *, for_dm=False):
-    """Combat instance → dict. Jogador e telão recebem a versão filtrada."""
+PUBLIC_MAP_KEYS = ('grid_size_px', 'grid_visible', 'width_px', 'height_px', 'backgroundVer', 'backgroundUrl')
+
+
+def map_payload(map_data, url, *, public=False):
+    """Mapa do combate SEM o fundo em base64 (V9: 85 KB → poucos bytes): grade,
+    tamanho e o fundo por `backgroundUrl` (`url?v=<backgroundVer>`, binário com
+    ETag e cache de 1 ano). App: também `background_image` com a mesma URL (o JS
+    de antes punha o valor direto no <img>; vazio = sem fundo). Tela (`public`):
+    só as chaves da whitelist."""
+    md = map_data if isinstance(map_data, dict) else {}
+    bg = md.get('background_image')
+    out = {k: v for k, v in md.items() if k != 'background_image'}
+    link = None
+    if isinstance(bg, str) and bg.startswith('data:'):
+        ver = image_ver(bg)
+        link = f'{url}?v={ver}'
+        out.update(backgroundVer=ver, backgroundUrl=link)
+    if public:
+        return {k: out[k] for k in PUBLIC_MAP_KEYS if k in out}
+    out['background_image'] = link
+    return out
+
+
+def _sprite_link(cb, base):
+    """`sprite` do combatente: a URL da imagem do token (nunca o base64)."""
+    if not cb.get('sprite'):
+        return cb
+    return {**cb, 'sprite': image_link(cb['sprite'], f'{base}/token/{cb.get("id")}')}
+
+
+def _serialize_combat(c, *, for_dm=False, token=None):
+    """Combat instance → dict. Jogador e Tela recebem a versão filtrada.
+
+    Imagens (V9) só por URL: o fundo do mapa e as imagens dos tokens saem pelas
+    rotas da campanha (`/api/combat/campaign/<id>/map-image`, `/token/<cid>`, com
+    login) ou, com `token`, pelas públicas da Tela (`/api/screen/<t>/map`,
+    `/token/<cid>`). O GET do combate e a resposta do Próximo turno deixam de
+    levar o mapa e os tokens inteiros a cada mudança."""
     if c is None:
         return {**EMPTY_COMBAT, 'combatants': [], 'map': {}, 'log': []}
     log = c.action_log[-30:] if c.action_log else []   # últimas 30 entradas
@@ -148,12 +187,18 @@ def _serialize_combat(c, *, for_dm=False):
     if not for_dm:
         combatants = [public_combatant(x) for x in combatants if isinstance(x, dict)]
         log = [{k: v for k, v in e.items() if k in PUBLIC_LOG_KEYS} for e in log if isinstance(e, dict)]
+    else:
+        # A foto do turno (`photo`, `from`) é do servidor (↶ Voltar turno lê do banco):
+        # não viaja a cada mudança.
+        log = [{k: v for k, v in e.items() if k not in SERVER_LOG_KEYS} if isinstance(e, dict) else e for e in log]
+    base = f'/api/screen/{token}' if token else f'/api/combat/campaign/{c.campaign_id}'
+    combatants = [_sprite_link(x, base) for x in combatants if isinstance(x, dict)]
     return {
         'active': c.active,
         'round': c.round_number,
         'turnIndex': c.turn_index,
         'combatants': combatants,
-        'map': c.map_data or {},
+        'map': map_payload(c.map_data, f'{base}/map' if token else f'{base}/map-image', public=bool(token)),
         'log': log,
         'updatedAt': c.updated_at.isoformat() if c.updated_at else None,
     }
@@ -539,6 +584,10 @@ def combat_combatant(request, id_or_slug, combatant_id):
                 'current_hp', 'temp_hp', 'conditions', 'defeated', 'death_saves']:
         if key in patch:
             updated[key] = patch[key]
+    # A imagem do token só muda com uma imagem nova (data URL) ou vazio: a URL que o
+    # GET devolve (V9), se voltar num PUT, não apaga a imagem guardada.
+    if isinstance(patch.get('sprite'), str) and patch['sprite'] and not patch['sprite'].startswith('data:'):
+        updated['sprite'] = target.get('sprite')
     # stats parciais
     if 'stats' in patch and isinstance(patch['stats'], dict):
         stats = dict(updated.get('stats') or {})
@@ -1291,6 +1340,48 @@ def combat_set_map(request, id_or_slug):
     c.map_data = map_data
     c.save()
     return Response({'combat': _serialize_combat(c, for_dm=True)})
+
+
+def _member_campaign(request, id_or_slug):
+    """Campanha só com o necessário para a permissão (as rotas de imagem não
+    carregam a capa nem o estado)."""
+    qs = Campaign.objects.only('id', 'dm_id', 'slug')
+    obj = (qs.filter(id=id_or_slug).first() if str(id_or_slug).isdigit() else None) or qs.filter(slug=id_or_slug).first()
+    if not obj:
+        raise NotFound('campaign_not_found')
+    require_member(request.user, obj)
+    return obj
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def combat_map_image(request, id_or_slug):
+    """GET /combat/campaign/:id/map-image?v= (membros) — o fundo do mapa como
+    binário (o JSON do combate leva só `map.backgroundUrl`)."""
+    campaign = _member_campaign(request, id_or_slug)
+    c = CombatInstance.objects.filter(campaign=campaign).only('map_data').first()
+    bg = ((c.map_data if c else None) or {}).get('background_image')
+    if not bg:
+        raise NotFound('not_found')
+    return image_response(request, bg)
+
+
+def token_sprite(combat, combatant_id):
+    """A imagem própria (data URL) do token, ou None."""
+    cb = engine.find_combatant((combat.combatants if combat else None) or [], combatant_id)
+    sprite = (cb or {}).get('sprite')
+    return sprite if isinstance(sprite, str) and sprite.startswith('data:') else None
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def combat_token_image(request, id_or_slug, combatant_id):
+    """GET /combat/campaign/:id/token/<cid>?v= (membros) — a imagem do token."""
+    campaign = _member_campaign(request, id_or_slug)
+    sprite = token_sprite(CombatInstance.objects.filter(campaign=campaign).only('combatants').first(), combatant_id)
+    if not sprite:
+        raise NotFound('not_found')
+    return image_response(request, sprite)
 
 
 # ============================================================

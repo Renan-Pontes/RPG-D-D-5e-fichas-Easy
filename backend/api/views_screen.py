@@ -13,10 +13,21 @@ GET /screen/<token>/map               fundo do mapa de combate (cacheável por ?
 GET /screen/<token>/stage-image?v=    a imagem que está na FRENTE da Tela agora (cartão
                                       oculto em "só a imagem", sala, mapa de lugar); outra
                                       versão ou outra frente → 404.
+GET /screen/<token>/portrait/<charId>?v=   foto de um personagem da mesa (V9).
+GET /screen/<token>/token/<combatantId>?v= imagem de um token do combate (V9).
 
 O palco (`stage`, api/stage.py) é o que manda na Tela: frente, fundo e as
 sobreposições. `card`, `publicCheck` e o resto continuam por 1 versão (TV aberta
 com o JS antigo).
+
+Payload magro (V9): cada coisa vai UMA vez (antes `state`, `card` e `combat` iam
+no topo e de novo dentro de `campaign`). Ficam onde a TV de antes já lê:
+`card` e `stage` no topo; `state`, `members`, `combat`, `publicRolls` e
+`publicCheck` dentro de `campaign`. Foto do personagem (`avatar`), imagem do
+token (`sprite`) e fundo do mapa (`backgroundUrl`) vão por URL com `?v=` (binário
+com ETag e cache de 1 ano): com fotos e tokens de verdade, cada mudança caiu de
+~1 MB para poucos KB. `lang` é o idioma da campanha (o do mestre, gravado pelo
+app dele em dm_settings.lang); sem ele, a TV usa o do aparelho.
 
 Tudo o que é só do mestre (nudges, concentration, diarySessions, screenCard cru,
 PV/CA/ações de monstro, notas e segredos do Mundo) fica de fora.
@@ -26,21 +37,35 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
 
-from .models import Campaign, CombatInstance, RollRequest, CheckRequest
+from django.db.models.fields.json import KT
+
+from .models import Campaign, Character, CombatInstance, RollRequest, CheckRequest
 from .progression.multiclass import class_entries
 from .campaign_state import public_state
-from .image_data import image_response, image_ver
+from .image_data import image_link, image_response
 from .screen_card import is_private_handout, resolve_screen_card
 from .stage import public_stage, stage_image_data
 from .dice_privacy import scrub_dice
 
 
-def _public_character(data, name, char_id):
-    d = data or {}
+def armor_class(d):
+    """CA da FICHA (`data.armorClass`, que o app grava ao salvar com o cálculo
+    inteiro: armadura, escudo, estilos, Defesa sem Armadura…). Ficha antiga, sem
+    ela: a estimativa de antes (10 + DES + escudo)."""
+    ac = d.get('armorClass')
+    if isinstance(ac, (int, float)) and not isinstance(ac, bool) and 0 < ac < 100:
+        return int(ac)
     abilities = d.get('abilities') or {}
-    dex = abilities.get('dex', 10)
-    dex_mod = (dex - 10) // 2
-    ac_estimate = 10 + dex_mod + (2 if d.get('hasShield') else 0) + int(d.get('extraAcBonus') or 0)
+    try:
+        dex_mod = (int(abilities.get('dex', 10)) - 10) // 2
+        extra = int(d.get('extraAcBonus') or 0)
+    except (TypeError, ValueError):
+        dex_mod, extra = 0, 0
+    return 10 + dex_mod + (2 if d.get('hasShield') else 0) + extra
+
+
+def _public_character(data, name, char_id, token):
+    d = data or {}
     return {
         'id': char_id,
         'name': name or d.get('name', ''),
@@ -52,12 +77,14 @@ def _public_character(data, name, char_id):
         'currentHp': d.get('currentHp'),
         'maxHp': d.get('maxHp'),
         'tempHp': d.get('tempHp', 0),
-        'armorClass': ac_estimate,
+        'armorClass': armor_class(d),
         'speed': d.get('speedOverride') or 30,
         'conditions': d.get('conditions', []),
         'inspiration': bool(d.get('inspiration')),
         'deathSaves': d.get('deathSaves') or {'success': 0, 'fail': 0},
-        'avatar': d.get('avatar', ''),
+        # a foto por URL (antes: o base64 inteiro a cada poll); a chave é a mesma
+        # para a TV de antes, que põe o valor direto no <img>
+        'avatar': image_link(d.get('avatar'), f'/api/screen/{token}/portrait/{char_id}') or '',
         'symbol': d.get('symbol', ''),
     }
 
@@ -71,6 +98,9 @@ def screen(request, token):
         .filter(screen_token=token)
         .select_related('dm', 'dm__profile')
         .defer('cover_image', 'dm_settings')
+        # o idioma do mestre, lido no próprio SELECT (o dm_settings — com o plano da
+        # sessão — não sai do banco)
+        .annotate(_lang=KT('dm_settings__lang'))
         .first()
     )
     if not campaign:
@@ -100,14 +130,13 @@ def screen(request, token):
     public_check = _check_for_screen(shown_check) if shown_check else None
     combat_payload = None
     if combat:
-        combat_payload = _serialize_combat(combat, for_dm=False)
+        combat_payload = _serialize_combat(combat, for_dm=False, token=token)
         combat_payload.pop('log', None)
-        combat_payload['map'] = _public_map(combat_payload.get('map') or {}, token)
     stage = public_stage(campaign, token=token, test=public_check, card=card)
     return Response({
-        'state': state,
+        'v': 2,
+        'lang': campaign._lang if campaign._lang in ('pt', 'en') else None,
         'card': card,
-        'combat': combat_payload,
         'stage': stage,
         'campaign': {
             'id': campaign.id,
@@ -120,14 +149,13 @@ def screen(request, token):
             'coverVer': campaign.cover_ver,
             'coverUrl': f'/api/screen/{token}/cover?v={campaign.cover_ver}' if campaign.cover_ver else None,
             'state': state,
-            'card': card,
             'dm': {'id': campaign.dm.id, 'displayName': _display_name(campaign.dm)},
             'members': [
                 {
                     'id': m.id,
                     'role': m.role,
                     'user': {'id': m.user.id, 'displayName': _display_name(m.user)},
-                    'character': _public_character(m.character.data, m.character.name, m.character.id) if m.character else None,
+                    'character': _public_character(m.character.data, m.character.name, m.character.id, token) if m.character else None,
                 }
                 for m in memberships
             ],
@@ -151,19 +179,6 @@ def screen(request, token):
             'publicCheck': public_check,
         }
     })
-
-
-def _public_map(map_data, token):
-    """Mapa do telão: grade + fundo. O fundo NÃO vai inline (payload pesado a
-    cada polling): o telão usa `backgroundUrl` (cacheável por ?v=)."""
-    out = {k: map_data.get(k) for k in ('grid_size_px', 'grid_visible', 'width_px', 'height_px')
-           if k in map_data}
-    bg = map_data.get('background_image')
-    if bg:
-        ver = image_ver(bg)
-        out['backgroundVer'] = ver
-        out['backgroundUrl'] = f'/api/screen/{token}/map?v={ver}'
-    return out
 
 
 def _campaign_by_token(token, *fields):
@@ -220,6 +235,32 @@ def screen_map(request, token):
     if not bg:
         raise NotFound('not_found')
     return image_response(request, bg)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def screen_portrait(request, token, char_id):
+    """Foto de um personagem DA MESA (sem login; a TV recebe só a URL)."""
+    campaign = _campaign_by_token(token)
+    ch = Character.objects.filter(pk=char_id, memberships__campaign=campaign).only('id', 'data').first()
+    avatar = ((ch.data if ch else None) or {}).get('avatar')
+    if not (isinstance(avatar, str) and avatar.startswith('data:')):
+        raise NotFound('not_found')
+    return image_response(request, avatar)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def screen_token_image(request, token, combatant_id):
+    """Imagem de um token do combate da campanha (sem login)."""
+    from .views_combat import token_sprite
+    campaign = _campaign_by_token(token)
+    sprite = token_sprite(CombatInstance.objects.filter(campaign=campaign).only('combatants').first(), combatant_id)
+    if not sprite:
+        raise NotFound('not_found')
+    return image_response(request, sprite)
 
 
 @api_view(['GET'])
