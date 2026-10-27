@@ -13,6 +13,7 @@ POST /api/combat/campaign/<id>/prev-turn (DM)  body: {expect?} → ↶ Voltar tu
 POST /api/combat/campaign/<id>/map      (DM)  body: {background_image, grid_size_px, grid_visible}
 GET  /api/combat/campaign/<id>/map-image?v=       (member) fundo do mapa (binário; o JSON leva só a URL)
 GET  /api/combat/campaign/<id>/token/<cid>?v=     (member) imagem do token (idem)
+GET  /api/combat/campaign/<id>/actions/<ref>      (DM) as ações de um stat block pelo hash (?sets=1)
 
 POST /api/rolls/campaign/<id>           (member)
 GET  /api/rolls/campaign/<id>/pending   (member)
@@ -20,9 +21,13 @@ GET  /api/rolls/campaign/<id>/recent    (public via screen)
 POST /api/rolls/<id>/resolve            (DM)  body: {visibility: 'public'|'private'}
 POST /api/rolls/<id>/cancel             (DM ou owner)
 """
+import functools
+import hashlib
+import json
 import secrets
 from django.db import transaction
 from django.db.models import F
+from django.http import HttpResponseNotModified
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -182,7 +187,7 @@ def _serialize_combat(c, *, for_dm=False, token=None):
     levar o mapa e os tokens inteiros a cada mudança."""
     if c is None:
         return {**EMPTY_COMBAT, 'combatants': [], 'map': {}, 'log': []}
-    log = c.action_log[-30:] if c.action_log else []   # últimas 30 entradas
+    log = _recent_log(c.action_log)
     combatants = c.combatants or []
     if not for_dm:
         combatants = [public_combatant(x) for x in combatants if isinstance(x, dict)]
@@ -207,6 +212,65 @@ def _serialize_combat(c, *, for_dm=False, token=None):
 def _serialize_combat_public(c):
     """Vista do telão: igual à do jogador (monstros só com nome/condições/faixa de saúde)."""
     return _serialize_combat(c, for_dm=False)
+
+
+TURN_MARKERS = ('start', 'next_turn')
+
+
+def _recent_log(log, keep=10, cap=30):
+    """O pedaço do registro que vai a cada mudança. O app mostra as 8 últimas linhas
+    (Registro recente) e os avisos do mestre leem o turno atual e o anterior (desde o
+    penúltimo 'start'/'next_turn', nudges.js recentLog): vai isso, com no mínimo `keep`
+    e no máximo `cap` entradas (antes iam sempre 30, ~2 KB com dados reais)."""
+    log = list((log or [])[-cap:])
+    seen = 0
+    for i in range(len(log) - 1, -1, -1):
+        if isinstance(log[i], dict) and log[i].get('type') in TURN_MARKERS:
+            seen += 1
+            if seen == 2:
+                return log[min(i, max(0, len(log) - keep)):]
+    return log
+
+
+def actions_ref(actions):
+    """Hash curto e estável das ações de um stat block (o mesmo conteúdo dá o mesmo ref)."""
+    raw = json.dumps(actions, sort_keys=True, ensure_ascii=False, separators=(',', ':'))
+    return hashlib.sha1(raw.encode('utf-8')).hexdigest()[:12]
+
+
+def with_action_refs(combat):
+    """Combate do mestre com as ações de cada stat block trocadas por `stats.actionsRef`.
+
+    As ações (nome, dano e o texto das regras em pt e en) são quase tudo o que o
+    combate pesa: com um Dragão Vermelho Adulto e mais 4 monstros do bestiário, ~15 KB
+    a cada mudança, dos quais ~8 KB são ações que não mudam. O app busca cada conjunto
+    uma vez em /actions/<ref> (cache de 1 ano) e o devolve a `stats.actions`
+    (src/api/combat-sets.js); monstros iguais (3 goblins) dividem o mesmo ref."""
+    out = []
+    for cb in combat.get('combatants') or []:
+        st = cb.get('stats') if isinstance(cb, dict) else None
+        acts = st.get('actions') if isinstance(st, dict) else None
+        if isinstance(acts, list) and acts:
+            st = {k: v for k, v in st.items() if k != 'actions'}
+            st['actionsRef'] = actions_ref(acts)
+            cb = {**cb, 'stats': st}
+        out.append(cb)
+    return {**combat, 'combatants': out}
+
+
+def action_sets(view):
+    """Com `?sets=1` (o app desta versão), o `combat` da resposta vai com
+    `with_action_refs`. Sem o parâmetro (o app de antes, aberto durante a troca de
+    versão), as ações vão inteiras, como antes. Fica embaixo do @api_view: mexe na
+    Response antes de ela virar JSON."""
+    @functools.wraps(view)
+    def wrapped(request, *args, **kwargs):
+        resp = view(request, *args, **kwargs)
+        data = getattr(resp, 'data', None)
+        if request.query_params.get('sets') == '1' and isinstance(data, dict) and isinstance(data.get('combat'), dict):
+            data['combat'] = with_action_refs(data['combat'])
+        return resp
+    return wrapped
 
 
 def _serialize_roll(rr, for_dm=False):
@@ -378,6 +442,7 @@ def _peek_rig(campaign, user_id, dice_type):
 # ============================================================
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_get(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_member(request.user, campaign)
@@ -387,6 +452,7 @@ def combat_get(request, id_or_slug):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_start(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
@@ -402,6 +468,7 @@ def combat_start(request, id_or_slug):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_end(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
@@ -415,6 +482,7 @@ def combat_end(request, id_or_slug):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_reset(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
@@ -433,6 +501,7 @@ def combat_reset(request, id_or_slug):
 # ============================================================
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_add_combatant(request, id_or_slug):
     """Adiciona combatente.
     body: {
@@ -563,6 +632,7 @@ def combat_add_combatant(request, id_or_slug):
 
 @api_view(['PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_combatant(request, id_or_slug, combatant_id):
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
@@ -622,6 +692,7 @@ def _maybe_consume_rig(campaign, user_id, dice_type):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_action(request, id_or_slug):
     """Resolve uma ação de combate.
 
@@ -897,6 +968,7 @@ def combat_attack_preview(request, id_or_slug):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_player_attack(request, id_or_slug):
     """PC ataca alvo durante seu turno em combate.
 
@@ -1208,6 +1280,7 @@ def _turn_write(campaign, expect, compute):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_next_turn(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
@@ -1259,6 +1332,7 @@ def combat_next_turn(request, id_or_slug):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_prev_turn(request, id_or_slug):
     """↶ Voltar turno: restaura a foto guardada pelo último Próximo turno."""
     campaign = get_campaign_or_404(id_or_slug)
@@ -1312,6 +1386,7 @@ def combat_prev_turn(request, id_or_slug):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@action_sets
 def combat_set_map(request, id_or_slug):
     """Define o mapa (background base64, grid). DM only."""
     campaign = get_campaign_or_404(id_or_slug)
@@ -1364,6 +1439,34 @@ def combat_map_image(request, id_or_slug):
     if not bg:
         raise NotFound('not_found')
     return image_response(request, bg)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def combat_actions(request, id_or_slug, ref):
+    """GET /combat/campaign/:id/actions/<ref> (mestre) — as ações de um stat block do
+    combate pelo `stats.actionsRef`. O mesmo ref é sempre o mesmo conteúdo: cache de
+    1 ano e 304 pelo ETag sem ler o combate. Ref que não está no combate → 404 (o app
+    então lê o combate inteiro, sem ?sets)."""
+    qs = Campaign.objects.only('id', 'dm_id', 'slug')
+    campaign = (qs.filter(id=id_or_slug).first() if str(id_or_slug).isdigit() else None) or qs.filter(slug=id_or_slug).first()
+    if not campaign:
+        raise NotFound('campaign_not_found')
+    require_dm(request.user, campaign)
+    etag = f'"{ref}"'
+    cache = 'private, max-age=31536000, immutable'
+    if etag in [t.strip() for t in request.META.get('HTTP_IF_NONE_MATCH', '').split(',')]:
+        resp = HttpResponseNotModified()
+        resp['ETag'], resp['Cache-Control'] = etag, cache
+        return resp
+    c = CombatInstance.objects.filter(campaign=campaign).only('combatants').first()
+    for cb in (c.combatants if c else None) or []:
+        acts = ((cb.get('stats') or {}) if isinstance(cb, dict) else {}).get('actions')
+        if isinstance(acts, list) and acts and actions_ref(acts) == ref:
+            resp = Response({'ref': ref, 'actions': acts})
+            resp['ETag'], resp['Cache-Control'] = etag, cache
+            return resp
+    raise NotFound('not_found')
 
 
 def token_sprite(combat, combatant_id):

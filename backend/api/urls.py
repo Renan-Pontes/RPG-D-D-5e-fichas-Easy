@@ -189,6 +189,8 @@ urlpatterns = [
     # fundo do mapa e imagens dos tokens por URL (V9; o JSON do combate só leva as URLs)
     path('combat/campaign/<str:id_or_slug>/map-image', views_combat.combat_map_image),
     path('combat/campaign/<str:id_or_slug>/token/<str:combatant_id>', views_combat.combat_token_image),
+    # as ações dos stat blocks pelo hash (o JSON do combate com ?sets=1 só leva `stats.actionsRef`)
+    path('combat/campaign/<str:id_or_slug>/actions/<str:ref>', views_combat.combat_actions),
 
     # RollRequest
     path('rolls/campaign/<str:id_or_slug>', closed_guard(views_combat.roll_create, 'campaign')),

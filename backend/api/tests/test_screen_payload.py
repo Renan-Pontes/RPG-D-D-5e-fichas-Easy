@@ -11,7 +11,9 @@ V9 · Payloads magros: a Tela, o combate e o GET da campanha sem imagem em base6
 - Tetos de bytes com fotos e tokens "de verdade" (≈ os do banco real da medição).
 """
 import base64
+import copy
 import json
+from pathlib import Path
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -210,8 +212,29 @@ class CampaignAvatarTests(Base):
         self.assertEqual(self.kaelor.data['avatar'], '')
 
 
+# Stat blocks de verdade, como o app os grava no combate (bestiário SRD 5.2.1, nomes e
+# textos das regras em pt e en): Dragão Vermelho Adulto (~3,5 KB) e Goblin Guerreiro.
+STATBLOCKS = json.loads((Path(__file__).parent / 'fixtures' / 'statblocks.json').read_text(encoding='utf-8'))
+
+
+def real_monsters():
+    """1 Dragão Vermelho Adulto + 3 goblins (os dois primeiros com token de ~250 KB)."""
+    drg = {'id': 'drg', 'type': 'monster', 'name': 'Dragão Vermelho Adulto', 'monster_id': 'adult-red-dragon',
+           'initiative': 20, 'current_hp': 256, 'position': {'x': 500, 'y': 300}, 'token_scale': 2,
+           'sprite': big_image(250_000, b'd'), 'conditions': ['frightened'],
+           'stats': copy.deepcopy(STATBLOCKS['adult-red-dragon']),
+           'legendary': {'max': 3, 'remaining': 3, 'lair_max': 4},
+           'legendary_resistance': {'max': 3, 'remaining': 3, 'lair_max': 4}}
+    gobs = [{'id': f'gw{i}', 'type': 'monster', 'name': f'Goblin Afogado #{i}', 'monster_id': 'goblin-warrior',
+             'initiative': 16 - i, 'current_hp': 10, 'position': {'x': 50 * i, 'y': 50},
+             'sprite': big_image(250_000, bytes([97 + i])) if i < 3 else None,
+             'stats': copy.deepcopy(STATBLOCKS['goblin-warrior'])} for i in range(1, 4)]
+    return [drg, *gobs]
+
+
 class RealSizeTests(Base):
-    """Tetos do aceite com 4 fotos de ~40 KB, 3 tokens de ~250 KB e mapa de ~300 KB."""
+    """Tetos do aceite com 4 fotos de ~40 KB, 3 tokens de ~250 KB, mapa de ~300 KB,
+    stat blocks reais (Dragão Vermelho Adulto + 3 goblins) e o registro cheio."""
 
     def setUp(self):
         super().setUp()
@@ -223,24 +246,107 @@ class RealSizeTests(Base):
         self.pipo.data = {**self.pipo.data, 'avatar': big_image(40_000, b'p')}
         self.pipo.save()
         c = self.combat
-        monsters = [{'id': f'm{i}', 'type': 'monster', 'name': f'Goblin #{i}', 'initiative': 10 - i, 'current_hp': 7,
-                     'position': {'x': 50 * i, 'y': 50}, 'sprite': big_image(250_000, bytes([97 + i])) if i < 3 else None,
-                     'stats': {'ac': 15, 'max_hp': 7, 'actions': [{'name': 'Cimitarra', 'atk': 4, 'damage': '1d6+2',
-                                                                   'damageType': 'slashing'}]}} for i in range(7)]
-        c.combatants = monsters + c.combatants
+        c.combatants = real_monsters() + c.combatants
         c.map_data = {**c.map_data, 'background_image': big_image(300_000, b'z')}
+        c.action_log = [{'type': 'next_turn', 'round': 1 + n // 6, 'index': n % 6, 'whose': 'Goblin Afogado #2',
+                         'ts': '2026-10-24T18:05:43.262541+00:00'} for n in range(100)]
         c.save()
 
     def test_ceilings(self):
         tv = self.screen()
         self.assertLess(len(tv.content), 10_000, len(tv.content))
-        combat = self.c_dm.get(f'/api/combat/campaign/{self.camp.id}')
+        combat = self.c_dm.get(f'/api/combat/campaign/{self.camp.id}?sets=1')
         self.assertLess(len(combat.content), 10_000, len(combat.content))
         camp = self.c_dm.get(f'/api/campaigns/{self.camp.id}')
         self.assertLess(len(camp.content), 20_000, len(camp.content))
-        nxt = self.c_dm.post(f'/api/combat/campaign/{self.camp.id}/next-turn', {}, format='json')
+        nxt = self.c_dm.post(f'/api/combat/campaign/{self.camp.id}/next-turn?sets=1',
+                             {'expect': {'round': 1, 'turnIndex': 0}}, format='json')
         self.assertEqual(nxt.status_code, 200)
         self.assertLess(len(nxt.content), 10_000, len(nxt.content))
         for r in (tv, combat, camp, nxt):
             self.assertNotIn(b'base64', r.content)
         self.assertEqual(len(json.loads(tv.content)['campaign']['members']), 5)
+        # cada conjunto de ações vem uma vez só (os 3 goblins dividem um), e é pequeno
+        refs = {cb['stats'].get('actionsRef') for cb in combat.json()['combat']['combatants']} - {None}
+        self.assertEqual(len(refs), 3)    # dragão, goblin guerreiro e o Goblin #1 da base
+        sets = sum(len(self.c_dm.get(f'/api/combat/campaign/{self.camp.id}/actions/{r}').content) for r in refs)
+        self.assertLess(sets, 10_000, sets)
+
+
+class ActionSetsTests(Base):
+    """?sets=1: as ações dos stat blocks saem do JSON do combate (stats.actionsRef) e
+    vêm de /actions/<ref>, cacheável; sem o parâmetro (o app de antes) vão inteiras."""
+
+    def setUp(self):
+        super().setUp()
+        self.combat.combatants = real_monsters() + self.combat.combatants
+        self.combat.save()
+        self.url = f'/api/combat/campaign/{self.camp.id}'
+
+    def by_id(self, combat):
+        return {cb['id']: cb for cb in combat['combatants']}
+
+    def test_refs_instead_of_actions(self):
+        old = self.by_id(self.c_dm.get(self.url).json()['combat'])
+        self.assertEqual(old['drg']['stats']['actions'], STATBLOCKS['adult-red-dragon']['actions'])   # app de antes
+        new = self.by_id(self.c_dm.get(f'{self.url}?sets=1').json()['combat'])
+        drg = new['drg']['stats']
+        self.assertNotIn('actions', drg)
+        self.assertEqual((drg['ac'], drg['max_hp'], drg['cr'], drg['legendary']), (19, 256, '17', {'uses': 3, 'lairUses': 4}))
+        self.assertEqual(new['gw1']['stats']['actionsRef'], new['gw3']['stats']['actionsRef'])   # iguais: 1 ref
+        self.assertNotEqual(new['gw1']['stats']['actionsRef'], drg['actionsRef'])
+        self.assertNotIn('actionsRef', new['k1']['stats'])            # PJ sem ações: igual
+        self.assertNotIn('actionsRef', json.dumps(self.c_ana.get(f'{self.url}?sets=1').json()))  # jogador nem vê ações
+
+    def test_actions_route_cacheable_and_dm_only(self):
+        ref = self.by_id(self.c_dm.get(f'{self.url}?sets=1').json()['combat'])['drg']['stats']['actionsRef']
+        r = self.c_dm.get(f'{self.url}/actions/{ref}')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['actions'], STATBLOCKS['adult-red-dragon']['actions'])
+        self.assertIn('immutable', r['Cache-Control'])
+        self.assertTrue(r['Cache-Control'].startswith('private'))
+        self.assertEqual(self.c_dm.get(f'{self.url}/actions/{ref}', HTTP_IF_NONE_MATCH=r['ETag']).status_code, 304)
+        self.assertEqual(self.c_ana.get(f'{self.url}/actions/{ref}').status_code, 403)     # ações de monstro: só o mestre
+        self.assertIn(self.anon.get(f'{self.url}/actions/{ref}').status_code, (401, 403))
+        self.assertEqual(self.c_out.get(f'{self.url}/actions/{ref}').status_code, 403)
+        self.assertEqual(self.c_dm.get(f'{self.url}/actions/000000000000').status_code, 404)
+        # o monstro saiu do combate: o ref some
+        self.c_dm.delete(f'{self.url}/combatants/drg')
+        self.assertEqual(self.c_dm.get(f'{self.url}/actions/{ref}').status_code, 404)
+
+    def test_changed_actions_change_the_ref(self):
+        before = self.by_id(self.c_dm.get(f'{self.url}?sets=1').json()['combat'])['gw2']['stats']['actionsRef']
+        cbs = self.combat.combatants
+        cbs[2]['stats']['actions'][0]['atk'] = 6
+        self.combat.combatants = cbs
+        self.combat.save()
+        after = self.by_id(self.c_dm.get(f'{self.url}?sets=1').json()['combat'])
+        self.assertNotEqual(after['gw2']['stats']['actionsRef'], before)
+        self.assertEqual(after['gw1']['stats']['actionsRef'], before)
+
+    def test_turn_and_conflict_answers_use_refs(self):
+        r = self.c_dm.post(f'{self.url}/next-turn?sets=1', {'expect': {'round': 1, 'turnIndex': 0}}, format='json')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('actionsRef', self.by_id(r.json()['combat'])['drg']['stats'])
+        stale = self.c_dm.post(f'{self.url}/next-turn?sets=1', {'expect': {'round': 1, 'turnIndex': 0}}, format='json')
+        self.assertEqual(stale.status_code, 409)
+        self.assertIn('actionsRef', self.by_id(stale.json()['combat'])['drg']['stats'])
+        old = self.c_dm.post(f'{self.url}/prev-turn', {}, format='json')
+        self.assertEqual(old.status_code, 200)
+        self.assertIn('actions', self.by_id(old.json()['combat'])['drg']['stats'])
+
+    def test_recent_log_only(self):
+        log = [{'type': 'attack', 'attacker': 'Goblin', 'target': 'Kaelor', 'n': n} for n in range(40)]
+        marks = [{'type': 'next_turn', 'round': 1, 'index': i} for i in range(3)]
+        # ... 40 ataques, turno, 2 ataques, turno, 15 ataques (um turno longo, área em muitos alvos)
+        self.combat.action_log = log + [marks[0]] + log[:2] + [marks[1]] + log[:15]
+        self.combat.save()
+        got = self.c_dm.get(self.url).json()['combat']['log']
+        self.assertEqual(len(got), 1 + 2 + 1 + 15)     # desde o penúltimo turno (os avisos do mestre leem isso)
+        self.assertEqual(got[0]['type'], 'next_turn')
+        self.combat.action_log = log[:3] + [marks[0]] + [marks[1]]
+        self.combat.save()
+        self.assertEqual(len(self.c_dm.get(self.url).json()['combat']['log']), 5)   # no mínimo 10, se houver
+        self.combat.action_log = (log + [marks[0]]) * 3
+        self.combat.save()
+        self.assertEqual(len(self.c_dm.get(self.url).json()['combat']['log']), 30)  # e no máximo 30
