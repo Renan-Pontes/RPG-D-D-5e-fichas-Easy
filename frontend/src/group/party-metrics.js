@@ -18,6 +18,10 @@ import { computeResources } from '../progression/resources.js';
 import { knownSpells } from '../creator/creation.js';
 import { grantEntries } from '../creator/spell-helpers.js';
 import TAGS from '../../data/spell-tags.json' with { type: 'json' };
+import { chance, clamp, firstName, groupChance, pct } from './party-best.js';
+
+// chance, grupo e "melhor da mesa" moram em party-best.js (leve, para os ganchos da mesa)
+export { bestAt, chance, clamp, firstName, groupChance, pct } from './party-best.js';
 
 export const t = (lang, pt, en) => (lang === 'en' ? en : pt);
 
@@ -79,14 +83,12 @@ export const AVG_COLOR = '#3987e5';
 export const BEST_COLOR = '#d95926';
 export const CHAR_COLORS = ['#199e70', '#c98500', '#d55181', '#9085e9', '#3987e5', '#d95926'];
 
-export const clamp = (lo, hi, v) => Math.max(lo, Math.min(hi, v));
 export const r1 = (v) => Math.round(v * 10) / 10;
 const safe = (fn, fb = null) => { try { const v = fn(); return v ?? fb; } catch { return fb; } };
 const mean = (a) => a.reduce((x, y) => x + y, 0) / Math.max(1, a.length);
 /** "3,4" (pt) / "3.4" (en), 1 casa só quando precisa. */
 export const fmt = (v, lang) => { const s = String(r1(v)); return lang === 'en' ? s : s.replace('.', ','); };
 export const fmtMod = (v) => (v >= 0 ? `+${v}` : `−${Math.abs(v)}`);
-export const firstName = (n) => String(n || '').trim().split(/\s+/)[0] || String(n || '');
 
 /** Média do dado ("2d6+3" → 10). */
 export function avgDice(expr) {
@@ -111,11 +113,6 @@ export const toScore = (x, ref) => clamp(1, 5, 1 + 2 * x / ref);
 export const skillScore = (b, L) => clamp(1, 5, 3 + (b - bRef(L)) / 2);
 const cantripTier = (L) => (L >= 17 ? 4 : L >= 11 ? 3 : L >= 5 ? 2 : 1);
 
-/** Chance de passar num teste de bônus `b` contra a CD (o 1 natural não falha teste). */
-export const chance = (b, dc) => clamp(0.05, 1, (21 + b - dc) / 20);
-/** "Pelo menos 1 passa se todos tentarem": 1 − Π(1 − chance). */
-export const groupChance = (bonuses, dc) => 1 - bonuses.reduce((p, b) => p * (1 - chance(b, dc)), 1);
-export const pct = (p) => Math.round(p * 100);
 
 /** Etiquetas da magia (data/spell-tags.json, gerado por scripts/build-spell-tags.mjs). */
 export function spellTags(id, rulesVersion) {
@@ -515,22 +512,6 @@ export function mainDamage(f) {
 }
 
 // ---------------------------------------------------------------- ganchos (fora do Raio-X)
-/**
- * Pedir teste: o melhor da mesa numa perícia ou salvaguarda e a chance na CD — só com
- * Utils.skillBonus/saveBonus (sem a ficha inteira em números, que a folha não precisa).
- * `party` = partyMembers(members).
- */
-export function bestAt(party, kind, key, dc = 15) {
-  const vals = (party || []).map(p => ({
-    id: p.id, name: p.name,
-    b: safe(() => (kind === 'save' ? Utils.saveBonus(p.data, key) : Utils.skillBonus(p.data, key)), 0) || 0,
-  }));
-  if (!vals.length) return null;
-  const best = Math.max(...vals.map(v => v.b));
-  const who = vals.filter(v => v.b === best);
-  return { best, who: who.map(v => v.name), whoIds: who.map(v => v.id), p: pct(chance(best, dc)), group: pct(groupChance(vals.map(v => v.b), dc)), dc };
-}
-
 /**
  * Os papéis mais fortes de um personagem (cartão de Grupo › Jogadores): "Cura 5 · Magia 5".
  * Empate: vem antes o papel em que ele mais passa da média do grupo (`avg` = partyAxes().axes).

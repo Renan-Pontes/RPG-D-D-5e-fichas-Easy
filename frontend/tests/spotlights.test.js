@@ -104,6 +104,13 @@ test('aceitar, escrever (até 160), dispensar e o limite de 12 por personagem', 
   assert.equal(d[0], 'skill:k5');
 });
 
+test('o cartão mostra primeiro um de cada tipo (★ ↗ ✎)', () => {
+  const pipo = S.spreadKinds(S.momentSuggestions(facts, {})[PIPO]);
+  assert.deepEqual(pipo.slice(0, 3).map(s => s.auto), ['skill:sleightOfHand', 'push:save:wis', 'text:personality']);
+  assert.equal(pipo.length, 6);
+  assert.deepEqual(S.spreadKinds([]), []);
+});
+
 test('aconteceu grava o nº da sessão (a regra do servidor) e o filtro da lista', () => {
   assert.equal(S.currentSession(fixture.state), 3);
   assert.equal(S.currentSession({ session: 'Sessão 12' }), 12);
@@ -180,6 +187,9 @@ test('ganchos: melhor da mesa no Pedir teste, papéis no cartão de jogador e a 
   const wis = M.bestAt(party, 'save', 'wis', 13);
   assert.deepEqual([M.firstName(wis.who[0]), wis.best, wis.p], ['Dagna', 5, 65]);
   assert.equal(M.bestAt([], 'skill', 'stealth'), null);
+  // a folha Pedir teste passa os membros da campanha (sem o mestre e sem quem não tem ficha)
+  const raw = M.bestAt([{ role: 'dm', character: null }, { role: 'player', character: null }, ...fixture.members], 'skill', 'stealth', 15);
+  assert.deepEqual([raw.who, raw.best, raw.p], [['Pipo Mão-Leve'], 7, 65]);
   const avg = M.partyAxes(facts).axes;
   const dagna = facts.find(f => f.id === idOf('Dagna'));
   assert.deepEqual(M.topRoles(dagna, { avg }).map(r => `${M.axisLabel(r.key, 'pt')} ${M.fmt(r.v, 'pt')}`), ['Cura 5', 'Magia 5']);

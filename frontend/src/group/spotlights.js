@@ -207,7 +207,8 @@ export function momentSuggestions(facts, { lang = 'pt', dc = 15, style = {}, axi
     }
     const solo = Object.keys(f.dmgTypes).filter(k => !PHYSICAL.includes(k) && !others.some(o => o.dmgTypes[k]));
     if (solo.length) {
-      shines.push({ kind: 'shine', auto: `dmg:${solo.join(',')}`, text: t(lang,
+      // a chave cabe nos 60 caracteres do servidor (world_rules._clean_spotlights)
+      shines.push({ kind: 'shine', auto: `dmg:${solo.join(',')}`.slice(0, 60), text: t(lang,
         `único com dano ${joinAnd(solo.map(k => damageLabel(k, lang)), lang)}`, `the only one with ${joinAnd(solo, lang)} damage`) });
     }
     if (f.control > 0 && !others.some(o => o.control >= f.control)) {
@@ -298,6 +299,18 @@ export function shineSuggestions(facts, opts = {}) {
 export function openSuggestions(suggestions = [], moments = [], dismissed = []) {
   const used = new Set((moments || []).map(m => m.auto).filter(Boolean));
   return (suggestions || []).filter(s => !used.has(s.auto) && !(dismissed || []).includes(s.auto));
+}
+
+/** Na lista do cartão, primeiro um de cada tipo (★, ↗, ✎), depois o resto, na ordem. */
+export function spreadKinds(list) {
+  const seen = new Set();
+  const head = [];
+  const rest = [];
+  for (const s of list || []) {
+    if (seen.has(s.kind)) rest.push(s);
+    else { seen.add(s.kind); head.push(s); }
+  }
+  return [...head, ...rest];
 }
 
 /** Texto do momento no limite do servidor (160): `cut` avisa que o resto foi cortado. */
