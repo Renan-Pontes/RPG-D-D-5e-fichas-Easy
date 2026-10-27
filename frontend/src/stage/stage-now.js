@@ -104,11 +104,12 @@ export function bgLabel(now, lang = 'pt') {
   return `🏠 ${L(lang, 'Capa', 'Cover')}`;
 }
 
-/** Teste mostrado: "🎯 Percepção 3/4" (aceita o cartão do mestre ou o da Tela). */
+/** Teste mostrado: "🎯 Percepção 3/4" (aceita o cartão do mestre, o da Tela ou o do pulso, {done, total}). */
 export function testLabel(test) {
   if (!test) return '';
-  const total = test.targets?.length ?? test.results?.length ?? 0;
-  const done = test.targets
+  const counted = typeof test.total === 'number' && typeof test.done === 'number';
+  const total = counted ? test.total : test.targets?.length ?? test.results?.length ?? 0;
+  const done = counted ? test.done : test.targets
     ? test.targets.filter(t => t.response).length
     : (test.results || []).filter(r => r.total != null).length;
   return `🎯 ${test.label || ''}${total ? ` ${done}/${total}` : ''}`.trim();

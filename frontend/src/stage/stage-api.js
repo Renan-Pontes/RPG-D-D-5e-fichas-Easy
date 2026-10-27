@@ -19,6 +19,8 @@ import { flash } from '../play/flash.js';
 const cid = (id) => encodeURIComponent(id);
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
 export const STAGE_EVENT = 'forja:stage';
+// "Enviando…" na barra da mesa (V4): sai antes de cada envio dos 9 lugares.
+export const STAGE_SENDING_EVENT = 'forja:stage-sending';
 
 function emit(campaignId, stage) {
   if (!stage || typeof window === 'undefined') return;
@@ -107,6 +109,7 @@ export function stageErrorText(e, lang = 'pt') {
  */
 export async function sendToStage(campaignId, send, { lang = 'pt', name = '', undo, onDone, done } = {}) {
   flash(L(lang, 'Enviando…', 'Sending…'), { ms: 8000 });
+  try { window.dispatchEvent(new CustomEvent(STAGE_SENDING_EVENT, { detail: { campaignId } })); } catch { /* ok */ }
   try {
     const r = await send();
     const undoFn = undo || (() => stageUndo(campaignId));

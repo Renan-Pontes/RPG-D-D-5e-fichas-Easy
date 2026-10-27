@@ -181,6 +181,8 @@ export const api = {
   // Campaigns
   listCampaigns:   () => request('/api/campaigns'),
   getCampaign:     (idOrSlug) => request(`/api/campaigns/${idOrSlug}`),
+  // Pulso do mestre (~0,8 KB; parado o navegador recebe 304): src/play/table-store.js
+  getPulse:        (idOrSlug) => request(`/api/campaigns/${idOrSlug}/pulse`),
   createCampaign:  (body) => request('/api/campaigns', { method: 'POST', body }),
   updateCampaign:  (id, body) => request(`/api/campaigns/${id}`, { method: 'PUT', body }),
   deleteCampaign:  (id) => request(`/api/campaigns/${id}`, { method: 'DELETE' }),
@@ -238,7 +240,8 @@ export const api = {
   deleteRig:     (rigId) => request(`/api/dice/rigs/${rigId}`, { method: 'DELETE' }),
   diceLog:       (campaignId) => request(`/api/dice/campaign/${campaignId}/log`),
   // Tela pública (não exige CSRF/sessão). O que vai à Tela: src/stage/stage-api.js
-  screen:        (token) => request(`/api/screen/${token}`),
+  // ?tv=1&c=<aba>: a TV de verdade avisa que está aberta ("TV conectada"); ?preview=1 não conta.
+  screen:        (token, query = '') => request(`/api/screen/${token}${query}`),
 
   // Combat
   getCombat:        (id) => request(`/api/combat/campaign/${id}`),
@@ -250,7 +253,9 @@ export const api = {
   removeCombatant:  (id, cid) => request(`/api/combat/campaign/${id}/combatants/${cid}`, { method: 'DELETE' }),
   combatAction:     (id, body) => request(`/api/combat/campaign/${id}/action`, { method: 'POST', body }),
   combatPlayerAttack:(id, body) => request(`/api/combat/campaign/${id}/player-attack`, { method: 'POST', body }),
-  combatNextTurn:   (id) => request(`/api/combat/campaign/${id}/next-turn`, { method: 'POST' }),
+  // expect {round, turnIndex}: a vez que o mestre via; já mudou → 409 stale_turn (nada muda)
+  combatNextTurn:   (id, expect) => request(`/api/combat/campaign/${id}/next-turn`, { method: 'POST', body: expect ? { expect } : undefined }),
+  combatPrevTurn:   (id, expect) => request(`/api/combat/campaign/${id}/prev-turn`, { method: 'POST', body: expect ? { expect } : undefined }),
   setCombatMap:     (id, body) => request(`/api/combat/campaign/${id}/map`, { method: 'POST', body }),
 
   // RollRequest
