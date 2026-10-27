@@ -660,7 +660,9 @@ function Characters({ facts, lang, wide, view, setView }) {
       <div className="ins-multiples">
         {facts.map(f => (
           <figure key={f.id} className={`ins-multiple ${focus === f.id ? 'is-focus' : ''}`}>
-            <Radar size={wide ? 190 : 160} min={cfg.min} max={cfg.max} rings={cfg.rings} mark={cfg.mark} labels={mode !== 'skill'} labelSize={13}
+            {/* viewBox de 140 no celular: a 360 a coluna da grade 2×2 tem 138 px e o rótulo de
+                13 fica com 12,8 px (com 160, encolhia para 11,2) */}
+            <Radar size={wide ? 190 : 140} min={cfg.min} max={cfg.max} rings={cfg.rings} mark={cfg.mark} labels={mode !== 'skill'} labelSize={13}
               axes={axes} series={[{ key: f.id, values: charValues(f, mode), color: focus === f.id ? f.color : 'var(--ins-gray)', fill: focus === f.id ? 0.18 : 0.06, dots: focus === f.id }]}
               label={`${f.name}: ${written(f)}`} />
             <figcaption>

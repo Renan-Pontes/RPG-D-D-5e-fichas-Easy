@@ -48,7 +48,8 @@
 @media (min-width: 360px) { .ins-quads { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 1024px) { .ins-quads { grid-template-columns: repeat(4, 1fr); } }
 .ins-quad.mesa-panel { display: flex; flex-direction: column; gap: 6px; padding: 12px; min-width: 0; }
-.ins-quad .mesa-eyebrow { font-size: 12px; letter-spacing: 0.08em; overflow-wrap: anywhere; }
+/* !important: vence o h3 do celular (styles.css, 1.1rem) só aqui; sem quebra no meio da palavra */
+.ins-quad .mesa-eyebrow { font-size: 12px !important; letter-spacing: 0.08em; }
 .ins-quad.is-strengths { box-shadow: inset 0 3px 0 rgba(156, 192, 101, 0.55), 0 10px 30px rgba(0, 0, 0, 0.5); }
 .ins-quad.is-weaknesses { box-shadow: inset 0 3px 0 rgba(227, 164, 69, 0.6), 0 10px 30px rgba(0, 0, 0, 0.5); }
 .ins-quad.is-opportunities { box-shadow: inset 0 3px 0 rgba(159, 176, 240, 0.55), 0 10px 30px rgba(0, 0, 0, 0.5); }
@@ -180,7 +181,8 @@
 
 /* ---------------------------------------------------------- G7: lacunas */
 .ins-gap-group { display: flex; flex-direction: column; gap: 2px; }
-.ins-gap-label { margin: 6px 0 0; font-family: var(--display); font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+/* !important: vence o h4 do celular (styles.css, 0.95rem) só aqui */
+.ins-gap-label { margin: 6px 0 0; font-family: var(--display); font-size: 12px !important; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
 
 /* ---------------------------------------------------------- seções recolhíveis */
 .ins-fold { gap: 0; }
@@ -256,6 +258,15 @@
 .ins-step > span { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--gold-deep); background: transparent; }
 .ins-step.is-on > span { width: 20px; height: 20px; background: var(--gold); border-color: var(--fh-gold-hi); }
 .ins-step:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; border-radius: 50%; }
+@media (max-width: 359px) {
+  /* a 320 os 5 passos de 44 px cabem, os rótulos na mesma fileira não ("Ficha" passava
+     da borda da folha): "Tabela" e "Ficha" sobem para uma linha própria, nas pontas */
+  .ins-steps { display: grid; grid-template-columns: repeat(5, 44px); justify-content: space-between; }
+  .ins-steps-end { grid-row: 1; padding: 0; }
+  .ins-steps-end:first-child { grid-column: 1 / span 2; justify-self: start; }
+  .ins-steps-end:last-child { grid-column: 4 / span 2; justify-self: end; }
+  .ins-step { grid-row: 2; }
+}
 .ins-dc { min-width: 52px; justify-content: center; }
 .ins-axis-list, .ins-class-rows { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .ins-axis-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
