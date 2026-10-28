@@ -49,12 +49,21 @@ export function defaultArt(entry) {
 
 // ------------------------------------------------------------------ visibilidade
 export const VISIBILITIES = ['hidden', 'partial', 'revealed'];
+// short*: o selo nas linhas estreitas do Atlas no celular; tip*: a dica escrita
+// dentro de cada opção do "Quem vê" (no lugar do title, que o toque não mostra).
 export const VIS_META = {
-  hidden: { icon: '🔒', pt: 'Oculto', en: 'Hidden', hintPt: 'Só você vê.', hintEn: 'Only you can see it.' },
-  partial: { icon: '◐', pt: 'Conhecido de nome', en: 'Known by name', hintPt: 'Jogadores veem nome, frase e imagem.', hintEn: 'Players see name, tagline and image.' },
-  revealed: { icon: '👁', pt: 'Revelado', en: 'Revealed', hintPt: 'Jogadores veem o texto e os segredos que você revelar.', hintEn: 'Players see the text and the secrets you reveal.' },
+  hidden: { icon: '🔒', pt: 'Oculto', en: 'Hidden', shortPt: 'Oculto', shortEn: 'Hidden',
+    hintPt: 'Só você vê.', hintEn: 'Only you can see it.', tipPt: 'só você vê', tipEn: 'only you see it' },
+  partial: { icon: '◐', pt: 'Conhecido de nome', en: 'Known by name', shortPt: 'Só o nome', shortEn: 'Name only',
+    hintPt: 'Jogadores veem nome, frase e imagem.', hintEn: 'Players see name, tagline and image.', tipPt: 'nome, frase e imagem', tipEn: 'name, tagline, image' },
+  revealed: { icon: '👁', pt: 'Revelado', en: 'Revealed', shortPt: 'Revelado', shortEn: 'Revealed',
+    hintPt: 'Jogadores veem o texto e os segredos que você revelar.', hintEn: 'Players see the text and the secrets you reveal.', tipPt: 'texto e segredos revelados', tipEn: 'text and revealed secrets' },
 };
 export const visLabel = (v, lang) => t(lang, VIS_META[v]?.pt || v, VIS_META[v]?.en || v);
+/** Rótulo curto da visibilidade ("Oculto", "Só o nome", "Revelado"). */
+export const visShort = (v, lang) => t(lang, VIS_META[v]?.shortPt || visLabel(v, 'pt'), VIS_META[v]?.shortEn || visLabel(v, 'en'));
+/** A dica curta de cada estado ("só você vê"…). */
+export const visTip = (v, lang) => t(lang, VIS_META[v]?.tipPt || '', VIS_META[v]?.tipEn || '');
 export const visRank = (v) => Math.max(0, VISIBILITIES.indexOf(v));
 export function nextVisibility(v) {
   const i = VISIBILITIES.indexOf(v);
@@ -202,6 +211,40 @@ export function reorderPatches(list, from, to, field = 'sort') {
   const out = [];
   arr.forEach((e, i) => { const v = (i + 1) * 10; if (e[field] !== v) out.push({ id: e.id, [field]: v }); });
   return out;
+}
+
+/**
+ * Modo Ordenar (↑ ↓, sem arrastar): sobe (dir < 0) ou desce `id` uma casa entre os
+ * cartões À VISTA (`shown`, já filtrados), trocando de lugar com o vizinho visível,
+ * sobre a ordem inteira (`sorted`), como o arrastar faz. → patches de `sort`; vazio
+ * no topo, no fim ou com um id que não está à vista.
+ * Vizinhos lado a lado sem espaço entre eles (sort 3 e 4): troca os dois valores
+ * (2 PATCH) em vez de renumerar a lista inteira (1 PATCH por cartão).
+ */
+export function moveStepPatches(sorted, shown, id, dir) {
+  const list = shown || [];
+  const i = list.findIndex(e => e.id === id);
+  const j = i + (dir < 0 ? -1 : 1);
+  if (i < 0 || j < 0 || j >= list.length) return [];
+  const from = (sorted || []).findIndex(e => e.id === id);
+  const to = (sorted || []).findIndex(e => e.id === list[j].id);
+  if (from < 0 || to < 0) return [];
+  const patches = reorderPatches(sorted, from, to, 'sort');
+  const a = sorted[from];
+  const b = sorted[to];
+  const num = (v) => typeof v === 'number' && Number.isFinite(v);
+  if (patches.length > 2 && Math.abs(from - to) === 1 && num(a.sort) && num(b.sort) && a.sort !== b.sort) {
+    return [{ id: a.id, sort: b.sort }, { id: b.id, sort: a.sort }];
+  }
+  return patches;
+}
+
+/** "🗝 1/2 revelados" (mestre) ou "🗝 2 segredos" (jogador): o texto escrito, sem depender do title. */
+export function secretsText(entry, lang = 'pt', dm = true) {
+  const total = entry?.secretsCount || 0;
+  if (!total) return '';
+  if (dm) return t(lang, `🗝 ${entry.secretsRevealed || 0}/${total} revelados`, `🗝 ${entry.secretsRevealed || 0}/${total} revealed`);
+  return t(lang, `🗝 ${total} ${total === 1 ? 'segredo' : 'segredos'}`, `🗝 ${total} ${total === 1 ? 'secret' : 'secrets'}`);
 }
 
 /** Aplica patches [{id, ...}] numa lista (imutável). */

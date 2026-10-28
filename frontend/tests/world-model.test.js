@@ -4,6 +4,7 @@ import {
   KINDS, KIND_META, defaultArt, kindLabel, visLabel, nextVisibility, parseMentions, mentionIds, plainText,
   mentionMarkup, mentionQueryAt, insertMention, filterEntries, allTags, countByKind, sortEntries, reorderPatches,
   applyPatches, timelineEntries, backlinks, childrenOf, isNewFor, toLight, freshId, norm, subtitleOf, relLabel, clampUnit,
+  moveStepPatches, visShort, visTip, secretsText, VISIBILITIES,
 } from '../src/world/world-model.js';
 import { WORLD_LIGHT_DM, WORLD_FULL_DM, WORLD_MAP_DM, WORLD_LIGHT_PLAYER } from '../src/world/fixtures.js';
 
@@ -76,6 +77,53 @@ test('ordenar e arrastar (sort)', () => {
   assert.deepEqual(after.map(e => e.id), [2, 1, 3, 4, 5, 6, 7]);
   assert.deepEqual(reorderPatches(list, 2, 2), []);
   assert.deepEqual(reorderPatches(list, -1, 2), []);
+});
+
+test('modo Ordenar: ↑ ↓ troca com o vizinho À VISTA e grava só o sort', () => {
+  const list = sortEntries(WORLD_LIGHT_DM);
+  const ids = (l) => sortEntries(l).map(e => e.id);
+  // sem filtro: o 3 desce uma casa (fica depois do 4)
+  assert.deepEqual(ids(applyPatches(list, moveStepPatches(list, list, 3, +1))), [1, 2, 4, 3, 5, 6, 7]);
+  // sobe uma casa (fica antes do 2)
+  assert.deepEqual(ids(applyPatches(list, moveStepPatches(list, list, 3, -1))), [1, 3, 2, 4, 5, 6, 7]);
+  // no topo / no fim: nada a gravar
+  assert.deepEqual(moveStepPatches(list, list, 1, -1), []);
+  assert.deepEqual(moveStepPatches(list, list, 7, +1), []);
+  // com filtro (só os NPCs à vista), o vizinho é o NPC anterior, mesmo com outros no meio
+  const npcs = list.filter(e => e.kind === 'npc');
+  assert.ok(npcs.length >= 2);
+  const [a, b] = npcs;
+  const after = ids(applyPatches(list, moveStepPatches(list, npcs, b.id, -1)));
+  assert.ok(after.indexOf(b.id) < after.indexOf(a.id), 'o NPC subiu acima do anterior');
+  // id fora da vista ou lista vazia: nada
+  assert.deepEqual(moveStepPatches(list, npcs, 999, -1), []);
+  assert.deepEqual(moveStepPatches([], [], 1, 1), []);
+  // patches só com id e sort (o PATCH leva a versão de quem chama)
+  for (const p of moveStepPatches(list, list, 5, -1)) assert.deepEqual(Object.keys(p).sort(), ['id', 'sort']);
+  // sort colados (1, 2, 3…): troca os dois valores em vez de renumerar todos
+  const tight = Array.from({ length: 30 }, (_, k) => ({ id: k + 1, name: `c${k + 1}`, sort: k + 1 }));
+  const sw = moveStepPatches(tight, tight, 2, +1);
+  assert.deepEqual(sw, [{ id: 2, sort: 3 }, { id: 3, sort: 2 }]);
+  assert.deepEqual(ids(applyPatches(tight, sw)).slice(0, 4), [1, 3, 2, 4]);
+  // com espaço entre os vizinhos: 1 PATCH só (o do cartão movido)
+  const loose = tight.map(e => ({ ...e, sort: e.sort * 10 }));
+  assert.equal(moveStepPatches(loose, loose, 2, +1).length, 1);
+  // sort repetidos (cartões novos, todos 0): renumera, como o arrastar
+  const zeros = tight.slice(0, 4).map(e => ({ ...e, sort: 0 }));
+  assert.deepEqual(ids(applyPatches(zeros, moveStepPatches(zeros, zeros, 1, +1))), [2, 1, 3, 4]);
+});
+
+test('selo e dicas da visibilidade escritos (sem depender do title)', () => {
+  assert.equal(visShort('partial', 'pt'), 'Só o nome');
+  assert.equal(visShort('hidden', 'en'), 'Hidden');
+  for (const v of VISIBILITIES) {
+    assert.ok(visShort(v, 'pt') && visShort(v, 'en'));
+    assert.ok(visTip(v, 'pt') && visTip(v, 'en'));
+  }
+  assert.equal(secretsText({ secretsCount: 2, secretsRevealed: 1 }, 'pt'), '🗝 1/2 revelados');
+  assert.equal(secretsText({ secretsCount: 2, secretsRevealed: 1 }, 'en'), '🗝 1/2 revealed');
+  assert.equal(secretsText({ secretsCount: 1 }, 'pt', false), '🗝 1 segredo');
+  assert.equal(secretsText({ secretsCount: 0 }, 'pt'), '');
 });
 
 test('linha do tempo: só com whenLabel, ordem por whenOrder e reordenar', () => {
