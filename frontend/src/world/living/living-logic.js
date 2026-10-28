@@ -575,6 +575,36 @@ export function blankPages(entries, lang = 'pt', { dismissed = [], max = 2, seed
   return out.slice(0, Math.max(0, Math.min(2, max)));
 }
 
+/**
+ * A estrela que o toque pegou: a mais perto de (x, y) a no máximo `maxDist` (nas
+ * unidades do desenho). No celular o céu fica ~1/3 do tamanho e cada estrela tem uns
+ * 12 px; quem chama passa `maxDist` = 23 px da tela convertidos, e o toque vale num
+ * círculo de 46 px em volta de cada estrela (a mais perto ganha quando dois se tocam).
+ * → id | null
+ */
+export function nearestStar(stars, x, y, maxDist) {
+  let best = null;
+  let bestD = Infinity;
+  for (const s of stars || []) {
+    const d = Math.hypot(s.x - x, s.y - y);
+    if (d <= maxDist && d < bestD) { best = s.id; bestD = d; }
+  }
+  return best;
+}
+
+// ------------------------------------------------------------ a linha recolhida do Mundo vivo
+/**
+ * O resumo da linha recolhida "✦ Mundo vivo · 2 páginas em branco · 3 ecos · boato do
+ * dia" (celular): o que tem dentro, para o mestre saber se vale abrir. → [texto]
+ */
+export function livingSummary({ pages = 0, echoes = 0, rumor = false } = {}, lang = 'pt') {
+  const out = [];
+  if (pages > 0) out.push(t(lang, `${pages} ${pages === 1 ? 'página em branco' : 'páginas em branco'}`, `${pages} blank ${pages === 1 ? 'page' : 'pages'}`));
+  if (echoes > 0) out.push(t(lang, `${echoes} ${echoes === 1 ? 'eco' : 'ecos'}`, `${echoes} ${echoes === 1 ? 'echo' : 'echoes'}`));
+  if (rumor) out.push(t(lang, 'boato do dia', "today's rumor"));
+  return out;
+}
+
 // ------------------------------------------------------------ rumor do dia
 /** 'AAAA-MM-DD' no fuso local. */
 export function dayKey(date = new Date()) {
