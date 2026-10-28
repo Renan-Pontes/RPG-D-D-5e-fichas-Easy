@@ -7,9 +7,11 @@
 // `entry` precisa ser WorldEntryFull do mestre (com `secrets`).
 // `beforeReveal` (opcional) roda antes de chamar o servidor — o editor usa
 // para gravar o texto pendente primeiro.
+// As dicas ficam ESCRITAS (o toque não mostra title): cada um dos 3 estados com a
+// sua ("só você vê"…) e o "Registrar na Crônica" com o que ele faz.
 import { useState } from 'react';
 import { revealEntry, worldErrorText } from './world-api.js';
-import { VISIBILITIES, VIS_META, t, visLabel } from './world-model.js';
+import { VISIBILITIES, VIS_META, t, visLabel, visTip } from './world-model.js';
 
 const LOG_KEY = 'forja.world.logDiary';
 function readLogPref() {
@@ -51,15 +53,27 @@ export function useReveal(entry, lang, onChange, beforeReveal) {
   };
 }
 
-export function LogDiaryCheck({ value, onChange, lang }) {
-  return (
+const LOG_HINT = ['Cada revelação (do cartão ou de um segredo) vira uma linha na Crônica da campanha.', 'Each reveal (card or secret) becomes a line in the campaign Chronicle.'];
+
+// withHint: a explicação escrita embaixo da caixa (editor e folha "Quem vê"); sem ela,
+// só o title (a barra do mapa, onde não cabe).
+export function LogDiaryCheck({ value, onChange, lang, withHint = false }) {
+  const box = (
     <label className="wl-logcheck">
       <input type="checkbox" checked={value} onChange={e => onChange(e.target.checked)} />
-      <span title={t(lang, 'Cada revelação (do cartão ou de um segredo) vira uma linha na Crônica da campanha.', 'Each reveal (card or secret) becomes a line in the campaign Chronicle.')}>{t(lang, 'Registrar na Crônica', 'Log in the Chronicle')}</span>
+      <span title={t(lang, ...LOG_HINT)}>{t(lang, 'Registrar na Crônica', 'Log in the Chronicle')}</span>
     </label>
+  );
+  if (!withHint) return box;
+  return (
+    <div className="wl-logcheck-wrap">
+      {box}
+      <p className="wl-logcheck-hint">{t(lang, ...LOG_HINT)}</p>
+    </div>
   );
 }
 
+// Cada opção traz a sua dica curta escrita ("só você vê"); compact (painéis estreitos) não.
 export function VisibilitySwitch({ value, onPick, busy, lang, compact = false }) {
   return (
     <div className={`wl-vis-switch${compact ? ' is-compact' : ''}`} role="radiogroup" aria-label={t(lang, 'Quem vê', 'Who sees it')}>
@@ -69,6 +83,7 @@ export function VisibilitySwitch({ value, onPick, busy, lang, compact = false })
           title={t(lang, VIS_META[v].hintPt, VIS_META[v].hintEn)}>
           <span aria-hidden="true" className="wl-vis-ico">{VIS_META[v].icon}</span>
           <span className="wl-vis-name">{visLabel(v, lang)}</span>
+          {!compact && <span className="wl-vis-tip">{visTip(v, lang)}</span>}
         </button>
       ))}
     </div>
@@ -87,7 +102,7 @@ export default function RevealControl({ entry, lang = 'pt', onChange, beforeReve
     <div className={`wl-reveal${compact ? ' is-compact' : ''}`}>
       <div className="wl-reveal-head">
         <span className="wl-reveal-title">{t(lang, 'Quem vê este cartão', 'Who sees this card')}</span>
-        <LogDiaryCheck value={r.logDiary} onChange={r.setLogDiary} lang={lang} />
+        <LogDiaryCheck value={r.logDiary} onChange={r.setLogDiary} lang={lang} withHint={!compact} />
       </div>
       <VisibilitySwitch value={vis} onPick={r.setVisibility} busy={r.busy} lang={lang} compact={compact} />
       <p className="wl-reveal-hint">{t(lang, VIS_META[vis].hintPt, VIS_META[vis].hintEn)}</p>

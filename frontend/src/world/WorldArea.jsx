@@ -205,7 +205,7 @@ export default function WorldArea(props) {
         <>
           <div className="wl-editor-scrim" onClick={() => setOpenId(null)} aria-hidden="true" />
           <EntryEditor key={openId} entryId={openId} campaign={campaign} entries={list} adventures={adventures} lang={lang}
-            onClose={() => setOpenId(null)} onSaved={upsert}
+            readOnly={closed} onClose={() => setOpenId(null)} onSaved={upsert}
             onDeleted={(id) => { removeLocal(id); setOpenId(null); setMeta(m => ({ ...m, count: Math.max(0, m.count - 1) })); setToast(t(lang, 'Cartão apagado.', 'Card deleted.')); }}
             onOpenEntry={openEntry} onOpenMap={openMap} onShow={!closed} />
         </>
