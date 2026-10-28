@@ -533,6 +533,11 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
 }
 .adv-card-count.has-queue { color: var(--gold-bright); border-color: var(--gold-deep); background: var(--gold-soft); }
 .adv-empty { margin: 0; color: var(--ink-muted); font-style: italic; font-size: 0.92rem; }
+.adv-queues { display: flex; flex-direction: column; gap: 10px; }
+.adv-q-block { display: flex; flex-direction: column; gap: 6px; }
+.adv-q-head { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 0.85rem; color: var(--ink-muted); }
+.adv-q-head-die { font-family: var(--mono); font-weight: 700; color: var(--gold); }
+.adv-q-head-die.is-any { font-family: inherit; }
 .adv-queue { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .adv-q {
   flex: 1 1 260px; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 48px;
@@ -542,12 +547,14 @@ main.container:has(> .campaign-detail.shell) { padding-top: 8px; }
 .adv-q.is-used { opacity: 0.65; padding-right: 12px; border-left-color: var(--stroke); }
 .adv-q-num { min-width: 2.2ch; font-family: var(--mono); font-size: 1.2rem; font-weight: 700; text-align: right; color: var(--gold-bright); }
 .adv-q.is-used .adv-q-num { color: var(--ink-secondary); text-decoration: line-through; }
-.adv-q-die { flex: 1 1 auto; min-width: 0; color: var(--ink-muted); font-size: 0.88rem; overflow-wrap: anywhere; }
+.adv-q-label { flex: 1 1 auto; min-width: 0; color: var(--ink-muted); font-size: 0.88rem; overflow-wrap: anywhere; }
 .adv-q-used { font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-secondary); }
 .adv-q-act { flex: none; display: flex; }
 .adv-q-btn { border-radius: 8px; font-size: 1.2rem; color: var(--gold-bright); }
 .adv-q-btn.is-x { color: var(--blood-bright); }
 .adv-q-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+/* a seta que não dá não aparece; o lugar dela fica, para ↑ ↓ × não andarem */
+.adv-q-gap { flex: none; width: 44px; height: 44px; }
 .adv-add { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 8px; align-items: end; }
 .adv-add-btn, .adv-hint { grid-column: 1 / -1; }
 .adv-hint { margin: 0; color: var(--ink-muted); font-size: 0.86rem; line-height: 1.4; }

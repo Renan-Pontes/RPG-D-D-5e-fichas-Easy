@@ -3,9 +3,34 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DICE_TYPES, canMoveDown, canMoveUp, diceLabel, historyRows, moveValue, parseValues, pendingCount,
-  playersOf, queueSummary, removeValueAt, rigUserId, rigsByUser, valuesError,
+  DICE_TYPES, MAX_VALUES, canMoveDown, canMoveUp, diceLabel, historyRows, moveValue, parseValues, pendingCount,
+  planEnqueue, planMove, planNext, playersOf, queueBlocks, queueSummary, removeValueAt, rigUserId, rigsByUser, valuesError,
 } from '../src/shell/prepared-dice.js';
+
+// O servidor em miniatura (api/views_dice.py › _consume_or_roll): as filas do dado e
+// de 'any' pela ordem, o primeiro valor não usado sai e fica "usado".
+function roll(rigs, die) {
+  for (const r of rigs) {
+    if (r.diceType !== die && r.diceType !== 'any') continue;
+    const v = r.values.find(x => !x.consumed);
+    if (v) { v.consumed = true; return v.value; }
+  }
+  return null;   // ao acaso
+}
+// Grava o plano como o servidor novo (create com `before` entra antes daquela fila).
+let nextId = 100;
+function apply(rigs, plan) {
+  const out = rigs.map(r => ({ ...r, values: r.values.map(v => ({ ...v })) }));
+  const writes = Array.isArray(plan) ? plan : plan.update ? [plan.update] : [];
+  for (const w of writes) out.find(r => r.id === w.id).values = w.values.map(v => ({ ...v }));
+  if (plan.create) {
+    const rig = { id: nextId++, diceType: plan.create.diceType, values: plan.create.values.map(v => ({ value: v.value, consumed: false })) };
+    const at = plan.before ? out.findIndex(r => r.id === plan.before) : -1;
+    if (at >= 0) out.splice(at, 0, rig); else out.push(rig);
+  }
+  return out;
+}
+const vals = (...xs) => xs.map(x => (typeof x === 'number' ? { value: x, consumed: false } : { value: x[0], consumed: true }));
 
 test('parseValues: vírgula, ponto, ponto e vírgula e espaço separam', () => {
   assert.deepEqual(parseValues('15, 12 18;3.20').values.map(v => v.value), [15, 12, 18, 3, 20]);
@@ -96,4 +121,89 @@ test('queueSummary', () => {
   assert.equal(queueSummary(0, 'pt'), 'fila vazia');
   assert.equal(queueSummary(3, 'pt'), '3 na fila');
   assert.equal(queueSummary(1, 'en'), '1 queued');
+});
+
+test('planEnqueue: no fim da fila que o jogador já tem desse dado (sem fila nova)', () => {
+  // achado da revisão: o 20 novo virava uma 2ª fila d20 e o ↑ dele ficava apagado
+  const rigs = [{ id: 1, diceType: 'd20', values: vals(20, 3, 18) }, { id: 2, diceType: 'd6', values: vals(6) }];
+  const p = planEnqueue(rigs, 'd20', [{ value: 20 }]);
+  assert.deepEqual(p, { update: { id: 1, values: [...vals(20, 3, 18), { value: 20, consumed: false, label: null }] } });
+  const after = apply(rigs, p);
+  assert.equal(after.length, 2);
+  // o 20 novo sobe (mesma fila)
+  assert.deepEqual(planMove(after, 1, 3, -1), [{ id: 1, values: [...vals(20, 3), { value: 20, consumed: false, label: null }, ...vals(18)] }]);
+  // dado sem fila: fila nova (POST só com os números)
+  assert.deepEqual(planEnqueue(rigs, 'd8', [{ value: 7 }]), { create: { diceType: 'd8', values: [{ value: 7 }] } });
+  // a fila cheia não passa de MAX_VALUES: vai para uma nova
+  const full = [{ id: 9, diceType: 'd20', values: vals(...Array.from({ length: MAX_VALUES }, () => 5)) }];
+  assert.ok(planEnqueue(full, 'd20', [{ value: 1 }]).create);
+});
+
+test('planMove: na mesma fila, entre filas vizinhas do mesmo dado, nunca entre dados', () => {
+  const rigs = [
+    { id: 1, diceType: 'd20', values: vals([1], 20, 3) },
+    { id: 2, diceType: 'd20', values: vals(18) },     // fila antiga: cada "Adicionar" criava uma
+    { id: 3, diceType: 'any', values: vals(17) },
+    { id: 4, diceType: 'd20', values: vals(9) },
+  ];
+  assert.equal(planMove(rigs, 1, 1, -1), null);        // passaria por cima do usado
+  assert.equal(planMove(rigs, 1, 0, 1), null);         // o usado não se move
+  assert.deepEqual(planMove(rigs, 1, 2, -1), [{ id: 1, values: vals([1], 3, 20) }]);
+  // 18 sobe para a fila 1 e o 3 desce para a 2: 2 PUTs, cada fila com o mesmo tamanho
+  const up = planMove(rigs, 2, 0, -1);
+  assert.deepEqual(up, [{ id: 2, values: vals(3) }, { id: 1, values: vals([1], 20, 18) }]);
+  const after = apply(rigs, up);
+  assert.deepEqual([roll(after, 'd20'), roll(after, 'd20'), roll(after, 'd20')], [20, 18, 3]);
+  // d20 ↔ qualquer dado: não (o valor mudaria de dado)
+  assert.equal(planMove(rigs, 2, 0, 1), null);
+  assert.equal(planMove(rigs, 3, 0, -1), null);
+  assert.equal(planMove(rigs, 4, 0, 1), null);         // último
+  assert.equal(planMove(rigs, 4, 0, 2), null);
+  assert.equal(planMove(rigs, 99, 0, -1), null);
+});
+
+test('queueBlocks: um bloco por trecho do mesmo dado, na ordem em que saem', () => {
+  const rigs = [
+    { id: 1, diceType: 'd20', values: vals([1], 20) },
+    { id: 2, diceType: 'd20', values: vals(18) },
+    { id: 3, diceType: 'any', values: vals(17) },
+    { id: 4, diceType: 'd6', values: [] },
+    { id: 5, diceType: 'any', values: vals(2) },
+  ];
+  const b = queueBlocks(rigs);
+  assert.deepEqual(b.map(x => [x.die, x.rows.map(r => r.entry.value)]), [['d20', [1, 20, 18]], ['any', [17, 2]]]);
+  assert.deepEqual(b[0].rows[2], { key: '2-0', rigId: 2, i: 0, entry: { value: 18, consumed: false } });
+  assert.deepEqual(queueBlocks(null), []);
+});
+
+test('planNext: o ⚡ Próximo resultado sai mesmo na próxima rolagem, de qualquer dado', () => {
+  const d20 = () => ({ id: 1, diceType: 'd20', values: vals(20, 3, 18) });
+  // achado da revisão: com fila d20, o "próximo" entrava no fim e só saía depois do 18
+  let rigs = [d20()];
+  let p = planNext(rigs, 17);
+  assert.deepEqual(p, { create: { diceType: 'any', values: [{ value: 17 }] }, before: 1 });
+  let after = apply(rigs, p);
+  assert.equal(roll(after, 'd20'), 17);
+  assert.equal(roll(after, 'd20'), 20);
+  assert.equal(roll(apply(rigs, p), 'd6'), 17);
+  // a 1ª fila com valor é 'any': entra antes do 1º não usado dela (1 PUT)
+  rigs = [{ id: 2, diceType: 'any', values: vals([4], 9) }, d20()];
+  p = planNext(rigs, 12);
+  assert.deepEqual(p, { update: { id: 2, values: [...vals([4]), { value: 12, consumed: false, label: null }, ...vals(9)] } });
+  assert.equal(roll(apply(rigs, p), 'd8'), 12);
+  // a fila logo antes é 'any' e já foi toda usada (a da Ana no seed): entra no fim dela
+  rigs = [{ id: 2, diceType: 'any', values: vals([1]) }, d20()];
+  p = planNext(rigs, 5);
+  assert.deepEqual(p, { update: { id: 2, values: [...vals([1]), { value: 5, consumed: false, label: null }] } });
+  assert.equal(roll(apply(rigs, p), 'd20'), 5);
+  // nada na fila: reaproveita a fila 'any' (ou cria uma)
+  assert.deepEqual(planNext([{ id: 7, diceType: 'd20', values: vals([2]) }, { id: 8, diceType: 'any', values: vals([1]) }], 6),
+    { update: { id: 8, values: [...vals([1]), { value: 6, consumed: false, label: null }] } });
+  assert.deepEqual(planNext([], 6), { create: { diceType: 'any', values: [{ value: 6 }] } });
+  assert.deepEqual(planNext([{ id: 7, diceType: 'd20', values: vals([2]) }], 6), { create: { diceType: 'any', values: [{ value: 6 }] } });
+  // fila d20 com um usado na frente: a nova fura antes dela inteira
+  rigs = [{ id: 1, diceType: 'd20', values: vals([20], 3) }];
+  after = apply(rigs, planNext(rigs, 11));
+  assert.equal(roll(after, 'd20'), 11);
+  assert.equal(roll(after, 'd20'), 3);
 });

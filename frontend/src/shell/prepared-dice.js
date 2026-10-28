@@ -3,10 +3,12 @@
 //
 // O servidor (api/views_dice.py) guarda as filas: cada DiceRig tem o alvo, o tipo
 // de dado ('d20'… ou 'any' = qualquer dado) e os valores {value, consumed, label}.
-// Quando o jogador rola pelo app dentro da campanha, o servidor usa o primeiro
-// valor não usado do dado certo (ou de 'any') e marca "usado". O jogador nunca vê.
+// Quando o jogador rola pelo app dentro da campanha, o servidor percorre as filas
+// dele do dado certo e de 'any' pela ordem de criação e usa o primeiro valor não
+// usado (marca "usado"). O jogador nunca vê.
 // Aqui ficam só as contas da tela: ler o campo "15, 12, 18", agrupar por jogador,
-// mover/tirar um valor da fila e montar o histórico.
+// onde enfileirar (uma fila por dado), o ⚡ Próximo resultado, mover/tirar um valor
+// da fila e montar o histórico.
 
 export const DICE_TYPES = ['d20', 'd12', 'd10', 'd8', 'd6', 'd4', 'd100', 'any'];
 /** Faces de cada dado; 'any' (qualquer dado) aceita até 100, como o "próximo resultado". */
@@ -100,6 +102,99 @@ export function moveValue(values, from, to) {
   const [item] = v.splice(from, 1);
   v.splice(to, 0, item);
   return v;
+}
+
+const dieOf = (rig) => rig?.diceType || 'd20';
+const fresh = (value) => ({ value, consumed: false, label: null });
+
+/**
+ * A fila do jogador como aparece no cartão: as filas na ordem do servidor (a de
+ * criação, a mesma em que os valores saem) em blocos por dado — um bloco novo cada
+ * vez que o dado muda, com o nome do dado escrito em cima. É o motivo à vista de um
+ * valor não passar para o bloco vizinho: são filas de dados diferentes.
+ * → [{ die, rows: [{ key, rigId, i, entry }] }]
+ */
+export function queueBlocks(rigs) {
+  const blocks = [];
+  for (const rig of rigs || []) {
+    (rig.values || []).forEach((entry, i) => {
+      let b = blocks[blocks.length - 1];
+      if (!b || b.die !== dieOf(rig)) { b = { die: dieOf(rig), rows: [] }; blocks.push(b); }
+      b.rows.push({ key: `${rig.id}-${i}`, rigId: rig.id, i, entry });
+    });
+  }
+  return blocks;
+}
+
+/**
+ * ↑ (dir −1) ou ↓ (dir +1) de um valor: as gravações a fazer, ou null quando não dá
+ * (é o primeiro/último do bloco, o vizinho já foi usado ou é de outro dado).
+ * Na mesma fila: 1 PUT. Entre duas filas vizinhas do mesmo dado (as antigas criavam
+ * uma fila a cada "Adicionar"): os dois valores trocam de lugar, 2 PUTs.
+ * → [{ id, values }]
+ */
+export function planMove(rigs, rigId, i, dir) {
+  if (dir !== 1 && dir !== -1) return null;
+  const rows = [];
+  for (const rig of rigs || []) (rig.values || []).forEach((entry, k) => rows.push({ rig, k, entry }));
+  const at = rows.findIndex(r => r.rig.id === rigId && r.k === i);
+  const a = rows[at];
+  const b = at < 0 ? null : rows[at + dir];
+  if (!a || !b || a.entry.consumed || b.entry.consumed || dieOf(a.rig) !== dieOf(b.rig)) return null;
+  if (a.rig === b.rig) {
+    const v = moveValue(a.rig.values, i, i + dir);
+    return v ? [{ id: a.rig.id, values: v }] : null;
+  }
+  const va = [...a.rig.values];
+  const vb = [...b.rig.values];
+  va[a.k] = b.entry;
+  vb[b.k] = a.entry;
+  return [{ id: a.rig.id, values: va }, { id: b.rig.id, values: vb }];
+}
+
+/**
+ * ➕ Adicionar à fila: no fim da fila que o jogador já tem desse dado (1 PUT; uma
+ * fila por jogador e dado) ou numa fila nova (1 POST) quando não há ou ela encheria.
+ * → { update: { id, values } } | { create: { diceType, values } }
+ */
+export function planEnqueue(rigs, die, values) {
+  const same = (rigs || []).filter(r => dieOf(r) === die);
+  const last = same[same.length - 1];
+  const add = (values || []).map(v => fresh(v.value));
+  if (last && (last.values || []).length + add.length <= MAX_VALUES) {
+    return { update: { id: last.id, values: [...(last.values || []), ...add] } };
+  }
+  return { create: { diceType: die, values: (values || []).map(v => ({ value: v.value })) } };
+}
+
+/**
+ * ⚡ Próximo resultado: o valor sai na próxima rolagem do jogador, de qualquer dado.
+ * Precisa ficar numa fila 'any' antes de todo valor ainda não usado:
+ * - nada na fila: no fim da fila 'any' que já existe (ou numa nova);
+ * - a 1ª fila com valor não usado é 'any': entra antes desse valor;
+ * - a fila logo antes dela é 'any' (toda usada): entra no fim dela;
+ * - senão, uma fila 'any' nova com `before` = essa 1ª fila (o servidor a põe antes;
+ *   o antigo ignora e ela entra no fim — a tela avisa).
+ * → { update: { id, values } } | { create: { diceType: 'any', values }, before? }
+ */
+export function planNext(rigs, value) {
+  const list = rigs || [];
+  const room = (r) => (r.values || []).length < MAX_VALUES;
+  const f = list.findIndex(r => (r.values || []).some(v => !v.consumed));
+  if (f < 0) {
+    const anyRig = [...list].reverse().find(r => dieOf(r) === 'any' && room(r));
+    if (anyRig) return { update: { id: anyRig.id, values: [...(anyRig.values || []), fresh(value)] } };
+    return { create: { diceType: 'any', values: [{ value }] } };
+  }
+  const first = list[f];
+  if (dieOf(first) === 'any' && room(first)) {
+    const v = [...first.values];
+    v.splice(v.findIndex(x => !x.consumed), 0, fresh(value));
+    return { update: { id: first.id, values: v } };
+  }
+  const prev = list[f - 1];
+  if (prev && dieOf(prev) === 'any' && room(prev)) return { update: { id: prev.id, values: [...(prev.values || []), fresh(value)] } };
+  return { create: { diceType: 'any', values: [{ value }] }, before: first.id };
 }
 
 /** Tira o valor `i` da fila: { values, empty } — empty = a fila ficou vazia (apagar a fila inteira). */
