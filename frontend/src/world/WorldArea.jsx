@@ -1,5 +1,7 @@
 // Área "Mundo" do mestre: Atlas · Mapa · Linha do tempo, com o editor de
-// cartão em painel lateral, 🎲 Improvisar e revelação rápida.
+// cartão em painel lateral (tela cheia no celular), 🎲 Improvisar e revelação
+// rápida numa folha da mesa ("Quem vê": segredos, 📺 e Pronto).
+// Campanha encerrada: tudo só leitura, inclusive o editor do cartão (abre para ler).
 //
 // Montada pela casca (WP3) com lazy(). Lê área/sub/params de useArea() e
 // aceita props para sobrescrever:
@@ -18,6 +20,7 @@ import Atlas from './Atlas.jsx';
 import EntryEditor from './EntryEditor.jsx';
 import ImproviseModal from './ImproviseModal.jsx';
 import RevealControl from './RevealControl.jsx';
+import MesaSheet from '../shell/MesaSheet.jsx';
 import Timeline from './Timeline.jsx';
 import WorldMap from './WorldMap.jsx';
 import { EntryImage } from './EntryCard.jsx';
@@ -65,10 +68,16 @@ export default function WorldArea(props) {
   const cid = campaign?.id;
   // Campanha encerrada: só leitura — some tudo que escreveria (o backend daria 423).
   const closed = campaign?.status === 'closed';
+  // Versão mais nova de cada cartão que esta tela já viu (resposta de um PATCH, do
+  // editor ou da lista): o ↑ ↓ do Ordenar manda a versão certa mesmo com toques
+  // seguidos, antes de a lista redesenhar.
+  const versions = useRef(new Map());
+  const reorderChain = useRef(Promise.resolve());
   const load = useCallback(async () => {
     if (!cid) return;
     try {
       const r = await listWorld(cid);
+      versions.current = new Map();
       setEntries(r.entries || []);
       setMeta({ count: r.count ?? (r.entries || []).length, max: r.max || 500 });
       setListImmersion(r.immersion !== false);
@@ -110,6 +119,7 @@ export default function WorldArea(props) {
   // ---------------------------------------------------------------- lista
   const upsert = useCallback((full) => {
     if (!full?.id) return;
+    if (full.version != null) versions.current.set(full.id, full.version);
     const light = toLight(full);
     setEntries(list => {
       const l = list || [];
@@ -133,18 +143,30 @@ export default function WorldArea(props) {
     } catch (err) { setError(worldErrorText(err, lang)); return null; }
   };
 
-  const reorder = async (patches) => {
+  // Reordenar (arrastar ou ↑ ↓): a lista muda na hora e os PATCH vão em fila, um
+  // reordenar depois do outro, cada um com a versão mais nova (checagem de versão:
+  // um 409 recarrega a lista e avisa).
+  const reorder = (patches) => {
+    const before = entries || [];
     setEntries(list => applyPatches(list, patches));
-    try {
-      for (const p of patches) {
-        const cur = (entries || []).find(e => e.id === p.id);
-        const next = await updateEntry(p.id, { sort: p.sort, version: cur?.version });
-        upsert(next);
+    const run = async () => {
+      try {
+        for (const p of patches) {
+          const cur = before.find(e => e.id === p.id);
+          const version = versions.current.get(p.id) ?? cur?.version;
+          const next = await updateEntry(p.id, { sort: p.sort, version });
+          upsert(next);
+        }
+        return true;
+      } catch (e) {
+        // recarrega primeiro: a lista nova apaga o erro antigo, e o aviso fica
+        await load();
+        setError(isConflict(e) ? t(lang, 'Um cartão mudou em outra aba; recarreguei a lista.', 'A card changed in another tab; the list was reloaded.') : worldErrorText(e, lang));
+        return false;
       }
-    } catch (e) {
-      setError(isConflict(e) ? t(lang, 'Um cartão mudou em outra aba; recarreguei a lista.', 'A card changed in another tab; the list was reloaded.') : worldErrorText(e, lang));
-      load();
-    }
+    };
+    reorderChain.current = reorderChain.current.then(run);
+    return reorderChain.current;
   };
 
   const quickReveal = async (entry) => {
@@ -217,21 +239,23 @@ export default function WorldArea(props) {
       )}
 
       {revealFor && (
-        <div className="modal-backdrop" onClick={() => setRevealFor(null)}>
-          <div className="modal wl-reveal-modal" role="dialog" aria-modal="true" aria-label={revealFor.name} onClick={e => e.stopPropagation()}>
-            <button type="button" className="modal-close" onClick={() => setRevealFor(null)} aria-label={t(lang, 'Fechar', 'Close')}>×</button>
-            <div className="wl-reveal-modal-head">
-              <span className="wl-reveal-modal-thumb"><EntryImage entry={revealFor} className="wl-thumb-img" /></span>
-              <h2>{revealFor.name}</h2>
-            </div>
-            <RevealControl entry={revealFor} lang={lang} showSecrets onChange={(next) => { setRevealFor(next); upsert(next); }} />
-            <div className="modal-actions">
-              <ShowOnTable campaign={campaign} target={{ kind: 'card', entry: revealFor }} lang={lang} className="btn btn-ghost btn-sm"
+        // Revelar rápido (👁 da linha/cartão): folha da altura do conteúdo no celular,
+        // diálogo no PC; ✕ de 44, 📺 e Pronto presos no rodapé.
+        <MesaSheet title={revealFor.name} icon="👁" size="auto" width="sm" lang={lang} onClose={() => setRevealFor(null)}
+          className="wl-reveal-sheet"
+          footer={(
+            <div className="wl-reveal-foot">
+              <ShowOnTable campaign={campaign} target={{ kind: 'card', entry: revealFor }} lang={lang} className="mesa-btn mesa-btn-lg"
                 onRevealed={(next) => { setRevealFor(next); upsert(next); }}>📺 {t(lang, 'Mostrar na Tela', 'Show on screen')}</ShowOnTable>
-              <button type="button" className="btn btn-primary btn-sm" onClick={() => setRevealFor(null)}>{t(lang, 'Pronto', 'Done')}</button>
+              <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={() => setRevealFor(null)}>{t(lang, 'Pronto', 'Done')}</button>
             </div>
+          )}>
+          <div className="wl-reveal-modal-head">
+            <span className="wl-reveal-modal-thumb"><EntryImage entry={revealFor} className="wl-thumb-img" /></span>
+            <p className="wl-reveal-modal-kind">{t(lang, 'Quem vê este cartão e quais segredos os jogadores já sabem.', 'Who sees this card and which secrets the players already know.')}</p>
           </div>
-        </div>
+          <RevealControl entry={revealFor} lang={lang} showSecrets onChange={(next) => { setRevealFor(next); upsert(next); }} />
+        </MesaSheet>
       )}
 
       {toast && <Toast msg={toast} onDone={clearToast} />}
