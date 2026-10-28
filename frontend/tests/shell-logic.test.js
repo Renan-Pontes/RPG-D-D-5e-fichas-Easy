@@ -211,7 +211,9 @@ test('rótulos curtos do celular (plano §4.2) e o longo continua', () => {
   assert.equal(subLabel('insights', 'pt'), 'Raio-X');
   assert.equal(subLabel('insights', 'en'), 'X-ray');
   // sem curto próprio, o curto é o longo
-  assert.equal(subShortLabel('scene', 'pt'), 'Cena');
+  // V7: a sub-aba "Cena" de Jogar virou "Agora" (o id da rota continua 'scene')
+  assert.equal(subShortLabel('scene', 'pt'), 'Agora');
+  assert.equal(subLabel('scene', 'en'), 'Now');
   assert.equal(subShortLabel('players', 'en'), 'Players');
 });
 

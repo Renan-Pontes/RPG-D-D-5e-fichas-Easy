@@ -27,7 +27,7 @@ export const SUB_LABELS = {
   next: ['Plano', 'Plan'],
   adventures: ['Aventuras', 'Adventures'],
   items: ['Itens', 'Items'],
-  scene: ['Cena', 'Scene'],
+  scene: ['Agora', 'Now'],
   combat: ['Combate', 'Combat'],
   checks: ['Testes', 'Checks'],
   screen: ['Tela', 'Screen'],

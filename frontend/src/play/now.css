@@ -1,0 +1,169 @@
+/* ============================================================
+   Jogar › Agora guiada (V7) — a linha de ações, o painel do momento (120 px fixos), o
+   cartão Cena agora, as cenas do plano em chips, a folha Começar a sessão e as
+   Ferramentas. As peças de antes (personagens, avisos, campos da cena, faixa do
+   combate) continuam em campaigns/table-now.css. Couro e filete dourado de
+   shell/mesa.css; alvos de 48 px nas ações ao vivo e 44 px no resto; textos ≥ 12 px.
+   ============================================================ */
+
+/* ---------------------------------------------------------- faixa de ensaio */
+.now-rehearsal {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px dashed color-mix(in srgb, var(--amber, #d9a441) 70%, transparent);
+  border-radius: 8px;
+  background: rgba(217, 164, 65, 0.08);
+}
+.now-rehearsal p { flex: 1 1 220px; margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink-secondary); }
+.now-rehearsal .mesa-btn { flex: none; min-height: 48px; }
+
+/* ---------------------------------------------------------- linha de ações (48 px) */
+.now-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.now-act.mesa-btn { min-height: 48px; padding: 6px 8px; font-size: 0.86rem; gap: 6px; }
+.now-act > [aria-hidden="true"] { font-size: 1.05rem; }
+/* celular: o ícone em cima e o nome embaixo (3 botões iguais cabem até em 320) */
+@media (max-width: 600px) {
+  .now-act.mesa-btn { flex-direction: column; gap: 0; padding: 4px 2px; font-size: 13px; letter-spacing: 0; line-height: 1.15; }
+  .now-act > [aria-hidden="true"] { font-size: 1rem; line-height: 1.1; }
+}
+
+/* ---------------------------------------------------------- painel do momento (120 px fixos) */
+/* 120 = borda 2 + 2+2 de folga + contadores 44 + 2 + linha 18 + 2 + botões 48 */
+.mesa-panel.is-sunk.mp {
+  box-sizing: border-box;
+  height: 120px;
+  min-height: 120px;
+  max-height: 120px;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 44px minmax(0, 1fr);
+  gap: 2px;
+  padding: 2px 6px;
+  overflow-anchor: none;
+}
+.mp-head { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
+.mp-chip.mesa-chip { flex: none; min-height: 44px; height: 44px; padding: 4px 10px; font-size: 14px; gap: 4px; }
+.mp-none { padding-left: 4px; font-size: 15px; color: var(--moss-bright, #9cc065); }
+.mp-body { display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; min-width: 0; min-height: 0; }
+.mp-line {
+  flex: none; margin: 0; min-width: 0; font-size: 14px; line-height: 18px; height: 18px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-primary);
+}
+.mp-line.mp-answers { display: flex; gap: 10px; overflow-x: auto; text-overflow: clip; }
+.mp-answers > * { flex: none; }
+.mp-ans.is-pass { color: var(--moss-bright, #9cc065); }
+.mp-ans.is-fail { color: var(--blood-bright); }
+.mp-ans.is-waiting { color: var(--ink-muted); }
+.mp-quiet { color: var(--ink-muted); }
+.mp-calm { color: var(--ink-muted); white-space: normal; height: auto; align-self: center; text-align: center; }
+.mp-acts { display: flex; gap: 6px; min-width: 0; }
+.mp-btn.mesa-btn { min-height: 48px; height: 48px; padding: 4px 10px; font-size: 0.8rem; flex: 1 1 auto; min-width: 0; white-space: nowrap; }
+.mp-go.mesa-btn { flex: 0 0 auto; }
+
+/* ---------------------------------------------------------- cartão Cena agora */
+.snc { display: flex; flex-direction: column; gap: 8px; box-shadow: inset 0 0 0 3px rgba(10, 7, 6, 0.85), inset 0 0 0 4px var(--gold-deep), 0 10px 30px rgba(0, 0, 0, 0.5); }
+.snc.is-rehearsal { box-shadow: inset 0 0 0 3px rgba(10, 7, 6, 0.85), inset 0 0 0 4px color-mix(in srgb, var(--amber, #d9a441) 70%, transparent); }
+.snc.is-peek { box-shadow: none; padding: 0; background: none; border: 0; }
+.snc-head { display: flex; align-items: center; gap: 4px; min-height: 28px; margin: -6px -6px -4px 0; }
+.snc-head .mesa-eyebrow { flex: 1 1 auto; }
+.snc-name { margin: 0; font-family: var(--display); font-size: 1.15rem; line-height: 1.25; color: var(--gold-bright); overflow-wrap: anywhere; }
+.snc-what { margin: 0; font-size: 15px; line-height: 1.4; color: var(--ink-secondary); overflow-wrap: anywhere; }
+.snc-only { font-size: 12px; color: var(--ink-muted); white-space: nowrap; }
+.snc-block { display: flex; flex-direction: column; gap: 6px; }
+.snc-read-btn.mesa-btn { align-self: flex-start; }
+.snc-read { margin: 0; padding: 10px 12px; border-left: 3px solid var(--gold-deep); background: rgba(10, 7, 6, 0.45); font-size: 18px; line-height: 1.5; color: var(--ink-primary); white-space: pre-wrap; overflow-wrap: anywhere; }
+.snc-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 44px; border-top: 1px solid rgba(224, 181, 94, 0.14); padding-top: 6px; }
+.snc-show { border-top: 0; padding-top: 0; }
+.snc-line { flex: 1 1 180px; margin: 0; min-width: 0; font-size: 15px; line-height: 1.35; color: var(--ink-primary); overflow-wrap: anywhere; }
+.snc-sub { color: var(--ink-secondary); font-size: 14px; }
+.snc-act.mesa-btn { flex: none; min-height: 48px; }
+.snc-show .snc-act.mesa-btn { flex: 1 1 140px; }
+.snc-label { margin: 0 0 2px; font-size: 14px; color: var(--ink-secondary); }
+.snc-refs .ins-list { border: 1px solid rgba(224, 181, 94, 0.14); border-radius: 8px; }
+.snc-moment { margin: 0; padding: 6px 10px; border-radius: 6px; background: rgba(214, 176, 100, 0.08); font-size: 15px; line-height: 1.4; overflow-wrap: anywhere; }
+.snc-adv { border-top: 1px solid rgba(224, 181, 94, 0.14); padding-top: 4px; }
+.snc-adv-btn.mesa-btn {
+  display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: baseline; gap: 2px 6px;
+  width: 100%; padding-left: 0; text-align: left;
+  font-family: var(--body); font-size: 16px; font-weight: 600; letter-spacing: normal; text-transform: none; color: var(--gold-bright);
+}
+.snc-adv-btn .snc-sub { font-weight: 400; }
+.snc-adv-body { margin-top: 6px; }
+.snc-done.mesa-btn { width: 100%; white-space: normal; }
+.snc-ask { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--gold-deep); border-radius: 8px; }
+.snc-row-acts { display: flex; gap: 8px; }
+.snc-row-acts .mesa-btn { flex: 1 1 0; min-height: 48px; }
+.snc-empty { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.snc-empty p { margin: 0; flex: 1 1 160px; color: var(--ink-secondary); font-size: 15px; }
+/* recolhido durante o combate: 1 linha */
+.snc.is-folded { flex-direction: row; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; }
+.snc-fold { flex: 1 1 auto; margin: 0; min-width: 0; font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
+.snc-fold strong { font-family: var(--display); color: var(--gold-bright); }
+.snc-fold-acts { flex: none; display: flex; align-items: center; gap: 4px; }
+.snc-go.mesa-btn { min-height: 44px; padding: 6px 10px; font-size: 0.8rem; }
+
+/* ---------------------------------------------------------- cenas do plano (chips) */
+.now-scenes { display: flex; flex-direction: column; gap: 6px; }
+.now-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.now-chip.mesa-chip { max-width: 100%; white-space: normal; text-align: left; line-height: 1.25; overflow-wrap: anywhere; }
+.now-chip.is-done { color: var(--ink-muted); }
+.now-chip.is-done > [aria-hidden="true"] { color: var(--moss-bright, #9cc065); }
+.now-chip.is-now > [aria-hidden="true"] { color: var(--gold-bright); }
+.now-rehearse-off.mesa-btn { align-self: flex-start; }
+
+/* ---------------------------------------------------------- pistas e à mão */
+.now-clues .spp-sub { display: block; font-size: 14px; color: var(--ink-secondary); }
+.now-clues .spp-log { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 14px; }
+.now-clues .ins-list { border: 1px solid rgba(224, 181, 94, 0.14); border-radius: 8px; }
+
+/* ---------------------------------------------------------- ⋯ no cartão do personagem */
+.tn-card-head .now-card-more { flex: none; margin-right: -6px; }
+
+/* ---------------------------------------------------------- ⋯ Ferramentas */
+.now-tools-list { display: flex; flex-direction: column; }
+.now-tool.mesa-row { min-height: 56px; }
+.now-tool:disabled { opacity: 0.45; cursor: not-allowed; }
+.now-tool-ico { flex: none; width: 32px; text-align: center; font-size: 1.2rem; }
+.now-tool-toggle { margin-top: 8px; }
+
+/* ---------------------------------------------------------- ✎ Sessão, cena e clima */
+.now-fields.tn-scene-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 8px 0; }
+.now-fields .tn-scene-input { font-size: 16px; }
+.now-recap-text { margin: 0; font-size: 17px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.now-peek-foot { flex-wrap: wrap; }
+.now-peek-foot .mesa-btn { flex: 1 1 160px; }
+
+/* ---------------------------------------------------------- folha Começar a sessão */
+.sss-where { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 4px; }
+.sss-where legend { margin-bottom: 6px; }
+.sss-opt { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 6px 10px; border: 1px solid rgba(224, 181, 94, 0.18); border-radius: 8px; cursor: pointer; }
+.sss-opt.is-on { border-color: var(--gold); background: rgba(214, 176, 100, 0.08); }
+.sss-opt input { flex: none; width: 22px; height: 22px; accent-color: var(--gold); }
+.sss-opt-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-family: var(--body); font-size: 16px; line-height: 1.3; letter-spacing: normal; text-transform: none; color: var(--ink-primary); overflow-wrap: anywhere; }
+.sss-sub { font-size: 13px; color: var(--ink-muted); }
+/* os rótulos do app vêm em versalete; aqui são frases (o nome da cena) */
+.sss label, .now-clues label, .gc-screen { text-transform: none; letter-spacing: normal; font-family: var(--body); }
+.sss-other.input { margin-top: 4px; min-height: 48px; font-size: 16px; }
+.sss-recap { margin-top: 10px; }
+.sss-tv { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; font-size: 15px; color: var(--ink-secondary); }
+.sss-tv-state { flex: 1 1 160px; }
+.sss-tv-state.is-on { color: var(--moss-bright, #9cc065); }
+.sss-tv-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.sss-error { margin: 0; color: var(--blood-bright); font-size: 14px; }
+.sss .sss-go { width: 100%; }
+
+/* ---------------------------------------------------------- "da aventura ▸" */
+.adv-now { display: flex; flex-direction: column; gap: 8px; }
+.adv-now-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: space-between; }
+.adv-now .prep-play .btn { min-height: 44px; }
+
+/* ---------------------------------------------------------- Testes: de sessões passadas */
+.tl-session { color: var(--ink-secondary); }
+.tl-past { margin-top: 10px; border-top: 1px solid rgba(224, 181, 94, 0.18); padding-top: 6px; }
+.tl-past-sum { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-family: var(--display); font-size: 0.9rem; color: var(--gold-bright); }
+
+/* ---------------------------------------------------------- PC: a mesa e a coluna da Tela */
+@media (min-width: 1024px) {
+  .table-now.now { grid-template-areas: "main side"; }
+  .now .tn-col-side { position: sticky; top: 120px; }
+}

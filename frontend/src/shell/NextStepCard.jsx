@@ -6,6 +6,8 @@
 // - Quando a regra muda com o cartão à vista, o texto troca com um fade de 150 ms e os
 //   botões ficam 400 ms sem aceitar toque (princípio 8: nada muda debaixo do dedo).
 // - `children` entra no lugar do botão (as 3 portas do N2).
+// - `step.items` (J1 da Agora): a lista "✓ plano (3 cenas) · ○ Tela [Copiar link]" entre a
+//   frase e o botão; `step.note`, uma linha de texto embaixo do botão.
 import { useEffect, useRef, useState } from 'react';
 import MesaSheet from './MesaSheet.jsx';
 import './mesa.css';
@@ -44,6 +46,20 @@ export default function NextStepCard({ step, lang, onAction, onSkip, busy = null
         <p className="next-card-text">{step.text}</p>
         {step.why && <p className="next-card-why">{step.why}</p>}
       </div>
+      {step.items?.length > 0 && (
+        <ul className="next-card-items">
+          {step.items.map(it => (
+            <li key={it.id} className={`next-card-item ${it.ok ? 'is-ok' : 'is-todo'}`}>
+              <span className="next-card-mark" aria-hidden="true">{it.ok ? '✓' : '○'}</span>
+              <span className="next-card-item-text">{it.text}<span className="sr-only">{it.ok ? t(lang, ' (pronto)', ' (ready)') : t(lang, ' (falta)', ' (to do)')}</span></span>
+              {it.action && (
+                <button type="button" className="mesa-btn next-card-item-act" disabled={busy === it.action.id}
+                  onClick={guard(() => onAction(it.action.id, step))}>{it.action.label}</button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       {children || (
         <div className="next-card-actions">
           <button type="button" className="mesa-btn mesa-btn-lg is-primary" disabled={busy === step.action.id}
@@ -56,6 +72,7 @@ export default function NextStepCard({ step, lang, onAction, onSkip, busy = null
           )}
         </div>
       )}
+      {step.note && <p className="next-card-note">{step.note}</p>}
       {help && (
         <MesaSheet title={t(lang, 'O que fazer agora', 'What to do now')} icon="?" size="auto" width="sm" lang={lang}
           onClose={() => setHelp(false)}
