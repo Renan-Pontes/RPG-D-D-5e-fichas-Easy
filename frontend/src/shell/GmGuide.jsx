@@ -2,12 +2,14 @@
 // Tela · Combate · Encerrar —, cada um com 1 frase, 1 desenho simples (SVG à mão) e a
 // tabela "Quero… → vou a…" daquele assunto. Rodapé: Fechar · Me leve lá · Próximo.
 // Os números 1–5 no topo (44 px) pulam direto para um cartão. Só apresentação: o
-// conteúdo e o destino do "Me leve lá" vêm de guide-model.js.
+// conteúdo e o destino do "Me leve lá" vêm de guide-model.js — no PC (o mesmo corte da
+// casca, ≥ 768 px) com os lugares do PC (faixa do turno, janela da Tela).
 //
 //   <GmGuide start={0} lang live closed onClose onGo={(target) => …} />
 //   target = {area, sub} (a casca navega) ou {sheet: 'end'} (a folha Encerrar)
 import { useState } from 'react';
 import MesaSheet from './MesaSheet.jsx';
+import useMedia from '../play/useMedia.js';
 import { GUIDE_COUNT, guideCard, guideIndex, guideTarget } from './guide-model.js';
 import './guide.css';
 
@@ -15,7 +17,8 @@ const t = (lang, pt, en) => (lang === 'en' ? en : pt);
 
 export default function GmGuide({ start = 0, lang = 'pt', live = false, closed = false, onClose, onGo }) {
   const [i, setI] = useState(() => guideIndex(start));
-  const card = guideCard(i, lang);
+  const desk = !useMedia('(max-width: 767px)');      // sem a barra da mesa (CampaignDetail)
+  const card = guideCard(i, lang, { desk });
   const last = i === GUIDE_COUNT - 1;
   const go = () => onGo?.(guideTarget(i, { live, closed }));
   return (

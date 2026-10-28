@@ -1,11 +1,13 @@
 // "O que mudou" (§2.6): um cartão dispensável no topo de Jogar e de Preparar, na 1ª visita
 // depois dos nomes novos — "Telão → Tela; Cena → Agora; Próxima sessão → Plano; Encontro →
-// Combate; o turno e o Próximo ficam na barra da mesa, embaixo". "Entendi" (ou ✕) vale
-// para as duas áreas e não volta neste aparelho (guide-model.js). Lido do aparelho já no
-// 1º desenho: o cartão nunca aparece depois e empurra a tela. "📘 Guia do mestre" abre o
-// guia (com a casca). Só apresentação.
+// Combate; o turno e o Próximo ficam na barra da mesa, embaixo" (no PC, ≥ 768 px, sem a
+// barra: "na faixa do turno, no topo de Jogar"). "Entendi" (ou ✕) vale para as duas áreas
+// e não volta neste aparelho (guide-model.js). Lido do aparelho já no 1º desenho: o cartão
+// nunca aparece depois e empurra a tela. "📘 Guia do mestre" abre o guia (com a casca).
+// Só apresentação.
 import { useState } from 'react';
 import { useArea } from './useArea.js';
+import useMedia from '../play/useMedia.js';
 import { dismissWhatsNew, whatsNewLines, whatsNewVisible } from './guide-model.js';
 import './guide.css';
 
@@ -14,9 +16,10 @@ const t = (lang, pt, en) => (lang === 'en' ? en : pt);
 export default function WhatsNew({ lang = 'pt' }) {
   const area = useArea();
   const [open, setOpen] = useState(() => whatsNewVisible());
+  const desk = !useMedia('(max-width: 767px)');      // o mesmo corte da casca (barra da mesa)
   if (!open) return null;
   const close = () => { dismissWhatsNew(); setOpen(false); };
-  const lines = whatsNewLines(lang);
+  const lines = whatsNewLines(lang, { desk });
   return (
     <section className="mesa-panel whats-new" aria-labelledby="whats-new-title">
       <div className="whats-new-head">

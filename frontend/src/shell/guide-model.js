@@ -9,9 +9,20 @@
 //
 // "O que mudou": um cartão dispensável em Jogar e em Preparar, uma vez por aparelho (o
 // mesmo "Entendi" vale para as duas áreas); a busca acha pelos nomes antigos (NAV_PLACES).
+//
+// Celular × PC (`desk`, o mesmo corte da casca: a barra da mesa só existe até 767 px). No
+// PC não há barra da mesa nem Mais: o Próximo turno fica na faixa do turno, no topo de
+// Jogar (tecla N), e o ✕ Tirar / 🧹 Limpar na janela da Tela (§2.2, §5.8). O texto que
+// muda entre os dois vem como {phone: [pt, en], desk: [pt, en]} (byDevice).
 
 const tt = (lang, pt, en) => (lang === 'en' ? en : pt);
 const row = (want, go) => ({ want, go });
+const byDevice = (phone, desk) => ({ phone, desk });
+/** [pt, en] ou {phone, desk} → o texto no idioma e no aparelho. */
+const say = (v, lang, desk) => {
+  const pair = Array.isArray(v) ? v : (desk ? v.desk : v.phone);
+  return tt(lang, pair[0], pair[1]);
+};
 
 /**
  * Os 5 cartões. `art` é o desenho (GmGuide.jsx), `go` a tela do "Me leve lá"
@@ -41,7 +52,9 @@ export const GUIDE_CARDS = [
       'When it is time to play, ▶ Start asks where the session begins and opens Play › Now, with the scene and everything in it.',
     ],
     rows: [
-      row(['começar a sessão', 'start the session'], ['▶ Começar (no topo ou em Mais)', '▶ Start (at the top or in More)']),
+      row(['começar a sessão', 'start the session'], byDevice(
+        ['▶ Começar (no topo ou em Mais)', '▶ Start (at the top or in More)'],
+        ['▶ Começar (no topo)', '▶ Start (at the top)'])),
       row(['ir para a próxima cena', 'move to the next scene'], ['Agora › ✓ Cena feita', 'Now › ✓ Scene done']),
       row(['pedir um teste', 'ask for a check'], ['Agora › 🎯 Pedir teste', 'Now › 🎯 Ask for a check']),
       row(['testar a TV antes do dia', 'test the TV before game day'], ['Agora antes de começar (ensaio)', 'Now before you start (rehearsal)']),
@@ -56,22 +69,29 @@ export const GUIDE_CARDS = [
     ],
     rows: [
       row(['pôr algo na TV', 'put something on the TV'], ['📺 em qualquer cena ou cartão', '📺 on any scene or card']),
-      row(['tirar ou limpar a Tela', 'remove or clear the screen'], ['barra da mesa › ✕ Tirar ou 🧹 Limpar', 'table bar › ✕ Remove or 🧹 Clear']),
-      row(['pegar o link da TV', 'get the TV link'], ['Mais › Tela (no PC: 📺 Tela)', 'More › Screen (on PC: 📺 Screen)']),
+      row(['tirar ou limpar a Tela', 'remove or clear the screen'], byDevice(
+        ['barra da mesa › ✕ Tirar ou 🧹 Limpar', 'table bar › ✕ Remove or 🧹 Clear'],
+        ['janela da Tela › ✕ Tirar ou 🧹 Limpar', 'screen window › ✕ Remove or 🧹 Clear'])),
+      row(['pegar o link da TV', 'get the TV link'], byDevice(['Mais › Tela', 'More › Screen'], ['📺 Tela, no topo', '📺 Screen, at the top'])),
       row(['rolar um dado para todos verem', 'roll a die for everyone to see'], ['🎲 › 📺 Na tela', '🎲 › 📺 On screen']),
     ],
   },
   {
     id: 'combat', icon: '⚔', art: 'swords', go: { area: 'play', sub: 'combat' },
     title: ['Combate', 'Combat'],
-    text: [
+    text: byDevice([
       '⚔ Começar o combate monta tudo de uma vez. O Próximo turno fica na barra da mesa, embaixo, em qualquer área.',
       '⚔ Start combat sets everything up at once. Next turn lives in the table bar, at the bottom, in any area.',
-    ],
+    ], [
+      '⚔ Começar o combate monta tudo de uma vez. O Próximo turno fica na faixa do turno, no topo de Jogar (tecla N).',
+      '⚔ Start combat sets everything up at once. Next turn lives in the turn strip, at the top of Play (key N).',
+    ]),
     rows: [
       row(['começar o combate da cena', "start the scene's combat"], ['Agora › ⚔ Começar o combate', 'Now › ⚔ Start combat']),
       row(['dar dano ou curar', 'deal damage or heal'], ['Combate › toque nos PV', 'Combat › tap the HP']),
-      row(['passar a vez', 'pass the turn'], ['Próximo turno → (barra da mesa)', 'Next turn → (table bar)']),
+      row(['passar a vez', 'pass the turn'], byDevice(
+        ['Próximo turno → (barra da mesa)', 'Next turn → (table bar)'],
+        ['Próximo turno → (faixa do turno, no topo de Jogar · tecla N)', 'Next turn → (turn strip, top of Play · key N)'])),
       row(['corrigir um engano', 'fix a mistake'], ['↶ Desfazer (6 s)', '↶ Undo (6 s)']),
     ],
   },
@@ -83,7 +103,9 @@ export const GUIDE_CARDS = [
       '■ End tidies the table and opens the session recap. Whatever was not played carries over to the next plan.',
     ],
     rows: [
-      row(['encerrar e escrever o resumo', 'end and write the recap'], ['■ Encerrar (no topo ou em Mais)', '■ End (at the top or in More)']),
+      row(['encerrar e escrever o resumo', 'end and write the recap'], byDevice(
+        ['■ Encerrar (no topo ou em Mais)', '■ End (at the top or in More)'],
+        ['■ Encerrar (no topo)', '■ End (at the top)'])),
       row(['ver o que aconteceu', 'see what happened'], ['Grupo › Crônica', 'Party › Chronicle']),
       row(['preparar a próxima sessão', 'prepare the next session'], ['Preparar › Plano', 'Prepare › Plan']),
     ],
@@ -98,11 +120,14 @@ export function guideIndex(i) {
   return Number.isInteger(n) && n >= 0 && n < GUIDE_COUNT ? n : 0;
 }
 
-/** O cartão `i` no idioma: {id, icon, art, title, text, rows: [{want, go}], n, total}. */
-export function guideCard(i, lang = 'pt') {
+/**
+ * O cartão `i` no idioma e no aparelho (`desk`: PC, ≥ 768 px):
+ * {id, icon, art, title, text, rows: [{want, go}], n, total}.
+ */
+export function guideCard(i, lang = 'pt', { desk = false } = {}) {
   const k = guideIndex(i);
   const c = GUIDE_CARDS[k];
-  const pick = (pair) => tt(lang, pair[0], pair[1]);
+  const pick = (v) => say(v, lang, desk);
   return {
     id: c.id, icon: c.icon, art: c.art, n: k + 1, total: GUIDE_COUNT,
     title: pick(c.title), text: pick(c.text),
@@ -134,14 +159,19 @@ export function guideForRule(ruleId) {
 export const WHATS_NEW_KEY = 'forja:whats-new';
 export const WHATS_NEW_VERSION = 'v2';
 
-/** As linhas do cartão (§2.6): o nome antigo e o novo, com o que mudou de lugar. */
-export function whatsNewLines(lang = 'pt') {
+/**
+ * As linhas do cartão (§2.6): o nome antigo e o novo, com o que mudou de lugar. No PC
+ * (`desk`) o turno e o Próximo ficam na faixa do turno, no topo de Jogar (não há barra).
+ */
+export function whatsNewLines(lang = 'pt', { desk = false } = {}) {
   return [
     { was: tt(lang, 'Telão', 'TV screen'), now: tt(lang, 'Tela', 'Screen'), note: '' },
     { was: tt(lang, 'Cena', 'Scene'), now: tt(lang, 'Agora', 'Now'), note: tt(lang, 'em Jogar', 'in Play') },
     { was: tt(lang, 'Próxima sessão', 'Next session'), now: tt(lang, 'Plano', 'Plan'), note: tt(lang, 'em Preparar', 'in Prepare') },
     { was: tt(lang, 'Encontro', 'Encounter'), now: tt(lang, 'Combate', 'Combat'), note: '' },
-    { was: '', now: tt(lang, 'barra da mesa', 'table bar'), note: tt(lang, 'o turno e o Próximo ficam embaixo', 'the turn and Next live at the bottom') },
+    desk
+      ? { was: '', now: tt(lang, 'faixa do turno', 'turn strip'), note: tt(lang, 'o turno e o Próximo ficam no topo de Jogar', 'the turn and Next live at the top of Play') }
+      : { was: '', now: tt(lang, 'barra da mesa', 'table bar'), note: tt(lang, 'o turno e o Próximo ficam embaixo', 'the turn and Next live at the bottom') },
   ];
 }
 

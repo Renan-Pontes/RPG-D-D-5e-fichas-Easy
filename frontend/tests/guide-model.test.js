@@ -37,6 +37,37 @@ test('guia: 5 cartões na ordem da §2.5, cada um com frase, desenho e "Quero…
   assert.equal(guideCard(99, 'pt').id, 'prepare');
 });
 
+test('guia e "O que mudou" no PC (desk): nada de barra da mesa nem Mais, que lá não existem', () => {
+  for (const lang of ['pt', 'en']) {
+    for (let i = 0; i < GUIDE_COUNT; i++) {
+      const c = guideCard(i, lang, { desk: true });
+      const all = [c.text, ...c.rows.map(r => `${r.want} ${r.go}`)].join(' | ');
+      assert.doesNotMatch(all, lang === 'en' ? /table bar|\bMore\b/ : /barra da mesa|\bMais\b/, `${c.id} ${lang}`);
+      assert.ok(c.text.length <= 140, `${c.id}: 1 frase curta no PC (${lang})`);
+      assert.equal(c.rows.length, guideCard(i, lang).rows.length, `${c.id}: as mesmas linhas`);
+    }
+  }
+  // Combate: o Próximo turno mora na faixa do turno, no topo de Jogar (tecla N)
+  const combat = guideCard(3, 'pt', { desk: true });
+  assert.match(combat.text, /faixa do turno, no topo de Jogar \(tecla N\)/);
+  assert.equal(combat.rows.find(r => r.want === 'passar a vez').go, 'Próximo turno → (faixa do turno, no topo de Jogar · tecla N)');
+  assert.match(guideCard(3, 'en', { desk: true }).text, /turn strip, at the top of Play \(key N\)/);
+  // Tela: ✕ Tirar e 🧹 Limpar na janela da Tela
+  assert.equal(guideCard(2, 'pt', { desk: true }).rows.find(r => r.want === 'tirar ou limpar a Tela').go, 'janela da Tela › ✕ Tirar ou 🧹 Limpar');
+  assert.equal(guideCard(2, 'en', { desk: true }).rows.find(r => r.want === 'remove or clear the screen').go, 'screen window › ✕ Remove or 🧹 Clear');
+  // no celular continua a barra da mesa (o padrão)
+  assert.match(guideCard(3, 'pt').text, /barra da mesa, embaixo/);
+  assert.equal(guideCard(2, 'pt').rows.find(r => r.want === 'tirar ou limpar a Tela').go, 'barra da mesa › ✕ Tirar ou 🧹 Limpar');
+  assert.equal(guideCard(2, 'pt').rows.find(r => r.want === 'pegar o link da TV').go, 'Mais › Tela');
+  // "O que mudou": no PC, a faixa do turno no topo de Jogar
+  const pc = whatsNewLines('pt', { desk: true });
+  assert.deepEqual(pc.slice(0, 4), whatsNewLines('pt').slice(0, 4));
+  assert.equal(pc[4].now, 'faixa do turno');
+  assert.equal(pc[4].note, 'o turno e o Próximo ficam no topo de Jogar');
+  assert.equal(whatsNewLines('en', { desk: true })[4].note, 'the turn and Next live at the top of Play');
+  assert.doesNotMatch(pc.map(l => `${l.now} ${l.note}`).join(' '), /barra da mesa|embaixo/);
+});
+
 test('guia: "Me leve lá" leva à tela certa de cada cartão', () => {
   assert.deepEqual(guideTarget(0), { area: 'prepare', sub: 'next' });
   assert.deepEqual(guideTarget(1), { area: 'play', sub: 'scene' });
