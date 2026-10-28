@@ -12,6 +12,11 @@ POST   /api/campaigns/<c>/world/sample       mundo de exemplo (mestre) { lang } 
 POST   /api/campaigns/<c>/world/seen         jogador marca o Mundo como visto
 GET    /api/campaigns/<c>/session-plan       Plano da Sessão N (mestre)
 PUT    /api/campaigns/<c>/session-plan       merge por chave; as cenas por id (mestre)
+POST   /api/campaigns/<c>/session-plan/archive  { carry, forSession? } "Começar o plano da Sessão N":
+                                             arquiva o plano na Crônica (oculto) e leva o que sobrou
+                                             (ou começa do zero) → { plan, archived }
+POST   /api/campaigns/<c>/session-plan/restore  { session } o plano arquivado volta ao Plano
+                                             → { plan, previous } (previous = o de antes, para o ↶)
 GET    /api/world/<pk>                       detalhe (membro; jogador filtrado; hidden = 404)
 PATCH  /api/world/<pk>                       { ...campos, version } — 409 {entry} se a versão divergir
 DELETE /api/world/<pk>
@@ -39,8 +44,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from . import world_rules as R
+from .campaign_state import locked_dm_settings
 from .diary import current_session, log_diary
-from .models import Campaign, Membership, WorldEntry, WorldImage, WorldReaction, WorldView
+from .models import Campaign, DiaryEntry, Membership, WorldEntry, WorldImage, WorldReaction, WorldView
 from .permissions import get_campaign_or_404, get_membership, is_dm, require_dm, require_member
 from .rate_limit import rate_limit
 from . import plans as P
@@ -513,6 +519,99 @@ def session_plan(request, id_or_slug):
         settings['planRev'] = timezone.now().isoformat()   # o pulso do mestre (V4) lê só isto
         Campaign.objects.filter(pk=fresh.pk).update(dm_settings=settings)
     return Response({'plan': plan})
+
+
+PLAN_ARCHIVE = 'plan'   # DiaryEntry.subtype do plano arquivado (oculto, 1 por sessão)
+
+
+def _state_now(campaign):
+    return Campaign.objects.filter(pk=campaign.pk).values_list('state', flat=True).first() or {}
+
+
+def archive_session_plan(campaign, *, session, next_session, carry=True, scene_id=None, user=None):
+    """Arquiva o plano de agora como o da Sessão `session` (DiaryEntry oculta; uma por
+    sessão: arquivar de novo troca o conteúdo) e grava o plano da Sessão `next_session`,
+    com o que sobrou (`carry`) ou em branco. Plano sem nada: só o plano novo. Tudo dentro
+    da trava do dm_settings (o PUT do Plano e o Raio-X gravam no mesmo JSON).
+    → {'plan': plano novo, 'archived': {'id', 'session'} | None}"""
+    with transaction.atomic():
+        settings = locked_dm_settings(campaign.pk)
+        current = _run(R.merged_session_plan, settings.get('sessionPlan'), {})
+        archived = None
+        if R.plan_has_content(current):
+            data = _run(R.archive_payload, current, session, scene_id)
+            title = f'Plano da Sessão {session}'
+            entry = (DiaryEntry.objects.select_for_update()
+                     .filter(campaign=campaign, kind='event', subtype=PLAN_ARCHIVE, session=session).first())
+            if entry:
+                entry.data, entry.title, entry.hidden = data, title, True
+                entry.save(update_fields=['data', 'title', 'hidden'])
+            else:
+                entry = DiaryEntry.objects.create(
+                    campaign=campaign, session=session, kind='event', subtype=PLAN_ARCHIVE, title=title,
+                    data=data, hidden=True, created_by=user if getattr(user, 'is_authenticated', False) else None)
+            archived = {'id': entry.id, 'session': session}
+        plan = R.bump_session_plan(R.carried_plan(current, next_session, carry), _state_now(campaign))
+        settings['sessionPlan'] = plan
+        settings['planRev'] = timezone.now().isoformat()
+        Campaign.objects.filter(pk=campaign.pk).update(dm_settings=settings)
+    campaign.dm_settings = settings
+    return {'plan': plan, 'archived': archived}
+
+
+def _session_arg(value, lo=1):
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or not lo <= value <= 9999:
+        _bad('invalid_session')
+    return value
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def session_plan_archive(request, id_or_slug):
+    """⋯ do Plano › "Começar o plano da Sessão N": `carry` = Levar o que sobrou (padrão) ou
+    Começar do zero; `forSession` = o N (padrão: a próxima sessão). O plano de antes fica
+    arquivado na sessão dele (o `forSession` gravado, até o N; sem ele, a de antes do N)."""
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    body = _body(request)
+    carry = body.get('carry', True)
+    if not isinstance(carry, bool):
+        _bad('invalid_carry')
+    nxt = _session_arg(body.get('forSession')) or (current_session(campaign) or 0) + 1
+    plan_now = (campaign.dm_settings or {}).get('sessionPlan')
+    old = R.to_int(plan_now.get('forSession'), 1, 9999) if isinstance(plan_now, dict) else None
+    session = old if old and old <= nxt else max(1, nxt - 1)
+    state = _state_now(campaign)
+    out = archive_session_plan(campaign, session=session, next_session=nxt, carry=carry,
+                               scene_id=state.get('sceneId') if state.get('live') else None, user=request.user)
+    return Response(out)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def session_plan_restore(request, id_or_slug):
+    """Crônica › ⋯ da sessão › Ver o plano desta sessão › Restaurar: o plano arquivado da
+    sessão volta ao Plano, sem perder o que já estava nele. → {plan, previous}"""
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    session = _session_arg(_body(request).get('session'), lo=0)
+    if session is None:
+        _bad('invalid_session')
+    entry = DiaryEntry.objects.filter(campaign=campaign, kind='event', subtype=PLAN_ARCHIVE, session=session).first()
+    archived = (entry.data or {}).get('plan') if entry else None
+    if not isinstance(archived, dict):
+        raise NotFound('plan_not_archived')
+    with transaction.atomic():
+        settings = locked_dm_settings(campaign.pk)
+        previous = _run(R.merged_session_plan, settings.get('sessionPlan'), {})
+        plan = R.bump_session_plan(_run(R.restored_plan, previous, archived), _state_now(campaign))
+        settings['sessionPlan'] = plan
+        settings['planRev'] = timezone.now().isoformat()
+        Campaign.objects.filter(pk=campaign.pk).update(dm_settings=settings)
+    previous.pop('_rev', None)
+    return Response({'plan': plan, 'previous': previous})
 
 
 # ------------------------------------------------------------------ ecos da mesa

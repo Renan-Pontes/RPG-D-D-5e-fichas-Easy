@@ -833,6 +833,110 @@ def fill_empty_session_plan(current, patch, state):
     return bump_session_plan(plan, state)
 
 
+# ------------------------------------------------------------------ virar a página (V12)
+# Encerrar a sessão (POST …/diary/sessions/:n/end) e "Começar o plano da Sessão N+1" (⋯ do
+# Plano, POST …/session-plan/archive) ARQUIVAM o plano jogado antes de esvaziá-lo, numa
+# DiaryEntry oculta da sessão (kind 'event', subtype 'plan', data.plan ≤ 60 KB; a lista da
+# Crônica não manda esse `data.plan`). "Levar o que sobrou" passa para o plano novo as cenas
+# não jogadas, as pistas não achadas e as pessoas e os lugares; "Começar do zero", nada.
+# "Restaurar" (POST …/session-plan/restore) devolve o plano arquivado ao Plano sem perder o
+# que já estava nele.
+PLAN_CONTENT_KEYS = ('strongStart', 'scenes', 'secrets', 'npcIds', 'placeIds', 'monsters', 'rewards')
+
+
+def _real_scene(s):
+    return isinstance(s, dict) and bool(str(s.get('text') or '').strip() or s.get('nodeRef'))
+
+
+def _real_secret(s):
+    return isinstance(s, dict) and bool(str(s.get('text') or '').strip() or s.get('ref'))
+
+
+def plan_has_content(plan):
+    """Há o que arquivar: começo, cena, pista, pessoa, lugar ou anotação."""
+    plan = plan if isinstance(plan, dict) else {}
+    return bool(not session_plan_is_empty(plan) or _filled_items(plan.get('secrets'), 'ref')
+                or plan.get('npcIds') or plan.get('placeIds')
+                or str(plan.get('monsters') or '').strip() or str(plan.get('rewards') or '').strip())
+
+
+def plan_leftovers(plan):
+    """O que "Levar para a Sessão N+1" leva: as cenas de verdade não feitas (a que estava
+    "agora" e não foi marcada feita também: foi interrompida), as pistas não achadas e as
+    pessoas e os lugares."""
+    plan = plan if isinstance(plan, dict) else {}
+    return {
+        'scenes': [s for s in plan.get('scenes') or [] if _real_scene(s) and not s.get('done')],
+        'secrets': [s for s in plan.get('secrets') or [] if _real_secret(s) and not s.get('discovered')],
+        'npcIds': _id_list(plan.get('npcIds'), 60), 'placeIds': _id_list(plan.get('placeIds'), 60),
+    }
+
+
+def carried_plan(plan, next_session, carry=True):
+    """O plano da Sessão `next_session`: com `carry`, o que sobrou (plan_leftovers, com os
+    mesmos ids: os momentos do Raio-X apontam as cenas pelo id); sem, em branco. O `_rev`
+    continua subindo (bump_session_plan, na gravação)."""
+    out = {**SESSION_PLAN_DEFAULT, 'scenes': [], 'secrets': [], 'npcIds': [], 'placeIds': []}
+    out['_rev'] = to_int((plan or {}).get('_rev'), 0, 10**9, 0) or 0
+    out['forSession'] = to_int(next_session, 1, 9999)
+    if carry:
+        out.update(plan_leftovers(plan))
+    return out
+
+
+def archive_payload(plan, session, scene_id=None):
+    """`data` da DiaryEntry do plano arquivado: o plano inteiro (sem o `_rev`), a cena que
+    estava "agora" ao encerrar (o rascunho do resumo a conta como jogada) e as contagens que
+    a lista da Crônica mostra (ela não manda o `plan`)."""
+    plan = plan if isinstance(plan, dict) else {}
+    keep = {k: plan.get(k, SESSION_PLAN_DEFAULT[k]) for k in PLAN_CONTENT_KEYS}
+    keep['forSession'] = to_int(plan.get('forSession'), 1, 9999)
+    if json_size(keep) > MAX_SESSION_PLAN_BYTES:
+        _bad('session_plan_too_large')
+    scenes = [s for s in keep['scenes'] or [] if _real_scene(s)]
+    secrets = [s for s in keep['secrets'] or [] if _real_secret(s)]
+    sid = short_id(scene_id, 40) or None
+    return {
+        'session': to_int(session, 0, 100000), 'sceneId': sid, 'plan': keep,
+        'counts': {
+            'scenes': len(scenes), 'played': sum(1 for s in scenes if s.get('done') or s.get('id') == sid),
+            'clues': len(secrets), 'found': sum(1 for s in secrets if s.get('discovered')),
+        },
+    }
+
+
+def _by_id_union(first, second):
+    """`first` inteira e, depois, o que de `second` tem um id que `first` não tem."""
+    first = [x for x in first or [] if isinstance(x, dict)]
+    ids = {x.get('id') for x in first}
+    return first + [x for x in second or [] if isinstance(x, dict) and x.get('id') not in ids]
+
+
+def restored_plan(current, archived):
+    """"Restaurar": o plano arquivado volta ao Plano. O que já estava no Plano e o arquivo
+    não tem (cenas e pistas por id, pessoas e lugares) fica junto, depois; os textos vazios do
+    arquivo ficam com os de agora. O plano continua sendo o da sessão que está sendo
+    preparada (`forSession` de agora). Passou do teto → 400."""
+    cur = merged_session_plan(current if isinstance(current, dict) else {}, {})
+    old = archived if isinstance(archived, dict) else {}
+    out = dict(cur)
+    for key in ('strongStart', 'monsters', 'rewards'):
+        if str(old.get(key) or '').strip():
+            out[key] = old[key]
+    out['scenes'] = _by_id_union(old.get('scenes'), cur.get('scenes'))[:30]
+    out['secrets'] = _by_id_union(old.get('secrets'), cur.get('secrets'))[:30]
+    for key in ('npcIds', 'placeIds'):
+        out[key] = _id_list(list(old.get(key) or []) + list(cur.get(key) or []), 60)
+    if not out.get('forSession'):
+        out['forSession'] = to_int(old.get('forSession'), 1, 9999)
+    snaps = sum(1 for sc in out['scenes'] for m in sc.get('fight') or [] if isinstance(m, dict) and m.get('snap'))
+    if snaps > MAX_SCENE_SNAPS:
+        _bad('too_many_scene_monsters')
+    if json_size(out) > MAX_SESSION_PLAN_BYTES:
+        _bad('session_plan_too_large')
+    return out
+
+
 # ------------------------------------------------------------------ Raio-X do grupo
 # Ajustes e momentos do Raio-X (Grupo › Raio-X), em Campaign.dm_settings.partyInsights.
 # Os gráficos são calculados no navegador do mestre com as fichas; aqui só fica o que

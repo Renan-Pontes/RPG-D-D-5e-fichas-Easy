@@ -101,6 +101,8 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/world/seen', views_world.world_seen),
     path('campaigns/<str:id_or_slug>/world/echoes', closed_guard(views_world.world_echoes, 'campaign')),
     path('campaigns/<str:id_or_slug>/session-plan', closed_guard(views_world.session_plan, 'campaign')),
+    path('campaigns/<str:id_or_slug>/session-plan/archive', closed_guard(views_world.session_plan_archive, 'campaign')),
+    path('campaigns/<str:id_or_slug>/session-plan/restore', closed_guard(views_world.session_plan_restore, 'campaign')),
     path('campaigns/<str:id_or_slug>/party-insights', closed_guard(views_insights.party_insights, 'campaign')),
     path('campaigns/<str:id_or_slug>/party-insights/history', views_insights.party_insights_history),
     path('world/<int:pk>', closed_guard(views_world.world_detail, 'world')),
@@ -112,6 +114,7 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/diary', closed_guard(views_diary.campaign_diary, 'campaign')),
     path('campaigns/<str:id_or_slug>/diary/sessions', closed_guard(views_diary.campaign_diary_start_session, 'campaign')),
     path('campaigns/<str:id_or_slug>/diary/sessions/<int:number>', closed_guard(views_diary.campaign_diary_session, 'campaign')),
+    path('campaigns/<str:id_or_slug>/diary/sessions/<int:number>/end', closed_guard(views_diary.campaign_diary_end_session, 'campaign')),
     path('campaigns/<str:id_or_slug>/diary/<int:entry_pk>', closed_guard(views_diary.campaign_diary_entry, 'campaign')),
 
     # Preparação do mestre (aventuras como mapa de salas/cenas) — só mestre
