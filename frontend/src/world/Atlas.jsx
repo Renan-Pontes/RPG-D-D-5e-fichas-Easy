@@ -211,11 +211,14 @@ export default function Atlas({
             <button type="button" className="mesa-btn mesa-btn-lg" disabled={moveBusy || movePos === 0} onClick={() => step(-1)}>
               <span aria-hidden="true">↑</span> {moveBusy ? '…' : t(lang, 'Mover para cima', 'Move up')}
             </button>
-            {movePos === 0 && <p className="wl-move-why">{t(lang, 'Já é o primeiro.', "It's already first.")}</p>}
             <button type="button" className="mesa-btn mesa-btn-lg" disabled={moveBusy || movePos === shown.length - 1} onClick={() => step(1)}>
               <span aria-hidden="true">↓</span> {moveBusy ? '…' : t(lang, 'Mover para baixo', 'Move down')}
             </button>
-            {movePos === shown.length - 1 && <p className="wl-move-why">{t(lang, 'Já é o último.', "It's already last.")}</p>}
+            {/* o motivo do botão desligado, numa linha de altura fixa embaixo dos dois: nada mexe debaixo do dedo */}
+            <p className="wl-move-why">
+              {movePos === 0 ? t(lang, '↑ desligado: já é o primeiro.', '↑ off: it is already first.')
+                : movePos === shown.length - 1 ? t(lang, '↓ desligado: já é o último.', '↓ off: it is already last.') : ''}
+            </p>
           </div>
         </MesaSheet>
       )}
