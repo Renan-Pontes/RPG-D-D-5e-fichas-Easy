@@ -16,7 +16,9 @@
 // parada valem só o J2 e o J1 (J3–J6 são da sessão ao vivo: "Pular" o J1 não mostra uma
 // cena para começar nem uma sessão para encerrar):
 //   J1 a sessão não começou ("Pronto para a Sessão N?", com a lista do que está de pé)
-//   J2 a sessão foi encerrada e a próxima não começou (o plano é o da sessão jogada)
+//   J2 a sessão foi encerrada (diarySessions[n].endedAt; num servidor de antes do endedAt, o
+//      plano ainda é o da sessão jogada) e a próxima não começou; com o resumo dela já salvo
+//      ("✓ resumo da N" no J1), vale o J1
 //   J3 ao vivo, o resumo da anterior ainda não foi à Tela e nenhuma cena começou
 //   J4 ao vivo, sem cena agora (a 1ª cena não feita, com o começo forte inteiro; com um
 //      combate andando, "Guardar para depois do combate" ao lado)
@@ -237,11 +239,13 @@ function nowRules({ campaign, plan, live = false, sceneNow = null, pulse = null,
   const next = cur + 1;
   const scenes = (plan?.scenes || []).filter(realScene);
   const open = scenes.filter(s => !s.done);
-  const started = !!(cur && state.diarySessions?.[String(cur)]?.startedAt);
+  const meta = (cur && state.diarySessions?.[String(cur)]) || {};
+  const started = !!meta.startedAt;
+  const ended = !!(meta.endedAt || pulse?.endedAt);
   const stale = planHeading(plan, { ...state, live: false }, lang).stale;
   if (live && sceneNow) return [];
   return [
-    () => (live || !started || !stale ? null : {
+    () => (live || !started || !(ended || stale) || recap?.has ? null : {
       id: 'J2', sig: `ended:${cur}`, canSkip: true,
       text: length ? tt(lang, `Sessão ${cur} encerrada · ${length}`, `Session ${cur} ended · ${length}`) : tt(lang, `Sessão ${cur} encerrada`, `Session ${cur} ended`),
       why: tt(lang, `O resumo vira o “Anteriormente em…” da Sessão ${next}.`, `The recap becomes session ${next}’s “Previously on…”.`),

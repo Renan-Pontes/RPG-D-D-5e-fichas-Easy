@@ -273,7 +273,7 @@ test('Agora: com a sessão parada só valem o J2 e o J1 ("Pular" não traz cart�
   const mem = new Map();
   const storage = { getItem: k => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, v) };
   // J2 › Pular › J1 › Pular › nada (nem "Comece pela primeira cena", nem J3/J5/J6)
-  const base = { where: 'now', campaign: stopped(), plan: played(), live: false, recap: { has: true, shown: false } };
+  const base = { where: 'now', campaign: stopped(), plan: played(), live: false, recap: { has: false, shown: false } };
   const j2 = nextStep(base);
   assert.equal(j2.id, 'J2');
   const j1 = nextStep({ ...base, skips: writeSkip(8, j2.id, j2.sig, storage) });
@@ -307,4 +307,19 @@ test('Agora: o J1 diz o que falta (fichas, Tela, resumo) e o Pular do J2 lembrad
   const skips = writeSkip(7, j2.id, j2.sig, storage);
   assert.equal(nextStep({ ...NOW_ROWS[1][1], skips }).id, 'J1');
   assert.deepEqual(readSkips(7, storage), { J2: 'ended:3' });
+});
+
+test('Agora (V12): J2 depois do Encerrar, com o plano da próxima já levado, até o resumo ser salvo', () => {
+  const ended = (over = {}) => camp({ state: { session: '3', diarySessions: { 3: { startedAt: T0, endedAt: '2026-10-24T20:10:00Z' } } }, ...over });
+  const next = { ...ready(), forSession: 4 };   // "Levar para a Sessão 4": o plano já é o da próxima
+  const j2 = nextStep({ where: 'now', campaign: ended(), plan: next, live: false, length: '2h10', recap: { has: false } });
+  assert.deepEqual([j2.id, j2.text, j2.action.id, j2.secondary.id], ['J2', 'Sessão 3 encerrada · 2h10', 'recap', 'preparePlan']);
+  // o endedAt do pulso também vale (a campanha completa ainda não chegou)
+  assert.equal(nextStep({ where: 'now', campaign: stopped(), plan: next, live: false, pulse: { endedAt: '2026-10-24T20:10:00Z' } }).id, 'J2');
+  // resumo da 3 salvo: o J1, com "✓ resumo da 3"
+  const j1 = nextStep({ where: 'now', campaign: ended(), plan: next, live: false, recap: { has: true } });
+  assert.equal(j1.id, 'J1');
+  assert.deepEqual(j1.items.find(x => x.id === 'recap'), { id: 'recap', ok: true, text: 'resumo da 3' });
+  // sem endedAt e com o plano da próxima (encerrada à moda antiga, plano novo): J1
+  assert.equal(nextStep({ where: 'now', campaign: stopped(), plan: next, live: false }).id, 'J1');
 });

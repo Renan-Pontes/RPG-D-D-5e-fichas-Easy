@@ -13,7 +13,7 @@ export const DIARY_TYPES = [
   { id: 'reveal',  icon: '👁',  pt: 'Revelações', en: 'Reveals', match: e => e.subtype === 'reveal' },
 ];
 
-const ICONS = { summary: '📜', custom: '•', levelgrant: '✨' };
+const ICONS = { summary: '📜', custom: '•', levelgrant: '✨', plan: '📋' };
 
 export function entryIcon(entry) {
   if (ICONS[entry.subtype]) return ICONS[entry.subtype];
@@ -202,7 +202,10 @@ export function entryTitle(entry, lang = 'pt') {
     return e.title || '';
   }
   switch (e.subtype) {
-    case 'session': return d.session != null ? `Session ${d.session} started${d.title ? ` — ${d.title}` : ''}` : e.title;
+    case 'session':
+      if (d.phase === 'end') return d.session != null ? `Session ${d.session} ended${d.length ? ` · ${d.length}` : ''}` : e.title;
+      return d.session != null ? `Session ${d.session} started${d.title ? ` — ${d.title}` : ''}` : e.title;
+    case 'plan': return d.session != null ? `Session ${d.session} plan` : e.title;
     case 'combat': return d.phase === 'start' ? 'Combat started' : d.phase === 'end' ? 'Combat ended' : e.title;
     case 'levelup': return d.characterName ? `${d.characterName} reached level ${d.level}` : e.title;
     case 'levelgrant': {
@@ -257,15 +260,94 @@ export function pickRecapGroup(groups) {
   return found ? found.key : null;
 }
 
+// ------------------------------------------------------------------ o rascunho rico (V12)
+const sceneName = (s) => String(s?.text || '').split('\n')[0].trim();
+const realScene = (s) => !!s && (!!sceneName(s) || !!s.nodeRef);
+
 /**
- * Rascunho do "Anteriormente em…" em prosa (sem IA), para ler à mesa e
- * mostrar no telão. Ignora entradas ocultas e resumos anteriores.
- * opts: { lang, session, title, campaignName }  →  { title, text }
+ * As cenas jogadas de um plano: as feitas (✓) e a que estava "agora" (`sceneId`), na ordem
+ * do plano — as que o resumo cita. (A de "agora" sem ✓ foi interrompida: ela também passa
+ * para a Sessão N+1 com "Levar o que sobrou".)
+ */
+export function playedScenes(plan, sceneId = null) {
+  return (plan?.scenes || []).filter(s => realScene(s) && (s.done || (sceneId && s.id === sceneId)));
+}
+
+/** Os testes pedidos durante a sessão (entre o startedAt e o endedAt dela). */
+export function sessionChecks(checks, startedAt, endedAt = null) {
+  const t0 = Date.parse(startedAt || '') || 0;
+  const t1 = Date.parse(endedAt || '') || Infinity;
+  return (checks || []).filter(c => {
+    const at = Date.parse(c?.createdAt || '') || 0;
+    return c && at >= t0 && at <= t1;
+  });
+}
+
+/**
+ * "Percepção CD 15: 3 de 4 passaram" (a CD secreta fica de fora: o texto vai à Tela; sem CD,
+ * só quantos responderam). Ninguém respondeu → ''.
+ */
+export function checkResultLine(check, lang = 'pt') {
+  const targets = check?.targets || [];
+  const answered = targets.filter(t => t.response).length;
+  if (!answered) return '';
+  const passed = targets.filter(t => t.outcome === 'pass').length;
+  const label = String(check.label || '').trim() || T(lang, 'Teste', 'Check');
+  const dc = Number.isInteger(check.dc) && !check.dcHidden ? ` ${T(lang, 'CD', 'DC')} ${check.dc}` : '';
+  if (!Number.isInteger(check.dc)) return `${label}: ${T(lang, `${answered} ${answered === 1 ? 'respondeu' : 'responderam'}`, `${answered} answered`)}`;
+  return `${label}${dc}: ${T(lang, `${passed} de ${targets.length} ${passed === 1 ? 'passou' : 'passaram'}`, `${passed} of ${targets.length} passed`)}`;
+}
+
+/** O que foi mostrado na Tela (diarySessions[n].shown, sem cenas, resumos e textos soltos). */
+export function shownNames(shown) {
+  const out = [];
+  for (const x of shown || []) {
+    if (!x || !['card', 'image'].includes(x.k)) continue;
+    const name = String(x.t || '').trim();
+    if (name && !out.includes(name)) out.push(name);
+  }
+  return out;
+}
+
+const MOMENT_ICON = { shine: '★', push: '↗', hook: '✎' };
+
+/**
+ * "Momentos da noite" (só o mestre vê; nunca entra no texto, que vai à Tela): por
+ * personagem, quantos testes ele respondeu na sessão e os momentos dele (✓ = aconteceu
+ * nesta sessão). Sem momento hoje → `warn` ("levar para a Sessão N+1?").
+ * party = [{id, name}] · spotlights = {id: [momento]} · checks = os da sessão
+ */
+export function nightMoments({ party = [], spotlights = {}, checks = [], session = null } = {}) {
+  return party.map(p => {
+    const tests = (checks || []).filter(c => (c.targets || []).some(t => t.characterId === p.id && t.response)).length;
+    const list = (spotlights?.[String(p.id)] || []).filter(m => m.done == null || m.done === session);
+    const moments = list.map(m => ({ icon: MOMENT_ICON[m.kind] || '★', text: String(m.text || '').trim(), done: m.done != null && m.done === session }));
+    return { id: p.id, name: p.name, tests, moments, warn: !moments.some(m => m.done) };
+  });
+}
+
+/** "Pipo · 4 testes · ★ fechadura ✓" / "Kaelor · 0 testes · ⚠ sem momento hoje". */
+export function nightMomentLine(row, lang = 'pt') {
+  const first = String(row.name || '').trim().split(/\s+/)[0] || row.name;
+  const tests = T(lang, `${row.tests} ${row.tests === 1 ? 'teste' : 'testes'}`, `${row.tests} ${row.tests === 1 ? 'check' : 'checks'}`);
+  const moments = row.moments.filter(m => m.done || row.warn).slice(0, 2).map(m => `${m.icon} ${m.text}${m.done ? ' ✓' : ''}`);
+  const parts = [first, tests, ...moments];
+  if (row.warn) parts.push(T(lang, '⚠ sem momento hoje', '⚠ no moment tonight'));
+  return parts.join(' · ');
+}
+
+/**
+ * Rascunho do "Anteriormente em…" (o Resumo da sessão) em prosa (sem IA), para ler à
+ * mesa e mostrar na Tela. Ignora entradas ocultas e resumos anteriores. Com o plano da
+ * sessão, os testes e o que foi à Tela (V12), cita as cenas jogadas, os testes com o
+ * resultado e o que foi mostrado; os combates (rodadas, derrotados, quedas), as revelações
+ * e os críticos vêm da Crônica.
+ * opts: { lang, session, title, campaignName, plan, sceneId, checks, shown }  →  { title, text }
  */
 export function buildRecap(entries, opts = {}) {
   const lang = opts.lang || 'pt';
   const list = [...(entries || [])]
-    .filter(e => !e.hidden && e.subtype !== 'summary' && e.subtype !== 'session')
+    .filter(e => !e.hidden && e.subtype !== 'summary' && e.subtype !== 'session' && e.subtype !== 'plan')
     .sort((a, b) => String(a.occurredAt).localeCompare(String(b.occurredAt)));
 
   const sentences = [];
@@ -329,7 +411,15 @@ export function buildRecap(entries, opts = {}) {
       + listJoin([...levels].map(([n, l]) => `${n} (${T(lang, 'nível', 'level')} ${l})`), lang) + '.');
   }
   const paragraphs = [];
+  const played = playedScenes(opts.plan, opts.sceneId).map(sceneName).filter(Boolean);
+  if (played.length) paragraphs.push(played.slice(0, 12).map(n => `✓ ${n}`).join('\n'));
   if (sentences.length) paragraphs.push(sentences.join(' '));
+  const tests = (opts.checks || []).map(c => checkResultLine(c, lang)).filter(Boolean);
+  const onScreen = shownNames(opts.shown);
+  const facts = [];
+  if (tests.length) facts.push(`${T(lang, 'Testes', 'Checks')}: ${tests.slice(0, 6).join('; ')}.`);
+  if (onScreen.length) facts.push(`${T(lang, 'Na Tela', 'On screen')}: ${listJoin(onScreen.slice(0, 8), lang)}.`);
+  if (facts.length) paragraphs.push(facts.join('\n'));
   if (notes.length) paragraphs.push(notes.slice(0, 6).map(n => `• ${n}`).join('\n'));
   if (!paragraphs.length) {
     paragraphs.push(T(lang, 'Escreva aqui o que aconteceu na última sessão…', 'Write here what happened last session…'));
