@@ -86,6 +86,45 @@ export const stageDark = (campaignId, on = true) => stageOp(campaignId, { op: 'd
 export const stageBg = (campaignId, bg) => stageOp(campaignId, { op: 'bg', bg });
 export const stagePrefs = (campaignId, prefs) => stageOp(campaignId, { op: 'prefs', prefs });
 
+/**
+ * ▶ Começar esta cena (V7): POST /campaigns/:id/stage/scene {sceneId, show?, focus?, log?}
+ * → {stage, changed, shown, scene, sceneId, doneId, undo}. O servidor grava o nome da cena,
+ * o id (só o mestre lê), a sala atual da aventura, a cena anterior feita e, com "Mostrar ao
+ * começar", põe a cena na frente da Tela.
+ * Servidor ainda sem a rota (404 em HTML): o nome vai ao `state.scene` (o "Usar como cena"
+ * de antes) e, com `show`, a cena do plano vai à Tela pelo palco — `legacy: true`; o
+ * ↶ Desfazer volta o nome de antes (e a Tela). `fallback` = {name, prevScene, show}.
+ */
+export async function startSceneOnStage(campaignId, body, fallback = {}) {
+  try {
+    const r = await request(`/api/campaigns/${cid(campaignId)}/stage/scene`, { method: 'POST', body });
+    emit(campaignId, r?.stage);
+    return r;
+  } catch (e) {
+    if (!isOldServer(e)) throw e;
+    const name = String(fallback.name || '').slice(0, 200);
+    await request(`/api/campaigns/${cid(campaignId)}/state`, { method: 'PATCH', body: { patch: { scene: name } } });
+    let changed = false;
+    if (fallback.show) {
+      try { changed = (await showOnStage(campaignId, { kind: 'scene', sceneId: body.sceneId })).changed !== false; } catch { /* só o nome */ }
+    }
+    return { legacy: true, changed, shown: changed, scene: name, sceneId: body.sceneId,
+      undo: { legacy: true, scene: String(fallback.prevScene || ''), stage: changed } };
+  }
+}
+
+/** ↶ Desfazer do ▶ Começar esta cena (o `undo` que a resposta trouxe). */
+export async function undoSceneStart(campaignId, undo) {
+  if (undo?.legacy) {
+    await request(`/api/campaigns/${cid(campaignId)}/state`, { method: 'PATCH', body: { patch: { scene: undo.scene || '' } } });
+    if (undo.stage) await stageUndo(campaignId);
+    return { legacy: true };
+  }
+  const r = await request(`/api/campaigns/${cid(campaignId)}/stage/scene`, { method: 'POST', body: { undo } });
+  emit(campaignId, r?.stage);
+  return r;
+}
+
 /** O teste na Tela (sobreposição). → {check} */
 export function showCheckOnStage(checkId, show) {
   return request(`/api/checks/${checkId}/screen`, { method: 'POST', body: { show } });

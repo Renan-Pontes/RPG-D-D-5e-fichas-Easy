@@ -19,13 +19,20 @@
 // `pulse.tableRollsRev` (tableRollsRev(), V15) mudam.
 // Servidor sem /pulse (deploy fora de ordem): `missing` → a casca volta ao GET
 // completo a cada 2,5 s, como antes.
+// Jogador (V13): a mesma loja lê o pulso DELE (a mesma rota; o servidor manda a
+// projeção do jogador: a vez no combate, `checksRev`, `rollsRev`). Vai por outro
+// contexto (usePlayerPulse), porque useTable() quer dizer "a mesa do mestre" para
+// quem lê. Servidor antigo (o pulso dá 403 ao jogador): `missing`, e a Mesa volta
+// ao GET completo de 2,5 s e à lista de testes de 3 s, sem a faixa do combate.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
-import { errorMessage } from '../api/errors.js';
+import { errorMessage, isOldServer } from '../api/errors.js';
 import { STAGE_EVENT, STAGE_SENDING_EVENT, STAGE_SENT_EVENT } from '../stage/stage-api.js';
 import { frontLabel, L } from '../stage/stage-now.js';
 import { combatSummary, offlineSeconds, SENT_SHOW_MS, staleText, turnLine } from '../stage/table-bar-model.js';
 import { flash } from './flash.js';
+import { newOpId } from './damage-model.js';
+import { legacyStart } from './combat-actions.js';
 
 export { tableRollsRev } from '../stage/table-bar-model.js';
 
@@ -36,6 +43,9 @@ const TV_LOCAL_TTL = 30_000;
 export const TableContext = createContext(null);
 /** A loja da mesa (null fora da casca do mestre: quem usa cai no comportamento antigo). */
 export const useTable = () => useContext(TableContext);
+export const PlayerPulseContext = createContext(null);
+/** A loja com o pulso do jogador (null para o mestre e fora da campanha). */
+export const usePlayerPulse = () => useContext(PlayerPulseContext);
 
 function emitCombat(campaignId, combat) {
   if (!combat || typeof window === 'undefined') return;
@@ -259,11 +269,21 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse, fullIns
   const turnRef = useRef(turn);
   turnRef.current = turn;
 
-  /** ▶ Iniciar (combate montado e parado). */
+  /**
+   * ▶ Iniciar (combate montado e parado). V8: pelo POST /encounter com `fromCheck`, que
+   * põe na ordem as respostas do teste de iniciativa aberto (quem não respondeu fica
+   * com 10 e "✎"); servidor antigo (404 em HTML): o /start de antes.
+   */
   const startCombat = useCallback(async () => {
     if (busyRef.current || id == null || closedRef.current) return;
     busyRef.current = 'start'; setBusy('start');
-    try { const r = await api.startCombat(id); applyCombat(r?.combat); }
+    try {
+      let r;
+      try { r = await api.combatEncounter(id, { opId: newOpId(), start: true, fromCheck: true }); }
+      // servidor antigo: as respostas do teste de iniciativa aberto entram na ordem antes do /start
+      catch (e) { if (!isOldServer(e)) throw e; r = await legacyStart(id); }
+      applyCombat(r?.combat);
+    }
     catch (e) { failed(e, () => startRef.current()); }
     finally { busyRef.current = ''; setBusy(''); refresh(); }
   }, [id, applyCombat, failed, refresh]);
@@ -324,4 +344,26 @@ export function useOnRev(rev, fn, { table, fallbackMs = 2500, safetyMs = 60_000,
     return () => { alive = false; clearTimeout(timer); };
   }, [pulsing, fallbackMs, safetyMs, initial]);
   return useCallback((key) => { if (seen.current !== undefined && key != null) seen.current = key; }, []);
+}
+
+/**
+ * Um recurso da mesa lido por versão do pulso (§4.10, "uma fonte por recurso"): busca ao
+ * abrir e de novo só quando `rev` muda — sem busca de segurança (a versão cobre o que ele
+ * traz: o plano pelo `planRev`, o Mundo pelo `worldRev`, as salas pelo `advRev`, os testes
+ * pelo `checksRev`, o combate pela `combat.ver`). Sem o pulso (servidor antigo, fora da
+ * casca), a cada `fallbackMs`, como antes. `enabled: false` não busca nada.
+ * → [data (undefined = ainda não chegou), reload, setData]
+ */
+export function useRevData(rev, fetcher, { table, fallbackMs = 8000, enabled = true, key = '' } = {}) {
+  const [data, setData] = useState(undefined);
+  const fnRef = useRef(fetcher);
+  fnRef.current = fetcher;
+  const load = useCallback(async () => {
+    if (!enabled) return;
+    try { setData(await fnRef.current()); } catch { /* fica o último; a próxima versão tenta de novo */ }
+  }, [enabled]);
+  // ao abrir (e ao trocar o que se lê: `key`)
+  useEffect(() => { if (enabled) load(); else setData(undefined); }, [enabled, key, load]);
+  useOnRev(enabled ? rev : null, load, { table, fallbackMs: enabled ? fallbackMs : Infinity, safetyMs: Infinity, initial: false });
+  return [data, load, setData];
 }

@@ -13,12 +13,16 @@
 // 304 parado); o GET completo só vem quando `pulse.rev` muda (e 1 vez por minuto,
 // de segurança). A loja da mesa vai por contexto (useTable) para a barra da mesa
 // (celular), a janela da Tela (PC), a folha Tela ao vivo, a faixa do turno do PC,
-// Jogar › Combate e o selo de Testes. Jogador: o GET completo a cada 2,5 s, como antes.
+// Jogar › Combate e o selo de Testes.
+// Jogador (V13): o pulso DELE na mesma loja (a vez no combate, os testes e os pedidos
+// dele), no lugar do GET completo de 2,5 s; vai às áreas por PlayerPulseContext (a
+// faixa do combate da Mesa e a lista de testes, que só é buscada quando o checksRev
+// muda). [Ir para a minha ficha] chama onOpenSheet(id da ficha) do app.
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { usePolling } from '../api/polling.js';
-import { TableContext, useTableStore } from '../play/table-store.js';
+import { PlayerPulseContext, TableContext, useOnRev, useTableStore } from '../play/table-store.js';
 import { clearDiceTable, setDiceTable } from '../dice/dice-table.js';
 import useMedia from '../play/useMedia.js';
 import TableBar from '../stage/TableBar.jsx';
@@ -28,7 +32,6 @@ import { listWorld, createSampleWorld, getSessionPlan } from '../world/world-api
 import CampaignHeader from '../shell/CampaignHeader.jsx';
 import AreaNav from '../shell/AreaNav.jsx';
 import Onboarding from '../shell/Onboarding.jsx';
-import MesaSheet from '../shell/MesaSheet.jsx';
 import { AreaContext, legacyNavigate } from '../shell/useArea.js';
 import {
   AreaBoundary, ChronicleView, GroupFallback, Loading, PlayFallback, PlayerGroupFallback,
@@ -36,7 +39,7 @@ import {
 } from '../shell/Fallbacks.jsx';
 import {
   areasFor, areaTapSub, campaignRoute, groupBadgeCount, initialArea, isHexColor, loadRememberedArea, normalizeArea, onboardingStatus,
-  onboardingVisible, parseCampaignRoute, planHasContent, saveRememberedArea, screenLink, t,
+  onboardingVisible, parseCampaignRoute, planCardSummary, planFlags, prepareMarks, saveRememberedArea, savePlanCard, screenLink, t,
 } from '../shell/shell-logic.js';
 import '../shell/mesa.css';
 import '../shell/shell.css';
@@ -45,6 +48,11 @@ const SettingsMenu = lazy(() => import('../shell/SettingsMenu.jsx'));
 const LiveScreenSheet = lazy(() => import('../stage/LiveScreenSheet.jsx'));
 const MoreSheet = lazy(() => import('../shell/MoreSheet.jsx'));
 const QuickSearch = lazy(() => import('../shell/QuickSearch.jsx'));
+const StartSessionSheet = lazy(() => import('../play/StartSessionSheet.jsx'));
+const EndSessionSheet = lazy(() => import('../play/EndSessionSheet.jsx'));
+const RecapEditor = lazy(() => import('../play/RecapEditor.jsx'));
+const EndOfEncounterPanel = lazy(() => import('./EndOfEncounterPanel.jsx'));
+const GmGuide = lazy(() => import('../shell/GmGuide.jsx'));
 
 // Áreas novas: detectadas em tempo de build. Arquivo ausente → fallback.
 const MODULES = import.meta.glob([
@@ -69,18 +77,22 @@ const FULL_SAFETY_MS = 60_000;   // GET completo de segurança do mestre, mesmo 
 const CORNER_KEY = 'forja:win-corner';
 const readCorner = () => { try { return localStorage.getItem(CORNER_KEY) === 'left' ? 'left' : 'right'; } catch { return 'right'; } };
 
-export default function CampaignDetail({ lang = 'pt', campaignId, onBack, characters = [] }) {
+export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpenSheet, characters = [] }) {
   const [campaign, setCampaign] = useState(null);
   const [error, setError] = useState('');
   const [nav, setNav] = useState(null);           // {area, sub, params}
   const [worldEpoch, setWorldEpoch] = useState(0); // muda ao esvaziar o Mundo → remonta a área
   const [world, setWorld] = useState(null);       // {entries, count, max} (mestre)
-  const [planHas, setPlanHas] = useState(false);
+  const [planInfo, setPlanInfo] = useState(null);  // {has, blank} do plano (Primeiros passos e o "!" de Preparar)
   const [search, setSearch] = useState(false);
   const [settings, setSettings] = useState(null); // null = fechado; senão a seção ('identity', 'danger', 'dice'…)
   const [more, setMore] = useState(false);         // folha "Mesa do mestre" (casa "Mais" do celular)
-  const [ending, setEnding] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [ending, setEnding] = useState(false);      // folha "Encerrar a Sessão N" (V12)
+  const [recapFor, setRecapFor] = useState(null);   // o editor do resumo aberto pelo Encerrar: {session, context}
+  const [wrapUp, setWrapUp] = useState(null);       // o fim de encontro guiado do Encerrar: {combat, then}
+  const [starting, setStarting] = useState(false);  // folha "Começar a Sessão N" (V7)
+  const [guide, setGuide] = useState(null);         // o Guia do mestre aberto: o nº do cartão (V14)
+  const busy = ending || starting;                  // a capa e o Mais não abrem outra folha de sessão por cima
   const [groupPending, setGroupPending] = useState(null);
   const [toast, setToast] = useState('');
   const [sampleBusy, setSampleBusy] = useState(false);
@@ -93,7 +105,6 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   const twoCols = useMedia('(min-width: 1024px)');     // Agora e Combate em colunas: a janela encaixa
   const toastTimer = useRef(null);
   const lastFullAt = useRef(0);
-  const isDMRef = useRef(false);
 
   const say = useCallback((msg) => {
     setToast(msg);
@@ -106,7 +117,6 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     try {
       const r = await api.getCampaign(campaignId);
       lastFullAt.current = Date.now();
-      isDMRef.current = r.campaign?.role === 'dm';
       setCampaign(r.campaign);
       setError('');
       return true;
@@ -123,13 +133,14 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   }, [campaignId]);
 
   const isDM = campaign?.role === 'dm';
-  // Mestre: o pulso; o GET completo quando o `rev` muda (ou a cada minuto, de segurança:
-  // esse entra no lugar do pulso daquele tick, para o minuto não ter 1 pedido a mais).
+  // Mestre e jogador: o pulso (cada um recebe o seu); o GET completo quando o `rev` muda
+  // (ou a cada minuto, de segurança: esse entra no lugar do pulso daquele tick, para o
+  // minuto não ter 1 pedido a mais).
   const onPulse = useCallback((p, { revChanged }) => {
     if (revChanged) load();
   }, [load]);
   const fullInstead = useCallback(() => Date.now() - lastFullAt.current > FULL_SAFETY_MS, []);
-  const table = useTableStore(campaign, { enabled: isDM, lang, onPulse, fullInstead, onFull: load });
+  const table = useTableStore(campaign, { enabled: !!campaign, lang, onPulse, fullInstead, onFull: load });
   const pulsing = table.enabled;
   // O 🎲 do mestre na mesa (V10, dice/dice-table.js): o rolador global passa a saber a
   // campanha e a regra "Do mestre" do palco (🔒 Só eu · 📺 Na tela).
@@ -150,9 +161,9 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     langSent.current = key;
     api.patchCampaign(campaign.id, { lang }).catch(() => { /* fica para a próxima troca de idioma */ });
   }, [isDM, campaign?.id, campaign?.lang, campaign?.status, lang]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Jogador (e o mestre sem o pulso no servidor): o GET completo a cada 2,5 s, como antes.
+  // Sem o pulso (servidor antigo; o jogador recebe 403 dele): o GET completo a cada 2,5 s, como antes.
   usePolling(async () => {
-    if (isDMRef.current && pulsing) return;
+    if (pulsing) return;
     await load();
   }, 2500, [campaignId, pulsing]);
 
@@ -162,23 +173,45 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     catch { setWorld(w => w || { entries: [], count: 0, max: 500 }); }
   }, [campaign?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Dados de apoio do mestre: lista leve do Mundo (onboarding + busca) e plano.
+  // Dados de apoio do mestre: lista leve do Mundo (onboarding + busca).
   useEffect(() => {
     if (!campaign?.id || !isDM) return;
     loadWorld();
-    if (!campaign.onboarding?.dismissed) {
-      getSessionPlan(campaign.id).then(p => setPlanHas(planHasContent(p))).catch(() => {});
-    }
   }, [campaign?.id, isDM]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // O plano (Primeiros passos e o "!" de Preparar): 1 GET quando a área inicial é decidida;
+  // depois, só quando o `planRev` do pulso muda fora da sessão ao vivo (ao vivo o selo some)
+  // e fora do Plano (o Plano aberto avisa a cada mudança por `onPlan`, sem GET).
+  const navRef = useRef(null);
+  navRef.current = nav;
+  const campRef = useRef(null);
+  campRef.current = campaign;
+  const reportPlan = useCallback((plan) => {
+    const f = planFlags(plan);
+    setPlanInfo(prev => (prev && f && prev.has === f.has && prev.blank === f.blank ? prev : f));
+    // a linha "Plano da Sessão 5: 2 cenas" do cartão da campanha (V14): guardada no aparelho,
+    // porque a lista de campanhas não traz o plano
+    const c = campRef.current;
+    if (c?.id) savePlanCard(c.id, planCardSummary(plan, c.state));
+  }, []);
+  const fetchPlan = useCallback(() => {
+    if (!campaign?.id || !isDM || campaign.status === 'closed') return;
+    if (navRef.current?.area === 'prepare' && navRef.current?.sub === 'next') return;
+    getSessionPlan(campaign.id).then(reportPlan).catch(() => { /* sem o plano: sem selo */ });
+  }, [campaign?.id, campaign?.status, isDM, reportPlan]);
+  useEffect(() => { if (nav) fetchPlan(); }, [campaign?.id, isDM, !!nav]); // eslint-disable-line react-hooks/exhaustive-deps
+  const liveNow = table.pulse ? !!table.pulse.live : !!campaign?.state?.live;
+  useOnRev(liveNow ? 'live' : table.pulse?.planRev, fetchPlan, { table, fallbackMs: Infinity, safetyMs: Infinity, initial: false });
+
+  const planHas = !!planInfo?.has;
   const obStatus = useMemo(() => (isDM && campaign
     ? onboardingStatus(campaign, { worldCount: world?.count || 0, planHasContent: planHas })
     : null), [isDM, campaign, world?.count, planHas]);
 
-  // Área inicial (uma vez por campanha, quando os dados chegam).
+  // Área inicial (uma vez por campanha, quando os dados chegam). Sem nada lembrado, o
+  // mestre cai em Preparar › Plano (as 3 portas), não mais no Mundo dos primeiros passos.
   useEffect(() => {
     if (!campaign || nav) return;
-    if (isDM && world == null) return; // espera o Mundo para decidir pelo onboarding
     let alive = true;
     (async () => {
       let combatActive = false;
@@ -191,14 +224,13 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
       const fromUrl = route && (route.slug === campaign.slug || route.slug === String(campaign.id)) ? route : null;
       const first = initialArea({
         isDM, live: !!campaign.state?.live, combatActive,
-        onboardingPending: onboardingVisible(obStatus),
         remembered: loadRememberedArea(campaign.id),
         fromUrl,
       });
       setNav({ ...first, params: {} });
     })();
     return () => { alive = false; };
-  }, [campaign, isDM, world, nav, obStatus]);
+  }, [campaign, isDM, nav]);
 
   // Mantém a URL em dia com a tela (replaceState: não enche o histórico).
   useEffect(() => {
@@ -264,21 +296,22 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     } catch (e) { say(errorMessage(e, lang)); } finally { setSampleBusy(false); }
   };
 
-  // Sessão: começar / encerrar.
-  const startSession = async () => {
-    setBusy(true);
-    try { await api.startDiarySession(campaign.id, {}); await load(); goTo('play', 'scene'); }
-    catch (e) { say(errorMessage(e, lang)); } finally { setBusy(false); }
-  };
-  const endSession = async (withRecap) => {
-    setBusy(true);
-    try {
-      await api.patchCampaignState(campaign.id, { live: false });
-      await load();
-      setEnding(false);
-      if (withRecap) goTo('group', 'chronicle', { recap: true });
-      else say(t(lang, 'Sessão encerrada. Bom jogo!', 'Session ended. Good game!'));
-    } catch (e) { say(errorMessage(e, lang)); } finally { setBusy(false); }
+  // Sessão: começar (a folha pergunta onde começa e o "Anteriormente em…", V7) / encerrar.
+  const startSession = () => setStarting(true);
+  const afterStart = async () => { setStarting(false); await load(); goTo('play', 'scene'); };
+  // ■ Encerrar (V12): a folha manda tudo numa chamada; depois a casca recarrega e vai para a
+  // Agora (o cartão J2 "Sessão N encerrada"). Com o fim de encontro guiado ligado, o painel
+  // dele abre antes; "Encerrar e escrever o resumo" abre o editor JÁ ABERTO, com o rascunho.
+  const afterEnd = async ({ withRecap, session, plan, sceneId, doneBefore, combat, old, momentsLost }) => {
+    setEnding(false);
+    await load();
+    goTo('play', 'scene');
+    const recap = withRecap ? { session, context: { plan, sceneId, doneBefore } } : null;
+    if (combat) setWrapUp({ combat, then: recap });
+    else if (recap) setRecapFor(recap);
+    if (old && momentsLost) say(t(lang, 'Sessão encerrada. O plano ficou como estava e os momentos não foram marcados: falta atualizar o servidor.', 'Session ended. The plan stayed as it was and the moments were not marked: the server needs an update.'));
+    else if (old) say(t(lang, 'Sessão encerrada. O plano ficou como estava: falta atualizar o servidor para guardar e levar.', 'Session ended. The plan stayed as it was: the server needs an update to keep and carry it.'));
+    else if (!withRecap) say(t(lang, 'Sessão encerrada. Bom jogo!', 'Session ended. Good game!'));
   };
   // Da folha "Mais" para outra janela: fecha a folha primeiro (o foco volta à
   // casa "Mais") e abre a próxima no tick seguinte, que devolve o foco para lá.
@@ -346,10 +379,12 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   const showBar = isDM && mobile && barVisible(vis);
   const win = isDM && !mobile ? windowMode({ ...vis, forced: !!winLiveAt }) : 'hidden';
   const tableCtx = isDM ? { ...tableValue, win, bar: showBar } : null;
-  // Selos de Jogar: "● ao vivo" e "⚔" com combate ativo (texto para o leitor de tela).
+  // Selos: Jogar "● ao vivo" e "⚔" com combate ativo; Preparar "!" com o plano em branco
+  // fora da sessão ao vivo (texto para o leitor de tela).
   const marks = isDM ? {
     play: [vis.live && { k: 'live', icon: '●', label: t(lang, 'ao vivo', 'live') },
       fighting && { k: 'combat', icon: '⚔', label: t(lang, 'combate', 'combat') }].filter(Boolean),
+    prepare: prepareMarks({ flags: planInfo, live: vis.live, closed: vis.closed, lang }),
   } : {};
   const openActor = (id) => { setLiveOpen(false); goTo('play', 'combat', { actor: id, at: Date.now() }); };
   const endCombatFromBar = () => goTo('play', 'combat', { endCombat: Date.now() });
@@ -366,10 +401,17 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     onChange: load, onOpenTab: legacyNav, onNavigate: legacyNav,
     // jogador saiu da mesa (Grupo › ⋯ › Sair da campanha): volta para Campanhas
     onLeaveCampaign: isDM ? undefined : onBack,
+    // [Ir para a minha ficha] da faixa do combate (V13)
+    onOpenSheet: isDM ? undefined : onOpenSheet,
   };
   const ctx = {
     area: nav.area, sub: nav.sub, params: nav.params, goTo, clearParams, isDM, lang, campaign, reload: load,
+    startSession: isDM ? startSession : undefined,   // o "▶ Começar a Sessão N" do Plano e da Agora é o mesmo da capa
+    endSession: isDM ? () => setEnding(true) : undefined,
+    onPlan: isDM ? reportPlan : undefined,           // o Plano aberto: o "!" de Preparar sem GET
     openSearch: () => setSearch(true), openSettings: (section) => { setSettings(typeof section === 'string' ? section : 'identity'); if (isDM) loadWorld(); },
+    // o Guia do mestre (V14): o "?" do cartão "O que fazer agora" e o "O que mudou" abrem
+    openGuide: isDM ? (i) => setGuide(Number.isInteger(i) ? i : 0) : undefined,
   };
 
   const content = isDM ? renderDM(nav.area, areaProps, { setGroupPending }) : renderPlayer(nav.area, areaProps);
@@ -377,6 +419,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   return (
     <AreaContext.Provider value={ctx}>
      <TableContext.Provider value={tableCtx}>
+     <PlayerPulseContext.Provider value={isDM ? null : table}>
       <div className={`campaign-detail shell ${isDM ? 'is-dm' : 'is-player'}`} style={accent ? { '--camp-accent': accent } : undefined}>
         <CampaignHeader
           campaign={campaign} lang={lang} isDM={isDM} busy={busy} onBack={onBack}
@@ -429,7 +472,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
           <Suspense fallback={null}>
             <QuickSearch campaign={campaign} lang={lang} isDM={isDM} initialWorld={world?.entries}
               onClose={() => setSearch(false)}
-              onPick={(r) => { setSearch(false); goTo(r.go[0], r.go[1], r.go[2]); }} />
+              onPick={(r) => { setSearch(false); if (r.guide != null) setGuide(r.guide); else goTo(r.go[0], r.go[1], r.go[2]); }} />
           </Suspense>
         )}
         {more && isDM && (
@@ -445,6 +488,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
               onTvOpened={() => markOnboarding('tv')} onScreenChange={load}
               onChooseScreen={fromMore(() => goTo('play', 'screen'))}
               onOpenLive={fromMore(() => setLiveOpen(true))}
+              onGuide={fromMore(() => setGuide(0))}
               barPrefs={barPrefs} onBarPrefs={setBarPrefs} />
           </Suspense>
         )}
@@ -455,9 +499,39 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
               onWorldCleared={async () => { await loadWorld(); setWorldEpoch(e => e + 1); }} />
           </Suspense>
         )}
-        {ending && <EndSessionDialog lang={lang} busy={busy} onCancel={() => setEnding(false)} onEnd={endSession} />}
+        {ending && isDM && (
+          <Suspense fallback={null}>
+            <EndSessionSheet campaign={campaign} lang={lang} pulse={table.pulse} onClose={() => setEnding(false)} onEnded={afterEnd} />
+          </Suspense>
+        )}
+        {wrapUp && isDM && (
+          <Suspense fallback={null}>
+            <EndOfEncounterPanel campaign={campaign} combat={wrapUp.combat} lang={lang} onNavigate={legacyNav}
+              onClose={() => { const then = wrapUp.then; setWrapUp(null); if (then) setRecapFor(then); }} onChange={load} />
+          </Suspense>
+        )}
+        {recapFor && isDM && (
+          <Suspense fallback={null}>
+            <RecapEditor campaign={campaign} lang={lang} session={recapFor.session} context={recapFor.context} dock="play"
+              onClose={() => setRecapFor(null)} onSaved={() => setRecapFor(null)} />
+          </Suspense>
+        )}
+        {starting && isDM && (
+          <Suspense fallback={null}>
+            <StartSessionSheet campaign={campaign} lang={lang} tvLive={table.tvLive} onClose={() => setStarting(false)}
+              onStarted={afterStart} onTvLink={() => markOnboarding('tv')} />
+          </Suspense>
+        )}
+        {guide != null && isDM && (
+          <Suspense fallback={null}>
+            {/* "Me leve lá": a tela do assunto; o Encerrar, ao vivo, abre a folha Encerrar */}
+            <GmGuide start={guide} lang={lang} live={!!vis.live} closed={vis.closed} onClose={() => setGuide(null)}
+              onGo={(target) => { setGuide(null); if (target.sheet === 'end') setEnding(true); else goTo(target.area, target.sub); }} />
+          </Suspense>
+        )}
         {toast && <div className="toast shell-toast" role="status">{toast}</div>}
       </div>
+     </PlayerPulseContext.Provider>
      </TableContext.Provider>
     </AreaContext.Provider>
   );
@@ -492,28 +566,4 @@ function renderPlayer(area, p) {
     return <Area Comp={GroupArea} props={{ ...p, sub: 'players', hasJoinRoute: true }} lang={p.lang} resetKey={k} fallback={<PlayerGroupFallback {...p} />} />;
   }
   return null;
-}
-
-// "Encerrar a sessão?": folha da altura do conteúdo no celular (botões
-// empilhados, a ação principal por último) e caixa central no desktop.
-// Esc, ✕ e toque fora = Continuar jogando, como antes.
-function EndSessionDialog({ lang, busy, onCancel, onEnd }) {
-  return (
-    <MesaSheet
-      lang={lang} size="auto" width="sm" className="shell-end"
-      icon="■" title={t(lang, 'Encerrar a sessão?', 'End the session?')}
-      onClose={onCancel}
-      footer={(
-        <div className="mesa-actions is-stack">
-          <button type="button" className="mesa-btn" onClick={onCancel} disabled={busy}>{t(lang, 'Continuar jogando', 'Keep playing')}</button>
-          <button type="button" className="mesa-btn" onClick={() => onEnd(false)} disabled={busy}>{t(lang, 'Encerrar', 'End')}</button>
-          <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={() => onEnd(true)} disabled={busy}>{t(lang, 'Encerrar e escrever o recap', 'End and write the recap')}</button>
-        </div>
-      )}
-    >
-      <p className="mesa-sheet-text">{t(lang,
-        'O selo "Ao vivo" sai. Se quiser, já abrimos a Crônica para você escrever o "Anteriormente em…" — é opcional.',
-        'The "Live" badge goes away. If you like, we open the Chronicle so you can write the "Previously on…" — optional.')}</p>
-    </MesaSheet>
-  );
 }

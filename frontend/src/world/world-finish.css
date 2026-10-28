@@ -1,0 +1,29 @@
+/* ==========================================================
+   V14 · acabamento do Mundo: a folha "Quem vê" única (RevealSheet), os botões dos
+   cartões do Atlas e o editor do cartão só para ler (campanha encerrada).
+   Alvos de 44 px, textos de 12 px ou mais.
+   ========================================================== */
+
+/* ---------------------------------------------------------- folha "Quem vê" */
+.wl-reveal-sheet-head { display: flex; align-items: center; gap: 12px; margin: 0 0 4px; }
+.wl-reveal-sheet-lead { margin: 0; font-size: 15px; }
+.wl-reveal-sheet .wl-reveal { margin-top: 8px; }
+.wl-reveal-sheet .wl-reveal-title { font-size: 12px; }
+.wl-reveal-sheet .wl-logcheck { min-height: 44px; font-size: 14px; }
+.wl-reveal-sheet .wl-reveal-secrets .btn { min-height: 44px; }
+.wl-reveal-sheet .wl-reveal-hint { font-size: 13px; }
+
+/* ---------------------------------------------------------- cartões do Atlas (§7.9)
+   Quem vê ESCRITO no selo também no celular (não só 🔒/◐/👁 com o nome no title, que o
+   toque não mostra) e "👁 Quem vê…" / "📺 Mostrar" com 44 px (48 no celular, onde o 📺 é
+   ação de mesa). O texto do selo quebra dentro do cartão em vez de passar da borda. */
+.wl-atlas .wl-card-actions .wl-act { min-height: 44px; }
+@media (max-width: 640px) {
+  .wl-atlas .wl-card .wl-seal-txt { display: inline; }
+  .wl-atlas .wl-card .wl-seal { white-space: normal; line-height: 1.2; text-align: left; }
+  .wl-atlas .wl-card-actions .wl-act { min-height: 48px; }
+}
+
+/* ---------------------------------------------------------- editor só leitura
+   (o resto mora em world-styles.css, com o editor do F9: .wl-readonly-note, .wl-ed-read…) */
+.wl-editor.is-readonly .wl-tag { min-height: 44px; }

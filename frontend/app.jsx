@@ -111,6 +111,15 @@ const App = () => {
     }
   }, [screen]);
 
+  // Ficha aberta pela Mesa ([Ir para a minha ficha] da faixa do combate, V13): o "voltar"
+  // da ficha leva de volta à mesa, e a lista é relida (o PV pode ter mudado no combate).
+  const [sheetFromCampaign, setSheetFromCampaign] = useState(false);
+  useEffect(() => {
+    if (screen !== SCREENS.SHEET && screen !== SCREENS.EDIT && screen !== SCREENS.GRIMOIRE && screen !== SCREENS.PLAN) {
+      setSheetFromCampaign(false);
+    }
+  }, [screen]);
+
   // Adapter de storage: muda quando o login muda
   const storage = useMemo(() => createStorageAdapter({ remote: !!auth.user }), [auth.user]);
 
@@ -671,6 +680,12 @@ const App = () => {
           campaignId={activeCampaignId}
           characters={characters}
           onBack={() => setScreen(SCREENS.CAMPAIGNS)}
+          onOpenSheet={async (id) => {
+            setSheetFromCampaign(true); setActiveId(id);
+            if (characters.some(c => c.id === id)) { setScreen(SCREENS.SHEET); refreshCharacters(); return; }
+            await refreshCharacters();   // a lista ainda não tinha a ficha: abre depois de reler
+            setScreen(SCREENS.SHEET);
+          }}
         />
       );
       break;
@@ -734,7 +749,8 @@ const App = () => {
             onShare={() => handleShare(active)}
             onExport={() => handleExport(active)}
             onDelete={() => handleDelete(active.id)}
-            onBack={() => setScreen(SCREENS.HOME)}
+            onBack={() => setScreen(sheetFromCampaign ? SCREENS.CAMPAIGN : SCREENS.HOME)}
+            backLabel={sheetFromCampaign ? (lang === 'pt' ? 'Voltar à mesa' : 'Back to the table') : undefined}
             onLevelUp={handleLevelUpRequest}
             onCampaignChange={handleCampaignChange}
             onLogin={!auth.user && auth.backendAvailable !== false ? () => setScreen(SCREENS.AUTH) : undefined}

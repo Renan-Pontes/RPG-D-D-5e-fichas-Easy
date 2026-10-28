@@ -12,13 +12,16 @@ PATCH  /api/campaigns/<c>/adventures/<pk>            { name?, summary?, status?,
 DELETE /api/campaigns/<c>/adventures/<pk>
 POST   /api/campaigns/<c>/adventures/<pk>/play       { action: enter|visit|unvisit|unlock|lock|reset|log, nodeId?, edgeId?, log?, text? }
 POST   /api/campaigns/<c>/adventures/<pk>/screen     { nodeId | null, text?: bool }  → cena no telão
+GET    /api/campaigns/<c>/adventures/<pk>/nodes      salas leves (sem imagens nem textos): o Plano e o "Usar uma sala"
+GET    /api/campaigns/<c>/adventures/<pk>/node/<id>  uma sala, sem a imagem (`hasImage`): a folha da Cena ligada
+PATCH  /api/campaigns/<c>/adventures/<pk>/node/<id>  { readAloud?, refs?, encounter?, checks?, … } merge só daquela sala
 
 Formato de `data` (tudo opcional exceto ids/nome):
   { version: 1,
     nodes: [{ id, name, kind, x, y, readAloud, notes, tags: [str], image: 'data:image/..',
               encounter: [{ monsterId, name, crNum, count, snapshot? }],
               hazards: [{ name, dc, effect, damage }],
-              checks: [{ skill, dc, note }],
+              checks: [{ skill, dc, note, dcHidden? }]  (skill: perícia, 'save:dex' ou 'ability:str'),
               treasure: { items: [instância de item], coins: {cp,sp,ep,gp,pp} },
               refs: [worldEntryId] (≤ 20, cartões do Mundo ligados à sala) }],
     edges: [{ id, from, to|null, kind, label, condition, oneWay, toAdventureId? }] }
@@ -27,6 +30,7 @@ Formato de `data` (tudo opcional exceto ids/nome):
 import json
 import numbers
 
+from django.db import transaction
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -150,8 +154,12 @@ def _clean_checks(raw):
         skill = _text(c.get('skill'), 40)
         if not skill:
             continue
-        out.append({'skill': skill, 'dc': _num(c.get('dc'), 1, 40, None, integer=True),
-                    'note': _text(c.get('note'), 300)})
+        item = {'skill': skill, 'dc': _num(c.get('dc'), 1, 40, None, integer=True),
+                'note': _text(c.get('note'), 300)}
+        # "🔒 CD secreta" da folha da Cena (cena ligada): só entra marcada
+        if c.get('dcHidden'):
+            item['dcHidden'] = True
+        out.append(item)
     return out
 
 
@@ -280,12 +288,26 @@ def _clean_play(play, data):
     }
 
 
+def _current_fight(data, current):
+    """O combate da sala em jogo, em poucos bytes (V8: o atalho "Usar o combate da cena"
+    do Combate vazio sem baixar a aventura): {nodeId, name, monsters: [{name, count, monsterId?}]}
+    (com o `monsterId`, o app traduz o nome pelo catálogo; `name` é o nome como foi salvo)."""
+    node = next((n for n in (data.get('nodes') or []) if isinstance(n, dict) and n.get('id') == current), None) if current else None
+    enc = [e for e in ((node or {}).get('encounter') or []) if isinstance(e, dict)]
+    if not enc:
+        return None
+    return {'nodeId': node.get('id'), 'name': node.get('name') or '',
+            'monsters': [{'name': e.get('name') or e.get('monsterId') or '?', 'count': e.get('count') or 1,
+                          **({'monsterId': str(e['monsterId'])[:80]} if e.get('monsterId') else {})} for e in enc[:12]]}
+
+
 def _summary(obj):
     data = obj.data or {}
+    current = (obj.play or {}).get('current')
     return {
         'id': obj.id, 'name': obj.name, 'summary': obj.summary, 'status': obj.status,
         'nodeCount': len(data.get('nodes') or []), 'edgeCount': len(data.get('edges') or []),
-        'currentNodeId': (obj.play or {}).get('current'),
+        'currentNodeId': current, 'currentFight': _current_fight(data, current),
         'createdAt': obj.created_at.isoformat(), 'updatedAt': obj.updated_at.isoformat(),
     }
 
@@ -363,6 +385,76 @@ def _node(obj, node_id):
         if n.get('id') == node_id:
             return n
     _bad('invalid_node')
+
+
+# ------------------------------------------------------------------ uma sala por vez
+# A folha da Cena (Preparar › Plano) lê e grava a sala de uma cena ligada sem baixar nem
+# regravar a aventura inteira (com as imagens em base64): GET sem a imagem, PATCH com merge
+# só dos campos daquela sala, com a linha travada (select_for_update) para duas gravações
+# ao mesmo tempo não se apagarem. A imagem e a posição no mapa só mudam em Aventuras.
+NODE_PATCHABLE = ('name', 'kind', 'readAloud', 'notes', 'tags', 'encounter', 'hazards', 'checks', 'treasure', 'refs')
+
+
+def _node_out(node):
+    """A sala sem a imagem (só `hasImage`): o que a folha da Cena precisa."""
+    out = {k: v for k, v in node.items() if k != 'image'}
+    out['hasImage'] = bool(node.get('image'))
+    return out
+
+
+def _node_light(node):
+    """A linha da sala no Plano: nome, o que ela tem (contagens e nomes), sem textos nem imagem."""
+    return {
+        'id': node.get('id'), 'name': node.get('name') or '?', 'kind': node.get('kind') or 'room',
+        'tags': node.get('tags') or [], 'refs': node.get('refs') or [],
+        'hasImage': bool(node.get('image')), 'hasRead': bool(str(node.get('readAloud') or '').strip()),
+        'encounter': [{k: e.get(k) for k in ('monsterId', 'name', 'crNum', 'count') if k in e}
+                      for e in node.get('encounter') or []],
+        'checks': node.get('checks') or [],
+    }
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def adventure_nodes(request, id_or_slug, pk):
+    """Salas leves de uma aventura (o Plano lê as das cenas ligadas, o "Usar uma sala" escolhe)."""
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    obj = _get(campaign, pk)
+    return Response({'adventure': {'id': obj.id, 'name': obj.name},
+                     'nodes': [_node_light(n) for n in (obj.data or {}).get('nodes') or []]})
+
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def adventure_node(request, id_or_slug, pk, node_id):
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    if request.method == 'GET':
+        obj = _get(campaign, pk)
+        node = next((n for n in (obj.data or {}).get('nodes') or [] if n.get('id') == node_id), None)
+        if node is None:
+            raise NotFound('node_not_found')
+        return Response({'adventure': {'id': obj.id, 'name': obj.name}, 'node': _node_out(node)})
+    body = request.data if isinstance(request.data, dict) else {}
+    patch = {k: body[k] for k in NODE_PATCHABLE if k in body}
+    with transaction.atomic():
+        obj = campaign.adventures.select_for_update().filter(pk=pk).first()
+        if not obj:
+            raise NotFound('not_found')
+        data = obj.data or {'version': 1, 'nodes': [], 'edges': []}
+        nodes = list(data.get('nodes') or [])
+        i = next((j for j, n in enumerate(nodes) if n.get('id') == node_id), None)
+        if i is None:
+            raise NotFound('node_not_found')
+        node = _clean_node({**nodes[i], **patch, 'id': nodes[i].get('id')})
+        nodes[i] = node
+        new_data = {**data, 'nodes': nodes}
+        if _json_size(new_data) > MAX_DATA_BYTES:
+            _bad('adventure_too_large')
+        obj.data = new_data
+        obj.save(update_fields=['data', 'updated_at'])
+    return Response({'adventure': {'id': obj.id, 'name': obj.name}, 'node': _node_out(node)})
 
 
 @api_view(['POST'])

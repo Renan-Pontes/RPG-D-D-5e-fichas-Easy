@@ -86,6 +86,10 @@ const E = {
   action_has_no_save: ['Essa ação não pede teste de resistência.', 'That action has no saving throw.'],
   missing_monster_data: ['Dados do monstro incompletos.', 'Incomplete monster data.'],
   monster_too_large: ['Monstro com dados grandes demais.', 'Monster data too large.'],
+  // folha da Cena (o ⚔ guarda "meus monstros" no plano: 8 KB cada, 4 no plano)
+  scene_monster_too_large: ['Este monstro é grande demais para guardar na cena: ponha-o numa aventura.', 'This monster is too big to keep in the scene: put it in an adventure.'],
+  too_many_scene_monsters: ['As cenas já guardam 4 monstros seus: ponha este numa aventura.', 'The scenes already keep 4 of your monsters: put this one in an adventure.'],
+  node_not_found: ['Esta sala não existe mais na aventura.', 'This room no longer exists in the adventure.'],
   unknown_condition: ['Condição desconhecida.', 'Unknown condition.'],
   immune: ['O alvo é imune.', 'The target is immune.'],
   // Rolagens / testes à mesa
@@ -122,7 +126,7 @@ const E = {
   duplicate_node_id: ['Duas salas/cenas com o mesmo id.', 'Two rooms/scenes share an id.'],
   invalid_edge: ['Conexão inválida no mapa.', 'Invalid map connection.'],
   duplicate_edge_id: ['Conexão duplicada no mapa.', 'Duplicate map connection.'],
-  invalid_encounter: ['Encontro inválido.', 'Invalid encounter.'],
+  invalid_encounter: ['Combate inválido.', 'Invalid combat.'],
   invalid_hazards: ['Perigos inválidos.', 'Invalid hazards.'],
   invalid_treasure: ['Tesouro inválido.', 'Invalid treasure.'],
   invalid_treasure_item: ['Item de tesouro inválido.', 'Invalid treasure item.'],
@@ -141,7 +145,7 @@ const E = {
   invalid_pagination: ['Página inválida.', 'Invalid page.'],
   // Mundo / Tela
   version_conflict: ['Este cartão foi alterado em outra aba ou aparelho. Recarregue para ver a versão mais nova antes de salvar.', 'This card was changed in another tab or device. Reload to see the latest version before saving.'],
-  entry_hidden: ['Este cartão está oculto. Revele (ou deixe conhecido de nome) antes de mostrar aos jogadores.', 'This card is hidden. Reveal it (or make it known by name) before showing it to players.'],
+  entry_hidden: ['Este cartão está oculto. Revele (ou deixe em "Só o nome") antes de mostrar aos jogadores.', 'This card is hidden. Reveal it (or set it to "Name only") before showing it to players.'],
   entry_not_found: ['Cartão do mundo não encontrado (pode ter sido apagado).', 'World card not found (it may have been deleted).'],
   too_many_entries: ['O mundo desta campanha atingiu o limite de cartões.', "This campaign's world reached its card limit."],
   handout_private: ['Documento só para alguns jogadores: não vai à Tela.', "Handout for some players only: it can't go on screen."],

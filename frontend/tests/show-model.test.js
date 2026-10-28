@@ -81,3 +81,32 @@ test('folha de decisão: "Guardar para depois do combate" nunca revela', async (
   assert.equal(calm.keep, null);
   assert.equal(calm.buttons.every(b => b.focus), true);
 });
+
+// V7: a cena agora do plano abre o "Da cena agora" e as Cenas
+import { imageRows as imgRowsV7, sceneRows as sceneRowsV7 } from '../src/stage/show-model.js';
+test('a cena agora do plano vem primeiro nas Imagens e nas Cenas', () => {
+  const entries = [{ id: 1, name: 'Vale', imageVer: 'v' }, { id: 3, name: 'Irmã Velna' }, { id: 9, name: 'Lâmina', imageVer: 'x' }];
+  const r = imgRowsV7({ entries, sceneRefs: [1, 3] });
+  assert.deepEqual(r.now.map(x => x.name), ['Vale', 'Irmã Velna']);
+  assert.ok(!r.all.some(x => x.name === 'Vale'));
+  const plan = { scenes: [{ id: 'c1', text: 'Taverna' }, { id: 'c2', text: 'Ponte', nodeRef: { adventureId: 1, nodeId: 'n2' } }] };
+  const rows = sceneRowsV7({ plan, adventure: { id: 1, name: 'A' }, node: { id: 'n2', name: 'Sala' }, nowSceneId: 'c2' });
+  assert.deepEqual(rows.map(x => [x.name, !!x.now]), [['Ponte', true], ['Taverna', false]]);
+  assert.deepEqual(rows[0].target, { kind: 'scene', sceneId: 'c2' });
+});
+
+import { roomIsNow } from '../src/stage/show-model.js';
+test('"Da cena agora": a sala em jogo só conta quando ela é a cena agora (a solta do plano não traz a sala)', () => {
+  const node = adventure.data.nodes[0];
+  // sem cena do plano agora: a sala em jogo é a cena agora (como antes)
+  assert.equal(roomIsNow(null, adventure, node), true);
+  // cena solta agora (imagem dela: o cartão 1): a sala marcada e os cartões dela vão para Todas
+  const loose = { id: 'c9', refs: [], show: { kind: 'entry', id: 1 }, nodeRef: null };
+  assert.equal(roomIsNow(loose, adventure, node), false);
+  const r = imageRows({ entries, adventure, node, sceneRefs: [1], roomNow: roomIsNow(loose, adventure, node) });
+  assert.deepEqual(r.now.map(x => x.key), ['e-1']);
+  assert.deepEqual(r.all.map(x => x.key), ['e-12', 'e-2', 'e-4', 'room-n1', 'room-n2']);
+  // cena ligada a essa mesma sala: a sala continua sendo a cena agora; ligada a outra, não
+  assert.equal(roomIsNow({ id: 'c2', nodeRef: { adventureId: 7, nodeId: 'n1' } }, adventure, node), true);
+  assert.equal(roomIsNow({ id: 'c2', nodeRef: { adventureId: 7, nodeId: 'n2' } }, adventure, node), false);
+});

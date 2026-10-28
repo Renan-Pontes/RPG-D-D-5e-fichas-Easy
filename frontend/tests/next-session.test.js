@@ -2,14 +2,23 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   emptyPlan, normalizePlan, addScene, addSecret, updateItem, removeItem, moveItem, toggleId, padSecrets,
-  toggleDiscovered, revealBodyFor, planDiff, planProgress, carryOver, missingIds, textForRef, nextId,
-  SECRET_GOAL, PLAN_LIMITS,
+  toggleDiscovered, revealBodyFor, planDiff, carryOver, missingIds, textForRef, nextId, freshSceneId,
+  planHeading, stepSummary, initialStep, nextStepId, readyChecklist, clueCount, planExport, stateSession,
+  planIsBlank, linkedAdventureIds, sceneFights, SECRET_ROWS, PLAN_LIMITS, isOldPlanServer, patchHasPockets,
 } from '../src/prep/next-session.js';
 import { searchEntries, pickEntries, entryImage, kindArt, kindLabel } from '../src/prep/prep-world.js';
 import { freeSpotIn, panToShow, makeNode, addNode, emptyData, NODE_W, NODE_H } from '../src/prep/prep-graph.js';
 
 test('normalizePlan completa o plano e descarta lixo', () => {
   assert.deepEqual(normalizePlan(null), emptyPlan());
+  // os bolsos da cena, o nº da sessão e o _rev voltam como vieram (a folha da Cena os edita)
+  const k = normalizePlan({ forSession: 5, _rev: 7, scenes: [{ id: 'c1', text: 'Ponte', read: 'A ponte range.', fight: [{ monsterId: 'goblin', count: 2 }], junk: 1 }] });
+  assert.equal(k.forSession, 5);
+  assert.equal(k._rev, 7);
+  assert.equal(k.scenes[0].read, 'A ponte range.');
+  assert.deepEqual(k.scenes[0].fight, [{ monsterId: 'goblin', count: 2 }]);
+  assert.equal('junk' in k.scenes[0], false);
+  assert.equal(normalizePlan({ forSession: 'x' }).forSession, null);
   const p = normalizePlan({
     strongStart: 'Sino', scenes: [{ text: 'a', nodeRef: { adventureId: '3', nodeId: 'n1' } }, 'x', { id: 'c9', text: 'b', nodeRef: { adventureId: 1 } }],
     secrets: [{ text: 's', ref: { entryId: '5', secretId: 's2' }, discovered: 1 }], npcIds: [5, '9', 5, -1, 'x'], placeIds: 'no', extra: 1,
@@ -27,10 +36,10 @@ test('normalizePlan completa o plano e descarta lixo', () => {
 
 test('cenas e pistas: adicionar, editar, mover, remover — ids sem colisão', () => {
   let p = emptyPlan();
-  p = addScene(p, 'Chegada');
-  p = addScene(p, 'Templo');
+  p = addScene(p, 'Chegada', null, 'c1');
+  p = addScene(p, 'Templo', null, 'c2');
   p = removeItem(p, 'scenes', 'c1');
-  p = addScene(p, 'Fuga');
+  p = addScene(p, 'Fuga', null, 'c3');
   assert.deepEqual(p.scenes.map(s => s.id), ['c2', 'c3']);
   p = updateItem(p, 'scenes', 'c3', { done: true });
   assert.equal(p.scenes[1].done, true);
@@ -38,6 +47,20 @@ test('cenas e pistas: adicionar, editar, mover, remover — ids sem colisão', (
   assert.deepEqual(p.scenes.map(s => s.text), ['Fuga', 'Templo']);
   assert.equal(moveItem(p, 'scenes', 'c3', -1), p, 'não sai da lista');
   assert.equal(nextId([{ id: 'p1' }, { id: 'p3' }], 'p'), 'p4');
+});
+
+test('id de cena nova nunca volta (o servidor junta as cenas pelo id)', () => {
+  // apagar a c2 e criar outra no mesmo segundo não pode dar "c2" de novo: herdaria os bolsos
+  const a = freshSceneId([], 1000, () => 0);
+  const b = freshSceneId([{ id: a }], 1000, () => 0);
+  assert.notEqual(a, b);
+  assert.match(a, /^c[0-9a-z]+$/);
+  assert.ok(a.length <= 24, 'cabe no id curto do servidor');
+  let p = addScene(emptyPlan(), 'Ponte');
+  const first = p.scenes[0].id;
+  p = removeItem(p, 'scenes', first);
+  p = addScene(p, 'Lago');
+  assert.notEqual(p.scenes[0].id, first);
 });
 
 test('limites do servidor são respeitados no cliente', () => {
@@ -49,12 +72,17 @@ test('limites do servidor são respeitados no cliente', () => {
   assert.equal(q.npcIds.length, PLAN_LIMITS.ids);
 });
 
-test('padSecrets garante as 10 linhas de pista sem apagar as existentes', () => {
+test('padSecrets desenha 3 linhas de pista (só na tela) sem apagar as existentes', () => {
   const p = padSecrets(addSecret(emptyPlan(), 'O taverneiro deve ao culto'));
-  assert.equal(p.secrets.length, SECRET_GOAL);
+  assert.equal(p.secrets.length, SECRET_ROWS);
+  assert.equal(SECRET_ROWS, 3);
   assert.equal(p.secrets[0].text, 'O taverneiro deve ao culto');
-  assert.equal(new Set(p.secrets.map(s => s.id)).size, SECRET_GOAL);
+  assert.equal(new Set(p.secrets.map(s => s.id)).size, SECRET_ROWS);
   assert.equal(padSecrets(p), p, 'já completo → mesmo objeto');
+  // abrir o Plano e sair não grava nada: as linhas vazias não são diferença
+  const saved = normalizePlan({});
+  assert.deepEqual(planDiff(saved, padSecrets(saved)), {});
+  assert.deepEqual(clueCount(padSecrets(saved)), { total: 0, found: 0 });
 });
 
 test('toggleId liga e desliga NPCs/lugares do Mundo', () => {
@@ -89,40 +117,40 @@ test('revealBodyFor monta o corpo do /reveal só quando o mestre aceita', () => 
   assert.deepEqual(revealBodyFor({ entryId: 7, secretId: null }), { visibility: 'revealed', logDiary: true, lang: 'pt' });
 });
 
-test('planDiff manda só as chaves que mudaram', () => {
+test('planDiff manda só as chaves que mudaram, sem as pistas vazias', () => {
   const a = padSecrets(emptyPlan());
   const b = { ...updateItem(a, 'secrets', 'p3', { text: 'x' }), strongStart: 'Boom' };
   const d = planDiff(a, b);
   assert.deepEqual(Object.keys(d).sort(), ['secrets', 'strongStart']);
+  assert.deepEqual(d.secrets.map(s => s.id), ['p3'], 'só a pista escrita vai');
   assert.deepEqual(planDiff(a, a), {});
+  // apagar o texto de uma pista é apagar a pista
+  const saved = { ...emptyPlan(), secrets: [{ id: 'p1', text: 'O sino', ref: null, discovered: false }] };
+  assert.deepEqual(planDiff(saved, updateItem(saved, 'secrets', 'p1', { text: '' })), { secrets: [] });
+  // o nº da sessão vai quando muda, nunca volta a "nenhum"
+  assert.deepEqual(planDiff({ ...emptyPlan(), forSession: 5 }, { ...emptyPlan(), forSession: 6 }), { forSession: 6 });
+  assert.deepEqual(planDiff({ ...emptyPlan(), forSession: 5 }, emptyPlan()), {});
+  // o _rev é do servidor: não é diferença
+  assert.deepEqual(planDiff({ ...emptyPlan(), _rev: 3 }, { ...emptyPlan(), _rev: 4 }), {});
 });
 
-test('planProgress conta os passos prontos (pistas pela meta de 10)', () => {
-  let p = padSecrets(emptyPlan());
-  assert.equal(planProgress(p).done, 0);
-  p = { ...p, strongStart: 'Boom', monsters: '4 goblins' };
-  p = toggleId(p, 'npcIds', 1);
-  for (let i = 1; i <= 9; i++) p = updateItem(p, 'secrets', `p${i}`, { text: `s${i}` });
-  let pr = planProgress(p);
-  assert.equal(pr.done, 3);
-  assert.equal(pr.steps.find(s => s.id === 'secrets').count, 9);
-  p = updateItem(p, 'secrets', 'p10', { ref: { entryId: 3, secretId: null } });
-  pr = planProgress(p);
-  assert.equal(pr.steps.find(s => s.id === 'secrets').done, true);
-  assert.equal(pr.total, 7);
-});
-
-test('carryOver leva adiante só as pistas não descobertas, NPCs e lugares', () => {
+test('carryOver leva adiante as cenas não jogadas, as pistas não descobertas, NPCs e lugares', () => {
   let p = { ...emptyPlan(), strongStart: 'x', rewards: 'ouro', npcIds: [1], placeIds: [2] };
   p = addSecret(p, 'achada');
   p = addSecret(p, 'pendente', { entryId: 4, secretId: 's1' });
   p = addSecret(p, '');
   p = updateItem(p, 'secrets', 'p1', { discovered: true });
-  p = addScene(p, 'cena');
-  const n = carryOver(p);
+  p = addScene(p, 'cena', null, 'c1');
+  p = addScene(p, 'jogada', null, 'c2');
+  p = updateItem(p, 'scenes', 'c2', { done: true });
+  p = addScene(p, '', null, 'c3');
+  const n = carryOver(p, 6);
+  assert.equal(n.forSession, 6);
   assert.equal(n.strongStart, '');
   assert.equal(n.rewards, '');
-  assert.deepEqual(n.scenes, []);
+  assert.deepEqual(n.scenes.map(s => [s.id, s.text, s.done]), [['c1', 'cena', false]]);
+  const zero = carryOver(p, 6, { carry: false });
+  assert.deepEqual([zero.forSession, zero.scenes, zero.secrets, zero.npcIds], [6, [], [], []]);
   assert.deepEqual(n.secrets.map(s => [s.id, s.text]), [['p1', 'pendente']]);
   assert.deepEqual(n.secrets[0].ref, { entryId: 4, secretId: 's1' });
   assert.deepEqual(n.npcIds, [1]);
@@ -152,6 +180,82 @@ test('prep-world: busca sem acento, ids → cartões, arte padrão', () => {
   assert.equal(kindLabel('handout', 'en'), 'Handout');
 });
 
+test('planHeading: de qual sessão é o plano (é hoje ou a próxima?)', () => {
+  // ao vivo: o plano de hoje, com a linha sobre a próxima (jogo-e-combate, Sessão 3)
+  const live = planHeading(emptyPlan(), { session: '3', live: true }, 'pt');
+  assert.equal(live.title, 'Plano de hoje · Sessão 3 (ao vivo)');
+  assert.match(live.line, /Sessão 4 começa quando você encerrar esta/);
+  assert.equal(live.n, 3);
+  assert.equal(planHeading({ ...emptyPlan(), forSession: 3 }, { session: 'Sessão 3', live: true }, 'en').title, "Today's plan · Session 3 (live)");
+  // fora: a próxima; o forSession manda
+  assert.equal(planHeading(emptyPlan(), {}, 'pt').title, 'Plano da Sessão 1');
+  assert.equal(planHeading(emptyPlan(), { session: '4' }, 'pt').title, 'Plano da Sessão 5');
+  assert.equal(planHeading({ ...emptyPlan(), forSession: 5 }, { session: '4' }, 'en').title, 'Session 5 plan');
+  // plano de uma sessão que já foi: diz e aponta o ⋯
+  const stale = planHeading({ ...emptyPlan(), forSession: 4 }, { session: '4' }, 'pt');
+  assert.equal(stale.title, 'Plano da Sessão 4');
+  assert.equal(stale.stale, true);
+  assert.equal(stale.next, 5);
+  assert.match(stale.line, /já foi jogada/);
+  // preparou a próxima durante a sessão ao vivo
+  const ahead = planHeading({ ...emptyPlan(), forSession: 4 }, { session: '3', live: true }, 'pt');
+  assert.equal(ahead.title, 'Plano da Sessão 4');
+  assert.match(ahead.line, /Sessão 3 está ao vivo/);
+  assert.equal(stateSession({ session: 'Sessão 12' }), 12);
+  assert.equal(stateSession({ session: null }), null);
+});
+
+test('sanfona: resumo de 1 linha por passo, passo que abre e o próximo', () => {
+  const party = [{ character: { id: 1 } }, { character: null }];
+  let p = emptyPlan();
+  assert.equal(stepSummary('party', p, { party, lang: 'pt' }), '1 de 2 com ficha');
+  assert.equal(stepSummary('party', p, { party: [party[0]], moments: 3, lang: 'pt' }), '1 com ficha · 3 momentos');
+  assert.equal(stepSummary('party', p, { party: [], lang: 'en' }), 'nobody at the table yet');
+  assert.equal(stepSummary('start', p, { lang: 'pt' }), 'vazio');
+  p = { ...p, strongStart: 'O sino toca embaixo da água à meia-noite' };
+  assert.equal(stepSummary('start', p, { lang: 'pt' }), '“O sino toca embaixo da águ…”');
+  assert.equal(stepSummary('scenes', p, { lang: 'pt' }), 'nenhuma');
+  p = addScene(addScene(p, 'Taverna', null, 'c1'), 'Ponte', null, 'c2');
+  p = updateItem(addScene(p, '', null, 'c3'), 'scenes', 'c1', { done: true });
+  assert.equal(stepSummary('scenes', p, { lang: 'pt' }), '2 cenas · 1 jogada', 'a cena sem nome não conta');
+  p = updateItem(addSecret(addSecret(p, 'a'), 'b'), 'secrets', 'p1', { discovered: true });
+  assert.equal(stepSummary('clues', padSecrets(p), { lang: 'pt' }), '2 · 1 achada');
+  assert.equal(stepSummary('rewards', p, { lang: 'pt' }), 'vazio');
+  assert.equal(stepSummary('rewards', { ...p, monsters: 'goblins' }, { lang: 'pt' }), 'só anotações de monstros');
+  assert.equal(stepSummary('rewards', { ...p, rewards: 'Anel do sino, 40 po' }, { lang: 'pt' }), '“Anel do sino, 40 po”');
+  // o passo que abre ao entrar segue o cartão; plano vazio → nenhum (as 3 portas); cheio → nenhum
+  assert.equal(initialStep(emptyPlan(), 'N2'), null);
+  assert.equal(initialStep(emptyPlan(), 'N3'), 'start');
+  assert.equal(initialStep(emptyPlan(), 'N4'), 'scenes');
+  assert.equal(initialStep(emptyPlan(), 'N6'), 'clues');
+  assert.equal(initialStep(p, 'N8'), null, 'plano cheio: o índice dos 5 passos, todos fechados');
+  assert.equal(initialStep(p, null), null);
+  assert.equal(initialStep(emptyPlan(), null), null);
+  assert.equal(nextStepId('scenes'), 'clues');
+  assert.equal(nextStepId('rewards'), null);
+});
+
+test('Pronto para jogar e Exportar o plano', () => {
+  let p = addScene(addScene(emptyPlan(), 'Taverna', null, 'c1'), 'Ponte', null, 'c2');
+  p = updateItem(p, 'scenes', 'c2', { show: { kind: 'entry', id: 4 } });
+  const rows = readyChecklist(padSecrets(p), { party: [{ character: { id: 1 } }], tv: false, lang: 'pt' });
+  assert.deepEqual(rows.map(r => [r.id, r.ok]), [['scenes', true], ['party', true], ['clues', false], ['tv', false]]);
+  assert.equal(rows[0].text, '2 cenas, 1 com imagem');
+  assert.equal(rows[3].text, 'Tela ainda não testada');
+  // o resumo da sessão anterior (o mesmo do J1 da Agora): só com sessão anterior e já sabido
+  const withRecap = (recap, session) => readyChecklist(p, { party: [], lang: 'pt', recap, session }).find(r => r.id === 'recap');
+  assert.deepEqual(withRecap({ has: true }, 3), { id: 'recap', ok: true, text: 'Resumo da Sessão 3 pronto para “Anteriormente em…”' });
+  assert.deepEqual(withRecap({ has: false }, 3), { id: 'recap', ok: false, text: 'Sessão 3 ainda sem resumo' });
+  assert.equal(readyChecklist(p, { lang: 'en', recap: { has: false }, session: 2 }).at(-1).text, 'Session 2 has no recap yet');
+  assert.equal(withRecap(null, 3), undefined, 'ainda lendo: sem a linha');
+  assert.equal(withRecap({ has: false }, 0), undefined, 'Sessão 1: sem sessão anterior');
+  const out = JSON.parse(planExport({ ...padSecrets(p), _rev: 9, forSession: 5 }, { campaign: 'Mesa' }));
+  assert.equal(out.kind, 'forja-session-plan');
+  assert.equal(out.session, 5);
+  assert.equal('_rev' in out.plan, false);
+  assert.deepEqual(out.plan.secrets, [], 'sem as linhas vazias');
+});
+
 test('sala nova nasce inteira dentro da área visível (freeSpotIn)', () => {
   let d = emptyData();
   // centro ocupado e um vizinho à direita: o próximo deve caber na tela
@@ -177,4 +281,43 @@ test('panToShow desliza a tela até a sala ficar visível', () => {
   const v3 = panToShow({ x: 0, y: 0, k: 0.5 }, { x: -400, y: 900 }, 800, 500, 24);
   assert.ok(-400 * 0.5 + v3.x >= 24);
   assert.ok((900 + NODE_H) * 0.5 + v3.y <= 500 - 24);
+});
+
+test('planIsBlank, linkedAdventureIds e sceneFights: o N2 e o N5 sem depender da tela', () => {
+  assert.equal(planIsBlank(emptyPlan()), true);
+  assert.equal(planIsBlank(null), true);
+  assert.equal(planIsBlank(addSecret(emptyPlan(), 'O moleiro mente')), true, 'as pistas não contam');
+  assert.equal(planIsBlank({ ...emptyPlan(), strongStart: 'Boom' }), false);
+  assert.equal(planIsBlank(addScene(emptyPlan(), '', { adventureId: 3, nodeId: 'n1' }, 'c1')), false, 'cena ligada a uma sala');
+  assert.equal(planIsBlank(addScene(emptyPlan(), '  ', null, 'c1')), true, 'linha vazia de cena');
+
+  let p = addScene(emptyPlan(), 'Portão', { adventureId: 9, nodeId: 'n1' }, 'c1');
+  p = addScene(p, 'Porão', { adventureId: 9, nodeId: 'n2' }, 'c2');
+  p = addScene(p, 'Torre', { adventureId: 4, nodeId: 'n7' }, 'c3');
+  p = addScene(p, 'Ponte', null, 'c4');
+  p = updateItem(p, 'scenes', 'c3', { done: true });
+  assert.deepEqual(linkedAdventureIds(p), [9], 'uma vez por aventura; a cena jogada não pede a dela');
+  assert.deepEqual(linkedAdventureIds(null), []);
+
+  p = updateItem(p, 'scenes', 'c4', { fight: [{ monsterId: 'wolf', name: 'Lobo', count: 2 }] });
+  const nodes = { 9: [{ id: 'n1', encounter: [] }, { id: 'n2', encounter: [{ monsterId: 'goblin', count: 2 }] }] };
+  assert.deepEqual(sceneFights(p, nodes), ['c2', 'c4'], 'o encontro da sala e o bolso ⚔ da cena');
+  assert.deepEqual(sceneFights(p, {}), ['c4'], 'sala que ainda não chegou não conta');
+  assert.deepEqual(sceneFights(null), []);
+});
+
+test('servidor de antes do Plano guiado: sem o _rev no plano, e o patch que perderia o que vai na cena', () => {
+  // o novo sempre manda o _rev (SESSION_PLAN_DEFAULT), até no plano em branco
+  assert.equal(isOldPlanServer({ strongStart: '', scenes: [], _rev: 0, forSession: null }), false);
+  // o Django antigo só devolve as chaves de antes (sem _rev nem forSession)
+  assert.equal(isOldPlanServer({ strongStart: '', scenes: [{ id: 'c1', text: 'Ponte', nodeRef: null, done: false }], secrets: [] }), true);
+  assert.equal(isOldPlanServer(null), false, 'sem resposta não diz nada');
+  assert.equal(isOldPlanServer(normalizePlan({})), false, 'o plano normalizado sempre tem _rev');
+  // bolso com valor = perderia; nome, sala, feita e os vazios do "ligar à sala" não perdem nada
+  assert.equal(patchHasPockets({ scenes: [{ id: 'c1', text: 'Ponte', read: 'A ponte range.' }] }), true);
+  assert.equal(patchHasPockets({ scenes: [{ id: 'c1', fight: [{ monsterId: 'goblin', count: 1 }] }] }), true);
+  assert.equal(patchHasPockets({ scenes: [{ id: 'c1', show: { kind: 'entry', id: 3 } }] }), true);
+  assert.equal(patchHasPockets({ scenes: [{ id: 'c1', text: 'Ponte\nnotas', nodeRef: null, done: true }] }), false);
+  assert.equal(patchHasPockets({ scenes: [{ id: 'c1', nodeRef: { adventureId: 1, nodeId: 'n1' }, read: '', show: null, refs: [], fight: [], check: null, showOff: false }] }), false);
+  assert.equal(patchHasPockets({ strongStart: 'Boom' }), false);
 });

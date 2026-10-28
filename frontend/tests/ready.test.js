@@ -27,10 +27,10 @@ test('importedNote: sem festa, explica onde ficou e o que é oculto', () => {
   const pt = importedNote({ name: 'Maré de Cinzas', sessionPlanFilled: true }, 'pt');
   assert.match(pt, /Preparar › Aventuras/);
   assert.match(pt, /ocultos/);
-  assert.match(pt, /plano da próxima sessão/);
+  assert.match(pt, /Plano da Sessão \(Preparar › Plano\)/);
   assert.doesNotMatch(pt, /parab|🎉|!/i);
   const en = importedNote({ name: 'The Ashen Tide', sessionPlanFilled: false }, 'en');
   assert.match(en, /hidden/);
-  assert.doesNotMatch(en, /next session plan/);
+  assert.doesNotMatch(en, /session plan/);
   assert.equal(importedNote(null), '');
 });

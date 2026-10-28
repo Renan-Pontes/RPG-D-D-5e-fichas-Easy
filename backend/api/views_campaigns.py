@@ -14,7 +14,8 @@ from .campaign_state import (clean_state_patch, clean_state_value, locked_dm_set
                              PATCHABLE_KEYS, SERVER_KEYS)
 from .image_data import validate_data_url, image_ver, image_response
 from .screen_card import clean_screen_card, resolve_screen_card
-from .stage import apply_stage_op, clean_stage_op, stage_from_screen_card, stage_image_data, with_combat_now
+from .stage import (apply_stage_op, clean_stage_op, stage_from_screen_card, stage_image_data, start_scene,
+                    undo_scene_start, with_combat_now)
 from .rate_limit import rate_limit
 from . import plans as P
 
@@ -234,7 +235,7 @@ def campaign_state_patch(request, id_or_slug):
     """PATCH /campaigns/:id/state  {patch: {key: value|null}} → {state}
 
     Merge por chave no servidor (null remove a chave). Chaves permitidas:
-    session, scene, sceneText, weather, live, nudges, concentration,
+    session, scene, sceneId, sceneText, weather, live, nudges, concentration,
     endOfEncounterWizard, levelingMode, allowMulticlass. Outra chave → 400."""
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
@@ -299,6 +300,23 @@ def campaign_stage(request, id_or_slug):
     op = clean_stage_op(campaign, request.data)
     stage, changed = apply_stage_op(campaign, op)
     return Response({'stage': stage, 'changed': changed})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def campaign_stage_scene(request, id_or_slug):
+    """POST /campaigns/:id/stage/scene — ▶ Começar esta cena (só mestre; api/stage.py).
+    body: {sceneId, show?, focus?, log?} | {undo: <o `undo` da resposta>} (↶ Desfazer)
+    Grava o nome em state.scene e o id em state.sceneId (este só o mestre lê), põe a sala
+    da cena ligada como a atual da aventura, marca feita a cena que estava "agora" e, com
+    "Mostrar ao começar", leva a cena à frente da Tela.
+    → {stage, changed, shown, scene, sceneId, doneId, undo}"""
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    body = request.data if isinstance(request.data, dict) else {}
+    if 'undo' in body:
+        return Response(undo_scene_start(campaign, body.get('undo')))
+    return Response(start_scene(campaign, body, user=request.user))
 
 
 @api_view(['GET'])

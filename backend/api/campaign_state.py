@@ -9,6 +9,9 @@ as chaves do patch.
 
 Whitelists:
   - PATCHABLE_KEYS: o que o mestre pode mudar por PATCH /campaigns/:id/state.
+    `sceneId` (V7) é o id da cena do plano que está "agora" (▶ Começar esta cena,
+    POST /stage/scene): só o mestre o lê — fica fora de SCREEN_KEYS e PLAYER_KEYS
+    (o jogador e a TV veem só o nome, `scene`).
   - SERVER_KEYS: chaves que só o servidor escreve (diarySessions, screenCard,
     stage e stageRecap — o palco da Tela, ver api/stage.py — e combatMapVer, a
     versão do fundo do mapa do combate, ver views_combat.combat_set_map).
@@ -18,13 +21,14 @@ Whitelists:
 Nada de mundo (segredos, NPCs) mora aqui: isso fica em WorldEntry.
 """
 import json
+import re
 
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 PATCHABLE_KEYS = (
-    'session', 'scene', 'sceneText', 'weather', 'live', 'nudges', 'concentration',
+    'session', 'scene', 'sceneId', 'sceneText', 'weather', 'live', 'nudges', 'concentration',
     'endOfEncounterWizard', 'levelingMode', 'allowMulticlass',
 )
 MAP_VER_KEY = 'combatMapVer'
@@ -34,6 +38,7 @@ PLAYER_KEYS = SCREEN_KEYS + ('levelingMode', 'allowMulticlass')
 
 MAX_JSON_VALUE = 20_000      # nudges / concentration (JSON serializado)
 _TEXT_LIMITS = {'session': 40, 'scene': 200, 'sceneText': 5000, 'weather': 120}
+_SCENE_ID = re.compile(r'^[A-Za-z0-9_-]{1,40}$')   # o id da cena do plano (c1, c<base36>…)
 
 
 def _bad(code):
@@ -55,6 +60,10 @@ def clean_state_value(key, value):
             _bad(f'invalid_{key}')
         if len(value) > _TEXT_LIMITS[key]:
             _bad(f'{key}_too_long')
+        return value
+    if key == 'sceneId':
+        if not isinstance(value, str) or not _SCENE_ID.match(value):
+            _bad('invalid_sceneId')
         return value
     if key in ('live', 'endOfEncounterWizard', 'allowMulticlass'):
         if not isinstance(value, bool):

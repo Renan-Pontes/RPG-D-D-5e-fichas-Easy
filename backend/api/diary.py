@@ -9,8 +9,9 @@ Uso geral (uma linha no ponto do evento):
 `log_diary` NUNCA levanta exceção: o diário é acessório e não pode quebrar o
 fluxo principal (aprovar nível, dar XP, etc.). Erros vão para o logger.
 
-Subtipos usados: note, summary (notas escritas), session, roll, levelup,
-item, combat, rest, xp, custom (eventos).
+Subtipos usados: note, summary (notas escritas), session (começou / terminou),
+roll, levelup, item, combat, rest, xp, custom (eventos) e plan (o plano da sessão
+arquivado ao encerrar: sempre oculto, ver views_world.archive_session_plan).
 
 Helpers prontos por evento (cada um é chamado com uma linha):
   - log_levelup(approval)                      views_approvals.approval_consume
@@ -57,6 +58,34 @@ def current_session(campaign):
 def session_meta(campaign):
     meta = (campaign.state or {}).get('diarySessions')
     return meta if isinstance(meta, dict) else {}
+
+
+def session_minutes(started_at, ended_at):
+    """Minutos entre dois ISO (startedAt/endedAt de diarySessions); None sem os dois."""
+    from django.utils.dateparse import parse_datetime
+    try:
+        a, b = parse_datetime(str(started_at or '')), parse_datetime(str(ended_at or ''))
+    except (TypeError, ValueError):
+        return None
+    if not a or not b or b < a:
+        return None
+    return int((b - a).total_seconds() // 60)
+
+
+def length_text(minutes):
+    """"2h10" (o mesmo relógio da capa, play/now-model.clockText)."""
+    return f'{minutes // 60}h{minutes % 60:02d}' if isinstance(minutes, int) and minutes >= 0 else ''
+
+
+def log_session_end(campaign, number, started_at, ended_at, user=None):
+    """"Sessão 4 terminou · 2h10" na Crônica (o par do "Sessão 4 começou"). A duração vai
+    em `data` para o app traduzir; sem a hora de começo, só o título."""
+    minutes = session_minutes(started_at, ended_at)
+    length = length_text(minutes)
+    title = f'Sessão {number} terminou' + (f' · {length}' if length else '')
+    return log_diary(campaign, 'session', title,
+                     data={'session': number, 'phase': 'end', 'minutes': minutes, 'length': length or None},
+                     user=user)
 
 
 # ------------------------------------------------------------------ núcleo
@@ -285,6 +314,8 @@ def combat_summary(round_number, combatants, action_log=None):
         log = log[starts[-1]:]
     downs = {}
     for e in log:
+        if e.get('undone'):
+            continue   # ↶ Desfazer (V8): a queda não aconteceu
         names = list(e.get('downed_list') or [])
         if e.get('downed'):
             names.append(e['downed'])

@@ -248,6 +248,45 @@ class DiceRigTests(TestCase):
         self.assertNotIn('rigged', r.json()['results'][0])
         self.assertFalse(DiceRig.objects.get(target_user=self.player).values[0].get('consumed'))
 
+    def _rig(self, body):
+        r = self.c_dm.post(f'/api/dice/campaign/{self.camp.id}/rigs', {'targetUserId': self.player.id, **body}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        return r.json()
+
+    def _roll(self, die, count=1):
+        r = self.c_player.post('/api/dice/roll', {'diceType': die, 'campaignId': self.camp.id, 'count': count}, format='json')
+        return [x['value'] for x in r.json()['results']]
+
+    def test_before_puts_next_result_ahead_of_the_queue(self):
+        # ⚡ Próximo resultado (F8): a fila 'any' com `before` sai antes da fila d20
+        # que já existia, em qualquer dado; sem `before`, entra no fim, como sempre.
+        used = self._rig({'diceType': 'any', 'values': [{'value': 1, 'consumed': True}]})['rig']
+        d20 = self._rig({'diceType': 'd20', 'values': [{'value': 20}, {'value': 3}]})['rig']
+        nxt = self._rig({'diceType': 'any', 'values': [{'value': 17}], 'before': d20['id']})
+        self.assertEqual(nxt['before'], d20['id'])
+        ids = [x['id'] for x in self.c_dm.get(f'/api/dice/campaign/{self.camp.id}/rigs').json()['rigs']]
+        self.assertEqual(ids, [used['id'], nxt['rig']['id'], d20['id']])   # entre a usada e a d20
+        self.assertEqual(self._roll('d20', 2), [17, 20])
+        self.assertNotIn('before', self._rig({'diceType': 'any', 'values': [{'value': 5}]}))
+        self.assertEqual(self._roll('d6'), [5])
+        self.assertEqual(self._roll('d20'), [3])
+        # sem fila antes: a nova vira a primeira
+        first = DiceRig.objects.filter(target_user=self.player).order_by('created_at').first()
+        top = self._rig({'diceType': 'any', 'values': [{'value': 9}], 'before': first.id})['rig']
+        self.assertEqual(DiceRig.objects.filter(target_user=self.player).order_by('created_at').first().id, top['id'])
+
+    def test_before_ignores_rig_of_other_player_or_campaign(self):
+        other = User.objects.create_user(username='o', email='o@x.com', password='x' * 12)
+        Membership.objects.create(campaign=self.camp, user=other, role='player')
+        theirs = DiceRig.objects.create(campaign=self.camp, target_user=other, dice_type='d20', values=[{'value': 2}])
+        mine = self._rig({'diceType': 'd20', 'values': [{'value': 4}]})['rig']
+        r = self._rig({'diceType': 'any', 'values': [{'value': 8}], 'before': theirs.id})
+        self.assertNotIn('before', r)
+        self.assertEqual([x.id for x in DiceRig.objects.filter(target_user=self.player).order_by('created_at')], [mine['id'], r['rig']['id']])
+        bad = self.c_dm.post(f'/api/dice/campaign/{self.camp.id}/rigs',
+                             {'targetUserId': self.player.id, 'diceType': 'any', 'values': [{'value': 8}], 'before': 'x'}, format='json')
+        self.assertEqual(bad.status_code, 400)
+
 
 class ScreenPublicTests(TestCase):
     def setUp(self):

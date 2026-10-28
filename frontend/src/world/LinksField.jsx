@@ -124,7 +124,7 @@ export function EntryPicker({ entries, value, onChange, exclude = [], kinds, lan
         ))}
         {!list.length && <li className="wl-muted wl-picker-empty">{t(lang, 'Nada encontrado.', 'Nothing found.')}</li>}
       </ul>
-      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>{t(lang, 'Fechar', 'Close')}</button>
+      <button type="button" className="btn btn-ghost btn-sm wl-picker-close" onClick={() => setOpen(false)}>{t(lang, 'Fechar', 'Close')}</button>
     </div>
   );
 }

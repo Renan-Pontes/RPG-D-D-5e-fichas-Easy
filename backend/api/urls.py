@@ -86,6 +86,8 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/screen-card', closed_guard(_wp2('views_campaigns', 'campaign_screen_card'), 'campaign')),
     # Palco da Tela (frente, fundo, ↶, 🧹, ◐) e a imagem da frente (V3, api/stage.py)
     path('campaigns/<str:id_or_slug>/stage', closed_guard(views_campaigns.campaign_stage, 'campaign')),
+    # ▶ Começar esta cena (V7): nome, id, sala atual, cena feita e a Tela numa chamada
+    path('campaigns/<str:id_or_slug>/stage/scene', closed_guard(views_campaigns.campaign_stage_scene, 'campaign')),
     path('campaigns/<str:id_or_slug>/stage-image', views_campaigns.campaign_stage_image),
     # pulso do mestre (V4): no lugar do GET completo no polling; 304 parado
     path('campaigns/<str:id_or_slug>/pulse', views_pulse.campaign_pulse),
@@ -99,6 +101,8 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/world/seen', views_world.world_seen),
     path('campaigns/<str:id_or_slug>/world/echoes', closed_guard(views_world.world_echoes, 'campaign')),
     path('campaigns/<str:id_or_slug>/session-plan', closed_guard(views_world.session_plan, 'campaign')),
+    path('campaigns/<str:id_or_slug>/session-plan/archive', closed_guard(views_world.session_plan_archive, 'campaign')),
+    path('campaigns/<str:id_or_slug>/session-plan/restore', closed_guard(views_world.session_plan_restore, 'campaign')),
     path('campaigns/<str:id_or_slug>/party-insights', closed_guard(views_insights.party_insights, 'campaign')),
     path('campaigns/<str:id_or_slug>/party-insights/history', views_insights.party_insights_history),
     path('world/<int:pk>', closed_guard(views_world.world_detail, 'world')),
@@ -110,6 +114,7 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/diary', closed_guard(views_diary.campaign_diary, 'campaign')),
     path('campaigns/<str:id_or_slug>/diary/sessions', closed_guard(views_diary.campaign_diary_start_session, 'campaign')),
     path('campaigns/<str:id_or_slug>/diary/sessions/<int:number>', closed_guard(views_diary.campaign_diary_session, 'campaign')),
+    path('campaigns/<str:id_or_slug>/diary/sessions/<int:number>/end', closed_guard(views_diary.campaign_diary_end_session, 'campaign')),
     path('campaigns/<str:id_or_slug>/diary/<int:entry_pk>', closed_guard(views_diary.campaign_diary_entry, 'campaign')),
 
     # Preparação do mestre (aventuras como mapa de salas/cenas) — só mestre
@@ -117,6 +122,9 @@ urlpatterns = [
     path('campaigns/<str:id_or_slug>/adventures/<int:pk>', closed_guard(views_adventures.adventure_detail, 'campaign')),
     path('campaigns/<str:id_or_slug>/adventures/<int:pk>/play', closed_guard(views_adventures.adventure_play, 'campaign')),
     path('campaigns/<str:id_or_slug>/adventures/<int:pk>/screen', closed_guard(views_adventures.adventure_screen, 'campaign')),
+    # uma sala por vez (a folha da Cena ligada) e as salas leves (o Plano), sem as imagens
+    path('campaigns/<str:id_or_slug>/adventures/<int:pk>/nodes', closed_guard(views_adventures.adventure_nodes, 'campaign')),
+    path('campaigns/<str:id_or_slug>/adventures/<int:pk>/node/<str:node_id>', closed_guard(views_adventures.adventure_node, 'campaign')),
     # Aventuras prontas da Forja (pacotes originais: mundo + aventura)
     path('ready-adventures', views_ready.ready_catalog),
     path('campaigns/<str:id_or_slug>/ready-adventure', closed_guard(views_ready.campaign_ready_adventure, 'campaign')),
@@ -192,6 +200,10 @@ urlpatterns = [
     path('combat/campaign/<str:id_or_slug>/next-turn', closed_guard(views_combat.combat_next_turn, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/prev-turn', closed_guard(views_combat.combat_prev_turn, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/map', closed_guard(views_combat.combat_set_map, 'campaign')),
+    # V8: montar o combate numa chamada (idempotente), ↶ Desfazer por foto e o mapa da cena sem reenviar a imagem
+    path('combat/campaign/<str:id_or_slug>/encounter', closed_guard(views_combat.combat_encounter, 'campaign')),
+    path('combat/campaign/<str:id_or_slug>/undo', closed_guard(views_combat.combat_undo, 'campaign')),
+    path('combat/campaign/<str:id_or_slug>/map-from', closed_guard(views_combat.combat_map_from, 'campaign')),
     # fundo do mapa e imagens dos tokens por URL (V9; o JSON do combate só leva as URLs)
     path('combat/campaign/<str:id_or_slug>/map-image', views_combat.combat_map_image),
     path('combat/campaign/<str:id_or_slug>/token/<str:combatant_id>', views_combat.combat_token_image),

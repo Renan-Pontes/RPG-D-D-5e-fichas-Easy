@@ -8,6 +8,10 @@
 // ataques e salvaguardas de monstro, 20/1 dos testes e o rolador da Mesa dos
 // jogadores; GET …/recent?table=1, ao abrir o filtro e quando o tableRollsRev do
 // pulso muda). O Histórico continua só com os pedidos, como antes.
+// V7: os testes e os pedidos chegam do PlayArea (`tests`, a mesma leitura do selo e da Agora,
+// por versão do pulso): aqui só o Histórico de rolagens é lido, e também por versão. Os
+// abertos de sessões passadas ficam à parte, no grupo recolhido "De sessões passadas", sem
+// selo; em cima, o que espera nesta sessão escrito ("Sessão 4: 1 teste · 2 rolagens").
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
@@ -16,8 +20,9 @@ import GroupCheckPanel, { DMCheckCard } from '../checks/GroupCheckPanel.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
 import { PendingDMRow, RollHistoryRow, TableRollRow } from './RollRows.jsx';
 import { testsBadge, unifyTests } from './scene-model.js';
+import { sessionTests, stateSessionNumber, testsBadge as sessionBadge } from './now-model.js';
 import { flash } from './flash.js';
-import { tableRollsRev, useOnRev, useTable } from './table-store.js';
+import { tableRollsRev, useOnRev, useRevData, useTable } from './table-store.js';
 import useMedia from './useMedia.js';
 import '../checks/checks-styles.css';
 import '../campaigns/combat-styles.css';
@@ -25,9 +30,9 @@ import './play-styles.css';
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
 
-export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount }) {
-  const [data, setData] = useState({ checks: [], pendingRolls: [], recentRolls: [] });
-  const [loaded, setLoaded] = useState(false);
+export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount, tests = null }) {
+  const [own, setData] = useState({ checks: [], pendingRolls: [], recentRolls: [] });
+  const [ownLoaded, setLoaded] = useState(false);
   const [view, setView] = useState('open');
   const [tableRolls, setTableRolls] = useState(null);   // null = ainda não buscou
   const [error, setError] = useState('');
@@ -45,10 +50,17 @@ export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount })
     }));
     setLoaded(true);
   }, [campaign.id]);
-  usePolling(load, 3000, [campaign.id]);
+  // fora do PlayArea (sem `tests`): a leitura de antes, a cada 3 s
+  usePolling(async () => { if (!tests) await load(); }, 3000, [campaign.id, !!tests]);
   // 🎲 Rolagens na Tela: busca ao abrir o filtro e quando o pulso diz que as rolagens
   // mudaram (nenhum pedido a mais parado; sem o pulso, a cada 6 s com o filtro aberto).
   const table = useTable();
+  // com `tests`: o Histórico de rolagens só quando os pedidos mudam (checksRev)
+  const [recent, reloadRecent] = useRevData(table?.pulse?.checksRev ?? null,
+    () => api.listRecentRolls(campaign.id).then(r => r.rolls || []), { table, fallbackMs: 6000, enabled: !!tests, key: String(campaign.id) });
+  const data = tests ? { checks: tests.checks, pendingRolls: tests.pendingRolls, recentRolls: recent || [] } : own;
+  const loaded = tests ? tests.loaded !== false : ownLoaded;
+  const reloadAll = async () => { if (tests) { await Promise.all([tests.reload?.(), reloadRecent()]); } else await load(); };
   const viewRef = useRef(view);
   viewRef.current = view;
   const loadTable = useCallback(async () => {
@@ -58,20 +70,37 @@ export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount })
   useEffect(() => { if (view === 'table') loadTable(); }, [view, loadTable]);
   useOnRev(tableRollsRev(table?.pulse), loadTable, { table, fallbackMs: 6000, safetyMs: Infinity, initial: false });
 
-  const groups = useMemo(() => unifyTests(data), [data]);
+  const allGroups = useMemo(() => unifyTests(data), [data]);
+  // desta sessão × de sessões passadas (os abertos de antes ficam recolhidos, sem selo)
+  const since = tests?.since || null;
+  const t0 = Date.parse(since || '') || 0;
+  const old = (row) => !!t0 && (Date.parse(row.item?.createdAt || row.at || '') || 0) < t0;
+  const groups = useMemo(() => ({
+    open: allGroups.open.filter(r => !old(r)), answered: allGroups.answered.filter(r => !old(r)), history: allGroups.history,
+  }), [allGroups, t0]); // eslint-disable-line react-hooks/exhaustive-deps
+  const past = useMemo(() => [...allGroups.open, ...allGroups.answered].filter(old), [allGroups, t0]); // eslint-disable-line react-hooks/exhaustive-deps
+  const mine = sessionTests({ checks: data.checks, pendingRolls: data.pendingRolls, since });
+  const sessionLine = sessionBadge({ checks: mine.checks.length, rolls: mine.rolls.length }, lang).long;
   const waiting = testsBadge(groups);
   // Avisa a casca (selo da subaba) sem re-render em loop.
   useEffect(() => { onCount?.(waiting); }, [waiting, onCount]);
 
   const act = async (fn) => {
     setError('');
-    try { await fn(); await load(); onChange?.(); } catch (e) { setError(errorMessage(e, lang)); }
+    try { await fn(); await reloadAll(); onChange?.(); } catch (e) { setError(errorMessage(e, lang)); }
   };
   const resolve = (id, visibility, extra = {}) => act(() => api.resolveRoll(id, { visibility, ...extra }));
   const cancel = (id) => act(() => api.cancelRoll(id));
-  const onSent = () => { load(); setView('open'); };
+  const onSent = () => { reloadAll(); setView('open'); };
 
   const list = view === 'table' ? [] : (groups[view] || []);
+  const renderRow = (row) => (
+    row.source === 'check'
+      ? <DMCheckCard key={row.key} check={row.item} campaign={campaign} lang={lang} act={act} />
+      : (row.pending
+        ? <PendingDMRow key={row.key} r={row.item} lang={lang} onResolve={resolve} onCancel={cancel} />
+        : <RollHistoryRow key={row.key} r={row.item} lang={lang} />)
+  );
   const tabs = [
     ['open', L(lang, 'Abertos', 'Open'), groups.open.length],
     ['answered', L(lang, 'Respondidos', 'Answered'), groups.answered.length],
@@ -92,7 +121,9 @@ export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount })
       )}
 
       <section className="mesa-panel tl-box" aria-labelledby="tl-h">
-        <MesaTitle id="tl-h">{L(lang, 'Testes e rolagens', 'Checks and rolls')}</MesaTitle>
+        <MesaTitle id="tl-h" sub={tests && since ? <span className="tl-session">{L(lang, `Sessão ${stateSessionNumber(campaign.state) || ''}: ${sessionLine} esperando`, `Session ${stateSessionNumber(campaign.state) || ''}: ${sessionLine} waiting`)}</span> : null}>
+          {L(lang, 'Testes e rolagens', 'Checks and rolls')}
+        </MesaTitle>
         <div className="mesa-seg tl-tabs" role="tablist" aria-label={L(lang, 'Filtrar', 'Filter')}>
           {tabs.map(([k, label, n, full]) => (
             <button key={k} type="button" role="tab" aria-selected={view === k} title={full}
@@ -128,18 +159,20 @@ export default function TestsPanel({ campaign, lang = 'pt', onChange, onCount })
           </p>
         )}
         <div className="gc-list rolls-panel">
-          {list.map(row => (
-            row.source === 'check'
-              ? <DMCheckCard key={row.key} check={row.item} campaign={campaign} lang={lang} act={act} />
-              : (row.pending
-                ? <PendingDMRow key={row.key} r={row.item} lang={lang} onResolve={resolve} onCancel={cancel} />
-                : <RollHistoryRow key={row.key} r={row.item} lang={lang} />)
-          ))}
+          {list.map(row => renderRow(row))}
         </div>
+        {(view === 'open' || view === 'answered') && past.length > 0 && (
+          <details className="tl-past">
+            <summary className="tl-past-sum">{L(lang, `De sessões passadas (${past.length})`, `From past sessions (${past.length})`)}</summary>
+            <p className="mesa-hint">{L(lang, 'Pedidos que ficaram abertos antes desta sessão. Não contam no selo.', 'Requests left open before this session. They do not count in the badge.')}</p>
+            <div className="gc-list rolls-panel">{past.map(row => renderRow(row))}</div>
+          </details>
+        )}
       </section>
 
       {asking && !wide && (
-        <GroupCheckPanel campaign={campaign} lang={lang} showList={false} asSheet onClose={() => setAsking(false)} onSent={onSent} />
+        <GroupCheckPanel campaign={campaign} lang={lang} showList={false} asSheet onClose={() => setAsking(false)} onSent={onSent}
+          closeOnSend tvLive={table?.tvLive || 0} />
       )}
     </div>
   );

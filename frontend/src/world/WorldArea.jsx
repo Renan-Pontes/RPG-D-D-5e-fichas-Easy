@@ -1,5 +1,7 @@
-// Área "Mundo" do mestre: Atlas · Mapa · Linha do tempo, com o editor de
-// cartão em painel lateral, 🎲 Improvisar e revelação rápida.
+// Área "Mundo" do mestre: Cartões · Mapas · Tempo (ids atlas · map · timeline), com o
+// editor de cartão em painel lateral (tela cheia no celular), 🎲 Improvisar e revelação
+// rápida na folha "Quem vê" única (RevealSheet, a mesma de Jogar: segredos, 📺 e Pronto).
+// Campanha encerrada: tudo só leitura, inclusive o editor do cartão (abre para ler).
 //
 // Montada pela casca (WP3) com lazy(). Lê área/sub/params de useArea() e
 // aceita props para sobrescrever:
@@ -11,25 +13,24 @@ import { Toast } from '../../components/Shared.jsx';
 import useArea from '../shell/useArea.js';
 import { SubChips } from '../shell/AreaNav.jsx';
 import {
-  createEntry, createSampleWorld, getEntry, getWorldEchoes, isConflict, listWorld, updateEntry, worldErrorText,
+  createEntry, createSampleWorld, getEntry, getSessionPlan, getWorldEchoes, isConflict, listWorld, updateEntry, worldErrorText,
 } from './world-api.js';
-import { applyPatches, t, toLight } from './world-model.js';
+import { applyPatches, mergeReorderResponse, pendingAdd, pendingDone, t, toLight } from './world-model.js';
+import { flash } from '../play/flash.js';
 import Atlas from './Atlas.jsx';
 import EntryEditor from './EntryEditor.jsx';
 import ImproviseModal from './ImproviseModal.jsx';
-import RevealControl from './RevealControl.jsx';
+import { RevealSheet } from './RevealControl.jsx';
 import Timeline from './Timeline.jsx';
 import WorldMap from './WorldMap.jsx';
-import { EntryImage } from './EntryCard.jsx';
-import ShowOnTable from '../stage/ShowOnTable.jsx';
 import { immersionOn } from './living/living-logic.js';
 const LivingWorld = lazy(() => import('./living/LivingWorld.jsx'));
 import './world-styles.css';
 
 const SUBS = [
-  { id: 'atlas', icon: '📚', pt: 'Atlas', en: 'Atlas' },
-  { id: 'map', icon: '🗺', pt: 'Mapa', en: 'Map' },
-  { id: 'timeline', icon: '⌛', pt: 'Linha do tempo', en: 'Timeline' },
+  { id: 'atlas', icon: '📚', pt: 'Cartões', en: 'Cards' },
+  { id: 'map', icon: '🗺', pt: 'Mapas', en: 'Maps' },
+  { id: 'timeline', icon: '⌛', pt: 'Tempo', en: 'Timeline' },
 ];
 
 export default function WorldArea(props) {
@@ -57,6 +58,8 @@ export default function WorldArea(props) {
   const [sampleBusy, setSampleBusy] = useState(false);
   const [adventures, setAdventures] = useState([]);
   const advLoaded = useRef(false);
+  const [plan, setPlan] = useState(null);   // o Plano da Sessão N: as cenas no "Aparece em"
+  const planLoaded = useRef(false);
   const [echoes, setEchoes] = useState(null);
   // "Mundo vivo" (⚙ Ajustes): a campanha manda `immersion`; a lista também.
   const [listImmersion, setListImmersion] = useState(true);
@@ -65,15 +68,31 @@ export default function WorldArea(props) {
   const cid = campaign?.id;
   // Campanha encerrada: só leitura — some tudo que escreveria (o backend daria 423).
   const closed = campaign?.status === 'closed';
+  // Versão mais nova de cada cartão que esta tela já viu (resposta de um PATCH, do
+  // editor ou da lista): o ↑ ↓ do Ordenar manda a versão certa mesmo com toques
+  // seguidos, antes de a lista redesenhar.
+  const versions = useRef(new Map());
+  const reorderChain = useRef(Promise.resolve());
+  // Fila do Ordenar: id → {sort otimista, PATCH sem resposta} (mergeReorderResponse) e
+  // a "geração" da fila — um erro recarrega a lista e descarta o que já estava na fila.
+  const pendingSort = useRef(new Map());
+  const reorderGen = useRef(0);
+  // → true quando a lista veio (o aviso de antes some); false quando falhou (fica o aviso).
   const load = useCallback(async () => {
-    if (!cid) return;
+    if (!cid) return false;
     try {
       const r = await listWorld(cid);
-      setEntries(r.entries || []);
+      const list = r.entries || [];
+      // a versão só sobe (a lista pode ter saído antes da resposta de um PATCH)
+      for (const e of list) if (e.version != null && !(versions.current.get(e.id) > e.version)) versions.current.set(e.id, e.version);
+      // recarregou no meio da fila do Ordenar (voltou para a aba): a ordem da tela fica
+      const waiting = [...pendingSort.current].map(([id, w]) => ({ id, sort: w.sort }));
+      setEntries(applyPatches(list, waiting));
       setMeta({ count: r.count ?? (r.entries || []).length, max: r.max || 500 });
       setListImmersion(r.immersion !== false);
       setError('');
-    } catch (e) { setError(worldErrorText(e, lang)); setEntries(prev => prev || []); }
+      return true;
+    } catch (e) { setError(worldErrorText(e, lang)); setEntries(prev => prev || []); return false; }
   }, [cid, lang]);
   // Ecos da mesa: sem endpoint ou com erro → vazio, sem aviso.
   const loadEchoes = useCallback(async () => {
@@ -96,6 +115,13 @@ export default function WorldArea(props) {
     if (params?.create) { setCreateNonce(n => n + 1); clearParams?.(); }
   }, [params?.entryId, params?.mapId, params?.create]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // O plano (para as cenas no "aparece em"): só quando um cartão abre, 1 vez.
+  useEffect(() => {
+    if (!openId || planLoaded.current || !cid) return;
+    planLoaded.current = true;
+    getSessionPlan(cid).then(p => setPlan(p || null)).catch(() => {});
+  }, [openId, cid]);
+
   // Aventuras (para "aparece em" no editor): só quando um cartão abre.
   useEffect(() => {
     if (!openId || advLoaded.current || !cid) return;
@@ -108,17 +134,14 @@ export default function WorldArea(props) {
   }, [openId, cid]);
 
   // ---------------------------------------------------------------- lista
+  // A resposta do servidor entra na lista; o `sort` de um cartão com PATCH do
+  // Ordenar ainda na fila fica o da tela (senão a linha pula debaixo do dedo).
   const upsert = useCallback((full) => {
     if (!full?.id) return;
+    if (full.version != null) versions.current.set(full.id, full.version);
     const light = toLight(full);
-    setEntries(list => {
-      const l = list || [];
-      const i = l.findIndex(e => e.id === full.id);
-      if (i < 0) return [...l, light];
-      const next = l.slice();
-      next[i] = { ...l[i], ...light };
-      return next;
-    });
+    const pending = new Map(pendingSort.current);
+    setEntries(list => mergeReorderResponse(list, light, pending));
   }, []);
   const removeLocal = (id) => setEntries(list => (list || []).filter(e => e.id !== id));
 
@@ -133,18 +156,51 @@ export default function WorldArea(props) {
     } catch (err) { setError(worldErrorText(err, lang)); return null; }
   };
 
-  const reorder = async (patches) => {
+  // Reordenar (arrastar ou ↑ ↓): a lista muda na hora e os PATCH vão em fila, um
+  // reordenar depois do outro, cada um com a versão mais nova (checagem de versão).
+  // Enquanto a fila de um cartão não esvazia, a tela fica com o sort dela
+  // (mergeReorderResponse): toques seguidos com o servidor lento não se desfazem.
+  // Um erro (409 de outra aba, rede): desfaz a metade já gravada da troca (o servidor
+  // não fica com sort repetido), descarta o resto da fila, recarrega e avisa num aviso
+  // curto acima da barra da mesa — a faixa de erro do topo fica fora da vista de quem
+  // rola a lista.
+  const reorder = (patches) => {
+    const before = entries || [];
+    const gen = reorderGen.current;
+    pendingAdd(pendingSort.current, patches);
     setEntries(list => applyPatches(list, patches));
-    try {
-      for (const p of patches) {
-        const cur = (entries || []).find(e => e.id === p.id);
-        const next = await updateEntry(p.id, { sort: p.sort, version: cur?.version });
-        upsert(next);
+    const run = async () => {
+      if (gen !== reorderGen.current) return false; // a fila caiu num erro antes deste toque
+      const done = [];
+      try {
+        for (const p of patches) {
+          const cur = before.find(e => e.id === p.id);
+          const version = versions.current.get(p.id) ?? cur?.version;
+          const next = await updateEntry(p.id, { sort: p.sort, version });
+          pendingDone(pendingSort.current, p.id);
+          done.push({ id: p.id, sort: cur?.sort });
+          upsert(next);
+        }
+        return true;
+      } catch (e) {
+        reorderGen.current += 1;
+        pendingSort.current = new Map();
+        for (const d of done.reverse()) {
+          if (typeof d.sort !== 'number') continue;
+          try {
+            const back = await updateEntry(d.id, { sort: d.sort, version: versions.current.get(d.id) });
+            if (back?.version != null) versions.current.set(d.id, back.version);
+          } catch { /* o load() abaixo mostra o que ficou */ }
+        }
+        await load();
+        flash(isConflict(e)
+          ? t(lang, 'Um cartão mudou em outra aba; a ordem não foi gravada e recarreguei a lista.', 'A card changed in another tab; the order was not saved and the list was reloaded.')
+          : `${t(lang, 'A ordem não foi gravada', 'The order was not saved')}: ${worldErrorText(e, lang)}`, { error: true, ms: 6000 });
+        return false;
       }
-    } catch (e) {
-      setError(isConflict(e) ? t(lang, 'Um cartão mudou em outra aba; recarreguei a lista.', 'A card changed in another tab; the list was reloaded.') : worldErrorText(e, lang));
-      load();
-    }
+    };
+    reorderChain.current = reorderChain.current.then(run);
+    return reorderChain.current;
   };
 
   const quickReveal = async (entry) => {
@@ -197,15 +253,15 @@ export default function WorldArea(props) {
           showCampaign={closed ? null : campaign}
           onOpenEntry={openEntry} onEntrySaved={upsert} onEntryCreated={(e) => { upsert(e); }} />
       ) : (
-        <Timeline campaign={campaign} entries={list} lang={lang} onOpenEntry={openEntry} onEntrySaved={upsert} onReload={load}
+        <Timeline campaign={campaign} entries={list} lang={lang} readOnly={closed} onOpenEntry={openEntry} onEntrySaved={upsert} onReload={load}
           onCreate={closed ? null : (f) => create({ ...f, name: t(lang, 'Novo evento', 'New event') })} />
       )}
 
       {openId && (
         <>
           <div className="wl-editor-scrim" onClick={() => setOpenId(null)} aria-hidden="true" />
-          <EntryEditor key={openId} entryId={openId} campaign={campaign} entries={list} adventures={adventures} lang={lang}
-            onClose={() => setOpenId(null)} onSaved={upsert}
+          <EntryEditor key={openId} entryId={openId} campaign={campaign} entries={list} adventures={adventures} plan={plan} lang={lang}
+            readOnly={closed} onClose={() => setOpenId(null)} onSaved={upsert}
             onDeleted={(id) => { removeLocal(id); setOpenId(null); setMeta(m => ({ ...m, count: Math.max(0, m.count - 1) })); setToast(t(lang, 'Cartão apagado.', 'Card deleted.')); }}
             onOpenEntry={openEntry} onOpenMap={openMap} onShow={!closed} />
         </>
@@ -217,21 +273,8 @@ export default function WorldArea(props) {
       )}
 
       {revealFor && (
-        <div className="modal-backdrop" onClick={() => setRevealFor(null)}>
-          <div className="modal wl-reveal-modal" role="dialog" aria-modal="true" aria-label={revealFor.name} onClick={e => e.stopPropagation()}>
-            <button type="button" className="modal-close" onClick={() => setRevealFor(null)} aria-label={t(lang, 'Fechar', 'Close')}>×</button>
-            <div className="wl-reveal-modal-head">
-              <span className="wl-reveal-modal-thumb"><EntryImage entry={revealFor} className="wl-thumb-img" /></span>
-              <h2>{revealFor.name}</h2>
-            </div>
-            <RevealControl entry={revealFor} lang={lang} showSecrets onChange={(next) => { setRevealFor(next); upsert(next); }} />
-            <div className="modal-actions">
-              <ShowOnTable campaign={campaign} target={{ kind: 'card', entry: revealFor }} lang={lang} className="btn btn-ghost btn-sm"
-                onRevealed={(next) => { setRevealFor(next); upsert(next); }}>📺 {t(lang, 'Mostrar na Tela', 'Show on screen')}</ShowOnTable>
-              <button type="button" className="btn btn-primary btn-sm" onClick={() => setRevealFor(null)}>{t(lang, 'Pronto', 'Done')}</button>
-            </div>
-          </div>
-        </div>
+        <RevealSheet entry={revealFor} campaign={closed ? null : campaign} lang={lang} onClose={() => setRevealFor(null)}
+          onChange={(next) => { setRevealFor(next); upsert(next); }} />
       )}
 
       {toast && <Toast msg={toast} onDone={clearToast} />}

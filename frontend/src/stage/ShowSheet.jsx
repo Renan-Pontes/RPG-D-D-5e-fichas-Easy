@@ -3,7 +3,6 @@
 // aberta pelo 📺 Mostrar… das ações de Jogar). Lê o Mundo, a aventura em jogo
 // e o plano UMA vez ao abrir (sem polling); cada linha tem o 📺 único.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { api } from '../api/client.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import { EntryImage, VisibilitySeal } from '../world/EntryCard.jsx';
@@ -11,10 +10,14 @@ import { getSessionPlan, listWorld } from '../world/world-api.js';
 import { KIND_META, kindLabel } from '../world/world-model.js';
 import { getAdventure, listAdventures } from '../play/play-api.js';
 import { activeScene } from '../play/scene-model.js';
-import RecapCard from '../play/RecapCard.jsx';
+import RecapEditor from '../play/RecapEditor.jsx';
 import { flash } from '../play/flash.js';
+import { sceneAsMap } from '../play/combat-actions.js';
 import { L, normalizeStage, cardShowMode } from './stage-now.js';
-import { imageRows, mapRows, sceneRows, TEXT_MAX } from './show-model.js';
+import { imageRows, mapRows, roomIsNow, sceneRows, TEXT_MAX } from './show-model.js';
+import { currentScene } from '../play/now-model.js';
+import { useTable } from '../play/table-store.js';
+import { normalizePlan } from '../prep/next-session.js';
 import { sendToStage, stageBg } from './stage-api.js';
 import ShowOnTable from './ShowOnTable.jsx';
 import './stage.css';
@@ -60,17 +63,37 @@ function useShowData(campaignId) {
   return [data, load, patchEntry];
 }
 
-export function ShowPicker({ campaign, stage, lang = 'pt', onChange }) {
+/**
+ * sceneNow (V7, a Agora): {id, refs, show, nodeRef} da cena agora do plano — a imagem dela e
+ * quem aparece abrem as Imagens ("Da cena agora") e ela é a 1ª das Cenas. Quem abre sem ela
+ * (Combate, Jogar › Tela, Tela ao vivo): a do pulso (ou do state), com a sessão ao vivo.
+ */
+export function ShowPicker({ campaign, stage, lang = 'pt', onChange, sceneNow: sceneNowProp = null }) {
   const [tab, setTab] = useState('images');
   const [data, reload, patchEntry] = useShowData(campaign.id);
+  const table = useTable();
+  const pulse = table?.pulse || null;
+  const cst = campaign.state || {};
+  const live = pulse ? !!pulse.live : !!cst.live;
+  const sceneId = pulse?.sceneId ?? cst.sceneId ?? null;
+  const sceneName = pulse ? pulse.scene : cst.scene;
+  const sceneNow = useMemo(() => {
+    if (sceneNowProp || !live || !data.plan) return sceneNowProp;
+    const s = currentScene(normalizePlan(data.plan), { sceneId, scene: sceneName });
+    if (!s) return null;
+    // a ligada: os cartões moram na sala (os da sala em jogo entram pelo roomIsNow)
+    return { id: s.id, refs: s.nodeRef ? [] : s.refs || [], show: s.nodeRef ? null : s.show || null, nodeRef: s.nodeRef || null };
+  }, [sceneNowProp, live, data.plan, sceneId, sceneName]);
   const [query, setQuery] = useState('');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const st = normalizeStage(stage);
   const loading = data.entries === null;
-  const imgs = useMemo(() => imageRows({ entries: data.entries || [], adventure: data.adventure, node: data.node, query }),
-    [data, query]);
-  const scenes = useMemo(() => sceneRows({ plan: data.plan, adventure: data.adventure, node: data.node }), [data]);
+  const sceneRefs = useMemo(() => [...(sceneNow?.show?.kind === 'entry' ? [sceneNow.show.id] : []), ...(sceneNow?.refs || [])], [sceneNow]);
+  const roomNow = roomIsNow(sceneNow, data.adventure, data.node);
+  const imgs = useMemo(() => imageRows({ entries: data.entries || [], adventure: data.adventure, node: data.node, query, sceneRefs, roomNow }),
+    [data, query, sceneRefs, roomNow]);
+  const scenes = useMemo(() => sceneRows({ plan: data.plan, adventure: data.adventure, node: data.node, nowSceneId: sceneNow?.id || null }), [data, sceneNow]);
   const maps = useMemo(() => mapRows(data.entries || []), [data]);
   const done = () => onChange?.();
 
@@ -123,13 +146,8 @@ export function ShowPicker({ campaign, stage, lang = 'pt', onChange }) {
     if (!yes) return;
     setBusy(true);
     try {
-      const size = await new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve({ w: img.width, h: img.height });
-        img.onerror = () => reject(new Error('image'));
-        img.src = node.image;
-      });
-      await api.setCombatMap(campaign.id, { background_image: node.image, width_px: size.w, height_px: size.h });
+      // V8: o servidor copia a imagem da sala (map-from); o servidor antigo recebe de novo
+      await sceneAsMap(campaign.id, { advId: data.adventure.id, nodeId: node.id }, node.image);
       flash(L(lang, 'Mapa do combate atualizado.', 'Combat map updated.'));
     } catch { flash(L(lang, 'Não consegui usar esta imagem.', 'Could not use this image.'), { error: true }); }
     finally { setBusy(false); }
@@ -194,7 +212,7 @@ export function ShowPicker({ campaign, stage, lang = 'pt', onChange }) {
 
       {!loading && tab === 'text' && (
         <div className="stage-pane" role="tabpanel">
-          <RecapCard campaign={campaign} lang={lang} onShown={done} />
+          <RecapEditor campaign={campaign} lang={lang} inline onShown={done} />
           {data.node?.readAloud && (
             <div className="stage-read">
               <p className="mesa-eyebrow stage-sub">{L(lang, 'Ler em voz alta · cena agora', 'Read aloud · current scene')}</p>
@@ -270,10 +288,10 @@ export function ShowPicker({ campaign, stage, lang = 'pt', onChange }) {
 }
 
 /** A folha "Mostrar na Tela" (o mesmo conteúdo de Jogar › Tela › Mostrar). */
-export default function ShowSheet({ campaign, stage, lang = 'pt', onClose, onChange }) {
+export default function ShowSheet({ campaign, stage, lang = 'pt', onClose, onChange, sceneNow = null }) {
   return (
     <MesaSheet title={L(lang, 'Mostrar na Tela', 'Show on screen')} icon="📺" size="tall" width="md" lang={lang} onClose={onClose} dock="play">
-      <ShowPicker campaign={campaign} stage={stage} lang={lang} onChange={onChange} />
+      <ShowPicker campaign={campaign} stage={stage} lang={lang} onChange={onChange} sceneNow={sceneNow} />
     </MesaSheet>
   );
 }

@@ -6,6 +6,7 @@
 //   "Abrir a Tela ao vivo" e "Barra da mesa: Sempre · Só ao vivo · Nunca", V4) ·
 //   🎲 Dados preparados (só com a opção ligada);
 //   ⚙ Ajustes: as 6 seções, cada uma abrindo os Ajustes já nela;
+//   📘 Guia do mestre (V14: os 5 cartões com "Me leve lá");
 //   ← Voltar para Campanhas.
 // Quem chama fecha a folha antes de abrir a próxima janela (ver CampaignDetail).
 import { useId } from 'react';
@@ -32,7 +33,7 @@ function Row({ icon, title, sub, onClick, disabled, className = '' }) {
 export default function MoreSheet({
   campaign, lang, busy = false, worldCount = null, worldMax = 500,
   onClose, onStartSession, onEndSession, onSearch, onSettings, onBack, onTvOpened, onScreenChange, onChooseScreen,
-  onOpenLive, barPrefs, onBarPrefs,
+  onOpenLive, onGuide, barPrefs, onBarPrefs,
 }) {
   const tvId = useId();
   const setId = useId();
@@ -67,11 +68,11 @@ export default function MoreSheet({
         {!closed && (live ? (
           <Row icon="■" className="is-session" disabled={busy} onClick={onEndSession}
             title={t(lang, 'Encerrar sessão', 'End session')}
-            sub={t(lang, 'Continuar jogando, encerrar ou escrever o recap', 'Keep playing, end, or write the recap')} />
+            sub={t(lang, 'Arruma a mesa e guarda o plano; o resumo é com você', 'Tidies the table and keeps the plan; the recap is up to you')} />
         ) : (
           <Row icon="▶" className="is-session is-start" disabled={busy} onClick={onStartSession}
-            title={t(lang, `Começar sessão ${next}`, `Start session ${next}`)}
-            sub={t(lang, 'Liga o "Ao vivo" e abre Jogar › Cena', 'Turns on "Live" and opens Play › Scene')} />
+            title={t(lang, `Começar a Sessão ${next}`, `Start session ${next}`)}
+            sub={t(lang, 'Pergunta onde começa e abre Jogar › Agora', 'Asks where it starts and opens Play › Now')} />
         ))}
         <Row icon="🔍" onClick={onSearch}
           title={t(lang, 'Buscar', 'Search')}
@@ -108,6 +109,13 @@ export default function MoreSheet({
           ))}
         </div>
       </section>
+
+      {onGuide && (
+        <div className="shell-more-list mesa-panel is-sunk">
+          <Row icon="📘" onClick={onGuide} title={t(lang, 'Guia do mestre', 'GM guide')}
+            sub={t(lang, 'Preparar, começar, Tela, combate e encerrar, com "Me leve lá"', 'Prepare, start, screen, combat and end, with "Take me there"')} />
+        </div>
+      )}
 
       <div className="shell-more-list mesa-panel is-sunk">
         <Row icon="←" onClick={onBack} title={t(lang, 'Voltar para Campanhas', 'Back to Campaigns')} />

@@ -9,8 +9,13 @@
 //   de ações, com "✓ Aplicar · ✍ Ajustar · ✕ Descartar" presos embaixo. Nada é
 //   aplicado antes do Aplicar. A sugestão em aberto e os alvos escolhidos ficam
 //   no CombatTab (por combatente): fechar a folha não perde nada.
-// - Remover uma condição sempre pergunta antes (confirmDialog).
+// - Tirar uma condição pergunta antes, ali mesmo: "Tirar Envenenado de Dagna?
+//   [Tirar] [Manter]" (V8; antes era um diálogo por cima).
 // - Condições da ficha do jogador aparecem marcadas "ficha", só leitura.
+// - V8: abre em Ações quando é o monstro da vez e em Dano/Cura nos outros casos; a
+//   aba Dano/Cura é o teclado de dano (DamagePadBody, sem o teclado do sistema, com
+//   opId e ↶ Desfazer); a iniciativa se edita no resumo ("✎" = entrou com 10, sem
+//   responder); a folha para acima da barra da mesa (dock="bar").
 // Mesmas chamadas de antes (api.combatAction, attackPreview); nenhuma consulta nova.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { errorMessage } from '../api/errors.js';
@@ -22,7 +27,8 @@ import SaveResultCard from '../play/SaveResultCard.jsx';
 import { attackPreview } from '../play/play-api.js';
 import { flash } from '../play/flash.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
-import { CONDITIONS, DAMAGE_TYPES, conditionLabel, damageTypeLabel } from '../combat/monster-i18n.js';
+import { CONDITIONS, conditionLabel } from '../combat/monster-i18n.js';
+import { DamagePadBody, undoFlash } from '../play/DamagePad.jsx';
 import { conditionIcon, CONDITION_EMOJI } from '../art.js';
 import { ArtIcon } from '../components/ArtThumb.jsx';
 import {
@@ -48,22 +54,24 @@ export function condRounds(combatant, cond) {
   return ef ? ef.rounds_left : null;
 }
 
-/** "Remover Envenenado?" — a mesma confirmação na linha, na folha e na grade de condições. */
-export function askRemoveCondition(lang, who, cond) {
-  const label = conditionLabel(cond, lang);
-  return confirmDialog({
-    lang,
-    title: t(lang, `Remover ${label}?`, `Remove ${label}?`),
-    message: t(lang, `${who} fica sem essa condição.`, `${who} loses this condition.`),
-    confirmLabel: t(lang, 'Remover', 'Remove'),
-  });
-}
-
-/** Tira a condição do combatente, depois de confirmar. */
-export async function removeCondition({ campaignId, combatant, cond, lang }) {
-  if (!await askRemoveCondition(lang, combatant.name, cond)) return false;
-  await api.combatAction(campaignId, { action: 'remove_condition', targetId: combatant.id, condition: cond });
-  return true;
+/**
+ * A pergunta na linha antes de tirar uma condição (V8): "Tirar Envenenado de Dagna?
+ * [Tirar] [Manter]". O foco vai para o Manter (um 2º toque sem querer não tira nada).
+ */
+export function ConditionAsk({ cond, who, lang, busy = false, onYes, onNo }) {
+  const keep = useRef(null);
+  useEffect(() => { try { keep.current?.focus({ preventScroll: true }); } catch { /* ok */ } }, [cond]);
+  return (
+    <div className="cs-ask" role="group" aria-label={t(lang, 'Tirar condição', 'Remove condition')}>
+      <p className="cs-ask-q">
+        {t(lang, 'Tirar ', 'Remove ')}<strong>{conditionLabel(cond, lang)}</strong>{t(lang, ` de ${who}?`, ` from ${who}?`)}
+      </p>
+      <div className="cs-ask-btns">
+        <button type="button" className="mesa-btn is-danger" disabled={busy} onClick={onYes}>{busy ? '…' : t(lang, 'Tirar', 'Remove')}</button>
+        <button type="button" className="mesa-btn" ref={keep} onClick={onNo}>{t(lang, 'Manter', 'Keep')}</button>
+      </div>
+    </div>
+  );
 }
 
 /** Chip de condição. Com onRemove: botão (pergunta antes de tirar). Sem: só leitura ("ficha"). */
@@ -103,9 +111,9 @@ function hasResources(c) {
   return !!(legendaryInfo(c) || legendaryResistanceInfo(c) || limited);
 }
 
-/** Aba inicial: monstro → Ações; personagem (age pela ficha) → Dano/Cura. */
-export function defaultTab(c) {
-  return c?.type === 'pc' && !(c.stats?.actions || []).length ? 'hp' : 'actions';
+/** Aba inicial (V8): o monstro da vez → Ações; nos outros casos → Dano/Cura (PV). */
+export function defaultTab(c, { isTurn = false } = {}) {
+  return c?.type === 'monster' && isTurn ? 'actions' : 'hp';
 }
 
 /**
@@ -118,13 +126,17 @@ export function defaultTab(c) {
  */
 export function CombatantPanel({
   combatant: c, allCombatants, campaign, lang, pending, setPending, choice, setChoice,
-  onChange, onRemove, layout = 'sheet', tab: tabProp, onTab, showSummary = layout === 'sheet',
+  onChange, onRemove, layout = 'sheet', tab: tabProp, onTab, showSummary = layout === 'sheet', isCurrentTurn = false,
+  combat = null,
 }) {
   const campaignId = campaign.id;
   const actions = c.stats?.actions || [];
   const [error, setError] = useState('');
   const [condRoundsIn, setCondRoundsIn] = useState('');
-  const [tabLocal, setTabLocal] = useState(() => defaultTab(c));
+  const [tabLocal, setTabLocal] = useState(() => defaultTab(c, { isTurn: isCurrentTurn }));
+  const [asking, setAsking] = useState(null);         // {cond, where: 'sum'|'tab'}: "Tirar …?" na linha
+  const [dropping, setDropping] = useState(false);
+  const [editInit, setEditInit] = useState(null);     // texto da iniciativa em edição (null = fechado)
   const tab = tabProp || tabLocal;
   const setTab = onTab || setTabLocal;
   const [openIdx, setOpenIdx] = useState(null);
@@ -156,18 +168,32 @@ export function CombatantPanel({
   });
   const doUse = (index, force) => send({ action: 'use_action', attackerId: c.id, actionIndex: index, force: !!force });
   const setRes = (patch) => send({ action: 'set_resources', targetId: c.id, ...patch });
-  const doDamage = (amount, damageType) => send({ action: 'damage', targetId: c.id, amount: parseInt(amount) || 0, damageType: damageType || 'bludgeoning' });
-  const doHeal = (amount) => send({ action: 'heal', targetId: c.id, amount: parseInt(amount) || 0 });
   const doDeathSave = () => send({ action: 'death_save', targetId: c.id });
   const addCondition = (cond) => {
     const rounds = parseInt(condRoundsIn, 10);
     return send({ action: 'add_condition', targetId: c.id, condition: cond, ...(rounds > 0 ? { rounds } : {}) });
   };
-  const dropCondition = async (cond) => {
-    setError('');
-    try { if (await removeCondition({ campaignId, combatant: c, cond, lang })) onChange(); }
-    catch (e) { setError(errorMessage(e, lang)); onChange(); }
+  // Tirar pergunta antes, na linha (o 1º toque só pergunta).
+  const askDrop = (cond, where) => { setError(''); setAsking({ cond, where }); };
+  const dropCondition = async () => {
+    if (!asking || dropping) return;
+    setDropping(true); setError('');
+    try { await api.combatAction(campaignId, { action: 'remove_condition', targetId: c.id, condition: asking.cond }); }
+    catch (e) { setError(errorMessage(e, lang)); }
+    finally { setDropping(false); setAsking(null); onChange(); }
   };
+  const saveInit = async () => {
+    const n = parseInt(editInit, 10);
+    if (!Number.isFinite(n)) { setEditInit(null); return; }
+    setError('');
+    try { await api.updateCombatant(campaignId, c.id, { initiative: n }); }
+    catch (e) { setError(errorMessage(e, lang)); }
+    setEditInit(null);
+    onChange();
+  };
+  const ask = (where) => (asking && asking.where === where ? (
+    <ConditionAsk cond={asking.cond} who={c.name} lang={lang} busy={dropping} onYes={dropCondition} onNo={() => setAsking(null)} />
+  ) : null);
 
   const conds = c.conditions || [];
   const down = c.type === 'pc' && (c.current_hp || 0) <= 0;
@@ -185,16 +211,33 @@ export function CombatantPanel({
           <div className="cs-sum-stats">
             <HpBar hp={c.current_hp} max={c.stats?.max_hp} temp={c.temp_hp} lang={lang} className="cs-sum-hp" />
             {c.stats?.ac != null && <span className="cs-stat"><span className="cs-stat-k">{t(lang, 'CA', 'AC')}</span> {c.stats.ac}</span>}
-            <span className="cs-stat"><span className="cs-stat-k">{t(lang, 'Inic.', 'Init')}</span> {c.initiative}</span>
+            {editInit == null ? (
+              <button type="button" className={`cs-stat cs-init-btn ${c.init_guess ? 'is-guess' : ''}`} onClick={() => setEditInit(String(c.initiative ?? ''))}
+                aria-label={t(lang, `Iniciativa ${c.initiative}${c.init_guess ? ' (entrou com 10, sem responder)' : ''}: mudar`, `Initiative ${c.initiative}${c.init_guess ? ' (started at 10, no answer)' : ''}: change`)}>
+                <span className="cs-stat-k">{t(lang, 'Inic.', 'Init')}</span> {c.initiative} <span aria-hidden="true">✎</span>
+              </button>
+            ) : (
+              <form className="cs-init-edit" onSubmit={(e) => { e.preventDefault(); saveInit(); }}>
+                <label className="cs-stat-k" htmlFor={`cs-init-${c.id}`}>{t(lang, 'Iniciativa', 'Initiative')}</label>
+                <input id={`cs-init-${c.id}`} className="input" type="number" inputMode="numeric" value={editInit}
+                  onChange={e => setEditInit(e.target.value)} autoFocus />
+                <button type="submit" className="mesa-btn is-primary">{t(lang, 'Salvar', 'Save')}</button>
+                <button type="button" className="mesa-btn" onClick={() => setEditInit(null)}>{t(lang, 'Cancelar', 'Cancel')}</button>
+              </form>
+            )}
           </div>
+          {c.init_guess && editInit == null && (
+            <p className="mesa-hint cs-init-note">{t(lang, '✎ Entrou com 10: não respondeu a iniciativa. Toque em Inic. para mudar.', '✎ Started at 10: no initiative answer. Tap Init to change.')}</p>
+          )}
           {(conds.length > 0 || fromSheet.length > 0) && (
             <div className="cs-conds">
               {conds.map(cond => (
-                <ConditionChip key={cond} cond={cond} rounds={condRounds(c, cond)} lang={lang} onRemove={() => dropCondition(cond)} />
+                <ConditionChip key={cond} cond={cond} rounds={condRounds(c, cond)} lang={lang} onRemove={() => askDrop(cond, 'sum')} />
               ))}
               {fromSheet.map(cond => <ConditionChip key={`f-${cond}`} cond={cond} lang={lang} fromSheet />)}
             </div>
           )}
+          {ask('sum')}
         </div>
       )}
 
@@ -232,10 +275,13 @@ export function CombatantPanel({
         {activeTab === 'actions' && (pending ? (
           <PendingSuggestion pending={pending} combatant={c} allCombatants={allCombatants} campaignId={campaignId}
             lang={lang} layout={layout}
-            onDone={(msg) => {
+            onDone={(msg, opId) => {
               // área aplicada: os alvos marcados saem (como antes), para a próxima não ir nos mesmos sem querer
               if (pending.kind === 'save') setChoice(pending.index, { targetIds: [] });
-              setPending(null); if (msg) flash(msg); onChange();
+              setPending(null);
+              // V8: com o opId do servidor novo, o aviso ganha o ↶ Desfazer (restaura a foto)
+              if (msg) flash(msg, opId ? { action: { label: t(lang, '↶ Desfazer', '↶ Undo'), onClick: undoFlash(campaignId, opId, lang, () => onChange()) } } : {});
+              onChange();
             }}
             onDiscard={() => setPending(null)} />
         ) : (
@@ -266,7 +312,10 @@ export function CombatantPanel({
           </div>
         ))}
 
-        {activeTab === 'hp' && <DamageHealForm lang={lang} onDamage={doDamage} onHeal={doHeal} />}
+        {activeTab === 'hp' && (
+          <DamagePadBody campaign={campaign} combat={combat || { combatants: allCombatants }} lang={lang} target={c} compact
+            onApplied={() => onChange()} onConditions={() => setTab('conditions')} />
+        )}
 
         {activeTab === 'conditions' && (
           <div className="cs-condtab">
@@ -275,14 +324,15 @@ export function CombatantPanel({
               <input id={`${panelId}-rounds`} type="number" min={1} max={100} inputMode="numeric" className="input"
                 value={condRoundsIn} onChange={e => setCondRoundsIn(e.target.value)} />
             </div>
-            <p className="mesa-hint">{t(lang, 'Toque para pôr. Tirar uma condição pede confirmação.', 'Tap to apply. Removing a condition asks first.')}</p>
+            <p className="mesa-hint">{t(lang, 'Toque para pôr. Tirar uma condição pergunta antes.', 'Tap to apply. Removing a condition asks first.')}</p>
+            {ask('tab')}
             <div className="cs-cond-grid">
               {CONDITIONS.map(cond => {
                 const on = conds.includes(cond);
                 const r = on ? condRounds(c, cond) : null;
                 return (
                   <button key={cond} type="button" className={`mesa-chip cs-cond-btn ${on ? 'active' : ''}`} aria-pressed={on}
-                    onClick={() => (on ? dropCondition(cond) : addCondition(cond))}>
+                    onClick={() => (on ? askDrop(cond, 'tab') : addCondition(cond))}>
                     <ArtIcon src={conditionIcon(cond)} emoji={CONDITION_EMOJI[cond]} size={16} />
                     <span>{conditionLabel(cond, lang)}{r != null ? ` (${r})` : ''}</span>
                   </button>
@@ -335,7 +385,7 @@ function PendingSuggestion({ pending, combatant, allCombatants, campaignId, lang
       <div className="cs-pending" ref={ref}>
         <SaveResultCard key={pending.key} campaignId={campaignId} attacker={combatant} action={action} actionIndex={pending.index}
           targets={pending.targets} status={actionStatus(combatant, pending.index)} lang={lang} pinned
-          onApplied={(_, info) => onDone(t(lang, `Aplicado: ${name}.`, `Applied: ${name}.`) + onScreen(info, lang))}
+          onApplied={(_, info) => onDone(t(lang, `Aplicado: ${name}.`, `Applied: ${name}.`) + onScreen(info, lang), info?.opId)}
           onDiscard={onDiscard} />
       </div>
     );
@@ -349,7 +399,7 @@ function PendingSuggestion({ pending, combatant, allCombatants, campaignId, lang
           const who = info?.targetName || '';
           onDone((info?.hit
             ? t(lang, `Aplicado: ${who} sofreu ${info.damage} de dano.`, `Applied: ${who} took ${info.damage} damage.`)
-            : t(lang, `Aplicado: o ataque errou ${who}.`, `Applied: the attack missed ${who}.`)) + onScreen(info, lang));
+            : t(lang, `Aplicado: o ataque errou ${who}.`, `Applied: the attack missed ${who}.`)) + onScreen(info, lang), info?.opId);
         }}
         onDiscard={onDiscard} />
     </div>
@@ -529,53 +579,21 @@ function MonsterResources({ combatant: c, lang, onSet }) {
   );
 }
 
-function DamageHealForm({ lang, onDamage, onHeal }) {
-  const [amount, setAmount] = useState('');
-  const [type, setType] = useState('bludgeoning');
-  const id = useRef(`cs-dmg-${Math.random().toString(36).slice(2, 8)}`).current;
-  return (
-    <div className="cs-dmg">
-      <div className="cs-dmg-fields">
-        <div className="mesa-field cs-dmg-amount">
-          <label htmlFor={`${id}-n`}>{t(lang, 'Quantos PV', 'How many HP')}</label>
-          <input id={`${id}-n`} type="number" inputMode="numeric" min={0} className="input" value={amount}
-            onChange={e => setAmount(e.target.value)} placeholder={t(lang, 'PV', 'HP')} />
-        </div>
-        <div className="mesa-field cs-dmg-type">
-          <label htmlFor={`${id}-t`}>{t(lang, 'Tipo de dano', 'Damage type')}</label>
-          <select id={`${id}-t`} className="input" value={type} onChange={e => setType(e.target.value)}>
-            {DAMAGE_TYPES.map(ty => <option key={ty} value={ty}>{damageTypeLabel(ty, lang)}</option>)}
-          </select>
-        </div>
-      </div>
-      <div className="cs-dmg-btns">
-        <button type="button" className="mesa-btn mesa-btn-lg is-danger" onClick={() => onDamage(amount, type)} disabled={!amount}>
-          − {t(lang, 'Dano', 'Damage')}
-        </button>
-        <button type="button" className="mesa-btn mesa-btn-lg cs-heal" onClick={() => onHeal(amount)} disabled={!amount}>
-          + {t(lang, 'Cura', 'Heal')}
-        </button>
-      </div>
-      <p className="mesa-hint">{t(lang, 'A cura não usa o tipo de dano.', 'Healing ignores the damage type.')}</p>
-    </div>
-  );
-}
-
 /**
  * A folha do combatente no celular/tablet (MesaSheet "tall"): cabeçalho com o
  * nome, o tipo e a iniciativa, e as abas do CombatantPanel no corpo.
  */
 export default function CombatantSheet({ combatant: c, onClose, lang, isCurrentTurn, initialTab, ...rest }) {
-  const [tab, setTab] = useState(() => initialTab || defaultTab(c));
+  const [tab, setTab] = useState(() => initialTab || defaultTab(c, { isTurn: isCurrentTurn }));
   const eyebrow = [
     c.type === 'monster' ? t(lang, 'Monstro', 'Monster') : t(lang, 'Personagem', 'Character'),
     isCurrentTurn ? t(lang, '▶ Vez dele', '▶ Their turn') : null,
     c.defeated ? t(lang, 'Derrotado', 'Defeated') : null,
   ].filter(Boolean).join(' · ');
   return (
-    <MesaSheet title={c.name} eyebrow={eyebrow} size="tall" width="md" lang={lang} onClose={onClose} dock="play"
+    <MesaSheet title={c.name} eyebrow={eyebrow} size="tall" width="md" lang={lang} onClose={onClose} dock="bar"
       className="cs-sheet" bodyClassName="cs-sheet-body">
-      <CombatantPanel combatant={c} lang={lang} layout="sheet" tab={tab} onTab={setTab} {...rest} />
+      <CombatantPanel combatant={c} lang={lang} layout="sheet" tab={tab} onTab={setTab} isCurrentTurn={isCurrentTurn} {...rest} />
     </MesaSheet>
   );
 }

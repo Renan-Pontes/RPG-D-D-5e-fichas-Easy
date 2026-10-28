@@ -6,8 +6,11 @@ import NodeList from './NodeList.jsx';
 import NodeEditor, { EdgeEditor } from './NodeEditor.jsx';
 import PlayPanel from './PlayPanel.jsx';
 import usePrepConfirm from './usePrepConfirm.jsx';
+import MoreMenu from '../group/MoreMenu.jsx';
 import { prepApi } from './prep-api.js';
 import { useTable } from '../play/table-store.js';
+import useMedia from '../play/useMedia.js';
+import { SIDE_MQ } from '../shell/MesaSheet.jsx';
 import {
   emptyPlay, makeNode, makeEdge, addNode, updateNode, removeNode, addEdge, updateEdge, removeEdge, reverseEdge,
   availableTargets, highlightedEdges, validateAdventure, partyLevels, freeSpot, startNode, exportAdventure,
@@ -59,11 +62,11 @@ function download(name, obj) {
 
 /**
  * Preparar › Aventuras: cada aventura é um mapa de salas/cenas conectadas.
- * Modo Preparar (editar mapa e salas) · Conduzir (marcar onde o grupo está,
+ * Modo Editar (o mapa e as salas) · Na mesa (marcar onde o grupo está,
  * caminhos, encontro, tesouro, telão, cartões do Mundo da sala). Jogadores
  * nunca veem esta área nem os dados.
  */
-export default function PrepTab({ campaign, lang, onOpenTab, goTo, initialAdventureId, initialNodeId, onConsumedParams }) {
+export default function PrepTab({ campaign, lang, onOpenTab, goTo, initialAdventureId, initialNodeId, onConsumedParams, onReady }) {
   const [adventures, setAdventures] = useState(null);
   const [error, setError] = useState('');
   const [openId, setOpenId] = useState(initialAdventureId || null);
@@ -124,12 +127,23 @@ export default function PrepTab({ campaign, lang, onOpenTab, goTo, initialAdvent
 
   return (
     <div className="prep-tab">
+      {/* no topo: as aventuras prontas (o plano vem junto) */}
+      {onReady && (
+        <button type="button" className="prep-ready-card" onClick={onReady}>
+          <span className="prep-ready-title">📖 {t(lang, 'Aventuras prontas', 'Ready adventures')}</span>
+          <span className="prep-ready-sub">{t(lang, '2 toques e o plano vem pronto.', '2 taps and the plan comes ready.')}</span>
+          <span className="prep-ready-go" aria-hidden="true">›</span>
+        </button>
+      )}
       <div className="prep-intro">
         <div>
           <h2>{t(lang, 'Aventuras', 'Adventures')}</h2>
           <p className="muted">{t(lang,
-            'Monte cada aventura como um mapa de salas e cenas ligadas por caminhos e ligue os cartões do seu Mundo a cada sala. Na sessão, use “Conduzir” para marcar por onde o grupo passa. Só você vê isto.',
-            'Build each adventure as a map of rooms and scenes linked by paths, and link your World cards to each room. During the session, use “Run” to mark where the party goes. Only you see this.')}</p>
+            'Aventura = um mapa de salas. Bom para masmorras e viagens. Para uma sessão simples, o Plano basta.',
+            'Adventure = a map of rooms. Good for dungeons and journeys. For a simple session, the Plan is enough.')}</p>
+          <p className="muted">{t(lang,
+            'Ligue os cartões do seu Mundo a cada sala e, na sessão, use “Na mesa” para marcar por onde o grupo passa. Só você vê isto.',
+            'Link your World cards to each room and, during the session, use “At the table” to mark where the party goes. Only you see this.')}</p>
         </div>
       </div>
       <form className="prep-create" onSubmit={create}>
@@ -178,9 +192,17 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
   const [adv, setAdv] = useState(null);
   const [error, setError] = useState('');
   const [saveState, setSaveState] = useState('saved'); // saved | dirty | saving | error
+  const sidePanel = useMedia(SIDE_MQ);   // ≥ 1280: a folha da sala é um painel à direita
   const [view, setView] = useState(() => (prefersList() ? 'list' : readPref('forja.prep.view', 'map')));
-  const [mode, setMode] = useState('prep');
+  // V7: aberta durante a sessão ao vivo, a aventura começa em "Na mesa"; fora dela, em
+  // "Editar" (com ＋ Sala à vista). Abrir uma sala de um atalho (initialNodeId) é para editar.
+  const [mode, setMode] = useState(() => (campaign.state?.live && !initialNodeId ? 'play' : 'prep'));
   const [selected, setSelected] = useState(initialNodeId ? { type: 'node', id: initialNodeId } : null);
+  // V14: no mapa, fechar a folha da sala não tira a seleção — a sala continua marcada com a
+  // alça ● acesa (44 px no toque) para puxar uma conexão; tocar nela de novo reabre a folha.
+  // Na lista, fechar desmarca, como antes.
+  const [sheetShut, setSheetShut] = useState(null);
+  useEffect(() => { setSheetShut(null); }, [selected]);
   const [world, setWorld] = useState(null);
   const [confirm, confirmEl] = usePrepConfirm(lang);
   const [campaignItems, setCampaignItems] = useState([]);
@@ -208,7 +230,7 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
       if (!alive) return;
       advRef.current = { ...r.adventure, play: r.adventure.play || emptyPlay() };
       setAdv(advRef.current);
-      if (r.adventure.status === 'playing' && !initialNodeId) setMode('play');
+
     }).catch(e => setError(errText(e, lang)));
     api.campaignItems(campaign.id).then(r => alive && setCampaignItems(r.items || [])).catch(() => {});
     prepApi.listWorld(campaign.id).then(r => alive && setWorld(r.entries || [])).catch(() => alive && setWorld([]));
@@ -374,24 +396,27 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
   const selEdge = selected?.type === 'edge' ? data.edges.find(e => e.id === selected.id) : null;
   const current = data.nodes.find(n => n.id === play.current) || null;
 
-  const panelFor = (node) => (mode === 'prep'
-    ? (
-      <NodeEditor key={node.id} node={node} data={data} adventures={adventures} currentAdventureId={advId}
-        campaign={campaign} campaignItems={campaignItems} levels={levels} lang={lang}
-        world={world} onCreateEntry={createEntry} onOpenEntry={openEntry}
-        onChange={(patch) => changeData(d => updateNode(d, node.id, patch))}
-        onDelete={() => deleteNode(node)}
-        onDataChange={addEdgeObj}
-        onSelectEdge={(id) => setSelected({ type: 'edge', id })} />
-    ) : (
-      <PlayPanel key={node.id} adventure={adv} node={node} campaign={campaign} levels={levels} lang={lang}
-        logDiary={logDiary} onLogDiary={setLogDiary} onPlay={onPlay} onOpenAdventure={openOther} onOpenTab={onOpenTab}
-        goTo={goTo} world={world} onWorldChange={patchWorld} onOpenEntry={openEntry}
-        onSelectNode={(id) => setSelected({ type: 'node', id })} />
-    ));
+  // Editar: a sala abre na folha da Cena em modo sala (NodeEditor; no PC, painel à direita do
+  // mapa). Na mesa (Conduzir): o painel da sala, no lugar de sempre.
+  const panelFor = (node) => (mode === 'prep' ? null : (
+    <PlayPanel key={node.id} adventure={adv} node={node} campaign={campaign} levels={levels} lang={lang}
+      logDiary={logDiary} onLogDiary={setLogDiary} onPlay={onPlay} onOpenAdventure={openOther} onOpenTab={onOpenTab}
+      goTo={goTo} world={world} onWorldChange={patchWorld} onOpenEntry={openEntry}
+      onSelectNode={(id) => setSelected({ type: 'node', id })} />
+  ));
+  const roomSheet = mode === 'prep' && selNode && sheetShut !== selNode.id ? (
+    <NodeEditor key={selNode.id} node={selNode} data={data} adventures={adventures} currentAdventureId={advId}
+      campaign={campaign} campaignItems={campaignItems} levels={levels} lang={lang} saveState={saveState}
+      world={world} onCreateEntry={createEntry} onOpenEntry={openEntry}
+      onChange={(patch) => changeData(d => updateNode(d, selNode.id, patch))}
+      onDelete={() => deleteNode(selNode)}
+      onDataChange={addEdgeObj}
+      onSelectEdge={(id) => setSelected({ type: 'edge', id })}
+      onClose={() => (view === 'map' ? setSheetShut(selNode.id) : setSelected(null))} />
+  ) : null;
 
   let side;
-  if (selNode) side = panelFor(selNode);
+  if (selNode && mode !== 'prep') side = panelFor(selNode);
   else if (selEdge && mode === 'prep') {
     side = (
       <EdgeEditor key={selEdge.id} edge={selEdge} data={data} adventures={adventures} currentAdventureId={advId} lang={lang}
@@ -432,7 +457,7 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
           <li>{t(lang, 'Clique numa conexão para escolher o tipo (porta, trancada, secreta…), rótulo e condição.', 'Click a connection to set its type (door, locked, secret…), label and condition.')}</li>
           <li>{t(lang, 'Marque a sala de entrada com a tag “início”.', 'Tag the entrance room with “start”.')}</li>
           <li>{t(lang, 'Ligue NPCs, lugares e segredos do Mundo em “Cartões do Mundo nesta sala”.', 'Link World NPCs, places and secrets under “World cards in this room”.')}</li>
-          <li>{t(lang, 'Na sessão, troque para “Conduzir”.', 'During the session, switch to “Run”.')}</li>
+          <li>{t(lang, 'Na sessão, troque para “Na mesa”.', 'During the session, switch to “At the table”.')}</li>
         </ul>
       </div>
     );
@@ -445,8 +470,11 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
     <div className={`prep-tab prep-mode-${mode}`}>
       <div className="prep-head">
         <button type="button" className="btn btn-ghost btn-sm" onClick={async () => { await flush(); onBack(); }}>← {t(lang, 'Aventuras', 'Adventures')}</button>
-        <input className="input prep-title-input" value={adv.name} maxLength={120} aria-label={t(lang, 'Nome da aventura', 'Adventure name')}
-          onChange={e => setFields({ name: e.target.value })} onBlur={e => { if (!e.target.value.trim()) setFields({ name: t(lang, 'Sem nome', 'Untitled') }); }} />
+        {/* o nome em até 2 linhas (no celular não corta "O Sino Afogado sob a…") */}
+        <textarea className="input prep-title-input" rows={1} value={adv.name} maxLength={120} aria-label={t(lang, 'Nome da aventura', 'Adventure name')}
+          onChange={e => setFields({ name: e.target.value.replace(/\n/g, ' ') })}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+          onBlur={e => { if (!e.target.value.trim()) setFields({ name: t(lang, 'Sem nome', 'Untitled') }); }} />
         <select className={`input prep-status-select st-${adv.status}`} value={adv.status} aria-label={t(lang, 'Situação da aventura', 'Adventure status')} title={t(lang, 'Situação da aventura', 'Adventure status')} onChange={e => setFields({ status: e.target.value })}>
           {STATUS.map(s => <option key={s.id} value={s.id}>{t(lang, s.pt, s.en)}</option>)}
         </select>
@@ -455,22 +483,34 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
 
       <div className="prep-toolbar">
         <div className="prep-seg" role="group" aria-label={t(lang, 'Modo', 'Mode')}>
-          <button type="button" aria-pressed={mode === 'prep'} className={mode === 'prep' ? 'on' : ''} onClick={() => setMode('prep')}>✎ {t(lang, 'Preparar', 'Prepare')}</button>
-          <button type="button" aria-pressed={mode === 'play'} className={mode === 'play' ? 'on' : ''} onClick={() => setMode('play')}>▶ {t(lang, 'Conduzir', 'Run')}</button>
+          <button type="button" aria-pressed={mode === 'prep'} className={mode === 'prep' ? 'on' : ''} onClick={() => setMode('prep')}>✎ {t(lang, 'Editar', 'Edit')}</button>
+          <button type="button" aria-pressed={mode === 'play'} className={mode === 'play' ? 'on' : ''} onClick={() => setMode('play')}>▶ {t(lang, 'Na mesa', 'At the table')}</button>
         </div>
         <div className="prep-seg" role="group" aria-label={t(lang, 'Visão', 'View')}>
           <button type="button" aria-pressed={view === 'map'} className={view === 'map' ? 'on' : ''} onClick={() => switchView('map')}>🗺 {t(lang, 'Mapa', 'Map')}</button>
           <button type="button" aria-pressed={view === 'list'} className={view === 'list' ? 'on' : ''} onClick={() => switchView('list')}>☰ {t(lang, 'Lista', 'List')}</button>
         </div>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowSummary(s => !s)} aria-expanded={showSummary}>{t(lang, 'Resumo', 'Summary')}</button>
+        {/* ＋ Sala sempre à vista em Editar (antes só no canto do mapa ou no fim da lista) */}
+        {mode === 'prep' && (
+          <button type="button" className="btn btn-primary btn-sm prep-add-room" onClick={() => createNode()}>＋ {t(lang, 'Sala', 'Room')}</button>
+        )}
         {issues.length > 0 && (
           <button type="button" className={`btn btn-ghost btn-sm prep-issues-btn ${errorsCount ? 'has-warn' : ''}`} onClick={() => setShowIssues(s => !s)} aria-expanded={showIssues}>
             ⚠ {issues.length} {t(lang, issues.length > 1 ? 'avisos' : 'aviso', issues.length > 1 ? 'notes' : 'note')}
           </button>
         )}
         <span className="prep-spacer" />
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => download(adv.name, exportAdventure(adv))}>⇩ {t(lang, 'Exportar', 'Export')}</button>
-        <button type="button" className="btn btn-ghost btn-sm danger" onClick={deleteAdventure}>{t(lang, 'Apagar', 'Delete')}</button>
+        {/* ⋯ Resumo · Exportar · Zerar progresso · Apagar (em vermelho, por último) */}
+        <MoreMenu lang={lang} label={t(lang, 'Mais da aventura', 'More for the adventure')} sheetTitle={adv.name} className="prep-more" items={[
+          { id: 'summary', label: `📝 ${showSummary ? t(lang, 'Esconder o resumo', 'Hide the summary') : t(lang, 'Resumo', 'Summary')}`, onSelect: () => setShowSummary(v => !v),
+            hint: t(lang, 'Gancho, objetivo, o que está em jogo.', 'Hook, goal, stakes.') },
+          { id: 'export', label: `⇩ ${t(lang, 'Exportar', 'Export')}`, onSelect: () => download(adv.name, exportAdventure(adv)),
+            hint: t(lang, 'Um arquivo JSON para guardar ou levar a outra campanha.', 'A JSON file to keep or take to another campaign.') },
+          { id: 'reset', label: `↺ ${t(lang, 'Zerar progresso', 'Reset progress')}`, onSelect: resetPlay,
+            hint: t(lang, 'Sala atual, visitadas e portas liberadas voltam ao início (pergunta antes).', 'Current room, visited rooms and unlocked doors go back to the start (asks first).') },
+          { id: 'delete', label: `🗑 ${t(lang, 'Apagar aventura', 'Delete adventure')}`, onSelect: deleteAdventure, danger: true,
+            hint: t(lang, 'Não dá para desfazer (pergunta antes). Dica: exporte antes.', "Can't be undone (asks first). Tip: export first.") },
+        ]} />
       </div>
 
       {showSummary && (
@@ -496,22 +536,22 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
             ? <>▶ {t(lang, 'Grupo em', 'Party at')} <button type="button" className="linklike" onClick={() => setSelected({ type: 'node', id: current.id })}><strong>{current.name}</strong></button></>
             : t(lang, 'O grupo ainda não entrou em nenhuma sala.', 'The party has not entered any room yet.')}</span>
           <span className="muted small">{t(lang, `${play.visited.length}/${data.nodes.length} visitadas`, `${play.visited.length}/${data.nodes.length} visited`)}</span>
-          <span className="prep-spacer" />
-          <button type="button" className="btn btn-ghost btn-sm" onClick={resetPlay}>{t(lang, 'Zerar progresso', 'Reset progress')}</button>
         </div>
       )}
       {error && <p className="prep-error" role="alert">{error} <button type="button" className="linklike" onClick={() => setError('')}>{t(lang, 'ok', 'ok')}</button></p>}
       {flash && <p className="prep-msg" role="status">{flash}</p>}
 
       {view === 'map' ? (
-        <div className="prep-work">
+        // a folha da sala no painel da direita (PC): o mapa ocupa a coluna toda à esquerda
+        // dela, sem o "Como montar" no meio; ele volta quando a folha fecha
+        <div className={`prep-work ${roomSheet && sidePanel ? 'is-solo' : ''}`.trim()}>
           <MapCanvas data={data} play={play} mode={mode} selected={selected} lang={lang}
             onSelect={setSelected}
             onMoveNode={(id, x, y) => changeData(d => updateNode(d, id, { x, y }))}
             onConnect={(a, b) => connect(a, b)}
             onCreateNode={createNode} focusId={selNode?.id}
             available={available} highlighted={hot} />
-          <aside className="prep-side" aria-label={t(lang, 'Detalhes', 'Details')}>{side}</aside>
+          {!(roomSheet && sidePanel) && <aside className="prep-side" aria-label={t(lang, 'Detalhes', 'Details')}>{side}</aside>}
         </div>
       ) : (
         <div className="prep-work is-list">
@@ -523,6 +563,7 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
           {selEdge && <aside className="prep-side">{side}</aside>}
         </div>
       )}
+      {roomSheet}
       {confirmEl}
     </div>
   );

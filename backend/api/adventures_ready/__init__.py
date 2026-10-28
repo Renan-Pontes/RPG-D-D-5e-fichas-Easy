@@ -201,8 +201,10 @@ def imported_adventure_id(campaign, pack_id):
 
 
 def _plan_is_empty(plan):
-    plan = plan if isinstance(plan, dict) else {}
-    return not (str(plan.get('strongStart') or '').strip() or plan.get('scenes') or plan.get('secrets'))
+    """Sem começo e sem cena com texto (as pistas do mestre ficam, antes das do pacote): as
+    linhas vazias que o Plano antigo gravava ao abrir (10 pistas em branco) e as pistas
+    levadas adiante não impedem a aventura de preencher o plano."""
+    return R.session_plan_is_empty(plan)
 
 
 def import_ready_adventure(campaign, pack_id, lang='pt'):
@@ -325,7 +327,7 @@ def import_ready_adventure(campaign, pack_id, lang='pt'):
             'monsters': '\n'.join(monsters),
             'rewards': '\n'.join(rewards),
         })
-        settings['sessionPlan'] = R.merged_session_plan(settings.get('sessionPlan'), patch)
+        settings['sessionPlan'] = R.fill_empty_session_plan(settings.get('sessionPlan'), patch, campaign.state)
         settings['planRev'] = timezone.now().isoformat()   # o pulso do mestre (V4)
         plan_filled = True
 

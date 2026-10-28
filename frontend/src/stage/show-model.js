@@ -11,20 +11,42 @@ const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toL
 const hasImage = (e) => !!(e?.imageVer || e?.imageUrl);
 
 /**
- * @param {{entries?: object[], adventure?: object|null, node?: object|null, query?: string, limit?: number}} p
+ * A sala em jogo da aventura é a "cena agora"? Só quando não há cena do plano agora ou
+ * quando a cena agora é ligada a essa mesma sala (glossário: cena agora = a cena que está
+ * acontecendo; a sala marcada na aventura pode ser outra). `sceneNow` = {nodeRef?} | null.
+ */
+export function roomIsNow(sceneNow, adventure, node) {
+  if (!sceneNow) return true;
+  const ref = sceneNow.nodeRef;
+  return !!(ref && adventure && node && Number(ref.adventureId) === Number(adventure.id) && String(ref.nodeId) === String(node.id));
+}
+
+/**
+ * `sceneRefs` (V7) = os cartões da cena agora do plano (a imagem dela primeiro, depois quem
+ * aparece): eles abrem o "Da cena agora". `roomNow` = a sala em jogo também é a cena agora
+ * (roomIsNow); senão a imagem e os cartões dela vão para "Todas".
+ * @param {{entries?: object[], adventure?: object|null, node?: object|null, query?: string, limit?: number, sceneRefs?: number[]}} p
  * @returns {{ now: Row[], all: Row[], more: number }}
  *   Row = {key, type:'entry'|'room', entry?, advId?, nodeId?, name, image?: string}
  */
-export function imageRows({ entries = [], adventure = null, node = null, query = '', limit = 60 } = {}) {
+export function imageRows({ entries = [], adventure = null, node = null, query = '', limit = 60, sceneRefs = [], roomNow = true } = {}) {
   const q = norm(query.trim());
   const match = (name) => !q || norm(name).includes(q);
   const now = [];
   const used = new Set();
-  if (node?.image && adventure && match(node.name)) {
+  // V7: a cena agora do plano (a imagem dela e quem aparece) vem antes da sala em jogo
+  const byId = new Map((entries || []).map(e => [Number(e.id), e]));
+  for (const id of sceneRefs || []) {
+    const e = byId.get(Number(id));
+    if (!e || used.has(`e-${e.id}`) || !match(e.name)) continue;
+    now.push({ key: `e-${e.id}`, type: 'entry', entry: e, name: e.name });
+    used.add(`e-${e.id}`);
+  }
+  if (roomNow && node?.image && adventure && match(node.name)) {
     now.push({ key: `room-${node.id}`, type: 'room', advId: adventure.id, nodeId: node.id, name: node.name, image: node.image });
     used.add(`room-${node.id}`);
   }
-  if (node) {
+  if (roomNow && node) {
     for (const e of sceneEntries({ entries, node, plan: null }).scene) {
       if (!match(e.name)) continue;
       now.push({ key: `e-${e.id}`, type: 'entry', entry: e, name: e.name });
@@ -51,20 +73,26 @@ export function planSceneName(scene) {
 }
 
 /**
- * Cenas: a sala em jogo ("cena agora") primeiro; depois as do plano da sessão.
+ * Cenas: a cena agora primeiro (a do plano, V7; sem ela, a sala em jogo); depois as do plano.
  * Row = {key, target, name, sub?, now?, done?}
  */
-export function sceneRows({ plan = null, adventure = null, node = null } = {}) {
+export function sceneRows({ plan = null, adventure = null, node = null, nowSceneId = null } = {}) {
   const rows = [];
   let nowKey = null;
-  if (adventure && node) {
+  // V7: a cena agora do plano (▶ Começar esta cena) é a 1ª; a sala dela não se repete
+  const nowScene = nowSceneId ? (plan?.scenes || []).find(s => s.id === nowSceneId && planSceneName(s)) : null;
+  if (nowScene) {
+    rows.push({ key: `plan-${nowScene.id}`, now: true, name: planSceneName(nowScene), done: !!nowScene.done,
+      target: { kind: 'scene', sceneId: nowScene.id } });
+    if (nowScene.nodeRef) nowKey = `${nowScene.nodeRef.adventureId}:${nowScene.nodeRef.nodeId}`;
+  } else if (adventure && node) {
     nowKey = `${adventure.id}:${node.id}`;
     rows.push({ key: `room-${node.id}`, now: true, name: node.name, sub: adventure.name,
       target: { kind: 'scene', advId: adventure.id, nodeId: node.id } });
   }
   for (const s of plan?.scenes || []) {
     const name = planSceneName(s);
-    if (!name) continue;
+    if (!name || s === nowScene) continue;
     const ref = s.nodeRef;
     if (ref && nowKey === `${ref.adventureId}:${ref.nodeId}`) continue;   // a mesma sala: já é a 1ª
     rows.push({ key: `plan-${s.id}`, name, done: !!s.done, target: { kind: 'scene', sceneId: s.id } });

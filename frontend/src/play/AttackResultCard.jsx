@@ -8,7 +8,7 @@
 // "📺 vai à Tela" (V10): o Aplicar leva `show` e o servidor grava 1 linha na Tela —
 // "Goblin #2 ⚔ Dagna · d20 11 · ACERTA · 6 cortante", SEM o bônus. Começa pela
 // regra "Dos monstros" do palco (Jogar › Tela; padrão Na tela) e vale só para este ataque.
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { errorMessage } from '../api/errors.js';
 import { useArea } from '../shell/useArea.js';
 import useStage from '../stage/useStage.js';
@@ -16,6 +16,7 @@ import { applyAttack, attackPreview } from './play-api.js';
 import { applyBody, critDice, draftFromPreview, evaluateDraft, isAdjusted, serverTotalsValid } from './attack-model.js';
 import { damageTypeLabel, DAMAGE_TYPES } from '../combat/monster-i18n.js';
 import { damagePartConditions, reasonLabel } from '../campaigns/monster-actions.js';
+import { newOpId } from './damage-model.js';
 import './play-styles.css';
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
@@ -31,6 +32,7 @@ export default function AttackResultCard({ preview, campaignId, attacker, target
   const [draft, setDraft] = useState(() => draftFromPreview(preview, { conditions }));
   const [adjusting, setAdjusting] = useState(false);
   const [busy, setBusy] = useState(false);
+  const opRef = useRef(newOpId());   // um por sugestão: o 2º toque no Aplicar não aplica de novo
   const [error, setError] = useState('');
   const { campaign } = useArea();
   const stage = useStage(campaign);
@@ -56,8 +58,9 @@ export default function AttackResultCard({ preview, campaignId, attacker, target
     if (!body) { setError(L(lang, 'Confira o d20 (1 a 20) e o dano.', 'Check the d20 (1 to 20) and the damage.')); return; }
     setBusy(true); setError('');
     try {
-      const res = await applyAttack(campaignId, canShow && show ? { ...body, show: true } : body);
-      onApplied?.(res, { hit: r.hit, damage: dmgShown, targetName: target?.name, shown: res?.shown != null });
+      // opId (V8): o mesmo Aplicar 2× aplica 1 vez; o aviso ganha o ↶ Desfazer (servidor novo)
+      const res = await applyAttack(campaignId, { ...(canShow && show ? { ...body, show: true } : body), opId: opRef.current });
+      onApplied?.(res, { hit: r.hit, damage: dmgShown, targetName: target?.name, shown: res?.shown != null, opId: res?.opId });
     } catch (e) {
       setError(errorMessage(e, lang));
     } finally { setBusy(false); }

@@ -14,7 +14,8 @@
 .wl-linkbtn { background: none; border: 0; color: var(--gold-bright); text-decoration: underline; cursor: pointer; font: inherit; padding: 0; }
 .wl-h3 { font-family: var(--display); font-size: 1rem; letter-spacing: 0.06em; color: var(--gold-bright); margin: 0; }
 .wl-label { display: block; font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); margin: 10px 0 6px; }
-.wl-x { background: none; border: 0; color: var(--ink-muted); font-size: 1.3rem; line-height: 1; cursor: pointer; padding: 4px 8px; min-width: 36px; min-height: 36px; border-radius: var(--radius); }
+/* 44 × 44 com width/height: a casca zera o min-width de tudo (.campaign-detail.shell *) */
+.wl-x { flex: none; background: none; border: 0; color: var(--ink-muted); font-size: 1.3rem; line-height: 1; cursor: pointer; padding: 0; width: 44px; height: 44px; border-radius: var(--radius); }
 .wl-x:hover { color: var(--blood-bright); background: var(--blood-soft); }
 
 /* ---------------------------------------------------------------- área */
@@ -40,7 +41,7 @@
 .wl-chip.is-on { border-color: var(--wl-kind, var(--gold)); color: var(--ink-primary); background: color-mix(in srgb, var(--wl-kind, var(--gold)) 20%, var(--bg-card)); }
 .wl-chip.is-empty { opacity: 0.6; }
 .wl-chip-sm { min-height: 30px; padding: 3px 10px; font-size: 0.8rem; }
-.wl-count { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-muted); background: rgba(0,0,0,0.25); border-radius: 999px; padding: 1px 7px; }
+.wl-count { font-family: var(--mono); font-size: 12px; color: var(--ink-muted); background: rgba(0,0,0,0.25); border-radius: 999px; padding: 1px 7px; }
 .wl-chipbtn {
   background: rgba(14, 10, 7, 0.72); border: 1px solid var(--stroke); color: var(--ink-primary); border-radius: 999px;
   padding: 6px 12px; min-height: 36px; font-size: 0.85rem; cursor: pointer; backdrop-filter: blur(4px);
@@ -195,7 +196,7 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 @keyframes wl-fade { from { opacity: 0; } to { opacity: 1; } }
 .wl-editor {
   --wl-kind: var(--gold);
-  position: fixed; top: 0; right: 0; bottom: 0; z-index: 95; width: min(500px, 100vw);
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 95; width: min(520px, 100vw);
   background: var(--bg-base); border-left: 1px solid var(--stroke-strong); box-shadow: -12px 0 40px rgba(0,0,0,0.6);
   display: flex; flex-direction: column; animation: wl-slide 0.2s ease;
 }
@@ -233,7 +234,17 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-ed-grid > .wl-field:has(textarea) { grid-column: 1 / -1; }
 @media (max-width: 520px) { .wl-ed-grid { grid-template-columns: 1fr; } }
 .wl-ed-notes textarea { background: repeating-linear-gradient(-45deg, rgba(158,51,34,0.05) 0 10px, transparent 10px 20px), var(--bg-deep); border-color: rgba(224,96,79,0.3); }
-.wl-ed-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--stroke-faint); }
+/* rodapé preso do editor: ⋯ (Apagar cartão) à esquerda, Pronto à direita */
+.wl-editor-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid rgba(224, 181, 94, 0.3);
+  background: linear-gradient(180deg, #221812, #170f0c);
+}
+.wl-editor-foot .wl-ed-done { flex: 0 1 200px; }
+.wl-editor-foot .grp-more-btn { border-color: var(--stroke); }
+.wl-editor.is-readonly .wl-editor-foot { justify-content: flex-end; }
+/* o menu ⋯ do rodapé abre para cima (no PC); no celular é uma folha */
+.wl-editor-foot .grp-more-menu { top: auto; bottom: calc(100% + 4px); left: 0; right: auto; }
 .wl-check { display: flex; align-items: center; gap: 8px; margin-top: 30px; cursor: pointer; }
 .wl-color { width: 64px; height: 40px; padding: 2px; border-radius: 8px; }
 .wl-kids, .wl-backlinks { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; padding: 0; list-style: none; }
@@ -253,11 +264,16 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-reveal { margin-top: 14px; padding: 12px; border-radius: 10px; background: var(--bg-card); border: 1px solid var(--stroke); }
 .wl-reveal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .wl-reveal-title { font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); }
-.wl-logcheck { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--ink-secondary); cursor: pointer; min-height: 32px; }
+.wl-logcheck { display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--ink-secondary); cursor: pointer; min-height: 44px; }
+.wl-logcheck-wrap { display: flex; flex-direction: column; min-width: 0; }
+.wl-logcheck-hint { margin: -6px 0 0; font-size: 12.5px; line-height: 1.35; color: var(--ink-muted); }
 .wl-vis-switch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; background: var(--bg-deep); border-radius: 10px; padding: 4px; border: 1px solid var(--stroke-faint); }
-.wl-vis-opt { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 52px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--ink-muted); cursor: pointer; font-size: 0.78rem; line-height: 1.15; text-align: center; }
+.wl-vis-opt { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 56px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--ink-muted); cursor: pointer; font-size: 0.78rem; line-height: 1.15; text-align: center; }
 .wl-vis-opt:hover:not(:disabled) { color: var(--ink-primary); }
 .wl-vis-ico { font-size: 1.1rem; }
+.wl-vis-name { font-size: 0.86rem; }
+.wl-vis-tip { font-size: 12px; line-height: 1.25; color: var(--ink-muted); }
+.wl-vis-opt.is-on .wl-vis-tip { color: inherit; opacity: 0.9; }
 .wl-vis-opt-hidden.is-on { background: rgba(171,154,126,0.14); border-color: rgba(171,154,126,0.5); color: var(--ink-primary); }
 .wl-vis-opt-partial.is-on { background: var(--arcane-soft); border-color: var(--arcane-bright); color: var(--arcane-bright); }
 .wl-vis-opt-revealed.is-on { background: var(--moss-soft); border-color: var(--moss-bright); color: var(--moss-bright); }
@@ -275,102 +291,249 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-mention { position: relative; }
 .wl-mention textarea { width: 100%; }
 .wl-mention-pop { position: absolute; z-index: 5; left: 0; right: 0; max-width: 360px; list-style: none; margin: 2px 0 0; padding: 4px; background: var(--bg-elevated); border: 1px solid var(--gold); border-radius: 8px; box-shadow: var(--shadow-deep); }
-.wl-mention-pop button, .wl-picker-list button { display: block; width: 100%; text-align: left; padding: 8px 10px; min-height: 38px; border: 0; background: none; color: var(--ink-primary); border-radius: 6px; cursor: pointer; font: inherit; }
+.wl-mention-pop button, .wl-picker-list button { display: block; width: 100%; text-align: left; padding: 8px 10px; min-height: 48px; border: 0; background: none; color: var(--ink-primary); border-radius: 6px; cursor: pointer; font: inherit; }
 .wl-mention-pop button.is-hi, .wl-mention-pop button:hover, .wl-picker-list button:hover { background: var(--gold-soft); }
 .wl-picker-list button.is-on { color: var(--gold-bright); }
 .wl-mention-preview { margin-top: 6px; padding: 8px 10px; border-radius: 8px; background: rgba(214,176,100,0.04); border: 1px dashed var(--stroke-faint); font-size: 0.9rem; color: var(--ink-secondary); white-space: pre-wrap; }
 .wl-mention-chip, .wl-mention-link { color: var(--gold-bright); border-bottom: 1px dotted var(--gold); }
 .wl-mention-link { background: none; border-top: 0; border-left: 0; border-right: 0; padding: 0; font: inherit; cursor: pointer; }
-.wl-picker-btn { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 42px; padding: 8px 12px; background: var(--bg-deep); border: 1px solid var(--stroke); border-radius: var(--radius); color: var(--ink-primary); cursor: pointer; text-align: left; font: inherit; }
+.wl-picker-btn { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 48px; padding: 8px 12px; background: var(--bg-deep); border: 1px solid var(--stroke); border-radius: var(--radius); color: var(--ink-primary); cursor: pointer; text-align: left; font: inherit; }
 .wl-picker-caret { margin-left: auto; color: var(--ink-muted); }
 .wl-picker { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--gold); border-radius: 8px; background: var(--bg-elevated); }
 .wl-picker-list { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; }
 .wl-picker-empty { padding: 8px; }
+/* o "Fechar" do seletor: alvo de 44 (folha do marcador, Linha do tempo, relações) */
+.wl-picker > .btn.wl-picker-close { min-height: 44px; }
 .wl-rels { display: flex; flex-direction: column; gap: 6px; }
 .wl-rel-row { display: grid; grid-template-columns: minmax(0, 130px) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 6px; align-items: center; }
-.wl-rel-target { background: none; border: 1px solid var(--stroke-faint); border-radius: var(--radius); color: var(--ink-primary); padding: 8px; min-height: 40px; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; }
+.wl-rel-target { background: none; border: 1px solid var(--stroke-faint); border-radius: var(--radius); color: var(--ink-primary); padding: 8px; min-height: 44px; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; }
 .wl-rel-add { display: grid; grid-template-columns: minmax(0, 140px) 1fr; gap: 6px; align-items: start; }
 @media (max-width: 520px) {
   .wl-rel-row { grid-template-columns: 1fr auto; }
   .wl-rel-row select { grid-column: 1 / -1; }
-  .wl-rel-row .wl-rel-note { grid-column: 1 / -1; }
+  /* o × fica ao lado do cartão da relação (antes caía sozinho numa linha) */
+  .wl-rel-row .wl-rel-target, .wl-rel-row > .wl-muted { grid-column: 1; grid-row: 2; }
+  .wl-rel-row .wl-x { grid-column: 2; grid-row: 2; }
+  .wl-rel-row .wl-rel-note { grid-column: 1 / -1; grid-row: 3; }
   .wl-rel-add { grid-template-columns: 1fr; }
 }
 .wl-tags-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px; border: 1px solid var(--stroke); border-radius: var(--radius); background: var(--bg-deep); }
 .wl-tags-row input { flex: 1 1 100px; min-width: 80px; border: 0; background: transparent; padding: 4px; box-shadow: none; }
-.wl-tag-edit button { background: none; border: 0; color: var(--ink-muted); cursor: pointer; padding: 0 2px; font-size: 1rem; }
+/* × de cada tag: 44 × 44 (antes 14 × 20); a tag cresce junto */
+.wl-tag-edit { padding: 0 0 0 10px; min-height: 44px; font-size: 0.9rem; }
+.wl-tag-edit button { flex: none; background: none; border: 0; color: var(--ink-muted); cursor: pointer; padding: 0; font-size: 1.15rem; width: 44px; height: 44px; border-radius: 999px; }
+.wl-tag-edit button:hover { color: var(--blood-bright); background: var(--blood-soft); }
 .wl-tags-sugg { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 
 /* ---------------------------------------------------------------- mapa */
+/* F11: no celular, abas dos mapas num trilho, as 3 ferramentas numa grade de
+   3 (ícone em cima, nome embaixo, 48 px) e o mapa com no máximo 55% da altura —
+   sobra página fora dele para o dedo rolar (só a caixa tem touch-action: none).
+   O marcador abre numa folha da mesa (.wl-pin-sheet) com o fundo quase claro:
+   o marcador continua à vista acima dela. No PC (≥ 768), a barra (abas e
+   ferramentas) e o mapa numa coluna e o painel do marcador ao lado das duas,
+   preso no alto (a altura máxima vem do WorldMap: nunca passa do pé da tela). */
 .wl-mapview { display: flex; flex-direction: column; gap: 10px; }
-.wl-map-bar { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.wl-map-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
+.wl-map-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.wl-map-bar { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.wl-map-back { flex: none; max-width: 100%; }
+.wl-map-tabs {
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: 1 1 0; min-width: 0;
+  overscroll-behavior-x: contain; padding: 1px;
+}
 .wl-map-tabs::-webkit-scrollbar { display: none; }
-.wl-map-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.wl-map-tab { flex: none; min-height: 44px; padding: 6px 14px; font-size: 0.95rem; white-space: nowrap; }
+.wl-map-bar > .wl-save { flex: none; font-size: 12.5px; }
+.wl-map-tools { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; width: 100%; }
+.wl-map-tools > * { min-width: 0; }
+.wl-map-tool {
+  flex-direction: column; gap: 2px; width: 100%; min-height: 52px; padding: 4px 6px;
+  font-size: 13px; line-height: 1.15; letter-spacing: 0.01em; text-align: center;
+}
+.wl-map-tool > span[aria-hidden] { font-size: 1.1rem; line-height: 1; }
+.wl-map-tool-txt { overflow-wrap: anywhere; }
+.wl-map-tools .sot-blocked { display: flex; flex-direction: column; gap: 2px; }
+.wl-map-col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.wl-map-hint { margin: 0; }
+.wl-pin-spacer { height: 0; flex: none; }
 .wl-map-box {
   position: relative; overflow: hidden; border-radius: 12px; border: 1px solid var(--stroke-strong); background:
     radial-gradient(ellipse at center, rgba(214,176,100,0.06), transparent 70%), var(--bg-deep);
-  height: min(70vh, 640px); touch-action: none; user-select: none; cursor: grab; box-shadow: inset 0 0 40px rgba(0,0,0,0.6), var(--shadow-card);
+  height: min(70vh, 640px); touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; box-shadow: inset 0 0 40px rgba(0,0,0,0.6), var(--shadow-card);
 }
 .wl-map-box:active { cursor: grabbing; }
 .wl-map-box.is-adding { cursor: crosshair; border-color: var(--gold-bright); }
+.wl-map-box.is-readonly { cursor: default; }
+/* com a imagem medida, a caixa tem a proporção dela (o mapa inteiro, sem faixas) */
+.wl-map-box.has-ratio { height: auto; max-height: min(70vh, 640px); width: 100%; }
 .wl-map-inner { position: absolute; left: 0; top: 0; width: 100%; transform-origin: 0 0; will-change: transform; }
 .wl-map-img { display: block; width: 100%; height: auto; pointer-events: none; }
+/* O marcador: a caixa de toque (44 × 44) tem a ponta da gota no ponto do mapa;
+   o rótulo é absoluto, embaixo da ponta (ou em cima da cabeça), e não mexe na
+   caixa — quem decide se ele aparece é map-labels.js. */
 .wl-pin {
-  position: absolute; transform: translate(-50%, -100%) scale(var(--pin-scale, 1)); transform-origin: 50% 100%;
-  display: flex; flex-direction: column; align-items: center; background: none; border: 0; padding: 0; cursor: pointer; z-index: 1;
+  position: absolute; width: 46px; height: 46px; transform: translate(-50%, -100%) scale(var(--pin-scale, 1)); transform-origin: 50% 100%;
+  display: flex; align-items: flex-end; justify-content: center; background: none; border: 0; padding: 0 0 2px; cursor: pointer; z-index: 1;
+  -webkit-tap-highlight-color: transparent;
 }
+.wl-pin:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; border-radius: 8px; }
 .wl-pin-head {
   display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
   background: radial-gradient(circle at 35% 35%, var(--gold-bright), var(--gold-deep)); border: 2px solid #1a120a;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.7); font-size: 0.95rem;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.7); font-size: 0.95rem; line-height: 1;
 }
-.wl-pin-head { line-height: 1; }
 .wl-pin-head::after { content: none; }
 .wl-pin .wl-pin-head > * { transform: rotate(45deg); }
 .wl-pin-label {
-  margin-top: 4px; max-width: 160px; padding: 1px 8px; border-radius: 999px; font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  background: rgba(14,10,7,0.85); color: var(--ink-primary); border: 1px solid var(--stroke);
+  position: absolute; top: calc(100% + 3px); left: 50%; transform: translateX(calc(-50% + var(--label-dx, 0px)));
+  max-width: 160px; padding: 1px 8px; border-radius: 999px; font-size: 12px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: rgba(14,10,7,0.85); color: var(--ink-primary); border: 1px solid var(--stroke); pointer-events: none;
 }
+/* o nome à vista é parte do alvo (fica dentro do botão: tocar, clicar ou arrastar
+   por ele é o mesmo que pela cabeça); map-labels.js garante que ele não cobre
+   outro nome, outra cabeça nem os ＋ − ⤢ */
+.wl-pin:not(.is-label-off) .wl-pin-label { pointer-events: auto; }
+.wl-pin.is-label-above .wl-pin-label { top: auto; bottom: calc(100% + 3px); }
+.wl-pin.is-label-off .wl-pin-label { visibility: hidden; }
 .wl-pin.is-hidden .wl-pin-head { background: radial-gradient(circle at 35% 35%, #8d8270, #4a4234); border-style: dashed; border-color: var(--ink-faint); opacity: 0.9; }
 .wl-pin.target-hidden .wl-pin-label { color: var(--ink-muted); }
 .wl-pin.is-selected .wl-pin-head { box-shadow: 0 0 0 3px var(--gold-bright), 0 3px 10px rgba(0,0,0,0.7); }
 .wl-pin.is-selected { z-index: 2; }
-.wl-map-zoom { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
-.wl-map-zoom button { width: 40px; height: 40px; border-radius: 8px; background: rgba(14,10,7,0.85); border: 1px solid var(--stroke); color: var(--ink-primary); font-size: 1.1rem; cursor: pointer; }
-.wl-map-zoom button:hover { border-color: var(--gold); }
-.wl-pin-panel { padding: 12px; border-radius: 10px; background: var(--bg-card); border: 1px solid var(--stroke); display: flex; flex-direction: column; gap: 4px; }
-.wl-pin-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.wl-pin-panel input { width: 100%; }
-.wl-pin-vis { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; padding: 8px 10px; border-radius: 8px; background: var(--bg-deep); }
-@media (max-width: 640px) { .wl-map-box { height: 58vh; } }
+.wl-pin.is-selected .wl-pin-label { border-color: var(--gold-bright); color: var(--gold-bright); }
+.wl-map-zoom { position: absolute; right: 8px; bottom: 8px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
+/* no celular, à esquerda: à direita o dado flutuante cobria parte do ⤢ (zoomSide) */
+.wl-map-zoom.is-left { right: auto; left: 8px; }
+.wl-map-zoom button { width: 44px; height: 44px; border-radius: 8px; background: rgba(14,10,7,0.85); border: 1px solid var(--stroke); color: var(--ink-primary); font-size: 1.15rem; cursor: pointer; }
+@media (hover: hover) { .wl-map-zoom button:hover { border-color: var(--gold); } }
+
+/* painel / folha do marcador */
+.wl-pin-body { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.wl-pin-vis { display: flex; align-items: center; justify-content: space-between; gap: 6px 10px; flex-wrap: wrap; width: 100%; }
+.wl-pin-vis-txt { flex: 1 1 12em; min-width: 0; font-size: 0.95rem; color: var(--ink-secondary); }
+.wl-pin-vis.is-on .wl-pin-vis-txt { color: var(--moss-bright); }
+.wl-pin-show { flex: 1 1 auto; }
+.wl-pin-warn { margin: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(227,164,69,0.4); background: rgba(90,61,18,0.18); color: var(--ink-secondary); }
+.wl-pin-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.wl-pin-acts .mesa-btn { flex: 1 1 auto; }
+.wl-pin-body .wl-hint { margin: 0; font-size: 0.9rem; }
+.wl-pin-log { display: flex; flex-direction: column; gap: 2px; }
+.wl-pin-log-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.wl-pin-help-btn { border: 1px solid var(--gold-deep); color: var(--gold-bright); font-family: var(--display); font-size: 1rem; }
+.wl-pin-help-btn[aria-expanded="true"] { background: var(--gold-soft); }
+.wl-pin-log-hint { margin: 0; }
+.wl-pin-ro { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; }
+.wl-pin-ro dt { font-family: var(--display); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); padding-top: 2px; }
+.wl-pin-ro dd { margin: 0; color: var(--ink-primary); }
+/* a folha: fundo quase claro (o mapa e o marcador continuam à vista acima dela)
+   e no máximo 62% da altura; o corpo rola e o rodapé (Mostrar) fica preso */
+.mesa-sheet-backdrop:has(> .wl-pin-sheet) { background: rgba(6, 4, 3, 0.18); }
+.mesa-sheet.wl-pin-sheet { max-height: 62vh; max-height: 62dvh; }
+.wl-pin-sheet .mesa-sheet-foot .wl-pin-vis-txt { font-size: 0.9rem; }
+.wl-pin-sheet .mesa-sheet-foot .wl-pin-show { flex-basis: 100%; }
+/* gravação dentro da folha: "Salvo"/"Erro ao salvar" embaixo do Rótulo e o aviso
+   de erro/conflito (com o Recarregar) no rodapé, acima do Mostrar */
+.wl-pin-save { align-self: flex-end; font-size: 12.5px; }
+.wl-pin-foot { display: flex; flex-direction: column; gap: 8px; }
+.wl-pin-foot > .wl-error { margin: 0; }
+.wl-pin-foot > .wl-conflict { margin: 0; padding: 8px 10px; }
+.wl-pin-foot > .wl-conflict .wl-row { margin-top: 6px; }
+
+@media (max-width: 767px) {
+  .wl-map-box { height: min(55vh, 420px); }
+  .wl-map-box.has-ratio { max-height: 55vh; max-height: 55svh; }
+}
+@media (min-width: 768px) {
+  /* a barra mora na coluna do mapa: abas e "Salvo" numa linha e as ferramentas
+     ao lado se couberem (senão na linha de baixo, à direita) */
+  .wl-map-tabs { flex: 1 1 auto; }
+  .wl-map-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; width: auto; max-width: 100%; flex: 0 1 auto; margin-left: auto; }
+  .wl-map-tool { flex-direction: row; gap: 6px; width: auto; min-height: 44px; padding: 6px 12px; font-size: 0.86rem; }
+  /* o painel começa na altura da barra (sem a página rolar sozinha, ele cabe à vista) */
+  .wl-mapview.is-wide { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 30%, 360px); gap: 14px; align-items: start; }
+  .wl-pin-side {
+    position: sticky; top: calc(var(--areas-stick, 64px) + 8px);
+    max-height: calc(100vh - var(--areas-stick, 64px) - 24px); overflow-y: auto; overscroll-behavior: contain;
+    border-radius: 10px; border: 1px solid transparent;
+    background:
+      var(--fh-noise) padding-box,
+      linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather) 45%, var(--fh-leather-lo)) padding-box,
+      var(--fh-gilt) border-box;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+  }
+  .wl-pin-panel { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .wl-pin-panel-head { display: flex; align-items: flex-start; gap: 8px; }
+  .wl-pin-panel-title { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .wl-pin-panel-name { font-family: var(--display); font-size: 1.05rem; color: var(--gold-bright); line-height: 1.25; overflow-wrap: anywhere; }
+  .wl-pin-x { margin: -6px -8px 0 0; }
+  .wl-pin-help-n { margin: 0; color: var(--ink-primary); }
+  .wl-pin-help { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--ink-secondary); font-size: 0.92rem; line-height: 1.4; }
+  /* rótulo à esquerda do campo e Abrir/Remover lado a lado: o painel inteiro
+     cabe à vista a 1280 × 900 sem a página rolar */
+  .wl-pin-side .wl-pin-body { gap: 8px; }
+  .wl-pin-side .wl-pin-acts { display: grid; grid-template-columns: repeat(auto-fit, minmax(9em, 1fr)); }
+  .wl-pin-side .wl-pin-acts .mesa-btn { padding: 6px 10px; line-height: 1.15; white-space: normal; text-align: center; }
+  .wl-pin-side .mesa-field { display: grid; grid-template-columns: 6.6em minmax(0, 1fr); align-items: center; gap: 8px; }
+  .wl-pin-side .mesa-field > :is(label, .mesa-field-label) { font-size: 12px; letter-spacing: 0.08em; }
+  .wl-pin-side .wl-pin-vis { gap: 6px; }
+  .wl-pin-side .wl-pin-show { min-height: 44px; }
+  .wl-map-box.has-ratio { max-height: min(72vh, 640px); }
+}
+
+/* criar o primeiro mapa: nome com rótulo e o botão de 48 */
+.wl-newmap-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.wl-newmap-row .mesa-field { flex: 1 1 14em; }
+.wl-newmap-place { min-height: 44px; }
 
 /* ---------------------------------------------------------------- linha do tempo */
+/* F11: linhas de ~64 px com ↑ ↓ de 50 × 48 lado a lado (o nome escrito embaixo
+   da seta), ＋ de 44 e o selo "quem vê" com texto; "📖 Na mesa" embaixo da
+   lista no celular e ao lado no PC. */
 .wl-timeline-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 18px; align-items: start; }
 @media (max-width: 860px) { .wl-timeline-wrap { grid-template-columns: 1fr; } }
+.wl-timeline-col { min-width: 0; }
 .wl-timeline-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.wl-timeline-head .wl-h3 { margin: 0; }
+.wl-timeline-add-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.wl-timeline-add-btns .mesa-btn.is-on { background: var(--gold-soft); border-color: var(--gold); }
 .wl-timeline-add { margin-bottom: 10px; }
-.wl-timeline { list-style: none; margin: 0; padding: 0 0 0 26px; position: relative; display: flex; flex-direction: column; gap: 12px; }
+.wl-timeline { list-style: none; margin: 0; padding: 0 0 0 26px; position: relative; display: flex; flex-direction: column; gap: 12px; overflow-anchor: auto; }
 .wl-timeline::before { content: ''; position: absolute; left: 9px; top: 6px; bottom: 6px; width: 2px; background: linear-gradient(180deg, transparent, var(--gold-deep) 8%, var(--gold-deep) 92%, transparent); }
-.wl-tl-item { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'when move' 'card move'; gap: 4px 8px; padding: 2px; border-radius: 10px; cursor: grab; transition: background 0.15s; }
+.wl-tl-item { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'when when' 'card move'; align-items: center; gap: 4px 6px; padding: 2px; border-radius: 10px; transition: background 0.15s; }
+.wl-tl-item[draggable="true"] { cursor: grab; }
 .wl-tl-item.is-drag { opacity: 0.4; }
 .wl-tl-item.is-over { background: var(--gold-soft); outline: 2px dashed var(--gold); outline-offset: 2px; }
-.wl-tl-dot { position: absolute; left: -23px; top: 6px; width: 14px; height: 14px; border-radius: 50%; background: var(--bg-base); border: 2px solid var(--wl-kind); box-shadow: 0 0 0 3px var(--bg-base), 0 0 10px color-mix(in srgb, var(--wl-kind) 60%, transparent); }
-.wl-tl-when { grid-area: when; font-family: var(--display); font-size: 0.82rem; letter-spacing: 0.06em; color: var(--gold-bright); }
-.wl-tl-card { grid-area: card; display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; background: var(--bg-card); border: 1px solid var(--stroke-faint); color: inherit; cursor: pointer; text-align: left; min-width: 0; font: inherit; }
-.wl-tl-card:hover { border-color: var(--stroke-strong); }
+.wl-tl-dot { position: absolute; left: -23px; top: 4px; width: 14px; height: 14px; border-radius: 50%; background: var(--bg-base); border: 2px solid var(--wl-kind); box-shadow: 0 0 0 3px var(--bg-base), 0 0 10px color-mix(in srgb, var(--wl-kind) 60%, transparent); }
+.wl-tl-when { grid-area: when; font-family: var(--display); font-size: 0.82rem; letter-spacing: 0.06em; color: var(--gold-bright); overflow-wrap: anywhere; }
+.wl-tl-card { grid-area: card; display: flex; align-items: center; gap: 10px; min-height: 64px; padding: 8px; border-radius: 10px; background: var(--bg-card); border: 1px solid var(--stroke-faint); color: inherit; cursor: pointer; text-align: left; min-width: 0; font: inherit; }
+@media (hover: hover) { .wl-tl-card:hover { border-color: var(--stroke-strong); } }
+.wl-tl-card:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
 .wl-tl-thumb { width: 46px; height: 46px; flex: 0 0 46px; border-radius: 8px; overflow: hidden; border: 1px solid var(--stroke); }
-.wl-tl-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.wl-tl-name { font-family: var(--display); font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wl-tl-kind { font-size: 0.8rem; color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wl-tl-move { grid-area: move; display: flex; flex-direction: column; gap: 4px; justify-content: center; }
-.wl-tl-move button { width: 36px; height: 34px; border-radius: 6px; border: 1px solid var(--stroke-faint); background: var(--bg-card); color: var(--ink-secondary); cursor: pointer; }
-.wl-tl-move button:disabled { opacity: 0.3; cursor: default; }
+.wl-tl-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+/* nome em até 2 linhas (no celular estreito ele não cabe em uma) */
+.wl-tl-name {
+  font-family: var(--display); font-size: 0.95rem; line-height: 1.25; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
+/* selo (quem vê, com texto) e tipo · frase numa linha só: o selo fica inteiro */
+.wl-tl-meta { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.wl-tl-meta .wl-seal { position: static; flex: none; padding: 1px 7px 1px 5px; font-size: 12px; backdrop-filter: none; }
+.wl-tl-kind { flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wl-tl-move { grid-area: move; display: flex; gap: 4px; align-items: center; }
 .wl-timeline-side { padding: 14px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--stroke-faint); }
+.wl-timeline-side .wl-h3 { margin: 0; }
 .wl-sessions { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 8px; }
 .wl-sessions li { display: flex; flex-direction: column; padding: 8px 10px; border-left: 2px solid var(--arcane-bright); background: rgba(91,108,184,0.08); border-radius: 0 8px 8px 0; }
 .wl-session-n { font-family: var(--display); font-size: 0.8rem; color: var(--arcane-bright); letter-spacing: 0.06em; }
 .wl-session-title { font-size: 0.9rem; }
+@media (max-width: 400px) {
+  .wl-timeline { padding-left: 22px; }
+  .wl-timeline::before { left: 7px; }
+  .wl-tl-dot { left: -21px; }
+  .wl-tl-card { gap: 8px; padding: 6px; }
+  .wl-tl-thumb { width: 40px; height: 40px; flex-basis: 40px; }
+  .wl-timeline-add-btns { width: 100%; }
+  .wl-timeline-add-btns .mesa-btn { flex: 1 1 auto; }
+}
 
 /* ---------------------------------------------------------------- Improvisar */
 /* Em folha da mesa (MesaSheet .wl-impro-mesa): couro da folha, alvos de 44 px,
@@ -381,7 +544,8 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-impro-row { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: 8px; align-items: start; }
 .wl-impro-label { font-family: var(--display); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); padding-top: 12px; }
 .wl-impro-value input, .wl-impro-value textarea { width: 100%; min-height: 44px; font-size: 16px; }
-.wl-impro-value textarea { min-height: 64px; }
+/* GrowTextarea cresce com o texto; o rolar fica de reserva (o fim nunca some) */
+.wl-impro-value textarea { min-height: 64px; resize: none; overflow-x: hidden; overflow-y: auto; }
 .wl-impro-row.is-name .wl-impro-value input { font-family: var(--display); font-size: 1.15rem; color: var(--gold-bright); }
 .wl-impro-row.is-secret .wl-impro-value textarea { border-color: rgba(227,164,69,0.4); background: rgba(90,61,18,0.18); }
 .wl-impro-btns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
@@ -412,7 +576,6 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
   .wl-card-actions { flex-direction: column; }
   .wl-quick-kinds { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .wl-editor { width: 100vw; border-left: 0; }
-  .wl-atlas-bar .btn { flex: 1 1 auto; }
 }
 @media (max-width: 360px) {
   .wl-grid { grid-template-columns: 1fr; }
@@ -430,6 +593,226 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-logcheck span { white-space: nowrap; }
 .wl-check input[type=checkbox] { width: 18px; height: 18px; min-height: 0; flex: 0 0 18px; margin: 0; }
 .wl-secret .btn-ghost, .wl-reveal-secrets .btn-ghost { color: var(--ink-secondary); border-color: var(--stroke); }
-.wl-map-box.has-ratio { height: auto; max-height: min(70vh, 640px); width: 100%; }
-@media (max-width: 640px) { .wl-map-box.has-ratio { max-height: 62vh; } }
 .wl-nowrap { white-space: nowrap; }
+
+/* ==========================================================================
+   F9 — editor do cartão: topo e rodapé presos, seções, alvos de 44 e leitura
+   ========================================================================== */
+
+/* ---------------------------------------------------------------- editor em seções */
+.wl-editor-top { min-height: 56px; position: relative; }
+.wl-editor-close { font-size: 1.3rem; }
+.wl-ed-h {
+  margin: 14px 0 4px; font-family: var(--display); font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold);
+}
+.wl-ed-h-links { padding-top: 10px; border-top: 1px solid var(--stroke-faint); }
+.wl-ed-fs { border: 0; margin: 0; padding: 0; min-width: 0; }
+.wl-ed-fs:disabled { opacity: 0.85; }
+.wl-ed-fs.wl-ed-sec { padding: 6px 0 10px; }
+.wl-editor .wl-seal-txt { display: inline; }
+.wl-editor .wl-kind-badge { font-size: 12px; }
+.wl-editor .btn-sm { min-height: 44px; }
+.wl-editor .wl-chip { min-height: 44px; }
+.wl-editor .wl-check { min-height: 44px; }
+.wl-editor button.wl-tag { min-height: 44px; }
+.wl-editor .wl-chipbtn { min-height: 44px; }
+.wl-more-toggle { min-height: 48px; }
+.wl-ed-mapuse { display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 100%; }
+.wl-ed-mapuse .wl-hint { margin: 0; font-size: 12.5px; }
+.wl-save { font-size: 0.85rem; }
+.wl-save-read { color: var(--ink-secondary); }
+.wl-readonly-note {
+  margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; font-size: 0.9rem; line-height: 1.4;
+  color: var(--ink-secondary); background: rgba(10, 7, 6, 0.45); border: 1px solid var(--stroke);
+}
+.wl-ed-vis-read { margin: 14px 0 0; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 10px; background: var(--bg-card); border: 1px solid var(--stroke); }
+.wl-ed-read { white-space: pre-wrap; line-height: 1.5; color: var(--ink-secondary); }
+.wl-editor.is-readonly .wl-ed-name, .wl-editor.is-readonly .wl-ed-summary { border-bottom-color: transparent; }
+.wl-secret-badge.is-hidden { color: var(--ink-muted); }
+.wl-secret textarea { resize: vertical; overflow-x: hidden; overflow-y: auto; font-size: 16px; }
+@media (max-width: 767px) {
+  .wl-editor-foot { padding-left: 12px; padding-right: 12px; }
+  .wl-editor-foot .wl-ed-done { flex: 1 1 auto; }
+}
+.wl-reveal-head { align-items: flex-start; }
+
+
+/* ==========================================================================
+   F9 — Atlas no celular primeiro: barra presa, linhas, filtros e Ordenar
+   ========================================================================== */
+
+/* ---------------------------------------------------------------- barra presa do Atlas */
+/* Busca, ＋ Novo e 🎲 logo abaixo do segmentado, presos ao rolar. No celular o
+   segmentado das subvistas fica preso no topo (46 px); no PC/tablet, as abas das
+   áreas (--areas-stick). A faixa cobre a margem da página (como o segmentado), para
+   a lista não aparecer dos lados enquanto passa por baixo. */
+.wl-atlas-bar {
+  position: sticky; top: var(--areas-stick, 64px); z-index: 22;
+  margin: 0 calc(-1 * var(--wl-gutter, 0px)); padding: 6px var(--wl-gutter, 0px);
+  flex-wrap: nowrap; background: var(--bg-base);
+}
+/* PC: cobre a fresta entre as abas presas (59 px) e a barra */
+@media (min-width: 768px) { .wl-atlas-bar { box-shadow: 0 -6px 0 var(--bg-base); } }
+.wl-atlas-bar::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 8px; pointer-events: none;
+  background: linear-gradient(180deg, var(--bg-base), rgba(20, 16, 12, 0));
+}
+.wl-atlas-bar .wl-search { flex: 1 1 auto; min-width: 0; min-height: 44px; }
+.wl-atlas-bar .wl-search input { font-size: 16px; min-height: 42px; }
+.wl-atlas-bar .mesa-btn { min-height: 44px; flex: none; white-space: nowrap; }
+.wl-bar-new { font-size: 0.95rem; }
+.wl-bar-impro { min-width: 44px; }
+@media (max-width: 767px) {
+  .wl-atlas { gap: 8px; }
+  .wl-atlas-bar { --wl-gutter: max(var(--s-3, 12px), env(safe-area-inset-left, 0px)); top: 46px; }
+  .wl-atlas-bar .mesa-btn { padding-left: 12px; padding-right: 12px; }
+  .wl-bar-impro { padding: 0 !important; width: 44px; font-size: 1.1rem; }
+  .wl-bar-impro-txt { display: none; }
+}
+/* celular deitado (com a barra da mesa, o segmentado rola junto): a barra também */
+@media (max-width: 767px) and (max-height: 639px) {
+  body:has(.mesa-bar) .wl-atlas-bar { position: relative; top: auto; }
+}
+
+/* ---------------------------------------------------------------- filtros */
+.wl-filter-rows { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.wl-atlas .wl-filters { padding: 2px 0; }
+.wl-atlas .wl-chip, .wl-atlas .wl-chip-sm { min-height: 44px; padding: 6px 14px; font-size: 0.92rem; }
+.wl-filter-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.wl-filter-row > .wl-filters { flex: 1 1 auto; min-width: 0; }
+/* "Quem vê:" fixo, fora do trilho: nunca encolhe (antes ficava com 0 px de largura) */
+.wl-filter-label {
+  flex: none; white-space: nowrap; font-family: var(--display); font-size: 12px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--gold);
+}
+
+/* ---------------------------------------------------------------- cabeça da lista */
+.wl-list-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; }
+.wl-list-count { margin: 0; color: var(--ink-muted); font-size: 0.92rem; min-width: 0; }
+.wl-list-head.is-ordering .wl-list-count { color: var(--gold-bright); }
+/* instrução e "Salvando…" na mesma célula: a altura é sempre a da instrução */
+.wl-order-status { display: grid; }
+.wl-order-status > span { grid-area: 1 / 1; }
+.wl-order-sizer { visibility: hidden; }
+.wl-order-btn {
+  flex: none; min-height: 44px; padding: 6px 14px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--gold-deep); background: rgba(214, 176, 100, 0.06); color: var(--gold-bright);
+  font-family: var(--display); font-size: 0.86rem; font-weight: 600; letter-spacing: 0.03em; white-space: nowrap;
+}
+.wl-order-btn.is-on { background: var(--gold-soft); border-color: var(--gold); }
+
+/* ---------------------------------------------------------------- linha do cartão (celular) */
+.wl-list { display: flex; flex-direction: column; gap: 4px; overflow-anchor: auto; }
+/* Dois andares: em cima miniatura · nome e linha 2 · 👁 📺; embaixo, na largura toda
+   (por baixo da miniatura e dos botões), a meta. Assim o nome tem 2 linhas, a meta
+   tem 280 px já a 320 (antes 100 px, com o motivo do 📺 cortado) e a linha fica com
+   83–92 px (≤ 96; o seed de 38 cartões fica em < 6 telas a 320). */
+.wl-lrow {
+  --wl-kind: var(--gold);
+  position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "pic main act" "meta meta meta"; align-items: center; column-gap: 10px; row-gap: 3px;
+  min-width: 0; min-height: 72px; max-height: 96px;
+  padding: 6px 6px 6px 8px; border-radius: 10px; cursor: pointer; overflow: hidden;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, rgba(43, 33, 24, 0.92), rgba(28, 21, 16, 0.92)) padding-box,
+    linear-gradient(180deg, rgba(224, 181, 94, 0.32), rgba(224, 181, 94, 0.1)) border-box;
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--wl-kind) 75%, transparent);
+}
+/* documento só para alguns: a meta quebra (sem máscara) para o motivo do 📺 apagado
+   nunca ser cortado; com 1 destinatário cabe na mesma linha do selo (≤ 96 px) */
+.wl-lrow.has-why { max-height: none; }
+.wl-lrow.has-why .wl-lrow-meta { flex-wrap: wrap; white-space: normal; -webkit-mask-image: none; mask-image: none; }
+.wl-lrow.is-moving { cursor: default; }
+.wl-lrow.is-selected { box-shadow: inset 3px 0 0 var(--wl-kind), 0 0 0 2px color-mix(in srgb, var(--gold-bright) 60%, transparent); }
+.wl-lrow:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+@media (hover: hover) { .wl-lrow:not(.is-moving):hover { background: linear-gradient(180deg, rgba(52, 40, 28, 0.95), rgba(32, 24, 18, 0.95)) padding-box, linear-gradient(180deg, rgba(224, 181, 94, 0.45), rgba(224, 181, 94, 0.15)) border-box; } }
+.wl-lrow-pic { grid-area: pic; width: 48px; height: 48px; border-radius: 8px; overflow: hidden; border: 1px solid var(--stroke); background: var(--bg-deep); }
+.wl-vis-hidden .wl-lrow-pic img { filter: grayscale(0.55) brightness(0.7); }
+.wl-lrow-main { grid-area: main; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+/* nome em até 2 linhas (o resto no editor e no leitor de tela) */
+.wl-lrow-name {
+  font-family: var(--display); font-size: 0.98rem; line-height: 1.2; color: var(--ink-primary); letter-spacing: 0.01em;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere;
+}
+.wl-lrow-sub { font-size: 13px; line-height: 1.3; color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wl-lrow-sum { color: var(--ink-muted); font-style: italic; }
+.wl-lrow-sum.is-empty { opacity: 0.85; }
+/* a meta numa linha, do que mais importa para o que menos importa (selo, 🗝, 🗺,
+   quando, sussurro, tags): se faltar lugar, o corte pega o fim */
+.wl-lrow-meta {
+  grid-area: meta; display: flex; align-items: center; gap: 4px 8px; flex-wrap: nowrap; min-width: 0; overflow: hidden; white-space: nowrap;
+  font-size: 12px; line-height: 1.3; color: var(--ink-muted);
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent);
+}
+.wl-lrow-meta > * { flex: none; }
+.wl-lrow-meta .wl-seal { position: static; padding: 1px 7px 1px 5px; font-size: 12px; backdrop-filter: none; }
+.wl-seal-short .wl-seal-txt { display: inline; }
+.wl-lrow-secrets { color: var(--amber); }
+.wl-lrow-map { color: var(--gold-bright); }
+/* o motivo do 📺 apagado: encolhe e quebra dentro da linha, nunca cortado */
+.wl-lrow-meta > .wl-lrow-why { flex: 0 1 auto; min-width: 0; color: var(--ink-secondary); white-space: normal; overflow-wrap: anywhere; }
+.wl-lrow-whisper { display: inline-flex; gap: 3px; }
+.wl-lrow-tag { color: var(--ink-muted); }
+/* um "quando" comprido não empurra o resto para fora: reticências na metade da linha */
+.wl-lrow .wl-when { font-size: 12px; max-width: 50%; overflow: hidden; text-overflow: ellipsis; }
+.wl-lrow-act { grid-area: act; display: flex; align-items: stretch; gap: 4px; }
+/* 👁 e 📺 (e ↑ ↓ no Ordenar): 50 × 48, ícone em cima e o nome escrito embaixo */
+.wl-lrow-btn, .wl-move-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  flex: none; width: 50px; min-height: 48px; padding: 2px 2px; border-radius: 8px; cursor: pointer;
+  border: 1px solid rgba(224, 181, 94, 0.28); background: rgba(10, 7, 6, 0.4); color: var(--ink-secondary);
+}
+.wl-lrow-btn-ico, .wl-move-btn > span:first-child { font-size: 1.05rem; line-height: 1; }
+.wl-lrow-btn-txt, .wl-move-txt { font-size: 12px; line-height: 1.1; white-space: nowrap; }
+.wl-lrow-btn:disabled, .wl-move-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+@media (hover: hover) { .wl-lrow-btn:not(:disabled):hover, .wl-move-btn:not(:disabled):hover { border-color: var(--gold); color: var(--gold-bright); background: var(--gold-soft); } }
+.wl-lrow-btn:focus-visible, .wl-move-btn:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 1px; }
+.wl-move-btn { color: var(--gold-bright); border-color: var(--gold-deep); }
+@media (max-width: 360px) {
+  .wl-lrow { column-gap: 8px; }
+  .wl-lrow-pic { width: 44px; height: 44px; }
+}
+/* a partir de 380 px a meta sobe para a coluna do meio, embaixo do nome e ao lado dos botões
+   (sem o 3º andar), e a linha fica com 3 linhas de texto (~75 px): o nome em 2 linhas toma o
+   lugar da linha 2 (tipo e resumo, que estão na cor da faixa, na miniatura e no cartão). Assim o
+   Atlas de 38 cartões cabe em ≤ 5 telas a 390/412 (F9). Até 360 a meta continua na largura
+   toda (o teto lá é 6 telas, e a meta precisa do espaço). */
+@media (min-width: 380px) {
+  .wl-lrow { grid-template-areas: "pic main act" "pic meta act"; align-items: start; row-gap: 1px; padding-block: 5px; }
+  .wl-lrow-pic, .wl-lrow-act { align-self: center; }
+  .wl-lrow-main { max-height: calc(0.98rem * 2.4 + 2px); overflow: hidden; }
+  .wl-lrow-main > * { flex-shrink: 0; }
+}
+/* esqueleto no celular com a altura das linhas (a lista não pula ao chegar) */
+@media (max-width: 767px) {
+  .wl-skeleton-grid { grid-template-columns: 1fr; gap: 4px; }
+  .wl-skeleton { height: 86px; }
+}
+
+/* ---------------------------------------------------------------- Ordenar na grade (PC/tablet) */
+.wl-move-bar { display: flex; gap: 6px; margin-bottom: 6px; }
+.wl-move-bar .wl-move-btn { flex: 1 1 0; width: auto; flex-direction: row; gap: 6px; min-height: 44px; }
+.wl-move-bar .wl-move-txt { font-size: 0.86rem; }
+.wl-atlas.is-ordering .wl-grid-cell { outline: 1px dashed rgba(224, 181, 94, 0.35); }
+
+/* ---------------------------------------------------------------- "+ Novo" em folha (celular) */
+.wl-quick.is-sheet { background: none; border: 0; box-shadow: none; padding: 0; animation: none; }
+.wl-quick.is-sheet .wl-quick-row input { font-size: 16px; min-height: 48px; }
+.wl-quick.is-sheet .wl-quick-row .btn { min-height: 48px; flex: 1 1 auto; }
+.wl-quick .wl-kindpick { min-height: 60px; font-size: 13px; }
+
+/* ---------------------------------------------------------------- folha "Quem vê" (revelar rápido) */
+.wl-reveal-sheet .wl-reveal { margin-top: 10px; }
+.wl-reveal-modal-kind { margin: 0; color: var(--ink-secondary); font-size: 0.95rem; line-height: 1.4; }
+.wl-reveal-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; width: 100%; }
+.wl-reveal-foot > * { flex: 1 1 auto; }
+.wl-reveal-secrets li { min-height: 56px; }
+.wl-reveal-secrets .btn { min-height: 44px; }
+
+/* textos ≥ 12 px nos cartões grandes do Atlas do mestre (PC/tablet) */
+.wl-atlas .wl-card .wl-kind-badge, .wl-atlas .wl-card-sub, .wl-atlas .wl-card .wl-new, .wl-atlas .wl-map-badge,
+.wl-atlas .wl-card .wl-tag, .wl-atlas .wl-card .wl-when, .wl-atlas .wl-card .wl-secrets, .wl-atlas .wl-card .lv-whisper,
+.wl-atlas .wl-card .wl-seal { font-size: 12px; }
+.wl-atlas .wl-card .lv-whisper-icons small { font-size: 12px; }
+.wl-atlas .wl-card .wl-act { min-height: 44px; font-size: 0.9rem; }

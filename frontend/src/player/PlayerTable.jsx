@@ -5,10 +5,15 @@
 //     público): no combate diz "⚔ Combate · rodada N" e mostra a frente que estiver
 //     por cima; "só a imagem" aparece sem o nome e sem "Ver no Mundo";
 //   - testes que o mestre pediu (rolar no app OU digitar o dado físico);
-//   - rolador de dados (sem aviso de valores pré-definidos) e "pedir ao mestre".
+//   - rolador de dados (sem aviso de valores pré-definidos) e "pedir ao mestre";
+//   - faixa do combate (V13): "Vez de Goblin #2 / Rodada 2 · depois: você"; na vez
+//     dele, "SUA VEZ" dourado e [Ir para a minha ficha].
+// Com o pulso do jogador (V13, usePlayerPulse): a faixa sai dele, a lista de testes só
+// é buscada quando o `checksRev` muda e os pedidos ao mestre quando o `rollsRev` muda.
+// Sem ele (servidor antigo): testes a cada 3 s e pedidos a cada 3 s, como antes, sem faixa.
 //
-// Props: campaign (GET da campanha, visão do jogador), lang, onChange?.
-import { useCallback, useEffect, useState } from 'react';
+// Props: campaign (GET da campanha, visão do jogador), lang, onChange?, onOpenSheet?(id).
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, API_BASE } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
 import { errorMessage } from '../api/errors.js';
@@ -18,14 +23,18 @@ import CheckRequestCard from '../checks/CheckRequestCard.jsx';
 import '../checks/checks-styles.css';
 import { worldImageUrl } from '../world/world-api.js';
 import { kindIcon } from '../world/world-model.js';
-import { absUrl, L, paragraphs } from './player-model.js';
+import { absUrl, combatStrip, L, paragraphs, turnJustStarted } from './player-model.js';
 import { playerScreen } from '../stage/stage-now.js';
+import { useOnRev, usePlayerPulse } from '../play/table-store.js';
+import { quietSlot } from '../play/damage-model.js';
 import './player-styles.css';
 
 const DICE = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'];
 
-export default function PlayerTable({ campaign, lang = 'pt', onOpenWorld }) {
+export default function PlayerTable({ campaign, lang = 'pt', onOpenWorld, onOpenSheet }) {
   const area = useArea();
+  const pp = usePlayerPulse();
+  const pulse = pp?.enabled ? pp.pulse : null;
   const state = campaign.state || {};
   const card = campaign.screenCard;
   const cover = absUrl(API_BASE, campaign.coverUrl) || HERO_ART;
@@ -38,6 +47,9 @@ export default function PlayerTable({ campaign, lang = 'pt', onOpenWorld }) {
 
   return (
     <div className="pl-table">
+      <CombatStrip ready={!!pulse} combat={pulse?.combat} lang={lang}
+        onOpenSheet={char && onOpenSheet ? () => onOpenSheet(char.id) : null} />
+
       <section className="pl-scene" style={{ '--pl-cover': `url("${cover}")` }}>
         <div className="pl-scene-bg" aria-hidden="true" />
         <div className="pl-scene-content">
@@ -67,6 +79,52 @@ export default function PlayerTable({ campaign, lang = 'pt', onOpenWorld }) {
 
       <DiceSection campaign={campaign} lang={lang} />
     </div>
+  );
+}
+
+/**
+ * Faixa do combate (V13, especificação §8.3), do pulso do jogador: "Vez de Goblin #2" /
+ * "Rodada 2 · depois: você". Na vez dele: "SUA VEZ" dourado e [Ir para a minha ficha]
+ * (a ficha abre com o painel de combate no topo); vibra 1 vez quando a vez chega (abrir
+ * a Mesa já na vez dele não vibra). Altura fixa nos dois estados: a troca não empurra
+ * nada. No celular fica presa no topo ao rolar a Mesa.
+ */
+function CombatStrip({ ready, combat, lang, onOpenSheet }) {
+  const prev = useRef(undefined);   // undefined = ainda não viu o pulso
+  useEffect(() => {
+    if (!ready) return;
+    if (turnJustStarted(prev.current, combat)) { try { navigator.vibrate?.(200); } catch { /* sem vibração */ } }
+    prev.current = combat || null;
+  }, [ready, combat?.active, combat?.isMine, combat?.round]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Nada mexe debaixo do dedo (princípio 8): a faixa entra (e troca de estado) só 600 ms
+  // depois do último toque (tocando sem parar, entra no 5º adiamento, como no Combate do
+  // mestre: play/damage-model.js, quietSlot); a vibração não espera.
+  const [shown, setShown] = useState(combat);
+  const touchedAt = useRef(0);
+  const slot = useRef(null);
+  useEffect(() => {
+    const mark = () => { touchedAt.current = Date.now(); };
+    document.addEventListener('pointerdown', mark, true);
+    slot.current = quietSlot(setShown, () => touchedAt.current);
+    return () => { document.removeEventListener('pointerdown', mark, true); slot.current.cancel(); };
+  }, []);
+  useEffect(() => { slot.current?.push(combat); }, [combat]);
+  const s = combatStrip(shown, lang);
+  if (!s) return null;
+  return (
+    <section className={`pl-fight${s.mine ? ' is-mine' : ''}`} role="status" aria-live="polite"
+      aria-label={L(lang, 'Combate', 'Combat')}>
+      <span className="pl-fight-icon" aria-hidden="true">⚔</span>
+      <div className="pl-fight-text">
+        <strong className="pl-fight-title">{s.title}</strong>
+        {s.sub && <span className="pl-fight-sub">{s.sub}</span>}
+      </div>
+      {s.mine && onOpenSheet && (
+        <button type="button" className="pl-fight-go" onClick={onOpenSheet}>
+          {L(lang, 'Ir para a minha ficha', 'Go to my sheet')}{'\u00a0→'}
+        </button>
+      )}
+    </section>
   );
 }
 
@@ -121,10 +179,13 @@ function OnScreenNow({ now, lang, onOpen }) {
 
 function ChecksSection({ campaign, char, lang }) {
   const [checks, setChecks] = useState(null);
+  const pp = usePlayerPulse();
   const load = useCallback(async () => {
     try { setChecks((await api.listChecks(campaign.id)).checks || []); } catch { /* polling */ }
   }, [campaign.id]);
-  usePolling(load, 3000, [campaign.id]);
+  // O checksRev do jogador só muda com os testes abertos para ele e as respostas dele
+  // (o pedido de iniciativa também é um teste): sem busca de segurança.
+  useOnRev(pp?.pulse?.checksRev, load, { table: pp, fallbackMs: 3000, safetyMs: Infinity });
   const open = (checks || []).filter(c => !c.myResponse);
   return (
     <section className="pl-section" aria-label={L(lang, 'Testes pedidos pelo mestre', 'Checks requested by the DM')}>
@@ -187,9 +248,18 @@ function DiceSection({ campaign, lang }) {
       });
     } catch { /* polling */ }
   }, [campaign.id]);
-  // Só consulta pedidos enquanto houver algum aguardando o mestre.
+  // Só consulta pedidos enquanto houver algum aguardando o mestre: com o pulso do jogador,
+  // quando os pedidos dele mudam (`rollsRev`: o mestre resolveu); sem ele, a cada 3 s.
+  const pp = usePlayerPulse();
+  const rollsRev = pp?.enabled && pp.pulse ? pp.pulse.rollsRev : undefined;
+  const pendingRef = useRef(pending);
+  pendingRef.current = pending;
   useEffect(() => { loadPending(); }, [loadPending]);
-  usePolling(() => (pending.length ? loadPending() : null), 3000, [campaign.id, pending.length > 0]);
+  useEffect(() => {
+    if (rollsRev !== undefined && pendingRef.current.length) loadPending();
+  }, [rollsRev]); // eslint-disable-line react-hooks/exhaustive-deps
+  usePolling(() => (rollsRev === undefined && pending.length ? loadPending() : null), 3000,
+    [campaign.id, pending.length > 0, rollsRev === undefined]);
 
   const roll = async () => {
     setBusy(true); setError('');

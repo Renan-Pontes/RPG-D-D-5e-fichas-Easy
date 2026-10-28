@@ -332,6 +332,10 @@
 .tl-physical-btns .mesa-btn { flex: 1 1 auto; }
 .tl-physical .check-card-error { flex-basis: 100%; }
 .tl-hist-tag { margin-left: 8px; font-size: 0.85rem; color: var(--ink-secondary); white-space: nowrap; }
+/* V7: a linha "Sessão N: …" e "De sessões passadas" (aqui, e não em now.css: Testes abre direto) */
+.tl-session { color: var(--ink-secondary); }
+.tl-past { margin-top: 10px; border-top: 1px solid rgba(224, 181, 94, 0.18); padding-top: 6px; }
+.tl-past-sum { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-family: var(--display); font-size: 0.9rem; color: var(--gold-bright); }
 /* V10: rolagens de mesa (Testes › 🎲 Na Tela e as Últimas 5 de Jogar › Tela) */
 .tl-table-hint { margin: 0 0 8px; }
 /* uma coluna em toda largura: a linha (o mesmo texto da TV) e, embaixo, a hora e as marcas */
@@ -355,15 +359,40 @@
   .scr-link .mesa-btn { flex: 0 0 auto; }
 }
 
-/* ---------- Anteriormente em… ---------- */
+/* ---------- Resumo da sessão / "Anteriormente em…" (RecapEditor, V12) ---------- */
 .recap-card { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.recap-head { display: flex; align-items: center; justify-content: space-between; }
 .recap-card .input { min-height: 44px; font-size: 16px; }
-.recap-text, .scr-recap { width: 100%; min-height: 160px; resize: vertical; font-family: var(--body, inherit); line-height: 1.45; }
+.recap-sub { margin: 0; }
+.recap-title { font-family: var(--display); color: var(--gold-bright); }
+.recap-text { width: 100%; min-height: 160px; resize: vertical; font-family: var(--body, inherit); line-height: 1.45; }
 .recap-card.is-sheet .recap-text { min-height: 220px; }
-.recap-draft { align-self: flex-start; white-space: normal; }
-.recap-foot .mesa-btn { min-width: 200px; }
-@media (max-width: 767px) { .recap-foot .mesa-btn { flex: 1 1 auto; } }
+.recap-card.is-sheet > .recap-textfield { flex: 1 1 auto; }
+.recap-count { color: var(--ink-muted); font-family: var(--body, inherit); letter-spacing: 0; }
+.recap-draft { align-self: flex-start; white-space: normal; text-align: left; }
+.recap-foot { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.recap-main { width: 100%; }
+.recap-more { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.recap-more .mesa-btn { padding-inline: 6px; white-space: normal; }
+.recap-live { margin: 0; color: var(--moss-bright); font-family: var(--display); font-size: 0.9rem; letter-spacing: 0.08em; text-align: center; }
+.recap-err {
+  margin: 0; padding: 8px 12px; border: 1px solid var(--blood); border-radius: 6px; cursor: pointer;
+  color: var(--blood-bright); background: var(--blood-soft); overflow-wrap: anywhere;
+}
+.recap-why { margin: 0; color: var(--ink-muted); font-size: 0.85rem; }
+/* Momentos da noite: só o mestre vê (nunca vai ao texto) */
+.recap-night { border: 1px solid rgba(224, 181, 94, 0.22); border-radius: 8px; padding: 0 12px; background: rgba(0, 0, 0, 0.18); }
+.recap-night > summary { min-height: 44px; display: flex; align-items: center; gap: 6px; cursor: pointer; font-family: var(--display); color: var(--gold-bright); }
+.recap-night-who { color: var(--ink-muted); font-family: var(--body, inherit); font-size: 0.85rem; }
+.recap-night-row { margin: 0 0 8px; font-size: 0.95rem; overflow-wrap: anywhere; }
+.recap-night-row.is-warn { color: var(--amber); }
+.recap-night-hint { margin: 0 0 10px; color: var(--ink-muted); font-size: 0.85rem; }
+@media (min-width: 768px) {
+  .recap-foot { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
+  .recap-err, .recap-why { flex: 1 1 100%; }
+  .recap-live { margin-right: auto; }
+  .recap-main { width: auto; min-width: 200px; order: 2; }
+  .recap-more { display: flex; order: 1; }
+}
 
 /* Efeito com resistência (SaveResultCard) */
 .src-targets { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }

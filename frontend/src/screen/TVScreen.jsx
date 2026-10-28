@@ -370,7 +370,8 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
                 {data.tagline && <p className="tv-cover-tagline">{data.tagline}</p>}
                 {state.scene && (
                   <div className="tv-cover-scene">
-                    <span className="tv-cover-eyebrow">{t(lang, 'Agora', 'Now')}</span>
+                    {/* fora da sessão (encerrada), a cena é a de onde o grupo parou, não a de agora */}
+                    <span className="tv-cover-eyebrow">{state.live === false ? t(lang, 'Da última vez', 'Last time') : t(lang, 'Agora', 'Now')}</span>
                     <span className="tv-cover-scene-name">{state.scene}</span>
                   </div>
                 )}

@@ -4,9 +4,10 @@ import assert from 'node:assert/strict';
 import {
   DM_AREAS, PLAYER_AREAS, normalizeArea, legacyTabToArea, areaTapSub, groupBadgeCount, initialArea,
   loadRememberedArea, saveRememberedArea, onboardingStatus, onboardingVisible,
-  planHasContent, fold, matchScore, searchItems, nextSessionNumber, defaultCoverArt,
+  planHasContent, planFlags, prepareMarks, fold, matchScore, searchItems, nextSessionNumber, defaultCoverArt,
   COVER_ART, isHexColor, subLabel, subShortLabel, SUB_ICONS, TONES,
   campaignRoute, parseCampaignRoute, SETTINGS_SECTIONS, settingsSectionLabel, settingsSummary,
+  NAV_PLACES, navSearchItems, planCardSummary, savePlanCard, loadPlanCard, campaignNextLine,
 } from '../src/shell/shell-logic.js';
 
 const memStorage = () => {
@@ -68,16 +69,20 @@ test('Grupo do mestre: Jogadores · Pedidos · Raio-X · Crônica; o contador le
   assert.deepEqual(normalizeArea(false, 'group', 'requests'), { area: 'group', sub: null });
 });
 
-test('área inicial do mestre (DESIGN 1.4)', () => {
-  // ao vivo ou combate → Jogar
+test('área inicial do mestre (especificação §2.4)', () => {
+  // ao vivo → Jogar › Agora (sub `scene`); combate → Jogar › Combate
   assert.deepEqual(initialArea({ isDM: true, live: true, remembered: { area: 'world' } }), { area: 'play', sub: 'scene' });
   assert.deepEqual(initialArea({ isDM: true, combatActive: true }), { area: 'play', sub: 'combat' });
   // lembrada
-  assert.deepEqual(initialArea({ isDM: true, onboardingPending: true, remembered: { area: 'group', sub: 'chronicle' } }), { area: 'group', sub: 'chronicle' });
-  // onboarding pendente → Mundo
-  assert.deepEqual(initialArea({ isDM: true, onboardingPending: true }), { area: 'world', sub: 'atlas' });
-  // resto → Preparar › Próxima sessão
+  assert.deepEqual(initialArea({ isDM: true, remembered: { area: 'group', sub: 'chronicle' } }), { area: 'group', sub: 'chronicle' });
+  // nada lembrado (campanha nova, outro aparelho) → Preparar › Plano, com as 3 portas
+  // (os primeiros passos pendentes não levam mais ao Mundo)
+  assert.deepEqual(initialArea({ isDM: true, onboardingPending: true }), { area: 'prepare', sub: 'next' });
   assert.deepEqual(initialArea({ isDM: true }), { area: 'prepare', sub: 'next' });
+  assert.equal(subLabel('next', 'pt'), 'Plano');
+  assert.equal(subLabel('next', 'en'), 'Plan');
+  assert.equal(subLabel('items', 'pt'), 'Itens');
+  assert.equal(subShortLabel('next', 'pt'), 'Plano');
   // lembrança inválida é ignorada
   assert.deepEqual(initialArea({ isDM: true, remembered: { area: 'table' } }), { area: 'prepare', sub: 'next' });
 });
@@ -127,6 +132,21 @@ test('planHasContent', () => {
   assert.equal(planHasContent({ npcIds: [3] }), true);
 });
 
+test('selo "!" de Preparar: plano em branco (sem começo e sem cena) fora da sessão ao vivo', () => {
+  const blank = planFlags({ strongStart: ' ', scenes: [{ text: '' }], secrets: [{ text: 'O moleiro mente' }] });
+  assert.deepEqual(blank, { has: true, blank: true }, 'só pistas: tem conteúdo, mas está em branco para preparar');
+  assert.deepEqual(prepareMarks({ flags: blank, lang: 'pt' }), [{ k: 'empty', icon: '!', label: 'plano vazio' }]);
+  assert.equal(prepareMarks({ flags: blank, lang: 'en' })[0].label, 'empty plan');
+  assert.deepEqual(prepareMarks({ flags: blank, live: true }), [], 'ao vivo: nada');
+  assert.deepEqual(prepareMarks({ flags: blank, closed: true }), [], 'encerrada: nada');
+  assert.deepEqual(prepareMarks({ flags: null }), [], 'plano ainda não lido (ou servidor sem a rota): nada');
+  assert.equal(planFlags(null), null);
+  assert.deepEqual(prepareMarks({ flags: planFlags({ strongStart: 'O sino toca' }) }), []);
+  assert.deepEqual(prepareMarks({ flags: planFlags({ scenes: [{ text: '', nodeRef: { adventureId: 1, nodeId: 'n1' } }] }) }), [],
+    'cena ligada a uma sala conta como cena');
+  assert.deepEqual(prepareMarks({ flags: planFlags({}) }).length, 1);
+});
+
 test('busca: ignora acento e caixa, prioriza começo do nome', () => {
   assert.equal(fold('Irmã Velna'), 'irma velna');
   assert.ok(matchScore('Irmã Velna', 'irma') > matchScore('Velna, a irmã', 'irma'));
@@ -162,8 +182,8 @@ test('sessão, cores, capa padrão, rótulos', () => {
   assert.equal(defaultCoverArt({ id: 3 }), defaultCoverArt({ id: 3 }));
   assert.ok(COVER_ART.includes(defaultCoverArt({ id: 12345 })));
   assert.ok(COVER_ART.includes(defaultCoverArt(null)));
-  assert.equal(subLabel('next', 'pt'), 'Próxima sessão');
-  assert.equal(subLabel('next', 'en'), 'Next session');
+  assert.equal(subLabel('next', 'pt'), 'Plano');
+  assert.equal(subLabel('next', 'en'), 'Plan');
   assert.deepEqual(TONES.map(x => x.id), ['heroic', 'dark', 'mystery', 'comic', 'epic']);
 });
 
@@ -179,19 +199,25 @@ test('segmentado: toda subvista tem rótulo, rótulo curto e ícone', () => {
 });
 
 test('rótulos curtos do celular (plano §4.2) e o longo continua', () => {
+  // V14: Mundo é Cartões · Mapas · Tempo (§9.1), no curto e no longo
   assert.equal(subShortLabel('timeline', 'pt'), 'Tempo');
-  assert.equal(subLabel('timeline', 'pt'), 'Linha do tempo');
+  assert.equal(subLabel('timeline', 'pt'), 'Tempo');
+  assert.deepEqual(['atlas', 'map', 'timeline'].map(s => subLabel(s, 'pt')), ['Cartões', 'Mapas', 'Tempo']);
+  assert.deepEqual(['atlas', 'map', 'timeline'].map(s => subLabel(s, 'en')), ['Cards', 'Maps', 'Timeline']);
   assert.equal(subShortLabel('documents', 'pt'), 'Docs');
-  assert.equal(subShortLabel('next', 'pt'), 'Próxima');
+  // Preparar: Plano · Aventuras · Itens (§9.1), iguais no curto e no longo
+  assert.equal(subShortLabel('next', 'pt'), 'Plano');
   assert.equal(subShortLabel('items', 'pt'), 'Itens');
-  assert.equal(subLabel('items', 'pt'), 'Itens da campanha');
+  assert.equal(subLabel('items', 'pt'), 'Itens');
   assert.equal(subShortLabel('screen', 'pt'), 'Tela');
   assert.equal(subShortLabel('screen', 'en'), 'Screen');
   assert.equal(subShortLabel('requests', 'pt'), 'Pedidos');
   assert.equal(subLabel('insights', 'pt'), 'Raio-X');
   assert.equal(subLabel('insights', 'en'), 'X-ray');
   // sem curto próprio, o curto é o longo
-  assert.equal(subShortLabel('scene', 'pt'), 'Cena');
+  // V7: a sub-aba "Cena" de Jogar virou "Agora" (o id da rota continua 'scene')
+  assert.equal(subShortLabel('scene', 'pt'), 'Agora');
+  assert.equal(subLabel('scene', 'en'), 'Now');
   assert.equal(subShortLabel('players', 'en'), 'Players');
 });
 
@@ -229,4 +255,77 @@ test('Ajustes: as 6 seções da folha "Mais", com rótulo e resumo', () => {
   assert.equal(settingsSummary('advanced', camp, 'pt', { worldCount: 312, worldMax: 500 }), 'Dados preparados ligados · 312/500 cartões');
   assert.equal(settingsSummary('danger', camp, 'pt'), 'Esvaziar o Mundo · Encerrar campanha');
   assert.equal(settingsSummary('danger', { status: 'closed' }, 'pt'), 'Campanha encerrada · Reabrir');
+});
+
+// ---------------------------------------------------------------- V14
+test('busca do mestre: o nome de antes acha o lugar de hoje (§2.6)', () => {
+  const order = { kindOrder: ['nav', 'npc'] };
+  const first = (q, lang = 'pt') => searchItems(navSearchItems(lang), q, order)[0];
+  assert.equal(first('telão').label, 'Tela');
+  assert.deepEqual(first('telão').go, ['play', 'screen']);
+  assert.equal(first('Telao').label, 'Tela');                 // sem acento e com maiúscula
+  assert.equal(first('próxima sessão').label, 'Plano');
+  assert.deepEqual(first('proxima sessao').go, ['prepare', 'next']);
+  assert.equal(first('encontro').label, 'Combate');
+  assert.equal(first('recap').label, 'Resumo da sessão');
+  assert.deepEqual(first('recap').go, ['group', 'chronicle', { recap: true }]);
+  assert.equal(first('atlas').label, 'Cartões');
+  assert.equal(first('conduzir').label, 'Aventuras');
+  assert.equal(first('tela').label, 'Tela');                  // pelo nome de hoje também
+  assert.equal(first('guia').guide, 0);                       // o Guia do mestre
+  // em inglês
+  assert.equal(first('tv screen', 'en').label, 'Screen');
+  assert.equal(first('next session', 'en').label, 'Plan');
+  assert.equal(first('encounter', 'en').label, 'Combat');
+  // o resultado diz o nome antigo e onde mora
+  assert.match(first('telão').sub, /Jogar · antes: Telão/);
+  assert.match(first('plano').sub, /Preparar · antes: Próxima sessão/);
+  // todo lugar leva a uma subvista que existe (ou ao Guia)
+  const subs = new Set([...DM_AREAS].flatMap(a => a.subs.map(x => `${a.id}/${x}`)));
+  for (const p of NAV_PLACES) {
+    if (p.guide != null) continue;
+    assert.ok(subs.has(`${p.go[0]}/${p.go[1]}`), p.id);
+  }
+  // ids únicos
+  assert.equal(new Set(navSearchItems('pt').map(x => x.id)).size, NAV_PLACES.length);
+});
+
+test('cartão da campanha: a linha de próximo passo (só o mestre, sem pedido novo)', () => {
+  const dm = (state, extra = {}) => ({ id: 7, role: 'dm', status: 'active', state, ...extra });
+  const plan = { forSession: 5, strongStart: 'O sino toca', scenes: [{ id: 'c1', text: 'Ponte' }, { id: 'c2', text: 'Cripta' }, { id: 'c3', text: '  ' }] };
+  const sum = planCardSummary(plan, { session: 'Sessão 4' });
+  assert.deepEqual(sum, { n: 5, scenes: 2, blank: false, stale: false, live: false, session: 4 });
+  assert.equal(campaignNextLine(dm({ session: 'Sessão 4' }), sum, 'pt'), 'Plano da Sessão 5: 2 cenas');
+  assert.equal(campaignNextLine(dm({ session: 'Sessão 4' }), sum, 'en'), 'Session 5 plan: 2 scenes');
+  // sem o resumo (outro aparelho, janela privada): o aparelho não sabe como está o plano,
+  // então a linha é neutra e não manda "preparar" (o plano pode estar pronto no PC)
+  assert.equal(campaignNextLine(dm({ session: '4' }), null, 'pt'), 'Próxima: Sessão 5 · abra para ver o Plano');
+  assert.equal(campaignNextLine(dm({}), null, 'pt'), 'Próxima: Sessão 1 · abra para ver o Plano');
+  assert.equal(campaignNextLine(dm({}), null, 'en'), 'Next: session 1 · open to see the plan');
+  // o resumo guardado diz que o plano está vazio: aí sim, o próximo passo é preparar
+  const blank = planCardSummary({ scenes: [] }, { session: '4' });
+  assert.equal(campaignNextLine(dm({ session: '4' }), blank, 'pt'), 'Próximo passo: preparar o Plano da Sessão 5');
+  assert.equal(campaignNextLine(dm({ session: '4' }), blank, 'en'), 'Next step: prepare the session 5 plan');
+  // …ou que o plano é de uma sessão já jogada (stale)
+  const old = planCardSummary({ forSession: 4, strongStart: 'O sino', scenes: [{ id: 'c1', text: 'Ponte' }] }, { session: '4' });
+  assert.equal(old.stale, true);
+  assert.equal(campaignNextLine(dm({ session: '4' }), old, 'pt'), 'Próximo passo: preparar o Plano da Sessão 5');
+  // o resumo guardado é de outra situação (a sessão 5 já foi jogada): não vale, linha neutra
+  assert.equal(campaignNextLine(dm({ session: '5' }), sum, 'pt'), 'Próxima: Sessão 6 · abra para ver o Plano');
+  // ao vivo
+  const liveSum = planCardSummary({ forSession: 4, scenes: [{ id: 'c1', text: 'a' }] }, { session: '4', live: true });
+  assert.equal(campaignNextLine(dm({ session: '4', live: true }), liveSum, 'pt'), 'Sessão 4 ao vivo · Plano de hoje: 1 cena');
+  assert.equal(campaignNextLine(dm({ session: '4', live: true }), sum, 'pt'), 'Sessão 4 ao vivo · volte para Jogar › Agora');
+  // só o começo
+  const opening = planCardSummary({ strongStart: 'Fogo!', scenes: [] }, { session: '1' });
+  assert.equal(campaignNextLine(dm({ session: '1' }), opening, 'pt'), 'Plano da Sessão 2: só o começo, sem cenas');
+  // jogador e campanha encerrada: nada
+  assert.equal(campaignNextLine({ ...dm({ session: '4' }), role: 'player' }, sum, 'pt'), null);
+  assert.equal(campaignNextLine(dm({ session: '4' }, { status: 'closed' }), sum, 'pt'), null);
+  // guardar e ler no aparelho
+  const st = memStorage();
+  savePlanCard(7, sum, st);
+  assert.deepEqual(loadPlanCard(7, st), sum);
+  assert.equal(loadPlanCard(8, st), null);
+  assert.equal(planCardSummary(null, {}), null);
 });

@@ -183,7 +183,7 @@ function DecideSheet({ lang, name, mode, fighting, busy, onClose, onShow, onImag
         </>
       )}
       {mode === 'name' && (
-        <p className="mesa-sheet-text">{L(lang, 'Oculto no Mundo e sem imagem. "Só o nome" deixa o cartão conhecido de nome (os jogadores veem o nome e a frase).', 'Hidden in the World and without an image. "Name only" makes the card known by name (players see the name and tagline).')}</p>
+        <p className="mesa-sheet-text">{L(lang, 'Oculto no Mundo e sem imagem. "Só o nome" deixa os jogadores verem o nome e a frase do cartão.', 'Hidden in the World and without an image. "Name only" lets players see the card\'s name and tagline.')}</p>
       )}
       {fighting && (
         <p className="mesa-sheet-text">{keepKind === 'toggle'

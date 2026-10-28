@@ -2,17 +2,39 @@
 // pelo Combate) com passos opcionais; cada passo só chama a API quando o mestre
 // toca. Não empurra mais o topo da tela. Com a nota do Diário mexida e ainda não
 // salva, ✕/Esc/toque fora perguntam antes de fechar.
+// V8: o combate que veio de uma sala (combat.map.scene, gravado pelo POST /encounter)
+// mostra o tesouro dela no passo Tesouro, com "🎁 Entregar o tesouro da cena" (a mesma
+// folha do "Na mesa" das Aventuras). A sala é lida 1 vez, quando o painel abre.
 import { errorMessage } from '../api/errors.js';
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client.js';
 import { findMonster } from '../../data/bestiary.js';
 import { loadCustomMonsters } from '../combat/custom-monsters.js';
 import GiveItemModal from './GiveItemModal.jsx';
 import MesaSheet from '../shell/MesaSheet.jsx';
+import { getAdventure } from '../play/play-api.js';
+import { hasTreasure, treasureSummary } from '../prep/prep-graph.js';
 import './table-now.css';
 import { diaryDraft, encounterSummary, suggestXp, wizardSteps, xpRecipients } from './end-of-encounter.js';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
+const TreasureModal = lazy(() => import('../prep/PlayPanel.jsx').then(m => ({ default: m.TreasureModal })));
+
+/** A sala de onde veio o combate ({adventure, node}) ou null. */
+function useSceneRoom(campaignId, scene) {
+  const [room, setRoom] = useState(null);
+  useEffect(() => {
+    if (scene?.advId == null || !scene?.nodeId) return undefined;
+    let alive = true;
+    getAdventure(campaignId, scene.advId).then(r => {
+      const adv = r?.adventure || r;
+      const node = (adv?.data?.nodes || []).find(n => n.id === scene.nodeId);
+      if (alive && node) setRoom({ adventure: adv, node });
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [campaignId, scene?.advId, scene?.nodeId]);
+  return room;
+}
 
 export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, onNavigate, onChange }) {
   const steps = wizardSteps(campaign.state);
@@ -33,6 +55,8 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState('');
   const [givingTo, setGivingTo] = useState(null);
+  const room = useSceneRoom(campaign.id, combat?.map?.scene);
+  const [givingScene, setGivingScene] = useState(false);
 
   const run = async (id, fn) => {
     setBusy(id); setError('');
@@ -57,7 +81,7 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
 
   return (
     <MesaSheet title={<>{roundsText}{summary.defeated.length > 0 && <> · {L(lang, 'derrotados', 'defeated')}: {summary.defeated.length}</>}</>}
-      eyebrow={L(lang, 'Fim de encontro', 'End of encounter')} icon="⚑" size="tall" width="md" lang={lang}
+      eyebrow={L(lang, 'Fim do combate', 'End of combat')} icon="⚑" size="tall" width="md" lang={lang}
       onClose={onClose} footer={footer} dirty={noteDirty}
       dirtyText={L(lang, 'A nota do Diário ainda não foi salva.', 'The Diary note has not been saved yet.')}
       className="eoe-sheet" bodyClassName="eoe-sheet-body" dock="play">
@@ -115,6 +139,16 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
             {id === 'treasure' && (
               <>
                 <div className="eoe-step-title">🎁 {L(lang, 'Tesouro', 'Treasure')}</div>
+                {room && hasTreasure(room.node) && (
+                  <div className="eoe-scene-treasure">
+                    <p className="eoe-scene-text">
+                      <strong>{L(lang, `Tesouro da cena ${room.node.name}`, `Treasure of scene ${room.node.name}`)}:</strong> {treasureSummary(room.node.treasure, lang)}
+                    </p>
+                    <button type="button" className="mesa-btn is-primary" onClick={() => setGivingScene(true)}>
+                      🎁 {L(lang, 'Entregar o tesouro da cena', 'Hand out the scene treasure')}
+                    </button>
+                  </div>
+                )}
                 <div className="eoe-row">
                   {onNavigate && (
                     <button type="button" className="mesa-btn" onClick={() => onNavigate('items')}>
@@ -150,6 +184,13 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
         ))}
       </ol>
 
+      {givingScene && room && (
+        <Suspense fallback={null}>
+          <TreasureModal node={room.node} campaign={campaign} adventure={room.adventure} lang={lang}
+            onClose={() => setGivingScene(false)}
+            onDone={(text) => { setGivingScene(false); setDone(d => ({ ...d, treasure: `${d.treasure ? `${d.treasure}, ` : ''}${text}` })); onChange?.(); }} />
+        </Suspense>
+      )}
       {givingTo && (
         <GiveItemModal campaign={campaign} character={givingTo} lang={lang}
           onClose={() => setGivingTo(null)}

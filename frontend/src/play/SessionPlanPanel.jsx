@@ -1,4 +1,4 @@
-// Jogar › Cena: o plano da sessão (Preparar › Próxima sessão) à mão, num painel
+// Jogar › Cena: o plano da sessão (Preparar › Plano) à mão, num painel
 // recolhível — começo forte, cenas com "aconteceu", pistas com "descoberta" e
 // um lembrete dos NPCs preparados (os cartões ficam em "Nesta cena"). Marcar uma pista NUNCA revela nada: se ela está ligada a
 // um cartão do Mundo, o painel só PERGUNTA "Revelar no cartão?".
@@ -139,7 +139,7 @@ export default function SessionPlanPanel({ campaign, lang = 'pt', goTo, onSaveSt
         <span>📜 {L(lang, 'Sem plano para esta sessão.', 'No plan for this session.')}</span>
         {goTo && (
           <button type="button" className="mesa-btn" onClick={() => goTo('prepare', 'next')}>
-            {L(lang, 'Preparar a próxima sessão →', 'Prepare the next session →')}
+            {L(lang, 'Abrir o Plano →', 'Open the Plan →')}
           </button>
         )}
       </section>

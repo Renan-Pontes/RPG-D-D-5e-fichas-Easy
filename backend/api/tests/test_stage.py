@@ -214,7 +214,8 @@ class StageOpsTests(Base):
         self.assertNotIn('Goblins', str(self.screen()))
         self.stage({'op': 'show', 'target': {'kind': 'scene', 'sceneId': 'c2'}})
         front = self.screen()['stage']['front']
-        self.assertEqual((front['title'], front['text']), ('Ponte velha', 'A ponte range sob a chuva.'))
+        # V7: o nome é o da cena (a mesma da Mesa do jogador); o texto e a imagem, os da sala
+        self.assertEqual((front['title'], front['text']), ('Descer ao lago', 'A ponte range sob a chuva.'))
         self.assertEqual(self.anon.get(front['imageUrl']).status_code, 200)
         self.assertEqual(self.stage({'op': 'show', 'target': {'kind': 'scene', 'sceneId': 'zz'}}).status_code, 404)
 
@@ -237,8 +238,9 @@ class StageOpsTests(Base):
         self.stage({'op': 'show', 'target': {'kind': 'image', 'ref': {'entryId': self.crypt.id}}, 'caption': 'Uma porta'})
         self.camp.refresh_from_db()
         shown = self.camp.state['diarySessions']['3']['shown']
-        # "Só a imagem" de oculto: nunca o nome (o rascunho do resumo vai à Tela) — a legenda ou 'Imagem'.
-        self.assertEqual(shown, [{'t': 'Imagem', 'k': 'image', 'h': True}, {'t': 'Irmã Velna', 'k': 'card'},
+        # "Só a imagem" de oculto: nunca o nome (o rascunho do resumo vai à Tela) — a legenda ou ''
+        # (o rascunho escreve "uma imagem" na língua dele).
+        self.assertEqual(shown, [{'t': '', 'k': 'image', 'h': True}, {'t': 'Irmã Velna', 'k': 'card'},
                                  {'t': 'Uma porta', 'k': 'image', 'h': True}])
         self.assertNotIn('Cripta', str(self.camp.state['diarySessions']))
         self.assertNotIn('Cripta', str(self.c_p1.get(f'/api/campaigns/{self.camp.id}').json()))
@@ -388,3 +390,136 @@ class NextStageTests(TestCase):
         self.assertEqual(st['front'], front)
         _, changed = next_stage(st, {'op': 'show', 'front': dict(front, label='b'), 'focus': True})
         self.assertFalse(changed)
+
+
+class SceneStartTests(Base):
+    """V7 · ▶ Começar esta cena (POST /campaigns/:id/stage/scene)."""
+
+    def setUp(self):
+        super().setUp()
+        self.camp.state = {**self.camp.state, 'diarySessions': {'3': {'title': '', 'startedAt': '2026-10-24T18:00:00+00:00'}}}
+        self.camp.dm_settings = {'sessionPlan': {'forSession': 3, 'scenes': [
+            {'id': 'c1', 'text': 'Taverna do Javali\nBorin sabe do sino', 'done': False,
+             'read': 'O fogo crepita.', 'show': {'kind': 'entry', 'id': self.crypt.id}},
+            {'id': 'c2', 'text': 'Ponte sobre o rio', 'nodeRef': {'adventureId': self.adv.id, 'nodeId': 'n1'}, 'done': False},
+            {'id': 'c3', 'text': 'Só o nome', 'done': False},
+            {'id': 'c4', 'text': 'Sem mostrar', 'read': 'Texto', 'showOnStart': False, 'done': False},
+        ]}}
+        self.camp.save()
+
+    def start(self, body, client=None):
+        return (client or self.c_dm).post(f'/api/campaigns/{self.camp.id}/stage/scene', body, format='json')
+
+    def plan_scene(self, sid):
+        self.camp.refresh_from_db()
+        return next(s for s in self.camp.dm_settings['sessionPlan']['scenes'] if s['id'] == sid)
+
+    def test_loose_scene_goes_to_state_and_screen_with_image_only(self):
+        r = self.start({'sceneId': 'c1'})
+        self.assertEqual(r.status_code, 200, r.content)
+        body = r.json()
+        self.assertTrue(body['shown'])
+        self.assertTrue(body['changed'])
+        self.camp.refresh_from_db()
+        st = self.camp.state
+        self.assertEqual(st['scene'], 'Taverna do Javali')     # só a 1ª linha (o resto é anotação do mestre)
+        self.assertEqual(st['sceneId'], 'c1')
+        self.assertEqual(st['sceneText'], 'O fogo crepita.')
+        front = self.screen()['stage']['front']
+        self.assertEqual(front['kind'], 'scene')
+        self.assertEqual(front['title'], 'Taverna do Javali')
+        self.assertEqual(front['text'], 'O fogo crepita.')
+        self.assertTrue(front['imageUrl'].startswith(f'/api/screen/{self.camp.screen_token}/stage-image?v='))
+        # a imagem do cartão OCULTO sai pela URL da frente, sem o nome nem o texto do cartão
+        img = self.anon.get(front['imageUrl'])
+        self.assertEqual(img.status_code, 200)
+        raw = str(self.screen())
+        for leak in ('Cripta', 'Onde o noivo', 'Borin sabe', 'O sino está'):
+            self.assertNotIn(leak, raw)
+
+    def test_linked_scene_reads_the_room_and_enters_it(self):
+        r = self.start({'sceneId': 'c2'})
+        self.assertEqual(r.status_code, 200, r.content)
+        front = self.screen()['stage']['front']
+        self.assertEqual(front['title'], 'Ponte sobre o rio')    # o nome da cena (a sala mantém o dela)
+        self.assertEqual(front['text'], 'A ponte range sob a chuva.')
+        self.assertIn('imageUrl', front)
+        self.adv.refresh_from_db()
+        self.assertEqual(self.adv.play['current'], 'n1')
+        self.assertIn('n1', self.adv.play['visited'])
+        from api.models import DiaryEntry
+        # a Crônica (que os jogadores leem) diz o nome da cena, não o da sala da aventura
+        self.assertTrue(DiaryEntry.objects.filter(campaign=self.camp, title='O grupo entrou em Ponte sobre o rio').exists())
+        self.assertFalse(DiaryEntry.objects.filter(campaign=self.camp, title__contains='Ponte velha').exists())
+        # a TV não abre a aventura: o texto e a versão da imagem ficam gravados no palco
+        stage = self.raw()
+        self.assertEqual(stage['front']['text'], 'A ponte range sob a chuva.')
+        self.assertTrue(stage['front']['ver'])
+
+    def test_without_media_or_show_off_only_the_name(self):
+        self.stage({'op': 'show', 'target': {'kind': 'text', 'text': 'Antes'}})
+        r = self.start({'sceneId': 'c3'})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertFalse(r.json()['shown'])
+        self.assertEqual(self.raw()['front']['kind'], 'text')    # a Tela não muda
+        self.camp.refresh_from_db()
+        self.assertEqual(self.camp.state['scene'], 'Só o nome')
+        self.assertNotIn('sceneText', self.camp.state)
+        r = self.start({'sceneId': 'c4'})
+        self.assertFalse(r.json()['shown'])
+        r = self.start({'sceneId': 'c4', 'show': True})
+        self.assertTrue(r.json()['shown'])
+        self.assertEqual(self.raw()['front']['title'], 'Sem mostrar')
+
+    def test_previous_scene_is_marked_done_and_undo_brings_everything_back(self):
+        self.start({'sceneId': 'c1'})
+        before = self.raw()['front']
+        r = self.start({'sceneId': 'c2'})
+        body = r.json()
+        self.assertEqual(body['doneId'], 'c1')
+        self.assertTrue(self.plan_scene('c1')['done'])
+        rev = self.camp.dm_settings['sessionPlan']['_rev']
+        u = self.start({'undo': body['undo']})
+        self.assertEqual(u.status_code, 200, u.content)
+        self.camp.refresh_from_db()
+        self.assertEqual(self.camp.state['scene'], 'Taverna do Javali')
+        self.assertEqual(self.camp.state['sceneId'], 'c1')
+        self.assertFalse(self.plan_scene('c1')['done'])
+        self.assertGreater(self.camp.dm_settings['sessionPlan']['_rev'], rev)
+        self.assertEqual(self.raw()['front']['title'], before['title'])
+        self.adv.refresh_from_db()
+        self.assertIsNone(self.adv.play['current'])
+        self.assertNotIn('n1', self.adv.play['visited'])
+        from api.models import DiaryEntry
+        self.assertFalse(DiaryEntry.objects.filter(campaign=self.camp, title='O grupo entrou em Ponte sobre o rio').exists())
+
+    def test_log_off_and_combat_keeps_for_later(self):
+        CombatInstance.objects.create(campaign=self.camp, active=True, round_number=2, combatants=[])
+        r = self.start({'sceneId': 'c2', 'log': False, 'focus': False})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertFalse(self.raw()['focus'])
+        from api.models import DiaryEntry
+        self.assertFalse(DiaryEntry.objects.filter(campaign=self.camp, subtype='custom').exists())
+
+    def test_only_dm_validation_and_missing_scene(self):
+        self.assertEqual(self.start({'sceneId': 'c1'}, self.c_p1).status_code, 403)
+        self.assertEqual(self.start({'sceneId': 'nope'}).status_code, 404)
+        self.assertEqual(self.start({'sceneId': ''}).status_code, 400)
+        self.assertEqual(self.start({'sceneId': 'c1', 'show': 'yes'}).status_code, 400)
+        self.assertEqual(self.start({'undo': {'scene': 5}}).status_code, 400)
+        self.camp.status = 'closed'
+        self.camp.save()
+        self.assertEqual(self.start({'sceneId': 'c1'}).status_code, 423)
+
+    def test_scene_id_never_reaches_players_nor_the_tv(self):
+        self.start({'sceneId': 'c1'})
+        self.camp.refresh_from_db()
+        self.assertEqual(self.camp.state['sceneId'], 'c1')
+        player = self.c_p1.get(f'/api/campaigns/{self.camp.id}').json()['campaign']
+        self.assertEqual(player['state']['scene'], 'Taverna do Javali')
+        self.assertNotIn('sceneId', player['state'])
+        self.assertNotIn('"c1"', str(player))
+        tv = self.screen()
+        self.assertNotIn('sceneId', str(tv))
+        dm = self.c_dm.get(f'/api/campaigns/{self.camp.id}').json()['campaign']
+        self.assertEqual(dm['state']['sceneId'], 'c1')

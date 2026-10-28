@@ -10,6 +10,14 @@ PUT  /api/combat/campaign/<id>/combatants/<cid>  (DM)  body: campos a atualizar
 POST /api/combat/campaign/<id>/action   (DM)  body: ataque/save/condição/dano/cura/death_save
                                               ataque com `show` → 1 linha na Tela (V10);
                                               save_apply: a salvaguarda em área numa chamada (+ `show`)
+                                              V8: `opId` (o mesmo POST 2× aplica 1 vez), temp_hp e
+                                              hp_many (vários alvos numa chamada); foto antes/depois
+POST /api/combat/campaign/<id>/encounter (DM) V8: monstros + personagens (casas livres, iniciativa
+                                              rolada por monstro, teste de iniciativa à mesa,
+                                              Trocar/Somar, mapa da cena) numa chamada, com `opId`
+POST /api/combat/campaign/<id>/undo     (DM)  {opId} → ↶ Desfazer: a foto "antes" de volta (409 se mudou)
+POST /api/combat/campaign/<id>/map-from (DM)  {advId, nodeId} | {entryId}: a imagem como mapa, sem reenviar
+POST /api/combat/campaign/<id>/reset    (DM)  {keepMap?: false} → Recomeçar (sem o fundo, D10)
 POST /api/combat/campaign/<id>/save-preview (DM) a salvaguarda em área ROLADA NO SERVIDOR, sem aplicar
 POST /api/combat/campaign/<id>/next-turn (DM)  body: {expect?: {round, turnIndex}} → 409 stale_turn se a vez já mudou
 POST /api/combat/campaign/<id>/prev-turn (DM)  body: {expect?} → ↶ Voltar turno (restaura a foto do Próximo)
@@ -30,6 +38,7 @@ POST /api/rolls/<id>/cancel             (DM ou owner)
 import functools
 import hashlib
 import json
+import re
 import secrets
 from django.db import transaction
 from django.db.models import F
@@ -47,7 +56,7 @@ from .dice_privacy import scrub_dice
 from .permissions import get_campaign_or_404, require_dm, require_member, is_dm
 from . import combat as engine
 from .diary import log_combat_start, log_combat_end, log_roll_request
-from .image_data import image_link, image_response, image_ver, validate_data_url
+from .image_data import image_link, image_response, image_size, image_ver, validate_data_url
 from . import plans as P
 from . import table_rolls
 
@@ -97,11 +106,13 @@ def _check_and_consume(combatants, att, idx, force=False):
     return engine.replace_combatant(combatants, updated), updated
 
 
-def _sync_changed(combatants, ids):
+def _sync_changed(combatants, ids, record=None, before=None):
+    """`before` = {id do combatente: ele antes da ação}: a ficha só ganha ou perde as condições
+    que a ação pôs ou tirou (ver _merged_conditions)."""
     for cid in ids:
         cur = engine.find_combatant(combatants, cid)
         if cur and cur.get('type') == 'pc' and cur.get('character_id'):
-            _sync_pc_to_character(cur)
+            _sync_pc_to_character(cur, record, prior=(before or {}).get(cid))
 
 
 def _get_combat(campaign, create=True):
@@ -186,6 +197,11 @@ def _sprite_link(cb, base):
     return {**cb, 'sprite': image_link(cb['sprite'], f'{base}/token/{cb.get("id")}')}
 
 
+def _without_scene(map_data):
+    """O mapa sem `scene` (de que sala do preparo veio o combate, V8): só o mestre vê."""
+    return {k: v for k, v in map_data.items() if k != 'scene'} if isinstance(map_data, dict) else map_data
+
+
 def _serialize_combat(c, *, for_dm=False, token=None):
     """Combat instance → dict. Jogador e Tela recebem a versão filtrada.
 
@@ -212,7 +228,8 @@ def _serialize_combat(c, *, for_dm=False, token=None):
         'round': c.round_number,
         'turnIndex': c.turn_index,
         'combatants': combatants,
-        'map': map_payload(c.map_data, f'{base}/map' if token else f'{base}/map-image', public=bool(token)),
+        'map': map_payload(c.map_data if for_dm else _without_scene(c.map_data),
+                           f'{base}/map' if token else f'{base}/map-image', public=bool(token)),
         'log': log,
         'updatedAt': c.updated_at.isoformat() if c.updated_at else None,
     }
@@ -325,6 +342,61 @@ def _int(value, default=0):
         return int(value)
     except (TypeError, ValueError):
         raise ValidationError({'error': 'invalid_number'})
+
+
+def _amount(value):
+    """PV de uma ação (dano, cura, temporário): inteiro de 0 a 9999, senão 400."""
+    n = _int(value, 0)
+    if not 0 <= n <= 9999:
+        raise ValidationError({'error': 'invalid_amount'})
+    return n
+
+
+# ------------------------------------------------------------------ V8: opId e foto
+_OP_ID = re.compile(r'^[A-Za-z0-9_-]{8,64}$')
+
+
+def _op_id(data):
+    """`opId` do corpo (o uuid que o app gera por toque) ou None."""
+    raw = data.get('opId') if isinstance(data, dict) else None
+    if raw in (None, ''):
+        return None
+    if not isinstance(raw, str) or not _OP_ID.match(raw):
+        raise ValidationError({'error': 'invalid_opId'})
+    return raw
+
+
+def _op_entries(log, op_id):
+    """As entradas do registro (as últimas 100) feitas por este `opId`."""
+    return [e for e in (log or []) if isinstance(e, dict) and e.get('opId') == op_id]
+
+
+def _lock_combat(campaign):
+    """Pega o lock de escrita ANTES de ler o combate (como o Próximo turno): no SQLite
+    a 2ª escrita espera a 1ª terminar e lê o que ela gravou."""
+    CombatInstance.objects.filter(campaign=campaign).update(turn_index=F('turn_index'))
+
+
+def _photos(after_list, targets_before, actors_before=()):
+    """A foto da ação: dos alvos, os campos de PV (antes e depois); dos atacantes, só as
+    recargas/usos/lendárias que mudaram."""
+    out, seen = [], set()
+    for before in targets_before or []:
+        if not before or before.get('id') in seen:
+            continue
+        after = engine.find_combatant(after_list, before.get('id'))
+        if after is None:
+            continue
+        seen.add(before.get('id'))
+        out.append(engine.photo_of(before, after))
+    for before in actors_before or []:
+        if not before or before.get('id') in seen:
+            continue
+        after = engine.find_combatant(after_list, before.get('id'))
+        p = engine.photo_of(before, after, engine.RESOURCE_PHOTO_FIELDS, only_changed=True) if after else None
+        if p:
+            out.append(p)
+    return out
 
 
 def _went_down(before, after):
@@ -485,6 +557,8 @@ def combat_end(request, id_or_slug):
     c.active = False
     _append_log(c, {'type': 'end'})
     c.save()
+    # o teste de iniciativa deste combate não serve para o próximo (V8)
+    _close_initiative_checks(campaign)
     log_combat_end(campaign, c.round_number, c.combatants, request.user, action_log=c.action_log)
     return Response({'combat': _serialize_combat(c, for_dm=True)})
 
@@ -501,33 +575,56 @@ def combat_reset(request, id_or_slug):
     c.action_log = []
     c.round_number = 1
     c.turn_index = 0
+    # "Recomeçar" pergunta "Manter o mapa?" (V8, D10: o fundo da taverna sobrava na
+    # luta da ponte). `keepMap: false` tira o fundo; sem o campo (app de antes), fica.
+    drop_map = request.data.get('keepMap') is False if isinstance(request.data, dict) else False
+    md = dict(c.map_data or {})
+    md.pop('scene', None)
+    if drop_map:
+        md['background_image'] = None
+    c.map_data = md
     c.save()
+    _close_initiative_checks(campaign)
+    if drop_map and (campaign.state or {}).get(MAP_VER_KEY):
+        merge_state(campaign, {MAP_VER_KEY: ''})
     return Response({'combat': _serialize_combat(c, for_dm=True)})
 
 
 # ============================================================
 # Combat: combatants CRUD
 # ============================================================
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-@action_sets
-def combat_add_combatant(request, id_or_slug):
-    """Adiciona combatente.
-    body: {
-      type: 'pc' | 'monster',
-      characterId?: int,            # se pc (carregaremos stats)
-      monster?: {...inline stats},  # se monstro (frontend manda o snapshot)
-      initiative?: int,
-    }
-    """
-    campaign = get_campaign_or_404(id_or_slug)
-    require_dm(request.user, campaign)
-    c = _get_combat(campaign)
-    t = request.data.get('type')
-    initiative = int(request.data.get('initiative') or 10)
-    position = request.data.get('position') or {'x': 50, 'y': 50}
-    sprite = request.data.get('sprite')  # base64
-    token_scale = float(request.data.get('tokenScale') or 1.0)
+def _by_initiative(x):
+    try:
+        return -int(x.get('initiative') or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _sort_keep_turn(c, combatants):
+    """Grava `combatants` em `c` na ordem da iniciativa (desc, estável). Com o combate
+    andando, a vez continua com QUEM a tinha (pelo id), não com a posição."""
+    cur = None
+    if c.active and 0 <= (c.turn_index or 0) < len(c.combatants or []):
+        cur = (c.combatants[c.turn_index] or {}).get('id')
+    combatants.sort(key=_by_initiative)
+    c.combatants = combatants
+    if cur is not None:
+        idx = next((i for i, x in enumerate(combatants) if x.get('id') == cur), None)
+        if idx is not None:
+            c.turn_index = idx
+
+
+def _build_combatant(data):
+    """Combatente novo a partir do corpo de POST …/combatants (ou de um item do
+    POST …/encounter): PJ pela ficha (`characterId`), monstro pelo stat block
+    (`monster`, o snapshot do bestiário que o app manda)."""
+    t = data.get('type')
+    # 0 e negativa valem (Zumbi, DES 6: d20 2 − 2 = 0); só o campo ausente vira 10.
+    raw_init = data.get('initiative')
+    initiative = 10 if raw_init in (None, '') else _int(raw_init, 10)
+    position = data.get('position') or {'x': 50, 'y': 50}
+    sprite = data.get('sprite')  # base64
+    token_scale = float(data.get('tokenScale') or 1.0)
 
     combatant = {
         'id': _new_id(),
@@ -543,7 +640,7 @@ def combat_add_combatant(request, id_or_slug):
     }
 
     if t == 'pc':
-        cid = request.data.get('characterId')
+        cid = data.get('characterId')
         if not cid:
             raise ValidationError({'error': 'missing_characterId'})
         try:
@@ -593,7 +690,7 @@ def combat_add_combatant(request, id_or_slug):
                 'actions': [],
             }
     elif t == 'monster':
-        m = request.data.get('monster') or {}
+        m = data.get('monster') or {}
         if not m:
             raise ValidationError({'error': 'missing_monster_data'})
         combatant['name'] = m.get('name') or 'Monstro'
@@ -628,12 +725,32 @@ def combat_add_combatant(request, id_or_slug):
         combatant = engine.init_resources(combatant)
     else:
         raise ValidationError({'error': 'invalid_type'})
+    return combatant
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@action_sets
+def combat_add_combatant(request, id_or_slug):
+    """Adiciona combatente.
+    body: {
+      type: 'pc' | 'monster',
+      characterId?: int,            # se pc (carregaremos stats)
+      monster?: {...inline stats},  # se monstro (frontend manda o snapshot)
+      initiative?: int,
+    }
+    """
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    c = _get_combat(campaign)
+    combatant = _build_combatant(request.data)
+    initiative = combatant['initiative']
 
     combatants = list(c.combatants or [])
     combatants.append(combatant)
-    # Ordena por iniciativa desc (mantém posição do turno se possível)
-    combatants.sort(key=lambda x: -int(x.get('initiative') or 0))
-    c.combatants = combatants
+    # Ordena por iniciativa desc; a vez fica com quem a tinha (V8: antes ela podia
+    # passar a outro combatente quando o novo entrava antes dele na ordem).
+    _sort_keep_turn(c, combatants)
     _append_log(c, {'type': 'add_combatant', 'name': combatant['name'], 'init': initiative})
     c.save()
     return Response({'combat': _serialize_combat(c, for_dm=True)})
@@ -672,12 +789,475 @@ def combat_combatant(request, id_or_slug, combatant_id):
         stats = dict(updated.get('stats') or {})
         stats.update(patch['stats'])
         updated['stats'] = stats
+    resort = 'initiative' in patch and patch.get('initiative') != target.get('initiative')
+    if 'initiative' in patch:
+        # Iniciativa digitada pelo mestre: some o "✎" (10 de quem não respondeu, V8) e a
+        # ordem segue a nova iniciativa, com a vez ainda de quem a tinha.
+        updated['initiative'] = _int(patch.get('initiative'), 10)
+        updated.pop('init_guess', None)
     c.combatants = engine.replace_combatant(c.combatants, updated)
+    if resort:
+        _sort_keep_turn(c, list(c.combatants))
     if _went_down(target, updated):
         # PV zerado à mão também conta como queda no resumo do combate.
         _append_log(c, {'type': 'hp_set', 'target': target.get('name'), 'downed': target.get('name')})
     c.save()
     return Response({'combat': _serialize_combat(c, for_dm=True)})
+
+
+# ============================================================
+# V8: montar o combate numa chamada, ↶ Desfazer por foto, mapa da cena
+# ============================================================
+MAX_ENCOUNTER_GROUPS = 12
+MAX_ENCOUNTER_MONSTERS = 30
+MONSTER_START = (100, 100)
+PC_START = (100, 200)
+INITIATIVE_KEY = 'initiative'
+_NUMBERED = re.compile(r'^(.*\S)\s+#(\d+)$')
+
+
+def _base_and_number(name):
+    m = _NUMBERED.match(str(name or ''))
+    return (m.group(1), int(m.group(2))) if m else (str(name or ''), None)
+
+
+def _monster_name(raw, lang):
+    name = raw.get('name') if isinstance(raw, dict) else None
+    if isinstance(name, dict):
+        name = name.get(lang) or name.get('pt') or name.get('en')
+    return str(name or 'Monstro')[:70]
+
+
+def _encounter_groups(raw, lang):
+    """[{monster, count, initiative?, sprite?, tokenScale?}] → grupos validados."""
+    if raw in (None, ''):
+        return []
+    if not isinstance(raw, list) or len(raw) > MAX_ENCOUNTER_GROUPS:
+        raise ValidationError({'error': 'invalid_encounter'})
+    out, total = [], 0
+    for g in raw:
+        if not isinstance(g, dict) or not isinstance(g.get('monster'), dict) or not g['monster']:
+            raise ValidationError({'error': 'invalid_encounter'})
+        count = max(1, min(20, _int(g.get('count'), 1)))
+        total += count
+        init = g.get('initiative')
+        init = None if init in (None, '') else max(-10, min(50, _int(init)))
+        try:
+            scale = float(g.get('tokenScale') or 1)
+        except (TypeError, ValueError):
+            scale = 1
+        out.append({'monster': g['monster'], 'name': _monster_name(g['monster'], lang), 'count': count,
+                    'initiative': init, 'sprite': g.get('sprite'), 'scale': max(0.5, min(4, scale))})
+    if total > MAX_ENCOUNTER_MONSTERS:
+        raise ValidationError({'error': 'too_many_monsters'})
+    return out
+
+
+def _encounter_pcs(raw, campaign):
+    """'all' ou [{characterId, initiative?}] → [(Character, iniciativa|None)] da campanha."""
+    if raw in (None, '', False, []):
+        return []
+    members = list(Membership.objects.filter(campaign=campaign).exclude(role='dm')
+                   .exclude(user_id=campaign.dm_id).exclude(character__isnull=True)
+                   .select_related('character'))
+    by_char = {m.character_id: m.character for m in members}
+    if raw == 'all' or raw is True:
+        return [(m.character, None) for m in members]
+    if not isinstance(raw, list) or len(raw) > 30:
+        raise ValidationError({'error': 'invalid_pcs'})
+    out = []
+    for p in raw:
+        cid = _int(p.get('characterId') if isinstance(p, dict) else p)
+        if cid not in by_char:
+            raise ValidationError({'error': 'character_not_in_campaign'})
+        init = p.get('initiative') if isinstance(p, dict) else None
+        out.append((by_char[cid], None if init in (None, '') else max(-10, min(50, _int(init)))))
+    return out
+
+
+def _encounter_inits(raw):
+    """"Usar e começar": [{id, initiative, guess?}] (as respostas do teste de iniciativa)."""
+    if raw in (None, ''):
+        return []
+    if not isinstance(raw, list) or len(raw) > 60:
+        raise ValidationError({'error': 'invalid_initiatives'})
+    out = []
+    for x in raw:
+        if not isinstance(x, dict) or not isinstance(x.get('id'), str):
+            raise ValidationError({'error': 'invalid_initiatives'})
+        out.append({'id': x['id'], 'initiative': max(-10, min(60, _int(x.get('initiative'), 10))),
+                    'guess': bool(x.get('guess'))})
+    return out
+
+
+def _scene_ref(raw):
+    """De onde veio o combate: {advId, nodeId, name} (o fim guiado lista o tesouro da sala)."""
+    if not isinstance(raw, dict):
+        return None
+    out = {'name': str(raw.get('name') or '')[:120]}
+    if raw.get('advId') not in (None, ''):
+        out['advId'] = _int(raw.get('advId'))
+        out['nodeId'] = str(raw.get('nodeId') or '')[:40]
+    if raw.get('sceneId'):
+        out['sceneId'] = str(raw['sceneId'])[:40]
+    return out if (out.get('name') or out.get('advId')) else None
+
+
+def _map_image_from(campaign, ref):
+    """A imagem (data URL) de uma sala ({advId, nodeId}) ou de um cartão do Mundo
+    ({entryId}), lida no servidor: o app não reenvia o base64 (V8 "map-from")."""
+    from .models import WorldEntry, WorldImage
+    from .screen_card import is_private_handout
+    if not isinstance(ref, dict):
+        raise ValidationError({'error': 'invalid_map'})
+    if ref.get('advId') not in (None, ''):
+        adv = campaign.adventures.filter(pk=_int(ref.get('advId'))).only('id', 'data').first()
+        node = next((n for n in ((adv.data or {}).get('nodes') or []) if n.get('id') == ref.get('nodeId')), None) if adv else None
+        if not node:
+            raise NotFound('scene_not_found')
+        if not node.get('image'):
+            raise ValidationError({'error': 'no_image'})
+        return node['image']
+    if ref.get('entryId') not in (None, ''):
+        entry = WorldEntry.objects.filter(campaign=campaign, pk=_int(ref.get('entryId'))).only('id', 'kind', 'data', 'image_ver').first()
+        if not entry:
+            raise NotFound('entry_not_found')
+        if is_private_handout(entry):
+            raise ValidationError({'error': 'private_handout'})
+        img = WorldImage.objects.filter(entry=entry).only('data').first()
+        if not img or not img.data:
+            raise ValidationError({'error': 'no_image'})
+        return img.data
+    raise ValidationError({'error': 'invalid_map'})
+
+
+def _set_map_background(campaign, c, data_url):
+    """Põe (ou tira, com None) o fundo do mapa, com o tamanho lido do arquivo. → mudou?"""
+    md = dict(c.map_data or {})
+    old = md.get('background_image')
+    if data_url:
+        data_url = validate_data_url(data_url, max_chars=MAX_MAP_IMAGE_CHARS, allow_gif=True)
+        if data_url == old:
+            return False
+        P.check_images(campaign.dm, P.image_bytes(data_url), P.image_bytes(old))
+        md['background_image'] = data_url
+        size = image_size(data_url)
+        if size and all(0 < v <= 10000 for v in size):
+            md['width_px'], md['height_px'] = size
+    else:
+        if not old:
+            return False
+        md['background_image'] = None
+    c.map_data = md
+    return True
+
+
+def _map_ver_to_state(campaign, c):
+    ver = image_ver((c.map_data or {}).get('background_image') or '')
+    if (campaign.state or {}).get(MAP_VER_KEY) != ver:
+        merge_state(campaign, {MAP_VER_KEY: ver})
+
+
+def _initiative_check(campaign, user, combatants, lang):
+    """O teste de iniciativa pedido à mesa: `kind:'custom', key:'initiative'` (um app de
+    jogador antigo não acha bônus para `custom` e pede o total digitado, em vez de
+    somar o −5 de um atributo que não existe). Só para quem está no combate; um
+    pedido de iniciativa ainda aberto é encerrado antes."""
+    from .models import CheckRequest
+    in_fight = {x.get('character_id') for x in combatants if x.get('type') == 'pc' and x.get('character_id')}
+    players = list(Membership.objects.filter(campaign=campaign).exclude(role='dm').exclude(user_id=campaign.dm_id)
+                   .values_list('user_id', 'character_id'))
+    targets = sorted({u for u, ch in players if ch in in_fight})
+    if not targets:
+        return None
+    _close_initiative_checks(campaign)
+    return CheckRequest.objects.create(
+        campaign=campaign, created_by=user, label='Initiative' if lang == 'en' else 'Iniciativa',
+        kind='custom', key=INITIATIVE_KEY, advantage='normal',
+        target_user_ids=[] if len(targets) == len(players) else targets)
+
+
+def _close_initiative_checks(campaign):
+    """Encerra o teste de iniciativa aberto (V8): o combate acabou, recomeçou ou foi
+    trocado — as respostas dele não podem entrar no ▶ Iniciar do combate seguinte."""
+    from .models import CheckRequest
+    CheckRequest.objects.filter(campaign=campaign, status='open', kind='custom', key=INITIATIVE_KEY) \
+        .update(status='closed', closed_at=timezone.now(), show_on_screen=False, screen_at=None)
+
+
+def _combat_since(log):
+    """Quando o combate de agora começou a ser montado: a hora da 1ª entrada do registro
+    (o Recomeçar zera o registro). None sem registro."""
+    first = next((e for e in (log or []) if isinstance(e, dict) and e.get('ts')), None)
+    return parse_datetime(first['ts']) if first else None
+
+
+def _answers_of_open_check(campaign, combatants, log=None):
+    """As respostas do teste de iniciativa aberto mais novo → ([{id, initiative}], check id).
+
+    Só de quem ainda está com o "✎" (a iniciativa digitada pelo mestre fica), e só de um
+    teste deste combate: pedido por ele (o id na entrada 'encounter') ou criado depois da
+    1ª entrada do registro. Um teste que sobrou aberto de um combate de antes (app ou
+    servidor de antes, que não o fechavam) é ignorado."""
+    from .models import CheckRequest
+    cr = (CheckRequest.objects.filter(campaign=campaign, status='open', kind='custom', key=INITIATIVE_KEY)
+          .order_by('-created_at').prefetch_related('responses').first())
+    if not cr:
+        return [], None
+    asked = {e.get('checkId') for e in (log or []) if isinstance(e, dict) and e.get('checkId')}
+    since = _combat_since(log)
+    if cr.id not in asked and since is not None and cr.created_at < since:
+        return [], None
+    totals = {r.character_id: r.total for r in cr.responses.all() if r.character_id and r.total is not None}
+    out = [{'id': x['id'], 'initiative': max(-10, min(60, int(totals[x.get('character_id')]))), 'guess': False}
+           for x in combatants
+           if x.get('type') == 'pc' and x.get('init_guess') and x.get('character_id') in totals]
+    return out, cr.id
+
+
+def _close_check(campaign, check_id):
+    from .models import CheckRequest
+    if check_id in (None, ''):
+        return
+    CheckRequest.objects.filter(campaign=campaign, pk=_int(check_id), status='open') \
+        .update(status='closed', closed_at=timezone.now(), show_on_screen=False, screen_at=None)
+
+
+def _check_payload(campaign, check_id):
+    from .models import CheckRequest
+    from .views_checks import serialize_for_dm
+    if not check_id:
+        return None
+    cr = (CheckRequest.objects.filter(campaign=campaign, pk=check_id)
+          .select_related('campaign').prefetch_related('responses').first())
+    return serialize_for_dm(cr) if cr else None
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@action_sets
+def combat_encounter(request, id_or_slug):
+    """POST /combat/campaign/:id/encounter (mestre) — monta o combate numa chamada (V8,
+    especificação §4.6), no lugar de 1 POST por monstro e por personagem.
+
+    body: {opId, mode: 'replace'|'add',                  Trocar (tira os monstros) · Somar
+           monsters: [{monster, count, initiative?}],    sem initiative: d20 + bônus, rolado aqui
+           monsterInit: 'each'|'group',                  cada um · 1 d20 para todos (cada um soma o seu)
+           pcs: 'all' | [{characterId, initiative?}],    em casas livres; sem iniciativa: 10 e "✎"
+           askInitiative?: bool,                         o teste de iniciativa à mesa (kind custom)
+           initiatives?: [{id, initiative, guess?}],     "Usar e começar": as respostas na ordem
+           closeCheck?: id, map?: 'keep'|'none'|{advId,nodeId}|{entryId}, scene?: {advId,nodeId,name},
+           start?: bool, fromCheck?: bool (o ▶ Iniciar da barra: usa as respostas do teste aberto), lang?}
+    → {combat, check?, opId, rolled: [{id, name, initiative, d20, bonus}]}
+
+    Idempotente pelo `opId` (guardado na entrada 'encounter' do registro): o 2º toque
+    em "⚔ Começar" (ou a rede que reenviou) devolve o mesmo combate com
+    `duplicate: true` — nada é duplicado. Lê e grava com o lock de escrita."""
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    body = request.data if isinstance(request.data, dict) else {}
+    op_id = _op_id(body)
+    lang = body.get('lang') if body.get('lang') in ('pt', 'en') else 'pt'
+    mode = body.get('mode') or 'add'
+    if mode not in ('add', 'replace'):
+        raise ValidationError({'error': 'invalid_mode'})
+    groups = _encounter_groups(body.get('monsters'), lang)
+    pcs = _encounter_pcs(body.get('pcs'), campaign)
+    inits = _encounter_inits(body.get('initiatives'))
+    scene = _scene_ref(body.get('scene'))
+    map_ref = body.get('map') if body.get('map') not in (None, '', 'keep') else None
+    map_image = None
+    if map_ref is not None and map_ref != 'none':
+        map_image = _map_image_from(campaign, map_ref)
+    shared = body.get('monsterInit') == 'group'
+    start = bool(body.get('start'))
+
+    with transaction.atomic():
+        _lock_combat(campaign)
+        c = _get_combat(campaign)
+        if op_id:
+            done = _op_entries(c.action_log, op_id)
+            if done:
+                return Response({'duplicate': True, 'opId': op_id, 'combat': _serialize_combat(c, for_dm=True),
+                                 'check': _check_payload(campaign, done[-1].get('checkId'))})
+        combatants = [dict(x) for x in (c.combatants or []) if isinstance(x, dict)]
+        ended = None
+        if mode == 'replace' and groups:
+            # Trocar: os monstros antigos saem; os personagens (e onde estão) ficam. O
+            # combate recomeça da rodada 1. Com ele andando, é o fim dele: o resumo
+            # (rodadas, quedas) vai ao Diário como no ⏸ Encerrar, e o teste de
+            # iniciativa dele fecha.
+            if c.active:
+                _append_log(c, {'type': 'end'})
+                ended = (c.round_number, [dict(x) for x in combatants], list(c.action_log))
+            _close_initiative_checks(campaign)
+            combatants = [x for x in combatants if x.get('type') != 'monster']
+            c.active, c.round_number, c.turn_index = False, 1, 0
+        md = c.map_data or {}
+        grid = md.get('grid_size_px') or 50
+        width = md.get('width_px') or 1200
+        height = md.get('height_px') or 800
+        if map_image:
+            size = image_size(map_image)
+            if size and all(0 < v <= 10000 for v in size):
+                width, height = size
+        taken = engine.occupied_cells(combatants, grid)
+        rolled = []
+
+        # Monstros: nome numerado seguindo os que já estão no combate (Goblin #3…).
+        d20_all = engine.roll_die(20) if shared else None
+        for g in groups:
+            same = [_base_and_number(x.get('name')) for x in combatants if x.get('type') == 'monster']
+            same = [n for b, n in same if b == g['name']]
+            last = max([n or 1 for n in same], default=0)
+            numbered = g['count'] > 1 or bool(same)
+            spots = engine.free_positions(combatants, g['count'], grid=grid, width=width, height=height,
+                                          start=MONSTER_START, scale=g['scale'], taken=taken)
+            bonus = engine.initiative_bonus(g['monster'])
+            for i in range(g['count']):
+                name = f"{g['name']} #{last + i + 1}" if numbered else g['name']
+                if g['initiative'] is not None:
+                    init, d20 = g['initiative'], None
+                else:
+                    d20 = d20_all or engine.roll_die(20)
+                    init = d20 + bonus
+                cb = _build_combatant({'type': 'monster', 'monster': {**g['monster'], 'name': name},
+                                       'initiative': init, 'position': spots[i], 'sprite': g['sprite'],
+                                       'tokenScale': g['scale']})
+                combatants.append(cb)
+                rolled.append({'id': cb['id'], 'name': name, 'initiative': init, 'd20': d20,
+                               'bonus': bonus if d20 is not None else None})
+
+        # Personagens em casas livres (D1); sem iniciativa: 10 com "✎" até responderem.
+        in_fight = {x.get('character_id') for x in combatants if x.get('type') == 'pc'}
+        new_pcs = [(ch, init) for ch, init in pcs if ch.id not in in_fight]
+        spots = engine.free_positions(combatants, len(new_pcs), grid=grid, width=width, height=height,
+                                      start=PC_START, taken=taken) if new_pcs else []
+        for (ch, init), spot in zip(new_pcs, spots):
+            cb = _build_combatant({'type': 'pc', 'characterId': ch.id, 'initiative': 10 if init is None else init,
+                                   'position': spot})
+            if init is None:
+                cb['init_guess'] = True
+            combatants.append(cb)
+
+        # ▶ Iniciar da barra da mesa / da faixa do PC (`fromCheck`): as respostas do teste de
+        # iniciativa aberto entram como no "Usar e começar" (quem não respondeu fica com o ✎).
+        if body.get('fromCheck') is True and not inits:
+            inits, from_check = _answers_of_open_check(campaign, combatants, c.action_log)
+            if from_check:
+                body = {**body, 'closeCheck': from_check}
+        # "Usar e começar": as respostas do teste de iniciativa entram na linha.
+        for x in inits:
+            cb = engine.find_combatant(combatants, x['id'])
+            if cb is None:
+                continue
+            cb['initiative'] = x['initiative']
+            if x['guess']:
+                cb['init_guess'] = True
+            else:
+                cb.pop('init_guess', None)
+
+        _sort_keep_turn(c, combatants)
+        map_changed = False
+        if map_ref == 'none':
+            map_changed = _set_map_background(campaign, c, None)
+        elif map_image:
+            map_changed = _set_map_background(campaign, c, map_image)
+        if scene:
+            c.map_data = {**(c.map_data or {}), 'scene': scene}
+        elif mode == 'replace' and groups and (c.map_data or {}).get('scene'):
+            # combate novo sem cena: o tesouro da sala de antes não aparece no fim guiado
+            c.map_data = {k: v for k, v in c.map_data.items() if k != 'scene'}
+
+        check = _initiative_check(campaign, request.user, combatants, lang) if body.get('askInitiative') else None
+        _close_check(campaign, body.get('closeCheck'))
+        # A entrada 'encounter' guarda o opId (o 2º toque não duplica) e o teste pedido. Sem
+        # ninguém novo (▶ Iniciar, "Usar e começar", "Pôr na ordem") ela fica com 0 e 0, e
+        # o Registro recente não a mostra (logLine); sem opId nem teste, nem é gravada.
+        entry = {'type': 'encounter', 'mode': mode, 'monsters': len(rolled), 'pcs': len(new_pcs)}
+        if op_id:
+            entry['opId'] = op_id
+        if check:
+            entry['checkId'] = check.id
+        if rolled or new_pcs or op_id or check:
+            _append_log(c, entry)
+        started = start and not c.active and bool(combatants)
+        if started:
+            c.active, c.round_number, c.turn_index = True, 1, 0
+            _append_log(c, {'type': 'start'})
+        c.save()
+    if map_changed:
+        _map_ver_to_state(campaign, c)
+    if ended:
+        log_combat_end(campaign, ended[0], ended[1], request.user, action_log=ended[2])
+    if started:
+        log_combat_start(campaign, c.combatants, request.user)
+    return Response({'combat': _serialize_combat(c, for_dm=True), 'opId': op_id, 'rolled': rolled,
+                     'check': _check_payload(campaign, check.id) if check else None})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@action_sets
+def combat_undo(request, id_or_slug):
+    """POST /combat/campaign/:id/undo {opId} (mestre) — ↶ Desfazer de uma ação de PV:
+    restaura a foto "antes" dos combatentes que ela mexeu, se eles ainda estão como a
+    ação deixou. Mexeram depois (outro dano, condição, cura) → 409 `changed_since` e
+    nada muda ("Mudou depois; ajuste à mão"). Personagem: a ficha volta junto."""
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    op_id = _op_id(request.data)
+    if not op_id:
+        raise ValidationError({'error': 'missing_opId'})
+    from rest_framework import status
+    with transaction.atomic():
+        _lock_combat(campaign)
+        c = _get_combat(campaign)
+        log = [dict(e) if isinstance(e, dict) else e for e in (c.action_log or [])]
+        idx = [i for i, e in enumerate(log) if isinstance(e, dict) and e.get('opId') == op_id and e.get('photo')]
+        if not idx or all(log[i].get('undone') for i in idx):
+            return Response({'error': 'nothing_to_undo', 'combat': _serialize_combat(c, for_dm=True)},
+                            status=status.HTTP_409_CONFLICT)
+        photo = [p for i in idx for p in (log[i].get('photo') or []) if isinstance(p, dict)]
+        combatants = [dict(x) for x in (c.combatants or [])]
+        changed = engine.photo_conflicts(combatants, photo) or _sheet_conflicts(photo, combatants)
+        if changed:
+            return Response({'error': 'changed_since', 'names': changed, 'combat': _serialize_combat(c, for_dm=True)},
+                            status=status.HTTP_409_CONFLICT)
+        prior = {x.get('id'): x for x in combatants}
+        combatants = engine.restore_photo(combatants, photo)
+        for i in idx:
+            log[i] = {**log[i], 'undone': True}
+        names = [x.get('name') for x in combatants if x.get('id') in {p.get('id') for p in photo}]
+        c.combatants = combatants
+        c.action_log = log
+        _append_log(c, {'type': 'undo', 'of': log[idx[-1]].get('type'), 'target': ', '.join(n for n in names if n)})
+        c.save()
+        # A ficha volta pela foto dela (V8); entrada de antes, sem a foto da ficha: pelo combatente.
+        _restore_sheets(photo)
+        _sync_changed(c.combatants, [p.get('id') for p in photo if 'sheet' not in p], before=prior)
+    return Response({'combat': _serialize_combat(c, for_dm=True), 'opId': op_id})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@action_sets
+def combat_map_from(request, id_or_slug):
+    """POST /combat/campaign/:id/map-from {advId, nodeId} | {entryId} (mestre) — usa a
+    imagem da sala ou do cartão como mapa do combate, lida no servidor (antes o app
+    baixava a imagem e a reenviava inteira no POST …/map)."""
+    campaign = get_campaign_or_404(id_or_slug)
+    require_dm(request.user, campaign)
+    image = _map_image_from(campaign, request.data if isinstance(request.data, dict) else None)
+    with transaction.atomic():
+        _lock_combat(campaign)
+        c = _get_combat(campaign)
+        changed = _set_map_background(campaign, c, image)
+        if changed:
+            c.save()
+    if changed:
+        _map_ver_to_state(campaign, c)
+    return Response({'combat': _serialize_combat(c, for_dm=True), 'changed': changed})
 
 
 # ============================================================
@@ -705,17 +1285,44 @@ def _maybe_consume_rig(campaign, user_id, dice_type):
 def combat_action(request, id_or_slug):
     """Resolve uma ação de combate.
 
-    body comum: {action: 'attack'|'save'|'damage'|'heal'|'add_condition'|'remove_condition'|'death_save'}
+    body comum: {action: 'attack'|'save'|'damage'|'heal'|'temp_hp'|'hp_many'|'add_condition'|
+                 'remove_condition'|'death_save'|…, opId?}
+
+    V8 (especificação §4.7 C2): a ação de PV com `opId` (uuid do app) é feita UMA vez —
+    o mesmo POST repetido (2 toques, rede que reenviou) devolve o combate atual com
+    `duplicate: true`, sem aplicar de novo. A leitura, a conferência do `opId` e a
+    gravação ficam numa transação que já começa com o lock de escrita (como o
+    Próximo turno): dois POSTs iguais ao mesmo tempo esperam um pelo outro. Cada
+    entrada de PV guarda a foto antes/depois do combatente (`photo`, só do servidor),
+    que o ↶ Desfazer (POST …/undo) restaura.
     """
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
-    c = _get_combat(campaign)
+    op_id = _op_id(request.data)
+    with transaction.atomic():
+        _lock_combat(campaign)
+        c = _get_combat(campaign)
+        if op_id and _op_entries(c.action_log, op_id):
+            return Response({'duplicate': True, 'opId': op_id, 'combat': _serialize_combat(c, for_dm=True)})
+        response_payload, show_after = _apply_action(request, campaign, c, op_id)
+    if show_after:
+        response_payload['shown'] = show_after().id
+    if op_id:
+        response_payload['opId'] = op_id
+    response_payload['combat'] = _serialize_combat(c, for_dm=True)
+    return Response(response_payload)
 
+
+def _apply_action(request, campaign, c, op_id):
+    """O corpo do POST …/action, já dentro da transação. → (payload, show_after)."""
     action_type = request.data.get('action')
     combatants = list(c.combatants or [])
     log_entry = {'type': action_type}
+    extra_entries = []   # hp_many: uma entrada por alvo (o registro, os avisos e o diário leem igual)
     response_payload = {}
     show_after = None   # a linha da Tela (V10), gravada depois do combate
+    photo = []          # V8: a foto dos combatentes que a ação mexeu
+    sheets = {}         # V8: e a da ficha de cada personagem (id do combatente → {before, after})
 
     if action_type == 'attack':
         # body: {attackerId, targetId, actionIndex, advantage?, disadvantage?, force?,
@@ -731,6 +1338,7 @@ def combat_action(request, id_or_slug):
         if idx < 0 or idx >= len(actions):
             raise ValidationError({'error': 'invalid_action_index'})
         action_data = actions[idx]
+        att_before, tgt_before = att, tgt
         combatants, att = _check_and_consume(combatants, att, idx, force=bool(request.data.get('force')))
         tgt = engine.find_combatant(combatants, tgt.get('id'))
         typed_roll = _typed_d20(request.data.get('attackRoll'))
@@ -762,7 +1370,7 @@ def combat_action(request, id_or_slug):
             }
             # Se PC chegou a 0 e a ficha existe, atualizar Character.data
             if tgt.get('type') == 'pc' and tgt.get('character_id'):
-                _sync_pc_to_character(applied['combatant'])
+                _sync_pc_to_character(applied['combatant'], sheets, prior=tgt)
         log_entry.update({
             'attacker': att.get('name'), 'target': tgt.get('name'),
             'action_name': _action_name(action_data),
@@ -777,6 +1385,7 @@ def combat_action(request, id_or_slug):
             log_entry['manual'] = True
         if downed:
             log_entry['downed'] = tgt.get('name')
+        photo = _photos(combatants, [tgt_before], [att_before])
         response_payload['result'] = result
         if request.data.get('show') is True and att.get('type') != 'pc':
             show_after = lambda: _show_attack(campaign, request.user, att, tgt, result, parts)  # noqa: E731
@@ -786,26 +1395,84 @@ def combat_action(request, id_or_slug):
         tgt = engine.find_combatant(combatants, request.data.get('targetId'))
         if not tgt:
             raise NotFound('combatant_not_found')
-        applied = engine.apply_damage(tgt, _int(request.data.get('amount'), 0),
+        applied = engine.apply_damage(tgt, _amount(request.data.get('amount')),
                                       request.data.get('damageType') or 'bludgeoning')
         combatants = engine.replace_combatant(combatants, applied['combatant'])
         if tgt.get('type') == 'pc' and tgt.get('character_id'):
-            _sync_pc_to_character(applied['combatant'])
+            _sync_pc_to_character(applied['combatant'], sheets, prior=tgt)
         log_entry.update({'target': tgt.get('name'), 'amount': applied['damage_taken'], 'note': applied['note']})
         if _went_down(tgt, applied['combatant']):
             log_entry['downed'] = tgt.get('name')
+        photo = _photos(combatants, [tgt])
         response_payload['result'] = applied
 
     elif action_type == 'heal':
         tgt = engine.find_combatant(combatants, request.data.get('targetId'))
         if not tgt:
             raise NotFound('combatant_not_found')
-        applied = engine.apply_healing(tgt, int(request.data.get('amount') or 0))
+        applied = engine.apply_healing(tgt, _amount(request.data.get('amount')))
         combatants = engine.replace_combatant(combatants, applied['combatant'])
         if tgt.get('type') == 'pc' and tgt.get('character_id'):
-            _sync_pc_to_character(applied['combatant'])
+            _sync_pc_to_character(applied['combatant'], sheets, prior=tgt)
         log_entry.update({'target': tgt.get('name'), 'healed': applied['healed']})
+        photo = _photos(combatants, [tgt])
         response_payload['result'] = applied
+
+    elif action_type == 'temp_hp':
+        # + Temp do teclado de dano (V8). body: {targetId, amount}
+        tgt = engine.find_combatant(combatants, request.data.get('targetId'))
+        if not tgt:
+            raise NotFound('combatant_not_found')
+        applied = engine.apply_temp_hp(tgt, _amount(request.data.get('amount')))
+        combatants = engine.replace_combatant(combatants, applied['combatant'])
+        if tgt.get('type') == 'pc' and tgt.get('character_id'):
+            _sync_pc_to_character(applied['combatant'], sheets, prior=tgt)
+        log_entry.update({'target': tgt.get('name'), 'temp': applied['combatant'].get('temp_hp')})
+        photo = _photos(combatants, [tgt])
+        response_payload['result'] = applied
+
+    elif action_type == 'hp_many':
+        # "Vários alvos" do teclado de dano (bola de fogo; "½ passou" já vem com a metade).
+        # body: {op: 'damage'|'heal'|'temp', damageType?, targets: [{id, amount}], opId?}
+        # Uma chamada; no registro, uma entrada por alvo (como N ações de dano), todas
+        # com o mesmo opId: um ↶ Desfazer volta todos.
+        op = request.data.get('op') or 'damage'
+        if op not in ('damage', 'heal', 'temp'):
+            raise ValidationError({'error': 'invalid_op'})
+        raw = request.data.get('targets')
+        if not isinstance(raw, list) or not raw or len(raw) > 30:
+            raise ValidationError({'error': 'missing_targets'})
+        seen, results = set(), []
+        dtype = request.data.get('damageType') or 'bludgeoning'
+        for t in raw:
+            tid = t.get('id') if isinstance(t, dict) else None
+            tgt = engine.find_combatant(combatants, tid)
+            if not tgt or tid in seen:
+                raise ValidationError({'error': 'invalid_target'})
+            seen.add(tid)
+            amount = _amount(t.get('amount'))
+            entry = {'type': {'damage': 'damage', 'heal': 'heal', 'temp': 'temp_hp'}[op], 'target': tgt.get('name')}
+            if op == 'damage':
+                applied = engine.apply_damage(tgt, amount, dtype)
+                entry.update({'amount': applied['damage_taken'], 'note': applied['note']})
+                if _went_down(tgt, applied['combatant']):
+                    entry['downed'] = tgt.get('name')
+            elif op == 'heal':
+                applied = engine.apply_healing(tgt, amount)
+                entry['healed'] = applied['healed']
+            else:
+                applied = engine.apply_temp_hp(tgt, amount)
+                entry['temp'] = applied['combatant'].get('temp_hp')
+            combatants = engine.replace_combatant(combatants, applied['combatant'])
+            if tgt.get('type') == 'pc' and tgt.get('character_id'):
+                _sync_pc_to_character(applied['combatant'], sheets, prior=tgt)
+            entry['photo'] = _photos(combatants, [tgt])
+            extra_entries.append(entry)
+            results.append({'id': tid, 'name': tgt.get('name'), 'new_hp': applied['combatant'].get('current_hp'),
+                            'defeated': applied['combatant'].get('defeated', False),
+                            'damage_taken': applied.get('damage_taken'), 'note': applied.get('note')})
+        log_entry = {}    # as entradas por alvo já vão ao registro
+        response_payload['result'] = {'op': op, 'targets': results}
 
     elif action_type == 'save_aoe':
         # body: {action: 'save_aoe', actionIndex, attackerId, targetIds: [...]}
@@ -820,13 +1487,15 @@ def combat_action(request, id_or_slug):
             raise ValidationError({'error': 'action_has_no_save'})
         if not isinstance(target_ids, list) or not target_ids:
             raise ValidationError({'error': 'missing_targets'})
+        att_before = att
         combatants, att = _check_and_consume(combatants, att, idx, force=bool(request.data.get('force')))
         targets = [t for t in combatants if t.get('id') in target_ids]
         result = engine.resolve_save_effect(action_data, targets)
         # Aplica dano (por tipo) e condições em quem falhou
         before = {x.get('id'): x for x in combatants}
         combatants, changed = engine.apply_save_results(combatants, result)
-        _sync_changed(combatants, changed)
+        photo = _photos(combatants, targets, [att_before])
+        _sync_changed(combatants, changed, sheets, before=before)
         downs = [x.get('name') for x in combatants
                  if x.get('id') in changed and _went_down(before.get(x.get('id')) or {}, x)]
         if downs:
@@ -853,6 +1522,8 @@ def combat_action(request, id_or_slug):
         if not action_data or not action_data.get('save'):
             raise ValidationError({'error': 'action_has_no_save'})
         plan = _save_plan(request.data.get('targets'), combatants)
+        att_before = att
+        plan_before = [engine.find_combatant(combatants, p['id']) for p in plan]
         if request.data.get('consume'):
             combatants, att = _check_and_consume(combatants, att, idx, force=bool(request.data.get('force')))
         save = action_data.get('save') or {}
@@ -880,10 +1551,11 @@ def combat_action(request, id_or_slug):
                 'damage_parts': p['damage'], 'conditions': p['conditions'], 'conditions_applied': applied_conds,
                 'new_hp': cur.get('current_hp'), 'defeated': cur.get('defeated', False),
             })
-        _sync_changed(combatants, changed)
+        _sync_changed(combatants, changed, sheets, before=before)
         downs = [x.get('name') for x in combatants
                  if x.get('id') in changed and _went_down(before.get(x.get('id')) or {}, x)]
         log_entry['type'] = 'save_aoe'
+        photo = _photos(combatants, plan_before, [att_before])
         if downs:
             log_entry['downed_list'] = downs
         log_entry.update({'attacker': att.get('name'), 'action_name': _action_name(action_data),
@@ -957,7 +1629,7 @@ def combat_action(request, id_or_slug):
         applied = engine.death_save(tgt, forced_d20=forced)
         combatants = engine.replace_combatant(combatants, applied['combatant'])
         if tgt.get('character_id'):
-            _sync_pc_to_character(applied['combatant'])
+            _sync_pc_to_character(applied['combatant'], sheets, prior=tgt)
         log_entry.update({'target': tgt.get('name'), 'note': applied.get('note')})
         response_payload['result'] = applied
 
@@ -965,12 +1637,23 @@ def combat_action(request, id_or_slug):
         raise ValidationError({'error': 'invalid_action_type'})
 
     c.combatants = combatants
-    _append_log(c, log_entry)
+    # A foto de cada personagem leva a da ficha (vazia se a ficha não mudou): o ↶ Desfazer
+    # põe a ficha de volta por ela, nunca derivando do combatente.
+    for p in [*photo, *(x for e in extra_entries for x in (e.get('photo') or []))]:
+        if (engine.find_combatant(combatants, p.get('id')) or {}).get('type') == 'pc':
+            p['sheet'] = sheets.get(p.get('id')) or {'before': {}, 'after': {}}
+    if photo:
+        log_entry['photo'] = photo
+    if op_id:
+        log_entry['opId'] = op_id
+        for e in extra_entries:
+            e['opId'] = op_id
+    for e in extra_entries:
+        _append_log(c, e)
+    if log_entry.get('type'):
+        _append_log(c, log_entry)
     c.save()
-    if show_after:
-        response_payload['shown'] = show_after().id
-    response_payload['combat'] = _serialize_combat(c, for_dm=True)
-    return Response(response_payload)
+    return response_payload, show_after
 
 
 def _save_plan(raw, combatants):
@@ -1247,11 +1930,12 @@ def combat_player_attack(request, id_or_slug):
     if 'save' in action_data:
         # Magia com save: alvo único faz save, dano metade no sucesso
         save_res = engine.resolve_save_effect(action_data, [tgt])
+        prior = {x.get('id'): x for x in combatants}
         combatants, changed = engine.apply_save_results(combatants, save_res)
         after = engine.find_combatant(combatants, tgt.get('id')) or {}
         if _went_down(tgt, after):
             downs.append(tgt.get('name'))
-        _sync_changed(combatants, changed)
+        _sync_changed(combatants, changed, before=prior)
         result = {
             'kind': 'save',
             'attack_name': attack_name,
@@ -1282,7 +1966,7 @@ def combat_player_attack(request, id_or_slug):
             if _went_down(tgt, applied['combatant']):
                 downs.append(tgt.get('name'))
             if tgt.get('type') == 'pc' and tgt.get('character_id'):
-                _sync_pc_to_character(applied['combatant'])
+                _sync_pc_to_character(applied['combatant'], prior=tgt)
             primary['damage_applied'] = {
                 'damage_taken': applied['damage_taken'],
                 'new_hp': applied['combatant'].get('current_hp'),
@@ -1300,7 +1984,7 @@ def combat_player_attack(request, id_or_slug):
                 if _went_down(redirected, applied['combatant']):
                     downs.append(redirected.get('name'))
                 if redirected.get('type') == 'pc' and redirected.get('character_id'):
-                    _sync_pc_to_character(applied['combatant'])
+                    _sync_pc_to_character(applied['combatant'], prior=redirected)
                 second['damage_applied'] = {
                     'damage_taken': applied['damage_taken'],
                     'new_hp': applied['combatant'].get('current_hp'),
@@ -1341,7 +2025,28 @@ def combat_player_attack(request, id_or_slug):
     return Response({'result': result, 'combat': _serialize_combat(c, for_dm=dm)})
 
 
-def _sync_pc_to_character(combatant):
+# A parte da ficha que _sync_pc_to_character mexe (V8): a foto da ação de PV guarda
+# esses campos antes e depois, e o ↶ Desfazer põe o "antes" de volta na ficha em vez
+# de derivar do combatente (a Forma Selvagem que acabou volta junto com o PV certo).
+SHEET_PHOTO_KEYS = ('currentHp', 'tempHp', 'deathSaves', 'conditions', 'wildShape')
+
+
+def _merged_conditions(sheet, before, after):
+    """As condições da ficha depois de uma ação do combate: muda só o que o combate pôs ou
+    tirou nesta ação, `ficha = (ficha − tiradas) ∪ postas`. A ficha pode ter as dela, que o
+    combatente não tem (o "envenenado" marcado na ficha): uma ação só de PV não as apaga.
+    Sem a foto de antes (`before` None), o combate só soma: nada da ficha some."""
+    after = [c for c in (after or []) if c]
+    prev = set(c for c in (before or []) if c) if before is not None else set()
+    removed = prev - set(after)
+    out = [c for c in (sheet or []) if c and c not in removed]
+    for c in after:
+        if c not in prev and c not in out:
+            out.append(c)
+    return out
+
+
+def _sync_pc_to_character(combatant, record=None, prior=None):
     """Sincroniza HP/condições/death_saves de volta na Character.data do PC.
 
     Se o combatant é wild_shape (druida transformado), o current_hp é o HP da fera.
@@ -1349,6 +2054,11 @@ def _sync_pc_to_character(combatant):
     seria 0 aqui — o combat engine não rastreia excedente; pra simplicidade,
     HP zero em wild shape = sai da forma com excess 0; dano excedente real
     aplica via /wild-shape/force-end com excessDamage).
+
+    `record` (dict, V8): guarda em record[id do combatente] a foto da ficha
+    ({before, after} dos SHEET_PHOTO_KEYS que mudaram) para o ↶ Desfazer.
+    `prior` (o combatente antes da ação): as condições da ficha só ganham ou perdem o que
+    a ação mudou no combatente (_merged_conditions).
     """
     from . import wild_shape as wse
     cid = combatant.get('character_id')
@@ -1359,6 +2069,7 @@ def _sync_pc_to_character(combatant):
     except Character.DoesNotExist:
         return
     data = dict(char.data or {})
+    before = {k: data.get(k) for k in SHEET_PHOTO_KEYS}
     if data.get('rulesVersion') == '2024':
         data['currentHp'] = combatant.get('current_hp', 0)
         if data['currentHp'] <= 0 and (data.get('wildShape') or {}).get('active'):
@@ -1379,11 +2090,53 @@ def _sync_pc_to_character(combatant):
         data['currentHp'] = combatant.get('current_hp')
     if combatant.get('temp_hp') is not None:
         data['tempHp'] = combatant.get('temp_hp')
-    data['conditions'] = combatant.get('conditions') or []
+    data['conditions'] = _merged_conditions(
+        data.get('conditions'), None if prior is None else (prior.get('conditions') or []),
+        combatant.get('conditions') or [])
     if combatant.get('death_saves'):
         data['deathSaves'] = combatant['death_saves']
     char.data = data
     char.save()
+    if record is not None:
+        # várias sincronizações na mesma ação: o 1º "antes" e o último "depois" de cada campo
+        sheet = record.setdefault(combatant.get('id'), {'characterId': char.id, 'before': {}, 'after': {}})
+        for k in SHEET_PHOTO_KEYS:
+            if before[k] != data.get(k):
+                sheet['before'].setdefault(k, before[k])
+                sheet['after'][k] = data.get(k)
+
+
+def _sheet_conflicts(photo, combatants):
+    """Nomes de quem tem a ficha diferente do que a ação deixou (o jogador mexeu depois)."""
+    out = []
+    for p in photo or []:
+        sheet = p.get('sheet')
+        if not isinstance(sheet, dict) or not sheet.get('after'):
+            continue
+        char = Character.objects.filter(pk=sheet.get('characterId')).only('id', 'data').first()
+        data = (char.data or {}) if char else {}
+        if char is None or any(data.get(k) != v for k, v in sheet['after'].items()):
+            out.append((engine.find_combatant(combatants, p.get('id')) or {}).get('name') or p.get('id'))
+    return out
+
+
+def _restore_sheets(photo):
+    """Põe de volta na ficha o "antes" da foto (só os campos que a ação mudou)."""
+    for p in photo or []:
+        sheet = p.get('sheet')
+        if not isinstance(sheet, dict) or not sheet.get('before'):
+            continue
+        char = Character.objects.filter(pk=sheet.get('characterId')).first()
+        if char is None:
+            continue
+        data = dict(char.data or {})
+        for k, v in sheet['before'].items():
+            if v is None:
+                data.pop(k, None)
+            else:
+                data[k] = v
+        char.data = data
+        char.save()
 
 
 # ============================================================

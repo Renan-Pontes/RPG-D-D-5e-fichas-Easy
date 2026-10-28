@@ -6,6 +6,12 @@
 // Nada vai para a Tela sem o mestre tocar em "Mostrar na Tela".
 // Sob cada atalho, o gancho do Raio-X: quem é o melhor da mesa e a chance dele na CD
 // ("melhor: Pipo +7 · 65%"), calculado na hora com as fichas que o mestre já tem.
+// V7 (folha da Agora): o atalho ⚡ Iniciativa (o mesmo teste `kind:'custom', key:'initiative'`
+// do combate rápido, V8: o bônus vem de Utils.initiative na ficha do jogador; num app de
+// jogador antigo o modificador não sai e ele digita o total; com um combate montado, as
+// respostas entram pelo "Usar e começar" de Jogar › Combate), o
+// interruptor "📺 Mostrar na Tela" (ligado quando há uma TV conectada; o teste vai à Tela
+// assim que é pedido) e `closeOnSend`: a folha fecha sozinha ao enviar.
 import { errorMessage } from '../api/errors.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client.js';
@@ -13,7 +19,7 @@ import { usePolling } from '../api/polling.js';
 import { tName } from '../../data/i18n.js';
 import SRD from '../../data/srd.js';
 import {
-  QUICK_SKILLS, QUICK_SAVES, ABILITIES, abilityAbbr, checkLabel, buildCheckPayload, summarize,
+  QUICK_SKILLS, QUICK_SAVES, ABILITIES, INITIATIVE_KEY, abilityAbbr, checkLabel, buildCheckPayload, summarize,
 } from './check-logic.js';
 import { formatMod } from '../dice/dice-math.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
@@ -22,6 +28,7 @@ import MesaTitle from '../shell/MesaTitle.jsx';
 import { bestAt, firstName } from '../group/party-best.js';
 import './checks-styles.css';
 import ShowOnTable from '../stage/ShowOnTable.jsx';
+import { showCheckOnStage } from '../stage/stage-api.js';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const DC_PRESETS = [10, 12, 15, 18, 20];
@@ -35,7 +42,7 @@ const EMPTY_CFG = { dc: '', dcHidden: false, advantage: 'normal', targets: [] };
 // Testes, em Jogar › Testes); onSent é chamado depois de cada pedido enviado.
 // asSheet: abre como folha da mesa (MesaSheet, onClose fecha), com o "Próximo
 // pedido vai para…" preso no rodapé. Sem asSheet: painel de couro na página.
-export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true, onSent, asSheet = false, onClose }) {
+export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true, onSent, asSheet = false, onClose, closeOnSend = false, tvLive = 0 }) {
   const players = (campaign.members || []).filter(m => m.role !== 'dm' && m.user?.id !== campaign.dmId);
   const [cfg, setCfg] = useState(() => ({ ...EMPTY_CFG, ...(lastConfig.get(campaign.id) || {}) }));
   const { dc, dcHidden, advantage, targets } = cfg;
@@ -50,6 +57,8 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
   const [sent, setSent] = useState('');
   const [other, setOther] = useState('');
   const [custom, setCustom] = useState('');
+  // 📺 Mostrar na Tela: ligado quando há uma TV conectada (a escolha vale enquanto a folha está aberta)
+  const [toScreen, setToScreen] = useState(tvLive > 0);
   // "melhor: Pipo +7 · 65%" — na CD escolhida (sem CD, na 15, a de referência do Raio-X) e
   // com o dado escolhido aqui (vantagem: 1 − (1 − p)²; desvantagem: p²)
   const refDc = dc !== '' && Number.isFinite(+dc) && +dc > 0 ? +dc : 15;
@@ -83,11 +92,15 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
     setBusy(true); setError(''); setSent('');
     try {
       const body = buildCheckPayload({ ...spec, dc, dcHidden, advantage, targets }, lang);
-      await api.createCheck(campaign.id, body);
+      const r = await api.createCheck(campaign.id, body);
       if (navigator.vibrate) navigator.vibrate(20);
       setSent(body.label);
+      if (asSheet && toScreen && r?.check?.id) {
+        try { await showCheckOnStage(r.check.id, true); } catch { /* o teste foi; o 📺 do painel tenta de novo */ }
+      }
       await load();
-      onSent?.(body);
+      onSent?.(body, r?.check || null);
+      if (closeOnSend) onClose?.();
     } catch (e) {
       setError(errorMessage(e));
     } finally { setBusy(false); }
@@ -167,6 +180,16 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
         </div>
       </div>
       <div className="gc-field">
+        <span className="gc-label">{L(lang, 'Iniciativa', 'Initiative')}</span>
+        <div className="gc-quick gc-quick-init">
+          <button type="button" className="gc-quick-btn is-init" disabled={busy}
+            onClick={() => send({ kind: 'custom', key: INITIATIVE_KEY })}>
+            <span className="gc-quick-name">⚡ {L(lang, 'Iniciativa', 'Initiative')}</span>
+            <span className="gc-quick-best">{L(lang, 'cada um rola a sua', 'everyone rolls theirs')}</span>
+          </button>
+        </div>
+      </div>
+      <div className="gc-field">
         <span className="gc-label">{L(lang, 'Resistência', 'Save')}</span>
         <div className="gc-quick gc-quick-saves">
           {QUICK_SAVES.map(k => (
@@ -222,6 +245,10 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
         onClose={onClose} className="gc-sheet" bodyClassName="group-checks is-sheet"
         footer={(
           <div className="gc-foot">
+            <label className="gc-screen">
+              <input type="checkbox" checked={toScreen} onChange={e => setToScreen(e.target.checked)} />
+              <span>📺 {L(lang, 'Mostrar na Tela', 'Show on screen')}{tvLive > 0 ? '' : <span className="gc-screen-sub"> · {L(lang, 'nenhuma TV conectada', 'no TV connected')}</span>}</span>
+            </label>
             <div className="gc-foot-text">{sentLine}{summary}</div>
             <button type="button" className="mesa-btn is-primary gc-done" onClick={onClose}>{L(lang, 'Pronto', 'Done')}</button>
           </div>

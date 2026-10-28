@@ -2,9 +2,14 @@
 // tipo — acesa quando a mesa já conhece, só um contorno tênue quando ainda é
 // segredo — e as ligações entre cartões viram traços de constelação. O céu é
 // determinístico (mesmo mundo, mesmo céu) e cresce sozinho a cada cartão novo.
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+//
+// Toque (plano F9): o toque ESPIA — mostra o nome, o tipo e quem vê embaixo do céu,
+// com "Abrir →" (44 px); tocar de novo na mesma estrela abre. Vale o toque num
+// círculo de 46 px em volta de cada estrela (a mais perto ganha; nearestStar).
+// Mouse e teclado abrem direto (o nome já aparece no hover/foco).
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { KIND_META, KINDS, kindLabel, visLabel } from '../world-model.js';
-import { SKY_H, SKY_W, hashStr, skyLayout } from './living-logic.js';
+import { SKY_H, SKY_W, hashStr, nearestStar, skyLayout } from './living-logic.js';
 
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
 
@@ -24,11 +29,37 @@ function useSmallScreen() {
 
 function SkyAtlas({ entries, lang = 'pt', onOpen, selectedId }) {
   const sky = useMemo(() => skyLayout(entries), [entries]);
-  // No celular o céu fica ~1/3 do tamanho: estrelas e nomes crescem no desenho.
+  // No celular o céu fica ~1/3 do tamanho: as estrelas crescem no desenho.
   const small = useSmallScreen();
-  const fs = small ? 2.05 : 1;
   const rs = small ? 1.7 : 1;
   const [hover, setHover] = useState(null);
+  const [peek, setPeek] = useState(null);   // estrela espiada pelo toque (id)
+  const svgRef = useRef(null);
+  const lastPointer = useRef('');
+  // 23 px da tela em unidades do desenho: o círculo de toque de cada estrela tem 46 px
+  const [hitR, setHitR] = useState(23);
+  // Pixels da tela por unidade do desenho (getScreenCTM().a: ~0,35 a 390 px, ~0,7 a
+  // 1280). Os nomes das estrelas e o "N" da rosa usam 12,5 px DA TELA em qualquer
+  // largura (antes 12 unidades fixas viravam 8,5 px no PC e 8,8 px no celular).
+  const [ppu, setPpu] = useState(small ? 0.35 : 0.7);
+  const fontU = Math.round((12.5 / ppu) * 10) / 10;
+  const fs = fontU / 12; // escala dos rótulos (largura estimada e recuo acima da estrela)
+  useLayoutEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return undefined;
+    const upd = () => {
+      try {
+        const a = svg.getScreenCTM()?.a;
+        if (a > 0) { setHitR(23 / a); setPpu(p => (Math.abs(p - a) > 0.004 ? a : p)); }
+      } catch { /* ok */ }
+    };
+    upd();
+    let ro;
+    try { ro = new ResizeObserver(upd); ro.observe(svg); } catch { window.addEventListener('resize', upd); }
+    return () => { if (ro) ro.disconnect(); else window.removeEventListener('resize', upd); };
+  }, []);
+  // a rosa dos ventos desce o bastante para o "N" (maior no celular) caber no céu
+  const roseY = Math.max(46, Math.ceil(31 + 0.8 * fontU));
   // Estrelas que nasceram desde a última vez que o céu foi desenhado.
   const seen = useRef(null);
   const born = useMemo(() => {
@@ -44,13 +75,14 @@ function SkyAtlas({ entries, lang = 'pt', onOpen, selectedId }) {
     const maxLabels = small ? 4 : 8;
     const score = (s) => s.degree * 2 + (s.vis === 'revealed' ? 1.5 : s.vis === 'partial' ? 0.7 : 0);
     const cands = sky.stars.filter(s => s.degree >= 1 || s.vis === 'revealed').sort((a, b) => score(b) - score(a) || a.id - b.id);
-    const boxes = [{ x1: SKY_W - 90, x2: SKY_W, y1: 0, y2: 90 }]; // rosa dos ventos
+    const boxes = [{ x1: SKY_W - 90, x2: SKY_W, y1: 0, y2: roseY + 30 }]; // rosa dos ventos
     const out = new Map(); // id → deslocamento x do rótulo (para não sair da moldura)
     for (const s of cands) {
       if (out.size >= maxLabels) break;
       const w = (Math.min(26, s.name.length) * 7.6 + 8) * fs;
       const cx = Math.max(w / 2 + 16, Math.min(SKY_W - w / 2 - 16, s.x));
       const box = { x1: cx - w / 2, x2: cx + w / 2, y1: s.y - s.r * rs - 18 * fs, y2: s.y - s.r * rs - 4 };
+      if (box.y1 < 2) continue; // o nome sairia por cima do céu: fica para o toque
       const hit = boxes.some(b => box.x1 < b.x2 && box.x2 > b.x1 && box.y1 < b.y2 && box.y2 > b.y1)
         || sky.stars.some(o => o.id !== s.id && o.x > box.x1 && o.x < box.x2 && o.y > box.y1 && o.y < box.y2);
       if (hit) continue;
@@ -58,22 +90,52 @@ function SkyAtlas({ entries, lang = 'pt', onOpen, selectedId }) {
       out.set(s.id, cx - s.x);
     }
     return out;
-  }, [sky, small]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sky, small, fontU]); // eslint-disable-line react-hooks/exhaustive-deps
   const kindsPresent = useMemo(() => KINDS.filter(k => sky.stars.some(s => s.kind === k)), [sky]);
+  // a estrela espiada some se o cartão sumir do céu
+  useEffect(() => { if (peek != null && !sky.stars.some(s => s.id === peek)) setPeek(null); }, [sky, peek]);
+  const lit = hover ?? peek;
   const focus = hover != null ? sky.stars.find(s => s.id === hover) : null;
+  const peeked = peek != null ? sky.stars.find(s => s.id === peek) : null;
   const near = useMemo(() => {
-    if (hover == null) return null;
-    const set = new Set([hover]);
-    for (const l of sky.lines) { if (l.a === hover) set.add(l.b); if (l.b === hover) set.add(l.a); }
+    if (lit == null) return null;
+    const set = new Set([lit]);
+    for (const l of sky.lines) { if (l.a === lit) set.add(l.b); if (l.b === lit) set.add(l.a); }
     return set;
-  }, [hover, sky]);
+  }, [lit, sky]);
 
   const label = (s) => `${s.name} — ${kindLabel(s.kind, lang)} · ${visLabel(s.vis, lang)}`;
-  const open = (id) => onOpen?.(id);
+  const open = (id) => { setPeek(null); onOpen?.(id); };
+
+  // Um toque/clique no céu: a estrela mais perto do dedo, a até 23 px da tela.
+  const onSkyClick = (e) => {
+    const svg = svgRef.current;
+    const pointer = e.nativeEvent?.pointerType || lastPointer.current || '';
+    lastPointer.current = '';
+    // ativação pelo teclado ou leitor de tela (sem coordenadas): a estrela do alvo
+    if (!e.detail && !pointer) {
+      const id = Number(e.target?.closest?.('.lv-star')?.dataset?.id);
+      if (id) open(id);
+      return;
+    }
+    let id = null;
+    try {
+      const ctm = svg.getScreenCTM();
+      const pt = svg.createSVGPoint();
+      pt.x = e.clientX; pt.y = e.clientY;
+      const p = pt.matrixTransform(ctm.inverse());
+      id = nearestStar(sky.stars, p.x, p.y, 23 / (ctm.a || 1));
+      setHitR(23 / (ctm.a || 1));
+    } catch { id = Number(e.target?.closest?.('.lv-star')?.dataset?.id) || null; }
+    if (id == null) { setPeek(null); return; }
+    if (pointer === 'mouse' || id === peek) { open(id); return; }
+    setPeek(id);
+  };
 
   return (
     <figure className={`lv-sky${small ? ' is-small' : ''}`}>
-      <svg viewBox={`0 0 ${SKY_W} ${SKY_H}`} preserveAspectRatio="xMidYMid meet" className="lv-sky-svg"
+      <svg ref={svgRef} viewBox={`0 0 ${SKY_W} ${SKY_H}`} preserveAspectRatio="xMidYMid meet" className="lv-sky-svg"
+        onPointerDown={(e) => { lastPointer.current = e.pointerType || ''; }} onClick={onSkyClick}
         role="group" aria-label={t(lang, 'Carta celeste do mundo: cada estrela é um cartão', 'Star chart of the world: each star is a card')}>
         <defs>
           <radialGradient id="lv-glow">
@@ -93,10 +155,10 @@ function SkyAtlas({ entries, lang = 'pt', onOpen, selectedId }) {
           <line x1={SKY_W / 2} y1="12" x2={SKY_W / 2} y2={SKY_H - 12} />
           <line x1="20" y1={SKY_H / 2} x2={SKY_W - 20} y2={SKY_H / 2} />
         </g>
-        <g className="lv-sky-rose" aria-hidden="true" transform={`translate(${SKY_W - 48} 46)`}>
+        <g className="lv-sky-rose" aria-hidden="true" transform={`translate(${SKY_W - 48} ${roseY})`}>
           <path d="M0 -26 L5 -5 L26 0 L5 5 L0 26 L-5 5 L-26 0 L-5 -5 Z" />
           <circle r="3" />
-          <text y="-31" textAnchor="middle">N</text>
+          <text y="-31" textAnchor="middle" style={{ fontSize: `${fontU}px` }}>N</text>
         </g>
 
         <g className="lv-sky-lines" aria-hidden="true">
@@ -111,30 +173,42 @@ function SkyAtlas({ entries, lang = 'pt', onOpen, selectedId }) {
             const r = s.r * rs;
             const color = (KIND_META[s.kind] || KIND_META.lore).color;
             const delay = `${(hashStr(`tw${s.id}`) % 5000) / 1000}s`;
-            const cls = `lv-star lv-vis-${s.vis}${born.has(s.id) ? ' is-born' : ''}${selectedId === s.id ? ' is-sel' : ''}${near && !near.has(s.id) ? ' is-dim' : ''}`;
+            const cls = `lv-star lv-vis-${s.vis}${born.has(s.id) ? ' is-born' : ''}${selectedId === s.id || peek === s.id ? ' is-sel' : ''}${near && !near.has(s.id) ? ' is-dim' : ''}`;
             return (
               <g key={s.id} className={cls} transform={`translate(${s.x} ${s.y})`} style={{ '--lv-k': color, '--lv-d': delay }}
-                role="button" tabIndex={0} aria-label={label(s)}
-                onClick={() => open(s.id)}
+                role="button" tabIndex={0} aria-label={label(s)} data-id={s.id}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(s.id); } }}
                 onMouseEnter={() => setHover(s.id)} onMouseLeave={() => setHover(h => (h === s.id ? null : h))}
                 onFocus={() => setHover(s.id)} onBlur={() => setHover(h => (h === s.id ? null : h))}>
                 <title>{label(s)}</title>
-                <circle className="lv-star-hit" r={Math.max(13 * rs, r + 8)} />
+                <circle className="lv-star-hit" r={Math.max(13 * rs, r + 8, hitR)} />
                 {s.vis !== 'hidden' && <circle className="lv-star-glow" r={r * (s.vis === 'revealed' ? 4.2 : 2.8)} fill="url(#lv-glow)" />}
                 {s.vis === 'hidden'
                   ? <circle className="lv-star-ring" r={r} />
                   : s.vis === 'partial'
                     ? <><circle className="lv-star-ring" r={r + 1.2} /><circle className="lv-star-core" r={r * 0.55} /></>
                     : <><circle className="lv-star-core" r={r} /><path className="lv-star-spark" d={`M0 ${-r * 2.4} L0 ${r * 2.4} M${-r * 2.4} 0 L${r * 2.4} 0`} /></>}
-                {(named.has(s.id) || hover === s.id || selectedId === s.id) && (
-                  <text className="lv-star-name" x={labelDx(s, named, fs)} y={-r - 7 * fs} textAnchor="middle">{s.name.length > 26 ? `${s.name.slice(0, 25)}…` : s.name}</text>
+                {(named.has(s.id) || hover === s.id || peek === s.id || selectedId === s.id) && (
+                  <text className="lv-star-name" x={labelDx(s, named, fs)} y={-r - 7 * fs} textAnchor="middle"
+                    style={{ fontSize: `${fontU}px`, strokeWidth: `${Math.round(fontU * 2.5) / 10}px` }}>{s.name.length > 26 ? `${s.name.slice(0, 25)}…` : s.name}</text>
                 )}
               </g>
             );
           })}
         </g>
       </svg>
+      {peeked && (
+        <div className="lv-peek" role="status" style={{ '--lv-k': (KIND_META[peeked.kind] || KIND_META.lore).color }}>
+          <span className="lv-peek-text">
+            <span className="lv-peek-name">{(KIND_META[peeked.kind] || KIND_META.lore).icon} {peeked.name}</span>
+            <span className="lv-peek-sub">{kindLabel(peeked.kind, lang)} · {visLabel(peeked.vis, lang)}</span>
+          </span>
+          <button type="button" className="lv-btn lv-btn-ink lv-peek-open" onClick={() => open(peeked.id)}>
+            {t(lang, 'Abrir', 'Open')} <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      )}
+      {!peeked && small && <p className="lv-sky-tip">{t(lang, 'Toque numa estrela para ver o nome; toque de novo para abrir o cartão.', 'Tap a star to see its name; tap again to open the card.')}</p>}
       <figcaption className="lv-sky-legend">
         <span className="lv-legend-item"><span className="lv-legend-star is-lit" aria-hidden="true" /> {t(lang, 'acesas: o que a mesa já viu', 'lit: what the table has seen')}</span>
         <span className="lv-legend-item"><span className="lv-legend-star" aria-hidden="true" /> {t(lang, 'contornos: o que só você conhece', 'outlines: known only to you')}</span>

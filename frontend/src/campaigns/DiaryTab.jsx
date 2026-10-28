@@ -1,10 +1,9 @@
-import { errorMessage } from '../api/errors.js';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { errorMessage, isOldServer } from '../api/errors.js';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { usePolling } from '../api/polling.js';
-import { DIARY_TYPES, buildRecap, entryBody, entryIcon, entryTitle, groupEntries, matchesFilter, pickRecapGroup } from './diary-summary.js';
+import { DIARY_TYPES, entryBody, entryIcon, entryTitle, groupEntries, matchesFilter, pickRecapGroup } from './diary-summary.js';
 import MoreMenu from '../group/MoreMenu.jsx';
-import { copyText } from '../group/InviteCard.jsx';
 import useTouchHold from '../group/useTouchHold.js';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
@@ -14,6 +13,11 @@ import '../group/group-styles.css';
 import { sendToStage, showOnStage, stageBack } from '../stage/stage-api.js';
 import { frontPlace, stageNow } from '../stage/stage-now.js';
 import useStage from '../stage/useStage.js';
+import { sessionLength } from '../play/now-model.js';
+import { restoreSessionPlan, saveSessionPlan } from '../world/world-api.js';
+
+// O editor único do Resumo da sessão (V12) só baixa quando o mestre abre um resumo.
+const RecapEditor = lazy(() => import('../play/RecapEditor.jsx'));
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const UNDO_MS = 5000;
@@ -34,17 +38,22 @@ function fmtDay(day, lang) {
 /**
  * Crônica da campanha: Grupo › Crônica (mestre) e a área Crônica (jogador).
  * Começa pela história: cabeçalho curto com [✎ Nova nota] e [✨ Anteriormente
- * em…], os 10 filtros num trilho de 44 px e as sessões. A nota nova e o editor
- * do recap abrem em folha (MesaSheet), com a ação principal presa no rodapé.
+ * em…], os 10 filtros num trilho de 44 px e as sessões (com a duração, "2h10",
+ * quando a sessão foi encerrada). A nota nova e o editor do Resumo da sessão
+ * (play/RecapEditor.jsx, o mesmo do Encerrar e de Jogar) abrem em folha
+ * (MesaSheet), com a ação principal presa no rodapé.
+ * O plano arquivado de cada sessão (V12: entrada oculta 'plan', que a lista manda
+ * sem o plano) não entra na linha do tempo: o ⋯ da sessão ganha "📋 Ver o plano
+ * desta sessão", que lê o plano sob demanda e tem Restaurar (com ↶ Desfazer).
  * Lê a crônica a cada 8 s (como sempre). O erro de uma folha aparece nela
  * (o aviso do topo ficaria atrás do fundo da folha). Campanha encerrada: sem
  * "Nova nota", com o motivo por escrito.
  * showStartSession: false quando a casca já tem o "Começar sessão" no cabeçalho
  * (um só lugar para começar a sessão).
- * autoRecap: veio de "Encerrar e escrever o recap" — abre o rascunho do recap assim que a
- * crônica chega (uma vez) e avisa onAutoRecap() para a casca limpar o pedido.
+ * autoRecap: um link antigo ({recap: true}) — abre o resumo assim que a crônica chega
+ * (uma vez; `recapSession` diz de qual sessão) e avisa onAutoRecap() para a casca limpar o pedido.
  */
-export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange, showStartSession = true, autoRecap = false, onAutoRecap }) {
+export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange, showStartSession = true, autoRecap = false, recapSession = null, onAutoRecap, onPlanRestored }) {
   const [entries, setEntries] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [current, setCurrent] = useState(null);
@@ -130,31 +139,50 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
     } catch (e) { setError(errMsg(e)); return false; }
   };
 
+  // o plano arquivado de cada sessão (oculto, só do mestre): fora da linha do tempo
+  const archives = useMemo(() => {
+    const out = {};
+    for (const e of entries) if (e.subtype === 'plan' && e.session != null && !out[e.session]) out[e.session] = e;
+    return out;
+  }, [entries]);
   const visible = useMemo(
-    () => entries.filter(e => !pending[e.id] && matchesFilter(e, filter)),
+    () => entries.filter(e => !pending[e.id] && e.subtype !== 'plan' && matchesFilter(e, filter)),
     [entries, pending, filter],
   );
-  const groups = useMemo(() => groupEntries(visible), [visible]);
+  const groups = useMemo(() => {
+    const out = groupEntries(visible);
+    if (!isDM || filter !== 'all') return out;
+    // sessão que só tem o plano arquivado (ex.: "Começar do zero" de um plano não jogado)
+    for (const k of Object.keys(archives)) {
+      const n = Number(k);
+      if (out.some(g => g.session === n)) continue;
+      const at = out.findIndex(g => g.session == null || g.session < n);
+      out.splice(at < 0 ? out.length : at, 0, { key: `s${n}`, session: n, day: null, entries: [] });
+    }
+    return out;
+  }, [visible, archives, isDM, filter]);
   const sessionInfo = useMemo(() => Object.fromEntries(sessions.map(s => [s.number, s])), [sessions]);
   const currentTitle = current != null ? sessionInfo[current]?.title : '';
 
-  // "Anteriormente em…": rascunho editável a partir da última sessão com eventos.
-  const [recap, setRecap] = useState(null); // {key, session, title, text}
-  const openRecap = useCallback((key) => {
+  // O Resumo da sessão (o editor único): o salvo da sessão, senão o rascunho rico. Sem
+  // sessão dita, a última com algo além da abertura (pickRecapGroup).
+  const [recap, setRecap] = useState(null); // {key, session, entries}
+  const openRecap = useCallback((key, session = null) => {
     const all = groupEntries(entries.filter(e => !pending[e.id]));
-    const g = all.find(x => x.key === key) || all.find(x => x.key === pickRecapGroup(all));
-    const info = g?.session != null ? sessionInfo[g.session] : null;
-    const draft = buildRecap(g?.entries || [], { lang, session: g?.session ?? null, title: info?.title, campaignName: campaign.name });
-    setRecap({ key: g?.key || null, session: g?.session ?? null, ...draft });
-  }, [entries, pending, sessionInfo, lang, campaign.name]);
-  // "Encerrar e escrever o recap": abre o editor quando a crônica chega (uma vez)
+    const g = (session != null && all.find(x => x.session === session)) || all.find(x => x.key === key) || all.find(x => x.key === pickRecapGroup(all));
+    const n = session ?? g?.session ?? null;
+    // as entradas do grupo já estão aqui (o editor não lê de novo); as de uma sessão que
+    // ainda não chegou (Carregar mais) ele lê sozinho
+    setRecap({ key: g?.key || null, session: n, entries: g && g.session === n ? g.entries : null });
+  }, [entries, pending]);
   const autoRecapDone = useRef(false);
   useEffect(() => {
     if (!autoRecap || !isDM || autoRecapDone.current || !loaded || recap || !entries.length) return;
     autoRecapDone.current = true;
-    openRecap(null);
+    openRecap(null, recapSession);
     onAutoRecap?.();
-  }, [autoRecap, isDM, loaded, recap, entries.length, openRecap, onAutoRecap]);
+  }, [autoRecap, isDM, loaded, recap, entries.length, openRecap, onAutoRecap, recapSession]);
+  const [planOf, setPlanOf] = useState(null); // a sessão do "Ver o plano desta sessão"
 
   // O recap na Tela pela regra de sempre (stage-now): na TV, esperando o combate ou atrás
   // da Tela escurecida — nunca pelo screenCard de compatibilidade (princípio 7).
@@ -165,7 +193,7 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
   const flash = (text) => setToast({ id: `m${Date.now()}`, text });
   useEffect(() => {
     if (!toast || toast.undo) return undefined;
-    const id = setTimeout(() => setToast(tt => (tt === toast ? null : tt)), 3500);
+    const id = setTimeout(() => setToast(tt => (tt === toast ? null : tt)), toast.undoFn ? 6000 : 3500);
     return () => clearTimeout(id);
   }, [toast]);
 
@@ -203,10 +231,10 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
                 ✎ {t(lang, 'Nova nota', 'New note')}
               </button>
             )}
-            {/* encerrada: o recap continua (ler e copiar); a Tela e o salvar dizem o motivo na folha */}
+            {/* encerrada: o resumo continua (ler e copiar); a Tela e o salvar dizem o motivo na folha */}
             {isDM && (
               <button type="button" className="mesa-btn diary-recap-open" onClick={() => openRecap(null)} disabled={!loaded || !entries.length}
-                aria-label={t(lang, 'Anteriormente em…: montar recap', 'Previously on…: draft recap')}>
+                aria-label={t(lang, 'Anteriormente em…: o resumo da sessão', 'Previously on…: the session recap')}>
                 ✨ {t(lang, 'Anteriormente em…', 'Previously on…')}
               </button>
             )}
@@ -214,9 +242,9 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
         )}
         {isDM && onScreen && (
           <div className="diary-on-tv" role="status">
-            <span>📺 {onScreen.place === 'front' ? t(lang, 'O recap está na Tela agora.', 'The recap is on screen now.')
-              : onScreen.place === 'waiting' ? t(lang, 'O recap espera o fim do combate.', 'The recap waits for combat to end.')
-                : t(lang, 'O recap está atrás da Tela escurecida.', 'The recap is behind the blacked-out screen.')}</span>
+            <span>📺 {onScreen.place === 'front' ? t(lang, 'O resumo está na Tela agora.', 'The recap is on screen now.')
+              : onScreen.place === 'waiting' ? t(lang, 'O resumo espera o fim do combate.', 'The recap waits for combat to end.')
+                : t(lang, 'O resumo está atrás da Tela escurecida.', 'The recap is behind the blacked-out screen.')}</span>
             <button type="button" className="mesa-btn" onClick={() => clearScreen()}>{t(lang, 'Tirar da Tela', 'Remove from screen')}</button>
           </div>
         )}
@@ -244,7 +272,8 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
       {groups.map(g => (
         <SessionGroup key={g.key} group={g} info={g.session != null ? sessionInfo[g.session] : null}
           campaign={campaign} lang={lang} isDM={isDM} onReload={load} onError={setError}
-          onPatch={patchEntry} onDelete={askDelete} onRecap={() => openRecap(g.key)}
+          onPatch={patchEntry} onDelete={askDelete} onRecap={() => openRecap(g.key, g.session)}
+          archived={g.session != null ? archives[g.session] || null : null} onPlan={() => setPlanOf(g.session)}
           onShowEntry={(e) => showOnScreen(entryTitle(e, lang) || t(lang, 'Anteriormente…', 'Previously…'), entryBody(e, lang))} />
       ))}
 
@@ -257,16 +286,21 @@ export default function DiaryTab({ campaign, lang = 'pt', isDM, onCampaignChange
           onDone={() => { setNoteOpen(false); flash(t(lang, 'Nota adicionada à crônica.', 'Note added to the chronicle.')); load().catch(() => {}); }} />
       )}
       {isDM && recap && (
-        <RecapSheet campaign={campaign} lang={lang} recap={recap} onScreen={onScreen}
-          onShow={showOnScreen} onClearScreen={clearScreen} onClose={() => setRecap(null)}
-          onSaved={() => { setRecap(null); flash(t(lang, 'Recap salvo na crônica.', 'Recap saved to the chronicle.')); load(); }}
-          onCopied={() => flash(t(lang, 'Texto copiado.', 'Text copied.'))} />
+        <Suspense fallback={null}>
+          <RecapEditor campaign={campaign} lang={lang} session={recap.session} entries={recap.entries}
+            onClose={() => setRecap(null)} onSaved={() => { setRecap(null); load().catch(() => {}); }} />
+        </Suspense>
+      )}
+      {isDM && planOf != null && (
+        <PlanArchiveSheet campaign={campaign} lang={lang} session={planOf} onClose={() => setPlanOf(null)}
+          onRestored={(msg, undo) => { setPlanOf(null); setToast({ id: `p${Date.now()}`, text: msg, undoFn: undo }); onPlanRestored?.(); }} />
       )}
 
       {toast && (
         <div className="diary-toast" role="status">
           <span>{toast.text}</span>
           {toast.undo && <button type="button" className="mesa-btn" onClick={() => undoDelete(toast.id)}>{t(lang, 'Desfazer', 'Undo')}</button>}
+          {toast.undoFn && <button type="button" className="mesa-btn" onClick={() => { const fn = toast.undoFn; setToast(null); fn(); }}>↶ {t(lang, 'Desfazer', 'Undo')}</button>}
         </div>
       )}
     </div>
@@ -382,7 +416,15 @@ function NoteSheet({ campaign, lang, isDM, onClose, onDone }) {
   );
 }
 
-function SessionGroup({ group, info, campaign, lang, isDM, onReload, onError, onPatch, onDelete, onRecap, onShowEntry }) {
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+/** "4 cenas (1 jogada) · 2 pistas · com Restaurar" — as contagens do plano arquivado (a lista não traz o plano). */
+function planCountsText(c, lang) {
+  return t(lang,
+    `${plural(c.scenes, 'cena', 'cenas')} (${plural(c.played, 'jogada', 'jogadas')}) · ${plural(c.clues, 'pista', 'pistas')} · com Restaurar`,
+    `${plural(c.scenes, 'scene', 'scenes')} (${c.played} played) · ${plural(c.clues, 'clue', 'clues')} · with Restore`);
+}
+
+function SessionGroup({ group, info, campaign, lang, isDM, onReload, onError, onPatch, onDelete, onRecap, onShowEntry, archived = null, onPlan }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState(info?.title || '');
 
@@ -394,6 +436,9 @@ function SessionGroup({ group, info, campaign, lang, isDM, onReload, onError, on
     catch (err) { onError(errMsg(err)); }
   };
   const label = group.session != null ? `${t(lang, 'Sessão', 'Session')} ${group.session}` : fmtDay(group.day, lang);
+  // a duração da sessão encerrada ("2h10"; sem o endedAt — servidor antigo —, nada)
+  const length = group.session != null ? sessionLength(info?.startedAt, info?.endedAt) : null;
+  const sub = [group.session != null && info?.title ? info.title : '', length ? `⌛ ${length}` : ''].filter(Boolean).join(' · ');
 
   return (
     <section className="diary-group mesa-panel" aria-label={group.session != null ? `${t(lang, 'Sessão', 'Session')} ${group.session}` : group.day}>
@@ -411,11 +456,13 @@ function SessionGroup({ group, info, campaign, lang, isDM, onReload, onError, on
         </form>
       ) : (
         <MesaTitle as="h4" className="diary-group-head"
-          sub={group.session != null && info?.title ? <span className="diary-group-sub">{info.title}</span> : null}
+          sub={sub ? <span className="diary-group-sub">{sub}</span> : null}
           act={isDM ? (
             <MoreMenu lang={lang} label={t(lang, `Ações da sessão: ${label}`, `Session actions: ${label}`)} sheetTitle={label} items={[
-              { id: 'recap', label: `📜 ${t(lang, 'Recap desta sessão', 'Recap this session')}`, onSelect: onRecap,
-                hint: t(lang, 'Rascunho do "Anteriormente em…" com o que houve nela.', 'A "Previously on…" draft from what happened in it.') },
+              { id: 'recap', label: `📜 ${t(lang, 'Resumo desta sessão', 'This session’s recap')}`, onSelect: onRecap,
+                hint: t(lang, 'O resumo salvo dela ou um rascunho com o que houve nela.', 'Its saved recap, or a draft from what happened in it.') },
+              { id: 'plan', label: `📋 ${t(lang, 'Ver o plano desta sessão', 'See this session’s plan')}`, onSelect: onPlan, hidden: !archived,
+                hint: archived?.data?.counts ? planCountsText(archived.data.counts, lang) : undefined },
               { id: 'rename', label: `✎ ${t(lang, 'Renomear sessão', 'Rename session')}`, onSelect: () => setEditingTitle(true), hidden: group.session == null },
             ]} />
           ) : null}>
@@ -423,6 +470,7 @@ function SessionGroup({ group, info, campaign, lang, isDM, onReload, onError, on
         </MesaTitle>
       )}
 
+      {!group.entries.length && <p className="diary-none">{t(lang, 'Só o plano desta sessão está guardado (⋯).', 'Only this session’s plan is kept (⋯).')}</p>}
       <ol className="diary-timeline">
         {group.entries.map(e => (
           <DiaryItem key={e.id} entry={e} lang={lang} isDM={isDM} onPatch={onPatch} onDelete={onDelete} onShow={onShowEntry} />
@@ -496,72 +544,86 @@ function DiaryItem({ entry, lang, isDM, onPatch, onDelete, onShow }) {
 }
 
 /**
- * Editor do "Anteriormente em…", em folha alta: rascunho montado dos eventos
- * (sem IA), que o mestre edita antes de mostrar na Tela ou salvar na crônica.
- * Nada vai à TV sem o toque dele. Rodapé preso: 📺 Mostrar na Tela (ou Tirar
- * da Tela, com "● Na Tela agora") · Salvar na crônica · Copiar · Fechar.
+ * Crônica › ⋯ da sessão › "Ver o plano desta sessão" (V12): o plano arquivado ao encerrar
+ * (lido só agora, ?subtype=plan), para ler, e **Restaurar**: as cenas, as pistas, as
+ * pessoas e os lugares voltam ao Plano (o que já está nele fica). O aviso tem ↶ Desfazer
+ * (grava de novo o plano de antes). Servidor sem o arquivo: diz que falta atualizar.
  */
-function RecapSheet({ campaign, lang, recap, onScreen, onShow, onClearScreen, onClose, onSaved, onCopied }) {
-  const [title, setTitle] = useState(recap.title);
-  const [text, setText] = useState(recap.text);
-  const [busy, setBusy] = useState(false);
-  const [touched, setTouched] = useState(false);
+function PlanArchiveSheet({ campaign, lang, session, onClose, onRestored }) {
+  const [data, setData] = useState(null);   // {plan, sceneId} | false (não há)
   const [err, setErr] = useState('');
-  useEffect(() => { setTitle(recap.title); setText(recap.text); setTouched(false); setErr(''); }, [recap]);
-  // "Na Tela agora" só com este texto na TV de verdade (frente do palco e state.stageRecap)
-  const live = onScreen?.place === 'front' && onScreen.title === title.trim() && onScreen.text === text;
-  const tooLong = text.length > 5000;
-  const empty = !text.trim() && !title.trim();
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    api.listDiary(campaign.id, { subtype: 'plan', session, limit: 1 })
+      .then(r => { if (alive) setData(r.entries?.[0]?.data?.plan ? r.entries[0].data : false); })
+      .catch(e => { if (alive) { setData(false); setErr(errMsg(e)); } });
+    return () => { alive = false; };
+  }, [campaign.id, session]);
+  const plan = data?.plan || null;
+  const closed = campaign.status === 'closed';
+  const realScenes = (plan?.scenes || []).filter(s => String(s.text || '').trim() || s.nodeRef);
+  const clues = (plan?.secrets || []).filter(s => String(s.text || '').trim() || s.ref);
+  const people = (plan?.npcIds || []).length + (plan?.placeIds || []).length;
 
-  const save = async () => {
-    setBusy(true);
+  const restore = async () => {
+    setBusy(true); setErr('');
     try {
-      await api.createDiaryNote(campaign.id, { subtype: 'summary', title: title.trim().slice(0, 200), body: text, session: recap.session });
-      setTouched(false);
-      onSaved();
-    } catch (er) { setErr(errMsg(er)); }
+      const r = await restoreSessionPlan(campaign.id, session);
+      const previous = r?.previous || null;
+      onRestored(t(lang, `Plano da Sessão ${session} de volta ao Plano.`, `Session ${session} plan back in the Plan.`),
+        previous ? async () => { try { await saveSessionPlan(campaign.id, previous); onRestored(t(lang, 'Plano de antes de volta.', 'The previous plan is back.')); } catch (e) { setErr(errMsg(e)); } } : null);
+    } catch (e) {
+      setErr(isOldServer(e) ? t(lang, 'O servidor ainda não sabe restaurar o plano: falta atualizar.', 'The server cannot restore the plan yet: it needs an update.') : errMsg(e));
+    }
     setBusy(false);
-  };
-  const show = async () => { setBusy(true); if (await onShow(title.trim(), text)) setTouched(false); setBusy(false); };
-  const copy = async () => {
-    if (await copyText(`${title}\n\n${text}`)) { setErr(''); onCopied(); }
-    else setErr(t(lang, 'Não deu para copiar: selecione o texto e copie à mão.', 'Could not copy: select the text and copy it by hand.'));
   };
 
   return (
-    <MesaSheet lang={lang} size="tall" width="md" icon="✨" title={t(lang, 'Anteriormente em…', 'Previously on…')}
-      eyebrow={recap.session != null ? `${t(lang, 'a partir da sessão', 'from session')} ${recap.session}` : undefined}
-      onClose={onClose} dirty={touched && !live} className="diary-recap-sheet" bodyClassName="diary-recap"
-      dirtyText={t(lang, 'O texto que você mexeu não foi para a Tela nem para a crônica.', 'The text you edited did not go to the screen or the chronicle.')}
-      footer={({ close }) => (
-        <div className="diary-recap-foot">
+    <MesaSheet lang={lang} size="tall" width="md" icon="📋" title={t(lang, `Plano da Sessão ${session}`, `Session ${session} plan`)}
+      eyebrow={t(lang, 'Guardado ao encerrar · só você vê', 'Kept when the session ended · only you see this')}
+      onClose={onClose} className="diary-plan-sheet"
+      footer={(
+        <div className="mesa-actions is-stack">
           <SheetError text={err} onDismiss={() => setErr('')} />
-          {live && <p className="diary-recap-live" role="status">● {t(lang, 'Na Tela agora', 'On screen now')}</p>}
-          {live
-            ? <button type="button" className="mesa-btn mesa-btn-lg diary-recap-main" disabled={busy} onClick={() => onClearScreen()}>{t(lang, 'Tirar da Tela', 'Remove from screen')}</button>
-            : <button type="button" className="mesa-btn mesa-btn-lg is-primary diary-recap-main" disabled={busy || tooLong || empty} onClick={show}>📺 {t(lang, 'Mostrar na Tela', 'Show on screen')}</button>}
-          <div className="diary-recap-more">
-            <button type="button" className="mesa-btn" disabled={busy || empty} onClick={save}>{t(lang, 'Salvar na crônica', 'Save to chronicle')}</button>
-            <button type="button" className="mesa-btn" onClick={copy}>{t(lang, 'Copiar', 'Copy')}</button>
-            {/* o mesmo fechar do ✕ e do Esc: com texto mexido, pergunta antes */}
-            <button type="button" className="mesa-btn" onClick={close}>{t(lang, 'Fechar', 'Close')}</button>
-          </div>
+          {closed && <p className="diary-readonly">{t(lang, 'Campanha encerrada: o plano fica só para ler.', 'Campaign closed: the plan is read-only.')}</p>}
+          <button type="button" className="mesa-btn mesa-btn-lg is-primary" disabled={busy || !plan || closed} onClick={restore}>
+            {busy ? '…' : `↺ ${t(lang, 'Restaurar no Plano', 'Restore to the Plan')}`}
+          </button>
         </div>
       )}>
-      <p className="mesa-sheet-text diary-recap-hint">
-        {t(lang, 'Rascunho montado com o que ficou na crônica (o que está oculto fica de fora). Edite à vontade: só vai para a Tela quando você mandar.',
-          'Draft built from the chronicle (hidden entries are left out). Edit freely: it only goes to the screen when you say so.')}
-      </p>
-      <label className="mesa-field">
-        <span className="mesa-field-label">{t(lang, 'Título do recap', 'Recap title')}</span>
-        <input className="input diary-recap-title" value={title} maxLength={200} onChange={e => { setTitle(e.target.value); setTouched(true); setErr(''); }} />
-      </label>
-      <label className="mesa-field diary-recap-textfield">
-        <span className="mesa-field-label">{t(lang, 'Texto do recap', 'Recap text')}</span>
-        <textarea className="input diary-recap-text" rows={Math.min(14, Math.max(6, text.split('\n').length + 2))} value={text}
-          onChange={e => { setText(e.target.value); setTouched(true); setErr(''); }} />
-      </label>
-      {tooLong && <p className="diary-error">{t(lang, 'Texto longo demais para a Tela (máx. 5000 caracteres).', 'Too long for the screen (max 5000 characters).')}</p>}
+      {data === null && <p className="diary-none">{t(lang, 'Carregando…', 'Loading…')}</p>}
+      {data === false && !err && <p className="diary-none">{t(lang, 'O plano desta sessão não foi guardado.', 'This session’s plan was not kept.')}</p>}
+      {plan && (
+        <div className="diary-plan">
+          <p className="mesa-sheet-text">{t(lang, 'Restaurar põe de volta no Plano as cenas, as pistas, as pessoas e os lugares desta sessão; o que já está no Plano fica junto.',
+            'Restore puts this session’s scenes, clues, people and places back in the Plan; what is already in the Plan stays.')}</p>
+          {String(plan.strongStart || '').trim() && (
+            <section><h4 className="diary-plan-h">{t(lang, 'Como começou', 'How it started')}</h4><p className="diary-body">{plan.strongStart}</p></section>
+          )}
+          <section>
+            <h4 className="diary-plan-h">{t(lang, 'Cenas', 'Scenes')} · {realScenes.length}</h4>
+            {realScenes.length ? (
+              <ul className="diary-plan-list">
+                {realScenes.map(s => {
+                  const played = s.done || s.id === data.sceneId;
+                  return <li key={s.id}>{played ? '✓' : '○'} {String(s.text || '').split('\n')[0] || t(lang, '(sala de aventura)', '(adventure room)')}
+                    {!played && <span className="diary-plan-tag"> · {t(lang, 'não jogada', 'not played')}</span>}</li>;
+                })}
+              </ul>
+            ) : <p className="diary-none">{t(lang, 'Nenhuma.', 'None.')}</p>}
+          </section>
+          <section>
+            <h4 className="diary-plan-h">{t(lang, 'Pistas', 'Clues')} · {t(lang, `${clues.filter(c => c.discovered).length} de ${clues.length} achadas`, `${clues.filter(c => c.discovered).length} of ${clues.length} found`)}</h4>
+            {clues.length ? (
+              <ul className="diary-plan-list">{clues.map(c => <li key={c.id}>{c.discovered ? '✓' : '○'} {c.text || t(lang, '(ligada a um cartão)', '(linked to a card)')}</li>)}</ul>
+            ) : <p className="diary-none">{t(lang, 'Nenhuma.', 'None.')}</p>}
+          </section>
+          {people > 0 && <p className="diary-body">{t(lang, `À mão na sessão toda: ${people} pessoas e lugares do Mundo.`, `Handy all session: ${people} people and places from the World.`)}</p>}
+          {String(plan.rewards || '').trim() && <section><h4 className="diary-plan-h">{t(lang, 'Recompensas', 'Rewards')}</h4><p className="diary-body">{plan.rewards}</p></section>}
+          {String(plan.monsters || '').trim() && <section><h4 className="diary-plan-h">{t(lang, 'Anotações de monstros', 'Monster notes')}</h4><p className="diary-body">{plan.monsters}</p></section>}
+        </div>
+      )}
     </MesaSheet>
   );
 }

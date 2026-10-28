@@ -1,13 +1,15 @@
 // Linha do tempo do Mundo: cartões com "Quando" (whenLabel), em ordem
-// ajustável arrastando (ou com ↑↓ no celular). Ao lado, as sessões da Crônica.
-import { useEffect, useMemo, useState } from 'react';
+// ajustável arrastando (PC) ou com ↑ ↓ (os dois, 50 × 48 com o nome escrito). Ao
+// lado (embaixo no celular), as sessões da Crônica: "📖 Na mesa".
+// readOnly (campanha encerrada): sem ＋, sem ↑ ↓ e sem arrastar.
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { request } from '../api/client.js';
 import { isConflict, updateEntry, worldErrorText } from './world-api.js';
 import { EntryImage, VisibilitySeal } from './EntryCard.jsx';
 import { EntryPicker } from './LinksField.jsx';
-import { KIND_META, kindLabel, reorderPatches, t, timelineEntries } from './world-model.js';
+import { KIND_META, isTouchUi, kindLabel, reorderPatches, t, timelineEntries } from './world-model.js';
 
-export default function Timeline({ campaign, entries = [], lang = 'pt', onOpenEntry, onEntrySaved, onReload, onCreate }) {
+export default function Timeline({ campaign, entries = [], lang = 'pt', readOnly = false, onOpenEntry, onEntrySaved, onReload, onCreate }) {
   const items = useMemo(() => timelineEntries(entries), [entries]);
   const [drag, setDrag] = useState(null); // índice arrastado
   const [over, setOver] = useState(null);
@@ -15,6 +17,8 @@ export default function Timeline({ campaign, entries = [], lang = 'pt', onOpenEn
   const [busy, setBusy] = useState(false);
   const [sessions, setSessions] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [touch] = useState(isTouchUi);
+  const canMove = !readOnly && items.length > 1;
 
   useEffect(() => {
     let alive = true;
@@ -24,8 +28,10 @@ export default function Timeline({ campaign, entries = [], lang = 'pt', onOpenEn
     return () => { alive = false; };
   }, [campaign.id]);
 
+  const movedAt = useRef(0);
   const move = async (from, to) => {
     setDrag(null); setOver(null);
+    movedAt.current = Date.now();
     const patches = reorderPatches(items, from, to, 'whenOrder');
     if (!patches.length) return;
     // Otimista: aplica já na lista, grava em seguida.
@@ -41,6 +47,14 @@ export default function Timeline({ campaign, entries = [], lang = 'pt', onOpenEn
       setError(isConflict(e) ? t(lang, 'Um cartão mudou em outra aba; recarreguei a linha do tempo.', 'A card changed in another tab; the timeline was reloaded.') : worldErrorText(e, lang));
       onReload?.();
     } finally { setBusy(false); }
+  };
+  // ↑ ↓ ignoram toques por 400 ms depois de cada movimento (além do tempo da
+  // resposta, em que ficam desligados): o cartão troca de linha debaixo do dedo e
+  // o 2º toque de um toque duplo moveria o vizinho que acabou de subir,
+  // desfazendo o 1º (Princípio 8, como o Mostrar do marcador)
+  const tapMove = (from, to) => {
+    if (Date.now() - movedAt.current < 400) return;
+    move(from, to);
   };
 
   const addExisting = async (id) => {
@@ -62,12 +76,14 @@ export default function Timeline({ campaign, entries = [], lang = 'pt', onOpenEn
       <div className="wl-timeline-col">
         <div className="wl-timeline-head">
           <h3 className="wl-h3">⌛ {t(lang, 'História do mundo', 'World history')}</h3>
-          <div className="wl-row">
-            {onCreate && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAdding(a => !a)}>＋ {t(lang, 'Cartão existente', 'Existing card')}</button>}
-            {onCreate && <button type="button" className="btn btn-primary btn-sm" onClick={() => onCreate({ kind: 'lore', whenLabel: t(lang, 'Quando?', 'When?') })}>＋ {t(lang, 'Evento', 'Event')}</button>}
-          </div>
+          {onCreate && !readOnly && (
+            <div className="wl-timeline-add-btns">
+              <button type="button" className={`mesa-btn${adding ? ' is-on' : ''}`} aria-expanded={adding} onClick={() => setAdding(a => !a)}>＋ {t(lang, 'Cartão existente', 'Existing card')}</button>
+              <button type="button" className="mesa-btn is-primary" onClick={() => onCreate({ kind: 'lore', whenLabel: t(lang, 'Quando?', 'When?') })}>＋ {t(lang, 'Evento', 'Event')}</button>
+            </div>
+          )}
         </div>
-        {adding && (
+        {adding && !readOnly && (
           <div className="wl-timeline-add">
             <EntryPicker entries={entries.filter(e => !(e.whenLabel || '').trim())} value={null} onChange={addExisting} lang={lang} allowNone={false} autoFocus
               placeholder={t(lang, 'Escolha um cartão', 'Pick a card')} />
@@ -87,7 +103,7 @@ export default function Timeline({ campaign, entries = [], lang = 'pt', onOpenEn
                 <li key={e.id}
                   className={`wl-tl-item${drag === i ? ' is-drag' : ''}${over === i && drag !== null && drag !== i ? ' is-over' : ''}`}
                   style={{ '--wl-kind': meta.color }}
-                  draggable
+                  draggable={canMove && !touch}
                   onDragStart={ev => { setDrag(i); ev.dataTransfer.effectAllowed = 'move'; try { ev.dataTransfer.setData('text/plain', String(e.id)); } catch { /* ok */ } }}
                   onDragOver={ev => { ev.preventDefault(); if (over !== i) setOver(i); }}
                   onDragEnd={() => { setDrag(null); setOver(null); }}
@@ -98,20 +114,34 @@ export default function Timeline({ campaign, entries = [], lang = 'pt', onOpenEn
                     <span className="wl-tl-thumb"><EntryImage entry={e} className="wl-thumb-img" /></span>
                     <span className="wl-tl-text">
                       <span className="wl-tl-name">{e.name}</span>
-                      <span className="wl-tl-kind">{meta.icon} {kindLabel(e.kind, lang)}{e.summary ? ` · ${e.summary}` : ''}</span>
+                      <span className="wl-tl-meta">
+                        <VisibilitySeal visibility={e.visibility} lang={lang} short />
+                        <span className="wl-tl-kind">{meta.icon} {kindLabel(e.kind, lang)}{e.summary ? ` · ${e.summary}` : ''}</span>
+                      </span>
                     </span>
-                    <VisibilitySeal visibility={e.visibility} lang={lang} small />
                   </button>
-                  <span className="wl-tl-move">
-                    <button type="button" disabled={i === 0 || busy} onClick={() => move(i, i - 1)} aria-label={t(lang, 'Mover para antes', 'Move earlier')}>↑</button>
-                    <button type="button" disabled={i === items.length - 1 || busy} onClick={() => move(i, i + 1)} aria-label={t(lang, 'Mover para depois', 'Move later')}>↓</button>
-                  </span>
+                  {canMove && (
+                    <span className="wl-tl-move">
+                      <button type="button" className="wl-move-btn" disabled={i === 0 || busy} onClick={() => tapMove(i, i - 1)}
+                        aria-label={`${t(lang, 'Mover para antes', 'Move earlier')}: ${e.name}${i === 0 ? ` — ${t(lang, 'já é o primeiro', 'already first')}` : ''}`}>
+                        <span aria-hidden="true">↑</span><span aria-hidden="true" className="wl-move-txt">{t(lang, 'Antes', 'Earlier')}</span>
+                      </button>
+                      <button type="button" className="wl-move-btn" disabled={i === items.length - 1 || busy} onClick={() => tapMove(i, i + 1)}
+                        aria-label={`${t(lang, 'Mover para depois', 'Move later')}: ${e.name}${i === items.length - 1 ? ` — ${t(lang, 'já é o último', 'already last')}` : ''}`}>
+                        <span aria-hidden="true">↓</span><span aria-hidden="true" className="wl-move-txt">{t(lang, 'Depois', 'Later')}</span>
+                      </button>
+                    </span>
+                  )}
                 </li>
               );
             })}
           </ol>
         )}
-        <p className="wl-hint">{t(lang, 'Arraste para reordenar. Os jogadores só veem eventos de cartões revelados.', 'Drag to reorder. Players only see events from revealed cards.')}</p>
+        <p className="wl-hint">{canMove
+          ? (touch
+            ? t(lang, 'Use ↑ ↓ para mudar a ordem. ', 'Use ↑ ↓ to change the order. ')
+            : t(lang, 'Arraste ou use ↑ ↓ para mudar a ordem. ', 'Drag or use ↑ ↓ to change the order. '))
+          : ''}{t(lang, 'Os jogadores só veem eventos de cartões revelados.', 'Players only see events from revealed cards.')}</p>
       </div>
 
       <aside className="wl-timeline-side">
