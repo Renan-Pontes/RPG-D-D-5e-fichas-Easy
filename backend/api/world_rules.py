@@ -884,10 +884,11 @@ def carried_plan(plan, next_session, carry=True):
     return out
 
 
-def archive_payload(plan, session, scene_id=None):
+def archive_payload(plan, session, scene_id=None, done_before=None):
     """`data` da DiaryEntry do plano arquivado: o plano inteiro (sem o `_rev`), a cena que
-    estava "agora" ao encerrar (o rascunho do resumo a conta como jogada) e as contagens que
-    a lista da Crônica mostra (ela não manda o `plan`)."""
+    estava "agora" ao encerrar e as cenas que já estavam feitas quando a sessão começou
+    (`doneBefore`: o rascunho do resumo conta como jogadas só as outras) e as contagens que a
+    lista da Crônica mostra (ela não manda o `plan`)."""
     plan = plan if isinstance(plan, dict) else {}
     keep = {k: plan.get(k, SESSION_PLAN_DEFAULT[k]) for k in PLAN_CONTENT_KEYS}
     keep['forSession'] = to_int(plan.get('forSession'), 1, 9999)
@@ -896,10 +897,12 @@ def archive_payload(plan, session, scene_id=None):
     scenes = [s for s in keep['scenes'] or [] if _real_scene(s)]
     secrets = [s for s in keep['secrets'] or [] if _real_secret(s)]
     sid = short_id(scene_id, 40) or None
+    before = [short_id(x, 40) for x in done_before or [] if short_id(x, 40)][:30] if isinstance(done_before, list) else None
     return {
-        'session': to_int(session, 0, 100000), 'sceneId': sid, 'plan': keep,
+        'session': to_int(session, 0, 100000), 'sceneId': sid, 'doneBefore': before, 'plan': keep,
         'counts': {
-            'scenes': len(scenes), 'played': sum(1 for s in scenes if s.get('done') or s.get('id') == sid),
+            'scenes': len(scenes),
+            'played': sum(1 for s in scenes if (s.get('done') and s.get('id') not in (before or [])) or s.get('id') == sid),
             'clues': len(secrets), 'found': sum(1 for s in secrets if s.get('discovered')),
         },
     }

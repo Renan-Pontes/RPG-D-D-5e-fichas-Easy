@@ -48,7 +48,7 @@ class EndBase(TestCase):
         started = (timezone.now() - timedelta(hours=2, minutes=10, seconds=5)).isoformat()
         self.camp = Campaign.objects.create(
             dm=self.dm, name='C', slug='c',
-            state={'session': '4', 'live': True, 'scene': 'Ponte velha', 'sceneId': 'c2',
+            state={'session': '4', 'live': True, 'scene': 'Ponte velha', 'sceneId': 'c2', 'sceneText': 'A ponte range.',
                    'diarySessions': {'4': {'title': '', 'startedAt': started, 'shown': [{'t': 'Borin', 'k': 'card'}]}},
                    'stage': {'v': 1, 'bg': 'auto', 'front': {'kind': 'text', 'text': 'Oi', 'label': 'Oi'}, 'focus': True,
                              'prev': None, 'prefs': {}}},
@@ -89,6 +89,7 @@ class EndSessionTests(EndBase):
         self.assertEqual(camp.state['stage']['bg'], 'auto')
         self.assertEqual(camp.state['stage']['prev']['front']['kind'], 'text')   # ↶ Desfazer volta ao de antes
         self.assertEqual(camp.state['scene'], 'Ponte velha')                     # "Continuar de onde paramos"
+        self.assertNotIn('sceneText', camp.state)                                 # o texto lido sai da capa
         self.assertFalse(CombatInstance.objects.get(campaign=camp).active)
         shown.refresh_from_db()
         self.assertEqual((shown.status, shown.show_on_screen), ('closed', False))
@@ -156,6 +157,19 @@ class EndSessionTests(EndBase):
         self.assertEqual(entry.data['plan']['strongStart'], PLAN['strongStart'])
         self.assertEqual(entry.data['sceneId'], 'c2')
         self.assertEqual(entry.data['counts'], {'scenes': 3, 'played': 2, 'clues': 2, 'found': 1})
+
+    def test_scenes_done_before_the_session_are_not_played_tonight(self):
+        Campaign.objects.filter(pk=self.camp.pk).update(state={'session': '3', 'live': False})
+        start = self.c_dm.post(f'/api/campaigns/{self.camp.slug}/diary/sessions', {}, format='json')
+        self.assertEqual(start.status_code, 201)
+        meta = self.fresh().state['diarySessions']['4']
+        self.assertEqual((meta['doneBefore'], meta['endedAt']), (['c1'], None))
+        # a lista de sessões (que o jogador também lê) não leva o doneBefore
+        s4 = next(x for x in self.c_p.get(self.diary).json()['sessions'] if x['number'] == 4)
+        self.assertNotIn('doneBefore', s4)
+        self.end(carry=True)
+        data = DiaryEntry.objects.get(campaign=self.camp, subtype='plan').data
+        self.assertEqual((data['doneBefore'], data['counts']['played']), (['c1'], 0))
 
     def test_carry_keeps_a_plan_already_for_the_next_session(self):
         Campaign.objects.filter(pk=self.camp.pk).update(dm_settings={'sessionPlan': {**PLAN, 'forSession': 5}})

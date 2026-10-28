@@ -528,7 +528,7 @@ def _state_now(campaign):
     return Campaign.objects.filter(pk=campaign.pk).values_list('state', flat=True).first() or {}
 
 
-def archive_session_plan(campaign, *, session, next_session, carry=True, scene_id=None, user=None):
+def archive_session_plan(campaign, *, session, next_session, carry=True, scene_id=None, done_before=None, user=None):
     """Arquiva o plano de agora como o da Sessão `session` (DiaryEntry oculta; uma por
     sessão: arquivar de novo troca o conteúdo) e grava o plano da Sessão `next_session`,
     com o que sobrou (`carry`) ou em branco. Plano sem nada: só o plano novo. Tudo dentro
@@ -539,7 +539,7 @@ def archive_session_plan(campaign, *, session, next_session, carry=True, scene_i
         current = _run(R.merged_session_plan, settings.get('sessionPlan'), {})
         archived = None
         if R.plan_has_content(current):
-            data = _run(R.archive_payload, current, session, scene_id)
+            data = _run(R.archive_payload, current, session, scene_id, done_before)
             title = f'Plano da Sessão {session}'
             entry = (DiaryEntry.objects.select_for_update()
                      .filter(campaign=campaign, kind='event', subtype=PLAN_ARCHIVE, session=session).first())
@@ -584,8 +584,11 @@ def session_plan_archive(request, id_or_slug):
     old = R.to_int(plan_now.get('forSession'), 1, 9999) if isinstance(plan_now, dict) else None
     session = old if old and old <= nxt else max(1, nxt - 1)
     state = _state_now(campaign)
+    meta = (state.get('diarySessions') or {}).get(str(session)) if isinstance(state.get('diarySessions'), dict) else None
     out = archive_session_plan(campaign, session=session, next_session=nxt, carry=carry,
-                               scene_id=state.get('sceneId') if state.get('live') else None, user=request.user)
+                               scene_id=state.get('sceneId') if state.get('live') else None,
+                               done_before=(meta or {}).get('doneBefore') if isinstance(meta, dict) else None,
+                               user=request.user)
     return Response(out)
 
 

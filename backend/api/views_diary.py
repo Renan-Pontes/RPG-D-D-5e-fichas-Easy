@@ -134,7 +134,9 @@ def _sessions_payload(campaign, qs):
                      | {int(k) for k in meta if str(k).isdigit()}, reverse=True)
     return {
         'currentSession': current_session(campaign),
-        'sessions': [{'number': n, **({'title': '', 'startedAt': None} | (meta.get(str(n)) or {}))} for n in numbers],
+        # doneBefore (as cenas já feitas ao começar) é só do rascunho do resumo, no estado do mestre
+        'sessions': [{'number': n, **{k: v for k, v in ({'title': '', 'startedAt': None} | (meta.get(str(n)) or {})).items()
+                                      if k != 'doneBefore'}} for n in numbers],
     }
 
 
@@ -268,8 +270,13 @@ def campaign_diary_start_session(request, id_or_slug):
     live = request.data.get('live', True)
     if not isinstance(live, bool):
         raise ValidationError({'error': 'invalid_live'})
+    # V12: as cenas do plano que já estavam feitas ao começar (o resumo desta sessão não as
+    # conta como jogadas hoje) e o fim de uma vez anterior com o mesmo número sai
+    plan = (campaign.dm_settings or {}).get('sessionPlan')
+    done_before = [str(sc.get('id')) for sc in (plan.get('scenes') or [] if isinstance(plan, dict) else [])
+                   if isinstance(sc, dict) and sc.get('done') and sc.get('id')][:30]
     _save_session_meta(campaign, number, extra={'session': str(number), 'live': live},
-                       title=title, startedAt=timezone.now().isoformat())
+                       title=title, startedAt=timezone.now().isoformat(), endedAt=None, doneBefore=done_before)
     log_diary(campaign, 'session', f'Sessão {number} começou' + (f' — {title}' if title else ''),
               data={'session': number, 'title': title}, user=request.user)
     return Response({'currentSession': number, 'state': campaign.state}, status=201)
@@ -415,7 +422,8 @@ def campaign_diary_end_session(request, id_or_slug, number):
         fs = R.to_int(plan_now.get('forSession'), 1, 9999) if isinstance(plan_now, dict) else None
         if not fs or fs <= number:   # o plano de outra sessão (a próxima, já preparada) fica
             out = archive_session_plan(campaign, session=number, next_session=number + 1, carry=True,
-                                       scene_id=state.get('sceneId'), user=request.user)
+                                       scene_id=state.get('sceneId'), done_before=meta.get('doneBefore'),
+                                       user=request.user)
             archived, plan = out['archived'], out['plan']
     ended['moments'] = _mark_moments(campaign, number, moments)
 
@@ -434,6 +442,10 @@ def campaign_diary_end_session(request, id_or_slug, number):
                 seen['stage'] = True
             if st.get('screenCard'):
                 patch['screenCard'] = None   # a TV antiga também volta à capa
+                seen['stage'] = True
+            if st.get('sceneText'):
+                # o texto lido sai da capa e da Mesa; o nome da cena fica ("Continuar de onde paramos")
+                patch['sceneText'] = None
                 seen['stage'] = True
         return patch
 
