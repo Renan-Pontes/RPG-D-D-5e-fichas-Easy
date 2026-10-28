@@ -1,7 +1,7 @@
 /* ===== Crônica da campanha (DiaryTab.jsx) — mobile-first =====
    A história primeiro: cabeçalho curto (Nova nota · Anteriormente em…), filtros
    num trilho de 44 px e as sessões em painéis de couro (src/shell/mesa.css).
-   A nota nova e o recap abrem em folha (MesaSheet). Desktop: uma coluna de até
+   A nota nova, o resumo e o plano arquivado abrem em folha (MesaSheet). Desktop: uma coluna de até
    820 px. */
 .diary { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding-bottom: 72px; }
 @media (min-width: 768px) { .diary { max-width: 820px; } }
@@ -11,7 +11,7 @@
   color: var(--blood-bright); background: var(--blood-soft); border: 1px solid var(--blood);
   border-radius: 6px; padding: 8px 12px; margin: 0; cursor: pointer;
 }
-/* erro de uma folha (nota, recap): linha inteira no topo do rodapé preso */
+/* erro de uma folha (nota, plano arquivado): linha inteira no topo do rodapé preso */
 .diary-sheet-err { flex: 1 1 100%; text-align: left; overflow-wrap: anywhere; }
 .diary-readonly { margin: 0; color: var(--ink-muted); font-size: 0.95rem; }
 
@@ -21,7 +21,7 @@
 .diary-head-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 /* mestre: Nova nota · Anteriormente em… (o segundo rótulo é mais longo) */
 .diary.is-dm .diary-head-actions { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
-.diary.is-dm.is-closed .diary-head-actions { grid-template-columns: minmax(0, 1fr); } /* só o recap */
+.diary.is-dm.is-closed .diary-head-actions { grid-template-columns: minmax(0, 1fr); } /* só o resumo */
 .diary-head-actions .mesa-btn { width: 100%; padding-inline: 8px; white-space: normal; }
 .diary-on-tv {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px;
@@ -106,7 +106,7 @@
 .diary-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 4px; font-size: 0.82rem; color: var(--ink-muted); }
 .diary-more { align-self: center; }
 
-/* toast (exclusão com Desfazer, recap na Tela): no celular, acima da barra e à esquerda do dado */
+/* toast (exclusão com Desfazer, plano restaurado): no celular, acima da barra e à esquerda do dado */
 .diary-toast {
   position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
   z-index: 120; display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 32px);
@@ -122,25 +122,13 @@
   }
 }
 
-/* "Anteriormente em…" (folha) */
-.diary-recap { display: flex; flex-direction: column; gap: 10px; }
-/* o texto ocupa a altura que sobra na folha */
-.diary-recap > .diary-recap-textfield { flex: 1 1 auto; }
-.diary-recap > .diary-recap-textfield > textarea { flex: 1 1 auto; }
-.diary-recap-hint { margin: 0; }
-.diary-recap-title { font-family: var(--display); color: var(--gold-bright); }
-.diary-recap-text { min-height: 200px; resize: vertical; font-family: var(--body); line-height: 1.5; }
-.diary-recap-foot { display: flex; flex-direction: column; gap: 8px; }
-.diary-recap-main { width: 100%; }
-.diary-recap-more { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
-.diary-recap-more .mesa-btn { padding-inline: 6px; white-space: normal; }
-.diary-recap-live { margin: 0; color: var(--moss-bright); font-family: var(--display); font-size: 0.9rem; letter-spacing: 0.08em; text-align: center; }
-@media (min-width: 768px) {
-  .diary-recap-foot { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
-  .diary-recap-live { margin-right: auto; }
-  .diary-recap-main { width: auto; order: 2; }
-  .diary-recap-more { display: flex; order: 1; }
-}
+/* "Ver o plano desta sessão" (folha, V12): o plano arquivado, só para ler, e Restaurar */
+.diary-plan { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.diary-plan section { display: flex; flex-direction: column; gap: 4px; }
+.diary-plan-h { margin: 0; font-family: var(--display); font-size: 0.85rem; letter-spacing: 0.06em; color: var(--gold-bright); }
+.diary-plan-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.diary-plan-list li { font-size: 0.95rem; overflow-wrap: anywhere; }
+.diary-plan-tag { color: var(--ink-muted); font-size: 0.85rem; }
 
 .diary-item.sub-levelgrant .diary-icon { color: var(--gold-bright); border-color: var(--gold); }
 .diary-item.sub-reveal .diary-icon { color: var(--arcane-bright); border-color: var(--arcane); background: #1b1a2a; }

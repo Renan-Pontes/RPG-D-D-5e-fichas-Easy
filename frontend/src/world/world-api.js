@@ -101,6 +101,19 @@ export async function saveSessionPlan(campaignId, patch) {
 }
 
 /**
+ * "Começar o plano da Sessão N" (⋯ do Plano, V12): o plano de agora fica arquivado na Crônica
+ * (oculto) e o novo leva o que sobrou (`carry`) ou começa do zero. → {plan, archived}
+ */
+export function archiveSessionPlan(campaignId, { carry = true, forSession = null } = {}) {
+  return request(`/api/campaigns/${cid(campaignId)}/session-plan/archive`, { method: 'POST', body: { carry, ...(forSession ? { forSession } : {}) } });
+}
+
+/** Crônica › Ver o plano desta sessão › Restaurar. → {plan, previous} (previous = o de antes, para o ↶) */
+export function restoreSessionPlan(campaignId, session) {
+  return request(`/api/campaigns/${cid(campaignId)}/session-plan/restore`, { method: 'POST', body: { session } });
+}
+
+/**
  * Cartão antigo da Tela (compatibilidade; o caminho novo é stage-api.showOnStage).
  * card: {type:'entry', entryId, secretIds?} | {type:'recap', title, text}
  * | {type:'scene', adventureId, nodeId} | null (tira). → {card}

@@ -22,11 +22,11 @@ import MoreMenu from '../group/MoreMenu.jsx';
 import { WORLD_KINDS } from './prep-world.js';
 // Ícones e nomes dos tipos vêm do Mundo, para casar com o Atlas (🧑 NPCs, ⚜️ Facções, 📜 Histórias).
 import { kindIcon, kindLabel } from '../world/world-model.js';
-import { createSampleWorld } from '../world/world-api.js';
+import { archiveSessionPlan, createSampleWorld } from '../world/world-api.js';
+import { carryText, leftoverCounts } from '../play/end-session.js';
 import { toLight } from '../world/world-model.js';
 import WorldRefs from './WorldRefs.jsx';
 import ReadySheet from './ReadySheet.jsx';
-import usePrepConfirm from './usePrepConfirm.jsx';
 import useRaioX from '../group/useRaioX.js';
 import { cachedInsights, insightsApi, rememberInsights, withDefaults } from '../group/insights-api.js';
 import '../group/group-styles.css';
@@ -75,12 +75,11 @@ export default function NextSession({ campaign, lang, goTo }) {
   const [skips, setSkips] = useState(() => readSkips(campaign.id));
   const [idea, setIdea] = useState(0);
   const [busy, setBusy] = useState(null);             // ação do cartão em andamento
-  const [sheet, setSheet] = useState(null);           // {kind:'ready'} | {kind:'idea', step} | {kind:'moments', charId}
+  const [sheet, setSheet] = useState(null);           // {kind:'ready'} | {kind:'idea', step} | {kind:'moments', charId} | {kind:'newPlan'}
   const [sceneSheet, setSceneSheet] = useState(null); // {id, fresh}: a folha da Cena aberta
   const [entrySheet, setEntrySheet] = useState(null); // id do cartão aberto no editor (sem sair do Preparar)
   const [reorder, setReorder] = useState(false);
   const [focusId, setFocusId] = useState(null);       // campo a focar depois de criar (cena/pista)
-  const [confirm, confirmEl] = usePrepConfirm(lang);
 
   const planRef = useRef(null);
   const savedRef = useRef(null);
@@ -280,19 +279,37 @@ export default function NextSession({ campaign, lang, goTo }) {
 
   const heading = useMemo(() => (plan ? planHeading(plan, campaign.state, lang) : null), [plan, campaign.state, lang]);
 
-  const newSession = async () => {
+  // ⋯ › "Começar o plano da Sessão N" (V12): a folha pergunta Levar o que sobrou / Começar do
+  // zero; o servidor arquiva este plano na Crônica (Ver o plano desta sessão, com Restaurar)
+  // e grava o novo. Servidor de antes do arquivo: o plano novo sai daqui, como antes (o velho
+  // não fica guardado; o aviso diz).
+  const newSession = () => setSheet({ kind: 'newPlan' });
+  const startNewPlan = async (carry) => {
     const n = heading?.next || 1;
-    const ok = await confirm({
-      title: t(lang, `Começar o plano da Sessão ${n}?`, `Start the session ${n} plan?`),
-      text: t(lang,
-        'O plano é esvaziado. As pistas que o grupo ainda não descobriu, os lugares e as pessoas continuam.',
-        'The plan is cleared. Clues the party has not found yet, places and people carry over.'),
-      ok: t(lang, 'Começar', 'Start'),
-    });
-    if (!ok) return;
-    setAsks({});
-    change(p => padSecrets(carryOver(p, n)));
-    setOpen('scenes');
+    setBusy('newPlan');
+    try {
+      await flush();
+      let r;
+      try { r = await archiveSessionPlan(campaign.id, { carry, forSession: n }); }
+      catch (e) {
+        if (!isOldServer(e)) throw e;
+        setAsks({}); setSheet(null);
+        change(p => padSecrets(carryOver(p, n, { carry })));
+        setOpen('scenes');
+        say(t(lang, `Plano da Sessão ${n} começado. O servidor ainda não guarda o plano de antes (falta atualizar).`, `Session ${n} plan started. The server cannot keep the old plan yet (it needs an update).`));
+        return;
+      }
+      const p = normalizePlan(r.plan);
+      savedRef.current = p;
+      planRef.current = padSecrets(p);
+      dirty.current = false;
+      setPlan(planRef.current);
+      setSaveState('saved');
+      setAsks({}); setSheet(null); setOpen('scenes');
+      say(r.archived
+        ? t(lang, `Plano da Sessão ${n} começado. O de antes ficou na Crônica: Sessão ${r.archived.session} › ⋯ › Ver o plano.`, `Session ${n} plan started. The old one is in the Chronicle: session ${r.archived.session} › ⋯ › See the plan.`)
+        : t(lang, `Plano da Sessão ${n} começado.`, `Session ${n} plan started.`));
+    } catch (e) { setError(errorMessage(e, lang)); } finally { setBusy(null); }
   };
 
   // ---------------------------------------------------------------- Raio-X (momentos, N7, passo 1)
@@ -551,7 +568,7 @@ export default function NextSession({ campaign, lang, goTo }) {
     { id: 'ready', label: t(lang, '📖 Usar uma aventura pronta', '📖 Use a ready adventure'), onSelect: () => setSheet({ kind: 'ready' }), hidden: closed },
     { id: 'export', label: t(lang, '⇩ Exportar o plano (JSON)', '⇩ Export the plan (JSON)'), onSelect: () => downloadPlan(plan, campaign, heading) },
     { id: 'new', label: t(lang, `↻ Começar o plano da Sessão ${heading.next}`, `↻ Start the session ${heading.next} plan`),
-      hint: t(lang, 'Esvazia o plano e leva as pistas não achadas, as pessoas e os lugares.', 'Clears the plan and carries over unfound clues, people and places.'),
+      hint: t(lang, 'Guarda este plano na Crônica e começa o novo: com o que sobrou ou do zero.', 'Keeps this plan in the Chronicle and starts the new one: with what is left or from scratch.'),
       onSelect: newSession, hidden: closed },
   ];
 
@@ -710,6 +727,29 @@ export default function NextSession({ campaign, lang, goTo }) {
         </div>
       )}
 
+      {sheet?.kind === 'newPlan' && (
+        <MesaSheet title={t(lang, `Começar o plano da Sessão ${heading.next}`, `Start the session ${heading.next} plan`)} icon="↻"
+          size="auto" width="sm" lang={lang} onClose={() => setSheet(null)} className="ns-newplan"
+          footer={(
+            <div className="mesa-actions is-stack">
+              <button type="button" className="mesa-btn" disabled={busy === 'newPlan'} onClick={() => startNewPlan(false)}>
+                {t(lang, 'Começar do zero', 'Start from scratch')}
+              </button>
+              <button type="button" className="mesa-btn mesa-btn-lg is-primary" disabled={busy === 'newPlan'} onClick={() => startNewPlan(true)}>
+                {busy === 'newPlan' ? '…' : t(lang, 'Levar o que sobrou', 'Carry over what’s left')}
+              </button>
+            </div>
+          )}>
+          <p className="mesa-sheet-text">{t(lang,
+            'Este plano fica guardado na Crônica (⋯ da sessão › Ver o plano desta sessão), com Restaurar.',
+            'This plan is kept in the Chronicle (session ⋯ › See this session’s plan), with Restore.')}</p>
+          <p className="mesa-sheet-text"><strong>{t(lang, 'Levar o que sobrou', 'Carry over what’s left')}:</strong>{' '}
+            {leftoverCounts(plan) ? carryText(leftoverCounts(plan), lang) : t(lang, 'nada sobrou', 'nothing left')}
+            {t(lang, ' (as cenas não jogadas, as pistas não achadas, as pessoas e os lugares).', ' (scenes not played, clues not found, people and places).')}</p>
+          <p className="mesa-sheet-text"><strong>{t(lang, 'Começar do zero', 'Start from scratch')}:</strong>{' '}
+            {t(lang, 'o plano novo vem em branco.', 'the new plan starts blank.')}</p>
+        </MesaSheet>
+      )}
       {sheet?.kind === 'ready' && (
         <ReadySheet campaign={campaign} lang={lang} onClose={() => setSheet(null)}
           onImported={onReadyImported}
@@ -766,7 +806,6 @@ export default function NextSession({ campaign, lang, goTo }) {
             onOpenMap={goTo ? (id) => { setEntrySheet(null); goTo('world', 'map', { mapId: id }); } : undefined} />
         </Suspense>
       )}
-      {confirmEl}
     </div>
   );
 }

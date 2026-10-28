@@ -212,13 +212,19 @@ export function planDiff(prev, next) {
 }
 
 /**
- * "Começar o plano da Sessão N": esvazia o plano, mas leva adiante as pistas que os
- * jogadores ainda NÃO descobriram (regra do Mestre Preguiçoso) e os NPCs/lugares.
+ * "Começar o plano da Sessão N" (a mesma regra do servidor, world_rules.carried_plan, V12):
+ * "Levar o que sobrou" leva as cenas NÃO jogadas (com os mesmos ids: os momentos apontam a
+ * cena pelo id), as pistas que os jogadores ainda NÃO descobriram (regra do Mestre
+ * Preguiçoso) e os NPCs/lugares; "Começar do zero" (`carry: false`), nada. O servidor
+ * arquiva o plano antes (POST …/session-plan/archive); isto é o que a tela faz num servidor
+ * de antes dele, que não guarda o plano velho.
  */
-export function carryOver(plan, forSession = null) {
-  const keep = plan.secrets.filter(s => !s.discovered && realSecret(s))
-    .map((s, i) => ({ ...s, id: `p${i + 1}` }));
-  return { ...emptyPlan(), _rev: plan._rev || 0, forSession: forSession || null, secrets: keep, npcIds: [...plan.npcIds], placeIds: [...plan.placeIds] };
+export function carryOver(plan, forSession = null, { carry = true } = {}) {
+  const base = { ...emptyPlan(), _rev: plan._rev || 0, forSession: forSession || null };
+  if (!carry) return base;
+  const secrets = plan.secrets.filter(s => !s.discovered && realSecret(s)).map((s, i) => ({ ...s, id: `p${i + 1}` }));
+  const scenes = plan.scenes.filter(s => realScene(s) && !s.done);
+  return { ...base, scenes, secrets, npcIds: [...plan.npcIds], placeIds: [...plan.placeIds] };
 }
 
 /** Ids do plano que não existem mais no Mundo (cartão apagado). */

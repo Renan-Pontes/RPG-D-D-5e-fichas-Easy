@@ -134,18 +134,23 @@ test('planDiff manda só as chaves que mudaram, sem as pistas vazias', () => {
   assert.deepEqual(planDiff({ ...emptyPlan(), _rev: 3 }, { ...emptyPlan(), _rev: 4 }), {});
 });
 
-test('carryOver leva adiante só as pistas não descobertas, NPCs e lugares', () => {
+test('carryOver leva adiante as cenas não jogadas, as pistas não descobertas, NPCs e lugares', () => {
   let p = { ...emptyPlan(), strongStart: 'x', rewards: 'ouro', npcIds: [1], placeIds: [2] };
   p = addSecret(p, 'achada');
   p = addSecret(p, 'pendente', { entryId: 4, secretId: 's1' });
   p = addSecret(p, '');
   p = updateItem(p, 'secrets', 'p1', { discovered: true });
-  p = addScene(p, 'cena');
+  p = addScene(p, 'cena', null, 'c1');
+  p = addScene(p, 'jogada', null, 'c2');
+  p = updateItem(p, 'scenes', 'c2', { done: true });
+  p = addScene(p, '', null, 'c3');
   const n = carryOver(p, 6);
   assert.equal(n.forSession, 6);
   assert.equal(n.strongStart, '');
   assert.equal(n.rewards, '');
-  assert.deepEqual(n.scenes, []);
+  assert.deepEqual(n.scenes.map(s => [s.id, s.text, s.done]), [['c1', 'cena', false]]);
+  const zero = carryOver(p, 6, { carry: false });
+  assert.deepEqual([zero.forSession, zero.scenes, zero.secrets, zero.npcIds], [6, [], [], []]);
   assert.deepEqual(n.secrets.map(s => [s.id, s.text]), [['p1', 'pendente']]);
   assert.deepEqual(n.secrets[0].ref, { entryId: 4, secretId: 's1' });
   assert.deepEqual(n.npcIds, [1]);
