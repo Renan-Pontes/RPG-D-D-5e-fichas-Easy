@@ -351,7 +351,7 @@ export default function EntryEditor({
             {secrets.some(s => s.revealed) && (entry.visibility || 'hidden') !== 'revealed' && (
               <p className="wl-secret-warn" role="note">
                 ⚠ {entry.visibility === 'partial'
-                  ? t(lang, 'O cartão está "Conhecido de nome": os jogadores só veem os segredos revelados quando ele estiver "Revelado".', 'The card is "Known by name": players only see revealed secrets once it is "Revealed".')
+                  ? t(lang, 'O cartão está em "Só o nome": os jogadores só veem os segredos revelados quando ele estiver "Revelado".', 'The card is "Name only": players only see revealed secrets once it is "Revealed".')
                   : t(lang, 'O cartão está oculto: os jogadores ainda não veem os segredos revelados.', 'The card is hidden: players cannot see revealed secrets yet.')}
               </p>
             )}

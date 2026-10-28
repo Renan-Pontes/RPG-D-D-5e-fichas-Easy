@@ -11,6 +11,7 @@ import { codeFiles, stripComments } from './stage-api-calls.test.js';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const GONE = [
   { word: /tel[ãa]o/i, now: 'Tela' },   // V3
+  { word: /conhecido de nome|known by name/i, now: 'Só o nome' },   // F9: o selo, o filtro e o interruptor
 ];
 
 test('palavras que saíram do app não voltam', () => {

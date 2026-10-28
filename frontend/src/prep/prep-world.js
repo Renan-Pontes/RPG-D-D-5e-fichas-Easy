@@ -16,7 +16,7 @@ export const WORLD_KIND = Object.fromEntries(WORLD_KINDS.map(k => [k.id, k]));
 
 export const VISIBILITY = {
   hidden:   { icon: '🔒', pt: 'Oculto',            en: 'Hidden' },
-  partial:  { icon: '◐',  pt: 'Conhecido de nome', en: 'Known by name' },
+  partial:  { icon: '◐',  pt: 'Só o nome',         en: 'Name only' },
   revealed: { icon: '👁', pt: 'Revelado',          en: 'Revealed' },
 };
 

@@ -16,7 +16,7 @@ test('todo tipo tem ícone, rótulos pt/en e arte padrão existente no catálogo
   }
   assert.equal(kindLabel('faction', 'pt'), 'Facção');
   assert.equal(kindLabel('faction', 'en', true), 'Factions');
-  assert.equal(visLabel('partial', 'pt'), 'Conhecido de nome');
+  assert.equal(visLabel('partial', 'pt'), 'Só o nome');
 });
 
 test('arte padrão é estável por id e mapa usa a arte de mapa', () => {
@@ -168,6 +168,8 @@ test('fila do Ordenar: com o servidor lento, a resposta de um toque não desfaz 
 
 test('selo e dicas da visibilidade escritos (sem depender do title)', () => {
   assert.equal(visShort('partial', 'pt'), 'Só o nome');
+  // uma palavra, um sentido: o selo curto, o filtro e o interruptor dizem o mesmo
+  for (const v of VISIBILITIES) for (const lang of ['pt', 'en']) assert.equal(visLabel(v, lang), visShort(v, lang));
   assert.equal(visShort('hidden', 'en'), 'Hidden');
   for (const v of VISIBILITIES) {
     assert.ok(visShort(v, 'pt') && visShort(v, 'en'));

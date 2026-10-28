@@ -1,5 +1,5 @@
 // Controle de revelação do mestre: olho com três estados (Oculto ·
-// Conhecido de nome · Revelado), segredos um a um e a caixa "registrar na
+// Só o nome · Revelado), segredos um a um e a caixa "registrar na
 // Crônica". NADA é revelado sem um clique do mestre.
 //
 //   <RevealControl entry={full} lang onChange={(entry) => …} beforeReveal={async () => flush()} />

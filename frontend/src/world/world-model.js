@@ -51,10 +51,12 @@ export function defaultArt(entry) {
 export const VISIBILITIES = ['hidden', 'partial', 'revealed'];
 // short*: o selo nas linhas estreitas do Atlas no celular; tip*: a dica escrita
 // dentro de cada opção do "Quem vê" (no lugar do title, que o toque não mostra).
+// Uma palavra, um sentido (§1.1 nº 2): o estado do meio é "Só o nome" no selo, no
+// filtro, no interruptor e nos botões da Tela ("Conhecido de nome" saiu do app).
 export const VIS_META = {
   hidden: { icon: '🔒', pt: 'Oculto', en: 'Hidden', shortPt: 'Oculto', shortEn: 'Hidden',
     hintPt: 'Só você vê.', hintEn: 'Only you can see it.', tipPt: 'só você vê', tipEn: 'only you see it' },
-  partial: { icon: '◐', pt: 'Conhecido de nome', en: 'Known by name', shortPt: 'Só o nome', shortEn: 'Name only',
+  partial: { icon: '◐', pt: 'Só o nome', en: 'Name only', shortPt: 'Só o nome', shortEn: 'Name only',
     hintPt: 'Jogadores veem nome, frase e imagem.', hintEn: 'Players see name, tagline and image.', tipPt: 'nome, frase e imagem', tipEn: 'name, tagline, image' },
   revealed: { icon: '👁', pt: 'Revelado', en: 'Revealed', shortPt: 'Revelado', shortEn: 'Revealed',
     hintPt: 'Jogadores veem o texto e os segredos que você revelar.', hintEn: 'Players see the text and the secrets you reveal.', tipPt: 'texto e segredos revelados', tipEn: 'text and revealed secrets' },
