@@ -16,7 +16,7 @@
 .ns-head-line.is-warn { color: var(--amber); }
 .ns-save { flex: none; align-self: center; font-size: 13px; color: var(--ink-muted); white-space: nowrap; }
 .ns-save.s-dirty, .ns-save.s-saving { color: var(--amber); }
-.ns-save.s-error { color: var(--blood-bright); }
+.ns-save.s-error, .ns-save.s-lost { color: var(--blood-bright); }
 .ns-save.s-saved { color: var(--moss-bright); }
 .ns-head .grp-more { flex: none; }
 .ns-head .grp-more-btn { min-width: 44px; min-height: 44px; }
@@ -64,9 +64,10 @@
 /* "Próximo passo →" preso ao pé do passo aberto (acima da barra de baixo e da barra da mesa) */
 .ns-step-next {
   position: sticky; bottom: 12px; z-index: 2; display: flex; padding: 6px 0 10px;
-  background: linear-gradient(180deg, transparent, rgba(16, 11, 8, 0.92) 30%);
+  /* opaco logo abaixo do topo: o texto de baixo não aparece por dentro do botão preso */
+  background: linear-gradient(180deg, rgba(16, 11, 8, 0) 0, rgba(16, 11, 8, 0.96) 6px);
 }
-.ns-step-next .mesa-btn { width: 100%; }
+.ns-step-next .mesa-btn { width: 100%; background: linear-gradient(rgba(214, 176, 100, 0.06), rgba(214, 176, 100, 0.06)), var(--bg-card); }
 @media (max-width: 767px) {
   /* como na Agora: a casca já reserva a barra de baixo, a da mesa e o dado; sem a folga extra do container */
   main.container:has(> .campaign-detail.shell .ns) { padding-bottom: 0; }

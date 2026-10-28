@@ -56,6 +56,19 @@ export function normalizePlan(raw) {
   };
 }
 
+/**
+ * Servidor de antes do Plano guiado (ainda não atualizado): o GET/PUT de /session-plan não
+ * traz o `_rev` (o novo sempre traz: SESSION_PLAN_DEFAULT) e só guarda o nome, a sala e o
+ * "feita" de cada cena. O que vai dentro dela (ler, imagem, combate, teste, notas…) sumiria
+ * calado, então a folha da Cena avisa e não deixa pôr.
+ */
+export const isOldPlanServer = (raw) => !!raw && typeof raw === 'object' && !Object.prototype.hasOwnProperty.call(raw, '_rev');
+
+const pocketFilled = (v) => (typeof v === 'string' ? v.trim().length > 0 : Array.isArray(v) ? v.length > 0 : v === true || (!!v && typeof v === 'object'));
+/** O patch do plano leva algo de dentro de uma cena (um bolso com valor)? */
+export const patchHasPockets = (patch) => (patch?.scenes || [])
+  .some(s => s && typeof s === 'object' && SCENE_POCKETS.some(k => pocketFilled(s[k])));
+
 /** Id curto que não colide com os já usados na lista (c1, c2… / p1, p2…). */
 export function nextId(list, prefix) {
   const used = new Set((list || []).map(x => x.id));
@@ -387,9 +400,10 @@ export function nextStepId(id) {
  * "Pronto para jogar" (fim da sanfona, só leitura): o que já está de pé para a sessão.
  * [{id, ok, text}] — `tv` = a Tela já foi aberta numa TV. `withImage` = cenas com imagem
  * contadas por quem sabe das salas (a imagem da cena ligada mora na sala); sem ele, o
- * bolso 📺 de cada cena.
+ * bolso 📺 de cada cena. `recap` = {has} do resumo da sessão anterior (`session`, o nº
+ * dela), o mesmo do J1 da Agora; sem sessão anterior ou ainda sem saber (null), sem a linha.
  */
-export function readyChecklist(plan, { party = [], tv = false, lang = 'pt', withImage: imgCount = null } = {}) {
+export function readyChecklist(plan, { party = [], tv = false, lang = 'pt', withImage: imgCount = null, recap = null, session = null } = {}) {
   const scenes = plan.scenes.filter(realScene);
   const withImage = Number.isInteger(imgCount) ? imgCount : scenes.filter(s => s.show).length;
   const sheets = party.filter(m => m.character).length;
@@ -403,6 +417,11 @@ export function readyChecklist(plan, { party = [], tv = false, lang = 'pt', with
       : tt(lang, 'nenhum jogador na mesa', 'no players at the table') },
     { id: 'clues', ok: clues > 0, text: clues ? tt(lang, plural(clues, 'pista', 'pistas'), plural(clues, 'clue', 'clues')) : tt(lang, 'nenhuma pista', 'no clues') },
     { id: 'tv', ok: !!tv, text: tv ? tt(lang, 'Tela testada', 'Screen tested') : tt(lang, 'Tela ainda não testada', 'Screen not tested yet') },
+    ...(Number.isInteger(session) && session > 0 && typeof recap?.has === 'boolean' ? [{
+      id: 'recap', ok: recap.has, text: recap.has
+        ? tt(lang, `Resumo da Sessão ${session} pronto para “Anteriormente em…”`, `Session ${session} recap ready for “Previously on…”`)
+        : tt(lang, `Sessão ${session} ainda sem resumo`, `Session ${session} has no recap yet`),
+    }] : []),
   ];
 }
 

@@ -283,6 +283,11 @@ test('cabeçalho, "O que acontece" das notas antigas e o fechar da cena', () => 
   assert.equal(w.value, '★ Pipo · Brilha: Furtividade');
   assert.deepEqual(w.patch('Pipo abre a fechadura'), { what: 'Pipo abre a fechadura', text: 'Cena nova' });
   assert.deepEqual(whatField({ text: 'Ponte', what: 'oi' }).patch('tchau'), { what: 'tchau' });
+  // servidor de antes do Plano guiado: o "O que acontece" fica na 2ª linha do texto, como antes
+  const old = whatField({ text: 'Ponte\nGoblins sob a ponte', what: '' }, { inText: true });
+  assert.equal(old.value, 'Goblins sob a ponte');
+  assert.deepEqual(old.patch('Goblins e um ogro'), { text: 'Ponte\nGoblins e um ogro' });
+  assert.deepEqual(old.patch('  '), { text: 'Ponte' });
   assert.deepEqual(closeScene({ text: '' }, 1), { action: 'remove' });
   assert.deepEqual(closeScene({ text: '', read: 'oi' }, 1, 'pt'), { action: 'name', text: 'Cena 2' });
   assert.deepEqual(closeScene({ text: 'Ponte' }, 0), { action: 'keep' });

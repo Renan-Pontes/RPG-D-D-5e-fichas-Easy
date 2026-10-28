@@ -7,7 +7,7 @@ import { readyApi } from '../ready/ready-logic.js';
 import CoverPicker from './CoverPicker.jsx';
 import ToneAccentFields from '../shell/ToneAccentFields.jsx';
 import { campaignNextLine, defaultCoverArt, isHexColor, loadPlanCard, saveRememberedArea, TONES } from '../shell/shell-logic.js';
-import { writeSkip } from '../shell/next-step.js';
+import { blankPlanSig, writeSkip } from '../shell/next-step.js';
 import '../shell/shell.css';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import { TableInviteCard } from '../creator/JoinTable.jsx';
@@ -185,7 +185,7 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
       // Primeira visita: o Plano da Sessão 1 (com a aventura pronta ou o exemplo ele já vem
       // preenchido). "Passo a passo" já escolheu a porta: o Plano abre nos 5 passos, sem as portas.
       saveRememberedArea(c.id, { area: 'prepare', sub: 'next' });
-      if (start === 'blank') writeSkip(c.id, 'N2', 'empty');
+      if (start === 'blank') writeSkip(c.id, 'N2', blankPlanSig(1));
       onCreated(c);
     } catch (err) {
       const lim = planLimitFrom(err);

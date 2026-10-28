@@ -4,7 +4,7 @@ import {
   emptyPlan, normalizePlan, addScene, addSecret, updateItem, removeItem, moveItem, toggleId, padSecrets,
   toggleDiscovered, revealBodyFor, planDiff, carryOver, missingIds, textForRef, nextId, freshSceneId,
   planHeading, stepSummary, initialStep, nextStepId, readyChecklist, clueCount, planExport, stateSession,
-  planIsBlank, linkedAdventureIds, sceneFights, SECRET_ROWS, PLAN_LIMITS,
+  planIsBlank, linkedAdventureIds, sceneFights, SECRET_ROWS, PLAN_LIMITS, isOldPlanServer, patchHasPockets,
 } from '../src/prep/next-session.js';
 import { searchEntries, pickEntries, entryImage, kindArt, kindLabel } from '../src/prep/prep-world.js';
 import { freeSpotIn, panToShow, makeNode, addNode, emptyData, NODE_W, NODE_H } from '../src/prep/prep-graph.js';
@@ -242,6 +242,13 @@ test('Pronto para jogar e Exportar o plano', () => {
   assert.deepEqual(rows.map(r => [r.id, r.ok]), [['scenes', true], ['party', true], ['clues', false], ['tv', false]]);
   assert.equal(rows[0].text, '2 cenas, 1 com imagem');
   assert.equal(rows[3].text, 'Tela ainda não testada');
+  // o resumo da sessão anterior (o mesmo do J1 da Agora): só com sessão anterior e já sabido
+  const withRecap = (recap, session) => readyChecklist(p, { party: [], lang: 'pt', recap, session }).find(r => r.id === 'recap');
+  assert.deepEqual(withRecap({ has: true }, 3), { id: 'recap', ok: true, text: 'Resumo da Sessão 3 pronto para “Anteriormente em…”' });
+  assert.deepEqual(withRecap({ has: false }, 3), { id: 'recap', ok: false, text: 'Sessão 3 ainda sem resumo' });
+  assert.equal(readyChecklist(p, { lang: 'en', recap: { has: false }, session: 2 }).at(-1).text, 'Session 2 has no recap yet');
+  assert.equal(withRecap(null, 3), undefined, 'ainda lendo: sem a linha');
+  assert.equal(withRecap({ has: false }, 0), undefined, 'Sessão 1: sem sessão anterior');
   const out = JSON.parse(planExport({ ...padSecrets(p), _rev: 9, forSession: 5 }, { campaign: 'Mesa' }));
   assert.equal(out.kind, 'forja-session-plan');
   assert.equal(out.session, 5);
@@ -297,4 +304,20 @@ test('planIsBlank, linkedAdventureIds e sceneFights: o N2 e o N5 sem depender da
   assert.deepEqual(sceneFights(p, nodes), ['c2', 'c4'], 'o encontro da sala e o bolso ⚔ da cena');
   assert.deepEqual(sceneFights(p, {}), ['c4'], 'sala que ainda não chegou não conta');
   assert.deepEqual(sceneFights(null), []);
+});
+
+test('servidor de antes do Plano guiado: sem o _rev no plano, e o patch que perderia o que vai na cena', () => {
+  // o novo sempre manda o _rev (SESSION_PLAN_DEFAULT), até no plano em branco
+  assert.equal(isOldPlanServer({ strongStart: '', scenes: [], _rev: 0, forSession: null }), false);
+  // o Django antigo só devolve as chaves de antes (sem _rev nem forSession)
+  assert.equal(isOldPlanServer({ strongStart: '', scenes: [{ id: 'c1', text: 'Ponte', nodeRef: null, done: false }], secrets: [] }), true);
+  assert.equal(isOldPlanServer(null), false, 'sem resposta não diz nada');
+  assert.equal(isOldPlanServer(normalizePlan({})), false, 'o plano normalizado sempre tem _rev');
+  // bolso com valor = perderia; nome, sala, feita e os vazios do "ligar à sala" não perdem nada
+  assert.equal(patchHasPockets({ scenes: [{ id: 'c1', text: 'Ponte', read: 'A ponte range.' }] }), true);
+  assert.equal(patchHasPockets({ scenes: [{ id: 'c1', fight: [{ monsterId: 'goblin', count: 1 }] }] }), true);
+  assert.equal(patchHasPockets({ scenes: [{ id: 'c1', show: { kind: 'entry', id: 3 } }] }), true);
+  assert.equal(patchHasPockets({ scenes: [{ id: 'c1', text: 'Ponte\nnotas', nodeRef: null, done: true }] }), false);
+  assert.equal(patchHasPockets({ scenes: [{ id: 'c1', nodeRef: { adventureId: 1, nodeId: 'n1' }, read: '', show: null, refs: [], fight: [], check: null, showOff: false }] }), false);
+  assert.equal(patchHasPockets({ strongStart: 'Boom' }), false);
 });

@@ -18,6 +18,7 @@
 .ss :is(input.input, textarea.input, select.input) { font-size: 16px; min-height: 44px; }
 .ss textarea.input { line-height: 1.45; resize: vertical; }
 .ss-hint { margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink-muted); overflow-wrap: anywhere; }
+.ss-hint.ss-old { color: var(--amber); }
 .ss-error { margin: 0; font-size: 14px; color: var(--blood-bright); overflow-wrap: anywhere; }
 .ss-text-line { margin: 0; font-size: 15px; line-height: 1.4; color: var(--ink-secondary); overflow-wrap: anywhere; }
 .ss-linked-note { margin: -4px 0 0; font-size: 14px; line-height: 1.4; color: var(--gold); overflow-wrap: anywhere; }

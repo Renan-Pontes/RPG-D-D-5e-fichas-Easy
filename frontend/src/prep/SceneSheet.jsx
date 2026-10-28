@@ -25,6 +25,7 @@ import './scene-sheet.css';
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
 const FLASH_MS = 6000;
 const PLAN_BLOCKS = ['read', 'show', 'refs', 'fight', 'check', 'spots', 'notes'];
+const ROOM_BLOCKS = ['read', 'show', 'refs', 'fight', 'check'];   // o que a sala guarda (servidor antigo)
 
 /**
  * O ritmo do autosave (700 ms; nunca segura mais de 3 s) para as gravações da sala. Sem rede,
@@ -77,14 +78,14 @@ function useRoomSaver(campaignId, ref, onSaved, onRejected) {
 }
 
 /**
- * props: campaign, lang, plan, sceneId, closed, planSave ('saved'|'dirty'|'saving'|'error'),
- * world, adventures, levels, moments (o Raio-X do Plano, ou null), autoFocusName,
+ * props: campaign, lang, plan, sceneId, closed, planSave ('saved'|'dirty'|'saving'|'error'|'lost'),
+ * oldServer (o servidor de antes do Plano guiado: a cena solta guarda só o nome), world, adventures, levels, moments (o Raio-X do Plano, ou null), autoFocusName,
  * onChange(sceneId, patch), onRemove(scene), onDiscard(scene), onClose(), onCreateEntry(kind, name),
  * onWorldEntry(light), onWorldRemoved(id), onOpenEntry(entry), onRoomSaved(ref, node), onAdventureCreated(adv),
  * goTo, flushPlan()
  */
 export default function SceneSheet({
-  campaign, lang, plan, sceneId, closed, planSave, world, adventures, levels, moments, momentsNote, autoFocusName = false,
+  campaign, lang, plan, sceneId, closed, planSave, oldServer = false, world, adventures, levels, moments, momentsNote, autoFocusName = false,
   onChange, onRemove, onDiscard, onClose, onCreateEntry, onWorldEntry, onWorldRemoved, onOpenEntry, onRoomSaved, onAdventureCreated,
   goTo, flushPlan,
 }) {
@@ -168,6 +169,10 @@ export default function SceneSheet({
   const roomReady = !linked || roomState === 'ok';
   const lockedRoom = linked && !roomReady;   // os blocos da sala esperam a sala chegar
   const roomLoading = linked && roomState === 'loading';
+  // servidor de antes do Plano guiado: só o nome (e o "O que acontece", na 2ª linha) fica na
+  // cena. A solta não deixa pôr nada (sumiria calado); a ligada grava na sala, menos o que
+  // mora na cena (★ Momento, 🔒 Notas, "Mostrar ao começar")
+  const oldLoose = oldServer && !linked;
 
   // "× grupo" (o monstro contra o dano e as salvaguardas da mesa) e as salvaguardas que o
   // combate cobra (para as ideias de momento): versus.js chega por import dinâmico (com a
@@ -244,6 +249,7 @@ export default function SceneSheet({
   // ---------------------------------------------------------------- 📺 imagem
   const pickImage = (entry) => { setPicker(null); setImgError(''); write('show', { kind: 'entry', id: entry.id }); };
   const uploadImage = async (file) => {
+    if (oldLoose) return;   // o cartão ficaria órfão: a cena não guarda a imagem
     setImgBusy(true); setImgError('');
     let light = null;
     try {
@@ -376,14 +382,19 @@ export default function SceneSheet({
       let node = null;
       if (carry) node = (await loadRoom(campaign.id, target.adventureId, target.nodeId)).node;
       const r = linkScene(scene, target, node, { carry });
-      if (r.node) await saveRoom(campaign.id, target.adventureId, target.nodeId, r.node);
+      // a sala gravada troca a linha leve dela no Plano (ícones das cenas, N5), como o autosave
+      if (r.node) {
+        const saved = await saveRoom(campaign.id, target.adventureId, target.nodeId, r.node);
+        onRoomSaved?.(target, saved?.node);
+      }
       onChange(scene.id, r.scene);
       setAsk(null); setLinking(null);
       say(t(lang, 'Cena ligada à sala. Mudar aqui muda a aventura.', 'Scene linked to the room. Changing it here changes the adventure.'));
     } catch (e) { setError(errorMessage(e, lang)); } finally { setBusy(null); }
   };
   const askUnlink = () => {
-    if (room?.node && roomHasPockets(room.node)) setAsk({ type: 'unlink' });
+    // servidor antigo: copiar a sala para a cena solta não ficaria guardado
+    if (!oldServer && room?.node && roomHasPockets(room.node)) setAsk({ type: 'unlink' });
     else doUnlink(false);
   };
   const doUnlink = async (copy) => {
@@ -426,15 +437,22 @@ export default function SceneSheet({
   };
 
   // ---------------------------------------------------------------- desenho
-  const what = whatField(scene);
+  const what = whatField(scene, { inText: oldServer });
   const roomName = room?.node?.name || '';
   const advName = room?.adventure?.name || (adventures || []).find(a => a.id === ref?.adventureId)?.name || '';
   const states = [planSave, linked ? saver.state : 'saved'];
-  const saveText = states.includes('error') ? t(lang, 'Erro ao salvar', 'Save failed')
+  const saveText = states.includes('lost') ? t(lang, '⚠ Só o nome ficou', '⚠ Only the name was kept')
+    : states.includes('error') ? t(lang, 'Erro ao salvar', 'Save failed')
     : states.includes('saving') ? t(lang, 'Salvando…', 'Saving…')
       : states.includes('dirty') ? t(lang, 'Alterado…', 'Edited…') : t(lang, '✓ Salvo', '✓ Saved');
-  const saveCls = states.includes('error') ? 's-error' : states.some(s => s === 'saving' || s === 'dirty') ? 's-dirty' : 's-saved';
+  const saveCls = states.includes('error') || states.includes('lost') ? 's-error' : states.some(s => s === 'saving' || s === 'dirty') ? 's-dirty' : 's-saved';
   const disabled = closed;
+  const blocksOff = disabled || oldLoose;
+  const oldNote = oldServer && !closed ? (
+    <p className="ss-hint ss-old" role="note">{oldLoose
+      ? t(lang, 'Falta atualizar o servidor: por enquanto a cena guarda só o nome e o “O que acontece” (o que você põe dentro dela não fica).', 'The server needs an update: for now the scene keeps only its name and “What happens” (what you put in it is not kept).')
+      : t(lang, 'Falta atualizar o servidor: ★ Momento, 🔒 Notas e "Mostrar ao começar" ainda não ficam guardados nesta cena. O resto fica na sala.', 'The server needs an update: ★ Moment, 🔒 Notes and "Show when it starts" are not kept in this scene yet. The rest is kept in the room.')}</p>
+  ) : null;
   const roomNote = lockedRoom ? (
     <p className="ss-hint">{roomState === 'loading' ? t(lang, 'Carregando a sala…', 'Loading the room…')
       : roomState === 'gone' ? t(lang, 'A sala desta cena não existe mais. Desligue a cena em "Mais opções".', "This scene's room no longer exists. Unlink the scene under \"More options\".")
@@ -472,7 +490,8 @@ export default function SceneSheet({
             onChange={e => onChange(scene.id, what.patch(e.target.value))} />
         </div>
 
-        <ScenePalette ids={PLAN_BLOCKS} present={new Set([...present, ...opened])} lang={lang} disabled={disabled} onPick={openBlock} />
+        {oldNote}
+        <ScenePalette ids={oldServer && linked ? ROOM_BLOCKS : PLAN_BLOCKS} present={new Set([...present, ...opened])} lang={lang} disabled={blocksOff} onPick={openBlock} />
         {linked && (roomReady
           ? <p className="ss-linked-note">🗺 {t(lang, `Guardada na aventura ${advName}. Mudar aqui muda a aventura.`, `Stored in the adventure ${advName}. Changing it here changes the adventure.`)}</p>
           : roomNote)}
@@ -482,43 +501,43 @@ export default function SceneSheet({
             desmontado: "Mais opções" continua aberto depois de ligar a cena a uma sala. */}
         <div className="ss-rest" hidden={roomLoading}>
           {shown('read') && (
-            <TextBlock id="read" lang={lang} value={view.read} max={linked ? SCENE_LIMITS.nodeRead : SCENE_LIMITS.read} disabled={disabled || lockedRoom}
+            <TextBlock id="read" lang={lang} value={view.read} max={linked ? SCENE_LIMITS.nodeRead : SCENE_LIMITS.read} disabled={blocksOff || lockedRoom}
               placeholder={t(lang, 'A ponte range. A névoa sobe do rio e…', 'The bridge creaks. Mist rises from the river and…')}
               onChange={v => write('read', v)} onRemove={() => removeBlock('read')} />
           )}
           {shown('show') && (
             <ImageBlock lang={lang} show={view.show} showFrom={view.showFrom} world={world} roomName={roomName}
-              disabled={disabled || lockedRoom} busy={imgBusy} error={imgError} fresh={fresh}
+              disabled={blocksOff || lockedRoom} busy={imgBusy} error={imgError} fresh={fresh}
               onPickWorld={() => setPicker('image')} onUpload={uploadImage} onKind={changeKind}
               onUseRoom={view.showOff && view.roomImage ? () => { setImgError(''); write('show', { kind: 'node' }); } : null}
               onRemove={() => removeBlock('show')} onRemoveBlock={() => removeBlock('show')} />
           )}
           {shown('refs') && (
-            <PeopleBlock lang={lang} world={world} ids={view.refs} max={linked ? SCENE_LIMITS.nodeRefs : SCENE_LIMITS.refs} disabled={disabled || lockedRoom}
+            <PeopleBlock lang={lang} world={world} ids={view.refs} max={linked ? SCENE_LIMITS.nodeRefs : SCENE_LIMITS.refs} disabled={blocksOff || lockedRoom}
               onToggle={(id) => write('refs', view.refs.includes(id) ? view.refs.filter(x => x !== id) : [...view.refs, id])}
               onCreate={onCreateEntry} onOpen={onOpenEntry} onRemove={() => removeBlock('refs')} />
           )}
           {shown('fight') && (
             <FightBlock lang={lang} fight={view.fight} levels={levels} members={campaign.members} levelingMode={campaign.state?.levelingMode || 'milestone'}
-              disabled={disabled || lockedRoom} maxRows={linked ? SCENE_LIMITS.nodeFight : SCENE_LIMITS.fight} maxCount={linked ? SCENE_LIMITS.nodeCount : SCENE_LIMITS.count}
+              disabled={blocksOff || lockedRoom} maxRows={linked ? SCENE_LIMITS.nodeFight : SCENE_LIMITS.fight} maxCount={linked ? SCENE_LIMITS.nodeCount : SCENE_LIMITS.count}
               versusLine={versusLine} error={fightError} onChange={v => write('fight', v)} onAdd={addMonster} onRemove={() => removeBlock('fight')} />
           )}
           {shown('check') && (
-            <CheckBlock lang={lang} checks={view.checks} members={campaign.members} multi={linked} disabled={disabled || lockedRoom}
+            <CheckBlock lang={lang} checks={view.checks} members={campaign.members} multi={linked} disabled={blocksOff || lockedRoom}
               onChange={list => write('check', list)} onRemove={() => removeBlock('check')} />
           )}
           {shown('spots') && (
-            <MomentBlock lang={lang} items={momentItems} api={momentApi} ideasFor={ideasFor} disabled={disabled} max={SCENE_LIMITS.spots}
+            <MomentBlock lang={lang} items={momentItems} api={momentApi} ideasFor={ideasFor} disabled={disabled || oldServer} max={SCENE_LIMITS.spots}
               busy={momBusy} note={momentApi ? null : (momentsNote || t(lang, 'Os momentos vêm do Raio-X do grupo: precisam de personagens com ficha.', 'Moments come from the party X-ray: they need characters with sheets.'))}
               onAccept={acceptIdea} onWrite={writeOwn} onUnlink={(x) => unlinkMoments([x])} onRemove={removeMoments} />
           )}
           {shown('notes') && (
-            <TextBlock id="notes" lang={lang} value={view.notes} max={SCENE_LIMITS.notes} disabled={disabled}
+            <TextBlock id="notes" lang={lang} value={view.notes} max={SCENE_LIMITS.notes} disabled={disabled || oldServer}
               placeholder={t(lang, 'Ex.: se fugirem, os goblins seguem até a vila.', 'E.g. if they flee, the goblins follow them to the village.')}
               onChange={v => write('notes', v)} onRemove={() => removeBlock('notes')} />
           )}
 
-          {showOnStartVisible(view) && (
+          {showOnStartVisible(view) && !oldServer && (
             <label className="ss-switch">
               <input type="checkbox" checked={view.showOnStart} disabled={disabled} onChange={e => write('showOnStart', e.target.checked)} />
               <span>{t(lang, 'Ao começar esta cena, mostrar na Tela: nome, imagem e texto para ler', 'When this scene starts, show on screen: name, image and read-aloud text')}

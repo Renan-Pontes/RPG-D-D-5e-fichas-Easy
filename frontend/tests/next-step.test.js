@@ -186,6 +186,15 @@ test('a escolha de uma porta (✎ passo a passo) responde o N2 sem botão Pular'
   const n2 = nextStep(ctx);
   assert.equal(n2.id, 'N2');
   assert.equal(nextStep({ ...ctx, skips: { N2: n2.sig } }).id, 'N3');
+  // a escolha no plano da Sessão 1 não esconde as portas do plano em branco da Sessão 2
+  const first = { ...ctx, campaign: camp({ state: {} }) };
+  const s1 = nextStep(first);
+  assert.match(s1.text, /Sessão 1/);
+  const second = { ...ctx, campaign: camp({ state: { session: '1' } }), plan: normalizePlan({ forSession: 2 }), skips: { N2: s1.sig } };
+  const s2 = nextStep(second);
+  assert.equal(s2.id, 'N2');
+  assert.notEqual(s2.sig, s1.sig);
+  assert.match(s2.text, /Sessão 2/);
 });
 
 // ---------------------------------------------------------------- Jogar › Agora (J1–J6, V7)

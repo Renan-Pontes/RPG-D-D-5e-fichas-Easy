@@ -80,6 +80,9 @@ export const stepHelp = (id, lang) => (HELP[id] ? tt(lang, HELP[id][0], HELP[id]
  * foi jogada (`heading.stale`), a próxima — a mesma do "▶ Começar a Sessão N" do fim do Plano.
  */
 export const prepSession = (heading) => (heading.stale ? heading.next : heading.n);
+/** A assinatura do N2 (as 3 portas): a escolha da porta vale só para o plano daquela sessão
+ * (o plano em branco da sessão seguinte volta a mostrar as portas). */
+export const blankPlanSig = (n) => `empty:${n}`;
 
 /**
  * As regras do Plano, na ordem. Cada uma devolve null (não vale) ou o cartão.
@@ -107,7 +110,7 @@ function planRules({ campaign, plan, pulse, insights, adventures = 0, fights = [
       secondary: { id: 'share', label: tt(lang, 'Compartilhar…', 'Share…') },
     }),
     () => (!planIsBlank(plan) || adventures > 0 ? null : {
-      id: 'N2', sig: 'empty', canSkip: false, doors: true,
+      id: 'N2', sig: blankPlanSig(n), canSkip: false, doors: true,
       text: tt(lang, `Escolha como preparar a Sessão ${n}.`, `Choose how to prepare session ${n}.`),
       why: tt(lang, 'Dá para mudar tudo depois.', 'You can change everything later.'),
       action: { id: 'doors', label: '' },

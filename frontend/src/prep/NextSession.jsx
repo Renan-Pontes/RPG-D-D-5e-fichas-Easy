@@ -9,7 +9,7 @@ import {
   normalizePlan, addScene, addSecret, updateItem, removeItem, moveItem, toggleId, padSecrets,
   toggleDiscovered, revealBodyFor, planDiff, carryOver, textForRef, PLAN_LIMITS, PLAN_STEPS,
   sceneParts, withSceneName, planHeading, stepSummary, initialStep, nextStepId, stepLabel, clueCount,
-  readyChecklist, planExport, realScene, freshSceneId, sceneFights, linkedAdventureIds,
+  readyChecklist, planExport, realScene, freshSceneId, sceneFights, linkedAdventureIds, isOldPlanServer, patchHasPockets,
 } from './next-session.js';
 import { nextStep, prepSession, readSkips, reminderText, writeSkip } from '../shell/next-step.js';
 import { inviteLink, screenLink } from '../shell/shell-logic.js';
@@ -24,6 +24,7 @@ import { WORLD_KINDS } from './prep-world.js';
 import { kindIcon, kindLabel } from '../world/world-model.js';
 import { archiveSessionPlan, createSampleWorld } from '../world/world-api.js';
 import { carryText, leftoverCounts } from '../play/end-session.js';
+import { loadRecap, RECAP_EVENT } from '../play/scene-actions.js';
 import { toLight } from '../world/world-model.js';
 import WorldRefs from './WorldRefs.jsx';
 import ReadySheet from './ReadySheet.jsx';
@@ -64,6 +65,7 @@ export default function NextSession({ campaign, lang, goTo }) {
   const [plan, setPlan] = useState(null);
   const [error, setError] = useState('');
   const [saveState, setSaveState] = useState('saved');
+  const [oldPlan, setOldPlan] = useState(false);      // servidor de antes do Plano guiado: só o nome da cena fica
   const [world, setWorld] = useState(null);
   const [worldError, setWorldError] = useState(false);
   const [adventures, setAdventures] = useState(null);
@@ -94,6 +96,7 @@ export default function NextSession({ campaign, lang, goTo }) {
   // ---------------------------------------------------------------- carga
   const loadPlan = useCallback(async () => {
     const r = await prepApi.getSessionPlan(campaign.id);
+    setOldPlan(isOldPlanServer(r?.plan));
     const p = normalizePlan(r.plan);
     savedRef.current = p;
     planRef.current = padSecrets(p);
@@ -128,6 +131,11 @@ export default function NextSession({ campaign, lang, goTo }) {
       setSaveState('saving');
       try {
         const r = await prepApi.saveSessionPlan(campaign.id, patch);
+        // servidor de antes do Plano guiado: o que ia dentro da cena não ficou. Nunca "✓ Salvo"
+        // calado: o aviso diz (a folha da Cena já não deixa pôr, isto é a rede de baixo)
+        const old = isOldPlanServer(r?.plan);
+        setOldPlan(old);
+        const lost = old && patchHasPockets(patch);
         // o servidor marca de qual sessão é o plano (1ª gravação) e sobe o _rev
         const server = normalizePlan(r?.plan);
         const meta = { forSession: server.forSession || savedRef.current.forSession, _rev: server._rev };
@@ -136,7 +144,11 @@ export default function NextSession({ campaign, lang, goTo }) {
           planRef.current = { ...planRef.current, ...meta };
           setPlan(planRef.current);
         }
-        setSaveState(Object.keys(planDiff(savedRef.current, planRef.current)).length ? 'dirty' : 'saved');
+        setSaveState(lost ? 'lost' : Object.keys(planDiff(savedRef.current, planRef.current)).length ? 'dirty' : 'saved');
+        if (lost) {
+          say(t(lang, 'O servidor ainda não guarda o que vai dentro da cena (ler, imagem, combate, teste, notas): falta atualizar. O nome da cena ficou salvo.',
+            'The server cannot keep what goes inside a scene yet (read-aloud, image, combat, check, notes): it needs an update. The scene name was saved.'));
+        }
       } catch (e) {
         setSaveState('error');
         setError(errorMessage(e, lang));
@@ -278,6 +290,22 @@ export default function NextSession({ campaign, lang, goTo }) {
   };
 
   const heading = useMemo(() => (plan ? planHeading(plan, campaign.state, lang) : null), [plan, campaign.state, lang]);
+
+  // "Pronto para jogar": o resumo da sessão anterior (o "Anteriormente em…" desta), lido 1 vez
+  // ao abrir pela mesma fonte do J1 da Agora (sem polling); o salvo agora chega pelo evento
+  const recapOf = heading ? (heading.live ? heading.n : heading.next) - 1 : 0;
+  const [recap, setRecap] = useState(null);
+  useEffect(() => {
+    if (!(recapOf > 0)) { setRecap(null); return undefined; }
+    let alive = true;
+    loadRecap(campaign.id, recapOf).then(r => alive && setRecap(r)).catch(() => alive && setRecap(null));
+    const on = (e) => {
+      const d = e.detail || {};
+      if (String(d.campaignId) === String(campaign.id) && Number(d.session) === recapOf && d.recap) setRecap(d.recap);
+    };
+    window.addEventListener(RECAP_EVENT, on);
+    return () => { alive = false; window.removeEventListener(RECAP_EVENT, on); };
+  }, [campaign.id, recapOf]);
 
   // ⋯ › "Começar o plano da Sessão N" (V12): a folha pergunta Levar o que sobrou / Começar do
   // zero; o servidor arquiva este plano na Crônica (Ver o plano desta sessão, com Restaurar)
@@ -531,7 +559,7 @@ export default function NextSession({ campaign, lang, goTo }) {
     );
   }
 
-  const saveText = { saved: t(lang, '✓ Salvo', '✓ Saved'), dirty: t(lang, 'Alterado…', 'Edited…'), saving: t(lang, 'Salvando…', 'Saving…'), error: t(lang, 'Erro ao salvar', 'Save failed') }[saveState];
+  const saveText = { saved: t(lang, '✓ Salvo', '✓ Saved'), dirty: t(lang, 'Alterado…', 'Edited…'), saving: t(lang, 'Salvando…', 'Saving…'), error: t(lang, 'Erro ao salvar', 'Save failed'), lost: t(lang, '⚠ Só o nome ficou', '⚠ Only the name was kept') }[saveState];
   const worldCount = (world || []).length;
   const totalMoments = insights ? insights.chars.reduce((n, c) => n + c.moments, 0) : null;
   const clues = clueCount(plan);
@@ -571,6 +599,9 @@ export default function NextSession({ campaign, lang, goTo }) {
     : t(lang, `↻ Começar o plano da Sessão ${heading.next}`, `↻ Start the session ${heading.next} plan`);
   const menu = [
     { id: 'ready', label: t(lang, '📖 Usar uma aventura pronta', '📖 Use a ready adventure'), onSelect: () => setSheet({ kind: 'ready' }), hidden: closed },
+    { id: 'archived', label: t(lang, '🗂 Ver planos arquivados', '🗂 See archived plans'),
+      hint: t(lang, 'Na Crônica, cada sessão tem ⋯ › Ver o plano desta sessão, com Restaurar.', 'In the Chronicle, each session has ⋯ › See this session’s plan, with Restore.'),
+      onSelect: () => goTo?.('group', 'chronicle'), hidden: !goTo },
     { id: 'export', label: t(lang, '⇩ Exportar o plano (JSON)', '⇩ Export the plan (JSON)'), onSelect: () => downloadPlan(plan, campaign, heading) },
     { id: 'new', label: newPlanTitle,
       hint: t(lang, 'Guarda este plano na Crônica e começa o novo: com o que sobrou ou do zero.', 'Keeps this plan in the Chronicle and starts the new one: with what is left or from scratch.'),
@@ -701,6 +732,7 @@ export default function NextSession({ campaign, lang, goTo }) {
       </div>
 
       <ReadyToPlay plan={plan} lang={lang} party={party} heading={heading} closed={closed} compact={!desk && !!shownOpen} withImage={withImage}
+        recap={recap} recapOf={recapOf}
         tv={!!(campaign.onboarding?.tv || table?.tvLive)} busy={busy === 'startSession'}
         onCopyTv={copyTv} onStart={startSession} onRehearse={goTo ? () => goTo('play', 'scene') : null} />
      </div>
@@ -789,7 +821,7 @@ export default function NextSession({ campaign, lang, goTo }) {
       {sceneSheet && (
         <Suspense fallback={null}>
           <SceneSheet key={sceneSheet.id} campaign={campaign} lang={lang} plan={plan} sceneId={sceneSheet.id} closed={closed}
-            planSave={saveState} world={world} adventures={adventures} levels={partyLevels(campaign)}
+            planSave={saveState} oldServer={oldPlan} world={world} adventures={adventures} levels={partyLevels(campaign)}
             moments={momentApi} momentsNote={momentsNote} autoFocusName={sceneSheet.fresh}
             onChange={(id, patch) => change(p => updateItem(p, 'scenes', id, patch))}
             onRemove={(sc) => { setSceneSheet(null); removeWithUndo('scenes', sc, t(lang, 'Cena apagada', 'Scene deleted')); }}
@@ -1106,8 +1138,8 @@ function CluesStep({ plan, lang, closed, clues, world, asks, logDiary, setLogDia
  * Fim da sanfona (só leitura): o que já está de pé, ▶ Ensaiar e ▶ Começar a Sessão N. Com um
  * passo aberto no celular (`compact`), só a conta e os botões: a lista volta ao fechar o passo.
  */
-function ReadyToPlay({ plan, lang, party, heading, closed, tv, busy, compact = false, withImage = null, onCopyTv, onStart, onRehearse }) {
-  const rows = readyChecklist(plan, { party, tv, lang, withImage });
+function ReadyToPlay({ plan, lang, party, heading, closed, tv, busy, compact = false, withImage = null, recap = null, recapOf = 0, onCopyTv, onStart, onRehearse }) {
+  const rows = readyChecklist(plan, { party, tv, lang, withImage, recap, session: recapOf });
   const ok = rows.filter(r => r.ok).length;
   return (
     <section className={`mesa-panel is-sunk ns-ready ${compact ? 'is-compact' : ''}`} id="ns-ready" aria-labelledby="ns-ready-h">

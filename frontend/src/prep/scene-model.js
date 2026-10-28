@@ -17,7 +17,7 @@ import { checkLabel } from '../checks/check-logic.js';
 import { chance, pct } from '../group/party-best.js';
 import { DIFFICULTY_LABEL } from '../combat/encounter.js';
 import { nodeEncounter } from './prep-graph.js';
-import { sceneParts } from './next-session.js';
+import { sceneParts, PLAN_LIMITS } from './next-session.js';
 
 const tt = (lang, pt, en) => (lang === 'en' ? en : pt);
 const filled = (s) => typeof s === 'string' && s.trim().length > 0;
@@ -500,9 +500,20 @@ export function sceneHeading(plan, sceneId, lang = 'pt') {
  * "O que acontece (só você vê)": as notas que o Raio-X escrevia no texto da cena (da 2ª
  * linha em diante) aparecem aqui enquanto `what` está vazio; editar grava `what` e deixa o
  * texto só com o nome. → {value, patch(v)}
+ * `inText`: servidor de antes do Plano guiado (o bolso `what` sumiria lá): o campo continua
+ * na 2ª linha do texto, como era antes.
  */
-export function whatField(scene) {
+export function whatField(scene, { inText = false } = {}) {
   const { name, notes } = sceneParts(scene?.text);
+  if (inText) {
+    return {
+      value: notes.slice(0, SCENE_LIMITS.what),
+      patch: (v) => {
+        const w = String(v).slice(0, SCENE_LIMITS.what);
+        return { text: (filled(w) ? `${name}\n${w}` : name).slice(0, PLAN_LIMITS.text) };
+      },
+    };
+  }
   const what = typeof scene?.what === 'string' ? scene.what : '';
   const legacy = !filled(what) && filled(notes);
   return {
