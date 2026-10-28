@@ -535,11 +535,12 @@ def stage_from_screen_card(campaign, card):
 # POST /campaigns/:id/stage/scene {sceneId, show?, focus?, log?}: a cena do plano vira a
 # "cena agora" numa chamada — o nome em state.scene (o que os jogadores, a capa e a TV
 # leem), o id em state.sceneId (só o mestre), a sala da cena ligada vira a sala atual da
-# aventura ("O grupo entrou aqui", com o registro na Crônica se pedido), a cena que estava
-# "agora" fica feita no plano e, com "Mostrar ao começar", a cena vai à frente da Tela com
-# o título, o texto e a versão da imagem GRAVADOS no palco (a TV não abre a aventura a cada
-# leitura). A resposta traz `undo`: o que o ↶ Desfazer manda de volta ({undo: …}) para
-# voltar tudo — o nome, o id, a Tela, a cena feita, a sala atual e o registro.
+# aventura ("O grupo entrou aqui", com o registro na Crônica se pedido — com o nome da
+# cena), a cena que estava "agora" fica feita no plano e, com "Mostrar ao começar", a cena
+# vai à frente da Tela com o título, o texto e a versão da imagem GRAVADOS no palco (a TV
+# não abre a aventura a cada leitura). A resposta traz `undo`: o que o ↶ Desfazer manda de
+# volta ({undo: …}) para voltar tudo — o nome, o id, a Tela, a cena feita, a sala atual e
+# o registro.
 MAX_SCENE_NAME = 200      # o mesmo teto de state.scene
 MAX_SCENE_TEXT = 5000     # o de state.sceneText (o texto lido que a Mesa do jogador mostra)
 
@@ -742,7 +743,9 @@ def start_scene(campaign, body, *, user=None):
         merge_state(campaign, extra)
         stage, changed = get_stage(campaign.state), False
     done_id = prev_id if prev_id and prev_id != scene_id and set_scene_done(campaign, prev_id, True) else None
-    room_back = _enter_room(campaign, room, name=(node or {}).get('name') or front['title'], log=log, user=user) if room else None
+    # o registro diz o nome da CENA (o mesmo de state.scene, da capa e da Tela), nunca o
+    # nome interno da sala: a Crônica é lida pelos jogadores
+    room_back = _enter_room(campaign, room, name=front['title'], log=log, user=user) if room else None
     undo.update(stage=changed, doneId=done_id, room=room_back)
     return {'stage': stage, 'changed': changed, 'shown': show, 'scene': extra['scene'], 'sceneId': scene_id,
             'doneId': done_id, 'undo': undo}

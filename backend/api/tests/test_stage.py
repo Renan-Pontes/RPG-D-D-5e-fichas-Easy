@@ -447,7 +447,9 @@ class SceneStartTests(Base):
         self.assertEqual(self.adv.play['current'], 'n1')
         self.assertIn('n1', self.adv.play['visited'])
         from api.models import DiaryEntry
-        self.assertTrue(DiaryEntry.objects.filter(campaign=self.camp, title='O grupo entrou em Ponte velha').exists())
+        # a Crônica (que os jogadores leem) diz o nome da cena, não o da sala da aventura
+        self.assertTrue(DiaryEntry.objects.filter(campaign=self.camp, title='O grupo entrou em Ponte sobre o rio').exists())
+        self.assertFalse(DiaryEntry.objects.filter(campaign=self.camp, title__contains='Ponte velha').exists())
         # a TV não abre a aventura: o texto e a versão da imagem ficam gravados no palco
         stage = self.raw()
         self.assertEqual(stage['front']['text'], 'A ponte range sob a chuva.')
@@ -488,7 +490,7 @@ class SceneStartTests(Base):
         self.assertIsNone(self.adv.play['current'])
         self.assertNotIn('n1', self.adv.play['visited'])
         from api.models import DiaryEntry
-        self.assertFalse(DiaryEntry.objects.filter(campaign=self.camp, title='O grupo entrou em Ponte velha').exists())
+        self.assertFalse(DiaryEntry.objects.filter(campaign=self.camp, title='O grupo entrou em Ponte sobre o rio').exists())
 
     def test_log_off_and_combat_keeps_for_later(self):
         CombatInstance.objects.create(campaign=self.camp, active=True, round_number=2, combatants=[])
