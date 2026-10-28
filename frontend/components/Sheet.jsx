@@ -1,6 +1,6 @@
 /* Character sheet view — play/stats/spells/inventory/story/journal tabs */
 import { errorMessage } from '../src/api/errors.js';
-import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
@@ -16,7 +16,8 @@ import ScrollTabs from './ScrollTabs.jsx';
 import { Filigree, Modal, NumStepper, Pips, AvatarUpload } from './Shared.jsx';
 import { SheetSpells, SheetInventory, SheetStory, SheetNotes, RestButtons } from './SheetTabs.jsx';
 import { api, ApiError } from '../src/api/client.js';
-import CombatActionPanel from '../src/campaigns/CombatActionPanel.jsx';
+import CombatActionPanel, { useCombatPanel } from '../src/campaigns/CombatActionPanel.jsx';
+import { combatPanelSpot } from '../src/player/player-model.js';
 import PlayerChecksBanner from '../src/checks/PlayerChecksBanner.jsx';
 import * as FS from '../src/progression/fighting-styles.js';
 import GrimoireHint from '../src/grimoire/GrimoireHint.jsx';
@@ -46,7 +47,8 @@ const CampaignLinkModal = lazy(() => import('../src/sheet/CampaignLinkModal.jsx'
 // onCampaignChange(msg): a ficha entrou/saiu/trocou de campanha (modal "Campanha") —
 // o app recarrega a lista (char.inCampaign) e mostra `msg`. onLogin: ficha do aparelho,
 // leva à entrada na conta (sem ele, o servidor está fora e a dica não aparece).
-const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, onLevelUp, onCampaignChange, onLogin, children }) => {
+// backLabel: o texto do "voltar" quando a ficha foi aberta de outro lugar (a Mesa, V13).
+const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, backLabel, onLevelUp, onCampaignChange, onLogin, children }) => {
   const [tab, setTab] = useState('play');
   const [hpDelta, setHpDelta] = useState(0);
   const [tempHpInput, setTempHpInput] = useState(false);
@@ -69,6 +71,25 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   const rootRef = useRef(null);
   const [levelCer, closeLevelCer] = useLevelCeremony(char);
   useGemRelight(rootRef);
+  // Painel de combate (V13): na vez do jogador sobe para o topo da ficha (logo abaixo do
+  // "voltar", antes do retrato) se não está inteiro à vista no lugar de sempre e o topo
+  // está à vista; senão fica e só acende "SUA VEZ". Depois de subir, fica no topo até a
+  // luta acabar (src/player/player-model.js, combatPanelSpot). O combate novo só entra
+  // 600 ms depois do último toque (useCombatPanel), e o lugar é decidido nessa hora,
+  // medido antes de pintar. Um estado só para os dois lugares (CombatActionPanel.jsx).
+  const combatPanel = useCombatPanel(char, { rev: campRev, onUpdate });
+  const inCombat = !!char.inCampaign && !!combatPanel.myCombatant;
+  const [panelSpot, setPanelSpot] = useState('base');
+  const panelBaseRef = useRef(null);  // o lugar de sempre (vazio quando o painel está no topo)
+  useLayoutEffect(() => {
+    const r = panelBaseRef.current?.getBoundingClientRect();
+    const hero = rootRef.current?.querySelector('.sheet-hero')?.getBoundingClientRect();
+    setPanelSpot(prev => combatPanelSpot(prev, {
+      inCombat, isMyTurn: combatPanel.isMyTurn, rect: r || null, topAt: hero ? hero.top : null,
+      viewBottom: window.innerHeight,
+    }));
+  }, [inCombat, combatPanel.isMyTurn]);
+  const turnOnTop = inCombat && panelSpot === 'top';
 
   const update = (patch) => onUpdate({ ...char, ...patch });
   const updateRef = useRef(update);
@@ -178,6 +199,8 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         lang={lang}
         onAvatar={(av) => update({ avatar: av })}
         onBack={onBack}
+        backLabel={backLabel}
+        turnPanel={turnOnTop ? <CombatActionPanel panel={combatPanel} char={char} lang={lang} /> : null}
         onLevelUp={onLevelUp}
         onInspiration={() => update({ inspiration: !char.inspiration })}
         cls={cls} race={race} bg={bg}
@@ -203,7 +226,9 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
       )}
 
       {char.inCampaign && (
-        <CombatActionPanel key={campRev} char={char} lang={lang} onUpdate={onUpdate} />
+        <div ref={panelBaseRef}>
+          {!turnOnTop && <CombatActionPanel panel={combatPanel} char={char} lang={lang} />}
+        </div>
       )}
 
       {/* Barra de ações (src/sheet/ficha.css: .fh-actions): Exportar, Editar e Modo trapaça;
@@ -305,15 +330,16 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
 //   AvatarUpload abre um Modal, que não é portal.
 const hideBrokenImg = (e) => { e.currentTarget.style.display = 'none'; };
 
-const SheetHero = ({ char, lang, onAvatar, onBack, onLevelUp, onInspiration, cls, race, bg }) => {
+const SheetHero = ({ char, lang, onAvatar, onBack, backLabel, turnPanel, onLevelUp, onInspiration, cls, race, bg }) => {
   const pt = lang === 'pt';
   const letter = (char.name || '?').charAt(0).toUpperCase();
   const portrait = char.avatar || speciesArt(char.race) || classArt(char.className);
   return (
     <>
       <button className="btn btn-ghost btn-sm no-print" onClick={onBack} style={{ marginBottom: 12 }}>
-        <Icon name="arrow-back" size={14}/> {t('yourHeroes', lang)}
+        <Icon name="arrow-back" size={14}/> {backLabel || t('yourHeroes', lang)}
       </button>
+      {turnPanel}
       <div className="sheet-hero fh-hero">
         <div className="fh-hero-art" aria-hidden="true">
           <span className="fh-hero-mono">{letter}</span>

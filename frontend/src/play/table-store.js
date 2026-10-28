@@ -19,13 +19,19 @@
 // `pulse.tableRollsRev` (tableRollsRev(), V15) mudam.
 // Servidor sem /pulse (deploy fora de ordem): `missing` → a casca volta ao GET
 // completo a cada 2,5 s, como antes.
+// Jogador (V13): a mesma loja lê o pulso DELE (a mesma rota; o servidor manda a
+// projeção do jogador: a vez no combate, `checksRev`, `rollsRev`). Vai por outro
+// contexto (usePlayerPulse), porque useTable() quer dizer "a mesa do mestre" para
+// quem lê. Servidor antigo (o pulso dá 403 ao jogador): `missing`, e a Mesa volta
+// ao GET completo de 2,5 s e à lista de testes de 3 s, sem a faixa do combate.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
-import { errorMessage } from '../api/errors.js';
+import { errorMessage, isOldServer } from '../api/errors.js';
 import { STAGE_EVENT, STAGE_SENDING_EVENT, STAGE_SENT_EVENT } from '../stage/stage-api.js';
 import { frontLabel, L } from '../stage/stage-now.js';
 import { combatSummary, offlineSeconds, SENT_SHOW_MS, staleText, turnLine } from '../stage/table-bar-model.js';
 import { flash } from './flash.js';
+import { newOpId } from './damage-model.js';
 
 export { tableRollsRev } from '../stage/table-bar-model.js';
 
@@ -36,6 +42,9 @@ const TV_LOCAL_TTL = 30_000;
 export const TableContext = createContext(null);
 /** A loja da mesa (null fora da casca do mestre: quem usa cai no comportamento antigo). */
 export const useTable = () => useContext(TableContext);
+export const PlayerPulseContext = createContext(null);
+/** A loja com o pulso do jogador (null para o mestre e fora da campanha). */
+export const usePlayerPulse = () => useContext(PlayerPulseContext);
 
 function emitCombat(campaignId, combat) {
   if (!combat || typeof window === 'undefined') return;
@@ -259,11 +268,20 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse, fullIns
   const turnRef = useRef(turn);
   turnRef.current = turn;
 
-  /** ▶ Iniciar (combate montado e parado). */
+  /**
+   * ▶ Iniciar (combate montado e parado). V8: pelo POST /encounter com `fromCheck`, que
+   * põe na ordem as respostas do teste de iniciativa aberto (quem não respondeu fica
+   * com 10 e "✎"); servidor antigo (404 em HTML): o /start de antes.
+   */
   const startCombat = useCallback(async () => {
     if (busyRef.current || id == null || closedRef.current) return;
     busyRef.current = 'start'; setBusy('start');
-    try { const r = await api.startCombat(id); applyCombat(r?.combat); }
+    try {
+      let r;
+      try { r = await api.combatEncounter(id, { opId: newOpId(), start: true, fromCheck: true }); }
+      catch (e) { if (!isOldServer(e)) throw e; r = await api.startCombat(id); }
+      applyCombat(r?.combat);
+    }
     catch (e) { failed(e, () => startRef.current()); }
     finally { busyRef.current = ''; setBusy(''); refresh(); }
   }, [id, applyCombat, failed, refresh]);

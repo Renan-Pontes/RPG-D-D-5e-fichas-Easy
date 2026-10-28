@@ -11,6 +11,7 @@ import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import './combat-styles.css';
 import { monsterArt, monsterEmoji } from '../art.js';
 import ArtThumb from '../components/ArtThumb.jsx';
+import { matchesQuery, partyLevelOf, rankMonsters } from '../combat/common-monsters.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 const CR_STEPS = CR_TABLE.map(r => r.numeric);
@@ -28,6 +29,11 @@ const crText = (n) => CR_TABLE.find(r => r.numeric === n)?.cr ?? String(n);
  * `members` (campaign.members, opcional): o gancho do Raio-X — a linha "× grupo" (o monstro
  * contra o dano principal e as salvaguardas da mesa) nos resultados da busca e no escolhido.
  * As contas do Raio-X só carregam quando a folha abre com uma mesa.
+ *
+ * V8: com busca, o nome exato do SRD vem primeiro, depois os mais usados (o 1º ganha "o
+ * mais comum": "goblin" → Goblin Guerreiro) e então o ND mais perto do nível do grupo
+ * (common-monsters.js); a busca ignora acentos. A iniciativa em branco ("🎲 cada um") é
+ * rolada para cada monstro no servidor (d20 + bônus); um número digitado vale para todos.
  */
 // showInitiative=false: contexto sem combate (Preparação), onde iniciativa não se aplica.
 export default function MonsterPicker({ lang, onPick, onClose, levelingMode, confirmLabel, showInitiative = true, members = null }) {
@@ -40,7 +46,7 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
   const [crMax, setCrMax] = useState('');
   const [onlyMine, setOnlyMine] = useState(false);
   const [count, setCount] = useState(1);
-  const [initiative, setInitiative] = useState(10);
+  const [initiative, setInitiative] = useState('');
   const [selectedId, setSelectedId] = useState(null);
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [editDirty, setEditDirty] = useState(false);
@@ -84,22 +90,19 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
     return vs.cache.get(m.id);
   };
 
-  const allFiltered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+  const partyLevel = useMemo(() => partyLevelOf(members), [members]);
+  const { list: allFiltered, commonId } = useMemo(() => {
     const lo = crMin === '' ? -Infinity : parseFloat(crMin);
     const hi = crMax === '' ? Infinity : parseFloat(crMax);
-    return all.filter(m => {
+    const found = all.filter(m => {
       if (onlyMine && !m.custom) return false;
       if (typeFilter && m.type !== typeFilter) return false;
       const cr = Number(m.crNum) || 0;
       if (cr < Math.min(lo, hi) || cr > Math.max(lo, hi)) return false;
-      if (q) {
-        const name = ((m.name?.pt || '') + ' ' + (m.name?.en || '') + ' ' + (m.id || '')).toLowerCase();
-        if (!name.includes(q)) return false;
-      }
-      return true;
+      return matchesQuery(m, query);
     });
-  }, [all, query, typeFilter, crMin, crMax, onlyMine]);
+    return rankMonsters(found, query, { partyLevel });
+  }, [all, query, typeFilter, crMin, crMax, onlyMine, partyLevel]);
   // Paginação igual ao seletor de itens: filtro novo volta para a 1ª página.
   useEffect(() => { setLimit(PAGE_SIZE); }, [query, typeFilter, crMin, crMax, onlyMine]);
   const filtered = allFiltered.slice(0, limit);
@@ -110,7 +113,8 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
 
   const submit = () => {
     if (!selected) return;
-    onPick(monsterForCombat(selected), Math.max(1, Math.min(10, parseInt(count) || 1)), (() => { const n = parseInt(initiative, 10); return Number.isFinite(n) ? n : 10; })());
+    // iniciativa em branco = null: o servidor rola para cada monstro (d20 + bônus)
+    onPick(monsterForCombat(selected), Math.max(1, Math.min(10, parseInt(count) || 1)), (() => { const n = parseInt(initiative, 10); return Number.isFinite(n) ? n : null; })());
   };
 
   const saveMine = (list) => {
@@ -171,8 +175,9 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
           {showInitiative && (
             <div className="mp-init">
               <label className="mp-num-label" htmlFor={`${ids}-init`}>{t(lang, 'Inic.', 'Init')}</label>
-              <input id={`${ids}-init`} type="number" inputMode="numeric" value={initiative}
-                onChange={e => setInitiative(e.target.value)} className="input mp-num" aria-label={t(lang, 'Iniciativa', 'Initiative')} />
+              <input id={`${ids}-init`} type="number" inputMode="numeric" value={initiative} placeholder={t(lang, '🎲 cada', '🎲 each')}
+                onChange={e => setInitiative(e.target.value)} className="input mp-num"
+                aria-label={t(lang, 'Iniciativa (em branco: rolada para cada monstro)', 'Initiative (blank: rolled for each monster)')} />
             </div>
           )}
         </div>
@@ -279,6 +284,7 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
                       <span className="mp-pick-title">
                         <strong>{nm}</strong>
                         {m.custom && <span className="mp-badge local">{t(lang, 'meu', 'mine')}</span>}
+                        {m.id === commonId && <span className="mp-badge common">★ {t(lang, 'o mais comum', 'most common')}</span>}
                       </span>
                       <span className="mp-pick-sub">{t(lang, 'ND', 'CR')} {m.cr} · {monsterTypeLabel(m.type, lang)}</span>
                       <span className="mp-pick-sub">{t(lang, 'CA', 'AC')} {m.ac} · {t(lang, 'PV', 'HP')} {m.hp} · {sizeLabel(m.size, lang)}</span>

@@ -32,6 +32,7 @@ const GONE = [
   { word: /\b[Cc]onduzir\b/, now: 'Na mesa' },
   // V14: a Tela escurece, nunca "apaga"
   { word: /\b[Aa]pagar\s+(?:a\s+)?[Tt]ela\b/, now: 'Escurecer' },
+  { word: /conhecido de nome|known by name/i, now: 'Só o nome' },   // F9: o selo, o filtro e o interruptor
 ];
 
 // V14, dentro dos textos: nenhum "recap" em português (é "Resumo da sessão")…

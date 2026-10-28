@@ -49,12 +49,23 @@ export function defaultArt(entry) {
 
 // ------------------------------------------------------------------ visibilidade
 export const VISIBILITIES = ['hidden', 'partial', 'revealed'];
+// short*: o selo nas linhas estreitas do Atlas no celular; tip*: a dica escrita
+// dentro de cada opção do "Quem vê" (no lugar do title, que o toque não mostra).
+// Uma palavra, um sentido (§1.1 nº 2): o estado do meio é "Só o nome" no selo, no
+// filtro, no interruptor e nos botões da Tela ("Conhecido de nome" saiu do app).
 export const VIS_META = {
-  hidden: { icon: '🔒', pt: 'Oculto', en: 'Hidden', hintPt: 'Só você vê.', hintEn: 'Only you can see it.' },
-  partial: { icon: '◐', pt: 'Conhecido de nome', en: 'Known by name', hintPt: 'Jogadores veem nome, frase e imagem.', hintEn: 'Players see name, tagline and image.' },
-  revealed: { icon: '👁', pt: 'Revelado', en: 'Revealed', hintPt: 'Jogadores veem o texto e os segredos que você revelar.', hintEn: 'Players see the text and the secrets you reveal.' },
+  hidden: { icon: '🔒', pt: 'Oculto', en: 'Hidden', shortPt: 'Oculto', shortEn: 'Hidden',
+    hintPt: 'Só você vê.', hintEn: 'Only you can see it.', tipPt: 'só você vê', tipEn: 'only you see it' },
+  partial: { icon: '◐', pt: 'Só o nome', en: 'Name only', shortPt: 'Só o nome', shortEn: 'Name only',
+    hintPt: 'Jogadores veem nome, frase e imagem.', hintEn: 'Players see name, tagline and image.', tipPt: 'nome, frase e imagem', tipEn: 'name, tagline, image' },
+  revealed: { icon: '👁', pt: 'Revelado', en: 'Revealed', shortPt: 'Revelado', shortEn: 'Revealed',
+    hintPt: 'Jogadores veem o texto e os segredos que você revelar.', hintEn: 'Players see the text and the secrets you reveal.', tipPt: 'texto e segredos revelados', tipEn: 'text and revealed secrets' },
 };
 export const visLabel = (v, lang) => t(lang, VIS_META[v]?.pt || v, VIS_META[v]?.en || v);
+/** Rótulo curto da visibilidade ("Oculto", "Só o nome", "Revelado"). */
+export const visShort = (v, lang) => t(lang, VIS_META[v]?.shortPt || visLabel(v, 'pt'), VIS_META[v]?.shortEn || visLabel(v, 'en'));
+/** A dica curta de cada estado ("só você vê"…). */
+export const visTip = (v, lang) => t(lang, VIS_META[v]?.tipPt || '', VIS_META[v]?.tipEn || '');
 export const visRank = (v) => Math.max(0, VISIBILITIES.indexOf(v));
 export function nextVisibility(v) {
   const i = VISIBILITIES.indexOf(v);
@@ -205,12 +216,15 @@ export function reorderPatches(list, from, to, field = 'sort') {
 }
 
 /**
- * "⋯ › Mover para cima/baixo" (V14, sem arrastar): sobe (dir < 0) ou desce `id` uma casa
- * entre os cartões À VISTA (`shown`, já filtrados), passando o vizinho visível, sobre a
- * ordem inteira (`sorted`) — o mesmo que arrastar até ele. → patches de `sort`; vazio no
- * topo, no fim ou com um id que não está à vista.
- * Quando não cabe entre os vizinhos (o arrastar renumeraria a lista toda: 1 PATCH por
- * cartão), troca os dois valores (2 PATCH), se a ordem à vista sair a esperada.
+ * Modo Ordenar (↑ ↓, sem arrastar): sobe (dir < 0) ou desce `id` uma casa entre os
+ * cartões À VISTA (`shown`, já filtrados), trocando de lugar com o vizinho visível,
+ * sobre a ordem inteira (`sorted`), como o arrastar faz. → patches de `sort`; vazio
+ * no topo, no fim ou com um id que não está à vista.
+ * Sem espaço para encaixar (sort 3 e 4, ou com filtro 4 e 13 com outros no meio):
+ * troca os dois valores (2 PATCH) em vez de renumerar a lista inteira (1 PATCH por
+ * cartão — até 500 escritas por toque). A troca só vale se a ordem À VISTA sair a
+ * esperada (com sort repetido por perto, o desempate por nome poderia pular uma
+ * casa a mais); senão renumera, como o arrastar.
  */
 export function moveStepPatches(sorted, shown, id, dir) {
   const list = shown || [];
@@ -232,6 +246,52 @@ export function moveStepPatches(sorted, shown, id, dir) {
   const seen = new Set(want);
   const got = sortEntries(applyPatches(sorted, swap)).filter(e => seen.has(e.id)).map(e => e.id);
   return got.join(',') === want.join(',') ? swap : patches;
+}
+
+/**
+ * Fila do Ordenar (↑ ↓ e arrastar): `pending` = Map id → {sort, n}, o `sort` mais
+ * novo que a tela mostra e quantos PATCH daquele cartão ainda esperam resposta.
+ * pendingAdd ao mandar; pendingDone a cada resposta (ou erro) daquele id.
+ */
+export function pendingAdd(pending, patches) {
+  for (const p of patches || []) {
+    const cur = pending.get(p.id);
+    pending.set(p.id, { sort: p.sort, n: (cur?.n || 0) + 1 });
+  }
+  return pending;
+}
+export function pendingDone(pending, id) {
+  const cur = pending.get(id);
+  if (!cur) return pending;
+  if (cur.n <= 1) pending.delete(id); else pending.set(id, { ...cur, n: cur.n - 1 });
+  return pending;
+}
+
+/**
+ * Junta a resposta de um PATCH (do Ordenar, do editor, do 👁) à lista: a versão e os
+ * outros campos do servidor; o `sort`, só quando a fila daquele cartão esvaziou.
+ * Enquanto houver PATCH pendente fica o `sort` otimista da tela — senão a resposta
+ * do 1º toque desfaz o 2º, o cartão empata com o vizinho e a linha pula debaixo do
+ * dedo. `resp` é a entrada leve (toLight). → lista nova (imutável)
+ */
+export function mergeReorderResponse(list, resp, pending) {
+  if (!resp?.id) return list;
+  const l = list || [];
+  const wait = pending?.get?.(resp.id);
+  const merged = wait ? { ...resp, sort: wait.sort } : resp;
+  const i = l.findIndex(e => e.id === resp.id);
+  if (i < 0) return [...l, merged];
+  const next = l.slice();
+  next[i] = { ...l[i], ...merged };
+  return next;
+}
+
+/** "🗝 1/2 revelados" (mestre) ou "🗝 2 segredos" (jogador): o texto escrito, sem depender do title. */
+export function secretsText(entry, lang = 'pt', dm = true) {
+  const total = entry?.secretsCount || 0;
+  if (!total) return '';
+  if (dm) return t(lang, `🗝 ${entry.secretsRevealed || 0}/${total} revelados`, `🗝 ${entry.secretsRevealed || 0}/${total} revealed`);
+  return t(lang, `🗝 ${total} ${total === 1 ? 'segredo' : 'segredos'}`, `🗝 ${total} ${total === 1 ? 'secret' : 'secrets'}`);
 }
 
 /** Aplica patches [{id, ...}] numa lista (imutável). */

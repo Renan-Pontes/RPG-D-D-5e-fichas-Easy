@@ -41,7 +41,7 @@ export default function MyPlan({ lang = 'pt', onBack }) {
 
   return (
     <div className="pl-page">
-      {onBack && <button type="button" className="btn btn-ghost btn-sm" onClick={onBack}>← {L(lang, 'Voltar', 'Back')}</button>}
+      {onBack && <button type="button" className="btn btn-ghost btn-sm pl-back" onClick={onBack}>← {L(lang, 'Voltar', 'Back')}</button>}
       <header className="pl-head">
         <p className="eyebrow">{L(lang, 'Sua conta', 'Your account')}</p>
         <h1 className="pl-title">{L(lang, 'Meu plano', 'My plan')}</h1>
@@ -101,7 +101,7 @@ export default function MyPlan({ lang = 'pt', onBack }) {
                   <ul className="pl-tables">
                     {my.tables.map(tb => (
                       <li key={tb.id ?? tb.name} className={`pl-table lvl-${meterLevel(tb.used, tb.max)}`}>
-                        <span className="pl-table-name">{tb.name}{tb.status === 'closed' && <span className="pl-tag pl-tag-closed">{L(lang, 'encerrada', 'closed')}</span>}</span>
+                        <span className="pl-table-name"><span className="pl-table-label">{tb.name}</span>{tb.status === 'closed' && <span className="pl-tag pl-tag-closed">{L(lang, 'encerrada', 'closed')}</span>}</span>
                         <span className="pl-mini-track" aria-hidden="true"><span style={{ width: `${ratio(tb.used, tb.max) * 100}%` }} /></span>
                         <span className="mono pl-table-num">{tb.used}/{tb.max}</span>
                       </li>

@@ -1,8 +1,8 @@
 """
 Pulso da mesa do mestre (V4, especificação §5.9) — no lugar do GET completo da
-campanha no polling de 2,5 s.
+campanha no polling de 2,5 s. O jogador tem a versão dele na mesma rota (V13, no fim).
 
-GET /api/campaigns/<id>/pulse   (só o mestre)
+GET /api/campaigns/<id>/pulse   (mestre; o jogador recebe a projeção dele)
     { rev, planRev, worldRev, advRev, checksRev, tableRollsRev, now,
       live, session, scene, sceneId, startedAt, endedAt,
       screen: { bg, front:{kind,title,imageUrl,hidden,caption,focus}|null,
@@ -47,6 +47,21 @@ completo. Um GET completo a cada 60 s fica de rede de segurança no cliente.
 no LocMemCache que já existe (`mark_tv`); o pulso conta as abas vistas nos
 últimos 30 s (`tv_count`). Nenhuma escrita no banco. A prévia do mestre
 (`?preview=1`) não conta.
+
+Pulso do JOGADOR (V13, especificação §8.3) — a mesma rota, para quem é da mesa e
+não é o mestre; no lugar do GET completo de 2,5 s e da lista de testes de 3 s:
+    { rev, checksRev, rollsRev, now, live, session, scene, closed,
+      combat: { active, round, turnName, nextName, isMine, nextIsMine } | null,
+      counts: { openChecks, pendingRolls } }
+Só o que o jogador já vê: os nomes da ordem (como a TV), sem PV, sem a ordem nem a
+versão do combate, sem `sceneId`, plano, palco cru (`label`, `prev`) ou contas do
+mestre. O palco público e o texto lido vêm no GET completo, que o `rev` do jogador
+cobre campo a campo (tests/test_pulse.py, como o do mestre). `checksRev` só muda
+com os testes abertos PARA ELE e as respostas DELE (a resposta de outro jogador não
+faz a Mesa dele buscar a lista); `rollsRev`, com os pedidos de rolagem dele que
+esperam o mestre. `counts.openChecks` = testes abertos para ele ainda sem resposta.
+Consultas: as 3 de sempre (campanha, vagas, combate) + o Mundo que ele vê (o selo
+de novidades) + só quando há: o cartão da Tela, testes abertos e pedidos esperando.
 """
 import hashlib
 import json
@@ -219,13 +234,16 @@ def _fetch(sql, params):
         return cur.fetchall()
 
 
-def _seats(campaign_id):
+def _seats(campaign_id, seen=False):
     """As vagas da mesa, só o que o `rev` e a contagem de alvos precisam:
     (id, user_id, character_id, role, sponsored, ficha mudou em, nome da ficha,
-    e-mail, usuário, nome de exibição) — os campos de `members` no GET completo."""
+    e-mail, usuário, nome de exibição) — os campos de `members` no GET completo.
+    `seen`: + a última visita ao Mundo (`world_seen_at`, o selo de novidades do
+    jogador) no fim de cada linha; o mestre não usa (a visita não muda o GET dele)."""
     return [tuple(r) for r in _fetch(
         'SELECT m.id, m.user_id, m.character_id, m.role, m.sponsored, ch.updated_at, ch.name, '
-        'u.email, u.username, p.display_name FROM {m} m JOIN {u} u ON u.id = m.user_id '
+        'u.email, u.username, p.display_name' + (', m.world_seen_at' if seen else '') +
+        ' FROM {m} m JOIN {u} u ON u.id = m.user_id '
         'LEFT JOIN {ch} ch ON ch.id = m.character_id LEFT JOIN {p} p ON p.user_id = m.user_id '
         'WHERE m.campaign_id = %s ORDER BY m.id', [campaign_id])]
 
@@ -234,7 +252,7 @@ _COMBAT_SQL = (
     "SELECT c.active, c.round_number, c.turn_index, c.updated_at, "
     "json_extract(j.value, '$.id'), json_extract(j.value, '$.name'), json_extract(j.value, '$.type'), "
     "json_extract(j.value, '$.defeated'), json_extract(j.value, '$.current_hp'), "
-    "json_extract(j.value, '$.stats.max_hp') "
+    "json_extract(j.value, '$.stats.max_hp'), json_extract(j.value, '$.character_id') "
     "FROM {table} c LEFT JOIN json_each(c.combatants) j "
     "WHERE c.campaign_id = %s ORDER BY j.key"
 )
@@ -256,7 +274,8 @@ def _combat_rows(campaign_id):
                 return None
             head = rows[0]
             fighters = [{'id': r[4], 'name': r[5], 'type': r[6], 'defeated': bool(r[7]),
-                         'current_hp': r[8], 'max_hp': r[9]} for r in rows if r[4] is not None or r[5] is not None]
+                         'current_hp': r[8], 'max_hp': r[9], 'character_id': r[10]}
+                        for r in rows if r[4] is not None or r[5] is not None]
             # `ver` no MESMO formato do `updatedAt` do GET do combate (ISO com fuso): o
             # app compara os dois e, se o formato mudasse, buscaria o combate de novo.
             return bool(head[0]), head[1], head[2], _iso(head[3]), fighters
@@ -265,13 +284,28 @@ def _combat_rows(campaign_id):
     if not c:
         return None
     fighters = [{'id': x.get('id'), 'name': x.get('name'), 'type': x.get('type'), 'defeated': bool(x.get('defeated')),
-                 'current_hp': x.get('current_hp'), 'max_hp': (x.get('stats') or {}).get('max_hp')}
+                 'current_hp': x.get('current_hp'), 'max_hp': (x.get('stats') or {}).get('max_hp'),
+                 'character_id': x.get('character_id')}
                 for x in (c.combatants or []) if isinstance(x, dict)]
     return bool(c.active), c.round_number, c.turn_index, c.updated_at.isoformat(), fighters
 
 
 def _down(f):
     return bool(f.get('defeated')) or (isinstance(f.get('current_hp'), (int, float)) and f['current_hp'] <= 0)
+
+
+def _turn(fighters, active, idx):
+    """(quem age agora, quem vem depois): o próximo pula quem caiu."""
+    n = len(fighters)
+    cur = fighters[idx] if active and 0 <= idx < n else None
+    nxt = None
+    if active and n:
+        for i in range(1, n + 1):
+            f = fighters[(idx + i) % n]
+            if f is not cur and not f.get('defeated'):
+                nxt = f
+                break
+    return cur, nxt
 
 
 def combat_summary(row):
@@ -282,14 +316,7 @@ def combat_summary(row):
     n = len(fighters)
     if not n and not active:
         return None
-    cur = fighters[idx] if active and 0 <= idx < n else None
-    nxt = None
-    if active and n:
-        for i in range(1, n + 1):
-            f = fighters[(idx + i) % n]
-            if f is not cur and not f.get('defeated'):
-                nxt = f
-                break
+    cur, nxt = _turn(fighters, active, idx)
     monsters = [f for f in fighters if f.get('type') == 'monster']
     order = [{'id': f.get('id'), 'name': f.get('name') or '', 'kind': f.get('type') or '',
               'acted': bool(active and i < idx), 'defeated': _down(f)} for i, f in enumerate(fighters)]
@@ -396,29 +423,40 @@ def _h(*parts):
     return hashlib.sha1(raw.encode('utf-8')).hexdigest()[:16]
 
 
-def build_pulse(id_or_slug, user):
-    """(payload, etag) do pulso. PermissionDenied se não for o mestre."""
-    row = _campaign_row(id_or_slug)
-    if not user.is_authenticated or row['dm_id'] != user.id:
-        raise PermissionDenied('dm_only')
-    cid = row['id']
-    state = row['state'] if isinstance(row['state'], dict) else {}
-    seats = _seats(cid)
-    combat = combat_summary(_combat_rows(cid))
-    stage = get_stage(state)
+def _screen_sources(cid, state, adv_rev):
+    """O que o GET completo resolve para a Tela fora da campanha: o cartão do Mundo
+    na frente (nome, imagem; ocultado, a frente some) e, no cartão antigo de sala, a
+    aventura. 1 consulta, só com um cartão na frente."""
     entry_id = _front_entry_id(state)
     entry_rev = None
     if entry_id:
         entry_rev = (WorldEntry.objects.filter(campaign_id=cid, pk=entry_id)
                      .values_list('updated_at', 'visibility').first())
     card = state.get('screenCard') if isinstance(state.get('screenCard'), dict) else {}
+    return entry_rev, (adv_rev if card.get('type') == 'scene' else None)
+
+
+def build_pulse(id_or_slug, user):
+    """(payload, etag) do pulso: o do mestre ou, para quem é da mesa, o do jogador
+    (build_player_pulse). PermissionDenied para quem não é da campanha."""
+    row = _campaign_row(id_or_slug)
+    if not user.is_authenticated:
+        raise PermissionDenied('not_a_member')
+    if row['dm_id'] != user.id:
+        return build_player_pulse(row, user)
+    cid = row['id']
+    state = row['state'] if isinstance(row['state'], dict) else {}
+    seats = _seats(cid)
+    combat = combat_summary(_combat_rows(cid))
+    stage = get_stage(state)
     adv_rev = _h(row['adv_n'], row['adv_at'])
+    entry_rev, adv_part = _screen_sources(cid, state, adv_rev)
     # Cada campo do GET completo do mestre tem uma fonte aqui (tests/test_pulse.py):
     # a campanha (state, identidade, dm_settings, status), as vagas e as fichas, as
     # aprovações pendentes, o combate do combatNow, o cartão (ou a sala) da Tela e
     # o plano do mestre (vagas de mesa).
     rev = _h(row['updated_at'], seats, row['n_approvals'], (combat or {}).get('active'), (combat or {}).get('round'),
-             entry_rev, adv_rev if card.get('type') == 'scene' else None, row['dm_plan_at'])
+             entry_rev, adv_part, row['dm_plan_at'])
     session = str(state.get('session') or '')
     meta = (state.get('diarySessions') or {}).get(session) if isinstance(state.get('diarySessions'), dict) else None
     meta = meta if isinstance(meta, dict) else {}
@@ -454,6 +492,72 @@ def build_pulse(id_or_slug, user):
         },
     }
     etag = f'"p{_h(pulse)}"'
+    pulse['now'] = timezone.now().isoformat()
+    return pulse, etag
+
+
+# ------------------------------------------------------------------ pulso do jogador (V13)
+def _same_id(a, b):
+    return a is not None and b is not None and str(a) == str(b)
+
+
+def player_combat(row, character_id):
+    """A vez no combate para a Mesa do jogador: os nomes da ordem, como a TV mostra.
+    Sem PV (de ninguém), sem a ordem e sem a versão do combate (que muda a cada dano:
+    o pulso do jogador só muda quando a vez muda). None fora do combate andando."""
+    if not row or not row[0]:
+        return None
+    active, rnd, idx, _ver, fighters = row
+    cur, nxt = _turn(fighters, active, idx)
+
+    def mine(f):
+        return bool(f) and f.get('type') == 'pc' and _same_id(f.get('character_id'), character_id)
+    return {'active': True, 'round': rnd, 'turnName': (cur or {}).get('name') or '',
+            'nextName': (nxt or {}).get('name') or '', 'isMine': mine(cur), 'nextIsMine': mine(nxt)}
+
+
+def _player_checks(cid, user_id):
+    """(checksRev, abertos sem resposta) dos testes abertos PARA o jogador (os que a
+    lista dele mostra: alvo vazio = todos) e das respostas DELE. 2 consultas pequenas."""
+    rows = CheckRequest.objects.filter(campaign_id=cid, status='open').values_list('id', 'target_user_ids')
+    mine = sorted(pk for pk, targets in rows if not targets or user_id in targets)
+    answered = dict(CheckResponse.objects.filter(check_request_id__in=mine, user_id=user_id)
+                    .values_list('check_request_id', 'updated_at')) if mine else {}
+    return _h(mine, sorted(answered.items())), sum(1 for pk in mine if pk not in answered)
+
+
+def build_player_pulse(row, user):
+    """(payload, etag) do pulso do jogador. PermissionDenied se não for da mesa."""
+    cid = row['id']
+    seats = _seats(cid, seen=True)
+    me = next((s for s in seats if s[1] == user.id), None)
+    if me is None:
+        raise PermissionDenied('not_a_member')
+    state = row['state'] if isinstance(row['state'], dict) else {}
+    combat_row = _combat_rows(cid)
+    active = bool(combat_row and combat_row[0])
+    entry_rev, adv_part = _screen_sources(cid, state, _h(row['adv_n'], row['adv_at']))
+    # Cada campo do GET completo do JOGADOR tem uma fonte aqui (tests/test_pulse.py): a
+    # campanha (state recortado, palco público, screenCard, identidade, imersão, status),
+    # as vagas e as fichas (o resumo dos colegas, a ficha dele), o combatNow, o cartão
+    # (ou a sala) da Tela e o selo de novidades do Mundo (o Mundo + a visita DELE).
+    rev = _h('player', row['updated_at'], [s[:-1] for s in seats], me[-1], active,
+             combat_row[1] if active else None, entry_rev, adv_part, row['world_n'], row['world_at'])
+    checks_rev, open_n = _player_checks(cid, user.id) if row['checks_open'] else (_h([], []), 0)
+    pending = list(RollRequest.objects.filter(campaign_id=cid, requested_by_id=user.id, status='pending')
+                   .order_by('id').values_list('id', flat=True)) if row['rolls_pending'] else []
+    pulse = {
+        'rev': rev,
+        'checksRev': checks_rev,
+        'rollsRev': _h(pending),
+        'live': bool(state.get('live')),
+        'session': str(state.get('session') or ''),
+        'scene': str(state.get('scene') or ''),
+        'closed': row['status'] == 'closed',
+        'combat': player_combat(combat_row, me[2]),
+        'counts': {'openChecks': open_n, 'pendingRolls': len(pending)},
+    }
+    etag = f'"j{_h(pulse)}"'
     pulse['now'] = timezone.now().isoformat()
     return pulse, etag
 

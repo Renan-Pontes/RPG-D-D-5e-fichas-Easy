@@ -2,17 +2,36 @@
 // outros cartões. Pan/zoom com mouse, roda e pinça. Um pin novo nasce
 // INVISÍVEL para os jogadores; mostrar é um clique do mestre.
 // Um pin para um lugar que também tem mapa vira "Entrar no mapa" (aninhado).
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+//
+// F11 (celular primeiro):
+// - Tocar num marcador abre a FOLHA do marcador (MesaSheet, fundo quase claro) e
+//   a página rola para o marcador ficar à vista acima dela; "Mostrar aos
+//   jogadores" fica no rodapé preso: 2 toques. "Salvo"/"Conflito" e o aviso de
+//   conflito aparecem DENTRO da folha (fora dela ficariam sob o fundo). No PC
+//   (≥ 768) é um painel AO LADO do mapa e da barra, preso no alto ao rolar e
+//   nunca passando do pé da tela (o resto rola por dentro): a página não rola
+//   sozinha ao clicar, e o marcador fica parado debaixo do cursor.
+// - O mapa ocupa no máximo 55% da altura no celular: um gesto que começa fora
+//   dele rola a página (só a caixa do mapa tem touch-action: none). A roda do
+//   mouse no zoom mínimo devolve a rolagem à página.
+// - Rótulos só onde cabem (map-labels.js): nenhum cobre outro nem a cabeça de
+//   outro marcador; mais zoom, mais nomes.
+// - Campanha encerrada (readOnly): sem 📍, sem arrastar, sem editar o marcador.
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createEntry, getEntry, isConflict, putEntryImage, updateEntry, worldErrorText, worldImageUrl } from './world-api.js';
 import { compressImage } from './image.js';
 import { KIND_META, clampUnit, freshId, isTouchUi, kindIcon, pinCountText, sortEntries, t, tapVerb } from './world-model.js';
 import useAutosave, { saveStateLabel } from './useAutosave.js';
 import { LogDiaryCheck, useReveal } from './RevealControl.jsx';
 import { EntryPicker } from './LinksField.jsx';
+import { layoutPinLabels, pinPriority, zoomControlsRect } from './map-labels.js';
 import ShowOnTable from '../stage/ShowOnTable.jsx';
+import MesaSheet from '../shell/MesaSheet.jsx';
+import useMedia from '../play/useMedia.js';
 
 const MIN_Z = 1;
 const MAX_Z = 6;
+const WIDE = '(min-width: 768px)';
 
 export default function WorldMap({ campaign, readOnly = false, entries = [], lang = 'pt', mapId: mapIdProp, onMapChange, onOpenEntry, onEntrySaved, onEntryCreated, showCampaign = null }) {
   const maps = useMemo(() => sortEntries(entries.filter(e => e.isMap)), [entries]);
@@ -27,9 +46,14 @@ export default function WorldMap({ campaign, readOnly = false, entries = [], lan
   const [touch] = useState(isTouchUi);
   const tap = tapVerb(lang, touch);
   const versionRef = useRef(null);
+  const wide = useMedia(WIDE);
+  const viewRef = useRef(null);     // .wl-mapview (acha o marcador na tela)
+  const spacerRef = useRef(null);   // folga embaixo enquanto a folha está aberta
+  const sheetRef = useRef(null);    // o corpo da folha do marcador
 
   useEffect(() => { if (mapIdProp && mapIdProp !== mapId) setMapIdState(mapIdProp); }, [mapIdProp]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!mapId && maps.length) setMapIdState(maps[0].id); }, [mapId, maps]);
+  useEffect(() => { if (readOnly) setAdding(false); }, [readOnly]);
 
   const setMapId = (id, { push = false } = {}) => {
     if (push && mapId) setTrail(tr => [...tr, mapId]);
@@ -55,6 +79,7 @@ export default function WorldMap({ campaign, readOnly = false, entries = [], lan
     const next = await updateEntry(cur.id, { data: { ...(cur.data || {}), ...patch.data }, version: versionRef.current });
     versionRef.current = next.version;
     mapRef.current = { ...mapRef.current, version: next.version, updatedAt: next.updatedAt, revealedAt: next.revealedAt };
+    setError('');   // gravou: o "Erro ao salvar" anterior (na folha ou na página) já não vale
     onEntrySaved?.(next);
     return next;
   }, [onEntrySaved]);
@@ -79,6 +104,67 @@ export default function WorldMap({ campaign, readOnly = false, entries = [], lan
   }, () => autosave.flush());
 
   const byId = useMemo(() => new Map(entries.map(e => [e.id, e])), [entries]);
+  const selPin = pins.find(p => p.id === sel) || null;
+  const sheetOpen = !!selPin && !wide;
+
+  // Celular: com a folha aberta, a página rola para o marcador ficar no meio do
+  // pedaço de mapa que sobra acima dela (abaixo do segmentado preso). A folha
+  // trava a rolagem do dedo, não a do programa. Perto do fim da página, uma folga
+  // embaixo do mapa deixa rolar o bastante; ela some quando a folha fecha.
+  useLayoutEffect(() => {
+    const spacer = spacerRef.current;
+    if (!sheetOpen) { if (spacer) spacer.style.height = '0px'; return; }
+    const sheet = sheetRef.current?.closest('.mesa-sheet');
+    const head = viewRef.current?.querySelector(`[data-pin="${CSS.escape(String(sel))}"] .wl-pin-head`);
+    if (!sheet || !head) return;
+    const sheetTop = window.innerHeight - sheet.offsetHeight;
+    const seg = document.querySelector('.shell-seg-tabs');
+    // o que cobre o alto da tela: o segmentado (preso depois de rolar) ou nada
+    const coverTop = () => Math.max(0, seg ? seg.getBoundingClientRect().bottom : 0);
+    const shown = (r, top) => r.top >= top + 8 && r.bottom + 28 <= sheetTop - 8; // a cabeça e o rótulo
+    const scrollBy = (delta) => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const need = window.scrollY + delta - max;
+      if (need > 0 && spacer) spacer.style.height = `${(parseFloat(spacer.style.height) || 0) + Math.ceil(need) + 8}px`;
+      window.scrollTo({ top: Math.max(0, window.scrollY + delta), behavior: 'instant' });
+    };
+    let r = head.getBoundingClientRect();
+    if (shown(r, coverTop())) return;
+    // 1ª conta já com o segmentado preso no alto (é como ele fica depois de rolar)
+    const stuckTop = seg ? seg.offsetHeight : 0;
+    scrollBy((r.top + r.bottom) / 2 - (stuckTop + (sheetTop - stuckTop) / 2));
+    // 2ª, com o que ficou de fato (o segmentado pode ainda não ter prendido)
+    r = head.getBoundingClientRect();
+    const top = coverTop();
+    if (!shown(r, top)) scrollBy((r.top + r.bottom) / 2 - (top + (sheetTop - top) / 2));
+    // o aviso de erro/conflito cresce o rodapé da folha: refaz a conta
+  }, [sheetOpen, sel, !!error, conflict]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // PC: o painel ao lado começa na altura da barra do mapa e nunca passa do pé da
+  // tela — a altura máxima acompanha o topo dele (desce com a página até prender
+  // no alto) e o que sobra rola por dentro. A página NÃO rola sozinha ao escolher
+  // um marcador: o que estava debaixo do cursor continua lá (Princípio 8).
+  const sideRef = useRef(null);
+  const hasMap = !!map;
+  useLayoutEffect(() => {
+    const side = sideRef.current;
+    if (!wide || !side) return undefined;
+    let raf = 0;
+    const fit = () => {
+      raf = 0;
+      const top = Math.max(0, side.getBoundingClientRect().top);
+      side.style.maxHeight = `${Math.max(200, Math.floor(window.innerHeight - top - 8))}px`;
+    };
+    const later = () => { if (!raf) raf = requestAnimationFrame(fit); };
+    fit();
+    window.addEventListener('scroll', later, { passive: true });
+    window.addEventListener('resize', later);
+    return () => {
+      window.removeEventListener('scroll', later);
+      window.removeEventListener('resize', later);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [wide, hasMap]);
 
   // ---------------------------------------------------------------- sem mapas
   if (!maps.length && !mapId) {
@@ -86,117 +172,261 @@ export default function WorldMap({ campaign, readOnly = false, entries = [], lan
     return <NewMapCard campaign={campaign} lang={lang} entries={entries} onCreated={(e) => { onEntryCreated?.(e); setMapId(e.id); }} />;
   }
 
-  const selPin = pins.find(p => p.id === sel) || null;
   const selTarget = selPin?.entryId ? byId.get(selPin.entryId) : null;
-
-  return (
-    <div className="wl-mapview">
-      <div className="wl-map-bar">
-        {trail.length > 0 && (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => { const prev = trail[trail.length - 1]; setTrail(tr => tr.slice(0, -1)); setMapIdState(prev); setSel(null); }}>
-            ← {byId.get(trail[trail.length - 1])?.name || t(lang, 'Voltar', 'Back')}
-          </button>
-        )}
-        <div className="wl-map-tabs" role="tablist">
-          {maps.map(m => (
-            <button key={m.id} type="button" role="tab" aria-selected={m.id === mapId} className={`wl-chip${m.id === mapId ? ' is-on' : ''}`} onClick={() => setMapId(m.id)}>
-              🗺 {m.name}
-            </button>
-          ))}
-        </div>
-        <span className={`wl-save wl-save-${autosave.state}`} aria-live="polite">{saveStateLabel(autosave.state, lang)}</span>
-      </div>
-
+  const visibleCount = pins.filter(p => p.visible).length;
+  const alerts = (
+    <>
       {error && <p className="wl-error" role="alert">{error}</p>}
       {conflict && (
         <div className="wl-conflict" role="alert">
           <strong>{t(lang, 'Alguém alterou este mapa — recarregar?', 'Someone changed this map — reload?')}</strong>
           <div className="wl-row">
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => { autosave.discard(); load(mapId); }}>{t(lang, 'Recarregar', 'Reload')}</button>
+            <button type="button" className="mesa-btn is-primary" onClick={() => { autosave.discard(); load(mapId); }}>{t(lang, 'Recarregar', 'Reload')}</button>
           </div>
         </div>
       )}
+    </>
+  );
+  const panel = selPin ? (
+    <PinPanel pin={selPin} target={selTarget} map={map} entries={entries} lang={lang} readOnly={readOnly} rv={rv}
+      layout={wide ? 'side' : 'sheet'} innerRef={sheetRef} saveState={autosave.state} alerts={sheetOpen ? alerts : null}
+      onUpdate={(patch) => updatePin(selPin.id, patch)}
+      onClose={() => setSel(null)}
+      onOpenCard={(id) => { if (!wide) setSel(null); onOpenEntry?.(id); }}
+      onEnterMap={(id) => setMapId(id, { push: true })}
+      onRemove={() => removePin(selPin.id)} />
+  ) : null;
 
-      {!map ? <p className="wl-muted">{t(lang, 'Abrindo mapa…', 'Opening map…')}</p> : (
-        <>
-          <div className="wl-map-tools">
-            <button type="button" className={`btn btn-sm ${adding ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setAdding(a => !a); setSel(null); }} aria-pressed={adding}>
-              📍 {adding ? t(lang, `${tap} no mapa…`, `${tap} the map…`) : t(lang, 'Marcador', 'Pin')}
+  return (
+    <div className={`wl-mapview${wide ? ' is-wide' : ''}`} ref={viewRef}>
+      <div className="wl-map-main">
+        <div className="wl-map-bar">
+          {trail.length > 0 && (
+            <button type="button" className="mesa-btn wl-map-back" onClick={() => { const prev = trail[trail.length - 1]; setTrail(tr => tr.slice(0, -1)); setMapIdState(prev); setSel(null); }}>
+              ← {byId.get(trail[trail.length - 1])?.name || t(lang, 'Voltar', 'Back')}
             </button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onOpenEntry?.(map.id)}>✎ {t(lang, 'Editar lugar', 'Edit place')}</button>
-            {showCampaign && map.imageVer && (
-              <ShowOnTable campaign={showCampaign} target={{ kind: 'map', entry: map }} lang={lang} className="btn btn-ghost btn-sm">
-                📺 {t(lang, 'Mostrar este mapa na Tela', 'Show this map on screen')}
-              </ShowOnTable>
-            )}
-            <LogDiaryCheck value={rv.logDiary} onChange={rv.setLogDiary} lang={lang} />
+          )}
+          <div className="wl-map-tabs" role="tablist" aria-label={t(lang, 'Mapas', 'Maps')}>
+            {maps.map(m => (
+              <button key={m.id} type="button" role="tab" aria-selected={m.id === mapId} className={`wl-chip wl-map-tab${m.id === mapId ? ' is-on' : ''}`} onClick={() => setMapId(m.id)}>
+                🗺 {m.name}
+              </button>
+            ))}
           </div>
-
-          <MapCanvas
-            map={map} pins={pins} byId={byId} lang={lang} adding={adding} selected={sel}
-            onAdd={(x, y) => {
-              if (pins.length >= 100) { setError(worldErrorText({ data: { error: 'too_many_pins' } }, lang)); return; }
-              const id = freshId('p', pins.map(p => p.id));
-              setPins([...pins, { id, entryId: null, x, y, visible: false }]);
-              setSel(id); setAdding(false);
-            }}
-            onSelect={setSel}
-            onMovePin={(id, x, y) => updatePin(id, { x, y })}
-          />
-
-          {!map.imageVer && (
-            <p className="wl-hint">{t(lang, 'Este mapa ainda não tem imagem. Suba uma em "Editar lugar".', 'This map has no image yet. Upload one in "Edit place".')}</p>
-          )}
-
-          {selPin ? (
-            <div className="wl-pin-panel">
-              <div className="wl-pin-panel-head">
-                <strong>📍 {selTarget?.name || selPin.label || t(lang, 'Marcador novo', 'New pin')}</strong>
-                <button type="button" className="wl-x" onClick={() => setSel(null)} aria-label={t(lang, 'Fechar', 'Close')}>×</button>
-              </div>
-              <label className="wl-label">{t(lang, 'Aponta para', 'Points to')}</label>
-              <EntryPicker entries={entries} value={selPin.entryId} onChange={v => updatePin(selPin.id, { entryId: v })} exclude={[map.id]} lang={lang}
-                placeholder={t(lang, 'Escolha um cartão (opcional)', 'Pick a card (optional)')} />
-              <label className="wl-label" htmlFor="wl-pin-label">{t(lang, 'Rótulo', 'Label')}</label>
-              <input id="wl-pin-label" maxLength={60} value={selPin.label || ''} onChange={e => updatePin(selPin.id, { label: e.target.value })}
-                placeholder={t(lang, 'Ex.: Cripta', 'E.g.: Crypt')} />
-              <div className="wl-pin-vis">
-                <span className={selPin.visible ? 'wl-ok' : 'wl-muted'}>
-                  {selPin.visible ? t(lang, '👁 Os jogadores veem este marcador', '👁 Players see this pin') : t(lang, '🔒 Só você vê este marcador', '🔒 Only you see this pin')}
-                </span>
-                <button type="button" className={`btn btn-sm ${selPin.visible ? 'btn-ghost' : 'btn-primary'}`} disabled={rv.busy}
-                  onClick={() => rv.togglePin(selPin.id, !selPin.visible)}>
-                  {selPin.visible ? t(lang, 'Ocultar', 'Hide') : t(lang, 'Mostrar aos jogadores', 'Show to players')}
+          <span className={`wl-save wl-save-${autosave.state}`} aria-live="polite">{saveStateLabel(autosave.state, lang)}</span>
+          {map && (
+            <div className="wl-map-tools" role="group" aria-label={t(lang, 'Ferramentas do mapa', 'Map tools')}>
+              {!readOnly && (
+                <button type="button" className={`mesa-btn wl-map-tool${adding ? ' is-primary' : ''}`} onClick={() => { setAdding(a => !a); setSel(null); }} aria-pressed={adding}>
+                  <span aria-hidden="true">📍</span>
+                  <span className="wl-map-tool-txt">{adding ? t(lang, `${tap} no mapa…`, `${tap} the map…`) : t(lang, 'Marcador', 'Pin')}</span>
                 </button>
-              </div>
-              {selPin.visible && selTarget?.visibility === 'hidden' && (
-                <p className="wl-hint">{t(lang, 'O cartão ligado está oculto: os jogadores só verão o marcador quando você revelar o cartão.', 'The linked card is hidden: players will only see the pin once you reveal the card.')}</p>
               )}
-              {rv.error && <p className="wl-error">{rv.error}</p>}
-              <div className="wl-row">
-                {selTarget && <button type="button" className="btn btn-ghost btn-sm" onClick={() => onOpenEntry?.(selTarget.id)}>{kindIcon(selTarget.kind)} {t(lang, 'Abrir cartão', 'Open card')}</button>}
-                {selTarget?.isMap && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMapId(selTarget.id, { push: true })}>🗺 {t(lang, 'Entrar no mapa', 'Enter map')}</button>}
-                <button type="button" className="btn btn-danger btn-sm" onClick={() => removePin(selPin.id)}>{t(lang, 'Remover marcador', 'Remove pin')}</button>
-              </div>
-              <p className="wl-hint">{t(lang, 'Arraste o marcador para movê-lo.', 'Drag the pin to move it.')}</p>
+              <button type="button" className="mesa-btn wl-map-tool" onClick={() => onOpenEntry?.(map.id)}>
+                <span aria-hidden="true">{readOnly ? '📖' : '✎'}</span>
+                <span className="wl-map-tool-txt">{readOnly ? t(lang, 'Ver lugar', 'View place') : t(lang, 'Editar lugar', 'Edit place')}</span>
+              </button>
+              {showCampaign && map.imageVer && (
+                <ShowOnTable campaign={showCampaign} target={{ kind: 'map', entry: map }} lang={lang} className="mesa-btn wl-map-tool"
+                  ariaLabel={t(lang, 'Mostrar este mapa na Tela', 'Show this map on screen')}>
+                  <span aria-hidden="true">📺</span>
+                  <span className="wl-map-tool-txt">{wide ? t(lang, 'Mostrar este mapa na Tela', 'Show this map on screen') : t(lang, 'Mostrar na Tela', 'Show on screen')}</span>
+                </ShowOnTable>
+              )}
             </div>
-          ) : (
-            <p className="wl-hint">{pins.length
-              ? `${pinCountText(pins.length, pins.filter(p => p.visible).length, lang)} ${t(lang, `${tap} num marcador para editar.`, `${tap} a pin to edit.`)}`
-              : t(lang, `Nenhum marcador ainda. Use "Marcador" e ${tap.toLowerCase()} no mapa.`, `No pins yet. Use "Pin" and ${tap.toLowerCase()} the map.`)}</p>
           )}
+        </div>
+
+        {/* com a folha aberta, os avisos vão dentro dela (aqui ficariam sob o fundo
+            e empurrariam o marcador para trás da folha) */}
+        {!sheetOpen && alerts}
+
+        {!map ? <p className="wl-muted">{t(lang, 'Abrindo mapa…', 'Opening map…')}</p> : (
+          <div className="wl-map-col">
+            <MapCanvas
+              map={map} pins={pins} byId={byId} lang={lang} adding={adding} selected={sel} readOnly={readOnly}
+              onAdd={(x, y) => {
+                if (pins.length >= 100) { setError(worldErrorText({ data: { error: 'too_many_pins' } }, lang)); return; }
+                const id = freshId('p', pins.map(p => p.id));
+                setPins([...pins, { id, entryId: null, x, y, visible: false }]);
+                setSel(id); setAdding(false);
+              }}
+              onSelect={setSel} zoomSide={wide ? 'right' : 'left'}
+              onMovePin={(id, x, y) => updatePin(id, { x, y })}
+            />
+
+            {!map.imageVer && (
+              <p className="wl-hint">{t(lang, 'Este mapa ainda não tem imagem. Suba uma em "Editar lugar".', 'This map has no image yet. Upload one in "Edit place".')}</p>
+            )}
+            <p className="wl-hint wl-map-hint">{pins.length
+              ? `${pinCountText(pins.length, visibleCount, lang)} ${selPin && wide && !readOnly
+                ? t(lang, 'Arraste o marcador para movê-lo.', 'Drag the pin to move it.')
+                : readOnly
+                  ? t(lang, `${tap} num marcador para ver.`, `${tap} a pin to view it.`)
+                  : t(lang, `${tap} num marcador para editar.`, `${tap} a pin to edit.`)}`
+              : readOnly
+                ? t(lang, 'Este mapa não tem marcadores.', 'This map has no pins.')
+                : t(lang, `Nenhum marcador ainda. Use "Marcador" e ${tap.toLowerCase()} no mapa.`, `No pins yet. Use "Pin" and ${tap.toLowerCase()} the map.`)}</p>
+            <div className="wl-pin-spacer" ref={spacerRef} aria-hidden="true" />
+          </div>
+        )}
+      </div>
+
+      {/* PC: ao lado da barra e do mapa (começa na altura da barra) */}
+      {wide && map && (
+        <aside className="wl-pin-side" ref={sideRef} aria-label={t(lang, 'Marcador', 'Pin')}>
+          {panel || <MapHelp lang={lang} tap={tap} readOnly={readOnly} count={pins.length} visible={visibleCount} />}
+        </aside>
+      )}
+
+      {sheetOpen && panel}
+    </div>
+  );
+}
+
+// ===================================================================== o marcador aberto
+// layout="sheet": folha da mesa no celular (Mostrar aos jogadores no rodapé
+// preso); layout="side": painel ao lado do mapa no PC. O conteúdo é o mesmo.
+// Na folha, saveState ("Salvo", "Erro ao salvar"…) fica embaixo do Rótulo e os
+// avisos de erro/conflito (alerts, com o Recarregar) no rodapé preso, acima do
+// Mostrar: fora da folha eles ficariam sob o fundo.
+function PinPanel({ pin, target, map, entries, lang, readOnly, rv, layout, innerRef, saveState, alerts, onUpdate, onClose, onOpenCard, onEnterMap, onRemove }) {
+  const name = target?.name || pin.label || t(lang, 'Marcador novo', 'New pin');
+  // Mostrar ⇄ Ocultar: o botão que acabou de mudar de sentido ignora toques por
+  // 400 ms (o 2º toque de um toque duplo não desfaz o 1º)
+  const flippedAt = useRef(0);
+  useEffect(() => { flippedAt.current = Date.now(); }, [pin.id, pin.visible]);
+  const vis = (
+    <div className={`wl-pin-vis${pin.visible ? ' is-on' : ''}`}>
+      <span className="wl-pin-vis-txt">
+        {pin.visible ? t(lang, '👁 Os jogadores veem este marcador', '👁 Players see this pin') : t(lang, '🔒 Só você vê este marcador', '🔒 Only you see this pin')}
+      </span>
+      {!readOnly && (
+        <button type="button" className={`mesa-btn mesa-btn-lg wl-pin-show${pin.visible ? '' : ' is-primary'}`} disabled={rv.busy}
+          onClick={() => { if (Date.now() - flippedAt.current >= 400) rv.togglePin(pin.id, !pin.visible); }}>
+          {rv.busy ? '…' : pin.visible ? t(lang, '🔒 Ocultar', '🔒 Hide') : t(lang, '👁 Mostrar aos jogadores', '👁 Show to players')}
+        </button>
+      )}
+    </div>
+  );
+  const log = <LogRow rv={rv} lang={lang} />;
+  const body = (
+    <div className="wl-pin-body" ref={innerRef}>
+      {layout === 'side' && vis}
+      {pin.visible && target?.visibility === 'hidden' && (
+        <p className="wl-hint wl-pin-warn">{t(lang, 'O cartão ligado está oculto: os jogadores só verão o marcador quando você revelar o cartão.', 'The linked card is hidden: players will only see the pin once you reveal the card.')}</p>
+      )}
+      {rv.error && <p className="wl-error" role="alert">{rv.error}</p>}
+      {!readOnly && layout === 'side' && log}
+
+      {readOnly ? (
+        <dl className="wl-pin-ro">
+          <dt>{t(lang, 'Aponta para', 'Points to')}</dt>
+          <dd>{target ? `${kindIcon(target.kind)} ${target.name}` : t(lang, 'nenhum cartão', 'no card')}</dd>
+          {pin.label && <><dt>{t(lang, 'Rótulo', 'Label')}</dt><dd>{pin.label}</dd></>}
+        </dl>
+      ) : (
+        <>
+          <div className="mesa-field">
+            <span className="mesa-field-label">{t(lang, 'Aponta para', 'Points to')}</span>
+            <EntryPicker entries={entries} value={pin.entryId} onChange={v => onUpdate({ entryId: v })} exclude={[map.id]} lang={lang}
+              placeholder={t(lang, 'Escolha um cartão (opcional)', 'Pick a card (optional)')} />
+          </div>
+          <div className="mesa-field">
+            <label htmlFor={`wl-pin-label-${pin.id}`}>{t(lang, 'Rótulo', 'Label')}</label>
+            <input id={`wl-pin-label-${pin.id}`} maxLength={60} value={pin.label || ''} onChange={e => onUpdate({ label: e.target.value })}
+              placeholder={t(lang, 'Ex.: Cripta', 'E.g.: Crypt')} />
+            {layout === 'sheet' && saveState && (
+              <span className={`wl-save wl-save-${saveState} wl-pin-save`} aria-live="polite">{saveStateLabel(saveState, lang)}</span>
+            )}
+          </div>
         </>
+      )}
+
+      {(target || !readOnly) && (
+        <div className="wl-pin-acts">
+          {target && <button type="button" className="mesa-btn" onClick={() => onOpenCard(target.id)}>{kindIcon(target.kind)} {t(lang, 'Abrir cartão', 'Open card')}</button>}
+          {target?.isMap && <button type="button" className="mesa-btn" onClick={() => onEnterMap(target.id)}>🗺 {t(lang, 'Entrar no mapa', 'Enter map')}</button>}
+          {!readOnly && <button type="button" className="mesa-btn is-danger" onClick={onRemove}>{t(lang, 'Remover marcador', 'Remove pin')}</button>}
+        </div>
+      )}
+      {!readOnly && layout === 'sheet' && (
+        <p className="wl-hint">{t(lang, 'Para mover o marcador, feche esta folha e arraste-o no mapa.', 'To move the pin, close this sheet and drag it on the map.')}</p>
+      )}
+      {/* na folha, a caixa fica logo acima do rodapé com o Mostrar (é dele que ela trata) */}
+      {!readOnly && layout === 'sheet' && log}
+    </div>
+  );
+
+  if (layout === 'sheet') {
+    return (
+      <MesaSheet title={name} icon="📍" eyebrow={t(lang, 'Marcador', 'Pin')} size="auto" width="sm" lang={lang}
+        className="wl-pin-sheet" onClose={onClose} footer={<div className="wl-pin-foot">{alerts}{vis}</div>}>
+        {body}
+      </MesaSheet>
+    );
+  }
+  return (
+    <div className="wl-pin-panel">
+      <div className="wl-pin-panel-head">
+        <div className="wl-pin-panel-title">
+          <p className="mesa-eyebrow">{t(lang, 'Marcador', 'Pin')}</p>
+          <strong className="wl-pin-panel-name">📍 {name}</strong>
+        </div>
+        <button type="button" className="mesa-icon-btn wl-pin-x" onClick={onClose} aria-label={t(lang, 'Fechar', 'Close')}>✕</button>
+      </div>
+      {body}
+    </div>
+  );
+}
+
+/** "Registrar na Crônica" com o "?" de 44 que mostra o que ela faz (sem depender do title). */
+function LogRow({ rv, lang }) {
+  const [help, setHelp] = useState(false);
+  return (
+    <div className="wl-pin-log">
+      <div className="wl-pin-log-row">
+        <LogDiaryCheck value={rv.logDiary} onChange={rv.setLogDiary} lang={lang} />
+        <button type="button" className="mesa-icon-btn wl-pin-help-btn" aria-expanded={help} onClick={() => setHelp(h => !h)}
+          aria-label={t(lang, 'O que faz "Registrar na Crônica"?', 'What does "Log in the Chronicle" do?')}>?</button>
+      </div>
+      {help && (
+        <p className="wl-logcheck-hint wl-pin-log-hint">{t(lang, 'Ligada: mostrar um marcador aos jogadores vira uma linha na Crônica da campanha. Desligada: só o mapa muda.',
+          'On: showing a pin to the players adds a line to the campaign Chronicle. Off: only the map changes.')}</p>
       )}
     </div>
   );
 }
 
+/** PC sem marcador escolhido: o que dá para fazer, no lugar do painel. */
+function MapHelp({ lang, tap, readOnly, count, visible }) {
+  return (
+    <div className="wl-pin-panel is-help">
+      <p className="mesa-eyebrow">{t(lang, 'Marcadores', 'Pins')}</p>
+      <p className="wl-pin-help-n">{count ? pinCountText(count, visible, lang) : t(lang, 'Nenhum marcador ainda.', 'No pins yet.')}</p>
+      <ul className="wl-pin-help">
+        <li>{readOnly
+          ? t(lang, `${tap} num marcador para ver para onde ele aponta.`, `${tap} a pin to see where it points.`)
+          : t(lang, `${tap} num marcador para editar, mostrar aos jogadores ou remover.`, `${tap} a pin to edit, show to players or remove it.`)}</li>
+        {!readOnly && <li>{t(lang, `Para criar: 📍 Marcador e ${tap.toLowerCase()} no mapa. Ele nasce oculto.`, `To create one: 📍 Pin, then ${tap.toLowerCase()} the map. It starts hidden.`)}</li>}
+        {!readOnly && <li>{t(lang, 'Arraste um marcador para movê-lo.', 'Drag a pin to move it.')}</li>}
+        <li>{t(lang, 'Cinza e tracejado = só você vê.', 'Grey and dashed = only you see it.')}</li>
+      </ul>
+    </div>
+  );
+}
+
 // ===================================================================== tela do mapa (pan/zoom)
-function MapCanvas({ map, pins, byId, lang, adding, selected, onAdd, onSelect, onMovePin }) {
+// zoomSide: os ＋ − ⤢ no canto de baixo à esquerda no celular (à direita, o dado
+// flutuante cobria parte do ⤢ sem a barra da mesa) e à direita no PC (à esquerda
+// fica a janela da Tela).
+function MapCanvas({ map, pins, byId, lang, adding, selected, readOnly, zoomSide = 'right', onAdd, onSelect, onMovePin }) {
   const boxRef = useRef(null);
   const innerRef = useRef(null);
   const [view, setView] = useState({ z: 1, x: 0, y: 0 });
   const [ratio, setRatio] = useState(null); // largura/altura da imagem
+  const [size, setSize] = useState({ bw: 0, bh: 0, w: 0, h: 0 }); // caixa e imagem (zoom 1), em px
+  const [widths, setWidths] = useState({}); // id → largura do rótulo (medida no DOM)
   const viewRef = useRef(view);
   viewRef.current = view;
   const pointers = useRef(new Map());
@@ -204,6 +434,20 @@ function MapCanvas({ map, pins, byId, lang, adding, selected, onAdd, onSelect, o
   const src = worldImageUrl(map) || '/art/backgrounds/guide.webp';
 
   useEffect(() => { setView({ z: 1, x: 0, y: 0 }); }, [map.id]);
+
+  // mede a caixa e a imagem (gira o celular, abre o painel do lado…)
+  useLayoutEffect(() => {
+    const box = boxRef.current, inner = innerRef.current;
+    if (!box || !inner) return undefined;
+    const measure = () => setSize(s => {
+      const n = { bw: box.clientWidth, bh: box.clientHeight, w: inner.offsetWidth, h: inner.offsetHeight };
+      return n.bw === s.bw && n.bh === s.bh && n.w === s.w && n.h === s.h ? s : n;
+    });
+    measure();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    ro?.observe(box); ro?.observe(inner);
+    return () => ro?.disconnect();
+  }, []);
 
   const clampView = (v) => {
     const box = boxRef.current?.getBoundingClientRect();
@@ -224,11 +468,18 @@ function MapCanvas({ map, pins, byId, lang, adding, selected, onAdd, onSelect, o
     setView(clampView({ z, x, y }));
   };
 
-  // roda do mouse (listener não-passivo para poder impedir a rolagem da página)
+  // roda do mouse (listener não-passivo para poder impedir a rolagem da página);
+  // no zoom mínimo, afastar não muda nada: a roda rola a página.
   useEffect(() => {
     const el = boxRef.current;
     if (!el) return undefined;
-    const onWheel = (e) => { e.preventDefault(); zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX, e.clientY); };
+    const onWheel = (e) => {
+      const z = viewRef.current.z;
+      const out = e.deltaY > 0;
+      if ((out && z <= MIN_Z + 1e-6) || (!out && z >= MAX_Z - 1e-6)) return;
+      e.preventDefault();
+      zoomAt(out ? 1 / 1.15 : 1.15, e.clientX, e.clientY);
+    };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
   }); // eslint-disable-line react-hooks/exhaustive-deps
@@ -270,7 +521,8 @@ function MapCanvas({ map, pins, byId, lang, adding, selected, onAdd, onSelect, o
       if (g.moved) setView(clampView({ z: viewRef.current.z, x: g.vx + dx, y: g.vy + dy }));
     } else if (g.type === 'pin') {
       if (Math.abs(e.clientX - g.sx) + Math.abs(e.clientY - g.sy) > 4) g.moved = true;
-      if (g.moved) { const u = toUnit(e.clientX, e.clientY); g.last = u; movePreview(g.id, u); }
+      // encerrada: o marcador não sai do lugar (o toque só abre)
+      if (g.moved && !readOnly) { const u = toUnit(e.clientX, e.clientY); g.last = u; movePreview(g.id, u); }
     }
   };
   const [preview, setPreview] = useState(null); // {id, x, y} enquanto arrasta
@@ -282,17 +534,52 @@ function MapCanvas({ map, pins, byId, lang, adding, selected, onAdd, onSelect, o
     gesture.current = null;
     if (!g) return;
     if (g.type === 'pin') {
-      if (g.moved && g.last) onMovePin(g.id, g.last.x, g.last.y);
-      else onSelect(g.id);
+      if (g.moved && g.last && !readOnly) onMovePin(g.id, g.last.x, g.last.y);
+      else if (!g.moved) onSelect(g.id);
       setPreview(null);
     } else if (g.type === 'pan' && !g.moved) {
-      if (adding) { const u = toUnit(e.clientX, e.clientY); onAdd(u.x, u.y); } else onSelect(null);
+      if (adding && !readOnly) { const u = toUnit(e.clientX, e.clientY); onAdd(u.x, u.y); } else onSelect(null);
     }
+    if (!g.moved) tappedAt.current = Date.now();
   };
+  // Toque que abriu a folha do marcador: o "click" que o celular gera depois cairia
+  // no que acabou de subir debaixo do dedo (o "Aponta para" da folha). O touchend
+  // cancelado não gera esse clique.
+  const tappedAt = useRef(0);
+  const onTouchEnd = (e) => { if (e.cancelable && Date.now() - tappedAt.current < 300) e.preventDefault(); };
+
+  // Rótulos que cabem nesta vista (px de tela dentro da caixa).
+  const labels = useMemo(() => layoutPinLabels(pins.map(p => {
+    const pos = preview?.id === p.id ? preview : p;
+    return {
+      id: p.id,
+      x: view.x + clampUnit(pos.x) * size.w * view.z,
+      y: view.y + clampUnit(pos.y) * size.h * view.z,
+      w: widths[p.id] || 0,
+      prio: pinPriority({ selected: selected === p.id, visible: p.visible }),
+    };
+  }), { w: size.bw, h: size.bh }, { avoid: [zoomControlsRect({ w: size.bw, h: size.bh }, { side: zoomSide })] }), [pins, preview, view, size, widths, selected, zoomSide]);
+
+  // mede a largura de cada rótulo (os escondidos também: visibility, não display)
+  const [fontsTick, setFontsTick] = useState(0);
+  useEffect(() => { document.fonts?.ready?.then(() => setFontsTick(n => n + 1)).catch(() => {}); }, []);
+  useLayoutEffect(() => {
+    const inner = innerRef.current;
+    if (!inner) return;
+    const next = {};
+    inner.querySelectorAll('[data-pin]').forEach(el => {
+      const lab = el.querySelector('.wl-pin-label');
+      next[el.getAttribute('data-pin')] = lab ? lab.offsetWidth : 0;
+    });
+    setWidths(cur => {
+      const keys = Object.keys(next);
+      return keys.length === Object.keys(cur).length && keys.every(k => cur[k] === next[k]) ? cur : next;
+    });
+  }, [pins, byId, fontsTick]);
 
   return (
-    <div className={`wl-map-box${adding ? ' is-adding' : ''}${ratio ? ' has-ratio' : ''}`} ref={boxRef} style={ratio ? { aspectRatio: String(ratio) } : undefined}
-      onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+    <div className={`wl-map-box${adding ? ' is-adding' : ''}${ratio ? ' has-ratio' : ''}${readOnly ? ' is-readonly' : ''}`} ref={boxRef} style={ratio ? { aspectRatio: String(ratio) } : undefined}
+      onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onTouchEnd={onTouchEnd}>
       <div className="wl-map-inner" ref={innerRef} style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.z})` }}>
         <img src={src} alt={map.name} draggable={false} className="wl-map-img"
           onLoad={e => { const im = e.currentTarget; if (im.naturalWidth && im.naturalHeight) setRatio(im.naturalWidth / im.naturalHeight); }} />
@@ -300,18 +587,22 @@ function MapCanvas({ map, pins, byId, lang, adding, selected, onAdd, onSelect, o
           const target = p.entryId ? byId.get(p.entryId) : null;
           const pos = preview?.id === p.id ? preview : p;
           const meta = target ? KIND_META[target.kind] : null;
+          const lab = labels.get(p.id);
+          const text = p.label || target?.name || '';
           return (
             <button key={p.id} type="button" data-pin={p.id}
-              className={`wl-pin${p.visible ? ' is-visible' : ' is-hidden'}${selected === p.id ? ' is-selected' : ''}${target?.visibility === 'hidden' ? ' target-hidden' : ''}`}
-              style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%`, '--pin-scale': 1 / view.z, '--wl-kind': meta?.color || '#d6b064' }}
-              aria-label={`${target?.name || p.label || t(lang, 'Marcador', 'Pin')}${p.visible ? '' : ` (${t(lang, 'oculto', 'hidden')})`}`}>
+              className={`wl-pin${p.visible ? ' is-visible' : ' is-hidden'}${selected === p.id ? ' is-selected' : ''}${target?.visibility === 'hidden' ? ' target-hidden' : ''}${lab ? '' : ' is-label-off'}${lab?.above ? ' is-label-above' : ''}`}
+              style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%`, '--pin-scale': 1 / view.z, '--wl-kind': meta?.color || '#d6b064', '--label-dx': `${lab?.dx || 0}px` }}
+              // teclado (Enter/Espaço): o toque e o mouse já chegam pelos ponteiros
+              onClick={(e) => { if (e.detail === 0) onSelect(p.id); }}
+              aria-label={`${text || t(lang, 'Marcador', 'Pin')}${p.visible ? '' : ` (${t(lang, 'oculto', 'hidden')})`}`}>
               <span className="wl-pin-head" aria-hidden="true"><span>{target ? kindIcon(target.kind) : '✦'}</span></span>
-              <span className="wl-pin-label">{p.label || target?.name || ''}{!p.visible && ' 🔒'}</span>
+              {(text || !p.visible) && <span className="wl-pin-label" aria-hidden="true">{text}{!p.visible && ' 🔒'}</span>}
             </button>
           );
         })}
       </div>
-      <div className="wl-map-zoom">
+      <div className={`wl-map-zoom is-${zoomSide}`}>
         <button type="button" onClick={() => { const r = boxRef.current.getBoundingClientRect(); zoomAt(1.4, r.left + r.width / 2, r.top + r.height / 2); }} aria-label={t(lang, 'Aproximar', 'Zoom in')}>＋</button>
         <button type="button" onClick={() => { const r = boxRef.current.getBoundingClientRect(); zoomAt(1 / 1.4, r.left + r.width / 2, r.top + r.height / 2); }} aria-label={t(lang, 'Afastar', 'Zoom out')}>－</button>
         <button type="button" onClick={() => setView({ z: 1, x: 0, y: 0 })} aria-label={t(lang, 'Ver tudo', 'Fit')}>⤢</button>
@@ -354,9 +645,12 @@ function NewMapCard({ campaign, lang, entries, onCreated }) {
         <h3>{t(lang, 'Desenhe o seu mundo', 'Draw your world')}</h3>
         <p>{t(lang, 'Suba a imagem de um mapa (feito à mão, gerado ou de um livro) e espete marcadores nos lugares, NPCs e segredos. Os jogadores só veem os marcadores que você mostrar.',
           'Upload a map image (hand-drawn, generated or from a book) and drop pins on places, NPCs and secrets. Players only see the pins you show.')}</p>
-        <div className="wl-row wl-wrap">
-          <input value={name} onChange={e => setName(e.target.value)} placeholder={t(lang, 'Nome do mapa (ex.: Vale de Brumafria)', 'Map name (e.g. Mistfrost Vale)')} maxLength={120} />
-          <button type="button" className="btn btn-primary" disabled={busy} onClick={() => fileRef.current?.click()}>
+        <div className="wl-newmap-row">
+          <div className="mesa-field">
+            <label htmlFor="wl-newmap-name">{t(lang, 'Nome do mapa', 'Map name')}</label>
+            <input id="wl-newmap-name" value={name} onChange={e => setName(e.target.value)} placeholder={t(lang, 'Ex.: Vale de Brumafria', 'E.g. Mistfrost Vale')} maxLength={120} />
+          </div>
+          <button type="button" className="mesa-btn mesa-btn-lg is-primary" disabled={busy} onClick={() => fileRef.current?.click()}>
             {busy ? t(lang, 'Criando…', 'Creating…') : t(lang, '🖼 Escolher imagem do mapa', '🖼 Choose map image')}
           </button>
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) create(f); }} />
@@ -366,7 +660,7 @@ function NewMapCard({ campaign, lang, entries, onCreated }) {
             <p className="wl-hint">{t(lang, 'Ou transforme a imagem de um lugar que você já criou:', 'Or turn the image of a place you already made into a map:')}</p>
             <div className="wl-chips">
               {places.filter(p => p.imageVer).slice(0, 8).map(p => (
-                <button key={p.id} type="button" className="wl-chip" disabled={busy} onClick={() => convert(p)}>🏰 {p.name}</button>
+                <button key={p.id} type="button" className="wl-chip wl-newmap-place" disabled={busy} onClick={() => convert(p)}>🏰 {p.name}</button>
               ))}
             </div>
           </>

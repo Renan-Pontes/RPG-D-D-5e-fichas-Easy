@@ -1,4 +1,5 @@
 import secrets
+from datetime import timedelta
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -60,9 +61,28 @@ def campaign_rigs(request, id_or_slug):
                 raise ValidationError({'error': 'invalid_value_item'})
     if len(norm) > 50:
         raise ValidationError({'error': 'too_many_values'})
+    before = request.data.get('before')
+    if before is not None:
+        try: before = int(before)
+        except (TypeError, ValueError):
+            raise ValidationError({'error': 'invalid_before'})
 
     rig = DiceRig.objects.create(campaign=campaign, target_user_id=target_user_id, dice_type=dice_type, values=norm)
-    return Response({'rig': DiceRigSerializer(rig).data})
+    out = {}
+    # "⚡ Próximo resultado" (F8): `before` = a fila deste jogador que a nova deve
+    # furar. As filas saem por created_at (_consume_or_roll, _peek_rig), então a
+    # nova ganha um created_at entre a fila de antes e essa. Servidor antigo:
+    # ignora o campo e a fila entra no fim (o front avisa: a resposta vem sem `before`).
+    if before is not None:
+        anchor = DiceRig.objects.filter(pk=before, campaign=campaign, target_user_id=target_user_id).exclude(pk=rig.pk).first()
+        if anchor:
+            prev = (DiceRig.objects.filter(campaign=campaign, target_user_id=target_user_id, created_at__lt=anchor.created_at)
+                    .exclude(pk=rig.pk).order_by('-created_at').first())
+            at = prev.created_at + (anchor.created_at - prev.created_at) / 2 if prev else anchor.created_at - timedelta(milliseconds=1)
+            DiceRig.objects.filter(pk=rig.pk).update(created_at=at)
+            rig.created_at = at
+            out['before'] = anchor.id
+    return Response({'rig': DiceRigSerializer(rig).data, **out})
 
 
 @api_view(['PUT', 'DELETE'])

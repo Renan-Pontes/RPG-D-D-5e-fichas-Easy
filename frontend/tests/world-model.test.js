@@ -4,6 +4,7 @@ import {
   KINDS, KIND_META, defaultArt, kindLabel, visLabel, nextVisibility, parseMentions, mentionIds, plainText,
   mentionMarkup, mentionQueryAt, insertMention, filterEntries, allTags, countByKind, sortEntries, reorderPatches,
   applyPatches, timelineEntries, backlinks, childrenOf, isNewFor, toLight, freshId, norm, subtitleOf, relLabel, clampUnit,
+  moveStepPatches, visShort, visTip, secretsText, VISIBILITIES, mergeReorderResponse, pendingAdd, pendingDone,
 } from '../src/world/world-model.js';
 import { WORLD_LIGHT_DM, WORLD_FULL_DM, WORLD_MAP_DM, WORLD_LIGHT_PLAYER } from '../src/world/fixtures.js';
 
@@ -15,7 +16,7 @@ test('todo tipo tem ícone, rótulos pt/en e arte padrão existente no catálogo
   }
   assert.equal(kindLabel('faction', 'pt'), 'Facção');
   assert.equal(kindLabel('faction', 'en', true), 'Factions');
-  assert.equal(visLabel('partial', 'pt'), 'Conhecido de nome');
+  assert.equal(visLabel('partial', 'pt'), 'Só o nome');
 });
 
 test('arte padrão é estável por id e mapa usa a arte de mapa', () => {
@@ -76,6 +77,108 @@ test('ordenar e arrastar (sort)', () => {
   assert.deepEqual(after.map(e => e.id), [2, 1, 3, 4, 5, 6, 7]);
   assert.deepEqual(reorderPatches(list, 2, 2), []);
   assert.deepEqual(reorderPatches(list, -1, 2), []);
+});
+
+test('modo Ordenar: ↑ ↓ troca com o vizinho À VISTA e grava só o sort', () => {
+  const list = sortEntries(WORLD_LIGHT_DM);
+  const ids = (l) => sortEntries(l).map(e => e.id);
+  // sem filtro: o 3 desce uma casa (fica depois do 4)
+  assert.deepEqual(ids(applyPatches(list, moveStepPatches(list, list, 3, +1))), [1, 2, 4, 3, 5, 6, 7]);
+  // sobe uma casa (fica antes do 2)
+  assert.deepEqual(ids(applyPatches(list, moveStepPatches(list, list, 3, -1))), [1, 3, 2, 4, 5, 6, 7]);
+  // no topo / no fim: nada a gravar
+  assert.deepEqual(moveStepPatches(list, list, 1, -1), []);
+  assert.deepEqual(moveStepPatches(list, list, 7, +1), []);
+  // com filtro (só os NPCs à vista), o vizinho é o NPC anterior, mesmo com outros no meio
+  const npcs = list.filter(e => e.kind === 'npc');
+  assert.ok(npcs.length >= 2);
+  const [a, b] = npcs;
+  const after = ids(applyPatches(list, moveStepPatches(list, npcs, b.id, -1)));
+  assert.ok(after.indexOf(b.id) < after.indexOf(a.id), 'o NPC subiu acima do anterior');
+  // id fora da vista ou lista vazia: nada
+  assert.deepEqual(moveStepPatches(list, npcs, 999, -1), []);
+  assert.deepEqual(moveStepPatches([], [], 1, 1), []);
+  // patches só com id e sort (o PATCH leva a versão de quem chama)
+  for (const p of moveStepPatches(list, list, 5, -1)) assert.deepEqual(Object.keys(p).sort(), ['id', 'sort']);
+  // sort colados (1, 2, 3…): troca os dois valores em vez de renumerar todos
+  const tight = Array.from({ length: 30 }, (_, k) => ({ id: k + 1, name: `c${k + 1}`, sort: k + 1 }));
+  const sw = moveStepPatches(tight, tight, 2, +1);
+  assert.deepEqual(sw, [{ id: 2, sort: 3 }, { id: 3, sort: 2 }]);
+  assert.deepEqual(ids(applyPatches(tight, sw)).slice(0, 4), [1, 3, 2, 4]);
+  // com espaço entre os vizinhos: 1 PATCH só (o do cartão movido)
+  const loose = tight.map(e => ({ ...e, sort: e.sort * 10 }));
+  assert.equal(moveStepPatches(loose, loose, 2, +1).length, 1);
+  // sort repetidos (cartões novos, todos 0): renumera, como o arrastar
+  const zeros = tight.slice(0, 4).map(e => ({ ...e, sort: 0 }));
+  assert.deepEqual(ids(applyPatches(zeros, moveStepPatches(zeros, zeros, 1, +1))), [2, 1, 3, 4]);
+  // com filtro e sort colados (o seed: 1..38): vizinhos À VISTA longe na lista inteira
+  // trocam os dois valores — 2 PATCH, não 1 por cartão do Mundo
+  const mixed = tight.map(e => ({ ...e, kind: [2, 3, 4, 13, 14].includes(e.id) ? 'npc' : 'place' }));
+  const onlyNpcs = mixed.filter(e => e.kind === 'npc');
+  const up = moveStepPatches(mixed, onlyNpcs, 13, -1);
+  assert.equal(up.length, 2);
+  assert.deepEqual(up, [{ id: 13, sort: 4 }, { id: 4, sort: 13 }]);
+  const npcOrder = sortEntries(applyPatches(mixed, up)).filter(e => e.kind === 'npc').map(e => e.id);
+  assert.deepEqual(npcOrder, [2, 3, 13, 4, 14]);
+  assert.equal(moveStepPatches(mixed, onlyNpcs, 4, +1).length, 2);
+  // troca que o desempate por nome estragaria (sort repetido com o vizinho de fora): renumera
+  const tieList = sortEntries([{ id: 1, name: 'b', sort: 3 }, { id: 2, name: 'a', sort: 3 }, { id: 3, name: 'c', sort: 4 }]);
+  assert.deepEqual(tieList.map(e => e.id), [2, 1, 3]);
+  assert.deepEqual(ids(applyPatches(tieList, moveStepPatches(tieList, tieList, 3, -1))), [2, 3, 1]);
+});
+
+test('fila do Ordenar: com o servidor lento, a resposta de um toque não desfaz o seguinte', () => {
+  // sort 1..7; o cartão 2 desce 3 vezes (↓ ↓ ↓) antes de qualquer resposta chegar
+  let list = Array.from({ length: 7 }, (_, k) => ({ id: k + 1, name: `c${k + 1}`, sort: k + 1, version: 1 }));
+  const ids = (l) => sortEntries(l).map(e => e.id);
+  const pending = new Map();
+  const queue = [];
+  for (let tap = 0; tap < 3; tap++) {
+    const s = sortEntries(list);
+    const patches = moveStepPatches(s, s, 2, +1);
+    assert.equal(patches.length, 2);
+    pendingAdd(pending, patches);
+    list = applyPatches(list, patches);
+    queue.push(...patches);
+  }
+  assert.deepEqual(ids(list), [1, 3, 4, 5, 2, 6, 7]);
+  assert.deepEqual(pending.get(2), { sort: 5, n: 3 });
+  // as respostas chegam uma a uma, na ordem da fila: a tela não muda no meio
+  const server = new Map(list.map(e => [e.id, { ...e, sort: e.id }]));
+  for (const p of queue) {
+    const cur = server.get(p.id);
+    const resp = { ...cur, sort: p.sort, version: cur.version + 1, updatedAt: `v${cur.version + 1}` };
+    server.set(p.id, resp);
+    pendingDone(pending, p.id);
+    list = mergeReorderResponse(list, resp, pending);
+    assert.deepEqual(ids(list), [1, 3, 4, 5, 2, 6, 7], `depois da resposta ${p.id}:${p.sort}`);
+  }
+  assert.equal(pending.size, 0);
+  // no fim valem a versão e os campos do servidor (e o sort, igual ao da tela)
+  const two = list.find(e => e.id === 2);
+  assert.deepEqual([two.sort, two.version, two.updatedAt], [5, 4, 'v4']);
+  assert.deepEqual(ids([...server.values()]), [1, 3, 4, 5, 2, 6, 7]);
+  // sem fila: a resposta (do editor, do 👁) entra inteira; cartão novo vai para o fim
+  assert.equal(mergeReorderResponse(list, { id: 3, sort: 99, summary: 'nova' }, new Map()).find(e => e.id === 3).sort, 99);
+  assert.equal(mergeReorderResponse(list, { id: 50, name: 'novo', sort: 0 }, pending).length, 8);
+  assert.equal(mergeReorderResponse(list, null, pending), list);
+  // pendingDone num id sem fila não quebra
+  assert.equal(pendingDone(new Map(), 9).size, 0);
+});
+
+test('selo e dicas da visibilidade escritos (sem depender do title)', () => {
+  assert.equal(visShort('partial', 'pt'), 'Só o nome');
+  // uma palavra, um sentido: o selo curto, o filtro e o interruptor dizem o mesmo
+  for (const v of VISIBILITIES) for (const lang of ['pt', 'en']) assert.equal(visLabel(v, lang), visShort(v, lang));
+  assert.equal(visShort('hidden', 'en'), 'Hidden');
+  for (const v of VISIBILITIES) {
+    assert.ok(visShort(v, 'pt') && visShort(v, 'en'));
+    assert.ok(visTip(v, 'pt') && visTip(v, 'en'));
+  }
+  assert.equal(secretsText({ secretsCount: 2, secretsRevealed: 1 }, 'pt'), '🗝 1/2 revelados');
+  assert.equal(secretsText({ secretsCount: 2, secretsRevealed: 1 }, 'en'), '🗝 1/2 revealed');
+  assert.equal(secretsText({ secretsCount: 1 }, 'pt', false), '🗝 1 segredo');
+  assert.equal(secretsText({ secretsCount: 0 }, 'pt'), '');
 });
 
 test('linha do tempo: só com whenLabel, ordem por whenOrder e reordenar', () => {

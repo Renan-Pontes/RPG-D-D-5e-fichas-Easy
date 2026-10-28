@@ -23,7 +23,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from api.models import (Adventure, Approval, Campaign, CheckRequest, CheckResponse, Character, CombatInstance,
-                        Membership, Plan, Profile, RollRequest, UserPlan, WorldEntry)
+                        Membership, Plan, Profile, RollRequest, UserPlan, WorldEntry, WorldImage)
 from api import table_rolls, views_pulse
 
 User = get_user_model()
@@ -74,9 +74,15 @@ class Base(TestCase):
 
 
 class AccessTests(Base):
-    def test_only_the_dm(self):
+    def test_dm_player_and_outsider(self):
         self.assertEqual(self.pulse().status_code, 200)
-        self.assertEqual(self.pulse(self.c_p1).status_code, 403)
+        self.assertIn('planRev', self.pulse().json())
+        # V13: o jogador recebe a projeção dele (nada do mestre); quem não é da mesa, 403
+        r = self.pulse(self.c_p1)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertNotIn('planRev', r.json())
+        outsider = APIClient(); outsider.force_login(make_user('z@x.com', 'Zé'))
+        self.assertEqual(self.pulse(outsider).status_code, 403)
         self.assertIn(self.pulse(self.anon).status_code, (401, 403))
 
     def test_by_slug_and_404(self):
@@ -434,3 +440,230 @@ class TvLiveTests(Base):
         before = Campaign.objects.get(pk=self.camp.pk).updated_at
         self.screen('?tv=1&c=sala')
         self.assertEqual(Campaign.objects.get(pk=self.camp.pk).updated_at, before)
+
+
+# ------------------------------------------------------------------ V13 · pulso do jogador
+class PlayerBase(Base):
+    def prev(self, client=None):
+        r = self.pulse(client or self.c_p1)
+        self.assertEqual(r.status_code, 200, r.content)
+        return r.json()
+
+    def rev(self):
+        return self.prev()['rev']
+
+    def full(self):
+        r = self.c_p1.get(f'/api/campaigns/{self.camp.id}')
+        self.assertEqual(r.status_code, 200, r.content)
+        return r.json()['campaign']
+
+
+class PlayerPulseTests(PlayerBase):
+    """§8.3: o pulso do jogador substitui o GET completo (2,5 s) e a lista de testes (3 s)."""
+
+    KEYS = {'rev', 'checksRev', 'rollsRev', 'now', 'live', 'session', 'scene', 'closed', 'combat', 'counts'}
+
+    def test_never_a_dm_only_field(self):
+        """Aceite 3: sem PV numérico de monstro, sem sceneId, sem plano, sem cartão oculto, sem stage.prev."""
+        torre = WorldEntry.objects.create(campaign=self.camp, kind='place', name='Torre Oculta', visibility='hidden',
+                                          image_ver='torre1')
+        WorldImage.objects.create(entry=torre, data='data:image/png;base64,iVBORw0KGgpzdGFnZQ==')
+        r = self.c_dm.patch(f'/api/campaigns/{self.camp.id}/state', {'patch': {'nudges': {'x': 'NOTA-DO-MESTRE'}}},
+                            format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        # `sceneId` (a cena do plano em jogo, V7): gravado direto, para valer com ou sem a V7
+        self.camp.refresh_from_db()
+        self.camp.state = {**self.camp.state, 'sceneId': 'cena-secreta-42'}
+        self.camp.save()
+        self.c_dm.put(f'/api/campaigns/{self.camp.id}/session-plan',
+                      {'plan': {'strongStart': 'SEGREDO-DO-PLANO'}}, format='json')
+        # a frente "só a imagem" de um cartão oculto (o nome fica no `label`, só do mestre) e um ↶ (prev)
+        r = self.c_dm.post(f'/api/campaigns/{self.camp.id}/stage',
+                           {'op': 'show', 'target': {'kind': 'card', 'entryId': self.velna.id}}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        r = self.c_dm.post(f'/api/campaigns/{self.camp.id}/stage',
+                           {'op': 'show', 'target': {'kind': 'image', 'ref': {'entryId': torre.id}}}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(self.c_dm.get(f'/api/campaigns/{self.camp.id}').json()['campaign']['stage']['front']['label'],
+                         'Torre Oculta')
+        Approval.objects.create(campaign=self.camp, character=self.dagna, requested_by=self.p1, type='levelup')
+        CombatInstance.objects.create(campaign=self.camp, active=True, round_number=2, turn_index=0, combatants=[
+            {'id': 'g', 'name': 'Goblin Chefe', 'type': 'monster', 'current_hp': 17, 'stats': {'max_hp': 23, 'ac': 15}},
+            {'id': 'd', 'name': 'Dagna', 'type': 'pc', 'character_id': self.dagna.id, 'current_hp': 9,
+             'stats': {'max_hp': 12}}])
+        r = self.pulse(self.c_p1)
+        p = r.json()
+        self.assertEqual(set(p), self.KEYS)
+        self.assertEqual(set(p['combat']), {'active', 'round', 'turnName', 'nextName', 'isMine', 'nextIsMine'})
+        self.assertEqual(set(p['counts']), {'openChecks', 'pendingRolls'})
+        raw = r.content.decode('utf-8')
+        for secret in ('Torre Oculta', 'cena-secreta-42', 'NOTA-DO-MESTRE', 'SEGREDO-DO-PLANO', '"sceneId"', '"prev"',
+                       '"label"', '"turnHp"', '"planRev"', '"approvals"', '"dangers"', '"stage"', '"screen"', '"order"',
+                       '"hp"', '"current_hp"', '"ver"'):
+            self.assertNotIn(secret, raw, secret)
+
+        def numbers(v):
+            if isinstance(v, dict):
+                return [n for x in v.values() for n in numbers(x)]
+            return [v] if isinstance(v, int) and not isinstance(v, bool) else []
+        # números só a rodada e as contas dele (nem 17/23 de PV, nem 15 de CA, nem 1 aprovação)
+        self.assertEqual(sorted(numbers(p)), [0, 0, 2])
+        self.assertEqual((p['combat']['turnName'], p['combat']['nextName'], p['combat']['round']),
+                         ('Goblin Chefe', 'Dagna', 2))
+        self.assertEqual((p['combat']['isMine'], p['combat']['nextIsMine']), (False, True))
+        # o mestre continua com tudo
+        dm = self.pulse().json()
+        self.assertEqual(dm['sceneId'], 'cena-secreta-42')
+        self.assertEqual(dm['combat']['turnHp'], '17/23')
+
+    def test_small_304_and_no_heavy_data(self):
+        self.dagna.data = {**self.dagna.data, 'avatar': 'data:image/png;base64,' + 'A' * 50_000}
+        self.dagna.save()
+        CombatInstance.objects.create(campaign=self.camp, active=True, combatants=[
+            {'id': 'a', 'name': 'Goblin', 'type': 'monster', 'current_hp': 7, 'stats': {'max_hp': 7},
+             'sprite': 'data:image/png;base64,' + 'B' * 50_000}], map_data={'background_image': 'C' * 50_000})
+        r = self.pulse(self.c_p1)
+        self.assertLess(len(r.content), 600)
+        self.assertNotIn(b'base64', r.content)
+        self.assertEqual(self.pulse(self.c_p1, HTTP_IF_NONE_MATCH=r['ETag']).status_code, 304)
+        # a mesma campanha: o ETag do jogador não é o do mestre
+        self.assertNotEqual(self.pulse()['ETag'], r['ETag'])
+
+    def test_whose_turn(self):
+        c = CombatInstance.objects.create(campaign=self.camp, active=True, round_number=3, turn_index=1, combatants=[
+            {'id': 'g', 'name': 'Goblin #2', 'type': 'monster', 'current_hp': 4, 'stats': {'max_hp': 7}},
+            {'id': 'd', 'name': 'Dagna', 'type': 'pc', 'character_id': self.dagna.id, 'current_hp': 9},
+            {'id': 'x', 'name': 'Goblin #1', 'type': 'monster', 'current_hp': 0, 'defeated': True},
+            {'id': 'e', 'name': 'Elarion', 'type': 'pc', 'character_id': self.elarion.id, 'current_hp': 8}])
+        ana, bruno = self.prev()['combat'], self.prev(self.c_p2())['combat']
+        self.assertEqual(ana, {'active': True, 'round': 3, 'turnName': 'Dagna', 'nextName': 'Elarion',
+                               'isMine': True, 'nextIsMine': False})
+        self.assertEqual((bruno['isMine'], bruno['nextIsMine']), (False, True))
+        # parado (montado ou encerrado): sem faixa
+        c.active = False; self.touch(c)
+        self.assertIsNone(self.prev()['combat'])
+        c.delete()
+        self.assertIsNone(self.prev()['combat'])
+
+    def c_p2(self):
+        c = APIClient(); c.force_login(self.p2)
+        return c
+
+    def test_checks_rev_follows_only_his_checks_and_answers(self):
+        p0 = self.prev()
+        self.assertEqual(p0['counts'], {'openChecks': 0, 'pendingRolls': 0})
+        # um teste só para o Bruno: a Mesa da Ana não busca nada
+        other = CheckRequest.objects.create(campaign=self.camp, created_by=self.dm, label='Furtividade',
+                                            target_user_ids=[self.p2.id])
+        self.assertEqual(self.prev()['checksRev'], p0['checksRev'])
+        CheckResponse.objects.create(check_request=other, user=self.p2, character=self.elarion, total=9, natural=7)
+        self.assertEqual(self.prev()['checksRev'], p0['checksRev'])
+        # um teste para todos: muda, e conta 1 aberto sem resposta
+        cr = CheckRequest.objects.create(campaign=self.camp, created_by=self.dm, label='Percepção', dc=13)
+        p1 = self.prev()
+        self.assertNotEqual(p1['checksRev'], p0['checksRev'])
+        self.assertEqual(p1['counts']['openChecks'], 1)
+        # a resposta do Bruno nesse teste não muda o da Ana; a dela muda
+        CheckResponse.objects.create(check_request=cr, user=self.p2, character=self.elarion, total=11, natural=9)
+        self.assertEqual(self.prev()['checksRev'], p1['checksRev'])
+        r = self.c_p1.post(f'/api/checks/{cr.id}/respond', {'mode': 'physical', 'total': 15}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        p2 = self.prev()
+        self.assertNotEqual(p2['checksRev'], p1['checksRev'])
+        self.assertEqual(p2['counts']['openChecks'], 0)
+        # Corrigir (o mesmo teste, outro total) e o mestre encerrar também mudam
+        time.sleep(0.002)
+        self.c_p1.post(f'/api/checks/{cr.id}/respond', {'mode': 'physical', 'total': 16}, format='json')
+        p3 = self.prev()
+        self.assertNotEqual(p3['checksRev'], p2['checksRev'])
+        self.c_dm.post(f'/api/checks/{cr.id}/close')
+        self.assertNotEqual(self.prev()['checksRev'], p3['checksRev'])
+        # nada disso é do GET completo: o rev não mexe
+        self.assertEqual(self.prev()['rev'], p0['rev'])
+
+    def test_rolls_rev_follows_his_pending_requests(self):
+        p0 = self.prev()
+        RollRequest.objects.create(campaign=self.camp, requested_by=self.p2, character=self.elarion, label='Atletismo')
+        self.assertEqual(self.prev()['rollsRev'], p0['rollsRev'])
+        rr = RollRequest.objects.create(campaign=self.camp, requested_by=self.p1, character=self.dagna, label='Atletismo')
+        p1 = self.prev()
+        self.assertNotEqual(p1['rollsRev'], p0['rollsRev'])
+        self.assertEqual(p1['counts']['pendingRolls'], 1)
+        rr.status = 'public'; rr.total = 12; rr.resolved_at = timezone.now(); rr.save()
+        p2 = self.prev()
+        self.assertEqual(p2['rollsRev'], p0['rollsRev'])
+        self.assertEqual(p2['counts']['pendingRolls'], 0)
+
+    def test_light_queries(self):
+        """Parado e sem testes/pedidos: 5 consultas (sessão, usuário, campanha, vagas, combate)."""
+        self.prev()
+        with CaptureQueriesContext(connection) as ctx:
+            self.prev()
+        self.assertLessEqual(len(ctx), 6, [q['sql'][:90] for q in ctx])
+
+
+class PlayerRevCoverageTests(PlayerBase):
+    """Cada campo do GET completo do JOGADOR tem uma fonte de `rev` (como o do mestre)."""
+
+    IMMUTABLE = {'id', 'dmId', 'role', 'created_at'}
+    DM_ONLY = {'onboarding', 'advancedDice', 'lang', 'fogHint', 'inviteCode', 'screenToken', 'pendingApprovals',
+               'tableSlots', '+tableSlots:plan'}
+
+    def mutations(self):
+        muts = {k: v for k, v in RevCoverageTests.mutations(self).items() if k not in self.DM_ONLY}
+
+        def reveal():
+            WorldEntry.objects.create(campaign=self.camp, kind='npc', name='Bruxa', visibility='revealed',
+                                      revealed_at=timezone.now())
+
+        def visit():
+            r = self.c_p1.post(f'/api/campaigns/{self.camp.id}/world/seen')
+            self.assertEqual(r.status_code, 200, r.content)
+
+        muts.update({'worldNewCount': reveal, '+worldNewCount:visit': visit})
+        return muts
+
+    def test_every_player_field_has_a_rev_source(self):
+        fields = set(self.full().keys())
+        covered = {k for k in self.mutations() if not k.startswith('+')} | self.IMMUTABLE
+        self.assertEqual(fields - covered, set(), 'campo do GET do jogador sem fonte de rev no pulso')
+
+    def test_each_mutation_changes_rev(self):
+        for name, go in self.mutations().items():
+            with self.subTest(field=name):
+                sid = transaction.savepoint()
+                try:
+                    before = self.rev()
+                    go()
+                    self.assertNotEqual(self.rev(), before, f'{name} não mudou o rev do jogador')
+                finally:
+                    transaction.savepoint_rollback(sid)
+                    cache.clear()
+                    for obj in (self.camp, self.m1, self.m2, self.dagna, self.velna, self.p1.profile):
+                        obj.refresh_from_db()
+
+    def test_hiding_the_card_on_screen_changes_rev(self):
+        r = self.c_dm.post(f'/api/campaigns/{self.camp.id}/stage',
+                           {'op': 'show', 'target': {'kind': 'card', 'entryId': self.velna.id}}, format='json')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self.full()['stage']['front']['title'], 'Irmã Velna')
+        before = self.rev()
+        self.velna.visibility = 'hidden'
+        self.touch(self.velna)
+        self.assertNotEqual(self.rev(), before)
+        self.assertIsNone(self.full()['stage']['front'])
+
+    def test_what_is_not_in_his_get_does_not_change_rev(self):
+        """O plano, um teste, o turno do combate e a visita de OUTRO jogador ao Mundo."""
+        c = CombatInstance.objects.create(campaign=self.camp, active=True, combatants=[
+            {'id': 'g', 'name': 'Goblin', 'type': 'monster', 'current_hp': 7, 'stats': {'max_hp': 7}},
+            {'id': 'd', 'name': 'Dagna', 'type': 'pc', 'character_id': self.dagna.id, 'current_hp': 9}])
+        p0 = self.prev()
+        self.c_dm.put(f'/api/campaigns/{self.camp.id}/session-plan', {'plan': {'strongStart': 'O sino.'}}, format='json')
+        CheckRequest.objects.create(campaign=self.camp, created_by=self.dm, label='Percepção')
+        c.turn_index = 1; c.combatants = [{**c.combatants[0], 'current_hp': 3}, c.combatants[1]]; self.touch(c)
+        bruno = APIClient(); bruno.force_login(self.p2)
+        bruno.post(f'/api/campaigns/{self.camp.id}/world/seen')
+        p1 = self.prev()
+        self.assertEqual(p1['rev'], p0['rev'])
+        self.assertTrue(p1['combat']['isMine'])          # a vez mudou no pulso, sem GET completo

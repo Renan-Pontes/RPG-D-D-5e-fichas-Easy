@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Utils from '../utils.js';
 import {
-  checkLabel, modifierFor, buildCheckPayload, summarize, responseDiceGroups,
+  checkLabel, modifierFor, buildCheckPayload, summarize, responseDiceGroups, initiativePayload, isInitiativeCheck,
 } from '../src/checks/check-logic.js';
 
 const rogue = () => ({
@@ -51,4 +51,34 @@ test('resposta rolada no servidor vira dados para a animação 3D', () => {
   assert.deepEqual(responseDiceGroups({ rolls: [{ value: 4, kept: false }, { value: 17, kept: true }] }),
     [{ die: 20, rolls: [{ value: 4, kept: false }, { value: 17, kept: true }] }]);
   assert.deepEqual(responseDiceGroups({ rolls: [] }), []);
+});
+
+// O modifierFor de antes da V8, copiado como era: o app de jogador ainda em cache
+// durante a troca de versão.
+function oldModifierFor(char, { kind, key } = {}) {
+  if (!char || !char.abilities) return null;
+  try {
+    if (kind === 'skill') return Utils.skillBonus(char, key);
+    if (kind === 'save') return Utils.saveBonus(char, key);
+    if (kind === 'ability') return Utils.abilityMod(char, key);
+  } catch { /* ficha incompleta */ }
+  return null;
+}
+
+test('iniciativa pedida à mesa: kind custom; o app antigo pede o total, o novo soma a iniciativa da ficha', () => {
+  const body = initiativePayload('pt');
+  assert.deepEqual(body, { kind: 'custom', key: 'initiative', label: 'Iniciativa', dc: null, dcHidden: false, advantage: 'normal', targetUserIds: [] });
+  assert.equal(initiativePayload('en', [7]).label, 'Initiative');
+  assert.deepEqual(initiativePayload('en', [7]).targetUserIds, [7]);
+  assert.ok(isInitiativeCheck(body));
+  assert.ok(!isInitiativeCheck({ kind: 'ability', key: 'initiative' }));
+  const c = rogue();
+  // app de antes: sem bônus → o cartão do jogador abre em "Total" (nada de −5)
+  assert.equal(oldModifierFor(c, body), null);
+  // se fosse 'ability', o app de antes somaria o −5 de um atributo que não existe
+  assert.equal(oldModifierFor(c, { kind: 'ability', key: 'initiative' }), -5);
+  // este app: o bônus de iniciativa da ficha (DES 16 → +3)
+  assert.equal(modifierFor(c, body), Utils.initiative(c));
+  assert.equal(modifierFor(c, body), 3);
+  assert.equal(checkLabel({ kind: 'custom', key: 'initiative' }, 'pt'), 'Iniciativa');
 });

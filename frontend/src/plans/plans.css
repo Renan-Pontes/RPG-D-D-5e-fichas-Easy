@@ -3,6 +3,7 @@
 
 /* ---------------------------------------------------------------- página */
 .pl-page { display: flex; flex-direction: column; gap: var(--s-5); max-width: 980px; margin: 0 auto; min-width: 0; }
+.pl-back { align-self: flex-start; min-height: 44px; }
 .pl-head { display: flex; flex-direction: column; gap: 4px; }
 .pl-title { margin: 0; font-family: var(--display); color: var(--gold-bright); letter-spacing: 0.04em; font-size: clamp(1.6rem, 6vw, 2.2rem); }
 .pl-sub { margin: 0; color: var(--ink-secondary); max-width: 62ch; line-height: 1.5; }
@@ -57,7 +58,10 @@
 .pl-meter-slots { grid-column: 1 / -1; }
 .pl-tables { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .pl-table { display: grid; grid-template-columns: minmax(0, 1fr) 80px auto; gap: 10px; align-items: center; }
-.pl-table-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-secondary); }
+.pl-table-name { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; color: var(--ink-secondary); }
+.pl-table-label { min-width: 0; overflow-wrap: anywhere; }
+/* o selo "encerrada" nunca é cortado: vai para a linha de baixo se não couber */
+.pl-table-name .pl-tag { margin-left: 0; flex: none; }
 .pl-table-num { color: var(--gold-bright); font-size: 0.84rem; }
 .pl-mini-track { height: 8px; }
 
@@ -72,7 +76,7 @@
 }
 .pl-plan.is-current { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-deep), 0 0 26px rgba(237, 203, 122, 0.16); }
 .pl-plan.plan-legend { background: radial-gradient(130% 90% at 50% 0%, rgba(159, 176, 240, 0.12), transparent 60%), linear-gradient(180deg, var(--bg-elevated), var(--bg-card)); }
-.pl-plan-ribbon { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); padding: 2px 12px; border-radius: 999px; background: var(--gold); color: var(--on-gold); font-family: var(--display); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
+.pl-plan-ribbon { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); padding: 2px 12px; border-radius: 999px; background: var(--gold); color: var(--on-gold); font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
 .pl-plan-seal { width: 44px; height: 44px; font-size: 1.2rem; }
 .pl-plan-name { margin: 4px 0 0; font-family: var(--display); color: var(--gold-bright); font-size: 1.12rem; }
 .pl-plan-price { margin: 0; font-size: 1.05rem; color: var(--ink-primary); }
@@ -80,8 +84,8 @@
 .pl-plan-feats { list-style: none; margin: 6px 0 8px; padding: 0; display: flex; flex-direction: column; gap: 5px; text-align: left; width: 100%; font-size: 0.9rem; color: var(--ink-secondary); }
 .pl-plan-feats li { display: flex; gap: 8px; align-items: baseline; padding-top: 5px; border-top: 1px dashed var(--stroke-faint); }
 .pl-plan-feats li.is-off { color: var(--ink-faint); }
-.pl-plan-btn { margin-top: auto; width: 100%; min-height: 40px; }
-.pl-plan-free { margin-top: auto; font-size: 0.84rem; min-height: 40px; display: grid; place-items: center; }
+.pl-plan-btn { margin-top: auto; width: 100%; min-height: 44px; }
+.pl-plan-free { margin-top: auto; font-size: 0.84rem; min-height: 44px; display: grid; place-items: center; }
 
 /* ---------------------------------------------------------------- extras */
 .pl-addons { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); }
@@ -89,17 +93,14 @@
 .pl-addon { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--stroke-faint); border-radius: 10px; background: var(--bg-card); min-width: 0; }
 .pl-addon-main { display: flex; flex-direction: column; min-width: 0; }
 .pl-addon-main strong { color: var(--ink-primary); overflow-wrap: anywhere; }
-.pl-addon .btn { flex: 0 0 auto; min-height: 40px; }
+.pl-addon .btn { flex: 0 0 auto; min-height: 44px; }
 
-/* ---------------------------------------------------------------- avisos (modais) */
-.pl-backdrop { z-index: 1400; }
-.pl-backdrop-top { z-index: 1500; }
-.pl-limit, .pl-soon {
-  text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;
-  border-color: var(--stroke-strong);
-  background: radial-gradient(120% 70% at 50% 0%, rgba(237, 203, 122, 0.12), transparent 60%), var(--bg-card);
-}
-.pl-limit-seal { width: 54px; height: 54px; font-size: 1.5rem; }
+/* ---------------------------------------------------------------- avisos (folhas da mesa)
+   LimitDialog e "Pagamento em breve" são MesaSheet (sobem de baixo no celular, com a
+   ação no rodapé preso). Ficam acima de qualquer janela do app, como o aviso antigo. */
+.mesa-sheet-backdrop:has(> .pl-sheet) { z-index: 1400; }
+.mesa-sheet-backdrop:has(> .pl-soon-sheet) { z-index: 1500; }
+.pl-sheet .mesa-sheet-body { display: flex; flex-direction: column; gap: 10px; }
 .pl-limit-title { margin: 0; font-family: var(--display); color: var(--gold-bright); font-size: 1.25rem; line-height: 1.3; }
 .pl-limit-used { margin: 0; color: var(--ink-secondary); font-size: 0.92rem; }
 .pl-limit-used .mono { color: var(--gold-bright); }
@@ -107,10 +108,10 @@
 .pl-limit-sugs { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; width: 100%; text-align: left; }
 .pl-limit-sug { display: flex; align-items: center; gap: 10px; justify-content: space-between; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--stroke); background: var(--gold-soft); color: var(--ink-primary); font-size: 0.92rem; }
 .pl-limit-sug.is-hint { background: transparent; border-style: dashed; color: var(--ink-muted); }
-.pl-limit-sug .btn { flex: 0 0 auto; }
-.pl-limit-safe { margin: 0; color: var(--moss-bright); font-size: 0.86rem; }
-.pl-limit-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; width: 100%; margin-top: 4px; }
-.pl-limit-actions .btn { min-height: 44px; flex: 1 1 140px; }
+.pl-limit-sug .mesa-btn { flex: 0 0 auto; }
+.pl-limit-safe { margin: 0; color: var(--moss-bright); font-size: 0.88rem; }
+.pl-limit-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; width: 100%; }
+.pl-limit-actions .mesa-btn { min-height: 48px; flex: 1 1 140px; }
 
 /* ---------------------------------------------------------------- campanha encerrada */
 .pl-closed {

@@ -17,11 +17,19 @@ export function abilityAbbr(key, lang) {
   return (ABBR[lang] || ABBR.en)[key] || key.toUpperCase();
 }
 
-/** Rótulo legível do pedido: "Percepção", "Resistência de DES", "Força". */
+// Iniciativa pedida à mesa (V8, especificação §4.6): `kind:'custom', key:'initiative'`.
+// Não é 'ability' de propósito: o app de jogador de antes não acha bônus para
+// 'custom' (modifierFor → null) e pede o TOTAL digitado, em vez de somar o −5 de
+// um atributo "initiative" que não existe. Este app soma Utils.initiative da ficha.
+export const INITIATIVE_KEY = 'initiative';
+export const isInitiativeCheck = (check) => check?.kind === 'custom' && check?.key === INITIATIVE_KEY;
+
+/** Rótulo legível do pedido: "Percepção", "Resistência de DES", "Força", "Iniciativa". */
 export function checkLabel({ kind, key }, lang = 'pt') {
   if (kind === 'skill') return tName('skill', key, lang);
   if (kind === 'save') return lang === 'pt' ? `Resistência de ${abilityAbbr(key, lang)}` : `${abilityAbbr(key, lang)} save`;
   if (kind === 'ability') return tr(key, lang);
+  if (kind === 'custom' && key === INITIATIVE_KEY) return lang === 'en' ? 'Initiative' : 'Iniciativa';
   return key || '';
 }
 
@@ -32,8 +40,14 @@ export function modifierFor(char, { kind, key } = {}) {
     if (kind === 'skill') return Utils.skillBonus(char, key);
     if (kind === 'save') return Utils.saveBonus(char, key);
     if (kind === 'ability') return Utils.abilityMod(char, key);
+    if (kind === 'custom' && key === INITIATIVE_KEY) return Utils.initiative(char);
   } catch { /* ficha incompleta */ }
   return null;
+}
+
+/** O corpo do POST do pedido de iniciativa ("⚡ Pedir à mesa"; `targets` = userIds, [] = todos). */
+export function initiativePayload(lang = 'pt', targets = []) {
+  return buildCheckPayload({ kind: 'custom', key: INITIATIVE_KEY, targets }, lang);
 }
 
 /** Monta o corpo do POST de um pedido. */

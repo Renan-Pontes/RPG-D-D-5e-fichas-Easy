@@ -66,7 +66,7 @@
   .camp-wizard .ready-grid { grid-template-columns: 1fr; }
   .camp-wizard .ready-card.is-pick { flex-direction: row; }
   .camp-wizard .ready-card.is-pick .ready-art { width: 38%; flex: 0 0 38%; aspect-ratio: auto; min-height: 110px; }
-  .camp-wizard .ready-card.is-pick .ready-level { left: 6px; bottom: 6px; font-size: .64rem; padding: 1px 6px; }
+  .camp-wizard .ready-card.is-pick .ready-level { left: 6px; bottom: 6px; font-size: .72rem; padding: 1px 6px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

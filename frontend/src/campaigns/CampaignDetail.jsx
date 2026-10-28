@@ -13,12 +13,16 @@
 // 304 parado); o GET completo só vem quando `pulse.rev` muda (e 1 vez por minuto,
 // de segurança). A loja da mesa vai por contexto (useTable) para a barra da mesa
 // (celular), a janela da Tela (PC), a folha Tela ao vivo, a faixa do turno do PC,
-// Jogar › Combate e o selo de Testes. Jogador: o GET completo a cada 2,5 s, como antes.
+// Jogar › Combate e o selo de Testes.
+// Jogador (V13): o pulso DELE na mesma loja (a vez no combate, os testes e os pedidos
+// dele), no lugar do GET completo de 2,5 s; vai às áreas por PlayerPulseContext (a
+// faixa do combate da Mesa e a lista de testes, que só é buscada quando o checksRev
+// muda). [Ir para a minha ficha] chama onOpenSheet(id da ficha) do app.
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { usePolling } from '../api/polling.js';
-import { TableContext, useOnRev, useTableStore } from '../play/table-store.js';
+import { PlayerPulseContext, TableContext, useOnRev, useTableStore } from '../play/table-store.js';
 import { clearDiceTable, setDiceTable } from '../dice/dice-table.js';
 import useMedia from '../play/useMedia.js';
 import TableBar from '../stage/TableBar.jsx';
@@ -73,7 +77,7 @@ const FULL_SAFETY_MS = 60_000;   // GET completo de segurança do mestre, mesmo 
 const CORNER_KEY = 'forja:win-corner';
 const readCorner = () => { try { return localStorage.getItem(CORNER_KEY) === 'left' ? 'left' : 'right'; } catch { return 'right'; } };
 
-export default function CampaignDetail({ lang = 'pt', campaignId, onBack, characters = [] }) {
+export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpenSheet, characters = [] }) {
   const [campaign, setCampaign] = useState(null);
   const [error, setError] = useState('');
   const [nav, setNav] = useState(null);           // {area, sub, params}
@@ -101,7 +105,6 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   const twoCols = useMedia('(min-width: 1024px)');     // Agora e Combate em colunas: a janela encaixa
   const toastTimer = useRef(null);
   const lastFullAt = useRef(0);
-  const isDMRef = useRef(false);
 
   const say = useCallback((msg) => {
     setToast(msg);
@@ -114,7 +117,6 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     try {
       const r = await api.getCampaign(campaignId);
       lastFullAt.current = Date.now();
-      isDMRef.current = r.campaign?.role === 'dm';
       setCampaign(r.campaign);
       setError('');
       return true;
@@ -131,13 +133,14 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   }, [campaignId]);
 
   const isDM = campaign?.role === 'dm';
-  // Mestre: o pulso; o GET completo quando o `rev` muda (ou a cada minuto, de segurança:
-  // esse entra no lugar do pulso daquele tick, para o minuto não ter 1 pedido a mais).
+  // Mestre e jogador: o pulso (cada um recebe o seu); o GET completo quando o `rev` muda
+  // (ou a cada minuto, de segurança: esse entra no lugar do pulso daquele tick, para o
+  // minuto não ter 1 pedido a mais).
   const onPulse = useCallback((p, { revChanged }) => {
     if (revChanged) load();
   }, [load]);
   const fullInstead = useCallback(() => Date.now() - lastFullAt.current > FULL_SAFETY_MS, []);
-  const table = useTableStore(campaign, { enabled: isDM, lang, onPulse, fullInstead, onFull: load });
+  const table = useTableStore(campaign, { enabled: !!campaign, lang, onPulse, fullInstead, onFull: load });
   const pulsing = table.enabled;
   // O 🎲 do mestre na mesa (V10, dice/dice-table.js): o rolador global passa a saber a
   // campanha e a regra "Do mestre" do palco (🔒 Só eu · 📺 Na tela).
@@ -158,9 +161,9 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     langSent.current = key;
     api.patchCampaign(campaign.id, { lang }).catch(() => { /* fica para a próxima troca de idioma */ });
   }, [isDM, campaign?.id, campaign?.lang, campaign?.status, lang]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Jogador (e o mestre sem o pulso no servidor): o GET completo a cada 2,5 s, como antes.
+  // Sem o pulso (servidor antigo; o jogador recebe 403 dele): o GET completo a cada 2,5 s, como antes.
   usePolling(async () => {
-    if (isDMRef.current && pulsing) return;
+    if (pulsing) return;
     await load();
   }, 2500, [campaignId, pulsing]);
 
@@ -398,6 +401,8 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     onChange: load, onOpenTab: legacyNav, onNavigate: legacyNav,
     // jogador saiu da mesa (Grupo › ⋯ › Sair da campanha): volta para Campanhas
     onLeaveCampaign: isDM ? undefined : onBack,
+    // [Ir para a minha ficha] da faixa do combate (V13)
+    onOpenSheet: isDM ? undefined : onOpenSheet,
   };
   const ctx = {
     area: nav.area, sub: nav.sub, params: nav.params, goTo, clearParams, isDM, lang, campaign, reload: load,
@@ -414,6 +419,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   return (
     <AreaContext.Provider value={ctx}>
      <TableContext.Provider value={tableCtx}>
+     <PlayerPulseContext.Provider value={isDM ? null : table}>
       <div className={`campaign-detail shell ${isDM ? 'is-dm' : 'is-player'}`} style={accent ? { '--camp-accent': accent } : undefined}>
         <CampaignHeader
           campaign={campaign} lang={lang} isDM={isDM} busy={busy} onBack={onBack}
@@ -525,6 +531,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
         )}
         {toast && <div className="toast shell-toast" role="status">{toast}</div>}
       </div>
+     </PlayerPulseContext.Provider>
      </TableContext.Provider>
     </AreaContext.Provider>
   );

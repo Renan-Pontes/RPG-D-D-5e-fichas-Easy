@@ -30,6 +30,7 @@
   vertical-align: middle;
 }
 .mp-badge.local { color: var(--arcane-bright); border-color: var(--arcane); }
+.mp-badge.common { color: var(--gold-bright); border-color: var(--gold-deep); background: rgba(214, 176, 100, 0.12); }
 
 .mp-row { display: flex; justify-content: space-between; gap: var(--s-2); align-items: flex-start; }
 .mp-row .btn-icon { flex: none; }

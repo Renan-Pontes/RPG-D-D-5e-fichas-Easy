@@ -7,7 +7,8 @@ import { blankPages } from './living-logic.js';
 
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
 
-function readDismissed(key) {
+/** As páginas dispensadas neste aparelho ("Agora não"); a linha recolhida do Mundo vivo também conta. */
+export function readDismissed(key) {
   try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
 }
 function writeDismissed(key, list) {

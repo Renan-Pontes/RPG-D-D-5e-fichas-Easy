@@ -3,7 +3,6 @@
 // aberta pelo 📺 Mostrar… das ações de Jogar). Lê o Mundo, a aventura em jogo
 // e o plano UMA vez ao abrir (sem polling); cada linha tem o 📺 único.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { api } from '../api/client.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import { EntryImage, VisibilitySeal } from '../world/EntryCard.jsx';
@@ -13,6 +12,7 @@ import { getAdventure, listAdventures } from '../play/play-api.js';
 import { activeScene } from '../play/scene-model.js';
 import RecapEditor from '../play/RecapEditor.jsx';
 import { flash } from '../play/flash.js';
+import { sceneAsMap } from '../play/combat-actions.js';
 import { L, normalizeStage, cardShowMode } from './stage-now.js';
 import { imageRows, mapRows, sceneRows, TEXT_MAX } from './show-model.js';
 import { sendToStage, stageBg } from './stage-api.js';
@@ -128,13 +128,8 @@ export function ShowPicker({ campaign, stage, lang = 'pt', onChange, sceneNow = 
     if (!yes) return;
     setBusy(true);
     try {
-      const size = await new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve({ w: img.width, h: img.height });
-        img.onerror = () => reject(new Error('image'));
-        img.src = node.image;
-      });
-      await api.setCombatMap(campaign.id, { background_image: node.image, width_px: size.w, height_px: size.h });
+      // V8: o servidor copia a imagem da sala (map-from); o servidor antigo recebe de novo
+      await sceneAsMap(campaign.id, { advId: data.adventure.id, nodeId: node.id }, node.image);
       flash(L(lang, 'Mapa do combate atualizado.', 'Combat map updated.'));
     } catch { flash(L(lang, 'Não consegui usar esta imagem.', 'Could not use this image.'), { error: true }); }
     finally { setBusy(false); }

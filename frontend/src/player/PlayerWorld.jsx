@@ -13,11 +13,13 @@
 // Props: campaign, lang, sub? (força a subvista), entryId? (abre um cartão),
 //        onSeen?() (a casca recarrega o badge), showSubChips (padrão true).
 // Também lê useArea() (sub/params/goTo) quando montado dentro da casca.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePolling } from '../api/polling.js';
 import { errorMessage } from '../api/errors.js';
 import useArea from '../shell/useArea.js';
 import { SubChips } from '../shell/AreaNav.jsx';
+import { nearestHit, usePanZoom } from '../shell/usePanZoom.js';
+import { labelAt, layoutPinLabels, pinPriority, zoomControlsRect } from '../world/map-labels.js';
 import EntryCard, { EntryImage } from '../world/EntryCard.jsx';
 import { getEntry, listWorld, markWorldSeen, worldImageUrl } from '../world/world-api.js';
 import {
@@ -280,6 +282,15 @@ function AtlasView({ entries, kind, setKind, counts, newIds, lang, onOpen, livin
 }
 
 // ------------------------------------------------------------------ Mapa
+// F11: o mapa do jogador ganha pinça, arrastar e ＋ − ⤢ de 44 (usePanZoom, o
+// mesmo do mapa de combate). A caixa tem a proporção da imagem e no máximo 60%
+// da altura no celular: fora dela, o dedo rola a página. Tocar num marcador (área
+// de 44 px) abre o cartão ou entra no mapa de dentro; os rótulos aparecem onde
+// cabem (map-labels.js) — com zoom, nenhum cobre o outro.
+const MAP_W = 1000; // largura do mapa em "unidades do conteúdo" (a altura segue a proporção)
+const PIN_HIT = 24; // raio de toque do marcador, em px de tela
+const PIN_HEAD = 20; // o meio da cabeça do marcador fica ~20 px acima da ponta
+
 function MapView({ maps, mapId, setMapId, byId, fetchFull, newIds, lang, onOpen, living }) {
   const [trail, setTrail] = useState([]);           // mapas aninhados abertos pelo pin
   const rootId = maps.some(m => m.id === mapId) ? mapId : (maps.find(m => !m.parentId) || maps[0])?.id;
@@ -326,7 +337,7 @@ function MapView({ maps, mapId, setMapId, byId, fetchFull, newIds, lang, onOpen,
         <nav className="pl-crumbs" aria-label={L(lang, 'Mapas abertos', 'Open maps')}>
           <button type="button" className="pl-crumb" onClick={() => setTrail([])}>{byId.get(rootId)?.name}</button>
           {trail.map((id, i) => (
-            <span key={id}>
+            <span key={id} className="pl-crumb-step">
               <span aria-hidden="true"> › </span>
               <button type="button" className="pl-crumb" disabled={i === trail.length - 1} onClick={() => setTrail(trail.slice(0, i + 1))}>{byId.get(id)?.name}</button>
             </span>
@@ -336,28 +347,107 @@ function MapView({ maps, mapId, setMapId, byId, fetchFull, newIds, lang, onOpen,
       <div className="pl-map-frame">
         <div className="pl-map-title">
           <span>{current?.name}</span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => current && onOpen(current.id)}>{L(lang, 'Ler sobre', 'Read about it')}</button>
+          <button type="button" className="btn btn-ghost btn-sm pl-map-read" onClick={() => current && onOpen(current.id)}>{L(lang, 'Ler sobre', 'Read about it')}</button>
         </div>
-        <div className="pl-map-canvas">
-          {img ? <img src={img} alt={current?.name || ''} className="pl-map-img" draggable={false} />
-            : <div className="pl-map-noimg">{L(lang, 'O mestre ainda não desenhou este mapa.', 'The DM has not drawn this map yet.')}</div>}
-          {img && living && <MapFog pins={pins} known={byId} />}
-          {pins.map(p => {
-            const target = p.entryId && byId.get(p.entryId);
-            const label = p.label || target?.name || '';
-            return (
-              <button key={p.id} type="button" className={`pl-pin ${target?.isMap ? 'is-map' : ''} ${target && newIds.has(target.id) ? 'is-new' : ''}`}
-                style={{ left: `${(p.x ?? 0.5) * 100}%`, top: `${(p.y ?? 0.5) * 100}%` }}
-                onClick={() => goPin(p)} disabled={!target} aria-label={label || L(lang, 'Marcador', 'Pin')}>
-                <span className="pl-pin-dot" aria-hidden="true"><span className="pl-pin-ico">{target ? KIND_META[target.kind]?.icon : '✦'}</span></span>
-                {label && <span className="pl-pin-label">{label}</span>}
-              </button>
-            );
-          })}
-        </div>
+        {/* um por mapa: trocar de mapa volta para "ver tudo" */}
+        <MapCanvas key={currentId} name={current?.name || ''} img={img} pins={pins} byId={byId} newIds={newIds} lang={lang} living={living} onPin={goPin} />
+        <p className="pl-map-hint">{L(lang, 'Pinça, ＋ e − para ver de perto; arraste para andar pelo mapa. Toque num marcador para ler sobre ele.',
+          'Pinch, ＋ and − to look closer; drag to move around. Tap a pin to read about it.')}</p>
         {failed && <p className="muted small">{L(lang, 'Não deu para carregar os marcadores.', 'Could not load the pins.')}</p>}
       </div>
     </section>
+  );
+}
+
+/** A imagem do mapa com pinça, arrastar e ＋ − ⤢ (usePanZoom), névoa e marcadores. */
+function MapCanvas({ name, img, pins, byId, newIds, lang, living, onPin }) {
+  const [ratio, setRatio] = useState(null);         // largura/altura da imagem
+  const [widths, setWidths] = useState({});         // id → largura do rótulo (medida)
+  const stageRef = useRef(null);
+  const content = { w: MAP_W, h: Math.round(MAP_W / (ratio || 1.5)) };
+  const placedRef = useRef({ placed: [], labels: new Map() });
+  const pz = usePanZoom({
+    content,
+    // um toque (sem arrastar): o nome à vista de um marcador (o rótulo é parte do
+    // alvo) ou o marcador mais perto da cabeça, dentro de 24 px de tela
+    onTap: (p) => {
+      const S = pz.scale || 1;
+      const open = pins.filter(x => x.entryId && byId.has(x.entryId));
+      const { placed, labels: shown } = placedRef.current;
+      const byLabel = labelAt(placed.filter(x => open.some(o => o.id === x.id)), shown,
+        { x: pz.view.x + p.x * S, y: pz.view.y + p.y * S }, pz.box);
+      const items = open.map(x => ({ id: x.id, x: (x.x ?? 0.5) * content.w, y: (x.y ?? 0.5) * content.h - PIN_HEAD / S, r: 0 }));
+      const id = byLabel ?? nearestHit(items, p, PIN_HIT / S)?.id;
+      const pin = id != null && pins.find(x => x.id === id);
+      if (pin) onPin(pin);
+    },
+  });
+
+  // Rótulos que cabem nesta vista (px de tela na caixa); os novos primeiro. Os ＋ − ⤢
+  // ficam à esquerda (à direita, o dado flutuante do celular cobriria o ⤢).
+  const placed = useMemo(() => pins.map(p => ({
+    id: p.id,
+    x: pz.view.x + (p.x ?? 0.5) * content.w * pz.scale,
+    y: pz.view.y + (p.y ?? 0.5) * content.h * pz.scale,
+    w: widths[p.id] || 0,
+    prio: pinPriority({ visible: true, isNew: !!(p.entryId && newIds.has(p.entryId)) }),
+  })), [pins, pz.view.x, pz.view.y, pz.scale, content.w, content.h, widths, newIds]);
+  const labels = useMemo(() => layoutPinLabels(placed, { w: pz.box.w, h: pz.box.h }, { avoid: [zoomControlsRect(pz.box, { side: 'left' })] }),
+    [placed, pz.box.w, pz.box.h]);
+  placedRef.current = { placed, labels };
+
+  // mede os rótulos (os escondidos também: visibility, não display)
+  const [fontsTick, setFontsTick] = useState(0);
+  useEffect(() => { document.fonts?.ready?.then(() => setFontsTick(n => n + 1)).catch(() => {}); }, []);
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const next = {};
+    stage.querySelectorAll('[data-pin]').forEach(el => {
+      const lab = el.querySelector('.pl-pin-label');
+      next[el.getAttribute('data-pin')] = lab ? lab.offsetWidth : 0;
+    });
+    setWidths(cur => {
+      const keys = Object.keys(next);
+      return keys.length === Object.keys(cur).length && keys.every(k => cur[k] === next[k]) ? cur : next;
+    });
+  }, [pins, byId, fontsTick]);
+
+  return (
+    <div className={`pl-map-canvas${pz.mode !== 'idle' ? ` is-${pz.mode}` : ''}`} ref={pz.boxRef} {...pz.handlers}
+      style={{ aspectRatio: `${content.w} / ${content.h}` }} data-zoom={pz.view.z.toFixed(2)}>
+      {!img && <div className="pl-map-noimg">{L(lang, 'O mestre ainda não desenhou este mapa.', 'The DM has not drawn this map yet.')}</div>}
+      <div className="pl-map-stage" ref={stageRef}
+        style={{ width: content.w, height: content.h, transform: `translate(${pz.view.x}px, ${pz.view.y}px) scale(${pz.scale})` }}>
+        {img && (
+          <img src={img} alt={name} className="pl-map-img" draggable={false}
+            onLoad={e => { const im = e.currentTarget; if (im.naturalWidth && im.naturalHeight) setRatio(im.naturalWidth / im.naturalHeight); }} />
+        )}
+        {img && living && <MapFog pins={pins} known={byId} />}
+        {pins.map(p => {
+          const target = p.entryId && byId.get(p.entryId);
+          const label = p.label || target?.name || '';
+          const lab = labels.get(p.id);
+          return (
+            <button key={p.id} type="button" data-pin={p.id}
+              className={`pl-pin ${target?.isMap ? 'is-map' : ''} ${target && newIds.has(target.id) ? 'is-new' : ''}${lab ? '' : ' is-label-off'}${lab?.above ? ' is-label-above' : ''}`}
+              style={{ left: `${(p.x ?? 0.5) * 100}%`, top: `${(p.y ?? 0.5) * 100}%`, '--pin-scale': 1 / (pz.scale || 1), '--label-dx': `${lab?.dx || 0}px` }}
+              // teclado (Enter/Espaço); o toque e o mouse chegam pelo onTap da caixa
+              onClick={(e) => { if (e.detail === 0) onPin(p); }}
+              disabled={!target} aria-label={label || L(lang, 'Marcador', 'Pin')}>
+              <span className="pl-pin-dot" aria-hidden="true"><span className="pl-pin-ico">{target ? KIND_META[target.kind]?.icon : '✦'}</span></span>
+              {label && <span className="pl-pin-label" aria-hidden="true">{label}</span>}
+            </button>
+          );
+        })}
+      </div>
+      <div className="pl-map-zoom" role="group" aria-label={L(lang, 'Zoom do mapa', 'Map zoom')}
+        onPointerDown={e => e.stopPropagation()}>
+        <button type="button" onClick={pz.zoomIn} disabled={!pz.canZoomIn} aria-label={L(lang, 'Aproximar', 'Zoom in')}>＋</button>
+        <button type="button" onClick={pz.zoomOut} disabled={!pz.canZoomOut} aria-label={L(lang, 'Afastar', 'Zoom out')}>－</button>
+        <button type="button" onClick={pz.fit} disabled={!pz.canZoomOut} aria-label={L(lang, 'Ver o mapa inteiro', 'Fit the whole map')}>⤢</button>
+      </div>
+    </div>
   );
 }
 

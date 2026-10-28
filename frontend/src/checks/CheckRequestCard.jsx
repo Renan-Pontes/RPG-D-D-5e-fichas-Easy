@@ -3,10 +3,13 @@
 // o dado físico. Não é modal — não interrompe a ficha.
 // Em cartão estreito (320–360 px), [Dado | Total] vai para uma linha própria e
 // o campo do dado (≥ 64 px) fica ao lado de "Enviar" (checks-styles.css).
+// Iniciativa pedida à mesa (V8, `kind:'custom', key:'initiative'`): o bônus é o de
+// iniciativa da ficha (Utils.initiative) e o cartão diz "⚡ Iniciativa"; o app de antes
+// não acha bônus para 'custom' e pede o total (nunca soma −5).
 import { errorMessage } from '../api/errors.js';
 import { useState } from 'react';
 import { api } from '../api/client.js';
-import { modifierFor, responseDiceGroups } from './check-logic.js';
+import { isInitiativeCheck, modifierFor, responseDiceGroups } from './check-logic.js';
 import { formatMod, physicalEntry } from '../dice/dice-math.js';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
@@ -25,6 +28,7 @@ export default function CheckRequestCard({ check, char, lang = 'pt', onAnswered,
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(false);
   const resp = check.myResponse;
+  const initiative = isInitiativeCheck(check);
   const advLabel = check.advantage === 'adv' ? L(lang, 'com vantagem', 'with advantage')
     : check.advantage === 'dis' ? L(lang, 'com desvantagem', 'with disadvantage') : '';
 
@@ -82,7 +86,7 @@ export default function CheckRequestCard({ check, char, lang = 'pt', onAnswered,
   return (
     <article className={`check-card ${resp ? 'is-answered' : 'is-open'} ${compact ? 'is-compact' : ''}`} aria-live="polite">
       <header className="check-card-head">
-        <span className="check-card-eyebrow">🎯 {L(lang, 'O mestre pede', 'The DM asks for')}</span>
+        <span className="check-card-eyebrow">{initiative ? '⚡' : '🎯'} {initiative ? L(lang, 'O combate vai começar', 'Combat is starting') : L(lang, 'O mestre pede', 'The DM asks for')}</span>
         {onDismiss && !resp && (
           <button type="button" className="check-card-later" onClick={onDismiss}>{L(lang, 'Depois', 'Later')}</button>
         )}
@@ -114,7 +118,7 @@ export default function CheckRequestCard({ check, char, lang = 'pt', onAnswered,
         <>
           {sheetMod != null && (
             <div className="check-card-mod muted small">
-              {L(lang, 'Seu bônus na ficha', 'Your sheet bonus')}: <strong>{formatMod(sheetMod) || '+0'}</strong>
+              {initiative ? L(lang, 'Sua iniciativa na ficha', 'Your sheet initiative') : L(lang, 'Seu bônus na ficha', 'Your sheet bonus')}: <strong>{formatMod(sheetMod) || '+0'}</strong>
             </div>
           )}
           <div className="check-card-actions">

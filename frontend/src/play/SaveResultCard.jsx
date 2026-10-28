@@ -17,6 +17,7 @@ import { useArea } from '../shell/useArea.js';
 import useStage from '../stage/useStage.js';
 import { abilityLabel, conditionLabel, damageTypeLabel } from '../combat/monster-i18n.js';
 import { actionName, reasonLabel } from '../campaigns/monster-actions.js';
+import { newOpId } from './damage-model.js';
 import './play-styles.css';
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
@@ -32,6 +33,7 @@ const d20 = () => 1 + Math.floor(Math.random() * 20);
 export default function SaveResultCard({ campaignId, attacker, action, actionIndex, targets, status, lang = 'pt', onApplied, onDiscard, pinned = false }) {
   // null enquanto o servidor rola; sem resposta, o rascunho local de antes
   const [draft, setDraft] = useState(null);
+  const opRef = useRef(newOpId());   // um por sugestão: o 2º toque no Aplicar não aplica de novo
   const [local, setLocal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -65,10 +67,11 @@ export default function SaveResultCard({ campaignId, attacker, action, actionInd
     }
     setBusy(true); setError('');
     try {
-      const res = await combatAction(campaignId, saveApplyBody(draft, {
+      // opId (V8): o mesmo Aplicar 2× aplica 1 vez; o aviso ganha o ↶ Desfazer (servidor novo)
+      const res = await combatAction(campaignId, { ...saveApplyBody(draft, {
         attackerId: attacker.id, actionIndex, consume: limited, force: unavailable, show: canShow && show,
-      }));
-      onApplied?.(results, { shown: res?.shown != null });
+      }), opId: opRef.current });
+      onApplied?.(results, { shown: res?.shown != null, opId: res?.opId });
     } catch (e) {
       setError(errorMessage(e, lang));
     } finally { setBusy(false); }

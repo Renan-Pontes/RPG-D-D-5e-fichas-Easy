@@ -57,7 +57,7 @@
 /* Enquadrar (imagem enviada mais alta que 16:9) */
 .cvp-frame { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .cvp-frame-btn {
-  padding: 3px 12px; border-radius: 999px; font-size: 0.82rem; cursor: pointer;
+  min-height: 44px; padding: 6px 16px; border-radius: 999px; font-size: 0.88rem; cursor: pointer;
   border: 1px solid var(--stroke); background: var(--bg-raised); color: var(--ink-secondary);
 }
 .cvp-frame-btn.active { border-color: var(--cvp-accent); color: var(--ink-primary); background: color-mix(in srgb, var(--cvp-accent) 18%, var(--bg-raised)); }
@@ -100,6 +100,7 @@
 .cvp-tile-ico { font-size: 1.4rem; color: var(--ink-muted); }
 
 .cvp-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cvp-actions .btn { min-height: 44px; }
 .cvp-err { margin: 0; font-size: 0.85rem; color: var(--blood-bright); }
 
 /* Celular: a galeria vira carrossel (rolagem só dentro dela) */

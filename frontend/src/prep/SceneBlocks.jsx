@@ -107,7 +107,7 @@ export function TextBlock({ id, lang, value, max, disabled, placeholder, onChang
 const visWord = (e, lang) => {
   if (!e) return '';
   if (e.visibility === 'revealed') return t(lang, 'Revelado no Mundo: vai o cartão inteiro.', 'Revealed in the World: the whole card goes.');
-  if (e.visibility === 'partial') return t(lang, 'Conhecido de nome: a Tela mostra o nome e a imagem.', 'Known by name: the screen shows the name and the image.');
+  if (e.visibility === 'partial') return t(lang, 'Só o nome no Mundo: a Tela mostra o nome e a imagem.', 'Name only in the World: the screen shows the name and the image.');
   return t(lang, 'Oculto no Mundo: a Tela mostra só a imagem; os jogadores não aprendem o nome.', "Hidden in the World: the screen shows only the image; players don't learn the name.");
 };
 const CARD_KINDS = ['place', 'npc', 'faction', 'item', 'lore'];

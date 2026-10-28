@@ -1,6 +1,7 @@
 // Área "Mundo" do mestre: Cartões · Mapas · Tempo (ids atlas · map · timeline), com o
-// editor de cartão em painel lateral, 🎲 Improvisar e revelação rápida na folha "Quem vê"
-// única (RevealSheet, a mesma de Jogar). Campanha encerrada: o editor abre só para ler.
+// editor de cartão em painel lateral (tela cheia no celular), 🎲 Improvisar e revelação
+// rápida na folha "Quem vê" única (RevealSheet, a mesma de Jogar: segredos, 📺 e Pronto).
+// Campanha encerrada: tudo só leitura, inclusive o editor do cartão (abre para ler).
 //
 // Montada pela casca (WP3) com lazy(). Lê área/sub/params de useArea() e
 // aceita props para sobrescrever:
@@ -14,7 +15,8 @@ import { SubChips } from '../shell/AreaNav.jsx';
 import {
   createEntry, createSampleWorld, getEntry, getSessionPlan, getWorldEchoes, isConflict, listWorld, updateEntry, worldErrorText,
 } from './world-api.js';
-import { applyPatches, t, toLight } from './world-model.js';
+import { applyPatches, mergeReorderResponse, pendingAdd, pendingDone, t, toLight } from './world-model.js';
+import { flash } from '../play/flash.js';
 import Atlas from './Atlas.jsx';
 import EntryEditor from './EntryEditor.jsx';
 import ImproviseModal from './ImproviseModal.jsx';
@@ -66,12 +68,26 @@ export default function WorldArea(props) {
   const cid = campaign?.id;
   // Campanha encerrada: só leitura — some tudo que escreveria (o backend daria 423).
   const closed = campaign?.status === 'closed';
+  // Versão mais nova de cada cartão que esta tela já viu (resposta de um PATCH, do
+  // editor ou da lista): o ↑ ↓ do Ordenar manda a versão certa mesmo com toques
+  // seguidos, antes de a lista redesenhar.
+  const versions = useRef(new Map());
+  const reorderChain = useRef(Promise.resolve());
+  // Fila do Ordenar: id → {sort otimista, PATCH sem resposta} (mergeReorderResponse) e
+  // a "geração" da fila — um erro recarrega a lista e descarta o que já estava na fila.
+  const pendingSort = useRef(new Map());
+  const reorderGen = useRef(0);
   // → true quando a lista veio (o aviso de antes some); false quando falhou (fica o aviso).
   const load = useCallback(async () => {
     if (!cid) return false;
     try {
       const r = await listWorld(cid);
-      setEntries(r.entries || []);
+      const list = r.entries || [];
+      // a versão só sobe (a lista pode ter saído antes da resposta de um PATCH)
+      for (const e of list) if (e.version != null && !(versions.current.get(e.id) > e.version)) versions.current.set(e.id, e.version);
+      // recarregou no meio da fila do Ordenar (voltou para a aba): a ordem da tela fica
+      const waiting = [...pendingSort.current].map(([id, w]) => ({ id, sort: w.sort }));
+      setEntries(applyPatches(list, waiting));
       setMeta({ count: r.count ?? (r.entries || []).length, max: r.max || 500 });
       setListImmersion(r.immersion !== false);
       setError('');
@@ -118,17 +134,14 @@ export default function WorldArea(props) {
   }, [openId, cid]);
 
   // ---------------------------------------------------------------- lista
+  // A resposta do servidor entra na lista; o `sort` de um cartão com PATCH do
+  // Ordenar ainda na fila fica o da tela (senão a linha pula debaixo do dedo).
   const upsert = useCallback((full) => {
     if (!full?.id) return;
+    if (full.version != null) versions.current.set(full.id, full.version);
     const light = toLight(full);
-    setEntries(list => {
-      const l = list || [];
-      const i = l.findIndex(e => e.id === full.id);
-      if (i < 0) return [...l, light];
-      const next = l.slice();
-      next[i] = { ...l[i], ...light };
-      return next;
-    });
+    const pending = new Map(pendingSort.current);
+    setEntries(list => mergeReorderResponse(list, light, pending));
   }, []);
   const removeLocal = (id) => setEntries(list => (list || []).filter(e => e.id !== id));
 
@@ -143,26 +156,51 @@ export default function WorldArea(props) {
     } catch (err) { setError(worldErrorText(err, lang)); return null; }
   };
 
-  // Arrastar (PC) e "⋯ Mover" (folha): → {ok} ou {ok:false, conflict, error}. Nunca falha em
-  // silêncio (§1.4): no conflito de versão (409) a lista volta do servidor e o aviso vem
-  // DEPOIS do load() (que apaga o aviso quando dá certo); a folha "⋯ Mover" mostra o seu,
-  // porque o daqui fica atrás dela. Deu certo (o toque de novo): o aviso velho sai.
-  const reorder = async (patches) => {
+  // Reordenar (arrastar ou ↑ ↓): a lista muda na hora e os PATCH vão em fila, um
+  // reordenar depois do outro, cada um com a versão mais nova (checagem de versão).
+  // Enquanto a fila de um cartão não esvazia, a tela fica com o sort dela
+  // (mergeReorderResponse): toques seguidos com o servidor lento não se desfazem.
+  // Um erro (409 de outra aba, rede): desfaz a metade já gravada da troca (o servidor
+  // não fica com sort repetido), descarta o resto da fila, recarrega e avisa num aviso
+  // curto acima da barra da mesa — a faixa de erro do topo fica fora da vista de quem
+  // rola a lista.
+  const reorder = (patches) => {
+    const before = entries || [];
+    const gen = reorderGen.current;
+    pendingAdd(pendingSort.current, patches);
     setEntries(list => applyPatches(list, patches));
-    try {
-      for (const p of patches) {
-        const cur = (entries || []).find(e => e.id === p.id);
-        const next = await updateEntry(p.id, { sort: p.sort, version: cur?.version });
-        upsert(next);
+    const run = async () => {
+      if (gen !== reorderGen.current) return false; // a fila caiu num erro antes deste toque
+      const done = [];
+      try {
+        for (const p of patches) {
+          const cur = before.find(e => e.id === p.id);
+          const version = versions.current.get(p.id) ?? cur?.version;
+          const next = await updateEntry(p.id, { sort: p.sort, version });
+          pendingDone(pendingSort.current, p.id);
+          done.push({ id: p.id, sort: cur?.sort });
+          upsert(next);
+        }
+        return true;
+      } catch (e) {
+        reorderGen.current += 1;
+        pendingSort.current = new Map();
+        for (const d of done.reverse()) {
+          if (typeof d.sort !== 'number') continue;
+          try {
+            const back = await updateEntry(d.id, { sort: d.sort, version: versions.current.get(d.id) });
+            if (back?.version != null) versions.current.set(d.id, back.version);
+          } catch { /* o load() abaixo mostra o que ficou */ }
+        }
+        await load();
+        flash(isConflict(e)
+          ? t(lang, 'Um cartão mudou em outra aba; a ordem não foi gravada e recarreguei a lista.', 'A card changed in another tab; the order was not saved and the list was reloaded.')
+          : `${t(lang, 'A ordem não foi gravada', 'The order was not saved')}: ${worldErrorText(e, lang)}`, { error: true, ms: 6000 });
+        return false;
       }
-      setError('');
-      return { ok: true };
-    } catch (e) {
-      const conflict = isConflict(e);
-      const msg = conflict ? t(lang, 'Um cartão mudou em outro aparelho ou aba; recarreguei a lista.', 'A card changed on another device or tab; the list was reloaded.') : worldErrorText(e, lang);
-      if (await load()) setError(msg);
-      return { ok: false, conflict, error: msg };
-    }
+    };
+    reorderChain.current = reorderChain.current.then(run);
+    return reorderChain.current;
   };
 
   const quickReveal = async (entry) => {
@@ -215,7 +253,7 @@ export default function WorldArea(props) {
           showCampaign={closed ? null : campaign}
           onOpenEntry={openEntry} onEntrySaved={upsert} onEntryCreated={(e) => { upsert(e); }} />
       ) : (
-        <Timeline campaign={campaign} entries={list} lang={lang} onOpenEntry={openEntry} onEntrySaved={upsert} onReload={load}
+        <Timeline campaign={campaign} entries={list} lang={lang} readOnly={closed} onOpenEntry={openEntry} onEntrySaved={upsert} onReload={load}
           onCreate={closed ? null : (f) => create({ ...f, name: t(lang, 'Novo evento', 'New event') })} />
       )}
 

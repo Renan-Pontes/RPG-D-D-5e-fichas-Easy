@@ -1,5 +1,5 @@
 import { errorMessage } from '../api/errors.js';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { createSampleWorld } from '../world/world-api.js';
 import ReadyAdventureGallery from '../ready/ReadyAdventureGallery.jsx';
@@ -9,6 +9,7 @@ import ToneAccentFields from '../shell/ToneAccentFields.jsx';
 import { campaignNextLine, defaultCoverArt, isHexColor, loadPlanCard, saveRememberedArea, TONES } from '../shell/shell-logic.js';
 import { writeSkip } from '../shell/next-step.js';
 import '../shell/shell.css';
+import MesaSheet from '../shell/MesaSheet.jsx';
 import { TableInviteCard } from '../creator/JoinTable.jsx';
 import { normalizeInviteCode, joinFromInvite, joinToast } from '../creator/creation.js';
 import { showPlanLimit } from '../plans/plans-api.js';
@@ -17,6 +18,8 @@ import { closedInfo, formatDay, inviteSeatsFree, limitShortText, planLimitFrom, 
 import '../plans/plans.css';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
+// O botão que acabou de mudar de sentido ignora toques por 400 ms (princípio 8).
+const SETTLE_MS = 400;
 
 /**
  * joinCode: código vindo da rota /join/<código> — abre o "Entrar com código" já preenchido.
@@ -139,19 +142,23 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
   const [readyId, setReadyId] = useState(null);   // aventura pronta escolhida (start === 'ready')
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape' && !busy) onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, busy]);
+  const formId = useId();
+  const nameId = useId();
+  // Trocar de passo muda o sentido do botão do rodapé, que fica no mesmo lugar
+  // ("Próximo" → "Criar campanha"): o 2º toque de um toque duplo criaria a campanha
+  // sem passar por "Como começar". Antes da pintura: nenhum toque chega antes da trava.
+  const stepAt = useRef(0);
+  useLayoutEffect(() => { stepAt.current = Date.now(); }, [step]);
+  const settling = () => Date.now() - stepAt.current < SETTLE_MS;
 
   const canNext = name.trim().length > 0;
+  // com algo escolhido, fechar (✕, Esc, toque fora, Cancelar) pergunta antes
+  const dirty = !busy && (canNext || tagline.trim() !== '' || cover != null || tone !== '' || accent !== '');
   const steps = [t(lang, 'Nome', 'Name'), t(lang, 'Capa e tom', 'Cover & tone'), t(lang, 'Como começar', 'How to start')];
 
   const create = async (e) => {
     e?.preventDefault?.();
-    if (!canNext || busy || coverWorking) return;
+    if (!canNext || busy || coverWorking || settling()) return;
     if (step === 2 && start === 'ready' && !readyId) {
       setError(t(lang, 'Escolha uma das aventuras prontas (ou outro jeito de começar).', 'Pick one of the ready adventures (or another way to start).'));
       return;
@@ -190,14 +197,37 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
 
   const next = (e) => {
     e?.preventDefault?.();
-    if (!canNext) return;
+    if (!canNext || settling()) return;
     if (step < 2) setStep(step + 1); else create();
   };
 
+  // Folha da mesa (plano F8): tela cheia no celular, diálogo de 880 px no PC; ✕ em todos
+  // os passos e o rodapé preso FORA do corpo rolável (nada fica debaixo dele).
+  const why = busy ? '' : !canNext ? t(lang, 'Dê um nome à campanha para seguir.', 'Give the campaign a name to continue.')
+    : coverWorking ? t(lang, 'Preparando a capa…', 'Preparing the cover…') : '';
   return (
-    <div className="modal-backdrop" onClick={() => !busy && onClose()}>
-      <div className="modal camp-wizard" role="dialog" aria-modal="true" aria-labelledby="camp-wizard-title" onClick={e => e.stopPropagation()}>
-        <h2 id="camp-wizard-title" style={{ marginTop: 0 }}>{t(lang, 'Nova campanha', 'New campaign')}</h2>
+    <MesaSheet lang={lang} size="full" width="lg" className="camp-wizard" icon="🏰"
+      title={t(lang, 'Nova campanha', 'New campaign')}
+      onClose={() => { if (!busy) onClose(); }} dirty={dirty}
+      dirtyText={t(lang, 'A campanha ainda não foi criada: o que você escolheu aqui se perde.', 'The campaign was not created yet: what you picked here will be lost.')}
+      initialFocus={step === 0 ? `#${CSS.escape(nameId)}` : undefined}
+      footer={({ close }) => (
+        <div className="camp-wizard-actions">
+          {error && <div className="auth-error">{error}</div>}
+          {why && <p className="camp-wizard-why">{why}</p>}
+          {step > 0
+            ? <button type="button" className="mesa-btn" onClick={() => setStep(step - 1)} disabled={busy}>← {t(lang, 'Voltar', 'Back')}</button>
+            : <button type="button" className="mesa-btn" onClick={close} disabled={busy}>{t(lang, 'Cancelar', 'Cancel')}</button>}
+          <span className="camp-wizard-spacer" aria-hidden="true" />
+          {step < 2 && canNext && (
+            <button type="button" className="mesa-btn" onClick={create} disabled={busy || coverWorking}>{t(lang, 'Criar agora', 'Create now')}</button>
+          )}
+          <button type="submit" form={formId} className="mesa-btn mesa-btn-lg is-primary" disabled={busy || !canNext || coverWorking}>
+            {busy ? t(lang, 'Criando…', 'Creating…') : step < 2 ? t(lang, 'Próximo', 'Next') : t(lang, 'Criar campanha', 'Create campaign')}
+          </button>
+        </div>
+      )}>
+      <div className="camp-wizard-body">
         <ol className="camp-wizard-steps" aria-label={t(lang, 'Passos', 'Steps')}>
           {steps.map((s, i) => (
             <li key={s} className={`${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} aria-current={i === step ? 'step' : undefined}>
@@ -208,31 +238,32 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
           ))}
         </ol>
 
-        <form onSubmit={next} className="col gap-3">
+        <form id={formId} onSubmit={next} className="col gap-3">
           {step === 0 && (
             <>
-              <label className="col gap-1">
-                <span>{t(lang, 'Nome da campanha', 'Campaign name')}</span>
-                <input className="input" required value={name} maxLength={120} onChange={e => setName(e.target.value)} autoFocus
+              <div className="mesa-field">
+                <label htmlFor={nameId}>{t(lang, 'Nome da campanha', 'Campaign name')}</label>
+                <input id={nameId} required value={name} maxLength={120} onChange={e => setName(e.target.value)}
                   placeholder={t(lang, 'ex.: Ecos de Valdoria', 'e.g.: Echoes of Valdoria')} />
-              </label>
-              <label className="col gap-1">
-                <span>{t(lang, 'Frase de efeito', 'Tagline')} <span className="muted text-sm">({t(lang, 'opcional', 'optional')})</span></span>
-                <input className="input" value={tagline} maxLength={160} onChange={e => setTagline(e.target.value)}
+              </div>
+              <div className="mesa-field">
+                <label htmlFor={`${nameId}-tag`}>{t(lang, 'Frase de efeito (opcional)', 'Tagline (optional)')}</label>
+                <input id={`${nameId}-tag`} value={tagline} maxLength={160} onChange={e => setTagline(e.target.value)}
                   placeholder={t(lang, 'Onde a névoa guarda segredos…', 'Where the mist keeps its secrets…')} />
-              </label>
+              </div>
             </>
           )}
 
-          {/* Passo 2 fica montado (só escondido) para a escolha de capa não se perder ao voltar. */}
+          {/* Passo 2 fica montado (só escondido) para a escolha de capa não se perder ao voltar.
+              Tom e cor vêm primeiro: as 8 cores ficam à vista ao abrir, longe do rodapé. */}
           <div className="col gap-3" style={step !== 1 ? { display: 'none' } : undefined}>
+            <ToneAccentFields lang={lang} tone={tone} accent={accent} onTone={setTone} onAccent={setAccent} />
             <div className="col gap-1">
               <span className="shell-label">{t(lang, 'Capa', 'Cover')}</span>
               <CoverPicker lang={lang} name={name} tagline={tagline} accent={isHexColor(accent) ? accent : ''}
                 initialChoice={coverChoice} busy={busy}
                 onWorking={setCoverWorking} onPick={(url, choice) => { setCover(url); setCoverChoice(choice); }} />
             </div>
-            <ToneAccentFields lang={lang} tone={tone} accent={accent} onTone={setTone} onAccent={setAccent} />
           </div>
 
           {step === 2 && (
@@ -263,22 +294,9 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
             <ReadyAdventureGallery lang={lang} mode="pick" selected={readyId} onSelect={(id) => { setReadyId(id); setError(''); }} />
           )}
 
-          {error && <div className="auth-error">{error}</div>}
-          <div className="camp-wizard-actions">
-            {step > 0
-              ? <button type="button" className="btn btn-ghost" onClick={() => setStep(step - 1)} disabled={busy}>← {t(lang, 'Voltar', 'Back')}</button>
-              : <button type="button" className="btn btn-ghost" onClick={onClose} disabled={busy}>{t(lang, 'Cancelar', 'Cancel')}</button>}
-            <span className="camp-wizard-spacer" aria-hidden="true" />
-            {step < 2 && canNext && (
-              <button type="button" className="btn btn-ghost" onClick={create} disabled={busy || coverWorking}>{t(lang, 'Criar agora', 'Create now')}</button>
-            )}
-            <button type="submit" className="btn btn-primary" disabled={busy || !canNext || coverWorking}>
-              {busy ? t(lang, 'Criando…', 'Creating…') : step < 2 ? t(lang, 'Próximo', 'Next') : t(lang, 'Criar campanha', 'Create campaign')}
-            </button>
-          </div>
         </form>
       </div>
-    </div>
+    </MesaSheet>
   );
 }
 
@@ -293,6 +311,8 @@ function JoinCampaignModal({ lang, onClose, onJoined, initialCode = '', characte
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const my = useMyPlan(true);
+  const formId = useId();
+  const codeId = useId();
 
   // Mostra a mesa do código (da rota ou digitado) — nome, mestre e vagas livres.
   useEffect(() => {
@@ -324,57 +344,63 @@ function JoinCampaignModal({ lang, onClose, onJoined, initialCode = '', characte
       else setError(errorMessage(e, lang));
     } finally { setBusy(false); }
   };
+  // Código da mesa que a pessoa mestra: o cartão explica; não há como entrar.
+  const ownTable = !!(table?.isDm && normalizeInviteCode(code) === table.code);
+  // Folha da mesa (plano F8): a ação fica no rodapé preso, à vista mesmo em 320 × 568.
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="join-camp-title" onClick={e => e.stopPropagation()}>
-        <h2 id="join-camp-title" style={{ marginTop: 0 }}>{t(lang, 'Entrar em campanha', 'Join campaign')}</h2>
-        <form onSubmit={submit} className="col gap-3">
-          <label className="col gap-1">
-            <span>{t(lang, 'Código de convite', 'Invite code')}</span>
-            <input
-              className="input"
-              required
-              value={code}
-              onChange={e => { setCode(normalizeInviteCode(e.target.value)); setError(''); }}
-              placeholder="ABCDEF"
-              maxLength={16}
-              autoFocus={!initialCode}
-              autoComplete="off"
-              style={{ fontFamily: 'JetBrains Mono, monospace', letterSpacing: 2, fontSize: '1.2em' }}
-            />
-          </label>
-          {table && normalizeInviteCode(code) === table.code && (
-            <TableInviteCard table={table} lang={lang} notice={charId !== '' ? seatNoticeText(my, table.dmName, lang, seatsFree) : ''} />
-          )}
-          {mine.length > 0 && (
-            <fieldset className="col gap-1" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-              <legend style={{ marginBottom: 'var(--s-1)' }}>{t(lang, 'Qual personagem vai para a mesa?', 'Which character goes to the table?')}</legend>
-              <div className="join-chars">
-                {mine.map(c => (
-                  <label key={c.id} className={`join-char ${c.inCampaign ? 'is-disabled' : ''}`}>
-                    <input type="radio" name="join-char" checked={charId === c.id} disabled={!!c.inCampaign} onChange={() => setCharId(c.id)} />
-                    <span className="join-char-name">{c.name || t(lang, 'Sem nome', 'Unnamed')}</span>
-                    <span className="muted text-sm">{c.inCampaign ? t(lang, 'já está numa mesa', 'already in a table') : `${t(lang, 'nível', 'level')} ${c.level || 1}`}</span>
-                  </label>
-                ))}
-                <label className="join-char">
-                  <input type="radio" name="join-char" checked={charId === ''} onChange={() => setCharId('')} />
-                  <span className="join-char-name">{t(lang, 'Escolho depois', "I'll pick later")}</span>
-                </label>
-              </div>
-            </fieldset>
-          )}
-          {charId !== '' && !(table && normalizeInviteCode(code) === table.code) && seatNoticeText(my, '', lang) && (
-            <p className="pl-sponsored-note" role="note">🪑 {seatNoticeText(my, '', lang)}</p>
-          )}
+    <MesaSheet lang={lang} size="auto" width="md" className="camp-join" icon="🗝"
+      title={t(lang, 'Entrar em campanha', 'Join campaign')}
+      onClose={onClose} initialFocus={initialCode ? undefined : `#${CSS.escape(codeId)}`}
+      footer={(
+        <div className="camp-join-actions">
           {error && <div className="auth-error">{error}</div>}
-          <div className="row gap-2" style={{ justifyContent: 'flex-end' }}>
-            <button type="button" className="btn btn-ghost" onClick={onClose}>{t(lang, 'Cancelar', 'Cancel')}</button>
-            {/* Código da mesa que a pessoa mestra: o cartão explica; não há como entrar. */}
-            <button type="submit" className="btn btn-primary" disabled={busy || !code || !!(table?.isDm && normalizeInviteCode(code) === table.code)}>{busy ? t(lang, 'Entrando…', 'Joining…') : t(lang, 'Entrar', 'Join')}</button>
+          {!code && <p className="camp-wizard-why">{t(lang, 'Digite o código que o mestre passou.', 'Type the code your GM gave you.')}</p>}
+          <div className="mesa-actions">
+            <button type="button" className="mesa-btn" onClick={onClose}>{t(lang, 'Cancelar', 'Cancel')}</button>
+            <button type="submit" form={formId} className="mesa-btn mesa-btn-lg is-primary" disabled={busy || !code || ownTable}>{busy ? t(lang, 'Entrando…', 'Joining…') : t(lang, 'Entrar', 'Join')}</button>
           </div>
-        </form>
-      </div>
-    </div>
+        </div>
+      )}>
+      <form id={formId} onSubmit={submit} className="col gap-3">
+        <div className="mesa-field">
+          <label htmlFor={codeId}>{t(lang, 'Código de convite', 'Invite code')}</label>
+          <input
+            id={codeId}
+            required
+            value={code}
+            onChange={e => { setCode(normalizeInviteCode(e.target.value)); setError(''); }}
+            placeholder="ABCDEF"
+            maxLength={16}
+            autoComplete="off"
+            autoCapitalize="characters"
+            style={{ fontFamily: 'JetBrains Mono, monospace', letterSpacing: 2, fontSize: '1.2em' }}
+          />
+        </div>
+        {table && normalizeInviteCode(code) === table.code && (
+          <TableInviteCard table={table} lang={lang} notice={charId !== '' ? seatNoticeText(my, table.dmName, lang, seatsFree) : ''} />
+        )}
+        {mine.length > 0 && (
+          <fieldset className="col gap-1" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+            <legend style={{ marginBottom: 'var(--s-1)' }}>{t(lang, 'Qual personagem vai para a mesa?', 'Which character goes to the table?')}</legend>
+            <div className="join-chars">
+              {mine.map(c => (
+                <label key={c.id} className={`join-char ${c.inCampaign ? 'is-disabled' : ''}`}>
+                  <input type="radio" name="join-char" checked={charId === c.id} disabled={!!c.inCampaign} onChange={() => setCharId(c.id)} />
+                  <span className="join-char-name">{c.name || t(lang, 'Sem nome', 'Unnamed')}</span>
+                  <span className="muted text-sm">{c.inCampaign ? t(lang, 'já está numa mesa', 'already in a table') : `${t(lang, 'nível', 'level')} ${c.level || 1}`}</span>
+                </label>
+              ))}
+              <label className="join-char">
+                <input type="radio" name="join-char" checked={charId === ''} onChange={() => setCharId('')} />
+                <span className="join-char-name">{t(lang, 'Escolho depois', "I'll pick later")}</span>
+              </label>
+            </div>
+          </fieldset>
+        )}
+        {charId !== '' && !(table && normalizeInviteCode(code) === table.code) && seatNoticeText(my, '', lang) && (
+          <p className="pl-sponsored-note" role="note">🪑 {seatNoticeText(my, '', lang)}</p>
+        )}
+      </form>
+    </MesaSheet>
   );
 }

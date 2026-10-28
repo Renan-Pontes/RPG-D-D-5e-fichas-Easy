@@ -200,6 +200,10 @@ urlpatterns = [
     path('combat/campaign/<str:id_or_slug>/next-turn', closed_guard(views_combat.combat_next_turn, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/prev-turn', closed_guard(views_combat.combat_prev_turn, 'campaign')),
     path('combat/campaign/<str:id_or_slug>/map', closed_guard(views_combat.combat_set_map, 'campaign')),
+    # V8: montar o combate numa chamada (idempotente), ↶ Desfazer por foto e o mapa da cena sem reenviar a imagem
+    path('combat/campaign/<str:id_or_slug>/encounter', closed_guard(views_combat.combat_encounter, 'campaign')),
+    path('combat/campaign/<str:id_or_slug>/undo', closed_guard(views_combat.combat_undo, 'campaign')),
+    path('combat/campaign/<str:id_or_slug>/map-from', closed_guard(views_combat.combat_map_from, 'campaign')),
     # fundo do mapa e imagens dos tokens por URL (V9; o JSON do combate só leva as URLs)
     path('combat/campaign/<str:id_or_slug>/map-image', views_combat.combat_map_image),
     path('combat/campaign/<str:id_or_slug>/token/<str:combatant_id>', views_combat.combat_token_image),

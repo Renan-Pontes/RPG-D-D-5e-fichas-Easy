@@ -163,6 +163,11 @@ export default function MesaSheet({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Esc fecha e Tab dá a volta dentro da folha — só a folha de cima responde.
+  // No document (bolha): o que está dentro da folha trata o Esc antes (a busca do
+  // Escolher monstro limpa o texto e para ali), e o stopPropagation deixa de fora
+  // quem escuta no window por baixo da folha (o editor do cartão do Mundo, os
+  // modais antigos): o Esc fecha só a folha de cima, como o useEscape do antigo
+  // aviso de limite fazia.
   useEffect(() => {
     const onKey = (e) => {
       const d = dialogRef.current;
@@ -171,12 +176,14 @@ export default function MesaSheet({
         // painel lateral: não prende o Tab; Esc só com o foco nele e sem outra folha por cima
         if (e.key !== 'Escape' || topmostModal() || !d.contains(document.activeElement)) return;
         e.preventDefault();
+        e.stopPropagation();
         requestClose();
         return;
       }
       if (topmostModal() !== d) return;
       if (e.key === 'Escape') {
         e.preventDefault();
+        e.stopPropagation();
         requestClose();
         return;
       }
@@ -190,8 +197,8 @@ export default function MesaSheet({
       else if (e.shiftKey && (cur === first || cur === d)) { e.preventDefault(); last.focus(); }
       else if (!e.shiftKey && cur === last) { e.preventDefault(); first.focus(); }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, [requestClose, isSide]);
 
   const w = width || (size === 'full' ? 'lg' : size === 'tall' ? 'md' : 'sm');

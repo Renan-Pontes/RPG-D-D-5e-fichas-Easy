@@ -5,9 +5,10 @@
 //
 // Abre numa folha da mesa (MesaSheet: sobe de baixo no celular, diálogo central
 // no desktop; Esc, ✕ e toque fora fecham), com Rolar tudo · Copiar · Salvar
-// presos no rodapé.
+// presos no rodapé. Os campos longos crescem com o texto (nada cortado).
 import { useState } from 'react';
 import MesaSheet from '../shell/MesaSheet.jsx';
+import GrowTextarea from './GrowTextarea.jsx';
 import { createEntry, worldErrorText } from './world-api.js';
 import { FIELDS, fieldLabel, generate, rerollField, setNpcGender, toEntryPayload, toPlainText } from './generators.js';
 import { t } from './world-model.js';
@@ -118,7 +119,7 @@ export default function ImproviseModal({ campaignId, lang = 'pt', onClose, onSav
                 </div>
               )}
               {long(f)
-                ? <textarea rows={2} value={gen[f]} onChange={e => edit(f, e.target.value)} aria-label={fieldLabel(f, lang)} />
+                ? <GrowTextarea minRows={2} value={gen[f]} onChange={e => edit(f, e.target.value)} aria-label={fieldLabel(f, lang)} />
                 : <input value={gen[f]} onChange={e => edit(f, e.target.value)} aria-label={fieldLabel(f, lang)} />}
             </div>
             <div className="wl-impro-btns">

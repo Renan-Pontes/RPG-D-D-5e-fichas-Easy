@@ -1,6 +1,6 @@
 /* ==========================================================
-   V14 · acabamento do Mundo: a folha "Quem vê" única (RevealSheet), a folha
-   "⋯ Mover" dos cartões e o editor do cartão só para ler (campanha encerrada).
+   V14 · acabamento do Mundo: a folha "Quem vê" única (RevealSheet), os botões dos
+   cartões do Atlas e o editor do cartão só para ler (campanha encerrada).
    Alvos de 44 px, textos de 12 px ou mais.
    ========================================================== */
 
@@ -12,16 +12,6 @@
 .wl-reveal-sheet .wl-logcheck { min-height: 44px; font-size: 14px; }
 .wl-reveal-sheet .wl-reveal-secrets .btn { min-height: 44px; }
 .wl-reveal-sheet .wl-reveal-hint { font-size: 13px; }
-.wl-reveal-sheet-log { margin-top: 8px; }
-
-/* ---------------------------------------------------------- "⋯ Mover" (sem arrastar) */
-.wl-act.wl-move-btn { flex: none; width: 100%; min-height: 44px; margin-top: 6px; font-size: 13px; }
-.wl-move-btns { display: flex; flex-direction: column; gap: 8px; }
-.wl-move-btns .mesa-btn { width: 100%; }
-/* 2 linhas reservadas: o aviso do toque que não pegou ("Um cartão mudou em outro aparelho…")
-   cabe sem crescer a folha, que sobe do rodapé (os botões ficariam fora do dedo) */
-.wl-move-why { margin: 0; min-height: 2.8em; font-size: 13px; line-height: 1.4; color: var(--ink-muted); }
-.wl-move-why.is-alert { color: var(--amber); }
 
 /* ---------------------------------------------------------- cartões do Atlas (§7.9)
    Quem vê ESCRITO no selo também no celular (não só 🔒/◐/👁 com o nome no title, que o
@@ -34,17 +24,6 @@
   .wl-atlas .wl-card-actions .wl-act { min-height: 48px; }
 }
 
-/* ---------------------------------------------------------- editor só leitura */
-.wl-save-read { color: var(--ink-secondary); }
-.wl-ro-note {
-  margin: 0 0 10px; padding: 10px 12px; border-radius: 8px; font-size: 14px; line-height: 1.4;
-  color: var(--ink-secondary); background: rgba(171, 154, 126, 0.1); border: 1px solid var(--stroke);
-}
-.wl-ro-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0 0; }
-.wl-ro-vis { font-size: 15px; color: var(--ink-primary); }
-.wl-ro-text { margin: 4px 0 0; font-size: 15px; line-height: 1.5; color: var(--ink-primary); white-space: pre-line; overflow-wrap: anywhere; }
-.wl-ro-fs { border: 0; margin: 0; padding: 0; min-width: 0; }
-.wl-ro-fs:disabled :is(input, select, textarea) { opacity: 1; color: var(--ink-primary); -webkit-text-fill-color: var(--ink-primary); }
-.wl-ro-rels { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
-.wl-editor.is-readonly :is(.wl-ed-name, .wl-ed-summary) { border-color: transparent; background: transparent; }
+/* ---------------------------------------------------------- editor só leitura
+   (o resto mora em world-styles.css, com o editor do F9: .wl-readonly-note, .wl-ed-read…) */
 .wl-editor.is-readonly .wl-tag { min-height: 44px; }

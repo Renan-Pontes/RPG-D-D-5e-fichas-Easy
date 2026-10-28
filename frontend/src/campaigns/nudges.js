@@ -164,7 +164,7 @@ export function currentTurnLog(log) {
 export function damageEvents(entries) {
   const out = [];
   for (const e of entries || []) {
-    if (!e) continue;
+    if (!e || e.undone) continue;   // ↶ Desfazer (V8): esse dano não aconteceu
     const ts = e.ts || '';
     if (e.type === 'damage' && e.amount > 0) {
       out.push({ key: `${ts}:${e.target}`, target: e.target, amount: e.amount, approx: false });
