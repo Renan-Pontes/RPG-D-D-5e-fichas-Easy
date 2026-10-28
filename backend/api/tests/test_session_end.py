@@ -190,6 +190,20 @@ class EndSessionTests(EndBase):
         self.assertEqual(sp[0]['done'], 4)
         self.assertNotIn(str(other.id), self.camp.dm_settings['partyInsights']['spotlights'])
 
+    def test_moment_for_a_scene_not_played_tonight_stays_open(self):
+        # c3 não foi jogada (vai para a Sessão 5): o momento dela fica em aberto e entra um ★ novo
+        self.camp.dm_settings = {**self.camp.dm_settings, 'partyInsights': {'spotlights': {str(self.char.id): [
+            {'id': 'k1', 'kind': 'push', 'text': 'Resistir ao espírito', 'auto': None, 'done': None, 'plan': 'c3'}]}}}
+        self.camp.save()
+        r = self.end(carry=True, moments=[{'charId': self.char.id, 'id': 'k1'}])
+        self.assertEqual(r.json()['ended']['moments'], 1)
+        sp = self.fresh().dm_settings['partyInsights']['spotlights'][str(self.char.id)]
+        self.assertEqual((sp[0]['id'], sp[0]['done']), ('k1', None))
+        self.assertEqual((sp[1]['kind'], sp[1]['done'], sp[1]['plan']), ('shine', 4, None))
+        self.assertIn('c3', [s['id'] for s in self.fresh().dm_settings['sessionPlan']['scenes']])
+        self.assertEqual(R.played_scene_ids(PLAN, 'c2'), {'c1', 'c2'})
+        self.assertEqual(R.played_scene_ids(PLAN, None, ['c1']), set())
+
     def test_moment_for_someone_without_one(self):
         r = self.end(moments=[{'charId': self.char.id, 'text': 'Teve um momento na Sessão 4'}])
         self.assertEqual(r.json()['ended']['moments'], 1)
@@ -267,6 +281,21 @@ class PlanRulesTests(TestCase):
         self.assertEqual(data['counts']['played'], 2)
         self.assertTrue(R.plan_has_content({'npcIds': [1]}))
         self.assertFalse(R.plan_has_content({'secrets': [{'id': 'p1', 'text': ''}]}))
+
+    def test_restore_keeps_what_was_changed_after_the_carry(self):
+        # c2 foi levada para a Sessão 5, ganhou um texto novo e foi feita: Restaurar não volta atrás
+        cur = {**PLAN, 'forSession': 5, 'strongStart': 'Começo da 5',
+               'scenes': [{'id': 'c2', 'text': 'Ponte velha', 'nodeRef': None, 'done': True, 'read': 'TEXTO NOVO',
+                           'check': None}],
+               'secrets': [{'id': 'p2', 'text': 'O sino', 'ref': None, 'discovered': True}]}
+        out = R.restored_plan(cur, PLAN)
+        c2 = next(s for s in out['scenes'] if s['id'] == 'c2')
+        self.assertEqual((c2['read'], c2['done']), ('TEXTO NOVO', True))
+        self.assertEqual(c2['check'], PLAN['scenes'][1]['check'])     # o vazio de agora o arquivo preenche
+        self.assertEqual([s['id'] for s in out['scenes']], ['c1', 'c2', 'c3', 'c4'])
+        self.assertTrue(next(s for s in out['secrets'] if s['id'] == 'p2')['discovered'])
+        self.assertEqual(out['strongStart'], 'Começo da 5')
+        self.assertEqual(R.restored_plan({**cur, 'strongStart': ''}, PLAN)['strongStart'], PLAN['strongStart'])
 
     def test_restore_too_large(self):
         big = {**PLAN, 'scenes': [{'id': f'c{i}', 'text': 'x' * 1000, 'done': False} for i in range(30)]}

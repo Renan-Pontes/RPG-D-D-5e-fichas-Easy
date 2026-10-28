@@ -334,9 +334,11 @@ def _closing_stage(stage):
     return out
 
 
-def _mark_moments(campaign, number, moments):
+def _mark_moments(campaign, number, moments, played=()):
     """Os momentos escolhidos em "Quem teve um momento hoje?" ganham `done = number`; quem
-    não tinha momento aberto ganha um (★, com o texto que veio). Só fichas da mesa.
+    não tinha momento aberto ganha um (★, com o texto que veio). Só fichas da mesa. Um
+    momento planejado para uma cena que não foi jogada hoje (`plan` fora de `played`) fica
+    em aberto (ele vai com a cena para a próxima sessão): no lugar dele entra um ★ novo.
     → quantos foram marcados."""
     if not moments:
         return 0
@@ -354,7 +356,8 @@ def _mark_moments(campaign, number, moments):
                 continue
             key = str(m['charId'])
             cur = [dict(x) for x in patch.get(key) or ins['spotlights'].get(key) or []]
-            hit = next((x for x in cur if m['id'] and x.get('id') == m['id']), None)
+            hit = next((x for x in cur if m['id'] and x.get('id') == m['id']
+                        and (not x.get('plan') or x.get('plan') in played)), None)
             if hit:
                 if hit.get('done') is None:
                     hit['done'] = number
@@ -364,7 +367,7 @@ def _mark_moments(campaign, number, moments):
                 sid = f'm{len(cur) + 1}'
                 while sid in used:
                     sid = f'{sid}x'
-                cur.append({'id': sid, 'kind': 'shine', 'text': m['text'] or f'Sessão {number}',
+                cur.append({'id': sid, 'kind': 'shine', 'text': m['text'] or f'Teve um momento na Sessão {number}',
                             'auto': None, 'done': number, 'plan': None})
                 marked += 1
             patch[key] = cur
@@ -417,15 +420,17 @@ def campaign_diary_end_session(request, id_or_slug, number):
         CheckRequest.objects.filter(campaign=campaign, show_on_screen=True).update(show_on_screen=False, screen_at=None)
 
     archived = plan = None
+    plan_now = (campaign.dm_settings or {}).get('sessionPlan')
+    # as cenas jogadas hoje, antes do plano ir para o arquivo (os momentos só destas)
+    played = R.played_scene_ids(plan_now, state.get('sceneId'), meta.get('doneBefore'))
     if flags['carry']:
-        plan_now = (campaign.dm_settings or {}).get('sessionPlan')
         fs = R.to_int(plan_now.get('forSession'), 1, 9999) if isinstance(plan_now, dict) else None
         if not fs or fs <= number:   # o plano de outra sessão (a próxima, já preparada) fica
             out = archive_session_plan(campaign, session=number, next_session=number + 1, carry=True,
                                        scene_id=state.get('sceneId'), done_before=meta.get('doneBefore'),
                                        user=request.user)
             archived, plan = out['archived'], out['plan']
-    ended['moments'] = _mark_moments(campaign, number, moments)
+    ended['moments'] = _mark_moments(campaign, number, moments, played)
 
     ended_at = timezone.now().isoformat()
     seen = {'stage': False}

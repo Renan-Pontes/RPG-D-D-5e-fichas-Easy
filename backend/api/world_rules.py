@@ -872,6 +872,17 @@ def plan_leftovers(plan):
     }
 
 
+def played_scene_ids(plan, scene_id=None, done_before=None):
+    """As cenas jogadas na sessão (as mesmas do rascunho do resumo, diary-summary.playedScenes):
+    as de verdade feitas nela (fora as que já estavam feitas ao começar, `doneBefore`) e a que
+    estava "agora". O "Quem teve um momento hoje?" só marca momento destas cenas."""
+    plan = plan if isinstance(plan, dict) else {}
+    before = set(done_before) if isinstance(done_before, list) else set()
+    return {s.get('id') for s in plan.get('scenes') or []
+            if _real_scene(s) and s.get('id') and ((s.get('done') and s.get('id') not in before)
+                                                    or (scene_id and s.get('id') == scene_id))}
+
+
 def carried_plan(plan, next_session, carry=True):
     """O plano da Sessão `next_session`: com `carry`, o que sobrou (plan_leftovers, com os
     mesmos ids: os momentos do Raio-X apontam as cenas pelo id); sem, em branco. O `_rev`
@@ -908,23 +919,33 @@ def archive_payload(plan, session, scene_id=None, done_before=None):
     }
 
 
+def _blank(v):
+    return v is None or v == [] or v == {} or (isinstance(v, str) and not v.strip())
+
+
 def _by_id_union(first, second):
-    """`first` inteira e, depois, o que de `second` tem um id que `first` não tem."""
+    """Na ordem de `first` e, depois, o que de `second` tem um id que `first` não tem. O mesmo
+    id nas duas: a versão de `second` (a de agora), campo a campo — `first` só preenche o que
+    nela está vazio."""
     first = [x for x in first or [] if isinstance(x, dict)]
+    now = {x.get('id'): x for x in second or [] if isinstance(x, dict) and x.get('id')}
+    out = [{**x, **{k: v for k, v in now[x['id']].items() if not _blank(v)}} if x.get('id') in now else x for x in first]
     ids = {x.get('id') for x in first}
-    return first + [x for x in second or [] if isinstance(x, dict) and x.get('id') not in ids]
+    return out + [x for x in second or [] if isinstance(x, dict) and x.get('id') not in ids]
 
 
 def restored_plan(current, archived):
-    """"Restaurar": o plano arquivado volta ao Plano. O que já estava no Plano e o arquivo
-    não tem (cenas e pistas por id, pessoas e lugares) fica junto, depois; os textos vazios do
-    arquivo ficam com os de agora. O plano continua sendo o da sessão que está sendo
-    preparada (`forSession` de agora). Passou do teto → 400."""
+    """"Restaurar": o plano arquivado volta ao Plano sem apagar nada do que já está nele. O
+    que o Plano tem vence: as cenas e as pistas levadas (o mesmo id) ficam como estão agora (o
+    arquivo só preenche os campos vazios), e o que o arquivo não tem fica junto, depois; o
+    arquivo devolve as cenas e as pistas que faltam, as pessoas, os lugares e os textos que
+    estão vazios agora. O plano continua sendo o da sessão que está sendo preparada
+    (`forSession` de agora). Passou do teto → 400."""
     cur = merged_session_plan(current if isinstance(current, dict) else {}, {})
     old = archived if isinstance(archived, dict) else {}
     out = dict(cur)
     for key in ('strongStart', 'monsters', 'rewards'):
-        if str(old.get(key) or '').strip():
+        if not str(cur.get(key) or '').strip() and str(old.get(key) or '').strip():
             out[key] = old[key]
     out['scenes'] = _by_id_union(old.get('scenes'), cur.get('scenes'))[:30]
     out['secrets'] = _by_id_union(old.get('secrets'), cur.get('secrets'))[:30]

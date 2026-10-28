@@ -496,8 +496,8 @@ def _named_legacy(stage, state, name):
 def shown_in_session(state, front):
     """diarySessions com o que foi mostrado na sessão ao vivo (`shown`: [{t, k}],
     as 20 últimas), para o rascunho do Resumo da sessão. None = nada a gravar.
-    "Só a imagem" de cartão oculto grava a legenda (ou 'Imagem') e `h: true`,
-    nunca o nome: o rascunho do resumo vai à Tela."""
+    "Só a imagem" de cartão oculto grava a legenda (ou '': o rascunho diz "uma imagem" na
+    língua dele) e `h: true`, nunca o nome: o rascunho do resumo vai à Tela."""
     import re
     if not (isinstance(state, dict) and state.get('live') and front):
         return None
@@ -507,7 +507,7 @@ def shown_in_session(state, front):
         return None
     key = m.group()
     if front.get('kind') == 'image' and front.get('hidden'):
-        item = {'t': str(front.get('caption') or 'Imagem')[:60], 'k': 'image', 'h': True}
+        item = {'t': str(front.get('caption') or '')[:60], 'k': 'image', 'h': True}
     else:
         item = {'t': str(front.get('label') or front.get('title') or '')[:60], 'k': front.get('kind')}
     shown = [x for x in (meta[key].get('shown') or []) if isinstance(x, dict)]

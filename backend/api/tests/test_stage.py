@@ -238,8 +238,9 @@ class StageOpsTests(Base):
         self.stage({'op': 'show', 'target': {'kind': 'image', 'ref': {'entryId': self.crypt.id}}, 'caption': 'Uma porta'})
         self.camp.refresh_from_db()
         shown = self.camp.state['diarySessions']['3']['shown']
-        # "Só a imagem" de oculto: nunca o nome (o rascunho do resumo vai à Tela) — a legenda ou 'Imagem'.
-        self.assertEqual(shown, [{'t': 'Imagem', 'k': 'image', 'h': True}, {'t': 'Irmã Velna', 'k': 'card'},
+        # "Só a imagem" de oculto: nunca o nome (o rascunho do resumo vai à Tela) — a legenda ou ''
+        # (o rascunho escreve "uma imagem" na língua dele).
+        self.assertEqual(shown, [{'t': '', 'k': 'image', 'h': True}, {'t': 'Irmã Velna', 'k': 'card'},
                                  {'t': 'Uma porta', 'k': 'image', 'h': True}])
         self.assertNotIn('Cripta', str(self.camp.state['diarySessions']))
         self.assertNotIn('Cripta', str(self.c_p1.get(f'/api/campaigns/{self.camp.id}').json()))
