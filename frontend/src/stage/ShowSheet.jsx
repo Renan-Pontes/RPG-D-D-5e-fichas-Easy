@@ -11,7 +11,7 @@ import { getSessionPlan, listWorld } from '../world/world-api.js';
 import { KIND_META, kindLabel } from '../world/world-model.js';
 import { getAdventure, listAdventures } from '../play/play-api.js';
 import { activeScene } from '../play/scene-model.js';
-import RecapCard from '../play/RecapCard.jsx';
+import RecapEditor from '../play/RecapEditor.jsx';
 import { flash } from '../play/flash.js';
 import { L, normalizeStage, cardShowMode } from './stage-now.js';
 import { imageRows, mapRows, sceneRows, TEXT_MAX } from './show-model.js';
@@ -199,7 +199,7 @@ export function ShowPicker({ campaign, stage, lang = 'pt', onChange, sceneNow = 
 
       {!loading && tab === 'text' && (
         <div className="stage-pane" role="tabpanel">
-          <RecapCard campaign={campaign} lang={lang} onShown={done} />
+          <RecapEditor campaign={campaign} lang={lang} inline onShown={done} />
           {data.node?.readAloud && (
             <div className="stage-read">
               <p className="mesa-eyebrow stage-sub">{L(lang, 'Ler em voz alta · cena agora', 'Read aloud · current scene')}</p>

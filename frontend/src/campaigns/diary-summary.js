@@ -267,10 +267,12 @@ const realScene = (s) => !!s && (!!sceneName(s) || !!s.nodeRef);
 /**
  * As cenas jogadas de um plano: as feitas (✓) e a que estava "agora" (`sceneId`), na ordem
  * do plano — as que o resumo cita. (A de "agora" sem ✓ foi interrompida: ela também passa
- * para a Sessão N+1 com "Levar o que sobrou".)
+ * para a Sessão N+1 com "Levar o que sobrou".) `doneBefore` = as que já estavam feitas quando
+ * a sessão começou (diarySessions[n].doneBefore): não foram jogadas nela.
  */
-export function playedScenes(plan, sceneId = null) {
-  return (plan?.scenes || []).filter(s => realScene(s) && (s.done || (sceneId && s.id === sceneId)));
+export function playedScenes(plan, sceneId = null, doneBefore = null) {
+  const before = new Set(Array.isArray(doneBefore) ? doneBefore : []);
+  return (plan?.scenes || []).filter(s => realScene(s) && ((s.done && !before.has(s.id)) || (sceneId && s.id === sceneId)));
 }
 
 /** Os testes pedidos durante a sessão (entre o startedAt e o endedAt dela). */
@@ -303,7 +305,9 @@ export function shownNames(shown) {
   const out = [];
   for (const x of shown || []) {
     if (!x || !['card', 'image'].includes(x.k)) continue;
-    const name = String(x.t || '').trim();
+    // o servidor guarda até 60 caracteres: o nome cortado ganha "…"
+    const raw = String(x.t || '');
+    const name = raw.length >= 60 ? `${raw.slice(0, 59).trimEnd()}…` : raw.trim();
     if (name && !out.includes(name)) out.push(name);
   }
   return out;
@@ -342,7 +346,7 @@ export function nightMomentLine(row, lang = 'pt') {
  * sessão, os testes e o que foi à Tela (V12), cita as cenas jogadas, os testes com o
  * resultado e o que foi mostrado; os combates (rodadas, derrotados, quedas), as revelações
  * e os críticos vêm da Crônica.
- * opts: { lang, session, title, campaignName, plan, sceneId, checks, shown }  →  { title, text }
+ * opts: { lang, session, title, campaignName, plan, sceneId, doneBefore, checks, shown }  →  { title, text }
  */
 export function buildRecap(entries, opts = {}) {
   const lang = opts.lang || 'pt';
@@ -362,8 +366,16 @@ export function buildRecap(entries, opts = {}) {
     switch (e.subtype) {
       case 'combat': {
         const n = combatNarration(d, lang);
-        if (n) sentences.push(n);
-        else if (d.phase === 'end' && d.defeated?.length) {
+        if (n) {
+          sentences.push(n);
+          // combate que acabou antes de todos caírem: quem o grupo derrubou (só monstros)
+          const down = d.winner === 'party' ? [] : (d.monsters || []).filter(g => g?.defeated > 0);
+          if (down.length) {
+            const who = listJoin(down.map(g => (g.defeated >= g.count ? (g.count > 1 ? `${g.name} ×${g.count}` : g.name)
+              : T(lang, `${g.defeated} de ${g.count} ${g.name}`, `${g.defeated} of ${g.count} ${g.name}`))), lang);
+            sentences.push(T(lang, `Derrotados: ${who}.`, `Defeated: ${who}.`));
+          }
+        } else if (d.phase === 'end' && d.defeated?.length) {
           sentences.push(T(lang, `O grupo derrotou ${listJoin(d.defeated, lang)}.`, `The party defeated ${listJoin(d.defeated, lang)}.`));
         }
         break;
@@ -411,14 +423,17 @@ export function buildRecap(entries, opts = {}) {
       + listJoin([...levels].map(([n, l]) => `${n} (${T(lang, 'nível', 'level')} ${l})`), lang) + '.');
   }
   const paragraphs = [];
-  const played = playedScenes(opts.plan, opts.sceneId).map(sceneName).filter(Boolean);
+  const played = playedScenes(opts.plan, opts.sceneId, opts.doneBefore).map(sceneName).filter(Boolean);
   if (played.length) paragraphs.push(played.slice(0, 12).map(n => `✓ ${n}`).join('\n'));
   if (sentences.length) paragraphs.push(sentences.join(' '));
   const tests = (opts.checks || []).map(c => checkResultLine(c, lang)).filter(Boolean);
   const onScreen = shownNames(opts.shown);
   const facts = [];
   if (tests.length) facts.push(`${T(lang, 'Testes', 'Checks')}: ${tests.slice(0, 6).join('; ')}.`);
-  if (onScreen.length) facts.push(`${T(lang, 'Na Tela', 'On screen')}: ${listJoin(onScreen.slice(0, 8), lang)}.`);
+  if (onScreen.length) {
+    const names = listJoin(onScreen.slice(0, 8), lang);
+    facts.push(`${T(lang, 'Na Tela', 'On screen')}: ${names}${names.endsWith('…') ? '' : '.'}`);
+  }
   if (facts.length) paragraphs.push(facts.join('\n'));
   if (notes.length) paragraphs.push(notes.slice(0, 6).map(n => `• ${n}`).join('\n'));
   if (!paragraphs.length) {

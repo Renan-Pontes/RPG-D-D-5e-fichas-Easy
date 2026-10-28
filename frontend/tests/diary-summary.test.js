@@ -164,6 +164,8 @@ test('V12: cenas jogadas são as feitas e a de "agora", com o nome (1ª linha)',
   assert.deepEqual(playedScenes(plan, 'c2').map(s => s.id), ['c1', 'c2']);
   assert.deepEqual(playedScenes(plan).map(s => s.id), ['c1']);
   assert.deepEqual(playedScenes(null), []);
+  // a feita numa sessão anterior (doneBefore) não foi jogada hoje
+  assert.deepEqual(playedScenes(plan, 'c2', ['c1', 'c4']).map(s => s.id), ['c2']);
 });
 
 test('V12: testes da sessão com o resultado; CD secreta não aparece', () => {
@@ -173,6 +175,7 @@ test('V12: testes da sessão com o resultado; CD secreta não aparece', () => {
   assert.equal(checkResultLine({ ...perception, dcHidden: true }, 'pt'), 'Percepção: 3 de 4 passaram');
   assert.equal(checkResultLine({ ...perception, dc: null }, 'pt'), 'Percepção: 3 responderam');
   assert.equal(checkResultLine({ ...perception, targets: [{ response: null }] }, 'pt'), '');
+  assert.deepEqual(shownNames([{ t: 'B'.repeat(60), k: 'card' }]), [`${'B'.repeat(59)}…`]);
   assert.deepEqual(shownNames([{ t: 'Borin', k: 'card' }, { t: 'Imagem', k: 'image', h: true }, { t: 'Ponte', k: 'scene' }, { t: 'Borin', k: 'card' }, { t: 'x', k: 'recap' }]), ['Borin', 'Imagem']);
 });
 
@@ -191,6 +194,9 @@ test('V12: o rascunho cita a cena jogada, o teste com resultado, a imagem mostra
   assert.ok(r.text.includes('Na Tela: Bartolomeu.'), r.text);
   assert.ok(!r.text.includes('notas do mestre'), 'as notas da cena (2ª linha em diante) são só do mestre');
   assert.ok(!r.text.includes('terminou'), 'o fim da sessão não entra no texto');
+  // combate encerrado antes do fim: as rodadas e quem caiu (só os monstros)
+  const cut = buildRecap([ev('combat', { phase: 'end', rounds: 1, pcs: ['Pipo'], monsters: [{ name: 'Goblin', count: 2, defeated: 1 }], downs: {}, winner: null, defeated: ['Goblin #1', 'Pipo'] })], { lang: 'pt' });
+  assert.ok(cut.text.includes('Combate encerrado em 1 rodada contra Goblin ×2. Derrotados: 1 de 2 Goblin.'), cut.text);
   const en = buildRecap([], { lang: 'en', plan, sceneId: 'c2', checks: [perception], shown: [{ t: 'Borin', k: 'card' }] });
   assert.ok(en.text.includes('Checks: Percepção DC 15: 3 of 4 passed.') && en.text.includes('On screen: Borin.'), en.text);
 });

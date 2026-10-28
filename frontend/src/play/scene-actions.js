@@ -7,6 +7,8 @@
 //   clearSceneNow    "Ainda não sei" / a última cena feita: nenhuma cena agora
 //   setSceneDone     ✓ feita / ↺ não feita (o plano, só a chave das cenas)
 //   loadRecap        o resumo salvo de uma sessão (1 GET, sob demanda)
+//   announceRecap    o resumo acabou de ser salvo (RecapEditor): a Agora (J1/J2/J3) e a folha
+//                    Começar sabem sem ler de novo (evento RECAP_EVENT)
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
 import { freshSceneId, normalizePlan } from '../prep/next-session.js';
@@ -135,6 +137,11 @@ export async function setSceneDone(campaign, plan, sceneId, done) {
  * O resumo salvo ("Resumo da sessão", subtype 'summary') da sessão `session`: {has, title,
  * text, id}. Sem número, o mais novo. 1 GET (só os resumos), sob demanda.
  */
+export const RECAP_EVENT = 'forja:recap';
+export function announceRecap(campaignId, session, recap) {
+  try { window.dispatchEvent(new CustomEvent(RECAP_EVENT, { detail: { campaignId, session, recap } })); } catch { /* ok */ }
+}
+
 export async function loadRecap(campaignId, session) {
   const r = await api.listDiary(campaignId, { subtype: 'summary', limit: 20 });
   const list = (r.entries || []).filter(e => e.subtype === 'summary');

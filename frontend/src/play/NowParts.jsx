@@ -341,7 +341,7 @@ export function PlanClues({ campaign, lang, view, handy = [], ask, busy, closed 
 export function ToolsSheet({ lang, onClose, onPick, wizardOn, onWizard, busy, partyCount, closed = false }) {
   const rows = [
     ['improvise', '🎲', L(lang, 'Improvisar', 'Improvise'), L(lang, 'NPC, taverna ou nomes na hora', 'NPC, tavern or names on the spot')],
-    ['recap', '📜', L(lang, 'Anteriormente em…', 'Previously on…'), L(lang, 'Um rascunho da Crônica para ler ou mostrar na Tela', 'A draft from the Chronicle to read or show')],
+    ['recap', '📜', L(lang, 'Anteriormente em…', 'Previously on…'), L(lang, 'O resumo da sessão anterior (o salvo ou um rascunho) para ler ou mostrar na Tela', 'The last session’s recap (the saved one or a draft) to read or show')],
     ['short', '☕', L(lang, 'Descanso curto (mesa)', 'Short rest (party)'), L(lang, 'Em todos os personagens, com confirmação', 'On every character, asks first')],
     ['long', '🛌', L(lang, 'Descanso longo (mesa)', 'Long rest (party)'), L(lang, 'Em todos os personagens, com confirmação', 'On every character, asks first')],
     ['grimoire', '📖', L(lang, 'Abrir Grimório', 'Open Grimoire'), L(lang, 'As magias e regras do livro', 'Spells and rules')],

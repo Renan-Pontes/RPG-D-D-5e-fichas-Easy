@@ -55,7 +55,7 @@ import {
 } from './now-model.js';
 import { playPlanView } from './plan-model.js';
 import { patchState } from './play-api.js';
-import { addSceneAndBegin, beginScene, clearSceneNow, loadRecap, readLogRoom, setSceneDone, writeLogRoom } from './scene-actions.js';
+import { addSceneAndBegin, beginScene, clearSceneNow, loadRecap, readLogRoom, RECAP_EVENT, setSceneDone, writeLogRoom } from './scene-actions.js';
 import { COMBAT_EVENT, useRevData, useTable } from './table-store.js';
 import { flash } from './flash.js';
 import useMedia from './useMedia.js';
@@ -64,7 +64,7 @@ import '../campaigns/table-now.css';
 import './now.css';
 
 const ShowSheet = lazy(() => import('../stage/ShowSheet.jsx'));
-const RecapCard = lazy(() => import('./RecapCard.jsx'));
+const RecapEditor = lazy(() => import('./RecapEditor.jsx'));
 const ImproviseModal = lazy(() => import('../world/ImproviseModal.jsx'));
 const StartSessionSheet = lazy(() => import('./StartSessionSheet.jsx'));
 const EntrySheet = lazy(() => import('../prep/EntrySheet.jsx'));
@@ -169,6 +169,15 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
     loadRecap(campaign.id, recapOf).then(r => alive && setRecap(r)).catch(() => alive && setRecap({ has: false }));
     return () => { alive = false; };
   }, [campaign.id, recapOf]);
+  // o resumo salvo agora (o editor do Encerrar, da Crônica ou daqui): o J1/J2/J3 sabe sem ler de novo
+  useEffect(() => {
+    const on = (e) => {
+      const d = e.detail || {};
+      if (String(d.campaignId) === String(campaign.id) && Number(d.session) === Number(recapOf) && d.recap) setRecap(d.recap);
+    };
+    window.addEventListener(RECAP_EVENT, on);
+    return () => window.removeEventListener(RECAP_EVENT, on);
+  }, [campaign.id, recapOf]);
 
   // aprovações: o número vem do pulso (ou da campanha); o tipo, 1 leitura quando o número muda
   const approvalsN = Array.isArray(approvals)
@@ -236,7 +245,7 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
   const onStepAction = async (id, s) => {
     if (id === 'startSession') openStart();
     else if (id === 'tvLink') copyTv();
-    else if (id === 'recap') goTo?.('group', 'chronicle', { recap: true });
+    else if (id === 'recap') setSheet('recap');   // o editor do resumo, aqui mesmo (J2)
     else if (id === 'preparePlan' || id === 'plan') goTo?.('prepare', 'next');
     else if (id === 'showRecap') {
       await sendToStage(campaign.id, () => showOnStage(campaign.id, { kind: 'recap', title: recap?.title || '', text: recap?.text || '' }),
@@ -537,7 +546,10 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
       )}
       {sheet === 'show' && (
         <Suspense fallback={null}>
-          <ShowSheet campaign={campaign} stage={campaign.stage || st.stage} lang={lang} onClose={() => setSheet(null)} onChange={refresh}
+          {/* mostrou: a folha fecha (o aviso "Na tela ✓ · ↶ Desfazer" confirma e desfaz); para
+              escolher várias coisas seguidas há Jogar › Tela › Mostrar */}
+          <ShowSheet campaign={campaign} stage={campaign.stage || st.stage} lang={lang} onClose={() => setSheet(null)}
+            onChange={() => { refresh(); setSheet(null); }}
             sceneNow={shown ? { id: shown.id, refs: (shown.nodeRef ? node?.refs : shown.refs) || [], show: shown.nodeRef ? null : shown.show || null } : null} />
         </Suspense>
       )}
@@ -558,7 +570,12 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
           )}
         </MesaSheet>
       )}
-      {sheet === 'recap' && <Suspense fallback={null}><RecapCard campaign={campaign} lang={lang} autoDraft asSheet onClose={() => setSheet(null)} /></Suspense>}
+      {sheet === 'recap' && (
+        <Suspense fallback={null}>
+          <RecapEditor campaign={campaign} lang={lang} session={recapOf > 0 ? recapOf : null} dock="bar"
+            onClose={() => setSheet(null)} onSaved={() => setSheet(null)} />
+        </Suspense>
+      )}
       {sheet === 'readRecap' && (
         <MesaSheet title={recap?.title || L(lang, 'Anteriormente em…', 'Previously on…')} icon="📜" size="tall" width="md" lang={lang} dock="bar"
           onClose={() => setSheet(null)}

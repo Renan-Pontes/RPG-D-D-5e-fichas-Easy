@@ -14,6 +14,8 @@ const GONE = [
   // V5: a subvista e o título "Próxima sessão" viraram "Plano" / "Plano da Sessão N" (o "até a
   // próxima sessão" da barra da mesa continua: é a próxima sessão mesmo, não o nome do plano)
   { word: /Pr[óo]xima sess[ãa]o|\bNext session\b/, now: 'Plano' },
+  // V12: o "recap" virou "Resumo da sessão" em português (o inglês continua "recap")
+  { word: /\b(?:[Oo]|um|do|ao|[Mm]ontar)\s+recap\b|\bRecap\s+(?:desta|salvo)\b/, now: 'Resumo' },
 ];
 
 test('palavras que saíram do app não voltam', () => {
