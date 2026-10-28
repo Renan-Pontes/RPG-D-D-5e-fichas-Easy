@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  EDGE, FORCE, GAP, HEAD_H, HEAD_W, LABEL_H, headRect, hits, labelRect, layoutPinLabels, pinInBox, pinPriority, zoomControlsRect,
+  EDGE, FORCE, GAP, HEAD_H, HEAD_W, LABEL_H, headRect, hits, labelAt, labelRect, layoutPinLabels, pinInBox, pinPriority, zoomControlsRect,
 } from '../src/world/map-labels.js';
 
 const box = { w: 300, h: 214 };       // o mapa do mestre a 320 px
@@ -143,4 +143,43 @@ test('avoid: nenhum rótulo embaixo dos botões ＋ − ⤢ (nem o do selecionad
   assert.ok(layoutPinLabels([pin('b', 60, 60, 90)], box, { avoid: [z] }).has('b'));
   assert.equal(zoomControlsRect({ w: 0, h: 0 }), null);
   assert.equal(layoutPinLabels([pin('b', 60, 60, 90)], box, { avoid: [null] }).size, 1);
+});
+
+test('zoomControlsRect à esquerda (mapa do jogador): longe do dado flutuante, e os rótulos desviam dela', () => {
+  const z = zoomControlsRect(box, { side: 'left' });
+  assert.deepEqual(z, { l: 8, t: 214 - 8 - 144, r: 8 + 44, b: 214 - 8 });
+  // o canto de baixo à direita fica livre
+  const right = zoomControlsRect(box);
+  assert.ok(!hits(z, right));
+  // marcador perto do canto esquerdo: o rótulo não cai nos botões
+  const p = pin('a', 40, 150, 90);
+  const out = layoutPinLabels([p], box, { avoid: [z] });
+  if (out.has('a')) assert.ok(!hits(labelRect(p, out.get('a').above, box), z));
+  // lado desconhecido = direita (como antes)
+  assert.deepEqual(zoomControlsRect(box, { side: 'x' }), right);
+});
+
+test('labelAt: o toque no nome à vista acha o marcador; nome escondido ou fora dele, não', () => {
+  const a = pin('a', 60, 60, 90);
+  const b = pin('b', 220, 160, 90);
+  const labels = layoutPinLabels([a, b], box);
+  const ra = labelRect(a, labels.get('a').above, box);
+  assert.equal(labelAt([a, b], labels, { x: (ra.l + ra.r) / 2, y: (ra.t + ra.b) / 2 }, box), 'a');
+  const rb = labelRect(b, labels.get('b').above, box);
+  assert.equal(labelAt([a, b], labels, { x: rb.l + 1, y: rb.b - 1 }, box), 'b');
+  // longe de qualquer rótulo
+  assert.equal(labelAt([a, b], labels, { x: 150, y: 5 }, box), null);
+  // o rótulo que o layout escondeu não conta
+  const only = new Map([['b', labels.get('b')]]);
+  assert.equal(labelAt([a, b], only, { x: (ra.l + ra.r) / 2, y: (ra.t + ra.b) / 2 }, box), null);
+  // rótulo em cima da cabeça
+  const c = pin('c', 150, box.h - 4, 80);
+  const lc = layoutPinLabels([c], box);
+  assert.equal(lc.get('c').above, true);
+  const rc = labelRect(c, true, box);
+  assert.equal(labelAt([c], lc, { x: 150, y: (rc.t + rc.b) / 2 }, box), 'c');
+  // lixo não quebra
+  assert.equal(labelAt(null, labels, { x: 1, y: 1 }, box), null);
+  assert.equal(labelAt([a], null, { x: 1, y: 1 }, box), null);
+  assert.equal(labelAt([a], labels, { x: NaN, y: 1 }, box), null);
 });

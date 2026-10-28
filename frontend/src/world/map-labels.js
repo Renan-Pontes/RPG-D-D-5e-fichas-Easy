@@ -95,12 +95,35 @@ export function layoutPinLabels(pins, box, { avoid = [] } = {}) {
   return out;
 }
 
-/** A coluna de botões ＋ − ⤢ no canto de baixo à direita da caixa (n botões de `size`). */
-export function zoomControlsRect(box, { n = 3, size = 44, gap = 6, inset = 8 } = {}) {
+/**
+ * A coluna de botões ＋ − ⤢ no canto de baixo da caixa (n botões de `size`), à
+ * direita (o mapa do mestre) ou à esquerda (side: 'left', o do jogador: à direita
+ * o dado flutuante do celular cairia em cima dela).
+ */
+export function zoomControlsRect(box, { n = 3, size = 44, gap = 6, inset = 8, side = 'right' } = {}) {
   const w = num(box?.w), h = num(box?.h);
   if (!(w > 0 && h > 0)) return null;
   const tall = n * size + (n - 1) * gap;
-  return { l: w - inset - size, t: h - inset - tall, r: w - inset, b: h - inset };
+  const l = side === 'left' ? inset : w - inset - size;
+  return { l, t: h - inset - tall, r: l + size, b: h - inset };
+}
+
+/**
+ * Qual marcador tem o rótulo À VISTA sob o ponto `pt` (px da caixa)? O rótulo é
+ * parte do alvo do marcador: tocar no nome abre o mesmo que tocar na cabeça.
+ * pins e labels são os mesmos de layoutPinLabels (só os rótulos que ele pôs
+ * contam); devolve o id ou null.
+ */
+export function labelAt(pins, labels, pt, box) {
+  const x = num(pt?.x, NaN), y = num(pt?.y, NaN);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !labels?.size) return null;
+  for (const p of pins || []) {
+    const lab = p && labels.get(p.id);
+    if (!lab) continue;
+    const r = labelRect(p, lab.above, box);
+    if (x >= r.l && x <= r.r && y >= r.t && y <= r.b) return p.id;
+  }
+  return null;
 }
 
 /**

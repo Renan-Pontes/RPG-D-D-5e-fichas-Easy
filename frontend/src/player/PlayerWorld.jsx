@@ -19,7 +19,7 @@ import { errorMessage } from '../api/errors.js';
 import useArea from '../shell/useArea.js';
 import { SubChips } from '../shell/AreaNav.jsx';
 import { nearestHit, usePanZoom } from '../shell/usePanZoom.js';
-import { layoutPinLabels, pinPriority, zoomControlsRect } from '../world/map-labels.js';
+import { labelAt, layoutPinLabels, pinPriority, zoomControlsRect } from '../world/map-labels.js';
 import EntryCard, { EntryImage } from '../world/EntryCard.jsx';
 import { getEntry, listWorld, markWorldSeen, worldImageUrl } from '../world/world-api.js';
 import {
@@ -365,27 +365,36 @@ function MapCanvas({ name, img, pins, byId, newIds, lang, living, onPin }) {
   const [widths, setWidths] = useState({});         // id → largura do rótulo (medida)
   const stageRef = useRef(null);
   const content = { w: MAP_W, h: Math.round(MAP_W / (ratio || 1.5)) };
+  const placedRef = useRef({ placed: [], labels: new Map() });
   const pz = usePanZoom({
     content,
-    // um toque (sem arrastar): o marcador mais perto da cabeça, dentro de 24 px de tela
+    // um toque (sem arrastar): o nome à vista de um marcador (o rótulo é parte do
+    // alvo) ou o marcador mais perto da cabeça, dentro de 24 px de tela
     onTap: (p) => {
       const S = pz.scale || 1;
-      const items = pins.filter(x => x.entryId && byId.has(x.entryId))
-        .map(x => ({ id: x.id, x: (x.x ?? 0.5) * content.w, y: (x.y ?? 0.5) * content.h - PIN_HEAD / S, r: 0 }));
-      const hit = nearestHit(items, p, PIN_HIT / S);
-      const pin = hit && pins.find(x => x.id === hit.id);
+      const open = pins.filter(x => x.entryId && byId.has(x.entryId));
+      const { placed, labels: shown } = placedRef.current;
+      const byLabel = labelAt(placed.filter(x => open.some(o => o.id === x.id)), shown,
+        { x: pz.view.x + p.x * S, y: pz.view.y + p.y * S }, pz.box);
+      const items = open.map(x => ({ id: x.id, x: (x.x ?? 0.5) * content.w, y: (x.y ?? 0.5) * content.h - PIN_HEAD / S, r: 0 }));
+      const id = byLabel ?? nearestHit(items, p, PIN_HIT / S)?.id;
+      const pin = id != null && pins.find(x => x.id === id);
       if (pin) onPin(pin);
     },
   });
 
-  // Rótulos que cabem nesta vista (px de tela na caixa); os novos primeiro.
-  const labels = useMemo(() => layoutPinLabels(pins.map(p => ({
+  // Rótulos que cabem nesta vista (px de tela na caixa); os novos primeiro. Os ＋ − ⤢
+  // ficam à esquerda (à direita, o dado flutuante do celular cobriria o ⤢).
+  const placed = useMemo(() => pins.map(p => ({
     id: p.id,
     x: pz.view.x + (p.x ?? 0.5) * content.w * pz.scale,
     y: pz.view.y + (p.y ?? 0.5) * content.h * pz.scale,
     w: widths[p.id] || 0,
     prio: pinPriority({ visible: true, isNew: !!(p.entryId && newIds.has(p.entryId)) }),
-  })), { w: pz.box.w, h: pz.box.h }, { avoid: [zoomControlsRect(pz.box)] }), [pins, pz.view.x, pz.view.y, pz.scale, pz.box.w, pz.box.h, content.w, content.h, widths, newIds]);
+  })), [pins, pz.view.x, pz.view.y, pz.scale, content.w, content.h, widths, newIds]);
+  const labels = useMemo(() => layoutPinLabels(placed, { w: pz.box.w, h: pz.box.h }, { avoid: [zoomControlsRect(pz.box, { side: 'left' })] }),
+    [placed, pz.box.w, pz.box.h]);
+  placedRef.current = { placed, labels };
 
   // mede os rótulos (os escondidos também: visibility, não display)
   const [fontsTick, setFontsTick] = useState(0);

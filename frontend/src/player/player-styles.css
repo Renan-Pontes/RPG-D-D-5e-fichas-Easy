@@ -45,6 +45,10 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 .pl-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); }
 @media (max-width: 520px) { .pl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
 @media (max-width: 340px) { .pl-grid { grid-template-columns: 1fr; } }
+/* textos ≥ 12 px nos cartões do Atlas do jogador (os selos do EntryCard nascem
+   com 11 px; o Atlas do mestre faz o mesmo em .wl-atlas) */
+.pl-world .wl-card .wl-kind-badge, .pl-world .wl-card-sub, .pl-world .wl-card .wl-new, .pl-world .wl-map-badge,
+.pl-world .wl-card .wl-tag, .pl-world .wl-card .wl-when, .pl-world .wl-card .wl-seal { font-size: 12px; }
 
 .pl-empty {
   text-align: center; padding: 36px 20px; border-radius: var(--radius-lg);
@@ -108,7 +112,10 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 }
 .pl-pin.is-label-above .pl-pin-label { top: auto; bottom: calc(100% + 3px); }
 .pl-pin.is-label-off .pl-pin-label { visibility: hidden; }
-.pl-map-zoom { position: absolute; right: 8px; bottom: 8px; z-index: 3; display: flex; flex-direction: column; gap: 6px; }
+/* ＋ − ⤢ no canto de baixo à ESQUERDA: à direita, o dado flutuante do celular
+   (fixo acima da barra) cobria o ⤢ ou o − com o mapa no pé da tela
+   (zoomControlsRect(box, { side: 'left' }) tira os rótulos de baixo deles) */
+.pl-map-zoom { position: absolute; left: 8px; bottom: 8px; z-index: 3; display: flex; flex-direction: column; gap: 6px; }
 .pl-map-zoom button {
   width: 44px; height: 44px; padding: 0; border-radius: 8px; display: grid; place-items: center;
   background: rgba(14, 10, 7, 0.85); border: 1px solid var(--stroke); color: var(--gold-bright); font-size: 1.2rem; line-height: 1; cursor: pointer; touch-action: manipulation;
@@ -124,7 +131,7 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 .pl-tl-item { position: relative; }
 .pl-tl-dot {
   position: absolute; left: -24px; top: 10px; width: 22px; height: 22px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; font-size: 0.7rem;
+  display: flex; align-items: center; justify-content: center; font-size: 12px;
   background: var(--bg-deep); border: 2px solid var(--gold);
 }
 .pl-tl-item.is-new .pl-tl-dot { border-color: var(--gold-bright); box-shadow: 0 0 10px rgba(237, 203, 122, 0.6); }
