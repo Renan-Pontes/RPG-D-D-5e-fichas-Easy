@@ -157,11 +157,6 @@
 .adv-now-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: space-between; }
 .adv-now .prep-play .btn { min-height: 44px; }
 
-/* ---------------------------------------------------------- Testes: de sessões passadas */
-.tl-session { color: var(--ink-secondary); }
-.tl-past { margin-top: 10px; border-top: 1px solid rgba(224, 181, 94, 0.18); padding-top: 6px; }
-.tl-past-sum { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-family: var(--display); font-size: 0.9rem; color: var(--gold-bright); }
-
 /* ---------------------------------------------------------- PC: a mesa e a coluna da Tela */
 @media (min-width: 1024px) {
   .table-now.now { grid-template-areas: "main side"; }

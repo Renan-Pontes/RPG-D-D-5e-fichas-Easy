@@ -332,6 +332,10 @@
 .tl-physical-btns .mesa-btn { flex: 1 1 auto; }
 .tl-physical .check-card-error { flex-basis: 100%; }
 .tl-hist-tag { margin-left: 8px; font-size: 0.85rem; color: var(--ink-secondary); white-space: nowrap; }
+/* V7: a linha "Sessão N: …" e "De sessões passadas" (aqui, e não em now.css: Testes abre direto) */
+.tl-session { color: var(--ink-secondary); }
+.tl-past { margin-top: 10px; border-top: 1px solid rgba(224, 181, 94, 0.18); padding-top: 6px; }
+.tl-past-sum { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-family: var(--display); font-size: 0.9rem; color: var(--gold-bright); }
 /* V10: rolagens de mesa (Testes › 🎲 Na Tela e as Últimas 5 de Jogar › Tela) */
 .tl-table-hint { margin: 0 0 8px; }
 /* uma coluna em toda largura: a linha (o mesmo texto da TV) e, embaixo, a hora e as marcas */
