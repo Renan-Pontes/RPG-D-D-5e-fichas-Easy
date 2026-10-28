@@ -328,9 +328,11 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
    3 (ícone em cima, nome embaixo, 48 px) e o mapa com no máximo 55% da altura —
    sobra página fora dele para o dedo rolar (só a caixa tem touch-action: none).
    O marcador abre numa folha da mesa (.wl-pin-sheet) com o fundo quase claro:
-   o marcador continua à vista acima dela. No PC (≥ 768), abas e ferramentas
-   numa linha só e o painel do marcador ao lado do mapa, preso no alto. */
+   o marcador continua à vista acima dela. No PC (≥ 768), a barra (abas e
+   ferramentas) e o mapa numa coluna e o painel do marcador ao lado das duas,
+   preso no alto (a altura máxima vem do WorldMap: nunca passa do pé da tela). */
 .wl-mapview { display: flex; flex-direction: column; gap: 10px; }
+.wl-map-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .wl-map-bar { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
 .wl-map-back { flex: none; max-width: 100%; }
 .wl-map-tabs {
@@ -349,7 +351,6 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-map-tool > span[aria-hidden] { font-size: 1.1rem; line-height: 1; }
 .wl-map-tool-txt { overflow-wrap: anywhere; }
 .wl-map-tools .sot-blocked { display: flex; flex-direction: column; gap: 2px; }
-.wl-map-stage { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .wl-map-col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .wl-map-hint { margin: 0; }
 .wl-pin-spacer { height: 0; flex: none; }
@@ -386,6 +387,10 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
   max-width: 160px; padding: 1px 8px; border-radius: 999px; font-size: 12px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   background: rgba(14,10,7,0.85); color: var(--ink-primary); border: 1px solid var(--stroke); pointer-events: none;
 }
+/* o nome à vista é parte do alvo (fica dentro do botão: tocar, clicar ou arrastar
+   por ele é o mesmo que pela cabeça); map-labels.js garante que ele não cobre
+   outro nome, outra cabeça nem os ＋ − ⤢ */
+.wl-pin:not(.is-label-off) .wl-pin-label { pointer-events: auto; }
 .wl-pin.is-label-above .wl-pin-label { top: auto; bottom: calc(100% + 3px); }
 .wl-pin.is-label-off .wl-pin-label { visibility: hidden; }
 .wl-pin.is-hidden .wl-pin-head { background: radial-gradient(circle at 35% 35%, #8d8270, #4a4234); border-style: dashed; border-color: var(--ink-faint); opacity: 0.9; }
@@ -394,6 +399,8 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-pin.is-selected { z-index: 2; }
 .wl-pin.is-selected .wl-pin-label { border-color: var(--gold-bright); color: var(--gold-bright); }
 .wl-map-zoom { position: absolute; right: 8px; bottom: 8px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
+/* no celular, à esquerda: à direita o dado flutuante cobria parte do ⤢ (zoomSide) */
+.wl-map-zoom.is-left { right: auto; left: 8px; }
 .wl-map-zoom button { width: 44px; height: 44px; border-radius: 8px; background: rgba(14,10,7,0.85); border: 1px solid var(--stroke); color: var(--ink-primary); font-size: 1.15rem; cursor: pointer; }
 @media (hover: hover) { .wl-map-zoom button:hover { border-color: var(--gold); } }
 
@@ -421,17 +428,26 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .mesa-sheet.wl-pin-sheet { max-height: 62vh; max-height: 62dvh; }
 .wl-pin-sheet .mesa-sheet-foot .wl-pin-vis-txt { font-size: 0.9rem; }
 .wl-pin-sheet .mesa-sheet-foot .wl-pin-show { flex-basis: 100%; }
+/* gravação dentro da folha: "Salvo"/"Erro ao salvar" embaixo do Rótulo e o aviso
+   de erro/conflito (com o Recarregar) no rodapé, acima do Mostrar */
+.wl-pin-save { align-self: flex-end; font-size: 12.5px; }
+.wl-pin-foot { display: flex; flex-direction: column; gap: 8px; }
+.wl-pin-foot > .wl-error { margin: 0; }
+.wl-pin-foot > .wl-conflict { margin: 0; padding: 8px 10px; }
+.wl-pin-foot > .wl-conflict .wl-row { margin-top: 6px; }
 
 @media (max-width: 767px) {
   .wl-map-box { height: min(55vh, 420px); }
   .wl-map-box.has-ratio { max-height: 55vh; max-height: 55svh; }
 }
 @media (min-width: 768px) {
-  .wl-map-bar { flex-wrap: nowrap; }
-  .wl-map-tools { display: flex; width: auto; flex: none; }
+  /* a barra mora na coluna do mapa: abas e "Salvo" numa linha e as ferramentas
+     ao lado se couberem (senão na linha de baixo, à direita) */
+  .wl-map-tabs { flex: 1 1 auto; }
+  .wl-map-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; width: auto; max-width: 100%; flex: 0 1 auto; margin-left: auto; }
   .wl-map-tool { flex-direction: row; gap: 6px; width: auto; min-height: 44px; padding: 6px 12px; font-size: 0.86rem; }
-  .wl-map-bar > .wl-save { order: 3; }
-  .wl-map-stage { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 30%, 360px); gap: 14px; align-items: start; }
+  /* o painel começa na altura da barra (sem a página rolar sozinha, ele cabe à vista) */
+  .wl-mapview.is-wide { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 30%, 360px); gap: 14px; align-items: start; }
   .wl-pin-side {
     position: sticky; top: calc(var(--areas-stick, 64px) + 8px);
     max-height: calc(100vh - var(--areas-stick, 64px) - 24px); overflow-y: auto; overscroll-behavior: contain;
@@ -449,8 +465,11 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
   .wl-pin-x { margin: -6px -8px 0 0; }
   .wl-pin-help-n { margin: 0; color: var(--ink-primary); }
   .wl-pin-help { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--ink-secondary); font-size: 0.92rem; line-height: 1.4; }
-  /* rótulo à esquerda do campo: o painel inteiro cabe sob o mapa a 1280 × 900 */
+  /* rótulo à esquerda do campo e Abrir/Remover lado a lado: o painel inteiro
+     cabe à vista a 1280 × 900 sem a página rolar */
   .wl-pin-side .wl-pin-body { gap: 8px; }
+  .wl-pin-side .wl-pin-acts { display: grid; grid-template-columns: repeat(auto-fit, minmax(9em, 1fr)); }
+  .wl-pin-side .wl-pin-acts .mesa-btn { padding: 6px 10px; line-height: 1.15; white-space: normal; text-align: center; }
   .wl-pin-side .mesa-field { display: grid; grid-template-columns: 6.6em minmax(0, 1fr); align-items: center; gap: 8px; }
   .wl-pin-side .mesa-field > :is(label, .mesa-field-label) { font-size: 12px; letter-spacing: 0.08em; }
   .wl-pin-side .wl-pin-vis { gap: 6px; }
