@@ -9,13 +9,13 @@
 .pl-world, div.pl-table { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 div.pl-table { align-items: stretch; grid-template-columns: none; }
 .pl-eyebrow {
-  font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.24em; text-transform: uppercase;
+  font-family: var(--display); font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase;
   color: var(--gold); opacity: 0.85;
 }
 .pl-error { color: var(--blood-bright); margin: 6px 0 0; }
 .pl-new-chip {
   display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; vertical-align: middle;
-  font-family: var(--display); font-size: 0.68rem; letter-spacing: 0.08em; font-weight: 700;
+  font-family: var(--display); font-size: 12px; letter-spacing: 0.06em; font-weight: 700;
   color: var(--on-gold); background: linear-gradient(180deg, var(--gold-bright), var(--gold));
   box-shadow: 0 0 12px rgba(237, 203, 122, 0.45);
   animation: pl-glow 2.4s ease-in-out infinite;
@@ -33,13 +33,13 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 
 .pl-filters { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
 .pl-filter {
-  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; min-height: 36px;
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; min-height: 44px;
   padding: 4px 12px; border-radius: 999px; border: 1px solid var(--stroke);
   background: var(--bg-card); color: var(--ink-secondary); font: inherit; font-size: 0.92rem; cursor: pointer;
 }
 .pl-filter:hover { border-color: var(--stroke-strong); color: var(--ink-primary); }
 .pl-filter.active { background: var(--gold-soft); border-color: var(--gold); color: var(--gold-bright); }
-.pl-filter-n { font-size: 0.75rem; opacity: 0.7; }
+.pl-filter-n { font-size: 12px; opacity: 0.8; }
 .pl-dot-new { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--gold-bright); margin-left: 4px; }
 
 .pl-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); }
@@ -56,28 +56,41 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 .pl-empty p { color: var(--ink-secondary); max-width: 46ch; margin: 0 auto; }
 .pl-empty-art { font-size: 2.4rem; filter: drop-shadow(0 0 12px rgba(214, 176, 100, 0.35)); }
 
-/* Mapa */
+/* Mapa (F11): pinça, arrastar e ＋ − ⤢ de 44 (usePanZoom). A caixa tem a
+   proporção da imagem e no máximo 60% da altura no celular — fora dela, o dedo
+   rola a página. O palco (.pl-map-stage) mede o mapa em unidades do conteúdo e é
+   escalado; marcadores e rótulos ficam do mesmo tamanho na tela (--pin-scale). */
 .pl-map { display: flex; flex-direction: column; gap: 10px; }
-.pl-crumbs { font-size: 0.9rem; color: var(--ink-muted); }
-.pl-crumb { background: none; border: 0; color: var(--gold); font: inherit; cursor: pointer; padding: 2px; }
+.pl-crumbs { display: flex; flex-wrap: wrap; align-items: center; font-size: 0.95rem; color: var(--ink-muted); }
+.pl-crumb-step { display: inline-flex; align-items: center; }
+.pl-crumb { background: none; border: 0; color: var(--gold); font: inherit; cursor: pointer; padding: 4px 6px; min-height: 44px; }
 .pl-crumb:disabled { color: var(--ink-primary); cursor: default; }
 .pl-map-frame {
   border: 2px solid var(--gold-deep); border-radius: var(--radius-lg); overflow: hidden; background: var(--bg-deep);
   box-shadow: 0 0 0 4px var(--bg-deep), 0 0 0 5px var(--stroke), var(--shadow-card);
 }
 .pl-map-title {
-  display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px;
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 6px 4px 12px;
   font-family: var(--display); color: var(--gold-bright); border-bottom: 1px solid var(--stroke);
   background: linear-gradient(180deg, rgba(214, 176, 100, 0.1), transparent);
 }
-.pl-map-canvas { position: relative; line-height: 0; }
-.pl-map-img { width: 100%; height: auto; display: block; user-select: none; }
-.pl-map-noimg { line-height: 1.4; padding: 60px 20px; text-align: center; color: var(--ink-muted); }
+.pl-map-title > span { min-width: 0; overflow-wrap: anywhere; }
+.pl-map-title .pl-map-read { flex: none; min-height: 44px; }
+.pl-map-canvas {
+  position: relative; overflow: hidden; width: 100%; max-height: min(72vh, 680px); background: var(--bg-deep);
+  touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab;
+}
+.pl-map-canvas.is-pan, .pl-map-canvas.is-pinch { cursor: grabbing; }
+.pl-map-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+.pl-map-img { width: 100%; height: 100%; display: block; user-select: none; pointer-events: none; }
+.pl-map-noimg { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center; line-height: 1.4; color: var(--ink-muted); z-index: 0; }
 .pl-pin {
-  position: absolute; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center;
-  background: none; border: 0; padding: 0; cursor: pointer; line-height: 1.1; z-index: 1;
+  position: absolute; width: 46px; height: 46px; transform: translate(-50%, -100%) scale(var(--pin-scale, 1)); transform-origin: 50% 100%;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: none; border: 0; padding: 0 0 2px; cursor: pointer; line-height: 1.1; z-index: 1; -webkit-tap-highlight-color: transparent;
 }
 .pl-pin:disabled { cursor: default; }
+.pl-pin:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; border-radius: 8px; }
 .pl-pin-dot {
   width: 32px; height: 32px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
   display: flex; align-items: center; justify-content: center;
@@ -89,9 +102,21 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 .pl-pin.is-new .pl-pin-dot { animation: pl-pin-pulse 1.8s ease-in-out infinite; }
 @keyframes pl-pin-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(237, 203, 122, 0.7); } 50% { box-shadow: 0 0 0 10px rgba(237, 203, 122, 0); } }
 .pl-pin-label {
-  margin-top: 4px; padding: 2px 8px; border-radius: 4px; white-space: nowrap; max-width: 40vw; overflow: hidden; text-overflow: ellipsis;
-  background: rgba(14, 10, 7, 0.85); color: var(--ink-primary); font-size: 0.78rem; border: 1px solid var(--stroke);
+  position: absolute; top: calc(100% + 3px); left: 50%; transform: translateX(calc(-50% + var(--label-dx, 0px)));
+  padding: 1px 8px; border-radius: 4px; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis;
+  background: rgba(14, 10, 7, 0.85); color: var(--ink-primary); font-size: 12.5px; line-height: 18px; border: 1px solid var(--stroke); pointer-events: none;
 }
+.pl-pin.is-label-above .pl-pin-label { top: auto; bottom: calc(100% + 3px); }
+.pl-pin.is-label-off .pl-pin-label { visibility: hidden; }
+.pl-map-zoom { position: absolute; right: 8px; bottom: 8px; z-index: 3; display: flex; flex-direction: column; gap: 6px; }
+.pl-map-zoom button {
+  width: 44px; height: 44px; padding: 0; border-radius: 8px; display: grid; place-items: center;
+  background: rgba(14, 10, 7, 0.85); border: 1px solid var(--stroke); color: var(--gold-bright); font-size: 1.2rem; line-height: 1; cursor: pointer; touch-action: manipulation;
+}
+.pl-map-zoom button:disabled { opacity: 0.4; cursor: default; }
+@media (hover: hover) { .pl-map-zoom button:not(:disabled):hover { border-color: var(--gold); } }
+.pl-map-hint { margin: 0; padding: 8px 12px; border-top: 1px solid var(--stroke); font-size: 13px; line-height: 1.4; color: var(--ink-muted); }
+@media (max-width: 767px) { .pl-map-canvas { max-height: 60vh; max-height: 60svh; } }
 
 /* Linha do tempo */
 .pl-timeline { list-style: none; margin: 0; padding: 0 0 0 22px; position: relative; display: flex; flex-direction: column; gap: 14px; }
@@ -210,7 +235,9 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 .pl-viewer-body { padding: 8px 20px 24px; display: flex; flex-direction: column; gap: 12px; }
 .pl-viewer-summary { margin: 0; font-style: italic; font-size: 1.1rem; color: var(--ink-primary); border-left: 3px solid var(--wl-kind, var(--gold)); padding-left: 12px; }
 .pl-viewer-p { margin: 0; line-height: 1.6; color: var(--ink-secondary); font-size: 1.04rem; }
-.pl-viewer-mapbtn { align-self: flex-start; }
+.pl-viewer-mapbtn { align-self: flex-start; min-height: 44px; }
+/* barra do leitor: ← Voltar e ✕ Fechar com 44 px */
+.pl-viewer-bar .btn { min-height: 44px; padding: 6px 14px; }
 
 .pl-rumor-box {
   position: relative; padding: 16px; border-radius: 8px; border: 1px dashed var(--stroke-strong);
@@ -247,7 +274,7 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 .pl-rel-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .pl-rel-chip {
   border: 1px solid var(--stroke); background: var(--bg-elevated); color: var(--ink-primary); font: inherit; font-size: 0.9rem;
-  padding: 3px 10px; border-radius: 999px; cursor: pointer; min-height: 32px;
+  padding: 3px 12px; border-radius: 999px; cursor: pointer; min-height: 44px;
 }
 .pl-rel-chip:hover { border-color: var(--gold); color: var(--gold-bright); }
 .pl-rel-note { font-size: 0.85rem; color: var(--ink-muted); font-style: italic; }
@@ -292,7 +319,7 @@ div.pl-table { align-items: stretch; grid-template-columns: none; }
 .pl-toast-title { font-family: var(--display); color: var(--gold-bright); font-size: 1.02rem; line-height: 1.25; }
 .pl-toast-text { color: var(--ink-secondary); font-size: 0.9rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .pl-toast-actions { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; align-items: center; }
-.pl-toast-actions .btn { padding: 4px 12px; min-height: 34px; font-size: 0.78rem; letter-spacing: 0.04em; width: auto; }
+.pl-toast-actions .btn { padding: 6px 14px; min-height: 44px; font-size: 0.82rem; letter-spacing: 0.04em; width: auto; }
 .pl-toast-timer { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--gold); transform-origin: left; animation: pl-timer 10s linear both; }
 @keyframes pl-toast-in { from { opacity: 0; transform: translateY(30px) scale(0.96); } to { opacity: 1; transform: none; } }
 @keyframes pl-shine { to { transform: translateX(100%); } }
