@@ -177,3 +177,38 @@
   .lv-vis-revealed .lv-star-glow, .lv-star.is-born { animation: none; }
   .lv-fold-caret, .lv-sky-lines line, .lv-star { transition: none; }
 }
+
+/* ---------------------------------------------------------------- F9: linha recolhida e toque no céu */
+/* "✦ Mundo vivo · 2 páginas em branco · 3 ecos · boato do dia": abre e fecha o painel
+   inteiro (fechado por padrão no celular). */
+.lv-living.is-closed { padding: 0; gap: 0; }
+.lv-line {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 4px 12px;
+  background: none; border: 0; border-radius: 12px; color: var(--gold-bright); cursor: pointer; text-align: left;
+  font-family: var(--display); font-size: 0.9rem; letter-spacing: 0.06em;
+}
+.lv-living.is-open .lv-line { padding: 4px 4px 8px; min-height: 44px; border-bottom: 1px solid var(--stroke-faint); border-radius: 0; }
+.lv-line:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.lv-line-text { flex: 1 1 auto; min-width: 0; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv-living.is-open .lv-line-text { white-space: normal; }
+.lv-line-title { white-space: nowrap; }
+.lv-line-sum { font-family: var(--body); font-style: italic; letter-spacing: 0; font-size: 0.92rem; color: var(--ink-secondary); }
+.lv-line[aria-expanded="false"] .lv-fold-caret { transform: rotate(-90deg); }
+.lv-line .lv-fold-caret { margin-left: auto; }
+
+/* alvos de 44 nas dobras e nos botões do cronista */
+.lv-fold { min-height: 44px; }
+.lv-btn { min-height: 44px; padding: 8px 14px; }
+.lv-echo { min-height: 44px; align-items: center; }
+
+/* espiar a estrela tocada: nome, tipo · quem vê, e "Abrir →" */
+.lv-peek {
+  display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 6px 6px 12px; border-radius: 10px;
+  background: rgba(10, 8, 6, 0.55); border: 1px solid color-mix(in srgb, var(--lv-k, var(--gold)) 55%, transparent);
+}
+.lv-peek-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.lv-peek-name { font-family: var(--display); font-size: 0.98rem; color: var(--ink-primary); overflow-wrap: anywhere; }
+.lv-peek-sub { font-size: 12.5px; color: var(--ink-muted); }
+.lv-peek-open { flex: none; }
+.lv-sky-tip { margin: 0; font-size: 12.5px; font-style: italic; color: var(--ink-muted); }
+.lv-sky-legend { font-size: 12px; }
