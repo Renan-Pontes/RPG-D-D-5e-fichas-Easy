@@ -12,12 +12,15 @@
 //   plano de uma sessão já jogada: "comece o plano da Sessão N", o ↻ do ⋯)
 //
 // Jogar › Agora (J1–J6, §4.2; V7) — só quando NÃO há cena em andamento ou a sessão não
-// está ao vivo (com uma cena em andamento quem guia é o cartão Cena agora):
+// está ao vivo (com uma cena em andamento quem guia é o cartão Cena agora). Com a sessão
+// parada valem só o J2 e o J1 (J3–J6 são da sessão ao vivo: "Pular" o J1 não mostra uma
+// cena para começar nem uma sessão para encerrar):
 //   J1 a sessão não começou ("Pronto para a Sessão N?", com a lista do que está de pé)
 //   J2 a sessão foi encerrada e a próxima não começou (o plano é o da sessão jogada)
 //   J3 ao vivo, o resumo da anterior ainda não foi à Tela e nenhuma cena começou
-//   J4 ao vivo, sem cena agora (a 1ª cena não feita, com o começo forte)
-//   J5 todas as cenas do plano feitas · J6 ao vivo e sem plano
+//   J4 ao vivo, sem cena agora (a 1ª cena não feita, com o começo forte inteiro; com um
+//      combate andando, "Guardar para depois do combate" ao lado)
+//   J5 ao vivo, todas as cenas do plano feitas · J6 ao vivo e sem plano
 // Combate, perigos, testes e pedidos NÃO viram cartão: têm lugar fixo (barra da mesa,
 // Combate e o painel do momento).
 import { clueCount, planHeading, planIsBlank, realScene, sceneParts } from '../prep/next-session.js';
@@ -25,6 +28,8 @@ import { clueCount, planHeading, planIsBlank, realScene, sceneParts } from '../p
 const tt = (lang, pt, en) => (lang === 'en' ? en : pt);
 const filled = (s) => typeof s === 'string' && s.trim().length > 0;
 const firstName = (n) => String(n || '').trim().split(/\s+/)[0] || String(n || '');
+/** TVs conectadas: `tvLive` (o que a casca já somou) ou o do pulso cru (`screen.tvLive`). */
+const tvLiveOf = (pulse) => Number(pulse?.tvLive ?? pulse?.screen?.tvLive) || 0;
 
 export const PLAN_RULES = ['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7', 'N8', 'N9'];
 export const NOW_RULES = ['J1', 'J2', 'J3', 'J4', 'J5', 'J6'];
@@ -78,7 +83,7 @@ export const prepSession = (heading) => (heading.stale ? heading.next : heading.
  * Entrada:
  *   campaign   {status, state, members, onboarding, name}
  *   plan       o plano normalizado (next-session.normalizePlan)
- *   pulse      {tvLive} do pulso do mestre (ou null)
+ *   pulse      {tvLive} ou o pulso do mestre ({screen: {tvLive}}), ou null
  *   insights   null (sem o Raio-X: N7 é pulada) ou {chars: [{id, name, moments, ideas: [{kind, text, auto}], style: ['🤐 fala pouco']}]}
  *   adventures nº de aventuras da campanha (N2)
  *   fights     ids das cenas com combate (N5; next-session.sceneFights)
@@ -163,7 +168,7 @@ function planRules({ campaign, plan, pulse, insights, adventures = 0, fights = [
         payload: { charId: c.id, name: c.name, idea: pick },
       };
     },
-    () => (ob.tv || pulse?.tvLive ? null : {
+    () => (ob.tv || tvLiveOf(pulse) ? null : {
       id: 'N8', sig: 'tv:0', canSkip: true,
       text: tt(lang, 'Teste a Tela antes do dia: abra o link na TV.', 'Test the screen before game day: open the link on the TV.'),
       why: tt(lang, 'É o que todos veem: a capa, as imagens e o combate.', "It's what everyone sees: the cover, images and combat."),
@@ -188,7 +193,6 @@ function planRules({ campaign, plan, pulse, insights, adventures = 0, fights = [
 
 const sceneTitle = (s) => sceneParts(s?.text).name.trim();
 const sessionNo = (state) => { const m = /\d+/.exec(String(state?.session ?? '')); return m && +m[0] > 0 ? +m[0] : 0; };
-const clip = (s, max = 90) => { const one = String(s || '').replace(/\s+/g, ' ').trim(); return one.length > max ? `${one.slice(0, max - 1).trimEnd()}…` : one; };
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 /**
@@ -201,7 +205,7 @@ export function readyItems({ campaign, plan, pulse, recap, lang = 'pt' }) {
   const party = (campaign?.members || []).filter(m => m.role !== 'dm');
   const sheets = party.filter(m => m.character).length;
   const prev = sessionNo(campaign?.state);
-  const tv = !!(campaign?.onboarding?.tv || pulse?.tvLive);
+  const tv = !!(campaign?.onboarding?.tv || tvLiveOf(pulse));
   const out = [
     { id: 'plan', ok: scenes.length > 0, text: scenes.length
       ? tt(lang, `plano (${plural(scenes.length, 'cena', 'cenas')})`, `plan (${plural(scenes.length, 'scene', 'scenes')})`)
@@ -222,7 +226,7 @@ export function readyItems({ campaign, plan, pulse, recap, lang = 'pt' }) {
  * As regras da Agora. Entrada (além de campaign/plan/lang):
  *   live       a sessão está ao vivo (o pulso, senão o state)
  *   sceneNow   a cena agora (now-model.currentScene) ou null
- *   pulse      {tvLive, startedAt, endedAt}
+ *   pulse      {tvLive, startedAt, endedAt, combat: {active}} (tvLive cru em screen.tvLive também vale)
  *   recap      {has, shown} — o resumo salvo da sessão anterior e se já foi à Tela hoje
  *   startScene o id da cena escolhida na folha Começar (J4 começa por ela)
  *   length     "2h10" da sessão encerrada (J2), quando se sabe
@@ -252,14 +256,14 @@ function nowRules({ campaign, plan, live = false, sceneNow = null, pulse = null,
       note: tt(lang, 'Ensaio: dá para olhar as cenas e testar a Tela antes.', 'Rehearsal: you can look at the scenes and test the screen first.'),
       action: { id: 'startSession', label: tt(lang, `▶ Começar a Sessão ${next}`, `▶ Start session ${next}`) },
     }),
-    () => (!recap?.has || recap.shown ? null : {
+    () => (!live || !recap?.has || recap.shown ? null : {
       id: 'J3', sig: `recap:${cur}`, canSkip: true,
       text: tt(lang, 'Comece lembrando a última sessão.', 'Start by recalling the last session.'),
       why: tt(lang, `O resumo da Sessão ${Math.max(1, cur - 1)} está pronto.`, `The session ${Math.max(1, cur - 1)} recap is ready.`),
       action: { id: 'showRecap', label: tt(lang, '📺 Mostrar “Anteriormente em…”', '📺 Show “Previously on…”') },
       secondary: { id: 'readRecap', label: tt(lang, 'Ler aqui', 'Read here') },
     }),
-    () => (scenes.length ? null : {
+    () => (!live || scenes.length ? null : {
       id: 'J6', sig: 'noplan', canSkip: true,
       text: tt(lang, 'Sem plano para hoje.', 'No plan for today.'),
       why: tt(lang, 'Crie uma cena agora, com um nome, e jogue.', 'Create a scene now, with a name, and play.'),
@@ -267,21 +271,23 @@ function nowRules({ campaign, plan, live = false, sceneNow = null, pulse = null,
       secondary: { id: 'plan', label: tt(lang, 'Montar o plano →', 'Build the plan →') },
     }),
     () => {
-      if (!open.length) return null;
+      if (!live || !open.length) return null;
       const pick = open.find(s => s.id === startScene) || open[0];
       const first = pick === open[0] && pick === scenes.find(s => !s.done);
       const name = sceneTitle(pick) || '…';
+      const strong = String(plan?.strongStart || '').trim();
       return {
         id: 'J4', sig: `scene:${pick.id}`, canSkip: true,
         text: first ? tt(lang, `Comece pela primeira cena: ${name}.`, `Start with the first scene: ${name}.`) : tt(lang, `Comece pela cena: ${name}.`, `Start with the scene: ${name}.`),
-        why: String(plan?.strongStart || '').trim()
-          ? tt(lang, `⚡ Comece assim: ${clip(plan.strongStart)}`, `⚡ Start like this: ${clip(plan.strongStart)}`)
-          : tt(lang, 'Um toque começa a cena e mostra na Tela o que ela tem.', 'One tap starts the scene and shows what it has on screen.'),
+        // o começo forte vai inteiro, em destaque, numa linha própria (`lead`)
+        why: strong ? '' : tt(lang, 'Um toque começa a cena e mostra na Tela o que ela tem.', 'One tap starts the scene and shows what it has on screen.'),
+        lead: strong ? tt(lang, `⚡ Comece assim: ${strong}`, `⚡ Start like this: ${strong}`) : '',
         action: { id: 'startScene', label: tt(lang, '▶ Começar esta cena', '▶ Start this scene') },
+        secondary: pulse?.combat?.active ? { id: 'startSceneLater', label: tt(lang, 'Guardar para depois do combate', 'Keep for after combat') } : null,
         payload: { sceneId: pick.id },
       };
     },
-    () => (!scenes.length || open.length ? null : {
+    () => (!live || !scenes.length || open.length ? null : {
       id: 'J5', sig: `done:${scenes.length}`, canSkip: true,
       text: tt(lang, 'As cenas do plano acabaram. Improvise ou encerre.', 'The plan’s scenes are over. Improvise or end.'),
       why: tt(lang, `${scenes.length} de ${scenes.length} cenas feitas.`, `${scenes.length} of ${scenes.length} scenes done.`),

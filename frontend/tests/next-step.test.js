@@ -237,9 +237,18 @@ test('Agora: textos e botões das regras J', () => {
   assert.equal(at(2).secondary.id, 'readRecap');
   const j4 = at(3);
   assert.equal(j4.text, 'Comece pela primeira cena: Taverna.');
-  assert.equal(j4.why, '⚡ Comece assim: O sino toca');
+  // o começo forte vai INTEIRO numa linha própria (nada de cortar em 90 caracteres)
+  assert.equal(j4.why, '');
+  assert.equal(j4.lead, '⚡ Comece assim: O sino toca');
+  const long = 'O sino toca embaixo d’água no meio do brinde — todas as velas da taverna se apagam ao mesmo tempo.';
+  assert.equal(nextStep({ ...NOW_ROWS[3][1], plan: { ...ready(), strongStart: long } }).lead, `⚡ Comece assim: ${long}`);
+  assert.equal(nextStep({ ...NOW_ROWS[3][1], plan: { ...ready(), strongStart: '' } }).why, 'Um toque começa a cena e mostra na Tela o que ela tem.');
   assert.equal(j4.action.label, '▶ Começar esta cena');
+  assert.equal(j4.secondary, null);
   assert.deepEqual(j4.payload, { sceneId: 'c1' });
+  // com um combate andando, a cena também pode esperar o combate acabar
+  const fight = nextStep({ ...NOW_ROWS[3][1], pulse: { combat: { active: true, round: 2 } } });
+  assert.deepEqual([fight.id, fight.secondary.id, fight.secondary.label], ['J4', 'startSceneLater', 'Guardar para depois do combate']);
   assert.equal(at(4).secondary.id, 'endSession');
   assert.equal(at(5).action.id, 'sceneNow');
   assert.equal(at(5).secondary.id, 'plan');
@@ -260,12 +269,35 @@ test('Agora: no máximo 1 cartão — com uma cena em andamento quem guia é a C
   assert.equal(nextStep({ ...ctx, campaign: live({ status: 'closed' }) }), null);
 });
 
+test('Agora: com a sessão parada só valem o J2 e o J1 ("Pular" não traz cartões de sessão ao vivo)', () => {
+  const mem = new Map();
+  const storage = { getItem: k => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, v) };
+  // J2 › Pular › J1 › Pular › nada (nem "Comece pela primeira cena", nem J3/J5/J6)
+  const base = { where: 'now', campaign: stopped(), plan: played(), live: false, recap: { has: true, shown: false } };
+  const j2 = nextStep(base);
+  assert.equal(j2.id, 'J2');
+  const j1 = nextStep({ ...base, skips: writeSkip(8, j2.id, j2.sig, storage) });
+  assert.equal(j1.id, 'J1');
+  assert.equal(nextStep({ ...base, skips: writeSkip(8, j1.id, j1.sig, storage) }), null);
+  // as mesmas regras, cada uma com os dados que a disparariam ao vivo
+  for (const plan of [ready(), allDone(), emptyPlan()]) {
+    const skips = { J1: nextStep({ ...base, plan }).sig };
+    assert.equal(nextStep({ ...base, plan, skips, recap: { has: true, shown: false } })?.id ?? null, null, JSON.stringify(plan.scenes.map(x => x.done)));
+  }
+});
+
 test('Agora: o J1 diz o que falta (fichas, Tela, resumo) e o Pular do J2 lembrado', () => {
   const items = readyItems({ campaign: stopped({ members: [dm, ana, bruno], onboarding: {} }), plan: emptyPlan(), recap: { has: false }, lang: 'pt' });
   assert.deepEqual(items.map(x => [x.id, x.ok, x.text]), [
     ['plan', false, 'plano sem cenas'], ['party', false, '1 de 2 com ficha'], ['tv', false, 'Tela'], ['recap', false, 'sem resumo da 3'],
   ]);
   assert.equal(items[2].action.id, 'tvLink');
+  // a TV conectada no pulso cru (screen.tvLive) conta como Tela testada (a Tela nunca mente)
+  const raw = readyItems({ campaign: stopped({ onboarding: {} }), plan: ready(), pulse: { screen: { tvLive: 1 } }, recap: null });
+  assert.deepEqual(raw.find(x => x.id === 'tv'), { id: 'tv', ok: true, text: 'Tela testada', action: null });
+  assert.equal(nextStep({ where: 'now', campaign: stopped({ onboarding: {} }), plan: ready(), live: false, pulse: { screen: { tvLive: 1 } } })
+    .items.find(x => x.id === 'tv').ok, true);
+  assert.equal(nextStep({ campaign: camp({ onboarding: {} }), plan: ready(), pulse: { screen: { tvLive: 2 } } }).id, 'N9');
   // sem saber do resumo (ainda carregando) o item não aparece; 1ª sessão também não
   assert.equal(readyItems({ campaign: stopped(), plan: ready(), recap: null }).length, 3);
   assert.equal(readyItems({ campaign: camp({ state: {} }), plan: ready(), recap: { has: false } }).length, 3);

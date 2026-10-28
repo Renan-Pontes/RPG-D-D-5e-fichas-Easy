@@ -7,7 +7,8 @@
 //   botões ficam 400 ms sem aceitar toque (princípio 8: nada muda debaixo do dedo).
 // - `children` entra no lugar do botão (as 3 portas do N2).
 // - `step.items` (J1 da Agora): a lista "✓ plano (3 cenas) · ○ Tela [Copiar link]" entre a
-//   frase e o botão; `step.note`, uma linha de texto embaixo do botão.
+//   frase e o botão; `step.note`, uma linha de texto embaixo do botão; `step.lead`, um texto
+//   inteiro em destaque sob a frase (o ⚡ Começo forte do J4).
 import { useEffect, useRef, useState } from 'react';
 import MesaSheet from './MesaSheet.jsx';
 import './mesa.css';
@@ -45,6 +46,7 @@ export default function NextStepCard({ step, lang, onAction, onSkip, busy = null
       <div className="next-card-msg" key={key}>
         <p className="next-card-text">{step.text}</p>
         {step.why && <p className="next-card-why">{step.why}</p>}
+        {step.lead && <p className="next-card-lead">{step.lead}</p>}
       </div>
       {step.items?.length > 0 && (
         <ul className="next-card-items">

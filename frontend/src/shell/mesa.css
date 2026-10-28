@@ -686,6 +686,7 @@ body:has(.campaign-detail.shell) :is(.confirm-dialog-actions, .grp-confirm-actio
 .next-card-msg { animation: next-fade 150ms ease-out; }
 .next-card-text { margin: 0; font-family: var(--body); font-size: 17px; line-height: 1.4; color: var(--ink-primary); overflow-wrap: anywhere; }
 .next-card-why { margin: 4px 0 0; font-size: 14px; line-height: 1.4; color: var(--ink-secondary); overflow-wrap: anywhere; }
+.next-card-lead { margin: 8px 0 2px; padding: 8px 10px; border-left: 3px solid var(--gold); border-radius: 0 6px 6px 0; background: rgba(214, 176, 100, 0.1); font-size: 16px; line-height: 1.45; color: var(--ink-primary); white-space: pre-wrap; overflow-wrap: anywhere; }
 .next-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
 .next-card-actions .mesa-btn { flex: 1 1 auto; }
 .next-card-skip { flex: none; min-width: 64px; padding: 8px 10px; font-size: 0.82rem; }

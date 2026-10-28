@@ -197,8 +197,10 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
 
   // ---------------------------------------------------------------- o cartão do topo
   const view = useMemo(() => playPlanView(plan || emptyPlan(), { entries: world }), [plan, world]);
+  // o pulso cru traz as TVs em screen.tvLive; a barra da mesa soma as deste aparelho
   const step = plan ? nextStep({
-    where: 'now', campaign, plan, live, sceneNow, pulse, lang, skips,
+    where: 'now', campaign, plan, live, sceneNow, lang, skips,
+    pulse: pulse ? { ...pulse, tvLive: table?.tvLive ?? pulse.screen?.tvLive ?? 0 } : null,
     recap: recap ? { has: !!recap.has, shown: recapShown(st) } : null,
     startScene: readStartScene(campaign.id),
     length: sessionLength(meta.startedAt, meta.endedAt || pulse?.endedAt),
@@ -232,6 +234,7 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
         { lang, name: L(lang, 'Anteriormente em…', 'Previously on…'), onDone: refresh });
     } else if (id === 'readRecap') setSheet('readRecap');
     else if (id === 'startScene') start(findScene(s.payload?.sceneId));
+    else if (id === 'startSceneLater') start(findScene(s.payload?.sceneId), { focus: false });
     else if (id === 'improvise') setSheet('improvise');
     else if (id === 'endSession') area.endSession?.();
     else if (id === 'sceneNow') { setNewName(''); setSheet('sceneNow'); }
