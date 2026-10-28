@@ -15,8 +15,9 @@
 //   extra    nó React opcional renderizado no rodapé
 //
 // <EntryRow> (abaixo): a linha do Atlas do mestre no celular (plano F9): miniatura,
-// nome, tipo · subtítulo — frase, selo de visibilidade ESCRITO, 🗝 n/m revelados,
-// 🗺 Mapa, sussurro, quando e tags numa linha, e 👁 / 📺 com 48 px à direita.
+// nome (até 2 linhas), tipo · subtítulo — frase (ou "sem frase ainda") e 👁 / 📺 de
+// 48 px à direita; embaixo, na largura toda, o selo de visibilidade ESCRITO, 🗝 n/m
+// revelados, 🗺 Mapa, quando, sussurro e tags (nessa ordem: o corte pega o fim).
 import { useState } from 'react';
 import { worldImageUrl } from './world-api.js';
 import ShowOnTable from '../stage/ShowOnTable.jsx';
@@ -87,7 +88,7 @@ export function EntryRow({ entry, lang = 'pt', selected = false, onOpen, onRevea
   const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
   const line2 = [kindLabel(entry.kind, lang), sub].filter(Boolean).join(' · ');
   return (
-    <div className={`wl-lrow wl-vis-${vis}${selected ? ' is-selected' : ''}${move ? ' is-moving' : ''}`} style={{ '--wl-kind': meta.color }}
+    <div className={`wl-lrow wl-vis-${vis}${selected ? ' is-selected' : ''}${move ? ' is-moving' : ''}${priv ? ' has-why' : ''}`} style={{ '--wl-kind': meta.color }}
       data-entry={entry.id}
       {...(move ? {} : { role: 'button', tabIndex: 0, onClick: open, onKeyDown: onKey, 'aria-label': `${entry.name} — ${kindLabel(entry.kind, lang)} · ${visLabel(vis, lang)}` })}>
       <span className="wl-lrow-pic"><EntryImage entry={entry} className="wl-thumb-img" /></span>
@@ -95,16 +96,9 @@ export function EntryRow({ entry, lang = 'pt', selected = false, onOpen, onRevea
         <span className="wl-lrow-name">{entry.name}</span>
         <span className="wl-lrow-sub">
           <span aria-hidden="true">{meta.icon}</span> {line2}
-          {entry.summary ? <span className="wl-lrow-sum"> — {entry.summary}</span> : null}
-        </span>
-        <span className="wl-lrow-meta">
-          <VisibilitySeal visibility={vis} lang={lang} short />
-          {priv && <span className="wl-lrow-why" id={whyId}>📺 {privateShort(entry, showCampaign.members, lang)}</span>}
-          {secrets && <span className="wl-lrow-secrets">{secrets}</span>}
-          {entry.isMap && <span className="wl-lrow-map">🗺 {t(lang, 'Mapa', 'Map')}</span>}
-          <WhisperShort entry={entry} lang={lang} />
-          {entry.whenLabel && <span className="wl-when">⌛ {entry.whenLabel}</span>}
-          {(entry.tags || []).slice(0, 2).map(tag => <span key={tag} className="wl-lrow-tag">#{tag}</span>)}
+          {entry.summary
+            ? <span className="wl-lrow-sum"> — {entry.summary}</span>
+            : <span className="wl-lrow-sum is-empty"> — {t(lang, 'sem frase ainda', 'no tagline yet')}</span>}
         </span>
       </span>
       {move ? (
@@ -135,6 +129,19 @@ export function EntryRow({ entry, lang = 'pt', selected = false, onOpen, onRevea
           ))}
         </span>
       ) : null}
+      {/* 2º andar, na largura toda (por baixo da miniatura e dos botões): o que importa
+          primeiro (selo, motivo do 📺, 🗝, 🗺, quando) e por último o que pode ser cortado
+          (sussurro, tags). Documento só para alguns: o motivo do 📺 apagado logo depois do
+          selo, e essa linha quebra em vez de cortar (o motivo nunca some). */}
+      <span className="wl-lrow-meta">
+        <VisibilitySeal visibility={vis} lang={lang} short />
+        {priv && <span className="wl-lrow-why" id={whyId}>📺 {privateShort(entry, showCampaign.members, lang)}</span>}
+        {secrets && <span className="wl-lrow-secrets">{secrets}</span>}
+        {entry.isMap && <span className="wl-lrow-map">🗺 {t(lang, 'Mapa', 'Map')}</span>}
+        {entry.whenLabel && <span className="wl-when">⌛ {entry.whenLabel}</span>}
+        <WhisperShort entry={entry} lang={lang} />
+        {(entry.tags || []).slice(0, 2).map(tag => <span key={tag} className="wl-lrow-tag">#{tag}</span>)}
+      </span>
     </div>
   );
 }

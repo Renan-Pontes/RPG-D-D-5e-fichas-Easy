@@ -563,9 +563,15 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 
 /* ---------------------------------------------------------------- linha do cartão (celular) */
 .wl-list { display: flex; flex-direction: column; gap: 4px; overflow-anchor: auto; }
+/* Dois andares: em cima miniatura · nome e linha 2 · 👁 📺; embaixo, na largura toda
+   (por baixo da miniatura e dos botões), a meta. Assim o nome tem 2 linhas, a meta
+   tem 280 px já a 320 (antes 100 px, com o motivo do 📺 cortado) e a linha fica com
+   83–92 px (≤ 96; o seed de 38 cartões fica em < 6 telas a 320). */
 .wl-lrow {
   --wl-kind: var(--gold);
-  position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 72px; max-height: 96px;
+  position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "pic main act" "meta meta meta"; align-items: center; column-gap: 10px; row-gap: 3px;
+  min-width: 0; min-height: 72px; max-height: 96px;
   padding: 6px 6px 6px 8px; border-radius: 10px; cursor: pointer; overflow: hidden;
   border: 1px solid transparent;
   background:
@@ -573,23 +579,29 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
     linear-gradient(180deg, rgba(224, 181, 94, 0.32), rgba(224, 181, 94, 0.1)) border-box;
   box-shadow: inset 3px 0 0 color-mix(in srgb, var(--wl-kind) 75%, transparent);
 }
+/* documento só para alguns: a meta quebra (sem máscara) para o motivo do 📺 apagado
+   nunca ser cortado; com 1 destinatário cabe na mesma linha do selo (≤ 96 px) */
+.wl-lrow.has-why { max-height: none; }
+.wl-lrow.has-why .wl-lrow-meta { flex-wrap: wrap; white-space: normal; -webkit-mask-image: none; mask-image: none; }
 .wl-lrow.is-moving { cursor: default; }
 .wl-lrow.is-selected { box-shadow: inset 3px 0 0 var(--wl-kind), 0 0 0 2px color-mix(in srgb, var(--gold-bright) 60%, transparent); }
 .wl-lrow:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
 @media (hover: hover) { .wl-lrow:not(.is-moving):hover { background: linear-gradient(180deg, rgba(52, 40, 28, 0.95), rgba(32, 24, 18, 0.95)) padding-box, linear-gradient(180deg, rgba(224, 181, 94, 0.45), rgba(224, 181, 94, 0.15)) border-box; } }
-.wl-lrow-pic { flex: none; width: 52px; height: 52px; border-radius: 8px; overflow: hidden; border: 1px solid var(--stroke); background: var(--bg-deep); }
+.wl-lrow-pic { grid-area: pic; width: 48px; height: 48px; border-radius: 8px; overflow: hidden; border: 1px solid var(--stroke); background: var(--bg-deep); }
 .wl-vis-hidden .wl-lrow-pic img { filter: grayscale(0.55) brightness(0.7); }
-.wl-lrow-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-/* nome numa linha só (o nome inteiro está no editor e no leitor de tela): a linha fica
-   com 72–76 px e os 38 cartões do seed cabem em ≤ 5 telas a 390 px */
+.wl-lrow-main { grid-area: main; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+/* nome em até 2 linhas (o resto no editor e no leitor de tela) */
 .wl-lrow-name {
-  font-family: var(--display); font-size: 0.98rem; line-height: 1.25; color: var(--ink-primary); letter-spacing: 0.01em;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--display); font-size: 0.98rem; line-height: 1.2; color: var(--ink-primary); letter-spacing: 0.01em;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere;
 }
 .wl-lrow-sub { font-size: 13px; line-height: 1.3; color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wl-lrow-sum { color: var(--ink-muted); font-style: italic; }
+.wl-lrow-sum.is-empty { opacity: 0.85; }
+/* a meta numa linha, do que mais importa para o que menos importa (selo, 🗝, 🗺,
+   quando, sussurro, tags): se faltar lugar, o corte pega o fim */
 .wl-lrow-meta {
-  display: flex; align-items: center; gap: 4px 8px; flex-wrap: nowrap; min-width: 0; overflow: hidden; white-space: nowrap;
+  grid-area: meta; display: flex; align-items: center; gap: 4px 8px; flex-wrap: nowrap; min-width: 0; overflow: hidden; white-space: nowrap;
   font-size: 12px; line-height: 1.3; color: var(--ink-muted);
   -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent);
 }
@@ -598,15 +610,17 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-seal-short .wl-seal-txt { display: inline; }
 .wl-lrow-secrets { color: var(--amber); }
 .wl-lrow-map { color: var(--gold-bright); }
-.wl-lrow-why { color: var(--ink-secondary); }
+/* o motivo do 📺 apagado: encolhe e quebra dentro da linha, nunca cortado */
+.wl-lrow-meta > .wl-lrow-why { flex: 0 1 auto; min-width: 0; color: var(--ink-secondary); white-space: normal; overflow-wrap: anywhere; }
 .wl-lrow-whisper { display: inline-flex; gap: 3px; }
 .wl-lrow-tag { color: var(--ink-muted); }
-.wl-lrow .wl-when { font-size: 12px; }
-.wl-lrow-act { flex: none; display: flex; align-items: stretch; gap: 4px; }
-/* 👁 e 📺 (e ↑ ↓ no Ordenar): 48 × 56, ícone em cima e o nome escrito embaixo */
+/* um "quando" comprido não empurra o resto para fora: reticências na metade da linha */
+.wl-lrow .wl-when { font-size: 12px; max-width: 50%; overflow: hidden; text-overflow: ellipsis; }
+.wl-lrow-act { grid-area: act; display: flex; align-items: stretch; gap: 4px; }
+/* 👁 e 📺 (e ↑ ↓ no Ordenar): 50 × 48, ícone em cima e o nome escrito embaixo */
 .wl-lrow-btn, .wl-move-btn {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  flex: none; width: 50px; min-height: 56px; padding: 2px 2px; border-radius: 8px; cursor: pointer;
+  flex: none; width: 50px; min-height: 48px; padding: 2px 2px; border-radius: 8px; cursor: pointer;
   border: 1px solid rgba(224, 181, 94, 0.28); background: rgba(10, 7, 6, 0.4); color: var(--ink-secondary);
 }
 .wl-lrow-btn-ico, .wl-move-btn > span:first-child { font-size: 1.05rem; line-height: 1; }
@@ -616,13 +630,13 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-lrow-btn:focus-visible, .wl-move-btn:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 1px; }
 .wl-move-btn { color: var(--gold-bright); border-color: var(--gold-deep); }
 @media (max-width: 360px) {
-  .wl-lrow { gap: 8px; }
+  .wl-lrow { column-gap: 8px; }
   .wl-lrow-pic { width: 44px; height: 44px; }
 }
 /* esqueleto no celular com a altura das linhas (a lista não pula ao chegar) */
 @media (max-width: 767px) {
   .wl-skeleton-grid { grid-template-columns: 1fr; gap: 4px; }
-  .wl-skeleton { height: 74px; }
+  .wl-skeleton { height: 86px; }
 }
 
 /* ---------------------------------------------------------------- Ordenar na grade (PC/tablet) */
