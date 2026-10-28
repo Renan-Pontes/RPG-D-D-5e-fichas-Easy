@@ -324,48 +324,144 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-tags-sugg { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 
 /* ---------------------------------------------------------------- mapa */
+/* F11: no celular, abas dos mapas num trilho, as 3 ferramentas numa grade de
+   3 (ícone em cima, nome embaixo, 48 px) e o mapa com no máximo 55% da altura —
+   sobra página fora dele para o dedo rolar (só a caixa tem touch-action: none).
+   O marcador abre numa folha da mesa (.wl-pin-sheet) com o fundo quase claro:
+   o marcador continua à vista acima dela. No PC (≥ 768), abas e ferramentas
+   numa linha só e o painel do marcador ao lado do mapa, preso no alto. */
 .wl-mapview { display: flex; flex-direction: column; gap: 10px; }
-.wl-map-bar { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.wl-map-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
+.wl-map-bar { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.wl-map-back { flex: none; max-width: 100%; }
+.wl-map-tabs {
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: 1 1 0; min-width: 0;
+  overscroll-behavior-x: contain; padding: 1px;
+}
 .wl-map-tabs::-webkit-scrollbar { display: none; }
-.wl-map-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.wl-map-tab { flex: none; min-height: 44px; padding: 6px 14px; font-size: 0.95rem; white-space: nowrap; }
+.wl-map-bar > .wl-save { flex: none; font-size: 12.5px; }
+.wl-map-tools { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; width: 100%; }
+.wl-map-tools > * { min-width: 0; }
+.wl-map-tool {
+  flex-direction: column; gap: 2px; width: 100%; min-height: 52px; padding: 4px 6px;
+  font-size: 13px; line-height: 1.15; letter-spacing: 0.01em; text-align: center;
+}
+.wl-map-tool > span[aria-hidden] { font-size: 1.1rem; line-height: 1; }
+.wl-map-tool-txt { overflow-wrap: anywhere; }
+.wl-map-tools .sot-blocked { display: flex; flex-direction: column; gap: 2px; }
+.wl-map-stage { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.wl-map-col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.wl-map-hint { margin: 0; }
+.wl-pin-spacer { height: 0; flex: none; }
 .wl-map-box {
   position: relative; overflow: hidden; border-radius: 12px; border: 1px solid var(--stroke-strong); background:
     radial-gradient(ellipse at center, rgba(214,176,100,0.06), transparent 70%), var(--bg-deep);
-  height: min(70vh, 640px); touch-action: none; user-select: none; cursor: grab; box-shadow: inset 0 0 40px rgba(0,0,0,0.6), var(--shadow-card);
+  height: min(70vh, 640px); touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; box-shadow: inset 0 0 40px rgba(0,0,0,0.6), var(--shadow-card);
 }
 .wl-map-box:active { cursor: grabbing; }
 .wl-map-box.is-adding { cursor: crosshair; border-color: var(--gold-bright); }
+.wl-map-box.is-readonly { cursor: default; }
+/* com a imagem medida, a caixa tem a proporção dela (o mapa inteiro, sem faixas) */
+.wl-map-box.has-ratio { height: auto; max-height: min(70vh, 640px); width: 100%; }
 .wl-map-inner { position: absolute; left: 0; top: 0; width: 100%; transform-origin: 0 0; will-change: transform; }
 .wl-map-img { display: block; width: 100%; height: auto; pointer-events: none; }
+/* O marcador: a caixa de toque (44 × 44) tem a ponta da gota no ponto do mapa;
+   o rótulo é absoluto, embaixo da ponta (ou em cima da cabeça), e não mexe na
+   caixa — quem decide se ele aparece é map-labels.js. */
 .wl-pin {
-  position: absolute; transform: translate(-50%, -100%) scale(var(--pin-scale, 1)); transform-origin: 50% 100%;
-  display: flex; flex-direction: column; align-items: center; background: none; border: 0; padding: 0; cursor: pointer; z-index: 1;
+  position: absolute; width: 46px; height: 46px; transform: translate(-50%, -100%) scale(var(--pin-scale, 1)); transform-origin: 50% 100%;
+  display: flex; align-items: flex-end; justify-content: center; background: none; border: 0; padding: 0 0 2px; cursor: pointer; z-index: 1;
+  -webkit-tap-highlight-color: transparent;
 }
+.wl-pin:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; border-radius: 8px; }
 .wl-pin-head {
   display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
   background: radial-gradient(circle at 35% 35%, var(--gold-bright), var(--gold-deep)); border: 2px solid #1a120a;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.7); font-size: 0.95rem;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.7); font-size: 0.95rem; line-height: 1;
 }
-.wl-pin-head { line-height: 1; }
 .wl-pin-head::after { content: none; }
 .wl-pin .wl-pin-head > * { transform: rotate(45deg); }
 .wl-pin-label {
-  margin-top: 4px; max-width: 160px; padding: 1px 8px; border-radius: 999px; font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  background: rgba(14,10,7,0.85); color: var(--ink-primary); border: 1px solid var(--stroke);
+  position: absolute; top: calc(100% + 3px); left: 50%; transform: translateX(calc(-50% + var(--label-dx, 0px)));
+  max-width: 160px; padding: 1px 8px; border-radius: 999px; font-size: 12px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: rgba(14,10,7,0.85); color: var(--ink-primary); border: 1px solid var(--stroke); pointer-events: none;
 }
+.wl-pin.is-label-above .wl-pin-label { top: auto; bottom: calc(100% + 3px); }
+.wl-pin.is-label-off .wl-pin-label { visibility: hidden; }
 .wl-pin.is-hidden .wl-pin-head { background: radial-gradient(circle at 35% 35%, #8d8270, #4a4234); border-style: dashed; border-color: var(--ink-faint); opacity: 0.9; }
 .wl-pin.target-hidden .wl-pin-label { color: var(--ink-muted); }
 .wl-pin.is-selected .wl-pin-head { box-shadow: 0 0 0 3px var(--gold-bright), 0 3px 10px rgba(0,0,0,0.7); }
 .wl-pin.is-selected { z-index: 2; }
-.wl-map-zoom { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
-.wl-map-zoom button { width: 40px; height: 40px; border-radius: 8px; background: rgba(14,10,7,0.85); border: 1px solid var(--stroke); color: var(--ink-primary); font-size: 1.1rem; cursor: pointer; }
-.wl-map-zoom button:hover { border-color: var(--gold); }
-.wl-pin-panel { padding: 12px; border-radius: 10px; background: var(--bg-card); border: 1px solid var(--stroke); display: flex; flex-direction: column; gap: 4px; }
-.wl-pin-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.wl-pin-panel input { width: 100%; }
-.wl-pin-vis { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; padding: 8px 10px; border-radius: 8px; background: var(--bg-deep); }
-@media (max-width: 640px) { .wl-map-box { height: 58vh; } }
+.wl-pin.is-selected .wl-pin-label { border-color: var(--gold-bright); color: var(--gold-bright); }
+.wl-map-zoom { position: absolute; right: 8px; bottom: 8px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
+.wl-map-zoom button { width: 44px; height: 44px; border-radius: 8px; background: rgba(14,10,7,0.85); border: 1px solid var(--stroke); color: var(--ink-primary); font-size: 1.15rem; cursor: pointer; }
+@media (hover: hover) { .wl-map-zoom button:hover { border-color: var(--gold); } }
+
+/* painel / folha do marcador */
+.wl-pin-body { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.wl-pin-vis { display: flex; align-items: center; justify-content: space-between; gap: 6px 10px; flex-wrap: wrap; width: 100%; }
+.wl-pin-vis-txt { flex: 1 1 12em; min-width: 0; font-size: 0.95rem; color: var(--ink-secondary); }
+.wl-pin-vis.is-on .wl-pin-vis-txt { color: var(--moss-bright); }
+.wl-pin-show { flex: 1 1 auto; }
+.wl-pin-warn { margin: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(227,164,69,0.4); background: rgba(90,61,18,0.18); color: var(--ink-secondary); }
+.wl-pin-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.wl-pin-acts .mesa-btn { flex: 1 1 auto; }
+.wl-pin-body .wl-hint { margin: 0; font-size: 0.9rem; }
+.wl-pin-log { display: flex; flex-direction: column; gap: 2px; }
+.wl-pin-log-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.wl-pin-help-btn { border: 1px solid var(--gold-deep); color: var(--gold-bright); font-family: var(--display); font-size: 1rem; }
+.wl-pin-help-btn[aria-expanded="true"] { background: var(--gold-soft); }
+.wl-pin-log-hint { margin: 0; }
+.wl-pin-ro { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; }
+.wl-pin-ro dt { font-family: var(--display); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); padding-top: 2px; }
+.wl-pin-ro dd { margin: 0; color: var(--ink-primary); }
+/* a folha: fundo quase claro (o mapa e o marcador continuam à vista acima dela)
+   e no máximo 62% da altura; o corpo rola e o rodapé (Mostrar) fica preso */
+.mesa-sheet-backdrop:has(> .wl-pin-sheet) { background: rgba(6, 4, 3, 0.18); }
+.mesa-sheet.wl-pin-sheet { max-height: 62vh; max-height: 62dvh; }
+.wl-pin-sheet .mesa-sheet-foot .wl-pin-vis-txt { font-size: 0.9rem; }
+.wl-pin-sheet .mesa-sheet-foot .wl-pin-show { flex-basis: 100%; }
+
+@media (max-width: 767px) {
+  .wl-map-box { height: min(55vh, 420px); }
+  .wl-map-box.has-ratio { max-height: 55vh; max-height: 55svh; }
+}
+@media (min-width: 768px) {
+  .wl-map-bar { flex-wrap: nowrap; }
+  .wl-map-tools { display: flex; width: auto; flex: none; }
+  .wl-map-tool { flex-direction: row; gap: 6px; width: auto; min-height: 44px; padding: 6px 12px; font-size: 0.86rem; }
+  .wl-map-bar > .wl-save { order: 3; }
+  .wl-map-stage { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 30%, 360px); gap: 14px; align-items: start; }
+  .wl-pin-side {
+    position: sticky; top: calc(var(--areas-stick, 64px) + 8px);
+    max-height: calc(100vh - var(--areas-stick, 64px) - 24px); overflow-y: auto; overscroll-behavior: contain;
+    border-radius: 10px; border: 1px solid transparent;
+    background:
+      var(--fh-noise) padding-box,
+      linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather) 45%, var(--fh-leather-lo)) padding-box,
+      var(--fh-gilt) border-box;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+  }
+  .wl-pin-panel { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .wl-pin-panel-head { display: flex; align-items: flex-start; gap: 8px; }
+  .wl-pin-panel-title { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .wl-pin-panel-name { font-family: var(--display); font-size: 1.05rem; color: var(--gold-bright); line-height: 1.25; overflow-wrap: anywhere; }
+  .wl-pin-x { margin: -6px -8px 0 0; }
+  .wl-pin-help-n { margin: 0; color: var(--ink-primary); }
+  .wl-pin-help { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--ink-secondary); font-size: 0.92rem; line-height: 1.4; }
+  /* rótulo à esquerda do campo: o painel inteiro cabe sob o mapa a 1280 × 900 */
+  .wl-pin-side .wl-pin-body { gap: 8px; }
+  .wl-pin-side .mesa-field { display: grid; grid-template-columns: 6.6em minmax(0, 1fr); align-items: center; gap: 8px; }
+  .wl-pin-side .mesa-field > :is(label, .mesa-field-label) { font-size: 12px; letter-spacing: 0.08em; }
+  .wl-pin-side .wl-pin-vis { gap: 6px; }
+  .wl-pin-side .wl-pin-show { min-height: 44px; }
+  .wl-map-box.has-ratio { max-height: min(72vh, 640px); }
+}
+
+/* criar o primeiro mapa: nome com rótulo e o botão de 48 */
+.wl-newmap-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.wl-newmap-row .mesa-field { flex: 1 1 14em; }
+.wl-newmap-place { min-height: 44px; }
 
 /* ---------------------------------------------------------------- linha do tempo */
 .wl-timeline-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 18px; align-items: start; }
@@ -452,8 +548,6 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-logcheck span { white-space: nowrap; }
 .wl-check input[type=checkbox] { width: 18px; height: 18px; min-height: 0; flex: 0 0 18px; margin: 0; }
 .wl-secret .btn-ghost, .wl-reveal-secrets .btn-ghost { color: var(--ink-secondary); border-color: var(--stroke); }
-.wl-map-box.has-ratio { height: auto; max-height: min(70vh, 640px); width: 100%; }
-@media (max-width: 640px) { .wl-map-box.has-ratio { max-height: 62vh; } }
 .wl-nowrap { white-space: nowrap; }
 
 /* ==========================================================================
