@@ -114,6 +114,27 @@ export function pickInitiatives(rows) {
 }
 
 /**
+ * Servidor de antes do /encounter: o PUT de um combatente não reordena a lista (só o POST
+ * de adicionar ordena a lista inteira pela iniciativa). As iniciativas do "Usar e começar"
+ * entram tirando e pondo de novo cada personagem (antes do início ele não guarda nada além
+ * da ficha; a casa no mapa e o tamanho do token vão junto). → [{id, body}] (POST /combatants)
+ */
+export function legacyReadds(combat, initiatives) {
+  const byId = new Map((combat?.combatants || []).map(c => [c.id, c]));
+  const out = [];
+  for (const x of initiatives || []) {
+    const c = byId.get(x.id);
+    if (!c || c.type !== 'pc' || !c.character_id || !Number.isFinite(Number(x.initiative))) continue;
+    out.push({ id: c.id, body: {
+      type: 'pc', characterId: c.character_id, initiative: Number(x.initiative),
+      ...(c.position ? { position: c.position } : {}),
+      tokenScale: c.token_scale || 1,
+    } });
+  }
+  return out;
+}
+
+/**
  * Combate andando com a iniciativa pedida (o "Já iniciar" da folha): quem ainda está com
  * "✎" e já respondeu entra na ordem pelo "Pôr na ordem (2 de 4)" (o servidor refaz a
  * ordem com a vez ainda de quem a tinha). Só quem respondeu vai; o teste fecha quando

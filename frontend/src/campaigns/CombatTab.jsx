@@ -33,7 +33,7 @@ import {
 import {
   failText, heldOpId, markLabel, newerCombat, newOpId, quietSlot, shouldScrollTo, toggleMark, turnMarks, TOUCH_QUIET_MS,
 } from '../play/damage-model.js';
-import { startEncounter } from '../play/combat-actions.js';
+import { legacyStart, startEncounter } from '../play/combat-actions.js';
 import { activeScene } from '../play/scene-model.js';
 import { getAdventure, listAdventures, patchState } from '../play/play-api.js';
 import { currentScene } from '../play/now-model.js';
@@ -350,7 +350,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
     if (table?.enabled) { await table.startCombat(); return; }
     try { applyCombat((await api.combatEncounter(campaign.id, { opId: newOpId(), start: true, fromCheck: true }))?.combat); }
     catch (e) {
-      if (isOldServer(e)) await api.startCombat(campaign.id).catch(() => {});
+      if (isOldServer(e)) await legacyStart(campaign.id, { combat, check: initCheck || undefined }).catch(() => {});
       else flash(`${t(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`, { error: true });
     }
     load();
@@ -398,6 +398,14 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
     const name = (typeof snap.name === 'object' ? (snap.name?.[lang] || snap.name?.en) : snap.name) || 'Monster';
     const tokenScale = snap.size === 'Large' ? 2 : snap.size === 'Huge' ? 3 : snap.size === 'Gargantuan' ? 4 : snap.size === 'Tiny' ? 0.5 : 1;
     const groups = [{ monster: snap, name, count, initiative, tokenScale }];
+    // Combate vazio e mesa com personagens: o 1º monstro abre a folha "Começar o combate" já
+    // com ele, "Incluir os personagens" e "Pedir a iniciativa" marcados — ⚔ Começar faz os
+    // passos ② e ③ num toque (desmarcando, só soma o monstro, como antes: holdStart)
+    if (!active && combatants.length === 0 && (campaign.members || []).some(m => m.role !== 'dm' && m.character)) {
+      setShowPicker(false);
+      setStartScene({ name: '', hold: true, groups: groups.map((g, i) => ({ ...g, key: `${snap.id || name}:${i}` })) });
+      return;
+    }
     opRef.current.monster = heldOpId(opRef.current.monster, { id: snap.id || name, count, initiative });
     try {
       const r = await startEncounter(campaign.id, encounterBody({ opId: opRef.current.monster.id, groups, pcs: false, lang }),
@@ -449,13 +457,9 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
       try { r = await api.combatEncounter(campaign.id, body); }
       catch (e) {
         if (!isOldServer(e)) throw e;
-        // servidor antigo: uma iniciativa por vez e o ▶ Iniciar de antes
-        for (const x of picked.initiatives) {
-          // eslint-disable-next-line no-await-in-loop
-          await api.updateCombatant(campaign.id, x.id, { initiative: x.initiative });
-        }
-        if (initCheck) await api.closeCheck(initCheck.id).catch(() => {});
-        r = await api.startCombat(campaign.id);
+        // servidor antigo: cada personagem sai e entra de novo com a iniciativa (o POST de
+        // antes reordena a lista; o PUT não) e o ▶ Iniciar de antes
+        r = await legacyStart(campaign.id, { combat, check: initCheck, initiatives: picked.initiatives });
       }
       opRef.current.use = null;
       applyCombat(r?.combat);
@@ -806,11 +810,13 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
       )}
       {sheetOpen === 'show' && (
         <Suspense fallback={null}>
-          <ShowSheet campaign={campaign} stage={campaign.stage || campaign.state?.stage} lang={lang} onClose={() => setSheetOpen(null)} onChange={onChange} />
+          {/* mostrou: a folha fecha, como na Agora (o aviso "Na tela ✓ · ↶ Desfazer" confirma) */}
+          <ShowSheet campaign={campaign} stage={campaign.stage || campaign.state?.stage} lang={lang} onClose={() => setSheetOpen(null)}
+            onChange={() => { onChange?.(); setSheetOpen(null); }} />
         </Suspense>
       )}
       {startScene && (
-        <StartCombatSheet campaign={campaign} lang={lang} scene={startScene} combat={combat}
+        <StartCombatSheet campaign={campaign} lang={lang} scene={startScene} combat={combat} holdStart={!!startScene.hold}
           onClose={() => setStartScene(null)} onStarted={(r) => { applyCombat(r?.combat); load(); }} />
       )}
       {wrapUp && (

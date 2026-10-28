@@ -32,6 +32,7 @@ import { frontLabel, L } from '../stage/stage-now.js';
 import { combatSummary, offlineSeconds, SENT_SHOW_MS, staleText, turnLine } from '../stage/table-bar-model.js';
 import { flash } from './flash.js';
 import { newOpId } from './damage-model.js';
+import { legacyStart } from './combat-actions.js';
 
 export { tableRollsRev } from '../stage/table-bar-model.js';
 
@@ -279,7 +280,8 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse, fullIns
     try {
       let r;
       try { r = await api.combatEncounter(id, { opId: newOpId(), start: true, fromCheck: true }); }
-      catch (e) { if (!isOldServer(e)) throw e; r = await api.startCombat(id); }
+      // servidor antigo: as respostas do teste de iniciativa aberto entram na ordem antes do /start
+      catch (e) { if (!isOldServer(e)) throw e; r = await legacyStart(id); }
       applyCombat(r?.combat);
     }
     catch (e) { failed(e, () => startRef.current()); }

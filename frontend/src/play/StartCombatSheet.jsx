@@ -80,9 +80,11 @@ export function sceneOfPlan(scene, node = null, lang = 'pt') {
  *   planScene + node: no lugar de `scene`, a cena do Plano (sceneOfPlan) — quem chama não
  *           precisa carregar o bestiário (a Agora abre esta folha sob demanda)
  *   combat?: o combate atual (sem ele, a folha lê uma vez ao abrir)
+ *   holdStart: "Já iniciar" começa desmarcado (o ✚ Monstro do combate vazio: desmarcar os
+ *           personagens só soma o monstro, como antes)
  */
 export default function StartCombatSheet({
-  campaign, lang = 'pt', scene: sceneProp = null, planScene = null, node = null, combat: combatProp = null, onClose, onStarted,
+  campaign, lang = 'pt', scene: sceneProp = null, planScene = null, node = null, combat: combatProp = null, holdStart = false, onClose, onStarted,
 }) {
   const [scene] = useState(() => sceneProp || (planScene ? sceneOfPlan(planScene, node, lang) : {}));
   const table = useTable();
@@ -91,7 +93,7 @@ export default function StartCombatSheet({
   const players = useMemo(() => (campaign.members || []).filter(m => m.role !== 'dm' && m.character), [campaign.members]);
   const [withPcs, setWithPcs] = useState(players.length > 0);
   const [askInit, setAskInit] = useState(players.length > 0);
-  const [startNow, setStartNow] = useState(null);           // null = acompanha o "Pedir a iniciativa"
+  const [startNow, setStartNow] = useState(holdStart ? false : null);   // null = acompanha o "Pedir a iniciativa"
   const [mode, setMode] = useState('replace');
   const [monsterInit, setMonsterInit] = useState('each');
   const hasImage = !!(scene.hasImage || scene.image);

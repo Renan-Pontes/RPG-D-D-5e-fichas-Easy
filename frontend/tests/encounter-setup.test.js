@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   encounterGroups, encounterBody, groupsTotal, initiativeRows, legacyBodies, openInitiativeCheck, setupSteps,
-  pickInitiatives, startLabel, lateInitiatives, lateLabel, fightLine,
+  pickInitiatives, startLabel, lateInitiatives, lateLabel, fightLine, legacyReadds,
 } from '../src/combat/encounter-setup.js';
 import { logLine } from '../src/campaigns/monster-actions.js';
 import { findMonster, monsterForCombat } from '../data/bestiary.js';
@@ -129,4 +129,19 @@ test('a linha do combate da sala sai na língua do app (pelo catálogo; o nome s
 test('o Registro recente não mostra "Combate montado (0 monstros, 0 personagens)"', () => {
   assert.equal(logLine({ type: 'encounter', mode: 'add', monsters: 0, pcs: 0, opId: 'x' }, 'pt'), '');
   assert.match(logLine({ type: 'encounter', mode: 'add', monsters: 2, pcs: 4 }, 'pt'), /Combate montado \(2 monstros, 4 personagens\)/);
+});
+
+test('servidor antigo: "Usar e começar" tira e põe de novo cada personagem com a iniciativa (o POST reordena)', () => {
+  const combat = { combatants: [
+    { id: 'g1', type: 'monster', name: 'Goblin #1', initiative: 17 },
+    { id: 'pc1', type: 'pc', character_id: 1, name: 'Dagna', initiative: 10, position: { x: 100, y: 200 }, token_scale: 1 },
+    { id: 'pc2', type: 'pc', character_id: 2, name: 'Pipo', initiative: 10 },
+  ] };
+  const out = legacyReadds(combat, [{ id: 'pc1', initiative: 20 }, { id: 'pc2', initiative: 10, guess: true }, { id: 'g1', initiative: 3 }, { id: 'x', initiative: 5 }]);
+  assert.deepEqual(out, [
+    { id: 'pc1', body: { type: 'pc', characterId: 1, initiative: 20, position: { x: 100, y: 200 }, tokenScale: 1 } },
+    { id: 'pc2', body: { type: 'pc', characterId: 2, initiative: 10, tokenScale: 1 } },
+  ], 'só personagens que estão no combate; o monstro e o id desconhecido ficam');
+  assert.deepEqual(legacyReadds(combat, []), []);
+  assert.deepEqual(legacyReadds(null, [{ id: 'pc1', initiative: 3 }]), []);
 });

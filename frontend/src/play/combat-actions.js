@@ -6,10 +6,11 @@
 //   applyHp         damage/heal/temp_hp/hp_many    → antigo: damage/heal (+ PUT temp_hp)
 //   undoHp          POST …/undo                     (só quando o servidor devolveu o opId)
 //   sceneAsMap      POST …/map-from                 → antigo: baixa a imagem e reenvia
+//   legacyStart     (só antigo) as respostas da iniciativa na ordem + o /start de antes
 import { api } from '../api/client.js';
 import { isOldServer } from '../api/errors.js';
 import { initiativePayload } from '../checks/check-logic.js';
-import { legacyBodies } from '../combat/encounter-setup.js';
+import { initiativeRows, legacyBodies, legacyReadds, openInitiativeCheck, pickInitiatives } from '../combat/encounter-setup.js';
 
 const refused = (e) => e?.status === 400 && e?.data?.error === 'invalid_action_type';
 
@@ -49,6 +50,27 @@ export async function startEncounter(campaignId, body, legacy = {}) {
   if (body.start) last = await api.startCombat(campaignId);
   const combat = last?.combat || (await api.getCombat(campaignId))?.combat;
   return { combat, check, legacy: true };
+}
+
+/**
+ * ▶ Iniciar / "Usar e começar" num servidor de antes do /encounter: as respostas do teste de
+ * iniciativa aberto (`initiatives`, ou lidas do teste aberto agora) entram na ordem tirando e
+ * pondo de novo cada personagem (o PUT antigo não reordena; o POST reordena a lista inteira),
+ * o teste fecha e o combate começa. `combat`/`check` já lidos poupam os GETs. → {combat}
+ */
+export async function legacyStart(campaignId, { combat = null, check, initiatives = null } = {}) {
+  const cb = combat || (await api.getCombat(campaignId))?.combat;
+  let chk = check;
+  if (chk === undefined) chk = openInitiativeCheck((await api.listChecks(campaignId).catch(() => null))?.checks || []);
+  const list = initiatives || pickInitiatives(initiativeRows(cb, chk)).initiatives;
+  for (const { id, body } of legacyReadds(cb, list)) {
+    // eslint-disable-next-line no-await-in-loop
+    await api.removeCombatant(campaignId, id);
+    // eslint-disable-next-line no-await-in-loop
+    await api.addCombatant(campaignId, body);
+  }
+  if (chk) await api.closeCheck(chk.id).catch(() => {});
+  return api.startCombat(campaignId);
 }
 
 /**
