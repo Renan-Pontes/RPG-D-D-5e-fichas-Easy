@@ -172,11 +172,17 @@
 /* ---------- Encerrar a Sessão N (EndSessionSheet, V12) ---------- */
 .ess-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .ess-opt input[type="checkbox"] { flex: none; width: 22px; height: 22px; accent-color: var(--gold); }
-.ess-wait { margin: 8px 0 0; }
+.ess-opt.is-wait .sss-sub { font-style: italic; white-space: pre-line; }
 .ess-moments { margin: 14px 0 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .ess-moments legend { margin-bottom: 6px; }
 .ess-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .ess-chip { min-height: 44px; }
+/* o que cada chip marca: uma linha por pessoa, sempre à vista (o ✓/○ de largura fixa: o toque não muda a altura) */
+.ess-what { margin: 2px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px;
+  font-size: 13px; color: var(--ink-muted); }
+.ess-what li { display: flex; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.ess-what li.is-on { color: var(--ink-primary); }
+.ess-what-mark { flex: none; width: 1.1em; text-align: center; color: var(--gold); }
 .ess-foot .ess-ends { display: flex; flex-direction: column; gap: 8px; }
 .ess-foot .ess-ends > .mesa-btn { width: 100%; min-height: 48px; }
 @media (min-width: 768px) {

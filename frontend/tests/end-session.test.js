@@ -1,7 +1,7 @@
 // A folha "Encerrar a Sessão N" (V12): as caixas, o que "Levar" leva, os momentos e o corpo do POST.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { carryCounts, carryText, combatLine, endBody, endRows, endTitle, initialChecks, leftoverCounts, momentChips, oldServerSteps } from '../src/play/end-session.js';
+import { carryCounts, carryText, combatLine, endBody, endRows, endTitle, initialChecks, leftoverCounts, markedSpotlights, momentChips, momentLine, oldServerSteps } from '../src/play/end-session.js';
 
 const plan = {
   forSession: 4,
@@ -52,6 +52,16 @@ test('as caixas: combate e testes só quando há; todas marcadas', () => {
   assert.deepEqual(initialChecks(rows), { endCombat: true, clearStage: true, closeChecks: true, carry: true });
 });
 
+test('o plano ainda chegando: "Levar" já aparece marcada, com "Lendo o plano…" (a folha não pula e Encerrar leva)', () => {
+  const wait = endRows({ n: 4, openChecks: 0, plan: null, planWait: true, lang: 'pt' });
+  assert.deepEqual(wait.map(r => [r.id, !!r.wait]), [['clearStage', false], ['carry', true]]);
+  assert.equal(wait[1].label, 'Levar para a Sessão 5');
+  assert.equal(wait[1].sub, 'Lendo o plano…\no plano de hoje fica guardado na Crônica');
+  assert.equal(endBody(initialChecks(wait), [], { n: 4 }).carry, true);
+  // chegou um plano que já é o da próxima: a caixa sai e o corpo vai sem levar
+  assert.equal(endBody(initialChecks(endRows({ n: 4, plan: { ...plan, forSession: 5 } })), [], { n: 4 }).carry, false);
+});
+
 test('"Quem teve um momento hoje?": marcado quem tem momento numa cena jogada; o de hoje fica travado', () => {
   const members = [
     { role: 'dm', user: {} },
@@ -64,7 +74,10 @@ test('"Quem teve um momento hoje?": marcado quem tem momento numa cena jogada; o
     3: [{ id: 'm1', kind: 'hook', text: 'irmão', done: 4, plan: null }],
   };
   const chips = momentChips({ members, spotlights, plan, sceneId: 'c2', n: 4 });
-  assert.deepEqual(chips.map(c => [c.charId, c.momentId, c.on, c.locked]), [[1, 'm1', true, false], [2, 'm1', false, false], [3, 'm1', true, true]]);
+  // Dagna: o m1 é de uma cena não jogada (c3, vai para a Sessão 5): o toque marca o m2, sem cena
+  assert.deepEqual(chips.map(c => [c.charId, c.momentId, c.on, c.locked]), [[1, 'm1', true, false], [2, 'm2', false, false], [3, 'm1', true, true]]);
+  assert.equal(momentLine(chips[0], { n: 4 }), 'Pipo · ★ fechadura');
+  assert.equal(momentLine(chips[2], { n: 4, lang: 'en' }), 'Kaelor · ✎ irmão (already marked tonight)');
   const body = endBody({ endCombat: true, clearStage: false, closeChecks: true, carry: true },
     chips.map(c => (c.charId === 2 ? { ...c, on: true, momentId: null } : c)), { n: 4, lang: 'pt' });
   assert.deepEqual(body, { endCombat: true, clearStage: false, closeChecks: true, carry: true,
@@ -73,7 +86,26 @@ test('"Quem teve um momento hoje?": marcado quem tem momento numa cena jogada; o
   assert.deepEqual(endBody({}, [], { n: 4 }), { endCombat: true, clearStage: true, closeChecks: true, carry: false, moments: [] });
 });
 
-test('servidor antigo: só o que as rotas de antes fazem', () => {
+test('momento só de uma cena não jogada: o chip não o leva (o servidor cria um ★ novo)', () => {
+  const members = [{ role: 'player', character: { id: 3, name: 'Kaelor Escama' } }, { role: 'player', character: { id: 4, name: 'Pipo' } }];
+  const spotlights = { 3: [{ id: 'k1', kind: 'push', text: 'Resistir ao espírito do noivo', done: null, plan: 'c3' }],
+    4: [{ id: 'p1', kind: 'shine', text: 'fechadura', done: null, plan: 'c2' }] };
+  const [k, p] = momentChips({ members, spotlights, plan, sceneId: 'c2', n: 4 });
+  assert.deepEqual([k.momentId, k.fresh, k.on], [null, true, false]);
+  assert.deepEqual([p.momentId, p.on], ['p1', true]);
+  assert.equal(momentLine(k, { n: 4 }), 'Kaelor · ★ novo: Teve um momento na Sessão 4');
+  assert.deepEqual(endBody({}, [{ ...k, on: true }, p], { n: 4 }).moments,
+    [{ charId: 3, text: 'Teve um momento na Sessão 4' }, { charId: 4, id: 'p1' }]);
+});
+
+test('servidor antigo: só o que as rotas de antes fazem; os momentos pelo PUT do Raio-X', () => {
   assert.deepEqual(oldServerSteps({ endCombat: true, clearStage: true, closeChecks: true, carry: true }, { combatActive: true }), ['combat', 'checks', 'stage', 'live']);
   assert.deepEqual(oldServerSteps({ endCombat: true, clearStage: false, closeChecks: false }, { combatActive: false }), ['live']);
+  assert.deepEqual(oldServerSteps({ endCombat: false, moments: [{ charId: 1, id: 'm1' }] }), ['live', 'moments']);
+  const sp = { 1: [{ id: 'm1', kind: 'shine', text: 'fechadura', done: null, plan: 'c2' }], 2: [{ id: 'm1', kind: 'hook', text: 'x', done: 4, plan: null }] };
+  const patch = markedSpotlights(sp, [{ charId: 1, id: 'm1' }, { charId: 2, text: 'novo' }, { charId: 3, text: 'Teve um momento na Sessão 4' }], 4);
+  assert.equal(patch['1'][0].done, 4);
+  assert.equal(sp[1][0].done, null, 'não muda o que veio');
+  assert.deepEqual(patch['2'], sp[2], 'já tinha um momento hoje: nada novo');
+  assert.deepEqual(patch['3'], [{ id: 'm1', kind: 'shine', text: 'Teve um momento na Sessão 4', auto: null, done: 4, plan: null }]);
 });

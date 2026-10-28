@@ -291,14 +291,15 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   // ■ Encerrar (V12): a folha manda tudo numa chamada; depois a casca recarrega e vai para a
   // Agora (o cartão J2 "Sessão N encerrada"). Com o fim de encontro guiado ligado, o painel
   // dele abre antes; "Encerrar e escrever o resumo" abre o editor JÁ ABERTO, com o rascunho.
-  const afterEnd = async ({ withRecap, session, plan, sceneId, doneBefore, combat, old }) => {
+  const afterEnd = async ({ withRecap, session, plan, sceneId, doneBefore, combat, old, momentsLost }) => {
     setEnding(false);
     await load();
     goTo('play', 'scene');
     const recap = withRecap ? { session, context: { plan, sceneId, doneBefore } } : null;
     if (combat) setWrapUp({ combat, then: recap });
     else if (recap) setRecapFor(recap);
-    if (old) say(t(lang, 'Sessão encerrada. O plano ficou como estava: falta atualizar o servidor para guardar e levar.', 'Session ended. The plan stayed as it was: the server needs an update to keep and carry it.'));
+    if (old && momentsLost) say(t(lang, 'Sessão encerrada. O plano ficou como estava e os momentos não foram marcados: falta atualizar o servidor.', 'Session ended. The plan stayed as it was and the moments were not marked: the server needs an update.'));
+    else if (old) say(t(lang, 'Sessão encerrada. O plano ficou como estava: falta atualizar o servidor para guardar e levar.', 'Session ended. The plan stayed as it was: the server needs an update to keep and carry it.'));
     else if (!withRecap) say(t(lang, 'Sessão encerrada. Bom jogo!', 'Session ended. Good game!'));
   };
   // Da folha "Mais" para outra janela: fecha a folha primeiro (o foco volta à

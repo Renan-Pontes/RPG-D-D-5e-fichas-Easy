@@ -83,10 +83,13 @@ export function carryText(c, lang = 'pt') {
 }
 
 /**
- * As caixas da folha, na ordem, todas marcadas: [{id, label, sub}]. `openChecks` = testes
- * abertos (null = não se sabe: a caixa aparece sem o número).
+ * As caixas da folha, na ordem, todas marcadas: [{id, label, sub, wait?}]. `openChecks` =
+ * testes abertos (null = não se sabe: a caixa aparece sem o número). `planWait` = o plano
+ * ainda está chegando: "Levar" aparece já (marcada, com "Lendo o plano…", `wait`) para a
+ * folha não pular quando ele chega, e Encerrar não espera por ele (o servidor não leva nada
+ * de um plano que já é o da próxima sessão).
  */
-export function endRows({ n, combat = null, openChecks = null, plan = null, lang = 'pt' } = {}) {
+export function endRows({ n, combat = null, openChecks = null, plan = null, planWait = false, lang = 'pt' } = {}) {
   const rows = [];
   if (combat?.active) {
     rows.push({ id: 'endCombat', label: tt(lang, 'Encerrar o combate', 'End combat'), sub: combatLine(combat, lang) });
@@ -97,20 +100,25 @@ export function endRows({ n, combat = null, openChecks = null, plan = null, lang
     rows.push({ id: 'closeChecks', label: openChecks ? tt(lang, `Fechar os testes abertos (${openChecks})`, `Close open checks (${openChecks})`)
       : tt(lang, 'Fechar os testes abertos', 'Close open checks'), sub: '' });
   }
-  const carry = carryCounts(plan, n);
+  const carry = planWait ? 'wait' : carryCounts(plan, n);
   if (carry) {
-    rows.push({ id: 'carry', label: tt(lang, `Levar para a Sessão ${n + 1}`, `Carry to session ${n + 1}`),
-      sub: `${carryText(carry, lang)} · ${tt(lang, 'o plano de hoje fica guardado na Crônica', "today's plan is kept in the Chronicle")}` });
+    const kept = tt(lang, 'o plano de hoje fica guardado na Crônica', "today's plan is kept in the Chronicle");
+    // esperando: 2 linhas, a altura que as contas ocupam quando chegam (a folha não pula)
+    rows.push({ id: 'carry', label: tt(lang, `Levar para a Sessão ${n + 1}`, `Carry to session ${n + 1}`), wait: carry === 'wait',
+      sub: carry === 'wait' ? `${tt(lang, 'Lendo o plano…', 'Reading the plan…')}\n${kept}` : `${carryText(carry, lang)} · ${kept}` });
   }
   return rows;
 }
 
+const MOMENT_ICON = { shine: '★', push: '↗', hook: '✎' };
+
 /**
  * "Quem teve um momento hoje?": um chip por personagem da mesa. Marcado de início quem tem
  * um momento ligado a uma cena jogada hoje (feita nesta sessão ou a de "agora"); já marcado na sessão
- * (`done === n`) fica ✓ e travado. O chip leva o momento em aberto que o toque marca (o da
- * cena jogada, senão o 1º em aberto); sem nenhum, o servidor cria um ★ "Sessão N".
- * → [{charId, name, momentId, text, on, locked}]
+ * (`done === n`) fica ✓ e travado. O chip leva o momento em aberto que o toque marca: o da
+ * cena jogada, senão o 1º sem cena. O de uma cena NÃO jogada nunca: ele vai com a cena para a
+ * próxima sessão (o servidor também recusa). Sem nenhum, o servidor cria um ★ (`fresh`).
+ * → [{charId, name, momentId, icon, text, fresh, on, locked}]
  */
 export function momentChips({ members = [], spotlights = {}, plan = null, sceneId = null, doneBefore = null, n = null } = {}) {
   const played = new Set(playedScenes(plan, sceneId, doneBefore).map(s => s.id));
@@ -118,12 +126,28 @@ export function momentChips({ members = [], spotlights = {}, plan = null, sceneI
     const list = spotlights?.[String(m.character.id)] || [];
     const today = list.find(x => x.done != null && x.done === n);
     const open = list.filter(x => x.done == null);
-    const pick = open.find(x => x.plan && played.has(x.plan)) || open[0] || null;
+    const pick = open.find(x => x.plan && played.has(x.plan)) || open.find(x => !x.plan) || null;
+    const hit = today || pick;
     return {
-      charId: m.character.id, name: m.character.name || '?', momentId: today ? today.id : pick?.id || null,
-      text: (today || pick)?.text || '', on: !!today || !!(pick?.plan && played.has(pick.plan)), locked: !!today,
+      charId: m.character.id, name: m.character.name || '?', momentId: hit?.id || null,
+      icon: MOMENT_ICON[hit?.kind] || '★', text: String(hit?.text || '').trim(), fresh: !hit,
+      on: !!today || !!(pick?.plan && played.has(pick.plan)), locked: !!today,
     };
   });
+}
+
+const newMomentText = (n, lang) => tt(lang, `Teve um momento na Sessão ${n}`, `Had a moment in session ${n}`);
+
+/**
+ * A linha visível abaixo dos chips (nada só no `title`): o que o toque marca.
+ * "Pipo · ★ Abrir a fechadura" · "Dagna · ★ novo: Teve um momento na Sessão 4" ·
+ * "Kaelor · ✎ o irmão (já marcado hoje)".
+ */
+export function momentLine(chip, { n = null, lang = 'pt' } = {}) {
+  const first = String(chip.name || '').trim().split(/\s+/)[0] || '?';
+  if (chip.fresh) return `${first} · ★ ${tt(lang, 'novo', 'new')}: ${newMomentText(n, lang)}`;
+  const text = chip.text || tt(lang, 'momento sem texto', 'untitled moment');
+  return `${first} · ${chip.icon} ${text}${chip.locked ? ` ${tt(lang, '(já marcado hoje)', '(already marked tonight)')}` : ''}`;
 }
 
 /** As caixas como começam: todas marcadas ({id: true}). */
@@ -139,15 +163,16 @@ export function endBody(checks, chips = [], { n = null, lang = 'pt' } = {}) {
   return {
     endCombat: on('endCombat'), clearStage: on('clearStage'), closeChecks: on('closeChecks'), carry: checks?.carry === true,
     moments: chips.filter(c => c.on && !c.locked).map(c => (c.momentId ? { charId: c.charId, id: c.momentId }
-      : { charId: c.charId, text: tt(lang, `Teve um momento na Sessão ${n}`, `Had a moment in session ${n}`) })),
+      : { charId: c.charId, text: newMomentText(n, lang) })),
   };
 }
 
 /**
  * Servidor sem o POST …/end (404 em HTML): o que a folha ainda faz com as rotas antigas, na
- * ordem — o combate, os testes e a Tela antes de desligar o "ao vivo" (como antes). O plano
- * não é arquivado nem levado (o servidor não sabe guardar) e os momentos ficam.
- * → ['combat', 'checks', 'stage', 'live']
+ * ordem — o combate, os testes e a Tela antes de desligar o "ao vivo" (como antes) e, com
+ * chips marcados, os momentos pelo PUT do Raio-X (`markedSpotlights`). O plano não é
+ * arquivado nem levado (o servidor não sabe guardar).
+ * → ['combat', 'checks', 'stage', 'live', 'moments']
  */
 export function oldServerSteps(body, { combatActive = false } = {}) {
   const out = [];
@@ -155,5 +180,32 @@ export function oldServerSteps(body, { combatActive = false } = {}) {
   if (body.closeChecks) out.push('checks');
   if (body.clearStage) out.push('stage');
   out.push('live');
+  if (body.moments?.length) out.push('moments');
   return out;
+}
+
+const MAX_SPOTLIGHTS = 12;   // world_rules.MAX_SPOTLIGHTS
+
+/**
+ * Os momentos do corpo do POST …/end aplicados aos do Raio-X, como o servidor novo faz
+ * (views_diary._mark_moments): o escolhido em aberto ganha `done = n`; quem não tinha ganha
+ * um ★ novo com o texto. → o patch de `spotlights` para o PUT /party-insights ({charId: lista}).
+ */
+export function markedSpotlights(spotlights = {}, moments = [], n = null) {
+  const patch = {};
+  for (const m of moments || []) {
+    const key = String(m.charId);
+    const cur = (patch[key] || spotlights?.[key] || []).map(x => ({ ...x }));
+    const hit = m.id ? cur.find(x => x.id === m.id) : null;
+    if (hit) {
+      if (hit.done == null) hit.done = n;
+    } else if (!cur.some(x => x.done === n) && cur.length < MAX_SPOTLIGHTS) {
+      const used = new Set(cur.map(x => x.id));
+      let id = `m${cur.length + 1}`;
+      while (used.has(id)) id = `${id}x`;
+      cur.push({ id, kind: 'shine', text: m.text || `Sessão ${n}`, auto: null, done: n, plan: null });
+    }
+    patch[key] = cur;
+  }
+  return patch;
 }

@@ -6,21 +6,23 @@
 //   ☑ Limpar a Tela (volta para a capa; tira o teste)
 //   ☑ Fechar os testes abertos (1)                          ← só se há
 //   ☑ Levar para a Sessão 5: 1 cena, 6 pistas, 4 pessoas    ← só com o plano desta sessão
+//                                                              (marcada e "Lendo o plano…" até ele chegar)
 //   Quem teve um momento hoje?  (Pipo ✓) (Dagna) …          ← só com o Raio-X
+//   ✓ Pipo · ★ Abrir a fechadura                             ← o que cada toque marca, escrito
 // Um toque: POST …/diary/sessions/:n/end (uma chamada). Num servidor de antes dela (404 em
-// HTML), o combate, os testes, a Tela e o "ao vivo" vão pelas rotas antigas e a folha avisa que
-// o plano fica como está (falta atualizar o servidor para guardar e levar). A lógica mora em
-// end-session.js; aqui é só a tela.
+// HTML), o combate, os testes, a Tela, o "ao vivo" e os momentos (PUT do Raio-X) vão pelas
+// rotas antigas e a folha avisa que o plano fica como está (falta atualizar o servidor para
+// guardar e levar). A lógica mora em end-session.js; aqui é só a tela.
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage, isOldServer } from '../api/errors.js';
 import { isWizardEnabled } from '../campaigns/end-of-encounter.js';
-import { cachedInsights, loadInsightsOnce } from '../group/insights-api.js';
+import { cachedInsights, insightsApi, loadInsightsOnce, rememberInsights } from '../group/insights-api.js';
 import { normalizePlan } from '../prep/next-session.js';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import { stageClear } from '../stage/stage-api.js';
 import { getSessionPlan } from '../world/world-api.js';
-import { endBody, endRows, endTitle, initialChecks, momentChips, oldServerSteps } from './end-session.js';
+import { endBody, endRows, endTitle, initialChecks, markedSpotlights, momentChips, momentLine, oldServerSteps } from './end-session.js';
 import { sessionClock, sessionMeta, stateSessionNumber } from './now-model.js';
 import { patchState } from './play-api.js';
 import './now.css';
@@ -29,8 +31,8 @@ const L = (lang, pt, en) => (lang === 'en' ? en : pt);
 
 /**
  * pulse    o pulso do mestre (combate com a ordem, testes abertos); sem ele, o combatNow
- * onEnded({withRecap, session, plan, sceneId, combat, old}) depois de tudo: a casca recarrega,
- *          vai para a Agora e abre o fim de encontro guiado e/ou o editor do resumo
+ * onEnded({withRecap, session, plan, sceneId, combat, old, momentsLost}) depois de tudo: a casca
+ *          recarrega, vai para a Agora e abre o fim de encontro guiado e/ou o editor do resumo
  */
 export default function EndSessionSheet({ campaign, lang = 'pt', pulse = null, onClose, onEnded }) {
   const st = campaign.state || {};
@@ -53,7 +55,8 @@ export default function EndSessionSheet({ campaign, lang = 'pt', pulse = null, o
     return () => { alive = false; };
   }, [campaign.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const rows = useMemo(() => endRows({ n, combat, openChecks, plan: plan || null, lang }), [n, combat, openChecks, plan, lang]);
+  const rows = useMemo(() => endRows({ n, combat, openChecks, plan: plan || null, planWait: plan === undefined, lang }),
+    [n, combat, openChecks, plan, lang]);
   const [checks, setChecks] = useState({});
   const isOn = (id) => checks[id] !== false;     // toda caixa começa marcada
   const chips0 = useMemo(() => (ins ? momentChips({ members: campaign.members, spotlights: ins.spotlights, plan: plan || null,
@@ -64,8 +67,10 @@ export default function EndSessionSheet({ campaign, lang = 'pt', pulse = null, o
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
 
-  // servidor de antes do POST …/end: as rotas antigas, na ordem de antes
+  // servidor de antes do POST …/end: as rotas antigas, na ordem de antes. → true = os
+  // momentos não foram marcados (o PUT do Raio-X também falhou)
   const oldEnd = async (body) => {
+    let momentsLost = false;
     for (const step of oldServerSteps(body, { combatActive: !!combat?.active })) {
       if (step === 'combat') await api.endCombat(campaign.id).catch(() => {});
       if (step === 'checks') {
@@ -74,7 +79,14 @@ export default function EndSessionSheet({ campaign, lang = 'pt', pulse = null, o
       }
       if (step === 'stage') await stageClear(campaign.id).catch(() => {});
       if (step === 'live') await patchState(campaign.id, { live: false });
+      if (step === 'moments') {
+        try {
+          const fresh = await insightsApi.get(campaign.id);   // os de agora (outro aparelho pode ter mexido)
+          rememberInsights(campaign.id, await insightsApi.put(campaign.id, { spotlights: markedSpotlights(fresh?.spotlights, body.moments, n) }));
+        } catch { momentsLost = true; }
+      }
     }
+    return momentsLost;
   };
 
   const end = async (withRecap) => {
@@ -82,15 +94,16 @@ export default function EndSessionSheet({ campaign, lang = 'pt', pulse = null, o
     setBusy(withRecap ? 'recap' : 'end'); setError('');
     const body = endBody({ ...initialChecks(rows), ...checks }, chips, { n, lang });
     let old = false;
+    let momentsLost = false;
     try {
       await api.endDiarySession(campaign.id, n, body);
     } catch (e) {
       if (!isOldServer(e)) { setError(errorMessage(e, lang)); setBusy(''); return; }
       old = true;
-      try { await oldEnd(body); } catch (e2) { setError(errorMessage(e2, lang)); setBusy(''); return; }
+      try { momentsLost = await oldEnd(body); } catch (e2) { setError(errorMessage(e2, lang)); setBusy(''); return; }
     }
     await onEnded?.({
-      withRecap, session: n, plan: plan || null, sceneId: st.sceneId || null, doneBefore: meta.doneBefore || null, old,
+      withRecap, session: n, plan: plan || null, sceneId: st.sceneId || null, doneBefore: meta.doneBefore || null, old, momentsLost,
       combat: body.endCombat && wizard && wrapCombat ? { ...wrapCombat, active: false } : null,
     });
   };
@@ -118,7 +131,7 @@ export default function EndSessionSheet({ campaign, lang = 'pt', pulse = null, o
       <ul className="ess-list" aria-label={L(lang, 'O que arrumar ao encerrar', 'What to tidy up when ending')}>
         {rows.map(r => (
           <li key={r.id}>
-            <label className={`sss-opt ess-opt ${isOn(r.id) ? 'is-on' : ''}`}>
+            <label className={`sss-opt ess-opt ${isOn(r.id) ? 'is-on' : ''} ${r.wait ? 'is-wait' : ''}`} aria-busy={r.wait || undefined}>
               <input type="checkbox" checked={isOn(r.id)} onChange={() => toggle(r.id)} disabled={!!busy} />
               <span className="sss-opt-text">
                 <span>{r.label}</span>
@@ -128,18 +141,26 @@ export default function EndSessionSheet({ campaign, lang = 'pt', pulse = null, o
           </li>
         ))}
       </ul>
-      {plan === undefined && <p className="sss-sub ess-wait">{L(lang, 'Lendo o plano…', 'Reading the plan…')}</p>}
       {chips.length > 0 && (
         <fieldset className="ess-moments">
           <legend className="mesa-eyebrow">{L(lang, 'Quem teve um momento hoje?', 'Who had a moment today?')}</legend>
           <div className="ess-chips">
             {chips.map(c => (
               <button key={c.charId} type="button" className="mesa-chip ess-chip" aria-pressed={c.on} disabled={c.locked || !!busy}
-                onClick={() => togglePick(c)} title={c.text || undefined}>
+                onClick={() => togglePick(c)} aria-describedby={`ess-what-${c.charId}`}>
                 {String(c.name).split(/\s+/)[0]}{c.on ? ' ✓' : ''}
               </button>
             ))}
           </div>
+          {/* o que cada toque marca, escrito (todas as linhas sempre: o toque não muda a altura) */}
+          <ul className="ess-what" aria-label={L(lang, 'O que será marcado', 'What gets marked')}>
+            {chips.map(c => (
+              <li key={c.charId} id={`ess-what-${c.charId}`} className={c.on ? 'is-on' : ''}>
+                <span className="ess-what-mark" aria-hidden="true">{c.on ? '✓' : '○'}</span>
+                <span>{momentLine(c, { n, lang })}</span>
+              </li>
+            ))}
+          </ul>
           <p className="sss-sub">{L(lang, 'Conta no Equilíbrio na mesa (Grupo › Raio-X). O ✓ travado já foi marcado nesta sessão.',
             'Counts toward Table balance (Group › X-ray). A locked ✓ was already marked this session.')}</p>
         </fieldset>
