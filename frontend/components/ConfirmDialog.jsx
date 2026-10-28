@@ -10,6 +10,8 @@
  * Dentro da campanha, no celular, vira folha da altura do conteúdo com os botões
  * empilhados (src/shell/mesa.css, escopo body:has(.campaign-detail.shell)); na
  * ficha e no criador continua como sempre. Fica por cima das folhas da mesa.
+ * V14: é a confirmação ÚNICA do app — usePrepConfirm (Preparar e Itens) e
+ * useGroupConfirm (Grupo e Crônica) chamam este diálogo, com os mesmos textos.
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';

@@ -1,69 +1,26 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useCallback, useEffect } from 'react';
 import { t } from './group-model.js';
-import { mesaLayer } from '../shell/MesaSheet.jsx';
+import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 
 /**
- * Confirmação no estilo do app (substitui window.confirm no Grupo e na Crônica).
+ * Confirmação do Grupo e da Crônica (substitui window.confirm).
  * Uso: const [ask, confirmUi] = useGroupConfirm(lang);
  *      if (await ask({ title, text, okLabel, danger })) …
  *      … e renderize {confirmUi}.
- * Quando o useConfirm() compartilhado (components/ConfirmDialog.jsx, WP3)
- * existir, dá para trocar este hook por ele sem mudar quem chama.
- * Desenhada na camada da mesa (portal, src/shell/MesaSheet.jsx › mesaLayer), por
- * cima de uma folha aberta; no celular vira folha da altura do conteúdo
- * (src/shell/mesa.css). O foco volta a quem abriu.
+ * V14: um sistema só de confirmação no app — o `confirmDialog` compartilhado
+ * (components/ConfirmDialog.jsx), na mesma aparência de folha pequena da mesa, com os
+ * mesmos textos ("Tem certeza?" quando não há título). `confirmUi` fica null.
  */
 export function useGroupConfirm(lang) {
-  const [req, setReq] = useState(null);
-  const resolver = useRef(null);
-
-  const ask = useCallback((opts) => new Promise((resolve) => {
-    resolver.current = resolve;
-    setReq(opts || {});
-  }), []);
-
-  const close = useCallback((value) => {
-    resolver.current?.(value);
-    resolver.current = null;
-    setReq(null);
-  }, []);
-
-  const modal = req ? <ConfirmModal lang={lang} {...req} onAnswer={close} /> : null;
-  const layer = modal ? mesaLayer() : null;
-  const ui = modal && layer ? createPortal(modal, layer) : modal;
-  return [ask, ui];
-}
-
-function ConfirmModal({ lang, title, text, okLabel, cancelLabel, danger, onAnswer }) {
-  const okRef = useRef(null);
-  const [opener] = useState(() => (typeof document !== 'undefined' ? document.activeElement : null));
-  useEffect(() => () => {
-    if (opener && opener !== document.body && opener.isConnected) { try { opener.focus({ preventScroll: true }); } catch { /* ok */ } }
-  }, [opener]);
-  useEffect(() => {
-    okRef.current?.focus();
-    const onKey = (e) => { if (e.key === 'Escape') onAnswer(false); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onAnswer]);
-  return (
-    <div className="modal-backdrop grp-confirm-backdrop" onClick={(e) => { e.stopPropagation(); onAnswer(false); }}>
-      <div className="modal grp-confirm" role="alertdialog" aria-modal="true" aria-labelledby="grp-confirm-title"
-        onClick={e => e.stopPropagation()}>
-        <h3 id="grp-confirm-title">{title || t(lang, 'Tem certeza?', 'Are you sure?')}</h3>
-        {text && <p className="muted">{text}</p>}
-        <div className="grp-confirm-actions">
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => onAnswer(false)}>
-            {cancelLabel || t(lang, 'Cancelar', 'Cancel')}
-          </button>
-          <button type="button" ref={okRef} className={`btn btn-sm ${danger ? 'btn-danger grp-danger' : 'btn-primary'}`} onClick={() => onAnswer(true)}>
-            {okLabel || t(lang, 'Confirmar', 'Confirm')}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  const ask = useCallback((opts = {}) => confirmDialog({
+    lang,
+    title: opts.title || t(lang, 'Tem certeza?', 'Are you sure?'),
+    message: opts.text,
+    confirmLabel: opts.okLabel,
+    cancelLabel: opts.cancelLabel,
+    danger: !!opts.danger,
+  }), [lang]);
+  return [ask, null];
 }
 
 /** Toast curto do Grupo (aviso de confirmação, ex.: "Thalion recebeu Poção de Cura"). */
