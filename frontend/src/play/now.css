@@ -135,6 +135,9 @@
 .now-recap-text { margin: 0; font-size: 17px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .now-peek-foot { flex-wrap: wrap; }
 .now-peek-foot .mesa-btn { flex: 1 1 160px; }
+.now-peek-foot .now-peek-keep.mesa-btn { flex: 1 1 100%; }
+.now-peek-log { margin: 0 0 8px; display: flex; align-items: center; gap: 10px; min-height: 44px; font-family: var(--body); font-size: 15px; letter-spacing: normal; text-transform: none; color: var(--ink-secondary); cursor: pointer; }
+.now-peek-log input { flex: none; width: 22px; height: 22px; accent-color: var(--gold); }
 
 /* ---------------------------------------------------------- folha Começar a sessão */
 .sss-where { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 4px; }

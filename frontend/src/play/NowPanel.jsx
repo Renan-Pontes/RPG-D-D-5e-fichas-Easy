@@ -55,7 +55,7 @@ import {
 } from './now-model.js';
 import { playPlanView } from './plan-model.js';
 import { patchState } from './play-api.js';
-import { addSceneAndBegin, beginScene, clearSceneNow, loadRecap, setSceneDone } from './scene-actions.js';
+import { addSceneAndBegin, beginScene, clearSceneNow, loadRecap, readLogRoom, setSceneDone, writeLogRoom } from './scene-actions.js';
 import { COMBAT_EVENT, useRevData, useTable } from './table-store.js';
 import { flash } from './flash.js';
 import useMedia from './useMedia.js';
@@ -154,6 +154,13 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
 
   // o resumo salvo da sessão anterior (J1, J3 e a folha Começar): 1 GET por sessão
   const cur = stateSessionNumber(st) || 0;
+  // o ⚡ Começo forte vai inteiro no cartão da 1ª cena da sessão (a 1ª que este aparelho vê;
+  // no ensaio, a 1ª cena não feita do plano)
+  const firstSeen = live ? readFirstScene(campaign.id, cur) : null;
+  useEffect(() => {
+    if (live && cur && sceneNow?.id && !readFirstScene(campaign.id, cur)) writeFirstScene(campaign.id, cur, sceneNow.id);
+  }, [live, cur, sceneNow?.id, campaign.id]);
+  const opening = live ? isOpeningScene(sceneNow?.id, firstSeen) : !!rehearsal && firstOpenScene(plan)?.id === rehearsal.id;
   const recapOf = live ? cur - 1 : cur;
   const [recap, setRecap] = useState(null);
   useEffect(() => {
@@ -608,9 +615,9 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
         const isNow = live && sceneNow?.id === s.id;
         return (
           <ScenePeek key={s.id} campaign={campaign} lang={lang} scene={s} plan={plan} world={world} table={table} live={live} isNow={isNow}
-            moments={momentsOf(s)} names={names} busy={busy} closed={closed}
+            moments={momentsOf(s)} names={names} busy={busy} closed={closed} fighting={!!(pulse?.combat?.active ?? combat?.active)}
             onAskCheck={askCheck} onStartFight={(o) => { setSheet(null); startFight(o); }}
-            onClose={() => setSheet(null)} onStart={() => start(s)}
+            onClose={() => setSheet(null)} onStart={(o) => start(s, o)}
             onToggleDone={async () => { try { setPlanR(await setSceneDone(campaign, plan, s.id, !s.done)); } catch (e) { flash(errorMessage(e, lang), { error: true }); } }}
             onOpenEntry={openEntry} onRevealEntry={openReveal} onRevealed={patchWorld} />
         );
@@ -657,9 +664,11 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
 /**
  * A folha de uma cena do plano (toque num chip de "Cenas do plano"): o que ela tem, com
  * ▶ Começar esta cena (ao vivo) ou "Ver esta cena (ensaio)" (sessão parada) e ✓ feita.
- * A sala da cena ligada é lida ao abrir (sem a imagem).
+ * A sala da cena ligada é lida ao abrir (sem a imagem). Ao vivo, a cena ligada mostra a
+ * caixa lembrada "Registrar na Crônica" (a entrada na sala) e, com um combate andando, a
+ * cena vai por cima dele ou fica "Guardada para depois do combate" (link secundário).
  */
-function ScenePeek({ campaign, lang, scene, plan, world, live, isNow, moments, names, busy, closed, onClose, onStart, onToggleDone, onAskCheck, onStartFight, onOpenEntry, onRevealEntry, onRevealed }) {
+function ScenePeek({ campaign, lang, scene, plan, world, live, isNow, fighting, moments, names, busy, closed, onClose, onStart, onToggleDone, onAskCheck, onStartFight, onOpenEntry, onRevealEntry, onRevealed }) {
   const ref = scene.nodeRef;
   const [node, setNode] = useState(null);
   useEffect(() => {
@@ -679,12 +688,23 @@ function ScenePeek({ campaign, lang, scene, plan, world, live, isNow, moments, n
             {scene.done ? `↺ ${L(lang, 'Marcar como não feita', 'Mark as not done')}` : `✓ ${L(lang, 'Marcar feita', 'Mark done')}`}
           </button>
           {!isNow && (
-            <button type="button" className="mesa-btn mesa-btn-lg is-primary" disabled={closed || busy === 'start'} onClick={onStart}>
+            <button type="button" className="mesa-btn mesa-btn-lg is-primary" disabled={closed || busy === 'start'} onClick={() => onStart({ log })}>
               {busy === 'start' ? '…' : live ? `▶ ${L(lang, 'Começar esta cena', 'Start this scene')}` : L(lang, 'Ver esta cena (ensaio)', 'Preview this scene (rehearsal)')}
+            </button>
+          )}
+          {starting && fighting && (
+            <button type="button" className="mesa-btn is-quiet now-peek-keep" disabled={closed || busy === 'start'} onClick={() => onStart({ log, focus: false })}>
+              {L(lang, 'Guardar para depois do combate', 'Keep for after combat')}
             </button>
           )}
         </div>
       )}>
+      {starting && ref && (
+        <label className="now-peek-log">
+          <input type="checkbox" checked={log} disabled={closed} onChange={e => { setLog(e.target.checked); writeLogRoom(campaign.id, e.target.checked); }} />
+          <span>{L(lang, 'Ao começar, registrar na Crônica que o grupo entrou na sala', 'On start, log to the Chronicle that the party entered the room')}</span>
+        </label>
+      )}
       <SceneNowCard campaign={campaign} lang={lang} scene={scene} node={node} world={world} moments={moments} names={names}
         mode="peek" pos={scenePosition(plan, scene.id)} closed={closed} busy={busy}
         onAskCheck={onAskCheck} onStartFight={onStartFight} onOpenEntry={onOpenEntry} onRevealEntry={onRevealEntry} onRevealed={onRevealed} />
