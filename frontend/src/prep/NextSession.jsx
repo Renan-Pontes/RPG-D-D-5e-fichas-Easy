@@ -564,10 +564,15 @@ export default function NextSession({ campaign, lang, goTo }) {
     const key = plan.placeIds.includes(id) || e?.kind === 'place' ? 'placeIds' : 'npcIds';
     change(p => toggleId(p, key, id));
   };
+  // o plano já é o da sessão que vem (não jogada): o ⋯ recomeça este mesmo plano
+  const again = !heading.live && !heading.stale && !!plan.forSession;
+  const newPlanTitle = again
+    ? t(lang, `↻ Recomeçar o plano da Sessão ${heading.next}`, `↻ Restart the session ${heading.next} plan`)
+    : t(lang, `↻ Começar o plano da Sessão ${heading.next}`, `↻ Start the session ${heading.next} plan`);
   const menu = [
     { id: 'ready', label: t(lang, '📖 Usar uma aventura pronta', '📖 Use a ready adventure'), onSelect: () => setSheet({ kind: 'ready' }), hidden: closed },
     { id: 'export', label: t(lang, '⇩ Exportar o plano (JSON)', '⇩ Export the plan (JSON)'), onSelect: () => downloadPlan(plan, campaign, heading) },
-    { id: 'new', label: t(lang, `↻ Começar o plano da Sessão ${heading.next}`, `↻ Start the session ${heading.next} plan`),
+    { id: 'new', label: newPlanTitle,
       hint: t(lang, 'Guarda este plano na Crônica e começa o novo: com o que sobrou ou do zero.', 'Keeps this plan in the Chronicle and starts the new one: with what is left or from scratch.'),
       onSelect: newSession, hidden: closed },
   ];
@@ -728,7 +733,7 @@ export default function NextSession({ campaign, lang, goTo }) {
       )}
 
       {sheet?.kind === 'newPlan' && (
-        <MesaSheet title={t(lang, `Começar o plano da Sessão ${heading.next}`, `Start the session ${heading.next} plan`)} icon="↻"
+        <MesaSheet title={newPlanTitle.replace(/^↻\s*/, '')} icon="↻"
           size="auto" width="sm" lang={lang} onClose={() => setSheet(null)} className="ns-newplan"
           footer={(
             <div className="mesa-actions is-stack">

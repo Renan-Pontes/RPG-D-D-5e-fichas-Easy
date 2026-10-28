@@ -63,7 +63,6 @@ export default function EndSessionSheet({ campaign, lang = 'pt', pulse = null, o
   const chips = chips0.map(c => (c.locked || !(c.charId in picked) ? c : { ...c, on: picked[c.charId] }));
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const [note, setNote] = useState('');
 
   // servidor de antes do POST …/end: as rotas antigas, na ordem de antes
   const oldEnd = async (body) => {
@@ -80,7 +79,7 @@ export default function EndSessionSheet({ campaign, lang = 'pt', pulse = null, o
 
   const end = async (withRecap) => {
     if (busy) return;
-    setBusy(withRecap ? 'recap' : 'end'); setError(''); setNote('');
+    setBusy(withRecap ? 'recap' : 'end'); setError('');
     const body = endBody({ ...initialChecks(rows), ...checks }, chips, { n, lang });
     let old = false;
     try {
@@ -105,7 +104,6 @@ export default function EndSessionSheet({ campaign, lang = 'pt', pulse = null, o
       footer={(
         <div className="mesa-actions is-stack ess-foot">
           {error && <p className="sss-error" role="alert">{error}</p>}
-          {note && <p className="ess-note">{note}</p>}
           <button type="button" className="mesa-btn" onClick={onClose} disabled={!!busy}>{L(lang, 'Continuar jogando', 'Keep playing')}</button>
           <div className="ess-ends">
             <button type="button" className="mesa-btn ess-end" onClick={() => end(false)} disabled={!!busy}>
