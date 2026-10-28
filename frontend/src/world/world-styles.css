@@ -403,7 +403,8 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-impro-row { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: 8px; align-items: start; }
 .wl-impro-label { font-family: var(--display); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); padding-top: 12px; }
 .wl-impro-value input, .wl-impro-value textarea { width: 100%; min-height: 44px; font-size: 16px; }
-.wl-impro-value textarea { min-height: 64px; resize: none; overflow: hidden; }
+/* GrowTextarea cresce com o texto; o rolar fica de reserva (o fim nunca some) */
+.wl-impro-value textarea { min-height: 64px; resize: none; overflow-x: hidden; overflow-y: auto; }
 .wl-impro-row.is-name .wl-impro-value input { font-family: var(--display); font-size: 1.15rem; color: var(--gold-bright); }
 .wl-impro-row.is-secret .wl-impro-value textarea { border-color: rgba(227,164,69,0.4); background: rgba(90,61,18,0.18); }
 .wl-impro-btns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
@@ -489,7 +490,7 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-ed-read { white-space: pre-wrap; line-height: 1.5; color: var(--ink-secondary); }
 .wl-editor.is-readonly .wl-ed-name, .wl-editor.is-readonly .wl-ed-summary { border-bottom-color: transparent; }
 .wl-secret-badge.is-hidden { color: var(--ink-muted); }
-.wl-secret textarea { resize: vertical; overflow: hidden; font-size: 16px; }
+.wl-secret textarea { resize: vertical; overflow-x: hidden; overflow-y: auto; font-size: 16px; }
 @media (max-width: 767px) {
   .wl-editor-foot { padding-left: 12px; padding-right: 12px; }
   .wl-editor-foot .wl-ed-done { flex: 1 1 auto; }
