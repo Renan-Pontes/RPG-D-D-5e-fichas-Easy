@@ -14,7 +14,10 @@ import RecapEditor from '../play/RecapEditor.jsx';
 import { flash } from '../play/flash.js';
 import { sceneAsMap } from '../play/combat-actions.js';
 import { L, normalizeStage, cardShowMode } from './stage-now.js';
-import { imageRows, mapRows, sceneRows, TEXT_MAX } from './show-model.js';
+import { imageRows, mapRows, roomIsNow, sceneRows, TEXT_MAX } from './show-model.js';
+import { currentScene } from '../play/now-model.js';
+import { useTable } from '../play/table-store.js';
+import { normalizePlan } from '../prep/next-session.js';
 import { sendToStage, stageBg } from './stage-api.js';
 import ShowOnTable from './ShowOnTable.jsx';
 import './stage.css';
@@ -61,20 +64,35 @@ function useShowData(campaignId) {
 }
 
 /**
- * sceneNow (V7, a Agora): {id, refs, show} da cena agora do plano — a imagem dela e quem
- * aparece abrem as Imagens ("Da cena agora") e ela é a 1ª das Cenas.
+ * sceneNow (V7, a Agora): {id, refs, show, nodeRef} da cena agora do plano — a imagem dela e
+ * quem aparece abrem as Imagens ("Da cena agora") e ela é a 1ª das Cenas. Quem abre sem ela
+ * (Combate, Jogar › Tela, Tela ao vivo): a do pulso (ou do state), com a sessão ao vivo.
  */
-export function ShowPicker({ campaign, stage, lang = 'pt', onChange, sceneNow = null }) {
+export function ShowPicker({ campaign, stage, lang = 'pt', onChange, sceneNow: sceneNowProp = null }) {
   const [tab, setTab] = useState('images');
   const [data, reload, patchEntry] = useShowData(campaign.id);
+  const table = useTable();
+  const pulse = table?.pulse || null;
+  const cst = campaign.state || {};
+  const live = pulse ? !!pulse.live : !!cst.live;
+  const sceneId = pulse?.sceneId ?? cst.sceneId ?? null;
+  const sceneName = pulse ? pulse.scene : cst.scene;
+  const sceneNow = useMemo(() => {
+    if (sceneNowProp || !live || !data.plan) return sceneNowProp;
+    const s = currentScene(normalizePlan(data.plan), { sceneId, scene: sceneName });
+    if (!s) return null;
+    // a ligada: os cartões moram na sala (os da sala em jogo entram pelo roomIsNow)
+    return { id: s.id, refs: s.nodeRef ? [] : s.refs || [], show: s.nodeRef ? null : s.show || null, nodeRef: s.nodeRef || null };
+  }, [sceneNowProp, live, data.plan, sceneId, sceneName]);
   const [query, setQuery] = useState('');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const st = normalizeStage(stage);
   const loading = data.entries === null;
   const sceneRefs = useMemo(() => [...(sceneNow?.show?.kind === 'entry' ? [sceneNow.show.id] : []), ...(sceneNow?.refs || [])], [sceneNow]);
-  const imgs = useMemo(() => imageRows({ entries: data.entries || [], adventure: data.adventure, node: data.node, query, sceneRefs }),
-    [data, query, sceneRefs]);
+  const roomNow = roomIsNow(sceneNow, data.adventure, data.node);
+  const imgs = useMemo(() => imageRows({ entries: data.entries || [], adventure: data.adventure, node: data.node, query, sceneRefs, roomNow }),
+    [data, query, sceneRefs, roomNow]);
   const scenes = useMemo(() => sceneRows({ plan: data.plan, adventure: data.adventure, node: data.node, nowSceneId: sceneNow?.id || null }), [data, sceneNow]);
   const maps = useMemo(() => mapRows(data.entries || []), [data]);
   const done = () => onChange?.();

@@ -11,13 +11,25 @@ const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toL
 const hasImage = (e) => !!(e?.imageVer || e?.imageUrl);
 
 /**
+ * A sala em jogo da aventura é a "cena agora"? Só quando não há cena do plano agora ou
+ * quando a cena agora é ligada a essa mesma sala (glossário: cena agora = a cena que está
+ * acontecendo; a sala marcada na aventura pode ser outra). `sceneNow` = {nodeRef?} | null.
+ */
+export function roomIsNow(sceneNow, adventure, node) {
+  if (!sceneNow) return true;
+  const ref = sceneNow.nodeRef;
+  return !!(ref && adventure && node && Number(ref.adventureId) === Number(adventure.id) && String(ref.nodeId) === String(node.id));
+}
+
+/**
  * `sceneRefs` (V7) = os cartões da cena agora do plano (a imagem dela primeiro, depois quem
- * aparece): eles abrem o "Da cena agora".
+ * aparece): eles abrem o "Da cena agora". `roomNow` = a sala em jogo também é a cena agora
+ * (roomIsNow); senão a imagem e os cartões dela vão para "Todas".
  * @param {{entries?: object[], adventure?: object|null, node?: object|null, query?: string, limit?: number, sceneRefs?: number[]}} p
  * @returns {{ now: Row[], all: Row[], more: number }}
  *   Row = {key, type:'entry'|'room', entry?, advId?, nodeId?, name, image?: string}
  */
-export function imageRows({ entries = [], adventure = null, node = null, query = '', limit = 60, sceneRefs = [] } = {}) {
+export function imageRows({ entries = [], adventure = null, node = null, query = '', limit = 60, sceneRefs = [], roomNow = true } = {}) {
   const q = norm(query.trim());
   const match = (name) => !q || norm(name).includes(q);
   const now = [];
@@ -30,11 +42,11 @@ export function imageRows({ entries = [], adventure = null, node = null, query =
     now.push({ key: `e-${e.id}`, type: 'entry', entry: e, name: e.name });
     used.add(`e-${e.id}`);
   }
-  if (node?.image && adventure && match(node.name)) {
+  if (roomNow && node?.image && adventure && match(node.name)) {
     now.push({ key: `room-${node.id}`, type: 'room', advId: adventure.id, nodeId: node.id, name: node.name, image: node.image });
     used.add(`room-${node.id}`);
   }
-  if (node) {
+  if (roomNow && node) {
     for (const e of sceneEntries({ entries, node, plan: null }).scene) {
       if (!match(e.name)) continue;
       now.push({ key: `e-${e.id}`, type: 'entry', entry: e, name: e.name });

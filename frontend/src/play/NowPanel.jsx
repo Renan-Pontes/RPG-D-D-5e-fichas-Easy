@@ -51,7 +51,7 @@ import MomentPanel from './MomentPanel.jsx';
 import { CombatStrip, PartyCard, PlanClues, SceneFields, ToolsSheet } from './NowParts.jsx';
 import SceneNowCard from './SceneNowCard.jsx';
 import {
-  currentScene, firstOpenScene, isOpeningScene, nextSceneAfter, planChips, readFirstScene, readRehearsal, readStartScene,
+  combatEnded, currentScene, firstOpenScene, isOpeningScene, nextSceneAfter, planChips, readFirstScene, readRehearsal, readStartScene,
   recapShown, sceneName, scenePosition, sessionLength, sessionMeta, sessionTests, stateSessionNumber, writeFirstScene, writeRehearsal,
 } from './now-model.js';
 import { playPlanView } from './plan-model.js';
@@ -399,7 +399,9 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
     if (table?.enabled) { table.nextTurn(expect); return; }
     api.combatNextTurn(campaign.id, expect).then(() => reloadCombat()).catch(e => flash(errorMessage(e, lang), { error: true }));
   };
-  const strip = combat && combatants.length > 0 && (ownStrip || !active) ? (
+  // parado, só o combate montado de hoje: o encerrado (e o de fora da sessão ao vivo) fica no
+  // Combate, sem empurrar o cartão "O que fazer agora" para baixo
+  const strip = combat && combatants.length > 0 && (ownStrip || !active) && (active || (live && !combatEnded(combat))) ? (
     <CombatStrip combat={combat} lang={lang} active={active} wizardOn={wizardOn} busy={!!table?.busy}
       onOpen={() => goTo?.('play', 'combat')} onNext={nextTurn} onWrapUp={() => setShowWrapUp(true)} />
   ) : null;
@@ -540,7 +542,7 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
               escolher várias coisas seguidas há Jogar › Tela › Mostrar */}
           <ShowSheet campaign={campaign} stage={campaign.stage || st.stage} lang={lang} onClose={() => setSheet(null)}
             onChange={() => { refresh(); setSheet(null); }}
-            sceneNow={shown ? { id: shown.id, refs: (shown.nodeRef ? node?.refs : shown.refs) || [], show: shown.nodeRef ? null : shown.show || null } : null} />
+            sceneNow={shown ? { id: shown.id, refs: (shown.nodeRef ? node?.refs : shown.refs) || [], show: shown.nodeRef ? null : shown.show || null, nodeRef: shown.nodeRef || null } : null} />
         </Suspense>
       )}
       {sheet === 'tools' && (
