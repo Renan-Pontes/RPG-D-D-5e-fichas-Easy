@@ -155,11 +155,14 @@ function useIdentityForm(campaign, lang, onChange) {
   const [tone, setTone] = useState(campaign.tone || '');
   const [accent, setAccent] = useState(campaign.accent || '');
   const status = useStatus();
-  const dirty = name !== (campaign.name || '') || tagline !== (campaign.tagline || '') || tone !== (campaign.tone || '') || accent !== (campaign.accent || '');
+  // Nome e frase vão aparados: o espaço que o teclado do celular põe depois da
+  // sugestão não conta como mudança (nem deixa "Há mudanças não salvas" depois do Salvar).
+  const same = (a, b) => (a || '').trim() === (b || '').trim();
+  const dirty = !same(name, campaign.name) || !same(tagline, campaign.tagline) || tone !== (campaign.tone || '') || accent !== (campaign.accent || '');
   const save = () => status.run(async () => {
     await api.patchCampaign(campaign.id, { name: name.trim() || campaign.name, tagline: tagline.trim(), tone, accent: isHexColor(accent) ? accent : '' });
     // o que foi salvo vira a nova base (o GET da campanha chega logo depois)
-    if (!name.trim()) setName(campaign.name || '');
+    setName(name.trim() || campaign.name || '');
     setTagline(tagline.trim());
     await onChange?.();
   }, t(lang, 'Salvo ✓', 'Saved ✓'), lang);
