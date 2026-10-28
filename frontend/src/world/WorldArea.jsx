@@ -66,15 +66,17 @@ export default function WorldArea(props) {
   const cid = campaign?.id;
   // Campanha encerrada: só leitura — some tudo que escreveria (o backend daria 423).
   const closed = campaign?.status === 'closed';
+  // → true quando a lista veio (o aviso de antes some); false quando falhou (fica o aviso).
   const load = useCallback(async () => {
-    if (!cid) return;
+    if (!cid) return false;
     try {
       const r = await listWorld(cid);
       setEntries(r.entries || []);
       setMeta({ count: r.count ?? (r.entries || []).length, max: r.max || 500 });
       setListImmersion(r.immersion !== false);
       setError('');
-    } catch (e) { setError(worldErrorText(e, lang)); setEntries(prev => prev || []); }
+      return true;
+    } catch (e) { setError(worldErrorText(e, lang)); setEntries(prev => prev || []); return false; }
   }, [cid, lang]);
   // Ecos da mesa: sem endpoint ou com erro → vazio, sem aviso.
   const loadEchoes = useCallback(async () => {
@@ -141,6 +143,10 @@ export default function WorldArea(props) {
     } catch (err) { setError(worldErrorText(err, lang)); return null; }
   };
 
+  // Arrastar (PC) e "⋯ Mover" (folha): → {ok} ou {ok:false, conflict, error}. Nunca falha em
+  // silêncio (§1.4): no conflito de versão (409) a lista volta do servidor e o aviso vem
+  // DEPOIS do load() (que apaga o aviso quando dá certo); a folha "⋯ Mover" mostra o seu,
+  // porque o daqui fica atrás dela. Deu certo (o toque de novo): o aviso velho sai.
   const reorder = async (patches) => {
     setEntries(list => applyPatches(list, patches));
     try {
@@ -149,9 +155,13 @@ export default function WorldArea(props) {
         const next = await updateEntry(p.id, { sort: p.sort, version: cur?.version });
         upsert(next);
       }
+      setError('');
+      return { ok: true };
     } catch (e) {
-      setError(isConflict(e) ? t(lang, 'Um cartão mudou em outra aba; recarreguei a lista.', 'A card changed in another tab; the list was reloaded.') : worldErrorText(e, lang));
-      load();
+      const conflict = isConflict(e);
+      const msg = conflict ? t(lang, 'Um cartão mudou em outro aparelho ou aba; recarreguei a lista.', 'A card changed on another device or tab; the list was reloaded.') : worldErrorText(e, lang);
+      if (await load()) setError(msg);
+      return { ok: false, conflict, error: msg };
     }
   };
 

@@ -65,6 +65,7 @@ export default function Atlas({
   const [overId, setOverId] = useState(null);
   const [moving, setMoving] = useState(null);      // o cartão da folha "⋯ Mover" (id)
   const [moveBusy, setMoveBusy] = useState(false);
+  const [moveNote, setMoveNote] = useState('');    // o que deu errado no último ↑/↓ (na linha fixa da folha)
   const gridRef = useRef(null);
   // Pedido externo para abrir o "+ Novo" (ex.: Primeiros passos).
   useEffect(() => { if (createNonce && onCreate) setCreating(true); }, [createNonce]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -90,12 +91,22 @@ export default function Atlas({
   };
 
   // ↑ ↓ da folha "⋯ Mover": espera a resposta antes do próximo toque (a versão de cada
-  // cartão vem dela; dois toques seguidos não mandam a versão velha)
+  // cartão vem dela; dois toques seguidos não mandam a versão velha). Se não pegou (outro
+  // aparelho mudou um cartão: 409; ou a rede), a folha diz por quê — o aviso da área fica
+  // atrás dela — e a ordem já é a do servidor: o toque de novo funciona.
   const step = async (dir) => {
     const patches = moveStepPatches(sorted, shown, moving, dir);
     if (!patches.length || moveBusy) return;
     setMoveBusy(true);
-    try { await onReorder?.(patches); } finally { setMoveBusy(false); }
+    setMoveNote('');
+    try {
+      const r = await onReorder?.(patches);
+      if (r && !r.ok) {
+        setMoveNote(r.conflict
+          ? t(lang, 'Um cartão mudou em outro aparelho; recarreguei a ordem. Toque de novo.', 'A card changed on another device; I reloaded the order. Tap again.')
+          : r.error || t(lang, 'Não deu para mover agora. Toque de novo.', "Couldn't move it now. Tap again."));
+      }
+    } finally { setMoveBusy(false); }
   };
   const movingEntry = moving != null ? entries.find(e => e.id === moving) : null;
   const movePos = movingEntry ? shown.findIndex(e => e.id === moving) : -1;
@@ -181,7 +192,7 @@ export default function Atlas({
               <EntryCard entry={e} mode="dm" lang={lang} selected={selectedId === e.id} onOpen={() => onOpen?.(e.id)} onReveal={onReveal} showCampaign={showCampaign} onRevealed={onRevealed}
                 extra={onReorder && shown.length > 1 ? (
                   <button type="button" className="wl-act wl-move-btn" aria-haspopup="dialog" aria-label={t(lang, `Mover: ${e.name}`, `Move: ${e.name}`)}
-                    onClick={(ev) => { ev.stopPropagation(); setMoving(e.id); }} onKeyDown={(ev) => ev.stopPropagation()}>
+                    onClick={(ev) => { ev.stopPropagation(); setMoveNote(''); setMoving(e.id); }} onKeyDown={(ev) => ev.stopPropagation()}>
                     <span aria-hidden="true">⋯</span> {t(lang, 'Mover', 'Move')}
                   </button>
                 ) : null} />
@@ -214,10 +225,11 @@ export default function Atlas({
             <button type="button" className="mesa-btn mesa-btn-lg" disabled={moveBusy || movePos === shown.length - 1} onClick={() => step(1)}>
               <span aria-hidden="true">↓</span> {moveBusy ? '…' : t(lang, 'Mover para baixo', 'Move down')}
             </button>
-            {/* o motivo do botão desligado, numa linha de altura fixa embaixo dos dois: nada mexe debaixo do dedo */}
-            <p className="wl-move-why">
-              {movePos === 0 ? t(lang, '↑ desligado: já é o primeiro.', '↑ off: it is already first.')
-                : movePos === shown.length - 1 ? t(lang, '↓ desligado: já é o último.', '↓ off: it is already last.') : ''}
+            {/* o motivo do botão desligado (ou do toque que não pegou), numa linha de altura fixa
+                embaixo dos dois: nada mexe debaixo do dedo */}
+            <p className={`wl-move-why${moveNote ? ' is-alert' : ''}`} role="status">
+              {moveNote || (movePos === 0 ? t(lang, '↑ desligado: já é o primeiro.', '↑ off: it is already first.')
+                : movePos === shown.length - 1 ? t(lang, '↓ desligado: já é o último.', '↓ off: it is already last.') : '')}
             </p>
           </div>
         </MesaSheet>
