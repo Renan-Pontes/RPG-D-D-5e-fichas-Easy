@@ -73,7 +73,7 @@
 
 /* ---------- área de trabalho ---------- */
 .prep-work { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 12px; align-items: start; }
-.prep-work.is-list { grid-template-columns: minmax(0, 1fr); }
+.prep-work.is-list, .prep-work.is-solo { grid-template-columns: minmax(0, 1fr); }
 .prep-work.is-list:has(> .prep-side) { grid-template-columns: minmax(0, 1fr) 340px; }
 .prep-side {
   background: var(--bg-raised); border: 1px solid var(--stroke); border-radius: var(--radius-lg);
@@ -274,3 +274,11 @@ textarea.prep-title-input { resize: none; min-height: 44px; max-height: 3.2em; l
 
 /* V14: o resumo do tesouro escrito na linha da sala (até 2 linhas) */
 .prep-list-treasure { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; max-width: 100%; }
+
+/* Alvos de toque nas Aventuras (§12.0): ≥ 44 px em tudo e 48 px no Na mesa, que é ação ao
+   vivo (📺 Nome na Tela, 📺 Mostrar, Ir →…). Os links de sala (saídas da lista, "Grupo em",
+   o título da conexão) ganham a altura do toque sem mudar de cara. */
+.pa .prep-tab .btn-sm { min-height: 44px; }
+.pa .prep-play .btn-sm { min-height: 48px; }
+.pa .linklike { display: inline-flex; align-items: center; min-height: 44px; }
+.pa .prep-field > span { font-size: 12px; }

@@ -9,6 +9,8 @@ import usePrepConfirm from './usePrepConfirm.jsx';
 import MoreMenu from '../group/MoreMenu.jsx';
 import { prepApi } from './prep-api.js';
 import { useTable } from '../play/table-store.js';
+import useMedia from '../play/useMedia.js';
+import { SIDE_MQ } from '../shell/MesaSheet.jsx';
 import {
   emptyPlay, makeNode, makeEdge, addNode, updateNode, removeNode, addEdge, updateEdge, removeEdge, reverseEdge,
   availableTargets, highlightedEdges, validateAdventure, partyLevels, freeSpot, startNode, exportAdventure,
@@ -190,6 +192,7 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
   const [adv, setAdv] = useState(null);
   const [error, setError] = useState('');
   const [saveState, setSaveState] = useState('saved'); // saved | dirty | saving | error
+  const sidePanel = useMedia(SIDE_MQ);   // ≥ 1280: a folha da sala é um painel à direita
   const [view, setView] = useState(() => (prefersList() ? 'list' : readPref('forja.prep.view', 'map')));
   // V7: aberta durante a sessão ao vivo, a aventura começa em "Na mesa"; fora dela, em
   // "Editar" (com ＋ Sala à vista). Abrir uma sala de um atalho (initialNodeId) é para editar.
@@ -539,14 +542,16 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
       {flash && <p className="prep-msg" role="status">{flash}</p>}
 
       {view === 'map' ? (
-        <div className="prep-work">
+        // a folha da sala no painel da direita (PC): o mapa ocupa a coluna toda à esquerda
+        // dela, sem o "Como montar" no meio; ele volta quando a folha fecha
+        <div className={`prep-work ${roomSheet && sidePanel ? 'is-solo' : ''}`.trim()}>
           <MapCanvas data={data} play={play} mode={mode} selected={selected} lang={lang}
             onSelect={setSelected}
             onMoveNode={(id, x, y) => changeData(d => updateNode(d, id, { x, y }))}
             onConnect={(a, b) => connect(a, b)}
             onCreateNode={createNode} focusId={selNode?.id}
             available={available} highlighted={hot} />
-          <aside className="prep-side" aria-label={t(lang, 'Detalhes', 'Details')}>{side}</aside>
+          {!(roomSheet && sidePanel) && <aside className="prep-side" aria-label={t(lang, 'Detalhes', 'Details')}>{side}</aside>}
         </div>
       ) : (
         <div className="prep-work is-list">

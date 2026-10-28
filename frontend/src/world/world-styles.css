@@ -773,6 +773,17 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
   .wl-lrow { column-gap: 8px; }
   .wl-lrow-pic { width: 44px; height: 44px; }
 }
+/* a partir de 380 px a meta sobe para a coluna do meio, embaixo do nome e ao lado dos botões
+   (sem o 3º andar), e a linha fica com 3 linhas de texto (~75 px): o nome em 2 linhas toma o
+   lugar da linha 2 (tipo e resumo, que estão na cor da faixa, na miniatura e no cartão). Assim o
+   Atlas de 38 cartões cabe em ≤ 5 telas a 390/412 (F9). Até 360 a meta continua na largura
+   toda (o teto lá é 6 telas, e a meta precisa do espaço). */
+@media (min-width: 380px) {
+  .wl-lrow { grid-template-areas: "pic main act" "pic meta act"; align-items: start; row-gap: 1px; padding-block: 5px; }
+  .wl-lrow-pic, .wl-lrow-act { align-self: center; }
+  .wl-lrow-main { max-height: calc(0.98rem * 2.4 + 2px); overflow: hidden; }
+  .wl-lrow-main > * { flex-shrink: 0; }
+}
 /* esqueleto no celular com a altura das linhas (a lista não pula ao chegar) */
 @media (max-width: 767px) {
   .wl-skeleton-grid { grid-template-columns: 1fr; gap: 4px; }
