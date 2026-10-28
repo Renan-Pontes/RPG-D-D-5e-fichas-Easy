@@ -274,19 +274,10 @@ def clean_target(campaign, target, caption=None):
         return front, None
     if kind == 'scene':
         if target.get('sceneId') is not None:
+            # A cena do plano (V7): o nome dela (a 1ª linha; o resto é anotação do mestre) e o que
+            # ela tem para a Tela — o texto para ler e a imagem, da cena solta ou da sala ligada.
             scene_id = _short_id(target.get('sceneId'), 'invalid_scene')
-            scene = _plan_scene(campaign, scene_id)
-            ref = scene.get('nodeRef') if isinstance(scene.get('nodeRef'), dict) else None
-            if ref and ref.get('adventureId') and ref.get('nodeId'):
-                try:
-                    return _node_scene(campaign, ref['adventureId'], ref['nodeId'], scene_id), None
-                except NotFound:
-                    pass  # sala apagada: cai no texto da cena
-            # Cena só de texto: a Tela mostra a 1ª linha como nome (o resto é anotação do mestre).
-            first = ((scene.get('text') or '').strip().split('\n', 1)[0]).strip()[:MAX_TITLE]
-            if not first:
-                _bad('empty_scene')
-            return {'kind': 'scene', 'sceneId': scene_id, 'title': first, 'label': first[:MAX_LABEL]}, None
+            return plan_scene_front(campaign, _plan_scene(campaign, scene_id), scene_id)[0], None
         adv_id = _int_id(target.get('advId'), 'invalid_scene')
         node_id = _short_id(target.get('nodeId'), 'invalid_scene')
         return _node_scene(campaign, adv_id, node_id), None

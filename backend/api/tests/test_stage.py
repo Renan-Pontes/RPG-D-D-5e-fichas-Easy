@@ -214,7 +214,8 @@ class StageOpsTests(Base):
         self.assertNotIn('Goblins', str(self.screen()))
         self.stage({'op': 'show', 'target': {'kind': 'scene', 'sceneId': 'c2'}})
         front = self.screen()['stage']['front']
-        self.assertEqual((front['title'], front['text']), ('Ponte velha', 'A ponte range sob a chuva.'))
+        # V7: o nome é o da cena (a mesma da Mesa do jogador); o texto e a imagem, os da sala
+        self.assertEqual((front['title'], front['text']), ('Descer ao lago', 'A ponte range sob a chuva.'))
         self.assertEqual(self.anon.get(front['imageUrl']).status_code, 200)
         self.assertEqual(self.stage({'op': 'show', 'target': {'kind': 'scene', 'sceneId': 'zz'}}).status_code, 404)
 
