@@ -2,7 +2,7 @@
 // ajustável arrastando (PC) ou com ↑ ↓ (os dois, 50 × 48 com o nome escrito). Ao
 // lado (embaixo no celular), as sessões da Crônica: "📖 Na mesa".
 // readOnly (campanha encerrada): sem ＋, sem ↑ ↓ e sem arrastar.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { request } from '../api/client.js';
 import { isConflict, updateEntry, worldErrorText } from './world-api.js';
 import { EntryImage, VisibilitySeal } from './EntryCard.jsx';
@@ -28,8 +28,10 @@ export default function Timeline({ campaign, entries = [], lang = 'pt', readOnly
     return () => { alive = false; };
   }, [campaign.id]);
 
+  const movedAt = useRef(0);
   const move = async (from, to) => {
     setDrag(null); setOver(null);
+    movedAt.current = Date.now();
     const patches = reorderPatches(items, from, to, 'whenOrder');
     if (!patches.length) return;
     // Otimista: aplica já na lista, grava em seguida.
@@ -45,6 +47,14 @@ export default function Timeline({ campaign, entries = [], lang = 'pt', readOnly
       setError(isConflict(e) ? t(lang, 'Um cartão mudou em outra aba; recarreguei a linha do tempo.', 'A card changed in another tab; the timeline was reloaded.') : worldErrorText(e, lang));
       onReload?.();
     } finally { setBusy(false); }
+  };
+  // ↑ ↓ ignoram toques por 400 ms depois de cada movimento (além do tempo da
+  // resposta, em que ficam desligados): o cartão troca de linha debaixo do dedo e
+  // o 2º toque de um toque duplo moveria o vizinho que acabou de subir,
+  // desfazendo o 1º (Princípio 8, como o Mostrar do marcador)
+  const tapMove = (from, to) => {
+    if (Date.now() - movedAt.current < 400) return;
+    move(from, to);
   };
 
   const addExisting = async (id) => {
@@ -112,11 +122,11 @@ export default function Timeline({ campaign, entries = [], lang = 'pt', readOnly
                   </button>
                   {canMove && (
                     <span className="wl-tl-move">
-                      <button type="button" className="wl-move-btn" disabled={i === 0 || busy} onClick={() => move(i, i - 1)}
+                      <button type="button" className="wl-move-btn" disabled={i === 0 || busy} onClick={() => tapMove(i, i - 1)}
                         aria-label={`${t(lang, 'Mover para antes', 'Move earlier')}: ${e.name}${i === 0 ? ` — ${t(lang, 'já é o primeiro', 'already first')}` : ''}`}>
                         <span aria-hidden="true">↑</span><span aria-hidden="true" className="wl-move-txt">{t(lang, 'Antes', 'Earlier')}</span>
                       </button>
-                      <button type="button" className="wl-move-btn" disabled={i === items.length - 1 || busy} onClick={() => move(i, i + 1)}
+                      <button type="button" className="wl-move-btn" disabled={i === items.length - 1 || busy} onClick={() => tapMove(i, i + 1)}
                         aria-label={`${t(lang, 'Mover para depois', 'Move later')}: ${e.name}${i === items.length - 1 ? ` — ${t(lang, 'já é o último', 'already last')}` : ''}`}>
                         <span aria-hidden="true">↓</span><span aria-hidden="true" className="wl-move-txt">{t(lang, 'Depois', 'Later')}</span>
                       </button>

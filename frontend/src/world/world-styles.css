@@ -302,6 +302,8 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-picker { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--gold); border-radius: 8px; background: var(--bg-elevated); }
 .wl-picker-list { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; }
 .wl-picker-empty { padding: 8px; }
+/* o "Fechar" do seletor: alvo de 44 (folha do marcador, Linha do tempo, relações) */
+.wl-picker > .btn.wl-picker-close { min-height: 44px; }
 .wl-rels { display: flex; flex-direction: column; gap: 6px; }
 .wl-rel-row { display: grid; grid-template-columns: minmax(0, 130px) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 6px; align-items: center; }
 .wl-rel-target { background: none; border: 1px solid var(--stroke-faint); border-radius: var(--radius); color: var(--ink-primary); padding: 8px; min-height: 44px; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; }
