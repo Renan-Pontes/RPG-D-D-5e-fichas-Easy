@@ -111,8 +111,8 @@
 .prep-node-icon { font-size: 16px; fill: var(--ink-primary); }
 .prep-node-name { font-family: var(--display); font-size: 13px; fill: var(--ink-primary); }
 .prep-node-meta { font-size: 12px; fill: var(--ink-muted); }
-.prep-node-check { fill: var(--moss-bright); font-size: 11px; }
-.prep-node-badge { fill: var(--gold-bright); font-size: 11px; font-family: var(--display); letter-spacing: 0.1em; }
+.prep-node-check { fill: var(--moss-bright); font-size: 12px; }
+.prep-node-badge { fill: var(--gold-bright); font-size: 12px; font-family: var(--display); letter-spacing: 0.1em; }
 .prep-node-handle { fill: var(--gold); stroke: var(--bg-deep); stroke-width: 2; cursor: crosshair; opacity: 0.55; }
 .prep-node:hover .prep-node-handle, .prep-node.is-selected .prep-node-handle { opacity: 1; }
 /* V14: a alça da sala selecionada fica acesa e pega o dedo em 44 px (o círculo invisível) */
@@ -278,7 +278,7 @@ textarea.prep-title-input { resize: none; min-height: 44px; max-height: 3.2em; l
 /* Alvos de toque nas Aventuras (§12.0): ≥ 44 px em tudo e 48 px no Na mesa, que é ação ao
    vivo (📺 Nome na Tela, 📺 Mostrar, Ir →…). Os links de sala (saídas da lista, "Grupo em",
    o título da conexão) ganham a altura do toque sem mudar de cara. */
-.pa .prep-tab .btn-sm { min-height: 44px; }
+.pa .prep-tab .btn-sm { min-height: 44px; min-width: 44px; }
 .pa .prep-play .btn-sm { min-height: 48px; }
 .pa .linklike { display: inline-flex; align-items: center; min-height: 44px; }
 .pa .prep-field > span { font-size: 12px; }
