@@ -195,6 +195,11 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
   // "Editar" (com ＋ Sala à vista). Abrir uma sala de um atalho (initialNodeId) é para editar.
   const [mode, setMode] = useState(() => (campaign.state?.live && !initialNodeId ? 'play' : 'prep'));
   const [selected, setSelected] = useState(initialNodeId ? { type: 'node', id: initialNodeId } : null);
+  // V14: no mapa, fechar a folha da sala não tira a seleção — a sala continua marcada com a
+  // alça ● acesa (44 px no toque) para puxar uma conexão; tocar nela de novo reabre a folha.
+  // Na lista, fechar desmarca, como antes.
+  const [sheetShut, setSheetShut] = useState(null);
+  useEffect(() => { setSheetShut(null); }, [selected]);
   const [world, setWorld] = useState(null);
   const [confirm, confirmEl] = usePrepConfirm(lang);
   const [campaignItems, setCampaignItems] = useState([]);
@@ -396,7 +401,7 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
       goTo={goTo} world={world} onWorldChange={patchWorld} onOpenEntry={openEntry}
       onSelectNode={(id) => setSelected({ type: 'node', id })} />
   ));
-  const roomSheet = mode === 'prep' && selNode ? (
+  const roomSheet = mode === 'prep' && selNode && sheetShut !== selNode.id ? (
     <NodeEditor key={selNode.id} node={selNode} data={data} adventures={adventures} currentAdventureId={advId}
       campaign={campaign} campaignItems={campaignItems} levels={levels} lang={lang} saveState={saveState}
       world={world} onCreateEntry={createEntry} onOpenEntry={openEntry}
@@ -404,7 +409,7 @@ function AdventureWorkspace({ campaign, lang, advId, adventures, initialNodeId, 
       onDelete={() => deleteNode(selNode)}
       onDataChange={addEdgeObj}
       onSelectEdge={(id) => setSelected({ type: 'edge', id })}
-      onClose={() => setSelected(null)} />
+      onClose={() => (view === 'map' ? setSheetShut(selNode.id) : setSelected(null))} />
   ) : null;
 
   let side;

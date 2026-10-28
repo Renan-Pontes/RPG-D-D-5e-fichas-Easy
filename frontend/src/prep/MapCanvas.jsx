@@ -11,6 +11,8 @@ const short = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
  * Mapa de nós em SVG puro (sem lib): pan arrastando o fundo, zoom na roda /
  * pinça / botões, arrastar nós, puxar conexão pela alça (●) de um nó a outro,
  * duplo clique no fundo cria sala. Em modo "play" só seleciona (não edita).
+ * V14: na sala selecionada a alça fica sempre acesa, maior, e pega o dedo num
+ * círculo de 44 px na tela (qualquer zoom); nas outras, a alça pequena de sempre.
  *
  * props: data, play, mode ('prep'|'play'), selected {type,id}, onSelect(sel|null),
  *        onMoveNode(id, x, y), onConnect(from, to), onCreateNode(x, y, visibleBounds),
@@ -283,8 +285,13 @@ export default function MapCanvas({
         <text className="prep-node-meta" x={14} y={50}>{meta || t(lang, kind.pt, kind.en)}</text>
         {isCur && <text className="prep-node-badge" x={NODE_W - 8} y={-6} textAnchor="end">▶ {t(lang, 'AQUI', 'HERE')}</text>}
         {!isCur && visited.has(n.id) && <text className="prep-node-check" x={NODE_W - 12} y={50} textAnchor="end">✓ {t(lang, 'visitado', 'visited')}</text>}
+        {editable && isSel && (
+          // alvo de 44 px na tela (22 / zoom no desenho), invisível, por baixo da alça
+          <circle className="prep-node-handle-hit" cx={NODE_W} cy={NODE_H / 2} r={Math.max(12, 22 / v.k)}
+            onPointerDown={e => onHandleDown(e, raw)} />
+        )}
         {editable && (
-          <circle className="prep-node-handle" cx={NODE_W} cy={NODE_H / 2} r={8}
+          <circle className={`prep-node-handle${isSel ? ' is-on' : ''}`} cx={NODE_W} cy={NODE_H / 2} r={isSel ? 11 : 8}
             onPointerDown={e => onHandleDown(e, raw)}>
             <title>{t(lang, 'Arraste até outro nó para conectar', 'Drag to another node to connect')}</title>
           </circle>
@@ -346,8 +353,8 @@ export default function MapCanvas({
       </div>
       {editable && nodes.length > 0 && (
         <p className="prep-canvas-hint">{t(lang,
-          'Arraste as salas · puxe o ● para conectar · duplo clique cria · setas do teclado movem a sala focada',
-          'Drag rooms · pull ● to connect · double-click creates · arrow keys move the focused room')}</p>
+          'Arraste as salas · puxe o ● da sala marcada até outra para conectar · duplo clique cria · setas do teclado movem a sala focada',
+          'Drag rooms · pull the selected room’s ● to another to connect · double-click creates · arrow keys move the focused room')}</p>
       )}
     </div>
   );

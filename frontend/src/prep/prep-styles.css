@@ -115,6 +115,9 @@
 .prep-node-badge { fill: var(--gold-bright); font-size: 11px; font-family: var(--display); letter-spacing: 0.1em; }
 .prep-node-handle { fill: var(--gold); stroke: var(--bg-deep); stroke-width: 2; cursor: crosshair; opacity: 0.55; }
 .prep-node:hover .prep-node-handle, .prep-node.is-selected .prep-node-handle { opacity: 1; }
+/* V14: a alça da sala selecionada fica acesa e pega o dedo em 44 px (o círculo invisível) */
+.prep-node-handle.is-on { opacity: 1; stroke: var(--fh-gold-hi, #fbe4a3); stroke-width: 3; }
+.prep-node-handle-hit { fill: transparent; stroke: none; cursor: crosshair; pointer-events: all; }
 .prep-node:focus-visible .prep-node-box { stroke: var(--gold-bright); stroke-width: 3; }
 .prep-node.is-selected .prep-node-box { stroke: var(--gold-bright); stroke-width: 2.5; }
 .prep-node.is-dragging { opacity: 0.85; }
@@ -268,3 +271,6 @@ textarea.prep-title-input { resize: none; min-height: 44px; max-height: 3.2em; l
   .prep-toolbar .prep-seg { flex: 1 1 auto; }
   .prep-toolbar .prep-seg button { flex: 1 1 0; padding: 6px 8px; }
 }
+
+/* V14: o resumo do tesouro escrito na linha da sala (até 2 linhas) */
+.prep-list-treasure { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; max-width: 100%; }
