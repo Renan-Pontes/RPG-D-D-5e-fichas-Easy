@@ -2,7 +2,9 @@
 // (campaigns/TableNow.jsx virou só o invólucro). Jogar sem procurar:
 //
 // Celular, de cima para baixo (abaixo do segmentado preso):
-//   1. faixa de ensaio (só com a sessão parada)
+//   1. faixa de ensaio (só com a sessão parada; depois de uma sessão jogada, só quando o J2/J1
+//      foi pulado: o cartão já diz que ela acabou e tem o ▶ — e sem cartão enquanto o resumo
+//      chega, para o J2 vir primeiro, sem nada pulando)
 //   2. LINHA DE AÇÕES (48 px, sempre no mesmo lugar): 🎯 Pedir teste · 📺 Mostrar · ⋯ Ferramentas
 //   3. PAINEL DO MOMENTO (120 px fixos: testes, pedidos, aprovações e perigos; MomentPanel)
 //   4. no máximo 1 cartão "O que fazer agora" (J1–J6, shell/next-step.js) OU o cartão
@@ -38,8 +40,8 @@ import { loadRoom } from '../prep/prep-api.js';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
 import NextStepCard from '../shell/NextStepCard.jsx';
-import { nextStep, readSkips, writeSkip } from '../shell/next-step.js';
-import { screenLink } from '../shell/shell-logic.js';
+import { nextStep, readSkips, sessionWasPlayed, writeSkip } from '../shell/next-step.js';
+import { nextSessionNumber, screenLink } from '../shell/shell-logic.js';
 import { useArea } from '../shell/useArea.js';
 import { DockedScreen } from '../stage/ScreenWindow.jsx';
 import { sendToStage, showOnStage } from '../stage/stage-api.js';
@@ -223,6 +225,10 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
     startScene: readStartScene(campaign.id),
     length: sessionLength(meta.startedAt, meta.endedAt || pulse?.endedAt),
   }) : null;
+  // a sessão parada depois de jogada: o J2 (ou o J1) vem primeiro, decidido pelo resumo
+  const afterPlay = !live && !closed && sessionWasPlayed({ campaign, plan, live, pulse });
+  const recapWait = afterPlay && typeof recap?.has !== 'boolean';
+  const rehearsalStrip = !live && !closed && !(afterPlay && (!plan || recapWait || step?.id === 'J2' || step?.id === 'J1'));
 
   const copyTv = async () => {
     try { await navigator.clipboard?.writeText(screenLink(window.location.origin, campaign.screenToken)); } catch { /* ok */ }
@@ -455,9 +461,9 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
   return (
     <div className={`table-now now ${active ? 'has-turn' : ''}`}>
       <div className="tn-col tn-col-main">
-        {!live && !closed && (
+        {rehearsalStrip && (
           <div className="now-rehearsal" role="note">
-            <p>{L(lang, 'Ensaio · a sessão não começou. O que você mostrar vai à Tela de verdade (bom para testar a TV).', 'Rehearsal · the session hasn\'t started. Whatever you show goes to the real screen (good for testing the TV).')}</p>
+            <p>{L(lang, `Ensaio · a Sessão ${nextSessionNumber(st)} não começou. O que você mostrar vai à Tela de verdade (bom para testar a TV).`, `Rehearsal · session ${nextSessionNumber(st)} hasn't started. Whatever you show goes to the real screen (good for testing the TV).`)}</p>
             <button type="button" className="mesa-btn is-primary" onClick={openStart}>▶ {L(lang, 'Começar a sessão', 'Start the session')}</button>
           </div>
         )}
@@ -485,6 +491,7 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
             onSkip={(s) => setSkips(writeSkip(campaign.id, s.id, s.sig))} />
         ))}
         {!plan && <p className="muted small">{L(lang, 'Carregando o plano…', 'Loading the plan…')}</p>}
+        {!card && plan && recapWait && <p className="muted small" role="status">{L(lang, `Lendo o resumo da Sessão ${cur}…`, `Reading the session ${cur} recap…`)}</p>}
 
         {chips.length > 0 && (
           <section className="now-scenes" aria-labelledby="now-scenes-h">

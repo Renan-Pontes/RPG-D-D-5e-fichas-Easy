@@ -18,7 +18,8 @@
 //   J1 a sessão não começou ("Pronto para a Sessão N?", com a lista do que está de pé)
 //   J2 a sessão foi encerrada (diarySessions[n].endedAt; num servidor de antes do endedAt, o
 //      plano ainda é o da sessão jogada) e a próxima não começou; com o resumo dela já salvo
-//      ("✓ resumo da N" no J1), vale o J1
+//      ("✓ resumo da N" no J1), vale o J1. Entre os dois decide o resumo: enquanto ele não
+//      chega (`recap` sem `has`), nenhum cartão (o botão principal não muda de sentido)
 //   J3 ao vivo, o resumo da anterior ainda não foi à Tela e nenhuma cena começou
 //   J4 ao vivo, sem cena agora (a 1ª cena não feita, com o começo forte inteiro; com um
 //      combate andando, "Guardar para depois do combate" ao lado)
@@ -225,6 +226,19 @@ export function readyItems({ campaign, plan, pulse, recap, lang = 'pt' }) {
 }
 
 /**
+ * A sessão parada depois de jogada: encerrada (o endedAt do state ou do pulso) ou, num
+ * servidor de antes do endedAt, com o plano dela ainda no Plano. É quando a Agora escolhe
+ * entre o J2 e o J1 pelo resumo salvo (e a faixa "Ensaio" sai do topo).
+ */
+export function sessionWasPlayed({ campaign, plan = null, live = false, pulse = null } = {}) {
+  const state = campaign?.state || {};
+  const cur = sessionNo(state);
+  const meta = (cur && state.diarySessions?.[String(cur)]) || {};
+  if (live || !meta.startedAt) return false;
+  return !!(meta.endedAt || pulse?.endedAt) || planHeading(plan, { ...state, live: false }).stale;
+}
+
+/**
  * As regras da Agora. Entrada (além de campaign/plan/lang):
  *   live       a sessão está ao vivo (o pulso, senão o state)
  *   sceneNow   a cena agora (now-model.currentScene) ou null
@@ -239,13 +253,12 @@ function nowRules({ campaign, plan, live = false, sceneNow = null, pulse = null,
   const next = cur + 1;
   const scenes = (plan?.scenes || []).filter(realScene);
   const open = scenes.filter(s => !s.done);
-  const meta = (cur && state.diarySessions?.[String(cur)]) || {};
-  const started = !!meta.startedAt;
-  const ended = !!(meta.endedAt || pulse?.endedAt);
-  const stale = planHeading(plan, { ...state, live: false }, lang).stale;
+  const played = sessionWasPlayed({ campaign, plan, live, pulse });
   if (live && sceneNow) return [];
+  // J2 ou J1 depende do resumo: sem saber dele, nenhum cartão (nada de J2 que vira J1)
+  if (played && typeof recap?.has !== 'boolean') return [];
   return [
-    () => (live || !started || !(ended || stale) || recap?.has ? null : {
+    () => (!played || recap.has ? null : {
       id: 'J2', sig: `ended:${cur}`, canSkip: true,
       text: length ? tt(lang, `Sessão ${cur} encerrada · ${length}`, `Session ${cur} ended · ${length}`) : tt(lang, `Sessão ${cur} encerrada`, `Session ${cur} ended`),
       why: tt(lang, `O resumo vira o “Anteriormente em…” da Sessão ${next}.`, `The recap becomes session ${next}’s “Previously on…”.`),

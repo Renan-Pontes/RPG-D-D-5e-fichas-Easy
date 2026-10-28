@@ -189,7 +189,7 @@ test('a escolha de uma porta (✎ passo a passo) responde o N2 sem botão Pular'
 });
 
 // ---------------------------------------------------------------- Jogar › Agora (J1–J6, V7)
-import { NOW_RULES, readyItems } from '../src/shell/next-step.js';
+import { NOW_RULES, readyItems, sessionWasPlayed } from '../src/shell/next-step.js';
 
 const T0 = '2026-10-24T18:00:00Z';
 const live = (over = {}) => camp({ state: { session: '4', live: true, diarySessions: { 4: { startedAt: T0 } } }, ...over });
@@ -200,7 +200,7 @@ const allDone = () => { const p = ready(); return { ...p, scenes: p.scenes.map(s
 // [regra, contexto mínimo que a dispara]
 const NOW_ROWS = [
   ['J1', { where: 'now', campaign: stopped(), plan: ready(), live: false, recap: { has: true } }],
-  ['J2', { where: 'now', campaign: stopped(), plan: played(), live: false, length: '2h10' }],
+  ['J2', { where: 'now', campaign: stopped(), plan: played(), live: false, length: '2h10', recap: { has: false } }],
   ['J3', { where: 'now', campaign: live(), plan: ready(), live: true, recap: { has: true, shown: false } }],
   ['J4', { where: 'now', campaign: live(), plan: ready(), live: true }],
   ['J5', { where: 'now', campaign: live(), plan: allDone(), live: true }],
@@ -315,11 +315,21 @@ test('Agora (V12): J2 depois do Encerrar, com o plano da próxima já levado, at
   const j2 = nextStep({ where: 'now', campaign: ended(), plan: next, live: false, length: '2h10', recap: { has: false } });
   assert.deepEqual([j2.id, j2.text, j2.action.id, j2.secondary.id], ['J2', 'Sessão 3 encerrada · 2h10', 'recap', 'preparePlan']);
   // o endedAt do pulso também vale (a campanha completa ainda não chegou)
-  assert.equal(nextStep({ where: 'now', campaign: stopped(), plan: next, live: false, pulse: { endedAt: '2026-10-24T20:10:00Z' } }).id, 'J2');
+  assert.equal(nextStep({ where: 'now', campaign: stopped(), plan: next, live: false, pulse: { endedAt: '2026-10-24T20:10:00Z' }, recap: { has: false } }).id, 'J2');
   // resumo da 3 salvo: o J1, com "✓ resumo da 3"
   const j1 = nextStep({ where: 'now', campaign: ended(), plan: next, live: false, recap: { has: true } });
   assert.equal(j1.id, 'J1');
   assert.deepEqual(j1.items.find(x => x.id === 'recap'), { id: 'recap', ok: true, text: 'resumo da 3' });
   // sem endedAt e com o plano da próxima (encerrada à moda antiga, plano novo): J1
   assert.equal(nextStep({ where: 'now', campaign: stopped(), plan: next, live: false }).id, 'J1');
+  // o resumo ainda chegando (servidor lento): nenhum cartão — nem o J2 que viraria J1, nem o J1
+  for (const recap of [null, undefined, {}]) {
+    assert.equal(nextStep({ where: 'now', campaign: ended(), plan: next, live: false, recap }), null, JSON.stringify(recap));
+  }
+  assert.equal(sessionWasPlayed({ campaign: ended(), plan: next }), true);
+  assert.equal(sessionWasPlayed({ campaign: stopped(), plan: played() }), true, 'plano da sessão jogada (servidor antigo)');
+  assert.equal(sessionWasPlayed({ campaign: stopped(), plan: next }), false);
+  assert.equal(sessionWasPlayed({ campaign: ended(), plan: next, live: true }), false);
+  // sessão que nunca começou: o J1 não espera o resumo
+  assert.equal(nextStep({ where: 'now', campaign: camp({ state: {} }), plan: ready(), live: false, recap: null }).id, 'J1');
 });
