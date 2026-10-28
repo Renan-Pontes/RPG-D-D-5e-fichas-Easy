@@ -229,6 +229,31 @@ class UndoTests(Base):
         self.char.refresh_from_db()
         self.assertEqual(self.char.data['tempHp'], 0)
 
+    def test_hp_action_keeps_the_conditions_of_the_sheet(self):
+        # a ficha tem "envenenado" que o combatente não tem: dano e cura não apagam (Achado 3)
+        data = dict(self.char.data); data['conditions'] = ['poisoned']
+        self.char.data = data; self.char.save()
+        self.act(action='damage', targetId='d', amount=1, opId='cond-000001')
+        self.char.refresh_from_db()
+        self.assertEqual(self.char.data['conditions'], ['poisoned'])
+        self.assertEqual(self.char.data['tempHp'], 4)
+        self.act(action='heal', targetId='d', amount=2)
+        self.act(action='hp_many', op='damage', targets=[{'id': 'd', 'amount': 1}])
+        self.char.refresh_from_db()
+        self.assertEqual(self.char.data['conditions'], ['poisoned'])
+        # cair a 0 soma "inconsciente" sem tirar o resto; o ↶ Desfazer volta a ficha como era
+        self.act(action='damage', targetId='d', amount=20, opId='cond-000002')
+        self.char.refresh_from_db()
+        self.assertEqual(self.char.data['conditions'], ['poisoned', 'unconscious'])
+        self.undo('cond-000002')
+        self.char.refresh_from_db()
+        self.assertEqual(self.char.data['conditions'], ['poisoned'])
+        # a cura que levanta tira só o "inconsciente" que o combate pôs
+        self.act(action='damage', targetId='d', amount=20)
+        self.act(action='heal', targetId='d', amount=3)
+        self.char.refresh_from_db()
+        self.assertEqual(self.char.data['conditions'], ['poisoned'])
+
     def test_only_dm(self):
         cl = APIClient(); cl.force_login(self.ana)
         r = cl.post(self.url('undo'), {'opId': 'whatever-01'}, format='json')

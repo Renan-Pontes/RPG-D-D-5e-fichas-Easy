@@ -106,11 +106,13 @@ def _check_and_consume(combatants, att, idx, force=False):
     return engine.replace_combatant(combatants, updated), updated
 
 
-def _sync_changed(combatants, ids, record=None):
+def _sync_changed(combatants, ids, record=None, before=None):
+    """`before` = {id do combatente: ele antes da ação}: a ficha só ganha ou perde as condições
+    que a ação pôs ou tirou (ver _merged_conditions)."""
     for cid in ids:
         cur = engine.find_combatant(combatants, cid)
         if cur and cur.get('type') == 'pc' and cur.get('character_id'):
-            _sync_pc_to_character(cur, record)
+            _sync_pc_to_character(cur, record, prior=(before or {}).get(cid))
 
 
 def _get_combat(campaign, create=True):
@@ -1222,6 +1224,7 @@ def combat_undo(request, id_or_slug):
         if changed:
             return Response({'error': 'changed_since', 'names': changed, 'combat': _serialize_combat(c, for_dm=True)},
                             status=status.HTTP_409_CONFLICT)
+        prior = {x.get('id'): x for x in combatants}
         combatants = engine.restore_photo(combatants, photo)
         for i in idx:
             log[i] = {**log[i], 'undone': True}
@@ -1232,7 +1235,7 @@ def combat_undo(request, id_or_slug):
         c.save()
         # A ficha volta pela foto dela (V8); entrada de antes, sem a foto da ficha: pelo combatente.
         _restore_sheets(photo)
-        _sync_changed(c.combatants, [p.get('id') for p in photo if 'sheet' not in p])
+        _sync_changed(c.combatants, [p.get('id') for p in photo if 'sheet' not in p], before=prior)
     return Response({'combat': _serialize_combat(c, for_dm=True), 'opId': op_id})
 
 
@@ -1367,7 +1370,7 @@ def _apply_action(request, campaign, c, op_id):
             }
             # Se PC chegou a 0 e a ficha existe, atualizar Character.data
             if tgt.get('type') == 'pc' and tgt.get('character_id'):
-                _sync_pc_to_character(applied['combatant'], sheets)
+                _sync_pc_to_character(applied['combatant'], sheets, prior=tgt)
         log_entry.update({
             'attacker': att.get('name'), 'target': tgt.get('name'),
             'action_name': _action_name(action_data),
@@ -1396,7 +1399,7 @@ def _apply_action(request, campaign, c, op_id):
                                       request.data.get('damageType') or 'bludgeoning')
         combatants = engine.replace_combatant(combatants, applied['combatant'])
         if tgt.get('type') == 'pc' and tgt.get('character_id'):
-            _sync_pc_to_character(applied['combatant'], sheets)
+            _sync_pc_to_character(applied['combatant'], sheets, prior=tgt)
         log_entry.update({'target': tgt.get('name'), 'amount': applied['damage_taken'], 'note': applied['note']})
         if _went_down(tgt, applied['combatant']):
             log_entry['downed'] = tgt.get('name')
@@ -1410,7 +1413,7 @@ def _apply_action(request, campaign, c, op_id):
         applied = engine.apply_healing(tgt, _amount(request.data.get('amount')))
         combatants = engine.replace_combatant(combatants, applied['combatant'])
         if tgt.get('type') == 'pc' and tgt.get('character_id'):
-            _sync_pc_to_character(applied['combatant'], sheets)
+            _sync_pc_to_character(applied['combatant'], sheets, prior=tgt)
         log_entry.update({'target': tgt.get('name'), 'healed': applied['healed']})
         photo = _photos(combatants, [tgt])
         response_payload['result'] = applied
@@ -1423,7 +1426,7 @@ def _apply_action(request, campaign, c, op_id):
         applied = engine.apply_temp_hp(tgt, _amount(request.data.get('amount')))
         combatants = engine.replace_combatant(combatants, applied['combatant'])
         if tgt.get('type') == 'pc' and tgt.get('character_id'):
-            _sync_pc_to_character(applied['combatant'], sheets)
+            _sync_pc_to_character(applied['combatant'], sheets, prior=tgt)
         log_entry.update({'target': tgt.get('name'), 'temp': applied['combatant'].get('temp_hp')})
         photo = _photos(combatants, [tgt])
         response_payload['result'] = applied
@@ -1462,7 +1465,7 @@ def _apply_action(request, campaign, c, op_id):
                 entry['temp'] = applied['combatant'].get('temp_hp')
             combatants = engine.replace_combatant(combatants, applied['combatant'])
             if tgt.get('type') == 'pc' and tgt.get('character_id'):
-                _sync_pc_to_character(applied['combatant'], sheets)
+                _sync_pc_to_character(applied['combatant'], sheets, prior=tgt)
             entry['photo'] = _photos(combatants, [tgt])
             extra_entries.append(entry)
             results.append({'id': tid, 'name': tgt.get('name'), 'new_hp': applied['combatant'].get('current_hp'),
@@ -1492,7 +1495,7 @@ def _apply_action(request, campaign, c, op_id):
         before = {x.get('id'): x for x in combatants}
         combatants, changed = engine.apply_save_results(combatants, result)
         photo = _photos(combatants, targets, [att_before])
-        _sync_changed(combatants, changed, sheets)
+        _sync_changed(combatants, changed, sheets, before=before)
         downs = [x.get('name') for x in combatants
                  if x.get('id') in changed and _went_down(before.get(x.get('id')) or {}, x)]
         if downs:
@@ -1548,7 +1551,7 @@ def _apply_action(request, campaign, c, op_id):
                 'damage_parts': p['damage'], 'conditions': p['conditions'], 'conditions_applied': applied_conds,
                 'new_hp': cur.get('current_hp'), 'defeated': cur.get('defeated', False),
             })
-        _sync_changed(combatants, changed, sheets)
+        _sync_changed(combatants, changed, sheets, before=before)
         downs = [x.get('name') for x in combatants
                  if x.get('id') in changed and _went_down(before.get(x.get('id')) or {}, x)]
         log_entry['type'] = 'save_aoe'
@@ -1626,7 +1629,7 @@ def _apply_action(request, campaign, c, op_id):
         applied = engine.death_save(tgt, forced_d20=forced)
         combatants = engine.replace_combatant(combatants, applied['combatant'])
         if tgt.get('character_id'):
-            _sync_pc_to_character(applied['combatant'], sheets)
+            _sync_pc_to_character(applied['combatant'], sheets, prior=tgt)
         log_entry.update({'target': tgt.get('name'), 'note': applied.get('note')})
         response_payload['result'] = applied
 
@@ -1927,11 +1930,12 @@ def combat_player_attack(request, id_or_slug):
     if 'save' in action_data:
         # Magia com save: alvo único faz save, dano metade no sucesso
         save_res = engine.resolve_save_effect(action_data, [tgt])
+        prior = {x.get('id'): x for x in combatants}
         combatants, changed = engine.apply_save_results(combatants, save_res)
         after = engine.find_combatant(combatants, tgt.get('id')) or {}
         if _went_down(tgt, after):
             downs.append(tgt.get('name'))
-        _sync_changed(combatants, changed)
+        _sync_changed(combatants, changed, before=prior)
         result = {
             'kind': 'save',
             'attack_name': attack_name,
@@ -1962,7 +1966,7 @@ def combat_player_attack(request, id_or_slug):
             if _went_down(tgt, applied['combatant']):
                 downs.append(tgt.get('name'))
             if tgt.get('type') == 'pc' and tgt.get('character_id'):
-                _sync_pc_to_character(applied['combatant'])
+                _sync_pc_to_character(applied['combatant'], prior=tgt)
             primary['damage_applied'] = {
                 'damage_taken': applied['damage_taken'],
                 'new_hp': applied['combatant'].get('current_hp'),
@@ -1980,7 +1984,7 @@ def combat_player_attack(request, id_or_slug):
                 if _went_down(redirected, applied['combatant']):
                     downs.append(redirected.get('name'))
                 if redirected.get('type') == 'pc' and redirected.get('character_id'):
-                    _sync_pc_to_character(applied['combatant'])
+                    _sync_pc_to_character(applied['combatant'], prior=redirected)
                 second['damage_applied'] = {
                     'damage_taken': applied['damage_taken'],
                     'new_hp': applied['combatant'].get('current_hp'),
@@ -2027,7 +2031,22 @@ def combat_player_attack(request, id_or_slug):
 SHEET_PHOTO_KEYS = ('currentHp', 'tempHp', 'deathSaves', 'conditions', 'wildShape')
 
 
-def _sync_pc_to_character(combatant, record=None):
+def _merged_conditions(sheet, before, after):
+    """As condições da ficha depois de uma ação do combate: muda só o que o combate pôs ou
+    tirou nesta ação, `ficha = (ficha − tiradas) ∪ postas`. A ficha pode ter as dela, que o
+    combatente não tem (o "envenenado" marcado na ficha): uma ação só de PV não as apaga.
+    Sem a foto de antes (`before` None), o combate só soma: nada da ficha some."""
+    after = [c for c in (after or []) if c]
+    prev = set(c for c in (before or []) if c) if before is not None else set()
+    removed = prev - set(after)
+    out = [c for c in (sheet or []) if c and c not in removed]
+    for c in after:
+        if c not in prev and c not in out:
+            out.append(c)
+    return out
+
+
+def _sync_pc_to_character(combatant, record=None, prior=None):
     """Sincroniza HP/condições/death_saves de volta na Character.data do PC.
 
     Se o combatant é wild_shape (druida transformado), o current_hp é o HP da fera.
@@ -2038,6 +2057,8 @@ def _sync_pc_to_character(combatant, record=None):
 
     `record` (dict, V8): guarda em record[id do combatente] a foto da ficha
     ({before, after} dos SHEET_PHOTO_KEYS que mudaram) para o ↶ Desfazer.
+    `prior` (o combatente antes da ação): as condições da ficha só ganham ou perdem o que
+    a ação mudou no combatente (_merged_conditions).
     """
     from . import wild_shape as wse
     cid = combatant.get('character_id')
@@ -2069,7 +2090,9 @@ def _sync_pc_to_character(combatant, record=None):
         data['currentHp'] = combatant.get('current_hp')
     if combatant.get('temp_hp') is not None:
         data['tempHp'] = combatant.get('temp_hp')
-    data['conditions'] = combatant.get('conditions') or []
+    data['conditions'] = _merged_conditions(
+        data.get('conditions'), None if prior is None else (prior.get('conditions') or []),
+        combatant.get('conditions') or [])
     if combatant.get('death_saves'):
         data['deathSaves'] = combatant['death_saves']
     char.data = data
