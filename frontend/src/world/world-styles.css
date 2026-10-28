@@ -464,31 +464,55 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-newmap-place { min-height: 44px; }
 
 /* ---------------------------------------------------------------- linha do tempo */
+/* F11: linhas de ~64 px com ↑ ↓ de 50 × 48 lado a lado (o nome escrito embaixo
+   da seta), ＋ de 44 e o selo "quem vê" com texto; "📖 Na mesa" embaixo da
+   lista no celular e ao lado no PC. */
 .wl-timeline-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 18px; align-items: start; }
 @media (max-width: 860px) { .wl-timeline-wrap { grid-template-columns: 1fr; } }
+.wl-timeline-col { min-width: 0; }
 .wl-timeline-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.wl-timeline-head .wl-h3 { margin: 0; }
+.wl-timeline-add-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.wl-timeline-add-btns .mesa-btn.is-on { background: var(--gold-soft); border-color: var(--gold); }
 .wl-timeline-add { margin-bottom: 10px; }
-.wl-timeline { list-style: none; margin: 0; padding: 0 0 0 26px; position: relative; display: flex; flex-direction: column; gap: 12px; }
+.wl-timeline { list-style: none; margin: 0; padding: 0 0 0 26px; position: relative; display: flex; flex-direction: column; gap: 12px; overflow-anchor: auto; }
 .wl-timeline::before { content: ''; position: absolute; left: 9px; top: 6px; bottom: 6px; width: 2px; background: linear-gradient(180deg, transparent, var(--gold-deep) 8%, var(--gold-deep) 92%, transparent); }
-.wl-tl-item { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'when move' 'card move'; gap: 4px 8px; padding: 2px; border-radius: 10px; cursor: grab; transition: background 0.15s; }
+.wl-tl-item { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'when when' 'card move'; align-items: center; gap: 4px 6px; padding: 2px; border-radius: 10px; transition: background 0.15s; }
+.wl-tl-item[draggable="true"] { cursor: grab; }
 .wl-tl-item.is-drag { opacity: 0.4; }
 .wl-tl-item.is-over { background: var(--gold-soft); outline: 2px dashed var(--gold); outline-offset: 2px; }
-.wl-tl-dot { position: absolute; left: -23px; top: 6px; width: 14px; height: 14px; border-radius: 50%; background: var(--bg-base); border: 2px solid var(--wl-kind); box-shadow: 0 0 0 3px var(--bg-base), 0 0 10px color-mix(in srgb, var(--wl-kind) 60%, transparent); }
-.wl-tl-when { grid-area: when; font-family: var(--display); font-size: 0.82rem; letter-spacing: 0.06em; color: var(--gold-bright); }
-.wl-tl-card { grid-area: card; display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; background: var(--bg-card); border: 1px solid var(--stroke-faint); color: inherit; cursor: pointer; text-align: left; min-width: 0; font: inherit; }
-.wl-tl-card:hover { border-color: var(--stroke-strong); }
+.wl-tl-dot { position: absolute; left: -23px; top: 4px; width: 14px; height: 14px; border-radius: 50%; background: var(--bg-base); border: 2px solid var(--wl-kind); box-shadow: 0 0 0 3px var(--bg-base), 0 0 10px color-mix(in srgb, var(--wl-kind) 60%, transparent); }
+.wl-tl-when { grid-area: when; font-family: var(--display); font-size: 0.82rem; letter-spacing: 0.06em; color: var(--gold-bright); overflow-wrap: anywhere; }
+.wl-tl-card { grid-area: card; display: flex; align-items: center; gap: 10px; min-height: 64px; padding: 8px; border-radius: 10px; background: var(--bg-card); border: 1px solid var(--stroke-faint); color: inherit; cursor: pointer; text-align: left; min-width: 0; font: inherit; }
+@media (hover: hover) { .wl-tl-card:hover { border-color: var(--stroke-strong); } }
+.wl-tl-card:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
 .wl-tl-thumb { width: 46px; height: 46px; flex: 0 0 46px; border-radius: 8px; overflow: hidden; border: 1px solid var(--stroke); }
-.wl-tl-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.wl-tl-name { font-family: var(--display); font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wl-tl-kind { font-size: 0.8rem; color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wl-tl-move { grid-area: move; display: flex; flex-direction: column; gap: 4px; justify-content: center; }
-.wl-tl-move button { width: 36px; height: 34px; border-radius: 6px; border: 1px solid var(--stroke-faint); background: var(--bg-card); color: var(--ink-secondary); cursor: pointer; }
-.wl-tl-move button:disabled { opacity: 0.3; cursor: default; }
+.wl-tl-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+/* nome em até 2 linhas (no celular estreito ele não cabe em uma) */
+.wl-tl-name {
+  font-family: var(--display); font-size: 0.95rem; line-height: 1.25; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
+/* selo (quem vê, com texto) e tipo · frase numa linha só: o selo fica inteiro */
+.wl-tl-meta { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.wl-tl-meta .wl-seal { position: static; flex: none; padding: 1px 7px 1px 5px; font-size: 12px; backdrop-filter: none; }
+.wl-tl-kind { flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wl-tl-move { grid-area: move; display: flex; gap: 4px; align-items: center; }
 .wl-timeline-side { padding: 14px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--stroke-faint); }
+.wl-timeline-side .wl-h3 { margin: 0; }
 .wl-sessions { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 8px; }
 .wl-sessions li { display: flex; flex-direction: column; padding: 8px 10px; border-left: 2px solid var(--arcane-bright); background: rgba(91,108,184,0.08); border-radius: 0 8px 8px 0; }
 .wl-session-n { font-family: var(--display); font-size: 0.8rem; color: var(--arcane-bright); letter-spacing: 0.06em; }
 .wl-session-title { font-size: 0.9rem; }
+@media (max-width: 400px) {
+  .wl-timeline { padding-left: 22px; }
+  .wl-timeline::before { left: 7px; }
+  .wl-tl-dot { left: -21px; }
+  .wl-tl-card { gap: 8px; padding: 6px; }
+  .wl-tl-thumb { width: 40px; height: 40px; flex-basis: 40px; }
+  .wl-timeline-add-btns { width: 100%; }
+  .wl-timeline-add-btns .mesa-btn { flex: 1 1 auto; }
+}
 
 /* ---------------------------------------------------------------- Improvisar */
 /* Em folha da mesa (MesaSheet .wl-impro-mesa): couro da folha, alvos de 44 px,

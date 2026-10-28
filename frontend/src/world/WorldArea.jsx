@@ -245,7 +245,7 @@ export default function WorldArea(props) {
           showCampaign={closed ? null : campaign}
           onOpenEntry={openEntry} onEntrySaved={upsert} onEntryCreated={(e) => { upsert(e); }} />
       ) : (
-        <Timeline campaign={campaign} entries={list} lang={lang} onOpenEntry={openEntry} onEntrySaved={upsert} onReload={load}
+        <Timeline campaign={campaign} entries={list} lang={lang} readOnly={closed} onOpenEntry={openEntry} onEntrySaved={upsert} onReload={load}
           onCreate={closed ? null : (f) => create({ ...f, name: t(lang, 'Novo evento', 'New event') })} />
       )}
 
