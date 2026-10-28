@@ -204,6 +204,36 @@ export function reorderPatches(list, from, to, field = 'sort') {
   return out;
 }
 
+/**
+ * "⋯ › Mover para cima/baixo" (V14, sem arrastar): sobe (dir < 0) ou desce `id` uma casa
+ * entre os cartões À VISTA (`shown`, já filtrados), passando o vizinho visível, sobre a
+ * ordem inteira (`sorted`) — o mesmo que arrastar até ele. → patches de `sort`; vazio no
+ * topo, no fim ou com um id que não está à vista.
+ * Quando não cabe entre os vizinhos (o arrastar renumeraria a lista toda: 1 PATCH por
+ * cartão), troca os dois valores (2 PATCH), se a ordem à vista sair a esperada.
+ */
+export function moveStepPatches(sorted, shown, id, dir) {
+  const list = shown || [];
+  const i = list.findIndex(e => e.id === id);
+  const j = i + (dir < 0 ? -1 : 1);
+  if (i < 0 || j < 0 || j >= list.length) return [];
+  const from = (sorted || []).findIndex(e => e.id === id);
+  const to = (sorted || []).findIndex(e => e.id === list[j].id);
+  if (from < 0 || to < 0) return [];
+  const patches = reorderPatches(sorted, from, to, 'sort');
+  if (patches.length <= 2) return patches;
+  const a = sorted[from];
+  const b = sorted[to];
+  const num = (v) => typeof v === 'number' && Number.isFinite(v);
+  if (!num(a.sort) || !num(b.sort) || a.sort === b.sort) return patches;
+  const swap = [{ id: a.id, sort: b.sort }, { id: b.id, sort: a.sort }];
+  const want = list.map(e => e.id);
+  [want[i], want[j]] = [want[j], want[i]];
+  const seen = new Set(want);
+  const got = sortEntries(applyPatches(sorted, swap)).filter(e => seen.has(e.id)).map(e => e.id);
+  return got.join(',') === want.join(',') ? swap : patches;
+}
+
 /** Aplica patches [{id, ...}] numa lista (imutável). */
 export function applyPatches(entries, patches) {
   if (!patches?.length) return entries;

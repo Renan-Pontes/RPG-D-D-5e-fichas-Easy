@@ -1,9 +1,14 @@
 // Atlas: a grade de cartões do Mundo, filtrável por tipo, visibilidade e tag,
 // com "+ Novo" (só tipo e nome) e arrastar para ordenar.
+// V14: "⋯ Mover" em cada cartão abre uma folha com ↑ Mover para cima / ↓ Mover para baixo
+// (a alternativa ao arrastar, que o toque não tem): um passo entre os cartões à vista, com
+// a checagem de versão do reordenar de sempre (WorldArea.reorder), um toque de cada vez.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import EntryCard from './EntryCard.jsx';
+import MesaSheet from '../shell/MesaSheet.jsx';
+import './world-finish.css';
 import {
-  KINDS, KIND_META, VIS_META, VISIBILITIES, allTags, countByKind, filterEntries, kindLabel, reorderPatches, sortEntries, t, visLabel,
+  KINDS, KIND_META, VIS_META, VISIBILITIES, allTags, countByKind, filterEntries, kindLabel, moveStepPatches, reorderPatches, sortEntries, t, visLabel,
 } from './world-model.js';
 
 const EXAMPLES = {
@@ -58,6 +63,8 @@ export default function Atlas({
   const [busy, setBusy] = useState(false);
   const [dragId, setDragId] = useState(null);
   const [overId, setOverId] = useState(null);
+  const [moving, setMoving] = useState(null);      // o cartão da folha "⋯ Mover" (id)
+  const [moveBusy, setMoveBusy] = useState(false);
   const gridRef = useRef(null);
   // Pedido externo para abrir o "+ Novo" (ex.: Primeiros passos).
   useEffect(() => { if (createNonce && onCreate) setCreating(true); }, [createNonce]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -81,6 +88,17 @@ export default function Atlas({
     const patches = reorderPatches(sorted, from, to, 'sort');
     if (patches.length) onReorder?.(patches);
   };
+
+  // ↑ ↓ da folha "⋯ Mover": espera a resposta antes do próximo toque (a versão de cada
+  // cartão vem dela; dois toques seguidos não mandam a versão velha)
+  const step = async (dir) => {
+    const patches = moveStepPatches(sorted, shown, moving, dir);
+    if (!patches.length || moveBusy) return;
+    setMoveBusy(true);
+    try { await onReorder?.(patches); } finally { setMoveBusy(false); }
+  };
+  const movingEntry = moving != null ? entries.find(e => e.id === moving) : null;
+  const movePos = movingEntry ? shown.findIndex(e => e.id === moving) : -1;
 
   const empty = entries.length === 0;
 
@@ -160,7 +178,13 @@ export default function Atlas({
               onDragOver={ev => { if (dragId == null) return; ev.preventDefault(); if (overId !== e.id) setOverId(e.id); }}
               onDragEnd={() => { setDragId(null); setOverId(null); }}
               onDrop={ev => { ev.preventDefault(); drop(e.id); }}>
-              <EntryCard entry={e} mode="dm" lang={lang} selected={selectedId === e.id} onOpen={() => onOpen?.(e.id)} onReveal={onReveal} showCampaign={showCampaign} onRevealed={onRevealed} />
+              <EntryCard entry={e} mode="dm" lang={lang} selected={selectedId === e.id} onOpen={() => onOpen?.(e.id)} onReveal={onReveal} showCampaign={showCampaign} onRevealed={onRevealed}
+                extra={onReorder && shown.length > 1 ? (
+                  <button type="button" className="wl-act wl-move-btn" aria-haspopup="dialog" aria-label={t(lang, `Mover: ${e.name}`, `Move: ${e.name}`)}
+                    onClick={(ev) => { ev.stopPropagation(); setMoving(e.id); }} onKeyDown={(ev) => ev.stopPropagation()}>
+                    <span aria-hidden="true">⋯</span> {t(lang, 'Mover', 'Move')}
+                  </button>
+                ) : null} />
             </div>
           ))}
         </div>
@@ -170,8 +194,30 @@ export default function Atlas({
         <p className="wl-hint wl-atlas-foot">
           {filtered ? t(lang, `${shown.length} de ${entries.length} cartões`, `${shown.length} of ${entries.length} cards`) : t(lang, `${entries.length} cartões`, `${entries.length} cards`)}
           {count != null && count >= max * 0.9 ? ` · ${t(lang, `limite: ${max}`, `limit: ${max}`)}` : ''}
-          {' · '}{t(lang, 'arraste os cartões para reordenar', 'drag cards to reorder')}
+          {onReorder && <>{' · '}{t(lang, 'arraste os cartões ou use ⋯ Mover para mudar a ordem', 'drag cards or use ⋯ Move to change the order')}</>}
         </p>
+      )}
+
+      {movingEntry && movePos >= 0 && (
+        <MesaSheet title={movingEntry.name} icon="⋯" eyebrow={t(lang, 'Ordem dos cartões', 'Card order')}
+          size="auto" width="sm" lang={lang} onClose={() => setMoving(null)} className="wl-move-sheet"
+          footer={<button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={() => setMoving(null)}>{t(lang, 'Pronto', 'Done')}</button>}>
+          <p className="mesa-sheet-text" aria-live="polite">
+            {filtered
+              ? t(lang, `${movePos + 1}º de ${shown.length} com este filtro`, `${movePos + 1} of ${shown.length} with this filter`)
+              : t(lang, `${movePos + 1}º de ${shown.length}`, `${movePos + 1} of ${shown.length}`)}
+          </p>
+          <div className="wl-move-btns">
+            <button type="button" className="mesa-btn mesa-btn-lg" disabled={moveBusy || movePos === 0} onClick={() => step(-1)}>
+              <span aria-hidden="true">↑</span> {moveBusy ? '…' : t(lang, 'Mover para cima', 'Move up')}
+            </button>
+            {movePos === 0 && <p className="wl-move-why">{t(lang, 'Já é o primeiro.', "It's already first.")}</p>}
+            <button type="button" className="mesa-btn mesa-btn-lg" disabled={moveBusy || movePos === shown.length - 1} onClick={() => step(1)}>
+              <span aria-hidden="true">↓</span> {moveBusy ? '…' : t(lang, 'Mover para baixo', 'Move down')}
+            </button>
+            {movePos === shown.length - 1 && <p className="wl-move-why">{t(lang, 'Já é o último.', "It's already last.")}</p>}
+          </div>
+        </MesaSheet>
       )}
     </div>
   );
