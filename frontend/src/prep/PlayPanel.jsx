@@ -251,7 +251,7 @@ export default function PlayPanel({
       {enc.monsters > 0 && (
         <section className="prep-section">
           <header>
-            <h4>⚔ {t(lang, 'Encontro', 'Encounter')}</h4>
+            <h4>⚔ {t(lang, 'Combate', 'Combat')}</h4>
             <span className={`enc-label ${enc.rating}`}>{levels.length ? diffLabel : t(lang, 'sem PJs', 'no PCs')}</span>
           </header>
           <ul className="prep-plain">
@@ -269,7 +269,7 @@ export default function PlayPanel({
           </div>
           <div className="adv-row wrap">
             <button type="button" className="btn btn-primary btn-sm" disabled={busy === 'enc'} onClick={startEncounter}>
-              ⚔ {busy === 'enc' ? '…' : t(lang, 'Começar encontro', 'Start encounter')}
+              ⚔ {busy === 'enc' ? '…' : t(lang, 'Começar o combate', 'Start combat')}
             </button>
             {(goTo || onOpenTab) && <button type="button" className="btn btn-ghost btn-sm" onClick={goCombat}>{t(lang, 'Ir para Combate', 'Go to Combat')} →</button>}
           </div>

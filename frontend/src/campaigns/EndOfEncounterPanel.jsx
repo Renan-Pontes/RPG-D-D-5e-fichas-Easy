@@ -57,7 +57,7 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
 
   return (
     <MesaSheet title={<>{roundsText}{summary.defeated.length > 0 && <> · {L(lang, 'derrotados', 'defeated')}: {summary.defeated.length}</>}</>}
-      eyebrow={L(lang, 'Fim de encontro', 'End of encounter')} icon="⚑" size="tall" width="md" lang={lang}
+      eyebrow={L(lang, 'Fim do combate', 'End of combat')} icon="⚑" size="tall" width="md" lang={lang}
       onClose={onClose} footer={footer} dirty={noteDirty}
       dirtyText={L(lang, 'A nota do Diário ainda não foi salva.', 'The Diary note has not been saved yet.')}
       className="eoe-sheet" bodyClassName="eoe-sheet-body" dock="play">

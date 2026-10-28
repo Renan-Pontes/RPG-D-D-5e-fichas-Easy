@@ -625,7 +625,7 @@ export default function NextSession({ campaign, lang, goTo }) {
             onChange={e => change(p => ({ ...p, monsters: e.target.value }))} />
           <p className="ns-hint">{t(lang, 'Para um combate de verdade, use ⚔ Combate dentro da cena.', 'For a real fight, use ⚔ Combat inside the scene.')}</p>
           <button type="button" className="mesa-btn is-quiet ns-link-btn" onClick={() => openStep('scenes')}>⚔ {t(lang, 'Pôr um combate numa cena', 'Put a fight in a scene')} →</button>
-          {goTo && <button type="button" className="mesa-btn is-quiet ns-link-btn" onClick={() => goTo('prepare', 'adventures')}>{t(lang, 'Montar encontros nas Aventuras', 'Build encounters in Adventures')} →</button>}
+          {goTo && <button type="button" className="mesa-btn is-quiet ns-link-btn" onClick={() => goTo('prepare', 'adventures')}>{t(lang, 'Montar combates nas Aventuras', 'Build combats in Adventures')} →</button>}
         </details>
       </div>
     ),

@@ -81,7 +81,7 @@ export default function EncounterDifficulty({ campaign, combatants, lang }) {
       <button type="button" className={`enc-toggle enc-row ${info.rating}`} aria-expanded={open} aria-controls={detailId}
         onClick={() => setOpen(o => !o)} title={budgetTitle}>
         <span className="enc-row-main">
-          <span className="enc-k">{t(lang, 'Encontro', 'Encounter')}</span>
+          <span className="enc-k">{t(lang, 'Combate', 'Combat')}</span>
           <span className={`enc-label ${info.rating}`}>{label}</span>
           <span className="enc-chev" aria-hidden="true">{open ? '▴' : '▾'}</span>
         </span>

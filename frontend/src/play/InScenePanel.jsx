@@ -155,8 +155,8 @@ export default function InScenePanel({ campaign, lang = 'pt', goTo }) {
           </p>
           <p className="mesa-hint">
             {L(lang,
-              'Em Preparar › Aventuras, ligue NPCs e lugares às salas e use "Conduzir" para marcar onde o grupo está. Os cartões aparecem aqui, prontos para revelar.',
-              'In Prepare › Adventures, link NPCs and places to rooms and use "Run" to mark where the party is. The cards show up here, ready to reveal.')}
+              'Em Preparar › Aventuras, ligue NPCs e lugares às salas e use "Na mesa" para marcar onde o grupo está. Os cartões aparecem aqui, prontos para revelar.',
+              'In Prepare › Adventures, link NPCs and places to rooms and use "At the table" to mark where the party is. The cards show up here, ready to reveal.')}
           </p>
           {goTo && (
             <div className="mesa-actions ins-empty-actions">

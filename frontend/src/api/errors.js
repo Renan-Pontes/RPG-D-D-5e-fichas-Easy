@@ -126,7 +126,7 @@ const E = {
   duplicate_node_id: ['Duas salas/cenas com o mesmo id.', 'Two rooms/scenes share an id.'],
   invalid_edge: ['Conexão inválida no mapa.', 'Invalid map connection.'],
   duplicate_edge_id: ['Conexão duplicada no mapa.', 'Duplicate map connection.'],
-  invalid_encounter: ['Encontro inválido.', 'Invalid encounter.'],
+  invalid_encounter: ['Combate inválido.', 'Invalid combat.'],
   invalid_hazards: ['Perigos inválidos.', 'Invalid hazards.'],
   invalid_treasure: ['Tesouro inválido.', 'Invalid treasure.'],
   invalid_treasure_item: ['Item de tesouro inválido.', 'Invalid treasure item.'],

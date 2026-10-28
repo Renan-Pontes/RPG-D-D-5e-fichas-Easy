@@ -312,8 +312,8 @@ function LivingWorldSection({ campaign, lang, onChange }) {
         </label>
         <p className="muted text-sm" style={{ margin: 0 }}>
           {t(lang,
-            'O Atlas ganha o céu do seu mundo (cada cartão uma estrela), as páginas em branco do cronista, os rumores da taverna e os ecos da mesa — os jogadores podem se arrepiar, desconfiar ou querer voltar ao que você revelou, e você ouve. Nada é decidido por você; desligue quando quiser silêncio.',
-            'The Atlas gains your world\'s sky (each card a star), the chronicler\'s blank pages, tavern rumors and echoes from the table — players can shiver, doubt or long to return to what you revealed, and you hear it. Nothing is decided for you; turn it off when you want silence.')}
+            'Os Cartões do Mundo ganham o céu do seu mundo (cada cartão uma estrela), as páginas em branco do cronista, os rumores da taverna e os ecos da mesa — os jogadores podem se arrepiar, desconfiar ou querer voltar ao que você revelou, e você ouve. Nada é decidido por você; desligue quando quiser silêncio.',
+            'The World\'s Cards gain your world\'s sky (each card a star), the chronicler\'s blank pages, tavern rumors and echoes from the table — players can shiver, doubt or long to return to what you revealed, and you hear it. Nothing is decided for you; turn it off when you want silence.')}
         </p>
       </section>
       {on && (
