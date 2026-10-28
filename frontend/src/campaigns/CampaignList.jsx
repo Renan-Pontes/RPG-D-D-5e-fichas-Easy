@@ -1,5 +1,5 @@
 import { errorMessage } from '../api/errors.js';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { createSampleWorld } from '../world/world-api.js';
 import ReadyAdventureGallery from '../ready/ReadyAdventureGallery.jsx';
@@ -17,6 +17,8 @@ import { closedInfo, formatDay, inviteSeatsFree, limitShortText, planLimitFrom, 
 import '../plans/plans.css';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
+// O botão que acabou de mudar de sentido ignora toques por 400 ms (princípio 8).
+const SETTLE_MS = 400;
 
 /**
  * joinCode: código vindo da rota /join/<código> — abre o "Entrar com código" já preenchido.
@@ -137,6 +139,12 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
   const [error, setError] = useState('');
   const formId = useId();
   const nameId = useId();
+  // Trocar de passo muda o sentido do botão do rodapé, que fica no mesmo lugar
+  // ("Próximo" → "Criar campanha"): o 2º toque de um toque duplo criaria a campanha
+  // sem passar por "Como começar". Antes da pintura: nenhum toque chega antes da trava.
+  const stepAt = useRef(0);
+  useLayoutEffect(() => { stepAt.current = Date.now(); }, [step]);
+  const settling = () => Date.now() - stepAt.current < SETTLE_MS;
 
   const canNext = name.trim().length > 0;
   // com algo escolhido, fechar (✕, Esc, toque fora, Cancelar) pergunta antes
@@ -145,7 +153,7 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
 
   const create = async (e) => {
     e?.preventDefault?.();
-    if (!canNext || busy || coverWorking) return;
+    if (!canNext || busy || coverWorking || settling()) return;
     if (step === 2 && start === 'ready' && !readyId) {
       setError(t(lang, 'Escolha uma das aventuras prontas (ou outro jeito de começar).', 'Pick one of the ready adventures (or another way to start).'));
       return;
@@ -183,7 +191,7 @@ function CreateCampaignModal({ lang, onClose, onCreated }) {
 
   const next = (e) => {
     e?.preventDefault?.();
-    if (!canNext) return;
+    if (!canNext || settling()) return;
     if (step < 2) setStep(step + 1); else create();
   };
 
