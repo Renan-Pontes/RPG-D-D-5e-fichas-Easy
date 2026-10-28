@@ -70,8 +70,8 @@ export default function MoreSheet({
             sub={t(lang, 'Continuar jogando, encerrar ou escrever o recap', 'Keep playing, end, or write the recap')} />
         ) : (
           <Row icon="▶" className="is-session is-start" disabled={busy} onClick={onStartSession}
-            title={t(lang, `Começar sessão ${next}`, `Start session ${next}`)}
-            sub={t(lang, 'Liga o "Ao vivo" e abre Jogar › Cena', 'Turns on "Live" and opens Play › Scene')} />
+            title={t(lang, `Começar a Sessão ${next}`, `Start session ${next}`)}
+            sub={t(lang, 'Pergunta onde começa e abre Jogar › Agora', 'Asks where it starts and opens Play › Now')} />
         ))}
         <Row icon="🔍" onClick={onSearch}
           title={t(lang, 'Buscar', 'Search')}

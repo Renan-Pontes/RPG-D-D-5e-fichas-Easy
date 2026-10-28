@@ -117,6 +117,13 @@
   background: rgba(14, 10, 7, 0.5);
   white-space: nowrap;
 }
+/* o relógio da sessão ao vivo (V7), dentro do selo: "● Ao vivo · 1h05" */
+.shell-clock { display: inline-flex; gap: 5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.shell-clock-sep { opacity: 0.8; }
+@media (max-width: 359px) {
+  .shell-live-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .shell-live-word + .shell-clock .shell-clock-sep { display: none; }
+}
 .shell-live {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;

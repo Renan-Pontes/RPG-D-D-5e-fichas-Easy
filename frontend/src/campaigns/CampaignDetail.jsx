@@ -45,6 +45,7 @@ const SettingsMenu = lazy(() => import('../shell/SettingsMenu.jsx'));
 const LiveScreenSheet = lazy(() => import('../stage/LiveScreenSheet.jsx'));
 const MoreSheet = lazy(() => import('../shell/MoreSheet.jsx'));
 const QuickSearch = lazy(() => import('../shell/QuickSearch.jsx'));
+const StartSessionSheet = lazy(() => import('../play/StartSessionSheet.jsx'));
 
 // Áreas novas: detectadas em tempo de build. Arquivo ausente → fallback.
 const MODULES = import.meta.glob([
@@ -80,6 +81,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   const [settings, setSettings] = useState(null); // null = fechado; senão a seção ('identity', 'danger', 'dice'…)
   const [more, setMore] = useState(false);         // folha "Mesa do mestre" (casa "Mais" do celular)
   const [ending, setEnding] = useState(false);
+  const [starting, setStarting] = useState(false);  // folha "Começar a Sessão N" (V7)
   const [busy, setBusy] = useState(false);
   const [groupPending, setGroupPending] = useState(null);
   const [toast, setToast] = useState('');
@@ -279,12 +281,9 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     } catch (e) { say(errorMessage(e, lang)); } finally { setSampleBusy(false); }
   };
 
-  // Sessão: começar / encerrar.
-  const startSession = async () => {
-    setBusy(true);
-    try { await api.startDiarySession(campaign.id, {}); await load(); goTo('play', 'scene'); }
-    catch (e) { say(errorMessage(e, lang)); } finally { setBusy(false); }
-  };
+  // Sessão: começar (a folha pergunta onde começa e o "Anteriormente em…", V7) / encerrar.
+  const startSession = () => setStarting(true);
+  const afterStart = async () => { setStarting(false); await load(); goTo('play', 'scene'); };
   const endSession = async (withRecap) => {
     setBusy(true);
     try {
@@ -386,7 +385,8 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   };
   const ctx = {
     area: nav.area, sub: nav.sub, params: nav.params, goTo, clearParams, isDM, lang, campaign, reload: load,
-    startSession: isDM ? startSession : undefined,   // o "▶ Começar a Sessão N" do Plano é o mesmo da capa
+    startSession: isDM ? startSession : undefined,   // o "▶ Começar a Sessão N" do Plano e da Agora é o mesmo da capa
+    endSession: isDM ? () => setEnding(true) : undefined,
     onPlan: isDM ? reportPlan : undefined,           // o Plano aberto: o "!" de Preparar sem GET
     openSearch: () => setSearch(true), openSettings: (section) => { setSettings(typeof section === 'string' ? section : 'identity'); if (isDM) loadWorld(); },
   };
@@ -475,6 +475,12 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
           </Suspense>
         )}
         {ending && <EndSessionDialog lang={lang} busy={busy} onCancel={() => setEnding(false)} onEnd={endSession} />}
+        {starting && isDM && (
+          <Suspense fallback={null}>
+            <StartSessionSheet campaign={campaign} lang={lang} tvLive={table.tvLive} onClose={() => setStarting(false)}
+              onStarted={afterStart} onTvLink={() => markOnboarding('tv')} />
+          </Suspense>
+        )}
         {toast && <div className="toast shell-toast" role="status">{toast}</div>}
       </div>
      </TableContext.Provider>
