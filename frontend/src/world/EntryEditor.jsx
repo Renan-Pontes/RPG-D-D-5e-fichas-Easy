@@ -1,6 +1,9 @@
 // Editor de um cartão do Mundo — painel lateral (tela cheia no celular),
 // salva sozinho (indicador "Salvo") e protege o texto local num conflito de
 // versão (409): "Alguém alterou — recarregar".
+// V14 (A13): campanha encerrada (ou `readOnly`) abre o cartão só para LER — sem Subir
+// imagem, sem Apagar, sem os botões de revelar; os textos viram texto e nada vai ao
+// servidor (antes abria editável e cada letra terminava em "Erro ao salvar").
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import useConfirm from '../../components/ConfirmDialog.jsx';
@@ -12,20 +15,23 @@ import { showPlanLimit } from '../plans/plans-api.js';
 import { limitShortText, planLimitFrom } from '../plans/plans-logic.js';
 import {
   HANDOUT_STYLES, KINDS, KIND_META, PLACE_TYPES, RARITIES, allTags, backlinks, childrenOf, freshId, handoutStyleLabel,
-  kindIcon, kindLabel, placeTypeLabel, rarityLabel, relLabel, t,
+  kindIcon, kindLabel, placeTypeLabel, rarityLabel, relLabel, t, VIS_META, visLabel,
 } from './world-model.js';
 import useAutosave, { saveStateLabel } from './useAutosave.js';
 import RevealControl, { useReveal } from './RevealControl.jsx';
 import { EntryImage, VisibilitySeal } from './EntryCard.jsx';
 import { EntryPicker, MentionTextarea, RelationsEditor, TagsInput } from './LinksField.jsx';
 import ShowOnTable from '../stage/ShowOnTable.jsx';
+import './world-finish.css';
 
 const hasDetails = (e) => !!(e && (e.body || e.dmNotes || (e.secrets || []).length || (e.links || []).length || e.parentId
   || (e.tags || []).length || e.whenLabel || Object.values(e.data || {}).some(v => v && (typeof v !== 'object' || Object.keys(v).length))));
 
 export default function EntryEditor({
   entryId, campaign, entries = [], adventures = [], plan = null, lang = 'pt', onClose, onSaved, onDeleted, onOpenEntry, onOpenMap, onShow, autoFocusName = false,
+  readOnly: readOnlyProp = false,
 }) {
+  const readOnly = readOnlyProp || campaign?.status === 'closed';
   const [entry, setEntry] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [error, setError] = useState('');
@@ -74,7 +80,7 @@ export default function EntryEditor({
   });
 
   const set = (patch) => {
-    if (!entryRef.current) return;
+    if (!entryRef.current || readOnly) return;   // só leitura: nada vai ao servidor
     setLocal({ ...entryRef.current, ...patch });
     autosave.queue(patch);
   };
@@ -114,7 +120,7 @@ export default function EntryEditor({
   // ---------------------------------------------------------------- imagem
   const pickImage = () => fileRef.current?.click();
   const onFile = async (file) => {
-    if (!file) return;
+    if (!file || readOnly) return;
     setImgBusy(true); setError('');
     try {
       const url = await compressForEntry(file, { kind: entryRef.current.kind, isMap: !!entryRef.current.data?.map });
@@ -198,8 +204,16 @@ export default function EntryEditor({
   };
 
   return (
-    <EditorShell onClose={close} lang={lang} kindColor={meta.color}
-      status={<span className={`wl-save wl-save-${autosave.state}`} aria-live="polite">{autosave.state === 'saved' ? '✓ ' : ''}{saveStateLabel(autosave.state, lang)}</span>}>
+    <EditorShell onClose={close} lang={lang} kindColor={meta.color} readOnly={readOnly}
+      status={readOnly
+        ? <span className="wl-save wl-save-read">🔒 {t(lang, 'Só leitura', 'Read only')}</span>
+        : <span className={`wl-save wl-save-${autosave.state}`} aria-live="polite">{autosave.state === 'saved' ? '✓ ' : ''}{saveStateLabel(autosave.state, lang)}</span>}>
+      {readOnly && (
+        <p className="wl-ro-note" role="note">
+          {t(lang, 'Campanha encerrada: o cartão abre só para ler. Para mudar algo, reabra a campanha em Ajustes › Zona de perigo.',
+            'Closed campaign: the card opens read-only. To change anything, reopen the campaign in Settings › Danger zone.')}
+        </p>
+      )}
       {conflict && (
         <div className="wl-conflict" role="alert">
           <strong>{t(lang, 'Alguém alterou — recarregar?', 'Someone changed it — reload?')}</strong>
@@ -217,45 +231,47 @@ export default function EntryEditor({
         onDrop={e => { e.preventDefault(); onFile(e.dataTransfer.files?.[0]); }}>
         <EntryImage entry={entry} className="wl-ed-img" alt="" />
         <div className="wl-ed-hero-fade" aria-hidden="true" />
-        <div className="wl-ed-hero-actions">
+        {!readOnly && <div className="wl-ed-hero-actions">
           <button type="button" className="wl-chipbtn" onClick={pickImage} disabled={imgBusy}>
             {imgBusy ? t(lang, 'Enviando…', 'Uploading…') : entry.imageVer ? t(lang, '🖼 Trocar imagem', '🖼 Change image') : (entry.kind === 'npc' ? t(lang, '🖼 Subir retrato', '🖼 Upload portrait') : t(lang, '🖼 Subir imagem', '🖼 Upload image'))}
           </button>
           {entry.imageVer && <button type="button" className="wl-chipbtn" onClick={removeImage} disabled={imgBusy}>{t(lang, 'Remover', 'Remove')}</button>}
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; onFile(f); }} />
-        </div>
+        </div>}
         <span className="wl-kind-badge"><span aria-hidden="true">{meta.icon}</span> {kindLabel(entry.kind, lang)}</span>
         <VisibilitySeal visibility={entry.visibility} lang={lang} />
       </div>
 
-      <input className="wl-ed-name" value={entry.name} maxLength={120} autoFocus={autoFocusName}
+      <input className="wl-ed-name" value={entry.name} maxLength={120} autoFocus={autoFocusName && !readOnly} readOnly={readOnly}
         aria-label={t(lang, 'Nome', 'Name')} placeholder={t(lang, 'Nome', 'Name')}
         onChange={e => set({ name: e.target.value })}
         onBlur={e => { if (!e.target.value.trim()) set({ name: t(lang, 'Sem nome', 'Untitled') }); }} />
-      <input className="wl-ed-summary" value={entry.summary || ''} maxLength={280}
+      <input className="wl-ed-summary" value={entry.summary || ''} maxLength={280} readOnly={readOnly}
         aria-label={t(lang, 'Frase curta', 'Short tagline')}
         placeholder={summaryPlaceholder(entry.kind, lang)}
         onChange={e => set({ summary: e.target.value })} />
 
       {error && <p className="wl-error" role="alert">{error}</p>}
 
-      {/* ----- revelar */}
-      <RevealControl entry={entry} lang={lang} onChange={afterReveal} beforeReveal={beforeReveal} reveal={rv} />
+      {/* ----- revelar (só leitura: quem vê, escrito) */}
+      {readOnly
+        ? <p className="wl-ro-line"><span className="wl-label">{t(lang, 'Quem vê', 'Who sees it')}</span> <span className="wl-ro-vis">{VIS_META[entry.visibility || 'hidden']?.icon} {visLabel(entry.visibility || 'hidden', lang)}</span></p>
+        : <RevealControl entry={entry} lang={lang} onChange={afterReveal} beforeReveal={beforeReveal} reveal={rv} />}
 
       <div className="wl-ed-quick">
-        {onShow && campaign && (
+        {onShow && campaign && !readOnly && (
           <ShowOnTable campaign={campaign} target={{ kind: 'card', entry }} lang={lang} className="btn btn-ghost btn-sm" onRevealed={afterReveal}>
             📺 {t(lang, 'Mostrar na Tela', 'Show on screen')}
           </ShowOnTable>
         )}
-        {onShow && campaign && isMap && entry.imageVer && (
+        {onShow && campaign && !readOnly && isMap && entry.imageVer && (
           <ShowOnTable campaign={campaign} target={{ kind: 'map', entry }} lang={lang} className="btn btn-ghost btn-sm">
             🗺 {t(lang, 'Mostrar este mapa na Tela', 'Show this map on screen')}
           </ShowOnTable>
         )}
         {isPlace && (isMap
           ? <button type="button" className="btn btn-ghost btn-sm" onClick={async () => { await autosave.flush(); onOpenMap?.(entry.id); }}>🗺 {t(lang, 'Abrir mapa', 'Open map')}</button>
-          : <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setData({ map: { pins: [] } }); if (!entry.imageVer) pickImage(); }}
+          : !readOnly && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setData({ map: { pins: [] } }); if (!entry.imageVer) pickImage(); }}
             title={t(lang, 'A imagem deste lugar vira um mapa com marcadores', "This place's image becomes a map with pins")}>
             🗺 {t(lang, 'Usar imagem como mapa', 'Use image as map')}
           </button>)}
@@ -269,19 +285,24 @@ export default function EntryEditor({
 
       {showMore && (
         <div className="wl-ed-more">
-          <KindFields entry={entry} lang={lang} setData={setData} items={items} members={members} />
+          <fieldset className="wl-ro-fs" disabled={readOnly}>
+            <KindFields entry={entry} lang={lang} setData={setData} items={items} members={members} />
+          </fieldset>
 
           <section className="wl-ed-sec">
-            <MentionTextarea id={`wl-body-${entry.id}`} label={t(lang, 'Texto para os jogadores', 'Text for the players')}
-              value={entry.body || ''} onChange={v => set({ body: v })} entries={entries} selfId={entry.id} lang={lang} rows={6}
-              placeholder={t(lang, 'O que os jogadores descobrem quando este cartão for revelado…', 'What the players learn once this card is revealed…')} />
+            {readOnly
+              ? <ReadText label={t(lang, 'Texto para os jogadores', 'Text for the players')} text={entry.body} lang={lang} />
+              : <MentionTextarea id={`wl-body-${entry.id}`} label={t(lang, 'Texto para os jogadores', 'Text for the players')}
+                value={entry.body || ''} onChange={v => set({ body: v })} entries={entries} selfId={entry.id} lang={lang} rows={6}
+                placeholder={t(lang, 'O que os jogadores descobrem quando este cartão for revelado…', 'What the players learn once this card is revealed…')} />}
           </section>
 
           <section className="wl-ed-sec wl-ed-secrets">
             <div className="wl-ed-sec-head">
               <h4>🗝 {t(lang, 'Segredos', 'Secrets')}</h4>
             </div>
-            <p className="wl-hint">{t(lang, 'Revele cada segredo separadamente, quando quiser. Ótimo para pistas. A caixa "Registrar na Crônica" lá em cima vale também para os segredos.', 'Reveal each secret separately, whenever you want. Great for clues. The "Log in the Chronicle" box above also applies to secrets.')}</p>
+            {!readOnly && <p className="wl-hint">{t(lang, 'Revele cada segredo separadamente, quando quiser. Ótimo para pistas. A caixa "Registrar na Crônica" lá em cima vale também para os segredos.', 'Reveal each secret separately, whenever you want. Great for clues. The "Log in the Chronicle" box above also applies to secrets.')}</p>}
+            {readOnly && !secrets.length && <p className="wl-muted wl-small">{t(lang, 'Nenhum segredo.', 'No secrets.')}</p>}
             {secrets.some(s => s.revealed) && (entry.visibility || 'hidden') !== 'revealed' && (
               <p className="wl-secret-warn" role="note">
                 ⚠ {entry.visibility === 'partial'
@@ -291,8 +312,10 @@ export default function EntryEditor({
             )}
             {secrets.map((s, i) => (
               <div key={s.id || i} className={`wl-secret${s.revealed ? ' is-revealed' : ''}`}>
-                <textarea rows={2} value={s.text} maxLength={1000} placeholder={t(lang, 'Ex.: Borin guarda a chave da cripta.', 'E.g.: Borin keeps the crypt key.')}
-                  onChange={e => setSecrets(secrets.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))} />
+                {readOnly
+                  ? <p className="wl-ro-text">{s.text}</p>
+                  : <textarea rows={2} value={s.text} maxLength={1000} placeholder={t(lang, 'Ex.: Borin guarda a chave da cripta.', 'E.g.: Borin keeps the crypt key.')}
+                    onChange={e => setSecrets(secrets.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))} />}
                 <div className="wl-secret-actions">
                   {s.revealed && (
                     <span className={`wl-secret-badge${entry.visibility === 'revealed' ? '' : ' is-waiting'}`}>
@@ -300,29 +323,38 @@ export default function EntryEditor({
                       {s.session ? ` · ${t(lang, 'sessão', 'session')} ${s.session}` : ''}
                     </span>
                   )}
-                  <button type="button" className={`btn btn-sm ${s.revealed ? 'btn-ghost' : 'btn-primary'}`} disabled={rv.busy || !s.text.trim()}
-                    onClick={() => rv.toggleSecret(s.id, !s.revealed)}>
-                    {s.revealed ? t(lang, 'Ocultar', 'Hide') : t(lang, 'Revelar', 'Reveal')}
-                  </button>
-                  <button type="button" className="wl-x" aria-label={t(lang, 'Apagar segredo', 'Delete secret')}
-                    onClick={() => setSecrets(secrets.filter((_, j) => j !== i))}>×</button>
+                  {readOnly && !s.revealed && <span className="wl-secret-badge is-waiting">🔒 {t(lang, 'Não revelado', 'Not revealed')}</span>}
+                  {!readOnly && <>
+                    <button type="button" className={`btn btn-sm ${s.revealed ? 'btn-ghost' : 'btn-primary'}`} disabled={rv.busy || !s.text.trim()}
+                      onClick={() => rv.toggleSecret(s.id, !s.revealed)}>
+                      {s.revealed ? t(lang, 'Ocultar', 'Hide') : t(lang, 'Revelar', 'Reveal')}
+                    </button>
+                    <button type="button" className="wl-x" aria-label={t(lang, 'Apagar segredo', 'Delete secret')}
+                      onClick={() => setSecrets(secrets.filter((_, j) => j !== i))}>×</button>
+                  </>}
                 </div>
               </div>
             ))}
             {rv.error && <p className="wl-error">{rv.error}</p>}
-            {secrets.length < 20 && <button type="button" className="btn btn-ghost btn-sm" onClick={addSecret}>＋ {t(lang, 'Segredo', 'Secret')}</button>}
+            {!readOnly && secrets.length < 20 && <button type="button" className="btn btn-ghost btn-sm" onClick={addSecret}>＋ {t(lang, 'Segredo', 'Secret')}</button>}
           </section>
 
           <section className="wl-ed-sec wl-ed-notes">
             <label className="wl-label" htmlFor={`wl-notes-${entry.id}`}>🔒 {t(lang, 'Notas do mestre', 'DM notes')} <span className="wl-muted wl-small">— {t(lang, 'só você vê, sempre', 'only you, always')}</span></label>
-            <textarea id={`wl-notes-${entry.id}`} rows={4} value={entry.dmNotes || ''} onChange={e => set({ dmNotes: e.target.value })}
-              placeholder={t(lang, 'Motivações escondidas, estatísticas, ganchos…', 'Hidden motives, stats, hooks…')} />
+            {readOnly
+              ? <p className="wl-ro-text" id={`wl-notes-${entry.id}`}>{entry.dmNotes || '—'}</p>
+              : <textarea id={`wl-notes-${entry.id}`} rows={4} value={entry.dmNotes || ''} onChange={e => set({ dmNotes: e.target.value })}
+                placeholder={t(lang, 'Motivações escondidas, estatísticas, ganchos…', 'Hidden motives, stats, hooks…')} />}
           </section>
 
           <section className="wl-ed-sec">
             <label className="wl-label">{entry.kind === 'npc' || entry.kind === 'item' ? t(lang, 'Onde está', 'Where it is') : t(lang, 'Fica em / pertence a', 'Located in / belongs to')}</label>
-            <EntryPicker entries={entries} value={entry.parentId || null} onChange={v => set({ parentId: v })} exclude={[entry.id]} lang={lang}
-              placeholder={t(lang, 'Nenhum lugar', 'No place')} />
+            {readOnly ? (
+              <ReadRef entries={entries} id={entry.parentId} lang={lang} onOpen={onOpenEntry} />
+            ) : (
+              <EntryPicker entries={entries} value={entry.parentId || null} onChange={v => set({ parentId: v })} exclude={[entry.id]} lang={lang}
+                placeholder={t(lang, 'Nenhum lugar', 'No place')} />
+            )}
             {kids.length > 0 && (
               <div className="wl-kids">
                 <span className="wl-muted wl-small">{t(lang, 'Aqui dentro:', 'Inside:')}</span>
@@ -333,10 +365,12 @@ export default function EntryEditor({
 
           <section className="wl-ed-sec">
             <label className="wl-label">{t(lang, 'Relações', 'Relations')}</label>
-            <RelationsEditor links={entry.links || []} onChange={links => set({ links })} entries={entries} selfId={entry.id} lang={lang} onOpen={onOpenEntry} />
+            {readOnly
+              ? <ReadRelations links={entry.links || []} entries={entries} lang={lang} onOpen={onOpenEntry} />
+              : <RelationsEditor links={entry.links || []} onChange={links => set({ links })} entries={entries} selfId={entry.id} lang={lang} onOpen={onOpenEntry} />}
           </section>
 
-          <section className="wl-ed-sec wl-ed-grid">
+          <fieldset className="wl-ro-fs wl-ed-sec wl-ed-grid" disabled={readOnly}>
             <div>
               <label className="wl-label">{t(lang, 'Tags', 'Tags')}</label>
               <TagsInput value={entry.tags || []} onChange={tags => set({ tags })} lang={lang} suggestions={tagSuggestions} />
@@ -344,9 +378,9 @@ export default function EntryEditor({
             <div>
               <label className="wl-label" htmlFor={`wl-when-${entry.id}`}>⌛ {t(lang, 'Quando (linha do tempo)', 'When (timeline)')}</label>
               <input id={`wl-when-${entry.id}`} value={entry.whenLabel || ''} maxLength={60} onChange={e => set({ whenLabel: e.target.value })}
-                placeholder={t(lang, 'Ex.: Ano 312 da Coroa', 'E.g.: Year 312 of the Crown')} />
+                placeholder={t(lang, 'Ex.: Ano 312 da Coroa', 'E.g.: Year 312 of the Crown')} readOnly={readOnly} />
             </div>
-          </section>
+          </fieldset>
 
           {back.length > 0 && (
             <section className="wl-ed-sec">
@@ -373,18 +407,20 @@ export default function EntryEditor({
             </section>
           )}
 
-          <section className="wl-ed-sec wl-ed-kind">
-            <label className="wl-label" htmlFor={`wl-kind-${entry.id}`}>{t(lang, 'Tipo do cartão', 'Card type')}</label>
-            <select id={`wl-kind-${entry.id}`} value={entry.kind} onChange={e => set({ kind: e.target.value })}>
-              {KINDS.map(k => <option key={k} value={k}>{kindIcon(k)} {kindLabel(k, lang)}</option>)}
-            </select>
-          </section>
+          {!readOnly && (
+            <section className="wl-ed-sec wl-ed-kind">
+              <label className="wl-label" htmlFor={`wl-kind-${entry.id}`}>{t(lang, 'Tipo do cartão', 'Card type')}</label>
+              <select id={`wl-kind-${entry.id}`} value={entry.kind} onChange={e => set({ kind: e.target.value })}>
+                {KINDS.map(k => <option key={k} value={k}>{kindIcon(k)} {kindLabel(k, lang)}</option>)}
+              </select>
+            </section>
+          )}
         </div>
       )}
 
       <div className="wl-ed-foot">
-        <button type="button" className="btn btn-danger btn-sm" onClick={remove}>{t(lang, 'Apagar cartão', 'Delete card')}</button>
-        <button type="button" className="btn btn-primary btn-sm" onClick={close}>{t(lang, 'Pronto', 'Done')}</button>
+        {!readOnly && <button type="button" className="btn btn-danger btn-sm" onClick={remove}>{t(lang, 'Apagar cartão', 'Delete card')}</button>}
+        <button type="button" className="btn btn-primary btn-sm" onClick={close}>{readOnly ? t(lang, 'Fechar', 'Close') : t(lang, 'Pronto', 'Done')}</button>
       </div>
     </EditorShell>
   );
@@ -430,9 +466,48 @@ function backVia(b, lang) {
   return '';
 }
 
-function EditorShell({ children, onClose, lang, status, kindColor }) {
+/** Só leitura: um texto longo do cartão (ou "—"). */
+function ReadText({ label, text, lang }) {
   return (
-    <aside className="wl-editor" role="dialog" aria-modal="false" aria-label={t(lang, 'Editar cartão', 'Edit card')} style={kindColor ? { '--wl-kind': kindColor } : undefined}>
+    <div className="wl-field">
+      <span className="wl-label">{label}</span>
+      <p className="wl-ro-text">{(text || '').trim() || t(lang, '—', '—')}</p>
+    </div>
+  );
+}
+
+/** Só leitura: o "Fica em" vira o nome (um botão que abre o cartão). */
+function ReadRef({ entries, id, lang, onOpen }) {
+  const e = id ? (entries || []).find(x => x.id === id) : null;
+  if (!e) return <p className="wl-ro-text">{t(lang, 'Nenhum lugar', 'No place')}</p>;
+  return <button type="button" className="wl-tag" onClick={() => onOpen?.(e.id)}>{kindIcon(e.kind)} {e.name}</button>;
+}
+
+/** Só leitura: as relações em lista (relação · cartão que abre · nota). */
+function ReadRelations({ links, entries, lang, onOpen }) {
+  if (!links.length) return <p className="wl-ro-text">{t(lang, 'Nenhuma relação.', 'No relations.')}</p>;
+  const byId = new Map((entries || []).map(e => [e.id, e]));
+  return (
+    <ul className="wl-ro-rels">
+      {links.map((l, i) => {
+        const e = byId.get(l.to);
+        return (
+          <li key={`${l.to}-${l.rel}-${i}`}>
+            <span className="wl-muted">{relLabel(l.rel, lang)}:</span>{' '}
+            {e ? <button type="button" className="wl-tag" onClick={() => onOpen?.(e.id)}>{kindIcon(e.kind)} {e.name}</button>
+              : <span className="wl-muted">{t(lang, '(cartão apagado)', '(deleted card)')}</span>}
+            {l.note ? <span> · {l.note}</span> : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function EditorShell({ children, onClose, lang, status, kindColor, readOnly = false }) {
+  return (
+    <aside className={`wl-editor${readOnly ? ' is-readonly' : ''}`} role="dialog" aria-modal="false"
+      aria-label={readOnly ? t(lang, 'Ler cartão', 'Read card') : t(lang, 'Editar cartão', 'Edit card')} style={kindColor ? { '--wl-kind': kindColor } : undefined}>
       <div className="wl-editor-top">
         {status}
         <button type="button" className="wl-editor-close" onClick={onClose} aria-label={t(lang, 'Fechar', 'Close')}>×</button>
