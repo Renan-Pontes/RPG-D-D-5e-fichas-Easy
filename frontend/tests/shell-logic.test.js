@@ -297,13 +297,21 @@ test('cartão da campanha: a linha de próximo passo (só o mestre, sem pedido n
   assert.deepEqual(sum, { n: 5, scenes: 2, blank: false, stale: false, live: false, session: 4 });
   assert.equal(campaignNextLine(dm({ session: 'Sessão 4' }), sum, 'pt'), 'Plano da Sessão 5: 2 cenas');
   assert.equal(campaignNextLine(dm({ session: 'Sessão 4' }), sum, 'en'), 'Session 5 plan: 2 scenes');
-  // sem o resumo (outro aparelho) ou plano vazio: o próximo passo é preparar
-  assert.equal(campaignNextLine(dm({ session: '4' }), null, 'pt'), 'Próximo passo: preparar o Plano da Sessão 5');
-  assert.equal(campaignNextLine(dm({}), null, 'pt'), 'Próximo passo: preparar o Plano da Sessão 1');
+  // sem o resumo (outro aparelho, janela privada): o aparelho não sabe como está o plano,
+  // então a linha é neutra e não manda "preparar" (o plano pode estar pronto no PC)
+  assert.equal(campaignNextLine(dm({ session: '4' }), null, 'pt'), 'Próxima: Sessão 5 · abra para ver o Plano');
+  assert.equal(campaignNextLine(dm({}), null, 'pt'), 'Próxima: Sessão 1 · abra para ver o Plano');
+  assert.equal(campaignNextLine(dm({}), null, 'en'), 'Next: session 1 · open to see the plan');
+  // o resumo guardado diz que o plano está vazio: aí sim, o próximo passo é preparar
   const blank = planCardSummary({ scenes: [] }, { session: '4' });
   assert.equal(campaignNextLine(dm({ session: '4' }), blank, 'pt'), 'Próximo passo: preparar o Plano da Sessão 5');
-  // o resumo guardado é de outra situação (a sessão 5 já foi jogada): sem a contagem
-  assert.equal(campaignNextLine(dm({ session: '5' }), sum, 'pt'), 'Próximo passo: preparar o Plano da Sessão 6');
+  assert.equal(campaignNextLine(dm({ session: '4' }), blank, 'en'), 'Next step: prepare the session 5 plan');
+  // …ou que o plano é de uma sessão já jogada (stale)
+  const old = planCardSummary({ forSession: 4, strongStart: 'O sino', scenes: [{ id: 'c1', text: 'Ponte' }] }, { session: '4' });
+  assert.equal(old.stale, true);
+  assert.equal(campaignNextLine(dm({ session: '4' }), old, 'pt'), 'Próximo passo: preparar o Plano da Sessão 5');
+  // o resumo guardado é de outra situação (a sessão 5 já foi jogada): não vale, linha neutra
+  assert.equal(campaignNextLine(dm({ session: '5' }), sum, 'pt'), 'Próxima: Sessão 6 · abra para ver o Plano');
   // ao vivo
   const liveSum = planCardSummary({ forSession: 4, scenes: [{ id: 'c1', text: 'a' }] }, { session: '4', live: true });
   assert.equal(campaignNextLine(dm({ session: '4', live: true }), liveSum, 'pt'), 'Sessão 4 ao vivo · Plano de hoje: 1 cena');

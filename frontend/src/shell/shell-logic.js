@@ -507,10 +507,13 @@ export function loadPlanCard(campaignId, storage) {
 /**
  * A linha de próximo passo do cartão do MESTRE (o jogador e a campanha encerrada: null).
  *  - ao vivo: "Sessão 4 ao vivo · Plano de hoje: 3 cenas" (ou "… · volte para Jogar › Agora");
- *  - fora: "Plano da Sessão 5: 2 cenas" ou, sem plano ou com o plano de uma sessão já jogada,
- *    "Próximo passo: preparar o Plano da Sessão 5".
+ *  - fora: "Plano da Sessão 5: 2 cenas" ou, quando o resumo guardado diz que o plano está
+ *    vazio ou é de uma sessão já jogada, "Próximo passo: preparar o Plano da Sessão 5".
  * `saved` (planCardSummary guardado no aparelho) só vale se for da mesma sessão e do mesmo
- * "ao vivo" da campanha de agora; senão a linha sai sem a contagem.
+ * "ao vivo" da campanha de agora. Sem ele (outro aparelho, janela privada, resumo de outra
+ * situação) o aparelho não sabe como está o plano: a linha é neutra e não afirma nada
+ * ("Próxima: Sessão 5 · abra para ver o Plano") — o mestre que preparou no PC não lê
+ * "preparar" no celular.
  */
 export function campaignNextLine(c, saved, lang = 'pt') {
   if (!c || c.role !== 'dm' || c.status === 'closed') return null;
@@ -528,7 +531,8 @@ export function campaignNextLine(c, saved, lang = 'pt') {
     if (fresh.scenes > 0) return t(lang, `Plano da Sessão ${fresh.n}: ${scenes(fresh.scenes)}`, `Session ${fresh.n} plan: ${scenes(fresh.scenes)}`);
     return t(lang, `Plano da Sessão ${fresh.n}: só o começo, sem cenas`, `Session ${fresh.n} plan: just the opening, no scenes`);
   }
-  return t(lang, `Próximo passo: preparar o Plano da Sessão ${next}`, `Next step: prepare the session ${next} plan`);
+  if (fresh) return t(lang, `Próximo passo: preparar o Plano da Sessão ${next}`, `Next step: prepare the session ${next} plan`);
+  return t(lang, `Próxima: Sessão ${next} · abra para ver o Plano`, `Next: session ${next} · open to see the plan`);
 }
 
 /** Próximo número de sessão para o botão "▶ Começar sessão N". */
