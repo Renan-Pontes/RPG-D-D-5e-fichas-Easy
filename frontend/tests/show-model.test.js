@@ -81,3 +81,16 @@ test('folha de decisão: "Guardar para depois do combate" nunca revela', async (
   assert.equal(calm.keep, null);
   assert.equal(calm.buttons.every(b => b.focus), true);
 });
+
+// V7: a cena agora do plano abre o "Da cena agora" e as Cenas
+import { imageRows as imgRowsV7, sceneRows as sceneRowsV7 } from '../src/stage/show-model.js';
+test('a cena agora do plano vem primeiro nas Imagens e nas Cenas', () => {
+  const entries = [{ id: 1, name: 'Vale', imageVer: 'v' }, { id: 3, name: 'Irmã Velna' }, { id: 9, name: 'Lâmina', imageVer: 'x' }];
+  const r = imgRowsV7({ entries, sceneRefs: [1, 3] });
+  assert.deepEqual(r.now.map(x => x.name), ['Vale', 'Irmã Velna']);
+  assert.ok(!r.all.some(x => x.name === 'Vale'));
+  const plan = { scenes: [{ id: 'c1', text: 'Taverna' }, { id: 'c2', text: 'Ponte', nodeRef: { adventureId: 1, nodeId: 'n2' } }] };
+  const rows = sceneRowsV7({ plan, adventure: { id: 1, name: 'A' }, node: { id: 'n2', name: 'Sala' }, nowSceneId: 'c2' });
+  assert.deepEqual(rows.map(x => [x.name, !!x.now]), [['Ponte', true], ['Taverna', false]]);
+  assert.deepEqual(rows[0].target, { kind: 'scene', sceneId: 'c2' });
+});

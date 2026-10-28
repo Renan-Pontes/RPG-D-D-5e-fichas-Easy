@@ -60,7 +60,11 @@ function useShowData(campaignId) {
   return [data, load, patchEntry];
 }
 
-export function ShowPicker({ campaign, stage, lang = 'pt', onChange }) {
+/**
+ * sceneNow (V7, a Agora): {id, refs, show} da cena agora do plano — a imagem dela e quem
+ * aparece abrem as Imagens ("Da cena agora") e ela é a 1ª das Cenas.
+ */
+export function ShowPicker({ campaign, stage, lang = 'pt', onChange, sceneNow = null }) {
   const [tab, setTab] = useState('images');
   const [data, reload, patchEntry] = useShowData(campaign.id);
   const [query, setQuery] = useState('');
@@ -68,9 +72,10 @@ export function ShowPicker({ campaign, stage, lang = 'pt', onChange }) {
   const [busy, setBusy] = useState(false);
   const st = normalizeStage(stage);
   const loading = data.entries === null;
-  const imgs = useMemo(() => imageRows({ entries: data.entries || [], adventure: data.adventure, node: data.node, query }),
-    [data, query]);
-  const scenes = useMemo(() => sceneRows({ plan: data.plan, adventure: data.adventure, node: data.node }), [data]);
+  const sceneRefs = useMemo(() => [...(sceneNow?.show?.kind === 'entry' ? [sceneNow.show.id] : []), ...(sceneNow?.refs || [])], [sceneNow]);
+  const imgs = useMemo(() => imageRows({ entries: data.entries || [], adventure: data.adventure, node: data.node, query, sceneRefs }),
+    [data, query, sceneRefs]);
+  const scenes = useMemo(() => sceneRows({ plan: data.plan, adventure: data.adventure, node: data.node, nowSceneId: sceneNow?.id || null }), [data, sceneNow]);
   const maps = useMemo(() => mapRows(data.entries || []), [data]);
   const done = () => onChange?.();
 
@@ -270,10 +275,10 @@ export function ShowPicker({ campaign, stage, lang = 'pt', onChange }) {
 }
 
 /** A folha "Mostrar na Tela" (o mesmo conteúdo de Jogar › Tela › Mostrar). */
-export default function ShowSheet({ campaign, stage, lang = 'pt', onClose, onChange }) {
+export default function ShowSheet({ campaign, stage, lang = 'pt', onClose, onChange, sceneNow = null }) {
   return (
     <MesaSheet title={L(lang, 'Mostrar na Tela', 'Show on screen')} icon="📺" size="tall" width="md" lang={lang} onClose={onClose} dock="play">
-      <ShowPicker campaign={campaign} stage={stage} lang={lang} onChange={onChange} />
+      <ShowPicker campaign={campaign} stage={stage} lang={lang} onChange={onChange} sceneNow={sceneNow} />
     </MesaSheet>
   );
 }

@@ -11,15 +11,25 @@ const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toL
 const hasImage = (e) => !!(e?.imageVer || e?.imageUrl);
 
 /**
- * @param {{entries?: object[], adventure?: object|null, node?: object|null, query?: string, limit?: number}} p
+ * `sceneRefs` (V7) = os cartões da cena agora do plano (a imagem dela primeiro, depois quem
+ * aparece): eles abrem o "Da cena agora".
+ * @param {{entries?: object[], adventure?: object|null, node?: object|null, query?: string, limit?: number, sceneRefs?: number[]}} p
  * @returns {{ now: Row[], all: Row[], more: number }}
  *   Row = {key, type:'entry'|'room', entry?, advId?, nodeId?, name, image?: string}
  */
-export function imageRows({ entries = [], adventure = null, node = null, query = '', limit = 60 } = {}) {
+export function imageRows({ entries = [], adventure = null, node = null, query = '', limit = 60, sceneRefs = [] } = {}) {
   const q = norm(query.trim());
   const match = (name) => !q || norm(name).includes(q);
   const now = [];
   const used = new Set();
+  // V7: a cena agora do plano (a imagem dela e quem aparece) vem antes da sala em jogo
+  const byId = new Map((entries || []).map(e => [Number(e.id), e]));
+  for (const id of sceneRefs || []) {
+    const e = byId.get(Number(id));
+    if (!e || used.has(`e-${e.id}`) || !match(e.name)) continue;
+    now.push({ key: `e-${e.id}`, type: 'entry', entry: e, name: e.name });
+    used.add(`e-${e.id}`);
+  }
   if (node?.image && adventure && match(node.name)) {
     now.push({ key: `room-${node.id}`, type: 'room', advId: adventure.id, nodeId: node.id, name: node.name, image: node.image });
     used.add(`room-${node.id}`);
@@ -51,20 +61,26 @@ export function planSceneName(scene) {
 }
 
 /**
- * Cenas: a sala em jogo ("cena agora") primeiro; depois as do plano da sessão.
+ * Cenas: a cena agora primeiro (a do plano, V7; sem ela, a sala em jogo); depois as do plano.
  * Row = {key, target, name, sub?, now?, done?}
  */
-export function sceneRows({ plan = null, adventure = null, node = null } = {}) {
+export function sceneRows({ plan = null, adventure = null, node = null, nowSceneId = null } = {}) {
   const rows = [];
   let nowKey = null;
-  if (adventure && node) {
+  // V7: a cena agora do plano (▶ Começar esta cena) é a 1ª; a sala dela não se repete
+  const nowScene = nowSceneId ? (plan?.scenes || []).find(s => s.id === nowSceneId && planSceneName(s)) : null;
+  if (nowScene) {
+    rows.push({ key: `plan-${nowScene.id}`, now: true, name: planSceneName(nowScene), done: !!nowScene.done,
+      target: { kind: 'scene', sceneId: nowScene.id } });
+    if (nowScene.nodeRef) nowKey = `${nowScene.nodeRef.adventureId}:${nowScene.nodeRef.nodeId}`;
+  } else if (adventure && node) {
     nowKey = `${adventure.id}:${node.id}`;
     rows.push({ key: `room-${node.id}`, now: true, name: node.name, sub: adventure.name,
       target: { kind: 'scene', advId: adventure.id, nodeId: node.id } });
   }
   for (const s of plan?.scenes || []) {
     const name = planSceneName(s);
-    if (!name) continue;
+    if (!name || s === nowScene) continue;
     const ref = s.nodeRef;
     if (ref && nowKey === `${ref.adventureId}:${ref.nodeId}`) continue;   // a mesma sala: já é a 1ª
     rows.push({ key: `plan-${s.id}`, name, done: !!s.done, target: { kind: 'scene', sceneId: s.id } });
