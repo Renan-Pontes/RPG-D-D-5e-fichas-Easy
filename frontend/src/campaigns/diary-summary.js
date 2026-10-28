@@ -286,8 +286,9 @@ export function sessionChecks(checks, startedAt, endedAt = null) {
 }
 
 /**
- * "Percepção CD 15: 3 de 4 passaram" (a CD secreta fica de fora: o texto vai à Tela; sem CD,
- * só quantos responderam). Ninguém respondeu → ''.
+ * "Percepção CD 15: 3 de 4 passaram". Sem CD ou com a CD secreta, só quantos responderam: o
+ * texto vai à Tela e à Crônica dos jogadores, e quantos passaram entregaria a CD (a Tela
+ * também não mostra ✓/✗ com CD secreta, §4.5). Ninguém respondeu → ''.
  */
 export function checkResultLine(check, lang = 'pt') {
   const targets = check?.targets || [];
@@ -295,21 +296,27 @@ export function checkResultLine(check, lang = 'pt') {
   if (!answered) return '';
   const passed = targets.filter(t => t.outcome === 'pass').length;
   const label = String(check.label || '').trim() || T(lang, 'Teste', 'Check');
-  const dc = Number.isInteger(check.dc) && !check.dcHidden ? ` ${T(lang, 'CD', 'DC')} ${check.dc}` : '';
-  if (!Number.isInteger(check.dc)) return `${label}: ${T(lang, `${answered} ${answered === 1 ? 'respondeu' : 'responderam'}`, `${answered} answered`)}`;
-  return `${label}${dc}: ${T(lang, `${passed} de ${targets.length} ${passed === 1 ? 'passou' : 'passaram'}`, `${passed} of ${targets.length} passed`)}`;
+  if (!Number.isInteger(check.dc) || check.dcHidden) return `${label}: ${T(lang, `${answered} ${answered === 1 ? 'respondeu' : 'responderam'}`, `${answered} answered`)}`;
+  return `${label} ${T(lang, 'CD', 'DC')} ${check.dc}: ${T(lang, `${passed} de ${targets.length} ${passed === 1 ? 'passou' : 'passaram'}`, `${passed} of ${targets.length} passed`)}`;
 }
 
-/** O que foi mostrado na Tela (diarySessions[n].shown, sem cenas, resumos e textos soltos). */
-export function shownNames(shown) {
+/**
+ * O que foi mostrado na Tela (diarySessions[n].shown, sem cenas, resumos e textos soltos).
+ * "Só a imagem" de um cartão oculto sem legenda (`h`, sem nome; 'Imagem' nos gravados antes)
+ * entra como "uma imagem" ("2 imagens"), no fim e na língua do rascunho.
+ */
+export function shownNames(shown, lang = 'pt') {
   const out = [];
+  let unnamed = 0;
   for (const x of shown || []) {
     if (!x || !['card', 'image'].includes(x.k)) continue;
     // o servidor guarda até 60 caracteres: o nome cortado ganha "…"
     const raw = String(x.t || '');
     const name = raw.length >= 60 ? `${raw.slice(0, 59).trimEnd()}…` : raw.trim();
-    if (name && !out.includes(name)) out.push(name);
+    if (x.h && (!name || name === 'Imagem')) unnamed += 1;
+    else if (name && !out.includes(name)) out.push(name);
   }
+  if (unnamed) out.push(unnamed === 1 ? T(lang, 'uma imagem', 'an image') : T(lang, `${unnamed} imagens`, `${unnamed} images`));
   return out;
 }
 
@@ -427,7 +434,7 @@ export function buildRecap(entries, opts = {}) {
   if (played.length) paragraphs.push(played.slice(0, 12).map(n => `✓ ${n}`).join('\n'));
   if (sentences.length) paragraphs.push(sentences.join(' '));
   const tests = (opts.checks || []).map(c => checkResultLine(c, lang)).filter(Boolean);
-  const onScreen = shownNames(opts.shown);
+  const onScreen = shownNames(opts.shown, lang);
   const facts = [];
   if (tests.length) facts.push(`${T(lang, 'Testes', 'Checks')}: ${tests.slice(0, 6).join('; ')}.`);
   if (onScreen.length) {

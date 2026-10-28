@@ -172,11 +172,20 @@ test('V12: testes da sessão com o resultado; CD secreta não aparece', () => {
   assert.deepEqual(sessionChecks([perception, { ...perception, id: 2, createdAt: '2026-10-20T19:00:00Z' }], '2026-10-24T18:00:00Z', '2026-10-24T21:00:00Z').map(c => c.id), [1]);
   assert.equal(checkResultLine(perception, 'pt'), 'Percepção CD 15: 3 de 4 passaram');
   assert.equal(checkResultLine(perception, 'en'), 'Percepção DC 15: 3 of 4 passed');
-  assert.equal(checkResultLine({ ...perception, dcHidden: true }, 'pt'), 'Percepção: 3 de 4 passaram');
+  // CD secreta: só quantos responderam (quantos passaram entregaria a CD na Tela e na Crônica)
+  assert.equal(checkResultLine({ ...perception, dcHidden: true }, 'pt'), 'Percepção: 3 responderam');
+  assert.equal(checkResultLine({ ...perception, dcHidden: true }, 'en'), 'Percepção: 3 answered');
+  const secret = buildRecap([], { lang: 'pt', checks: [{ ...perception, dcHidden: true, dc: 25 }] }).text;
+  assert.ok(!/passou|passaram|25/.test(secret), secret);
   assert.equal(checkResultLine({ ...perception, dc: null }, 'pt'), 'Percepção: 3 responderam');
   assert.equal(checkResultLine({ ...perception, targets: [{ response: null }] }, 'pt'), '');
   assert.deepEqual(shownNames([{ t: 'B'.repeat(60), k: 'card' }]), [`${'B'.repeat(59)}…`]);
-  assert.deepEqual(shownNames([{ t: 'Borin', k: 'card' }, { t: 'Imagem', k: 'image', h: true }, { t: 'Ponte', k: 'scene' }, { t: 'Borin', k: 'card' }, { t: 'x', k: 'recap' }]), ['Borin', 'Imagem']);
+  assert.deepEqual(shownNames([{ t: 'Borin', k: 'card' }, { t: 'Imagem', k: 'image', h: true }, { t: 'Ponte', k: 'scene' }, { t: 'Borin', k: 'card' }, { t: 'x', k: 'recap' }]), ['Borin', 'uma imagem']);
+  // "Só a imagem" de oculto sem legenda: "uma imagem" na língua do rascunho; com legenda, a legenda
+  assert.deepEqual(shownNames([{ t: '', k: 'image', h: true }], 'en'), ['an image']);
+  assert.deepEqual(shownNames([{ t: '', k: 'image', h: true }, { t: 'Imagem', k: 'image', h: true }, { t: 'Uma porta', k: 'image', h: true }], 'pt'), ['Uma porta', '2 imagens']);
+  const en = buildRecap([], { lang: 'en', shown: [{ t: '', k: 'image', h: true }] }).text;
+  assert.ok(en.includes('On screen: an image.') && !en.includes('Imagem'), en);
 });
 
 test('V12: o rascunho cita a cena jogada, o teste com resultado, a imagem mostrada e o combate', () => {
