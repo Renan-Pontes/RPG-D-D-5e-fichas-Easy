@@ -4,14 +4,13 @@
 // (ShowOnTable: oculto pergunta "Só a imagem / Revelar e mostrar").
 // Regra: nada é revelado nem mostrado sem o toque do mestre.
 // No celular, cada cartão é uma linha (EntryRow): o toque abre o cartão no
-// Mundo e os botões ficam à direita, com 44 px; "Quem vê…" abre uma folha.
+// Mundo e os botões ficam à direita, com 44 px; "Quem vê…" abre a folha "Quem vê" única.
 import { useCallback, useMemo, useState } from 'react';
 import { usePolling } from '../api/polling.js';
 import { EntryImage, VisibilitySeal } from '../world/EntryCard.jsx';
-import RevealControl from '../world/RevealControl.jsx';
+import { RevealSheet } from '../world/RevealControl.jsx';
 import { getEntry, getSessionPlan, listWorld, worldErrorText } from '../world/world-api.js';
 import { KIND_META, kindLabel, subtitleOf } from '../world/world-model.js';
-import MesaSheet from '../shell/MesaSheet.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
 import ShowOnTable from '../stage/ShowOnTable.jsx';
 import { getAdventure, listAdventures } from './play-api.js';
@@ -177,23 +176,9 @@ export default function InScenePanel({ campaign, lang = 'pt', goTo }) {
       )}
 
       {revealing && (
-        <MesaSheet title={revealing.name} icon="👁" dock="play"
-          size="auto" width="md" lang={lang} onClose={() => setRevealing(null)} className="ins-reveal"
-          footer={(
-            <div className="mesa-actions">
-              <ShowOnTable campaign={campaign} lang={lang} className="mesa-btn" target={{ kind: 'card', entry: revealing }}
-                onRevealed={(next) => { setRevealing(next); patchLocal(next); }}>
-                📺 {L(lang, 'Mostrar na Tela', 'Show on screen')}
-              </ShowOnTable>
-              <button type="button" className="mesa-btn is-primary" onClick={() => setRevealing(null)}>{L(lang, 'Pronto', 'Done')}</button>
-            </div>
-          )}>
-          {revealing.visibility === 'hidden' && (
-            <p className="mesa-hint ins-reveal-hint">{L(lang, 'Oculto: o 📺 pergunta se vai só a imagem (sem o nome) ou se você revela antes.', 'Hidden: 📺 asks whether only the image goes (without the name) or whether you reveal it first.')}</p>
-          )}
-          <RevealControl entry={revealing} lang={lang} showSecrets
-            onChange={(next) => { setRevealing(next); patchLocal(next); }} />
-        </MesaSheet>
+        // a folha "Quem vê" única (V14), a mesma do Mundo
+        <RevealSheet entry={revealing} campaign={campaign} lang={lang} dock="play" onClose={() => setRevealing(null)}
+          onChange={(next) => { setRevealing(next); patchLocal(next); }} />
       )}
     </section>
   );

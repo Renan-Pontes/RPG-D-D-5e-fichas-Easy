@@ -1,5 +1,6 @@
-// Área "Mundo" do mestre: Atlas · Mapa · Linha do tempo, com o editor de
-// cartão em painel lateral, 🎲 Improvisar e revelação rápida.
+// Área "Mundo" do mestre: Cartões · Mapas · Tempo (ids atlas · map · timeline), com o
+// editor de cartão em painel lateral, 🎲 Improvisar e revelação rápida na folha "Quem vê"
+// única (RevealSheet, a mesma de Jogar). Campanha encerrada: o editor abre só para ler.
 //
 // Montada pela casca (WP3) com lazy(). Lê área/sub/params de useArea() e
 // aceita props para sobrescrever:
@@ -17,19 +18,17 @@ import { applyPatches, t, toLight } from './world-model.js';
 import Atlas from './Atlas.jsx';
 import EntryEditor from './EntryEditor.jsx';
 import ImproviseModal from './ImproviseModal.jsx';
-import RevealControl from './RevealControl.jsx';
+import { RevealSheet } from './RevealControl.jsx';
 import Timeline from './Timeline.jsx';
 import WorldMap from './WorldMap.jsx';
-import { EntryImage } from './EntryCard.jsx';
-import ShowOnTable from '../stage/ShowOnTable.jsx';
 import { immersionOn } from './living/living-logic.js';
 const LivingWorld = lazy(() => import('./living/LivingWorld.jsx'));
 import './world-styles.css';
 
 const SUBS = [
-  { id: 'atlas', icon: '📚', pt: 'Atlas', en: 'Atlas' },
-  { id: 'map', icon: '🗺', pt: 'Mapa', en: 'Map' },
-  { id: 'timeline', icon: '⌛', pt: 'Linha do tempo', en: 'Timeline' },
+  { id: 'atlas', icon: '📚', pt: 'Cartões', en: 'Cards' },
+  { id: 'map', icon: '🗺', pt: 'Mapas', en: 'Maps' },
+  { id: 'timeline', icon: '⌛', pt: 'Tempo', en: 'Timeline' },
 ];
 
 export default function WorldArea(props) {
@@ -214,7 +213,7 @@ export default function WorldArea(props) {
         <>
           <div className="wl-editor-scrim" onClick={() => setOpenId(null)} aria-hidden="true" />
           <EntryEditor key={openId} entryId={openId} campaign={campaign} entries={list} adventures={adventures} plan={plan} lang={lang}
-            onClose={() => setOpenId(null)} onSaved={upsert}
+            readOnly={closed} onClose={() => setOpenId(null)} onSaved={upsert}
             onDeleted={(id) => { removeLocal(id); setOpenId(null); setMeta(m => ({ ...m, count: Math.max(0, m.count - 1) })); setToast(t(lang, 'Cartão apagado.', 'Card deleted.')); }}
             onOpenEntry={openEntry} onOpenMap={openMap} onShow={!closed} />
         </>
@@ -226,21 +225,8 @@ export default function WorldArea(props) {
       )}
 
       {revealFor && (
-        <div className="modal-backdrop" onClick={() => setRevealFor(null)}>
-          <div className="modal wl-reveal-modal" role="dialog" aria-modal="true" aria-label={revealFor.name} onClick={e => e.stopPropagation()}>
-            <button type="button" className="modal-close" onClick={() => setRevealFor(null)} aria-label={t(lang, 'Fechar', 'Close')}>×</button>
-            <div className="wl-reveal-modal-head">
-              <span className="wl-reveal-modal-thumb"><EntryImage entry={revealFor} className="wl-thumb-img" /></span>
-              <h2>{revealFor.name}</h2>
-            </div>
-            <RevealControl entry={revealFor} lang={lang} showSecrets onChange={(next) => { setRevealFor(next); upsert(next); }} />
-            <div className="modal-actions">
-              <ShowOnTable campaign={campaign} target={{ kind: 'card', entry: revealFor }} lang={lang} className="btn btn-ghost btn-sm"
-                onRevealed={(next) => { setRevealFor(next); upsert(next); }}>📺 {t(lang, 'Mostrar na Tela', 'Show on screen')}</ShowOnTable>
-              <button type="button" className="btn btn-primary btn-sm" onClick={() => setRevealFor(null)}>{t(lang, 'Pronto', 'Done')}</button>
-            </div>
-          </div>
-        </div>
+        <RevealSheet entry={revealFor} campaign={closed ? null : campaign} lang={lang} onClose={() => setRevealFor(null)}
+          onChange={(next) => { setRevealFor(next); upsert(next); }} />
       )}
 
       {toast && <Toast msg={toast} onDone={clearToast} />}

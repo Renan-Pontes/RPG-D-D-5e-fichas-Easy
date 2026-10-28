@@ -45,7 +45,7 @@ import { nextSessionNumber, screenLink } from '../shell/shell-logic.js';
 import { useArea } from '../shell/useArea.js';
 import { DockedScreen } from '../stage/ScreenWindow.jsx';
 import { sendToStage, showOnStage } from '../stage/stage-api.js';
-import RevealControl from '../world/RevealControl.jsx';
+import { RevealSheet } from '../world/RevealControl.jsx';
 import ShowOnTable from '../stage/ShowOnTable.jsx';
 import { getEntry, getSessionPlan, listWorld, revealEntry, saveSessionPlan, worldErrorText } from '../world/world-api.js';
 import MomentPanel from './MomentPanel.jsx';
@@ -654,21 +654,9 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
         </Suspense>
       )}
       {sheet?.reveal && (
-        <MesaSheet title={sheet.reveal.name} icon="👁" dock="play" size="auto" width="md" lang={lang} onClose={() => setSheet(null)} className="ins-reveal"
-          footer={(
-            <div className="mesa-actions">
-              <ShowOnTable campaign={campaign} lang={lang} className="mesa-btn" target={{ kind: 'card', entry: sheet.reveal }}
-                onRevealed={(next) => { setSheet({ reveal: next }); patchWorld(next); }}>
-                📺 {L(lang, 'Mostrar na Tela', 'Show on screen')}
-              </ShowOnTable>
-              <button type="button" className="mesa-btn is-primary" onClick={() => setSheet(null)}>{L(lang, 'Pronto', 'Done')}</button>
-            </div>
-          )}>
-          {sheet.reveal.visibility === 'hidden' && (
-            <p className="mesa-hint ins-reveal-hint">{L(lang, 'Oculto: o 📺 pergunta se vai só a imagem (sem o nome) ou se você revela antes.', 'Hidden: 📺 asks whether only the image goes (without the name) or whether you reveal it first.')}</p>
-          )}
-          <RevealControl entry={sheet.reveal} lang={lang} showSecrets onChange={(next) => { setSheet({ reveal: next }); patchWorld(next); }} />
-        </MesaSheet>
+        // a folha "Quem vê" única (V14), a mesma do Mundo
+        <RevealSheet entry={sheet.reveal} campaign={campaign} lang={lang} dock="play" onClose={() => setSheet(null)}
+          onChange={(next) => { setSheet({ reveal: next }); patchWorld(next); }} />
       )}
       {sheet?.edit && (
         <Suspense fallback={null}>
