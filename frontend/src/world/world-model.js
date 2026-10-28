@@ -218,8 +218,11 @@ export function reorderPatches(list, from, to, field = 'sort') {
  * cartões À VISTA (`shown`, já filtrados), trocando de lugar com o vizinho visível,
  * sobre a ordem inteira (`sorted`), como o arrastar faz. → patches de `sort`; vazio
  * no topo, no fim ou com um id que não está à vista.
- * Vizinhos lado a lado sem espaço entre eles (sort 3 e 4): troca os dois valores
- * (2 PATCH) em vez de renumerar a lista inteira (1 PATCH por cartão).
+ * Sem espaço para encaixar (sort 3 e 4, ou com filtro 4 e 13 com outros no meio):
+ * troca os dois valores (2 PATCH) em vez de renumerar a lista inteira (1 PATCH por
+ * cartão — até 500 escritas por toque). A troca só vale se a ordem À VISTA sair a
+ * esperada (com sort repetido por perto, o desempate por nome poderia pular uma
+ * casa a mais); senão renumera, como o arrastar.
  */
 export function moveStepPatches(sorted, shown, id, dir) {
   const list = shown || [];
@@ -230,13 +233,55 @@ export function moveStepPatches(sorted, shown, id, dir) {
   const to = (sorted || []).findIndex(e => e.id === list[j].id);
   if (from < 0 || to < 0) return [];
   const patches = reorderPatches(sorted, from, to, 'sort');
+  if (patches.length <= 2) return patches;
   const a = sorted[from];
   const b = sorted[to];
   const num = (v) => typeof v === 'number' && Number.isFinite(v);
-  if (patches.length > 2 && Math.abs(from - to) === 1 && num(a.sort) && num(b.sort) && a.sort !== b.sort) {
-    return [{ id: a.id, sort: b.sort }, { id: b.id, sort: a.sort }];
+  if (!num(a.sort) || !num(b.sort) || a.sort === b.sort) return patches;
+  const swap = [{ id: a.id, sort: b.sort }, { id: b.id, sort: a.sort }];
+  const want = list.map(e => e.id);
+  [want[i], want[j]] = [want[j], want[i]];
+  const seen = new Set(want);
+  const got = sortEntries(applyPatches(sorted, swap)).filter(e => seen.has(e.id)).map(e => e.id);
+  return got.join(',') === want.join(',') ? swap : patches;
+}
+
+/**
+ * Fila do Ordenar (↑ ↓ e arrastar): `pending` = Map id → {sort, n}, o `sort` mais
+ * novo que a tela mostra e quantos PATCH daquele cartão ainda esperam resposta.
+ * pendingAdd ao mandar; pendingDone a cada resposta (ou erro) daquele id.
+ */
+export function pendingAdd(pending, patches) {
+  for (const p of patches || []) {
+    const cur = pending.get(p.id);
+    pending.set(p.id, { sort: p.sort, n: (cur?.n || 0) + 1 });
   }
-  return patches;
+  return pending;
+}
+export function pendingDone(pending, id) {
+  const cur = pending.get(id);
+  if (!cur) return pending;
+  if (cur.n <= 1) pending.delete(id); else pending.set(id, { ...cur, n: cur.n - 1 });
+  return pending;
+}
+
+/**
+ * Junta a resposta de um PATCH (do Ordenar, do editor, do 👁) à lista: a versão e os
+ * outros campos do servidor; o `sort`, só quando a fila daquele cartão esvaziou.
+ * Enquanto houver PATCH pendente fica o `sort` otimista da tela — senão a resposta
+ * do 1º toque desfaz o 2º, o cartão empata com o vizinho e a linha pula debaixo do
+ * dedo. `resp` é a entrada leve (toLight). → lista nova (imutável)
+ */
+export function mergeReorderResponse(list, resp, pending) {
+  if (!resp?.id) return list;
+  const l = list || [];
+  const wait = pending?.get?.(resp.id);
+  const merged = wait ? { ...resp, sort: wait.sort } : resp;
+  const i = l.findIndex(e => e.id === resp.id);
+  if (i < 0) return [...l, merged];
+  const next = l.slice();
+  next[i] = { ...l[i], ...merged };
+  return next;
 }
 
 /** "🗝 1/2 revelados" (mestre) ou "🗝 2 segredos" (jogador): o texto escrito, sem depender do title. */

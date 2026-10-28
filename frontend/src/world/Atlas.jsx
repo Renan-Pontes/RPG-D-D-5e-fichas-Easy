@@ -79,6 +79,7 @@ export default function Atlas({
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [ordering, setOrdering] = useState(false);
+  const [saving, setSaving] = useState(0); // reordenar(es) ainda na fila do servidor
   const [dragId, setDragId] = useState(null);
   const [overId, setOverId] = useState(null);
   const gridRef = useRef(null);
@@ -121,7 +122,17 @@ export default function Atlas({
     const to = sorted.findIndex(e => e.id === targetId);
     setDragId(null); setOverId(null);
     const patches = reorderPatches(sorted, from, to, 'sort');
-    if (patches.length) onReorder?.(patches);
+    if (patches.length) send(patches);
+  };
+
+  // O ↑ ↓ não se apaga enquanto envia: cada toque é um passo que a tela já mostra (o
+  // WorldArea grava em fila, sem a resposta de um desfazer o outro); a linha de
+  // status diz "Salvando a ordem…" até a fila esvaziar.
+  const send = (patches) => {
+    const p = onReorder?.(patches);
+    if (!p?.finally) return;
+    setSaving(n => n + 1);
+    p.finally(() => setSaving(n => Math.max(0, n - 1)));
   };
 
   const step = (id, dir, ev) => {
@@ -129,7 +140,7 @@ export default function Atlas({
     if (!patches.length) return;
     const row = ev?.currentTarget?.closest?.('[data-entry]');
     moved.current = { id, dir: dir < 0 ? 'up' : 'down', top: phone && row ? row.getBoundingClientRect().top : null };
-    onReorder?.(patches);
+    send(patches);
   };
   const moveFor = (e, i) => (ordering ? {
     canUp: i > 0, canDown: i < shown.length - 1, grid: !phone,
@@ -148,6 +159,9 @@ export default function Atlas({
   ) : null;
   // "arraste" só onde o arrastar funciona (mouse); no toque, o ↕ Ordenar
   const dragHint = !!onReorder && !phone && !isTouchUi();
+  const orderHint = phone
+    ? t(lang, 'Ordenar: toque em ↑ ↓ para mudar a ordem.', 'Reorder: tap ↑ ↓ to change the order.')
+    : t(lang, 'Ordenar: use ◀ ▶ para mudar a ordem (ou arraste).', 'Reorder: use ◀ ▶ to change the order (or drag).');
 
   return (
     <div className={`wl-atlas${phone ? ' is-phone' : ''}${ordering ? ' is-ordering' : ''}`}>
@@ -210,10 +224,11 @@ export default function Atlas({
       {!empty && shown.length > 0 && (
         <div className={`wl-list-head${ordering ? ' is-ordering' : ''}`}>
           {ordering ? (
-            <p className="wl-list-count" role="status">
-              {phone
-                ? t(lang, 'Ordenar: toque em ↑ ↓ para mudar a ordem.', 'Reorder: tap ↑ ↓ to change the order.')
-                : t(lang, 'Ordenar: use ◀ ▶ para mudar a ordem (ou arraste).', 'Reorder: use ◀ ▶ to change the order (or drag).')}
+            // a instrução fica (invisível) por baixo do "Salvando…": a cabeça não muda de
+            // altura e a lista não pula quando a fila esvazia
+            <p className="wl-list-count wl-order-status">
+              <span className="wl-order-sizer" aria-hidden="true">{orderHint}</span>
+              <span role="status">{saving > 0 ? `⟳ ${t(lang, 'Salvando a ordem…', 'Saving the order…')}` : orderHint}</span>
             </p>
           ) : (
             <p className="wl-list-count">

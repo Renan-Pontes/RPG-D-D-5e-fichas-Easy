@@ -550,6 +550,10 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-list-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; }
 .wl-list-count { margin: 0; color: var(--ink-muted); font-size: 0.92rem; min-width: 0; }
 .wl-list-head.is-ordering .wl-list-count { color: var(--gold-bright); }
+/* instrução e "Salvando…" na mesma célula: a altura é sempre a da instrução */
+.wl-order-status { display: grid; }
+.wl-order-status > span { grid-area: 1 / 1; }
+.wl-order-sizer { visibility: hidden; }
 .wl-order-btn {
   flex: none; min-height: 44px; padding: 6px 14px; border-radius: 999px; cursor: pointer;
   border: 1px solid var(--gold-deep); background: rgba(214, 176, 100, 0.06); color: var(--gold-bright);
