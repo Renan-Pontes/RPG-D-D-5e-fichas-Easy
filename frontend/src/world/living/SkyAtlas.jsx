@@ -7,7 +7,7 @@
 // com "Abrir →" (44 px); tocar de novo na mesma estrela abre. Vale o toque num
 // círculo de 46 px em volta de cada estrela (a mais perto ganha; nearestStar).
 // Mouse e teclado abrem direto (o nome já aparece no hover/foco).
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { KIND_META, KINDS, kindLabel, visLabel } from '../world-model.js';
 import { SKY_H, SKY_W, hashStr, nearestStar, skyLayout } from './living-logic.js';
 
@@ -29,9 +29,8 @@ function useSmallScreen() {
 
 function SkyAtlas({ entries, lang = 'pt', onOpen, selectedId }) {
   const sky = useMemo(() => skyLayout(entries), [entries]);
-  // No celular o céu fica ~1/3 do tamanho: estrelas e nomes crescem no desenho.
+  // No celular o céu fica ~1/3 do tamanho: as estrelas crescem no desenho.
   const small = useSmallScreen();
-  const fs = small ? 2.05 : 1;
   const rs = small ? 1.7 : 1;
   const [hover, setHover] = useState(null);
   const [peek, setPeek] = useState(null);   // estrela espiada pelo toque (id)
@@ -39,15 +38,28 @@ function SkyAtlas({ entries, lang = 'pt', onOpen, selectedId }) {
   const lastPointer = useRef('');
   // 23 px da tela em unidades do desenho: o círculo de toque de cada estrela tem 46 px
   const [hitR, setHitR] = useState(23);
-  useEffect(() => {
+  // Pixels da tela por unidade do desenho (getScreenCTM().a: ~0,35 a 390 px, ~0,7 a
+  // 1280). Os nomes das estrelas e o "N" da rosa usam 12,5 px DA TELA em qualquer
+  // largura (antes 12 unidades fixas viravam 8,5 px no PC e 8,8 px no celular).
+  const [ppu, setPpu] = useState(small ? 0.35 : 0.7);
+  const fontU = Math.round((12.5 / ppu) * 10) / 10;
+  const fs = fontU / 12; // escala dos rótulos (largura estimada e recuo acima da estrela)
+  useLayoutEffect(() => {
     const svg = svgRef.current;
     if (!svg) return undefined;
-    const upd = () => { try { const a = svg.getScreenCTM()?.a; if (a > 0) setHitR(23 / a); } catch { /* ok */ } };
+    const upd = () => {
+      try {
+        const a = svg.getScreenCTM()?.a;
+        if (a > 0) { setHitR(23 / a); setPpu(p => (Math.abs(p - a) > 0.004 ? a : p)); }
+      } catch { /* ok */ }
+    };
     upd();
     let ro;
     try { ro = new ResizeObserver(upd); ro.observe(svg); } catch { window.addEventListener('resize', upd); }
     return () => { if (ro) ro.disconnect(); else window.removeEventListener('resize', upd); };
   }, []);
+  // a rosa dos ventos desce o bastante para o "N" (maior no celular) caber no céu
+  const roseY = Math.max(46, Math.ceil(31 + 0.8 * fontU));
   // Estrelas que nasceram desde a última vez que o céu foi desenhado.
   const seen = useRef(null);
   const born = useMemo(() => {
@@ -63,13 +75,14 @@ function SkyAtlas({ entries, lang = 'pt', onOpen, selectedId }) {
     const maxLabels = small ? 4 : 8;
     const score = (s) => s.degree * 2 + (s.vis === 'revealed' ? 1.5 : s.vis === 'partial' ? 0.7 : 0);
     const cands = sky.stars.filter(s => s.degree >= 1 || s.vis === 'revealed').sort((a, b) => score(b) - score(a) || a.id - b.id);
-    const boxes = [{ x1: SKY_W - 90, x2: SKY_W, y1: 0, y2: 90 }]; // rosa dos ventos
+    const boxes = [{ x1: SKY_W - 90, x2: SKY_W, y1: 0, y2: roseY + 30 }]; // rosa dos ventos
     const out = new Map(); // id → deslocamento x do rótulo (para não sair da moldura)
     for (const s of cands) {
       if (out.size >= maxLabels) break;
       const w = (Math.min(26, s.name.length) * 7.6 + 8) * fs;
       const cx = Math.max(w / 2 + 16, Math.min(SKY_W - w / 2 - 16, s.x));
       const box = { x1: cx - w / 2, x2: cx + w / 2, y1: s.y - s.r * rs - 18 * fs, y2: s.y - s.r * rs - 4 };
+      if (box.y1 < 2) continue; // o nome sairia por cima do céu: fica para o toque
       const hit = boxes.some(b => box.x1 < b.x2 && box.x2 > b.x1 && box.y1 < b.y2 && box.y2 > b.y1)
         || sky.stars.some(o => o.id !== s.id && o.x > box.x1 && o.x < box.x2 && o.y > box.y1 && o.y < box.y2);
       if (hit) continue;
@@ -77,7 +90,7 @@ function SkyAtlas({ entries, lang = 'pt', onOpen, selectedId }) {
       out.set(s.id, cx - s.x);
     }
     return out;
-  }, [sky, small]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sky, small, fontU]); // eslint-disable-line react-hooks/exhaustive-deps
   const kindsPresent = useMemo(() => KINDS.filter(k => sky.stars.some(s => s.kind === k)), [sky]);
   // a estrela espiada some se o cartão sumir do céu
   useEffect(() => { if (peek != null && !sky.stars.some(s => s.id === peek)) setPeek(null); }, [sky, peek]);
@@ -142,10 +155,10 @@ function SkyAtlas({ entries, lang = 'pt', onOpen, selectedId }) {
           <line x1={SKY_W / 2} y1="12" x2={SKY_W / 2} y2={SKY_H - 12} />
           <line x1="20" y1={SKY_H / 2} x2={SKY_W - 20} y2={SKY_H / 2} />
         </g>
-        <g className="lv-sky-rose" aria-hidden="true" transform={`translate(${SKY_W - 48} 46)`}>
+        <g className="lv-sky-rose" aria-hidden="true" transform={`translate(${SKY_W - 48} ${roseY})`}>
           <path d="M0 -26 L5 -5 L26 0 L5 5 L0 26 L-5 5 L-26 0 L-5 -5 Z" />
           <circle r="3" />
-          <text y="-31" textAnchor="middle">N</text>
+          <text y="-31" textAnchor="middle" style={{ fontSize: `${fontU}px` }}>N</text>
         </g>
 
         <g className="lv-sky-lines" aria-hidden="true">
@@ -176,7 +189,8 @@ function SkyAtlas({ entries, lang = 'pt', onOpen, selectedId }) {
                     ? <><circle className="lv-star-ring" r={r + 1.2} /><circle className="lv-star-core" r={r * 0.55} /></>
                     : <><circle className="lv-star-core" r={r} /><path className="lv-star-spark" d={`M0 ${-r * 2.4} L0 ${r * 2.4} M${-r * 2.4} 0 L${r * 2.4} 0`} /></>}
                 {(named.has(s.id) || hover === s.id || peek === s.id || selectedId === s.id) && (
-                  <text className="lv-star-name" x={labelDx(s, named, fs)} y={-r - 7 * fs} textAnchor="middle">{s.name.length > 26 ? `${s.name.slice(0, 25)}…` : s.name}</text>
+                  <text className="lv-star-name" x={labelDx(s, named, fs)} y={-r - 7 * fs} textAnchor="middle"
+                    style={{ fontSize: `${fontU}px`, strokeWidth: `${Math.round(fontU * 2.5) / 10}px` }}>{s.name.length > 26 ? `${s.name.slice(0, 25)}…` : s.name}</text>
                 )}
               </g>
             );

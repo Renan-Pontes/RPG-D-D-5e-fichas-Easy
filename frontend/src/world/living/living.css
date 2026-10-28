@@ -66,6 +66,7 @@
 .lv-star-glow { opacity: 0.55; mix-blend-mode: screen; }
 .lv-vis-revealed .lv-star-glow { animation: lv-twinkle 4.8s ease-in-out infinite; animation-delay: var(--lv-d, 0s); }
 .lv-star-spark { stroke: rgba(255, 244, 214, 0.55); stroke-width: 0.7; stroke-linecap: round; }
+/* font-size e stroke-width de reserva: o SkyAtlas põe o tamanho que dá 12,5 px na tela */
 .lv-star-name {
   fill: #ead9b0; font-family: var(--display); font-size: 12px; letter-spacing: 0.04em; pointer-events: none;
   paint-order: stroke; stroke: rgba(8, 6, 10, 0.9); stroke-width: 3px;
@@ -166,8 +167,6 @@
 @media (max-width: 480px) {
   .lv-living { padding: 10px 8px; }
   .lv-sky-svg { max-height: 220px; }
-  .lv-sky.is-small .lv-star-name { font-size: 25px; stroke-width: 6px; }
-  .lv-sky.is-small .lv-sky-rose text { font-size: 20px; }
   .lv-sky.is-small .lv-sky-lines line { stroke-width: 2; }
   .lv-sky.is-small .lv-sky-lines line.is-near { stroke-width: 3; }
   .lv-fold-hint { display: none; }
