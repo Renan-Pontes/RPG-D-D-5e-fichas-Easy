@@ -135,6 +135,8 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
   const sceneNow = useMemo(() => (plan ? currentScene(plan, { sceneId, scene: pulse ? pulse.scene : st.scene }) : null), [plan, sceneId, pulse, st.scene]);
   const rehearsal = !live && rehearse ? (plan?.scenes || []).find(s => s.id === rehearse) || null : null;
   const shown = live ? sceneNow : rehearsal;
+  // o ensaio é só da sessão parada: começou a sessão, ele sai (não volta ao encerrar)
+  useEffect(() => { if (live && rehearse) setRehearse(null); }, [live, rehearse]); // eslint-disable-line react-hooks/exhaustive-deps
   const ref = shown?.nodeRef || null;
   const [node] = useRevData(pulse?.advRev ?? null,
     () => loadRoom(campaign.id, ref.adventureId, ref.nodeId).then(r => r.node || null),
@@ -219,7 +221,7 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
     if (!live) { setRehearse(scene.id); setSheet(null); return; }   // ensaio: só no aparelho
     setBusy('start');
     try {
-      await beginScene(campaign, scene, { lang, onDone: () => { refresh(); reloadPlan(); }, ...opts });
+      await beginScene(campaign, scene, { lang, plan, prevId: sceneNow?.id || null, onDone: () => { refresh(); reloadPlan(); }, ...opts });
       setSheet(null);
     } finally { setBusy(''); }
   };
@@ -288,7 +290,7 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
     setBusy('done');
     try {
       if (happened) await markMoments(scene);
-      if (next) await beginScene(campaign, next, { lang, onDone: () => { refresh(); reloadPlan(); } });
+      if (next) await beginScene(campaign, next, { lang, plan, prevId: scene.id, onDone: () => { refresh(); reloadPlan(); } });
       else {
         const p = await setSceneDone(campaign, plan, scene.id, true);
         setPlanR(p);

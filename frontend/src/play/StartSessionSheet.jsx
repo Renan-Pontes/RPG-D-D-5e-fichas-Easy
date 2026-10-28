@@ -7,9 +7,10 @@
 //   [▶ Começar]  48 px
 // Um toque em ▶ Começar: POST /diary/sessions (cria a sessão e liga "ao vivo"; a sessão nova
 // nasce com o `shown` zerado). Com o "Anteriormente em…" marcado, a frente da Tela vira o
-// resumo e a cena escolhida fica como a próxima (o J4 começa por ela); desmarcado (ou sem
-// resumo), a cena já COMEÇA (▶ Começar esta cena). A cena da sessão anterior não sobra.
-// Nada mais vai à Tela sem toque. A lógica das opções mora em now-model.js (startChoices).
+// resumo e a cena escolhida fica como a próxima (o J4 começa por ela; "Outra…" entra no
+// plano antes); desmarcado (ou sem resumo), a cena já COMEÇA (▶ Começar esta cena). A cena
+// da sessão anterior não sobra, nem o ensaio deste aparelho. Nada mais vai à Tela sem toque.
+// A lógica mora em now-model.js (startChoices: as opções; startPlan: o que cada uma faz).
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage } from '../api/errors.js';
@@ -19,8 +20,8 @@ import { screenLink } from '../shell/shell-logic.js';
 import { tvLine } from '../stage/table-bar-model.js';
 import { sendToStage, showOnStage } from '../stage/stage-api.js';
 import { getSessionPlan } from '../world/world-api.js';
-import { startChoices, writeStartScene } from './now-model.js';
-import { addSceneAndBegin, beginScene, clearSceneNow, loadRecap } from './scene-actions.js';
+import { startChoices, startPlan, writeRehearsal, writeStartScene } from './now-model.js';
+import { addScene, addSceneAndBegin, beginScene, clearSceneNow, loadRecap } from './scene-actions.js';
 // os estilos da folha (.sss) moram com os da Agora; aberta de fora de Jogar, vêm daqui
 import './now.css';
 
@@ -64,19 +65,23 @@ export default function StartSessionSheet({ campaign, lang = 'pt', plan: planPro
     } catch (e) { setError(errorMessage(e, lang)); setBusy(false); return; }
     // a campanha já com a sessão nova (o ▶ Começar esta cena compara a cena de antes)
     const fresh = { ...campaign, state };
-    const scene = chosen?.sceneId ? (plan?.scenes || []).find(x => x.id === chosen.sceneId) : null;
+    writeRehearsal(campaign.id, null);      // o ensaio era da sessão parada
+    const todo = startPlan(chosen, { recap: hasRecap && withRecap, other });
+    const scene = todo.sceneId ? (plan?.scenes || []).find(x => x.id === todo.sceneId) : null;
     try {
-      if (hasRecap && withRecap) {
-        // o "Anteriormente em…" vai primeiro; a cena escolhida fica como a próxima (J4)
-        writeStartScene(campaign.id, scene?.id || null);
+      if (todo.recap) {
+        // o "Anteriormente em…" vai primeiro; a cena escolhida (ou a "Outra…", que entra no
+        // plano agora) fica como a próxima (J4)
+        const made = todo.add ? await addScene(fresh, plan, todo.add, { lang }) : null;
+        writeStartScene(campaign.id, made?.scene.id || scene?.id || null);
         await sendToStage(campaign.id, () => showOnStage(campaign.id, { kind: 'recap', title: recap.title || '', text: recap.text || '' }),
           { lang, name: L(lang, 'Anteriormente em…', 'Previously on…') });
-        if (!(current === 'continue' && !scene)) await clearSceneNow(fresh);
+        if (todo.clear) await clearSceneNow(fresh);
       } else {
         writeStartScene(campaign.id, null);
-        if (scene) await beginScene(fresh, scene, { lang });
-        else if (current === 'other') await addSceneAndBegin(fresh, plan, other.trim(), { lang });
-        else if (current === 'unsure') await clearSceneNow(fresh);
+        if (scene) await beginScene(fresh, scene, { lang, plan });
+        else if (todo.add) await addSceneAndBegin(fresh, plan, todo.add, { lang });
+        else if (todo.clear) await clearSceneNow(fresh);
         // "Continuar de onde paramos" sem a cena no plano: o nome de antes fica
       }
     } catch (e) {

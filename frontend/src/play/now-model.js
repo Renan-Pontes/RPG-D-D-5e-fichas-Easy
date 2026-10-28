@@ -49,6 +49,24 @@ export function scenePosition(plan, id) {
 export const firstOpenScene = (plan) => realScenes(plan).find(s => !s.done) || null;
 
 /**
+ * Servidor antigo (sem o POST /stage/scene, o fallback só grava o nome): a cena que estava
+ * "agora" e que o ▶ Começar de outra deve marcar feita — o servidor novo faz isso sozinho.
+ * `prevId` = a que a Agora mostrava; sem ele, a do state (pelo id ou pelo nome).
+ * → id | null (nenhuma, a própria cena ou uma que já estava feita)
+ */
+export function legacyDoneId(plan, state, sceneId, prevId) {
+  const prev = prevId ? realScenes(plan).find(s => s.id === prevId) : currentScene(plan, state || {});
+  return prev && prev.id !== sceneId && !prev.done ? prev.id : null;
+}
+
+/**
+ * A cena agora é a 1ª da sessão (o ⚡ Começo forte vai inteiro no cartão dela)? `first` = a
+ * 1ª cena que este aparelho viu nesta sessão (readFirstScene); sem nada guardado, a cena
+ * agora é a 1ª que ele vê (e passa a ser guardada).
+ */
+export const isOpeningScene = (nowId, first) => !!nowId && (first || nowId) === nowId;
+
+/**
  * A próxima cena depois da `id`: a 1ª não feita que vem depois dela no plano; se não houver,
  * a 1ª não feita antes dela. Nunca a própria. → cena | null
  */
@@ -234,6 +252,14 @@ export const writeRehearsal = (campaignId, sceneId, storage) => write(rehearseKe
 /** A cena escolhida na folha Começar quando o "Anteriormente em…" vai antes (J4 começa por ela). */
 export const readStartScene = (campaignId, storage) => read(startKey(campaignId), storage);
 export const writeStartScene = (campaignId, sceneId, storage) => write(startKey(campaignId), sceneId, storage);
+/** A 1ª cena que este aparelho viu na sessão `n` (o ⚡ Começo forte); a da sessão anterior sai. */
+const firstKey = (id, n) => `forja:first-scene:${id}:${n}`;
+export const readFirstScene = (campaignId, n, storage) => (n ? read(firstKey(campaignId, n), storage) : null);
+export function writeFirstScene(campaignId, n, sceneId, storage) {
+  if (!n) return;
+  write(firstKey(campaignId, n - 1), null, storage);
+  write(firstKey(campaignId, n), sceneId, storage);
+}
 
 // ---------------------------------------------------------------- a folha Começar a sessão
 
@@ -254,4 +280,18 @@ export function startChoices(plan, state, lang = 'pt') {
   out.push({ id: 'other', label: tt(lang, 'Outra…', 'Other…') });
   out.push({ id: 'unsure', label: tt(lang, 'Ainda não sei', 'Not sure yet') });
   return out;
+}
+
+/**
+ * O que o ▶ Começar da folha faz com a escolha de "Onde começa?" (§4.3). `recap` = o
+ * "Anteriormente em…" marcado (e existe). O nome de "Outra…" vira uma cena nova no plano
+ * nos dois caminhos — com o resumo antes, ela fica como a próxima (o J4 começa por ela).
+ * → {recap, add: nome|null, sceneId, begin: começa já, clear: nenhuma cena agora}
+ */
+export function startPlan(choice, { recap = false, other = '' } = {}) {
+  const id = choice?.id || 'unsure';
+  const add = id === 'other' ? (String(other || '').trim().slice(0, 1000) || null) : null;
+  const sceneId = id === 'other' ? null : choice?.sceneId || null;
+  if (recap) return { recap: true, add, sceneId, begin: false, clear: !(id === 'continue' && !sceneId) };
+  return { recap: false, add, sceneId, begin: !!(sceneId || add), clear: id === 'unsure' };
 }

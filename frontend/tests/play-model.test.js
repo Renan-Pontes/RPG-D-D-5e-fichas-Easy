@@ -239,8 +239,9 @@ test('screenNow: combate com cartão do Mundo sobreposto; recap espera o combate
 
 // ---------------------------------------------------------------- Jogar › Agora (V7)
 import {
-  checkLine, clockText, currentScene, firstOpenScene, momentBody, momentCounters, nextSceneAfter, pickCounter,
-  planChips, recapShown, scenePosition, sessionClock, sessionLength, sessionTests, startChoices, testsBadge as nowBadge,
+  checkLine, clockText, currentScene, firstOpenScene, isOpeningScene, legacyDoneId, momentBody, momentCounters, nextSceneAfter,
+  pickCounter, planChips, readFirstScene, recapShown, scenePosition, sessionClock, sessionLength, sessionTests, startChoices,
+  startPlan, testsBadge as nowBadge, writeFirstScene,
 } from '../src/play/now-model.js';
 
 const PLAN = {
@@ -339,4 +340,50 @@ test('Agora: relógio e duração da sessão; o resumo já mostrado; onde começ
   assert.equal(choices[0].sceneId, 'c2');
   assert.equal(choices[1].label, 'Continuar de onde paramos: Taverna do Javali');
   assert.deepEqual(startChoices({ scenes: [] }, {}).map(c => c.id), ['other', 'unsure']);
+});
+
+test('Agora: servidor antigo — o ▶ Começar de outra cena marca feita a que estava agora', () => {
+  // o fallback só grava o nome: a de antes (a que a Agora mostrava) vira feita daqui
+  assert.equal(legacyDoneId(PLAN, { scene: 'Ponte velha' }, 'c5', 'c2'), 'c2');
+  // sem o id da Agora: a do state (pelo nome, sem sceneId no servidor antigo)
+  assert.equal(legacyDoneId(PLAN, { scene: 'ponte velha' }, 'c5'), 'c2');
+  // a própria cena, uma já feita ou nenhuma: nada a marcar
+  assert.equal(legacyDoneId(PLAN, { scene: 'Ponte velha' }, 'c2', 'c2'), null);
+  assert.equal(legacyDoneId(PLAN, {}, 'c2', 'c1'), null);
+  assert.equal(legacyDoneId(PLAN, { scene: 'Briga no cais' }, 'c2'), null);
+  assert.equal(legacyDoneId(PLAN, {}, 'c2', 'zz'), null);
+});
+
+test('Agora: o ⚡ Começo forte só no cartão da 1ª cena da sessão', () => {
+  const mem = new Map();
+  const storage = { getItem: k => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: k => mem.delete(k) };
+  // nada guardado: a cena agora é a 1ª que o aparelho vê
+  assert.equal(isOpeningScene('c2', null), true);
+  writeFirstScene(7, 4, 'c2', storage);
+  assert.equal(readFirstScene(7, 4, storage), 'c2');
+  assert.equal(isOpeningScene('c2', readFirstScene(7, 4, storage)), true);
+  // a próxima cena da mesma sessão não repete o começo
+  assert.equal(isOpeningScene('c3', readFirstScene(7, 4, storage)), false);
+  assert.equal(isOpeningScene(null, null), false);
+  // a sessão seguinte começa de novo (e a chave da anterior sai)
+  assert.equal(readFirstScene(7, 5, storage), null);
+  writeFirstScene(7, 5, 'c3', storage);
+  assert.equal(readFirstScene(7, 4, storage), null);
+  assert.equal(readFirstScene(7, 0, storage), null);
+});
+
+test('Agora: o que a folha Começar faz com cada escolha (com e sem o "Anteriormente em…")', () => {
+  const [scene, cont, other, unsure] = startChoices(PLAN, { scene: 'Taverna do Javali', sceneId: 'c1' });
+  // sem o resumo: a cena começa já; "Outra…" entra no plano e começa; "Ainda não sei" limpa
+  assert.deepEqual(startPlan(scene), { recap: false, add: null, sceneId: 'c2', begin: true, clear: false });
+  assert.deepEqual(startPlan(other, { other: '  Briga no cais ' }), { recap: false, add: 'Briga no cais', sceneId: null, begin: true, clear: false });
+  assert.deepEqual(startPlan(unsure), { recap: false, add: null, sceneId: null, begin: false, clear: true });
+  assert.deepEqual(startPlan({ id: 'continue', sceneId: null }), { recap: false, add: null, sceneId: null, begin: false, clear: false });
+  assert.equal(startPlan(cont).sceneId, 'c1');
+  // com o resumo antes: o nome digitado em "Outra…" NÃO some — vira a cena seguinte (J4)
+  assert.deepEqual(startPlan(other, { recap: true, other: 'Briga no cais' }), { recap: true, add: 'Briga no cais', sceneId: null, begin: false, clear: true });
+  assert.deepEqual(startPlan(scene, { recap: true }), { recap: true, add: null, sceneId: 'c2', begin: false, clear: true });
+  // "Continuar de onde paramos" sem a cena no plano: o nome de antes fica
+  assert.equal(startPlan({ id: 'continue', sceneId: null }, { recap: true }).clear, false);
+  assert.equal(startPlan(other, { recap: true, other: '   ' }).add, null);
 });

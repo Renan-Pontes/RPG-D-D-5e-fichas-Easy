@@ -2,6 +2,7 @@
 // das cenas do plano. Cola entre a API e os avisos: a lógica fica em now-model.js.
 //   beginScene      ▶ Começar esta cena (POST /stage/scene) com o aviso
 //                   "Cena começou · Na tela: Ponte velha · ↶ Desfazer"
+//   addScene         "Outra…" com o "Anteriormente em…" antes: só cria a cena no plano
 //   addSceneAndBegin "＋ Cena agora" / "Outra…": cria a cena no plano e já começa
 //   clearSceneNow    "Ainda não sei" / a última cena feita: nenhuma cena agora
 //   setSceneDone     ✓ feita / ↺ não feita (o plano, só a chave das cenas)
@@ -13,7 +14,7 @@ import { saveSessionPlan } from '../world/world-api.js';
 import { STAGE_SENDING_EVENT, STAGE_SENT_EVENT, startSceneOnStage, undoSceneStart } from '../stage/stage-api.js';
 import { flash } from './flash.js';
 import { patchState } from './play-api.js';
-import { sceneName } from './now-model.js';
+import { legacyDoneId, sceneName } from './now-model.js';
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
 const filled = (s) => typeof s === 'string' && s.trim().length > 0;
@@ -39,9 +40,12 @@ function legacyShow(scene) {
 
 /**
  * ▶ Começar esta cena. `scene` = a cena do plano (para o nome e o servidor antigo).
- * opts: {show?, focus?, log?, quiet?} → a resposta (com `undo`) ou null se falhou.
+ * opts: {show?, focus?, log?, quiet?, plan?, prevId?} → a resposta (com `undo`) ou null se
+ * falhou. `plan` e `prevId` (a cena que estava "agora") servem ao servidor antigo: lá o
+ * fallback só grava o nome, e a cena de antes é marcada feita daqui (o ↶ desmarca).
  */
-export async function beginScene(campaign, scene, { lang = 'pt', show, focus, log, quiet = false, onDone } = {}) {
+export async function beginScene(campaign, scene, opts = {}) {
+  const { lang = 'pt', show, focus, log, quiet = false, onDone, plan = null, prevId } = opts;
   if (!campaign?.id || !scene?.id) return null;
   const body = { sceneId: scene.id, log: log ?? readLogRoom(campaign.id) };
   if (typeof show === 'boolean') body.show = show;
@@ -51,16 +55,29 @@ export async function beginScene(campaign, scene, { lang = 'pt', show, focus, lo
     const r = await startSceneOnStage(campaign.id, body, {
       name: sceneName(scene), prevScene: campaign.state?.scene || '', show: show ?? legacyShow(scene),
     });
+    const doneId = r?.legacy && plan ? legacyDoneId(plan, campaign.state, scene.id, prevId) : null;
+    if (doneId) {
+      try {
+        r.plan = await setSceneDone(campaign, plan, doneId, true);
+        r.doneId = doneId;
+        r.undo = { ...r.undo, doneId };
+      } catch { /* a cena começou; o ✓ da de antes fica para o chip */ }
+    }
     const name = r?.scene || sceneName(scene);
-    const label = r?.shown ? L(lang, `Cena começou · Na tela: ${name}`, `Scene started · On screen: ${name}`) : L(lang, `Cena começou: ${name}`, `Scene started: ${name}`);
+    // a entrada na sala da cena ligada foi para a Crônica (o ↶ tira junto)
+    const logged = r?.undo?.room?.diaryId ? L(lang, ' · Registrado na Crônica', ' · Logged to the Chronicle') : '';
+    const label = (r?.shown ? L(lang, `Cena começou · Na tela: ${name}`, `Scene started · On screen: ${name}`) : L(lang, `Cena começou: ${name}`, `Scene started: ${name}`)) + logged;
     emit(STAGE_SENT_EVENT, { campaignId: campaign.id, ok: true, label: r?.shown ? L(lang, 'Na tela ✓', 'On screen ✓') : L(lang, 'Cena começou ✓', 'Scene started ✓'), name });
     if (!quiet) {
       flash(label, {
         action: r?.undo ? {
           label: L(lang, '↶ Desfazer', '↶ Undo'),
           onClick: async () => {
-            try { await undoSceneStart(campaign.id, r.undo); onDone?.(); }
-            catch (e) { flash(`${L(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`, { error: true }); }
+            try {
+              await undoSceneStart(campaign.id, r.undo);
+              if (r.undo.legacy && r.undo.doneId) await setSceneDone(campaign, r.plan || plan, r.undo.doneId, false);
+              onDone?.();
+            } catch (e) { flash(`${L(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`, { error: true }); }
           },
         } : null,
       });
@@ -72,27 +89,31 @@ export async function beginScene(campaign, scene, { lang = 'pt', show, focus, lo
     const retry = !e?.status || e.status >= 500;
     flash(`${L(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`, {
       error: true,
-      action: retry ? { label: L(lang, 'Tentar de novo', 'Try again'), onClick: () => beginScene(campaign, scene, { lang, show, focus, log, quiet, onDone }) } : null,
+      action: retry ? { label: L(lang, 'Tentar de novo', 'Try again'), onClick: () => beginScene(campaign, scene, opts) } : null,
     });
+    return null;
+  }
+}
+
+/** Cria a cena (só o nome) no fim do plano, sem começar. → {plan, scene} ou null (com o aviso). */
+export async function addScene(campaign, plan, name, { lang = 'pt' } = {}) {
+  const text = String(name || '').trim().slice(0, 1000);
+  if (!text) return null;
+  const cur = normalizePlan(plan);
+  const id = freshSceneId(cur.scenes);
+  try {
+    const saved = normalizePlan(await saveSessionPlan(campaign.id, { scenes: [...cur.scenes, { id, text, nodeRef: null, done: false }] }));
+    return { plan: saved, scene: saved.scenes.find(s => s.id === id) || { id, text } };
+  } catch (e) {
+    flash(`${L(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`, { error: true });
     return null;
   }
 }
 
 /** Cria a cena (só o nome) no fim do plano e já começa. → a resposta do começo, ou null. */
 export async function addSceneAndBegin(campaign, plan, name, opts = {}) {
-  const text = String(name || '').trim().slice(0, 1000);
-  if (!text) return null;
-  const cur = normalizePlan(plan);
-  const id = freshSceneId(cur.scenes);
-  let saved;
-  try {
-    saved = normalizePlan(await saveSessionPlan(campaign.id, { scenes: [...cur.scenes, { id, text, nodeRef: null, done: false }] }));
-  } catch (e) {
-    flash(`${L(opts.lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, opts.lang)}`, { error: true });
-    return null;
-  }
-  const scene = saved.scenes.find(s => s.id === id) || { id, text };
-  return beginScene(campaign, scene, opts);
+  const made = await addScene(campaign, plan, name, opts);
+  return made ? beginScene(campaign, made.scene, { ...opts, plan: made.plan }) : null;
 }
 
 /** Nenhuma cena agora (a cena da sessão anterior não sobra na capa). */
