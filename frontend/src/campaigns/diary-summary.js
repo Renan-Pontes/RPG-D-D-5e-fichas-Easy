@@ -266,22 +266,29 @@ const realScene = (s) => !!s && (!!sceneName(s) || !!s.nodeRef);
 
 /**
  * As cenas jogadas de um plano: as feitas (✓) e a que estava "agora" (`sceneId`), na ordem
- * do plano — as que o resumo cita. (A de "agora" sem ✓ foi interrompida: ela também passa
- * para a Sessão N+1 com "Levar o que sobrou".) `doneBefore` = as que já estavam feitas quando
- * a sessão começou (diarySessions[n].doneBefore): não foram jogadas nela.
+ * do plano — as que o resumo cita. (A de "agora" sem ✓ foi interrompida: ela continua na
+ * Sessão N+1, levada com "Levar o que sobrou" ou no mesmo plano; o resumo a escreve como
+ * "▶ … (continua na Sessão N+1)", sem ✓.) `doneBefore` = as que já estavam feitas quando a
+ * sessão começou (diarySessions[n].doneBefore): não foram jogadas nela.
  */
 export function playedScenes(plan, sceneId = null, doneBefore = null) {
   const before = new Set(Array.isArray(doneBefore) ? doneBefore : []);
   return (plan?.scenes || []).filter(s => realScene(s) && ((s.done && !before.has(s.id)) || (sceneId && s.id === sceneId)));
 }
 
-/** Os testes pedidos durante a sessão (entre o startedAt e o endedAt dela). */
+/** O teste de iniciativa do combate (check-logic.isInitiativeCheck): técnico, não vai ao resumo. */
+const initiativeCheck = (c) => c?.kind === 'custom' && c?.key === 'initiative';
+
+/**
+ * Os testes pedidos durante a sessão (entre o startedAt e o endedAt dela), sem o de
+ * iniciativa do combate ("Iniciativa: 4 responderam" seria ruído no "Anteriormente em…").
+ */
 export function sessionChecks(checks, startedAt, endedAt = null) {
   const t0 = Date.parse(startedAt || '') || 0;
   const t1 = Date.parse(endedAt || '') || Infinity;
   return (checks || []).filter(c => {
     const at = Date.parse(c?.createdAt || '') || 0;
-    return c && at >= t0 && at <= t1;
+    return c && !initiativeCheck(c) && at >= t0 && at <= t1;
   });
 }
 
@@ -430,10 +437,14 @@ export function buildRecap(entries, opts = {}) {
       + listJoin([...levels].map(([n, l]) => `${n} (${T(lang, 'nível', 'level')} ${l})`), lang) + '.');
   }
   const paragraphs = [];
-  const played = playedScenes(opts.plan, opts.sceneId, opts.doneBefore).map(sceneName).filter(Boolean);
-  if (played.length) paragraphs.push(played.slice(0, 12).map(n => `✓ ${n}`).join('\n'));
+  // a de "agora" sem ✓ foi interrompida: continua na sessão seguinte (não diz que aconteceu)
+  const next = Number.isInteger(opts.session) ? opts.session + 1 : null;
+  const played = playedScenes(opts.plan, opts.sceneId, opts.doneBefore).filter(s => sceneName(s)).map(s => (s.done
+    ? `✓ ${sceneName(s)}`
+    : `▶ ${sceneName(s)} ${next ? T(lang, `(continua na Sessão ${next})`, `(continues in session ${next})`) : T(lang, '(continua)', '(continues)')}`));
+  if (played.length) paragraphs.push(played.slice(0, 12).join('\n'));
   if (sentences.length) paragraphs.push(sentences.join(' '));
-  const tests = (opts.checks || []).map(c => checkResultLine(c, lang)).filter(Boolean);
+  const tests = (opts.checks || []).filter(c => !initiativeCheck(c)).map(c => checkResultLine(c, lang)).filter(Boolean);
   const onScreen = shownNames(opts.shown, lang);
   const facts = [];
   if (tests.length) facts.push(`${T(lang, 'Testes', 'Checks')}: ${tests.slice(0, 6).join('; ')}.`);

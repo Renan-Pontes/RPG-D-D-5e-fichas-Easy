@@ -26,7 +26,7 @@ import { frontPlace, stageNow } from '../stage/stage-now.js';
 import useStage from '../stage/useStage.js';
 import { getSessionPlan } from '../world/world-api.js';
 import { flash } from './flash.js';
-import { stateSessionNumber } from './now-model.js';
+import { currentScene, readDoneBefore, stateSessionNumber } from './now-model.js';
 import { announceRecap } from './scene-actions.js';
 import './play-styles.css';
 
@@ -79,7 +79,8 @@ export default function RecapEditor({ campaign, lang = 'pt', session: sessionPro
     const meta = (n != null && st.diarySessions?.[String(n)]) || {};
     let plan = context?.plan || null;
     let sceneId = context?.sceneId ?? null;
-    let doneBefore = context?.doneBefore ?? meta.doneBefore ?? null;
+    // servidor sem o doneBefore: o que este aparelho guardou ao começar a sessão
+    let doneBefore = context?.doneBefore ?? meta.doneBefore ?? readDoneBefore(campaign.id, n) ?? null;
     if (!plan && n != null) {
       if (list.some(e => e.subtype === 'plan')) {
         const r = await api.listDiary(campaign.id, { subtype: 'plan', session: n, limit: 1 }).catch(() => null);
@@ -88,7 +89,8 @@ export default function RecapEditor({ campaign, lang = 'pt', session: sessionPro
       } else {
         const p = normalizePlan(await getSessionPlan(campaign.id).catch(() => null));
         const cur = stateSessionNumber(st);
-        if (p.forSession === n || (!p.forSession && cur === n)) { plan = p; if (st.live && cur === n) sceneId = st.sceneId || null; }
+        // servidor sem o sceneId: a cena de agora pelo nome (state.scene)
+        if (p.forSession === n || (!p.forSession && cur === n)) { plan = p; if (st.live && cur === n) sceneId = st.sceneId || currentScene(p, { scene: st.scene })?.id || null; }
       }
     }
     let checks = [];

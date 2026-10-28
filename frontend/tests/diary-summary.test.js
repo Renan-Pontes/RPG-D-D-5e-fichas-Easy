@@ -170,6 +170,11 @@ test('V12: cenas jogadas são as feitas e a de "agora", com o nome (1ª linha)',
 
 test('V12: testes da sessão com o resultado; CD secreta não aparece', () => {
   assert.deepEqual(sessionChecks([perception, { ...perception, id: 2, createdAt: '2026-10-20T19:00:00Z' }], '2026-10-24T18:00:00Z', '2026-10-24T21:00:00Z').map(c => c.id), [1]);
+  // o teste de iniciativa do combate (kind custom, key initiative) é técnico: fora do resumo
+  const init = { ...perception, id: 3, kind: 'custom', key: 'initiative', label: 'Iniciativa', dc: null };
+  assert.deepEqual(sessionChecks([perception, init], '2026-10-24T18:00:00Z', null).map(c => c.id), [1]);
+  const withInit = buildRecap([], { lang: 'pt', checks: [init, perception] }).text;
+  assert.ok(withInit.includes('Testes: Percepção CD 15: 3 de 4 passaram.') && !withInit.includes('Iniciativa'), withInit);
   assert.equal(checkResultLine(perception, 'pt'), 'Percepção CD 15: 3 de 4 passaram');
   assert.equal(checkResultLine(perception, 'en'), 'Percepção DC 15: 3 of 4 passed');
   // CD secreta: só quantos responderam (quantos passaram entregaria a CD na Tela e na Crônica)
@@ -197,7 +202,10 @@ test('V12: o rascunho cita a cena jogada, o teste com resultado, a imagem mostra
   ];
   const r = buildRecap(list, { lang: 'pt', session: 4, campaignName: 'Brumafria', plan, sceneId: 'c2', checks: [perception],
     shown: [{ t: 'Bartolomeu', k: 'card' }, { t: 'Ponte velha sobre o Rio Brumoso', k: 'scene' }] });
-  assert.ok(r.text.startsWith('Sessão 4\n\n✓ Briga na taverna\n✓ Ponte velha sobre o Rio Brumoso\n\n'), r.text);
+  // a cena de "agora" sem ✓ foi interrompida: continua na Sessão 5 (o resumo não diz que aconteceu)
+  assert.ok(r.text.startsWith('Sessão 4\n\n✓ Briga na taverna\n▶ Ponte velha sobre o Rio Brumoso (continua na Sessão 5)\n\n'), r.text);
+  const doneNow = buildRecap([], { lang: 'pt', session: 4, plan: { scenes: plan.scenes.map(x => (x.id === 'c2' ? { ...x, done: true } : x)) }, sceneId: 'c2' });
+  assert.ok(doneNow.text.includes('✓ Ponte velha sobre o Rio Brumoso'), doneNow.text);
   assert.ok(r.text.includes('Pipo e Dagna venceram 2 inimigos (Goblin ×2) em 2 rodadas.'), r.text);
   assert.ok(r.text.includes('Testes: Percepção CD 15: 3 de 4 passaram.'), r.text);
   assert.ok(r.text.includes('Na Tela: Bartolomeu.'), r.text);
@@ -208,6 +216,7 @@ test('V12: o rascunho cita a cena jogada, o teste com resultado, a imagem mostra
   assert.ok(cut.text.includes('Combate encerrado em 1 rodada contra Goblin ×2. Derrotados: 1 de 2 Goblin.'), cut.text);
   const en = buildRecap([], { lang: 'en', plan, sceneId: 'c2', checks: [perception], shown: [{ t: 'Borin', k: 'card' }] });
   assert.ok(en.text.includes('Checks: Percepção DC 15: 3 of 4 passed.') && en.text.includes('On screen: Borin.'), en.text);
+  assert.ok(en.text.includes('▶ Ponte velha sobre o Rio Brumoso (continues)'), en.text);
 });
 
 test('V12: "Momentos da noite" por personagem (só o mestre vê)', () => {

@@ -23,7 +23,7 @@ import MesaSheet from '../shell/MesaSheet.jsx';
 import { stageClear } from '../stage/stage-api.js';
 import { getSessionPlan } from '../world/world-api.js';
 import { endBody, endRows, endTitle, initialChecks, markedSpotlights, momentChips, momentLine, oldServerSteps } from './end-session.js';
-import { sessionClock, sessionMeta, stateSessionNumber } from './now-model.js';
+import { currentScene, readDoneBefore, sessionClock, sessionMeta, stateSessionNumber } from './now-model.js';
 import { patchState } from './play-api.js';
 import './now.css';
 
@@ -59,9 +59,13 @@ export default function EndSessionSheet({ campaign, lang = 'pt', pulse = null, o
     [n, combat, openChecks, plan, lang]);
   const [checks, setChecks] = useState({});
   const isOn = (id) => checks[id] !== false;     // toda caixa começa marcada
+  // a cena de agora e as já feitas ao começar; servidor sem o sceneId/doneBefore: pelo nome da
+  // cena (state.scene) e pelo que este aparelho guardou ao começar
+  const sceneNowId = st.sceneId || (plan ? currentScene(plan, { scene: st.scene })?.id : null) || null;
+  const doneBefore = meta.doneBefore || readDoneBefore(campaign.id, n) || null;
   const chips0 = useMemo(() => (ins ? momentChips({ members: campaign.members, spotlights: ins.spotlights, plan: plan || null,
-    sceneId: st.sceneId || null, doneBefore: meta.doneBefore || null, n }) : []),
-  [ins, campaign.members, plan, st.sceneId, meta.doneBefore, n]);
+    sceneId: sceneNowId, doneBefore, n }) : []),
+  [ins, campaign.members, plan, sceneNowId, doneBefore, n]); // eslint-disable-line react-hooks/exhaustive-deps
   const [picked, setPicked] = useState({});      // charId → on (o toque do mestre)
   const chips = chips0.map(c => (c.locked || !(c.charId in picked) ? c : { ...c, on: picked[c.charId] }));
   const [busy, setBusy] = useState('');
@@ -103,7 +107,7 @@ export default function EndSessionSheet({ campaign, lang = 'pt', pulse = null, o
       try { momentsLost = await oldEnd(body); } catch (e2) { setError(errorMessage(e2, lang)); setBusy(''); return; }
     }
     await onEnded?.({
-      withRecap, session: n, plan: plan || null, sceneId: st.sceneId || null, doneBefore: meta.doneBefore || null, old, momentsLost,
+      withRecap, session: n, plan: plan || null, sceneId: sceneNowId, doneBefore, old, momentsLost,
       combat: body.endCombat && wizard && wrapCombat ? { ...wrapCombat, active: false } : null,
     });
   };

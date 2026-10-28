@@ -156,7 +156,8 @@ class EndSessionTests(EndBase):
         self.assertEqual((entry.session, entry.kind), (4, 'event'))
         self.assertEqual(entry.data['plan']['strongStart'], PLAN['strongStart'])
         self.assertEqual(entry.data['sceneId'], 'c2')
-        self.assertEqual(entry.data['counts'], {'scenes': 3, 'played': 2, 'clues': 2, 'found': 1})
+        # jogada = feita nesta sessão; a de "agora" (c2) foi interrompida e passou para a Sessão 5
+        self.assertEqual(entry.data['counts'], {'scenes': 3, 'played': 1, 'clues': 2, 'found': 1})
 
     def test_scenes_done_before_the_session_are_not_played_tonight(self):
         Campaign.objects.filter(pk=self.camp.pk).update(state={'session': '3', 'live': False})
@@ -278,7 +279,7 @@ class PlanRulesTests(TestCase):
         self.assertEqual([s['id'] for s in left['secrets']], ['p2'])
         data = R.archive_payload(PLAN, 4, 'c3')
         self.assertNotIn('_rev', data['plan'])
-        self.assertEqual(data['counts']['played'], 2)
+        self.assertEqual(data['counts']['played'], 1)   # c1; a c3 de "agora" não foi feita
         self.assertTrue(R.plan_has_content({'npcIds': [1]}))
         self.assertFalse(R.plan_has_content({'secrets': [{'id': 'p1', 'text': ''}]}))
 

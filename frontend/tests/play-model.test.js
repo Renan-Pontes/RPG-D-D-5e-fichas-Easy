@@ -387,3 +387,27 @@ test('Agora: o que a folha Começar faz com cada escolha (com e sem o "Anteriorm
   assert.equal(startPlan({ id: 'continue', sceneId: null }, { recap: true }).clear, false);
   assert.equal(startPlan(other, { recap: true, other: '   ' }).add, null);
 });
+
+import { combatEnded } from '../src/play/now-model.js';
+test('combatEnded: o encerrado (fim por último no registro) não volta à Agora como "montado, parado"', () => {
+  assert.equal(combatEnded({ active: false, log: [{ type: 'start' }, { type: 'damage' }, { type: 'end' }] }), true);
+  // montado depois do fim (monstro novo): é o combate de agora, parado
+  assert.equal(combatEnded({ active: false, log: [{ type: 'end' }, { type: 'add_combatant' }] }), false);
+  assert.equal(combatEnded({ active: true, log: [{ type: 'end' }] }), false);
+  assert.equal(combatEnded({ active: false, log: [] }), false);
+  assert.equal(combatEnded(null), false);
+});
+
+import { readDoneBefore, writeDoneBefore } from '../src/play/now-model.js';
+test('servidor sem o doneBefore: o aparelho guarda as cenas já feitas ao começar a sessão (a anterior sai)', () => {
+  const mem = new Map();
+  const storage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, v), removeItem: (k) => mem.delete(k) };
+  assert.equal(readDoneBefore(7, 4, storage), null);
+  writeDoneBefore(7, 3, ['c0'], storage);
+  writeDoneBefore(7, 4, ['c1', '', 'c2'], storage);
+  assert.deepEqual(readDoneBefore(7, 4, storage), ['c1', 'c2']);
+  assert.equal(readDoneBefore(7, 3, storage), null, 'a da sessão anterior sai');
+  writeDoneBefore(7, 5, [], storage);
+  assert.deepEqual(readDoneBefore(7, 5, storage), [], 'nenhuma feita ainda: lista vazia, não "sem dado"');
+  assert.equal(readDoneBefore(7, null, storage), null);
+});

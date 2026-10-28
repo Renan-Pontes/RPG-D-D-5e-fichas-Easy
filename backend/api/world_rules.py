@@ -899,7 +899,8 @@ def archive_payload(plan, session, scene_id=None, done_before=None):
     """`data` da DiaryEntry do plano arquivado: o plano inteiro (sem o `_rev`), a cena que
     estava "agora" ao encerrar e as cenas que já estavam feitas quando a sessão começou
     (`doneBefore`: o rascunho do resumo conta como jogadas só as outras) e as contagens que a
-    lista da Crônica mostra (ela não manda o `plan`)."""
+    lista da Crônica mostra (ela não manda o `plan`). Jogadas = as feitas nesta sessão: a de
+    "agora" sem ✓ foi interrompida e continua na seguinte (o resumo a escreve "▶ … (continua)")."""
     plan = plan if isinstance(plan, dict) else {}
     keep = {k: plan.get(k, SESSION_PLAN_DEFAULT[k]) for k in PLAN_CONTENT_KEYS}
     keep['forSession'] = to_int(plan.get('forSession'), 1, 9999)
@@ -913,7 +914,7 @@ def archive_payload(plan, session, scene_id=None, done_before=None):
         'session': to_int(session, 0, 100000), 'sceneId': sid, 'doneBefore': before, 'plan': keep,
         'counts': {
             'scenes': len(scenes),
-            'played': sum(1 for s in scenes if (s.get('done') and s.get('id') not in (before or [])) or s.get('id') == sid),
+            'played': sum(1 for s in scenes if s.get('done') and s.get('id') not in (before or [])),
             'clues': len(secrets), 'found': sum(1 for s in secrets if s.get('discovered')),
         },
     }

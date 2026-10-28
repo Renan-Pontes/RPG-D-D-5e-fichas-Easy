@@ -45,6 +45,16 @@ export function scenePosition(plan, id) {
   return { pos: i + 1, total: list.length };
 }
 
+/**
+ * O combate parado foi encerrado (a última entrada do registro é o fim) e ninguém mexeu nele
+ * depois: a Agora não o mostra como "Combate montado, parado" (ele está no Combate, que tem o
+ * Recomeçar).
+ */
+export function combatEnded(combat) {
+  const log = Array.isArray(combat?.log) ? combat.log : [];
+  return !combat?.active && log.length > 0 && log[log.length - 1]?.type === 'end';
+}
+
 /** A 1ª cena que ainda não foi feita (J4, "Comece pela primeira cena"). */
 export const firstOpenScene = (plan) => realScenes(plan).find(s => !s.done) || null;
 
@@ -259,6 +269,21 @@ export function writeFirstScene(campaignId, n, sceneId, storage) {
   if (!n) return;
   write(firstKey(campaignId, n - 1), null, storage);
   write(firstKey(campaignId, n), sceneId, storage);
+}
+/**
+ * Servidor de antes do `doneBefore` (o POST …/sessions não grava diarySessions[n].doneBefore):
+ * o aparelho guarda as cenas já feitas ao começar a Sessão N, para o resumo e o "Quem teve
+ * um momento hoje?" não contarem de novo o que foi jogado antes. A da sessão anterior sai.
+ */
+const doneKey = (id, n) => `forja:doneBefore:${id}:${n}`;
+export function writeDoneBefore(campaignId, n, ids, storage) {
+  if (!n) return;
+  write(doneKey(campaignId, n - 1), null, storage);
+  write(doneKey(campaignId, n), JSON.stringify((ids || []).filter(Boolean).slice(0, 30)), storage);
+}
+export function readDoneBefore(campaignId, n, storage) {
+  if (!n) return null;
+  try { const v = JSON.parse(read(doneKey(campaignId, n), storage) || 'null'); return Array.isArray(v) ? v : null; } catch { return null; }
 }
 
 // ---------------------------------------------------------------- a folha Começar a sessão

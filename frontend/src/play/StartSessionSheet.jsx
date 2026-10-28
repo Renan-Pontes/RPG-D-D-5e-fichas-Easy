@@ -20,7 +20,7 @@ import { screenLink } from '../shell/shell-logic.js';
 import { tvLine } from '../stage/table-bar-model.js';
 import { sendToStage, showOnStage } from '../stage/stage-api.js';
 import { getSessionPlan } from '../world/world-api.js';
-import { startChoices, startPlan, writeRehearsal, writeStartScene } from './now-model.js';
+import { startChoices, startPlan, stateSessionNumber, writeDoneBefore, writeRehearsal, writeStartScene } from './now-model.js';
 import { addScene, addSceneAndBegin, beginScene, clearSceneNow, loadRecap } from './scene-actions.js';
 // os estilos da folha (.sss) moram com os da Agora; aberta de fora de Jogar, vêm daqui
 import './now.css';
@@ -65,6 +65,12 @@ export default function StartSessionSheet({ campaign, lang = 'pt', plan: planPro
     } catch (e) { setError(errorMessage(e, lang)); setBusy(false); return; }
     // a campanha já com a sessão nova (o ▶ Começar esta cena compara a cena de antes)
     const fresh = { ...campaign, state };
+    // servidor sem o doneBefore: as cenas já feitas ao começar ficam no aparelho (o resumo não
+    // as conta como jogadas hoje)
+    const started = stateSessionNumber(state);
+    if (started && !Array.isArray(state?.diarySessions?.[String(started)]?.doneBefore)) {
+      writeDoneBefore(campaign.id, started, (plan?.scenes || []).filter(x => x.done).map(x => x.id));
+    }
     writeRehearsal(campaign.id, null);      // o ensaio era da sessão parada
     const todo = startPlan(chosen, { recap: hasRecap && withRecap, other });
     const scene = todo.sceneId ? (plan?.scenes || []).find(x => x.id === todo.sceneId) : null;
