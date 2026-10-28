@@ -231,7 +231,9 @@ export default function PlayPanel({
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => onPlay('unlock', { edgeId: p.edge.id })}>👁 {t(lang, 'Descobriram', 'Found it')}</button>
               )}
               {p.unlocked && (
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => onPlay('lock', { edgeId: p.edge.id })} title={t(lang, 'Voltar a trancar/ocultar', 'Lock/hide again')}>↺</button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => onPlay('lock', { edgeId: p.edge.id })}>
+                  ↺ {p.status === 'secret' || p.edge.kind === 'secret' ? t(lang, 'Ocultar de novo', 'Hide again') : t(lang, 'Trancar de novo', 'Lock again')}
+                </button>
               )}
               {p.status === 'external' && (
                 p.edge.toAdventureId

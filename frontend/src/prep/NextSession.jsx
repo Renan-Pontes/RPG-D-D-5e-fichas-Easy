@@ -56,7 +56,7 @@ const HANDY_KINDS = ['npc', 'faction', 'place'];
  * Nenhum polling: o plano é lido ao abrir e depois de uma porta (aventura pronta, exemplo).
  */
 export default function NextSession({ campaign, lang, goTo }) {
-  const { reload, startSession: startFromShell, onPlan } = useArea();
+  const { reload, startSession: startFromShell, onPlan, params: areaParams, clearParams } = useArea();
   const table = useTable();
   const desk = useMedia('(min-width: 1024px)');       // PC: 2 colunas (passos à esquerda, o passo aberto à direita)
   const sidePanel = useMedia(SIDE_MQ);                 // a folha da Cena vira painel à direita (≥ 1280)
@@ -166,6 +166,15 @@ export default function NextSession({ campaign, lang, goTo }) {
     return () => { document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', flush); };
   }, [flush]);
   useEffect(() => () => clearTimeout(flashTimer.current), []);
+
+  // Vindo de Jogar › Agora ("✎ Pôr coisas nela", "Editar esta cena no Plano"): a cena abre
+  // na folha da Cena, com o passo ③ aberto atrás (V7).
+  const wantScene = areaParams?.sceneId || null;
+  useEffect(() => {
+    if (!wantScene || !plan) return;
+    if (plan.scenes.some(x => x.id === wantScene)) { setOpen('scenes'); setSceneSheet({ id: wantScene, fresh: false }); }
+    clearParams?.();
+  }, [wantScene, !!plan]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Aviso curto (1 por vez, 6 s), às vezes com "↶ Desfazer".
   const say = (text, undo = null) => {
