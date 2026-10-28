@@ -175,6 +175,14 @@
 .gc-foot { display: flex; align-items: center; gap: 12px; }
 .gc-foot-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .gc-done { flex: none; min-width: 96px; }
+/* V7: "📺 Mostrar na Tela" ao pedir (ligado com uma TV conectada) e o atalho ⚡ Iniciativa */
+.gc-foot { flex-wrap: wrap; }
+.gc-screen { flex: 1 1 100%; display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; color: var(--ink-primary); cursor: pointer; }
+.gc-screen input { width: 22px; height: 22px; flex: none; accent-color: var(--gold); }
+.gc-screen-sub { color: var(--ink-muted); font-size: 13px; }
+.gc-quick-init { grid-template-columns: minmax(0, 1fr); }
+.gc-quick-btn.is-init { font-family: var(--display); letter-spacing: 0.04em; }
+@media (min-width: 768px) { .gc-quick-init { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); } }
 @media (min-width: 768px) {
   .gc-quick { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
   .gc-quick-saves { grid-template-columns: repeat(6, minmax(0, 1fr)); }

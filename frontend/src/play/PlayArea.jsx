@@ -1,16 +1,20 @@
-// Área Jogar (mesa ao vivo): Cena · Combate · Testes · Tela.
+// Área Jogar (mesa ao vivo): Agora · Combate · Testes · Tela (os ids das rotas não mudam:
+// #c/1/play/scene continua valendo; só os rótulos).
 //
 // Montada pela casca (WP3) com lazy(). Props aceitas:
 //   campaign, lang, onChange (recarrega a campanha), approvals? (lista antiga)
 //   sub?, onSubChange?(sub) | onSub?(sub), goTo?   — da casca; sem eles usa useArea() (C4)
 // A subvista vem de useArea().sub; trocar de subvista chama goTo('play', sub).
 // V4: com a loja da mesa (casca do mestre), a faixa do turno do PC fica aqui, presa
-// no topo das 4 subvistas (no celular o turno e o Próximo moram na barra da mesa),
-// e o selo de Testes só busca quando o pulso diz que os testes mudaram.
+// no topo das 4 subvistas (no celular o turno e o Próximo moram na barra da mesa).
+// V7: os testes e os pedidos de rolagem são lidos AQUI, uma vez para as 4 subvistas
+// (o selo, o painel do momento da Agora e a lista de Testes), só quando o pulso diz que
+// eles mudaram (`checksRev`). O selo tem 2 números ("1·2" = 1 teste · 2 rolagens) e conta
+// só a sessão atual (criados depois de diarySessions[n].startedAt).
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { api } from '../api/client.js';
-import { testsBadge, unifyTests } from './scene-model.js';
-import { useOnRev, useTable } from './table-store.js';
+import { sessionMeta, sessionTests, testsBadge } from './now-model.js';
+import { useRevData, useTable } from './table-store.js';
 import { TurnStrip } from '../stage/TableBar.jsx';
 import { useArea } from '../shell/useArea.js';
 import { SubChips } from '../shell/AreaNav.jsx';
@@ -34,25 +38,26 @@ export default function PlayArea(props) {
   const ctxSub = area.area === 'play' ? area.sub : null;
   const rawSub = props.sub || ctxSub || localSub;
   const sub = PLAY_SUBS.includes(rawSub) ? rawSub : 'scene';
-  const [testsWaiting, setTestsWaiting] = useState(0);
-  // O teste que está na Tela (para Jogar › Tela, sem polling próprio).
-  const [shownCheck, setShownCheck] = useState(null);
-  // Selo de Testes sempre atual, mesmo com outra subvista aberta (#37).
+  // Os testes e os pedidos de rolagem, uma leitura para as 4 subvistas (selo, Agora, Testes,
+  // Tela): com o pulso, só quando eles mudam; sem ele, a cada 6 s, como antes.
   const campaignId = campaign?.id;
-  const refreshTests = useCallback(async () => {
-    if (!campaignId) return;
-    const [c, p] = await Promise.allSettled([api.listChecks(campaignId), api.listPendingRolls(campaignId)]);
-    if (c.status !== 'fulfilled' && p.status !== 'fulfilled') return;
-    const checks = c.status === 'fulfilled' ? (c.value.checks || []) : null;
-    if (checks) setShownCheck(checks.find(x => x.showOnScreen && x.status === 'open') || null);
-    setTestsWaiting(testsBadge(unifyTests({
-      checks: checks || [],
-      pendingRolls: p.status === 'fulfilled' ? (p.value.rolls || []) : [],
-    })));
-  }, [campaignId]);
   const table = useTable();
-  // Com o pulso: só quando os testes mudam (e 1 vez por minuto); sem ele, a cada 6 s, como antes.
-  useOnRev(table?.pulse?.checksRev, refreshTests, { table, fallbackMs: 6000 });
+  const [testsData, reloadTests] = useRevData(table?.pulse?.checksRev ?? null, async () => {
+    const [c, p] = await Promise.allSettled([api.listChecks(campaignId), api.listPendingRolls(campaignId)]);
+    if (c.status !== 'fulfilled' && p.status !== 'fulfilled') throw new Error('tests');
+    return {
+      checks: c.status === 'fulfilled' ? (c.value.checks || []) : [],
+      pendingRolls: p.status === 'fulfilled' ? (p.value.rolls || []) : [],
+    };
+  }, { table, fallbackMs: 6000, enabled: campaignId != null, key: String(campaignId) });
+  const refreshTests = reloadTests;
+  const since = table?.pulse?.startedAt || sessionMeta(campaign?.state).startedAt || null;
+  const tests = useMemo(() => ({
+    checks: testsData?.checks || [], pendingRolls: testsData?.pendingRolls || [],
+    loaded: testsData !== undefined, reload: reloadTests, since,
+  }), [testsData, reloadTests, since]);
+  // O teste que está na Tela (para Jogar › Tela, sem polling próprio).
+  const shownCheck = tests.checks.find(x => x.showOnScreen && x.status === 'open') || null;
   const inShell = !!table?.enabled;
 
   const shellGoTo = props.goTo || (area.campaign != null ? area.goTo : null);
@@ -75,26 +80,30 @@ export default function PlayArea(props) {
     if (m) goTo(m[0], m[1], params);
   }, [goTo]);
 
-  const badges = useMemo(() => ({ checks: testsWaiting }), [testsWaiting]);
+  // o selo de Testes: "1·2" (1 teste · 2 rolagens), só desta sessão
+  const mine = useMemo(() => sessionTests({ checks: tests.checks, pendingRolls: tests.pendingRolls, since }), [tests, since]);
+  const badge = testsBadge({ checks: mine.checks.length, rolls: mine.rolls.length }, lang);
+  const badges = useMemo(() => ({ checks: badge.short }), [badge.short]);
+  const badgeLabels = useMemo(() => ({ checks: badge.long }), [badge.long]);
   if (!campaign) return null;
   const fallback = <p className="muted">{L(lang, 'Carregando…', 'Loading…')}</p>;
 
   return (
     <div className="play-area">
-      <SubChips subs={PLAY_SUBS} active={sub} onSelect={setSub} lang={lang} badges={badges} />
+      <SubChips subs={PLAY_SUBS} active={sub} onSelect={setSub} lang={lang} badges={badges} badgeLabels={badgeLabels} />
       {inShell && (
         <TurnStrip lang={lang} onOpenActor={(id) => (shellGoTo ? shellGoTo('play', 'combat', { actor: id, at: Date.now() }) : setSub('combat'))} />
       )}
       <Suspense fallback={fallback}>
         {sub === 'scene' && (
-          <TableNow campaign={campaign} approvals={props.approvals} lang={lang}
+          <TableNow campaign={campaign} approvals={props.approvals} lang={lang} tests={tests}
             onChange={onChange} onNavigate={onNavigate} goTo={goTo} turnStrip={!inShell} />
         )}
         {sub === 'combat' && (
           <CombatTab campaign={campaign} lang={lang} onChange={onChange} onNavigate={onNavigate} turnStrip={!inShell}
             params={area.area === 'play' ? area.params : null} />
         )}
-        {sub === 'checks' && <TestsPanel campaign={campaign} lang={lang} onChange={onChange} onCount={setTestsWaiting} />}
+        {sub === 'checks' && <TestsPanel campaign={campaign} lang={lang} onChange={onChange} tests={tests} />}
         {sub === 'screen' && (
           <StagePanel campaign={campaign} lang={lang} shownCheck={shownCheck}
             onChange={() => { onChange?.(); refreshTests(); }} />
