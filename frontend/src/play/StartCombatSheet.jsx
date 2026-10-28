@@ -24,6 +24,7 @@ import MonsterPicker from '../campaigns/MonsterPicker.jsx';
 import { encounterBody, encounterGroups, groupsTotal, MAX_ENCOUNTER_MONSTERS } from '../combat/encounter-setup.js';
 import { findMonster, monsterForCombat } from '../../data/bestiary.js';
 import { loadCustomMonsters } from '../combat/custom-monsters.js';
+import { fightToEncounter, sceneView } from '../prep/scene-model.js';
 import { failText, newOpId } from './damage-model.js';
 import { startEncounter } from './combat-actions.js';
 import { useTable } from './table-store.js';
@@ -32,29 +33,58 @@ import '../campaigns/combat-styles.css';
 
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
 
+// o monstro de uma entrada de combate: o do catálogo, um dos "meus monstros" ou o snapshot salvo
+function monsterResolver() {
+  const custom = loadCustomMonsters();
+  return (e) => (e.monsterId ? (findMonster(e.monsterId) || custom.find(m => m.id === e.monsterId)) : null) || e.snapshot || null;
+}
+
 /**
  * A sala da aventura (cena ligada) como `scene` desta folha: o combate dela
  * (node.encounter, com o stat block do catálogo ou o snapshot salvo), a imagem para o
- * mapa e de onde veio (o fim guiado lista o tesouro dela). Com a V6, a cena solta do
- * plano (scene.fight) entra pelo mesmo encounterGroups.
+ * mapa e de onde veio (o fim guiado lista o tesouro dela).
  */
 export function sceneOfNode(adventure, node, lang = 'pt') {
-  const custom = loadCustomMonsters();
-  const resolve = (e) => (e.monsterId ? (findMonster(e.monsterId) || custom.find(m => m.id === e.monsterId)) : null) || e.snapshot || null;
   return {
     name: node?.name || '', advId: adventure?.id, nodeId: node?.id,
-    image: node?.image || null, hasImage: !!node?.image,
-    groups: encounterGroups(node?.encounter || [], { resolve, toCombat: monsterForCombat, lang }),
+    image: node?.image || null, hasImage: !!(node?.image || node?.hasImage),
+    groups: encounterGroups(node?.encounter || [], { resolve: monsterResolver(), toCombat: monsterForCombat, lang }),
+  };
+}
+
+/**
+ * A cena do Plano (Jogar › Agora, a folha da cena) como `scene` desta folha. Cena solta:
+ * o ⚔ dela (scene.fight, com os "meus monstros" no snap) e, para o mapa, o cartão do
+ * 📺 Imagem (map-from {entryId}) — só como opção: a imagem da cena nem sempre é um mapa
+ * (pode ser o retrato de quem aparece), então o padrão é manter o mapa. Cena ligada: o
+ * combate e a imagem da sala (`node`, a sala leve do …/node, que diz `hasImage`), como o
+ * sceneOfNode.
+ */
+export function sceneOfPlan(scene, node = null, lang = 'pt') {
+  const v = sceneView(scene, node);
+  const ref = scene?.nodeRef || null;
+  const entryId = !ref && v.show?.kind === 'entry' ? v.show.id : null;
+  return {
+    name: v.name || '', advId: ref?.adventureId, nodeId: ref?.nodeId, entryId,
+    image: ref ? node?.image || null : null,
+    hasImage: ref ? !!(node?.image || node?.hasImage) : entryId != null,
+    mapDefault: ref ? 'scene' : 'keep',
+    groups: encounterGroups(v.fight.map(fightToEncounter), { resolve: monsterResolver(), toCombat: monsterForCombat, lang }),
   };
 }
 
 /**
  * Props: campaign, lang, onClose, onStarted(result)
- *   scene: {name, groups (encounterGroups), advId?, nodeId?, image? (data URL, só para o
- *           servidor antigo), hasImage?}
+ *   scene: {name, groups (encounterGroups), advId?, nodeId?, entryId?, image? (data URL, só
+ *           para o servidor antigo), hasImage?}
+ *   planScene + node: no lugar de `scene`, a cena do Plano (sceneOfPlan) — quem chama não
+ *           precisa carregar o bestiário (a Agora abre esta folha sob demanda)
  *   combat?: o combate atual (sem ele, a folha lê uma vez ao abrir)
  */
-export default function StartCombatSheet({ campaign, lang = 'pt', scene = {}, combat: combatProp = null, onClose, onStarted }) {
+export default function StartCombatSheet({
+  campaign, lang = 'pt', scene: sceneProp = null, planScene = null, node = null, combat: combatProp = null, onClose, onStarted,
+}) {
+  const [scene] = useState(() => sceneProp || (planScene ? sceneOfPlan(planScene, node, lang) : {}));
   const table = useTable();
   const [combat, setCombat] = useState(combatProp);
   const [groups, setGroups] = useState(() => (scene.groups || []).map(g => ({ ...g })));
@@ -65,7 +95,7 @@ export default function StartCombatSheet({ campaign, lang = 'pt', scene = {}, co
   const [mode, setMode] = useState('replace');
   const [monsterInit, setMonsterInit] = useState('each');
   const hasImage = !!(scene.hasImage || scene.image);
-  const [map, setMap] = useState(hasImage ? 'scene' : 'keep');
+  const [map, setMap] = useState(hasImage && scene.mapDefault !== 'keep' ? 'scene' : 'keep');
   const [more, setMore] = useState(false);
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -99,7 +129,8 @@ export default function StartCombatSheet({ campaign, lang = 'pt', scene = {}, co
     if (busy || nothing || tooMany) return;
     setBusy(true); setError('');
     const mapRef = map === 'scene' && hasImage && scene.advId != null ? { advId: scene.advId, nodeId: scene.nodeId }
-      : map === 'none' ? 'none' : 'keep';
+      : map === 'scene' && hasImage && scene.entryId != null ? { entryId: scene.entryId }
+        : map === 'none' ? 'none' : 'keep';
     const body = encounterBody({
       opId: opRef.current, groups, mode: existing ? mode : 'add', pcs: withPcs, askInitiative: withPcs && askInit,
       monsterInit, map: mapRef, start, lang,

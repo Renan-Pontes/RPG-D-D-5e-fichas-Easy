@@ -1059,19 +1059,6 @@ button.cs-stat.cs-init-btn.is-guess { border-color: var(--gold-bright); color: v
 .sc-foot .sc-go { width: 100%; }
 .sc-why { margin: 0; }
 
-/* Jogar › Cena: a linha do combate da sala (no topo da Cena; sem a casca, no "Nesta cena") */
-.mesa-row.ins-fight { margin: 8px 0; }
-.mesa-btn.ins-fight-go { min-height: 48px; white-space: normal; }
-.mesa-panel.tn-fight { padding-top: 6px; padding-bottom: 6px; }
-.mesa-panel.tn-fight .mesa-row.ins-fight { margin: 0; flex-wrap: wrap; row-gap: 6px; }
-.mesa-panel.tn-fight .mesa-row-main { flex: 1 1 180px; }
-.mesa-panel.tn-fight .mesa-row-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 479px) {
-  /* celular: o texto numa linha e o botão inteiro embaixo (a linha não vira uma coluna estreita) */
-  .mesa-panel.tn-fight .mesa-row-act { flex: 1 1 100%; }
-  .mesa-panel.tn-fight .ins-fight-go { width: 100%; }
-}
-
 /* Combate andando com a iniciativa chegando ("Já iniciar"): as respostas e "Pôr na ordem" */
 .mesa-panel.ct-late { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; }
 .ct-late-line { flex: 1 1 200px; min-width: 0; }

@@ -166,8 +166,9 @@ export default function SceneNowCard({
       {v.fight.length > 0 && (
         <div className="snc-row">
           <p className="snc-line">⚔ {fightText}{diffLabel ? <span className="snc-sub"> · {diffLabel}</span> : null}</p>
-          <button type="button" className="mesa-btn snc-act" disabled={closed || busy === 'fight'} onClick={() => onStartFight?.({ fight: v.fight })}>
-            {busy === 'fight' ? '…' : L(lang, 'Começar o combate', 'Start combat')}
+          {/* abre a folha Começar o combate (V8): o combate monta lá, numa chamada */}
+          <button type="button" className="mesa-btn snc-act" disabled={closed} onClick={() => onStartFight?.({ fight: v.fight, scene, node })}>
+            {L(lang, 'Começar o combate', 'Start combat')}
           </button>
         </div>
       )}

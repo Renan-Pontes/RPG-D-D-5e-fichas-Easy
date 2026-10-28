@@ -6,8 +6,10 @@
 // Nada vai para a Tela sem o mestre tocar em "Mostrar na Tela".
 // Sob cada atalho, o gancho do Raio-X: quem é o melhor da mesa e a chance dele na CD
 // ("melhor: Pipo +7 · 65%"), calculado na hora com as fichas que o mestre já tem.
-// V7 (folha da Agora): o atalho ⚡ Iniciativa (um teste `kind:'custom', key:'initiative'`:
-// num app de jogador antigo o modificador não sai da ficha e ele digita o total), o
+// V7 (folha da Agora): o atalho ⚡ Iniciativa (o mesmo teste `kind:'custom', key:'initiative'`
+// do combate rápido, V8: o bônus vem de Utils.initiative na ficha do jogador; num app de
+// jogador antigo o modificador não sai e ele digita o total; com um combate montado, as
+// respostas entram pelo "Usar e começar" de Jogar › Combate), o
 // interruptor "📺 Mostrar na Tela" (ligado quando há uma TV conectada; o teste vai à Tela
 // assim que é pedido) e `closeOnSend`: a folha fecha sozinha ao enviar.
 import { errorMessage } from '../api/errors.js';
@@ -17,7 +19,7 @@ import { usePolling } from '../api/polling.js';
 import { tName } from '../../data/i18n.js';
 import SRD from '../../data/srd.js';
 import {
-  QUICK_SKILLS, QUICK_SAVES, ABILITIES, abilityAbbr, checkLabel, buildCheckPayload, summarize,
+  QUICK_SKILLS, QUICK_SAVES, ABILITIES, INITIATIVE_KEY, abilityAbbr, checkLabel, buildCheckPayload, summarize,
 } from './check-logic.js';
 import { formatMod } from '../dice/dice-math.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
@@ -181,7 +183,7 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
         <span className="gc-label">{L(lang, 'Iniciativa', 'Initiative')}</span>
         <div className="gc-quick gc-quick-init">
           <button type="button" className="gc-quick-btn is-init" disabled={busy}
-            onClick={() => send({ kind: 'custom', key: 'initiative', label: L(lang, 'Iniciativa', 'Initiative') })}>
+            onClick={() => send({ kind: 'custom', key: INITIATIVE_KEY })}>
             <span className="gc-quick-name">⚡ {L(lang, 'Iniciativa', 'Initiative')}</span>
             <span className="gc-quick-best">{L(lang, 'cada um rola a sua', 'everyone rolls theirs')}</span>
           </button>

@@ -34,8 +34,7 @@ import { isWizardEnabled, stateWithWizard } from '../campaigns/end-of-encounter.
 import EndOfEncounterPanel from '../campaigns/EndOfEncounterPanel.jsx';
 import { cachedInsights, insightsApi, loadInsightsOnce, rememberInsights } from '../group/insights-api.js';
 import { emptyPlan, normalizePlan, revealBodyFor, toggleDiscovered } from '../prep/next-session.js';
-import { fightToEncounter, sceneMoments } from '../prep/scene-model.js';
-import { encounterCombatants } from '../prep/prep-graph.js';
+import { sceneMoments } from '../prep/scene-model.js';
 import { loadRoom } from '../prep/prep-api.js';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
@@ -73,6 +72,7 @@ const EntrySheet = lazy(() => import('../prep/EntrySheet.jsx'));
 const AdventureNow = lazy(() => import('./AdventureNow.jsx'));
 const DMCharacterEditor = lazy(() => import('../campaigns/DMCharacterEditor.jsx'));
 const GiveItemModal = lazy(() => import('../campaigns/GiveItemModal.jsx'));
+const StartCombatSheet = lazy(() => import('./StartCombatSheet.jsx'));
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
 
@@ -277,30 +277,13 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
     } catch (e) { flash(errorMessage(e, lang), { error: true }); } finally { setBusy(''); }
   };
 
-  // ⚔ Começar o combate (sem a fatia do combate rápido: os monstros da cena e os personagens
-  // que faltam entram no combate, e o app vai sozinho para Jogar › Combate)
-  const startFight = async ({ fight, goOnly } = {}) => {
+  // ⚔ Começar o combate: a folha do combate rápido (V8) com os monstros da cena, os
+  // personagens em casas livres, a iniciativa pedida à mesa e Trocar/Somar quando já há um
+  // combate montado; deu certo, o app vai sozinho para Jogar › Combate.
+  const startFight = ({ fight, goOnly, scene, node: room } = {}) => {
     if (goOnly || !fight?.length) { goTo?.('play', 'combat'); return; }
-    if (combatants.length && !(await confirmDialog({ lang, confirmLabel: L(lang, 'Somar', 'Add'),
-      message: L(lang, `Já há um combate montado (${combatants.length} combatentes). Os monstros desta cena entram junto.`, `There is already a combat set up (${combatants.length} combatants). This scene's monsters join it.`) }))) return;
-    setBusy('fight');
-    try {
-      const [B, C] = await Promise.all([import('../../data/bestiary.js'), import('../combat/custom-monsters.js')]);
-      const custom = C.loadCustomMonsters();
-      const bodies = encounterCombatants({ encounter: fight.map(fightToEncounter) }, {
-        resolve: (e) => B.findMonster(e.monsterId) || custom.find(m => m.id === e.monsterId) || e.snapshot || null,
-        toCombat: B.monsterForCombat, lang,
-      });
-      if (!bodies.length) throw new Error(L(lang, 'monstros não encontrados no catálogo', 'monsters not found in the catalog'));
-      const inFight = new Set(combatants.filter(c => c.type === 'pc').map(c => c.character_id));
-      const pcs = (campaign.members || []).filter(m => m.role !== 'dm' && m.character && !inFight.has(m.character.id));
-      for (const b of bodies) await api.addCombatant(campaign.id, b);
-      for (const [i, m] of pcs.entries()) {
-        await api.addCombatant(campaign.id, { type: 'pc', characterId: m.character.id, initiative: 10, position: { x: 100 + i * 60, y: 220 }, tokenScale: 1 });
-      }
-      flash(L(lang, `${bodies.length} monstro(s) e ${pcs.length} personagem(ns) no combate. Ajuste as iniciativas e ▶ Inicie.`, `${bodies.length} monster(s) and ${pcs.length} character(s) in combat. Adjust initiative and ▶ Start.`));
-      goTo?.('play', 'combat');
-    } catch (e) { flash(errorMessage(e, lang), { error: true }); } finally { setBusy(''); }
+    const sc = scene || shown;
+    setSheet({ fight: { scene: sc, node: room !== undefined ? room : (sc?.id === shown?.id ? node : null) } });
   };
 
   // ✓ Cena feita · próxima ▶ (com o "O momento aconteceu?" respondido antes)
@@ -667,6 +650,12 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
       {sheet?.give && (
         <Suspense fallback={null}>
           <GiveItemModal campaign={campaign} character={sheet.give} lang={lang} onClose={() => setSheet(null)} onGiven={() => { setSheet(null); refresh(); }} />
+        </Suspense>
+      )}
+      {sheet?.fight && (
+        <Suspense fallback={null}>
+          <StartCombatSheet campaign={campaign} lang={lang} planScene={sheet.fight.scene} node={sheet.fight.node} combat={combat || null}
+            onClose={() => setSheet(null)} onStarted={(r) => { if (r?.combat) setCombatR(r.combat); goTo?.('play', 'combat'); }} />
         </Suspense>
       )}
     </div>

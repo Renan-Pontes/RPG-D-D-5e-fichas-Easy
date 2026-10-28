@@ -3,13 +3,9 @@
 // no plano da próxima sessão. Cada cartão tem 👁 Revelar e o 📺 único
 // (ShowOnTable: oculto pergunta "Só a imagem / Revelar e mostrar").
 // Regra: nada é revelado nem mostrado sem o toque do mestre.
-// V8: a sala com combate ganha a linha "⚔ 2 Goblin Guerreiro [Começar o combate]"
-// (SceneFight), que abre a folha Começar o combate (StartCombatSheet) e leva a
-// Jogar › Combate. Com `onScene`, quem chama (Jogar › Cena) recebe a sala em jogo e
-// põe essa linha no topo da tela — aqui ficam só os cartões.
 // No celular, cada cartão é uma linha (EntryRow): o toque abre o cartão no
 // Mundo e os botões ficam à direita, com 44 px; "Quem vê…" abre a folha "Quem vê" única.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { usePolling } from '../api/polling.js';
 import { EntryImage, VisibilitySeal } from '../world/EntryCard.jsx';
 import { RevealSheet } from '../world/RevealControl.jsx';
@@ -20,42 +16,9 @@ import ShowOnTable from '../stage/ShowOnTable.jsx';
 import { getAdventure, listAdventures } from './play-api.js';
 import { activeScene, sceneEntries } from './scene-model.js';
 import { flash } from './flash.js';
-import StartCombatSheet, { sceneOfNode } from './StartCombatSheet.jsx';
-import { fightLine } from '../combat/encounter-setup.js';
-import { findMonster } from '../../data/bestiary.js';
 import './play-styles.css';
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
-
-/**
- * "⚔ 2 Goblin Guerreiro [Começar o combate]": a sala em jogo (`scene` = {adventure,
- * node}) tem combate. O nome dos monstros vem do catálogo, na língua do app (o salvo
- * na sala fica de reserva). Nada sem combate na sala.
- */
-export function SceneFight({ campaign, scene, lang = 'pt', goTo }) {
-  const [starting, setStarting] = useState(null);
-  const enc = scene?.node?.encounter || [];
-  if (!enc.length) return null;
-  return (
-    <>
-      <div className="mesa-row ins-fight">
-        <span className="mesa-row-main">
-          <span className="mesa-row-title"><span aria-hidden="true">⚔</span> {fightLine(enc, { resolve: findMonster, lang })}</span>
-          <span className="mesa-row-sub">{L(lang, `o combate de ${scene.node.name || 'desta cena'}`, `the combat of ${scene.node.name || 'this scene'}`)}</span>
-        </span>
-        <span className="mesa-row-act">
-          <button type="button" className="mesa-btn is-primary ins-fight-go" onClick={() => setStarting(sceneOfNode(scene.adventure, scene.node, lang))}>
-            {L(lang, 'Começar o combate', 'Start combat')}
-          </button>
-        </span>
-      </div>
-      {starting && (
-        <StartCombatSheet campaign={campaign} lang={lang} scene={starting} onClose={() => setStarting(null)}
-          onStarted={() => goTo?.('play', 'combat')} />
-      )}
-    </>
-  );
-}
 
 /**
  * Linha de um cartão do Mundo (modo mestre): miniatura, nome, tipo e quem vê;
@@ -102,7 +65,7 @@ export function EntryRow({ entry, lang = 'pt', onOpen, onReveal, campaign, onSho
   );
 }
 
-export default function InScenePanel({ campaign, lang = 'pt', goTo, onScene }) {
+export default function InScenePanel({ campaign, lang = 'pt', goTo }) {
   const [entries, setEntries] = useState(null);       // WorldEntryLight[] | null (carregando)
   const [scene, setScene] = useState(null);           // {adventure, node} | null
   const [plan, setPlan] = useState(null);
@@ -131,8 +94,6 @@ export default function InScenePanel({ campaign, lang = 'pt', goTo, onScene }) {
     }
   }, [campaign.id]);
   usePolling(load, 8000, [campaign.id]);
-  // a sala em jogo para quem chama (a linha do combate vai para o topo da Cena)
-  useEffect(() => { onScene?.(scene); }, [scene, onScene]);
 
   const groups = useMemo(() => sceneEntries({ entries: entries || [], node: scene?.node, plan }), [entries, scene, plan]);
 
@@ -181,8 +142,6 @@ export default function InScenePanel({ campaign, lang = 'pt', goTo, onScene }) {
         ) : null}>
         {scene ? scene.node.name : L(lang, 'Quem e o que está por perto', 'Who and what is around')}
       </MesaTitle>
-
-      {!onScene && <SceneFight campaign={campaign} scene={scene} lang={lang} goTo={goTo} />}
 
       {entries === null && <p className="muted small">{L(lang, 'Carregando o mundo…', 'Loading the world…')}</p>}
 

@@ -26,7 +26,7 @@ import { conditionLabel } from '../combat/monster-i18n.js';
 import GroupCheckPanel from '../checks/GroupCheckPanel.jsx';
 import { initiativePayload } from '../checks/check-logic.js';
 import DamagePad from '../play/DamagePad.jsx';
-import StartCombatSheet, { sceneOfNode } from '../play/StartCombatSheet.jsx';
+import StartCombatSheet, { sceneOfNode, sceneOfPlan } from '../play/StartCombatSheet.jsx';
 import {
   encounterBody, fightLine, initiativeRows, lateInitiatives, lateLabel, openInitiativeCheck, setupSteps, pickInitiatives, startLabel,
 } from '../combat/encounter-setup.js';
@@ -36,6 +36,11 @@ import {
 import { startEncounter } from '../play/combat-actions.js';
 import { activeScene } from '../play/scene-model.js';
 import { getAdventure, listAdventures, patchState } from '../play/play-api.js';
+import { currentScene } from '../play/now-model.js';
+import { normalizePlan } from '../prep/next-session.js';
+import { sceneView } from '../prep/scene-model.js';
+import { loadRoom } from '../prep/prep-api.js';
+import { getSessionPlan } from '../world/world-api.js';
 import { flash } from '../play/flash.js';
 
 const ShowSheet = lazy(() => import('../stage/ShowSheet.jsx'));
@@ -129,7 +134,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   const [view, setView] = useState(() => readView(campaign.id));
   const [toolsSignal, setToolsSignal] = useState(0);
   const [startScene, setStartScene] = useState(null); // a folha "Começar o combate"
-  const [sceneFight, setSceneFight] = useState(null); // {adventure, fight} da cena em jogo
+  const [sceneFight, setSceneFight] = useState(null); // {name, monsters} + {planScene, node} (Plano) ou {adventure, fight} (sala em jogo)
   const [initCheck, setInitCheck] = useState(null); // o teste de iniciativa aberto
   const [busy, setBusy] = useState('');
   const wide = useWide();
@@ -208,18 +213,39 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   useOnRev(table?.pulse?.checksRev, loadChecks, { table, fallbackMs: 6000, initial: false });
   useEffect(() => { if (waitingInit) loadChecks(); else setInitCheck(null); }, [waitingInit, loadChecks]);
 
-  // "Usar o combate da cena X": com o combate vazio, a lista leve das aventuras diz se a
-  // sala em jogo tem combate (1 GET ao abrir; servidor antigo não manda `currentFight`).
+  // "Usar o combate da cena X": com o combate vazio, a cena agora (Jogar › Agora: o
+  // `sceneId` do pulso) diz se tem combate — a solta pelo ⚔ dela no Plano, a ligada pela
+  // sala (1 nó, sem a imagem). Sem cena agora (ou num servidor sem o `sceneId`), a lista leve
+  // das aventuras diz se a sala em jogo tem combate (servidor antigo não manda
+  // `currentFight`). 1 GET ao abrir (+ a sala da cena ligada), como antes.
   const empty = !!combat && !active && combatants.length === 0;
+  const sceneNowId = table?.pulse ? table.pulse.sceneId : campaign.state?.sceneId;
   useEffect(() => {
     if (!empty) return undefined;
     let alive = true;
-    listAdventures(campaign.id).then(r => {
+    (async () => {
+      if (sceneNowId) {
+        try {
+          const sc = currentScene(normalizePlan(await getSessionPlan(campaign.id)), { sceneId: sceneNowId });
+          if (sc) {
+            const room = sc.nodeRef
+              ? (await loadRoom(campaign.id, sc.nodeRef.adventureId, sc.nodeRef.nodeId).catch(() => null))?.node || null
+              : null;
+            const v = sceneView(sc, room);
+            if (alive) setSceneFight(v.fight.length ? { planScene: sc, node: room, name: v.name, monsters: v.fight } : null);
+            return;
+          }
+        } catch { /* sem o plano: a sala em jogo, abaixo */ }
+      }
+      const r = await listAdventures(campaign.id).catch(() => null);
       const adv = activeScene(r?.adventures || []);
-      if (alive) setSceneFight(adv?.currentFight ? { adventure: adv, fight: adv.currentFight } : null);
-    }).catch(() => {});
+      if (alive) {
+        setSceneFight(adv?.currentFight
+          ? { adventure: adv, fight: adv.currentFight, name: adv.currentFight.name, monsters: adv.currentFight.monsters } : null);
+      }
+    })();
     return () => { alive = false; };
-  }, [empty, campaign.id]);
+  }, [empty, campaign.id, sceneNowId]);
 
   // Vindo de outro lugar: [Ações] (abre quem age) ou "Encerrar o combate" (barra da mesa).
   const handled = useRef(null);
@@ -454,9 +480,11 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
     finally { setBusy(''); loadChecks(); }
   };
 
-  // "Usar o combate da cena X": a sala inteira (com os stat blocks) só ao tocar.
+  // "Usar o combate da cena X": a cena do Plano já tem tudo; a sala em jogo da aventura,
+  // inteira (com os stat blocks e a imagem para o servidor antigo), só ao tocar.
   const useSceneFight = async () => {
     if (!sceneFight || busy) return;
+    if (sceneFight.planScene) { setStartScene(sceneOfPlan(sceneFight.planScene, sceneFight.node, lang)); return; }
     setBusy('scene');
     try {
       const full = await getAdventure(campaign.id, sceneFight.adventure.id);
@@ -590,11 +618,11 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
           <p className="mesa-eyebrow" id="ct-setup-h">{t(lang, 'Monte o combate em 3 passos', 'Set up combat in 3 steps')}</p>
           {empty && sceneFight && (
             <button type="button" className="mesa-btn mesa-btn-lg is-primary ct-scene-fight" disabled={busy === 'scene'} onClick={useSceneFight}>
-              {busy === 'scene' ? '…' : <>⚔ {t(lang, `Usar o combate da cena ${sceneFight.fight.name}`, `Use the combat of scene ${sceneFight.fight.name}`)}</>}
+              {busy === 'scene' ? '…' : <>⚔ {t(lang, `Usar o combate da cena ${sceneFight.name}`, `Use the combat of scene ${sceneFight.name}`)}</>}
             </button>
           )}
           {empty && sceneFight && (
-            <p className="mesa-hint">{fightLine(sceneFight.fight.monsters, { resolve: findMonster, lang, sep: ' × ' })}</p>
+            <p className="mesa-hint">{fightLine(sceneFight.monsters, { resolve: findMonster, lang, sep: ' × ' })}</p>
           )}
           <ol className="ct-steps">
             {steps.map((s, i) => (
