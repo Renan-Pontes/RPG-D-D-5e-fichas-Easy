@@ -6,7 +6,7 @@ import ReadyAdventureGallery from '../ready/ReadyAdventureGallery.jsx';
 import { readyApi } from '../ready/ready-logic.js';
 import CoverPicker from './CoverPicker.jsx';
 import ToneAccentFields from '../shell/ToneAccentFields.jsx';
-import { defaultCoverArt, isHexColor, saveRememberedArea, TONES } from '../shell/shell-logic.js';
+import { campaignNextLine, defaultCoverArt, isHexColor, loadPlanCard, saveRememberedArea, TONES } from '../shell/shell-logic.js';
 import { writeSkip } from '../shell/next-step.js';
 import '../shell/shell.css';
 import { TableInviteCard } from '../creator/JoinTable.jsx';
@@ -87,6 +87,9 @@ function CampaignCard({ c, lang, onOpen }) {
   const accent = isHexColor(c.accent) ? c.accent : null;
   const tone = TONES.find(x => x.id === c.tone);
   const st = c.state || {};
+  // V14: o próximo passo do mestre ("Plano da Sessão 5: 2 cenas"), com o resumo do plano
+  // que a campanha guardou neste aparelho (a lista não traz o plano: 0 pedido novo)
+  const next = campaignNextLine(c, c.role === 'dm' ? loadPlanCard(c.id) : null, lang);
   return (
     <article className="camp-card" style={accent ? { '--camp-accent': accent } : undefined}
       onClick={() => onOpen?.(c)} role="button" tabIndex={0}
@@ -107,6 +110,7 @@ function CampaignCard({ c, lang, onOpen }) {
         </div>
         <h3 className="camp-card-name">{c.name}</h3>
         {(c.tagline || c.description) && <p className="camp-card-tagline">{c.tagline || c.description}</p>}
+        {next && <p className="camp-card-next"><span aria-hidden="true">{st.live ? '▶' : '📋'} </span>{next}</p>}
         <div className="camp-card-meta">
           {st.session || st.scene
             ? [st.session && `${t(lang, 'Sessão', 'Session')} ${st.session}`, st.scene].filter(Boolean).join(' · ')

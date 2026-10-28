@@ -35,7 +35,7 @@ import {
 } from '../shell/Fallbacks.jsx';
 import {
   areasFor, areaTapSub, campaignRoute, groupBadgeCount, initialArea, isHexColor, loadRememberedArea, normalizeArea, onboardingStatus,
-  onboardingVisible, parseCampaignRoute, planFlags, prepareMarks, saveRememberedArea, screenLink, t,
+  onboardingVisible, parseCampaignRoute, planCardSummary, planFlags, prepareMarks, saveRememberedArea, savePlanCard, screenLink, t,
 } from '../shell/shell-logic.js';
 import '../shell/mesa.css';
 import '../shell/shell.css';
@@ -181,9 +181,15 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   // e fora do Plano (o Plano aberto avisa a cada mudança por `onPlan`, sem GET).
   const navRef = useRef(null);
   navRef.current = nav;
+  const campRef = useRef(null);
+  campRef.current = campaign;
   const reportPlan = useCallback((plan) => {
     const f = planFlags(plan);
     setPlanInfo(prev => (prev && f && prev.has === f.has && prev.blank === f.blank ? prev : f));
+    // a linha "Plano da Sessão 5: 2 cenas" do cartão da campanha (V14): guardada no aparelho,
+    // porque a lista de campanhas não traz o plano
+    const c = campRef.current;
+    if (c?.id) savePlanCard(c.id, planCardSummary(plan, c.state));
   }, []);
   const fetchPlan = useCallback(() => {
     if (!campaign?.id || !isDM || campaign.status === 'closed') return;
@@ -460,7 +466,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
           <Suspense fallback={null}>
             <QuickSearch campaign={campaign} lang={lang} isDM={isDM} initialWorld={world?.entries}
               onClose={() => setSearch(false)}
-              onPick={(r) => { setSearch(false); goTo(r.go[0], r.go[1], r.go[2]); }} />
+              onPick={(r) => { setSearch(false); if (r.guide != null) setGuide(r.guide); else goTo(r.go[0], r.go[1], r.go[2]); }} />
           </Suspense>
         )}
         {more && isDM && (
