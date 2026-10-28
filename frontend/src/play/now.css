@@ -68,6 +68,9 @@
 .snc-head .mesa-eyebrow { flex: 1 1 auto; }
 .snc-name { margin: 0; font-family: var(--display); font-size: 1.15rem; line-height: 1.25; color: var(--gold-bright); overflow-wrap: anywhere; }
 .snc-what { margin: 0; font-size: 15px; line-height: 1.4; color: var(--ink-secondary); overflow-wrap: anywhere; }
+/* ⚡ o começo forte, inteiro, no cartão da 1ª cena da sessão */
+.snc-strong { margin: 0; padding: 8px 10px; border-left: 3px solid var(--gold); border-radius: 0 6px 6px 0; background: rgba(214, 176, 100, 0.1); font-size: 16px; line-height: 1.45; color: var(--ink-primary); white-space: pre-wrap; overflow-wrap: anywhere; }
+.snc-strong strong { color: var(--gold-bright); font-weight: 600; }
 .snc-only { font-size: 12px; color: var(--ink-muted); white-space: nowrap; }
 .snc-block { display: flex; flex-direction: column; gap: 6px; }
 .snc-read-btn.mesa-btn { align-self: flex-start; }

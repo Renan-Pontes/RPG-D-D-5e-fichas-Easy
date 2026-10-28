@@ -50,8 +50,8 @@ import MomentPanel from './MomentPanel.jsx';
 import { CombatStrip, PartyCard, PlanClues, SceneFields, ToolsSheet } from './NowParts.jsx';
 import SceneNowCard from './SceneNowCard.jsx';
 import {
-  currentScene, nextSceneAfter, planChips, readRehearsal, readStartScene, recapShown, sceneName, scenePosition,
-  sessionLength, sessionMeta, sessionTests, stateSessionNumber, writeRehearsal,
+  currentScene, firstOpenScene, isOpeningScene, nextSceneAfter, planChips, readFirstScene, readRehearsal, readStartScene,
+  recapShown, sceneName, scenePosition, sessionLength, sessionMeta, sessionTests, stateSessionNumber, writeFirstScene, writeRehearsal,
 } from './now-model.js';
 import { playPlanView } from './plan-model.js';
 import { patchState } from './play-api.js';
@@ -403,6 +403,7 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
   const chips = plan ? planChips(plan, live ? sceneNow?.id : rehearsal?.id) : [];
   const card = (live && sceneNow) || rehearsal ? (
     <SceneNowCard key={shown.id} campaign={campaign} lang={lang} scene={shown} node={node || null} world={world}
+      strongStart={opening ? plan?.strongStart || '' : ''}
       moments={momentsOf(shown)} names={names} mode={live ? 'now' : 'rehearsal'} pos={scenePosition(plan, shown.id)}
       next={nextSceneAfter(plan, shown.id)} nextName={sceneName(nextSceneAfter(plan, shown.id)) || ''}
       combat={pulse?.combat || (combat ? { active: combat.active, round: combat.round } : null)} busy={busy} closed={closed}
@@ -668,6 +669,8 @@ function ScenePeek({ campaign, lang, scene, plan, world, live, isNow, moments, n
     return () => { alive = false; };
   }, [campaign.id, ref?.adventureId, ref?.nodeId]); // eslint-disable-line react-hooks/exhaustive-deps
   const touched = useRef(false);
+  const [log, setLog] = useState(() => readLogRoom(campaign.id));
+  const starting = live && !isNow;
   return (
     <MesaSheet title={sceneName(scene) || L(lang, 'Cena', 'Scene')} icon="🎭" size="tall" width="md" lang={lang} dock="bar" onClose={onClose}
       footer={(

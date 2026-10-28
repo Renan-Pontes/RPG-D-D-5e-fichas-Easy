@@ -260,13 +260,13 @@ function readOpen(id) {
  * "Pistas · 2 de 8 achadas" (recolhível, lembrado por aparelho): ☐ achada; marcar uma pista
  * NUNCA revela nada — ligada a um cartão, só PERGUNTA "Revelar também no cartão?" (com
  * "Registrar na Crônica"). Embaixo, À mão na sessão toda (os cartões do plano, com Quem vê e
- * 📺) e as Anotações do plano (monstros e recompensas em texto).
+ * 📺) e as Anotações do plano (o começo forte, os monstros e as recompensas em texto).
  */
 export function PlanClues({ campaign, lang, view, handy = [], ask, busy, closed = false, onToggleClue, onReveal, onDismissAsk, onOpenEntry, onRevealEntry, onRevealed, onEditPlan }) {
   const [open, setOpen] = useState(() => readOpen(campaign.id));
   const [log, setLog] = useState(true);
   const pg = view.progress;
-  const has = view.clues.length || handy.length || view.monsters || view.rewards;
+  const has = view.clues.length || handy.length || view.monsters || view.rewards || view.strongStart;
   if (!has) return null;
   const toggle = (e) => {
     const next = e.currentTarget.open;
@@ -320,9 +320,10 @@ export function PlanClues({ campaign, lang, view, handy = [], ask, busy, closed 
             </div>
           </div>
         )}
-        {(view.monsters || view.rewards) && (
+        {(view.monsters || view.rewards || view.strongStart) && (
           <div className="spp-block spp-two">
             <span className="spp-eyebrow">📝 {L(lang, 'Anotações do plano', 'Plan notes')}</span>
+            {view.strongStart && <div><span className="spp-sub">⚡ {L(lang, 'Começo forte', 'Strong start')}</span><p className="spp-pre">{view.strongStart}</p></div>}
             {view.monsters && <div><span className="spp-sub">🐉 {L(lang, 'Monstros', 'Monsters')}</span><p className="spp-pre">{view.monsters}</p></div>}
             {view.rewards && <div><span className="spp-sub">💎 {L(lang, 'Recompensas', 'Rewards')}</span><p className="spp-pre">{view.rewards}</p></div>}
           </div>

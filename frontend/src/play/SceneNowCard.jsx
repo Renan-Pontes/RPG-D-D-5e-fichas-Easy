@@ -1,6 +1,7 @@
 // Jogar › Agora: o cartão CENA AGORA (V7, especificação §4.4.4 e W3) — a cena do plano
 // que está acontecendo, com SÓ o que ela tem e uma ação principal de 44 px por linha:
-//   nome · O que acontece (só você vê) · 📜 Ler em voz alta ▾ (o texto ali, 18 px) ·
+//   nome · ⚡ Comece assim (o começo forte do plano, inteiro, só na 1ª cena da sessão) ·
+//   O que acontece (só você vê) · 📜 Ler em voz alta ▾ (o texto ali, 18 px) ·
 //   📺 Mostrar a imagem / 📺 Mostrar o texto · 🎯 o teste ("melhor: Elarion 50%") +
 //   Pedir a todos · ⚔ o combate (com a dificuldade) + Começar o combate · 🎭 Quem aparece
 //   (Quem vê / 📺 por cartão; o nome abre o editor numa folha) · ★ os momentos ligados ·
@@ -42,7 +43,7 @@ function useMonsterLookup(need) {
 
 export default function SceneNowCard({
   campaign, lang = 'pt', scene, node = null, world = [], moments = [], names = {}, mode = 'now', pos = null,
-  next = null, nextName = '', combat = null, busy = '', closed = false,
+  next = null, nextName = '', combat = null, busy = '', closed = false, strongStart = '',
   onEdit, onFill, onAskCheck, onStartFight, onDone, onOpenEntry, onRevealEntry, onRevealed, adventurePanel = null,
 }) {
   const v = useMemo(() => sceneView(scene, node, { world }), [scene, node, world]);
@@ -105,6 +106,11 @@ export default function SceneNowCard({
       </div>
       {/* na folha da cena o nome já está no título: aqui fica só para o leitor de tela */}
       <h3 className={mode === 'peek' ? 'sr-only' : 'snc-name'} id={`snc-h-${scene.id}`}>{name}</h3>
+      {filled(strongStart) && (
+        <p className="snc-strong">
+          <strong>⚡ {L(lang, 'Comece assim:', 'Start like this:')}</strong> {strongStart.trim()} <span className="snc-only">{L(lang, '(só você vê)', '(only you see)')}</span>
+        </p>
+      )}
       {(filled(v.what) || filled(v.notesInText)) && (
         <p className="snc-what">{v.what || v.notesInText} <span className="snc-only">{L(lang, '(só você vê)', '(only you see)')}</span></p>
       )}
