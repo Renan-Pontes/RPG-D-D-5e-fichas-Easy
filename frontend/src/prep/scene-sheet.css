@@ -1,0 +1,198 @@
+/* Folha da Cena (SceneSheet.jsx, SceneBlocks.jsx) e o modo sala (NodeEditor.jsx).
+   A folha mora na camada da mesa (portal): nada aqui depende de .ns. Só tokens do app. */
+
+.ss .mesa-sheet-title { text-transform: uppercase; letter-spacing: 0.1em; }
+.ss-save { flex: none; align-self: center; margin-right: 2px; font-size: 13px; white-space: nowrap; color: var(--ink-muted); }
+.ss-save.s-saved { color: var(--moss-bright); }
+.ss-save.s-dirty { color: var(--amber); }
+.ss-save.s-error { color: var(--blood-bright); }
+
+.ss-body { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+/* os blocos abaixo da paleta: fora do fluxo só enquanto a sala da cena ligada chega */
+.ss-rest { display: contents; }
+.ss-rest[hidden] { display: none; }
+.ss-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ss-label {
+  display: block; margin: 0; font-family: var(--body); font-size: 15px; letter-spacing: normal; text-transform: none; color: var(--ink-secondary);
+}
+.ss :is(input.input, textarea.input, select.input) { font-size: 16px; min-height: 44px; }
+.ss textarea.input { line-height: 1.45; resize: vertical; }
+.ss-hint { margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink-muted); overflow-wrap: anywhere; }
+.ss-error { margin: 0; font-size: 14px; color: var(--blood-bright); overflow-wrap: anywhere; }
+.ss-text-line { margin: 0; font-size: 15px; line-height: 1.4; color: var(--ink-secondary); overflow-wrap: anywhere; }
+.ss-linked-note { margin: -4px 0 0; font-size: 14px; line-height: 1.4; color: var(--gold); overflow-wrap: anywhere; }
+.ss-wide { width: 100%; }
+.ss-row-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.ss-row-btns .mesa-btn { flex: 1 1 auto; }
+
+/* ---------- paleta "Pôr nesta cena": 4 colunas (2 linhas a 320), ícone sobre o rótulo ---------- */
+.ss-palette-wrap { display: flex; flex-direction: column; gap: 6px; }
+.ss-palette { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.ss-chip {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-width: 0; min-height: 52px; padding: 6px 4px; border: 1px solid var(--gold-deep); border-radius: 10px;
+  background: rgba(214, 176, 100, 0.06); color: var(--ink-secondary); font: inherit; cursor: pointer; text-align: center;
+}
+.ss-chip-ico { font-size: 18px; line-height: 1.1; }
+.ss-chip-label { font-family: var(--body); font-size: 13px; line-height: 1.15; overflow-wrap: anywhere; }
+.ss-chip-ok {
+  position: absolute; top: 2px; right: 4px; font-size: 12px; font-weight: 700; line-height: 1; color: var(--moss-bright);
+}
+.ss-chip.is-on {
+  border-color: color-mix(in srgb, var(--camp-accent, var(--gold)) 75%, transparent);
+  background: color-mix(in srgb, var(--camp-accent, var(--gold)) 22%, #1a120e); color: var(--ink-primary);
+}
+.ss-chip:disabled { opacity: 0.5; cursor: not-allowed; }
+.ss-chip:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; }
+@media (hover: hover) { .ss-chip:not(:disabled):hover { background: var(--gold-soft); color: var(--ink-primary); } }
+@media (min-width: 1024px) {
+  .ss-palette { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+}
+
+/* ---------- blocos ---------- */
+.ss-block {
+  display: flex; flex-direction: column; gap: 8px; min-width: 0; padding-top: 10px;
+  border-top: 1px solid rgba(224, 181, 94, 0.2); scroll-margin-top: 8px;
+}
+.ss-block-head { display: flex; align-items: center; gap: 2px; min-height: 44px; margin: -6px -6px -4px 0; }
+.ss .ss-block-h {
+  flex: 1 1 auto; min-width: 0; margin: 0; font-family: var(--display); font-size: 13px !important; font-weight: 600;
+  letter-spacing: 0.12em; line-height: 1.3; text-transform: uppercase; color: var(--gold-bright);
+}
+.ss-help { font-family: var(--display); color: var(--gold); }
+.ss-help-text { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink-secondary); }
+.ss-text { min-height: 88px; }
+
+/* 📺 imagem */
+.ss-image { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.ss-image-pic {
+  flex: none; width: 104px; height: 70px; object-fit: cover; border-radius: 6px; border: 1px solid var(--gold-deep); background: var(--bg-deep);
+}
+.ss-image-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ss-image-name { margin: 0; font-size: 15px; color: var(--ink-primary); overflow-wrap: anywhere; }
+.ss-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+.ss-pick-search { width: 100%; margin-bottom: 8px; }
+.ss-pick-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+
+/* ⚔ combate */
+.ss-fight { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ss-fight-row { display: flex; flex-direction: column; gap: 2px; padding: 4px 0; border-bottom: 1px solid rgba(224, 181, 94, 0.12); }
+.ss-fight-line { display: flex; align-items: center; gap: 4px; min-height: 48px; min-width: 0; }
+.ss-fight-name { flex: 1 1 auto; min-width: 0; font-size: 15px; color: var(--ink-primary); overflow-wrap: anywhere; }
+.ss-count { flex: none; display: inline-flex; align-items: center; }
+.ss-count .mesa-icon-btn { border: 1px solid var(--gold-deep); border-radius: 8px; color: var(--gold-bright); }
+.ss-count-n { min-width: 28px; text-align: center; font-family: var(--display); font-size: 16px; color: var(--ink-primary); }
+.ss-vs { margin: 0; font-size: 14px; line-height: 1.35; color: var(--amber); overflow-wrap: anywhere; }
+.ss-diff { margin: 0; font-size: 15px; line-height: 1.4; color: var(--ink-secondary); overflow-wrap: anywhere; }
+
+/* 🎯 teste */
+.ss-check { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ss-check + .ss-check { padding-top: 8px; border-top: 1px dashed rgba(224, 181, 94, 0.16); }
+.ss-check-line { display: flex; gap: 4px; align-items: center; min-width: 0; }
+.ss-check-sel { flex: 1 1 auto; min-width: 0; width: auto; }
+.ss-dcs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ss-dc-label { font-size: 14px; color: var(--ink-muted); margin-right: 2px; }
+.ss .ss-dc { min-width: 44px; justify-content: center; padding: 6px 8px; font-variant-numeric: tabular-nums; }
+/* "Outra…" e o campo que ele abre ocupam o mesmo lugar (nada ao lado mexe ao trocar) */
+.ss .ss-dc-free { width: 84px; min-width: 84px; }
+.ss input.ss-dc-free { min-height: 44px; height: 44px; padding: 6px 8px; border-radius: 999px; text-align: center; font-size: 16px; }
+.ss-best { margin: 0; font-size: 14px; line-height: 1.4; color: var(--moss-bright); overflow-wrap: anywhere; }
+
+/* ★ momento */
+.ss-moments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ss-moment { display: flex; align-items: center; gap: 4px; min-height: 44px; }
+.ss-moment-text { flex: 1 1 auto; min-width: 0; font-size: 15px; line-height: 1.35; color: var(--ink-primary); overflow-wrap: anywhere; }
+.ss-mom-add { display: flex; flex-direction: column; gap: 8px; padding: 8px; border: 1px solid rgba(224, 181, 94, 0.22); border-radius: 8px; background: rgba(10, 7, 6, 0.35); }
+.ss-who { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ss-ideas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ss-idea { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 0; border-bottom: 1px solid rgba(224, 181, 94, 0.12); }
+.ss-idea-text { flex: 1 1 180px; min-width: 0; margin: 0; font-size: 15px; line-height: 1.35; color: var(--ink-secondary); overflow-wrap: anywhere; }
+.ss-idea.is-match .ss-idea-text { color: var(--ink-primary); }
+.ss-idea-why { font-size: 14px; color: var(--moss-bright); }
+.ss-own { display: flex; flex-wrap: wrap; gap: 8px; }
+.ss-own .input { flex: 1 1 200px; min-width: 0; }
+
+/* Mostrar ao começar */
+.ss-switch {
+  display: flex; align-items: flex-start; gap: 10px; min-height: 44px; padding: 10px 0 0; margin: 0;
+  border-top: 1px solid rgba(224, 181, 94, 0.2); font-family: var(--body); font-size: 15px; line-height: 1.4;
+  letter-spacing: normal; text-transform: none; color: var(--ink-primary); cursor: pointer;
+}
+.ss-switch > input { margin-top: 2px; }
+
+/* Mais opções */
+.ss-more { border-top: 1px solid rgba(224, 181, 94, 0.2); }
+.ss-more > summary {
+  display: flex; align-items: center; min-height: 48px; cursor: pointer; font-family: var(--display); font-size: 14px;
+  letter-spacing: 0.04em; color: var(--gold-bright); list-style: none;
+}
+.ss-more > summary::-webkit-details-marker { display: none; }
+.ss-more > summary::before { content: '▸'; margin-right: 8px; color: var(--gold); transition: transform 0.15s; }
+.ss-more[open] > summary::before { transform: rotate(90deg); }
+.ss-more-body { display: flex; flex-direction: column; gap: 8px; padding-bottom: 6px; }
+.ss-link-edit { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ss-link-edit .input { flex: 1 1 160px; min-width: 0; width: auto; }
+.ss-link-edit > .ss-hint { flex: 1 1 100%; }
+.ss-adv { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 1px dashed rgba(224, 181, 94, 0.24); border-radius: 8px; }
+.ss-ask {
+  display: flex; flex-direction: column; gap: 6px; margin: 6px 0; padding: 10px 12px; border: 1px solid var(--gold); border-radius: 8px;
+  background: linear-gradient(135deg, var(--gold-soft), transparent);
+}
+.ss-ask > p { margin: 0; }
+
+/* rodapé: 🗑 Apagar · Pronto (dourado, 48) */
+.ss-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ss-foot .ss-done { flex: 1 1 auto; max-width: 260px; margin-left: auto; }
+.ss-foot .ss-del { flex: none; padding-left: 8px; padding-right: 10px; color: var(--blood-bright); }
+
+/* aviso curto dentro da folha (1 por vez, 6 s) com "↶ Desfazer" */
+.ss-flash {
+  position: sticky; bottom: 0; z-index: 3; display: flex; align-items: center; gap: 12px; margin-top: 12px;
+  padding: 6px 6px 6px 14px; min-height: 48px; font-size: 15px; color: var(--ink-primary); background: var(--bg-elevated);
+  border: 1px solid var(--gold); border-radius: var(--radius-lg); box-shadow: var(--shadow-deep);
+}
+.ss-flash > span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.ss-flash .mesa-btn { flex: none; }
+
+/* caixas de seleção no estilo do app */
+.ss input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; width: 22px; height: 22px; min-height: 0; margin: 0; padding: 0; flex: 0 0 auto;
+  border: 1.5px solid var(--gold-deep); border-radius: 5px; background: var(--bg-deep); cursor: pointer;
+  display: inline-grid; place-content: center; vertical-align: middle;
+}
+.ss input[type="checkbox"]::before {
+  content: ''; width: 12px; height: 12px; transform: scale(0); transition: transform 0.12s ease-in-out;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%); background: var(--bg-deep);
+}
+.ss input[type="checkbox"]:checked { background: var(--gold); border-color: var(--gold-bright); }
+.ss input[type="checkbox"]:checked::before { transform: scale(1); }
+.ss input[type="checkbox"]:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+
+/* ---------- modo sala (Preparar › Aventuras › sala) ---------- */
+.ss-room-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+@media (min-width: 480px) { .ss-room-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.ss-hazard { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid rgba(224, 181, 94, 0.2); border-radius: 8px; }
+.ss-hazard-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(64px, 1fr) minmax(0, 1.4fr); gap: 8px; }
+@media (max-width: 380px) { .ss-hazard-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ss-hazard-grid > :first-child { grid-column: 1 / -1; } }
+.ss-hazard-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ss-hazard-head .mesa-eyebrow { margin: 0; }
+.ss-treasure { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ss-treasure li { display: flex; align-items: center; gap: 6px; min-height: 48px; border-bottom: 1px solid rgba(224, 181, 94, 0.12); }
+.ss-treasure .input { width: 72px; flex: none; }
+.ss-treasure-name { flex: 1 1 auto; min-width: 0; font-size: 15px; overflow-wrap: anywhere; }
+.ss-coins { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.ss-coins label { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--ink-muted); text-transform: none; letter-spacing: normal; }
+.ss-coins .input { width: 100%; padding-left: 6px; padding-right: 4px; }
+.ss-room-pic { display: block; width: 100%; max-height: 220px; object-fit: contain; border-radius: 8px; border: 1px solid var(--gold-deep); background: var(--bg-deep); }
+.ss-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ss-link-row {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; padding: 6px 10px; border: 1px solid var(--stroke-faint);
+  border-radius: 8px; background: rgba(10, 7, 6, 0.35); color: var(--ink-primary); font: inherit; font-size: 15px; text-align: left; cursor: pointer;
+}
+.ss-link-row .ss-hint { margin-left: auto; text-align: right; }
+.ss-connect { display: flex; flex-wrap: wrap; gap: 8px; }
+.ss-connect .input { flex: 1 1 160px; min-width: 0; width: auto; }
+
+/* o editor do cartão aberto do Plano (EntrySheet): por cima da folha da Cena (folha 100) */
+.ns-entry-layer .wl-editor-scrim { z-index: 125; }
+.ns-entry-layer .wl-editor { z-index: 130; }

@@ -4,7 +4,8 @@ Mundo de exemplo — a vila "Vale de Brumafria" (pt) / "Mistfrost Vale" (en).
 Criado por POST /campaigns/:id/world/sample para o mestre iniciante ver um
 mundo pronto e mexer: 1 lugar com mapa (pins), 3 NPCs (taverneiro,
 sacerdotisa, vilão), 1 facção, 1 rumor (lore parcial), 1 segredo (lore
-oculto) e 1 aventura de 3 salas ligada a esses cartões (refs). Tudo é
+oculto), 1 aventura de 3 salas ligada a esses cartões (refs) e, com o plano
+vazio, o Plano da Sessão com 2 cenas, o começo e 3 pistas. Tudo é
 editável e apagável. Nada sensível nasce revelado: o vilão, a facção e o
 segredo começam ocultos; a sacerdotisa e o rumor, "conhecidos de nome".
 
@@ -17,7 +18,7 @@ import os
 from django.utils import timezone
 
 from . import world_rules as R
-from .models import Adventure, WorldEntry, WorldImage
+from .models import Adventure, Campaign, WorldEntry, WorldImage
 
 MAP_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'world_assets', 'brumafria-map.webp')
 
@@ -111,6 +112,9 @@ TEXT = {
             'edge1': 'Rua da ponte', 'edge2': 'Alçapão sob o altar', 'cond2': 'Investigação CD 13',
             'cultist': 'Cultista', 'specter': 'Sombra Espectral', 'check': 'Investigação para achar o alçapão',
         },
+        'plan': {
+            'strongStart': 'A névoa chega cedo esta noite e, no alto do templo, um sino que não existe mais toca três vezes.',
+        },
     },
     'en': {
         'village': {
@@ -200,6 +204,9 @@ TEXT = {
             ],
             'edge1': 'Bridge street', 'edge2': 'Trapdoor under the altar', 'cond2': 'Investigation DC 13',
             'cultist': 'Cultist', 'specter': 'Specter', 'check': 'Investigation to find the trapdoor',
+        },
+        'plan': {
+            'strongStart': 'The mist comes early tonight and, high in the temple, a bell that no longer exists rings three times.',
         },
     },
 }
@@ -298,5 +305,24 @@ def create_sample_world(campaign, lang='pt'):
         data={'version': 1, 'nodes': nodes, 'edges': edges},
         play={'current': None, 'visited': [], 'unlocked': []},
     )
-    return {'adventureId': adventure.id,
+    # O plano da Sessão (Preparar › Plano, 3ª porta): 2 cenas ligadas às 2 primeiras salas,
+    # o começo e 3 pistas ligadas aos segredos dos cartões. Só num plano vazio (nunca
+    # sobrescreve o mestre); as pessoas e os lugares que ele já tinha escolhido ficam.
+    fresh = Campaign.objects.select_for_update().get(pk=campaign.pk)
+    settings = dict(fresh.dm_settings or {})
+    plan_filled = R.session_plan_is_empty(settings.get('sessionPlan'))
+    if plan_filled:
+        clue = lambda entry, sid: {'text': next(x['text'] for x in entry.secrets if x['id'] == sid),
+                                   'ref': {'entryId': entry.id, 'secretId': sid}, 'discovered': False}
+        patch = R.clean_session_plan_patch({
+            'strongStart': T['plan']['strongStart'],
+            'scenes': [{'text': n['name'], 'nodeRef': {'adventureId': adventure.id, 'nodeId': n['id']}, 'done': False}
+                       for n in nodes[:2]],
+            'secrets': [clue(borin, 's1'), clue(velna, 's2'), clue(secret, 's1')],
+            'npcIds': [borin.id, velna.id], 'placeIds': [village.id],
+        })
+        settings['sessionPlan'] = R.fill_empty_session_plan(settings.get('sessionPlan'), patch, fresh.state)
+        settings['planRev'] = timezone.now().isoformat()   # o pulso do mestre (V4)
+        Campaign.objects.filter(pk=fresh.pk).update(dm_settings=settings)
+    return {'adventureId': adventure.id, 'sessionPlanFilled': plan_filled,
             'entryIds': [village.id, borin.id, velna.id, morvane.id, faction.id, rumor.id, secret.id]}

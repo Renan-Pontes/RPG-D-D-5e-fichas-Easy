@@ -88,16 +88,29 @@ export function markWorldSeen(campaignId) {
   return request(`/api/campaigns/${cid(campaignId)}/world/seen`, { method: 'POST', body: {} });
 }
 
-/** Plano da próxima sessão (mestre). → plan */
+/** Plano da Sessão N (mestre; Preparar › Plano). → plan */
 export async function getSessionPlan(campaignId) {
   const r = await request(`/api/campaigns/${cid(campaignId)}/session-plan`);
   return r.plan;
 }
 
-/** Merge por chave no servidor. → plan */
+/** Merge por chave no servidor (as cenas, por id: o bolso que não veio fica). → plan */
 export async function saveSessionPlan(campaignId, patch) {
   const r = await request(`/api/campaigns/${cid(campaignId)}/session-plan`, { method: 'PUT', body: { plan: patch } });
   return r.plan;
+}
+
+/**
+ * "Começar o plano da Sessão N" (⋯ do Plano, V12): o plano de agora fica arquivado na Crônica
+ * (oculto) e o novo leva o que sobrou (`carry`) ou começa do zero. → {plan, archived}
+ */
+export function archiveSessionPlan(campaignId, { carry = true, forSession = null } = {}) {
+  return request(`/api/campaigns/${cid(campaignId)}/session-plan/archive`, { method: 'POST', body: { carry, ...(forSession ? { forSession } : {}) } });
+}
+
+/** Crônica › Ver o plano desta sessão › Restaurar. → {plan, previous} (previous = o de antes, para o ↶) */
+export function restoreSessionPlan(campaignId, session) {
+  return request(`/api/campaigns/${cid(campaignId)}/session-plan/restore`, { method: 'POST', body: { session } });
 }
 
 /**

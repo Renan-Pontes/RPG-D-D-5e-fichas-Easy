@@ -576,11 +576,18 @@ def _items(raw, limit, prefix, make):
         _bad('invalid_session_plan')
     if len(raw) > limit:
         _bad('session_plan_too_large')
+    # o id gerado (item sem id) nunca repete um id que veio na lista: senão herdaria
+    # os bolsos guardados da cena dona daquele id (merge por id, merged_session_plan)
+    sent = {short_id(it.get('id')) for it in raw if isinstance(it, dict)} - {''}
     out, used = [], set()
     for i, it in enumerate(raw):
         if not isinstance(it, dict):
             continue
-        sid = short_id(it.get('id')) or f'{prefix}{i + 1}'
+        sid = short_id(it.get('id'))
+        if not sid:
+            sid = f'{prefix}{i + 1}'
+            while sid in sent:
+                sid = f'{sid}x'
         while sid in used:
             sid = f'{sid}x'
         used.add(sid)
@@ -588,21 +595,144 @@ def _items(raw, limit, prefix, make):
     return out
 
 
+# Os bolsos da cena (§3.7 da especificação da área do mestre v2): cada um só entra no
+# patch quando VEIO no item. O que não veio fica como estava (merge por id da cena),
+# para um app antigo em cache, que regrava `scenes` só com texto/feita/sala, não apagar
+# o que o novo pôs na cena. Monstro personalizado ("meus monstros", que só existe no
+# navegador do mestre) vai no `snap` do ⚔ da cena: sem imagens, descrições cortadas em
+# 300 caracteres, no máximo 8 KB cada e 4 no plano (o teto de 40 KB das aventuras não vale
+# aqui: o plano inteiro tem 60 KB). Maior que isso → 400 e a folha pede uma aventura.
+SCENE_CORE = ('text', 'nodeRef', 'done')
+CHECK_KINDS = ('skill', 'save', 'ability')
+SPOT_RE = re.compile(r'^[A-Za-z0-9_:-]{1,40}$')
+MAX_SCENE_SNAP_BYTES = 8_000
+MAX_SCENE_SNAPS = 4
+SNAP_DESC = 300
+SNAP_LISTS = ('traits', 'actions', 'bonusActions', 'reactions', 'legendaryActions')
+SNAP_TEXTS = ('desc', 'description', 'lore', 'notes')
+
+
+def _snap_text(v):
+    if isinstance(v, str):
+        return v[:SNAP_DESC]
+    if isinstance(v, dict):
+        return {k: x[:SNAP_DESC] for k, x in v.items() if k in ('pt', 'en') and isinstance(x, str)}
+    return v
+
+
+def _snap_value(v):
+    """Tira as imagens (data:…) de qualquer nível e corta as descrições das listas de ações."""
+    if isinstance(v, str):
+        return None if v.startswith('data:') else v
+    if isinstance(v, list):
+        return [x for x in (_snap_value(i) for i in v[:40]) if x is not None]
+    if isinstance(v, dict):
+        out = {}
+        for k, x in v.items():
+            x = _snap_text(x) if k in SNAP_TEXTS else _snap_value(x)
+            if x is not None:
+                out[k] = x
+        return out
+    return v
+
+
+def _scene_snap(v):
+    if not isinstance(v, dict):
+        return None
+    snap = _snap_value(v)
+    if json_size(snap) > MAX_SCENE_SNAP_BYTES:
+        _bad('scene_monster_too_large')
+    return snap
+
+
+def _scene_show(v):
+    if not isinstance(v, dict):
+        return None
+    if v.get('kind') == 'entry':
+        eid = to_int(v.get('id'), 1, 10**10)
+        return {'kind': 'entry', 'id': eid} if eid else None
+    if v.get('kind') == 'node':
+        aid = to_int(v.get('advId'), 1, 10**10)
+        nid = short_id(v.get('nodeId'), 40)
+        return {'kind': 'node', 'advId': aid, 'nodeId': nid} if aid and nid else None
+    return None
+
+
+def _scene_fight(v):
+    if not isinstance(v, list):
+        return []
+    out = []
+    for m in v[:6]:
+        if not isinstance(m, dict):
+            continue
+        mid = short_id(m.get('monsterId'), 60)
+        name = text(m.get('name'), 80)
+        if not mid and not name:
+            continue
+        cr = m.get('cr')
+        cr = float(cr) if isinstance(cr, numbers.Number) and not isinstance(cr, bool) and 0 <= cr <= 30 else None
+        item = {'monsterId': mid, 'name': name, 'cr': cr, 'count': to_int(m.get('count'), 1, 20, 1)}
+        snap = _scene_snap(m.get('snap'))
+        if snap:
+            item['snap'] = snap
+        out.append(item)
+    return out
+
+
+def _scene_check(v):
+    if not isinstance(v, dict) or v.get('kind') not in CHECK_KINDS:
+        return None
+    key = short_id(v.get('key'), 30)
+    if not key:
+        return None
+    out = {'kind': v['kind'], 'key': key}
+    dc = to_int(v.get('dc'), 1, 40)
+    if dc:
+        out['dc'] = dc
+    if v.get('dcHidden'):
+        out['dcHidden'] = True
+    return out
+
+
+SCENE_POCKETS = {
+    'what': lambda v: long_text(v, 500),
+    'read': lambda v: long_text(v, 1000),
+    'show': _scene_show,
+    'showOnStart': bool,
+    # cena ligada sem imagem: o mestre tirou a imagem sem tirar o cartão da sala
+    'showOff': bool,
+    'refs': lambda v: _id_list(v, 8),
+    'fight': _scene_fight,
+    'check': _scene_check,
+    'spots': lambda v: [x for x in v[:20] if isinstance(x, str) and SPOT_RE.match(x)][:4] if isinstance(v, list) else [],
+    'notes': lambda v: long_text(v, 1000),
+}
+
+
+def _clean_scene(it):
+    out = {'text': long_text(it.get('text'), 1000), 'nodeRef': _ref_node(it.get('nodeRef')),
+           'done': bool(it.get('done'))}
+    for key, clean in SCENE_POCKETS.items():
+        if key in it:
+            out[key] = clean(it[key])
+    return out
+
+
 SESSION_PLAN_DEFAULT = {'strongStart': '', 'scenes': [], 'secrets': [], 'npcIds': [],
-                        'placeIds': [], 'monsters': '', 'rewards': ''}
+                        'placeIds': [], 'monsters': '', 'rewards': '',
+                        # de qual sessão é o plano (o título diz) e a versão (sobe a cada PUT)
+                        'forSession': None, '_rev': 0}
 
 
 def clean_session_plan_patch(raw):
-    """Valida as chaves presentes (merge por chave no servidor)."""
+    """Valida as chaves presentes (merge por chave no servidor; `_rev` é só do servidor)."""
     if not isinstance(raw, dict):
         _bad('invalid_session_plan')
     out = {}
     if 'strongStart' in raw:
         out['strongStart'] = long_text(raw['strongStart'], 4000)
     if 'scenes' in raw:
-        out['scenes'] = _items(raw['scenes'], 30, 'c', lambda it: {
-            'text': long_text(it.get('text'), 1000), 'nodeRef': _ref_node(it.get('nodeRef')),
-            'done': bool(it.get('done'))})
+        out['scenes'] = _items(raw['scenes'], 30, 'c', _clean_scene)
     if 'secrets' in raw:
         out['secrets'] = _items(raw['secrets'], 30, 'p', lambda it: {
             'text': long_text(it.get('text'), 1000), 'ref': _ref_entry(it.get('ref')),
@@ -615,17 +745,220 @@ def clean_session_plan_patch(raw):
         out['monsters'] = long_text(raw['monsters'], 4000)
     if 'rewards' in raw:
         out['rewards'] = long_text(raw['rewards'], 4000)
+    if 'forSession' in raw:
+        out['forSession'] = to_int(raw['forSession'], 1, 9999)
     return out
+
+
+def _merge_scenes(current, incoming):
+    """Cenas do patch por cima das guardadas, pelo id: o bolso que não veio continua."""
+    before = {s.get('id'): s for s in current or [] if isinstance(s, dict) and s.get('id')}
+    return [{**before.get(s['id'], {}), **s} for s in incoming]
 
 
 def merged_session_plan(current, patch):
     plan = dict(SESSION_PLAN_DEFAULT)
     if isinstance(current, dict):
         plan.update({k: v for k, v in current.items() if k in SESSION_PLAN_DEFAULT})
+    patch = dict(patch)
+    if 'scenes' in patch:
+        patch['scenes'] = _merge_scenes(plan.get('scenes'), patch['scenes'])
+        snaps = sum(1 for sc in patch['scenes'] for m in sc.get('fight') or [] if isinstance(m, dict) and m.get('snap'))
+        if snaps > MAX_SCENE_SNAPS:
+            _bad('too_many_scene_monsters')
     plan.update(patch)
     if json_size(plan) > MAX_SESSION_PLAN_BYTES:
         _bad('session_plan_too_large')
     return plan
+
+
+def bump_session_plan(plan, state):
+    """Antes de gravar: `_rev` + 1 e, no 1º PUT de um plano sem dono, a sessão dele
+    (a de hoje com a sessão ao vivo; senão a próxima)."""
+    plan['_rev'] = (to_int(plan.get('_rev'), 0, 10**9, 0) or 0) + 1
+    if not plan.get('forSession'):
+        plan['forSession'] = plan_session_number(state)
+    return plan
+
+
+def plan_session_number(state):
+    """Nº da sessão de um plano novo: a ao vivo (é o plano de hoje) ou a próxima."""
+    state = state if isinstance(state, dict) else {}
+    raw = state.get('session')
+    m = re.search(r'\d+', str(raw if raw is not None else ''))
+    cur = int(m.group()) if m and not isinstance(raw, bool) else 0
+    return max(1, cur if state.get('live') and cur else cur + 1)
+
+
+def _filled_items(items, ref):
+    return [x for x in items or [] if isinstance(x, dict) and (str(x.get('text') or '').strip() or x.get(ref))]
+
+
+def session_plan_is_empty(plan):
+    """Plano "vazio" para quem preenche sozinho (aventura pronta, exemplo): sem começo e
+    sem cena de verdade, a mesma regra das 3 portas do Plano (N2). As pistas não contam:
+    as do mestre ficam e as do pacote vêm depois (fill_empty_session_plan), e "Começar o
+    plano da Sessão N" leva adiante as não achadas. Linhas vazias não contam (são só da tela)."""
+    plan = plan if isinstance(plan, dict) else {}
+    return not (str(plan.get('strongStart') or '').strip() or _filled_items(plan.get('scenes'), 'nodeRef'))
+
+
+def fill_empty_session_plan(current, patch, state):
+    """Plano vazio + o que veio (aventura pronta, exemplo). As pessoas, os lugares e as
+    pistas que o mestre já tinha ficam, e as anotações e pistas dele vêm antes das do
+    pacote; as linhas vazias saem (as cenas novas não herdam bolsos pelo id). O plano
+    continua sendo o da sessão que o mestre escolheu ("Começar o plano da Sessão N");
+    sem ela, ou se ela já foi jogada, é o da sessão de hoje (ao vivo) ou o da próxima."""
+    cur = current if isinstance(current, dict) else {}
+    patch = dict(patch)
+    for key in ('npcIds', 'placeIds'):
+        if key in patch:
+            patch[key] = _id_list(list(cur.get(key) or []) + list(patch[key]), 60)
+    for key in ('monsters', 'rewards'):
+        old = str(cur.get(key) or '').strip()
+        if key in patch and old:
+            patch[key] = long_text(f'{old}\n{patch[key]}', 4000)
+    mine = _filled_items(cur.get('secrets'), 'ref')
+    used, extra = {s.get('id') for s in mine}, []
+    for s in patch.get('secrets') or []:
+        sid = s['id']
+        while sid in used:   # a pista do pacote nunca pega o id de uma pista do mestre
+            sid = f'{sid}x'
+        used.add(sid)
+        extra.append({**s, 'id': sid})
+    patch['secrets'] = (mine + extra)[:30]
+    plan = merged_session_plan({**cur, 'scenes': [], 'secrets': []}, patch)
+    fs = to_int(cur.get('forSession'), 1, 9999)
+    plan['forSession'] = fs if fs and fs >= plan_session_number(state) else None
+    return bump_session_plan(plan, state)
+
+
+# ------------------------------------------------------------------ virar a página (V12)
+# Encerrar a sessão (POST …/diary/sessions/:n/end) e "Começar o plano da Sessão N+1" (⋯ do
+# Plano, POST …/session-plan/archive) ARQUIVAM o plano jogado antes de esvaziá-lo, numa
+# DiaryEntry oculta da sessão (kind 'event', subtype 'plan', data.plan ≤ 60 KB; a lista da
+# Crônica não manda esse `data.plan`). "Levar o que sobrou" passa para o plano novo as cenas
+# não jogadas, as pistas não achadas e as pessoas e os lugares; "Começar do zero", nada.
+# "Restaurar" (POST …/session-plan/restore) devolve o plano arquivado ao Plano sem perder o
+# que já estava nele.
+PLAN_CONTENT_KEYS = ('strongStart', 'scenes', 'secrets', 'npcIds', 'placeIds', 'monsters', 'rewards')
+
+
+def _real_scene(s):
+    return isinstance(s, dict) and bool(str(s.get('text') or '').strip() or s.get('nodeRef'))
+
+
+def _real_secret(s):
+    return isinstance(s, dict) and bool(str(s.get('text') or '').strip() or s.get('ref'))
+
+
+def plan_has_content(plan):
+    """Há o que arquivar: começo, cena, pista, pessoa, lugar ou anotação."""
+    plan = plan if isinstance(plan, dict) else {}
+    return bool(not session_plan_is_empty(plan) or _filled_items(plan.get('secrets'), 'ref')
+                or plan.get('npcIds') or plan.get('placeIds')
+                or str(plan.get('monsters') or '').strip() or str(plan.get('rewards') or '').strip())
+
+
+def plan_leftovers(plan):
+    """O que "Levar para a Sessão N+1" leva: as cenas de verdade não feitas (a que estava
+    "agora" e não foi marcada feita também: foi interrompida), as pistas não achadas e as
+    pessoas e os lugares."""
+    plan = plan if isinstance(plan, dict) else {}
+    return {
+        'scenes': [s for s in plan.get('scenes') or [] if _real_scene(s) and not s.get('done')],
+        'secrets': [s for s in plan.get('secrets') or [] if _real_secret(s) and not s.get('discovered')],
+        'npcIds': _id_list(plan.get('npcIds'), 60), 'placeIds': _id_list(plan.get('placeIds'), 60),
+    }
+
+
+def played_scene_ids(plan, scene_id=None, done_before=None):
+    """As cenas jogadas na sessão (as mesmas do rascunho do resumo, diary-summary.playedScenes):
+    as de verdade feitas nela (fora as que já estavam feitas ao começar, `doneBefore`) e a que
+    estava "agora". O "Quem teve um momento hoje?" só marca momento destas cenas."""
+    plan = plan if isinstance(plan, dict) else {}
+    before = set(done_before) if isinstance(done_before, list) else set()
+    return {s.get('id') for s in plan.get('scenes') or []
+            if _real_scene(s) and s.get('id') and ((s.get('done') and s.get('id') not in before)
+                                                    or (scene_id and s.get('id') == scene_id))}
+
+
+def carried_plan(plan, next_session, carry=True):
+    """O plano da Sessão `next_session`: com `carry`, o que sobrou (plan_leftovers, com os
+    mesmos ids: os momentos do Raio-X apontam as cenas pelo id); sem, em branco. O `_rev`
+    continua subindo (bump_session_plan, na gravação)."""
+    out = {**SESSION_PLAN_DEFAULT, 'scenes': [], 'secrets': [], 'npcIds': [], 'placeIds': []}
+    out['_rev'] = to_int((plan or {}).get('_rev'), 0, 10**9, 0) or 0
+    out['forSession'] = to_int(next_session, 1, 9999)
+    if carry:
+        out.update(plan_leftovers(plan))
+    return out
+
+
+def archive_payload(plan, session, scene_id=None, done_before=None):
+    """`data` da DiaryEntry do plano arquivado: o plano inteiro (sem o `_rev`), a cena que
+    estava "agora" ao encerrar e as cenas que já estavam feitas quando a sessão começou
+    (`doneBefore`: o rascunho do resumo conta como jogadas só as outras) e as contagens que a
+    lista da Crônica mostra (ela não manda o `plan`)."""
+    plan = plan if isinstance(plan, dict) else {}
+    keep = {k: plan.get(k, SESSION_PLAN_DEFAULT[k]) for k in PLAN_CONTENT_KEYS}
+    keep['forSession'] = to_int(plan.get('forSession'), 1, 9999)
+    if json_size(keep) > MAX_SESSION_PLAN_BYTES:
+        _bad('session_plan_too_large')
+    scenes = [s for s in keep['scenes'] or [] if _real_scene(s)]
+    secrets = [s for s in keep['secrets'] or [] if _real_secret(s)]
+    sid = short_id(scene_id, 40) or None
+    before = [short_id(x, 40) for x in done_before or [] if short_id(x, 40)][:30] if isinstance(done_before, list) else None
+    return {
+        'session': to_int(session, 0, 100000), 'sceneId': sid, 'doneBefore': before, 'plan': keep,
+        'counts': {
+            'scenes': len(scenes),
+            'played': sum(1 for s in scenes if (s.get('done') and s.get('id') not in (before or [])) or s.get('id') == sid),
+            'clues': len(secrets), 'found': sum(1 for s in secrets if s.get('discovered')),
+        },
+    }
+
+
+def _blank(v):
+    return v is None or v == [] or v == {} or (isinstance(v, str) and not v.strip())
+
+
+def _by_id_union(first, second):
+    """Na ordem de `first` e, depois, o que de `second` tem um id que `first` não tem. O mesmo
+    id nas duas: a versão de `second` (a de agora), campo a campo — `first` só preenche o que
+    nela está vazio."""
+    first = [x for x in first or [] if isinstance(x, dict)]
+    now = {x.get('id'): x for x in second or [] if isinstance(x, dict) and x.get('id')}
+    out = [{**x, **{k: v for k, v in now[x['id']].items() if not _blank(v)}} if x.get('id') in now else x for x in first]
+    ids = {x.get('id') for x in first}
+    return out + [x for x in second or [] if isinstance(x, dict) and x.get('id') not in ids]
+
+
+def restored_plan(current, archived):
+    """"Restaurar": o plano arquivado volta ao Plano sem apagar nada do que já está nele. O
+    que o Plano tem vence: as cenas e as pistas levadas (o mesmo id) ficam como estão agora (o
+    arquivo só preenche os campos vazios), e o que o arquivo não tem fica junto, depois; o
+    arquivo devolve as cenas e as pistas que faltam, as pessoas, os lugares e os textos que
+    estão vazios agora. O plano continua sendo o da sessão que está sendo preparada
+    (`forSession` de agora). Passou do teto → 400."""
+    cur = merged_session_plan(current if isinstance(current, dict) else {}, {})
+    old = archived if isinstance(archived, dict) else {}
+    out = dict(cur)
+    for key in ('strongStart', 'monsters', 'rewards'):
+        if not str(cur.get(key) or '').strip() and str(old.get(key) or '').strip():
+            out[key] = old[key]
+    out['scenes'] = _by_id_union(old.get('scenes'), cur.get('scenes'))[:30]
+    out['secrets'] = _by_id_union(old.get('secrets'), cur.get('secrets'))[:30]
+    for key in ('npcIds', 'placeIds'):
+        out[key] = _id_list(list(old.get(key) or []) + list(cur.get(key) or []), 60)
+    if not out.get('forSession'):
+        out['forSession'] = to_int(old.get('forSession'), 1, 9999)
+    snaps = sum(1 for sc in out['scenes'] for m in sc.get('fight') or [] if isinstance(m, dict) and m.get('snap'))
+    if snaps > MAX_SCENE_SNAPS:
+        _bad('too_many_scene_monsters')
+    if json_size(out) > MAX_SESSION_PLAN_BYTES:
+        _bad('session_plan_too_large')
+    return out
 
 
 # ------------------------------------------------------------------ Raio-X do grupo

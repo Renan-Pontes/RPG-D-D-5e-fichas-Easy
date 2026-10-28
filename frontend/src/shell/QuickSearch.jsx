@@ -1,13 +1,15 @@
 // 🔍 Busca rápida (Ctrl+K): Mundo, membros, aventuras, itens da campanha e monstros.
 // Escolher um resultado navega com goTo (abre o cartão no Mundo, a aventura na
 // Preparação etc.). Tudo local depois do primeiro carregamento: resposta imediata.
+// Mestre (V14): também os lugares do app, achados pelo nome de antes ("telão" → Tela,
+// "próxima sessão" → Plano, "encontro" → Combate, "recap" → Resumo) e o Guia do mestre.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { listWorld } from '../world/world-api.js';
 import { kindIcon, kindLabel } from '../world/world-model.js';
-import { searchItems, t } from './shell-logic.js';
+import { navSearchItems, searchItems, t } from './shell-logic.js';
 
-const KIND_ORDER = ['npc', 'place', 'faction', 'item', 'lore', 'handout', 'member', 'adventure', 'citem', 'monster'];
+const KIND_ORDER = ['nav', 'npc', 'place', 'faction', 'item', 'lore', 'handout', 'member', 'adventure', 'citem', 'monster'];
 
 function monsterName(m, lang) {
   if (!m) return '';
@@ -40,7 +42,7 @@ export default function QuickSearch({ campaign, lang, isDM, onClose, onPick, ini
   }, [campaign.id, isDM]);
 
   const index = useMemo(() => {
-    const out = [];
+    const out = isDM ? navSearchItems(lang) : [];
     for (const e of world) {
       out.push({
         id: `w${e.id}`, kind: e.kind, label: e.name, keywords: [e.summary, ...(e.tags || [])].filter(Boolean).join(' '),
@@ -99,7 +101,7 @@ export default function QuickSearch({ campaign, lang, isDM, onClose, onPick, ini
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKey}
             placeholder={isDM
-              ? t(lang, 'Buscar NPC, lugar, jogador, aventura, item, monstro…', 'Search NPC, place, player, adventure, item, monster…')
+              ? t(lang, 'Buscar NPC, lugar, jogador, item, monstro ou tela…', 'Search NPC, place, player, item, monster or screen…')
               : t(lang, 'Buscar no mundo e no grupo…', 'Search the world and party…')}
             aria-label={t(lang, 'Buscar', 'Search')}
             role="combobox"
@@ -114,7 +116,9 @@ export default function QuickSearch({ campaign, lang, isDM, onClose, onPick, ini
             <li className="shell-search-empty muted">{t(lang, 'Nada encontrado. Tente outra palavra.', 'Nothing found. Try another word.')}</li>
           )}
           {!q && (
-            <li className="shell-search-empty muted">{t(lang, 'Digite um nome. ↑↓ para escolher, Enter para abrir.', 'Type a name. ↑↓ to choose, Enter to open.')}</li>
+            <li className="shell-search-empty muted">{isDM
+              ? t(lang, 'Digite um nome ou um lugar do app (ex.: “Tela”, “Plano”). ↑↓ para escolher, Enter para abrir.', 'Type a name or a place in the app (e.g. “Screen”, “Plan”). ↑↓ to choose, Enter to open.')
+              : t(lang, 'Digite um nome. ↑↓ para escolher, Enter para abrir.', 'Type a name. ↑↓ to choose, Enter to open.')}</li>
           )}
           {results.map((r, i) => (
             <li key={r.id} id={`qs-${r.id}`} role="option" aria-selected={i === sel}

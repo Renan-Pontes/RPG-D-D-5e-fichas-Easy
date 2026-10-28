@@ -437,6 +437,34 @@ class WorldSampleTests(WorldBase):
     def test_sample_dm_only(self):
         self.assertEqual(self.c1.post(f'{self.base}/sample', {}, format='json').status_code, 403)
 
+    def test_sample_fills_an_empty_plan_with_two_scenes(self):
+        # o Plano antigo gravava 10 pistas vazias só de abrir: isso ainda é um plano vazio
+        self.c_dm.put(f'/api/campaigns/{self.camp.id}/session-plan', {'secrets': [{'text': ''}] * 10, 'npcIds': [77]},
+                      format='json')
+        r = self.c_dm.post(f'{self.base}/sample', {'lang': 'pt'}, format='json')
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertTrue(r.json()['sessionPlanFilled'])
+        plan = self.c_dm.get(f'/api/campaigns/{self.camp.id}/session-plan').json()['plan']
+        adv_id = r.json()['adventureId']
+        self.assertEqual([s['text'] for s in plan['scenes']], ['Taverna Malte Dourado', 'Templo da Névoa'])
+        self.assertEqual([s['nodeRef'] for s in plan['scenes']],
+                         [{'adventureId': adv_id, 'nodeId': 'n1'}, {'adventureId': adv_id, 'nodeId': 'n2'}])
+        self.assertTrue(plan['strongStart'])
+        self.assertEqual(len(plan['secrets']), 3)
+        ids = {e['id'] for e in r.json()['entries']}
+        self.assertTrue(all(x['text'] and x['ref']['entryId'] in ids for x in plan['secrets']))
+        self.assertEqual(plan['npcIds'][0], 77, 'a escolha do mestre fica')
+        self.assertEqual(len(plan['npcIds']), 3)
+        self.assertEqual(plan['forSession'], 5)   # a sessão 4 já foi: o plano é o da 5
+
+    def test_sample_never_overwrites_a_plan(self):
+        self.c_dm.put(f'/api/campaigns/{self.camp.id}/session-plan', {'strongStart': 'Meu começo'}, format='json')
+        r = self.c_dm.post(f'{self.base}/sample', {'lang': 'en'}, format='json')
+        self.assertFalse(r.json()['sessionPlanFilled'])
+        plan = self.c_dm.get(f'/api/campaigns/{self.camp.id}/session-plan').json()['plan']
+        self.assertEqual(plan['strongStart'], 'Meu começo')
+        self.assertEqual(plan['scenes'], [])
+
 
 class SessionPlanTests(WorldBase):
     def url(self):
@@ -477,6 +505,141 @@ class SessionPlanTests(WorldBase):
     def test_limits(self):
         r = self.c_dm.put(self.url(), {'secrets': [{'text': 'x'}] * 31}, format='json')
         self.assertEqual(r.status_code, 400)
+
+    POCKETS = {
+        'what': 'Goblins esperam sob a ponte', 'read': 'A ponte range.', 'show': {'kind': 'entry', 'id': 12},
+        'showOnStart': True, 'showOff': True, 'refs': [3, 3, 4], 'fight': [{'monsterId': 'goblin', 'name': 'Goblin', 'cr': 0.25, 'count': 2}],
+        'check': {'kind': 'skill', 'key': 'perception', 'dc': 13, 'dcHidden': True}, 'spots': ['12:m1'], 'notes': 'só eu',
+    }
+
+    def test_old_app_rewriting_scenes_keeps_the_pockets(self):
+        # o app novo grava os bolsos da cena…
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'Ponte', **self.POCKETS},
+                                                  {'id': 'c2', 'text': 'Lago'}]}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        saved = r.json()['plan']['scenes'][0]
+        self.assertEqual(saved['refs'], [3, 4])
+        self.assertEqual(saved['fight'], [{'monsterId': 'goblin', 'name': 'Goblin', 'cr': 0.25, 'count': 2}])
+        # …e um app antigo em cache regrava `scenes` só com texto, feita e sala
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c2', 'text': 'Lago à noite', 'nodeRef': None, 'done': True},
+                                                  {'id': 'c1', 'text': 'Ponte velha', 'nodeRef': None, 'done': False}]},
+                          format='json')
+        c2, c1 = r.json()['plan']['scenes']
+        self.assertEqual((c2['id'], c2['text'], c2['done']), ('c2', 'Lago à noite', True))
+        self.assertEqual(c1['text'], 'Ponte velha')
+        for key, value in self.POCKETS.items():
+            if key != 'refs':
+                self.assertEqual(c1[key], value, key)
+        self.assertEqual(c1['refs'], [3, 4])
+        self.assertNotIn('read', c2)
+        # o app novo tira um bolso mandando a chave vazia; a cena que saiu da lista sai de vez
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'Ponte velha', 'read': '', 'fight': [],
+                                                   'show': None, 'check': None}]}, format='json')
+        c1, = r.json()['plan']['scenes']
+        self.assertEqual((c1['read'], c1['fight'], c1['show'], c1['check']), ('', [], None, None))
+        self.assertEqual(c1['what'], self.POCKETS['what'])
+
+    def test_pockets_are_validated(self):
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'x', 'what': 'w' * 900, 'read': 7,
+                                                   'show': {'kind': 'node', 'advId': '3', 'nodeId': 'n 1!'},
+                                                   'refs': list(range(1, 20)), 'check': {'kind': 'roll', 'key': 'x'},
+                                                   'fight': [{'monsterId': 'goblin', 'count': 99}] * 9 + ['lixo'],
+                                                   'spots': ['ok-1', 'não vale', 5, 'a', 'b', 'c'], 'junk': 1}]},
+                          format='json')
+        c1 = r.json()['plan']['scenes'][0]
+        self.assertEqual(len(c1['what']), 500)
+        self.assertEqual(c1['read'], '')
+        self.assertEqual(c1['show'], {'kind': 'node', 'advId': 3, 'nodeId': 'n1'})
+        self.assertEqual(len(c1['refs']), 8)
+        self.assertIsNone(c1['check'])
+        self.assertEqual(len(c1['fight']), 6)
+        self.assertEqual(c1['fight'][0]['count'], 20)
+        self.assertEqual(c1['spots'], ['ok-1', 'a', 'b', 'c'])   # até 4, só os ids que valem
+        self.assertNotIn('junk', c1)
+
+    def test_custom_monster_snap_in_the_scene(self):
+        # "meus monstros" vão no snap: sem imagem, descrições cortadas
+        snap = {'id': 'custom-ogro-1', 'custom': True, 'name': {'pt': 'Ogro do Brejo'}, 'ac': 11, 'hp': 59,
+                'portrait': 'data:image/png;base64,AAAA', 'description': 'x' * 2000,
+                'actions': [{'name': 'Clava', 'desc': 'Melee Weapon Attack: +6 to hit. ' + 'y' * 900}]}
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'Brejo', 'fight': [
+            {'monsterId': 'custom-ogro-1', 'name': 'Ogro do Brejo', 'cr': 2, 'count': 1, 'snap': snap}]}]}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        kept = r.json()['plan']['scenes'][0]['fight'][0]['snap']
+        self.assertNotIn('portrait', kept)
+        self.assertEqual(len(kept['description']), 300)
+        self.assertEqual(len(kept['actions'][0]['desc']), 300)
+        self.assertEqual(kept['hp'], 59)
+
+    def test_custom_monster_snap_limits(self):
+        big = {'id': 'custom-big', 'name': 'Grande', 'actions': [{'name': f'Golpe {i}', 'desc': 'z' * 290} for i in range(40)]}
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'x', 'fight': [
+            {'monsterId': 'custom-big', 'name': 'Grande', 'count': 1, 'snap': big}]}]}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()['error'], 'scene_monster_too_large')
+        small = lambda i: {'monsterId': f'custom-{i}', 'name': f'M{i}', 'count': 1, 'snap': {'id': f'custom-{i}', 'hp': 10}}
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'a', 'fight': [small(1), small(2)]},
+                                                  {'id': 'c2', 'text': 'b', 'fight': [small(3), small(4)]}]}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        # o 5º no plano (mesmo numa cena que veio sem os bolsos das outras) → 400
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'a'}, {'id': 'c2', 'text': 'b'},
+                                                  {'id': 'c3', 'text': 'c', 'fight': [small(5)]}]}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()['error'], 'too_many_scene_monsters')
+        self.camp.refresh_from_db()
+        self.assertEqual(len(self.camp.dm_settings['sessionPlan']['scenes']), 2, 'nada foi gravado')
+
+    def test_new_scene_without_id_never_takes_a_sent_id(self):
+        # [cena nova sem id, c1]: a nova não pode virar "c1" e herdar os bolsos guardados da c1
+        self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'Ponte', 'read': 'A ponte range.'}]}, format='json')
+        r = self.c_dm.put(self.url(), {'scenes': [{'text': 'Nova'}, {'id': 'c1', 'text': 'Ponte'}]}, format='json')
+        new, c1 = r.json()['plan']['scenes']
+        self.assertNotEqual(new['id'], 'c1')
+        self.assertNotIn('read', new)
+        self.assertEqual(c1['read'], 'A ponte range.')
+
+    def test_rev_and_session_of_the_plan(self):
+        r = self.c_dm.get(self.url())
+        self.assertEqual((r.json()['plan']['_rev'], r.json()['plan']['forSession']), (0, None))
+        r = self.c_dm.put(self.url(), {'strongStart': 'Boom', '_rev': 99}, format='json')
+        plan = r.json()['plan']
+        self.assertEqual(plan['_rev'], 1, 'o _rev é do servidor')
+        self.assertEqual(plan['forSession'], 5, 'sessão 4 jogada: o plano é o da 5')
+        r = self.c_dm.put(self.url(), {'monsters': 'goblins'}, format='json')
+        self.assertEqual((r.json()['plan']['_rev'], r.json()['plan']['forSession']), (2, 5))
+        # "Preparar a próxima" manda o número novo
+        r = self.c_dm.put(self.url(), {'forSession': 6}, format='json')
+        self.assertEqual(r.json()['plan']['forSession'], 6)
+
+    def test_plan_of_a_live_session_is_todays(self):
+        self.camp.state = {'session': 'Sessão 3', 'live': True}
+        self.camp.save()
+        r = self.c_dm.put(self.url(), {'strongStart': 'Boom'}, format='json')
+        self.assertEqual(r.json()['plan']['forSession'], 3)
+        self.assertEqual(R.plan_session_number({}), 1)
+        self.assertEqual(R.plan_session_number({'session': 2}), 3)
+
+    def test_empty_lines_do_not_make_a_plan(self):
+        self.assertTrue(R.session_plan_is_empty({'secrets': [{'text': ' '}] * 10, 'scenes': [{'text': ''}]}))
+        # só pistas (as levadas adiante): ainda vazio para quem preenche, como as 3 portas (N2)
+        self.assertTrue(R.session_plan_is_empty({'secrets': [{'text': '', 'ref': {'entryId': 3}}, {'text': 'O moleiro mente'}]}))
+        self.assertFalse(R.session_plan_is_empty({'scenes': [{'text': 'Ponte'}]}))
+        self.assertFalse(R.session_plan_is_empty({'scenes': [{'text': '', 'nodeRef': {'adventureId': 1, 'nodeId': 'n1'}}]}))
+        self.assertFalse(R.session_plan_is_empty({'strongStart': 'Boom'}))
+
+    def test_fill_keeps_the_masters_clues_and_session(self):
+        cur = {'forSession': 4, 'secrets': [{'id': 'p1', 'text': 'O moleiro mente', 'ref': None, 'discovered': True},
+                                            {'id': 'p2', 'text': ' ', 'ref': None, 'discovered': False}]}
+        patch = R.clean_session_plan_patch({'strongStart': 'Boom', 'secrets': [{'text': f'Pista {i}'} for i in range(30)]})
+        plan = R.fill_empty_session_plan(cur, patch, {'session': '3', 'live': True})
+        self.assertEqual(plan['secrets'][0], cur['secrets'][0], 'a do mestre vem antes, como estava')
+        self.assertEqual(len(plan['secrets']), 30)
+        self.assertEqual(len({s['id'] for s in plan['secrets']}), 30, 'nenhum id repetido')
+        self.assertEqual(plan['secrets'][1]['text'], 'Pista 0')
+        self.assertEqual(plan['forSession'], 4, '"Começar o plano da Sessão 4" com a 3 ao vivo: continua o da 4')
+        # o plano de uma sessão já jogada vira o da próxima
+        plan = R.fill_empty_session_plan({'forSession': 3}, patch, {'session': '3', 'live': False})
+        self.assertEqual(plan['forSession'], 4)
 
 
 class WorldRulesUnitTests(TestCase):

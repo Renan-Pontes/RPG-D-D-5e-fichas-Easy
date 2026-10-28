@@ -7,9 +7,19 @@
 // `entry` precisa ser WorldEntryFull do mestre (com `secrets`).
 // `beforeReveal` (opcional) roda antes de chamar o servidor — o editor usa
 // para gravar o texto pendente primeiro.
+//
+// V14: <RevealSheet> é a folha "Quem vê" ÚNICA (Mundo, Jogar › Agora, "Nesta cena"):
+// o mesmo conteúdo em todo lugar — a imagem e o nome, o aviso do oculto, os 3 estados,
+// os segredos um a um, "Registrar na Crônica" com a dica escrita, 📺 Mostrar na Tela e
+// Pronto presos no rodapé, ✕ de 44 px.
 import { useState } from 'react';
 import { revealEntry, worldErrorText } from './world-api.js';
 import { VISIBILITIES, VIS_META, t, visLabel } from './world-model.js';
+import MesaSheet from '../shell/MesaSheet.jsx';
+import ShowOnTable from '../stage/ShowOnTable.jsx';
+import { EntryImage } from './EntryCard.jsx';
+import './world-styles.css';
+import './world-finish.css';
 
 const LOG_KEY = 'forja.world.logDiary';
 function readLogPref() {
@@ -109,5 +119,45 @@ export default function RevealControl({ entry, lang = 'pt', onChange, beforeReve
       )}
       {r.error && <p className="wl-error" role="alert">{r.error}</p>}
     </div>
+  );
+}
+
+/**
+ * A folha "Quem vê" (V14, uma só para o app inteiro). `entry` é o cartão inteiro do mestre
+ * (com os segredos); `onChange(next)` recebe o cartão depois de cada revelação (do
+ * interruptor, de um segredo ou do 📺 "Revelar e mostrar"). Sem `campaign` (ou encerrada),
+ * sem o 📺. `dock`: o mesmo da MesaSheet ('play' nas folhas de Jogar).
+ */
+export function RevealSheet({ entry, campaign = null, lang = 'pt', dock, onChange, onClose }) {
+  if (!entry) return null;
+  const canShow = !!campaign && campaign.status !== 'closed';
+  return (
+    <MesaSheet title={entry.name} icon="👁" eyebrow={t(lang, 'Quem vê', 'Who sees it')} dock={dock}
+      size="auto" width="md" lang={lang} onClose={onClose} className="ins-reveal wl-reveal-sheet"
+      footer={(
+        <div className="mesa-actions">
+          {canShow && (
+            <ShowOnTable campaign={campaign} lang={lang} className="mesa-btn mesa-btn-lg" target={{ kind: 'card', entry }}
+              onRevealed={onChange}>
+              📺 {t(lang, 'Mostrar na Tela', 'Show on screen')}
+            </ShowOnTable>
+          )}
+          <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={onClose}>{t(lang, 'Pronto', 'Done')}</button>
+        </div>
+      )}>
+      <div className="wl-reveal-sheet-head">
+        <span className="wl-reveal-modal-thumb"><EntryImage entry={entry} className="wl-thumb-img" /></span>
+        <p className="mesa-sheet-text wl-reveal-sheet-lead">
+          {(entry.visibility || 'hidden') === 'hidden'
+            ? t(lang, 'Oculto: o 📺 pergunta se vai só a imagem (sem o nome) ou se você revela antes.', 'Hidden: 📺 asks whether only the image goes (without the name) or whether you reveal it first.')
+            : t(lang, 'Revelar fica: os jogadores passam a ver o cartão no Mundo deles. Mostrar na Tela passa.', 'Revealing stays: players see the card in their World. Showing on screen passes.')}
+        </p>
+      </div>
+      <RevealControl entry={entry} lang={lang} showSecrets onChange={onChange} />
+      <p className="wl-reveal-hint wl-reveal-sheet-log">
+        {t(lang, 'Registrar na Crônica: cada revelação (do cartão ou de um segredo) vira uma linha na Crônica da campanha.',
+          'Log in the Chronicle: each reveal (card or secret) becomes a line in the campaign Chronicle.')}
+      </p>
+    </MesaSheet>
   );
 }

@@ -312,8 +312,8 @@ function LivingWorldSection({ campaign, lang, onChange }) {
         </label>
         <p className="muted text-sm" style={{ margin: 0 }}>
           {t(lang,
-            'O Atlas ganha o céu do seu mundo (cada cartão uma estrela), as páginas em branco do cronista, os rumores da taverna e os ecos da mesa — os jogadores podem se arrepiar, desconfiar ou querer voltar ao que você revelou, e você ouve. Nada é decidido por você; desligue quando quiser silêncio.',
-            'The Atlas gains your world\'s sky (each card a star), the chronicler\'s blank pages, tavern rumors and echoes from the table — players can shiver, doubt or long to return to what you revealed, and you hear it. Nothing is decided for you; turn it off when you want silence.')}
+            'Os Cartões do Mundo ganham o céu do seu mundo (cada cartão uma estrela), as páginas em branco do cronista, os rumores da taverna e os ecos da mesa — os jogadores podem se arrepiar, desconfiar ou querer voltar ao que você revelou, e você ouve. Nada é decidido por você; desligue quando quiser silêncio.',
+            'The World\'s Cards gain your world\'s sky (each card a star), the chronicler\'s blank pages, tavern rumors and echoes from the table — players can shiver, doubt or long to return to what you revealed, and you hear it. Nothing is decided for you; turn it off when you want silence.')}
         </p>
       </section>
       {on && (
@@ -491,7 +491,7 @@ function DeleteCampaignDialog({ campaign, lang, onCancel, onDone }) {
           </p>
           <ul className="lv-danger-list">
             <li>{t(lang, 'todo o mundo: lugares, NPCs, facções, segredos, mapas e imagens;', 'the whole world: places, NPCs, factions, secrets, maps and images;')}</li>
-            <li>{t(lang, 'as aventuras e o plano da próxima sessão;', 'the adventures and the next-session plan;')}</li>
+            <li>{t(lang, 'as aventuras e o Plano da Sessão;', 'the adventures and the session Plan;')}</li>
             <li>{t(lang, 'o diário, a crônica, o combate e os itens da mesa.', 'the diary, the chronicle, combat and the table\'s items.')}</li>
           </ul>
           <p className="muted text-sm" style={{ margin: 0 }}>

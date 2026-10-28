@@ -11,7 +11,7 @@ import { getSessionPlan, listWorld } from '../world/world-api.js';
 import { KIND_META, kindLabel } from '../world/world-model.js';
 import { getAdventure, listAdventures } from '../play/play-api.js';
 import { activeScene } from '../play/scene-model.js';
-import RecapCard from '../play/RecapCard.jsx';
+import RecapEditor from '../play/RecapEditor.jsx';
 import { flash } from '../play/flash.js';
 import { L, normalizeStage, cardShowMode } from './stage-now.js';
 import { imageRows, mapRows, sceneRows, TEXT_MAX } from './show-model.js';
@@ -60,7 +60,11 @@ function useShowData(campaignId) {
   return [data, load, patchEntry];
 }
 
-export function ShowPicker({ campaign, stage, lang = 'pt', onChange }) {
+/**
+ * sceneNow (V7, a Agora): {id, refs, show} da cena agora do plano — a imagem dela e quem
+ * aparece abrem as Imagens ("Da cena agora") e ela é a 1ª das Cenas.
+ */
+export function ShowPicker({ campaign, stage, lang = 'pt', onChange, sceneNow = null }) {
   const [tab, setTab] = useState('images');
   const [data, reload, patchEntry] = useShowData(campaign.id);
   const [query, setQuery] = useState('');
@@ -68,9 +72,10 @@ export function ShowPicker({ campaign, stage, lang = 'pt', onChange }) {
   const [busy, setBusy] = useState(false);
   const st = normalizeStage(stage);
   const loading = data.entries === null;
-  const imgs = useMemo(() => imageRows({ entries: data.entries || [], adventure: data.adventure, node: data.node, query }),
-    [data, query]);
-  const scenes = useMemo(() => sceneRows({ plan: data.plan, adventure: data.adventure, node: data.node }), [data]);
+  const sceneRefs = useMemo(() => [...(sceneNow?.show?.kind === 'entry' ? [sceneNow.show.id] : []), ...(sceneNow?.refs || [])], [sceneNow]);
+  const imgs = useMemo(() => imageRows({ entries: data.entries || [], adventure: data.adventure, node: data.node, query, sceneRefs }),
+    [data, query, sceneRefs]);
+  const scenes = useMemo(() => sceneRows({ plan: data.plan, adventure: data.adventure, node: data.node, nowSceneId: sceneNow?.id || null }), [data, sceneNow]);
   const maps = useMemo(() => mapRows(data.entries || []), [data]);
   const done = () => onChange?.();
 
@@ -194,7 +199,7 @@ export function ShowPicker({ campaign, stage, lang = 'pt', onChange }) {
 
       {!loading && tab === 'text' && (
         <div className="stage-pane" role="tabpanel">
-          <RecapCard campaign={campaign} lang={lang} onShown={done} />
+          <RecapEditor campaign={campaign} lang={lang} inline onShown={done} />
           {data.node?.readAloud && (
             <div className="stage-read">
               <p className="mesa-eyebrow stage-sub">{L(lang, 'Ler em voz alta · cena agora', 'Read aloud · current scene')}</p>
@@ -270,10 +275,10 @@ export function ShowPicker({ campaign, stage, lang = 'pt', onChange }) {
 }
 
 /** A folha "Mostrar na Tela" (o mesmo conteúdo de Jogar › Tela › Mostrar). */
-export default function ShowSheet({ campaign, stage, lang = 'pt', onClose, onChange }) {
+export default function ShowSheet({ campaign, stage, lang = 'pt', onClose, onChange, sceneNow = null }) {
   return (
     <MesaSheet title={L(lang, 'Mostrar na Tela', 'Show on screen')} icon="📺" size="tall" width="md" lang={lang} onClose={onClose} dock="play">
-      <ShowPicker campaign={campaign} stage={stage} lang={lang} onChange={onChange} />
+      <ShowPicker campaign={campaign} stage={stage} lang={lang} onChange={onChange} sceneNow={sceneNow} />
     </MesaSheet>
   );
 }

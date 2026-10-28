@@ -41,7 +41,7 @@ function writeSub(id, v) {
  *  - sub / onSubChange(sub): subvista controlada pela casca (useArea); sem
  *    elas, a área lembra a última subvista por campanha (localStorage)
  *  - params: efêmeros da casca ({ membershipId } da busca rápida traz o cartão
- *    à vista; { recap: true } de "Encerrar e escrever o recap" abre o recap)
+ *    à vista; { recap: true, session? } abre o Resumo da sessão na Crônica)
  *  - hasJoinRoute: o app abre /join/<código>? (decide o que "Copiar link" copia)
  *  - onPendingCount(n): opcional, avisa a casca do nº de pedidos pendentes
  *    (null ao desmontar: a casca volta a contar pelo GET da campanha)
@@ -146,7 +146,7 @@ export default function GroupArea({ campaign, lang = 'pt', isDM, characters = []
       {current === 'chronicle' && (
         <div role="tabpanel">
           <DiaryTab campaign={campaign} lang={lang} isDM={isDM} onCampaignChange={onChange} showStartSession={false}
-            autoRecap={!!params?.recap} onAutoRecap={clearParams} />
+            autoRecap={!!params?.recap} recapSession={Number.isInteger(params?.session) ? params.session : null} onAutoRecap={clearParams} />
         </div>
       )}
 

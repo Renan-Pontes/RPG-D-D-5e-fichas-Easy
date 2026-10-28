@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   hashStr, immersionOn, emPt, dePt, aPt, midName, numWord, reactionKey, normalizeCounts, normalizeEchoes,
   entryWhispers, echoLines, echoLinesFrom, knownPhrase, skyEdges, skyLayout, blankPages, dayKey, rumorIndex, rumorOfDay,
-  confirmNameMatches, SKY_W, SKY_H,
+  confirmNameMatches, SKY_W, SKY_H, nearestStar, livingSummary,
 } from '../src/world/living/living-logic.js';
 import { RUMORS } from '../src/world/living/rumors.js';
 
@@ -222,4 +222,23 @@ test('confirmação de apagar: nome digitado bate com o da campanha', () => {
   assert.equal(confirmNameMatches('  brumas  de velna ', 'Brumas de Velna'), true);
   assert.equal(confirmNameMatches('Brumas', 'Brumas de Velna'), false);
   assert.equal(confirmNameMatches('', ''), false);
+});
+
+test('céu: o toque pega a estrela mais perto dentro do raio (44 px de alvo)', () => {
+  const stars = [{ id: 1, x: 100, y: 100 }, { id: 2, x: 160, y: 100 }, { id: 3, x: 400, y: 300 }];
+  assert.equal(nearestStar(stars, 100, 100, 70), 1);
+  assert.equal(nearestStar(stars, 125, 100, 70), 1);       // mais perto da 1
+  assert.equal(nearestStar(stars, 140, 100, 70), 2);       // mais perto da 2
+  assert.equal(nearestStar(stars, 300, 200, 70), null);    // longe de todas
+  assert.equal(nearestStar([], 0, 0, 70), null);
+  // o céu de verdade: qualquer estrela, tocada no centro, é ela mesma
+  const sky = skyLayout(W);
+  for (const s of sky.stars) assert.equal(nearestStar(sky.stars, s.x, s.y, 70), s.id);
+});
+
+test('Mundo vivo recolhido: o resumo da linha (pt/en, plural)', () => {
+  assert.deepEqual(livingSummary({ pages: 2, echoes: 3, rumor: true }, 'pt'), ['2 páginas em branco', '3 ecos', 'boato do dia']);
+  assert.deepEqual(livingSummary({ pages: 1, echoes: 1 }, 'pt'), ['1 página em branco', '1 eco']);
+  assert.deepEqual(livingSummary({ pages: 1, echoes: 2, rumor: true }, 'en'), ['1 blank page', '2 echoes', "today's rumor"]);
+  assert.deepEqual(livingSummary({}, 'pt'), []);
 });

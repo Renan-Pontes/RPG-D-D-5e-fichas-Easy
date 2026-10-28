@@ -17,7 +17,7 @@
 // e preso ao lado da lista.
 // Sem conexão (a loja diz há quantos segundos): o ponto da TV fica cinza ("○ TV:
 // sem conexão") e o que está na Tela leva "(última vez visto)".
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import StageThumb from './StageThumb.jsx';
 import useStage from './useStage.js';
 import { L, screenLine } from './stage-now.js';
@@ -38,21 +38,41 @@ function useWindowData(campaign, lang) {
   return { table, stage, combat, combatNow, test, line, tvLive: table?.tvLive || 0, offline };
 }
 
+/**
+ * A altura da janela na casca (--screen-win-h): o painel lateral do PC (a folha da Cena)
+ * para acima dela quando ela está no canto da direita (P2), e a miniatura nunca fica coberta.
+ */
+function useWinHeight(dep) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    const root = document.documentElement;
+    if (!el) return undefined;
+    const put = () => root.style.setProperty('--screen-win-h', `${Math.ceil(el.getBoundingClientRect().height)}px`);
+    put();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(put) : null;
+    ro?.observe(el);
+    return () => { ro?.disconnect(); root.style.removeProperty('--screen-win-h'); };
+  }, [dep]);
+  return ref;
+}
+
 export default function ScreenWindow({ campaign, lang = 'pt', corner = 'right', onCorner, onHide, liveAt = 0 }) {
   const { table, stage, combat, combatNow, test, line, tvLive, offline } = useWindowData(campaign, lang);
   const [size, setSize] = useState(liveAt ? 'live' : 'thumb');   // 'thumb' | 'live' | 'pill'
+  const winRef = useWinHeight(size);
   // O 📺 Tela da capa: abre já em "ao vivo".
   useEffect(() => { if (liveAt) setSize('live'); }, [liveAt]);
   if (size === 'pill') {
     return (
-      <button type="button" className={`screen-win is-pill is-${corner} no-print`} onClick={() => setSize('thumb')}
+      <button type="button" ref={winRef} className={`screen-win is-pill is-${corner} no-print`} onClick={() => setSize('thumb')}
         aria-label={`${L(lang, 'Tela', 'Screen')}: ${line}. ${L(lang, 'Abrir a janela', 'Open the window')}`}>
         <span aria-hidden="true">📺</span> <span className="screen-win-pill-text">{L(lang, 'Tela', 'Screen')} · {line}</span>
       </button>
     );
   }
   return (
-    <section className={`screen-win is-float is-${corner} is-${size} no-print`} aria-label={L(lang, 'Janela da Tela', 'Screen window')}>
+    <section ref={winRef} className={`screen-win is-float is-${corner} is-${size} no-print`} aria-label={L(lang, 'Janela da Tela', 'Screen window')}>
       {size === 'live' ? (
         <LiveTv token={campaign.screenToken} lang={lang} className="screen-win-live" />
       ) : (

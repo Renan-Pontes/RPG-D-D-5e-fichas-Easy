@@ -325,3 +325,25 @@ export function useOnRev(rev, fn, { table, fallbackMs = 2500, safetyMs = 60_000,
   }, [pulsing, fallbackMs, safetyMs, initial]);
   return useCallback((key) => { if (seen.current !== undefined && key != null) seen.current = key; }, []);
 }
+
+/**
+ * Um recurso da mesa lido por versão do pulso (§4.10, "uma fonte por recurso"): busca ao
+ * abrir e de novo só quando `rev` muda — sem busca de segurança (a versão cobre o que ele
+ * traz: o plano pelo `planRev`, o Mundo pelo `worldRev`, as salas pelo `advRev`, os testes
+ * pelo `checksRev`, o combate pela `combat.ver`). Sem o pulso (servidor antigo, fora da
+ * casca), a cada `fallbackMs`, como antes. `enabled: false` não busca nada.
+ * → [data (undefined = ainda não chegou), reload, setData]
+ */
+export function useRevData(rev, fetcher, { table, fallbackMs = 8000, enabled = true, key = '' } = {}) {
+  const [data, setData] = useState(undefined);
+  const fnRef = useRef(fetcher);
+  fnRef.current = fetcher;
+  const load = useCallback(async () => {
+    if (!enabled) return;
+    try { setData(await fnRef.current()); } catch { /* fica o último; a próxima versão tenta de novo */ }
+  }, [enabled]);
+  // ao abrir (e ao trocar o que se lê: `key`)
+  useEffect(() => { if (enabled) load(); else setData(undefined); }, [enabled, key, load]);
+  useOnRev(enabled ? rev : null, load, { table, fallbackMs: enabled ? fallbackMs : Infinity, safetyMs: Infinity, initial: false });
+  return [data, load, setData];
+}

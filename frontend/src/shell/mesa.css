@@ -536,6 +536,41 @@ body.mesa-sheet-open :is(.dice-fab, .nudge-toast-slot) { display: none !importan
   .mesa-sheet-grip { display: none; }
   .mesa-sheet-foot { border-radius: 0 0 9px 9px; padding-bottom: 14px; }
 }
+/* side (PC): painel de 520 px preso à direita, sem fundo escuro; a página atrás continua
+   tocável (o Plano, o mapa da aventura). Ele não cobre nada da casca: enquanto está aberto,
+   a casca (cabeçalho, abas, conteúdo) e a barra do app abrem os 520 px à direita; e, com a
+   janela da Tela no canto da direita (P2), o painel para acima dela, que continua à vista.
+   A folha só abre assim a partir de 1280 (SIDE_MQ, MesaSheet.jsx); as regras valem desde
+   1024 para a folha já aberta não mudar de forma se a janela do navegador encolher. */
+@media (min-width: 1024px) {
+  body:has(.mesa-sheet-backdrop.is-side) main.container:has(> .campaign-detail.shell) {
+    padding-right: calc(536px - max(0px, (100vw - 1280px) / 2));
+  }
+  body:has(.mesa-sheet-backdrop.is-side) .app-header { padding-right: 536px; }
+  body:has(.screen-win.is-right:is(.is-float, .is-pill)) .mesa-sheet-backdrop.is-side {
+    bottom: calc(var(--screen-win-h, 276px) + 36px);
+  }
+  .mesa-sheet-backdrop.is-side {
+    left: auto;
+    width: min(520px, 100%);
+    padding: 0;
+    align-items: stretch;
+    justify-content: flex-end;
+    background: transparent;
+    animation: none;
+  }
+  .mesa-sheet-backdrop.is-side .mesa-sheet {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    box-shadow: -14px 0 40px rgba(0, 0, 0, 0.6);
+    animation-name: mesa-side-in;
+  }
+  .mesa-sheet-backdrop.is-side .mesa-sheet-head,
+  .mesa-sheet-backdrop.is-side .mesa-sheet-foot { border-radius: 0; }
+}
+@keyframes mesa-side-in { from { transform: translateX(24px); opacity: 0; } }
 @keyframes mesa-fade { from { opacity: 0; } }
 @keyframes mesa-sheet-up { from { transform: translateY(24px); opacity: 0.4; } }
 @keyframes mesa-sheet-in { from { transform: translateY(8px) scale(0.985); opacity: 0; } }
@@ -638,3 +673,31 @@ body:has(.campaign-detail.shell) :is(.confirm-dialog-actions, .grp-confirm-actio
   .mesa-seg-btn:is(.active, [aria-selected="true"]), .mesa-chip:is(.active, [aria-pressed="true"], [aria-selected="true"]) { outline: 2px solid Highlight; }
   .mesa-scroll { -webkit-mask-image: none !important; mask-image: none !important; }
 }
+
+/* ---------------------------------------------------------- o cartão "O que fazer agora" (NextStepCard: Plano e Agora) */
+.next-card {
+  display: flex; flex-direction: column; gap: 8px;
+  /* filete dourado duplo: a borda de ouro do painel + um filete por dentro */
+  box-shadow: inset 0 0 0 3px rgba(10, 7, 6, 0.85), inset 0 0 0 4px var(--gold-deep), 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+.next-card-head { display: flex; align-items: center; gap: 4px; min-height: 28px; margin: -8px -8px -4px 0; }
+.next-card-head .mesa-eyebrow { flex: 1 1 auto; }
+.next-card-help { font-family: var(--display); color: var(--gold); }
+.next-card-msg { animation: next-fade 150ms ease-out; }
+.next-card-text { margin: 0; font-family: var(--body); font-size: 17px; line-height: 1.4; color: var(--ink-primary); overflow-wrap: anywhere; }
+.next-card-why { margin: 4px 0 0; font-size: 14px; line-height: 1.4; color: var(--ink-secondary); overflow-wrap: anywhere; }
+.next-card-lead { margin: 8px 0 2px; padding: 8px 10px; border-left: 3px solid var(--gold); border-radius: 0 6px 6px 0; background: rgba(214, 176, 100, 0.1); font-size: 16px; line-height: 1.45; color: var(--ink-primary); white-space: pre-wrap; overflow-wrap: anywhere; }
+.next-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+.next-card-actions .mesa-btn { flex: 1 1 auto; }
+.next-card-skip { flex: none; min-width: 64px; padding: 8px 10px; font-size: 0.82rem; }
+@keyframes next-fade { from { opacity: 0.2; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .next-card-msg { animation: none; } }
+.next-card-items { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.next-card-item { display: flex; align-items: center; gap: 8px; min-height: 32px; font-size: 15px; color: var(--ink-secondary); }
+.next-card-item.is-ok .next-card-mark { color: var(--moss, #9cc065); }
+.next-card-item.is-todo .next-card-mark { color: var(--ink-muted); }
+.next-card-mark { flex: none; width: 18px; text-align: center; font-weight: 700; }
+.next-card-item-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.next-card-item-act { flex: none; min-height: 44px; padding: 6px 12px; font-size: 0.8rem; }
+.next-card-note { margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink-muted); }
+

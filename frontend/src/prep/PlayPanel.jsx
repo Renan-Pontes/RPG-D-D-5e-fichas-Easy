@@ -74,9 +74,11 @@ export default function PlayPanel({
     `${enc.monsters} monster(s) added${withPcs ? ' + PCs' : ''}${startNow ? ' · combat started' : ''}. Adjust initiative under Play › Combat.`));
 
   const askCheck = (c) => run(`chk-${c.skill}`, async () => {
-    const isSave = c.skill.startsWith('save:');
+    // 'save:dex' · 'ability:str' (a folha da Cena grava atributos assim) · perícia
+    const [head, rest] = c.skill.includes(':') ? c.skill.split(':') : [null, c.skill];
+    const kind = head === 'save' ? 'save' : head === 'ability' ? 'ability' : 'skill';
     await api.createCheck(campaign.id, buildCheckPayload({
-      kind: isSave ? 'save' : 'skill', key: isSave ? c.skill.slice(5) : c.skill,
+      kind, key: head ? rest : c.skill,
       label: checkText(c.skill, lang), dc: c.dc ?? '', dcHidden: true, targets: [],
     }, lang));
   }, t(lang, 'Pedido enviado à mesa (CD oculta).', 'Check sent to the table (hidden DC).'));
@@ -229,7 +231,9 @@ export default function PlayPanel({
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => onPlay('unlock', { edgeId: p.edge.id })}>👁 {t(lang, 'Descobriram', 'Found it')}</button>
               )}
               {p.unlocked && (
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => onPlay('lock', { edgeId: p.edge.id })} title={t(lang, 'Voltar a trancar/ocultar', 'Lock/hide again')}>↺</button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => onPlay('lock', { edgeId: p.edge.id })}>
+                  ↺ {p.status === 'secret' || p.edge.kind === 'secret' ? t(lang, 'Ocultar de novo', 'Hide again') : t(lang, 'Trancar de novo', 'Lock again')}
+                </button>
               )}
               {p.status === 'external' && (
                 p.edge.toAdventureId
@@ -247,7 +251,7 @@ export default function PlayPanel({
       {enc.monsters > 0 && (
         <section className="prep-section">
           <header>
-            <h4>⚔ {t(lang, 'Encontro', 'Encounter')}</h4>
+            <h4>⚔ {t(lang, 'Combate', 'Combat')}</h4>
             <span className={`enc-label ${enc.rating}`}>{levels.length ? diffLabel : t(lang, 'sem PJs', 'no PCs')}</span>
           </header>
           <ul className="prep-plain">
@@ -265,7 +269,7 @@ export default function PlayPanel({
           </div>
           <div className="adv-row wrap">
             <button type="button" className="btn btn-primary btn-sm" disabled={busy === 'enc'} onClick={startEncounter}>
-              ⚔ {busy === 'enc' ? '…' : t(lang, 'Começar encontro', 'Start encounter')}
+              ⚔ {busy === 'enc' ? '…' : t(lang, 'Começar o combate', 'Start combat')}
             </button>
             {(goTo || onOpenTab) && <button type="button" className="btn btn-ghost btn-sm" onClick={goCombat}>{t(lang, 'Ir para Combate', 'Go to Combat')} →</button>}
           </div>

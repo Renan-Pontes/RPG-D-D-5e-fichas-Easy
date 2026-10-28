@@ -139,7 +139,10 @@ export function SubChips({ subs, active, onSelect, lang, labels = {}, icons = {}
                 {short === long
                   ? <span className="shell-seg-label" data-label={long}>{long}</span>
                   : <><span className="shell-seg-label shell-seg-long" data-label={long}>{long}</span><span className="shell-seg-label shell-seg-short" data-label={short} aria-hidden="true">{short}</span></>}
-                {badges[s] > 0 && <span className="shell-badge shell-seg-badge" aria-label={badgeLabels[s] || undefined}>{badges[s]}</span>}
+                {/* número, ou um texto curto ("1·2" de Testes, com o texto inteiro para o leitor de tela) */}
+                {(typeof badges[s] === 'string' ? !!badges[s] : badges[s] > 0) && (
+                  <span className="shell-badge shell-seg-badge" aria-label={badgeLabels[s] || undefined} title={badgeLabels[s] || undefined}>{badges[s]}</span>
+                )}
               </button>
             );
           })}

@@ -9,8 +9,12 @@
 // - Desktop: a capa larga, com tudo rotulado: Começar/Encerrar, 📺 Tela (abre a
 //   janela da Tela já "ao vivo", V4 — o popover de antes saiu: o que estava nele
 //   mora na janela, na folha Tela ao vivo e em Jogar › Tela), 🔍 Buscar e ⚙ Ajustes.
+// - Ao vivo, o relógio da sessão no selo ("● Ao vivo · 1h05 · Sessão 4", V7): calculado no
+//   aparelho a partir do startedAt da sessão (0 byte no servidor), andando a cada 30 s. Abaixo
+//   de 360 px o selo fica "● 1h05" (o "Ao vivo" continua para o leitor de tela).
 // Exporta também <TvPanel>, o conteúdo da Tela da folha "Mais" (celular).
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { sessionClock, sessionMeta } from '../play/now-model.js';
 import { api } from '../api/client.js';
 import { defaultCoverArt, nextSessionNumber, screenLink, t } from './shell-logic.js';
 import { frontIcon, frontLabel, screenLine, stageNow } from '../stage/stage-now.js';
@@ -45,7 +49,13 @@ export default function CampaignHeader({
         {campaign.tagline && <p className="shell-tagline">{campaign.tagline}</p>}
         <div className="shell-meta">
           <span className={`role-pill role-${campaign.role}`}>{isDM ? t(lang, 'Mestre', 'DM') : t(lang, 'Jogador', 'Player')}</span>
-          {live && <span className="shell-live" role="status"><span className="shell-live-dot" aria-hidden="true" />{t(lang, 'Ao vivo', 'Live')}</span>}
+          {live && (
+            <span className="shell-live" role="status">
+              <span className="shell-live-dot" aria-hidden="true" />
+              <span className="shell-live-word">{t(lang, 'Ao vivo', 'Live')}</span>
+              <SessionClock startedAt={sessionMeta(st).startedAt} lang={lang} />
+            </span>
+          )}
           {Number.isFinite(session) && session > 0 && (
             <span className="shell-session">{t(lang, 'Sessão', 'Session')} {session}</span>
           )}
@@ -60,8 +70,8 @@ export default function CampaignHeader({
                 <span aria-hidden="true">■</span> <span className="shell-act-txt">{t(lang, 'Encerrar', 'End')}</span>
               </button>
             ) : (
-              <button type="button" className="mesa-btn is-primary shell-act shell-start" onClick={onStartSession} disabled={busy}>
-                <span aria-hidden="true">▶</span> <span className="shell-act-txt">{t(lang, `Começar sessão ${nextSessionNumber(st)}`, `Start session ${nextSessionNumber(st)}`)}</span>
+              <button type="button" className="mesa-btn is-primary shell-act shell-start" onClick={onStartSession} disabled={busy} aria-haspopup="dialog">
+                <span aria-hidden="true">▶</span> <span className="shell-act-txt">{t(lang, `Começar a Sessão ${nextSessionNumber(st)}`, `Start session ${nextSessionNumber(st)}`)}</span>
               </button>
             )}
             <div className="shell-tv-wrap shell-desk-only">
@@ -87,6 +97,19 @@ export default function CampaignHeader({
       )}
     </header>
   );
+}
+
+/** O relógio da sessão ao vivo ("1h05"), a partir do startedAt; anda a cada 30 s no aparelho. */
+function SessionClock({ startedAt, lang }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!startedAt) return undefined;
+    const tick = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(tick);
+  }, [startedAt]);
+  const text = sessionClock(startedAt, now);
+  if (!text) return null;
+  return <span className="shell-clock" title={t(lang, 'Tempo de sessão', 'Session time')}><span className="shell-clock-sep" aria-hidden="true">·</span><span className="sr-only">{t(lang, 'há ', 'for ')}</span>{text}</span>;
 }
 
 /**

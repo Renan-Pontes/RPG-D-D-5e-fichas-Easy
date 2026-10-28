@@ -1,4 +1,5 @@
 // Lógica pura da casca da campanha (sem React) — testada em tests/shell-logic.test.js.
+import { planHeading, planIsBlank, realScene, stateSession } from '../prep/next-session.js';
 
 export const t = (lang, pt, en) => (lang === 'en' ? en : pt);
 
@@ -18,15 +19,16 @@ export const PLAYER_AREAS = [
   { id: 'group',     icon: '🛡️', pt: 'Grupo',   en: 'Party',     subs: [] },
 ];
 
+// Mundo: Cartões · Mapas · Tempo (§9.1; "Atlas" saiu do app: o que mora lá é "cartão").
 export const SUB_LABELS = {
-  atlas: ['Atlas', 'Atlas'],
-  map: ['Mapa', 'Map'],
-  timeline: ['Linha do tempo', 'Timeline'],
+  atlas: ['Cartões', 'Cards'],
+  map: ['Mapas', 'Maps'],
+  timeline: ['Tempo', 'Timeline'],
   documents: ['Documentos', 'Documents'],
-  next: ['Próxima sessão', 'Next session'],
+  next: ['Plano', 'Plan'],
   adventures: ['Aventuras', 'Adventures'],
-  items: ['Itens da campanha', 'Campaign items'],
-  scene: ['Cena', 'Scene'],
+  items: ['Itens', 'Items'],
+  scene: ['Agora', 'Now'],
   combat: ['Combate', 'Combat'],
   checks: ['Testes', 'Checks'],
   screen: ['Tela', 'Screen'],
@@ -43,8 +45,6 @@ export const SUB_LABELS = {
 export const SUB_SHORT = {
   timeline: ['Tempo', 'Timeline'],
   documents: ['Docs', 'Docs'],
-  next: ['Próxima', 'Next'],
-  items: ['Itens', 'Items'],
   screen: ['Tela', 'Screen'],
   requests: ['Pedidos', 'Requests'],
 };
@@ -175,20 +175,39 @@ export function planHasContent(plan) {
   return (plan.npcIds?.length || 0) + (plan.placeIds?.length || 0) > 0;
 }
 
+/**
+ * O que a casca guarda do plano (1 GET ao abrir a campanha, de novo quando o `planRev` do
+ * pulso muda fora do Plano; o Plano aberto avisa a cada mudança): `has` para os Primeiros
+ * passos e `blank` para o selo de Preparar. Sem plano (não lido, servidor sem a rota): null.
+ */
+export function planFlags(plan) {
+  if (!plan || typeof plan !== 'object') return null;
+  return { has: planHasContent(plan), blank: planIsBlank(plan) };
+}
+
+/**
+ * Selos de Preparar (§2.1): "!" quando o plano está em branco (sem começo e sem cena, as 3
+ * portas do Plano) e a sessão não está ao vivo. Campanha encerrada ou plano ainda não
+ * lido: nenhum.
+ */
+export function prepareMarks({ flags, live = false, closed = false, lang = 'pt' } = {}) {
+  if (!flags?.blank || live || closed) return [];
+  return [{ k: 'empty', icon: '!', label: t(lang, 'plano vazio', 'empty plan') }];
+}
+
 // ---------------------------------------------------------------------------
 // Área inicial e memória da última área
 // ---------------------------------------------------------------------------
 
 /**
- * Primeira tela que o mestre vê (DESIGN 1.4):
- *  - sessão ao vivo ou combate ativo → Jogar › Cena;
+ * Primeira tela que o mestre vê (especificação §2.4):
+ *  - combate ativo → Jogar › Combate; sessão ao vivo → Jogar › Agora (sub `scene`);
  *  - senão, a última área lembrada;
- *  - senão, primeiros passos pendentes → Mundo;
- *  - senão → Preparar › Próxima sessão.
+ *  - senão (campanha nova, outro aparelho) → Preparar › Plano, com as 3 portas.
  * Jogador: lembrada ou Mesa.
  * `fromUrl` ({area, sub} lido da URL) vem antes de tudo, para o F5 voltar à mesma tela.
  */
-export function initialArea({ isDM, live = false, combatActive = false, onboardingPending = false, remembered = null, fromUrl = null }) {
+export function initialArea({ isDM, live = false, combatActive = false, remembered = null, fromUrl = null }) {
   // A URL (#c/<slug>/<área>/<sub>, ex.: depois de um F5) manda em tudo.
   const url = fromUrl && fromUrl.area ? normalizeArea(isDM, fromUrl.area, fromUrl.sub) : null;
   if (url) return url;
@@ -198,7 +217,6 @@ export function initialArea({ isDM, live = false, combatActive = false, onboardi
   if (live || combatActive) return { area: 'play', sub: combatActive ? 'combat' : 'scene' };
   const rem = remembered && normalizeArea(true, remembered.area, remembered.sub);
   if (rem) return rem;
-  if (onboardingPending) return { area: 'world', sub: 'atlas' };
   return { area: 'prepare', sub: 'next' };
 }
 
@@ -242,6 +260,63 @@ export function matchScore(text, q) {
   if (f.split(/[\s\-–—,.'()]+/).some(w => w.startsWith(q))) return 60;
   if (f.includes(q)) return 40;
   return 0;
+}
+
+/**
+ * Os lugares do app na busca do mestre (§2.6): cada um com as palavras de antes como
+ * sinônimo — "telão" acha a Tela, "próxima sessão" acha o Plano, "encontro" acha o
+ * Combate, "recap" acha o Resumo. `go` = [área, sub, params] (o que a casca navega);
+ * `guide` = o cartão do Guia do mestre que abre. `was` = o nome antigo, escrito no
+ * resultado ("antes: Telão").
+ */
+export const NAV_PLACES = [
+  { id: 'plan', icon: '📋', pt: 'Plano', en: 'Plan', where: ['Preparar', 'Prepare'], go: ['prepare', 'next'], was: ['Próxima sessão', 'Next session'],
+    kw: 'próxima sessão plano da sessão preparar a sessão começo forte pistas next session session plan prep strong start clues' },
+  { id: 'adventures', icon: '🧭', pt: 'Aventuras', en: 'Adventures', where: ['Preparar', 'Prepare'], go: ['prepare', 'adventures'],
+    kw: 'masmorra salas mapa da aventura conduzir na mesa aventura pronta dungeon rooms adventure map run at the table ready adventure' },
+  { id: 'items', icon: '💎', pt: 'Itens', en: 'Items', where: ['Preparar', 'Prepare'], go: ['prepare', 'items'],
+    kw: 'itens da campanha tesouro catálogo campaign items treasure catalog' },
+  { id: 'now', icon: '🎭', pt: 'Agora', en: 'Now', where: ['Jogar', 'Play'], go: ['play', 'scene'], was: ['Cena', 'Scene'],
+    kw: 'cena agora cena mesa ao vivo ensaio scene current scene live table rehearsal' },
+  { id: 'combat', icon: '⚔', pt: 'Combate', en: 'Combat', where: ['Jogar', 'Play'], go: ['play', 'combat'], was: ['Encontro', 'Encounter'],
+    kw: 'encontro luta iniciativa turno monstros encounter fight initiative turn monsters' },
+  { id: 'checks', icon: '🎲', pt: 'Testes', en: 'Checks', where: ['Jogar', 'Play'], go: ['play', 'checks'],
+    kw: 'pedir teste rolagens perícia salvaguarda ask for a check rolls skill saving throw' },
+  { id: 'screen', icon: '📺', pt: 'Tela', en: 'Screen', where: ['Jogar', 'Play'], go: ['play', 'screen'], was: ['Telão', 'TV screen'],
+    kw: 'telão tv link da tv mostrar na tela escurecer limpar a tela tv screen big screen tv link show on screen black out clear screen' },
+  { id: 'players', icon: '🛡', pt: 'Jogadores', en: 'Players', where: ['Grupo', 'Party'], go: ['group', 'players'],
+    kw: 'convite grupo fichas personagens invite party sheets characters' },
+  { id: 'requests', icon: '📨', pt: 'Pedidos', en: 'Requests', where: ['Grupo', 'Party'], go: ['group', 'requests'],
+    kw: 'aprovações subir de nível xp aprovar approvals level up' },
+  { id: 'insights', icon: '✦', pt: 'Raio-X', en: 'X-ray', where: ['Grupo', 'Party'], go: ['group', 'insights'],
+    kw: 'métricas gráficos forças fraquezas momentos holofote metrics charts strengths weaknesses moments spotlight' },
+  { id: 'chronicle', icon: '📜', pt: 'Crônica', en: 'Chronicle', where: ['Grupo', 'Party'], go: ['group', 'chronicle'],
+    kw: 'diário notas sessões diary notes sessions' },
+  { id: 'recap', icon: '📜', pt: 'Resumo da sessão', en: 'Session recap', where: ['Grupo › Crônica', 'Party › Chronicle'], go: ['group', 'chronicle', { recap: true }], was: ['recap', 'recap'],
+    kw: 'recap montar recap anteriormente em encerrar draft recap previously on end session' },
+  { id: 'cards', icon: '📚', pt: 'Cartões', en: 'Cards', where: ['Mundo', 'World'], go: ['world', 'atlas'], was: ['Atlas', 'Atlas'],
+    kw: 'atlas npcs lugares facções itens documentos npc places factions handouts' },
+  { id: 'maps', icon: '🗺', pt: 'Mapas', en: 'Maps', where: ['Mundo', 'World'], go: ['world', 'map'],
+    kw: 'mapa do mundo marcadores world map pins' },
+  { id: 'timeline', icon: '⌛', pt: 'Tempo', en: 'Timeline', where: ['Mundo', 'World'], go: ['world', 'timeline'], was: ['Linha do tempo', 'Timeline'],
+    kw: 'linha do tempo eventos quando timeline events when' },
+  { id: 'guide', icon: '📘', pt: 'Guia do mestre', en: 'GM guide', where: ['Ajuda', 'Help'], guide: 0,
+    kw: 'ajuda como usar tutorial quero vou a help how to tutorial' },
+];
+
+/** Os lugares do app como itens da busca (`kind: 'nav'`), no idioma de quem busca. */
+export function navSearchItems(lang) {
+  return NAV_PLACES.map(p => {
+    const was = p.was ? (lang === 'en' ? p.was[1] : p.was[0]) : null;
+    const label = lang === 'en' ? p.en : p.pt;
+    return {
+      id: `nav-${p.id}`, kind: 'nav', label, icon: p.icon,
+      keywords: `${p.pt} ${p.en} ${p.kw}`,
+      sub: [lang === 'en' ? p.where[1] : p.where[0], was && was !== label ? t(lang, `antes: ${was}`, `was: ${was}`) : null].filter(Boolean).join(' · '),
+      ...(p.go ? { go: p.go } : {}),
+      ...(p.guide != null ? { guide: p.guide } : {}),
+    };
+  });
 }
 
 /**
@@ -393,6 +468,71 @@ export function settingsSummary(section, campaign, lang, { immersion = true, wor
       : tt('Esvaziar o Mundo · Encerrar campanha', 'Clear the World · Close campaign');
   }
   return '';
+}
+
+// ---------------------------------------------------------------------------
+// A linha de próximo passo no cartão da campanha (lista de campanhas, §7.8)
+// ---------------------------------------------------------------------------
+
+/**
+ * O resumo do plano que o cartão da campanha mostra ("Plano da Sessão 5: 2 cenas"). A lista
+ * de campanhas não traz o plano (e não vai trazer: 0 pedido novo), então a casca guarda
+ * este resumo NO APARELHO toda vez que lê o plano; o cartão confere se ele ainda é da mesma
+ * situação (sessão e ao vivo) antes de usar. → {n, scenes, blank, stale, live, session}
+ */
+export function planCardSummary(plan, state) {
+  if (!plan || typeof plan !== 'object') return null;
+  const h = planHeading(plan, state);
+  return {
+    n: h.n, scenes: (plan.scenes || []).filter(realScene).length, blank: planIsBlank(plan), stale: !!h.stale,
+    live: !!state?.live, session: stateSession(state),
+  };
+}
+
+const planCardKey = (id) => `forja:plan-card:${id}`;
+export function savePlanCard(campaignId, summary, storage) {
+  try {
+    const s = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
+    if (summary) s?.setItem(planCardKey(campaignId), JSON.stringify(summary));
+  } catch { /* modo privado: o cartão mostra a linha sem o plano */ }
+}
+export function loadPlanCard(campaignId, storage) {
+  try {
+    const s = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
+    const v = JSON.parse(s?.getItem(planCardKey(campaignId)) || 'null');
+    return v && typeof v === 'object' ? v : null;
+  } catch { return null; }
+}
+
+/**
+ * A linha de próximo passo do cartão do MESTRE (o jogador e a campanha encerrada: null).
+ *  - ao vivo: "Sessão 4 ao vivo · Plano de hoje: 3 cenas" (ou "… · volte para Jogar › Agora");
+ *  - fora: "Plano da Sessão 5: 2 cenas" ou, quando o resumo guardado diz que o plano está
+ *    vazio ou é de uma sessão já jogada, "Próximo passo: preparar o Plano da Sessão 5".
+ * `saved` (planCardSummary guardado no aparelho) só vale se for da mesma sessão e do mesmo
+ * "ao vivo" da campanha de agora. Sem ele (outro aparelho, janela privada, resumo de outra
+ * situação) o aparelho não sabe como está o plano: a linha é neutra e não afirma nada
+ * ("Próxima: Sessão 5 · abra para ver o Plano") — o mestre que preparou no PC não lê
+ * "preparar" no celular.
+ */
+export function campaignNextLine(c, saved, lang = 'pt') {
+  if (!c || c.role !== 'dm' || c.status === 'closed') return null;
+  const st = c.state || {};
+  const cur = stateSession(st);
+  const live = !!st.live;
+  const fresh = saved && saved.session === cur && !!saved.live === live ? saved : null;
+  const scenes = (k) => t(lang, `${k} ${k === 1 ? 'cena' : 'cenas'}`, `${k} ${k === 1 ? 'scene' : 'scenes'}`);
+  if (live && cur) {
+    if (fresh && fresh.scenes > 0) return t(lang, `Sessão ${cur} ao vivo · Plano de hoje: ${scenes(fresh.scenes)}`, `Session ${cur} live · Today's plan: ${scenes(fresh.scenes)}`);
+    return t(lang, `Sessão ${cur} ao vivo · volte para Jogar › Agora`, `Session ${cur} live · back to Play › Now`);
+  }
+  const next = (cur || 0) + 1;
+  if (fresh && !fresh.blank && !fresh.stale && fresh.n) {
+    if (fresh.scenes > 0) return t(lang, `Plano da Sessão ${fresh.n}: ${scenes(fresh.scenes)}`, `Session ${fresh.n} plan: ${scenes(fresh.scenes)}`);
+    return t(lang, `Plano da Sessão ${fresh.n}: só o começo, sem cenas`, `Session ${fresh.n} plan: just the opening, no scenes`);
+  }
+  if (fresh) return t(lang, `Próximo passo: preparar o Plano da Sessão ${next}`, `Next step: prepare the session ${next} plan`);
+  return t(lang, `Próxima: Sessão ${next} · abra para ver o Plano`, `Next: session ${next} · open to see the plan`);
 }
 
 /** Próximo número de sessão para o botão "▶ Começar sessão N". */

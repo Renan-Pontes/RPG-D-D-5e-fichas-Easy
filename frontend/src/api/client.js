@@ -265,6 +265,8 @@ export const api = {
   deleteDiaryEntry:   (campaignId, entryId) => request(`/api/campaigns/${campaignId}/diary/${entryId}`, { method: 'DELETE' }),
   startDiarySession:  (campaignId, body = {}) => request(`/api/campaigns/${campaignId}/diary/sessions`, { method: 'POST', body }),
   renameDiarySession: (campaignId, number, title) => request(`/api/campaigns/${campaignId}/diary/sessions/${number}`, { method: 'PATCH', body: { title } }),
+  // Encerrar a Sessão N numa chamada (V12): { endCombat, clearStage, closeChecks, carry, moments }
+  endDiarySession:    (campaignId, number, body = {}) => request(`/api/campaigns/${campaignId}/diary/sessions/${number}/end`, { method: 'POST', body }),
   // Preparação do mestre (aventuras = mapa de salas/cenas). Só mestre.
   listAdventures:   (campaignId) => request(`/api/campaigns/${campaignId}/adventures`),
   getAdventure:     (campaignId, advId) => request(`/api/campaigns/${campaignId}/adventures/${advId}`),

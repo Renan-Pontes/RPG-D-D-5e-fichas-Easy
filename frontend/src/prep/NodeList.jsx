@@ -5,6 +5,7 @@ const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 /**
  * Visão em lista da mesma estrutura do mapa (acessível e boa no celular):
  * nós na ordem de exploração, com as saídas de cada um. Tocar abre o painel.
+ * V14: o tesouro vem escrito ("💰 Poção de cura, 30 po"), não só o 💰 com o resumo no title.
  */
 export default function NodeList({ data, play, mode, selectedId, available, lang, onSelect, onCreate, renderPanel }) {
   const order = listOrder(data);
@@ -43,7 +44,7 @@ export default function NodeList({ data, play, mode, selectedId, available, lang
                     {monsters > 0 && <span>⚔ {monsters}</span>}
                     {(n.hazards || []).length > 0 && <span>⚠ {n.hazards.length}</span>}
                     {(n.checks || []).length > 0 && <span>🎲 {n.checks.length}</span>}
-                    {hasTreasure(n) && <span title={treasureSummary(n.treasure, lang)}>💰</span>}
+                    {hasTreasure(n) && <span className="prep-list-treasure"><span aria-hidden="true">💰 </span><span className="sr-only">{t(lang, 'Tesouro: ', 'Treasure: ')}</span>{treasureSummary(n.treasure, lang)}</span>}
                     {(n.tags || []).map(tg => <span key={tg} className="adv-tag">{tg}</span>)}
                   </span>
                 </span>
@@ -60,7 +61,7 @@ export default function NodeList({ data, play, mode, selectedId, available, lang
                   ))}
                 </ul>
               )}
-              {selectedId === n.id && renderPanel && <div className="prep-list-panel">{renderPanel(n)}</div>}
+              {selectedId === n.id && renderPanel?.(n) && <div className="prep-list-panel">{renderPanel(n)}</div>}
             </li>
           );
         })}

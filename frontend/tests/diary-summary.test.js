@@ -140,3 +140,94 @@ test('recap escolhe a última sessão com algo além da abertura', () => {
   assert.equal(pickRecapGroup(groups), 's12');
   assert.equal(pickRecapGroup([]), null);
 });
+
+// ------------------------------------------------------------------ V12: o rascunho rico e os momentos da noite
+import { playedScenes, sessionChecks, checkResultLine, shownNames, nightMoments, nightMomentLine } from '../src/campaigns/diary-summary.js';
+
+const plan = {
+  scenes: [
+    { id: 'c1', text: 'Briga na taverna', done: true },
+    { id: 'c2', text: 'Ponte velha sobre o Rio Brumoso\nnotas do mestre', done: false },
+    { id: 'c3', text: 'Capela', done: false },
+    { id: 'c4', text: '', done: true },
+  ],
+};
+const perception = {
+  id: 1, label: 'Percepção', dc: 15, dcHidden: false, createdAt: '2026-10-24T19:00:00Z',
+  targets: [
+    { characterId: 1, response: { total: 17 }, outcome: 'pass' }, { characterId: 2, response: { total: 16 }, outcome: 'pass' },
+    { characterId: 3, response: { total: 18 }, outcome: 'pass' }, { characterId: 4, response: null, outcome: null },
+  ],
+};
+
+test('V12: cenas jogadas são as feitas e a de "agora", com o nome (1ª linha)', () => {
+  assert.deepEqual(playedScenes(plan, 'c2').map(s => s.id), ['c1', 'c2']);
+  assert.deepEqual(playedScenes(plan).map(s => s.id), ['c1']);
+  assert.deepEqual(playedScenes(null), []);
+  // a feita numa sessão anterior (doneBefore) não foi jogada hoje
+  assert.deepEqual(playedScenes(plan, 'c2', ['c1', 'c4']).map(s => s.id), ['c2']);
+});
+
+test('V12: testes da sessão com o resultado; CD secreta não aparece', () => {
+  assert.deepEqual(sessionChecks([perception, { ...perception, id: 2, createdAt: '2026-10-20T19:00:00Z' }], '2026-10-24T18:00:00Z', '2026-10-24T21:00:00Z').map(c => c.id), [1]);
+  assert.equal(checkResultLine(perception, 'pt'), 'Percepção CD 15: 3 de 4 passaram');
+  assert.equal(checkResultLine(perception, 'en'), 'Percepção DC 15: 3 of 4 passed');
+  // CD secreta: só quantos responderam (quantos passaram entregaria a CD na Tela e na Crônica)
+  assert.equal(checkResultLine({ ...perception, dcHidden: true }, 'pt'), 'Percepção: 3 responderam');
+  assert.equal(checkResultLine({ ...perception, dcHidden: true }, 'en'), 'Percepção: 3 answered');
+  const secret = buildRecap([], { lang: 'pt', checks: [{ ...perception, dcHidden: true, dc: 25 }] }).text;
+  assert.ok(!/passou|passaram|25/.test(secret), secret);
+  assert.equal(checkResultLine({ ...perception, dc: null }, 'pt'), 'Percepção: 3 responderam');
+  assert.equal(checkResultLine({ ...perception, targets: [{ response: null }] }, 'pt'), '');
+  assert.deepEqual(shownNames([{ t: 'B'.repeat(60), k: 'card' }]), [`${'B'.repeat(59)}…`]);
+  assert.deepEqual(shownNames([{ t: 'Borin', k: 'card' }, { t: 'Imagem', k: 'image', h: true }, { t: 'Ponte', k: 'scene' }, { t: 'Borin', k: 'card' }, { t: 'x', k: 'recap' }]), ['Borin', 'uma imagem']);
+  // "Só a imagem" de oculto sem legenda: "uma imagem" na língua do rascunho; com legenda, a legenda
+  assert.deepEqual(shownNames([{ t: '', k: 'image', h: true }], 'en'), ['an image']);
+  assert.deepEqual(shownNames([{ t: '', k: 'image', h: true }, { t: 'Imagem', k: 'image', h: true }, { t: 'Uma porta', k: 'image', h: true }], 'pt'), ['Uma porta', '2 imagens']);
+  const en = buildRecap([], { lang: 'en', shown: [{ t: '', k: 'image', h: true }] }).text;
+  assert.ok(en.includes('On screen: an image.') && !en.includes('Imagem'), en);
+});
+
+test('V12: o rascunho cita a cena jogada, o teste com resultado, a imagem mostrada e o combate', () => {
+  const list = [
+    ev('session', { session: 4 }),
+    ev('combat', { phase: 'end', rounds: 2, pcs: ['Pipo', 'Dagna'], monsters: [{ name: 'Goblin', count: 2, defeated: 2 }], downs: {}, winner: 'party', defeated: ['Goblin #1', 'Goblin #2'] }),
+    ev('plan', { session: 4 }, { hidden: true, title: 'Plano da Sessão 4' }),
+    ev('session', { session: 4, phase: 'end', length: '2h10' }, { title: 'Sessão 4 terminou · 2h10' }),
+  ];
+  const r = buildRecap(list, { lang: 'pt', session: 4, campaignName: 'Brumafria', plan, sceneId: 'c2', checks: [perception],
+    shown: [{ t: 'Bartolomeu', k: 'card' }, { t: 'Ponte velha sobre o Rio Brumoso', k: 'scene' }] });
+  assert.ok(r.text.startsWith('Sessão 4\n\n✓ Briga na taverna\n✓ Ponte velha sobre o Rio Brumoso\n\n'), r.text);
+  assert.ok(r.text.includes('Pipo e Dagna venceram 2 inimigos (Goblin ×2) em 2 rodadas.'), r.text);
+  assert.ok(r.text.includes('Testes: Percepção CD 15: 3 de 4 passaram.'), r.text);
+  assert.ok(r.text.includes('Na Tela: Bartolomeu.'), r.text);
+  assert.ok(!r.text.includes('notas do mestre'), 'as notas da cena (2ª linha em diante) são só do mestre');
+  assert.ok(!r.text.includes('terminou'), 'o fim da sessão não entra no texto');
+  // combate encerrado antes do fim: as rodadas e quem caiu (só os monstros)
+  const cut = buildRecap([ev('combat', { phase: 'end', rounds: 1, pcs: ['Pipo'], monsters: [{ name: 'Goblin', count: 2, defeated: 1 }], downs: {}, winner: null, defeated: ['Goblin #1', 'Pipo'] })], { lang: 'pt' });
+  assert.ok(cut.text.includes('Combate encerrado em 1 rodada contra Goblin ×2. Derrotados: 1 de 2 Goblin.'), cut.text);
+  const en = buildRecap([], { lang: 'en', plan, sceneId: 'c2', checks: [perception], shown: [{ t: 'Borin', k: 'card' }] });
+  assert.ok(en.text.includes('Checks: Percepção DC 15: 3 of 4 passed.') && en.text.includes('On screen: Borin.'), en.text);
+});
+
+test('V12: "Momentos da noite" por personagem (só o mestre vê)', () => {
+  const rows = nightMoments({
+    party: [{ id: 1, name: 'Pipo Mão-Leve' }, { id: 3, name: 'Kaelor Escama-de-Ouro' }],
+    spotlights: { 1: [{ id: 'm1', kind: 'shine', text: 'fechadura', done: 4 }, { id: 'm2', kind: 'push', text: 'velho', done: 2 }],
+      3: [{ id: 'm1', kind: 'hook', text: 'o irmão', done: null }] },
+    checks: [perception], session: 4,
+  });
+  assert.deepEqual(rows.map(r => [r.id, r.tests, r.warn]), [[1, 1, false], [3, 1, true]]);
+  assert.equal(nightMomentLine(rows[0], 'pt'), 'Pipo · 1 teste · ★ fechadura ✓');
+  assert.equal(nightMomentLine(rows[1], 'pt'), 'Kaelor · 1 teste · ✎ o irmão · ⚠ sem momento hoje');
+  assert.equal(nightMomentLine({ ...rows[1], tests: 0, moments: [] }, 'en'), 'Kaelor · 0 checks · ⚠ no moment tonight');
+});
+
+test('V12: título do fim da sessão e do plano arquivado em inglês; ícone do plano', () => {
+  const end = { kind: 'event', subtype: 'session', title: 'Sessão 4 terminou · 2h10', data: { session: 4, phase: 'end', length: '2h10' } };
+  assert.equal(entryTitle(end, 'pt'), 'Sessão 4 terminou · 2h10');
+  assert.equal(entryTitle(end, 'en'), 'Session 4 ended · 2h10');
+  assert.equal(entryTitle({ ...end, data: { session: 4, phase: 'end', length: null } }, 'en'), 'Session 4 ended');
+  assert.equal(entryTitle({ kind: 'event', subtype: 'plan', title: 'Plano da Sessão 4', data: { session: 4 } }, 'en'), 'Session 4 plan');
+  assert.equal(entryIcon({ kind: 'event', subtype: 'plan' }), '📋');
+});

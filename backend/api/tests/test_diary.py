@@ -139,6 +139,30 @@ class DiaryListAndSessionTests(DiaryBase):
         s4 = next(s for s in data['sessions'] if s['number'] == 4)
         self.assertEqual(s4['title'], 'A cripta, parte 1')
 
+    def test_end_session_logs_length_and_lists_ended_at(self):
+        """V12: o fim da sessão vira "Sessão 4 terminou · 2h10" e a lista de sessões traz o endedAt."""
+        from api.diary import length_text, session_minutes
+        self.assertEqual(self.c_dm.post(self.url + '/sessions', {}, format='json').status_code, 201)
+        self.assertEqual(self.c_p.post(self.url + '/sessions/4/end', {}, format='json').status_code, 403)
+        r = self.c_dm.post(self.url + '/sessions/4/end', {}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        ev = DiaryEntry.objects.filter(subtype='session').latest('id')
+        self.assertEqual((ev.session, ev.data['phase'], ev.title), (4, 'end', 'Sessão 4 terminou · 0h00'))
+        s4 = next(s for s in self.c_p.get(self.url).json()['sessions'] if s['number'] == 4)
+        self.assertTrue(s4['endedAt'])
+        self.assertEqual(length_text(session_minutes('2026-10-24T18:00:00+00:00', '2026-10-24T20:10:59+00:00')), '2h10')
+        self.assertIsNone(session_minutes(None, '2026-10-24T20:10:00+00:00'))
+        self.assertIsNone(session_minutes('2026-10-24T21:00:00+00:00', '2026-10-24T20:10:00+00:00'))
+
+    def test_plan_subtype_filter_is_dm_only(self):
+        DiaryEntry.objects.create(campaign=self.camp, session=3, kind='event', subtype='plan', title='Plano da Sessão 3',
+                                  hidden=True, data={'session': 3, 'plan': {'strongStart': 'segredo do plano'}, 'counts': {}})
+        listed = self.c_dm.get(self.url).json()['entries']
+        self.assertEqual(listed[0]['data'], {'session': 3, 'counts': {}})
+        full = self.c_dm.get(self.url + '?subtype=plan').json()['entries']
+        self.assertEqual(full[0]['data']['plan']['strongStart'], 'segredo do plano')
+        self.assertEqual(self.c_p.get(self.url + '?subtype=plan').json()['entries'], [])
+
     def test_session_from_free_text(self):
         self.camp.state = {'session': 'Sessão 12'}
         self.assertEqual(current_session(self.camp), 12)

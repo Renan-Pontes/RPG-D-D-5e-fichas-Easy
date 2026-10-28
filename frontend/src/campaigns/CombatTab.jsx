@@ -353,7 +353,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, turnSt
           </p>
           {onNavigate && (
             <button type="button" className="mesa-btn is-quiet ct-prep-link" onClick={() => onNavigate('prep')}>
-              {t(lang, 'Ou monte o encontro com calma em Preparar →', 'Or build the encounter calmly in Prepare →')}
+              {t(lang, 'Ou monte o combate com calma em Preparar →', 'Or set up the combat calmly in Prepare →')}
             </button>
           )}
         </div>
