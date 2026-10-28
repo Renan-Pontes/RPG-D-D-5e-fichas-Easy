@@ -28,7 +28,6 @@ import { listWorld, createSampleWorld, getSessionPlan } from '../world/world-api
 import CampaignHeader from '../shell/CampaignHeader.jsx';
 import AreaNav from '../shell/AreaNav.jsx';
 import Onboarding from '../shell/Onboarding.jsx';
-import MesaSheet from '../shell/MesaSheet.jsx';
 import { AreaContext, legacyNavigate } from '../shell/useArea.js';
 import {
   AreaBoundary, ChronicleView, GroupFallback, Loading, PlayFallback, PlayerGroupFallback,
@@ -46,6 +45,9 @@ const LiveScreenSheet = lazy(() => import('../stage/LiveScreenSheet.jsx'));
 const MoreSheet = lazy(() => import('../shell/MoreSheet.jsx'));
 const QuickSearch = lazy(() => import('../shell/QuickSearch.jsx'));
 const StartSessionSheet = lazy(() => import('../play/StartSessionSheet.jsx'));
+const EndSessionSheet = lazy(() => import('../play/EndSessionSheet.jsx'));
+const RecapEditor = lazy(() => import('../play/RecapEditor.jsx'));
+const EndOfEncounterPanel = lazy(() => import('./EndOfEncounterPanel.jsx'));
 
 // Áreas novas: detectadas em tempo de build. Arquivo ausente → fallback.
 const MODULES = import.meta.glob([
@@ -80,9 +82,11 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   const [search, setSearch] = useState(false);
   const [settings, setSettings] = useState(null); // null = fechado; senão a seção ('identity', 'danger', 'dice'…)
   const [more, setMore] = useState(false);         // folha "Mesa do mestre" (casa "Mais" do celular)
-  const [ending, setEnding] = useState(false);
+  const [ending, setEnding] = useState(false);      // folha "Encerrar a Sessão N" (V12)
+  const [recapFor, setRecapFor] = useState(null);   // o editor do resumo aberto pelo Encerrar: {session, context}
+  const [wrapUp, setWrapUp] = useState(null);       // o fim de encontro guiado do Encerrar: {combat, then}
   const [starting, setStarting] = useState(false);  // folha "Começar a Sessão N" (V7)
-  const [busy, setBusy] = useState(false);
+  const busy = ending || starting;                  // a capa e o Mais não abrem outra folha de sessão por cima
   const [groupPending, setGroupPending] = useState(null);
   const [toast, setToast] = useState('');
   const [sampleBusy, setSampleBusy] = useState(false);
@@ -284,15 +288,18 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   // Sessão: começar (a folha pergunta onde começa e o "Anteriormente em…", V7) / encerrar.
   const startSession = () => setStarting(true);
   const afterStart = async () => { setStarting(false); await load(); goTo('play', 'scene'); };
-  const endSession = async (withRecap) => {
-    setBusy(true);
-    try {
-      await api.patchCampaignState(campaign.id, { live: false });
-      await load();
-      setEnding(false);
-      if (withRecap) goTo('group', 'chronicle', { recap: true });
-      else say(t(lang, 'Sessão encerrada. Bom jogo!', 'Session ended. Good game!'));
-    } catch (e) { say(errorMessage(e, lang)); } finally { setBusy(false); }
+  // ■ Encerrar (V12): a folha manda tudo numa chamada; depois a casca recarrega e vai para a
+  // Agora (o cartão J2 "Sessão N encerrada"). Com o fim de encontro guiado ligado, o painel
+  // dele abre antes; "Encerrar e escrever o resumo" abre o editor JÁ ABERTO, com o rascunho.
+  const afterEnd = async ({ withRecap, session, plan, sceneId, doneBefore, combat, old }) => {
+    setEnding(false);
+    await load();
+    goTo('play', 'scene');
+    const recap = withRecap ? { session, context: { plan, sceneId, doneBefore } } : null;
+    if (combat) setWrapUp({ combat, then: recap });
+    else if (recap) setRecapFor(recap);
+    if (old) say(t(lang, 'Sessão encerrada. O plano ficou como estava: falta atualizar o servidor para guardar e levar.', 'Session ended. The plan stayed as it was: the server needs an update to keep and carry it.'));
+    else if (!withRecap) say(t(lang, 'Sessão encerrada. Bom jogo!', 'Session ended. Good game!'));
   };
   // Da folha "Mais" para outra janela: fecha a folha primeiro (o foco volta à
   // casa "Mais") e abre a próxima no tick seguinte, que devolve o foco para lá.
@@ -474,7 +481,23 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
               onWorldCleared={async () => { await loadWorld(); setWorldEpoch(e => e + 1); }} />
           </Suspense>
         )}
-        {ending && <EndSessionDialog lang={lang} busy={busy} onCancel={() => setEnding(false)} onEnd={endSession} />}
+        {ending && isDM && (
+          <Suspense fallback={null}>
+            <EndSessionSheet campaign={campaign} lang={lang} pulse={table.pulse} onClose={() => setEnding(false)} onEnded={afterEnd} />
+          </Suspense>
+        )}
+        {wrapUp && isDM && (
+          <Suspense fallback={null}>
+            <EndOfEncounterPanel campaign={campaign} combat={wrapUp.combat} lang={lang} onNavigate={legacyNav}
+              onClose={() => { const then = wrapUp.then; setWrapUp(null); if (then) setRecapFor(then); }} onChange={load} />
+          </Suspense>
+        )}
+        {recapFor && isDM && (
+          <Suspense fallback={null}>
+            <RecapEditor campaign={campaign} lang={lang} session={recapFor.session} context={recapFor.context} dock="play"
+              onClose={() => setRecapFor(null)} onSaved={() => setRecapFor(null)} />
+          </Suspense>
+        )}
         {starting && isDM && (
           <Suspense fallback={null}>
             <StartSessionSheet campaign={campaign} lang={lang} tvLive={table.tvLive} onClose={() => setStarting(false)}
@@ -517,28 +540,4 @@ function renderPlayer(area, p) {
     return <Area Comp={GroupArea} props={{ ...p, sub: 'players', hasJoinRoute: true }} lang={p.lang} resetKey={k} fallback={<PlayerGroupFallback {...p} />} />;
   }
   return null;
-}
-
-// "Encerrar a sessão?": folha da altura do conteúdo no celular (botões
-// empilhados, a ação principal por último) e caixa central no desktop.
-// Esc, ✕ e toque fora = Continuar jogando, como antes.
-function EndSessionDialog({ lang, busy, onCancel, onEnd }) {
-  return (
-    <MesaSheet
-      lang={lang} size="auto" width="sm" className="shell-end"
-      icon="■" title={t(lang, 'Encerrar a sessão?', 'End the session?')}
-      onClose={onCancel}
-      footer={(
-        <div className="mesa-actions is-stack">
-          <button type="button" className="mesa-btn" onClick={onCancel} disabled={busy}>{t(lang, 'Continuar jogando', 'Keep playing')}</button>
-          <button type="button" className="mesa-btn" onClick={() => onEnd(false)} disabled={busy}>{t(lang, 'Encerrar', 'End')}</button>
-          <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={() => onEnd(true)} disabled={busy}>{t(lang, 'Encerrar e escrever o recap', 'End and write the recap')}</button>
-        </div>
-      )}
-    >
-      <p className="mesa-sheet-text">{t(lang,
-        'O selo "Ao vivo" sai. Se quiser, já abrimos a Crônica para você escrever o "Anteriormente em…" — é opcional.',
-        'The "Live" badge goes away. If you like, we open the Chronicle so you can write the "Previously on…" — optional.')}</p>
-    </MesaSheet>
-  );
 }

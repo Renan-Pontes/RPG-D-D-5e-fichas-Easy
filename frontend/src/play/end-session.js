@@ -55,6 +55,12 @@ export function carryCounts(plan, n) {
   if (!plan) return null;
   const fs = Number.isInteger(plan.forSession) ? plan.forSession : null;
   if (fs && fs > n) return null;
+  return leftoverCounts(plan);
+}
+
+/** O que sobrou de um plano (o ⋯ do Plano › "Começar o plano da Sessão N" também mostra); null = plano em branco. */
+export function leftoverCounts(plan) {
+  if (!plan) return null;
   const scenes = (plan.scenes || []).filter(s => realScene(s) && !s.done).length;
   const clues = (plan.secrets || []).filter(s => realSecret(s) && !s.discovered).length;
   const people = (plan.npcIds || []).length;
@@ -101,13 +107,13 @@ export function endRows({ n, combat = null, openChecks = null, plan = null, lang
 
 /**
  * "Quem teve um momento hoje?": um chip por personagem da mesa. Marcado de início quem tem
- * um momento ligado a uma cena jogada hoje (feita ou a de "agora"); já marcado na sessão
+ * um momento ligado a uma cena jogada hoje (feita nesta sessão ou a de "agora"); já marcado na sessão
  * (`done === n`) fica ✓ e travado. O chip leva o momento em aberto que o toque marca (o da
  * cena jogada, senão o 1º em aberto); sem nenhum, o servidor cria um ★ "Sessão N".
  * → [{charId, name, momentId, text, on, locked}]
  */
-export function momentChips({ members = [], spotlights = {}, plan = null, sceneId = null, n = null } = {}) {
-  const played = new Set(playedScenes(plan, sceneId).map(s => s.id));
+export function momentChips({ members = [], spotlights = {}, plan = null, sceneId = null, doneBefore = null, n = null } = {}) {
+  const played = new Set(playedScenes(plan, sceneId, doneBefore).map(s => s.id));
   return (members || []).filter(m => m.role !== 'dm' && m.character?.id).map(m => {
     const list = spotlights?.[String(m.character.id)] || [];
     const today = list.find(x => x.done != null && x.done === n);

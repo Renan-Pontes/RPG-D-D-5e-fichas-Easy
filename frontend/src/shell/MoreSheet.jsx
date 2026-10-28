@@ -67,7 +67,7 @@ export default function MoreSheet({
         {!closed && (live ? (
           <Row icon="■" className="is-session" disabled={busy} onClick={onEndSession}
             title={t(lang, 'Encerrar sessão', 'End session')}
-            sub={t(lang, 'Continuar jogando, encerrar ou escrever o recap', 'Keep playing, end, or write the recap')} />
+            sub={t(lang, 'Arruma a mesa e guarda o plano; o resumo é com você', 'Tidies the table and keeps the plan; the recap is up to you')} />
         ) : (
           <Row icon="▶" className="is-session is-start" disabled={busy} onClick={onStartSession}
             title={t(lang, `Começar a Sessão ${next}`, `Start session ${next}`)}

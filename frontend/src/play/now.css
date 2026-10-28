@@ -168,3 +168,20 @@
   .table-now.now { grid-template-areas: "main side"; }
   .now .tn-col-side { position: sticky; top: 120px; }
 }
+
+/* ---------- Encerrar a Sessão N (EndSessionSheet, V12) ---------- */
+.ess-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.ess-opt input[type="checkbox"] { flex: none; width: 22px; height: 22px; accent-color: var(--gold); }
+.ess-wait { margin: 8px 0 0; }
+.ess-moments { margin: 14px 0 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ess-moments legend { margin-bottom: 6px; }
+.ess-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ess-chip { min-height: 44px; }
+.ess-foot .ess-ends { display: flex; flex-direction: column; gap: 8px; }
+.ess-foot .ess-ends > .mesa-btn { width: 100%; min-height: 48px; }
+.ess-note { margin: 0; color: var(--ink-muted); font-size: 14px; }
+@media (min-width: 768px) {
+  .ess-foot { flex-wrap: wrap; }
+  .ess-foot .ess-ends { flex-direction: row; margin-left: auto; }
+  .ess-foot .ess-ends > .mesa-btn { width: auto; }
+}

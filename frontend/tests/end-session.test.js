@@ -1,7 +1,7 @@
 // A folha "Encerrar a Sessão N" (V12): as caixas, o que "Levar" leva, os momentos e o corpo do POST.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { carryCounts, carryText, combatLine, endBody, endRows, endTitle, initialChecks, momentChips, oldServerSteps } from '../src/play/end-session.js';
+import { carryCounts, carryText, combatLine, endBody, endRows, endTitle, initialChecks, leftoverCounts, momentChips, oldServerSteps } from '../src/play/end-session.js';
 
 const plan = {
   forSession: 4,
@@ -37,6 +37,8 @@ test('"Levar para a Sessão 5": as cenas não feitas, as pistas não achadas, pe
   assert.equal(carryCounts({ ...plan, forSession: 5 }, 4), null, 'o plano já é o da próxima');
   assert.equal(carryCounts({ scenes: [], secrets: [{ id: 'p1', text: '' }], npcIds: [], placeIds: [] }, 4), null, 'nada para arquivar');
   assert.equal(carryCounts(null, 4), null);
+  // o ⋯ do Plano conta o que sobrou de qualquer plano (mesmo o da próxima)
+  assert.deepEqual(leftoverCounts({ ...plan, forSession: 5 }), { scenes: 1, clues: 2, people: 3, places: 1 });
 });
 
 test('as caixas: combate e testes só quando há; todas marcadas', () => {
