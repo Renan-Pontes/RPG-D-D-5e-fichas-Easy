@@ -3,6 +3,7 @@ import NextSession from './NextSession.jsx';
 import CampaignItemsTab from '../items/CampaignItemsTab.jsx';
 import { SubChips } from '../shell/AreaNav.jsx';
 import ReadySheet from './ReadySheet.jsx';
+import WhatsNew from '../shell/WhatsNew.jsx';
 import './next-session.css';
 
 const PrepTab = lazy(() => import('./PrepTab.jsx'));
@@ -60,6 +61,8 @@ export default function PrepareArea({ campaign, lang, sub: subProp, params, goTo
     <div className="pa">
       <SubChips subs={PREPARE_SUBS.map(x => x.id)} active={sub} onSelect={setSub} lang={lang}
         ariaLabel={t(lang, 'Preparar', 'Prepare')} />
+      {/* V14: "O que mudou" (Próxima sessão → Plano, Telão → Tela…), uma vez por aparelho */}
+      <WhatsNew lang={lang} />
       <div role="tabpanel">
         {sub === 'next' && <NextSession campaign={campaign} lang={lang} goTo={nav} />}
         {sub === 'adventures' && (

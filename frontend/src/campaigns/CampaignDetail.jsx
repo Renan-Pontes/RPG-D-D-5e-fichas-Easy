@@ -48,6 +48,7 @@ const StartSessionSheet = lazy(() => import('../play/StartSessionSheet.jsx'));
 const EndSessionSheet = lazy(() => import('../play/EndSessionSheet.jsx'));
 const RecapEditor = lazy(() => import('../play/RecapEditor.jsx'));
 const EndOfEncounterPanel = lazy(() => import('./EndOfEncounterPanel.jsx'));
+const GmGuide = lazy(() => import('../shell/GmGuide.jsx'));
 
 // Áreas novas: detectadas em tempo de build. Arquivo ausente → fallback.
 const MODULES = import.meta.glob([
@@ -86,6 +87,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
   const [recapFor, setRecapFor] = useState(null);   // o editor do resumo aberto pelo Encerrar: {session, context}
   const [wrapUp, setWrapUp] = useState(null);       // o fim de encontro guiado do Encerrar: {combat, then}
   const [starting, setStarting] = useState(false);  // folha "Começar a Sessão N" (V7)
+  const [guide, setGuide] = useState(null);         // o Guia do mestre aberto: o nº do cartão (V14)
   const busy = ending || starting;                  // a capa e o Mais não abrem outra folha de sessão por cima
   const [groupPending, setGroupPending] = useState(null);
   const [toast, setToast] = useState('');
@@ -397,6 +399,8 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
     endSession: isDM ? () => setEnding(true) : undefined,
     onPlan: isDM ? reportPlan : undefined,           // o Plano aberto: o "!" de Preparar sem GET
     openSearch: () => setSearch(true), openSettings: (section) => { setSettings(typeof section === 'string' ? section : 'identity'); if (isDM) loadWorld(); },
+    // o Guia do mestre (V14): o "?" do cartão "O que fazer agora" e o "O que mudou" abrem
+    openGuide: isDM ? (i) => setGuide(Number.isInteger(i) ? i : 0) : undefined,
   };
 
   const content = isDM ? renderDM(nav.area, areaProps, { setGroupPending }) : renderPlayer(nav.area, areaProps);
@@ -472,6 +476,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
               onTvOpened={() => markOnboarding('tv')} onScreenChange={load}
               onChooseScreen={fromMore(() => goTo('play', 'screen'))}
               onOpenLive={fromMore(() => setLiveOpen(true))}
+              onGuide={fromMore(() => setGuide(0))}
               barPrefs={barPrefs} onBarPrefs={setBarPrefs} />
           </Suspense>
         )}
@@ -503,6 +508,13 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, charac
           <Suspense fallback={null}>
             <StartSessionSheet campaign={campaign} lang={lang} tvLive={table.tvLive} onClose={() => setStarting(false)}
               onStarted={afterStart} onTvLink={() => markOnboarding('tv')} />
+          </Suspense>
+        )}
+        {guide != null && isDM && (
+          <Suspense fallback={null}>
+            {/* "Me leve lá": a tela do assunto; o Encerrar, ao vivo, abre a folha Encerrar */}
+            <GmGuide start={guide} lang={lang} live={!!vis.live} closed={vis.closed} onClose={() => setGuide(null)}
+              onGo={(target) => { setGuide(null); if (target.sheet === 'end') setEnding(true); else goTo(target.area, target.sub); }} />
           </Suspense>
         )}
         {toast && <div className="toast shell-toast" role="status">{toast}</div>}

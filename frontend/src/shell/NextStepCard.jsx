@@ -9,8 +9,11 @@
 // - `step.items` (J1 da Agora): a lista "✓ plano (3 cenas) · ○ Tela [Copiar link]" entre a
 //   frase e o botão; `step.note`, uma linha de texto embaixo do botão; `step.lead`, um texto
 //   inteiro em destaque sob a frase (o ⚡ Começo forte do J4).
+// - V14: a folha do "?" leva ao Guia do mestre, já no cartão do assunto da regra.
 import { useEffect, useRef, useState } from 'react';
 import MesaSheet from './MesaSheet.jsx';
+import { useArea } from './useArea.js';
+import { guideForRule } from './guide-model.js';
 import './mesa.css';
 
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
@@ -19,6 +22,7 @@ const SETTLE_MS = 400;
 export default function NextStepCard({ step, lang, onAction, onSkip, busy = null, children }) {
   const [help, setHelp] = useState(false);
   const [freshAt, setFreshAt] = useState(0);
+  const openGuide = useArea()?.openGuide;
   const shown = useRef(step?.id ? `${step.id}:${step.text}` : '');
   const key = step?.id ? `${step.id}:${step.text}` : '';
   useEffect(() => {
@@ -78,7 +82,16 @@ export default function NextStepCard({ step, lang, onAction, onSkip, busy = null
       {help && (
         <MesaSheet title={t(lang, 'O que fazer agora', 'What to do now')} icon="?" size="auto" width="sm" lang={lang}
           onClose={() => setHelp(false)}
-          footer={<button type="button" className="mesa-btn mesa-btn-lg" onClick={() => setHelp(false)}>{t(lang, 'Entendi', 'Got it')}</button>}>
+          footer={(
+            <div className="mesa-actions">
+              {openGuide && (
+                <button type="button" className="mesa-btn mesa-btn-lg" onClick={() => { setHelp(false); openGuide(guideForRule(step.id)); }}>
+                  📘 {t(lang, 'Guia do mestre', 'GM guide')}
+                </button>
+              )}
+              <button type="button" className="mesa-btn mesa-btn-lg" onClick={() => setHelp(false)}>{t(lang, 'Entendi', 'Got it')}</button>
+            </div>
+          )}>
           <p className="mesa-sheet-text">{step.help}</p>
           {step.canSkip && (
             <p className="mesa-sheet-text">{t(lang,

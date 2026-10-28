@@ -19,6 +19,7 @@ import { TurnStrip } from '../stage/TableBar.jsx';
 import { useArea } from '../shell/useArea.js';
 import { SubChips } from '../shell/AreaNav.jsx';
 import { legacyTabToArea } from '../shell/shell-logic.js';
+import WhatsNew from '../shell/WhatsNew.jsx';
 import './play-styles.css';
 
 const TableNow = lazy(() => import('../campaigns/TableNow.jsx'));
@@ -94,6 +95,8 @@ export default function PlayArea(props) {
       {inShell && (
         <TurnStrip lang={lang} onOpenActor={(id) => (shellGoTo ? shellGoTo('play', 'combat', { actor: id, at: Date.now() }) : setSub('combat'))} />
       )}
+      {/* V14: "O que mudou" (Telão → Tela, Cena → Agora…), uma vez por aparelho */}
+      <WhatsNew lang={lang} />
       <Suspense fallback={fallback}>
         {sub === 'scene' && (
           <TableNow campaign={campaign} approvals={props.approvals} lang={lang} tests={tests}

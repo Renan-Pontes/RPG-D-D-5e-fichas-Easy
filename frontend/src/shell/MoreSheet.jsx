@@ -6,6 +6,7 @@
 //   "Abrir a Tela ao vivo" e "Barra da mesa: Sempre · Só ao vivo · Nunca", V4) ·
 //   🎲 Dados preparados (só com a opção ligada);
 //   ⚙ Ajustes: as 6 seções, cada uma abrindo os Ajustes já nela;
+//   📘 Guia do mestre (V14: os 5 cartões com "Me leve lá");
 //   ← Voltar para Campanhas.
 // Quem chama fecha a folha antes de abrir a próxima janela (ver CampaignDetail).
 import { useId } from 'react';
@@ -32,7 +33,7 @@ function Row({ icon, title, sub, onClick, disabled, className = '' }) {
 export default function MoreSheet({
   campaign, lang, busy = false, worldCount = null, worldMax = 500,
   onClose, onStartSession, onEndSession, onSearch, onSettings, onBack, onTvOpened, onScreenChange, onChooseScreen,
-  onOpenLive, barPrefs, onBarPrefs,
+  onOpenLive, onGuide, barPrefs, onBarPrefs,
 }) {
   const tvId = useId();
   const setId = useId();
@@ -108,6 +109,13 @@ export default function MoreSheet({
           ))}
         </div>
       </section>
+
+      {onGuide && (
+        <div className="shell-more-list mesa-panel is-sunk">
+          <Row icon="📘" onClick={onGuide} title={t(lang, 'Guia do mestre', 'GM guide')}
+            sub={t(lang, 'Preparar, começar, Tela, combate e encerrar, com "Me leve lá"', 'Prepare, start, screen, combat and end, with "Take me there"')} />
+        </div>
+      )}
 
       <div className="shell-more-list mesa-panel is-sunk">
         <Row icon="←" onClick={onBack} title={t(lang, 'Voltar para Campanhas', 'Back to Campaigns')} />
