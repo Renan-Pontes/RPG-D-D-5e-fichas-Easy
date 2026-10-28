@@ -17,6 +17,7 @@ import { checkLabel } from '../checks/check-logic.js';
 import { bestAt, firstName } from '../group/party-best.js';
 import { formatMod } from '../dice/dice-math.js';
 import { DIFFICULTY_LABEL } from '../combat/encounter.js';
+import { fightLine } from '../combat/encounter-setup.js';
 import { fightDifficulty, sceneView } from '../prep/scene-model.js';
 import { partyLevels } from '../prep/prep-graph.js';
 import ShowOnTable from '../stage/ShowOnTable.jsx';
@@ -87,8 +88,9 @@ export default function SceneNowCard({
     : showEntry ? { kind: 'card', entry: showEntry } : null;
   const refs = v.refs.map(id => byId.get(id)).filter(Boolean);
   const nothing = !filled(v.read) && !v.show && !v.refs.length && !v.fight.length && !v.checks.length && !moments.length;
-  const totalMonsters = v.fight.reduce((n, f) => n + (parseInt(f.count, 10) || 1), 0);
-  const fightText = v.fight.length === 1 ? `${totalMonsters} ${v.fight[0].name}` : L(lang, `${totalMonsters} monstros`, `${totalMonsters} monsters`);
+  // "2 Goblin Guerreiro · 1 Sombra": o nome do catálogo na língua do app (o mesmo da folha
+  // Começar o combate e do Combate); antes do catálogo chegar, o nome salvo na cena
+  const fightText = fightLine(v.fight, { resolve: lookup, lang });
   const diffLabel = diff?.rating ? (DIFFICULTY_LABEL[diff.rating]?.[lang === 'en' ? 'en' : 'pt'] || '') : '';
 
   return (
