@@ -23,6 +23,17 @@
 .wl-move-why { margin: 0; min-height: 2.8em; font-size: 13px; line-height: 1.4; color: var(--ink-muted); }
 .wl-move-why.is-alert { color: var(--amber); }
 
+/* ---------------------------------------------------------- cartões do Atlas (§7.9)
+   Quem vê ESCRITO no selo também no celular (não só 🔒/◐/👁 com o nome no title, que o
+   toque não mostra) e "👁 Quem vê…" / "📺 Mostrar" com 44 px (48 no celular, onde o 📺 é
+   ação de mesa). O texto do selo quebra dentro do cartão em vez de passar da borda. */
+.wl-atlas .wl-card-actions .wl-act { min-height: 44px; }
+@media (max-width: 640px) {
+  .wl-atlas .wl-card .wl-seal-txt { display: inline; }
+  .wl-atlas .wl-card .wl-seal { white-space: normal; line-height: 1.2; text-align: left; }
+  .wl-atlas .wl-card-actions .wl-act { min-height: 48px; }
+}
+
 /* ---------------------------------------------------------- editor só leitura */
 .wl-save-read { color: var(--ink-secondary); }
 .wl-ro-note {
