@@ -14,6 +14,10 @@ export const SAVE_DELAY = 800;
 
 export const insightsApi = {
   get: (campaignId) => request(`/api/campaigns/${campaignId}/party-insights`).then(r => r.insights),
+  // o mesmo GET com as cenas do plano de agora (ids): o Raio-X conta os momentos como o Plano
+  // (moment-words.planMoments). Servidor de antes, sem `planScenes`: null (vale a cena gravada)
+  getWithPlan: (campaignId) => request(`/api/campaigns/${campaignId}/party-insights`)
+    .then(r => ({ insights: r.insights, planScenes: Array.isArray(r.planScenes) ? r.planScenes : null })),
   put: (campaignId, patch) =>
     request(`/api/campaigns/${campaignId}/party-insights`, { method: 'PUT', body: { insights: patch } }).then(r => r.insights),
   // Equilíbrio na mesa (G9): contagens por sessão, sob demanda (cache de 60 s no servidor)

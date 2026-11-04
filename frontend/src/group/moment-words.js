@@ -52,17 +52,29 @@ export function momentSession(state) {
 }
 
 /**
+ * Em que cena do plano o momento está: a gravada nele (`plan`), se ela ainda está no plano
+ * (`sceneIds`, Set ou lista: as cenas de verdade do plano de agora); a que foi apagada ou
+ * ficou no plano arquivado = null ("sem cena ainda", com "→ Cena"). Sem `sceneIds` (servidor
+ * de antes, no Raio-X), vale a gravada.
+ */
+export function momentScene(moment, sceneIds = null) {
+  const id = moment?.plan || null;
+  if (!id || !sceneIds) return id;
+  return (sceneIds instanceof Set ? sceneIds.has(id) : [...sceneIds].includes(id)) ? id : null;
+}
+
+/**
  * Os momentos de um personagem que contam para o plano da sessão `session`: os que ainda
  * não aconteceram (com ou sem cena) e os que aconteceram nesta sessão. Cada um diz em que
- * cena do plano está (`sceneId`), ou null = "sem cena ainda". `sceneIds` = as cenas do
- * plano (Set ou lista); sem elas (o Raio-X não lê o plano), vale a cena gravada no momento.
+ * cena do plano está (`sceneId`, momentScene), ou null = "sem cena ainda". O Plano passa as
+ * cenas dele; o Raio-X, as que vêm no GET dele (`planScenes`): a mesma conta nos dois.
  * → [{moment, sceneId}]
  */
 export function planMoments(list, { session = null, sceneIds = null } = {}) {
   const ids = sceneIds ? new Set(sceneIds) : null;
   return (list || [])
     .filter(m => m && (m.done == null || (session != null && m.done === session)))
-    .map(m => ({ moment: m, sceneId: m.plan && (!ids || ids.has(m.plan)) ? m.plan : null }));
+    .map(m => ({ moment: m, sceneId: momentScene(m, ids) }));
 }
 
 /** {total, noScene}: quantos contam e quantos estão "sem cena ainda". */

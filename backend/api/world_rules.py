@@ -899,6 +899,19 @@ def plan_leftovers(plan):
     }
 
 
+def plan_scene_ids(plan):
+    """As cenas de verdade do plano de agora (ids, na ordem): o Raio-X confere com elas em que
+    cena cada momento está, como o Plano faz (o `plan` de um momento pode apontar uma cena que
+    foi apagada ou ficou no plano arquivado: aí é "sem cena ainda")."""
+    plan = plan if isinstance(plan, dict) else {}
+    out = []
+    for s in plan.get('scenes') or []:
+        sid = short_id(s.get('id'), 40) if _real_scene(s) else ''
+        if sid and sid not in out:
+            out.append(sid)
+    return out
+
+
 def played_scene_ids(plan, scene_id=None, done_before=None):
     """As cenas jogadas na sessão (as mesmas do rascunho do resumo, diary-summary.playedScenes):
     as de verdade feitas nela (fora as que já estavam feitas ao começar, `doneBefore`) e a que

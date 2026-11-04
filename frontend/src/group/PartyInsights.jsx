@@ -66,6 +66,7 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
   const wide = useWide();
   const readOnly = campaign.status === 'closed';
   const [ins, setIns] = useState(null);
+  const [planScenes, setPlanScenes] = useState(null);   // as cenas do plano (ids), do mesmo GET; null = servidor de antes
   const [loadErr, setLoadErr] = useState('');
   const [save, setSave] = useState('idle');   // idle · waiting · saving · saved · error
   const [saveErr, setSaveErr] = useState('');
@@ -85,9 +86,11 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
   const load = useCallback(async () => {
     setLoadErr('');
     try {
-      const got = withDefaults(await insightsApi.get(campaign.id));
+      const r = await insightsApi.getWithPlan(campaign.id);
+      const got = withDefaults(r.insights);
       rememberInsights(campaign.id, got);
       setIns(got);
+      setPlanScenes(r.planScenes);
     } catch (e) {
       setLoadErr(errorMessage(e, lang));
       setIns(cur => cur || withDefaults({}));
@@ -311,7 +314,8 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
           </Fold>
           <Moments facts={facts} settings={settings} update={update} suggestions={calc.suggestions} session={session} state={campaign.state} balance={balance}
             lang={lang} readOnly={readOnly} focusId={focusId} filter={view.moments || 'session'} setFilter={(v) => setView({ moments: v })}
-            campaignId={campaign.id} onOpenPlan={() => goTo('prepare', 'next')} historyState={histState} onNear={loadHistory} />
+            campaignId={campaign.id} onOpenPlan={() => goTo('prepare', 'next')} historyState={histState} onNear={loadHistory}
+            planScenes={planScenes} onSceneLinked={(id) => setPlanScenes(p => (p && id && !p.includes(id) ? [...p, id] : p))} />
           <Balance balance={balance} history={history} state={histState} onLoad={loadHistory} lang={lang} />
           <Versus facts={facts} lang={lang} monster={monster} setMonster={setMonster} planPick={planPick} setPlanPick={setPlanPick}
             onPick={() => setSheet({ kind: 'monster' })} onPlan={openPlanCombat} />

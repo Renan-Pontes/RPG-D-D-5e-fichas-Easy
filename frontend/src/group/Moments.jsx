@@ -3,6 +3,9 @@
 // - Sugestão (cinza, não gravada): Aceitar · Dispensar. Aceito ou escrito (gravado em
 //   partyInsights.spotlights pelo PUT do Raio-X): → Cena, ⋯ (Editar · Tirar da cena ·
 //   Apagar) e a caixa "Aconteceu" de 48 px, que grava o nº da sessão.
+// - Em que cena cada momento está é a conta do Plano (moment-words.momentScene), com as
+//   cenas do plano que vêm no GET do Raio-X (`planScenes`): o da cena apagada ou arquivada
+//   é "sem cena ainda", com "→ Cena". Servidor de antes (sem elas): vale a cena gravada.
 // - Aceitar, Dispensar e desmarcar mudam a lista: os botões da lista do personagem
 //   ignoram toques por 400 ms (o 2º toque de um toque duplo não cai na sugestão seguinte).
 // - Dispensar e Apagar não perguntam: mostram "↶ Desfazer" por 6 s (princípio 5), que
@@ -22,7 +25,7 @@ import {
   momentSceneText, openSuggestions, removeMoment, restoreMoment, spreadKinds, STYLES, styleLabel, toggleDone, undismissKey,
   updateMoment, writeMoment,
 } from './spotlights.js';
-import { momentLine, momentSession, planMomentCount } from './moment-words.js';
+import { momentLine, momentScene, momentSession, planMomentCount } from './moment-words.js';
 
 const t = PM.t;
 const SETTLE_MS = 400;
@@ -49,7 +52,7 @@ export function balanceSub(n, lang) {
 }
 
 /** G8: um cartão por personagem de quem entra. */
-export function Moments({ facts, settings, update, suggestions, session, state = null, balance, lang, readOnly, focusId, filter, setFilter, campaignId, onOpenPlan, historyState, onNear }) {
+export function Moments({ facts, settings, update, suggestions, session, state = null, balance, lang, readOnly, focusId, filter, setFilter, campaignId, onOpenPlan, historyState, onNear, planScenes = null, onSceneLinked }) {
   const [sheet, setSheet] = useState(null);   // {kind:'write'|'scene', id, moment?}
   const [undo, setUndo] = useState(null);     // {id, text, run}: o "↶ Desfazer" de 6 s
   const ref = useRef(null);
@@ -103,7 +106,7 @@ export function Moments({ facts, settings, update, suggestions, session, state =
       {readOnly && <p className="ins-note">{t(lang, 'Campanha encerrada: os momentos ficam só para ler.', 'Campaign closed: the moments are read-only.')}</p>}
       <div className="ins-mom-grid">
         {facts.map(f => (
-          <MomentCard key={f.id} f={f} lang={lang} readOnly={readOnly} session={session} countSession={momentSession(state)} filter={filter}
+          <MomentCard key={f.id} f={f} lang={lang} readOnly={readOnly} session={session} countSession={momentSession(state)} filter={filter} sceneIds={planScenes}
             list={settings.spotlights?.[String(f.id)] || []} style={settings.style?.[String(f.id)] || []}
             dismissed={settings.dismissed?.[String(f.id)] || []} suggestions={suggestions[f.id] || []}
             row={warn[f.id]} focus={focusId === f.id}
@@ -127,7 +130,10 @@ export function Moments({ facts, settings, update, suggestions, session, state =
       {sheet?.kind === 'scene' && (
         <SceneSheet lang={lang} campaignId={campaignId} moment={sheet.moment} name={facts.find(f => f.id === sheet.id)?.name}
           onClose={() => setSheet(null)} onOpenPlan={onOpenPlan}
-          onLinked={(sceneId) => setList(sheet.id, updateMoment(settings.spotlights?.[String(sheet.id)] || [], sheet.moment.id, { plan: sceneId }))} />
+          onLinked={(sceneId) => {
+            onSceneLinked?.(sceneId);   // a cena nova (ou escolhida) passa a contar como do plano
+            setList(sheet.id, updateMoment(settings.spotlights?.[String(sheet.id)] || [], sheet.moment.id, { plan: sceneId }));
+          }} />
       )}
       {undo && (
         <div className="ins-undo" role="status" aria-live="polite">
@@ -139,7 +145,7 @@ export function Moments({ facts, settings, update, suggestions, session, state =
   );
 }
 
-function MomentCard({ f, lang, readOnly, session, countSession, filter, list, style, dismissed, suggestions, row, focus, setList, setStyle, dismiss, remove, onWrite, onScene }) {
+function MomentCard({ f, lang, readOnly, session, countSession, filter, sceneIds = null, list, style, dismissed, suggestions, row, focus, setList, setStyle, dismiss, remove, onWrite, onScene }) {
   const [styleOpen, setStyleOpen] = useState(false);
   const [more, setMore] = useState(false);
   const lockedUntil = useRef(0);
@@ -156,8 +162,9 @@ function MomentCard({ f, lang, readOnly, session, countSession, filter, list, st
   const open = filter === 'done' ? [] : spreadKinds(openSuggestions(suggestions, list, dismissed));
   const visible = more ? open : open.slice(0, SUGGESTIONS_SHOWN);
   const doneCount = list.filter(m => m.done != null).length;
-  // a mesma conta do Plano, do "O que fazer agora" e do "Pronto para jogar" (moment-words)
-  const count = planMomentCount(list, { session: countSession });
+  // a mesma conta do Plano, do "O que fazer agora" e do "Pronto para jogar" (moment-words),
+  // com as cenas do plano de agora
+  const count = planMomentCount(list, { session: countSession, sceneIds });
   const full = list.length >= MAX_MOMENTS;
   const name = PM.firstName(f.name);
   return (
@@ -189,9 +196,10 @@ function MomentCard({ f, lang, readOnly, session, countSession, filter, list, st
         <ul className="ins-mom-list">
           {shown.map(m => {
             const done = m.done != null;
+            const inScene = !!momentScene(m, sceneIds);   // a cena dele ainda está no plano
             const menu = [
               { id: 'edit', label: t(lang, 'Editar', 'Edit'), onSelect: () => onWrite(m) },
-              m.plan && { id: 'unlink', label: t(lang, 'Tirar da cena', 'Remove from scene'), onSelect: () => setList(updateMoment(list, m.id, { plan: null })) },
+              inScene && { id: 'unlink', label: t(lang, 'Tirar da cena', 'Remove from scene'), onSelect: () => setList(updateMoment(list, m.id, { plan: null })) },
               { id: 'delete', label: t(lang, 'Apagar', 'Delete'), danger: true, onSelect: guard(() => remove(m)) },
             ].filter(Boolean);
             return (
@@ -205,12 +213,12 @@ function MomentCard({ f, lang, readOnly, session, countSession, filter, list, st
                   <p className="ins-mom-text">{momentLine(m, f.name, lang)}</p>
                   <p className="ins-mom-meta">
                     {done && (m.done > 0 ? t(lang, `aconteceu na sessão ${m.done}`, `happened in session ${m.done}`) : t(lang, 'aconteceu', 'happened'))}
-                    {done && ' · '}
-                    {m.plan ? t(lang, '📜 numa cena do plano', '📜 in a plan scene') : !done ? t(lang, 'sem cena ainda', 'no scene yet') : ''}
+                    {done && inScene && ' · '}
+                    {inScene ? t(lang, '📜 numa cena do plano', '📜 in a plan scene') : !done ? t(lang, 'sem cena ainda', 'no scene yet') : ''}
                   </p>
                   {!readOnly && (
                     <div className="ins-mom-act">
-                      {!m.plan && !done && <button type="button" className="mesa-btn" onClick={() => onScene(m)}>→ {t(lang, 'Cena', 'Scene')}</button>}
+                      {!inScene && !done && <button type="button" className="mesa-btn" onClick={() => onScene(m)}>→ {t(lang, 'Cena', 'Scene')}</button>}
                       <MoreMenu items={menu} lang={lang} label={t(lang, `Mais ações: ${m.text}`, `More actions: ${m.text}`)} sheetTitle={t(lang, 'Momento', 'Moment')} />
                     </div>
                   )}

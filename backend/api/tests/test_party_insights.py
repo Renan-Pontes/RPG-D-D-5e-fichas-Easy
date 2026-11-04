@@ -117,6 +117,21 @@ class MergeTests(PartyInsightsBase):
         self.assertEqual((got[1]['id'], got[1]['text'], got[1]['done']), ('s2', 'Porta trancada', None))
         self.assertEqual(ins['dismissed'][str(self.char.id)], ['skill:stealth'])
 
+    def test_get_brings_the_plan_scene_ids(self):
+        # o Raio-X confere em que cena cada momento está com as cenas do plano de agora (a
+        # conta do Plano), no mesmo GET: as de verdade, sem repetir; plano vazio = []
+        self.assertEqual(self.c_dm.get(self.url).json()['planScenes'], [])
+        self.camp.dm_settings = {'sessionPlan': {'scenes': [
+            {'id': 'c2', 'text': 'Descer até o lago'}, {'id': 'c3', 'text': '  '},
+            {'id': 'c4', 'text': '', 'nodeRef': {'adventureId': 1, 'nodeId': 'n2'}},
+            {'id': 'c2', 'text': 'repetida'}, {'text': 'sem id'}, 'x']}}
+        self.camp.save()
+        self.put({'spotlights': {str(self.char.id): [{'kind': 'shine', 'text': 'x', 'plan': 'c9'}]}})
+        body = self.c_dm.get(self.url).json()
+        self.assertEqual(body['planScenes'], ['c2', 'c4'])
+        self.assertEqual(body['insights']['spotlights'][str(self.char.id)][0]['plan'], 'c9')   # o gravado fica
+        self.assertNotIn('planScenes', self.put({'dc': 12}).json())   # o PUT continua só com o Raio-X
+
     def test_keeps_other_dm_settings(self):
         self.camp.dm_settings = {'onboarding': {'cover': True}, 'sessionPlan': {'monsters': 'goblins'}}
         self.camp.save()

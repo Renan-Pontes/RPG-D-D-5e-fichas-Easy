@@ -7,7 +7,10 @@ ajustes e os momentos que o mestre escolhe, em Campaign.dm_settings.partyInsight
 (sem migração). Fica FORA do CampaignSerializer e do polling: 1 GET ao abrir o
 Raio-X e 1 PUT por edição (o cliente espera 800 ms entre um toque e o envio).
 
-GET  /api/campaigns/<c>/party-insights   → {insights}
+GET  /api/campaigns/<c>/party-insights   → {insights, planScenes}
+     `planScenes` = os ids das cenas do plano de agora (do mesmo dm_settings, sem pedido a
+     mais): a conta dos momentos do Raio-X é a do Plano (momento numa cena que saiu do plano
+     = "sem cena ainda"). Servidor de antes: sem a chave, vale a cena gravada no momento.
 PUT  /api/campaigns/<c>/party-insights   {insights: {...}} (ou as chaves soltas) → {insights}
      merge por chave; nos mapas (focus, base, style, spotlights, dismissed) o merge
      entra um nível e null apaga o item. Validação em world_rules.clean_party_insights_patch.
@@ -51,8 +54,9 @@ def party_insights(request, id_or_slug):
     campaign = get_campaign_or_404(id_or_slug)
     require_dm(request.user, campaign)
     if request.method == 'GET':
-        insights = _run(R.merged_party_insights, (campaign.dm_settings or {}).get('partyInsights'), {})
-        return Response({'insights': insights})
+        dm = campaign.dm_settings or {}
+        insights = _run(R.merged_party_insights, dm.get('partyInsights'), {})
+        return Response({'insights': insights, 'planScenes': R.plan_scene_ids(dm.get('sessionPlan'))})
     body = request.data if isinstance(request.data, dict) else {}
     raw = body.get('insights') if isinstance(body.get('insights'), dict) else body
     patch = _run(R.clean_party_insights_patch, raw)

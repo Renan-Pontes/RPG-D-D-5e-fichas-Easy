@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import * as M from '../src/group/party-metrics.js';
 import * as S from '../src/group/spotlights.js';
 import {
-  ideaTopic, momentHead, momentLine, momentSession, planMomentCount, planMoments, varyFirsts,
+  ideaTopic, momentHead, momentLine, momentScene, momentSession, planMomentCount, planMoments, varyFirsts,
 } from '../src/group/moment-words.js';
 import { sceneIdeasByChar, sceneView } from '../src/prep/scene-model.js';
 
@@ -54,8 +54,16 @@ test('a conta única: esperando (com ou sem cena) + os que aconteceram hoje', ()
   // a Sessão 4 (parada, preparando): o que aconteceu na 3 não conta
   assert.deepEqual(planMomentCount(list, { session: 4, sceneIds: new Set(['c1', 'c2']) }), { total: 3, noScene: 2 });
   assert.deepEqual(planMoments(list, { session: 4, sceneIds: ['c2'] }).map(r => [r.moment.id, r.sceneId]), [['m1', 'c2'], ['m2', null], ['m4', null]]);
-  // o Raio-X não lê o plano: vale a cena gravada no momento — o total é o mesmo
+  // servidor de antes (o GET do Raio-X sem as cenas do plano): vale a cena gravada — o total é o mesmo
   assert.deepEqual(planMomentCount(list, { session: 4 }), { total: 3, noScene: 1 });
+  // F1.3: o Raio-X com as cenas do plano (planScenes) conta igual ao Plano: a cena apagada
+  // (ou arquivada) vira "sem cena ainda" e o cartão mostra "→ Cena"
+  assert.deepEqual(planMomentCount(list, { session: 4, sceneIds: ['c2'] }), planMomentCount(list, { session: 4, sceneIds: new Set(['c2']) }));
+  assert.equal(momentScene(list[3], ['c1', 'c2']), null);
+  assert.equal(momentScene(list[3], null), 'velha');
+  assert.equal(momentScene(list[0], new Set(['c2'])), 'c2');
+  assert.equal(momentScene(list[1], ['c2']), null);
+  assert.equal(momentScene({ plan: 'c9' }, []), null);   // plano sem cenas: nenhuma cena vale
   assert.deepEqual(planMomentCount([], {}), { total: 0, noScene: 0 });
   // a sessão que conta: a ao vivo ou a próxima
   assert.equal(momentSession({ session: '3', live: true }), 3);
