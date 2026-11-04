@@ -19,7 +19,9 @@
 //   documento só para alguns jogadores → botão apagado com o motivo ESCRITO;
 //   durante o combate → a mesma folha pequena: vai por cima do combate, com
 //     "Guardar para depois do combate" como link secundário (cartão oculto: a
-//     caixa "☐ Guardar para depois do combate", que vale para o botão tocado).
+//     caixa "☐ Guardar para depois do combate", que vale para o botão tocado);
+//   cartão revelado com imagem (onda 3, E2.2) → na folha, também "🖼 Só a imagem (tela
+//     cheia)"; fora do combate essa opção mora na linha do cartão (ShowPicker).
 // Mostrar nunca revela; revelar é sempre o toque do mestre num botão que diz
 // revelar (as regras da folha: show-model.js › decideActions).
 // onRevealed(entry): a entrada que o reveal devolveu, para a lista de quem
@@ -34,6 +36,7 @@ import './stage.css';
 
 const LOG_KEY = 'forja.world.logDiary';
 const logPref = () => { try { return localStorage.getItem(LOG_KEY) !== '0'; } catch { return true; } };
+const ownImage = (entry) => !!(entry?.imageVer || entry?.imageUrl);
 
 /** Nome do que vai à Tela, como o mestre lê no aviso. */
 function targetName(target, lang) {
@@ -120,6 +123,7 @@ export default function ShowOnTable({
       </button>
       {decide && (
         <DecideSheet lang={lang} name={name} mode={mode} fighting={fighting} busy={busy}
+          full={kind === 'card' && mode === 'show' && ownImage(entry)}
           onClose={() => setDecide(false)}
           onShow={(focus) => go(focus)}
           onImage={(caption, focus) => run(
@@ -136,15 +140,16 @@ export default function ShowOnTable({
 }
 
 /** A folha pequena de decisão: cartão oculto e/ou combate na Tela (regras em decideActions). */
-function DecideSheet({ lang, name, mode, fighting, busy, onClose, onShow, onImage, onReveal }) {
+function DecideSheet({ lang, name, mode, fighting, busy, full = false, onClose, onShow, onImage, onReveal }) {
   const [caption, setCaption] = useState('');
   const [keep, setKeep] = useState(false);
-  const { buttons, keep: keepKind } = decideActions(mode, { fighting, keep });
+  const { buttons, keep: keepKind } = decideActions(mode, { fighting, keep, full });
   const LABEL = {
     image: `🖼 ${L(lang, 'Mostrar só a imagem', 'Show image only')}`,
     name: `◐ ${L(lang, 'Mostrar só o nome', 'Show name only')}`,
     reveal: `👁 ${L(lang, 'Revelar e mostrar', 'Reveal and show')}`,
     show: `📺 ${L(lang, 'Mostrar por cima do combate', 'Show over the combat')}`,
+    full: `🖼 ${L(lang, 'Só a imagem (tela cheia)', 'Image only (full screen)')}`,
     keep: L(lang, 'Guardar para depois do combate', 'Keep for after combat'),
   };
   const press = (b) => {

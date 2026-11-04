@@ -544,6 +544,34 @@
 }
 .tv-card.is-partial .tv-card-text { color: var(--tv-ink-soft); font-style: italic; }
 .tv-card.is-partial .tv-card-art img { filter: sepia(0.35) contrast(0.95); }
+/* --- Onda 3 (E2.2): cartão com imagem própria — a imagem grande e INTEIRA (contain).
+   O palco usa a altura toda (sem o nome da campanha e sem o grupo embaixo). --- */
+.tv-stage.has-image { gap: 0; }
+.tv-stage.has-image .tv-card { width: 100%; flex: 1 1 auto; }
+.tv-card:is(.is-layout-side, .is-layout-wide, .is-layout-full) .tv-card-front { height: auto; min-height: 0; }
+.tv-screen.has-test .tv-card:is(.is-layout-side, .is-layout-wide, .is-layout-full) .tv-card-front { height: auto; }
+.tv-card-art.is-own {
+  background:
+    radial-gradient(ellipse at center, rgba(214, 176, 100, 0.06), transparent 70%),
+    linear-gradient(160deg, #1d150e, #0c0805);
+}
+.tv-card-art.is-own img { object-fit: contain; }
+.tv-card-art.is-own::after { box-shadow: none; }
+/* em pé (ou texto longo): a imagem à esquerda na altura toda, o texto ao lado */
+.tv-card.is-layout-side .tv-card-front { grid-template-columns: minmax(0, 58%) minmax(0, 1fr); }
+.tv-card.is-layout-side .tv-card-art.is-own { border-right: 1px solid var(--stroke); }
+/* larga (mapas) e sem texto: a imagem na tela toda; o nome (e o texto curto) numa faixa por cima, embaixo */
+.tv-card:is(.is-layout-wide, .is-layout-full) .tv-card-front { display: block; }
+.tv-card:is(.is-layout-wide, .is-layout-full) .tv-card-art.is-own { position: absolute; inset: 0; }
+.tv-card:is(.is-layout-wide, .is-layout-full) .tv-card-body {
+  position: absolute; left: 0; right: 0; bottom: 0; max-height: 34%;
+  padding: 3.4cqh 2.6cqw 2cqh; gap: 0.6cqh;
+  background: linear-gradient(180deg, rgba(10, 7, 4, 0) 0%, rgba(10, 7, 4, 0.86) 28%, rgba(10, 7, 4, 0.94) 100%);
+}
+.tv-card:is(.is-layout-wide, .is-layout-full) .tv-card-title { font-size: 3cqw; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9); }
+.tv-card:is(.is-layout-wide, .is-layout-full) .tv-card-title::after { display: none; }
+.tv-card.is-layout-full .tv-card-body { max-height: 22%; }
+
 @keyframes tv-flip {
   0%   { transform: rotateY(180deg) scale(0.72) translateY(40px); opacity: 0; }
   25%  { opacity: 1; }
@@ -852,14 +880,21 @@
 }
 @keyframes tv-front-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
 
-/* Cena: imagem à esquerda (40%) + nome + texto para ler */
+/* Cena: imagem em pé à esquerda (40%) + nome + texto para ler; imagem larga em cima (E2.3).
+   A imagem da cena também vai inteira (contain), nunca cortada. */
 .tv-scene-front {
   flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 3cqw; align-items: center;
   animation: tv-front-in 0.6s ease-out both;
 }
-.tv-scene-front.has-img { grid-template-columns: minmax(0, 40%) minmax(0, 1fr); }
-.tv-scene-art { height: 100%; min-height: 0; border-radius: 1cqw; overflow: hidden; border: 2px solid var(--tv-accent); }
-.tv-scene-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tv-scene-front.is-side { grid-template-columns: minmax(0, 40%) minmax(0, 1fr); }
+.tv-scene-front.is-wide { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 1.6cqh; align-items: stretch; }
+.tv-scene-front.is-wide .tv-scene-body { max-height: 34cqh; }
+.tv-scene-front.is-wide .tv-scene-title { font-size: 3.4cqw; }
+.tv-scene-art {
+  height: 100%; min-height: 0; border-radius: 1cqw; overflow: hidden; border: 2px solid var(--tv-accent);
+  background: linear-gradient(160deg, #1d150e, #0c0805);
+}
+.tv-scene-art img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .tv-scene-body { display: flex; flex-direction: column; gap: 1.2cqh; min-width: 0; min-height: 0; max-height: 100%; overflow: hidden; }
 .tv-scene-title { flex: none; margin: 0; font-family: 'Cinzel', serif; color: var(--gold-bright); line-height: 1.05; font-size: 4.4cqw; }
 .tv-scene-text {
@@ -867,7 +902,27 @@
   min-height: 0; overflow: hidden; column-gap: 2cqw;
 }
 .tv-scene-text p { margin: 0 0 0.6em; break-inside: avoid-column; }
+.tv-scene-read { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .tv-scene-front.is-long .tv-scene-title { font-size: 3.4cqw; }
+/* Sem imagem: um painel do app (couro escuro, filete dourado) no centro, com o título grande
+   e o texto de ler em voz alta legível — não mais a capa borrada com uma linha solta. */
+.tv-scene-front.is-panel { justify-items: center; }
+.tv-scene-front.is-panel .tv-scene-body {
+  width: min(86cqw, 100%); align-items: center; text-align: center; gap: 1.6cqh;
+  padding: 4cqh 4.4cqw 4.4cqh; border-radius: 1.4cqw;
+  border: 2px solid var(--tv-gold-deep);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(214, 176, 100, 0.14), transparent 60%),
+    linear-gradient(160deg, rgba(42, 31, 20, 0.96), rgba(18, 12, 7, 0.97));
+  box-shadow: 0 0 0 6px rgba(7, 5, 4, 0.7), 0 30px 80px rgba(0, 0, 0, 0.7);
+}
+.tv-scene-ornament { flex: none; color: var(--tv-accent); font-size: 2.4cqw; text-shadow: 0 0 18px rgba(214, 176, 100, 0.6); }
+.tv-scene-front.is-panel .tv-scene-title { font-size: 5.2cqw; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6), 0 0 42px rgba(214, 176, 100, 0.3); }
+.tv-scene-front.is-panel.is-long .tv-scene-title { font-size: 3.8cqw; }
+.tv-scene-front.is-panel .tv-scene-read {
+  align-self: stretch; padding: 1.6cqh 2cqw; border-left: 0.3cqw solid var(--tv-gold); background: rgba(7, 5, 4, 0.45); border-radius: 0.4cqw;
+}
+.tv-scene-front.is-panel .tv-scene-text { text-align: left; font-style: italic; font-size: max(var(--tv-min), calc(var(--fit, 1) * 2.4cqw)); }
 
 /* Texto livre */
 .tv-text-front {

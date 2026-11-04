@@ -37,6 +37,39 @@ export function tvMode(now) {
   return ['card', 'recap', 'scene', 'image', 'text'].includes(k) ? k : 'rest';
 }
 
+// ------------------------------------------------------------------ onda 3 (E2.2/E2.3): imagens grandes
+
+export const WIDE_RATIO = 1.3;        // a partir daqui a imagem é "larga" (mapas, paisagens)
+export const WIDE_TEXT_MAX = 420;     // texto que ainda cabe na faixa por cima da imagem larga
+
+/**
+ * Como a Tela desenha o cartão do Mundo (E2.2): a imagem grande e INTEIRA (contain),
+ * nunca cortada.
+ *   'art'  sem imagem própria: a arte padrão do tipo ao lado do texto (como antes, com o grupo);
+ *   'full' imagem e nenhum texto: só a imagem na tela toda, com o nome por cima, embaixo;
+ *   'wide' imagem larga (≥ 1,3:1, os mapas) e texto curto: a imagem na largura toda, o nome
+ *          e o texto numa faixa por cima, embaixo;
+ *   'side' o resto (imagem em pé, ou texto longo): a imagem à esquerda na altura toda e o texto
+ *          ao lado. Enquanto a imagem carrega (`ratio` null), 'side'.
+ */
+export function cardLayout({ image = false, ratio = null, text = '' } = {}) {
+  if (!image) return 'art';
+  const len = String(text || '').trim().length;
+  if (!len) return 'full';
+  if (ratio != null && ratio >= WIDE_RATIO && len <= WIDE_TEXT_MAX) return 'wide';
+  return 'side';
+}
+
+/**
+ * A cena na Tela (E2.3): 'panel' sem imagem (título grande e o texto de ler num painel do
+ * app, nada de capa borrada com uma linha) · 'wide' imagem larga em cima, inteira, e o texto
+ * embaixo · 'side' imagem em pé à esquerda (40%) e o texto ao lado.
+ */
+export function sceneLayout({ image = false, ratio = null } = {}) {
+  if (!image) return 'panel';
+  return ratio != null && ratio >= WIDE_RATIO ? 'wide' : 'side';
+}
+
 // ------------------------------------------------------------------ V9: a TV em 16:9
 
 /** Idioma da Tela: o da campanha (o do mestre, `lang` no /api/screen); sem ele, o do aparelho. */

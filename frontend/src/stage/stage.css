@@ -146,6 +146,10 @@
 .stage-tag { color: var(--amber); font-size: 12px; white-space: nowrap; }
 /* 📺 Mostrar é ação ao vivo: ≥ 48 px (§12.0). */
 .stage-show { min-width: 44px; min-height: 48px; padding: 0 10px; white-space: nowrap; }
+/* E2.2: cartão com imagem — "📺 Mostrar" e, embaixo, "🖼 Tela cheia" (só a imagem, inteira, na TV toda) */
+.stage-row-acts { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.stage-row-acts .stage-show { justify-content: center; }
+.stage-show.is-full { font-size: 0.92em; }
 .stage-why { margin: 0; }
 .stage-read { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-top: 1px solid var(--stroke-faint); }
 .stage-read-text {

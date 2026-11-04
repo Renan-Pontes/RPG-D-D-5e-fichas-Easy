@@ -102,6 +102,7 @@ export function ShowPicker({ campaign, stage, lang = 'pt', onChange, sceneNow: s
     const meta = KIND_META[e.kind] || KIND_META.lore;
     const vis = e.visibility || 'hidden';
     const how = cardShowMode(e);
+    const full = how === 'show' && !!(e.imageVer || e.imageUrl);
     return (
       <div key={row.key} className="mesa-row stage-row" style={{ '--wl-kind': meta.color }}>
         <span className="mesa-row-pic stage-row-pic"><EntryImage entry={e} className="stage-row-img" /></span>
@@ -114,9 +115,17 @@ export function ShowPicker({ campaign, stage, lang = 'pt', onChange, sceneNow: s
             {how === 'name' && <span className="stage-tag">🔒 {L(lang, 'só o nome', 'name only')}</span>}
           </span>
         </span>
-        <span className="mesa-row-act">
+        <span className={`mesa-row-act ${full ? 'stage-row-acts' : ''}`}>
           <ShowOnTable campaign={campaign} target={{ kind: 'card', entry: e }} lang={lang} className="mesa-btn stage-show" reason="short"
             onShown={done} onRevealed={patchEntry} />
+          {/* E2.2: o cartão com imagem também vai só a imagem, inteira, na TV toda */}
+          {full && (
+            <ShowOnTable campaign={campaign} lang={lang} className="mesa-btn stage-show is-full" onShown={done}
+              target={{ kind: 'image', ref: { entryId: e.id }, name: `${e.name} ${L(lang, '(só a imagem)', '(image only)')}` }}
+              ariaLabel={`${L(lang, 'Mostrar só a imagem, em tela cheia', 'Show the image only, full screen')}: ${e.name}`}>
+              🖼 {L(lang, 'Tela cheia', 'Full screen')}
+            </ShowOnTable>
+          )}
         </span>
       </div>
     );

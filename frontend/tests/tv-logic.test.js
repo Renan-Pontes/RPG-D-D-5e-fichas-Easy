@@ -1,7 +1,7 @@
 // Tela: subtítulo do recap sem repetição, detecção de link morto e o modo de desenho.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { recapSubtitle, isDeadScreenLink, tvMode, splitNumbered, conditionsShown, bestScale } from '../src/screen/tv-logic.js';
+import { recapSubtitle, isDeadScreenLink, tvMode, splitNumbered, conditionsShown, bestScale, cardLayout, sceneLayout, WIDE_TEXT_MAX } from '../src/screen/tv-logic.js';
 import { stageNow } from '../src/stage/stage-now.js';
 
 test('recapSubtitle esconde títulos que só repetem "Anteriormente em <campanha>"', () => {
@@ -204,4 +204,22 @@ test('bestScale acha a maior letra que cabe, com poucas medidas', () => {
   assert.equal(bestScale(upTo(0.3), { min: 0.5 }), null);       // nem a menor: quem chama tenta colunas
   assert.equal(bestScale(() => false, { min: 1 }), null);
   assert.equal(bestScale(upTo(0.5), { min: 0.5, step: 0.05 }), 0.5);
+});
+
+// Onda 3 (E2.2/E2.3): a imagem do cartão e da cena grande e inteira na TV.
+test('cardLayout: sem imagem a arte ao lado; sem texto só a imagem; larga com texto curto na largura toda', () => {
+  assert.equal(cardLayout({ image: false, text: 'x' }), 'art');
+  assert.equal(cardLayout({ image: true, ratio: 0.7, text: '' }), 'full');
+  assert.equal(cardLayout({ image: true, ratio: 1.6, text: '   ' }), 'full');
+  assert.equal(cardLayout({ image: true, ratio: 1.5, text: 'Brumafria é uma vila pequena.' }), 'wide', 'o mapa do Vale');
+  assert.equal(cardLayout({ image: true, ratio: 1.5, text: 'x'.repeat(WIDE_TEXT_MAX + 1) }), 'side', 'texto longo não cabe na faixa');
+  assert.equal(cardLayout({ image: true, ratio: 0.66, text: 'Jovem, séria e cansada.' }), 'side', 'retrato');
+  assert.equal(cardLayout({ image: true, ratio: null, text: 'carregando' }), 'side');
+});
+
+test('sceneLayout: sem imagem o painel; larga em cima; em pé ao lado', () => {
+  assert.equal(sceneLayout({ image: false }), 'panel');
+  assert.equal(sceneLayout({ image: true, ratio: 1.78 }), 'wide');
+  assert.equal(sceneLayout({ image: true, ratio: 0.75 }), 'side');
+  assert.equal(sceneLayout({ image: true, ratio: null }), 'side');
 });

@@ -11,7 +11,10 @@ import { loadNameIndex, needsNameIndex, portraitFor } from '../combat/monster-po
 import { absUrl, cardKey, charLine, healthLabel, paragraphs, screenMode } from '../player/player-model.js';
 import { defaultArt } from '../world/world-model.js';
 import { stageNow } from '../stage/stage-now.js';
-import { conditionsShown, initiativeRows, isDeadScreenLink, lengthClass, partyRow, recapSubtitle, splitNumbered, turnNow, tvLang, tvMode } from './tv-logic.js';
+import {
+  cardLayout, conditionsShown, initiativeRows, isDeadScreenLink, lengthClass, partyRow, recapSubtitle, sceneLayout, splitNumbered, turnNow,
+  tvLang, tvMode,
+} from './tv-logic.js';
 import { fitAll } from './tv-fit.js';
 import {
   attackOutcome, bigDuration, bigSize, createQueue, currentBig, histNextExpiry, histParts, ingest, nextBig, pruneHist,
@@ -46,9 +49,13 @@ const CONDITIONS = {
 //    o combate, se houver; senão, a capa."
 // Modos (tv-logic.tvMode):
 //   repouso — capa da campanha (ou arte padrão), nome, frase, cena e o grupo;
-//   cartão  — cartão do Mundo: a carta entra virando;
+//   cartão  — cartão do Mundo: a carta entra virando; com imagem, a imagem GRANDE e
+//             inteira (onda 3, E2.2: tv-logic.cardLayout — larga na largura toda com o
+//             nome e o texto por cima, em pé à esquerda com o texto ao lado, sem texto
+//             só a imagem com o nome); sem imagem, a arte padrão ao lado do texto;
 //   recap   — "Anteriormente em…", estilo abertura de série;
-//   cena    — imagem da sala + nome + texto para ler;
+//   cena    — imagem da sala + nome + texto para ler; sem imagem, o título grande e o
+//             texto de ler num painel do app (E2.3, tv-logic.sceneLayout);
 //   imagem  — "só a imagem" / imagem de sala / mapa de lugar: tela cheia,
 //             inteira (contain), com a legenda do mestre — nunca o nome;
 //   texto   — texto livre do mestre;
@@ -360,11 +367,12 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
           ) : mode === 'card' ? (
             <>
               {coverTop}
-              <main className="tv-stage">
-                <div className="tv-stage-campaign">{data.name}</div>
+              {/* com imagem própria (E2.2) a imagem ganha a TV: sem o nome da campanha e sem o grupo */}
+              <main className={`tv-stage ${shown?.imageUrl ? 'has-image' : ''}`}>
+                {!shown?.imageUrl && <div className="tv-stage-campaign">{data.name}</div>}
                 <TVCard key={showKey} card={shown} lang={lang} />
               </main>
-              {partyFooter(true)}
+              {!shown?.imageUrl && partyFooter(true)}
             </>
           ) : (
             <>
@@ -477,19 +485,41 @@ function TVImageFront({ front, tarja }) {
   );
 }
 
-/** Cena: imagem da sala à esquerda (40%) + nome + texto para ler. */
+/** A largura/altura da imagem quando ela carrega (null antes): decide o desenho (E2.2/E2.3). */
+function useRatio() {
+  const [ratio, setRatio] = useState(null);
+  const onLoad = (e) => {
+    const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+    if (w > 0 && h > 0) setRatio(w / h);
+  };
+  return [ratio, onLoad];
+}
+
+/**
+ * Cena (E2.3, tv-logic.sceneLayout): com imagem em pé, ela à esquerda (40%) + nome +
+ * texto; com imagem larga, ela em cima, inteira, e o texto embaixo; sem imagem, o
+ * título grande e o texto de ler num painel do app (nada de capa borrada com uma linha).
+ */
 function TVSceneFront({ front, lang }) {
   const img = absUrl(API_BASE, front?.imageUrl);
   const [ok, setOk] = useState(true);
+  const [ratio, onLoad] = useRatio();
   const text = front?.text || '';
   const size = lengthClass(text, [350, 700]);
+  const layout = sceneLayout({ image: !!(img && ok), ratio });
   return (
-    <main className={`tv-scene-front ${img && ok ? 'has-img' : ''} ${size}`} aria-live="polite">
-      {img && ok && <div className="tv-scene-art"><img src={img} alt="" onError={() => setOk(false)} /></div>}
+    <main className={`tv-scene-front is-${layout} ${layout !== 'panel' ? 'has-img' : ''} ${size}`} aria-live="polite">
+      {layout !== 'panel' && <div className="tv-scene-art"><img src={img} alt="" onLoad={onLoad} onError={() => setOk(false)} /></div>}
       <div className="tv-scene-body">
+        {layout === 'panel' && <div className="tv-scene-ornament" aria-hidden="true">✦</div>}
         <div className="tv-card-kind">{t(lang, 'Cena', 'Scene')}</div>
         <h1 className="tv-scene-title">{front?.title}</h1>
-        {text && <div className="tv-scene-text" data-fit="0.5" data-fit-cols="2">{paragraphs(text).map((p, i) => <p key={i}>{p}</p>)}</div>}
+        {/* o filete e o fundo moram na caixa de fora: a medida do encaixe (tv-fit) fica sem padding */}
+        {text && (
+          <div className="tv-scene-read">
+            <div className="tv-scene-text" data-fit="0.5" data-fit-cols="2">{paragraphs(text).map((p, i) => <p key={i}>{p}</p>)}</div>
+          </div>
+        )}
       </div>
     </main>
   );
@@ -533,19 +563,28 @@ function cardKindLabel(card, lang) {
   return (lang === 'pt' ? card.kindLabel : card.kindLabelEn) || card.kindLabel || '';
 }
 
-/** A carta "virada" no centro da Tela. */
+/**
+ * A carta "virada" no centro da Tela. Com imagem própria (E2.2, tv-logic.cardLayout) a
+ * imagem é grande e INTEIRA (contain, nunca cortada): 'wide' (mapas e paisagens) na largura
+ * toda com o nome e o texto numa faixa por cima, embaixo; 'side' (em pé, ou texto longo) à
+ * esquerda na altura toda com o texto ao lado; 'full' (sem texto) só a imagem com o nome.
+ * Sem imagem própria ('art'), a arte padrão do tipo ao lado do texto, como antes.
+ */
 function TVCard({ card, lang }) {
   const img = absUrl(API_BASE, card.imageUrl);
   const [imgOk, setImgOk] = useState(true);
+  const [ratio, onLoad] = useRatio();
   const paras = paragraphs(card.text);
   const isPartial = !!card.partial;
+  const own = !!(img && imgOk);
+  const layout = cardLayout({ image: own, ratio, text: card.text });
   return (
-    <article className={`tv-card tv-card-${card.kind || card.type} ${isPartial ? 'is-partial' : ''} ${(img && imgOk) || card.type === 'entry' ? 'has-img' : 'no-img'} ${lengthClass(card.title, [28, 48])} ${String(card.text || '').length > 900 ? 'is-text-long' : ''}`} aria-live="polite">
+    <article className={`tv-card tv-card-${card.kind || card.type} is-layout-${layout} ${isPartial ? 'is-partial' : ''} ${own || card.type === 'entry' ? 'has-img' : 'no-img'} ${lengthClass(card.title, [28, 48])} ${String(card.text || '').length > 900 ? 'is-text-long' : ''}`} aria-live="polite">
       <div className="tv-card-inner">
         <div className="tv-card-back" aria-hidden="true"><span>✦</span></div>
         <div className="tv-card-front">
-          {img && imgOk ? (
-            <div className="tv-card-art"><img src={img} alt="" onError={() => setImgOk(false)} /></div>
+          {own ? (
+            <div className="tv-card-art is-own"><img src={img} alt="" onLoad={onLoad} onError={() => setImgOk(false)} /></div>
           ) : card.type === 'entry' ? (
             <div className="tv-card-art is-default"><img src={defaultArt({ id: card.entryId, kind: card.kind })} alt="" onError={hideOnError} /></div>
           ) : (
@@ -555,9 +594,11 @@ function TVCard({ card, lang }) {
             <div className="tv-card-kind">{cardKindLabel(card, lang)}</div>
             <h2 className="tv-card-title">{card.title}</h2>
             {isPartial && <div className="tv-card-rumor">{t(lang, 'Rumores…', 'Rumors…')}</div>}
-            <div className="tv-card-text" data-fit="0.5" data-fit-cols="2">
-              {paras.map((p, i) => <p key={i}>{p}</p>)}
-            </div>
+            {paras.length > 0 && (
+              <div className="tv-card-text" data-fit="0.5" data-fit-cols="2">
+                {paras.map((p, i) => <p key={i}>{p}</p>)}
+              </div>
+            )}
           </div>
         </div>
       </div>

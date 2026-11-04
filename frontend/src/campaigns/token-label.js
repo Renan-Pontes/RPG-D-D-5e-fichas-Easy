@@ -43,3 +43,17 @@ export function tokenLabel(name, maxWidth, measure) {
   }
   return suffix || `${first.charAt(0)}…`;
 }
+
+// Onda 3 (E2.4): na TV o canvas (1200×800) é reduzido pelo CSS até caber; com o rótulo de
+// 12 px do mapa, o nome chegava a ~8 px na tela. O rótulo da TV mede em px DE TELA: 15 px
+// (≥ 14 numa TV 1280×720), com a linha e o espaço entre vizinhos também em px de tela.
+export const TV_LABEL_PX = 15;
+
+/**
+ * Os tamanhos do rótulo da TV em unidades do mapa, para a escala `scale` (px de tela por
+ * unidade do mapa, o `contain` do canvas): {font, rowTolerance, gap}.
+ */
+export function tvLabelSize(scale) {
+  const k = scale > 0 && Number.isFinite(scale) ? scale : 1;
+  return { font: TV_LABEL_PX / k, rowTolerance: (TV_LABEL_PX + 6) / k, gap: 8 / k };
+}
