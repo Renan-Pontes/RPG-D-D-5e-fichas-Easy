@@ -237,8 +237,9 @@ export default function SceneSheet({
   const openBlock = (id) => {
     setOpened(s => new Set(s).add(id));
     // o 🎯 abre a escolha (Percepção CD 13, troca-se num toque) e só grava no "Pôr na cena"
-    // (F1.8: tocar no chip não põe nada na cena); os outros nascem vazios
-    if (id === 'check' && !view.checks.length && !lockedRoom && !closed) setCheckDraft(NEW_CHECK);
+    // (F1.8: tocar no chip não põe nada na cena); os outros nascem vazios. Tocar de novo no
+    // chip só leva ao bloco: o rascunho que já está em escolha fica como está
+    if (id === 'check' && !view.checks.length && !lockedRoom && !closed) setCheckDraft(d => d || NEW_CHECK);
     if (roomLoading) pendingOpen.current = id;
     else goToBlock(id);
   };
