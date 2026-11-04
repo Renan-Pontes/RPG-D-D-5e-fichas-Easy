@@ -329,7 +329,10 @@ test('Agora (V12): J2 depois do Encerrar, com o plano da próxima já levado, at
   assert.deepEqual([j2.id, j2.text, j2.action.id, j2.secondary.id], ['J2', 'Sessão 3 encerrada · 2h10', 'recap', 'previewScene']);
   assert.equal(j2.secondary.label, 'Ver a 1ª cena (ensaio)');
   assert.equal(j2.payload.sceneId, next.scenes.find(x => !x.done).id);
-  assert.match(j2.why, /^O plano da Sessão 4 está pronto\./);
+  // só o que se confere (as cenas que ele já tem), não "pronto": o Pronto para jogar diz o que falta
+  assert.match(j2.why, new RegExp(`^O plano da Sessão 4 já tem ${next.scenes.filter(x => !x.done).length} cenas?\\.`));
+  assert.doesNotMatch(j2.why, /pronto/i);
+  assert.match(nextStep({ where: 'now', campaign: ended(), plan: next, live: false, recap: { has: false }, lang: 'en' }).why, /^The session 4 plan already has \d+ scenes?\./);
   // o plano ainda é o da sessão jogada (servidor antigo, ou sem levar): "Preparar a Sessão 4"
   const stale = nextStep({ where: 'now', campaign: ended(), plan: played(), live: false, recap: { has: false } });
   assert.deepEqual([stale.id, stale.secondary.id], ['J2', 'preparePlan']);

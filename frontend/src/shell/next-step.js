@@ -261,7 +261,8 @@ function nowRules({ campaign, plan, live = false, sceneNow = null, pulse = null,
   const open = scenes.filter(s => !s.done);
   const played = sessionWasPlayed({ campaign, plan, live, pulse });
   // o plano da próxima sessão já está montado (o Encerrar levou as cenas, ou o mestre preparou):
-  // o J2 não manda prepará-lo de novo e o ensaio começa pela 1ª cena dele (F1.5)
+  // o J2 não manda prepará-lo de novo e o ensaio começa pela 1ª cena dele (F1.5). Ele só diz o
+  // que se confere ("já tem 2 cenas"), não "pronto": quem diz o que falta é o Pronto para jogar
   const prepared = !live && open.length > 0 && Number(plan?.forSession) === next;
   const preview = open.length ? { id: 'previewScene', label: tt(lang, 'Ver a 1ª cena (ensaio)', 'Preview the 1st scene (rehearsal)') } : null;
   if (live && sceneNow) return [];
@@ -272,7 +273,8 @@ function nowRules({ campaign, plan, live = false, sceneNow = null, pulse = null,
       id: 'J2', sig: `ended:${cur}`, canSkip: true,
       text: length ? tt(lang, `Sessão ${cur} encerrada · ${length}`, `Session ${cur} ended · ${length}`) : tt(lang, `Sessão ${cur} encerrada`, `Session ${cur} ended`),
       why: prepared
-        ? tt(lang, `O plano da Sessão ${next} está pronto. O resumo vira o “Anteriormente em…” dela.`, `The session ${next} plan is ready. The recap becomes its “Previously on…”.`)
+        ? tt(lang, `O plano da Sessão ${next} já tem ${plural(open.length, 'cena', 'cenas')}. O resumo vira o “Anteriormente em…” dela.`,
+          `The session ${next} plan already has ${plural(open.length, 'scene', 'scenes')}. The recap becomes its “Previously on…”.`)
         : tt(lang, `O resumo vira o “Anteriormente em…” da Sessão ${next}.`, `The recap becomes session ${next}’s “Previously on…”.`),
       action: { id: 'recap', label: tt(lang, '📜 Escrever o resumo', '📜 Write the recap') },
       secondary: prepared ? preview : { id: 'preparePlan', label: tt(lang, `📋 Preparar a Sessão ${next}`, `📋 Prepare session ${next}`) },
