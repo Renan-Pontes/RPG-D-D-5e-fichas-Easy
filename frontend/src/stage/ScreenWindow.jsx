@@ -21,14 +21,18 @@
 // e preso ao lado da lista.
 // Sem conexão (a loja diz há quantos segundos): o ponto da TV fica cinza ("○ TV:
 // sem conexão") e o que está na Tela leva "(última vez visto)".
+// Onda 3 (E2.5): o resumo mostra a mesma imagem da TV e a última rolagem por 8 s (do
+// pulso); o modo — resumo, ⤢ Ao vivo ou – recolhida — fica lembrado no aparelho
+// (readWinSize); o espelho ao vivo pausa com a aba escondida e volta sozinho quando ela
+// volta (LiveTv); a página ganha folga do tamanho da janela (--screen-win-h, stage.css).
 import { useEffect, useRef, useState } from 'react';
-import { REARM_MS } from './table-bar-model.js';
+import { REARM_MS, readWinSize, writeWinSize } from './table-bar-model.js';
 import StageThumb from './StageThumb.jsx';
 import useStage from './useStage.js';
 import { L, screenLine } from './stage-now.js';
 import { seenSuffix, tvLine, tvShort, tvState, turnLine } from './table-bar-model.js';
 import { LiveTv } from './LiveScreenSheet.jsx';
-import { openDice } from './TableBar.jsx';
+import { openDice, useFreshRoll } from './TableBar.jsx';
 import { useTable } from '../play/table-store.js';
 import './stage.css';
 
@@ -40,7 +44,8 @@ function useWindowData(campaign, lang) {
   const test = table?.pulse?.screen?.test || null;
   const offline = (table?.offlineFor || 0) > 0;
   const line = screenLine({ stage, combat: combatNow, lang }) + seenSuffix(offline, lang);
-  return { table, stage, combat, combatNow, test, line, tvLive: table?.tvLive || 0, offline };
+  const roll = useFreshRoll(table);
+  return { table, stage, combat, combatNow, test, line, tvLive: table?.tvLive || 0, offline, roll };
 }
 
 /**
@@ -71,14 +76,16 @@ function useArmed(key) {
 }
 
 export default function ScreenWindow({ campaign, lang = 'pt', corner = 'right', onCorner, onHide, liveAt = 0, nextHere = false }) {
-  const { table, stage, combat, combatNow, test, line, tvLive, offline } = useWindowData(campaign, lang);
-  const [size, setSize] = useState(liveAt ? 'live' : 'thumb');   // 'thumb' | 'live' | 'pill'
+  const { table, stage, combat, combatNow, test, line, tvLive, offline, roll } = useWindowData(campaign, lang);
+  // 'thumb' | 'live' | 'pill', lembrado no aparelho (E2.5d/e)
+  const [size, setSizeState] = useState(() => (liveAt ? 'live' : readWinSize()));
+  const setSize = (v) => { setSizeState(v); writeWinSize(v); };
   const withNext = nextHere && !!combat?.active && campaign.status !== 'closed';
   const armed = useArmed(withNext ? `${combat?.round}:${combat?.turnIndex}` : '');
   const busy = !!table?.busy;
   const winRef = useWinHeight(size);
   // O 📺 Tela da capa: abre já em "ao vivo".
-  useEffect(() => { if (liveAt) setSize('live'); }, [liveAt]);
+  useEffect(() => { if (liveAt) setSizeState('live'); }, [liveAt]);
   if (size === 'pill') {
     return (
       <button type="button" ref={winRef} className={`screen-win is-pill is-${corner} no-print`} onClick={() => setSize('thumb')}
@@ -94,7 +101,7 @@ export default function ScreenWindow({ campaign, lang = 'pt', corner = 'right', 
       ) : (
         <button type="button" className="screen-win-thumb" onClick={() => table?.openLive?.()} aria-haspopup="dialog"
           aria-label={`${line}. ${L(lang, 'Abrir a Tela ao vivo', 'Open the live screen')}`}>
-          <StageThumb campaign={campaign} stage={stage} test={test} lang={lang} combat={combatNow} />
+          <StageThumb campaign={campaign} stage={stage} test={test} lang={lang} combat={combatNow} roll={roll} />
         </button>
       )}
       <div className="screen-win-cap">
@@ -140,7 +147,7 @@ export default function ScreenWindow({ campaign, lang = 'pt', corner = 'right', 
  * Combate de 1024 a 1279 px; ⤢ Ao vivo abre ali a folha Tela ao vivo (com a TV).
  */
 export function DockedScreen({ campaign, lang = 'pt', compact = false }) {
-  const { table, stage, combat, combatNow, test, line, tvLive, offline } = useWindowData(campaign, lang);
+  const { table, stage, combat, combatNow, test, line, tvLive, offline, roll } = useWindowData(campaign, lang);
   const [live, setLive] = useState(false);
   if (table?.win !== 'docked') return null;
   const what = combat?.active ? turnLine(combat, lang) : `${L(lang, 'Na tela', 'On screen')}: ${line}`;
@@ -153,7 +160,7 @@ export function DockedScreen({ campaign, lang = 'pt', compact = false }) {
     return (
       <section className="screen-win is-docked is-compact no-print" aria-label={L(lang, 'Na tela agora', 'On screen now')}>
         <button type="button" className="screen-win-compact" onClick={() => table?.openLive?.()} aria-haspopup="dialog">
-          <StageThumb campaign={campaign} stage={stage} lang={lang} mini combat={combatNow} />
+          <StageThumb campaign={campaign} stage={stage} lang={lang} mini combat={combatNow} roll={roll} />
           <span className="screen-win-compact-text">
             <span className="screen-win-compact-what">{what}</span>
             <span className={`live-tv-dot is-${tvState(tvLive, offline)}`}>{tvLine(tvLive, lang, offline)}</span>
@@ -175,7 +182,7 @@ export function DockedScreen({ campaign, lang = 'pt', compact = false }) {
       {live ? <LiveTv token={campaign.screenToken} lang={lang} /> : (
         <button type="button" className="screen-win-thumb" onClick={() => table?.openLive?.()} aria-haspopup="dialog"
           aria-label={`${line}. ${L(lang, 'Abrir a Tela ao vivo', 'Open the live screen')}`}>
-          <StageThumb campaign={campaign} stage={stage} test={test} lang={lang} combat={combatNow} />
+          <StageThumb campaign={campaign} stage={stage} test={test} lang={lang} combat={combatNow} roll={roll} />
         </button>
       )}
       <div className="screen-win-cap">

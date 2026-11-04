@@ -27,7 +27,8 @@ import { clearDiceTable, setDiceTable } from '../dice/dice-table.js';
 import useMedia from '../play/useMedia.js';
 import TableBar from '../stage/TableBar.jsx';
 import ScreenWindow from '../stage/ScreenWindow.jsx';
-import { barVisible, readBarPrefs, windowCorner, windowMode, writeBarPrefs } from '../stage/table-bar-model.js';
+import { barVisible, readBarPrefs, readMini, windowCorner, windowMode, writeBarPrefs, writeMini } from '../stage/table-bar-model.js';
+import MiniPlayer from '../stage/MiniPlayer.jsx';
 import { listWorld, createSampleWorld, getSessionPlan } from '../world/world-api.js';
 import CampaignHeader from '../shell/CampaignHeader.jsx';
 import AreaNav from '../shell/AreaNav.jsx';
@@ -100,6 +101,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
   const [barPrefs, setBarPrefsState] = useState(() => readBarPrefs(campaignId));
   const [corner, setCorner] = useState(readCorner);
   const [winLiveAt, setWinLiveAt] = useState(0);      // 📺 Tela da capa: a janela abre já "ao vivo"
+  const [mini, setMiniState] = useState(readMini);    // miniplayer do celular (E2.5c): {open, corner}, lembrado no aparelho
   const [page, setPage] = useState(null);             // a página aberta pede a janela à esquerda ('adventure')
   const mobile = useMedia('(max-width: 767px)');
   const twoCols = useMedia('(min-width: 1024px)');     // Agora e Combate em colunas: a janela encaixa
@@ -345,6 +347,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
     return () => window.removeEventListener('keydown', onKey);
   }, [campaign, areas, isDM, nav, goTo, load, copyTv, groupPending]);
 
+  const setMini = useCallback((next) => { setMiniState(next); writeMini(next); }, []);
   const setBarPrefs = useCallback((next) => {
     setBarPrefsState(next);
     writeBarPrefs(campaignId, next);
@@ -446,7 +449,14 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
         </div>
 
         {showBar && (
-          <TableBar campaign={campaign} lang={lang} onOpenLive={() => setLiveOpen(true)} onEndCombat={endCombatFromBar} />
+          <TableBar campaign={campaign} lang={lang} onOpenLive={() => setLiveOpen(true)} onEndCombat={endCombatFromBar}
+            onThumb={() => setMini({ ...mini, open: !mini.open })} miniOpen={mini.open} />
+        )}
+        {/* o miniplayer (E2.5c): a Tela por cima do conteúdo, do pulso; some junto com a barra */}
+        {showBar && mini.open && (
+          <MiniPlayer campaign={campaign} lang={lang} corner={mini.corner}
+            onCorner={(c) => setMini({ ...mini, corner: c })} onClose={() => setMini({ ...mini, open: false })}
+            onOpenLive={() => setLiveOpen(true)} />
         )}
         {win === 'float' && (
           <ScreenWindow key={campaign.id} campaign={campaign} lang={lang} liveAt={winLiveAt} nextHere={nav.area !== 'play'}

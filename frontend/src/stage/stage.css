@@ -54,6 +54,31 @@
 }
 .stage-thumb-l1 { color: var(--ink-primary); font-size: 15px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stage-thumb-l2 { color: var(--ink-secondary); font-size: 13px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A última rolagem (E2.5b, do pulso, 8 s): 🎲 total e quem, por cima da imagem */
+.stage-thumb-roll {
+  position: absolute; left: 50%; top: 14%; transform: translateX(-50%); z-index: 2;
+  display: inline-flex; align-items: baseline; gap: 8px; max-width: calc(100% - 16px);
+  padding: 4px 12px; border-radius: 10px; border: 1px solid var(--gold);
+  background: rgba(10, 6, 4, 0.88); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+  animation: stage-roll-in 0.25s ease-out;
+}
+.stage-thumb-roll-total { flex: none; font-family: var(--display); font-weight: 700; color: var(--gold-bright); font-size: 26px; line-height: 1.1; }
+.stage-thumb-roll-who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-primary); font-size: 14px; }
+.stage-thumb-roll.is-crit { border-color: var(--gold-bright); box-shadow: 0 0 18px rgba(240, 200, 110, 0.55); }
+.stage-thumb-roll.is-fail { border-color: var(--blood-bright); }
+.stage-thumb-roll.is-fail .stage-thumb-roll-total { color: var(--blood-bright); }
+@keyframes stage-roll-in { from { opacity: 0; transform: translate(-50%, -4px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .stage-thumb-roll { animation: none; } }
+/* o miniplayer do celular (E2.5c): a faixa numa linha mais baixa e o 🎲 menor */
+.stage-thumb.is-small { border-radius: 8px 8px 0 0; }
+.stage-thumb.is-small .stage-thumb-band { padding: 4px 8px; gap: 0; }
+.stage-thumb.is-small .stage-thumb-l1 { font-size: 13px; }
+.stage-thumb.is-small .stage-thumb-l2 { font-size: 12px; }
+.stage-thumb.is-small .stage-thumb-tarja { padding: 2px 8px; }
+.stage-thumb.is-small .stage-thumb-roll { top: 22%; gap: 6px; padding: 2px 8px; }
+.stage-thumb.is-small .stage-thumb-roll-total { font-size: 20px; }
+.stage-thumb.is-small .stage-thumb-roll-who { font-size: 13px; }
+.stage-thumb.is-small .stage-thumb-emblem { font-size: 30px; }
 
 /* ---------- Jogar › Tela ---------- */
 .stage-panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
@@ -217,6 +242,8 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 .stage-thumb.is-mini .stage-thumb-emblem { inset: 0; font-size: 18px; }
+.stage-thumb.is-mini .stage-thumb-roll { top: 50%; transform: translate(-50%, -50%); padding: 0 4px; gap: 0; border-radius: 6px; animation: none; }
+.stage-thumb.is-mini .stage-thumb-roll-total { font-size: 15px; }
 .stage-thumb-corner {
   position: absolute; top: 2px; right: 2px; padding: 0 3px; border-radius: 4px;
   background: rgba(10, 6, 4, 0.82); color: var(--fh-ember); font-size: 12px; line-height: 16px;
@@ -282,6 +309,50 @@
     bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bar-h, 64px) + 10px + env(safe-area-inset-bottom, 0px));
   }
 }
+/* a miniatura da barra é o botão do miniplayer (E2.5c): 80×64 de toque, sem moldura */
+@media (max-width: 767px) {
+  .mesa-bar-thumb.is-btn { padding: 0; border: 0; background: none; color: inherit; cursor: pointer; border-radius: 8px; }
+  .mesa-bar-thumb.is-btn:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+  .mesa-bar-thumb.is-btn[aria-pressed="true"] .stage-thumb { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+  .mesa-bar:has(.mesa-bar-thumb.is-btn) .mesa-bar-main { padding-left: 2px; }
+}
+
+/* ---------- miniplayer da Tela (celular, E2.5c) ----------
+   16:9 (~200×112 a 390 px) + uma fileira de 44 px; por cima do conteúdo e abaixo das
+   folhas; nos cantos de baixo fica logo acima da barra da mesa, e a página ganha folga. */
+.mini-player { display: none; }
+@media (max-width: 767px) {
+  .mini-player {
+    position: fixed; z-index: 42; display: block; width: clamp(168px, 52vw, 232px);
+    border: 1px solid transparent; border-radius: 10px; overflow: hidden;
+    background:
+      var(--fh-noise) padding-box,
+      linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather-lo)) padding-box,
+      var(--fh-gilt) border-box;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.65);
+    touch-action: none;
+  }
+  .mini-player.is-br, .mini-player.is-tr { right: max(8px, env(safe-area-inset-right, 0px)); }
+  .mini-player.is-bl, .mini-player.is-tl { left: max(8px, env(safe-area-inset-left, 0px)); }
+  .mini-player.is-bottom { bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bar-h, 64px) + 8px + env(safe-area-inset-bottom, 0px)); }
+  .mini-player.is-top { top: calc(8px + env(safe-area-inset-top, 0px)); }
+  .mini-player.is-dragging { transition: none; opacity: 0.92; }
+  .mini-player-screen { display: block; cursor: pointer; }
+  .mini-player-screen .stage-thumb { border: 0; box-shadow: none; }
+  .mini-player-screen:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+  .mini-player-tools { display: flex; align-items: center; gap: 2px; padding: 0 2px; border-top: 1px solid var(--stroke-faint); touch-action: manipulation; }
+  .mini-player-live { flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 8px; justify-content: center; white-space: nowrap; font-size: 13px; }
+  /* some junto com a barra: teclado aberto e folhas que não são de Jogar */
+  body.mesa-sheet-covers .mini-player, body:has(.mesa-bar.is-keyboard) .mini-player { display: none; }
+  /* folga no fim: o que está embaixo do miniplayer (cantos de baixo) sobe além dele */
+  body:has(.mesa-bar):has(.mini-player.is-bottom) .campaign-detail.shell {
+    padding-bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bottom-safe, 76px) + var(--mini-player-h, 160px) + 8px + env(safe-area-inset-bottom, 0px));
+  }
+}
+@media (prefers-reduced-motion: no-preference) and (max-width: 767px) {
+  .mini-player { animation: stage-flash-in 0.2s ease-out; }
+}
+
 @media (max-width: 359px) {
   .mesa-bar-thumb { width: 60px; }
   .stage-thumb.is-mini { width: 56px; height: 32px; }
@@ -365,7 +436,8 @@
   .screen-win-tools { display: flex; align-items: center; justify-content: space-between; gap: 0; border-top: 1px solid var(--stroke-faint); }
   .screen-win.is-docked .screen-win-tools { justify-content: flex-start; gap: 8px; padding-top: 2px; }
   /* o fim da página sobe além da janela (nada fica preso embaixo dela) */
-  body:has(.screen-win.is-float) main.container:has(> .campaign-detail.shell) { padding-bottom: 320px; }
+  /* E2.5e: a folga mede a janela (resumo, ao vivo ou a pílula recolhida; --screen-win-h) */
+  body:has(.screen-win:is(.is-float, .is-pill)) main.container:has(> .campaign-detail.shell) { padding-bottom: calc(var(--screen-win-h, 300px) + 48px); }
   .screen-win.is-docked { position: relative; width: 100%; margin: 0 0 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
   .screen-win-head { display: flex; justify-content: space-between; gap: 8px; margin: 0; padding: 8px 10px 6px; }
   .screen-win.is-docked .screen-win-tools .mesa-btn { min-height: 44px; }
