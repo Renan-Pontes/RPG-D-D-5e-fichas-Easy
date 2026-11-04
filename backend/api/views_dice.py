@@ -276,10 +276,11 @@ def sheet_roll(request, pk):
     mode = table_rolls.sheets_mode(prefs)
     if not seat['campaign__state__live'] or mode == 'off':
         return Response(status=204)
+    # `mode` vai junto (onda 3, E2.6): a ficha aberta aprende a regra de agora sem outro GET
     if mode == 'crits' and not (roll['crit'] or roll['fail']):
-        return Response({'shown': False, 'filtered': True})
+        return Response({'shown': False, 'filtered': True, 'mode': mode})
     rr = table_rolls.record(seat['campaign_id'], request.user, 'sheet', character=int(pk), **roll)
-    return Response({'shown': True, 'rollId': rr.id}, status=201)
+    return Response({'shown': True, 'rollId': rr.id, 'mode': mode}, status=201)
 
 
 def _consume_or_roll(user, dice_type, campaign, label):

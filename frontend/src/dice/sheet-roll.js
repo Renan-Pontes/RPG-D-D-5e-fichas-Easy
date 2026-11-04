@@ -28,7 +28,10 @@
 // Onda 3 (E2.6): a regra do mestre tem 3 posições — todas · só 20 e 1 · nenhuma
 // (`mode` 'all' | 'crits' | 'off', do GET das campanhas da ficha). Com "Só 20 e 1" a
 // ficha nem manda a rolagem comum (nenhum pedido); o servidor filtra também (200
-// {shown:false, filtered:true}) para a ficha de antes, que manda tudo.
+// {shown:false, filtered:true}) para a ficha de antes, que manda tudo. O 201 e o 200
+// filtrado trazem a regra de agora (`mode`): a ficha aberta aprende a troca na hora;
+// e, com "Só 20 e 1", a rolagem segurada pergunta de novo (maybeRecheck, ≤ 1 GET em 30 s)
+// — o mestre que volta para "Todas" no meio da sessão vale sem o jogador reabrir a ficha.
 // Onda 3 (E2.1): a rolagem só sai DEPOIS de o dado parar no aparelho do jogador
 // (createSettleGate): a TV mostra o cartão grande com o nome e nunca entrega o número
 // antes de ele aparecer aqui. Sem animação, sai na hora.
@@ -112,11 +115,12 @@ export function setSheetAllowed(characterId, allowed, now = Date.now()) {
   setSheetPolicy(characterId, { allowed }, now);
 }
 
-// Regra desligada ou sessão parada: a ficha não manda nada. Para valer de novo assim
-// que o mestre religar ou começar a sessão, sem o jogador recarregar, a faixa da
-// campanha (Sheet.jsx) pergunta de novo quando a ficha volta à vista e quando o
-// jogador rola — só enquanto parada e no máximo 1 vez a cada 30 s (nenhum polling novo).
-const idle = (c) => c.allowed === false || c.live === false;
+// Regra desligada, sessão parada ou "Só 20 e 1": a ficha não manda (ou só manda o 20 e o
+// 1). Para valer de novo assim que o mestre religar, voltar para "Todas" ou começar a
+// sessão, sem o jogador recarregar, a faixa da campanha (Sheet.jsx) pergunta de novo
+// quando a ficha volta à vista e quando o jogador rola (também a rolagem que a regra
+// segurou) — só nesses estados e no máximo 1 vez a cada 30 s (nenhum polling novo).
+const idle = (c) => c.allowed === false || c.live === false || c.mode === 'crits';
 /** Quem pergunta de novo a regra (a faixa); null ao sair. */
 export function setSheetRecheck(fn) { recheck = typeof fn === 'function' ? fn : null; }
 /** Pergunta de novo se está parada e já faz 30 s → true quando perguntou. */
@@ -239,10 +243,14 @@ export function createSender({
       if (current && current.characterId === characterId && current.blocked) return 'blocked';
       sentAt = now();
       let outcome;
-      try { outcome = outcomeOf(await post(characterId, body)); } catch (err) { outcome = outcomeOf(null, err); }
+      let res = null;
+      try { res = await post(characterId, body); outcome = outcomeOf(res); } catch (err) { outcome = outcomeOf(null, err); }
       doneAt = now();
       if (outcome === 'blocked') block(characterId);
-      if (outcome === 'shown') setSheetPolicy(characterId, { allowed: true, live: true });
+      // a resposta diz a regra de agora (`mode`, servidor da onda 3): "Todas" ↔ "Só 20 e 1"
+      // muda sem pedido a mais; o "filtrada" de antes dele só existe com "Só 20 e 1"
+      if (outcome === 'shown') setSheetPolicy(characterId, { allowed: true, live: true, mode: res?.mode });
+      if (outcome === 'filtered') setSheetPolicy(characterId, { allowed: true, live: true, mode: res?.mode || 'crits' });
       // 204: a sessão parou ou o mestre desligou — para de mandar e pergunta qual (1 GET)
       if (outcome === 'skipped') { const t2 = now(); setSheetPolicy(characterId, { live: false }, t2); maybeRecheck(t2, 0); }
       return outcome;

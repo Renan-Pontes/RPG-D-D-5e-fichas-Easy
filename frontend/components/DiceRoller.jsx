@@ -159,9 +159,10 @@ const DiceRoller = ({ lang }) => {
     const ctx = getSheetRolls();
     const plan = planSheetRoll(ctx, entry);
     if (plan.skip === 'secret') { patchEntry(entry.id, { tableNote: noteFor('secret') }); return; }
-    // o mestre deixou as fichas fora da Tela, ou não há sessão ao vivo: nada sai; de vez em
-    // quando a faixa pergunta se ele religou ou começou a sessão
-    if (plan.skip === 'off' || plan.skip === 'idle') { maybeRecheck(); return; }
+    // o mestre deixou as fichas fora da Tela (ou só os 20 e 1, e esta não é), ou não há
+    // sessão ao vivo: nada sai; de vez em quando a faixa pergunta se ele religou, voltou
+    // para "Todas" ou começou a sessão
+    if (plan.skip === 'off' || plan.skip === 'idle' || plan.skip === 'filtered') { maybeRecheck(); return; }
     if (!plan.body) return;
     const send = () => sheetSend(ctx.characterId, plan.body).then((outcome) => {
       const note = noteFor(outcome);

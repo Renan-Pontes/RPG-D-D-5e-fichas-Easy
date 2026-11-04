@@ -336,3 +336,43 @@ test('"Só 20 e 1": a rolagem comum nem sai do aparelho; o 20 e o 1 naturais vã
   assert.equal(noteFor('filtered'), null);
   clearSheetRolls(77);
 });
+
+// Onda 3 (E2-fix): o mestre volta de "Só 20 e 1" para "Todas" no meio da sessão. A ficha
+// aberta não pode ficar presa sem mandar as rolagens comuns até o jogador reabrir.
+test('"Só 20 e 1" → "Todas": a rolagem segurada pergunta de novo (1 vez em 30 s) e a próxima comum sai', () => {
+  setSheetRolls({ characterId: 78, name: 'Dagna' }, memory());
+  const asked = [];
+  setSheetRecheck((id) => asked.push(id));
+  setSheetPolicy(78, { live: true, mode: 'crits' }, 1000);
+  const comum = entryOf('1d20+3', { label: 'Sabedoria', preset: [7] });
+  assert.deepEqual(planSheetRoll(getSheetRolls(), comum), { skip: 'filtered' });
+  // o DiceRoller chama maybeRecheck() na rolagem segurada: no máximo 1 GET a cada 30 s
+  assert.equal(maybeRecheck(1000 + RECHECK_MS - 1), false);
+  assert.equal(maybeRecheck(1000 + RECHECK_MS), true);
+  assert.equal(maybeRecheck(1000 + RECHECK_MS + 5000), false);
+  assert.deepEqual(asked, [78]);
+  // o GET responde "Todas": a próxima comum sai, e nada mais é perguntado
+  setSheetPolicy(78, { allowed: true, live: true, mode: 'all' }, 1000 + RECHECK_MS + 6000);
+  assert.ok(planSheetRoll(getSheetRolls(), comum).body);
+  assert.equal(maybeRecheck(1000 + 10 * RECHECK_MS), false);
+  assert.deepEqual(asked, [78]);
+  setSheetRecheck(null);
+  clearSheetRolls(78);
+});
+
+test('envio: a resposta traz a regra de agora (mode) e a ficha aprende sem pedido a mais', async () => {
+  setSheetRolls({ characterId: 79, name: 'Dagna' }, memory());
+  setSheetPolicy(79, { live: true, mode: 'crits' });
+  const replies = [{ shown: true, rollId: 1, mode: 'all' }, { shown: false, filtered: true, mode: 'crits' }, { shown: false, filtered: true }];
+  let calls = 0;
+  const send = createSender({ post: async () => replies[calls++], now: () => 0, wait: async () => {}, offline: () => false });
+  assert.equal(await send(79, { label: 'Percepção' }), 'shown');      // um 20 natural foi; o mestre já está em "Todas"
+  assert.equal(getSheetRolls().mode, 'all');
+  assert.equal(await send(79, { label: 'Percepção' }), 'filtered');   // voltou para "Só 20 e 1"
+  assert.equal(getSheetRolls().mode, 'crits');
+  setSheetPolicy(79, { mode: 'all' });
+  assert.equal(await send(79, { label: 'Percepção' }), 'filtered');   // servidor sem `mode`: filtrada = "Só 20 e 1"
+  assert.equal(getSheetRolls().mode, 'crits');
+  assert.equal(calls, 3);
+  clearSheetRolls(79);
+});
