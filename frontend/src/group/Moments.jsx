@@ -10,8 +10,9 @@
 //   ignoram toques por 400 ms (o 2º toque de um toque duplo não cai na sugestão seguinte).
 // - Dispensar e Apagar não perguntam: mostram "↶ Desfazer" por 6 s (princípio 5), que
 //   põe de volta a chave ou a foto do momento na lista de agora (spotlights.js).
-// - O histórico do servidor (Equilíbrio e o "⚠ sem momento") é lido uma vez, quando os
-//   Momentos chegam perto da tela: a resposta chega antes de os cartões aparecerem.
+// - O histórico do servidor (Equilíbrio e o "⚠ sem momento") é lido uma vez, quando o
+//   Equilíbrio chega perto da tela (com a página curta os Momentos já abrem à vista: pedir por
+//   eles seria 1 GET a mais em toda abertura). Até lá o "⚠" vem do estado da campanha.
 import { useEffect, useRef, useState } from 'react';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
@@ -54,7 +55,7 @@ export function balanceSub(n, lang) {
 }
 
 /** G8: um cartão por personagem de quem entra. */
-export function Moments({ facts, settings, update, suggestions, session, state = null, balance, lang, readOnly, focusId, filter, setFilter, campaignId, onOpenPlan, historyState, onNear, planScenes = null, onSceneLinked, oneAtATime = false }) {
+export function Moments({ facts, settings, update, suggestions, session, state = null, balance, lang, readOnly, focusId, filter, setFilter, campaignId, onOpenPlan, planScenes = null, onSceneLinked, oneAtATime = false }) {
   const [sheet, setSheet] = useState(null);   // {kind:'write'|'scene', id, moment?}
   // celular (F2.6): um personagem por vez, escolhido nos chips (cada chip diz quantos momentos
   // e o ⚠); começa no destaque vindo de Jogadores ou em quem está há mais tempo sem momento
@@ -70,15 +71,6 @@ export function Moments({ facts, settings, update, suggestions, session, state =
     return () => clearTimeout(id);
   }, [undo]);
   const offerUndo = (text, run) => setUndo({ id: Date.now(), text, run });
-  // sob demanda: o histórico só é pedido quando os Momentos chegam perto da tela (uma vez)
-  useEffect(() => {
-    if (historyState !== 'idle') return undefined;
-    const el = ref.current;
-    if (!el || typeof IntersectionObserver === 'undefined') { onNear(); return undefined; }
-    const io = new IntersectionObserver((entries) => { if (entries.some(e => e.isIntersecting)) { io.disconnect(); onNear(); } }, { rootMargin: '800px 0px' });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [historyState, onNear]);
   const warn = Object.fromEntries((balance?.rows || []).map(r => [r.id, r]));
   const countOf = (f) => planMomentCount(settings.spotlights?.[String(f.id)] || [], { session: momentSession(state), sceneIds: planScenes }).total;
   const firstPick = facts.slice().sort((a, b) => (warn[b.id]?.drought || 0) - (warn[a.id]?.drought || 0) || countOf(a) - countOf(b))[0]?.id;
@@ -392,8 +384,18 @@ function SceneSheet({ lang, campaignId, moment, name, onLinked, onOpenPlan, onCl
 /** G9: momentos que aconteceram e testes pedidos, por personagem; "⚠ sem momento há N sessões". */
 export function Balance({ balance, history, state, onLoad, lang }) {
   const n = balance.sessions.length;
+  const ref = useRef(null);
+  // sob demanda: o histórico só é pedido quando o Equilíbrio chega perto da tela (uma vez)
+  useEffect(() => {
+    if (state !== 'idle') return undefined;
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') { onLoad(); return undefined; }
+    const io = new IntersectionObserver((entries) => { if (entries.some(e => e.isIntersecting)) { io.disconnect(); onLoad(); } }, { rootMargin: '200px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [state, onLoad]);
   return (
-    <section className="mesa-panel ins-block ins-balance" id="ins-sec-balance">
+    <section ref={ref} className="mesa-panel ins-block ins-balance" id="ins-sec-balance">
       <MesaTitle sub={balanceSub(n, lang)}
         hint={<HelpButton lang={lang} title={t(lang, 'Equilíbrio na mesa', 'Table balance')} text={[
           t(lang, 'Todos tiveram o seu momento? A barra conta os momentos marcados como "aconteceu" nas últimas 5 sessões; embaixo, quantos testes você pediu a cada um nas últimas 3.', 'Did everyone get their moment? The bar counts the moments ticked as "it happened" in the last 5 sessions; below, how many checks you asked each one in the last 3.'),

@@ -330,7 +330,7 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
           <Ideas ideas={calc.ideas} lang={lang} planned={planned} inPlan={planIdeas} onTake={takeToPlan} onOpenPlan={() => goTo('prepare', 'next')} readOnly={readOnly} />
           <Moments facts={facts} settings={settings} update={update} suggestions={calc.suggestions} session={session} state={campaign.state} balance={balance}
             lang={lang} readOnly={readOnly} focusId={focusId} filter={view.moments || 'session'} setFilter={(v) => setView({ moments: v })} oneAtATime={!tablet}
-            campaignId={campaign.id} onOpenPlan={() => goTo('prepare', 'next')} historyState={histState} onNear={loadHistory}
+            campaignId={campaign.id} onOpenPlan={() => goTo('prepare', 'next')}
             planScenes={planScenes} onSceneLinked={(id) => setPlanScenes(p => (p && id && !p.includes(id) ? [...p, id] : p))} />
           <Balance balance={balance} history={history} state={histState} onLoad={loadHistory} lang={lang} />
           {/* as seções de analista numa lista só, cada uma recolhida com o resumo de uma linha */}
