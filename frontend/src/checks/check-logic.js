@@ -64,6 +64,46 @@ export function buildCheckPayload({ kind, key, label, dc, dcHidden, advantage, t
   };
 }
 
+/**
+ * Jogadores cujo personagem está a 0 PV (fazendo testes contra a morte, ou morto), pela
+ * ficha que o GET do mestre traz (o combate grava o PV dele na ficha). → [{userId, name}]
+ */
+export function downPlayers(members) {
+  return (members || [])
+    .filter(m => m && m.role !== 'dm' && m.user?.id != null && m.character)
+    .filter(m => {
+      const d = m.character.data || m.character.summary || {};
+      const hp = Number(d.currentHp);
+      return d.currentHp != null && d.currentHp !== '' && Number.isFinite(hp) && hp <= 0;
+    })
+    .map(m => ({ userId: m.user.id, name: m.character.name || m.user.displayName || '' }));
+}
+
+/**
+ * Para quem vai o pedido de teste (onda 3, E1.5c): "Todos" deixa de fora quem está a 0 PV —
+ * ele não procura armadilha nem percebe nada —, e o mestre pode incluí-lo à mão
+ * (`includeDown`, ou marcando o nome dele). A iniciativa vai a todos (o caído tem a vez dele
+ * para os testes contra a morte). `players` = as vagas de jogador da campanha.
+ * → {targets: [userId] (vazio = todos), left: [nomes de quem ficou de fora]}
+ */
+export function groupTargets(players, { targets = [], kind = '', key = '', includeDown = false } = {}) {
+  if (targets.length) return { targets, left: [] };
+  if (includeDown || (kind === 'custom' && key === INITIATIVE_KEY)) return { targets: [], left: [] };
+  const down = downPlayers(players);
+  if (!down.length) return { targets: [], left: [] };
+  const out = new Set(down.map(d => d.userId));
+  const alive = (players || []).filter(m => m && m.role !== 'dm' && m.user?.id != null && !out.has(m.user.id));
+  if (!alive.length) return { targets: [], left: [] };   // todos caídos: o mestre decide (vai a todos)
+  return { targets: alive.map(m => m.user.id), left: down.map(d => d.name) };
+}
+
+/** "Pipo" · "Pipo e Kaelor" · "Pipo, Kaelor e Dagna" (en: "and"). */
+export function namesList(names, lang = 'pt') {
+  const list = (names || []).filter(Boolean);
+  if (list.length <= 1) return list.join('');
+  return `${list.slice(0, -1).join(', ')} ${lang === 'en' ? 'and' : 'e'} ${list[list.length - 1]}`;
+}
+
 /** Resumo para o mestre: "2/3 responderam · 1 passou · 1 falhou". */
 export function summarize(check) {
   const targets = check?.targets || [];

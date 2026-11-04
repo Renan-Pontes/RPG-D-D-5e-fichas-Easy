@@ -27,7 +27,7 @@ import { errorMessage } from '../api/errors.js';
 import { openGrimoireLink } from '../grimoire/link.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import GroupCheckPanel from '../checks/GroupCheckPanel.jsx';
-import { buildCheckPayload, checkLabel } from '../checks/check-logic.js';
+import { buildCheckPayload, checkLabel, groupTargets, namesList } from '../checks/check-logic.js';
 import { NudgeList, NudgeSettings, useNudges } from '../campaigns/NudgeList.jsx';
 import { partyStatus } from '../campaigns/nudges.js';
 import { isWizardEnabled, stateWithWizard } from '../campaigns/end-of-encounter.js';
@@ -97,7 +97,7 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
   const live = pulse ? !!pulse.live : !!st.live;
   const closed = campaign.status === 'closed';
   const wide = useMedia('(min-width: 1024px)');
-  const [sheet, setSheet] = useState(null);       // 'check' | 'show' | 'tools' | 'fields' | 'recap' | 'readRecap' | 'improvise' | 'nudges' | 'start' | 'sceneNow' | {peek} | {entry} | {reveal} | {edit} | {give}
+  const [sheet, setSheet] = useState(null);       // 'check' | 'show' | 'tools' | 'fields' | 'recap' | 'readRecap' | 'improvise' | 'nudges' | 'start' | 'sceneNow' | {peek} | {over} | {entry} | {reveal} | {edit} | {give}
   const [busy, setBusy] = useState('');
   const [pick, setPick] = useState(null);         // o que está no corpo do painel do momento
   const [skips, setSkips] = useState(() => readSkips(campaign.id));
@@ -117,6 +117,8 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
   const [combatR, reloadCombat, setCombatR] = useRevData(pulse?.combat?.ver ?? null,
     () => api.getCombat(campaign.id).then(r => r.combat || null), { table, fallbackMs: 4000, key: String(campaign.id) });
   const combat = combatR;   // undefined = carregando
+  // o ↶ Voltar turno da faixa do PC sabe se vai funcionar pelo combate completo daqui (E1.4)
+  useEffect(() => { if (combat) table?.noteCombat?.(combat); }, [combat]); // eslint-disable-line react-hooks/exhaustive-deps
   // o combate completo que voltou de uma ação (barra da mesa, Próximo turno)
   useEffect(() => {
     const on = (e) => { if (String(e.detail?.campaignId) === String(campaign.id) && e.detail?.combat) setCombatR(e.detail.combat); };
@@ -259,6 +261,9 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
     } else if (id === 'readRecap') setSheet('readRecap');
     else if (id === 'startScene') start(findScene(s.payload?.sceneId));
     else if (id === 'startSceneLater') start(findScene(s.payload?.sceneId), { focus: false });
+    // com um combate andando (E1.2): o dourado leva ao combate; a cena por cima confirma antes
+    else if (id === 'goCombat') goTo?.('play', 'combat');
+    else if (id === 'startSceneOver') setSheet({ over: s.payload?.sceneId });
     else if (id === 'improvise') setSheet('improvise');
     else if (id === 'endSession') area.endSession?.();
     else if (id === 'sceneNow') { setNewName(''); setSheet('sceneNow'); }
@@ -268,11 +273,17 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
   const askCheck = async (c, i) => {
     setBusy(`check:${i}`);
     try {
-      const body = buildCheckPayload({ kind: c.kind, key: c.key, dc: Number.isInteger(c.dc) ? c.dc : '', dcHidden: !!c.dcHidden, advantage: 'normal', targets: [] }, lang);
+      // quem está a 0 PV fica de fora do "todos" (E1.5c; a folha Pedir teste inclui à mão)
+      const players = (campaign.members || []).filter(m => m.role !== 'dm' && m.user?.id !== campaign.dmId);
+      const to = groupTargets(players, { kind: c.kind, key: c.key });
+      const body = buildCheckPayload({ kind: c.kind, key: c.key, dc: Number.isInteger(c.dc) ? c.dc : '', dcHidden: !!c.dcHidden, advantage: 'normal', targets: to.targets }, lang);
       const r = await api.createCheck(campaign.id, body);
       if (r?.check?.id) setPick({ kind: 'check', id: r.check.id });
       if (navigator.vibrate) navigator.vibrate(20);
-      flash(L(lang, `Pedido a todos: ${checkLabel(c, lang)}. As respostas chegam no painel.`, `Asked everyone: ${checkLabel(c, lang)}. Answers arrive in the panel.`));
+      const left = to.left.length ? namesList(to.left, lang) : '';
+      flash(left
+        ? L(lang, `Pedido a todos menos ${left} (0 PV): ${checkLabel(c, lang)}. As respostas chegam no painel.`, `Asked everyone but ${left} (0 HP): ${checkLabel(c, lang)}. Answers arrive in the panel.`)
+        : L(lang, `Pedido a todos: ${checkLabel(c, lang)}. As respostas chegam no painel.`, `Asked everyone: ${checkLabel(c, lang)}. Answers arrive in the panel.`));
       refreshTests();
     } catch (e) { flash(errorMessage(e, lang), { error: true }); } finally { setBusy(''); }
   };
@@ -654,6 +665,30 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
           <GiveItemModal campaign={campaign} character={sheet.give} lang={lang} onClose={() => setSheet(null)} onGiven={() => { setSheet(null); refresh(); }} />
         </Suspense>
       )}
+      {sheet?.over && (() => {
+        const s = findScene(sheet.over);
+        if (!s) return null;
+        return (
+          <MesaSheet title={L(lang, 'Começar a cena por cima do combate?', 'Start the scene over the combat?')} eyebrow={sceneName(s)} icon="🎭"
+            size="auto" width="sm" lang={lang} dock="bar" onClose={() => setSheet(null)} className="now-over-sheet"
+            footer={(
+              <div className="mesa-actions now-over-foot">
+                <button type="button" className="mesa-btn mesa-btn-lg is-primary" disabled={closed || busy === 'start'} onClick={() => start(s)}>
+                  {busy === 'start' ? '…' : `▶ ${L(lang, 'Começar por cima do combate', 'Start over the combat')}`}
+                </button>
+                <button type="button" className="mesa-btn mesa-btn-lg" disabled={closed || busy === 'start'} onClick={() => start(s, { focus: false })}>
+                  {L(lang, 'Guardar para depois do combate', 'Keep for after combat')}
+                </button>
+                <button type="button" className="mesa-btn mesa-btn-lg is-quiet" onClick={() => setSheet(null)}>{L(lang, 'Cancelar', 'Cancel')}</button>
+              </div>
+            )}>
+            <p className="mesa-sheet-text">{L(lang,
+              'A TV troca a ordem e o mapa do combate pela cena (a tarja do turno fica no alto). Para voltar: “⚔ Voltar ao combate” em Jogar › Tela, ou o ↶ Desfazer do aviso.',
+              'The TV swaps the combat order and map for the scene (the turn banner stays on top). To go back: “⚔ Back to combat” in Play › Screen, or the ↶ Undo on the notice.')}</p>
+            <p className="mesa-hint">{L(lang, '“Guardar para depois” começa a cena agora e a mostra na TV quando o combate acabar.', '“Keep for after” starts the scene now and shows it on the TV when the combat ends.')}</p>
+          </MesaSheet>
+        );
+      })()}
       {sheet?.fight && (
         <Suspense fallback={null}>
           <StartCombatSheet campaign={campaign} lang={lang} planScene={sheet.fight.scene} node={sheet.fight.node} combat={combat || null}

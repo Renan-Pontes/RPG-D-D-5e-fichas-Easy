@@ -156,3 +156,18 @@ test('o 📺 de um cartão: na hora, pergunta ou explica', () => {
   assert.equal(privateShort(letter, members, 'pt'), 'Só para Ana · não vai à Tela');
   assert.equal(privateReason(letter, [], 'en'), "Handout only for some players: it can't go on screen.");
 });
+
+// E2-fix: o aviso de "mostrou" e a forma curta do celular de 320 px.
+test('sentNotice: "Na tela ✓ · <nome>" e, curto, "✓ <nome>" (o que foi mostrado nunca some)', async () => {
+  const { sentNotice } = await import('../src/stage/stage-now.js');
+  assert.deepEqual(sentNotice('Na tela ✓', 'Vale de Brumafria (só a imagem)'),
+    { text: 'Na tela ✓ · Vale de Brumafria (só a imagem)', short: '✓ Vale de Brumafria (só a imagem)' });
+  assert.deepEqual(sentNotice('On screen ✓', 'Borin'), { text: 'On screen ✓ · Borin', short: '✓ Borin' });
+  // o que esperava o fim do combate continua no aviso curto
+  const r = sentNotice('Na tela ✓', 'Vale', 'substitui “Borin”, que esperava o fim do combate');
+  assert.equal(r.text, 'Na tela ✓ · Vale · substitui “Borin”, que esperava o fim do combate');
+  assert.equal(r.short, '✓ Vale · substitui “Borin”, que esperava o fim do combate');
+  // sem nome a curta é a própria; rótulo sem ✓ não ganha um
+  assert.deepEqual(sentNotice('Tela limpa ✓'), { text: 'Tela limpa ✓', short: 'Tela limpa ✓' });
+  assert.equal(sentNotice('Fora da Tela', 'Borin').short, 'Borin');
+});

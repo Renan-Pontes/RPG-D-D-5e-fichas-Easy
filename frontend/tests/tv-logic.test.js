@@ -1,7 +1,10 @@
 // Tela: subtítulo do recap sem repetição, detecção de link morto e o modo de desenho.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { recapSubtitle, isDeadScreenLink, tvMode, splitNumbered, conditionsShown, bestScale } from '../src/screen/tv-logic.js';
+import {
+  recapSubtitle, isDeadScreenLink, tvMode, splitNumbered, conditionsShown, bestScale, cardLayout, sceneLayout, WIDE_TEXT_MAX,
+  histPlacement, histLinesFit, quietCorner, HIST_MAX, HIST_MAP_MAX,
+} from '../src/screen/tv-logic.js';
 import { stageNow } from '../src/stage/stage-now.js';
 
 test('recapSubtitle esconde títulos que só repetem "Anteriormente em <campanha>"', () => {
@@ -44,8 +47,9 @@ test('tvMode: a frente decide o desenho; sem frente, o fundo', () => {
 
 // ------------------------------------------------------------------ V9: a TV em 16:9
 import { tvLang, lengthClass, turnNow, initiativeRows, partyRow } from '../src/screen/tv-logic.js';
-import { charLine, tvName } from '../src/player/player-model.js';
+import { charLine, healthLabel, tvName } from '../src/player/player-model.js';
 import { nameIds, tName } from '../data/i18n.js';
+import { conditionLabel } from '../src/combat/monster-i18n.js';
 
 test('tvLang: a língua da campanha manda; sem ela, a do aparelho', () => {
   assert.equal(tvLang('pt', 'en'), 'pt');      // TV num navegador em inglês, campanha em pt
@@ -87,7 +91,8 @@ test('initiativeRows: ✓ agiu, ▶ a vez; PJ com PV, monstro só com a faixa', 
   assert.equal(more, 0);
   assert.deepEqual(rows.map(r => r.mark), ['✓', '✓', '▶', '', '']);
   assert.deepEqual(rows.map(r => r.state), ['acted', 'acted', 'now', 'todo', 'todo']);
-  assert.equal(rows[0].down, true);
+  // PJ a 0 PV fazendo testes contra a morte: "Morrendo", sem riscar (E1.5a)
+  assert.deepEqual([rows[0].down, rows[0].fallen], [false, true]);
   assert.deepEqual(rows[1].hp, { cur: 7, max: 7, temp: 2 });
   assert.equal(rows[1].band, null);
   assert.equal(rows[2].hp, null);                 // monstro: nunca PV
@@ -104,6 +109,31 @@ test('initiativeRows: ✓ agiu, ▶ a vez; PJ com PV, monstro só com a faixa', 
   assert.deepEqual(plain.map(r => r.state), ['todo', 'todo', 'todo', 'now', 'todo']);
   // fora de combate ninguém agiu nem tem a vez
   assert.deepEqual(initiativeRows({ ...FIGHT, active: false }).rows.map(r => r.mark), ['', '', '', '', '']);
+});
+
+test('initiativeRows: riscado só quem morreu (monstro derrotado, PJ com 3 falhas)', () => {
+  const fight = { active: true, round: 1, turnIndex: 0, combatants: [
+    { id: 'p', type: 'pc', name: 'Pipo', current_hp: 0, stats: { max_hp: 9 }, health: 'down', death_saves: { success: 1, fail: 2 } },
+    { id: 'k', type: 'pc', name: 'Kaelor', current_hp: 0, stats: { max_hp: 11 }, health: 'down', defeated: true },
+    { id: 'g', type: 'monster', name: 'Goblin', health: 'down' },
+    { id: 'o', type: 'monster', name: 'Ogro', health: 'bloodied' },
+  ] };
+  const { rows } = initiativeRows(fight);
+  assert.deepEqual(rows.map(r => [r.id, r.down, r.fallen]), [['p', false, true], ['k', true, false], ['g', true, false], ['o', false, false]]);
+  // sem o PV do grupo na Tela: a faixa do PJ a 0 PV diz "Morrendo", não "Derrotado"
+  const hidden = initiativeRows(fight, { party: false }).rows;
+  assert.equal(hidden[0].band, 'fallen');
+  assert.equal(hidden[2].band, 'down');
+  assert.equal(healthLabel('fallen', 'pt'), 'Morrendo');
+  assert.equal(healthLabel('fallen', 'en'), 'Dying');
+  assert.equal(healthLabel('down', 'pt'), 'Derrotado');
+  // nenhuma faixa diz "Caído": é a condição (prone), que a TV mostra na mesma lista (revisão E1.5a)
+  for (const band of ['unhurt', 'hurt', 'bloodied', 'down', 'fallen', 'stable', 'dead']) {
+    assert.notEqual(healthLabel(band, 'pt').toLowerCase(), conditionLabel('prone', 'pt').toLowerCase());
+  }
+  // 3 sucessos: "Estável", ainda sem riscar
+  const st = initiativeRows({ ...fight, combatants: [{ ...fight.combatants[0], conditions: ['unconscious', 'stable'] }] }, { party: false }).rows[0];
+  assert.deepEqual([st.down, st.fallen, st.stable, st.band, healthLabel(st.band, 'pt')], [false, true, true, 'stable', 'Estável']);
 });
 
 test('initiativeRows: até 10 + "+N", com a vez sempre à vista', () => {
@@ -177,4 +207,81 @@ test('bestScale acha a maior letra que cabe, com poucas medidas', () => {
   assert.equal(bestScale(upTo(0.3), { min: 0.5 }), null);       // nem a menor: quem chama tenta colunas
   assert.equal(bestScale(() => false, { min: 1 }), null);
   assert.equal(bestScale(upTo(0.5), { min: 0.5, step: 0.05 }), 0.5);
+});
+
+// Onda 3 (E2.2/E2.3): a imagem do cartão e da cena grande e inteira na TV.
+test('cardLayout: sem imagem a arte ao lado; sem texto só a imagem; larga com texto curto na largura toda', () => {
+  assert.equal(cardLayout({ image: false, text: 'x' }), 'art');
+  assert.equal(cardLayout({ image: true, ratio: 0.7, text: '' }), 'full');
+  assert.equal(cardLayout({ image: true, ratio: 1.6, text: '   ' }), 'full');
+  assert.equal(cardLayout({ image: true, ratio: 1.5, text: 'Brumafria é uma vila pequena.' }), 'wide', 'o mapa do Vale');
+  assert.equal(cardLayout({ image: true, ratio: 1.5, text: 'x'.repeat(WIDE_TEXT_MAX + 1) }), 'side', 'texto longo não cabe na faixa');
+  assert.equal(cardLayout({ image: true, ratio: 0.66, text: 'Jovem, séria e cansada.' }), 'side', 'retrato');
+  assert.equal(cardLayout({ image: true, ratio: null, text: 'carregando' }), 'side');
+});
+
+test('sceneLayout: sem imagem o painel; larga em cima; em pé ao lado', () => {
+  assert.equal(sceneLayout({ image: false }), 'panel');
+  assert.equal(sceneLayout({ image: true, ratio: 1.78 }), 'wide');
+  assert.equal(sceneLayout({ image: true, ratio: 0.75 }), 'side');
+  assert.equal(sceneLayout({ image: true, ratio: null }), 'side');
+});
+
+// Onda 3 (E2-fix): as Últimas rolagens não cobrem o texto da frente, a ordem nem os tokens.
+test('histPlacement: combate no pé da iniciativa (as linhas que cabem); sem lugar, compactas no mapa', () => {
+  assert.deepEqual(histPlacement({ mode: 'combat' }), { spot: 'side', max: HIST_MAX, reserve: '' }, 'antes da 1ª medida tenta as 5');
+  assert.deepEqual(histPlacement({ mode: 'combat', room: 3 }), { spot: 'side', max: 3, reserve: '' });
+  assert.deepEqual(histPlacement({ mode: 'combat', room: 9 }), { spot: 'side', max: HIST_MAX, reserve: '' });
+  assert.deepEqual(histPlacement({ mode: 'combat', room: 1 }), { spot: 'side', max: 1, reserve: '' }, '9 na ordem: 1 linha, fora do mapa');
+  assert.deepEqual(histPlacement({ mode: 'combat', room: 0 }), { spot: 'map', max: HIST_MAP_MAX, reserve: '', corner: 'bl' }, 'a ordem enche a coluna');
+  assert.equal(histPlacement({ mode: 'combat', room: 0, combat: BRUMAFRIA }).corner, 'br', 'o grupo está embaixo à esquerda');
+});
+
+// O combate do banco de teste (mapa 1200×800): o grupo embaixo à esquerda, goblins em cima no meio.
+const BRUMAFRIA = {
+  map: { width_px: 1200, height_px: 800 },
+  combatants: [
+    { name: 'Pipo', position: { x: 375, y: 525 } }, { name: 'Dragão', position: { x: 1000, y: 450 } },
+    { name: 'Elarion', position: { x: 175, y: 525 } }, { name: 'Goblin #1', position: { x: 525, y: 125 } },
+    { name: 'Goblin #2', position: { x: 625, y: 125 } }, { name: 'Dagna', position: { x: 75, y: 525 } },
+    { name: 'Goblin #3', position: { x: 725, y: 125 } }, { name: 'Bugbear', position: { x: 875, y: 225 } },
+    { name: 'Kaelor', position: { x: 275, y: 525 } },
+  ],
+};
+
+test('quietCorner: o canto do mapa com menos tokens (empate: embaixo à esquerda)', () => {
+  assert.equal(quietCorner(BRUMAFRIA), 'br');
+  assert.equal(quietCorner(null), 'bl');
+  assert.equal(quietCorner({ combatants: [] }), 'bl');
+  // todos os cantos de baixo ocupados: vai para cima, no que tem menos
+  const busy = { map: { width_px: 1000, height_px: 1000 }, combatants: [
+    { position: { x: 100, y: 900 } }, { position: { x: 900, y: 900 } }, { position: { x: 100, y: 100 } },
+  ] };
+  assert.equal(quietCorner(busy), 'tr');
+  // sem tamanho do mapa: o padrão do CombatGrid (1200×800); sem posição, o ponto (50, 50)
+  assert.equal(quietCorner({ combatants: [{ position: { x: 100, y: 700 } }, {}] }), 'br');
+});
+
+test('histPlacement: o canto só onde não há texto embaixo à esquerda; com frente, uma linha que empurra', () => {
+  assert.deepEqual(histPlacement({ mode: 'rest' }), { spot: 'corner', max: HIST_MAX, reserve: '' });
+  assert.deepEqual(histPlacement({ mode: 'rest', read: true }), { spot: 'line', max: HIST_MAX, reserve: 'bottom' }, 'o texto de ler vai na largura toda');
+  assert.deepEqual(histPlacement({ mode: 'card', image: false }), { spot: 'corner', max: HIST_MAX, reserve: '' }, 'cartão com a arte padrão à esquerda');
+  // o Vale (mapa largo) e o Bartolomeu: o nome e o texto ficam embaixo, na largura toda
+  assert.deepEqual(histPlacement({ mode: 'card', image: true }), { spot: 'line', max: HIST_MAX, reserve: 'bottom' });
+  for (const mode of ['scene', 'text', 'image', 'map']) {
+    assert.deepEqual(histPlacement({ mode }), { spot: 'line', max: HIST_MAX, reserve: 'bottom' }, mode);
+  }
+  assert.deepEqual(histPlacement({ mode: 'recap' }), { spot: 'line', max: HIST_MAX, reserve: '' }, 'na tarja preta de baixo');
+});
+
+test('histLinesFit: linhas inteiras no que sobra embaixo da ordem', () => {
+  assert.equal(histLinesFit(218, 37, 36), 5);
+  assert.equal(histLinesFit(100, 37, 36), 1);
+  assert.equal(histLinesFit(72, 37, 36), 0, 'meia linha não conta');
+  assert.equal(histLinesFit(1000, 37, 36), HIST_MAX);
+  assert.equal(histLinesFit(1000, 37, 36, 3), 3);
+  assert.equal(histLinesFit(0, 37, 36), 0);
+  assert.equal(histLinesFit(-20, 37, 36), 0);
+  assert.equal(histLinesFit(200, 37, 0), 0);
+  assert.equal(histLinesFit(NaN, 37, 36), 0);
 });

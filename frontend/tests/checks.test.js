@@ -82,3 +82,25 @@ test('iniciativa pedida à mesa: kind custom; o app antigo pede o total, o novo 
   assert.equal(modifierFor(c, body), 3);
   assert.equal(checkLabel({ kind: 'custom', key: 'initiative' }, 'pt'), 'Iniciativa');
 });
+
+// ---------------------------------------------------------------- E1.5c (onda 3): quem está a 0 PV
+import { downPlayers, groupTargets, namesList } from '../src/checks/check-logic.js';
+
+const seat = (id, name, hp, extra = {}) => ({ id, role: 'player', user: { id, displayName: name }, character: { id: id * 10, name, data: { currentHp: hp, maxHp: 9 } }, ...extra });
+const table = [seat(2, 'Dagna', 3), seat(3, 'Elarion', 7), seat(5, 'Pipo', 0), { id: 9, role: 'dm', user: { id: 1 } }];
+
+test('teste pedido a todos: quem está a 0 PV fica de fora (dá para incluir à mão)', () => {
+  assert.deepEqual(downPlayers(table), [{ userId: 5, name: 'Pipo' }]);
+  assert.deepEqual(groupTargets(table, { kind: 'skill', key: 'perception' }), { targets: [2, 3], left: ['Pipo'] });
+  // incluído à mão (ou escolhido pelo nome): vai como o mestre pediu
+  assert.deepEqual(groupTargets(table, { kind: 'skill', key: 'perception', includeDown: true }), { targets: [], left: [] });
+  assert.deepEqual(groupTargets(table, { targets: [5], kind: 'skill', key: 'stealth' }), { targets: [5], left: [] });
+  // a iniciativa vai a todos: o caído tem a vez para os testes contra a morte
+  assert.deepEqual(groupTargets(table, { kind: 'custom', key: 'initiative' }), { targets: [], left: [] });
+  // ninguém caído (ou PV desconhecido): todos, como antes
+  assert.deepEqual(groupTargets([seat(2, 'Dagna', 3), seat(3, 'Elarion', null)], { kind: 'skill', key: 'perception' }), { targets: [], left: [] });
+  // todos caídos: o mestre decide (vai a todos)
+  assert.deepEqual(groupTargets([seat(5, 'Pipo', 0)], { kind: 'save', key: 'dex' }), { targets: [], left: [] });
+  assert.equal(namesList(['Pipo', 'Kaelor', 'Dagna'], 'pt'), 'Pipo, Kaelor e Dagna');
+  assert.equal(namesList(['Pipo', 'Kaelor'], 'en'), 'Pipo and Kaelor');
+});

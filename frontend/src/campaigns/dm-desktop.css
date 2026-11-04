@@ -225,10 +225,14 @@
   .campaign-detail.is-dm .combat-body .ct-row { grid-template-columns: 30px 40px minmax(0, 1fr) 112px; column-gap: 10px; padding-left: 8px; }
   .campaign-detail.is-dm .combat-body .mesa-hp.ct-hp { height: 22px; }
   .campaign-detail.is-dm .combat-body .ct-hp .mesa-hp-text { font-size: 13px; }
+  /* a linha do ↶, presa no topo (E1.4), na largura da coluna da lista (o máximo dela; o
+     mapa, preso na mesma altura, segue à vista ao lado) */
+  .campaign-detail.is-dm .combat-tab.is-wide .ct-undo { width: min(100%, 460px); }
 }
 
 @media (min-width: 1280px) {
   .campaign-detail.is-dm .combat-body.has-screen { grid-template-columns: minmax(360px, 400px) minmax(0, 1fr) 280px; }
+  .campaign-detail.is-dm .combat-tab.is-wide:has(.combat-body.has-screen) .ct-undo { width: min(100%, 400px); }
   .campaign-detail.is-dm .combat-body.has-screen .ct-screen {
     grid-column: 3; grid-row: 1; position: sticky; top: var(--ct-map-top, 72px);
   }

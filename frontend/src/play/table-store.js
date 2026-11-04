@@ -12,7 +12,10 @@
 //   - as ações do turno, compartilhadas pela barra da mesa, pela janela e pela
 //     faixa do PC, pela folha Tela ao vivo e pela tecla N: Próximo turno (com
 //     `expect`, desligado enquanto envia, 409 → "A vez já tinha passado: agora é
-//     de X"), ↶ Voltar turno, ▶ Iniciar e "não enviado · Tentar de novo".
+//     de X"), ↶ Voltar turno, ▶ Iniciar e "não enviado · Tentar de novo";
+//   - `canPrev` (onda 3, E1.4): se o ↶ Voltar turno vai funcionar, do último combate completo
+//     que passou por aqui (a resposta de uma ação, ou o da Agora e do Combate: `noteCombat`),
+//     enquanto a vez for a mesma; null = não se sabe (a faixa do PC usa a conta de antes).
 // A casca busca o GET completo quando `pulse.rev` muda (e 1 vez por minuto, de
 // segurança). Combate completo (Jogar › Combate), testes (Jogar) e as listas de
 // rolagens de mesa só são buscados quando `pulse.combat.ver` / `pulse.checksRev` /
@@ -27,7 +30,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage, isOldServer } from '../api/errors.js';
-import { STAGE_EVENT, STAGE_SENDING_EVENT, STAGE_SENT_EVENT } from '../stage/stage-api.js';
+import { STAGE_EVENT, STAGE_SENDING_EVENT, STAGE_SENT_EVENT, tvToCombatNotice } from '../stage/stage-api.js';
 import { frontLabel, L } from '../stage/stage-now.js';
 import { combatSummary, offlineSeconds, SENT_SHOW_MS, staleText, turnLine } from '../stage/table-bar-model.js';
 import { flash } from './flash.js';
@@ -214,13 +217,21 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse, fullIns
   }, [live, id]);
 
   /** O combate completo que voltou de uma ação: atualiza a barra e avisa Jogar › Combate. */
+  // ↶ Voltar turno funciona? O combate completo do mestre diz (`canPrev`); vale para a vez dele.
+  const [prevInfo, setPrevInfo] = useState(null);   // {key: 'rodada:vez', can}
+  const noteCombat = useCallback((full) => {
+    if (!full || typeof full.canPrev !== 'boolean') return;
+    const key = `${full.round}:${full.turnIndex}`;
+    setPrevInfo(cur => (cur && cur.key === key && cur.can === full.canPrev ? cur : { key, can: full.canPrev }));
+  }, []);
   const applyCombat = useCallback((full) => {
     if (!full) return;
+    noteCombat(full);
     const summary = combatSummary(full);
     pulseRef.current = pulseRef.current ? { ...pulseRef.current, combat: summary } : pulseRef.current;
     setPulse(p => (p ? { ...p, combat: summary } : p));
     emitCombat(id, full);
-  }, [id]);
+  }, [id, noteCombat]);
 
   const failed = useCallback((e, retry) => {
     // campanha encerrada: o texto do mestre e nenhum "Tentar de novo" (nunca vai funcionar)
@@ -258,6 +269,8 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse, fullIns
       } else if (e?.status === 409 && code === 'nothing_to_undo') {
         applyCombat(e.data.combat);
         flash(L(lang, 'Não há turno para voltar.', 'There is no turn to go back to.'), { error: true });
+      } else if (kind === 'prev' && isOldServer(e)) {
+        flash(L(lang, 'Voltar turno: falta atualizar o servidor.', 'Undo turn: the server needs updating.'), { error: true });
       } else {
         failed(e, () => turnRef.current(kind, expect));
       }
@@ -283,10 +296,12 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse, fullIns
       // servidor antigo: as respostas do teste de iniciativa aberto entram na ordem antes do /start
       catch (e) { if (!isOldServer(e)) throw e; r = await legacyStart(id); }
       applyCombat(r?.combat);
+      // a TV foi para o combate (a frente fica guardada para depois dele): aviso com ↶ (E1.1)
+      tvToCombatNotice(id, r, { lang, onDone: () => kick.current() });
     }
     catch (e) { failed(e, () => startRef.current()); }
     finally { busyRef.current = ''; setBusy(''); refresh(); }
-  }, [id, applyCombat, failed, refresh]);
+  }, [id, lang, applyCombat, failed, refresh]);
   const startRef = useRef(startCombat);
   startRef.current = startCombat;
 
@@ -295,14 +310,16 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse, fullIns
   const [tvSeen, setTvSeen] = useState(false);
   useEffect(() => { if (tvLive > 0) setTvSeen(true); }, [tvLive]);
   useEffect(() => { setTvSeen(false); }, [id]);
+  const pc = pulse?.combat;
+  const canPrev = prevInfo && pc?.active && prevInfo.key === `${pc.round}:${pc.turnIndex}` ? prevInfo.can : null;
   return useMemo(() => ({
     enabled: live, missing, pulse, lastOkAt, offlineFor, tvLive, tvSeen, rollSeen, sending, busy,
-    combat: pulse?.combat || null,
-    refresh, applyCombat,
+    combat: pulse?.combat || null, canPrev,
+    refresh, applyCombat, noteCombat,
     nextTurn: (expect) => turn('next', expect),
     prevTurn: (expect) => turn('prev', expect),
     startCombat,
-  }), [live, missing, pulse, lastOkAt, offlineFor, tvLive, tvSeen, rollSeen, sending, busy, refresh, applyCombat, turn, startCombat]);
+  }), [live, missing, pulse, lastOkAt, offlineFor, tvLive, tvSeen, rollSeen, sending, busy, canPrev, refresh, applyCombat, noteCombat, turn, startCombat]);
 }
 
 /**

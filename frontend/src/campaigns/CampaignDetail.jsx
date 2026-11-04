@@ -27,7 +27,8 @@ import { clearDiceTable, setDiceTable } from '../dice/dice-table.js';
 import useMedia from '../play/useMedia.js';
 import TableBar from '../stage/TableBar.jsx';
 import ScreenWindow from '../stage/ScreenWindow.jsx';
-import { barVisible, readBarPrefs, windowCorner, windowMode, writeBarPrefs } from '../stage/table-bar-model.js';
+import { barVisible, readBarPrefs, readMini, windowCorner, windowMode, writeBarPrefs, writeMini } from '../stage/table-bar-model.js';
+import MiniPlayer from '../stage/MiniPlayer.jsx';
 import { listWorld, createSampleWorld, getSessionPlan } from '../world/world-api.js';
 import CampaignHeader from '../shell/CampaignHeader.jsx';
 import AreaNav from '../shell/AreaNav.jsx';
@@ -100,6 +101,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
   const [barPrefs, setBarPrefsState] = useState(() => readBarPrefs(campaignId));
   const [corner, setCorner] = useState(readCorner);
   const [winLiveAt, setWinLiveAt] = useState(0);      // 📺 Tela da capa: a janela abre já "ao vivo"
+  const [mini, setMiniState] = useState(readMini);    // miniplayer do celular (E2.5c): {open, corner}, lembrado no aparelho
   const [page, setPage] = useState(null);             // a página aberta pede a janela à esquerda ('adventure')
   const mobile = useMedia('(max-width: 767px)');
   const twoCols = useMedia('(min-width: 1024px)');     // Agora e Combate em colunas: a janela encaixa
@@ -204,9 +206,10 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
   useOnRev(liveNow ? 'live' : table.pulse?.planRev, fetchPlan, { table, fallbackMs: Infinity, safetyMs: Infinity, initial: false });
 
   const planHas = !!planInfo?.has;
+  const tvSeen = !!table.tvSeen;
   const obStatus = useMemo(() => (isDM && campaign
-    ? onboardingStatus(campaign, { worldCount: world?.count || 0, planHasContent: planHas })
-    : null), [isDM, campaign, world?.count, planHas]);
+    ? onboardingStatus(campaign, { worldCount: world?.count || 0, planHasContent: planHas, tvSeen })
+    : null), [isDM, campaign, world?.count, planHas, tvSeen]);
 
   // Área inicial (uma vez por campanha, quando os dados chegam). Sem nada lembrado, o
   // mestre cai em Preparar › Plano (as 3 portas), não mais no Mundo dos primeiros passos.
@@ -267,6 +270,14 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
     if (!campaign || !isDM || campaign.onboarding?.[flag] === value) return;
     try { await api.patchCampaign(campaign.id, { onboarding: { [flag]: value } }); load(); } catch { /* não bloqueia */ }
   }, [campaign, isDM, load]);
+
+  // E2.7: uma TV conectou (tvLive > 0): "Abra a Tela na TV" fica feito para sempre (1 PATCH, uma vez).
+  const tvMarked = useRef(false);
+  useEffect(() => {
+    if (!tvSeen || tvMarked.current || !isDM || !campaign || campaign.status === 'closed' || campaign.onboarding?.tv) return;
+    tvMarked.current = true;
+    markOnboarding('tv');
+  }, [tvSeen, isDM, campaign, markOnboarding]);
 
   const tvUrl = campaign ? screenLink(window.location.origin, campaign.screenToken) : '';
   const copyTv = useCallback(async () => {
@@ -345,6 +356,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
     return () => window.removeEventListener('keydown', onKey);
   }, [campaign, areas, isDM, nav, goTo, load, copyTv, groupPending]);
 
+  const setMini = useCallback((next) => { setMiniState(next); writeMini(next); }, []);
   const setBarPrefs = useCallback((next) => {
     setBarPrefsState(next);
     writeBarPrefs(campaignId, next);
@@ -435,7 +447,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
         <div className="shell-panel" id="shell-panel" role="tabpanel" aria-labelledby={`area-tab-${nav.area}`}>
           {isDM && nav.area === 'world' && campaign.status !== 'closed' && onboardingVisible(obStatus) && (
             <Onboarding
-              lang={lang} status={obStatus}
+              lang={lang} status={obStatus} live={vis.live}
               onAction={onOnboardingAction}
               onDismiss={() => markOnboarding('dismissed')}
               worldEmpty={(world?.count || 0) === 0}
@@ -446,10 +458,17 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
         </div>
 
         {showBar && (
-          <TableBar campaign={campaign} lang={lang} onOpenLive={() => setLiveOpen(true)} onEndCombat={endCombatFromBar} />
+          <TableBar campaign={campaign} lang={lang} onOpenLive={() => setLiveOpen(true)} onEndCombat={endCombatFromBar}
+            onThumb={() => setMini({ ...mini, open: !mini.open })} miniOpen={mini.open} />
+        )}
+        {/* o miniplayer (E2.5c): a Tela por cima do conteúdo, do pulso; some junto com a barra */}
+        {showBar && mini.open && (
+          <MiniPlayer campaign={campaign} lang={lang} corner={mini.corner}
+            onCorner={(c) => setMini({ ...mini, corner: c })} onClose={() => setMini({ ...mini, open: false })}
+            onOpenLive={() => setLiveOpen(true)} />
         )}
         {win === 'float' && (
-          <ScreenWindow key={campaign.id} campaign={campaign} lang={lang} liveAt={winLiveAt}
+          <ScreenWindow key={campaign.id} campaign={campaign} lang={lang} liveAt={winLiveAt} nextHere={nav.area !== 'play'}
             corner={windowCorner({ corner, area: nav.area, sub: nav.sub, page })}
             onCorner={(c) => { setCorner(c); try { localStorage.setItem(CORNER_KEY, c); } catch { /* ok */ } }}
             onHide={() => { setWinLiveAt(0); setBarPrefs({ ...barPrefs, winSession: String(vis.session ?? '') }); }} />

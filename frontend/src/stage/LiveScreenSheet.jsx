@@ -32,18 +32,26 @@ export const LIVE_IDLE_MS = 3 * 60_000;
 
 /**
  * A TV de verdade num iframe (a TV desenha em 1280×720; a caixa reduz na
- * proporção). Desmonta sozinha depois de 3 min sem toque ou com a aba
- * escondida ("Pausado · toque para ver ao vivo").
+ * proporção). Desmonta sozinha depois de 3 min sem toque ("Pausado · toque para
+ * ver ao vivo") e enquanto a aba está escondida — sem carga à toa; quando a aba
+ * volta, o espelho volta sozinho (onda 3, E2.5d: a janela do PC lembra o "Ao vivo").
  */
 export function LiveTv({ token, lang = 'pt', className = '' }) {
-  const [paused, setPaused] = useState(false);
+  const [paused, setPaused] = useState(false);   // false · 'idle' (3 min parado) · 'hidden' (aba escondida)
   const timer = useRef(null);
   const box = useRef(null);
   useEffect(() => {
+    if (paused !== 'hidden') return undefined;
+    const onVis = () => { if (!document.hidden) setPaused(false); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [paused]);
+  useEffect(() => {
     if (paused) return undefined;
-    const arm = () => { clearTimeout(timer.current); timer.current = setTimeout(() => setPaused(true), LIVE_IDLE_MS); };
+    if (typeof document !== 'undefined' && document.hidden) { setPaused('hidden'); return undefined; }
+    const arm = () => { clearTimeout(timer.current); timer.current = setTimeout(() => setPaused('idle'), LIVE_IDLE_MS); };
     arm();
-    const onVis = () => { if (document.hidden) setPaused(true); };
+    const onVis = () => { if (document.hidden) setPaused('hidden'); };
     window.addEventListener('pointerdown', arm, { passive: true });
     window.addEventListener('keydown', arm);
     document.addEventListener('visibilitychange', onVis);

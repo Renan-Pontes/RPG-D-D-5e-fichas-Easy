@@ -137,8 +137,10 @@ export const ONBOARDING_STEPS = ['cover', 'firstEntry', 'invite', 'prepare', 'tv
  * Situação de cada passo. Os passos se marcam sozinhos a partir dos dados
  * (capa existe, mundo tem entrada, há jogador…) ou da flag gravada em
  * `campaign.onboarding` (ex.: o mestre copiou o convite / abriu a Tela).
+ * Onda 3 (E2.7): "Abra a Tela na TV" também fica feito quando uma TV conectou
+ * (`tvSeen`: o pulso disse tvLive > 0 nesta visita; a casca grava a flag uma vez).
  */
-export function onboardingStatus(campaign, { worldCount = 0, planHasContent = false } = {}) {
+export function onboardingStatus(campaign, { worldCount = 0, planHasContent = false, tvSeen = false } = {}) {
   const ob = (campaign && campaign.onboarding) || {};
   const players = (campaign?.members || []).filter(m => m.role !== 'dm').length;
   const session = parseInt(campaign?.state?.session, 10);
@@ -147,7 +149,7 @@ export function onboardingStatus(campaign, { worldCount = 0, planHasContent = fa
     firstEntry: worldCount > 0 || !!ob.firstEntry,
     invite: players > 0 || !!ob.invite,
     prepare: !!(planHasContent || ob.prepare || (Number.isFinite(session) && session > 0)),
-    tv: !!ob.tv,
+    tv: !!ob.tv || !!tvSeen,
   };
   const count = ONBOARDING_STEPS.filter(k => done[k]).length;
   return {

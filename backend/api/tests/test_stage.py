@@ -523,3 +523,90 @@ class SceneStartTests(Base):
         self.assertNotIn('sceneId', str(tv))
         dm = self.c_dm.get(f'/api/campaigns/{self.camp.id}').json()['campaign']
         self.assertEqual(dm['state']['sceneId'], 'c1')
+
+
+class CombatTakesTheScreenTests(Base):
+    """E1.1 / E1.3 (onda 3): começar o combate leva a TV a ele; a frente fica guardada para
+    depois (volta sozinha no fim; ↶ Desfazer a põe por cima) e o teste velho sai do rodapé;
+    mostrar outra coisa por cima avisa que substituiu o que esperava."""
+    def setUp(self):
+        super().setUp()
+        self.combat = CombatInstance.objects.create(campaign=self.camp, active=False, round_number=1, combatants=[
+            {'id': 'g1', 'name': 'Goblin', 'type': 'monster', 'current_hp': 7, 'stats': {'max_hp': 7}, 'initiative': 12},
+        ])
+
+    def start(self):
+        r = self.c_dm.post(f'/api/combat/campaign/{self.camp.id}/start', {}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        return r.json()
+
+    def test_start_holds_the_front_and_drops_the_old_test(self):
+        self.stage({'op': 'show', 'target': {'kind': 'card', 'entryId': self.velna.id}})
+        check = CheckRequest.objects.create(campaign=self.camp, created_by=self.dm, label='Percepção', kind='skill',
+                                            key='perception', show_on_screen=True)
+        init = CheckRequest.objects.create(campaign=self.camp, created_by=self.dm, label='Iniciativa', kind='custom',
+                                           key='initiative', show_on_screen=True)
+        out = self.start()
+        self.assertEqual(out['tv'], {'held': 'Irmã Velna', 'testOff': True})
+        st = self.screen()['stage']
+        self.assertFalse(st['focus'])                       # a TV mostra o combate
+        self.assertEqual(st['front']['kind'], 'card')        # a frente espera o fim dele
+        check.refresh_from_db(); init.refresh_from_db()
+        self.assertFalse(check.show_on_screen)
+        self.assertTrue(init.show_on_screen)                 # o de iniciativa é deste combate
+        # ↶ Desfazer: a frente volta por cima do combate
+        self.stage({'op': 'undo'})
+        self.assertTrue(self.raw()['focus'])
+        # fim do combate: a frente guardada aparece (não a capa)
+        self.stage({'op': 'undo'})
+        self.c_dm.post(f'/api/combat/campaign/{self.camp.id}/end', {}, format='json')
+        st = self.screen()['stage']
+        self.assertEqual(st['front']['kind'], 'card')
+        self.assertFalse(st['focus'])
+
+    def test_nothing_on_screen_writes_nothing(self):
+        before = Campaign.objects.get(pk=self.camp.pk).updated_at
+        out = self.start()
+        self.assertEqual(out['tv'], {'held': None, 'testOff': False})
+        self.assertEqual(Campaign.objects.get(pk=self.camp.pk).updated_at, before)
+
+    def test_encounter_start_holds_too_and_keeps_already_held(self):
+        self.stage({'op': 'show', 'target': {'kind': 'text', 'text': 'O sino toca.'}})
+        r = self.c_dm.post(f'/api/combat/campaign/{self.camp.id}/encounter', {'opId': 'enc-0000-0001', 'start': True},
+                           format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()['tv']['held'], 'O sino toca.')
+        # sem começar (só montar) não mexe na Tela
+        r = self.c_dm.post(f'/api/combat/campaign/{self.camp.id}/encounter', {'opId': 'enc-0000-0002'}, format='json')
+        self.assertNotIn('tv', r.json())
+
+    def test_dark_screen_stays_dark(self):
+        self.stage({'op': 'show', 'target': {'kind': 'text', 'text': 'Silêncio.'}})
+        self.stage({'op': 'dark', 'on': True})
+        self.assertIsNone(self.start()['tv']['held'])
+        self.assertEqual(self.raw()['bg'], 'dark')
+
+    def test_showing_over_combat_says_what_it_replaced(self):
+        self.stage({'op': 'show', 'target': {'kind': 'card', 'entryId': self.velna.id}, 'focus': False})
+        self.start()
+        r = self.stage({'op': 'show', 'target': {'kind': 'text', 'text': 'Trovões.'}}).json()
+        self.assertEqual(r['replaced'], {'waiting': 'Irmã Velna'})
+        # sem nada esperando (ou fora do combate): nada a avisar
+        r = self.stage({'op': 'show', 'target': {'kind': 'text', 'text': 'Chuva.'}}).json()
+        self.assertNotIn('replaced', r)
+        self.c_dm.post(f'/api/combat/campaign/{self.camp.id}/end', {}, format='json')
+        self.stage({'op': 'show', 'target': {'kind': 'card', 'entryId': self.velna.id}, 'focus': False})
+        r = self.stage({'op': 'show', 'target': {'kind': 'text', 'text': 'Neblina.'}}).json()
+        self.assertNotIn('replaced', r)
+
+    def test_hold_is_pure_and_idempotent(self):
+        st = get_stage({})
+        st, changed = next_stage(st, {'op': 'hold'})
+        self.assertFalse(changed)
+        st, _ = next_stage(st, {'op': 'show', 'front': {'kind': 'text', 'text': 'a', 'label': 'a'}, 'focus': True})
+        st, changed = next_stage(st, {'op': 'hold'})
+        self.assertTrue(changed)
+        self.assertFalse(st['focus'])
+        self.assertTrue(st['prev']['focus'])
+        _, changed = next_stage(st, {'op': 'hold'})
+        self.assertFalse(changed)

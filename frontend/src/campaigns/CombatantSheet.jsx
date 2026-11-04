@@ -29,6 +29,7 @@ import { flash } from '../play/flash.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import { CONDITIONS, conditionLabel } from '../combat/monster-i18n.js';
 import { DamagePadBody, undoFlash } from '../play/DamagePad.jsx';
+import { newOpId } from '../play/damage-model.js';
 import { conditionIcon, CONDITION_EMOJI } from '../art.js';
 import { ArtIcon } from '../components/ArtThumb.jsx';
 import {
@@ -171,14 +172,15 @@ export function CombatantPanel({
   const doDeathSave = () => send({ action: 'death_save', targetId: c.id });
   const addCondition = (cond) => {
     const rounds = parseInt(condRoundsIn, 10);
-    return send({ action: 'add_condition', targetId: c.id, condition: cond, ...(rounds > 0 ? { rounds } : {}) });
+    // opId (onda 3, E1.4): a condição posta ganha o ↶ Desfazer da linha fixa do Combate
+    return send({ action: 'add_condition', targetId: c.id, condition: cond, opId: newOpId(), ...(rounds > 0 ? { rounds } : {}) });
   };
   // Tirar pergunta antes, na linha (o 1º toque só pergunta).
   const askDrop = (cond, where) => { setError(''); setAsking({ cond, where }); };
   const dropCondition = async () => {
     if (!asking || dropping) return;
     setDropping(true); setError('');
-    try { await api.combatAction(campaignId, { action: 'remove_condition', targetId: c.id, condition: asking.cond }); }
+    try { await api.combatAction(campaignId, { action: 'remove_condition', targetId: c.id, condition: asking.cond, opId: newOpId() }); }
     catch (e) { setError(errorMessage(e, lang)); }
     finally { setDropping(false); setAsking(null); onChange(); }
   };

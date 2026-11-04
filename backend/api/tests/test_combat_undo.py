@@ -258,3 +258,104 @@ class UndoTests(Base):
         cl = APIClient(); cl.force_login(self.ana)
         r = cl.post(self.url('undo'), {'opId': 'whatever-01'}, format='json')
         self.assertEqual(r.status_code, 403)
+
+
+class UndoAlwaysAtHandTests(Base):
+    """E1.4 (onda 3): o ↶ que não some. O registro do mestre marca `undo: True` só no que o
+    servidor ainda sabe desfazer; a condição posta/tirada com opId também desfaz; o
+    registro curto mantém o turno de antes à vista depois de um ↶ Voltar turno."""
+    def log(self):
+        return self.c.get(self.url('')[:-1]).json()['combat']['log']
+
+    def test_log_marks_what_can_be_undone(self):
+        self.act(action='damage', targetId='g1', amount=4, damageType='slashing', opId='dmg-0000-0101')
+        self.act(action='damage', targetId='g2', amount=1)              # sem opId: sem ↶
+        log = self.log()
+        flags = [(e['type'], e.get('target'), e.get('undo')) for e in log if e['type'] == 'damage']
+        self.assertEqual(flags, [('damage', 'Goblin #1', True), ('damage', 'Goblin #2', None)])
+        self.assertTrue(all('photo' not in e for e in log))
+        self.undo('dmg-0000-0101')
+        self.assertIsNone(next(e for e in self.log() if e.get('opId') == 'dmg-0000-0101').get('undo'))
+
+    def test_condition_added_and_removed_can_be_undone(self):
+        self.act(action='add_condition', targetId='g2', condition='poisoned', rounds=2, opId='cnd-0000-0001')
+        self.assertEqual(self.cb('g2')['conditions'], ['poisoned'])
+        self.assertTrue(any(e.get('opId') == 'cnd-0000-0001' and e.get('undo') for e in self.log()))
+        self.undo('cnd-0000-0001')
+        g2 = self.cb('g2')
+        self.assertEqual(g2['conditions'], [])
+        self.assertFalse(g2.get('effects'))
+        self.act(action='add_condition', targetId='g2', condition='prone')
+        self.act(action='remove_condition', targetId='g2', condition='prone', opId='cnd-0000-0002')
+        self.undo('cnd-0000-0002')
+        self.assertEqual(self.cb('g2')['conditions'], ['prone'])
+
+    def test_turn_before_stays_in_the_short_log_after_going_back(self):
+        nxt = lambda: self.c.post(self.url('next-turn'), {}, format='json')   # noqa: E731
+        prev = lambda: self.c.post(self.url('prev-turn'), {}, format='json')  # noqa: E731
+        for _ in range(3):
+            self.assertEqual(nxt().status_code, 200)
+        for i in range(12):   # muitas linhas no meio: o registro curto corta pelos turnos
+            self.act(action='damage', targetId='g2', amount=0, opId=f'zz-0000-{i:04d}')
+        self.assertEqual(prev().status_code, 200)
+        self.assertEqual(prev().status_code, 200)
+        log = self.log()
+        live = [e for e in log if e['type'] == 'next_turn' and not e.get('undone')]
+        self.assertEqual([(e['round'], e['index']) for e in live], [(1, 1)], 'o turno de antes continua no registro curto')
+        r = prev()
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual((r.json()['combat']['round'], r.json()['combat']['turnIndex']), (1, 0))
+        # de volta à 1ª vez: não há mais turno para voltar (o app esconde o ↶)
+        self.assertIs(r.json()['combat']['canPrev'], False)
+
+    def test_can_prev_says_what_the_server_can_undo(self):
+        get = lambda: self.c.get(self.url('')[:-1]).json()['combat']   # noqa: E731
+        self.assertIs(get()['canPrev'], False)                            # 1ª vez da rodada 1
+        r = self.c.post(self.url('next-turn'), {}, format='json').json()['combat']
+        self.assertIs(r['canPrev'], True)
+        # Próximo de antes desta versão (sem a foto de quem tinha a vez): o servidor não volta
+        self.combat.refresh_from_db()
+        self.combat.action_log = [{k: v for k, v in e.items() if k != 'from'} for e in self.combat.action_log]
+        self.combat.save()
+        self.assertIs(get()['canPrev'], False)
+        # o jogador não recebe
+        self.assertNotIn('canPrev', self.c_pl().get(self.url('')[:-1]).json()['combat'])
+
+    def c_pl(self):
+        c = APIClient()
+        c.force_login(self.ana)
+        return c
+
+
+class UndoMarkMatchesServerTests(Base):
+    """E1.4 (revisão): a marca `undo` só onde o POST …/undo desfaz de verdade — sem conflito
+    com os combatentes de agora. Antes o ↶ ficava oferecendo um 409 changed_since."""
+    def marks(self):
+        log = self.c.get(self.url('')[:-1]).json()['combat']['log']
+        return {e['opId'] for e in log if e.get('opId') and e.get('undo')}
+
+    def test_condition_that_the_next_turn_expired_loses_the_mark(self):
+        self.act(action='add_condition', targetId='g1', condition='blinded', rounds=1, opId='cnd-0000-0101')
+        self.assertEqual(self.marks(), {'cnd-0000-0101'})
+        self.assertEqual(self.c.post(self.url('next-turn'), {}, format='json').status_code, 200)
+        self.assertEqual(self.cb('g1')['conditions'], [])      # o efeito venceu no fim da vez dele
+        self.assertEqual(self.marks(), set())
+        self.undo('cnd-0000-0101', status=409)                  # o servidor concorda: não desfaz
+
+    def test_two_damages_on_the_same_target_only_the_newest_is_marked(self):
+        self.act(action='damage', targetId='g2', amount=2, damageType='slashing', opId='dmg-0000-0A0A')
+        self.act(action='damage', targetId='g2', amount=3, damageType='slashing', opId='dmg-0000-0B0B')
+        self.assertEqual(self.marks(), {'dmg-0000-0B0B'})
+        self.undo('dmg-0000-0A0A', status=409)
+        # desfeito o mais novo, o anterior volta a ter o ↶ (e desfaz)
+        self.undo('dmg-0000-0B0B')
+        self.assertEqual(self.marks(), {'dmg-0000-0A0A'})
+        self.undo('dmg-0000-0A0A')
+        self.assertEqual(self.cb('g2')['current_hp'], 10)
+
+    def test_many_targets_keep_the_mark_until_one_of_them_changes(self):
+        self.act(action='hp_many', op='damage', damageType='fire', opId='dmg-0000-0C0C',
+                 targets=[{'id': 'g1', 'amount': 2}, {'id': 'g2', 'amount': 2}])
+        self.assertEqual(self.marks(), {'dmg-0000-0C0C'})
+        self.act(action='damage', targetId='g2', amount=1)      # sem opId: mexe num dos alvos
+        self.assertEqual(self.marks(), set())

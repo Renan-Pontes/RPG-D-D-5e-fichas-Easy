@@ -58,12 +58,11 @@
 }
 .tv-canvas > * { min-height: 0; }
 /* Piso da letra: 12 px num palco de TV/monitor; a prévia do mestre (iframe de ~360 px) não tem.
-   O dado grande e o feed ficam fora do .tv-canvas: sem o piso definido neles, o
-   max(var(--tv-min), …) era inválido e a letra ficava presa em 17 px em qualquer TV.
-   Eles ganham o piso já num palco de 600 px (o tablet de 768 em pé): a linha do feed
-   é a letra menor da TV e não tem outro lugar onde ser lida. */
-.tv-canvas, .tv-roll-overlay, .tv-roll-feed { --tv-min: 0px; }
-@container (min-width: 600px) { .tv-roll-overlay, .tv-roll-feed { --tv-min: 12px; } }
+   O cartão grande e as Últimas rolagens ficam fora do .tv-canvas: sem o piso definido
+   neles, o max(var(--tv-min), …) era inválido e a letra ficava presa em 17 px em
+   qualquer TV. Eles ganham o piso já num palco de 600 px (o tablet de 768 em pé). */
+.tv-canvas, .tv-roll-overlay, .tv-roll-hist { --tv-min: 0px; }
+@container (min-width: 600px) { .tv-roll-overlay, .tv-roll-hist { --tv-min: 12px; } }
 @container (min-width: 1000px) { .tv-canvas { --tv-min: 12px; } }
 /* Texto que nem a menor letra fez caber: em colunas (tv-fit.js); o parágrafo não se parte
    entre colunas (inline-block é inteiro: se não couber, o encaixe mede e encolhe mais) */
@@ -454,6 +453,10 @@
 .tv-foe-hurt { color: var(--gold); }
 .tv-foe-bloodied { color: var(--blood-bright); }
 .tv-foe-down { color: var(--tv-ink-soft); }
+/* PJ a 0 PV fazendo testes contra a morte: "Morrendo" em vermelho, sem riscar o nome; "Estável"
+   em dourado (E1.5a) */
+.tv-foe-fallen, .tv-order-row.is-fallen .tv-hp-text { color: var(--blood-bright); font-weight: 600; }
+.tv-foe-stable, .tv-order-row.is-fallen.is-stable .tv-hp-text { color: var(--gold); }
 
 /* Combate: cartão do Mundo pequeno (TV de antes do palco) */
 .tv-mini-card {
@@ -541,6 +544,34 @@
 }
 .tv-card.is-partial .tv-card-text { color: var(--tv-ink-soft); font-style: italic; }
 .tv-card.is-partial .tv-card-art img { filter: sepia(0.35) contrast(0.95); }
+/* --- Onda 3 (E2.2): cartão com imagem própria — a imagem grande e INTEIRA (contain).
+   O palco usa a altura que sobra (sem o nome da campanha); o grupo fica embaixo, compacto. --- */
+.tv-stage.has-image { gap: 0; }
+.tv-stage.has-image .tv-card { width: 100%; flex: 1 1 auto; }
+.tv-card:is(.is-layout-side, .is-layout-wide, .is-layout-full) .tv-card-front { height: auto; min-height: 0; }
+.tv-screen.has-test .tv-card:is(.is-layout-side, .is-layout-wide, .is-layout-full) .tv-card-front { height: auto; }
+.tv-card-art.is-own {
+  background:
+    radial-gradient(ellipse at center, rgba(214, 176, 100, 0.06), transparent 70%),
+    linear-gradient(160deg, #1d150e, #0c0805);
+}
+.tv-card-art.is-own img { object-fit: contain; }
+.tv-card-art.is-own::after { box-shadow: none; }
+/* em pé (ou texto longo): a imagem à esquerda na altura toda, o texto ao lado */
+.tv-card.is-layout-side .tv-card-front { grid-template-columns: minmax(0, 58%) minmax(0, 1fr); }
+.tv-card.is-layout-side .tv-card-art.is-own { border-right: 1px solid var(--stroke); }
+/* larga (mapas) e sem texto: a imagem na tela toda; o nome (e o texto curto) numa faixa por cima, embaixo */
+.tv-card:is(.is-layout-wide, .is-layout-full) .tv-card-front { display: block; }
+.tv-card:is(.is-layout-wide, .is-layout-full) .tv-card-art.is-own { position: absolute; inset: 0; }
+.tv-card:is(.is-layout-wide, .is-layout-full) .tv-card-body {
+  position: absolute; left: 0; right: 0; bottom: 0; max-height: max(34%, 26cqh);   /* com o grupo embaixo o cartão encolhe: o texto não some */
+  padding: 3.4cqh 2.6cqw 2cqh; gap: 0.6cqh;
+  background: linear-gradient(180deg, rgba(10, 7, 4, 0) 0%, rgba(10, 7, 4, 0.86) 28%, rgba(10, 7, 4, 0.94) 100%);
+}
+.tv-card:is(.is-layout-wide, .is-layout-full) .tv-card-title { font-size: 3cqw; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9); }
+.tv-card:is(.is-layout-wide, .is-layout-full) .tv-card-title::after { display: none; }
+.tv-card.is-layout-full .tv-card-body { max-height: 22%; }
+
 @keyframes tv-flip {
   0%   { transform: rotateY(180deg) scale(0.72) translateY(40px); opacity: 0; }
   25%  { opacity: 1; }
@@ -664,6 +695,24 @@
 .tv-roll-overlay.phase-reveal .tv-dice-stage { height: 22cqh; transition: height 0.4s ease; }
 .tv-roll-overlay.phase-reveal .tv-roll-dice { min-height: 0; }
 
+/* Rolagem comum de jogador (E2.1): o mesmo cartão, um pouco menor, sobre um véu mais leve
+   (a TV continua à vista em volta); 20 e 1 naturais usam o tamanho cheio. */
+.tv-roll-overlay.is-small { background: rgba(0, 0, 0, 0.6); }
+.tv-roll-overlay.is-small .tv-roll-inner {
+  min-width: 42cqw; max-width: 70cqw; padding: 3cqh 4cqw 3.4cqh; border-radius: 1.4cqw;
+  border: 2px solid var(--tv-gold-deep);
+  background: radial-gradient(ellipse at 50% 0%, rgba(214, 176, 100, 0.16), transparent 60%), linear-gradient(160deg, #2a1f14, #120c07);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.75);
+}
+.tv-roll-overlay.is-small .tv-roll-who { font-size: 2.3cqw; }
+.tv-roll-overlay.is-small .tv-roll-label { font-size: 2.2cqw; margin-bottom: 1cqh; }
+.tv-roll-overlay.is-small .tv-dice-stage { width: 50cqw; height: 30cqh; }
+.tv-roll-overlay.is-small.phase-reveal .tv-dice-stage { height: 18cqh; }
+.tv-roll-overlay.is-small .tv-roll-dice { min-height: 14cqh; }
+.tv-roll-overlay.is-small .tv-die-result { font-size: 5cqw; padding: 1.2cqh 1.6cqw; min-width: 7cqw; }
+.tv-roll-overlay.is-small :is(.tv-roll-mod, .tv-roll-equals) { font-size: 3.6cqw; }
+.tv-roll-overlay.is-small .tv-roll-total { font-size: 6cqw; }
+
 /* Ataque de monstro: "ACERTA · 6 cortante" (o d20 natural fica no dado, sem o bônus) */
 .tv-roll-tag.tv-hit-tag { color: var(--tv-gold); letter-spacing: 0.12em; animation: none; }
 .tv-roll-tag.tv-miss-tag { color: var(--tv-ink-soft); letter-spacing: 0.12em; animation: none; }
@@ -691,33 +740,85 @@
 .tv-roll-saves li.is-pass .tv-roll-save-mark { color: var(--moss-bright); }
 .tv-roll-saves li.is-fail .tv-roll-save-mark { color: var(--blood-bright); }
 
-/* === Feed (V10): as rolagens pequenas no canto de baixo à esquerda (somem em 12 s) === */
-.tv-roll-feed {
-  position: absolute; left: 1.2cqw; bottom: 2cqh; z-index: 60;
-  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6cqh;
-  max-width: 40cqw; pointer-events: none;
+/* === Últimas rolagens (onda 3, E2.1): as 5 mais novas, lidas a 3 m ===
+   Nome e total com 1,8cqw (23 px numa TV 1280×720), o rótulo com 1,4cqw. Escondidas
+   enquanto há cartão grande; somem 2 min depois da última rolagem (roll-queue.js).
+   O lugar não cobre texto, a ordem nem os tokens (tv-logic.histPlacement, `.is-<spot>`):
+   no combate no pé da coluna da iniciativa ('side', as linhas que couberem; sem lugar,
+   'map': 3 compactas e translúcidas no canto do mapa com menos tokens); no repouso e no
+   cartão sem imagem no canto de baixo à esquerda ('corner', o grupo do rodapé abre
+   espaço); com texto ou imagem na largura toda (o texto de ler, cartão com imagem, cena,
+   texto, recap, mapa), uma linha embaixo ('line') e o resto sobe para dar lugar. */
+.tv-roll-hist {
+  position: absolute; left: 1.4cqw; bottom: 2.4cqh; z-index: 60;
+  width: 32cqw; max-width: 46%; pointer-events: none;
+  padding: 1cqh 1cqw 1.2cqh; border-radius: 0.9cqw;
+  background: rgba(7, 5, 4, 0.88); border: 1px solid rgba(214, 176, 100, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  animation: tv-hist-in 0.35s ease-out;
 }
-.tv-feed-item {
-  display: flex; align-items: baseline; gap: 0.6cqw; min-width: 0;
-  padding: 0.6cqh 1cqw; border-radius: 0.6cqw;
-  background: rgba(7, 5, 4, 0.86); border: 1px solid rgba(214, 176, 100, 0.25);
-  color: var(--tv-ink); font-size: max(var(--tv-min), 1.4cqw); line-height: 1.3;
-  animation: tv-feed-in 0.3s ease-out;
+.tv-hist-title {
+  margin: 0 0 0.6cqh; font-family: 'Cinzel', serif; font-weight: 400; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--tv-gold); font-size: max(var(--tv-min), 1.1cqw);
 }
-.tv-feed-item.is-crit { border: 2px solid var(--tv-gold); box-shadow: 0 0 18px rgba(214, 176, 100, 0.35); }
-.tv-feed-item.is-fail { border-color: var(--blood-bright); }
-.tv-feed-ico { flex: none; }
-/* Só o rótulo encolhe (até 2 linhas, depois reticências); o resultado nunca é cortado */
-.tv-feed-text {
-  flex: 1 1 auto; min-width: 0; overflow: hidden; overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+.tv-hist-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5cqh; }
+.tv-hist-item {
+  display: flex; align-items: baseline; gap: 0.7cqw; min-width: 0;
+  padding: 0.4cqh 0.7cqw; border-radius: 0.5cqw; border-left: 0.25cqw solid transparent;
+  line-height: 1.2; opacity: 0.8;
 }
-.tv-feed-res { flex: none; white-space: nowrap; font-family: 'Cinzel', serif; font-weight: 700; color: var(--tv-gold); }
-/* Salvaguarda: os alvos numa linha própria, quebrando entre eles se preciso */
-.tv-feed-item.is-save { flex-wrap: wrap; }
-.tv-feed-item.is-save .tv-feed-res { flex: 1 1 100%; white-space: normal; font-family: inherit; }
-@keyframes tv-feed-in { from { transform: translateX(-2cqw); opacity: 0; } to { transform: none; opacity: 1; } }
-.tv-screen.has-roll-overlay .tv-roll-feed { opacity: 0; }
+.tv-hist-item.is-new { opacity: 1; background: rgba(214, 176, 100, 0.1); }
+.tv-hist-item.is-crit { border-left-color: var(--tv-gold); }
+.tv-hist-item.is-fail { border-left-color: var(--blood-bright); }
+/* o rótulo encolhe primeiro (até sumir); o nome só passa de 78% da linha cortado; o resultado nunca */
+.tv-hist-who {
+  flex: none; max-width: 78%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-family: 'Cinzel', serif; color: var(--tv-ink); font-size: max(var(--tv-min), 1.8cqw);
+}
+.tv-hist-what {
+  flex: 1 1 0; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  color: var(--tv-ink-soft); font-style: italic; font-size: max(var(--tv-min), 1.4cqw);
+}
+.tv-hist-res {
+  flex: none; margin-left: auto; white-space: nowrap;
+  font-family: 'Cinzel', serif; font-weight: 700; color: var(--tv-gold); font-size: max(var(--tv-min), 1.8cqw);
+}
+.tv-hist-item.is-fail .tv-hist-res { color: var(--blood-bright); }
+@keyframes tv-hist-in { from { transform: translateY(1.5cqh); opacity: 0; } to { transform: none; opacity: 1; } }
+/* com o teste na faixa de baixo, as do canto sobem acima dela (não cobrem os nomes do teste) */
+.tv-screen.has-test .tv-roll-hist.is-corner { bottom: 22cqh; }
+/* no canto, o grupo do rodapé abre espaço à esquerda (os cartões encolhem; nada some) */
+.tv-screen.hist-corner .tv-party { padding-left: 33cqw; }
+/* combate: no pé da coluna da iniciativa, embaixo da última linha da ordem (a caixa fica
+   por cima da coluna, então a ordem não encolhe; quantas linhas cabem é medido na TV) */
+.tv-combat-side { position: relative; }
+.tv-roll-hist.is-side { left: 0; right: 0; bottom: 0; width: auto; max-width: none; box-shadow: none; }
+/* a ordem enche a coluna: 3 linhas translúcidas no canto do mapa com menos tokens
+   (tv-logic.quietCorner; os de baixo transparecem) */
+.tv-grid-container { position: relative; }
+.tv-roll-hist.is-map { max-width: 60%; background: rgba(7, 5, 4, 0.6); border-color: rgba(214, 176, 100, 0.25); box-shadow: none; }
+.tv-roll-hist.is-map.at-bl { left: 1cqw; bottom: 1.4cqh; }
+.tv-roll-hist.is-map.at-br { left: auto; right: 1cqw; bottom: 1.4cqh; }
+.tv-roll-hist.is-map.at-tl { left: 1cqw; top: 1.4cqh; bottom: auto; }
+.tv-roll-hist.is-map.at-tr { left: auto; right: 1cqw; top: 1.4cqh; bottom: auto; }
+.tv-roll-hist.is-map .tv-hist-item:not(.is-new) { opacity: 0.7; }
+/* uma linha embaixo, a mais nova primeiro: as que não cabem na largura descem para uma 2ª
+   linha que fica fora da caixa (nunca meia rolagem); a frente sobe o mesmo tanto */
+.tv-screen { --tv-hist-line: calc(max(12px, 1.8cqw) * 1.25 + 0.8cqh); }
+.tv-roll-hist.is-line {
+  right: 1.4cqw; bottom: 1.4cqh; width: auto; max-width: none;
+  display: flex; align-items: center; gap: 1.2cqw; padding: 0.6cqh 1cqw;
+}
+.tv-roll-hist.is-line .tv-hist-title { flex: none; margin: 0; }
+.tv-roll-hist.is-line .tv-hist-list {
+  flex: 1 1 auto; min-width: 0; flex-direction: row; flex-wrap: wrap; column-gap: 1cqw; row-gap: 20cqh;
+  height: var(--tv-hist-line); overflow: hidden;
+}
+.tv-roll-hist.is-line .tv-hist-item { flex: none; max-width: 100%; height: var(--tv-hist-line); box-sizing: border-box; align-items: center; }
+.tv-roll-hist.is-line .tv-hist-who { max-width: 24cqw; }
+.tv-roll-hist.is-line .tv-hist-what { flex: 0 1 auto; max-width: 13cqw; }
+.tv-roll-hist.is-line .tv-hist-res { margin-left: 0.4cqw; }
+.tv-screen.has-roll-hist.hist-reserve-bottom .tv-canvas { padding-bottom: calc(var(--tv-hist-line) + 1.2cqh + 2px + 1.4cqh + 1.4cqh); }
 
 /* === Teste mostrado pelo mestre: faixa ≤ 18% da altura que EMPURRA o resto === */
 .tv-check-panel {
@@ -770,7 +871,8 @@
 
 /* === "Reconectando…" === */
 .tv-offline {
-  position: absolute; left: 1.2cqw; bottom: 2cqh; z-index: 50; padding: 0.4cqh 1cqw; border-radius: 999px;
+  /* no centro de baixo: o canto da esquerda é das Últimas rolagens e a coluna da direita, da iniciativa */
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: 2cqh; z-index: 50; padding: 0.4cqh 1cqw; border-radius: 999px;
   background: rgba(0, 0, 0, 0.75); color: var(--tv-ink-soft); font-size: 1.2cqw;
 }
 
@@ -812,14 +914,21 @@
 }
 @keyframes tv-front-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
 
-/* Cena: imagem à esquerda (40%) + nome + texto para ler */
+/* Cena: imagem em pé à esquerda (40%) + nome + texto para ler; imagem larga em cima (E2.3).
+   A imagem da cena também vai inteira (contain), nunca cortada. */
 .tv-scene-front {
   flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 3cqw; align-items: center;
   animation: tv-front-in 0.6s ease-out both;
 }
-.tv-scene-front.has-img { grid-template-columns: minmax(0, 40%) minmax(0, 1fr); }
-.tv-scene-art { height: 100%; min-height: 0; border-radius: 1cqw; overflow: hidden; border: 2px solid var(--tv-accent); }
-.tv-scene-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tv-scene-front.is-side { grid-template-columns: minmax(0, 40%) minmax(0, 1fr); }
+.tv-scene-front.is-wide { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 1.6cqh; align-items: stretch; }
+.tv-scene-front.is-wide .tv-scene-body { max-height: 34cqh; }
+.tv-scene-front.is-wide .tv-scene-title { font-size: 3.4cqw; }
+.tv-scene-art {
+  height: 100%; min-height: 0; border-radius: 1cqw; overflow: hidden; border: 2px solid var(--tv-accent);
+  background: linear-gradient(160deg, #1d150e, #0c0805);
+}
+.tv-scene-art img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .tv-scene-body { display: flex; flex-direction: column; gap: 1.2cqh; min-width: 0; min-height: 0; max-height: 100%; overflow: hidden; }
 .tv-scene-title { flex: none; margin: 0; font-family: 'Cinzel', serif; color: var(--gold-bright); line-height: 1.05; font-size: 4.4cqw; }
 .tv-scene-text {
@@ -827,7 +936,27 @@
   min-height: 0; overflow: hidden; column-gap: 2cqw;
 }
 .tv-scene-text p { margin: 0 0 0.6em; break-inside: avoid-column; }
+.tv-scene-read { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .tv-scene-front.is-long .tv-scene-title { font-size: 3.4cqw; }
+/* Sem imagem: um painel do app (couro escuro, filete dourado) no centro, com o título grande
+   e o texto de ler em voz alta legível — não mais a capa borrada com uma linha solta. */
+.tv-scene-front.is-panel { justify-items: center; }
+.tv-scene-front.is-panel .tv-scene-body {
+  width: min(86cqw, 100%); align-items: center; text-align: center; gap: 1.6cqh;
+  padding: 4cqh 4.4cqw 4.4cqh; border-radius: 1.4cqw;
+  border: 2px solid var(--tv-gold-deep);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(214, 176, 100, 0.14), transparent 60%),
+    linear-gradient(160deg, rgba(42, 31, 20, 0.96), rgba(18, 12, 7, 0.97));
+  box-shadow: 0 0 0 6px rgba(7, 5, 4, 0.7), 0 30px 80px rgba(0, 0, 0, 0.7);
+}
+.tv-scene-ornament { flex: none; color: var(--tv-accent); font-size: 2.4cqw; text-shadow: 0 0 18px rgba(214, 176, 100, 0.6); }
+.tv-scene-front.is-panel .tv-scene-title { font-size: 5.2cqw; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6), 0 0 42px rgba(214, 176, 100, 0.3); }
+.tv-scene-front.is-panel.is-long .tv-scene-title { font-size: 3.8cqw; }
+.tv-scene-front.is-panel .tv-scene-read {
+  align-self: stretch; padding: 1.6cqh 2cqw; border-left: 0.3cqw solid var(--tv-gold); background: rgba(7, 5, 4, 0.45); border-radius: 0.4cqw;
+}
+.tv-scene-front.is-panel .tv-scene-text { text-align: left; font-style: italic; font-size: max(var(--tv-min), calc(var(--fit, 1) * 2.4cqw)); }
 
 /* Texto livre */
 .tv-text-front {
@@ -865,7 +994,7 @@
   .tv-recap-bar, .tv-recap-eyebrow, .tv-recap-campaign, .tv-recap-title, .tv-recap-text p,
   .tv-mini-card, .tv-live-dot, .tv-inspiration, .tv-combat-pill, .tv-now-acting,
   .tv-front-image-box, .tv-scene-front, .tv-text-front, .tv-check-panel,
-  .tv-feed-item, .tv-roll-saves li, .tv-roll-tag {
+  .tv-roll-hist, .tv-roll-saves li, .tv-roll-tag {
     animation: none !important;
   }
   .tv-backdrop img { transition: none; }

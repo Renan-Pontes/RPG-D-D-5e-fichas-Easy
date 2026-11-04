@@ -116,6 +116,19 @@ export function bgLabel(now, lang = 'pt') {
   return `🏠 ${L(lang, 'Capa', 'Cover')}`;
 }
 
+/**
+ * O texto do aviso de "mostrou" (o mesmo nos 9 lugares): "Na tela ✓ · <nome>" e, quando
+ * outra coisa esperava o fim do combate, "· substitui “X”…". `short` é a forma do aviso
+ * apertado do celular de 320 px (E2-fix): "✓ <nome>" — sai o "Na tela" (o aviso só vem de
+ * um 📺) e as reticências caem só no nome. Sem nome, a curta é a própria. → {text, short}
+ */
+export function sentNotice(label, name = '', replaced = '') {
+  const tail = replaced ? ` · ${replaced}` : '';
+  const text = `${label}${name ? ` · ${name}` : ''}${tail}`;
+  const mark = /✓/.test(label) ? '✓ ' : '';
+  return { text, short: name ? `${mark}${name}${tail}` : text };
+}
+
 /** Teste mostrado: "🎯 Percepção 3/4" (aceita o cartão do mestre, o da Tela ou o do pulso, {done, total}). */
 export function testLabel(test) {
   if (!test) return '';

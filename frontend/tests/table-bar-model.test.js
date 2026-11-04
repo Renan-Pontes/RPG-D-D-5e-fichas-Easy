@@ -267,3 +267,57 @@ test('V15: as listas de rolagens de mesa seguem o tableRollsRev (servidor de ant
   assert.equal(tableRollsRev({ checksRev: 'c1' }), 'c1');
   assert.equal(tableRollsRev(null), undefined);
 });
+
+// Onda 3 (E2.5): a miniatura de verdade.
+test('E2.5: miniplayer lembrado no aparelho, canto pelo dedo e ⇅', async () => {
+  const { readMini, writeMini, nearestCorner, flipCorner } = await import('../src/stage/table-bar-model.js');
+  const mem = new Map();
+  const storage = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, String(v)) };
+  assert.deepEqual(readMini(storage), { open: false, corner: 'br' });
+  writeMini({ open: true, corner: 'tl' }, storage);
+  assert.deepEqual(readMini(storage), { open: true, corner: 'tl' });
+  mem.set('forja:mini-player', '{lixo');
+  assert.deepEqual(readMini(storage), { open: false, corner: 'br' });
+  writeMini({ open: true, corner: 'xx' }, storage);
+  assert.equal(readMini(storage).corner, 'br');
+  assert.equal(nearestCorner({ x: 10, y: 20, w: 200, h: 112, vw: 390, vh: 844 }), 'tl');
+  assert.equal(nearestCorner({ x: 180, y: 600, w: 200, h: 112, vw: 390, vh: 844 }), 'br');
+  assert.equal(nearestCorner({ x: 0, y: 700, w: 200, h: 112, vw: 390, vh: 844 }), 'bl');
+  assert.equal(flipCorner('br'), 'tr');
+  assert.equal(flipCorner('tl'), 'bl');
+  assert.equal(flipCorner('??'), 'tr');
+});
+
+test('E2.5: a janela do PC lembra Ao vivo e Recolher', async () => {
+  const { readWinSize, writeWinSize } = await import('../src/stage/table-bar-model.js');
+  const mem = new Map();
+  const storage = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, String(v)) };
+  assert.equal(readWinSize(storage), 'thumb');
+  writeWinSize('live', storage);
+  assert.equal(readWinSize(storage), 'live');
+  writeWinSize('pill', storage);
+  assert.equal(readWinSize(storage), 'pill');
+  writeWinSize('enorme', storage);
+  assert.equal(readWinSize(storage), 'pill', 'valor estranho não grava');
+  assert.equal(readWinSize({ getItem: () => { throw new Error('x'); } }), 'thumb');
+});
+
+test('E2.5: a miniatura usa a arte padrão do cartão sem imagem (como a TV), não a capa', async () => {
+  const { frontArtRef } = await import('../src/stage/table-bar-model.js');
+  const velna = { kind: 'card', entryId: 3, label: 'Irmã Velna', ver: '' };
+  assert.deepEqual(frontArtRef(velna, { type: 'entry', entryId: 3, kind: 'npc' }), { id: 3, kind: 'npc' });
+  assert.deepEqual(frontArtRef({ ...velna, entryKind: 'place' }, null), { id: 3, kind: 'place' });
+  assert.equal(frontArtRef(velna, { type: 'entry', entryId: 9, kind: 'npc' }), null, 'o cartão antigo é outro: espera o GET');
+  assert.equal(frontArtRef({ ...velna, ver: 'abc' }, { type: 'entry', entryId: 3, kind: 'npc' }), null, 'com imagem própria');
+  assert.equal(frontArtRef({ kind: 'image', ref: { entryId: 3 }, ver: 'x' }, null), null);
+  assert.equal(frontArtRef(null, null), null);
+});
+
+test('E2.5: quanto falta para a rolagem sair da miniatura', async () => {
+  const { freshRollLeft, ROLL_SHOW_MS } = await import('../src/stage/table-bar-model.js');
+  const roll = { id: 7, who: 'Dagna', total: 17 };
+  assert.equal(freshRollLeft(roll, { id: 7, at: 1000 }, 3000), ROLL_SHOW_MS - 2000);
+  assert.equal(freshRollLeft(roll, { id: 7, at: 0 }, 3000), null, 'a que já existia ao abrir');
+  assert.equal(freshRollLeft(roll, { id: 7, at: 1000 }, 1000 + ROLL_SHOW_MS), null);
+  assert.equal(freshRollLeft(null, null, 0), null);
+});

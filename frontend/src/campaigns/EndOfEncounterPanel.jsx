@@ -1,4 +1,5 @@
-// Fim de encontro guiado (opt-in). Folha da mesa (MesaSheet "tall", pela Cena e
+// Fim de encontro guiado (ligado por padrão desde a onda 3; quem desligou continua
+// desligado). Folha da mesa (MesaSheet "tall", pela Cena e
 // pelo Combate) com passos opcionais; cada passo só chama a API quando o mestre
 // toca. Não empurra mais o topo da tela. Com a nota do Diário mexida e ainda não
 // salva, ✕/Esc/toque fora perguntam antes de fechar.
@@ -36,7 +37,8 @@ function useSceneRoom(campaignId, scene) {
   return room;
 }
 
-export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, onNavigate, onChange }) {
+/** `onGoNow`: "Ir para a Agora" (no Combate o mestre fica até escolher para onde ir; ✓ Pronto fica). */
+export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, onNavigate, onChange, onGoNow = null }) {
   const steps = wizardSteps(campaign.state);
   const summary = useMemo(() => encounterSummary(combat), [combat]);
   const xp = useMemo(() => {
@@ -75,6 +77,9 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
   const roundsText = L(lang, `${summary.rounds} rodada${summary.rounds > 1 ? 's' : ''}`, `${summary.rounds} round${summary.rounds > 1 ? 's' : ''}`);
   const footer = (
     <div className="mesa-actions">
+      {onGoNow && (
+        <button type="button" className="mesa-btn mesa-btn-lg eoe-go-now" onClick={onGoNow}>🎭 {L(lang, 'Ir para a Agora', 'Go to Now')}</button>
+      )}
       <button type="button" className="mesa-btn mesa-btn-lg is-primary eoe-done" onClick={onClose}>✓ {L(lang, 'Pronto', 'Done')}</button>
     </div>
   );

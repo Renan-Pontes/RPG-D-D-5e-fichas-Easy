@@ -338,3 +338,68 @@ export function tableRollsRev(pulse) {
   if (!pulse) return undefined;
   return pulse.tableRollsRev ?? pulse.checksRev;
 }
+
+// ---------------------------------------------------------------------------
+// Onda 3 (E2.5): a miniatura de verdade — o miniplayer do celular e a janela do PC
+// lembrados no aparelho, e a mesma imagem que a TV mostra.
+// ---------------------------------------------------------------------------
+const local = (storage) => storage || (typeof localStorage !== 'undefined' ? localStorage : null);
+
+export const MINI_CORNERS = ['br', 'bl', 'tr', 'tl'];
+const MINI_KEY = 'forja:mini-player';
+
+/** O miniplayer do celular: {open, corner} (fechado, no canto de baixo à direita, por padrão). */
+export function readMini(storage) {
+  try {
+    const v = JSON.parse(local(storage)?.getItem(MINI_KEY) || 'null');
+    return { open: v?.open === true, corner: MINI_CORNERS.includes(v?.corner) ? v.corner : 'br' };
+  } catch { return { open: false, corner: 'br' }; }
+}
+export function writeMini(prefs, storage) {
+  try { local(storage)?.setItem(MINI_KEY, JSON.stringify({ open: !!prefs?.open, corner: MINI_CORNERS.includes(prefs?.corner) ? prefs.corner : 'br' })); }
+  catch { /* modo privado: vale só nesta visita */ }
+}
+
+/** O canto mais perto do centro do miniplayer solto pelo dedo ('tl' | 'tr' | 'bl' | 'br'). */
+export function nearestCorner({ x, y, w = 0, h = 0, vw, vh }) {
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  return `${cy < vh / 2 ? 't' : 'b'}${cx < vw / 2 ? 'l' : 'r'}`;
+}
+
+/** ⇅ (o botão do miniplayer): o mesmo lado, em cima ↔ embaixo. */
+export function flipCorner(corner) {
+  const c = MINI_CORNERS.includes(corner) ? corner : 'br';
+  return `${c[0] === 't' ? 'b' : 't'}${c[1]}`;
+}
+
+export const WIN_SIZES = ['thumb', 'live', 'pill'];
+const WIN_KEY = 'forja:tv-win-size';
+
+/** A janela do PC: 'thumb' (resumo) · 'live' (⤢ Ao vivo) · 'pill' (– Recolher), lembrada no aparelho. */
+export function readWinSize(storage) {
+  try { const v = local(storage)?.getItem(WIN_KEY); return WIN_SIZES.includes(v) ? v : 'thumb'; }
+  catch { return 'thumb'; }
+}
+export function writeWinSize(size, storage) {
+  try { if (WIN_SIZES.includes(size)) local(storage)?.setItem(WIN_KEY, size); } catch { /* ok */ }
+}
+
+/**
+ * A imagem da frente como a TV a desenha, para a miniatura do mestre (E2.5a): o cartão
+ * do Mundo SEM imagem própria vai na TV com a arte padrão do tipo dele; a miniatura
+ * usava a capa. Devolve {id, kind} para world-model.defaultArt, ou null (com imagem
+ * própria, outra frente, ou o tipo ainda desconhecido: o GET da campanha traz o
+ * `screenCard` com o tipo logo depois do 📺).
+ */
+export function frontArtRef(front, screenCard) {
+  if (!front || front.kind !== 'card' || front.ver) return null;
+  const kind = front.entryKind
+    || (screenCard && screenCard.type === 'entry' && Number(screenCard.entryId) === Number(front.entryId) ? screenCard.kind : null);
+  return kind ? { id: front.entryId, kind } : null;
+}
+
+/** Quanto falta (ms) para a rolagem nova sair da miniatura (null: nenhuma à vista). */
+export function freshRollLeft(roll, seen, now = Date.now()) {
+  return freshRoll(roll, seen, now) ? Math.max(0, seen.at + ROLL_SHOW_MS - now) : null;
+}
