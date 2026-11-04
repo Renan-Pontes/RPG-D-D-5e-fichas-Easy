@@ -19,6 +19,7 @@ import {
   fightEntry, snapCount, sceneMoments, sceneIdeasByChar, spotKey, sceneHeading, whatField, closeScene, SCENE_LIMITS,
 } from './scene-model.js';
 import { withSceneName, PLAN_LIMITS } from './next-session.js';
+import { isIdeaTitle } from '../group/idea-titles.js';
 import { makeNode, hasTreasure, treasureSummary } from './prep-graph.js';
 import { loadRoom, loadRooms, saveRoom, prepApi } from './prep-api.js';
 import './scene-sheet.css';
@@ -501,6 +502,11 @@ export default function SceneSheet({
             placeholder={t(lang, 'Ex.: Ponte velha sobre o Rio Brumoso', 'E.g. Old bridge over the Misty River')}
             onChange={e => { setNameError(false); onChange(scene.id, { text: withSceneName(scene.text, e.target.value) }); }} />
           {nameError && <p className="ss-error" id="ss-name-err" role="alert">{t(lang, 'Dê um nome à cena.', 'Give the scene a name.')}</p>}
+          {/* a cena veio do Raio-X e ainda tem o nome da ideia (só história): a mesa o lê ao começar */}
+          {!nameError && isIdeaTitle(scene?.fromIdea, view.name) && (
+            <p className="ss-hint">{t(lang, 'Nome vindo do Raio-X: os jogadores e a TV veem este nome quando a cena começa. Troque por um da sua história, se quiser.',
+              'Name from the X-ray: the players and the TV see this name when the scene starts. Swap it for one from your story if you like.')}</p>
+          )}
         </div>
         <div className="ss-field">
           <label className="ss-label" htmlFor="ss-what">{t(lang, 'O que acontece (só você vê)', 'What happens (only you see)')}</label>

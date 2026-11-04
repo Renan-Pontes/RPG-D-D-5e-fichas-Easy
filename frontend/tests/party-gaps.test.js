@@ -7,6 +7,7 @@ import Utils from '../utils.js';
 import * as M from '../src/group/party-metrics.js';
 import * as S from '../src/group/spotlights.js';
 import { sceneFieldText } from '../src/play/plan-model.js';
+import { ideaTitle, isIdeaTitle } from '../src/group/idea-titles.js';
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/party-jogo-e-combate.json', import.meta.url), 'utf8'));
 const party = M.partyMembers(fixture.members);
@@ -133,14 +134,15 @@ test('3 ideias de cena, de tipos diferentes, e a cena que vai para o plano (F2.1
     'Uma cena em que só Blefar resolve (ninguém é bom nisso)',
     'Um perigo de salvaguarda de DES com saída',
   ]);
-  assert.deepEqual(ideas.map(i => i.title), ['Uma luta que ocupa Elarion', 'Só Blefar resolve', 'Perigo: salvaguarda de DES']);
+  // o nome de mesa é só história (os jogadores e a TV o leem quando a cena começa)
+  assert.deepEqual(ideas.map(i => i.title), ['Inimigos demais', 'Uma conversa difícil', 'Um chão traiçoeiro']);
   assert.deepEqual(ideas.map(i => i.key), ['spof:control', 'skill:deception', 'save:dex']);
   const dmgOnly = S.sceneIdeas(gaps.filter(g => g.kind === 'damage'), facts, 'pt');
   assert.match(dmgOnly[0].text, /^Um inimigo que resiste a .+: o grupo precisa de outro plano$/);
   // a cena nasce com o título da ideia e o texto à vista no "O que acontece" (só o mestre vê)
   const scene = S.ideaScene(ideas[1], 'pt');
   assert.deepEqual(scene, {
-    text: 'Só Blefar resolve',
+    text: 'Uma conversa difícil',
     what: 'Uma cena em que só Blefar resolve (ninguém é bom nisso)\nLacuna do grupo: Ninguém é bom em Blefar (melhor +2; CD 15 passa 40%)',
     fromIdea: 'skill:deception',
   });
@@ -148,7 +150,7 @@ test('3 ideias de cena, de tipos diferentes, e a cena que vai para o plano (F2.1
   // servidor de antes do Plano guiado: a ideia na 2ª linha do texto (o nome continua o título)
   const old = S.ideaScene(ideas[1], 'pt', { inText: true });
   assert.deepEqual(Object.keys(old), ['text']);
-  assert.equal(sceneFieldText(old), 'Só Blefar resolve');
+  assert.equal(sceneFieldText(old), 'Uma conversa difícil');
   assert.ok(old.text.includes('Lacuna do grupo'));
   // "Usar como cena" leva só o nome: nenhum número nem lacuna do Raio-X vai à Tela (§8)
   for (const lang of ['pt', 'en']) {
@@ -158,7 +160,48 @@ test('3 ideias de cena, de tipos diferentes, e a cena que vai para o plano (F2.1
       assert.doesNotMatch(name, /%|\d|ninguém|nobody/i, name);
     }
   }
-  assert.equal(S.sceneIdeas(gaps, facts, 'en')[2].title, 'Danger: DEX saving throw');
+  assert.equal(S.sceneIdeas(gaps, facts, 'en')[2].title, 'Treacherous ground');
+});
+
+test('o nome da cena que vem do Raio-X não leva personagem, perícia, salvaguarda nem lacuna à mesa (F2.1)', () => {
+  // todas as lacunas possíveis, de todos os tipos, nas duas línguas
+  const all = [
+    ...M.SKILLS.map(k => ({ kind: 'skill', key: k })),
+    ...M.ABILS.map(a => ({ kind: 'save', key: a })),
+    ...M.AXES.flatMap(k => [{ kind: 'spof', key: k, who: facts.map(f => f.id) }, { kind: 'axis', key: k }]),
+    ...M.DAMAGE_TYPES.map(k => ({ kind: 'damage', key: k })),
+    { kind: 'sense', key: 'darkvision' }, { kind: 'tool', key: 'thievesTools' },
+  ].map(g => ({ ...g, text: 'lacuna' }));
+  const ABIL_NAMES = ['Força', 'Destreza', 'Constituição', 'Inteligência', 'Sabedoria', 'Carisma', 'Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'];
+  const names = facts.flatMap(f => f.name.split(/\s+/));
+  for (const lang of ['pt', 'en']) {
+    const ideas = all.map(g => S.sceneIdeas([g], facts, lang, 1)[0]).filter(Boolean);
+    assert.equal(ideas.length, all.length, 'cada lacuna tem a sua ideia');
+    for (const idea of ideas) {
+      const name = sceneFieldText(S.ideaScene(idea, lang));
+      assert.equal(name, idea.title);
+      for (const n of names) assert.ok(!name.includes(n), `${name} tem ${n}`);
+      for (const k of M.SKILLS) for (const l of ['pt', 'en']) assert.ok(!name.toLowerCase().includes(M.skillLabel(k, l).toLowerCase()), `${name} tem ${M.skillLabel(k, l)}`);
+      for (const a of M.ABILS) for (const l of ['pt', 'en']) assert.doesNotMatch(name, new RegExp(`\\b${M.abilShort(a, l)}\\b`), name);
+      for (const w of ABIL_NAMES) assert.ok(!name.toLowerCase().includes(w.toLowerCase()), `${name} tem ${w}`);
+      for (const k of M.AXES) for (const l of ['pt', 'en']) assert.ok(!name.toLowerCase().includes(M.axisLabel(k, l).toLowerCase()), `${name} tem ${M.axisLabel(k, l)}`);
+      for (const k of M.DAMAGE_TYPES) for (const l of ['pt', 'en']) assert.doesNotMatch(name, new RegExp(`\\b${M.damageLabel(k, l)}\\b`, 'i'), name);
+      assert.doesNotMatch(name, /%|\d|ninguém|nobody|lacuna|gap|Ladrão|Thieves/i, name);
+      // a ideia inteira, com quem ela visa, fica no "O que acontece" (só o mestre vê)
+      assert.ok(S.ideaScene(idea, lang).what.startsWith(idea.text));
+    }
+  }
+  // a ideia de ponto único continua dizendo ao mestre quem ela ocupa, só fora do nome
+  const spof = S.sceneIdeas(gaps, facts, 'pt')[0];
+  assert.match(spof.text, /Elarion/);
+  assert.doesNotMatch(spof.title, /Elarion/);
+  // a folha da cena reconhece o nome que veio da ideia (em pt ou en) e larga dele ao renomear
+  assert.equal(ideaTitle('skill:deception', 'en'), 'A tricky conversation');
+  assert.ok(isIdeaTitle('skill:deception', 'Uma conversa difícil'));
+  assert.ok(isIdeaTitle('skill:deception', ' A tricky conversation '));
+  assert.ok(!isIdeaTitle('skill:deception', 'A ponte do mentiroso'));
+  assert.ok(!isIdeaTitle(null, 'Uma conversa difícil'));
+  assert.ok(!isIdeaTitle('skill:deception', ''));
 });
 
 test('a ideia levada fica marcada: pela chave guardada e, nas cenas de antes, pelo texto (F2.1)', () => {
@@ -170,6 +213,11 @@ test('a ideia levada fica marcada: pela chave guardada e, nas cenas de antes, pe
   assert.ok(S.sceneHasIdea({ ...scene, text: 'A ponte do mentiroso' }, skill));
   // cena feita pela versão de antes ("Cena nova" + a ideia nas notas) e a do servidor sem o bolso
   assert.ok(S.sceneHasIdea({ text: `Cena nova\n${skill.text}\nLacuna do grupo: ${skill.gap}` }, skill));
-  assert.ok(S.sceneHasIdea({ text: 'Só Blefar resolve', what: skill.text }, skill));
+  assert.ok(S.sceneHasIdea({ text: 'Uma conversa difícil', what: skill.text }, skill));
   assert.ok(!S.sceneHasIdea({ text: 'Taverna' }, skill));
+  // o nome sozinho não conta: o mesmo título serve a mais de uma ideia e a cenas do mestre
+  assert.ok(!S.sceneHasIdea({ text: 'Uma conversa difícil' }, skill));
+  const persuade = S.sceneIdeas([{ kind: 'skill', key: 'persuasion', text: 'x' }], facts, 'pt')[0];
+  assert.equal(persuade.title, skill.title);
+  assert.ok(!S.sceneHasIdea(scene, persuade));
 });
