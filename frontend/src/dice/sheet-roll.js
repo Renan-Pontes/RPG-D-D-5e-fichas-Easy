@@ -25,6 +25,10 @@
 // contado pela hora em que o pedido CHEGA; esperar a resposta garante a folga mesmo
 // quando a rede atrasa um e não o outro). Ataque e dano tocados em seguida vão os
 // dois; o que esperou demais (a Tela já passou dele) fica só no aparelho.
+// Onda 3 (E2.6): a regra do mestre tem 3 posições — todas · só 20 e 1 · nenhuma
+// (`mode` 'all' | 'crits' | 'off', do GET das campanhas da ficha). Com "Só 20 e 1" a
+// ficha nem manda a rolagem comum (nenhum pedido); o servidor filtra também (200
+// {shown:false, filtered:true}) para a ficha de antes, que manda tudo.
 // Onda 3 (E2.1): a rolagem só sai DEPOIS de o dado parar no aparelho do jogador
 // (createSettleGate): a TV mostra o cartão grande com o nome e nunca entrega o número
 // antes de ele aparecer aqui. Sem animação, sai na hora.
@@ -56,6 +60,7 @@ export function writeSecret(characterId, on, storage = local()) {
 
 // ---------------------------------------------------------------- a ficha aberta
 // {characterId, name, secret, allowed (a regra do mestre, se a ficha já soube),
+//  mode ('all' | 'crits' | 'off', a regra inteira, se o servidor disse),
 //  live (a sessão ao vivo, se a ficha já soube), blocked}
 let current = null;
 const subs = new Set();
@@ -71,7 +76,7 @@ export function setSheetRolls({ characterId, name = '' } = {}, storage = local()
   if (characterId == null) { emit(null); return; }
   if (current && current.characterId === characterId && current.name === name) return;
   const same = current?.characterId === characterId;
-  emit({ characterId, name, secret: readSecret(characterId, storage), allowed: same ? current.allowed : null, live: same ? current.live : null, blocked: false });
+  emit({ characterId, name, secret: readSecret(characterId, storage), allowed: same ? current.allowed : null, mode: same ? current.mode : null, live: same ? current.live : null, blocked: false });
 }
 /** A ficha fechou (só limpa se ainda é ela). */
 export function clearSheetRolls(characterId) {
@@ -93,13 +98,14 @@ export function setSheetSecret(on, storage = local()) {
  * (`allowed` ← sheetRolls) e a sessão ao vivo (`live`). O que não vier fica como estava
  * (servidor de antes do `live`: a ficha manda, e o 204 ensina).
  */
-export function setSheetPolicy(characterId, { allowed, live } = {}, now = Date.now()) {
+export function setSheetPolicy(characterId, { allowed, live, mode } = {}, now = Date.now()) {
   if (!current || current.characterId !== characterId) return;
   checkedAt = now;
   const next = { ...current };
   if (typeof allowed === 'boolean') next.allowed = allowed;
   if (typeof live === 'boolean') next.live = live;
-  if (next.allowed !== current.allowed || next.live !== current.live) emit(next);
+  if (['all', 'crits', 'off'].includes(mode)) { next.mode = mode; next.allowed = mode !== 'off'; }
+  if (next.allowed !== current.allowed || next.live !== current.live || next.mode !== current.mode) emit(next);
 }
 /** Só a regra do mestre (compatível com a V15). */
 export function setSheetAllowed(characterId, allowed, now = Date.now()) {
@@ -158,11 +164,20 @@ export function sheetRollBody(entry) {
   return body;
 }
 
+/** 20 ou 1 natural no d20 sozinho (com vantagem, o que ficou) — o mesmo que o servidor conta. */
+export function naturalCritOrFail(body) {
+  const dice = body?.dice || [];
+  const kept = dice.filter(d => d.kept !== false);
+  if (!dice.length || dice.some(d => d.die !== 'd20') || kept.length !== 1 || kept[0].sign === -1) return false;
+  return kept[0].value === 20 || kept[0].value === 1;
+}
+
 /**
  * Manda ou não? → {body} ou {skip}: 'none' (a ficha não está numa campanha),
  * 'secret' (🔒 Só eu: nada sai do aparelho), 'blocked' (403/423 antes), 'off' (o
  * mestre deixou as rolagens das fichas fora da Tela: o servidor só diria 204), 'idle'
- * (sem sessão ao vivo: idem) e 'local' (o servidor não aceitaria; fica só no aparelho).
+ * (sem sessão ao vivo: idem), 'filtered' (a regra é "Só 20 e 1" e esta não é: nenhum
+ * pedido) e 'local' (o servidor não aceitaria; fica só no aparelho).
  */
 export function planSheetRoll(ctx, entry) {
   if (!ctx || ctx.characterId == null) return { skip: 'none' };
@@ -171,10 +186,12 @@ export function planSheetRoll(ctx, entry) {
   if (ctx.allowed === false) return { skip: 'off' };
   if (ctx.live === false) return { skip: 'idle' };
   const body = sheetRollBody(entry);
-  return body ? { body } : { skip: 'local' };
+  if (!body) return { skip: 'local' };
+  if (ctx.mode === 'crits' && !naturalCritOrFail(body)) return { skip: 'filtered' };
+  return { body };
 }
 
-/** A resposta (ou o erro) do POST → 'shown' | 'skipped' | 'blocked' | 'failed' | 'unknown'. */
+/** A resposta (ou o erro) do POST → 'shown' | 'filtered' | 'skipped' | 'blocked' | 'failed' | 'unknown'. */
 export function outcomeOf(res, err) {
   if (err) {
     const s = err.status;
@@ -183,6 +200,7 @@ export function outcomeOf(res, err) {
     if (err.name === 'TimeoutError' || err.name === 'AbortError') return 'unknown';
     return 'failed';
   }
+  if (res && res.filtered) return 'filtered';   // "Só 20 e 1": a regra segue valendo, a próxima pode ir
   return res && res.shown ? 'shown' : 'skipped';
 }
 

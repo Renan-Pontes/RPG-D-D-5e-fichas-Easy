@@ -210,6 +210,9 @@
 /* V10 · Rolagens na Tela: as regras (segmentado de 44 px, explicado por escrito) e as últimas 5 */
 .stage-rule-row { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-top: 1px dashed var(--stroke); min-width: 0; }
 .stage-rule-row:first-of-type { border-top: 0; }
+/* E2.6: a lista do que vai à Tela (uma linha por origem) */
+.stage-rule-list { list-style: none; margin: 0; padding: 0; }
+.stage-rule-list > .stage-rule-row:first-child { border-top: 0; }
 .stage-rule-title { font-family: var(--display); font-size: 0.85rem; letter-spacing: 0.06em; color: var(--gold); }
 .stage-rule-seg .mesa-seg-btn { min-height: 44px; white-space: normal; text-align: center; line-height: 1.15; }
 .stage-rule-why { margin: 0; }
@@ -304,6 +307,20 @@
     max-width: calc(100vw - 24px);
     animation-name: stage-flash-in;
   }
+  /* E2.8: sem folha aberta, o aviso ("Na tela ✓ · ↶ Desfazer") desce para cima da parte da
+     esquerda da barra (miniatura e texto, que dizem o mesmo): não cobre o conteúdo (as abas
+     Imagens · Cenas · Texto · Mapa de Jogar › Tela) e deixa o 🎲 e o Próximo à vista. */
+  body:has(.mesa-bar):not(:has(.mesa-sheet-backdrop)) .play-flash {
+    bottom: calc(var(--shell-bar-h, 62px) + 6px + env(safe-area-inset-bottom, 0px));
+    left: max(6px, env(safe-area-inset-left, 0px));
+    max-width: calc(100vw - 6px - 48px - 18px); min-height: 52px; font-size: 14px; line-height: 1.25;
+  }
+  body:has(.mesa-bar.has-action):not(:has(.mesa-sheet-backdrop)) .play-flash { max-width: calc(100vw - 6px - 48px - 88px - 22px); }
+  body:has(.mesa-bar):not(:has(.mesa-sheet-backdrop)) .play-flash .play-flash-text {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+  }
+  body:has(.mesa-bar):not(:has(.mesa-sheet-backdrop)) .play-flash.has-action { padding-left: 10px; gap: 6px; }
+  body:has(.mesa-bar):not(:has(.mesa-sheet-backdrop)) .play-flash-act { padding: 0 10px; font-size: 14px; }
   body:has(.mesa-bar) .toast {
     right: 12px;
     bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bar-h, 64px) + 10px + env(safe-area-inset-bottom, 0px));
@@ -357,6 +374,16 @@
   .mesa-bar-thumb { width: 60px; }
   .stage-thumb.is-mini { width: 56px; height: 32px; }
   .mesa-bar-act { width: 80px; }
+}
+@media (max-width: 767px) {
+  /* E2.8, sem a barra da mesa e sem folha aberta: o aviso desce para logo acima da barra de
+     baixo, à esquerda do 🎲 (como os avisos da casca), em vez de ficar no meio do conteúdo */
+  body:has(.shell-bottom-bar):not(:has(.mesa-bar)):not(:has(.mesa-sheet-backdrop)) .play-flash {
+    left: max(12px, env(safe-area-inset-left, 0px)); right: auto; transform: none;
+    bottom: calc(var(--shell-bar-h, 62px) + 8px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100vw - 24px - var(--shell-fab-size, 50px) - 10px);
+    animation-name: stage-flash-in;
+  }
 }
 @keyframes stage-flash-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 

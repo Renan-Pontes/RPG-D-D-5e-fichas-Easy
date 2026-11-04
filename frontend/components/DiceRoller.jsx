@@ -426,6 +426,7 @@ const DiceRoller = ({ lang }) => {
   const sheetLine = !sheetMode ? '' : sheetNote ? tableNoteText(sheetNote, lang)
     : sheet.secret ? L(lang, 'Só você vê o que rola nesta ficha: nada sai do aparelho.', 'Only you see what you roll on this sheet: nothing leaves this device.')
       : sheet.allowed === false ? L(lang, 'O mestre deixou as rolagens das fichas fora da Tela.', 'The GM keeps sheet rolls off the screen.')
+        : sheet.mode === 'crits' && sheet.live !== false ? L(lang, 'Na sessão ao vivo, só os 20 e 1 naturais desta ficha vão à Tela (regra do mestre).', 'During the live session, only natural 20s and 1s from this sheet go on screen (the GM’s rule).')
         : sheet.live === false ? L(lang, 'Sem sessão ao vivo agora: o que você rola fica no seu aparelho.', 'No live session right now: what you roll stays on your device.')
           : L(lang, `Na sessão ao vivo, a Tela da mesa mostra o que ${sheet.name || 'a ficha'} rola.`, `During the live session, the table screen shows what ${sheet.name || 'this sheet'} rolls.`);
   const animLabel = { '3d': '3D', '2d': '2D', off: L(lang, 'Sem animação', 'No animation') }[animPref];

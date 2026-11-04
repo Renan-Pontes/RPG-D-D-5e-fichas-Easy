@@ -13,6 +13,7 @@ from . import wild_shape as ws_engine
 from . import spells as spells_engine
 from . import edit_log
 from .stage import get_stage
+from . import table_rolls
 from .progression import validate_level_choice, apply_level_choice, validate_class_options, apply_class_options
 from .progression.resources import rest_resources, spend_resource
 
@@ -492,7 +493,10 @@ def character_campaigns(request, pk):
                 'purgeAt': P.purge_at(m.campaign).isoformat() if P.purge_at(m.campaign) else None,
                 'sponsored': m.sponsored,
                 # V15: o mestre deixa as rolagens das fichas irem à Tela? (Jogar › Tela)
-                'sheetRolls': bool(get_stage(m.campaign.state)['prefs'].get('sheets', True)),
+                # Onda 3 (E2.6): 'all' · 'crits' (só 20 e 1) · 'off'; `sheetRolls` fica booleano
+                # para a ficha de antes (com "Só 20 e 1" ela manda tudo e o servidor filtra).
+                'sheetRolls': table_rolls.sheets_mode(get_stage(m.campaign.state)['prefs']) != 'off',
+                'sheetRollsMode': table_rolls.sheets_mode(get_stage(m.campaign.state)['prefs']),
                 # …e há sessão ao vivo? Fora dela a ficha não manda nada (o POST só daria 204)
                 'live': bool((m.campaign.state or {}).get('live')),
             }

@@ -259,7 +259,9 @@ def sheet_roll(request, pk):
     Só quem joga ESTE personagem na campanha (a vaga dele; o mestre usa o 🎲 dele).
     Campanha encerrada → 423 (closed_guard, em urls.py); mais de 3 em 3 s → 429;
     sem sessão ao vivo ou com "Rolagens das fichas" desligada pelo mestre
-    (`stage.prefs.sheets`) → 204 sem gravar. 1 consulta (a vaga, com só `live` e o
+    (`stage.prefs.sheets`) → 204 sem gravar. Com a regra em "Só 20 e 1" (onda 3,
+    E2.6), a rolagem sem 20 nem 1 natural → 200 {shown: false, filtered: true}, sem
+    gravar (a ficha não para de mandar: a próxima pode ser um 20). 1 consulta (a vaga, com só `live` e o
     palco do `state`) e, quando vai à Tela, 1 escrita + a arrumação.
     """
     seat = (Membership.objects.filter(character_id=pk, user=request.user).exclude(role='dm')
@@ -271,8 +273,11 @@ def sheet_roll(request, pk):
     if seat['campaign__status'] == 'closed':  # o closed_guard já respondeu; aqui só por garantia
         return Response({'error': 'campaign_closed'}, status=423)
     prefs = get_stage({'stage': seat['campaign__state__stage']})['prefs']
-    if not seat['campaign__state__live'] or not prefs.get('sheets', True):
+    mode = table_rolls.sheets_mode(prefs)
+    if not seat['campaign__state__live'] or mode == 'off':
         return Response(status=204)
+    if mode == 'crits' and not (roll['crit'] or roll['fail']):
+        return Response({'shown': False, 'filtered': True})
     rr = table_rolls.record(seat['campaign_id'], request.user, 'sheet', character=int(pk), **roll)
     return Response({'shown': True, 'rollId': rr.id}, status=201)
 

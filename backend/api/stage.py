@@ -45,7 +45,8 @@ RECAP_KEY = 'stageRecap'
 BGS = ('auto', 'map', 'dark')
 OPS = ('show', 'clear', 'back', 'undo', 'dark', 'bg', 'prefs')
 FRONT_KINDS = ('card', 'image', 'scene', 'text', 'recap')
-# sheets (V15): as rolagens das FICHAS dos jogadores vão à Tela na sessão ao vivo (padrão ligado)
+# sheets (V15): as rolagens das FICHAS dos jogadores vão à Tela na sessão ao vivo (padrão ligado).
+# Onda 3 (E2.6): True (todas) · 'crits' (só 20 e 1 naturais no d20) · False (nenhuma).
 PREFS_DEFAULT = {'players': 'crits', 'dm': 'secret', 'monsters': 'shown', 'initiative': True, 'party': True,
                  'sheets': True}
 PREFS_CHOICES = {'players': ('all', 'crits', 'off'), 'dm': ('secret', 'shown'), 'monsters': ('shown', 'secret')}
@@ -308,7 +309,7 @@ def clean_prefs(raw):
             if value not in PREFS_CHOICES[key]:
                 _bad(f'invalid_{key}')
         elif key in ('initiative', 'party', 'sheets'):
-            if not isinstance(value, bool):
+            if not isinstance(value, bool) and not (key == 'sheets' and value == 'crits'):
                 _bad(f'invalid_{key}')
         else:
             _bad('invalid_prefs')

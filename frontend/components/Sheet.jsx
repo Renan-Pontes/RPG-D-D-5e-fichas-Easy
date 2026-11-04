@@ -725,8 +725,8 @@ const CampaignModeBanner = ({ char, lang, onChange, onManage, onLogin, rev = 0 }
       if (cancelled) return;
       const c = (r.campaigns || [])[0];
       setCampInfo(c || null);
-      // a regra do mestre e a sessão ao vivo: fora dela a ficha não manda nada
-      if (c) setSheetPolicy(char.id, { allowed: c.sheetRolls, live: c.live });
+      // a regra do mestre (todas · só 20 e 1 · nenhuma) e a sessão ao vivo: fora dela a ficha não manda nada
+      if (c) setSheetPolicy(char.id, { allowed: c.sheetRolls, live: c.live, mode: c.sheetRollsMode });
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [char.id, inTable, rev, recheck]);

@@ -89,6 +89,12 @@ def players_allow(prefs, rolls, dice_type='d20'):
     return crit or fail
 
 
+def sheets_mode(prefs):
+    """A regra "Rolagens das fichas" (onda 3, E2.6): 'all' · 'crits' (só 20/1 natural) · 'off'."""
+    v = (prefs or {}).get('sheets', True)
+    return 'crits' if v == 'crits' else ('off' if v is False else 'all')
+
+
 def prefs_of(campaign):
     from .stage import get_stage
     return get_stage(campaign.state)['prefs']

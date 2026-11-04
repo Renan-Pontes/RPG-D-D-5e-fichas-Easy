@@ -196,6 +196,28 @@ class SheetRollTests(Base):
         self.assertEqual(self.prefs(sheets=True).status_code, 200)
         self.assertEqual(self.post(percepcao()).status_code, 201)
 
+    def test_dm_keeps_only_natural_20_and_1_from_sheets(self):
+        """Onda 3 (E2.6): "Rolagens das fichas: Só 20 e 1" — a comum não grava (200, filtrada,
+        a ficha continua mandando); o 20 e o 1 naturais vão à Tela."""
+        url = f'/api/characters/{self.dagna.id}/campaigns'
+        self.assertEqual(self.prefs(sheets='crits').status_code, 200)
+        dm = self.c_dm.get(f'/api/campaigns/{self.camp.id}').json()['campaign']
+        self.assertEqual(dm['stage']['prefs']['sheets'], 'crits')
+        seat = self.c_ana.get(url).json()['campaigns'][0]
+        self.assertEqual((seat['sheetRolls'], seat['sheetRollsMode']), (True, 'crits'))
+        r = self.post(percepcao(12))
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json(), {'shown': False, 'filtered': True})
+        self.assertFalse(RollRequest.objects.exists())
+        r = self.post(percepcao(20, 3))
+        self.assertEqual(r.status_code, 201, r.content)
+        r = self.post(percepcao(1, 3))
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(RollRequest.objects.filter(note='@mesa:sheet').count(), 2)
+        self.assertEqual(self.prefs(sheets='todas').status_code, 400)
+        self.assertEqual(self.prefs(sheets=False).status_code, 200)
+        self.assertEqual(self.c_ana.get(url).json()['campaigns'][0]['sheetRollsMode'], 'off')
+
     def test_sheet_rolls_enter_the_same_prune(self):
         RollRequest.objects.bulk_create([
             RollRequest(campaign=self.camp, requested_by=self.dm, status='public', note='@mesa:dm', total=i)

@@ -306,3 +306,33 @@ test('createSettleGate: o envio espera o dado parar (ou a próxima rolagem, ou 4
   assert.deepEqual(sent, ['a', 'b', 'c']);
   assert.equal(gate.pending(), 0);
 });
+
+// Onda 3 (E2.6): "Rolagens das fichas: Todas · Só 20 e 1 · Nenhuma".
+test('"Só 20 e 1": a rolagem comum nem sai do aparelho; o 20 e o 1 naturais vão', async () => {
+  const { naturalCritOrFail } = await import('../src/dice/sheet-roll.js');
+  setSheetRolls({ characterId: 77, name: 'Dagna' }, memory());
+  setSheetPolicy(77, { live: true, mode: 'crits' });
+  assert.equal(getSheetRolls().mode, 'crits');
+  assert.equal(getSheetRolls().allowed, true);
+  const comum = entryOf('1d20+3', { label: 'Percepção', preset: [12] });
+  assert.deepEqual(planSheetRoll(getSheetRolls(), comum), { skip: 'filtered' });
+  const vinte = entryOf('1d20+3', { label: 'Percepção', preset: [20] });
+  assert.ok(planSheetRoll(getSheetRolls(), vinte).body);
+  const um = entryOf('1d20+3', { label: 'Percepção', preset: [1] });
+  assert.ok(planSheetRoll(getSheetRolls(), um).body);
+  // com vantagem vale o que ficou; dano (d8) nunca é crítico
+  assert.equal(naturalCritOrFail({ dice: [{ die: 'd20', value: 20 }, { die: 'd20', value: 4, kept: false }] }), true);
+  assert.equal(naturalCritOrFail({ dice: [{ die: 'd20', value: 20, kept: false }, { die: 'd20', value: 4 }] }), false);
+  assert.equal(naturalCritOrFail({ dice: [{ die: 'd8', value: 8 }] }), false);
+  assert.equal(naturalCritOrFail({ dice: [{ die: 'd20', value: 20 }, { die: 'd6', value: 1 }] }), false);
+  // "Nenhuma" e "Todas" pela mesma chave
+  setSheetPolicy(77, { mode: 'off' });
+  assert.equal(getSheetRolls().allowed, false);
+  assert.deepEqual(planSheetRoll(getSheetRolls(), vinte), { skip: 'off' });
+  setSheetPolicy(77, { mode: 'all' });
+  assert.ok(planSheetRoll(getSheetRolls(), comum).body);
+  // a ficha de antes manda tudo: o servidor responde "filtrada" e ela continua mandando
+  assert.equal(outcomeOf({ shown: false, filtered: true }), 'filtered');
+  assert.equal(noteFor('filtered'), null);
+  clearSheetRolls(77);
+});
