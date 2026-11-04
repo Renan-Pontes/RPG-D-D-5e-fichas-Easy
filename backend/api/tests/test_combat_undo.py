@@ -258,3 +258,50 @@ class UndoTests(Base):
         cl = APIClient(); cl.force_login(self.ana)
         r = cl.post(self.url('undo'), {'opId': 'whatever-01'}, format='json')
         self.assertEqual(r.status_code, 403)
+
+
+class UndoAlwaysAtHandTests(Base):
+    """E1.4 (onda 3): o ↶ que não some. O registro do mestre marca `undo: True` só no que o
+    servidor ainda sabe desfazer; a condição posta/tirada com opId também desfaz; o
+    registro curto mantém o turno de antes à vista depois de um ↶ Voltar turno."""
+    def log(self):
+        return self.c.get(self.url('')[:-1]).json()['combat']['log']
+
+    def test_log_marks_what_can_be_undone(self):
+        self.act(action='damage', targetId='g1', amount=4, damageType='slashing', opId='dmg-0000-0101')
+        self.act(action='damage', targetId='g2', amount=1)              # sem opId: sem ↶
+        log = self.log()
+        flags = [(e['type'], e.get('target'), e.get('undo')) for e in log if e['type'] == 'damage']
+        self.assertEqual(flags, [('damage', 'Goblin #1', True), ('damage', 'Goblin #2', None)])
+        self.assertTrue(all('photo' not in e for e in log))
+        self.undo('dmg-0000-0101')
+        self.assertIsNone(next(e for e in self.log() if e.get('opId') == 'dmg-0000-0101').get('undo'))
+
+    def test_condition_added_and_removed_can_be_undone(self):
+        self.act(action='add_condition', targetId='g2', condition='poisoned', rounds=2, opId='cnd-0000-0001')
+        self.assertEqual(self.cb('g2')['conditions'], ['poisoned'])
+        self.assertTrue(any(e.get('opId') == 'cnd-0000-0001' and e.get('undo') for e in self.log()))
+        self.undo('cnd-0000-0001')
+        g2 = self.cb('g2')
+        self.assertEqual(g2['conditions'], [])
+        self.assertFalse(g2.get('effects'))
+        self.act(action='add_condition', targetId='g2', condition='prone')
+        self.act(action='remove_condition', targetId='g2', condition='prone', opId='cnd-0000-0002')
+        self.undo('cnd-0000-0002')
+        self.assertEqual(self.cb('g2')['conditions'], ['prone'])
+
+    def test_turn_before_stays_in_the_short_log_after_going_back(self):
+        nxt = lambda: self.c.post(self.url('next-turn'), {}, format='json')   # noqa: E731
+        prev = lambda: self.c.post(self.url('prev-turn'), {}, format='json')  # noqa: E731
+        for _ in range(3):
+            self.assertEqual(nxt().status_code, 200)
+        for i in range(12):   # muitas linhas no meio: o registro curto corta pelos turnos
+            self.act(action='damage', targetId='g2', amount=0, opId=f'zz-0000-{i:04d}')
+        self.assertEqual(prev().status_code, 200)
+        self.assertEqual(prev().status_code, 200)
+        log = self.log()
+        live = [e for e in log if e['type'] == 'next_turn' and not e.get('undone')]
+        self.assertEqual([(e['round'], e['index']) for e in live], [(1, 1)], 'o turno de antes continua no registro curto')
+        r = prev()
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual((r.json()['combat']['round'], r.json()['combat']['turnIndex']), (1, 0))

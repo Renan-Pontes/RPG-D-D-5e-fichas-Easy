@@ -56,6 +56,7 @@ from .dice_privacy import scrub_dice
 from .permissions import get_campaign_or_404, require_dm, require_member, is_dm
 from . import combat as engine
 from .diary import log_combat_start, log_combat_end, log_roll_request
+from .stage import hold_for_combat
 from .image_data import image_link, image_response, image_size, image_ver, validate_data_url
 from . import plans as P
 from . import table_rolls
@@ -220,7 +221,12 @@ def _serialize_combat(c, *, for_dm=False, token=None):
     else:
         # A foto do turno (`photo`, `from`) é do servidor (↶ Voltar turno lê do banco):
         # não viaja a cada mudança.
-        log = [{k: v for k, v in e.items() if k not in SERVER_LOG_KEYS} if isinstance(e, dict) else e for e in log]
+        # `undo: True` (E1.4): a entrada que o ↶ Desfazer (POST …/undo) ainda sabe desfazer — a
+        # foto é do servidor, então o app não a vê; o Registro recente e a linha fixa do
+        # combate oferecem o ↶ só onde ele existe.
+        log = [{**{k: v for k, v in e.items() if k not in SERVER_LOG_KEYS},
+                **({'undo': True} if e.get('opId') and e.get('photo') and not e.get('undone') else {})}
+               if isinstance(e, dict) else e for e in log]
     base = f'/api/screen/{token}' if token else f'/api/combat/campaign/{c.campaign_id}'
     combatants = [_sprite_link(x, base) for x in combatants if isinstance(x, dict)]
     return {
@@ -251,7 +257,9 @@ def _recent_log(log, keep=10, cap=30):
     log = list((log or [])[-cap:])
     seen = 0
     for i in range(len(log) - 1, -1, -1):
-        if isinstance(log[i], dict) and log[i].get('type') in TURN_MARKERS:
+        # um Próximo turno desfeito não conta: o ↶ Voltar turno seguinte (E1.4) precisa do
+        # turno de antes à vista
+        if isinstance(log[i], dict) and log[i].get('type') in TURN_MARKERS and not log[i].get('undone'):
             seen += 1
             if seen == 2:
                 return log[min(i, max(0, len(log) - keep)):]
@@ -399,6 +407,17 @@ def _photos(after_list, targets_before, actors_before=()):
     return out
 
 
+COND_PHOTO_FIELDS = ('conditions', 'effects')
+
+
+def _cond_photo(after_list, before):
+    """A foto de uma condição posta ou tirada (E1.4): as condições e os efeitos com
+    duração do alvo, antes e depois — o ↶ Desfazer do PV serve igual."""
+    after = engine.find_combatant(after_list, before.get('id'))
+    p = engine.photo_of(before, after, COND_PHOTO_FIELDS) if after else None
+    return [p] if p else []
+
+
 def _went_down(before, after):
     """Caiu agora: PV foi de >0 para 0 nesta ação."""
     try:
@@ -544,7 +563,8 @@ def combat_start(request, id_or_slug):
     _append_log(c, {'type': 'start'})
     c.save()
     log_combat_start(campaign, c.combatants, request.user)
-    return Response({'combat': _serialize_combat(c, for_dm=True)})
+    # E1.1: a TV vai para o combate (a frente fica guardada para depois dele)
+    return Response({'combat': _serialize_combat(c, for_dm=True), 'tv': hold_for_combat(campaign)})
 
 
 @api_view(['POST'])
@@ -1190,10 +1210,12 @@ def combat_encounter(request, id_or_slug):
         _map_ver_to_state(campaign, c)
     if ended:
         log_combat_end(campaign, ended[0], ended[1], request.user, action_log=ended[2])
+    out = {'combat': _serialize_combat(c, for_dm=True), 'opId': op_id, 'rolled': rolled,
+           'check': _check_payload(campaign, check.id) if check else None}
     if started:
         log_combat_start(campaign, c.combatants, request.user)
-    return Response({'combat': _serialize_combat(c, for_dm=True), 'opId': op_id, 'rolled': rolled,
-                     'check': _check_payload(campaign, check.id) if check else None})
+        out['tv'] = hold_for_combat(campaign)   # E1.1: a TV vai para o combate
+    return Response(out)
 
 
 @api_view(['POST'])
@@ -1609,6 +1631,8 @@ def _apply_action(request, campaign, c, op_id):
         applied = engine.add_condition(tgt, cond, rounds=rounds)
         combatants = engine.replace_combatant(combatants, applied['combatant'])
         log_entry.update({'target': tgt.get('name'), 'condition': cond, 'applied': applied['applied']})
+        if op_id and applied['applied']:
+            photo = _cond_photo(combatants, tgt)   # E1.4: a condição também tem ↶ Desfazer
         response_payload['result'] = applied
 
     elif action_type == 'remove_condition':
@@ -1619,6 +1643,8 @@ def _apply_action(request, campaign, c, op_id):
         applied = engine.remove_condition(tgt, cond)
         combatants = engine.replace_combatant(combatants, applied['combatant'])
         log_entry.update({'target': tgt.get('name'), 'condition': cond})
+        if op_id:
+            photo = _cond_photo(combatants, tgt)   # E1.4: a condição também tem ↶ Desfazer
         response_payload['result'] = applied
 
     elif action_type == 'death_save':

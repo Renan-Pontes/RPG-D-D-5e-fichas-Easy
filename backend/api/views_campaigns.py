@@ -14,8 +14,8 @@ from .campaign_state import (clean_state_patch, clean_state_value, locked_dm_set
                              PATCHABLE_KEYS, SERVER_KEYS)
 from .image_data import validate_data_url, image_ver, image_response
 from .screen_card import clean_screen_card, resolve_screen_card
-from .stage import (apply_stage_op, clean_stage_op, stage_from_screen_card, stage_image_data, start_scene,
-                    undo_scene_start, with_combat_now)
+from .stage import (apply_stage_op, clean_stage_op, combat_now, stage_from_screen_card, stage_image_data, start_scene,
+                    undo_scene_start, waiting_replaced, with_combat_now)
 from .rate_limit import rate_limit
 from . import plans as P
 
@@ -299,7 +299,13 @@ def campaign_stage(request, id_or_slug):
     require_dm(request.user, campaign)
     op = clean_stage_op(campaign, request.data)
     stage, changed = apply_stage_op(campaign, op)
-    return Response({'stage': stage, 'changed': changed})
+    out = {'stage': stage, 'changed': changed}
+    if op['op'] == 'show' and changed and (stage.get('prev') or {}).get('focus') is False:
+        # E1.3d: o que esperava o fim do combate saiu (o aviso diz, com o ↶ Desfazer)
+        replaced = waiting_replaced(stage.get('prev'), stage, combat_now(campaign)['active'])
+        if replaced:
+            out['replaced'] = {'waiting': replaced}
+    return Response(out)
 
 
 @api_view(['POST'])
