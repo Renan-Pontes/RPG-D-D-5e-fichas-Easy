@@ -449,7 +449,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
           <TableBar campaign={campaign} lang={lang} onOpenLive={() => setLiveOpen(true)} onEndCombat={endCombatFromBar} />
         )}
         {win === 'float' && (
-          <ScreenWindow key={campaign.id} campaign={campaign} lang={lang} liveAt={winLiveAt}
+          <ScreenWindow key={campaign.id} campaign={campaign} lang={lang} liveAt={winLiveAt} nextHere={nav.area !== 'play'}
             corner={windowCorner({ corner, area: nav.area, sub: nav.sub, page })}
             onCorner={(c) => { setCorner(c); try { localStorage.setItem(CORNER_KEY, c); } catch { /* ok */ } }}
             onHide={() => { setWinLiveAt(0); setBarPrefs({ ...barPrefs, winSession: String(vis.session ?? '') }); }} />

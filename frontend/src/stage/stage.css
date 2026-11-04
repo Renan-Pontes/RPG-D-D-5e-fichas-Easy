@@ -364,6 +364,8 @@
   .screen-win-live-btn { min-height: 44px; padding: 0 12px; white-space: nowrap; }
   .screen-win .screen-win-dice { width: 48px; height: 48px; min-width: 48px; min-height: 48px; font-size: 22px; }
   .screen-win.is-float .screen-win-tools { gap: 2px; }
+  /* Próximo turno fora de Jogar (E1.6d): a ação ao vivo, 48 px, acima das ferramentas */
+  .screen-win .screen-win-next { min-height: 48px; margin: 2px 0 4px; justify-content: center; }
   /* encaixada compacta (Combate de 1024 a 1279): uma linha no topo da coluna da lista */
   .screen-win.is-compact { display: flex; align-items: center; gap: 6px; margin: 0; padding: 4px 6px; }
   .screen-win-compact {

@@ -1042,6 +1042,14 @@ button.cs-stat.cs-init-btn.is-guess { border-color: var(--gold-bright); color: v
 .dp-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
 .dp-error > span { flex: 1 1 160px; min-width: 0; }
 .mesa-btn.dp-retry { flex: none; min-height: 48px; }
+/* celular (onda 3, E1.6a): o visor numa linha e os tipos embaixo, quebrando linha — nada
+   corta na borda ("contundente") e o ＋ fica sempre dentro da tela */
+@media (max-width: 479px) {
+  .dp-top { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .dp-screen { height: 44px; }
+  .dp-types { flex-wrap: wrap; overflow: visible; padding-bottom: 0; }
+  .mesa-chip.dp-type { padding: 4px 10px; }
+}
 @media (max-width: 359px) {
   .dp-keys { grid-template-columns: repeat(3, 64px); }
   .dp-main { grid-template-columns: 204px minmax(0, 1fr); gap: 6px; }

@@ -10,6 +10,9 @@
 //   ✕          esconde até a próxima sessão (a casca guarda no aparelho).
 // Tocar no resumo abre a folha Tela ao vivo (os controles). O 📺 Tela da capa
 // abre a janela já em "ao vivo".
+// Fora de Jogar, com o combate andando, a janela ganha "Próximo turno →" (onda 3, E1.6d),
+// como a barra da mesa do celular: o Próximo protegido da loja (expect, 1 por vez, 400 ms
+// sem aceitar toque quando muda de sentido). Em Jogar o Próximo mora na faixa do topo.
 // <DockedScreen> é a mesma janela ENCAIXADA (não flutua; sem ⇆ – ✕): no topo da
 // coluna da direita em Jogar › Agora; em Jogar › Combate, numa 3ª coluna estreita
 // a partir de 1280 px e, de 1024 a 1279, na forma `compact` (uma linha com a
@@ -18,6 +21,7 @@
 // Sem conexão (a loja diz há quantos segundos): o ponto da TV fica cinza ("○ TV:
 // sem conexão") e o que está na Tela leva "(última vez visto)".
 import { useEffect, useRef, useState } from 'react';
+import { REARM_MS } from './table-bar-model.js';
 import StageThumb from './StageThumb.jsx';
 import useStage from './useStage.js';
 import { L, screenLine } from './stage-now.js';
@@ -57,9 +61,20 @@ function useWinHeight(dep) {
   return ref;
 }
 
-export default function ScreenWindow({ campaign, lang = 'pt', corner = 'right', onCorner, onHide, liveAt = 0 }) {
+/** O Próximo que acabou de aparecer ignora toques por 400 ms (princípio 8). */
+function useArmed(key) {
+  const until = useRef(0);
+  const last = useRef(key);
+  if (last.current !== key) { last.current = key; until.current = Date.now() + REARM_MS; }
+  return () => Date.now() >= until.current;
+}
+
+export default function ScreenWindow({ campaign, lang = 'pt', corner = 'right', onCorner, onHide, liveAt = 0, nextHere = false }) {
   const { table, stage, combat, combatNow, test, line, tvLive, offline } = useWindowData(campaign, lang);
   const [size, setSize] = useState(liveAt ? 'live' : 'thumb');   // 'thumb' | 'live' | 'pill'
+  const withNext = nextHere && !!combat?.active && campaign.status !== 'closed';
+  const armed = useArmed(withNext ? `${combat?.round}:${combat?.turnIndex}` : '');
+  const busy = !!table?.busy;
   const winRef = useWinHeight(size);
   // O 📺 Tela da capa: abre já em "ao vivo".
   useEffect(() => { if (liveAt) setSize('live'); }, [liveAt]);
@@ -87,6 +102,13 @@ export default function ScreenWindow({ campaign, lang = 'pt', corner = 'right', 
           <span className={`live-tv-dot is-${tvState(tvLive, offline)}`}>{tvShort(tvLive, lang, offline)}</span>
           {' · '}{combat?.active ? turnLine(combat, lang) : `${L(lang, 'Na tela', 'On screen')}: ${line}`}
         </button>
+        {withNext && (
+          <button type="button" className="mesa-btn is-primary screen-win-next" disabled={busy}
+            onClick={() => { if (armed() && !busy) table?.nextTurn(); }}
+            aria-label={busy ? L(lang, 'Enviando…', 'Sending…') : L(lang, 'Próximo turno', 'Next turn')} aria-keyshortcuts="N">
+            {busy ? '…' : <>{L(lang, 'Próximo turno', 'Next turn')} <span aria-hidden="true">→</span></>}
+          </button>
+        )}
         <div className="screen-win-tools">
           <button type="button" className="mesa-btn screen-win-live-btn" onClick={() => setSize(size === 'live' ? 'thumb' : 'live')}
             aria-pressed={size === 'live'}>
