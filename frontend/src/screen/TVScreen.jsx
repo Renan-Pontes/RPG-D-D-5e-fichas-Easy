@@ -12,8 +12,8 @@ import { absUrl, cardKey, charLine, healthLabel, paragraphs, screenMode } from '
 import { defaultArt } from '../world/world-model.js';
 import { stageNow } from '../stage/stage-now.js';
 import {
-  cardLayout, conditionsShown, initiativeRows, isDeadScreenLink, lengthClass, partyRow, recapSubtitle, sceneLayout, splitNumbered, turnNow,
-  tvLang, tvMode,
+  cardLayout, conditionsShown, histLinesFit, histPlacement, initiativeRows, isDeadScreenLink, lengthClass, partyRow, recapSubtitle, sceneLayout,
+  splitNumbered, turnNow, tvLang, tvMode,
 } from './tv-logic.js';
 import { fitAll } from './tv-fit.js';
 import {
@@ -89,8 +89,12 @@ const CONDITIONS = {
 // cartão grande no centro (só com menos de 10 s; 8 s cada, 4 s com fila). Onda 3
 // (E2.1): as dos jogadores também (o cartão um pouco menor, 6 s) e, depois do
 // cartão, cada rolagem fica nas ÚLTIMAS ROLAGENS — as 5 mais novas, nome e total
-// em ≥ 22 px numa TV 1280×720, no canto de baixo à esquerda (no combate, em cima
-// do mapa: a ordem de iniciativa fica livre) —, que somem 2 min depois da última.
+// em ≥ 22 px numa TV 1280×720 —, que somem 2 min depois da última. Num lugar que não
+// cobre texto, a ordem nem os tokens (tv-logic.histPlacement): no combate, no pé da
+// coluna da iniciativa (as linhas que couberem; sem lugar, 3 compactas no canto do
+// mapa com menos tokens); no repouso e no cartão sem imagem, no canto de baixo à
+// esquerda; com texto ou imagem na largura toda (o texto de ler, cartão com imagem,
+// cena, texto, recap, mapa), uma linha embaixo, e o resto sobe para dar lugar.
 // A ficha só manda a rolagem quando o dado para no aparelho do jogador
 // (components/DiceRoller.jsx): a TV nunca entrega o número antes dele.
 // Servidor antigo (sem `rolls`): a regra de antes (`publicRolls[0]`, < 20 s).
@@ -214,6 +218,25 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
   // quando as fontes terminam de carregar (Cinzel mais larga que a fonte de reserva).
   const screenRef = useRef(null);
   useLayoutEffect(() => { fitAll(screenRef.current); });
+  // Combate: quantas linhas das Últimas rolagens cabem no pé da coluna da iniciativa, embaixo
+  // da última linha da ordem (tv-logic.histPlacement; nenhuma → compactas no canto do mapa).
+  // A caixa fica por cima da coluna (absoluta), então a medida não mexe na ordem.
+  const [histRoom, setHistRoom] = useState(null);
+  useLayoutEffect(() => {
+    const el = screenRef.current;
+    const side = el?.querySelector('.tv-combat-side');
+    const hist = el?.querySelector('.tv-roll-hist');
+    const list = hist?.querySelector('.tv-hist-list');
+    if (!side || !list || !list.children.length) return;
+    const order = side.querySelector('.tv-order');
+    const sideBox = side.getBoundingClientRect();
+    const above = order?.lastElementChild ? order.lastElementChild.getBoundingClientRect().bottom : sideBox.top;
+    const gap = parseFloat(getComputedStyle(side).rowGap) || 0;
+    const listGap = parseFloat(getComputedStyle(list).rowGap) || 0;
+    const listH = list.getBoundingClientRect().height;
+    const room = histLinesFit(sideBox.bottom - above - gap, hist.getBoundingClientRect().height - listH, (listH + listGap) / list.children.length);
+    if (room !== histRoom) setHistRoom(room);
+  });
   useEffect(() => {
     const refit = () => fitAll(screenRef.current);
     window.addEventListener('resize', refit);
@@ -255,8 +278,11 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
   const showKey = stg ? frontKey : cardKey(card);
   const inCombat = mode === 'combat';
   const dark = mode === 'dark';
-  // Últimas rolagens: à vista sem cartão grande por cima (nem com a Tela escurecida)
+  // Últimas rolagens: à vista sem cartão grande por cima (nem com a Tela escurecida), num
+  // lugar que não cobre texto, a ordem nem os tokens (tv-logic.histPlacement)
   const showHist = !dark && !big && queue.hist.length > 0;
+  const hist = histPlacement({ mode, image: !!shown?.imageUrl, read: !!data.state?.sceneText, room: histRoom, combat });
+  const histBox = showHist ? <RollHistory rolls={queue.hist} lang={lang} spot={hist.spot} max={hist.max} corner={hist.corner} /> : null;
   const test = dark ? null : (stage ? stage.overlays?.test : data.publicCheck) || null;
   const prefs = stage?.prefs || {};
   const state = data.state || {};
@@ -300,7 +326,7 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
     <div className="tv-frame">
       <div
         ref={screenRef}
-        className={`tv-screen tv-mode-${mode} ${big && !dark ? 'has-roll-overlay' : ''} ${showHist ? 'has-roll-hist' : ''} ${stg?.over ? 'is-over-combat' : ''} ${test ? 'has-test' : ''}`}
+        className={`tv-screen tv-mode-${mode} ${big && !dark ? 'has-roll-overlay' : ''} ${showHist ? `has-roll-hist hist-${hist.spot} ${hist.reserve ? `hist-reserve-${hist.reserve}` : ''}` : ''} ${stg?.over ? 'is-over-combat' : ''} ${test ? 'has-test' : ''}`}
         style={accent ? { '--tv-accent': accent } : undefined}
         lang={lang}
       >
@@ -325,6 +351,7 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
               <main className="tv-combat-main">
                 <div className="tv-grid-container">
                   <CombatGrid combat={grid} readOnly={true} lang={lang} />
+                  {hist.spot === 'map' && histBox}
                 </div>
                 <aside className="tv-combat-side">
                   {turn?.name && (
@@ -338,6 +365,7 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
                   {!stg && card && card.type === 'entry' && <TVMiniCard card={card} lang={lang} />}
                   <InitiativeOrder combat={combat} party={prefs.party !== false} order={prefs.initiative !== false}
                     portraitOf={portraitOf} lang={lang} />
+                  {hist.spot === 'side' && histBox}
                 </aside>
               </main>
             </>
@@ -367,12 +395,13 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
           ) : mode === 'card' ? (
             <>
               {coverTop}
-              {/* com imagem própria (E2.2) a imagem ganha a TV: sem o nome da campanha e sem o grupo */}
+              {/* com imagem própria (E2.2) a imagem ganha a altura que sobra (sem o nome da
+                  campanha); o PV do grupo fica embaixo, compacto, também por cima do combate */}
               <main className={`tv-stage ${shown?.imageUrl ? 'has-image' : ''}`}>
                 {!shown?.imageUrl && <div className="tv-stage-campaign">{data.name}</div>}
                 <TVCard key={showKey} card={shown} lang={lang} />
               </main>
-              {!shown?.imageUrl && partyFooter(true)}
+              {partyFooter(true)}
             </>
           ) : (
             <>
@@ -401,8 +430,10 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
 
         {error && <div className="tv-offline" role="status">{t(lang, 'Reconectando…', 'Reconnecting…')}</div>}
 
-        {/* Últimas rolagens: as 5 mais novas no canto (texto de verdade; 20 com filete dourado) */}
-        {showHist && <RollHistory rolls={queue.hist} lang={lang} />}
+        {/* Últimas rolagens fora do combate (no combate, no pé da iniciativa ou no canto do mapa):
+            as 5 mais novas no canto, ou uma linha embaixo com uma frente (texto de verdade; 20 com
+            filete dourado) */}
+        {(hist.spot === 'corner' || hist.spot === 'line') && histBox}
         {/* O cartão grande — um por vez, em fila (o do jogador um pouco menor) */}
         {big && !dark && (
           <DramaticRollOverlay key={big.id} roll={big} lang={lang} quick={busy} small={!legacyRoll && bigSize(big) === 'small'}
@@ -724,19 +755,24 @@ function ConditionChip({ cond, lang }) {
 const ROLL_LABELS = (lang) => ({ damageLabel: (ty) => damageTypeLabel(ty, lang), abilityLabel: (a) => abilityLabel(a, lang) });
 
 /**
- * As Últimas rolagens (onda 3, E2.1): as 5 mais novas, a mais nova embaixo, lidas a
- * 3 m — nome e total em ≥ 22 px numa TV 1280×720. Só o rótulo (o quê) ganha
- * reticências; o nome e o resultado ficam inteiros. Some 2 min depois da última.
+ * As Últimas rolagens (onda 3, E2.1): as 5 mais novas, lidas a 3 m — nome e total em
+ * ≥ 22 px numa TV 1280×720. Só o rótulo (o quê) ganha reticências; o nome e o resultado
+ * ficam inteiros. Some 2 min depois da última. `spot` (tv-logic.histPlacement): em coluna
+ * com a mais nova embaixo ('side' no pé da iniciativa, 'corner', 'map' no `corner` do mapa
+ * com menos tokens), até `max`; ou 'line', uma linha com a mais nova primeiro (as que não
+ * cabem ficam de fora).
  */
-function RollHistory({ rolls, lang }) {
+function RollHistory({ rolls, lang, spot = 'corner', max = 5, corner = '' }) {
+  const newest = rolls[rolls.length - 1]?.id;
+  const shown = spot === 'line' ? [...rolls].reverse() : rolls.slice(-max);
   return (
-    <section className="tv-roll-hist" aria-label={t(lang, 'Últimas rolagens', 'Latest rolls')} aria-live="polite">
+    <section className={`tv-roll-hist is-${spot} ${corner ? `at-${corner}` : ''}`} aria-label={t(lang, 'Últimas rolagens', 'Latest rolls')} aria-live="polite">
       <h2 className="tv-hist-title">🎲 {t(lang, 'Últimas rolagens', 'Latest rolls')}</h2>
       <ol className="tv-hist-list">
-        {rolls.map((r, i) => {
+        {shown.map((r) => {
           const { who, what, result, mark } = histParts(r, lang);
           return (
-            <li key={r.id} className={`tv-hist-item ${mark ? `is-${mark}` : ''} ${i === rolls.length - 1 ? 'is-new' : ''}`}>
+            <li key={r.id} className={`tv-hist-item ${mark ? `is-${mark}` : ''} ${r.id === newest ? 'is-new' : ''}`}>
               <span className="tv-hist-who">{who}</span>
               {what && <span className="tv-hist-what">{what}</span>}
               <span className="tv-hist-res">{result}</span>

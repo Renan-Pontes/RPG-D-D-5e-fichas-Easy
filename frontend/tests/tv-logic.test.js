@@ -1,7 +1,10 @@
 // Tela: subtítulo do recap sem repetição, detecção de link morto e o modo de desenho.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { recapSubtitle, isDeadScreenLink, tvMode, splitNumbered, conditionsShown, bestScale, cardLayout, sceneLayout, WIDE_TEXT_MAX } from '../src/screen/tv-logic.js';
+import {
+  recapSubtitle, isDeadScreenLink, tvMode, splitNumbered, conditionsShown, bestScale, cardLayout, sceneLayout, WIDE_TEXT_MAX,
+  histPlacement, histLinesFit, quietCorner, HIST_MAX, HIST_MAP_MAX,
+} from '../src/screen/tv-logic.js';
 import { stageNow } from '../src/stage/stage-now.js';
 
 test('recapSubtitle esconde títulos que só repetem "Anteriormente em <campanha>"', () => {
@@ -222,4 +225,63 @@ test('sceneLayout: sem imagem o painel; larga em cima; em pé ao lado', () => {
   assert.equal(sceneLayout({ image: true, ratio: 1.78 }), 'wide');
   assert.equal(sceneLayout({ image: true, ratio: 0.75 }), 'side');
   assert.equal(sceneLayout({ image: true, ratio: null }), 'side');
+});
+
+// Onda 3 (E2-fix): as Últimas rolagens não cobrem o texto da frente, a ordem nem os tokens.
+test('histPlacement: combate no pé da iniciativa (as linhas que cabem); sem lugar, compactas no mapa', () => {
+  assert.deepEqual(histPlacement({ mode: 'combat' }), { spot: 'side', max: HIST_MAX, reserve: '' }, 'antes da 1ª medida tenta as 5');
+  assert.deepEqual(histPlacement({ mode: 'combat', room: 3 }), { spot: 'side', max: 3, reserve: '' });
+  assert.deepEqual(histPlacement({ mode: 'combat', room: 9 }), { spot: 'side', max: HIST_MAX, reserve: '' });
+  assert.deepEqual(histPlacement({ mode: 'combat', room: 1 }), { spot: 'side', max: 1, reserve: '' }, '9 na ordem: 1 linha, fora do mapa');
+  assert.deepEqual(histPlacement({ mode: 'combat', room: 0 }), { spot: 'map', max: HIST_MAP_MAX, reserve: '', corner: 'bl' }, 'a ordem enche a coluna');
+  assert.equal(histPlacement({ mode: 'combat', room: 0, combat: BRUMAFRIA }).corner, 'br', 'o grupo está embaixo à esquerda');
+});
+
+// O combate do banco de teste (mapa 1200×800): o grupo embaixo à esquerda, goblins em cima no meio.
+const BRUMAFRIA = {
+  map: { width_px: 1200, height_px: 800 },
+  combatants: [
+    { name: 'Pipo', position: { x: 375, y: 525 } }, { name: 'Dragão', position: { x: 1000, y: 450 } },
+    { name: 'Elarion', position: { x: 175, y: 525 } }, { name: 'Goblin #1', position: { x: 525, y: 125 } },
+    { name: 'Goblin #2', position: { x: 625, y: 125 } }, { name: 'Dagna', position: { x: 75, y: 525 } },
+    { name: 'Goblin #3', position: { x: 725, y: 125 } }, { name: 'Bugbear', position: { x: 875, y: 225 } },
+    { name: 'Kaelor', position: { x: 275, y: 525 } },
+  ],
+};
+
+test('quietCorner: o canto do mapa com menos tokens (empate: embaixo à esquerda)', () => {
+  assert.equal(quietCorner(BRUMAFRIA), 'br');
+  assert.equal(quietCorner(null), 'bl');
+  assert.equal(quietCorner({ combatants: [] }), 'bl');
+  // todos os cantos de baixo ocupados: vai para cima, no que tem menos
+  const busy = { map: { width_px: 1000, height_px: 1000 }, combatants: [
+    { position: { x: 100, y: 900 } }, { position: { x: 900, y: 900 } }, { position: { x: 100, y: 100 } },
+  ] };
+  assert.equal(quietCorner(busy), 'tr');
+  // sem tamanho do mapa: o padrão do CombatGrid (1200×800); sem posição, o ponto (50, 50)
+  assert.equal(quietCorner({ combatants: [{ position: { x: 100, y: 700 } }, {}] }), 'br');
+});
+
+test('histPlacement: o canto só onde não há texto embaixo à esquerda; com frente, uma linha que empurra', () => {
+  assert.deepEqual(histPlacement({ mode: 'rest' }), { spot: 'corner', max: HIST_MAX, reserve: '' });
+  assert.deepEqual(histPlacement({ mode: 'rest', read: true }), { spot: 'line', max: HIST_MAX, reserve: 'bottom' }, 'o texto de ler vai na largura toda');
+  assert.deepEqual(histPlacement({ mode: 'card', image: false }), { spot: 'corner', max: HIST_MAX, reserve: '' }, 'cartão com a arte padrão à esquerda');
+  // o Vale (mapa largo) e o Bartolomeu: o nome e o texto ficam embaixo, na largura toda
+  assert.deepEqual(histPlacement({ mode: 'card', image: true }), { spot: 'line', max: HIST_MAX, reserve: 'bottom' });
+  for (const mode of ['scene', 'text', 'image', 'map']) {
+    assert.deepEqual(histPlacement({ mode }), { spot: 'line', max: HIST_MAX, reserve: 'bottom' }, mode);
+  }
+  assert.deepEqual(histPlacement({ mode: 'recap' }), { spot: 'line', max: HIST_MAX, reserve: '' }, 'na tarja preta de baixo');
+});
+
+test('histLinesFit: linhas inteiras no que sobra embaixo da ordem', () => {
+  assert.equal(histLinesFit(218, 37, 36), 5);
+  assert.equal(histLinesFit(100, 37, 36), 1);
+  assert.equal(histLinesFit(72, 37, 36), 0, 'meia linha não conta');
+  assert.equal(histLinesFit(1000, 37, 36), HIST_MAX);
+  assert.equal(histLinesFit(1000, 37, 36, 3), 3);
+  assert.equal(histLinesFit(0, 37, 36), 0);
+  assert.equal(histLinesFit(-20, 37, 36), 0);
+  assert.equal(histLinesFit(200, 37, 0), 0);
+  assert.equal(histLinesFit(NaN, 37, 36), 0);
 });

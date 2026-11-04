@@ -545,7 +545,7 @@
 .tv-card.is-partial .tv-card-text { color: var(--tv-ink-soft); font-style: italic; }
 .tv-card.is-partial .tv-card-art img { filter: sepia(0.35) contrast(0.95); }
 /* --- Onda 3 (E2.2): cartão com imagem própria — a imagem grande e INTEIRA (contain).
-   O palco usa a altura toda (sem o nome da campanha e sem o grupo embaixo). --- */
+   O palco usa a altura que sobra (sem o nome da campanha); o grupo fica embaixo, compacto. --- */
 .tv-stage.has-image { gap: 0; }
 .tv-stage.has-image .tv-card { width: 100%; flex: 1 1 auto; }
 .tv-card:is(.is-layout-side, .is-layout-wide, .is-layout-full) .tv-card-front { height: auto; min-height: 0; }
@@ -564,7 +564,7 @@
 .tv-card:is(.is-layout-wide, .is-layout-full) .tv-card-front { display: block; }
 .tv-card:is(.is-layout-wide, .is-layout-full) .tv-card-art.is-own { position: absolute; inset: 0; }
 .tv-card:is(.is-layout-wide, .is-layout-full) .tv-card-body {
-  position: absolute; left: 0; right: 0; bottom: 0; max-height: 34%;
+  position: absolute; left: 0; right: 0; bottom: 0; max-height: max(34%, 26cqh);   /* com o grupo embaixo o cartão encolhe: o texto não some */
   padding: 3.4cqh 2.6cqw 2cqh; gap: 0.6cqh;
   background: linear-gradient(180deg, rgba(10, 7, 4, 0) 0%, rgba(10, 7, 4, 0.86) 28%, rgba(10, 7, 4, 0.94) 100%);
 }
@@ -740,11 +740,15 @@
 .tv-roll-saves li.is-pass .tv-roll-save-mark { color: var(--moss-bright); }
 .tv-roll-saves li.is-fail .tv-roll-save-mark { color: var(--blood-bright); }
 
-/* === Últimas rolagens (onda 3, E2.1): as 5 mais novas no canto de baixo à esquerda ===
-   Lidas a 3 m: nome e total com 1,8cqw (23 px numa TV 1280×720), o rótulo com 1,4cqw.
-   No combate ficam em cima do mapa (a coluna da direita, com a ordem de iniciativa,
-   fica livre); fora dele o grupo do rodapé abre espaço (abaixo). Escondidas enquanto há
-   cartão grande; somem 2 min depois da última rolagem (roll-queue.js). */
+/* === Últimas rolagens (onda 3, E2.1): as 5 mais novas, lidas a 3 m ===
+   Nome e total com 1,8cqw (23 px numa TV 1280×720), o rótulo com 1,4cqw. Escondidas
+   enquanto há cartão grande; somem 2 min depois da última rolagem (roll-queue.js).
+   O lugar não cobre texto, a ordem nem os tokens (tv-logic.histPlacement, `.is-<spot>`):
+   no combate no pé da coluna da iniciativa ('side', as linhas que couberem; sem lugar,
+   'map': 3 compactas e translúcidas no canto do mapa com menos tokens); no repouso e no
+   cartão sem imagem no canto de baixo à esquerda ('corner', o grupo do rodapé abre
+   espaço); com texto ou imagem na largura toda (o texto de ler, cartão com imagem, cena,
+   texto, recap, mapa), uma linha embaixo ('line') e o resto sobe para dar lugar. */
 .tv-roll-hist {
   position: absolute; left: 1.4cqw; bottom: 2.4cqh; z-index: 60;
   width: 32cqw; max-width: 46%; pointer-events: none;
@@ -781,10 +785,40 @@
 }
 .tv-hist-item.is-fail .tv-hist-res { color: var(--blood-bright); }
 @keyframes tv-hist-in { from { transform: translateY(1.5cqh); opacity: 0; } to { transform: none; opacity: 1; } }
-/* com o teste na faixa de baixo, as Últimas sobem acima dela (não cobrem os nomes do teste) */
-.tv-screen.has-test .tv-roll-hist { bottom: 22cqh; }
-/* fora do combate o grupo do rodapé abre espaço à esquerda (os cartões encolhem; nada some) */
-.tv-screen.has-roll-hist:not(.tv-mode-combat) .tv-party { padding-left: 33cqw; }
+/* com o teste na faixa de baixo, as do canto sobem acima dela (não cobrem os nomes do teste) */
+.tv-screen.has-test .tv-roll-hist.is-corner { bottom: 22cqh; }
+/* no canto, o grupo do rodapé abre espaço à esquerda (os cartões encolhem; nada some) */
+.tv-screen.hist-corner .tv-party { padding-left: 33cqw; }
+/* combate: no pé da coluna da iniciativa, embaixo da última linha da ordem (a caixa fica
+   por cima da coluna, então a ordem não encolhe; quantas linhas cabem é medido na TV) */
+.tv-combat-side { position: relative; }
+.tv-roll-hist.is-side { left: 0; right: 0; bottom: 0; width: auto; max-width: none; box-shadow: none; }
+/* a ordem enche a coluna: 3 linhas translúcidas no canto do mapa com menos tokens
+   (tv-logic.quietCorner; os de baixo transparecem) */
+.tv-grid-container { position: relative; }
+.tv-roll-hist.is-map { max-width: 60%; background: rgba(7, 5, 4, 0.6); border-color: rgba(214, 176, 100, 0.25); box-shadow: none; }
+.tv-roll-hist.is-map.at-bl { left: 1cqw; bottom: 1.4cqh; }
+.tv-roll-hist.is-map.at-br { left: auto; right: 1cqw; bottom: 1.4cqh; }
+.tv-roll-hist.is-map.at-tl { left: 1cqw; top: 1.4cqh; bottom: auto; }
+.tv-roll-hist.is-map.at-tr { left: auto; right: 1cqw; top: 1.4cqh; bottom: auto; }
+.tv-roll-hist.is-map .tv-hist-item:not(.is-new) { opacity: 0.7; }
+/* uma linha embaixo, a mais nova primeiro: as que não cabem na largura descem para uma 2ª
+   linha que fica fora da caixa (nunca meia rolagem); a frente sobe o mesmo tanto */
+.tv-screen { --tv-hist-line: calc(max(12px, 1.8cqw) * 1.25 + 0.8cqh); }
+.tv-roll-hist.is-line {
+  right: 1.4cqw; bottom: 1.4cqh; width: auto; max-width: none;
+  display: flex; align-items: center; gap: 1.2cqw; padding: 0.6cqh 1cqw;
+}
+.tv-roll-hist.is-line .tv-hist-title { flex: none; margin: 0; }
+.tv-roll-hist.is-line .tv-hist-list {
+  flex: 1 1 auto; min-width: 0; flex-direction: row; flex-wrap: wrap; column-gap: 1cqw; row-gap: 20cqh;
+  height: var(--tv-hist-line); overflow: hidden;
+}
+.tv-roll-hist.is-line .tv-hist-item { flex: none; max-width: 100%; height: var(--tv-hist-line); box-sizing: border-box; align-items: center; }
+.tv-roll-hist.is-line .tv-hist-who { max-width: 24cqw; }
+.tv-roll-hist.is-line .tv-hist-what { flex: 0 1 auto; max-width: 13cqw; }
+.tv-roll-hist.is-line .tv-hist-res { margin-left: 0.4cqw; }
+.tv-screen.has-roll-hist.hist-reserve-bottom .tv-canvas { padding-bottom: calc(var(--tv-hist-line) + 1.2cqh + 2px + 1.4cqh + 1.4cqh); }
 
 /* === Teste mostrado pelo mestre: faixa ≤ 18% da altura que EMPURRA o resto === */
 .tv-check-panel {
