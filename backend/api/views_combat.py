@@ -229,7 +229,7 @@ def _serialize_combat(c, *, for_dm=False, token=None):
                if isinstance(e, dict) else e for e in log]
     base = f'/api/screen/{token}' if token else f'/api/combat/campaign/{c.campaign_id}'
     combatants = [_sprite_link(x, base) for x in combatants if isinstance(x, dict)]
-    return {
+    out = {
         'active': c.active,
         'round': c.round_number,
         'turnIndex': c.turn_index,
@@ -239,6 +239,22 @@ def _serialize_combat(c, *, for_dm=False, token=None):
         'log': log,
         'updatedAt': c.updated_at.isoformat() if c.updated_at else None,
     }
+    if for_dm:
+        out['canPrev'] = _can_prev(c)
+    return out
+
+
+def _can_prev(c):
+    """Dá para voltar o turno? (E1.4: o "↶ Voltar turno" fica à mão enquanto há turno
+    anterior.) A mesma conferência do prev-turn: o último Próximo turno não desfeito, com a
+    foto de quem tinha a vez, precisa ter deixado a vez onde ela está. Lê o registro inteiro
+    (o curto que vai ao app pode não ter esse Próximo) e não viaja nada a mais."""
+    if not c.active:
+        return False
+    for e in reversed(c.action_log or []):
+        if isinstance(e, dict) and e.get('type') == 'next_turn' and isinstance(e.get('from'), dict) and not e.get('undone'):
+            return (e.get('round'), e.get('index')) == (c.round_number, c.turn_index)
+    return False
 
 
 def _serialize_combat_public(c):

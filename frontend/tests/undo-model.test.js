@@ -24,6 +24,10 @@ test('Voltar turno: vale enquanto o último Próximo deixou a vez onde ela está
   assert.equal(canPrevTurn(fight([{ type: 'damage', target: 'x', amount: 1 }], 2, 0)), true);
   assert.equal(canPrevTurn(fight([], 1, 0)), false);
   assert.equal(canPrevTurn({ active: false, log: [] }), false);
+  // o servidor desta versão diz (o registro inteiro, os Próximos de antes sem a foto)
+  assert.equal(canPrevTurn({ ...fight([{ type: 'next_turn', round: 1, index: 1 }]), canPrev: false }), false);
+  assert.equal(canPrevTurn({ ...fight([], 1, 0), canPrev: true }), true);
+  assert.equal(canPrevTurn({ ...fight([], 1, 0), active: false, canPrev: true }), false);
   assert.equal(prevTurnName(fight([], 1, 0)), 'Dagna');
   assert.equal(prevTurnName(fight([], 1, 2)), 'Goblin #2');
 });

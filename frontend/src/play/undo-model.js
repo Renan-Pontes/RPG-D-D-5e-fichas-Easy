@@ -14,13 +14,15 @@ const TURN = new Set(['start', 'next_turn', 'prev_turn', 'end']);
 const NOT_ACTION = new Set([...TURN, 'undo', 'effects_expired', 'recharge', 'encounter', 'add_combatant']);
 
 /**
- * Dá para voltar o turno? O último Próximo turno que não foi desfeito precisa ter deixado
- * a vez onde ela está agora (é a foto dele que o ↶ restaura). Antes dele, o começo do
- * combate: não há turno anterior. Registro curto sem nenhum Próximo à vista (combate longo
- * de um servidor de antes): o servidor decide — vale quando a vez não é a 1ª da rodada 1.
+ * Dá para voltar o turno? O servidor desta versão diz (`canPrev`, a mesma conferência do
+ * prev-turn, no registro inteiro). Servidor de antes: o último Próximo turno que não foi
+ * desfeito precisa ter deixado a vez onde ela está agora (é a foto dele que o ↶ restaura);
+ * antes dele, o começo do combate: não há turno anterior. Registro curto sem nenhum Próximo
+ * à vista: o servidor decide — vale quando a vez não é a 1ª da rodada 1.
  */
 export function canPrevTurn(combat) {
   if (!combat?.active) return false;
+  if (typeof combat.canPrev === 'boolean') return combat.canPrev;
   const log = Array.isArray(combat.log) ? combat.log : [];
   for (let i = log.length - 1; i >= 0; i--) {
     const e = log[i];

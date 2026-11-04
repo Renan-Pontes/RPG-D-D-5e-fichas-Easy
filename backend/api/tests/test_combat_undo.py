@@ -305,3 +305,23 @@ class UndoAlwaysAtHandTests(Base):
         r = prev()
         self.assertEqual(r.status_code, 200, r.content)
         self.assertEqual((r.json()['combat']['round'], r.json()['combat']['turnIndex']), (1, 0))
+        # de volta à 1ª vez: não há mais turno para voltar (o app esconde o ↶)
+        self.assertIs(r.json()['combat']['canPrev'], False)
+
+    def test_can_prev_says_what_the_server_can_undo(self):
+        get = lambda: self.c.get(self.url('')[:-1]).json()['combat']   # noqa: E731
+        self.assertIs(get()['canPrev'], False)                            # 1ª vez da rodada 1
+        r = self.c.post(self.url('next-turn'), {}, format='json').json()['combat']
+        self.assertIs(r['canPrev'], True)
+        # Próximo de antes desta versão (sem a foto de quem tinha a vez): o servidor não volta
+        self.combat.refresh_from_db()
+        self.combat.action_log = [{k: v for k, v in e.items() if k != 'from'} for e in self.combat.action_log]
+        self.combat.save()
+        self.assertIs(get()['canPrev'], False)
+        # o jogador não recebe
+        self.assertNotIn('canPrev', self.c_pl().get(self.url('')[:-1]).json()['combat'])
+
+    def c_pl(self):
+        c = APIClient()
+        c.force_login(self.ana)
+        return c
