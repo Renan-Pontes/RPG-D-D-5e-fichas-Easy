@@ -49,6 +49,21 @@ test('sugestões do Pipo: ★ Prestidigitação, ★ Ferramentas de Ladrão, ↗
   assert.match(texts(S.momentSuggestions(facts, { lang: 'en' })[PIPO]).join('\n'), /↗ a Wisdom saving throw, Pipo's weak spot/);
 });
 
+test('inglês: "an" antes de vogal nas frases de perícia e de salvaguarda (an Arcana check)', () => {
+  assert.deepEqual(['Arcana', 'Insight', 'Athletics', 'Intelligence', 'INT', 'Medicine', 'Sleight of Hand', 'STR', ''].map(S.anA),
+    ['an', 'an', 'an', 'an', 'an', 'a', 'a', 'a', 'a']);
+  const en = M.partyFacts(party, 'en');
+  const all = Object.values(S.momentSuggestions(en, { lang: 'en' })).flat().map(s => s.text);
+  const quiet = Object.values(S.momentSuggestions(en, { lang: 'en', style: Object.fromEntries(party.map(p => [p.id, ['quiet']])) })).flat().map(s => s.text);
+  const lines = [...all, ...quiet].filter(x => / (check|saving throw)\b/.test(x));
+  assert.ok(lines.includes('an Arcana check — nobody in the party does it better'), lines.join('\n'));
+  assert.ok(lines.includes('an Athletics check Elarion has to handle without help'), lines.join('\n'));
+  assert.ok(lines.includes('a Medicine check — nobody in the party does it better'), lines.join('\n'));
+  for (const x of lines) assert.doesNotMatch(x, /^a [AEIOU]|\ba [AEIOU]\w+ (check|saving throw)/, x);
+  // o português não muda
+  assert.ok(Object.values(S.momentSuggestions(facts, {})).flat().some(s => s.text === 'um teste de Arcanismo — ninguém no grupo faz melhor'));
+});
+
 test('🤐 fala pouco: nenhum desafio social e o 1º ★ é de perícia não social', () => {
   const quiet = (id) => S.momentSuggestions(facts, { style: { [id]: ['quiet'] } })[id];
   for (const p of party) {

@@ -209,6 +209,11 @@ const AXIS_SCENE = {
   social: ['convencer alguém importante', 'convincing someone important'],
   explore: ['achar o caminho ou o que está escondido', 'finding the way or what is hidden'],
 };
+// O artigo do inglês pela 1ª letra da palavra que vem depois: "an Arcana check", "an Insight
+// check", "an Intelligence saving throw", "a Medicine check" (nas perícias e nos atributos a
+// letra basta: nenhum começa com vogal de som de consoante, como "Unicorn").
+export const anA = (word) => (/^[AEIOU]/i.test(String(word || '').trim()) ? 'an' : 'a');
+const AnA = (word) => (anA(word) === 'an' ? 'An' : 'A');
 // Os atributos por extenso (o desafio de salvaguarda é uma frase, não uma sigla).
 const ABIL_LONG = {
   str: ['Força', 'Strength'], dex: ['Destreza', 'Dexterity'], con: ['Constituição', 'Constitution'],
@@ -242,14 +247,14 @@ export function momentSuggestions(facts, { lang = 'pt', dc = 15, style = {}, axi
     const second = (k) => (others.length ? Math.max(...others.map(o => o.skills[k])) : -5);
     const skillDetail = (k) => `${skillLabel(k, lang)} ${fmtMod(f.skills[k])} · ${dcTxt(pct(chance(f.skills[k], dc)))}`;
     const skillShine = (k, topic) => ({ kind: 'shine', auto: `skill:${k}`,
-      text: t(lang, `um teste de ${skillLabel(k, lang)} — ${L2(STYLE_FOR[topic], 'pt')}`, `a ${skillLabel(k, lang)} check — ${L2(STYLE_FOR[topic], 'en')}`),
+      text: t(lang, `um teste de ${skillLabel(k, lang)} — ${L2(STYLE_FOR[topic], 'pt')}`, `${anA(skillLabel(k, lang))} ${skillLabel(k, lang)} check — ${L2(STYLE_FOR[topic], 'en')}`),
       detail: skillDetail(k) });
     let shines = [];
     const lead = SKILLS.map(k => ({ k, b: f.skills[k], second: second(k) }))
       .filter(x => x.b - x.second >= 2).sort((a, b) => (b.b - b.second) - (a.b - a.second) || b.b - a.b).slice(0, 2);
     for (const x of lead) {
       shines.push({ kind: 'shine', auto: `skill:${x.k}`,
-        text: t(lang, `um teste de ${skillLabel(x.k, lang)} — ninguém no grupo faz melhor`, `a ${skillLabel(x.k, lang)} check — nobody in the party does it better`),
+        text: t(lang, `um teste de ${skillLabel(x.k, lang)} — ninguém no grupo faz melhor`, `${anA(skillLabel(x.k, lang))} ${skillLabel(x.k, lang)} check — nobody in the party does it better`),
         detail: `${skillDetail(x.k)} · ${t(lang, `o 2º do grupo: ${pct(chance(x.second, dc))}%`, `the party's 2nd: ${pct(chance(x.second, dc))}%`)}` });
     }
     if (f.healDay > 0 && !others.some(o => o.healDay > 0)) {
@@ -287,7 +292,7 @@ export function momentSuggestions(facts, { lang = 'pt', dc = 15, style = {}, axi
       shines.push({ kind: 'shine', auto: `skill:${k}`,
         text: t(lang,
           `um teste de ${skillLabel(k, lang)}, o ponto forte de ${me}${tie.length ? ` — divide com ${joinAnd(tie, lang)}: dê a vez a ${me}` : ''}`,
-          `a ${skillLabel(k, lang)} check, ${me}'s strong suit${tie.length ? ` — shared with ${joinAnd(tie, lang)}: give ${me} the turn` : ''}`),
+          `${anA(skillLabel(k, lang))} ${skillLabel(k, lang)} check, ${me}'s strong suit${tie.length ? ` — shared with ${joinAnd(tie, lang)}: give ${me} the turn` : ''}`),
         detail: skillDetail(k) });
       const ax = AXES.slice().sort((a, b) => scores[b].final - scores[a].final)[0];
       shines.push({ kind: 'shine', auto: `axis:${ax}`,
@@ -318,7 +323,7 @@ export function momentSuggestions(facts, { lang = 'pt', dc = 15, style = {}, axi
       if (!shines.some(x => x.auto.startsWith('skill:') && !PUBLIC_SKILLS.includes(x.auto.slice(6)))) {
         const k = bestOf(SKILLS.filter(x => !PUBLIC_SKILLS.includes(x)));
         shines.unshift({ kind: 'shine', auto: `skill:${k}`,
-          text: t(lang, `um teste de ${skillLabel(k, lang)}, sem precisar falar em público`, `a ${skillLabel(k, lang)} check, with no public speaking`),
+          text: t(lang, `um teste de ${skillLabel(k, lang)}, sem precisar falar em público`, `${anA(skillLabel(k, lang))} ${skillLabel(k, lang)} check, with no public speaking`),
           detail: skillDetail(k) });
       }
       const isPublic = (x) => x.auto.startsWith('skill:') && PUBLIC_SKILLS.includes(x.auto.slice(6));
@@ -336,11 +341,11 @@ export function momentSuggestions(facts, { lang = 'pt', dc = 15, style = {}, axi
     const pushes = [];
     const sv = PUSH_SAVES.slice().sort((a, b) => f.saves[a] - f.saves[b])[0];
     pushes.push({ kind: 'push', auto: `push:save:${sv}`,
-      text: t(lang, `uma salvaguarda de ${ABIL_LONG[sv][0]}, o ponto fraco de ${me}`, `a ${ABIL_LONG[sv][1]} saving throw, ${me}'s weak spot`),
+      text: t(lang, `uma salvaguarda de ${ABIL_LONG[sv][0]}, o ponto fraco de ${me}`, `${anA(ABIL_LONG[sv][1])} ${ABIL_LONG[sv][1]} saving throw, ${me}'s weak spot`),
       detail: `${t(lang, `salvaguarda de ${abilShort(sv, lang)}`, `${abilShort(sv, lang)} save`)} ${fmtMod(f.saves[sv])} · ${dcTxt(pct(chance(f.saves[sv], 13)), 13)}` });
     const sk = PUSH_SKILLS.filter(k => !(quiet && PUBLIC_SKILLS.includes(k))).sort((a, b) => f.skills[a] - f.skills[b])[0];
     pushes.push({ kind: 'push', auto: `push:skill:${sk}`,
-      text: t(lang, `um teste de ${skillLabel(sk, lang)} em que ${me} se vira sem ajuda`, `a ${skillLabel(sk, lang)} check ${me} has to handle without help`),
+      text: t(lang, `um teste de ${skillLabel(sk, lang)} em que ${me} se vira sem ajuda`, `${anA(skillLabel(sk, lang))} ${skillLabel(sk, lang)} check ${me} has to handle without help`),
       detail: skillDetail(sk) });
 
     // ✎ Gancho: o 1º texto que o jogador escreveu na ficha
@@ -576,7 +581,7 @@ export function sceneIdeas(gaps, facts, lang = 'pt', limit = 3) {
       const who = joinAnd((g.who || []).map(nameOf), lang);
       text = t(lang, `Uma luta que ocupa ${who}: o grupo precisa de outro jeito de ${L2(AXIS_VERB[g.key], lang)}`,
         `A fight where ${who} is busy: the party needs another way to ${L2(AXIS_VERB[g.key], lang)}`);
-    } else if (g.kind === 'save') text = t(lang, `Um perigo de salvaguarda de ${abilShort(g.key, lang)} com saída`, `A ${abilShort(g.key, lang)} saving throw danger with a way out`);
+    } else if (g.kind === 'save') text = t(lang, `Um perigo de salvaguarda de ${abilShort(g.key, lang)} com saída`, `${AnA(abilShort(g.key, lang))} ${abilShort(g.key, lang)} saving throw danger with a way out`);
     else if (g.kind === 'damage') {
       const main = partyMainDamage(facts);
       if (main) text = t(lang, `Um inimigo que resiste a ${damageLabel(main, lang)}: o grupo precisa de outro plano`, `An enemy that resists ${main}: the party needs another plan`);
