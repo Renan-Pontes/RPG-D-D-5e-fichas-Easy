@@ -171,16 +171,28 @@
 .gc-summary { margin: 0; font-size: 0.92rem; color: var(--ink-secondary); line-height: 1.35; overflow-wrap: anywhere; }
 .gc-summary strong { color: var(--ink-primary); }
 .gc-sent { margin: 0; font-size: 0.92rem; color: var(--moss-bright); line-height: 1.35; }
-/* em folha */
-.gc-foot { display: flex; align-items: center; gap: 12px; }
+/* em folha: "Próximo pedido vai para…" numa linha e, embaixo, 📺 + Pronto na mesma linha
+   (onda 3, E1.6b: o rodapé baixo deixa as perícias à vista sem rolar) */
+.gc-foot { display: flex; flex-direction: column; align-items: stretch; gap: 2px; }
 .gc-foot-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.gc-foot-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .gc-done { flex: none; min-width: 96px; }
 /* V7: "📺 Mostrar na Tela" ao pedir (ligado com uma TV conectada) e o atalho ⚡ Iniciativa */
-.gc-foot { flex-wrap: wrap; }
-.gc-screen { flex: 1 1 100%; display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; color: var(--ink-primary); cursor: pointer; }
+.gc-screen { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; color: var(--ink-primary); cursor: pointer; }
 .gc-screen input { width: 22px; height: 22px; flex: none; accent-color: var(--gold); }
 .gc-screen-sub { color: var(--ink-muted); font-size: 13px; }
 .gc-quick-init { grid-template-columns: minmax(0, 1fr); }
+/* quem está a 0 PV fica de fora do "Todos" (onda 3, E1.5c) */
+.gc-chip-down { color: var(--blood-bright); font-size: 12px; }
+.gc-down { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 0.88rem; line-height: 1.35; color: var(--ink-secondary); }
+.gc-down > span { flex: 1 1 160px; min-width: 0; }
+.mesa-btn.gc-down-btn { flex: none; min-height: 44px; padding: 4px 12px; }
+/* a folha do celular: as perícias sem rolar (E1.6b) — os blocos de cima mais juntos */
+.group-checks.is-sheet { gap: 10px; }
+.group-checks.is-sheet .group-checks-config { gap: 8px; }
+.group-checks.is-sheet .gc-field { gap: 4px; }
+.gc-sheet .gc-intro { margin: 0; }
+.gc-sheet .gc-quick-best { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
 .gc-quick-btn.is-init { font-family: var(--display); letter-spacing: 0.04em; }
 @media (min-width: 768px) { .gc-quick-init { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); } }
 @media (min-width: 768px) {

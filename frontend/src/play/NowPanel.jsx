@@ -27,7 +27,7 @@ import { errorMessage } from '../api/errors.js';
 import { openGrimoireLink } from '../grimoire/link.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
 import GroupCheckPanel from '../checks/GroupCheckPanel.jsx';
-import { buildCheckPayload, checkLabel } from '../checks/check-logic.js';
+import { buildCheckPayload, checkLabel, groupTargets, namesList } from '../checks/check-logic.js';
 import { NudgeList, NudgeSettings, useNudges } from '../campaigns/NudgeList.jsx';
 import { partyStatus } from '../campaigns/nudges.js';
 import { isWizardEnabled, stateWithWizard } from '../campaigns/end-of-encounter.js';
@@ -271,11 +271,17 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
   const askCheck = async (c, i) => {
     setBusy(`check:${i}`);
     try {
-      const body = buildCheckPayload({ kind: c.kind, key: c.key, dc: Number.isInteger(c.dc) ? c.dc : '', dcHidden: !!c.dcHidden, advantage: 'normal', targets: [] }, lang);
+      // quem está a 0 PV fica de fora do "todos" (E1.5c; a folha Pedir teste inclui à mão)
+      const players = (campaign.members || []).filter(m => m.role !== 'dm' && m.user?.id !== campaign.dmId);
+      const to = groupTargets(players, { kind: c.kind, key: c.key });
+      const body = buildCheckPayload({ kind: c.kind, key: c.key, dc: Number.isInteger(c.dc) ? c.dc : '', dcHidden: !!c.dcHidden, advantage: 'normal', targets: to.targets }, lang);
       const r = await api.createCheck(campaign.id, body);
       if (r?.check?.id) setPick({ kind: 'check', id: r.check.id });
       if (navigator.vibrate) navigator.vibrate(20);
-      flash(L(lang, `Pedido a todos: ${checkLabel(c, lang)}. As respostas chegam no painel.`, `Asked everyone: ${checkLabel(c, lang)}. Answers arrive in the panel.`));
+      const left = to.left.length ? namesList(to.left, lang) : '';
+      flash(left
+        ? L(lang, `Pedido a todos menos ${left} (0 PV): ${checkLabel(c, lang)}. As respostas chegam no painel.`, `Asked everyone but ${left} (0 HP): ${checkLabel(c, lang)}. Answers arrive in the panel.`)
+        : L(lang, `Pedido a todos: ${checkLabel(c, lang)}. As respostas chegam no painel.`, `Asked everyone: ${checkLabel(c, lang)}. Answers arrive in the panel.`));
       refreshTests();
     } catch (e) { flash(errorMessage(e, lang), { error: true }); } finally { setBusy(''); }
   };
