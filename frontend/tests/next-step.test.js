@@ -325,13 +325,22 @@ test('Agora (V12): J2 depois do Encerrar, com o plano da próxima já levado, at
   const ended = (over = {}) => camp({ state: { session: '3', diarySessions: { 3: { startedAt: T0, endedAt: '2026-10-24T20:10:00Z' } } }, ...over });
   const next = { ...ready(), forSession: 4 };   // "Levar para a Sessão 4": o plano já é o da próxima
   const j2 = nextStep({ where: 'now', campaign: ended(), plan: next, live: false, length: '2h10', recap: { has: false } });
-  assert.deepEqual([j2.id, j2.text, j2.action.id, j2.secondary.id], ['J2', 'Sessão 3 encerrada · 2h10', 'recap', 'preparePlan']);
+  // F1.5: o plano da Sessão 4 já está montado — o J2 não manda prepará-lo de novo: oferece o ensaio
+  assert.deepEqual([j2.id, j2.text, j2.action.id, j2.secondary.id], ['J2', 'Sessão 3 encerrada · 2h10', 'recap', 'previewScene']);
+  assert.equal(j2.secondary.label, 'Ver a 1ª cena (ensaio)');
+  assert.equal(j2.payload.sceneId, next.scenes.find(x => !x.done).id);
+  assert.match(j2.why, /^O plano da Sessão 4 está pronto\./);
+  // o plano ainda é o da sessão jogada (servidor antigo, ou sem levar): "Preparar a Sessão 4"
+  const stale = nextStep({ where: 'now', campaign: ended(), plan: played(), live: false, recap: { has: false } });
+  assert.deepEqual([stale.id, stale.secondary.id], ['J2', 'preparePlan']);
   // o endedAt do pulso também vale (a campanha completa ainda não chegou)
   assert.equal(nextStep({ where: 'now', campaign: stopped(), plan: next, live: false, pulse: { endedAt: '2026-10-24T20:10:00Z' }, recap: { has: false } }).id, 'J2');
   // resumo da 3 salvo: o J1, com "✓ resumo da 3"
   const j1 = nextStep({ where: 'now', campaign: ended(), plan: next, live: false, recap: { has: true } });
   assert.equal(j1.id, 'J1');
   assert.deepEqual(j1.items.find(x => x.id === 'recap'), { id: 'recap', ok: true, text: 'resumo da 3' });
+  // o J1 também leva ao ensaio da 1ª cena
+  assert.deepEqual([j1.action.id, j1.secondary.id, j1.payload.sceneId], ['startSession', 'previewScene', next.scenes.find(x => !x.done).id]);
   // sem endedAt e com o plano da próxima (encerrada à moda antiga, plano novo): J1
   assert.equal(nextStep({ where: 'now', campaign: stopped(), plan: next, live: false }).id, 'J1');
   // o resumo ainda chegando (servidor lento): nenhum cartão — nem o J2 que viraria J1, nem o J1

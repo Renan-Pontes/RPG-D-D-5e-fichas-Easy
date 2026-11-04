@@ -73,6 +73,13 @@
   main.container:has(> .campaign-detail.shell .ns) { padding-bottom: 0; }
   .ns-step-next { bottom: calc(var(--shell-bar-h, 62px) + 8px + env(safe-area-inset-bottom, 0px)); }
   body:has(.mesa-bar) .ns-step-next { bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bar-h) + 8px + env(safe-area-inset-bottom, 0px)); }
+  /* o d20 flutuante (sem a barra da mesa) fica AO LADO do botão preso, nunca em cima dele */
+  body:has(.shell-bottom-bar):not(:has(.mesa-bar)) .ns-step-next { padding-right: calc(var(--shell-fab-size, 50px) + 12px); }
+  /* …e o resumo de cada passo ("1 · 0 achadas") termina antes da coluna do d20: o texto nunca
+     fica embaixo dele, só a seta › */
+  body:has(.shell-bottom-bar):not(:has(.mesa-bar)) .ns-step-sum { padding-right: 26px; }
+  /* folga no fim do Plano: o fim da última seção sobe além do botão preso, do d20 e das barras */
+  .ns { padding-bottom: 24px; }
 }
 .ns-big { font-size: 16px; line-height: 1.5; font-style: italic; min-height: 88px; }
 .ns textarea.input, .ns input.input, .ns select.input { font-size: 16px; }

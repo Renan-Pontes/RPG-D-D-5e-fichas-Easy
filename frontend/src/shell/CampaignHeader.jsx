@@ -56,11 +56,13 @@ export default function CampaignHeader({
               <SessionClock startedAt={sessionMeta(st).startedAt} lang={lang} />
             </span>
           )}
-          {Number.isFinite(session) && session > 0 && (
+          {/* parada, o selo da sessão e da cena encerradas sai do lado do "▶ Começar a Sessão N"
+              (o mestre vê o número da próxima no botão; o jogador continua vendo a última) */}
+          {Number.isFinite(session) && session > 0 && (live || !isDM || closed) && (
             <span className="shell-session">{t(lang, 'Sessão', 'Session')} {session}</span>
           )}
           {closed && <span className="pl-tag pl-tag-closed shell-closed-tag" style={{ marginLeft: 0 }}>⌛ {t(lang, 'Encerrada', 'Closed')}</span>}
-          {st.scene && <span className="shell-scene" title={st.scene}>{st.scene}</span>}
+          {st.scene && live && <span className="shell-scene" title={st.scene}>{st.scene}</span>}
         </div>
 
         {isDM && (

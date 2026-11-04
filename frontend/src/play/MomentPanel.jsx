@@ -24,10 +24,12 @@ const L = (lang, pt, en) => (lang === 'en' ? en : pt);
  * approvals {n, levelups} · dangers  avisos de perigo (nudges) · nudges  o useNudges (Aplicar/Dispensar)
  * pick/onPick  o que está no corpo (a Agora guarda, para o "Pedir a todos" escolher o teste novo)
  * goTo, onChecks (Jogar › Testes), onChange (recarregar os testes depois de uma ação)
+ * leftFrom  com a sessão parada (ensaio), o nº da última sessão: o que espera é resto dela
+ *           e o cabeçalho diz "Ficou da Sessão 3:" (não parece ser do ensaio)
  */
 export default function MomentPanel({
   campaign, lang = 'pt', checks = [], rolls = [], approvals = { n: 0, levelups: null }, dangers = [], nudges,
-  pick, onPick, ready = true, goTo, onChange, closed = false,
+  pick, onPick, ready = true, goTo, onChange, closed = false, leftFrom = null,
 }) {
   const counters = momentCounters({ checks: checks.length, rolls: rolls.length, approvals: approvals.n, levelups: approvals.levelups, dangers: dangers.length }, lang);
   const data = { checks, dangers, rolls: rolls.length, approvals: approvals.n };
@@ -128,6 +130,7 @@ export default function MomentPanel({
   return (
     <section className="mesa-panel is-sunk mp" aria-label={L(lang, 'Painel do momento', 'Moment panel')}>
       <div className="mp-head mesa-scroll" role="group" aria-label={L(lang, 'O que está esperando', 'What is waiting')}>
+        {leftFrom && counters.length > 0 && <span className="mp-from">{L(lang, `Ficou da Sessão ${leftFrom}:`, `Left from session ${leftFrom}:`)}</span>}
         {counters.length === 0 && <span className="mp-none">{L(lang, 'Nada esperando ✓', 'Nothing waiting ✓')}</span>}
         {counters.map(c => (
           <button key={c.id} type="button" className="mesa-chip mp-chip" aria-pressed={active === c.id}

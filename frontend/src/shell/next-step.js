@@ -16,6 +16,8 @@
 // parada valem só o J2 e o J1 (J3–J6 são da sessão ao vivo: "Pular" o J1 não mostra uma
 // cena para começar nem uma sessão para encerrar):
 //   J1 a sessão não começou ("Pronto para a Sessão N?", com a lista do que está de pé)
+//   (J1 e J2 oferecem "Ver a 1ª cena (ensaio)"; com o plano da próxima já montado, o J2 não
+//    manda prepará-lo de novo)
 //   J2 a sessão foi encerrada (diarySessions[n].endedAt; num servidor de antes do endedAt, o
 //      plano ainda é o da sessão jogada) e a próxima não começou; com o resumo dela já salvo
 //      ("✓ resumo da N" no J1), vale o J1. Entre os dois decide o resumo: enquanto ele não
@@ -258,6 +260,10 @@ function nowRules({ campaign, plan, live = false, sceneNow = null, pulse = null,
   const scenes = (plan?.scenes || []).filter(realScene);
   const open = scenes.filter(s => !s.done);
   const played = sessionWasPlayed({ campaign, plan, live, pulse });
+  // o plano da próxima sessão já está montado (o Encerrar levou as cenas, ou o mestre preparou):
+  // o J2 não manda prepará-lo de novo e o ensaio começa pela 1ª cena dele (F1.5)
+  const prepared = !live && open.length > 0 && Number(plan?.forSession) === next;
+  const preview = open.length ? { id: 'previewScene', label: tt(lang, 'Ver a 1ª cena (ensaio)', 'Preview the 1st scene (rehearsal)') } : null;
   if (live && sceneNow) return [];
   // J2 ou J1 depende do resumo: sem saber dele, nenhum cartão (nada de J2 que vira J1)
   if (played && typeof recap?.has !== 'boolean') return [];
@@ -265,9 +271,12 @@ function nowRules({ campaign, plan, live = false, sceneNow = null, pulse = null,
     () => (!played || recap.has ? null : {
       id: 'J2', sig: `ended:${cur}`, canSkip: true,
       text: length ? tt(lang, `Sessão ${cur} encerrada · ${length}`, `Session ${cur} ended · ${length}`) : tt(lang, `Sessão ${cur} encerrada`, `Session ${cur} ended`),
-      why: tt(lang, `O resumo vira o “Anteriormente em…” da Sessão ${next}.`, `The recap becomes session ${next}’s “Previously on…”.`),
+      why: prepared
+        ? tt(lang, `O plano da Sessão ${next} está pronto. O resumo vira o “Anteriormente em…” dela.`, `The session ${next} plan is ready. The recap becomes its “Previously on…”.`)
+        : tt(lang, `O resumo vira o “Anteriormente em…” da Sessão ${next}.`, `The recap becomes session ${next}’s “Previously on…”.`),
       action: { id: 'recap', label: tt(lang, '📜 Escrever o resumo', '📜 Write the recap') },
-      secondary: { id: 'preparePlan', label: tt(lang, `📋 Preparar a Sessão ${next}`, `📋 Prepare session ${next}`) },
+      secondary: prepared ? preview : { id: 'preparePlan', label: tt(lang, `📋 Preparar a Sessão ${next}`, `📋 Prepare session ${next}`) },
+      payload: prepared ? { sceneId: open[0].id } : undefined,
     }),
     () => (live ? null : {
       id: 'J1', sig: `ready:${next}`, canSkip: true,
@@ -276,6 +285,8 @@ function nowRules({ campaign, plan, live = false, sceneNow = null, pulse = null,
       items: readyItems({ campaign, plan, pulse, recap, lang }),
       note: tt(lang, 'Ensaio: dá para olhar as cenas e testar a Tela antes.', 'Rehearsal: you can look at the scenes and test the screen first.'),
       action: { id: 'startSession', label: tt(lang, `▶ Começar a Sessão ${next}`, `▶ Start session ${next}`) },
+      secondary: preview,
+      payload: preview ? { sceneId: open[0].id } : undefined,
     }),
     () => (!live || !recap?.has || recap.shown ? null : {
       id: 'J3', sig: `recap:${cur}`, canSkip: true,
