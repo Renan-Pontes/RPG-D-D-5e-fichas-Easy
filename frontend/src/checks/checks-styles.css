@@ -192,6 +192,21 @@
 .group-checks.is-sheet .group-checks-config { gap: 8px; }
 .group-checks.is-sheet .gc-field { gap: 4px; }
 .gc-sheet .gc-intro { margin: 0; }
+/* CD e Dado: no painel e no PC, como sempre; na folha do celular, numa linha recolhida
+   ("CD: sem · Dado: Normal ▾") antes das perícias — a 1ª fila fica à vista a 360×740 e a
+   375×667 (revisão da E1.6b). O "um toque envia" já está no rótulo das perícias. */
+.gc-opts { display: contents; }
+.gc-opts-toggle { display: none; }
+@media (max-width: 767px) {
+  .gc-sheet .gc-intro { display: none; }
+  .group-checks.is-sheet .gc-opts:not(.is-open) { display: none; }
+  .group-checks.is-sheet .mesa-btn.gc-opts-toggle {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    min-height: 44px; padding: 4px 12px; text-transform: none; letter-spacing: 0;
+    font-family: var(--body); font-size: 15px; text-align: left;
+  }
+  .gc-opts-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
 .gc-sheet .gc-quick-best { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
 .gc-quick-btn.is-init { font-family: var(--display); letter-spacing: 0.04em; }
 @media (min-width: 768px) { .gc-quick-init { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); } }

@@ -14,7 +14,9 @@
 // assim que é pedido) e `closeOnSend`: a folha fecha sozinha ao enviar.
 // Onda 3: "Todos" deixa de fora quem está a 0 PV (E1.5c; "＋ Incluir Pipo" põe de volta, e a
 // iniciativa vai a todos) e, na folha do celular, as perícias aparecem sem rolar (E1.6b): os
-// nomes curtos no "Para", e as explicações (CD secreta, o "melhor:") embaixo dos atalhos.
+// nomes curtos no "Para" (com o "＋ Incluir" na mesma fila), CD e Dado numa linha recolhida
+// ("CD: sem · Dado: Normal ▾", aberta no PC) e as explicações (CD secreta, o "melhor:")
+// embaixo dos atalhos.
 import { errorMessage } from '../api/errors.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client.js';
@@ -65,6 +67,8 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
   const [toScreen, setToScreen] = useState(tvLive > 0);
   // quem está a 0 PV fica de fora do "Todos" (E1.5c); "＋ Incluir" vale enquanto a folha está aberta
   const [includeDown, setIncludeDown] = useState(false);
+  // na folha do celular, CD e Dado ficam numa linha recolhida ("CD: sem · Dado: Normal ▾")
+  const [opts, setOpts] = useState(false);
   const down = downPlayers(players);
   const downLeft = targets.length === 0 && !includeDown ? down : [];
   // "melhor: Pipo +7 · 65%" — na CD escolhida (sem CD, na 15, a de referência do Raio-X) e
@@ -140,6 +144,13 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
       ? L(lang, `Embaixo de cada atalho: o melhor da mesa e a chance dele na CD ${refDc}${modeText} (sem CD escolhida).`, `Under each shortcut: the best at the table and their chance at DC ${refDc}${modeText} (no DC picked).`)
       : L(lang, `Embaixo de cada atalho: o melhor da mesa e a chance dele na CD ${refDc}${modeText}.`, `Under each shortcut: the best at the table and their chance at DC ${refDc}${modeText}.`)}</p>
   ) : null;
+  const downToggle = targets.length === 0 && down.length > 0 ? (
+    <button type="button" className="mesa-btn gc-down-btn" onClick={() => setIncludeDown(v => !v)}>
+      {includeDown ? L(lang, `Deixar ${allDown} de fora`, `Leave ${allDown} out`) : `＋ ${L(lang, 'Incluir', 'Include')} ${allDown}`}
+    </button>
+  ) : null;
+  const advText = { normal: L(lang, 'Normal', 'Normal'), adv: L(lang, 'Vantagem', 'Advantage'), dis: L(lang, 'Desvantagem', 'Disadvantage') }[advantage] || advantage;
+  const optsLine = `CD: ${dc === '' ? L(lang, 'sem', 'none') : dc}${dc !== '' && dcHidden ? ' 🔒' : ''} · ${L(lang, 'Dado', 'Roll')}: ${advText}`;
   const form = (
     <>
       <div className="group-checks-config">
@@ -156,18 +167,27 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
                 {nameOf(p)}{isDown(p) ? <span className="gc-chip-down"> · 0 {L(lang, 'PV', 'HP')}</span> : null}
               </button>
             ))}
+            {/* na folha, o "＋ Incluir" vai na fila dos nomes (o chip já diz "0 PV" e o rodapé,
+                "todos menos Pipo"): uma linha a menos antes das perícias */}
+            {asSheet && downToggle}
           </div>
-          {targets.length === 0 && down.length > 0 && (
+          {!asSheet && targets.length === 0 && down.length > 0 && (
             <p className="gc-down">
               <span>{includeDown
                 ? L(lang, `${allDown} (0 PV) também recebe${down.length > 1 ? 'm' : ''}.`, `${allDown} (0 HP) also get${down.length > 1 ? '' : 's'} it.`)
                 : L(lang, `${allDown} ${down.length > 1 ? 'estão' : 'está'} a 0 PV: fica${down.length > 1 ? 'm' : ''} de fora.`, `${allDown} ${down.length > 1 ? 'are' : 'is'} at 0 HP: left out.`)}</span>
-              <button type="button" className="mesa-btn gc-down-btn" onClick={() => setIncludeDown(v => !v)}>
-                {includeDown ? L(lang, 'Deixar de fora', 'Leave out') : `＋ ${L(lang, 'Incluir', 'Include')} ${allDown}`}
-              </button>
+              {downToggle}
             </p>
           )}
         </div>
+        {asSheet && (
+          <button type="button" className="mesa-btn gc-opts-toggle" aria-expanded={opts} aria-controls="gc-opts"
+            onClick={() => setOpts(v => !v)}>
+            <span className="gc-opts-line">{optsLine}</span>
+            <span aria-hidden="true">{opts ? '▴' : '▾'}</span>
+          </button>
+        )}
+        <div id="gc-opts" className={`gc-opts ${opts ? 'is-open' : ''}`}>
         <div className="gc-field">
           <span className="gc-label">CD</span>
           <div className="gc-chips gc-dc">
@@ -192,6 +212,7 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
               <button key={k} type="button" className={`mesa-chip gc-chip ${advantage === k ? 'active' : ''} ${k}`} aria-pressed={advantage === k} onClick={() => setAdvantage(k)}>{lbl}</button>
             ))}
           </div>
+        </div>
         </div>
       </div>
 
