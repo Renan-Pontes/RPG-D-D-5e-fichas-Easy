@@ -18,8 +18,8 @@ const room = {
   checks: [{ skill: 'investigation', dc: 13, note: 'alçapão' }, { skill: 'save:wis', dc: 12, note: '', dcHidden: true }],
 };
 
-test('a paleta tem os 7 blocos na ordem da tela', () => {
-  assert.deepEqual(SCENE_BLOCKS.map(b => b.id), ['read', 'show', 'refs', 'fight', 'check', 'spots', 'notes']);
+test('a paleta tem os 8 blocos na ordem da tela (com o 💰 Tesouro)', () => {
+  assert.deepEqual(SCENE_BLOCKS.map(b => b.id), ['read', 'show', 'refs', 'fight', 'check', 'treasure', 'spots', 'notes']);
 });
 
 test('cena solta: tudo vem do plano; os blocos com conteúdo ganham o ✓', () => {
@@ -240,13 +240,19 @@ test('ideias de momento que combinam com o teste e o combate da cena vêm primei
 test('a ideia que nasce do 🎯 da cena: ★ para o melhor da mesa, ↗ para os outros', () => {
   const facts = [{ id: 1, name: 'Elarion', skills: { investigation: 5 }, saves: { dex: 2 } }, { id: 2, name: 'Pipo', skills: { investigation: 1 }, saves: { dex: 5 } }];
   const view = { checks: [{ kind: 'skill', key: 'investigation', dc: 13 }] };
+  // frase de mestre, sem porcentagem nem gênero na linha principal; os números no detalhe (F1.1)
   assert.deepEqual(sceneCheckIdea(view, facts[0], facts, { lang: 'pt' }),
-    { kind: 'shine', auto: 'skill:investigation', text: 'Investigação 65%', why: 'a cena tem Investigação CD 13' });
+    { kind: 'shine', auto: 'skill:investigation', text: 'o teste de Investigação desta cena — ninguém no grupo faz melhor',
+      why: 'a cena tem Investigação CD 13', detail: 'Investigação +5 · 65% na CD 13' });
   const push = sceneCheckIdea(view, facts[1], facts, { lang: 'pt' });
   assert.equal(push.kind, 'push');
   assert.equal(push.auto, 'push:skill:investigation');
-  assert.match(push.text, /^Investigação \+1 · 45% · tentar sem o especialista/);
-  assert.equal(sceneCheckIdea({ checks: [{ kind: 'save', key: 'dex' }] }, facts[1], facts, { lang: 'en' }).text, 'DEX save 55%', 'sem CD: a de referência (15)');
+  assert.equal(push.text, 'o teste de Investigação desta cena: Pipo se vira sem ajuda');
+  assert.equal(push.detail, 'Investigação +1 · 45% na CD 13');
+  assert.doesNotMatch(`${push.text} ${sceneCheckIdea(view, facts[0], facts).text}`, /%|especialista/);
+  const save = sceneCheckIdea({ checks: [{ kind: 'save', key: 'dex' }] }, facts[1], facts, { lang: 'en' });
+  assert.equal(save.text, "this scene's DEX save — nobody in the party does it better");
+  assert.equal(save.detail, 'DEX save +5 · 55% at DC 15', 'sem CD: a de referência (15)');
   assert.equal(sceneCheckIdea({ checks: [{ kind: 'ability', key: 'str' }] }, facts[0], facts), null);
   assert.equal(sceneCheckIdea({ checks: [] }, facts[0], facts), null);
 });
@@ -266,6 +272,10 @@ test('linha da cena no Plano: os ícones escritos, só do que existe', () => {
     fight: [{ monsterId: 'goblin', name: 'Goblins', count: 2 }], check: { kind: 'skill', key: 'perception' } });
   assert.deepEqual(sceneIcons(v, { lang: 'pt', moments: [{ charId: 14 }], names: { 14: 'Pipo' } }),
     ['📜 ler', '📺 imagem', '🎭 2', '⚔ 2 Goblins', '🎯 Percepção', '★ Pipo']);
+  // com a CD escrita, como na mesa (F1.4); 💰 quando a cena tem tesouro
+  const dc = sceneView({ id: 'c5', text: 'Ponte', check: { kind: 'skill', key: 'perception', dc: 15 }, treasure: { items: [{ name: 'Adaga', qty: 1 }], coins: {} } });
+  assert.deepEqual(sceneIcons(dc, { lang: 'pt' }), ['🎯 Percepção CD 15', '💰 tesouro']);
+  assert.deepEqual(sceneIcons(dc, { lang: 'en' }), ['🎯 Perception DC 15', '💰 treasure']);
   assert.deepEqual(sceneIcons(sceneView({ id: 'c2', text: 'Nada' })), []);
   // cena ligada com a sala leve do Plano: o texto não vem, só que existe
   const light = lightNode({ id: 'n1', readAloud: 'x', refs: [], encounter: [{ name: 'Cultista', count: 3 }], checks: [{ skill: 'save:dex' }] });
@@ -306,4 +316,50 @@ test('sala leve e sala sem imagem (o servidor antigo cai na aventura inteira)', 
   assert.equal(n.hasImage, true);
   assert.equal(firstImageRef([3, 9, 7], world), 9);
   assert.equal(firstImageRef([3], world), null);
+});
+
+// ---------------------------------------------------------------- 💰 Tesouro (onda 3, F1.8)
+import { cleanTreasure, treasureFilled, sceneItem, typedItem } from '../src/prep/scene-model.js';
+
+test('💰 tesouro: cena solta no plano (itens enxutos), cena ligada no tesouro da sala', () => {
+  const big = { id: 'i1', sourceId: 'longsword', name: 'Espada Longa', qty: 2, type: 'weapon', art: 'data:image/png;base64,AAA',
+    desc: { pt: 'x'.repeat(900), en: 'y'.repeat(900) }, weapon: { damage: '1d8', dmgType: 'slashing' } };
+  const it = sceneItem(big);
+  assert.equal(it.art, undefined, 'sem imagens');
+  assert.equal(it.desc.pt.length, 200);
+  assert.deepEqual(it.weapon, big.weapon);
+  assert.ok(snapSize(it) <= SCENE_LIMITS.itemBytes);
+  // grande demais mesmo cortado: fica o essencial
+  const huge = sceneItem({ name: 'Grimório', qty: 1, id: 'g', notes2: 'z'.repeat(5000) });
+  assert.deepEqual(huge, { name: 'Grimório', qty: 1, id: 'g' });
+  assert.deepEqual(typedItem('  Mapa da cripta ', '3'), { name: 'Mapa da cripta', qty: 3 });
+  // cena solta: o bolso `treasure` do plano, no formato da sala
+  const w = writeBlock('treasure', { items: [big, { name: '' }], coins: { gp: '120', sp: 0, pp: -3 } });
+  assert.deepEqual(Object.keys(w), ['scene']);
+  assert.deepEqual(w.scene.treasure.coins, { gp: 120 });
+  assert.equal(w.scene.treasure.items.length, 1, 'item sem nome não entra');
+  assert.equal(w.scene.treasure.items[0].art, undefined);
+  // cena ligada: o tesouro da sala (item inteiro, como as Aventuras guardam)
+  const n = writeBlock('treasure', { items: [big], coins: { gp: 5 } }, { linked: true });
+  assert.deepEqual(n, { node: { treasure: { items: [big], coins: { gp: 5 } } } });
+  // a folha vê o tesouro dos dois jeitos; o ✓ da paleta e o ícone da linha
+  const loose = sceneView({ id: 'c1', text: 'Cofre', treasure: { items: [{ name: 'Adaga', qty: 1 }], coins: {} } });
+  assert.ok(presentBlocks(loose).includes('treasure'));
+  assert.equal(treasureFilled(loose.treasure), true);
+  const linked = sceneView({ id: 'c2', text: 'Sala', nodeRef: { adventureId: 1, nodeId: 'n1' } }, { id: 'n1', treasure: { items: [], coins: { gp: 50 } } });
+  assert.deepEqual(linked.treasure, { items: [], coins: { gp: 50 } });
+  assert.equal(treasureFilled(cleanTreasure(null)), false);
+});
+
+test('💰 ligar e desligar uma sala leva o tesouro junto (o dado mora num lugar só)', () => {
+  const scene = { id: 'c1', text: 'Cofre', treasure: { items: [{ name: 'Adaga', qty: 1 }], coins: { gp: 10 } } };
+  assert.equal(hasRoomPockets(scene), true, 'só com tesouro já pergunta "Levar…?"');
+  const r = linkScene(scene, { adventureId: 1, nodeId: 'n1' }, { id: 'n1', treasure: { items: [{ name: 'Elmo', qty: 1 }], coins: { gp: 5, sp: 3 } } });
+  assert.deepEqual(r.node.treasure, { items: [{ name: 'Elmo', qty: 1 }, { name: 'Adaga', qty: 1 }], coins: { gp: 15, sp: 3 } });
+  assert.equal(r.scene.treasure, null, 'a cena solta esvazia o bolso dela');
+  // desligar copiando: o tesouro da sala volta para a cena (enxuto)
+  const node = { id: 'n1', treasure: { items: [{ name: 'Elmo', qty: 1, art: 'data:x' }], coins: { pp: 1 } } };
+  assert.equal(roomHasPockets(node), true);
+  const back = unlinkScene({ id: 'c1', text: 'Cofre', nodeRef: { adventureId: 1, nodeId: 'n1' } }, node, { copy: true });
+  assert.deepEqual(back.treasure, { items: [{ name: 'Elmo', qty: 1 }], coins: { pp: 1 } });
 });

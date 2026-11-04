@@ -3,12 +3,16 @@
 // - Sugestão (cinza, não gravada): Aceitar · Dispensar. Aceito ou escrito (gravado em
 //   partyInsights.spotlights pelo PUT do Raio-X): → Cena, ⋯ (Editar · Tirar da cena ·
 //   Apagar) e a caixa "Aconteceu" de 48 px, que grava o nº da sessão.
+// - Em que cena cada momento está é a conta do Plano (moment-words.momentScene), com as
+//   cenas do plano que vêm no GET do Raio-X (`planScenes`): o da cena apagada ou arquivada
+//   é "sem cena ainda", com "→ Cena". Servidor de antes (sem elas): vale a cena gravada.
 // - Aceitar, Dispensar e desmarcar mudam a lista: os botões da lista do personagem
 //   ignoram toques por 400 ms (o 2º toque de um toque duplo não cai na sugestão seguinte).
 // - Dispensar e Apagar não perguntam: mostram "↶ Desfazer" por 6 s (princípio 5), que
 //   põe de volta a chave ou a foto do momento na lista de agora (spotlights.js).
-// - O histórico do servidor (Equilíbrio e o "⚠ sem momento") é lido uma vez, quando os
-//   Momentos chegam perto da tela: a resposta chega antes de os cartões aparecerem.
+// - O histórico do servidor (Equilíbrio e o "⚠ sem momento") é lido uma vez, quando o
+//   Equilíbrio chega perto da tela (com a página curta os Momentos já abrem à vista: pedir por
+//   eles seria 1 GET a mais em toda abertura). Até lá o "⚠" vem do estado da campanha.
 import { useEffect, useRef, useState } from 'react';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import MesaTitle from '../shell/MesaTitle.jsx';
@@ -22,6 +26,7 @@ import {
   momentSceneText, openSuggestions, removeMoment, restoreMoment, spreadKinds, STYLES, styleLabel, toggleDone, undismissKey,
   updateMoment, writeMoment,
 } from './spotlights.js';
+import { momentLine, momentPick, momentScene, momentSession, planMomentCount } from './moment-words.js';
 
 const t = PM.t;
 const SETTLE_MS = 400;
@@ -31,7 +36,9 @@ const FILTERS = [
   { id: 'all', label: ['Todos', 'All'] },
   { id: 'done', label: ['Aconteceram', 'Happened'] },
 ];
-const SUGGESTIONS_SHOWN = 3;
+// à vista, a 1ª sugestão de cada um (as outras, de tipos diferentes, a 1 toque em "Mais N
+// sugestões"): a página do Raio-X cabe em ≤ 5 telas no celular (F2.6)
+const SUGGESTIONS_SHOWN = 1;
 
 const sessionsText = (n, lang) => (n === 1 ? t(lang, '1 sessão', '1 session') : t(lang, `${n} sessões`, `${n} sessions`));
 export const droughtText = (n, lang) => t(lang, `⚠ sem momento há ${sessionsText(n, lang)}`, `⚠ no moment for ${sessionsText(n, lang)}`);
@@ -48,8 +55,14 @@ export function balanceSub(n, lang) {
 }
 
 /** G8: um cartão por personagem de quem entra. */
-export function Moments({ facts, settings, update, suggestions, session, balance, lang, readOnly, focusId, filter, setFilter, campaignId, onOpenPlan, historyState, onNear }) {
+export function Moments({ facts, settings, update, suggestions, session, state = null, balance, lang, readOnly, focusId, filter, setFilter, campaignId, onOpenPlan, planScenes = null, onSceneLinked, oneAtATime = false }) {
   const [sheet, setSheet] = useState(null);   // {kind:'write'|'scene', id, moment?}
+  // celular (F2.6): um personagem por vez, escolhido nos chips (cada chip diz quantos momentos
+  // e o ⚠); começa no destaque vindo de Jogadores ou em quem está há mais tempo sem momento.
+  // Esse começo fica fixo (`initial`): aceitar ou escrever muda a conta, não quem está à vista.
+  const [pick, setPick] = useState(null);
+  const initial = useRef(null);
+  useEffect(() => { if (focusId != null) setPick(focusId); }, [focusId]);
   const [undo, setUndo] = useState(null);     // {id, text, run}: o "↶ Desfazer" de 6 s
   const ref = useRef(null);
   const latest = useRef(settings);            // o Desfazer mexe na lista de agora, não na do toque
@@ -60,16 +73,13 @@ export function Moments({ facts, settings, update, suggestions, session, balance
     return () => clearTimeout(id);
   }, [undo]);
   const offerUndo = (text, run) => setUndo({ id: Date.now(), text, run });
-  // sob demanda: o histórico só é pedido quando os Momentos chegam perto da tela (uma vez)
-  useEffect(() => {
-    if (historyState !== 'idle') return undefined;
-    const el = ref.current;
-    if (!el || typeof IntersectionObserver === 'undefined') { onNear(); return undefined; }
-    const io = new IntersectionObserver((entries) => { if (entries.some(e => e.isIntersecting)) { io.disconnect(); onNear(); } }, { rootMargin: '800px 0px' });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [historyState, onNear]);
   const warn = Object.fromEntries((balance?.rows || []).map(r => [r.id, r]));
+  const countOf = (f) => planMomentCount(settings.spotlights?.[String(f.id)] || [], { session: momentSession(state), sceneIds: planScenes }).total;
+  const shownId = momentPick({ ids: facts.map(f => f.id), pick, initial: initial.current,
+    drought: Object.fromEntries(facts.map(f => [f.id, warn[f.id]?.drought || 0])),
+    count: Object.fromEntries(facts.map(f => [f.id, countOf(f)])) });
+  if (shownId !== pick) initial.current = shownId;   // o padrão (ou o novo, se aquele saiu de quem entra)
+  const cards = oneAtATime ? facts.filter(f => f.id === shownId) : facts;
   const setList = (id, list) => update({ spotlights: { [String(id)]: list } });
   const dismiss = (id, auto) => {
     const key = String(id);
@@ -87,9 +97,10 @@ export function Moments({ facts, settings, update, suggestions, session, balance
   };
   return (
     <section ref={ref} className="mesa-panel ins-block ins-moments" id="ins-moments">
-      <MesaTitle sub={t(lang, 'um momento para cada um brilhar, ser desafiado ou viver a história dele', 'a moment for each one to shine, be challenged or live their story')}
+      <MesaTitle sub={t(lang, 'um momento para cada um brilhar, enfrentar um desafio ou viver a própria história', 'a moment for each one to shine, face a challenge or live their own story')}
         hint={<HelpButton lang={lang} title={t(lang, 'Momentos', 'Moments')} text={[
-          t(lang, '★ Brilha: algo em que ele já é bom. ↗ Desafia: uma fraqueza dele, com saída. ✎ Gancho: o que o jogador escreveu na ficha.', '★ Shines: something they are already good at. ↗ Challenges: one of their weaknesses, with a way out. ✎ Hook: what the player wrote on the sheet.'),
+          t(lang, '★ Brilha: algo em que o personagem já é bom. ↗ Desafia: um ponto fraco, com saída. ✎ Gancho: o que o jogador escreveu na ficha. Os números ficam em "detalhes".', '★ Shines: something the character is already good at. ↗ Challenges: a weak spot, with a way out. ✎ Hook: what the player wrote on the sheet. The numbers are under "details".'),
+          t(lang, 'A conta de cada um é a mesma do Plano: os momentos que ainda esperam (com ou sem cena) e os que aconteceram na sessão ao vivo.', "Each one's count is the same as in the Plan: the moments still waiting (with or without a scene) and the ones that happened in the live session."),
           t(lang, 'As sugestões em cinza saem da ficha e não ficam salvas. Aceite, escreva o seu ou dispense. Leve para uma cena do plano e marque quando acontecer na mesa.', 'The gray suggestions come from the sheet and are not saved. Accept, write your own or dismiss. Take it to a plan scene and tick it when it happens at the table.'),
           t(lang, 'O estilo do jogador muda as sugestões: quem fala pouco nunca recebe um desafio de falar em público.', "The player style changes the suggestions: a quiet player never gets a public-speaking challenge."),
         ]} />}>{t(lang, 'Momentos', 'Moments')}</MesaTitle>
@@ -99,9 +110,24 @@ export function Moments({ facts, settings, update, suggestions, session, balance
         ))}
       </div>
       {readOnly && <p className="ins-note">{t(lang, 'Campanha encerrada: os momentos ficam só para ler.', 'Campaign closed: the moments are read-only.')}</p>}
+      {oneAtATime && facts.length > 1 && (
+        <div className="ins-pair ins-mom-pick" role="group" aria-label={t(lang, 'Momentos de quem', "Whose moments")}>
+          {facts.map(f => {
+            const n = countOf(f);
+            const w = warn[f.id]?.warn;
+            return (
+              <button key={f.id} type="button" className="mesa-chip" aria-pressed={f.id === shownId} onClick={() => setPick(f.id)}
+                aria-label={t(lang, `${f.name}: ${n} momento${n === 1 ? '' : 's'} neste plano${w ? `, ${droughtText(warn[f.id].drought, lang)}` : ''}`,
+                  `${f.name}: ${n} moment${n === 1 ? '' : 's'} in this plan${w ? `, ${droughtText(warn[f.id].drought, lang)}` : ''}`)}>
+                <Dot color={f.color} /> {PM.firstName(f.name)} <span className="ins-mom-pick-n">★ {n}</span>{w && <span className="ins-warn" aria-hidden="true"> ⚠</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div className="ins-mom-grid">
-        {facts.map(f => (
-          <MomentCard key={f.id} f={f} lang={lang} readOnly={readOnly} session={session} filter={filter}
+        {cards.map(f => (
+          <MomentCard key={f.id} f={f} lang={lang} readOnly={readOnly} session={session} countSession={momentSession(state)} filter={filter} sceneIds={planScenes}
             list={settings.spotlights?.[String(f.id)] || []} style={settings.style?.[String(f.id)] || []}
             dismissed={settings.dismissed?.[String(f.id)] || []} suggestions={suggestions[f.id] || []}
             row={warn[f.id]} focus={focusId === f.id}
@@ -125,7 +151,10 @@ export function Moments({ facts, settings, update, suggestions, session, balance
       {sheet?.kind === 'scene' && (
         <SceneSheet lang={lang} campaignId={campaignId} moment={sheet.moment} name={facts.find(f => f.id === sheet.id)?.name}
           onClose={() => setSheet(null)} onOpenPlan={onOpenPlan}
-          onLinked={(sceneId) => setList(sheet.id, updateMoment(settings.spotlights?.[String(sheet.id)] || [], sheet.moment.id, { plan: sceneId }))} />
+          onLinked={(sceneId) => {
+            onSceneLinked?.(sceneId);   // a cena nova (ou escolhida) passa a contar como do plano
+            setList(sheet.id, updateMoment(settings.spotlights?.[String(sheet.id)] || [], sheet.moment.id, { plan: sceneId }));
+          }} />
       )}
       {undo && (
         <div className="ins-undo" role="status" aria-live="polite">
@@ -137,7 +166,7 @@ export function Moments({ facts, settings, update, suggestions, session, balance
   );
 }
 
-function MomentCard({ f, lang, readOnly, session, filter, list, style, dismissed, suggestions, row, focus, setList, setStyle, dismiss, remove, onWrite, onScene }) {
+function MomentCard({ f, lang, readOnly, session, countSession, filter, sceneIds = null, list, style, dismissed, suggestions, row, focus, setList, setStyle, dismiss, remove, onWrite, onScene }) {
   const [styleOpen, setStyleOpen] = useState(false);
   const [more, setMore] = useState(false);
   const lockedUntil = useRef(0);
@@ -154,38 +183,30 @@ function MomentCard({ f, lang, readOnly, session, filter, list, style, dismissed
   const open = filter === 'done' ? [] : spreadKinds(openSuggestions(suggestions, list, dismissed));
   const visible = more ? open : open.slice(0, SUGGESTIONS_SHOWN);
   const doneCount = list.filter(m => m.done != null).length;
+  // a mesma conta do Plano, do "O que fazer agora" e do "Pronto para jogar" (moment-words),
+  // com as cenas do plano de agora
+  const count = planMomentCount(list, { session: countSession, sceneIds });
   const full = list.length >= MAX_MOMENTS;
   const name = PM.firstName(f.name);
   return (
     <article ref={ref} className={`ins-mom-card ${focus ? 'is-focus' : ''}`} id={`ins-mom-${f.id}`} aria-labelledby={`ins-mom-h-${f.id}`}>
       <header className="ins-mom-head">
         <h3 className="ins-mom-name" id={`ins-mom-h-${f.id}`}><Dot color={f.color} /> {f.name}</h3>
-        <p className="ins-mom-count">{t(lang, `${list.length} momento${list.length === 1 ? '' : 's'} · ${doneCount} aconteceu`, `${list.length} moment${list.length === 1 ? '' : 's'} · ${doneCount} happened`)}</p>
+        <p className="ins-mom-count">{t(lang,
+          `${count.total} momento${count.total === 1 ? '' : 's'} neste plano${count.noScene ? ` (${count.noScene} sem cena ainda)` : ''} · ${doneCount} ${doneCount === 1 ? 'aconteceu' : 'aconteceram'}`,
+          `${count.total} moment${count.total === 1 ? '' : 's'} in this plan${count.noScene ? ` (${count.noScene} with no scene yet)` : ''} · ${doneCount} happened`)}</p>
         {style.length > 0 && <p className="ins-mom-style">{style.map(s => styleLabel(s, lang)).join(' · ')}</p>}
         {row?.warn && <p className="ins-warn ins-mom-warn" role="note">{droughtText(row.drought, lang)}</p>}
-        <button type="button" className="mesa-btn is-quiet ins-style-toggle" aria-expanded={styleOpen} onClick={() => setStyleOpen(o => !o)}>
-          {t(lang, 'Estilo do jogador', 'Player style')} <span aria-hidden="true">{styleOpen ? '▴' : '▾'}</span>
-        </button>
-        {styleOpen && (
-          <div className="ins-style-chips" role="group" aria-label={t(lang, `Estilo de quem joga com ${name}`, `Style of ${name}'s player`)}>
-            {STYLES.map(s => {
-              const on = style.includes(s.id);
-              return (
-                <button key={s.id} type="button" className="mesa-chip" aria-pressed={on} disabled={readOnly}
-                  onClick={() => setStyle(on ? style.filter(x => x !== s.id) : [...style, s.id])}>{styleLabel(s.id, lang)}</button>
-              );
-            })}
-          </div>
-        )}
       </header>
 
       {shown.length > 0 && (
         <ul className="ins-mom-list">
           {shown.map(m => {
             const done = m.done != null;
+            const inScene = !!momentScene(m, sceneIds);   // a cena dele ainda está no plano
             const menu = [
               { id: 'edit', label: t(lang, 'Editar', 'Edit'), onSelect: () => onWrite(m) },
-              m.plan && { id: 'unlink', label: t(lang, 'Tirar da cena', 'Remove from scene'), onSelect: () => setList(updateMoment(list, m.id, { plan: null })) },
+              inScene && { id: 'unlink', label: t(lang, 'Tirar da cena', 'Remove from scene'), onSelect: () => setList(updateMoment(list, m.id, { plan: null })) },
               { id: 'delete', label: t(lang, 'Apagar', 'Delete'), danger: true, onSelect: guard(() => remove(m)) },
             ].filter(Boolean);
             return (
@@ -196,17 +217,15 @@ function MomentCard({ f, lang, readOnly, session, filter, list, style, dismissed
                   <span aria-hidden="true">{done ? '✓' : ''}</span>
                 </button>
                 <div className="ins-mom-body">
-                  <p className="ins-mom-text"><span className="ins-mom-kind">{kindIcon(m.kind)} {kindLabel(m.kind, lang)}</span> {m.text}</p>
-                  {(done || m.plan) && (
-                    <p className="ins-mom-meta">
-                      {done && (m.done > 0 ? t(lang, `aconteceu na sessão ${m.done}`, `happened in session ${m.done}`) : t(lang, 'aconteceu', 'happened'))}
-                      {done && m.plan && ' · '}
-                      {m.plan && t(lang, '📜 numa cena do plano', '📜 in a plan scene')}
-                    </p>
-                  )}
+                  <p className="ins-mom-text">{momentLine(m, f.name, lang)}</p>
+                  <p className="ins-mom-meta">
+                    {done && (m.done > 0 ? t(lang, `aconteceu na sessão ${m.done}`, `happened in session ${m.done}`) : t(lang, 'aconteceu', 'happened'))}
+                    {done && inScene && ' · '}
+                    {inScene ? t(lang, '📜 numa cena do plano', '📜 in a plan scene') : !done ? t(lang, 'sem cena ainda', 'no scene yet') : ''}
+                  </p>
                   {!readOnly && (
                     <div className="ins-mom-act">
-                      {!m.plan && !done && <button type="button" className="mesa-btn" onClick={() => onScene(m)}>→ {t(lang, 'Cena', 'Scene')}</button>}
+                      {!inScene && !done && <button type="button" className="mesa-btn" onClick={() => onScene(m)}>→ {t(lang, 'Cena', 'Scene')}</button>}
                       <MoreMenu items={menu} lang={lang} label={t(lang, `Mais ações: ${m.text}`, `More actions: ${m.text}`)} sheetTitle={t(lang, 'Momento', 'Moment')} />
                     </div>
                   )}
@@ -222,7 +241,8 @@ function MomentCard({ f, lang, readOnly, session, filter, list, style, dismissed
         <ul className="ins-sug-list" aria-label={t(lang, `Sugestões para ${name}`, `Suggestions for ${name}`)}>
           {visible.map(s => (
             <li key={s.auto} className="ins-sug">
-              <p className="ins-sug-text"><span className="ins-sug-tag">{t(lang, 'sugestão', 'suggestion')}</span> <span className="ins-mom-kind">{kindIcon(s.kind)} {kindLabel(s.kind, lang)}</span> {s.text}</p>
+              <p className="ins-sug-text"><span className="ins-sug-tag">{t(lang, 'sugestão', 'suggestion')}</span> {momentLine(s, f.name, lang)}</p>
+              {s.detail && <p className="ins-sug-detail">{t(lang, 'detalhes', 'details')}: {s.detail}</p>}
               {!readOnly && (
                 <div className="ins-mom-act">
                   <button type="button" className="mesa-btn" disabled={full} onClick={guard(() => setList(acceptMoment(list, s)))}>{t(lang, 'Aceitar', 'Accept')}</button>
@@ -233,15 +253,28 @@ function MomentCard({ f, lang, readOnly, session, filter, list, style, dismissed
           ))}
         </ul>
       )}
-      {open.length > SUGGESTIONS_SHOWN && (
-        <button type="button" className="mesa-btn is-quiet ins-more" aria-expanded={more} onClick={() => setMore(v => !v)}>
-          {more ? t(lang, 'Menos sugestões', 'Fewer suggestions') : t(lang, `Mais ${open.length - SUGGESTIONS_SHOWN} sugest${open.length - SUGGESTIONS_SHOWN === 1 ? 'ão' : 'ões'}`, `${open.length - SUGGESTIONS_SHOWN} more suggestion${open.length - SUGGESTIONS_SHOWN === 1 ? '' : 's'}`)}
+      {/* uma fileira só: as outras sugestões, escrever o seu e o estilo do jogador */}
+      <div className="ins-mom-foot">
+        {open.length > SUGGESTIONS_SHOWN && (
+          <button type="button" className="mesa-btn is-quiet ins-more" aria-expanded={more} onClick={() => setMore(v => !v)}>
+            {more ? t(lang, 'Menos sugestões', 'Fewer suggestions') : t(lang, `Mais ${open.length - SUGGESTIONS_SHOWN} sugest${open.length - SUGGESTIONS_SHOWN === 1 ? 'ão' : 'ões'}`, `${open.length - SUGGESTIONS_SHOWN} more suggestion${open.length - SUGGESTIONS_SHOWN === 1 ? '' : 's'}`)}
+          </button>
+        )}
+        {!readOnly && <button type="button" className="mesa-btn" disabled={full} onClick={() => onWrite(null)}>✎ {t(lang, 'Escrever o meu', 'Write my own')}</button>}
+        <button type="button" className="mesa-btn is-quiet ins-style-toggle" aria-expanded={styleOpen} onClick={() => setStyleOpen(o => !o)}>
+          {t(lang, 'Estilo do jogador', 'Player style')} <span aria-hidden="true">{styleOpen ? '▴' : '▾'}</span>
         </button>
-      )}
-      {!readOnly && (
-        <div className="ins-mom-foot">
-          <button type="button" className="mesa-btn" disabled={full} onClick={() => onWrite(null)}>✎ {t(lang, 'Escrever o meu', 'Write my own')}</button>
-          {full && <p className="ins-adj-help">{t(lang, `${name} já tem ${MAX_MOMENTS} momentos: apague um para pôr outro.`, `${name} already has ${MAX_MOMENTS} moments: delete one to add another.`)}</p>}
+      </div>
+      {!readOnly && full && <p className="ins-adj-help">{t(lang, `${name} já tem ${MAX_MOMENTS} momentos: apague um para pôr outro.`, `${name} already has ${MAX_MOMENTS} moments: delete one to add another.`)}</p>}
+      {styleOpen && (
+        <div className="ins-style-chips" role="group" aria-label={t(lang, `Estilo de quem joga com ${name}`, `Style of ${name}'s player`)}>
+          {STYLES.map(s => {
+            const on = style.includes(s.id);
+            return (
+              <button key={s.id} type="button" className="mesa-chip" aria-pressed={on} disabled={readOnly}
+                onClick={() => setStyle(on ? style.filter(x => x !== s.id) : [...style, s.id])}>{styleLabel(s.id, lang)}</button>
+            );
+          })}
         </div>
       )}
     </article>
@@ -276,7 +309,7 @@ function WriteSheet({ lang, moment, name, onSave, onClose }) {
       </div>
       <label className="ins-write-label" htmlFor="ins-write-text">{t(lang, 'O que vai acontecer', 'What will happen')}</label>
       <textarea id="ins-write-text" className="input ins-write-text" rows={3} value={text} onChange={e => onChange(e.target.value)}
-        placeholder={t(lang, 'Ex.: Uma fechadura que só ele abre, com o grupo cercado', 'E.g. A lock only they can open, with the party surrounded')} />
+        placeholder={t(lang, `Ex.: uma fechadura que só ${PM.firstName(name)} abre, com o grupo cercado`, `E.g. a lock only ${PM.firstName(name)} can open, with the party surrounded`)} />
       <p className={`ins-write-count ${cut ? 'is-warn' : ''}`} role={cut ? 'alert' : 'status'}>
         {cut ? t(lang, `Cortado em ${MAX_MOMENT_TEXT} caracteres: o resto não cabe.`, `Cut at ${MAX_MOMENT_TEXT} characters: the rest does not fit.`) : `${chars}/${MAX_MOMENT_TEXT}`}
       </p>
@@ -321,7 +354,7 @@ function SceneSheet({ lang, campaignId, moment, name, onLinked, onOpenPlan, onCl
           <button type="button" className="mesa-btn is-primary mesa-btn-lg" disabled={busy || !plan} onClick={createNew}>{busy ? '…' : t(lang, '＋ Cena nova', '＋ New scene')}</button>
         </div>
       )}>
-      <p className="ins-why-lead">{kindIcon(moment.kind)} {PM.firstName(name)} · {moment.text}</p>
+      <p className="ins-why-lead">{momentLine(moment, name, lang)}</p>
       {err && <p className="ins-note is-warn" role="alert">{t(lang, 'Não enviado', 'Not sent')}: {err}</p>}
       {done ? (
         <p className="ins-plan-ok" role="status">✓ {done.isNew
@@ -355,8 +388,18 @@ function SceneSheet({ lang, campaignId, moment, name, onLinked, onOpenPlan, onCl
 /** G9: momentos que aconteceram e testes pedidos, por personagem; "⚠ sem momento há N sessões". */
 export function Balance({ balance, history, state, onLoad, lang }) {
   const n = balance.sessions.length;
+  const ref = useRef(null);
+  // sob demanda: o histórico só é pedido quando o Equilíbrio chega perto da tela (uma vez)
+  useEffect(() => {
+    if (state !== 'idle') return undefined;
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') { onLoad(); return undefined; }
+    const io = new IntersectionObserver((entries) => { if (entries.some(e => e.isIntersecting)) { io.disconnect(); onLoad(); } }, { rootMargin: '200px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [state, onLoad]);
   return (
-    <section className="mesa-panel ins-block ins-balance">
+    <section ref={ref} className="mesa-panel ins-block ins-balance" id="ins-sec-balance">
       <MesaTitle sub={balanceSub(n, lang)}
         hint={<HelpButton lang={lang} title={t(lang, 'Equilíbrio na mesa', 'Table balance')} text={[
           t(lang, 'Todos tiveram o seu momento? A barra conta os momentos marcados como "aconteceu" nas últimas 5 sessões; embaixo, quantos testes você pediu a cada um nas últimas 3.', 'Did everyone get their moment? The bar counts the moments ticked as "it happened" in the last 5 sessions; below, how many checks you asked each one in the last 3.'),

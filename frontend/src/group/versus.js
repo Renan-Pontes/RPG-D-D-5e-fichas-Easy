@@ -1,11 +1,15 @@
 // Monstro × grupo (Raio-X › Contra quem? e a linha "× grupo" do Escolher monstro): sem React —
 // testado em tests/versus.test.js. Cruza o monstro (data/bestiary.js ou "meus
 // monstros") com os fatos do grupo (party-metrics.sheetFacts):
-//  - o dano principal de cada um × resistência / imunidade / vulnerabilidade;
+//  - o dano principal de cada um × resistência / imunidade / vulnerabilidade (e quem tem o
+//    dano a que ele é vulnerável);
 //  - as salvaguardas que o monstro cobra ("X Saving Throw: DC N") × a chance de cada um;
-//  - as condições a que ele é imune × o controle de quem mais controla.
+//  - as condições a que ele é imune × o controle de quem mais controla;
+//  - a dificuldade dele contra este grupo, com a conta do montador de combate (encounter.js).
 // A linha "× grupo" só aparece quando há algo que o mestre precisa saber.
 import { abilShort, chance, damageLabel, DAMAGE_TYPES, firstName, mainDamage, partyLevel, pct, t } from './party-metrics.js';
+import { encounterDifficulty, DIFFICULTY_LABEL } from '../combat/encounter.js';
+import { xpForCr } from '../combat/cr-estimate.js';
 
 const ABILITY_EN = { Strength: 'str', Dexterity: 'dex', Constitution: 'con', Intelligence: 'int', Wisdom: 'wis', Charisma: 'cha' };
 const CONTROL_CONDITIONS = ['charmed', 'frightened', 'paralyzed', 'prone', 'restrained', 'stunned', 'incapacitated', 'grappled'];
@@ -21,6 +25,16 @@ function typeSet(v) {
   const add = (s) => { for (const k of DAMAGE_TYPES) if (new RegExp(`\\b${k}\\b`, 'i').test(String(s))) out.add(k); };
   for (const x of Array.isArray(v) ? v : v ? [v] : []) add(typeof x === 'string' ? x : JSON.stringify(x));
   return out;
+}
+
+const DEFENSE_KEYS = ['damageResistances', 'damageImmunities', 'damageVulnerabilities'];
+/**
+ * O app sabe as defesas do monstro? As do SRD 5.2.1 (data/monsters-srd521.js, com as
+ * vulnerabilidades) e as de quem traz os campos ("meus monstros", importados): sim. As do
+ * catálogo antigo, sem nenhum campo: não — aí "sem resistência conhecida", nunca "normal".
+ */
+export function defensesKnown(m) {
+  return m?.source === 'SRD 5.2.1' || DEFENSE_KEYS.some(k => m && k in m);
 }
 
 /** Fator do dano do tipo `k` contra o monstro: 0 imune · 0,5 resiste · 2 vulnerável · 1. */
@@ -55,13 +69,22 @@ const monsterName = (m, lang) => (typeof m?.name === 'string' ? m.name : (m?.nam
  */
 export function versus(m, facts, lang = 'pt', { lowChance = 40 } = {}) {
   const tx = (pt, en) => t(lang, pt, en);
+  const known = defensesKnown(m);
   const rows = facts.map(f => {
     const opts = mainDamage(f);
     const main = opts[0] || null;
     const k = main ? damageFactor(m, main.type) : 1;
-    const alt = main && k < 1 ? opts.map(o => ({ ...o, eff: o.exp * damageFactor(m, o.type) })).sort((a, b) => b.eff - a.eff)[0] : null;
-    return { id: f.id, name: f.name, main, k, alt: alt && alt.type !== main.type && alt.eff > 0 ? alt : null };
+    // o melhor dele contra o monstro: outro tipo que rende mais (fugir da resistência ou
+    // aproveitar a vulnerabilidade)
+    const best = main ? opts.map(o => ({ ...o, eff: o.exp * damageFactor(m, o.type) })).sort((a, b) => b.eff - a.eff)[0] : null;
+    const alt = best && best.type !== main.type && best.eff > 0 && best.eff > main.exp * k ? best : null;
+    return { id: f.id, name: f.name, main, k, alt };
   });
+  // vulnerável a quê, e quem do grupo causa esse dano (e com o quê)
+  const vulns = DAMAGE_TYPES.filter(k => damageFactor(m, k) === 2).map(k => ({
+    type: k,
+    who: facts.filter(f => f.dmgTypes?.[k]).map(f => ({ id: f.id, name: f.name, via: f.dmgTypes[k].slice().sort((a, b) => b.exp - a.exp)[0]?.src || '' })),
+  }));
   const saves = monsterSaves(m).map(s => ({
     ...s, chances: facts.map(f => ({ id: f.id, name: f.name, p: pct(chance(f.saves[s.ab] ?? 0, s.dc)) })).sort((a, b) => a.p - b.p),
   }));
@@ -71,6 +94,13 @@ export function versus(m, facts, lang = 'pt', { lowChance = 40 } = {}) {
   const ctlBlocked = controller && condImm.length >= 3 ? controller : null;
 
   const parts = [];
+  for (const v of vulns) {
+    const label = damageLabel(v.type, lang);
+    const names = v.who.map(w => `${firstName(w.name)}${w.via ? ` (${w.via})` : ''}`).join(', ');
+    parts.push(v.who.length
+      ? tx(`vulnerável a ${label}: ${names} ${v.who.length === 1 ? 'causa' : 'causam'} o dobro`, `vulnerable to ${v.type}: ${names} deal${v.who.length === 1 ? 's' : ''} double`)
+      : tx(`vulnerável a ${label} (ninguém do grupo causa)`, `vulnerable to ${v.type} (nobody in the party deals it)`));
+  }
   for (const r of rows) {
     if (!r.main || r.k >= 1) continue;
     const who = firstName(r.name);
@@ -89,14 +119,49 @@ export function versus(m, facts, lang = 'pt', { lowChance = 40 } = {}) {
     const names = condImm.slice(0, 3).map(c => CONDITION_LABELS[c]?.[lang === 'en' ? 1 : 0] || c).join(', ');
     parts.push(tx(`imune a ${names}: o controle de ${firstName(ctlBlocked.name)} perde força`, `immune to ${names}: ${firstName(ctlBlocked.name)}'s control loses its bite`));
   }
-  return { name: monsterName(m, lang), cr: m?.cr ?? '', rows, saves, condImm, ctlBlocked: ctlBlocked ? { id: ctlBlocked.id, name: ctlBlocked.name } : null, parts, line: parts.join(' · ') };
+  return {
+    name: monsterName(m, lang), cr: m?.cr ?? '', known, rows, vulns, saves, condImm,
+    ctlBlocked: ctlBlocked ? { id: ctlBlocked.id, name: ctlBlocked.name } : null, parts, line: parts.join(' · '),
+    difficulty: versusDifficulty(m, facts),
+  };
+}
+
+/**
+ * A dificuldade do monstro contra este grupo, com a mesma conta do montador de combate
+ * (encounter.encounterDifficulty: orçamento de XP por personagem do SRD 5.2.1, os níveis de
+ * quem entra): o que 1 dá e quantos deles chegam a Moderada e a Alta (no máximo 12).
+ * → {xp, one: 'low'|…, levels, steps: [{rating, n}]} | null (sem ND ou sem grupo)
+ */
+export function versusDifficulty(m, facts) {
+  const cr = crOf(m);
+  const xp = cr == null ? 0 : xpForCr(cr);
+  const levels = (facts || []).map(f => f.level || 1);
+  if (!xp || !levels.length) return null;
+  const one = encounterDifficulty(xp, levels).rating;
+  const steps = [];
+  for (const rating of ['moderate', 'high']) {
+    if (one === rating || (rating === 'moderate' && ['high', 'extreme'].includes(one))) continue;
+    for (let n = 2; n <= 12; n++) {
+      const r = encounterDifficulty(xp * n, levels).rating;
+      if (r === rating) { steps.push({ rating, n }); break; }
+      if (r === 'extreme' || (rating === 'moderate' && r === 'high')) break;
+    }
+  }
+  return { xp, one, levels, steps };
+}
+
+/** "1 Sombra: Baixa · 3: Moderada · 4: Alta" (pt) / "1 Shadow: Low · 3: Moderate · 4: High". */
+export function difficultyText(d, name, lang = 'pt') {
+  if (!d) return '';
+  const label = (r) => DIFFICULTY_LABEL[r]?.[lang === 'en' ? 'en' : 'pt'] || r;
+  return [`1 ${name}: ${label(d.one)}`, ...d.steps.map(s => `${s.n}: ${label(s.rating)}`)].join(' · ');
 }
 
 const crOf = (m) => {
   if (Number.isFinite(m?.crNum)) return m.crNum;
-  const s = String(m?.cr ?? '');
+  const s = String(m?.cr ?? '').trim();
   if (/^\d+\/\d+$/.test(s)) { const [a, b] = s.split('/').map(Number); return a / b; }
-  return Number.isFinite(+s) ? +s : null;
+  return s && Number.isFinite(+s) ? +s : null;   // sem ND não é ND 0
 };
 
 /**
@@ -129,6 +194,37 @@ export function threatMonsters(monsters, facts, lang = 'pt', { limit = 3 } = {})
         : t(lang, `${monsterName(m, lang)} resiste a ${type}: o dano de ${who} cai pela metade`, `${monsterName(m, lang)} resists ${x.main.type}: ${who}'s damage is halved`),
     };
   });
+}
+
+/**
+ * A ameaça típica do nível do grupo para cada salvaguarda (as Ameaças do quadro): um monstro do
+ * bestiário (não "meus monstros") de ND entre L − 2 e L + 2 — o alcance de threatMonsters —
+ * que cobra a salvaguarda, o de ND mais perto do nível; empate: a CD maior, depois o nome.
+ * `typicalDc`: a CD mediana dos monstros desse alcance (para quando não há exemplo).
+ * → {examples: {dex: {id, name, cr, dc}, …}, typicalDc}
+ */
+export function saveThreatExamples(monsters, facts, lang = 'pt') {
+  const examples = {};
+  const dcs = [];
+  if (!facts?.length) return { examples, typicalDc: 13 };
+  const L = partyLevel(facts);
+  for (const m of monsters || []) {
+    if (m?.custom) continue;
+    const cr = crOf(m);
+    if (cr == null || cr < L - 2 || cr > L + 2) continue;
+    const d = Math.abs(cr - L);
+    const name = monsterName(m, lang);
+    for (const s of monsterSaves(m)) {
+      dcs.push(s.dc);
+      const cur = examples[s.ab];
+      if (!cur || d < cur.d || (d === cur.d && (s.dc > cur.dc || (s.dc === cur.dc && name.localeCompare(cur.name) < 0)))) {
+        examples[s.ab] = { id: m.id, name, cr: m.cr, dc: s.dc, d };
+      }
+    }
+  }
+  dcs.sort((a, b) => a - b);
+  const typicalDc = dcs.length ? dcs[Math.floor(dcs.length / 2)] : 13;
+  return { examples: Object.fromEntries(Object.entries(examples).map(([k, { d, ...v }]) => [k, v])), typicalDc };
 }
 
 /** Procura no bestiário (nome pt ou en, sem acento). */

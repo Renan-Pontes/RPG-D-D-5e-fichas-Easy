@@ -18,7 +18,7 @@ export const SECRET_GOAL = 10;
 /** Linhas de pista à vista num plano novo (só na tela). */
 export const SECRET_ROWS = 3;
 /** Os bolsos da cena que o app guarda e devolve como vieram (a folha da Cena os edita). */
-export const SCENE_POCKETS = ['what', 'read', 'show', 'showOnStart', 'showOff', 'refs', 'fight', 'check', 'spots', 'notes'];
+export const SCENE_POCKETS = ['what', 'read', 'show', 'showOnStart', 'showOff', 'refs', 'fight', 'check', 'treasure', 'spots', 'notes', 'fromIdea'];
 
 export function emptyPlan() {
   return { strongStart: '', scenes: [], secrets: [], npcIds: [], placeIds: [], monsters: '', rewards: '', forSession: null, _rev: 0 };
@@ -68,6 +68,23 @@ const pocketFilled = (v) => (typeof v === 'string' ? v.trim().length > 0 : Array
 /** O patch do plano leva algo de dentro de uma cena (um bolso com valor)? */
 export const patchHasPockets = (patch) => (patch?.scenes || [])
   .some(s => s && typeof s === 'object' && SCENE_POCKETS.some(k => pocketFilled(s[k])));
+
+/**
+ * Os bolsos da cena que o patch levou com valor e que o servidor não devolveu: um servidor
+ * do Plano guiado de antes do 💰 Tesouro (onda 3) responde sem a chave. A folha avisa em vez
+ * de um "✓ Salvo" calado. `saved` = o plano cru da resposta. → ['treasure', …]
+ */
+export function droppedPockets(patch, saved) {
+  if (!saved || typeof saved !== 'object' || !Array.isArray(saved.scenes)) return [];
+  const back = new Map(saved.scenes.filter(x => x && typeof x === 'object').map(x => [x.id, x]));
+  const out = new Set();
+  for (const sc of patch?.scenes || []) {
+    const got = sc && back.get(sc.id);
+    if (!got) continue;
+    for (const k of SCENE_POCKETS) if (k in sc && pocketFilled(sc[k]) && !(k in got)) out.add(k);
+  }
+  return [...out];
+}
 
 /** Id curto que não colide com os já usados na lista (c1, c2… / p1, p2…). */
 export function nextId(list, prefix) {
@@ -402,19 +419,30 @@ export function nextStepId(id) {
  * contadas por quem sabe das salas (a imagem da cena ligada mora na sala); sem ele, o
  * bolso 📺 de cada cena. `recap` = {has} do resumo da sessão anterior (`session`, o nº
  * dela), o mesmo do J1 da Agora; sem sessão anterior ou ainda sem saber (null), sem a linha.
+ * As mesmas regras do "O que fazer agora" (F1.4): o começo (N3) e quem está sem momento
+ * (N7: `moments` = [{name, moments}] da conta única; sem o Raio-X, null e sem a linha).
  */
-export function readyChecklist(plan, { party = [], tv = false, lang = 'pt', withImage: imgCount = null, recap = null, session = null } = {}) {
+export function readyChecklist(plan, { party = [], tv = false, lang = 'pt', withImage: imgCount = null, recap = null, session = null, moments = null } = {}) {
   const scenes = plan.scenes.filter(realScene);
   const withImage = Number.isInteger(imgCount) ? imgCount : scenes.filter(s => s.show).length;
   const sheets = party.filter(m => m.character).length;
   const clues = clueCount(plan).total;
+  const lacking = (moments || []).filter(c => !c.moments).map(c => String(c.name || '').trim().split(/\s+/)[0]);
   return [
     { id: 'scenes', ok: scenes.length > 0, text: scenes.length
       ? tt(lang, `${plural(scenes.length, 'cena', 'cenas')}${withImage ? `, ${withImage} com imagem` : ''}`, `${plural(scenes.length, 'scene', 'scenes')}${withImage ? `, ${withImage} with an image` : ''}`)
       : tt(lang, 'nenhuma cena ainda', 'no scenes yet') },
+    { id: 'start', ok: filled(plan.strongStart), text: filled(plan.strongStart)
+      ? tt(lang, 'começo escrito', 'opening written')
+      : tt(lang, 'Como começa: vazio', 'How it starts: empty') },
     { id: 'party', ok: party.length > 0 && sheets === party.length, text: party.length
       ? tt(lang, `${sheets} de ${party.length} jogadores com ficha`, `${sheets} of ${party.length} players with a sheet`)
       : tt(lang, 'nenhum jogador na mesa', 'no players at the table') },
+    ...(moments && moments.length ? [{
+      id: 'moments', ok: !lacking.length, text: !lacking.length
+        ? tt(lang, `um momento para cada um (${moments.length} de ${moments.length})`, `a moment for everyone (${moments.length} of ${moments.length})`)
+        : tt(lang, `sem momento: ${lacking.join(', ')}`, `no moment: ${lacking.join(', ')}`),
+    }] : []),
     { id: 'clues', ok: clues > 0, text: clues ? tt(lang, plural(clues, 'pista', 'pistas'), plural(clues, 'clue', 'clues')) : tt(lang, 'nenhuma pista', 'no clues') },
     { id: 'tv', ok: !!tv, text: tv ? tt(lang, 'Tela testada', 'Screen tested') : tt(lang, 'Tela ainda não testada', 'Screen not tested yet') },
     ...(Number.isInteger(session) && session > 0 && typeof recap?.has === 'boolean' ? [{
@@ -423,6 +451,18 @@ export function readyChecklist(plan, { party = [], tv = false, lang = 'pt', with
         : tt(lang, `Sessão ${session} ainda sem resumo`, `Session ${session} has no recap yet`),
     }] : []),
   ];
+}
+
+/**
+ * ⑤ Recompensas + "＋ Item cadastrado": o item escolhido vira uma linha do texto ("• Lâmina
+ * da Maré ×2"), no teto do campo. O texto livre continua; nada novo no servidor.
+ */
+export function rewardWithItem(text, item) {
+  const name = String(item?.name || '').trim();
+  if (!name) return text || '';
+  const qty = parseInt(item?.qty, 10) > 1 ? ` ×${parseInt(item.qty, 10)}` : '';
+  const cur = String(text || '').replace(/\s+$/, '');
+  return `${cur ? `${cur}\n` : ''}• ${name}${qty}`.slice(0, PLAN_LIMITS.long);
 }
 
 /** O plano em JSON para baixar (⋯ › Exportar o plano): sem o `_rev` do servidor. */

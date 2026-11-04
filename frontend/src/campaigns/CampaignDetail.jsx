@@ -316,7 +316,9 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
   const afterEnd = async ({ withRecap, session, plan, sceneId, doneBefore, combat, old, momentsLost }) => {
     setEnding(false);
     await load();
-    goTo('play', 'scene');
+    // "Encerrar" leva ao Plano da próxima sessão (o Pronto para jogar e o resumo pendente);
+    // "Encerrar e escrever o resumo" fica em Jogar, com o editor aberto
+    if (withRecap) goTo('play', 'scene'); else goTo('prepare', 'next');
     const recap = withRecap ? { session, context: { plan, sceneId, doneBefore } } : null;
     if (combat) setWrapUp({ combat, then: recap });
     else if (recap) setRecapFor(recap);

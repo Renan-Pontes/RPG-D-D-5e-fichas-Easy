@@ -230,7 +230,9 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
   // a sessão parada depois de jogada: o J2 (ou o J1) vem primeiro, decidido pelo resumo
   const afterPlay = !live && !closed && sessionWasPlayed({ campaign, plan, live, pulse });
   const recapWait = afterPlay && typeof recap?.has !== 'boolean';
-  const rehearsalStrip = !live && !closed && !(afterPlay && (!plan || recapWait || step?.id === 'J2' || step?.id === 'J1'));
+  // a faixa de ensaio fica sempre que a sessão está parada (também depois de uma sessão jogada:
+  // é de onde o "▶ Ensaiar" do Plano chega), no topo, sem empurrar nada quando o cartão chega
+  const rehearsalStrip = !live && !closed;
 
   const copyTv = async () => {
     try { await navigator.clipboard?.writeText(screenLink(window.location.origin, campaign.screenToken)); } catch { /* ok */ }
@@ -260,6 +262,7 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
         { lang, name: L(lang, 'Anteriormente em…', 'Previously on…'), onDone: refresh });
     } else if (id === 'readRecap') setSheet('readRecap');
     else if (id === 'startScene') start(findScene(s.payload?.sceneId));
+    else if (id === 'previewScene') setRehearse(s.payload?.sceneId || null);   // "Ver a 1ª cena (ensaio)": só no aparelho
     else if (id === 'startSceneLater') start(findScene(s.payload?.sceneId), { focus: false });
     // com um combate andando (E1.2): o dourado leva ao combate; a cena por cima confirma antes
     else if (id === 'goCombat') goTo?.('play', 'combat');
@@ -437,7 +440,7 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
   ) : null;
 
   const moment = (
-    <MomentPanel campaign={campaign} lang={lang} checks={mine.checks} rolls={mine.rolls}
+    <MomentPanel campaign={campaign} lang={lang} checks={mine.checks} rolls={mine.rolls} leftFrom={!live && cur > 0 ? cur : null}
       approvals={{ n: approvalsN, levelups }} dangers={dangers} nudges={nudges}
       pick={pick} onPick={setPick} ready={tests.loaded !== false} goTo={goTo} onChange={refreshTests} closed={closed} />
   );
@@ -460,7 +463,10 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
         {rehearsalStrip && (
           <div className="now-rehearsal" role="note">
             <p>{L(lang, `Ensaio · a Sessão ${nextSessionNumber(st)} não começou. O que você mostrar vai à Tela de verdade (bom para testar a TV).`, `Rehearsal · session ${nextSessionNumber(st)} hasn't started. Whatever you show goes to the real screen (good for testing the TV).`)}</p>
-            <button type="button" className="mesa-btn is-primary" onClick={openStart}>▶ {L(lang, 'Começar a sessão', 'Start the session')}</button>
+            <div className="now-rehearsal-acts">
+              {goTo && <button type="button" className="mesa-btn" onClick={() => goTo('prepare', 'next')}>← {L(lang, 'Voltar ao Plano', 'Back to the Plan')}</button>}
+              <button type="button" className="mesa-btn is-primary" onClick={openStart}>▶ {L(lang, `Começar a Sessão ${nextSessionNumber(st)}`, `Start session ${nextSessionNumber(st)}`)}</button>
+            </div>
           </div>
         )}
         <div className="now-actions" role="group" aria-label={L(lang, 'Ações da mesa', 'Table actions')}>

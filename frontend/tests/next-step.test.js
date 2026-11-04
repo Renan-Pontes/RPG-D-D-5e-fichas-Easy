@@ -59,7 +59,7 @@ test('textos e botões de cada regra (pt e en)', () => {
   assert.equal(at(4).text, 'O combate da cena 2 precisa dos personagens: Bruno ainda não tem ficha.');
   assert.deepEqual(at(4).payload.names, ['Bruno']);
   assert.equal(at(5).action.label, '＋ Pista');
-  assert.equal(at(6).text, 'Pipo ainda não tem um momento. Ideia: ★ único com Ferramentas de Ladrão');
+  assert.equal(at(6).text, 'Pipo ainda não tem um momento. Ideia: ★ Pipo brilha: único com Ferramentas de Ladrão');
   assert.equal(at(6).why, '(Pipo: 🤐 fala pouco)', 'respeita o estilo do jogador');
   assert.equal(at(6).action.label, '★ Usar a ideia');
   assert.equal(at(6).secondary.label, 'Outra ideia');
@@ -144,7 +144,10 @@ test('N2: um plano só com pistas ainda mostra as 3 portas (o servidor o preench
 
 test('N7: "Outra ideia" passa para a próxima; sem ideia, ver os momentos', () => {
   const base = { campaign: camp(), plan: ready(), insights: chars(0), lang: 'pt' };
-  assert.match(nextStep({ ...base, idea: 1 }).text, /Ideia: ↗ salvaguarda de SAB \+0$/);
+  assert.match(nextStep({ ...base, idea: 1 }).text, /Ideia: ↗ Um desafio para Pipo: salvaguarda de SAB \+0$/);
+  // sem gênero presumido: o porquê usa o nome
+  assert.equal(nextStep({ ...base, insights: { chars: [{ ...base.insights.chars[0], style: [] }] } }).why,
+    'Uma cena em que Pipo brilha, enfrenta um desafio ou vive a própria história.');
   assert.match(nextStep({ ...base, idea: 2 }).text, /Ferramentas de Ladrão$/, 'volta à primeira');
   const none = { ...base, insights: { chars: [{ id: 1, name: 'Pipo', moments: 0, ideas: [], style: [] }] } };
   assert.equal(nextStep(none).action.id, 'moments');
@@ -332,13 +335,25 @@ test('Agora (V12): J2 depois do Encerrar, com o plano da próxima já levado, at
   const ended = (over = {}) => camp({ state: { session: '3', diarySessions: { 3: { startedAt: T0, endedAt: '2026-10-24T20:10:00Z' } } }, ...over });
   const next = { ...ready(), forSession: 4 };   // "Levar para a Sessão 4": o plano já é o da próxima
   const j2 = nextStep({ where: 'now', campaign: ended(), plan: next, live: false, length: '2h10', recap: { has: false } });
-  assert.deepEqual([j2.id, j2.text, j2.action.id, j2.secondary.id], ['J2', 'Sessão 3 encerrada · 2h10', 'recap', 'preparePlan']);
+  // F1.5: o plano da Sessão 4 já está montado — o J2 não manda prepará-lo de novo: oferece o ensaio
+  assert.deepEqual([j2.id, j2.text, j2.action.id, j2.secondary.id], ['J2', 'Sessão 3 encerrada · 2h10', 'recap', 'previewScene']);
+  assert.equal(j2.secondary.label, 'Ver a 1ª cena (ensaio)');
+  assert.equal(j2.payload.sceneId, next.scenes.find(x => !x.done).id);
+  // só o que se confere (as cenas que ele já tem), não "pronto": o Pronto para jogar diz o que falta
+  assert.match(j2.why, new RegExp(`^O plano da Sessão 4 já tem ${next.scenes.filter(x => !x.done).length} cenas?\\.`));
+  assert.doesNotMatch(j2.why, /pronto/i);
+  assert.match(nextStep({ where: 'now', campaign: ended(), plan: next, live: false, recap: { has: false }, lang: 'en' }).why, /^The session 4 plan already has \d+ scenes?\./);
+  // o plano ainda é o da sessão jogada (servidor antigo, ou sem levar): "Preparar a Sessão 4"
+  const stale = nextStep({ where: 'now', campaign: ended(), plan: played(), live: false, recap: { has: false } });
+  assert.deepEqual([stale.id, stale.secondary.id], ['J2', 'preparePlan']);
   // o endedAt do pulso também vale (a campanha completa ainda não chegou)
   assert.equal(nextStep({ where: 'now', campaign: stopped(), plan: next, live: false, pulse: { endedAt: '2026-10-24T20:10:00Z' }, recap: { has: false } }).id, 'J2');
   // resumo da 3 salvo: o J1, com "✓ resumo da 3"
   const j1 = nextStep({ where: 'now', campaign: ended(), plan: next, live: false, recap: { has: true } });
   assert.equal(j1.id, 'J1');
   assert.deepEqual(j1.items.find(x => x.id === 'recap'), { id: 'recap', ok: true, text: 'resumo da 3' });
+  // o J1 também leva ao ensaio da 1ª cena
+  assert.deepEqual([j1.action.id, j1.secondary.id, j1.payload.sceneId], ['startSession', 'previewScene', next.scenes.find(x => !x.done).id]);
   // sem endedAt e com o plano da próxima (encerrada à moda antiga, plano novo): J1
   assert.equal(nextStep({ where: 'now', campaign: stopped(), plan: next, live: false }).id, 'J1');
   // o resumo ainda chegando (servidor lento): nenhum cartão — nem o J2 que viraria J1, nem o J1

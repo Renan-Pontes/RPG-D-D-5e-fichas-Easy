@@ -335,10 +335,15 @@ test('Agora: relógio e duração da sessão; o resumo já mostrado; onde começ
   assert.equal(sessionLength('2026-10-27T18:00:00Z', null), null);
   assert.equal(recapShown({ session: '4', diarySessions: { 4: { shown: [{ t: 'x', k: 'recap' }] } } }), true);
   assert.equal(recapShown({ session: '4', diarySessions: { 3: { shown: [{ k: 'recap' }] } } }), false);
+  // F1.6: todas as cenas não jogadas, na ordem do plano (a 1ª marcada), e as opções de antes
   const choices = startChoices(PLAN, { scene: 'Taverna do Javali', sceneId: 'c1' });
-  assert.deepEqual(choices.map(c => c.id), ['scene', 'continue', 'other', 'unsure']);
-  assert.equal(choices[0].sceneId, 'c2');
-  assert.equal(choices[1].label, 'Continuar de onde paramos: Taverna do Javali');
+  assert.deepEqual(choices.map(c => c.id), ['scene', 'scene:c3', 'scene:c5', 'continue', 'other', 'unsure']);
+  assert.deepEqual(choices.slice(0, 3).map(c => c.sceneId), ['c2', 'c3', 'c5']);
+  assert.deepEqual(choices.slice(0, 3).map(c => c.sub), ['1ª cena não jogada', 'cena 3 do plano', 'cena 4 do plano']);
+  assert.equal(choices[3].label, 'Continuar de onde paramos: Taverna do Javali');
+  // a cena de onde paramos já está na lista (não jogada): sem o "Continuar" repetido
+  assert.deepEqual(startChoices(PLAN, { scene: 'Sino', sceneId: 'c5' }).map(c => c.id), ['scene', 'scene:c3', 'scene:c5', 'other', 'unsure']);
+  assert.equal(startChoices(PLAN, {}, 'en')[1].sub, 'plan scene 3');
   assert.deepEqual(startChoices({ scenes: [] }, {}).map(c => c.id), ['other', 'unsure']);
 });
 
@@ -373,7 +378,10 @@ test('Agora: o ⚡ Começo forte só no cartão da 1ª cena da sessão', () => {
 });
 
 test('Agora: o que a folha Começar faz com cada escolha (com e sem o "Anteriormente em…")', () => {
-  const [scene, cont, other, unsure] = startChoices(PLAN, { scene: 'Taverna do Javali', sceneId: 'c1' });
+  const all = startChoices(PLAN, { scene: 'Taverna do Javali', sceneId: 'c1' });
+  const [scene, cont, other, unsure] = ['scene', 'continue', 'other', 'unsure'].map(id => all.find(c => c.id === id));
+  // outra cena do plano, escolhida na lista: começa por ela
+  assert.equal(startPlan(all.find(c => c.id === 'scene:c5')).sceneId, 'c5');
   // sem o resumo: a cena começa já; "Outra…" entra no plano e começa; "Ainda não sei" limpa
   assert.deepEqual(startPlan(scene), { recap: false, add: null, sceneId: 'c2', begin: true, clear: false });
   assert.deepEqual(startPlan(other, { other: '  Briga no cais ' }), { recap: false, add: 'Briga no cais', sceneId: null, begin: true, clear: false });

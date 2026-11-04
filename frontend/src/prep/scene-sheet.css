@@ -72,6 +72,10 @@
 .ss-image-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .ss-image-name { margin: 0; font-size: 15px; color: var(--ink-primary); overflow-wrap: anywhere; }
 .ss-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+/* "Mudar tipo (Lugar)": os tipos do cartão da imagem subida ficam recolhidos (o Lugar já vale) */
+.ss-kinds-more > summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; font-size: 15px; color: var(--ink-secondary); }
+.ss-kinds-more[open] > summary { margin-bottom: 6px; }
+.ss-check-draft { display: flex; flex-direction: column; gap: 8px; }
 .ss-pick-search { width: 100%; margin-bottom: 8px; }
 .ss-pick-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 
@@ -110,6 +114,7 @@
 .ss-idea-text { flex: 1 1 180px; min-width: 0; margin: 0; font-size: 15px; line-height: 1.35; color: var(--ink-secondary); overflow-wrap: anywhere; }
 .ss-idea.is-match .ss-idea-text { color: var(--ink-primary); }
 .ss-idea-why { font-size: 14px; color: var(--moss-bright); }
+.ss-idea-detail { font-size: 13px; color: var(--ink-muted); }
 .ss-own { display: flex; flex-wrap: wrap; gap: 8px; }
 .ss-own .input { flex: 1 1 200px; min-width: 0; }
 

@@ -88,6 +88,7 @@ const E = {
   monster_too_large: ['Monstro com dados grandes demais.', 'Monster data too large.'],
   // folha da Cena (o ⚔ guarda "meus monstros" no plano: 8 KB cada, 4 no plano)
   scene_monster_too_large: ['Este monstro é grande demais para guardar na cena: ponha-o numa aventura.', 'This monster is too big to keep in the scene: put it in an adventure.'],
+  scene_item_too_large: ['Este item é grande demais para guardar na cena: ponha-o numa aventura ou escreva só o nome.', 'This item is too big to keep in the scene: put it in an adventure or just write its name.'],
   too_many_scene_monsters: ['As cenas já guardam 4 monstros seus: ponha este numa aventura.', 'The scenes already keep 4 of your monsters: put this one in an adventure.'],
   node_not_found: ['Esta sala não existe mais na aventura.', 'This room no longer exists in the adventure.'],
   unknown_condition: ['Condição desconhecida.', 'Unknown condition.'],

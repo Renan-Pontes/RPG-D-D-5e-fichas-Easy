@@ -9,6 +9,9 @@
 //   800 ms depois do último toque. Nenhum polling.
 // - Celular primeiro: listas e barras; os radares só no PC (≥ 1024). Todo número do
 //   gráfico está escrito na lista ou na tabela; nada só no hover.
+// - Página curta (F2.6): o topo (Resumo, Ideias, Momentos, Equilíbrio) aberto; as seções de
+//   analista começam recolhidas, cada uma com o resumo de uma linha (insights-sections.js),
+//   e um índice preso leva a qualquer uma (abrindo a recolhida).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import MesaTitle from '../shell/MesaTitle.jsx';
 import { useArea } from '../shell/useArea.js';
@@ -16,13 +19,17 @@ import { tName } from '../../data/i18n.js';
 import { BESTIARY } from '../../data/bestiary.js';
 import { loadCustomMonsters } from '../combat/custom-monsters.js';
 import { getSessionPlan, saveSessionPlan } from '../world/world-api.js';
+import { freshSceneId, isOldPlanServer } from '../prep/next-session.js';
 import { errorMessage } from '../api/errors.js';
 import Radar from './Radar.jsx';
+import { bonusScale, shortSkill, SKILL_RADAR } from './radar-layout.js';
 import * as PM from './party-metrics.js';
-import { currentSession, gapGroups, ideaSceneText, momentSuggestions, partyGaps, quadrants, sceneIdeas, tableBalance } from './spotlights.js';
-import { planMonsters, threatMonsters, versus } from './versus.js';
+import { currentSession, gapGroups, ideaScene, momentSuggestions, readableGaps, partyGaps, quadrants, sceneHasIdea, sceneIdeas, tableBalance } from './spotlights.js';
+import { difficultyText, planMonsters, saveThreatExamples, threatMonsters, versus } from './versus.js';
 import { expandResets, insightsApi, joinPatches, mergeInsights, rememberInsights, SAVE_DELAY, withDefaults } from './insights-api.js';
 import { AdjustSheet, Dot, HelpButton, MonsterSheet, WhySheet } from './InsightsSheets.jsx';
+import { foldOpen, SECTIONS, sectionDomId, sectionLabel, sectionSummaries, withOpen } from './insights-sections.js';
+import useScrollEdges from '../shell/useScrollEdges.js';
 import { Balance, Moments } from './Moments.jsx';
 import './insights.css';
 
@@ -43,8 +50,7 @@ function useView(campaignId) {
   return [view, set];
 }
 
-function useWide() {
-  const q = '(min-width: 1024px)';
+function useWide(q = '(min-width: 1024px)') {
   const get = () => { try { return window.matchMedia(q).matches; } catch { return false; } };
   const [wide, setWide] = useState(get);
   useEffect(() => {
@@ -53,7 +59,7 @@ function useWide() {
     const on = () => setWide(mq.matches);
     mq.addEventListener?.('change', on);
     return () => mq.removeEventListener?.('change', on);
-  }, []);
+  }, [q]);
   return wide;
 }
 
@@ -64,8 +70,11 @@ const pos = (v, min, max) => `${Math.max(0, Math.min(100, ((v - min) / (max - mi
 export default function PartyInsights({ campaign, lang = 'pt', params, onParamsDone }) {
   const { goTo } = useArea();
   const wide = useWide();
+  const tablet = useWide('(min-width: 768px)');
   const readOnly = campaign.status === 'closed';
   const [ins, setIns] = useState(null);
+  const [planScenes, setPlanScenes] = useState(null);   // as cenas do plano (ids), do mesmo GET; null = servidor de antes
+  const [planIdeas, setPlanIdeas] = useState([]);       // as ideias que já são cena do plano (✓ No plano), do mesmo GET
   const [loadErr, setLoadErr] = useState('');
   const [save, setSave] = useState('idle');   // idle · waiting · saving · saved · error
   const [saveErr, setSaveErr] = useState('');
@@ -85,9 +94,12 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
   const load = useCallback(async () => {
     setLoadErr('');
     try {
-      const got = withDefaults(await insightsApi.get(campaign.id));
+      const r = await insightsApi.getWithPlan(campaign.id);
+      const got = withDefaults(r.insights);
       rememberInsights(campaign.id, got);
       setIns(got);
+      setPlanScenes(r.planScenes);
+      setPlanIdeas(r.planIdeas || []);
     } catch (e) {
       setLoadErr(errorMessage(e, lang));
       setIns(cur => cur || withDefaults({}));
@@ -180,13 +192,14 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
     const gaps = partyGaps(facts, axes, { lang, dc: settings.dc, focus: settings.focus, hidden: settings.hidden });
     const suggestions = momentSuggestions(facts, { lang, dc: settings.dc, style: settings.style, axisOpts: { w: settings.w, base: settings.base } });
     const threats = threatMonsters(monsters, facts, lang, { limit: 3 });
+    const saveEx = saveThreatExamples(monsters, facts, lang);
     return {
       axes, skills, gaps, threats,
       damage: PM.partyDamage(facts),
       schools: PM.partySchools(facts),
       classSchools: PM.classSchools(party.filter(p => inIds.includes(p.id))),
       suggestions,
-      quads: quadrants({ facts, party: axes, skills, gaps, lang, focus: settings.focus, hidden: settings.hidden, suggestions, dismissed: settings.dismissed, spotlights: settings.spotlights, threats }),
+      quads: quadrants({ facts, party: axes, skills, gaps, lang, focus: settings.focus, hidden: settings.hidden, suggestions, dismissed: settings.dismissed, spotlights: settings.spotlights, threats, saveExamples: saveEx.examples, typicalDc: saveEx.typicalDc }),
       ideas: sceneIdeas(gaps, facts, lang),
     };
   }, [facts, settings.w, settings.base, settings.rep, settings.dc, settings.focus, settings.hidden, settings.dismissed, settings.style, settings.spotlights, lang, monsters]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -195,19 +208,38 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
     [facts, settings.spotlights, settings.style, history, campaign.state]);
   const shownAxes = PM.AXES.filter(k => !settings.hidden.includes(k));
 
+  // seções recolhidas: começam fechadas e o que o mestre abre fica lembrado no aparelho
+  const isOpen = (id) => foldOpen(view.open, id);
+  const toggle = (id) => setView({ open: { ...(view.open || {}), [id]: !isOpen(id) } });
+  // índice e atalhos ("Ver todas", "Ver os momentos"): abre a recolhida e leva até ela
+  const goSection = (id) => {
+    const next = withOpen(view.open, id);
+    if (next !== view.open) setView({ open: next });
+    requestAnimationFrame(() => document.getElementById(sectionDomId(id))?.scrollIntoView({ block: 'start' }));
+  };
+  const gapLines = readableGaps(calc.gaps, lang);
+  const sums = sectionSummaries({ calc, facts, shownAxes, gapCount: gapLines.length, topGap: gapLines[0]?.text || '',
+    versus: monster && facts.length ? versus(monster, facts, lang) : null, lang });
+
   const toggleIn = (id) => {
     const next = inIds.includes(id) ? inIds.filter(x => x !== id) : [...inIds, id];
     // grava quem sai (só de quem está na mesa agora); a lista antiga de quem entra se apaga
     update({ exclude: party.map(p => p.id).filter(x => !next.includes(x)), include: null });
   };
 
+  // A cena nasce com o título da ideia e o texto dela no "O que acontece"; a ideia que já é
+  // cena do plano (levada antes, por outro aparelho ou numa versão de antes) não vai de novo.
   const takeToPlan = async (idea) => {
     setPlanned(p => ({ ...p, [idea.key]: 'busy' }));
     try {
       const plan = await getSessionPlan(campaign.id);
       const scenes = [...(plan?.scenes || [])];
-      if (scenes.length >= 30) throw Object.assign(new Error(t(lang, 'O plano já tem 30 cenas.', 'The plan already has 30 scenes.')), { plain: true });
-      await saveSessionPlan(campaign.id, { scenes: [...scenes, { text: ideaSceneText(idea, lang) }] });
+      if (!scenes.some(sc => sceneHasIdea(sc, idea))) {
+        if (scenes.length >= 30) throw Object.assign(new Error(t(lang, 'O plano já tem 30 cenas.', 'The plan already has 30 scenes.')), { plain: true });
+        const scene = { id: freshSceneId(scenes), ...ideaScene(idea, lang, { inText: isOldPlanServer(plan) }) };
+        await saveSessionPlan(campaign.id, { scenes: [...scenes, scene] });
+      }
+      setPlanIdeas(l => (l.includes(idea.key) ? l : [...l, idea.key]));
       setPlanned(p => ({ ...p, [idea.key]: 'ok' }));
     } catch (e) {
       setPlanned(p => ({ ...p, [idea.key]: e?.plain ? e.message : errorMessage(e, lang) }));
@@ -247,7 +279,7 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
         <MesaTitle as="h2" sub={<span>{t(lang, 'Forças, fraquezas e ideias para cada um brilhar.', 'Strengths, weaknesses and ideas for everyone to shine.')}</span>}
           hint={<HelpButton lang={lang} title={t(lang, 'Raio-X do grupo', 'Party X-ray')} text={[
             t(lang, 'O Raio-X lê as fichas da mesa e mostra o que o grupo faz bem, onde tropeça e quem pode brilhar. Só você vê.', 'The X-ray reads the table’s sheets and shows what the party does well, where it stumbles and who can shine. Only you see it.'),
-            t(lang, 'Os números são uma estimativa para preparar a sessão, não uma regra. Em Ajustar você escolhe quanto vale a tabela de classes do Ivan e quanto vale a ficha.', "The numbers are an estimate to prep the session, not a rule. In Adjust you choose how much Ivan's class table weighs against the sheet."),
+            t(lang, 'Os números são uma estimativa para preparar a sessão, não uma regra. Em Ajustar você escolhe quanto vale a tabela de classes de referência e quanto vale a ficha.', 'The numbers are an estimate to prep the session, not a rule. In Adjust you choose how much the reference class table weighs against the sheet.'),
           ]} />}
           act={<button type="button" className="mesa-btn" onClick={() => setSheet({ kind: 'adjust' })}>⚙ {t(lang, 'Ajustar', 'Adjust')}</button>}>
           {t(lang, 'Raio-X do grupo', 'Party X-ray')}
@@ -291,30 +323,45 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
         </section>
       ) : (
         <>
+          <SectionIndex lang={lang} onGo={goSection} />
           <Quadrants q={calc.quads} lang={lang} expanded={expanded} setExpanded={setExpanded}
-            onAllGaps={() => { setExpanded(e => ({ ...e, gaps: true })); document.getElementById('ins-gaps')?.scrollIntoView({ block: 'start' }); }}
-            onMoments={() => document.getElementById('ins-moments')?.scrollIntoView({ block: 'start' })} />
-          <Ideas ideas={calc.ideas} lang={lang} planned={planned} onTake={takeToPlan} onOpenPlan={() => goTo('prepare', 'next')} readOnly={readOnly} />
-          <Roles calc={calc} facts={facts} axes={shownAxes} settings={settings} lang={lang} wide={wide} onWhy={(k) => setSheet({ kind: 'why', why: { kind: 'axis', key: k } })} />
-          <Skills calc={calc} settings={settings} lang={lang} wide={wide} view={view} setView={setView} onWhy={(k) => setSheet({ kind: 'why', why: { kind: 'skill', key: k } })} />
-          <Damage calc={calc} lang={lang} onWhy={(k) => setSheet({ kind: 'why', why: { kind: 'damage', key: k } })} />
-          <Gaps gaps={calc.gaps} facts={facts} lang={lang} expanded={!!expanded.gaps} setExpanded={(v) => setExpanded(e => ({ ...e, gaps: v }))}
-            planned={planned} onTake={takeToPlan} onOpenPlan={() => goTo('prepare', 'next')} readOnly={readOnly} />
-          <Fold id="schools" title={t(lang, 'Escolas de magia', 'Schools of magic')} view={view} setView={setView} wide={wide}>
+            onAllGaps={() => { setExpanded(e => ({ ...e, gaps: true })); goSection('gaps'); }}
+            onMoments={() => goSection('moments')} />
+          <Ideas ideas={calc.ideas} lang={lang} planned={planned} inPlan={planIdeas} onTake={takeToPlan} onOpenPlan={() => goTo('prepare', 'next')} readOnly={readOnly} />
+          <Moments facts={facts} settings={settings} update={update} suggestions={calc.suggestions} session={session} state={campaign.state} balance={balance}
+            lang={lang} readOnly={readOnly} focusId={focusId} filter={view.moments || 'session'} setFilter={(v) => setView({ moments: v })} oneAtATime={!tablet}
+            campaignId={campaign.id} onOpenPlan={() => goTo('prepare', 'next')}
+            planScenes={planScenes} onSceneLinked={(id) => setPlanScenes(p => (p && id && !p.includes(id) ? [...p, id] : p))} />
+          <Balance balance={balance} history={history} state={histState} onLoad={loadHistory} lang={lang} />
+          {/* as seções de analista numa lista só, cada uma recolhida com o resumo de uma linha */}
+          <div className="mesa-panel ins-folds">
+          <Fold id="roles" lang={lang} summary={sums.roles} open={isOpen('roles')} onToggle={toggle} hint={rolesHint(lang)}>
+            <Roles calc={calc} facts={facts} axes={shownAxes} settings={settings} lang={lang} wide={wide} onWhy={(k) => setSheet({ kind: 'why', why: { kind: 'axis', key: k } })} />
+          </Fold>
+          <Fold id="skills" lang={lang} summary={sums.skills} open={isOpen('skills')} onToggle={toggle} hint={skillsHint(lang, settings.dc)}>
+            <Skills calc={calc} settings={settings} lang={lang} wide={wide} view={view} setView={setView} onWhy={(k) => setSheet({ kind: 'why', why: { kind: 'skill', key: k } })} />
+          </Fold>
+          <Fold id="damage" lang={lang} summary={sums.damage} open={isOpen('damage')} onToggle={toggle}>
+            <Damage calc={calc} lang={lang} onWhy={(k) => setSheet({ kind: 'why', why: { kind: 'damage', key: k } })} />
+          </Fold>
+          <Fold id="gaps" lang={lang} summary={sums.gaps} open={isOpen('gaps')} onToggle={toggle}>
+            <Gaps gaps={calc.gaps} facts={facts} lang={lang} expanded={!!expanded.gaps} setExpanded={(v) => setExpanded(e => ({ ...e, gaps: v }))}
+              planned={planned} inPlan={planIdeas} onTake={takeToPlan} onOpenPlan={() => goTo('prepare', 'next')} readOnly={readOnly} />
+          </Fold>
+          <Fold id="schools" lang={lang} title={t(lang, 'Escolas de magia', 'Schools of magic')} summary={sums.schools} open={isOpen('schools')} onToggle={toggle}>
             <Schools calc={calc} facts={facts} lang={lang} wide={wide} view={view} setView={setView} />
           </Fold>
-          <Fold id="chars" title={t(lang, 'Cada personagem', 'Each character')} view={view} setView={setView} wide={wide}>
+          <Fold id="chars" lang={lang} summary={sums.chars} open={isOpen('chars')} onToggle={toggle}>
             <Characters facts={facts} lang={lang} wide={wide} view={view} setView={setView} />
           </Fold>
-          <Fold id="table" title={t(lang, 'Tabela', 'Table')} view={view} setView={setView} wide={wide}>
+          <Fold id="table" lang={lang} summary={sums.table} open={isOpen('table')} onToggle={toggle}>
             <Table facts={facts} lang={lang} wide={wide} sessionNo={sessionNo} />
           </Fold>
-          <Moments facts={facts} settings={settings} update={update} suggestions={calc.suggestions} session={session} balance={balance}
-            lang={lang} readOnly={readOnly} focusId={focusId} filter={view.moments || 'session'} setFilter={(v) => setView({ moments: v })}
-            campaignId={campaign.id} onOpenPlan={() => goTo('prepare', 'next')} historyState={histState} onNear={loadHistory} />
-          <Balance balance={balance} history={history} state={histState} onLoad={loadHistory} lang={lang} />
-          <Versus facts={facts} lang={lang} monster={monster} setMonster={setMonster} planPick={planPick} setPlanPick={setPlanPick}
-            onPick={() => setSheet({ kind: 'monster' })} onPlan={openPlanCombat} />
+          <Fold id="versus" lang={lang} summary={sums.versus} open={isOpen('versus')} onToggle={toggle}>
+            <Versus facts={facts} lang={lang} monster={monster} setMonster={setMonster} planPick={planPick} setPlanPick={setPlanPick}
+              onPick={() => setSheet({ kind: 'monster' })} onPlan={openPlanCombat} />
+          </Fold>
+          </div>
         </>
       )}
 
@@ -336,7 +383,7 @@ const QUADS = [
 
 function Quadrants({ q, lang, expanded, setExpanded, onAllGaps, onMoments }) {
   return (
-    <section className="ins-quads" aria-label={t(lang, 'O que isso quer dizer', 'What this means')}>
+    <section className="ins-quads" id={sectionDomId('quads')} aria-label={t(lang, 'O que isso quer dizer', 'What this means')}>
       {QUADS.map(d => {
         const items = q[d.id] || [];
         const open = !!expanded[d.id];
@@ -366,8 +413,9 @@ function Quadrants({ q, lang, expanded, setExpanded, onAllGaps, onMoments }) {
 // aparece no mesmo lugar assim que o PUT volta, e tira o mestre do Raio-X.
 const SETTLE_MS = 400;
 
-function PlanButton({ idea, planned, onTake, onOpenPlan, readOnly, lang, label }) {
-  const st = planned[idea.key];
+function PlanButton({ idea, planned, inPlan = [], onTake, onOpenPlan, readOnly, lang, label }) {
+  // já é cena do plano (veio no GET do Raio-X): "✓ No plano" desde a abertura
+  const st = planned[idea.key] || (inPlan.includes(idea.key) ? 'ok' : undefined);
   const okAt = useRef(0);
   const was = useRef(st);
   // antes da pintura: nenhum toque chega entre o botão novo aparecer e a trava valer
@@ -392,16 +440,16 @@ function PlanButton({ idea, planned, onTake, onOpenPlan, readOnly, lang, label }
   );
 }
 
-function Ideas({ ideas, lang, planned, onTake, onOpenPlan, readOnly }) {
+function Ideas({ ideas, lang, planned, inPlan, onTake, onOpenPlan, readOnly }) {
   if (!ideas.length) return null;
   return (
-    <section className="mesa-panel ins-block ins-ideas">
+    <section className="mesa-panel ins-block ins-ideas" id={sectionDomId('ideas')}>
       <MesaTitle>{t(lang, `${ideas.length} ideias de cena`, `${ideas.length} scene ideas`)}</MesaTitle>
       <ul className="ins-idea-list">
         {ideas.map(i => (
           <li key={i.key} className="ins-idea">
             <p className="ins-idea-text">{i.text}</p>
-            <div className="ins-idea-act"><PlanButton idea={i} planned={planned} onTake={onTake} onOpenPlan={onOpenPlan} readOnly={readOnly} lang={lang} /></div>
+            <div className="ins-idea-act"><PlanButton idea={i} planned={planned} inPlan={inPlan} onTake={onTake} onOpenPlan={onOpenPlan} readOnly={readOnly} lang={lang} /></div>
           </li>
         ))}
       </ul>
@@ -411,6 +459,13 @@ function Ideas({ ideas, lang, planned, onTake, onOpenPlan, readOnly }) {
 }
 
 // ---------------------------------------------------------------- G1: papel do grupo
+const rolesHint = (lang) => (
+  <HelpButton lang={lang} title={t(lang, 'Papel do grupo', 'Party roles')} text={[
+    t(lang, 'Cada eixo vai de 1 a 5, e 3 é o normal para o nível do grupo. A bolinha azul é a média de quem entra; o losango laranja, o melhor (ou a média dos 2 melhores, em Ajustar).', "Each axis goes from 1 to 5, and 3 is standard for the party's level. The blue dot is the average of who's in; the orange diamond, the best (or the average of the top 2, in Adjust)."),
+    t(lang, 'A nota junta a tabela de classes de referência com o que a ficha mostra. Toque num eixo para ver de onde vem o número de cada um.', "The score blends the reference class table with what the sheet shows. Tap an axis to see where each one's number comes from."),
+  ]} />
+);
+
 function Roles({ calc, facts, axes, settings, lang, wide, onWhy }) {
   const a = calc.axes.axes;
   const top2 = settings.rep === 'top2';
@@ -425,24 +480,15 @@ function Roles({ calc, facts, axes, settings, lang, wide, onWhy }) {
     ? `${PM.fmt(a[k].shown, lang)} ${t(lang, '2 melhores', 'top 2')}`
     : `${PM.fmt(a[k].best, lang)} ${a[k].bestWho.map(PM.firstName).join(', ')}`);
   if (!axes.length) {
-    return (
-      <section className="mesa-panel ins-block">
-        <MesaTitle>{t(lang, 'Papel do grupo', 'Party roles')}</MesaTitle>
-        <p className="ins-adj-help">{t(lang, 'Todos os eixos estão escondidos (Ajustar › Eixos).', 'All axes are hidden (Adjust › Axes).')}</p>
-      </section>
-    );
+    return <p className="ins-adj-help">{t(lang, 'Todos os eixos estão escondidos (Ajustar › Eixos).', 'All axes are hidden (Adjust › Axes).')}</p>;
   }
   return (
-    <section className="mesa-panel ins-block ins-roles">
-      <MesaTitle sub={t(lang, 'de 1 a 5 · toque num eixo para ver o porquê', '1 to 5 · tap an axis to see why')}
-        hint={<HelpButton lang={lang} title={t(lang, 'Papel do grupo', 'Party roles')} text={[
-          t(lang, 'Cada eixo vai de 1 a 5, e 3 é o normal para o nível do grupo. A bolinha azul é a média de quem entra; o losango laranja, o melhor (ou a média dos 2 melhores, em Ajustar).', "Each axis goes from 1 to 5, and 3 is standard for the party's level. The blue dot is the average of who's in; the orange diamond, the best (or the average of the top 2, in Adjust)."),
-          t(lang, 'A nota junta a tabela de classes do Ivan com o que a ficha mostra. Toque num eixo para ver de onde vem o número de cada um.', "The score blends Ivan's class table with what the sheet shows. Tap an axis to see where each one's number comes from."),
-        ]} />}>{t(lang, 'Papel do grupo', 'Party roles')}</MesaTitle>
+    <>
+      <p className="ins-adj-help">{t(lang, 'de 1 a 5 · toque num eixo para ver o porquê', '1 to 5 · tap an axis to see why')}</p>
       {legend}
       <div className="ins-roles-body">
         {wide && (
-          <Radar size={340} pad={62} min={1} max={5} rings={[1, 2, 3, 4, 5]} mark={3}
+          <Radar size={380} min={1} max={5} rings={[1, 2, 3, 4, 5]} mark={3}
             axes={axes.map(k => ({ key: k, label: PM.axisLabel(k, lang) }))}
             series={[
               { key: 'avg', values: axes.map(k => a[k].avg), color: PM.AVG_COLOR, fill: 0.25 },
@@ -471,11 +517,18 @@ function Roles({ calc, facts, axes, settings, lang, wide, onWhy }) {
         </ul>
       </div>
       {facts.length === 1 && <p className="ins-adj-help">{t(lang, 'Com 1 personagem, a média e o melhor são o mesmo.', 'With 1 character, average and best are the same.')}</p>}
-    </section>
+    </>
   );
 }
 
 // ---------------------------------------------------------------- G2: perícias
+const skillsHint = (lang, dc) => (
+  <HelpButton lang={lang} title={t(lang, 'Perícias do grupo', 'Party skills')} text={[
+    t(lang, 'A barra é a passiva do melhor do grupo em cada perícia (10 + o bônus), de 0 a 20. As fracas, com ⚠, são lacunas.', "The bar is the party's best passive in each skill (10 + the bonus), 0 to 20. Weak ones, marked ⚠, are gaps."),
+    t(lang, `A porcentagem é a chance do melhor passar na CD ${dc}; "grupo" é a chance de pelo menos 1 passar se todos tentarem. Toque numa perícia para ver cada um.`, `The percentage is the best one's chance at DC ${dc}; "party" is the chance at least 1 passes if everyone tries. Tap a skill to see everyone.`),
+  ]} />
+);
+
 function Skills({ calc, settings, lang, wide, view, setView, onWhy }) {
   const gapSkills = new Set(calc.gaps.filter(g => g.kind === 'skill').map(g => g.key));
   const ordered = calc.skills.slice().sort(view.skillsOrder === 'ability'
@@ -483,21 +536,15 @@ function Skills({ calc, settings, lang, wide, view, setView, onWhy }) {
     : (x, y) => x.passive - y.passive || x.chanceGroup - y.chanceGroup);
   const radarOrder = calc.skills.slice().sort((x, y) => PM.ABILS.indexOf(x.ability) - PM.ABILS.indexOf(y.ability));
   return (
-    <section className="mesa-panel ins-block ins-skills">
-      <MesaTitle sub={t(lang, `passiva do melhor, de 0 a 20 · CD ${settings.dc}`, `best passive, 0 to 20 · DC ${settings.dc}`)}
-        hint={<HelpButton lang={lang} title={t(lang, 'Perícias do grupo', 'Party skills')} text={[
-          t(lang, 'A barra é a passiva do melhor do grupo em cada perícia (10 + o bônus), de 0 a 20. As fracas, com ⚠, são lacunas.', "The bar is the party's best passive in each skill (10 + the bonus), 0 to 20. Weak ones, marked ⚠, are gaps."),
-          t(lang, `A porcentagem é a chance do melhor passar na CD ${settings.dc}; "grupo" é a chance de pelo menos 1 passar se todos tentarem. Toque numa perícia para ver cada um.`, `The percentage is the best one's chance at DC ${settings.dc}; "party" is the chance at least 1 passes if everyone tries. Tap a skill to see everyone.`),
-        ]} />}
-        act={(
-          <span className="ins-pair is-small" role="group" aria-label={t(lang, 'Ordem', 'Order')}>
-            <button type="button" className="mesa-chip" aria-pressed={view.skillsOrder !== 'ability'} onClick={() => setView({ skillsOrder: 'weak' })}>{t(lang, 'Fracas primeiro', 'Weakest first')}</button>
-            <button type="button" className="mesa-chip" aria-pressed={view.skillsOrder === 'ability'} onClick={() => setView({ skillsOrder: 'ability' })}>{t(lang, 'Por atributo', 'By ability')}</button>
-          </span>
-        )}>{t(lang, 'Perícias do grupo', 'Party skills')}</MesaTitle>
+    <>
+      <p className="ins-adj-help">{t(lang, `Perícias do grupo: passiva do melhor, de 0 a 20 · CD ${settings.dc}`, `Party skills: best passive, 0 to 20 · DC ${settings.dc}`)}</p>
+      <span className="ins-pair is-small" role="group" aria-label={t(lang, 'Ordem', 'Order')}>
+        <button type="button" className="mesa-chip" aria-pressed={view.skillsOrder !== 'ability'} onClick={() => setView({ skillsOrder: 'weak' })}>{t(lang, 'Fracas primeiro', 'Weakest first')}</button>
+        <button type="button" className="mesa-chip" aria-pressed={view.skillsOrder === 'ability'} onClick={() => setView({ skillsOrder: 'ability' })}>{t(lang, 'Por atributo', 'By ability')}</button>
+      </span>
       <div className="ins-skills-body">
         {wide && (
-          <Radar size={340} pad={44} min={0} max={20} rings={[5, 10, 15, 20]} mark={settings.dc} labelSize={12}
+          <Radar size={SKILL_RADAR.group} min={0} max={20} rings={[5, 10, 15, 20]} mark={settings.dc} labelSize={SKILL_RADAR.labelSize}
             axes={radarOrder.map(s => ({ key: s.skill, label: shortSkill(s.skill, lang), title: PM.skillLabel(s.skill, lang) }))}
             series={[{ key: 'best', values: radarOrder.map(s => s.passive), color: 'var(--ins-series)', fill: 0.18 }]}
             label={t(lang, 'Radar das 18 perícias: passiva do melhor do grupo, de 0 a 20', 'Radar of the 18 skills: best passive in the party, 0 to 20')} />
@@ -523,24 +570,16 @@ function Skills({ calc, settings, lang, wide, view, setView, onWhy }) {
         </ul>
       </div>
       <p className="ins-adj-help">{t(lang, '"grupo" = a chance de pelo menos 1 passar se todos tentarem. As marcas na barra ficam em 10, 15 e 20.', '"party" = the chance at least 1 passes if everyone tries. The bar marks sit at 10, 15 and 20.')}</p>
-    </section>
+    </>
   );
 }
 
-const SHORT_SKILL = {
-  acrobatics: ['Acrob.', 'Acro.'], animalHandling: ['Animais', 'Animal'], arcana: ['Arcan.', 'Arcana'], athletics: ['Atlet.', 'Athl.'],
-  deception: ['Blefar', 'Decep.'], history: ['Hist.', 'Hist.'], insight: ['Intuição', 'Insight'], intimidation: ['Intim.', 'Intim.'],
-  investigation: ['Invest.', 'Invest.'], medicine: ['Medic.', 'Med.'], nature: ['Natur.', 'Nature'], perception: ['Perc.', 'Perc.'],
-  performance: ['Atuação', 'Perf.'], persuasion: ['Persu.', 'Pers.'], religion: ['Relig.', 'Relig.'], sleightOfHand: ['Prest.', 'Sleight'],
-  stealth: ['Furtiv.', 'Stealth'], survival: ['Sobrev.', 'Surv.'],
-};
-const shortSkill = (k, lang) => SHORT_SKILL[k]?.[lang === 'en' ? 1 : 0] || PM.skillLabel(k, lang);
 
 // ---------------------------------------------------------------- G3: dano
 function Damage({ calc, lang, onWhy }) {
   return (
-    <section className="mesa-panel ins-block">
-      <MesaTitle sub={t(lang, 'quem causa cada tipo, e por onde', 'who deals each type, and how')}>{t(lang, 'Dano que o grupo causa', 'Damage the party deals')}</MesaTitle>
+    <>
+      <p className="ins-adj-help">{t(lang, 'Dano que o grupo causa: quem causa cada tipo, e por onde', 'Damage the party deals: who deals each type, and how')}</p>
       <ul className="ins-dmg-grid">
         {PM.DAMAGE_TYPES.map(k => {
           const who = calc.damage[k];
@@ -558,19 +597,19 @@ function Damage({ calc, lang, onWhy }) {
           );
         })}
       </ul>
-    </section>
+    </>
   );
 }
 
 // ---------------------------------------------------------------- G7: lacunas
-function Gaps({ gaps, facts, lang, expanded, setExpanded, planned, onTake, onOpenPlan, readOnly }) {
+function Gaps({ gaps, facts, lang, expanded, setExpanded, planned, inPlan, onTake, onOpenPlan, readOnly }) {
   const groups = gapGroups(gaps, lang);
   const total = groups.reduce((n, g) => n + g.items.length, 0);
   // recolhido: as 3 mais sérias da lista inteira (ainda agrupadas), não as 3 dos primeiros grupos
   const shown = (x) => expanded || x.rank < 3;
   return (
-    <section className="mesa-panel ins-block ins-gaps" id="ins-gaps">
-      <MesaTitle sub={t(lang, 'o que falta no grupo, das mais sérias para as menos', 'what the party lacks, most serious first')}>{t(lang, 'Lacunas', 'Gaps')}</MesaTitle>
+    <div className="ins-gaps">
+      <p className="ins-adj-help">{t(lang, 'O que falta no grupo, das mais sérias para as menos.', 'What the party lacks, most serious first.')}</p>
       {!total && <p className="ins-adj-help">{t(lang, 'Nenhuma lacuna: o grupo cobre tudo o que o Raio-X mede.', 'No gaps: the party covers everything the X-ray measures.')}</p>}
       {groups.map(g => {
         const items = g.items.filter(shown);
@@ -584,7 +623,7 @@ function Gaps({ gaps, facts, lang, expanded, setExpanded, planned, onTake, onOpe
                 return (
                   <li key={`${x.kind}:${x.key}`} className="ins-gap">
                     <p className="ins-gap-text">{x.important && <span className="ins-imp">★ </span>}{x.text}</p>
-                    {idea && <div className="ins-idea-act"><PlanButton idea={idea} planned={planned} onTake={onTake} onOpenPlan={onOpenPlan} readOnly={readOnly} lang={lang} label={t(lang, 'Usar numa cena', 'Use in a scene')} /></div>}
+                    {idea && <div className="ins-idea-act"><PlanButton idea={idea} planned={planned} inPlan={inPlan} onTake={onTake} onOpenPlan={onOpenPlan} readOnly={readOnly} lang={lang} label={t(lang, 'Usar numa cena', 'Use in a scene')} /></div>}
                   </li>
                 );
               })}
@@ -597,22 +636,45 @@ function Gaps({ gaps, facts, lang, expanded, setExpanded, planned, onTake, onOpe
           {expanded ? t(lang, 'Ver só as 3 primeiras', 'Show only the first 3') : t(lang, `Ver todas (${total})`, `See all (${total})`)}
         </button>
       )}
-    </section>
+    </div>
   );
 }
 
 // ---------------------------------------------------------------- seções recolhíveis
-function Fold({ id, title, view, setView, wide, children }) {
-  const open = view.open?.[id] ?? wide;
+// Fechada: o título e o resumo de uma linha (insights-sections.sectionSummaries), num botão
+// de 44 px; o "?" fica ao lado, fora do botão. Aberta: o conteúdo de sempre.
+function Fold({ id, title, summary, hint, open, onToggle, lang, children }) {
+  const bodyId = `${sectionDomId(id)}-body`;
   return (
-    <section className="mesa-panel ins-block ins-fold">
-      <button type="button" className="ins-fold-head" aria-expanded={open} onClick={() => setView({ open: { ...view.open, [id]: !open } })}>
-        <span className="mesa-gem" aria-hidden="true" />
-        <span className="ins-fold-title mesa-foil">{title}</span>
-        <span className="ins-fold-ico" aria-hidden="true">{open ? '▾' : '▸'}</span>
-      </button>
-      {open && <div className="ins-fold-body">{children}</div>}
+    <section className={`ins-fold ${open ? 'is-open' : ''}`} id={sectionDomId(id)}>
+      <div className="ins-fold-top">
+        <button type="button" className="ins-fold-head" aria-expanded={open} aria-controls={bodyId} onClick={() => onToggle(id)}>
+          <span className="mesa-gem" aria-hidden="true" />
+          <span className="ins-fold-text">
+            <span className="ins-fold-title mesa-foil">{title || sectionLabel(id, lang)}</span>
+            {summary && <span className="ins-fold-sum">{summary}</span>}
+          </span>
+          <span className="ins-fold-ico" aria-hidden="true">{open ? '▾' : '▸'}</span>
+        </button>
+        {hint}
+      </div>
+      {open && <div className="ins-fold-body" id={bodyId}>{children}</div>}
     </section>
+  );
+}
+
+/** O índice preso: um chip por seção; toque leva até ela (e abre a recolhida). */
+function SectionIndex({ lang, onGo }) {
+  const ref = useRef(null);
+  useScrollEdges(ref, { count: SECTIONS.length });
+  return (
+    <nav className="ins-index" aria-label={t(lang, 'Seções do Raio-X', 'X-ray sections')}>
+      <div className="ins-index-rail mesa-scroll" ref={ref}>
+        {SECTIONS.map(sec => (
+          <button key={sec.id} type="button" className="mesa-chip ins-index-chip" onClick={() => onGo(sec.id)}>{sectionLabel(sec.id, lang)}</button>
+        ))}
+      </div>
+    </nav>
   );
 }
 
@@ -632,7 +694,7 @@ function Schools({ calc, facts, lang, wide, view, setView }) {
         <button type="button" className="mesa-chip" aria-pressed={mode === 'list'} onClick={() => setView({ schools: 'list' })}>{t(lang, 'Lista da classe', 'Class list')}</button>
       </div>
       <p className="ins-adj-help">{mode === 'list'
-        ? t(lang, 'Quantas magias de cada escola a lista da classe de cada um tem (a referência do Ivan).', "How many spells of each school each one's class list has (Ivan's reference).")
+        ? t(lang, 'Quantas magias de cada escola a lista de magias da classe de cada um tem.', "How many spells of each school each one's class spell list has.")
         : t(lang, 'Quantas magias de cada escola cada um conhece hoje.', 'How many spells of each school each one knows today.')}</p>
       <ul className="ins-school-grid">
         {PM.SCHOOLS.map(s => (
@@ -665,27 +727,60 @@ function Schools({ calc, facts, lang, wide, view, setView }) {
 }
 
 // ---------------------------------------------------------------- G5: cada personagem
+// Atributos de 0 a 20; salvaguardas e perícias na escala dos bônus do grupo (radar-layout.
+// bonusScale: −2…+8 no nível 1, não −5…+15 espremido no centro). Perícias: no PC, radares
+// grandes com o nome de cada eixo (12 px, conferido em radar-layout); no celular, linhas.
 const CHAR_MODES = {
-  abil: { label: ['Atributos', 'Abilities'], min: 0, max: 20, rings: [5, 10, 15, 20], mark: 10 },
-  save: { label: ['Salvaguardas', 'Saving throws'], min: -5, max: 15, rings: [0, 5, 10, 15], mark: 0 },
-  skill: { label: ['Perícias', 'Skills'], min: -5, max: 15, rings: [0, 5, 10, 15], mark: 0 },
+  abil: { label: ['Atributos', 'Abilities'] },
+  save: { label: ['Salvaguardas', 'Saving throws'] },
+  skill: { label: ['Perícias', 'Skills'] },
 };
+const SKILL_ORDER = PM.SKILLS.slice().sort((a, b) => PM.ABILS.indexOf(PM.SKILL_ABILITY[a]) - PM.ABILS.indexOf(PM.SKILL_ABILITY[b]));
 
 function charValues(f, mode) {
   if (mode === 'abil') return PM.ABILS.map(a => f.scores[a]);
   if (mode === 'save') return PM.ABILS.map(a => f.saves[a]);
-  return PM.SKILLS.map(k => f.skills[k]);
+  return SKILL_ORDER.map(k => f.skills[k]);
+}
+
+function charScale(facts, mode) {
+  if (mode === 'abil') return { min: 0, max: 20, rings: [5, 10, 15, 20], mark: 10 };
+  return bonusScale(facts.flatMap(f => charValues(f, mode)));
+}
+
+/** Celular, perícias: uma linha por perícia, um ponto por personagem (o destaque em cor, com o número). */
+function SkillDots({ facts, focus, scale, lang }) {
+  const zero = pos(0, scale.min, scale.max);
+  return (
+    <ul className="ins-dots" aria-label={t(lang, 'Perícias de cada personagem', "Each character's skills")}>
+      {SKILL_ORDER.map(k => {
+        const f0 = facts.find(f => f.id === focus);
+        return (
+          <li key={k} className="ins-dots-row">
+            <span className="ins-dots-name">{PM.skillLabel(k, lang)}</span>
+            <span className="ins-dots-track" aria-hidden="true">
+              <span className="ins-dots-zero" style={{ left: zero }} />
+              {facts.filter(f => f.id !== focus).map(f => <span key={f.id} className="ins-dots-dot" style={{ left: pos(f.skills[k], scale.min, scale.max) }} />)}
+              {f0 && <span className="ins-dots-dot is-focus" style={{ left: pos(f0.skills[k], scale.min, scale.max), background: f0.color }} />}
+            </span>
+            <span className="ins-dots-val">{f0 ? PM.fmtMod(f0.skills[k]) : ''}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 function Characters({ facts, lang, wide, view, setView }) {
   const mode = CHAR_MODES[view.chars] ? view.chars : 'abil';
-  const cfg = CHAR_MODES[mode];
+  const scale = charScale(facts, mode);
+  const isSkill = mode === 'skill';
   const focus = facts.some(f => f.id === view.focusChar) ? view.focusChar : facts[0]?.id;
   const overlay = (view.overlay || []).filter(id => facts.some(f => f.id === id)).slice(0, 3);
-  const axes = mode === 'skill'
-    ? PM.SKILLS.map(k => ({ key: k, label: '', title: PM.skillLabel(k, lang) }))
+  const axes = isSkill
+    ? SKILL_ORDER.map(k => ({ key: k, label: shortSkill(k, lang), title: PM.skillLabel(k, lang) }))
     : PM.ABILS.map(a => ({ key: a, label: PM.abilShort(a, lang) }));
-  const written = (f) => (mode === 'skill'
+  const written = (f) => (isSkill
     ? (() => {
       const s = PM.SKILLS.slice().sort((a, b) => f.skills[b] - f.skills[a]);
       return t(lang, `melhores: ${s.slice(0, 3).map(k => `${PM.skillLabel(k, lang)} ${PM.fmtMod(f.skills[k])}`).join(', ')} · piores: ${s.slice(-2).map(k => `${PM.skillLabel(k, lang)} ${PM.fmtMod(f.skills[k])}`).join(', ')}`,
@@ -693,6 +788,8 @@ function Characters({ facts, lang, wide, view, setView }) {
     })()
     : PM.ABILS.map(a => `${PM.abilShort(a, lang)}\u00a0${mode === 'abil' ? f.scores[a] : PM.fmtMod(f.saves[a])}`).join(' · '));
   const toggleOverlay = (id) => setView({ overlay: overlay.includes(id) ? overlay.filter(x => x !== id) : [...overlay, id].slice(-3) });
+  const scaleText = mode === 'abil' ? t(lang, 'Atributos com a espécie, de 0 a 20.', 'Abilities with species, 0 to 20.')
+    : t(lang, `Bônus de ${PM.fmtMod(scale.min)} a ${PM.fmtMod(scale.max)}; o anel marcado é o 0.`, `Bonus from ${PM.fmtMod(scale.min)} to ${PM.fmtMod(scale.max)}; the marked ring is 0.`);
   return (
     <>
       <div className="ins-pair is-small" role="group" aria-label={t(lang, 'Mostrar', 'Show')}>
@@ -707,24 +804,34 @@ function Characters({ facts, lang, wide, view, setView }) {
           </button>
         ))}
       </div>
-      <p className="ins-adj-help">{mode === 'abil' ? t(lang, 'Atributos com a espécie, de 0 a 20.', 'Abilities with species, 0 to 20.')
-        : t(lang, 'Bônus de −5 a +15; o anel marcado é o 0.', 'Bonus from −5 to +15; the marked ring is 0.')}{' '}
-        {t(lang, 'O destaque fica em cor; os outros, em cinza.', 'The highlight is in color; the others are gray.')}</p>
-      <div className="ins-multiples">
-        {facts.map(f => (
-          <figure key={f.id} className={`ins-multiple ${focus === f.id ? 'is-focus' : ''}`}>
-            {/* viewBox de 140 no celular: a 360 a coluna da grade 2×2 tem 138 px e o rótulo de
-                13 fica com 12,8 px (com 160, encolhia para 11,2) */}
-            <Radar size={wide ? 190 : 140} min={cfg.min} max={cfg.max} rings={cfg.rings} mark={cfg.mark} labels={mode !== 'skill'} labelSize={13}
-              axes={axes} series={[{ key: f.id, values: charValues(f, mode), color: focus === f.id ? f.color : 'var(--ins-gray)', fill: focus === f.id ? 0.18 : 0.06, dots: focus === f.id }]}
-              label={`${f.name}: ${written(f)}`} />
-            <figcaption>
-              <span className="ins-mult-name"><Dot color={f.color} /> {PM.firstName(f.name)}</span>
-              <span className="ins-mult-vals">{written(f)}</span>
-            </figcaption>
-          </figure>
-        ))}
-      </div>
+      {isSkill && !wide ? (
+        <>
+          <p className="ins-adj-help">{t(lang, `Cada ponto é um personagem, de ${PM.fmtMod(scale.min)} a ${PM.fmtMod(scale.max)} (o traço é o 0); o destaque fica em cor, com o bônus.`,
+            `Each dot is a character, ${PM.fmtMod(scale.min)} to ${PM.fmtMod(scale.max)} (the tick is 0); the highlight is in color, with the bonus.`)}</p>
+          <SkillDots facts={facts} focus={focus} scale={scale} lang={lang} />
+          <p className="ins-adj-help">{written(facts.find(f => f.id === focus) || facts[0])}</p>
+        </>
+      ) : (
+        <>
+          <p className="ins-adj-help">{scaleText} {t(lang, 'O destaque fica em cor; os outros, em cinza.', 'The highlight is in color; the others are gray.')}</p>
+          <div className={`ins-multiples ${isSkill ? 'is-skill' : ''}`}>
+            {facts.map(f => (
+              <figure key={f.id} className={`ins-multiple ${focus === f.id ? 'is-focus' : ''}`}>
+                {/* viewBox de 140 no celular: a 360 a coluna da grade 2×2 tem 138 px e o rótulo de
+                    13 fica com 12,8 px (com 160, encolhia para 11,2) */}
+                <Radar size={isSkill ? SKILL_RADAR.each : wide ? 190 : 140} min={scale.min} max={scale.max} rings={scale.rings} mark={scale.mark}
+                  labelSize={isSkill ? SKILL_RADAR.labelSize : 13}
+                  axes={axes} series={[{ key: f.id, values: charValues(f, mode), color: focus === f.id ? f.color : 'var(--ins-gray)', fill: focus === f.id ? 0.18 : 0.06, dots: focus === f.id }]}
+                  label={`${f.name}: ${written(f)}`} />
+                <figcaption>
+                  <span className="ins-mult-name"><Dot color={f.color} /> {PM.firstName(f.name)}</span>
+                  <span className="ins-mult-vals">{written(f)}</span>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </>
+      )}
       {wide && (
         <div className="ins-overlay">
           <p className="ins-adj-help">{t(lang, 'Sobrepor (até 3):', 'Overlay (up to 3):')}</p>
@@ -736,9 +843,15 @@ function Characters({ facts, lang, wide, view, setView }) {
             ))}
           </div>
           {overlay.length > 0 && (
-            <Radar size={300} min={cfg.min} max={cfg.max} rings={cfg.rings} mark={cfg.mark} labels={mode !== 'skill'}
+            <Radar size={isSkill ? SKILL_RADAR.overlay : 300} min={scale.min} max={scale.max} rings={scale.rings} mark={scale.mark}
+              labelSize={isSkill ? SKILL_RADAR.labelSize : 13}
               axes={axes} series={overlay.map(id => { const f = facts.find(x => x.id === id); return { key: id, values: charValues(f, mode), color: f.color, fill: 0.08 }; })}
               label={t(lang, `Sobrepostos: ${overlay.map(id => facts.find(x => x.id === id)?.name).join(', ')}`, `Overlaid: ${overlay.map(id => facts.find(x => x.id === id)?.name).join(', ')}`)} />
+          )}
+          {overlay.length > 0 && (
+            <ul className="ins-legend">
+              {overlay.map(id => { const f = facts.find(x => x.id === id); return <li key={id}><Dot color={f.color} /> {f.name}</li>; })}
+            </ul>
           )}
         </div>
       )}
@@ -805,10 +918,13 @@ function Table({ facts, lang, wide, sessionNo }) {
 // ---------------------------------------------------------------- G10: contra quem?
 function Versus({ facts, lang, monster, setMonster, planPick, setPlanPick, onPick, onPlan }) {
   const v = monster ? versus(monster, facts, lang) : null;
-  const factor = (k) => (k === 0 ? t(lang, 'imune', 'immune') : k === 0.5 ? t(lang, 'resiste (½)', 'resists (½)') : k === 2 ? t(lang, 'vulnerável (×2)', 'vulnerable (×2)') : t(lang, 'normal', 'normal'));
+  // sem as defesas do monstro (catálogo antigo), "normal" seria um palpite: diz que não se sabe
+  const factor = (k) => (k === 0 ? t(lang, 'imune', 'immune') : k === 0.5 ? t(lang, 'resiste (½)', 'resists (½)') : k === 2 ? t(lang, 'vulnerável (×2)', 'vulnerable (×2)')
+    : v?.known ? t(lang, 'normal', 'normal') : t(lang, 'sem resistência conhecida (confira o bloco do monstro)', 'no known resistance (check the stat block)'));
+  const diff = v ? difficultyText(v.difficulty, v.name, lang) : '';
   return (
-    <section className="mesa-panel ins-block ins-versus">
-      <MesaTitle sub={t(lang, 'o monstro contra o dano e as salvaguardas do grupo', 'the monster against the party’s damage and saves')}>{t(lang, 'Contra quem?', 'Against whom?')}</MesaTitle>
+    <div className="ins-versus">
+      <p className="ins-adj-help">{t(lang, 'O monstro contra o dano e as salvaguardas do grupo.', 'The monster against the party’s damage and saves.')}</p>
       <div className="mesa-actions is-start">
         <button type="button" className="mesa-btn" onClick={onPick}>🐉 {t(lang, 'Escolher monstro…', 'Pick a monster…')}</button>
         <button type="button" className="mesa-btn" disabled={planPick?.busy} onClick={onPlan}>{planPick?.busy ? '…' : t(lang, 'Um combate do plano', 'A combat from the plan')}</button>
@@ -828,7 +944,10 @@ function Versus({ facts, lang, monster, setMonster, planPick, setPlanPick, onPic
             <strong>{v.name}</strong> <span className="muted">{t(lang, `ND ${v.cr}`, `CR ${v.cr}`)}</span>
             <button type="button" className="mesa-icon-btn" aria-label={t(lang, 'Tirar o monstro', 'Remove the monster')} onClick={() => setMonster(null)}>✕</button>
           </header>
-          <p className={`ins-vs-line ${v.line ? '' : 'is-calm'}`}>{v.line ? `× ${t(lang, 'grupo', 'party')}: ${v.line}` : t(lang, 'Nada que preocupe: o dano principal de todos pega e as salvaguardas que ele cobra passam fácil.', "Nothing to worry about: everyone's main damage lands and the saves it calls for are easy.")}</p>
+          {diff && <p className="ins-vs-diff"><strong>{t(lang, 'Dificuldade para este grupo', 'Difficulty for this party')}:</strong> {diff}</p>}
+          <p className={`ins-vs-line ${v.line ? '' : 'is-calm'}`}>{v.line ? `× ${t(lang, 'grupo', 'party')}: ${v.line}`
+            : v.known ? t(lang, 'Nada que preocupe: o dano principal de todos pega e as salvaguardas que ele cobra passam fácil.', "Nothing to worry about: everyone's main damage lands and the saves it calls for are easy.")
+            : t(lang, 'Sem resistência conhecida: confira o bloco do monstro. As salvaguardas que ele cobra passam fácil.', 'No known resistance: check the stat block. The saves it calls for are easy.')}</p>
           <ul className="ins-vs-rows">
             {v.rows.map(r => {
               const f = facts.find(x => x.id === r.id);
@@ -849,6 +968,6 @@ function Versus({ facts, lang, monster, setMonster, planPick, setPlanPick, onPic
           )}
         </article>
       )}
-    </section>
+    </div>
   );
 }

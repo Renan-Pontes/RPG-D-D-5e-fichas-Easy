@@ -73,8 +73,21 @@ class AccessTests(PartyInsightsBase):
 class MergeTests(PartyInsightsBase):
     def test_defaults(self):
         ins = self.c_dm.get(self.url).json()['insights']
-        self.assertEqual(ins, {'v': 1, 'include': None, 'exclude': [], 'w': 0.5, 'hidden': [], 'focus': {}, 'rep': 'best',
+        self.assertEqual(ins, {'v': 2, 'include': None, 'exclude': [], 'w': 0.1, 'hidden': [], 'focus': {}, 'rep': 'best',
                                'dc': 15, 'base': {}, 'style': {}, 'spotlights': {}, 'dismissed': {}})
+
+    def test_old_default_weight_becomes_the_new_one(self):
+        # F2.4: o v1 gravava o padrão de antes (0,5) com tudo; lido de novo, vale 10% tabela / 90% ficha.
+        # Escolhido depois (v2), o meio a meio fica; e um v1 com outro peso continua o dele.
+        self.camp.dm_settings = {'partyInsights': {'v': 1, 'w': 0.5, 'dc': 12}}
+        self.camp.save()
+        ins = self.c_dm.get(self.url).json()['insights']
+        self.assertEqual((ins['v'], ins['w'], ins['dc']), (2, 0.1, 12))
+        self.assertEqual(self.put({'w': 0.5}).json()['insights']['w'], 0.5)
+        self.assertEqual(self.c_dm.get(self.url).json()['insights']['w'], 0.5)
+        self.camp.dm_settings = {'partyInsights': {'v': 1, 'w': 0.25}}
+        self.camp.save()
+        self.assertEqual(self.c_dm.get(self.url).json()['insights']['w'], 0.25)
 
     def test_merge_by_key(self):
         self.put({'w': 0, 'dc': 12})
@@ -84,8 +97,10 @@ class MergeTests(PartyInsightsBase):
         self.assertEqual(ins['hidden'], ['dmg', 'social'])      # na ordem dos eixos, sem repetir
         self.assertEqual(ins['focus'], {'social': 2})
         self.assertEqual(self.stored()['dc'], 12)
-        # w em 5 passos (Tabela · · · Ficha)
+        # w nos passos de Tabela · · · Ficha (o mais perto)
         self.assertEqual(self.put({'w': 0.7}).json()['insights']['w'], 0.75)
+        self.assertEqual(self.put({'w': 0.12}).json()['insights']['w'], 0.1)
+        self.assertEqual(self.put({'w': 0.04}).json()['insights']['w'], 0)
 
     def test_maps_merge_one_level_and_null_removes(self):
         self.put({'base': {'wizard': IVAN_WIZARD}})
@@ -116,6 +131,35 @@ class MergeTests(PartyInsightsBase):
         self.assertEqual((got[0]['done'], got[0]['plan'], got[0]['auto']), (3, 'c7', 'tool:thievesTools'))
         self.assertEqual((got[1]['id'], got[1]['text'], got[1]['done']), ('s2', 'Porta trancada', None))
         self.assertEqual(ins['dismissed'][str(self.char.id)], ['skill:stealth'])
+
+    def test_get_brings_the_plan_scene_ids(self):
+        # o Raio-X confere em que cena cada momento está com as cenas do plano de agora (a
+        # conta do Plano), no mesmo GET: as de verdade, sem repetir; plano vazio = []
+        self.assertEqual(self.c_dm.get(self.url).json()['planScenes'], [])
+        self.camp.dm_settings = {'sessionPlan': {'scenes': [
+            {'id': 'c2', 'text': 'Descer até o lago'}, {'id': 'c3', 'text': '  '},
+            {'id': 'c4', 'text': '', 'nodeRef': {'adventureId': 1, 'nodeId': 'n2'}},
+            {'id': 'c2', 'text': 'repetida'}, {'text': 'sem id'}, 'x']}}
+        self.camp.save()
+        self.put({'spotlights': {str(self.char.id): [{'kind': 'shine', 'text': 'x', 'plan': 'c9'}]}})
+        body = self.c_dm.get(self.url).json()
+        self.assertEqual(body['planScenes'], ['c2', 'c4'])
+        self.assertEqual(body['insights']['spotlights'][str(self.char.id)][0]['plan'], 'c9')   # o gravado fica
+        self.assertNotIn('planScenes', self.put({'dc': 12}).json())   # o PUT continua só com o Raio-X
+
+    def test_get_brings_the_ideas_already_in_the_plan(self):
+        # "＋ Levar para o plano" (F2.1): a cena guarda de que ideia veio (`fromIdea`) e o GET
+        # devolve as ideias das cenas de verdade, sem repetir; a cena vazia não conta
+        self.assertEqual(self.c_dm.get(self.url).json()['planIdeas'], [])
+        self.camp.dm_settings = {'sessionPlan': {'scenes': [
+            {'id': 'c2', 'text': 'Só Blefar resolve', 'fromIdea': 'skill:deception'},
+            {'id': 'c3', 'text': '', 'fromIdea': 'save:dex'},
+            {'id': 'c4', 'text': 'Outra', 'fromIdea': 'skill:deception'},
+            {'id': 'c5', 'text': 'Sem ideia'}, {'id': 'c6', 'text': 'Torta', 'fromIdea': 'não vale!'}]}}
+        self.camp.save()
+        body = self.c_dm.get(self.url).json()
+        self.assertEqual(body['planIdeas'], ['skill:deception'])
+        self.assertNotIn('planIdeas', self.put({'dc': 12}).json())
 
     def test_keeps_other_dm_settings(self):
         self.camp.dm_settings = {'onboarding': {'cover': True}, 'sessionPlan': {'monsters': 'goblins'}}

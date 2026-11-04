@@ -12,10 +12,13 @@ import { bestAt, firstName } from '../group/party-best.js';
 import { loadCustomMonsters } from '../combat/custom-monsters.js';
 import { CR_TABLE } from '../combat/cr-estimate.js';
 import MonsterPicker from '../campaigns/MonsterPicker.jsx';
+import ItemPickerModal from '../items/ItemPickerModal.jsx';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import WorldRefs from './WorldRefs.jsx';
 import { entryImage, kindIcon, kindLabel, visLabel } from './prep-world.js';
-import { SCENE_BLOCKS, DC_CHIPS, DC_RANGE, parseDc, customDc, blockLabel, fightDifficulty } from './scene-model.js';
+import { SCENE_BLOCKS, DC_CHIPS, DC_RANGE, parseDc, customDc, blockLabel, fightDifficulty, typedItem } from './scene-model.js';
+import { COINS, COIN_LABEL } from './prep-graph.js';
+import { momentLine } from '../group/moment-words.js';
 
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
 export const HANDY_KINDS = ['npc', 'faction', 'place'];
@@ -62,6 +65,8 @@ const HELP = {
     'The monsters in this scene. The difficulty is against the characters at the table now. At the table, ⚔ Start combat sets it all up at once.'],
   check: ['Um teste que a cena pede (perícia, salvaguarda ou atributo) e a CD. Na mesa, 🎯 Pedir a todos manda com 1 toque. 🔒 CD secreta: os jogadores não veem a CD.',
     'A check the scene calls for (skill, save or ability) and the DC. At the table, 🎯 Ask everyone sends it in 1 tap. 🔒 Secret DC: players don\'t see the DC.'],
+  treasure: ['O que o grupo pode achar ou ganhar nesta cena: moedas e itens (os de Preparar › Itens, os das regras básicas ou escritos à mão). Na mesa, a cena lembra você dele.',
+    'What the party can find or win in this scene: coins and items (from Prepare › Items, the basic rules or written by hand). At the table, the scene reminds you of it.'],
   spots: ['Um momento para um personagem brilhar nesta cena (o "holofote"). As ideias vêm do Raio-X e do teste e do combate da cena. Na mesa, a cena lembra você dele.',
     'A moment for a character to shine in this scene (the "spotlight"). Ideas come from the X-ray and the scene\'s check and fight. At the table, the scene reminds you of it.'],
   notes: ['Só você vê. Lembretes, segredos, o que fazer se o grupo fugir.', 'Only you see this. Reminders, secrets, what to do if the party runs.'],
@@ -141,6 +146,7 @@ export function ImageBlock({ lang, show, showFrom, world, roomName, disabled, bu
           <div className="ss-image-text">
             <p className="ss-image-name"><strong>{entry.name}</strong> · {kindIcon(entry.kind)} {kindLabel(entry.kind, lang)}</p>
             <p className="ss-hint">{visWord(entry, lang)}</p>
+            {fresh === entry.id && <p className="ss-hint">{t(lang, 'A imagem também fica guardada no Mundo (oculta), neste cartão.', 'The image is also kept in the World (hidden), in this card.')}</p>}
             {showFrom === 'ref' && (
               <p className="ss-hint">{t(lang, 'Vem do 1º cartão com imagem em 🎭 Quem aparece. Tirar não tira o cartão da sala.', 'Comes from the 1st card with an image in 🎭 Who shows up. Removing it keeps the card in the room.')}</p>
             )}
@@ -152,15 +158,22 @@ export function ImageBlock({ lang, show, showFrom, world, roomName, disabled, bu
         <p className="ss-hint">🖼 {t(lang, `A imagem da sala ${roomName || ''} vai à Tela. Ela muda em Preparar › Aventuras; ✕ tira só desta cena.`, `The image of the room ${roomName || ''} goes to the screen. It changes in Prepare › Adventures; ✕ removes it only from this scene.`)}</p>
       ) : null}
       {entry && fresh === entry.id && !disabled && (
-        <div className="ss-kinds" role="group" aria-label={t(lang, 'Tipo do cartão', 'Card type')}>
-          {CARD_KINDS.map(k => (
-            <button key={k} type="button" className="mesa-chip" aria-pressed={entry.kind === k} disabled={busy} onClick={() => onKind(k)}>
-              {kindIcon(k)} {kindLabel(k, lang)}
-            </button>
-          ))}
-        </div>
+        // a imagem subida agora: o cartão oculto que a guarda no Mundo já nasce Lugar; mudar é opcional
+        <details className="ss-kinds-more">
+          <summary>{t(lang, `Mudar tipo (${kindLabel(entry.kind, lang)})`, `Change type (${kindLabel(entry.kind, lang)})`)}</summary>
+          <div className="ss-kinds" role="group" aria-label={t(lang, 'Tipo do cartão', 'Card type')}>
+            {CARD_KINDS.map(k => (
+              <button key={k} type="button" className="mesa-chip" aria-pressed={entry.kind === k} disabled={busy} onClick={() => onKind(k)}>
+                {kindIcon(k)} {kindLabel(k, lang)}
+              </button>
+            ))}
+          </div>
+        </details>
       )}
       {(!show || changing || showFrom === 'room') && buttons}
+      {(!show || changing) && !disabled && (
+        <p className="ss-hint">{t(lang, 'Subir imagem: ela também fica guardada no Mundo (oculta), num cartão com o nome da cena. Os jogadores não veem o cartão.', 'Upload image: it is also kept in the World (hidden), in a card named after the scene. Players don\'t see the card.')}</p>
+      )}
       {show && showFrom !== 'room' && !changing && !disabled && (
         <div className="ss-row-btns">
           <button type="button" className="mesa-btn" disabled={busy} onClick={() => setChanging(true)}>{t(lang, 'Trocar', 'Change')}</button>
@@ -266,82 +279,164 @@ const checkValue = (c) => `${c.kind}:${c.key}`;
 /**
  * 🎯 Teste: perícia, salvaguarda ou atributo + CD (chips) + 🔒 CD secreta, e embaixo
  * "melhor do grupo: Elarion +4 · 50% · pelo menos 1 passa: 91%". `multi` (cena ligada): a
- * sala guarda vários (todos viram botões na mesa).
+ * sala guarda vários (todos viram botões na mesa). `draft` (folha da Cena): o teste ainda
+ * em escolha — só vai para a cena no "Pôr na cena" (onConfirm), como o ＋ Monstro; sem
+ * `onDraft` (a sala nas Aventuras), o "＋ Teste" põe direto, como antes.
  */
-export function CheckBlock({ lang, checks, members, multi, disabled, onChange, onRemove }) {
+export function CheckBlock({ lang, checks, members, multi, disabled, onChange, onRemove, draft = null, onDraft = null, onConfirm, onCancelDraft }) {
   const uid = useId();
   const [freeAt, setFreeAt] = useState(null);   // o teste com o campo "Outra CD" aberto
   const list = checks.length ? checks : [];
   const set = (i, patch) => onChange(list.map((c, j) => (j === i ? { ...c, ...patch } : c)));
+  const fresh = { kind: 'skill', key: 'perception', dc: 13 };
+  const row = (c, i, setRow, removable) => {
+    const dc = Number.isInteger(c.dc) ? c.dc : 15;
+    const best = c.kind === 'ability' ? null : bestAt(members, c.kind === 'save' ? 'save' : 'skill', c.key, dc);
+    const other = customDc(c.dc);
+    return (
+      <div key={i} className="ss-check">
+        <div className="ss-check-line">
+          <select className="input ss-check-sel" value={checkValue(c)} disabled={disabled} id={`${uid}-${i}`}
+            aria-label={t(lang, 'O que testar', 'What to check')}
+            onChange={e => { const [kind, key] = e.target.value.split(':'); setRow({ kind, key }); }}>
+            <optgroup label={t(lang, 'Perícias', 'Skills')}>
+              {SKILL_IDS.map(k => <option key={k} value={`skill:${k}`}>{tName('skill', k, lang)}</option>)}
+            </optgroup>
+            <optgroup label={t(lang, 'Salvaguardas', 'Saves')}>
+              {ABILITIES.map(k => <option key={k} value={`save:${k}`}>{checkLabel({ kind: 'save', key: k }, lang)}</option>)}
+            </optgroup>
+            <optgroup label={t(lang, 'Atributos', 'Abilities')}>
+              {ABILITIES.map(k => <option key={k} value={`ability:${k}`}>{checkLabel({ kind: 'ability', key: k }, lang)}</option>)}
+            </optgroup>
+          </select>
+          {removable && !disabled && (
+            <button type="button" className="mesa-icon-btn" onClick={() => onChange(list.filter((_, j) => j !== i))}
+              aria-label={t(lang, `Tirar o teste de ${checkLabel(c, lang)}`, `Remove the ${checkLabel(c, lang)} check`)}>×</button>
+          )}
+        </div>
+        <div className="ss-dcs" role="group" aria-label={t(lang, 'CD', 'DC')}>
+          <span className="ss-dc-label" aria-hidden="true">{t(lang, 'CD', 'DC')}</span>
+          {DC_CHIPS.map(v => (
+            <button key={v} type="button" className="mesa-chip ss-dc" aria-pressed={c.dc === v} disabled={disabled}
+              aria-label={t(lang, `CD ${v}`, `DC ${v}`)} onClick={() => setRow({ dc: c.dc === v ? undefined : v })}>{v}</button>
+          ))}
+          {/* a CD que não é chip (14, 11, 25…): marcada no "14 ✎"; tocar abre o campo (1 a 40) no mesmo lugar */}
+          {freeAt === i && !disabled ? (
+            <input type="number" inputMode="numeric" min={DC_RANGE.min} max={DC_RANGE.max} className="input ss-dc ss-dc-free" autoFocus
+              defaultValue={other ?? ''} aria-label={t(lang, 'Outra CD (1 a 40)', 'Other DC (1 to 40)')}
+              onChange={e => { const v = parseDc(e.target.value); if (v) setRow({ dc: v }); }}
+              onBlur={() => setFreeAt(null)}
+              onKeyDown={e => {
+                // Enter/Esc fecham só o campo (o Esc não fecha a folha inteira)
+                if (e.key === 'Escape') e.stopPropagation();
+                if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur();
+              }} />
+          ) : (
+            <button type="button" className="mesa-chip ss-dc ss-dc-free" aria-pressed={!!other} disabled={disabled}
+              aria-label={other ? t(lang, `CD ${other} (mudar)`, `DC ${other} (change)`) : t(lang, 'Outra CD (1 a 40)', 'Other DC (1 to 40)')}
+              onClick={() => setFreeAt(i)}>{other ? `${other} ✎` : t(lang, 'Outra…', 'Other…')}</button>
+          )}
+          <button type="button" className="mesa-chip ss-dc" aria-pressed={!!c.dcHidden} disabled={disabled}
+            aria-label={t(lang, 'CD secreta', 'Secret DC')} onClick={() => setRow({ dcHidden: !c.dcHidden })}>🔒</button>
+        </div>
+        {c.dcHidden && <p className="ss-hint">🔒 {t(lang, 'CD secreta: os jogadores não veem a CD.', "Secret DC: players don't see the DC.")}</p>}
+        {multi && (
+          <input className="input" value={c.note || ''} maxLength={300} disabled={disabled}
+            aria-label={t(lang, `O que o teste de ${checkLabel(c, lang)} revela`, `What the ${checkLabel(c, lang)} check reveals`)}
+            placeholder={t(lang, 'O que revela (opcional)', 'What it reveals (optional)')} onChange={e => setRow({ note: e.target.value })} />
+        )}
+        {best && (
+          <p className="ss-best">{t(lang,
+            `melhor do grupo: ${best.who.map(firstName).join(', ')} ${best.best >= 0 ? '+' : ''}${best.best} · ${best.p}% na CD ${dc} · pelo menos 1 passa: ${best.group}%`,
+            `party's best: ${best.who.map(firstName).join(', ')} ${best.best >= 0 ? '+' : ''}${best.best} · ${best.p}% at DC ${dc} · at least 1 passes: ${best.group}%`)}
+            {!Number.isInteger(c.dc) && <span className="ss-hint"> {t(lang, '(sem CD escolhida: conta a 15)', '(no DC picked: counts 15)')}</span>}</p>
+        )}
+      </div>
+    );
+  };
   return (
-    <BlockFrame id="check" lang={lang} onRemove={disabled ? null : onRemove}>
-      {list.map((c, i) => {
-        const dc = Number.isInteger(c.dc) ? c.dc : 15;
-        const best = c.kind === 'ability' ? null : bestAt(members, c.kind === 'save' ? 'save' : 'skill', c.key, dc);
-        const other = customDc(c.dc);
-        return (
-          <div key={i} className="ss-check">
-            <div className="ss-check-line">
-              <select className="input ss-check-sel" value={checkValue(c)} disabled={disabled} id={`${uid}-${i}`}
-                aria-label={t(lang, 'O que testar', 'What to check')}
-                onChange={e => { const [kind, key] = e.target.value.split(':'); set(i, { kind, key }); }}>
-                <optgroup label={t(lang, 'Perícias', 'Skills')}>
-                  {SKILL_IDS.map(k => <option key={k} value={`skill:${k}`}>{tName('skill', k, lang)}</option>)}
-                </optgroup>
-                <optgroup label={t(lang, 'Salvaguardas', 'Saves')}>
-                  {ABILITIES.map(k => <option key={k} value={`save:${k}`}>{checkLabel({ kind: 'save', key: k }, lang)}</option>)}
-                </optgroup>
-                <optgroup label={t(lang, 'Atributos', 'Abilities')}>
-                  {ABILITIES.map(k => <option key={k} value={`ability:${k}`}>{checkLabel({ kind: 'ability', key: k }, lang)}</option>)}
-                </optgroup>
-              </select>
-              {multi && !disabled && (
-                <button type="button" className="mesa-icon-btn" onClick={() => onChange(list.filter((_, j) => j !== i))}
-                  aria-label={t(lang, `Tirar o teste de ${checkLabel(c, lang)}`, `Remove the ${checkLabel(c, lang)} check`)}>×</button>
-              )}
-            </div>
-            <div className="ss-dcs" role="group" aria-label={t(lang, 'CD', 'DC')}>
-              <span className="ss-dc-label" aria-hidden="true">{t(lang, 'CD', 'DC')}</span>
-              {DC_CHIPS.map(v => (
-                <button key={v} type="button" className="mesa-chip ss-dc" aria-pressed={c.dc === v} disabled={disabled}
-                  aria-label={t(lang, `CD ${v}`, `DC ${v}`)} onClick={() => set(i, { dc: c.dc === v ? undefined : v })}>{v}</button>
-              ))}
-              {/* a CD que não é chip (14, 11, 25…): marcada no "14 ✎"; tocar abre o campo (1 a 40) no mesmo lugar */}
-              {freeAt === i && !disabled ? (
-                <input type="number" inputMode="numeric" min={DC_RANGE.min} max={DC_RANGE.max} className="input ss-dc ss-dc-free" autoFocus
-                  defaultValue={other ?? ''} aria-label={t(lang, 'Outra CD (1 a 40)', 'Other DC (1 to 40)')}
-                  onChange={e => { const v = parseDc(e.target.value); if (v) set(i, { dc: v }); }}
-                  onBlur={() => setFreeAt(null)}
-                  onKeyDown={e => {
-                    // Enter/Esc fecham só o campo (o Esc não fecha a folha inteira)
-                    if (e.key === 'Escape') e.stopPropagation();
-                    if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur();
-                  }} />
-              ) : (
-                <button type="button" className="mesa-chip ss-dc ss-dc-free" aria-pressed={!!other} disabled={disabled}
-                  aria-label={other ? t(lang, `CD ${other} (mudar)`, `DC ${other} (change)`) : t(lang, 'Outra CD (1 a 40)', 'Other DC (1 to 40)')}
-                  onClick={() => setFreeAt(i)}>{other ? `${other} ✎` : t(lang, 'Outra…', 'Other…')}</button>
-              )}
-              <button type="button" className="mesa-chip ss-dc" aria-pressed={!!c.dcHidden} disabled={disabled}
-                aria-label={t(lang, 'CD secreta', 'Secret DC')} onClick={() => set(i, { dcHidden: !c.dcHidden })}>🔒</button>
-            </div>
-            {c.dcHidden && <p className="ss-hint">🔒 {t(lang, 'CD secreta: os jogadores não veem a CD.', "Secret DC: players don't see the DC.")}</p>}
-            {multi && (
-              <input className="input" value={c.note || ''} maxLength={300} disabled={disabled}
-                aria-label={t(lang, `O que o teste de ${checkLabel(c, lang)} revela`, `What the ${checkLabel(c, lang)} check reveals`)}
-                placeholder={t(lang, 'O que revela (opcional)', 'What it reveals (optional)')} onChange={e => set(i, { note: e.target.value })} />
-            )}
-            {best && (
-              <p className="ss-best">{t(lang,
-                `melhor do grupo: ${best.who.map(firstName).join(', ')} ${best.best >= 0 ? '+' : ''}${best.best} · ${best.p}% na CD ${dc} · pelo menos 1 passa: ${best.group}%`,
-                `party's best: ${best.who.map(firstName).join(', ')} ${best.best >= 0 ? '+' : ''}${best.best} · ${best.p}% at DC ${dc} · at least 1 passes: ${best.group}%`)}
-                {!Number.isInteger(c.dc) && <span className="ss-hint"> {t(lang, '(sem CD escolhida: conta a 15)', '(no DC picked: counts 15)')}</span>}</p>
-            )}
+    <BlockFrame id="check" lang={lang} onRemove={disabled || (draft && !list.length) ? null : onRemove}>
+      {list.map((c, i) => row(c, i, (patch) => set(i, patch), multi))}
+      {draft && (
+        <div className="ss-check-draft" role="group" aria-label={t(lang, 'Teste novo', 'New check')}>
+          {row(draft, 'draft', (patch) => onDraft({ ...draft, ...patch }), false)}
+          <div className="ss-row-btns">
+            <button type="button" className="mesa-btn is-primary" disabled={disabled} onClick={onConfirm}>{t(lang, 'Pôr na cena', 'Put in the scene')}</button>
+            <button type="button" className="mesa-btn is-quiet" onClick={onCancelDraft}>{t(lang, 'Cancelar', 'Cancel')}</button>
           </div>
-        );
-      })}
-      {multi && !disabled && list.length < 20 && (
-        <button type="button" className="mesa-btn ss-wide" onClick={() => onChange([...list, { kind: 'skill', key: 'perception', dc: 13 }])}>＋ {t(lang, 'Teste', 'Check')}</button>
+          <p className="ss-hint">{t(lang, 'Escolha o teste e a CD: ele só entra na cena quando você tocar em Pôr na cena.', 'Pick the check and the DC: it only goes into the scene when you tap Put in the scene.')}</p>
+        </div>
+      )}
+      {multi && !disabled && !draft && list.length < 20 && (
+        <button type="button" className="mesa-btn ss-wide" onClick={() => (onDraft ? onDraft(fresh) : onChange([...list, fresh]))}>＋ {t(lang, 'Teste', 'Check')}</button>
+      )}
+    </BlockFrame>
+  );
+}
+
+/**
+ * 💰 Tesouro: moedas e itens — os de Preparar › Itens (ou das regras básicas, no seletor de
+ * sempre) ou escritos à mão. Na cena solta fica no plano; na ligada, no tesouro da sala (o
+ * mesmo formato: {items, coins}). `campaignItems` chega quando o seletor abre (onLoadItems).
+ */
+export function TreasureBlock({ lang, treasure, campaignItems = null, maxItems, disabled, note = null, onChange, onRemove, onLoadItems }) {
+  const [picker, setPicker] = useState(false);
+  const [typed, setTyped] = useState('');
+  const items = treasure?.items || [];
+  const coins = treasure?.coins || {};
+  const full = items.length >= maxItems;
+  const setItems = (list) => onChange({ items: list, coins });
+  const addTyped = () => {
+    const it = typedItem(typed);
+    if (!it.name || full) return;
+    setItems([...items, it]);
+    setTyped('');
+  };
+  return (
+    <BlockFrame id="treasure" lang={lang} onRemove={disabled ? null : onRemove}>
+      {note}
+      {items.length > 0 && (
+        <ul className="ss-treasure">
+          {items.map((it, i) => (
+            <li key={`${it.id || it.name}-${i}`}>
+              <input type="number" inputMode="numeric" className="input" min={1} max={999} value={it.qty || 1} disabled={disabled}
+                aria-label={t(lang, `Quantidade de ${it.name}`, `Quantity of ${it.name}`)}
+                onChange={e => setItems(items.map((x, j) => (j === i ? { ...x, qty: Math.max(1, Math.min(999, parseInt(e.target.value, 10) || 1)) } : x)))} />
+              <span className="ss-treasure-name">× {it.name}</span>
+              {!disabled && <button type="button" className="mesa-icon-btn" aria-label={t(lang, `Tirar ${it.name}`, `Remove ${it.name}`)}
+                onClick={() => setItems(items.filter((_, j) => j !== i))}>×</button>}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="ss-coins" role="group" aria-label={t(lang, 'Moedas', 'Coins')}>
+        {COINS.map(c => (
+          <label key={c}>
+            <span>{COIN_LABEL[c][lang === 'en' ? 'en' : 'pt'] || c}</span>
+            <input type="number" inputMode="numeric" className="input" min={0} value={coins[c] || ''} placeholder="0" disabled={disabled}
+              onChange={e => onChange({ items, coins: { ...coins, [c]: Math.max(0, parseInt(e.target.value, 10) || 0) } })} />
+          </label>
+        ))}
+      </div>
+      {!disabled && (
+        <>
+          <button type="button" className="mesa-btn ss-wide" disabled={full} onClick={async () => { await onLoadItems?.(); setPicker(true); }}>
+            ＋ {t(lang, 'Item de Itens ou das regras', 'Item from Items or the rules')}
+          </button>
+          <div className="ss-own">
+            <input className="input" value={typed} maxLength={120} disabled={full} onChange={e => setTyped(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTyped(); } }}
+              aria-label={t(lang, 'Escrever um item', 'Write an item')} placeholder={t(lang, 'Ou escreva: ex. mapa da cripta', 'Or write one: e.g. crypt map')} />
+            <button type="button" className="mesa-btn" disabled={full || !typed.trim()} onClick={addTyped}>{t(lang, 'Pôr na cena', 'Put in the scene')}</button>
+          </div>
+          {full && <p className="ss-hint">{t(lang, `Até ${maxItems} itens por cena.`, `Up to ${maxItems} items per scene.`)}</p>}
+        </>
+      )}
+      {picker && (
+        <ItemPickerModal lang={lang} sheet icon="💰" title={t(lang, 'Tesouro da cena', 'Scene treasure')}
+          confirmLabel={t(lang, 'Pôr na cena', 'Put in the scene')} campaignItems={campaignItems || []}
+          onClose={() => setPicker(false)}
+          onPick={async (instance) => { setItems([...items, instance].slice(0, maxItems)); }} />
       )}
     </BlockFrame>
   );
@@ -367,7 +462,7 @@ export function MomentBlock({ lang, items, api, ideasFor, disabled, max, onAccep
         <ul className="ss-moments">
           {items.map(x => (
             <li key={x.key} className="ss-moment">
-              <span className="ss-moment-text">{api?.kindIcon(x.moment.kind) || '★'} {api ? api.firstName(api.nameOf(x.charId)) : ''}: {x.moment.text}</span>
+              <span className="ss-moment-text">{momentLine(x.moment, api ? api.nameOf(x.charId) : '', lang)}</span>
               {!disabled && <button type="button" className="mesa-icon-btn" disabled={busy} onClick={() => onUnlink(x)}
                 aria-label={t(lang, 'Tirar o momento da cena', 'Remove the moment from the scene')}>×</button>}
             </li>
@@ -394,7 +489,8 @@ export function MomentBlock({ lang, items, api, ideasFor, disabled, max, onAccep
               <ul className="ss-ideas">
                 {ideas.slice(0, 4).map(s => (
                   <li key={s.auto} className={`ss-idea ${s.why ? 'is-match' : ''}`}>
-                    <p className="ss-idea-text">{api.kindIcon(s.kind)} {api.firstName(fact.name)}: {s.text}{s.why ? <><br /><span className="ss-idea-why">↳ {s.why}</span></> : null}</p>
+                    <p className="ss-idea-text">{momentLine(s, fact.name, lang)}{s.why ? <><br /><span className="ss-idea-why">↳ {s.why}</span></> : null}
+                      {s.detail ? <><br /><span className="ss-idea-detail">{t(lang, 'detalhes', 'details')}: {s.detail}</span></> : null}</p>
                     <button type="button" className="mesa-btn" disabled={busy} onClick={async () => { if (await onAccept(fact.id, s)) { setAdding(false); setWho(null); } }}>{t(lang, 'Aceitar', 'Accept')}</button>
                   </li>
                 ))}
@@ -403,7 +499,7 @@ export function MomentBlock({ lang, items, api, ideasFor, disabled, max, onAccep
               <div className="ss-own">
                 <input className="input" value={own} maxLength={160} onChange={e => setOwn(e.target.value)}
                   aria-label={t(lang, `Momento de ${api.firstName(fact.name)}`, `${api.firstName(fact.name)}'s moment`)}
-                  placeholder={t(lang, 'Escrever o meu: ex. a fechadura que só ele abre', 'Write my own: e.g. the lock only they can open')} />
+                  placeholder={t(lang, `Escrever o meu: ex. uma fechadura que só ${api.firstName(fact.name)} abre`, `Write my own: e.g. a lock only ${api.firstName(fact.name)} can open`)} />
                 <button type="button" className="mesa-btn" disabled={busy || !own.trim()} onClick={async () => { if (await onWrite(fact.id, own)) { setAdding(false); setWho(null); } }}>{t(lang, 'Pôr na cena', 'Put in the scene')}</button>
               </div>
             </>

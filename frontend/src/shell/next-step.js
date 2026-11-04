@@ -16,6 +16,8 @@
 // parada valem só o J2 e o J1 (J3–J6 são da sessão ao vivo: "Pular" o J1 não mostra uma
 // cena para começar nem uma sessão para encerrar):
 //   J1 a sessão não começou ("Pronto para a Sessão N?", com a lista do que está de pé)
+//   (J1 e J2 oferecem "Ver a 1ª cena (ensaio)"; com o plano da próxima já montado, o J2 não
+//    manda prepará-lo de novo)
 //   J2 a sessão foi encerrada (diarySessions[n].endedAt; num servidor de antes do endedAt, o
 //      plano ainda é o da sessão jogada) e a próxima não começou; com o resumo dela já salvo
 //      ("✓ resumo da N" no J1), vale o J1. Entre os dois decide o resumo: enquanto ele não
@@ -27,6 +29,7 @@
 // Combate, perigos, testes e pedidos NÃO viram cartão: têm lugar fixo (barra da mesa,
 // Combate e o painel do momento).
 import { clueCount, planHeading, planIsBlank, realScene, sceneParts } from '../prep/next-session.js';
+import { momentLine } from '../group/moment-words.js';
 
 const tt = (lang, pt, en) => (lang === 'en' ? en : pt);
 const filled = (s) => typeof s === 'string' && s.trim().length > 0;
@@ -62,7 +65,7 @@ const HELP = {
   N4: ['Uma cena é um momento que pode acontecer: onde o grupo está e o que pode rolar. Não é roteiro: o grupo decide a ordem.', "A scene is a moment that might happen: where the party is and what could go on. It's not a script: the party picks the order."],
   N5: ['Sem ficha, o personagem não entra na iniciativa nem nas contas do Raio-X. O lembrete vai pronto para colar no grupo.', "Without a sheet the character can't join initiative or the X-ray. The reminder is ready to paste in your group chat."],
   N6: ['Pistas são coisas que o grupo pode descobrir, sem dizer onde. O ideal são umas 10, mas 3 já servem.', 'Clues are things the party can discover, without deciding where. About 10 is ideal, but 3 will do.'],
-  N7: ['Um momento é uma cena para alguém brilhar, ser desafiado ou viver a história dele. A ideia vem da ficha e do estilo do jogador.', "A moment is a scene for someone to shine, be challenged or live their story. The idea comes from the sheet and the player's style."],
+  N7: ['Um momento é uma cena em que alguém brilha, enfrenta um desafio ou vive a própria história. A ideia vem da ficha e do estilo do jogador.', "A moment is a scene for someone to shine, be challenged or live their story. The idea comes from the sheet and the player's style."],
   N8: ['A Tela é a TV, o monitor ou o tablet que todos veem. Abra o link nela antes do dia para ver se está tudo certo.', 'The screen is the TV, monitor or tablet everyone sees. Open the link on it before game day to check it works.'],
   N9: ['Na mesa, o plano vira botões: as cenas, as pistas e o que vai à Tela. Dá para ensaiar antes em Jogar › Agora.', 'At the table the plan turns into buttons: scenes, clues and what goes on screen. You can rehearse first in Play › Now.'],
   J1: ['Antes de começar, a Agora é um ensaio: dá para ver as cenas e mandar coisas à Tela para testar a TV. ▶ Começar pergunta onde a sessão começa.', 'Before you start, Now is a rehearsal: you can look at the scenes and send things to the screen to test the TV. ▶ Start asks where the session begins.'],
@@ -158,15 +161,15 @@ function planRules({ campaign, plan, pulse, insights, adventures = 0, fights = [
       const ideas = c.ideas || [];
       const pick = ideas.length ? ideas[((idea % ideas.length) + ideas.length) % ideas.length] : null;
       const who = firstName(c.name);
-      const icon = { shine: '★', push: '↗', hook: '✎' }[pick?.kind] || '★';
       return {
         id: 'N7', sig: `moments:${lacking.map(x => x.id).sort().join(',')}`, canSkip: true,
+        // a ideia em frase de mestre ("★ Dagna brilha: um teste de Medicina — …"), sem números
         text: pick
-          ? tt(lang, `${who} ainda não tem um momento. Ideia: ${icon} ${pick.text}`, `${who} has no moment yet. Idea: ${icon} ${pick.text}`)
+          ? tt(lang, `${who} ainda não tem um momento. Ideia: ${momentLine(pick, c.name, lang)}`, `${who} has no moment yet. Idea: ${momentLine(pick, c.name, lang)}`)
           : tt(lang, `${who} ainda não tem um momento neste plano.`, `${who} has no moment in this plan yet.`),
         why: c.style?.length
           ? `(${who}: ${c.style.join(' · ')})`
-          : tt(lang, 'Uma cena para ele brilhar, ser desafiado ou viver a história dele.', 'A scene for them to shine, be challenged or live their story.'),
+          : tt(lang, `Uma cena em que ${who} brilha, enfrenta um desafio ou vive a própria história.`, `A scene where ${who} shines, faces a challenge or lives their own story.`),
         action: pick
           ? { id: 'useIdea', label: tt(lang, '★ Usar a ideia', '★ Use the idea') }
           : { id: 'moments', label: tt(lang, 'Ver os momentos', 'See the moments') },
@@ -257,6 +260,11 @@ function nowRules({ campaign, plan, live = false, sceneNow = null, pulse = null,
   const scenes = (plan?.scenes || []).filter(realScene);
   const open = scenes.filter(s => !s.done);
   const played = sessionWasPlayed({ campaign, plan, live, pulse });
+  // o plano da próxima sessão já está montado (o Encerrar levou as cenas, ou o mestre preparou):
+  // o J2 não manda prepará-lo de novo e o ensaio começa pela 1ª cena dele (F1.5). Ele só diz o
+  // que se confere ("já tem 2 cenas"), não "pronto": quem diz o que falta é o Pronto para jogar
+  const prepared = !live && open.length > 0 && Number(plan?.forSession) === next;
+  const preview = open.length ? { id: 'previewScene', label: tt(lang, 'Ver a 1ª cena (ensaio)', 'Preview the 1st scene (rehearsal)') } : null;
   if (live && sceneNow) return [];
   // J2 ou J1 depende do resumo: sem saber dele, nenhum cartão (nada de J2 que vira J1)
   if (played && typeof recap?.has !== 'boolean') return [];
@@ -264,9 +272,13 @@ function nowRules({ campaign, plan, live = false, sceneNow = null, pulse = null,
     () => (!played || recap.has ? null : {
       id: 'J2', sig: `ended:${cur}`, canSkip: true,
       text: length ? tt(lang, `Sessão ${cur} encerrada · ${length}`, `Session ${cur} ended · ${length}`) : tt(lang, `Sessão ${cur} encerrada`, `Session ${cur} ended`),
-      why: tt(lang, `O resumo vira o “Anteriormente em…” da Sessão ${next}.`, `The recap becomes session ${next}’s “Previously on…”.`),
+      why: prepared
+        ? tt(lang, `O plano da Sessão ${next} já tem ${plural(open.length, 'cena', 'cenas')}. O resumo vira o “Anteriormente em…” dela.`,
+          `The session ${next} plan already has ${plural(open.length, 'scene', 'scenes')}. The recap becomes its “Previously on…”.`)
+        : tt(lang, `O resumo vira o “Anteriormente em…” da Sessão ${next}.`, `The recap becomes session ${next}’s “Previously on…”.`),
       action: { id: 'recap', label: tt(lang, '📜 Escrever o resumo', '📜 Write the recap') },
-      secondary: { id: 'preparePlan', label: tt(lang, `📋 Preparar a Sessão ${next}`, `📋 Prepare session ${next}`) },
+      secondary: prepared ? preview : { id: 'preparePlan', label: tt(lang, `📋 Preparar a Sessão ${next}`, `📋 Prepare session ${next}`) },
+      payload: prepared ? { sceneId: open[0].id } : undefined,
     }),
     () => (live ? null : {
       id: 'J1', sig: `ready:${next}`, canSkip: true,
@@ -275,6 +287,8 @@ function nowRules({ campaign, plan, live = false, sceneNow = null, pulse = null,
       items: readyItems({ campaign, plan, pulse, recap, lang }),
       note: tt(lang, 'Ensaio: dá para olhar as cenas e testar a Tela antes.', 'Rehearsal: you can look at the scenes and test the screen first.'),
       action: { id: 'startSession', label: tt(lang, `▶ Começar a Sessão ${next}`, `▶ Start session ${next}`) },
+      secondary: preview,
+      payload: preview ? { sceneId: open[0].id } : undefined,
     }),
     () => (!live || !recap?.has || recap.shown ? null : {
       id: 'J3', sig: `recap:${cur}`, canSkip: true,
