@@ -195,7 +195,7 @@ export function TurnStrip({ lang = 'pt', onOpenActor }) {
         </span>
       </button>
       {/* ↶ Voltar turno (onda 3, E1.4): sempre à mão enquanto há turno anterior, longe do Próximo */}
-      {((combat.round ?? 1) > 1 || (combat.turnIndex ?? 0) > 0) && (
+      {(table.canPrev ?? ((combat.round ?? 1) > 1 || (combat.turnIndex ?? 0) > 0)) && (
         <button type="button" className="mesa-btn turn-strip-back" disabled={busy}
           onClick={() => { if (!busy) table.prevTurn(); }} title={L(lang, 'Voltar para a vez anterior', 'Back to the previous turn')}>
           <span aria-hidden="true">↶</span> {L(lang, 'Voltar turno', 'Undo turn')}

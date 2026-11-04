@@ -117,6 +117,8 @@ export default function NowPanel({ campaign, approvals, lang = 'pt', onChange, o
   const [combatR, reloadCombat, setCombatR] = useRevData(pulse?.combat?.ver ?? null,
     () => api.getCombat(campaign.id).then(r => r.combat || null), { table, fallbackMs: 4000, key: String(campaign.id) });
   const combat = combatR;   // undefined = carregando
+  // o ↶ Voltar turno da faixa do PC sabe se vai funcionar pelo combate completo daqui (E1.4)
+  useEffect(() => { if (combat) table?.noteCombat?.(combat); }, [combat]); // eslint-disable-line react-hooks/exhaustive-deps
   // o combate completo que voltou de uma ação (barra da mesa, Próximo turno)
   useEffect(() => {
     const on = (e) => { if (String(e.detail?.campaignId) === String(campaign.id) && e.detail?.combat) setCombatR(e.detail.combat); };

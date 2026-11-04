@@ -199,6 +199,10 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
 
   const combatants = combat?.combatants || [];
   const active = !!combat?.active;
+  // o ↶ Voltar turno da faixa do PC sabe se vai funcionar pelo combate completo daqui (E1.4)
+  useEffect(() => { table?.noteCombat?.(combat); }, [combat]); // eslint-disable-line react-hooks/exhaustive-deps
+  // no PC a faixa do turno (presa no topo de Jogar) já tem o ↶ Voltar turno: a linha daqui não repete
+  const stripHere = useMedia('(min-width: 768px)') && !ownStrip;
 
   // A iniciativa pedida à mesa: enquanto o combate está sendo montado e já tem
   // personagem, e com ele andando enquanto algum personagem ainda está com "✎" (o "Já
@@ -569,6 +573,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   const nPc = combatants.filter(c => c.type === 'pc').length;
   // A linha do ↶ (E1.4): Voltar turno enquanto há turno anterior; Desfazer da última ação.
   const canBack = canPrevTurn(combat);
+  const backInRow = canBack && !stripHere;
   const undo = active ? lastUndo(combat, lang) : null;
   const prevTurn = async () => {
     setShowMore(false);
@@ -623,9 +628,9 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
         </button>
       </div>
 
-      {active && (canBack || undo) && (
+      {active && (backInRow || undo) && (
         <div className="ct-undo" role="group" aria-label={t(lang, 'Desfazer', 'Undo')}>
-          {canBack && (
+          {backInRow && (
             <button type="button" className="mesa-btn ct-undo-btn ct-undo-turn" disabled={!!table?.busy} onClick={prevTurn}
               aria-label={t(lang, `Voltar turno: a vez volta para ${prevTurnName(combat)}`, `Undo turn: back to ${prevTurnName(combat)}`)}>
               <span aria-hidden="true">↶</span> <span className="ct-undo-text">{t(lang, 'Voltar turno', 'Undo turn')}</span>
