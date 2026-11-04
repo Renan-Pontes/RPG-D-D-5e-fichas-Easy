@@ -216,6 +216,21 @@
 .ins-mult-name { display: inline-flex; align-items: center; gap: 6px; font-size: 1rem; color: var(--ink-primary); }
 .ins-mult-vals { font-size: 0.85rem; color: var(--ink-secondary); line-height: 1.3; overflow-wrap: anywhere; }
 @media (max-width: 359px) { .ins-multiple .ins-radar { max-width: 220px; } }
+/* perícias no PC: radares de 320 com o nome de cada eixo (radar-layout.SKILL_RADAR); 3 por
+   linha a 1280 (4 apertariam o viewBox e o rótulo de 12 px ficaria menor que 12) */
+.ins-multiples.is-skill { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); }
+.ins-multiples.is-skill .ins-radar { max-width: 320px; }
+ul.ins-legend { margin: 0; padding: 0; list-style: none; }
+.ins-legend > li { display: inline-flex; align-items: center; gap: 6px; }
+/* perícias no celular: uma linha por perícia, um ponto por personagem */
+.ins-dots { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.ins-dots-row { display: grid; grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr) 2.6rem; align-items: center; gap: 8px; min-height: 30px; border-bottom: 1px solid rgba(224, 181, 94, 0.08); }
+.ins-dots-name { font-size: 0.85rem; color: var(--ink-primary); overflow-wrap: anywhere; line-height: 1.2; }
+.ins-dots-track { position: relative; height: 18px; border-radius: 9px; background: rgba(224, 181, 94, 0.08); }
+.ins-dots-zero { position: absolute; top: 2px; bottom: 2px; width: 1px; background: var(--ins-grid-mark); }
+.ins-dots-dot { position: absolute; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--ins-gray); }
+.ins-dots-dot.is-focus { width: 14px; height: 14px; margin: -7px 0 0 -7px; border: 2px solid var(--bg-card); z-index: 1; }
+.ins-dots-val { font-size: 0.9rem; font-variant-numeric: tabular-nums; text-align: right; color: var(--ink-primary); }
 .ins-overlay { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 
 /* ---------------------------------------------------------- G6: tabela */

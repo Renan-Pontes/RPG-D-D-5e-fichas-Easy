@@ -19,6 +19,7 @@ import { getSessionPlan, saveSessionPlan } from '../world/world-api.js';
 import { freshSceneId, isOldPlanServer } from '../prep/next-session.js';
 import { errorMessage } from '../api/errors.js';
 import Radar from './Radar.jsx';
+import { bonusScale, shortSkill, SKILL_RADAR } from './radar-layout.js';
 import * as PM from './party-metrics.js';
 import { currentSession, gapGroups, ideaScene, momentSuggestions, partyGaps, quadrants, sceneHasIdea, sceneIdeas, tableBalance } from './spotlights.js';
 import { difficultyText, planMonsters, saveThreatExamples, threatMonsters, versus } from './versus.js';
@@ -457,7 +458,7 @@ function Roles({ calc, facts, axes, settings, lang, wide, onWhy }) {
       {legend}
       <div className="ins-roles-body">
         {wide && (
-          <Radar size={340} pad={62} min={1} max={5} rings={[1, 2, 3, 4, 5]} mark={3}
+          <Radar size={380} min={1} max={5} rings={[1, 2, 3, 4, 5]} mark={3}
             axes={axes.map(k => ({ key: k, label: PM.axisLabel(k, lang) }))}
             series={[
               { key: 'avg', values: axes.map(k => a[k].avg), color: PM.AVG_COLOR, fill: 0.25 },
@@ -512,7 +513,7 @@ function Skills({ calc, settings, lang, wide, view, setView, onWhy }) {
         )}>{t(lang, 'Perícias do grupo', 'Party skills')}</MesaTitle>
       <div className="ins-skills-body">
         {wide && (
-          <Radar size={340} pad={44} min={0} max={20} rings={[5, 10, 15, 20]} mark={settings.dc} labelSize={12}
+          <Radar size={SKILL_RADAR.group} min={0} max={20} rings={[5, 10, 15, 20]} mark={settings.dc} labelSize={SKILL_RADAR.labelSize}
             axes={radarOrder.map(s => ({ key: s.skill, label: shortSkill(s.skill, lang), title: PM.skillLabel(s.skill, lang) }))}
             series={[{ key: 'best', values: radarOrder.map(s => s.passive), color: 'var(--ins-series)', fill: 0.18 }]}
             label={t(lang, 'Radar das 18 perícias: passiva do melhor do grupo, de 0 a 20', 'Radar of the 18 skills: best passive in the party, 0 to 20')} />
@@ -542,14 +543,6 @@ function Skills({ calc, settings, lang, wide, view, setView, onWhy }) {
   );
 }
 
-const SHORT_SKILL = {
-  acrobatics: ['Acrob.', 'Acro.'], animalHandling: ['Animais', 'Animal'], arcana: ['Arcan.', 'Arcana'], athletics: ['Atlet.', 'Athl.'],
-  deception: ['Blefar', 'Decep.'], history: ['Hist.', 'Hist.'], insight: ['Intuição', 'Insight'], intimidation: ['Intim.', 'Intim.'],
-  investigation: ['Invest.', 'Invest.'], medicine: ['Medic.', 'Med.'], nature: ['Natur.', 'Nature'], perception: ['Perc.', 'Perc.'],
-  performance: ['Atuação', 'Perf.'], persuasion: ['Persu.', 'Pers.'], religion: ['Relig.', 'Relig.'], sleightOfHand: ['Prest.', 'Sleight'],
-  stealth: ['Furtiv.', 'Stealth'], survival: ['Sobrev.', 'Surv.'],
-};
-const shortSkill = (k, lang) => SHORT_SKILL[k]?.[lang === 'en' ? 1 : 0] || PM.skillLabel(k, lang);
 
 // ---------------------------------------------------------------- G3: dano
 function Damage({ calc, lang, onWhy }) {
@@ -680,27 +673,60 @@ function Schools({ calc, facts, lang, wide, view, setView }) {
 }
 
 // ---------------------------------------------------------------- G5: cada personagem
+// Atributos de 0 a 20; salvaguardas e perícias na escala dos bônus do grupo (radar-layout.
+// bonusScale: −2…+8 no nível 1, não −5…+15 espremido no centro). Perícias: no PC, radares
+// grandes com o nome de cada eixo (12 px, conferido em radar-layout); no celular, linhas.
 const CHAR_MODES = {
-  abil: { label: ['Atributos', 'Abilities'], min: 0, max: 20, rings: [5, 10, 15, 20], mark: 10 },
-  save: { label: ['Salvaguardas', 'Saving throws'], min: -5, max: 15, rings: [0, 5, 10, 15], mark: 0 },
-  skill: { label: ['Perícias', 'Skills'], min: -5, max: 15, rings: [0, 5, 10, 15], mark: 0 },
+  abil: { label: ['Atributos', 'Abilities'] },
+  save: { label: ['Salvaguardas', 'Saving throws'] },
+  skill: { label: ['Perícias', 'Skills'] },
 };
+const SKILL_ORDER = PM.SKILLS.slice().sort((a, b) => PM.ABILS.indexOf(PM.SKILL_ABILITY[a]) - PM.ABILS.indexOf(PM.SKILL_ABILITY[b]));
 
 function charValues(f, mode) {
   if (mode === 'abil') return PM.ABILS.map(a => f.scores[a]);
   if (mode === 'save') return PM.ABILS.map(a => f.saves[a]);
-  return PM.SKILLS.map(k => f.skills[k]);
+  return SKILL_ORDER.map(k => f.skills[k]);
+}
+
+function charScale(facts, mode) {
+  if (mode === 'abil') return { min: 0, max: 20, rings: [5, 10, 15, 20], mark: 10 };
+  return bonusScale(facts.flatMap(f => charValues(f, mode)));
+}
+
+/** Celular, perícias: uma linha por perícia, um ponto por personagem (o destaque em cor, com o número). */
+function SkillDots({ facts, focus, scale, lang }) {
+  const zero = pos(0, scale.min, scale.max);
+  return (
+    <ul className="ins-dots" aria-label={t(lang, 'Perícias de cada personagem', "Each character's skills")}>
+      {SKILL_ORDER.map(k => {
+        const f0 = facts.find(f => f.id === focus);
+        return (
+          <li key={k} className="ins-dots-row">
+            <span className="ins-dots-name">{PM.skillLabel(k, lang)}</span>
+            <span className="ins-dots-track" aria-hidden="true">
+              <span className="ins-dots-zero" style={{ left: zero }} />
+              {facts.filter(f => f.id !== focus).map(f => <span key={f.id} className="ins-dots-dot" style={{ left: pos(f.skills[k], scale.min, scale.max) }} />)}
+              {f0 && <span className="ins-dots-dot is-focus" style={{ left: pos(f0.skills[k], scale.min, scale.max), background: f0.color }} />}
+            </span>
+            <span className="ins-dots-val">{f0 ? PM.fmtMod(f0.skills[k]) : ''}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 function Characters({ facts, lang, wide, view, setView }) {
   const mode = CHAR_MODES[view.chars] ? view.chars : 'abil';
-  const cfg = CHAR_MODES[mode];
+  const scale = charScale(facts, mode);
+  const isSkill = mode === 'skill';
   const focus = facts.some(f => f.id === view.focusChar) ? view.focusChar : facts[0]?.id;
   const overlay = (view.overlay || []).filter(id => facts.some(f => f.id === id)).slice(0, 3);
-  const axes = mode === 'skill'
-    ? PM.SKILLS.map(k => ({ key: k, label: '', title: PM.skillLabel(k, lang) }))
+  const axes = isSkill
+    ? SKILL_ORDER.map(k => ({ key: k, label: shortSkill(k, lang), title: PM.skillLabel(k, lang) }))
     : PM.ABILS.map(a => ({ key: a, label: PM.abilShort(a, lang) }));
-  const written = (f) => (mode === 'skill'
+  const written = (f) => (isSkill
     ? (() => {
       const s = PM.SKILLS.slice().sort((a, b) => f.skills[b] - f.skills[a]);
       return t(lang, `melhores: ${s.slice(0, 3).map(k => `${PM.skillLabel(k, lang)} ${PM.fmtMod(f.skills[k])}`).join(', ')} · piores: ${s.slice(-2).map(k => `${PM.skillLabel(k, lang)} ${PM.fmtMod(f.skills[k])}`).join(', ')}`,
@@ -708,6 +734,8 @@ function Characters({ facts, lang, wide, view, setView }) {
     })()
     : PM.ABILS.map(a => `${PM.abilShort(a, lang)}\u00a0${mode === 'abil' ? f.scores[a] : PM.fmtMod(f.saves[a])}`).join(' · '));
   const toggleOverlay = (id) => setView({ overlay: overlay.includes(id) ? overlay.filter(x => x !== id) : [...overlay, id].slice(-3) });
+  const scaleText = mode === 'abil' ? t(lang, 'Atributos com a espécie, de 0 a 20.', 'Abilities with species, 0 to 20.')
+    : t(lang, `Bônus de ${PM.fmtMod(scale.min)} a ${PM.fmtMod(scale.max)}; o anel marcado é o 0.`, `Bonus from ${PM.fmtMod(scale.min)} to ${PM.fmtMod(scale.max)}; the marked ring is 0.`);
   return (
     <>
       <div className="ins-pair is-small" role="group" aria-label={t(lang, 'Mostrar', 'Show')}>
@@ -722,24 +750,34 @@ function Characters({ facts, lang, wide, view, setView }) {
           </button>
         ))}
       </div>
-      <p className="ins-adj-help">{mode === 'abil' ? t(lang, 'Atributos com a espécie, de 0 a 20.', 'Abilities with species, 0 to 20.')
-        : t(lang, 'Bônus de −5 a +15; o anel marcado é o 0.', 'Bonus from −5 to +15; the marked ring is 0.')}{' '}
-        {t(lang, 'O destaque fica em cor; os outros, em cinza.', 'The highlight is in color; the others are gray.')}</p>
-      <div className="ins-multiples">
-        {facts.map(f => (
-          <figure key={f.id} className={`ins-multiple ${focus === f.id ? 'is-focus' : ''}`}>
-            {/* viewBox de 140 no celular: a 360 a coluna da grade 2×2 tem 138 px e o rótulo de
-                13 fica com 12,8 px (com 160, encolhia para 11,2) */}
-            <Radar size={wide ? 190 : 140} min={cfg.min} max={cfg.max} rings={cfg.rings} mark={cfg.mark} labels={mode !== 'skill'} labelSize={13}
-              axes={axes} series={[{ key: f.id, values: charValues(f, mode), color: focus === f.id ? f.color : 'var(--ins-gray)', fill: focus === f.id ? 0.18 : 0.06, dots: focus === f.id }]}
-              label={`${f.name}: ${written(f)}`} />
-            <figcaption>
-              <span className="ins-mult-name"><Dot color={f.color} /> {PM.firstName(f.name)}</span>
-              <span className="ins-mult-vals">{written(f)}</span>
-            </figcaption>
-          </figure>
-        ))}
-      </div>
+      {isSkill && !wide ? (
+        <>
+          <p className="ins-adj-help">{t(lang, `Cada ponto é um personagem, de ${PM.fmtMod(scale.min)} a ${PM.fmtMod(scale.max)} (o traço é o 0); o destaque fica em cor, com o bônus.`,
+            `Each dot is a character, ${PM.fmtMod(scale.min)} to ${PM.fmtMod(scale.max)} (the tick is 0); the highlight is in color, with the bonus.`)}</p>
+          <SkillDots facts={facts} focus={focus} scale={scale} lang={lang} />
+          <p className="ins-adj-help">{written(facts.find(f => f.id === focus) || facts[0])}</p>
+        </>
+      ) : (
+        <>
+          <p className="ins-adj-help">{scaleText} {t(lang, 'O destaque fica em cor; os outros, em cinza.', 'The highlight is in color; the others are gray.')}</p>
+          <div className={`ins-multiples ${isSkill ? 'is-skill' : ''}`}>
+            {facts.map(f => (
+              <figure key={f.id} className={`ins-multiple ${focus === f.id ? 'is-focus' : ''}`}>
+                {/* viewBox de 140 no celular: a 360 a coluna da grade 2×2 tem 138 px e o rótulo de
+                    13 fica com 12,8 px (com 160, encolhia para 11,2) */}
+                <Radar size={isSkill ? SKILL_RADAR.each : wide ? 190 : 140} min={scale.min} max={scale.max} rings={scale.rings} mark={scale.mark}
+                  labelSize={isSkill ? SKILL_RADAR.labelSize : 13}
+                  axes={axes} series={[{ key: f.id, values: charValues(f, mode), color: focus === f.id ? f.color : 'var(--ins-gray)', fill: focus === f.id ? 0.18 : 0.06, dots: focus === f.id }]}
+                  label={`${f.name}: ${written(f)}`} />
+                <figcaption>
+                  <span className="ins-mult-name"><Dot color={f.color} /> {PM.firstName(f.name)}</span>
+                  <span className="ins-mult-vals">{written(f)}</span>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </>
+      )}
       {wide && (
         <div className="ins-overlay">
           <p className="ins-adj-help">{t(lang, 'Sobrepor (até 3):', 'Overlay (up to 3):')}</p>
@@ -751,9 +789,15 @@ function Characters({ facts, lang, wide, view, setView }) {
             ))}
           </div>
           {overlay.length > 0 && (
-            <Radar size={300} min={cfg.min} max={cfg.max} rings={cfg.rings} mark={cfg.mark} labels={mode !== 'skill'}
+            <Radar size={isSkill ? SKILL_RADAR.overlay : 300} min={scale.min} max={scale.max} rings={scale.rings} mark={scale.mark}
+              labelSize={isSkill ? SKILL_RADAR.labelSize : 13}
               axes={axes} series={overlay.map(id => { const f = facts.find(x => x.id === id); return { key: id, values: charValues(f, mode), color: f.color, fill: 0.08 }; })}
               label={t(lang, `Sobrepostos: ${overlay.map(id => facts.find(x => x.id === id)?.name).join(', ')}`, `Overlaid: ${overlay.map(id => facts.find(x => x.id === id)?.name).join(', ')}`)} />
+          )}
+          {overlay.length > 0 && (
+            <ul className="ins-legend">
+              {overlay.map(id => { const f = facts.find(x => x.id === id); return <li key={id}><Dot color={f.color} /> {f.name}</li>; })}
+            </ul>
           )}
         </div>
       )}

@@ -1,29 +1,22 @@
 // Radar em SVG à mão (Raio-X do grupo), no modelo do SkyAtlas/FhMedal: sem biblioteca.
 // No máximo 3 polígonos (mais que isso ninguém lê); grade e raios em linha fina e lisa;
 // o anel "destaque" marca a referência (o 3 "normal do nível", o 0 das salvaguardas…).
-// Os números ficam escritos na lista ou na tabela ao lado: o <title> é só extra.
+// Os números ficam escritos na lista ou na tabela ao lado: o <title> é só extra. Onde fica
+// cada rótulo (e que não se sobrepõem) é conta de radar-layout.js, testada.
 //
 //   <Radar size={340} axes={[{ key, label, title }]} min={1} max={5} rings={[1,2,3,4,5]} mark={3}
 //          series={[{ key, values, color, fill: 0.25 }]} label="…" />
-const MAX_SERIES = 3;
+import { autoPad, radarLabelLayout } from './radar-layout.js';
 
-/** Rótulo longo ("Corpo a corpo") em até 2 linhas, quebrando no espaço do meio. */
-function labelLines(text) {
-  const s = String(text || '');
-  if (s.length <= 9 || !s.includes(' ')) return [s];
-  const mid = s.length / 2;
-  let best = -1;
-  for (let i = 0; i < s.length; i++) if (s[i] === ' ' && (best < 0 || Math.abs(i - mid) < Math.abs(best - mid))) best = i;
-  return [s.slice(0, best), s.slice(best + 1)];
-}
+const MAX_SERIES = 3;
 
 export default function Radar({
   axes, series = [], min = 0, max = 5, rings = [], mark = null, size = 340, labels = true,
   labelSize = 13, pad: padIn, label, className = '',
 }) {
   const n = axes.length;
-  // espaço dos rótulos: rótulos curtos (FOR, Abj) pedem pouco; os longos, `pad` de quem chama
-  const pad = padIn ?? (labels ? Math.round(labelSize * 2.3) : 8);
+  // espaço dos rótulos: o do rótulo mais largo (radar-layout.autoPad), ou o `pad` de quem chama
+  const pad = padIn ?? autoPad(axes, labelSize, labels);
   const c = size / 2;
   const R = c - pad;
   const ang = (i) => (-Math.PI / 2) + (i * 2 * Math.PI) / n;
@@ -49,24 +42,12 @@ export default function Radar({
           })}
         </g>
       ))}
-      {labels && axes.map((a, i) => {
-        const a0 = ang(i);
-        const x = c + (R + 8) * Math.cos(a0);
-        const y = c + (R + 8) * Math.sin(a0);
-        const cos = Math.cos(a0);
-        const anchor = Math.abs(cos) < 0.2 ? 'middle' : cos > 0 ? 'start' : 'end';
-        const lines = labelLines(a.label);
-        const lh = labelSize * 1.1;
-        const sin = Math.sin(a0);
-        // em cima, o texto sobe; embaixo, desce; dos lados, fica centrado na ponta do raio
-        const y0 = sin > 0.5 ? y + labelSize * 0.9 : sin < -0.5 ? y - 2 - (lines.length - 1) * lh : y + labelSize * 0.35 - ((lines.length - 1) * lh) / 2;
-        return (
-          <text key={a.key} x={x} y={y0} textAnchor={anchor} fontSize={labelSize} className="ins-radar-label">
-            {a.title && <title>{a.title}</title>}
-            {lines.map((l, k) => <tspan key={k} x={x} dy={k ? lh : 0}>{l}</tspan>)}
-          </text>
-        );
-      })}
+      {labels && radarLabelLayout({ axes, size, pad, labelSize }).map((l, i) => (
+        <text key={axes[i].key} x={l.x} y={l.y} textAnchor={l.anchor} fontSize={labelSize} className="ins-radar-label">
+          {axes[i].title && <title>{axes[i].title}</title>}
+          {l.lines.map((line, k) => <tspan key={k} x={l.x} dy={k ? labelSize * 1.1 : 0}>{line}</tspan>)}
+        </text>
+      ))}
     </svg>
   );
 }
