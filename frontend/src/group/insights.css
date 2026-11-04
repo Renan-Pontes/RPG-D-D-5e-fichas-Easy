@@ -242,6 +242,9 @@
 .ins-vs-head .mesa-icon-btn { margin-left: auto; }
 .ins-vs-line { font-size: 1rem; line-height: 1.35; color: var(--ink-primary); }
 .ins-vs-line.is-calm { color: var(--ink-secondary); }
+/* a dificuldade do monstro contra este grupo (a conta do montador de combate) */
+.ins-vs-diff { margin: 0; font-size: 0.95rem; line-height: 1.35; color: var(--ink-secondary); }
+.ins-vs-diff strong { color: var(--ink-primary); font-weight: 600; }
 .ins-vs-rows { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 0.95rem; color: var(--ink-secondary); }
 .ins-vs-rows li { display: block; line-height: 1.35; overflow-wrap: anywhere; }
 .ins-plan-pick { display: flex; flex-direction: column; gap: 6px; }

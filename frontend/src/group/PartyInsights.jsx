@@ -21,7 +21,7 @@ import { errorMessage } from '../api/errors.js';
 import Radar from './Radar.jsx';
 import * as PM from './party-metrics.js';
 import { currentSession, gapGroups, ideaScene, momentSuggestions, partyGaps, quadrants, sceneHasIdea, sceneIdeas, tableBalance } from './spotlights.js';
-import { planMonsters, threatMonsters, versus } from './versus.js';
+import { difficultyText, planMonsters, threatMonsters, versus } from './versus.js';
 import { expandResets, insightsApi, joinPatches, mergeInsights, rememberInsights, SAVE_DELAY, withDefaults } from './insights-api.js';
 import { AdjustSheet, Dot, HelpButton, MonsterSheet, WhySheet } from './InsightsSheets.jsx';
 import { Balance, Moments } from './Moments.jsx';
@@ -819,7 +819,10 @@ function Table({ facts, lang, wide, sessionNo }) {
 // ---------------------------------------------------------------- G10: contra quem?
 function Versus({ facts, lang, monster, setMonster, planPick, setPlanPick, onPick, onPlan }) {
   const v = monster ? versus(monster, facts, lang) : null;
-  const factor = (k) => (k === 0 ? t(lang, 'imune', 'immune') : k === 0.5 ? t(lang, 'resiste (½)', 'resists (½)') : k === 2 ? t(lang, 'vulnerável (×2)', 'vulnerable (×2)') : t(lang, 'normal', 'normal'));
+  // sem as defesas do monstro (catálogo antigo), "normal" seria um palpite: diz que não se sabe
+  const factor = (k) => (k === 0 ? t(lang, 'imune', 'immune') : k === 0.5 ? t(lang, 'resiste (½)', 'resists (½)') : k === 2 ? t(lang, 'vulnerável (×2)', 'vulnerable (×2)')
+    : v?.known ? t(lang, 'normal', 'normal') : t(lang, 'sem resistência conhecida (confira o bloco do monstro)', 'no known resistance (check the stat block)'));
+  const diff = v ? difficultyText(v.difficulty, v.name, lang) : '';
   return (
     <section className="mesa-panel ins-block ins-versus">
       <MesaTitle sub={t(lang, 'o monstro contra o dano e as salvaguardas do grupo', 'the monster against the party’s damage and saves')}>{t(lang, 'Contra quem?', 'Against whom?')}</MesaTitle>
@@ -842,7 +845,10 @@ function Versus({ facts, lang, monster, setMonster, planPick, setPlanPick, onPic
             <strong>{v.name}</strong> <span className="muted">{t(lang, `ND ${v.cr}`, `CR ${v.cr}`)}</span>
             <button type="button" className="mesa-icon-btn" aria-label={t(lang, 'Tirar o monstro', 'Remove the monster')} onClick={() => setMonster(null)}>✕</button>
           </header>
-          <p className={`ins-vs-line ${v.line ? '' : 'is-calm'}`}>{v.line ? `× ${t(lang, 'grupo', 'party')}: ${v.line}` : t(lang, 'Nada que preocupe: o dano principal de todos pega e as salvaguardas que ele cobra passam fácil.', "Nothing to worry about: everyone's main damage lands and the saves it calls for are easy.")}</p>
+          {diff && <p className="ins-vs-diff"><strong>{t(lang, 'Dificuldade para este grupo', 'Difficulty for this party')}:</strong> {diff}</p>}
+          <p className={`ins-vs-line ${v.line ? '' : 'is-calm'}`}>{v.line ? `× ${t(lang, 'grupo', 'party')}: ${v.line}`
+            : v.known ? t(lang, 'Nada que preocupe: o dano principal de todos pega e as salvaguardas que ele cobra passam fácil.', "Nothing to worry about: everyone's main damage lands and the saves it calls for are easy.")
+            : t(lang, 'Sem resistência conhecida: confira o bloco do monstro. As salvaguardas que ele cobra passam fácil.', 'No known resistance: check the stat block. The saves it calls for are easy.')}</p>
           <ul className="ins-vs-rows">
             {v.rows.map(r => {
               const f = facts.find(x => x.id === r.id);
