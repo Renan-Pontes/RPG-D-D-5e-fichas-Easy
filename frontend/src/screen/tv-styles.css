@@ -766,9 +766,9 @@
 .tv-hist-item.is-new { opacity: 1; background: rgba(214, 176, 100, 0.1); }
 .tv-hist-item.is-crit { border-left-color: var(--tv-gold); }
 .tv-hist-item.is-fail { border-left-color: var(--blood-bright); }
-/* o rótulo encolhe primeiro (até sumir); o nome só passa de 62% da linha cortado; o resultado nunca */
+/* o rótulo encolhe primeiro (até sumir); o nome só passa de 78% da linha cortado; o resultado nunca */
 .tv-hist-who {
-  flex: none; max-width: 62%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  flex: none; max-width: 78%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   font-family: 'Cinzel', serif; color: var(--tv-ink); font-size: max(var(--tv-min), 1.8cqw);
 }
 .tv-hist-what {

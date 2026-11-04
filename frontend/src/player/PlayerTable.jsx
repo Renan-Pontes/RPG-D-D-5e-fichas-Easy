@@ -208,8 +208,8 @@ function ChecksSection({ campaign, char, lang }) {
 
 /**
  * Rolador do jogador. "Pedir ao mestre" manda um pedido que ele resolve (na Tela ou privado).
- * Sem pedir (V10): o servidor rola e, quando a regra "Dos jogadores" do mestre deixa
- * (Todas · Só críticos · Nenhuma), a rolagem aparece na Tela com o nome do personagem —
+ * Sem pedir (V10): o servidor rola e, quando a regra "Rolador da Mesa dos jogadores" do
+ * mestre deixa (Todas · Só 20 e 1 · Nenhuma), a rolagem aparece na Tela com o nome do personagem —
  * o resultado diz "📺 apareceu na Tela".
  */
 function DiceSection({ campaign, lang }) {

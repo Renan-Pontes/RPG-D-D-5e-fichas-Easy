@@ -38,6 +38,7 @@ import {
 import { writeTarget } from '../dice/dice-table.js';
 import { rollRuleRows, rulePatch, ruleSaveError } from '../stage/roll-rules.js';
 import { tvLine, tvState } from '../stage/table-bar-model.js';
+import { useFreshRoll } from '../stage/TableBar.jsx';
 import { TableRollRow } from './RollRows.jsx';
 import { tableRollsRev, useOnRev, useTable } from './table-store.js';
 import { flash } from './flash.js';
@@ -251,6 +252,7 @@ function LivePreview({ campaign, stage, test, lang, onCopy }) {
   const [live, setLive] = useState(readLive);
   // "● TV conectada (1)" ou "○ Nenhuma TV detectada · [Copiar link]" (o pulso da mesa, 0 pedido)
   const table = useTable();
+  const roll = useFreshRoll(table);   // a última rolagem por 8 s, como a barra e a janela (E2.5b)
   const tvLive = table?.tvLive || 0;
   const offline = (table?.offlineFor || 0) > 0;
   const [paused, setPaused] = useState(false);
@@ -297,7 +299,7 @@ function LivePreview({ campaign, stage, test, lang, onCopy }) {
           <span>⏸ {L(lang, 'Pausado · toque para ver ao vivo', 'Paused · tap to watch live')}</span>
         </button>
       ) : (
-        <StageThumb campaign={campaign} stage={stage} test={test} lang={lang} />
+        <StageThumb campaign={campaign} stage={stage} test={test} lang={lang} roll={roll} />
       )}
       <div className="stage-preview-bar">
         <span className="stage-preview-tv">

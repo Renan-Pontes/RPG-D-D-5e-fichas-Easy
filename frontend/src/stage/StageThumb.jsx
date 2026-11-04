@@ -21,12 +21,12 @@ const abs = (url) => (!url ? null : /^(https?:|data:|blob:)/.test(url) ? url : `
 // Imagens que falharam (ex.: o ?v=0 de um combate sem mapa): nenhuma miniatura pede de novo.
 const failed = new Set();
 
-/** A última rolagem por cima da miniatura: 🎲 total e quem (a mini só o 🎲 e o total). */
+/** A última rolagem por cima da miniatura: 🎲 total e quem (a mini, só o total na moldura dourada). */
 function RollBadge({ roll, lang, mini }) {
   const who = roll.kind === 'dm' && !roll.who ? L(lang, 'Mestre', 'GM') : roll.who || '';
   return (
     <span className={`stage-thumb-roll ${roll.crit ? 'is-crit' : ''} ${roll.fail ? 'is-fail' : ''}`} aria-hidden="true">
-      <span className="stage-thumb-roll-total">🎲 {roll.total ?? '?'}</span>
+      <span className="stage-thumb-roll-total">{mini ? '' : '🎲 '}{roll.total ?? '?'}</span>
       {!mini && who && <span className="stage-thumb-roll-who">{who}</span>}
     </span>
   );
