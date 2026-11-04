@@ -8,8 +8,9 @@
 //   · arrastável entre os 4 cantos (solta no mais perto, nearestCorner) e, sem gesto,
 //     [⇅] troca em cima ↔ embaixo; [✕] fecha;
 //   · aberto/fechado e o canto ficam lembrados no aparelho (readMini/writeMini, na casca);
-//   · nos cantos de baixo a página ganha folga no fim (--mini-player-h): nada fica preso
-//     embaixo dele. Some junto com a barra (teclado aberto, folha que não é de Jogar).
+//   · nos cantos de baixo a página ganha folga no fim e, nos de cima, no começo
+//     (--mini-player-h): nada fica preso embaixo dele (no topo, o cabeçalho do app e a capa
+//     começam abaixo dele). Some junto com a barra (teclado aberto, folha que não é de Jogar).
 import { useEffect, useRef, useState } from 'react';
 import StageThumb from './StageThumb.jsx';
 import useStage from './useStage.js';
@@ -31,7 +32,7 @@ export default function MiniPlayer({ campaign, lang = 'pt', corner = 'br', onCor
   const drag = useRef(null);
   const [delta, setDelta] = useState(null);   // {x, y} enquanto arrasta
 
-  // A altura do miniplayer vai para a casca: a folga no fim da página (cantos de baixo).
+  // A altura do miniplayer vai para a casca: a folga no fim (cantos de baixo) ou no começo (de cima).
   useEffect(() => {
     const el = ref.current;
     const root = document.documentElement;

@@ -365,6 +365,12 @@
   body:has(.mesa-bar):has(.mini-player.is-bottom) .campaign-detail.shell {
     padding-bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bottom-safe, 76px) + var(--mini-player-h, 160px) + 8px + env(safe-area-inset-bottom, 0px));
   }
+  /* …e no começo (cantos de cima): a página começa abaixo dele, então no topo nada fica preso
+     embaixo (Campanhas, o menu da conta, EN e o ■ Encerrar da capa); rolando, o que passa por
+     baixo volta à vista ao subir */
+  body:has(.mesa-bar):has(.mini-player.is-top) #root {
+    padding-top: calc(8px + var(--mini-player-h, 160px) + 8px + env(safe-area-inset-top, 0px));
+  }
 }
 @media (prefers-reduced-motion: no-preference) and (max-width: 767px) {
   .mini-player { animation: stage-flash-in 0.2s ease-out; }
@@ -374,6 +380,11 @@
   .mesa-bar-thumb { width: 60px; }
   .stage-thumb.is-mini { width: 56px; height: 32px; }
   .mesa-bar-act { width: 80px; }
+  /* o aviso "Na tela ✓ · <nome> · ↶ Desfazer" entre a borda e o 🎲/Próximo fica com ~150 px:
+     vira "✓ <nome>" (reticências só no nome) e "↶" (44 px, o nome inteiro no aria-label) */
+  body:has(.mesa-bar.has-action):not(:has(.mesa-sheet-backdrop)) .play-flash .play-flash-long { display: none; }
+  body:has(.mesa-bar.has-action):not(:has(.mesa-sheet-backdrop)) .play-flash .play-flash-short { display: inline; }
+  body:has(.mesa-bar.has-action):not(:has(.mesa-sheet-backdrop)) .play-flash-act:has(.play-flash-short) { width: 44px; padding: 0; font-size: 20px; }
 }
 @media (max-width: 767px) {
   /* E2.8, sem a barra da mesa e sem folha aberta: o aviso desce para logo acima da barra de

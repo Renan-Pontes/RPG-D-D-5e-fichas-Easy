@@ -16,6 +16,7 @@ import { request } from '../api/client.js';
 import { errorText, isOldServer } from '../api/errors.js';
 import { flash } from '../play/flash.js';
 import { legacyScreenCard } from './stage-legacy.js';
+import { sentNotice } from './stage-now.js';
 
 const cid = (id) => encodeURIComponent(id);
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
@@ -232,10 +233,13 @@ export async function sendToStage(campaignId, send, { lang = 'pt', name = '', un
     const label = done || L(lang, 'Na tela ✓', 'On screen ✓');
     emitSent(campaignId, { ok: true, label, name });
     const replaced = replacedText(r, lang);
-    flash(`${label}${name ? ` · ${name}` : ''}${replaced ? ` · ${replaced}` : ''}`, {
+    const notice = sentNotice(label, name, replaced);
+    flash(notice.text, {
+      short: notice.short,
       ...(replaced ? { ms: 9000 } : {}),
       action: r?.changed === false && !undo ? null : {
         label: L(lang, '↶ Desfazer', '↶ Undo'),
+        short: '↶',
         onClick: async () => {
           try { await undoFn(); onDone?.(); } catch (e) { flash(`${L(lang, 'Não enviado', 'Not sent')} · ${stageErrorText(e, lang)}`, { error: true }); }
         },

@@ -75,9 +75,11 @@ export async function beginScene(campaign, scene, opts = {}) {
     emit(STAGE_SENT_EVENT, { campaignId: campaign.id, ok: true, label: r?.shown ? L(lang, 'Na tela ✓', 'On screen ✓') : L(lang, 'Cena começou ✓', 'Scene started ✓'), name });
     if (!quiet) {
       flash(label, {
+        short: `✓ ${name}${replaced ? ` · ${replaced}` : ''}`,   // o aviso apertado do celular de 320 px
         ...(replaced ? { ms: 9000 } : {}),
         action: r?.undo ? {
           label: L(lang, '↶ Desfazer', '↶ Undo'),
+          short: '↶',
           onClick: async () => {
             try {
               await undoSceneStart(campaign.id, r.undo);
