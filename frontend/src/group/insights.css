@@ -285,6 +285,7 @@
 .ins-mom-act .grp-more-item { min-height: 44px; }
 .ins-sug { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; margin-top: 6px; border: 1px dashed rgba(171, 154, 126, 0.55); border-radius: 6px; }
 .ins-sug-text { color: var(--ink-secondary); }
+.ins-sug-detail { margin: 2px 0 0; font-size: 0.85rem; color: var(--ink-muted); }
 .ins-sug-tag { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted); }
 .ins-mom-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 /* Momentos: alvos de 48 px (§6.6) — filtro, Aceitar, Dispensar, → Cena, ⋯, Escrever, Mais, estilo */

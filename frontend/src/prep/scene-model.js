@@ -16,8 +16,9 @@
 import { checkLabel } from '../checks/check-logic.js';
 import { chance, pct } from '../group/party-best.js';
 import { DIFFICULTY_LABEL } from '../combat/encounter.js';
-import { nodeEncounter } from './prep-graph.js';
+import { COINS, nodeEncounter } from './prep-graph.js';
 import { sceneParts, PLAN_LIMITS } from './next-session.js';
+import { varyFirsts } from '../group/moment-words.js';
 
 const tt = (lang, pt, en) => (lang === 'en' ? en : pt);
 const filled = (s) => typeof s === 'string' && s.trim().length > 0;
@@ -29,6 +30,7 @@ export const SCENE_BLOCKS = [
   { id: 'refs',  icon: '🎭', short: ['Quem aparece', 'Who shows up'], label: ['Quem aparece', 'Who shows up'] },
   { id: 'fight', icon: '⚔',  short: ['Combate', 'Combat'],           label: ['Combate', 'Combat'] },
   { id: 'check', icon: '🎯', short: ['Teste', 'Check'],              label: ['Teste', 'Check'] },
+  { id: 'treasure', icon: '💰', short: ['Tesouro', 'Treasure'],      label: ['Tesouro', 'Treasure'] },
   { id: 'spots', icon: '★',  short: ['Momento', 'Moment'],           label: ['Momento', 'Moment'] },
   { id: 'notes', icon: '🔒', short: ['Notas', 'Notes'],              label: ['Notas', 'Notes'] },
 ];
@@ -39,9 +41,9 @@ export const blockLabel = (id, lang, short = false) => {
 
 /** Os tetos da cena (world_rules.SCENE_POCKETS) e da sala (views_adventures._clean_node). */
 export const SCENE_LIMITS = {
-  what: 500, read: 1000, notes: 1000, refs: 8, fight: 6, count: 20, spots: 4, checks: 1,
+  what: 500, read: 1000, notes: 1000, refs: 8, fight: 6, count: 20, spots: 4, checks: 1, items: 10, itemBytes: 3000,
   snapBytes: 8000, snaps: 4, snapDesc: 300,
-  nodeRead: 5000, nodeNotes: 10000, nodeRefs: 20, nodeFight: 30, nodeCount: 50, nodeChecks: 20,
+  nodeRead: 5000, nodeNotes: 10000, nodeRefs: 20, nodeFight: 30, nodeCount: 50, nodeChecks: 20, nodeItems: 40,
 };
 /** As CDs de um toque do bloco 🎯; as outras (1 a 40, como a sala e o servidor aceitam) vão no "Outra…". */
 export const DC_CHIPS = [10, 12, 13, 15, 18, 20];
@@ -171,6 +173,38 @@ export function firstImageRef(ids, world) {
   return (ids || []).find(id => byId.get(id)?.imageVer) || null;
 }
 
+// ---------------------------------------------------------------- 💰 tesouro: cena ↔ sala
+/** O tesouro no formato da sala ({items, coins}), com o que vier torto limpo. */
+export function cleanTreasure(t) {
+  const items = (Array.isArray(t?.items) ? t.items : []).filter(it => it && typeof it === 'object' && filled(it.name));
+  const coins = {};
+  for (const c of COINS) { const n = parseInt(t?.coins?.[c], 10); if (n > 0) coins[c] = Math.min(10_000_000, n); }
+  return { items, coins };
+}
+export const treasureFilled = (t) => { const c = cleanTreasure(t); return c.items.length > 0 || Object.keys(c.coins).length > 0; };
+/**
+ * O item que a cena solta guarda (o plano tem 60 KB): a instância do item sem imagens
+ * (data:…), com a descrição cortada em 200 e, se ainda passar de 3 KB, só o essencial
+ * (nome, quantidade, de onde veio). O da sala vai inteiro (a aventura guarda até 24 KB).
+ */
+export function sceneItem(item) {
+  const cut = (v) => (typeof v === 'string' ? v.slice(0, 200)
+    : v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).filter(([, x]) => typeof x === 'string').map(([k, x]) => [k, x.slice(0, 200)])) : v);
+  const out = {};
+  for (const [k, v] of Object.entries(item || {})) {
+    if (typeof v === 'string' && v.startsWith('data:')) continue;
+    out[k] = SNAP_TEXTS.includes(k) ? cut(v) : v;
+  }
+  out.name = String(item?.name || '?').slice(0, 120);
+  out.qty = Math.max(1, Math.min(999, parseInt(item?.qty, 10) || 1));
+  if (snapSize(out) <= SCENE_LIMITS.itemBytes) return out;
+  const slim = { name: out.name, qty: out.qty };
+  for (const k of ['id', 'sourceId', 'artId', 'type']) if (typeof out[k] === 'string') slim[k] = out[k];
+  return slim;
+}
+/** Um item escrito à mão ("Mapa da cripta"): só o nome e a quantidade. */
+export const typedItem = (name, qty = 1) => ({ name: String(name || '').trim().slice(0, 120), qty: Math.max(1, Math.min(999, parseInt(qty, 10) || 1)) });
+
 /**
  * O que a folha mostra de uma cena — os mesmos campos para a cena solta e a ligada.
  * `node` = a sala (GET …/node/:id, sem a imagem) quando a cena está ligada; sem ela
@@ -201,6 +235,7 @@ export function sceneView(scene, node = null, { world = [] } = {}) {
       refs: Array.isArray(s.refs) ? s.refs : [],
       fight: Array.isArray(s.fight) ? s.fight : [],
       checks: s.check && s.check.key ? [s.check] : [],
+      treasure: cleanTreasure(s.treasure),
     };
   }
   const n = node || {};
@@ -219,6 +254,7 @@ export function sceneView(scene, node = null, { world = [] } = {}) {
     show, showFrom, refs, roomImage: !!(n.hasImage || n.image),
     fight: (n.encounter || []).map(e => encounterToFight(e, { limit: SCENE_LIMITS.nodeCount, raw: true })),
     checks: (n.checks || []).map(nodeCheckToCheck).filter(Boolean),
+    treasure: cleanTreasure(n.treasure),
   };
 }
 
@@ -230,6 +266,7 @@ export function presentBlocks(view) {
   if (view?.refs?.length) out.push('refs');
   if (view?.fight?.length) out.push('fight');
   if (view?.checks?.length) out.push('check');
+  if (treasureFilled(view?.treasure)) out.push('treasure');
   if (view?.spots?.length) out.push('spots');
   if (filled(view?.notes)) out.push('notes');
   return out;
@@ -255,12 +292,17 @@ export function writeBlock(key, value, { linked = false, refs = [], showFrom = n
   if (!linked) {
     if (key === 'check') return { scene: { check: cleanCheck((value || [])[0]) } };
     if (key === 'show') return { scene: { show: value && value.kind ? value : null } };
+    if (key === 'treasure') {
+      const tr = cleanTreasure(value);
+      return { scene: { treasure: { items: tr.items.slice(0, SCENE_LIMITS.items).map(sceneItem), coins: tr.coins } } };
+    }
     return { scene: { [key]: value } };
   }
   if (key === 'read') return { node: { readAloud: String(value ?? '').slice(0, SCENE_LIMITS.nodeRead) } };
   if (key === 'refs') return { node: { refs: [...new Set(value || [])].slice(0, SCENE_LIMITS.nodeRefs) } };
   if (key === 'fight') return { node: { encounter: (value || []).slice(0, SCENE_LIMITS.nodeFight).map(fightToEncounter) } };
   if (key === 'check') return { node: { checks: (value || []).slice(0, SCENE_LIMITS.nodeChecks).map(checkToNodeCheck).filter(Boolean) } };
+  if (key === 'treasure') { const tr = cleanTreasure(value); return { node: { treasure: { items: tr.items.slice(0, SCENE_LIMITS.nodeItems), coins: tr.coins } } }; }
   if (key === 'show') {
     const cur = refs || [];
     const on = showOff ? { scene: { showOff: false } } : {};
@@ -278,7 +320,7 @@ export function writeBlock(key, value, { linked = false, refs = [], showFrom = n
 /** A cena solta tem algo que, ligada, passaria a morar na sala? (então o app pergunta) */
 export const hasRoomPockets = (scene) => {
   const v = sceneView({ ...scene, nodeRef: null });
-  return filled(v.read) || !!v.show || v.refs.length > 0 || v.fight.length > 0 || v.checks.length > 0;
+  return filled(v.read) || !!v.show || v.refs.length > 0 || v.fight.length > 0 || v.checks.length > 0 || treasureFilled(v.treasure);
 };
 
 /**
@@ -288,7 +330,8 @@ export const hasRoomPockets = (scene) => {
  * `node` = a sala de agora (sem nada, se ainda não chegou). → {scene, node|null}
  */
 export function linkScene(scene, ref, node = null, { carry = true } = {}) {
-  const clear = { nodeRef: ref, read: '', show: null, refs: [], fight: [], check: null, ...(scene?.showOff ? { showOff: false } : {}) };
+  const clear = { nodeRef: ref, read: '', show: null, refs: [], fight: [], check: null, ...(scene?.showOff ? { showOff: false } : {}),
+    ...(scene && 'treasure' in scene ? { treasure: null } : {}) };
   if (!carry) return { scene: clear, node: null };
   const v = sceneView({ ...scene, nodeRef: null });
   const n = node || {};
@@ -301,6 +344,13 @@ export function linkScene(scene, ref, node = null, { carry = true } = {}) {
     const have = new Set((n.checks || []).map(c => c.skill));
     const add = v.checks.map(checkToNodeCheck).filter(c => c && !have.has(c.skill));
     if (add.length) patch.checks = [...(n.checks || []), ...add].slice(0, SCENE_LIMITS.nodeChecks);
+  }
+  if (treasureFilled(v.treasure)) {
+    // o tesouro da cena junta-se ao da sala: os itens depois dos dela, as moedas somadas
+    const room = cleanTreasure(n.treasure);
+    const coins = { ...room.coins };
+    for (const [c, k] of Object.entries(v.treasure.coins)) coins[c] = (coins[c] || 0) + k;
+    patch.treasure = { items: [...room.items, ...v.treasure.items].slice(0, SCENE_LIMITS.nodeItems), coins };
   }
   return { scene: clear, node: Object.keys(patch).length ? patch : null };
 }
@@ -331,12 +381,13 @@ export function unlinkScene(scene, node, { copy = true, world = [], snapsLeft = 
     refs: v.refs.slice(0, SCENE_LIMITS.refs),
     fight,
     check: cleanCheck(v.checks[0]),
+    treasure: { items: v.treasure.items.slice(0, SCENE_LIMITS.items).map(sceneItem), coins: v.treasure.coins },
   };
 }
 
 /** O que a sala tem que a cena trocaria ao desligar (para perguntar "Copiar…?" só quando há). */
 export const roomHasPockets = (node) => !!node && (filled(node.readAloud) || (node.refs || []).length > 0 || (node.encounter || []).length > 0
-  || (node.checks || []).length > 0 || !!(node.hasImage || node.image));
+  || (node.checks || []).length > 0 || !!(node.hasImage || node.image) || treasureFilled(node.treasure));
 
 // ---------------------------------------------------------------- a sala leve (Plano)
 /** A linha leve da sala (o mesmo de views_adventures._node_light), para o servidor antigo. */
@@ -419,9 +470,10 @@ export function sceneMomentIdeas(view, suggestions = [], { fightSaves = [], lang
 
 /**
  * A ideia de momento que nasce do 🎯 da cena para um personagem: quem é o melhor da mesa
- * naquele teste ganha um ★ ("Investigação 65%"); os outros, um ↗ ("tentar sem o
- * especialista"). `fact`/`facts` = party-metrics.partyFacts (skills, saves). Atributo puro
- * não vira ideia. → sugestão ({kind, auto, text, why}) | null
+ * naquele teste ganha um ★ ("o teste de Percepção desta cena — ninguém no grupo faz
+ * melhor"); os outros, um ↗ ("…: Dagna se vira sem ajuda"). Os números vão no `detail`.
+ * `fact`/`facts` = party-metrics.partyFacts (skills, saves). Atributo puro não vira ideia.
+ * → sugestão ({kind, auto, text, why, detail}) | null
  */
 export function sceneCheckIdea(view, fact, facts = [], { lang = 'pt' } = {}) {
   const c = view?.checks?.[0];
@@ -435,9 +487,36 @@ export function sceneCheckIdea(view, fact, facts = [], { lang = 'pt' } = {}) {
   const p = pct(chance(b, dc));
   const why = tt(lang, `a cena tem ${label} CD ${dc}`, `the scene has ${label} DC ${dc}`);
   const key = c.kind === 'save' ? `save:${c.key}` : `skill:${c.key}`;
-  if (b >= best) return { kind: 'shine', auto: key, text: `${label} ${p}%`, why };
   const mod = b >= 0 ? `+${b}` : `−${Math.abs(b)}`;
-  return { kind: 'push', auto: `push:${key}`, text: tt(lang, `${label} ${mod} · ${p}% · tentar sem o especialista do grupo`, `${label} ${mod} · ${p}% · try it without the party's expert`), why };
+  const detail = tt(lang, `${label} ${mod} · ${p}% na CD ${dc}`, `${label} ${mod} · ${p}% at DC ${dc}`);
+  const what = c.kind === 'save' ? tt(lang, `a ${label} desta cena`, `this scene's ${label}`) : tt(lang, `o teste de ${label} desta cena`, `this scene's ${label} check`);
+  const me = String(fact.name || '').trim().split(/\s+/)[0] || '';
+  if (b >= best) return { kind: 'shine', auto: key, text: tt(lang, `${what} — ninguém no grupo faz melhor`, `${what} — nobody in the party does it better`), why, detail };
+  return { kind: 'push', auto: `push:${key}`, text: tt(lang, `${what}: ${me} se vira sem ajuda`, `${what}: ${me} handles it without help`), why, detail };
+}
+
+/**
+ * As ideias de momento de cada personagem para ESTA cena (★ Momento da folha, F1.2): as do
+ * Raio-X que combinam com a cena primeiro (sceneMomentIdeas) e a do 🎯 dela — em 1º para
+ * quem é o melhor no teste; para os outros, depois do 1º ponto forte deles. Depois, as
+ * primeiras ideias de personagens diferentes não repetem o mesmo teste nem o que os
+ * momentos já postos na cena usam (`taken`, as chaves deles): cada um puxa um ponto forte
+ * próprio (moment-words.varyFirsts). `ideasOf(id)` = as sugestões que ainda valem;
+ * `usedOf(id)` = as chaves já aceitas ou dispensadas daquele personagem. → {charId: [ideias]}
+ */
+export function sceneIdeasByChar(view, facts = [], ideasOf = () => [], { fightSaves = [], lang = 'pt', taken = [], usedOf = () => [] } = {}) {
+  const lists = {};
+  for (const f of facts || []) {
+    const base = sceneMomentIdeas(view, ideasOf(f.id) || [], { fightSaves, lang });
+    const extra = sceneCheckIdea(view, f, facts, { lang });
+    let list = base;
+    if (extra && !new Set(usedOf(f.id) || []).has(extra.auto)) {
+      const rest = base.filter(x => x.auto !== extra.auto);
+      list = extra.kind === 'shine' ? [extra, ...rest] : [...rest.slice(0, 1), extra, ...rest.slice(1)];
+    }
+    lists[f.id] = list;
+  }
+  return varyFirsts((facts || []).map(f => f.id), lists, taken);
 }
 
 // ---------------------------------------------------------------- ⚔ a dificuldade escrita
@@ -481,7 +560,9 @@ export function sceneIcons(view, { lang = 'pt', moments = [], names = {} } = {})
     out.push(fight.length === 1 ? `⚔ ${total} ${fight[0].name}` : `⚔ ${total} ${tt(lang, 'monstros', 'monsters')}`);
   }
   const checks = view?.checks || [];
-  if (checks.length) out.push(`🎯 ${checkLabel(checks[0], lang)}${checks.length > 1 ? ` +${checks.length - 1}` : ''}`);
+  // com a CD escrita ("🎯 Percepção CD 15"), como o mestre vai pedir na mesa
+  if (checks.length) out.push(`🎯 ${checkLabel(checks[0], lang)}${Number.isInteger(checks[0].dc) ? ` ${tt(lang, 'CD', 'DC')} ${checks[0].dc}` : ''}${checks.length > 1 ? ` +${checks.length - 1}` : ''}`);
+  if (treasureFilled(view?.treasure)) out.push(`💰 ${tt(lang, 'tesouro', 'treasure')}`);
   const who = [...new Set((moments || []).map(m => names[m.charId]).filter(Boolean))];
   if (who.length) out.push(`★ ${who.join(', ')}`);
   else if (view?.spots?.length) out.push(`★ ${view.spots.length}`);

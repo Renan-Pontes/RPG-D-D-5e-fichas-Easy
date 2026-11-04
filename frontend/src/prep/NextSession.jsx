@@ -9,7 +9,8 @@ import {
   normalizePlan, addScene, addSecret, updateItem, removeItem, moveItem, toggleId, padSecrets,
   toggleDiscovered, revealBodyFor, planDiff, carryOver, textForRef, PLAN_LIMITS, PLAN_STEPS,
   sceneParts, withSceneName, planHeading, stepSummary, initialStep, nextStepId, stepLabel, clueCount,
-  readyChecklist, planExport, realScene, freshSceneId, sceneFights, linkedAdventureIds, isOldPlanServer, patchHasPockets,
+  readyChecklist, planExport, realScene, freshSceneId, sceneFights, linkedAdventureIds, isOldPlanServer, patchHasPockets, droppedPockets,
+  rewardWithItem,
 } from './next-session.js';
 import { nextStep, prepSession, readSkips, reminderText, writeSkip } from '../shell/next-step.js';
 import { inviteLink, screenLink } from '../shell/shell-logic.js';
@@ -29,6 +30,7 @@ import { toLight } from '../world/world-model.js';
 import WorldRefs from './WorldRefs.jsx';
 import ReadySheet from './ReadySheet.jsx';
 import useRaioX from '../group/useRaioX.js';
+import { momentLine, momentSession, planMoments, planMomentCount } from '../group/moment-words.js';
 import { cachedInsights, insightsApi, rememberInsights, withDefaults } from '../group/insights-api.js';
 import '../group/group-styles.css';
 import './next-session.css';
@@ -37,6 +39,10 @@ import './next-session.css';
 // o editor do cartão, quando o 1º chip abre.
 const SceneSheet = lazy(() => import('./SceneSheet.jsx'));
 const EntrySheet = lazy(() => import('./EntrySheet.jsx'));
+// o resumo pendente da sessão anterior, escrito daqui (a linha dele no "Pronto para jogar")
+const RecapEditor = lazy(() => import('../play/RecapEditor.jsx'));
+// ⑤ Recompensas: escolher um item cadastrado (Preparar › Itens ou as regras básicas)
+const ItemPickerModal = lazy(() => import('../items/ItemPickerModal.jsx'));
 
 const t = (lang, pt, en) => (lang === 'pt' ? pt : en);
 // Quanto a página espera as contas do Raio-X e as salas das cenas ligadas junto com o
@@ -66,6 +72,7 @@ export default function NextSession({ campaign, lang, goTo }) {
   const [error, setError] = useState('');
   const [saveState, setSaveState] = useState('saved');
   const [oldPlan, setOldPlan] = useState(false);      // servidor de antes do Plano guiado: só o nome da cena fica
+  const [lostPockets, setLostPockets] = useState([]); // bolsos novos que o servidor ainda não guarda (💰)
   const [world, setWorld] = useState(null);
   const [worldError, setWorldError] = useState(false);
   const [adventures, setAdventures] = useState(null);
@@ -136,6 +143,8 @@ export default function NextSession({ campaign, lang, goTo }) {
         const old = isOldPlanServer(r?.plan);
         setOldPlan(old);
         const lost = old && patchHasPockets(patch);
+        const dropped = old ? [] : droppedPockets(patch, r?.plan);
+        if (dropped.length) setLostPockets(l => [...new Set([...l, ...dropped])]);
         // o servidor marca de qual sessão é o plano (1ª gravação) e sobe o _rev
         const server = normalizePlan(r?.plan);
         const meta = { forSession: server.forSession || savedRef.current.forSession, _rev: server._rev };
@@ -148,6 +157,9 @@ export default function NextSession({ campaign, lang, goTo }) {
         if (lost) {
           say(t(lang, 'O servidor ainda não guarda o que vai dentro da cena (ler, imagem, combate, teste, notas): falta atualizar. O nome da cena ficou salvo.',
             'The server cannot keep what goes inside a scene yet (read-aloud, image, combat, check, notes): it needs an update. The scene name was saved.'));
+        } else if (dropped.includes('treasure')) {
+          say(t(lang, 'O servidor ainda não guarda o tesouro da cena: falta atualizar. O resto da cena ficou salvo.',
+            "The server cannot keep the scene's treasure yet: it needs an update. The rest of the scene was saved."));
         }
       } catch (e) {
         setSaveState('error');
@@ -366,17 +378,22 @@ export default function NextSession({ campaign, lang, goTo }) {
 
   const sceneIds = useMemo(() => new Set((plan?.scenes || []).filter(realScene).map(s => s.id)), [plan]);
   const momentsOf = (charId) => (ins?.spotlights?.[String(charId)] || []);
-  const planMoments = (charId) => momentsOf(charId).filter(m => m.plan && sceneIds.has(m.plan));
+  // a conta única dos momentos (F1.3): os que esperam, com ou sem cena, e os que aconteceram
+  // hoje — a mesma do Raio-X, do "O que fazer agora" (N7) e do "Pronto para jogar"
+  const countSession = momentSession(campaign.state);
   const insights = useMemo(() => {
     if (!raiox || !insOk) return null;
     return {
-      chars: raiox.facts.map(f => ({
-        id: f.id, name: f.name, moments: planMoments(f.id).length,
-        ideas: rx.S.openSuggestions(raiox.sug[f.id] || [], momentsOf(f.id), ins.dismissed?.[String(f.id)] || []),
-        style: (ins.style?.[String(f.id)] || []).map(x => rx.S.styleLabel(x, lang)),
-      })),
+      chars: raiox.facts.map(f => {
+        const count = planMomentCount(momentsOf(f.id), { session: countSession, sceneIds });
+        return {
+          id: f.id, name: f.name, moments: count.total, noScene: count.noScene,
+          ideas: rx.S.openSuggestions(raiox.sug[f.id] || [], momentsOf(f.id), ins.dismissed?.[String(f.id)] || []),
+          style: (ins.style?.[String(f.id)] || []).map(x => rx.S.styleLabel(x, lang)),
+        };
+      }),
     };
-  }, [raiox, insOk, ins, sceneIds, lang]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [raiox, insOk, ins, sceneIds, countSession, lang]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveMoments = async (charId, list) => {
     const key = String(charId);
@@ -516,6 +533,13 @@ export default function NextSession({ campaign, lang, goTo }) {
     else if (id === 'newPlan') newSession();
   };
 
+  // ⑤ "＋ Item cadastrado": os itens de Preparar › Itens (1 leitura ao tocar) e o seletor de sempre
+  const openRewardItem = async () => {
+    let items = [];
+    try { items = (await api.campaignItems(campaign.id)).items || []; } catch { /* só as regras básicas */ }
+    setSheet({ kind: 'rewardItem', items });
+  };
+
   // ---------------------------------------------------------------- as 3 portas
   const afterFill = async (filledMsg, emptyMsg) => {
     try {
@@ -647,6 +671,10 @@ export default function NextSession({ campaign, lang, goTo }) {
         <textarea id="ns-rewards" className="input" rows={3} maxLength={PLAN_LIMITS.long} value={plan.rewards} disabled={closed}
           placeholder={t(lang, 'Ex.: 120 po no altar; a Lanterna da Maré; o favor da sacerdotisa', 'E.g. 120 gp on the altar; the Tide Lantern; the priestess’s favor')}
           onChange={e => change(p => ({ ...p, rewards: e.target.value }))} />
+        {!closed && (
+          <button type="button" className="mesa-btn ns-link-btn" onClick={openRewardItem}>＋ {t(lang, 'Item cadastrado', 'Saved item')}</button>
+        )}
+        <p className="ns-hint">{t(lang, 'O item escolhido entra numa linha das recompensas. Para pôr numa cena, use 💰 Tesouro na cena.', 'The chosen item goes on a line of the rewards. To put it in a scene, use 💰 Treasure in the scene.')}</p>
         {goTo && <button type="button" className="mesa-btn is-quiet ns-link-btn" onClick={() => goTo('prepare', 'items')}>{t(lang, 'Ver itens da campanha', 'See campaign items')} →</button>}
         <details className="ns-monsters" open={!!plan.monsters.trim()}>
           <summary>{t(lang, 'Anotações de monstros', 'Monster notes')}</summary>
@@ -732,7 +760,8 @@ export default function NextSession({ campaign, lang, goTo }) {
       </div>
 
       <ReadyToPlay plan={plan} lang={lang} party={party} heading={heading} closed={closed} compact={!desk && !!shownOpen} withImage={withImage}
-        recap={recap} recapOf={recapOf}
+        recap={recap} recapOf={recapOf} moments={insights?.chars || null}
+        onRecap={() => setSheet({ kind: 'recap' })} onStep={(id) => openStep(id)}
         tv={!!(campaign.onboarding?.tv || table?.tvLive)} busy={busy === 'startSession'}
         onCopyTv={copyTv} onStart={startSession} onRehearse={goTo ? () => goTo('play', 'scene') : null} />
      </div>
@@ -787,6 +816,19 @@ export default function NextSession({ campaign, lang, goTo }) {
             {t(lang, 'o plano novo vem em branco.', 'the new plan starts blank.')}</p>
         </MesaSheet>
       )}
+      {sheet?.kind === 'rewardItem' && (
+        <Suspense fallback={null}>
+          <ItemPickerModal lang={lang} sheet icon="💎" title={t(lang, 'Item para as recompensas', 'Item for the rewards')}
+            confirmLabel={t(lang, 'Pôr nas recompensas', 'Add to the rewards')} campaignItems={sheet.items || []}
+            onClose={() => setSheet(null)}
+            onPick={async (instance) => change(p => ({ ...p, rewards: rewardWithItem(p.rewards, instance) }))} />
+        </Suspense>
+      )}
+      {sheet?.kind === 'recap' && recapOf > 0 && (
+        <Suspense fallback={null}>
+          <RecapEditor campaign={campaign} lang={lang} session={recapOf} onClose={() => setSheet(null)} onSaved={() => setSheet(null)} />
+        </Suspense>
+      )}
       {sheet?.kind === 'ready' && (
         <ReadySheet campaign={campaign} lang={lang} onClose={() => setSheet(null)}
           onImported={onReadyImported}
@@ -812,7 +854,7 @@ export default function NextSession({ campaign, lang, goTo }) {
       )}
       {sheet?.kind === 'moments' && raiox && (
         <MomentsSheet lang={lang} rx={rx} plan={plan} fact={raiox.byId[sheet.charId]} closed={closed || !insOk}
-          moments={momentsOf(sheet.charId)} suggestions={insights?.chars.find(c => c.id === sheet.charId)?.ideas || []}
+          moments={momentsOf(sheet.charId)} session={countSession} suggestions={insights?.chars.find(c => c.id === sheet.charId)?.ideas || []}
           style={(ins?.style?.[String(sheet.charId)] || []).map(x => rx.S.styleLabel(x, lang))}
           onSave={(list) => saveMoments(sheet.charId, list)}
           onXray={goTo ? () => { setSheet(null); goTo('group', 'insights', { focus: sheet.charId }); } : null}
@@ -821,7 +863,7 @@ export default function NextSession({ campaign, lang, goTo }) {
       {sceneSheet && (
         <Suspense fallback={null}>
           <SceneSheet key={sceneSheet.id} campaign={campaign} lang={lang} plan={plan} sceneId={sceneSheet.id} closed={closed}
-            planSave={saveState} oldServer={oldPlan} world={world} adventures={adventures} levels={partyLevels(campaign)}
+            planSave={saveState} oldServer={oldPlan} lostPockets={lostPockets} world={world} adventures={adventures} levels={partyLevels(campaign)}
             moments={momentApi} momentsNote={momentsNote} autoFocusName={sceneSheet.fresh}
             onChange={(id, patch) => change(p => updateItem(p, 'scenes', id, patch))}
             onRemove={(sc) => { setSceneSheet(null); removeWithUndo('scenes', sc, t(lang, 'Cena apagada', 'Scene deleted')); }}
@@ -955,6 +997,7 @@ function PartyStep({ party, lang, raiox, insights, rx, onInvite, onRemind, onMom
                 {c && (
                   <span className={`ns-party-line ${c.moments ? 'is-moment' : 'is-warn'}`}>{c.moments
                     ? t(lang, `★ ${c.moments} ${c.moments === 1 ? 'momento' : 'momentos'} neste plano`, `★ ${c.moments} ${c.moments === 1 ? 'moment' : 'moments'} in this plan`)
+                      + (c.noScene ? t(lang, ` · ${c.noScene} sem cena ainda`, ` · ${c.noScene} with no scene yet`) : '')
                     : t(lang, '⚠ nenhum momento neste plano', '⚠ no moment in this plan')}</span>
                 )}
                 {c?.style.length > 0 && <span className="ns-party-line is-style">{c.style.join(' · ')}</span>}
@@ -1138,8 +1181,14 @@ function CluesStep({ plan, lang, closed, clues, world, asks, logDiary, setLogDia
  * Fim da sanfona (só leitura): o que já está de pé, ▶ Ensaiar e ▶ Começar a Sessão N. Com um
  * passo aberto no celular (`compact`), só a conta e os botões: a lista volta ao fechar o passo.
  */
-function ReadyToPlay({ plan, lang, party, heading, closed, tv, busy, compact = false, withImage = null, recap = null, recapOf = 0, onCopyTv, onStart, onRehearse }) {
-  const rows = readyChecklist(plan, { party, tv, lang, withImage, recap, session: recapOf });
+function ReadyToPlay({ plan, lang, party, heading, closed, tv, busy, compact = false, withImage = null, recap = null, recapOf = 0, moments = null, onCopyTv, onStart, onRehearse, onRecap, onStep }) {
+  const rows = readyChecklist(plan, { party, tv, lang, withImage, recap, session: recapOf, moments });
+  // o que falta tem o atalho de quem resolve (as mesmas regras do "O que fazer agora")
+  const fix = {
+    start: onStep && { label: t(lang, 'Escrever', 'Write'), run: () => onStep('start') },
+    moments: onStep && { label: t(lang, 'Ver', 'See'), run: () => onStep('party') },
+    recap: onRecap && { label: t(lang, 'Escrever o resumo', 'Write the recap'), run: onRecap },
+  };
   const ok = rows.filter(r => r.ok).length;
   return (
     <section className={`mesa-panel is-sunk ns-ready ${compact ? 'is-compact' : ''}`} id="ns-ready" aria-labelledby="ns-ready-h">
@@ -1150,6 +1199,7 @@ function ReadyToPlay({ plan, lang, party, heading, closed, tv, busy, compact = f
           <li key={r.id} className={r.ok ? 'is-ok' : ''}>
             <span aria-hidden="true">{r.ok ? '✓' : '○'}</span> {r.text}
             {r.id === 'tv' && !r.ok && !closed && <button type="button" className="mesa-btn ns-ready-copy" onClick={onCopyTv}>{t(lang, 'Copiar link', 'Copy link')}</button>}
+            {!r.ok && !closed && fix[r.id] && <button type="button" className="mesa-btn ns-ready-copy" onClick={fix[r.id].run}>{fix[r.id].label}</button>}
           </li>
         ))}
       </ul>}
@@ -1183,7 +1233,8 @@ function IdeaSheet({ lang, plan, step, rx, onPick, onClose }) {
             onClick={() => pick(null, rx.S.momentSceneText(idea, name, lang))}>{busy ? '…' : t(lang, '＋ Cena nova', '＋ New scene')}</button>
         </div>
       )}>
-      <p className="mesa-sheet-text">{rx.S.kindIcon(idea.kind)} {rx.PM.firstName(name)} · {idea.text}</p>
+      <p className="mesa-sheet-text">{momentLine(idea, name, lang)}</p>
+      {idea.detail && <p className="ns-hint">{t(lang, 'detalhes', 'details')}: {idea.detail}</p>}
       <p className="ns-hint">{t(lang, 'O momento fica no Raio-X e liga à cena escolhida. Na mesa, a cena lembra você dele.', 'The moment is saved in the X-ray and linked to the chosen scene. At the table, the scene reminds you of it.')}</p>
       <ul className="ns-pick-list">
         {scenes.map((s, i) => (
@@ -1200,14 +1251,15 @@ function IdeaSheet({ lang, plan, step, rx, onPick, onClose }) {
 }
 
 /** Os momentos de um personagem (tocar na linha do ① Quem joga): os gravados, a cena de cada um e as ideias. */
-function MomentsSheet({ lang, rx, plan, fact, closed, moments, suggestions, style, onSave, onXray, onClose }) {
+function MomentsSheet({ lang, rx, plan, fact, closed, moments, session, suggestions, style, onSave, onXray, onClose }) {
   const [busy, setBusy] = useState(false);
   const [linking, setLinking] = useState(null);   // id do momento escolhendo a cena
   if (!fact) return null;
   const scenes = plan.scenes.filter(realScene);
   const sceneName = (id) => { const i = scenes.findIndex(s => s.id === id); return i < 0 ? null : `${i + 1}. ${sceneParts(scenes[i].text).name || '…'}`; };
   const run = async (list) => { setBusy(true); try { await onSave(list); } finally { setBusy(false); } };
-  const open = moments.filter(m => m.done == null);
+  // os mesmos que a linha do ① Quem joga conta (planMoments): esperando, com ou sem cena, e os de hoje
+  const open = planMoments(moments, { session, sceneIds: scenes.map(s => s.id) }).map(r => r.moment);
   return (
     <MesaSheet title={t(lang, `Momentos de ${rx.PM.firstName(fact.name)}`, `${rx.PM.firstName(fact.name)}'s moments`)} icon="★" size="tall" width="md" lang={lang} onClose={onClose}
       footer={(
@@ -1223,9 +1275,9 @@ function MomentsSheet({ lang, rx, plan, fact, closed, moments, suggestions, styl
       <ul className="ns-mom-list">
         {open.map(m => (
           <li key={m.id} className="ns-mom">
-            <p className="ns-mom-text">{rx.S.kindIcon(m.kind)} {rx.S.kindLabel(m.kind, lang)}: {m.text}</p>
-            <p className="ns-hint">{m.plan && sceneName(m.plan) ? `📜 ${sceneName(m.plan)}` : t(lang, 'sem cena neste plano', 'no scene in this plan')}</p>
-            {!closed && (linking === m.id ? (
+            <p className="ns-mom-text">{momentLine(m, fact.name, lang)}</p>
+            <p className="ns-hint">{m.done != null ? `✓ ${t(lang, 'aconteceu hoje', 'happened today')}` : m.plan && sceneName(m.plan) ? `📜 ${sceneName(m.plan)}` : t(lang, 'sem cena ainda', 'no scene yet')}</p>
+            {!closed && m.done == null && (linking === m.id ? (
               <div className="ns-mom-scenes" role="group" aria-label={t(lang, 'Em qual cena?', 'In which scene?')}>
                 {scenes.map((s, i) => (
                   <button key={s.id} type="button" className="mesa-chip" aria-pressed={m.plan === s.id} disabled={busy}
@@ -1237,7 +1289,7 @@ function MomentsSheet({ lang, rx, plan, fact, closed, moments, suggestions, styl
               </div>
             ) : scenes.length > 0 && (
               <button type="button" className="mesa-btn" disabled={busy} onClick={() => setLinking(m.id)}>
-                {m.plan && sceneName(m.plan) ? t(lang, 'Trocar a cena', 'Change the scene') : t(lang, '＋ Levar para uma cena', '＋ Take to a scene')}
+                {m.plan && sceneName(m.plan) ? t(lang, 'Trocar a cena', 'Change the scene') : `→ ${t(lang, 'Cena', 'Scene')}`}
               </button>
             ))}
           </li>
@@ -1249,7 +1301,8 @@ function MomentsSheet({ lang, rx, plan, fact, closed, moments, suggestions, styl
           <ul className="ns-mom-list">
             {suggestions.slice(0, 3).map(s => (
               <li key={s.auto} className="ns-mom is-idea">
-                <p className="ns-mom-text">{rx.S.kindIcon(s.kind)} {rx.S.kindLabel(s.kind, lang)}: {s.text}</p>
+                <p className="ns-mom-text">{momentLine(s, fact.name, lang)}</p>
+                {s.detail && <p className="ns-hint ns-mom-detail">{t(lang, 'detalhes', 'details')}: {s.detail}</p>}
                 <button type="button" className="mesa-btn" disabled={busy} onClick={() => run(rx.S.acceptMoment(moments, s))}>{t(lang, 'Aceitar', 'Accept')}</button>
               </li>
             ))}

@@ -309,7 +309,7 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
           <Fold id="table" title={t(lang, 'Tabela', 'Table')} view={view} setView={setView} wide={wide}>
             <Table facts={facts} lang={lang} wide={wide} sessionNo={sessionNo} />
           </Fold>
-          <Moments facts={facts} settings={settings} update={update} suggestions={calc.suggestions} session={session} balance={balance}
+          <Moments facts={facts} settings={settings} update={update} suggestions={calc.suggestions} session={session} state={campaign.state} balance={balance}
             lang={lang} readOnly={readOnly} focusId={focusId} filter={view.moments || 'session'} setFilter={(v) => setView({ moments: v })}
             campaignId={campaign.id} onOpenPlan={() => goTo('prepare', 'next')} historyState={histState} onNear={loadHistory} />
           <Balance balance={balance} history={history} state={histState} onLoad={loadHistory} lang={lang} />

@@ -21,19 +21,32 @@ const texts = (list) => list.map(s => `${S.kindIcon(s.kind)} ${s.text}`);
 const SOCIAL_PUSH = ['persuasion', 'deception', 'intimidation', 'performance'];
 
 test('sugestões do Pipo: ★ Prestidigitação, ★ Ferramentas de Ladrão, ↗ SAB e ✎ o texto da ficha', () => {
-  const pipo = texts(S.momentSuggestions(facts, { dc: 15 })[PIPO]);
-  assert.ok(pipo.includes('★ Prestidigitação 65% (2º 35%)'), pipo.join('\n'));
-  assert.ok(pipo.includes('★ único com Ferramentas de Ladrão'), pipo.join('\n'));
-  assert.ok(pipo.includes('↗ salvaguarda de SAB +0 · CD 13 passa 40%'), pipo.join('\n'));
+  // frase de mestre (F1.1): sem porcentagem nem gênero na linha principal; os números no detalhe
+  const list = S.momentSuggestions(facts, { dc: 15 })[PIPO];
+  const pipo = texts(list);
+  assert.ok(pipo.includes('★ um teste de Prestidigitação — ninguém no grupo faz melhor'), pipo.join('\n'));
+  assert.ok(pipo.includes('★ uma fechadura ou armadilha — só Pipo tem Ferramentas de Ladrão'), pipo.join('\n'));
+  assert.ok(pipo.includes('↗ uma salvaguarda de Sabedoria, o ponto fraco de Pipo'), pipo.join('\n'));
+  assert.equal(list.find(s => s.auto === 'push:save:wis').detail, 'salvaguarda de SAB +0 · 40% na CD 13');
+  assert.equal(list.find(s => s.auto === 'skill:sleightOfHand').detail, 'Prestidigitação +7 · 65% na CD 15 · o 2º do grupo: 35%');
+  for (const p of party) {
+    for (const s of S.momentSuggestions(facts, { dc: 15 })[p.id]) {
+      assert.doesNotMatch(s.text, /%|especialista|\bele\b|\bdele\b|\bela\b/, `${p.name}: ${s.text}`);
+    }
+  }
+  // a linha inteira começa pelo nome: "★ Pipo brilha: …" · "↗ Um desafio para Pipo: …" · "✎ Uma cena da história de Pipo: …"
+  assert.equal(S.momentLine(list[0], 'Pipo Mão-Leve', 'pt'), '★ Pipo brilha: um teste de Prestidigitação — ninguém no grupo faz melhor');
+  assert.match(S.momentLine(list.find(s => s.kind === 'push'), 'Pipo Mão-Leve', 'pt'), /^↗ Um desafio para Pipo: /);
+  assert.match(S.momentLine(list.find(s => s.kind === 'hook'), 'Pipo Mão-Leve', 'en'), /^✎ A scene from Pipo's story: “/);
   assert.ok(pipo.some(x => x.startsWith('✎') && x.includes('Brincalhão, curioso e incapaz de resistir a uma porta trancada')), pipo.join('\n'));
   // sem estilo: ★ primeiro, depois ↗ e por fim ✎; a pior perícia "de todo mundo" é Persuasão −1
   const kinds = S.momentSuggestions(facts, {})[PIPO].map(s => s.kind);
   assert.deepEqual(kinds, ['shine', 'shine', 'shine', 'push', 'push', 'hook']);
-  assert.ok(pipo.includes('↗ Persuasão −1 · tentar sem o especialista do grupo'));
+  assert.ok(pipo.includes('↗ um teste de Persuasão em que Pipo se vira sem ajuda'));
   // chaves estáveis (Dispensar grava só ela); desafio tem prefixo próprio
   assert.deepEqual(S.momentSuggestions(facts, {})[PIPO].map(s => s.auto),
     ['skill:sleightOfHand', 'skill:stealth', 'tool:thievesTools', 'push:save:wis', 'push:skill:persuasion', 'text:personality']);
-  assert.match(texts(S.momentSuggestions(facts, { lang: 'en' })[PIPO]).join('\n'), /↗ WIS save \+0 · DC 13 passes 40%/);
+  assert.match(texts(S.momentSuggestions(facts, { lang: 'en' })[PIPO]).join('\n'), /↗ a Wisdom saving throw, Pipo's weak spot/);
 });
 
 test('🤐 fala pouco: nenhum desafio social e o 1º ★ é de perícia não social', () => {
@@ -69,11 +82,11 @@ test('os outros estilos puxam as sugestões do assunto deles', () => {
   assert.equal(sug({ [PIPO]: ['story'] })[PIPO][0].kind, 'hook');
   // ⚔ luta: Kaelor é a linha de frente do grupo
   const kae = sug({ [KAELOR]: ['combat'] })[KAELOR].filter(s => s.kind === 'shine');
-  assert.ok(kae.some(s => s.auto === 'axis:melee' && s.text === 'linha de frente (Corpo a corpo 4,2)'), kae.map(s => s.text).join('\n'));
+  assert.ok(kae.some(s => s.auto === 'axis:melee' && s.text === 'segurar a linha de frente — Kaelor é a linha de frente do grupo' && s.detail === 'Corpo a corpo 4,2'), kae.map(s => s.text).join('\n'));
   // 🧭 explorar: Elarion (que não brilha em nada de explorar) ganha a melhor perícia de exploração, em 1º
   const ela = sug({ [idOf('Elarion')]: ['explore'] })[idOf('Elarion')];
   assert.equal(ela[0].auto, 'skill:investigation');
-  assert.match(ela[0].text, /🧭 gosta de explorar$/);
+  assert.match(ela[0].text, /para quem gosta de explorar$/);
   // 🧩 enigma: Dagna ganha uma perícia de INT
   const dag = sug({ [idOf('Dagna')]: ['puzzle'] })[idOf('Dagna')];
   assert.equal(dag[0].auto, 'skill:religion');
@@ -104,7 +117,7 @@ test('nenhum estilo repete a chave de uma sugestão (Investigação é enigma e 
 test('aceitar, escrever (até 160), dispensar e o limite de 12 por personagem', () => {
   const sug = S.momentSuggestions(facts, {})[PIPO];
   let list = S.acceptMoment([], sug[0]);
-  assert.deepEqual(list, [{ id: 'm1', kind: 'shine', text: 'Prestidigitação 65% (2º 35%)', auto: 'skill:sleightOfHand', done: null, plan: null }]);
+  assert.deepEqual(list, [{ id: 'm1', kind: 'shine', text: 'um teste de Prestidigitação — ninguém no grupo faz melhor', auto: 'skill:sleightOfHand', done: null, plan: null }]);
   // aceita some das sugestões que ainda valem; dispensada também
   assert.ok(!S.openSuggestions(sug, list, []).some(s => s.auto === 'skill:sleightOfHand'));
   const dismissed = S.dismissKey([], 'tool:thievesTools');
@@ -153,8 +166,8 @@ test('aconteceu grava o nº da sessão (a regra do servidor) e o filtro da lista
   assert.deepEqual(S.filterMoments(S.updateMoment(old, 'm1', { done: null }), 'session', 3).map(m => m.id), ['m1']);
   assert.equal(S.filterMoments(old, 'all', 3).length, 2);
   assert.deepEqual(S.removeMoment(old, 'm1').map(m => m.id), ['m2']);
-  assert.equal(S.momentSceneText(list[0], 'Pipo Mão-Leve', 'pt'), 'Cena nova\n★ Pipo · Brilha: Fechadura que só o Pipo abre');
-  assert.equal(S.momentSceneText({ kind: 'push', text: 'Medo' }, 'Kaelor', 'en'), 'New scene\n↗ Kaelor · Challenges: Medo');
+  assert.equal(S.momentSceneText(list[0], 'Pipo Mão-Leve', 'pt'), 'Cena nova\n★ Pipo brilha: Fechadura que só o Pipo abre');
+  assert.equal(S.momentSceneText({ kind: 'push', text: 'Medo' }, 'Kaelor', 'en'), 'New scene\n↗ A challenge for Kaelor: Medo');
 });
 
 test('"→ Cena" + "Usar como cena": nada do momento chega à Tela nem ao jogador (§6.8)', () => {
@@ -175,12 +188,12 @@ test('"→ Cena" + "Usar como cena": nada do momento chega à Tela nem ao jogado
   }
   // na Próxima sessão o campo de uma linha edita só o nome: as notas (o momento) ficam na 2ª linha
   const text = S.momentSceneText(hand, 'Pipo Mão-Leve', 'pt');
-  assert.deepEqual(sceneParts(text), { name: 'Cena nova', notes: '★ Pipo · Brilha: Uma fechadura que só ele abre' });
+  assert.deepEqual(sceneParts(text), { name: 'Cena nova', notes: '★ Pipo brilha: Uma fechadura que só ele abre' });
   const renamed = withSceneName(text, 'O cofre do porto');
-  assert.equal(renamed, 'O cofre do porto\n★ Pipo · Brilha: Uma fechadura que só ele abre');
+  assert.equal(renamed, 'O cofre do porto\n★ Pipo brilha: Uma fechadura que só ele abre');
   assert.equal(sceneFieldText({ text: renamed }), 'O cofre do porto');
   assert.equal(withSceneName('Taverna', 'Taverna do Malte'), 'Taverna do Malte', 'cena sem notas continua de uma linha');
-  assert.equal(withSceneName(text, 'a\nb'), 'a b\n★ Pipo · Brilha: Uma fechadura que só ele abre', 'quebra no nome não vira linha nova');
+  assert.equal(withSceneName(text, 'a\nb'), 'a b\n★ Pipo brilha: Uma fechadura que só ele abre', 'quebra no nome não vira linha nova');
   assert.deepEqual(sceneParts('Só nome\n  \n'), { name: 'Só nome', notes: '' });
 });
 
@@ -258,12 +271,12 @@ test('Oportunidades: momentos aceitos que faltam vêm antes das sugestões; os q
   const spot = { [PIPO]: S.toggleDone(S.writeMoment(S.writeMoment([], 'shine', 'Fechadura do sino').list, 'shine', 'Já foi').list, 'm2', 3) };
   const q = S.quadrants({ facts, party: axes, skills, gaps, suggestions, spotlights: spot });
   const pipo = q.opportunities.filter(x => x.id === PIPO).map(x => x.text);
-  assert.equal(pipo[0], 'Pipo: Fechadura do sino');
-  assert.ok(!pipo.includes('Pipo: Já foi'));
+  assert.equal(pipo[0], 'Pipo brilha: Fechadura do sino');
+  assert.ok(!pipo.includes('Pipo brilha: Já foi'));
   // a sugestão aceita não aparece duas vezes
   const accepted = { [PIPO]: S.acceptMoment([], suggestions[PIPO][0]) };
   const qa = S.quadrants({ facts, party: axes, skills, gaps, suggestions, spotlights: accepted });
-  assert.equal(qa.opportunities.filter(x => x.text === 'Pipo: Prestidigitação 65% (2º 35%)').length, 1);
+  assert.equal(qa.opportunities.filter(x => x.text === 'Pipo brilha: um teste de Prestidigitação — ninguém no grupo faz melhor').length, 1);
 });
 
 test('ganchos: melhor da mesa no Pedir teste, papéis no cartão de jogador e a linha da Próxima sessão', () => {
@@ -286,8 +299,8 @@ test('ganchos: melhor da mesa no Pedir teste, papéis no cartão de jogador e a 
   assert.deepEqual(M.topRoles(dagna, { avg }).map(r => `${M.axisLabel(r.key, 'pt')} ${M.fmt(r.v, 'pt')}`), ['Cura 5', 'Magia 5']);
   assert.ok(!M.topRoles(dagna, { avg, hidden: ['heal'] }).some(r => r.key === 'heal'));
   const pipo = facts.find(f => f.id === PIPO);
-  assert.equal(S.partyLine(pipo, facts, 'pt'), 'brilha em Prestidigitação e Furtividade · fraco em salvaguarda de SAB (+0)');
-  assert.equal(S.partyLine(pipo, facts, 'en'), 'shines at Sleight of Hand and Stealth · weak at WIS saves (+0)');
+  assert.equal(S.partyLine(pipo, facts, 'pt'), 'brilha em Prestidigitação e Furtividade · ponto fraco: salvaguarda de SAB (+0)');
+  assert.equal(S.partyLine(pipo, facts, 'en'), 'shines at Sleight of Hand and Stealth · weak spot: WIS saves (+0)');
   assert.equal(S.styleLabel('quiet', 'pt'), '🤐 fala pouco');
   assert.deepEqual(S.STYLES.map(s => s.id), ['talk', 'quiet', 'combat', 'puzzle', 'explore', 'story'], 'a mesma lista do servidor (PARTY_STYLES)');
 });

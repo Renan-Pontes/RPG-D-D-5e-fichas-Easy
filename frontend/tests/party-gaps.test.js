@@ -76,10 +76,12 @@ test('sugestões de brilhar: Pipo (perícias, Ferramentas de Ladrão e o gancho 
   const sug = S.shineSuggestions(facts, { dc: 15 });
   const pipo = sug[party.find(p => p.name.startsWith('Pipo')).id];
   assert.deepEqual(pipo.map(s => s.auto), ['skill:sleightOfHand', 'skill:stealth', 'tool:thievesTools', 'text:personality']);
-  assert.equal(pipo[0].text, 'Prestidigitação 65% (2º 35%)');
+  // frase de mestre na linha principal (F1.1); os números ficam no detalhe
+  assert.equal(pipo[0].text, 'um teste de Prestidigitação — ninguém no grupo faz melhor');
+  assert.equal(pipo[0].detail, 'Prestidigitação +7 · 65% na CD 15 · o 2º do grupo: 35%');
   assert.equal(pipo.at(-1).text, '“Brincalhão, curioso e incapaz de resistir a uma porta trancada.”');
   const elarion = sug[party.find(p => p.name.startsWith('Elarion')).id];
-  assert.ok(elarion.some(s => s.text === 'único com dano frio, energia e trovejante'));
+  assert.ok(elarion.some(s => s.text === 'um inimigo vulnerável a dano de frio, de energia e trovejante — só Elarion causa esse dano'), elarion.map(s => s.text).join('\n'));
   assert.ok(elarion.some(s => s.auto === 'role:control'));
 });
 
@@ -90,13 +92,13 @@ test('G0: os 4 quadros', () => {
   assert.deepEqual(q.strengths.map(x => x.text), ['Cura 5 · Dagna', 'Magia 5 · Dagna e Elarion', 'Intuição: grupo 93%']);
   assert.equal(q.weaknesses[0].text, gaps[0].text);
   assert.equal(q.weaknesses.length, 7);
-  assert.ok(q.opportunities.some(x => x.text === 'Pipo: Prestidigitação 65% (2º 35%)'));
+  assert.ok(q.opportunities.some(x => x.text === 'Pipo brilha: um teste de Prestidigitação — ninguém no grupo faz melhor'));
   assert.deepEqual(q.opportunities.slice(0, 4).map(x => x.id), party.map(p => p.id), 'uma de cada personagem antes de repetir');
   assert.equal(q.threats[0].text, 'DES média +1,3: bola de fogo e armadilhas pegam 54% do grupo na CD 13');
   assert.equal(q.threats[1].text, 'Fantasma resiste a trovejante');
   // dispensada não volta; eixo escondido some das Forças; Importante vem antes
   const off = S.quadrants({ facts, party: axes, skills, gaps, suggestions: sug, dismissed: { [pipoId]: ['skill:sleightOfHand'] } });
-  assert.ok(!off.opportunities.some(x => x.text === 'Pipo: Prestidigitação 65% (2º 35%)'));
+  assert.ok(!off.opportunities.some(x => x.text === 'Pipo brilha: um teste de Prestidigitação — ninguém no grupo faz melhor'));
   const hid = S.quadrants({ facts, party: axes, skills, gaps, hidden: ['heal'], focus: { control: 2 } });
   assert.equal(hid.strengths[0].text, 'Controle 4,6 · Elarion');
   assert.ok(!hid.strengths.some(x => x.text.startsWith('Cura')));

@@ -59,7 +59,7 @@ test('textos e botões de cada regra (pt e en)', () => {
   assert.equal(at(4).text, 'O combate da cena 2 precisa dos personagens: Bruno ainda não tem ficha.');
   assert.deepEqual(at(4).payload.names, ['Bruno']);
   assert.equal(at(5).action.label, '＋ Pista');
-  assert.equal(at(6).text, 'Pipo ainda não tem um momento. Ideia: ★ único com Ferramentas de Ladrão');
+  assert.equal(at(6).text, 'Pipo ainda não tem um momento. Ideia: ★ Pipo brilha: único com Ferramentas de Ladrão');
   assert.equal(at(6).why, '(Pipo: 🤐 fala pouco)', 'respeita o estilo do jogador');
   assert.equal(at(6).action.label, '★ Usar a ideia');
   assert.equal(at(6).secondary.label, 'Outra ideia');
@@ -144,7 +144,10 @@ test('N2: um plano só com pistas ainda mostra as 3 portas (o servidor o preench
 
 test('N7: "Outra ideia" passa para a próxima; sem ideia, ver os momentos', () => {
   const base = { campaign: camp(), plan: ready(), insights: chars(0), lang: 'pt' };
-  assert.match(nextStep({ ...base, idea: 1 }).text, /Ideia: ↗ salvaguarda de SAB \+0$/);
+  assert.match(nextStep({ ...base, idea: 1 }).text, /Ideia: ↗ Um desafio para Pipo: salvaguarda de SAB \+0$/);
+  // sem gênero presumido: o porquê usa o nome
+  assert.equal(nextStep({ ...base, insights: { chars: [{ ...base.insights.chars[0], style: [] }] } }).why,
+    'Uma cena em que Pipo brilha, enfrenta um desafio ou vive a própria história.');
   assert.match(nextStep({ ...base, idea: 2 }).text, /Ferramentas de Ladrão$/, 'volta à primeira');
   const none = { ...base, insights: { chars: [{ id: 1, name: 'Pipo', moments: 0, ideas: [], style: [] }] } };
   assert.equal(nextStep(none).action.id, 'moments');
