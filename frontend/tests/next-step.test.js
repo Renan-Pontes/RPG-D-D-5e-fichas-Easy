@@ -255,9 +255,19 @@ test('Agora: textos e botões das regras J', () => {
   assert.equal(j4.action.label, '▶ Começar esta cena');
   assert.equal(j4.secondary, null);
   assert.deepEqual(j4.payload, { sceneId: 'c1' });
-  // com um combate andando, a cena também pode esperar o combate acabar
-  const fight = nextStep({ ...NOW_ROWS[3][1], pulse: { combat: { active: true, round: 2 } } });
-  assert.deepEqual([fight.id, fight.secondary.id, fight.secondary.label], ['J4', 'startSceneLater', 'Guardar para depois do combate']);
+  // com um combate andando (E1.2), o botão dourado leva ao combate; a cena fica secundária,
+  // "por cima do combate na TV" (a Agora confirma, com "Guardar para depois do combate")
+  const fight = nextStep({ ...NOW_ROWS[3][1], pulse: { combat: { active: true, round: 2, turnName: 'Goblin #2' } } });
+  assert.deepEqual([fight.id, fight.action.id, fight.action.label], ['J4', 'goCombat', '⚔ Ir para o combate · vez de Goblin #2']);
+  assert.deepEqual([fight.secondary.id, fight.secondary.label], ['startSceneOver', '▶ Começar esta cena por cima do combate na TV']);
+  assert.equal(fight.why, 'Há um combate andando (rodada 2): a cena pode esperar o fim dele.');
+  assert.deepEqual(fight.payload, { sceneId: 'c1' });
+  assert.equal(nextStep({ ...NOW_ROWS[3][1], lang: 'en', pulse: { combat: { active: true, round: 2 } } }).action.label, '⚔ Go to combat');
+  // a 1ª cena já jogada: a que vem é a "próxima", nunca "primeira" (E1.6c)
+  const after = nextStep({ ...NOW_ROWS[3][1], plan: { ...ready(), scenes: ready().scenes.map((x, i) => ({ ...x, done: i === 0 })) } });
+  assert.equal(after.text, 'Comece pela próxima cena: Ponte.');
+  assert.equal(nextStep({ ...NOW_ROWS[3][1], lang: 'en', plan: { ...ready(), scenes: ready().scenes.map((x, i) => ({ ...x, done: i === 0 })) } }).text,
+    'Start with the next scene: Ponte.');
   assert.equal(at(4).secondary.id, 'endSession');
   assert.equal(at(5).action.id, 'sceneNow');
   assert.equal(at(5).secondary.id, 'plan');

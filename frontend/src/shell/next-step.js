@@ -293,17 +293,37 @@ function nowRules({ campaign, plan, live = false, sceneNow = null, pulse = null,
     () => {
       if (!live || !open.length) return null;
       const pick = open.find(s => s.id === startScene) || open[0];
-      const first = pick === open[0] && pick === scenes.find(s => !s.done);
+      // "primeira" só para a 1ª do plano; com uma já jogada, a que vem é a "próxima" (E1.6c)
+      const first = pick === scenes[0];
+      const next = !first && pick === open[0] && scenes.some(s => s.done);
       const name = sceneTitle(pick) || '…';
       const strong = String(plan?.strongStart || '').trim();
+      const text = first ? tt(lang, `Comece pela primeira cena: ${name}.`, `Start with the first scene: ${name}.`)
+        : next ? tt(lang, `Comece pela próxima cena: ${name}.`, `Start with the next scene: ${name}.`)
+          : tt(lang, `Comece pela cena: ${name}.`, `Start with the scene: ${name}.`);
+      // Com um combate andando (E1.2), o botão dourado leva ao combate: começar a cena tiraria
+      // a ordem e o mapa da TV num toque. A cena fica como ação secundária, "por cima do
+      // combate na TV", e a Agora confirma numa folha curta (com "Guardar para depois").
+      const fight = pulse?.combat?.active ? pulse.combat : null;
+      if (fight) {
+        const who = fight.turnName ? tt(lang, ` · vez de ${fight.turnName}`, ` · ${fight.turnName}'s turn`) : '';
+        return {
+          id: 'J4', sig: `scene:${pick.id}`, canSkip: true, text,
+          why: tt(lang, `Há um combate andando${fight.round ? ` (rodada ${fight.round})` : ''}: a cena pode esperar o fim dele.`,
+            `A combat is running${fight.round ? ` (round ${fight.round})` : ''}: the scene can wait for it to end.`),
+          lead: strong ? tt(lang, `⚡ Comece assim: ${strong}`, `⚡ Start like this: ${strong}`) : '',
+          action: { id: 'goCombat', label: tt(lang, `⚔ Ir para o combate${who}`, `⚔ Go to combat${who}`) },
+          secondary: { id: 'startSceneOver', label: tt(lang, '▶ Começar esta cena por cima do combate na TV', '▶ Start this scene over the combat on the TV') },
+          payload: { sceneId: pick.id },
+        };
+      }
       return {
-        id: 'J4', sig: `scene:${pick.id}`, canSkip: true,
-        text: first ? tt(lang, `Comece pela primeira cena: ${name}.`, `Start with the first scene: ${name}.`) : tt(lang, `Comece pela cena: ${name}.`, `Start with the scene: ${name}.`),
+        id: 'J4', sig: `scene:${pick.id}`, canSkip: true, text,
         // o começo forte vai inteiro, em destaque, numa linha própria (`lead`)
         why: strong ? '' : tt(lang, 'Um toque começa a cena e mostra na Tela o que ela tem.', 'One tap starts the scene and shows what it has on screen.'),
         lead: strong ? tt(lang, `⚡ Comece assim: ${strong}`, `⚡ Start like this: ${strong}`) : '',
         action: { id: 'startScene', label: tt(lang, '▶ Começar esta cena', '▶ Start this scene') },
-        secondary: pulse?.combat?.active ? { id: 'startSceneLater', label: tt(lang, 'Guardar para depois do combate', 'Keep for after combat') } : null,
+        secondary: null,
         payload: { sceneId: pick.id },
       };
     },
