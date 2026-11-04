@@ -128,6 +128,8 @@ export function charLine(c, lang = 'pt') {
 const HEALTH = {
   unhurt: ['Ileso', 'Unhurt'], hurt: ['Ferido', 'Hurt'],
   bloodied: ['Sangrando', 'Bloodied'], down: ['Derrotado', 'Down'],
+  // PJ a 0 PV fazendo testes contra a morte (não morreu: não é "Derrotado") e o PJ morto
+  fallen: ['Caído', 'Dying'], dead: ['Morto', 'Dead'],
 };
 export const healthLabel = (band, lang = 'pt') => (HEALTH[band] || HEALTH.unhurt)[lang === 'pt' ? 0 : 1];
 

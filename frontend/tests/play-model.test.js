@@ -296,7 +296,7 @@ test('Agora: selo de Testes só desta sessão; o resto em "De sessões passadas"
 test('Agora: painel do momento — contadores e a regra anti-surpresa', () => {
   assert.deepEqual(momentCounters({}), []);
   assert.deepEqual(momentCounters({ checks: 1, rolls: 2, approvals: 1, levelups: 1, dangers: 1 }).map(c => `${c.icon} ${c.n} ${c.label}`),
-    ['🎯 1 teste', '🎲 2 pedidos', '⬆ 1 nível', '⚠ 1 perigo']);
+    ['⚠ 1 perigo', '🎯 1 teste', '🎲 2 pedidos', '⬆ 1 nível']);   // o perigo primeiro: nunca cortado na borda (E1.5b)
   assert.equal(momentCounters({ approvals: 1, levelups: 0 })[0].label, 'aprovação');
   const a = { id: 5, createdAt: '2026-10-27T20:00:00Z' };
   const b = { id: 6, createdAt: '2026-10-27T20:05:00Z' };

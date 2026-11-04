@@ -73,7 +73,9 @@ export function turnNow(combat) {
  * 2 de antes) e o que fica de fora vira "+N".
  * `order: false` (o mestre tirou a "Ordem de iniciativa" da Tela): PJs primeiro,
  * depois os monstros, sem ✓/▶ (só quem age continua destacado).
- * → { rows:[{id, name, kind, state:'acted'|'now'|'todo', mark, down, hp|null, band|null, conditions}], more }
+ * PJ a 0 PV que ainda faz testes contra a morte é `fallen` ("Caído", sem riscar); riscado
+ * (`down`) só quem morreu: monstro/NPC derrotado e PJ com 3 falhas (onda 3, E1.5a).
+ * → { rows:[{id, name, kind, state:'acted'|'now'|'todo', mark, down, fallen, hp|null, band|null, conditions}], more }
  */
 export function initiativeRows(combat, { max = 10, party = true, order = true } = {}) {
   const all = (combat?.combatants || []).filter(Boolean);
@@ -86,15 +88,17 @@ export function initiativeRows(combat, { max = 10, party = true, order = true } 
     const pc = c.type === 'pc';
     const state = i === at ? 'now' : (order && active && i < idx ? 'acted' : 'todo');
     const showHp = pc && party && c.current_hp != null;
+    const fallen = pc && !c.defeated && ((c.current_hp != null && c.current_hp <= 0) || (c.current_hp == null && c.health === 'down'));
     return {
       id: c.id,
       name: c.name || '?',
       kind: pc ? 'pc' : 'monster',
       state,
       mark: !order ? '' : state === 'now' ? '▶' : state === 'acted' ? '✓' : '',
-      down: !!c.defeated || c.health === 'down' || (pc && c.current_hp != null && c.current_hp <= 0),
+      down: pc ? !!c.defeated : (!!c.defeated || c.health === 'down'),
+      fallen,
       hp: showHp ? { cur: c.current_hp, max: c.stats?.max_hp ?? null, temp: c.temp_hp || 0 } : null,
-      band: showHp ? null : (c.health || 'unhurt'),
+      band: showHp ? null : (fallen ? 'fallen' : c.health || 'unhurt'),
       conditions: Array.isArray(c.conditions) ? c.conditions : [],
     };
   });

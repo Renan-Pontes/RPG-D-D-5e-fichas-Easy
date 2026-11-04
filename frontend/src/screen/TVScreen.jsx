@@ -423,14 +423,14 @@ function InitiativeOrder({ combat, party, order, portraitOf, lang }) {
     <ol className={`tv-order ${order ? '' : 'is-plain'}`} aria-label={order ? t(lang, 'Ordem de iniciativa', 'Initiative order') : t(lang, 'No combate', 'In combat')}
       style={{ '--rows': rows.length + (more ? 1 : 0) }}>
       {rows.map(r => (
-        <li key={r.id} className={`tv-order-row is-${r.state} is-${r.kind} ${r.down ? 'is-down' : ''}`} aria-current={r.state === 'now' ? 'true' : undefined}>
+        <li key={r.id} className={`tv-order-row is-${r.state} is-${r.kind} ${r.down ? 'is-down' : ''} ${r.fallen ? 'is-fallen' : ''}`} aria-current={r.state === 'now' ? 'true' : undefined}>
           <span className="tv-order-mark" aria-hidden="true">{r.mark}</span>
           <ArtThumb src={portraitOf(byId.get(r.id) || {})} emoji={r.kind === 'pc' ? (r.name || '?').charAt(0).toUpperCase() : '👹'} size={36} round lang={lang} className="tv-order-pic" />
           <OrderName name={r.name} />
           {r.hp ? (
             <span className={`tv-order-hp tv-hp-bar tv-hp-${hpToneTv(r.hp.cur, r.hp.max)}`}>
               <span className="tv-hp-fill" style={{ width: `${hpPctTv(r.hp.cur, r.hp.max)}%` }} />
-              <span className="tv-hp-text">{r.down ? healthLabel('down', lang) : `${r.hp.cur}/${r.hp.max ?? '?'}`}{r.hp.temp ? <span className="tv-hp-temp"> +{r.hp.temp}</span> : null}</span>
+              <span className="tv-hp-text">{r.fallen ? healthLabel('fallen', lang) : r.down ? healthLabel('dead', lang) : `${r.hp.cur}/${r.hp.max ?? '?'}`}{r.hp.temp ? <span className="tv-hp-temp"> +{r.hp.temp}</span> : null}</span>
             </span>
           ) : (
             <span className={`tv-order-band tv-foe-${r.band}`}>{healthLabel(r.band, lang)}</span>

@@ -44,7 +44,7 @@ test('tvMode: a frente decide o desenho; sem frente, o fundo', () => {
 
 // ------------------------------------------------------------------ V9: a TV em 16:9
 import { tvLang, lengthClass, turnNow, initiativeRows, partyRow } from '../src/screen/tv-logic.js';
-import { charLine, tvName } from '../src/player/player-model.js';
+import { charLine, healthLabel, tvName } from '../src/player/player-model.js';
 import { nameIds, tName } from '../data/i18n.js';
 
 test('tvLang: a língua da campanha manda; sem ela, a do aparelho', () => {
@@ -87,7 +87,8 @@ test('initiativeRows: ✓ agiu, ▶ a vez; PJ com PV, monstro só com a faixa', 
   assert.equal(more, 0);
   assert.deepEqual(rows.map(r => r.mark), ['✓', '✓', '▶', '', '']);
   assert.deepEqual(rows.map(r => r.state), ['acted', 'acted', 'now', 'todo', 'todo']);
-  assert.equal(rows[0].down, true);
+  // PJ a 0 PV fazendo testes contra a morte: "Caído", sem riscar (E1.5a)
+  assert.deepEqual([rows[0].down, rows[0].fallen], [false, true]);
   assert.deepEqual(rows[1].hp, { cur: 7, max: 7, temp: 2 });
   assert.equal(rows[1].band, null);
   assert.equal(rows[2].hp, null);                 // monstro: nunca PV
@@ -104,6 +105,23 @@ test('initiativeRows: ✓ agiu, ▶ a vez; PJ com PV, monstro só com a faixa', 
   assert.deepEqual(plain.map(r => r.state), ['todo', 'todo', 'todo', 'now', 'todo']);
   // fora de combate ninguém agiu nem tem a vez
   assert.deepEqual(initiativeRows({ ...FIGHT, active: false }).rows.map(r => r.mark), ['', '', '', '', '']);
+});
+
+test('initiativeRows: riscado só quem morreu (monstro derrotado, PJ com 3 falhas)', () => {
+  const fight = { active: true, round: 1, turnIndex: 0, combatants: [
+    { id: 'p', type: 'pc', name: 'Pipo', current_hp: 0, stats: { max_hp: 9 }, health: 'down', death_saves: { success: 1, fail: 2 } },
+    { id: 'k', type: 'pc', name: 'Kaelor', current_hp: 0, stats: { max_hp: 11 }, health: 'down', defeated: true },
+    { id: 'g', type: 'monster', name: 'Goblin', health: 'down' },
+    { id: 'o', type: 'monster', name: 'Ogro', health: 'bloodied' },
+  ] };
+  const { rows } = initiativeRows(fight);
+  assert.deepEqual(rows.map(r => [r.id, r.down, r.fallen]), [['p', false, true], ['k', true, false], ['g', true, false], ['o', false, false]]);
+  // sem o PV do grupo na Tela: a faixa do PJ caído diz "Caído", não "Derrotado"
+  const hidden = initiativeRows(fight, { party: false }).rows;
+  assert.equal(hidden[0].band, 'fallen');
+  assert.equal(hidden[2].band, 'down');
+  assert.equal(healthLabel('fallen', 'pt'), 'Caído');
+  assert.equal(healthLabel('down', 'pt'), 'Derrotado');
 });
 
 test('initiativeRows: até 10 + "+N", com a vez sempre à vista', () => {

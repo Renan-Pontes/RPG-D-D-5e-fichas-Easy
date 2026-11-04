@@ -141,6 +141,9 @@ export function testsBadge(counts, lang = 'pt') {
  */
 export function momentCounters({ checks = 0, rolls = 0, approvals = 0, levelups = null, dangers = 0 } = {}, lang = 'pt') {
   const out = [];
+  // o perigo ("Pipo a 0 PV") vem primeiro: no celular a fila corre de lado e o último chip
+  // ficava cortado na borda (onda 3, E1.5b)
+  if (dangers) out.push({ id: 'dangers', n: dangers, icon: '⚠', label: tt(lang, dangers === 1 ? 'perigo' : 'perigos', dangers === 1 ? 'danger' : 'dangers') });
   if (checks) out.push({ id: 'checks', n: checks, icon: '🎯', label: tt(lang, checks === 1 ? 'teste' : 'testes', checks === 1 ? 'check' : 'checks') });
   if (rolls) out.push({ id: 'rolls', n: rolls, icon: '🎲', label: tt(lang, rolls === 1 ? 'pedido' : 'pedidos', rolls === 1 ? 'request' : 'requests') });
   if (approvals) {
@@ -149,7 +152,6 @@ export function momentCounters({ checks = 0, rolls = 0, approvals = 0, levelups 
       label: level ? tt(lang, approvals === 1 ? 'nível' : 'níveis', approvals === 1 ? 'level-up' : 'level-ups')
         : tt(lang, approvals === 1 ? 'aprovação' : 'aprovações', approvals === 1 ? 'approval' : 'approvals') });
   }
-  if (dangers) out.push({ id: 'dangers', n: dangers, icon: '⚠', label: tt(lang, dangers === 1 ? 'perigo' : 'perigos', dangers === 1 ? 'danger' : 'dangers') });
   return out;
 }
 

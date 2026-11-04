@@ -454,6 +454,8 @@
 .tv-foe-hurt { color: var(--gold); }
 .tv-foe-bloodied { color: var(--blood-bright); }
 .tv-foe-down { color: var(--tv-ink-soft); }
+/* PJ a 0 PV fazendo testes contra a morte: "Caído" em vermelho, sem riscar o nome (E1.5a) */
+.tv-foe-fallen, .tv-order-row.is-fallen .tv-hp-text { color: var(--blood-bright); font-weight: 600; }
 
 /* Combate: cartão do Mundo pequeno (TV de antes do palco) */
 .tv-mini-card {
