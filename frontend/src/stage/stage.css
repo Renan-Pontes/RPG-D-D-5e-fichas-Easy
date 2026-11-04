@@ -319,8 +319,13 @@
 }
 @media (min-width: 768px) and (max-width: 1023px) {
   .turn-strip { grid-template-columns: minmax(0, 1fr) auto; }
-  .turn-strip:has(.turn-strip-back) { grid-template-columns: minmax(0, 1fr) auto auto; }
   .turn-strip-ribbon { grid-column: 1 / -1; grid-row: 2; }
+  /* ↶ Voltar turno na 2ª linha, à esquerda da fita: na 1ª ficava colado ao Próximo (12 px) */
+  .turn-strip:has(.turn-strip-back) { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .turn-strip:has(.turn-strip-back) .turn-strip-who { grid-column: 1 / 3; grid-row: 1; }
+  .turn-strip:has(.turn-strip-back) .turn-strip-next { grid-column: 3; grid-row: 1; }
+  .turn-strip:has(.turn-strip-back) .turn-strip-back { grid-column: 1; grid-row: 2; }
+  .turn-strip:has(.turn-strip-back) .turn-strip-ribbon { grid-column: 2 / -1; grid-row: 2; }
 }
 
 /* ---------- janela da Tela (PC) ---------- */
