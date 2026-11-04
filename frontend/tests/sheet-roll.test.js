@@ -278,3 +278,31 @@ test('envio: servidor lento — o que esperou mais de 6 s na fila não vai (a Te
   assert.equal(net.arrivals.length, 1);                               // o 2º nem saiu
   assert.ok(STALE_MS < 4000 + 2500 + RESP_GAP_MS);
 });
+
+// Onda 3 (E2.1): a TV não mostra o número antes de o dado parar no aparelho do jogador.
+test('createSettleGate: o envio espera o dado parar (ou a próxima rolagem, ou 4 s)', async () => {
+  const { createSettleGate, SETTLE_MAX_MS } = await import('../src/dice/sheet-roll.js');
+  const timers = new Map();
+  let tid = 0;
+  const gate = createSettleGate({
+    setTimer: (fn, ms) => { tid += 1; timers.set(tid, { fn, ms }); return tid; },
+    clearTimer: (id) => { timers.delete(id); },
+  });
+  const sent = [];
+  gate.hold('a', () => sent.push('a'));
+  assert.deepEqual(sent, [], 'rolando: nada sai');
+  assert.equal(gate.pending(), 1);
+  assert.equal([...timers.values()][0].ms, SETTLE_MAX_MS);
+  assert.equal(gate.settle('a'), true);
+  assert.deepEqual(sent, ['a'], 'parou: sai');
+  assert.equal(gate.settle('a'), false, 'uma vez só');
+  assert.equal(timers.size, 0, 'a garantia foi desarmada');
+  // outra rolagem antes de a 1ª parar: a 1ª sai na hora
+  gate.hold('b', () => sent.push('b'));
+  gate.hold('c', () => sent.push('c'));
+  assert.deepEqual(sent, ['a', 'b']);
+  // a garantia: a animação falhou
+  [...timers.values()].at(-1).fn();
+  assert.deepEqual(sent, ['a', 'b', 'c']);
+  assert.equal(gate.pending(), 0);
+});

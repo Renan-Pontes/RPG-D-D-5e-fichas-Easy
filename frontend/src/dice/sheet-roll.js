@@ -25,6 +25,9 @@
 // contado pela hora em que o pedido CHEGA; esperar a resposta garante a folga mesmo
 // quando a rede atrasa um e não o outro). Ataque e dano tocados em seguida vão os
 // dois; o que esperou demais (a Tela já passou dele) fica só no aparelho.
+// Onda 3 (E2.1): a rolagem só sai DEPOIS de o dado parar no aparelho do jogador
+// (createSettleGate): a TV mostra o cartão grande com o nome e nunca entrega o número
+// antes de ele aparecer aqui. Sem animação, sai na hora.
 // Lógica pura aqui (sem React); testada em tests/sheet-roll.test.js.
 
 export const GAP_MS = 1200;
@@ -35,6 +38,7 @@ export const RECHECK_MS = 30_000;
 export const MAX_DICE = 20;
 export const MAX_MOD = 50;
 export const MAX_LABEL = 120;
+export const SETTLE_MAX_MS = 4000;   // o dado 3D para em ~1,5 s; 4 s é a garantia se a animação falhar
 const SIDES = [4, 6, 8, 10, 12, 20, 100];
 
 const local = () => (typeof localStorage !== 'undefined' ? localStorage : null);
@@ -227,5 +231,33 @@ export function createSender({
     }).finally(() => { waiting -= 1; });
     turn = run.catch(() => {});
     return run;
+  };
+}
+
+/**
+ * O envio espera o dado PARAR no aparelho (onda 3, E2.1). `hold(id, send)` guarda o
+ * envio de uma rolagem cuja animação começou; `settle(id)` (o dado parou, ou o jogador
+ * fechou o resultado) manda. Uma rolagem nova antes de a anterior parar manda a anterior
+ * na hora (o resultado dela saiu da tela), e `maxMs` depois manda de qualquer jeito (a
+ * animação falhou, a aba foi escondida). Cada envio sai uma vez só.
+ */
+export function createSettleGate({ maxMs = SETTLE_MAX_MS, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
+  const held = new Map();   // id → {send, timer}
+  const run = (id) => {
+    const h = held.get(id);
+    if (!h) return false;
+    held.delete(id);
+    clearTimer(h.timer);
+    try { h.send(); } catch { /* o envio cuida dos próprios erros */ }
+    return true;
+  };
+  return {
+    hold(id, send) {
+      for (const other of [...held.keys()]) if (other !== id) run(other);
+      if (held.has(id)) clearTimer(held.get(id).timer);
+      held.set(id, { send, timer: setTimer(() => run(id), maxMs) });
+    },
+    settle: run,
+    pending: () => held.size,
   };
 }

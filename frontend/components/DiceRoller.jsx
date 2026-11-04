@@ -28,6 +28,9 @@
  *   🔒 Só eu" (o mesmo da faixa da campanha na ficha, lembrado por personagem; Só eu
  *   nunca sai do aparelho); a linha abaixo dos dados diz "📺 Na Tela ✓" quando chegou
  *   ou, discreto, "não foi para a Tela". O "PV de nível" (LevelUpModal) não vai.
+ *   Onda 3 (E2.1): o envio sai quando o dado PARA aqui (onSettled do overlay, ou ao
+ *   fechar o resultado; sem animação, na hora) — a TV, que agora mostra a rolagem do
+ *   jogador num cartão grande, nunca entrega o número antes do aparelho dele.
  */
 import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from 'react';
 import Icon from './Icons.jsx';
@@ -41,7 +44,7 @@ import {
 } from '../src/dice/dice-table.js';
 import { api } from '../src/api/client.js';
 import {
-  createSender, getSheetRolls, maybeRecheck, noteFor, planSheetRoll, setSheetSecret, subscribeSheetRolls,
+  createSender, createSettleGate, getSheetRolls, maybeRecheck, noteFor, planSheetRoll, setSheetSecret, subscribeSheetRolls,
 } from '../src/dice/sheet-roll.js';
 import {
   getAnimPref, setAnimPref, loadHistory, saveHistory, loadRecentFormulas, saveRecentFormulas,
@@ -53,6 +56,8 @@ const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const ANIM_NEXT = { '3d': '2d', '2d': 'off', off: '3d' };
 // Um envio para o app inteiro (espaça os POSTs da ficha; nunca tenta de novo).
 const sheetSend = createSender({ post: (characterId, body) => api.sheetRoll(characterId, body) });
+// …que só sai quando o dado para na tela do jogador (E2.1).
+const sheetGate = createSettleGate();
 
 function nowLabel(lang) {
   return new Date().toLocaleTimeString(lang === 'pt' ? 'pt-BR' : 'en-US', { hour: '2-digit', minute: '2-digit' });
@@ -125,9 +130,10 @@ const DiceRoller = ({ lang }) => {
 
   // Mostra um resultado pronto (overlay 3D/2D ou pop discreto) e registra no histórico.
   const present = useCallback((entry) => {
-    const full = { id: Date.now() + Math.random(), ts: nowLabel(lang), ...entry };
+    const animated = effectiveAnimMode(animPref) !== 'off';
+    const full = { id: Date.now() + Math.random(), ts: nowLabel(lang), ...entry, animated };
     setLog(prev => [full, ...prev].slice(0, 30));
-    if (effectiveAnimMode(animPref) === 'off') {
+    if (!animated) {
       // Sem animação o resultado aparece na hora: o tremor do crítico vem junto.
       if (navigator.vibrate) navigator.vibrate(full.isCrit ? [60, 40, 100] : 30);
       setOverlay(null);
@@ -157,10 +163,12 @@ const DiceRoller = ({ lang }) => {
     // quando a faixa pergunta se ele religou ou começou a sessão
     if (plan.skip === 'off' || plan.skip === 'idle') { maybeRecheck(); return; }
     if (!plan.body) return;
-    sheetSend(ctx.characterId, plan.body).then((outcome) => {
+    const send = () => sheetSend(ctx.characterId, plan.body).then((outcome) => {
       const note = noteFor(outcome);
       if (note) patchEntry(entry.id, { tableNote: note });
     });
+    // a TV só recebe depois de o dado parar aqui (E2.1); sem animação, na hora
+    if (entry.animated) sheetGate.hold(entry.id, send); else send();
   }, [patchEntry]);
 
   const rollParsed = useCallback((parsed, { label, adv = 'normal' } = {}) => {
@@ -636,7 +644,7 @@ const DiceRoller = ({ lang }) => {
 
       {/* === Overlay da rolagem (3D com fallback 2D) === */}
       {overlay && (
-        <div className="dice-overlay no-print" onClick={() => setOverlay(null)} role="status" aria-live="polite">
+        <div className="dice-overlay no-print" onClick={() => { sheetGate.settle(overlay.id); setOverlay(null); }} role="status" aria-live="polite">
           <div className={`dice-overlay-inner ${overlay.settled && overlay.isCrit ? 'is-crit' : ''} ${overlay.settled && overlay.isFumble ? 'is-fumble' : ''}`}>
             <div className={`dice-overlay-label${isFormulaLabel(overlay) ? ' is-formula' : ''}`}>{overlay.who ? `${overlay.who} · ` : ''}{overlay.label}</div>
             <DiceStage
@@ -645,6 +653,7 @@ const DiceRoller = ({ lang }) => {
               tone={overlay.isCrit ? 'crit' : overlay.isFumble ? 'fumble' : null}
               className="dice-overlay-stage"
               onSettled={() => {
+                sheetGate.settle(overlay.id);   // o dado parou: a rolagem da ficha vai à Tela (E2.1)
                 if (overlay.isCrit && navigator.vibrate) navigator.vibrate([60, 40, 100]);
                 setOverlay(prev => (prev && prev.id === overlay.id ? { ...prev, settled: true } : prev));
               }}

@@ -14,8 +14,8 @@ import { stageNow } from '../stage/stage-now.js';
 import { conditionsShown, initiativeRows, isDeadScreenLink, lengthClass, partyRow, recapSubtitle, splitNumbered, turnNow, tvLang, tvMode } from './tv-logic.js';
 import { fitAll } from './tv-fit.js';
 import {
-  attackOutcome, bigDuration, createQueue, currentBig, feedNextExpiry, ingest, nextBig, pruneFeed, rollGroups,
-  rollParts, rollWho, saveHead, showsSum,
+  attackOutcome, bigDuration, bigSize, createQueue, currentBig, histNextExpiry, histParts, ingest, nextBig, pruneHist,
+  rollGroups, rollWho, saveHead, showsSum,
 } from './roll-queue.js';
 import { abilityLabel, damageTypeLabel } from '../combat/monster-i18n.js';
 
@@ -79,10 +79,13 @@ const CONDITIONS = {
 // Rolagens (V10, roll-queue.js): o /api/screen traz a janela das rolagens públicas
 // dos últimos 90 s pelo relógio do servidor (`rolls` + `now`, fora do ETag). Ao
 // abrir, tudo é "visto" (nada reprisado); o que chega depois entra em FILA: o
-// dado grande no centro (só com menos de 10 s; 8 s cada, 4 s com fila) e o resto
-// no FEED do canto de baixo à esquerda (até 4 linhas, somem 12 s depois de chegar;
-// o relógio delas para enquanto o dado grande as esconde). No feed, só o rótulo
-// ganha reticências: o resultado fica sempre inteiro.
+// cartão grande no centro (só com menos de 10 s; 8 s cada, 4 s com fila). Onda 3
+// (E2.1): as dos jogadores também (o cartão um pouco menor, 6 s) e, depois do
+// cartão, cada rolagem fica nas ÚLTIMAS ROLAGENS — as 5 mais novas, nome e total
+// em ≥ 22 px numa TV 1280×720, no canto de baixo à esquerda (no combate, em cima
+// do mapa: a ordem de iniciativa fica livre) —, que somem 2 min depois da última.
+// A ficha só manda a rolagem quando o dado para no aparelho do jogador
+// (components/DiceRoller.jsx): a TV nunca entrega o número antes dele.
 // Servidor antigo (sem `rolls`): a regra de antes (`publicRolls[0]`, < 20 s).
 const IS_PREVIEW = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1';
 function tvTab() {
@@ -103,7 +106,7 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
   const lang = tvLang(campaignLang, deviceLang);
   const langRef = useRef(lang);
   langRef.current = lang;
-  // Rolagens: a fila (dado grande + feed); `legacyRoll` é o dado de um servidor antigo.
+  // Rolagens: a fila (cartão grande + Últimas rolagens); `legacyRoll` é o dado de um servidor antigo.
   const [queue, setQueue] = useState(createQueue);
   const queueRef = useRef(queue);
   const [legacyRoll, setLegacyRoll] = useState(null);
@@ -168,8 +171,8 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
 
   usePolling(load, 2000, [token]);
 
-  // A fila anda: o dado grande dura 8 s (4 s com outra esperando; conta desde que
-  // apareceu); o feed perde cada linha 12 s depois de chegar.
+  // A fila anda: o cartão dura 8 s (6 s o do jogador; 4 s com outro esperando; conta
+  // desde que apareceu) e vai para as Últimas rolagens, que somem 2 min depois da última.
   const big = currentBig(queue) || legacyRoll;
   const busy = (queue.big?.length || 0) > 1;
   const bigShownAt = useRef(0);
@@ -186,10 +189,10 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
     return () => clearTimeout(id);
   }, [big?.id, busy]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const wait = feedNextExpiry(queue, Date.now());
+    const wait = histNextExpiry(queue, Date.now());
     if (wait == null) return undefined;
     const id = setTimeout(() => {
-      const q = pruneFeed(queueRef.current, Date.now());
+      const q = pruneHist(queueRef.current, Date.now());
       if (q !== queueRef.current) { queueRef.current = q; setQueue(q); }
     }, wait + 50);
     return () => clearTimeout(id);
@@ -245,6 +248,8 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
   const showKey = stg ? frontKey : cardKey(card);
   const inCombat = mode === 'combat';
   const dark = mode === 'dark';
+  // Últimas rolagens: à vista sem cartão grande por cima (nem com a Tela escurecida)
+  const showHist = !dark && !big && queue.hist.length > 0;
   const test = dark ? null : (stage ? stage.overlays?.test : data.publicCheck) || null;
   const prefs = stage?.prefs || {};
   const state = data.state || {};
@@ -288,7 +293,7 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
     <div className="tv-frame">
       <div
         ref={screenRef}
-        className={`tv-screen tv-mode-${mode} ${big && !dark ? 'has-roll-overlay' : ''} ${stg?.over ? 'is-over-combat' : ''} ${test ? 'has-test' : ''}`}
+        className={`tv-screen tv-mode-${mode} ${big && !dark ? 'has-roll-overlay' : ''} ${showHist ? 'has-roll-hist' : ''} ${stg?.over ? 'is-over-combat' : ''} ${test ? 'has-test' : ''}`}
         style={accent ? { '--tv-accent': accent } : undefined}
         lang={lang}
       >
@@ -388,11 +393,11 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
 
         {error && <div className="tv-offline" role="status">{t(lang, 'Reconectando…', 'Reconnecting…')}</div>}
 
-        {/* Feed: as rolagens pequenas no canto (texto de verdade; crítico com filete dourado) */}
-        {!dark && queue.feed.length > 0 && <RollFeed rolls={queue.feed} lang={lang} />}
-        {/* O dado grande — um por vez, em fila */}
+        {/* Últimas rolagens: as 5 mais novas no canto (texto de verdade; 20 com filete dourado) */}
+        {showHist && <RollHistory rolls={queue.hist} lang={lang} />}
+        {/* O cartão grande — um por vez, em fila (o do jogador um pouco menor) */}
         {big && !dark && (
-          <DramaticRollOverlay key={big.id} roll={big} lang={lang} quick={busy}
+          <DramaticRollOverlay key={big.id} roll={big} lang={lang} quick={busy} small={!legacyRoll && bigSize(big) === 'small'}
             onDone={() => { bigShownAt.current = 0; advance(big.id); }} />
         )}
       </div>
@@ -678,25 +683,27 @@ function ConditionChip({ cond, lang }) {
 const ROLL_LABELS = (lang) => ({ damageLabel: (ty) => damageTypeLabel(ty, lang), abilityLabel: (a) => abilityLabel(a, lang) });
 
 /**
- * O feed (V10): até 4 linhas pequenas no canto de baixo à esquerda. O rótulo (quem e
- * o quê) vai até 2 linhas com reticências; o resultado (total, "ACERTA · 6 cortante",
- * os alvos da salvaguarda) nunca é cortado.
+ * As Últimas rolagens (onda 3, E2.1): as 5 mais novas, a mais nova embaixo, lidas a
+ * 3 m — nome e total em ≥ 22 px numa TV 1280×720. Só o rótulo (o quê) ganha
+ * reticências; o nome e o resultado ficam inteiros. Some 2 min depois da última.
  */
-function RollFeed({ rolls, lang }) {
-  const labels = ROLL_LABELS(lang);
+function RollHistory({ rolls, lang }) {
   return (
-    <ul className="tv-roll-feed" aria-label={t(lang, 'Rolagens', 'Rolls')} aria-live="polite">
-      {rolls.map(r => {
-        const { head, tail } = rollParts(r, lang, labels);
-        return (
-          <li key={r.id} className={`tv-feed-item ${r.kind === 'save' ? 'is-save' : ''} ${r.crit ? 'is-crit' : ''} ${r.fail ? 'is-fail' : ''}`}>
-            <span className="tv-feed-ico" aria-hidden="true">🎲</span>
-            <span className="tv-feed-text">{head}</span>
-            {tail && <span className="tv-feed-res">{tail}</span>}
-          </li>
-        );
-      })}
-    </ul>
+    <section className="tv-roll-hist" aria-label={t(lang, 'Últimas rolagens', 'Latest rolls')} aria-live="polite">
+      <h2 className="tv-hist-title">🎲 {t(lang, 'Últimas rolagens', 'Latest rolls')}</h2>
+      <ol className="tv-hist-list">
+        {rolls.map((r, i) => {
+          const { who, what, result, mark } = histParts(r, lang);
+          return (
+            <li key={r.id} className={`tv-hist-item ${mark ? `is-${mark}` : ''} ${i === rolls.length - 1 ? 'is-new' : ''}`}>
+              <span className="tv-hist-who">{who}</span>
+              {what && <span className="tv-hist-what">{what}</span>}
+              <span className="tv-hist-res">{result}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
@@ -714,7 +721,7 @@ function SaveName({ name }) {
  * Ataque de monstro: só o d20 natural (sem o bônus) e "ACERTA · 6 cortante".
  * Salvaguarda em área: o resumo por alvo (sem dados: o d20 entregaria o bônus).
  */
-function DramaticRollOverlay({ roll, lang, onDone, quick = false }) {
+function DramaticRollOverlay({ roll, lang, onDone, quick = false, small = false }) {
   const isSave = roll.kind === 'save';
   const groups = rollGroups(roll);
   const [phase, setPhase] = useState(isSave || !groups.length ? 'reveal' : 'rolling'); // 'rolling' → 'reveal'
@@ -730,7 +737,7 @@ function DramaticRollOverlay({ roll, lang, onDone, quick = false }) {
   // Brilho dourado/vermelho do crítico/falha só na revelação: antes entregaria o resultado.
   const revealed = phase === 'reveal';
   return (
-    <div className={`tv-roll-overlay phase-${phase} ${revealed && roll.crit ? 'crit' : ''} ${revealed && roll.fail ? 'fail' : ''} ${isSave ? 'is-save' : ''}`} onClick={onDone}>
+    <div className={`tv-roll-overlay phase-${phase} ${revealed && roll.crit ? 'crit' : ''} ${revealed && roll.fail ? 'fail' : ''} ${isSave ? 'is-save' : ''} ${small ? 'is-small' : ''}`} onClick={onDone}>
       <div className="tv-roll-inner">
         <div className="tv-roll-who">{rollWho(roll, lang)}</div>
         <div className="tv-roll-label">{sub}</div>
@@ -751,7 +758,7 @@ function DramaticRollOverlay({ roll, lang, onDone, quick = false }) {
             groups={groups}
             tone={roll.crit ? 'crit' : roll.fail ? 'fumble' : null}
             className="tv-dice-stage"
-            size2d={140}
+            size2d={small ? 112 : 140}
             onSettled={() => setPhase('reveal')}
           />
         )}
