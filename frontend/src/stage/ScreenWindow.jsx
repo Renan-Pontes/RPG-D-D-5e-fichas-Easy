@@ -12,7 +12,8 @@
 // abre a janela já em "ao vivo".
 // Fora de Jogar, com o combate andando, a janela ganha "Próximo turno →" (onda 3, E1.6d),
 // como a barra da mesa do celular: o Próximo protegido da loja (expect, 1 por vez, 400 ms
-// sem aceitar toque quando muda de sentido). Em Jogar o Próximo mora na faixa do topo.
+// sem aceitar toque quando muda de sentido). Em Jogar o Próximo mora na faixa do topo. Sem
+// aria-keyshortcuts aqui: a tecla N só passa a vez dentro de Jogar (CampaignDetail).
 // <DockedScreen> é a mesma janela ENCAIXADA (não flutua; sem ⇆ – ✕): no topo da
 // coluna da direita em Jogar › Agora; em Jogar › Combate, numa 3ª coluna estreita
 // a partir de 1280 px e, de 1024 a 1279, na forma `compact` (uma linha com a
@@ -105,7 +106,7 @@ export default function ScreenWindow({ campaign, lang = 'pt', corner = 'right', 
         {withNext && (
           <button type="button" className="mesa-btn is-primary screen-win-next" disabled={busy}
             onClick={() => { if (armed() && !busy) table?.nextTurn(); }}
-            aria-label={busy ? L(lang, 'Enviando…', 'Sending…') : L(lang, 'Próximo turno', 'Next turn')} aria-keyshortcuts="N">
+            aria-label={busy ? L(lang, 'Enviando…', 'Sending…') : L(lang, 'Próximo turno', 'Next turn')}>
             {busy ? '…' : <>{L(lang, 'Próximo turno', 'Next turn')} <span aria-hidden="true">→</span></>}
           </button>
         )}
