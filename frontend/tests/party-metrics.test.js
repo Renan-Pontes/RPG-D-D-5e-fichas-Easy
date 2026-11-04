@@ -311,3 +311,23 @@ test('Ajustar no aparelho: o merge local é o do servidor e os patches pendentes
   assert.deepEqual(Object.keys(I.mergeInsights(server, ivan).base), ['cleric']);
   assert.deepEqual(I.expandResets({ dismissed: null }, I.withDefaults({})).dismissed, {}, 'mapa vazio: nada a apagar');
 });
+
+test('Ajustar no servidor de antes (v 1): sem o passo de 0,1, que ele gravaria como "Só a ficha"', async () => {
+  const I = await import('../src/group/insights-api.js');
+  // o servidor de agora guarda os 6 passos, com o "Quase só a ficha" como padrão
+  const now = I.withDefaults({ v: 2, w: 0.1 });
+  assert.equal(I.isOldInsights(now), false);
+  assert.equal(I.isOldInsights(I.withDefaults({})), false, 'sem resposta: vale o de agora');
+  assert.deepEqual(I.weightSteps(false).map(s => s.w), [1, 0.75, 0.5, 0.25, 0.1, 0]);
+  assert.equal(I.weightSteps(false).find(s => s.def).w, 0.1);
+  // o de antes devolve v 1 e o meio a meio; arredonda w para quartos (round(0,4) = 0)
+  const old = I.withDefaults({ v: 1, w: 0.5 });
+  assert.equal(I.isOldInsights(old), true);
+  const steps = I.weightSteps(true);
+  assert.deepEqual(steps.map(s => s.w), [1, 0.75, 0.5, 0.25, 0]);
+  for (const s of steps) assert.equal(Math.round(s.w * 4) / 4, s.w, `${s.w} sobrevive ao servidor de antes`);
+  assert.deepEqual(steps.filter(s => s.def).map(s => [s.w, s.label[0]]), [[0.5, 'Meio a meio (padrão)']]);
+  // "Restaurar padrão" mostra já o que o servidor de antes vai devolver
+  assert.equal(I.mergeInsights(I.withDefaults({ v: 1, w: 0.25 }), I.RESET_PATCH).w, 0.5);
+  assert.equal(I.mergeInsights(I.withDefaults({ v: 2, w: 0.25 }), I.RESET_PATCH).w, 0.1);
+});

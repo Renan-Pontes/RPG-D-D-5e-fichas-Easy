@@ -5,20 +5,10 @@ import { useId, useMemo, useState } from 'react';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import { tName } from '../../data/i18n.js';
 import * as PM from './party-metrics.js';
-import { RESET_PATCH } from './insights-api.js';
+import { isOldInsights, RESET_PATCH, weightSteps } from './insights-api.js';
 import { searchMonsters } from './versus.js';
 
 const t = PM.t;
-// Tabela · · · Ficha (w = confiança na tabela: 1 só a tabela, 0 só a ficha). O padrão é
-// 10% tabela / 90% ficha (PM.W_DEFAULT; o porquê está lá).
-const W_STEPS = [
-  { w: 1, label: ['Só a tabela', 'Table only'] },
-  { w: 0.75, label: ['Mais a tabela', 'Mostly the table'] },
-  { w: 0.5, label: ['Meio a meio', 'Half and half'] },
-  { w: 0.25, label: ['Mais a ficha', 'Mostly the sheet'] },
-  { w: 0.1, label: ['Quase só a ficha (padrão)', 'Almost only the sheet (default)'] },
-  { w: 0, label: ['Só a ficha', 'Sheet only'] },
-];
 /** "10% tabela de classes · 90% ficha" (a nota final de cada eixo). */
 export const weightText = (w, lang) => {
   const tab = Math.round((w ?? PM.W_DEFAULT) * 100);
@@ -65,6 +55,10 @@ export function AdjustSheet({ settings, update, lang, readOnly, saveLine, onClos
     update({ hidden });
   };
   const dis = readOnly;
+  // Tabela · · · Ficha: os passos que o servidor guarda (o de antes não guarda o 0,1)
+  const oldServer = isOldInsights(settings);
+  const steps = weightSteps(oldServer);
+  const stepNow = steps.find(s => s.w === settings.w) || steps.find(s => s.def);
   return (
     <MesaSheet title={t(lang, 'Ajustar o Raio-X', 'Adjust the X-ray')} icon="⚙" size="tall" width="md" lang={lang} onClose={onClose}
       footer={<div className="ins-sheet-foot"><span className="ins-save-line" role="status">{saveLine}</span>
@@ -76,14 +70,15 @@ export function AdjustSheet({ settings, update, lang, readOnly, saveLine, onClos
         <p className="ins-adj-help">{t(lang, 'A tabela diz o que a classe costuma fazer; a ficha diz o que este personagem faz hoje.', 'The table says what the class usually does; the sheet says what this character does today.')}</p>
         <div className="ins-steps" role="radiogroup" aria-labelledby={wId}>
           <span className="ins-steps-end" aria-hidden="true">{t(lang, 'Tabela', 'Table')}</span>
-          {W_STEPS.map(s => (
+          {steps.map(s => (
             <button key={s.w} type="button" role="radio" aria-checked={settings.w === s.w} disabled={dis}
               className={`ins-step ${settings.w === s.w ? 'is-on' : ''}`} aria-label={PM.t(lang, ...s.label)}
               onClick={() => update({ w: s.w })}><span aria-hidden="true" /></button>
           ))}
           <span className="ins-steps-end" aria-hidden="true">{t(lang, 'Ficha', 'Sheet')}</span>
         </div>
-        <p className="ins-adj-now">{PM.t(lang, ...(W_STEPS.find(s => s.w === settings.w)?.label || W_STEPS[4].label))} · {weightText(settings.w, lang)}</p>
+        <p className="ins-adj-now">{PM.t(lang, ...stepNow.label)} · {weightText(settings.w, lang)}</p>
+        {oldServer && <p className="ins-note is-warn" role="note">{t(lang, 'Falta atualizar o servidor: o passo "Quase só a ficha" (10% tabela de classes, o padrão novo) ainda não fica guardado.', 'The server needs an update: the "Almost only the sheet" step (10% class table, the new default) is not kept yet.')}</p>}
       </section>
 
       <section className="ins-adj">
