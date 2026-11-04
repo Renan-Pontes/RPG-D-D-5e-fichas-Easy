@@ -694,6 +694,32 @@ def _scene_check(v):
     return out
 
 
+# 💰 Tesouro da cena solta (a cena ligada guarda o dela na sala, node.treasure): o mesmo
+# formato da sala ({items: [item], coins: {cp…pp}}), mais curto — até 10 itens, cada um
+# sem imagens, com as descrições cortadas e no máximo 3 KB (o plano inteiro tem 60 KB).
+SCENE_COINS = ('cp', 'sp', 'ep', 'gp', 'pp')
+MAX_SCENE_ITEMS = 10
+MAX_SCENE_ITEM_BYTES = 3_000
+
+
+def _scene_treasure(v):
+    if not isinstance(v, dict):
+        return {'items': [], 'coins': {}}
+    items = []
+    for it in (v.get('items') if isinstance(v.get('items'), list) else [])[:MAX_SCENE_ITEMS]:
+        if not isinstance(it, dict) or not text(it.get('name'), 120):
+            continue
+        item = _snap_value(it)
+        item['name'] = text(it.get('name'), 120)
+        item['qty'] = to_int(it.get('qty'), 1, 999, 1)
+        if json_size(item) > MAX_SCENE_ITEM_BYTES:
+            _bad('scene_item_too_large')
+        items.append(item)
+    raw = v.get('coins') if isinstance(v.get('coins'), dict) else {}
+    coins = {k: to_int(raw.get(k), 0, 10_000_000, 0) for k in SCENE_COINS}
+    return {'items': items, 'coins': {k: n for k, n in coins.items() if n}}
+
+
 SCENE_POCKETS = {
     'what': lambda v: long_text(v, 500),
     'read': lambda v: long_text(v, 1000),
@@ -704,6 +730,7 @@ SCENE_POCKETS = {
     'refs': lambda v: _id_list(v, 8),
     'fight': _scene_fight,
     'check': _scene_check,
+    'treasure': _scene_treasure,
     'spots': lambda v: [x for x in v[:20] if isinstance(x, str) and SPOT_RE.match(x)][:4] if isinstance(v, list) else [],
     'notes': lambda v: long_text(v, 1000),
 }

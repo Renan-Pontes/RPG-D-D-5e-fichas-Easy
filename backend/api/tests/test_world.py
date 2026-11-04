@@ -557,6 +557,32 @@ class SessionPlanTests(WorldBase):
         self.assertEqual(c1['spots'], ['ok-1', 'a', 'b', 'c'])   # até 4, só os ids que valem
         self.assertNotIn('junk', c1)
 
+    def test_scene_treasure_pocket(self):
+        # 💰 o tesouro da cena solta (onda 3): o formato da sala, mais curto, e um app antigo não o apaga
+        item = {'id': 'i1', 'name': '  Lâmina da Maré ', 'qty': 0, 'art': 'data:image/png;base64,AAA',
+                'desc': {'pt': 'x' * 900, 'en': 'y' * 900}}
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'Cofre', 'treasure': {
+            'items': [item, {'name': ''}, 'lixo'] + [{'name': f'Moeda {i}'} for i in range(12)],
+            'coins': {'gp': '120', 'sp': -3, 'xx': 9}}}]}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        tr = r.json()['plan']['scenes'][0]['treasure']
+        self.assertEqual(tr['coins'], {'gp': 120})
+        self.assertEqual(len(tr['items']), 8)                 # os 10 primeiros lidos; o sem nome e o lixo saem
+        first = tr['items'][0]
+        self.assertEqual((first['name'], first['qty']), ('Lâmina da Maré', 1))
+        self.assertNotIn('art', first)                        # sem imagens
+        self.assertEqual(len(first['desc']['pt']), 300)       # descrições cortadas
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'Cofre velho', 'nodeRef': None, 'done': False}]}, format='json')
+        self.assertEqual(r.json()['plan']['scenes'][0]['treasure']['coins'], {'gp': 120})
+        # tirar: a chave vazia
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'Cofre', 'treasure': None}]}, format='json')
+        self.assertEqual(r.json()['plan']['scenes'][0]['treasure'], {'items': [], 'coins': {}})
+        # item grande demais mesmo cortado: 400 com o motivo
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'Cofre', 'treasure': {
+            'items': [{'name': 'Tomo', 'extra': 'z' * 4000}]}}]}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()['error'], 'scene_item_too_large')
+
     def test_custom_monster_snap_in_the_scene(self):
         # "meus monstros" vão no snap: sem imagem, descrições cortadas
         snap = {'id': 'custom-ogro-1', 'custom': True, 'name': {'pt': 'Ogro do Brejo'}, 'ac': 11, 'hp': 59,
