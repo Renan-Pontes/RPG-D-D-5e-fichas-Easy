@@ -35,7 +35,9 @@ const FILTERS = [
   { id: 'all', label: ['Todos', 'All'] },
   { id: 'done', label: ['Aconteceram', 'Happened'] },
 ];
-const SUGGESTIONS_SHOWN = 3;
+// à vista, a 1ª sugestão de cada um (as outras, de tipos diferentes, a 1 toque em "Mais N
+// sugestões"): a página do Raio-X cabe em ≤ 5 telas no celular (F2.6)
+const SUGGESTIONS_SHOWN = 1;
 
 const sessionsText = (n, lang) => (n === 1 ? t(lang, '1 sessão', '1 session') : t(lang, `${n} sessões`, `${n} sessions`));
 export const droughtText = (n, lang) => t(lang, `⚠ sem momento há ${sessionsText(n, lang)}`, `⚠ no moment for ${sessionsText(n, lang)}`);
@@ -52,8 +54,12 @@ export function balanceSub(n, lang) {
 }
 
 /** G8: um cartão por personagem de quem entra. */
-export function Moments({ facts, settings, update, suggestions, session, state = null, balance, lang, readOnly, focusId, filter, setFilter, campaignId, onOpenPlan, historyState, onNear, planScenes = null, onSceneLinked }) {
+export function Moments({ facts, settings, update, suggestions, session, state = null, balance, lang, readOnly, focusId, filter, setFilter, campaignId, onOpenPlan, historyState, onNear, planScenes = null, onSceneLinked, oneAtATime = false }) {
   const [sheet, setSheet] = useState(null);   // {kind:'write'|'scene', id, moment?}
+  // celular (F2.6): um personagem por vez, escolhido nos chips (cada chip diz quantos momentos
+  // e o ⚠); começa no destaque vindo de Jogadores ou em quem está há mais tempo sem momento
+  const [pick, setPick] = useState(null);
+  useEffect(() => { if (focusId != null) setPick(focusId); }, [focusId]);
   const [undo, setUndo] = useState(null);     // {id, text, run}: o "↶ Desfazer" de 6 s
   const ref = useRef(null);
   const latest = useRef(settings);            // o Desfazer mexe na lista de agora, não na do toque
@@ -74,6 +80,10 @@ export function Moments({ facts, settings, update, suggestions, session, state =
     return () => io.disconnect();
   }, [historyState, onNear]);
   const warn = Object.fromEntries((balance?.rows || []).map(r => [r.id, r]));
+  const countOf = (f) => planMomentCount(settings.spotlights?.[String(f.id)] || [], { session: momentSession(state), sceneIds: planScenes }).total;
+  const firstPick = facts.slice().sort((a, b) => (warn[b.id]?.drought || 0) - (warn[a.id]?.drought || 0) || countOf(a) - countOf(b))[0]?.id;
+  const shownId = facts.some(f => f.id === pick) ? pick : firstPick;
+  const cards = oneAtATime ? facts.filter(f => f.id === shownId) : facts;
   const setList = (id, list) => update({ spotlights: { [String(id)]: list } });
   const dismiss = (id, auto) => {
     const key = String(id);
@@ -104,8 +114,23 @@ export function Moments({ facts, settings, update, suggestions, session, state =
         ))}
       </div>
       {readOnly && <p className="ins-note">{t(lang, 'Campanha encerrada: os momentos ficam só para ler.', 'Campaign closed: the moments are read-only.')}</p>}
+      {oneAtATime && facts.length > 1 && (
+        <div className="ins-pair ins-mom-pick" role="group" aria-label={t(lang, 'Momentos de quem', "Whose moments")}>
+          {facts.map(f => {
+            const n = countOf(f);
+            const w = warn[f.id]?.warn;
+            return (
+              <button key={f.id} type="button" className="mesa-chip" aria-pressed={f.id === shownId} onClick={() => setPick(f.id)}
+                aria-label={t(lang, `${f.name}: ${n} momento${n === 1 ? '' : 's'} neste plano${w ? `, ${droughtText(warn[f.id].drought, lang)}` : ''}`,
+                  `${f.name}: ${n} moment${n === 1 ? '' : 's'} in this plan${w ? `, ${droughtText(warn[f.id].drought, lang)}` : ''}`)}>
+                <Dot color={f.color} /> {PM.firstName(f.name)} <span className="ins-mom-pick-n">★ {n}</span>{w && <span className="ins-warn" aria-hidden="true"> ⚠</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div className="ins-mom-grid">
-        {facts.map(f => (
+        {cards.map(f => (
           <MomentCard key={f.id} f={f} lang={lang} readOnly={readOnly} session={session} countSession={momentSession(state)} filter={filter} sceneIds={planScenes}
             list={settings.spotlights?.[String(f.id)] || []} style={settings.style?.[String(f.id)] || []}
             dismissed={settings.dismissed?.[String(f.id)] || []} suggestions={suggestions[f.id] || []}
@@ -176,20 +201,6 @@ function MomentCard({ f, lang, readOnly, session, countSession, filter, sceneIds
           `${count.total} moment${count.total === 1 ? '' : 's'} in this plan${count.noScene ? ` (${count.noScene} with no scene yet)` : ''} · ${doneCount} happened`)}</p>
         {style.length > 0 && <p className="ins-mom-style">{style.map(s => styleLabel(s, lang)).join(' · ')}</p>}
         {row?.warn && <p className="ins-warn ins-mom-warn" role="note">{droughtText(row.drought, lang)}</p>}
-        <button type="button" className="mesa-btn is-quiet ins-style-toggle" aria-expanded={styleOpen} onClick={() => setStyleOpen(o => !o)}>
-          {t(lang, 'Estilo do jogador', 'Player style')} <span aria-hidden="true">{styleOpen ? '▴' : '▾'}</span>
-        </button>
-        {styleOpen && (
-          <div className="ins-style-chips" role="group" aria-label={t(lang, `Estilo de quem joga com ${name}`, `Style of ${name}'s player`)}>
-            {STYLES.map(s => {
-              const on = style.includes(s.id);
-              return (
-                <button key={s.id} type="button" className="mesa-chip" aria-pressed={on} disabled={readOnly}
-                  onClick={() => setStyle(on ? style.filter(x => x !== s.id) : [...style, s.id])}>{styleLabel(s.id, lang)}</button>
-              );
-            })}
-          </div>
-        )}
       </header>
 
       {shown.length > 0 && (
@@ -246,15 +257,28 @@ function MomentCard({ f, lang, readOnly, session, countSession, filter, sceneIds
           ))}
         </ul>
       )}
-      {open.length > SUGGESTIONS_SHOWN && (
-        <button type="button" className="mesa-btn is-quiet ins-more" aria-expanded={more} onClick={() => setMore(v => !v)}>
-          {more ? t(lang, 'Menos sugestões', 'Fewer suggestions') : t(lang, `Mais ${open.length - SUGGESTIONS_SHOWN} sugest${open.length - SUGGESTIONS_SHOWN === 1 ? 'ão' : 'ões'}`, `${open.length - SUGGESTIONS_SHOWN} more suggestion${open.length - SUGGESTIONS_SHOWN === 1 ? '' : 's'}`)}
+      {/* uma fileira só: as outras sugestões, escrever o seu e o estilo do jogador */}
+      <div className="ins-mom-foot">
+        {open.length > SUGGESTIONS_SHOWN && (
+          <button type="button" className="mesa-btn is-quiet ins-more" aria-expanded={more} onClick={() => setMore(v => !v)}>
+            {more ? t(lang, 'Menos sugestões', 'Fewer suggestions') : t(lang, `Mais ${open.length - SUGGESTIONS_SHOWN} sugest${open.length - SUGGESTIONS_SHOWN === 1 ? 'ão' : 'ões'}`, `${open.length - SUGGESTIONS_SHOWN} more suggestion${open.length - SUGGESTIONS_SHOWN === 1 ? '' : 's'}`)}
+          </button>
+        )}
+        {!readOnly && <button type="button" className="mesa-btn" disabled={full} onClick={() => onWrite(null)}>✎ {t(lang, 'Escrever o meu', 'Write my own')}</button>}
+        <button type="button" className="mesa-btn is-quiet ins-style-toggle" aria-expanded={styleOpen} onClick={() => setStyleOpen(o => !o)}>
+          {t(lang, 'Estilo do jogador', 'Player style')} <span aria-hidden="true">{styleOpen ? '▴' : '▾'}</span>
         </button>
-      )}
-      {!readOnly && (
-        <div className="ins-mom-foot">
-          <button type="button" className="mesa-btn" disabled={full} onClick={() => onWrite(null)}>✎ {t(lang, 'Escrever o meu', 'Write my own')}</button>
-          {full && <p className="ins-adj-help">{t(lang, `${name} já tem ${MAX_MOMENTS} momentos: apague um para pôr outro.`, `${name} already has ${MAX_MOMENTS} moments: delete one to add another.`)}</p>}
+      </div>
+      {!readOnly && full && <p className="ins-adj-help">{t(lang, `${name} já tem ${MAX_MOMENTS} momentos: apague um para pôr outro.`, `${name} already has ${MAX_MOMENTS} moments: delete one to add another.`)}</p>}
+      {styleOpen && (
+        <div className="ins-style-chips" role="group" aria-label={t(lang, `Estilo de quem joga com ${name}`, `Style of ${name}'s player`)}>
+          {STYLES.map(s => {
+            const on = style.includes(s.id);
+            return (
+              <button key={s.id} type="button" className="mesa-chip" aria-pressed={on} disabled={readOnly}
+                onClick={() => setStyle(on ? style.filter(x => x !== s.id) : [...style, s.id])}>{styleLabel(s.id, lang)}</button>
+            );
+          })}
         </div>
       )}
     </article>
@@ -369,7 +393,7 @@ function SceneSheet({ lang, campaignId, moment, name, onLinked, onOpenPlan, onCl
 export function Balance({ balance, history, state, onLoad, lang }) {
   const n = balance.sessions.length;
   return (
-    <section className="mesa-panel ins-block ins-balance">
+    <section className="mesa-panel ins-block ins-balance" id="ins-sec-balance">
       <MesaTitle sub={balanceSub(n, lang)}
         hint={<HelpButton lang={lang} title={t(lang, 'Equilíbrio na mesa', 'Table balance')} text={[
           t(lang, 'Todos tiveram o seu momento? A barra conta os momentos marcados como "aconteceu" nas últimas 5 sessões; embaixo, quantos testes você pediu a cada um nas últimas 3.', 'Did everyone get their moment? The bar counts the moments ticked as "it happened" in the last 5 sessions; below, how many checks you asked each one in the last 3.'),

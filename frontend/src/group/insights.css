@@ -78,6 +78,11 @@
 .ins-idea:last-child, .ins-gap:last-child { border-bottom: 0; }
 .ins-idea-text, .ins-gap-text { font-size: 1rem; line-height: 1.35; color: var(--ink-primary); }
 .ins-idea-act { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* PC: as 3 ideias lado a lado (a página do Raio-X cabe em ≤ 4 telas) */
+@media (min-width: 1024px) {
+  .ins-idea-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; }
+  .ins-idea { border-bottom: 0; justify-content: space-between; }
+}
 .ins-plan-ok { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; color: var(--success); font-size: 0.95rem; }
 
 /* ---------------------------------------------------------- G1: papel do grupo */
@@ -185,13 +190,22 @@
 .ins-gap-label { margin: 6px 0 0; font-family: var(--display); font-size: 12px !important; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
 
 /* ---------------------------------------------------------- seções recolhíveis */
-.ins-fold { gap: 0; }
+/* as seções de analista: um painel só, uma linha por seção */
+.ins-folds { display: flex; flex-direction: column; gap: 0; padding-top: 6px; padding-bottom: 6px; }
+.ins-fold { display: flex; flex-direction: column; gap: 0; padding: 4px 0; border-bottom: 1px solid rgba(224, 181, 94, 0.14); min-width: 0; }
+.ins-fold:last-child { border-bottom: 0; }
+.ins-fold.is-open { padding-bottom: 14px; }
+/* recolhida: o título e o resumo de uma linha num botão de 44 px; o "?" ao lado, fora dele */
+.ins-fold-top { display: flex; align-items: center; gap: 6px; }
 .ins-fold-head {
-  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 0;
-  border: 0; background: none; font: inherit; text-align: left; cursor: pointer;
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 0;
+  border: 0; background: none; color: inherit; text-align: left; cursor: pointer;
 }
-.ins-fold-title { flex: 1 1 auto; font-family: var(--display); font-weight: 600; font-size: 1.02rem; letter-spacing: 0.12em; text-transform: uppercase; }
-.ins-fold-ico { color: var(--gold); font-size: 1.1rem; }
+.ins-fold-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ins-fold-title { font-family: var(--display); font-weight: 600; font-size: 1.02rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.ins-fold-sum { font-size: 0.9rem; line-height: 1.3; color: var(--ink-secondary); overflow-wrap: anywhere; }
+.ins-fold.is-open .ins-fold-sum { display: none; }
+.ins-fold-ico { flex: none; color: var(--gold); font-size: 1.1rem; }
 .ins-fold-body { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; min-width: 0; }
 
 /* ---------------------------------------------------------- G4: escolas */
@@ -278,7 +292,7 @@ ul.ins-legend { margin: 0; padding: 0; list-style: none; }
 .ins-mom-name { margin: 0; display: flex; align-items: center; gap: 8px; font-family: var(--display); font-size: 1rem !important; font-weight: 600; letter-spacing: 0.06em; color: var(--ink-primary); overflow-wrap: anywhere; }
 .ins-mom-count, .ins-mom-style { font-size: 0.9rem; color: var(--ink-secondary); }
 .ins-mom-warn { font-size: 0.95rem; }
-.ins .ins-style-toggle { align-self: flex-start; padding-left: 0; padding-right: 8px; }
+.ins .ins-style-toggle { padding-left: 8px; padding-right: 8px; }
 .ins-style-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .ins-mom-list, .ins-sug-list, .ins-scene-list, .ins-bal-rows { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
 .ins-mom { display: flex; align-items: flex-start; gap: 10px; min-height: 56px; padding: 6px 0; border-bottom: 1px solid rgba(224, 181, 94, 0.12); }
@@ -305,7 +319,8 @@ ul.ins-legend { margin: 0; padding: 0; list-style: none; }
 .ins-sug-text { color: var(--ink-secondary); }
 .ins-sug-detail { margin: 2px 0 0; font-size: 0.85rem; color: var(--ink-muted); }
 .ins-sug-tag { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted); }
-.ins-mom-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.ins-mom-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ins-mom-foot .ins-more { margin: 0; }
 /* Momentos: alvos de 48 px (§6.6) — filtro, Aceitar, Dispensar, → Cena, ⋯, Escrever, Mais, estilo */
 .ins-moments :is(.mesa-btn, .mesa-chip, .grp-more-btn, .grp-more-item) { min-height: 48px; }
 .ins-moments .grp-more-btn { min-width: 48px; }
@@ -336,13 +351,25 @@ ul.ins-legend { margin: 0; padding: 0; list-style: none; }
 @media (hover: hover) { .ins-scene-row:hover { background: var(--gold-soft); } }
 
 /* ---------------------------------------------------------- G9: equilíbrio na mesa */
-.ins-bal-row { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; border-bottom: 1px solid rgba(224, 181, 94, 0.12); }
+/* uma pessoa por linha no PC (nome · momentos · testes · aviso); no celular, 2 linhas: o nome
+   com o aviso, e as duas barras lado a lado */
+.ins-bal-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "name warn" "mom chk";
+  align-items: center; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid rgba(224, 181, 94, 0.12);
+}
+.ins-bal-row > .ins-bal-name { grid-area: name; }
+.ins-bal-row > .ins-bal-line:nth-of-type(2) { grid-area: mom; }
+.ins-bal-row > .ins-bal-line:nth-of-type(3) { grid-area: chk; }
+.ins-bal-row > .ins-bal-warn { grid-area: warn; justify-self: end; text-align: right; }
+@media (min-width: 768px) {
+  .ins-bal-row { grid-template-columns: 8rem minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr); grid-template-areas: "name mom chk warn"; }
+}
 .ins-bal-row:last-child { border-bottom: 0; }
 .ins-bal-name { display: inline-flex; align-items: center; gap: 8px; font-size: 1rem; color: var(--ink-primary); }
-.ins-bal-line { display: grid; grid-template-columns: minmax(60px, 1fr) auto; align-items: center; gap: 10px; }
+.ins-bal-line { display: flex; flex-direction: column; align-items: stretch; gap: 3px; min-width: 0; }
 .ins-bal-bar { height: 10px; }
 .ins-bal-bar.is-checks > span { background: var(--ins-series); }
-.ins-bal-num { font-size: 0.9rem; color: var(--ink-secondary); text-align: right; }
+.ins-bal-num { font-size: 0.9rem; line-height: 1.25; color: var(--ink-secondary); }
 .ins-bal-num strong { color: var(--ink-primary); font-size: 1rem; }
 .ins-bal-warn { font-size: 0.95rem; }
 .ins-bal-status { min-height: 44px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; }
@@ -409,3 +436,25 @@ ul.ins-legend { margin: 0; padding: 0; list-style: none; }
 /* "?" de ajuda */
 .ins-help { border: 1px solid var(--gold-deep); font-family: var(--display); font-weight: 700; color: var(--gold-bright); }
 .ins-help-text { margin: 0 0 10px; font-size: 1rem; line-height: 1.45; color: var(--ink-primary); }
+
+/* ---------------------------------------------------------- F2.6: índice preso e página curta */
+/* Logo abaixo do que já fica preso (o segmentado no celular, 46 px; as abas das áreas no PC,
+   --areas-stick), como a barra do Atlas. Um trilho que rola de lado (mesa-scroll), nunca a página. */
+.ins-index {
+  position: sticky; top: var(--areas-stick, 64px); z-index: 20;
+  margin: -4px 0 0; padding: 6px 0; background: var(--bg-base);
+}
+.ins-index::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 8px; pointer-events: none;
+  background: linear-gradient(180deg, var(--bg-base), rgba(20, 16, 12, 0));
+}
+@media (min-width: 768px) { .ins-index { box-shadow: 0 -6px 0 var(--bg-base); } }
+.ins-index-rail { display: flex; gap: 6px; }
+.ins-index-chip { flex: none; min-height: 44px; white-space: nowrap; }
+/* ao pular pelo índice, o título da seção fica abaixo do que está preso */
+.ins > section, .ins-folds > .ins-fold { scroll-margin-top: calc(var(--areas-stick, 64px) + 64px); }
+.ins-mom-pick-n { color: var(--ink-secondary); font-size: 0.9rem; }
+@media (max-width: 767px) {
+  .ins-index { top: 48px; margin-left: calc(-1 * var(--s-3, 12px)); margin-right: calc(-1 * var(--s-3, 12px)); padding-left: var(--s-3, 12px); padding-right: var(--s-3, 12px); }
+  .ins > section, .ins-folds > .ins-fold { scroll-margin-top: 112px; }
+}
