@@ -206,9 +206,10 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
   useOnRev(liveNow ? 'live' : table.pulse?.planRev, fetchPlan, { table, fallbackMs: Infinity, safetyMs: Infinity, initial: false });
 
   const planHas = !!planInfo?.has;
+  const tvSeen = !!table.tvSeen;
   const obStatus = useMemo(() => (isDM && campaign
-    ? onboardingStatus(campaign, { worldCount: world?.count || 0, planHasContent: planHas })
-    : null), [isDM, campaign, world?.count, planHas]);
+    ? onboardingStatus(campaign, { worldCount: world?.count || 0, planHasContent: planHas, tvSeen })
+    : null), [isDM, campaign, world?.count, planHas, tvSeen]);
 
   // Área inicial (uma vez por campanha, quando os dados chegam). Sem nada lembrado, o
   // mestre cai em Preparar › Plano (as 3 portas), não mais no Mundo dos primeiros passos.
@@ -269,6 +270,14 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
     if (!campaign || !isDM || campaign.onboarding?.[flag] === value) return;
     try { await api.patchCampaign(campaign.id, { onboarding: { [flag]: value } }); load(); } catch { /* não bloqueia */ }
   }, [campaign, isDM, load]);
+
+  // E2.7: uma TV conectou (tvLive > 0): "Abra a Tela na TV" fica feito para sempre (1 PATCH, uma vez).
+  const tvMarked = useRef(false);
+  useEffect(() => {
+    if (!tvSeen || tvMarked.current || !isDM || !campaign || campaign.status === 'closed' || campaign.onboarding?.tv) return;
+    tvMarked.current = true;
+    markOnboarding('tv');
+  }, [tvSeen, isDM, campaign, markOnboarding]);
 
   const tvUrl = campaign ? screenLink(window.location.origin, campaign.screenToken) : '';
   const copyTv = useCallback(async () => {
@@ -438,7 +447,7 @@ export default function CampaignDetail({ lang = 'pt', campaignId, onBack, onOpen
         <div className="shell-panel" id="shell-panel" role="tabpanel" aria-labelledby={`area-tab-${nav.area}`}>
           {isDM && nav.area === 'world' && campaign.status !== 'closed' && onboardingVisible(obStatus) && (
             <Onboarding
-              lang={lang} status={obStatus}
+              lang={lang} status={obStatus} live={vis.live}
               onAction={onOnboardingAction}
               onDismiss={() => markOnboarding('dismissed')}
               worldEmpty={(world?.count || 0) === 0}
