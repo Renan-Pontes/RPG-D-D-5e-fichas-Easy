@@ -901,6 +901,32 @@ button.cs-cond:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-off
 .mesa-btn.ct-undo-last { flex: 1 1 180px; justify-content: flex-start; text-transform: none; font-family: var(--body); font-size: 15px; letter-spacing: 0; }
 .ct-undo-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .combat-tab.is-wide .mesa-btn.ct-undo-last { flex: 0 1 auto; max-width: 420px; }
+/* Presa no topo enquanto houver ↶ (revisão da E1.4): o Combate rola até quem age e a linha
+   ficava fora da vista — o Desfazer "sumia" de novo com o aviso de 6 s. Na casca (sem a faixa
+   do turno daqui): logo abaixo do segmentado no celular (48 px; no topo quando o celular é
+   baixo e o segmentado rola junto, shell.css) e da faixa do turno no PC, numa fila só: o
+   "Voltar turno" inteiro e o texto do Desfazer em até 2 linhas, com o fundo do app por cima
+   da lista. No PC fica na largura da coluna da lista (dm-desktop.css): o mapa, preso na
+   mesma altura, segue à vista. */
+.combat-tab:not(:has(.ct-turn-wrap)) .ct-undo {
+  position: sticky; top: 48px; z-index: 20;
+  flex-wrap: nowrap; margin-top: 0; padding: 4px 0 6px;
+  background: var(--bg-base);
+}
+.combat-tab:not(:has(.ct-turn-wrap)) .mesa-btn.ct-undo-turn { flex: none; }
+.combat-tab:not(:has(.ct-turn-wrap)) .mesa-btn.ct-undo-last { padding-top: 2px; padding-bottom: 2px; }
+.combat-tab:not(:has(.ct-turn-wrap)) .ct-undo-last .ct-undo-text {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  white-space: normal; line-height: 1.15; font-size: 14px; text-align: left;
+}
+.combat-tab:not(:has(.ct-turn-wrap)):has(.ct-undo) .ct-item { scroll-margin-top: 112px; }
+@media (max-width: 767px) and (max-height: 639px) {
+  body:has(.mesa-bar) .combat-tab:not(:has(.ct-turn-wrap)) .ct-undo { top: 0; }
+}
+@media (min-width: 768px) {
+  .combat-tab:not(:has(.ct-turn-wrap)) .ct-undo { top: calc(var(--below-strip, 64px) - 8px); padding-top: 8px; }
+  .combat-tab:not(:has(.ct-turn-wrap)):has(.ct-undo) .ct-item { scroll-margin-top: calc(var(--below-strip, 64px) + 64px); }
+}
 /* Registro recente: o ↶ de cada linha que o servidor sabe desfazer */
 .ct-log-list li { display: flex; align-items: center; gap: 8px; }
 .ct-log-list li.has-undo { min-height: 48px; }

@@ -26,7 +26,7 @@ import { conditionLabel } from '../combat/monster-i18n.js';
 import GroupCheckPanel from '../checks/GroupCheckPanel.jsx';
 import { initiativePayload } from '../checks/check-logic.js';
 import DamagePad, { undoFlash } from '../play/DamagePad.jsx';
-import { canPrevTurn, lastUndo, logRows, prevTurnName } from '../play/undo-model.js';
+import { canPrevTurn, lastUndo, logRows, prevTurnName, undoText } from '../play/undo-model.js';
 import { tvToCombatNotice } from '../stage/stage-api.js';
 import StartCombatSheet, { sceneOfNode, sceneOfPlan } from '../play/StartCombatSheet.jsx';
 import {
@@ -299,7 +299,10 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
       if (wait > 0 && tries++ < 5) { timer = setTimeout(check, wait + 20); return; }
       // a área livre: abaixo do segmentado preso e acima da barra da mesa (ou da barra de baixo)
       const bar = [...document.querySelectorAll('.mesa-bar, .shell-bottom-bar')].map(b => b.getBoundingClientRect()).find(b => b.height > 0);
-      const top = wide ? 150 : 110;
+      // …e abaixo da linha do ↶, presa no topo quando existe (E1.4)
+      const pin = document.querySelector('.combat-tab .ct-undo');
+      const pinBottom = pin ? (parseFloat(getComputedStyle(pin).top) || 0) + pin.offsetHeight + 4 : 0;
+      const top = Math.max(wide ? 150 : 110, pinBottom);
       const bottom = (bar ? bar.top : window.innerHeight) - 4;
       if (shouldScrollTo(el.getBoundingClientRect(), { top, bottom, lastTouchAt: touchedAt.current })) {
         try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch { /* ok */ }
@@ -583,7 +586,9 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
     catch (e) { flash(isOldServer(e) ? t(lang, 'Voltar turno: falta atualizar o servidor.', 'Undo turn: the server needs updating.') : errorMessage(e, lang), { error: true }); }
     load();
   };
-  const undoOp = (opId) => undoFlash(campaign.id, opId, lang, (c) => { applyCombat(c); load(); })();
+  // o aviso diz o que voltou (dano, cura ou condição; "3 alvos" quando foram vários)
+  const undoOp = (opId) => undoFlash(campaign.id, opId, lang, (c) => { applyCombat(c); load(); },
+    undoText((combat?.log || []).filter(e => e?.opId === opId && e.undo), lang))();
 
   return (
     <div className={`combat-tab ${wide ? 'is-wide' : 'is-narrow'} ${marks ? 'is-marking' : ''}`}>
