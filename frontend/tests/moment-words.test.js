@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import * as M from '../src/group/party-metrics.js';
 import * as S from '../src/group/spotlights.js';
 import {
-  ideaTopic, momentHead, momentLine, momentScene, momentSession, planMomentCount, planMoments, varyFirsts,
+  ideaTopic, momentHead, momentLine, momentPick, momentScene, momentSession, planMomentCount, planMoments, varyFirsts,
 } from '../src/group/moment-words.js';
 import { sceneIdeasByChar, sceneView } from '../src/prep/scene-model.js';
 
@@ -117,4 +117,25 @@ test('momentSuggestions: as 1ªs ★ de personagens diferentes nunca repetem a p
     const firsts = facts.map(f => ideaTopic(sug[f.id][0].auto));
     assert.equal(new Set(firsts).size, firsts.length, firsts.join(' · '));
   }
+});
+
+test('celular: aceitar ou escrever um momento não troca o personagem à vista; só o chip troca (F2.6)', () => {
+  // o banco previa-mestre: Dagna, Elarion, Kaelor e Pipo, todos com 0 momentos e sem histórico
+  const ids = [1, 2, 3, 4];
+  const zero = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  const first = momentPick({ ids, count: zero });
+  assert.equal(first, 1);
+  // a conta sem o padrão fixado pularia para Elarion (o bug): por isso o cartão guarda o 1º
+  const accepted = { ...zero, 1: 1 };
+  assert.equal(momentPick({ ids, count: accepted }), 2);
+  assert.equal(momentPick({ ids, initial: first, count: accepted }), 1);
+  // escrever mais um, ou o histórico chegando com o "⚠ sem momento" de outro, também não troca
+  assert.equal(momentPick({ ids, initial: first, count: { ...accepted, 1: 2 }, drought: { 3: 4 } }), 1);
+  // o chip (ou o destaque vindo de Jogadores) troca; quem saiu de quem entra volta ao padrão
+  assert.equal(momentPick({ ids, pick: 3, initial: first, count: accepted }), 3);
+  assert.equal(momentPick({ ids: [2, 3, 4], pick: 1, initial: 1, count: accepted, drought: { 4: 2 } }), 4);
+  // sem escolha nem padrão: quem está há mais tempo sem momento, depois quem tem menos
+  assert.equal(momentPick({ ids, drought: { 3: 2, 4: 1 }, count: zero }), 3);
+  assert.equal(momentPick({ ids, count: { 1: 2, 2: 1, 3: 0, 4: 3 } }), 3);
+  assert.equal(momentPick({ ids: [] }), null);
 });

@@ -26,7 +26,7 @@ import {
   momentSceneText, openSuggestions, removeMoment, restoreMoment, spreadKinds, STYLES, styleLabel, toggleDone, undismissKey,
   updateMoment, writeMoment,
 } from './spotlights.js';
-import { momentLine, momentScene, momentSession, planMomentCount } from './moment-words.js';
+import { momentLine, momentPick, momentScene, momentSession, planMomentCount } from './moment-words.js';
 
 const t = PM.t;
 const SETTLE_MS = 400;
@@ -58,8 +58,10 @@ export function balanceSub(n, lang) {
 export function Moments({ facts, settings, update, suggestions, session, state = null, balance, lang, readOnly, focusId, filter, setFilter, campaignId, onOpenPlan, planScenes = null, onSceneLinked, oneAtATime = false }) {
   const [sheet, setSheet] = useState(null);   // {kind:'write'|'scene', id, moment?}
   // celular (F2.6): um personagem por vez, escolhido nos chips (cada chip diz quantos momentos
-  // e o ⚠); começa no destaque vindo de Jogadores ou em quem está há mais tempo sem momento
+  // e o ⚠); começa no destaque vindo de Jogadores ou em quem está há mais tempo sem momento.
+  // Esse começo fica fixo (`initial`): aceitar ou escrever muda a conta, não quem está à vista.
   const [pick, setPick] = useState(null);
+  const initial = useRef(null);
   useEffect(() => { if (focusId != null) setPick(focusId); }, [focusId]);
   const [undo, setUndo] = useState(null);     // {id, text, run}: o "↶ Desfazer" de 6 s
   const ref = useRef(null);
@@ -73,8 +75,10 @@ export function Moments({ facts, settings, update, suggestions, session, state =
   const offerUndo = (text, run) => setUndo({ id: Date.now(), text, run });
   const warn = Object.fromEntries((balance?.rows || []).map(r => [r.id, r]));
   const countOf = (f) => planMomentCount(settings.spotlights?.[String(f.id)] || [], { session: momentSession(state), sceneIds: planScenes }).total;
-  const firstPick = facts.slice().sort((a, b) => (warn[b.id]?.drought || 0) - (warn[a.id]?.drought || 0) || countOf(a) - countOf(b))[0]?.id;
-  const shownId = facts.some(f => f.id === pick) ? pick : firstPick;
+  const shownId = momentPick({ ids: facts.map(f => f.id), pick, initial: initial.current,
+    drought: Object.fromEntries(facts.map(f => [f.id, warn[f.id]?.drought || 0])),
+    count: Object.fromEntries(facts.map(f => [f.id, countOf(f)])) });
+  if (shownId !== pick) initial.current = shownId;   // o padrão (ou o novo, se aquele saiu de quem entra)
   const cards = oneAtATime ? facts.filter(f => f.id === shownId) : facts;
   const setList = (id, list) => update({ spotlights: { [String(id)]: list } });
   const dismiss = (id, auto) => {

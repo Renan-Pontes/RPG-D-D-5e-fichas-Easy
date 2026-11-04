@@ -83,6 +83,19 @@ export function planMomentCount(list, opts = {}) {
   return { total: rows.length, noScene: rows.filter(r => !r.sceneId).length };
 }
 
+/**
+ * Quem o cartão de Momentos mostra no celular (um personagem por vez): o escolhido no chip ou
+ * vindo de Jogadores (`pick`); sem escolha, o padrão fixado quando a lista abriu (`initial`);
+ * sem ele ainda, quem está há mais tempo sem momento (`drought`, id → sessões) e, empatando,
+ * quem tem menos momentos (`count`, id → nº). Aceitar, escrever ou o histórico chegando mudam
+ * as contas, nunca quem está à vista: só o chip troca. → id ou null
+ */
+export function momentPick({ ids = [], pick = null, initial = null, drought = {}, count = {} } = {}) {
+  if (pick != null && ids.includes(pick)) return pick;
+  if (initial != null && ids.includes(initial)) return initial;
+  return ids.slice().sort((a, b) => (drought[b] || 0) - (drought[a] || 0) || (count[a] || 0) - (count[b] || 0))[0] ?? null;
+}
+
 // ---------------------------------------------------------------- ideias variadas (F1.2)
 
 /**
