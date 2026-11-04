@@ -27,7 +27,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { errorMessage, isOldServer } from '../api/errors.js';
-import { STAGE_EVENT, STAGE_SENDING_EVENT, STAGE_SENT_EVENT } from '../stage/stage-api.js';
+import { STAGE_EVENT, STAGE_SENDING_EVENT, STAGE_SENT_EVENT, tvToCombatNotice } from '../stage/stage-api.js';
 import { frontLabel, L } from '../stage/stage-now.js';
 import { combatSummary, offlineSeconds, SENT_SHOW_MS, staleText, turnLine } from '../stage/table-bar-model.js';
 import { flash } from './flash.js';
@@ -283,10 +283,12 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse, fullIns
       // servidor antigo: as respostas do teste de iniciativa aberto entram na ordem antes do /start
       catch (e) { if (!isOldServer(e)) throw e; r = await legacyStart(id); }
       applyCombat(r?.combat);
+      // a TV foi para o combate (a frente fica guardada para depois dele): aviso com ↶ (E1.1)
+      tvToCombatNotice(id, r, { lang, onDone: () => kick.current() });
     }
     catch (e) { failed(e, () => startRef.current()); }
     finally { busyRef.current = ''; setBusy(''); refresh(); }
-  }, [id, applyCombat, failed, refresh]);
+  }, [id, lang, applyCombat, failed, refresh]);
   const startRef = useRef(startCombat);
   startRef.current = startCombat;
 

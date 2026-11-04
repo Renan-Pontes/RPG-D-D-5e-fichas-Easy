@@ -26,6 +26,7 @@ import { conditionLabel } from '../combat/monster-i18n.js';
 import GroupCheckPanel from '../checks/GroupCheckPanel.jsx';
 import { initiativePayload } from '../checks/check-logic.js';
 import DamagePad from '../play/DamagePad.jsx';
+import { tvToCombatNotice } from '../stage/stage-api.js';
 import StartCombatSheet, { sceneOfNode, sceneOfPlan } from '../play/StartCombatSheet.jsx';
 import {
   encounterBody, fightLine, initiativeRows, lateInitiatives, lateLabel, openInitiativeCheck, setupSteps, pickInitiatives, startLabel,
@@ -103,7 +104,9 @@ const modalOpen = () => !!document.querySelector('.modal-backdrop, [role="dialog
  *   ao lado.
  * - Quem age fica destacado e a lista não pula: a linha não se abre sozinha e a
  *   página só rola até ela se estiver fora da vista (nunca nos 600 ms depois de um toque).
- * - Encerrar volta para Jogar › Agora (depois do fim guiado, se ligado).
+ * - "⏸ Encerrar combate" (a palavra combate: o ■ Encerrar do cabeçalho é a sessão). Com o
+ *   fim guiado (ligado por padrão, onda 3) o mestre fica no Combate, com a folha de XP,
+ *   descanso e tesouro, até escolher para onde ir; desligado, volta para Jogar › Agora.
  * - Sugestões de ataque/salvaguarda ficam guardadas aqui, por combatente: nada
  *   é aplicado antes do "Aplicar".
  * Na casca do mestre (V4, `turnStrip={false}`): a faixa do turno sai daqui (no
@@ -348,8 +351,11 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   const startCombat = async () => {
     setShowMore(false);
     if (table?.enabled) { await table.startCombat(); return; }
-    try { applyCombat((await api.combatEncounter(campaign.id, { opId: newOpId(), start: true, fromCheck: true }))?.combat); }
-    catch (e) {
+    try {
+      const r = await api.combatEncounter(campaign.id, { opId: newOpId(), start: true, fromCheck: true });
+      applyCombat(r?.combat);
+      tvToCombatNotice(campaign.id, r, { lang, onDone: onChange });
+    } catch (e) {
       if (isOldServer(e)) await legacyStart(campaign.id, { combat, check: initCheck || undefined }).catch(() => {});
       else flash(`${t(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`, { error: true });
     }
@@ -361,7 +367,8 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
     try { r = await api.endCombat(campaign.id); }
     catch (e) { flash(`${t(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`, { error: true }); return; }
     applyCombat(r?.combat);
-    // Encerrar volta para a Agora (com o fim guiado ligado, depois do painel dele).
+    // Com o fim guiado (ligado por padrão) o mestre fica aqui, com a folha de XP, descanso e
+    // tesouro, até escolher para onde ir; desligado, volta para a Agora.
     if (isWizardEnabled(campaign.state)) setWrapUp(r?.combat || combat);
     else backToNow();
   };
@@ -464,6 +471,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
       opRef.current.use = null;
       applyCombat(r?.combat);
       setInitCheck(null);
+      tvToCombatNotice(campaign.id, r, { lang, onDone: onChange });
     } catch (e) { flash(`${failText(e, lang)} · ${errorMessage(e, lang)}`, { error: true }); }
     finally { setBusy(''); load(); }
   };
@@ -602,7 +610,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
         act={<>
           {!showTurn && bell}
           {active && (
-            <button type="button" className="mesa-btn ct-end" onClick={endCombat}>⏸ {t(lang, 'Encerrar', 'End')}</button>
+            <button type="button" className="mesa-btn ct-end" onClick={endCombat}>⏸ {t(lang, 'Encerrar combate', 'End combat')}</button>
           )}
         </>}
         sub={(
@@ -821,7 +829,8 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
       )}
       {wrapUp && (
         <EndOfEncounterPanel campaign={campaign} combat={wrapUp} lang={lang} onNavigate={onNavigate}
-          onClose={() => { setWrapUp(null); backToNow(); }} onChange={() => { load(); onChange?.(); }} />
+          onClose={() => setWrapUp(null)} onGoNow={goTo ? () => { setWrapUp(null); backToNow(); } : null}
+          onChange={() => { load(); onChange?.(); }} />
       )}
       {showPicker && <MonsterPicker lang={lang} levelingMode={campaign.state?.levelingMode || 'milestone'} members={campaign.members} onPick={addMonster} onClose={() => setShowPicker(false)} />}
       {showAddPC && (

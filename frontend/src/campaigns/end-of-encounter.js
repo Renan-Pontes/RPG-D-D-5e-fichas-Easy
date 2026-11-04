@@ -1,14 +1,16 @@
 /**
  * Fim de encontro guiado — lógica pura (sem React, sem API).
  *
- * Opt-in: só aparece se o mestre ligar `campaign.state.endOfEncounterWizard`.
+ * Ligado por padrão (onda 3, E1.3): ao encerrar o combate a folha oferece XP, descanso e
+ * tesouro. Só `campaign.state.endOfEncounterWizard === false` (o mestre desligou) tira — quem
+ * desligou continua desligado.
  * Os passos são sugestões; a interface só chama a API quando o mestre clica.
  */
 import { combatantXp } from '../combat/encounter.js';
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
 
-export const isWizardEnabled = (state) => state?.endOfEncounterWizard === true;
+export const isWizardEnabled = (state) => state?.endOfEncounterWizard !== false;
 
 export const stateWithWizard = (state, on) => ({ ...(state || {}), endOfEncounterWizard: !!on });
 

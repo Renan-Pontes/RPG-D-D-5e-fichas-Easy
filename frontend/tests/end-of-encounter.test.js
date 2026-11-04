@@ -16,10 +16,11 @@ const combat = {
 };
 const lookup = (id) => ({ goblin: { cr: '1/4' }, ogre: { cr: 2 } }[id] || null);
 
-test('opt-in: desligado por padrão', () => {
-  assert.equal(isWizardEnabled({}), false);
-  assert.equal(isWizardEnabled(undefined), false);
-  assert.equal(isWizardEnabled({ endOfEncounterWizard: 'sim' }), false);
+test('ligado por padrão (onda 3); quem desligou continua desligado', () => {
+  assert.equal(isWizardEnabled({}), true);
+  assert.equal(isWizardEnabled(undefined), true);
+  assert.equal(isWizardEnabled({ endOfEncounterWizard: 'sim' }), true);
+  assert.equal(isWizardEnabled({ endOfEncounterWizard: false }), false);
   const s = stateWithWizard({ scene: 'Ponte' }, true);
   assert.equal(isWizardEnabled(s), true);
   assert.equal(s.scene, 'Ponte');

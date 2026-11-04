@@ -28,7 +28,7 @@ import { fightToEncounter, sceneView } from '../prep/scene-model.js';
 import { failText, newOpId } from './damage-model.js';
 import { startEncounter } from './combat-actions.js';
 import { useTable } from './table-store.js';
-import { flash } from './flash.js';
+import { tvToCombatNotice } from '../stage/stage-api.js';
 import '../campaigns/combat-styles.css';
 
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
@@ -145,12 +145,13 @@ export default function StartCombatSheet({
       opRef.current = newOpId();
       if (r?.combat) table?.applyCombat?.(r.combat);
       const pcsIn = (r?.combat?.combatants || []).filter(c => c.type === 'pc').length;
-      flash([
+      // começou com algo na Tela: a TV foi para o combate (o aviso tem o ↶ Desfazer, E1.1)
+      tvToCombatNotice(campaign.id, r, { lang, prefix: [
         t(lang, `⚔ Combate montado: ${total} monstro${total === 1 ? '' : 's'}`, `⚔ Combat set: ${total} monster${total === 1 ? '' : 's'}`),
         pcsIn ? t(lang, `${pcsIn} personagem${pcsIn === 1 ? '' : 's'}`, `${pcsIn} character${pcsIn === 1 ? '' : 's'}`) : null,
         body.askInitiative ? t(lang, 'iniciativa pedida à mesa', 'initiative asked') : null,
         start ? t(lang, 'começou', 'started') : null,
-      ].filter(Boolean).join(' · '));
+      ].filter(Boolean).join(' · ') });
       onStarted?.(r);
       onClose?.();
     } catch (e) {
