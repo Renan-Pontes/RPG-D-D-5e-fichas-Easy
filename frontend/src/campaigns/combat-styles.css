@@ -894,6 +894,18 @@ button.cs-cond:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-off
 .mesa-btn.ct-act { min-width: 0; padding: 4px 6px; gap: 6px; white-space: normal; line-height: 1.15; }
 .ct-acts .ct-more-label { display: inline; }
 .combat-tab.is-wide .ct-acts { grid-template-columns: repeat(3, max-content); }
+/* a linha do ↶ (onda 3, E1.4): Voltar turno e o Desfazer da última ação, fixos enquanto o
+   combate anda (não um aviso que some em 6 s); o Próximo fica longe, na barra/faixa */
+.ct-undo { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; }
+.mesa-btn.ct-undo-btn { flex: 0 1 auto; min-width: 0; min-height: 44px; padding: 4px 12px; gap: 6px; font-size: 0.82rem; letter-spacing: 0.02em; }
+.mesa-btn.ct-undo-last { flex: 1 1 180px; justify-content: flex-start; text-transform: none; font-family: var(--body); font-size: 15px; letter-spacing: 0; }
+.ct-undo-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combat-tab.is-wide .mesa-btn.ct-undo-last { flex: 0 1 auto; max-width: 420px; }
+/* Registro recente: o ↶ de cada linha que o servidor sabe desfazer */
+.ct-log-list li { display: flex; align-items: center; gap: 8px; }
+.ct-log-list li.has-undo { min-height: 48px; }
+.ct-log-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.mesa-btn.ct-log-undo { flex: none; min-height: 44px; padding: 2px 10px; font-size: 0.78rem; }
 .mesa-btn.ct-end { min-height: 44px; padding: 6px 12px; }
 .ct-adds { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 

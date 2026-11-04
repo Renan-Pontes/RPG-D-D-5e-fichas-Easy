@@ -258,6 +258,8 @@ export function useTableStore(campaign, { enabled, lang = 'pt', onPulse, fullIns
       } else if (e?.status === 409 && code === 'nothing_to_undo') {
         applyCombat(e.data.combat);
         flash(L(lang, 'Não há turno para voltar.', 'There is no turn to go back to.'), { error: true });
+      } else if (kind === 'prev' && isOldServer(e)) {
+        flash(L(lang, 'Voltar turno: falta atualizar o servidor.', 'Undo turn: the server needs updating.'), { error: true });
       } else {
         failed(e, () => turnRef.current(kind, expect));
       }

@@ -18,7 +18,8 @@
 //
 // <TurnStrip> — PC (≥ 768), presa no topo de Jogar com combate: "RODADA 2 · VEZ
 // DE X · PV 3/10 · depois: Dagna", a fita de iniciativa (✓ agiu · ● agora ·
-// ○ falta · † caiu, só leitura) e [Próximo turno →] (48, tecla N).
+// ○ falta · † caiu, só leitura) e [Próximo turno →] (48, tecla N). O [↶ Voltar turno] fica
+// do outro lado da fita, longe do Próximo (onda 3, E1.4: sempre à mão, não 6 s num aviso).
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import StageThumb from './StageThumb.jsx';
 import useStage from './useStage.js';
@@ -193,6 +194,13 @@ export function TurnStrip({ lang = 'pt', onOpenActor }) {
           {after && <>{combat.turnHp ? ' · ' : ''}{after}</>}
         </span>
       </button>
+      {/* ↶ Voltar turno (onda 3, E1.4): sempre à mão enquanto há turno anterior, longe do Próximo */}
+      {((combat.round ?? 1) > 1 || (combat.turnIndex ?? 0) > 0) && (
+        <button type="button" className="mesa-btn turn-strip-back" disabled={busy}
+          onClick={() => { if (!busy) table.prevTurn(); }} title={L(lang, 'Voltar para a vez anterior', 'Back to the previous turn')}>
+          <span aria-hidden="true">↶</span> {L(lang, 'Voltar turno', 'Undo turn')}
+        </button>
+      )}
       <ol className="turn-strip-ribbon" aria-label={L(lang, 'Ordem de iniciativa', 'Initiative order')}>
         {marks.map(m => (
           <li key={m.id} className={`turn-strip-mark is-${m.state}`}>

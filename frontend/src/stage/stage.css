@@ -310,12 +310,16 @@
   .turn-strip-mark.is-down { color: var(--ink-muted); text-decoration: line-through; }
   /* largura fixa: "Enviando…" não move o botão debaixo do cursor */
   .turn-strip-next { min-height: 48px; min-width: 12em; white-space: nowrap; justify-content: center; }
+  /* ↶ Voltar turno: ao lado de quem age, do outro lado da fita (longe do Próximo) */
+  .turn-strip:has(.turn-strip-back) { grid-template-columns: minmax(180px, auto) auto minmax(0, 1fr) auto; }
+  .turn-strip-back.mesa-btn { min-height: 44px; padding: 0 12px; white-space: nowrap; }
   .play-area:has(> .turn-strip) { --below-strip: calc(var(--areas-stick, 64px) + var(--turn-strip-h, 88px) + 8px); }
   .play-area:has(> .turn-strip) .combat-tab { --ct-map-top: var(--below-strip); }
   .play-area:has(> .turn-strip) .tests-ask-col { top: var(--below-strip); max-height: calc(100vh - var(--below-strip) - 16px); }
 }
 @media (min-width: 768px) and (max-width: 1023px) {
   .turn-strip { grid-template-columns: minmax(0, 1fr) auto; }
+  .turn-strip:has(.turn-strip-back) { grid-template-columns: minmax(0, 1fr) auto auto; }
   .turn-strip-ribbon { grid-column: 1 / -1; grid-row: 2; }
 }
 
