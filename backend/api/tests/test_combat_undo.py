@@ -325,3 +325,37 @@ class UndoAlwaysAtHandTests(Base):
         c = APIClient()
         c.force_login(self.ana)
         return c
+
+
+class UndoMarkMatchesServerTests(Base):
+    """E1.4 (revisão): a marca `undo` só onde o POST …/undo desfaz de verdade — sem conflito
+    com os combatentes de agora. Antes o ↶ ficava oferecendo um 409 changed_since."""
+    def marks(self):
+        log = self.c.get(self.url('')[:-1]).json()['combat']['log']
+        return {e['opId'] for e in log if e.get('opId') and e.get('undo')}
+
+    def test_condition_that_the_next_turn_expired_loses_the_mark(self):
+        self.act(action='add_condition', targetId='g1', condition='blinded', rounds=1, opId='cnd-0000-0101')
+        self.assertEqual(self.marks(), {'cnd-0000-0101'})
+        self.assertEqual(self.c.post(self.url('next-turn'), {}, format='json').status_code, 200)
+        self.assertEqual(self.cb('g1')['conditions'], [])      # o efeito venceu no fim da vez dele
+        self.assertEqual(self.marks(), set())
+        self.undo('cnd-0000-0101', status=409)                  # o servidor concorda: não desfaz
+
+    def test_two_damages_on_the_same_target_only_the_newest_is_marked(self):
+        self.act(action='damage', targetId='g2', amount=2, damageType='slashing', opId='dmg-0000-0A0A')
+        self.act(action='damage', targetId='g2', amount=3, damageType='slashing', opId='dmg-0000-0B0B')
+        self.assertEqual(self.marks(), {'dmg-0000-0B0B'})
+        self.undo('dmg-0000-0A0A', status=409)
+        # desfeito o mais novo, o anterior volta a ter o ↶ (e desfaz)
+        self.undo('dmg-0000-0B0B')
+        self.assertEqual(self.marks(), {'dmg-0000-0A0A'})
+        self.undo('dmg-0000-0A0A')
+        self.assertEqual(self.cb('g2')['current_hp'], 10)
+
+    def test_many_targets_keep_the_mark_until_one_of_them_changes(self):
+        self.act(action='hp_many', op='damage', damageType='fire', opId='dmg-0000-0C0C',
+                 targets=[{'id': 'g1', 'amount': 2}, {'id': 'g2', 'amount': 2}])
+        self.assertEqual(self.marks(), {'dmg-0000-0C0C'})
+        self.act(action='damage', targetId='g2', amount=1)      # sem opId: mexe num dos alvos
+        self.assertEqual(self.marks(), set())

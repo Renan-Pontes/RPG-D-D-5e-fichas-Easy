@@ -224,8 +224,9 @@ def _serialize_combat(c, *, for_dm=False, token=None):
         # `undo: True` (E1.4): a entrada que o ↶ Desfazer (POST …/undo) ainda sabe desfazer — a
         # foto é do servidor, então o app não a vê; o Registro recente e a linha fixa do
         # combate oferecem o ↶ só onde ele existe.
+        can = _undoable(c, log)
         log = [{**{k: v for k, v in e.items() if k not in SERVER_LOG_KEYS},
-                **({'undo': True} if e.get('opId') and e.get('photo') and not e.get('undone') else {})}
+                **({'undo': True} if e.get('opId') in can and e.get('photo') and not e.get('undone') else {})}
                if isinstance(e, dict) else e for e in log]
     base = f'/api/screen/{token}' if token else f'/api/combat/campaign/{c.campaign_id}'
     combatants = [_sprite_link(x, base) for x in combatants if isinstance(x, dict)]
@@ -242,6 +243,24 @@ def _serialize_combat(c, *, for_dm=False, token=None):
     if for_dm:
         out['canPrev'] = _can_prev(c)
     return out
+
+
+def _undoable(c, log):
+    """opIds do registro curto que o POST …/undo ainda desfaz: com foto, não desfeitos e sem
+    conflito com os combatentes de agora — a mesma conferência dele, com as fotos juntas por
+    opId ("Vários alvos"). Outro dano no mesmo alvo depois, o efeito que o Próximo turno
+    venceu: sem a marca (antes o ↶ ficava oferecendo um 409). Só em memória: a conferência
+    da ficha (_sheet_conflicts, que lê o banco) fica no POST."""
+    ops = {e.get('opId') for e in log
+           if isinstance(e, dict) and e.get('opId') and e.get('photo') and not e.get('undone')}
+    if not ops:
+        return set()
+    photos = {}
+    for e in c.action_log or []:
+        if isinstance(e, dict) and e.get('opId') in ops and e.get('photo'):
+            photos.setdefault(e['opId'], []).extend(p for p in e['photo'] if isinstance(p, dict))
+    combatants = c.combatants or []
+    return {op for op, photo in photos.items() if not engine.photo_conflicts(combatants, photo)}
 
 
 def _can_prev(c):
