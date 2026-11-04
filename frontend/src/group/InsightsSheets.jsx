@@ -128,7 +128,7 @@ export function AdjustSheet({ settings, update, lang, readOnly, saveLine, onClos
         </button>
         {advanced && (
           <div className="ins-classtable">
-            <p className="ins-adj-help">{t(lang, 'A tabela do Ivan dá de 1 a 5 o que cada classe costuma fazer. Mesa caseira? Mude aqui: vale só nesta campanha.', "Ivan's table rates 1 to 5 what each class usually does. Homebrew table? Change it here: it only applies to this campaign.")}</p>
+            <p className="ins-adj-help">{t(lang, 'A tabela de classes de referência dá de 1 a 5 o que cada classe costuma fazer. Mesa caseira? Mude aqui: vale só nesta campanha.', 'The reference class table rates 1 to 5 what each class usually does. Homebrew table? Change it here: it only applies to this campaign.')}</p>
             <label className="mesa-field">
               <span className="mesa-field-label">{t(lang, 'Classe', 'Class')}</span>
               <select value={cls} onChange={e => setCls(e.target.value)}>
@@ -139,7 +139,7 @@ export function AdjustSheet({ settings, update, lang, readOnly, saveLine, onClos
               {PM.AXES.map((k, i) => (
                 <li key={k} className="ins-class-row">
                   <span className="ins-class-axis">{PM.axisLabel(k, lang)}
-                    {table[cls][i] !== PM.IVAN_BASE[cls][i] && <span className="ins-class-ivan">{t(lang, `Ivan: ${PM.IVAN_BASE[cls][i]}`, `Ivan: ${PM.IVAN_BASE[cls][i]}`)}</span>}</span>
+                    {table[cls][i] !== PM.IVAN_BASE[cls][i] && <span className="ins-class-ivan">{t(lang, `padrão: ${PM.IVAN_BASE[cls][i]}`, `default: ${PM.IVAN_BASE[cls][i]}`)}</span>}</span>
                   <button type="button" className="mesa-icon-btn ins-stepper" disabled={dis || table[cls][i] <= 1} onClick={() => setRow(i, -1)}
                     aria-label={t(lang, `${PM.axisLabel(k, lang)}: menos`, `${PM.axisLabel(k, lang)}: less`)}>−</button>
                   <strong className={`ins-class-val ${table[cls][i] !== PM.IVAN_BASE[cls][i] ? 'is-edited' : ''}`} aria-live="polite">{table[cls][i]}</strong>
@@ -150,10 +150,10 @@ export function AdjustSheet({ settings, update, lang, readOnly, saveLine, onClos
             </ul>
             <div className="mesa-actions">
               <button type="button" className="mesa-btn" disabled={dis || !edited.length} onClick={() => update({ base: null })}>
-                {t(lang, 'Restaurar a do Ivan', "Restore Ivan's")}
+                {t(lang, 'Restaurar a padrão', 'Restore the default')}
               </button>
             </div>
-            {!edited.length && <p className="ins-adj-help">{t(lang, 'Nenhuma classe editada: vale a tabela do Ivan.', "No class edited: Ivan's table applies.")}</p>}
+            {!edited.length && <p className="ins-adj-help">{t(lang, 'Nenhuma classe editada: vale a tabela de referência.', 'No class edited: the reference table applies.')}</p>}
           </div>
         )}
       </section>

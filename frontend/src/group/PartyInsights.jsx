@@ -16,10 +16,11 @@ import { tName } from '../../data/i18n.js';
 import { BESTIARY } from '../../data/bestiary.js';
 import { loadCustomMonsters } from '../combat/custom-monsters.js';
 import { getSessionPlan, saveSessionPlan } from '../world/world-api.js';
+import { freshSceneId, isOldPlanServer } from '../prep/next-session.js';
 import { errorMessage } from '../api/errors.js';
 import Radar from './Radar.jsx';
 import * as PM from './party-metrics.js';
-import { currentSession, gapGroups, ideaSceneText, momentSuggestions, partyGaps, quadrants, sceneIdeas, tableBalance } from './spotlights.js';
+import { currentSession, gapGroups, ideaScene, momentSuggestions, partyGaps, quadrants, sceneHasIdea, sceneIdeas, tableBalance } from './spotlights.js';
 import { planMonsters, threatMonsters, versus } from './versus.js';
 import { expandResets, insightsApi, joinPatches, mergeInsights, rememberInsights, SAVE_DELAY, withDefaults } from './insights-api.js';
 import { AdjustSheet, Dot, HelpButton, MonsterSheet, WhySheet } from './InsightsSheets.jsx';
@@ -67,6 +68,7 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
   const readOnly = campaign.status === 'closed';
   const [ins, setIns] = useState(null);
   const [planScenes, setPlanScenes] = useState(null);   // as cenas do plano (ids), do mesmo GET; null = servidor de antes
+  const [planIdeas, setPlanIdeas] = useState([]);       // as ideias que já são cena do plano (✓ No plano), do mesmo GET
   const [loadErr, setLoadErr] = useState('');
   const [save, setSave] = useState('idle');   // idle · waiting · saving · saved · error
   const [saveErr, setSaveErr] = useState('');
@@ -91,6 +93,7 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
       rememberInsights(campaign.id, got);
       setIns(got);
       setPlanScenes(r.planScenes);
+      setPlanIdeas(r.planIdeas || []);
     } catch (e) {
       setLoadErr(errorMessage(e, lang));
       setIns(cur => cur || withDefaults({}));
@@ -204,13 +207,19 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
     update({ exclude: party.map(p => p.id).filter(x => !next.includes(x)), include: null });
   };
 
+  // A cena nasce com o título da ideia e o texto dela no "O que acontece"; a ideia que já é
+  // cena do plano (levada antes, por outro aparelho ou numa versão de antes) não vai de novo.
   const takeToPlan = async (idea) => {
     setPlanned(p => ({ ...p, [idea.key]: 'busy' }));
     try {
       const plan = await getSessionPlan(campaign.id);
       const scenes = [...(plan?.scenes || [])];
-      if (scenes.length >= 30) throw Object.assign(new Error(t(lang, 'O plano já tem 30 cenas.', 'The plan already has 30 scenes.')), { plain: true });
-      await saveSessionPlan(campaign.id, { scenes: [...scenes, { text: ideaSceneText(idea, lang) }] });
+      if (!scenes.some(sc => sceneHasIdea(sc, idea))) {
+        if (scenes.length >= 30) throw Object.assign(new Error(t(lang, 'O plano já tem 30 cenas.', 'The plan already has 30 scenes.')), { plain: true });
+        const scene = { id: freshSceneId(scenes), ...ideaScene(idea, lang, { inText: isOldPlanServer(plan) }) };
+        await saveSessionPlan(campaign.id, { scenes: [...scenes, scene] });
+      }
+      setPlanIdeas(l => (l.includes(idea.key) ? l : [...l, idea.key]));
       setPlanned(p => ({ ...p, [idea.key]: 'ok' }));
     } catch (e) {
       setPlanned(p => ({ ...p, [idea.key]: e?.plain ? e.message : errorMessage(e, lang) }));
@@ -250,7 +259,7 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
         <MesaTitle as="h2" sub={<span>{t(lang, 'Forças, fraquezas e ideias para cada um brilhar.', 'Strengths, weaknesses and ideas for everyone to shine.')}</span>}
           hint={<HelpButton lang={lang} title={t(lang, 'Raio-X do grupo', 'Party X-ray')} text={[
             t(lang, 'O Raio-X lê as fichas da mesa e mostra o que o grupo faz bem, onde tropeça e quem pode brilhar. Só você vê.', 'The X-ray reads the table’s sheets and shows what the party does well, where it stumbles and who can shine. Only you see it.'),
-            t(lang, 'Os números são uma estimativa para preparar a sessão, não uma regra. Em Ajustar você escolhe quanto vale a tabela de classes do Ivan e quanto vale a ficha.', "The numbers are an estimate to prep the session, not a rule. In Adjust you choose how much Ivan's class table weighs against the sheet."),
+            t(lang, 'Os números são uma estimativa para preparar a sessão, não uma regra. Em Ajustar você escolhe quanto vale a tabela de classes de referência e quanto vale a ficha.', 'The numbers are an estimate to prep the session, not a rule. In Adjust you choose how much the reference class table weighs against the sheet.'),
           ]} />}
           act={<button type="button" className="mesa-btn" onClick={() => setSheet({ kind: 'adjust' })}>⚙ {t(lang, 'Ajustar', 'Adjust')}</button>}>
           {t(lang, 'Raio-X do grupo', 'Party X-ray')}
@@ -297,12 +306,12 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
           <Quadrants q={calc.quads} lang={lang} expanded={expanded} setExpanded={setExpanded}
             onAllGaps={() => { setExpanded(e => ({ ...e, gaps: true })); document.getElementById('ins-gaps')?.scrollIntoView({ block: 'start' }); }}
             onMoments={() => document.getElementById('ins-moments')?.scrollIntoView({ block: 'start' })} />
-          <Ideas ideas={calc.ideas} lang={lang} planned={planned} onTake={takeToPlan} onOpenPlan={() => goTo('prepare', 'next')} readOnly={readOnly} />
+          <Ideas ideas={calc.ideas} lang={lang} planned={planned} inPlan={planIdeas} onTake={takeToPlan} onOpenPlan={() => goTo('prepare', 'next')} readOnly={readOnly} />
           <Roles calc={calc} facts={facts} axes={shownAxes} settings={settings} lang={lang} wide={wide} onWhy={(k) => setSheet({ kind: 'why', why: { kind: 'axis', key: k } })} />
           <Skills calc={calc} settings={settings} lang={lang} wide={wide} view={view} setView={setView} onWhy={(k) => setSheet({ kind: 'why', why: { kind: 'skill', key: k } })} />
           <Damage calc={calc} lang={lang} onWhy={(k) => setSheet({ kind: 'why', why: { kind: 'damage', key: k } })} />
           <Gaps gaps={calc.gaps} facts={facts} lang={lang} expanded={!!expanded.gaps} setExpanded={(v) => setExpanded(e => ({ ...e, gaps: v }))}
-            planned={planned} onTake={takeToPlan} onOpenPlan={() => goTo('prepare', 'next')} readOnly={readOnly} />
+            planned={planned} inPlan={planIdeas} onTake={takeToPlan} onOpenPlan={() => goTo('prepare', 'next')} readOnly={readOnly} />
           <Fold id="schools" title={t(lang, 'Escolas de magia', 'Schools of magic')} view={view} setView={setView} wide={wide}>
             <Schools calc={calc} facts={facts} lang={lang} wide={wide} view={view} setView={setView} />
           </Fold>
@@ -370,8 +379,9 @@ function Quadrants({ q, lang, expanded, setExpanded, onAllGaps, onMoments }) {
 // aparece no mesmo lugar assim que o PUT volta, e tira o mestre do Raio-X.
 const SETTLE_MS = 400;
 
-function PlanButton({ idea, planned, onTake, onOpenPlan, readOnly, lang, label }) {
-  const st = planned[idea.key];
+function PlanButton({ idea, planned, inPlan = [], onTake, onOpenPlan, readOnly, lang, label }) {
+  // já é cena do plano (veio no GET do Raio-X): "✓ No plano" desde a abertura
+  const st = planned[idea.key] || (inPlan.includes(idea.key) ? 'ok' : undefined);
   const okAt = useRef(0);
   const was = useRef(st);
   // antes da pintura: nenhum toque chega entre o botão novo aparecer e a trava valer
@@ -396,7 +406,7 @@ function PlanButton({ idea, planned, onTake, onOpenPlan, readOnly, lang, label }
   );
 }
 
-function Ideas({ ideas, lang, planned, onTake, onOpenPlan, readOnly }) {
+function Ideas({ ideas, lang, planned, inPlan, onTake, onOpenPlan, readOnly }) {
   if (!ideas.length) return null;
   return (
     <section className="mesa-panel ins-block ins-ideas">
@@ -405,7 +415,7 @@ function Ideas({ ideas, lang, planned, onTake, onOpenPlan, readOnly }) {
         {ideas.map(i => (
           <li key={i.key} className="ins-idea">
             <p className="ins-idea-text">{i.text}</p>
-            <div className="ins-idea-act"><PlanButton idea={i} planned={planned} onTake={onTake} onOpenPlan={onOpenPlan} readOnly={readOnly} lang={lang} /></div>
+            <div className="ins-idea-act"><PlanButton idea={i} planned={planned} inPlan={inPlan} onTake={onTake} onOpenPlan={onOpenPlan} readOnly={readOnly} lang={lang} /></div>
           </li>
         ))}
       </ul>
@@ -441,7 +451,7 @@ function Roles({ calc, facts, axes, settings, lang, wide, onWhy }) {
       <MesaTitle sub={t(lang, 'de 1 a 5 · toque num eixo para ver o porquê', '1 to 5 · tap an axis to see why')}
         hint={<HelpButton lang={lang} title={t(lang, 'Papel do grupo', 'Party roles')} text={[
           t(lang, 'Cada eixo vai de 1 a 5, e 3 é o normal para o nível do grupo. A bolinha azul é a média de quem entra; o losango laranja, o melhor (ou a média dos 2 melhores, em Ajustar).', "Each axis goes from 1 to 5, and 3 is standard for the party's level. The blue dot is the average of who's in; the orange diamond, the best (or the average of the top 2, in Adjust)."),
-          t(lang, 'A nota junta a tabela de classes do Ivan com o que a ficha mostra. Toque num eixo para ver de onde vem o número de cada um.', "The score blends Ivan's class table with what the sheet shows. Tap an axis to see where each one's number comes from."),
+          t(lang, 'A nota junta a tabela de classes de referência com o que a ficha mostra. Toque num eixo para ver de onde vem o número de cada um.', "The score blends the reference class table with what the sheet shows. Tap an axis to see where each one's number comes from."),
         ]} />}>{t(lang, 'Papel do grupo', 'Party roles')}</MesaTitle>
       {legend}
       <div className="ins-roles-body">
@@ -567,7 +577,7 @@ function Damage({ calc, lang, onWhy }) {
 }
 
 // ---------------------------------------------------------------- G7: lacunas
-function Gaps({ gaps, facts, lang, expanded, setExpanded, planned, onTake, onOpenPlan, readOnly }) {
+function Gaps({ gaps, facts, lang, expanded, setExpanded, planned, inPlan, onTake, onOpenPlan, readOnly }) {
   const groups = gapGroups(gaps, lang);
   const total = groups.reduce((n, g) => n + g.items.length, 0);
   // recolhido: as 3 mais sérias da lista inteira (ainda agrupadas), não as 3 dos primeiros grupos
@@ -588,7 +598,7 @@ function Gaps({ gaps, facts, lang, expanded, setExpanded, planned, onTake, onOpe
                 return (
                   <li key={`${x.kind}:${x.key}`} className="ins-gap">
                     <p className="ins-gap-text">{x.important && <span className="ins-imp">★ </span>}{x.text}</p>
-                    {idea && <div className="ins-idea-act"><PlanButton idea={idea} planned={planned} onTake={onTake} onOpenPlan={onOpenPlan} readOnly={readOnly} lang={lang} label={t(lang, 'Usar numa cena', 'Use in a scene')} /></div>}
+                    {idea && <div className="ins-idea-act"><PlanButton idea={idea} planned={planned} inPlan={inPlan} onTake={onTake} onOpenPlan={onOpenPlan} readOnly={readOnly} lang={lang} label={t(lang, 'Usar numa cena', 'Use in a scene')} /></div>}
                   </li>
                 );
               })}
@@ -636,7 +646,7 @@ function Schools({ calc, facts, lang, wide, view, setView }) {
         <button type="button" className="mesa-chip" aria-pressed={mode === 'list'} onClick={() => setView({ schools: 'list' })}>{t(lang, 'Lista da classe', 'Class list')}</button>
       </div>
       <p className="ins-adj-help">{mode === 'list'
-        ? t(lang, 'Quantas magias de cada escola a lista da classe de cada um tem (a referência do Ivan).', "How many spells of each school each one's class list has (Ivan's reference).")
+        ? t(lang, 'Quantas magias de cada escola a lista de magias da classe de cada um tem.', "How many spells of each school each one's class spell list has.")
         : t(lang, 'Quantas magias de cada escola cada um conhece hoje.', 'How many spells of each school each one knows today.')}</p>
       <ul className="ins-school-grid">
         {PM.SCHOOLS.map(s => (

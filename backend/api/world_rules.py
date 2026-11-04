@@ -733,6 +733,9 @@ SCENE_POCKETS = {
     'treasure': _scene_treasure,
     'spots': lambda v: [x for x in v[:20] if isinstance(x, str) and SPOT_RE.match(x)][:4] if isinstance(v, list) else [],
     'notes': lambda v: long_text(v, 1000),
+    # a ideia do Raio-X que virou esta cena ("skill:arcana", "spof:control"…): o Raio-X marca a
+    # ideia "✓ no plano" enquanto a cena estiver no plano (plan_idea_keys), e não a leva de novo
+    'fromIdea': lambda v: v if isinstance(v, str) and SPOT_RE.match(v) else None,
 }
 
 
@@ -897,6 +900,18 @@ def plan_leftovers(plan):
         'secrets': [s for s in plan.get('secrets') or [] if _real_secret(s) and not s.get('discovered')],
         'npcIds': _id_list(plan.get('npcIds'), 60), 'placeIds': _id_list(plan.get('placeIds'), 60),
     }
+
+
+def plan_idea_keys(plan):
+    """As ideias do Raio-X que já viraram cena no plano de agora (`fromIdea` das cenas de
+    verdade, sem repetir): o "＋ Levar para o plano" delas vira "✓ No plano" ao abrir."""
+    plan = plan if isinstance(plan, dict) else {}
+    out = []
+    for s in plan.get('scenes') or []:
+        key = s.get('fromIdea') if _real_scene(s) else None
+        if isinstance(key, str) and SPOT_RE.match(key) and key not in out:
+            out.append(key)
+    return out
 
 
 def plan_scene_ids(plan):

@@ -104,22 +104,50 @@ test('G0: os 4 quadros', () => {
   assert.ok(!hid.strengths.some(x => x.text.startsWith('Cura')));
 });
 
-test('3 ideias de cena, de tipos diferentes, e o texto que vai para o plano', () => {
+test('3 ideias de cena, de tipos diferentes, e a cena que vai para o plano (F2.1)', () => {
   const ideas = S.sceneIdeas(gaps, facts, 'pt');
   assert.deepEqual(ideas.map(i => i.text), [
     'Uma luta que ocupa Elarion: o grupo precisa de outro jeito de controlar a luta',
     'Uma cena em que só Blefar resolve (ninguém é bom nisso)',
     'Um perigo de salvaguarda de DES com saída',
   ]);
+  assert.deepEqual(ideas.map(i => i.title), ['Uma luta que ocupa Elarion', 'Só Blefar resolve', 'Perigo: salvaguarda de DES']);
+  assert.deepEqual(ideas.map(i => i.key), ['spof:control', 'skill:deception', 'save:dex']);
   const dmgOnly = S.sceneIdeas(gaps.filter(g => g.kind === 'damage'), facts, 'pt');
   assert.match(dmgOnly[0].text, /^Um inimigo que resiste a .+: o grupo precisa de outro plano$/);
-  const text = S.ideaSceneText(ideas[1], 'pt');
-  assert.equal(text, 'Cena nova\nUma cena em que só Blefar resolve (ninguém é bom nisso)\nLacuna do grupo: Ninguém é bom em Blefar (melhor +2; CD 15 passa 40%)');
-  assert.ok(text.length <= 1000, 'cabe numa cena do plano');
-  // "Usar como cena" leva só a 1ª linha à Tela e ao jogador: nada do Raio-X (§8)
+  // a cena nasce com o título da ideia e o texto à vista no "O que acontece" (só o mestre vê)
+  const scene = S.ideaScene(ideas[1], 'pt');
+  assert.deepEqual(scene, {
+    text: 'Só Blefar resolve',
+    what: 'Uma cena em que só Blefar resolve (ninguém é bom nisso)\nLacuna do grupo: Ninguém é bom em Blefar (melhor +2; CD 15 passa 40%)',
+    fromIdea: 'skill:deception',
+  });
+  assert.ok(scene.what.length <= 500, 'cabe no "O que acontece"');
+  // servidor de antes do Plano guiado: a ideia na 2ª linha do texto (o nome continua o título)
+  const old = S.ideaScene(ideas[1], 'pt', { inText: true });
+  assert.deepEqual(Object.keys(old), ['text']);
+  assert.equal(sceneFieldText(old), 'Só Blefar resolve');
+  assert.ok(old.text.includes('Lacuna do grupo'));
+  // "Usar como cena" leva só o nome: nenhum número nem lacuna do Raio-X vai à Tela (§8)
   for (const lang of ['pt', 'en']) {
     for (const idea of S.sceneIdeas(gaps, facts, lang, 9)) {
-      assert.equal(sceneFieldText({ text: S.ideaSceneText(idea, lang) }), lang === 'pt' ? 'Cena nova' : 'New scene');
+      const name = sceneFieldText(S.ideaScene(idea, lang));
+      assert.equal(name, idea.title);
+      assert.doesNotMatch(name, /%|\d|ninguém|nobody/i, name);
     }
   }
+  assert.equal(S.sceneIdeas(gaps, facts, 'en')[2].title, 'Danger: DEX saving throw');
+});
+
+test('a ideia levada fica marcada: pela chave guardada e, nas cenas de antes, pelo texto (F2.1)', () => {
+  const [spof, skill] = S.sceneIdeas(gaps, facts, 'pt');
+  const scene = { id: 'c9', ...S.ideaScene(skill, 'pt') };
+  assert.ok(S.sceneHasIdea(scene, skill));
+  assert.ok(!S.sceneHasIdea(scene, spof));
+  // renomeada no plano: a chave continua valendo
+  assert.ok(S.sceneHasIdea({ ...scene, text: 'A ponte do mentiroso' }, skill));
+  // cena feita pela versão de antes ("Cena nova" + a ideia nas notas) e a do servidor sem o bolso
+  assert.ok(S.sceneHasIdea({ text: `Cena nova\n${skill.text}\nLacuna do grupo: ${skill.gap}` }, skill));
+  assert.ok(S.sceneHasIdea({ text: 'Só Blefar resolve', what: skill.text }, skill));
+  assert.ok(!S.sceneHasIdea({ text: 'Taverna' }, skill));
 });

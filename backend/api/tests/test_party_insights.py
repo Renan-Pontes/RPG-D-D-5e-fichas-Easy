@@ -132,6 +132,20 @@ class MergeTests(PartyInsightsBase):
         self.assertEqual(body['insights']['spotlights'][str(self.char.id)][0]['plan'], 'c9')   # o gravado fica
         self.assertNotIn('planScenes', self.put({'dc': 12}).json())   # o PUT continua só com o Raio-X
 
+    def test_get_brings_the_ideas_already_in_the_plan(self):
+        # "＋ Levar para o plano" (F2.1): a cena guarda de que ideia veio (`fromIdea`) e o GET
+        # devolve as ideias das cenas de verdade, sem repetir; a cena vazia não conta
+        self.assertEqual(self.c_dm.get(self.url).json()['planIdeas'], [])
+        self.camp.dm_settings = {'sessionPlan': {'scenes': [
+            {'id': 'c2', 'text': 'Só Blefar resolve', 'fromIdea': 'skill:deception'},
+            {'id': 'c3', 'text': '', 'fromIdea': 'save:dex'},
+            {'id': 'c4', 'text': 'Outra', 'fromIdea': 'skill:deception'},
+            {'id': 'c5', 'text': 'Sem ideia'}, {'id': 'c6', 'text': 'Torta', 'fromIdea': 'não vale!'}]}}
+        self.camp.save()
+        body = self.c_dm.get(self.url).json()
+        self.assertEqual(body['planIdeas'], ['skill:deception'])
+        self.assertNotIn('planIdeas', self.put({'dc': 12}).json())
+
     def test_keeps_other_dm_settings(self):
         self.camp.dm_settings = {'onboarding': {'cover': True}, 'sessionPlan': {'monsters': 'goblins'}}
         self.camp.save()

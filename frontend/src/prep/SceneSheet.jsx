@@ -10,6 +10,7 @@ import { errorMessage, errorText } from '../api/errors.js';
 import { showPlanLimit } from '../plans/plans-api.js';
 import { compressForEntry } from '../world/image.js';
 import MesaSheet from '../shell/MesaSheet.jsx';
+import GrowTextarea from '../world/GrowTextarea.jsx';
 import {
   ScenePalette, TextBlock, ImageBlock, WorldImagePicker, PeopleBlock, FightBlock, CheckBlock, TreasureBlock, MomentBlock, useMonsterLookup,
 } from './SceneBlocks.jsx';
@@ -503,7 +504,8 @@ export default function SceneSheet({
         </div>
         <div className="ss-field">
           <label className="ss-label" htmlFor="ss-what">{t(lang, 'O que acontece (só você vê)', 'What happens (only you see)')}</label>
-          <textarea id="ss-what" className="input ss-text" rows={2} maxLength={SCENE_LIMITS.what} value={what.value} disabled={disabled}
+          {/* cresce com o texto: a ideia que veio do Raio-X (e a lacuna) aparece inteira */}
+          <GrowTextarea id="ss-what" className="input ss-text" minRows={2} maxLength={SCENE_LIMITS.what} value={what.value} disabled={disabled}
             placeholder={t(lang, 'Ex.: Goblins esperam sob a ponte para cobrar pedágio.', 'E.g. Goblins wait under the bridge to charge a toll.')}
             onChange={e => onChange(scene.id, what.patch(e.target.value))} />
         </div>

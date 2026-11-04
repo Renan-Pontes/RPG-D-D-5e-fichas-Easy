@@ -567,7 +567,11 @@ export function partyMainDamage(facts) {
   return Object.entries(sum).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 }
 
-/** 3 ideias de cena (modelos por tipo de lacuna, sem IA), de tipos diferentes. */
+/**
+ * 3 ideias de cena (modelos por tipo de lacuna, sem IA), de tipos diferentes. Cada uma tem
+ * a chave estável da lacuna (`key`, a que a cena guarda em `fromIdea`), o título (o nome da
+ * cena no plano), o texto e a lacuna.
+ */
 export function sceneIdeas(gaps, facts, lang = 'pt', limit = 3) {
   const out = [];
   const used = new Set();
@@ -576,32 +580,61 @@ export function sceneIdeas(gaps, facts, lang = 'pt', limit = 3) {
     if (out.length >= limit) break;
     if (used.has(g.kind)) continue;
     let text = null;
-    if (g.kind === 'skill') text = t(lang, `Uma cena em que só ${skillLabel(g.key, lang)} resolve (ninguém é bom nisso)`, `A scene only ${skillLabel(g.key, lang)} can solve (nobody is good at it)`);
-    else if (g.kind === 'spof') {
+    let title = null;
+    if (g.kind === 'skill') {
+      text = t(lang, `Uma cena em que só ${skillLabel(g.key, lang)} resolve (ninguém é bom nisso)`, `A scene only ${skillLabel(g.key, lang)} can solve (nobody is good at it)`);
+      title = t(lang, `Só ${skillLabel(g.key, lang)} resolve`, `Only ${skillLabel(g.key, lang)} solves it`);
+    } else if (g.kind === 'spof') {
       const who = joinAnd((g.who || []).map(nameOf), lang);
       text = t(lang, `Uma luta que ocupa ${who}: o grupo precisa de outro jeito de ${L2(AXIS_VERB[g.key], lang)}`,
         `A fight where ${who} is busy: the party needs another way to ${L2(AXIS_VERB[g.key], lang)}`);
-    } else if (g.kind === 'save') text = t(lang, `Um perigo de salvaguarda de ${abilShort(g.key, lang)} com saída`, `${AnA(abilShort(g.key, lang))} ${abilShort(g.key, lang)} saving throw danger with a way out`);
-    else if (g.kind === 'damage') {
+      title = t(lang, `Uma luta que ocupa ${who}`, `A fight that keeps ${who} busy`);
+    } else if (g.kind === 'save') {
+      text = t(lang, `Um perigo de salvaguarda de ${abilShort(g.key, lang)} com saída`, `${AnA(abilShort(g.key, lang))} ${abilShort(g.key, lang)} saving throw danger with a way out`);
+      title = t(lang, `Perigo: salvaguarda de ${abilShort(g.key, lang)}`, `Danger: ${abilShort(g.key, lang)} saving throw`);
+    } else if (g.kind === 'damage') {
       const main = partyMainDamage(facts);
-      if (main) text = t(lang, `Um inimigo que resiste a ${damageLabel(main, lang)}: o grupo precisa de outro plano`, `An enemy that resists ${main}: the party needs another plan`);
-    } else if (g.kind === 'axis') text = t(lang, `Uma cena que pede ${axisLabel(g.key, lang)}: o grupo inteiro tem pouca`, `A scene that calls for ${axisLabel(g.key, lang)}: the whole party is short on it`);
-    else if (g.kind === 'sense') text = t(lang, 'Uma cena no escuro: ninguém enxerga sem luz', 'A scene in the dark: nobody sees without light');
-    else if (g.kind === 'tool') text = t(lang, 'Uma fechadura ou armadilha sem Ferramentas de Ladrão: o grupo precisa de outro jeito', "A lock or trap without Thieves' Tools: the party needs another way");
+      if (main) {
+        text = t(lang, `Um inimigo que resiste a ${damageLabel(main, lang)}: o grupo precisa de outro plano`, `An enemy that resists ${main}: the party needs another plan`);
+        title = t(lang, `Um inimigo que resiste a ${damageLabel(main, lang)}`, `An enemy that resists ${main}`);
+      }
+    } else if (g.kind === 'axis') {
+      text = t(lang, `Uma cena que pede ${axisLabel(g.key, lang)}: o grupo inteiro tem pouca`, `A scene that calls for ${axisLabel(g.key, lang)}: the whole party is short on it`);
+      title = t(lang, `Uma cena de ${axisLabel(g.key, lang)}`, `${AnA(axisLabel(g.key, lang))} ${axisLabel(g.key, lang)} scene`);
+    } else if (g.kind === 'sense') {
+      text = t(lang, 'Uma cena no escuro: ninguém enxerga sem luz', 'A scene in the dark: nobody sees without light');
+      title = t(lang, 'Uma cena no escuro', 'A scene in the dark');
+    } else if (g.kind === 'tool') {
+      text = t(lang, 'Uma fechadura ou armadilha sem Ferramentas de Ladrão: o grupo precisa de outro jeito', "A lock or trap without Thieves' Tools: the party needs another way");
+      title = t(lang, 'Uma fechadura ou armadilha', 'A lock or a trap');
+    }
     if (!text) continue;
     used.add(g.kind);
-    out.push({ key: `${g.kind}:${g.key}`, text, gap: g.text });
+    out.push({ key: `${g.kind}:${g.key}`, title, text, gap: g.text });
   }
   return out;
 }
 
 /**
- * Texto da cena nova no plano ("＋ Levar para o plano", "Usar numa cena"). Como no
- * momentSceneText, a 1ª linha (o nome, que "Usar como cena" leva à Tela e ao jogador) fica
- * neutra; a ideia e a lacuna vão nas notas, que só o mestre vê (§8: o jogador nunca vê o Raio-X).
+ * A cena nova do "＋ Levar para o plano" / "Usar numa cena": o nome é o título da ideia e o
+ * "O que acontece" (`what`, que só o mestre vê) leva a ideia e a lacuna; `fromIdea` guarda a
+ * chave da ideia, para o Raio-X marcá-la "✓ No plano" ao abrir de novo (o jogador nunca vê o
+ * Raio-X: o nome não tem número nem lacuna, §8). `inText`: servidor de antes do Plano guiado
+ * (sem os bolsos da cena): a ideia vai na 2ª linha do texto, como o "O que acontece" de lá.
  */
-export function ideaSceneText(idea, lang = 'pt') {
-  return `${t(lang, 'Cena nova', 'New scene')}\n${idea.text}\n${t(lang, 'Lacuna do grupo', 'Party gap')}: ${idea.gap}`.slice(0, 1000);
+export function ideaScene(idea, lang = 'pt', { inText = false } = {}) {
+  const title = String(idea.title || idea.text || '').slice(0, 120);
+  const what = `${idea.text}\n${t(lang, 'Lacuna do grupo', 'Party gap')}: ${idea.gap}`.slice(0, 500);
+  if (inText) return { text: `${title}\n${what}`.slice(0, 1000) };
+  return { text: title, what, fromIdea: idea.key };
+}
+
+/** A cena já é a ideia? Pela chave guardada ou, nas cenas de antes dela, pelo texto da ideia. */
+export function sceneHasIdea(scene, idea) {
+  if (!scene || !idea) return false;
+  if (scene.fromIdea) return scene.fromIdea === idea.key;
+  const first = String(scene.text || '').split('\n')[0].trim();
+  return (!!idea.title && first === idea.title) || [scene.text, scene.what].some(s => typeof s === 'string' && s.includes(idea.text));
 }
 
 /**

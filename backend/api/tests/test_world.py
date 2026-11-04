@@ -557,6 +557,17 @@ class SessionPlanTests(WorldBase):
         self.assertEqual(c1['spots'], ['ok-1', 'a', 'b', 'c'])   # até 4, só os ids que valem
         self.assertNotIn('junk', c1)
 
+    def test_scene_from_idea_pocket(self):
+        # a ideia do Raio-X que virou a cena: guardada com a cena, validada e mantida por um app antigo
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'Só Blefar resolve', 'what': 'Uma cena…', 'fromIdea': 'skill:deception'},
+                                                  {'id': 'c2', 'text': 'Lixo', 'fromIdea': 'com espaço'}]}, format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        c1, c2 = r.json()['plan']['scenes']
+        self.assertEqual(c1['fromIdea'], 'skill:deception')
+        self.assertIsNone(c2['fromIdea'])
+        r = self.c_dm.put(self.url(), {'scenes': [{'id': 'c1', 'text': 'Só Blefar', 'nodeRef': None, 'done': False}]}, format='json')
+        self.assertEqual(r.json()['plan']['scenes'][0]['fromIdea'], 'skill:deception')
+
     def test_scene_treasure_pocket(self):
         # 💰 o tesouro da cena solta (onda 3): o formato da sala, mais curto, e um app antigo não o apaga
         item = {'id': 'i1', 'name': '  Lâmina da Maré ', 'qty': 0, 'art': 'data:image/png;base64,AAA',
