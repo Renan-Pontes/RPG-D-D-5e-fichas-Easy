@@ -123,13 +123,14 @@ export function charLine(c, lang = 'pt') {
   return [c.race && tvName('race', c.race, lang), cls].filter(Boolean).join(' · ');
 }
 
-// "Caído" é a condição (prone, CONDITIONS.prone): quem chegou a 0 PV é "Derrotado"
-// (o mesmo texto para o monstro e para o PJ na ordem da TV).
+// "Caído" é a condição (prone, CONDITIONS.prone), que a TV mostra na mesma lista: nenhuma
+// faixa usa essa palavra. Monstro/NPC a 0 PV é "Derrotado" (riscado); o PJ a 0 PV não
+// morreu (onda 3, E1.5a): "Morrendo" enquanto faz testes contra a morte, "Estável" depois
+// de 3 sucessos, "Morto" com 3 falhas.
 const HEALTH = {
   unhurt: ['Ileso', 'Unhurt'], hurt: ['Ferido', 'Hurt'],
   bloodied: ['Sangrando', 'Bloodied'], down: ['Derrotado', 'Down'],
-  // PJ a 0 PV fazendo testes contra a morte (não morreu: não é "Derrotado") e o PJ morto
-  fallen: ['Caído', 'Dying'], dead: ['Morto', 'Dead'],
+  fallen: ['Morrendo', 'Dying'], stable: ['Estável', 'Stable'], dead: ['Morto', 'Dead'],
 };
 export const healthLabel = (band, lang = 'pt') => (HEALTH[band] || HEALTH.unhurt)[lang === 'pt' ? 0 : 1];
 

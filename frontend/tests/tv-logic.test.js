@@ -46,6 +46,7 @@ test('tvMode: a frente decide o desenho; sem frente, o fundo', () => {
 import { tvLang, lengthClass, turnNow, initiativeRows, partyRow } from '../src/screen/tv-logic.js';
 import { charLine, healthLabel, tvName } from '../src/player/player-model.js';
 import { nameIds, tName } from '../data/i18n.js';
+import { conditionLabel } from '../src/combat/monster-i18n.js';
 
 test('tvLang: a língua da campanha manda; sem ela, a do aparelho', () => {
   assert.equal(tvLang('pt', 'en'), 'pt');      // TV num navegador em inglês, campanha em pt
@@ -87,7 +88,7 @@ test('initiativeRows: ✓ agiu, ▶ a vez; PJ com PV, monstro só com a faixa', 
   assert.equal(more, 0);
   assert.deepEqual(rows.map(r => r.mark), ['✓', '✓', '▶', '', '']);
   assert.deepEqual(rows.map(r => r.state), ['acted', 'acted', 'now', 'todo', 'todo']);
-  // PJ a 0 PV fazendo testes contra a morte: "Caído", sem riscar (E1.5a)
+  // PJ a 0 PV fazendo testes contra a morte: "Morrendo", sem riscar (E1.5a)
   assert.deepEqual([rows[0].down, rows[0].fallen], [false, true]);
   assert.deepEqual(rows[1].hp, { cur: 7, max: 7, temp: 2 });
   assert.equal(rows[1].band, null);
@@ -116,12 +117,20 @@ test('initiativeRows: riscado só quem morreu (monstro derrotado, PJ com 3 falha
   ] };
   const { rows } = initiativeRows(fight);
   assert.deepEqual(rows.map(r => [r.id, r.down, r.fallen]), [['p', false, true], ['k', true, false], ['g', true, false], ['o', false, false]]);
-  // sem o PV do grupo na Tela: a faixa do PJ caído diz "Caído", não "Derrotado"
+  // sem o PV do grupo na Tela: a faixa do PJ a 0 PV diz "Morrendo", não "Derrotado"
   const hidden = initiativeRows(fight, { party: false }).rows;
   assert.equal(hidden[0].band, 'fallen');
   assert.equal(hidden[2].band, 'down');
-  assert.equal(healthLabel('fallen', 'pt'), 'Caído');
+  assert.equal(healthLabel('fallen', 'pt'), 'Morrendo');
+  assert.equal(healthLabel('fallen', 'en'), 'Dying');
   assert.equal(healthLabel('down', 'pt'), 'Derrotado');
+  // nenhuma faixa diz "Caído": é a condição (prone), que a TV mostra na mesma lista (revisão E1.5a)
+  for (const band of ['unhurt', 'hurt', 'bloodied', 'down', 'fallen', 'stable', 'dead']) {
+    assert.notEqual(healthLabel(band, 'pt').toLowerCase(), conditionLabel('prone', 'pt').toLowerCase());
+  }
+  // 3 sucessos: "Estável", ainda sem riscar
+  const st = initiativeRows({ ...fight, combatants: [{ ...fight.combatants[0], conditions: ['unconscious', 'stable'] }] }, { party: false }).rows[0];
+  assert.deepEqual([st.down, st.fallen, st.stable, st.band, healthLabel(st.band, 'pt')], [false, true, true, 'stable', 'Estável']);
 });
 
 test('initiativeRows: até 10 + "+N", com a vez sempre à vista', () => {

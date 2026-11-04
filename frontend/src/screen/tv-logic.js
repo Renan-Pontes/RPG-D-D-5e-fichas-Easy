@@ -73,9 +73,10 @@ export function turnNow(combat) {
  * 2 de antes) e o que fica de fora vira "+N".
  * `order: false` (o mestre tirou a "Ordem de iniciativa" da Tela): PJs primeiro,
  * depois os monstros, sem ✓/▶ (só quem age continua destacado).
- * PJ a 0 PV que ainda faz testes contra a morte é `fallen` ("Caído", sem riscar); riscado
- * (`down`) só quem morreu: monstro/NPC derrotado e PJ com 3 falhas (onda 3, E1.5a).
- * → { rows:[{id, name, kind, state:'acted'|'now'|'todo', mark, down, fallen, hp|null, band|null, conditions}], more }
+ * PJ a 0 PV que não morreu é `fallen` ("Morrendo"; "Estável" com `stable`, depois de 3
+ * sucessos), sem riscar; riscado (`down`) só quem morreu: monstro/NPC derrotado e PJ com 3
+ * falhas (onda 3, E1.5a). Nunca "Caído": é a condição (prone), que aparece na mesma lista.
+ * → { rows:[{id, name, kind, state:'acted'|'now'|'todo', mark, down, fallen, stable, hp|null, band|null, conditions}], more }
  */
 export function initiativeRows(combat, { max = 10, party = true, order = true } = {}) {
   const all = (combat?.combatants || []).filter(Boolean);
@@ -89,6 +90,7 @@ export function initiativeRows(combat, { max = 10, party = true, order = true } 
     const state = i === at ? 'now' : (order && active && i < idx ? 'acted' : 'todo');
     const showHp = pc && party && c.current_hp != null;
     const fallen = pc && !c.defeated && ((c.current_hp != null && c.current_hp <= 0) || (c.current_hp == null && c.health === 'down'));
+    const stable = fallen && Array.isArray(c.conditions) && c.conditions.includes('stable');
     return {
       id: c.id,
       name: c.name || '?',
@@ -97,8 +99,9 @@ export function initiativeRows(combat, { max = 10, party = true, order = true } 
       mark: !order ? '' : state === 'now' ? '▶' : state === 'acted' ? '✓' : '',
       down: pc ? !!c.defeated : (!!c.defeated || c.health === 'down'),
       fallen,
+      stable,
       hp: showHp ? { cur: c.current_hp, max: c.stats?.max_hp ?? null, temp: c.temp_hp || 0 } : null,
-      band: showHp ? null : (fallen ? 'fallen' : c.health || 'unhurt'),
+      band: showHp ? null : (fallen ? (stable ? 'stable' : 'fallen') : c.health || 'unhurt'),
       conditions: Array.isArray(c.conditions) ? c.conditions : [],
     };
   });
