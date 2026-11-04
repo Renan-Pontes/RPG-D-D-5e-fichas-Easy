@@ -11,7 +11,8 @@ import { sceneFieldText } from '../src/play/plan-model.js';
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/party-jogo-e-combate.json', import.meta.url), 'utf8'));
 const party = M.partyMembers(fixture.members);
 const facts = M.partyFacts(party, 'pt');
-const axes = M.partyAxes(facts);
+// a tabela das lacunas da especificação (§6.3.6) foi feita com o meio a meio (o padrão de antes)
+const axes = M.partyAxes(facts, { w: 0.5 });
 const skills = M.partySkills(facts, 15);
 const gaps = S.partyGaps(facts, axes, {});
 
@@ -64,7 +65,7 @@ test('G7: eixo baixo, sentido e ferramenta (grupo sem visão no escuro nem Ferra
     weapons: [{ id: 'longsword', name: 'Espada Longa' }],
   });
   const two = M.partyFacts(M.partyMembers([1, 2].map(id => ({ role: 'player', character: { id, name: `Guerreiro ${id}`, data: fighter(`Guerreiro ${id}`) } }))), 'pt');
-  const g = S.partyGaps(two, M.partyAxes(two), {});
+  const g = S.partyGaps(two, M.partyAxes(two, { w: 0.5 }), {});
   assert.ok(g.some(x => x.kind === 'sense' && x.text === 'Ninguém enxerga no escuro'));
   assert.ok(g.some(x => x.kind === 'tool' && x.text === 'Ninguém tem Ferramentas de Ladrão'));
   const mob = g.find(x => x.kind === 'axis' && x.key === 'mobility');
@@ -94,7 +95,8 @@ test('G0: os 4 quadros', () => {
   assert.equal(q.weaknesses.length, 7);
   assert.ok(q.opportunities.some(x => x.text === 'Pipo brilha: um teste de Prestidigitação — ninguém no grupo faz melhor'));
   assert.deepEqual(q.opportunities.slice(0, 4).map(x => x.id), party.map(p => p.id), 'uma de cada personagem antes de repetir');
-  assert.equal(q.threats[0].text, 'DES média +1,3: bola de fogo e armadilhas pegam 54% do grupo na CD 13');
+  // nível 1: nada de bola de fogo (F2.4); sem exemplo do bestiário, o perigo do nível na CD típica
+  assert.equal(q.threats[0].text, 'DES média +1,3: armadilhas e sopros pegam 54% do grupo na CD 13');
   assert.equal(q.threats[1].text, 'Fantasma resiste a trovejante');
   // dispensada não volta; eixo escondido some das Forças; Importante vem antes
   const off = S.quadrants({ facts, party: axes, skills, gaps, suggestions: sug, dismissed: { [pipoId]: ['skill:sleightOfHand'] } });
@@ -102,6 +104,26 @@ test('G0: os 4 quadros', () => {
   const hid = S.quadrants({ facts, party: axes, skills, gaps, hidden: ['heal'], focus: { control: 2 } });
   assert.equal(hid.strengths[0].text, 'Controle 4,6 · Elarion');
   assert.ok(!hid.strengths.some(x => x.text.startsWith('Cura')));
+});
+
+test('Ameaças coerentes com o nível: um monstro típico do ND do grupo que cobra a salvaguarda (F2.4)', async () => {
+  const { BESTIARY } = await import('../data/bestiary.js');
+  const V = await import('../src/group/versus.js');
+  const ex = V.saveThreatExamples(BESTIARY, facts, 'pt');
+  assert.deepEqual(ex.examples.dex, { id: 'giant-spider', name: 'Aranha Gigante', cr: '1', dc: 13 });
+  for (const e of Object.values(ex.examples)) {
+    const m = BESTIARY.find(x => x.id === e.id);
+    assert.ok(m.crNum <= 3, `${e.id}: ND ${m.cr} para um grupo de nível 1`);
+  }
+  const q = S.quadrants({ facts, party: axes, skills, gaps, saveExamples: ex.examples, typicalDc: ex.typicalDc });
+  assert.equal(q.threats[0].text, 'DES média +1,3: Aranha Gigante (ND 1) cobra CD 13 e pega 54% do grupo');
+  const all = q.threats.map(x => x.text).join(' | ');
+  assert.doesNotMatch(all, /bola de fogo|banir|fireball|banish/i, all);
+  const en = S.quadrants({ facts, party: axes, skills, gaps, lang: 'en', saveExamples: V.saveThreatExamples(BESTIARY, facts, 'en').examples });
+  assert.equal(en.threats[0].text, 'DEX average +1.3: Giant Spider (CR 1) calls for DC 13 and catches 54% of the party');
+  // grupo de nível alto: o perigo genérico do nível volta a ser a bola de fogo
+  const high = facts.map(f => ({ ...f, level: 11 }));
+  assert.match(S.quadrants({ facts: high, party: axes, skills, gaps }).threats[0].text, /bola de fogo e armadilhas/);
 });
 
 test('3 ideias de cena, de tipos diferentes, e a cena que vai para o plano (F2.1)', () => {

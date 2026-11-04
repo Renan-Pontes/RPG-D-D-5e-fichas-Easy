@@ -38,11 +38,17 @@ const AXIS_VERB = {
   control: ['controlar a luta', 'control the fight'], utility: ['resolver o problema', 'solve the problem'], mobility: ['se mover', 'move around'],
   social: ['conversar', 'talk their way through'], explore: ['explorar', 'explore'],
 };
+// O perigo de cada salvaguarda, pelo nível do grupo (sem exemplo do bestiário à mão): nada de
+// bola de fogo nem banimento para quem ainda é nível 1 (níveis 1–4 · 5–10 · 11+).
 const SAVE_DANGER = {
-  str: ['empurrões e agarrões', 'shoves and grapples'], dex: ['bola de fogo e armadilhas', 'fireballs and traps'],
-  con: ['veneno e doença', 'poison and disease'], int: ['ilusões e ataques à mente', 'illusions and mind attacks'],
-  wis: ['medo e enfeitiçar', 'fear and charm'], cha: ['banir e possuir', 'banishment and possession'],
+  str: [['empurrões e agarrões', 'shoves and grapples']],
+  dex: [['armadilhas e sopros', 'traps and breath attacks'], ['bola de fogo e armadilhas', 'fireballs and traps']],
+  con: [['veneno e doença', 'poison and disease']],
+  int: [['ataques à mente', 'mind attacks'], ['ilusões e ataques à mente', 'illusions and mind attacks']],
+  wis: [['medo e enfeitiçar', 'fear and charm']],
+  cha: [['maldições', 'curses'], ['maldições e possessão', 'curses and possession'], ['banir e possuir', 'banishment and possession']],
 };
+const saveDanger = (a, L) => { const list = SAVE_DANGER[a]; return list[Math.min(list.length - 1, L >= 11 ? 2 : L >= 5 ? 1 : 0)]; };
 const L2 = (pair, lang) => pair[lang === 'en' ? 1 : 0];
 const signed = (v, lang) => `${v >= 0 ? '+' : '−'}${fmt(Math.abs(v), lang)}`;
 const joinAnd = (list, lang) => (list.length <= 1 ? list.join('')
@@ -519,7 +525,7 @@ export function tableBalance({ facts, spotlights = {}, style = {}, history = nul
  * Os 4 quadros (G0) em frases curtas, cada um com a lista inteira (a tela mostra 2 e
  * "+N"): Forças, Fraquezas, Oportunidades e Ameaças (§6.3.7).
  */
-export function quadrants({ facts, party, skills, gaps, lang = 'pt', focus = {}, hidden = [], suggestions = {}, dismissed = {}, spotlights = {}, threats = [] }) {
+export function quadrants({ facts, party, skills, gaps, lang = 'pt', focus = {}, hidden = [], suggestions = {}, dismissed = {}, spotlights = {}, threats = [], saveExamples = {}, typicalDc = 13 }) {
   const strengths = AXES.filter(k => !hidden.includes(k) && party.axes[k]?.best >= 4)
     .sort((a, b) => ((focus[b] === 2) - (focus[a] === 2)) || (party.axes[b].best - party.axes[a].best) || (party.axes[a].bestWho.length - party.axes[b].bestWho.length))
     .slice(0, 2)
@@ -542,15 +548,24 @@ export function quadrants({ facts, party, skills, gaps, lang = 'pt', focus = {},
   const opportunities = [];
   for (let i = 0; lists.some(l => l[i]); i++) for (const l of lists) if (l[i]) opportunities.push(l[i]);
 
+  // a ameaça típica do nível do grupo: um monstro do bestiário de ND perto do nível que cobra a
+  // salvaguarda (versus.saveThreatExamples), com a CD dele; sem exemplo, o perigo do nível na
+  // CD típica dos monstros desse ND
   const L = partyLevel(facts);
   const saveThreats = ABILS.map(a => {
-    const fail = facts.reduce((n, f) => n + (1 - chance(f.saves[a], 13)), 0) / Math.max(1, facts.length);
+    const ex = saveExamples[a] || null;
+    const dc = ex?.dc || typicalDc;
+    const fail = facts.reduce((n, f) => n + (1 - chance(f.saves[a], dc)), 0) / Math.max(1, facts.length);
     const avg = facts.reduce((n, f) => n + f.saves[a], 0) / Math.max(1, facts.length);
-    return { a, fail, avg };
+    return { a, fail, avg, ex, dc };
   }).filter(x => gaps.some(g => g.kind === 'save' && g.key === x.a)).sort((a, b) => b.fail - a.fail)
-    .map(x => ({ key: `save:${x.a}`, text: t(lang,
-      `${abilShort(x.a, lang)} média ${signed(x.avg, lang)}: ${L2(SAVE_DANGER[x.a], lang)} pegam ${pct(x.fail)}% do grupo na CD 13`,
-      `${abilShort(x.a, lang)} average ${signed(x.avg, lang)}: ${L2(SAVE_DANGER[x.a], lang)} catch ${pct(x.fail)}% of the party at DC 13`) }));
+    .map(x => ({ key: `save:${x.a}`, text: x.ex
+      ? t(lang,
+        `${abilShort(x.a, lang)} média ${signed(x.avg, lang)}: ${x.ex.name} (ND ${x.ex.cr}) cobra CD ${x.dc} e pega ${pct(x.fail)}% do grupo`,
+        `${abilShort(x.a, lang)} average ${signed(x.avg, lang)}: ${x.ex.name} (CR ${x.ex.cr}) calls for DC ${x.dc} and catches ${pct(x.fail)}% of the party`)
+      : t(lang,
+        `${abilShort(x.a, lang)} média ${signed(x.avg, lang)}: ${L2(saveDanger(x.a, L), lang)} pegam ${pct(x.fail)}% do grupo na CD ${x.dc}`,
+        `${abilShort(x.a, lang)} average ${signed(x.avg, lang)}: ${L2(saveDanger(x.a, L), lang)} catch ${pct(x.fail)}% of the party at DC ${x.dc}`) }));
   const monsterThreats = threats.map(m => ({ key: `monster:${m.id}`, text: m.text }));
   const threatList = [];
   for (let i = 0; saveThreats[i] || monsterThreats[i]; i++) {

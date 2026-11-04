@@ -21,7 +21,7 @@ import { errorMessage } from '../api/errors.js';
 import Radar from './Radar.jsx';
 import * as PM from './party-metrics.js';
 import { currentSession, gapGroups, ideaScene, momentSuggestions, partyGaps, quadrants, sceneHasIdea, sceneIdeas, tableBalance } from './spotlights.js';
-import { difficultyText, planMonsters, threatMonsters, versus } from './versus.js';
+import { difficultyText, planMonsters, saveThreatExamples, threatMonsters, versus } from './versus.js';
 import { expandResets, insightsApi, joinPatches, mergeInsights, rememberInsights, SAVE_DELAY, withDefaults } from './insights-api.js';
 import { AdjustSheet, Dot, HelpButton, MonsterSheet, WhySheet } from './InsightsSheets.jsx';
 import { Balance, Moments } from './Moments.jsx';
@@ -186,13 +186,14 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
     const gaps = partyGaps(facts, axes, { lang, dc: settings.dc, focus: settings.focus, hidden: settings.hidden });
     const suggestions = momentSuggestions(facts, { lang, dc: settings.dc, style: settings.style, axisOpts: { w: settings.w, base: settings.base } });
     const threats = threatMonsters(monsters, facts, lang, { limit: 3 });
+    const saveEx = saveThreatExamples(monsters, facts, lang);
     return {
       axes, skills, gaps, threats,
       damage: PM.partyDamage(facts),
       schools: PM.partySchools(facts),
       classSchools: PM.classSchools(party.filter(p => inIds.includes(p.id))),
       suggestions,
-      quads: quadrants({ facts, party: axes, skills, gaps, lang, focus: settings.focus, hidden: settings.hidden, suggestions, dismissed: settings.dismissed, spotlights: settings.spotlights, threats }),
+      quads: quadrants({ facts, party: axes, skills, gaps, lang, focus: settings.focus, hidden: settings.hidden, suggestions, dismissed: settings.dismissed, spotlights: settings.spotlights, threats, saveExamples: saveEx.examples, typicalDc: saveEx.typicalDc }),
       ideas: sceneIdeas(gaps, facts, lang),
     };
   }, [facts, settings.w, settings.base, settings.rep, settings.dc, settings.focus, settings.hidden, settings.dismissed, settings.style, settings.spotlights, lang, monsters]); // eslint-disable-line react-hooks/exhaustive-deps

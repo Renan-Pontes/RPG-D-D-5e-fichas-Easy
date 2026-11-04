@@ -5,8 +5,9 @@ import { request } from '../api/client.js';
 
 // Quem entra: `exclude` são as fichas que o mestre tirou (quem chega à mesa entra sozinho);
 // `include` é a lista antiga de quem entra, ainda respeitada se vier gravada.
+// w: 10% tabela / 90% ficha (party-metrics.W_DEFAULT; o servidor de antes ainda devolve 0,5)
 export const DEFAULT_INSIGHTS = {
-  v: 1, include: null, exclude: [], w: 0.5, hidden: [], focus: {}, rep: 'best', dc: 15,
+  v: 2, include: null, exclude: [], w: 0.1, hidden: [], focus: {}, rep: 'best', dc: 15,
   base: {}, style: {}, spotlights: {}, dismissed: {},
 };
 export const MAP_KEYS = ['focus', 'base', 'style', 'spotlights', 'dismissed'];

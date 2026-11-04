@@ -196,6 +196,37 @@ export function threatMonsters(monsters, facts, lang = 'pt', { limit = 3 } = {})
   });
 }
 
+/**
+ * A ameaça típica do nível do grupo para cada salvaguarda (as Ameaças do quadro): um monstro do
+ * bestiário (não "meus monstros") de ND entre L − 2 e L + 2 — o alcance de threatMonsters —
+ * que cobra a salvaguarda, o de ND mais perto do nível; empate: a CD maior, depois o nome.
+ * `typicalDc`: a CD mediana dos monstros desse alcance (para quando não há exemplo).
+ * → {examples: {dex: {id, name, cr, dc}, …}, typicalDc}
+ */
+export function saveThreatExamples(monsters, facts, lang = 'pt') {
+  const examples = {};
+  const dcs = [];
+  if (!facts?.length) return { examples, typicalDc: 13 };
+  const L = partyLevel(facts);
+  for (const m of monsters || []) {
+    if (m?.custom) continue;
+    const cr = crOf(m);
+    if (cr == null || cr < L - 2 || cr > L + 2) continue;
+    const d = Math.abs(cr - L);
+    const name = monsterName(m, lang);
+    for (const s of monsterSaves(m)) {
+      dcs.push(s.dc);
+      const cur = examples[s.ab];
+      if (!cur || d < cur.d || (d === cur.d && (s.dc > cur.dc || (s.dc === cur.dc && name.localeCompare(cur.name) < 0)))) {
+        examples[s.ab] = { id: m.id, name, cr: m.cr, dc: s.dc, d };
+      }
+    }
+  }
+  dcs.sort((a, b) => a - b);
+  const typicalDc = dcs.length ? dcs[Math.floor(dcs.length / 2)] : 13;
+  return { examples: Object.fromEntries(Object.entries(examples).map(([k, { d, ...v }]) => [k, v])), typicalDc };
+}
+
 /** Procura no bestiário (nome pt ou en, sem acento). */
 export function searchMonsters(monsters, query, limit = 8) {
   const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();

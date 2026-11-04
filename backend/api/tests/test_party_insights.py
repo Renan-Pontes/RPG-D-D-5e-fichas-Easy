@@ -73,8 +73,21 @@ class AccessTests(PartyInsightsBase):
 class MergeTests(PartyInsightsBase):
     def test_defaults(self):
         ins = self.c_dm.get(self.url).json()['insights']
-        self.assertEqual(ins, {'v': 1, 'include': None, 'exclude': [], 'w': 0.5, 'hidden': [], 'focus': {}, 'rep': 'best',
+        self.assertEqual(ins, {'v': 2, 'include': None, 'exclude': [], 'w': 0.1, 'hidden': [], 'focus': {}, 'rep': 'best',
                                'dc': 15, 'base': {}, 'style': {}, 'spotlights': {}, 'dismissed': {}})
+
+    def test_old_default_weight_becomes_the_new_one(self):
+        # F2.4: o v1 gravava o padrão de antes (0,5) com tudo; lido de novo, vale 10% tabela / 90% ficha.
+        # Escolhido depois (v2), o meio a meio fica; e um v1 com outro peso continua o dele.
+        self.camp.dm_settings = {'partyInsights': {'v': 1, 'w': 0.5, 'dc': 12}}
+        self.camp.save()
+        ins = self.c_dm.get(self.url).json()['insights']
+        self.assertEqual((ins['v'], ins['w'], ins['dc']), (2, 0.1, 12))
+        self.assertEqual(self.put({'w': 0.5}).json()['insights']['w'], 0.5)
+        self.assertEqual(self.c_dm.get(self.url).json()['insights']['w'], 0.5)
+        self.camp.dm_settings = {'partyInsights': {'v': 1, 'w': 0.25}}
+        self.camp.save()
+        self.assertEqual(self.c_dm.get(self.url).json()['insights']['w'], 0.25)
 
     def test_merge_by_key(self):
         self.put({'w': 0, 'dc': 12})
@@ -84,8 +97,10 @@ class MergeTests(PartyInsightsBase):
         self.assertEqual(ins['hidden'], ['dmg', 'social'])      # na ordem dos eixos, sem repetir
         self.assertEqual(ins['focus'], {'social': 2})
         self.assertEqual(self.stored()['dc'], 12)
-        # w em 5 passos (Tabela · · · Ficha)
+        # w nos passos de Tabela · · · Ficha (o mais perto)
         self.assertEqual(self.put({'w': 0.7}).json()['insights']['w'], 0.75)
+        self.assertEqual(self.put({'w': 0.12}).json()['insights']['w'], 0.1)
+        self.assertEqual(self.put({'w': 0.04}).json()['insights']['w'], 0)
 
     def test_maps_merge_one_level_and_null_removes(self):
         self.put({'base': {'wizard': IVAN_WIZARD}})

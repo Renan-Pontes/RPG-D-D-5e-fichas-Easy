@@ -9,14 +9,21 @@ import { RESET_PATCH } from './insights-api.js';
 import { searchMonsters } from './versus.js';
 
 const t = PM.t;
-// Tabela · · · Ficha (w = confiança na tabela: 1 só a tabela, 0 só a ficha)
+// Tabela · · · Ficha (w = confiança na tabela: 1 só a tabela, 0 só a ficha). O padrão é
+// 10% tabela / 90% ficha (PM.W_DEFAULT; o porquê está lá).
 const W_STEPS = [
   { w: 1, label: ['Só a tabela', 'Table only'] },
   { w: 0.75, label: ['Mais a tabela', 'Mostly the table'] },
   { w: 0.5, label: ['Meio a meio', 'Half and half'] },
   { w: 0.25, label: ['Mais a ficha', 'Mostly the sheet'] },
+  { w: 0.1, label: ['Quase só a ficha (padrão)', 'Almost only the sheet (default)'] },
   { w: 0, label: ['Só a ficha', 'Sheet only'] },
 ];
+/** "10% tabela de classes · 90% ficha" (a nota final de cada eixo). */
+export const weightText = (w, lang) => {
+  const tab = Math.round((w ?? PM.W_DEFAULT) * 100);
+  return t(lang, `${tab}% tabela de classes · ${100 - tab}% ficha`, `${tab}% class table · ${100 - tab}% sheet`);
+};
 const DCS = [10, 12, 15, 18, 20];
 
 /** "?" de 44 px: folha pequena com 2–3 frases (explicar no lugar, nada só no hover). */
@@ -76,7 +83,7 @@ export function AdjustSheet({ settings, update, lang, readOnly, saveLine, onClos
           ))}
           <span className="ins-steps-end" aria-hidden="true">{t(lang, 'Ficha', 'Sheet')}</span>
         </div>
-        <p className="ins-adj-now">{PM.t(lang, ...W_STEPS.find(s => s.w === settings.w)?.label || W_STEPS[2].label)}</p>
+        <p className="ins-adj-now">{PM.t(lang, ...(W_STEPS.find(s => s.w === settings.w)?.label || W_STEPS[4].label))} · {weightText(settings.w, lang)}</p>
       </section>
 
       <section className="ins-adj">
@@ -189,7 +196,8 @@ export function WhySheet({ why, facts, calc, settings, lang, onClose }) {
           {t(lang, `Média ${PM.fmt(a.avg, lang)} · melhor ${PM.fmt(a.best, lang)} (${a.bestWho.map(PM.firstName).join(', ')}) · 2º ${PM.fmt(a.second, lang)}`,
             `Average ${PM.fmt(a.avg, lang)} · best ${PM.fmt(a.best, lang)} (${a.bestWho.map(PM.firstName).join(', ')}) · 2nd ${PM.fmt(a.second, lang)}`)}
         </p>
-        <p className="ins-adj-help">{t(lang, 'Base da classe (tabela) → o que a ficha mostra → nota final, de 1 a 5 (3 = o normal do nível).', 'Class base (table) → what the sheet shows → final score, 1 to 5 (3 = level standard).')}</p>
+        <p className="ins-adj-help">{t(lang, 'Base da classe (tabela) → o que a ficha mostra → nota final, de 1 a 5 (3 = o normal do nível).', 'Class base (table) → what the sheet shows → final score, 1 to 5 (3 = level standard).')}{' '}
+          {t(lang, `A nota final é ${weightText(settings.w, lang)} (mude em Ajustar).`, `The final score is ${weightText(settings.w, lang)} (change it in Adjust).`)}</p>
         <ul className="ins-why-list">
           {facts.map(f => {
             const w = PM.whyAxis(f, key, { w: settings.w, base: settings.base });

@@ -16,7 +16,8 @@ const byName = (n) => facts.find(f => f.name.startsWith(n));
 const near = (got, want, tol, msg) => assert.ok(Math.abs(got - want) <= tol, `${msg}: ${got} ≠ ${want}`);
 
 test('G1: média e melhor do grupo nos 11 eixos (w = 0,5, "melhor")', () => {
-  const { axes } = M.partyAxes(facts);
+  // a tabela da especificação (§6.3) foi feita com o meio a meio, o padrão de antes
+  const { axes } = M.partyAxes(facts, { w: 0.5 });
   const avg = [3.4, 2.9, 3.5, 2.5, 2.8, 2.9, 2.5, 3.1, 2.3, 2.7, 2.8];
   const best = [4.2, 4.2, 5, 5, 3.9, 4.2, 4.6, 3.6, 3.2, 3.6, 4.2];
   const who = ['Elarion', 'Kaelor', 'Dagna/Elarion', 'Dagna', 'Elarion', 'Kaelor', 'Elarion', 'Elarion', 'Pipo', 'Dagna', 'Pipo'];
@@ -46,9 +47,27 @@ test('G1: "2 melhores" mostra a média do melhor e do 2º; Tabela × Ficha', () 
   assert.equal(M.baseTable({ rogue: [1, 2] }).rogue, M.IVAN_BASE.rogue, 'linha inválida não troca a tabela');
 });
 
+test('G1: o padrão pesa a ficha (10% tabela / 90% ficha) e o "melhor em" bate com a Tabela (F2.4)', () => {
+  assert.equal(M.W_DEFAULT, 0.1);
+  const { axes } = M.partyAxes(facts);
+  // o que a Tabela mostra: dano por rodada, cura por dia; e os PV efetivos e o dano à distância da ficha
+  const top = (get) => facts.filter(f => get(f) === Math.max(...facts.map(get))).map(f => M.firstName(f.name));
+  assert.deepEqual(axes.dmg.bestWho.map(M.firstName), top(f => f.dpr));
+  assert.deepEqual(top(f => f.dpr), ['Pipo'], 'Pipo 8,1 × Elarion 7 por rodada');
+  assert.deepEqual(axes.heal.bestWho.map(M.firstName), top(f => f.healDay));
+  assert.deepEqual(axes.mit.bestWho.map(M.firstName), top(f => f.eHp));
+  assert.deepEqual(axes.ranged.bestWho.map(M.firstName), top(f => f.rangedDpr));
+  // com 25% a tabela de classes ainda punha o mago à frente em Dano (a contradição de antes)
+  assert.deepEqual(M.partyAxes(facts, { w: 0.25 }).axes.dmg.bestWho.map(M.firstName), ['Elarion']);
+  // e a classe ainda desempata: só a ficha deixava os 4 empatados em Mobilidade
+  assert.equal(M.partyAxes(facts, { w: 0 }).axes.mobility.bestWho.length, 4);
+  assert.deepEqual(axes.mobility.bestWho.map(M.firstName), ['Pipo']);
+});
+
 test('G1: "Por quê" de Dano — base → ficha → final e os motivos', () => {
-  const why = M.whyAxis(byName('Elarion'), 'dmg');
+  const why = M.whyAxis(byName('Elarion'), 'dmg', { w: 0.5 });
   assert.deepEqual([why.base, why.sheet, why.final], [5, 3.3, 4.2]);
+  assert.equal(M.whyAxis(byName('Elarion'), 'dmg').final, 3.5, 'no padrão (10% / 90%)');
   assert.ok(why.chips.includes('Onda Trovejante'), why.chips.join(' | '));
   const pipo = M.whyAxis(byName('Pipo'), 'dmg');
   assert.ok(pipo.chips.some(c => /Ataque Furtivo 1d6/.test(c)), pipo.chips.join(' | '));
@@ -274,7 +293,7 @@ test('Ajustar no aparelho: o merge local é o do servidor e os patches pendentes
   assert.deepEqual(cur.hidden, [], 'valor torto volta ao padrão');
   const next = I.mergeInsights(cur, { base: { cleric: [2, 2, 5, 5, 2, 1, 4, 3, 1, 4, 1], wizard: null }, w: null, rep: 'top2', include: null });
   assert.deepEqual(Object.keys(next.base), ['cleric'], 'nos mapas, null apaga só o item');
-  assert.deepEqual([next.w, next.rep, next.dc, next.include], [0.5, 'top2', 12, null]);
+  assert.deepEqual([next.w, next.rep, next.dc, next.include], [0.1, 'top2', 12, null], 'w: null volta ao padrão (10% tabela)');
   assert.deepEqual(I.mergeInsights(next, I.RESET_PATCH).base, {});
   // dois toques antes do PUT: um patch só, os mapas juntos item por item
   assert.deepEqual(I.joinPatches({ focus: { social: 2 }, dc: 10 }, { focus: { explore: 2 }, dc: 12 }), { focus: { social: 2, explore: 2 }, dc: 12 });

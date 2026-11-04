@@ -345,13 +345,14 @@
 .ins-step > span { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--gold-deep); background: transparent; }
 .ins-step.is-on > span { width: 20px; height: 20px; background: var(--gold); border-color: var(--fh-gold-hi); }
 .ins-step:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: 2px; border-radius: 50%; }
-@media (max-width: 359px) {
-  /* a 320 os 5 passos de 44 px cabem, os rótulos na mesma fileira não ("Ficha" passava
-     da borda da folha): "Tabela" e "Ficha" sobem para uma linha própria, nas pontas */
-  .ins-steps { display: grid; grid-template-columns: repeat(5, 44px); justify-content: space-between; }
+@media (max-width: 479px) {
+  /* no celular os 6 passos de 44 px cabem (264 px, até a 320), os rótulos na mesma fileira
+     não ("Ficha" passava da borda da folha): "Tabela" e "Ficha" sobem para uma linha
+     própria, nas pontas */
+  .ins-steps { display: grid; grid-template-columns: repeat(6, 44px); justify-content: space-between; }
   .ins-steps-end { grid-row: 1; padding: 0; }
-  .ins-steps-end:first-child { grid-column: 1 / span 2; justify-self: start; }
-  .ins-steps-end:last-child { grid-column: 4 / span 2; justify-self: end; }
+  .ins-steps-end:first-child { grid-column: 1 / span 3; justify-self: start; }
+  .ins-steps-end:last-child { grid-column: 4 / span 3; justify-self: end; }
   .ins-step { grid-row: 2; }
 }
 .ins-dc { min-width: 52px; justify-content: center; }

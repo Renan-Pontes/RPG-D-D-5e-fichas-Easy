@@ -1032,6 +1032,16 @@ PARTY_STYLES = ('talk', 'quiet', 'combat', 'puzzle', 'explore', 'story')
 SPOTLIGHT_KINDS = ('shine', 'push', 'hook')
 PARTY_DCS = (10, 12, 15, 18, 20)
 PARTY_REPS = ('best', 'top2')
+# Tabela · · · Ficha (w = o peso da tabela de classes). O padrão é 10% tabela / 90% ficha: no
+# banco de teste (nível 1) com 25% a tabela ainda punha o Elarion (mago) como o melhor em Dano
+# (3,8 × 3,5), contra o dano por rodada da própria ficha (Pipo 8,1 × Elarion 7); com 10% o
+# "melhor em" bate com a Tabela em dano, cura, PV efetivos e dano à distância nos 3 bancos de
+# teste, e a classe ainda desempata (só a ficha deixava 4 empatados em Mobilidade).
+PARTY_W_STEPS = (0, 0.1, 0.25, 0.5, 0.75, 1)
+PARTY_W_DEFAULT = 0.1
+# v1 gravava o padrão de antes (0,5, "meio a meio") junto com tudo: ao ler um v1 com 0,5,
+# vale o padrão novo (quem quiser o meio a meio escolhe de novo no Ajustar).
+PARTY_W_OLD_DEFAULT = 0.5
 MAX_PARTY_CHARS = 12
 MAX_SPOTLIGHTS = 12
 MAX_SPOTLIGHT_TEXT = 160
@@ -1039,7 +1049,7 @@ MAX_DISMISSED = 40
 MAX_PARTY_INSIGHTS_BYTES = 20_000
 # Quem entra: `exclude` são as fichas que o mestre tirou (o padrão é todos, e quem chega à
 # mesa entra sozinho); `include` é a lista antiga de quem entra, ainda respeitada se vier.
-PARTY_INSIGHTS_DEFAULT = {'v': 1, 'include': None, 'exclude': [], 'w': 0.5, 'hidden': [], 'focus': {},
+PARTY_INSIGHTS_DEFAULT = {'v': 2, 'include': None, 'exclude': [], 'w': PARTY_W_DEFAULT, 'hidden': [], 'focus': {},
                           'rep': 'best', 'dc': 15, 'base': {}, 'style': {}, 'spotlights': {}, 'dismissed': {}}
 # Mapas: o merge entra um nível (null num item apaga só aquele item).
 PARTY_MAP_KEYS = ('focus', 'base', 'style', 'spotlights', 'dismissed')
@@ -1136,7 +1146,7 @@ def clean_party_insights_patch(raw):
         elif key == 'w':
             if isinstance(v, bool) or not isinstance(v, numbers.Number) or not 0 <= v <= 1:
                 _party_bad()
-            out[key] = round(v * 4) / 4                       # 5 passos: Tabela · · · Ficha
+            out[key] = min(PARTY_W_STEPS, key=lambda x: abs(x - v))   # os passos de Tabela · · · Ficha
         elif key == 'hidden':
             if not isinstance(v, list) or any(x not in PARTY_AXES for x in v):
                 _party_bad()
@@ -1181,7 +1191,9 @@ def merged_party_insights(current, patch, keep_ids=None):
         v = cur.get(key, default)
         out[key] = dict(v) if isinstance(default, dict) and isinstance(v, dict) else (
             {} if isinstance(default, dict) else v)
-    out['v'] = 1
+    if (cur.get('v') or 1) < 2 and cur.get('w') == PARTY_W_OLD_DEFAULT:
+        out['w'] = PARTY_W_DEFAULT
+    out['v'] = 2
     for key, v in (patch or {}).items():
         if v is None:
             default = PARTY_INSIGHTS_DEFAULT[key]

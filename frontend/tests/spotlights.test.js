@@ -92,7 +92,7 @@ test('🤐 fala pouco: nenhum desafio social e o 1º ★ é de perícia não soc
 });
 
 test('os outros estilos puxam as sugestões do assunto deles', () => {
-  const sug = (st) => S.momentSuggestions(facts, { style: st });
+  const sug = (st) => S.momentSuggestions(facts, { style: st, axisOpts: { w: 0.5 } });
   // 📖 história: o gancho da ficha vem primeiro
   assert.equal(sug({ [PIPO]: ['story'] })[PIPO][0].kind, 'hook');
   // ⚔ luta: Kaelor é a linha de frente do grupo
