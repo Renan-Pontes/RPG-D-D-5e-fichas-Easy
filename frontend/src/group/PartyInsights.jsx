@@ -229,21 +229,31 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
 
   // A cena nasce com o título da ideia e o texto dela no "O que acontece"; a ideia que já é
   // cena do plano (levada antes, por outro aparelho ou numa versão de antes) não vai de novo.
+  // "Abrir o plano ›" abre a folha da cena que a ideia virou (o Plano abre a cena de areaParams.sceneId)
+  const ideaScenes = useRef({});   // ideia → id da cena no plano
   const takeToPlan = async (idea) => {
     setPlanned(p => ({ ...p, [idea.key]: 'busy' }));
     try {
       const plan = await getSessionPlan(campaign.id);
       const scenes = [...(plan?.scenes || [])];
-      if (!scenes.some(sc => sceneHasIdea(sc, idea))) {
+      const had = scenes.find(sc => sceneHasIdea(sc, idea));
+      if (had) ideaScenes.current[idea.key] = had.id;
+      else {
         if (scenes.length >= 30) throw Object.assign(new Error(t(lang, 'O plano já tem 30 cenas.', 'The plan already has 30 scenes.')), { plain: true });
         const scene = { id: freshSceneId(scenes), ...ideaScene(idea, lang, { inText: isOldPlanServer(plan) }) };
         await saveSessionPlan(campaign.id, { scenes: [...scenes, scene] });
+        ideaScenes.current[idea.key] = scene.id;
       }
       setPlanIdeas(l => (l.includes(idea.key) ? l : [...l, idea.key]));
       setPlanned(p => ({ ...p, [idea.key]: 'ok' }));
     } catch (e) {
       setPlanned(p => ({ ...p, [idea.key]: e?.plain ? e.message : errorMessage(e, lang) }));
     }
+  };
+
+  const openIdeaPlan = (idea) => {
+    const sceneId = ideaScenes.current[idea?.key];
+    goTo('prepare', 'next', sceneId ? { sceneId } : undefined);
   };
 
   const openPlanCombat = async () => {
@@ -327,7 +337,7 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
           <Quadrants q={calc.quads} lang={lang} expanded={expanded} setExpanded={setExpanded}
             onAllGaps={() => { setExpanded(e => ({ ...e, gaps: true })); goSection('gaps'); }}
             onMoments={() => goSection('moments')} />
-          <Ideas ideas={calc.ideas} lang={lang} planned={planned} inPlan={planIdeas} onTake={takeToPlan} onOpenPlan={() => goTo('prepare', 'next')} readOnly={readOnly} />
+          <Ideas ideas={calc.ideas} lang={lang} planned={planned} inPlan={planIdeas} onTake={takeToPlan} onOpenPlan={openIdeaPlan} readOnly={readOnly} />
           <Moments facts={facts} settings={settings} update={update} suggestions={calc.suggestions} session={session} state={campaign.state} balance={balance}
             lang={lang} readOnly={readOnly} focusId={focusId} filter={view.moments || 'session'} setFilter={(v) => setView({ moments: v })} oneAtATime={!tablet}
             campaignId={campaign.id} onOpenPlan={() => goTo('prepare', 'next')}
@@ -346,7 +356,7 @@ export default function PartyInsights({ campaign, lang = 'pt', params, onParamsD
           </Fold>
           <Fold id="gaps" lang={lang} summary={sums.gaps} open={isOpen('gaps')} onToggle={toggle}>
             <Gaps gaps={calc.gaps} facts={facts} lang={lang} expanded={!!expanded.gaps} setExpanded={(v) => setExpanded(e => ({ ...e, gaps: v }))}
-              planned={planned} inPlan={planIdeas} onTake={takeToPlan} onOpenPlan={() => goTo('prepare', 'next')} readOnly={readOnly} />
+              planned={planned} inPlan={planIdeas} onTake={takeToPlan} onOpenPlan={openIdeaPlan} readOnly={readOnly} />
           </Fold>
           <Fold id="schools" lang={lang} title={t(lang, 'Escolas de magia', 'Schools of magic')} summary={sums.schools} open={isOpen('schools')} onToggle={toggle}>
             <Schools calc={calc} facts={facts} lang={lang} wide={wide} view={view} setView={setView} />
@@ -424,7 +434,7 @@ function PlanButton({ idea, planned, inPlan = [], onTake, onOpenPlan, readOnly, 
     was.current = st;
   }, [st]);
   if (st === 'ok') {
-    const open = () => { if (Date.now() - okAt.current >= SETTLE_MS) onOpenPlan(); };
+    const open = () => { if (Date.now() - okAt.current >= SETTLE_MS) onOpenPlan(idea); };
     return (
       <span className="ins-plan-ok" role="status">✓ {t(lang, 'No plano', 'In the plan')}{' '}
         <button type="button" className="mesa-btn is-quiet" onClick={open}>{t(lang, 'Abrir o plano ›', 'Open the plan ›')}</button></span>
