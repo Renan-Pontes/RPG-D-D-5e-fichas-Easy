@@ -294,6 +294,11 @@ def _down(f):
     return bool(f.get('defeated')) or (isinstance(f.get('current_hp'), (int, float)) and f['current_hp'] <= 0)
 
 
+def _dying(f):
+    """PJ a 0 PV que não morreu (testes contra a morte): a fita do mestre não o risca."""
+    return f.get('type') == 'pc' and not f.get('defeated') and _down(f)
+
+
 def _turn(fighters, active, idx):
     """(quem age agora, quem vem depois): o próximo pula quem caiu."""
     n = len(fighters)
@@ -318,8 +323,10 @@ def combat_summary(row):
         return None
     cur, nxt = _turn(fighters, active, idx)
     monsters = [f for f in fighters if f.get('type') == 'monster']
+    # `defeated` = a 0 PV ou derrotado; `dying` (só quando vale) = desses, o PJ que não morreu
     order = [{'id': f.get('id'), 'name': f.get('name') or '', 'kind': f.get('type') or '',
-              'acted': bool(active and i < idx), 'defeated': _down(f)} for i, f in enumerate(fighters)]
+              'acted': bool(active and i < idx), 'defeated': _down(f), **({'dying': True} if _dying(f) else {})}
+             for i, f in enumerate(fighters)]
     hp = None
     if cur and cur.get('current_hp') is not None:
         hp = f"{cur.get('current_hp')}/{cur.get('max_hp') if cur.get('max_hp') is not None else '?'}"

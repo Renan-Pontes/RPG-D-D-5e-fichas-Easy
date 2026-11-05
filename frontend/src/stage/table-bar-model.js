@@ -104,11 +104,14 @@ export function windowCorner({ corner = 'right', area, sub, page = null } = {}) 
 // Combate: o resumo (o mesmo do pulso) a partir do combate completo
 // ---------------------------------------------------------------------------
 const down = (c) => !!c?.defeated || (typeof c?.current_hp === 'number' && c.current_hp <= 0);
+// PJ a 0 PV que não morreu (testes contra a morte): não é "†" nem riscado (a regra da TV, E1.5a)
+const dying = (c) => c?.type === 'pc' && !c.defeated && typeof c.current_hp === 'number' && c.current_hp <= 0;
 
 /**
  * Do GET do combate (ou da resposta do Próximo turno) para o resumo da barra:
  * {active, ver, round, turnIndex, turnId, turnName, turnHp, nextName, acted,
- *  count, allMonstersDown, order:[{id,name,kind,acted,defeated}], dangers}.
+ *  count, allMonstersDown, order:[{id,name,kind,acted,defeated,dying?}], dangers}.
+ * `defeated` = a 0 PV ou derrotado (como o pulso); `dying` = desses, o PJ que não morreu.
  */
 export function combatSummary(combat) {
   if (!combat) return null;
@@ -125,7 +128,7 @@ export function combatSummary(combat) {
     }
   }
   const monsters = list.filter(c => c.type === 'monster');
-  const order = list.map((c, i) => ({ id: c.id, name: c.name || '', kind: c.type || '', acted: active && i < idx, defeated: down(c) }));
+  const order = list.map((c, i) => ({ id: c.id, name: c.name || '', kind: c.type || '', acted: active && i < idx, defeated: down(c), ...(dying(c) ? { dying: true } : {}) }));
   const maxHp = cur?.stats?.max_hp;
   return {
     active,
@@ -190,14 +193,21 @@ export function staleText(combat, lang = 'pt') {
   return L(lang, `A vez já tinha passado: agora é de ${who}.`, `The turn had already passed: it's ${who}'s now.`);
 }
 
-/** Fita de iniciativa do PC: ✓ agiu · ● agora · ○ falta · † caiu (texto, só leitura). */
+/**
+ * Fita de iniciativa do PC: ✓ agiu · ● agora · ○ falta · † caiu (texto, só leitura). O PJ a
+ * 0 PV que não morreu (`dying`) segue na ordem com a marca dele e "morrendo", sem † nem
+ * riscado; o servidor de antes não manda `dying` (fica como antes).
+ */
 export function ribbon(combat) {
   if (!combat?.active) return [];
-  return (combat.order || []).map(o => ({
-    id: o.id, name: o.name,
-    mark: o.defeated ? '†' : o.id === combat.turnId ? '●' : o.acted ? '✓' : '○',
-    state: o.defeated ? 'down' : o.id === combat.turnId ? 'now' : o.acted ? 'acted' : 'todo',
-  }));
+  return (combat.order || []).map(o => {
+    const gone = o.defeated && !o.dying;
+    return {
+      id: o.id, name: o.name, dying: !!o.dying,
+      mark: gone ? '†' : o.id === combat.turnId ? '●' : o.acted ? '✓' : '○',
+      state: gone ? 'down' : o.id === combat.turnId ? 'now' : o.acted ? 'acted' : 'todo',
+    };
+  });
 }
 
 /**

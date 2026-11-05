@@ -421,6 +421,8 @@
   .turn-strip-mark.is-acted { color: var(--ink-muted); }
   .turn-strip-mark.is-now { color: var(--gold-bright); font-weight: 600; }
   .turn-strip-mark.is-down { color: var(--ink-muted); text-decoration: line-through; }
+  /* PJ a 0 PV fazendo testes contra a morte: vermelho, sem riscar */
+  .turn-strip-dying { color: var(--blood-bright); }
   /* largura fixa: "Enviando…" não move o botão debaixo do cursor */
   .turn-strip-next { min-height: 48px; min-width: 12em; white-space: nowrap; justify-content: center; }
   /* ↶ Voltar turno: ao lado de quem age, do outro lado da fita (longe do Próximo) */

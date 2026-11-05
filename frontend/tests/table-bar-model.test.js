@@ -117,9 +117,18 @@ test('sem conexão: TV desconhecida (ponto cinza) e o que está na Tela "(últim
   assert.equal(barLines({ live: true, tvLive: 1, stage: { bg: 'auto' }, combat: combatSummary(COMBAT), offlineFor: 9 }).l1, '⚔ R2 · Vez de Goblin #2');
 });
 
-test('fita do PC: ✓ agiu · ● agora · ○ falta · † caiu', () => {
-  assert.deepEqual(ribbon(combatSummary(COMBAT)).map(m => m.mark), ['✓', '†', '●', '†']);
-  assert.deepEqual(ribbon(combatSummary({ ...COMBAT, turnIndex: 0 })).map(m => m.mark), ['●', '†', '○', '†']);
+test('fita do PC: ✓ agiu · ● agora · ○ falta · † caiu (o PJ a 0 PV não é †)', () => {
+  // a Dagna (PJ) a 0 PV faz testes contra a morte: segue com a marca dela, "morrendo", sem †
+  assert.deepEqual(ribbon(combatSummary(COMBAT)).map(m => m.mark), ['✓', '†', '●', '○']);
+  assert.deepEqual(ribbon(combatSummary(COMBAT)).map(m => m.dying), [false, false, false, true]);
+  assert.deepEqual(ribbon(combatSummary({ ...COMBAT, turnIndex: 0 })).map(m => m.mark), ['●', '†', '○', '○']);
+  assert.equal(ribbon(combatSummary({ ...COMBAT, turnIndex: 3 }))[3].state, 'now');
+  // PJ marcado como derrotado (as 3 falhas): † como o monstro
+  const dead = { ...COMBAT, combatants: COMBAT.combatants.map(c => (c.id === 'd' ? { ...c, defeated: true } : c)) };
+  assert.equal(ribbon(combatSummary(dead))[3].mark, '†');
+  // o pulso do servidor de antes não manda `dying`: fica como antes (†)
+  const old = { active: true, turnId: 'g2', order: [{ id: 'd', name: 'Dagna', kind: 'pc', acted: false, defeated: true }] };
+  assert.equal(ribbon(old)[0].mark, '†');
   assert.deepEqual(ribbon(null), []);
 });
 

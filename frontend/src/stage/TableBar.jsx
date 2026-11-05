@@ -231,8 +231,9 @@ export function TurnStrip({ lang = 'pt', onOpenActor }) {
       )}
       <ol className="turn-strip-ribbon" aria-label={L(lang, 'Ordem de iniciativa', 'Initiative order')}>
         {marks.map(m => (
-          <li key={m.id} className={`turn-strip-mark is-${m.state}`}>
+          <li key={m.id} className={`turn-strip-mark is-${m.state} ${m.dying ? 'is-dying' : ''}`}>
             <span aria-hidden="true">{m.mark}</span> {m.name}
+            {m.dying && <span className="turn-strip-dying"> · {L(lang, 'morrendo', 'dying')}</span>}
             <span className="sr-only">{m.state === 'now' ? L(lang, ' (agora)', ' (now)') : m.state === 'acted' ? L(lang, ' (agiu)', ' (acted)')
               : m.state === 'down' ? L(lang, ' (caiu)', ' (down)') : L(lang, ' (falta)', ' (to act)')}</span>
           </li>

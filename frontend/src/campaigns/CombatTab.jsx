@@ -33,7 +33,7 @@ import {
   encounterBody, fightLine, initiativeRows, lateInitiatives, lateLabel, openInitiativeCheck, setupSteps, pickInitiatives, startLabel,
 } from '../combat/encounter-setup.js';
 import {
-  failText, heldOpId, markLabel, newerCombat, newOpId, quietSlot, shouldScrollTo, toggleMark, turnMarks, TOUCH_QUIET_MS,
+  failText, fallenLabel, fallenState, heldOpId, markLabel, newerCombat, newOpId, quietSlot, shouldScrollTo, toggleMark, turnMarks, TOUCH_QUIET_MS,
 } from '../play/damage-model.js';
 import { legacyStart, startEncounter } from '../play/combat-actions.js';
 import { activeScene } from '../play/scene-model.js';
@@ -905,7 +905,6 @@ function CombatantRow({
   const fromSheet = useMemo(() => sheetConditions(c, campaign), [c, campaign]);
   const member = c.type === 'pc' ? (campaign.members || []).find(m => m.character?.id === c.character_id) : null;
   const stats = member ? memberStats(member) : null;
-  const down = (c.current_hp || 0) <= 0;
   const nChips = conds.length + fromSheet.length;
   const kind = c.type === 'monster' ? t(lang, 'Monstro', 'Monster') : t(lang, 'Personagem', 'Character');
   const condText = [
@@ -916,11 +915,14 @@ function CombatantRow({
     ...fromSheet.map(cond => `${conditionLabel(cond, lang)} (${t(lang, 'ficha', 'sheet')})`),
   ].join(', ');
   const markText = markLabel(mark, lang);
+  // PJ a 0 PV: "Morrendo · ✓1 ✗2" / "Estável" (antes da marca: a linha corta o fim), sem †
+  // nem riscado (só quem morreu)
+  const fallen = fallenState(c);
   const status = [
+    fallenLabel(c, lang) || null,
     markText,
     mark === 'now' && c.type === 'monster' ? t(lang, 'Ações ›', 'Actions ›') : null,
     c.defeated && mark !== 'down' ? t(lang, 'derrotado', 'defeated') : null,
-    c.type === 'pc' && down && mark !== 'down' ? t(lang, 'caído', 'down') : null,
     answer != null ? `⚡ ${answer}` : null,
   ].filter(Boolean).join(' · ');
   const label = [
@@ -949,7 +951,7 @@ function CombatantRow({
       <button type="button" className="ct-open" onClick={() => onOpen()} aria-label={label}
         aria-expanded={marking ? undefined : expanded} aria-haspopup={!marking && expanded === undefined ? 'dialog' : undefined}>
         <span className="ct-name">{c.name}</span>
-        {statusLine && <span className={`ct-mark ${mark ? `is-${mark}` : ''}`} aria-hidden="true">{statusLine}</span>}
+        {statusLine && <span className={`ct-mark ${mark ? `is-${mark}` : ''} ${fallen ? `is-${fallen}` : ''}`} aria-hidden="true">{statusLine}</span>}
       </button>
       {(nChips > 0 || marked) && (
         <div className="ct-conds">

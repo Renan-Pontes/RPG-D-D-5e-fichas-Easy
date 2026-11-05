@@ -982,6 +982,9 @@ button.cs-cond:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-off
 }
 .ct-mark.is-now { color: var(--fh-gold-hi); }
 .ct-mark.is-down { color: var(--blood-bright); }
+/* PJ a 0 PV (não morreu): "Morrendo · ✓1 ✗2" em vermelho, "Estável" em dourado, sem riscar */
+.ct-mark.is-dying { color: var(--blood-bright); }
+.ct-mark.is-stable { color: var(--gold); }
 .ct-row.mark-acted { opacity: 0.68; }
 .ct-row.mark-now { border-color: color-mix(in srgb, var(--gold) 80%, transparent); }
 /* "Vários alvos": caixa de 48 px no lugar da iniciativa e o "½ passou" no marcado */

@@ -178,11 +178,33 @@ export function failText(e, lang = 'pt') {
 }
 
 // ------------------------------------------------------------------ marcas de vez
-const isDown = (c) => !!c?.defeated || (typeof c?.current_hp === 'number' && c.current_hp <= 0);
+const atZero = (c) => typeof c?.current_hp === 'number' && c.current_hp <= 0;
 
 /**
- * Marca de cada linha: 'now' (▶ agora) · 'acted' (✓ agiu, esmaecida) · 'down' († caiu) ·
- * null (falta agir). Só com o combate andando.
+ * PJ a 0 PV que não morreu (a mesma regra da TV, onda 3 E1.5a): 'dying' enquanto faz testes
+ * contra a morte, 'stable' com a condição Estável; null para os outros. Morto (o † e o
+ * riscado) é só o monstro/NPC a 0 PV e o PJ marcado como derrotado (as 3 falhas).
+ */
+export function fallenState(c) {
+  if (c?.type !== 'pc' || c.defeated || !atZero(c)) return null;
+  return Array.isArray(c.conditions) && c.conditions.includes('stable') ? 'stable' : 'dying';
+}
+
+/** "Morrendo · ✓1 ✗2" / "Estável" (ou '' para quem não é PJ caído). */
+export function fallenLabel(c, lang = 'pt') {
+  const s = fallenState(c);
+  if (s === 'stable') return L(lang, 'Estável', 'Stable');
+  if (s !== 'dying') return '';
+  const ds = c.death_saves || {};
+  return `${L(lang, 'Morrendo', 'Dying')} · ✓${ds.success || 0} ✗${ds.fail || 0}`;
+}
+
+const isDown = (c) => !!c?.defeated || (atZero(c) && !fallenState(c));
+
+/**
+ * Marca de cada linha: 'now' (▶ agora) · 'acted' (✓ agiu, esmaecida) · 'down' († caiu, só
+ * quem morreu) · null (falta agir). O PJ a 0 PV segue na ordem (tem turno para os testes
+ * contra a morte): a linha dele diz "Morrendo"/"Estável" (fallenLabel). Só com o combate andando.
  */
 export function turnMarks(combat) {
   const list = Array.isArray(combat?.combatants) ? combat.combatants : [];
