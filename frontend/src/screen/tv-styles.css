@@ -744,8 +744,8 @@
    Nome e total com 1,8cqw (23 px numa TV 1280×720), o rótulo com 1,4cqw. Escondidas
    enquanto há cartão grande; somem 2 min depois da última rolagem (roll-queue.js).
    O lugar não cobre texto, a ordem nem os tokens (tv-logic.histPlacement, `.is-<spot>`):
-   no combate no pé da coluna da iniciativa ('side', as linhas que couberem; sem lugar,
-   'map': 3 compactas e translúcidas no canto do mapa com menos tokens); no repouso e no
+   no combate no pé da coluna da iniciativa ('side', as linhas que couberem, 3 ou mais;
+   senão 'map': as 5 translúcidas no canto do mapa com menos tokens); no repouso e no
    cartão sem imagem no canto de baixo à esquerda ('corner', o grupo do rodapé abre
    espaço); com texto ou imagem na largura toda (o texto de ler, cartão com imagem, cena,
    texto, recap, mapa), uma linha embaixo ('line') e o resto sobe para dar lugar. */
@@ -793,10 +793,12 @@
    por cima da coluna, então a ordem não encolhe; quantas linhas cabem é medido na TV) */
 .tv-combat-side { position: relative; }
 .tv-roll-hist.is-side { left: 0; right: 0; bottom: 0; width: auto; max-width: none; box-shadow: none; }
-/* a ordem enche a coluna: 3 linhas translúcidas no canto do mapa com menos tokens
-   (tv-logic.quietCorner; os de baixo transparecem) */
+/* a ordem quase enche a coluna (cabem menos de 3): as 5 translúcidas no canto do mapa com
+   menos tokens (tv-logic.quietCorner; os de baixo transparecem). Só a moldura encolhe (a
+   altura de cada linha é a medida que decide entre a coluna e o mapa: não muda aqui). */
 .tv-grid-container { position: relative; }
-.tv-roll-hist.is-map { max-width: 60%; background: rgba(7, 5, 4, 0.6); border-color: rgba(214, 176, 100, 0.25); box-shadow: none; }
+.tv-roll-hist.is-map { max-width: 60%; background: rgba(7, 5, 4, 0.6); border-color: rgba(214, 176, 100, 0.25); box-shadow: none; padding: 0.5cqh 1cqw 0.6cqh; }
+.tv-roll-hist.is-map .tv-hist-title { margin-bottom: 0.2cqh; }
 .tv-roll-hist.is-map.at-bl { left: 1cqw; bottom: 1.4cqh; }
 .tv-roll-hist.is-map.at-br { left: auto; right: 1cqw; bottom: 1.4cqh; }
 .tv-roll-hist.is-map.at-tl { left: 1cqw; top: 1.4cqh; bottom: auto; }

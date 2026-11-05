@@ -73,15 +73,18 @@ export function sceneLayout({ image = false, ratio = null } = {}) {
 // ------------------------------------------------------------------ onda 3 (E2.1): onde ficam as Últimas rolagens
 
 export const HIST_MAX = 5;      // as 5 mais novas
-export const HIST_MAP_MAX = 3;  // por cima do mapa, compacta
+export const HIST_MAP_MAX = 5;  // por cima do mapa, no canto com menos tokens (translúcida)
+export const HIST_SIDE_MIN = 3; // menos que isso no pé da iniciativa: vai para o canto do mapa
 
 /**
  * Onde a Tela põe as Últimas rolagens sem cobrir o texto da frente, a ordem do combate nem
  * os tokens do mapa (antes ficavam sempre no canto de baixo à esquerda, por cima de tudo):
  *   'side'   combate: no pé da coluna da iniciativa, com as linhas que cabem embaixo da
- *            ordem (`room`, medido na TV; null antes da 1ª medida = tenta as 5);
- *   'map'    combate em que a ordem enche a coluna (`room` 0): no canto do mapa com menos
- *            tokens (`corner`, quietCorner), compacta (3 linhas) e translúcida;
+ *            ordem (`room`, medido na TV; null antes da 1ª medida = tenta as 5), se forem
+ *            pelo menos 3 (HIST_SIDE_MIN);
+ *   'map'    combate em que a ordem quase enche a coluna (`room` < 3: 9 na ordem deixavam 1
+ *            linha): no canto do mapa com menos tokens (`corner`, quietCorner), as 5,
+ *            translúcida;
  *   'corner' repouso sem texto de ler e cartão sem imagem própria: o canto de baixo à
  *            esquerda, até 5 linhas (a capa e o texto do cartão ficam no meio e à direita; o
  *            rodapé do grupo abre espaço);
@@ -95,7 +98,7 @@ export const HIST_MAP_MAX = 3;  // por cima do mapa, compacta
 export function histPlacement({ mode, image = false, read = false, room = null, combat = null } = {}) {
   if (mode === 'combat') {
     if (room == null) return { spot: 'side', max: HIST_MAX, reserve: '' };
-    return room >= 1
+    return room >= HIST_SIDE_MIN
       ? { spot: 'side', max: Math.min(HIST_MAX, room), reserve: '' }
       : { spot: 'map', max: HIST_MAP_MAX, reserve: '', corner: quietCorner(combat) };
   }
@@ -231,6 +234,17 @@ export function splitNumbered(name) {
   const s = String(name ?? '').trim();
   const m = /^(.*\S)\s*(#\d+)$/.exec(s);
   return m ? { base: m[1], num: m[2] } : { base: s, num: '' };
+}
+
+/**
+ * O nome curto da faixa de uma linha das Últimas rolagens (E2.1: as 5 cabem lado a lado a
+ * 1280×720): "Dagna Brasaforte" → "Dagna"; o número do monstro fica ("Goblin Afogado #2" →
+ * "Goblin #2").
+ */
+export function shortName(name) {
+  const { base, num } = splitNumbered(name);
+  const first = base.split(/\s+/)[0] || '';
+  return num ? `${first} ${num}` : first;
 }
 
 /** Condições à vista: as `max` primeiras e quantas ficaram de fora ("+N"); nenhuma some sem aviso. */

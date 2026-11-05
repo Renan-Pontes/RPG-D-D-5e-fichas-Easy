@@ -12,7 +12,7 @@ import { absUrl, cardKey, charLine, healthLabel, paragraphs, screenMode } from '
 import { defaultArt } from '../world/world-model.js';
 import { stageNow } from '../stage/stage-now.js';
 import {
-  cardLayout, conditionsShown, histLinesFit, histPlacement, initiativeRows, isDeadScreenLink, lengthClass, partyRow, recapSubtitle, sceneLayout,
+  cardLayout, conditionsShown, histLinesFit, histPlacement, initiativeRows, isDeadScreenLink, lengthClass, partyRow, recapSubtitle, sceneLayout, shortName,
   splitNumbered, turnNow, tvLang, tvMode,
 } from './tv-logic.js';
 import { fitAll } from './tv-fit.js';
@@ -91,10 +91,11 @@ const CONDITIONS = {
 // cartão, cada rolagem fica nas ÚLTIMAS ROLAGENS — as 5 mais novas, nome e total
 // em ≥ 22 px numa TV 1280×720 —, que somem 2 min depois da última. Num lugar que não
 // cobre texto, a ordem nem os tokens (tv-logic.histPlacement): no combate, no pé da
-// coluna da iniciativa (as linhas que couberem; sem lugar, 3 compactas no canto do
-// mapa com menos tokens); no repouso e no cartão sem imagem, no canto de baixo à
+// coluna da iniciativa (as linhas que couberem, se forem 3 ou mais; senão as 5 no canto
+// do mapa com menos tokens); no repouso e no cartão sem imagem, no canto de baixo à
 // esquerda; com texto ou imagem na largura toda (o texto de ler, cartão com imagem,
-// cena, texto, recap, mapa), uma linha embaixo, e o resto sobe para dar lugar.
+// cena, texto, recap, mapa), uma linha embaixo (a mais nova inteira, as outras com o
+// primeiro nome e o total), e o resto sobe para dar lugar.
 // A ficha só manda a rolagem quando o dado para no aparelho do jogador
 // (components/DiceRoller.jsx): a TV nunca entrega o número antes dele.
 // Servidor antigo (sem `rolls`): a regra de antes (`publicRolls[0]`, < 20 s).
@@ -759,22 +760,24 @@ const ROLL_LABELS = (lang) => ({ damageLabel: (ty) => damageTypeLabel(ty, lang),
  * ≥ 22 px numa TV 1280×720. Só o rótulo (o quê) ganha reticências; o nome e o resultado
  * ficam inteiros. Some 2 min depois da última. `spot` (tv-logic.histPlacement): em coluna
  * com a mais nova embaixo ('side' no pé da iniciativa, 'corner', 'map' no `corner` do mapa
- * com menos tokens), até `max`; ou 'line', uma linha com a mais nova primeiro (as que não
- * cabem ficam de fora).
+ * com menos tokens), até `max`; ou 'line', uma linha com a mais nova primeiro: ela inteira,
+ * as outras só com o primeiro nome e o total (tv-logic.shortName), para as 5 caberem.
  */
 function RollHistory({ rolls, lang, spot = 'corner', max = 5, corner = '' }) {
   const newest = rolls[rolls.length - 1]?.id;
-  const shown = spot === 'line' ? [...rolls].reverse() : rolls.slice(-max);
+  const line = spot === 'line';
+  const shown = line ? [...rolls].reverse().slice(0, max) : rolls.slice(-max);
   return (
     <section className={`tv-roll-hist is-${spot} ${corner ? `at-${corner}` : ''}`} aria-label={t(lang, 'Últimas rolagens', 'Latest rolls')} aria-live="polite">
       <h2 className="tv-hist-title">🎲 {t(lang, 'Últimas rolagens', 'Latest rolls')}</h2>
       <ol className="tv-hist-list">
         {shown.map((r) => {
           const { who, what, result, mark } = histParts(r, lang);
+          const brief = line && r.id !== newest;
           return (
             <li key={r.id} className={`tv-hist-item ${mark ? `is-${mark}` : ''} ${r.id === newest ? 'is-new' : ''}`}>
-              <span className="tv-hist-who">{who}</span>
-              {what && <span className="tv-hist-what">{what}</span>}
+              <span className="tv-hist-who">{brief ? shortName(who) : who}</span>
+              {what && !brief && <span className="tv-hist-what">{what}</span>}
               <span className="tv-hist-res">{result}</span>
             </li>
           );

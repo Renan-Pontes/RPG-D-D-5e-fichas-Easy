@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   recapSubtitle, isDeadScreenLink, tvMode, splitNumbered, conditionsShown, bestScale, cardLayout, sceneLayout, WIDE_TEXT_MAX,
-  histPlacement, histLinesFit, quietCorner, HIST_MAX, HIST_MAP_MAX,
+  histPlacement, histLinesFit, quietCorner, HIST_MAX, HIST_MAP_MAX, shortName,
 } from '../src/screen/tv-logic.js';
 import { stageNow } from '../src/stage/stage-now.js';
 
@@ -232,7 +232,11 @@ test('histPlacement: combate no pé da iniciativa (as linhas que cabem); sem lug
   assert.deepEqual(histPlacement({ mode: 'combat' }), { spot: 'side', max: HIST_MAX, reserve: '' }, 'antes da 1ª medida tenta as 5');
   assert.deepEqual(histPlacement({ mode: 'combat', room: 3 }), { spot: 'side', max: 3, reserve: '' });
   assert.deepEqual(histPlacement({ mode: 'combat', room: 9 }), { spot: 'side', max: HIST_MAX, reserve: '' });
-  assert.deepEqual(histPlacement({ mode: 'combat', room: 1 }), { spot: 'side', max: 1, reserve: '' }, '9 na ordem: 1 linha, fora do mapa');
+  // 9 na ordem deixavam 1 linha no pé da coluna: as 5 vão para o canto do mapa sem tokens
+  assert.deepEqual(histPlacement({ mode: 'combat', room: 1 }), { spot: 'map', max: HIST_MAP_MAX, reserve: '', corner: 'bl' }, '9 na ordem: 1 linha não basta');
+  assert.equal(histPlacement({ mode: 'combat', room: 2, combat: BRUMAFRIA }).spot, 'map');
+  assert.equal(histPlacement({ mode: 'combat', room: 1, combat: BRUMAFRIA }).corner, 'br');
+  assert.equal(HIST_MAP_MAX, HIST_MAX, 'no mapa também as 5');
   assert.deepEqual(histPlacement({ mode: 'combat', room: 0 }), { spot: 'map', max: HIST_MAP_MAX, reserve: '', corner: 'bl' }, 'a ordem enche a coluna');
   assert.equal(histPlacement({ mode: 'combat', room: 0, combat: BRUMAFRIA }).corner, 'br', 'o grupo está embaixo à esquerda');
 });
@@ -284,4 +288,13 @@ test('histLinesFit: linhas inteiras no que sobra embaixo da ordem', () => {
   assert.equal(histLinesFit(-20, 37, 36), 0);
   assert.equal(histLinesFit(200, 37, 0), 0);
   assert.equal(histLinesFit(NaN, 37, 36), 0);
+});
+
+// Corrigir final da onda 3: na faixa de uma linha, as 5 cabem (a mais nova inteira, as outras curtas).
+test('shortName: o primeiro nome, com o número do monstro', () => {
+  assert.equal(shortName('Dagna Brasaforte'), 'Dagna');
+  assert.equal(shortName('Goblin Afogado #2'), 'Goblin #2');
+  assert.equal(shortName('Mestre'), 'Mestre');
+  assert.equal(shortName('  '), '');
+  assert.equal(shortName(null), '');
 });
