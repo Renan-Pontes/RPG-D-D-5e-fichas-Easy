@@ -164,9 +164,14 @@ const crOf = (m) => {
   return s && Number.isFinite(+s) ? +s : null;   // sem ND não é ND 0
 };
 
+// Criatura boa (Águia Gigante, Sprite, Pégaso…): os dados estão certos, mas ela é o aliado
+// típico, não "o que pode derrubar o grupo". As Ameaças do quadro não a citam.
+const allyLike = (m) => /\bgood\b/i.test(String(m?.alignment || ''));
+
 /**
  * Ameaças para o quadro do Raio-X: monstros de ND perto do nível do grupo (±2) que
  * resistem (ou são imunes) ao dano principal de alguém. Os que pegam mais gente vêm antes.
+ * Criaturas boas ficam de fora (allyLike).
  */
 export function threatMonsters(monsters, facts, lang = 'pt', { limit = 3 } = {}) {
   if (!facts.length) return [];
@@ -175,7 +180,7 @@ export function threatMonsters(monsters, facts, lang = 'pt', { limit = 3 } = {})
   const out = [];
   for (const m of monsters || []) {
     const cr = crOf(m);
-    if (cr == null || cr < L - 2 || cr > L + 2) continue;
+    if (cr == null || cr < L - 2 || cr > L + 2 || allyLike(m)) continue;
     const hit = mains.filter(x => damageFactor(m, x.main.type) < 1).sort((a, b) => b.main.exp - a.main.exp);
     // dano que o grupo perde contra ele (quem bate mais forte pesa mais)
     const lost = hit.reduce((n, x) => n + x.main.exp * (1 - damageFactor(m, x.main.type)), 0);
@@ -200,6 +205,7 @@ export function threatMonsters(monsters, facts, lang = 'pt', { limit = 3 } = {})
  * A ameaça típica do nível do grupo para cada salvaguarda (as Ameaças do quadro): um monstro do
  * bestiário (não "meus monstros") de ND entre L − 2 e L + 2 — o alcance de threatMonsters —
  * que cobra a salvaguarda, o de ND mais perto do nível; empate: a CD maior, depois o nome.
+ * Criaturas boas não são exemplo de ameaça (allyLike).
  * `typicalDc`: a CD mediana dos monstros desse alcance (para quando não há exemplo).
  * → {examples: {dex: {id, name, cr, dc}, …}, typicalDc}
  */
@@ -209,7 +215,7 @@ export function saveThreatExamples(monsters, facts, lang = 'pt') {
   if (!facts?.length) return { examples, typicalDc: 13 };
   const L = partyLevel(facts);
   for (const m of monsters || []) {
-    if (m?.custom) continue;
+    if (m?.custom || allyLike(m)) continue;
     const cr = crOf(m);
     if (cr == null || cr < L - 2 || cr > L + 2) continue;
     const d = Math.abs(cr - L);

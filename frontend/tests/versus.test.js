@@ -53,6 +53,22 @@ test('ameaças do quadro: só ND perto do nível do grupo (±2) e quem perde mai
   assert.match(list[0].text, / (resiste a|é imune a) .+: o dano de \S+ /);
 });
 
+test('ameaças do quadro: criatura boa (Águia Gigante, Sprite) não é ameaça', () => {
+  assert.match(mon('giant-eagle').alignment, /good/);
+  assert.match(mon('sprite').alignment, /good/);
+  const list = V.threatMonsters(BESTIARY, facts, 'pt', { limit: 50 });
+  assert.ok(list.length > 0);
+  assert.ok(!list.some(x => /good/i.test(mon(x.id).alignment)), list.map(x => x.id).join(','));
+  // a Águia Gigante resiste ao radiante da Dagna, mas fica de fora
+  assert.equal(V.damageFactor(mon('giant-eagle'), 'radiant'), 0.5);
+  assert.ok(!list.some(x => x.id === 'giant-eagle'));
+  const ex = V.saveThreatExamples(BESTIARY, facts, 'pt').examples;
+  for (const e of Object.values(ex)) assert.doesNotMatch(mon(e.id).alignment, /good/i, e.id);
+  assert.notEqual(ex.cha?.id, 'sprite');
+  // só aliados no alcance: nenhuma ameaça (o quadro cai no perigo genérico do nível)
+  assert.deepEqual(V.threatMonsters([{ ...mon('giant-eagle') }], facts, 'pt'), []);
+});
+
 test('procurar monstro e achar os do plano', () => {
   assert.ok(V.searchMonsters(BESTIARY, 'fantas').some(m => m.id === 'ghost'));
   assert.ok(V.searchMonsters(BESTIARY, 'GHOST').some(m => m.id === 'ghost'));
