@@ -144,9 +144,13 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
       ? L(lang, `Embaixo de cada atalho: o melhor da mesa e a chance dele na CD ${refDc}${modeText} (sem CD escolhida).`, `Under each shortcut: the best at the table and their chance at DC ${refDc}${modeText} (no DC picked).`)
       : L(lang, `Embaixo de cada atalho: o melhor da mesa e a chance dele na CD ${refDc}${modeText}.`, `Under each shortcut: the best at the table and their chance at DC ${refDc}${modeText}.`)}</p>
   ) : null;
+  // a forma curta ("＋ Pipo" / "− Pipo") é a do celular baixo (≤ 640 px de altura, checks-styles):
+  // os nomes do "Para" cabem em 2 filas e as perícias ficam à vista sem rolar (E1.6b a 320×568)
+  const downLong = includeDown ? L(lang, `Deixar ${allDown} de fora`, `Leave ${allDown} out`) : `＋ ${L(lang, 'Incluir', 'Include')} ${allDown}`;
   const downToggle = targets.length === 0 && down.length > 0 ? (
-    <button type="button" className="mesa-btn gc-down-btn" onClick={() => setIncludeDown(v => !v)}>
-      {includeDown ? L(lang, `Deixar ${allDown} de fora`, `Leave ${allDown} out`) : `＋ ${L(lang, 'Incluir', 'Include')} ${allDown}`}
+    <button type="button" className="mesa-btn gc-down-btn" onClick={() => setIncludeDown(v => !v)} aria-label={downLong}>
+      <span className="gc-long" aria-hidden="true">{downLong}</span>
+      <span className="gc-short" aria-hidden="true">{includeDown ? '−' : '＋'} {allDown}</span>
     </button>
   ) : null;
   const advText = { normal: L(lang, 'Normal', 'Normal'), adv: L(lang, 'Vantagem', 'Advantage'), dis: L(lang, 'Desvantagem', 'Disadvantage') }[advantage] || advantage;
@@ -287,7 +291,8 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
 
   const summary = (
     <p className="gc-summary">
-      {L(lang, 'Próximo pedido vai para', 'Next request goes to')}: <strong>{targetText}</strong>
+      <span className="gc-long">{L(lang, 'Próximo pedido vai para', 'Next request goes to')}</span>
+      <span className="gc-short">{L(lang, 'Vai para', 'Goes to')}</span>: <strong>{targetText}</strong>
       {dc !== '' && <> · CD {dc}{dcHidden ? ` (${L(lang, 'secreta', 'secret')})` : ''}</>}
       {advantage !== 'normal' && <> · {advantage === 'adv' ? L(lang, 'vantagem', 'advantage') : L(lang, 'desvantagem', 'disadvantage')}</>}
     </p>
