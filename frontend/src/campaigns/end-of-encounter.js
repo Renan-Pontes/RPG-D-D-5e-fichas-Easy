@@ -53,6 +53,13 @@ export function suggestXp(combat, lookup) {
   return { total, defeatedXp, estimated };
 }
 
+/**
+ * O XP que a folha já traz escrito: com monstro ainda de pé (o combate acabou no meio, ou a
+ * sessão encerrou com ele andando), só o dos derrotados; senão, todos. O XP de quem nem caiu
+ * só entra se o mestre tocar em "Todos".
+ */
+export const defaultXp = (xp) => (xp && xp.defeatedXp < xp.total ? xp.defeatedXp : xp?.total || 0);
+
 /** Quem recebe XP: os PJs que estavam no combate; sem nenhum, a mesa toda ('all'). */
 export function xpRecipients(combat, campaign) {
   const inTable = new Set((campaign?.members || []).filter(m => m.role !== 'dm' && m.character).map(m => m.character.id));

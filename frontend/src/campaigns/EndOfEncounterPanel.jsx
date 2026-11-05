@@ -16,7 +16,7 @@ import MesaSheet from '../shell/MesaSheet.jsx';
 import { getAdventure } from '../play/play-api.js';
 import { hasTreasure, treasureSummary } from '../prep/prep-graph.js';
 import './table-now.css';
-import { diaryDraft, encounterSummary, suggestXp, wizardSteps, xpRecipients } from './end-of-encounter.js';
+import { defaultXp, diaryDraft, encounterSummary, suggestXp, wizardSteps, xpRecipients } from './end-of-encounter.js';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const TreasureModal = lazy(() => import('../prep/PlayPanel.jsx').then(m => ({ default: m.TreasureModal })));
@@ -50,7 +50,7 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
   const draft = useMemo(() => diaryDraft(combat, { lang, scene: campaign.state?.scene || '' }), [combat, lang, campaign.state?.scene]);
   const players = (campaign.members || []).filter(m => m.role !== 'dm' && m.character);
 
-  const [xpAmount, setXpAmount] = useState(String(xp.total || ''));
+  const [xpAmount, setXpAmount] = useState(String(defaultXp(xp) || ''));
   const [title, setTitle] = useState(draft.title);
   const [body, setBody] = useState(draft.body);
   const [done, setDone] = useState({});
@@ -106,7 +106,7 @@ export default function EndOfEncounterPanel({ campaign, combat, lang, onClose, o
                     {L(lang, 'Todos', 'All')} {xp.estimated ? '≈' : ''}{xp.total}
                   </button>
                   {xp.defeatedXp !== xp.total && (
-                    <button type="button" className="mesa-chip" aria-pressed={xpAmount === String(xp.defeatedXp)} onClick={() => setXpAmount(String(xp.defeatedXp))}>
+                    <button type="button" className="mesa-chip" aria-pressed={xpAmount === String(xp.defeatedXp) || (!xp.defeatedXp && !xpAmount)} onClick={() => setXpAmount(String(xp.defeatedXp))}>
                       {L(lang, 'Só derrotados', 'Defeated only')} {xp.defeatedXp}
                     </button>
                   )}
