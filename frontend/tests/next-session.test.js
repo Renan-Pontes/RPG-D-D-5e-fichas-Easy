@@ -5,6 +5,7 @@ import {
   toggleDiscovered, revealBodyFor, planDiff, carryOver, missingIds, textForRef, nextId, freshSceneId,
   planHeading, stepSummary, initialStep, nextStepId, readyChecklist, clueCount, planExport, stateSession,
   planIsBlank, linkedAdventureIds, sceneFights, SECRET_ROWS, PLAN_LIMITS, isOldPlanServer, patchHasPockets,
+  planSessionKey, planNeedsReload,
 } from '../src/prep/next-session.js';
 import { searchEntries, pickEntries, entryImage, kindArt, kindLabel } from '../src/prep/prep-world.js';
 import { freeSpotIn, panToShow, makeNode, addNode, emptyData, NODE_W, NODE_H } from '../src/prep/prep-graph.js';
@@ -349,4 +350,21 @@ test('⑤ Recompensas: o item cadastrado vira uma linha do texto', () => {
   assert.equal(rewardWithItem('a\n\n', { name: 'X' }), 'a\n• X');
   assert.equal(rewardWithItem('a', { name: '  ' }), 'a');
   assert.equal(rewardWithItem('x'.repeat(4000), { name: 'Y' }).length, 4000);
+});
+
+test('planNeedsReload: encerrar com o Plano aberto relê o plano; começar não (F1.7)', () => {
+  const live3 = planSessionKey({ session: '3', live: true });
+  const ended3 = planSessionKey({ session: '3', live: false });
+  const live4 = planSessionKey({ session: 'Sessão 4', live: true });
+  assert.equal(live3, '1:3');
+  assert.equal(ended3, '0:3');
+  assert.equal(planSessionKey(null), '0:');
+  // ■ Encerrar (daqui ou de outro aparelho): o servidor arquivou o plano e gravou o da próxima
+  assert.equal(planNeedsReload(live3, ended3), true);
+  // a sessão mudou de nº sem estar ao vivo (outro aparelho começou e encerrou)
+  assert.equal(planNeedsReload(ended3, planSessionKey({ session: '4' })), true);
+  // começar a sessão não mexe no plano: o rascunho fica e grava como sempre
+  assert.equal(planNeedsReload(ended3, live4), false);
+  assert.equal(planNeedsReload(live3, live3), false);
+  assert.equal(planNeedsReload(ended3, ended3), false);
 });

@@ -10,7 +10,7 @@ import {
   toggleDiscovered, revealBodyFor, planDiff, carryOver, textForRef, PLAN_LIMITS, PLAN_STEPS,
   sceneParts, withSceneName, planHeading, stepSummary, initialStep, nextStepId, stepLabel, clueCount,
   readyChecklist, planExport, realScene, freshSceneId, sceneFights, linkedAdventureIds, isOldPlanServer, patchHasPockets, droppedPockets,
-  rewardWithItem,
+  rewardWithItem, planSessionKey, planNeedsReload,
 } from './next-session.js';
 import { nextStep, prepSession, readSkips, reminderText, writeSkip } from '../shell/next-step.js';
 import { inviteLink, screenLink } from '../shell/shell-logic.js';
@@ -189,6 +189,23 @@ export default function NextSession({ campaign, lang, goTo }) {
     return () => { document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', flush); };
   }, [flush]);
   useEffect(() => () => clearTimeout(flashTimer.current), []);
+
+  // F1.7: a sessão encerrou com o Plano aberto (■ Encerrar daqui ou de outro aparelho). O
+  // servidor arquivou este plano e gravou o da próxima: o que está na tela é o arquivado. O
+  // rascunho dele sai sem gravar (gravá-lo traria de volta a cena jogada) e o plano novo é
+  // lido depois da gravação que estiver a caminho.
+  const sessionKey = planSessionKey(campaign.state);
+  const lastSessionKey = useRef(sessionKey);
+  useEffect(() => {
+    const prev = lastSessionKey.current;
+    lastSessionKey.current = sessionKey;
+    if (!planNeedsReload(prev, sessionKey) || !savedRef.current) return;
+    clearTimeout(timer.current);
+    dirty.current = false;
+    planRef.current = padSecrets(savedRef.current);
+    setSceneSheet(null); setAsks({});
+    chain.current = chain.current.then(() => loadPlan()).catch(e => setError(errorMessage(e, lang)));
+  }, [sessionKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Vindo de Jogar › Agora ("✎ Pôr coisas nela", "Editar esta cena no Plano"): a cena abre
   // na folha da Cena, com o passo ③ aberto atrás (V7).

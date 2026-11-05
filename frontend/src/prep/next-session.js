@@ -300,6 +300,15 @@ export function stateSession(state) {
 }
 
 /**
+ * A sessão que o Plano aberto acompanha (F1.7): "ao vivo:nº". Quando ela passa a "fora" (a
+ * sessão encerrou, aqui ou em outro aparelho), o servidor pode ter arquivado o plano e gravado
+ * o da próxima: o que está na tela é o arquivado e precisa ser lido de novo, sem gravar nada
+ * dele (traria de volta a cena jogada). Começar a sessão não mexe no plano.
+ */
+export const planSessionKey = (state) => `${state?.live ? 1 : 0}:${stateSession(state) ?? ''}`;
+export const planNeedsReload = (prevKey, key) => prevKey !== key && String(key).startsWith('0:');
+
+/**
  * O título do Plano e a linha que tira a dúvida "é hoje ou a próxima?" (§3.2):
  *  - ao vivo: "Plano de hoje · Sessão 4 (ao vivo)" + "O plano da Sessão 5 começa quando você encerrar esta.";
  *  - fora: "Plano da Sessão N" (N = forSession ou a próxima); se o plano é de uma sessão que
