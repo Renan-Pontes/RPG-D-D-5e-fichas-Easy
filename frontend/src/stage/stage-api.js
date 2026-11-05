@@ -204,6 +204,7 @@ export function tvToCombatNotice(campaignId, r, { lang = 'pt', prefix = '', onDo
     .filter(Boolean).join(' · ');
   flash(text, {
     ms: 9000,
+    long: true,
     action: {
       label: L(lang, '↶ Desfazer', '↶ Undo'),
       onClick: async () => {
@@ -236,7 +237,7 @@ export async function sendToStage(campaignId, send, { lang = 'pt', name = '', un
     const notice = sentNotice(label, name, replaced);
     flash(notice.text, {
       short: notice.short,
-      ...(replaced ? { ms: 9000 } : {}),
+      ...(replaced ? { ms: 9000, long: true } : {}),
       action: r?.changed === false && !undo ? null : {
         label: L(lang, '↶ Desfazer', '↶ Undo'),
         short: '↶',

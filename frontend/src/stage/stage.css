@@ -320,6 +320,14 @@
     display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
   }
   body:has(.mesa-bar):not(:has(.mesa-sheet-backdrop)) .play-flash.has-action { padding-left: 10px; gap: 6px; }
+  /* o aviso longo (flash `long`: "substitui X, que esperava o fim do combate", "A TV foi para
+     o combate · X volta no fim dele"): o texto ganha a largura toda e até 4 linhas, o ↶ desce
+     para baixo dele (à direita). O lugar é o mesmo da E2.8: ele só cresce para cima. */
+  body:has(.mesa-bar):not(:has(.mesa-sheet-backdrop)) .play-flash.is-long { flex-wrap: wrap; row-gap: 4px; padding-top: 8px; }
+  body:has(.mesa-bar):not(:has(.mesa-sheet-backdrop)) .play-flash.is-long .play-flash-text {
+    flex-basis: 100%; -webkit-line-clamp: 4; line-clamp: 4;
+  }
+  body:has(.mesa-bar):not(:has(.mesa-sheet-backdrop)) .play-flash.is-long .play-flash-act { margin-left: auto; }
   body:has(.mesa-bar):not(:has(.mesa-sheet-backdrop)) .play-flash-act { padding: 0 10px; font-size: 14px; }
   body:has(.mesa-bar) .toast {
     right: 12px;

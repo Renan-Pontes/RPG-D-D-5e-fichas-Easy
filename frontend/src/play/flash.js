@@ -4,7 +4,8 @@
 // "↶ Desfazer" dos avisos reversíveis (princípio 5: fazer agora, desfazer depois).
 // `short` (e `action.short`): a forma curta que o CSS mostra no aviso apertado do
 // celular de 320 px ("✓ Vale de Brumafria" e "↶"); o botão guarda o nome inteiro no
-// aria-label.
+// aria-label. `long`: o aviso que não cabe em 2 linhas no celular ("substitui X, que
+// esperava o fim do combate"): lá ele ganha até 4 linhas, com o botão embaixo (stage.css).
 import './play-styles.css';
 
 let current = null;
@@ -20,12 +21,12 @@ function twoForms(parent, long, short) {
   }
 }
 
-export function flash(message, { error = false, ms, action = null, short = '' } = {}) {
+export function flash(message, { error = false, ms, action = null, short = '', long = false } = {}) {
   if (typeof document === 'undefined' || !message) return;
   try {
     if (current) { current.remove(); current = null; }
     const el = document.createElement('div');
-    el.className = `play-flash${error ? ' is-error' : ''}${action ? ' has-action' : ''}`;
+    el.className = `play-flash${error ? ' is-error' : ''}${action ? ' has-action' : ''}${long ? ' is-long' : ''}`;
     el.setAttribute('role', 'status');
     el.setAttribute('aria-live', 'polite');
     const text = document.createElement('span');
