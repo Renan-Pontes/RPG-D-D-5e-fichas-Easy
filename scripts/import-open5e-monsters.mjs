@@ -22,6 +22,21 @@ const OUT = path.join(ROOT, 'frontend/data/monsters-srd521.js');
 const API = 'https://api.open5e.com/v2/creatures/?document__key=srd-2024&limit=100';
 const DOC_KEY = 'srd-2024';
 
+// Vulnerabilidades do SRD 5.2.1 que a Open5e não traz: a srd-2024 da Open5e (a API v2 e o
+// repositório open5e/open5e-api, data/v2/wizards-of-the-coast/srd-2024/Creature.json) tem
+// damage_vulnerabilities vazio nas 331 criaturas (conferido em 2026-11), embora o SRD liste
+// "Vulnerabilities" em 15. Os valores abaixo vêm de duas fontes abertas que concordam entre si,
+// criatura por criatura: o sistema dnd5e do Foundry VTT (packs/_source/actors24, o SRD 5.2.1
+// sob CC-BY-4.0, commit 6038a83) e o 5e-bits/5e-database (src/2024/en/5e-SRD-Monsters.json).
+// Fica de fora a do Rakshasa ("dano perfurante de armas empunhadas por quem está sob Bênção"),
+// que não é um tipo de dano. Quando a Open5e trouxer a lista, vale a dela.
+export const SRD521_VULNERABILITIES = {
+  'awakened-shrub': ['fire'], 'awakened-tree': ['fire'], 'dust-mephit': ['fire'], 'earth-elemental': ['thunder'],
+  'ice-mephit': ['fire'], 'magma-mephit': ['cold'], 'minotaur-skeleton': ['bludgeoning'], mummy: ['fire'],
+  'mummy-lord': ['fire'], salamander: ['cold'], shadow: ['radiant'], skeleton: ['bludgeoning'], treant: ['fire'],
+  'warhorse-skeleton': ['bludgeoning'],
+};
+
 const ABILITY_KEYS = { strength: 'str', dexterity: 'dex', constitution: 'con', intelligence: 'int', wisdom: 'wis', charisma: 'cha' };
 const ABILITY_ABBR = { Strength: 'STR', Dexterity: 'DEX', Constitution: 'CON', Intelligence: 'INT', Wisdom: 'WIS', Charisma: 'CHA' };
 const DAMAGE_TYPES = 'Acid|Bludgeoning|Cold|Fire|Force|Lightning|Necrotic|Piercing|Poison|Psychic|Radiant|Slashing|Thunder';
@@ -230,7 +245,8 @@ export function convertCreature(x) {
   };
   if (Object.keys(skills).length) m.skills = skills;
   const dr = keys(ri.damage_resistances), di = keys(ri.damage_immunities);
-  const dv = keys(ri.damage_vulnerabilities), ci = keys(ri.condition_immunities);
+  const dvApi = keys(ri.damage_vulnerabilities), ci = keys(ri.condition_immunities);
+  const dv = dvApi.length ? dvApi : (SRD521_VULNERABILITIES[id] || []);
   if (dr.length) m.damageResistances = dr;
   if (di.length) m.damageImmunities = di;
   if (dv.length) m.damageVulnerabilities = dv;

@@ -25,13 +25,15 @@ import { logLine } from './monster-actions.js';
 import { conditionLabel } from '../combat/monster-i18n.js';
 import GroupCheckPanel from '../checks/GroupCheckPanel.jsx';
 import { initiativePayload } from '../checks/check-logic.js';
-import DamagePad from '../play/DamagePad.jsx';
+import DamagePad, { undoFlash } from '../play/DamagePad.jsx';
+import { canPrevTurn, lastUndo, logRows, prevTurnName, undoText } from '../play/undo-model.js';
+import { tvToCombatNotice } from '../stage/stage-api.js';
 import StartCombatSheet, { sceneOfNode, sceneOfPlan } from '../play/StartCombatSheet.jsx';
 import {
   encounterBody, fightLine, initiativeRows, lateInitiatives, lateLabel, openInitiativeCheck, setupSteps, pickInitiatives, startLabel,
 } from '../combat/encounter-setup.js';
 import {
-  failText, heldOpId, markLabel, newerCombat, newOpId, quietSlot, shouldScrollTo, toggleMark, turnMarks, TOUCH_QUIET_MS,
+  failText, fallenLabel, fallenState, heldOpId, markLabel, newerCombat, newOpId, quietSlot, shouldScrollTo, toggleMark, turnMarks, TOUCH_QUIET_MS,
 } from '../play/damage-model.js';
 import { legacyStart, startEncounter } from '../play/combat-actions.js';
 import { activeScene } from '../play/scene-model.js';
@@ -103,7 +105,13 @@ const modalOpen = () => !!document.querySelector('.modal-backdrop, [role="dialog
  *   ao lado.
  * - Quem age fica destacado e a lista não pula: a linha não se abre sozinha e a
  *   página só rola até ela se estiver fora da vista (nunca nos 600 ms depois de um toque).
- * - Encerrar volta para Jogar › Agora (depois do fim guiado, se ligado).
+ * - "⏸ Encerrar combate" (a palavra combate: o ■ Encerrar do cabeçalho é a sessão). Com o
+ *   fim guiado (ligado por padrão, onda 3) o mestre fica no Combate, com a folha de XP,
+ *   descanso e tesouro, até escolher para onde ir; desligado, volta para Jogar › Agora.
+ * - A linha do ↶ (onda 3, E1.4), fixa embaixo da linha de ações enquanto o combate anda:
+ *   "↶ Voltar turno" enquanto há turno anterior e "↶ Desfazer: Goblin #2 −7" para a última
+ *   ação de PV/condição — até a próxima ação, não um aviso de 6 s. O ⋯ Combate repete o
+ *   Voltar turno e cada linha do Registro recente que o servidor sabe desfazer tem o seu ↶.
  * - Sugestões de ataque/salvaguarda ficam guardadas aqui, por combatente: nada
  *   é aplicado antes do "Aplicar".
  * Na casca do mestre (V4, `turnStrip={false}`): a faixa do turno sai daqui (no
@@ -191,6 +199,10 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
 
   const combatants = combat?.combatants || [];
   const active = !!combat?.active;
+  // o ↶ Voltar turno da faixa do PC sabe se vai funcionar pelo combate completo daqui (E1.4)
+  useEffect(() => { table?.noteCombat?.(combat); }, [combat]); // eslint-disable-line react-hooks/exhaustive-deps
+  // no PC a faixa do turno (presa no topo de Jogar) já tem o ↶ Voltar turno: a linha daqui não repete
+  const stripHere = useMedia('(min-width: 768px)') && !ownStrip;
 
   // A iniciativa pedida à mesa: enquanto o combate está sendo montado e já tem
   // personagem, e com ele andando enquanto algum personagem ainda está com "✎" (o "Já
@@ -287,7 +299,10 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
       if (wait > 0 && tries++ < 5) { timer = setTimeout(check, wait + 20); return; }
       // a área livre: abaixo do segmentado preso e acima da barra da mesa (ou da barra de baixo)
       const bar = [...document.querySelectorAll('.mesa-bar, .shell-bottom-bar')].map(b => b.getBoundingClientRect()).find(b => b.height > 0);
-      const top = wide ? 150 : 110;
+      // …e abaixo da linha do ↶, presa no topo quando existe (E1.4)
+      const pin = document.querySelector('.combat-tab .ct-undo');
+      const pinBottom = pin ? (parseFloat(getComputedStyle(pin).top) || 0) + pin.offsetHeight + 4 : 0;
+      const top = Math.max(wide ? 150 : 110, pinBottom);
       const bottom = (bar ? bar.top : window.innerHeight) - 4;
       if (shouldScrollTo(el.getBoundingClientRect(), { top, bottom, lastTouchAt: touchedAt.current })) {
         try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch { /* ok */ }
@@ -348,8 +363,11 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   const startCombat = async () => {
     setShowMore(false);
     if (table?.enabled) { await table.startCombat(); return; }
-    try { applyCombat((await api.combatEncounter(campaign.id, { opId: newOpId(), start: true, fromCheck: true }))?.combat); }
-    catch (e) {
+    try {
+      const r = await api.combatEncounter(campaign.id, { opId: newOpId(), start: true, fromCheck: true });
+      applyCombat(r?.combat);
+      tvToCombatNotice(campaign.id, r, { lang, onDone: onChange });
+    } catch (e) {
       if (isOldServer(e)) await legacyStart(campaign.id, { combat, check: initCheck || undefined }).catch(() => {});
       else flash(`${t(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`, { error: true });
     }
@@ -361,7 +379,8 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
     try { r = await api.endCombat(campaign.id); }
     catch (e) { flash(`${t(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`, { error: true }); return; }
     applyCombat(r?.combat);
-    // Encerrar volta para a Agora (com o fim guiado ligado, depois do painel dele).
+    // Com o fim guiado (ligado por padrão) o mestre fica aqui, com a folha de XP, descanso e
+    // tesouro, até escolher para onde ir; desligado, volta para a Agora.
     if (isWizardEnabled(campaign.state)) setWrapUp(r?.combat || combat);
     else backToNow();
   };
@@ -464,6 +483,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
       opRef.current.use = null;
       applyCombat(r?.combat);
       setInitCheck(null);
+      tvToCombatNotice(campaign.id, r, { lang, onDone: onChange });
     } catch (e) { flash(`${failText(e, lang)} · ${errorMessage(e, lang)}`, { error: true }); }
     finally { setBusy(''); load(); }
   };
@@ -554,6 +574,21 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
   };
   const nMon = combatants.filter(c => c.type === 'monster').length;
   const nPc = combatants.filter(c => c.type === 'pc').length;
+  // A linha do ↶ (E1.4): Voltar turno enquanto há turno anterior; Desfazer da última ação.
+  const canBack = canPrevTurn(combat);
+  const backInRow = canBack && !stripHere;
+  const undo = active ? lastUndo(combat, lang) : null;
+  const prevTurn = async () => {
+    setShowMore(false);
+    const expect = { round: combat.round, turnIndex: combat.turnIndex };
+    if (table?.enabled) { table.prevTurn(expect); return; }
+    try { applyCombat((await api.combatPrevTurn(campaign.id, expect))?.combat); }
+    catch (e) { flash(isOldServer(e) ? t(lang, 'Voltar turno: falta atualizar o servidor.', 'Undo turn: the server needs updating.') : errorMessage(e, lang), { error: true }); }
+    load();
+  };
+  // o aviso diz o que voltou (dano, cura ou condição; "3 alvos" quando foram vários)
+  const undoOp = (opId) => undoFlash(campaign.id, opId, lang, (c) => { applyCombat(c); load(); },
+    undoText((combat?.log || []).filter(e => e?.opId === opId && e.undo), lang))();
 
   return (
     <div className={`combat-tab ${wide ? 'is-wide' : 'is-narrow'} ${marks ? 'is-marking' : ''}`}>
@@ -598,11 +633,28 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
         </button>
       </div>
 
+      {active && (backInRow || undo) && (
+        <div className="ct-undo" role="group" aria-label={t(lang, 'Desfazer', 'Undo')}>
+          {backInRow && (
+            <button type="button" className="mesa-btn ct-undo-btn ct-undo-turn" disabled={!!table?.busy} onClick={prevTurn}
+              aria-label={t(lang, `Voltar turno: a vez volta para ${prevTurnName(combat)}`, `Undo turn: back to ${prevTurnName(combat)}`)}>
+              <span aria-hidden="true">↶</span> <span className="ct-undo-text">{t(lang, 'Voltar turno', 'Undo turn')}</span>
+            </button>
+          )}
+          {undo && (
+            <button type="button" className="mesa-btn ct-undo-btn ct-undo-last" onClick={() => undoOp(undo.opId)}
+              aria-label={t(lang, `Desfazer a última ação: ${undo.text}`, `Undo the last action: ${undo.text}`)}>
+              <span aria-hidden="true">↶</span> <span className="ct-undo-text">{t(lang, 'Desfazer', 'Undo')}: {undo.text}</span>
+            </button>
+          )}
+        </div>
+      )}
+
       <MesaTitle className="ct-title"
         act={<>
           {!showTurn && bell}
           {active && (
-            <button type="button" className="mesa-btn ct-end" onClick={endCombat}>⏸ {t(lang, 'Encerrar', 'End')}</button>
+            <button type="button" className="mesa-btn ct-end" onClick={endCombat}>⏸ {t(lang, 'Encerrar combate', 'End combat')}</button>
           )}
         </>}
         sub={(
@@ -801,6 +853,7 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
       )}
       {showMore && (
         <MoreSheet campaign={campaign} combat={combat} lang={lang} active={active} hasMap={hasMap}
+          canBack={canBack} busy={!!table?.busy} onBack={prevTurn} onUndo={(opId) => { setShowMore(false); undoOp(opId); }}
           onClose={() => setShowMore(false)} onStart={startCombat} onReset={resetCombat} onChange={onChange}
           onTools={() => { setShowMore(false); if (!wide) switchView('map'); setToolsSignal(n => n + 1); }} />
       )}
@@ -821,7 +874,8 @@ export default function CombatTab({ campaign, lang, onChange, onNavigate, goTo, 
       )}
       {wrapUp && (
         <EndOfEncounterPanel campaign={campaign} combat={wrapUp} lang={lang} onNavigate={onNavigate}
-          onClose={() => { setWrapUp(null); backToNow(); }} onChange={() => { load(); onChange?.(); }} />
+          onClose={() => setWrapUp(null)} onGoNow={goTo ? () => { setWrapUp(null); backToNow(); } : null}
+          onChange={() => { load(); onChange?.(); }} />
       )}
       {showPicker && <MonsterPicker lang={lang} levelingMode={campaign.state?.levelingMode || 'milestone'} members={campaign.members} onPick={addMonster} onClose={() => setShowPicker(false)} />}
       {showAddPC && (
@@ -851,7 +905,6 @@ function CombatantRow({
   const fromSheet = useMemo(() => sheetConditions(c, campaign), [c, campaign]);
   const member = c.type === 'pc' ? (campaign.members || []).find(m => m.character?.id === c.character_id) : null;
   const stats = member ? memberStats(member) : null;
-  const down = (c.current_hp || 0) <= 0;
   const nChips = conds.length + fromSheet.length;
   const kind = c.type === 'monster' ? t(lang, 'Monstro', 'Monster') : t(lang, 'Personagem', 'Character');
   const condText = [
@@ -862,11 +915,14 @@ function CombatantRow({
     ...fromSheet.map(cond => `${conditionLabel(cond, lang)} (${t(lang, 'ficha', 'sheet')})`),
   ].join(', ');
   const markText = markLabel(mark, lang);
+  // PJ a 0 PV: "Morrendo · ✓1 ✗2" / "Estável" (antes da marca: a linha corta o fim), sem †
+  // nem riscado (só quem morreu)
+  const fallen = fallenState(c);
   const status = [
+    fallenLabel(c, lang) || null,
     markText,
     mark === 'now' && c.type === 'monster' ? t(lang, 'Ações ›', 'Actions ›') : null,
     c.defeated && mark !== 'down' ? t(lang, 'derrotado', 'defeated') : null,
-    c.type === 'pc' && down && mark !== 'down' ? t(lang, 'caído', 'down') : null,
     answer != null ? `⚡ ${answer}` : null,
   ].filter(Boolean).join(' · ');
   const label = [
@@ -895,7 +951,7 @@ function CombatantRow({
       <button type="button" className="ct-open" onClick={() => onOpen()} aria-label={label}
         aria-expanded={marking ? undefined : expanded} aria-haspopup={!marking && expanded === undefined ? 'dialog' : undefined}>
         <span className="ct-name">{c.name}</span>
-        {statusLine && <span className={`ct-mark ${mark ? `is-${mark}` : ''}`} aria-hidden="true">{statusLine}</span>}
+        {statusLine && <span className={`ct-mark ${mark ? `is-${mark}` : ''} ${fallen ? `is-${fallen}` : ''}`} aria-hidden="true">{statusLine}</span>}
       </button>
       {(nChips > 0 || marked) && (
         <div className="ct-conds">
@@ -918,13 +974,16 @@ function CombatantRow({
   );
 }
 
-/** ⋯ Combate: ▶ Iniciar · Registro recente · Ferramentas do mapa · Fim guiado · Recomeçar (por último). */
-function MoreSheet({ campaign, combat, lang, active, hasMap, onClose, onStart, onReset, onTools, onChange }) {
+/**
+ * ⋯ Combate: ▶ Iniciar · ↶ Voltar turno · Registro recente (com o ↶ de cada linha que o servidor
+ * sabe desfazer) · Ferramentas do mapa · Fim guiado · Recomeçar (por último).
+ */
+function MoreSheet({ campaign, combat, lang, active, hasMap, canBack = false, busy = false, onBack, onUndo, onClose, onStart, onReset, onTools, onChange }) {
   const [resetting, setResetting] = useState(false);
   const [wizardLocal, setWizardLocal] = useState(null);
   const [saving, setSaving] = useState(false);
   const wizardOn = wizardLocal ?? isWizardEnabled(campaign.state);
-  const lines = (combat.log || []).map(e => logLine(e, lang)).filter(Boolean).slice(-8).reverse();
+  const lines = logRows(combat, (e) => logLine(e, lang));
   const n = (combat.combatants || []).length;
   const setWizard = async (on) => {
     setWizardLocal(on); setSaving(true);
@@ -939,9 +998,26 @@ function MoreSheet({ campaign, combat, lang, active, hasMap, onClose, onStart, o
         {!active && n > 0 && (
           <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={onStart}>▶ {t(lang, 'Iniciar combate', 'Start combat')}</button>
         )}
-        <details className="combat-log ct-log">
+        {active && canBack && (
+          <button type="button" className="mesa-btn mesa-btn-lg" disabled={busy} onClick={onBack}>
+            ↶ {t(lang, `Voltar turno (a vez volta para ${prevTurnName(combat)})`, `Undo turn (back to ${prevTurnName(combat)})`)}
+          </button>
+        )}
+        <details className="combat-log ct-log" open={lines.some(l => l.opId) || undefined}>
           <summary>{t(lang, 'Registro recente', 'Recent log')} <span className="ct-log-n">({lines.length})</span></summary>
-          {lines.length ? <ul>{lines.map((l, i) => <li key={i}>{l}</li>)}</ul> : <p className="mesa-hint">{t(lang, 'Nada ainda.', 'Nothing yet.')}</p>}
+          {lines.length ? (
+            <ul className="ct-log-list">
+              {lines.map((l, i) => (
+                <li key={i} className={l.opId ? 'has-undo' : ''}>
+                  <span className="ct-log-text">{l.text}</span>
+                  {l.opId && (
+                    <button type="button" className="mesa-btn ct-log-undo" onClick={() => onUndo?.(l.opId)}
+                      aria-label={t(lang, `Desfazer: ${l.text}`, `Undo: ${l.text}`)}>↶ {t(lang, 'Desfazer', 'Undo')}</button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : <p className="mesa-hint">{t(lang, 'Nada ainda.', 'Nothing yet.')}</p>}
         </details>
         <button type="button" className="mesa-btn mesa-btn-lg" onClick={onTools}>🛠 {t(lang, 'Ferramentas do mapa', 'Map tools')}</button>
         <label className="cs-check ct-wizard">

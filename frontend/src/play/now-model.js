@@ -141,6 +141,9 @@ export function testsBadge(counts, lang = 'pt') {
  */
 export function momentCounters({ checks = 0, rolls = 0, approvals = 0, levelups = null, dangers = 0 } = {}, lang = 'pt') {
   const out = [];
+  // o perigo ("Pipo a 0 PV") vem primeiro: no celular a fila corre de lado e o último chip
+  // ficava cortado na borda (onda 3, E1.5b)
+  if (dangers) out.push({ id: 'dangers', n: dangers, icon: '⚠', label: tt(lang, dangers === 1 ? 'perigo' : 'perigos', dangers === 1 ? 'danger' : 'dangers') });
   if (checks) out.push({ id: 'checks', n: checks, icon: '🎯', label: tt(lang, checks === 1 ? 'teste' : 'testes', checks === 1 ? 'check' : 'checks') });
   if (rolls) out.push({ id: 'rolls', n: rolls, icon: '🎲', label: tt(lang, rolls === 1 ? 'pedido' : 'pedidos', rolls === 1 ? 'request' : 'requests') });
   if (approvals) {
@@ -149,7 +152,6 @@ export function momentCounters({ checks = 0, rolls = 0, approvals = 0, levelups 
       label: level ? tt(lang, approvals === 1 ? 'nível' : 'níveis', approvals === 1 ? 'level-up' : 'level-ups')
         : tt(lang, approvals === 1 ? 'aprovação' : 'aprovações', approvals === 1 ? 'approval' : 'approvals') });
   }
-  if (dangers) out.push({ id: 'dangers', n: dangers, icon: '⚠', label: tt(lang, dangers === 1 ? 'perigo' : 'perigos', dangers === 1 ? 'danger' : 'dangers') });
   return out;
 }
 
@@ -289,18 +291,24 @@ export function readDoneBefore(campaignId, n, storage) {
 // ---------------------------------------------------------------- a folha Começar a sessão
 
 /**
- * As opções de "Onde começa?" (§4.3): a 1ª cena não jogada (marcada), continuar de onde
- * parou (se havia uma cena), outra (nome livre) e "ainda não sei".
- * → [{id: 'scene'|'continue'|'other'|'unsure', sceneId?, label, sub?}]
+ * As opções de "Onde começa?" (§4.3, F1.6): TODAS as cenas do plano ainda não jogadas, na
+ * ordem do plano (a 1ª marcada; as outras com "cena N do plano"), continuar de onde parou
+ * (se havia uma cena e ela não está na lista), outra (nome livre) e "ainda não sei".
+ * → [{id: 'scene'|'scene:<id>'|'continue'|'other'|'unsure', sceneId?, label, sub?}]
  */
 export function startChoices(plan, state, lang = 'pt') {
   const out = [];
-  const first = firstOpenScene(plan);
-  if (first) out.push({ id: 'scene', sceneId: first.id, label: sceneName(first) || '?', sub: tt(lang, '1ª cena não jogada', '1st scene not played') });
+  const all = realScenes(plan);
+  const open = all.filter(s => !s.done);
+  open.forEach((s, i) => out.push({
+    id: i === 0 ? 'scene' : `scene:${s.id}`, sceneId: s.id, label: sceneName(s) || '?',
+    sub: i === 0 ? tt(lang, '1ª cena não jogada', '1st scene not played')
+      : tt(lang, `cena ${all.indexOf(s) + 1} do plano`, `plan scene ${all.indexOf(s) + 1}`),
+  }));
   const last = String(state?.scene || '').trim();
   if (last) {
-    const same = state?.sceneId && state.sceneId === first?.id;
-    if (!same) out.push({ id: 'continue', sceneId: state?.sceneId || null, label: tt(lang, `Continuar de onde paramos: ${last}`, `Pick up where we left off: ${last}`) });
+    const listed = state?.sceneId && open.some(s => s.id === state.sceneId);
+    if (!listed) out.push({ id: 'continue', sceneId: state?.sceneId || null, label: tt(lang, `Continuar de onde paramos: ${last}`, `Pick up where we left off: ${last}`) });
   }
   out.push({ id: 'other', label: tt(lang, 'Outra…', 'Other…') });
   out.push({ id: 'unsure', label: tt(lang, 'Ainda não sei', 'Not sure yet') });

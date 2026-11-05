@@ -1,26 +1,44 @@
 // Resumo da Tela desenhado pelo app (§5.9.2): a prévia 16:9 de Jogar › Tela, a
-// janela do PC e (com `mini`) a miniatura da barra da mesa. Não é pixel-igual à
-// TV; é legível e diz a verdade, pela mesma regra (stage-now.js). Texto de
-// verdade (13–15 px) numa faixa escura; nada de imagem com texto reduzido. A
-// `mini` (72×40) não tem texto: as 2 linhas ficam ao lado, na barra.
+// janela do PC, o miniplayer do celular (`small`) e (com `mini`) a miniatura da
+// barra da mesa. Não é pixel-igual à TV; é legível e diz a verdade, pela mesma
+// regra (stage-now.js). Texto de verdade (13–15 px) numa faixa escura; nada de
+// imagem com texto reduzido. A `mini` (72×40) não tem texto: as 2 linhas ficam ao
+// lado, na barra.
+// Onda 3 (E2.5): a MESMA imagem da TV — o cartão do Mundo sem imagem própria vai com a
+// arte padrão do tipo dele (frontArtRef), não com a capa — e a última rolagem por 8 s
+// (🎲 total e nome, do pulso: `roll`, nenhum pedido novo).
 //
-//   <StageThumb campaign={c} stage={stage} test={check} lang={lang} [mini] [combat] />
+//   <StageThumb campaign={c} stage={stage} test={check} lang={lang} [mini|small] [combat] [roll] />
 import { useState } from 'react';
 import { api, API_BASE } from '../api/client.js';
 import { defaultCoverArt } from '../shell/shell-logic.js';
+import { defaultArt } from '../world/world-model.js';
 import { bgLabel, dmFrontImage, dmMapImage, frontIcon, frontLabel, L, stageNow, testLabel } from './stage-now.js';
+import { frontArtRef } from './table-bar-model.js';
 import './stage.css';
 
 const abs = (url) => (!url ? null : /^(https?:|data:|blob:)/.test(url) ? url : `${API_BASE || ''}${url}`);
 // Imagens que falharam (ex.: o ?v=0 de um combate sem mapa): nenhuma miniatura pede de novo.
 const failed = new Set();
 
-export default function StageThumb({ campaign, stage, test = null, lang = 'pt', className = '', mini = false, combat }) {
+/** A última rolagem por cima da miniatura: 🎲 total e quem (a mini, só o total na moldura dourada). */
+function RollBadge({ roll, lang, mini }) {
+  const who = roll.kind === 'dm' && !roll.who ? L(lang, 'Mestre', 'GM') : roll.who || '';
+  return (
+    <span className={`stage-thumb-roll ${roll.crit ? 'is-crit' : ''} ${roll.fail ? 'is-fail' : ''}`} aria-hidden="true">
+      <span className="stage-thumb-roll-total">{mini ? '' : '🎲 '}{roll.total ?? '?'}</span>
+      {!mini && who && <span className="stage-thumb-roll-who">{who}</span>}
+    </span>
+  );
+}
+
+export default function StageThumb({ campaign, stage, test = null, lang = 'pt', className = '', mini = false, small = false, combat, roll = null }) {
   // `combat` ({active, round}, do pulso) vale sobre o combatNow do GET completo, que chega depois.
   const now = stageNow({ stage, combat: combat || campaign?.combatNow });
   const [broken, setBroken] = useState('');
   const cover = api.campaignCoverUrl(campaign) || defaultCoverArt(campaign);
-  const frontImg = now.mode === 'front' ? abs(dmFrontImage(campaign.id, now.front)) : null;
+  const art = now.mode === 'front' ? frontArtRef(now.front, campaign?.screenCard) : null;
+  const frontImg = now.mode === 'front' ? (abs(dmFrontImage(campaign.id, now.front)) || (art ? defaultArt(art) : null)) : null;
   // combate (ou o mapa como fundo): o mapa da luta, como na TV, com ⚔/🗺 no canto
   const mapped = now.mode === 'combat' || now.mode === 'map';
   const mapImg0 = mapped ? abs(dmMapImage(campaign)) : null;
@@ -29,6 +47,7 @@ export default function StageThumb({ campaign, stage, test = null, lang = 'pt', 
   const onError = () => { if (img === mapImg0) failed.add(img); setBroken(img); };
   const modeIcon = now.mode === 'combat' ? '⚔' : '🗺';
   const contain = !!frontImg && now.front?.kind === 'image';
+  const badge = roll && now.mode !== 'dark' ? <RollBadge roll={roll} lang={lang} mini={mini} /> : null;
   let line1;
   if (now.mode === 'dark') line1 = `◐ ${L(lang, 'Tela escurecida', 'Screen blacked out')}`;
   else if (now.mode === 'front') line1 = `${frontIcon(now.front)} ${L(lang, 'Na tela', 'On screen')}: ${frontLabel(now.front, lang, { dm: true })}`;
@@ -47,12 +66,13 @@ export default function StageThumb({ campaign, stage, test = null, lang = 'pt', 
         )}
         {mapped && mapImg && <span className="stage-thumb-corner">{modeIcon}</span>}
         {now.mode === 'front' && now.over && <span className="stage-thumb-corner">⚔</span>}
+        {badge}
       </span>
     );
   }
   return (
-    <div className={`stage-thumb is-${now.mode} ${className}`.trim()} role="img"
-      aria-label={[line1, line2].filter(Boolean).join(' · ')}>
+    <div className={`stage-thumb is-${now.mode} ${small ? 'is-small' : ''} ${className}`.trim()} role="img"
+      aria-label={[line1, line2, roll ? `🎲 ${roll.who || ''} ${roll.total ?? ''}`.trim() : ''].filter(Boolean).join(' · ')}>
       {img && <img className={`stage-thumb-img ${contain ? 'is-contain' : ''}`} src={img} alt=""
         onError={onError} />}
       {now.mode === 'dark' && <span className="stage-thumb-emblem" aria-hidden="true">◐</span>}
@@ -64,10 +84,11 @@ export default function StageThumb({ campaign, stage, test = null, lang = 'pt', 
       {now.mode === 'front' && !frontImg && now.front?.kind !== 'card' && (
         <span className="stage-thumb-emblem is-soft" aria-hidden="true">{frontIcon(now.front)}</span>
       )}
+      {badge}
       <span className="stage-thumb-band" aria-hidden="true">
         <span className="stage-thumb-l1">{line1}</span>
         {/* a 2ª linha fica sempre (vazia ou não): a faixa não muda de altura quando a Tela muda */}
-        <span className="stage-thumb-l2">{line2 || '\u00a0'}</span>
+        <span className="stage-thumb-l2">{line2 || ' '}</span>
       </span>
     </div>
   );

@@ -54,6 +54,31 @@
 }
 .stage-thumb-l1 { color: var(--ink-primary); font-size: 15px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stage-thumb-l2 { color: var(--ink-secondary); font-size: 13px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A última rolagem (E2.5b, do pulso, 8 s): 🎲 total e quem, por cima da imagem */
+.stage-thumb-roll {
+  position: absolute; left: 50%; top: 14%; transform: translateX(-50%); z-index: 2;
+  display: inline-flex; align-items: baseline; gap: 8px; max-width: calc(100% - 16px);
+  padding: 4px 12px; border-radius: 10px; border: 1px solid var(--gold);
+  background: rgba(10, 6, 4, 0.88); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+  animation: stage-roll-in 0.25s ease-out;
+}
+.stage-thumb-roll-total { flex: none; font-family: var(--display); font-weight: 700; color: var(--gold-bright); font-size: 26px; line-height: 1.1; }
+.stage-thumb-roll-who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-primary); font-size: 14px; }
+.stage-thumb-roll.is-crit { border-color: var(--gold-bright); box-shadow: 0 0 18px rgba(240, 200, 110, 0.55); }
+.stage-thumb-roll.is-fail { border-color: var(--blood-bright); }
+.stage-thumb-roll.is-fail .stage-thumb-roll-total { color: var(--blood-bright); }
+@keyframes stage-roll-in { from { opacity: 0; transform: translate(-50%, -4px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .stage-thumb-roll { animation: none; } }
+/* o miniplayer do celular (E2.5c): a faixa numa linha mais baixa e o 🎲 menor */
+.stage-thumb.is-small { border-radius: 8px 8px 0 0; }
+.stage-thumb.is-small .stage-thumb-band { padding: 4px 8px; gap: 0; }
+.stage-thumb.is-small .stage-thumb-l1 { font-size: 13px; }
+.stage-thumb.is-small .stage-thumb-l2 { font-size: 12px; }
+.stage-thumb.is-small .stage-thumb-tarja { padding: 2px 8px; }
+.stage-thumb.is-small .stage-thumb-roll { top: 22%; gap: 6px; padding: 2px 8px; }
+.stage-thumb.is-small .stage-thumb-roll-total { font-size: 20px; }
+.stage-thumb.is-small .stage-thumb-roll-who { font-size: 13px; }
+.stage-thumb.is-small .stage-thumb-emblem { font-size: 30px; }
 
 /* ---------- Jogar › Tela ---------- */
 .stage-panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
@@ -146,6 +171,10 @@
 .stage-tag { color: var(--amber); font-size: 12px; white-space: nowrap; }
 /* 📺 Mostrar é ação ao vivo: ≥ 48 px (§12.0). */
 .stage-show { min-width: 44px; min-height: 48px; padding: 0 10px; white-space: nowrap; }
+/* E2.2: cartão com imagem — "📺 Mostrar" e, embaixo, "🖼 Tela cheia" (só a imagem, inteira, na TV toda) */
+.stage-row-acts { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.stage-row-acts .stage-show { justify-content: center; }
+.stage-show.is-full { font-size: 0.92em; }
 .stage-why { margin: 0; }
 .stage-read { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-top: 1px solid var(--stroke-faint); }
 .stage-read-text {
@@ -181,6 +210,9 @@
 /* V10 · Rolagens na Tela: as regras (segmentado de 44 px, explicado por escrito) e as últimas 5 */
 .stage-rule-row { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-top: 1px dashed var(--stroke); min-width: 0; }
 .stage-rule-row:first-of-type { border-top: 0; }
+/* E2.6: a lista do que vai à Tela (uma linha por origem) */
+.stage-rule-list { list-style: none; margin: 0; padding: 0; }
+.stage-rule-list > .stage-rule-row:first-child { border-top: 0; }
 .stage-rule-title { font-family: var(--display); font-size: 0.85rem; letter-spacing: 0.06em; color: var(--gold); }
 .stage-rule-seg .mesa-seg-btn { min-height: 44px; white-space: normal; text-align: center; line-height: 1.15; }
 .stage-rule-why { margin: 0; }
@@ -213,6 +245,8 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 .stage-thumb.is-mini .stage-thumb-emblem { inset: 0; font-size: 18px; }
+.stage-thumb.is-mini .stage-thumb-roll { top: 50%; transform: translate(-50%, -50%); padding: 0 4px; gap: 0; border-radius: 6px; animation: none; }
+.stage-thumb.is-mini .stage-thumb-roll-total { font-size: 15px; }
 .stage-thumb-corner {
   position: absolute; top: 2px; right: 2px; padding: 0 3px; border-radius: 4px;
   background: rgba(10, 6, 4, 0.82); color: var(--fh-ember); font-size: 12px; line-height: 16px;
@@ -273,15 +307,102 @@
     max-width: calc(100vw - 24px);
     animation-name: stage-flash-in;
   }
+  /* E2.8: sem folha aberta, o aviso ("Na tela ✓ · ↶ Desfazer") desce para cima da parte da
+     esquerda da barra (miniatura e texto, que dizem o mesmo): não cobre o conteúdo (as abas
+     Imagens · Cenas · Texto · Mapa de Jogar › Tela) e deixa o 🎲 e o Próximo à vista. */
+  body:has(.mesa-bar):not(:has(.mesa-sheet-backdrop)) .play-flash {
+    bottom: calc(var(--shell-bar-h, 62px) + 6px + env(safe-area-inset-bottom, 0px));
+    left: max(6px, env(safe-area-inset-left, 0px));
+    max-width: calc(100vw - 6px - 48px - 18px); min-height: 52px; font-size: 14px; line-height: 1.25;
+  }
+  body:has(.mesa-bar.has-action):not(:has(.mesa-sheet-backdrop)) .play-flash { max-width: calc(100vw - 6px - 48px - 88px - 22px); }
+  body:has(.mesa-bar):not(:has(.mesa-sheet-backdrop)) .play-flash .play-flash-text {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+  }
+  body:has(.mesa-bar):not(:has(.mesa-sheet-backdrop)) .play-flash.has-action { padding-left: 10px; gap: 6px; }
+  /* o aviso longo (flash `long`: "substitui X, que esperava o fim do combate", "A TV foi para
+     o combate · X volta no fim dele"): o texto ganha a largura toda e até 4 linhas, o ↶ desce
+     para baixo dele (à direita). O lugar é o mesmo da E2.8: ele só cresce para cima. */
+  body:has(.mesa-bar):not(:has(.mesa-sheet-backdrop)) .play-flash.is-long { flex-wrap: wrap; row-gap: 4px; padding-top: 8px; }
+  body:has(.mesa-bar):not(:has(.mesa-sheet-backdrop)) .play-flash.is-long .play-flash-text {
+    flex-basis: 100%; -webkit-line-clamp: 4; line-clamp: 4;
+  }
+  body:has(.mesa-bar):not(:has(.mesa-sheet-backdrop)) .play-flash.is-long .play-flash-act { margin-left: auto; }
+  body:has(.mesa-bar):not(:has(.mesa-sheet-backdrop)) .play-flash-act { padding: 0 10px; font-size: 14px; }
   body:has(.mesa-bar) .toast {
     right: 12px;
     bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bar-h, 64px) + 10px + env(safe-area-inset-bottom, 0px));
   }
 }
+/* a miniatura da barra é o botão do miniplayer (E2.5c): 80×64 de toque, sem moldura */
+@media (max-width: 767px) {
+  .mesa-bar-thumb.is-btn { padding: 0; border: 0; background: none; color: inherit; cursor: pointer; border-radius: 8px; }
+  .mesa-bar-thumb.is-btn:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+  .mesa-bar-thumb.is-btn[aria-pressed="true"] .stage-thumb { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+  .mesa-bar:has(.mesa-bar-thumb.is-btn) .mesa-bar-main { padding-left: 2px; }
+}
+
+/* ---------- miniplayer da Tela (celular, E2.5c) ----------
+   16:9 (~200×112 a 390 px) + uma fileira de 44 px; por cima do conteúdo e abaixo das
+   folhas; nos cantos de baixo fica logo acima da barra da mesa, e a página ganha folga. */
+.mini-player { display: none; }
+@media (max-width: 767px) {
+  .mini-player {
+    position: fixed; z-index: 42; display: block; width: clamp(168px, 52vw, 232px);
+    border: 1px solid transparent; border-radius: 10px; overflow: hidden;
+    background:
+      var(--fh-noise) padding-box,
+      linear-gradient(180deg, var(--fh-leather-hi), var(--fh-leather-lo)) padding-box,
+      var(--fh-gilt) border-box;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.65);
+    touch-action: none;
+  }
+  .mini-player.is-br, .mini-player.is-tr { right: max(8px, env(safe-area-inset-right, 0px)); }
+  .mini-player.is-bl, .mini-player.is-tl { left: max(8px, env(safe-area-inset-left, 0px)); }
+  .mini-player.is-bottom { bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bar-h, 64px) + 8px + env(safe-area-inset-bottom, 0px)); }
+  .mini-player.is-top { top: calc(8px + env(safe-area-inset-top, 0px)); }
+  .mini-player.is-dragging { transition: none; opacity: 0.92; }
+  .mini-player-screen { display: block; cursor: pointer; }
+  .mini-player-screen .stage-thumb { border: 0; box-shadow: none; }
+  .mini-player-screen:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-offset: -2px; }
+  .mini-player-tools { display: flex; align-items: center; gap: 2px; padding: 0 2px; border-top: 1px solid var(--stroke-faint); touch-action: manipulation; }
+  .mini-player-live { flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 8px; justify-content: center; white-space: nowrap; font-size: 13px; }
+  /* some junto com a barra: teclado aberto e folhas que não são de Jogar */
+  body.mesa-sheet-covers .mini-player, body:has(.mesa-bar.is-keyboard) .mini-player { display: none; }
+  /* folga no fim: o que está embaixo do miniplayer (cantos de baixo) sobe além dele */
+  body:has(.mesa-bar):has(.mini-player.is-bottom) .campaign-detail.shell {
+    padding-bottom: calc(var(--shell-bar-h, 62px) + var(--mesa-bottom-safe, 76px) + var(--mini-player-h, 160px) + 8px + env(safe-area-inset-bottom, 0px));
+  }
+  /* …e no começo (cantos de cima): a página começa abaixo dele, então no topo nada fica preso
+     embaixo (Campanhas, o menu da conta, EN e o ■ Encerrar da capa); rolando, o que passa por
+     baixo volta à vista ao subir */
+  body:has(.mesa-bar):has(.mini-player.is-top) #root {
+    padding-top: calc(8px + var(--mini-player-h, 160px) + 8px + env(safe-area-inset-top, 0px));
+  }
+}
+@media (prefers-reduced-motion: no-preference) and (max-width: 767px) {
+  .mini-player { animation: stage-flash-in 0.2s ease-out; }
+}
+
 @media (max-width: 359px) {
   .mesa-bar-thumb { width: 60px; }
   .stage-thumb.is-mini { width: 56px; height: 32px; }
   .mesa-bar-act { width: 80px; }
+  /* o aviso "Na tela ✓ · <nome> · ↶ Desfazer" entre a borda e o 🎲/Próximo fica com ~150 px:
+     vira "✓ <nome>" (reticências só no nome) e "↶" (44 px, o nome inteiro no aria-label) */
+  body:has(.mesa-bar.has-action):not(:has(.mesa-sheet-backdrop)) .play-flash .play-flash-long { display: none; }
+  body:has(.mesa-bar.has-action):not(:has(.mesa-sheet-backdrop)) .play-flash .play-flash-short { display: inline; }
+  body:has(.mesa-bar.has-action):not(:has(.mesa-sheet-backdrop)) .play-flash-act:has(.play-flash-short) { width: 44px; padding: 0; font-size: 20px; }
+}
+@media (max-width: 767px) {
+  /* E2.8, sem a barra da mesa e sem folha aberta: o aviso desce para logo acima da barra de
+     baixo, à esquerda do 🎲 (como os avisos da casca), em vez de ficar no meio do conteúdo */
+  body:has(.shell-bottom-bar):not(:has(.mesa-bar)):not(:has(.mesa-sheet-backdrop)) .play-flash {
+    left: max(12px, env(safe-area-inset-left, 0px)); right: auto; transform: none;
+    bottom: calc(var(--shell-bar-h, 62px) + 8px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100vw - 24px - var(--shell-fab-size, 50px) - 10px);
+    animation-name: stage-flash-in;
+  }
 }
 @keyframes stage-flash-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
@@ -308,8 +429,13 @@
   .turn-strip-mark.is-acted { color: var(--ink-muted); }
   .turn-strip-mark.is-now { color: var(--gold-bright); font-weight: 600; }
   .turn-strip-mark.is-down { color: var(--ink-muted); text-decoration: line-through; }
+  /* PJ a 0 PV fazendo testes contra a morte: vermelho, sem riscar */
+  .turn-strip-dying { color: var(--blood-bright); }
   /* largura fixa: "Enviando…" não move o botão debaixo do cursor */
   .turn-strip-next { min-height: 48px; min-width: 12em; white-space: nowrap; justify-content: center; }
+  /* ↶ Voltar turno: ao lado de quem age, do outro lado da fita (longe do Próximo) */
+  .turn-strip:has(.turn-strip-back) { grid-template-columns: minmax(180px, auto) auto minmax(0, 1fr) auto; }
+  .turn-strip-back.mesa-btn { min-height: 44px; padding: 0 12px; white-space: nowrap; }
   .play-area:has(> .turn-strip) { --below-strip: calc(var(--areas-stick, 64px) + var(--turn-strip-h, 88px) + 8px); }
   .play-area:has(> .turn-strip) .combat-tab { --ct-map-top: var(--below-strip); }
   .play-area:has(> .turn-strip) .tests-ask-col { top: var(--below-strip); max-height: calc(100vh - var(--below-strip) - 16px); }
@@ -317,6 +443,12 @@
 @media (min-width: 768px) and (max-width: 1023px) {
   .turn-strip { grid-template-columns: minmax(0, 1fr) auto; }
   .turn-strip-ribbon { grid-column: 1 / -1; grid-row: 2; }
+  /* ↶ Voltar turno na 2ª linha, à esquerda da fita: na 1ª ficava colado ao Próximo (12 px) */
+  .turn-strip:has(.turn-strip-back) { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .turn-strip:has(.turn-strip-back) .turn-strip-who { grid-column: 1 / 3; grid-row: 1; }
+  .turn-strip:has(.turn-strip-back) .turn-strip-next { grid-column: 3; grid-row: 1; }
+  .turn-strip:has(.turn-strip-back) .turn-strip-back { grid-column: 1; grid-row: 2; }
+  .turn-strip:has(.turn-strip-back) .turn-strip-ribbon { grid-column: 2 / -1; grid-row: 2; }
 }
 
 /* ---------- janela da Tela (PC) ---------- */
@@ -352,7 +484,8 @@
   .screen-win-tools { display: flex; align-items: center; justify-content: space-between; gap: 0; border-top: 1px solid var(--stroke-faint); }
   .screen-win.is-docked .screen-win-tools { justify-content: flex-start; gap: 8px; padding-top: 2px; }
   /* o fim da página sobe além da janela (nada fica preso embaixo dela) */
-  body:has(.screen-win.is-float) main.container:has(> .campaign-detail.shell) { padding-bottom: 320px; }
+  /* E2.5e: a folga mede a janela (resumo, ao vivo ou a pílula recolhida; --screen-win-h) */
+  body:has(.screen-win:is(.is-float, .is-pill)) main.container:has(> .campaign-detail.shell) { padding-bottom: calc(var(--screen-win-h, 300px) + 48px); }
   .screen-win.is-docked { position: relative; width: 100%; margin: 0 0 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
   .screen-win-head { display: flex; justify-content: space-between; gap: 8px; margin: 0; padding: 8px 10px 6px; }
   .screen-win.is-docked .screen-win-tools .mesa-btn { min-height: 44px; }
@@ -360,6 +493,8 @@
   .screen-win-live-btn { min-height: 44px; padding: 0 12px; white-space: nowrap; }
   .screen-win .screen-win-dice { width: 48px; height: 48px; min-width: 48px; min-height: 48px; font-size: 22px; }
   .screen-win.is-float .screen-win-tools { gap: 2px; }
+  /* Próximo turno fora de Jogar (E1.6d): a ação ao vivo, 48 px, acima das ferramentas */
+  .screen-win .screen-win-next { min-height: 48px; margin: 2px 0 4px; justify-content: center; }
   /* encaixada compacta (Combate de 1024 a 1279): uma linha no topo da coluna da lista */
   .screen-win.is-compact { display: flex; align-items: center; gap: 6px; margin: 0; padding: 4px 6px; }
   .screen-win-compact {

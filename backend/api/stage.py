@@ -45,7 +45,8 @@ RECAP_KEY = 'stageRecap'
 BGS = ('auto', 'map', 'dark')
 OPS = ('show', 'clear', 'back', 'undo', 'dark', 'bg', 'prefs')
 FRONT_KINDS = ('card', 'image', 'scene', 'text', 'recap')
-# sheets (V15): as rolagens das FICHAS dos jogadores vão à Tela na sessão ao vivo (padrão ligado)
+# sheets (V15): as rolagens das FICHAS dos jogadores vão à Tela na sessão ao vivo (padrão ligado).
+# Onda 3 (E2.6): True (todas) · 'crits' (só 20 e 1 naturais no d20) · False (nenhuma).
 PREFS_DEFAULT = {'players': 'crits', 'dm': 'secret', 'monsters': 'shown', 'initiative': True, 'party': True,
                  'sheets': True}
 PREFS_CHOICES = {'players': ('all', 'crits', 'off'), 'dm': ('secret', 'shown'), 'monsters': ('shown', 'secret')}
@@ -308,7 +309,7 @@ def clean_prefs(raw):
             if value not in PREFS_CHOICES[key]:
                 _bad(f'invalid_{key}')
         elif key in ('initiative', 'party', 'sheets'):
-            if not isinstance(value, bool):
+            if not isinstance(value, bool) and not (key == 'sheets' and value == 'crits'):
                 _bad(f'invalid_{key}')
         else:
             _bad('invalid_prefs')
@@ -397,6 +398,13 @@ def next_stage(stage, op):
             return stage, False
         new.update(bg=op['bg'], prev=snap)
         new.pop('lit', None)
+    elif kind == 'hold':
+        # ⚔ O combate começou (E1.1): a frente que estava na Tela passa a esperar o fim
+        # dele (a TV vai para o combate); ↶ Desfazer a põe de volta por cima. Já guardada,
+        # sem frente ou com a Tela escurecida: nada muda.
+        if not stage['front'] or not stage['focus'] or stage['bg'] == 'dark':
+            return stage, False
+        new.update(focus=False, prev=snap)
     elif kind == 'prefs':
         prefs = {**stage['prefs'], **op['prefs']}
         if prefs == stage['prefs']:
@@ -468,6 +476,34 @@ def apply_stage_op(campaign, op, extra=None):
 
     state = update_state(campaign, fn)
     return get_stage(state), seen['moved'] or recap_changed
+
+
+def hold_for_combat(campaign):
+    """⚔ O combate começou (E1.1, o ▶ Iniciar e o "⚔ Começar" do combate rápido): a TV vai
+    para ele. A frente que estava na Tela (a cena, um cartão) fica "guardada para depois
+    do combate" — volta sozinha quando ele acabar, e o ↶ Desfazer do aviso a põe de volta
+    por cima agora — e o resultado de teste que sobrou no rodapé da TV sai (o de
+    iniciativa fica: é deste combate). Sem frente nem teste na Tela: nada é gravado.
+    → {'held': nome da frente guardada | None, 'testOff': bool}"""
+    from .models import CheckRequest
+    test_off = CheckRequest.objects.filter(campaign=campaign, show_on_screen=True) \
+        .exclude(kind='custom', key='initiative').update(show_on_screen=False, screen_at=None)
+    stage, moved = apply_stage_op(campaign, {'op': 'hold'})
+    front = stage.get('front') if moved else None
+    label = ((front or {}).get('label') or (front or {}).get('title') or '')[:MAX_LABEL] if front else None
+    return {'held': label if moved else None, 'testOff': bool(test_off)}
+
+
+def waiting_replaced(before, after, combat_active):
+    """O "mostrar" tirou o que esperava o fim do combate? (E1.3d: o aviso diz que
+    substituiu, com ↶ Desfazer). `before`/`after`: o palco antes e depois do op.
+    → o nome do que esperava, ou None."""
+    old = (before or {}).get('front')
+    if not combat_active or not old or (before or {}).get('focus') is not False or (before or {}).get('bg') == 'dark':
+        return None
+    if _same_front(old, (after or {}).get('front')):
+        return None
+    return (old.get('label') or old.get('title') or '')[:MAX_LABEL] or '…'
 
 
 def _legacy_card_name(campaign, state):
@@ -747,8 +783,14 @@ def start_scene(campaign, body, *, user=None):
     # nome interno da sala: a Crônica é lida pelos jogadores
     room_back = _enter_room(campaign, room, name=front['title'], log=log, user=user) if room else None
     undo.update(stage=changed, doneId=done_id, room=room_back)
-    return {'stage': stage, 'changed': changed, 'shown': show, 'scene': extra['scene'], 'sceneId': scene_id,
-            'doneId': done_id, 'undo': undo}
+    out = {'stage': stage, 'changed': changed, 'shown': show, 'scene': extra['scene'], 'sceneId': scene_id,
+           'doneId': done_id, 'undo': undo}
+    if changed and (stage.get('prev') or {}).get('focus') is False:
+        # E1.3d: a cena tirou da Tela o que esperava o fim do combate (o aviso diz)
+        replaced = waiting_replaced(stage.get('prev'), stage, combat_now(campaign)['active'])
+        if replaced:
+            out['replaced'] = {'waiting': replaced}
+    return out
 
 
 def _clean_undo(raw):

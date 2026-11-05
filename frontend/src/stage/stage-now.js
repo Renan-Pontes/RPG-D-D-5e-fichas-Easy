@@ -116,6 +116,48 @@ export function bgLabel(now, lang = 'pt') {
   return `🏠 ${L(lang, 'Capa', 'Cover')}`;
 }
 
+/**
+ * O texto do aviso de "mostrou" (o mesmo nos 9 lugares): "Na tela ✓ · <nome>" e, quando
+ * outra coisa esperava o fim do combate, "· substitui “X”…". `short` é a forma do aviso
+ * apertado do celular de 320 px (E2-fix): "✓ <nome>" — sai o "Na tela" (o aviso só vem de
+ * um 📺) e as reticências caem só no nome. Sem nome, a curta é a própria. → {text, short}
+ */
+export function sentNotice(label, name = '', replaced = '') {
+  const tail = replaced ? ` · ${replaced}` : '';
+  const text = `${label}${name ? ` · ${name}` : ''}${tail}`;
+  const mark = /✓/.test(label) ? '✓ ' : '';
+  return { text, short: name ? `${mark}${name}${tail}` : text };
+}
+
+/**
+ * O aviso de "▶ Começar esta cena" (scene-actions.beginScene). Na Tela agora (`shown`): "Cena
+ * começou · Na tela: X"; guardada para depois do combate (`held`: "Guardar para depois do
+ * combate", focus: false, com algo a mostrar) a TV segue no combate e o aviso nunca diz "Na
+ * tela": "Cena começou: X · vai à Tela quando o combate acabar". O que esperava o fim do
+ * combate e saiu (`waiting`, E1.3d) entra antes do que o aviso corta no celular, e também no
+ * curto (o do celular de 320 px). `long`: o aviso pede mais linhas (flash `long`).
+ * → {text, short, long}
+ */
+export function sceneStartNotice({ name = '', shown = false, held = false, logged = false, waiting = '' } = {}, lang = 'pt') {
+  const log = logged ? L(lang, ' · Registrado na Crônica', ' · Logged to the Chronicle') : '';
+  const sub = waiting ? L(lang, `Substitui “${waiting}”`, `Replaces “${waiting}”`) : '';
+  if (held) {
+    const instead = waiting ? L(lang, `, no lugar de “${waiting}”`, `, instead of “${waiting}”`) : '';
+    return {
+      text: L(lang, `Cena começou: ${name} · vai à Tela quando o combate acabar`, `Scene started: ${name} · goes on screen when the combat ends`) + instead + log,
+      short: `${sub ? `${sub} · ` : ''}✓ ${name} · ${L(lang, 'depois do combate', 'after combat')}`,
+      long: true,
+    };
+  }
+  const head = shown ? L(lang, `Cena começou · Na tela: ${name}`, `Scene started · On screen: ${name}`) : L(lang, `Cena começou: ${name}`, `Scene started: ${name}`);
+  if (!waiting) return { text: head + log, short: `✓ ${name}`, long: false };
+  return {
+    text: `${sub}${L(lang, ', que esperava o fim do combate', ', which was waiting for combat to end')} · ${head}${log}`,
+    short: `${sub} · ✓ ${name}`,
+    long: true,
+  };
+}
+
 /** Teste mostrado: "🎯 Percepção 3/4" (aceita o cartão do mestre, o da Tela ou o do pulso, {done, total}). */
 export function testLabel(test) {
   if (!test) return '';

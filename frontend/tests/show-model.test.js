@@ -110,3 +110,22 @@ test('"Da cena agora": a sala em jogo só conta quando ela é a cena agora (a so
   assert.equal(roomIsNow({ id: 'c2', nodeRef: { adventureId: 7, nodeId: 'n1' } }, adventure, node), true);
   assert.equal(roomIsNow({ id: 'c2', nodeRef: { adventureId: 7, nodeId: 'n2' } }, adventure, node), false);
 });
+
+test('"Da cena agora": quem está na cena do plano e na sala ligada aparece uma vez só', () => {
+  const node = adventure.data.nodes[0];   // a sala traz os cartões 2 e 12
+  const r = imageRows({ entries, adventure, node, sceneRefs: [12, 1, 2] });
+  const keys = r.now.map(x => x.key);
+  assert.deepEqual(keys, ['e-12', 'e-1', 'e-2', 'room-n1']);
+  assert.equal(new Set(keys).size, keys.length, keys.join(','));
+  assert.ok(!r.all.some(x => keys.includes(x.key)));
+});
+
+// Onda 3 (E2.2): "🖼 Só a imagem (tela cheia)" para o cartão revelado com imagem.
+test('decideActions: cartão revelado com imagem ganha "Só a imagem (tela cheia)"; oculto não muda', async () => {
+  const { decideActions } = await import('../src/stage/show-model.js');
+  const r = decideActions('show', { fighting: true, full: true });
+  assert.deepEqual(r.buttons.map(b => [b.id, b.op, b.focus]), [['show', 'show', true], ['full', 'image', true], ['keep', 'show', false]]);
+  assert.deepEqual(decideActions('show', { fighting: false, full: true }).buttons.map(b => b.id), ['show', 'full']);
+  assert.deepEqual(decideActions('show', { fighting: false }).buttons.map(b => b.id), ['show']);
+  assert.deepEqual(decideActions('image', { fighting: false, full: true }).buttons.map(b => b.id), ['image', 'reveal'], 'o oculto já tem "só a imagem"');
+});

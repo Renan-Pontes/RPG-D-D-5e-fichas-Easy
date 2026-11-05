@@ -163,6 +163,8 @@
   width: max-content; max-width: min(calc(100vw - 32px), 520px);
 }
 .play-flash-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+/* a forma curta (flash.js `short`) só aparece no aviso apertado do celular de 320 px (stage.css) */
+.play-flash-short { display: none; }
 .play-flash-act {
   flex: none; min-height: 44px; min-width: 44px; padding: 0 14px;
   border: 1px solid var(--gold); border-radius: 8px; background: transparent;

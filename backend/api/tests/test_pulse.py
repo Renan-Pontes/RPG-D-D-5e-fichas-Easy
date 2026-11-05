@@ -362,6 +362,8 @@ class CombatSummaryTests(Base):
         self.assertFalse(c['allMonstersDown'])
         self.assertEqual([o['acted'] for o in c['order']], [True, True, False, False])
         self.assertEqual([o['defeated'] for o in c['order']], [False, True, False, True])
+        # a Dagna a 0 PV (PJ que não morreu) vem marcada: a fita do mestre não a risca
+        self.assertEqual([o.get('dying', False) for o in c['order']], [False, False, False, True])
         self.assertEqual(self.pulse().json()['counts']['dangers'], 1)
 
     def test_all_monsters_down(self):

@@ -156,3 +156,41 @@ test('o 📺 de um cartão: na hora, pergunta ou explica', () => {
   assert.equal(privateShort(letter, members, 'pt'), 'Só para Ana · não vai à Tela');
   assert.equal(privateReason(letter, [], 'en'), "Handout only for some players: it can't go on screen.");
 });
+
+// E2-fix: o aviso de "mostrou" e a forma curta do celular de 320 px.
+test('sentNotice: "Na tela ✓ · <nome>" e, curto, "✓ <nome>" (o que foi mostrado nunca some)', async () => {
+  const { sentNotice } = await import('../src/stage/stage-now.js');
+  assert.deepEqual(sentNotice('Na tela ✓', 'Vale de Brumafria (só a imagem)'),
+    { text: 'Na tela ✓ · Vale de Brumafria (só a imagem)', short: '✓ Vale de Brumafria (só a imagem)' });
+  assert.deepEqual(sentNotice('On screen ✓', 'Borin'), { text: 'On screen ✓ · Borin', short: '✓ Borin' });
+  // o que esperava o fim do combate continua no aviso curto
+  const r = sentNotice('Na tela ✓', 'Vale', 'substitui “Borin”, que esperava o fim do combate');
+  assert.equal(r.text, 'Na tela ✓ · Vale · substitui “Borin”, que esperava o fim do combate');
+  assert.equal(r.short, '✓ Vale · substitui “Borin”, que esperava o fim do combate');
+  // sem nome a curta é a própria; rótulo sem ✓ não ganha um
+  assert.deepEqual(sentNotice('Tela limpa ✓'), { text: 'Tela limpa ✓', short: 'Tela limpa ✓' });
+  assert.equal(sentNotice('Fora da Tela', 'Borin').short, 'Borin');
+});
+
+// Corrigir final da onda 3: o aviso de "▶ Começar esta cena" guardada para depois do combate
+// nunca diz "Na tela", e o "substitui X" vem antes do que o celular corta.
+test('sceneStartNotice: na Tela, guardada para depois do combate e substituindo quem esperava', async () => {
+  const { sceneStartNotice } = await import('../src/stage/stage-now.js');
+  const name = 'Descer até o lago à noite';
+  assert.deepEqual(sceneStartNotice({ name, shown: true }),
+    { text: `Cena começou · Na tela: ${name}`, short: `✓ ${name}`, long: false });
+  assert.equal(sceneStartNotice({ name, shown: false, logged: true }, 'en').text, `Scene started: ${name} · Logged to the Chronicle`);
+  // "Guardar para depois do combate": a TV segue no combate
+  const held = sceneStartNotice({ name, shown: true, held: true, logged: true, waiting: 'Borin Pé-de-Malte' });
+  assert.doesNotMatch(held.text, /Na tela/);
+  assert.equal(held.text, `Cena começou: ${name} · vai à Tela quando o combate acabar, no lugar de “Borin Pé-de-Malte” · Registrado na Crônica`);
+  assert.equal(held.short, `Substitui “Borin Pé-de-Malte” · ✓ ${name} · depois do combate`);
+  assert.equal(held.long, true);
+  assert.equal(sceneStartNotice({ name: 'Ponte', shown: true, held: true }, 'en').text, 'Scene started: Ponte · goes on screen when the combat ends');
+  // por cima do combate, tirando quem esperava: o "Substitui" primeiro (o celular corta o fim)
+  const over = sceneStartNotice({ name, shown: true, waiting: 'Borin' });
+  assert.equal(over.text, `Substitui “Borin”, que esperava o fim do combate · Cena começou · Na tela: ${name}`);
+  assert.equal(over.short, `Substitui “Borin” · ✓ ${name}`);
+  assert.equal(over.long, true);
+  assert.equal(sceneStartNotice({ name: 'X', shown: true, waiting: 'Borin' }, 'en').short, 'Replaces “Borin” · ✓ X');
+});

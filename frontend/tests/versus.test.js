@@ -53,6 +53,22 @@ test('ameaças do quadro: só ND perto do nível do grupo (±2) e quem perde mai
   assert.match(list[0].text, / (resiste a|é imune a) .+: o dano de \S+ /);
 });
 
+test('ameaças do quadro: criatura boa (Águia Gigante, Sprite) não é ameaça', () => {
+  assert.match(mon('giant-eagle').alignment, /good/);
+  assert.match(mon('sprite').alignment, /good/);
+  const list = V.threatMonsters(BESTIARY, facts, 'pt', { limit: 50 });
+  assert.ok(list.length > 0);
+  assert.ok(!list.some(x => /good/i.test(mon(x.id).alignment)), list.map(x => x.id).join(','));
+  // a Águia Gigante resiste ao radiante da Dagna, mas fica de fora
+  assert.equal(V.damageFactor(mon('giant-eagle'), 'radiant'), 0.5);
+  assert.ok(!list.some(x => x.id === 'giant-eagle'));
+  const ex = V.saveThreatExamples(BESTIARY, facts, 'pt').examples;
+  for (const e of Object.values(ex)) assert.doesNotMatch(mon(e.id).alignment, /good/i, e.id);
+  assert.notEqual(ex.cha?.id, 'sprite');
+  // só aliados no alcance: nenhuma ameaça (o quadro cai no perigo genérico do nível)
+  assert.deepEqual(V.threatMonsters([{ ...mon('giant-eagle') }], facts, 'pt'), []);
+});
+
 test('procurar monstro e achar os do plano', () => {
   assert.ok(V.searchMonsters(BESTIARY, 'fantas').some(m => m.id === 'ghost'));
   assert.ok(V.searchMonsters(BESTIARY, 'GHOST').some(m => m.id === 'ghost'));
@@ -65,4 +81,53 @@ test('procurar monstro e achar os do plano', () => {
   assert.ok(seed.includes('goblin-warrior') || seed.some(id => id.startsWith('goblin')), seed.join(','));
   assert.ok(seed.some(id => id.startsWith('bugbear')), seed.join(','));
   assert.ok(seed.length <= 12);
+});
+
+test('Sombra (SRD 5.2.1): vulnerável a radiante — o dano da Dagna dobra (F2.3)', () => {
+  const v = V.versus(mon('shadow'), facts, 'pt');
+  const dagna = v.rows.find(r => r.name.startsWith('Dagna'));
+  assert.equal(dagna.main.type, 'radiant');
+  assert.equal(dagna.k, 2);
+  assert.ok(v.known);
+  assert.deepEqual(v.vulns.map(x => x.type), ['radiant']);
+  assert.match(v.line, /^vulnerável a radiante: Dagna \(.+\) causa o dobro/);
+  assert.match(V.versus(mon('shadow'), facts, 'en').line, /^vulnerable to radiant: Dagna \(.+\) deals double/);
+});
+
+test('Esqueleto: vulnerável a concussão; quem não causa fica dito (F2.3)', () => {
+  const v = V.versus(mon('skeleton'), facts, 'pt');
+  assert.equal(V.damageFactor(mon('skeleton'), 'bludgeoning'), 2);
+  const who = facts.filter(f => f.dmgTypes.bludgeoning).map(f => M.firstName(f.name));
+  if (who.length) assert.ok(v.line.startsWith(`vulnerável a concussão: ${who[0]}`), v.line);
+  else assert.ok(v.line.startsWith('vulnerável a concussão (ninguém do grupo causa)'), v.line);
+  assert.notEqual(v.line, '', 'não é mais "Nada que preocupe"');
+});
+
+test('as vulnerabilidades do SRD 5.2.1 estão no bestiário (fonte: Foundry dnd5e + 5e-database)', () => {
+  const withV = BESTIARY.filter(m => m.source === 'SRD 5.2.1' && m.damageVulnerabilities?.length).map(m => m.id).sort();
+  assert.deepEqual(withV, ['awakened-shrub', 'awakened-tree', 'dust-mephit', 'earth-elemental', 'ice-mephit', 'magma-mephit',
+    'minotaur-skeleton', 'mummy', 'mummy-lord', 'salamander', 'shadow', 'skeleton', 'treant', 'warhorse-skeleton']);
+  assert.deepEqual(mon('mummy').damageVulnerabilities, ['fire']);
+});
+
+test('monstro sem defesas conhecidas: não afirma "normal" (F2.3)', () => {
+  const legacy = { id: 'velho', name: 'Velho', cr: '1', actions: [] };
+  assert.equal(V.defensesKnown(legacy), false);
+  assert.equal(V.defensesKnown({ ...legacy, damageResistances: [] }), true, 'meus monstros trazem os campos');
+  assert.equal(V.defensesKnown(mon('goblin-warrior') || mon('goblin')), true);
+  assert.equal(V.versus(legacy, facts, 'pt').known, false);
+});
+
+test('dificuldade do monstro contra o grupo: a conta do montador de combate (F2.3)', () => {
+  // 4 personagens de nível 1: Baixa 200, Moderada 300, Alta 400 (SRD 5.2.1)
+  const d = V.versusDifficulty(mon('shadow'), facts);
+  assert.equal(d.xp, 100);
+  assert.equal(d.one, 'low');
+  assert.deepEqual(d.steps, [{ rating: 'moderate', n: 3 }, { rating: 'high', n: 4 }]);
+  assert.equal(V.difficultyText(d, 'Sombra', 'pt'), '1 Sombra: Baixa · 3: Moderada · 4: Alta');
+  assert.equal(V.difficultyText(d, 'Shadow', 'en'), '1 Shadow: Low · 3: Moderate · 4: High');
+  const ghost = V.versusDifficulty(mon('ghost'), facts);   // ND 4, 1100 XP: acima de Alta sozinho
+  assert.equal(ghost.one, 'extreme');
+  assert.deepEqual(ghost.steps, []);
+  assert.equal(V.versusDifficulty({ name: 'x' }, facts), null);
 });

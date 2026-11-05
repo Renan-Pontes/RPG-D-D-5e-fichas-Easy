@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   padPress, padValue, rememberType, typeChips, readTypeMemory, writeTypeMemory, multiTargets, toggleMark,
-  hpFlash, manyFlash, newOpId, turnMarks, markLabel, shouldScrollTo, PAD_KEYS,
+  hpFlash, manyFlash, newOpId, turnMarks, markLabel, fallenState, fallenLabel, shouldScrollTo, PAD_KEYS,
   heldOpId, maybeApplied, failText, quietDelay, quietSlot, newerCombat,
 } from '../src/play/damage-model.js';
 
@@ -90,6 +90,24 @@ test('marcas de vez: ✓ agiu · ▶ agora · † caiu, do turnIndex', () => {
   assert.equal(markLabel('now', 'en'), '▶ now');
   assert.equal(markLabel('down', 'pt'), '† caiu');
   assert.equal(markLabel(null, 'pt'), '');
+});
+
+test('PJ a 0 PV não é morto: "Morrendo · ✓1 ✗2" ou "Estável", sem † (a mesma regra da TV)', () => {
+  const pipo = { id: 'pp', type: 'pc', current_hp: 0, defeated: false, death_saves: { success: 1, fail: 2 }, conditions: [] };
+  const gob = { id: 'g', type: 'monster', current_hp: 0, defeated: true };
+  const dead = { id: 'x', type: 'pc', current_hp: 0, defeated: true, death_saves: { success: 0, fail: 3 } };
+  const combat = { active: true, turnIndex: 2, combatants: [pipo, gob, { id: 'd', type: 'pc', current_hp: 3 }, dead] };
+  assert.deepEqual(turnMarks(combat), { pp: 'acted', g: 'down', d: 'now', x: 'down' });
+  assert.equal(turnMarks({ ...combat, turnIndex: 0 }).pp, 'now');   // a vez dele: os testes contra a morte
+  assert.equal(fallenState(pipo), 'dying');
+  assert.equal(fallenLabel(pipo, 'pt'), 'Morrendo · ✓1 ✗2');
+  assert.equal(fallenLabel({ ...pipo, death_saves: null }, 'en'), 'Dying · ✓0 ✗0');
+  assert.equal(fallenState({ ...pipo, conditions: ['stable'] }), 'stable');
+  assert.equal(fallenLabel({ ...pipo, conditions: ['stable'] }, 'pt'), 'Estável');
+  assert.equal(fallenState(gob), null);
+  assert.equal(fallenState(dead), null);
+  assert.equal(fallenState({ type: 'pc', current_hp: 4 }), null);
+  assert.equal(fallenLabel(gob, 'pt'), '');
 });
 
 test('a lista só rola até quem age se ele estiver fora da vista e sem toque há 600 ms', () => {

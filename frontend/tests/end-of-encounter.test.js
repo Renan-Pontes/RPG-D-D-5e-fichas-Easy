@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  isWizardEnabled, stateWithWizard, encounterSummary, suggestXp, xpRecipients, diaryDraft, wizardSteps,
+  isWizardEnabled, stateWithWizard, encounterSummary, suggestXp, defaultXp, xpRecipients, diaryDraft, wizardSteps,
 } from '../src/campaigns/end-of-encounter.js';
 
 const combat = {
@@ -16,10 +16,11 @@ const combat = {
 };
 const lookup = (id) => ({ goblin: { cr: '1/4' }, ogre: { cr: 2 } }[id] || null);
 
-test('opt-in: desligado por padrão', () => {
-  assert.equal(isWizardEnabled({}), false);
-  assert.equal(isWizardEnabled(undefined), false);
-  assert.equal(isWizardEnabled({ endOfEncounterWizard: 'sim' }), false);
+test('ligado por padrão (onda 3); quem desligou continua desligado', () => {
+  assert.equal(isWizardEnabled({}), true);
+  assert.equal(isWizardEnabled(undefined), true);
+  assert.equal(isWizardEnabled({ endOfEncounterWizard: 'sim' }), true);
+  assert.equal(isWizardEnabled({ endOfEncounterWizard: false }), false);
   const s = stateWithWizard({ scene: 'Ponte' }, true);
   assert.equal(isWizardEnabled(s), true);
   assert.equal(s.scene, 'Ponte');
@@ -42,6 +43,17 @@ test('XP sugerido pelo ND (SRD): total e só derrotados', () => {
   assert.equal(xp.defeatedXp, 50 + 450);
   assert.equal(xp.estimated, false);
   assert.equal(suggestXp({ combatants: [] }, lookup).total, 0);
+  // a folha já vem com o XP dos derrotados enquanto houver monstro de pé (o Goblin #2)
+  assert.equal(defaultXp(xp), 50 + 450);
+});
+
+test('defaultXp: todos só quando todos caíram; com monstro de pé, os derrotados', () => {
+  assert.equal(defaultXp({ total: 550, defeatedXp: 550 }), 550);
+  // encerrar a sessão com o dragão de pé: 50, não 18350
+  assert.equal(defaultXp({ total: 18350, defeatedXp: 50 }), 50);
+  assert.equal(defaultXp({ total: 200, defeatedXp: 0 }), 0);
+  assert.equal(defaultXp({ total: 0, defeatedXp: 0 }), 0);
+  assert.equal(defaultXp(null), 0);
 });
 
 test('XP vai para os PJs do combate que ainda estão na mesa; sem nenhum, a mesa toda', () => {

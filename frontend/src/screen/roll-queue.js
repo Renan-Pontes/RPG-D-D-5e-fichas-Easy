@@ -5,32 +5,36 @@
 // últimos 90 s pelo relógio DELE (`rolls`, em ordem (resolved_at, id)) e a hora
 // dele (`now`). Aqui:
 //   · ao abrir, tudo o que já está na janela é marcado como visto (a TV reaberta
-//     não reprisa nada);
+//     não reprisa nada) e vai direto para as "Últimas rolagens";
 //   · cada rolagem nova entra UMA vez (ids vistos, em memória);
-//   · "grande" (o dado 3D no centro) só com menos de 10 s pelo relógio do
-//     servidor (now − at; o relógio da TV não conta) e se for das que importam:
-//     crítico/falha, ataque e salvaguarda de monstro, 🎲 do mestre "Na tela",
-//     "📺 Rolar e mostrar" e 20/1 de teste; o resto vai ao FEED (até 4 linhas
-//     pequenas no canto, que somem 12 s depois de chegar à TV, pelo relógio dela);
-//   · as grandes vão em fila: 8 s cada, ou 4 s quando há mais de uma esperando;
-//   · enquanto há dado grande o feed fica escondido e o relógio dele PARA
-//     (`feedHeldAt`): os 12 s de cada linha só contam com ela à vista, então uma
-//     fila de dados grandes não faz linha nenhuma sumir sem ter aparecido.
+//   · com menos de 10 s pelo relógio do servidor (now − at; o relógio da TV não
+//     conta) ela ganha o CARTÃO GRANDE no centro (o dado 3D, quem, o quê e o
+//     total). Onda 3 (E2.1): as dos jogadores (rolador da Mesa e ficha) também —
+//     antes eram uma faixa de 16 px no canto que sumia em 12 s —, num cartão um
+//     pouco menor (`bigSize` 'small'; 20 e 1 naturais ficam do tamanho do mestre);
+//   · os cartões vão em fila: 8 s cada (6 s o do jogador), 4 s quando há mais de
+//     um esperando;
+//   · depois do cartão (ou direto, quando chega velha: TV reconectando) a
+//     rolagem entra nas ÚLTIMAS ROLAGENS: as 5 mais novas, com nome e total, num
+//     canto da TV; somem sozinhas 2 min depois da última rolagem que chegou
+//     (relógio da TV) e ficam escondidas enquanto há cartão grande.
 // Isso corrige os 3 bugs medidos: pedido antigo resolvido depois de um novo
 // (ordem por resolved_at), 2 rolagens em menos de 2 s (fila) e TV com o relógio
 // errado (idade pelo relógio do servidor).
 
 export const BIG_FRESH_S = 10;
 export const BIG_MS = 8000;
+export const BIG_MS_SMALL = 6000;
 export const BIG_MS_BUSY = 4000;
-export const FEED_MS = 12000;
-export const FEED_MAX = 4;
+export const HIST_MAX = 5;
+export const HIST_MS = 120_000;
 export const SEEN_MAX = 200;
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
+const PLAYER_KINDS = ['player', 'sheet'];
 
 export function createQueue() {
-  return { primed: false, seen: [], big: [], feed: [], feedHeldAt: null };
+  return { primed: false, seen: [], big: [], hist: [], histAt: null };
 }
 
 /** Idade da rolagem em segundos pelo relógio do SERVIDOR (sem a hora: velha). */
@@ -41,71 +45,86 @@ export function rollAgeS(roll, now) {
   return Math.max(0, (n - at) / 1000);
 }
 
-/** Merece o dado grande? (rolagem normal de jogador, da Mesa ou da ficha, vai só ao feed) */
+/** Ganha o cartão grande? Toda rolagem pública fresca (E2.1: as dos jogadores também). */
 export function isBig(roll) {
-  if (!roll) return false;
-  if (roll.crit || roll.fail) return true;
-  return ['monster', 'save', 'dm', 'request'].includes(roll.kind);
+  return !!roll;
+}
+
+/**
+ * O tamanho do cartão: 'small' para a rolagem comum de jogador (rolador da Mesa e
+ * ficha) — um pouco menor que a do mestre —, 'full' para o resto e para o 20 e o 1
+ * naturais de qualquer um.
+ */
+export function bigSize(roll) {
+  if (!roll) return 'full';
+  if (roll.crit || roll.fail) return 'full';
+  return PLAYER_KINDS.includes(roll.kind) ? 'small' : 'full';
+}
+
+/** O histórico com a rolagem `r` no fim (as 5 mais novas; a mesma nunca duas vezes). */
+function pushHist(hist, r) {
+  return [...hist.filter(h => h.id !== r.id), r].slice(-HIST_MAX);
 }
 
 /**
  * Junta a resposta do GET da Tela ({rolls, now}) à fila. `tvNow` = Date.now() da
- * TV (só para o feed sumir 12 s depois de CHEGAR). Devolve uma fila nova.
+ * TV (o relógio das "Últimas rolagens"). Devolve uma fila nova.
  */
 export function ingest(queue, { rolls = [], now } = {}, tvNow = Date.now()) {
   const q = queue || createQueue();
   const list = Array.isArray(rolls) ? rolls.filter(r => r && r.id != null) : [];
   if (!q.primed) {
-    return { ...q, primed: true, seen: list.map(r => r.id).slice(-SEEN_MAX) };
+    // a TV (re)aberta: nada é reprisado, mas o que rolou há pouco já fica nas Últimas
+    const recent = list.slice(-HIST_MAX);
+    const youngest = recent.length ? Math.min(...recent.map(r => rollAgeS(r, now))) : Infinity;
+    return {
+      ...q, primed: true, seen: list.map(r => r.id).slice(-SEEN_MAX), hist: recent,
+      histAt: recent.length ? tvNow - (Number.isFinite(youngest) ? youngest * 1000 : 0) : null,
+    };
   }
   const seen = new Set(q.seen);
   const fresh = list.filter(r => !seen.has(r.id));
   if (!fresh.length) return q;
   const big = [...q.big];
-  const feed = [...q.feed];
+  let hist = q.hist;
+  let histAt = q.histAt;
   for (const r of fresh) {
     seen.add(r.id);
     if (isBig(r) && rollAgeS(r, now) < BIG_FRESH_S) big.push(r);
-    else feed.push({ ...r, arrivedAt: tvNow });
+    else { hist = pushHist(hist, r); histAt = tvNow; }
   }
-  // chegou dado grande: o feed se esconde e o relógio dele para
-  const feedHeldAt = q.feedHeldAt ?? (big.length ? tvNow : null);
-  return { ...q, seen: [...q.seen, ...fresh.map(r => r.id)].slice(-SEEN_MAX), big, feed: feed.slice(-FEED_MAX), feedHeldAt };
+  return { ...q, seen: [...q.seen, ...fresh.map(r => r.id)].slice(-SEEN_MAX), big, hist, histAt };
 }
 
-/** A grande que está na tela agora (a 1ª da fila) e quanto ela dura. */
+/** O cartão que está na tela agora (o 1º da fila) e quanto ele dura. */
 export function currentBig(queue) {
   return queue?.big?.[0] || null;
 }
 export function bigDuration(queue) {
-  return (queue?.big?.length || 0) > 1 ? BIG_MS_BUSY : BIG_MS;
+  if ((queue?.big?.length || 0) > 1) return BIG_MS_BUSY;
+  return bigSize(currentBig(queue)) === 'small' ? BIG_MS_SMALL : BIG_MS;
 }
 
 /**
- * A grande atual terminou (tempo ou toque): passa para a próxima. Sem mais nenhuma,
- * o feed volta e cada linha recomeça de onde parou (o tempo escondida não conta).
+ * O cartão atual terminou (tempo ou toque): ele vai para as Últimas rolagens e a
+ * fila passa para o próximo. `id` que não é o atual não mexe.
  */
 export function nextBig(queue, id, tvNow = Date.now()) {
   if (!queue?.big?.length || (id != null && queue.big[0].id !== id)) return queue;
-  const big = queue.big.slice(1);
-  if (big.length || queue.feedHeldAt == null) return { ...queue, big };
-  const held = queue.feedHeldAt;
-  const feed = queue.feed.map(r => ({ ...r, arrivedAt: tvNow - Math.max(0, held - (r.arrivedAt || 0)) }));
-  return { ...queue, big, feed, feedHeldAt: null };
+  const [done, ...big] = queue.big;
+  return { ...queue, big, hist: pushHist(queue.hist || [], done), histAt: tvNow };
 }
 
-/** O feed sem o que já passou de 12 s À VISTA na TV (parado enquanto há dado grande). */
-export function pruneFeed(queue, tvNow = Date.now()) {
-  if (!queue?.feed?.length || queue.feedHeldAt != null) return queue;
-  const feed = queue.feed.filter(r => tvNow - (r.arrivedAt || 0) < FEED_MS);
-  return feed.length === queue.feed.length ? queue : { ...queue, feed };
+/** As Últimas rolagens sem nada depois de 2 min da última que chegou (relógio da TV). */
+export function pruneHist(queue, tvNow = Date.now()) {
+  if (!queue?.hist?.length || queue.histAt == null) return queue;
+  return tvNow - queue.histAt >= HIST_MS ? { ...queue, hist: [], histAt: null } : queue;
 }
 
-/** Quando o próximo item do feed vence (ms a partir de tvNow) ou null (vazio ou parado). */
-export function feedNextExpiry(queue, tvNow = Date.now()) {
-  if (!queue?.feed?.length || queue.feedHeldAt != null) return null;
-  const first = Math.min(...queue.feed.map(r => (r.arrivedAt || 0) + FEED_MS));
-  return Math.max(0, first - tvNow);
+/** Quando as Últimas rolagens vencem (ms a partir de tvNow) ou null (vazias). */
+export function histNextExpiry(queue, tvNow = Date.now()) {
+  if (!queue?.hist?.length || queue.histAt == null) return null;
+  return Math.max(0, queue.histAt + HIST_MS - tvNow);
 }
 
 // ---------------------------------------------------------------------------
@@ -143,9 +162,9 @@ export function saveTargets(roll) {
 }
 
 /**
- * A linha em 2 partes: `head` (quem e o quê) e `tail` (o resultado). No feed da TV
- * só o `head` ganha reticências; o `tail` (o total, "d20 11 · ACERTA · 6 cortante",
- * os alvos da salvaguarda) nunca é cortado.
+ * A linha em 2 partes: `head` (quem e o quê) e `tail` (o resultado). Na lista do
+ * mestre só o `head` ganha reticências; o `tail` (o total, "d20 11 · ACERTA · 6
+ * cortante", os alvos da salvaguarda) nunca é cortado.
  */
 export function rollParts(roll, lang = 'pt', labels = {}) {
   if (!roll) return { head: '', tail: '' };
@@ -161,7 +180,8 @@ export function rollParts(roll, lang = 'pt', labels = {}) {
 }
 
 /**
- * A linha do feed (e da lista do mestre): texto de verdade, nada só por ícone.
+ * A linha da lista do mestre (Jogar › Tela › Últimas 5, Testes): texto de verdade,
+ * nada só por ícone.
  *   monstro:     "Goblin #2 ⚔ Dagna · d20 11 · ACERTA · 6 cortante"
  *   salvaguarda: "Dragão · Sopro de Fogo · DES CD 13 · Dagna 9 ✗ · Pipo 17 ✓"
  *   o resto:     "Dagna · Percepção · 14"
@@ -169,6 +189,32 @@ export function rollParts(roll, lang = 'pt', labels = {}) {
 export function rollLine(roll, lang = 'pt', labels = {}) {
   const { head, tail } = rollParts(roll, lang, labels);
   return [head, tail].filter(Boolean).join(' · ');
+}
+
+/**
+ * Uma linha das "Últimas rolagens" da TV (E2.1), lida a 3 m: quem (o nome inteiro,
+ * nunca cortado antes do rótulo), o quê (o rótulo, o único que ganha reticências) e o
+ * resultado curto.
+ *   jogador/mestre: {who:'Dagna', what:'Percepção', result:'17'}
+ *   monstro:        {who:'Goblin #2', what:'⚔ Dagna', result:'ACERTA'} (sem o bônus nem o dano)
+ *   salvaguarda:    {who:'Dragão', what:'Sopro de Fogo', result:'2 ✓ · 1 ✗'}
+ * `mark`: 'crit' | 'fail' | '' (o filete dourado/vermelho da linha).
+ */
+export function histParts(roll, lang = 'pt') {
+  if (!roll) return { who: '', what: '', result: '', mark: '' };
+  const who = rollWho(roll, lang);
+  const mark = roll.crit ? 'crit' : roll.fail ? 'fail' : '';
+  if (roll.kind === 'monster') {
+    const result = !roll.hit ? L(lang, 'ERRA', 'MISS') : roll.crit ? L(lang, 'CRÍTICO', 'CRITICAL') : L(lang, 'ACERTA', 'HIT');
+    return { who, what: `⚔ ${roll.label || '?'}`, result, mark };
+  }
+  if (roll.kind === 'save') {
+    const t = roll.targets || [];
+    const ok = t.filter(x => x.ok).length;
+    return { who, what: roll.label || '', result: `${ok} ✓ · ${t.length - ok} ✗`, mark };
+  }
+  const what = roll.label || `${roll.count > 1 ? roll.count : ''}${roll.diceType === 'mixed' ? '' : roll.diceType || ''}`;
+  return { who, what, result: roll.total != null ? String(roll.total) : '', mark };
 }
 
 /**

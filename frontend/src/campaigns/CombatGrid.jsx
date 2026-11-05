@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { api, apiUrl } from '../api/client.js';
 import { flash } from '../play/flash.js';
-import { labelWidths, tokenLabel } from './token-label.js';
+import { labelWidths, tokenLabel, tvLabelSize } from './token-label.js';
 import { loadNameIndex, needsNameIndex, portraitFor } from '../combat/monster-portrait.js';
 import { snapToGrid } from '../combat/placement.js';
 import { usePanZoom, nearestHit, toContent } from '../shell/usePanZoom.js';
@@ -42,7 +42,8 @@ const SIZES = [
  *   - Ferramentas do mapa (fundo, ×, quadrado, grade, imagem e tamanho do
  *     token): folha no celular/tablet, painel acima do mapa no desktop.
  * - Telão (`readOnly`): o canvas de sempre (1200×800 escalado pelo CSS), sem
- *   gestos nem ferramentas — o desenho é o mesmo de antes, pixel a pixel.
+ *   gestos nem ferramentas. Os nomes medem em px DE TELA (onda 3, E2.4): 15 px na
+ *   TV 1280×720 (antes ~8 px), encurtados para não encostar no vizinho.
  *
  * Desenho: fundo (contain), grade, tokens (PNG ou círculo com inicial), brilho
  * dourado no token da vez, quem já agiu na rodada esmaecido, seleção, barra de
@@ -143,9 +144,11 @@ const defaultPos = (c) => ({ x: c.position?.x ?? 50, y: c.position?.y ?? 50 });
  * barras e nomes ganham tamanho mínimo na tela. Sem `live` (telão), os números
  * são os de sempre.
  */
-function drawScene(ctx, { W, H, combat, posOf = defaultPos, bgImage, tokenImages, gridSize, gridVisible, selectedId, live }) {
+function drawScene(ctx, { W, H, combat, posOf = defaultPos, bgImage, tokenImages, gridSize, gridVisible, selectedId, live, tv }) {
   const S = live ? live.S : 1;
   const px = (n) => (live ? n / S : n);
+  // Telão (E2.4): o rótulo em px de tela pela escala do canvas na TV (tvLabelSize)
+  const tvl = !live && tv?.S > 0 ? tvLabelSize(tv.S) : null;
   const blur = (n) => (live ? n * live.dpr * Math.min(1, Math.max(0.5, S)) : n);
   // Canvas não entende var(--x): resolve os tokens da paleta uma vez por desenho.
   const css = getComputedStyle(document.documentElement);
@@ -187,7 +190,7 @@ function drawScene(ctx, { W, H, combat, posOf = defaultPos, bgImage, tokenImages
   const freeWidth = labelWidths(combatants.map(c => {
     const p = posOf(c);
     return { id: c.id, x: p.x, y: p.y, size: gridSize * (c.token_scale || 1) };
-  }), live ? { rowTolerance: px(lblPx + 6), gap: px(6) } : undefined);
+  }), live ? { rowTolerance: px(lblPx + 6), gap: px(6) } : tvl ? { rowTolerance: tvl.rowTolerance, gap: tvl.gap } : undefined);
   // y da linha de base do nome (abaixo da barra de PV)
   const labelY = (y, size) => y + size / 2 + Math.max(4, px(3)) + Math.max(6, px(4)) + px(lblPx + 2);
   // Mestre: o nome inteiro do selecionado vai numa plaquinha por cima de tudo;
@@ -271,13 +274,13 @@ function drawScene(ctx, { W, H, combat, posOf = defaultPos, bgImage, tokenImages
     ctx.fillRect(barX, barY, barW * hpPct, barH);
 
     // Nome (no mestre: só se couber ≥ 30 px na tela; o do selecionado vai na plaquinha)
-    const ly = barY + barH + px(lblPx + 2);
+    const ly = barY + barH + (tvl ? tvl.font + 2 / tv.S : px(lblPx + 2));
     const free = freeWidth.get(c.id) ?? size;
     if (!live || (!isSel && free * S >= 30)) {
       ctx.fillStyle = tok('--ink-primary');
       ctx.shadowBlur = blur(4);
       ctx.shadowColor = 'rgba(0,0,0,0.9)';
-      ctx.font = `${px(lblPx)}px "EB Garamond", serif`;
+      ctx.font = tvl ? `600 ${tvl.font}px "EB Garamond", serif` : `${px(lblPx)}px "EB Garamond", serif`;
       ctx.textAlign = 'center';
       if (live) ctx.textBaseline = 'alphabetic';
       const label = tokenLabel(c.name, free, (txt) => ctx.measureText(txt).width);
@@ -335,14 +338,28 @@ function ReadOnlyGrid({ combat }) {
   const canvasRef = useRef(null);
   const { bgImage, tokenImages } = useMapImages(combat);
   const { W, H, gridSize, gridVisible } = mapInfo(combat);
+  // A escala do canvas na tela (o `contain` do CSS): os nomes medem em px de tela (E2.4).
+  const [scale, setScale] = useState(0);
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const fit = () => {
+      const k = Math.min(el.clientWidth / W, el.clientHeight / H);
+      if (k > 0) setScale(prev => (Math.abs(prev - k) > 0.01 ? k : prev));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [W, H]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, W, H);
-    drawScene(ctx, { W, H, combat, bgImage, tokenImages, gridSize, gridVisible });
-  }, [combat, bgImage, tokenImages, W, H, gridSize, gridVisible]);
+    drawScene(ctx, { W, H, combat, bgImage, tokenImages, gridSize, gridVisible, tv: scale ? { S: scale } : null });
+  }, [combat, bgImage, tokenImages, W, H, gridSize, gridVisible, scale]);
 
   // Desenha quando algo do desenho muda (a Tela passa o mesmo `combat` enquanto
   // nada muda no servidor) e quando as fontes chegam; parado, nada.

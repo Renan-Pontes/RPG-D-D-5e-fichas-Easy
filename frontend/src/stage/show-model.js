@@ -47,8 +47,9 @@ export function imageRows({ entries = [], adventure = null, node = null, query =
     used.add(`room-${node.id}`);
   }
   if (roomNow && node) {
+    // quem já veio da cena do plano (sceneRefs) não entra de novo pela sala ligada
     for (const e of sceneEntries({ entries, node, plan: null }).scene) {
-      if (!match(e.name)) continue;
+      if (used.has(`e-${e.id}`) || !match(e.name)) continue;
       now.push({ key: `e-${e.id}`, type: 'entry', entry: e, name: e.name });
       used.add(`e-${e.id}`);
     }
@@ -113,13 +114,15 @@ export function mapRows(entries = []) {
  *   - cartão oculto (mode 'image' | 'name') → `keep: 'toggle'`, a caixa
  *     "☐ Guardar para depois do combate" que vale para o botão que ele tocar;
  *   - o resto (revelado, cena…) → `keep: 'link'`, o link que mostra guardado.
+ * Onda 3 (E2.2): cartão revelado (ou só o nome) com imagem própria (`full`) ganha também
+ * "🖼 Só a imagem (tela cheia)" — a imagem inteira na TV inteira, sem o texto.
  * @param {'show'|'image'|'name'} mode  cardShowMode() do alvo ('show' p/ não-cartão)
- * @param {{fighting?: boolean, keep?: boolean}} o  keep = a caixa marcada
- * @returns {{ buttons: {id:'image'|'name'|'reveal'|'show'|'keep', op:'image'|'reveal'|'show',
+ * @param {{fighting?: boolean, keep?: boolean, full?: boolean}} o  keep = a caixa marcada
+ * @returns {{ buttons: {id:'image'|'name'|'reveal'|'show'|'full'|'keep', op:'image'|'reveal'|'show',
  *             visibility?: 'partial'|'revealed', focus: boolean, primary?: boolean, link?: boolean}[],
  *             keep: 'toggle'|'link'|null }}
  */
-export function decideActions(mode, { fighting = false, keep = false } = {}) {
+export function decideActions(mode, { fighting = false, keep = false, full = false } = {}) {
   const hidden = mode === 'image' || mode === 'name';
   const focus = !(fighting && hidden && keep);
   const buttons = [];
@@ -127,6 +130,7 @@ export function decideActions(mode, { fighting = false, keep = false } = {}) {
   if (mode === 'name') buttons.push({ id: 'name', op: 'reveal', visibility: 'partial', focus, primary: true });
   if (hidden) buttons.push({ id: 'reveal', op: 'reveal', visibility: 'revealed', focus });
   else buttons.push({ id: 'show', op: 'show', focus: true, primary: true });
+  if (!hidden && full) buttons.push({ id: 'full', op: 'image', focus: true });
   if (!fighting) return { buttons, keep: null };
   if (hidden) return { buttons, keep: 'toggle' };
   buttons.push({ id: 'keep', op: 'show', focus: false, link: true });

@@ -18,8 +18,9 @@ import { bestAt, firstName } from '../group/party-best.js';
 import { formatMod } from '../dice/dice-math.js';
 import { DIFFICULTY_LABEL } from '../combat/encounter.js';
 import { fightLine } from '../combat/encounter-setup.js';
-import { fightDifficulty, sceneView } from '../prep/scene-model.js';
-import { partyLevels } from '../prep/prep-graph.js';
+import { fightDifficulty, sceneView, treasureFilled } from '../prep/scene-model.js';
+import { partyLevels, treasureSummary } from '../prep/prep-graph.js';
+import { momentLine } from '../group/moment-words.js';
 import ShowOnTable from '../stage/ShowOnTable.jsx';
 import { EntryRow } from './InScenePanel.jsx';
 
@@ -87,7 +88,7 @@ export default function SceneNowCard({
     ? { kind: 'image', ref: { advId: v.show.advId, nodeId: v.show.nodeId }, name }
     : showEntry ? { kind: 'card', entry: showEntry } : null;
   const refs = v.refs.map(id => byId.get(id)).filter(Boolean);
-  const nothing = !filled(v.read) && !v.show && !v.refs.length && !v.fight.length && !v.checks.length && !moments.length;
+  const nothing = !filled(v.read) && !v.show && !v.refs.length && !v.fight.length && !v.checks.length && !moments.length && !treasureFilled(v.treasure);
   // "2 Goblin Guerreiro · 1 Sombra": o nome do catálogo na língua do app (o mesmo da folha
   // Começar o combate e do Combate); antes do catálogo chegar, o nome salvo na cena
   const fightText = fightLine(v.fight, { resolve: lookup, lang });
@@ -187,9 +188,15 @@ export default function SceneNowCard({
         </div>
       )}
 
+      {/* 💰 o tesouro da cena solta (o da cena ligada está em "da aventura ▸", com 🎁 Entregar) */}
+      {!scene?.nodeRef && treasureFilled(v.treasure) && (
+        <p className="snc-line snc-treasure">💰 {treasureSummary(v.treasure, lang === 'en' ? 'en' : 'pt')}</p>
+      )}
+
       {moments.map(m => (
         <p key={m.key} className="snc-moment">
-          ★ {L(lang, `Momento de ${firstName(names[m.charId] || '?')}`, `${firstName(names[m.charId] || '?')}'s moment`)}: {m.moment.text}
+          {/* a ideia em frase de mestre ("★ Dagna brilha: …"), sem números */}
+          {momentLine(m.moment, names[m.charId] || '?', lang)}
           {m.moment.done != null && <span className="snc-sub"> · {L(lang, 'aconteceu', 'happened')} ✓</span>}
         </p>
       ))}

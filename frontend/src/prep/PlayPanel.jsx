@@ -2,7 +2,7 @@ import { errorMessage } from '../api/errors.js';
 import { useMemo, useState } from 'react';
 import { api } from '../api/client.js';
 import { DIFFICULTY_LABEL } from '../combat/encounter.js';
-import { buildCheckPayload } from '../checks/check-logic.js';
+import { buildCheckPayload, groupTargets } from '../checks/check-logic.js';
 import GiveItemModal from '../campaigns/GiveItemModal.jsx';
 import {
   NODE_KIND, pathsFrom, nodeEncounter, edgeText, treasureSummary, hasTreasure,
@@ -55,9 +55,12 @@ export default function PlayPanel({
     // 'save:dex' · 'ability:str' (a folha da Cena grava atributos assim) · perícia
     const [head, rest] = c.skill.includes(':') ? c.skill.split(':') : [null, c.skill];
     const kind = head === 'save' ? 'save' : head === 'ability' ? 'ability' : 'skill';
+    // quem está a 0 PV fica de fora do "todos" (onda 3, E1.5c)
+    const players = (campaign.members || []).filter(m => m.role !== 'dm' && m.user?.id !== campaign.dmId);
+    const to = groupTargets(players, { kind, key: head ? rest : c.skill });
     await api.createCheck(campaign.id, buildCheckPayload({
       kind, key: head ? rest : c.skill,
-      label: checkText(c.skill, lang), dc: c.dc ?? '', dcHidden: true, targets: [],
+      label: checkText(c.skill, lang), dc: c.dc ?? '', dcHidden: true, targets: to.targets,
     }, lang));
   }, t(lang, 'Pedido enviado à mesa (CD oculta).', 'Check sent to the table (hidden DC).'));
 

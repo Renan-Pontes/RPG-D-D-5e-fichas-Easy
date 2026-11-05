@@ -6,8 +6,10 @@
 // (table-bar-model.barLines); à direita o 🎲 (48×48) e, em combate, o
 // [Próximo →] (88×48, dourado) — ▶ Iniciar com o combate montado e parado,
 // "Encerrar o combate" quando todos os monstros caíram (sugestão, nada sozinho).
-// Tocar na miniatura ou no texto abre a folha Tela ao vivo (sempre o mesmo
-// destino). Some com o teclado aberto e atrás das folhas que não são de Jogar
+// Tocar no texto abre a folha Tela ao vivo; tocar na MINIATURA abre (e fecha) o
+// miniplayer flutuante (onda 3, E2.5c: MiniPlayer.jsx), que mostra a Tela por cima do
+// conteúdo enquanto o mestre continua mexendo embaixo. A miniatura mostra a última
+// rolagem por 8 s (useFreshRoll, do pulso). Some com o teclado aberto e atrás das folhas que não são de Jogar
 // (CSS: body.mesa-sheet-covers). Os dados vêm da loja da mesa (pulso), sem
 // pedido novo; o relógio de "Sem conexão há N s" é só do aparelho.
 // Em combate a linha 1 é a vez, e quem encolhe é só o nome ("Goblin Afog… #2");
@@ -18,12 +20,13 @@
 //
 // <TurnStrip> — PC (≥ 768), presa no topo de Jogar com combate: "RODADA 2 · VEZ
 // DE X · PV 3/10 · depois: Dagna", a fita de iniciativa (✓ agiu · ● agora ·
-// ○ falta · † caiu, só leitura) e [Próximo turno →] (48, tecla N).
+// ○ falta · † caiu, só leitura) e [Próximo turno →] (48, tecla N). O [↶ Voltar turno] fica
+// do outro lado da fita, longe do Próximo (onda 3, E1.4: sempre à mão, não 6 s num aviso).
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import StageThumb from './StageThumb.jsx';
 import useStage from './useStage.js';
 import { L } from './stage-now.js';
-import { REARM_MS, afterLine, barLines, freshRoll, offlineLine, ribbon } from './table-bar-model.js';
+import { REARM_MS, afterLine, barLines, freshRoll, freshRollLeft, offlineLine, ribbon } from './table-bar-model.js';
 import { useTable } from '../play/table-store.js';
 import './stage.css';
 
@@ -57,6 +60,23 @@ function useRearm(key) {
   const last = useRef(key);
   if (last.current !== key) { last.current = key; until.current = Date.now() + REARM_MS; }
   return () => Date.now() >= until.current;
+}
+
+/**
+ * A rolagem pública nova do pulso enquanto vale (8 s; a que já existia ao abrir não
+ * reprisa) — para a miniatura, a janela do PC e o miniplayer. Um timer só, até ela sair.
+ */
+export function useFreshRoll(table) {
+  const roll = table?.pulse?.screen?.roll || null;
+  const seen = table?.rollSeen || null;
+  const [, tick] = useState(0);
+  const left = freshRollLeft(roll, seen, Date.now());
+  useEffect(() => {
+    if (left == null) return undefined;
+    const id = setTimeout(() => tick(n => n + 1), left + 30);
+    return () => clearTimeout(id);
+  }, [roll?.id, seen?.at, left == null]); // eslint-disable-line react-hooks/exhaustive-deps
+  return left == null ? null : roll;
 }
 
 export function openDice() {
@@ -99,7 +119,7 @@ const ACTION_LABEL = {
   start: ['▶ Iniciar', '▶ Start', 'Iniciar o combate', 'Start combat'],
 };
 
-export default function TableBar({ campaign, lang = 'pt', onOpenLive, onEndCombat }) {
+export default function TableBar({ campaign, lang = 'pt', onOpenLive, onEndCombat, onThumb, miniOpen = false }) {
   const table = useTable();
   const stage = useStage(campaign);
   const now = useNow(1000);
@@ -125,15 +145,24 @@ export default function TableBar({ campaign, lang = 'pt', onOpenLive, onEndComba
   const label = action ? ACTION_LABEL[action] : null;
   const turn = lines.turn;
   const [nameRef, tight] = useTight(turn ? `${turn.lead}|${turn.name}|${turn.num}|${lang}` : '');
+  const thumbRoll = freshRoll(table?.pulse?.screen?.roll, table?.rollSeen, now);
+  const thumb = (
+    <StageThumb campaign={campaign} stage={stage} lang={lang} mini roll={thumbRoll}
+      combat={combat ? { active: combat.active, round: combat.round } : null} />
+  );
   return (
     <div className={`mesa-bar no-print ${keyboard ? 'is-keyboard' : ''} ${action ? 'has-action' : ''}`}
       role="region" aria-label={L(lang, 'Barra da mesa', 'Table bar')}>
+      {/* a miniatura: abre (e fecha) o miniplayer; sem ele (casca antiga), a Tela ao vivo */}
+      {onThumb ? (
+        <button type="button" className="mesa-bar-thumb is-btn" onClick={onThumb} aria-pressed={miniOpen}
+          aria-label={miniOpen ? L(lang, 'Fechar o miniplayer da Tela', 'Close the screen miniplayer') : L(lang, 'Abrir o miniplayer da Tela', 'Open the screen miniplayer')}>
+          {thumb}
+        </button>
+      ) : null}
       <button type="button" className="mesa-bar-main" onClick={onOpenLive} aria-haspopup="dialog"
         aria-label={`${lines.l1}. ${lines.l2}. ${L(lang, 'Abrir a Tela ao vivo', 'Open the live screen')}`}>
-        <span className="mesa-bar-thumb">
-          <StageThumb campaign={campaign} stage={stage} lang={lang} mini
-            combat={combat ? { active: combat.active, round: combat.round } : null} />
-        </span>
+        {!onThumb && <span className="mesa-bar-thumb">{thumb}</span>}
         <span className="mesa-bar-text" aria-hidden="true">
           {turn ? (
             <span className="mesa-bar-l1 is-turn">
@@ -193,10 +222,18 @@ export function TurnStrip({ lang = 'pt', onOpenActor }) {
           {after && <>{combat.turnHp ? ' · ' : ''}{after}</>}
         </span>
       </button>
+      {/* ↶ Voltar turno (onda 3, E1.4): sempre à mão enquanto há turno anterior, longe do Próximo */}
+      {(table.canPrev ?? ((combat.round ?? 1) > 1 || (combat.turnIndex ?? 0) > 0)) && (
+        <button type="button" className="mesa-btn turn-strip-back" disabled={busy}
+          onClick={() => { if (!busy) table.prevTurn(); }} title={L(lang, 'Voltar para a vez anterior', 'Back to the previous turn')}>
+          <span aria-hidden="true">↶</span> {L(lang, 'Voltar turno', 'Undo turn')}
+        </button>
+      )}
       <ol className="turn-strip-ribbon" aria-label={L(lang, 'Ordem de iniciativa', 'Initiative order')}>
         {marks.map(m => (
-          <li key={m.id} className={`turn-strip-mark is-${m.state}`}>
+          <li key={m.id} className={`turn-strip-mark is-${m.state} ${m.dying ? 'is-dying' : ''}`}>
             <span aria-hidden="true">{m.mark}</span> {m.name}
+            {m.dying && <span className="turn-strip-dying"> · {L(lang, 'morrendo', 'dying')}</span>}
             <span className="sr-only">{m.state === 'now' ? L(lang, ' (agora)', ' (now)') : m.state === 'acted' ? L(lang, ' (agiu)', ' (acted)')
               : m.state === 'down' ? L(lang, ' (caiu)', ' (down)') : L(lang, ' (falta)', ' (to act)')}</span>
           </li>

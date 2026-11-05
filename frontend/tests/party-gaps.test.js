@@ -7,11 +7,13 @@ import Utils from '../utils.js';
 import * as M from '../src/group/party-metrics.js';
 import * as S from '../src/group/spotlights.js';
 import { sceneFieldText } from '../src/play/plan-model.js';
+import { ideaTitle, isIdeaTitle } from '../src/group/idea-titles.js';
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/party-jogo-e-combate.json', import.meta.url), 'utf8'));
 const party = M.partyMembers(fixture.members);
 const facts = M.partyFacts(party, 'pt');
-const axes = M.partyAxes(facts);
+// a tabela das lacunas da especificação (§6.3.6) foi feita com o meio a meio (o padrão de antes)
+const axes = M.partyAxes(facts, { w: 0.5 });
 const skills = M.partySkills(facts, 15);
 const gaps = S.partyGaps(facts, axes, {});
 
@@ -64,7 +66,7 @@ test('G7: eixo baixo, sentido e ferramenta (grupo sem visão no escuro nem Ferra
     weapons: [{ id: 'longsword', name: 'Espada Longa' }],
   });
   const two = M.partyFacts(M.partyMembers([1, 2].map(id => ({ role: 'player', character: { id, name: `Guerreiro ${id}`, data: fighter(`Guerreiro ${id}`) } }))), 'pt');
-  const g = S.partyGaps(two, M.partyAxes(two), {});
+  const g = S.partyGaps(two, M.partyAxes(two, { w: 0.5 }), {});
   assert.ok(g.some(x => x.kind === 'sense' && x.text === 'Ninguém enxerga no escuro'));
   assert.ok(g.some(x => x.kind === 'tool' && x.text === 'Ninguém tem Ferramentas de Ladrão'));
   const mob = g.find(x => x.kind === 'axis' && x.key === 'mobility');
@@ -76,10 +78,12 @@ test('sugestões de brilhar: Pipo (perícias, Ferramentas de Ladrão e o gancho 
   const sug = S.shineSuggestions(facts, { dc: 15 });
   const pipo = sug[party.find(p => p.name.startsWith('Pipo')).id];
   assert.deepEqual(pipo.map(s => s.auto), ['skill:sleightOfHand', 'skill:stealth', 'tool:thievesTools', 'text:personality']);
-  assert.equal(pipo[0].text, 'Prestidigitação 65% (2º 35%)');
+  // frase de mestre na linha principal (F1.1); os números ficam no detalhe
+  assert.equal(pipo[0].text, 'um teste de Prestidigitação — ninguém no grupo faz melhor');
+  assert.equal(pipo[0].detail, 'Prestidigitação +7 · 65% na CD 15 · o 2º do grupo: 35%');
   assert.equal(pipo.at(-1).text, '“Brincalhão, curioso e incapaz de resistir a uma porta trancada.”');
   const elarion = sug[party.find(p => p.name.startsWith('Elarion')).id];
-  assert.ok(elarion.some(s => s.text === 'único com dano frio, energia e trovejante'));
+  assert.ok(elarion.some(s => s.text === 'um inimigo vulnerável a dano de frio, de energia e trovejante — só Elarion causa esse dano'), elarion.map(s => s.text).join('\n'));
   assert.ok(elarion.some(s => s.auto === 'role:control'));
 });
 
@@ -90,34 +94,130 @@ test('G0: os 4 quadros', () => {
   assert.deepEqual(q.strengths.map(x => x.text), ['Cura 5 · Dagna', 'Magia 5 · Dagna e Elarion', 'Intuição: grupo 93%']);
   assert.equal(q.weaknesses[0].text, gaps[0].text);
   assert.equal(q.weaknesses.length, 7);
-  assert.ok(q.opportunities.some(x => x.text === 'Pipo: Prestidigitação 65% (2º 35%)'));
+  assert.ok(q.opportunities.some(x => x.text === 'Pipo brilha: um teste de Prestidigitação — ninguém no grupo faz melhor'));
   assert.deepEqual(q.opportunities.slice(0, 4).map(x => x.id), party.map(p => p.id), 'uma de cada personagem antes de repetir');
-  assert.equal(q.threats[0].text, 'DES média +1,3: bola de fogo e armadilhas pegam 54% do grupo na CD 13');
+  // nível 1: nada de bola de fogo (F2.4); sem exemplo do bestiário, o perigo do nível na CD típica
+  assert.equal(q.threats[0].text, 'DES média +1,3: armadilhas e sopros pegam 54% do grupo na CD 13');
   assert.equal(q.threats[1].text, 'Fantasma resiste a trovejante');
   // dispensada não volta; eixo escondido some das Forças; Importante vem antes
   const off = S.quadrants({ facts, party: axes, skills, gaps, suggestions: sug, dismissed: { [pipoId]: ['skill:sleightOfHand'] } });
-  assert.ok(!off.opportunities.some(x => x.text === 'Pipo: Prestidigitação 65% (2º 35%)'));
+  assert.ok(!off.opportunities.some(x => x.text === 'Pipo brilha: um teste de Prestidigitação — ninguém no grupo faz melhor'));
   const hid = S.quadrants({ facts, party: axes, skills, gaps, hidden: ['heal'], focus: { control: 2 } });
   assert.equal(hid.strengths[0].text, 'Controle 4,6 · Elarion');
   assert.ok(!hid.strengths.some(x => x.text.startsWith('Cura')));
 });
 
-test('3 ideias de cena, de tipos diferentes, e o texto que vai para o plano', () => {
+test('Ameaças coerentes com o nível: um monstro típico do ND do grupo que cobra a salvaguarda (F2.4)', async () => {
+  const { BESTIARY } = await import('../data/bestiary.js');
+  const V = await import('../src/group/versus.js');
+  const ex = V.saveThreatExamples(BESTIARY, facts, 'pt');
+  assert.deepEqual(ex.examples.dex, { id: 'giant-spider', name: 'Aranha Gigante', cr: '1', dc: 13 });
+  for (const e of Object.values(ex.examples)) {
+    const m = BESTIARY.find(x => x.id === e.id);
+    assert.ok(m.crNum <= 3, `${e.id}: ND ${m.cr} para um grupo de nível 1`);
+  }
+  const q = S.quadrants({ facts, party: axes, skills, gaps, saveExamples: ex.examples, typicalDc: ex.typicalDc });
+  assert.equal(q.threats[0].text, 'DES média +1,3: Aranha Gigante (ND 1) cobra CD 13 e pega 54% do grupo');
+  const all = q.threats.map(x => x.text).join(' | ');
+  assert.doesNotMatch(all, /bola de fogo|banir|fireball|banish/i, all);
+  const en = S.quadrants({ facts, party: axes, skills, gaps, lang: 'en', saveExamples: V.saveThreatExamples(BESTIARY, facts, 'en').examples });
+  assert.equal(en.threats[0].text, 'DEX average +1.3: Giant Spider (CR 1) calls for DC 13 and catches 54% of the party');
+  // grupo de nível alto: o perigo genérico do nível volta a ser a bola de fogo
+  const high = facts.map(f => ({ ...f, level: 11 }));
+  assert.match(S.quadrants({ facts: high, party: axes, skills, gaps }).threats[0].text, /bola de fogo e armadilhas/);
+});
+
+test('3 ideias de cena, de tipos diferentes, e a cena que vai para o plano (F2.1)', () => {
   const ideas = S.sceneIdeas(gaps, facts, 'pt');
   assert.deepEqual(ideas.map(i => i.text), [
     'Uma luta que ocupa Elarion: o grupo precisa de outro jeito de controlar a luta',
     'Uma cena em que só Blefar resolve (ninguém é bom nisso)',
     'Um perigo de salvaguarda de DES com saída',
   ]);
+  // o nome de mesa é só história (os jogadores e a TV o leem quando a cena começa)
+  assert.deepEqual(ideas.map(i => i.title), ['Inimigos demais', 'Uma conversa difícil', 'Um chão traiçoeiro']);
+  assert.deepEqual(ideas.map(i => i.key), ['spof:control', 'skill:deception', 'save:dex']);
   const dmgOnly = S.sceneIdeas(gaps.filter(g => g.kind === 'damage'), facts, 'pt');
   assert.match(dmgOnly[0].text, /^Um inimigo que resiste a .+: o grupo precisa de outro plano$/);
-  const text = S.ideaSceneText(ideas[1], 'pt');
-  assert.equal(text, 'Cena nova\nUma cena em que só Blefar resolve (ninguém é bom nisso)\nLacuna do grupo: Ninguém é bom em Blefar (melhor +2; CD 15 passa 40%)');
-  assert.ok(text.length <= 1000, 'cabe numa cena do plano');
-  // "Usar como cena" leva só a 1ª linha à Tela e ao jogador: nada do Raio-X (§8)
+  // a cena nasce com o título da ideia e o texto à vista no "O que acontece" (só o mestre vê)
+  const scene = S.ideaScene(ideas[1], 'pt');
+  assert.deepEqual(scene, {
+    text: 'Uma conversa difícil',
+    what: 'Uma cena em que só Blefar resolve (ninguém é bom nisso)\nLacuna do grupo: Ninguém é bom em Blefar (melhor +2; CD 15 passa 40%)',
+    fromIdea: 'skill:deception',
+  });
+  assert.ok(scene.what.length <= 500, 'cabe no "O que acontece"');
+  // servidor de antes do Plano guiado: a ideia na 2ª linha do texto (o nome continua o título)
+  const old = S.ideaScene(ideas[1], 'pt', { inText: true });
+  assert.deepEqual(Object.keys(old), ['text']);
+  assert.equal(sceneFieldText(old), 'Uma conversa difícil');
+  assert.ok(old.text.includes('Lacuna do grupo'));
+  // "Usar como cena" leva só o nome: nenhum número nem lacuna do Raio-X vai à Tela (§8)
   for (const lang of ['pt', 'en']) {
     for (const idea of S.sceneIdeas(gaps, facts, lang, 9)) {
-      assert.equal(sceneFieldText({ text: S.ideaSceneText(idea, lang) }), lang === 'pt' ? 'Cena nova' : 'New scene');
+      const name = sceneFieldText(S.ideaScene(idea, lang));
+      assert.equal(name, idea.title);
+      assert.doesNotMatch(name, /%|\d|ninguém|nobody/i, name);
     }
   }
+  assert.equal(S.sceneIdeas(gaps, facts, 'en')[2].title, 'Treacherous ground');
+});
+
+test('o nome da cena que vem do Raio-X não leva personagem, perícia, salvaguarda nem lacuna à mesa (F2.1)', () => {
+  // todas as lacunas possíveis, de todos os tipos, nas duas línguas
+  const all = [
+    ...M.SKILLS.map(k => ({ kind: 'skill', key: k })),
+    ...M.ABILS.map(a => ({ kind: 'save', key: a })),
+    ...M.AXES.flatMap(k => [{ kind: 'spof', key: k, who: facts.map(f => f.id) }, { kind: 'axis', key: k }]),
+    ...M.DAMAGE_TYPES.map(k => ({ kind: 'damage', key: k })),
+    { kind: 'sense', key: 'darkvision' }, { kind: 'tool', key: 'thievesTools' },
+  ].map(g => ({ ...g, text: 'lacuna' }));
+  const ABIL_NAMES = ['Força', 'Destreza', 'Constituição', 'Inteligência', 'Sabedoria', 'Carisma', 'Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'];
+  const names = facts.flatMap(f => f.name.split(/\s+/));
+  for (const lang of ['pt', 'en']) {
+    const ideas = all.map(g => S.sceneIdeas([g], facts, lang, 1)[0]).filter(Boolean);
+    assert.equal(ideas.length, all.length, 'cada lacuna tem a sua ideia');
+    for (const idea of ideas) {
+      const name = sceneFieldText(S.ideaScene(idea, lang));
+      assert.equal(name, idea.title);
+      for (const n of names) assert.ok(!name.includes(n), `${name} tem ${n}`);
+      for (const k of M.SKILLS) for (const l of ['pt', 'en']) assert.ok(!name.toLowerCase().includes(M.skillLabel(k, l).toLowerCase()), `${name} tem ${M.skillLabel(k, l)}`);
+      for (const a of M.ABILS) for (const l of ['pt', 'en']) assert.doesNotMatch(name, new RegExp(`\\b${M.abilShort(a, l)}\\b`), name);
+      for (const w of ABIL_NAMES) assert.ok(!name.toLowerCase().includes(w.toLowerCase()), `${name} tem ${w}`);
+      for (const k of M.AXES) for (const l of ['pt', 'en']) assert.ok(!name.toLowerCase().includes(M.axisLabel(k, l).toLowerCase()), `${name} tem ${M.axisLabel(k, l)}`);
+      for (const k of M.DAMAGE_TYPES) for (const l of ['pt', 'en']) assert.doesNotMatch(name, new RegExp(`\\b${M.damageLabel(k, l)}\\b`, 'i'), name);
+      assert.doesNotMatch(name, /%|\d|ninguém|nobody|lacuna|gap|Ladrão|Thieves/i, name);
+      // a ideia inteira, com quem ela visa, fica no "O que acontece" (só o mestre vê)
+      assert.ok(S.ideaScene(idea, lang).what.startsWith(idea.text));
+    }
+  }
+  // a ideia de ponto único continua dizendo ao mestre quem ela ocupa, só fora do nome
+  const spof = S.sceneIdeas(gaps, facts, 'pt')[0];
+  assert.match(spof.text, /Elarion/);
+  assert.doesNotMatch(spof.title, /Elarion/);
+  // a folha da cena reconhece o nome que veio da ideia (em pt ou en) e larga dele ao renomear
+  assert.equal(ideaTitle('skill:deception', 'en'), 'A tricky conversation');
+  assert.ok(isIdeaTitle('skill:deception', 'Uma conversa difícil'));
+  assert.ok(isIdeaTitle('skill:deception', ' A tricky conversation '));
+  assert.ok(!isIdeaTitle('skill:deception', 'A ponte do mentiroso'));
+  assert.ok(!isIdeaTitle(null, 'Uma conversa difícil'));
+  assert.ok(!isIdeaTitle('skill:deception', ''));
+});
+
+test('a ideia levada fica marcada: pela chave guardada e, nas cenas de antes, pelo texto (F2.1)', () => {
+  const [spof, skill] = S.sceneIdeas(gaps, facts, 'pt');
+  const scene = { id: 'c9', ...S.ideaScene(skill, 'pt') };
+  assert.ok(S.sceneHasIdea(scene, skill));
+  assert.ok(!S.sceneHasIdea(scene, spof));
+  // renomeada no plano: a chave continua valendo
+  assert.ok(S.sceneHasIdea({ ...scene, text: 'A ponte do mentiroso' }, skill));
+  // cena feita pela versão de antes ("Cena nova" + a ideia nas notas) e a do servidor sem o bolso
+  assert.ok(S.sceneHasIdea({ text: `Cena nova\n${skill.text}\nLacuna do grupo: ${skill.gap}` }, skill));
+  assert.ok(S.sceneHasIdea({ text: 'Uma conversa difícil', what: skill.text }, skill));
+  assert.ok(!S.sceneHasIdea({ text: 'Taverna' }, skill));
+  // o nome sozinho não conta: o mesmo título serve a mais de uma ideia e a cenas do mestre
+  assert.ok(!S.sceneHasIdea({ text: 'Uma conversa difícil' }, skill));
+  const persuade = S.sceneIdeas([{ kind: 'skill', key: 'persuasion', text: 'x' }], facts, 'pt')[0];
+  assert.equal(persuade.title, skill.title);
+  assert.ok(!S.sceneHasIdea(scene, persuade));
 });

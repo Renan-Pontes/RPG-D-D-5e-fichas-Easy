@@ -5,18 +5,15 @@ import { useId, useMemo, useState } from 'react';
 import MesaSheet from '../shell/MesaSheet.jsx';
 import { tName } from '../../data/i18n.js';
 import * as PM from './party-metrics.js';
-import { RESET_PATCH } from './insights-api.js';
+import { isOldInsights, RESET_PATCH, weightSteps } from './insights-api.js';
 import { searchMonsters } from './versus.js';
 
 const t = PM.t;
-// Tabela · · · Ficha (w = confiança na tabela: 1 só a tabela, 0 só a ficha)
-const W_STEPS = [
-  { w: 1, label: ['Só a tabela', 'Table only'] },
-  { w: 0.75, label: ['Mais a tabela', 'Mostly the table'] },
-  { w: 0.5, label: ['Meio a meio', 'Half and half'] },
-  { w: 0.25, label: ['Mais a ficha', 'Mostly the sheet'] },
-  { w: 0, label: ['Só a ficha', 'Sheet only'] },
-];
+/** "10% tabela de classes · 90% ficha" (a nota final de cada eixo). */
+export const weightText = (w, lang) => {
+  const tab = Math.round((w ?? PM.W_DEFAULT) * 100);
+  return t(lang, `${tab}% tabela de classes · ${100 - tab}% ficha`, `${tab}% class table · ${100 - tab}% sheet`);
+};
 const DCS = [10, 12, 15, 18, 20];
 
 /** "?" de 44 px: folha pequena com 2–3 frases (explicar no lugar, nada só no hover). */
@@ -58,6 +55,10 @@ export function AdjustSheet({ settings, update, lang, readOnly, saveLine, onClos
     update({ hidden });
   };
   const dis = readOnly;
+  // Tabela · · · Ficha: os passos que o servidor guarda (o de antes não guarda o 0,1)
+  const oldServer = isOldInsights(settings);
+  const steps = weightSteps(oldServer);
+  const stepNow = steps.find(s => s.w === settings.w) || steps.find(s => s.def);
   return (
     <MesaSheet title={t(lang, 'Ajustar o Raio-X', 'Adjust the X-ray')} icon="⚙" size="tall" width="md" lang={lang} onClose={onClose}
       footer={<div className="ins-sheet-foot"><span className="ins-save-line" role="status">{saveLine}</span>
@@ -69,14 +70,15 @@ export function AdjustSheet({ settings, update, lang, readOnly, saveLine, onClos
         <p className="ins-adj-help">{t(lang, 'A tabela diz o que a classe costuma fazer; a ficha diz o que este personagem faz hoje.', 'The table says what the class usually does; the sheet says what this character does today.')}</p>
         <div className="ins-steps" role="radiogroup" aria-labelledby={wId}>
           <span className="ins-steps-end" aria-hidden="true">{t(lang, 'Tabela', 'Table')}</span>
-          {W_STEPS.map(s => (
+          {steps.map(s => (
             <button key={s.w} type="button" role="radio" aria-checked={settings.w === s.w} disabled={dis}
               className={`ins-step ${settings.w === s.w ? 'is-on' : ''}`} aria-label={PM.t(lang, ...s.label)}
               onClick={() => update({ w: s.w })}><span aria-hidden="true" /></button>
           ))}
           <span className="ins-steps-end" aria-hidden="true">{t(lang, 'Ficha', 'Sheet')}</span>
         </div>
-        <p className="ins-adj-now">{PM.t(lang, ...W_STEPS.find(s => s.w === settings.w)?.label || W_STEPS[2].label)}</p>
+        <p className="ins-adj-now">{PM.t(lang, ...stepNow.label)} · {weightText(settings.w, lang)}</p>
+        {oldServer && <p className="ins-note is-warn" role="note">{t(lang, 'Falta atualizar o servidor: o passo "Quase só a ficha" (10% tabela de classes, o padrão novo) ainda não fica guardado.', 'The server needs an update: the "Almost only the sheet" step (10% class table, the new default) is not kept yet.')}</p>}
       </section>
 
       <section className="ins-adj">
@@ -128,7 +130,7 @@ export function AdjustSheet({ settings, update, lang, readOnly, saveLine, onClos
         </button>
         {advanced && (
           <div className="ins-classtable">
-            <p className="ins-adj-help">{t(lang, 'A tabela do Ivan dá de 1 a 5 o que cada classe costuma fazer. Mesa caseira? Mude aqui: vale só nesta campanha.', "Ivan's table rates 1 to 5 what each class usually does. Homebrew table? Change it here: it only applies to this campaign.")}</p>
+            <p className="ins-adj-help">{t(lang, 'A tabela de classes de referência dá de 1 a 5 o que cada classe costuma fazer. Mesa caseira? Mude aqui: vale só nesta campanha.', 'The reference class table rates 1 to 5 what each class usually does. Homebrew table? Change it here: it only applies to this campaign.')}</p>
             <label className="mesa-field">
               <span className="mesa-field-label">{t(lang, 'Classe', 'Class')}</span>
               <select value={cls} onChange={e => setCls(e.target.value)}>
@@ -139,7 +141,7 @@ export function AdjustSheet({ settings, update, lang, readOnly, saveLine, onClos
               {PM.AXES.map((k, i) => (
                 <li key={k} className="ins-class-row">
                   <span className="ins-class-axis">{PM.axisLabel(k, lang)}
-                    {table[cls][i] !== PM.IVAN_BASE[cls][i] && <span className="ins-class-ivan">{t(lang, `Ivan: ${PM.IVAN_BASE[cls][i]}`, `Ivan: ${PM.IVAN_BASE[cls][i]}`)}</span>}</span>
+                    {table[cls][i] !== PM.IVAN_BASE[cls][i] && <span className="ins-class-ivan">{t(lang, `padrão: ${PM.IVAN_BASE[cls][i]}`, `default: ${PM.IVAN_BASE[cls][i]}`)}</span>}</span>
                   <button type="button" className="mesa-icon-btn ins-stepper" disabled={dis || table[cls][i] <= 1} onClick={() => setRow(i, -1)}
                     aria-label={t(lang, `${PM.axisLabel(k, lang)}: menos`, `${PM.axisLabel(k, lang)}: less`)}>−</button>
                   <strong className={`ins-class-val ${table[cls][i] !== PM.IVAN_BASE[cls][i] ? 'is-edited' : ''}`} aria-live="polite">{table[cls][i]}</strong>
@@ -150,10 +152,10 @@ export function AdjustSheet({ settings, update, lang, readOnly, saveLine, onClos
             </ul>
             <div className="mesa-actions">
               <button type="button" className="mesa-btn" disabled={dis || !edited.length} onClick={() => update({ base: null })}>
-                {t(lang, 'Restaurar a do Ivan', "Restore Ivan's")}
+                {t(lang, 'Restaurar a padrão', 'Restore the default')}
               </button>
             </div>
-            {!edited.length && <p className="ins-adj-help">{t(lang, 'Nenhuma classe editada: vale a tabela do Ivan.', "No class edited: Ivan's table applies.")}</p>}
+            {!edited.length && <p className="ins-adj-help">{t(lang, 'Nenhuma classe editada: vale a tabela de referência.', 'No class edited: the reference table applies.')}</p>}
           </div>
         )}
       </section>
@@ -189,7 +191,8 @@ export function WhySheet({ why, facts, calc, settings, lang, onClose }) {
           {t(lang, `Média ${PM.fmt(a.avg, lang)} · melhor ${PM.fmt(a.best, lang)} (${a.bestWho.map(PM.firstName).join(', ')}) · 2º ${PM.fmt(a.second, lang)}`,
             `Average ${PM.fmt(a.avg, lang)} · best ${PM.fmt(a.best, lang)} (${a.bestWho.map(PM.firstName).join(', ')}) · 2nd ${PM.fmt(a.second, lang)}`)}
         </p>
-        <p className="ins-adj-help">{t(lang, 'Base da classe (tabela) → o que a ficha mostra → nota final, de 1 a 5 (3 = o normal do nível).', 'Class base (table) → what the sheet shows → final score, 1 to 5 (3 = level standard).')}</p>
+        <p className="ins-adj-help">{t(lang, 'Base da classe (tabela) → o que a ficha mostra → nota final, de 1 a 5 (3 = o normal do nível).', 'Class base (table) → what the sheet shows → final score, 1 to 5 (3 = level standard).')}{' '}
+          {t(lang, `A nota final é ${weightText(settings.w, lang)} (mude em Ajustar).`, `The final score is ${weightText(settings.w, lang)} (change it in Adjust).`)}</p>
         <ul className="ins-why-list">
           {facts.map(f => {
             const w = PM.whyAxis(f, key, { w: settings.w, base: settings.base });

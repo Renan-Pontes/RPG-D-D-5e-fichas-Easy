@@ -5,6 +5,7 @@ import {
   toggleDiscovered, revealBodyFor, planDiff, carryOver, missingIds, textForRef, nextId, freshSceneId,
   planHeading, stepSummary, initialStep, nextStepId, readyChecklist, clueCount, planExport, stateSession,
   planIsBlank, linkedAdventureIds, sceneFights, SECRET_ROWS, PLAN_LIMITS, isOldPlanServer, patchHasPockets,
+  planSessionKey, planNeedsReload,
 } from '../src/prep/next-session.js';
 import { searchEntries, pickEntries, entryImage, kindArt, kindLabel } from '../src/prep/prep-world.js';
 import { freeSpotIn, panToShow, makeNode, addNode, emptyData, NODE_W, NODE_H } from '../src/prep/prep-graph.js';
@@ -239,9 +240,17 @@ test('Pronto para jogar e Exportar o plano', () => {
   let p = addScene(addScene(emptyPlan(), 'Taverna', null, 'c1'), 'Ponte', null, 'c2');
   p = updateItem(p, 'scenes', 'c2', { show: { kind: 'entry', id: 4 } });
   const rows = readyChecklist(padSecrets(p), { party: [{ character: { id: 1 } }], tv: false, lang: 'pt' });
-  assert.deepEqual(rows.map(r => [r.id, r.ok]), [['scenes', true], ['party', true], ['clues', false], ['tv', false]]);
+  assert.deepEqual(rows.map(r => [r.id, r.ok]), [['scenes', true], ['start', false], ['party', true], ['clues', false], ['tv', false]]);
   assert.equal(rows[0].text, '2 cenas, 1 com imagem');
-  assert.equal(rows[3].text, 'Tela ainda não testada');
+  assert.equal(rows[1].text, 'Como começa: vazio', 'o mesmo que o "O que fazer agora" pede (N3)');
+  assert.equal(rows[4].text, 'Tela ainda não testada');
+  // F1.4: com o começo escrito e os momentos da conta única (os mesmos do N7)
+  const full = readyChecklist({ ...padSecrets(p), strongStart: 'O sino toca' }, { party: [], lang: 'pt',
+    moments: [{ name: 'Dagna Brasaforte', moments: 1 }, { name: 'Kaelor Escama', moments: 0 }] });
+  assert.deepEqual(full.find(r => r.id === 'start'), { id: 'start', ok: true, text: 'começo escrito' });
+  assert.deepEqual(full.find(r => r.id === 'moments'), { id: 'moments', ok: false, text: 'sem momento: Kaelor' });
+  assert.equal(readyChecklist(p, { lang: 'en', moments: [{ name: 'Pipo', moments: 2 }] }).find(r => r.id === 'moments').text, 'a moment for everyone (1 of 1)');
+  assert.equal(readyChecklist(p, { moments: null }).some(r => r.id === 'moments'), false, 'sem o Raio-X: sem a linha');
   // o resumo da sessão anterior (o mesmo do J1 da Agora): só com sessão anterior e já sabido
   const withRecap = (recap, session) => readyChecklist(p, { party: [], lang: 'pt', recap, session }).find(r => r.id === 'recap');
   assert.deepEqual(withRecap({ has: true }, 3), { id: 'recap', ok: true, text: 'Resumo da Sessão 3 pronto para “Anteriormente em…”' });
@@ -320,4 +329,42 @@ test('servidor de antes do Plano guiado: sem o _rev no plano, e o patch que perd
   assert.equal(patchHasPockets({ scenes: [{ id: 'c1', text: 'Ponte\nnotas', nodeRef: null, done: true }] }), false);
   assert.equal(patchHasPockets({ scenes: [{ id: 'c1', nodeRef: { adventureId: 1, nodeId: 'n1' }, read: '', show: null, refs: [], fight: [], check: null, showOff: false }] }), false);
   assert.equal(patchHasPockets({ strongStart: 'Boom' }), false);
+});
+
+import { droppedPockets } from '../src/prep/next-session.js';
+test('servidor sem o 💰 da cena: o bolso que foi e não voltou é avisado', () => {
+  const patch = { scenes: [{ id: 'c1', text: 'Cofre', treasure: { items: [{ name: 'Adaga', qty: 1 }], coins: {} } }, { id: 'c2', text: 'Ponte', read: 'x' }] };
+  // servidor de antes do Tesouro: devolve a cena sem a chave
+  assert.deepEqual(droppedPockets(patch, { _rev: 3, scenes: [{ id: 'c1', text: 'Cofre' }, { id: 'c2', text: 'Ponte', read: 'x' }] }), ['treasure']);
+  // servidor novo: a chave volta (mesmo vazia depois de limpa)
+  assert.deepEqual(droppedPockets(patch, { _rev: 3, scenes: [{ id: 'c1', text: 'Cofre', treasure: { items: [], coins: {} } }, { id: 'c2', read: 'x' }] }), []);
+  // bolso vazio que não voltou não é perda; sem resposta, nada a dizer
+  assert.deepEqual(droppedPockets({ scenes: [{ id: 'c1', treasure: null }] }, { scenes: [{ id: 'c1' }] }), []);
+  assert.deepEqual(droppedPockets(patch, null), []);
+});
+
+import { rewardWithItem } from '../src/prep/next-session.js';
+test('⑤ Recompensas: o item cadastrado vira uma linha do texto', () => {
+  assert.equal(rewardWithItem('120 po', { name: 'Lâmina da Maré', qty: 1 }), '120 po\n• Lâmina da Maré');
+  assert.equal(rewardWithItem('', { name: 'Poção de Cura', qty: 2 }), '• Poção de Cura ×2');
+  assert.equal(rewardWithItem('a\n\n', { name: 'X' }), 'a\n• X');
+  assert.equal(rewardWithItem('a', { name: '  ' }), 'a');
+  assert.equal(rewardWithItem('x'.repeat(4000), { name: 'Y' }).length, 4000);
+});
+
+test('planNeedsReload: encerrar com o Plano aberto relê o plano; começar não (F1.7)', () => {
+  const live3 = planSessionKey({ session: '3', live: true });
+  const ended3 = planSessionKey({ session: '3', live: false });
+  const live4 = planSessionKey({ session: 'Sessão 4', live: true });
+  assert.equal(live3, '1:3');
+  assert.equal(ended3, '0:3');
+  assert.equal(planSessionKey(null), '0:');
+  // ■ Encerrar (daqui ou de outro aparelho): o servidor arquivou o plano e gravou o da próxima
+  assert.equal(planNeedsReload(live3, ended3), true);
+  // a sessão mudou de nº sem estar ao vivo (outro aparelho começou e encerrou)
+  assert.equal(planNeedsReload(ended3, planSessionKey({ session: '4' })), true);
+  // começar a sessão não mexe no plano: o rascunho fica e grava como sempre
+  assert.equal(planNeedsReload(ended3, live4), false);
+  assert.equal(planNeedsReload(live3, live3), false);
+  assert.equal(planNeedsReload(ended3, ended3), false);
 });

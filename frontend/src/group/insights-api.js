@@ -5,15 +5,50 @@ import { request } from '../api/client.js';
 
 // Quem entra: `exclude` são as fichas que o mestre tirou (quem chega à mesa entra sozinho);
 // `include` é a lista antiga de quem entra, ainda respeitada se vier gravada.
+// w: 10% tabela / 90% ficha (party-metrics.W_DEFAULT; o servidor de antes ainda devolve 0,5)
 export const DEFAULT_INSIGHTS = {
-  v: 1, include: null, exclude: [], w: 0.5, hidden: [], focus: {}, rep: 'best', dc: 15,
+  v: 2, include: null, exclude: [], w: 0.1, hidden: [], focus: {}, rep: 'best', dc: 15,
   base: {}, style: {}, spotlights: {}, dismissed: {},
 };
 export const MAP_KEYS = ['focus', 'base', 'style', 'spotlights', 'dismissed'];
 export const SAVE_DELAY = 800;
 
+// Tabela · · · Ficha (w = confiança na tabela: 1 só a tabela, 0 só a ficha). O padrão é
+// 10% tabela / 90% ficha (party-metrics.W_DEFAULT; o porquê está lá).
+export const W_STEPS = [
+  { w: 1, label: ['Só a tabela', 'Table only'] },
+  { w: 0.75, label: ['Mais a tabela', 'Mostly the table'] },
+  { w: 0.5, label: ['Meio a meio', 'Half and half'] },
+  { w: 0.25, label: ['Mais a ficha', 'Mostly the sheet'] },
+  { w: 0.1, def: true, label: ['Quase só a ficha (padrão)', 'Almost only the sheet (default)'] },
+  { w: 0, label: ['Só a ficha', 'Sheet only'] },
+];
+// O servidor de antes (insights v 1) guarda w só em quartos (round(w·4)/4) e o padrão dele é o
+// meio a meio: lá o 0,1 viraria 0 ("Só a ficha") sem aviso.
+export const OLD_W_DEFAULT = 0.5;
+export const isOldInsights = (ins) => Number(ins?.v ?? DEFAULT_INSIGHTS.v) < 2;
+
+/**
+ * Os passos de Tabela · · · Ficha que este servidor guarda. No de antes, o "Quase só a ficha"
+ * não aparece (a folha diz que falta atualizar) e o "(padrão)" é o meio a meio.
+ */
+export function weightSteps(old = false) {
+  if (!old) return W_STEPS;
+  return W_STEPS.filter(s => s.w % 0.25 === 0)
+    .map(s => (s.w === OLD_W_DEFAULT ? { ...s, def: true, label: ['Meio a meio (padrão)', 'Half and half (default)'] } : { ...s, def: false }));
+}
+
 export const insightsApi = {
   get: (campaignId) => request(`/api/campaigns/${campaignId}/party-insights`).then(r => r.insights),
+  // o mesmo GET com as cenas do plano de agora (ids): o Raio-X conta os momentos como o Plano
+  // (moment-words.planMoments). Servidor de antes, sem `planScenes`: null (vale a cena gravada).
+  // `planIdeas`: as ideias que já são cena do plano (✓ No plano); sem a chave, null (o clique confere)
+  getWithPlan: (campaignId) => request(`/api/campaigns/${campaignId}/party-insights`)
+    .then(r => ({
+      insights: r.insights,
+      planScenes: Array.isArray(r.planScenes) ? r.planScenes : null,
+      planIdeas: Array.isArray(r.planIdeas) ? r.planIdeas : null,
+    })),
   put: (campaignId, patch) =>
     request(`/api/campaigns/${campaignId}/party-insights`, { method: 'PUT', body: { insights: patch } }).then(r => r.insights),
   // Equilíbrio na mesa (G9): contagens por sessão, sob demanda (cache de 60 s no servidor)
@@ -62,7 +97,8 @@ export function mergeInsights(current, patch) {
   const out = withDefaults(current);
   for (const [k, v] of Object.entries(patch || {})) {
     if (!(k in DEFAULT_INSIGHTS) || k === 'v') continue;
-    if (v === null) { out[k] = withDefaults({})[k]; continue; }
+    // o padrão de w no servidor de antes é o meio a meio (é o que ele vai devolver)
+    if (v === null) { out[k] = k === 'w' && isOldInsights(out) ? OLD_W_DEFAULT : withDefaults({})[k]; continue; }
     if (MAP_KEYS.includes(k)) {
       const m = { ...out[k] };
       for (const [ik, iv] of Object.entries(v || {})) { if (iv === null) delete m[ik]; else m[ik] = iv; }

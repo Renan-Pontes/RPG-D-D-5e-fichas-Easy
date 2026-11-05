@@ -439,8 +439,16 @@ export function sheetScores(f) {
   };
 }
 
+/**
+ * Peso padrão da tabela de classes: 10% tabela / 90% ficha (world_rules.PARTY_W_DEFAULT). No
+ * banco de teste de nível 1, com 25% a tabela ainda punha o mago como o melhor em Dano contra o
+ * dano por rodada da própria ficha (Pipo 8,1 × Elarion 7); com 10% o "melhor em" bate com a
+ * Tabela (dano, cura, PV efetivos, dano à distância) e a classe ainda desempata.
+ */
+export const W_DEFAULT = 0.1;
+
 /** final = base + (1 − w)·(ficha − base). w: 1 = só a Tabela, 0 = só a Ficha. */
-export function axisScores(f, { w = 0.5, base = null } = {}) {
+export function axisScores(f, { w = W_DEFAULT, base = null } = {}) {
   const b = classBase(f, baseTable(base));
   const sheet = sheetScores(f);
   return Object.fromEntries(AXES.map((k, i) => [k, {
@@ -452,7 +460,7 @@ export function axisScores(f, { w = 0.5, base = null } = {}) {
  * Média, melhor (com quem; empate lista todos), 2º e "2 melhores" de cada eixo.
  * `rep: 'top2'` faz o laranja mostrar a média dos 2 melhores (há reserva se alguém cai?).
  */
-export function partyAxes(facts, { w = 0.5, base = null, rep = 'best' } = {}) {
+export function partyAxes(facts, { w = W_DEFAULT, base = null, rep = 'best' } = {}) {
   const rows = facts.map(f => ({ id: f.id, name: f.name, s: axisScores(f, { w, base }) }));
   const axes = {};
   for (const k of AXES) {
@@ -517,7 +525,7 @@ export function mainDamage(f) {
  * Os papéis mais fortes de um personagem (cartão de Grupo › Jogadores): "Cura 5 · Magia 5".
  * Empate: vem antes o papel em que ele mais passa da média do grupo (`avg` = partyAxes().axes).
  */
-export function topRoles(f, { w = 0.5, base = null, hidden = [], avg = null } = {}, n = 2) {
+export function topRoles(f, { w = W_DEFAULT, base = null, hidden = [], avg = null } = {}, n = 2) {
   const s = axisScores(f, { w, base });
   const lift = (k) => s[k].final - (avg?.[k]?.avg ?? 0);
   return AXES.filter(k => !hidden.includes(k)).map(k => ({ key: k, v: s[k].final }))
@@ -526,7 +534,7 @@ export function topRoles(f, { w = 0.5, base = null, hidden = [], avg = null } = 
 
 // ---------------------------------------------------------------- "Por quê"
 /** Folha "Por quê" de um eixo, para um personagem: base → ficha → final e os motivos. */
-export function whyAxis(f, axis, { w = 0.5, base = null } = {}) {
+export function whyAxis(f, axis, { w = W_DEFAULT, base = null } = {}) {
   const s = axisScores(f, { w, base })[axis];
   return { ...s, chips: (f.why?.[axis] || []).filter(Boolean).slice(0, 6) };
 }

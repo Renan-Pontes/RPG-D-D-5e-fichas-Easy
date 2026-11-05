@@ -16,6 +16,7 @@ import { request } from '../api/client.js';
 import { errorText, isOldServer } from '../api/errors.js';
 import { flash } from '../play/flash.js';
 import { legacyScreenCard } from './stage-legacy.js';
+import { sentNotice } from './stage-now.js';
 
 const cid = (id) => encodeURIComponent(id);
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
@@ -175,8 +176,50 @@ export function stageErrorText(e, lang = 'pt') {
 }
 
 /**
+ * "substitui “Borin”, que esperava o fim do combate" (onda 3, E1.3d): o servidor diz, na
+ * resposta do mostrar (POST /stage e ▶ Começar esta cena), que a frente guardada para depois
+ * do combate saiu. '' quando não saiu nada (ou num servidor de antes, que não diz).
+ */
+export function replacedText(r, lang = 'pt') {
+  const w = r?.replaced?.waiting;
+  if (!w) return '';
+  return L(lang, `substitui “${w}”, que esperava o fim do combate`, `replaces “${w}”, which was waiting for combat to end`);
+}
+
+/**
+ * ⚔ Começar o combate leva a TV a ele (onda 3, E1.1): o servidor guarda a frente para depois
+ * do combate e tira o teste velho do rodapé, e diz o que guardou (`tv: {held, testOff}` na
+ * resposta do /start e do /encounter que começou). O aviso ao mestre: "A TV foi para o combate
+ * · Ponte velha volta no fim · ↶ Desfazer" (a frente volta por cima do combate). Sem nada
+ * guardado, só o texto de quem chamou (`prefix`); servidor de antes (sem `tv`): o de antes.
+ * → true quando deu o aviso da TV.
+ */
+export function tvToCombatNotice(campaignId, r, { lang = 'pt', prefix = '', onDone } = {}) {
+  const held = r?.tv?.held;
+  if (!held) {
+    if (prefix) flash(prefix);
+    return false;
+  }
+  const text = [prefix, L(lang, `A TV foi para o combate · “${held}” volta no fim dele`, `The TV switched to the combat · “${held}” comes back when it ends`)]
+    .filter(Boolean).join(' · ');
+  flash(text, {
+    ms: 9000,
+    long: true,
+    action: {
+      label: L(lang, '↶ Desfazer', '↶ Undo'),
+      onClick: async () => {
+        try { await stageUndo(campaignId); onDone?.(); } catch (e) { flash(`${L(lang, 'Não enviado', 'Not sent')} · ${stageErrorText(e, lang)}`, { error: true }); }
+      },
+    },
+  });
+  return true;
+}
+
+/**
  * Envia para a Tela com o aviso padrão dos 9 lugares:
  *   "Enviando…" → "Na tela ✓ · <nome>" + [↶ Desfazer] (6 s)
+ *   tirou o que esperava o fim do combate → "… · substitui “Borin”, que esperava o fim do
+ *   combate" + [↶ Desfazer] (9 s, E1.3d)
  *   falhou → "Não enviado · <motivo>" + [Tentar de novo]
  * `send()` faz a chamada; `undo()` (padrão: ↶ do palco) desfaz; `done` troca o
  * "Na tela ✓" (ex.: "Fora da Tela ✓" ao tirar).
@@ -190,9 +233,14 @@ export async function sendToStage(campaignId, send, { lang = 'pt', name = '', un
     const undoFn = undo || (() => stageUndo(campaignId));
     const label = done || L(lang, 'Na tela ✓', 'On screen ✓');
     emitSent(campaignId, { ok: true, label, name });
-    flash(`${label}${name ? ` · ${name}` : ''}`, {
+    const replaced = replacedText(r, lang);
+    const notice = sentNotice(label, name, replaced);
+    flash(notice.text, {
+      short: notice.short,
+      ...(replaced ? { ms: 9000, long: true } : {}),
       action: r?.changed === false && !undo ? null : {
         label: L(lang, '↶ Desfazer', '↶ Undo'),
+        short: '↶',
         onClick: async () => {
           try { await undoFn(); onDone?.(); } catch (e) { flash(`${L(lang, 'Não enviado', 'Not sent')} · ${stageErrorText(e, lang)}`, { error: true }); }
         },

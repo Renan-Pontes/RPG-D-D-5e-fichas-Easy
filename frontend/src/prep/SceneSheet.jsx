@@ -10,22 +10,25 @@ import { errorMessage, errorText } from '../api/errors.js';
 import { showPlanLimit } from '../plans/plans-api.js';
 import { compressForEntry } from '../world/image.js';
 import MesaSheet from '../shell/MesaSheet.jsx';
+import GrowTextarea from '../world/GrowTextarea.jsx';
 import {
-  ScenePalette, TextBlock, ImageBlock, WorldImagePicker, PeopleBlock, FightBlock, CheckBlock, MomentBlock, useMonsterLookup,
+  ScenePalette, TextBlock, ImageBlock, WorldImagePicker, PeopleBlock, FightBlock, CheckBlock, TreasureBlock, MomentBlock, useMonsterLookup,
 } from './SceneBlocks.jsx';
 import {
   sceneView, presentBlocks, writeBlock, showOnStartVisible, linkScene, unlinkScene, hasRoomPockets, roomHasPockets,
-  fightEntry, snapCount, sceneMoments, sceneMomentIdeas, sceneCheckIdea, spotKey, sceneHeading, whatField, closeScene, SCENE_LIMITS,
+  fightEntry, snapCount, sceneMoments, sceneIdeasByChar, spotKey, sceneHeading, whatField, closeScene, SCENE_LIMITS,
 } from './scene-model.js';
 import { withSceneName, PLAN_LIMITS } from './next-session.js';
+import { isIdeaTitle } from '../group/idea-titles.js';
 import { makeNode, hasTreasure, treasureSummary } from './prep-graph.js';
 import { loadRoom, loadRooms, saveRoom, prepApi } from './prep-api.js';
 import './scene-sheet.css';
 
 const t = (lang, pt, en) => (lang === 'en' ? en : pt);
 const FLASH_MS = 6000;
-const PLAN_BLOCKS = ['read', 'show', 'refs', 'fight', 'check', 'spots', 'notes'];
-const ROOM_BLOCKS = ['read', 'show', 'refs', 'fight', 'check'];   // o que a sala guarda (servidor antigo)
+const PLAN_BLOCKS = ['read', 'show', 'refs', 'fight', 'check', 'treasure', 'spots', 'notes'];
+const ROOM_BLOCKS = ['read', 'show', 'refs', 'fight', 'check', 'treasure'];   // o que a sala guarda (servidor antigo)
+const NEW_CHECK = { kind: 'skill', key: 'perception', dc: 13 };
 
 /**
  * O ritmo do autosave (700 ms; nunca segura mais de 3 s) para as gravações da sala. Sem rede,
@@ -85,7 +88,7 @@ function useRoomSaver(campaignId, ref, onSaved, onRejected) {
  * goTo, flushPlan()
  */
 export default function SceneSheet({
-  campaign, lang, plan, sceneId, closed, planSave, oldServer = false, world, adventures, levels, moments, momentsNote, autoFocusName = false,
+  campaign, lang, plan, sceneId, closed, planSave, oldServer = false, lostPockets = [], world, adventures, levels, moments, momentsNote, autoFocusName = false,
   onChange, onRemove, onDiscard, onClose, onCreateEntry, onWorldEntry, onWorldRemoved, onOpenEntry, onRoomSaved, onAdventureCreated,
   goTo, flushPlan,
 }) {
@@ -102,6 +105,8 @@ export default function SceneSheet({
   const [fresh, setFresh] = useState(null);         // o cartão que a imagem acabou de criar (o tipo muda num chip)
   const [fightError, setFightError] = useState('');
   const [momBusy, setMomBusy] = useState(false);
+  const [checkDraft, setCheckDraft] = useState(null);   // o 🎯 em escolha: só vai à cena no "Pôr na cena"
+  const [campaignItems, setCampaignItems] = useState(null); // os de Preparar › Itens (o 💰 lê quando o seletor abre)
   const [nameError, setNameError] = useState(false);
   const [flash, setFlash] = useState(null);
   const [ask, setAsk] = useState(null);             // {type: 'link', ref} | {type: 'unlink'}
@@ -229,14 +234,30 @@ export default function SceneSheet({
       saver.queue(w.node);
     }
   };
-  const valueOf = (key) => ({ read: view.read, show: view.show, refs: view.refs, fight: view.fight, check: view.checks, notes: view.notes })[key];
-  const emptyOf = (key) => ({ read: '', show: null, refs: [], fight: [], check: [], notes: '' })[key];
+  const valueOf = (key) => ({ read: view.read, show: view.show, refs: view.refs, fight: view.fight, check: view.checks, treasure: view.treasure, notes: view.notes })[key];
+  const emptyOf = (key) => ({ read: '', show: null, refs: [], fight: [], check: [], treasure: { items: [], coins: {} }, notes: '' })[key];
   const openBlock = (id) => {
     setOpened(s => new Set(s).add(id));
-    // o 🎯 nasce com Percepção CD 13 (troca-se num toque); os outros nascem vazios
-    if (id === 'check' && !view.checks.length && !lockedRoom && !closed) write('check', [{ kind: 'skill', key: 'perception', dc: 13 }]);
+    // o 🎯 abre a escolha (Percepção CD 13, troca-se num toque) e só grava no "Pôr na cena"
+    // (F1.8: tocar no chip não põe nada na cena); os outros nascem vazios. Tocar de novo no
+    // chip só leva ao bloco: o rascunho que já está em escolha fica como está
+    if (id === 'check' && !view.checks.length && !lockedRoom && !closed) setCheckDraft(d => d || NEW_CHECK);
     if (roomLoading) pendingOpen.current = id;
     else goToBlock(id);
+  };
+  const confirmCheck = () => {
+    if (!checkDraft) return;
+    write('check', [...viewRef.current.checks, checkDraft]);
+    setCheckDraft(null);
+  };
+  const cancelCheck = () => {
+    setCheckDraft(null);
+    if (!viewRef.current.checks.length) setOpened(s => { const n = new Set(s); n.delete('check'); return n; });
+  };
+  // 💰 os itens de Preparar › Itens: 1 leitura quando o seletor abre pela 1ª vez nesta folha
+  const loadItems = async () => {
+    if (campaignItems) return;
+    try { setCampaignItems((await api.campaignItems(campaign.id)).items || []); } catch { setCampaignItems([]); }
   };
   // ✕ num bloco: tira já e oferece "↶ Desfazer" por 6 s (a foto do valor volta)
   const removeBlock = (key) => {
@@ -302,13 +323,12 @@ export default function SceneSheet({
 
   // ---------------------------------------------------------------- ★ momentos
   const momentApi = moments ? { ...moments } : null;
-  // as ideias que combinam com a cena primeiro: a do 🎯 dela e as que batem com o teste e o combate
-  const ideasFor = (charId) => {
-    const base = sceneMomentIdeas(view, moments?.ideasFor(charId) || [], { fightSaves, lang });
-    const extra = sceneCheckIdea(view, moments?.facts.find(f => f.id === charId), moments?.facts || [], { lang });
-    const used = new Set([...(moments?.momentsOf(charId) || []).map(m => m.auto), ...(moments?.dismissedOf?.(charId) || [])]);
-    return extra && !used.has(extra.auto) ? [extra, ...base.filter(x => x.auto !== extra.auto)] : base;
-  };
+  // as ideias que combinam com a cena primeiro (a do 🎯 dela, as que batem com o teste e o
+  // combate), e a 1ª de cada personagem num assunto próprio (sem 4 vezes o mesmo teste)
+  const ideasFor = (charId) => (moments ? sceneIdeasByChar(view, moments.facts, moments.ideasFor, {
+    fightSaves, lang, taken: momentItems.map(x => x.moment.auto),
+    usedOf: (id) => [...(moments.momentsOf(id) || []).map(m => m.auto), ...(moments.dismissedOf?.(id) || [])],
+  })[charId] || [] : []);
   const linkMoment = async (charId, list, added) => {
     if (!added) return false;
     setMomBusy(true);
@@ -482,10 +502,16 @@ export default function SceneSheet({
             placeholder={t(lang, 'Ex.: Ponte velha sobre o Rio Brumoso', 'E.g. Old bridge over the Misty River')}
             onChange={e => { setNameError(false); onChange(scene.id, { text: withSceneName(scene.text, e.target.value) }); }} />
           {nameError && <p className="ss-error" id="ss-name-err" role="alert">{t(lang, 'Dê um nome à cena.', 'Give the scene a name.')}</p>}
+          {/* a cena veio do Raio-X e ainda tem o nome da ideia (só história): a mesa o lê ao começar */}
+          {!nameError && isIdeaTitle(scene?.fromIdea, view.name) && (
+            <p className="ss-hint">{t(lang, 'Nome vindo do Raio-X: os jogadores e a TV veem este nome quando a cena começa. Troque por um da sua história, se quiser.',
+              'Name from the X-ray: the players and the TV see this name when the scene starts. Swap it for one from your story if you like.')}</p>
+          )}
         </div>
         <div className="ss-field">
           <label className="ss-label" htmlFor="ss-what">{t(lang, 'O que acontece (só você vê)', 'What happens (only you see)')}</label>
-          <textarea id="ss-what" className="input ss-text" rows={2} maxLength={SCENE_LIMITS.what} value={what.value} disabled={disabled}
+          {/* cresce com o texto: a ideia que veio do Raio-X (e a lacuna) aparece inteira */}
+          <GrowTextarea id="ss-what" className="input ss-text" minRows={2} maxLength={SCENE_LIMITS.what} value={what.value} disabled={disabled}
             placeholder={t(lang, 'Ex.: Goblins esperam sob a ponte para cobrar pedágio.', 'E.g. Goblins wait under the bridge to charge a toll.')}
             onChange={e => onChange(scene.id, what.patch(e.target.value))} />
         </div>
@@ -524,7 +550,16 @@ export default function SceneSheet({
           )}
           {shown('check') && (
             <CheckBlock lang={lang} checks={view.checks} members={campaign.members} multi={linked} disabled={blocksOff || lockedRoom}
-              onChange={list => write('check', list)} onRemove={() => removeBlock('check')} />
+              draft={checkDraft} onDraft={setCheckDraft} onConfirm={confirmCheck} onCancelDraft={cancelCheck}
+              onChange={list => write('check', list)} onRemove={() => { setCheckDraft(null); removeBlock('check'); }} />
+          )}
+          {shown('treasure') && (
+            <TreasureBlock lang={lang} treasure={view.treasure} campaignItems={campaignItems} onLoadItems={loadItems}
+              maxItems={linked ? SCENE_LIMITS.nodeItems : SCENE_LIMITS.items} disabled={blocksOff || lockedRoom}
+              note={!linked && lostPockets.includes('treasure') ? (
+                <p className="ss-hint ss-old" role="note">{t(lang, 'Falta atualizar o servidor: o tesouro desta cena ainda não fica guardado. Use uma sala de aventura ou escreva em Recompensas.', 'The server needs an update: this scene\'s treasure is not kept yet. Use an adventure room or write it in Rewards.')}</p>
+              ) : linked ? <p className="ss-hint">{t(lang, 'Fica no tesouro da sala da aventura.', "It's kept in the adventure room's treasure.")}</p> : null}
+              onChange={v => write('treasure', v)} onRemove={() => removeBlock('treasure')} />
           )}
           {shown('spots') && (
             <MomentBlock lang={lang} items={momentItems} api={momentApi} ideasFor={ideasFor} disabled={disabled || oldServer} max={SCENE_LIMITS.spots}

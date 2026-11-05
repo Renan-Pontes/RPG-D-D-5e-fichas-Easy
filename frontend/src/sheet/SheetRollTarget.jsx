@@ -20,6 +20,8 @@ export default function SheetRollTarget({ lang }) {
       ? L(lang, 'O mestre deixou as rolagens das fichas fora da Tela: por enquanto tudo fica no seu aparelho.', 'The GM keeps sheet rolls off the screen: for now everything stays on your device.')
       : ctx.live === false
         ? L(lang, 'Sem sessão ao vivo agora: tudo fica no seu aparelho. Na sessão, a Tela da mesa mostra o que você rola aqui.', 'No live session right now: everything stays on your device. During the session, the table screen shows what you roll here.')
+        : ctx.mode === 'crits'
+          ? L(lang, 'Na sessão ao vivo, a Tela da mesa mostra só os 20 e 1 naturais que você rola aqui (regra do mestre).', 'During the live session, the table screen shows only the natural 20s and 1s you roll here (the GM’s rule).')
         : L(lang, 'Na sessão ao vivo, a Tela da mesa mostra o que você rola aqui (perícias, ataques, dano…).', 'During the live session, the table screen shows what you roll here (skills, attacks, damage…).');
   return (
     <div className="fh-camp-rolls">

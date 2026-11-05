@@ -1,6 +1,8 @@
 // Cartão "Primeiros passos" do mestre (DESIGN 1.5). Os itens se marcam sozinhos
 // (ver onboardingStatus em shell-logic.js); o cartão pode ser dispensado e some
 // quando tudo está concluído. Flags ficam em Campaign.dm_settings.onboarding.
+// Onda 3 (E2.7): durante a sessão ao vivo o cartão fica recolhido numa linha só
+// ("Primeiros passos 4/5 · Ver passos"), para não ocupar o topo do Mundo na mesa.
 import { useState } from 'react';
 
 // No celular o cartão começa recolhido (só o progresso e o próximo passo),
@@ -18,10 +20,26 @@ const STEP_TEXT = {
   tv:         ['Abra a Tela na TV', 'Open the screen on the TV', 'Os jogadores veem a capa, as revelações e o combate.', 'Players see the cover, reveals and combat.', 'Abrir a Tela', 'Open the screen'],
 };
 
-export default function Onboarding({ lang, status, onAction, onDismiss, onSample, sampleBusy = false, worldEmpty = false }) {
+export default function Onboarding({ lang, status, onAction, onDismiss, onSample, sampleBusy = false, worldEmpty = false, live = false }) {
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(() => !startsCollapsed());
+  const [unfolded, setUnfolded] = useState(false);   // ao vivo: o mestre abriu a linha
   if (!status) return null;
+  if (live && !unfolded) {
+    return (
+      <section className="shell-onboarding mesa-panel is-line" aria-label={t(lang, 'Primeiros passos', 'First steps')}>
+        <span className="mesa-eyebrow shell-ob-line-title">{t(lang, 'Primeiros passos', 'First steps')}</span>
+        <span className="shell-ob-progress" aria-label={t(lang, `${status.count} de ${status.total} concluídos`, `${status.count} of ${status.total} done`)}>
+          <span className="shell-ob-count">{status.count}/{status.total}</span>
+          <span className="shell-ob-bar"><span style={{ width: `${(status.count / status.total) * 100}%` }} /></span>
+        </span>
+        <button type="button" className="mesa-btn shell-ob-toggle" aria-expanded={false}
+          onClick={() => { setUnfolded(true); setOpen(true); }}>
+          {t(lang, 'Ver passos', 'Show steps')}
+        </button>
+      </section>
+    );
+  }
   const nextStep = ONBOARDING_STEPS.find(k => !status.done[k]);
   const tx = (k, i) => (lang === 'en' ? STEP_TEXT[k][i + 1] : STEP_TEXT[k][i]);
   const act = async (k) => {

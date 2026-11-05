@@ -42,13 +42,18 @@ function actorType(combat) {
   return atk?.damageType || null;
 }
 
-/** ↶ Desfazer de um opId (o aviso do teclado e o da folha usam este). */
-export function undoFlash(campaignId, opId, lang, applyCombat) {
+/**
+ * ↶ Desfazer de um opId (o aviso do teclado e o da folha usam este). `what`: o texto da ação
+ * ("Goblin #3: + envenenado", undo-model.undoText) — o Combate desfaz também condição, e o
+ * aviso diz o que voltou; sem ele, o do PV.
+ */
+export function undoFlash(campaignId, opId, lang, applyCombat, what = '') {
   return async () => {
     try {
       const r = await undoHp(campaignId, opId);
       applyCombat?.(r?.combat);
-      flash(t(lang, '↶ Desfeito: o PV voltou como estava.', '↶ Undone: HP is back as it was.'));
+      flash(what ? t(lang, `↶ Desfeito: ${what}`, `↶ Undone: ${what}`)
+        : t(lang, '↶ Desfeito: o PV voltou como estava.', '↶ Undone: HP is back as it was.'));
     } catch (e) {
       if (e?.data?.combat) applyCombat?.(e.data.combat);
       if (e?.status === 409 && e?.data?.error === 'changed_since') {
@@ -57,7 +62,7 @@ export function undoFlash(campaignId, opId, lang, applyCombat) {
         flash(t(lang, 'Não há o que desfazer.', 'Nothing to undo.'), { error: true });
       } else {
         flash(`${t(lang, 'Não enviado', 'Not sent')} · ${errorMessage(e, lang)}`, {
-          error: true, action: { label: t(lang, 'Tentar de novo', 'Try again'), onClick: undoFlash(campaignId, opId, lang, applyCombat) },
+          error: true, action: { label: t(lang, 'Tentar de novo', 'Try again'), onClick: undoFlash(campaignId, opId, lang, applyCombat, what) },
         });
       }
     }

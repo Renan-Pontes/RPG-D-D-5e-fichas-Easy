@@ -329,3 +329,11 @@ test('cartão da campanha: a linha de próximo passo (só o mestre, sem pedido n
   assert.equal(loadPlanCard(8, st), null);
   assert.equal(planCardSummary(null, {}), null);
 });
+
+// Onda 3 (E2.7): "Abra a Tela na TV" fica feito quando uma TV conectou (tvLive > 0 alguma vez).
+test('onboardingStatus: a TV conectada marca o passo "tv"', () => {
+  const base = { id: 1, members: [], state: {}, onboarding: {} };
+  assert.equal(onboardingStatus(base).done.tv, false);
+  assert.equal(onboardingStatus(base, { tvSeen: true }).done.tv, true);
+  assert.equal(onboardingStatus({ ...base, onboarding: { tv: true } }).done.tv, true, 'a flag gravada vale sem TV agora');
+});

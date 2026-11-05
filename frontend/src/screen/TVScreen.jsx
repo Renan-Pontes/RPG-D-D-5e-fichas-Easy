@@ -11,11 +11,14 @@ import { loadNameIndex, needsNameIndex, portraitFor } from '../combat/monster-po
 import { absUrl, cardKey, charLine, healthLabel, paragraphs, screenMode } from '../player/player-model.js';
 import { defaultArt } from '../world/world-model.js';
 import { stageNow } from '../stage/stage-now.js';
-import { conditionsShown, initiativeRows, isDeadScreenLink, lengthClass, partyRow, recapSubtitle, splitNumbered, turnNow, tvLang, tvMode } from './tv-logic.js';
+import {
+  cardLayout, conditionsShown, histLinesFit, histPlacement, initiativeRows, isDeadScreenLink, lengthClass, partyRow, recapSubtitle, sceneLayout, shortName,
+  splitNumbered, turnNow, tvLang, tvMode,
+} from './tv-logic.js';
 import { fitAll } from './tv-fit.js';
 import {
-  attackOutcome, bigDuration, createQueue, currentBig, feedNextExpiry, ingest, nextBig, pruneFeed, rollGroups,
-  rollParts, rollWho, saveHead, showsSum,
+  attackOutcome, bigDuration, bigSize, createQueue, currentBig, histNextExpiry, histParts, ingest, nextBig, pruneHist,
+  rollGroups, rollWho, saveHead, showsSum,
 } from './roll-queue.js';
 import { abilityLabel, damageTypeLabel } from '../combat/monster-i18n.js';
 
@@ -46,9 +49,13 @@ const CONDITIONS = {
 //    o combate, se houver; senão, a capa."
 // Modos (tv-logic.tvMode):
 //   repouso — capa da campanha (ou arte padrão), nome, frase, cena e o grupo;
-//   cartão  — cartão do Mundo: a carta entra virando;
+//   cartão  — cartão do Mundo: a carta entra virando; com imagem, a imagem GRANDE e
+//             inteira (onda 3, E2.2: tv-logic.cardLayout — larga na largura toda com o
+//             nome e o texto por cima, em pé à esquerda com o texto ao lado, sem texto
+//             só a imagem com o nome); sem imagem, a arte padrão ao lado do texto;
 //   recap   — "Anteriormente em…", estilo abertura de série;
-//   cena    — imagem da sala + nome + texto para ler;
+//   cena    — imagem da sala + nome + texto para ler; sem imagem, o título grande e o
+//             texto de ler num painel do app (E2.3, tv-logic.sceneLayout);
 //   imagem  — "só a imagem" / imagem de sala / mapa de lugar: tela cheia,
 //             inteira (contain), com a legenda do mestre — nunca o nome;
 //   texto   — texto livre do mestre;
@@ -79,10 +86,18 @@ const CONDITIONS = {
 // Rolagens (V10, roll-queue.js): o /api/screen traz a janela das rolagens públicas
 // dos últimos 90 s pelo relógio do servidor (`rolls` + `now`, fora do ETag). Ao
 // abrir, tudo é "visto" (nada reprisado); o que chega depois entra em FILA: o
-// dado grande no centro (só com menos de 10 s; 8 s cada, 4 s com fila) e o resto
-// no FEED do canto de baixo à esquerda (até 4 linhas, somem 12 s depois de chegar;
-// o relógio delas para enquanto o dado grande as esconde). No feed, só o rótulo
-// ganha reticências: o resultado fica sempre inteiro.
+// cartão grande no centro (só com menos de 10 s; 8 s cada, 4 s com fila). Onda 3
+// (E2.1): as dos jogadores também (o cartão um pouco menor, 6 s) e, depois do
+// cartão, cada rolagem fica nas ÚLTIMAS ROLAGENS — as 5 mais novas, nome e total
+// em ≥ 22 px numa TV 1280×720 —, que somem 2 min depois da última. Num lugar que não
+// cobre texto, a ordem nem os tokens (tv-logic.histPlacement): no combate, no pé da
+// coluna da iniciativa (as linhas que couberem, se forem 3 ou mais; senão as 5 no canto
+// do mapa com menos tokens); no repouso e no cartão sem imagem, no canto de baixo à
+// esquerda; com texto ou imagem na largura toda (o texto de ler, cartão com imagem,
+// cena, texto, recap, mapa), uma linha embaixo (a mais nova inteira, as outras com o
+// primeiro nome e o total), e o resto sobe para dar lugar.
+// A ficha só manda a rolagem quando o dado para no aparelho do jogador
+// (components/DiceRoller.jsx): a TV nunca entrega o número antes dele.
 // Servidor antigo (sem `rolls`): a regra de antes (`publicRolls[0]`, < 20 s).
 const IS_PREVIEW = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1';
 function tvTab() {
@@ -103,7 +118,7 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
   const lang = tvLang(campaignLang, deviceLang);
   const langRef = useRef(lang);
   langRef.current = lang;
-  // Rolagens: a fila (dado grande + feed); `legacyRoll` é o dado de um servidor antigo.
+  // Rolagens: a fila (cartão grande + Últimas rolagens); `legacyRoll` é o dado de um servidor antigo.
   const [queue, setQueue] = useState(createQueue);
   const queueRef = useRef(queue);
   const [legacyRoll, setLegacyRoll] = useState(null);
@@ -168,8 +183,8 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
 
   usePolling(load, 2000, [token]);
 
-  // A fila anda: o dado grande dura 8 s (4 s com outra esperando; conta desde que
-  // apareceu); o feed perde cada linha 12 s depois de chegar.
+  // A fila anda: o cartão dura 8 s (6 s o do jogador; 4 s com outro esperando; conta
+  // desde que apareceu) e vai para as Últimas rolagens, que somem 2 min depois da última.
   const big = currentBig(queue) || legacyRoll;
   const busy = (queue.big?.length || 0) > 1;
   const bigShownAt = useRef(0);
@@ -186,10 +201,10 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
     return () => clearTimeout(id);
   }, [big?.id, busy]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const wait = feedNextExpiry(queue, Date.now());
+    const wait = histNextExpiry(queue, Date.now());
     if (wait == null) return undefined;
     const id = setTimeout(() => {
-      const q = pruneFeed(queueRef.current, Date.now());
+      const q = pruneHist(queueRef.current, Date.now());
       if (q !== queueRef.current) { queueRef.current = q; setQueue(q); }
     }, wait + 50);
     return () => clearTimeout(id);
@@ -204,6 +219,25 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
   // quando as fontes terminam de carregar (Cinzel mais larga que a fonte de reserva).
   const screenRef = useRef(null);
   useLayoutEffect(() => { fitAll(screenRef.current); });
+  // Combate: quantas linhas das Últimas rolagens cabem no pé da coluna da iniciativa, embaixo
+  // da última linha da ordem (tv-logic.histPlacement; nenhuma → compactas no canto do mapa).
+  // A caixa fica por cima da coluna (absoluta), então a medida não mexe na ordem.
+  const [histRoom, setHistRoom] = useState(null);
+  useLayoutEffect(() => {
+    const el = screenRef.current;
+    const side = el?.querySelector('.tv-combat-side');
+    const hist = el?.querySelector('.tv-roll-hist');
+    const list = hist?.querySelector('.tv-hist-list');
+    if (!side || !list || !list.children.length) return;
+    const order = side.querySelector('.tv-order');
+    const sideBox = side.getBoundingClientRect();
+    const above = order?.lastElementChild ? order.lastElementChild.getBoundingClientRect().bottom : sideBox.top;
+    const gap = parseFloat(getComputedStyle(side).rowGap) || 0;
+    const listGap = parseFloat(getComputedStyle(list).rowGap) || 0;
+    const listH = list.getBoundingClientRect().height;
+    const room = histLinesFit(sideBox.bottom - above - gap, hist.getBoundingClientRect().height - listH, (listH + listGap) / list.children.length);
+    if (room !== histRoom) setHistRoom(room);
+  });
   useEffect(() => {
     const refit = () => fitAll(screenRef.current);
     window.addEventListener('resize', refit);
@@ -245,6 +279,11 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
   const showKey = stg ? frontKey : cardKey(card);
   const inCombat = mode === 'combat';
   const dark = mode === 'dark';
+  // Últimas rolagens: à vista sem cartão grande por cima (nem com a Tela escurecida), num
+  // lugar que não cobre texto, a ordem nem os tokens (tv-logic.histPlacement)
+  const showHist = !dark && !big && queue.hist.length > 0;
+  const hist = histPlacement({ mode, image: !!shown?.imageUrl, read: !!data.state?.sceneText, room: histRoom, combat });
+  const histBox = showHist ? <RollHistory rolls={queue.hist} lang={lang} spot={hist.spot} max={hist.max} corner={hist.corner} /> : null;
   const test = dark ? null : (stage ? stage.overlays?.test : data.publicCheck) || null;
   const prefs = stage?.prefs || {};
   const state = data.state || {};
@@ -288,7 +327,7 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
     <div className="tv-frame">
       <div
         ref={screenRef}
-        className={`tv-screen tv-mode-${mode} ${big && !dark ? 'has-roll-overlay' : ''} ${stg?.over ? 'is-over-combat' : ''} ${test ? 'has-test' : ''}`}
+        className={`tv-screen tv-mode-${mode} ${big && !dark ? 'has-roll-overlay' : ''} ${showHist ? `has-roll-hist hist-${hist.spot} ${hist.reserve ? `hist-reserve-${hist.reserve}` : ''}` : ''} ${stg?.over ? 'is-over-combat' : ''} ${test ? 'has-test' : ''}`}
         style={accent ? { '--tv-accent': accent } : undefined}
         lang={lang}
       >
@@ -313,6 +352,7 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
               <main className="tv-combat-main">
                 <div className="tv-grid-container">
                   <CombatGrid combat={grid} readOnly={true} lang={lang} />
+                  {hist.spot === 'map' && histBox}
                 </div>
                 <aside className="tv-combat-side">
                   {turn?.name && (
@@ -326,6 +366,7 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
                   {!stg && card && card.type === 'entry' && <TVMiniCard card={card} lang={lang} />}
                   <InitiativeOrder combat={combat} party={prefs.party !== false} order={prefs.initiative !== false}
                     portraitOf={portraitOf} lang={lang} />
+                  {hist.spot === 'side' && histBox}
                 </aside>
               </main>
             </>
@@ -355,8 +396,10 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
           ) : mode === 'card' ? (
             <>
               {coverTop}
-              <main className="tv-stage">
-                <div className="tv-stage-campaign">{data.name}</div>
+              {/* com imagem própria (E2.2) a imagem ganha a altura que sobra (sem o nome da
+                  campanha); o PV do grupo fica embaixo, compacto, também por cima do combate */}
+              <main className={`tv-stage ${shown?.imageUrl ? 'has-image' : ''}`}>
+                {!shown?.imageUrl && <div className="tv-stage-campaign">{data.name}</div>}
                 <TVCard key={showKey} card={shown} lang={lang} />
               </main>
               {partyFooter(true)}
@@ -388,11 +431,13 @@ export default function TVScreen({ token, lang: deviceLang = 'pt' }) {
 
         {error && <div className="tv-offline" role="status">{t(lang, 'Reconectando…', 'Reconnecting…')}</div>}
 
-        {/* Feed: as rolagens pequenas no canto (texto de verdade; crítico com filete dourado) */}
-        {!dark && queue.feed.length > 0 && <RollFeed rolls={queue.feed} lang={lang} />}
-        {/* O dado grande — um por vez, em fila */}
+        {/* Últimas rolagens fora do combate (no combate, no pé da iniciativa ou no canto do mapa):
+            as 5 mais novas no canto, ou uma linha embaixo com uma frente (texto de verdade; 20 com
+            filete dourado) */}
+        {(hist.spot === 'corner' || hist.spot === 'line') && histBox}
+        {/* O cartão grande — um por vez, em fila (o do jogador um pouco menor) */}
         {big && !dark && (
-          <DramaticRollOverlay key={big.id} roll={big} lang={lang} quick={busy}
+          <DramaticRollOverlay key={big.id} roll={big} lang={lang} quick={busy} small={!legacyRoll && bigSize(big) === 'small'}
             onDone={() => { bigShownAt.current = 0; advance(big.id); }} />
         )}
       </div>
@@ -423,14 +468,14 @@ function InitiativeOrder({ combat, party, order, portraitOf, lang }) {
     <ol className={`tv-order ${order ? '' : 'is-plain'}`} aria-label={order ? t(lang, 'Ordem de iniciativa', 'Initiative order') : t(lang, 'No combate', 'In combat')}
       style={{ '--rows': rows.length + (more ? 1 : 0) }}>
       {rows.map(r => (
-        <li key={r.id} className={`tv-order-row is-${r.state} is-${r.kind} ${r.down ? 'is-down' : ''}`} aria-current={r.state === 'now' ? 'true' : undefined}>
+        <li key={r.id} className={`tv-order-row is-${r.state} is-${r.kind} ${r.down ? 'is-down' : ''} ${r.fallen ? 'is-fallen' : ''} ${r.stable ? 'is-stable' : ''}`} aria-current={r.state === 'now' ? 'true' : undefined}>
           <span className="tv-order-mark" aria-hidden="true">{r.mark}</span>
           <ArtThumb src={portraitOf(byId.get(r.id) || {})} emoji={r.kind === 'pc' ? (r.name || '?').charAt(0).toUpperCase() : '👹'} size={36} round lang={lang} className="tv-order-pic" />
           <OrderName name={r.name} />
           {r.hp ? (
             <span className={`tv-order-hp tv-hp-bar tv-hp-${hpToneTv(r.hp.cur, r.hp.max)}`}>
               <span className="tv-hp-fill" style={{ width: `${hpPctTv(r.hp.cur, r.hp.max)}%` }} />
-              <span className="tv-hp-text">{r.down ? healthLabel('down', lang) : `${r.hp.cur}/${r.hp.max ?? '?'}`}{r.hp.temp ? <span className="tv-hp-temp"> +{r.hp.temp}</span> : null}</span>
+              <span className="tv-hp-text">{r.fallen ? healthLabel(r.stable ? 'stable' : 'fallen', lang) : r.down ? healthLabel('dead', lang) : `${r.hp.cur}/${r.hp.max ?? '?'}`}{r.hp.temp ? <span className="tv-hp-temp"> +{r.hp.temp}</span> : null}</span>
             </span>
           ) : (
             <span className={`tv-order-band tv-foe-${r.band}`}>{healthLabel(r.band, lang)}</span>
@@ -472,19 +517,41 @@ function TVImageFront({ front, tarja }) {
   );
 }
 
-/** Cena: imagem da sala à esquerda (40%) + nome + texto para ler. */
+/** A largura/altura da imagem quando ela carrega (null antes): decide o desenho (E2.2/E2.3). */
+function useRatio() {
+  const [ratio, setRatio] = useState(null);
+  const onLoad = (e) => {
+    const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+    if (w > 0 && h > 0) setRatio(w / h);
+  };
+  return [ratio, onLoad];
+}
+
+/**
+ * Cena (E2.3, tv-logic.sceneLayout): com imagem em pé, ela à esquerda (40%) + nome +
+ * texto; com imagem larga, ela em cima, inteira, e o texto embaixo; sem imagem, o
+ * título grande e o texto de ler num painel do app (nada de capa borrada com uma linha).
+ */
 function TVSceneFront({ front, lang }) {
   const img = absUrl(API_BASE, front?.imageUrl);
   const [ok, setOk] = useState(true);
+  const [ratio, onLoad] = useRatio();
   const text = front?.text || '';
   const size = lengthClass(text, [350, 700]);
+  const layout = sceneLayout({ image: !!(img && ok), ratio });
   return (
-    <main className={`tv-scene-front ${img && ok ? 'has-img' : ''} ${size}`} aria-live="polite">
-      {img && ok && <div className="tv-scene-art"><img src={img} alt="" onError={() => setOk(false)} /></div>}
+    <main className={`tv-scene-front is-${layout} ${layout !== 'panel' ? 'has-img' : ''} ${size}`} aria-live="polite">
+      {layout !== 'panel' && <div className="tv-scene-art"><img src={img} alt="" onLoad={onLoad} onError={() => setOk(false)} /></div>}
       <div className="tv-scene-body">
+        {layout === 'panel' && <div className="tv-scene-ornament" aria-hidden="true">✦</div>}
         <div className="tv-card-kind">{t(lang, 'Cena', 'Scene')}</div>
         <h1 className="tv-scene-title">{front?.title}</h1>
-        {text && <div className="tv-scene-text" data-fit="0.5" data-fit-cols="2">{paragraphs(text).map((p, i) => <p key={i}>{p}</p>)}</div>}
+        {/* o filete e o fundo moram na caixa de fora: a medida do encaixe (tv-fit) fica sem padding */}
+        {text && (
+          <div className="tv-scene-read">
+            <div className="tv-scene-text" data-fit="0.5" data-fit-cols="2">{paragraphs(text).map((p, i) => <p key={i}>{p}</p>)}</div>
+          </div>
+        )}
       </div>
     </main>
   );
@@ -528,19 +595,28 @@ function cardKindLabel(card, lang) {
   return (lang === 'pt' ? card.kindLabel : card.kindLabelEn) || card.kindLabel || '';
 }
 
-/** A carta "virada" no centro da Tela. */
+/**
+ * A carta "virada" no centro da Tela. Com imagem própria (E2.2, tv-logic.cardLayout) a
+ * imagem é grande e INTEIRA (contain, nunca cortada): 'wide' (mapas e paisagens) na largura
+ * toda com o nome e o texto numa faixa por cima, embaixo; 'side' (em pé, ou texto longo) à
+ * esquerda na altura toda com o texto ao lado; 'full' (sem texto) só a imagem com o nome.
+ * Sem imagem própria ('art'), a arte padrão do tipo ao lado do texto, como antes.
+ */
 function TVCard({ card, lang }) {
   const img = absUrl(API_BASE, card.imageUrl);
   const [imgOk, setImgOk] = useState(true);
+  const [ratio, onLoad] = useRatio();
   const paras = paragraphs(card.text);
   const isPartial = !!card.partial;
+  const own = !!(img && imgOk);
+  const layout = cardLayout({ image: own, ratio, text: card.text });
   return (
-    <article className={`tv-card tv-card-${card.kind || card.type} ${isPartial ? 'is-partial' : ''} ${(img && imgOk) || card.type === 'entry' ? 'has-img' : 'no-img'} ${lengthClass(card.title, [28, 48])} ${String(card.text || '').length > 900 ? 'is-text-long' : ''}`} aria-live="polite">
+    <article className={`tv-card tv-card-${card.kind || card.type} is-layout-${layout} ${isPartial ? 'is-partial' : ''} ${own || card.type === 'entry' ? 'has-img' : 'no-img'} ${lengthClass(card.title, [28, 48])} ${String(card.text || '').length > 900 ? 'is-text-long' : ''}`} aria-live="polite">
       <div className="tv-card-inner">
         <div className="tv-card-back" aria-hidden="true"><span>✦</span></div>
         <div className="tv-card-front">
-          {img && imgOk ? (
-            <div className="tv-card-art"><img src={img} alt="" onError={() => setImgOk(false)} /></div>
+          {own ? (
+            <div className="tv-card-art is-own"><img src={img} alt="" onLoad={onLoad} onError={() => setImgOk(false)} /></div>
           ) : card.type === 'entry' ? (
             <div className="tv-card-art is-default"><img src={defaultArt({ id: card.entryId, kind: card.kind })} alt="" onError={hideOnError} /></div>
           ) : (
@@ -550,9 +626,11 @@ function TVCard({ card, lang }) {
             <div className="tv-card-kind">{cardKindLabel(card, lang)}</div>
             <h2 className="tv-card-title">{card.title}</h2>
             {isPartial && <div className="tv-card-rumor">{t(lang, 'Rumores…', 'Rumors…')}</div>}
-            <div className="tv-card-text" data-fit="0.5" data-fit-cols="2">
-              {paras.map((p, i) => <p key={i}>{p}</p>)}
-            </div>
+            {paras.length > 0 && (
+              <div className="tv-card-text" data-fit="0.5" data-fit-cols="2">
+                {paras.map((p, i) => <p key={i}>{p}</p>)}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -678,25 +756,34 @@ function ConditionChip({ cond, lang }) {
 const ROLL_LABELS = (lang) => ({ damageLabel: (ty) => damageTypeLabel(ty, lang), abilityLabel: (a) => abilityLabel(a, lang) });
 
 /**
- * O feed (V10): até 4 linhas pequenas no canto de baixo à esquerda. O rótulo (quem e
- * o quê) vai até 2 linhas com reticências; o resultado (total, "ACERTA · 6 cortante",
- * os alvos da salvaguarda) nunca é cortado.
+ * As Últimas rolagens (onda 3, E2.1): as 5 mais novas, lidas a 3 m — nome e total em
+ * ≥ 22 px numa TV 1280×720. Só o rótulo (o quê) ganha reticências; o nome e o resultado
+ * ficam inteiros. Some 2 min depois da última. `spot` (tv-logic.histPlacement): em coluna
+ * com a mais nova embaixo ('side' no pé da iniciativa, 'corner', 'map' no `corner` do mapa
+ * com menos tokens), até `max`; ou 'line', uma linha com a mais nova primeiro: ela inteira,
+ * as outras só com o primeiro nome e o total (tv-logic.shortName), para as 5 caberem.
  */
-function RollFeed({ rolls, lang }) {
-  const labels = ROLL_LABELS(lang);
+function RollHistory({ rolls, lang, spot = 'corner', max = 5, corner = '' }) {
+  const newest = rolls[rolls.length - 1]?.id;
+  const line = spot === 'line';
+  const shown = line ? [...rolls].reverse().slice(0, max) : rolls.slice(-max);
   return (
-    <ul className="tv-roll-feed" aria-label={t(lang, 'Rolagens', 'Rolls')} aria-live="polite">
-      {rolls.map(r => {
-        const { head, tail } = rollParts(r, lang, labels);
-        return (
-          <li key={r.id} className={`tv-feed-item ${r.kind === 'save' ? 'is-save' : ''} ${r.crit ? 'is-crit' : ''} ${r.fail ? 'is-fail' : ''}`}>
-            <span className="tv-feed-ico" aria-hidden="true">🎲</span>
-            <span className="tv-feed-text">{head}</span>
-            {tail && <span className="tv-feed-res">{tail}</span>}
-          </li>
-        );
-      })}
-    </ul>
+    <section className={`tv-roll-hist is-${spot} ${corner ? `at-${corner}` : ''}`} aria-label={t(lang, 'Últimas rolagens', 'Latest rolls')} aria-live="polite">
+      <h2 className="tv-hist-title">🎲 {t(lang, 'Últimas rolagens', 'Latest rolls')}</h2>
+      <ol className="tv-hist-list">
+        {shown.map((r) => {
+          const { who, what, result, mark } = histParts(r, lang);
+          const brief = line && r.id !== newest;
+          return (
+            <li key={r.id} className={`tv-hist-item ${mark ? `is-${mark}` : ''} ${r.id === newest ? 'is-new' : ''}`}>
+              <span className="tv-hist-who">{brief ? shortName(who) : who}</span>
+              {what && !brief && <span className="tv-hist-what">{what}</span>}
+              <span className="tv-hist-res">{result}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
@@ -714,7 +801,7 @@ function SaveName({ name }) {
  * Ataque de monstro: só o d20 natural (sem o bônus) e "ACERTA · 6 cortante".
  * Salvaguarda em área: o resumo por alvo (sem dados: o d20 entregaria o bônus).
  */
-function DramaticRollOverlay({ roll, lang, onDone, quick = false }) {
+function DramaticRollOverlay({ roll, lang, onDone, quick = false, small = false }) {
   const isSave = roll.kind === 'save';
   const groups = rollGroups(roll);
   const [phase, setPhase] = useState(isSave || !groups.length ? 'reveal' : 'rolling'); // 'rolling' → 'reveal'
@@ -730,7 +817,7 @@ function DramaticRollOverlay({ roll, lang, onDone, quick = false }) {
   // Brilho dourado/vermelho do crítico/falha só na revelação: antes entregaria o resultado.
   const revealed = phase === 'reveal';
   return (
-    <div className={`tv-roll-overlay phase-${phase} ${revealed && roll.crit ? 'crit' : ''} ${revealed && roll.fail ? 'fail' : ''} ${isSave ? 'is-save' : ''}`} onClick={onDone}>
+    <div className={`tv-roll-overlay phase-${phase} ${revealed && roll.crit ? 'crit' : ''} ${revealed && roll.fail ? 'fail' : ''} ${isSave ? 'is-save' : ''} ${small ? 'is-small' : ''}`} onClick={onDone}>
       <div className="tv-roll-inner">
         <div className="tv-roll-who">{rollWho(roll, lang)}</div>
         <div className="tv-roll-label">{sub}</div>
@@ -751,7 +838,7 @@ function DramaticRollOverlay({ roll, lang, onDone, quick = false }) {
             groups={groups}
             tone={roll.crit ? 'crit' : roll.fail ? 'fumble' : null}
             className="tv-dice-stage"
-            size2d={140}
+            size2d={small ? 112 : 140}
             onSettled={() => setPhase('reveal')}
           />
         )}

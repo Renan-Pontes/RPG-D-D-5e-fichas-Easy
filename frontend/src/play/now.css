@@ -16,6 +16,8 @@
 }
 .now-rehearsal p { flex: 1 1 220px; margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink-secondary); }
 .now-rehearsal .mesa-btn { flex: none; min-height: 48px; }
+.now-rehearsal-acts { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 auto; justify-content: flex-end; }
+@media (max-width: 480px) { .now-rehearsal-acts .mesa-btn { flex: 1 1 140px; } }
 
 /* ---------------------------------------------------------- linha de ações (48 px) */
 .now-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
@@ -44,6 +46,12 @@
 .mp-head { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
 .mp-chip.mesa-chip { flex: none; min-height: 44px; height: 44px; padding: 4px 10px; font-size: 14px; gap: 4px; }
 .mp-none { padding-left: 4px; font-size: 15px; color: var(--moss-bright, #9cc065); }
+/* sessão parada: o que espera é resto da sessão anterior — uma linha pequena ACIMA dos
+   contadores (a fila continua com a largura toda: o ⚠ perigo não sai da tela). Ela fica a
+   sessão parada inteira (também com "Nada esperando ✓"): o painel cresce 16 px fixos e não
+   muda de altura quando um contador zera */
+.mesa-panel.is-sunk.mp.has-from { height: 136px; min-height: 136px; max-height: 136px; grid-template-rows: 14px 44px minmax(0, 1fr); }
+.mp-from { margin: 0; padding-left: 4px; min-width: 0; font-size: 12px; line-height: 14px; color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mp-body { display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; min-width: 0; min-height: 0; }
 .mp-line {
   flex: none; margin: 0; min-width: 0; font-size: 14px; line-height: 18px; height: 18px;

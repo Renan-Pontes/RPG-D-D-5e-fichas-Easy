@@ -1,5 +1,6 @@
-// Jogar › Agora: o PAINEL DO MOMENTO (V7, especificação §4.4.3) — altura fixa de 120 px,
-// logo abaixo da linha de ações; nunca empurra o que está embaixo.
+// Jogar › Agora: o PAINEL DO MOMENTO (V7, especificação §4.4.3) — altura fixa de 120 px
+// (136 com a sessão parada, pela linha "Ficou da Sessão N:"), logo abaixo da linha de ações;
+// nunca empurra o que está embaixo.
 //   - Cabeçalho de contadores, sempre na mesma linha (chips de 44 px): "🎯 1 teste" ·
 //     "🎲 2 pedidos" · "⬆ 1 nível" · "⚠ 1 perigo"; zerados, "Nada esperando ✓". Tocar num
 //     contador mostra aquele item no corpo.
@@ -24,10 +25,13 @@ const L = (lang, pt, en) => (lang === 'en' ? en : pt);
  * approvals {n, levelups} · dangers  avisos de perigo (nudges) · nudges  o useNudges (Aplicar/Dispensar)
  * pick/onPick  o que está no corpo (a Agora guarda, para o "Pedir a todos" escolher o teste novo)
  * goTo, onChecks (Jogar › Testes), onChange (recarregar os testes depois de uma ação)
+ * leftFrom  com a sessão parada (ensaio), o nº da última sessão: o que espera é resto dela
+ *           e uma linha pequena acima dos contadores diz "Ficou da Sessão 3:" (não parece ser
+ *           do ensaio); a fila dos contadores fica com a largura toda
  */
 export default function MomentPanel({
   campaign, lang = 'pt', checks = [], rolls = [], approvals = { n: 0, levelups: null }, dangers = [], nudges,
-  pick, onPick, ready = true, goTo, onChange, closed = false,
+  pick, onPick, ready = true, goTo, onChange, closed = false, leftFrom = null,
 }) {
   const counters = momentCounters({ checks: checks.length, rolls: rolls.length, approvals: approvals.n, levelups: approvals.levelups, dangers: dangers.length }, lang);
   const data = { checks, dangers, rolls: rolls.length, approvals: approvals.n };
@@ -126,7 +130,8 @@ export default function MomentPanel({
   }
 
   return (
-    <section className="mesa-panel is-sunk mp" aria-label={L(lang, 'Painel do momento', 'Moment panel')}>
+    <section className={`mesa-panel is-sunk mp ${leftFrom ? 'has-from' : ''}`} aria-label={L(lang, 'Painel do momento', 'Moment panel')}>
+      {leftFrom && <p className="mp-from">{L(lang, `Ficou da Sessão ${leftFrom}:`, `Left from session ${leftFrom}:`)}</p>}
       <div className="mp-head mesa-scroll" role="group" aria-label={L(lang, 'O que está esperando', 'What is waiting')}>
         {counters.length === 0 && <span className="mp-none">{L(lang, 'Nada esperando ✓', 'Nothing waiting ✓')}</span>}
         {counters.map(c => (

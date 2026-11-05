@@ -14,6 +14,7 @@ import { errorMessage } from '../api/errors.js';
 import { freshSceneId, normalizePlan } from '../prep/next-session.js';
 import { saveSessionPlan } from '../world/world-api.js';
 import { STAGE_SENDING_EVENT, STAGE_SENT_EVENT, startSceneOnStage, undoSceneStart } from '../stage/stage-api.js';
+import { sceneStartNotice } from '../stage/stage-now.js';
 import { flash } from './flash.js';
 import { patchState } from './play-api.js';
 import { legacyDoneId, sceneName } from './now-model.js';
@@ -67,13 +68,20 @@ export async function beginScene(campaign, scene, opts = {}) {
     }
     const name = r?.scene || sceneName(scene);
     // a entrada na sala da cena ligada foi para a Crônica (o ↶ tira junto)
-    const logged = r?.undo?.room?.diaryId ? L(lang, ' · Registrado na Crônica', ' · Logged to the Chronicle') : '';
-    const label = (r?.shown ? L(lang, `Cena começou · Na tela: ${name}`, `Scene started · On screen: ${name}`) : L(lang, `Cena começou: ${name}`, `Scene started: ${name}`)) + logged;
-    emit(STAGE_SENT_EVENT, { campaignId: campaign.id, ok: true, label: r?.shown ? L(lang, 'Na tela ✓', 'On screen ✓') : L(lang, 'Cena começou ✓', 'Scene started ✓'), name });
+    const logged = !!r?.undo?.room?.diaryId;
+    // guardada para depois do combate: a TV segue nele (nunca "Na tela"); tirou da Tela o que
+    // esperava o fim do combate (E1.3d): o aviso diz, antes do que ele corta no celular
+    const held = focus === false && !!r?.shown;
+    const notice = sceneStartNotice({ name, shown: !!r?.shown, held, logged, waiting: r?.replaced?.waiting || '' }, lang);
+    emit(STAGE_SENT_EVENT, { campaignId: campaign.id, ok: true, label: r?.shown && !held ? L(lang, 'Na tela ✓', 'On screen ✓') : L(lang, 'Cena começou ✓', 'Scene started ✓'), name });
     if (!quiet) {
-      flash(label, {
+      flash(notice.text, {
+        short: notice.short,   // o aviso apertado do celular de 320 px
+        long: notice.long,
+        ...(notice.long ? { ms: 9000 } : {}),
         action: r?.undo ? {
           label: L(lang, '↶ Desfazer', '↶ Undo'),
+          short: '↶',
           onClick: async () => {
             try {
               await undoSceneStart(campaign.id, r.undo);

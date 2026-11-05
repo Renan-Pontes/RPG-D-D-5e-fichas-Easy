@@ -12,6 +12,11 @@
 // respostas entram pelo "Usar e começar" de Jogar › Combate), o
 // interruptor "📺 Mostrar na Tela" (ligado quando há uma TV conectada; o teste vai à Tela
 // assim que é pedido) e `closeOnSend`: a folha fecha sozinha ao enviar.
+// Onda 3: "Todos" deixa de fora quem está a 0 PV (E1.5c; "＋ Incluir Pipo" põe de volta, e a
+// iniciativa vai a todos) e, na folha do celular, as perícias aparecem sem rolar (E1.6b): os
+// nomes curtos no "Para" (com o "＋ Incluir" na mesma fila), CD e Dado numa linha recolhida
+// ("CD: sem · Dado: Normal ▾", aberta no PC) e as explicações (CD secreta, o "melhor:")
+// embaixo dos atalhos.
 import { errorMessage } from '../api/errors.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client.js';
@@ -20,6 +25,7 @@ import { tName } from '../../data/i18n.js';
 import SRD from '../../data/srd.js';
 import {
   QUICK_SKILLS, QUICK_SAVES, ABILITIES, INITIATIVE_KEY, abilityAbbr, checkLabel, buildCheckPayload, summarize,
+  downPlayers, groupTargets, namesList,
 } from './check-logic.js';
 import { formatMod } from '../dice/dice-math.js';
 import { confirmDialog } from '../../components/ConfirmDialog.jsx';
@@ -59,6 +65,12 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
   const [custom, setCustom] = useState('');
   // 📺 Mostrar na Tela: ligado quando há uma TV conectada (a escolha vale enquanto a folha está aberta)
   const [toScreen, setToScreen] = useState(tvLive > 0);
+  // quem está a 0 PV fica de fora do "Todos" (E1.5c); "＋ Incluir" vale enquanto a folha está aberta
+  const [includeDown, setIncludeDown] = useState(false);
+  // na folha do celular, CD e Dado ficam numa linha recolhida ("CD: sem · Dado: Normal ▾")
+  const [opts, setOpts] = useState(false);
+  const down = downPlayers(players);
+  const downLeft = targets.length === 0 && !includeDown ? down : [];
   // "melhor: Pipo +7 · 65%" — na CD escolhida (sem CD, na 15, a de referência do Raio-X) e
   // com o dado escolhido aqui (vantagem: 1 − (1 − p)²; desvantagem: p²)
   const refDc = dc !== '' && Number.isFinite(+dc) && +dc > 0 ? +dc : 15;
@@ -73,7 +85,9 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
   const bestLine = (b) => {
     if (!b) return null;
     const who = b.who.length > 2 ? L(lang, `${b.who.length} empatados`, `${b.who.length} tied`) : b.who.map(firstName).join('/');
-    return `${L(lang, 'melhor', 'best')}: ${who} ${formatMod(b.best)} · ${b.p}%`;
+    // na folha a dica é curta, numa linha ("Elarion +4 · 50%"): o "melhor:" fica explicado
+    // embaixo dos atalhos e o botão não cresce (E1.6b)
+    return asSheet ? `${who} ${formatMod(b.best)} · ${b.p}%` : `${L(lang, 'melhor', 'best')}: ${who} ${formatMod(b.best)} · ${b.p}%`;
   };
   const bestAria = (b) => (b ? L(lang, `, melhor da mesa: ${b.who.join(', ')} ${formatMod(b.best)}, ${b.p}% na CD ${refDc}${modeText}`, `, best at the table: ${b.who.join(', ')} ${formatMod(b.best)}, ${b.p}% at DC ${refDc}${modeText}`) : '');
   const hasBest = Object.values(best).some(Boolean);
@@ -91,7 +105,8 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
     if (!players.length) { setError(L(lang, 'Nenhum jogador na campanha ainda.', 'No players in this campaign yet.')); return; }
     setBusy(true); setError(''); setSent('');
     try {
-      const body = buildCheckPayload({ ...spec, dc, dcHidden, advantage, targets }, lang);
+      const to = groupTargets(players, { targets, kind: spec.kind, key: spec.key, includeDown });
+      const body = buildCheckPayload({ ...spec, dc, dcHidden, advantage, targets: to.targets }, lang);
       const r = await api.createCheck(campaign.id, body);
       if (navigator.vibrate) navigator.vibrate(20);
       setSent(body.label);
@@ -114,10 +129,32 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
 
   const open = checks.filter(c => c.status === 'open');
   const closed = checks.filter(c => c.status !== 'open').slice(0, 5);
+  const downNames = namesList(downLeft.map(d => firstName(d.name)), lang);
+  const allDown = namesList(down.map(d => firstName(d.name)), lang);
   const targetText = targets.length === 0
-    ? L(lang, 'todos', 'everyone')
+    ? (downLeft.length ? L(lang, `todos menos ${downNames} (0 PV)`, `everyone but ${downNames} (0 HP)`) : L(lang, 'todos', 'everyone'))
     : players.filter(p => targets.includes(p.user.id)).map(p => p.character?.name || p.user.displayName).join(', ');
+  // na folha os nomes vão curtos ("Dagna"): o "Para" cabe em menos linhas e as perícias sobem
+  const nameOf = (p) => (asSheet ? firstName(p.character?.name || p.user.displayName) : (p.character?.name || p.user.displayName));
+  const isDown = (p) => down.some(d => d.userId === p.user.id);
 
+  const secretHint = <p className="gc-hint">{L(lang, 'CD secreta: os jogadores e a Tela não veem o número nem quem passou; você vê.', 'Secret DC: players and the screen see neither the number nor who passed; you do.')}</p>;
+  const bestHint = hasBest ? (
+    <p className="gc-hint">{dc === ''
+      ? L(lang, `Embaixo de cada atalho: o melhor da mesa e a chance dele na CD ${refDc}${modeText} (sem CD escolhida).`, `Under each shortcut: the best at the table and their chance at DC ${refDc}${modeText} (no DC picked).`)
+      : L(lang, `Embaixo de cada atalho: o melhor da mesa e a chance dele na CD ${refDc}${modeText}.`, `Under each shortcut: the best at the table and their chance at DC ${refDc}${modeText}.`)}</p>
+  ) : null;
+  // a forma curta ("＋ Pipo" / "− Pipo") é a do celular baixo (≤ 640 px de altura, checks-styles):
+  // os nomes do "Para" cabem em 2 filas e as perícias ficam à vista sem rolar (E1.6b a 320×568)
+  const downLong = includeDown ? L(lang, `Deixar ${allDown} de fora`, `Leave ${allDown} out`) : `＋ ${L(lang, 'Incluir', 'Include')} ${allDown}`;
+  const downToggle = targets.length === 0 && down.length > 0 ? (
+    <button type="button" className="mesa-btn gc-down-btn" onClick={() => setIncludeDown(v => !v)} aria-label={downLong}>
+      <span className="gc-long" aria-hidden="true">{downLong}</span>
+      <span className="gc-short" aria-hidden="true">{includeDown ? '−' : '＋'} {allDown}</span>
+    </button>
+  ) : null;
+  const advText = { normal: L(lang, 'Normal', 'Normal'), adv: L(lang, 'Vantagem', 'Advantage'), dis: L(lang, 'Desvantagem', 'Disadvantage') }[advantage] || advantage;
+  const optsLine = `CD: ${dc === '' ? L(lang, 'sem', 'none') : dc}${dc !== '' && dcHidden ? ' 🔒' : ''} · ${L(lang, 'Dado', 'Roll')}: ${advText}`;
   const form = (
     <>
       <div className="group-checks-config">
@@ -128,13 +165,33 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
               {L(lang, 'Todos', 'Everyone')}
             </button>
             {players.map(p => (
-              <button key={p.user.id} type="button" className={`mesa-chip gc-chip ${targets.includes(p.user.id) ? 'active' : ''}`}
-                aria-pressed={targets.includes(p.user.id)} onClick={() => toggleTarget(p.user.id)}>
-                {p.character?.name || p.user.displayName}
+              <button key={p.user.id} type="button" className={`mesa-chip gc-chip ${targets.includes(p.user.id) ? 'active' : ''} ${isDown(p) ? 'is-down' : ''}`}
+                aria-pressed={targets.includes(p.user.id)} onClick={() => toggleTarget(p.user.id)}
+                aria-label={isDown(p) ? L(lang, `${p.character?.name || p.user.displayName} (a 0 PV)`, `${p.character?.name || p.user.displayName} (at 0 HP)`) : undefined}>
+                {nameOf(p)}{isDown(p) ? <span className="gc-chip-down"> · 0 {L(lang, 'PV', 'HP')}</span> : null}
               </button>
             ))}
+            {/* na folha, o "＋ Incluir" vai na fila dos nomes (o chip já diz "0 PV" e o rodapé,
+                "todos menos Pipo"): uma linha a menos antes das perícias */}
+            {asSheet && downToggle}
           </div>
+          {!asSheet && targets.length === 0 && down.length > 0 && (
+            <p className="gc-down">
+              <span>{includeDown
+                ? L(lang, `${allDown} (0 PV) também recebe${down.length > 1 ? 'm' : ''}.`, `${allDown} (0 HP) also get${down.length > 1 ? '' : 's'} it.`)
+                : L(lang, `${allDown} ${down.length > 1 ? 'estão' : 'está'} a 0 PV: fica${down.length > 1 ? 'm' : ''} de fora.`, `${allDown} ${down.length > 1 ? 'are' : 'is'} at 0 HP: left out.`)}</span>
+              {downToggle}
+            </p>
+          )}
         </div>
+        {asSheet && (
+          <button type="button" className="mesa-btn gc-opts-toggle" aria-expanded={opts} aria-controls="gc-opts"
+            onClick={() => setOpts(v => !v)}>
+            <span className="gc-opts-line">{optsLine}</span>
+            <span aria-hidden="true">{opts ? '▴' : '▾'}</span>
+          </button>
+        )}
+        <div id="gc-opts" className={`gc-opts ${opts ? 'is-open' : ''}`}>
         <div className="gc-field">
           <span className="gc-label">CD</span>
           <div className="gc-chips gc-dc">
@@ -150,7 +207,7 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
               🔒 {L(lang, 'CD secreta', 'Secret DC')}
             </button>
           </div>
-          <p className="gc-hint">{L(lang, 'CD secreta: os jogadores e a Tela não veem o número nem quem passou; você vê.', 'Secret DC: players and the screen see neither the number nor who passed; you do.')}</p>
+          {!asSheet && secretHint}
         </div>
         <div className="gc-field">
           <span className="gc-label">{L(lang, 'Dado', 'Roll')}</span>
@@ -160,15 +217,12 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
             ))}
           </div>
         </div>
+        </div>
       </div>
 
       <div className="gc-field">
         <span className="gc-label">{L(lang, 'Perícia (um toque envia)', 'Skill (one tap sends)')}</span>
-        {hasBest && (
-          <p className="gc-hint">{dc === ''
-            ? L(lang, `Embaixo de cada atalho: o melhor da mesa e a chance dele na CD ${refDc}${modeText} (sem CD escolhida).`, `Under each shortcut: the best at the table and their chance at DC ${refDc}${modeText} (no DC picked).`)
-            : L(lang, `Embaixo de cada atalho: o melhor da mesa e a chance dele na CD ${refDc}${modeText}.`, `Under each shortcut: the best at the table and their chance at DC ${refDc}${modeText}.`)}</p>
-        )}
+        {!asSheet && bestHint}
         <div className="gc-quick" aria-label={L(lang, 'Atalhos de perícia', 'Skill shortcuts')}>
           {QUICK_SKILLS.map(k => (
             <button key={k} type="button" className="gc-quick-btn" disabled={busy} onClick={() => send({ kind: 'skill', key: k })}
@@ -178,6 +232,7 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
             </button>
           ))}
         </div>
+        {asSheet && bestHint}
       </div>
       <div className="gc-field">
         <span className="gc-label">{L(lang, 'Iniciativa', 'Initiative')}</span>
@@ -224,13 +279,20 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
           </button>
         </div>
       </div>
+      {asSheet && (
+        <div className="gc-field gc-notes">
+          <p className="gc-hint">{L(lang, 'Os jogadores rolam no app ou digitam o dado físico. Quem está a 0 PV fica de fora do “Todos” (a iniciativa vai a todos).', 'Players roll in the app or type their physical die. Anyone at 0 HP is left out of “Everyone” (initiative goes to everyone).')}</p>
+          {secretHint}
+        </div>
+      )}
       {error && <div className="check-card-error" role="alert">{error}</div>}
     </>
   );
 
   const summary = (
     <p className="gc-summary">
-      {L(lang, 'Próximo pedido vai para', 'Next request goes to')}: <strong>{targetText}</strong>
+      <span className="gc-long">{L(lang, 'Próximo pedido vai para', 'Next request goes to')}</span>
+      <span className="gc-short">{L(lang, 'Vai para', 'Goes to')}</span>: <strong>{targetText}</strong>
       {dc !== '' && <> · CD {dc}{dcHidden ? ` (${L(lang, 'secreta', 'secret')})` : ''}</>}
       {advantage !== 'normal' && <> · {advantage === 'adv' ? L(lang, 'vantagem', 'advantage') : L(lang, 'desvantagem', 'disadvantage')}</>}
     </p>
@@ -244,18 +306,19 @@ export default function GroupCheckPanel({ campaign, lang = 'pt', showList = true
       <MesaSheet title={L(lang, 'Pedir teste à mesa', 'Ask the table for a check')} icon="🎯" size="tall" width="md" lang={lang} dock="play"
         onClose={onClose} className="gc-sheet" bodyClassName="group-checks is-sheet"
         footer={(
+          // o rodapé em 2 linhas curtas (para quem vai · 📺 + Pronto): as perícias sobem (E1.6b)
           <div className="gc-foot">
-            <label className="gc-screen">
-              <input type="checkbox" checked={toScreen} onChange={e => setToScreen(e.target.checked)} />
-              <span>📺 {L(lang, 'Mostrar na Tela', 'Show on screen')}{tvLive > 0 ? '' : <span className="gc-screen-sub"> · {L(lang, 'nenhuma TV conectada', 'no TV connected')}</span>}</span>
-            </label>
             <div className="gc-foot-text">{sentLine}{summary}</div>
-            <button type="button" className="mesa-btn is-primary gc-done" onClick={onClose}>{L(lang, 'Pronto', 'Done')}</button>
+            <div className="gc-foot-row">
+              <label className="gc-screen">
+                <input type="checkbox" checked={toScreen} onChange={e => setToScreen(e.target.checked)} />
+                <span>📺 {L(lang, 'Mostrar na Tela', 'Show on screen')}{tvLive > 0 ? '' : <span className="gc-screen-sub"> · {L(lang, 'nenhuma TV conectada', 'no TV connected')}</span>}</span>
+              </label>
+              <button type="button" className="mesa-btn is-primary gc-done" onClick={onClose}>{L(lang, 'Pronto', 'Done')}</button>
+            </div>
           </div>
         )}>
-        <p className="mesa-sheet-text">
-          {L(lang, 'Um toque numa perícia envia. Os jogadores rolam no app ou digitam o dado físico.', 'One tap on a skill sends. Players roll in the app or type their physical die.')}
-        </p>
+        <p className="mesa-sheet-text gc-intro">{L(lang, 'Um toque numa perícia envia.', 'One tap on a skill sends.')}</p>
         {form}
       </MesaSheet>
     );
