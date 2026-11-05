@@ -47,8 +47,9 @@ export function imageRows({ entries = [], adventure = null, node = null, query =
     used.add(`room-${node.id}`);
   }
   if (roomNow && node) {
+    // quem já veio da cena do plano (sceneRefs) não entra de novo pela sala ligada
     for (const e of sceneEntries({ entries, node, plan: null }).scene) {
-      if (!match(e.name)) continue;
+      if (used.has(`e-${e.id}`) || !match(e.name)) continue;
       now.push({ key: `e-${e.id}`, type: 'entry', entry: e, name: e.name });
       used.add(`e-${e.id}`);
     }
