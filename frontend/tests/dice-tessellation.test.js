@@ -117,7 +117,7 @@ test('dice-tessellation: D8 matches 4x4 diamond perimeter grid calibrated to SVG
 });
 
 test('dice-tessellation: D4 uses alternating upright and inverted triangles calibrated to SVG (50,50) pivot (Image 1)', () => {
-  const layout = getTessellationLayout(4, 9, { heroSize: 104, gutter: 6 });
+  const layout = getTessellationLayout(4, 9, { heroSize: 104, gutter: 7.5 });
   assert.equal(layout.petalSize, 52);
   assert.equal(layout.slots.length, 9);
 
@@ -165,52 +165,132 @@ test('dice-tessellation: D20 honeycomb tessellation supports 2d20, 5d20, 7d20, 1
   }
 });
 
-test('dice-tessellation: D12 pentagonal rosette uses rot=180 on inner facets and rot=0 on outer valleys (Image 4)', () => {
+test('dice-tessellation: D12 pentagonal rosette uses radially stepped rotations so facets are parallel and valleys nestle seamlessly (Screenshot 1)', () => {
   const layout = getTessellationLayout(12, 10, { heroSize: 104 });
   assert.equal(layout.petalSize, 52);
   assert.equal(layout.slots.length, 10);
 
-  // Inner 5 facet pentagons must be inverted (rot === 180) so their edges are parallel to the central pentagon
+  const expectedInnerRots = [180, 108, 36, 324, 252];
+  const expectedOuterRots = [0, 72, 144, 216, 288];
+
+  // Inner 5 facet pentagons must be radially rotated so each flat edge is parallel to its corresponding hero facet
   for (let i = 0; i < 5; i++) {
-    assert.equal(layout.slots[i].rot, 180, `D12 inner facet slot ${layout.slots[i].id} must have rot=180`);
+    assert.equal(layout.slots[i].rot, expectedInnerRots[i], `D12 inner facet slot ${layout.slots[i].id} rot must match radial face alignment`);
   }
-  // Outer 5 valley pentagons must be upright (rot === 0)
+  // Outer 5 valley pentagons must be radially rotated pointing outwards into valleys
   for (let i = 5; i < 10; i++) {
-    assert.equal(layout.slots[i].rot, 0, `D12 outer valley slot ${layout.slots[i].id} must have rot=0`);
+    assert.equal(layout.slots[i].rot, expectedOuterRots[i - 5], `D12 outer valley slot ${layout.slots[i].id} rot must match radial valley alignment`);
   }
 
   const heroPoly = parseSvgPolygon(DICE_FACES[12], 0, 0, 104, 0);
   const slotPolys = layout.slots.map(s => parseSvgPolygon(DICE_FACES[12], s.x, s.y, 52, s.rot));
   for (let i = 0; i < slotPolys.length; i++) {
     const dHero = polyEdgeDist(heroPoly, slotPolys[i]);
-    assert.ok(dHero >= 3.5, `D12 slot ${layout.slots[i].id} must not overlap hero: dist=${dHero}`);
+    assert.ok(dHero >= 6.0, `D12 slot ${layout.slots[i].id} must not overlap hero: dist=${dHero}`);
     for (let j = i + 1; j < slotPolys.length; j++) {
       const dSlot = polyEdgeDist(slotPolys[i], slotPolys[j]);
-      assert.ok(dSlot >= 3.5, `D12 slots ${i} and ${j} must not overlap: dist=${dSlot}`);
+      assert.ok(dSlot >= 6.0, `D12 slots ${i} and ${j} must not overlap and have uniform gutter: dist=${dSlot}`);
     }
   }
 });
 
-test('dice-tessellation: D10 kite rosette uses rot=180 on inner facets and rot=0 on outer valleys', () => {
+test('dice-tessellation: D10 pentagonal rosette uses matching radially stepped rotations', () => {
   const layout = getTessellationLayout(10, 10, { heroSize: 104 });
   assert.equal(layout.petalSize, 52);
   assert.equal(layout.slots.length, 10);
 
+  const expectedInnerRots = [180, 108, 36, 324, 252];
+  const expectedOuterRots = [0, 72, 144, 216, 288];
+
   for (let i = 0; i < 5; i++) {
-    assert.equal(layout.slots[i].rot, 180, `D10 inner facet slot ${layout.slots[i].id} must have rot=180`);
+    assert.equal(layout.slots[i].rot, expectedInnerRots[i], `D10 inner facet slot ${layout.slots[i].id} rot must match radial face alignment`);
   }
   for (let i = 5; i < 10; i++) {
-    assert.equal(layout.slots[i].rot, 0, `D10 outer valley slot ${layout.slots[i].id} must have rot=0`);
+    assert.equal(layout.slots[i].rot, expectedOuterRots[i - 5], `D10 outer valley slot ${layout.slots[i].id} rot must match radial valley alignment`);
   }
 
   const heroPoly = parseSvgPolygon(DICE_FACES[10], 0, 0, 104, 0);
   const slotPolys = layout.slots.map(s => parseSvgPolygon(DICE_FACES[10], s.x, s.y, 52, s.rot));
   for (let i = 0; i < slotPolys.length; i++) {
     const dHero = polyEdgeDist(heroPoly, slotPolys[i]);
-    assert.ok(dHero >= 3.5, `D10 slot ${layout.slots[i].id} must not overlap hero: dist=${dHero}`);
+    assert.ok(dHero >= 6.0, `D10 slot ${layout.slots[i].id} must not overlap hero: dist=${dHero}`);
     for (let j = i + 1; j < slotPolys.length; j++) {
       const dSlot = polyEdgeDist(slotPolys[i], slotPolys[j]);
-      assert.ok(dSlot >= 3.5, `D10 slots ${i} and ${j} must not overlap: dist=${dSlot}`);
+      assert.ok(dSlot >= 6.0, `D10 slots ${i} and ${j} must not overlap: dist=${dSlot}`);
+    }
+  }
+});
+
+test('dice-tessellation: scales smoothly up to 20 dice for all dice types (N = 20)', () => {
+  const diceTypes = [4, 6, 8, 10, 12, 20, 100];
+  for (const die of diceTypes) {
+    const layout = getTessellationLayout(die, 20);
+    assert.equal(layout.slots.length, 20, `d${die} must support exactly 20 slots`);
+    assert.equal(layout.petalSize, Math.round(layout.heroSize * 0.5), `d${die} constituent size must strictly be 50%`);
+
+    const heroPoly = parseSvgPolygon(DICE_FACES[die], 0, 0, layout.heroSize, 0);
+    const slotPolys = layout.slots.map(s => parseSvgPolygon(DICE_FACES[die], s.x, s.y, layout.petalSize, s.rot));
+
+    for (let i = 0; i < slotPolys.length; i++) {
+      const dHero = polyEdgeDist(heroPoly, slotPolys[i]);
+      assert.ok(dHero >= 2.5, `d${die} slot ${i} must not overlap hero: dist=${dHero}`);
+      for (let j = i + 1; j < slotPolys.length; j++) {
+        const dSlot = polyEdgeDist(slotPolys[i], slotPolys[j]);
+        assert.ok(dSlot >= 2.0, `d${die} slots ${i} and ${j} must not overlap: dist=${dSlot}`);
+      }
+    }
+  }
+});
+
+test('dice-tessellation: N = 9 preserves bilateral mirror symmetry across vertical axis (no missing-tooth defect)', () => {
+  const diceTypes = [4, 6, 8, 10, 12, 20];
+  for (const die of diceTypes) {
+    const layout = getTessellationLayout(die, 9);
+    assert.equal(layout.slots.length, 9);
+
+    // Sum of X coordinates should equal 0 for mirror symmetric layouts across the Y axis
+    const sumX = layout.slots.reduce((acc, s) => acc + s.x, 0);
+    assert.ok(Math.abs(sumX) < 1.0, `d${die} layout for N=9 must be centered on X axis (sumX=${sumX})`);
+
+    // Every off-center slot (+X) must have a corresponding symmetric partner (-X) with equal |X| and same Y
+    const offCenterSlots = layout.slots.filter(s => Math.abs(s.x) > 0.5);
+    const leftSlots = offCenterSlots.filter(s => s.x < -0.5);
+    const rightSlots = offCenterSlots.filter(s => s.x > 0.5);
+    assert.equal(leftSlots.length, rightSlots.length, `d${die} must have identical number of left and right slots for N=9`);
+  }
+});
+
+test('dice-tessellation: every count N in [2..20] across all 7 dice types has valid, non-overlapping slots', () => {
+  const diceTypes = [4, 6, 8, 10, 12, 20, 100];
+  for (const die of diceTypes) {
+    for (let count = 2; count <= 20; count++) {
+      const layout = getTessellationLayout(die, count);
+      assert.equal(layout.slots.length, count, `d${die} count=${count} must have length=${count}`);
+      assert.equal(layout.petalSize, Math.round(layout.heroSize * 0.5));
+
+      for (let i = 0; i < layout.slots.length; i++) {
+        const s = layout.slots[i];
+        assert.ok(Number.isFinite(s.x), `d${die} N=${count} slot ${i} x must be finite`);
+        assert.ok(Number.isFinite(s.y), `d${die} N=${count} slot ${i} y must be finite`);
+        assert.ok(Number.isFinite(s.rot), `d${die} N=${count} slot ${i} rot must be finite`);
+      }
+    }
+  }
+});
+
+test('dice-tessellation: D12 and D10 with N=10 have generous non-cramped spacing between Ring 1 and Ring 2', () => {
+  for (const die of [10, 12, 100]) {
+    const layout = getTessellationLayout(die, 10, { heroSize: 104 });
+    const heroPoly = parseSvgPolygon(DICE_FACES[die], 0, 0, layout.heroSize, 0);
+    const slotPolys = layout.slots.map(s => parseSvgPolygon(DICE_FACES[die], s.x, s.y, layout.petalSize, s.rot));
+
+    for (let i = 0; i < slotPolys.length; i++) {
+      const dHero = polyEdgeDist(heroPoly, slotPolys[i]);
+      assert.ok(dHero >= 6.0, `d${die} slot ${layout.slots[i].id} hero distance must be generous (>=6px): dist=${dHero}`);
+      for (let j = i + 1; j < slotPolys.length; j++) {
+        const dSlot = polyEdgeDist(slotPolys[i], slotPolys[j]);
+        assert.ok(dSlot >= 4.0, `d${die} slots ${i} and ${j} distance must be non-cramped (>=4px): dist=${dSlot}`);
+      }
     }
   }
 });

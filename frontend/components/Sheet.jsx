@@ -1804,7 +1804,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
   const [isPulling, setIsPulling] = useState(false);
   const gestureRef = useRef({ startY: 0, moved: false, pointerId: null });
   const hexRef = useRef(null);
-  const hexDragRef = useRef({ startX: 0, startY: 0, active: false, timer: null });
+  const hoodGestureRef = useRef({ startX: 0, startY: 0, moved: false, timer: null, pointerId: null });
 
   const score = Utils.abilityWithRace(char, k);
   const checkMod = Utils.abilityMod(char, k);
@@ -1816,7 +1816,8 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
     roll({ die: 20, mod, label, advMode });
   };
 
-  // Knob ONLY handles stance swiping tap (up = adv, down = dis, tap = normal)
+  // Knob ONLY handles stance swiping tap (up = adv, down = dis, tap = normal).
+  // It NEVER initiates ability-to-belt drag, ensuring pure stance control.
   const onBadgePointerDown = (e) => {
     e.stopPropagation();
     const pointerId = e.pointerId;
@@ -1852,18 +1853,6 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
     const g = gestureRef.current;
     if (!g.pointerId) return;
     const dy = e.clientY - g.startY;
-    const dx = e.clientX - (g.startX || e.clientX);
-    const dist = Math.hypot(dx, dy);
-
-    // If dragging towards belt (> 14px), smoothly hand over to ability-to-belt assignment drag!
-    if (dist > 14 && onStartDrag) {
-      try { e.currentTarget.releasePointerCapture?.(g.pointerId); } catch (_) {}
-      gestureRef.current = { startY: 0, moved: false, pointerId: null };
-      setIsPulling(false);
-      setPullY(0);
-      onStartDrag(k, e, getBadgeAnchor());
-      return;
-    }
 
     if (Math.abs(dy) > 4) {
       g.moved = true;
@@ -1905,6 +1894,63 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
     setPullY(0);
   };
 
+  // Ability score assignment starts tracking user input when user presses and holds
+  // "the hood" of the hexad (.fh-belt-header) or drags from it!
+  const onHoodPointerDown = (e) => {
+    e.stopPropagation();
+    const pointerId = e.pointerId;
+    const startX = e.clientX;
+    const startY = e.clientY;
+
+    const timer = setTimeout(() => {
+      // Hold >= 110ms initiates ability-to-belt assignment drag!
+      hoodGestureRef.current.moved = true;
+      try { e.currentTarget.releasePointerCapture?.(pointerId); } catch (_) {}
+      onStartDrag?.(k, { clientX: startX, clientY: startY }, getBadgeAnchor());
+    }, 110);
+
+    hoodGestureRef.current = { startX, startY, moved: false, timer, pointerId };
+    try { e.currentTarget.setPointerCapture?.(pointerId); } catch (_) {}
+  };
+
+  const onHoodPointerMove = (e) => {
+    const h = hoodGestureRef.current;
+    if (!h.pointerId) return;
+    const dist = Math.hypot(e.clientX - h.startX, e.clientY - h.startY);
+    if (dist > 4 && onStartDrag) {
+      if (h.timer) clearTimeout(h.timer);
+      h.moved = true;
+      const pid = h.pointerId;
+      hoodGestureRef.current = { startX: 0, startY: 0, moved: true, timer: null, pointerId: null };
+      try { e.currentTarget.releasePointerCapture?.(pid); } catch (_) {}
+      onStartDrag(k, e, getBadgeAnchor());
+    }
+  };
+
+  const onHoodPointerUp = (e) => {
+    const h = hoodGestureRef.current;
+    if (h.timer) clearTimeout(h.timer);
+    const wasMoved = h.moved;
+    const pid = h.pointerId;
+    hoodGestureRef.current = { startX: 0, startY: 0, moved: false, timer: null, pointerId: null };
+    if (pid) {
+      try { e.currentTarget.releasePointerCapture?.(pid); } catch (_) {}
+    }
+    // A quick tap (< 110ms without dragging) binds/unbinds to active belt slot
+    if (!wasMoved) {
+      onBind?.(k);
+    }
+  };
+
+  const onHoodPointerCancel = (e) => {
+    const h = hoodGestureRef.current;
+    if (h.timer) clearTimeout(h.timer);
+    if (h.pointerId) {
+      try { e.currentTarget.releasePointerCapture?.(h.pointerId); } catch (_) {}
+    }
+    hoodGestureRef.current = { startX: 0, startY: 0, moved: false, timer: null, pointerId: null };
+  };
+
   const onBadgeKeyDown = (e) => {
     if (e.key === 'ArrowUp') {
       e.preventDefault();
@@ -1923,35 +1969,6 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
         setAdvMode((m) => (m === 'normal' ? 'adv' : m === 'adv' ? 'dis' : 'normal'));
       }
     }
-  };
-
-  // Hexad drag-to-bind gesture: user holds on ability score tile or drags towards belt
-  const onTilePointerDown = (e) => {
-    if (e.target.closest('.fh-belt-badge')) return;
-    const startX = e.clientX;
-    const startY = e.clientY;
-
-    const timer = setTimeout(() => {
-      onStartDrag?.(k, { clientX: startX, clientY: startY }, getBadgeAnchor());
-    }, 150);
-
-    hexDragRef.current = { startX, startY, active: true, timer };
-  };
-
-  const onTilePointerMove = (e) => {
-    const h = hexDragRef.current;
-    if (!h.active) return;
-    const dist = Math.hypot(e.clientX - h.startX, e.clientY - h.startY);
-    if (dist > 6 && onStartDrag) {
-      if (h.timer) clearTimeout(h.timer);
-      hexDragRef.current = { startX: 0, startY: 0, active: false, timer: null };
-      onStartDrag(k, e, getBadgeAnchor());
-    }
-  };
-
-  const onTilePointerUp = () => {
-    if (hexDragRef.current.timer) clearTimeout(hexDragRef.current.timer);
-    hexDragRef.current = { startX: 0, startY: 0, active: false, timer: null };
   };
 
   const meta = HONEY_ABILITY_META[k] || { zone: 'physical', tone: 'strength' };
@@ -1994,22 +2011,21 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
       <article
         ref={hexRef}
         className="fh-belt-hex"
-        onPointerDown={onTilePointerDown}
-        onPointerMove={onTilePointerMove}
-        onPointerUp={onTilePointerUp}
-        onPointerCancel={onTilePointerUp}
       >
-        {/* Top Header: Tap to bind/unbind ability to the currently active belt slot */}
+        {/* Top Header / Hood: Press & hold (>= 110ms) or drag to assign ability to belt slot; tap to toggle bind */}
         <button
           type="button"
           className="fh-belt-header"
-          onClick={() => onBind(k)}
+          onPointerDown={onHoodPointerDown}
+          onPointerMove={onHoodPointerMove}
+          onPointerUp={onHoodPointerUp}
+          onPointerCancel={onHoodPointerCancel}
           aria-label={pt
-            ? `${t(k, lang)}: vincular ao slot ativo do cinto`
-            : `${t(k, lang)}: bind to active belt slot`}
+            ? `${t(k, lang)}: segure ou arraste o capuz para vincular a um slot do cinto; toque para o slot ativo`
+            : `${t(k, lang)}: hold or drag the hood to bind to a belt slot; tap for active slot`}
           title={pt
-            ? `${t(k, lang)}: clique para vincular ao slot ativo do cinto`
-            : `${t(k, lang)}: click to bind to active belt slot`}
+            ? `${t(k, lang)}: segure/arraste o capuz para vincular ao cinto · toque para o slot ativo`
+            : `${t(k, lang)}: hold/drag the hood to bind to belt · tap for active slot`}
         >
           <span className="fh-honey-abbr">{abbr}</span>
         </button>
@@ -2021,6 +2037,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
         <button
           type="button"
           className={`fh-belt-badge adv-${advMode}${isPulling ? ' is-pulling' : ''}`}
+          data-ability-badge={k}
           style={pullY !== 0 ? { transform: `translate(-50%, calc(-50% + ${pullY}px))` } : undefined}
           onPointerDown={onBadgePointerDown}
           onPointerMove={onBadgePointerMove}
@@ -2834,7 +2851,7 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
     setActiveSlot(idx);
     setSlots((prev) => prev.map((s, i) => {
       if (i !== idx) return s;
-      return { ...s, count: Math.max(1, Math.min(9, s.count + delta)) };
+      return { ...s, count: Math.max(1, Math.min(20, s.count + delta)) };
     }));
   };
 
@@ -2877,8 +2894,8 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
       count: rollCount,
       mod: totalMod,
       label: pt
-        ? `Cinto [Slot ${idx + 1}] 1d${s.die}${modText}${advText}`
-        : `Belt [Slot ${idx + 1}] 1d${s.die}${modText}${advText}`,
+        ? `Cinto [Slot ${idx + 1}] ${rollCount}d${s.die}${modText}${advText}`
+        : `Belt [Slot ${idx + 1}] ${rollCount}d${s.die}${modText}${advText}`,
       advMode,
     });
   };
@@ -2886,15 +2903,23 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
   return (
     <div className={`fh-belt${pbActive ? ' is-pb-active' : ''}`} data-fab-pass="">
       {dragLink && (() => {
-        const dx = dragLink.currentX - dragLink.startX;
-        const dy = dragLink.currentY - dragLink.startY;
+        // Query the live spherical head badge so (cx, cy, r) is 100% physically locked with 0 offset
+        const liveBadge = typeof document !== 'undefined'
+          ? document.querySelector(`.fh-belt-badge[data-ability-badge="${dragLink.ability}"]`)
+          : null;
+        const badgeRect = liveBadge?.getBoundingClientRect();
+        const startX = badgeRect ? badgeRect.left + badgeRect.width / 2 : dragLink.startX;
+        const startY = badgeRect ? badgeRect.top + badgeRect.height / 2 : dragLink.startY;
+        const radius = badgeRect ? badgeRect.width / 2 : (dragLink.radius || 13.5);
+
+        const dx = dragLink.currentX - startX;
+        const dy = dragLink.currentY - startY;
         const dist = Math.hypot(dx, dy);
-        const radius = dragLink.radius || 13.5;
         // Tightly contours the round badge rim seamlessly and gaplessly
         const contourRadius = radius + 0.6;
         const offset = radius + 1.8; // starts cleanly outside the contour stroke
-        const x0 = dist > offset ? dragLink.startX + (dx / dist) * offset : dragLink.startX;
-        const y0 = dist > offset ? dragLink.startY + (dy / dist) * offset : dragLink.startY;
+        const x0 = dist > offset ? startX + (dx / dist) * offset : startX;
+        const y0 = dist > offset ? startY + (dy / dist) * offset : startY;
         const midX = (x0 + dragLink.currentX) / 2;
         const midY = (y0 + dragLink.currentY) / 2 - 20;
 
@@ -2903,8 +2928,8 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
             {/* Luminous Contour Ring tightly hugging the round badge rim gaplessly */}
             <circle
               className={`fh-drag-trail-contour tone-${dragLink.ability}`}
-              cx={dragLink.startX}
-              cy={dragLink.startY}
+              cx={startX}
+              cy={startY}
               r={contourRadius}
             />
 

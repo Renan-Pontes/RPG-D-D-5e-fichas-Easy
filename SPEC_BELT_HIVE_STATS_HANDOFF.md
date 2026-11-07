@@ -280,3 +280,27 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
     5. **`DiceStage` Settles at `750ms`**: Reveals any Critical Hit Art Deco frame and tone in lockstep with the punch and ripple.
 - **Verification**:
   - Unit test suite in [`dice-rollup.test.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/tests/dice-rollup.test.js) (9 / 9 tests green) + full suite (1,531 / 1,531 tests green across 21 suites) + clean Vite production build.
+
+---
+
+## 13. Up to 20 Dice Geometric Tessellations, Balanced Symmetric Spacing & Hood-Triggered Ability Drag with Live-Locked Spherical Contour
+
+- **Full Multi-Dice Compatibility Scaling Up to 20 Dice (`N = 2 .. 20`) Across All 7 Dice Types**:
+  - Unlocked up to `20` simultaneous dice on belt quick slots in [`Sheet.jsx`](file:///f:/AI_Resources/DND_HeroesForge/frontend/components/Sheet.jsx) (`Math.min(20, s.count + delta)`), and updated `onRollSlot` from hardcoded `1d` to `${rollCount}d${s.die}`.
+  - Implemented 20 master geometric slots and symmetric `pickOrders` for every count $N \in [2, 20]$ across all polyhedral shapes (`D4`, `D6`, `D8`, `D10`, `D12`, `D20`, `D100`) in [`dice-tessellation.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/src/dice/dice-tessellation.js).
+  - Dynamic viewport scaling: For $N \le 12$, uses `heroSize = 104`, `petalSize = 52`, `gutter = 9.5px`; for $N > 12$, automatically scales to `heroSize = 86`, `petalSize = 43`, `gutter = 8.0px`, strictly maintaining 50% constituent scale while fitting all 20 dice inside the viewport without crowding.
+- **Generous, Balanced Breathing Spacing & Flush Symmetric Tessellations**:
+  - **D12 / D10 / D100 Pentagonal Rosette**: Calibrated outer valley pentagon distance to $D_{\text{outer}} = \text{round}(D_{\text{inner}} \times 1.312) \approx 86.95\text{px}$ with radially stepped rotations (`innerRots = [180, 108, 36, 324, 252]`, `outerRots = [0, 72, 144, 216, 288]`). This ensures every facet pentagon's flat edge aligns parallel to its hero facet, valley pentagons nestle with identical 9.49-9.50px uniform breathing gutters, and every adjacent petal pair in the 10-pentagon decagon ring has an exact, uniform gap.
+  - **D6 Modular Square Grid**: 20 slots forming an interlocking Greek-cross frame where every horizontal and vertical gap is identically $g$.
+  - **D8 Regular Diamond Grid**: 20 slots forming a 4-fold diamond lattice with uniform diagonal steps $d_1 .. d_4$.
+  - **D4 Truncated Triangular Jewel**: 20 slots forming a concentric equilateral triangular lattice where all 3 directions share perpendicular distance $g$.
+  - **D20 Pointy-Topped Hexagonal Honeycomb**: 20 slots forming a concentric 3-tier honeycomb where facet-to-facet distance is $D_1 + 2 A_P + g$ and apex-to-apex distance is $D_2 + 2 R_P + g$.
+- **Strict Bilateral Mirror Symmetry ($X \leftrightarrow -X$) Eliminating Missing-Tooth & Corner Asymmetries**:
+  - For odd counts such as $N = 9$, slots are selected in exact symmetric pairs reflected across the vertical axis (e.g., in D12: 5 inner facets + 2 Upper-Flank valleys + 2 Lower-Flank valleys = 9 slots, with `sumX = 0.00`; in D6: 8 edges + 1 centered top crown at $X = 0$, with `sumX = 0.00`), eliminating the chaotic single-corner defect.
+- **Hood-Triggered Ability Assignment & Live-Locked Spherical Head Contour Ring**:
+  - **The Sphere (`.fh-belt-badge`)**: Restricted exclusively to vertical Advantage/Disadvantage sliding and tap toggling; never initiates ability assignment drag.
+  - **"The Hood" (`.fh-belt-header`)**: Pressing and holding ($\ge 110\text{ms}$) or dragging ($> 4\text{px}$) from the top colored cap of the hexad initiates ability assignment drag-to-bind (`onStartDrag`). A quick tap ($< 110\text{ms}$ without moving) binds/unbinds to the active belt slot.
+  - **Live-Locked Contour Ring**: In [`Sheet.jsx`](file:///f:/AI_Resources/DND_HeroesForge/frontend/components/Sheet.jsx), `.fh-belt-drag-overlay` dynamically reads `.fh-belt-badge[data-ability-badge="${dragLink.ability}"]?.getBoundingClientRect()` on every render frame. The green contour ring is always mathematically locked to the spherical head's exact center and radius with `0px` offset, regardless of stance shifts or layout transforms.
+- **Verification**:
+  - Expanded test suite in [`dice-tessellation.test.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/tests/dice-tessellation.test.js) (11 / 11 tests green): verified 20 slots scaling, bilateral mirror symmetry for $N = 9$, non-overlapping geometry across all counts $N \in [2, 20]$ for all 7 dice types, and generous Ring 1 / Ring 2 spacing.
+  - Full automated suite: 1,535 / 1,535 tests green across 21 suites; Vite production build: 0 errors.

@@ -202,14 +202,11 @@ export default function DiceStage({
   // and stacked side-to-side along the facets and corners with uniform breathing gutters!
   if (totalDiceCount > 1 && !className?.includes('cr-rr-stage')) {
     const primaryDie = groups[0]?.die || 6;
-    const effectiveTone = adv === 'adv' ? 'adv' : adv === 'dis' ? 'dis' : (!rolling2d ? shownTone : null);
+    const effectiveTone = adv === 'adv' ? 'adv' : adv === 'dis' ? 'dis' : null;
     const naturalSum = allRolls.reduce((sum, r) => sum + (r.kept ? Number(r.value) || 0 : 0), 0);
     const finalTotal = total != null ? total : naturalSum;
 
-    const tessellation = getTessellationLayout(primaryDie, totalDiceCount, {
-      heroSize: 104,
-      gutter: 6,
-    });
+    const tessellation = getTessellationLayout(primaryDie, totalDiceCount);
 
     return (
       <div className={stage2dClass} data-dice-mode={mode} data-dice-tone={shownTone || undefined}>

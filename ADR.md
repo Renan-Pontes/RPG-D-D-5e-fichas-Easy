@@ -19,6 +19,7 @@
 - [ADR-0009: 3-Page Official Form-Fillable PDF Roundtrip Import/Export Engine](#adr-0009-3-page-official-form-fillable-pdf-roundtrip-importexport-engine)
 - [ADR-0010: Hexagonal 3-4-3 Honeycomb Stat Grid with Directional Swipe Advantage](#adr-0010-hexagonal-3-4-3-honeycomb-stat-grid-with-directional-swipe-advantage)
 - [ADR-0011: Geometric Polyhedral Tessellation & Synchronized 3-Phase Juicy Roll Choreography](#adr-0011-geometric-polyhedral-tessellation--synchronized-3-phase-juicy-roll-choreography)
+- [ADR-0012: 20-Dice Multi-Ring Tessellation Lattices, Bilateral Mirror Symmetry, and Decoupled Hood-Gesture Ability Drag](#adr-0012-20-dice-multi-ring-tessellation-lattices-bilateral-mirror-symmetry-and-decoupled-hood-gesture-ability-drag)
 
 ---
 
@@ -278,3 +279,40 @@ Implement two pure, unit-tested mathematical modules (`frontend/src/dice/dice-te
 ### Consequences
 - **Positive:** Cohesive, high-craft tabletop feel; zero visual noise from extra rings; deterministic unit-testable math in Node without DOM dependencies.
 - **Negative:** Requires keeping CSS custom properties (`--rollup-fadein-*`, `--shake-*`, `--falloff-*`) synchronized with the `requestAnimationFrame` loop in `DieShape.jsx`.
+
+---
+
+## ADR-0012: 20-Dice Multi-Ring Tessellation Lattices, Bilateral Mirror Symmetry, and Decoupled Hood-Gesture Ability Drag
+
+### Status
+Accepted
+
+### Context
+When rolling high quantities of dice simultaneously (up to 20 dice, e.g. `20d6` sneak attacks, `10d10`, `9d12`), prior tessellation engines clamped slots at 9–12 dice, causing overflow to stack at `(0, 0)`. Furthermore, outer rings in pentagonal rosettes had insufficient clearance ($D_{\text{outer}} = 82\text{px}$), causing visual overlap, and odd-count pick orders (e.g. $N = 9$ on D12 or D6) produced asymmetric "missing-tooth" or single-corner defects. Separately, ability-to-belt assignment dragging was tangled with the vertical stance slider on the brass spherical badge, causing trailing guide rings to render offset.
+
+### Decision Drivers
+- Full geometric compatibility scaling smoothly from $N = 2$ up to $N = 20$ across all 7 dice types (`D4`, `D6`, `D8`, `D10`, `D12`, `D20`, `D100`).
+- Generous, balanced breathing gutters ($g \approx 9.5\text{px}$) with identical repeating edge-to-edge distances between hero and Ring 1, and between Ring 1 and Ring 2.
+- Strict bilateral mirror symmetry ($X \leftrightarrow -X$) across the vertical axis for all odd counts (e.g. $N = 9$), eliminating lonely corner defects.
+- Complete separation of tactile concerns: the spherical brass head (`.fh-belt-badge`) is exclusively the vertical stance slider; "the hood" (`.fh-belt-header`) is the trigger for ability-to-belt drag tracking.
+- Live-locked concentric contour ring with zero pixel offset.
+
+### Decision Outcome
+1. **20-Slot Multi-Ring Lattice Engine (`dice-tessellation.js`)**:
+   - `heroSize = count > 12 ? 86 : 104`, `petalSize = Math.round(heroSize * 0.5)` (strictly 50% scale), `gutter = count > 12 ? 8.0 : 9.5`.
+   - **D12 / D10 / D100**: Outer valley pentagons calibrated to $D_{\text{outer}} = \text{round}(D_{\text{inner}} \times 1.312) \approx 86.95\text{px}$ with radially stepped rotations (`innerRots = [180, 108, 36, 324, 252]`, `outerRots = [0, 72, 144, 216, 288]`), giving uniform $g = 9.5\text{px}$ gaps everywhere and ensuring facet pentagons align parallel to the central edges. Ring 3 adds 10 second-tier pentagons for $N = 11..20$.
+   - **D6**: 20 slots forming an interlocking Greek-cross perimeter frame with identical horizontal and vertical $g$ gutters.
+   - **D8**: 20 slots forming a 4-fold diagonal diamond lattice ($d_1 .. d_4$).
+   - **D4**: 20 slots forming an equilateral triangular lattice with 3-axis perpendicular distance $g$.
+   - **D20**: 20 slots forming a 3-tier hexagonal honeycomb with facet distance $D_1 + 2 A_P + g$ and apex distance $D_2 + 2 R_P + g$.
+2. **Bilateral Mirror Symmetry for Odd Counts**:
+   - For $N = 9$, D12 selects 5 inner facets + 2 Upper Flank valleys + 2 Lower Flank valleys (`sumX = 0.00`). D6 selects 8 edges + 1 centered top crown at $X = 0$ (`sumX = 0.00`). Left and right sides are 100% mirror images.
+3. **Decoupled Hood-Gesture & Live-Locked Contour Ring**:
+   - In `Sheet.jsx`: `.fh-belt-header` handles pointer hold ($\ge 110\text{ms}$) and drag ($> 4\text{px}$) for belt assignment, while quick tap toggles active bind.
+   - The brass badge (`.fh-belt-badge`) is purely the Advantage/Disadvantage slider.
+   - In `.fh-belt-drag-overlay`: reads `document.querySelector('.fh-belt-badge[data-ability-badge="..."]').getBoundingClientRect()` live on every frame, mathematically locking `(cx, cy, r)` to the live spherical head with 0px offset.
+   - In `BeltAbilities`: quick slots count上限 expanded from 9 to 20 (`count: Math.min(20, s.count + delta)`), and roll label updated to `${rollCount}d${s.die}`.
+
+### Consequences
+- **Positive:** Uncompromised aesthetic harmony up to 20 dice; zero collision or cramping; tactile gestures are completely disambiguated; 100% unit-tested math.
+- **Negative:** Viewport scale drops slightly from 104px to 86px when rolling $> 12$ dice to maintain safe stage bounds.
