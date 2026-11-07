@@ -21,6 +21,9 @@
 - [ADR-0011: Geometric Polyhedral Tessellation & Synchronized 3-Phase Juicy Roll Choreography](#adr-0011-geometric-polyhedral-tessellation--synchronized-3-phase-juicy-roll-choreography)
 - [ADR-0012: 20-Dice Multi-Ring Tessellation Lattices, Bilateral Mirror Symmetry, and Decoupled Hood-Gesture Ability Drag](#adr-0012-20-dice-multi-ring-tessellation-lattices-bilateral-mirror-symmetry-and-decoupled-hood-gesture-ability-drag)
 - [ADR-0013: Zero-Collision Geometric Calibration via Separating Axis Theorem (SAT) Across All Dice Types (N = 2..20)](#adr-0013-zero-collision-geometric-calibration-via-separating-axis-theorem-sat-across-all-dice-types-n--220)
+- [ADR-0014: 25% Proportional Scale Expansion for Dice Belt Mode and Honeycomb Hexads](#adr-0014-25-proportional-scale-expansion-for-dice-belt-mode-and-honeycomb-hexads)
+- [ADR-0015: Decoupled 4-Scope Stats Navigation, Gesture-Based Mobile Horizontal Swipe, Resistance Save Checkered Vignette, and Crimson Natural 1 Fumble Visuals](#adr-0015-decoupled-4-scope-stats-navigation-gesture-based-mobile-horizontal-swipe-resistance-save-checkered-vignette-and-crimson-natural-1-fumble-visuals)
+- [ADR-0016: Top-Bar 10-Tab Hierarchy, Mobile Horizontal Swipe Navigation, Save Vignette Ripple Pulse, and Non-d20 Half-Roll Disclosure](#adr-0016-top-bar-10-tab-hierarchy-mobile-horizontal-swipe-navigation-save-vignette-ripple-pulse-and-non-d20-half-roll-disclosure)
 
 ---
 
@@ -433,3 +436,66 @@ Additionally:
 ### Consequences
 - **Positive:** Greatly simplified cognitive hierarchy, zero vertical scroll fatigue on mobile, rich visual reinforcement for dramatic saving throws and fumble rolls, intuitive touch navigation.
 - **Negative:** Users must switch between scopes to view skills while on ability scores; mitigated by quick swipe gestures and persistent quick belt slots.
+
+---
+
+## ADR-0016: Top-Bar 10-Tab Hierarchy, Mobile Horizontal Swipe Navigation, Save Vignette Ripple Pulse, and Non-d20 Half-Roll Disclosure
+
+### Status
+Accepted
+
+### Context
+While the 4-scope stats navigation introduced in ADR-0015 addressed vertical scroll clutter, nesting sub-scopes inside the "Atributos" tab created unnecessary cognitive indirection and hidden navigation layers. The user explicitly requested:
+1. Promote the scopes into first-class top-bar tabs: "Atributos" must strictly hold SOLELY Ability Scores (+ Saving Throws / Dice Belt / Seals). Alongside it on the primary top bar, disclose separate tabs for "Perícias" (Skills), "Ferramentas" (Tools & Languages), and "Características" (Features, coupling class/subclass features, feats, and racial traits).
+2. Mobile horizontal swipe navigation on `.fh-tab-body` must directly cycle across all 10 tabs in this exact sequence:
+   `Play` <-> `Spells` <-> `Ability Scores` <-> `Skills` <-> `Tools` <-> `Features` <-> `Inventory` <-> `Story` <-> `Journal` <-> `NPCs`.
+3. High-visibility Resistance Saving Throw Checkered Vignette: previous translucent radial blend was undetectable on dark screens. Needs a rich, heraldic deep crimson and bronze checkerboard with dramatic pulse on the 750ms roll-off ripple.
+4. Non-d20 Multi-Dice Stack Half-Roll Disclosure: when rolling stacked dice that are not d20s (e.g. `8d6`, `10d10`, `4d8`), disclose as a dimmed number the half of the roll (rounded down) next to the rolled total inside the central hero die (`½X`) and in a companion pill under the stage (`½ METADE: X`).
+
+### Decision Drivers
+- **Zero Nested Nav Clutter**: Flatten the hierarchy so every domain has a distinct, 1-level accessible tab on the top bar.
+- **Intuitive Touch Ergonomics**: Swiping left/right flows naturally across the character sheet with 0 vertical scroll fatigue.
+- **Visual Contrast & Game Immersion**: High-contrast crimson/bronze heraldic vignette and saving throw shield banner make resistance rolls unmistakable.
+- **Math Accessibility (D&D 5e Half-Damage Mechanic)**: Automatically calculating and disclosing half-damage on spell/damage rolls saves mental arithmetic during combat.
+
+### Decision Outcome
+1. **Top-Bar 10-Tab Hierarchy (`SHEET_TABS`)**:
+   - `SHEET_TABS` defined in `frontend/components/Sheet.jsx`:
+     1. `play`: Jogar / Play (vitals, weapons, action trackers, short/long rest, wild shape).
+     2. `spells`: Magias / Spells (slots, prepared/known spells, spellbook).
+     3. `stats`: Atributos / Ability Scores (`SheetAbilities`: Dice belt / Ability seals + Saving throws with tap-to-roll).
+     4. `skills`: Perícias / Skills (`SheetSkills`: Passive Perception card, 18 SRD skills with 3-state proficiency cycling, skill features).
+     5. `tools`: Ferramentas / Tools (`SheetTools`: LanguagesField, Armor/Weapon/Tool proficiencies, custom textarea, proficiency features).
+     6. `features`: Características / Features (`SheetFeatures`: Class & Subclass features, Feats with origins and ASI summaries, Species traits).
+     7. `inv`: Inventário / Inventory (equipment, containers, currency, encumbrance).
+     8. `story`: História / Story (background, appearance, backstory, personality traits, alignment).
+     9. `notes`: Diário / Journal (campaign log, quest notes, session recaps).
+     10. `npcs`: NPCs / NPCs (allies, organizations, contacts).
+   - Removed nested `.fh-stats-scope-nav` sub-bar.
+
+2. **Mobile Horizontal Swipe Navigation**:
+   - `onTabBodyTouchEnd` evaluates horizontal displacement:
+     - Swipe left (`dx < 0`): Advances to next tab in `SHEET_TABS` sequence (`tabIdx + 1`).
+     - Swipe right (`dx > 0`): Returns to previous tab in `SHEET_TABS` sequence (`tabIdx - 1`).
+     - Thresholds: (|dx| \ge 48\text{px}), (|dx| > 1.35 \times |dy|), touch duration (< 700\text{ms}).
+     - Guarded against touches on inputs, textareas, sliders, dice belt components, and modal overlays.
+
+3. **High-Contrast Saving Throw Checkered Vignette & Ripple Pulse**:
+   - `.dice-save-checkered-vignette` in `dice-styles.css`:
+     - Patter: `repeating-conic-gradient(#66131c 0% 25%, #1f130b 25% 50%, #66131c 50% 75%, #1f130b 75% 100%)` at `52px 52px`.
+     - Outward radial feathering mask from 30% to 86%.
+     - Glowing inset box-shadow: `inset 0 0 80px rgba(255, 60, 75, 0.75), inset 0 0 160px rgba(102, 19, 28, 0.92)`.
+     - When `overlay.settled` fires at 750ms: triggers `@keyframes save-vignette-pulse`, flaring brightness to 2.1, expanding scale to 1.035, and radiating a crimson shockwave bloom.
+     - Added HUD saving throw shield banner `.dice-save-shield-banner` with `🛡️ TESTE DE RESISTÊNCIA` / `🛡️ SAVING THROW`.
+     - Expanded save detection regex across `DiceRoller.jsx` to include `/teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b|morte|death/i`.
+
+4. **Non-d20 Multi-Dice Stack Half-Roll Disclosure**:
+   - When `totalDiceCount > 1 && primaryDie !== 20`:
+     - Calculates `halfTotal = Math.floor(finalTotal / 2)`.
+     - Passes `halfValue={halfTotal}` to central hero die.
+     - `DieShape.jsx`: renders `.die-number-half` (`½{halfValue}`) next to `.die-number-val` with `font-size: 0.44em`, `opacity: 0.58`, and gold gleam.
+     - `DiceStage.jsx`: renders companion pill `.dice-stack-half-banner` beneath the flower stage (`½ METADE: {halfTotal}`).
+
+### Consequences
+- **Positive:** Extremely clean 1-level navigation with 10 direct tabs; zero scroll-to-switch fatigue on mobile; dramatic, unmistakable resistance save feedback with synchronized ripple pulse; instantaneous half-damage reference for combat spells and attacks.
+- **Negative:** Top-bar tab strip has 10 items, but `ScrollTabs` provides smooth horizontal scrolling with touch drag and `aria-selected` highlights.

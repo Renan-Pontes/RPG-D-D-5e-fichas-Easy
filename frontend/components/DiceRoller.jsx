@@ -174,7 +174,7 @@ const DiceRoller = ({ lang }) => {
 
   const rollParsed = useCallback((parsed, { label, adv = 'normal', isSave = false } = {}) => {
     const r = rollFormula(parsed, { adv });
-    const isSaveRoll = isSave || /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b/i.test(label || '');
+    const isSaveRoll = isSave || /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b|morte|death/i.test(label || '');
     return present({
       label: label || parsed.text,
       formula: parsed.text,
@@ -189,7 +189,7 @@ const DiceRoller = ({ lang }) => {
   const performRoll = useCallback(({ die = 20, count: cnt = 1, mod: m = 0, label = '', advMode: am, sheet: fromSheet, isSave } = {}) => {
     const parsed = parseFormula(`${cnt}d${die}${formatMod(m)}`);
     if (!parsed) return null;
-    const isSaveRoll = isSave ?? /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b/i.test(label || '');
+    const isSaveRoll = isSave ?? /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b|morte|death/i.test(label || '');
     const entry = rollParsed(parsed, { label, adv: am ?? advMode, isSave: isSaveRoll });
     if (fromSheet && entry) toTable(entry);
     return entry;
@@ -207,7 +207,7 @@ const DiceRoller = ({ lang }) => {
     }
     if (sendingRef.current) return null;
     const text = label || purposeLabel(purpose, lang) || parsed.text;
-    const isSaveRoll = isSave || /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b/i.test(text || '');
+    const isSaveRoll = isSave || /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b|morte|death/i.test(text || '');
     const shown = target === 'shown';
     const show = (r, extra) => present({
       label: text, formula: parsed.text,
@@ -245,7 +245,7 @@ const DiceRoller = ({ lang }) => {
     total: res.total,
     isCrit: !!res.isCrit,
     isFumble: !!res.isFumble,
-    isSave: !!res.isSave || /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b/i.test(res.label || ''),
+    isSave: !!res.isSave || /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b|morte|death/i.test(res.label || ''),
     adv: res.adv || 'normal',
     source: res.source || 'server',
     tableNote: res.tableNote,
@@ -656,6 +656,12 @@ const DiceRoller = ({ lang }) => {
             <div className={`dice-save-checkered-vignette${overlay.settled ? ' is-settled' : ''}`} aria-hidden="true" />
           )}
           <div className={`dice-overlay-inner ${overlay.settled && overlay.isCrit ? 'is-crit' : ''} ${overlay.settled && overlay.isFumble ? 'is-fumble' : ''}`}>
+            {overlay.isSave && (
+              <div className="dice-save-shield-banner" aria-hidden="true">
+                <span className="dice-save-shield-icon">🛡️</span>
+                <span className="dice-save-shield-title">{lang === 'pt' ? 'Teste de Resistência' : 'Saving Throw'}</span>
+              </div>
+            )}
             <DiceStage
               key={overlay.id}
               mode="2d"

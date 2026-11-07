@@ -45,14 +45,18 @@ import '../src/sheet/ficha.css';
 // Modal "Campanha" (atrelar, desatrelar, trocar): só carrega quando abre.
 const CampaignLinkModal = lazy(() => import('../src/sheet/CampaignLinkModal.jsx'));
 
-export const STAT_SCOPES = [
-  { id: 'abilities', labelPt: 'Atributos', labelEn: 'Abilities', icon: '⚡' },
-  { id: 'skills', labelPt: 'Perícias', labelEn: 'Skills', icon: '🎯' },
-  { id: 'tools', labelPt: 'Ferramentas', labelEn: 'Tools', icon: '⚒️' },
-  { id: 'features', labelPt: 'Características', labelEn: 'Features', icon: '📜' },
+export const SHEET_TABS = [
+  { id: 'play',     labelPt: 'Jogar',           labelEn: 'Play' },
+  { id: 'spells',   labelPt: 'Magias',          labelEn: 'Spells' },
+  { id: 'stats',    labelPt: 'Atributos',       labelEn: 'Ability Scores' },
+  { id: 'skills',   labelPt: 'Perícias',        labelEn: 'Skills' },
+  { id: 'tools',    labelPt: 'Ferramentas',     labelEn: 'Tools' },
+  { id: 'features', labelPt: 'Características', labelEn: 'Features' },
+  { id: 'inv',      labelPt: 'Inventário',      labelEn: 'Inventory' },
+  { id: 'story',    labelPt: 'História',        labelEn: 'Story' },
+  { id: 'notes',    labelPt: 'Diário',          labelEn: 'Journal' },
+  { id: 'npcs',     labelPt: 'NPCs',            labelEn: 'NPCs' },
 ];
-
-const SHEET_TABS = ['play', 'stats', 'spells', 'inv', 'story', 'notes', 'npcs'];
 
 // onCampaignChange(msg): a ficha entrou/saiu/trocou de campanha (modal "Campanha") —
 // o app recarrega a lista (char.inCampaign) e mostra `msg`. onLogin: ficha do aparelho,
@@ -60,7 +64,6 @@ const SHEET_TABS = ['play', 'stats', 'spells', 'inv', 'story', 'notes', 'npcs'];
 // backLabel: o texto do "voltar" quando a ficha foi aberta de outro lugar (a Mesa, V13).
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, backLabel, onLevelUp, onCampaignChange, onLogin, children }) => {
   const [tab, setTab] = useState('play');
-  const [statsScope, setStatsScope] = useState('abilities');
   const touchStartRef = useRef(null);
 
   const onTabBodyTouchStart = (e) => {
@@ -93,35 +96,16 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
       return;
     }
 
+    const tabIdx = SHEET_TABS.findIndex(t => t.id === tab);
     if (dx < 0) {
-      // Swiped Left -> Move forward
-      if (tab === 'stats') {
-        const curIdx = STAT_SCOPES.findIndex(s => s.id === statsScope);
-        if (curIdx < STAT_SCOPES.length - 1) {
-          setStatsScope(STAT_SCOPES[curIdx + 1].id);
-          return;
-        }
-      }
-      const tabIdx = SHEET_TABS.indexOf(tab);
-      if (tabIdx < SHEET_TABS.length - 1) {
-        const nextTab = SHEET_TABS[tabIdx + 1];
-        setTab(nextTab);
-        if (nextTab === 'stats') setStatsScope('abilities');
+      // Swiped Left -> Advance to next tab
+      if (tabIdx >= 0 && tabIdx < SHEET_TABS.length - 1) {
+        setTab(SHEET_TABS[tabIdx + 1].id);
       }
     } else {
-      // Swiped Right -> Move backward
-      if (tab === 'stats') {
-        const curIdx = STAT_SCOPES.findIndex(s => s.id === statsScope);
-        if (curIdx > 0) {
-          setStatsScope(STAT_SCOPES[curIdx - 1].id);
-          return;
-        }
-      }
-      const tabIdx = SHEET_TABS.indexOf(tab);
+      // Swiped Right -> Return to previous tab
       if (tabIdx > 0) {
-        const prevTab = SHEET_TABS[tabIdx - 1];
-        setTab(prevTab);
-        if (prevTab === 'stats') setStatsScope('features');
+        setTab(SHEET_TABS[tabIdx - 1].id);
       }
     }
   };
@@ -335,17 +319,15 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
       )}
 
       <ScrollTabs className="no-print" activeKey={tab} lang={lang} role="tablist" aria-label={lang === 'pt' ? 'Seções da ficha' : 'Sheet sections'}>
-        {[
-          { id: 'play',   label: t('tabPlay', lang) },
-          { id: 'stats',  label: t('tabStats', lang) },
-          { id: 'spells', label: t('tabSpells', lang) },
-          { id: 'inv',    label: t('tabInv', lang) },
-          { id: 'story',  label: t('tabStory', lang) },
-          { id: 'notes',  label: t('tabNotes', lang) },
-          { id: 'npcs',   label: lang === 'pt' ? 'NPCs' : 'NPCs' },
-        ].map(tb => (
-          <button key={tb.id} role="tab" aria-selected={tab === tb.id} className={`tab ${tab === tb.id ? 'active' : ''}`} onClick={() => setTab(tb.id)}>
-            {tb.label}
+        {SHEET_TABS.map(tb => (
+          <button
+            key={tb.id}
+            role="tab"
+            aria-selected={tab === tb.id}
+            className={`tab ${tab === tb.id ? 'active' : ''}`}
+            onClick={() => setTab(tb.id)}
+          >
+            {lang === 'pt' ? tb.labelPt : tb.labelEn}
           </button>
         ))}
       </ScrollTabs>
@@ -364,17 +346,34 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
           />
         )}
 
+        {tab === 'spells' && (
+          <SheetSpells char={char} lang={lang} update={update} slots={slots} roll={roll} placed={placed} />
+        )}
+
         {tab === 'stats' && (
-          <SheetStats
+          <SheetAbilities
             char={char} lang={lang} update={update}
-            profB={profB} passPerc={passPerc} roll={roll} placed={placed} cls={cls} race={race}
-            activeScope={statsScope}
-            onSelectScope={setStatsScope}
+            profB={profB} roll={roll}
           />
         )}
 
-        {tab === 'spells' && (
-          <SheetSpells char={char} lang={lang} update={update} slots={slots} roll={roll} placed={placed} />
+        {tab === 'skills' && (
+          <SheetSkills
+            char={char} lang={lang} update={update}
+            passPerc={passPerc} roll={roll} placed={placed}
+          />
+        )}
+
+        {tab === 'tools' && (
+          <SheetTools
+            char={char} lang={lang} update={update} placed={placed}
+          />
+        )}
+
+        {tab === 'features' && (
+          <SheetFeatures
+            char={char} lang={lang} placed={placed} cls={cls} race={race}
+          />
         )}
 
         {tab === 'inv' && (
@@ -3117,208 +3116,172 @@ const OtherFeatures = ({ char, lang, placed, cls }) => {
   );
 };
 
-const SheetStats = ({
-  char,
-  lang,
-  update,
-  profB,
-  passPerc,
-  roll,
-  placed,
-  cls,
-  race,
-  activeScope = 'abilities',
-  onSelectScope,
-}) => {
+export const SheetAbilities = ({ char, lang, update, profB, roll }) => {
   const pt = lang === 'pt';
-  const [internalScope, setInternalScope] = useState('abilities');
-  const scope = onSelectScope ? activeScope : internalScope;
-  const setScope = onSelectScope || setInternalScope;
-
   const [beltMode, setBeltMode] = useState(false);
   const profText = (level) => level === 2 ? (pt ? 'Especialista' : 'Expertise') : level ? (pt ? 'Treinado' : 'Proficient') : (pt ? 'Sem treino' : 'Not proficient');
-  const visibleSkills = beltMode
-    ? SRD.SKILLS.filter((s) => Utils.hasSkillProf(char, s.id) || Utils.hasExpertise(char, s.id))
-    : SRD.SKILLS;
+
+  return (
+    <div className="fh-scope-content fh-scope-abilities">
+      <section className="fh-panel">
+        <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{pt ? 'Atributos' : 'Ability Scores'}</FhTitle>
+        <label className="fh-honey-toggle">
+          <input type="checkbox" checked={beltMode} onChange={(e) => setBeltMode(e.target.checked)} />
+          <span>{pt ? 'Modo cinto de rolagem (belt)' : 'Dice belt mode'}</span>
+        </label>
+        {beltMode
+          ? <BeltAbilities char={char} lang={lang} roll={roll} profB={profB} />
+          : <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang)} />}
+      </section>
+
+      {!beltMode && (
+        <section className="fh-panel">
+          <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{pt ? 'Testes de Resistência' : 'Saving Throws'}</FhTitle>
+          <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(SRD.ABILITIES.length / 2) }}>
+            {SRD.ABILITIES.map(k => {
+              const bonus = Utils.saveBonus(char, k);
+              const isProf = Utils.hasSaveProf(char, k);
+              return (
+                <FhSkillRow key={k} name={t(k, lang)} abbr={t(k + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
+                  level={isProf ? 1 : 0}
+                  profTitle={profText(isProf ? 1 : 0)}
+                  profLabel={`${t(k, lang)}: ${profText(isProf ? 1 : 0)}`}
+                  onToggle={() => update({ saveProfs: isProf ? (char.saveProfs || []).filter(x => x !== k) : [...(char.saveProfs || []), k] })}
+                  onRoll={() => roll({ die: 20, mod: bonus, label: t(k, lang) + ' ' + t('saveRoll', lang), isSave: true })} />
+              );
+            })}
+          </div>
+          <FhProfLegend lang={lang} />
+        </section>
+      )}
+    </div>
+  );
+};
+
+export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
+  const pt = lang === 'pt';
+  const profText = (level) => level === 2 ? (pt ? 'Especialista' : 'Expertise') : level ? (pt ? 'Treinado' : 'Proficient') : (pt ? 'Sem treino' : 'Not proficient');
+
+  return (
+    <div className="fh-scope-content fh-scope-skills">
+      <section className="fh-panel">
+        <FhTitle sub={<>
+          <span>{t('passivePerception', lang)} <span className="fh-sub-hi">{passPerc}</span></span>
+          <span aria-hidden="true">·</span>
+          <span><FhTapToRoll lang={lang} /></span>
+        </>}>{t('skills', lang)}</FhTitle>
+        <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(SRD.SKILLS.length / 2) }}>
+          {SRD.SKILLS.map(s => {
+            const bonus = Utils.skillBonus(char, s.id);
+            const isProf = Utils.hasSkillProf(char, s.id);
+            const isExpert = Utils.hasExpertise(char, s.id);
+            const level = isExpert ? 2 : isProf ? 1 : 0;
+            return (
+              <FhSkillRow key={s.id} name={tName('skill', s.id, lang)} abbr={t(s.stat + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
+                level={level}
+                profTitle={profText(level)}
+                profLabel={`${tName('skill', s.id, lang)}: ${profText(level)}`}
+                onToggle={() => {
+                  if (isExpert) {
+                    update({ skillExpertise: (char.skillExpertise || []).filter(x => x !== s.id), skillProfs: (char.skillProfs || []).filter(x => x !== s.id) });
+                  } else if (isProf) {
+                    update({ skillExpertise: [...(char.skillExpertise || []), s.id] });
+                  } else {
+                    update({ skillProfs: [...(char.skillProfs || []), s.id] });
+                  }
+                }}
+                onRoll={() => roll({ die: 20, mod: bonus, label: tName('skill', s.id, lang) })} />
+            );
+          })}
+        </div>
+        <FhProfLegend lang={lang} expert />
+        {placed?.by?.skills && <FhFeatures items={placed.by.skills} multi={placed.multi} lang={lang} place="skills" />}
+      </section>
+    </div>
+  );
+};
+
+export const SheetTools = ({ char, lang, update, placed }) => {
+  const pt = lang === 'pt';
   const toolSummaries = [
     ...trainingLines(char, lang),
     ...(char.otherProfs ? [{ key: 'other', label: pt ? 'Outras proficiências' : 'Other proficiencies', text: char.otherProfs }] : []),
   ];
 
+  return (
+    <div className="fh-scope-content fh-scope-tools">
+      <section className="fh-panel">
+        <FhTitle>{pt ? 'Idiomas e Proficiências de Ferramentas' : 'Languages & Tool Proficiencies'}</FhTitle>
+        <LanguagesField char={char} lang={lang} update={update} />
+        {toolSummaries.map(tl => (
+          <div key={tl.key} className="text-sm" style={{ marginBottom: 6 }}>
+            <strong style={{ color: 'var(--gold-deep)' }}>{tl.label}:</strong> {tl.text}
+          </div>
+        ))}
+        {placed?.by?.proficiencies && (
+          <FhFeatures items={placed.by.proficiencies} multi={placed.multi} lang={lang} place="proficiencies" className="fh-cf-profs" />
+        )}
+        <div style={{ marginTop: 12 }}>
+          <label style={{ display: 'block', marginBottom: 4 }}>{pt ? 'Outras proficiências' : 'Other proficiencies'}</label>
+          <textarea
+            aria-label={pt ? 'Outras proficiências' : 'Other proficiencies'}
+            value={char.otherProfs || ''}
+            onChange={e => update({ otherProfs: e.target.value })}
+            placeholder={pt ? 'Ferramentas, armas adicionais, perícias manuais...' : 'Tools, extra weapons, custom proficiencies...'}
+            rows={3}
+          />
+        </div>
+      </section>
+    </div>
+  );
+};
+
+export const SheetFeatures = ({ char, lang, placed, cls, race }) => {
+  const pt = lang === 'pt';
   const speciesTraits = race?.traits || Utils.races(char.rulesVersion).find(r => r.id === char.race)?.traits || [];
 
   return (
-    <div className="fh-stats-container">
-      {/* 4 Dedicated Scopes Navigation (Abilities, Skills, Tools, Features) */}
-      <nav className="fh-stats-scope-nav" aria-label={pt ? 'Sub-áreas da ficha' : 'Sheet scopes'}>
-        {STAT_SCOPES.map(sc => (
-          <button
-            key={sc.id}
-            type="button"
-            className={`fh-scope-btn${scope === sc.id ? ' is-active' : ''}`}
-            onClick={() => setScope(sc.id)}
-            aria-current={scope === sc.id ? 'true' : undefined}
-          >
-            <span className="fh-scope-icon" aria-hidden="true">{sc.icon}</span>
-            <span className="fh-scope-label">{pt ? sc.labelPt : sc.labelEn}</span>
-          </button>
-        ))}
-      </nav>
+    <div className="fh-scope-content fh-scope-features">
+      {/* Class and Subclass Features */}
+      {placed && <OtherFeatures char={char} lang={lang} placed={placed} cls={cls} />}
 
-      {/* Scope 1: Ability Scores & Saving Throws */}
-      {scope === 'abilities' && (
-        <div className="fh-scope-content fh-scope-abilities">
-          <section className="fh-panel">
-            <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{pt ? 'Atributos' : 'Abilities'}</FhTitle>
-            <label className="fh-honey-toggle">
-              <input type="checkbox" checked={beltMode} onChange={(e) => setBeltMode(e.target.checked)} />
-              <span>{pt ? 'Modo cinto de rolagem (belt)' : 'Dice belt mode'}</span>
-            </label>
-            {beltMode
-              ? <BeltAbilities char={char} lang={lang} roll={roll} profB={profB} />
-              : <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang)} />}
-          </section>
-
-          {!beltMode && (
-            <section className="fh-panel">
-              <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{pt ? 'Testes de Resistência' : 'Saving Throws'}</FhTitle>
-              <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(SRD.ABILITIES.length / 2) }}>
-                {SRD.ABILITIES.map(k => {
-                  const bonus = Utils.saveBonus(char, k);
-                  const isProf = Utils.hasSaveProf(char, k);
-                  return (
-                    <FhSkillRow key={k} name={t(k, lang)} abbr={t(k + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
-                      level={isProf ? 1 : 0}
-                      profTitle={profText(isProf ? 1 : 0)}
-                      profLabel={`${t(k, lang)}: ${profText(isProf ? 1 : 0)}`}
-                      onToggle={() => update({ saveProfs: isProf ? (char.saveProfs || []).filter(x => x !== k) : [...(char.saveProfs || []), k] })}
-                      onRoll={() => roll({ die: 20, mod: bonus, label: t(k, lang) + ' ' + t('saveRoll', lang), isSave: true })} />
-                  );
-                })}
-              </div>
-              <FhProfLegend lang={lang} />
-            </section>
-          )}
-        </div>
-      )}
-
-      {/* Scope 2: Skills */}
-      {scope === 'skills' && (
-        <div className="fh-scope-content fh-scope-skills">
-          <section className="fh-panel">
-            <FhTitle sub={<>
-              <span>{t('passivePerception', lang)} <span className="fh-sub-hi">{passPerc}</span></span>
-              <span aria-hidden="true">·</span>
-              <span><FhTapToRoll lang={lang} /></span>
-            </>}>{t('skills', lang)}</FhTitle>
-            {beltMode && (
-              <div className="fh-belt-skill-note">
-                {pt ? 'Modo minimalista: somente perícias treinadas/especialistas.' : 'Minimal mode: proficient/expertise skills only.'}
-              </div>
-            )}
-            <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(Math.max(visibleSkills.length, 1) / 2) }}>
-              {visibleSkills.map(s => {
-                const bonus = Utils.skillBonus(char, s.id);
-                const isProf = Utils.hasSkillProf(char, s.id);
-                const isExpert = Utils.hasExpertise(char, s.id);
-                const level = isExpert ? 2 : isProf ? 1 : 0;
-                return (
-                  <FhSkillRow key={s.id} name={tName('skill', s.id, lang)} abbr={t(s.stat + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
-                    level={level}
-                    profTitle={profText(level)}
-                    profLabel={`${tName('skill', s.id, lang)}: ${profText(level)}`}
-                    onToggle={() => {
-                      if (isExpert) {
-                        update({ skillExpertise: (char.skillExpertise || []).filter(x => x !== s.id), skillProfs: (char.skillProfs || []).filter(x => x !== s.id) });
-                      } else if (isProf) {
-                        update({ skillExpertise: [...(char.skillExpertise || []), s.id] });
-                      } else {
-                        update({ skillProfs: [...(char.skillProfs || []), s.id] });
-                      }
-                    }}
-                    onRoll={() => roll({ die: 20, mod: bonus, label: tName('skill', s.id, lang) })} />
-                );
-              })}
-            </div>
-            {beltMode && visibleSkills.length === 0 && (
-              <p className="fh-belt-skill-note">
-                {pt ? 'Nenhuma perícia treinada ainda.' : 'No proficient skills yet.'}
-              </p>
-            )}
-            <FhProfLegend lang={lang} expert />
-            <FhFeatures items={placed.by.skills} multi={placed.multi} lang={lang} place="skills" />
-          </section>
-        </div>
-      )}
-
-      {/* Scope 3: Tools & Languages */}
-      {scope === 'tools' && (
-        <div className="fh-scope-content fh-scope-tools">
-          <section className="fh-panel">
-            <FhTitle>{pt ? 'Idiomas e Proficiências de Ferramentas' : 'Languages & Tool Proficiencies'}</FhTitle>
-            <LanguagesField char={char} lang={lang} update={update} />
-            {toolSummaries.map(tl => (
-              <div key={tl.key} className="text-sm" style={{ marginBottom: 6 }}>
-                <strong style={{ color: 'var(--gold-deep)' }}>{tl.label}:</strong> {tl.text}
+      {/* Feats / Talentos */}
+      {(char.feats || []).length > 0 && (
+        <section className="fh-panel">
+          <FhTitle>{pt ? 'Talentos' : 'Feats'}</FhTitle>
+          <div>
+            {char.feats.map((f, i) => (
+              <div key={i} className="text-sm" style={{ marginBottom: 8 }}>
+                <strong style={{ color: 'var(--gold-deep)' }}>{featName(char, f, lang)}</strong>
+                <span className="muted"> · {f.origin === 'background' ? (pt ? 'Antecedente' : 'Background') : f.origin === 'species' ? (pt ? 'Espécie' : 'Species') : `${pt ? 'Nv.' : 'Lv'} ${f.level}`}</span>
+                {f.asi && <span className="muted"> · {Object.entries(f.asi).map(([k, v]) => `${t(k + 'Sh', lang)} +${v}`).join(', ')}</span>}
+                {featSummary(f, lang) && <div className="text-xs" style={{ color: 'var(--ink-secondary)', marginTop: 2 }}>{featSummary(f, lang)}</div>}
+                {f.picks && <div className="text-xs muted">{featPicksText(f.picks, lang)}</div>}
+                {f.note && <span style={{ color: 'var(--ink-secondary)' }}> — {f.note}</span>}
               </div>
             ))}
-            <FhFeatures items={placed.by.proficiencies} multi={placed.multi} lang={lang} place="proficiencies" className="fh-cf-profs" />
-            <div>
-              <label>{pt ? 'Outras proficiências' : 'Other proficiencies'}</label>
-              <textarea
-                aria-label={pt ? 'Outras proficiências' : 'Other proficiencies'}
-                value={char.otherProfs || ''}
-                onChange={e => update({ otherProfs: e.target.value })}
-                placeholder={pt ? 'Ferramentas, armas adicionais, perícias manuais...' : 'Tools, extra weapons, custom proficiencies...'}
-              />
-            </div>
-          </section>
-        </div>
+          </div>
+        </section>
       )}
 
-      {/* Scope 4: Features (Class, Subclass, Feats & Species/Racial Traits) */}
-      {scope === 'features' && (
-        <div className="fh-scope-content fh-scope-features">
-          {/* Class and Subclass Features */}
-          <OtherFeatures char={char} lang={lang} placed={placed} cls={cls} />
-
-          {/* Feats / Talentos */}
-          {(char.feats || []).length > 0 && (
-            <section className="fh-panel">
-              <FhTitle>{pt ? 'Talentos' : 'Feats'}</FhTitle>
-              <div>
-                {char.feats.map((f, i) => (
-                  <div key={i} className="text-sm" style={{ marginBottom: 8 }}>
-                    <strong style={{ color: 'var(--gold-deep)' }}>{featName(char, f, lang)}</strong>
-                    <span className="muted"> · {f.origin === 'background' ? (pt ? 'Antecedente' : 'Background') : f.origin === 'species' ? (pt ? 'Espécie' : 'Species') : `${pt ? 'Nv.' : 'Lv'} ${f.level}`}</span>
-                    {f.asi && <span className="muted"> · {Object.entries(f.asi).map(([k, v]) => `${t(k + 'Sh', lang)} +${v}`).join(', ')}</span>}
-                    {featSummary(f, lang) && <div className="text-xs" style={{ color: 'var(--ink-secondary)', marginTop: 2 }}>{featSummary(f, lang)}</div>}
-                    {f.picks && <div className="text-xs muted">{featPicksText(f.picks, lang)}</div>}
-                    {f.note && <span style={{ color: 'var(--ink-secondary)' }}> — {f.note}</span>}
-                  </div>
-                ))}
+      {/* Species / Racial Traits */}
+      {speciesTraits.length > 0 && (
+        <section className="fh-panel">
+          <FhTitle>{pt ? `Traços de Espécie (${race?.name?.[lang] || char.race || 'Espécie'})` : `Species Traits (${race?.name?.[lang] || char.race || 'Species'})`}</FhTitle>
+          <div className="fh-traits">
+            {speciesTraits.map((t, idx) => (
+              <div key={idx} className="text-sm" style={{ marginBottom: 8 }}>
+                <strong style={{ color: 'var(--gold-deep)' }}>{t.name?.[lang] || t.name}:</strong>{' '}
+                <span>{t.desc?.[lang] || t.desc}</span>
               </div>
-            </section>
-          )}
-
-          {/* Species / Racial Traits */}
-          {speciesTraits.length > 0 && (
-            <section className="fh-panel">
-              <FhTitle>{pt ? `Traços de Espécie (${race?.name?.[lang] || char.race || 'Espécie'})` : `Species Traits (${race?.name?.[lang] || char.race || 'Species'})`}</FhTitle>
-              <div className="fh-traits">
-                {speciesTraits.map((t, idx) => (
-                  <div key={idx} className="text-sm" style={{ marginBottom: 8 }}>
-                    <strong style={{ color: 'var(--gold-deep)' }}>{t.name?.[lang] || t.name}:</strong>{' '}
-                    <span>{t.desc?.[lang] || t.desc}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );
 };
+
+export const SheetStats = SheetAbilities;
 
 export default Sheet;

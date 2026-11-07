@@ -207,9 +207,11 @@ export default function DiceStage({
   // and stacked side-to-side along the facets and corners with uniform breathing gutters!
   if (totalDiceCount > 1 && !className?.includes('cr-rr-stage')) {
     const primaryDie = groups[0]?.die || 6;
+    const isNonD20Stack = totalDiceCount > 1 && primaryDie !== 20;
     const effectiveTone = adv === 'adv' ? 'adv' : adv === 'dis' ? 'dis' : (isCrit ? 'crit' : isFumble ? 'fumble' : null);
     const naturalSum = allRolls.reduce((sum, r) => sum + (r.kept ? Number(r.value) || 0 : 0), 0);
     const finalTotal = total != null ? total : naturalSum;
+    const halfTotal = isNonD20Stack ? Math.floor(finalTotal / 2) : null;
 
     const tessellation = getTessellationLayout(primaryDie, totalDiceCount);
 
@@ -225,6 +227,7 @@ export default function DiceStage({
               die={primaryDie}
               value={naturalSum}
               targetValue={finalTotal}
+              halfValue={halfTotal}
               rolling={rolling2d}
               animated={isAnimatedStage}
               size={tessellation.heroSize}
@@ -266,6 +269,20 @@ export default function DiceStage({
               );
             })}
           </div>
+
+          {/* Half Total Disclosure Pill for Non-D20 Multi-Dice Stacks */}
+          {isNonD20Stack && !rolling2d && (
+            <div
+              className="dice-stack-half-banner"
+              aria-label={lang === 'pt' ? `Metade arredondada para baixo: ${halfTotal}` : `Half rounded down: ${halfTotal}`}
+            >
+              <span className="dice-half-pill">
+                <span className="dice-half-pill-sym">½</span>
+                <span className="dice-half-pill-label">{lang === 'pt' ? 'METADE:' : 'HALF:'}</span>
+                <span className="dice-half-pill-val">{halfTotal}</span>
+              </span>
+            </div>
+          )}
         </div>
       </div>
     );

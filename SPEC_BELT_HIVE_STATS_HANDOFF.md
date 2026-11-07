@@ -418,3 +418,37 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
 - **Verification**:
   - Full automated suite: 1,536 / 1,536 tests passing (100% green across 21 suites).
   - Production Vite build: 0 errors, 641 modules transformed in 13.84s.
+
+---
+
+## 16. Top-Bar 10-Tab Hierarchy, Mobile Swipe Navigation, Save Vignette Ripple Pulse & Non-d20 Half-Roll Disclosure
+
+- **Top-Bar 10-Tab Hierarchy (`SHEET_TABS`)**:
+  - The sub-scopes from Section 15 were promoted into top-level tabs on the main navigation bar (`SHEET_TABS` in `Sheet.jsx`):
+    $$\text{Jogar} \longleftrightarrow \text{Magias} \longleftrightarrow \text{Atributos} \longleftrightarrow \text{Perícias} \longleftrightarrow \text{Ferramentas} \longleftrightarrow \text{Características} \longleftrightarrow \text{Inventário} \longleftrightarrow \text{História} \longleftrightarrow \text{Diário} \longleftrightarrow \text{NPCs}$$
+  - **`stats` (Atributos / Ability Scores)**: Holds SOLELY Ability Scores (Dice Belt Mode or 3D Ability Seals) + Saving Throws (Testes de Resistência) with tap-to-roll.
+  - **`skills` (Perícias / Skills)**: Passive Perception card, full 18-skill SRD list with 3-state proficiency cycling, and contextual skill features.
+  - **`tools` (Ferramentas / Tools)**: LanguagesField, Armor/Weapon/Tool proficiencies, custom textarea, and proficiency features.
+  - **`features` (Características / Features)**: Unified features coupling Class & Subclass features, Feats with origins and ASI summaries, and Species traits.
+  - Nested `.fh-stats-scope-nav` sub-bar eliminated in favor of clean 1-level navigation.
+
+- **Mobile Horizontal Swipe Navigation**:
+  - Swiping left and right on `.fh-tab-body` directly transitions between all 10 tabs in sequence (`tabIdx + 1` on swipe left, `tabIdx - 1` on swipe right).
+  - Physics thresholds: (|dx| \ge 48\text{px}), (|dx| > 1.35 \times |dy|), duration (< 700\text{ms}).
+  - 60fps native momentum vertical scroll preserved via `touch-action: pan-y`. Form inputs, textareas, sliders, dice knobs, and belt slots protected from swipe conflicts.
+
+- **High-Contrast Saving Throw Checkered Vignette & Ripple Pulse**:
+  - Patter: `repeating-conic-gradient(#66131c 0% 25%, #1f130b 25% 50%, #66131c 50% 75%, #1f130b 75% 100%)` at `52px 52px` with outward radial feathering mask (30% to 86%) and deep crimson inset box-shadow (`rgba(255, 60, 75, 0.75)`).
+  - At 750ms roll-off ripple (`overlay.settled`): triggers `@keyframes save-vignette-pulse`, flaring brightness to 2.1, expanding scale to 1.035, and radiating a crimson shockwave bloom.
+  - HUD Saving Throw shield banner: `.dice-save-shield-banner` with `🛡️ TESTE DE RESISTÊNCIA` / `🛡️ SAVING THROW`.
+  - Save detection regex expanded to `/teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b|morte|death/i`.
+
+- **Non-d20 Multi-Dice Stack Half-Roll Disclosure**:
+  - On rolls with `totalDiceCount > 1 && primaryDie !== 20`:
+    - Discloses half of the rolled total rounded down (`Math.floor(finalTotal / 2)`).
+    - Rendered in central hero die: `.die-number-half` (`½{halfValue}`) next to `.die-number-val` with `0.44em` font-size and gold gleam.
+    - Rendered in stage companion pill: `.dice-stack-half-banner` with `½ METADE: {halfTotal}`.
+
+- **Verification**:
+  - Full automated suite: 1,536 / 1,536 tests passing (100% green across 20 suites).
+  - Production Vite build: 0 errors, 641 modules transformed in 15.76s.
