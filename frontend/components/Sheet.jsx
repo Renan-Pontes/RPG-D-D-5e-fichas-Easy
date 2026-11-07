@@ -48,11 +48,10 @@ const CampaignLinkModal = lazy(() => import('../src/sheet/CampaignLinkModal.jsx'
 
 export const SHEET_TABS = [
   { id: 'play',     labelPt: 'Jogar',           labelEn: 'Play' },
-  { id: 'spells',   labelPt: 'Magias',          labelEn: 'Spells' },
   { id: 'stats',    labelPt: 'Atributos',       labelEn: 'Ability Scores' },
   { id: 'skills',   labelPt: 'Perícias',        labelEn: 'Skills' },
-  { id: 'tools',    labelPt: 'Ferramentas',     labelEn: 'Tools' },
   { id: 'features', labelPt: 'Características', labelEn: 'Features' },
+  { id: 'spells',   labelPt: 'Magias',          labelEn: 'Spells' },
   { id: 'inv',      labelPt: 'Inventário',      labelEn: 'Inventory' },
   { id: 'story',    labelPt: 'História',        labelEn: 'Story' },
   { id: 'notes',    labelPt: 'Diário',          labelEn: 'Journal' },
@@ -100,6 +99,7 @@ const SheetHero = ({
   char,
   lang,
   onAvatar,
+  onAvatarPosition,
   onBack,
   backLabel,
   turnPanel,
@@ -117,6 +117,9 @@ const SheetHero = ({
   const pt = lang === 'pt';
   const letter = (char.name || '?').charAt(0).toUpperCase();
   const portrait = char.avatar || speciesArt(char.race) || classArt(char.className);
+  const heroArtPos = {
+    objectPosition: `${char.avatarPosition?.x ?? 50}% ${char.avatarPosition?.y ?? 22}%`
+  };
   return (
     <>
       <button className="btn btn-ghost btn-sm no-print" onClick={onBack} style={{ marginBottom: 12 }}>
@@ -126,7 +129,7 @@ const SheetHero = ({
       <div className="sheet-hero fh-hero">
         <div className="fh-hero-art" aria-hidden="true">
           <span className="fh-hero-mono">{letter}</span>
-          {portrait && <img key={portrait} src={portrait} alt="" onError={hideBrokenImg} />}
+          {portrait && <img key={portrait} src={portrait} alt="" onError={hideBrokenImg} style={heroArtPos} />}
           <FhConditionArt conditions={char.conditions} down={char.currentHp === 0} />
         </div>
         <div className="fh-hero-body">
@@ -176,7 +179,15 @@ const SheetHero = ({
           <span className="fh-insp-label">{t('inspiration', lang)}</span>
         </button>
         <div className="fh-hero-photo">
-          <AvatarUpload value={char.avatar} onChange={onAvatar} lang={lang} size={52} letter={letter} />
+          <AvatarUpload
+            value={char.avatar}
+            onChange={onAvatar}
+            position={char.avatarPosition}
+            onPositionChange={onAvatarPosition}
+            lang={lang}
+            size={52}
+            letter={letter}
+          />
           <span className="fh-hero-photo-badge" aria-hidden="true"><Icon name="image" size={11}/></span>
         </div>
       </div>
@@ -385,6 +396,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         char={char}
         lang={lang}
         onAvatar={(av) => update({ avatar: av })}
+        onAvatarPosition={(pos) => update({ avatarPosition: pos })}
         onBack={onBack}
         backLabel={backLabel}
         turnPanel={turnOnTop ? <CombatActionPanel panel={combatPanel} char={char} lang={lang} /> : null}
@@ -475,16 +487,10 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
           />
         )}
 
-        {tab === 'skills' && (
+        {(tab === 'skills' || tab === 'tools') && (
           <SheetSkills
             char={char} lang={lang} update={update}
             passPerc={passPerc} roll={roll} placed={placed}
-          />
-        )}
-
-        {tab === 'tools' && (
-          <SheetTools
-            char={char} lang={lang} update={update} placed={placed}
           />
         )}
 
@@ -3223,6 +3229,24 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
   const pt = lang === 'pt';
   const profText = (level) => level === 2 ? (pt ? 'Especialista' : 'Expertise') : level ? (pt ? 'Treinado' : 'Proficient') : (pt ? 'Sem treino' : 'Not proficient');
 
+  // Estado recolhível/dobrável para cada uma das 4 categorias de ações
+  const [collapsed, setCollapsed] = useState({
+    search: false,
+    hide: false,
+    influence: false,
+    study: false,
+  });
+
+  const toggleGroup = (groupId) => {
+    setCollapsed(prev => ({ ...prev, [groupId]: !prev[groupId] }));
+  };
+
+  const allCollapsed = Object.values(collapsed).every(Boolean);
+  const toggleAll = () => {
+    const nextVal = !allCollapsed;
+    setCollapsed({ search: nextVal, hide: nextVal, influence: nextVal, study: nextVal });
+  };
+
   return (
     <div className="fh-scope-content fh-scope-skills">
       <section className="fh-panel">
@@ -3232,55 +3256,89 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
           <span><FhTapToRoll lang={lang} /></span>
         </>}>{t('skills', lang)}</FhTitle>
 
-        {/* 4 Categorical Rows / Cards: Search, Hide, Influence, Study */}
+        <div className="fh-skills-toolbar no-print">
+          <button type="button" className="btn btn-ghost btn-xs fh-skills-collapse-all" onClick={toggleAll}>
+            {allCollapsed
+              ? (pt ? '▾ Expandir todas as ações' : '▾ Expand all actions')
+              : (pt ? '▸ Recolher todas as ações' : '▸ Collapse all actions')}
+          </button>
+        </div>
+
+        {/* 4 Categorical Rows / Foldable Cards: Search, Hide, Influence, Study */}
         <div className="fh-skill-categories-grid">
-          {SKILL_GROUPS.map(grp => (
-            <div key={grp.id} className="fh-skill-group-card card">
-              <div className="fh-skill-group-header">
-                <span className="fh-skill-group-icon" aria-hidden="true">{grp.icon}</span>
-                <span className="fh-skill-group-title">{grp.name[lang] || grp.name.pt}</span>
-                <span className="fh-skill-group-count">{grp.skillIds.length} {pt ? 'perícias' : 'skills'}</span>
+          {SKILL_GROUPS.map(grp => {
+            const isFolded = !!collapsed[grp.id];
+            let trainedCount = 0;
+            let expertCount = 0;
+            grp.skillIds.forEach(id => {
+              if (Utils.hasExpertise(char, id)) expertCount++;
+              else if (Utils.hasSkillProf(char, id)) trainedCount++;
+            });
+
+            const summaryPill = expertCount > 0 || trainedCount > 0
+              ? (pt ? `${trainedCount + expertCount}/${grp.skillIds.length} treinadas` : `${trainedCount + expertCount}/${grp.skillIds.length} trained`)
+              : (pt ? `${grp.skillIds.length} perícias` : `${grp.skillIds.length} skills`);
+
+            return (
+              <div key={grp.id} className={`fh-skill-group-card card ${isFolded ? 'is-collapsed' : ''}`}>
+                <button
+                  type="button"
+                  className="fh-skill-group-header"
+                  onClick={() => toggleGroup(grp.id)}
+                  aria-expanded={!isFolded}
+                  aria-controls={`fh-skill-group-${grp.id}`}
+                >
+                  <span className="fh-skill-group-chevron" aria-hidden="true">{isFolded ? '▸' : '▾'}</span>
+                  <span className="fh-skill-group-icon" aria-hidden="true">{grp.icon}</span>
+                  <span className="fh-skill-group-title">{grp.name[lang] || grp.name.pt}</span>
+                  <span className="fh-skill-group-count">{summaryPill}</span>
+                </button>
+                {!isFolded && (
+                  <div id={`fh-skill-group-${grp.id}`} className="fh-skills-group-list">
+                    {grp.skillIds.map(id => {
+                      const s = SRD.SKILLS.find(x => x.id === id) || { id, stat: 'wis' };
+                      const bonus = Utils.skillBonus(char, s.id);
+                      const isProf = Utils.hasSkillProf(char, s.id);
+                      const isExpert = Utils.hasExpertise(char, s.id);
+                      const level = isExpert ? 2 : isProf ? 1 : 0;
+                      const passive = 10 + bonus;
+                      return (
+                        <FhSkillRow
+                          key={s.id}
+                          name={tName('skill', s.id, lang)}
+                          abbr={t(s.stat + 'Sh', lang)}
+                          bonus={Utils.fmtMod(bonus)}
+                          passive={passive}
+                          level={level}
+                          lang={lang}
+                          profTitle={profText(level)}
+                          profLabel={`${tName('skill', s.id, lang)}: ${profText(level)}`}
+                          onToggle={() => {
+                            if (isExpert) {
+                              update({ skillExpertise: (char.skillExpertise || []).filter(x => x !== s.id), skillProfs: (char.skillProfs || []).filter(x => x !== s.id) });
+                            } else if (isProf) {
+                              update({ skillExpertise: [...(char.skillExpertise || []), s.id] });
+                            } else {
+                              update({ skillProfs: [...(char.skillProfs || []), s.id] });
+                            }
+                          }}
+                          onRoll={() => roll({ die: 20, mod: bonus, label: tName('skill', s.id, lang), isCheck: true })}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <div className="fh-skills-group-list">
-                {grp.skillIds.map(id => {
-                  const s = SRD.SKILLS.find(x => x.id === id) || { id, stat: 'wis' };
-                  const bonus = Utils.skillBonus(char, s.id);
-                  const isProf = Utils.hasSkillProf(char, s.id);
-                  const isExpert = Utils.hasExpertise(char, s.id);
-                  const level = isExpert ? 2 : isProf ? 1 : 0;
-                  const passive = 10 + bonus;
-                  return (
-                    <FhSkillRow
-                      key={s.id}
-                      name={tName('skill', s.id, lang)}
-                      abbr={t(s.stat + 'Sh', lang)}
-                      bonus={Utils.fmtMod(bonus)}
-                      passive={passive}
-                      level={level}
-                      lang={lang}
-                      profTitle={profText(level)}
-                      profLabel={`${tName('skill', s.id, lang)}: ${profText(level)}`}
-                      onToggle={() => {
-                        if (isExpert) {
-                          update({ skillExpertise: (char.skillExpertise || []).filter(x => x !== s.id), skillProfs: (char.skillProfs || []).filter(x => x !== s.id) });
-                        } else if (isProf) {
-                          update({ skillExpertise: [...(char.skillExpertise || []), s.id] });
-                        } else {
-                          update({ skillProfs: [...(char.skillProfs || []), s.id] });
-                        }
-                      }}
-                      onRoll={() => roll({ die: 20, mod: bonus, label: tName('skill', s.id, lang), isCheck: true })}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <FhProfLegend lang={lang} expert />
         {placed?.by?.skills && <FhFeatures items={placed.by.skills} multi={placed.multi} lang={lang} place="skills" />}
       </section>
+
+      {/* Ferramentas consolidadas na aba de Perícias (usar ferramentas é uma Ação e Teste de Atributo) */}
+      <SheetTools char={char} lang={lang} update={update} placed={placed} />
     </div>
   );
 };

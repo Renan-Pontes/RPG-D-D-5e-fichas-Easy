@@ -77,7 +77,7 @@ function DetailsStep({ char, set, lang }) {
 
       <div className="card" style={{ marginBottom: 'var(--s-4)', display: 'grid', gap: 'var(--s-3)' }}>
         <div className="creator-avatar">
-          <AvatarUpload value={char.avatar} onChange={(avatar) => set({ avatar })} lang={lang} size={72}
+          <AvatarUpload value={char.avatar} onChange={(avatar) => set({ avatar })} position={char.avatarPosition} onPositionChange={(pos) => set({ avatarPosition: pos })} lang={lang} size={72}
             letter={(char.name || '?').charAt(0).toUpperCase()} />
           <span className="muted text-xs">{char.avatar
             ? L(lang, 'Toque na foto para ver, trocar ou remover.', 'Tap the photo to view, change or remove it.')

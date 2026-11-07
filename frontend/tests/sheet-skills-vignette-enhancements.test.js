@@ -102,3 +102,52 @@ test('Item 6: Perícias divulgam pontuação Passiva e Bônus Ativo lado a lado'
   assert.match(fichaCss, /\.fh-skill-pass/);
   assert.match(fichaCss, /\.fh-skill-mod/);
 });
+
+test('Item 7: Remoção do fundo xadrez (checkered vignette) do roll-up mantendo o banner de escudo e feedback crítico', () => {
+  const rollerSrc = read('../components/DiceRoller.jsx');
+  assert.ok(!rollerSrc.includes('dice-save-checkered-vignette'), 'DiceRoller não deve renderizar dice-save-checkered-vignette');
+  assert.match(rollerSrc, /dice-save-shield-banner/);
+
+  const css = read('../src/dice/dice-styles.css');
+  assert.ok(!css.includes('.dice-save-checkered-vignette'), 'dice-styles.css não deve conter .dice-save-checkered-vignette');
+  assert.match(css, /.dice-save-shield-banner/);
+});
+
+test('Item 8: Sequência canônica de 9 abas (tools consolidada em skills) no SHEET_TABS', () => {
+  const sheetSrc = read('../components/Sheet.jsx');
+  assert.match(sheetSrc, /export const SHEET_TABS\s*=\s*\[/);
+
+  const tabsBlock = sheetSrc.slice(sheetSrc.indexOf('export const SHEET_TABS'), sheetSrc.indexOf('];', sheetSrc.indexOf('export const SHEET_TABS')));
+  const tabIds = [...tabsBlock.matchAll(/id:\s*'([^']+)'/g)].map(m => m[1]);
+
+  const expectedTabs = ['play', 'stats', 'skills', 'features', 'spells', 'inv', 'story', 'notes', 'npcs'];
+  assert.deepEqual(tabIds, expectedTabs, 'A ordem de SHEET_TABS deve corresponder exatamente à sequência esperada');
+});
+
+test('Item 9: Grade de perícias dobrável/recolhível por ação e aba Ferramentas consolidada em Perícias', () => {
+  const sheetSrc = read('../components/Sheet.jsx');
+  assert.match(sheetSrc, /const \[collapsed, setCollapsed\] = useState/);
+  assert.match(sheetSrc, /toggleGroup/);
+  assert.match(sheetSrc, /toggleAll/);
+  assert.match(sheetSrc, /fh-skills-collapse-all/);
+  assert.match(sheetSrc, /fh-skill-group-chevron/);
+  assert.match(sheetSrc, /aria-expanded=/);
+
+  const skillsFunctionBody = sheetSrc.slice(sheetSrc.indexOf('export const SheetSkills ='), sheetSrc.indexOf('export const SheetTools ='));
+  assert.match(skillsFunctionBody, /<SheetTools char=\{char\} lang=\{lang\} update=\{update\} placed=\{placed\} \/>/);
+});
+
+test('Item 10: Enquadramento e reposicionamento configurável do banner e avatar do personagem', () => {
+  const sheetSrc = read('../components/Sheet.jsx');
+  assert.match(sheetSrc, /char\.avatarPosition\?\.x/);
+  assert.match(sheetSrc, /char\.avatarPosition\?\.y/);
+  assert.match(sheetSrc, /onAvatarPosition=/);
+
+  const sharedSrc = read('../components/Shared.jsx');
+  assert.match(sharedSrc, /onPositionChange/);
+  assert.match(sharedSrc, /avatar-banner-preview/);
+  assert.match(sharedSrc, /avatar-position-controls/);
+  assert.match(sharedSrc, /handlePosX/);
+  assert.match(sharedSrc, /handlePosY/);
+  assert.match(sharedSrc, /setPreset/);
+});

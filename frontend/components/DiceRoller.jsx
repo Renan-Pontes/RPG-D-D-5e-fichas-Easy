@@ -666,9 +666,6 @@ const DiceRoller = ({ lang }) => {
       {/* === Overlay da rolagem (Minimalist & Clean Hero Die) === */}
       {overlay && (
         <div key={overlay.id} className="dice-overlay no-print" onClick={() => { sheetGate.settle(overlay.id); setOverlay(null); }} role="status" aria-live="polite">
-          {overlay.isSave && (
-            <div className={`dice-save-checkered-vignette${overlay.settled ? ' is-settled' : ''}`} aria-hidden="true" />
-          )}
           <div className={`dice-overlay-inner ${overlay.settled && overlay.isCrit ? 'is-crit' : ''} ${overlay.settled && overlay.isFumble ? 'is-fumble' : ''} ${overlay.isSave ? 'is-save' : ''}`}>
             {overlay.isSave && (
               <div className="dice-save-shield-banner" aria-hidden="true">

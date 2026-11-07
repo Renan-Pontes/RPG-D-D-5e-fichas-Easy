@@ -61,7 +61,7 @@ const StepIdentity = ({ char, set, lang, isNew }) => (
     <Filigree />
     <div style={{ display: 'grid', gap: 'var(--s-3)', gridTemplateColumns: '1fr' }}>
       <div className="creator-avatar">
-        <AvatarUpload value={char.avatar} onChange={(avatar) => set({ avatar })} lang={lang} size={72}
+        <AvatarUpload value={char.avatar} onChange={(avatar) => set({ avatar })} position={char.avatarPosition} onPositionChange={(pos) => set({ avatarPosition: pos })} lang={lang} size={72}
           letter={(char.name || '?').charAt(0).toUpperCase()} />
         <span className="muted text-xs">{char.avatar
           ? (lang === 'pt' ? 'Toque na foto para ver, trocar ou remover.' : 'Tap the photo to view, change or remove it.')

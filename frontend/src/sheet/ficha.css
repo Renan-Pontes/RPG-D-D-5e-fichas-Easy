@@ -5047,21 +5047,80 @@
   }
 }
 
+.ficha .fh-skills-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.ficha .fh-skills-collapse-all {
+  font-family: var(--display);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-secondary);
+  border: 1px solid rgba(224, 181, 94, 0.25);
+  border-radius: 4px;
+  padding: 4px 10px;
+  background: rgba(14, 10, 8, 0.45);
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ficha .fh-skills-collapse-all:hover {
+  color: var(--gold-bright);
+  border-color: var(--gold-bright);
+  background: rgba(224, 181, 94, 0.1);
+}
+
 .ficha .fh-skill-group-card {
   padding: 12px 14px;
   border: 1px solid rgba(224, 181, 94, 0.28);
   border-radius: 6px;
   background: rgba(14, 10, 8, 0.65);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  transition: padding 0.18s ease;
 }
 
-.ficha .fh-skill-group-header {
+.ficha .fh-skill-group-card.is-collapsed {
+  padding-bottom: 10px;
+}
+
+.ficha button.fh-skill-group-header {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(224, 181, 94, 0.18);
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-bottom: 8px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid rgba(224, 181, 94, 0.18);
+  padding: 4px 0 8px 0;
+  margin: 0 0 8px 0;
+  cursor: pointer;
+  text-align: left;
+  min-height: 44px;
+  transition: opacity 0.15s ease;
+}
+
+.ficha button.fh-skill-group-header:hover {
+  opacity: 0.9;
+}
+
+.ficha .fh-skill-group-card.is-collapsed button.fh-skill-group-header {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.ficha .fh-skill-group-chevron {
+  font-size: 0.95rem;
+  color: var(--gold-bright);
+  width: 14px;
+  display: inline-block;
+  line-height: 1;
 }
 
 .ficha .fh-skill-group-icon {
@@ -5084,10 +5143,11 @@
   font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.1em;
-  padding: 2px 8px;
+  padding: 3px 8px;
   border-radius: 999px;
   background: rgba(224, 181, 94, 0.12);
-  color: var(--ink-secondary);
+  color: var(--gold-bright);
+  border: 1px solid rgba(224, 181, 94, 0.22);
 }
 
 .ficha .fh-skills-group-list {

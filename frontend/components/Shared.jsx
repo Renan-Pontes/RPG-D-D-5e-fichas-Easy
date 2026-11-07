@@ -121,10 +121,21 @@ const compressAvatar = (file) => new Promise((resolve, reject) => {
   reader.readAsDataURL(file);
 });
 
-const AvatarUpload = ({ value, onChange, size = 84, letter, lang = 'pt' }) => {
+const AvatarUpload = ({
+  value,
+  onChange,
+  size = 84,
+  letter,
+  lang = 'pt',
+  position = { x: 50, y: 22 },
+  onPositionChange,
+}) => {
   const fileRef = useRef(null);
   const [viewing, setViewing] = useState(false);
   const pt = lang === 'pt';
+  const posX = typeof position?.x === 'number' ? position.x : 50;
+  const posY = typeof position?.y === 'number' ? position.y : 22;
+
   const pick = () => fileRef.current && fileRef.current.click();
   const handle = async (e) => {
     const f = e.target.files[0];
@@ -132,9 +143,23 @@ const AvatarUpload = ({ value, onChange, size = 84, letter, lang = 'pt' }) => {
     if (!f) return;
     try {
       onChange(await compressAvatar(f));
-      setViewing(false);
+      if (onPositionChange) onPositionChange({ x: 50, y: 22 });
+      setViewing(true);
     } catch { /* arquivo não é imagem legível — ignora */ }
   };
+
+  const handlePosX = (newX) => {
+    if (onPositionChange) onPositionChange({ x: Number(newX), y: posY });
+  };
+  const handlePosY = (newY) => {
+    if (onPositionChange) onPositionChange({ x: posX, y: Number(newY) });
+  };
+  const setPreset = (x, y) => {
+    if (onPositionChange) onPositionChange({ x, y });
+  };
+
+  const objPos = `${posX}% ${posY}%`;
+
   return (
     <>
       <div
@@ -142,22 +167,139 @@ const AvatarUpload = ({ value, onChange, size = 84, letter, lang = 'pt' }) => {
         style={{ width: size, height: size }}
         onClick={() => (value ? setViewing(true) : pick())}
         role="button"
-        title={value ? (pt ? 'Ver foto' : 'View photo') : (pt ? 'Adicionar foto' : 'Add photo')}
+        title={value ? (pt ? 'Ver e enquadrar foto' : 'View & frame photo') : (pt ? 'Adicionar foto' : 'Add photo')}
       >
         {value
-          ? <img src={value} alt="" />
+          ? <img src={value} alt="" style={{ objectPosition: objPos }} />
           : <span className="hero-avatar-letter">{letter || '?'}</span>}
       </div>
       <input ref={fileRef} type="file" accept="image/*" onChange={handle} style={{ display: 'none' }} />
       {viewing && value && (
         <Modal onClose={() => setViewing(false)}>
           <div className="avatar-viewer">
-            <img src={value} alt="" />
-            <div className="avatar-viewer-actions">
-              <button className="btn btn-primary" onClick={pick}>
+            <h3 style={{ margin: 0, fontFamily: 'var(--display)', color: 'var(--gold-bright)' }}>
+              {pt ? 'Enquadramento da Imagem' : 'Character Portrait Framing'}
+            </h3>
+
+            {/* Banner Preview Frame */}
+            <div className="avatar-viewer-preview-box" style={{ width: '100%', maxWidth: 420 }}>
+              <div style={{ fontSize: '0.78rem', color: 'var(--ink-secondary)', marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+                <span>{pt ? 'Prévia do Banner Superior' : 'Top Banner Preview'}</span>
+                <span>{posX}% · {posY}%</span>
+              </div>
+              <div
+                className="avatar-banner-preview"
+                style={{
+                  width: '100%',
+                  height: 110,
+                  borderRadius: 6,
+                  overflow: 'hidden',
+                  border: '1px solid var(--gold-deep)',
+                  background: 'rgba(0,0,0,0.6)',
+                  position: 'relative',
+                }}
+              >
+                <img
+                  src={value}
+                  alt=""
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    objectPosition: objPos,
+                    display: 'block',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Circular Token Preview */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div
+                style={{
+                  width: 58,
+                  height: 58,
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  border: '2px solid var(--gold-bright)',
+                  boxShadow: '0 0 12px rgba(224, 181, 94, 0.4)',
+                  flexShrink: 0,
+                }}
+              >
+                <img
+                  src={value}
+                  alt=""
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    objectPosition: objPos,
+                  }}
+                />
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--ink-secondary)' }}>
+                {pt ? 'Ajuste os controles abaixo para centralizar o rosto ou corpo no banner superior e no token redondo.'
+                    : 'Adjust the sliders below to center your character\'s face or body in the banner and token.'}
+              </div>
+            </div>
+
+            {/* Framing Sliders */}
+            <div className="avatar-position-controls" style={{ width: '100%', maxWidth: 420, display: 'grid', gap: 10 }}>
+              <div>
+                <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: 2 }}>
+                  <span>{pt ? 'Posição Horizontal (X)' : 'Horizontal Framing (X)'}</span>
+                  <span style={{ color: 'var(--gold-bright)', fontWeight: 600 }}>{posX}%</span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={posX}
+                  onChange={(e) => handlePosX(e.target.value)}
+                  style={{ width: '100%', accentColor: 'var(--gold-bright)' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: 2 }}>
+                  <span>{pt ? 'Posição Vertical / Altura (Y)' : 'Vertical Framing (Y)'}</span>
+                  <span style={{ color: 'var(--gold-bright)', fontWeight: 600 }}>{posY}%</span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={posY}
+                  onChange={(e) => handlePosY(e.target.value)}
+                  style={{ width: '100%', accentColor: 'var(--gold-bright)' }}
+                />
+              </div>
+
+              {/* Quick Presets */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginTop: 4 }}>
+                <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPreset(50, 15)}>
+                  👤 {pt ? 'Topo / Cabeça' : 'Top / Head'}
+                </button>
+                <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPreset(50, 50)}>
+                  🎯 {pt ? 'Centro' : 'Center'}
+                </button>
+                <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPreset(50, 85)}>
+                  🛡️ {pt ? 'Base' : 'Bottom'}
+                </button>
+                <button type="button" className="btn btn-ghost btn-xs" onClick={() => setPreset(50, 22)}>
+                  ↺ {pt ? 'Padrão' : 'Reset'}
+                </button>
+              </div>
+            </div>
+
+            <div className="avatar-viewer-actions" style={{ marginTop: 8 }}>
+              <button type="button" className="btn btn-primary" onClick={() => setViewing(false)}>
+                ✓ {pt ? 'Pronto' : 'Done'}
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={pick}>
                 <Icon name="upload" size={14}/> {pt ? 'Alterar foto' : 'Change photo'}
               </button>
-              <button className="btn btn-ghost" onClick={() => { onChange(''); setViewing(false); }}>
+              <button type="button" className="btn btn-ghost btn-danger" onClick={() => { onChange(''); setViewing(false); }}>
                 {pt ? 'Remover' : 'Remove'}
               </button>
             </div>

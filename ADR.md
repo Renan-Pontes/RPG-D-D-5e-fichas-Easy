@@ -642,3 +642,42 @@ We implemented a two-tier universal recognition and execution architecture:
 ### Consequences
 - **Positive:** Players can now tap any dice notation anywhere in the app to roll immediately. Reduces cognitive load, eliminates manual formula entry, and speeds up combat and feature execution.
 - **Verification:** 6/6 tests in `frontend/tests/dice-text-click-roll.test.js` passed; 1,548/1,548 total frontend unit tests passed across 21 suites; clean production Vite build in 9.85s.
+
+
+## ADR-0020: Foldable 4-Action Skills Grid, Tools Consolidation, Rollup Checkered Vignette Removal, and Configurable Character Portrait Framing
+
+### Status
+Accepted & Implemented (2026-11-07)
+
+### Context
+Following player feedback and usability testing across mobile devices and desktop browsers:
+1. **Roll-up Visual Artifacts**: The checkered background vignette (`.dice-save-checkered-vignette`) introduced for resistance saving throws caused browser rendering inconsistencies and visual noise, especially on non-mobile viewports. Players requested removing the checkered background entirely while preserving the saving throw HUD shield banner, natural 1 red fumble effects, and half-roll disclosure.
+2. **Tab Hierarchy & Cognitive Clutter**: The main sheet navigation had 10 tabs, with "Tools" separated from "Skills". In D&D 2024 rules, using a tool is an Action and simultaneously an Ability Check (e.g. Thieves' Tools using Dexterity). Players requested consolidating the Tools section directly into the Skills tab and establishing a canonical 9-tab sequence: `Play -> Ability Scores -> Skills -> Features -> Spells -> Inventory -> Story -> Journal -> NPCs`.
+3. **Skills Navigation Ergonomics**: The 18 SRD skills organized into the 4 canonical D&D action categories (Search, Hide & Agility, Influence, Study) needed to be collapsible/foldable by category to reduce vertical scrolling and allow swift, compact inspection on mobile screens.
+4. **Character Banner Cropping / Positioning**: Character portrait images frequently ended up "off-centered" in the top landscape hero banner (`.fh-hero-art img`) because different images have different aspect ratios and head positions. Players needed an intuitive way to configure the horizontal (X) and vertical (Y) framing when uploading or viewing character art.
+
+### Decision Outcome
+1. **Checkered Vignette Removal**:
+   - Removed `.dice-save-checkered-vignette` rendering from `DiceRoller.jsx` and eliminated the associated CSS animations and gradients from `dice-styles.css`.
+   - Preserved the heraldic saving throw shield toast banner (`🛡️ TESTE DE RESISTÊNCIA` / `🛡️ SAVING THROW`), ability check toast banner (`🎯 TESTE DE ATRIBUTO`), critical failure red styling, and half-roll disclosure for non-d20 rolls.
+2. **Canonical 9-Tab Flow & Tools Consolidation**:
+   - Updated `SHEET_TABS` to the 9 canonical tabs: `play`, `stats` (Ability Scores), `skills` (Skills & Tools), `features` (Features & Species Traits), `spells`, `inv`, `story`, `notes` (Journal), and `npcs`.
+   - Embedded `<SheetTools />` (Languages, Armor, Weapon, Tool proficiencies, and custom proficiencies) directly at the bottom of the `Skills` tab (`SheetSkills`).
+   - Mobile swipe gestures cycle seamlessly across this exact 9-tab sequence.
+3. **Foldable 4-Action Skills Grid**:
+   - Transformed each action category header (`Search`, `Hide & Agility`, `Influence`, `Study`) into an accessible button with interactive folding state (`collapsed` state dictionary).
+   - Added chevron indicators (`▾` expanded, `▸` folded), trained/expert proficiency summary badges (e.g. `2/3 treinadas`), and an "Expand all / Collapse all" toolbar toggle.
+   - All toggle headers maintain $\ge 44\text{px}$ touch targets conforming to WCAG AAA standards.
+4. **Configurable Character Portrait & Banner Framing**:
+   - Added `char.avatarPosition = { x: number, y: number }` to character model (default `{ x: 50, y: 22 }`).
+   - Applied dynamic `objectPosition` styling to `.fh-hero-art img` in `SheetHero` and circular token images in `AvatarUpload`.
+   - Upgraded `AvatarUpload` in `Shared.jsx` with a full framing studio modal:
+     - Real-time wide banner framing preview card (16:9 proportion).
+     - Circular token preview card.
+     - Interactive Horizontal Framing (X: 0%–100%) and Vertical Framing (Y: 0%–100%) sliders.
+     - Quick preset buttons: Top / Head (`50%, 15%`), Center (`50%, 50%`), Bottom (`50%, 85%`), and Reset (`50%, 22%`).
+   - Integrated across `Sheet.jsx`, `Creator.jsx`, and `details.jsx`.
+
+### Consequences
+- **Positive**: Clean, artifact-free dice roll overlay; uncluttered 9-tab sequence with unified action and check workflows; fast collapsible skills inspection; pixel-perfect character portrait alignment on mobile and desktop.
+- **Verification**: 10/10 tests in `sheet-skills-vignette-enhancements.test.js` passing; 1,552/1,552 total frontend unit tests green across 20 suites; clean Vite production build in 9.36s.
