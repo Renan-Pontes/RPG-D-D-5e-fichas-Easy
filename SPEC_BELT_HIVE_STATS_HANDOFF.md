@@ -187,7 +187,7 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
 
 ---
 
-## 9. Hold-to-Roll, Non-Intersecting Satellite, Contoured Drag Ring & Specular Sheen (Commit Pending)
+## 9. Hold-to-Roll, Non-Intersecting Satellite, Contoured Drag Ring & Specular Sheen (Verified in Commit 2090f36)
 
 - **Hold-to-Roll & Tap-to-Deactivate D20 Stance**:
   - Quick dice rolls on the belt require a deliberate hold ($\ge 220$ms) followed by release (`pointerup`) to launch a roll, preventing accidental roll firing.
@@ -198,12 +198,27 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
   - Dragging an ability score now initiates smoothly on $\ge 6$px movement or 150ms hold.
   - Global `window` listeners with `{ capture: true }` and `touch-action: none !important;` guarantee pointer release is 100% reliably captured, even on touch devices where native scrolling could trigger `pointercancel`.
   - Magnetic slot detection with a generous 36px tolerance and centroid distance snapping (`getSlotAtPoint`) ensures assignment is never lost due to finger release jitter.
-- **Non-Intersecting Edge-to-Edge Satellite Unpicked Die**:
-  - The unpicked die in Advantage/Disadvantage is docked at `right: -38px; bottom: -10px;`.
-  - Its bounding box ($x \in [108, 156]$) sits completely outside the hero die's rightmost facet vertex ($x = 105.7$), preserving a crisp 8px-10px negative space margin with zero tangent collisions or border intersections.
-- **Contoured Arcane Drag Ring (Zero Number Occlusion)**:
-  - Replaced solid filled circle with a dual-ring contour (`.fh-drag-trail-contour` and `.fh-drag-trail-contour-accent`) with `fill: none !important;`, wrapping around the perimeter of the ability score knob ($r = 20$).
-  - The trailing bezier guide emerges strictly outside the contour perimeter ($offset = 22$px), ensuring the ability score number inside the knob remains 100% visible, centered, and readable at all times.
 - **Oscillating Specular Reflection Sheen Wave Across Belt Hexads**:
   - When PB is active (`.fh-belt.is-pb-active`), all 4 belt hexads (Master PB, Slot 1, Slot 2, Slot 3) gain an oscillating specular reflection sheen (`.fh-belt-sheen`).
   - Staggered animation delays (PB: 0s, Slot 0: 0.32s, Slot 1: 0.64s, Slot 2: 0.96s) create a continuous, shimmering luster wave gliding from left to right across the entire belt row.
+
+---
+
+## 10. Seamless Gapless Stud Contour, 50% Satellite Die & Geometric Flower Accumulation Layout
+
+- **Seamless, Gapless Tight Contour of Ability Score Stud Knob**:
+  - Eliminated the floating outer accent ring and calibrated the drag contour directly to the live bounding box of the brass knob (`.fh-belt-badge`).
+  - Exact centroid coordinates $(x_{center}, y_{center})$ and radius $r \approx 13.5\text{px}$ are queried dynamically via `getBadgeAnchor()`.
+  - Contour circle radius set to $r + 0.6\text{px}$ with a $2.2\text{px}$ neon stroke (`.fh-drag-trail-contour`), hugging the outer rim of the circular brass badge 100% seamlessly and gaplessly.
+  - Dashed bezier guide emerges at $offset = r + 1.8\text{px}$, originating strictly outside the knob's edge with zero overlap over the deeply etched score number.
+  - Transition from knob drag to ability-to-belt assignment initiates cleanly whenever drag distance exceeds $14\text{px}$, supporting gestures starting from either the knob or the hexad tile.
+- **Enlarged 50% Scale Satellite Unpicked Die with Non-Intersecting Edge Docking**:
+  - In Advantage and Disadvantage rolls, the unpicked discarded die is scaled to **exactly 50% of the hero die** (`size={60}` against the $120\text{px}$ hero die).
+  - Docked at `right: -42px; bottom: -16px;`, aligning its top-left diagonal facet parallel to the hero die's bottom-right diagonal facet with an exact $11\text{px}$ negative-space breathing gap.
+  - Preserves zero tangent collisions, zero overlapping quad boundaries, and an unclipped $380\text{px}$ radial atmospheric glow.
+- **Geometric Flower Layout for Multi-Dice Accumulation Rolls**:
+  - When multiple dice are accumulated and rolled simultaneously ($N \ge 2$, e.g. `5d6`, `7d12`, `4d8`), they automatically assemble into a **Geometric Flower stage** (`.dice-flower-stage`):
+    - **Central Hero Die**: Single hero die (`size={100}` to `110px`) matching the primary rolled die type, displaying the **consolidated total sum of the roll**, complete with smooth roll-up count animation and critical hit Art Deco styling.
+    - **Radial Petal Dice**: The $N$ individual rolled dice are arranged radially around the center die at radius $R \in [84\text{px}, 115\text{px}]$ and angles $\theta_i = -\frac{\pi}{2} + \frac{2\pi \cdot i}{N}$.
+    - **Geometric Rosette Alignment**: Each petal die's SVG polygon is rotated by $( \theta_i + \frac{\pi}{2} )$ to point outward radially matching the polyhedral die geometry, while the inner number span remains upright, horizontal, and legible at all times.
+    - **Dimmed Component Values**: Constituent rolled numbers on the outer petals are dimmed (`opacity: 0.38` via `.die-shape.is-petal-die`) so players can easily inspect individual results while keeping the center die as the clear primary focal point.

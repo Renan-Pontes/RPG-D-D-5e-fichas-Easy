@@ -25,6 +25,7 @@ export default function DieShape({
   isHero = false,
   isCrit = false,
   lang = 'pt',
+  petalAngle = null,
 }) {
   const [displayVal, setDisplayVal] = useState(value);
 
@@ -82,17 +83,24 @@ export default function DieShape({
     '--my3': `${-5 - rand(8) * 15}vh`,
     '--rot': `${1440 + Math.floor(rand(9) * 720)}deg`,
     '--dur': `${1.2 + rand(10) * 0.4}s`,
-  } : { width: size, height: size, opacity: dimmed ? 0.22 : 1 };
+  } : { width: size, height: size, opacity: dimmed ? (petalAngle != null ? 0.38 : 0.32) : 1 };
 
   const isPt = lang === 'pt' || !lang;
+  const isPetal = petalAngle != null;
 
   return (
     <div
-      className={`die-shape die-d${die} ${rolling ? 'rolling' : ''}${tone ? ` tone-${tone}` : ''}${dimmed ? ' is-unpicked' : ''}${isHero ? ' is-hero' : ''}${isCrit && !rolling ? ' is-crit-artdeco' : ''}`}
+      className={`die-shape die-d${die} ${rolling ? 'rolling' : ''}${tone ? ` tone-${tone}` : ''}${dimmed ? ' is-unpicked' : ''}${isHero ? ' is-hero' : ''}${isPetal ? ' is-petal-die' : ''}${isCrit && !rolling ? ' is-crit-artdeco' : ''}`}
       style={style}
       aria-hidden="true"
     >
-      <svg viewBox="0 0 100 100" width={size} height={size} className="die-main-svg">
+      <svg
+        viewBox="0 0 100 100"
+        width={size}
+        height={size}
+        className="die-main-svg"
+        style={petalAngle != null ? { transform: `rotate(${petalAngle}deg)`, transformOrigin: 'center' } : undefined}
+      >
         <path d={DICE_FACES[die] || DICE_FACES[20]} className="die-poly" />
       </svg>
       <span className="die-number" style={{ fontSize: size * 0.38 }}>

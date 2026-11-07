@@ -1829,11 +1829,42 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
     e.currentTarget.setPointerCapture?.(pointerId);
   };
 
+  const getBadgeAnchor = () => {
+    const badgeEl = hexRef.current ? hexRef.current.querySelector('.fh-belt-badge') : null;
+    if (badgeEl) {
+      const rect = badgeEl.getBoundingClientRect();
+      return {
+        startX: rect.left + rect.width / 2,
+        startY: rect.top + rect.height / 2,
+        radius: rect.width / 2,
+      };
+    }
+    const rect = hexRef.current ? hexRef.current.getBoundingClientRect() : null;
+    return rect ? {
+      startX: rect.left + rect.width / 2,
+      startY: rect.top + rect.height * 0.45,
+      radius: 13.5,
+    } : null;
+  };
+
   const onBadgePointerMove = (e) => {
     e.stopPropagation();
     const g = gestureRef.current;
     if (!g.pointerId) return;
     const dy = e.clientY - g.startY;
+    const dx = e.clientX - (g.startX || e.clientX);
+    const dist = Math.hypot(dx, dy);
+
+    // If dragging towards belt (> 14px), smoothly hand over to ability-to-belt assignment drag!
+    if (dist > 14 && onStartDrag) {
+      try { e.currentTarget.releasePointerCapture?.(g.pointerId); } catch (_) {}
+      gestureRef.current = { startY: 0, moved: false, pointerId: null };
+      setIsPulling(false);
+      setPullY(0);
+      onStartDrag(k, e, getBadgeAnchor());
+      return;
+    }
+
     if (Math.abs(dy) > 4) {
       g.moved = true;
       setPullY(Math.max(-8, Math.min(8, dy)));
@@ -1901,8 +1932,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
     const startY = e.clientY;
 
     const timer = setTimeout(() => {
-      const rect = hexRef.current ? hexRef.current.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
-      onStartDrag?.(k, { clientX: startX, clientY: startY }, rect);
+      onStartDrag?.(k, { clientX: startX, clientY: startY }, getBadgeAnchor());
     }, 150);
 
     hexDragRef.current = { startX, startY, active: true, timer };
@@ -1915,8 +1945,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
     if (dist > 6 && onStartDrag) {
       if (h.timer) clearTimeout(h.timer);
       hexDragRef.current = { startX: 0, startY: 0, active: false, timer: null };
-      const rect = hexRef.current ? hexRef.current.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
-      onStartDrag(k, e, rect);
+      onStartDrag(k, e, getBadgeAnchor());
     }
   };
 
@@ -2763,16 +2792,17 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
     };
   }, [dragLink != null]);
 
-  const onStartAbilityDrag = (k, e, hexRect) => {
-    const startX = hexRect.left + hexRect.width / 2;
-    // The round slider knob is centered at top: 45% of the hexad!
-    const startY = hexRect.top + hexRect.height * 0.45;
+  const onStartAbilityDrag = (k, e, anchor) => {
+    const startX = anchor?.startX ?? (anchor?.left != null ? anchor.left + anchor.width / 2 : e.clientX);
+    const startY = anchor?.startY ?? (anchor?.top != null ? anchor.top + anchor.height * 0.45 : e.clientY);
+    const radius = anchor?.radius ?? 13.5;
     const targetSlot = getSlotAtPoint(e.clientX, e.clientY);
     lastTargetSlotRef.current = targetSlot;
     setDragLink({
       ability: k,
       startX,
       startY,
+      radius,
       currentX: e.clientX,
       currentY: e.clientY,
       targetSlot,
@@ -2859,8 +2889,10 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
         const dx = dragLink.currentX - dragLink.startX;
         const dy = dragLink.currentY - dragLink.startY;
         const dist = Math.hypot(dx, dy);
-        const contourRadius = 20; // knob radius
-        const offset = 22; // starts outside the contour ring
+        const radius = dragLink.radius || 13.5;
+        // Tightly contours the round badge rim seamlessly and gaplessly
+        const contourRadius = radius + 0.6;
+        const offset = radius + 1.8; // starts cleanly outside the contour stroke
         const x0 = dist > offset ? dragLink.startX + (dx / dist) * offset : dragLink.startX;
         const y0 = dist > offset ? dragLink.startY + (dy / dist) * offset : dragLink.startY;
         const midX = (x0 + dragLink.currentX) / 2;
@@ -2868,18 +2900,12 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
 
         return (
           <svg className="fh-belt-drag-overlay" aria-hidden="true">
-            {/* Luminous Contour Rings surrounding the knob without obscuring the ability number */}
+            {/* Luminous Contour Ring tightly hugging the round badge rim gaplessly */}
             <circle
               className={`fh-drag-trail-contour tone-${dragLink.ability}`}
               cx={dragLink.startX}
               cy={dragLink.startY}
               r={contourRadius}
-            />
-            <circle
-              className={`fh-drag-trail-contour-accent tone-${dragLink.ability}`}
-              cx={dragLink.startX}
-              cy={dragLink.startY}
-              r={contourRadius + 4}
             />
 
             {/* Trailing dashed guide starting strictly outside the contour ring */}

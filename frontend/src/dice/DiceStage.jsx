@@ -104,7 +104,7 @@ export default function DiceStage({
   const isStance = adv === 'adv' || adv === 'dis';
 
   // In stance mode (Advantage or Disadvantage), highlight the hero die at center
-  // and nest the unpicked die at the lower-right edge of the hexagonal shape!
+  // and nest the unpicked die at the lower-right edge of the hexagonal shape at 50% scale!
   if (isStance && groups && groups.length > 0) {
     const g = groups[0];
     const rolls = g.rolls || [];
@@ -134,7 +134,7 @@ export default function DiceStage({
                 die={g.die}
                 value={rolling2d ? '' : unpickedVal}
                 rolling={rolling2d}
-                size={48}
+                size={60}
                 dimmed={true}
                 lang={lang}
               />
@@ -145,19 +145,32 @@ export default function DiceStage({
     );
   }
 
-  // Single die roll (e.g. 1d20, 1d12, 1d100) — display as hero die at center
-  const isSingleDie = groups && groups.length === 1 && (groups[0].rolls || []).length === 1;
-  if (isSingleDie) {
-    const g = groups[0];
-    const r = g.rolls[0];
+  // Extract all individual dice rolls across groups
+  const allRolls = (groups || []).flatMap((g, gi) => (g.rolls || []).map((r, i) => {
     const v = typeof r === 'object' && r ? r.value : r;
+    const kept = !(typeof r === 'object' && r && r.kept === false);
+    return {
+      die: g.die,
+      value: v,
+      kept,
+      key: `${gi}-${i}`,
+      sign: g.sign || 1,
+    };
+  }));
+
+  const totalDiceCount = allRolls.length;
+
+  // Single die roll (e.g. 1d20, 1d12, 1d100) — display as hero die at center
+  if (totalDiceCount === 1) {
+    const r = allRolls[0];
+    const v = r.value;
     const effectiveTone = !rolling2d ? shownTone : null;
 
     return (
       <div className={`dice-stage dice-stage-2d ${className}`} data-dice-mode={mode} data-dice-tone={shownTone || undefined}>
         <div className="dice-hero-stage-wrap">
           <DieShape
-            die={g.die}
+            die={r.die}
             value={rolling2d ? '' : v}
             targetValue={total != null ? total : v}
             rolling={rolling2d}
@@ -167,6 +180,89 @@ export default function DiceStage({
             tone={effectiveTone}
             lang={lang}
           />
+        </div>
+      </div>
+    );
+  }
+
+  // When multiple dice are accumulated and rolled simultaneously (e.g. 5d6, 7d12, 4d8),
+  // organize them beautifully as a geometrical flower matching the dice type's shape,
+  // dimming the constituent numbers on the outer petals and keeping solely one hero die at center with the total sum!
+  if (totalDiceCount > 1 && !className?.includes('cr-rr-stage')) {
+    const primaryDie = groups[0]?.die || 6;
+    const effectiveTone = !rolling2d ? shownTone : null;
+    const heroVal = total != null ? total : allRolls.reduce((sum, r) => sum + (r.kept ? Number(r.value) || 0 : 0), 0);
+
+    let petalSize = 48;
+    let heroSize = 110;
+    let R = 88;
+
+    if (totalDiceCount <= 4) {
+      petalSize = 52;
+      heroSize = 110;
+      R = 84;
+    } else if (totalDiceCount <= 6) {
+      petalSize = 48;
+      heroSize = 110;
+      R = 88;
+    } else if (totalDiceCount <= 8) {
+      petalSize = 44;
+      heroSize = 106;
+      R = 94;
+    } else {
+      petalSize = 38;
+      heroSize = 100;
+      R = Math.min(120, 80 + totalDiceCount * 2.5);
+    }
+
+    const stageSize = Math.max(300, Math.round(2 * R + petalSize + 36));
+
+    return (
+      <div className={`dice-stage dice-stage-2d ${className}`} data-dice-mode={mode} data-dice-tone={shownTone || undefined}>
+        <div className="dice-flower-stage" style={{ width: stageSize, height: stageSize }}>
+          {/* Central Hero Die displaying the consolidated total sum of the roll */}
+          <div className="dice-flower-center">
+            <DieShape
+              die={primaryDie}
+              value={rolling2d ? '' : heroVal}
+              targetValue={heroVal}
+              rolling={rolling2d}
+              size={heroSize}
+              isHero={true}
+              isCrit={isCrit}
+              tone={effectiveTone}
+              lang={lang}
+            />
+          </div>
+
+          {/* Radial Flower Petals matching the dice type geometry */}
+          <div className="dice-flower-petals">
+            {allRolls.map((r, i) => {
+              const theta = -Math.PI / 2 + (2 * Math.PI * i) / totalDiceCount;
+              const x = Math.round(R * Math.cos(theta));
+              const y = Math.round(R * Math.sin(theta));
+              const petalAngle = Math.round((theta + Math.PI / 2) * (180 / Math.PI));
+              return (
+                <div
+                  key={r.key}
+                  className="dice-flower-petal"
+                  style={{
+                    transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
+                  }}
+                >
+                  <DieShape
+                    die={r.die}
+                    value={rolling2d ? '' : r.value}
+                    rolling={rolling2d}
+                    size={petalSize}
+                    dimmed={true}
+                    petalAngle={petalAngle}
+                    lang={lang}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     );

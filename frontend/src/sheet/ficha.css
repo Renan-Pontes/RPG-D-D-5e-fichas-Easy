@@ -2178,34 +2178,21 @@
 }
 
 .fh-drag-trail-origin,
-.fh-drag-trail-contour,
-.fh-drag-trail-contour-accent {
+.fh-drag-trail-contour {
   fill: none !important;
   pointer-events: none;
 }
 .fh-drag-trail-contour {
   stroke: var(--gold-bright, #edcb7a);
-  stroke-width: 2.8px;
-  filter: drop-shadow(0 0 8px var(--gold-bright, #edcb7a));
+  stroke-width: 2.2px;
+  filter: drop-shadow(0 0 6px var(--gold-bright, #edcb7a));
 }
-.fh-drag-trail-contour.tone-str { stroke: #ff4a5a; filter: drop-shadow(0 0 10px #ff4a5a); }
-.fh-drag-trail-contour.tone-dex { stroke: #10f07a; filter: drop-shadow(0 0 10px #10f07a); }
-.fh-drag-trail-contour.tone-con { stroke: #ff9d3b; filter: drop-shadow(0 0 10px #ff9d3b); }
-.fh-drag-trail-contour.tone-int { stroke: #38bdf8; filter: drop-shadow(0 0 10px #38bdf8); }
-.fh-drag-trail-contour.tone-wis { stroke: #c084fc; filter: drop-shadow(0 0 10px #c084fc); }
-.fh-drag-trail-contour.tone-cha { stroke: #facc15; filter: drop-shadow(0 0 10px #facc15); }
-
-.fh-drag-trail-contour-accent {
-  stroke-width: 1.2px;
-  stroke-dasharray: 4 3;
-  opacity: 0.85;
-}
-.fh-drag-trail-contour-accent.tone-str { stroke: #ff7080; }
-.fh-drag-trail-contour-accent.tone-dex { stroke: #40fba0; }
-.fh-drag-trail-contour-accent.tone-con { stroke: #ffb860; }
-.fh-drag-trail-contour-accent.tone-int { stroke: #60d0ff; }
-.fh-drag-trail-contour-accent.tone-wis { stroke: #d5a0ff; }
-.fh-drag-trail-contour-accent.tone-cha { stroke: #fde047; }
+.fh-drag-trail-contour.tone-str { stroke: #ff4a5a; filter: drop-shadow(0 0 8px #ff4a5a); }
+.fh-drag-trail-contour.tone-dex { stroke: #10f07a; filter: drop-shadow(0 0 8px #10f07a); }
+.fh-drag-trail-contour.tone-con { stroke: #ff9d3b; filter: drop-shadow(0 0 8px #ff9d3b); }
+.fh-drag-trail-contour.tone-int { stroke: #38bdf8; filter: drop-shadow(0 0 8px #38bdf8); }
+.fh-drag-trail-contour.tone-wis { stroke: #c084fc; filter: drop-shadow(0 0 8px #c084fc); }
+.fh-drag-trail-contour.tone-cha { stroke: #facc15; filter: drop-shadow(0 0 8px #facc15); }
 
 .fh-drag-beacon-halo {
   fill: rgba(20, 14, 8, 0.85);
