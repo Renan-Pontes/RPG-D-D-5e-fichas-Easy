@@ -1844,7 +1844,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
     return rect ? {
       startX: rect.left + rect.width / 2,
       startY: rect.top + rect.height * 0.45,
-      radius: 13.5,
+      radius: 17,
     } : null;
   };
 
@@ -2812,7 +2812,7 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
   const onStartAbilityDrag = (k, e, anchor) => {
     const startX = anchor?.startX ?? (anchor?.left != null ? anchor.left + anchor.width / 2 : e.clientX);
     const startY = anchor?.startY ?? (anchor?.top != null ? anchor.top + anchor.height * 0.45 : e.clientY);
-    const radius = anchor?.radius ?? 13.5;
+    const radius = anchor?.radius ?? 17;
     const targetSlot = getSlotAtPoint(e.clientX, e.clientY);
     lastTargetSlotRef.current = targetSlot;
     setDragLink({
@@ -2910,7 +2910,7 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
         const badgeRect = liveBadge?.getBoundingClientRect();
         const startX = badgeRect ? badgeRect.left + badgeRect.width / 2 : dragLink.startX;
         const startY = badgeRect ? badgeRect.top + badgeRect.height / 2 : dragLink.startY;
-        const radius = badgeRect ? badgeRect.width / 2 : (dragLink.radius || 13.5);
+        const radius = badgeRect ? badgeRect.width / 2 : (dragLink.radius || 17);
 
         const dx = dragLink.currentX - startX;
         const dy = dragLink.currentY - startY;
@@ -2939,8 +2939,8 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
               d={`M ${x0} ${y0} Q ${midX} ${midY} ${dragLink.currentX} ${dragLink.currentY}`}
             />
             <g transform={`translate(${dragLink.currentX}, ${dragLink.currentY})`}>
-              <circle className={`fh-drag-beacon-halo tone-${dragLink.ability}`} r="24" />
-              <circle className="fh-drag-beacon-core" r="15" />
+              <circle className={`fh-drag-beacon-halo tone-${dragLink.ability}`} r="30" />
+              <circle className="fh-drag-beacon-core" r="19" />
               <text className="fh-drag-beacon-text" textAnchor="middle" dy="1">
                 {BELT_ABBR[dragLink.ability] || dragLink.ability.toUpperCase()}
               </text>

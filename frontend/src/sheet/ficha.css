@@ -1187,9 +1187,9 @@
 }
 .ficha .fh-honey-toggle input { width: 18px; height: 18px; accent-color: var(--gold); }
 .ficha .fh-belt {
-  --belt-w: clamp(70px, 13.5vw, 94px);
+  --belt-w: clamp(88px, 16.9vw, 118px);
   --belt-h: calc(var(--belt-w) * 1.1547005);
-  --belt-gap: 5px;
+  --belt-gap: 6px;
   --belt-row-overlap: calc(var(--belt-h) * 0.25 - var(--belt-gap) * 1.1547005);
   display: flex;
   flex-direction: column;
@@ -1454,7 +1454,7 @@
 }
 .ficha .fh-belt-hex .fh-honey-abbr {
   font-family: var(--display);
-  font-size: clamp(0.68rem, 1.2vw, 0.78rem);
+  font-size: clamp(0.85rem, 1.5vw, 0.98rem);
   font-weight: 700;
   letter-spacing: 0.12em;
   color: #fff9ee;
@@ -1467,12 +1467,12 @@
 /* Vertical Slider Track: Recessed guide rail behind the badge hinting vertical movement */
 .ficha .fh-belt-badge-track {
   position: absolute;
-  top: calc(45% - 13px);
+  top: calc(45% - 16px);
   left: 50%;
   transform: translateX(-50%);
-  width: 4px;
-  height: 26px;
-  border-radius: 2px;
+  width: 5px;
+  height: 32px;
+  border-radius: 2.5px;
   background: rgba(35, 22, 14, 0.45);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.75), 0 1px 0 rgba(255, 255, 255, 0.18);
   z-index: 4;
@@ -1494,8 +1494,8 @@
   top: 45%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: clamp(24px, 3.8vw, 27px);
-  height: clamp(24px, 3.8vw, 27px);
+  width: clamp(30px, 4.8vw, 34px);
+  height: clamp(30px, 4.8vw, 34px);
   border-radius: 50%;
   border: 1.5px solid #d4aa37;
   background: radial-gradient(
@@ -1540,9 +1540,9 @@
   cursor: grabbing;
   transition: none;
 }
-/* Advantage: Retains 3D golden stud, subtle 4px shift so it never collides with header abbr */
+/* Advantage: Retains 3D golden stud, subtle 5px shift so it never collides with header abbr */
 .ficha .fh-belt-badge.adv-adv {
-  transform: translate(-50%, calc(-50% - 4px));
+  transform: translate(-50%, calc(-50% - 5px));
   border-color: #39e75f;
   box-shadow:
     0 0 12px rgba(46, 204, 113, 0.95),
@@ -1551,9 +1551,9 @@
     inset 0 -2px 3px rgba(80, 48, 6, 0.9),
     0 0 0 1.5px rgba(20, 60, 30, 0.85);
 }
-/* Disadvantage: Retains 3D golden stud, subtle 4px shift */
+/* Disadvantage: Retains 3D golden stud, subtle 5px shift */
 .ficha .fh-belt-badge.adv-dis {
-  transform: translate(-50%, calc(-50% + 4px));
+  transform: translate(-50%, calc(-50% + 5px));
   border-color: #ff3344;
   box-shadow:
     0 0 12px rgba(255, 51, 68, 0.95),
@@ -1581,7 +1581,7 @@
 
 /* Micro-Arrows hinting vertical movement: chiseled into gold */
 .ficha .fh-badge-arrow {
-  font-size: 0.38rem;
+  font-size: 0.48rem;
   line-height: 1;
   color: #4a300a;
   text-shadow: 0 -0.8px 0.8px rgba(0, 0, 0, 0.8), 0 0.8px 0.6px rgba(255, 255, 255, 0.8);
@@ -1611,7 +1611,7 @@
 /* Ability Score Flat Value: Deeply chiseled into solid golden stud */
 .ficha .fh-belt-hex .fh-honey-score {
   font-family: var(--display);
-  font-size: clamp(0.66rem, 1.15vw, 0.76rem);
+  font-size: clamp(0.82rem, 1.45vw, 0.95rem);
   font-weight: 900;
   line-height: 1;
   margin: 0;
@@ -1656,7 +1656,7 @@
   align-items: center;
   justify-content: center;
   font-family: var(--display);
-  font-size: clamp(1.0rem, 1.8vw, 1.22rem);
+  font-size: clamp(1.25rem, 2.25vw, 1.52rem);
   font-weight: 700;
   color: #1a110a;
   line-height: 1;
@@ -1838,7 +1838,7 @@
 
 .ficha .fh-belt-pb-etched {
   font-family: var(--display);
-  font-size: clamp(0.96rem, 1.7vw, 1.20rem);
+  font-size: clamp(1.20rem, 2.1vw, 1.50rem);
   font-weight: 900;
   letter-spacing: 0.08em;
   line-height: 1;
@@ -2037,8 +2037,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: clamp(78px, 13.5vw, 92px);
-  height: clamp(78px, 13.5vw, 92px);
+  width: clamp(98px, 16.9vw, 115px);
+  height: clamp(98px, 16.9vw, 115px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2124,7 +2124,7 @@
 
 .ficha .fh-belt-slot-dice {
   font-family: var(--display);
-  font-size: clamp(0.82rem, 1.4vw, 0.98rem);
+  font-size: clamp(1.02rem, 1.75vw, 1.22rem);
   font-weight: 800;
   color: var(--gold-bright, #edcb7a);
   line-height: 1;
@@ -2218,7 +2218,7 @@
 }
 .fh-drag-beacon-text {
   font-family: var(--display);
-  font-size: 10px;
+  font-size: 12.5px;
   font-weight: 900;
   fill: #fff9ee;
   letter-spacing: 0.05em;
@@ -2237,18 +2237,18 @@
 
 @media (max-width: 520px) {
   .ficha .fh-belt {
-    --belt-w: clamp(62px, 18.2vw, 76px);
-    --belt-gap: 3px;
+    --belt-w: clamp(78px, 22.8vw, 95px);
+    --belt-gap: 4px;
   }
   .ficha .fh-honey-val {
-    font-size: clamp(0.98rem, 3.2vw, 1.15rem);
+    font-size: clamp(1.22rem, 4.0vw, 1.44rem);
   }
   .ficha .fh-belt-die-badge {
-    width: clamp(64px, 17vw, 76px);
-    height: clamp(64px, 17vw, 76px);
+    width: clamp(80px, 21.2vw, 95px);
+    height: clamp(80px, 21.2vw, 95px);
   }
   .ficha .fh-belt-slot-dice {
-    font-size: clamp(0.74rem, 2.3vw, 0.88rem);
+    font-size: clamp(0.92rem, 2.9vw, 1.10rem);
   }
 }
 

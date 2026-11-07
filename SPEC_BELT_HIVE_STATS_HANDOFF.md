@@ -333,3 +333,44 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
   - `TOTAL COLLISIONS DETECTED: 0` across all 7 dice types and all counts $N \in [2, 20]$.
   - Global minimum edge distance across all shapes: $d \ge 6.22\text{px}$ ($N > 12$) and $d \ge 9.18\text{px}$ ($N \le 12$).
   - Full test suite: 1,536 / 1,536 tests passing (100% green); Vite production build: 0 errors.
+
+---
+
+## 15. Responsive Scaling: 25% Larger Dice Belt Mode for Screen Utilization
+
+- **Overview**:
+  - The dice belt mode (`.ficha .fh-belt`) was increased in scale by strictly 25% across its geometric properties, interactive components, ability studs, PB master medal, typography, and SVG overlays to deliver prominent, comfortable screen utilization and thumb/touch ergonomics.
+- **Architectural & Mathematical Calibrations (+25%)**:
+  1. **Core Honeycomb Grid Dimensions (`.ficha .fh-belt`)**:
+     - Desktop `--belt-w`: scaled from `clamp(70px, 13.5vw, 94px)` to `clamp(88px, 16.9vw, 118px)`.
+     - Honeycomb gap `--belt-gap`: scaled from `5px` to `6px`.
+     - Height and row overlap automatically derive via exact hexagonal trigonometry:
+       $$\text{--belt-h} = \text{--belt-w} \times 1.1547005$$
+       $$\text{--belt-row-overlap} = \text{--belt-h} \times 0.25 - \text{--belt-gap} \times 1.1547005$$
+  2. **Mobile Viewport Scaling (`@media (max-width: 520px)`)**:
+     - Mobile `--belt-w`: scaled from `clamp(62px, 18.2vw, 76px)` to `clamp(78px, 22.8vw, 95px)`.
+     - Mobile `--belt-gap`: scaled from `3px` to `4px`.
+     - Bonus numbers `.fh-honey-val`: scaled to `clamp(1.22rem, 4.0vw, 1.44rem)`.
+     - Silhouette badge `.fh-belt-die-badge`: scaled to `clamp(80px, 21.2vw, 95px)`.
+     - Slot formula `.fh-belt-slot-dice`: scaled to `clamp(0.92rem, 2.9vw, 1.10rem)`.
+  3. **Interactive Ability Studs & Slider Rails**:
+     - Spherical gold knob `.fh-belt-badge`: scaled from `clamp(24px, 3.8vw, 27px)` to `clamp(30px, 4.8vw, 34px)`.
+     - Recessed slider track `.fh-belt-badge-track`: scaled from `width: 4px; height: 26px; top: calc(45% - 13px)` to `width: 5px; height: 32px; top: calc(45% - 16px)`.
+     - Advantage/Disadvantage stance shift: scaled from $\pm 4\text{px}$ to $\pm 5\text{px}$ (`translate(-50%, calc(-50% \pm 5px))`).
+     - Micro-arrow indicator `.fh-badge-arrow`: scaled from `0.38rem` to `0.48rem`.
+  4. **Polyhedral Die Silhouettes & Lockups**:
+     - Die silhouette `.fh-belt-die-badge`: scaled from `clamp(78px, 13.5vw, 92px)` to `clamp(98px, 16.9vw, 115px)`.
+     - Formula text `.fh-belt-slot-dice`: scaled from `clamp(0.82rem, 1.4vw, 0.98rem)` to `clamp(1.02rem, 1.75vw, 1.22rem)`.
+  5. **Typography & Etched Accents**:
+     - Hexad header `.fh-honey-abbr`: scaled to `clamp(0.85rem, 1.5vw, 0.98rem)`.
+     - Score numeral `.fh-honey-score`: scaled to `clamp(0.82rem, 1.45vw, 0.95rem)`.
+     - Bonus values `.fh-honey-val`: scaled to `clamp(1.25rem, 2.25vw, 1.52rem)`.
+     - PB Medal etched text `.fh-belt-pb-etched`: scaled to `clamp(1.20rem, 2.1vw, 1.50rem)`.
+  6. **Drag-to-Bind Overlay Ergonomics**:
+     - Drag beacon halo: scaled from radius $r = 24$ to $r = 30$.
+     - Drag beacon core: scaled from radius $r = 15$ to $r = 19$.
+     - Drag beacon typography: scaled to `12.5px`.
+     - Default anchor fallback radius: updated from $13.5\text{px}$ to $17\text{px}$.
+- **Verification**:
+  - Full automated suite: 1,536 / 1,536 tests passing (100% green across 21 suites).
+  - Production Vite build: 0 errors, 641 modules compiled cleanly in 9.45s.

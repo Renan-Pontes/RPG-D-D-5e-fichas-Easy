@@ -359,3 +359,41 @@ When testing multi-dice tessellation scaling up to 20 dice across real SVG polyh
   - All 1,536 frontend unit tests pass; production build transforms cleanly in 16s.
 - **Negative:**
   - Outer bounds for D20 and D4 expand slightly, safely accommodated by dynamic stage sizing (`stageWidth`, `stageHeight`).
+
+---
+
+## ADR-0014: 25% Larger Dice Belt Mode for Prominent Screen Utilization
+
+### Status
+Accepted
+
+### Context
+User requested making the dice belt mode 25% larger to better utilize available screen size across desktop, tablet, and mobile viewports. The interactive belt (`.ficha .fh-belt`) houses 6 ability score hexads with Advantage/Disadvantage sliders, 1 solid gold Proficiency Bonus master medal, and 3 quick roll polyhedral slots with drag-to-bind assignments.
+
+### Decision Drivers
+- **Strict 25% Visual & Structural Growth**: Increase dimensions by exactly 25% without distorting proportions or breaking the 30/60 degree hexagonal geometry.
+- **Flawless Touch & Drag Alignment**: Ensure the live-locked green contour ring and trailing guide overlay scale synchronously with 0px offset.
+- **Zero Overflow & Full Responsive Preservation**: Ensure comfortable breathing space in desktop panels and mobile viewport clamps (`@media (max-width: 520px)`).
+
+### Decision Outcome
+1. **Core Honeycomb Grid Expansion**:
+   - `--belt-w`: `clamp(70px, 13.5vw, 94px)` $\to$ `clamp(88px, 16.9vw, 118px)`.
+   - `--belt-gap`: `5px` $\to$ `6px`.
+   - Trigonometric derived variables `--belt-h` and `--belt-row-overlap` recalculate automatically.
+2. **Mobile Clamping (`@media (max-width: 520px)`)**:
+   - `--belt-w`: `clamp(62px, 18.2vw, 76px)` $\to$ `clamp(78px, 22.8vw, 95px)`.
+   - `--belt-gap`: `3px` $\to$ `4px`.
+   - Bonus numerals `.fh-honey-val`: `clamp(1.22rem, 4.0vw, 1.44rem)`.
+   - Die silhouette `.fh-belt-die-badge`: `clamp(80px, 21.2vw, 95px)`.
+   - Dice formula `.fh-belt-slot-dice`: `clamp(0.92rem, 2.9vw, 1.10rem)`.
+3. **Internal Components & Typography (+25%)**:
+   - Ability stud knob `.fh-belt-badge`: `clamp(30px, 4.8vw, 34px)`.
+   - Slider guide track `.fh-belt-badge-track`: `5px` width, `32px` height, `top: calc(45% - 16px)`.
+   - Stance displacement: shifted from $\pm 4\text{px}$ to $\pm 5\text{px}$.
+   - Polyhedral silhouette `.fh-belt-die-badge`: `clamp(98px, 16.9vw, 115px)`.
+   - Drag beacon halo/core: scaled to radii $r = 30$ and $r = 19$, with fallback anchor radius $17\text{px}$.
+   - All typography (`.fh-honey-abbr`, `.fh-honey-score`, `.fh-honey-val`, `.fh-belt-pb-etched`, `.fh-belt-slot-dice`, `.fh-drag-beacon-text`) scaled up by 25%.
+
+### Consequences
+- **Positive:** Striking visual presence, enhanced legibility of dice formulas and score numbers, more comfortable thumb/mouse hit targets.
+- **Negative:** Takes up 25% more vertical screen space in the stats panel, within acceptable margins on desktop and mobile.
