@@ -1785,10 +1785,947 @@ const AbilitySeals = ({ char, lang, roll, rollLabel }) => (
   </div>
 );
 
-// Outros traços: traços de classe sem seção própria na ficha, escolhas de classe sem o traço
-// que as concede (src/sheet/feature-placement.js; as de ferramenta e instrumento ficam no
-// painel de proficiências) e a característica do antecedente (2014).
-// Antes era a lista "Características de Classe" da aba Inventário, com todos os traços.
+const HONEY_DICE = [4, 6, 8, 10, 12, 20, 100];
+const HONEY_ABILITY_META = {
+  str: { zone: 'physical', tone: 'strength' },
+  dex: { zone: 'physical', tone: 'dexterity' },
+  con: { zone: 'physical', tone: 'constitution' },
+  int: { zone: 'mental', tone: 'intelligence' },
+  wis: { zone: 'mental', tone: 'wisdom' },
+  cha: { zone: 'mental', tone: 'charisma' },
+};
+
+const isActionKey = (e) => e.key === 'Enter' || e.key === ' ';
+const BELT_ABBR = { str: 'Str', dex: 'Dex', con: 'Con', int: 'Int', wis: 'Wis', cha: 'Cha' };
+
+const BeltHex = ({ k, char, lang, roll, onBind, isBound }) => {
+  const [advMode, setAdvMode] = useState('normal'); // 'normal' | 'adv' | 'dis'
+  const [pullY, setPullY] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const gestureRef = useRef({ startY: 0, moved: false, bound: false, pointerId: null, at: 0, bindTimer: null });
+
+  const score = Utils.abilityWithRace(char, k);
+  const checkMod = Utils.abilityMod(char, k);
+  const saveMod = Utils.saveBonus(char, k);
+  const isProf = Utils.hasSaveProf(char, k);
+  const pt = lang === 'pt';
+
+  const onRollHalf = (mod, label) => {
+    roll({ die: 20, mod, label, advMode });
+  };
+
+  const onBadgePointerDown = (e) => {
+    const pointerId = e.pointerId;
+    const startY = e.clientY;
+    const at = Date.now();
+
+    // Hold-to-bind timer (340ms)
+    const bindTimer = setTimeout(() => {
+      if (!gestureRef.current.moved) {
+        onBind(k);
+        gestureRef.current.bound = true;
+      }
+    }, 340);
+
+    gestureRef.current = {
+      startY,
+      moved: false,
+      bound: false,
+      pointerId,
+      at,
+      bindTimer,
+    };
+    setIsPulling(true);
+    e.currentTarget.setPointerCapture?.(pointerId);
+  };
+
+  const onBadgePointerMove = (e) => {
+    const g = gestureRef.current;
+    if (!g.pointerId) return;
+    const dy = e.clientY - g.startY;
+    if (Math.abs(dy) > 3) {
+      g.moved = true;
+      if (g.bindTimer) {
+        clearTimeout(g.bindTimer);
+        g.bindTimer = null;
+      }
+    }
+    const clamped = Math.max(-8, Math.min(8, dy));
+    setPullY(clamped);
+  };
+
+  const onBadgePointerUp = (e) => {
+    const g = gestureRef.current;
+    if (!g.pointerId) return;
+    if (g.bindTimer) {
+      clearTimeout(g.bindTimer);
+      g.bindTimer = null;
+    }
+    const dy = e.clientY - g.startY;
+    const moved = g.moved;
+    const wasBound = g.bound;
+
+    e.currentTarget.releasePointerCapture?.(g.pointerId);
+    gestureRef.current = { startY: 0, moved: false, bound: false, pointerId: null, at: 0, bindTimer: null };
+    setIsPulling(false);
+    setPullY(0);
+
+    if (wasBound) return;
+
+    if (moved) {
+      if (dy < -4) {
+        setAdvMode('adv');
+      } else if (dy > 4) {
+        setAdvMode('dis');
+      } else {
+        setAdvMode('normal');
+      }
+    } else {
+      // Short tap: toggle stance
+      const rect = e.currentTarget.getBoundingClientRect();
+      const relY = e.clientY - rect.top;
+      if (advMode !== 'normal') {
+        setAdvMode('normal');
+      } else if (relY < rect.height / 2) {
+        setAdvMode('adv');
+      } else {
+        setAdvMode('dis');
+      }
+    }
+  };
+
+  const onBadgePointerCancel = () => {
+    const g = gestureRef.current;
+    if (g.bindTimer) clearTimeout(g.bindTimer);
+    gestureRef.current = { startY: 0, moved: false, bound: false, pointerId: null, at: 0, bindTimer: null };
+    setIsPulling(false);
+    setPullY(0);
+  };
+
+  const onBadgeKeyDown = (e) => {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setAdvMode('adv');
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setAdvMode('dis');
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setAdvMode('normal');
+    } else if (isActionKey(e)) {
+      e.preventDefault();
+      if (e.shiftKey) {
+        onBind(k);
+      } else {
+        setAdvMode((m) => (m === 'normal' ? 'adv' : m === 'adv' ? 'dis' : 'normal'));
+      }
+    }
+  };
+
+  const meta = HONEY_ABILITY_META[k] || { zone: 'physical', tone: 'strength' };
+  const abbr = BELT_ABBR[k] || t(k + 'Sh', lang);
+
+  return (
+    <div className={`fh-belt-hex-wrap is-${meta.zone} tone-${k}${isBound ? ' is-bound' : ''} adv-${advMode}`}>
+      {/* Glowing Edge Feedback SVG */}
+      <svg
+        className={`fh-belt-glow-svg adv-${advMode}`}
+        viewBox="0 0 100 115.47"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        {advMode === 'adv' && (
+          <g className="fh-glow-group-adv">
+            <path className="fh-edge-shadow-adv" d="M 0,28.87 L 50,0 L 100,28.87" />
+            <path className="fh-edge-stroke-adv" d="M 0,28.87 L 50,0 L 100,28.87" />
+            <path className="fh-edge-shine-adv" d="M 0,28.87 L 50,0 L 100,28.87" />
+          </g>
+        )}
+        {advMode === 'dis' && (
+          <g className="fh-glow-group-dis">
+            <path className="fh-edge-shadow-dis" d="M 0,86.60 L 50,115.47 L 100,86.60" />
+            <path className="fh-edge-stroke-dis" d="M 0,86.60 L 50,115.47 L 100,86.60" />
+            <path className="fh-edge-shine-dis" d="M 0,86.60 L 50,115.47 L 100,86.60" />
+          </g>
+        )}
+      </svg>
+
+      {/* Pointy-topped hexagon attribute tile */}
+      <article className="fh-belt-hex">
+        <div className="fh-belt-header">
+          <span className="fh-honey-abbr">{abbr}</span>
+        </div>
+
+        {/* Vertical Slider Track recessed into the hexad face */}
+        <div className="fh-belt-badge-track" aria-hidden="true" />
+
+        {/* Repurposed Ability Score Badge: Round slider knob with vertical drag hint */}
+        <button
+          type="button"
+          className={`fh-belt-badge adv-${advMode}${isPulling ? ' is-pulling' : ''}`}
+          style={pullY !== 0 ? { transform: `translate(-50%, calc(-50% + ${pullY}px))` } : undefined}
+          onPointerDown={onBadgePointerDown}
+          onPointerMove={onBadgePointerMove}
+          onPointerUp={onBadgePointerUp}
+          onPointerCancel={onBadgePointerCancel}
+          onKeyDown={onBadgeKeyDown}
+          tabIndex={0}
+          role="slider"
+          aria-valuenow={advMode === 'adv' ? 1 : advMode === 'dis' ? -1 : 0}
+          aria-valuemin={-1}
+          aria-valuemax={1}
+          aria-valuetext={advMode === 'adv' ? 'Vantagem' : advMode === 'dis' ? 'Desvantagem' : 'Normal'}
+          aria-label={pt
+            ? `${t(k, lang)}: ${score}. Arraste ↑ para vantagem, ↓ para desvantagem, ou segure para vincular ao cinto`
+            : `${t(k, lang)}: ${score}. Drag ↑ for advantage, ↓ for disadvantage, or hold to bind to belt`}
+          title={pt
+            ? `${t(k, lang)} ${score}: Arraste ↑ vantagem 🟢, ↓ desvantagem 🔴 · Segure para vincular ao cinto`
+            : `${t(k, lang)} ${score}: Drag ↑ advantage 🟢, ↓ disadvantage 🔴 · Hold to bind to belt`}
+        >
+          <span className="fh-badge-arrow is-up" aria-hidden="true">▲</span>
+          <span className="fh-honey-score">{score}</span>
+          <span className="fh-badge-arrow is-down" aria-hidden="true">▼</span>
+        </button>
+
+        <div className="fh-honey-halves">
+          <button
+            type="button"
+            className="fh-honey-half is-check"
+            onClick={() => onRollHalf(checkMod, `${t(k, lang)} ${t('abilityCheck', lang)}`)}
+            onKeyDown={(e) => {
+              if (!isActionKey(e)) return;
+              e.preventDefault();
+              onRollHalf(checkMod, `${t(k, lang)} ${t('abilityCheck', lang)}`);
+            }}
+            aria-label={pt
+              ? `${t(k, lang)}: teste ${Utils.fmtMod(checkMod)}${advMode === 'adv' ? ' (com vantagem)' : advMode === 'dis' ? ' (com desvantagem)' : ''}`
+              : `${t(k, lang)}: check ${Utils.fmtMod(checkMod)}${advMode === 'adv' ? ' (with advantage)' : advMode === 'dis' ? ' (with disadvantage)' : ''}`}
+          >
+            <span className="fh-honey-val">{Utils.fmtMod(checkMod)}</span>
+          </button>
+          <button
+            type="button"
+            className={`fh-honey-half is-save${isProf ? ' is-prof' : ''}`}
+            onClick={() => onRollHalf(saveMod, `${t(k, lang)} ${t('saveRoll', lang)}`)}
+            onKeyDown={(e) => {
+              if (!isActionKey(e)) return;
+              e.preventDefault();
+              onRollHalf(saveMod, `${t(k, lang)} ${t('saveRoll', lang)}`);
+            }}
+            aria-label={pt
+              ? `${t(k, lang)}: resistência ${Utils.fmtMod(saveMod)}${isProf ? ' (proficiente)' : ''}${advMode === 'adv' ? ' (com vantagem)' : advMode === 'dis' ? ' (com desvantagem)' : ''}`
+              : `${t(k, lang)}: save ${Utils.fmtMod(saveMod)}${isProf ? ' (proficient)' : ''}${advMode === 'adv' ? ' (with advantage)' : advMode === 'dis' ? ' (with disadvantage)' : ''}`}
+          >
+            <span className="fh-honey-val">{Utils.fmtMod(saveMod)}</span>
+          </button>
+        </div>
+      </article>
+    </div>
+  );
+};
+
+const renderDieShape = (die) => {
+  switch (Number(die)) {
+    case 4:
+      return (
+        <g className="fh-die-shape is-d4">
+          {/* Equilateral triangle with centroid at (50, 50) */}
+          <polygon points="50,10 88,70 12,70" className="fh-die-poly-base" />
+          <polygon points="50,26 72,62 28,62" className="fh-die-crease-facet" />
+          <line x1="50" y1="10" x2="50" y2="26" className="fh-die-crease" />
+          <line x1="88" y1="70" x2="72" y2="62" className="fh-die-crease" />
+          <line x1="12" y1="70" x2="28" y2="62" className="fh-die-crease" />
+        </g>
+      );
+    case 6:
+      return (
+        <g className="fh-die-shape is-d6">
+          {/* Regular hexagon centered at (50, 50) */}
+          <polygon points="50,8 86.4,29 86.4,71 50,92 13.6,71 13.6,29" className="fh-die-poly-base" />
+          <polygon points="50,24 72.5,37 72.5,63 50,76 27.5,63 27.5,37" className="fh-die-crease-facet" />
+          <line x1="50" y1="8" x2="50" y2="24" className="fh-die-crease" />
+          <line x1="86.4" y1="29" x2="72.5" y2="37" className="fh-die-crease" />
+          <line x1="86.4" y1="71" x2="72.5" y2="63" className="fh-die-crease" />
+          <line x1="50" y1="92" x2="50" y2="76" className="fh-die-crease" />
+          <line x1="13.6" y1="71" x2="27.5" y2="63" className="fh-die-crease" />
+          <line x1="13.6" y1="29" x2="27.5" y2="37" className="fh-die-crease" />
+        </g>
+      );
+    case 8:
+      return (
+        <g className="fh-die-shape is-d8">
+          {/* Symmetrical diamond centered at (50, 50) */}
+          <polygon points="50,6 94,50 50,94 6,50" className="fh-die-poly-base" />
+          <polygon points="50,24 76,50 50,76 24,50" className="fh-die-crease-facet" />
+          <line x1="50" y1="6" x2="50" y2="24" className="fh-die-crease" />
+          <line x1="94" y1="50" x2="76" y2="50" className="fh-die-crease" />
+          <line x1="50" y1="94" x2="50" y2="76" className="fh-die-crease" />
+          <line x1="6" y1="50" x2="24" y2="50" className="fh-die-crease" />
+        </g>
+      );
+    case 10:
+    case 100:
+      return (
+        <g className="fh-die-shape is-d10">
+          {/* Pentagonal Trapezohedron centered at (50, 50) */}
+          <polygon points="50,6 92,34 74,82 50,94 26,82 8,34" className="fh-die-poly-base" />
+          <polygon points="50,22 76,38 64,72 50,78 36,72 24,38" className="fh-die-crease-facet" />
+          <line x1="50" y1="6" x2="50" y2="22" className="fh-die-crease" />
+          <line x1="92" y1="34" x2="76" y2="38" className="fh-die-crease" />
+          <line x1="74" y1="82" x2="64" y2="72" className="fh-die-crease" />
+          <line x1="50" y1="94" x2="50" y2="78" className="fh-die-crease" />
+          <line x1="26" y1="82" x2="36" y2="72" className="fh-die-crease" />
+          <line x1="8" y1="34" x2="24" y2="38" className="fh-die-crease" />
+        </g>
+      );
+    case 12:
+      return (
+        <g className="fh-die-shape is-d12">
+          {/* Regular pentagon centered at (50, 50) */}
+          <polygon points="50,8 90,37 74.7,84 25.3,84 10,37" className="fh-die-poly-base" />
+          <polygon points="50,24 74.7,42 65.3,71 34.7,71 25.3,42" className="fh-die-crease-facet" />
+          <line x1="50" y1="8" x2="50" y2="24" className="fh-die-crease" />
+          <line x1="90" y1="37" x2="74.7" y2="42" className="fh-die-crease" />
+          <line x1="74.7" y1="84" x2="65.3" y2="71" className="fh-die-crease" />
+          <line x1="25.3" y1="84" x2="34.7" y2="71" className="fh-die-crease" />
+          <line x1="10" y1="37" x2="25.3" y2="42" className="fh-die-crease" />
+        </g>
+      );
+    case 20:
+    default:
+      return (
+        <g className="fh-die-shape is-d20">
+          {/* Regular hexagon outer silhouette centered at (50, 50) */}
+          <polygon points="50,6 88.1,28 88.1,72 50,94 11.9,72 11.9,28" className="fh-die-poly-base" />
+          {/* Central triangular face with centroid at (50, 50) */}
+          <polygon points="27.5,37 72.5,37 50,76" className="fh-die-crease-facet" />
+          <line x1="50" y1="6" x2="27.5" y2="37" className="fh-die-crease" />
+          <line x1="50" y1="6" x2="72.5" y2="37" className="fh-die-crease" />
+          <line x1="88.1" y1="28" x2="72.5" y2="37" className="fh-die-crease" />
+          <line x1="88.1" y1="72" x2="72.5" y2="37" className="fh-die-crease" />
+          <line x1="88.1" y1="72" x2="50" y2="76" className="fh-die-crease" />
+          <line x1="50" y1="94" x2="50" y2="76" className="fh-die-crease" />
+          <line x1="11.9" y1="72" x2="50" y2="76" className="fh-die-crease" />
+          <line x1="11.9" y1="72" x2="27.5" y2="37" className="fh-die-crease" />
+          <line x1="11.9" y1="28" x2="27.5" y2="37" className="fh-die-crease" />
+        </g>
+      );
+  }
+};
+
+const BeltPbSlot = ({
+  char,
+  lang,
+  profB,
+  pbActive,
+  onSetPb,
+}) => {
+  const pt = lang === 'pt';
+  const gestureRef = useRef({ startX: 0, startY: 0, movedX: false, pointerId: null, at: 0 });
+
+  const onSlotPointerDown = (e) => {
+    const pointerId = e.pointerId;
+    gestureRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      movedX: false,
+      pointerId,
+      at: Date.now(),
+    };
+    e.currentTarget.setPointerCapture?.(pointerId);
+  };
+
+  const onSlotPointerMove = (e) => {
+    const g = gestureRef.current;
+    if (!g.pointerId) return;
+    const dx = e.clientX - g.startX;
+    const dy = e.clientY - g.startY;
+
+    if (Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy)) {
+      g.movedX = true;
+    }
+  };
+
+  const onSlotPointerUp = (e) => {
+    const g = gestureRef.current;
+    if (!g.pointerId) return;
+    const dx = e.clientX - g.startX;
+    const movedX = g.movedX;
+
+    e.currentTarget.releasePointerCapture?.(g.pointerId);
+    gestureRef.current = { startX: 0, startY: 0, movedX: false, pointerId: null, at: 0 };
+
+    if (movedX || Math.abs(dx) > 18) {
+      if (dx > 0) {
+        onSetPb(true); // Swipe Right: Add PB
+      } else {
+        onSetPb(false); // Swipe Left: Remove PB
+      }
+      return;
+    }
+
+    // Tap on slot body: right half activates, left half deactivates, or toggle
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relX = e.clientX - rect.left;
+    if (relX > rect.width * 0.55) {
+      onSetPb(true);
+    } else if (relX < rect.width * 0.45) {
+      onSetPb(false);
+    } else {
+      onSetPb(!pbActive);
+    }
+  };
+
+  const onSlotPointerCancel = () => {
+    gestureRef.current = { startX: 0, startY: 0, movedX: false, pointerId: null, at: 0 };
+  };
+
+  const onSlotKeyDown = (e) => {
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      onSetPb(true);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      onSetPb(false);
+    } else if (isActionKey(e) && e.target === e.currentTarget) {
+      e.preventDefault();
+      onSetPb(!pbActive);
+    }
+  };
+
+  return (
+    <div className={`fh-belt-hex-wrap is-pb-master${pbActive ? ' is-pb-active' : ' is-pb-inactive'}`}>
+      {/* SVG Glowing Edges: Right (PB Active), Left (PB Inactive) */}
+      <svg
+        className={`fh-belt-glow-svg${pbActive ? ' pb-right' : ' pb-left'}`}
+        viewBox="0 0 100 115.47"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        {pbActive && (
+          <g className="fh-glow-group-pb-right">
+            <path className="fh-edge-shadow-pb-right" d="M 50,0 L 100,28.87 L 100,86.60 L 50,115.47" />
+            <path className="fh-edge-stroke-pb-right" d="M 50,0 L 100,28.87 L 100,86.60 L 50,115.47" />
+          </g>
+        )}
+        {!pbActive && (
+          <g className="fh-glow-group-pb-left">
+            <path className="fh-edge-shadow-pb-left" d="M 50,0 L 0,28.87 L 0,86.60 L 50,115.47" />
+            <path className="fh-edge-stroke-pb-left" d="M 50,0 L 0,28.87 L 0,86.60 L 50,115.47" />
+          </g>
+        )}
+      </svg>
+
+      <article
+        className={`fh-belt-slot fh-belt-pb-slot${pbActive ? ' is-pb-active' : ' is-pb-inactive'}`}
+        onPointerDown={onSlotPointerDown}
+        onPointerMove={onSlotPointerMove}
+        onPointerUp={onSlotPointerUp}
+        onPointerCancel={onSlotPointerCancel}
+        onKeyDown={onSlotKeyDown}
+        tabIndex={0}
+        role="button"
+        aria-pressed={pbActive}
+        aria-label={pt
+          ? `Bônus de Proficiência do Cinto: PB +${profB} (${pbActive ? 'Ativado' : 'Desativado'}). Deslize → para ativar, ← para desativar`
+          : `Belt Proficiency Bonus: PB +${profB} (${pbActive ? 'Active' : 'Inactive'}). Swipe → to add PB, ← to remove PB`}
+        title={pt
+          ? `PB +${profB} [${pbActive ? 'Ativado' : 'Desativado'}]: deslize → ligar, ← desligar · toque para alternar`
+          : `PB +${profB} [${pbActive ? 'Active' : 'Inactive'}]: swipe → add PB, ← remove PB · tap to toggle`}
+      >
+        {/* Full 3D Chiseled Gold Medal Vector Facets & Lighting */}
+        <svg className="fh-pb-medal-svg" viewBox="0 0 100 115.47" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            {/* Bevel Chamfer Gradients */}
+            <linearGradient id="pb-chamfer-light" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
+              <stop offset="50%" stopColor="#ffea9f" stopOpacity="0.9" />
+              <stop offset="100%" stopColor="#d49f28" stopOpacity="0.85" />
+            </linearGradient>
+            <linearGradient id="pb-chamfer-dark" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#87580b" stopOpacity="0.9" />
+              <stop offset="50%" stopColor="#543303" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="#2e1a01" stopOpacity="1" />
+            </linearGradient>
+            {/* Inactive Face Radial Gold */}
+            <radialGradient id="pb-face-gold" cx="38%" cy="30%" r="65%">
+              <stop offset="0%" stopColor="#fffef2" />
+              <stop offset="16%" stopColor="#fdeba4" />
+              <stop offset="45%" stopColor="#e5b847" />
+              <stop offset="76%" stopColor="#be881e" />
+              <stop offset="100%" stopColor="#7a5006" />
+            </radialGradient>
+            {/* Active Face Radiant Sun Gold */}
+            <radialGradient id="pb-face-gold-active" cx="36%" cy="26%" r="68%">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="14%" stopColor="#fff6be" />
+              <stop offset="42%" stopColor="#f8d462" />
+              <stop offset="74%" stopColor="#cb9824" />
+              <stop offset="100%" stopColor="#875808" />
+            </radialGradient>
+          </defs>
+
+          {/* Outer Base Bevel Layer */}
+          <polygon
+            className="fh-pb-medal-base"
+            points="50,0 100,28.87 100,86.60 50,115.47 0,86.60 0,28.87"
+            fill={pbActive ? "url(#pb-face-gold-active)" : "url(#pb-face-gold)"}
+          />
+
+          {/* Top-Left Lit Chamfer Facet */}
+          <polygon
+            className="fh-pb-chamfer-lit"
+            points="50,0 0,28.87 0,86.60 4.5,84.20 4.5,31.30 50,5.00"
+            fill="url(#pb-chamfer-light)"
+          />
+
+          {/* Bottom-Right Shadow Chamfer Facet */}
+          <polygon
+            className="fh-pb-chamfer-shade"
+            points="50,0 100,28.87 100,86.60 50,115.47 0,86.60 4.5,84.20 50,110.50 95.5,84.20 95.5,31.30 50,5.00"
+            fill="url(#pb-chamfer-dark)"
+          />
+
+          {/* Recessed Chiseled Inner Groove */}
+          <polygon
+            className="fh-pb-medal-groove"
+            points="50,5.0 95.5,31.3 95.5,84.2 50,110.5 4.5,84.2 4.5,31.3"
+            fill="none"
+            stroke="#2b1702"
+            strokeWidth="1.2"
+          />
+
+          {/* Raised Central Coin Plateau */}
+          <polygon
+            className="fh-pb-medal-plateau"
+            points="50,8.2 92.5,32.8 92.5,82.7 50,107.3 7.5,82.7 7.5,32.8"
+            fill={pbActive ? "url(#pb-face-gold-active)" : "url(#pb-face-gold)"}
+          />
+
+          {/* Plateau Edge Highlights */}
+          <polyline
+            className="fh-pb-plateau-rim-light"
+            points="7.5,82.7 7.5,32.8 50,8.2 92.5,32.8"
+            fill="none"
+            stroke="rgba(255, 255, 255, 0.85)"
+            strokeWidth="1.1"
+          />
+          <polyline
+            className="fh-pb-plateau-rim-dark"
+            points="92.5,32.8 92.5,82.7 50,107.3 7.5,82.7"
+            fill="none"
+            stroke="rgba(60, 36, 4, 0.75)"
+            strokeWidth="1.3"
+          />
+        </svg>
+
+        {/* Precisely Centered Deeply Etched PB Label */}
+        <div className="fh-belt-pb-etched-wrap">
+          <span className="fh-belt-pb-etched">PB +{profB}</span>
+        </div>
+      </article>
+    </div>
+  );
+};
+
+const BeltQuickSlot = ({
+  slot,
+  index,
+  isActive,
+  onSelect,
+  onShiftDie,
+  onShiftCount,
+  onSetAdvMode,
+  onRoll,
+  char,
+  lang,
+  pbActive,
+  profB,
+}) => {
+  const touchRef = useRef({ x: 0, y: 0, time: 0, pointerId: null });
+  const dieKnobRef = useRef({ startX: 0, startY: 0, movedY: false, movedX: false, pointerId: null, at: 0 });
+  const [pullY, setPullY] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+
+  const pt = lang === 'pt';
+  const isBound = !!slot.bound;
+  const boundMod = isBound ? Utils.abilityMod(char, slot.bound) : 0;
+  const totalMod = boundMod + (pbActive ? profB : 0);
+  const boundAbbr = isBound ? (BELT_ABBR[slot.bound] || slot.bound.toUpperCase()) : null;
+  const isD20 = Number(slot.die) === 20;
+  const advMode = isD20 ? (slot.advMode || 'normal') : 'normal';
+
+  // Slot container gestures (swipe for die shift / count shift, tap to roll)
+  const onDown = (e) => {
+    touchRef.current = { x: e.clientX, y: e.clientY, time: Date.now(), pointerId: e.pointerId };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+
+  const onUp = (e) => {
+    const t = touchRef.current;
+    if (t.pointerId != null) e.currentTarget.releasePointerCapture?.(t.pointerId);
+    touchRef.current = { x: 0, y: 0, time: 0, pointerId: null };
+
+    const dx = e.clientX - t.x;
+    const dy = e.clientY - t.y;
+    const dist = Math.hypot(dx, dy);
+    const elapsed = Date.now() - t.time;
+
+    // Horizontal swipe -> die type
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 18) {
+      const step = Math.max(1, Math.floor(Math.abs(dx) / 24));
+      onShiftDie(index, dx > 0 ? step : -step);
+      return;
+    }
+    // Vertical swipe -> count
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 18) {
+      const step = Math.max(1, Math.floor(Math.abs(dy) / 24));
+      onShiftCount(index, dy < 0 ? step : -step);
+      return;
+    }
+    // Short tap -> select and roll!
+    if (dist < 12 && elapsed < 420) {
+      onSelect(index);
+      onRoll(index);
+    }
+  };
+
+  // D20 Die Silhouette Knob Gestures (Advantage / Disadvantage knob solely when d20)
+  const onDieKnobPointerDown = (e) => {
+    if (!isD20) return;
+    e.stopPropagation();
+    const pointerId = e.pointerId;
+    dieKnobRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      movedY: false,
+      movedX: false,
+      pointerId,
+      at: Date.now(),
+    };
+    setIsPulling(true);
+    e.currentTarget.setPointerCapture?.(pointerId);
+  };
+
+  const onDieKnobPointerMove = (e) => {
+    if (!isD20) return;
+    e.stopPropagation();
+    const g = dieKnobRef.current;
+    if (!g.pointerId) return;
+    const dy = e.clientY - g.startY;
+    const dx = e.clientX - g.startX;
+
+    if (Math.abs(dy) > 4 && Math.abs(dy) >= Math.abs(dx)) {
+      g.movedY = true;
+      const clamped = Math.max(-10, Math.min(10, dy));
+      setPullY(clamped);
+    } else if (Math.abs(dx) > 16 && Math.abs(dx) > Math.abs(dy)) {
+      g.movedX = true;
+    }
+  };
+
+  const onDieKnobPointerUp = (e) => {
+    if (!isD20) return;
+    e.stopPropagation();
+    const g = dieKnobRef.current;
+    if (!g.pointerId) return;
+    const dy = e.clientY - g.startY;
+    const dx = e.clientX - g.startX;
+    const movedY = g.movedY;
+    const movedX = g.movedX;
+
+    e.currentTarget.releasePointerCapture?.(g.pointerId);
+    dieKnobRef.current = { startX: 0, startY: 0, movedY: false, movedX: false, pointerId: null, at: 0 };
+    setIsPulling(false);
+    setPullY(0);
+
+    if (movedX) {
+      onShiftDie(index, dx > 0 ? 1 : -1);
+      return;
+    }
+
+    if (movedY) {
+      if (dy < -5) {
+        onSetAdvMode(index, 'adv'); // Drag Up: Advantage
+      } else if (dy > 5) {
+        onSetAdvMode(index, 'dis'); // Drag Down: Disadvantage
+      } else {
+        onSetAdvMode(index, 'normal');
+      }
+      return;
+    }
+
+    // Tap on D20 silhouette: cycle stance or toggle
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relY = e.clientY - rect.top;
+    if (advMode !== 'normal') {
+      onSetAdvMode(index, 'normal');
+    } else if (relY < rect.height / 2) {
+      onSetAdvMode(index, 'adv');
+    } else {
+      onSetAdvMode(index, 'dis');
+    }
+  };
+
+  const onDieKnobPointerCancel = (e) => {
+    if (!isD20) return;
+    e.stopPropagation();
+    dieKnobRef.current = { startX: 0, startY: 0, movedY: false, movedX: false, pointerId: null, at: 0 };
+    setIsPulling(false);
+    setPullY(0);
+  };
+
+  const onKeyDown = (e) => {
+    if (e.key === 'ArrowLeft') { e.preventDefault(); onShiftDie(index, -1); return; }
+    if (e.key === 'ArrowRight') { e.preventDefault(); onShiftDie(index, 1); return; }
+    if (isD20 && e.key === 'ArrowUp') { e.preventDefault(); onSetAdvMode(index, 'adv'); return; }
+    if (isD20 && e.key === 'ArrowDown') { e.preventDefault(); onSetAdvMode(index, 'dis'); return; }
+    if (isD20 && e.key === 'Escape') { e.preventDefault(); onSetAdvMode(index, 'normal'); return; }
+    if (!isD20 && e.key === 'ArrowUp') { e.preventDefault(); onShiftCount(index, 1); return; }
+    if (!isD20 && e.key === 'ArrowDown') { e.preventDefault(); onShiftCount(index, -1); return; }
+    if (isActionKey(e)) { e.preventDefault(); onSelect(index); onRoll(index); }
+  };
+
+  const stanceText = advMode === 'adv' ? (pt ? ' (Vantagem 🟢)' : ' (Advantage 🟢)')
+                   : advMode === 'dis' ? (pt ? ' (Desvantagem 🔴)' : ' (Disadvantage 🔴)')
+                   : '';
+
+  const ariaLabel = pt
+    ? `Slot do cinto: ${slot.count > 1 ? slot.count : '1'}d${slot.die}${pbActive ? `+${profB}` : ''}${boundAbbr ? ` (${boundAbbr} ${Utils.fmtMod(boundMod)})` : ''}${stanceText}. Toque para rolar`
+    : `Belt slot: ${slot.count > 1 ? slot.count : '1'}d${slot.die}${pbActive ? `+${profB}` : ''}${boundAbbr ? ` (${boundAbbr} ${Utils.fmtMod(boundMod)})` : ''}${stanceText}. Tap to roll`;
+
+  return (
+    <div className={`fh-belt-hex-wrap is-quick-slot die-d${slot.die}${isD20 ? ` adv-${advMode}` : ''}${isBound ? ` is-bound tone-${slot.bound}` : ''}`}>
+      {/* SVG Glowing Edges solely when d20: Top 2 (Advantage Green), Bottom 2 (Disadvantage Red) */}
+      {isD20 && (
+        <svg
+          className={`fh-belt-glow-svg adv-${advMode}`}
+          viewBox="0 0 100 115.47"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          {advMode === 'adv' && (
+            <g className="fh-glow-group-adv">
+              <path className="fh-edge-shadow-adv" d="M 0,28.87 L 50,0 L 100,28.87" />
+              <path className="fh-edge-stroke-adv" d="M 0,28.87 L 50,0 L 100,28.87" />
+              <path className="fh-edge-shine-adv" d="M 0,28.87 L 50,0 L 100,28.87" />
+            </g>
+          )}
+          {advMode === 'dis' && (
+            <g className="fh-glow-group-dis">
+              <path className="fh-edge-shadow-dis" d="M 0,86.60 L 50,115.47 L 100,86.60" />
+              <path className="fh-edge-stroke-dis" d="M 0,86.60 L 50,115.47 L 100,86.60" />
+              <path className="fh-edge-shine-dis" d="M 0,86.60 L 50,115.47 L 100,86.60" />
+            </g>
+          )}
+        </svg>
+      )}
+
+      <article
+        className={`fh-belt-slot${isActive ? ' is-active' : ''}${isBound ? ` is-bound tone-${slot.bound}` : ''}${isD20 ? ` adv-${advMode}` : ''}`}
+        onPointerDown={onDown}
+        onPointerUp={onUp}
+        onPointerCancel={() => { touchRef.current = { x: 0, y: 0, time: 0, pointerId: null }; }}
+        onKeyDown={onKeyDown}
+        tabIndex={0}
+        role="button"
+        aria-label={ariaLabel}
+        title={isD20
+          ? (pt ? `1d20: puxe a silhueta ↑ vantagem, ↓ desvantagem · toque para rolar` : `1d20: drag silhouette ↑ advantage, ↓ disadvantage · tap to roll`)
+          : (pt ? `Deslize ↔ dado, ↕ qtd; toque para rolar` : `Swipe ↔ die, ↕ count; tap to roll`)}
+      >
+        {/* Top Crest: Shows bound ability tag */}
+        <div className="fh-belt-slot-crest">
+          {isBound && (
+            <span className="fh-belt-slot-num">
+              {boundAbbr}
+            </span>
+          )}
+        </div>
+
+        {/* Center: Perfectly Centered Die Silhouette Badge. When d20, silhouette is the stance knob! */}
+        <div
+          className={`fh-belt-die-badge die-d${slot.die}${isD20 ? ` is-d20-knob adv-${advMode}${isPulling ? ' is-pulling' : ''}` : ''}`}
+          style={isD20 && pullY !== 0 ? { transform: `translate(-50%, calc(-50% + ${pullY}px)) scale(1.03)` } : undefined}
+          onPointerDown={onDieKnobPointerDown}
+          onPointerMove={onDieKnobPointerMove}
+          onPointerUp={onDieKnobPointerUp}
+          onPointerCancel={onDieKnobPointerCancel}
+          role={isD20 ? 'slider' : undefined}
+          aria-valuenow={isD20 ? (advMode === 'adv' ? 1 : advMode === 'dis' ? -1 : 0) : undefined}
+          aria-valuemin={isD20 ? -1 : undefined}
+          aria-valuemax={isD20 ? 1 : undefined}
+          aria-label={isD20 ? (pt ? `Postura do d20: ${advMode}` : `d20 Stance: ${advMode}`) : undefined}
+        >
+          <svg className="fh-die-silhouette-svg" viewBox="0 0 100 100" aria-hidden="true">
+            {renderDieShape(slot.die)}
+          </svg>
+          {/* Clean inline text lockup without any boxes or borders: '1d12+2', '1d20+2', '1d6', etc. */}
+          <div className="fh-belt-dice-lockup">
+            <span className="fh-belt-slot-dice">
+              {slot.count > 1 ? `${slot.count}d${slot.die}` : `1d${slot.die}`}
+              {pbActive ? `+${profB}` : ''}
+            </span>
+          </div>
+        </div>
+
+        {/* Bottom Foot: Total bonus solely when assigned */}
+        <div className="fh-belt-slot-foot">
+          {isBound && (
+            <span
+              className={`fh-belt-slot-bonus${pbActive ? ' has-pb' : ''}`}
+              title={pt
+                ? `Bônus: ${Utils.fmtMod(boundMod)}${pbActive ? ` + PB ${Utils.fmtMod(profB)} = ${Utils.fmtMod(totalMod)}` : ''}`
+                : `Bonus: ${Utils.fmtMod(boundMod)}${pbActive ? ` + PB ${Utils.fmtMod(profB)} = ${Utils.fmtMod(totalMod)}` : ''}`}
+            >
+              {Utils.fmtMod(totalMod)}
+            </span>
+          )}
+        </div>
+      </article>
+    </div>
+  );
+};
+
+const BeltAbilities = ({ char, lang, roll, profB }) => {
+  const top = ['str', 'dex', 'con'];
+  const bottom = ['int', 'wis', 'cha'];
+  const pt = lang === 'pt';
+  const effectiveProfB = profB != null ? profB : Utils.profBonus(char.level);
+
+  const [activeSlot, setActiveSlot] = useState(0);
+  const [pbActive, setPbActive] = useState(false);
+
+  const [slots, setSlots] = useState([
+    { die: 20, count: 1, bound: null, advMode: 'normal' },
+    { die: 6, count: 1, bound: null, advMode: 'normal' },
+    { die: 8, count: 1, bound: null, advMode: 'normal' },
+  ]);
+
+  const onShiftDie = (idx, delta) => {
+    setSlots((prev) => prev.map((s, i) => {
+      if (i !== idx) return s;
+      const curDieIdx = Math.max(0, HONEY_DICE.indexOf(s.die));
+      const nextIdx = (((curDieIdx + delta) % HONEY_DICE.length) + HONEY_DICE.length) % HONEY_DICE.length;
+      const nextDie = HONEY_DICE[nextIdx];
+      return {
+        ...s,
+        die: nextDie,
+        advMode: nextDie === 20 ? (s.advMode || 'normal') : 'normal',
+      };
+    }));
+  };
+
+  const onShiftCount = (idx, delta) => {
+    setSlots((prev) => prev.map((s, i) => {
+      if (i !== idx) return s;
+      return { ...s, count: Math.max(1, Math.min(9, s.count + delta)) };
+    }));
+  };
+
+  const onSetSlotAdvMode = (idx, modeOrFn) => {
+    setSlots((prev) => prev.map((s, i) => {
+      if (i !== idx) return s;
+      if (Number(s.die) !== 20) return { ...s, advMode: 'normal' };
+      const cur = s.advMode || 'normal';
+      const nextMode = typeof modeOrFn === 'function' ? modeOrFn(cur) : modeOrFn;
+      return { ...s, advMode: nextMode };
+    }));
+  };
+
+  const onBind = (k) => {
+    setSlots((prev) => prev.map((s, i) => {
+      if (i !== activeSlot) return s;
+      return { ...s, bound: s.bound === k ? null : k };
+    }));
+  };
+
+  const onRollSlot = (idx) => {
+    const s = slots[idx];
+    const boundMod = s.bound ? Utils.abilityMod(char, s.bound) : 0;
+    const totalMod = boundMod + (pbActive ? effectiveProfB : 0);
+    const parts = [];
+    if (s.bound) parts.push(`${BELT_ABBR[s.bound] || s.bound.toUpperCase()} ${Utils.fmtMod(boundMod)}`);
+    if (pbActive) parts.push(`PB ${Utils.fmtMod(effectiveProfB)}`);
+    const modText = parts.length ? ` (${parts.join(' + ')})` : '';
+    const advMode = Number(s.die) === 20 ? (s.advMode || 'normal') : 'normal';
+    const advText = advMode === 'adv' ? (pt ? ' (com vantagem)' : ' (with advantage)')
+                  : advMode === 'dis' ? (pt ? ' (com desvantagem)' : ' (with disadvantage)')
+                  : '';
+    roll({
+      die: s.die,
+      count: s.count,
+      mod: totalMod,
+      label: pt
+        ? `Cinto [Slot ${idx + 1}] ${s.count}d${s.die}${modText}${advText}`
+        : `Belt [Slot ${idx + 1}] ${s.count}d${s.die}${modText}${advText}`,
+      advMode,
+    });
+  };
+
+  return (
+    <div className={`fh-belt${pbActive ? ' is-pb-active' : ''}`} data-fab-pass="">
+      <div className="fh-belt-hive-row is-top">
+        {top.map((k) => (
+          <BeltHex
+            key={k}
+            k={k}
+            char={char}
+            lang={lang}
+            roll={roll}
+            onBind={onBind}
+            isBound={slots[activeSlot]?.bound === k}
+          />
+        ))}
+      </div>
+      <div className="fh-belt-hive-row is-mid">
+        <BeltPbSlot
+          char={char}
+          lang={lang}
+          profB={effectiveProfB}
+          pbActive={pbActive}
+          onSetPb={setPbActive}
+        />
+        {slots.map((slot, idx) => (
+          <BeltQuickSlot
+            key={idx}
+            slot={slot}
+            index={idx}
+            isActive={activeSlot === idx}
+            onSelect={setActiveSlot}
+            onShiftDie={onShiftDie}
+            onShiftCount={onShiftCount}
+            onSetAdvMode={onSetSlotAdvMode}
+            onRoll={onRollSlot}
+            char={char}
+            lang={lang}
+            pbActive={pbActive}
+            profB={effectiveProfB}
+          />
+        ))}
+      </div>
+      <div className="fh-belt-hive-row is-bottom">
+        {bottom.map((k) => (
+          <BeltHex
+            key={k}
+            k={k}
+            char={char}
+            lang={lang}
+            roll={roll}
+            onBind={onBind}
+            isBound={slots[activeSlot]?.bound === k}
+          />
+        ))}
+      </div>
+      <p className="fh-honey-help">
+        {pt
+          ? 'PB: deslize → ligar, ← desligar · d20: arraste a silhueta ↑ vantagem 🟢, ↓ desvantagem 🔴 · segure um atributo para vincular ao cinto.'
+          : 'PB: swipe → add PB, ← remove PB · d20: drag silhouette ↑ advantage 🟢, ↓ disadvantage 🔴 · hold an attribute badge to bind to belt.'}
+      </p>
+    </div>
+  );
+};
+
 const OtherFeatures = ({ char, lang, placed, cls }) => {
   const pt = lang === 'pt';
   const bgf = backgroundFeature(char, lang);
@@ -1812,34 +2749,50 @@ const OtherFeatures = ({ char, lang, placed, cls }) => {
 
 const SheetStats = ({ char, lang, update, profB, passPerc, roll, placed, cls }) => {
   const pt = lang === 'pt';
+  const [beltMode, setBeltMode] = useState(false);
   const profText = (level) => level === 2 ? (pt ? 'Especialista' : 'Expertise') : level ? (pt ? 'Treinado' : 'Proficient') : (pt ? 'Sem treino' : 'Not proficient');
+  const visibleSkills = beltMode
+    ? SRD.SKILLS.filter((s) => Utils.hasSkillProf(char, s.id) || Utils.hasExpertise(char, s.id))
+    : SRD.SKILLS;
+  const toolSummaries = [
+    ...trainingLines(char, lang),
+    ...(char.otherProfs ? [{ key: 'other', label: pt ? 'Outras proficiências' : 'Other proficiencies', text: char.otherProfs }] : []),
+  ];
   return (
     <>
       <section className="fh-panel">
       <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{pt ? 'Atributos' : 'Abilities'}</FhTitle>
-      <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang)} />
+      <label className="fh-honey-toggle">
+        <input type="checkbox" checked={beltMode} onChange={(e) => setBeltMode(e.target.checked)} />
+        <span>{pt ? 'Modo cinto de rolagem (belt)' : 'Dice belt mode'}</span>
+      </label>
+      {beltMode
+        ? <BeltAbilities char={char} lang={lang} roll={roll} profB={profB} />
+        : <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang)} />}
       </section>
 
-      <section className="fh-panel">
-      <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{lang === 'pt' ? 'Testes de Resistência' : 'Saving Throws'}</FhTitle>
-      {/* Em 2 colunas no desktop (3 + 3), na ordem do DOM: --fh-rows = metade das linhas.
-          data-fab-pass: o botão de dados fica no canto sobre a lista, sem saltar (DiceRoller) */}
-      <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(SRD.ABILITIES.length / 2) }}>
-        {SRD.ABILITIES.map(k => {
-          const bonus = Utils.saveBonus(char, k);
-          const isProf = Utils.hasSaveProf(char, k);
-          return (
-            <FhSkillRow key={k} name={t(k, lang)} abbr={t(k + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
-              level={isProf ? 1 : 0}
-              profTitle={profText(isProf ? 1 : 0)}
-              profLabel={`${t(k, lang)}: ${profText(isProf ? 1 : 0)}`}
-              onToggle={() => update({ saveProfs: isProf ? (char.saveProfs || []).filter(x => x !== k) : [...(char.saveProfs || []), k] })}
-              onRoll={() => roll({ die: 20, mod: bonus, label: t(k, lang) + ' ' + t('saveRoll', lang) })} />
-          );
-        })}
-      </div>
-      <FhProfLegend lang={lang} />
-      </section>
+      {!beltMode && (
+        <section className="fh-panel">
+        <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{lang === 'pt' ? 'Testes de Resistência' : 'Saving Throws'}</FhTitle>
+        {/* Em 2 colunas no desktop (3 + 3), na ordem do DOM: --fh-rows = metade das linhas.
+            data-fab-pass: o botão de dados fica no canto sobre a lista, sem saltar (DiceRoller) */}
+        <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(SRD.ABILITIES.length / 2) }}>
+          {SRD.ABILITIES.map(k => {
+            const bonus = Utils.saveBonus(char, k);
+            const isProf = Utils.hasSaveProf(char, k);
+            return (
+              <FhSkillRow key={k} name={t(k, lang)} abbr={t(k + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
+                level={isProf ? 1 : 0}
+                profTitle={profText(isProf ? 1 : 0)}
+                profLabel={`${t(k, lang)}: ${profText(isProf ? 1 : 0)}`}
+                onToggle={() => update({ saveProfs: isProf ? (char.saveProfs || []).filter(x => x !== k) : [...(char.saveProfs || []), k] })}
+                onRoll={() => roll({ die: 20, mod: bonus, label: t(k, lang) + ' ' + t('saveRoll', lang) })} />
+            );
+          })}
+        </div>
+        <FhProfLegend lang={lang} />
+        </section>
+      )}
 
       <section className="fh-panel">
       <FhTitle sub={<>
@@ -1847,8 +2800,13 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll, placed, cls }) 
         <span aria-hidden="true">·</span>
         <span><FhTapToRoll lang={lang} /></span>
       </>}>{t('skills', lang)}</FhTitle>
-      <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(SRD.SKILLS.length / 2) }}>
-        {SRD.SKILLS.map(s => {
+      {beltMode && (
+        <div className="fh-belt-skill-note">
+          {pt ? 'Modo minimalista: somente perícias treinadas/especialistas.' : 'Minimal mode: proficient/expertise skills only.'}
+        </div>
+      )}
+      <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(Math.max(visibleSkills.length, 1) / 2) }}>
+        {visibleSkills.map(s => {
           const bonus = Utils.skillBonus(char, s.id);
           const isProf = Utils.hasSkillProf(char, s.id);
           const isExpert = Utils.hasExpertise(char, s.id);
@@ -1872,7 +2830,12 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll, placed, cls }) 
           );
         })}
       </div>
-      <FhProfLegend lang={lang} expert />
+      {beltMode && visibleSkills.length === 0 && (
+        <p className="fh-belt-skill-note">
+          {pt ? 'Nenhuma perícia treinada ainda.' : 'No proficient skills yet.'}
+        </p>
+      )}
+      {!beltMode && <FhProfLegend lang={lang} expert />}
       <FhFeatures items={placed.by.skills} multi={placed.multi} lang={lang} place="skills" />
       </section>
 
@@ -1898,20 +2861,22 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll, placed, cls }) 
       <section className="fh-panel">
       <FhTitle>{lang === 'pt' ? 'Idiomas e Outras Proficiências' : 'Languages & Other Proficiencies'}</FhTitle>
       <LanguagesField char={char} lang={lang} update={update} />
-      {trainingLines(char, lang).map(tl => (
+      {toolSummaries.map(tl => (
         <div key={tl.key} className="text-sm" style={{ marginBottom: 6 }}>
           <strong style={{ color: 'var(--gold-deep)' }}>{tl.label}:</strong> {tl.text}
         </div>
       ))}
       <FhFeatures items={placed.by.proficiencies} multi={placed.multi} lang={lang} place="proficiencies" className="fh-cf-profs" />
-      <div>
-        <label>{lang === 'pt' ? 'Outras proficiências' : 'Other proficiencies'}</label>
-        <textarea aria-label={lang === 'pt' ? 'Outras proficiências' : 'Other proficiencies'}
-          value={char.otherProfs || ''}
-          onChange={e => update({ otherProfs: e.target.value })}
-          placeholder={lang === 'pt' ? 'Ferramentas, armas adicionais...' : 'Tools, extra weapons...'}
-        />
-      </div>
+      {!beltMode && (
+        <div>
+          <label>{lang === 'pt' ? 'Outras proficiências' : 'Other proficiencies'}</label>
+          <textarea aria-label={lang === 'pt' ? 'Outras proficiências' : 'Other proficiencies'}
+            value={char.otherProfs || ''}
+            onChange={e => update({ otherProfs: e.target.value })}
+            placeholder={lang === 'pt' ? 'Ferramentas, armas adicionais...' : 'Tools, extra weapons...'}
+          />
+        </div>
+      )}
       </section>
     </>
   );

@@ -39,7 +39,7 @@ Abre `http://localhost:5173`. Credenciais do seed:
 | Realtime | Polling 2.5s (PA free não tem WS) | — |
 | Cache | LocMem (rate limit) | — |
 
-Detalhes em [DECISIONS.md](DECISIONS.md). Para subir em produção: [DEPLOY.md](DEPLOY.md). Endpoints: [API.md](API.md).
+Detalhes em [DECISIONS.md](DECISIONS.md). Arquitetura do sistema: [ARCHITECTURE.md](ARCHITECTURE.md). Design System e UI/UX: [DESIGN.md](DESIGN.md). Registros de decisão: [ADR.md](ADR.md). Roadmap técnico e de produto: [ROADMAP.md](ROADMAP.md). Dívida técnica e modernização: [TECH_DEBT.md](TECH_DEBT.md). Engenharia de dados e regras: [DATA_ENGINEERING.md](DATA_ENGINEERING.md). Mapa de componentes: [SYSTEM_MAP.md](SYSTEM_MAP.md). Para subir em produção: [DEPLOY.md](DEPLOY.md). Endpoints: [API.md](API.md). Auditoria técnica/UX atual: [AUDIT.md](AUDIT.md). Crítica estratégica de design: [CRITIQUE.md](CRITIQUE.md).
 
 ## Estrutura
 
@@ -47,14 +47,15 @@ Detalhes em [DECISIONS.md](DECISIONS.md). Para subir em produção: [DEPLOY.md](
 /frontend       Vite + React (vai pra Vercel)
 /backend        Django (vai pra PythonAnywhere)
 vercel.json     build aponta pra frontend/
-DECISIONS.md, DEPLOY.md, API.md, HANDOFF.md
+ARCHITECTURE.md, DESIGN.md, ADR.md, ROADMAP.md, TECH_DEBT.md, DATA_ENGINEERING.md, SYSTEM_MAP.md
+DECISIONS.md, DEPLOY.md, API.md, HANDOFF.md, RULES.md, PRODUCT.md
 ```
 
 ## Testes
 
 ```bash
 cd backend && venv\Scripts\activate && py manage.py test api    # 70 testes
-cd frontend && npm test                                          # 63 testes
+cd frontend && npm test                                          # 1.515 testes (100% green)
 ```
 
 Cobertura cruzada Python/JS pra engine de progressão, autorização cross-user, rate limit, fluxo de aprovação, dice rigging.

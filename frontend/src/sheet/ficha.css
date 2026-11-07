@@ -1175,6 +1175,922 @@
   .ficha .fh-hex-mod { font-size: 1.5rem; font-size: min(1.5rem, 35cqi); }
 }
 
+/* ---------- Modo cinto de rolagem (belt) ---------- */
+.ficha .fh-honey-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  cursor: pointer;
+  color: var(--ink-secondary);
+  font-size: 0.95rem;
+}
+.ficha .fh-honey-toggle input { width: 18px; height: 18px; accent-color: var(--gold); }
+.ficha .fh-belt {
+  --belt-w: clamp(70px, 13.5vw, 94px);
+  --belt-h: calc(var(--belt-w) * 1.1547005);
+  --belt-gap: 5px;
+  --belt-row-overlap: calc(var(--belt-h) * 0.25 - var(--belt-gap) * 1.1547005);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0 14px;
+  user-select: none;
+}
+.ficha .fh-belt-hive-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--belt-gap);
+  width: 100%;
+}
+.ficha .fh-belt-hive-row.is-mid {
+  margin-top: calc(var(--belt-row-overlap) * -1);
+  margin-bottom: calc(var(--belt-row-overlap) * -1);
+  z-index: 5;
+}
+.ficha .fh-belt-hive-row.is-top,
+.ficha .fh-belt-hive-row.is-bottom {
+  z-index: 6;
+}
+
+/* Ability-specific color accents */
+.ficha .fh-belt-hex-wrap.tone-str {
+  --hex-gem: #c83232;
+  --hex-gem-glow: rgba(200, 50, 50, 0.45);
+  --hex-gem-bg: linear-gradient(180deg, #781c1c 0%, #4a1010 100%);
+  --hex-parchment-top: #fef6f6;
+  --hex-rim: #7a1e1e;
+  --hex-checkered: rgba(200, 50, 50, 0.08);
+  --hex-shield-rim: #8a2222;
+}
+.ficha .fh-belt-hex-wrap.tone-dex {
+  --hex-gem: #249454;
+  --hex-gem-glow: rgba(36, 148, 84, 0.45);
+  --hex-gem-bg: linear-gradient(180deg, #186137 0%, #0d381f 100%);
+  --hex-parchment-top: #f3fbf6;
+  --hex-rim: #155732;
+  --hex-checkered: rgba(36, 148, 84, 0.08);
+  --hex-shield-rim: #1b663a;
+}
+.ficha .fh-belt-hex-wrap.tone-con {
+  --hex-gem: #d46b19;
+  --hex-gem-glow: rgba(212, 107, 25, 0.45);
+  --hex-gem-bg: linear-gradient(180deg, #8a430d 0%, #542806 100%);
+  --hex-parchment-top: #fef8f2;
+  --hex-rim: #7c3a0a;
+  --hex-checkered: rgba(212, 107, 25, 0.08);
+  --hex-shield-rim: #8f480f;
+}
+.ficha .fh-belt-hex-wrap.tone-int {
+  --hex-gem: #2272c7;
+  --hex-gem-glow: rgba(34, 114, 199, 0.45);
+  --hex-gem-bg: linear-gradient(180deg, #16487e 0%, #0d2c4f 100%);
+  --hex-parchment-top: #f3f8fd;
+  --hex-rim: #144375;
+  --hex-checkered: rgba(34, 114, 199, 0.08);
+  --hex-shield-rim: #174b82;
+}
+.ficha .fh-belt-hex-wrap.tone-wis {
+  --hex-gem: #863cb8;
+  --hex-gem-glow: rgba(134, 60, 184, 0.45);
+  --hex-gem-bg: linear-gradient(180deg, #562477 0%, #35154b 100%);
+  --hex-parchment-top: #f9f4fd;
+  --hex-rim: #502170;
+  --hex-checkered: rgba(134, 60, 184, 0.08);
+  --hex-shield-rim: #59257c;
+}
+.ficha .fh-belt-hex-wrap.tone-cha {
+  --hex-gem: #c49018;
+  --hex-gem-glow: rgba(196, 144, 24, 0.45);
+  --hex-gem-bg: linear-gradient(180deg, #7c5a0c 0%, #4f3906 100%);
+  --hex-parchment-top: #fefaf2;
+  --hex-rim: #73530a;
+  --hex-checkered: rgba(196, 144, 24, 0.10);
+  --hex-shield-rim: #855f0b;
+}
+
+/* Hexad Wrapper containing Hex, Glow Overlay and Repurposed Slider Badge */
+.ficha .fh-belt-hex-wrap {
+  position: relative;
+  width: var(--belt-w);
+  height: var(--belt-h);
+  transition: transform 0.15s var(--fh-ease), filter 0.18s ease;
+}
+.ficha .fh-belt-hex-wrap.is-bound {
+  filter: drop-shadow(0 0 10px var(--hex-gem-glow, rgba(237, 203, 122, 0.8)));
+}
+.ficha .fh-belt-hex-wrap.adv-adv {
+  z-index: 10;
+  filter: drop-shadow(0 4px 14px rgba(46, 204, 113, 0.7));
+}
+.ficha .fh-belt-hex-wrap.adv-dis {
+  z-index: 10;
+  filter: drop-shadow(0 6px 16px rgba(255, 42, 42, 0.75));
+}
+
+/* Glowing Edge Feedback SVG */
+.ficha .fh-belt-glow-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 8;
+}
+
+/* Top 2 Edges: Shiny Green Feedback with Green Glowing Shadow Underneath */
+.ficha .fh-edge-shadow-adv {
+  stroke: rgba(46, 204, 113, 0.75);
+  stroke-width: 9px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  filter: blur(4px) drop-shadow(0 6px 14px rgba(46, 204, 113, 0.95));
+  transform: translateY(2px);
+}
+.ficha .fh-edge-stroke-adv {
+  stroke: #39e75f;
+  stroke-width: 3.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  filter: drop-shadow(0 0 2px #ffffff) drop-shadow(0 0 6px #2ecc71) drop-shadow(0 0 12px rgba(46, 204, 113, 0.9));
+  animation: fh-edge-pulse-adv 2s ease-in-out infinite alternate;
+}
+.ficha .fh-edge-shine-adv {
+  stroke: #e4ffe8;
+  stroke-width: 1.2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  opacity: 0.9;
+}
+@keyframes fh-edge-pulse-adv {
+  0% { filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px #2ecc71) drop-shadow(0 0 10px rgba(46, 204, 113, 0.8)); opacity: 0.9; }
+  100% { filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 8px #2ecc71) drop-shadow(0 0 16px rgba(46, 204, 113, 1)); opacity: 1; }
+}
+
+/* Bottom 2 Edges: Shiny Red Feedback with Red Glowing Shadow Underneath */
+.ficha .fh-edge-shadow-dis {
+  stroke: rgba(255, 42, 42, 0.8);
+  stroke-width: 9px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  filter: blur(4px) drop-shadow(0 8px 16px rgba(255, 42, 42, 0.95));
+  transform: translateY(2px);
+}
+.ficha .fh-edge-stroke-dis {
+  stroke: #ff3344;
+  stroke-width: 3.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  filter: drop-shadow(0 0 2px #ffffff) drop-shadow(0 0 6px #ff2a2a) drop-shadow(0 0 12px rgba(255, 42, 42, 0.9));
+  animation: fh-edge-pulse-dis 2s ease-in-out infinite alternate;
+}
+.ficha .fh-edge-shine-dis {
+  stroke: #ffe4e6;
+  stroke-width: 1.2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  opacity: 0.9;
+}
+@keyframes fh-edge-pulse-dis {
+  0% { filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px #ff2a2a) drop-shadow(0 0 10px rgba(255, 42, 42, 0.8)); opacity: 0.9; }
+  100% { filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 8px #ff2a2a) drop-shadow(0 0 16px rgba(255, 42, 42, 1)); opacity: 1; }
+}
+
+/* Pointy-topped hexagon attribute tiles */
+.ficha .fh-belt-hex-wrap .fh-belt-hex {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: var(--hex-rim, #543f29);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  transition: transform 0.15s var(--fh-ease), filter 0.15s;
+}
+.ficha .fh-belt-hex-wrap .fh-belt-hex::after {
+  content: "";
+  position: absolute;
+  inset: 1.5px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: linear-gradient(180deg, var(--hex-parchment-top, #fbf7ee) 0%, #ede3cf 52%, #ded0b5 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 0 8px rgba(120, 95, 55, 0.12);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Inner radiant lighting when advantage/disadvantage is active */
+.ficha .fh-belt-hex-wrap.adv-adv .fh-belt-header {
+  box-shadow: inset 0 2px 10px rgba(46, 204, 113, 0.75), 0 3px 10px rgba(46, 204, 113, 0.5);
+}
+.ficha .fh-belt-hex-wrap.adv-dis .fh-honey-halves {
+  box-shadow: inset 0 -3px 10px rgba(255, 42, 42, 0.75), 0 3px 10px rgba(255, 42, 42, 0.5);
+}
+
+/* Top Area: Ability Name Label Centered */
+.ficha .fh-belt-header {
+  position: absolute;
+  top: 1.5px;
+  left: 1.5px;
+  right: 1.5px;
+  height: 40%;
+  z-index: 3;
+  border-bottom: 1.5px solid rgba(80, 60, 40, 0.4);
+  background: var(--hex-gem-bg, linear-gradient(180deg, #3a2a1a 0%, #1e150d 100%));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 4px 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 2px 4px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+.ficha .fh-belt-hex .fh-honey-abbr {
+  font-family: var(--display);
+  font-size: clamp(0.74rem, 1.4vw, 0.88rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #fff9ee;
+  text-transform: uppercase;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+/* Vertical Slider Track: Recessed guide rail behind the badge hinting vertical movement */
+.ficha .fh-belt-badge-track {
+  position: absolute;
+  top: calc(40% - 15px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 30px;
+  border-radius: 3px;
+  background: rgba(35, 22, 14, 0.45);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.75), 0 1px 0 rgba(255, 255, 255, 0.18);
+  z-index: 4;
+  pointer-events: none;
+  transition: background 0.16s ease;
+}
+.ficha .fh-belt-hex-wrap.adv-adv .fh-belt-badge-track {
+  background: linear-gradient(180deg, rgba(46, 204, 113, 0.7) 0%, rgba(35, 22, 14, 0.4) 100%);
+  box-shadow: 0 0 6px rgba(46, 204, 113, 0.5), inset 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.ficha .fh-belt-hex-wrap.adv-dis .fh-belt-badge-track {
+  background: linear-gradient(180deg, rgba(35, 22, 14, 0.4) 0%, rgba(255, 51, 68, 0.7) 100%);
+  box-shadow: 0 0 6px rgba(255, 51, 68, 0.5), inset 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+/* Repurposed Round Ability Score Badge: 3D Spherical Gold Stud Knob with Deeply Etched Numbers */
+.ficha .fh-belt-badge {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: clamp(28px, 4.5vw, 32px);
+  height: clamp(28px, 4.5vw, 32px);
+  border-radius: 50%;
+  border: 1.5px solid #d4aa37;
+  background: radial-gradient(
+    circle at 35% 28%,
+    #ffffff 0%,
+    #fff4b8 16%,
+    #f0c754 44%,
+    #ca9626 74%,
+    #7a4f07 100%
+  );
+  box-shadow:
+    0 4px 10px rgba(0, 0, 0, 0.8),
+    0 1.5px 3px rgba(0, 0, 0, 0.6),
+    inset 0 2px 2.5px rgba(255, 255, 255, 0.95),
+    inset 0 -2.5px 3.5px rgba(80, 48, 6, 0.9),
+    0 0 0 1.5px rgba(35, 22, 10, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 6;
+  cursor: grab;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  padding: 0;
+  transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.16s, box-shadow 0.16s, filter 0.16s;
+}
+.ficha .fh-belt-badge::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+}
+.ficha .fh-belt-badge:hover {
+  filter: brightness(1.12) drop-shadow(0 0 6px rgba(237, 203, 122, 0.65));
+}
+.ficha .fh-belt-badge:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+.ficha .fh-belt-badge.is-pulling {
+  cursor: grabbing;
+  transition: none;
+}
+/* Advantage: Retains 3D golden stud, adds brilliant emerald halo bloom */
+.ficha .fh-belt-badge.adv-adv {
+  transform: translate(-50%, calc(-50% - 6px));
+  border-color: #39e75f;
+  box-shadow:
+    0 0 14px rgba(46, 204, 113, 0.95),
+    0 4px 10px rgba(0, 0, 0, 0.8),
+    inset 0 2px 2.5px rgba(255, 255, 255, 0.95),
+    inset 0 -2.5px 3.5px rgba(80, 48, 6, 0.9),
+    0 0 0 1.5px rgba(20, 60, 30, 0.85);
+}
+/* Disadvantage: Retains 3D golden stud, adds brilliant crimson halo bloom */
+.ficha .fh-belt-badge.adv-dis {
+  transform: translate(-50%, calc(-50% + 6px));
+  border-color: #ff3344;
+  box-shadow:
+    0 0 14px rgba(255, 51, 68, 0.95),
+    0 4px 10px rgba(0, 0, 0, 0.8),
+    inset 0 2px 2.5px rgba(255, 255, 255, 0.95),
+    inset 0 -2.5px 3.5px rgba(80, 48, 6, 0.9),
+    0 0 0 1.5px rgba(60, 20, 25, 0.85);
+}
+.ficha .fh-belt-hex-wrap.is-bound .fh-belt-badge {
+  box-shadow:
+    0 0 14px var(--hex-gem-glow, rgba(237, 203, 122, 0.95)),
+    0 4px 10px rgba(0, 0, 0, 0.8),
+    inset 0 2px 2.5px rgba(255, 255, 255, 0.95),
+    inset 0 -2.5px 3.5px rgba(80, 48, 6, 0.9),
+    0 0 0 1.5px rgba(35, 22, 10, 0.85);
+}
+
+/* Micro-Arrows hinting vertical movement: chiseled into gold */
+.ficha .fh-badge-arrow {
+  font-size: 0.42rem;
+  line-height: 1;
+  color: #4a300a;
+  text-shadow: 0 -0.8px 0.8px rgba(0, 0, 0, 0.8), 0 0.8px 0.6px rgba(255, 255, 255, 0.8);
+  transition: color 0.15s, transform 0.15s, opacity 0.15s, text-shadow 0.15s;
+  pointer-events: none;
+  user-select: none;
+}
+.ficha .fh-belt-badge.adv-adv .fh-badge-arrow.is-up {
+  color: #125424;
+  text-shadow: 0 0 5px #2ecc71, 0 0 2px #fff;
+  transform: scale(1.3);
+  opacity: 1;
+}
+.ficha .fh-belt-badge.adv-adv .fh-badge-arrow.is-down {
+  opacity: 0.2;
+}
+.ficha .fh-belt-badge.adv-dis .fh-badge-arrow.is-down {
+  color: #5c0f16;
+  text-shadow: 0 0 5px #ff3344, 0 0 2px #fff;
+  transform: scale(1.3);
+  opacity: 1;
+}
+.ficha .fh-belt-badge.adv-dis .fh-badge-arrow.is-up {
+  opacity: 0.2;
+}
+
+/* Ability Score Flat Value: Deeply chiseled into solid golden stud */
+.ficha .fh-belt-hex .fh-honey-score {
+  font-family: var(--display);
+  font-size: clamp(0.70rem, 1.25vw, 0.82rem);
+  font-weight: 900;
+  line-height: 1;
+  margin: 0;
+  pointer-events: none;
+  color: #201202;
+  text-shadow:
+    0 -1.2px 1.2px rgba(0, 0, 0, 0.95),
+    0 1.2px 0.8px rgba(255, 255, 255, 0.95),
+    0 0 2px rgba(30, 15, 2, 0.85);
+}
+
+/* Halves Container (Check on Left, Save on Right) */
+.ficha .fh-honey-halves {
+  position: absolute;
+  top: 40%;
+  bottom: 1.5px;
+  left: 1.5px;
+  right: 1.5px;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  touch-action: none;
+}
+.ficha .fh-honey-half {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 8px 4px 10px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.12s ease;
+}
+
+/* Consistent, Pixel-Perfect Centered Bonus Numbers Far From Borders */
+.ficha .fh-honey-val {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--display);
+  font-size: clamp(1.16rem, 2.25vw, 1.4rem);
+  font-weight: 700;
+  color: #1a110a;
+  line-height: 1;
+  text-align: center;
+  margin: auto;
+  letter-spacing: -0.01em;
+}
+
+/* Left Half: Ability Check (Smooth, classic utilitarian forged perimeter) */
+.ficha .fh-honey-half.is-check {
+  border-right: 1.5px solid rgba(80, 60, 40, 0.45);
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, rgba(246, 238, 222, 0.98) 100%);
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Right Half: Saving Throw (Defensive shield with subtle heraldic chequy pattern and reinforced border) */
+.ficha .fh-honey-half.is-save {
+  border-left: 1.5px solid rgba(80, 60, 40, 0.4);
+  background-color: #f2e4cc;
+  background-image:
+    repeating-conic-gradient(
+      var(--hex-checkered, rgba(140, 50, 50, 0.08)) 0% 25%,
+      transparent 0% 50%
+    ),
+    linear-gradient(180deg, rgba(246, 237, 219, 0.95) 0%, rgba(230, 214, 186, 0.95) 100%);
+  background-size: 10px 10px, 100% 100%;
+  box-shadow:
+    inset -2px 0 0 var(--hex-shield-rim, rgba(130, 95, 50, 0.65)),
+    inset 0 -2px 0 var(--hex-shield-rim, rgba(130, 95, 50, 0.45)),
+    inset 1px 0 0 rgba(255, 255, 255, 0.35);
+}
+
+/* Saving Throw Proficiency: Illuminated golden shield border & heraldic pip */
+.ficha .fh-honey-half.is-save.is-prof {
+  background-color: #fae4b2;
+  background-image:
+    repeating-conic-gradient(
+      var(--hex-checkered, rgba(196, 144, 24, 0.12)) 0% 25%,
+      transparent 0% 50%
+    ),
+    linear-gradient(180deg, rgba(255, 246, 218, 0.96) 0%, rgba(246, 224, 172, 0.96) 100%);
+  box-shadow:
+    inset -2px 0 0 var(--gold, #d4af37),
+    inset 0 -2px 0 var(--gold-deep, #9d7529),
+    inset 0 0 10px rgba(212, 175, 55, 0.35),
+    inset 1px 0 0 rgba(255, 255, 255, 0.5);
+}
+/* Proficient save indicated elegantly via golden checkered background and gold shield rim (no clutter emoji) */
+.ficha .fh-honey-half.is-save.is-prof .fh-honey-val {
+  color: #1a1005;
+  text-shadow: 0 0 1px rgba(212, 175, 55, 0.6);
+}
+
+@media (hover: hover) {
+  .ficha .fh-honey-half:hover {
+    background-color: rgba(214, 176, 100, 0.24);
+  }
+}
+.ficha .fh-honey-half:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}
+
+/* ==========================================================================
+   Middle Belt Row: 4 Interactive Hexad Slots
+   - Leftmost: 3D Beveled Solid Gold PB Master Hexad
+   - Slots 1-3: 50% Larger Polyhedral Silhouettes with Inline Stance & Centered Dice Lockup
+   ========================================================================== */
+
+/* Leftmost Hexad: 3D Beveled Golden PB Master Slot */
+.ficha .fh-belt-hex-wrap.is-pb-master {
+  --hex-gem: #d4af37;
+  --hex-gem-glow: rgba(212, 175, 55, 0.65);
+  position: relative;
+  width: var(--belt-w);
+  height: var(--belt-h);
+  transition: transform 0.15s var(--fh-ease), filter 0.18s ease;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.75));
+}
+.ficha .fh-belt-hex-wrap.is-pb-master.is-pb-active {
+  filter: drop-shadow(0 0 16px rgba(237, 203, 122, 0.95)) drop-shadow(0 6px 14px rgba(0, 0, 0, 0.8));
+}
+
+/* Entire PB Hexad: 3D Beveled Solid Gold Medal Tile */
+.ficha .fh-belt-slot.fh-belt-pb-slot {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: transform 0.16s var(--fh-ease), filter 0.16s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.ficha .fh-belt-slot.fh-belt-pb-slot::after {
+  display: none !important;
+}
+
+.ficha .fh-belt-slot.fh-belt-pb-slot:hover {
+  transform: scale(1.03);
+  filter: drop-shadow(0 0 12px rgba(237, 203, 122, 0.85));
+}
+
+/* 3D Chiseled Gold Medal Vector Structure in SVG */
+.ficha .fh-pb-medal-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+}
+
+.ficha .fh-pb-medal-base {
+  transition: fill 0.2s ease;
+}
+.ficha .fh-pb-medal-plateau {
+  transition: fill 0.2s ease;
+}
+.ficha .fh-belt-slot.fh-belt-pb-slot.is-pb-active .fh-pb-medal-svg {
+  filter: drop-shadow(0 0 12px rgba(255, 235, 150, 0.85)) drop-shadow(0 2px 5px rgba(0, 0, 0, 0.7));
+}
+
+/* Shiny Edge Feedback for Swiping Left (PB Off) and Right (PB On) */
+.ficha .fh-edge-shadow-pb-right {
+  stroke: rgba(237, 203, 122, 0.85);
+  stroke-width: 9px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  filter: blur(4px) drop-shadow(6px 0 14px rgba(237, 203, 122, 0.95));
+}
+.ficha .fh-edge-stroke-pb-right {
+  stroke: #fff2b2;
+  stroke-width: 3.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  filter: drop-shadow(0 0 4px #ffffff) drop-shadow(0 0 8px #edcb7a);
+}
+
+.ficha .fh-edge-shadow-pb-left {
+  stroke: rgba(140, 105, 60, 0.65);
+  stroke-width: 8px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  filter: blur(4px) drop-shadow(-6px 0 12px rgba(100, 70, 40, 0.8));
+}
+.ficha .fh-edge-stroke-pb-left {
+  stroke: #c8b090;
+  stroke-width: 2.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  opacity: 0.8;
+}
+
+/* Deeply Etched 'PB + 2' Label Precisely Centered on Shiny Gold Surface */
+.ficha .fh-belt-pb-etched-wrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  pointer-events: none;
+  user-select: none;
+}
+
+.ficha .fh-belt-pb-etched {
+  font-family: var(--display);
+  font-size: clamp(0.96rem, 1.7vw, 1.20rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: #241402;
+  /* Deeply chiseled 3D groove into solid gold */
+  text-shadow:
+    0 -1.5px 1.5px rgba(0, 0, 0, 0.95),
+    0 1.5px 1px rgba(255, 255, 255, 0.95),
+    0 0 3px rgba(35, 18, 2, 0.85);
+  transition: color 0.16s ease, text-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.ficha .fh-belt-slot.fh-belt-pb-slot:hover .fh-belt-pb-etched {
+  transform: scale(1.04);
+}
+
+.ficha .fh-belt-slot.fh-belt-pb-slot.is-pb-active .fh-belt-pb-etched {
+  color: #1a0d01;
+  text-shadow:
+    0 -2px 1.5px rgba(0, 0, 0, 1),
+    0 1.5px 1.2px rgba(255, 255, 255, 1),
+    0 0 3px rgba(20, 10, 1, 0.95);
+}
+
+/* Quick Slot Hexad Wrapper (allows glowing edges when D20 has stance) */
+.ficha .fh-belt-hex-wrap.is-quick-slot {
+  position: relative;
+  width: var(--belt-w);
+  height: var(--belt-h);
+  transition: transform 0.15s var(--fh-ease), filter 0.18s ease;
+}
+.ficha .fh-belt-hex-wrap.is-quick-slot.adv-adv {
+  z-index: 10;
+  filter: drop-shadow(0 4px 14px rgba(46, 204, 113, 0.75));
+}
+.ficha .fh-belt-hex-wrap.is-quick-slot.adv-dis {
+  z-index: 10;
+  filter: drop-shadow(0 6px 16px rgba(255, 42, 42, 0.75));
+}
+
+/* GLOBAL GOLDEN GLOWING FRAME ON ALL QUICK BELT SLOTS WHEN PB IS ACTIVE */
+.ficha .fh-belt.is-pb-active .fh-belt-slot:not(.fh-belt-pb-slot) {
+  background: linear-gradient(180deg, #edcb7a 0%, #aa8222 100%);
+  box-shadow:
+    0 0 14px rgba(237, 203, 122, 0.7),
+    0 0 6px rgba(212, 175, 55, 0.85),
+    0 4px 14px rgba(0, 0, 0, 0.7);
+  filter: drop-shadow(0 0 8px rgba(212, 175, 55, 0.6));
+}
+.ficha .fh-belt.is-pb-active .fh-belt-slot:not(.fh-belt-pb-slot)::after {
+  background: radial-gradient(circle at 50% 38%, #3e2e18 0%, #150f08 90%);
+  box-shadow:
+    inset 0 0 0 1.5px var(--gold-bright, #edcb7a),
+    inset 0 0 10px rgba(237, 203, 122, 0.35),
+    inset 0 2px 8px rgba(0, 0, 0, 0.85);
+}
+
+/* Standard Quick Slot Styling */
+.ficha .fh-belt-slot {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: #2a1f14;
+  cursor: pointer;
+  transition: transform 0.15s var(--fh-ease), filter 0.15s, background-color 0.15s;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+}
+.ficha .fh-belt-slot::after {
+  content: "";
+  position: absolute;
+  inset: 1.5px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: radial-gradient(circle at 50% 35%, #1e150d 0%, #0c0805 92%);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.65), inset 0 0 10px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.ficha .fh-belt-slot.is-active {
+  background: var(--gold-bright, #edcb7a);
+  box-shadow: 0 0 16px rgba(237, 203, 122, 0.6), 0 4px 14px rgba(0, 0, 0, 0.6);
+}
+.ficha .fh-belt-slot.is-active::after {
+  background: radial-gradient(circle at 50% 35%, #2a1c10 0%, #100b06 92%);
+  box-shadow: inset 0 0 0 1.5px var(--gold-bright, #edcb7a), inset 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+
+/* Assigned ability score visual divergence */
+.ficha .fh-belt-slot.is-bound {
+  background: linear-gradient(180deg, var(--slot-bound-color, var(--gold)) 0%, #2a1f14 100%);
+  filter: drop-shadow(0 0 6px var(--hex-gem-glow));
+}
+.ficha .fh-belt-slot.is-bound::after {
+  background: radial-gradient(circle at 50% 35%, #26190f 0%, #0d0805 92%);
+  box-shadow: inset 0 0 0 1px var(--slot-bound-color, var(--gold)), inset 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+
+/* Top Crest: Positioned absolute at top without compressing center */
+.ficha .fh-belt-slot-crest {
+  position: absolute;
+  top: 5px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 14px;
+  z-index: 4;
+  pointer-events: none;
+}
+.ficha .fh-belt-slot-num {
+  font-family: var(--display);
+  font-size: clamp(0.6rem, 1.1vw, 0.72rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--gold-deep, #9d7529);
+  text-transform: uppercase;
+  line-height: 1;
+}
+.ficha .fh-belt-slot.is-bound .fh-belt-slot-num {
+  color: var(--slot-bound-color, var(--gold-bright));
+  text-shadow: 0 0 6px var(--hex-gem-glow);
+}
+
+/* 50% LARGER ACCURATE POLYHEDRAL DIE SILHOUETTE BADGE */
+.ficha .fh-belt-die-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: clamp(78px, 13.5vw, 92px);
+  height: clamp(78px, 13.5vw, 92px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  transition: transform 0.15s ease, filter 0.15s ease;
+  z-index: 2;
+}
+/* ALWAYS retain translate(-50%, -50%) on hover so it NEVER pops off sideways! */
+.ficha .fh-belt-slot:hover .fh-belt-die-badge {
+  transform: translate(-50%, -50%) scale(1.03);
+}
+
+/* D20 Interactive Stance Knob */
+.ficha .fh-belt-die-badge.is-d20-knob {
+  cursor: grab;
+  touch-action: none;
+}
+.ficha .fh-belt-die-badge.is-d20-knob.is-pulling {
+  cursor: grabbing;
+}
+.ficha .fh-belt-die-badge.is-d20-knob.adv-adv .fh-die-poly-base {
+  stroke: #2ecc71;
+  filter: drop-shadow(0 0 6px rgba(46, 204, 113, 0.85));
+}
+.ficha .fh-belt-die-badge.is-d20-knob.adv-dis .fh-die-poly-base {
+  stroke: #ff3344;
+  filter: drop-shadow(0 0 6px rgba(255, 42, 42, 0.85));
+}
+
+.ficha .fh-die-silhouette-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.85));
+}
+.ficha .fh-die-poly-base {
+  fill: #19120b;
+  stroke: var(--gold, #d4af37);
+  stroke-width: 2.2px;
+  stroke-linejoin: round;
+  transition: fill 0.16s ease, stroke 0.16s ease, filter 0.16s ease;
+}
+.ficha .fh-die-crease {
+  stroke: rgba(212, 175, 55, 0.42);
+  stroke-width: 1.4px;
+  stroke-linecap: round;
+  transition: stroke 0.16s ease;
+}
+.ficha .fh-die-crease-facet {
+  fill: rgba(24, 16, 10, 0.75);
+  stroke: rgba(212, 175, 55, 0.42);
+  stroke-width: 1.4px;
+  stroke-linejoin: round;
+  transition: stroke 0.16s ease, fill 0.16s ease;
+}
+
+/* Die Silhouette styling when assigned to ability score */
+.ficha .fh-belt-slot.is-bound .fh-die-poly-base {
+  fill: rgba(18, 12, 8, 0.88);
+  stroke: var(--slot-bound-color, var(--gold));
+  filter: drop-shadow(0 0 6px var(--hex-gem-glow));
+}
+.ficha .fh-belt-slot.is-bound .fh-die-crease,
+.ficha .fh-belt-slot.is-bound .fh-die-crease-facet {
+  stroke: var(--slot-bound-color, var(--gold));
+  opacity: 0.75;
+}
+
+/* Dice Lockup: Clean, seamless text: '1d12+2', '1d20+2', '1d6', etc. */
+.ficha .fh-belt-dice-lockup {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+}
+
+.ficha .fh-belt-slot-dice {
+  font-family: var(--display);
+  font-size: clamp(0.80rem, 1.38vw, 0.94rem);
+  font-weight: 700;
+  color: var(--gold-bright, #edcb7a);
+  line-height: 1;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.8);
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+.ficha .fh-belt-slot.is-bound .fh-belt-slot-dice {
+  color: #fff9ee;
+  text-shadow: 0 0 8px var(--hex-gem-glow), 0 2px 4px rgba(0, 0, 0, 0.95);
+}
+
+/* Bonus styling when PB is actively added */
+.ficha .fh-belt-slot-bonus.has-pb {
+  text-shadow: 0 0 8px rgba(212, 175, 55, 0.8), 0 0 4px rgba(78, 230, 130, 0.5);
+}
+
+/* Bottom Foot: Positioned absolute at bottom without compressing center */
+.ficha .fh-belt-slot-foot {
+  position: absolute;
+  bottom: 5px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 14px;
+  z-index: 4;
+  pointer-events: none;
+}
+.ficha .fh-belt-slot-bonus {
+  font-family: var(--display);
+  font-size: clamp(0.78rem, 1.4vw, 0.92rem);
+  font-weight: 700;
+  color: var(--slot-bound-color, var(--gold-bright));
+  text-shadow: 0 0 6px var(--hex-gem-glow);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.ficha .fh-honey-help,
+.ficha .fh-belt-skill-note {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+  max-width: 540px;
+  line-height: 1.4;
+}
+
+@media (max-width: 520px) {
+  .ficha .fh-belt {
+    --belt-w: clamp(62px, 18.2vw, 76px);
+    --belt-gap: 3px;
+  }
+  .ficha .fh-honey-val {
+    font-size: clamp(0.98rem, 3.2vw, 1.15rem);
+  }
+  .ficha .fh-belt-die-badge {
+    width: clamp(64px, 17vw, 76px);
+    height: clamp(64px, 17vw, 76px);
+  }
+  .ficha .fh-belt-slot-dice {
+    font-size: clamp(0.74rem, 2.3vw, 0.88rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ficha .fh-edge-stroke-adv,
+  .ficha .fh-edge-stroke-dis {
+    animation: none;
+  }
+  .ficha .fh-belt-badge {
+    transition: none;
+  }
+}
+
 /* ---------- Salvaguardas e perícias (plano §3, §4.6; FhSkillRow em src/sheet/FhChecks.jsx) ----------
    Linha sem caixa, com filete embaixo: [losango que alterna o treino][nome · sigla · bônus
    que rola]. Dois botões irmãos. Sem treino o nome fica um tom abaixo; treinado e
