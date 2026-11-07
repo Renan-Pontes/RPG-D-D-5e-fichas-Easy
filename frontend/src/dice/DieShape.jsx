@@ -77,10 +77,11 @@ export default function DieShape({
 
   const isPt = lang === 'pt' || !lang;
   const isPetal = petalAngle != null;
+  const isInvertedPetal = petalAngle === 180;
 
   return (
     <div
-      className={`die-shape die-d${die} ${rolling ? 'rolling' : ''}${tone ? ` tone-${tone}` : ''}${dimmed ? ' is-unpicked' : ''}${isHero ? ' is-hero' : ''}${isPetal ? ' is-petal-die' : ''}${isCrit && !rolling ? ' is-crit-artdeco' : ''}`}
+      className={`die-shape die-d${die} ${rolling ? 'rolling' : ''}${tone ? ` tone-${tone}` : ''}${dimmed ? ' is-unpicked' : ''}${isHero ? ' is-hero' : ''}${isPetal ? ' is-petal-die' : ''}${isInvertedPetal ? ' is-inverted-petal' : ''}${isCrit && !rolling ? ' is-crit-artdeco' : ''}`}
       style={style}
       aria-hidden="true"
     >

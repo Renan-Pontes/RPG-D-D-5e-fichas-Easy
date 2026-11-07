@@ -137,6 +137,7 @@ export default function DiceStage({
                 rolling={rolling2d}
                 size={60}
                 dimmed={true}
+                tone={effectiveTone}
                 lang={lang}
               />
             </div>
@@ -239,6 +240,7 @@ export default function DiceStage({
                     rolling={rolling2d}
                     size={tessellation.petalSize}
                     dimmed={true}
+                    tone={effectiveTone}
                     petalAngle={slot.rot || null}
                     lang={lang}
                   />

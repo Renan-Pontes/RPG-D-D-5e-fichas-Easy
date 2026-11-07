@@ -651,7 +651,7 @@ const DiceRoller = ({ lang }) => {
             <DiceStage
               key={overlay.id}
               groups={overlay.groups}
-              tone={overlay.isCrit ? 'crit' : overlay.isFumble ? 'fumble' : (overlay.adv === 'adv' ? 'adv' : overlay.adv === 'dis' ? 'dis' : null)}
+              tone={overlay.adv === 'adv' ? 'adv' : overlay.adv === 'dis' ? 'dis' : (overlay.isCrit ? 'crit' : null)}
               adv={overlay.adv}
               total={overlay.total}
               isCrit={overlay.isCrit}

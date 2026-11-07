@@ -636,6 +636,28 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   overflow: visible !important;
 }
 
+/* Unified Golden-by-Default Die Styling across all polyhedral types (D4..D100) */
+.die-shape .die-poly,
+.die-shape.die-d4 .die-poly,
+.die-shape.die-d6 .die-poly,
+.die-shape.die-d8 .die-poly,
+.die-shape.die-d10 .die-poly,
+.die-shape.die-d12 .die-poly,
+.die-shape.die-d20 .die-poly,
+.die-shape.die-d100 .die-poly {
+  fill: var(--gold-deep, #6b5a30);
+  stroke: var(--gold-bright, #edcb7a);
+  stroke-width: 3;
+}
+
+.die-shape.die-d4 .die-number {
+  transform: translateY(12%);
+}
+
+.die-shape.die-d4.is-inverted-petal .die-number {
+  transform: translateY(-12%);
+}
+
 /* Atmospheric circular radial glows that smoothly dissipate into the dark background */
 .die-shape::before {
   content: "";

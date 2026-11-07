@@ -230,32 +230,25 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
 
 ---
 
-## 11. Seamless Geometric Block Tessellations & Exact SVG-Calibrated Facet Parallelism (All Dice Shapes)
+## 11. Seamless Geometric Block Tessellations, Non-Warped Regular Polygons & Unified Golden/Adv/Dis UI/UX
 
-- **Authentic Interlocking Block Tessellation Calibrated to SVG `viewBox="0 0 100 100"` Bounds**:
-  - Eliminates all internal `viewBox` padding offsets and `(50, 50)` rotation pivot misalignments across all 6 polyhedral shapes (`D4`, `D6`, `D8`, `D10`/`D100`, `D12`, `D20`).
-  - All constituent dice remain strictly at **50% scale** ($52\text{px}$) surrounding the central hero die ($104\text{px}$), with every adjacent edge separated by a uniform $3.5\text{px}\text{--}6\text{px}$ gutter.
-- **D4 Truncated Triangular Jewel (Image 1, `M50 5 L95 90 L5 90 Z`)**:
-  - Calibrated to the SVG `(50, 50)` rotation pivot where an upright triangle spans $y \in [-0.225H, +0.20H]$ and an inverted triangle (`rot: 180`) spans $y \in [-0.20H, +0.225H]$.
-  - Base: 2 inverted triangles ($\nabla$, `rot: 180`) at $(\pm 28\text{px}, +67\text{px})$ flush below the hero base, plus 1 upright triangle ($\Delta$, `rot: 0`) at $(0, +71\text{px})$ nestled between them.
-  - Flanks: Lower inverted triangle ($\nabla$, `rot: 180`) at $(\pm 52\text{px}, +18\text{px})$ and upper upright triangle ($\Delta$, `rot: 0`) at $(\pm 52\text{px}, -28\text{px})$ running flush alongside the left/right facets.
-  - Roof: 2 inverted triangles ($\nabla$, `rot: 180`) at $(\pm 27\text{px}, -36\text{px})$ tucked deep into the upper V-valleys between the hero apex and upper flank triangles.
-- **D6 Modular $4 \times 4$ Square Block Grid (Image 2, `M15 15 H85 V85 H15 Z`)**:
-  - Calibrated to the **70% visible fill** (`15..85` of `0..100`) of the SVG square ($w_{\text{vis}} = 0.70 \times \text{petalSize} = 36.4\text{px}$).
-  - 4 columns at $\{-61, -20, +20, +61\}\text{px}$ and 4 rows at $\{-61, -20, +20, +61\}\text{px}$, eliminating the previous $21.6\text{px}$ padding gap and aligning outer block edges flush with the central $2 \times 2$ hero square.
-- **D8 $4 \times 4$ Diamond / Rhombus Grid (Image 3, `M50 5 L90 50 L50 95 L10 50 Z`)**:
-  - Calibrated to the **80% width $\times$ 90% height** SVG diamond lattice:
-  - 4 apex corners at $(0, \pm 80\text{px})$ and $(\pm 71\text{px}, 0)$.
-  - 8 diagonal facet diamonds running strictly parallel to the hero facets at $(\pm 24\text{px}, \pm 54\text{px})$ and $(\pm 48\text{px}, \pm 27\text{px})$.
-- **D20 Regular Pointy-Topped Hexagonal Honeycomb (Image 5, `M50 5 L90 28 L90 72 L50 95 L10 72 L10 28 Z`)**:
-  - Calibrated to the **80% width $\times$ 90% height** SVG hexagon:
-  - Flanks at $(\pm 68\text{px}, 0)$, Apexes at $(0, \pm 93\text{px})$, 4 Facet-inner slots at $(\pm 35\text{px}, \pm 57\text{px})$, and 4 Facet-outer slots at $(\pm 82\text{px}, \pm 47\text{px})$.
-- **D12 Dodecahedral Regular Pentagon Rosette (Image 4, `M50 5 L93 36 L76 89 L24 89 L7 36 Z`)**:
-  - **Central Inversion ($180^\circ$) Law**:
-    - 5 **Inner Facet Pentagons** are rotated by `rot: 180` ($\vec{C}_{\text{inner}, k} = 1.5 \vec{M}_k + g \vec{n}_k$: $(0, +65)$, $(\pm 58, +21)$, $(\pm 36, -50)$) so their 5 inner edges are **100% parallel and opposite** to the 5 edges of the central upright pentagon.
-    - 5 **Outer Valley Pentagons** are upright (`rot: 0` at $(0, -76)$, $(\pm 73, -24)$, $(\pm 44, +63)$), nestled into the 5 V-valleys between adjacent `rot: 180` inner pentagons with parallel edges on both sides.
-- **D10 / D100 Pentagonal Trapezohedron Kite Rosette (`M50 5 L88 35 L75 92 L25 92 L12 35 Z`)**:
-  - Applies the same 5-sided central inversion law: 5 inner facet kites at `rot: 180` ($(0, +70)$, $(\pm 54, +22)$, $(\pm 32, -50)$) + 5 outer valley kites at `rot: 0` ($(0, -86)$, $(\pm 68, -26)$, $(\pm 39, +63)$).
+- **Zero Non-Uniform Warping on All Polyhedral Shapes (`DICE_FACES`)**:
+  - Replaced all hand-approximated, vertically stretched SVG paths with exact regular polygons centered at `(50, 50)`:
+    - **`D4`**: True equilateral triangle (`M50 11.9 L94 88.1 L6 88.1 Z`, side $88$, height $88\frac{\sqrt{3}}{2} = 76.21$, interior angles $60^\circ$).
+    - **`D6`**: True square (`M15 15 H85 V85 H15 Z`, $70 \times 70$, interior angles $90^\circ$).
+    - **`D8`**: True $45^\circ$ rotated square / regular diamond (`M50 6 L94 50 L50 94 L6 50 Z`, $88 \times 88$, equal X and Y half-diagonals $44$, interior angles $90^\circ$).
+    - **`D10`, `D12`, `D100`**: True regular pentagon (`M50 5 L92.8 36.1 L76.45 86.41 L23.55 86.41 L7.2 36.1 Z`, circumradius $R = 45$, interior angles $108^\circ$).
+    - **`D20`**: True regular pointy-topped hexagon (`M50 5 L88.97 27.5 L88.97 72.5 L50 95 L11.03 72.5 L11.03 27.5 Z`, circumradius $R = 45$, interior angles $120^\circ$).
+- **Exact Symmetric Boundary Distances on Both X and Y Axes (`dice-tessellation.js`)**:
+  - **D4**: All 12 adjacent interfaces (horizontal, $+60^\circ$, and $-60^\circ$) have the exact same perpendicular centerline distance $g = 7.5\text{px}$; inverted petals (`rot: 180`) apply `.is-inverted-petal` (`translateY(-12%)`) so rolled numbers sit in the upper centroid.
+  - **D6**: Symmetric $4 \times 4$ grid at $\{-64.4, -21.5, +21.5, +64.4\}\text{px}$ on both X and Y axes.
+  - **D8**: Symmetric $4 \times 4$ diamond lattice with identical steps on both X and Y ($d_1 = 27.3\text{px}, d_2 = 54.5\text{px}, d_3 = 81.8\text{px}$).
+  - **D20**: Exact 6-fold rotational symmetry with 6 inner facet hexagons at $D_{\text{inner}} = 1.5 A_H + g = 68.0\text{px}$ and 6 outer valley/apex hexagons at $D_{\text{outer}} = 1.75 R_H + \sqrt{3} g = 94.4\text{px}$; `pickOrders` frames all 6 inner facets first for $N \ge 6$.
+  - **D12 / D10 / D100**: Exact 5-fold ($72^\circ$) rotational symmetry with 5 inner facet pentagons (`rot: 180`) at $D_{\text{inner}} = 64.3\text{px}$ and 5 outer valley pentagons (`rot: 0`) at $D_{\text{outer}} = 82.0\text{px}$.
+- **Consistent Dice Color UI/UX Across All Dice Types**:
+  - **Golden by default** (`fill: var(--gold-deep); stroke: var(--gold-bright)`) for all dice types (`D4`, `D6`, `D8`, `D10`, `D12`, `D20`, `D100`), removing the legacy per-die red (`D20`), green (`D100`), and beige (`D4`/`D6`) overrides in both 2D CSS (`styles.css`, `dice-styles.css`) and 3D `PALETTE` (`dice-tones.js`).
+  - **Green (`tone-adv`)** for rolls with **Advantage** (`adv === 'adv'`).
+  - **Red (`tone-dis`)** for rolls with **Disadvantage** (`adv === 'dis'`).
 - **Verification**:
-  - Exact SVG polygon-to-polygon minimum edge distance verification (`polyEdgeDist >= 3.5px` across all pairs) in `dice-tessellation.test.js` (7 / 7 tests green).
+  - Exact SVG polygon-to-polygon minimum edge distance verification in `dice-tessellation.test.js` (7 / 7 tests green) and `dice-tones.test.js` (5 / 5 tests green).
   - Full automated suite: 1,522 / 1,522 tests green across 20 suites; Vite production build: 0 errors.

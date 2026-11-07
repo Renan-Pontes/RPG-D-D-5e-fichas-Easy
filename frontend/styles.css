@@ -1671,10 +1671,10 @@ label {
   stroke-width: 3;
   filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
 }
-.die-shape.die-d20 .die-poly { fill: var(--blood-deep); stroke: var(--blood-bright); }
-.die-shape.die-d100 .die-poly { fill: var(--moss); stroke: var(--moss-bright); }
+.die-shape.die-d20 .die-poly { fill: var(--gold-deep); stroke: var(--gold-bright); }
+.die-shape.die-d100 .die-poly { fill: var(--gold-deep); stroke: var(--gold-bright); }
 .die-shape.die-d4 .die-poly,
-.die-shape.die-d6 .die-poly { fill: var(--ink-secondary); stroke: var(--gold); }
+.die-shape.die-d6 .die-poly { fill: var(--gold-deep); stroke: var(--gold-bright); }
 .die-number {
   position: absolute;
   inset: 0;

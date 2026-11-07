@@ -133,11 +133,15 @@ test('dice-tessellation: D4 uses alternating upright and inverted triangles cali
 
   for (let i = 0; i < slotPolys.length; i++) {
     const dHero = polyEdgeDist(heroPoly, slotPolys[i]);
-    assert.ok(dHero >= 3.5 && dHero <= 10.0, `D4 slot ${layout.slots[i].id} must sit flush with hero: dist=${dHero}`);
-    for (let j = i + 1; j < slotPolys.length; j++) {
+    assert.ok(dHero >= 6.0, `D4 slot ${layout.slots[i].id} must not overlap hero: dist=${dHero}`);
+    let nearest = dHero;
+    for (let j = 0; j < slotPolys.length; j++) {
+      if (i === j) continue;
       const dSlot = polyEdgeDist(slotPolys[i], slotPolys[j]);
-      assert.ok(dSlot >= 3.0, `D4 slots ${i} and ${j} must not overlap: dist=${dSlot}`);
+      assert.ok(dSlot >= 6.0, `D4 slots ${i} and ${j} must have uniform gutter: dist=${dSlot}`);
+      nearest = Math.min(nearest, dSlot);
     }
+    assert.ok(nearest >= 6.5 && nearest <= 8.5, `D4 slot ${layout.slots[i].id} must have uniform symmetric nearest-neighbor gutter (~7.5px): nearest=${nearest}`);
   }
 });
 

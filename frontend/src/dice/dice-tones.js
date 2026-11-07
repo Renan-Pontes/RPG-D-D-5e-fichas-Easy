@@ -7,12 +7,12 @@
 
 export const PALETTE = {
   d4:   { body: '#6b5a30', ink: '#f3e6cb', edge: '#edcb7a' },
-  d6:   { body: '#2d2319', ink: '#edcb7a', edge: '#d6b064' },
-  d8:   { body: '#262d52', ink: '#f3e6cb', edge: '#9fb0f0' },
-  d10:  { body: '#34401f', ink: '#f3e6cb', edge: '#9cc065' },
-  d100: { body: '#34401f', ink: '#edcb7a', edge: '#9cc065' },
-  d12:  { body: '#5a3d12', ink: '#f3e6cb', edge: '#e3a445' },
-  d20:  { body: '#5c1a10', ink: '#f3e6cb', edge: '#e0604f' },
+  d6:   { body: '#6b5a30', ink: '#f3e6cb', edge: '#edcb7a' },
+  d8:   { body: '#6b5a30', ink: '#f3e6cb', edge: '#edcb7a' },
+  d10:  { body: '#6b5a30', ink: '#f3e6cb', edge: '#edcb7a' },
+  d100: { body: '#6b5a30', ink: '#f3e6cb', edge: '#edcb7a' },
+  d12:  { body: '#6b5a30', ink: '#f3e6cb', edge: '#edcb7a' },
+  d20:  { body: '#6b5a30', ink: '#f3e6cb', edge: '#edcb7a' },
 };
 export const TONES = {
   crit:   { body: '#a8894a', ink: '#1a120a', edge: '#edcb7a', glow: '#6b5a30' },
