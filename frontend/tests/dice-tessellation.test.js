@@ -79,13 +79,54 @@ test('dice-tessellation: D4 uses alternating upright and inverted triangles (Ima
   }
 });
 
-test('dice-tessellation: D20 honeycomb tessellation supports 2d20, 5d20, 7d20', () => {
+test('dice-tessellation: D20 honeycomb tessellation supports 2d20, 5d20, 7d20 (Image 5)', () => {
   for (const count of [2, 5, 7, 12]) {
     const layout = getTessellationLayout(20, count, { heroSize: 104 });
     assert.equal(layout.petalSize, 52);
     assert.equal(layout.slots.length, count);
     for (const slot of layout.slots) {
       assert.equal(slot.rot, 0, 'D20 hexagons must be oriented at rot === 0');
+    }
+    // Check that no two slots collide
+    for (let i = 0; i < layout.slots.length; i++) {
+      for (let j = i + 1; j < layout.slots.length; j++) {
+        const dist = Math.hypot(layout.slots[i].x - layout.slots[j].x, layout.slots[i].y - layout.slots[j].y);
+        assert.ok(dist >= 40, `D20 slots ${i} and ${j} must not collide: dist=${dist}`);
+      }
+    }
+  }
+});
+
+test('dice-tessellation: D12 pentagonal rosette supports 2d12 to 10d12', () => {
+  for (const count of [2, 5, 7, 10]) {
+    const layout = getTessellationLayout(12, count, { heroSize: 104 });
+    assert.equal(layout.petalSize, 52);
+    assert.equal(layout.slots.length, count);
+    for (const slot of layout.slots) {
+      assert.equal(slot.rot, 0, 'D12 pentagons must be oriented at rot === 0');
+    }
+    for (let i = 0; i < layout.slots.length; i++) {
+      for (let j = i + 1; j < layout.slots.length; j++) {
+        const dist = Math.hypot(layout.slots[i].x - layout.slots[j].x, layout.slots[i].y - layout.slots[j].y);
+        assert.ok(dist >= 35, `D12 slots ${i} and ${j} must not collide: dist=${dist}`);
+      }
+    }
+  }
+});
+
+test('dice-tessellation: D10 kite perimeter supports 2d10 to 10d10', () => {
+  for (const count of [2, 5, 8, 10]) {
+    const layout = getTessellationLayout(10, count, { heroSize: 104 });
+    assert.equal(layout.petalSize, 52);
+    assert.equal(layout.slots.length, count);
+    for (const slot of layout.slots) {
+      assert.equal(slot.rot, 0, 'D10 kites must be oriented at rot === 0');
+    }
+    for (let i = 0; i < layout.slots.length; i++) {
+      for (let j = i + 1; j < layout.slots.length; j++) {
+        const dist = Math.hypot(layout.slots[i].x - layout.slots[j].x, layout.slots[i].y - layout.slots[j].y);
+        assert.ok(dist >= 35, `D10 slots ${i} and ${j} must not collide: dist=${dist}`);
+      }
     }
   }
 });

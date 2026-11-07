@@ -227,3 +227,42 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
     - **D12 (Dodecahedron / Regular Pentagon)**: 10-slot pentagonal cluster docked flush against the 5 facets and 5 vertices.
     - **D10 / D100 (Kite Trapezohedron)**: 10-slot perimeter docked flush along the slant flanks, shoulder facets, and bottom base.
     - **Dimmed Component Values**: Constituent rolled numbers on the 50% outer dice are dimmed (`opacity: 0.38` via `.die-shape.is-petal-die`) with unrotated horizontal text for instant readability, keeping the central hero die as the primary focal point.
+
+---
+
+## 11. Seamless Geometric Block Tessellations & Exact Facet-to-Facet Parallelism (All Dice Shapes)
+
+- **Authentic Interlocking Block Tessellation Grounded in Mathematical Geometry**:
+  - Eliminates all floating, disjointed, or misaligned satellites; all constituent dice ($N \ge 2$) assemble into seamless geometric building blocks where every polygon facet runs parallel to its neighboring facet with a uniform breathing gutter ($g \approx 6\text{px}$).
+  - All constituent dice remain strictly at **50% scale** ($52\text{px}$) surrounding the central hero die ($104\text{px}$).
+- **D4 Truncated Triangular Jewel (Image 1)**:
+  - Center is an upright equilateral triangle ($\Delta$, `rot: 0`).
+  - 9 constituent small triangles ($w = 45\text{px}, h = 42.5\text{px}$):
+    - Base: 2 inverted triangles ($\nabla$, `rot: 180`) flush against the bottom base at $(\pm 23\text{px}, +56\text{px})$, plus 1 upright triangle ($\Delta$, `rot: 0`) at $(0, +82\text{px})$ nestled between them, forming a solid downward wedge.
+    - Flanks: Lower inverted triangle ($\nabla$) at $(\pm 48\text{px}, +16\text{px})$ and upper upright triangle ($\Delta$) at $(\pm 51\text{px}, -30\text{px})$ running flush alongside the left/right facets.
+    - Roof: 2 inverted triangles ($\nabla$) at $(\pm 23\text{px}, -56\text{px})$ forming a flat horizontal top.
+  - Symmetrical pick order guarantees balanced, cohesive clusters for $N=2..9$.
+- **D6 Modular $4 \times 4$ Square Block Grid (Image 2)**:
+  - 12 perimeter square slots around the central $2 \times 2$ hero square.
+  - Cell step $S = \text{petalSize} + \text{gutter} = 58\text{px}$.
+  - 4 columns at $\{-87, -29, +29, +87\}\text{px}$, 4 rows at $\{-87, -29, +29, +87\}\text{px}$.
+  - All 12 small squares upright (`rot: 0`), forming an interlocking cube block.
+- **D8 $4 \times 4$ Diamond / Rhombus Grid (Image 3)**:
+  - 12 perimeter diamond slots around the central $2 \times 2$ hero diamond.
+  - 4 apex corners at $(0, \pm 88\text{px})$ and $(\pm 80\text{px}, 0)$.
+  - 8 diagonal facet diamonds running parallel to the hero facets at $(\pm 27\text{px}, \pm 59\text{px})$ and $(\pm 54\text{px}, \pm 29\text{px})$.
+  - All 12 small diamonds upright (`rot: 0`), forming an interlocking diamond block.
+- **D20 Regular Pointy-Topped Hexagonal Honeycomb (Image 5)**:
+  - 12 perimeter regular hexagons forming the complete ring 2 of a radius-2 honeycomb rosette.
+  - Slots positioned at every $30^\circ$ ($0^\circ, 30^\circ, 60^\circ, 90^\circ, 120^\circ, 150^\circ, 180^\circ, 210^\circ, 240^\circ, 270^\circ, 300^\circ, 330^\circ$).
+  - Flanks at $(\pm 88\text{px}, 0)$, Apexes at $(0, \pm 102\text{px})$, 4 Facet-inner slots at $(\pm 44\text{px}, \pm 74\text{px})$, and 4 Facet-outer slots at $(\pm 88\text{px}, \pm 51\text{px})$.
+  - All 12 small hexagons upright (`rot: 0`), seamlessly interlocking with the central hexagon's vertical flanks and $30^\circ/60^\circ$ facets.
+- **D12 Dodecahedral Regular Pentagon Rosette**:
+  - Corrected `DICE_FACES[12]` to a regular pentagon (`M50 5 L93 36 L76 89 L24 89 L7 36 Z`).
+  - 10 perimeter slots (5 facet docking midpoints at $R \approx 72\text{px}$ + 5 vertex corners at $R \approx 94\text{px}$).
+- **D10 / D100 Pentagonal Trapezohedron Kite**:
+  - 10 perimeter slots along shoulders, diagonals, base, and apexes.
+- **Verification**:
+  - Full automated suite: 1,522 / 1,522 tests green across 20 suites.
+  - `dice-tessellation.test.js`: 7 / 7 unit tests pass green.
+  - Vite production build: 0 errors in 21.78s.
