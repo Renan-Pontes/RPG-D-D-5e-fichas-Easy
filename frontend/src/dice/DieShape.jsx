@@ -2,13 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { DICE_FACES } from './dice-tessellation.js';
 import {
   ROLLUP_DURATION_MS,
-  LAND_HOLD_MS,
   PUMP_DURATION_MS,
   FALLOFF_DURATION_MS,
   computeRollupFrame,
   computeAnticipationProfile,
   resolvePumpDirection,
-  computePumpFrame,
   computeFalloffProfile,
 } from './dice-rollup.js';
 
@@ -39,22 +37,20 @@ export default function DieShape({
 
   const [displayVal, setDisplayVal] = useState(() => {
     if (shouldAnimateRoll) {
-      return computeRollupFrame(naturalVal, 0, die).value;
+      return computeRollupFrame(finalVal, 0, die).value;
     }
     return isHero && targetValue != null ? targetValue : value;
   });
   const [animPhase, setAnimPhase] = useState(() => (shouldAnimateRoll ? 'rollup' : 'idle'));
   const [tickPulse, setTickPulse] = useState(false);
 
-  // 3-Phase Juicy Roll Choreography:
-  // Phase 1 (0 -> 1.5s, Anticipation): Zero initial wobble, then increasing shake
-  //   frequency (4Hz -> 42Hz), increasing shake strength, and directional motion blur.
-  // Phase 2 (1.5s+, Final Punch): Motion blur cuts to 0 and a visceral punch
-  //   unravels the final rolled number (with elastic upward/downward pump for +bonus/-penalty).
-  // Phase 3 (Falloff — Follow-Through & Overlapping Action): As soon as the final
-  //   number is unravelled, the glowing ring and glowing pulse outstretch and smoothly
-  //   fade away while both the size of the roll and the glowing elements upscale
-  //   slowly in ease-out like a ripple.
+  // Synchronized 3-Phase Juicy Roll Choreography (50% speed-up, unified climax at 750ms):
+  // - Phase 1 (0 -> 750ms): Zero initial wobble, then increasing shake frequency (6Hz -> 56Hz),
+  //   increasing shake strength, and directional motion blur peaking right at 750ms.
+  // - Unified Climax at 750ms: At the exact peak of the roll-off (750ms), motion blur cuts
+  //   to 0, the final rolled number (finalVal) reveals, the Final Punch hits (220ms), AND
+  //   the Falloff Ripple (glowing ring + glowing pulse + ease-out roll upscale, 1050ms)
+  //   launches on the exact same frame to reinforce the reveal!
   useEffect(() => {
     const el = dieRef.current;
     const stageWrap = isHero && el ? el.closest('.dice-hero-stage-wrap, .dice-flower-stage') : null;
@@ -109,9 +105,9 @@ export default function DieShape({
       el.style.setProperty('--falloff-num-scale', '1');
       el.style.setProperty('--falloff-ring-scale', '0.92');
       el.style.setProperty('--falloff-ring-opacity', '0');
-      el.style.setProperty('--falloff-sec-ring-scale', '0.86');
+      el.style.setProperty('--falloff-sec-ring-scale', '0.88');
       el.style.setProperty('--falloff-sec-ring-opacity', '0');
-      el.style.setProperty('--falloff-pulse-scale', '0.82');
+      el.style.setProperty('--falloff-pulse-scale', '0.84');
       el.style.setProperty('--falloff-pulse-opacity', '0');
       if (stageWrap) {
         stageWrap.style.setProperty('--falloff-roll-scale', '1');
@@ -131,110 +127,77 @@ export default function DieShape({
     let startTime = null;
     let lastStepIndex = -1;
     let currentPhase = 'rollup';
-    const pumpDir = resolvePumpDirection(naturalVal, finalVal);
-    const hasModifierPump = isHero && pumpDir !== 'snap-shake';
+    let revealed = false;
+    const punchPhaseName = resolvePumpDirection(naturalVal, finalVal);
 
     resetAnticipationVars();
     resetFalloffVars();
     setAnimPhase('rollup');
-    setDisplayVal(computeRollupFrame(naturalVal, 0, die).value);
+    setDisplayVal(computeRollupFrame(finalVal, 0, die).value);
 
     const step = (now) => {
       if (startTime == null) startTime = now;
       const elapsed = now - startTime;
 
-      // Phase 1 (0 -> 1500ms): Anticipation Roll-Up (increasing shake freq/strength + motion blur)
+      // Phase 1 (0 -> 750ms): Anticipation Roll-Up (increasing shake freq/strength + motion blur)
       if (elapsed < ROLLUP_DURATION_MS) {
         const p = elapsed / ROLLUP_DURATION_MS;
         const profile = computeAnticipationProfile(p);
         applyAnticipationVars(profile);
 
-        const frame = computeRollupFrame(naturalVal, p, die);
+        const frame = computeRollupFrame(finalVal, p, die);
         if (frame.stepIndex !== lastStepIndex) {
           lastStepIndex = frame.stepIndex;
           setDisplayVal(frame.value);
           setTickPulse(true);
           clearTimeout(pulseTimer);
-          pulseTimer = setTimeout(() => setTickPulse(false), 38);
+          pulseTimer = setTimeout(() => setTickPulse(false), 24);
         }
         animId = requestAnimationFrame(step);
         return;
       }
 
-      // Climax at 1.5s: cut motion blur & shake to 0
-      resetAnticipationVars();
+      // Unified Climax at 750ms (afterClimax = 0):
+      // Peak of roll-off, number reveal, punch, and ripple all happen on the exact same frame!
+      const afterClimax = elapsed - ROLLUP_DURATION_MS;
 
-      // Non-hero constituent/satellite dice settle cleanly at 1.5s
-      if (!isHero) {
-        setDisplayVal(finalVal);
+      if (!revealed) {
+        revealed = true;
+        resetAnticipationVars();
         setTickPulse(false);
+        setDisplayVal(finalVal);
+      }
+
+      // Non-hero constituent/satellite dice settle cleanly at the climax
+      if (!isHero) {
         setAnimPhase('settled');
         return;
       }
 
-      // Optional brief compression coil on naturalVal when a +bonus/-penalty modifier is present
-      const afterRollup = elapsed - ROLLUP_DURATION_MS;
-      const holdMs = hasModifierPump ? LAND_HOLD_MS : 0;
+      // Drive the Ripple (glowing ring + glowing pulse + ease-out roll upscale)
+      // starting at afterClimax = 0 (exact moment of the punch & number reveal)
+      const falloffP = Math.min(1, afterClimax / FALLOFF_DURATION_MS);
+      applyFalloffVars(computeFalloffProfile(falloffP));
 
-      if (afterRollup < holdMs) {
-        if (currentPhase !== 'landed') {
-          currentPhase = 'landed';
-          setDisplayVal(naturalVal);
-          setTickPulse(false);
-          setAnimPhase('landed');
-        }
-        animId = requestAnimationFrame(step);
-        return;
-      }
-
-      // Phase 2 (Final Punch) + Overlapping Phase 3 (Falloff Ripple):
-      // As soon as the final number is unravelled, the glowing ring & glowing pulse
-      // outstretch and smoothly fade away while the roll & glowing elements upscale in ease-out!
-      const afterHold = afterRollup - holdMs;
-      const punchPhaseName = hasModifierPump ? pumpDir : 'snap-shake';
-
-      // During the initial punch window (0 .. PUMP_DURATION_MS), snap displayVal to finalVal
-      if (afterHold < PUMP_DURATION_MS) {
+      if (afterClimax < PUMP_DURATION_MS) {
         if (currentPhase !== punchPhaseName) {
           currentPhase = punchPhaseName;
-          setTickPulse(false);
           setAnimPhase(punchPhaseName);
-        }
-        const pumpP = afterHold / PUMP_DURATION_MS;
-        const nextVal = hasModifierPump
-          ? computePumpFrame(naturalVal, finalVal, pumpP)
-          : finalVal;
-        setDisplayVal(nextVal);
-
-        // Start overlapping the glowing ring & pulse expansion as soon as finalVal is reached
-        const unravelOriginMs = hasModifierPump ? PUMP_DURATION_MS * 0.35 : 0;
-        if (afterHold >= unravelOriginMs) {
-          const falloffElapsed = afterHold - unravelOriginMs;
-          const falloffP = Math.min(1, falloffElapsed / FALLOFF_DURATION_MS);
-          applyFalloffVars(computeFalloffProfile(falloffP));
         }
         animId = requestAnimationFrame(step);
         return;
       }
 
-      // Pure Phase 3 Falloff (Follow-Through & Overlapping Action ease-out ripple)
-      const unravelOriginMs = hasModifierPump ? PUMP_DURATION_MS * 0.35 : 0;
-      const falloffElapsed = afterHold - unravelOriginMs;
-
-      if (falloffElapsed < FALLOFF_DURATION_MS) {
+      if (afterClimax < FALLOFF_DURATION_MS) {
         if (currentPhase !== 'falloff') {
           currentPhase = 'falloff';
-          setDisplayVal(finalVal);
           setAnimPhase('falloff');
         }
-        const falloffP = falloffElapsed / FALLOFF_DURATION_MS;
-        applyFalloffVars(computeFalloffProfile(falloffP));
         animId = requestAnimationFrame(step);
         return;
       }
 
       // Final settled state at full ease-out ripple completion
-      setDisplayVal(finalVal);
       applyFalloffVars(computeFalloffProfile(1));
       setAnimPhase('settled');
     };
@@ -276,7 +239,7 @@ export default function DieShape({
     '--mx3': `${(rand(7) - 0.5) * 20}vw`,
     '--my3': `${-5 - rand(8) * 15}vh`,
     '--rot': `${1440 + Math.floor(rand(9) * 720)}deg`,
-    '--dur': `${1.2 + rand(10) * 0.4}s`,
+    '--dur': `${0.6 + rand(10) * 0.2}s`,
   } : { width: size, height: size, opacity: dimmed ? (petalAngle != null ? 0.38 : 0.32) : 1 };
 
   const polyPath = DICE_FACES[die] || DICE_FACES[20];
@@ -288,7 +251,7 @@ export default function DieShape({
       style={style}
       aria-hidden="true"
     >
-      {/* Follow-Through & Overlapping Action Falloff Layers:
+      {/* Synchronized Climax & Falloff Ripple Layers:
           Glowing Pulse Halo + Primary Outstretching Glowing Ring + Secondary Ripple Ring */}
       {showFalloffLayers && (
         <>

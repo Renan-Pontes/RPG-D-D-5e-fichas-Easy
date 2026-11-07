@@ -20,11 +20,11 @@ import {
   computeFalloffProfile,
 } from '../src/dice/dice-rollup.js';
 
-test('ROLLUP_DURATION_MS is 1500ms followed by a tight pre-punch coil, final punch, and ease-out falloff ripple', () => {
-  assert.equal(ROLLUP_DURATION_MS, 1500);
-  assert.ok(LAND_HOLD_MS > 0 && LAND_HOLD_MS <= 150);
-  assert.ok(PUMP_DURATION_MS >= 250 && PUMP_DURATION_MS <= 600);
-  assert.ok(FALLOFF_DURATION_MS >= 1500 && FALLOFF_DURATION_MS <= 3000);
+test('50% speed-up and zero-lag climax synchronization at ROLLUP_DURATION_MS = 750ms', () => {
+  assert.equal(ROLLUP_DURATION_MS, 750, 'Roll-up duration must be 750ms (50% speed-up from 1500ms)');
+  assert.equal(LAND_HOLD_MS, 0, 'Zero hold delay so peak of roll-off, punch, number reveal, and ripple happen at the exact same instant');
+  assert.equal(PUMP_DURATION_MS, 220, 'Punch duration must be 220ms (50% speed-up)');
+  assert.equal(FALLOFF_DURATION_MS, 1050, 'Falloff ripple duration must be 1050ms (50% speed-up from 2100ms)');
 });
 
 test('computeAnticipationProfile starts with ZERO wobble at p=0 and increases frequency, strength, and motion blur toward p=1', () => {

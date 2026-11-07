@@ -255,22 +255,19 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
 
 ---
 
-## 12. Anticipation-Driven Juicy 2-Phase Dice Roll Choreography (Zero Initial Wobble → Increasing Shake Frequency/Strength & Motion Blur → Final Punch)
+## 12. Synchronized 3-Phase Juicy Dice Roll Choreography (50% Speed-Up & Zero-Lag Climax Synchronization at 750ms)
 
-- **Phase 1 (`0.0s -> 1.5s`): Calm Start (Zero Wobble) & Building Anticipation Crescendo**:
-  - Implemented pure mathematical choreography in [`dice-rollup.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/src/dice/dice-rollup.js) (`ROLLUP_DURATION_MS = 1500`, `easeInAnticipation(p) = 0.25p + 0.75p^2.6`, `computeAnticipationProfile(p)`, `computeRollupFrame`).
-  - **Zero Initial Wobble**: At `p = 0.0` (`0ms`), `strength = 0`, `shakeX = 0`, `shakeY = 0`, `shakeRot = 0`, `motionBlurPx = 0`, and `chargeScale = 1.0` — the die never starts by wobbling.
-  - **Increasing Shaking Frequency & Strength**: As the numeric roll-up accelerates toward `1.5s`, instantaneous shaking frequency ramps from `4 Hz` to `42 Hz` (via exact integrated chirp phase $\phi(p) = 2\pi T \left(f_{\min}p + \frac{f_{\max}-f_{\min}}{3}p^3\right)$), while shaking strength (`p^2.2`) ramps smoothly to $\pm 9\text{px}$ and $\pm 6.5^\circ$ and tension scale swells to `1.08`.
-  - **Increasing Directional Motion Blur**: Die body blur (`--die-blur`, up to `3.0px` with directional afterimage `drop-shadow(var(--ghost-x) var(--ghost-y) ...)`) and vertical slot-reel number blur (`--num-blur` up to `3.6px`, `--num-trail` up to `10px`, `--num-stretch` up to `1.24`) build continuously toward the `1.5s` climax.
-- **Phase 2 (`1.5s+`): The Final Punch Unravelling the Rolled Number**:
-  - At `1.5s`, all motion blur and shaking immediately cut to `0` (`0px` crystal-clear focus) as the **Final Punch** hits with an expanding shockwave ring (`.die-punch-shockwave`):
-    - **Positive Bonus (`+mod > 0`, `is-phase-pump-up`)**: Tight `95ms` pre-punch coil (`is-phase-landed`), followed by an explosive upward punch & shake (`@keyframes die-elastic-pump-up` & `@keyframes number-elastic-pump-up`) unravelling `finalVal`.
-    - **Negative Penalty (`-mod < 0`, `is-phase-pump-down`)**: Tight `95ms` pre-punch coil, followed by a heavy downward punch & shake (`@keyframes die-elastic-pump-down` & `@keyframes number-elastic-pump-down`) unravelling `finalVal`.
-    - **Zero Modifier (`mod === 0`, `is-phase-snap-shake`)**: Immediate explosive Final Punch (`@keyframes die-snap-shake`) at `1.5s` unravelling the final rolled number.
-- **Phase 3 (`Falloff` — Follow-Through & Overlapping Action Ripple)**:
-  - As soon as the final number of the roll (`finalVal`) is unravelled, [`computeFalloffProfile`](file:///f:/AI_Resources/DND_HeroesForge/frontend/src/dice/dice-rollup.js#L207-L246) (`FALLOFF_DURATION_MS = 2100`, `easeOutRipple(p) = 1 - (1 - p)^3.4`) drives a multi-layer ease-out ripple:
-    - **Roll Size & Inner Number Ease-Out Upscale**: Both the roll stage container (`.dice-hero-stage-wrap`, `.dice-flower-stage`, `--falloff-roll-scale: 1.00 -> 1.12`) and the inner number (`--falloff-num-scale: 1.00 -> 1.06`) upscale slowly in ease-out.
-    - **Outstretching & Fading Glowing Ring (`.die-falloff-ring`)**: Polyhedral + circular glowing ring (`is-primary-ripple`, `--falloff-ring-scale: 0.92 -> 2.85`, `--falloff-ring-opacity: 0.92 -> 0`) and an overlapping secondary ripple ring (`is-secondary-ripple`, delayed by 8% phase lag, `--falloff-sec-ring-scale: 0.86 -> 3.30`, `--falloff-sec-ring-opacity: 0.68 -> 0`) outstretch and smoothly fade away.
-    - **Outstretching & Fading Glowing Pulse (`.die-falloff-pulse` & `.die-shape::before`)**: Radial luminous pulse (`--falloff-pulse-scale: 0.82 -> 2.60`, `--falloff-pulse-opacity: 0.88 -> 0`) outstretches and smoothly dissipates in ease-out like a water ripple.
+- **Phase 1 (`0.0s -> 0.75s`): Calm Start (Zero Wobble) & Building Anticipation Crescendo (50% Speed-Up)**:
+  - Implemented pure mathematical choreography in [`dice-rollup.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/src/dice/dice-rollup.js) (`ROLLUP_DURATION_MS = 750`, `LAND_HOLD_MS = 0`, `PUMP_DURATION_MS = 220`, `FALLOFF_DURATION_MS = 1050`, `easeInAnticipation(p) = 0.25p + 0.75p^2.6`, `computeAnticipationProfile(p)`).
+  - **Zero Initial Wobble**: At `p = 0.0` (`0ms`), `strength = 0`, `shakeX = 0`, `shakeY = 0`, `shakeRot = 0`, `motionBlurPx = 0`, and `chargeScale = 1.0`.
+  - **Increasing Shaking Frequency & Strength**: As the numeric roll-up accelerates toward `750ms`, instantaneous shaking frequency ramps from `6 Hz` to `56 Hz` while shaking strength (`p^2.2`) ramps smoothly to $\pm 9\text{px}$ and $\pm 6.5^\circ$ and tension scale swells to `1.08` right at `750ms`.
+  - **Increasing Directional Motion Blur**: Die body blur (`--die-blur`, up to `3.0px` with directional afterimage `drop-shadow`) and vertical slot-reel number blur (`--num-blur` up to `3.6px`, `--num-trail` up to `10px`, `--num-stretch` up to `1.24`) reach their peak right at `750ms`.
+- **Unified Climax at `750ms` (`Phase 2 Punch` + `Phase 3 Ripple` Synchronized with `0ms` Lag)**:
+  - At the exact millisecond `elapsed === ROLLUP_DURATION_MS` (`750ms`), all 5 climax events fire simultaneously on the exact same frame (`LAND_HOLD_MS = 0`):
+    1. **Peak of Roll-Off Ends & Motion Blur Cuts to `0px`**.
+    2. **The Final Rolled Number (`finalVal`) Reveals Immediately**.
+    3. **The Final Punch Impacts Immediately (`0.22s`)**: `die-elastic-pump-up` (`+bonus`), `die-elastic-pump-down` (`-penalty`), or `die-snap-shake` (`0` mod) bursts directly from keyframe `0%` (`scale(1.34)`).
+    4. **The Falloff Ripple Launches Immediately (`afterClimax = 0`, `1.05s`)**: [`computeFalloffProfile`](file:///f:/AI_Resources/DND_HeroesForge/frontend/src/dice/dice-rollup.js#L221-L259) (`easeOutRipple(p) = 1 - (1 - p)^3.4`) immediately outstretches the primary glowing ring (`0.92 -> 2.85`), overlapping echo ring (`0.88 -> 3.30`), glowing pulse (`0.84 -> 2.60`), and roll ease-out upscale (`1.00 -> 1.12`) while smoothly fading the glowing rings and pulse to `0`.
+    5. **`DiceStage` Settles at `750ms`**: Reveals any Critical Hit Art Deco frame and tone in lockstep with the punch and ripple.
 - **Verification**:
   - Unit test suite in [`dice-rollup.test.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/tests/dice-rollup.test.js) (7 / 7 tests green) + full suite (1,529 / 1,529 tests green across 21 suites) + clean Vite production build.

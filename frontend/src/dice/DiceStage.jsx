@@ -8,6 +8,7 @@ import { physicalDice, resolveAnimMode } from './dice-math.js';
 import { stageTone } from './dice-tones.js';
 import { getAnimPref, prefersReducedMotion } from './dice-prefs.js';
 import { getTessellationLayout } from './dice-tessellation.js';
+import { ROLLUP_DURATION_MS } from './dice-rollup.js';
 
 let webglCache = null;
 function hasWebGL() {
@@ -73,7 +74,7 @@ export default function DiceStage({
     if (mode === 'static' || mode === 'off') { settle(); return undefined; }
     if (mode === '2d') {
       setRolling2d(true);
-      const id = setTimeout(() => { setRolling2d(false); settle(); }, 1500);
+      const id = setTimeout(() => { setRolling2d(false); settle(); }, ROLLUP_DURATION_MS);
       return () => clearTimeout(id);
     }
     // 3D
