@@ -191,9 +191,13 @@ test('Item 14: Metade calculada discreta no rodapé da tela sem poluir a face do
   const stageSrc = read('../src/dice/DiceStage.jsx');
   assert.match(stageSrc, /dice-stack-half-bottom/);
   assert.match(stageSrc, /dice-half-discrete/);
+  assert.match(stageSrc, /createPortal/, 'Deve usar createPortal para descolar da stage e não sobrepor as formas dos dados');
   assert.ok(!stageSrc.includes('dice-stack-half-banner'), 'Não deve ter banner proeminente no meio da tela');
+  assert.ok(!stageSrc.includes('½'), 'Não deve gastar espaço com rótulo "1/2" ou "½"');
+  assert.match(stageSrc, /<span className="dice-half-discrete">\{halfTotal\}<\/span>/, 'Deve renderizar exclusivamente o valor já calculado e arredondado para baixo');
 
   const css = read('../src/dice/dice-styles.css');
   assert.match(css, /\.dice-stack-half-bottom/);
   assert.match(css, /\.dice-half-discrete/);
+  assert.match(css, /z-index:\s*10001/);
 });

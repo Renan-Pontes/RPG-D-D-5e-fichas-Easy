@@ -1205,35 +1205,39 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   100% { transform: scale(1) translateX(0) rotate(0deg); filter: brightness(1); }
 }
 
-/* Discrete & dim calculated half on non-d20 dice stacks (anchored at bottom of screen) */
+/* Discrete & dim calculated half on non-d20 dice stacks (anchored at bottom of screen without overlapping dice shapes) */
 .dice-stack-half-bottom {
   position: fixed;
-  bottom: 24px;
+  bottom: max(20px, env(safe-area-inset-bottom, 20px));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 10;
+  z-index: 10001; /* Renders above .dice-overlay (z-index: 9999) via portal */
   pointer-events: none;
-  animation: half-discrete-fadein 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: half-discrete-fadein 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .dice-half-discrete {
+  display: inline-block;
   font-family: var(--display, serif);
-  font-size: 0.86rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  color: rgba(224, 181, 94, 0.58);
-  background: rgba(10, 7, 6, 0.72);
-  padding: 3px 14px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgba(224, 181, 94, 0.62);
+  background: rgba(10, 7, 6, 0.76);
+  padding: 2px 14px;
+  min-width: 32px;
+  text-align: center;
   border-radius: 999px;
   border: 1px solid rgba(224, 181, 94, 0.22);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 @keyframes half-discrete-fadein {
   from {
     opacity: 0;
-    transform: translate(-50%, 8px);
+    transform: translate(-50%, 6px);
   }
   to {
     opacity: 1;

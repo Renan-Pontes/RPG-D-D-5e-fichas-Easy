@@ -713,7 +713,8 @@ Following deployment of Release v1.0.8, gameplay testing surfaced four specific 
 4. **Discrete Bottom Half-Roll Disclosure:**
    - Removed `die-number-half` from `DieShape.jsx` die face so the kinetic roll-up number is completely clean.
    - Removed `dice-stack-half-banner` from the middle of `DiceStage.jsx`.
-   - Introduced `.dice-stack-half-bottom` and `.dice-half-discrete` anchored at `bottom: 24px` with a subtle semi-transparent pill (`½ {halfTotal}`) that appears only after the roll settles (`!rolling2d`).
+   - Eliminated all `'1/2'`, `'½'`, or text labels, rendering solely the calculated and rounded down number ready for immediate use (`{halfTotal}`) inside `.dice-half-discrete`.
+   - Mounted via `createPortal(..., document.body)` so it anchors directly to the true viewport bottom (`bottom: max(20px, env(safe-area-inset-bottom, 20px)); z-index: 10001; pointer-events: none;`), completely decoupled from transformed stage ancestors and avoiding any overlap with the shapes of the rolled dice.
 
 ### Consequences
 - **Positive:** Zero runtime crashes on features tab; streamlined vertical scan for combat actions; intuitive inline ability notation `Arcana (Int) 10 / +1`; clean, distraction-free polyhedral roll-up with discrete half-damage calculation.

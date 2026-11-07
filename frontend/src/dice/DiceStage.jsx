@@ -3,6 +3,7 @@
 // Recebe resultados PRONTOS — nunca sorteia. O 3D gira e para exatamente na
 // face do valor dado; o 2D usa a animação SVG antiga; 'static' só mostra.
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import DieShape from './DieShape.jsx';
 import { physicalDice, resolveAnimMode } from './dice-math.js';
 import { stageTone } from './dice-tones.js';
@@ -269,16 +270,29 @@ export default function DiceStage({
             })}
           </div>
 
-          {/* Discrete, dim calculated half on non-d20 dice stacks (anchored at bottom of screen) */}
-          {isNonD20Stack && !rolling2d && halfTotal != null && (
+        </div>
+
+        {/* Discrete, dim calculated half on non-d20 dice stacks (anchored at true bottom of screen via portal without overlapping dice shapes, solely the rounded down value) */}
+        {isNonD20Stack && !rolling2d && halfTotal != null && (
+          typeof document !== 'undefined' && document.body ? createPortal(
             <div
               className="dice-stack-half-bottom"
+              role="status"
               aria-label={lang === 'pt' ? `Metade arredondada para baixo: ${halfTotal}` : `Half rounded down: ${halfTotal}`}
             >
-              <span className="dice-half-discrete">½ {halfTotal}</span>
+              <span className="dice-half-discrete">{halfTotal}</span>
+            </div>,
+            document.body
+          ) : (
+            <div
+              className="dice-stack-half-bottom"
+              role="status"
+              aria-label={lang === 'pt' ? `Metade arredondada para baixo: ${halfTotal}` : `Half rounded down: ${halfTotal}`}
+            >
+              <span className="dice-half-discrete">{halfTotal}</span>
             </div>
-          )}
-        </div>
+          )
+        )}
       </div>
     );
   }
