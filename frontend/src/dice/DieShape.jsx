@@ -372,11 +372,6 @@ export default function DieShape({
         <span className={`die-number-val${tickPulse ? ' is-tick-pulse' : ''}`}>
           {displayVal ?? '?'}
         </span>
-        {halfValue != null && (animPhase === 'punch' || animPhase === 'settled' || animPhase === 'falloff' || !animated) && (
-          <span className="die-number-half" title={isPt ? `Metade: ${halfValue}` : `Half: ${halfValue}`}>
-            ½{halfValue}
-          </span>
-        )}
       </span>
 
       {/* Art Deco Critical Hit & Critical Failure Overlay Layer */}

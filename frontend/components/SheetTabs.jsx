@@ -1120,6 +1120,8 @@ export const SpeciesTraits = ({ char, lang, update, race }) => {
   const [open, setOpen] = useState(false);
   const rows = speciesSummary(char, lang);
   const canEdit = speciesChoiceSpecs(char).length > 0 && !char.inCampaign;
+  const traits = race?.traits || [];
+
   return (
     <section className="fh-panel">
       <FhTitle>{lang === 'pt' ? 'Traços da Espécie' : 'Species Traits'}</FhTitle>
@@ -1139,15 +1141,17 @@ export const SpeciesTraits = ({ char, lang, update, race }) => {
       )}
       {/* Traços em linhas (losango + nome); os de nível futuro esmaecidos, com "· nível N" */}
       <div className="fh-traits fh-feats">
-        {race.traits.map((tr, i) => {
+        {traits.map((tr, i) => {
           const later = tr.level && (char.level || 1) < tr.level;
+          const trName = typeof tr?.name === 'object' ? (tr.name[lang] || tr.name.pt || tr.name.en) : (tr?.name || '');
+          const trDesc = typeof tr?.desc === 'object' ? (tr.desc[lang] || tr.desc.pt || tr.desc.en) : (tr?.desc || '');
           return (
             <div key={i} className={`fh-trait${later ? ' is-later' : ''}`}>
               <div className="fh-trait-name">
-                <span>{tr.name[lang]}</span>
+                <span>{trName}</span>
                 {tr.level ? <span className="fh-origin">{lang === 'pt' ? 'nível' : 'level'} {tr.level}</span> : null}
               </div>
-              <div className="fh-trait-text">{tr.desc[lang]}</div>
+              <div className="fh-trait-text"><DiceText text={trDesc} lang={lang} /></div>
             </div>
           );
         })}

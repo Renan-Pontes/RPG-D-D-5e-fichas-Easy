@@ -26,6 +26,7 @@ import { isArmorProficient } from '../src/creator/start-data.js';
 import { trainingLines, featName, featPicksText, backgroundFeature } from '../src/sheet/sheet-text.js';
 import { placeFeatures, featureKey } from '../src/sheet/feature-placement.js';
 import FhFeatures, { FhFeatureItem } from '../src/sheet/FhFeatures.jsx';
+import { DiceText } from '../src/dice/dice-text.jsx';
 import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '../src/art.js';
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
 import FhTitle from '../src/sheet/FhTitle.jsx';
@@ -3201,25 +3202,25 @@ export const SheetAbilities = ({ char, lang, update, profB, roll }) => {
 export const SKILL_GROUPS = [
   {
     id: 'search',
-    name: { pt: 'Busca (Search)', en: 'Search' },
+    name: { pt: 'Ação: Busca (Search)', en: 'Battle Action: Search' },
     icon: '🔍',
     skillIds: ['insight', 'perception', 'survival'],
   },
   {
     id: 'hide',
-    name: { pt: 'Furtividade & Evasão (Hide)', en: 'Hide & Agility' },
+    name: { pt: 'Ação: Furtividade & Evasão (Hide)', en: 'Battle Action: Hide & Agility' },
     icon: '🫥',
     skillIds: ['stealth', 'sleightOfHand', 'acrobatics', 'athletics'],
   },
   {
     id: 'influence',
-    name: { pt: 'Influência (Influence)', en: 'Influence' },
+    name: { pt: 'Ação: Influência (Influence)', en: 'Battle Action: Influence' },
     icon: '👥',
     skillIds: ['performance', 'deception', 'persuasion', 'intimidation', 'animalHandling'],
   },
   {
     id: 'study',
-    name: { pt: 'Estudo (Study)', en: 'Study' },
+    name: { pt: 'Ação: Estudo (Study)', en: 'Battle Action: Study' },
     icon: '📖',
     skillIds: ['arcana', 'history', 'investigation', 'medicine', 'nature', 'religion'],
   },
@@ -3380,10 +3381,30 @@ export const SheetTools = ({ char, lang, update, placed }) => {
 
 export const SheetFeatures = ({ char, lang, placed, cls, race, update }) => {
   const pt = lang === 'pt';
+  const classItems = (placed?.items || []).filter(it => it.classId || it.level != null);
+  const fallbackSrd = !classItems.length && char.rulesVersion !== '2024' ? (cls?.features || []) : [];
 
   return (
     <div className="fh-scope-content fh-scope-features">
       {/* Class and Subclass Features */}
+      <section className="fh-panel">
+        <FhTitle>{pt ? 'Características de Classe & Subclasse' : 'Class & Subclass Features'}</FhTitle>
+        {classItems.length > 0 ? (
+          <FhFeatures items={classItems} multi={placed?.multi} lang={lang} />
+        ) : fallbackSrd.length > 0 ? (
+          <FhFeatures items={[]} lang={lang}>
+            {fallbackSrd.map((f, i) => (
+              <FhFeatureItem key={`srd-${i}`} item={{ name: f.name, desc: f.desc }} lang={lang} tag={pt ? 'Nv. 1' : 'Lv 1'} />
+            ))}
+          </FhFeatures>
+        ) : (
+          <div className="text-sm muted" style={{ padding: '8px 0' }}>
+            {pt ? 'Nenhuma característica de classe ativa.' : 'No active class features.'}
+          </div>
+        )}
+      </section>
+
+      {/* Other features (Background features, etc.) */}
       {placed && <OtherFeatures char={char} lang={lang} placed={placed} cls={cls} />}
 
       {/* Feats / Talentos */}

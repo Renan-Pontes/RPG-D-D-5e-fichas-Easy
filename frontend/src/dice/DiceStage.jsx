@@ -227,7 +227,6 @@ export default function DiceStage({
               die={primaryDie}
               value={naturalSum}
               targetValue={finalTotal}
-              halfValue={halfTotal}
               rolling={rolling2d}
               animated={isAnimatedStage}
               size={tessellation.heroSize}
@@ -270,17 +269,13 @@ export default function DiceStage({
             })}
           </div>
 
-          {/* Half Total Disclosure Pill for Non-D20 Multi-Dice Stacks */}
-          {isNonD20Stack && !rolling2d && (
+          {/* Discrete, dim calculated half on non-d20 dice stacks (anchored at bottom of screen) */}
+          {isNonD20Stack && !rolling2d && halfTotal != null && (
             <div
-              className="dice-stack-half-banner"
+              className="dice-stack-half-bottom"
               aria-label={lang === 'pt' ? `Metade arredondada para baixo: ${halfTotal}` : `Half rounded down: ${halfTotal}`}
             >
-              <span className="dice-half-pill">
-                <span className="dice-half-pill-sym">½</span>
-                <span className="dice-half-pill-label">{lang === 'pt' ? 'METADE:' : 'HALF:'}</span>
-                <span className="dice-half-pill-val">{halfTotal}</span>
-              </span>
+              <span className="dice-half-discrete">½ {halfTotal}</span>
             </div>
           )}
         </div>

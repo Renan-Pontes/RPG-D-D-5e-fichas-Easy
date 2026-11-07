@@ -1205,80 +1205,40 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   100% { transform: scale(1) translateX(0) rotate(0deg); filter: brightness(1); }
 }
 
-/* Dimmed half-roll number disclosed next to rolled total on non-d20 dice stacks */
-.die-number-half {
-  display: inline-block;
-  font-size: 0.44em;
-  opacity: 0.58;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--dice-gold-hi, #fbe4a3);
-  margin-left: 5px;
-  vertical-align: 0.28em;
-  text-shadow: 0 0 6px rgba(0, 0, 0, 0.85);
-  animation: half-total-reveal 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@keyframes half-total-reveal {
-  from {
-    opacity: 0;
-    transform: scale(0.7) translateY(4px);
-  }
-  to {
-    opacity: 0.58;
-    transform: scale(1) translateY(0);
-  }
-}
-
-/* Companion Half-Roll Pill Banner under flower stage */
-.dice-stack-half-banner {
-  position: absolute;
-  bottom: -32px;
+/* Discrete & dim calculated half on non-d20 dice stacks (anchored at bottom of screen) */
+.dice-stack-half-bottom {
+  position: fixed;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
   z-index: 10;
-  animation: half-total-reveal 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: none;
+  animation: half-discrete-fadein 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.dice-half-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 12px;
+.dice-half-discrete {
+  font-family: var(--display, serif);
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: rgba(224, 181, 94, 0.58);
+  background: rgba(10, 7, 6, 0.72);
+  padding: 3px 14px;
   border-radius: 999px;
-  background: rgba(18, 12, 6, 0.88);
-  border: 1px solid rgba(237, 203, 122, 0.55);
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 235, 170, 0.25);
+  border: 1px solid rgba(224, 181, 94, 0.22);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
 }
 
-.dice-half-pill-sym {
-  font-family: var(--display, serif);
-  font-size: 0.92rem;
-  font-weight: 900;
-  color: var(--gold-bright, #edcb7a);
-  text-shadow: 0 0 6px rgba(237, 203, 122, 0.8);
-}
-
-.dice-half-pill-label {
-  font-family: var(--display, serif);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: rgba(255, 245, 220, 0.72);
-}
-
-.dice-half-pill-val {
-  font-family: var(--display, serif);
-  font-size: 0.88rem;
-  font-weight: 800;
-  color: #fff9ee;
-  text-shadow: 0 0 8px rgba(237, 203, 122, 0.75);
+@keyframes half-discrete-fadein {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 

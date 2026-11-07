@@ -151,3 +151,49 @@ test('Item 10: Enquadramento e reposicionamento configurável do banner e avatar
   assert.match(sharedSrc, /handlePosY/);
   assert.match(sharedSrc, /setPreset/);
 });
+
+test('Item 11: Aba Características (SheetFeatures) importa DiceText e renderiza traços sem quebrar a página', () => {
+  const sheetSrc = read('../components/Sheet.jsx');
+  assert.match(sheetSrc, /import \{ DiceText \} from '\.\.\/src\/dice\/dice-text\.jsx';/);
+  assert.match(sheetSrc, /export const SheetFeatures =/);
+  assert.match(sheetSrc, /Características de Classe & Subclasse/);
+
+  const tabsSrc = read('../components/SheetTabs.jsx');
+  assert.match(tabsSrc, /const traits = race\?\.traits \|\| \[\];/);
+});
+
+test('Item 12: Grupos de perícias listados de cima para baixo como ações de combate, sem colunas lado a lado', () => {
+  const css = read('../src/sheet/ficha.css');
+  assert.match(css, /\.ficha \.fh-skill-categories-grid \{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/);
+  assert.ok(!css.includes('.fh-skill-categories-grid {\n    grid-template-columns: repeat(2'), 'Não deve ter colunas lado a lado em fh-skill-categories-grid');
+
+  const sheetSrc = read('../components/Sheet.jsx');
+  assert.match(sheetSrc, /Ação: Busca \(Search\)/);
+  assert.match(sheetSrc, /Ação: Furtividade & Evasão \(Hide\)/);
+  assert.match(sheetSrc, /Ação: Influência \(Influence\)/);
+  assert.match(sheetSrc, /Ação: Estudo \(Study\)/);
+});
+
+test('Item 13: Sigla do atributo à esquerda da pontuação passiva com formato Arcana (Int) 10 / +1', () => {
+  const checksSrc = read('../src/sheet/FhChecks.jsx');
+  assert.match(checksSrc, /fh-skill-abil-inline/);
+  assert.match(checksSrc, /fh-score-divider/);
+
+  const css = read('../src/sheet/ficha.css');
+  assert.match(css, /\.fh-skill-abil-inline/);
+  assert.match(css, /\.fh-score-divider/);
+});
+
+test('Item 14: Metade calculada discreta no rodapé da tela sem poluir a face do dado no roll-up', () => {
+  const dieShapeSrc = read('../src/dice/DieShape.jsx');
+  assert.ok(!dieShapeSrc.includes('die-number-half'), 'DieShape não deve poluir a face do dado com die-number-half');
+
+  const stageSrc = read('../src/dice/DiceStage.jsx');
+  assert.match(stageSrc, /dice-stack-half-bottom/);
+  assert.match(stageSrc, /dice-half-discrete/);
+  assert.ok(!stageSrc.includes('dice-stack-half-banner'), 'Não deve ter banner proeminente no meio da tela');
+
+  const css = read('../src/dice/dice-styles.css');
+  assert.match(css, /\.dice-stack-half-bottom/);
+  assert.match(css, /\.dice-half-discrete/);
+});

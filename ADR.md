@@ -26,6 +26,9 @@
 - [ADR-0016: Top-Bar 10-Tab Hierarchy, Mobile Horizontal Swipe Navigation, Save Vignette Ripple Pulse, and Non-d20 Half-Roll Disclosure](#adr-0016-top-bar-10-tab-hierarchy-mobile-horizontal-swipe-navigation-save-vignette-ripple-pulse-and-non-d20-half-roll-disclosure)
 - [ADR-0017: Exact 10-Tab Sequential Hierarchy, Character Panel Header Encapsulation, and Full-Screen Pulsing Heraldic Checkered Vignette for Resistance Saves](#adr-0017-exact-10-tab-sequential-hierarchy-character-panel-header-encapsulation-and-full-screen-pulsing-heraldic-checkered-vignette-for-resistance-saves)
 - [ADR-0018: Character Hero Panel Sub-Header Encapsulation, Ability Check HUD Toast Banner, Progression & Species Trait Scope Discipline, Kinetic Spark Roll-Up Juiciness, and 4-Row Categorized Skills Grid with Side-by-Side Passive/Active Bonuses](#adr-0018-character-hero-panel-sub-header-encapsulation-ability-check-hud-toast-banner-progression--species-trait-scope-discipline-kinetic-spark-roll-up-juiciness-and-4-row-categorized-skills-grid-with-side-by-side-passiveactive-bonuses)
+- [ADR-0019: Universal Inline Dice Notation Recognition, Reactive Dice Tokens, and Global Tap-to-Roll Architecture](#adr-0019-universal-inline-dice-notation-recognition-reactive-dice-tokens-and-global-tap-to-roll-architecture)
+- [ADR-0020: Foldable 4-Action Skills Grid, Tools Consolidation, Rollup Checkered Vignette Removal, and Configurable Character Portrait Framing](#adr-0020-foldable-4-action-skills-grid-tools-consolidation-rollup-checkered-vignette-removal-and-configurable-character-portrait-framing)
+- [ADR-0021: Features Tab Crash Remediation, Vertical Battle Action Skills Grid, Shorthand Ability Score Format, and Discrete Bottom Half-Roll Disclosure](#adr-0021-features-tab-crash-remediation-vertical-battle-action-skills-grid-shorthand-ability-score-format-and-discrete-bottom-half-roll-disclosure)
 
 ---
 
@@ -681,3 +684,37 @@ Following player feedback and usability testing across mobile devices and deskto
 ### Consequences
 - **Positive**: Clean, artifact-free dice roll overlay; uncluttered 9-tab sequence with unified action and check workflows; fast collapsible skills inspection; pixel-perfect character portrait alignment on mobile and desktop.
 - **Verification**: 10/10 tests in `sheet-skills-vignette-enhancements.test.js` passing; 1,552/1,552 total frontend unit tests green across 20 suites; clean Vite production build in 9.36s.
+
+---
+
+## ADR-0021: Features Tab Crash Remediation, Vertical Battle Action Skills Grid, Shorthand Ability Score Format, and Discrete Bottom Half-Roll Disclosure
+
+### Status
+Accepted & Implemented (2026-11-07)
+
+### Context
+Following deployment of Release v1.0.8, gameplay testing surfaced four specific UI/UX issues:
+1. **Features Tab Crash:** Clicking the "Features" (Características) tab triggered a fatal runtime exception (`ReferenceError: DiceText is not defined` inside `SheetFeatures`), preventing character sheets with feats from rendering features. Additionally, custom species or legacy 2014 data lacking `race.traits` could crash `SpeciesTraits`.
+2. **Side-by-Side Skills Columns Cognitive Ergonomics:** The 4 action skill categories (Search, Hide & Agility, Influence, Study) were displayed in a 2-column grid on desktop screens (`@media (min-width: 900px)`). Players noted that action cognition and folding flow much more logically in a single-column top-to-bottom sequence where each card clearly represents a D&D Battle Action.
+3. **Shorthand Ability Score Placement on Skill Rows:** Skill rows displayed passive and active scores on the right, but the ability abbreviation (e.g. `Int`) was positioned ambiguously or separately. Players requested placing the shorthand inline beside the skill name (e.g. `Arcana (Int)`) with the passive and active scores disclosed together as `10 / +1`.
+4. **Half-Roll Clutter in Multi-Dice Rolls:** When rolling stacks of non-d20 dice, displaying `½X` directly on the die face inside `DieShape.jsx` and showing a large center banner disrupted the roll-up anticipation and explosion. Players requested a discrete, dim calculated half-roll badge at the bottom of the screen that does not interfere with the dice stage.
+
+### Decision Outcome
+1. **Features Tab Crash Remediation:**
+   - Imported `DiceText` directly into `frontend/components/Sheet.jsx`.
+   - Upgraded `SheetFeatures` to safely render class & subclass features via `<FhFeatures items={classItems} />`, feats via `<DiceText />`, and species traits via `<SpeciesTraits />`.
+   - Guarded `SpeciesTraits` in `frontend/components/SheetTabs.jsx` with `const traits = race?.traits || [];` and normalized string vs object name/desc properties.
+2. **Vertical Single-Column Battle Actions for Skills:**
+   - Updated `.ficha .fh-skill-categories-grid` in `ficha.css` to `display: flex; flex-direction: column; width: 100%; gap: 14px;`, removing the desktop 2-column rule.
+   - Updated category titles in `SKILL_GROUPS` to explicit battle action designations: `Ação: Busca (Search)`, `Ação: Furtividade & Evasão (Hide)`, `Ação: Influência (Influence)`, and `Ação: Estudo (Study)`.
+3. **Inline Shorthand Score Layout:**
+   - Updated `FhSkillRow` in `frontend/src/sheet/FhChecks.jsx` to render `{abbr && <span className="fh-skill-abil-inline">({abbr})</span>}` directly inline within `.fh-skill-name`.
+   - Structured `.fh-skill-scores` as `[Passive Score] / [Active Bonus]` separated by `.fh-score-divider` (`/`).
+4. **Discrete Bottom Half-Roll Disclosure:**
+   - Removed `die-number-half` from `DieShape.jsx` die face so the kinetic roll-up number is completely clean.
+   - Removed `dice-stack-half-banner` from the middle of `DiceStage.jsx`.
+   - Introduced `.dice-stack-half-bottom` and `.dice-half-discrete` anchored at `bottom: 24px` with a subtle semi-transparent pill (`½ {halfTotal}`) that appears only after the roll settles (`!rolling2d`).
+
+### Consequences
+- **Positive:** Zero runtime crashes on features tab; streamlined vertical scan for combat actions; intuitive inline ability notation `Arcana (Int) 10 / +1`; clean, distraction-free polyhedral roll-up with discrete half-damage calculation.
+- **Verification:** 14/14 tests in `frontend/tests/sheet-skills-vignette-enhancements.test.js` pass; 1,556 / 1,556 total frontend unit tests green across 20 suites; clean Vite production build in 10.13s.

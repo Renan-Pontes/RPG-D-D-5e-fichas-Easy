@@ -33,17 +33,20 @@ export function FhSkillRow({ name, abbr, bonus, passive, level = 0, profTitle, p
         title={profTitle}
       />
       <button type="button" className="fh-skill-roll" onClick={onRoll}>
-        <span className="fh-skill-name">{name}</span>
-        <span className="fh-skill-abil">{abbr}</span>
+        <span className="fh-skill-name">
+          {name}
+          {abbr && <span className="fh-skill-abil-inline">({abbr})</span>}
+        </span>
         <span className="fh-skill-scores">
           {passive != null && (
-            <span className="fh-skill-pass" title={lang === 'pt' ? `Passivo: ${passive}` : `Passive: ${passive}`}>
-              <span className="fh-score-tag">{lang === 'pt' ? 'P' : 'P'}</span>
-              <strong className="fh-score-num">{passive}</strong>
-            </span>
+            <>
+              <span className="fh-skill-pass" title={lang === 'pt' ? `Pontuação Passiva: ${passive}` : `Passive Score: ${passive}`}>
+                <strong className="fh-score-num">{passive}</strong>
+              </span>
+              <span className="fh-score-divider" aria-hidden="true">/</span>
+            </>
           )}
-          <span className="fh-skill-mod" title={lang === 'pt' ? `Bônus Ativo: ${bonus}` : `Active Bonus: ${bonus}`}>
-            {passive != null && <span className="fh-score-tag">{lang === 'pt' ? 'ROL' : 'ACT'}</span>}
+          <span className="fh-skill-mod" title={lang === 'pt' ? `Bônus Ativo de Rolagem: ${bonus}` : `Active Check Bonus: ${bonus}`}>
             <strong className="fh-score-num">{bonus}</strong>
           </span>
         </span>
