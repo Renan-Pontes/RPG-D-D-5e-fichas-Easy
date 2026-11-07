@@ -1796,7 +1796,7 @@ const HONEY_ABILITY_META = {
 };
 
 const isActionKey = (e) => e.key === 'Enter' || e.key === ' ';
-const BELT_ABBR = { str: 'Str', dex: 'Dex', con: 'Con', int: 'Int', wis: 'Wis', cha: 'Cha' };
+const BELT_ABBR = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' };
 
 const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag }) => {
   const [advMode, setAdvMode] = useState('normal'); // 'normal' | 'adv' | 'dis'
@@ -1934,7 +1934,10 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
   } : undefined;
 
   return (
-    <div className={`fh-honey-wrap is-${k}${isBound ? ' is-belt-bound' : ''}${isAssigned ? ' is-belt-assigned' : ''}`}>
+    <div
+      className={`fh-belt-hex-wrap is-${meta.zone} tone-${k}${isBound ? ' is-bound' : ''}${isAssigned ? ' is-assigned' : ''} adv-${advMode}`}
+      style={boundStyle}
+    >
       {/* Glowing Edge Feedback SVG */}
       <svg
         className={`fh-belt-glow-svg adv-${advMode}`}
