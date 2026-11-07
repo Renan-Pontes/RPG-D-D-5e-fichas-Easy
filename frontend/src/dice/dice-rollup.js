@@ -1,17 +1,20 @@
 /**
  * dice-rollup.js
  *
- * Pure mathematical choreography for the 3-phase juicy dice roll (50% speed-up,
- * zero-lag climax synchronization at ROLLUP_DURATION_MS = 750ms):
+ * Pure mathematical choreography for the 3-phase juicy dice roll:
  * - Phase 1 (0ms -> 750ms, Anticipation Roll-Up): Starts calm with ZERO initial
  *   wobble, then builds anticipation via an accelerating numeric roll-up with
  *   strictly increasing shaking frequency (6Hz -> 56Hz), increasing shaking
  *   strength (amplitude), and increasing directional motion blur.
- * - Unified Climax at 750ms (Phase 2 Punch + Phase 3 Ripple synchronized at t = 750ms):
+ * - Multi-Dice Random Catch-Up: When multiple dice are stacked (e.g. 10d10, 10d8),
+ *   neighboring constituent dice roll up faster in a randomized spatial order,
+ *   unravelling their individual rolled numbers along the central roll-up as the
+ *   central sum catches up and finishes in exact sync at 750ms.
+ * - Unified Climax at 750ms + Single Powerful Glowing Ripple (1050ms):
  *   At the exact peak of the roll-off (750ms), motion blur cuts to 0, the final
- *   rolled number unravels immediately, the Final Punch impacts (220ms), and the
- *   Falloff Ripple (glowing ring + glowing pulse + ease-out roll upscale, 1050ms)
- *   launches simultaneously on the exact same frame to reinforce the reveal.
+ *   rolled number unravels immediately, the Final Punch impacts (220ms), and a
+ *   SINGLE powerful glowing ripple (plus radial pulse & ease-out roll upscale)
+ *   outstretches and smoothly fades away.
  */
 
 export const ROLLUP_DURATION_MS = 750;
@@ -27,9 +30,11 @@ export const MAX_DIE_BLUR_PX = 3.0;
 export const MAX_NUMBER_BLUR_PX = 3.6;
 
 export const FALLOFF_MAX_ROLL_SCALE = 1.12;
-export const FALLOFF_MAX_RING_SCALE = 2.85;
-export const FALLOFF_MAX_SECONDARY_RING_SCALE = 3.30;
-export const FALLOFF_MAX_PULSE_SCALE = 2.60;
+export const FALLOFF_MAX_RING_SCALE = 2.75;
+export const FALLOFF_MAX_PULSE_SCALE = 2.50;
+
+export const NEIGHBOR_MIN_FINISH_P = 0.35;
+export const NEIGHBOR_MAX_FINISH_P = 1.0;
 
 /**
  * Accelerating anticipation curve for the roll-up:
@@ -63,6 +68,84 @@ export const easeOutQuart = (p) => {
   const clamped = Math.max(0, Math.min(1, Number(p) || 0));
   return 1 - Math.pow(1 - clamped, 4);
 };
+
+/**
+ * Deterministic pseudo-random number in [0, 1) from an integer seed.
+ */
+function seededUnit(seed) {
+  const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+/**
+ * Computes the randomized faster roll-up schedule for a neighboring/nested die
+ * in a multi-dice roll (e.g. 10d10, 10d8, 5d6):
+ * - Shuffles the completion order across the N neighboring dice so they unravel
+ *   at random positions around the central hero die rather than sequentially.
+ * - Every neighboring die rolls up faster (`speedMultiplier >= 1.0`) across
+ *   `finishP in [0.35, 1.00]`, with the final neighboring die finishing at
+ *   `finishP = 1.00` in exact sync with the central sum roll-up!
+ *
+ * @param {number} petalIndex - Index of the neighboring die in [0, petalCount - 1]
+ * @param {number} petalCount - Total number of neighboring dice
+ * @param {number} [rollSeed=0] - Optional seed to vary random order per roll
+ * @returns {{
+ *   rank: number,
+ *   finishP: number,
+ *   speedMultiplier: number,
+ *   stepOffset: number
+ * }}
+ */
+export function computeNeighborRollupSchedule(petalIndex = 0, petalCount = 1, rollSeed = 0) {
+  const count = Math.max(1, Math.floor(Number(petalCount) || 1));
+  const idx = Math.max(0, Math.min(count - 1, Math.floor(Number(petalIndex) || 0)));
+  const seedBase = Math.round(Number(rollSeed) || 0) * 131 + count * 37;
+
+  if (count === 1) {
+    const finishP = 0.76;
+    return {
+      rank: 0,
+      finishP,
+      speedMultiplier: +(1 / finishP).toFixed(3),
+      stepOffset: 5,
+    };
+  }
+
+  // Deterministic Fisher-Yates shuffle of [0 .. count - 1]
+  const order = Array.from({ length: count }, (_, i) => i);
+  for (let i = count - 1; i > 0; i -= 1) {
+    const r = seededUnit(seedBase + i * 97 + 13);
+    const j = Math.floor(r * (i + 1));
+    const tmp = order[i];
+    order[i] = order[j];
+    order[j] = tmp;
+  }
+
+  const rank = order.indexOf(idx);
+  const span = NEIGHBOR_MAX_FINISH_P - NEIGHBOR_MIN_FINISH_P;
+
+  // Last rank finishes at exactly 1.00 to lock in sync with the central hero die;
+  // earlier ranks are distributed across [0.35, 0.96] with subtle organic jitter.
+  let finishP;
+  if (rank === count - 1) {
+    finishP = 1.0;
+  } else {
+    const baseT = rank / (count - 1);
+    const jitter = (seededUnit(seedBase + idx * 53 + 7) - 0.5) * (0.45 / count);
+    const clampedT = Math.max(0, Math.min(0.95, baseT + jitter));
+    finishP = +(NEIGHBOR_MIN_FINISH_P + span * clampedT).toFixed(4);
+  }
+
+  const speedMultiplier = +(1 / finishP).toFixed(3);
+  const stepOffset = ((rank * 7 + idx * 5 + Math.abs(seedBase)) % 19) + 1;
+
+  return {
+    rank,
+    finishP,
+    speedMultiplier,
+    stepOffset,
+  };
+}
 
 /**
  * Computes the instantaneous shaking frequency, shaking strength, 2D tremor offsets,
@@ -136,18 +219,19 @@ export function computeAnticipationProfile(p) {
  * Computes the displayed integer value at normalized progress p in [0, 1]
  * during the 750ms anticipation roll-up, unravelling finalTarget at p = 1.0.
  *
- * @param {number} finalTarget - The rolled value unravelled at the climax (p = 1.0)
- * @param {number} p - Normalized time progress in [0, 1] (elapsed / ROLLUP_DURATION_MS)
+ * @param {number} finalTarget - The rolled value unravelled at p = 1.0
+ * @param {number} p - Normalized time progress in [0, 1]
  * @param {number} [die=20] - Die face count (4, 6, 8, 10, 12, 20, 100)
- * @returns {{ value: number, stepIndex: number, totalSteps: number }}
+ * @param {number} [stepOffset=0] - Optional step offset so neighboring dice show distinct faces while rolling
+ * @returns {{ value: number, stepIndex: number, totalSteps: number, locked: boolean }}
  */
-export function computeRollupFrame(finalTarget, p, die = 20) {
+export function computeRollupFrame(finalTarget, p, die = 20, stepOffset = 0) {
   const target = Math.round(Number(finalTarget) || 0);
   const clampedP = Math.max(0, Math.min(1, Number(p) || 0));
   const totalSteps = Math.max(20, Math.min(36, Math.abs(target) + 14));
 
   if (clampedP >= 1) {
-    return { value: target, stepIndex: totalSteps, totalSteps };
+    return { value: target, stepIndex: totalSteps, totalSteps, locked: true };
   }
 
   const eased = easeInAnticipation(clampedP);
@@ -157,18 +241,19 @@ export function computeRollupFrame(finalTarget, p, die = 20) {
   // Large multi-dice sums (e.g. 49, 113, 305): accelerating climb toward target
   if (target > totalSteps) {
     const val = Math.max(1, Math.min(target - 1, Math.round(1 + (target - 1) * (stepIndex / totalSteps))));
-    return { value: val, stepIndex, totalSteps };
+    return { value: val, stepIndex, totalSteps, locked: false };
   }
 
   // Single die or modest sum: cycling faces that unravel target only at p = 1.0
   const maxFace = Math.max(Number(die) || 20, target, 6);
-  const raw = target - remaining;
+  const offset = Math.max(0, Math.round(Number(stepOffset) || 0));
+  const raw = target - remaining - offset;
   const wrapped = (((raw - 1) % maxFace) + maxFace) % maxFace + 1;
-  // Avoid accidentally sitting on target on the penultimate step right before the final punch
+  // Avoid accidentally sitting on target on the penultimate step right before unravelling
   const value = (remaining === 1 && wrapped === target)
     ? ((target % maxFace) + 1)
     : wrapped;
-  return { value, stepIndex, totalSteps };
+  return { value, stepIndex, totalSteps, locked: false };
 }
 
 /**
@@ -206,12 +291,9 @@ export function computePumpFrame(naturalVal, finalVal, pumpProgress) {
 }
 
 /**
- * Computes the Phase 3 Falloff (Follow-Through & Overlapping Action) ripple profile
- * synchronized to start at the EXACT moment (p = 0) of the punch and number reveal:
- * - Both the size of the roll (`rollScale`) and the glowing elements (`ringScale`,
- *   `secondaryRingScale`, `pulseScale`) slowly upscale in ease-out like a ripple.
- * - The glowing ring (`ringOpacity`, `secondaryRingOpacity`) and glowing pulse
- *   (`pulseOpacity`) outstretch and smoothly fade away to 0.
+ * Computes the Phase 3 Falloff (Follow-Through & Overlapping Action) profile
+ * featuring a SINGLE powerful and glowing ripple that outstretches and smoothly
+ * fades away as both the size of the roll and the glowing elements upscale in ease-out.
  *
  * @param {number} falloffProgress - Progress of the falloff phase in [0, 1]
  * @returns {{
@@ -219,46 +301,32 @@ export function computePumpFrame(naturalVal, finalVal, pumpProgress) {
  *   numberScale: number,
  *   ringScale: number,
  *   ringOpacity: number,
- *   secondaryRingScale: number,
- *   secondaryRingOpacity: number,
  *   pulseScale: number,
  *   pulseOpacity: number
  * }}
  */
 export function computeFalloffProfile(falloffProgress) {
   const p = Math.max(0, Math.min(1, Number(falloffProgress) || 0));
+  const eased = easeOutRipple(p);
 
   // 1. Slow ease-out upscale of the roll size and inner number starting immediately at p = 0
-  const rollEased = easeOutRipple(p);
-  const rollScale = +(1 + (FALLOFF_MAX_ROLL_SCALE - 1) * rollEased).toFixed(4);
-  const numberScale = +(1 + 0.06 * rollEased).toFixed(4);
+  const rollScale = +(1 + (FALLOFF_MAX_ROLL_SCALE - 1) * eased).toFixed(4);
+  const numberScale = +(1 + 0.06 * eased).toFixed(4);
 
-  // 2. Primary glowing ring: launches at p = 0 (exact punch instant) and outstretches in ease-out
-  const ringP = Math.min(1, p / 0.85);
-  const ringEased = easeOutRipple(ringP);
-  const ringScale = +(0.92 + (FALLOFF_MAX_RING_SCALE - 0.92) * ringEased).toFixed(4);
-  const ringOpacity = +(0.95 * Math.pow(1 - ringEased, 1.35)).toFixed(4);
+  // 2. Single powerful glowing ripple ring: launches at p = 0 at full power (opacity = 1)
+  //    and smoothly outstretches and fades away to 0
+  const ringScale = +(0.96 + (FALLOFF_MAX_RING_SCALE - 0.96) * eased).toFixed(4);
+  const ringOpacity = +(Math.pow(1 - eased, 1.45)).toFixed(4);
 
-  // 3. Overlapping secondary echo ring: lags by 6% for overlapping follow-through
-  const secP = p <= 0.06 ? 0 : Math.min(1, (p - 0.06) / 0.94);
-  const secEased = easeOutRipple(secP);
-  const secondaryRingScale = +(0.88 + (FALLOFF_MAX_SECONDARY_RING_SCALE - 0.88) * secEased).toFixed(4);
-  const secondaryRingOpacity = p <= 0.06
-    ? 0
-    : +(0.72 * Math.pow(1 - secEased, 1.4)).toFixed(4);
-
-  // 4. Glowing pulse bloom: launches at p = 0 (exact punch instant) and smoothly fades away
-  const pulseEased = easeOutRipple(p);
-  const pulseScale = +(0.84 + (FALLOFF_MAX_PULSE_SCALE - 0.84) * pulseEased).toFixed(4);
-  const pulseOpacity = +(0.90 * Math.pow(1 - pulseEased, 1.25)).toFixed(4);
+  // 3. Unified glowing pulse bloom: outstretches in ease-out and smoothly fades away
+  const pulseScale = +(0.88 + (FALLOFF_MAX_PULSE_SCALE - 0.88) * eased).toFixed(4);
+  const pulseOpacity = +(0.92 * Math.pow(1 - eased, 1.35)).toFixed(4);
 
   return {
     rollScale,
     numberScale,
     ringScale,
     ringOpacity,
-    secondaryRingScale,
-    secondaryRingOpacity,
     pulseScale,
     pulseOpacity,
   };

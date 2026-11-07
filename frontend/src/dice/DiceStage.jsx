@@ -140,8 +140,11 @@ export default function DiceStage({
                 rolling={rolling2d}
                 animated={isAnimatedStage}
                 size={60}
+                seed={1}
                 dimmed={true}
                 tone={effectiveTone}
+                petalIndex={0}
+                petalCount={1}
                 lang={lang}
               />
             </div>
@@ -247,9 +250,12 @@ export default function DiceStage({
                     rolling={rolling2d}
                     animated={isAnimatedStage}
                     size={tessellation.petalSize}
+                    seed={naturalSum + i + 1}
                     dimmed={true}
                     tone={effectiveTone}
                     petalAngle={slot.rot || null}
+                    petalIndex={i}
+                    petalCount={totalDiceCount}
                     lang={lang}
                   />
                 </div>

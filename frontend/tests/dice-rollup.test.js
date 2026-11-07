@@ -9,10 +9,12 @@ import {
   MAX_SHAKE_FREQ_HZ,
   FALLOFF_MAX_ROLL_SCALE,
   FALLOFF_MAX_RING_SCALE,
-  FALLOFF_MAX_SECONDARY_RING_SCALE,
   FALLOFF_MAX_PULSE_SCALE,
+  NEIGHBOR_MIN_FINISH_P,
+  NEIGHBOR_MAX_FINISH_P,
   easeInAnticipation,
   easeOutRipple,
+  computeNeighborRollupSchedule,
   computeAnticipationProfile,
   computeRollupFrame,
   resolvePumpDirection,
@@ -144,7 +146,38 @@ test('resolvePumpDirection and computePumpFrame unravel finalVal on the final pu
   assert.equal(computePumpFrame(14, 11, 1.0), 11);
 });
 
-test('computeFalloffProfile implements follow-through and overlapping action: roll & glowing elements upscale in ease-out while glowing ring & pulse smoothly fade away', () => {
+test('computeNeighborRollupSchedule randomly accelerates neighboring dice (10d10, 10d8, 5d6) to unravel along the central roll-up and finish in exact sync', () => {
+  for (const count of [10, 8, 5, 7]) {
+    const schedules = Array.from({ length: count }, (_, i) => computeNeighborRollupSchedule(i, count, 42));
+
+    // 1. Every neighboring die rolls up faster (speedMultiplier >= 1.0) with finishP in [NEIGHBOR_MIN_FINISH_P, NEIGHBOR_MAX_FINISH_P]
+    for (const s of schedules) {
+      assert.ok(
+        s.finishP >= NEIGHBOR_MIN_FINISH_P && s.finishP <= NEIGHBOR_MAX_FINISH_P,
+        `finishP (${s.finishP}) must be within [${NEIGHBOR_MIN_FINISH_P}, ${NEIGHBOR_MAX_FINISH_P}]`,
+      );
+      assert.ok(
+        s.speedMultiplier >= 1.0,
+        `Neighboring die must roll up faster or equal to central roll-up: speedMultiplier=${s.speedMultiplier}`,
+      );
+    }
+
+    // 2. The last neighboring die finishes at exactly finishP = 1.00 in sync with the central sum roll-up
+    const maxFinishP = Math.max(...schedules.map((s) => s.finishP));
+    const minFinishP = Math.min(...schedules.map((s) => s.finishP));
+    assert.equal(maxFinishP, 1.0, 'Final neighboring die must finish at finishP = 1.00 in exact sync with central roll-up');
+    assert.ok(minFinishP < 0.5, `Earliest neighboring die must unravel early along the central roll-up (got ${minFinishP})`);
+
+    // 3. Ranks are a permutation of [0 .. count - 1] and NOT in sequential spatial order [0, 1, 2, ...]
+    const ranks = schedules.map((s) => s.rank);
+    const sortedRanks = [...ranks].sort((a, b) => a - b);
+    assert.deepEqual(sortedRanks, Array.from({ length: count }, (_, i) => i));
+    const isSequential = ranks.every((r, idx) => r === idx);
+    assert.equal(isSequential, false, `Neighboring dice completion order must be randomized, not sequential: ${ranks.join(',')}`);
+  }
+});
+
+test('computeFalloffProfile drives a SINGLE powerful and glowing ripple (plus radial pulse & ease-out roll upscale) that smoothly fades away', () => {
   assert.equal(easeOutRipple(0), 0);
   assert.equal(easeOutRipple(1), 1);
 
@@ -159,33 +192,30 @@ test('computeFalloffProfile implements follow-through and overlapping action: ro
   const start = computeFalloffProfile(0);
   assert.equal(start.rollScale, 1);
   assert.equal(start.numberScale, 1);
-  assert.ok(start.ringOpacity > 0.85);
-  assert.ok(start.pulseOpacity > 0.80);
-  // Overlapping action: secondary ripple ring has not started yet at p = 0
-  assert.equal(start.secondaryRingOpacity, 0);
+  assert.equal(start.ringOpacity, 1, 'Single powerful glowing ripple starts at full power (opacity = 1) at the exact punch moment');
+  assert.ok(start.pulseOpacity > 0.90);
+  assert.equal('secondaryRingScale' in start, false, 'Must not include noisy secondary ripple rings');
+  assert.equal('secondaryRingOpacity' in start, false, 'Must not include noisy secondary ripple rings');
 
   let prev = start;
   for (const p of [0.15, 0.3, 0.5, 0.7, 0.85, 1.0]) {
     const cur = computeFalloffProfile(p);
-    // Roll size, inner number, and glowing pulse/rings all upscale monotonically in ease-out
+    // Roll size, inner number, and single glowing ripple/pulse all upscale monotonically in ease-out
     assert.ok(cur.rollScale > prev.rollScale, `rollScale must upscale at p=${p}`);
     assert.ok(cur.numberScale > prev.numberScale, `numberScale must upscale at p=${p}`);
     assert.ok(cur.pulseScale > prev.pulseScale, `pulseScale must outstretch at p=${p}`);
-    assert.ok(cur.secondaryRingScale > prev.secondaryRingScale, `secondaryRingScale must outstretch at p=${p}`);
-    assert.ok(cur.ringScale >= prev.ringScale, `ringScale must outstretch at p=${p}`);
+    assert.ok(cur.ringScale > prev.ringScale, `ringScale must outstretch at p=${p}`);
 
-    // Glowing ring and glowing pulse smoothly fade away
+    // Single glowing ring and glowing pulse smoothly fade away
     assert.ok(cur.pulseOpacity < prev.pulseOpacity, `pulseOpacity must fade at p=${p}`);
-    assert.ok(cur.ringOpacity <= prev.ringOpacity, `ringOpacity must fade at p=${p}`);
+    assert.ok(cur.ringOpacity < prev.ringOpacity, `ringOpacity must fade at p=${p}`);
     prev = cur;
   }
 
   const end = computeFalloffProfile(1);
   assert.equal(end.rollScale, FALLOFF_MAX_ROLL_SCALE);
   assert.equal(end.ringScale, FALLOFF_MAX_RING_SCALE);
-  assert.equal(end.secondaryRingScale, FALLOFF_MAX_SECONDARY_RING_SCALE);
   assert.equal(end.pulseScale, FALLOFF_MAX_PULSE_SCALE);
-  assert.equal(end.ringOpacity, 0, 'Primary glowing ring must completely fade away by p=1');
-  assert.equal(end.secondaryRingOpacity, 0, 'Secondary glowing ring must completely fade away by p=1');
+  assert.equal(end.ringOpacity, 0, 'Single glowing ripple must completely fade away by p=1');
   assert.equal(end.pulseOpacity, 0, 'Glowing pulse must completely fade away by p=1');
 });

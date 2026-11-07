@@ -4,6 +4,7 @@ import {
   ROLLUP_DURATION_MS,
   PUMP_DURATION_MS,
   FALLOFF_DURATION_MS,
+  computeNeighborRollupSchedule,
   computeRollupFrame,
   computeAnticipationProfile,
   resolvePumpDirection,
@@ -26,6 +27,8 @@ export default function DieShape({
   isCrit = false,
   lang = 'pt',
   petalAngle = null,
+  petalIndex = 0,
+  petalCount = 1,
 }) {
   const dieRef = useRef(null);
   const isNumericRoll = value !== '' && value != null && Number.isFinite(Number(value));
@@ -35,9 +38,14 @@ export default function DieShape({
     ? Math.round(Number(targetValue))
     : naturalVal;
 
+  const neighborSchedule = (!isHero && dimmed)
+    ? computeNeighborRollupSchedule(petalIndex, petalCount, seed + Number(finalVal || 0))
+    : null;
+  const stepOffset = neighborSchedule ? neighborSchedule.stepOffset : 0;
+
   const [displayVal, setDisplayVal] = useState(() => {
     if (shouldAnimateRoll) {
-      return computeRollupFrame(finalVal, 0, die).value;
+      return computeRollupFrame(finalVal, 0, die, stepOffset).value;
     }
     return isHero && targetValue != null ? targetValue : value;
   });
@@ -47,10 +55,12 @@ export default function DieShape({
   // Synchronized 3-Phase Juicy Roll Choreography (50% speed-up, unified climax at 750ms):
   // - Phase 1 (0 -> 750ms): Zero initial wobble, then increasing shake frequency (6Hz -> 56Hz),
   //   increasing shake strength, and directional motion blur peaking right at 750ms.
+  // - Multi-Dice Random Catch-Up: Neighboring dice roll up faster in a randomized spatial order
+  //   (finishP in [0.35, 1.00]), unravelling their rolled numbers along the central roll-up
+  //   while the central sum catches up and finishes in exact sync at 750ms!
   // - Unified Climax at 750ms: At the exact peak of the roll-off (750ms), motion blur cuts
   //   to 0, the final rolled number (finalVal) reveals, the Final Punch hits (220ms), AND
-  //   the Falloff Ripple (glowing ring + glowing pulse + ease-out roll upscale, 1050ms)
-  //   launches on the exact same frame to reinforce the reveal!
+  //   a SINGLE powerful & glowing ripple (1050ms) launches on the exact same frame!
   useEffect(() => {
     const el = dieRef.current;
     const stageWrap = isHero && el ? el.closest('.dice-hero-stage-wrap, .dice-flower-stage') : null;
@@ -90,8 +100,6 @@ export default function DieShape({
       el.style.setProperty('--falloff-num-scale', `${falloffProfile.numberScale}`);
       el.style.setProperty('--falloff-ring-scale', `${falloffProfile.ringScale}`);
       el.style.setProperty('--falloff-ring-opacity', `${falloffProfile.ringOpacity}`);
-      el.style.setProperty('--falloff-sec-ring-scale', `${falloffProfile.secondaryRingScale}`);
-      el.style.setProperty('--falloff-sec-ring-opacity', `${falloffProfile.secondaryRingOpacity}`);
       el.style.setProperty('--falloff-pulse-scale', `${falloffProfile.pulseScale}`);
       el.style.setProperty('--falloff-pulse-opacity', `${falloffProfile.pulseOpacity}`);
       if (stageWrap) {
@@ -103,11 +111,9 @@ export default function DieShape({
       if (!el) return;
       el.style.setProperty('--falloff-roll-scale', '1');
       el.style.setProperty('--falloff-num-scale', '1');
-      el.style.setProperty('--falloff-ring-scale', '0.92');
+      el.style.setProperty('--falloff-ring-scale', '0.96');
       el.style.setProperty('--falloff-ring-opacity', '0');
-      el.style.setProperty('--falloff-sec-ring-scale', '0.88');
-      el.style.setProperty('--falloff-sec-ring-opacity', '0');
-      el.style.setProperty('--falloff-pulse-scale', '0.84');
+      el.style.setProperty('--falloff-pulse-scale', '0.88');
       el.style.setProperty('--falloff-pulse-opacity', '0');
       if (stageWrap) {
         stageWrap.style.setProperty('--falloff-roll-scale', '1');
@@ -129,23 +135,40 @@ export default function DieShape({
     let currentPhase = 'rollup';
     let revealed = false;
     const punchPhaseName = resolvePumpDirection(naturalVal, finalVal);
+    const localFinishP = neighborSchedule ? neighborSchedule.finishP : 1.0;
 
     resetAnticipationVars();
     resetFalloffVars();
     setAnimPhase('rollup');
-    setDisplayVal(computeRollupFrame(finalVal, 0, die).value);
+    setDisplayVal(computeRollupFrame(finalVal, 0, die, stepOffset).value);
 
     const step = (now) => {
       if (startTime == null) startTime = now;
       const elapsed = now - startTime;
 
-      // Phase 1 (0 -> 750ms): Anticipation Roll-Up (increasing shake freq/strength + motion blur)
+      // Phase 1 (0 -> 750ms): Anticipation Roll-Up
       if (elapsed < ROLLUP_DURATION_MS) {
-        const p = elapsed / ROLLUP_DURATION_MS;
-        const profile = computeAnticipationProfile(p);
+        const globalP = elapsed / ROLLUP_DURATION_MS;
+        const localP = Math.min(1, globalP / localFinishP);
+
+        // Neighboring dice that roll up faster unravel their number early along the central roll-up!
+        if (!isHero && localP >= 1) {
+          if (!revealed) {
+            revealed = true;
+            resetAnticipationVars();
+            setTickPulse(false);
+            setDisplayVal(finalVal);
+            currentPhase = 'petal-locked';
+            setAnimPhase('petal-locked');
+          }
+          animId = requestAnimationFrame(step);
+          return;
+        }
+
+        const profile = computeAnticipationProfile(localP);
         applyAnticipationVars(profile);
 
-        const frame = computeRollupFrame(finalVal, p, die);
+        const frame = computeRollupFrame(finalVal, localP, die, stepOffset);
         if (frame.stepIndex !== lastStepIndex) {
           lastStepIndex = frame.stepIndex;
           setDisplayVal(frame.value);
@@ -158,7 +181,7 @@ export default function DieShape({
       }
 
       // Unified Climax at 750ms (afterClimax = 0):
-      // Peak of roll-off, number reveal, punch, and ripple all happen on the exact same frame!
+      // Peak of roll-off, number reveal, punch, and single powerful ripple all happen in exact sync!
       const afterClimax = elapsed - ROLLUP_DURATION_MS;
 
       if (!revealed) {
@@ -166,15 +189,23 @@ export default function DieShape({
         resetAnticipationVars();
         setTickPulse(false);
         setDisplayVal(finalVal);
+        if (!isHero) {
+          currentPhase = 'petal-locked';
+          setAnimPhase('petal-locked');
+        }
       }
 
-      // Non-hero constituent/satellite dice settle cleanly at the climax
+      // Non-hero constituent/satellite dice finish in sync with the central roll-up
       if (!isHero) {
-        setAnimPhase('settled');
+        if (afterClimax >= PUMP_DURATION_MS) {
+          setAnimPhase('settled');
+          return;
+        }
+        animId = requestAnimationFrame(step);
         return;
       }
 
-      // Drive the Ripple (glowing ring + glowing pulse + ease-out roll upscale)
+      // Drive the Single Powerful & Glowing Ripple (glowing ring + glowing pulse + ease-out roll upscale)
       // starting at afterClimax = 0 (exact moment of the punch & number reveal)
       const falloffP = Math.min(1, afterClimax / FALLOFF_DURATION_MS);
       applyFalloffVars(computeFalloffProfile(falloffP));
@@ -208,7 +239,7 @@ export default function DieShape({
       if (animId) cancelAnimationFrame(animId);
       clearTimeout(pulseTimer);
     };
-  }, [shouldAnimateRoll, naturalVal, finalVal, isHero, dimmed, die, value, targetValue]);
+  }, [shouldAnimateRoll, naturalVal, finalVal, isHero, dimmed, die, value, targetValue, petalIndex, petalCount, seed, stepOffset]);
 
   const rand = (n) => {
     const x = Math.sin(seed * 9999 + n) * 10000;
@@ -251,8 +282,7 @@ export default function DieShape({
       style={style}
       aria-hidden="true"
     >
-      {/* Synchronized Climax & Falloff Ripple Layers:
-          Glowing Pulse Halo + Primary Outstretching Glowing Ring + Secondary Ripple Ring */}
+      {/* Single Powerful & Glowing Ripple (plus Radial Pulse Halo) that smoothly fades away */}
       {showFalloffLayers && (
         <>
           <span className="die-falloff-pulse" aria-hidden="true" />
@@ -260,20 +290,9 @@ export default function DieShape({
             viewBox="0 0 100 100"
             width={size}
             height={size}
-            className="die-falloff-ring is-primary-ripple"
+            className="die-falloff-ring"
             aria-hidden="true"
           >
-            <circle cx="50" cy="50" r="46" className="die-falloff-ring-circle" />
-            <path d={polyPath} className="die-falloff-ring-poly" />
-          </svg>
-          <svg
-            viewBox="0 0 100 100"
-            width={size}
-            height={size}
-            className="die-falloff-ring is-secondary-ripple"
-            aria-hidden="true"
-          >
-            <circle cx="50" cy="50" r="46" className="die-falloff-ring-circle" />
             <path d={polyPath} className="die-falloff-ring-poly" />
           </svg>
         </>

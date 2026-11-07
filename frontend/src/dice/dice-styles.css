@@ -903,11 +903,33 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
     0 var(--num-trail, 0px) var(--num-blur, 0px) currentColor;
 }
 
+/* Neighboring dice lock-in micro-pop as each nested die unravels its number along the central roll-up */
+.dice-stage-2d .die-shape.is-petal-die.is-phase-petal-locked,
+.dice-stage-2d .die-shape.is-unpicked.is-phase-petal-locked {
+  animation: petal-lock-pop 0.16s cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
+}
+
+.dice-stage-2d .die-shape.is-petal-die.is-phase-petal-locked .die-number-val,
+.dice-stage-2d .die-shape.is-unpicked.is-phase-petal-locked .die-number-val {
+  animation: petal-number-pop 0.16s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes petal-lock-pop {
+  0%   { transform: scale(1.18); filter: brightness(1.45); }
+  55%  { transform: scale(0.95); filter: brightness(1.12); }
+  100% { transform: scale(1); filter: brightness(0.9); }
+}
+
+@keyframes petal-number-pop {
+  0%   { transform: scale(1.28); filter: blur(0px) brightness(1.5); }
+  100% { transform: scale(1); filter: blur(0px) brightness(1); }
+}
+
 /* ============================================================================
-   Phase 3: Falloff — Follow-Through & Overlapping Action Ripple
-   As soon as the final number of the roll is unravelled, the glowing ring and
-   glowing pulse outstretch and smoothly fade away while both the size of the
-   roll and the glowing elements upscale slowly in ease-out like a ripple.
+   Phase 3: Falloff — Follow-Through & Single Powerful Glowing Ripple
+   As soon as the final number of the roll is unravelled, a SINGLE powerful and
+   glowing ripple (plus radial pulse) outstretches and smoothly fades away while
+   both the size of the roll and the glowing elements upscale in ease-out.
    ============================================================================ */
 
 /* Outstretching & smoothly fading Glowing Pulse Halo */
@@ -915,18 +937,18 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 220px;
-  height: 220px;
+  width: 240px;
+  height: 240px;
   border-radius: 50%;
   pointer-events: none;
   z-index: -1;
-  transform: translate(-50%, -50%) scale(var(--falloff-pulse-scale, 0.82));
+  transform: translate(-50%, -50%) scale(var(--falloff-pulse-scale, 0.88));
   opacity: var(--falloff-pulse-opacity, 0);
   background: radial-gradient(
     circle,
-    rgba(251, 228, 163, 0.72) 0%,
-    rgba(237, 203, 122, 0.36) 34%,
-    rgba(201, 150, 69, 0.10) 62%,
+    rgba(255, 238, 178, 0.80) 0%,
+    rgba(237, 203, 122, 0.42) 34%,
+    rgba(201, 150, 69, 0.12) 62%,
     transparent 78%
   );
   will-change: transform, opacity;
@@ -935,9 +957,9 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
 .die-shape.tone-adv .die-falloff-pulse {
   background: radial-gradient(
     circle,
-    rgba(16, 240, 122, 0.72) 0%,
-    rgba(16, 240, 122, 0.34) 34%,
-    rgba(16, 240, 122, 0.09) 62%,
+    rgba(16, 240, 122, 0.80) 0%,
+    rgba(16, 240, 122, 0.40) 34%,
+    rgba(16, 240, 122, 0.11) 62%,
     transparent 78%
   );
 }
@@ -945,14 +967,14 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
 .die-shape.tone-dis .die-falloff-pulse {
   background: radial-gradient(
     circle,
-    rgba(255, 74, 90, 0.72) 0%,
-    rgba(255, 74, 90, 0.34) 34%,
-    rgba(255, 74, 90, 0.09) 62%,
+    rgba(255, 74, 90, 0.80) 0%,
+    rgba(255, 74, 90, 0.40) 34%,
+    rgba(255, 74, 90, 0.11) 62%,
     transparent 78%
   );
 }
 
-/* Outstretching & smoothly fading Glowing Ring (Primary + Overlapping Secondary Ripple) */
+/* Single Powerful & Glowing Ripple that outstretches and smoothly fades away */
 .die-falloff-ring {
   position: absolute;
   top: 50%;
@@ -960,56 +982,38 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   pointer-events: none;
   z-index: 8;
   overflow: visible !important;
+  transform: translate(-50%, -50%) scale(var(--falloff-ring-scale, 0.96));
+  opacity: var(--falloff-ring-opacity, 0);
+  filter:
+    drop-shadow(0 0 10px rgba(251, 228, 163, 0.95))
+    drop-shadow(0 0 26px rgba(237, 203, 122, 0.72));
   will-change: transform, opacity;
 }
 
-.die-falloff-ring.is-primary-ripple {
-  transform: translate(-50%, -50%) scale(var(--falloff-ring-scale, 0.92));
-  opacity: var(--falloff-ring-opacity, 0);
-  filter: drop-shadow(0 0 14px rgba(245, 210, 115, 0.85));
+.die-shape.tone-adv .die-falloff-ring {
+  filter:
+    drop-shadow(0 0 10px rgba(16, 240, 122, 0.95))
+    drop-shadow(0 0 26px rgba(16, 240, 122, 0.72));
 }
 
-.die-falloff-ring.is-secondary-ripple {
-  transform: translate(-50%, -50%) scale(var(--falloff-sec-ring-scale, 0.86));
-  opacity: var(--falloff-sec-ring-opacity, 0);
-  filter: drop-shadow(0 0 18px rgba(245, 210, 115, 0.65));
-}
-
-.die-shape.tone-adv .die-falloff-ring.is-primary-ripple,
-.die-shape.tone-adv .die-falloff-ring.is-secondary-ripple {
-  filter: drop-shadow(0 0 16px rgba(16, 240, 122, 0.88));
-}
-
-.die-shape.tone-dis .die-falloff-ring.is-primary-ripple,
-.die-shape.tone-dis .die-falloff-ring.is-secondary-ripple {
-  filter: drop-shadow(0 0 16px rgba(255, 74, 90, 0.88));
-}
-
-.die-falloff-ring-circle {
-  fill: none;
-  stroke: rgba(251, 228, 163, 0.55);
-  stroke-width: 1.4;
-  vector-effect: non-scaling-stroke;
+.die-shape.tone-dis .die-falloff-ring {
+  filter:
+    drop-shadow(0 0 10px rgba(255, 74, 90, 0.95))
+    drop-shadow(0 0 26px rgba(255, 74, 90, 0.72));
 }
 
 .die-falloff-ring-poly {
   fill: none;
-  stroke: var(--gold-bright, #edcb7a);
-  stroke-width: 2.2;
+  stroke: var(--dice-gold-hi, #fbe4a3);
+  stroke-width: 3.2;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
 }
 
-.die-shape.tone-adv .die-falloff-ring-circle {
-  stroke: rgba(16, 240, 122, 0.55);
-}
 .die-shape.tone-adv .die-falloff-ring-poly {
   stroke: #10f07a;
 }
 
-.die-shape.tone-dis .die-falloff-ring-circle {
-  stroke: rgba(255, 74, 90, 0.55);
-}
 .die-shape.tone-dis .die-falloff-ring-poly {
   stroke: #ff4a5a;
 }
