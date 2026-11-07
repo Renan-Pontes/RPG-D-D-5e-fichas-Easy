@@ -27,6 +27,7 @@ export default function DieShape({
   tone = null,
   isHero = false,
   isCrit = false,
+  isFumble = false,
   lang = 'pt',
   petalAngle = null,
   petalIndex = 0,
@@ -310,7 +311,7 @@ export default function DieShape({
   return (
     <div
       ref={dieRef}
-      className={`die-shape die-d${die} ${rolling ? 'rolling' : ''}${animPhase !== 'idle' ? ` is-phase-${animPhase}` : ''}${tone ? ` tone-${tone}` : ''}${dimmed ? ' is-unpicked' : ''}${isHero ? ' is-hero' : ''}${isPetal ? ' is-petal-die' : ''}${isInvertedPetal ? ' is-inverted-petal' : ''}${isCrit && !rolling ? ' is-crit-artdeco' : ''}`}
+      className={`die-shape die-d${die} ${rolling ? 'rolling' : ''}${animPhase !== 'idle' ? ` is-phase-${animPhase}` : ''}${tone ? ` tone-${tone}` : ''}${dimmed ? ' is-unpicked' : ''}${isHero ? ' is-hero' : ''}${isPetal ? ' is-petal-die' : ''}${isInvertedPetal ? ' is-inverted-petal' : ''}${(isCrit || isFumble) && !rolling ? (isFumble ? ' is-fumble-artdeco' : ' is-crit-artdeco') : ''}`}
       style={style}
       aria-hidden="true"
     >
@@ -345,49 +346,59 @@ export default function DieShape({
         </span>
       </span>
 
-      {/* Art Deco Critical Hit Overlay Layer */}
-      {isCrit && !rolling && isHero && (
-        <div className="dice-artdeco-crit-frame">
+      {/* Art Deco Critical Hit & Critical Failure Overlay Layer */}
+      {(isCrit || isFumble) && !rolling && isHero && (
+        <div className={`dice-artdeco-crit-frame${isFumble ? ' is-fumble' : ''}`}>
           <svg viewBox="0 0 140 140" className="dice-artdeco-svg">
             <defs>
-              <linearGradient id="artdeco-gilt-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#fff8cf" />
-                <stop offset="26%" stopColor="#efc762" />
-                <stop offset="52%" stopColor="#a37324" />
-                <stop offset="78%" stopColor="#fedc8c" />
-                <stop offset="100%" stopColor="#81510e" />
-              </linearGradient>
+              {isFumble ? (
+                <linearGradient id="artdeco-fumble-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#ffd1d5" />
+                  <stop offset="26%" stopColor="#ff4d5a" />
+                  <stop offset="52%" stopColor="#b30018" />
+                  <stop offset="78%" stopColor="#ff6b78" />
+                  <stop offset="100%" stopColor="#5c000a" />
+                </linearGradient>
+              ) : (
+                <linearGradient id="artdeco-gilt-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#fff8cf" />
+                  <stop offset="26%" stopColor="#efc762" />
+                  <stop offset="52%" stopColor="#a37324" />
+                  <stop offset="78%" stopColor="#fedc8c" />
+                  <stop offset="100%" stopColor="#81510e" />
+                </linearGradient>
+              )}
             </defs>
             {/* Outer Art Deco Hexagonal Silhouette with Chamfered Corners */}
             <polygon
               points="70,4 128,37 128,103 70,136 12,103 12,37"
               fill="none"
-              stroke="url(#artdeco-gilt-grad)"
+              stroke={isFumble ? 'url(#artdeco-fumble-grad)' : 'url(#artdeco-gilt-grad)'}
               strokeWidth="2.5"
             />
             {/* Stepped Inner Art Deco Rim */}
             <polygon
               points="70,10 122,40 122,100 70,130 18,100 18,40"
               fill="none"
-              stroke="url(#artdeco-gilt-grad)"
+              stroke={isFumble ? 'url(#artdeco-fumble-grad)' : 'url(#artdeco-gilt-grad)'}
               strokeWidth="1.2"
               strokeDasharray="4 2"
               opacity="0.9"
             />
             {/* Stepped Corner Chevron Accents */}
-            <polyline points="64,2 70,7 76,2" fill="none" stroke="url(#artdeco-gilt-grad)" strokeWidth="2.2" />
-            <polyline points="64,138 70,133 76,138" fill="none" stroke="url(#artdeco-gilt-grad)" strokeWidth="2.2" />
-            <polyline points="7,40 12,37 17,40" fill="none" stroke="url(#artdeco-gilt-grad)" strokeWidth="2.2" />
-            <polyline points="123,40 128,37 133,40" fill="none" stroke="url(#artdeco-gilt-grad)" strokeWidth="2.2" />
-            {/* Art Deco Cartouche Plaque for "CRÍTICO" */}
+            <polyline points="64,2 70,7 76,2" fill="none" stroke={isFumble ? 'url(#artdeco-fumble-grad)' : 'url(#artdeco-gilt-grad)'} strokeWidth="2.2" />
+            <polyline points="64,138 70,133 76,138" fill="none" stroke={isFumble ? 'url(#artdeco-fumble-grad)' : 'url(#artdeco-gilt-grad)'} strokeWidth="2.2" />
+            <polyline points="7,40 12,37 17,40" fill="none" stroke={isFumble ? 'url(#artdeco-fumble-grad)' : 'url(#artdeco-gilt-grad)'} strokeWidth="2.2" />
+            <polyline points="123,40 128,37 133,40" fill="none" stroke={isFumble ? 'url(#artdeco-fumble-grad)' : 'url(#artdeco-gilt-grad)'} strokeWidth="2.2" />
+            {/* Art Deco Cartouche Plaque for "CRÍTICO" / "FALHA CRÍTICA" */}
             <rect
-              x="26"
+              x="20"
               y="102"
-              width="88"
+              width="100"
               height="20"
               rx="3"
-              fill="#180f08"
-              stroke="url(#artdeco-gilt-grad)"
+              fill={isFumble ? '#20080a' : '#180f08'}
+              stroke={isFumble ? 'url(#artdeco-fumble-grad)' : 'url(#artdeco-gilt-grad)'}
               strokeWidth="1.4"
             />
             <text
@@ -395,12 +406,12 @@ export default function DieShape({
               y="113"
               textAnchor="middle"
               dominantBaseline="central"
-              className="artdeco-crit-text"
+              className={`artdeco-crit-text${isFumble ? ' is-fumble' : ''}`}
             >
-              {isPt ? 'CRÍTICO' : 'CRITICAL'}
+              {isFumble ? (isPt ? 'FALHA CRÍTICA' : 'CRITICAL FAIL') : (isPt ? 'CRÍTICO' : 'CRITICAL')}
             </text>
           </svg>
-          <span className="dice-sparks" aria-hidden="true">
+          <span className={`dice-sparks${isFumble ? ' is-fumble' : ''}`} aria-hidden="true">
             {SPARKS.map((i) => (
               <i key={i} style={{ '--i': i }} />
             ))}

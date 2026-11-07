@@ -38,6 +38,8 @@ const MAX_3D_DICE = 12;
  * tone: 'crit' | 'fumble' | 'adv' | 'dis' | null
  * total: final calculated result
  * isCrit: boolean
+ * isFumble: boolean
+ * isSave: boolean
  * onSettled(): chamado quando os dados param (ou imediatamente no modo estático)
  */
 export default function DiceStage({
@@ -46,6 +48,8 @@ export default function DiceStage({
   adv = 'normal',
   total = null,
   isCrit = false,
+  isFumble = false,
+  isSave = false,
   lang = 'pt',
   onSettled,
   mode: forced,
@@ -174,10 +178,10 @@ export default function DiceStage({
   if (totalDiceCount === 1) {
     const r = allRolls[0];
     const v = r.value;
-    const effectiveTone = !rolling2d ? shownTone : null;
+    const effectiveTone = !rolling2d ? (shownTone || (isCrit ? 'crit' : isFumble ? 'fumble' : null)) : null;
 
     return (
-      <div className={stage2dClass} data-dice-mode={mode} data-dice-tone={shownTone || undefined}>
+      <div className={stage2dClass} data-dice-mode={mode} data-dice-tone={shownTone || (isCrit ? 'crit' : isFumble ? 'fumble' : undefined)}>
         <div className="dice-hero-stage-wrap">
           <DieShape
             die={r.die}
@@ -188,6 +192,7 @@ export default function DiceStage({
             size={120}
             isHero={true}
             isCrit={isCrit}
+            isFumble={isFumble}
             tone={effectiveTone}
             lang={lang}
           />
@@ -202,14 +207,14 @@ export default function DiceStage({
   // and stacked side-to-side along the facets and corners with uniform breathing gutters!
   if (totalDiceCount > 1 && !className?.includes('cr-rr-stage')) {
     const primaryDie = groups[0]?.die || 6;
-    const effectiveTone = adv === 'adv' ? 'adv' : adv === 'dis' ? 'dis' : null;
+    const effectiveTone = adv === 'adv' ? 'adv' : adv === 'dis' ? 'dis' : (isCrit ? 'crit' : isFumble ? 'fumble' : null);
     const naturalSum = allRolls.reduce((sum, r) => sum + (r.kept ? Number(r.value) || 0 : 0), 0);
     const finalTotal = total != null ? total : naturalSum;
 
     const tessellation = getTessellationLayout(primaryDie, totalDiceCount);
 
     return (
-      <div className={stage2dClass} data-dice-mode={mode} data-dice-tone={shownTone || undefined}>
+      <div className={stage2dClass} data-dice-mode={mode} data-dice-tone={shownTone || (isCrit ? 'crit' : isFumble ? 'fumble' : undefined)}>
         <div
           className="dice-flower-stage"
           style={{ width: tessellation.stageWidth, height: tessellation.stageHeight }}
@@ -225,6 +230,7 @@ export default function DiceStage({
               size={tessellation.heroSize}
               isHero={true}
               isCrit={isCrit}
+              isFumble={isFumble}
               tone={effectiveTone}
               lang={lang}
             />

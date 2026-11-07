@@ -172,22 +172,25 @@ const DiceRoller = ({ lang }) => {
     if (entry.animated) sheetGate.hold(entry.id, send); else send();
   }, [patchEntry]);
 
-  const rollParsed = useCallback((parsed, { label, adv = 'normal' } = {}) => {
+  const rollParsed = useCallback((parsed, { label, adv = 'normal', isSave = false } = {}) => {
     const r = rollFormula(parsed, { adv });
+    const isSaveRoll = isSave || /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b/i.test(label || '');
     return present({
       label: label || parsed.text,
       formula: parsed.text,
       groups: r.groups.map(g => ({ die: g.sides, sign: g.sign, rolls: g.rolls })),
       mod: r.mod, total: r.total, isCrit: r.isCrit, isFumble: r.isFumble, adv: r.adv,
+      isSave: isSaveRoll,
     });
   }, [present]);
 
   // Compatível com a ficha: { die, count, mod, label, advMode }. `sheet`: é um botão da
   // ficha (perícia, salvaguarda, ataque, dano, iniciativa) e vai à Tela (V15).
-  const performRoll = useCallback(({ die = 20, count: cnt = 1, mod: m = 0, label = '', advMode: am, sheet: fromSheet } = {}) => {
+  const performRoll = useCallback(({ die = 20, count: cnt = 1, mod: m = 0, label = '', advMode: am, sheet: fromSheet, isSave } = {}) => {
     const parsed = parseFormula(`${cnt}d${die}${formatMod(m)}`);
     if (!parsed) return null;
-    const entry = rollParsed(parsed, { label, adv: am ?? advMode });
+    const isSaveRoll = isSave ?? /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b/i.test(label || '');
+    const entry = rollParsed(parsed, { label, adv: am ?? advMode, isSave: isSaveRoll });
     if (fromSheet && entry) toTable(entry);
     return entry;
   }, [rollParsed, advMode, toTable]);
@@ -195,20 +198,21 @@ const DiceRoller = ({ lang }) => {
   // Os toques do rolador. Mestre na campanha: pelo servidor (📺 Na tela ou 🔒 Só eu).
   // Lento não é sem rede: o pedido não é cortado (a TV mostraria o número do servidor);
   // aos 1,5 s o aviso "a Tela está lenta". Sem rede, no aparelho com o aviso. Fora: local.
-  const rollUi = useCallback(async (parsed, { label, adv = 'normal' } = {}) => {
+  const rollUi = useCallback(async (parsed, { label, adv = 'normal', isSave = false } = {}) => {
     if (!table) {
       // jogador: no aparelho, e da ficha aberta também à Tela (toTable não faz nada sem ela)
-      const entry = rollParsed(parsed, { label, adv });
+      const entry = rollParsed(parsed, { label, adv, isSave });
       if (entry) toTable(entry);
       return entry;
     }
     if (sendingRef.current) return null;
     const text = label || purposeLabel(purpose, lang) || parsed.text;
+    const isSaveRoll = isSave || /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b/i.test(text || '');
     const shown = target === 'shown';
     const show = (r, extra) => present({
       label: text, formula: parsed.text,
       groups: r.groups.map(g => ({ die: g.sides, sign: g.sign, rolls: g.rolls })),
-      mod: r.mod, total: r.total, isCrit: r.isCrit, isFumble: r.isFumble, adv: r.adv, ...extra,
+      mod: r.mod, total: r.total, isCrit: r.isCrit, isFumble: r.isFumble, adv: r.adv, isSave: isSaveRoll, ...extra,
     });
     setNotice(null);
     const body = rollBody(table, parsed, { label: text, adv, shown });
@@ -241,6 +245,7 @@ const DiceRoller = ({ lang }) => {
     total: res.total,
     isCrit: !!res.isCrit,
     isFumble: !!res.isFumble,
+    isSave: !!res.isSave || /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b/i.test(res.label || ''),
     adv: res.adv || 'normal',
     source: res.source || 'server',
     tableNote: res.tableNote,
@@ -647,20 +652,25 @@ const DiceRoller = ({ lang }) => {
       {/* === Overlay da rolagem (Minimalist & Clean Hero Die) === */}
       {overlay && (
         <div key={overlay.id} className="dice-overlay no-print" onClick={() => { sheetGate.settle(overlay.id); setOverlay(null); }} role="status" aria-live="polite">
+          {overlay.isSave && (
+            <div className={`dice-save-checkered-vignette${overlay.settled ? ' is-settled' : ''}`} aria-hidden="true" />
+          )}
           <div className={`dice-overlay-inner ${overlay.settled && overlay.isCrit ? 'is-crit' : ''} ${overlay.settled && overlay.isFumble ? 'is-fumble' : ''}`}>
             <DiceStage
               key={overlay.id}
               mode="2d"
               groups={overlay.groups}
-              tone={overlay.adv === 'adv' ? 'adv' : overlay.adv === 'dis' ? 'dis' : (overlay.isCrit ? 'crit' : null)}
+              tone={overlay.adv === 'adv' ? 'adv' : overlay.adv === 'dis' ? 'dis' : (overlay.isCrit ? 'crit' : overlay.isFumble ? 'fumble' : null)}
               adv={overlay.adv}
               total={overlay.total}
               isCrit={overlay.isCrit}
+              isFumble={overlay.isFumble}
+              isSave={overlay.isSave}
               lang={lang}
               className="dice-overlay-stage"
               onSettled={() => {
                 sheetGate.settle(overlay.id);   // o dado parou: a rolagem da ficha vai à Tela (E2.1)
-                if (overlay.isCrit && navigator.vibrate) navigator.vibrate([60, 40, 100]);
+                if ((overlay.isCrit || overlay.isFumble) && navigator.vibrate) navigator.vibrate([60, 40, 100]);
                 setOverlay(prev => (prev && prev.id === overlay.id ? { ...prev, settled: true } : prev));
               }}
             />

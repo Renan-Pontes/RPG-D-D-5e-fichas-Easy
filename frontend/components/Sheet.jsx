@@ -1,6 +1,7 @@
 /* Character sheet view — play/stats/spells/inventory/story/journal tabs */
 import { errorMessage } from '../src/api/errors.js';
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { subclassesFor } from '../src/progression/subclasses.js';
@@ -44,12 +45,87 @@ import '../src/sheet/ficha.css';
 // Modal "Campanha" (atrelar, desatrelar, trocar): só carrega quando abre.
 const CampaignLinkModal = lazy(() => import('../src/sheet/CampaignLinkModal.jsx'));
 
+export const STAT_SCOPES = [
+  { id: 'abilities', labelPt: 'Atributos', labelEn: 'Abilities', icon: '⚡' },
+  { id: 'skills', labelPt: 'Perícias', labelEn: 'Skills', icon: '🎯' },
+  { id: 'tools', labelPt: 'Ferramentas', labelEn: 'Tools', icon: '⚒️' },
+  { id: 'features', labelPt: 'Características', labelEn: 'Features', icon: '📜' },
+];
+
+const SHEET_TABS = ['play', 'stats', 'spells', 'inv', 'story', 'notes', 'npcs'];
+
 // onCampaignChange(msg): a ficha entrou/saiu/trocou de campanha (modal "Campanha") —
 // o app recarrega a lista (char.inCampaign) e mostra `msg`. onLogin: ficha do aparelho,
 // leva à entrada na conta (sem ele, o servidor está fora e a dica não aparece).
 // backLabel: o texto do "voltar" quando a ficha foi aberta de outro lugar (a Mesa, V13).
 const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, onExport, onDelete, onBack, backLabel, onLevelUp, onCampaignChange, onLogin, children }) => {
   const [tab, setTab] = useState('play');
+  const [statsScope, setStatsScope] = useState('abilities');
+  const touchStartRef = useRef(null);
+
+  const onTabBodyTouchStart = (e) => {
+    if (!e.touches || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    touchStartRef.current = {
+      x: t.clientX,
+      y: t.clientY,
+      target: e.target,
+      time: Date.now(),
+    };
+  };
+
+  const onTabBodyTouchEnd = (e) => {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start || !e.changedTouches || e.changedTouches.length === 0) return;
+    const end = e.changedTouches[0];
+    const dx = end.clientX - start.x;
+    const dy = end.clientY - start.y;
+    const dt = Date.now() - start.time;
+
+    // Filter out long holds (> 700ms) or predominantly vertical swipes
+    if (dt > 700) return;
+    if (Math.abs(dx) < 48 || Math.abs(dx) < 1.35 * Math.abs(dy)) return;
+
+    // Check if touch originated inside inputs, sliders, belt components, or overlays
+    const el = start.target;
+    if (el && el.closest('input, textarea, select, [contenteditable], button[role="slider"], .fh-belt, .fh-belt-badge, .fh-belt-header, .fh-belt-slot, .modal, .dice-overlay')) {
+      return;
+    }
+
+    if (dx < 0) {
+      // Swiped Left -> Move forward
+      if (tab === 'stats') {
+        const curIdx = STAT_SCOPES.findIndex(s => s.id === statsScope);
+        if (curIdx < STAT_SCOPES.length - 1) {
+          setStatsScope(STAT_SCOPES[curIdx + 1].id);
+          return;
+        }
+      }
+      const tabIdx = SHEET_TABS.indexOf(tab);
+      if (tabIdx < SHEET_TABS.length - 1) {
+        const nextTab = SHEET_TABS[tabIdx + 1];
+        setTab(nextTab);
+        if (nextTab === 'stats') setStatsScope('abilities');
+      }
+    } else {
+      // Swiped Right -> Move backward
+      if (tab === 'stats') {
+        const curIdx = STAT_SCOPES.findIndex(s => s.id === statsScope);
+        if (curIdx > 0) {
+          setStatsScope(STAT_SCOPES[curIdx - 1].id);
+          return;
+        }
+      }
+      const tabIdx = SHEET_TABS.indexOf(tab);
+      if (tabIdx > 0) {
+        const prevTab = SHEET_TABS[tabIdx - 1];
+        setTab(prevTab);
+        if (prevTab === 'stats') setStatsScope('features');
+      }
+    }
+  };
+
   const [hpDelta, setHpDelta] = useState(0);
   const [tempHpInput, setTempHpInput] = useState(false);
   const [cheatOpen, setCheatOpen] = useState(false);
@@ -274,9 +350,12 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         ))}
       </ScrollTabs>
 
-      {/* Conteúdo da aba. No desktop (1024px ou mais, ficha.css: F14) a ficha usa a largura
-          toda: a aba Jogar em duas colunas; as demais numa coluna de leitura centrada. */}
-      <div className={`fh-tab-body${tab === 'play' ? ' is-play' : ''}`}>
+      {/* Conteúdo da aba com suporte a gestos de deslizamento (swipe) no mobile */}
+      <div
+        className={`fh-tab-body${tab === 'play' ? ' is-play' : ''}`}
+        onTouchStart={onTabBodyTouchStart}
+        onTouchEnd={onTabBodyTouchEnd}
+      >
         {tab === 'play' && (
           <SheetPlay
             char={char} lang={lang} update={update} applyHp={applyHp}
@@ -288,7 +367,9 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         {tab === 'stats' && (
           <SheetStats
             char={char} lang={lang} update={update}
-            profB={profB} passPerc={passPerc} roll={roll} placed={placed} cls={cls}
+            profB={profB} passPerc={passPerc} roll={roll} placed={placed} cls={cls} race={race}
+            activeScope={statsScope}
+            onSelectScope={setStatsScope}
           />
         )}
 
@@ -1812,8 +1893,8 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
   const isProf = Utils.hasSaveProf(char, k);
   const pt = lang === 'pt';
 
-  const onRollHalf = (mod, label) => {
-    roll({ die: 20, mod, label, advMode });
+  const onRollHalf = (mod, label, isSave = false) => {
+    roll({ die: 20, mod, label, advMode, isSave });
   };
 
   // Knob ONLY handles stance swiping tap (up = adv, down = dis, tap = normal).
@@ -2081,11 +2162,11 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
           <button
             type="button"
             className={`fh-honey-half is-save${isProf ? ' is-prof' : ''}`}
-            onClick={() => onRollHalf(saveMod, `${t(k, lang)} ${t('saveRoll', lang)}`)}
+            onClick={() => onRollHalf(saveMod, `${t(k, lang)} ${t('saveRoll', lang)}`, true)}
             onKeyDown={(e) => {
               if (!isActionKey(e)) return;
               e.preventDefault();
-              onRollHalf(saveMod, `${t(k, lang)} ${t('saveRoll', lang)}`);
+              onRollHalf(saveMod, `${t(k, lang)} ${t('saveRoll', lang)}`, true);
             }}
             aria-label={pt
               ? `${t(k, lang)}: resistência ${Utils.fmtMod(saveMod)}${isProf ? ' (proficiente)' : ''}${advMode === 'adv' ? ' (com vantagem)' : advMode === 'dis' ? ' (com desvantagem)' : ''}`
@@ -2902,52 +2983,53 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
 
   return (
     <div className={`fh-belt${pbActive ? ' is-pb-active' : ''}`} data-fab-pass="">
-      {dragLink && (() => {
-        // Query the live spherical head badge so (cx, cy, r) is 100% physically locked with 0 offset
-        const liveBadge = typeof document !== 'undefined'
-          ? document.querySelector(`.fh-belt-badge[data-ability-badge="${dragLink.ability}"]`)
-          : null;
-        const badgeRect = liveBadge?.getBoundingClientRect();
-        const startX = badgeRect ? badgeRect.left + badgeRect.width / 2 : dragLink.startX;
-        const startY = badgeRect ? badgeRect.top + badgeRect.height / 2 : dragLink.startY;
-        const radius = badgeRect ? badgeRect.width / 2 : (dragLink.radius || 17);
+      {dragLink && typeof document !== 'undefined' && createPortal(
+        (() => {
+          // Query the live spherical head badge so (cx, cy, r) is 100% physically locked with 0 offset
+          const liveBadge = document.querySelector(`.fh-belt-badge[data-ability-badge="${dragLink.ability}"]`);
+          const badgeRect = liveBadge?.getBoundingClientRect();
+          const startX = badgeRect ? badgeRect.left + badgeRect.width / 2 : dragLink.startX;
+          const startY = badgeRect ? badgeRect.top + badgeRect.height / 2 : dragLink.startY;
+          const radius = badgeRect ? badgeRect.width / 2 : (dragLink.radius || 17);
 
-        const dx = dragLink.currentX - startX;
-        const dy = dragLink.currentY - startY;
-        const dist = Math.hypot(dx, dy);
-        // Tightly contours the round badge rim seamlessly and gaplessly
-        const contourRadius = radius + 0.6;
-        const offset = radius + 1.8; // starts cleanly outside the contour stroke
-        const x0 = dist > offset ? startX + (dx / dist) * offset : startX;
-        const y0 = dist > offset ? startY + (dy / dist) * offset : startY;
-        const midX = (x0 + dragLink.currentX) / 2;
-        const midY = (y0 + dragLink.currentY) / 2 - 20;
+          const dx = dragLink.currentX - startX;
+          const dy = dragLink.currentY - startY;
+          const dist = Math.hypot(dx, dy);
+          // Tightly contours the round badge rim seamlessly and gaplessly
+          const contourRadius = radius + 0.6;
+          const offset = radius + 1.8; // starts cleanly outside the contour stroke
+          const x0 = dist > offset ? startX + (dx / dist) * offset : startX;
+          const y0 = dist > offset ? startY + (dy / dist) * offset : startY;
+          const midX = (x0 + dragLink.currentX) / 2;
+          const midY = (y0 + dragLink.currentY) / 2 - 20;
 
-        return (
-          <svg className="fh-belt-drag-overlay" aria-hidden="true">
-            {/* Luminous Contour Ring tightly hugging the round badge rim gaplessly */}
-            <circle
-              className={`fh-drag-trail-contour tone-${dragLink.ability}`}
-              cx={startX}
-              cy={startY}
-              r={contourRadius}
-            />
+          return (
+            <svg className="fh-belt-drag-overlay" aria-hidden="true">
+              {/* Luminous Contour Ring tightly hugging the round badge rim gaplessly */}
+              <circle
+                className={`fh-drag-trail-contour tone-${dragLink.ability}`}
+                cx={startX}
+                cy={startY}
+                r={contourRadius}
+              />
 
-            {/* Trailing dashed guide starting strictly outside the contour ring */}
-            <path
-              className={`fh-drag-trail-path tone-${dragLink.ability}`}
-              d={`M ${x0} ${y0} Q ${midX} ${midY} ${dragLink.currentX} ${dragLink.currentY}`}
-            />
-            <g transform={`translate(${dragLink.currentX}, ${dragLink.currentY})`}>
-              <circle className={`fh-drag-beacon-halo tone-${dragLink.ability}`} r="30" />
-              <circle className="fh-drag-beacon-core" r="19" />
-              <text className="fh-drag-beacon-text" textAnchor="middle" dy="1">
-                {BELT_ABBR[dragLink.ability] || dragLink.ability.toUpperCase()}
-              </text>
-            </g>
-          </svg>
-        );
-      })()}
+              {/* Trailing dashed guide starting strictly outside the contour ring */}
+              <path
+                className={`fh-drag-trail-path tone-${dragLink.ability}`}
+                d={`M ${x0} ${y0} Q ${midX} ${midY} ${dragLink.currentX} ${dragLink.currentY}`}
+              />
+              <g transform={`translate(${dragLink.currentX}, ${dragLink.currentY})`}>
+                <circle className={`fh-drag-beacon-halo tone-${dragLink.ability}`} r="30" />
+                <circle className="fh-drag-beacon-core" r="19" />
+                <text className="fh-drag-beacon-text" textAnchor="middle" dy="1">
+                  {BELT_ABBR[dragLink.ability] || dragLink.ability.toUpperCase()}
+                </text>
+              </g>
+            </svg>
+          );
+        })(),
+        document.body
+      )}
       <div className="fh-belt-hive-row is-top">
         {top.map((k) => (
           <BeltHex
@@ -3035,8 +3117,24 @@ const OtherFeatures = ({ char, lang, placed, cls }) => {
   );
 };
 
-const SheetStats = ({ char, lang, update, profB, passPerc, roll, placed, cls }) => {
+const SheetStats = ({
+  char,
+  lang,
+  update,
+  profB,
+  passPerc,
+  roll,
+  placed,
+  cls,
+  race,
+  activeScope = 'abilities',
+  onSelectScope,
+}) => {
   const pt = lang === 'pt';
+  const [internalScope, setInternalScope] = useState('abilities');
+  const scope = onSelectScope ? activeScope : internalScope;
+  const setScope = onSelectScope || setInternalScope;
+
   const [beltMode, setBeltMode] = useState(false);
   const profText = (level) => level === 2 ? (pt ? 'Especialista' : 'Expertise') : level ? (pt ? 'Treinado' : 'Proficient') : (pt ? 'Sem treino' : 'Not proficient');
   const visibleSkills = beltMode
@@ -3046,127 +3144,180 @@ const SheetStats = ({ char, lang, update, profB, passPerc, roll, placed, cls }) 
     ...trainingLines(char, lang),
     ...(char.otherProfs ? [{ key: 'other', label: pt ? 'Outras proficiências' : 'Other proficiencies', text: char.otherProfs }] : []),
   ];
+
+  const speciesTraits = race?.traits || Utils.races(char.rulesVersion).find(r => r.id === char.race)?.traits || [];
+
   return (
-    <>
-      <section className="fh-panel">
-      <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{pt ? 'Atributos' : 'Abilities'}</FhTitle>
-      <label className="fh-honey-toggle">
-        <input type="checkbox" checked={beltMode} onChange={(e) => setBeltMode(e.target.checked)} />
-        <span>{pt ? 'Modo cinto de rolagem (belt)' : 'Dice belt mode'}</span>
-      </label>
-      {beltMode
-        ? <BeltAbilities char={char} lang={lang} roll={roll} profB={profB} />
-        : <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang)} />}
-      </section>
+    <div className="fh-stats-container">
+      {/* 4 Dedicated Scopes Navigation (Abilities, Skills, Tools, Features) */}
+      <nav className="fh-stats-scope-nav" aria-label={pt ? 'Sub-áreas da ficha' : 'Sheet scopes'}>
+        {STAT_SCOPES.map(sc => (
+          <button
+            key={sc.id}
+            type="button"
+            className={`fh-scope-btn${scope === sc.id ? ' is-active' : ''}`}
+            onClick={() => setScope(sc.id)}
+            aria-current={scope === sc.id ? 'true' : undefined}
+          >
+            <span className="fh-scope-icon" aria-hidden="true">{sc.icon}</span>
+            <span className="fh-scope-label">{pt ? sc.labelPt : sc.labelEn}</span>
+          </button>
+        ))}
+      </nav>
 
-      {!beltMode && (
-        <section className="fh-panel">
-        <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{lang === 'pt' ? 'Testes de Resistência' : 'Saving Throws'}</FhTitle>
-        {/* Em 2 colunas no desktop (3 + 3), na ordem do DOM: --fh-rows = metade das linhas.
-            data-fab-pass: o botão de dados fica no canto sobre a lista, sem saltar (DiceRoller) */}
-        <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(SRD.ABILITIES.length / 2) }}>
-          {SRD.ABILITIES.map(k => {
-            const bonus = Utils.saveBonus(char, k);
-            const isProf = Utils.hasSaveProf(char, k);
-            return (
-              <FhSkillRow key={k} name={t(k, lang)} abbr={t(k + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
-                level={isProf ? 1 : 0}
-                profTitle={profText(isProf ? 1 : 0)}
-                profLabel={`${t(k, lang)}: ${profText(isProf ? 1 : 0)}`}
-                onToggle={() => update({ saveProfs: isProf ? (char.saveProfs || []).filter(x => x !== k) : [...(char.saveProfs || []), k] })}
-                onRoll={() => roll({ die: 20, mod: bonus, label: t(k, lang) + ' ' + t('saveRoll', lang) })} />
-            );
-          })}
+      {/* Scope 1: Ability Scores & Saving Throws */}
+      {scope === 'abilities' && (
+        <div className="fh-scope-content fh-scope-abilities">
+          <section className="fh-panel">
+            <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{pt ? 'Atributos' : 'Abilities'}</FhTitle>
+            <label className="fh-honey-toggle">
+              <input type="checkbox" checked={beltMode} onChange={(e) => setBeltMode(e.target.checked)} />
+              <span>{pt ? 'Modo cinto de rolagem (belt)' : 'Dice belt mode'}</span>
+            </label>
+            {beltMode
+              ? <BeltAbilities char={char} lang={lang} roll={roll} profB={profB} />
+              : <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang)} />}
+          </section>
+
+          {!beltMode && (
+            <section className="fh-panel">
+              <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{pt ? 'Testes de Resistência' : 'Saving Throws'}</FhTitle>
+              <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(SRD.ABILITIES.length / 2) }}>
+                {SRD.ABILITIES.map(k => {
+                  const bonus = Utils.saveBonus(char, k);
+                  const isProf = Utils.hasSaveProf(char, k);
+                  return (
+                    <FhSkillRow key={k} name={t(k, lang)} abbr={t(k + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
+                      level={isProf ? 1 : 0}
+                      profTitle={profText(isProf ? 1 : 0)}
+                      profLabel={`${t(k, lang)}: ${profText(isProf ? 1 : 0)}`}
+                      onToggle={() => update({ saveProfs: isProf ? (char.saveProfs || []).filter(x => x !== k) : [...(char.saveProfs || []), k] })}
+                      onRoll={() => roll({ die: 20, mod: bonus, label: t(k, lang) + ' ' + t('saveRoll', lang), isSave: true })} />
+                  );
+                })}
+              </div>
+              <FhProfLegend lang={lang} />
+            </section>
+          )}
         </div>
-        <FhProfLegend lang={lang} />
-        </section>
       )}
 
-      <section className="fh-panel">
-      <FhTitle sub={<>
-        <span>{t('passivePerception', lang)} <span className="fh-sub-hi">{passPerc}</span></span>
-        <span aria-hidden="true">·</span>
-        <span><FhTapToRoll lang={lang} /></span>
-      </>}>{t('skills', lang)}</FhTitle>
-      {beltMode && (
-        <div className="fh-belt-skill-note">
-          {pt ? 'Modo minimalista: somente perícias treinadas/especialistas.' : 'Minimal mode: proficient/expertise skills only.'}
+      {/* Scope 2: Skills */}
+      {scope === 'skills' && (
+        <div className="fh-scope-content fh-scope-skills">
+          <section className="fh-panel">
+            <FhTitle sub={<>
+              <span>{t('passivePerception', lang)} <span className="fh-sub-hi">{passPerc}</span></span>
+              <span aria-hidden="true">·</span>
+              <span><FhTapToRoll lang={lang} /></span>
+            </>}>{t('skills', lang)}</FhTitle>
+            {beltMode && (
+              <div className="fh-belt-skill-note">
+                {pt ? 'Modo minimalista: somente perícias treinadas/especialistas.' : 'Minimal mode: proficient/expertise skills only.'}
+              </div>
+            )}
+            <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(Math.max(visibleSkills.length, 1) / 2) }}>
+              {visibleSkills.map(s => {
+                const bonus = Utils.skillBonus(char, s.id);
+                const isProf = Utils.hasSkillProf(char, s.id);
+                const isExpert = Utils.hasExpertise(char, s.id);
+                const level = isExpert ? 2 : isProf ? 1 : 0;
+                return (
+                  <FhSkillRow key={s.id} name={tName('skill', s.id, lang)} abbr={t(s.stat + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
+                    level={level}
+                    profTitle={profText(level)}
+                    profLabel={`${tName('skill', s.id, lang)}: ${profText(level)}`}
+                    onToggle={() => {
+                      if (isExpert) {
+                        update({ skillExpertise: (char.skillExpertise || []).filter(x => x !== s.id), skillProfs: (char.skillProfs || []).filter(x => x !== s.id) });
+                      } else if (isProf) {
+                        update({ skillExpertise: [...(char.skillExpertise || []), s.id] });
+                      } else {
+                        update({ skillProfs: [...(char.skillProfs || []), s.id] });
+                      }
+                    }}
+                    onRoll={() => roll({ die: 20, mod: bonus, label: tName('skill', s.id, lang) })} />
+                );
+              })}
+            </div>
+            {beltMode && visibleSkills.length === 0 && (
+              <p className="fh-belt-skill-note">
+                {pt ? 'Nenhuma perícia treinada ainda.' : 'No proficient skills yet.'}
+              </p>
+            )}
+            <FhProfLegend lang={lang} expert />
+            <FhFeatures items={placed.by.skills} multi={placed.multi} lang={lang} place="skills" />
+          </section>
         </div>
       )}
-      <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(Math.max(visibleSkills.length, 1) / 2) }}>
-        {visibleSkills.map(s => {
-          const bonus = Utils.skillBonus(char, s.id);
-          const isProf = Utils.hasSkillProf(char, s.id);
-          const isExpert = Utils.hasExpertise(char, s.id);
-          const level = isExpert ? 2 : isProf ? 1 : 0;
-          return (
-            <FhSkillRow key={s.id} name={tName('skill', s.id, lang)} abbr={t(s.stat + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
-              level={level}
-              profTitle={profText(level)}
-              profLabel={`${tName('skill', s.id, lang)}: ${profText(level)}`}
-              onToggle={() => {
-                // ciclo: sem treino → treinado → especialista → sem treino
-                if (isExpert) {
-                  update({ skillExpertise: (char.skillExpertise || []).filter(x => x !== s.id), skillProfs: (char.skillProfs || []).filter(x => x !== s.id) });
-                } else if (isProf) {
-                  update({ skillExpertise: [...(char.skillExpertise || []), s.id] });
-                } else {
-                  update({ skillProfs: [...(char.skillProfs || []), s.id] });
-                }
-              }}
-              onRoll={() => roll({ die: 20, mod: bonus, label: tName('skill', s.id, lang) })} />
-          );
-        })}
-      </div>
-      {beltMode && visibleSkills.length === 0 && (
-        <p className="fh-belt-skill-note">
-          {pt ? 'Nenhuma perícia treinada ainda.' : 'No proficient skills yet.'}
-        </p>
-      )}
-      {!beltMode && <FhProfLegend lang={lang} expert />}
-      <FhFeatures items={placed.by.skills} multi={placed.multi} lang={lang} place="skills" />
-      </section>
 
-      <OtherFeatures char={char} lang={lang} placed={placed} cls={cls} />
-
-      {(char.feats || []).length > 0 && (
-        <section className="fh-panel">
-          <FhTitle>{lang === 'pt' ? 'Talentos' : 'Feats'}</FhTitle>
-          <div>
-            {char.feats.map((f, i) => (
-              <div key={i} className="text-sm" style={{ marginBottom: 4 }}>
-                <strong style={{ color: 'var(--gold-deep)' }}>{featName(char, f, lang)}</strong>
-                <span className="muted"> · {f.origin === 'background' ? (lang === 'pt' ? 'Antecedente' : 'Background') : f.origin === 'species' ? (lang === 'pt' ? 'Espécie' : 'Species') : `${lang === 'pt' ? 'Nv.' : 'Lv'} ${f.level}`}</span>
-                {f.asi && <span className="muted"> · {Object.entries(f.asi).map(([k, v]) => `${t(k + 'Sh', lang)} +${v}`).join(', ')}</span>}
-                {featSummary(f, lang) && <div className="text-xs" style={{ color: 'var(--ink-secondary)' }}>{featSummary(f, lang)}</div>}
-                {f.picks && <div className="text-xs muted">{featPicksText(f.picks, lang)}</div>}
-                {f.note && <span style={{ color: 'var(--ink-secondary)' }}> — {f.note}</span>}
+      {/* Scope 3: Tools & Languages */}
+      {scope === 'tools' && (
+        <div className="fh-scope-content fh-scope-tools">
+          <section className="fh-panel">
+            <FhTitle>{pt ? 'Idiomas e Proficiências de Ferramentas' : 'Languages & Tool Proficiencies'}</FhTitle>
+            <LanguagesField char={char} lang={lang} update={update} />
+            {toolSummaries.map(tl => (
+              <div key={tl.key} className="text-sm" style={{ marginBottom: 6 }}>
+                <strong style={{ color: 'var(--gold-deep)' }}>{tl.label}:</strong> {tl.text}
               </div>
             ))}
-          </div>
-        </section>
-      )}
-      <section className="fh-panel">
-      <FhTitle>{lang === 'pt' ? 'Idiomas e Outras Proficiências' : 'Languages & Other Proficiencies'}</FhTitle>
-      <LanguagesField char={char} lang={lang} update={update} />
-      {toolSummaries.map(tl => (
-        <div key={tl.key} className="text-sm" style={{ marginBottom: 6 }}>
-          <strong style={{ color: 'var(--gold-deep)' }}>{tl.label}:</strong> {tl.text}
-        </div>
-      ))}
-      <FhFeatures items={placed.by.proficiencies} multi={placed.multi} lang={lang} place="proficiencies" className="fh-cf-profs" />
-      {!beltMode && (
-        <div>
-          <label>{lang === 'pt' ? 'Outras proficiências' : 'Other proficiencies'}</label>
-          <textarea aria-label={lang === 'pt' ? 'Outras proficiências' : 'Other proficiencies'}
-            value={char.otherProfs || ''}
-            onChange={e => update({ otherProfs: e.target.value })}
-            placeholder={lang === 'pt' ? 'Ferramentas, armas adicionais...' : 'Tools, extra weapons...'}
-          />
+            <FhFeatures items={placed.by.proficiencies} multi={placed.multi} lang={lang} place="proficiencies" className="fh-cf-profs" />
+            <div>
+              <label>{pt ? 'Outras proficiências' : 'Other proficiencies'}</label>
+              <textarea
+                aria-label={pt ? 'Outras proficiências' : 'Other proficiencies'}
+                value={char.otherProfs || ''}
+                onChange={e => update({ otherProfs: e.target.value })}
+                placeholder={pt ? 'Ferramentas, armas adicionais, perícias manuais...' : 'Tools, extra weapons, custom proficiencies...'}
+              />
+            </div>
+          </section>
         </div>
       )}
-      </section>
-    </>
+
+      {/* Scope 4: Features (Class, Subclass, Feats & Species/Racial Traits) */}
+      {scope === 'features' && (
+        <div className="fh-scope-content fh-scope-features">
+          {/* Class and Subclass Features */}
+          <OtherFeatures char={char} lang={lang} placed={placed} cls={cls} />
+
+          {/* Feats / Talentos */}
+          {(char.feats || []).length > 0 && (
+            <section className="fh-panel">
+              <FhTitle>{pt ? 'Talentos' : 'Feats'}</FhTitle>
+              <div>
+                {char.feats.map((f, i) => (
+                  <div key={i} className="text-sm" style={{ marginBottom: 8 }}>
+                    <strong style={{ color: 'var(--gold-deep)' }}>{featName(char, f, lang)}</strong>
+                    <span className="muted"> · {f.origin === 'background' ? (pt ? 'Antecedente' : 'Background') : f.origin === 'species' ? (pt ? 'Espécie' : 'Species') : `${pt ? 'Nv.' : 'Lv'} ${f.level}`}</span>
+                    {f.asi && <span className="muted"> · {Object.entries(f.asi).map(([k, v]) => `${t(k + 'Sh', lang)} +${v}`).join(', ')}</span>}
+                    {featSummary(f, lang) && <div className="text-xs" style={{ color: 'var(--ink-secondary)', marginTop: 2 }}>{featSummary(f, lang)}</div>}
+                    {f.picks && <div className="text-xs muted">{featPicksText(f.picks, lang)}</div>}
+                    {f.note && <span style={{ color: 'var(--ink-secondary)' }}> — {f.note}</span>}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Species / Racial Traits */}
+          {speciesTraits.length > 0 && (
+            <section className="fh-panel">
+              <FhTitle>{pt ? `Traços de Espécie (${race?.name?.[lang] || char.race || 'Espécie'})` : `Species Traits (${race?.name?.[lang] || char.race || 'Species'})`}</FhTitle>
+              <div className="fh-traits">
+                {speciesTraits.map((t, idx) => (
+                  <div key={idx} className="text-sm" style={{ marginBottom: 8 }}>
+                    <strong style={{ color: 'var(--gold-deep)' }}>{t.name?.[lang] || t.name}:</strong>{' '}
+                    <span>{t.desc?.[lang] || t.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
+    </div>
   );
 };
 

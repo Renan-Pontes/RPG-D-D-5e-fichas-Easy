@@ -861,6 +861,52 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   text-shadow: 0 0 8px rgba(255, 225, 130, 0.9), 0 1px 2px #000;
 }
 
+/* Art Deco Critical Failure (Fumble) Overrides — Crimson/Blood-Red Palette */
+.dice-artdeco-crit-frame.is-fumble .dice-artdeco-svg {
+  filter: drop-shadow(0 0 14px rgba(255, 45, 65, 0.82));
+}
+.artdeco-crit-text.is-fumble {
+  font-size: 7.6px;
+  letter-spacing: 0.12em;
+  fill: #ffe4e6;
+  text-shadow: 0 0 10px rgba(255, 45, 65, 0.95), 0 1px 2px #000;
+}
+.dice-sparks.is-fumble i {
+  background: radial-gradient(circle, #ff808d 0%, #ff1a2e 65%, transparent 100%);
+  box-shadow: 0 0 8px #ff1a2e, 0 0 16px #990012;
+}
+
+/* Checkered Vignette Effect for Resistance Saving Throws */
+.dice-save-checkered-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image:
+    radial-gradient(ellipse at center, transparent 32%, rgba(20, 10, 5, 0.45) 64%, rgba(10, 4, 2, 0.92) 100%),
+    repeating-conic-gradient(
+      rgba(180, 50, 50, 0.18) 0% 25%,
+      rgba(212, 175, 55, 0.10) 25% 50%,
+      rgba(180, 50, 50, 0.18) 50% 75%,
+      rgba(212, 175, 55, 0.10) 75% 100%
+    );
+  background-size: 100% 100%, 32px 32px;
+  mask-image: radial-gradient(ellipse at center, transparent 26%, black 76%);
+  -webkit-mask-image: radial-gradient(ellipse at center, transparent 26%, black 76%);
+  box-shadow: inset 0 0 90px rgba(180, 50, 50, 0.45), inset 0 0 160px rgba(10, 4, 2, 0.85);
+  opacity: 0;
+  animation: save-vignette-fadein 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.dice-save-checkered-vignette.is-settled {
+  opacity: 0.35;
+  transition: opacity 1.05s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes save-vignette-fadein {
+  from { opacity: 0; transform: scale(1.04); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 @keyframes artdeco-crit-reveal {
   0% { transform: scale(0.82); opacity: 0; }
   60% { transform: scale(1.04); opacity: 1; }
@@ -914,6 +960,10 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
 
 .dice-stage-2d .die-shape.tone-dis.is-phase-rollup .die-main-svg {
   filter: blur(var(--die-blur, 0px)) drop-shadow(var(--ghost-x, 0px) var(--ghost-y, 0px) var(--die-blur, 0px) rgba(255, 74, 90, 0.56));
+}
+
+.dice-stage-2d .die-shape.tone-fumble.is-phase-rollup .die-main-svg {
+  filter: blur(var(--die-blur, 0px)) drop-shadow(var(--ghost-x, 0px) var(--ghost-y, 0px) var(--die-blur, 0px) rgba(255, 51, 68, 0.75));
 }
 
 .dice-stage-2d .die-shape.is-phase-rollup .die-number-val {
@@ -995,6 +1045,17 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   );
 }
 
+.die-shape.tone-fumble .die-falloff-pulse,
+.die-shape.is-fumble-artdeco .die-falloff-pulse {
+  background: radial-gradient(
+    circle,
+    rgba(255, 51, 68, 0.90) 0%,
+    rgba(220, 20, 40, 0.50) 34%,
+    rgba(160, 10, 25, 0.16) 62%,
+    transparent 78%
+  );
+}
+
 /* Single Powerful & Glowing Ripple that outstretches and smoothly fades away */
 .die-falloff-ring {
   position: absolute;
@@ -1023,6 +1084,13 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
     drop-shadow(0 0 26px rgba(255, 74, 90, 0.72));
 }
 
+.die-shape.tone-fumble .die-falloff-ring,
+.die-shape.is-fumble-artdeco .die-falloff-ring {
+  filter:
+    drop-shadow(0 0 12px rgba(255, 51, 68, 0.98))
+    drop-shadow(0 0 28px rgba(200, 15, 30, 0.85));
+}
+
 .die-falloff-ring-poly {
   fill: none;
   stroke: var(--dice-gold-hi, #fbe4a3);
@@ -1037,6 +1105,11 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
 
 .die-shape.tone-dis .die-falloff-ring-poly {
   stroke: #ff4a5a;
+}
+
+.die-shape.tone-fumble .die-falloff-ring-poly,
+.die-shape.is-fumble-artdeco .die-falloff-ring-poly {
+  stroke: #ff3344;
 }
 
 /* Slow ease-out follow-through upscale on the unravelled number during Phase 3 */

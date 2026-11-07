@@ -397,3 +397,39 @@ User requested making the dice belt mode 25% larger to better utilize available 
 ### Consequences
 - **Positive:** Striking visual presence, enhanced legibility of dice formulas and score numbers, more comfortable thumb/mouse hit targets.
 - **Negative:** Takes up 25% more vertical screen space in the stats panel, within acceptable margins on desktop and mobile.
+
+## ADR-0015: Decoupled 4-Scope Stats Navigation, Gesture-Based Mobile Horizontal Swipe, Resistance Save Checkered Vignette, and Crimson Natural 1 Fumble Visuals
+
+### Status
+Accepted
+
+### Context
+The character panel's "Stats" (Atributos) tab historically combined multiple heterogeneous scopes (ability seals/belt mode, saving throws, skills, passive senses, weapon/armor/tool proficiencies, languages, class features, subclass features, feats, and racial traits) into a single vertically scrolling column. This created excessive cognitive load and required extensive vertical scrolling on mobile viewports.
+Additionally:
+1. Users requested a dedicated scope for each area: Ability Scores, Skills, Tools, and Features (unifying class features, feats, and racial traits).
+2. Mobile navigation needed a fluid swipe gesture system allowing players to swipe left/right between scopes and sheet tabs instead of relying on vertical scrolling.
+3. Resistance saving throws needed a dramatic heraldic checkered vignette effect during the roll-up animation.
+4. Natural 1 ("Critical Failure") rolls needed visual parity with Critical Hits (Art Deco frame, stepped rim, chevrons, cartouche plaque, sparks, and ripple), executed in a crimson/blood-red palette.
+
+### Decision Outcome
+1. **Decoupled 4-Scope Stats Navigation (`STAT_SCOPES`)**:
+   - `abilities`: Dice Belt mode, Ability Seals (Força, Destreza, Constituição, Inteligência, Sabedoria, Carisma), and Saving Throws (Testes de Resistência) with proficiencies and tap-to-roll.
+   - `skills`: Passive Perception, full 18-skill list with 3-state proficiency cycling (untrained, proficient, expertise), modifier rolls, and skill features (`placed.by.skills`).
+   - `tools`: Languages (`LanguagesField`), Armor, Weapon, and Tool proficiencies, custom proficiencies textarea (`char.otherProfs`), and proficiency features (`placed.by.proficiencies`).
+   - `features`: Unified scope coupling Class & Subclass features (`placed.by.other` + SRD level 1 + background feature), Feats (`char.feats`), and Species / Racial traits (`race.traits`).
+   - Segmented navigation bar (`.fh-stats-scope-nav`) with accessible touch targets ($\ge 44\text{px}$), Art Deco glow states, and keyboard accessibility.
+2. **Horizontal Swipe Navigation Gesture System**:
+   - Enabled horizontal swipe gesture recognition on `.fh-tab-body` via `onTouchStart` and `onTouchEnd` with displacement thresholds ($|dx| \ge 48\text{px}$, $|dx| > 1.35 \times |dy|$).
+   - In `stats` tab: horizontal swipes transition between the 4 scopes (`abilities` $\leftrightarrow$ `skills` $\leftrightarrow$ `tools` $\leftrightarrow$ `features`).
+   - In root sheet tabs: horizontal swipes transition between tabs (`play` $\leftrightarrow$ `stats` $\leftrightarrow$ `spells` $\leftrightarrow$ `inv` $\leftrightarrow$ `story` $\leftrightarrow$ `notes` $\leftrightarrow$ `npcs`).
+   - Native vertical scrolling preserved seamlessly via `touch-action: pan-y`, filtering out touches originating on inputs, sliders, dice knobs, and belt slots.
+3. **Checkered Heraldic Vignette Effect for Resistance Saving Throws**:
+   - Saving throw rolls automatically detected via regex `isSave = /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b/i.test(label)`.
+   - Rendered via `.dice-save-checkered-vignette` with a `repeating-conic-gradient` checkered pattern, radial vignette alpha mask, and glowing amber backdrop that fades in over 0.5s during the roll-up animation and settles smoothly.
+4. **Crimson Art Deco Frame for Critical Failure (Natural 1)**:
+   - Polyhedral d20 Natural 1 renders `.dice-artdeco-crit-frame.is-fumble`, `.artdeco-crit-text.is-fumble` ("FALHA CRÍTICA" / "CRITICAL FAIL"), `.dice-sparks.is-fumble`, and crimson ripple pulses using a blood-red palette (`#ffd1d5`, `#ff4d5a`, `#b30018`, `#5c000a`).
+   - Haptic vibration feedback (`[60, 40, 100]ms`) dispatched for both crits and fumbles on supported mobile hardware.
+
+### Consequences
+- **Positive:** Greatly simplified cognitive hierarchy, zero vertical scroll fatigue on mobile, rich visual reinforcement for dramatic saving throws and fumble rolls, intuitive touch navigation.
+- **Negative:** Users must switch between scopes to view skills while on ability scores; mitigated by quick swipe gestures and persistent quick belt slots.

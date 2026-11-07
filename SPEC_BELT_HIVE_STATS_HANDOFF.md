@@ -374,3 +374,47 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
 - **Verification**:
   - Full automated suite: 1,536 / 1,536 tests passing (100% green across 21 suites).
   - Production Vite build: 0 errors, 641 modules compiled cleanly in 9.45s.
+
+---
+
+## 15. Decoupled 4-Scope Stats Architecture, Mobile Swipe Navigation, Resistance Save Checkered Vignette & Crimson Natural 1 Fumble Frame
+
+- **Decoupled 4-Scope Stats Navigation (`STAT_SCOPES`)**:
+  - The monolithic `stats` (Atributos) tab was refactored into 4 distinct, dedicated scopes accessed via an Art Deco segmented navigation bar (`.fh-stats-scope-nav`, `.fh-scope-btn` with $\ge 44\text{px}$ touch target compliance):
+    1. **`abilities` (Atributos & Salvaguardas)**:
+       - Dice Belt Mode / 3D Hexad seals with vertical Advantage/Disadvantage sliders.
+       - Saving Throws (Testes de Resistência) with proficiency badges, modifiers, and tap-to-roll dispatch (`isSave: true`).
+    2. **`skills` (Perícias & Sentidos)**:
+       - Passive Perception (`Percepção Passiva`) card with eye glyph.
+       - Full 18-skill list with 3-state proficiency cycling (untrained $\to$ proficient $\to$ expertise).
+       - Contextual skill features (`placed.by.skills`).
+    3. **`tools` (Proficiências & Idiomas)**:
+       - Languages field (`LanguagesField`) with tag chips and custom language input.
+       - Armor, Weapon, and Tool proficiencies (`ArmorField`, `WeaponsField`, `ToolsField`).
+       - Custom proficiencies textarea (`char.otherProfs`).
+       - Proficiency features (`placed.by.proficiencies`).
+    4. **`features` (Características & Talentos)**:
+       - Unified scope combining Class Features, Subclass Features, Feats (`char.feats`), and Species / Racial Traits (`race.traits`).
+- **Mobile-Friendly Gesture Swipe Navigation**:
+  - Horizontal swipe gesture recognition implemented on `.fh-tab-body` (`onTouchStart`, `onTouchEnd`):
+    - Swipe displacement threshold: $|dx| \ge 48\text{px}$ and $|dx| > 1.35 \times |dy|$.
+    - In `stats` tab: horizontal swipes transition between scopes:
+      $$\text{abilities} \longleftrightarrow \text{skills} \longleftrightarrow \text{tools} \longleftrightarrow \text{features}$$
+    - In other sheet tabs: horizontal swipes transition between main sheet tabs:
+      $$\text{play} \longleftrightarrow \text{stats} \longleftrightarrow \text{spells} \longleftrightarrow \text{inv} \longleftrightarrow \text{story} \longleftrightarrow \text{notes} \longleftrightarrow \text{npcs}$$
+    - Vertical scrolling is fully preserved with 60fps native momentum via `touch-action: pan-y`.
+    - Gestures originating on form inputs, textareas, selects, sliders, dice knobs, and belt slots are filtered out to prevent gesture conflicts.
+- **Resistance Saving Throw Checkered Heraldic Vignette**:
+  - Saving throws initiated from the dice belt half or saving throw list set `isSave = true` (auto-detected via regex `/teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b/i`).
+  - Renders `.dice-save-checkered-vignette` with a rotating `repeating-conic-gradient` checkered pattern, radial vignette alpha mask, and warm amber glow that fades in over 0.5s during the roll-up anticipation and settles cleanly.
+- **Natural 1 Critical Failure ("FALHA CRÍTICA") Crimson Art Deco Frame**:
+  - Rolling a Natural 1 on a d20 roll triggers the exact same architectural visual treatment as a Critical Hit (stepped rim, corner chevrons, cartouche plaque, sparks, and falloff ripple), but styled strictly in a dramatic blood-red palette:
+    - Primary highlight: `#ffd1d5` / `#ff4d5a`.
+    - Deep gradient: `#b30018` / `#5c000a`.
+    - Plaque background: `#20080a`.
+    - Plaque title: `"FALHA CRÍTICA"` (PT) / `"CRITICAL FAIL"` (EN).
+    - Sparks: `.dice-sparks.is-fumble` with crimson particle glows.
+    - Haptic feedback: mobile dual-pulse vibration `[60, 40, 100]ms`.
+- **Verification**:
+  - Full automated suite: 1,536 / 1,536 tests passing (100% green across 21 suites).
+  - Production Vite build: 0 errors, 641 modules transformed in 13.84s.
