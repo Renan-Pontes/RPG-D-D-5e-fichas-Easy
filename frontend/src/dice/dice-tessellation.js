@@ -133,16 +133,16 @@ function getD6Tessellation(count, heroSize, petalSize, gutter) {
     7: [0, 1, 6, 7, 3, 4, 10],
     8: [0, 1, 3, 4, 6, 7, 9, 10], // All 8 edge slots!
     9: [0, 1, 3, 4, 6, 7, 9, 10, 20], // 8 edges + Top-crown-center (100% mirror symmetric across Y-axis, sumX = 0!)
-    10: [0, 1, 3, 4, 6, 7, 9, 10, 12, 13], // 8 edges + 2 Top outer (or Top & Bottom pairs)
-    11: [0, 1, 3, 4, 6, 7, 9, 10, 12, 13, 20],
+    10: [0, 1, 3, 4, 6, 7, 9, 10, 12, 13], // 8 edges + 2 Top outer
+    11: [0, 1, 3, 4, 6, 7, 9, 10, 14, 15, 20], // 8 edges + 2 Bot outer + Top-crown-center (zero-collision mirror symmetry!)
     12: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], // Complete 12-slot Ring 1 grid (4x4 perimeter)
     13: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 20],
     14: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
-    15: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 20],
+    15: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 20], // 12-frame + 2 Bot outer + Top-crown-center
     16: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], // 12-frame + 2 Top outer + 2 Bottom outer
-    17: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20],
+    17: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 18, 20], // 12-frame + 2 Bot + 2 Flanks + Top-crown-center
     18: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18], // 12-frame + 2 Top + 2 Bottom + 1 Left + 1 Right
-    19: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+    19: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20],
     20: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19], // Complete 20-slot Greek cross
   };
 
@@ -256,53 +256,45 @@ function getD4Tessellation(count, heroSize, petalSize, gutter) {
   const xUp = round1(sPetal + Math.sqrt(3) * g);
   const yUp = yTop;
 
-  // Ring 2 steps on the triangular lattice
+  // Ring 2 parameters:
   const s2 = sPetal + (2 / Math.sqrt(3)) * g;
   const h2 = hPetal + g;
-  const xFlankTier2 = round1(1.5 * s2);
-  const yTopTier2 = round1(-1.5 * h2);
+  const yTopTier2 = round1(-1.6 * h2);
   const xTopTier2 = round1(s2);
+
+  const xOutUpper = round1(xUp + 0.5 * s2 + (1 / Math.sqrt(3)) * g); // ~95px
+  const xOutLower = round1(xLow + 0.5 * s2 + (1 / Math.sqrt(3)) * g); // ~90px
+  const xBotWing = round1(xBot + s2); // ~90px
+  const xBotTier2 = round1(0.5 * s2); // ~28.4px
+  const yBotTier2 = round1(yBot + h2); // ~118px
 
   const masterSlots = [
     // --- Ring 1 (9 Slots): Truncated triangular jewel ---
-    // 0 & 1: Bottom base (2 inverted triangles with exact perpendicular gap g to hero and bottom apex)
-    { id: 'bot-inv-left', x: -xBot, y: yBot, rot: 180 },
-    { id: 'bot-inv-right', x: +xBot, y: yBot, rot: 180 },
-    // 2: Bottom apex (1 upright triangle)
-    { id: 'bot-apex-up', x: 0, y: yBot, rot: 0 },
-    // 3 & 4: Left flank
-    { id: 'left-flank-lower', x: -xLow, y: yLow, rot: 180 },
-    { id: 'left-flank-upper', x: -xUp, y: yUp, rot: 0 },
-    // 5 & 6: Right flank
-    { id: 'right-flank-lower', x: +xLow, y: yLow, rot: 180 },
-    { id: 'right-flank-upper', x: +xUp, y: yUp, rot: 0 },
-    // 7 & 8: Top horizontal roof
-    { id: 'top-inv-left', x: -xTop, y: yTop, rot: 180 },
-    { id: 'top-inv-right', x: +xTop, y: yTop, rot: 180 },
+    { id: 'bot-inv-left', x: -xBot, y: yBot, rot: 180 }, // 0
+    { id: 'bot-inv-right', x: +xBot, y: yBot, rot: 180 }, // 1
+    { id: 'bot-apex-up', x: 0, y: yBot, rot: 0 }, // 2 (center)
+    { id: 'left-flank-lower', x: -xLow, y: yLow, rot: 180 }, // 3
+    { id: 'left-flank-upper', x: -xUp, y: yUp, rot: 0 }, // 4
+    { id: 'right-flank-lower', x: +xLow, y: yLow, rot: 180 }, // 5
+    { id: 'right-flank-upper', x: +xUp, y: yUp, rot: 0 }, // 6
+    { id: 'top-inv-left', x: -xTop, y: yTop, rot: 180 }, // 7
+    { id: 'top-inv-right', x: +xTop, y: yTop, rot: 180 }, // 8
 
     // --- Ring 2 (11 Slots): Expanding triangular jewel on uniform triangular grid ---
-    // 9: Top crown apex upright
-    { id: 'top-crown-apex', x: 0, y: yTopTier2, rot: 0 },
-    // 10 & 11: Top crown shoulders inverted
-    { id: 'top-crown-left', x: -xTopTier2, y: yTopTier2, rot: 180 },
-    { id: 'top-crown-right', x: +xTopTier2, y: yTopTier2, rot: 180 },
-    // 12 & 13: Left outer flank
-    { id: 'left-out-top', x: -xFlankTier2, y: round1(-h2), rot: 0 },
-    { id: 'left-out-mid', x: -xFlankTier2, y: 0, rot: 180 },
-    { id: 'left-out-bot', x: -xFlankTier2, y: round1(h2), rot: 0 },
-    // 14 & 15: Right outer flank
-    { id: 'right-out-top', x: +xFlankTier2, y: round1(-h2), rot: 0 },
-    { id: 'right-out-mid', x: +xFlankTier2, y: 0, rot: 180 },
-    { id: 'right-out-bot', x: +xFlankTier2, y: round1(h2), rot: 0 },
-    // 16 & 17: Bottom outer wings
-    { id: 'bot-out-left', x: -xFlankTier2, y: round1(2 * h2), rot: 180 },
-    { id: 'bot-out-right', x: +xFlankTier2, y: round1(2 * h2), rot: 180 },
-    // 18 & 19: Bottom tier 2 uprights
-    { id: 'bot-t2-left', x: round1(-0.5 * s2), y: round1(2.5 * h2), rot: 0 },
-    { id: 'bot-t2-right', x: round1(0.5 * s2), y: round1(2.5 * h2), rot: 0 },
+    { id: 'top-crown-apex', x: 0, y: yTopTier2, rot: 0 }, // 9 (center)
+    { id: 'top-crown-left', x: -xTopTier2, y: yTopTier2, rot: 180 }, // 10
+    { id: 'top-crown-right', x: +xTopTier2, y: yTopTier2, rot: 180 }, // 11
+    { id: 'left-out-upper', x: -xOutUpper, y: yTop, rot: 180 }, // 12
+    { id: 'right-out-upper', x: +xOutUpper, y: yTop, rot: 180 }, // 13
+    { id: 'left-out-lower', x: -xOutLower, y: yLow, rot: 0 }, // 14
+    { id: 'right-out-lower', x: +xOutLower, y: yLow, rot: 0 }, // 15
+    { id: 'bot-wing-left', x: -xBotWing, y: yBot, rot: 0 }, // 16
+    { id: 'bot-wing-right', x: +xBotWing, y: yBot, rot: 0 }, // 17
+    { id: 'bot-t2-left', x: -xBotTier2, y: yBotTier2, rot: 0 }, // 18
+    { id: 'bot-t2-right', x: +xBotTier2, y: yBotTier2, rot: 0 }, // 19
   ];
 
-  // Symmetrical placement priority for N = 2..20 (100% mirror-symmetric across Y-axis!)
+  // Symmetrical placement priority for N = 2..20 (100% mirror-symmetric across Y-axis, sumX = 0!)
   const pickOrders = {
     2: [0, 1], // 2 base inverted triangles
     3: [0, 1, 2], // 2 base inverted + bottom apex upright
@@ -311,23 +303,24 @@ function getD4Tessellation(count, heroSize, petalSize, gutter) {
     6: [0, 1, 3, 4, 5, 6], // 2 base + 4 flanks
     7: [0, 1, 2, 3, 4, 5, 6], // 3 base + 4 flanks
     8: [0, 1, 3, 4, 5, 6, 7, 8], // 2 base + 4 flanks + 2 top roof
-    9: [0, 1, 2, 3, 4, 5, 6, 7, 8], // Complete 9-triangle jewel (Image 1)
-    10: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], // 9-jewel + Top crown apex
-    11: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 13],
-    12: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], // 9-jewel + 3 Top crown triangles
-    13: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13],
-    14: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 16], // 12-jewel + Left/Right mid flanks
-    15: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 16, 18],
-    16: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 17], // 14-jewel + 2 Left/Right flank uprights
-    17: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 17, 18],
-    18: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], // 16-jewel + 2 Left/Right flank inverteds
-    19: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+    9: [0, 1, 2, 3, 4, 5, 6, 7, 8], // Complete 9-triangle jewel
+    10: [0, 1, 3, 4, 5, 6, 7, 8, 2, 9], // 4 pairs + 2 center apexes
+    11: [0, 1, 3, 4, 5, 6, 7, 8, 10, 11, 9], // 5 pairs + 1 top apex
+    12: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], // 9-jewel + 3 top crown
+    13: [0, 1, 3, 4, 5, 6, 7, 8, 10, 11, 14, 15, 9], // 6 pairs + 1 top apex
+    14: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15], // 12-jewel + 2 lower outer flanks
+    15: [0, 1, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 9], // 7 pairs + 1 top apex
+    16: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], // 12-jewel + 4 outer flanks
+    17: [0, 1, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 9], // 8 pairs + 1 top apex
+    18: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], // 16 + 2 bottom wings
+    19: [0, 1, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 9], // 9 pairs + 1 top apex
     20: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19], // Complete 20-triangle master jewel
   };
 
   const indices = pickOrders[count] || Array.from({ length: count }, (_, i) => i);
   const slots = indices.slice(0, count).map(idx => masterSlots[idx]);
-  const stageSize = Math.round(2.5 * h2 * 2 + petalSize + gutter * 4);
+  const maxSpan = count > 12 ? Math.max(Math.abs(yTopTier2), yBotTier2, xOutUpper) : Math.max(yBot, xLow);
+  const stageSize = Math.round(maxSpan * 2 + petalSize + gutter * 4);
 
   return { heroSize, petalSize, stageWidth: stageSize, stageHeight: stageSize, slots };
 }
@@ -348,9 +341,9 @@ function getD20Tessellation(count, heroSize, petalSize, gutter) {
   const g = gutter * scale;
 
   const dInner = aHero + aPetal + g;
-  const dOuter = (rHero + rPetal + (2 / Math.sqrt(3)) * g) * 1.02;
-  const dTier3Facet = dInner + 2 * aPetal + g;
-  const dTier3Apex = dOuter + 2 * rPetal + g;
+  const dOuter = round1(dInner * 1.394);
+  const dTier3Facet = round1(dInner + 2 * aPetal + 2 * g);
+  const dTier3Apex = round1(dOuter + 2 * rPetal + 2 * g);
 
   const x0 = round1(dInner);
   const x2 = round1(0.5 * dInner);

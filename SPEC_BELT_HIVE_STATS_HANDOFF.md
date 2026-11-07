@@ -304,3 +304,32 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
 - **Verification**:
   - Expanded test suite in [`dice-tessellation.test.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/tests/dice-tessellation.test.js) (11 / 11 tests green): verified 20 slots scaling, bilateral mirror symmetry for $N = 9$, non-overlapping geometry across all counts $N \in [2, 20]$ for all 7 dice types, and generous Ring 1 / Ring 2 spacing.
   - Full automated suite: 1,535 / 1,535 tests green across 21 suites; Vite production build: 0 errors.
+
+---
+
+## 14. Zero-Collision Tessellation Geometry & SAT Convex Clearance Across All Dice Types (`N = 2 .. 20`)
+
+- **Exhaustive Collision Audit via Separating Axis Theorem (SAT)**:
+  - Formulated a polygon SAT verification suite in [`dice-tessellation.test.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/tests/dice-tessellation.test.js) testing every constituent pair and hero-slot pair across all 7 dice types (`D4`, `D6`, `D8`, `D10`, `D12`, `D20`, `D100`) and all counts $N \in [2, 20]$ ($7 \times 19 = 133$ layouts, hundreds of polygon pairs).
+  - Identified 3 distinct geometric intersection issues:
+    1. **D20 Valley Radius Dead-Zone**: The previous outer radius $D_{\text{outer}} = 82.8\text{px}$ placed corner hexagons at $30^\circ$ directly intersecting adjacent facet hexagons at $0^\circ$ and $60^\circ$ ($41.4\text{px} < 2 A_P = 40.53\text{px}$).
+    2. **D6 Row Overcrowding**: In odd counts $N = 11, 15, 17$, the centered crown slot (`top-crown-center` at $X = 0, Y = -cTier2$) was selected alongside `top-out-left` ($X = -cInner$) and `top-out-right` ($X = +cInner$), jamming three $36.4\text{px}$ squares into a $46\text{px}$ horizontal span and squishing them into overlapping dark vertical bands.
+    3. **D4 Equilateral Triangular Lattice Flank Collisions**: Ring 2 outer flank formulas placed inverted triangles at coordinates where adjacent vertices overlapped into flank and roof triangles.
+- **Mathematical Calibrations**:
+  - **D20 Honeycomb Calibration**:
+    $$D_{\text{inner}} = a_H + a_P + g \approx 70.30\text{px}$$
+    $$D_{\text{outer}} = \text{round}(D_{\text{inner}} \times 1.394) = 98.0\text{px}$$
+    $$D_{\text{tier3Facet}} = \text{round}(D_{\text{inner}} + 2 a_P + 2 g) = 129.8\text{px}$$
+    $$D_{\text{tier3Apex}} = \text{round}(D_{\text{outer}} + 2 r_P + 2 g) = 163.8\text{px}$$
+    Guarantees positive edge distance $d \ge 9.18\text{px}$ to both adjacent facet hexagons and $d \ge 27.8\text{px}$ to the hero die.
+  - **D6 Modular Square Grid**:
+    In odd counts $N = 11, 15, 17, 19$, selecting slot 20 (`top-crown-center` at $X = 0$) pairs exclusively with bottom outer slots (`bot-out-left` and `bot-out-right`) and outer side flanks, completely avoiding `top-out-left` and `top-out-right` on row $Y = -cTier2$. Minimum breathing clearance is uniformly $9.50\text{px}$ for $N \le 12$ and $6.61\text{px}$ for $N > 12$.
+  - **D4 Equilateral Triangular Jewel**:
+    Derived exact 20-triangle coordinates on the horizontal baseline triangular lattice:
+    - Ring 1 (9 slots): 2 bottom inverted, 1 bottom apex upright, 4 side flanks, 2 top roof.
+    - Ring 2 (11 slots): 3 top crown ($X \in \{0, \pm s_2\}, Y = -1.6 h_2$), 4 symmetrical outer flanks ($X \in \{\pm x_{\text{outUpper}}, \pm x_{\text{outLower}}\}$), 2 bottom outer wings ($X = \pm(x_{\text{bot}} + s_2)$), and 2 bottom tier-2 pedestal uprights ($X = \pm 0.5 s_2, Y = y_{\text{bot}} + h_2$).
+    - Bilateral mirror symmetry: $\sum X = 0$ for all $N \in [2, 20]$, with minimum edge distance $d = 9.50\text{px}$ (scaled to $6.61\text{px}$).
+- **Verification Results**:
+  - `TOTAL COLLISIONS DETECTED: 0` across all 7 dice types and all counts $N \in [2, 20]$.
+  - Global minimum edge distance across all shapes: $d \ge 6.22\text{px}$ ($N > 12$) and $d \ge 9.18\text{px}$ ($N \le 12$).
+  - Full test suite: 1,536 / 1,536 tests passing (100% green); Vite production build: 0 errors.

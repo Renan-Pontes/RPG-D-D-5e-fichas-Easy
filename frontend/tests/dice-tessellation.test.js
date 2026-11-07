@@ -294,3 +294,68 @@ test('dice-tessellation: D12 and D10 with N=10 have generous non-cramped spacing
     }
   }
 });
+
+// Separating Axis Theorem (SAT) for convex polygon intersection verification
+function polyIntersect(p1, p2) {
+  const polys = [p1, p2];
+  for (let i = 0; i < 2; i++) {
+    const poly = polys[i];
+    for (let j = 0; j < poly.length; j++) {
+      const [x1, y1] = poly[j];
+      const [x2, y2] = poly[(j + 1) % poly.length];
+      const nx = -(y2 - y1);
+      const ny = x2 - x1;
+      let min1 = Infinity, max1 = -Infinity;
+      for (const [px, py] of p1) {
+        const dot = px * nx + py * ny;
+        min1 = Math.min(min1, dot);
+        max1 = Math.max(max1, dot);
+      }
+      let min2 = Infinity, max2 = -Infinity;
+      for (const [px, py] of p2) {
+        const dot = px * nx + py * ny;
+        min2 = Math.min(min2, dot);
+        max2 = Math.max(max2, dot);
+      }
+      if (max1 <= min2 || max2 <= min1) return false;
+    }
+  }
+  return true;
+}
+
+test('dice-tessellation: ZERO COLLISIONS and positive breathing clearance (>=5.0px) across ALL dice types and ALL counts N in [2..20]', () => {
+  const diceTypes = [4, 6, 8, 10, 12, 20, 100];
+  let totalCollisions = 0;
+  let minDistanceGlobal = Infinity;
+
+  for (const die of diceTypes) {
+    for (let count = 2; count <= 20; count++) {
+      const layout = getTessellationLayout(die, count);
+      const heroPoly = parseSvgPolygon(DICE_FACES[die], 0, 0, layout.heroSize, 0);
+      const slotPolys = layout.slots.map(s => parseSvgPolygon(DICE_FACES[die], s.x, s.y, layout.petalSize, s.rot));
+
+      // Hero vs slots
+      for (let i = 0; i < slotPolys.length; i++) {
+        const collHero = polyIntersect(heroPoly, slotPolys[i]);
+        assert.ok(!collHero, `Collision detected between Hero and slot ${layout.slots[i].id} for d${die} N=${count}`);
+        const dHero = polyEdgeDist(heroPoly, slotPolys[i]);
+        minDistanceGlobal = Math.min(minDistanceGlobal, dHero);
+        assert.ok(dHero >= 5.0, `Breathing distance between Hero and slot ${layout.slots[i].id} is too small (${dHero.toFixed(2)}px) for d${die} N=${count}`);
+      }
+
+      // Slot vs slot
+      for (let i = 0; i < slotPolys.length; i++) {
+        for (let j = i + 1; j < slotPolys.length; j++) {
+          const collSlots = polyIntersect(slotPolys[i], slotPolys[j]);
+          assert.ok(!collSlots, `Collision detected between slot ${layout.slots[i].id} and slot ${layout.slots[j].id} for d${die} N=${count}`);
+          const dSlot = polyEdgeDist(slotPolys[i], slotPolys[j]);
+          minDistanceGlobal = Math.min(minDistanceGlobal, dSlot);
+          assert.ok(dSlot >= 5.0, `Breathing distance between slot ${layout.slots[i].id} and slot ${layout.slots[j].id} is too small (${dSlot.toFixed(2)}px) for d${die} N=${count}`);
+        }
+      }
+    }
+  }
+
+  assert.equal(totalCollisions, 0, 'Total collisions must be exactly zero');
+  assert.ok(minDistanceGlobal >= 5.0, `Global minimum distance must be >= 5.0px (actual: ${minDistanceGlobal.toFixed(2)}px)`);
+});
