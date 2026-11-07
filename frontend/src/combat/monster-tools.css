@@ -427,3 +427,63 @@
 .mp-sheet .me-del { color: var(--blood-bright); align-self: end; }
 .mp-sheet .me-cr-note, .mp-sheet .me-cr-part dl { font-size: 0.88rem; }
 .mp-sheet .me-cr-part h5 { font-size: 0.85rem; }
+
+
+/* Status e feedback de ingestão de URL de monstros */
+.mp-url-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius, 6px);
+  font-size: 0.88rem;
+  line-height: 1.35;
+  animation: mpStatusFadeIn 0.25s ease-out;
+}
+@keyframes mpStatusFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.mp-url-status.is-loading {
+  background: linear-gradient(90deg, rgba(142, 68, 173, 0.18), rgba(214, 176, 100, 0.18));
+  border: 1px solid rgba(214, 176, 100, 0.45);
+  color: #f1c40f;
+}
+.mp-url-status.is-success {
+  background: rgba(46, 204, 113, 0.14);
+  border: 1px solid rgba(46, 204, 113, 0.45);
+  color: #2ecc71;
+}
+.mp-url-status.is-error {
+  background: rgba(231, 76, 60, 0.16);
+  border: 1px solid rgba(231, 76, 60, 0.5);
+  color: #ff6b6b;
+}
+.mp-url-icon { font-size: 1.1rem; flex: none; }
+.mp-url-text { flex: 1 1 auto; min-width: 0; word-break: break-word; }
+.mp-url-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(214, 176, 100, 0.3);
+  border-top-color: #f1c40f;
+  border-radius: 50%;
+  animation: mpSpin 0.75s linear infinite;
+  flex: none;
+}
+@keyframes mpSpin {
+  to { transform: rotate(360deg); }
+}
+.mp-url-close {
+  flex: none;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  opacity: 0.75;
+  transition: opacity 0.15s;
+}
+.mp-url-close:hover { opacity: 1; }

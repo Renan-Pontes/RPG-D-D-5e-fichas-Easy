@@ -29,6 +29,7 @@
 - [ADR-0019: Universal Inline Dice Notation Recognition, Reactive Dice Tokens, and Global Tap-to-Roll Architecture](#adr-0019-universal-inline-dice-notation-recognition-reactive-dice-tokens-and-global-tap-to-roll-architecture)
 - [ADR-0020: Foldable 4-Action Skills Grid, Tools Consolidation, Rollup Checkered Vignette Removal, and Configurable Character Portrait Framing](#adr-0020-foldable-4-action-skills-grid-tools-consolidation-rollup-checkered-vignette-removal-and-configurable-character-portrait-framing)
 - [ADR-0021: Features Tab Crash Remediation, Vertical Battle Action Skills Grid, Shorthand Ability Score Format, and Discrete Bottom Half-Roll Disclosure](#adr-0021-features-tab-crash-remediation-vertical-battle-action-skills-grid-shorthand-ability-score-format-and-discrete-bottom-half-roll-disclosure)
+- [ADR-0022: Auto-Magic Monster Statblock Ingestion via Direct Resource Links in Battle Picker](#adr-0022-auto-magic-monster-statblock-ingestion-via-direct-resource-links-in-battle-picker)
 
 ---
 
@@ -719,3 +720,41 @@ Following deployment of Release v1.0.8, gameplay testing surfaced four specific 
 ### Consequences
 - **Positive:** Zero runtime crashes on features tab; streamlined vertical scan for combat actions; intuitive inline ability notation `Arcana (Int) 10 / +1`; clean, distraction-free polyhedral roll-up with discrete half-damage calculation.
 - **Verification:** 14/14 tests in `frontend/tests/sheet-skills-vignette-enhancements.test.js` pass; 1,556 / 1,556 total frontend unit tests green across 20 suites; clean Vite production build in 10.13s.
+
+
+---
+
+## ADR-0022: Auto-Magic Monster Statblock Ingestion via Direct Resource Links in Battle Picker
+
+### Status
+Accepted & Implemented (2026-11-07)
+
+### Context
+Adding monsters during prep or live combat previously required either manual data entry or switching away from the application to download `.json` files, opening an import panel, selecting the file, and then picking the imported creature. DMs frequently find monsters directly on web bestiaries (e.g. 5e.tools, Open5e, or community GitHub gists) and requested the ability to paste the URL directly into the "SEARCH BY NAME" field of the "PICK A MONSTER" modal (`MonsterPicker.jsx`), with the platform automatically fetching, deconstructing, parsing, and selecting the monster in real time.
+
+Technical challenges:
+1. **Cloudflare Bot Protection & 403 Forbidden:** The `5e.tools` root domain is behind Cloudflare bot challenges and restricts automated HTTP fetch requests.
+2. **Hash-Based Routing:** 5e.tools URLs use client-side fragments (`#<name>_<source>`), which are never transmitted to web servers in HTTP requests.
+3. **Macro Tagging Grammar:** 5e.tools data relies on extensive internal macro tags (`{@atk mw}`, `{@hit 7}`, `{@h}`, `{@damage 1d8+5}`, `{@dc 15}`, `{@recharge 5}`, etc.) that must be parsed into structured D&D 5e combat mechanics.
+
+### Decision Outcome
+1. **URL Detection & Parsing Module (`frontend/src/campaigns/url-monster-importer.js`):**
+   - Implemented `isMonsterUrl(str)` and `parseMonsterUrl(str)` recognizing 5e.tools links (`#<name>_<source>`), Open5e links (`/monsters/<slug>`), and direct raw `.json` URLs.
+   - Deconstructs the hash client-side: `#clapped-out%20steamjack_irkcore` $\to$ Name: `'clapped-out steamjack'`, Source: `'irkcore'`.
+2. **CORS-Open Multi-Tier Mirror Architecture:**
+   - Homebrew 5e.tools sources resolve against `TheGiddyLimit/homebrew` on raw GitHub, using in-memory cached `index-sources.json` to map 1,500+ source slugs to collection files.
+   - Official 5e.tools sources resolve against `5etools-mirror-3/5etools-src`, using cached `index.json` to map core books (`mm`, `vgm`, `mtf`, etc.).
+   - Open5e URLs resolve directly against `api.open5e.com/v1/monsters/<slug>/?format=json`.
+   - Raw JSON files are fetched and routed through `convert5emm`, `convertOpen5eV1/V2`, or `convert5eToolsMonster`.
+3. **5e.tools AST Deconstruction & Combat Model Conversion:**
+   - Implemented pure regex and AST tag cleaners (`clean5eToolsTags`, `parse5eToolsEntries`) converting 5e.tools macros into natural language SRD blocks.
+   - Powered by `parseActionText` from `import-5emm.js` to extract attack types (`melee`/`ranged`), attack bonus, reach, damage formulas, damage types, extra damages, saving throws (DC, ability, halfOnSave), and recharge.
+   - Converts abilities, saving throws, skills, damage resistances, damage immunities, condition immunities, senses, languages, traits, spellcasting, legendary actions, bonus actions, and reactions into the unified Heroes Forge combat schema.
+4. **Seamless GM In-Modal Choreography (`MonsterPicker.jsx`):**
+   - Real-time URL sniffer in search field keeps the catalog calm and prevents blank list flashing while loading (`effectiveQuery`).
+   - Renders an Art Deco inline status pill (`.mp-url-status`) displaying `🔮 Importando monstro do link: ...` with spinning indicator, success confirmation (`✨`), or dismissible error reporting (`⚠️`).
+   - Auto-saves the creature into the DM's local browser storage (`saveCustomMonsters`), clears the URL search query, auto-selects the creature (`selectedId`), and immediately activates the modal footer with portrait, stats, quantity, initiative, and the enabled **Adicionar ao combate** button.
+
+### Consequences
+- **Positive:** Zero context-switching friction for DMs; pasting a URL automatically reconstructs and inserts any official or homebrew monster into battle in < 300ms; complete offline persistence in `localStorage`; zero dependencies on third-party proxies.
+- **Verification:** 7/7 unit tests in `frontend/tests/url-monster-importer.test.js` pass (covering `Merchantman`, `Clapped-Out Steamjack`, `Sphinx`, `Goblin`, and `Aboleth`); 1,563 / 1,563 total frontend unit tests green across 20 suites; clean Vite production build in 14.45s.

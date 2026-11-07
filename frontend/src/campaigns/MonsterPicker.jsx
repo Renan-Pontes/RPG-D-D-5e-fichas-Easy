@@ -12,6 +12,7 @@ import './combat-styles.css';
 import { monsterArt, monsterEmoji } from '../art.js';
 import ArtThumb from '../components/ArtThumb.jsx';
 import { matchesQuery, partyLevelOf, rankMonsters } from '../combat/common-monsters.js';
+import { isMonsterUrl, parseMonsterUrl, fetchMonsterFromUrl } from './url-monster-importer.js';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 const CR_STEPS = CR_TABLE.map(r => r.numeric);
@@ -48,6 +49,7 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
   const [count, setCount] = useState(1);
   const [initiative, setInitiative] = useState('');
   const [selectedId, setSelectedId] = useState(null);
+  const [urlStatus, setUrlStatus] = useState(null);
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [editDirty, setEditDirty] = useState(false);
   const [importDirty, setImportDirty] = useState(false);
@@ -103,6 +105,47 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
     });
     return rankMonsters(found, query, { partyLevel });
   }, [all, query, typeFilter, crMin, crMax, onlyMine, partyLevel]);
+  // Ingestão mágica via link direto (5e.tools, Open5e, JSON)
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!isMonsterUrl(trimmed)) return;
+    const meta = parseMonsterUrl(trimmed);
+    let alive = true;
+    setUrlStatus({
+      type: 'loading',
+      icon: '🔮',
+      text: t(lang, `Importando monstro do link: ${meta.label || meta.name}…`, `Importing monster from link: ${meta.label || meta.name}…`),
+      closable: false
+    });
+
+    fetchMonsterFromUrl(trimmed, { lang })
+      .then(({ monster }) => {
+        if (!alive) return;
+        const nextCustom = saveCustomMonsters([monster]);
+        setCustom(nextCustom);
+        setSelectedId(monster.id);
+        setOnlyMine(false);
+        setQuery('');
+        setUrlStatus({
+          type: 'success',
+          icon: '✨',
+          text: t(lang, `"${monster.name?.[lang] || monster.name?.pt || monster.name?.en}" importado com sucesso!`, `"${monster.name?.[lang] || monster.name?.en}" imported successfully!`),
+          closable: true
+        });
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setUrlStatus({
+          type: 'error',
+          icon: '⚠️',
+          text: err?.message || t(lang, 'Erro ao importar monstro da URL.', 'Error importing monster from URL.'),
+          closable: true
+        });
+      });
+
+    return () => { alive = false; };
+  }, [query, lang]);
+
   // Paginação igual ao seletor de itens: filtro novo volta para a 1ª página.
   useEffect(() => { setLimit(PAGE_SIZE); }, [query, typeFilter, crMin, crMax, onlyMine]);
   const filtered = allFiltered.slice(0, limit);
