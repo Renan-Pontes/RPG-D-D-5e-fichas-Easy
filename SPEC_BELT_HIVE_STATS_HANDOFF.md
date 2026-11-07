@@ -216,9 +216,14 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
   - In Advantage and Disadvantage rolls, the unpicked discarded die is scaled to **exactly 50% of the hero die** (`size={60}` against the $120\text{px}$ hero die).
   - Docked at `right: -42px; bottom: -16px;`, aligning its top-left diagonal facet parallel to the hero die's bottom-right diagonal facet with an exact $11\text{px}$ negative-space breathing gap.
   - Preserves zero tangent collisions, zero overlapping quad boundaries, and an unclipped $380\text{px}$ radial atmospheric glow.
-- **Geometric Flower Layout for Multi-Dice Accumulation Rolls**:
-  - When multiple dice are accumulated and rolled simultaneously ($N \ge 2$, e.g. `5d6`, `7d12`, `4d8`), they automatically assemble into a **Geometric Flower stage** (`.dice-flower-stage`):
-    - **Central Hero Die**: Single hero die (`size={100}` to `110px`) matching the primary rolled die type, displaying the **consolidated total sum of the roll**, complete with smooth roll-up count animation and critical hit Art Deco styling.
-    - **Radial Petal Dice**: The $N$ individual rolled dice are arranged radially around the center die at radius $R \in [84\text{px}, 115\text{px}]$ and angles $\theta_i = -\frac{\pi}{2} + \frac{2\pi \cdot i}{N}$.
-    - **Geometric Rosette Alignment**: Each petal die's SVG polygon is rotated by $( \theta_i + \frac{\pi}{2} )$ to point outward radially matching the polyhedral die geometry, while the inner number span remains upright, horizontal, and legible at all times.
-    - **Dimmed Component Values**: Constituent rolled numbers on the outer petals are dimmed (`opacity: 0.38` via `.die-shape.is-petal-die`) so players can easily inspect individual results while keeping the center die as the clear primary focal point.
+- **Authentic Geometric Tessellation for Multi-Dice Accumulation Rolls**:
+  - When multiple dice are accumulated and rolled simultaneously ($N \ge 2$, e.g. `5d6`, `7d12`, `4d8`, `3d4`), they assemble into an authentic geometric tessellation matching each polyhedral shape, implemented in [`dice-tessellation.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/src/dice/dice-tessellation.js):
+    - **Central Hero Die**: Scale 1.0 ($104\text{px}$), displaying the consolidated total sum of the roll with full roll-up animation, atmospheric glow, and Art Deco critical hit framing.
+    - **Constituent Petal Dice**: Scaled to **strictly 50% size** ($52\text{px}$), stacked side-to-side along the facets and corners with uniform $6\text{px}$ breathing gutters.
+    - **D4 (Equilateral Triangle)**: Alternating equilateral triangles (upright $0^\circ$ and inverted $180^\circ$) stacked edge-to-edge along the base and flanks, matching the triangular composition in Image 1.
+    - **D6 (Cube / Square)**: $4 \times 4$ perimeter square grid (8 edge squares + 4 corner squares) framing the central $2 \times 2$ square, with small squares upright ($0^\circ$), matching Image 2.
+    - **D8 (Octahedron / Diamond)**: $4 \times 4$ diamond grid (4 apex corners + 8 diagonal facet diamonds) rotated $45^\circ$, matching Image 3.
+    - **D20 (Icosahedron / Regular Hexagon)**: Pointy-topped hexagonal honeycomb tiling (2 small hexagons docked edge-to-edge along each of the 6 facets).
+    - **D12 (Dodecahedron / Regular Pentagon)**: 10-slot pentagonal cluster docked flush against the 5 facets and 5 vertices.
+    - **D10 / D100 (Kite Trapezohedron)**: 10-slot perimeter docked flush along the slant flanks, shoulder facets, and bottom base.
+    - **Dimmed Component Values**: Constituent rolled numbers on the 50% outer dice are dimmed (`opacity: 0.38` via `.die-shape.is-petal-die`) with unrotated horizontal text for instant readability, keeping the central hero die as the primary focal point.

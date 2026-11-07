@@ -7,6 +7,7 @@ import DieShape from './DieShape.jsx';
 import { physicalDice, resolveAnimMode } from './dice-math.js';
 import { stageTone } from './dice-tones.js';
 import { getAnimPref, prefersReducedMotion } from './dice-prefs.js';
+import { getTessellationLayout } from './dice-tessellation.js';
 
 let webglCache = null;
 function hasWebGL() {
@@ -186,40 +187,25 @@ export default function DiceStage({
   }
 
   // When multiple dice are accumulated and rolled simultaneously (e.g. 5d6, 7d12, 4d8),
-  // organize them beautifully as a geometrical flower matching the dice type's shape,
-  // dimming the constituent numbers on the outer petals and keeping solely one hero die at center with the total sum!
+  // organize them into authentic geometric tessellations matching each dice type
+  // (D4, D6, D8, D10, D12, D20, D100), where constituent dice are reduced to strictly 50% scale
+  // and stacked side-to-side along the facets and corners with uniform breathing gutters!
   if (totalDiceCount > 1 && !className?.includes('cr-rr-stage')) {
     const primaryDie = groups[0]?.die || 6;
     const effectiveTone = !rolling2d ? shownTone : null;
     const heroVal = total != null ? total : allRolls.reduce((sum, r) => sum + (r.kept ? Number(r.value) || 0 : 0), 0);
 
-    let petalSize = 48;
-    let heroSize = 110;
-    let R = 88;
-
-    if (totalDiceCount <= 4) {
-      petalSize = 52;
-      heroSize = 110;
-      R = 84;
-    } else if (totalDiceCount <= 6) {
-      petalSize = 48;
-      heroSize = 110;
-      R = 88;
-    } else if (totalDiceCount <= 8) {
-      petalSize = 44;
-      heroSize = 106;
-      R = 94;
-    } else {
-      petalSize = 38;
-      heroSize = 100;
-      R = Math.min(120, 80 + totalDiceCount * 2.5);
-    }
-
-    const stageSize = Math.max(300, Math.round(2 * R + petalSize + 36));
+    const tessellation = getTessellationLayout(primaryDie, totalDiceCount, {
+      heroSize: 104,
+      gutter: 6,
+    });
 
     return (
       <div className={`dice-stage dice-stage-2d ${className}`} data-dice-mode={mode} data-dice-tone={shownTone || undefined}>
-        <div className="dice-flower-stage" style={{ width: stageSize, height: stageSize }}>
+        <div
+          className="dice-flower-stage"
+          style={{ width: tessellation.stageWidth, height: tessellation.stageHeight }}
+        >
           {/* Central Hero Die displaying the consolidated total sum of the roll */}
           <div className="dice-flower-center">
             <DieShape
@@ -227,7 +213,7 @@ export default function DiceStage({
               value={rolling2d ? '' : heroVal}
               targetValue={heroVal}
               rolling={rolling2d}
-              size={heroSize}
+              size={tessellation.heroSize}
               isHero={true}
               isCrit={isCrit}
               tone={effectiveTone}
@@ -235,28 +221,25 @@ export default function DiceStage({
             />
           </div>
 
-          {/* Radial Flower Petals matching the dice type geometry */}
+          {/* Constituent Dice at strictly 50% scale, stacked side-to-side geometrically */}
           <div className="dice-flower-petals">
             {allRolls.map((r, i) => {
-              const theta = -Math.PI / 2 + (2 * Math.PI * i) / totalDiceCount;
-              const x = Math.round(R * Math.cos(theta));
-              const y = Math.round(R * Math.sin(theta));
-              const petalAngle = Math.round((theta + Math.PI / 2) * (180 / Math.PI));
+              const slot = tessellation.slots[i] || { x: 0, y: 0, rot: 0 };
               return (
                 <div
                   key={r.key}
                   className="dice-flower-petal"
                   style={{
-                    transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
+                    transform: `translate(calc(-50% + ${slot.x}px), calc(-50% + ${slot.y}px))`,
                   }}
                 >
                   <DieShape
                     die={r.die}
                     value={rolling2d ? '' : r.value}
                     rolling={rolling2d}
-                    size={petalSize}
+                    size={tessellation.petalSize}
                     dimmed={true}
-                    petalAngle={petalAngle}
+                    petalAngle={slot.rot || null}
                     lang={lang}
                   />
                 </div>
