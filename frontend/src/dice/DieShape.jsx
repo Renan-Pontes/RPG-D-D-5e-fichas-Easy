@@ -4,10 +4,12 @@ import {
   ROLLUP_DURATION_MS,
   LAND_HOLD_MS,
   PUMP_DURATION_MS,
+  FALLOFF_DURATION_MS,
   computeRollupFrame,
   computeAnticipationProfile,
   resolvePumpDirection,
   computePumpFrame,
+  computeFalloffProfile,
 } from './dice-rollup.js';
 
 const SPARKS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
@@ -44,17 +46,21 @@ export default function DieShape({
   const [animPhase, setAnimPhase] = useState(() => (shouldAnimateRoll ? 'rollup' : 'idle'));
   const [tickPulse, setTickPulse] = useState(false);
 
-  // Anticipation-Driven 2-Phase Juicy Roll Choreography:
-  // Phase 1 (0 -> 1.5s): Starts calm with ZERO initial wobble, then accelerates
-  //   with increasing shaking frequency (4Hz -> 42Hz), increasing shaking strength,
-  //   and increasing directional motion blur.
-  // Phase 2 (1.5s+): Motion blur snaps to 0 and a visceral Final Punch
-  //   unravels the rolled number (with elastic upward/downward pump for +bonus/-penalty).
+  // 3-Phase Juicy Roll Choreography:
+  // Phase 1 (0 -> 1.5s, Anticipation): Zero initial wobble, then increasing shake
+  //   frequency (4Hz -> 42Hz), increasing shake strength, and directional motion blur.
+  // Phase 2 (1.5s+, Final Punch): Motion blur cuts to 0 and a visceral punch
+  //   unravels the final rolled number (with elastic upward/downward pump for +bonus/-penalty).
+  // Phase 3 (Falloff — Follow-Through & Overlapping Action): As soon as the final
+  //   number is unravelled, the glowing ring and glowing pulse outstretch and smoothly
+  //   fade away while both the size of the roll and the glowing elements upscale
+  //   slowly in ease-out like a ripple.
   useEffect(() => {
     const el = dieRef.current;
+    const stageWrap = isHero && el ? el.closest('.dice-hero-stage-wrap, .dice-flower-stage') : null;
+
     const applyAnticipationVars = (profile) => {
       if (!el) return;
-      // Scale down shake amplitude slightly on 50% constituent petals so the hero die dominates
       const k = dimmed ? 0.45 : 1.0;
       el.style.setProperty('--shake-x', `${(profile.shakeX * k).toFixed(2)}px`);
       el.style.setProperty('--shake-y', `${(profile.shakeY * k).toFixed(2)}px`);
@@ -82,8 +88,39 @@ export default function DieShape({
       el.style.setProperty('--num-stretch', '1');
     };
 
+    const applyFalloffVars = (falloffProfile) => {
+      if (!el) return;
+      el.style.setProperty('--falloff-roll-scale', `${falloffProfile.rollScale}`);
+      el.style.setProperty('--falloff-num-scale', `${falloffProfile.numberScale}`);
+      el.style.setProperty('--falloff-ring-scale', `${falloffProfile.ringScale}`);
+      el.style.setProperty('--falloff-ring-opacity', `${falloffProfile.ringOpacity}`);
+      el.style.setProperty('--falloff-sec-ring-scale', `${falloffProfile.secondaryRingScale}`);
+      el.style.setProperty('--falloff-sec-ring-opacity', `${falloffProfile.secondaryRingOpacity}`);
+      el.style.setProperty('--falloff-pulse-scale', `${falloffProfile.pulseScale}`);
+      el.style.setProperty('--falloff-pulse-opacity', `${falloffProfile.pulseOpacity}`);
+      if (stageWrap) {
+        stageWrap.style.setProperty('--falloff-roll-scale', `${falloffProfile.rollScale}`);
+      }
+    };
+
+    const resetFalloffVars = () => {
+      if (!el) return;
+      el.style.setProperty('--falloff-roll-scale', '1');
+      el.style.setProperty('--falloff-num-scale', '1');
+      el.style.setProperty('--falloff-ring-scale', '0.92');
+      el.style.setProperty('--falloff-ring-opacity', '0');
+      el.style.setProperty('--falloff-sec-ring-scale', '0.86');
+      el.style.setProperty('--falloff-sec-ring-opacity', '0');
+      el.style.setProperty('--falloff-pulse-scale', '0.82');
+      el.style.setProperty('--falloff-pulse-opacity', '0');
+      if (stageWrap) {
+        stageWrap.style.setProperty('--falloff-roll-scale', '1');
+      }
+    };
+
     if (!shouldAnimateRoll) {
       resetAnticipationVars();
+      resetFalloffVars();
       setDisplayVal(isHero && targetValue != null ? targetValue : value);
       setAnimPhase('idle');
       return undefined;
@@ -91,7 +128,6 @@ export default function DieShape({
 
     let animId = null;
     let pulseTimer = null;
-    let settleTimer = null;
     let startTime = null;
     let lastStepIndex = -1;
     let currentPhase = 'rollup';
@@ -99,6 +135,7 @@ export default function DieShape({
     const hasModifierPump = isHero && pumpDir !== 'snap-shake';
 
     resetAnticipationVars();
+    resetFalloffVars();
     setAnimPhase('rollup');
     setDisplayVal(computeRollupFrame(naturalVal, 0, die).value);
 
@@ -106,6 +143,7 @@ export default function DieShape({
       if (startTime == null) startTime = now;
       const elapsed = now - startTime;
 
+      // Phase 1 (0 -> 1500ms): Anticipation Roll-Up (increasing shake freq/strength + motion blur)
       if (elapsed < ROLLUP_DURATION_MS) {
         const p = elapsed / ROLLUP_DURATION_MS;
         const profile = computeAnticipationProfile(p);
@@ -123,24 +161,22 @@ export default function DieShape({
         return;
       }
 
-      // Climax at 1.5s: cut motion blur & shake to 0 and unleash the Final Punch!
+      // Climax at 1.5s: cut motion blur & shake to 0
       resetAnticipationVars();
 
-      if (!hasModifierPump) {
+      // Non-hero constituent/satellite dice settle cleanly at 1.5s
+      if (!isHero) {
         setDisplayVal(finalVal);
         setTickPulse(false);
-        if (isHero) {
-          setAnimPhase('snap-shake');
-          settleTimer = setTimeout(() => setAnimPhase('settled'), 480);
-        } else {
-          setAnimPhase('settled');
-        }
+        setAnimPhase('settled');
         return;
       }
 
-      // Phase 2A (1500ms -> 1595ms): brief compression coil on naturalVal right before the punch
+      // Optional brief compression coil on naturalVal when a +bonus/-penalty modifier is present
       const afterRollup = elapsed - ROLLUP_DURATION_MS;
-      if (afterRollup < LAND_HOLD_MS) {
+      const holdMs = hasModifierPump ? LAND_HOLD_MS : 0;
+
+      if (afterRollup < holdMs) {
         if (currentPhase !== 'landed') {
           currentPhase = 'landed';
           setDisplayVal(naturalVal);
@@ -151,21 +187,55 @@ export default function DieShape({
         return;
       }
 
-      // Phase 2B (1595ms -> 2015ms): Final Punch & elastic pump up/down unravelling finalVal
-      const pumpElapsed = afterRollup - LAND_HOLD_MS;
-      if (pumpElapsed < PUMP_DURATION_MS) {
-        if (currentPhase !== pumpDir) {
-          currentPhase = pumpDir;
-          setAnimPhase(pumpDir);
+      // Phase 2 (Final Punch) + Overlapping Phase 3 (Falloff Ripple):
+      // As soon as the final number is unravelled, the glowing ring & glowing pulse
+      // outstretch and smoothly fade away while the roll & glowing elements upscale in ease-out!
+      const afterHold = afterRollup - holdMs;
+      const punchPhaseName = hasModifierPump ? pumpDir : 'snap-shake';
+
+      // During the initial punch window (0 .. PUMP_DURATION_MS), snap displayVal to finalVal
+      if (afterHold < PUMP_DURATION_MS) {
+        if (currentPhase !== punchPhaseName) {
+          currentPhase = punchPhaseName;
+          setTickPulse(false);
+          setAnimPhase(punchPhaseName);
         }
-        const pumpP = pumpElapsed / PUMP_DURATION_MS;
-        setDisplayVal(computePumpFrame(naturalVal, finalVal, pumpP));
+        const pumpP = afterHold / PUMP_DURATION_MS;
+        const nextVal = hasModifierPump
+          ? computePumpFrame(naturalVal, finalVal, pumpP)
+          : finalVal;
+        setDisplayVal(nextVal);
+
+        // Start overlapping the glowing ring & pulse expansion as soon as finalVal is reached
+        const unravelOriginMs = hasModifierPump ? PUMP_DURATION_MS * 0.35 : 0;
+        if (afterHold >= unravelOriginMs) {
+          const falloffElapsed = afterHold - unravelOriginMs;
+          const falloffP = Math.min(1, falloffElapsed / FALLOFF_DURATION_MS);
+          applyFalloffVars(computeFalloffProfile(falloffP));
+        }
         animId = requestAnimationFrame(step);
         return;
       }
 
-      // Final settled state
+      // Pure Phase 3 Falloff (Follow-Through & Overlapping Action ease-out ripple)
+      const unravelOriginMs = hasModifierPump ? PUMP_DURATION_MS * 0.35 : 0;
+      const falloffElapsed = afterHold - unravelOriginMs;
+
+      if (falloffElapsed < FALLOFF_DURATION_MS) {
+        if (currentPhase !== 'falloff') {
+          currentPhase = 'falloff';
+          setDisplayVal(finalVal);
+          setAnimPhase('falloff');
+        }
+        const falloffP = falloffElapsed / FALLOFF_DURATION_MS;
+        applyFalloffVars(computeFalloffProfile(falloffP));
+        animId = requestAnimationFrame(step);
+        return;
+      }
+
+      // Final settled state at full ease-out ripple completion
       setDisplayVal(finalVal);
+      applyFalloffVars(computeFalloffProfile(1));
       setAnimPhase('settled');
     };
 
@@ -174,7 +244,6 @@ export default function DieShape({
     return () => {
       if (animId) cancelAnimationFrame(animId);
       clearTimeout(pulseTimer);
-      clearTimeout(settleTimer);
     };
   }, [shouldAnimateRoll, naturalVal, finalVal, isHero, dimmed, die, value, targetValue]);
 
@@ -187,7 +256,13 @@ export default function DieShape({
   const isPetal = petalAngle != null;
   const isInvertedPetal = petalAngle === 180;
   const isStageComposed = isHero || isPetal || dimmed;
-  const isPunchPhase = isHero && (animPhase === 'pump-up' || animPhase === 'pump-down' || animPhase === 'snap-shake');
+  const showFalloffLayers = isHero && (
+    animPhase === 'pump-up' ||
+    animPhase === 'pump-down' ||
+    animPhase === 'snap-shake' ||
+    animPhase === 'falloff' ||
+    animPhase === 'settled'
+  );
 
   const style = (rolling && !isStageComposed) ? {
     width: size,
@@ -204,6 +279,8 @@ export default function DieShape({
     '--dur': `${1.2 + rand(10) * 0.4}s`,
   } : { width: size, height: size, opacity: dimmed ? (petalAngle != null ? 0.38 : 0.32) : 1 };
 
+  const polyPath = DICE_FACES[die] || DICE_FACES[20];
+
   return (
     <div
       ref={dieRef}
@@ -211,7 +288,34 @@ export default function DieShape({
       style={style}
       aria-hidden="true"
     >
-      {isPunchPhase && <span className="die-punch-shockwave" aria-hidden="true" />}
+      {/* Follow-Through & Overlapping Action Falloff Layers:
+          Glowing Pulse Halo + Primary Outstretching Glowing Ring + Secondary Ripple Ring */}
+      {showFalloffLayers && (
+        <>
+          <span className="die-falloff-pulse" aria-hidden="true" />
+          <svg
+            viewBox="0 0 100 100"
+            width={size}
+            height={size}
+            className="die-falloff-ring is-primary-ripple"
+            aria-hidden="true"
+          >
+            <circle cx="50" cy="50" r="46" className="die-falloff-ring-circle" />
+            <path d={polyPath} className="die-falloff-ring-poly" />
+          </svg>
+          <svg
+            viewBox="0 0 100 100"
+            width={size}
+            height={size}
+            className="die-falloff-ring is-secondary-ripple"
+            aria-hidden="true"
+          >
+            <circle cx="50" cy="50" r="46" className="die-falloff-ring-circle" />
+            <path d={polyPath} className="die-falloff-ring-poly" />
+          </svg>
+        </>
+      )}
+
       <svg
         viewBox="0 0 100 100"
         width={size}
@@ -219,7 +323,7 @@ export default function DieShape({
         className="die-main-svg"
         style={petalAngle != null ? { transform: `rotate(${petalAngle}deg)`, transformOrigin: 'center' } : undefined}
       >
-        <path d={DICE_FACES[die] || DICE_FACES[20]} className="die-poly" />
+        <path d={polyPath} className="die-poly" />
       </svg>
       <span className="die-number" style={{ fontSize: size * 0.38 }}>
         <span className={`die-number-val${tickPulse ? ' is-tick-pulse' : ''}`}>

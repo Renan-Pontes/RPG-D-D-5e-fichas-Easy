@@ -1,18 +1,23 @@
 /**
  * dice-rollup.js
  *
- * Pure mathematical choreography for the anticipation-driven 2-phase juicy dice roll:
- * - Phase 1 (0ms -> 1500ms): Starts calm with ZERO initial wobble, then builds
- *   anticipation via an accelerating numeric roll-up with strictly increasing
- *   shaking frequency (4Hz -> 42Hz), increasing shaking strength (amplitude),
- *   and increasing directional motion blur.
- * - Phase 2 (1500ms+): Motion blur snaps to 0 and a visceral Final Punch
+ * Pure mathematical choreography for the 3-phase juicy dice roll:
+ * - Phase 1 (0ms -> 1500ms, Anticipation Roll-Up): Starts calm with ZERO initial
+ *   wobble, then builds anticipation via an accelerating numeric roll-up with
+ *   strictly increasing shaking frequency (4Hz -> 42Hz), increasing shaking
+ *   strength (amplitude), and increasing directional motion blur.
+ * - Phase 2 (1500ms+, Final Punch): Motion blur snaps to 0 and a visceral Final Punch
  *   (with elastic upward/downward pump for +bonus/-penalty) unravels the rolled number.
+ * - Phase 3 (Falloff — Follow-Through & Overlapping Action): As soon as the final
+ *   number of the roll is unravelled, the glowing ring and glowing pulse outstretch
+ *   and smoothly fade away while both the size of the roll and the glowing elements
+ *   slowly upscale in ease-out like a ripple.
  */
 
 export const ROLLUP_DURATION_MS = 1500;
-export const LAND_HOLD_MS = 95;
-export const PUMP_DURATION_MS = 420;
+export const LAND_HOLD_MS = 85;
+export const PUMP_DURATION_MS = 320;
+export const FALLOFF_DURATION_MS = 2100;
 
 export const MIN_SHAKE_FREQ_HZ = 4;
 export const MAX_SHAKE_FREQ_HZ = 42;
@@ -20,6 +25,11 @@ export const MAX_SHAKE_PX = 9.0;
 export const MAX_SHAKE_ROT_DEG = 6.5;
 export const MAX_DIE_BLUR_PX = 3.0;
 export const MAX_NUMBER_BLUR_PX = 3.6;
+
+export const FALLOFF_MAX_ROLL_SCALE = 1.12;
+export const FALLOFF_MAX_RING_SCALE = 2.85;
+export const FALLOFF_MAX_SECONDARY_RING_SCALE = 3.30;
+export const FALLOFF_MAX_PULSE_SCALE = 2.60;
 
 /**
  * Accelerating anticipation curve for the roll-up:
@@ -32,6 +42,18 @@ export const MAX_NUMBER_BLUR_PX = 3.6;
 export function easeInAnticipation(p) {
   const clamped = Math.max(0, Math.min(1, Number(p) || 0));
   return 0.25 * clamped + 0.75 * Math.pow(clamped, 2.6);
+}
+
+/**
+ * Smooth ease-out ripple curve for the post-reveal follow-through and falloff:
+ * Expands rapidly right as the final number is unravelled, then decelerates
+ * smoothly and asymptotically like a ripple across water.
+ * @param {number} p - Normalized progress in [0, 1]
+ * @returns {number} Eased progress in [0, 1]
+ */
+export function easeOutRipple(p) {
+  const clamped = Math.max(0, Math.min(1, Number(p) || 0));
+  return 1 - Math.pow(1 - clamped, 3.4);
 }
 
 /**
@@ -54,18 +76,6 @@ export const easeOutQuart = (p) => {
  * - At p >= 1: all shake and motion blur snap back to 0 for the final punch reveal.
  *
  * @param {number} p - Normalized progress in [0, 1]
- * @returns {{
- *   frequencyHz: number,
- *   strength: number,
- *   shakeX: number,
- *   shakeY: number,
- *   shakeRot: number,
- *   motionBlurPx: number,
- *   numberBlurPx: number,
- *   numberTrailPx: number,
- *   numberStretch: number,
- *   chargeScale: number
- * }}
  */
 export function computeAnticipationProfile(p) {
   const clamped = Math.max(0, Math.min(1, Number(p) || 0));
@@ -194,4 +204,63 @@ export function computePumpFrame(naturalVal, finalVal, pumpProgress) {
   const snapP = Math.min(1, p / 0.45);
   const ease = 1 - Math.pow(1 - snapP, 3);
   return Math.round(fromVal + (toVal - fromVal) * ease);
+}
+
+/**
+ * Computes the Phase 3 Falloff (Follow-Through & Overlapping Action) ripple profile
+ * as soon as the final number of the roll is unravelled:
+ * - Both the size of the roll (`rollScale`) and the glowing elements (`ringScale`,
+ *   `secondaryRingScale`, `pulseScale`) slowly upscale in ease-out like a ripple.
+ * - The glowing ring (`ringOpacity`, `secondaryRingOpacity`) and glowing pulse
+ *   (`pulseOpacity`) outstretch and smoothly fade away to 0 with overlapping timing.
+ *
+ * @param {number} falloffProgress - Progress of the falloff phase in [0, 1]
+ * @returns {{
+ *   rollScale: number,
+ *   numberScale: number,
+ *   ringScale: number,
+ *   ringOpacity: number,
+ *   secondaryRingScale: number,
+ *   secondaryRingOpacity: number,
+ *   pulseScale: number,
+ *   pulseOpacity: number
+ * }}
+ */
+export function computeFalloffProfile(falloffProgress) {
+  const p = Math.max(0, Math.min(1, Number(falloffProgress) || 0));
+
+  // 1. Slow ease-out upscale of the roll size and inner number
+  const rollEased = easeOutRipple(p);
+  const rollScale = +(1 + (FALLOFF_MAX_ROLL_SCALE - 1) * rollEased).toFixed(4);
+  const numberScale = +(1 + 0.06 * rollEased).toFixed(4);
+
+  // 2. Primary glowing ring: leads the ripple wave (completes over first 85% of falloff)
+  const ringP = Math.min(1, p / 0.85);
+  const ringEased = easeOutRipple(ringP);
+  const ringScale = +(0.92 + (FALLOFF_MAX_RING_SCALE - 0.92) * ringEased).toFixed(4);
+  const ringOpacity = +(0.92 * Math.pow(1 - ringEased, 1.35)).toFixed(4);
+
+  // 3. Overlapping secondary ripple ring: lags by 8% for authentic overlapping action
+  const secP = p <= 0.08 ? 0 : Math.min(1, (p - 0.08) / 0.92);
+  const secEased = easeOutRipple(secP);
+  const secondaryRingScale = +(0.86 + (FALLOFF_MAX_SECONDARY_RING_SCALE - 0.86) * secEased).toFixed(4);
+  const secondaryRingOpacity = p <= 0.08
+    ? 0
+    : +(0.68 * Math.pow(1 - secEased, 1.4)).toFixed(4);
+
+  // 4. Glowing pulse bloom: outstretches across the full falloff window and smoothly fades away
+  const pulseEased = easeOutRipple(p);
+  const pulseScale = +(0.82 + (FALLOFF_MAX_PULSE_SCALE - 0.82) * pulseEased).toFixed(4);
+  const pulseOpacity = +(0.88 * Math.pow(1 - pulseEased, 1.25)).toFixed(4);
+
+  return {
+    rollScale,
+    numberScale,
+    ringScale,
+    ringOpacity,
+    secondaryRingScale,
+    secondaryRingOpacity,
+    pulseScale,
+    pulseOpacity,
+  };
 }

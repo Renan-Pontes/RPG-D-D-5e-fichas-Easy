@@ -4,19 +4,27 @@ import {
   ROLLUP_DURATION_MS,
   LAND_HOLD_MS,
   PUMP_DURATION_MS,
+  FALLOFF_DURATION_MS,
   MIN_SHAKE_FREQ_HZ,
   MAX_SHAKE_FREQ_HZ,
+  FALLOFF_MAX_ROLL_SCALE,
+  FALLOFF_MAX_RING_SCALE,
+  FALLOFF_MAX_SECONDARY_RING_SCALE,
+  FALLOFF_MAX_PULSE_SCALE,
   easeInAnticipation,
+  easeOutRipple,
   computeAnticipationProfile,
   computeRollupFrame,
   resolvePumpDirection,
   computePumpFrame,
+  computeFalloffProfile,
 } from '../src/dice/dice-rollup.js';
 
-test('ROLLUP_DURATION_MS is 1500ms followed by a tight pre-punch coil and final punch', () => {
+test('ROLLUP_DURATION_MS is 1500ms followed by a tight pre-punch coil, final punch, and ease-out falloff ripple', () => {
   assert.equal(ROLLUP_DURATION_MS, 1500);
   assert.ok(LAND_HOLD_MS > 0 && LAND_HOLD_MS <= 150);
-  assert.ok(PUMP_DURATION_MS >= 300 && PUMP_DURATION_MS <= 600);
+  assert.ok(PUMP_DURATION_MS >= 250 && PUMP_DURATION_MS <= 600);
+  assert.ok(FALLOFF_DURATION_MS >= 1500 && FALLOFF_DURATION_MS <= 3000);
 });
 
 test('computeAnticipationProfile starts with ZERO wobble at p=0 and increases frequency, strength, and motion blur toward p=1', () => {
@@ -134,4 +142,50 @@ test('resolvePumpDirection and computePumpFrame unravel finalVal on the final pu
   assert.ok(midDown < 14 && midDown >= 11);
   assert.equal(computePumpFrame(14, 11, 0.5), 11);
   assert.equal(computePumpFrame(14, 11, 1.0), 11);
+});
+
+test('computeFalloffProfile implements follow-through and overlapping action: roll & glowing elements upscale in ease-out while glowing ring & pulse smoothly fade away', () => {
+  assert.equal(easeOutRipple(0), 0);
+  assert.equal(easeOutRipple(1), 1);
+
+  // Ease-out property: first half expansion is much larger than second half expansion
+  const firstHalfRipple = easeOutRipple(0.5) - easeOutRipple(0.0);
+  const secondHalfRipple = easeOutRipple(1.0) - easeOutRipple(0.5);
+  assert.ok(
+    firstHalfRipple > secondHalfRipple * 4,
+    `Expected strong ease-out deceleration like a ripple: ${firstHalfRipple} vs ${secondHalfRipple}`,
+  );
+
+  const start = computeFalloffProfile(0);
+  assert.equal(start.rollScale, 1);
+  assert.equal(start.numberScale, 1);
+  assert.ok(start.ringOpacity > 0.85);
+  assert.ok(start.pulseOpacity > 0.80);
+  // Overlapping action: secondary ripple ring has not started yet at p = 0
+  assert.equal(start.secondaryRingOpacity, 0);
+
+  let prev = start;
+  for (const p of [0.15, 0.3, 0.5, 0.7, 0.85, 1.0]) {
+    const cur = computeFalloffProfile(p);
+    // Roll size, inner number, and glowing pulse/rings all upscale monotonically in ease-out
+    assert.ok(cur.rollScale > prev.rollScale, `rollScale must upscale at p=${p}`);
+    assert.ok(cur.numberScale > prev.numberScale, `numberScale must upscale at p=${p}`);
+    assert.ok(cur.pulseScale > prev.pulseScale, `pulseScale must outstretch at p=${p}`);
+    assert.ok(cur.secondaryRingScale > prev.secondaryRingScale, `secondaryRingScale must outstretch at p=${p}`);
+    assert.ok(cur.ringScale >= prev.ringScale, `ringScale must outstretch at p=${p}`);
+
+    // Glowing ring and glowing pulse smoothly fade away
+    assert.ok(cur.pulseOpacity < prev.pulseOpacity, `pulseOpacity must fade at p=${p}`);
+    assert.ok(cur.ringOpacity <= prev.ringOpacity, `ringOpacity must fade at p=${p}`);
+    prev = cur;
+  }
+
+  const end = computeFalloffProfile(1);
+  assert.equal(end.rollScale, FALLOFF_MAX_ROLL_SCALE);
+  assert.equal(end.ringScale, FALLOFF_MAX_RING_SCALE);
+  assert.equal(end.secondaryRingScale, FALLOFF_MAX_SECONDARY_RING_SCALE);
+  assert.equal(end.pulseScale, FALLOFF_MAX_PULSE_SCALE);
+  assert.equal(end.ringOpacity, 0, 'Primary glowing ring must completely fade away by p=1');
+  assert.equal(end.secondaryRingOpacity, 0, 'Secondary glowing ring must completely fade away by p=1');
+  assert.equal(end.pulseOpacity, 0, 'Glowing pulse must completely fade away by p=1');
 });
