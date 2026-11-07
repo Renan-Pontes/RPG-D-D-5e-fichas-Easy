@@ -255,16 +255,17 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
 
 ---
 
-## 12. Juicy 2-Phase Dice Roll Choreography (Fast Roll-Up to 1.5s + Snap, Shake & Elastic Bonus/Penalty Pump)
+## 12. Anticipation-Driven Juicy 2-Phase Dice Roll Choreography (Zero Initial Wobble → Increasing Shake Frequency/Strength & Motion Blur → Final Punch)
 
-- **Phase 1 (`0.0s -> 1.5s`): Fast Numeric Roll-Up Decelerating to a Stop**:
-  - Implemented pure mathematical choreography in [`dice-rollup.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/src/dice/dice-rollup.js) (`ROLLUP_DURATION_MS = 1500`, `easeOutQuart(p) = 1 - (1 - p)^4`, `computeRollupFrame`).
-  - Numbers inside all 2D stage dice remain 100% visible throughout `0.0s -> 1.5s` (`.dice-stage-2d .die-shape.rolling .die-number { opacity: 1 !important; }`).
-  - Over 80% of numeric step ticks occur in the first 35% of the `1.5s` window (fast initial slot-reel spin), progressively decelerating tick-by-tick (`N-3 -> N-2 -> N-1 -> N`) with a tactile odometer pulse (`.die-number-val.is-tick-pulse`) and kinetic in-place vibration (`@keyframes die-rollup-kinetic`) that smoothly stops at `1.5s` (`1500ms`) on the natural roll (`naturalVal` or `naturalSum`).
-- **Phase 2 (`~1.5s+`): Crisp Snap, Shake & Elastic Bonus/Penalty Pump**:
-  - At `1.5s`, the Hero die briefly coils (`LAND_HOLD_MS = 130ms`, `@keyframes die-landed-coil`) on the natural roll before applying the modifier:
-    - **Positive Bonus (`+mod > 0`, `is-phase-pump-up`)**: Snaps, shakes horizontally/rotationally, and elastically pumps **upward** (`@keyframes die-elastic-pump-up` & `@keyframes number-elastic-pump-up`) to the final total (`finalVal`).
-    - **Negative Penalty (`-mod < 0`, `is-phase-pump-down`)**: Snaps, shakes, and elastically pumps **downward** (`@keyframes die-elastic-pump-down` & `@keyframes number-elastic-pump-down`) to the final total (`finalVal`).
-    - **Zero Modifier (`mod === 0`, `is-phase-snap-shake`)**: Immediately snaps and shakes (`@keyframes die-snap-shake`) at `1.5s` to lock in the final rolled total.
+- **Phase 1 (`0.0s -> 1.5s`): Calm Start (Zero Wobble) & Building Anticipation Crescendo**:
+  - Implemented pure mathematical choreography in [`dice-rollup.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/src/dice/dice-rollup.js) (`ROLLUP_DURATION_MS = 1500`, `easeInAnticipation(p) = 0.25p + 0.75p^2.6`, `computeAnticipationProfile(p)`, `computeRollupFrame`).
+  - **Zero Initial Wobble**: At `p = 0.0` (`0ms`), `strength = 0`, `shakeX = 0`, `shakeY = 0`, `shakeRot = 0`, `motionBlurPx = 0`, and `chargeScale = 1.0` — the die never starts by wobbling.
+  - **Increasing Shaking Frequency & Strength**: As the numeric roll-up accelerates toward `1.5s`, instantaneous shaking frequency ramps from `4 Hz` to `42 Hz` (via exact integrated chirp phase $\phi(p) = 2\pi T \left(f_{\min}p + \frac{f_{\max}-f_{\min}}{3}p^3\right)$), while shaking strength (`p^2.2`) ramps smoothly to $\pm 9\text{px}$ and $\pm 6.5^\circ$ and tension scale swells to `1.08`.
+  - **Increasing Directional Motion Blur**: Die body blur (`--die-blur`, up to `3.0px` with directional afterimage `drop-shadow(var(--ghost-x) var(--ghost-y) ...)`) and vertical slot-reel number blur (`--num-blur` up to `3.6px`, `--num-trail` up to `10px`, `--num-stretch` up to `1.24`) build continuously toward the `1.5s` climax.
+- **Phase 2 (`1.5s+`): The Final Punch Unravelling the Rolled Number**:
+  - At `1.5s`, all motion blur and shaking immediately cut to `0` (`0px` crystal-clear focus) as the **Final Punch** hits with an expanding shockwave ring (`.die-punch-shockwave`):
+    - **Positive Bonus (`+mod > 0`, `is-phase-pump-up`)**: Tight `95ms` pre-punch coil (`is-phase-landed`), followed by an explosive upward punch & shake (`@keyframes die-elastic-pump-up` & `@keyframes number-elastic-pump-up`) unravelling `finalVal`.
+    - **Negative Penalty (`-mod < 0`, `is-phase-pump-down`)**: Tight `95ms` pre-punch coil, followed by a heavy downward punch & shake (`@keyframes die-elastic-pump-down` & `@keyframes number-elastic-pump-down`) unravelling `finalVal`.
+    - **Zero Modifier (`mod === 0`, `is-phase-snap-shake`)**: Immediate explosive Final Punch (`@keyframes die-snap-shake`) at `1.5s` unravelling the final rolled number.
 - **Verification**:
   - Unit test suite in [`dice-rollup.test.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/tests/dice-rollup.test.js) (6 / 6 tests green) + full suite (1,528 / 1,528 tests green across 21 suites) + clean Vite production build.

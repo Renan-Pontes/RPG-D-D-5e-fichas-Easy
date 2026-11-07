@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DICE_FACES } from './dice-tessellation.js';
 import {
   ROLLUP_DURATION_MS,
   LAND_HOLD_MS,
   PUMP_DURATION_MS,
   computeRollupFrame,
+  computeAnticipationProfile,
   resolvePumpDirection,
   computePumpFrame,
 } from './dice-rollup.js';
@@ -26,6 +27,7 @@ export default function DieShape({
   lang = 'pt',
   petalAngle = null,
 }) {
+  const dieRef = useRef(null);
   const isNumericRoll = value !== '' && value != null && Number.isFinite(Number(value));
   const shouldAnimateRoll = animated && isNumericRoll && (isHero || dimmed || rolling);
   const naturalVal = isNumericRoll ? Math.round(Number(value)) : value;
@@ -42,11 +44,46 @@ export default function DieShape({
   const [animPhase, setAnimPhase] = useState(() => (shouldAnimateRoll ? 'rollup' : 'idle'));
   const [tickPulse, setTickPulse] = useState(false);
 
-  // 2-Phase Juicy Roll Choreography:
-  // Phase 1 (0 -> 1.5s): Fast numeric roll-up that progressively decelerates to naturalVal.
-  // Phase 2 (1.5s+): Crisp snap, shake & elastic pump up (+bonus) or down (-penalty) to finalVal.
+  // Anticipation-Driven 2-Phase Juicy Roll Choreography:
+  // Phase 1 (0 -> 1.5s): Starts calm with ZERO initial wobble, then accelerates
+  //   with increasing shaking frequency (4Hz -> 42Hz), increasing shaking strength,
+  //   and increasing directional motion blur.
+  // Phase 2 (1.5s+): Motion blur snaps to 0 and a visceral Final Punch
+  //   unravels the rolled number (with elastic upward/downward pump for +bonus/-penalty).
   useEffect(() => {
+    const el = dieRef.current;
+    const applyAnticipationVars = (profile) => {
+      if (!el) return;
+      // Scale down shake amplitude slightly on 50% constituent petals so the hero die dominates
+      const k = dimmed ? 0.45 : 1.0;
+      el.style.setProperty('--shake-x', `${(profile.shakeX * k).toFixed(2)}px`);
+      el.style.setProperty('--shake-y', `${(profile.shakeY * k).toFixed(2)}px`);
+      el.style.setProperty('--shake-rot', `${(profile.shakeRot * k).toFixed(2)}deg`);
+      el.style.setProperty('--charge-scale', `${1 + (profile.chargeScale - 1) * k}`);
+      el.style.setProperty('--die-blur', `${(profile.motionBlurPx * k).toFixed(2)}px`);
+      el.style.setProperty('--ghost-x', `${(-profile.shakeX * 0.9 * k).toFixed(2)}px`);
+      el.style.setProperty('--ghost-y', `${(-profile.shakeY * 0.9 * k).toFixed(2)}px`);
+      el.style.setProperty('--num-blur', `${profile.numberBlurPx.toFixed(2)}px`);
+      el.style.setProperty('--num-trail', `${profile.numberTrailPx.toFixed(2)}px`);
+      el.style.setProperty('--num-stretch', `${profile.numberStretch}`);
+    };
+
+    const resetAnticipationVars = () => {
+      if (!el) return;
+      el.style.setProperty('--shake-x', '0px');
+      el.style.setProperty('--shake-y', '0px');
+      el.style.setProperty('--shake-rot', '0deg');
+      el.style.setProperty('--charge-scale', '1');
+      el.style.setProperty('--die-blur', '0px');
+      el.style.setProperty('--ghost-x', '0px');
+      el.style.setProperty('--ghost-y', '0px');
+      el.style.setProperty('--num-blur', '0px');
+      el.style.setProperty('--num-trail', '0px');
+      el.style.setProperty('--num-stretch', '1');
+    };
+
     if (!shouldAnimateRoll) {
+      resetAnticipationVars();
       setDisplayVal(isHero && targetValue != null ? targetValue : value);
       setAnimPhase('idle');
       return undefined;
@@ -61,6 +98,7 @@ export default function DieShape({
     const pumpDir = resolvePumpDirection(naturalVal, finalVal);
     const hasModifierPump = isHero && pumpDir !== 'snap-shake';
 
+    resetAnticipationVars();
     setAnimPhase('rollup');
     setDisplayVal(computeRollupFrame(naturalVal, 0, die).value);
 
@@ -70,19 +108,24 @@ export default function DieShape({
 
       if (elapsed < ROLLUP_DURATION_MS) {
         const p = elapsed / ROLLUP_DURATION_MS;
+        const profile = computeAnticipationProfile(p);
+        applyAnticipationVars(profile);
+
         const frame = computeRollupFrame(naturalVal, p, die);
         if (frame.stepIndex !== lastStepIndex) {
           lastStepIndex = frame.stepIndex;
           setDisplayVal(frame.value);
           setTickPulse(true);
           clearTimeout(pulseTimer);
-          pulseTimer = setTimeout(() => setTickPulse(false), 45);
+          pulseTimer = setTimeout(() => setTickPulse(false), 38);
         }
         animId = requestAnimationFrame(step);
         return;
       }
 
-      // Phase 1 complete at 1.5s: lock onto natural rolled value
+      // Climax at 1.5s: cut motion blur & shake to 0 and unleash the Final Punch!
+      resetAnticipationVars();
+
       if (!hasModifierPump) {
         setDisplayVal(finalVal);
         setTickPulse(false);
@@ -95,7 +138,7 @@ export default function DieShape({
         return;
       }
 
-      // Phase 2A (1500ms -> 1630ms): brief coil on naturalVal before modifier pumps
+      // Phase 2A (1500ms -> 1595ms): brief compression coil on naturalVal right before the punch
       const afterRollup = elapsed - ROLLUP_DURATION_MS;
       if (afterRollup < LAND_HOLD_MS) {
         if (currentPhase !== 'landed') {
@@ -108,7 +151,7 @@ export default function DieShape({
         return;
       }
 
-      // Phase 2B (1630ms -> 2010ms): snap, shake & elastic pump up or down to finalVal
+      // Phase 2B (1595ms -> 2015ms): Final Punch & elastic pump up/down unravelling finalVal
       const pumpElapsed = afterRollup - LAND_HOLD_MS;
       if (pumpElapsed < PUMP_DURATION_MS) {
         if (currentPhase !== pumpDir) {
@@ -133,7 +176,7 @@ export default function DieShape({
       clearTimeout(pulseTimer);
       clearTimeout(settleTimer);
     };
-  }, [shouldAnimateRoll, naturalVal, finalVal, isHero, die, value, targetValue]);
+  }, [shouldAnimateRoll, naturalVal, finalVal, isHero, dimmed, die, value, targetValue]);
 
   const rand = (n) => {
     const x = Math.sin(seed * 9999 + n) * 10000;
@@ -144,6 +187,7 @@ export default function DieShape({
   const isPetal = petalAngle != null;
   const isInvertedPetal = petalAngle === 180;
   const isStageComposed = isHero || isPetal || dimmed;
+  const isPunchPhase = isHero && (animPhase === 'pump-up' || animPhase === 'pump-down' || animPhase === 'snap-shake');
 
   const style = (rolling && !isStageComposed) ? {
     width: size,
@@ -162,10 +206,12 @@ export default function DieShape({
 
   return (
     <div
+      ref={dieRef}
       className={`die-shape die-d${die} ${rolling ? 'rolling' : ''}${animPhase !== 'idle' ? ` is-phase-${animPhase}` : ''}${tone ? ` tone-${tone}` : ''}${dimmed ? ' is-unpicked' : ''}${isHero ? ' is-hero' : ''}${isPetal ? ' is-petal-die' : ''}${isInvertedPetal ? ' is-inverted-petal' : ''}${isCrit && !rolling ? ' is-crit-artdeco' : ''}`}
       style={style}
       aria-hidden="true"
     >
+      {isPunchPhase && <span className="die-punch-shockwave" aria-hidden="true" />}
       <svg
         viewBox="0 0 100 100"
         width={size}
