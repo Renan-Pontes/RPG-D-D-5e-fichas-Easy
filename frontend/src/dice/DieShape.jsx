@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DICE_FACES } from './dice-tessellation.js';
 import {
+  FADEIN_DURATION_MS,
   ROLLUP_DURATION_MS,
   PUMP_DURATION_MS,
   FALLOFF_DURATION_MS,
+  computeFadeInProfile,
   computeNeighborRollupSchedule,
   computeRollupFrame,
   computeAnticipationProfile,
@@ -120,7 +122,28 @@ export default function DieShape({
       }
     };
 
+    const applyFadeInVars = (fadeInProfile) => {
+      if (!el) return;
+      el.style.setProperty('--rollup-fadein-opacity', `${fadeInProfile.opacity}`);
+      el.style.setProperty('--rollup-fadein-scale', `${fadeInProfile.entranceScale}`);
+      if (stageWrap) {
+        stageWrap.style.setProperty('--rollup-fadein-opacity', `${fadeInProfile.opacity}`);
+        stageWrap.style.setProperty('--rollup-fadein-scale', `${fadeInProfile.entranceScale}`);
+      }
+    };
+
+    const resetFadeInVars = () => {
+      if (!el) return;
+      el.style.setProperty('--rollup-fadein-opacity', '1');
+      el.style.setProperty('--rollup-fadein-scale', '1');
+      if (stageWrap) {
+        stageWrap.style.setProperty('--rollup-fadein-opacity', '1');
+        stageWrap.style.setProperty('--rollup-fadein-scale', '1');
+      }
+    };
+
     if (!shouldAnimateRoll) {
+      resetFadeInVars();
       resetAnticipationVars();
       resetFalloffVars();
       setDisplayVal(isHero && targetValue != null ? targetValue : value);
@@ -137,6 +160,7 @@ export default function DieShape({
     const punchPhaseName = resolvePumpDirection(naturalVal, finalVal);
     const localFinishP = neighborSchedule ? neighborSchedule.finishP : 1.0;
 
+    applyFadeInVars(computeFadeInProfile(0));
     resetAnticipationVars();
     resetFalloffVars();
     setAnimPhase('rollup');
@@ -145,6 +169,13 @@ export default function DieShape({
     const step = (now) => {
       if (startTime == null) startTime = now;
       const elapsed = now - startTime;
+
+      // Smooth 0.5-second (500ms) fade-in of the whole roll-up interface
+      if (elapsed <= FADEIN_DURATION_MS) {
+        applyFadeInVars(computeFadeInProfile(elapsed));
+      } else {
+        resetFadeInVars();
+      }
 
       // Phase 1 (0 -> 750ms): Anticipation Roll-Up
       if (elapsed < ROLLUP_DURATION_MS) {
@@ -186,6 +217,7 @@ export default function DieShape({
 
       if (!revealed) {
         revealed = true;
+        resetFadeInVars();
         resetAnticipationVars();
         setTickPulse(false);
         setDisplayVal(finalVal);

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  FADEIN_DURATION_MS,
   ROLLUP_DURATION_MS,
   LAND_HOLD_MS,
   PUMP_DURATION_MS,
@@ -14,6 +15,7 @@ import {
   NEIGHBOR_MAX_FINISH_P,
   easeInAnticipation,
   easeOutRipple,
+  computeFadeInProfile,
   computeNeighborRollupSchedule,
   computeAnticipationProfile,
   computeRollupFrame,
@@ -22,11 +24,37 @@ import {
   computeFalloffProfile,
 } from '../src/dice/dice-rollup.js';
 
-test('50% speed-up and zero-lag climax synchronization at ROLLUP_DURATION_MS = 750ms', () => {
+test('0.5s smooth fade-in (FADEIN_DURATION_MS = 500ms), 50% speed-up, and zero-lag climax synchronization at ROLLUP_DURATION_MS = 750ms', () => {
+  assert.equal(FADEIN_DURATION_MS, 500, 'Whole roll-up interface must fade in smoothly over 0.5 seconds (500ms)');
   assert.equal(ROLLUP_DURATION_MS, 750, 'Roll-up duration must be 750ms (50% speed-up from 1500ms)');
   assert.equal(LAND_HOLD_MS, 0, 'Zero hold delay so peak of roll-off, punch, number reveal, and ripple happen at the exact same instant');
   assert.equal(PUMP_DURATION_MS, 220, 'Punch duration must be 220ms (50% speed-up)');
   assert.equal(FALLOFF_DURATION_MS, 1050, 'Falloff ripple duration must be 1050ms (50% speed-up from 2100ms)');
+});
+
+test('computeFadeInProfile smoothly fades in the roll-up interface from 0 to 1 over 0.5 seconds (500ms) instead of popping abruptly', () => {
+  const start = computeFadeInProfile(0);
+  assert.equal(start.progress, 0);
+  assert.equal(start.opacity, 0, 'Must start at opacity = 0 so the roll-up interface never pops out of nowhere');
+  assert.equal(start.entranceScale, 0.94, 'Starts slightly scaled down (0.94) for a smooth entrance lift');
+
+  let prev = start;
+  for (const ms of [80, 160, 250, 350, 440, 500]) {
+    const cur = computeFadeInProfile(ms);
+    assert.ok(cur.opacity > prev.opacity, `Fade-in opacity must strictly increase at ${ms}ms`);
+    assert.ok(cur.entranceScale > prev.entranceScale, `Fade-in scale must strictly increase at ${ms}ms`);
+    prev = cur;
+  }
+
+  const end = computeFadeInProfile(500);
+  assert.equal(end.progress, 1);
+  assert.equal(end.opacity, 1, 'Reaches full opacity = 1 at 500ms (0.5s)');
+  assert.equal(end.entranceScale, 1, 'Reaches full entranceScale = 1 at 500ms (0.5s)');
+
+  // Clamped after 500ms
+  const after = computeFadeInProfile(750);
+  assert.equal(after.opacity, 1);
+  assert.equal(after.entranceScale, 1);
 });
 
 test('computeAnticipationProfile starts with ZERO wobble at p=0 and increases frequency, strength, and motion blur toward p=1', () => {

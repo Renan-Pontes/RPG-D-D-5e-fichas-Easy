@@ -722,13 +722,33 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
 }
 
 /* Hero stage container & Satellite unpicked die docked at bottom right edge */
+.dice-stage-2d.is-animated-stage {
+  animation: dice-rollup-stage-fadein 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: opacity, transform;
+}
+
+@keyframes dice-rollup-stage-fadein {
+  0%   { opacity: 0; transform: scale(0.94); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.dice-overlay {
+  animation: dice-rollup-overlay-fadein 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
+}
+
+@keyframes dice-rollup-overlay-fadein {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+
 .dice-hero-stage-wrap {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transform: scale(var(--falloff-roll-scale, 1));
-  will-change: transform;
+  opacity: var(--rollup-fadein-opacity, 1);
+  transform: scale(calc(var(--rollup-fadein-scale, 1) * var(--falloff-roll-scale, 1)));
+  will-change: transform, opacity;
 }
 
 .dice-satellite-unpicked {
@@ -754,8 +774,9 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   justify-content: center;
   margin: 0 auto;
   overflow: visible !important;
-  transform: scale(var(--falloff-roll-scale, 1));
-  will-change: transform;
+  opacity: var(--rollup-fadein-opacity, 1);
+  transform: scale(calc(var(--rollup-fadein-scale, 1) * var(--falloff-roll-scale, 1)));
+  will-change: transform, opacity;
 }
 
 .dice-flower-center {

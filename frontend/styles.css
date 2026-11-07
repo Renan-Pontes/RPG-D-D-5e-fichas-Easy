@@ -1827,7 +1827,7 @@ label {
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: overlay-fade 0.2s ease;
+  animation: overlay-fade 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 @keyframes overlay-fade {
   from { opacity: 0; }
@@ -1956,7 +1956,7 @@ label {
   50%      { background: rgba(50, 30, 0, 0.85); }
 }
 .dice-overlay:has(.die-shape.rolling) {
-  animation: backdrop-pulse 1.3s ease-in-out;
+  animation: overlay-fade 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards, backdrop-pulse 1.3s ease-in-out;
 }
 
 

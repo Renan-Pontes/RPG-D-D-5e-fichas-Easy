@@ -646,7 +646,7 @@ const DiceRoller = ({ lang }) => {
 
       {/* === Overlay da rolagem (Minimalist & Clean Hero Die) === */}
       {overlay && (
-        <div className="dice-overlay no-print" onClick={() => { sheetGate.settle(overlay.id); setOverlay(null); }} role="status" aria-live="polite">
+        <div key={overlay.id} className="dice-overlay no-print" onClick={() => { sheetGate.settle(overlay.id); setOverlay(null); }} role="status" aria-live="polite">
           <div className={`dice-overlay-inner ${overlay.settled && overlay.isCrit ? 'is-crit' : ''} ${overlay.settled && overlay.isFumble ? 'is-fumble' : ''}`}>
             <DiceStage
               key={overlay.id}

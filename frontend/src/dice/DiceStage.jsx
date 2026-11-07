@@ -105,6 +105,7 @@ export default function DiceStage({
 
   const isStance = adv === 'adv' || adv === 'dis';
   const isAnimatedStage = mode !== 'static' && mode !== 'off';
+  const stage2dClass = `dice-stage dice-stage-2d${isAnimatedStage ? ' is-animated-stage' : ''} ${className}`;
 
   // In stance mode (Advantage or Disadvantage), highlight the hero die at center
   // and nest the unpicked die at the lower-right edge of the hexagonal shape at 50% scale!
@@ -118,7 +119,7 @@ export default function DiceStage({
     const effectiveTone = adv === 'adv' ? 'adv' : 'dis';
 
     return (
-      <div className={`dice-stage dice-stage-2d ${className}`} data-dice-mode={mode} data-dice-tone={shownTone || effectiveTone}>
+      <div className={stage2dClass} data-dice-mode={mode} data-dice-tone={shownTone || effectiveTone}>
         <div className="dice-hero-stage-wrap">
           <DieShape
             die={g.die}
@@ -176,7 +177,7 @@ export default function DiceStage({
     const effectiveTone = !rolling2d ? shownTone : null;
 
     return (
-      <div className={`dice-stage dice-stage-2d ${className}`} data-dice-mode={mode} data-dice-tone={shownTone || undefined}>
+      <div className={stage2dClass} data-dice-mode={mode} data-dice-tone={shownTone || undefined}>
         <div className="dice-hero-stage-wrap">
           <DieShape
             die={r.die}
@@ -211,7 +212,7 @@ export default function DiceStage({
     });
 
     return (
-      <div className={`dice-stage dice-stage-2d ${className}`} data-dice-mode={mode} data-dice-tone={shownTone || undefined}>
+      <div className={stage2dClass} data-dice-mode={mode} data-dice-tone={shownTone || undefined}>
         <div
           className="dice-flower-stage"
           style={{ width: tessellation.stageWidth, height: tessellation.stageHeight }}

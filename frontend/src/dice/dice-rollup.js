@@ -17,6 +17,7 @@
  *   outstretches and smoothly fades away.
  */
 
+export const FADEIN_DURATION_MS = 500;
 export const ROLLUP_DURATION_MS = 750;
 export const LAND_HOLD_MS = 0;
 export const PUMP_DURATION_MS = 220;
@@ -68,6 +69,26 @@ export const easeOutQuart = (p) => {
   const clamped = Math.max(0, Math.min(1, Number(p) || 0));
   return 1 - Math.pow(1 - clamped, 4);
 };
+
+/**
+ * Computes the smooth 0.5-second (500ms) fade-in profile for the entire roll-up
+ * interface so it never abruptly pops onto the screen.
+ *
+ * @param {number} elapsedMs - Elapsed time in milliseconds since roll start (0 -> 500ms)
+ * @returns {{ progress: number, opacity: number, entranceScale: number }}
+ */
+export function computeFadeInProfile(elapsedMs) {
+  const ms = Math.max(0, Number(elapsedMs) || 0);
+  const progress = Math.max(0, Math.min(1, ms / FADEIN_DURATION_MS));
+  const eased = 1 - Math.pow(1 - progress, 2.2);
+  const opacity = +eased.toFixed(4);
+  const entranceScale = +(0.94 + 0.06 * (1 - Math.pow(1 - progress, 2.4))).toFixed(4);
+  return {
+    progress: +progress.toFixed(4),
+    opacity,
+    entranceScale,
+  };
+}
 
 /**
  * Deterministic pseudo-random number in [0, 1) from an integer seed.

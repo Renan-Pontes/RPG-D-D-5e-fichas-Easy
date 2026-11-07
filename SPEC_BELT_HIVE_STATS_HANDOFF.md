@@ -255,15 +255,19 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
 
 ---
 
-## 12. Synchronized 3-Phase Juicy Dice Roll Choreography: Random Neighboring Catch-Up & Single Powerful Glowing Ripple
+## 12. Synchronized 3-Phase Juicy Dice Roll Choreography: 0.5s Smooth Fade-In, Random Neighboring Catch-Up & Single Powerful Glowing Ripple
 
+- **Smooth `0.5s` (`FADEIN_DURATION_MS = 500`) Fade-In of the Whole Roll-Up Interface**:
+  - Eliminated the abrupt `0ms` pop onto the screen caused by `.dice-overlay:has(.die-shape.rolling)` clobbering `overlay-fade` in [`styles.css`](file:///f:/AI_Resources/DND_HeroesForge/frontend/styles.css#L1830-L1960).
+  - Implemented [`computeFadeInProfile(elapsedMs)`](file:///f:/AI_Resources/DND_HeroesForge/frontend/src/dice/dice-rollup.js#L80-L92) (`FADEIN_DURATION_MS = 500`) alongside CSS keyframes (`dice-rollup-overlay-fadein` and `dice-rollup-stage-fadein`, `0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards`) and `key={overlay.id}` on `.dice-overlay` in [`DiceRoller.jsx`](file:///f:/AI_Resources/DND_HeroesForge/frontend/components/DiceRoller.jsx#L649).
+  - Both the overlay backdrop and the entire stage composition (`.dice-stage-2d.is-animated-stage`, `.dice-hero-stage-wrap`, `.dice-flower-stage`, `--rollup-fadein-opacity: 0 -> 1`, `--rollup-fadein-scale: 0.94 -> 1.0`) smoothly fade in over **0.5 seconds (`500ms`)**.
 - **Phase 1 (`0.0s -> 0.75s`): Calm Start (Zero Wobble) & Building Anticipation Crescendo (50% Speed-Up)**:
   - Implemented pure mathematical choreography in [`dice-rollup.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/src/dice/dice-rollup.js) (`ROLLUP_DURATION_MS = 750`, `LAND_HOLD_MS = 0`, `PUMP_DURATION_MS = 220`, `FALLOFF_DURATION_MS = 1050`, `easeInAnticipation(p) = 0.25p + 0.75p^2.6`, `computeAnticipationProfile(p)`).
   - **Zero Initial Wobble**: At `p = 0.0` (`0ms`), `strength = 0`, `shakeX = 0`, `shakeY = 0`, `shakeRot = 0`, `motionBlurPx = 0`, and `chargeScale = 1.0`.
   - **Increasing Shaking Frequency & Strength**: As the numeric roll-up accelerates toward `750ms`, instantaneous shaking frequency ramps from `6 Hz` to `56 Hz` while shaking strength (`p^2.2`) ramps smoothly to $\pm 9\text{px}$ and $\pm 6.5^\circ$ and tension scale swells to `1.08` right at `750ms`.
   - **Increasing Directional Motion Blur**: Die body blur (`--die-blur`, up to `3.0px` with directional afterimage `drop-shadow`) and vertical slot-reel number blur (`--num-blur` up to `3.6px`, `--num-trail` up to `10px`, `--num-stretch` up to `1.24`) reach their peak right at `750ms`.
 - **Multi-Dice Randomized Neighboring Catch-Up Roll-Up (`10d10`, `10d8`, `5d6`, etc.)**:
-  - Implemented [`computeNeighborRollupSchedule(petalIndex, petalCount, rollSeed)`](file:///f:/AI_Resources/DND_HeroesForge/frontend/src/dice/dice-rollup.js#L99-L148):
+  - Implemented [`computeNeighborRollupSchedule(petalIndex, petalCount, rollSeed)`](file:///f:/AI_Resources/DND_HeroesForge/frontend/src/dice/dice-rollup.js#L119-L168):
     - Uses a deterministic Fisher-Yates shuffle to randomize the completion order (`rank`) of all neighboring/nested dice around the central hero die.
     - Every neighboring die rolls up faster (`speedMultiplier = 1 / finishP >= 1.0`, `finishP` in `[0.35, 1.00]`) with a unique `stepOffset` so neighboring dice never show correlated digits while rolling.
     - As the central sum rolls up normally over `750ms`, neighboring dice randomly finish early (`localP = Math.min(1, globalP / finishP) === 1`), unravelling their individual rolled numbers with a crisp lock-in micro-pop (`is-phase-petal-locked`) along the central roll-up, with the final neighboring die (`rank === petalCount - 1`) finishing at `finishP = 1.00` in exact sync with the central hero die!
@@ -272,7 +276,7 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
     1. **Peak of Roll-Off Ends & Motion Blur Cuts to `0px`**.
     2. **The Final Rolled Number (`finalVal`) Reveals Immediately**.
     3. **The Final Punch Impacts Immediately (`0.22s`)**: `die-elastic-pump-up` (`+bonus`), `die-elastic-pump-down` (`-penalty`), or `die-snap-shake` (`0` mod) bursts directly from keyframe `0%` (`scale(1.34)`).
-    4. **Single Powerful & Glowing Ripple Launches Immediately (`afterClimax = 0`, `1.05s`)**: Removed noisy secondary rings and inner circles; [`computeFalloffProfile`](file:///f:/AI_Resources/DND_HeroesForge/frontend/src/dice/dice-rollup.js#L308-L333) (`easeOutRipple(p) = 1 - (1 - p)^3.4`) drives a **single powerful and glowing ripple** (`.die-falloff-ring` with `stroke-width: 3.2` and dual `drop-shadow` bloom, `0.96 -> 2.75`, `opacity: 1.0 -> 0.0`) + radial pulse (`0.88 -> 2.50`) + ease-out roll upscale (`1.00 -> 1.12`) that smoothly fades away.
+    4. **Single Powerful & Glowing Ripple Launches Immediately (`afterClimax = 0`, `1.05s`)**: Removed noisy secondary rings and inner circles; [`computeFalloffProfile`](file:///f:/AI_Resources/DND_HeroesForge/frontend/src/dice/dice-rollup.js#L328-L353) (`easeOutRipple(p) = 1 - (1 - p)^3.4`) drives a **single powerful and glowing ripple** (`.die-falloff-ring` with `stroke-width: 3.2` and dual `drop-shadow` bloom, `0.96 -> 2.75`, `opacity: 1.0 -> 0.0`) + radial pulse (`0.88 -> 2.50`) + ease-out roll upscale (`1.00 -> 1.12`) that smoothly fades away.
     5. **`DiceStage` Settles at `750ms`**: Reveals any Critical Hit Art Deco frame and tone in lockstep with the punch and ripple.
 - **Verification**:
-  - Unit test suite in [`dice-rollup.test.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/tests/dice-rollup.test.js) (8 / 8 tests green) + full suite (1,530 / 1,530 tests green across 21 suites) + clean Vite production build.
+  - Unit test suite in [`dice-rollup.test.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/tests/dice-rollup.test.js) (9 / 9 tests green) + full suite (1,531 / 1,531 tests green across 21 suites) + clean Vite production build.

@@ -1,0 +1,280 @@
+# Architecture Decision Records (ADRs) — Forja de Heróis
+
+> **Repository Baseline:** D&D 5e Character Forge & Table Operating System  
+> **Status:** Current & Maintained  
+> **Format:** MADR (Markdown Architectural Decision Records)
+
+---
+
+## Index of Architectural Decisions
+
+- [ADR-0001: Pivot from Express/Socket.io to Django/DRF for PythonAnywhere Deployment](#adr-0001-pivot-from-expresssocketio-to-djangodrf-for-pythonanywhere-deployment)
+- [ADR-0002: Dual-Rules Progression Engine (D&D 2024 / SRD 5.2.1 and D&D 2014 / SRD 5.1)](#adr-0002-dual-rules-progression-engine-dd-2024--srd-521-and-dd-2014--srd-51)
+- [ADR-0003: ETag Pulse & Conditional HTTP Polling Architecture in Lieu of WebSockets](#adr-0003-etag-pulse--conditional-http-polling-architecture-in-lieu-of-websockets)
+- [ADR-0004: Server-Side Gated Dice Rigging FIFO Queue with Invisible Substitution](#adr-0004-server-side-gated-dice-rigging-fifo-queue-with-invisible-substitution)
+- [ADR-0005: Unified Mesa Stage Event Bus Consolidating Disparate Screen Handlers](#adr-0005-unified-mesa-stage-event-bus-consolidating-disparate-screen-handlers)
+- [ADR-0006: Open5e SRD 5.2.1 Ingestion Pipeline with Deterministic Portuguese Translation](#adr-0006-open5e-srd-521-ingestion-pipeline-with-deterministic-portuguese-translation)
+- [ADR-0007: GM Party Insights SWOT & 11-Dimensional Tactical Role Radar Engine](#adr-0007-gm-party-insights-swot--11-dimensional-tactical-role-radar-engine)
+- [ADR-0008: Canvas VTT Coordinate Grid, Fog of War, and Dynamic Token Positioning](#adr-0008-canvas-vtt-coordinate-grid-fog-of-war-and-dynamic-token-positioning)
+- [ADR-0009: 3-Page Official Form-Fillable PDF Roundtrip Import/Export Engine](#adr-0009-3-page-official-form-fillable-pdf-roundtrip-importexport-engine)
+- [ADR-0010: Hexagonal 3-4-3 Honeycomb Stat Grid with Directional Swipe Advantage](#adr-0010-hexagonal-3-4-3-honeycomb-stat-grid-with-directional-swipe-advantage)
+- [ADR-0011: Geometric Polyhedral Tessellation & Synchronized 3-Phase Juicy Roll Choreography](#adr-0011-geometric-polyhedral-tessellation--synchronized-3-phase-juicy-roll-choreography)
+
+---
+
+## ADR-0001: Pivot from Express/Socket.io to Django/DRF for PythonAnywhere Deployment
+
+### Status
+Accepted (Supersedes initial Node prototype)
+
+### Context
+The initial v2 backend prototype was implemented in Node.js (Express, Prisma, SQLite, Socket.io). However, operational deployment requirements explicitly specified PythonAnywhere as the primary zero-cost production hosting platform alongside Vercel for the frontend. PythonAnywhere's WSGI hosting environment does not natively run long-lived Node.js servers.
+
+### Decision Drivers
+- Zero-cost, low-maintenance deployment target (PythonAnywhere free/hacker tier).
+- Strong relational ORM and built-in administrative dashboard for table management.
+- Robust security foundations (cookie-based sessions, CSRF protection, password hashing).
+
+### Decision Outcome
+Replace the Express server entirely with Django 5 and Django REST Framework (DRF), retaining the declarative progression logic in JavaScript on the frontend and creating an identical validation mirror in Python on the backend.
+
+### Consequences
+- **Positive:** Seamless deployment to PythonAnywhere via WSGI; native Django admin interface for campaign moderation and user support; zero external Node infrastructure costs.
+- **Negative:** Real-time WebSockets from Socket.io had to be re-architected into an HTTP polling pattern (see ADR-0003).
+
+---
+
+## ADR-0002: Dual-Rules Progression Engine (D&D 2024 / SRD 5.2.1 and D&D 2014 / SRD 5.1)
+
+### Status
+Accepted
+
+### Context
+With the release of the 2024 revised 5th Edition rules (SRD 5.2.1), character creation and advancement diverged significantly: subclasses moved to level 3 across all classes, ability score increases derive from Backgrounds rather than Species, Origin Feats were introduced, and weapon masteries were standardized. Existing user characters created under 2014 rules could not be forcibly converted without breaking character sheets.
+
+### Decision Drivers
+- Support cutting-edge D&D 2024 rules out-of-the-box for all new characters.
+- Guarantee 100% backward compatibility for legacy 2014 characters without corruption.
+- Single codebase maintaining both progression tracks with zero duplication of UI components.
+
+### Decision Outcome
+Introduce an explicit `rulesVersion: '2024' | '2014'` field on the Character schema. Create parallel progression rule descriptors (`PROGRESSION_RULES_2024` and legacy rules) with a unified, idempotent engine (`applyAutosToCharacter`). Class options pools in `data/class-options/` define version filters (`rules: '2024' | '2014'`).
+
+### Consequences
+- **Positive:** Complete fidelity to official rules; existing campaigns continue uninterrupted; new players enjoy modern 2024 character creation.
+- **Negative:** Engine complexity increases with dual validation checks; test suite must cover both rule paths across all 12 classes (1515+ tests).
+
+---
+
+## ADR-0003: ETag Pulse & Conditional HTTP Polling Architecture in Lieu of WebSockets
+
+### Status
+Accepted
+
+### Context
+PythonAnywhere free and standard plans do not support WebSocket connections or asynchronous ASGI event loops (Django Channels). The application requires real-time coordination for live combat turns, DM dice reveals, and TV screen updates.
+
+### Decision Drivers
+- Absolute compliance with hosting constraints.
+- Responsive experience during live combat ($\le 2.5\text{s}$ latency).
+- Avoid server CPU quota exhaustion caused by continuous polling requests.
+
+### Decision Outcome
+Implement a hybrid polling architecture:
+1. Standard polling interval of 2.5 seconds, paused when the browser tab is hidden (`document.visibilityState === 'hidden'`).
+2. Introduction of the `/api/campaigns/:slug/pulse` endpoint: returns an ETag / Last-Modified hash of the campaign state. If no state change occurred, the server immediately returns `304 Not Modified` with an empty payload, bypassing database serialization.
+
+### Consequences
+- **Positive:** Production stability on PythonAnywhere without hitting CPU tarpits; reliable updates across players and TV screens.
+- **Negative:** Up to 2.5s propagation delay for non-critical events; higher request count than native persistent sockets.
+
+---
+
+## ADR-0004: Server-Side Gated Dice Rigging FIFO Queue with Invisible Substitution
+
+### Status
+Accepted
+
+### Context
+DMs frequently require dramatic control over live dice outcomes for narrative pacing (e.g., ensuring a villain's hit lands or giving a struggling player an epic moment). However, players must never feel their rolls are manipulated or suspect unfair intervention.
+
+### Decision Drivers
+- Complete narrative empowerment for the DM.
+- Absolute secrecy from the player client (zero client-side rigging indicators).
+- Transparent logging and auditability for the DM.
+
+### Decision Outcome
+Create the `DiceRig` model storing a FIFO queue of pre-arranged roll results linked to a `target_user` and `dice_type`. When a player rolls through the application, the roll endpoint consumes from the queue server-side. The player receives normal roll JSON, while the `rigged: true` flag and audit trail are logged strictly in `DiceLog`, queryable only by the DM.
+
+### Consequences
+- **Positive:** Smooth narrative flow; zero client-side trace of tampering; full DM visibility and control.
+- **Negative:** Players must roll via app-integrated dice actions rather than external physical dice for rigging to take effect.
+
+---
+
+## ADR-0005: Unified Mesa Stage Event Bus Consolidating Disparate Screen Handlers
+
+### Status
+Accepted
+
+### Context
+Historically, at least 11 different screens and modals (combat, checks, handouts, map, world cards, dramatic rolls) dispatched content to the TV screen via separate endpoints and distinct data structures. This created inconsistent layouts, race conditions, and heavy cognitive load on the DM.
+
+### Decision Drivers
+- Single, predictable source of truth for what appears on the table screen.
+- Fast, one-click DM controls to project cards, maps, combat, or atmosphere.
+- Clean separation between DM workspace and public screen projection.
+
+### Decision Outcome
+Introduce the **Stage & Mesa Architecture** (`views_campaigns.campaign_stage` and `frontend/src/stage/`):
+- A unified stage state: `{ foreground, background, history, sceneId, mode }`.
+- Universal DM controls: "Show on Screen" (▶), "Clear" (🧹), "Undo" (↶), and "Contrast Toggle" (◐).
+- `/tv/<token>` screen acts as a pure reactive receiver of the Stage bus.
+
+### Consequences
+- **Positive:** Unified operational mental model for the DM; instantaneous screen updates; clean decoupling between private DM prep and public player display.
+- **Negative:** Migration required refactoring legacy tab-based handlers into the new unified Stage schema.
+
+---
+
+## ADR-0006: Open5e SRD 5.2.1 Ingestion Pipeline with Deterministic Portuguese Translation
+
+### Status
+Accepted
+
+### Context
+Manual entry of 300+ monster statblocks is error-prone. The project required the complete SRD 5.2.1 bestiary (CR 0–30) with structured actions, recharge mechanics, and legendary actions, localized into Brazilian Portuguese without violating copyright or presenting unverified machine translations as official text.
+
+### Decision Drivers
+- High-integrity automated ingestion from authoritative open data sources.
+- Structured mechanics (attacks, damage types, saving throws, DCs) that drive automated VTT rolls.
+- Clear distinction between official English rules text and original Portuguese localization.
+
+### Decision Outcome
+Develop `scripts/import-open5e-monsters.mjs` restricted strictly to `document__key=srd-2024`. Synthesize Portuguese names and ability terms through `scripts/monster-names-pt.mjs` using official glossary conventions, outputting `frontend/data/monsters-srd521.js` with 331 structured creatures.
+
+### Consequences
+- **Positive:** Instant access to 331 official 2024 creatures; zero manual data-entry errors; fully runnable attacks in combat.
+- **Negative:** Supplement non-SRD creatures must still be entered manually with user-provided numbers.
+
+---
+
+## ADR-0007: GM Party Insights SWOT & 11-Dimensional Tactical Role Radar Engine
+
+### Status
+Accepted
+
+### Context
+Preparing balanced, engaging sessions requires DMs to understand party composition, weaknesses, damage types, and skill gaps. DMs lacked a real-time analytical overview of party capabilities.
+
+### Decision Drivers
+- Zero-cost client-side evaluation (runs in browser without expensive backend analytics).
+- Grounded in official D&D math (bounded accuracy, spell slots, saving throw proficiencies).
+- Actionable GM output (tailored challenge suggestions, spotlight recommendations).
+
+### Decision Outcome
+Build `frontend/src/metrics/party-metrics.js`:
+- Maps characters against 11 core roles (Damage, Mitigation, Magic, Healing, Ranged, Melee, Control, Utility, Mobility, Social, Exploration) with base ratings adjusted by actual character attributes, feats, and spells.
+- Cross-references party damage types with the SRD bestiary to calculate monster vulnerability and resistance matching.
+- Generates algorithmic SWOT analysis and spotlight prompts ("Give Floyd a social scene: Persuasion +7").
+
+### Consequences
+- **Positive:** Dramatically accelerates session prep; highlights character strengths; prevents accidental party wipes from overlooked damage immunities.
+- **Negative:** Spells without structured damage tags require manual classification via `spell-effects.js`.
+
+---
+
+## ADR-0008: Canvas VTT Coordinate Grid, Fog of War, and Dynamic Token Positioning
+
+### Status
+Accepted
+
+### Context
+Combat in D&D requires spatial visualization. Third-party VTTs require heavy configuration and separate accounts. Forja de Heróis needed a low-overhead, built-in tactical grid supporting map backgrounds, token movement, and fog of war directly visible on the table TV.
+
+### Decision Drivers
+- Ultra-low latency on mobile devices and 1080p TV screens.
+- Zero complex WebGL dependencies; lightweight HTML5 Canvas / SVG rendering.
+- DM-controlled fog of war and player token self-positioning.
+
+### Decision Outcome
+Implement `CombatGrid.jsx` utilizing responsive 2D canvas with panning, zooming, snap-to-grid, and coordinate conversion (`worldToCanvas` / `canvasToWorld`). Maps and tokens are stored as lightweight URLs rather than heavy inline base64 strings in the combat payload.
+
+### Consequences
+- **Positive:** High performance across all devices; seamless integration with the initiative tracker and HP management.
+- **Negative:** Advanced dynamic lighting and 3D line-of-sight are out of scope to maintain simplicity and mobile performance.
+
+---
+
+## ADR-0009: 3-Page Official Form-Fillable PDF Roundtrip Import/Export Engine
+
+### Status
+Accepted
+
+### Context
+Players frequently need physical printouts or want to import character sheets created in D&D Beyond or official fillable PDFs. Proprietary formats create vendor lock-in.
+
+### Decision Drivers
+- Strict compatibility with the official 3-page fillable D&D 5e character sheet.
+- Lossless roundtrip import and export.
+- Graceful overflow handling for spell-heavy and high-feature characters.
+
+### Decision Outcome
+Implement `frontend/src/pdf/export-pdf.js` and `import-pdf.js` using `pdf-lib`. Field coordinate mappings are extracted from the official PDF via `scripts/extract_dnd5e_sheet_layout.py`. When content overflows standard lines, the engine automatically synthesizes continuation sheets matching the official typography and styling.
+
+### Consequences
+- **Positive:** Total data sovereignty; print-ready official PDFs; instant onboarding from existing PDF sheets.
+- **Negative:** Flattened or scanned PDFs without interactive form fields cannot be parsed.
+
+---
+
+## ADR-0010: Hexagonal 3-4-3 Honeycomb Stat Grid with Directional Swipe Advantage
+
+### Status
+Accepted (In Active Refinement)
+
+### Context
+Standard vertical or horizontal ability score blocks consume excessive vertical viewport space on mobile devices and require multiple modal taps to configure advantage or disadvantage.
+
+### Decision Drivers
+- Optimal mobile ergonomics with tactile, intuitive gestures.
+- Distinct split affordances for Ability Checks vs Saving Throws.
+- Direct integration with the Quick Dice Belt.
+
+### Decision Outcome
+Adopt a regular hexagonal lattice ($H = W \times 1.1547$) in a 3–4–3 staggered geometry (`SPEC_BELT_HIVE_STATS_HANDOFF.md`):
+- Row 1: Physical stats (`Str`, `Dex`, `Con`).
+- Row 2: 4 empty hex slots reserving a guaranteed clear-zone for the Quick Dice Belt.
+- Row 3: Mental stats (`Int`, `Wis`, `Cha`).
+- Left half = Ability Check; Right half = Saving Throw.
+- Swipe $\uparrow$ = Advantage; Swipe $\downarrow$ = Disadvantage; Hold crest = Bind modifier to belt.
+
+### Consequences
+- **Positive:** Compact footprint; one-gesture rolling with advantage/disadvantage; zero modal clutter.
+- **Negative:** Requires precise CSS clip-path alignment and touch gesture cancellation to prevent mobile scroll interference.
+
+---
+
+## ADR-0011: Geometric Polyhedral Tessellation & Synchronized 3-Phase Juicy Roll Choreography
+
+### Status
+Accepted
+
+### Context
+Multi-dice rolls (e.g. `10d10`, `10d8`, `5d6`, `7d12`) and modifier-enhanced d20 rolls previously rendered as flat horizontal rows that popped onto the screen abruptly, lacked tactile anticipation, and used inconsistent per-die color palettes.
+
+### Decision Drivers
+- Authentic geometric block tessellations where 50% scale constituent dice dock side-to-side around the central hero die with uniform symmetric gutters on both X and Y axes and zero non-uniform polygon warping.
+- Consistent UI/UX color language across all polyhedral shapes: Golden by default, Emerald Green for Advantage (`tone-adv`), and Crimson Red for Disadvantage (`tone-dis`).
+- Visceral, well-timed animation choreography: smooth 0.5s fade-in, calm zero-wobble start, accelerating shake frequency/strength and motion blur, randomized faster catch-up on neighboring dice, and an instant 750ms climax punch with a single powerful glowing ripple.
+
+### Decision Outcome
+Implement two pure, unit-tested mathematical modules (`frontend/src/dice/dice-tessellation.js` and `frontend/src/dice/dice-rollup.js`) driving `DiceStage.jsx` and `DieShape.jsx`:
+1. **Regular Polygon Geometry & Symmetric Block Tessellation (`dice-tessellation.js`)**: Exact regular polygons (`D4` equilateral triangle, `D6` square, `D8` 45° diamond, `D10/D12/D100` regular pentagon, `D20` pointy-topped regular hexagon) with 50% constituent scale and verified polygon-to-polygon minimum edge distances.
+2. **Smooth 0.5s Roll-Up Interface Fade-In (`FADEIN_DURATION_MS = 500`, `computeFadeInProfile`)**: Fades in both the overlay and the stage container from `opacity: 0, scale: 0.94` to `opacity: 1, scale: 1` over `500ms`.
+3. **Randomized Neighboring Catch-Up (`computeNeighborRollupSchedule`)**: Shuffles completion order across neighboring dice (`finishP in [0.35, 1.00]`) so nested dice unravel their individual numbers along the central roll-up and finish in exact sync at `750ms`.
+4. **Synchronized Climax & Single Powerful Glowing Ripple (`ROLLUP_DURATION_MS = 750`, `LAND_HOLD_MS = 0`, `computeFalloffProfile`)**: At `750ms`, motion blur cuts to `0`, the final rolled number reveals, the elastic punch (`220ms`) fires, and a single powerful glowing ripple (`1050ms`) outstretches in `easeOutRipple` and smoothly fades away.
+
+### Consequences
+- **Positive:** Cohesive, high-craft tabletop feel; zero visual noise from extra rings; deterministic unit-testable math in Node without DOM dependencies.
+- **Negative:** Requires keeping CSS custom properties (`--rollup-fadein-*`, `--shake-*`, `--falloff-*`) synchronized with the `requestAnimationFrame` loop in `DieShape.jsx`.
