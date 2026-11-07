@@ -32,6 +32,7 @@ import FhTitle from '../src/sheet/FhTitle.jsx';
 import FhAttackRow from '../src/sheet/FhAttack.jsx';
 import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
 import { FhHex, FhSkillRow, FhProfLegend, FhTapToRoll } from '../src/sheet/FhChecks.jsx';
+import { SpeciesTraits } from './SheetTabs.jsx';
 import { hpState, hpStateLabel, useHpFeedback } from '../src/sheet/hp-feedback.js';
 import { slotCircleLabel, gemLabel, lockedSlotTitle, slotSpent, slotTap, slotTapTitle } from '../src/sheet/gem-text.js';
 import { condClasses, FhConditionFx, FhConditionArt } from '../src/sheet/FhConditions.jsx';
@@ -111,6 +112,7 @@ const SheetHero = ({
   exportBtnRef,
   setExportOpen,
   setCheatOpen,
+  campaignBanner,
 }) => {
   const pt = lang === 'pt';
   const letter = (char.name || '?').charAt(0).toUpperCase();
@@ -163,6 +165,9 @@ const SheetHero = ({
               🎲 {lang === 'pt' ? (char.cheatMode ? 'Trapaça ativa' : 'Modo trapaça') : (char.cheatMode ? 'Cheat on' : 'Cheat mode')}
             </button>
           </div>
+
+          {/* Status/faixa da campanha contidos no painel do personagem, abaixo das ações */}
+          {campaignBanner}
         </div>
         {/* Estrela e foto vêm depois do corpo: pintam (e recebem o toque) por cima dele,
             sem z-index. Ficam no lado direito do retrato. */}
@@ -390,6 +395,16 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         exportBtnRef={exportBtnRef}
         setExportOpen={setExportOpen}
         setCheatOpen={setCheatOpen}
+        campaignBanner={
+          <CampaignModeBanner
+            char={char}
+            lang={lang}
+            onChange={onUpdate}
+            rev={campRev}
+            onManage={typeof char.id === 'number' ? () => setCampOpen(true) : null}
+            onLogin={onLogin}
+          />
+        }
       />
 
       {/* Pedido de teste do mestre: logo abaixo do topo, para ser visto sem rolar */}
@@ -397,10 +412,13 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         <PlayerChecksBanner char={char} lang={lang} />
       )}
 
-      <SubclassBanner char={char} lang={lang} update={update} />
-      <SpeciesBanner char={char} lang={lang} update={update} />
-      <CampaignModeBanner char={char} lang={lang} onChange={onUpdate} rev={campRev}
-        onManage={typeof char.id === 'number' ? () => setCampOpen(true) : null} onLogin={onLogin} />
+      {/* Progressão: estritamente restrita à aba Jogar ('play') */}
+      {tab === 'play' && (
+        <>
+          <SubclassBanner char={char} lang={lang} update={update} />
+          <SpeciesBanner char={char} lang={lang} update={update} />
+        </>
+      )}
       {campOpen && (
         <Suspense fallback={null}>
           <CampaignLinkModal char={char} lang={lang} onClose={() => setCampOpen(false)} onDone={campaignChanged} />
@@ -472,7 +490,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
 
         {tab === 'features' && (
           <SheetFeatures
-            char={char} lang={lang} placed={placed} cls={cls} race={race}
+            char={char} lang={lang} placed={placed} cls={cls} race={race} update={update}
           />
         )}
 
@@ -3174,6 +3192,33 @@ export const SheetAbilities = ({ char, lang, update, profB, roll }) => {
   );
 };
 
+export const SKILL_GROUPS = [
+  {
+    id: 'search',
+    name: { pt: 'Busca (Search)', en: 'Search' },
+    icon: '🔍',
+    skillIds: ['insight', 'perception', 'survival'],
+  },
+  {
+    id: 'hide',
+    name: { pt: 'Furtividade & Evasão (Hide)', en: 'Hide & Agility' },
+    icon: '🫥',
+    skillIds: ['stealth', 'sleightOfHand', 'acrobatics', 'athletics'],
+  },
+  {
+    id: 'influence',
+    name: { pt: 'Influência (Influence)', en: 'Influence' },
+    icon: '👥',
+    skillIds: ['performance', 'deception', 'persuasion', 'intimidation', 'animalHandling'],
+  },
+  {
+    id: 'study',
+    name: { pt: 'Estudo (Study)', en: 'Study' },
+    icon: '📖',
+    skillIds: ['arcana', 'history', 'investigation', 'medicine', 'nature', 'religion'],
+  },
+];
+
 export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
   const pt = lang === 'pt';
   const profText = (level) => level === 2 ? (pt ? 'Especialista' : 'Expertise') : level ? (pt ? 'Treinado' : 'Proficient') : (pt ? 'Sem treino' : 'Not proficient');
@@ -3186,30 +3231,53 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
           <span aria-hidden="true">·</span>
           <span><FhTapToRoll lang={lang} /></span>
         </>}>{t('skills', lang)}</FhTitle>
-        <div className="fh-skills" data-fab-pass="" style={{ '--fh-rows': Math.ceil(SRD.SKILLS.length / 2) }}>
-          {SRD.SKILLS.map(s => {
-            const bonus = Utils.skillBonus(char, s.id);
-            const isProf = Utils.hasSkillProf(char, s.id);
-            const isExpert = Utils.hasExpertise(char, s.id);
-            const level = isExpert ? 2 : isProf ? 1 : 0;
-            return (
-              <FhSkillRow key={s.id} name={tName('skill', s.id, lang)} abbr={t(s.stat + 'Sh', lang)} bonus={Utils.fmtMod(bonus)}
-                level={level}
-                profTitle={profText(level)}
-                profLabel={`${tName('skill', s.id, lang)}: ${profText(level)}`}
-                onToggle={() => {
-                  if (isExpert) {
-                    update({ skillExpertise: (char.skillExpertise || []).filter(x => x !== s.id), skillProfs: (char.skillProfs || []).filter(x => x !== s.id) });
-                  } else if (isProf) {
-                    update({ skillExpertise: [...(char.skillExpertise || []), s.id] });
-                  } else {
-                    update({ skillProfs: [...(char.skillProfs || []), s.id] });
-                  }
-                }}
-                onRoll={() => roll({ die: 20, mod: bonus, label: tName('skill', s.id, lang) })} />
-            );
-          })}
+
+        {/* 4 Categorical Rows / Cards: Search, Hide, Influence, Study */}
+        <div className="fh-skill-categories-grid">
+          {SKILL_GROUPS.map(grp => (
+            <div key={grp.id} className="fh-skill-group-card card">
+              <div className="fh-skill-group-header">
+                <span className="fh-skill-group-icon" aria-hidden="true">{grp.icon}</span>
+                <span className="fh-skill-group-title">{grp.name[lang] || grp.name.pt}</span>
+                <span className="fh-skill-group-count">{grp.skillIds.length} {pt ? 'perícias' : 'skills'}</span>
+              </div>
+              <div className="fh-skills-group-list">
+                {grp.skillIds.map(id => {
+                  const s = SRD.SKILLS.find(x => x.id === id) || { id, stat: 'wis' };
+                  const bonus = Utils.skillBonus(char, s.id);
+                  const isProf = Utils.hasSkillProf(char, s.id);
+                  const isExpert = Utils.hasExpertise(char, s.id);
+                  const level = isExpert ? 2 : isProf ? 1 : 0;
+                  const passive = 10 + bonus;
+                  return (
+                    <FhSkillRow
+                      key={s.id}
+                      name={tName('skill', s.id, lang)}
+                      abbr={t(s.stat + 'Sh', lang)}
+                      bonus={Utils.fmtMod(bonus)}
+                      passive={passive}
+                      level={level}
+                      lang={lang}
+                      profTitle={profText(level)}
+                      profLabel={`${tName('skill', s.id, lang)}: ${profText(level)}`}
+                      onToggle={() => {
+                        if (isExpert) {
+                          update({ skillExpertise: (char.skillExpertise || []).filter(x => x !== s.id), skillProfs: (char.skillProfs || []).filter(x => x !== s.id) });
+                        } else if (isProf) {
+                          update({ skillExpertise: [...(char.skillExpertise || []), s.id] });
+                        } else {
+                          update({ skillProfs: [...(char.skillProfs || []), s.id] });
+                        }
+                      }}
+                      onRoll={() => roll({ die: 20, mod: bonus, label: tName('skill', s.id, lang), isCheck: true })}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
+
         <FhProfLegend lang={lang} expert />
         {placed?.by?.skills && <FhFeatures items={placed.by.skills} multi={placed.multi} lang={lang} place="skills" />}
       </section>
@@ -3252,9 +3320,8 @@ export const SheetTools = ({ char, lang, update, placed }) => {
   );
 };
 
-export const SheetFeatures = ({ char, lang, placed, cls, race }) => {
+export const SheetFeatures = ({ char, lang, placed, cls, race, update }) => {
   const pt = lang === 'pt';
-  const speciesTraits = race?.traits || Utils.races(char.rulesVersion).find(r => r.id === char.race)?.traits || [];
 
   return (
     <div className="fh-scope-content fh-scope-features">
@@ -3280,20 +3347,8 @@ export const SheetFeatures = ({ char, lang, placed, cls, race }) => {
         </section>
       )}
 
-      {/* Species / Racial Traits */}
-      {speciesTraits.length > 0 && (
-        <section className="fh-panel">
-          <FhTitle>{pt ? `Traços de Espécie (${race?.name?.[lang] || char.race || 'Espécie'})` : `Species Traits (${race?.name?.[lang] || char.race || 'Species'})`}</FhTitle>
-          <div className="fh-traits">
-            {speciesTraits.map((t, idx) => (
-              <div key={idx} className="text-sm" style={{ marginBottom: 8 }}>
-                <strong style={{ color: 'var(--gold-deep)' }}>{t.name?.[lang] || t.name}:</strong>{' '}
-                <span>{t.desc?.[lang] || t.desc}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Species Traits: officially on Features tab with full interactive choices and traits */}
+      {race && <SpeciesTraits char={char} lang={lang} update={update} race={race} />}
     </div>
   );
 };

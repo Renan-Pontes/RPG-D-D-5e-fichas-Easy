@@ -82,6 +82,10 @@ export default function DieShape({
       el.style.setProperty('--num-blur', `${profile.numberBlurPx.toFixed(2)}px`);
       el.style.setProperty('--num-trail', `${profile.numberTrailPx.toFixed(2)}px`);
       el.style.setProperty('--num-stretch', `${profile.numberStretch}`);
+      el.style.setProperty('--charge-glow', `${profile.chargeGlow || 0}`);
+      el.style.setProperty('--sparks-emit', `${profile.sparksEmit || 0}`);
+      el.style.setProperty('--sparks-blown', '0');
+      el.style.setProperty('--sparks-opacity', `${profile.sparksEmit || 0}`);
     };
 
     const resetAnticipationVars = () => {
@@ -90,6 +94,8 @@ export default function DieShape({
       el.style.setProperty('--shake-y', '0px');
       el.style.setProperty('--shake-rot', '0deg');
       el.style.setProperty('--charge-scale', '1');
+      el.style.setProperty('--charge-glow', '0');
+      el.style.setProperty('--sparks-emit', '0');
       el.style.setProperty('--die-blur', '0px');
       el.style.setProperty('--ghost-x', '0px');
       el.style.setProperty('--ghost-y', '0px');
@@ -106,6 +112,8 @@ export default function DieShape({
       el.style.setProperty('--falloff-ring-opacity', `${falloffProfile.ringOpacity}`);
       el.style.setProperty('--falloff-pulse-scale', `${falloffProfile.pulseScale}`);
       el.style.setProperty('--falloff-pulse-opacity', `${falloffProfile.pulseOpacity}`);
+      el.style.setProperty('--sparks-blown', `${falloffProfile.sparksBlown || 0}`);
+      el.style.setProperty('--sparks-opacity', `${falloffProfile.sparksOpacity || 0}`);
       if (stageWrap) {
         stageWrap.style.setProperty('--falloff-roll-scale', `${falloffProfile.rollScale}`);
       }
@@ -119,6 +127,8 @@ export default function DieShape({
       el.style.setProperty('--falloff-ring-opacity', '0');
       el.style.setProperty('--falloff-pulse-scale', '0.88');
       el.style.setProperty('--falloff-pulse-opacity', '0');
+      el.style.setProperty('--sparks-blown', '0');
+      el.style.setProperty('--sparks-opacity', '0');
       if (stageWrap) {
         stageWrap.style.setProperty('--falloff-roll-scale', '1');
       }
@@ -330,6 +340,23 @@ export default function DieShape({
             <path d={polyPath} className="die-falloff-ring-poly" />
           </svg>
         </>
+      )}
+
+      {/* Sparks emitter: lashes out twinkling sparks as roll-up builds, blown away by explosion ripple */}
+      {isHero && animPhase !== 'idle' && (
+        <div className="die-sparks-emitter" aria-hidden="true">
+          {[0, 45, 90, 135, 180, 225, 270, 315].map((deg, idx) => (
+            <span
+              key={deg}
+              className={`die-spark die-spark-${idx}`}
+              style={{
+                '--spark-deg': `${deg}deg`,
+                '--spark-dist': `${(size * 0.52) + (idx % 3) * 14}px`,
+                '--spark-delay': `${(idx * 35) % 140}ms`,
+              }}
+            />
+          ))}
+        </div>
       )}
 
       <svg

@@ -392,7 +392,7 @@
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: "seal name" "sub sub" "tags tags" "actions actions";
+  grid-template-areas: "seal name" "sub sub" "tags tags" "actions actions" "camp camp";
   align-items: center;
   column-gap: 14px;
   row-gap: 8px;
@@ -597,7 +597,7 @@
   .ficha .fh-insp { top: calc(var(--fh-cover-h) - 58px); }
   .ficha .fh-hero-body {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "seal" "name" "sub" "tags" "actions";
+    grid-template-areas: "seal" "name" "sub" "tags" "actions" "camp";
     row-gap: 8px;
     padding: calc(var(--fh-cover-h) - 58px) 16px 16px;
   }
@@ -5002,4 +5002,149 @@
 .ficha .fh-belt-slot.is-bound .fh-die-crease-facet {
   stroke: var(--slot-bound-neon, var(--gold)) !important;
   filter: drop-shadow(0 0 8px var(--slot-bound-glow, rgba(237, 203, 122, 0.85))) !important;
+}
+
+
+/* Campaign banner encapsulated inside character hero panel */
+.ficha .fh-hero .campaign-mode-inline,
+.ficha .fh-hero .campaign-mode-banner {
+  grid-area: camp;
+  margin: 6px 0 0 0;
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: var(--ink-secondary);
+}
+
+.ficha .fh-hero .campaign-mode-inline .fh-camp-inline-text {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.ficha .fh-hero .campaign-mode-inline .fh-camp-link {
+  padding: 2px 8px;
+  font-size: 0.78rem;
+  border-radius: 4px;
+}
+
+/* Categorized Skills: Search, Hide, Influence, Study */
+.ficha .fh-skill-categories-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+@media (min-width: 900px) {
+  .ficha .fh-skill-categories-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.ficha .fh-skill-group-card {
+  padding: 12px 14px;
+  border: 1px solid rgba(224, 181, 94, 0.28);
+  border-radius: 6px;
+  background: rgba(14, 10, 8, 0.65);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+.ficha .fh-skill-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(224, 181, 94, 0.18);
+}
+
+.ficha .fh-skill-group-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.ficha .fh-skill-group-title {
+  font-family: var(--display);
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+}
+
+.ficha .fh-skill-group-count {
+  margin-left: auto;
+  font-family: var(--display);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(224, 181, 94, 0.12);
+  color: var(--ink-secondary);
+}
+
+.ficha .fh-skills-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Passive score & Active bonus side-by-side */
+.ficha .fh-skill-scores {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: end;
+}
+
+.ficha .fh-skill-pass {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(18, 14, 10, 0.65);
+  border: 1px solid rgba(224, 181, 94, 0.22);
+  color: var(--ink-secondary);
+  font-size: 0.88rem;
+}
+
+.ficha .fh-score-tag {
+  font-family: var(--display);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  opacity: 0.72;
+}
+
+.ficha .fh-score-num {
+  font-family: var(--display);
+  font-weight: 800;
+  color: var(--ink-primary);
+}
+
+.ficha .fh-skill-mod {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(36, 24, 14, 0.75);
+  border: 1px solid rgba(224, 181, 94, 0.38);
+  font-size: 0.95rem;
+}
+
+.ficha .fh-skill-mod .fh-score-num {
+  color: var(--gold);
+}
+
+.ficha .fh-skill.is-prof .fh-skill-mod .fh-score-num {
+  color: var(--gold-bright);
 }

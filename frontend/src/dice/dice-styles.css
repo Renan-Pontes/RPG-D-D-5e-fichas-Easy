@@ -1069,7 +1069,11 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
 }
 
 .dice-stage-2d .die-shape.is-phase-rollup .die-main-svg {
-  filter: blur(var(--die-blur, 0px)) drop-shadow(var(--ghost-x, 0px) var(--ghost-y, 0px) var(--die-blur, 0px) rgba(237, 203, 122, 0.52));
+  filter:
+    brightness(calc(1 + var(--charge-glow, 0) * 0.95))
+    drop-shadow(0 0 calc(var(--charge-glow, 0) * 18px) rgba(255, 235, 160, calc(var(--charge-glow, 0) * 0.88)))
+    drop-shadow(var(--ghost-x, 0px) var(--ghost-y, 0px) var(--die-blur, 0px) rgba(237, 203, 122, 0.52))
+    blur(var(--die-blur, 0px));
   will-change: filter;
 }
 
@@ -1376,4 +1380,93 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   font-weight: 800;
   color: #fff9ee;
   text-shadow: 0 0 8px rgba(237, 203, 122, 0.75);
+}
+
+
+/* Ability Check HUD Target Banner */
+.dice-check-target-banner {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 18px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(46, 34, 10, 0.94) 0%, rgba(20, 14, 5, 0.96) 100%);
+  border: 1.5px solid rgba(237, 203, 122, 0.85);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.75),
+    0 0 18px rgba(237, 203, 122, 0.55),
+    inset 0 1px 0 rgba(255, 235, 170, 0.35);
+  z-index: 25;
+  pointer-events: none;
+  animation: save-banner-entrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.dice-check-target-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 6px #edcb7a);
+}
+
+.dice-check-target-title {
+  font-family: var(--display, serif);
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #fff8e8;
+  text-shadow: 0 0 10px rgba(237, 203, 122, 0.85), 0 1px 2px #000;
+}
+
+/* Sparks Emitter for juicy roll-up build & explosive ripple blow-away */
+.die-sparks-emitter {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 12;
+}
+
+.die-spark {
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 15%, #ffe68a 55%, #edcb7a 100%);
+  box-shadow: 0 0 6px #fff, 0 0 14px rgba(255, 230, 120, 0.95);
+  opacity: var(--sparks-opacity, 0);
+  transform:
+    rotate(var(--spark-deg, 0deg))
+    translate(calc(var(--spark-dist, 50px) * (0.35 + var(--sparks-emit, 0) * 0.65 + var(--sparks-blown, 0) * 1.8)))
+    scale(calc(var(--sparks-emit, 0) * (1 - var(--sparks-blown, 0) * 0.65)));
+  transition: opacity 0.08s ease-out;
+  animation: spark-twinkle 0.14s infinite alternate;
+  animation-delay: var(--spark-delay, 0ms);
+}
+
+.die-shape.tone-adv .die-spark {
+  background: radial-gradient(circle, #ffffff 15%, #68ffaa 55%, #10f07a 100%);
+  box-shadow: 0 0 6px #fff, 0 0 14px rgba(16, 240, 122, 0.95);
+}
+
+.die-shape.tone-dis .die-spark,
+.die-shape.tone-fumble .die-spark {
+  background: radial-gradient(circle, #ffffff 15%, #ff8899 55%, #ff3344 100%);
+  box-shadow: 0 0 6px #fff, 0 0 14px rgba(255, 51, 68, 0.95);
+}
+
+@keyframes spark-twinkle {
+  0% {
+    filter: brightness(1) drop-shadow(0 0 2px currentColor);
+  }
+  100% {
+    filter: brightness(2.2) drop-shadow(0 0 8px #fff);
+  }
 }

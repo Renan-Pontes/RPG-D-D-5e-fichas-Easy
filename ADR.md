@@ -24,6 +24,8 @@
 - [ADR-0014: 25% Proportional Scale Expansion for Dice Belt Mode and Honeycomb Hexads](#adr-0014-25-proportional-scale-expansion-for-dice-belt-mode-and-honeycomb-hexads)
 - [ADR-0015: Decoupled 4-Scope Stats Navigation, Gesture-Based Mobile Horizontal Swipe, Resistance Save Checkered Vignette, and Crimson Natural 1 Fumble Visuals](#adr-0015-decoupled-4-scope-stats-navigation-gesture-based-mobile-horizontal-swipe-resistance-save-checkered-vignette-and-crimson-natural-1-fumble-visuals)
 - [ADR-0016: Top-Bar 10-Tab Hierarchy, Mobile Horizontal Swipe Navigation, Save Vignette Ripple Pulse, and Non-d20 Half-Roll Disclosure](#adr-0016-top-bar-10-tab-hierarchy-mobile-horizontal-swipe-navigation-save-vignette-ripple-pulse-and-non-d20-half-roll-disclosure)
+- [ADR-0017: Exact 10-Tab Sequential Hierarchy, Character Panel Header Encapsulation, and Full-Screen Pulsing Heraldic Checkered Vignette for Resistance Saves](#adr-0017-exact-10-tab-sequential-hierarchy-character-panel-header-encapsulation-and-full-screen-pulsing-heraldic-checkered-vignette-for-resistance-saves)
+- [ADR-0018: Character Hero Panel Sub-Header Encapsulation, Ability Check HUD Toast Banner, Progression & Species Trait Scope Discipline, Kinetic Spark Roll-Up Juiciness, and 4-Row Categorized Skills Grid with Side-by-Side Passive/Active Bonuses](#adr-0018-character-hero-panel-sub-header-encapsulation-ability-check-hud-toast-banner-progression--species-trait-scope-discipline-kinetic-spark-roll-up-juiciness-and-4-row-categorized-skills-grid-with-side-by-side-passiveactive-bonuses)
 
 ---
 
@@ -547,3 +549,49 @@ Following user testing and mobile gameplay validation, three UX/UI discrepancies
 ### Consequences
 - **Positive:** Perfect ergonomic alignment with player intuition and PHB structure; actions visually integrated into the character's identity panel with zero page-top clutter; spectacular, high-impact saving throw audiovisual drama with full-screen checkered presence.
 - **Verification:** 1,536 / 1,536 frontend tests passing (100% green); Vite production build successful in 13.28s; WCAG touch targets verified.
+
+
+---
+
+## ADR-0018: Character Hero Panel Sub-Header Encapsulation, Ability Check HUD Toast Banner, Progression & Species Trait Scope Discipline, Kinetic Spark Roll-Up Juiciness, and 4-Row Categorized Skills Grid with Side-by-Side Passive/Active Bonuses
+
+### Status
+Accepted & Implemented (2026-11-07)
+
+### Context
+User feedback demanded targeted ergonomic and visual improvements across character sheet hierarchy, dice roll anticipation, and skill management:
+1. **Loose Campaign Status Text:** The standalone text `"Personal sheet · not in a campaign; level and abilities change through Progression"` sat loosely outside the character's panel above the tab bar. It required visual encapsulation within the hero identity block directly beneath Export / Edit / Cheat mode.
+2. **Ability Check Roll Toast Consistency:** Saving Throws introduced a dedicated HUD banner (`🛡️ TESTE DE RESISTÊNCIA` / `🛡️ SAVING THROW`), whereas general Ability Checks lacked equivalent visual prominence. Players needed an identical top toast banner with the target iconography `🎯` (`🎯 TESTE DE ATRIBUTO` / `🎯 ABILITY CHECK`).
+3. **Strict Scope Discipline for Progression & Species Traits:** Progression banners (`SubclassBanner`, `SpeciesBanner`) previously rendered at the global sheet level above all tabs, bleeding onto pure ability scores, spells, tools, and inventory tabs. Furthermore, Species Traits were placed on the Story tab rather than Features. The user requested: Progression must solely exist on the `Play` tab, and Species Traits belong on the `Features` tab.
+4. **Kinetic Roll-Up Juiciness (Sparks & Climax Ripple Blow-Away):** The 750ms roll-up needed enhanced anticipation drama: as the roll approaches the climax number reveal, the die glow must intensify exponentially, lashing out radiant twinkling sparks, which are then blown outward and rapidly extinguished by the radial shockwave ripple.
+5. **4-Row Categorized Skills Grid:** The 18 SRD skills were listed in a flat alphabetic grid. D&D 2024 / PHB rules establish 4 canonical action categories: Search (Insight, Perception, Survival), Hide (Stealth, Sleight Of Hand, Acrobatics, Athletics), Influence (Performance, Deception, Persuasion, Intimidation, Handle Animal), and Study (Arcane, History, Investigation, Medicine, Nature, Religion).
+6. **Side-by-Side Passive Score & Active Bonus:** Players frequently need both passive scores ($10 + \text{mod}$) and active roll modifiers without having to perform mental addition or switch screens.
+
+### Decision Outcome
+1. **Hero Panel Encapsulation:**
+   - Integrated `CampaignModeBanner` as a first-class child inside `SheetHero` (`.fh-hero-body`), mapped to grid area `camp` directly beneath `.fh-actions`.
+   - Updated desktop and mobile grid-template-areas to `"seal name" "sub sub" "tags tags" "actions actions" "camp camp"` (desktop) and `"seal" "name" "sub" "tags" "actions" "camp"` (mobile).
+2. **Ability Check HUD Toast Banner (`🎯`):**
+   - Added `isCheck` detection across `DiceRoller.jsx` (`rollParsed`, `performRoll`, `rollUi`, `showResult`).
+   - Rendered `.dice-check-target-banner` with `🎯` and localized `Teste de Atributo` / `Ability Check` in art-deco gold/amber gradients with glowing drop-shadows matching the saving throw banner.
+3. **Scope Discipline:**
+   - Gated `SubclassBanner` and `SpeciesBanner` strictly to `{tab === 'play' && ...}` in `Sheet.jsx`.
+   - Removed `<SpeciesTraits />` from `SheetStory` in `SheetTabs.jsx`.
+   - Exported `SpeciesTraits` from `SheetTabs.jsx` and integrated it into `SheetFeatures` alongside class features and feats.
+4. **Juicy Roll-Up Sparks & Glow:**
+   - In `dice-rollup.js`: added `chargeGlow` and `sparksEmit` to `computeAnticipationProfile` (exponential ramp in the last 45% of roll-up), and `sparksBlown` / `sparksOpacity` to `computeFalloffProfile` (shockwave blast and extinction within 320ms).
+   - In `DieShape.jsx`: rendered `.die-sparks-emitter` with 8 radial spark particles that twinkle during late anticipation and blow outward during the ripple.
+   - In `dice-styles.css`: added dynamic brightness/drop-shadow glow filter driven by `--charge-glow` and `@keyframes spark-twinkle`.
+5. **4-Row Categorized Skills Grid (`SKILL_GROUPS`):**
+   - Defined `SKILL_GROUPS` in `Sheet.jsx`:
+     - **Search (Busca):** Insight, Perception, Survival.
+     - **Hide (Furtividade & Evasão):** Stealth, Sleight of Hand, Acrobatics, Athletics.
+     - **Influence (Influência):** Performance, Deception, Persuasion, Intimidation, Animal Handling.
+     - **Study (Estudo):** Arcana, History, Investigation, Medicine, Nature, Religion.
+   - Rendered as responsive cards with icon, category badge, and skill count.
+6. **Side-by-Side Passive and Active Scores:**
+   - In `FhChecks.jsx`: updated `FhSkillRow` to render `.fh-skill-scores` containing `.fh-skill-pass` (`PASS: 10 + bonus`) and `.fh-skill-mod` (`ROL: +X`) side by side.
+
+### Consequences
+- **Positive:** Pristine cognitive organization across tabs; rich tactical convenience with instant passive/active references; breathtaking kinetic audiovisual polish during dice rolls; full alignment with D&D 2024 action taxonomy.
+- **Verification:** 1,542 / 1,542 frontend unit tests green across 20 suites; Vite production build succeeds with 0 errors in 13.76s.

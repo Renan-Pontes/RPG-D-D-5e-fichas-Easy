@@ -222,6 +222,11 @@ export function computeAnticipationProfile(p) {
   const numberStretch = +(1 + 0.24 * Math.pow(clamped, 2.0)).toFixed(3);
   const chargeScale = +(1 + 0.08 * Math.pow(clamped, 2.0)).toFixed(3);
 
+  // Intense charging glow that builds up exponentially as climax approaches
+  const chargeGlow = +(Math.pow(Math.max(0, (clamped - 0.28) / 0.72), 2.2)).toFixed(3);
+  // Sparks emit and twinkle intensely as climax approaches (0 before 0.38 -> 1 at 1.0)
+  const sparksEmit = +(Math.pow(Math.max(0, (clamped - 0.38) / 0.62), 1.8)).toFixed(3);
+
   return {
     frequencyHz: +frequencyHz.toFixed(2),
     strength: +strength.toFixed(4),
@@ -233,6 +238,8 @@ export function computeAnticipationProfile(p) {
     numberTrailPx,
     numberStretch,
     chargeScale,
+    chargeGlow,
+    sparksEmit,
   };
 }
 
@@ -343,6 +350,10 @@ export function computeFalloffProfile(falloffProgress) {
   const pulseScale = +(0.88 + (FALLOFF_MAX_PULSE_SCALE - 0.88) * eased).toFixed(4);
   const pulseOpacity = +(0.92 * Math.pow(1 - eased, 1.35)).toFixed(4);
 
+  // 4. Sparks blown outward by the explosion ripple and quickly extinguish (fade out by p = 0.32, ~320ms)
+  const sparksBlown = +(Math.min(1, p / 0.35)).toFixed(3);
+  const sparksOpacity = +(Math.max(0, 1 - p / 0.32)).toFixed(3);
+
   return {
     rollScale,
     numberScale,
@@ -350,5 +361,7 @@ export function computeFalloffProfile(falloffProgress) {
     ringOpacity,
     pulseScale,
     pulseOpacity,
+    sparksBlown,
+    sparksOpacity,
   };
 }

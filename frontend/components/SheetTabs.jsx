@@ -1110,14 +1110,12 @@ const SheetStory = ({ char, lang, update, cls, race }) => (
       </div>
     </div>
     </section>
-
-    {race && <SpeciesTraits char={char} lang={lang} update={update} race={race} />}
   </>
 );
 
 // Traços da espécie + resumo das escolhas (linhagem, resistências, magias…).
 // Em campanha a troca fica com o mestre; pendências aparecem na faixa do topo.
-const SpeciesTraits = ({ char, lang, update, race }) => {
+export const SpeciesTraits = ({ char, lang, update, race }) => {
   const [open, setOpen] = useState(false);
   const rows = speciesSummary(char, lang);
   const canEdit = speciesChoiceSpecs(char).length > 0 && !char.inCampaign;

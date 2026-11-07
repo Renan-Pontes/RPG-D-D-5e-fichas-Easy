@@ -21,7 +21,7 @@ export function FhHex({ abbr, mod, score, label, onClick }) {
  * de botão é HTML inválido): o losango alterna o treino (aria-pressed e title, como a
  * bolinha antiga) e o resto da linha rola o teste.
  * level: 0 sem treino, 1 treinado, 2 especialista. */
-export function FhSkillRow({ name, abbr, bonus, level = 0, profTitle, profLabel, onToggle, onRoll }) {
+export function FhSkillRow({ name, abbr, bonus, passive, level = 0, profTitle, profLabel, onToggle, onRoll, lang = 'pt' }) {
   return (
     <div className={`fh-skill${level ? ' is-prof' : ''}`}>
       <button
@@ -35,7 +35,18 @@ export function FhSkillRow({ name, abbr, bonus, level = 0, profTitle, profLabel,
       <button type="button" className="fh-skill-roll" onClick={onRoll}>
         <span className="fh-skill-name">{name}</span>
         <span className="fh-skill-abil">{abbr}</span>
-        <span className="fh-skill-mod">{bonus}</span>
+        <span className="fh-skill-scores">
+          {passive != null && (
+            <span className="fh-skill-pass" title={lang === 'pt' ? `Passivo: ${passive}` : `Passive: ${passive}`}>
+              <span className="fh-score-tag">{lang === 'pt' ? 'P' : 'P'}</span>
+              <strong className="fh-score-num">{passive}</strong>
+            </span>
+          )}
+          <span className="fh-skill-mod" title={lang === 'pt' ? `Bônus Ativo: ${bonus}` : `Active Bonus: ${bonus}`}>
+            {passive != null && <span className="fh-score-tag">{lang === 'pt' ? 'ROL' : 'ACT'}</span>}
+            <strong className="fh-score-num">{bonus}</strong>
+          </span>
+        </span>
       </button>
     </div>
   );
