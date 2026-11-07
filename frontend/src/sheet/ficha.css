@@ -1892,6 +1892,91 @@
     inset 0 2px 8px rgba(0, 0, 0, 0.85);
 }
 
+/* Touch and gesture optimization for belt and attribute hexads */
+.ficha .fh-belt-slot,
+.ficha .fh-belt-hex,
+.ficha .fh-belt-badge,
+.ficha .fh-belt-die-badge {
+  touch-action: none !important;
+}
+
+/* Charging roll visual state: user holds to prime the roll */
+.ficha .fh-belt-slot.is-charging-roll {
+  transform: scale(1.045);
+  box-shadow: 0 0 18px var(--gold-bright, #edcb7a), inset 0 0 12px rgba(255, 235, 170, 0.55) !important;
+  filter: drop-shadow(0 0 12px var(--gold-bright, #edcb7a)) !important;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+.ficha .fh-belt-slot.is-charging-roll .fh-belt-die-badge {
+  filter: drop-shadow(0 0 12px var(--gold-bright, #edcb7a));
+}
+
+/* Specular Reflection Sheen Effect Oscillating from Left to Right Across All Belt Hexads */
+.ficha .fh-belt-sheen {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  pointer-events: none !important;
+  z-index: 15;
+  overflow: hidden;
+}
+
+.ficha .fh-belt-sheen::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  left: -140%;
+  width: 70%;
+  height: 220%;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0) 25%,
+    rgba(255, 245, 190, 0.35) 45%,
+    rgba(255, 255, 255, 0.9) 50%,
+    rgba(255, 245, 190, 0.35) 55%,
+    rgba(255, 255, 255, 0) 75%,
+    transparent 100%
+  );
+  transform: rotate(22deg);
+  opacity: 0;
+  animation: fh-belt-sheen-sweep 2.8s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+}
+
+/* Staggered delay from first (PB) to last (Slot 3) hexad: */
+.ficha .fh-belt-sheen.is-slot-pb::after {
+  animation-delay: 0s;
+}
+.ficha .fh-belt-sheen.is-slot-0::after {
+  animation-delay: 0.32s;
+}
+.ficha .fh-belt-sheen.is-slot-1::after {
+  animation-delay: 0.64s;
+}
+.ficha .fh-belt-sheen.is-slot-2::after {
+  animation-delay: 0.96s;
+}
+
+@keyframes fh-belt-sheen-sweep {
+  0% {
+    left: -140%;
+    opacity: 0;
+  }
+  6% {
+    opacity: 0.95;
+  }
+  24% {
+    left: 140%;
+    opacity: 0;
+  }
+  100% {
+    left: 140%;
+    opacity: 0;
+  }
+}
+
 /* Standard Quick Slot Styling */
 .ficha .fh-belt-slot {
   position: absolute;
@@ -2092,18 +2177,35 @@
   to { stroke-dashoffset: 0; }
 }
 
-.fh-drag-trail-origin {
-  fill: #fff;
-  stroke: var(--gold);
-  stroke-width: 2px;
-  filter: drop-shadow(0 0 8px var(--gold));
+.fh-drag-trail-origin,
+.fh-drag-trail-contour,
+.fh-drag-trail-contour-accent {
+  fill: none !important;
+  pointer-events: none;
 }
-.fh-drag-trail-origin.tone-str { fill: #ff4a5a; stroke: #fff; filter: drop-shadow(0 0 8px #ff4a5a); }
-.fh-drag-trail-origin.tone-dex { fill: #10f07a; stroke: #fff; filter: drop-shadow(0 0 8px #10f07a); }
-.fh-drag-trail-origin.tone-con { fill: #ff9d3b; stroke: #fff; filter: drop-shadow(0 0 8px #ff9d3b); }
-.fh-drag-trail-origin.tone-int { fill: #38bdf8; stroke: #fff; filter: drop-shadow(0 0 8px #38bdf8); }
-.fh-drag-trail-origin.tone-wis { fill: #c084fc; stroke: #fff; filter: drop-shadow(0 0 8px #c084fc); }
-.fh-drag-trail-origin.tone-cha { fill: #facc15; stroke: #fff; filter: drop-shadow(0 0 8px #facc15); }
+.fh-drag-trail-contour {
+  stroke: var(--gold-bright, #edcb7a);
+  stroke-width: 2.8px;
+  filter: drop-shadow(0 0 8px var(--gold-bright, #edcb7a));
+}
+.fh-drag-trail-contour.tone-str { stroke: #ff4a5a; filter: drop-shadow(0 0 10px #ff4a5a); }
+.fh-drag-trail-contour.tone-dex { stroke: #10f07a; filter: drop-shadow(0 0 10px #10f07a); }
+.fh-drag-trail-contour.tone-con { stroke: #ff9d3b; filter: drop-shadow(0 0 10px #ff9d3b); }
+.fh-drag-trail-contour.tone-int { stroke: #38bdf8; filter: drop-shadow(0 0 10px #38bdf8); }
+.fh-drag-trail-contour.tone-wis { stroke: #c084fc; filter: drop-shadow(0 0 10px #c084fc); }
+.fh-drag-trail-contour.tone-cha { stroke: #facc15; filter: drop-shadow(0 0 10px #facc15); }
+
+.fh-drag-trail-contour-accent {
+  stroke-width: 1.2px;
+  stroke-dasharray: 4 3;
+  opacity: 0.85;
+}
+.fh-drag-trail-contour-accent.tone-str { stroke: #ff7080; }
+.fh-drag-trail-contour-accent.tone-dex { stroke: #40fba0; }
+.fh-drag-trail-contour-accent.tone-con { stroke: #ffb860; }
+.fh-drag-trail-contour-accent.tone-int { stroke: #60d0ff; }
+.fh-drag-trail-contour-accent.tone-wis { stroke: #d5a0ff; }
+.fh-drag-trail-contour-accent.tone-cha { stroke: #fde047; }
 
 .fh-drag-beacon-halo {
   fill: rgba(20, 14, 8, 0.85);

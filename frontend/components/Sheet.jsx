@@ -1894,7 +1894,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
     }
   };
 
-  // Hexad drag-to-bind gesture: user holds on ability score tile and drags towards belt
+  // Hexad drag-to-bind gesture: user holds on ability score tile or drags towards belt
   const onTilePointerDown = (e) => {
     if (e.target.closest('.fh-belt-badge')) return;
     const startX = e.clientX;
@@ -1903,7 +1903,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
     const timer = setTimeout(() => {
       const rect = hexRef.current ? hexRef.current.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
       onStartDrag?.(k, { clientX: startX, clientY: startY }, rect);
-    }, 180);
+    }, 150);
 
     hexDragRef.current = { startX, startY, active: true, timer };
   };
@@ -1912,7 +1912,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
     const h = hexDragRef.current;
     if (!h.active) return;
     const dist = Math.hypot(e.clientX - h.startX, e.clientY - h.startY);
-    if (dist > 8 && onStartDrag) {
+    if (dist > 6 && onStartDrag) {
       if (h.timer) clearTimeout(h.timer);
       hexDragRef.current = { startX: 0, startY: 0, active: false, timer: null };
       const rect = hexRef.current ? hexRef.current.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
@@ -2352,6 +2352,9 @@ const BeltPbSlot = ({
         <div className="fh-belt-pb-etched-wrap">
           <span className="fh-belt-pb-etched">PB +{profB}</span>
         </div>
+
+        {/* Specular Reflection Sheen when PB Active */}
+        {pbActive && <div className="fh-belt-sheen is-slot-pb" aria-hidden="true" />}
       </article>
     </div>
   );
@@ -2372,10 +2375,13 @@ const BeltQuickSlot = ({
   pbActive,
   profB,
 }) => {
+  const HOLD_TO_ROLL_MS = 220;
   const touchRef = useRef({ x: 0, y: 0, time: 0, pointerId: null });
   const dieKnobRef = useRef({ startX: 0, startY: 0, movedY: false, movedX: false, pointerId: null, at: 0 });
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
+  const [isCharging, setIsCharging] = useState(false);
+  const chargeTimerRef = useRef(null);
 
   const pt = lang === 'pt';
   const isBound = !!slot.bound;
@@ -2396,21 +2402,38 @@ const BeltQuickSlot = ({
   const bonusStr = hasBonus ? Utils.fmtMod(totalMod) : '';
   const formulaLabel = `${dieTypeStr}${bonusStr}`;
 
-  // Slot container gestures (swipe for die shift / count shift, tap to roll)
+  // Slot container gestures: Hold & Release to roll; Simple Tap on d20 deactivates stance!
   const onDown = (e) => {
-    touchRef.current = { x: e.clientX, y: e.clientY, time: Date.now(), pointerId: e.pointerId };
+    const pointerId = e.pointerId;
+    touchRef.current = { x: e.clientX, y: e.clientY, time: Date.now(), pointerId };
     onSelect(index);
-    e.currentTarget.setPointerCapture?.(e.pointerId);
+    try { e.currentTarget.setPointerCapture?.(pointerId); } catch (_) {}
+
+    if (chargeTimerRef.current) clearTimeout(chargeTimerRef.current);
+    chargeTimerRef.current = setTimeout(() => {
+      setIsCharging(true);
+      if (navigator.vibrate) navigator.vibrate(18);
+    }, HOLD_TO_ROLL_MS);
   };
 
   const onUp = (e) => {
+    if (chargeTimerRef.current) {
+      clearTimeout(chargeTimerRef.current);
+      chargeTimerRef.current = null;
+    }
+    const wasCharging = isCharging;
+    setIsCharging(false);
+
     const t = touchRef.current;
-    if (t.pointerId != null) e.currentTarget.releasePointerCapture?.(t.pointerId);
+    if (t.pointerId != null) {
+      try { e.currentTarget.releasePointerCapture?.(t.pointerId); } catch (_) {}
+    }
     touchRef.current = { x: 0, y: 0, time: 0, pointerId: null };
 
     const dx = e.clientX - t.x;
     const dy = e.clientY - t.y;
     const dist = Math.hypot(dx, dy);
+    const holdDuration = Date.now() - t.time;
 
     // Horizontal swipe -> die type
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 18) {
@@ -2424,10 +2447,21 @@ const BeltQuickSlot = ({
       onShiftCount(index, dy < 0 ? step : -step);
       return;
     }
-    // Non-swipe release (both short tap AND tap-and-hold): execute roll on pointer/finger release!
+
+    // In-place interaction (dist < 16)
     if (dist < 16) {
       onSelect(index);
-      onRoll(index);
+      if (holdDuration >= HOLD_TO_ROLL_MS || wasCharging) {
+        // HELD AND THEN RELEASED -> EXECUTE ROLL!
+        onRoll(index);
+      } else {
+        // SIMPLE TAP:
+        // If it's a d20 with Advantage or Disadvantage, simple tap deactivates the stance!
+        if (isD20 && advMode !== 'normal') {
+          onSetAdvMode(index, 'normal');
+          if (navigator.vibrate) navigator.vibrate(20);
+        }
+      }
     }
   };
 
@@ -2446,7 +2480,13 @@ const BeltQuickSlot = ({
       at: Date.now(),
     };
     setIsPulling(true);
-    e.currentTarget.setPointerCapture?.(pointerId);
+    try { e.currentTarget.setPointerCapture?.(pointerId); } catch (_) {}
+
+    if (chargeTimerRef.current) clearTimeout(chargeTimerRef.current);
+    chargeTimerRef.current = setTimeout(() => {
+      setIsCharging(true);
+      if (navigator.vibrate) navigator.vibrate(18);
+    }, HOLD_TO_ROLL_MS);
   };
 
   const onDieKnobPointerMove = (e) => {
@@ -2459,24 +2499,42 @@ const BeltQuickSlot = ({
 
     if (Math.abs(dy) > 4 && Math.abs(dy) >= Math.abs(dx)) {
       g.movedY = true;
+      if (chargeTimerRef.current) {
+        clearTimeout(chargeTimerRef.current);
+        chargeTimerRef.current = null;
+      }
+      setIsCharging(false);
       const clamped = Math.max(-10, Math.min(10, dy));
       setPullY(clamped);
     } else if (Math.abs(dx) > 16 && Math.abs(dx) > Math.abs(dy)) {
       g.movedX = true;
+      if (chargeTimerRef.current) {
+        clearTimeout(chargeTimerRef.current);
+        chargeTimerRef.current = null;
+      }
+      setIsCharging(false);
     }
   };
 
   const onDieKnobPointerUp = (e) => {
     if (!isD20) return;
     e.stopPropagation();
+    if (chargeTimerRef.current) {
+      clearTimeout(chargeTimerRef.current);
+      chargeTimerRef.current = null;
+    }
+    const wasCharging = isCharging;
+    setIsCharging(false);
+
     const g = dieKnobRef.current;
     if (!g.pointerId) return;
     const dy = e.clientY - g.startY;
     const dx = e.clientX - g.startX;
     const movedY = g.movedY;
     const movedX = g.movedX;
+    const holdDuration = Date.now() - g.at;
 
-    e.currentTarget.releasePointerCapture?.(g.pointerId);
+    try { e.currentTarget.releasePointerCapture?.(g.pointerId); } catch (_) {}
     dieKnobRef.current = { startX: 0, startY: 0, movedY: false, movedX: false, pointerId: null, at: 0 };
     setIsPulling(false);
     setPullY(0);
@@ -2497,14 +2555,29 @@ const BeltQuickSlot = ({
       return;
     }
 
-    // Tap or tap-and-hold on D20 silhouette: pointer release executes roll!
+    // In-place interaction on D20 silhouette:
     onSelect(index);
-    onRoll(index);
+    if (holdDuration >= HOLD_TO_ROLL_MS || wasCharging) {
+      // HELD AND THEN RELEASED -> EXECUTE ROLL!
+      onRoll(index);
+    } else {
+      // SIMPLE TAP on d20 knob:
+      // Deactivate advantage / disadvantage!
+      if (advMode !== 'normal') {
+        onSetAdvMode(index, 'normal');
+        if (navigator.vibrate) navigator.vibrate(20);
+      }
+    }
   };
 
   const onDieKnobPointerCancel = (e) => {
     if (!isD20) return;
     e.stopPropagation();
+    if (chargeTimerRef.current) {
+      clearTimeout(chargeTimerRef.current);
+      chargeTimerRef.current = null;
+    }
+    setIsCharging(false);
     dieKnobRef.current = { startX: 0, startY: 0, movedY: false, movedX: false, pointerId: null, at: 0 };
     setIsPulling(false);
     setPullY(0);
@@ -2526,8 +2599,8 @@ const BeltQuickSlot = ({
                    : '';
 
   const ariaLabel = pt
-    ? `Slot do cinto: ${formulaLabel}${stanceText}. Toque para rolar`
-    : `Belt slot: ${formulaLabel}${stanceText}. Tap to roll`;
+    ? `Slot do cinto: ${formulaLabel}${stanceText}. Segure e solte para rolar`
+    : `Belt slot: ${formulaLabel}${stanceText}. Hold and release to roll`;
 
   return (
     <div className={`fh-belt-hex-wrap is-quick-slot die-d${slot.die}${isD20 ? ` adv-${advMode}` : ''}${isBound ? ` is-bound tone-${slot.bound}` : ''}`}>
@@ -2557,20 +2630,27 @@ const BeltQuickSlot = ({
       )}
 
       <article
-        className={`fh-belt-slot${isActive ? ' is-active' : ''}${isDragTarget ? ' is-drag-target' : ''}${isBound ? ` is-bound tone-${slot.bound}` : ''}${isD20 ? ` adv-${advMode}` : ''}`}
+        className={`fh-belt-slot${isActive ? ' is-active' : ''}${isDragTarget ? ' is-drag-target' : ''}${isBound ? ` is-bound tone-${slot.bound}` : ''}${isD20 ? ` adv-${advMode}` : ''}${isCharging ? ' is-charging-roll' : ''}`}
         data-quick-slot-index={index}
         onPointerDown={onDown}
         onPointerUp={onUp}
-        onPointerCancel={() => { touchRef.current = { x: 0, y: 0, time: 0, pointerId: null }; }}
+        onPointerCancel={() => {
+          if (chargeTimerRef.current) clearTimeout(chargeTimerRef.current);
+          setIsCharging(false);
+          touchRef.current = { x: 0, y: 0, time: 0, pointerId: null };
+        }}
         onFocus={() => onSelect(index)}
         onKeyDown={onKeyDown}
         tabIndex={0}
         role="button"
         aria-label={ariaLabel}
         title={isD20
-          ? (pt ? `d20: puxe a silhueta ↑ vantagem (2d20), ↓ desvantagem (2d20) · toque para rolar` : `d20: drag silhouette ↑ advantage (2d20), ↓ disadvantage (2d20) · tap to roll`)
-          : (pt ? `Deslize ↔ dado, ↕ qtd; toque para rolar` : `Swipe ↔ die, ↕ count; tap to roll`)}
+          ? (pt ? `d20: arraste ↑ vantagem, ↓ desvantagem · toque para desativar · segure e solte para rolar` : `d20: drag ↑ advantage, ↓ disadvantage · tap to clear · hold & release to roll`)
+          : (pt ? `Deslize ↔ dado, ↕ qtd · segure e solte para rolar` : `Swipe ↔ die, ↕ count · hold & release to roll`)}
       >
+        {/* Specular Reflection Sheen when PB Active */}
+        {pbActive && <div className={`fh-belt-sheen is-slot-${index}`} aria-hidden="true" />}
+
         {/* Center: Perfectly Centered Die Silhouette Badge. When d20, silhouette is the stance knob! */}
         <div
           className={`fh-belt-die-badge die-d${slot.die}${isD20 ? ` is-d20-knob adv-${advMode}${isPulling ? ' is-pulling' : ''}` : ''}`}
@@ -2611,29 +2691,43 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
   const [dragLink, setDragLink] = useState(null);
   const dragLinkRef = useRef(null);
   dragLinkRef.current = dragLink;
+  const lastTargetSlotRef = useRef(null);
 
   const getSlotAtPoint = (x, y) => {
     if (x == null || y == null) return null;
     const elements = document.querySelectorAll('.fh-belt-slot[data-quick-slot-index]');
+    let closestIdx = null;
+    let closestDist = Infinity;
+    const hitMargin = 36;
     for (const el of elements) {
       const rect = el.getBoundingClientRect();
       if (
-        x >= rect.left - 24 &&
-        x <= rect.right + 24 &&
-        y >= rect.top - 24 &&
-        y <= rect.bottom + 24
+        x >= rect.left - hitMargin &&
+        x <= rect.right + hitMargin &&
+        y >= rect.top - hitMargin &&
+        y <= rect.bottom + hitMargin
       ) {
-        return Number(el.getAttribute('data-quick-slot-index'));
+        const cx = (rect.left + rect.right) / 2;
+        const cy = (rect.top + rect.bottom) / 2;
+        const d = Math.hypot(x - cx, y - cy);
+        if (d < closestDist) {
+          closestDist = d;
+          closestIdx = Number(el.getAttribute('data-quick-slot-index'));
+        }
       }
     }
-    return null;
+    return closestIdx;
   };
 
   useEffect(() => {
-    if (!dragLink) return;
+    if (!dragLink) {
+      lastTargetSlotRef.current = null;
+      return;
+    }
 
     const onPointerMove = (e) => {
       const targetIndex = getSlotAtPoint(e.clientX, e.clientY);
+      if (targetIndex != null) lastTargetSlotRef.current = targetIndex;
       setDragLink((prev) => (prev ? {
         ...prev,
         currentX: e.clientX,
@@ -2644,7 +2738,8 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
 
     const onPointerUp = (e) => {
       const current = dragLinkRef.current;
-      const targetIndex = (e ? getSlotAtPoint(e.clientX, e.clientY) : null) ?? current?.targetSlot;
+      const pointSlot = e && e.clientX != null ? getSlotAtPoint(e.clientX, e.clientY) : null;
+      const targetIndex = pointSlot ?? lastTargetSlotRef.current ?? current?.targetSlot;
       if (current && targetIndex != null) {
         const ability = current.ability;
         setSlots((slotsPrev) => slotsPrev.map((s, i) => (
@@ -2654,23 +2749,26 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
         if (navigator.vibrate) navigator.vibrate(40);
       }
       setDragLink(null);
+      lastTargetSlotRef.current = null;
     };
 
-    window.addEventListener('pointermove', onPointerMove, { passive: false });
-    window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', () => setDragLink(null));
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    window.addEventListener('pointerup', onPointerUp, { capture: true });
+    window.addEventListener('pointercancel', onPointerUp, { capture: true });
 
     return () => {
       window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', () => setDragLink(null));
+      window.removeEventListener('pointerup', onPointerUp, { capture: true });
+      window.removeEventListener('pointercancel', onPointerUp, { capture: true });
     };
   }, [dragLink != null]);
 
   const onStartAbilityDrag = (k, e, hexRect) => {
     const startX = hexRect.left + hexRect.width / 2;
-    const startY = hexRect.top + hexRect.height / 2;
+    // The round slider knob is centered at top: 45% of the hexad!
+    const startY = hexRect.top + hexRect.height * 0.45;
     const targetSlot = getSlotAtPoint(e.clientX, e.clientY);
+    lastTargetSlotRef.current = targetSlot;
     setDragLink({
       ability: k,
       startX,
@@ -2757,27 +2855,48 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
 
   return (
     <div className={`fh-belt${pbActive ? ' is-pb-active' : ''}`} data-fab-pass="">
-      {dragLink && (
-        <svg className="fh-belt-drag-overlay" aria-hidden="true">
-          <path
-            className={`fh-drag-trail-path tone-${dragLink.ability}`}
-            d={`M ${dragLink.startX} ${dragLink.startY} Q ${(dragLink.startX + dragLink.currentX) / 2} ${(dragLink.startY + dragLink.currentY) / 2 - 20} ${dragLink.currentX} ${dragLink.currentY}`}
-          />
-          <circle
-            className={`fh-drag-trail-origin tone-${dragLink.ability}`}
-            cx={dragLink.startX}
-            cy={dragLink.startY}
-            r="8"
-          />
-          <g transform={`translate(${dragLink.currentX}, ${dragLink.currentY})`}>
-            <circle className={`fh-drag-beacon-halo tone-${dragLink.ability}`} r="24" />
-            <circle className="fh-drag-beacon-core" r="15" />
-            <text className="fh-drag-beacon-text" textAnchor="middle" dy="1">
-              {BELT_ABBR[dragLink.ability] || dragLink.ability.toUpperCase()}
-            </text>
-          </g>
-        </svg>
-      )}
+      {dragLink && (() => {
+        const dx = dragLink.currentX - dragLink.startX;
+        const dy = dragLink.currentY - dragLink.startY;
+        const dist = Math.hypot(dx, dy);
+        const contourRadius = 20; // knob radius
+        const offset = 22; // starts outside the contour ring
+        const x0 = dist > offset ? dragLink.startX + (dx / dist) * offset : dragLink.startX;
+        const y0 = dist > offset ? dragLink.startY + (dy / dist) * offset : dragLink.startY;
+        const midX = (x0 + dragLink.currentX) / 2;
+        const midY = (y0 + dragLink.currentY) / 2 - 20;
+
+        return (
+          <svg className="fh-belt-drag-overlay" aria-hidden="true">
+            {/* Luminous Contour Rings surrounding the knob without obscuring the ability number */}
+            <circle
+              className={`fh-drag-trail-contour tone-${dragLink.ability}`}
+              cx={dragLink.startX}
+              cy={dragLink.startY}
+              r={contourRadius}
+            />
+            <circle
+              className={`fh-drag-trail-contour-accent tone-${dragLink.ability}`}
+              cx={dragLink.startX}
+              cy={dragLink.startY}
+              r={contourRadius + 4}
+            />
+
+            {/* Trailing dashed guide starting strictly outside the contour ring */}
+            <path
+              className={`fh-drag-trail-path tone-${dragLink.ability}`}
+              d={`M ${x0} ${y0} Q ${midX} ${midY} ${dragLink.currentX} ${dragLink.currentY}`}
+            />
+            <g transform={`translate(${dragLink.currentX}, ${dragLink.currentY})`}>
+              <circle className={`fh-drag-beacon-halo tone-${dragLink.ability}`} r="24" />
+              <circle className="fh-drag-beacon-core" r="15" />
+              <text className="fh-drag-beacon-text" textAnchor="middle" dy="1">
+                {BELT_ABBR[dragLink.ability] || dragLink.ability.toUpperCase()}
+              </text>
+            </g>
+          </svg>
+        );
+      })()}
       <div className="fh-belt-hive-row is-top">
         {top.map((k) => (
           <BeltHex

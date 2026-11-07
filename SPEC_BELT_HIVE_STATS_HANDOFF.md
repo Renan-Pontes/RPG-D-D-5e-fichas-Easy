@@ -184,3 +184,26 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
   - Screen bounding-box collision (`getSlotAtPoint`) checks all `.fh-belt-slot[data-quick-slot-index]` with a 24px expanded hit margin, avoiding DOM hierarchy interception from SVG overlay beacons and guaranteeing assignment to any die type (d4, d6, d8, d10, d12, d20, d100).
 - **Universal Neon Illumination for Assigned Slots**:
   - Bound quick slots illuminate in the vibrant neon color of the assigned ability (`--slot-bound-neon`), highlighting both formula text and die polygon creases.
+
+---
+
+## 9. Hold-to-Roll, Non-Intersecting Satellite, Contoured Drag Ring & Specular Sheen (Commit Pending)
+
+- **Hold-to-Roll & Tap-to-Deactivate D20 Stance**:
+  - Quick dice rolls on the belt require a deliberate hold ($\ge 220$ms) followed by release (`pointerup`) to launch a roll, preventing accidental roll firing.
+  - While holding ($\ge 220$ms), the slot enters `.is-charging-roll`, providing subtle golden bloom feedback and haptic pulse.
+  - A swift tap ($< 220$ms) on a d20 slot in Advantage or Disadvantage stance immediately deactivates the stance back to Normal (`advMode = 'normal'`), without launching a roll.
+  - A swift tap on other dice or normal stance selects the slot without rolling.
+- **Robust Pointer-Captured Drag-to-Bind**:
+  - Dragging an ability score now initiates smoothly on $\ge 6$px movement or 150ms hold.
+  - Global `window` listeners with `{ capture: true }` and `touch-action: none !important;` guarantee pointer release is 100% reliably captured, even on touch devices where native scrolling could trigger `pointercancel`.
+  - Magnetic slot detection with a generous 36px tolerance and centroid distance snapping (`getSlotAtPoint`) ensures assignment is never lost due to finger release jitter.
+- **Non-Intersecting Edge-to-Edge Satellite Unpicked Die**:
+  - The unpicked die in Advantage/Disadvantage is docked at `right: -38px; bottom: -10px;`.
+  - Its bounding box ($x \in [108, 156]$) sits completely outside the hero die's rightmost facet vertex ($x = 105.7$), preserving a crisp 8px-10px negative space margin with zero tangent collisions or border intersections.
+- **Contoured Arcane Drag Ring (Zero Number Occlusion)**:
+  - Replaced solid filled circle with a dual-ring contour (`.fh-drag-trail-contour` and `.fh-drag-trail-contour-accent`) with `fill: none !important;`, wrapping around the perimeter of the ability score knob ($r = 20$).
+  - The trailing bezier guide emerges strictly outside the contour perimeter ($offset = 22$px), ensuring the ability score number inside the knob remains 100% visible, centered, and readable at all times.
+- **Oscillating Specular Reflection Sheen Wave Across Belt Hexads**:
+  - When PB is active (`.fh-belt.is-pb-active`), all 4 belt hexads (Master PB, Slot 1, Slot 2, Slot 3) gain an oscillating specular reflection sheen (`.fh-belt-sheen`).
+  - Staggered animation delays (PB: 0s, Slot 0: 0.32s, Slot 1: 0.64s, Slot 2: 0.96s) create a continuous, shimmering luster wave gliding from left to right across the entire belt row.

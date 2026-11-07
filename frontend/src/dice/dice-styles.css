@@ -704,11 +704,11 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
 
 .dice-satellite-unpicked {
   position: absolute;
-  right: -10px;
-  bottom: 2px;
+  right: -38px;
+  bottom: -10px;
   z-index: 4;
   pointer-events: none;
-  filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.9));
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.95));
 }
 
 .die-shape.is-unpicked {
