@@ -836,3 +836,129 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   60% { transform: scale(1.04); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }
+
+/* ============================================================================
+   Juicy 2-Phase Dice Roll Choreography:
+   Phase 1 (0.0s -> 1.5s): Fast numeric roll-up that slowly stops at ~1.5s
+   Phase 2 (1.5s+): Crisp snap, shake & elastic pump up (+bonus) or down (-penalty)
+   ============================================================================ */
+
+/* Keep numbers visible throughout the 1.5s roll-up inside 2D stage dice */
+.dice-stage-2d .die-shape.rolling .die-number {
+  opacity: 1 !important;
+}
+
+.die-number-val {
+  display: inline-block;
+  font-variant-numeric: tabular-nums lining-nums;
+  will-change: transform, filter;
+  transition: transform 0.045s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Tactile odometer pop on each decelerating number tick during Phase 1 */
+.die-number-val.is-tick-pulse {
+  transform: translateY(-2px) scale(1.14);
+  filter: brightness(1.25);
+}
+
+/* Phase 1 (0 -> 1.5s): Energetic in-place kinetic vibration that slowly stops at 1.5s */
+.dice-stage-2d .die-shape.is-hero.is-phase-rollup,
+.dice-stage-2d .die-shape.is-petal-die.is-phase-rollup,
+.dice-stage-2d .die-shape.is-unpicked.is-phase-rollup {
+  animation: die-rollup-kinetic 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+@keyframes die-rollup-kinetic {
+  0%   { transform: scale(0.72) rotate(-14deg) translateY(10px); }
+  8%   { transform: scale(1.06) rotate(11deg) translate(-4px, -6px); }
+  16%  { transform: scale(0.95) rotate(-9deg) translate(4px, 3px); }
+  25%  { transform: scale(1.04) rotate(7deg) translate(-3px, -3px); }
+  35%  { transform: scale(0.97) rotate(-5.5deg) translate(3px, 2px); }
+  46%  { transform: scale(1.02) rotate(4deg) translate(-2px, -2px); }
+  58%  { transform: scale(0.99) rotate(-2.8deg) translate(1.5px, 1px); }
+  71%  { transform: scale(1.01) rotate(1.6deg) translate(-1px, -0.5px); }
+  85%  { transform: scale(0.995) rotate(-0.7deg) translate(0.5px, 0px); }
+  100% { transform: scale(1) rotate(0deg) translate(0, 0); }
+}
+
+/* Phase 2A (1500ms -> 1630ms): Brief physical coil on natural roll before modifier pumps */
+.dice-stage-2d .die-shape.is-hero.is-phase-landed {
+  animation: die-landed-coil 0.13s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+}
+
+@keyframes die-landed-coil {
+  0%   { transform: scale(1); }
+  100% { transform: scale(0.91, 0.91) translateY(2px); }
+}
+
+/* Phase 2B (+Bonus): Crisp snap, shake & elastic UPWARD pump to final total */
+.dice-stage-2d .die-shape.is-hero.is-phase-pump-up {
+  animation: die-elastic-pump-up 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
+}
+
+.dice-stage-2d .die-shape.is-hero.is-phase-pump-up .die-number-val {
+  animation: number-elastic-pump-up 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes die-elastic-pump-up {
+  0%   { transform: translateY(3px) scale(0.88, 1.12) rotate(0deg); }
+  18%  { transform: translateY(-18px) scale(1.26, 0.84) rotate(-6.5deg); filter: brightness(1.35); }
+  34%  { transform: translateY(-11px) translateX(6px) scale(0.94, 1.08) rotate(5.5deg); }
+  50%  { transform: translateY(-14px) translateX(-5px) scale(1.12, 0.93) rotate(-4deg); }
+  66%  { transform: translateY(3px) translateX(3px) scale(0.97, 1.03) rotate(2deg); }
+  82%  { transform: translateY(-2px) translateX(-1px) scale(1.02, 0.99) rotate(-0.8deg); }
+  100% { transform: translateY(0) translateX(0) scale(1, 1) rotate(0deg); filter: brightness(1); }
+}
+
+@keyframes number-elastic-pump-up {
+  0%   { transform: translateY(4px) scale(0.85); }
+  24%  { transform: translateY(-6px) scale(1.38); filter: brightness(1.4); }
+  52%  { transform: translateY(2px) scale(0.94); }
+  76%  { transform: translateY(-1px) scale(1.06); }
+  100% { transform: translateY(0) scale(1); filter: brightness(1); }
+}
+
+/* Phase 2B (-Penalty): Crisp snap, shake & elastic DOWNWARD pump to final total */
+.dice-stage-2d .die-shape.is-hero.is-phase-pump-down {
+  animation: die-elastic-pump-down 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
+}
+
+.dice-stage-2d .die-shape.is-hero.is-phase-pump-down .die-number-val {
+  animation: number-elastic-pump-down 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes die-elastic-pump-down {
+  0%   { transform: translateY(-3px) scale(1.08, 0.92) rotate(0deg); }
+  18%  { transform: translateY(18px) scale(0.84, 1.24) rotate(6.5deg); filter: brightness(0.88); }
+  34%  { transform: translateY(11px) translateX(-6px) scale(1.10, 0.92) rotate(-5.5deg); }
+  50%  { transform: translateY(14px) translateX(5px) scale(0.94, 1.08) rotate(4deg); }
+  66%  { transform: translateY(-3px) translateX(-3px) scale(1.03, 0.97) rotate(-2deg); }
+  82%  { transform: translateY(2px) translateX(1px) scale(0.99, 1.02) rotate(0.8deg); }
+  100% { transform: translateY(0) translateX(0) scale(1, 1) rotate(0deg); filter: brightness(1); }
+}
+
+@keyframes number-elastic-pump-down {
+  0%   { transform: translateY(-4px) scale(1.12); }
+  24%  { transform: translateY(6px) scale(0.76); }
+  52%  { transform: translateY(-2px) scale(1.08); }
+  76%  { transform: translateY(1px) scale(0.96); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+/* Phase 2B (0 Modifier): Crisp snap & shake when locking onto final roll at 1.5s */
+.dice-stage-2d .die-shape.is-hero.is-phase-snap-shake {
+  animation: die-snap-shake 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
+}
+
+.dice-stage-2d .die-shape.is-hero.is-phase-snap-shake .die-number-val {
+  animation: number-elastic-pump-up 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes die-snap-shake {
+  0%   { transform: scale(0.9); }
+  20%  { transform: scale(1.18) rotate(-5deg); filter: brightness(1.28); }
+  38%  { transform: scale(0.95) translateX(5px) rotate(4.5deg); }
+  56%  { transform: scale(1.06) translateX(-4px) rotate(-3deg); }
+  74%  { transform: scale(0.98) translateX(2px) rotate(1.5deg); }
+  100% { transform: scale(1) translateX(0) rotate(0deg); filter: brightness(1); }
+}

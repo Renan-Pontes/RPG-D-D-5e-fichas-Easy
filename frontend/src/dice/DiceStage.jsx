@@ -103,6 +103,7 @@ export default function DiceStage({
   }
 
   const isStance = adv === 'adv' || adv === 'dis';
+  const isAnimatedStage = mode !== 'static' && mode !== 'off';
 
   // In stance mode (Advantage or Disadvantage), highlight the hero die at center
   // and nest the unpicked die at the lower-right edge of the hexagonal shape at 50% scale!
@@ -113,16 +114,17 @@ export default function DiceStage({
     const unpickedRoll = rolls.find(r => typeof r === 'object' && r && r.kept === false);
     const heroVal = typeof heroRoll === 'object' && heroRoll ? heroRoll.value : heroRoll;
     const unpickedVal = unpickedRoll ? (typeof unpickedRoll === 'object' ? unpickedRoll.value : unpickedRoll) : null;
-    const effectiveTone = !rolling2d ? (shownTone || (adv === 'adv' ? 'adv' : 'dis')) : null;
+    const effectiveTone = adv === 'adv' ? 'adv' : 'dis';
 
     return (
-      <div className={`dice-stage dice-stage-2d ${className}`} data-dice-mode={mode} data-dice-tone={shownTone || undefined}>
+      <div className={`dice-stage dice-stage-2d ${className}`} data-dice-mode={mode} data-dice-tone={shownTone || effectiveTone}>
         <div className="dice-hero-stage-wrap">
           <DieShape
             die={g.die}
-            value={rolling2d ? '' : heroVal}
+            value={heroVal}
             targetValue={total != null ? total : heroVal}
             rolling={rolling2d}
+            animated={isAnimatedStage}
             size={120}
             isHero={true}
             isCrit={isCrit}
@@ -133,8 +135,9 @@ export default function DiceStage({
             <div className="dice-satellite-unpicked">
               <DieShape
                 die={g.die}
-                value={rolling2d ? '' : unpickedVal}
+                value={unpickedVal}
                 rolling={rolling2d}
+                animated={isAnimatedStage}
                 size={60}
                 dimmed={true}
                 tone={effectiveTone}
@@ -173,9 +176,10 @@ export default function DiceStage({
         <div className="dice-hero-stage-wrap">
           <DieShape
             die={r.die}
-            value={rolling2d ? '' : v}
+            value={v}
             targetValue={total != null ? total : v}
             rolling={rolling2d}
+            animated={isAnimatedStage}
             size={120}
             isHero={true}
             isCrit={isCrit}
@@ -193,8 +197,9 @@ export default function DiceStage({
   // and stacked side-to-side along the facets and corners with uniform breathing gutters!
   if (totalDiceCount > 1 && !className?.includes('cr-rr-stage')) {
     const primaryDie = groups[0]?.die || 6;
-    const effectiveTone = !rolling2d ? shownTone : null;
-    const heroVal = total != null ? total : allRolls.reduce((sum, r) => sum + (r.kept ? Number(r.value) || 0 : 0), 0);
+    const effectiveTone = adv === 'adv' ? 'adv' : adv === 'dis' ? 'dis' : (!rolling2d ? shownTone : null);
+    const naturalSum = allRolls.reduce((sum, r) => sum + (r.kept ? Number(r.value) || 0 : 0), 0);
+    const finalTotal = total != null ? total : naturalSum;
 
     const tessellation = getTessellationLayout(primaryDie, totalDiceCount, {
       heroSize: 104,
@@ -207,13 +212,14 @@ export default function DiceStage({
           className="dice-flower-stage"
           style={{ width: tessellation.stageWidth, height: tessellation.stageHeight }}
         >
-          {/* Central Hero Die displaying the consolidated total sum of the roll */}
+          {/* Central Hero Die: rolls up to naturalSum at 1.5s, then pumps elastically to finalTotal */}
           <div className="dice-flower-center">
             <DieShape
               die={primaryDie}
-              value={rolling2d ? '' : heroVal}
-              targetValue={heroVal}
+              value={naturalSum}
+              targetValue={finalTotal}
               rolling={rolling2d}
+              animated={isAnimatedStage}
               size={tessellation.heroSize}
               isHero={true}
               isCrit={isCrit}
@@ -236,8 +242,9 @@ export default function DiceStage({
                 >
                   <DieShape
                     die={r.die}
-                    value={rolling2d ? '' : r.value}
+                    value={r.value}
                     rolling={rolling2d}
+                    animated={isAnimatedStage}
                     size={tessellation.petalSize}
                     dimmed={true}
                     tone={effectiveTone}
@@ -265,8 +272,9 @@ export default function DiceStage({
           <DieShape
             key={`${gi}-${i}`}
             die={g.die}
-            value={rolling2d ? '' : v}
+            value={v}
             rolling={rolling2d}
+            animated={isAnimatedStage}
             size={size2d}
             seed={seed}
             dimmed={!kept}

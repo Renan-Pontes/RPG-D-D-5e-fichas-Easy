@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { DICE_FACES } from './dice-tessellation.js';
+import {
+  ROLLUP_DURATION_MS,
+  LAND_HOLD_MS,
+  PUMP_DURATION_MS,
+  computeRollupFrame,
+  resolvePumpDirection,
+  computePumpFrame,
+} from './dice-rollup.js';
 
 const SPARKS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
 
@@ -8,6 +16,7 @@ export default function DieShape({
   value,
   targetValue = null,
   rolling = false,
+  animated = true,
   size = 56,
   seed = 0,
   dimmed = false,
@@ -17,50 +26,126 @@ export default function DieShape({
   lang = 'pt',
   petalAngle = null,
 }) {
-  const [displayVal, setDisplayVal] = useState(value);
+  const isNumericRoll = value !== '' && value != null && Number.isFinite(Number(value));
+  const shouldAnimateRoll = animated && isNumericRoll && (isHero || dimmed || rolling);
+  const naturalVal = isNumericRoll ? Math.round(Number(value)) : value;
+  const finalVal = (isHero && targetValue != null && Number.isFinite(Number(targetValue)))
+    ? Math.round(Number(targetValue))
+    : naturalVal;
 
-  // Smooth roll-up from natural roll to final targetValue inside the hero die face
-  useEffect(() => {
-    if (rolling || targetValue == null || targetValue === value || !isHero) {
-      setDisplayVal(value);
-      return;
+  const [displayVal, setDisplayVal] = useState(() => {
+    if (shouldAnimateRoll) {
+      return computeRollupFrame(naturalVal, 0, die).value;
     }
-    const fromVal = Number(value) || 0;
-    const toVal = Number(targetValue) || fromVal;
-    let startTimestamp = null;
-    const duration = 1200;
-    let animId;
+    return isHero && targetValue != null ? targetValue : value;
+  });
+  const [animPhase, setAnimPhase] = useState(() => (shouldAnimateRoll ? 'rollup' : 'idle'));
+  const [tickPulse, setTickPulse] = useState(false);
+
+  // 2-Phase Juicy Roll Choreography:
+  // Phase 1 (0 -> 1.5s): Fast numeric roll-up that progressively decelerates to naturalVal.
+  // Phase 2 (1.5s+): Crisp snap, shake & elastic pump up (+bonus) or down (-penalty) to finalVal.
+  useEffect(() => {
+    if (!shouldAnimateRoll) {
+      setDisplayVal(isHero && targetValue != null ? targetValue : value);
+      setAnimPhase('idle');
+      return undefined;
+    }
+
+    let animId = null;
+    let pulseTimer = null;
+    let settleTimer = null;
+    let startTime = null;
+    let lastStepIndex = -1;
+    let currentPhase = 'rollup';
+    const pumpDir = resolvePumpDirection(naturalVal, finalVal);
+    const hasModifierPump = isHero && pumpDir !== 'snap-shake';
+
+    setAnimPhase('rollup');
+    setDisplayVal(computeRollupFrame(naturalVal, 0, die).value);
 
     const step = (now) => {
-      if (!startTimestamp) startTimestamp = now;
-      const elapsed = now - startTimestamp;
-      const progress = Math.min(elapsed / duration, 1);
-      const ease = 1 - Math.pow(1 - progress, 3);
-      const current = Math.round(fromVal + (toVal - fromVal) * ease);
-      setDisplayVal(current);
-      if (progress < 1) {
+      if (startTime == null) startTime = now;
+      const elapsed = now - startTime;
+
+      if (elapsed < ROLLUP_DURATION_MS) {
+        const p = elapsed / ROLLUP_DURATION_MS;
+        const frame = computeRollupFrame(naturalVal, p, die);
+        if (frame.stepIndex !== lastStepIndex) {
+          lastStepIndex = frame.stepIndex;
+          setDisplayVal(frame.value);
+          setTickPulse(true);
+          clearTimeout(pulseTimer);
+          pulseTimer = setTimeout(() => setTickPulse(false), 45);
+        }
         animId = requestAnimationFrame(step);
-      } else {
-        setDisplayVal(toVal);
+        return;
       }
+
+      // Phase 1 complete at 1.5s: lock onto natural rolled value
+      if (!hasModifierPump) {
+        setDisplayVal(finalVal);
+        setTickPulse(false);
+        if (isHero) {
+          setAnimPhase('snap-shake');
+          settleTimer = setTimeout(() => setAnimPhase('settled'), 480);
+        } else {
+          setAnimPhase('settled');
+        }
+        return;
+      }
+
+      // Phase 2A (1500ms -> 1630ms): brief coil on naturalVal before modifier pumps
+      const afterRollup = elapsed - ROLLUP_DURATION_MS;
+      if (afterRollup < LAND_HOLD_MS) {
+        if (currentPhase !== 'landed') {
+          currentPhase = 'landed';
+          setDisplayVal(naturalVal);
+          setTickPulse(false);
+          setAnimPhase('landed');
+        }
+        animId = requestAnimationFrame(step);
+        return;
+      }
+
+      // Phase 2B (1630ms -> 2010ms): snap, shake & elastic pump up or down to finalVal
+      const pumpElapsed = afterRollup - LAND_HOLD_MS;
+      if (pumpElapsed < PUMP_DURATION_MS) {
+        if (currentPhase !== pumpDir) {
+          currentPhase = pumpDir;
+          setAnimPhase(pumpDir);
+        }
+        const pumpP = pumpElapsed / PUMP_DURATION_MS;
+        setDisplayVal(computePumpFrame(naturalVal, finalVal, pumpP));
+        animId = requestAnimationFrame(step);
+        return;
+      }
+
+      // Final settled state
+      setDisplayVal(finalVal);
+      setAnimPhase('settled');
     };
 
-    const timer = setTimeout(() => {
-      animId = requestAnimationFrame(step);
-    }, 240);
+    animId = requestAnimationFrame(step);
 
     return () => {
-      clearTimeout(timer);
       if (animId) cancelAnimationFrame(animId);
+      clearTimeout(pulseTimer);
+      clearTimeout(settleTimer);
     };
-  }, [value, targetValue, rolling, isHero]);
+  }, [shouldAnimateRoll, naturalVal, finalVal, isHero, die, value, targetValue]);
 
   const rand = (n) => {
     const x = Math.sin(seed * 9999 + n) * 10000;
     return x - Math.floor(x);
   };
 
-  const style = rolling ? {
+  const isPt = lang === 'pt' || !lang;
+  const isPetal = petalAngle != null;
+  const isInvertedPetal = petalAngle === 180;
+  const isStageComposed = isHero || isPetal || dimmed;
+
+  const style = (rolling && !isStageComposed) ? {
     width: size,
     height: size,
     '--sx': `${(rand(1) - 0.5) * 120}vw`,
@@ -75,13 +160,9 @@ export default function DieShape({
     '--dur': `${1.2 + rand(10) * 0.4}s`,
   } : { width: size, height: size, opacity: dimmed ? (petalAngle != null ? 0.38 : 0.32) : 1 };
 
-  const isPt = lang === 'pt' || !lang;
-  const isPetal = petalAngle != null;
-  const isInvertedPetal = petalAngle === 180;
-
   return (
     <div
-      className={`die-shape die-d${die} ${rolling ? 'rolling' : ''}${tone ? ` tone-${tone}` : ''}${dimmed ? ' is-unpicked' : ''}${isHero ? ' is-hero' : ''}${isPetal ? ' is-petal-die' : ''}${isInvertedPetal ? ' is-inverted-petal' : ''}${isCrit && !rolling ? ' is-crit-artdeco' : ''}`}
+      className={`die-shape die-d${die} ${rolling ? 'rolling' : ''}${animPhase !== 'idle' ? ` is-phase-${animPhase}` : ''}${tone ? ` tone-${tone}` : ''}${dimmed ? ' is-unpicked' : ''}${isHero ? ' is-hero' : ''}${isPetal ? ' is-petal-die' : ''}${isInvertedPetal ? ' is-inverted-petal' : ''}${isCrit && !rolling ? ' is-crit-artdeco' : ''}`}
       style={style}
       aria-hidden="true"
     >
@@ -95,7 +176,9 @@ export default function DieShape({
         <path d={DICE_FACES[die] || DICE_FACES[20]} className="die-poly" />
       </svg>
       <span className="die-number" style={{ fontSize: size * 0.38 }}>
-        {rolling ? '' : (displayVal ?? '?')}
+        <span className={`die-number-val${tickPulse ? ' is-tick-pulse' : ''}`}>
+          {displayVal ?? '?'}
+        </span>
       </span>
 
       {/* Art Deco Critical Hit Overlay Layer */}

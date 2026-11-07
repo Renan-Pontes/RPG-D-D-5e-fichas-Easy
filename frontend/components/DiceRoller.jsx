@@ -650,6 +650,7 @@ const DiceRoller = ({ lang }) => {
           <div className={`dice-overlay-inner ${overlay.settled && overlay.isCrit ? 'is-crit' : ''} ${overlay.settled && overlay.isFumble ? 'is-fumble' : ''}`}>
             <DiceStage
               key={overlay.id}
+              mode="2d"
               groups={overlay.groups}
               tone={overlay.adv === 'adv' ? 'adv' : overlay.adv === 'dis' ? 'dis' : (overlay.isCrit ? 'crit' : null)}
               adv={overlay.adv}

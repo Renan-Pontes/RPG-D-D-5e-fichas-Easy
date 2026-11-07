@@ -252,3 +252,19 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
 - **Verification**:
   - Exact SVG polygon-to-polygon minimum edge distance verification in `dice-tessellation.test.js` (7 / 7 tests green) and `dice-tones.test.js` (5 / 5 tests green).
   - Full automated suite: 1,522 / 1,522 tests green across 20 suites; Vite production build: 0 errors.
+
+---
+
+## 12. Juicy 2-Phase Dice Roll Choreography (Fast Roll-Up to 1.5s + Snap, Shake & Elastic Bonus/Penalty Pump)
+
+- **Phase 1 (`0.0s -> 1.5s`): Fast Numeric Roll-Up Decelerating to a Stop**:
+  - Implemented pure mathematical choreography in [`dice-rollup.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/src/dice/dice-rollup.js) (`ROLLUP_DURATION_MS = 1500`, `easeOutQuart(p) = 1 - (1 - p)^4`, `computeRollupFrame`).
+  - Numbers inside all 2D stage dice remain 100% visible throughout `0.0s -> 1.5s` (`.dice-stage-2d .die-shape.rolling .die-number { opacity: 1 !important; }`).
+  - Over 80% of numeric step ticks occur in the first 35% of the `1.5s` window (fast initial slot-reel spin), progressively decelerating tick-by-tick (`N-3 -> N-2 -> N-1 -> N`) with a tactile odometer pulse (`.die-number-val.is-tick-pulse`) and kinetic in-place vibration (`@keyframes die-rollup-kinetic`) that smoothly stops at `1.5s` (`1500ms`) on the natural roll (`naturalVal` or `naturalSum`).
+- **Phase 2 (`~1.5s+`): Crisp Snap, Shake & Elastic Bonus/Penalty Pump**:
+  - At `1.5s`, the Hero die briefly coils (`LAND_HOLD_MS = 130ms`, `@keyframes die-landed-coil`) on the natural roll before applying the modifier:
+    - **Positive Bonus (`+mod > 0`, `is-phase-pump-up`)**: Snaps, shakes horizontally/rotationally, and elastically pumps **upward** (`@keyframes die-elastic-pump-up` & `@keyframes number-elastic-pump-up`) to the final total (`finalVal`).
+    - **Negative Penalty (`-mod < 0`, `is-phase-pump-down`)**: Snaps, shakes, and elastically pumps **downward** (`@keyframes die-elastic-pump-down` & `@keyframes number-elastic-pump-down`) to the final total (`finalVal`).
+    - **Zero Modifier (`mod === 0`, `is-phase-snap-shake`)**: Immediately snaps and shakes (`@keyframes die-snap-shake`) at `1.5s` to lock in the final rolled total.
+- **Verification**:
+  - Unit test suite in [`dice-rollup.test.js`](file:///f:/AI_Resources/DND_HeroesForge/frontend/tests/dice-rollup.test.js) (6 / 6 tests green) + full suite (1,528 / 1,528 tests green across 21 suites) + clean Vite production build.
