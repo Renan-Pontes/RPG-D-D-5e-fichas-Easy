@@ -17,6 +17,16 @@
  * - D10/D100: Pentagonal trapezohedron kite perimeter of 10 kites (shoulders, diagonals, base, apexes).
  */
 
+export const DICE_FACES = {
+  4: 'M50 5 L95 90 L5 90 Z',
+  6: 'M15 15 H85 V85 H15 Z',
+  8: 'M50 5 L90 50 L50 95 L10 50 Z',
+  10: 'M50 5 L88 35 L75 92 L25 92 L12 35 Z',
+  12: 'M50 5 L93 36 L76 89 L24 89 L7 36 Z',
+  20: 'M50 5 L90 28 L90 72 L50 95 L10 72 L10 28 Z',
+  100: 'M50 5 L88 35 L75 92 L25 92 L12 35 Z',
+};
+
 /**
  * Returns the exact geometric tessellation layout for a die type and count.
  * @param {number} die - Die face count (4, 6, 8, 10, 12, 20, 100)
@@ -51,15 +61,17 @@ export function getTessellationLayout(die, count, options = {}) {
 
 /**
  * D6 Tessellation: 4x4 Modular Square Grid (Image 2)
- * Exactly matches screenshot 2:
- * 12 perimeter slots (4 corners + 8 edge slots) around a central 2x2 hero square.
+ * Calibrated to exact SVG path 'M15 15 H85 V85 H15 Z' (70% visible fill of viewBox 0..100):
+ * 12 perimeter slots (4 corners + 8 edge slots) around a central 2x2 hero square with uniform ~4.5px gutters.
  */
 function getD6Tessellation(count, heroSize, petalSize, gutter) {
-  const S = petalSize + gutter; // Modular cell step (e.g. 58px)
-  const cInner = Math.round(S * 0.5); // ~29px
-  const cOuter = Math.round(S * 1.5); // ~87px
+  const scale = heroSize / 104;
+  const visiblePetal = petalSize * 0.70; // SVG square spans 15..85 (70% of box)
+  const step = visiblePetal + 4.5 * scale;
+  const cInner = Math.round(step * 0.5); // 20px at heroSize=104
+  const cOuter = Math.round(step * 1.5); // 61px at heroSize=104
 
-  // 12 Master Perimeter Slots (Image 2: exactly 4 columns and 4 rows)
+  // 12 Master Perimeter Slots (Image 2: 4x4 block grid)
   const masterSlots = [
     // Top row
     { id: 'top-left-mid', x: -cInner, y: -cOuter, rot: 0 },
@@ -103,18 +115,18 @@ function getD6Tessellation(count, heroSize, petalSize, gutter) {
 
 /**
  * D8 Tessellation: 4x4 Diamond/Rhombus Grid (Image 3)
- * Exactly matches screenshot 3:
- * 12 perimeter slots (4 apex corners + 8 diagonal facet diamonds).
+ * Calibrated to exact SVG path 'M50 5 L90 50 L50 95 L10 50 Z' (80% width x 90% height of viewBox):
+ * 12 perimeter slots (4 apex corners + 8 diagonal facet diamonds) on an exact rhombic lattice.
  */
 function getD8Tessellation(count, heroSize, petalSize, gutter) {
   const scale = heroSize / 104;
 
-  const apexY = Math.round(88 * scale);
-  const apexX = Math.round(80 * scale);
-  const fX1 = Math.round(27 * scale);
-  const fY1 = Math.round(59 * scale);
-  const fX2 = Math.round(54 * scale);
-  const fY2 = Math.round(29 * scale);
+  const apexY = Math.round(80 * scale);
+  const apexX = Math.round(71 * scale);
+  const fX1 = Math.round(24 * scale);
+  const fY1 = Math.round(54 * scale);
+  const fX2 = Math.round(48 * scale);
+  const fY2 = Math.round(27 * scale);
 
   const masterSlots = [
     // 4 Apex Corners
@@ -123,7 +135,7 @@ function getD8Tessellation(count, heroSize, petalSize, gutter) {
     { id: 'bottom-apex', x: 0, y: +apexY, rot: 0 },
     { id: 'left-apex', x: -apexX, y: 0, rot: 0 },
 
-    // 8 Facet Slots (2 per diagonal facet, parallel to central diamond edges)
+    // 8 Facet Slots (2 per diagonal facet, strictly parallel to central diamond edges)
     // Top-Right facet
     { id: 'tr-1', x: +fX1, y: -fY1, rot: 0 },
     { id: 'tr-2', x: +fX2, y: -fY2, rot: 0 },
@@ -161,32 +173,32 @@ function getD8Tessellation(count, heroSize, petalSize, gutter) {
 
 /**
  * D4 Tessellation: Truncated Triangular Jewel (Image 1)
- * Exactly matches screenshot 1:
- * 9 equilateral triangles alternating upright (rot: 0) and inverted (rot: 180),
- * stacked edge-to-edge seamlessly framing the base, flanks, and apex of the central triangle.
+ * Calibrated to exact SVG path 'M50 5 L95 90 L5 90 Z' and (50, 50) rotation pivot:
+ * 9 triangles alternating upright (rot: 0) and inverted (rot: 180),
+ * stacked edge-to-edge seamlessly framing the base, flanks, and upper V-valleys.
  */
 function getD4Tessellation(count, heroSize, petalSize, gutter) {
   const scale = heroSize / 104;
 
   const masterSlots = [
-    // 0 & 1: Bottom base (2 inverted triangles flush against base with uniform gutter)
-    { id: 'bot-inv-left', x: Math.round(-23 * scale), y: Math.round(56 * scale), rot: 180 },
-    { id: 'bot-inv-right', x: Math.round(+23 * scale), y: Math.round(56 * scale), rot: 180 },
+    // 0 & 1: Bottom base (2 inverted triangles whose top horizontal edge sits at y - 0.20*H, flush below hero base at +0.40*H)
+    { id: 'bot-inv-left', x: Math.round(-28 * scale), y: Math.round(67 * scale), rot: 180 },
+    { id: 'bot-inv-right', x: Math.round(+28 * scale), y: Math.round(67 * scale), rot: 180 },
 
-    // 2: Bottom apex (1 upright triangle fitting nestled between the two inverted base triangles)
-    { id: 'bot-apex-up', x: 0, y: Math.round(82 * scale), rot: 0 },
+    // 2: Bottom apex (1 upright triangle nestled between the two inverted base triangles, bottom edge flush at +91px)
+    { id: 'bot-apex-up', x: 0, y: Math.round(71 * scale), rot: 0 },
 
-    // 3 & 4: Left flank (lower inverted triangle + upper upright triangle flush with left facet)
-    { id: 'left-flank-lower', x: Math.round(-48 * scale), y: Math.round(16 * scale), rot: 180 },
-    { id: 'left-flank-upper', x: Math.round(-51 * scale), y: Math.round(-30 * scale), rot: 0 },
+    // 3 & 4: Left flank (lower inverted triangle + upper upright triangle flush with left hero facet)
+    { id: 'left-flank-lower', x: Math.round(-52 * scale), y: Math.round(18 * scale), rot: 180 },
+    { id: 'left-flank-upper', x: Math.round(-52 * scale), y: Math.round(-28 * scale), rot: 0 },
 
-    // 5 & 6: Right flank (lower inverted triangle + upper upright triangle flush with right facet)
-    { id: 'right-flank-lower', x: Math.round(+48 * scale), y: Math.round(16 * scale), rot: 180 },
-    { id: 'right-flank-upper', x: Math.round(+51 * scale), y: Math.round(-30 * scale), rot: 0 },
+    // 5 & 6: Right flank (lower inverted triangle + upper upright triangle flush with right hero facet)
+    { id: 'right-flank-lower', x: Math.round(+52 * scale), y: Math.round(18 * scale), rot: 180 },
+    { id: 'right-flank-upper', x: Math.round(+52 * scale), y: Math.round(-28 * scale), rot: 0 },
 
-    // 7 & 8: Top horizontal roof (2 inverted triangles above top apex)
-    { id: 'top-inv-left', x: Math.round(-23 * scale), y: Math.round(-56 * scale), rot: 180 },
-    { id: 'top-inv-right', x: Math.round(+23 * scale), y: Math.round(-56 * scale), rot: 180 },
+    // 7 & 8: Top horizontal roof (2 inverted triangles tucked into the upper V-valleys above hero & upper flanks)
+    { id: 'top-inv-left', x: Math.round(-27 * scale), y: Math.round(-36 * scale), rot: 180 },
+    { id: 'top-inv-right', x: Math.round(+27 * scale), y: Math.round(-36 * scale), rot: 180 },
   ];
 
   // Symmetrical placement priority for N = 2..9
@@ -203,26 +215,25 @@ function getD4Tessellation(count, heroSize, petalSize, gutter) {
 
   const indices = pickOrders[Math.min(count, 9)] || Array.from({ length: Math.min(count, 9) }, (_, i) => i);
   const slots = indices.slice(0, count).map(idx => masterSlots[idx]);
-  const stageSize = Math.round(82 * scale * 2 + petalSize + gutter * 4);
+  const stageSize = Math.round(70 * scale * 2 + petalSize + gutter * 4);
 
   return { heroSize, petalSize, stageWidth: stageSize, stageHeight: stageSize, slots };
 }
 
 /**
  * D20 Tessellation: Pointy-Topped Hexagonal Honeycomb (Image 5)
- * Exactly matches screenshot 5:
- * 12 perimeter regular hexagons at every 30 degrees (rot: 0)
- * forming the outer ring of a regular radius-2 honeycomb rosette.
+ * Calibrated to exact SVG path 'M50 5 L90 28 L90 72 L50 95 L10 72 L10 28 Z' (80% width x 90% height):
+ * 12 perimeter regular hexagons at every 30 degrees (rot: 0) with uniform ~5px facet gutters.
  */
 function getD20Tessellation(count, heroSize, petalSize, gutter) {
   const scale = heroSize / 104;
 
-  const x0 = Math.round(88 * scale);  // Flank distance (0° & 180°)
-  const y0 = Math.round(102 * scale); // Apex distance (90° & 270°)
-  const x1 = Math.round(88 * scale);  // Facet-outer X (30°, 150°, 210°, 330°)
-  const y1 = Math.round(51 * scale);  // Facet-outer Y
-  const x2 = Math.round(44 * scale);  // Facet-inner X (60°, 120°, 240°, 300°)
-  const y2 = Math.round(74 * scale);  // Facet-inner Y
+  const x0 = Math.round(68 * scale); // Flank distance (0° & 180°)
+  const y0 = Math.round(93 * scale); // Apex distance (90° & 270°)
+  const x1 = Math.round(82 * scale); // Facet-outer X (30°, 150°, 210°, 330°)
+  const y1 = Math.round(47 * scale); // Facet-outer Y
+  const x2 = Math.round(35 * scale); // Facet-inner X (60°, 120°, 240°, 300°)
+  const y2 = Math.round(57 * scale); // Facet-inner Y
 
   const masterSlots = [
     // 0°: Right flank
@@ -274,93 +285,91 @@ function getD20Tessellation(count, heroSize, petalSize, gutter) {
 }
 
 /**
- * D12 Tessellation: Dodecahedral Regular Pentagon Rosette (10 Slots)
- * 5 facet docking slots + 5 vertex docking slots.
+ * D12 Tessellation: Dodecahedral Regular Pentagon Rosette (10 Slots, Image 4)
+ * Calibrated to exact SVG path 'M50 5 L93 36 L76 89 L24 89 L7 36 Z' and (50, 50) pivot:
+ * - 5 Inner Facet Pentagons are inverted (rot: 180) so their 5 edges are 100% parallel and flush
+ *   with the 5 edges of the upright central hero pentagon (C_inner = 1.5 * M_k + g * n_k).
+ * - 5 Outer Valley Pentagons are upright (rot: 0), nestled seamlessly into the 5 V-valleys
+ *   between adjacent inverted inner pentagons with parallel edges on both sides.
  */
 function getD12Tessellation(count, heroSize, petalSize, gutter) {
   const scale = heroSize / 104;
-  const rFacet = Math.round(72 * scale);
-  const rVert = Math.round(94 * scale);
 
   const masterSlots = [
-    // 5 Facet docking slots (perpendicular to the 5 edges of the central pentagon)
-    { id: 'facet-bottom', x: 0, y: +rFacet, rot: 0 },
-    { id: 'facet-lower-right', x: Math.round(+rFacet * 0.95), y: Math.round(+rFacet * 0.31), rot: 0 },
-    { id: 'facet-upper-right', x: Math.round(+rFacet * 0.59), y: Math.round(-rFacet * 0.81), rot: 0 },
-    { id: 'facet-upper-left', x: Math.round(-rFacet * 0.59), y: Math.round(-rFacet * 0.81), rot: 0 },
-    { id: 'facet-lower-left', x: Math.round(-rFacet * 0.95), y: Math.round(+rFacet * 0.31), rot: 0 },
+    // 5 Inner Facet docking slots (rot: 180 -> flat edges flush against the 5 hero edges)
+    { id: 'facet-bottom', x: 0, y: Math.round(65 * scale), rot: 180 },
+    { id: 'facet-lower-right', x: Math.round(+58 * scale), y: Math.round(+21 * scale), rot: 180 },
+    { id: 'facet-upper-right', x: Math.round(+36 * scale), y: Math.round(-50 * scale), rot: 180 },
+    { id: 'facet-upper-left', x: Math.round(-36 * scale), y: Math.round(-50 * scale), rot: 180 },
+    { id: 'facet-lower-left', x: Math.round(-58 * scale), y: Math.round(+21 * scale), rot: 180 },
 
-    // 5 Vertex docking slots (extending outwards from the 5 corners)
-    { id: 'vert-top-apex', x: 0, y: -rVert, rot: 0 },
-    { id: 'vert-upper-right', x: Math.round(+rVert * 0.95), y: Math.round(-rVert * 0.31), rot: 0 },
-    { id: 'vert-lower-right', x: Math.round(+rVert * 0.59), y: Math.round(+rVert * 0.81), rot: 0 },
-    { id: 'vert-lower-left', x: Math.round(-rVert * 0.59), y: Math.round(+rVert * 0.81), rot: 0 },
-    { id: 'vert-upper-left', x: Math.round(-rVert * 0.95), y: Math.round(-rVert * 0.31), rot: 0 },
+    // 5 Outer Valley docking slots (rot: 0 -> nestled in the 5 valleys between the inner pentagons)
+    { id: 'vert-top-apex', x: 0, y: Math.round(-76 * scale), rot: 0 },
+    { id: 'vert-upper-right', x: Math.round(+73 * scale), y: Math.round(-24 * scale), rot: 0 },
+    { id: 'vert-lower-right', x: Math.round(+44 * scale), y: Math.round(+63 * scale), rot: 0 },
+    { id: 'vert-lower-left', x: Math.round(-44 * scale), y: Math.round(+63 * scale), rot: 0 },
+    { id: 'vert-upper-left', x: Math.round(-73 * scale), y: Math.round(-24 * scale), rot: 0 },
   ];
 
   const pickOrders = {
     2: [3, 2], // Upper-left & Upper-right facets
-    3: [5, 4, 1], // Top vertex, Lower-left facet, Lower-right facet (triad)
+    3: [0, 3, 2], // Bottom, Upper-left, Upper-right facets
     4: [1, 2, 3, 4], // 4 side facets
-    5: [0, 1, 2, 3, 4], // All 5 facets! (Forms a regular 5-pointed flower)
-    6: [0, 1, 2, 3, 4, 5], // 5 facets + Top apex
-    7: [0, 1, 2, 3, 4, 5, 7], // 5 facets + 2 vertices (e.g. 7d12)
+    5: [0, 1, 2, 3, 4], // All 5 inner inverted facets!
+    6: [0, 1, 2, 3, 4, 5], // 5 inner facets + Top outer valley
+    7: [0, 1, 2, 3, 4, 7, 8], // 5 inner facets + 2 bottom outer valleys
     8: [0, 1, 2, 3, 4, 5, 7, 8],
     9: [0, 1, 2, 3, 4, 5, 6, 7, 8],
-    10: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], // All 10 pentagonal slots
+    10: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], // Complete 10-pentagon Image 4 rosette
   };
 
   const indices = pickOrders[Math.min(count, 10)] || Array.from({ length: Math.min(count, 10) }, (_, i) => i);
   const slots = indices.slice(0, count).map(idx => masterSlots[idx]);
-  const stageSize = Math.round(rVert * 2 + petalSize + gutter * 4);
+  const stageSize = Math.round(76 * scale * 2 + petalSize + gutter * 4);
 
   return { heroSize, petalSize, stageWidth: stageSize, stageHeight: stageSize, slots };
 }
 
 /**
- * D10 / D100 Tessellation: Pentagonal Trapezohedron Kite (10 Slots)
- * Perimeter docking slots along shoulders, diagonals, base, and apexes.
+ * D10 / D100 Tessellation: Pentagonal Trapezohedron Kite Rosette (10 Slots)
+ * Calibrated to exact SVG path 'M50 5 L88 38 L72 92 L28 92 L12 38 Z' and (50, 50) pivot:
+ * - 5 Inner Facet Kites at rot: 180 (edges 100% parallel and flush with the 5 hero kite edges).
+ * - 5 Outer Valley Kites at rot: 0 (nestled in the 5 valleys between the inner kites).
  */
 function getD10Tessellation(count, heroSize, petalSize, gutter) {
   const scale = heroSize / 104;
-  const xSpan = Math.round(70 * scale);
-  const yTop = Math.round(-46 * scale);
-  const yMid = Math.round(-8 * scale);
-  const yLow = Math.round(38 * scale);
-  const yBot = Math.round(76 * scale);
 
   const masterSlots = [
-    // Top-Right & Right Flank
-    { id: 'tr-upper', x: Math.round(xSpan * 0.6), y: yTop, rot: 0 },
-    { id: 'r-mid', x: +xSpan, y: yMid, rot: 0 },
-    { id: 'r-lower', x: Math.round(xSpan * 0.8), y: yLow, rot: 0 },
-    // Bottom Base (2 slots)
-    { id: 'bot-right', x: Math.round(24 * scale), y: yBot, rot: 0 },
-    { id: 'bot-left', x: Math.round(-24 * scale), y: yBot, rot: 0 },
-    // Bottom-Left & Left Flank
-    { id: 'l-lower', x: Math.round(-xSpan * 0.8), y: yLow, rot: 0 },
-    { id: 'l-mid', x: -xSpan, y: yMid, rot: 0 },
-    { id: 'tl-upper', x: Math.round(-xSpan * 0.6), y: yTop, rot: 0 },
-    // Top Apex & Bottom Apex
-    { id: 'top-apex', x: 0, y: Math.round(-84 * scale), rot: 0 },
-    { id: 'bot-apex', x: 0, y: Math.round(104 * scale), rot: 0 },
+    // 5 Inner Facet docking slots (rot: 180 -> parallel to the 5 hero kite edges)
+    { id: 'facet-bottom', x: 0, y: Math.round(70 * scale), rot: 180 },
+    { id: 'facet-lower-right', x: Math.round(+54 * scale), y: Math.round(+22 * scale), rot: 180 },
+    { id: 'facet-upper-right', x: Math.round(+32 * scale), y: Math.round(-50 * scale), rot: 180 },
+    { id: 'facet-upper-left', x: Math.round(-32 * scale), y: Math.round(-50 * scale), rot: 180 },
+    { id: 'facet-lower-left', x: Math.round(-54 * scale), y: Math.round(+22 * scale), rot: 180 },
+
+    // 5 Outer Valley docking slots (rot: 0 -> nestled between the inner kites)
+    { id: 'vert-top-apex', x: 0, y: Math.round(-86 * scale), rot: 0 },
+    { id: 'vert-upper-right', x: Math.round(+68 * scale), y: Math.round(-26 * scale), rot: 0 },
+    { id: 'vert-lower-right', x: Math.round(+39 * scale), y: Math.round(+63 * scale), rot: 0 },
+    { id: 'vert-lower-left', x: Math.round(-39 * scale), y: Math.round(+63 * scale), rot: 0 },
+    { id: 'vert-upper-left', x: Math.round(-68 * scale), y: Math.round(-26 * scale), rot: 0 },
   ];
 
   const pickOrders = {
-    2: [1, 6], // Left & Right flanks
-    3: [1, 6, 8], // Left, Right, Top Apex
-    4: [0, 2, 5, 7], // 4 diagonal shoulder/flank slots
-    5: [0, 2, 5, 7, 8], // 4 diagonals + Top apex
-    6: [0, 1, 2, 5, 6, 7], // 3 on Left, 3 on Right
-    7: [0, 1, 2, 5, 6, 7, 8], // 3 on Left, 3 on Right + Top apex
-    8: [0, 1, 2, 3, 4, 5, 6, 7], // 8 perimeter slots
+    2: [3, 2], // Upper-left & Upper-right facets
+    3: [0, 3, 2], // Bottom + 2 upper facets
+    4: [1, 2, 3, 4], // 4 side facets
+    5: [0, 1, 2, 3, 4], // All 5 inner inverted facets!
+    6: [0, 1, 2, 3, 4, 5], // 5 inner facets + Top apex
+    7: [0, 1, 2, 3, 4, 7, 8], // 5 inner facets + 2 bottom outer valleys
+    8: [0, 1, 2, 3, 4, 5, 7, 8],
     9: [0, 1, 2, 3, 4, 5, 6, 7, 8],
     10: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], // All 10 slots
   };
 
   const indices = pickOrders[Math.min(count, 10)] || Array.from({ length: Math.min(count, 10) }, (_, i) => i);
   const slots = indices.slice(0, count).map(idx => masterSlots[idx]);
-  const stageSize = Math.round(104 * scale * 2 + petalSize + gutter * 4);
+  const stageSize = Math.round(86 * scale * 2 + petalSize + gutter * 4);
 
   return { heroSize, petalSize, stageWidth: stageSize, stageHeight: stageSize, slots };
 }

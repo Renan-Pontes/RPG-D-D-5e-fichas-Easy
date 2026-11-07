@@ -1,15 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-// Dado 2D (SVG) — usado nos botões do rolador e no overlay de resultado.
-const DICE_FACES = {
-  4: 'M50 5 L95 90 L5 90 Z',
-  6: 'M15 15 H85 V85 H15 Z',
-  8: 'M50 5 L90 50 L50 95 L10 50 Z',
-  10: 'M50 5 L88 35 L75 92 L25 92 L12 35 Z',
-  12: 'M50 5 L93 36 L76 89 L24 89 L7 36 Z',
-  20: 'M50 5 L90 28 L90 72 L50 95 L10 72 L10 28 Z',
-  100: 'M50 5 L90 28 L90 72 L50 95 L10 72 L10 28 Z',
-};
+import { DICE_FACES } from './dice-tessellation.js';
 
 const SPARKS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
 

@@ -230,39 +230,32 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
 
 ---
 
-## 11. Seamless Geometric Block Tessellations & Exact Facet-to-Facet Parallelism (All Dice Shapes)
+## 11. Seamless Geometric Block Tessellations & Exact SVG-Calibrated Facet Parallelism (All Dice Shapes)
 
-- **Authentic Interlocking Block Tessellation Grounded in Mathematical Geometry**:
-  - Eliminates all floating, disjointed, or misaligned satellites; all constituent dice ($N \ge 2$) assemble into seamless geometric building blocks where every polygon facet runs parallel to its neighboring facet with a uniform breathing gutter ($g \approx 6\text{px}$).
-  - All constituent dice remain strictly at **50% scale** ($52\text{px}$) surrounding the central hero die ($104\text{px}$).
-- **D4 Truncated Triangular Jewel (Image 1)**:
-  - Center is an upright equilateral triangle ($\Delta$, `rot: 0`).
-  - 9 constituent small triangles ($w = 45\text{px}, h = 42.5\text{px}$):
-    - Base: 2 inverted triangles ($\nabla$, `rot: 180`) flush against the bottom base at $(\pm 23\text{px}, +56\text{px})$, plus 1 upright triangle ($\Delta$, `rot: 0`) at $(0, +82\text{px})$ nestled between them, forming a solid downward wedge.
-    - Flanks: Lower inverted triangle ($\nabla$) at $(\pm 48\text{px}, +16\text{px})$ and upper upright triangle ($\Delta$) at $(\pm 51\text{px}, -30\text{px})$ running flush alongside the left/right facets.
-    - Roof: 2 inverted triangles ($\nabla$) at $(\pm 23\text{px}, -56\text{px})$ forming a flat horizontal top.
-  - Symmetrical pick order guarantees balanced, cohesive clusters for $N=2..9$.
-- **D6 Modular $4 \times 4$ Square Block Grid (Image 2)**:
-  - 12 perimeter square slots around the central $2 \times 2$ hero square.
-  - Cell step $S = \text{petalSize} + \text{gutter} = 58\text{px}$.
-  - 4 columns at $\{-87, -29, +29, +87\}\text{px}$, 4 rows at $\{-87, -29, +29, +87\}\text{px}$.
-  - All 12 small squares upright (`rot: 0`), forming an interlocking cube block.
-- **D8 $4 \times 4$ Diamond / Rhombus Grid (Image 3)**:
-  - 12 perimeter diamond slots around the central $2 \times 2$ hero diamond.
-  - 4 apex corners at $(0, \pm 88\text{px})$ and $(\pm 80\text{px}, 0)$.
-  - 8 diagonal facet diamonds running parallel to the hero facets at $(\pm 27\text{px}, \pm 59\text{px})$ and $(\pm 54\text{px}, \pm 29\text{px})$.
-  - All 12 small diamonds upright (`rot: 0`), forming an interlocking diamond block.
-- **D20 Regular Pointy-Topped Hexagonal Honeycomb (Image 5)**:
-  - 12 perimeter regular hexagons forming the complete ring 2 of a radius-2 honeycomb rosette.
-  - Slots positioned at every $30^\circ$ ($0^\circ, 30^\circ, 60^\circ, 90^\circ, 120^\circ, 150^\circ, 180^\circ, 210^\circ, 240^\circ, 270^\circ, 300^\circ, 330^\circ$).
-  - Flanks at $(\pm 88\text{px}, 0)$, Apexes at $(0, \pm 102\text{px})$, 4 Facet-inner slots at $(\pm 44\text{px}, \pm 74\text{px})$, and 4 Facet-outer slots at $(\pm 88\text{px}, \pm 51\text{px})$.
-  - All 12 small hexagons upright (`rot: 0`), seamlessly interlocking with the central hexagon's vertical flanks and $30^\circ/60^\circ$ facets.
-- **D12 Dodecahedral Regular Pentagon Rosette**:
-  - Corrected `DICE_FACES[12]` to a regular pentagon (`M50 5 L93 36 L76 89 L24 89 L7 36 Z`).
-  - 10 perimeter slots (5 facet docking midpoints at $R \approx 72\text{px}$ + 5 vertex corners at $R \approx 94\text{px}$).
-- **D10 / D100 Pentagonal Trapezohedron Kite**:
-  - 10 perimeter slots along shoulders, diagonals, base, and apexes.
+- **Authentic Interlocking Block Tessellation Calibrated to SVG `viewBox="0 0 100 100"` Bounds**:
+  - Eliminates all internal `viewBox` padding offsets and `(50, 50)` rotation pivot misalignments across all 6 polyhedral shapes (`D4`, `D6`, `D8`, `D10`/`D100`, `D12`, `D20`).
+  - All constituent dice remain strictly at **50% scale** ($52\text{px}$) surrounding the central hero die ($104\text{px}$), with every adjacent edge separated by a uniform $3.5\text{px}\text{--}6\text{px}$ gutter.
+- **D4 Truncated Triangular Jewel (Image 1, `M50 5 L95 90 L5 90 Z`)**:
+  - Calibrated to the SVG `(50, 50)` rotation pivot where an upright triangle spans $y \in [-0.225H, +0.20H]$ and an inverted triangle (`rot: 180`) spans $y \in [-0.20H, +0.225H]$.
+  - Base: 2 inverted triangles ($\nabla$, `rot: 180`) at $(\pm 28\text{px}, +67\text{px})$ flush below the hero base, plus 1 upright triangle ($\Delta$, `rot: 0`) at $(0, +71\text{px})$ nestled between them.
+  - Flanks: Lower inverted triangle ($\nabla$, `rot: 180`) at $(\pm 52\text{px}, +18\text{px})$ and upper upright triangle ($\Delta$, `rot: 0`) at $(\pm 52\text{px}, -28\text{px})$ running flush alongside the left/right facets.
+  - Roof: 2 inverted triangles ($\nabla$, `rot: 180`) at $(\pm 27\text{px}, -36\text{px})$ tucked deep into the upper V-valleys between the hero apex and upper flank triangles.
+- **D6 Modular $4 \times 4$ Square Block Grid (Image 2, `M15 15 H85 V85 H15 Z`)**:
+  - Calibrated to the **70% visible fill** (`15..85` of `0..100`) of the SVG square ($w_{\text{vis}} = 0.70 \times \text{petalSize} = 36.4\text{px}$).
+  - 4 columns at $\{-61, -20, +20, +61\}\text{px}$ and 4 rows at $\{-61, -20, +20, +61\}\text{px}$, eliminating the previous $21.6\text{px}$ padding gap and aligning outer block edges flush with the central $2 \times 2$ hero square.
+- **D8 $4 \times 4$ Diamond / Rhombus Grid (Image 3, `M50 5 L90 50 L50 95 L10 50 Z`)**:
+  - Calibrated to the **80% width $\times$ 90% height** SVG diamond lattice:
+  - 4 apex corners at $(0, \pm 80\text{px})$ and $(\pm 71\text{px}, 0)$.
+  - 8 diagonal facet diamonds running strictly parallel to the hero facets at $(\pm 24\text{px}, \pm 54\text{px})$ and $(\pm 48\text{px}, \pm 27\text{px})$.
+- **D20 Regular Pointy-Topped Hexagonal Honeycomb (Image 5, `M50 5 L90 28 L90 72 L50 95 L10 72 L10 28 Z`)**:
+  - Calibrated to the **80% width $\times$ 90% height** SVG hexagon:
+  - Flanks at $(\pm 68\text{px}, 0)$, Apexes at $(0, \pm 93\text{px})$, 4 Facet-inner slots at $(\pm 35\text{px}, \pm 57\text{px})$, and 4 Facet-outer slots at $(\pm 82\text{px}, \pm 47\text{px})$.
+- **D12 Dodecahedral Regular Pentagon Rosette (Image 4, `M50 5 L93 36 L76 89 L24 89 L7 36 Z`)**:
+  - **Central Inversion ($180^\circ$) Law**:
+    - 5 **Inner Facet Pentagons** are rotated by `rot: 180` ($\vec{C}_{\text{inner}, k} = 1.5 \vec{M}_k + g \vec{n}_k$: $(0, +65)$, $(\pm 58, +21)$, $(\pm 36, -50)$) so their 5 inner edges are **100% parallel and opposite** to the 5 edges of the central upright pentagon.
+    - 5 **Outer Valley Pentagons** are upright (`rot: 0` at $(0, -76)$, $(\pm 73, -24)$, $(\pm 44, +63)$), nestled into the 5 V-valleys between adjacent `rot: 180` inner pentagons with parallel edges on both sides.
+- **D10 / D100 Pentagonal Trapezohedron Kite Rosette (`M50 5 L88 35 L75 92 L25 92 L12 35 Z`)**:
+  - Applies the same 5-sided central inversion law: 5 inner facet kites at `rot: 180` ($(0, +70)$, $(\pm 54, +22)$, $(\pm 32, -50)$) + 5 outer valley kites at `rot: 0` ($(0, -86)$, $(\pm 68, -26)$, $(\pm 39, +63)$).
 - **Verification**:
-  - Full automated suite: 1,522 / 1,522 tests green across 20 suites.
-  - `dice-tessellation.test.js`: 7 / 7 unit tests pass green.
-  - Vite production build: 0 errors in 21.78s.
+  - Exact SVG polygon-to-polygon minimum edge distance verification (`polyEdgeDist >= 3.5px` across all pairs) in `dice-tessellation.test.js` (7 / 7 tests green).
+  - Full automated suite: 1,522 / 1,522 tests green across 20 suites; Vite production build: 0 errors.
