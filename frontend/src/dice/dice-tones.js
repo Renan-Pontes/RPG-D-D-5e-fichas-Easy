@@ -17,6 +17,8 @@ export const PALETTE = {
 export const TONES = {
   crit:   { body: '#a8894a', ink: '#1a120a', edge: '#edcb7a', glow: '#6b5a30' },
   fumble: { body: '#3a0f09', ink: '#e0604f', edge: '#e0604f', glow: '#5c1a10' },
+  adv:    { body: '#0d2c18', ink: '#eaffea', edge: '#10f07a', glow: '#10f07a' },
+  dis:    { body: '#340c0c', ink: '#ffebee', edge: '#ff4a5a', glow: '#ff4a5a' },
 };
 /** Duração da passagem para o tom, depois que o dado para. */
 export const TONE_REVEAL_MS = 380;

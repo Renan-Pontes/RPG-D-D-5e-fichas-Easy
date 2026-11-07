@@ -1798,11 +1798,14 @@ const HONEY_ABILITY_META = {
 const isActionKey = (e) => e.key === 'Enter' || e.key === ' ';
 const BELT_ABBR = { str: 'Str', dex: 'Dex', con: 'Con', int: 'Int', wis: 'Wis', cha: 'Cha' };
 
-const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned }) => {
+const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag }) => {
   const [advMode, setAdvMode] = useState('normal'); // 'normal' | 'adv' | 'dis'
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
-  const gestureRef = useRef({ startY: 0, moved: false, bound: false, pointerId: null, at: 0, bindTimer: null });
+  const gestureRef = useRef({ startX: 0, startY: 0, moved: false, bound: false, pointerId: null, at: 0, bindTimer: null });
+  const hexRef = useRef(null);
+  const hexDragRef = useRef({ startX: 0, startY: 0, active: false, pointerId: null });
+  const headerDragRef = useRef({ startX: 0, startY: 0, pointerId: null });
 
   const score = Utils.abilityWithRace(char, k);
   const checkMod = Utils.abilityMod(char, k);
@@ -1816,6 +1819,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned }) => {
 
   const onBadgePointerDown = (e) => {
     const pointerId = e.pointerId;
+    const startX = e.clientX;
     const startY = e.clientY;
     const at = Date.now();
 
@@ -1828,6 +1832,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned }) => {
     }, 340);
 
     gestureRef.current = {
+      startX,
       startY,
       moved: false,
       bound: false,
@@ -1842,13 +1847,24 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned }) => {
   const onBadgePointerMove = (e) => {
     const g = gestureRef.current;
     if (!g.pointerId) return;
+    const dx = e.clientX - g.startX;
     const dy = e.clientY - g.startY;
-    if (Math.abs(dy) > 3) {
+    const dist = Math.hypot(dx, dy);
+    if (dist > 3) {
       g.moved = true;
       if (g.bindTimer) {
         clearTimeout(g.bindTimer);
         g.bindTimer = null;
       }
+    }
+    if (onStartDrag && (Math.abs(dx) > 10 || dist > 18)) {
+      try { e.currentTarget.releasePointerCapture?.(g.pointerId); } catch (_) {}
+      gestureRef.current = { startX: 0, startY: 0, moved: false, bound: false, pointerId: null, at: 0, bindTimer: null };
+      setIsPulling(false);
+      setPullY(0);
+      const rect = hexRef.current ? hexRef.current.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
+      onStartDrag(k, e, rect);
+      return;
     }
     const clamped = Math.max(-8, Math.min(8, dy));
     setPullY(clamped);
@@ -1951,11 +1967,45 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned }) => {
       </svg>
 
       {/* Pointy-topped hexagon attribute tile */}
-      <article className="fh-belt-hex">
+      <article
+        ref={hexRef}
+        className="fh-belt-hex"
+        onPointerDown={(e) => {
+          if (e.target.closest('button')) return;
+          hexDragRef.current = { startX: e.clientX, startY: e.clientY, active: true, pointerId: e.pointerId };
+        }}
+        onPointerMove={(e) => {
+          const h = hexDragRef.current;
+          if (!h.active) return;
+          const dist = Math.hypot(e.clientX - h.startX, e.clientY - h.startY);
+          if (dist > 12 && onStartDrag) {
+            h.active = false;
+            const rect = hexRef.current ? hexRef.current.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
+            onStartDrag(k, e, rect);
+          }
+        }}
+        onPointerUp={() => { hexDragRef.current.active = false; }}
+        onPointerCancel={() => { hexDragRef.current.active = false; }}
+      >
         {/* Top Header: Tap to bind/unbind ability to the currently active belt slot */}
         <button
           type="button"
           className="fh-belt-header"
+          onPointerDown={(e) => {
+            headerDragRef.current = { startX: e.clientX, startY: e.clientY, pointerId: e.pointerId };
+          }}
+          onPointerMove={(e) => {
+            const hd = headerDragRef.current;
+            if (!hd.pointerId) return;
+            const dist = Math.hypot(e.clientX - hd.startX, e.clientY - hd.startY);
+            if (dist > 12 && onStartDrag) {
+              hd.pointerId = null;
+              const rect = hexRef.current ? hexRef.current.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
+              onStartDrag(k, e, rect);
+            }
+          }}
+          onPointerUp={() => { headerDragRef.current.pointerId = null; }}
+          onPointerCancel={() => { headerDragRef.current.pointerId = null; }}
           onClick={() => onBind(k)}
           aria-label={pt
             ? `${t(k, lang)}: vincular ao slot ativo do cinto`
@@ -2343,6 +2393,7 @@ const BeltQuickSlot = ({
   slot,
   index,
   isActive,
+  isDragTarget = false,
   onSelect,
   onShiftDie,
   onShiftCount,
@@ -2538,7 +2589,8 @@ const BeltQuickSlot = ({
       )}
 
       <article
-        className={`fh-belt-slot${isActive ? ' is-active' : ''}${isBound ? ` is-bound tone-${slot.bound}` : ''}${isD20 ? ` adv-${advMode}` : ''}`}
+        className={`fh-belt-slot${isActive ? ' is-active' : ''}${isDragTarget ? ' is-drag-target' : ''}${isBound ? ` is-bound tone-${slot.bound}` : ''}${isD20 ? ` adv-${advMode}` : ''}`}
+        data-quick-slot-index={index}
         onPointerDown={onDown}
         onPointerUp={onUp}
         onPointerCancel={() => { touchRef.current = { x: 0, y: 0, time: 0, pointerId: null }; }}
@@ -2588,6 +2640,55 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
 
   const [activeSlot, setActiveSlot] = useState(0);
   const [pbActive, setPbActive] = useState(false);
+  const [dragLink, setDragLink] = useState(null);
+
+  useEffect(() => {
+    if (!dragLink) return;
+    const onPointerMove = (e) => {
+      const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-quick-slot-index]');
+      const targetIndex = el ? Number(el.getAttribute('data-quick-slot-index')) : null;
+      setDragLink((prev) => (prev ? {
+        ...prev,
+        currentX: e.clientX,
+        currentY: e.clientY,
+        targetSlot: targetIndex,
+      } : null));
+    };
+    const onPointerUp = () => {
+      setDragLink((prev) => {
+        if (prev && prev.targetSlot != null) {
+          const targetIdx = prev.targetSlot;
+          const ability = prev.ability;
+          setSlots((slotsPrev) => slotsPrev.map((s, i) => (
+            i === targetIdx ? { ...s, bound: s.bound === ability ? null : ability } : s
+          )));
+          if (navigator.vibrate) navigator.vibrate(30);
+        }
+        return null;
+      });
+    };
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+    };
+  }, [dragLink]);
+
+  const onStartAbilityDrag = (k, e, hexRect) => {
+    const startX = hexRect.left + hexRect.width / 2;
+    const startY = hexRect.top + hexRect.height / 2;
+    setDragLink({
+      ability: k,
+      startX,
+      startY,
+      currentX: e.clientX,
+      currentY: e.clientY,
+      targetSlot: null,
+    });
+  };
 
   const [slots, setSlots] = useState([
     { die: 20, count: 1, bound: null, advMode: 'normal' },
@@ -2648,7 +2749,7 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
     const isD20 = Number(s.die) === 20;
     const advMode = isD20 ? (s.advMode || 'normal') : 'normal';
     const hasStance = isD20 && (advMode === 'adv' || advMode === 'dis');
-    const rollCount = hasStance ? 2 : (s.count || 1);
+    const rollCount = hasStance ? 1 : (s.count || 1);
     const advText = advMode === 'adv' ? (pt ? ' (com vantagem)' : ' (with advantage)')
                   : advMode === 'dis' ? (pt ? ' (com desvantagem)' : ' (with disadvantage)')
                   : '';
@@ -2657,14 +2758,35 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
       count: rollCount,
       mod: totalMod,
       label: pt
-        ? `Cinto [Slot ${idx + 1}] ${rollCount}d${s.die}${modText}${advText}`
-        : `Belt [Slot ${idx + 1}] ${rollCount}d${s.die}${modText}${advText}`,
+        ? `Cinto [Slot ${idx + 1}] 1d${s.die}${modText}${advText}`
+        : `Belt [Slot ${idx + 1}] 1d${s.die}${modText}${advText}`,
       advMode,
     });
   };
 
   return (
     <div className={`fh-belt${pbActive ? ' is-pb-active' : ''}`} data-fab-pass="">
+      {dragLink && (
+        <svg className="fh-belt-drag-overlay" aria-hidden="true">
+          <path
+            className={`fh-drag-trail-path tone-${dragLink.ability}`}
+            d={`M ${dragLink.startX} ${dragLink.startY} Q ${(dragLink.startX + dragLink.currentX) / 2} ${(dragLink.startY + dragLink.currentY) / 2 - 20} ${dragLink.currentX} ${dragLink.currentY}`}
+          />
+          <circle
+            className={`fh-drag-trail-origin tone-${dragLink.ability}`}
+            cx={dragLink.startX}
+            cy={dragLink.startY}
+            r="8"
+          />
+          <g transform={`translate(${dragLink.currentX}, ${dragLink.currentY})`}>
+            <circle className={`fh-drag-beacon-halo tone-${dragLink.ability}`} r="24" />
+            <circle className="fh-drag-beacon-core" r="15" />
+            <text className="fh-drag-beacon-text" textAnchor="middle" dy="1">
+              {BELT_ABBR[dragLink.ability] || dragLink.ability.toUpperCase()}
+            </text>
+          </g>
+        </svg>
+      )}
       <div className="fh-belt-hive-row is-top">
         {top.map((k) => (
           <BeltHex
@@ -2674,6 +2796,7 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
             lang={lang}
             roll={roll}
             onBind={onBind}
+            onStartDrag={onStartAbilityDrag}
             isBound={slots[activeSlot]?.bound === k}
             isAssigned={slots.some((s) => s.bound === k)}
           />
@@ -2693,6 +2816,7 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
             slot={slot}
             index={idx}
             isActive={activeSlot === idx}
+            isDragTarget={dragLink?.targetSlot === idx}
             onSelect={setActiveSlot}
             onShiftDie={onShiftDie}
             onShiftCount={onShiftCount}
@@ -2714,6 +2838,7 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
             lang={lang}
             roll={roll}
             onBind={onBind}
+            onStartDrag={onStartAbilityDrag}
             isBound={slots[activeSlot]?.bound === k}
             isAssigned={slots.some((s) => s.bound === k)}
           />

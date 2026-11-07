@@ -1636,7 +1636,7 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  padding: 14px 2px 6px;
+  padding: 6px 2px 14px;
   border: 0;
   background: transparent;
   cursor: pointer;
@@ -1645,7 +1645,7 @@
   transition: background-color 0.12s ease;
 }
 
-/* Consistent, Pixel-Perfect Centered Bonus Numbers Far From Borders */
+/* Consistent, Pixel-Perfect Centered Bonus Numbers Lifted Higher From Bottom Borders */
 .ficha .fh-honey-val {
   display: flex;
   align-items: center;
@@ -1656,7 +1656,8 @@
   color: #1a110a;
   line-height: 1;
   text-align: center;
-  margin: auto;
+  margin: 0 auto;
+  transform: translateY(-5px);
   letter-spacing: -0.01em;
 }
 
@@ -2048,6 +2049,82 @@
     0 0 16px var(--slot-bound-glow, rgba(237, 203, 122, 0.6)),
     0 2px 4px rgba(0, 0, 0, 0.95);
   font-weight: 900;
+}
+
+/* Quick slot highlighted as drag target */
+.ficha .fh-belt-slot.is-drag-target {
+  background: var(--gold-bright, #edcb7a);
+  box-shadow: 0 0 24px var(--gold-bright, #edcb7a), 0 0 40px rgba(237, 203, 122, 0.8) !important;
+  transform: scale(1.06);
+  z-index: 8;
+}
+
+/* Visual Trailing Path Overlay for Ability-to-Belt Drag & Drop */
+.fh-belt-drag-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+}
+.fh-drag-trail-path {
+  fill: none;
+  stroke: var(--gold-bright, #edcb7a);
+  stroke-width: 3.5px;
+  stroke-linecap: round;
+  stroke-dasharray: 8 4;
+  animation: drag-trail-flow 0.8s linear infinite;
+  filter: drop-shadow(0 0 8px var(--gold-bright, #edcb7a));
+}
+.fh-drag-trail-path.tone-str { stroke: #ff4a5a; filter: drop-shadow(0 0 10px rgba(255, 74, 90, 0.85)); }
+.fh-drag-trail-path.tone-dex { stroke: #10f07a; filter: drop-shadow(0 0 10px rgba(16, 240, 122, 0.85)); }
+.fh-drag-trail-path.tone-con { stroke: #ff9d3b; filter: drop-shadow(0 0 10px rgba(255, 157, 59, 0.85)); }
+.fh-drag-trail-path.tone-int { stroke: #38bdf8; filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.85)); }
+.fh-drag-trail-path.tone-wis { stroke: #c084fc; filter: drop-shadow(0 0 10px rgba(192, 132, 252, 0.85)); }
+.fh-drag-trail-path.tone-cha { stroke: #facc15; filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.85)); }
+
+@keyframes drag-trail-flow {
+  from { stroke-dashoffset: 24; }
+  to { stroke-dashoffset: 0; }
+}
+
+.fh-drag-trail-origin {
+  fill: #fff;
+  stroke: var(--gold);
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 8px var(--gold));
+}
+.fh-drag-trail-origin.tone-str { fill: #ff4a5a; stroke: #fff; filter: drop-shadow(0 0 8px #ff4a5a); }
+.fh-drag-trail-origin.tone-dex { fill: #10f07a; stroke: #fff; filter: drop-shadow(0 0 8px #10f07a); }
+.fh-drag-trail-origin.tone-con { fill: #ff9d3b; stroke: #fff; filter: drop-shadow(0 0 8px #ff9d3b); }
+.fh-drag-trail-origin.tone-int { fill: #38bdf8; stroke: #fff; filter: drop-shadow(0 0 8px #38bdf8); }
+.fh-drag-trail-origin.tone-wis { fill: #c084fc; stroke: #fff; filter: drop-shadow(0 0 8px #c084fc); }
+.fh-drag-trail-origin.tone-cha { fill: #facc15; stroke: #fff; filter: drop-shadow(0 0 8px #facc15); }
+
+.fh-drag-beacon-halo {
+  fill: rgba(20, 14, 8, 0.85);
+  stroke: var(--gold-bright, #edcb7a);
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 10px var(--gold-bright, #edcb7a));
+}
+.fh-drag-beacon-halo.tone-str { stroke: #ff4a5a; filter: drop-shadow(0 0 12px #ff4a5a); }
+.fh-drag-beacon-halo.tone-dex { stroke: #10f07a; filter: drop-shadow(0 0 12px #10f07a); }
+.fh-drag-beacon-halo.tone-con { stroke: #ff9d3b; filter: drop-shadow(0 0 12px #ff9d3b); }
+.fh-drag-beacon-halo.tone-int { stroke: #38bdf8; filter: drop-shadow(0 0 12px #38bdf8); }
+.fh-drag-beacon-halo.tone-wis { stroke: #c084fc; filter: drop-shadow(0 0 12px #c084fc); }
+.fh-drag-beacon-halo.tone-cha { stroke: #facc15; filter: drop-shadow(0 0 12px #facc15); }
+
+.fh-drag-beacon-core {
+  fill: #19120b;
+}
+.fh-drag-beacon-text {
+  font-family: var(--display);
+  font-size: 10px;
+  font-weight: 900;
+  fill: #fff9ee;
+  letter-spacing: 0.05em;
+  dominant-baseline: central;
 }
 
 .ficha .fh-honey-help,

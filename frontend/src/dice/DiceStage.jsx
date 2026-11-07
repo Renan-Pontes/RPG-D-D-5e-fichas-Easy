@@ -38,7 +38,7 @@ const MAX_3D_DICE = 12;
  *   o 2D recebe o tom ao assentar (transição em styles.css: .die-shape.tone-*).
  * onSettled(): chamado quando os dados param (ou imediatamente no modo estático)
  */
-export default function DiceStage({ groups, tone = null, onSettled, mode: forced, size2d = 88, className = '' }) {
+export default function DiceStage({ groups, tone = null, adv = 'normal', onSettled, mode: forced, size2d = 88, className = '' }) {
   const canvasRef = useRef(null);
   const settledRef = useRef(false);
   const physical = (groups || []).flatMap(g => physicalDice(g.die, g.rolls));
@@ -97,9 +97,12 @@ export default function DiceStage({ groups, tone = null, onSettled, mode: forced
         const v = typeof r === 'object' && r ? r.value : r;
         const kept = !(typeof r === 'object' && r && r.kept === false);
         seed += 1;
+        const isStance = adv === 'adv' || adv === 'dis';
+        const finalSize = isStance ? (kept ? 114 : 50) : size2d;
+        const effectiveTone = kept && !rolling2d ? (shownTone || (adv === 'adv' ? 'adv' : adv === 'dis' ? 'dis' : null)) : null;
         return (
           <DieShape key={`${gi}-${i}`} die={g.die} value={rolling2d ? '' : v} rolling={rolling2d}
-            size={size2d} seed={seed} dimmed={!kept} tone={kept && !rolling2d ? shownTone : null} />
+            size={finalSize} seed={seed} dimmed={!kept} tone={effectiveTone} />
         );
       }))}
     </div>

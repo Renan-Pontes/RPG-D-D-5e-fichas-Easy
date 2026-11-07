@@ -30,9 +30,9 @@ export default function DieShape({ die, value, rolling = false, size = 56, seed 
     '--my3': `${-5 - rand(8) * 15}vh`,
     '--rot': `${1440 + Math.floor(rand(9) * 720)}deg`,
     '--dur': `${1.2 + rand(10) * 0.4}s`,
-  } : { width: size, height: size, opacity: dimmed ? 0.4 : 1 };
+  } : { width: size, height: size, opacity: dimmed ? 0.22 : 1 };
   return (
-    <div className={`die-shape die-d${die} ${rolling ? 'rolling' : ''}${tone ? ` tone-${tone}` : ''}`} style={style} aria-hidden="true">
+    <div className={`die-shape die-d${die} ${rolling ? 'rolling' : ''}${tone ? ` tone-${tone}` : ''}${dimmed ? ' is-unpicked' : ''}`} style={style} aria-hidden="true">
       <svg viewBox="0 0 100 100" width={size} height={size}>
         <path d={DICE_FACES[die] || DICE_FACES[20]} className="die-poly"/>
       </svg>
