@@ -1470,3 +1470,70 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
     filter: brightness(2.2) drop-shadow(0 0 8px #fff);
   }
 }
+
+
+/* ==========================================================================
+   Tappable Inline Dice Tokens: Turns any "1d8", "3d8", "2d6+3" in text
+   into an immediate, accessible interactive roll button
+   ========================================================================== */
+.fh-dice-inline-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  vertical-align: baseline;
+  background: rgba(212, 175, 55, 0.12);
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  border-radius: 4px;
+  color: var(--gold-bright, #edcb7a);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.9em;
+  font-weight: 700;
+  line-height: 1.1;
+  padding: 1px 5px;
+  margin: 0 1.5px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition: transform 0.12s ease, background 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  text-decoration: none !important;
+}
+
+/* Enforce WCAG AAA minimum hit target */
+.fh-dice-inline-token::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 6px;
+  pointer-events: auto;
+}
+
+.fh-dice-inline-token:hover {
+  background: rgba(212, 175, 55, 0.24);
+  border-color: var(--gold-bright, #edcb7a);
+  box-shadow: 0 0 8px rgba(237, 203, 122, 0.5), 0 1px 3px rgba(0, 0, 0, 0.5);
+  transform: translateY(-0.5px);
+  color: #fff9ee;
+}
+
+.fh-dice-inline-token:active {
+  background: rgba(212, 175, 55, 0.38);
+  transform: translateY(0.5px) scale(0.97);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.fh-dice-inline-token:focus-visible {
+  outline: 2px solid var(--gold-bright, #edcb7a);
+  outline-offset: 2px;
+}
+
+.fh-dice-inline-glyph {
+  font-size: 0.85em;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+}
+
+.fh-dice-inline-val {
+  letter-spacing: 0.02em;
+}

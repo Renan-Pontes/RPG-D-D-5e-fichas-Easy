@@ -595,3 +595,50 @@ User feedback demanded targeted ergonomic and visual improvements across charact
 ### Consequences
 - **Positive:** Pristine cognitive organization across tabs; rich tactical convenience with instant passive/active references; breathtaking kinetic audiovisual polish during dice rolls; full alignment with D&D 2024 action taxonomy.
 - **Verification:** 1,542 / 1,542 frontend unit tests green across 20 suites; Vite production build succeeds with 0 errors in 13.76s.
+
+
+---
+
+## ADR-0019: Universal Inline Dice Notation Recognition, Reactive Dice Tokens, and Global Tap-to-Roll Architecture
+
+### Status
+Accepted & Implemented (2026-11-07)
+
+### Context
+In tabletop play and character sheet navigation, players and game masters encounter dice formulas written in natural text across multiple contexts:
+- Feature and trait descriptions ("takes 3d8 radiant damage")
+- Spell descriptions and upcasting rules ("deals 8d6 fire damage")
+- Item descriptions and weapon properties ("1d8 piercing damage (or 1d10 if versatile)")
+- Feat summaries and custom notes ("regains 1d4+2 hit points")
+- Monster stat blocks and encounter actions
+
+Previously, players had to memorize these values, open the dice tray, and manually select the die and count. The user requested:
+"Make sure the whole tool understands when a text written anywhere with a valid 'Dice count' like 1d8 or 3d8, tapping on top of that specific data type immediately rolls the written roll."
+
+### Decision Outcome
+We implemented a two-tier universal recognition and execution architecture:
+
+1. **Pure Pattern Matching & Text Chunking Engine (`frontend/src/dice/dice-text.js`):**
+   - Canonical D&D Dice Notation Regex: `DICE_NOTATION_REGEX = /(\b\d{0,3}d(?:4|6|8|10|12|20|100)(?:\s*[+-]\s*\d{1,3})?\b)/gi`.
+   - `findDiceAtOffset(text, offset)`: Uses caret position or touch point to identify the exact dice formula under user tap, including touch jitter tolerance ($\pm 2$ characters).
+   - `parseTextWithDice(text)`: Deconstructs any arbitrary string into structured text segments and normalized dice tokens (`{ type: 'die', formula, raw }`).
+   - `getClickedDiceFormula(e)`: Analyzes native DOM events via `e.target.closest('[data-dice-roll]')`, `document.caretPositionFromPoint`, `document.caretRangeFromPoint`, or leaf element inspection.
+
+2. **Universal Global Event Delegation (`setupGlobalDiceClickListener`):**
+   - Captures `click` and `keydown` events at the `document` root during the capture phase (`capture: true`).
+   - Safe input guards: bypasses active text inputs, textareas, selects, and editable elements (`[contenteditable="true"]`) to preserve natural editing without interference.
+   - When a valid formula (`1d8`, `3d8`, `2d6+3`, etc.) is clicked anywhere in the tool, it triggers immediate haptic feedback (`navigator.vibrate(35)`) and invokes `window.__diceRoll({ formula, label: 'Rolagem: ' + formula, sheet: true })`.
+
+3. **Proactive Inline Component (`DiceText` / `renderDiceSpans` in `frontend/src/dice/dice-text.jsx`):**
+   - Wraps detected dice notations into accessible `<button type="button" className="fh-dice-inline-token" ...>` elements.
+   - Styled with Art Deco golden borders, glowing hover effects, tactile click compression, and a dice glyph prefix (`🎲`).
+   - Complies with WCAG AAA touch target sizing through an invisible expansion pseudo-element (`::after` with `inset: -6px`).
+   - Integrated across feature items (`FhFeatures.jsx`), spell descriptions (`SheetTabs.jsx`), item details (`SheetTabs.jsx`), weapon damage lines, and feat summaries (`Sheet.jsx`).
+
+4. **Global Roll Integration (`performRoll` in `DiceRoller.jsx`):**
+   - Upgraded `performRoll` to seamlessly accept either a formula string (`"3d8"`) or an options object (`{ formula: "3d8", ... }`).
+   - Mounts and unmounts `setupGlobalDiceClickListener(performRoll)` alongside the `window.__diceRoll` global API.
+
+### Consequences
+- **Positive:** Players can now tap any dice notation anywhere in the app to roll immediately. Reduces cognitive load, eliminates manual formula entry, and speeds up combat and feature execution.
+- **Verification:** 6/6 tests in `frontend/tests/dice-text-click-roll.test.js` passed; 1,548/1,548 total frontend unit tests passed across 21 suites; clean production Vite build in 9.85s.

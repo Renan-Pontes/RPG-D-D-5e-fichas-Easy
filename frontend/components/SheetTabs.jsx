@@ -24,6 +24,7 @@ import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
 import FhTitle from '../src/sheet/FhTitle.jsx';
 import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
 import FhFeatures from '../src/sheet/FhFeatures.jsx';
+import { DiceText } from '../src/dice/dice-text.jsx';
 import { slotCircleLabel, gemLabel, lockedSlotTitle, slotSpent, slotTap, slotTapTitle } from '../src/sheet/gem-text.js';
 
 // Siglas das moedas (PHB em pt: peça de cobre/prata/electro/ouro/platina).
@@ -835,7 +836,7 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
             <span className="fh-chipline"><span className="fh-chipline-k">{t('components', lang)}:</span> {meta.components}</span>
             <span className={`fh-chipline${sp.concentration ? ' conc' : ''}`}><span className="fh-chipline-k">{t('duration', lang)}:</span> {meta.duration}</span>
           </div>
-          <div className="fh-spell-desc">{sp.desc[lang]}</div>
+          <div className="fh-spell-desc"><DiceText text={sp.desc[lang]} lang={lang} /></div>
           {error && <div className="fh-spell-error">{error}</div>}
           <div className="fh-spell-acts">
             {!isCantrip && available.length > 0 && (
@@ -1396,13 +1397,13 @@ function InventoryRow({ item, idx, lang, rulesVersion, inCampaign, onToggleEquip
           <div className="item-detail">
             <ArtThumb src={art} emoji={emoji} size={96} lang={lang} alt={item.name || ''} />
             {descText ? (
-              <div className="item-detail-text text-sm muted item-desc">{descText}</div>
+              <div className="item-detail-text text-sm muted item-desc"><DiceText text={descText} lang={lang} /></div>
             ) : <div className="item-detail-text" />}
           </div>
           {item.weapon && (() => {
             // Números de 2024 (lança de montaria, tridente…) quando a ficha é 2024.
             const w = rulesVersion === '2024' && item.weapon.v2024 ? { ...item.weapon, ...item.weapon.v2024 } : item.weapon;
-            return <div className="text-xs muted">⚔ {w.damage} {Utils.damageLabel(w.dmgType, lang)}{w.props?.length ? ` · ${propsText(w.props, lang)}` : ''}{w.range ? ` · ${w.range}` : ''}</div>;
+            return <div className="text-xs muted">⚔ <DiceText text={w.damage} lang={lang} /> {Utils.damageLabel(w.dmgType, lang)}{w.props?.length ? ` · ${propsText(w.props, lang)}` : ''}{w.range ? ` · ${w.range}` : ''}</div>;
           })()}
           {item.armor && (
             <div className="text-xs muted">🛡 {lang === 'pt' ? 'CA' : 'AC'} {item.armor.ac} ({armorTypeLabel(item.armor.type, lang)}){item.armor.stealth === 'disadv' ? (lang === 'pt' ? ' · desvantagem em Furtividade' : ' · Stealth disadvantage') : ''}{item.armor.strReq ? (lang === 'pt' ? ` · exige FOR ${item.armor.strReq}` : ` · STR ${item.armor.strReq} required`) : ''}</div>

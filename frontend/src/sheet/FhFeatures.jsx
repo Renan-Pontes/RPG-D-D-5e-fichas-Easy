@@ -5,6 +5,7 @@
  * - <details> nativo: abre com toque, Enter ou espaço, sem estado; o <summary> tem 44px
  *   de altura no mínimo (alvo de toque). */
 import { levelTag, PLACE_LABEL } from './feature-placement.js';
+import { DiceText } from '../dice/dice-text.jsx';
 
 const lk = (lang) => (lang === 'pt' ? 'pt' : 'en');
 
@@ -21,11 +22,11 @@ export function FhFeatureItem({ item, multi, lang, tag }) {
           <span className="fh-origin">{tag || levelTag(item, multi, lang)}</span>
         </summary>
         <div className="fh-cf-body">
-          {desc && <p className="fh-cf-text">{desc}</p>}
+          {desc && <p className="fh-cf-text"><DiceText text={desc} lang={lang} /></p>}
           {item.picks?.length > 0 && (
             <ul className="fh-cf-picks">
               {item.picks.map((p, i) => (
-                <li key={i}><strong>{p.name[l]}</strong>{p.desc?.[l] ? <>: {p.desc[l]}</> : null}</li>
+                <li key={i}><strong>{p.name[l]}</strong>{p.desc?.[l] ? <>: <DiceText text={p.desc[l]} lang={lang} /></> : null}</li>
               ))}
             </ul>
           )}

@@ -49,6 +49,7 @@ import {
 import {
   getAnimPref, setAnimPref, loadHistory, saveHistory, loadRecentFormulas, saveRecentFormulas,
 } from '../src/dice/dice-prefs.js';
+import { setupGlobalDiceClickListener } from '../src/dice/dice-text.jsx';
 import '../src/dice/dice-styles.css';
 
 const DICE = [4, 6, 8, 10, 12, 20, 100];
@@ -188,12 +189,14 @@ const DiceRoller = ({ lang }) => {
 
   // Compatível com a ficha: { die, count, mod, label, advMode }. `sheet`: é um botão da
   // ficha (perícia, salvaguarda, ataque, dano, iniciativa) e vai à Tela (V15).
-  const performRoll = useCallback(({ die = 20, count: cnt = 1, mod: m = 0, label = '', advMode: am, sheet: fromSheet, isSave, isCheck } = {}) => {
-    const parsed = parseFormula(`${cnt}d${die}${formatMod(m)}`);
+  const performRoll = useCallback((arg = {}) => {
+    const opts = typeof arg === 'string' ? { formula: arg } : (arg || {});
+    const { die = 20, count: cnt = 1, mod: m = 0, label = '', advMode: am, sheet: fromSheet, isSave, isCheck, formula: rawFormula } = opts;
+    const parsed = rawFormula ? parseFormula(rawFormula) : parseFormula(`${cnt}d${die}${formatMod(m)}`);
     if (!parsed) return null;
     const isSaveRoll = isSave ?? /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b|morte|death/i.test(label || '');
-    const isCheckRoll = isCheck ?? (!isSaveRoll && (/teste de (atributo|per[ií]cia)|ability check|skill check|\bcheck\b|perícia|atributo/i.test(label || '') || (cnt === 1 && die === 20 && !/ataque|attack|dano|damage/i.test(label))));
-    const entry = rollParsed(parsed, { label, adv: am ?? advMode, isSave: isSaveRoll, isCheck: isCheckRoll });
+    const isCheckRoll = isCheck ?? (!isSaveRoll && (/teste de (atributo|per[ií]cia)|ability check|skill check|\bcheck\b|perícia|atributo/i.test(label || '') || (cnt === 1 && die === 20 && !rawFormula && !/ataque|attack|dano|damage/i.test(label))));
+    const entry = rollParsed(parsed, { label: label || parsed.text, adv: am ?? advMode, isSave: isSaveRoll, isCheck: isCheckRoll });
     if (fromSheet && entry) toTable(entry);
     return entry;
   }, [rollParsed, advMode, toTable]);
@@ -260,7 +263,13 @@ const DiceRoller = ({ lang }) => {
     window.__diceRoll = performRoll;
     window.__diceShow = showResult;
     window.__diceOpen = () => setOpen(true);
-    return () => { window.__diceRoll = null; window.__diceShow = null; window.__diceOpen = null; };
+    const cleanupGlobalClick = setupGlobalDiceClickListener(performRoll);
+    return () => {
+      window.__diceRoll = null;
+      window.__diceShow = null;
+      window.__diceOpen = null;
+      cleanupGlobalClick();
+    };
   }, [performRoll, showResult]);
 
   // Sheet aberto: pré-carrega o 3D e reserva espaço no fim da página.

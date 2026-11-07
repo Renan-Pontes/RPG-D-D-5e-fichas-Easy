@@ -3338,9 +3338,9 @@ export const SheetFeatures = ({ char, lang, placed, cls, race, update }) => {
                 <strong style={{ color: 'var(--gold-deep)' }}>{featName(char, f, lang)}</strong>
                 <span className="muted"> · {f.origin === 'background' ? (pt ? 'Antecedente' : 'Background') : f.origin === 'species' ? (pt ? 'Espécie' : 'Species') : `${pt ? 'Nv.' : 'Lv'} ${f.level}`}</span>
                 {f.asi && <span className="muted"> · {Object.entries(f.asi).map(([k, v]) => `${t(k + 'Sh', lang)} +${v}`).join(', ')}</span>}
-                {featSummary(f, lang) && <div className="text-xs" style={{ color: 'var(--ink-secondary)', marginTop: 2 }}>{featSummary(f, lang)}</div>}
+                {featSummary(f, lang) && <div className="text-xs" style={{ color: 'var(--ink-secondary)', marginTop: 2 }}><DiceText text={featSummary(f, lang)} lang={lang} /></div>}
                 {f.picks && <div className="text-xs muted">{featPicksText(f.picks, lang)}</div>}
-                {f.note && <span style={{ color: 'var(--ink-secondary)' }}> — {f.note}</span>}
+                {f.note && <span style={{ color: 'var(--ink-secondary)' }}> — <DiceText text={f.note} lang={lang} /></span>}
               </div>
             ))}
           </div>
