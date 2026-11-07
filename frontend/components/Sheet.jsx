@@ -1798,7 +1798,7 @@ const HONEY_ABILITY_META = {
 const isActionKey = (e) => e.key === 'Enter' || e.key === ' ';
 const BELT_ABBR = { str: 'Str', dex: 'Dex', con: 'Con', int: 'Int', wis: 'Wis', cha: 'Cha' };
 
-const BeltHex = ({ k, char, lang, roll, onBind, isBound }) => {
+const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned }) => {
   const [advMode, setAdvMode] = useState('normal'); // 'normal' | 'adv' | 'dis'
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
@@ -1926,7 +1926,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound }) => {
   const abbr = BELT_ABBR[k] || t(k + 'Sh', lang);
 
   return (
-    <div className={`fh-belt-hex-wrap is-${meta.zone} tone-${k}${isBound ? ' is-bound' : ''} adv-${advMode}`}>
+    <div className={`fh-belt-hex-wrap is-${meta.zone} tone-${k}${isBound ? ' is-bound' : ''}${isAssigned ? ' is-assigned' : ''} adv-${advMode}`}>
       {/* Glowing Edge Feedback SVG */}
       <svg
         className={`fh-belt-glow-svg adv-${advMode}`}
@@ -1952,9 +1952,20 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound }) => {
 
       {/* Pointy-topped hexagon attribute tile */}
       <article className="fh-belt-hex">
-        <div className="fh-belt-header">
+        {/* Top Header: Tap to bind/unbind ability to the currently active belt slot */}
+        <button
+          type="button"
+          className="fh-belt-header"
+          onClick={() => onBind(k)}
+          aria-label={pt
+            ? `${t(k, lang)}: vincular ao slot ativo do cinto`
+            : `${t(k, lang)}: bind to active belt slot`}
+          title={pt
+            ? `${t(k, lang)}: clique para vincular ao slot ativo do cinto`
+            : `${t(k, lang)}: click to bind to active belt slot`}
+        >
           <span className="fh-honey-abbr">{abbr}</span>
-        </div>
+        </button>
 
         {/* Vertical Slider Track recessed into the hexad face */}
         <div className="fh-belt-badge-track" aria-hidden="true" />
@@ -2369,6 +2380,7 @@ const BeltQuickSlot = ({
   // Slot container gestures (swipe for die shift / count shift, tap to roll)
   const onDown = (e) => {
     touchRef.current = { x: e.clientX, y: e.clientY, time: Date.now(), pointerId: e.pointerId };
+    onSelect(index);
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
 
@@ -2380,7 +2392,6 @@ const BeltQuickSlot = ({
     const dx = e.clientX - t.x;
     const dy = e.clientY - t.y;
     const dist = Math.hypot(dx, dy);
-    const elapsed = Date.now() - t.time;
 
     // Horizontal swipe -> die type
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 18) {
@@ -2394,8 +2405,8 @@ const BeltQuickSlot = ({
       onShiftCount(index, dy < 0 ? step : -step);
       return;
     }
-    // Short tap -> select and roll!
-    if (dist < 12 && elapsed < 420) {
+    // Non-swipe release (both short tap AND tap-and-hold): execute roll on pointer/finger release!
+    if (dist < 16) {
       onSelect(index);
       onRoll(index);
     }
@@ -2403,6 +2414,7 @@ const BeltQuickSlot = ({
 
   // D20 Die Silhouette Knob Gestures (Advantage / Disadvantage knob solely when d20)
   const onDieKnobPointerDown = (e) => {
+    onSelect(index);
     if (!isD20) return;
     e.stopPropagation();
     const pointerId = e.pointerId;
@@ -2466,16 +2478,9 @@ const BeltQuickSlot = ({
       return;
     }
 
-    // Tap on D20 silhouette: cycle stance or toggle
-    const rect = e.currentTarget.getBoundingClientRect();
-    const relY = e.clientY - rect.top;
-    if (advMode !== 'normal') {
-      onSetAdvMode(index, 'normal');
-    } else if (relY < rect.height / 2) {
-      onSetAdvMode(index, 'adv');
-    } else {
-      onSetAdvMode(index, 'dis');
-    }
+    // Tap or tap-and-hold on D20 silhouette: pointer release executes roll!
+    onSelect(index);
+    onRoll(index);
   };
 
   const onDieKnobPointerCancel = (e) => {
@@ -2537,6 +2542,7 @@ const BeltQuickSlot = ({
         onPointerDown={onDown}
         onPointerUp={onUp}
         onPointerCancel={() => { touchRef.current = { x: 0, y: 0, time: 0, pointerId: null }; }}
+        onFocus={() => onSelect(index)}
         onKeyDown={onKeyDown}
         tabIndex={0}
         role="button"
@@ -2590,6 +2596,7 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
   ]);
 
   const onShiftDie = (idx, delta) => {
+    setActiveSlot(idx);
     setSlots((prev) => prev.map((s, i) => {
       if (i !== idx) return s;
       const curDieIdx = Math.max(0, HONEY_DICE.indexOf(s.die));
@@ -2604,6 +2611,7 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
   };
 
   const onShiftCount = (idx, delta) => {
+    setActiveSlot(idx);
     setSlots((prev) => prev.map((s, i) => {
       if (i !== idx) return s;
       return { ...s, count: Math.max(1, Math.min(9, s.count + delta)) };
@@ -2611,6 +2619,7 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
   };
 
   const onSetSlotAdvMode = (idx, modeOrFn) => {
+    setActiveSlot(idx);
     setSlots((prev) => prev.map((s, i) => {
       if (i !== idx) return s;
       if (Number(s.die) !== 20) return { ...s, advMode: 'normal' };
@@ -2666,6 +2675,7 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
             roll={roll}
             onBind={onBind}
             isBound={slots[activeSlot]?.bound === k}
+            isAssigned={slots.some((s) => s.bound === k)}
           />
         ))}
       </div>
@@ -2705,6 +2715,7 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
             roll={roll}
             onBind={onBind}
             isBound={slots[activeSlot]?.bound === k}
+            isAssigned={slots.some((s) => s.bound === k)}
           />
         ))}
       </div>

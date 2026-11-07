@@ -78,7 +78,29 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
 
 ---
 
-## 5. Master 3D Beveled Gold PB Hexad (Leftmost Belt Slot)
+## 6. Proportions, Zero-Tangent Breathing Room & Neon Ability Coding
+
+- **Tangent-Free Vertical Proportions**:
+  - Ability hexad header (`.fh-belt-header`) calibrated to `height: 33%`, `padding: 6px 4px 0`.
+  - Abbreviation (`.fh-honey-abbr`, e.g. `DEX`, `STR`) sits safely in the upper triangular roof.
+  - Round golden stud badge (`.fh-belt-badge`) centered at `top: 45%` with radius `clamp(24px, 3.8vw, 27px)`.
+  - In advantage stance, upward translation is constrained to `-4px` (`calc(-50% - 4px)`), preserving ~18.5px of negative space between the top edge of the stud and the text baseline.
+  - Lower halves (`.fh-honey-halves`) start at `top: 45%` with `padding: 14px 2px 6px`, centering check and save values comfortably in the wide belly of the hexad with zero overlap or border collision.
+- **High-Contrast Neon Ability Color Coding**:
+  - Each ability tone features dedicated high-vibrancy neon tokens (`--slot-bound-neon` and `--slot-bound-glow`):
+    - **STR**: Neon Crimson (`#ff4a5a`, glow `rgba(255, 65, 80, 0.85)`)
+    - **DEX**: Neon Emerald (`#10f07a`, glow `rgba(16, 240, 122, 0.85)`)
+    - **CON**: Neon Amber (`#ff9d3b`, glow `rgba(255, 157, 59, 0.85)`)
+    - **INT**: Neon Sapphire (`#38bdf8`, glow `rgba(56, 189, 248, 0.85)`)
+    - **WIS**: Neon Amethyst (`#c084fc`, glow `rgba(192, 132, 252, 0.85)`)
+    - **CHA**: Neon Topaz (`#facc15`, glow `rgba(250, 204, 21, 0.85)`)
+  - When bound (`.is-bound`), the slot's outer frame border, die silhouette stroke, and the entire roll formula label (`.fh-belt-slot-dice`, e.g. `1d6+1`, `2d20+3`) illuminate in that vibrant neon color with dual-layer bloom.
+- **Universal Ability Assignment Across All Dice Types**:
+  - Any quick slot on the belt (d4, d6, d8, d10, d12, d20, d100) immediately becomes the active slot on pointer down, focus, die shift, or count shift.
+  - Tapping an ability score's top header or holding its golden stud binds that ability to whichever slot is active.
+- **Tap-and-Hold Pointer Release Roll**:
+  - Eliminated arbitrary `elapsed < 420ms` gate on pointer release in `BeltQuickSlot`.
+  - Whether a player executes a swift tap or presses and holds before releasing their finger, the roll fires reliably upon pointer release.
 
 - **Vector 3D Minted Gold Medal Architecture**:
   - The PB Hexad is rendered via high-fidelity SVG geometry (`.fh-pb-medal-svg`) completely immune to CSS `clip-path` flattening artifacts.
