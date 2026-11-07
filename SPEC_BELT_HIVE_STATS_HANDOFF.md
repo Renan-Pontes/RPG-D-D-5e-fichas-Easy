@@ -164,3 +164,23 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
   - Emerald green (`tone: 'adv'`, `#10f07a`) for Advantage rolls; Crimson red (`tone: 'dis'`, `#ff4a5a`) for Disadvantage rolls.
   - Noisy array brackets (`[~1~, 16]`) are omitted during Advantage/Disadvantage.
   - Smooth 2-second roll-up animation: starts at natural die roll with a floating bonus badge, smoothly counts up to final total over 1.4s, while the bonus badge illuminates and fades away.
+
+---
+
+## 8. Minimalist Roll Outcome, Art Deco Critical Frame & Robust Drag-to-Bind (Commit Pending)
+
+- **Pure Minimalist Roll Outcome (Zero Redundancy)**:
+  - Eliminated redundant header labels (`Cinto Slot 1, 1d20 (dex+1) Com Vantagem`) and footer prompts (`Toque para fechar`).
+  - Removed duplicate giant number below the stage. The die number itself inside the polyhedral face rolls up smoothly from natural die result to total ($d_{roll} \rightarrow d_{roll} + mod$), unifying display and outcome into a single legible focal point.
+- **Radial Atmospheric Glow (No Quad Clipping)**:
+  - Replaced SVG filter drop-shadows with unclipped 380px radial gradient pseudo-elements (`.die-shape::before`), with `overflow: visible !important` across all parent stage containers. Emerald green for Advantage, Crimson for Disadvantage, and Golden Amber for Critical Hits, softly dissipating into the dark backdrop with zero box boundaries.
+- **Satellite Unpicked Die Docking**:
+  - In Advantage and Disadvantage rolls, the discarded/unpicked die is docked as a satellite directly nestled at the **bottom-right edge of the hexagonal hero die** (`.dice-satellite-unpicked`), scaled to 72% at 24% opacity with grayscale filter, completely eliminating awkward horizontal row crowding.
+- **Art Deco Critical Hit Frame Layer**:
+  - On a natural 20 / critical hit, an Art Deco golden frame layer (`.dice-artdeco-crit-frame`) wraps around the polyhedral die icon with double hexagonal bevels, corner chevron accents, solar sparks, and a gold plaque at the bottom reading `"CRÍTICO"` (or `"CRITICAL"`).
+- **Separation of Knob Gesture vs Ability Tile Drag-to-Bind**:
+  - Knob (`.fh-belt-badge`): Handles strictly vertical swiping/tapping for stance toggles (Advantage $\uparrow$ / Disadvantage $\downarrow$ / Normal), with `stopPropagation()` to never mistakenly trigger drag-and-drop.
+  - Ability Tile (`.fh-belt-hex`): Hold on the tile body for 180ms or drag > 8px initiates the drag-and-drop gesture with the luminous trailing path.
+  - Screen bounding-box collision (`getSlotAtPoint`) checks all `.fh-belt-slot[data-quick-slot-index]` with a 24px expanded hit margin, avoiding DOM hierarchy interception from SVG overlay beacons and guaranteeing assignment to any die type (d4, d6, d8, d10, d12, d20, d100).
+- **Universal Neon Illumination for Assigned Slots**:
+  - Bound quick slots illuminate in the vibrant neon color of the assigned ability (`--slot-bound-neon`), highlighting both formula text and die polygon creases.

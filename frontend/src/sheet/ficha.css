@@ -2060,12 +2060,15 @@
 }
 
 /* Visual Trailing Path Overlay for Ability-to-Belt Drag & Drop */
+.fh-belt-drag-overlay,
+.fh-belt-drag-overlay * {
+  pointer-events: none !important;
+}
 .fh-belt-drag-overlay {
   position: fixed;
   inset: 0;
   width: 100vw;
   height: 100vh;
-  pointer-events: none;
   z-index: 9999;
 }
 .fh-drag-trail-path {
@@ -4801,4 +4804,22 @@
   .ficha .fh-fx,
   .ficha .fh-cart,
   .ficha .fh-levelup { display: none !important; }
+}
+
+/* Enhanced neon illumination for assigned ability score on any die type (d4, d6, d8, d10, d12, d20, d100) */
+.ficha .fh-belt-slot.is-bound .fh-belt-slot-dice {
+  color: var(--slot-bound-neon, #fff9ee) !important;
+  text-shadow:
+    0 0 8px var(--slot-bound-glow, rgba(237, 203, 122, 0.95)),
+    0 0 16px var(--slot-bound-glow, rgba(237, 203, 122, 0.7)),
+    0 2px 4px rgba(0, 0, 0, 0.95) !important;
+  font-weight: 900 !important;
+}
+.ficha .fh-belt-slot.is-bound .fh-die-poly-base,
+.ficha .fh-belt-slot.is-bound .fh-die-silhouette-svg polygon,
+.ficha .fh-belt-slot.is-bound .fh-die-silhouette-svg path,
+.ficha .fh-belt-slot.is-bound .fh-die-crease,
+.ficha .fh-belt-slot.is-bound .fh-die-crease-facet {
+  stroke: var(--slot-bound-neon, var(--gold)) !important;
+  filter: drop-shadow(0 0 8px var(--slot-bound-glow, rgba(237, 203, 122, 0.85))) !important;
 }

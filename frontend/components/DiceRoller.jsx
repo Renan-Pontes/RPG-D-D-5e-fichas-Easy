@@ -93,70 +93,6 @@ const tableNoteText = (note, lang) => ({
   'sheet-failed': L(lang, 'Não foi para a Tela', 'Did not reach the screen'),
 }[note] || '');
 
-const RollUpTotal = ({ overlay, lang }) => {
-  const isAdvOrDis = overlay.adv === 'adv' || overlay.adv === 'dis';
-  const hasMod = typeof overlay.mod === 'number' && overlay.mod !== 0;
-  const naturalVal = (() => {
-    if (isAdvOrDis && overlay.groups?.[0]?.rolls) {
-      const keptRoll = overlay.groups[0].rolls.find(r => r.kept !== false);
-      if (keptRoll) return keptRoll.value;
-    }
-    return overlay.total - (overlay.mod || 0);
-  })();
-  const targetTotal = overlay.total;
-  const [displayTotal, setDisplayTotal] = useState(hasMod ? naturalVal : targetTotal);
-  const [bonusPhase, setBonusPhase] = useState(hasMod ? 'start' : 'done');
-  useEffect(() => {
-    if (!hasMod) return;
-    let startTimestamp = null;
-    const duration = 1400;
-    let animId;
-    const step = (now) => {
-      if (!startTimestamp) startTimestamp = now;
-      const elapsed = now - startTimestamp;
-      const progress = Math.min(elapsed / duration, 1);
-      const ease = 1 - Math.pow(1 - progress, 3);
-      const current = Math.round(naturalVal + (targetTotal - naturalVal) * ease);
-      setDisplayTotal(current);
-      if (progress < 0.5) {
-        setBonusPhase('adding');
-      } else if (progress < 1) {
-        setBonusPhase('fading');
-      } else {
-        setBonusPhase('done');
-      }
-      if (progress < 1) {
-        animId = requestAnimationFrame(step);
-      } else {
-        setDisplayTotal(targetTotal);
-      }
-    };
-    const timer = setTimeout(() => {
-      animId = requestAnimationFrame(step);
-    }, 280);
-    return () => {
-      clearTimeout(timer);
-      if (animId) cancelAnimationFrame(animId);
-    };
-  }, [hasMod, naturalVal, targetTotal]);
-  const modSign = overlay.mod > 0 ? `+${overlay.mod}` : `${overlay.mod}`;
-  return (
-    <div className={`dice-overlay-total-wrap${isAdvOrDis ? ` is-${overlay.adv}` : ''}`}>
-      <div className={`dice-overlay-total${isAdvOrDis ? ` is-${overlay.adv}` : ''}`}>
-        <span className="dice-rollup-num">{displayTotal}</span>
-        {hasMod && bonusPhase !== 'done' && (
-          <span className={`dice-rollup-bonus phase-${bonusPhase}`}>{modSign}</span>
-        )}
-        {overlay.isCrit && (
-          <span className="dice-sparks" aria-hidden="true">
-            {SPARKS.map(i => <i key={i} style={{ '--i': i }} />)}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-};
-
 const DiceRoller = ({ lang }) => {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(1);
@@ -708,16 +644,18 @@ const DiceRoller = ({ lang }) => {
         </div>
       )}
 
-      {/* === Overlay da rolagem (3D com fallback 2D) === */}
+      {/* === Overlay da rolagem (Minimalist & Clean Hero Die) === */}
       {overlay && (
         <div className="dice-overlay no-print" onClick={() => { sheetGate.settle(overlay.id); setOverlay(null); }} role="status" aria-live="polite">
           <div className={`dice-overlay-inner ${overlay.settled && overlay.isCrit ? 'is-crit' : ''} ${overlay.settled && overlay.isFumble ? 'is-fumble' : ''}`}>
-            <div className={`dice-overlay-label${isFormulaLabel(overlay) ? ' is-formula' : ''}`}>{overlay.who ? `${overlay.who} · ` : ''}{overlay.label}</div>
             <DiceStage
               key={overlay.id}
               groups={overlay.groups}
               tone={overlay.isCrit ? 'crit' : overlay.isFumble ? 'fumble' : (overlay.adv === 'adv' ? 'adv' : overlay.adv === 'dis' ? 'dis' : null)}
               adv={overlay.adv}
+              total={overlay.total}
+              isCrit={overlay.isCrit}
+              lang={lang}
               className="dice-overlay-stage"
               onSettled={() => {
                 sheetGate.settle(overlay.id);   // o dado parou: a rolagem da ficha vai à Tela (E2.1)
@@ -725,17 +663,8 @@ const DiceRoller = ({ lang }) => {
                 setOverlay(prev => (prev && prev.id === overlay.id ? { ...prev, settled: true } : prev));
               }}
             />
-            {overlay.settled && (
-              <>
-                {(!overlay.adv || overlay.adv === 'normal') && (
-                  <div className="dice-overlay-formula">{breakdown(overlay)}</div>
-                )}
-                <RollUpTotal overlay={overlay} lang={lang} />
-                {overlay.isCrit && <div className="dice-overlay-flair crit-flair">★ {L(lang, 'CRÍTICO!', 'CRITICAL!')} ★</div>}
-                {overlay.isFumble && <div className="dice-overlay-flair fumble-flair">{L(lang, 'FALHA CRÍTICA', 'CRITICAL MISS')}</div>}
-                {overlay.tableNote && <div className={`dice-table-note is-${overlay.tableNote}`}>{tableNoteText(overlay.tableNote, lang)}</div>}
-                <span className="dice-overlay-dismiss muted">{L(lang, 'Toque para fechar', 'Tap to dismiss')}</span>
-              </>
+            {overlay.settled && overlay.tableNote && (
+              <div className={`dice-table-note is-${overlay.tableNote}`}>{tableNoteText(overlay.tableNote, lang)}</div>
             )}
           </div>
         </div>

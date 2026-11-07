@@ -1,7 +1,6 @@
-// Dado 2D (SVG) — usado nos botões do rolador e como fallback quando não há
-// WebGL, o usuário prefere menos movimento ou escolheu animação simples.
-// tone ('crit' | 'fumble'): o DiceStage só passa depois que o dado para; a cor
-// muda com uma transição curta (styles.css: .die-shape.tone-*).
+import React, { useState, useEffect } from 'react';
+
+// Dado 2D (SVG) — usado nos botões do rolador e no overlay de resultado.
 const DICE_FACES = {
   4: 'M50 5 L95 90 L5 90 Z',
   6: 'M15 15 H85 V85 H15 Z',
@@ -12,11 +11,64 @@ const DICE_FACES = {
   100: 'M50 5 L90 28 L90 72 L50 95 L10 72 L10 28 Z',
 };
 
-export default function DieShape({ die, value, rolling = false, size = 56, seed = 0, dimmed = false, tone = null }) {
+const SPARKS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+
+export default function DieShape({
+  die,
+  value,
+  targetValue = null,
+  rolling = false,
+  size = 56,
+  seed = 0,
+  dimmed = false,
+  tone = null,
+  isHero = false,
+  isCrit = false,
+  lang = 'pt',
+}) {
+  const [displayVal, setDisplayVal] = useState(value);
+
+  // Smooth roll-up from natural roll to final targetValue inside the hero die face
+  useEffect(() => {
+    if (rolling || targetValue == null || targetValue === value || !isHero) {
+      setDisplayVal(value);
+      return;
+    }
+    const fromVal = Number(value) || 0;
+    const toVal = Number(targetValue) || fromVal;
+    let startTimestamp = null;
+    const duration = 1200;
+    let animId;
+
+    const step = (now) => {
+      if (!startTimestamp) startTimestamp = now;
+      const elapsed = now - startTimestamp;
+      const progress = Math.min(elapsed / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(fromVal + (toVal - fromVal) * ease);
+      setDisplayVal(current);
+      if (progress < 1) {
+        animId = requestAnimationFrame(step);
+      } else {
+        setDisplayVal(toVal);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      animId = requestAnimationFrame(step);
+    }, 240);
+
+    return () => {
+      clearTimeout(timer);
+      if (animId) cancelAnimationFrame(animId);
+    };
+  }, [value, targetValue, rolling, isHero]);
+
   const rand = (n) => {
     const x = Math.sin(seed * 9999 + n) * 10000;
     return x - Math.floor(x);
   };
+
   const style = rolling ? {
     width: size,
     height: size,
@@ -31,12 +83,84 @@ export default function DieShape({ die, value, rolling = false, size = 56, seed 
     '--rot': `${1440 + Math.floor(rand(9) * 720)}deg`,
     '--dur': `${1.2 + rand(10) * 0.4}s`,
   } : { width: size, height: size, opacity: dimmed ? 0.22 : 1 };
+
+  const isPt = lang === 'pt' || !lang;
+
   return (
-    <div className={`die-shape die-d${die} ${rolling ? 'rolling' : ''}${tone ? ` tone-${tone}` : ''}${dimmed ? ' is-unpicked' : ''}`} style={style} aria-hidden="true">
-      <svg viewBox="0 0 100 100" width={size} height={size}>
-        <path d={DICE_FACES[die] || DICE_FACES[20]} className="die-poly"/>
+    <div
+      className={`die-shape die-d${die} ${rolling ? 'rolling' : ''}${tone ? ` tone-${tone}` : ''}${dimmed ? ' is-unpicked' : ''}${isHero ? ' is-hero' : ''}${isCrit && !rolling ? ' is-crit-artdeco' : ''}`}
+      style={style}
+      aria-hidden="true"
+    >
+      <svg viewBox="0 0 100 100" width={size} height={size} className="die-main-svg">
+        <path d={DICE_FACES[die] || DICE_FACES[20]} className="die-poly" />
       </svg>
-      <span className="die-number" style={{ fontSize: size * 0.36 }}>{value ?? '?'}</span>
+      <span className="die-number" style={{ fontSize: size * 0.38 }}>
+        {rolling ? '' : (displayVal ?? '?')}
+      </span>
+
+      {/* Art Deco Critical Hit Overlay Layer */}
+      {isCrit && !rolling && isHero && (
+        <div className="dice-artdeco-crit-frame">
+          <svg viewBox="0 0 140 140" className="dice-artdeco-svg">
+            <defs>
+              <linearGradient id="artdeco-gilt-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#fff8cf" />
+                <stop offset="26%" stopColor="#efc762" />
+                <stop offset="52%" stopColor="#a37324" />
+                <stop offset="78%" stopColor="#fedc8c" />
+                <stop offset="100%" stopColor="#81510e" />
+              </linearGradient>
+            </defs>
+            {/* Outer Art Deco Hexagonal Silhouette with Chamfered Corners */}
+            <polygon
+              points="70,4 128,37 128,103 70,136 12,103 12,37"
+              fill="none"
+              stroke="url(#artdeco-gilt-grad)"
+              strokeWidth="2.5"
+            />
+            {/* Stepped Inner Art Deco Rim */}
+            <polygon
+              points="70,10 122,40 122,100 70,130 18,100 18,40"
+              fill="none"
+              stroke="url(#artdeco-gilt-grad)"
+              strokeWidth="1.2"
+              strokeDasharray="4 2"
+              opacity="0.9"
+            />
+            {/* Stepped Corner Chevron Accents */}
+            <polyline points="64,2 70,7 76,2" fill="none" stroke="url(#artdeco-gilt-grad)" strokeWidth="2.2" />
+            <polyline points="64,138 70,133 76,138" fill="none" stroke="url(#artdeco-gilt-grad)" strokeWidth="2.2" />
+            <polyline points="7,40 12,37 17,40" fill="none" stroke="url(#artdeco-gilt-grad)" strokeWidth="2.2" />
+            <polyline points="123,40 128,37 133,40" fill="none" stroke="url(#artdeco-gilt-grad)" strokeWidth="2.2" />
+            {/* Art Deco Cartouche Plaque for "CRÍTICO" */}
+            <rect
+              x="26"
+              y="102"
+              width="88"
+              height="20"
+              rx="3"
+              fill="#180f08"
+              stroke="url(#artdeco-gilt-grad)"
+              strokeWidth="1.4"
+            />
+            <text
+              x="70"
+              y="113"
+              textAnchor="middle"
+              dominantBaseline="central"
+              className="artdeco-crit-text"
+            >
+              {isPt ? 'CRÍTICO' : 'CRITICAL'}
+            </text>
+          </svg>
+          <span className="dice-sparks" aria-hidden="true">
+            {SPARKS.map((i) => (
+              <i key={i} style={{ '--i': i }} />
+            ))}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

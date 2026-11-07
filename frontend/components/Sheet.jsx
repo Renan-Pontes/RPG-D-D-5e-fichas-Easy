@@ -1802,10 +1802,9 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
   const [advMode, setAdvMode] = useState('normal'); // 'normal' | 'adv' | 'dis'
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
-  const gestureRef = useRef({ startX: 0, startY: 0, moved: false, bound: false, pointerId: null, at: 0, bindTimer: null });
+  const gestureRef = useRef({ startY: 0, moved: false, pointerId: null });
   const hexRef = useRef(null);
-  const hexDragRef = useRef({ startX: 0, startY: 0, active: false, pointerId: null });
-  const headerDragRef = useRef({ startX: 0, startY: 0, pointerId: null });
+  const hexDragRef = useRef({ startX: 0, startY: 0, active: false, timer: null });
 
   const score = Utils.abilityWithRace(char, k);
   const checkMod = Utils.abilityMod(char, k);
@@ -1817,76 +1816,41 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
     roll({ die: 20, mod, label, advMode });
   };
 
+  // Knob ONLY handles stance swiping tap (up = adv, down = dis, tap = normal)
   const onBadgePointerDown = (e) => {
+    e.stopPropagation();
     const pointerId = e.pointerId;
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const at = Date.now();
-
-    // Hold-to-bind timer (340ms)
-    const bindTimer = setTimeout(() => {
-      if (!gestureRef.current.moved) {
-        onBind(k);
-        gestureRef.current.bound = true;
-      }
-    }, 340);
-
     gestureRef.current = {
-      startX,
-      startY,
+      startY: e.clientY,
       moved: false,
-      bound: false,
       pointerId,
-      at,
-      bindTimer,
     };
     setIsPulling(true);
     e.currentTarget.setPointerCapture?.(pointerId);
   };
 
   const onBadgePointerMove = (e) => {
+    e.stopPropagation();
     const g = gestureRef.current;
     if (!g.pointerId) return;
-    const dx = e.clientX - g.startX;
     const dy = e.clientY - g.startY;
-    const dist = Math.hypot(dx, dy);
-    if (dist > 3) {
+    if (Math.abs(dy) > 4) {
       g.moved = true;
-      if (g.bindTimer) {
-        clearTimeout(g.bindTimer);
-        g.bindTimer = null;
-      }
+      setPullY(Math.max(-8, Math.min(8, dy)));
     }
-    if (onStartDrag && (Math.abs(dx) > 10 || dist > 18)) {
-      try { e.currentTarget.releasePointerCapture?.(g.pointerId); } catch (_) {}
-      gestureRef.current = { startX: 0, startY: 0, moved: false, bound: false, pointerId: null, at: 0, bindTimer: null };
-      setIsPulling(false);
-      setPullY(0);
-      const rect = hexRef.current ? hexRef.current.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
-      onStartDrag(k, e, rect);
-      return;
-    }
-    const clamped = Math.max(-8, Math.min(8, dy));
-    setPullY(clamped);
   };
 
   const onBadgePointerUp = (e) => {
+    e.stopPropagation();
     const g = gestureRef.current;
     if (!g.pointerId) return;
-    if (g.bindTimer) {
-      clearTimeout(g.bindTimer);
-      g.bindTimer = null;
-    }
     const dy = e.clientY - g.startY;
     const moved = g.moved;
-    const wasBound = g.bound;
 
-    e.currentTarget.releasePointerCapture?.(g.pointerId);
-    gestureRef.current = { startY: 0, moved: false, bound: false, pointerId: null, at: 0, bindTimer: null };
+    try { e.currentTarget.releasePointerCapture?.(g.pointerId); } catch (_) {}
+    gestureRef.current = { startY: 0, moved: false, pointerId: null };
     setIsPulling(false);
     setPullY(0);
-
-    if (wasBound) return;
 
     if (moved) {
       if (dy < -4) {
@@ -1897,23 +1861,15 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
         setAdvMode('normal');
       }
     } else {
-      // Short tap: toggle stance
-      const rect = e.currentTarget.getBoundingClientRect();
-      const relY = e.clientY - rect.top;
-      if (advMode !== 'normal') {
-        setAdvMode('normal');
-      } else if (relY < rect.height / 2) {
-        setAdvMode('adv');
-      } else {
-        setAdvMode('dis');
-      }
+      // Tap on knob: deactivate if already active, or toggle
+      setAdvMode(m => (m !== 'normal' ? 'normal' : 'adv'));
     }
   };
 
-  const onBadgePointerCancel = () => {
-    const g = gestureRef.current;
-    if (g.bindTimer) clearTimeout(g.bindTimer);
-    gestureRef.current = { startY: 0, moved: false, bound: false, pointerId: null, at: 0, bindTimer: null };
+  const onBadgePointerCancel = (e) => {
+    e.stopPropagation();
+    try { e.currentTarget.releasePointerCapture?.(gestureRef.current.pointerId); } catch (_) {}
+    gestureRef.current = { startY: 0, moved: false, pointerId: null };
     setIsPulling(false);
     setPullY(0);
   };
@@ -1938,11 +1894,47 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
     }
   };
 
+  // Hexad drag-to-bind gesture: user holds on ability score tile and drags towards belt
+  const onTilePointerDown = (e) => {
+    if (e.target.closest('.fh-belt-badge')) return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+
+    const timer = setTimeout(() => {
+      const rect = hexRef.current ? hexRef.current.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
+      onStartDrag?.(k, { clientX: startX, clientY: startY }, rect);
+    }, 180);
+
+    hexDragRef.current = { startX, startY, active: true, timer };
+  };
+
+  const onTilePointerMove = (e) => {
+    const h = hexDragRef.current;
+    if (!h.active) return;
+    const dist = Math.hypot(e.clientX - h.startX, e.clientY - h.startY);
+    if (dist > 8 && onStartDrag) {
+      if (h.timer) clearTimeout(h.timer);
+      hexDragRef.current = { startX: 0, startY: 0, active: false, timer: null };
+      const rect = hexRef.current ? hexRef.current.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
+      onStartDrag(k, e, rect);
+    }
+  };
+
+  const onTilePointerUp = () => {
+    if (hexDragRef.current.timer) clearTimeout(hexDragRef.current.timer);
+    hexDragRef.current = { startX: 0, startY: 0, active: false, timer: null };
+  };
+
   const meta = HONEY_ABILITY_META[k] || { zone: 'physical', tone: 'strength' };
-  const abbr = BELT_ABBR[k] || t(k + 'Sh', lang);
+  const abbr = BELT_ABBR[k] || k.toUpperCase();
+
+  const boundStyle = isAssigned ? {
+    '--slot-bound-neon': 'var(--slot-bound-neon, #edcb7a)',
+    '--slot-bound-glow': 'var(--slot-bound-glow, rgba(237, 203, 122, 0.8))',
+  } : undefined;
 
   return (
-    <div className={`fh-belt-hex-wrap is-${meta.zone} tone-${k}${isBound ? ' is-bound' : ''}${isAssigned ? ' is-assigned' : ''} adv-${advMode}`}>
+    <div className={`fh-honey-wrap is-${k}${isBound ? ' is-belt-bound' : ''}${isAssigned ? ' is-belt-assigned' : ''}`}>
       {/* Glowing Edge Feedback SVG */}
       <svg
         className={`fh-belt-glow-svg adv-${advMode}`}
@@ -1970,42 +1962,15 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
       <article
         ref={hexRef}
         className="fh-belt-hex"
-        onPointerDown={(e) => {
-          if (e.target.closest('button')) return;
-          hexDragRef.current = { startX: e.clientX, startY: e.clientY, active: true, pointerId: e.pointerId };
-        }}
-        onPointerMove={(e) => {
-          const h = hexDragRef.current;
-          if (!h.active) return;
-          const dist = Math.hypot(e.clientX - h.startX, e.clientY - h.startY);
-          if (dist > 12 && onStartDrag) {
-            h.active = false;
-            const rect = hexRef.current ? hexRef.current.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
-            onStartDrag(k, e, rect);
-          }
-        }}
-        onPointerUp={() => { hexDragRef.current.active = false; }}
-        onPointerCancel={() => { hexDragRef.current.active = false; }}
+        onPointerDown={onTilePointerDown}
+        onPointerMove={onTilePointerMove}
+        onPointerUp={onTilePointerUp}
+        onPointerCancel={onTilePointerUp}
       >
         {/* Top Header: Tap to bind/unbind ability to the currently active belt slot */}
         <button
           type="button"
           className="fh-belt-header"
-          onPointerDown={(e) => {
-            headerDragRef.current = { startX: e.clientX, startY: e.clientY, pointerId: e.pointerId };
-          }}
-          onPointerMove={(e) => {
-            const hd = headerDragRef.current;
-            if (!hd.pointerId) return;
-            const dist = Math.hypot(e.clientX - hd.startX, e.clientY - hd.startY);
-            if (dist > 12 && onStartDrag) {
-              hd.pointerId = null;
-              const rect = hexRef.current ? hexRef.current.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
-              onStartDrag(k, e, rect);
-            }
-          }}
-          onPointerUp={() => { headerDragRef.current.pointerId = null; }}
-          onPointerCancel={() => { headerDragRef.current.pointerId = null; }}
           onClick={() => onBind(k)}
           aria-label={pt
             ? `${t(k, lang)}: vincular ao slot ativo do cinto`
@@ -2037,11 +2002,11 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
           aria-valuemax={1}
           aria-valuetext={advMode === 'adv' ? 'Vantagem' : advMode === 'dis' ? 'Desvantagem' : 'Normal'}
           aria-label={pt
-            ? `${t(k, lang)}: ${score}. Arraste ↑ para vantagem, ↓ para desvantagem, ou segure para vincular ao cinto`
-            : `${t(k, lang)}: ${score}. Drag ↑ for advantage, ↓ for disadvantage, or hold to bind to belt`}
+            ? `${t(k, lang)}: ${score}. Deslize ↑ vantagem, ↓ desvantagem, ou toque para normal`
+            : `${t(k, lang)}: ${score}. Swipe ↑ advantage, ↓ disadvantage, or tap for normal`}
           title={pt
-            ? `${t(k, lang)} ${score}: Arraste ↑ vantagem 🟢, ↓ desvantagem 🔴 · Segure para vincular ao cinto`
-            : `${t(k, lang)} ${score}: Drag ↑ advantage 🟢, ↓ disadvantage 🔴 · Hold to bind to belt`}
+            ? `${t(k, lang)} ${score}: Deslize ↑ vantagem 🟢, ↓ desvantagem 🔴 · Toque para normal`
+            : `${t(k, lang)} ${score}: Swipe ↑ advantage 🟢, ↓ disadvantage 🔴 · Tap for normal`}
         >
           <span className="fh-badge-arrow is-up" aria-hidden="true">▲</span>
           <span className="fh-honey-score">{score}</span>
@@ -2641,12 +2606,31 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
   const [activeSlot, setActiveSlot] = useState(0);
   const [pbActive, setPbActive] = useState(false);
   const [dragLink, setDragLink] = useState(null);
+  const dragLinkRef = useRef(null);
+  dragLinkRef.current = dragLink;
+
+  const getSlotAtPoint = (x, y) => {
+    if (x == null || y == null) return null;
+    const elements = document.querySelectorAll('.fh-belt-slot[data-quick-slot-index]');
+    for (const el of elements) {
+      const rect = el.getBoundingClientRect();
+      if (
+        x >= rect.left - 24 &&
+        x <= rect.right + 24 &&
+        y >= rect.top - 24 &&
+        y <= rect.bottom + 24
+      ) {
+        return Number(el.getAttribute('data-quick-slot-index'));
+      }
+    }
+    return null;
+  };
 
   useEffect(() => {
     if (!dragLink) return;
+
     const onPointerMove = (e) => {
-      const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-quick-slot-index]');
-      const targetIndex = el ? Number(el.getAttribute('data-quick-slot-index')) : null;
+      const targetIndex = getSlotAtPoint(e.clientX, e.clientY);
       setDragLink((prev) => (prev ? {
         ...prev,
         currentX: e.clientX,
@@ -2654,39 +2638,43 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
         targetSlot: targetIndex,
       } : null));
     };
-    const onPointerUp = () => {
-      setDragLink((prev) => {
-        if (prev && prev.targetSlot != null) {
-          const targetIdx = prev.targetSlot;
-          const ability = prev.ability;
-          setSlots((slotsPrev) => slotsPrev.map((s, i) => (
-            i === targetIdx ? { ...s, bound: s.bound === ability ? null : ability } : s
-          )));
-          if (navigator.vibrate) navigator.vibrate(30);
-        }
-        return null;
-      });
+
+    const onPointerUp = (e) => {
+      const current = dragLinkRef.current;
+      const targetIndex = (e ? getSlotAtPoint(e.clientX, e.clientY) : null) ?? current?.targetSlot;
+      if (current && targetIndex != null) {
+        const ability = current.ability;
+        setSlots((slotsPrev) => slotsPrev.map((s, i) => (
+          i === targetIndex ? { ...s, bound: s.bound === ability ? null : ability } : s
+        )));
+        setActiveSlot(targetIndex);
+        if (navigator.vibrate) navigator.vibrate(40);
+      }
+      setDragLink(null);
     };
-    window.addEventListener('pointermove', onPointerMove);
+
+    window.addEventListener('pointermove', onPointerMove, { passive: false });
     window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', onPointerUp);
+    window.addEventListener('pointercancel', () => setDragLink(null));
+
     return () => {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerUp);
+      window.removeEventListener('pointercancel', () => setDragLink(null));
     };
-  }, [dragLink]);
+  }, [dragLink != null]);
 
   const onStartAbilityDrag = (k, e, hexRect) => {
     const startX = hexRect.left + hexRect.width / 2;
     const startY = hexRect.top + hexRect.height / 2;
+    const targetSlot = getSlotAtPoint(e.clientX, e.clientY);
     setDragLink({
       ability: k,
       startX,
       startY,
       currentX: e.clientX,
       currentY: e.clientY,
-      targetSlot: null,
+      targetSlot,
     });
   };
 

@@ -626,82 +626,137 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   .dice-fab.no-print { border-color: ButtonText; }
 }
 
-/* === Advantage & Disadvantage Tones and 2-Second Roll-Up Animation === */
+/* === Minimalist Roll Outcome, Art Deco Crit Frame & Satellite Unpicked Die === */
+.die-shape,
+.die-shape svg,
+.dice-stage,
+.dice-stage-2d,
+.dice-overlay-stage,
+.dice-hero-stage-wrap {
+  overflow: visible !important;
+}
+
+/* Atmospheric circular radial glows that smoothly dissipate into the dark background */
+.die-shape::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 380px;
+  height: 380px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+
+.die-shape.tone-adv::before {
+  opacity: 1;
+  background: radial-gradient(circle, rgba(16, 240, 122, 0.42) 0%, rgba(16, 240, 122, 0.16) 30%, rgba(16, 240, 122, 0.03) 58%, transparent 75%);
+}
 .die-shape.tone-adv .die-poly {
   fill: #092312;
   stroke: #10f07a;
-  filter: drop-shadow(0 0 16px rgba(16, 240, 122, 0.65));
+  stroke-width: 3.5;
 }
 .die-shape.tone-adv .die-number {
   color: #10f07a;
-  text-shadow: 0 0 12px rgba(16, 240, 122, 0.7);
+  text-shadow: 0 0 16px rgba(16, 240, 122, 0.8), 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+
+.die-shape.tone-dis::before {
+  opacity: 1;
+  background: radial-gradient(circle, rgba(255, 74, 90, 0.42) 0%, rgba(255, 74, 90, 0.16) 30%, rgba(255, 74, 90, 0.03) 58%, transparent 75%);
 }
 .die-shape.tone-dis .die-poly {
   fill: #2b0b0b;
   stroke: #ff4a5a;
-  filter: drop-shadow(0 0 16px rgba(255, 74, 90, 0.65));
+  stroke-width: 3.5;
 }
 .die-shape.tone-dis .die-number {
   color: #ff4a5a;
-  text-shadow: 0 0 12px rgba(255, 74, 90, 0.7);
+  text-shadow: 0 0 16px rgba(255, 74, 90, 0.8), 0 2px 4px rgba(0, 0, 0, 0.9);
 }
-.die-shape.is-unpicked {
-  opacity: 0.22 !important;
-  filter: grayscale(0.55);
-  transform: scale(0.72);
-  transition: opacity 0.4s ease, transform 0.4s ease;
+
+.die-shape.tone-crit::before {
+  opacity: 1;
+  background: radial-gradient(circle, rgba(245, 210, 110, 0.48) 0%, rgba(230, 185, 75, 0.18) 32%, rgba(200, 150, 40, 0.04) 62%, transparent 78%);
 }
-.dice-overlay-total-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.die-shape.tone-crit .die-poly {
+  fill: #7c581e;
+  stroke: #edcb7a;
+  stroke-width: 3.5;
+}
+.die-shape.tone-crit .die-number {
+  color: #fff8d6;
+  text-shadow: 0 0 16px rgba(240, 200, 100, 0.85), 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+
+/* Hero stage container & Satellite unpicked die docked at bottom right edge */
+.dice-hero-stage-wrap {
   position: relative;
-  min-height: 4.5rem;
-}
-.dice-overlay-total.is-adv {
-  color: #10f07a;
-  text-shadow: 0 0 28px rgba(16, 240, 122, 0.65), 0 2px 4px rgba(0, 0, 0, 0.9);
-}
-.dice-overlay-total.is-dis {
-  color: #ff4a5a;
-  text-shadow: 0 0 28px rgba(255, 74, 90, 0.65), 0 2px 4px rgba(0, 0, 0, 0.9);
-}
-.dice-rollup-num {
-  display: inline-block;
-  font-variant-numeric: tabular-nums;
-  transition: transform 0.15s ease;
-}
-.dice-rollup-bonus {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.42em;
-  font-family: var(--display);
-  font-weight: 800;
-  color: var(--gold-bright, #edcb7a);
-  background: rgba(26, 17, 10, 0.9);
-  border: 1px solid var(--gold, #d6b064);
-  box-shadow: 0 0 12px rgba(237, 203, 122, 0.4);
-  padding: 2px 10px;
-  border-radius: 999px;
-  margin-left: 12px;
-  vertical-align: middle;
-  transform: translateY(-4px);
-  transition: opacity 0.5s ease, transform 0.5s ease;
 }
-.dice-rollup-bonus.phase-start {
-  opacity: 1;
-  transform: translateY(-4px) scale(1);
+
+.dice-satellite-unpicked {
+  position: absolute;
+  right: -10px;
+  bottom: 2px;
+  z-index: 4;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.9));
 }
-.dice-rollup-bonus.phase-adding {
-  opacity: 0.95;
-  transform: translateY(-8px) scale(1.08);
-  box-shadow: 0 0 18px rgba(237, 203, 122, 0.75);
+
+.die-shape.is-unpicked {
+  opacity: 0.24 !important;
+  filter: grayscale(0.65);
+  transform: scale(0.72);
+  transition: opacity 0.4s ease, transform 0.4s ease;
 }
-.dice-rollup-bonus.phase-fading {
-  opacity: 0;
-  transform: translateY(-16px) scale(0.85);
+
+/* Art Deco Critical Hit Overlay Layer */
+.dice-artdeco-crit-frame {
+  position: absolute;
+  inset: -14px;
+  pointer-events: none;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: artdeco-crit-reveal 0.38s cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
 }
-.dice-rollup-bonus.phase-done {
-  display: none;
+
+.dice-artdeco-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible !important;
+  filter: drop-shadow(0 0 12px rgba(240, 200, 100, 0.7));
+}
+
+.artdeco-outer-hex {
+  filter: drop-shadow(0 0 6px rgba(255, 230, 150, 0.85));
+}
+.artdeco-inner-hex {
+  filter: drop-shadow(0 0 3px rgba(255, 215, 120, 0.6));
+}
+.artdeco-accent-chevron {
+  filter: drop-shadow(0 0 4px #ffe699);
+}
+.artdeco-crit-text {
+  font-family: var(--dice-deco, "Cinzel Decorative", serif);
+  font-size: 8.5px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  fill: #fff7d6;
+  text-shadow: 0 0 8px rgba(255, 225, 130, 0.9), 0 1px 2px #000;
+}
+
+@keyframes artdeco-crit-reveal {
+  0% { transform: scale(0.82); opacity: 0; }
+  60% { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }

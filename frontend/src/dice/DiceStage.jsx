@@ -2,7 +2,7 @@
 //
 // Recebe resultados PRONTOS — nunca sorteia. O 3D gira e para exatamente na
 // face do valor dado; o 2D usa a animação SVG antiga; 'static' só mostra.
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import DieShape from './DieShape.jsx';
 import { physicalDice, resolveAnimMode } from './dice-math.js';
 import { stageTone } from './dice-tones.js';
@@ -33,12 +33,23 @@ const MAX_3D_DICE = 12;
 
 /**
  * groups: [{ die: 20, rolls: [{ value, kept }] | number[] }]
- * tone: 'crit' | 'fumble' | null — só aparece DEPOIS que os dados param (rolar já
- *   dourado/vermelho entregaria o resultado); o 3D faz a passagem no próprio palco,
- *   o 2D recebe o tom ao assentar (transição em styles.css: .die-shape.tone-*).
+ * tone: 'crit' | 'fumble' | 'adv' | 'dis' | null
+ * total: final calculated result
+ * isCrit: boolean
  * onSettled(): chamado quando os dados param (ou imediatamente no modo estático)
  */
-export default function DiceStage({ groups, tone = null, adv = 'normal', onSettled, mode: forced, size2d = 88, className = '' }) {
+export default function DiceStage({
+  groups,
+  tone = null,
+  adv = 'normal',
+  total = null,
+  isCrit = false,
+  lang = 'pt',
+  onSettled,
+  mode: forced,
+  size2d = 88,
+  className = '',
+}) {
   const canvasRef = useRef(null);
   const settledRef = useRef(false);
   const physical = (groups || []).flatMap(g => physicalDice(g.die, g.rolls));
@@ -76,7 +87,6 @@ export default function DiceStage({ groups, tone = null, adv = 'normal', onSettl
       .then(() => { if (!cancelled) settle(); })
       .catch((err) => {
         console.warn('[dice3d] fallback 2D:', err?.message || err);
-        // Já entra rolando: sem um quadro com o valor (e o tom) antes da animação.
         if (!cancelled) { setRolling2d(true); setMode('2d'); }
       });
     return () => { cancelled = true; stage?.dispose(); };
@@ -90,6 +100,78 @@ export default function DiceStage({ groups, tone = null, adv = 'normal', onSettl
       </div>
     );
   }
+
+  const isStance = adv === 'adv' || adv === 'dis';
+
+  // In stance mode (Advantage or Disadvantage), highlight the hero die at center
+  // and nest the unpicked die at the lower-right edge of the hexagonal shape!
+  if (isStance && groups && groups.length > 0) {
+    const g = groups[0];
+    const rolls = g.rolls || [];
+    const heroRoll = rolls.find(r => (typeof r === 'object' && r ? r.kept !== false : true)) || rolls[0];
+    const unpickedRoll = rolls.find(r => typeof r === 'object' && r && r.kept === false);
+    const heroVal = typeof heroRoll === 'object' && heroRoll ? heroRoll.value : heroRoll;
+    const unpickedVal = unpickedRoll ? (typeof unpickedRoll === 'object' ? unpickedRoll.value : unpickedRoll) : null;
+    const effectiveTone = !rolling2d ? (shownTone || (adv === 'adv' ? 'adv' : 'dis')) : null;
+
+    return (
+      <div className={`dice-stage dice-stage-2d ${className}`} data-dice-mode={mode} data-dice-tone={shownTone || undefined}>
+        <div className="dice-hero-stage-wrap">
+          <DieShape
+            die={g.die}
+            value={rolling2d ? '' : heroVal}
+            targetValue={total != null ? total : heroVal}
+            rolling={rolling2d}
+            size={120}
+            isHero={true}
+            isCrit={isCrit}
+            tone={effectiveTone}
+            lang={lang}
+          />
+          {unpickedRoll && (
+            <div className="dice-satellite-unpicked">
+              <DieShape
+                die={g.die}
+                value={rolling2d ? '' : unpickedVal}
+                rolling={rolling2d}
+                size={48}
+                dimmed={true}
+                lang={lang}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Single die roll (e.g. 1d20, 1d12, 1d100) — display as hero die at center
+  const isSingleDie = groups && groups.length === 1 && (groups[0].rolls || []).length === 1;
+  if (isSingleDie) {
+    const g = groups[0];
+    const r = g.rolls[0];
+    const v = typeof r === 'object' && r ? r.value : r;
+    const effectiveTone = !rolling2d ? shownTone : null;
+
+    return (
+      <div className={`dice-stage dice-stage-2d ${className}`} data-dice-mode={mode} data-dice-tone={shownTone || undefined}>
+        <div className="dice-hero-stage-wrap">
+          <DieShape
+            die={g.die}
+            value={rolling2d ? '' : v}
+            targetValue={total != null ? total : v}
+            rolling={rolling2d}
+            size={120}
+            isHero={true}
+            isCrit={isCrit}
+            tone={effectiveTone}
+            lang={lang}
+          />
+        </div>
+      </div>
+    );
+  }
+
   let seed = 0;
   return (
     <div className={`dice-stage dice-stage-2d ${className}`} data-dice-mode={mode} data-dice-tone={shownTone || undefined}>
@@ -97,12 +179,19 @@ export default function DiceStage({ groups, tone = null, adv = 'normal', onSettl
         const v = typeof r === 'object' && r ? r.value : r;
         const kept = !(typeof r === 'object' && r && r.kept === false);
         seed += 1;
-        const isStance = adv === 'adv' || adv === 'dis';
-        const finalSize = isStance ? (kept ? 114 : 50) : size2d;
-        const effectiveTone = kept && !rolling2d ? (shownTone || (adv === 'adv' ? 'adv' : adv === 'dis' ? 'dis' : null)) : null;
+        const effectiveTone = kept && !rolling2d ? shownTone : null;
         return (
-          <DieShape key={`${gi}-${i}`} die={g.die} value={rolling2d ? '' : v} rolling={rolling2d}
-            size={finalSize} seed={seed} dimmed={!kept} tone={effectiveTone} />
+          <DieShape
+            key={`${gi}-${i}`}
+            die={g.die}
+            value={rolling2d ? '' : v}
+            rolling={rolling2d}
+            size={size2d}
+            seed={seed}
+            dimmed={!kept}
+            tone={effectiveTone}
+            lang={lang}
+          />
         );
       }))}
     </div>
