@@ -145,3 +145,22 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
 - **Unit & Integration Tests**: 1,515 / 1,515 passing across 20 suites.
 - **Production Build**: Clean Vite compilation (`✓ built in 14.26s`).
 - **Accessibility & Contrast**: High-contrast gold display typography, WCAG AAA compliant text shadows, clear ARIA roles (`button`, `slider`), keyboard shortcuts (`ArrowLeft`/`ArrowRight` for die shift, `ArrowUp`/`ArrowDown` for count or d20 stance, `Space`/`Enter` to roll).
+
+---
+
+## 7. Ability Drag-to-Bind & Clean Advantage Modal (Commit `4da31eb`)
+
+- **Drag-to-Bind with Visual Trailing Path**:
+  - Dragging from an ability score hexad towards any quick roll slot triggers a full-screen fixed SVG overlay (`.fh-belt-drag-overlay`).
+  - Animated bezier trailing path (`.fh-drag-trail-path.tone-${ability}`) with streaming dash pattern connects source center to cursor/pointer.
+  - Hovering a belt quick roll slot triggers vibrant target illumination (`.fh-belt-slot.is-drag-target`).
+  - Release assigns ability modifier to that belt slot with haptic pulse (`navigator.vibrate(30)`).
+- **Lifted Bonus Numbers**:
+  - Lifted bonus numbers in `.fh-honey-half` / `.fh-honey-val` higher from the bottom hexad edges (`transform: translateY(-5px)` and adjusted padding) to maximize negative space.
+- **Advantage / Disadvantage Drop-Lowest Mechanical Fix**:
+  - Fixed `onRollSlot` to pass `count: 1` with `advMode` so `rollFormula` triggers `singleD20 && adv !== 'normal'`. Rolls 2 dice and keeps the highest (for advantage) or lowest (for disadvantage) rather than summing both dice.
+- **Hierarchical Clean Roll Modal & 2-Second Roll-Up Animation**:
+  - In `DiceStage` & `DieShape`, kept hero die scales up to 114px while the discarded unpicked die drops to 50px at `opacity: 0.22`.
+  - Emerald green (`tone: 'adv'`, `#10f07a`) for Advantage rolls; Crimson red (`tone: 'dis'`, `#ff4a5a`) for Disadvantage rolls.
+  - Noisy array brackets (`[~1~, 16]`) are omitted during Advantage/Disadvantage.
+  - Smooth 2-second roll-up animation: starts at natural die roll with a floating bonus badge, smoothly counts up to final total over 1.4s, while the bonus badge illuminates and fades away.
