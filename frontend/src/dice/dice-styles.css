@@ -884,35 +884,64 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   z-index: 1;
   background-image:
     repeating-conic-gradient(
-      #66131c 0% 25%,
-      #1f130b 25% 50%,
-      #66131c 50% 75%,
-      #1f130b 75% 100%
+      #b81424 0% 25%,
+      #14070a 25% 50%,
+      #b81424 50% 75%,
+      #14070a 75% 100%
     );
   background-size: 52px 52px;
-  mask-image: radial-gradient(ellipse at center, transparent 30%, rgba(0, 0, 0, 0.65) 60%, black 86%);
-  -webkit-mask-image: radial-gradient(ellipse at center, transparent 30%, rgba(0, 0, 0, 0.65) 60%, black 86%);
+  mask-image: radial-gradient(ellipse at center, transparent 15%, rgba(0, 0, 0, 0.45) 45%, rgba(0, 0, 0, 0.95) 75%, black 100%);
+  -webkit-mask-image: radial-gradient(ellipse at center, transparent 15%, rgba(0, 0, 0, 0.45) 45%, rgba(0, 0, 0, 0.95) 75%, black 100%);
   box-shadow:
-    inset 0 0 80px rgba(255, 60, 75, 0.75),
-    inset 0 0 160px rgba(102, 19, 28, 0.92);
+    inset 0 0 100px rgba(255, 50, 70, 0.8),
+    inset 0 0 200px rgba(184, 20, 36, 0.92);
   opacity: 0;
   animation: save-vignette-fadein 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Expanding radial shockwave on unravelling roll */
+.dice-save-checkered-vignette::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at center, rgba(255, 75, 95, 0.75) 0%, rgba(184, 20, 36, 0.4) 40%, transparent 75%);
+  opacity: 0;
+}
+
+.dice-save-checkered-vignette.is-settled::after {
+  animation: save-flash-shockwave 0.95s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes save-flash-shockwave {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
 .dice-save-checkered-vignette.is-settled {
-  animation: save-vignette-pulse 1.05s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: save-vignette-pulse 1.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes save-vignette-fadein {
   from {
     opacity: 0;
-    transform: scale(1.05);
-    filter: brightness(0.6);
+    transform: scale(1.04);
+    filter: brightness(0.7);
   }
   to {
     opacity: 0.82;
     transform: scale(1);
-    filter: brightness(1);
+    filter: brightness(1.1);
   }
 }
 
@@ -920,23 +949,31 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   0% {
     opacity: 0.82;
     transform: scale(1);
-    filter: brightness(1);
+    filter: brightness(1.1) saturate(1.2);
+    mask-image: radial-gradient(ellipse at center, transparent 15%, rgba(0, 0, 0, 0.45) 45%, rgba(0, 0, 0, 0.95) 75%, black 100%);
+    -webkit-mask-image: radial-gradient(ellipse at center, transparent 15%, rgba(0, 0, 0, 0.45) 45%, rgba(0, 0, 0, 0.95) 75%, black 100%);
   }
   24% {
+    /* Peak unravel shockwave: Pulse brighter & expand opacity to full screen! */
     opacity: 1;
-    transform: scale(1.035);
-    filter: brightness(2.1) drop-shadow(0 0 50px rgba(255, 60, 75, 0.95));
+    transform: scale(1.04);
+    filter: brightness(2.8) saturate(1.85) drop-shadow(0 0 70px rgba(255, 60, 80, 1));
+    mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.94) 0%, rgba(0, 0, 0, 0.98) 50%, black 100%);
+    -webkit-mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.94) 0%, rgba(0, 0, 0, 0.98) 50%, black 100%);
     box-shadow:
-      inset 0 0 110px rgba(255, 75, 90, 0.95),
-      inset 0 0 200px rgba(180, 20, 35, 1);
+      inset 0 0 140px rgba(255, 75, 95, 1),
+      inset 0 0 260px rgba(220, 25, 45, 1);
   }
   100% {
-    opacity: 0.42;
+    /* Settled state: Vibrant full-screen ambient checkered backdrop */
+    opacity: 0.76;
     transform: scale(1);
-    filter: brightness(1);
+    filter: brightness(1.25) saturate(1.4);
+    mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.88) 50%, black 100%);
+    -webkit-mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.88) 50%, black 100%);
     box-shadow:
-      inset 0 0 70px rgba(255, 60, 75, 0.6),
-      inset 0 0 150px rgba(102, 19, 28, 0.85);
+      inset 0 0 90px rgba(255, 60, 75, 0.75),
+      inset 0 0 190px rgba(140, 20, 30, 0.9);
   }
 }
 

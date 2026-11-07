@@ -655,7 +655,7 @@ const DiceRoller = ({ lang }) => {
           {overlay.isSave && (
             <div className={`dice-save-checkered-vignette${overlay.settled ? ' is-settled' : ''}`} aria-hidden="true" />
           )}
-          <div className={`dice-overlay-inner ${overlay.settled && overlay.isCrit ? 'is-crit' : ''} ${overlay.settled && overlay.isFumble ? 'is-fumble' : ''}`}>
+          <div className={`dice-overlay-inner ${overlay.settled && overlay.isCrit ? 'is-crit' : ''} ${overlay.settled && overlay.isFumble ? 'is-fumble' : ''} ${overlay.isSave ? 'is-save' : ''}`}>
             {overlay.isSave && (
               <div className="dice-save-shield-banner" aria-hidden="true">
                 <span className="dice-save-shield-icon">🛡️</span>

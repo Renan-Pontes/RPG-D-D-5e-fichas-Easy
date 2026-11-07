@@ -58,6 +58,126 @@ export const SHEET_TABS = [
   { id: 'npcs',     labelPt: 'NPCs',            labelEn: 'NPCs' },
 ];
 
+// Mesmo fluxo do painel de Progressão: fora de campanha abre a subida guiada;
+// em campanha pede liberação ao mestre.
+const LevelUpButton = ({ char, lang, onLevelUp }) => {
+  const mode = Utils.levelingMode(char);
+  const XP_THRESHOLDS = [0,300,900,2700,6500,14000,23000,34000,48000,64000,85000,100000,120000,140000,165000,195000,225000,265000,305000,355000];
+  const canLevelXp = mode === 'xp' && char.level < 20 && (char.xp || 0) >= (XP_THRESHOLDS[char.level] || Infinity);
+  const canLevel = char.level < 20 && (mode === 'milestone' || canLevelXp || char.cheatMode);
+
+  // Selo de nível: anel tracejado + núcleo dourado. Com `can`, o anel gira devagar
+  // (nunca com movimento reduzido) e o selinho ↑ continua no canto.
+  return (
+    <button
+      className={`hero-level fh-seal no-print ${canLevel ? 'can' : ''}`}
+      onClick={() => onLevelUp && onLevelUp()}
+      disabled={!canLevel || !onLevelUp}
+      title={canLevel ? (lang === 'pt' ? 'Subir de nível' : 'Level up') : (lang === 'pt' ? 'XP insuficiente' : 'Not enough XP')}
+    >
+      <svg className="fh-seal-ring" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="30" fill="none" stroke="#e0b55e" strokeWidth="1.2" strokeDasharray="2 4"/>
+        <circle cx="32" cy="32" r="27" fill="none" stroke="#9a7231" strokeWidth="0.8"/>
+      </svg>
+      <span className="fh-seal-core">
+        <span className="hero-level-label">{t('level', lang)}</span>
+        <span className="hero-level-num">{char.level}</span>
+      </span>
+      {canLevel && <span className="hero-level-up">↑</span>}
+    </button>
+  );
+};
+
+// Topo da ficha (visual "Ficha Forjada", src/sheet/ficha.css: .fh-hero).
+// Mantém os dados essenciais de topo: nome, retrato com upload, selo de nível,
+// classe/raça/antecedente, etiquetas (tendência, XP, jogador) e o botão de Inspiração.
+// Exportar, Editar e Modo trapaça ficam contidos dentro do painel do herói,
+// diretamente abaixo da etiqueta de tendência (.hero-tags).
+const SheetHero = ({
+  char,
+  lang,
+  onAvatar,
+  onBack,
+  backLabel,
+  turnPanel,
+  onLevelUp,
+  onInspiration,
+  cls,
+  race,
+  bg,
+  onEdit,
+  exportBtnRef,
+  setExportOpen,
+  setCheatOpen,
+}) => {
+  const pt = lang === 'pt';
+  const letter = (char.name || '?').charAt(0).toUpperCase();
+  const portrait = char.avatar || speciesArt(char.race) || classArt(char.className);
+  return (
+    <>
+      <button className="btn btn-ghost btn-sm no-print" onClick={onBack} style={{ marginBottom: 12 }}>
+        <Icon name="arrow-back" size={14}/> {backLabel || t('yourHeroes', lang)}
+      </button>
+      {turnPanel}
+      <div className="sheet-hero fh-hero">
+        <div className="fh-hero-art" aria-hidden="true">
+          <span className="fh-hero-mono">{letter}</span>
+          {portrait && <img key={portrait} src={portrait} alt="" onError={hideBrokenImg} />}
+          <FhConditionArt conditions={char.conditions} down={char.currentHp === 0} />
+        </div>
+        <div className="fh-hero-body">
+          <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
+          <div className={char.name ? 'hero-name' : 'hero-name is-unnamed'}>
+            {char.name ? <span className="fh-foil">{char.name}</span> : (pt ? 'Sem nome' : 'Unnamed')}
+          </div>
+          <div className="hero-sub">
+            {race ? <b>{tName('race', race.id, lang)}</b> : '—'}
+            {cls ? ` · ${Utils.classLabel(char, lang, tName)}` : ''}
+            {bg ? ` · ${tName('background', bg.id, lang)}` : ''}
+          </div>
+          <div className="hero-tags">
+            {char.alignment && <span className="tag hero-alignment-tag">{tName('alignment', char.alignment, lang)}</span>}
+            {char.player && <span className="tag">{char.player}</span>}
+            {Utils.levelingMode(char) === 'xp' && <span className="tag">{char.xp || 0} XP</span>}
+            {Utils.levelingMode(char) === 'milestone' && <span className="tag" title={pt ? 'Sobe de nível por marcos da história (sem XP)' : 'Levels up at story milestones (no XP)'}>{pt ? 'Marcos' : 'Milestones'}</span>}
+            {char.cheatMode && <span className="tag fh-tag-cheat">🎲 {pt ? 'Trapaça' : 'Cheat'}</span>}
+          </div>
+
+          {/* Barra de ações (src/sheet/ficha.css: .fh-actions): Exportar, Editar e Modo trapaça;
+              contidos dentro do painel do personagem, abaixo da etiqueta de tendência. */}
+          <div className="action-bar fh-actions no-print">
+            <button ref={exportBtnRef} type="button" className="chip fh-export-chip" aria-haspopup="dialog" onClick={() => setExportOpen(true)}>
+              <Icon name="download" size={14} className="chip-icon"/> {t('export', lang)}
+            </button>
+            {!char.inCampaign && (
+              <button className="chip" onClick={onEdit}><Icon name="edit" size={14} className="chip-icon"/> {t('edit', lang)}</button>
+            )}
+            {char.inCampaign && (
+              <span className="chip is-locked" title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
+                🔒 <Icon name="edit" size={14} className="chip-icon"/> {t('edit', lang)}
+              </span>
+            )}
+            <button className={`chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
+              🎲 {lang === 'pt' ? (char.cheatMode ? 'Trapaça ativa' : 'Modo trapaça') : (char.cheatMode ? 'Cheat on' : 'Cheat mode')}
+            </button>
+          </div>
+        </div>
+        {/* Estrela e foto vêm depois do corpo: pintam (e recebem o toque) por cima dele,
+            sem z-index. Ficam no lado direito do retrato. */}
+        <button type="button" className="fh-insp no-print" aria-pressed={!!char.inspiration} onClick={onInspiration}>
+          <span className="fh-insp-gem"><Icon name={char.inspiration ? 'star-fill' : 'star'} size={22}/></span>
+          <span className="fh-insp-label">{t('inspiration', lang)}</span>
+        </button>
+        <div className="fh-hero-photo">
+          <AvatarUpload value={char.avatar} onChange={onAvatar} lang={lang} size={52} letter={letter} />
+          <span className="fh-hero-photo-badge" aria-hidden="true"><Icon name="image" size={11}/></span>
+        </div>
+      </div>
+    </>
+  );
+};
+
+
 // onCampaignChange(msg): a ficha entrou/saiu/trocou de campanha (modal "Campanha") —
 // o app recarrega a lista (char.inCampaign) e mostra `msg`. onLogin: ficha do aparelho,
 // leva à entrada na conta (sem ele, o servidor está fora e a dica não aparece).
@@ -264,6 +384,10 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         onLevelUp={onLevelUp}
         onInspiration={() => update({ inspiration: !char.inspiration })}
         cls={cls} race={race} bg={bg}
+        onEdit={onEdit}
+        exportBtnRef={exportBtnRef}
+        setExportOpen={setExportOpen}
+        setCheatOpen={setCheatOpen}
       />
 
       {/* Pedido de teste do mestre: logo abaixo do topo, para ser visto sem rolar */}
@@ -346,10 +470,6 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
           />
         )}
 
-        {tab === 'spells' && (
-          <SheetSpells char={char} lang={lang} update={update} slots={slots} roll={roll} placed={placed} />
-        )}
-
         {tab === 'stats' && (
           <SheetAbilities
             char={char} lang={lang} update={update}
@@ -376,6 +496,10 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
           />
         )}
 
+        {tab === 'spells' && (
+          <SheetSpells char={char} lang={lang} update={update} slots={slots} roll={roll} placed={placed} />
+        )}
+
         {tab === 'inv' && (
           <SheetInventory char={char} lang={lang} update={update} roll={roll} cls={cls} bg={bg} placed={placed} />
         )}
@@ -399,95 +523,7 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
 
 // ===== Sub-components =====
 
-// Topo da ficha (visual "Ficha Forjada", src/sheet/ficha.css: .fh-hero).
-// - Retrato grande: só decoração (aria-hidden). Mesma regra do retrato do criador
-//   (portraitOf, src/creator/journey-ui.jsx): a foto do jogador; sem foto, a arte da
-//   espécie; senão, a da classe. Atrás dele fica a inicial em monograma, que aparece
-//   quando não há arte ou a imagem não carrega.
-// - O controle da foto continua sendo o círculo do AvatarUpload (enviar, ver, trocar,
-//   remover), num canto do retrato.
-// - Máscara e animações só em elementos-folha (<img>, anel do selo, estrela): o
-//   AvatarUpload abre um Modal, que não é portal.
-const hideBrokenImg = (e) => { e.currentTarget.style.display = 'none'; };
-
-const SheetHero = ({ char, lang, onAvatar, onBack, backLabel, turnPanel, onLevelUp, onInspiration, cls, race, bg }) => {
-  const pt = lang === 'pt';
-  const letter = (char.name || '?').charAt(0).toUpperCase();
-  const portrait = char.avatar || speciesArt(char.race) || classArt(char.className);
-  return (
-    <>
-      <button className="btn btn-ghost btn-sm no-print" onClick={onBack} style={{ marginBottom: 12 }}>
-        <Icon name="arrow-back" size={14}/> {backLabel || t('yourHeroes', lang)}
-      </button>
-      {turnPanel}
-      <div className="sheet-hero fh-hero">
-        <div className="fh-hero-art" aria-hidden="true">
-          <span className="fh-hero-mono">{letter}</span>
-          {portrait && <img key={portrait} src={portrait} alt="" onError={hideBrokenImg} />}
-          <FhConditionArt conditions={char.conditions} down={char.currentHp === 0} />
-        </div>
-        <div className="fh-hero-body">
-          <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
-          <div className={char.name ? 'hero-name' : 'hero-name is-unnamed'}>
-            {char.name ? <span className="fh-foil">{char.name}</span> : (pt ? 'Sem nome' : 'Unnamed')}
-          </div>
-          <div className="hero-sub">
-            {race ? <b>{tName('race', race.id, lang)}</b> : '—'}
-            {cls ? ` · ${Utils.classLabel(char, lang, tName)}` : ''}
-            {bg ? ` · ${tName('background', bg.id, lang)}` : ''}
-          </div>
-          <div className="hero-tags">
-            {char.alignment && <span className="tag">{tName('alignment', char.alignment, lang)}</span>}
-            {char.player && <span className="tag">{char.player}</span>}
-            {Utils.levelingMode(char) === 'xp' && <span className="tag">{char.xp || 0} XP</span>}
-            {Utils.levelingMode(char) === 'milestone' && <span className="tag" title={pt ? 'Sobe de nível por marcos da história (sem XP)' : 'Levels up at story milestones (no XP)'}>{pt ? 'Marcos' : 'Milestones'}</span>}
-            {char.cheatMode && <span className="tag fh-tag-cheat">🎲 {pt ? 'Trapaça' : 'Cheat'}</span>}
-          </div>
-        </div>
-        {/* Estrela e foto vêm depois do corpo: pintam (e recebem o toque) por cima dele,
-            sem z-index. Ficam no lado direito do retrato. */}
-        <button type="button" className="fh-insp no-print" aria-pressed={!!char.inspiration} onClick={onInspiration}>
-          <span className="fh-insp-gem"><Icon name={char.inspiration ? 'star-fill' : 'star'} size={22}/></span>
-          <span className="fh-insp-label">{t('inspiration', lang)}</span>
-        </button>
-        <div className="fh-hero-photo">
-          <AvatarUpload value={char.avatar} onChange={onAvatar} lang={lang} size={52} letter={letter} />
-          <span className="fh-hero-photo-badge" aria-hidden="true"><Icon name="image" size={11}/></span>
-        </div>
-      </div>
-    </>
-  );
-};
-
-// Mesmo fluxo do painel de Progressão: fora de campanha abre a subida guiada;
-// em campanha pede liberação ao mestre.
-const LevelUpButton = ({ char, lang, onLevelUp }) => {
-  const mode = Utils.levelingMode(char);
-  const XP_THRESHOLDS = [0,300,900,2700,6500,14000,23000,34000,48000,64000,85000,100000,120000,140000,165000,195000,225000,265000,305000,355000];
-  const canLevelXp = mode === 'xp' && char.level < 20 && (char.xp || 0) >= (XP_THRESHOLDS[char.level] || Infinity);
-  const canLevel = char.level < 20 && (mode === 'milestone' || canLevelXp || char.cheatMode);
-
-  // Selo de nível: anel tracejado + núcleo dourado. Com `can`, o anel gira devagar
-  // (nunca com movimento reduzido) e o selinho ↑ continua no canto.
-  return (
-    <button
-      className={`hero-level fh-seal no-print ${canLevel ? 'can' : ''}`}
-      onClick={() => onLevelUp && onLevelUp()}
-      disabled={!canLevel || !onLevelUp}
-      title={canLevel ? (lang === 'pt' ? 'Subir de nível' : 'Level up') : (lang === 'pt' ? 'XP insuficiente' : 'Not enough XP')}
-    >
-      <svg className="fh-seal-ring" viewBox="0 0 64 64" aria-hidden="true">
-        <circle cx="32" cy="32" r="30" fill="none" stroke="#e0b55e" strokeWidth="1.2" strokeDasharray="2 4"/>
-        <circle cx="32" cy="32" r="27" fill="none" stroke="#9a7231" strokeWidth="0.8"/>
-      </svg>
-      <span className="fh-seal-core">
-        <span className="hero-level-label">{t('level', lang)}</span>
-        <span className="hero-level-num">{char.level}</span>
-      </span>
-      {canLevel && <span className="hero-level-up">↑</span>}
-    </button>
-  );
-};
+// (SheetHero and LevelUpButton relocated above Sheet)
 
 // Level at which each class chooses a subclass
 const SUBCLASS_LEVEL = {

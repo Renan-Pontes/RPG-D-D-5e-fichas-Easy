@@ -74,7 +74,8 @@ const src = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
 test('Sheet: um botão Exportar no lugar dos 5 soltos, sem duplicar as saídas', () => {
   const s = src('../components/Sheet.jsx');
-  const bar = s.slice(s.indexOf('<div className="action-bar fh-actions no-print">'), s.indexOf('{cheatOpen &&'));
+  const start = s.indexOf('<div className="action-bar fh-actions no-print">');
+  const bar = s.slice(start, s.indexOf('</div>', start));
   // Exportar, Editar (fora de campanha; em campanha é um <span> travado) e Modo trapaça
   assert.equal((bar.match(/<button/g) || []).length, 3);
   assert.match(bar, /onClick=\{\(\) => setExportOpen\(true\)\}/);

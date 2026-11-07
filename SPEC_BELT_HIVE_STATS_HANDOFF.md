@@ -452,3 +452,41 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
 - **Verification**:
   - Full automated suite: 1,536 / 1,536 tests passing (100% green across 20 suites).
   - Production Vite build: 0 errors, 641 modules transformed in 15.76s.
+
+
+---
+
+## 17. Release v1.0.4: Canonical 10-Tab Flow, Character Panel Action Encapsulation, and Full-Screen Pulsing Saving Throw Vignette
+
+### 17.1 Canonical 10-Tab Sequential Sequence
+- **Strict Tab Order**: `SHEET_TABS` defined in `frontend/components/Sheet.jsx`:
+  $$\text{Play} \longrightarrow \text{Ability Scores} \longrightarrow \text{Skills} \longrightarrow \text{Tools} \longrightarrow \text{Features} \longrightarrow \text{Spells} \longrightarrow \text{Inventory} \longrightarrow \text{Story} \longrightarrow \text{Journal} \longrightarrow \text{NPCs}$$
+  - `stats` (Ability Scores) immediately follows `play` for instant attribute and saving throw checks.
+  - `skills` and `tools` provide full proficiency visibility.
+  - `features` precedes `spells`, consolidating class traits, feats, and species abilities before magic.
+  - `spells` bridges class magic into inventory equipment and items.
+- **Gesture Synchronization**: Touch swipe gestures cycle through this exact progression with $|dx| \ge 48\text{px}$ and $|dx| > 1.35 \times |dy|$.
+
+### 17.2 Character Panel Header Encapsulation
+- **Action Controls Embedded in Hero Header**:
+  - `Export` (`.fh-export-chip`), `Edit`, and `Cheat Mode` relocated inside `SheetHero` (`.fh-hero-body`).
+  - Positioned directly underneath the character's alignment badge (`.hero-alignment-tag` inside `.hero-tags`).
+  - Desktop grid area: `grid-template-areas: "seal name" "sub sub" "tags tags" "actions actions"`.
+  - Mobile grid area: `grid-template-areas: "seal" "name" "sub" "tags" "actions"`.
+  - Eliminates detached, floating action bar buttons between status banners and navigation tabs.
+  - Enforces accessible WCAG AAA touch target floor (`min-height: 44px`) for all action chips.
+
+### 17.3 Full-Screen Pulsing Heraldic Checkered Vignette
+- **Heraldic Palette & Kinetic Shockwave**:
+  - Repeating conic gradient upgraded to high-contrast heraldic ruby crimson (`#b81424`) and deep obsidian iron (`#14070a`) at `52px 52px`.
+  - Radial shockwave ring element (`.dice-save-checkered-vignette::after` with `@keyframes save-flash-shockwave`).
+  - When the roll unravels its rolled numbers (`.is-settled` triggered by `onSettled`):
+    - Background vignette mask opens up across the entire screen (`mask-image` expands to 94%-100% full-screen coverage).
+    - Opacity surges to `1.0` with blazing brightness (`filter: brightness(2.8) saturate(1.85) drop-shadow(0 0 70px rgba(255, 60, 80, 1))`).
+    - Dual crimson shockwaves bloom: `inset 0 0 140px rgba(255, 75, 95, 1), inset 0 0 260px rgba(220, 25, 45, 1)`.
+    - Settles into an ambient full-screen heraldic backdrop (`opacity: 0.76`, `brightness(1.25)`) with softened central shade for hero die legibility.
+    - HUD saving throw shield banner (`🛡️ TESTE DE RESISTÊNCIA` / `🛡️ SAVING THROW`) shines proudly above the stage.
+
+### 17.4 Verification
+- **Automated Tests**: 1,536 / 1,536 tests passing (100% green across 20 suites).
+- **Production Build**: Clean Vite compilation in 13.28s with 0 errors.

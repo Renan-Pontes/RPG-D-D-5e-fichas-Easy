@@ -499,3 +499,51 @@ While the 4-scope stats navigation introduced in ADR-0015 addressed vertical scr
 ### Consequences
 - **Positive:** Extremely clean 1-level navigation with 10 direct tabs; zero scroll-to-switch fatigue on mobile; dramatic, unmistakable resistance save feedback with synchronized ripple pulse; instantaneous half-damage reference for combat spells and attacks.
 - **Negative:** Top-bar tab strip has 10 items, but `ScrollTabs` provides smooth horizontal scrolling with touch drag and `aria-selected` highlights.
+
+
+---
+
+## ADR-0017: Exact 10-Tab Sequential Hierarchy, Character Panel Header Encapsulation, and Full-Screen Pulsing Heraldic Checkered Vignette for Resistance Saves
+
+### Status
+Accepted & Implemented (2026-11-07)
+
+### Context
+Following user testing and mobile gameplay validation, three UX/UI discrepancies were identified:
+1. **Tab Sequence Misalignment:** The top navigation bar and horizontal swipe gesture sequence placed `Spells` immediately after `Play`. The canonical player journey requires `Ability Scores` directly following `Play`, with character attributes, proficiencies, tools, and features flowing naturally before spellcasting: `Play -> Ability Scores -> Skills -> Tools -> Features -> Spells -> Inventory -> Story -> Journal -> NPCs`.
+2. **Disconnected Header Actions:** Action controls (`Export`, `Edit`, and `Cheat Mode`) floated awkwardly outside the character header, detached between status banners and the tab navigation bar.
+3. **Saving Throw Vignette Contrast & Full-Screen Impact:** The previous checkered pattern used low-contrast dark crimson and leather tones and masked out the central screen area. When rolling a resistance saving throw, players needed unmistakable, dramatic confirmation that pulsed brightly to full screen at the exact instant the rolled numbers unraveled.
+
+### Decision Outcome
+1. **Canonical 10-Tab Sequential Sequence (`SHEET_TABS`):**
+   - Updated `SHEET_TABS` and `.fh-tab-body` in `frontend/components/Sheet.jsx` to the strict sequence:
+     1. `play`: Jogar / Play
+     2. `stats`: Atributos / Ability Scores (`SheetAbilities`: pure Ability Scores + Saving Throws + Dice Belt Mode + 3D Hexad Seals)
+     3. `skills`: Perícias / Skills (`SheetSkills`: Passive Perception + 18 SRD skills + proficiencies)
+     4. `tools`: Ferramentas / Tools (`SheetTools`: Languages + armor, weapon, tool proficiencies)
+     5. `features`: Características / Features (`SheetFeatures`: Class, subclass, feats, racial traits)
+     6. `spells`: Magias / Spells (`SheetSpells`: Spell slots, prepared spells, spellbook)
+     7. `inv`: Inventário / Inventory (`SheetInventory`: Equipment, weapons, attunement, weight)
+     8. `story`: História / Story (`SheetStory`: Background, backstory, personality, traits)
+     9. `notes`: Diário / Journal (`SheetNotes`: Session notes, campaign logs, quest trackers)
+     10. `npcs`: NPCs / NPCs (`SheetNpcs`: Companions, allies, organizations, contacts)
+   - Mobile horizontal swipe (`dx < 0` / `dx > 0`) directly cycles across this exact 10-tab progression.
+
+2. **Character Panel Header Encapsulation:**
+   - Relocated `LevelUpButton` and `SheetHero` definitions above `Sheet` for architectural modularity.
+   - Encapsulated `Export`, `Edit`, and `Cheat Mode` inside `SheetHero` (`.fh-hero-body`), positioned directly beneath the alignment badge (`.hero-alignment-tag` / `.hero-tags`).
+   - Styled `.ficha .fh-hero .fh-actions` as grid area `actions` beneath tags in desktop (`"seal name" "sub sub" "tags tags" "actions actions"`) and mobile (`"seal" "name" "sub" "tags" "actions"`).
+   - Enforced WCAG AAA touch target floor (`min-height: 44px`) for all action chips.
+
+3. **Full-Screen Pulsing Heraldic Checkered Vignette & Unravel Shockwave:**
+   - Upgraded checkerboard to vibrant, high-contrast heraldic ruby crimson (`#b81424`) and deep obsidian iron (`#14070a`) at `52px 52px`.
+   - Added kinetic radial shockwave ring (`.dice-save-checkered-vignette::after` with `@keyframes save-flash-shockwave`).
+   - At the exact moment the roll unravels its rolled numbers (`.is-settled` triggered by `onSettled`):
+     - The checkered pattern expands to **FULL SCREEN** (`mask-image` opens from central cutout to 94%-100% full-screen coverage).
+     - Opacity flares to `1.0` with blazing brightness (`filter: brightness(2.8) saturate(1.85) drop-shadow(0 0 70px rgba(255, 60, 80, 1))`).
+     - Intense dual inset crimson shockwaves (`inset 0 0 140px rgba(255, 75, 95, 1), inset 0 0 260px rgba(220, 25, 45, 1)`).
+     - Settles gracefully into an ambient full-screen heraldic backdrop (`opacity: 0.76`, `brightness(1.25)`) with softened central shade ensuring 100% legibility of the hero die and HUD shield banner (`🛡️ TESTE DE RESISTÊNCIA` / `🛡️ SAVING THROW`).
+
+### Consequences
+- **Positive:** Perfect ergonomic alignment with player intuition and PHB structure; actions visually integrated into the character's identity panel with zero page-top clutter; spectacular, high-impact saving throw audiovisual drama with full-screen checkered presence.
+- **Verification:** 1,536 / 1,536 frontend tests passing (100% green); Vite production build successful in 13.28s; WCAG touch targets verified.

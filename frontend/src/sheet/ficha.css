@@ -392,7 +392,7 @@
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: "seal name" "sub sub" "tags tags";
+  grid-template-areas: "seal name" "sub sub" "tags tags" "actions actions";
   align-items: center;
   column-gap: 14px;
   row-gap: 8px;
@@ -435,6 +435,15 @@
   border: 1px solid rgba(224, 181, 94, 0.3);
 }
 .ficha .fh-hero .tag.fh-tag-cheat { color: #ffd7cf; border-color: var(--blood-bright); background: rgba(94, 21, 17, 0.7); }
+
+.ficha .fh-hero .fh-actions {
+  grid-area: actions;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 0;
+  align-items: center;
+}
 
 /* Selo de nível (button.hero-level): mantém can, ↑, disabled e title. As regras
    globais de .hero-level (styles.css) desenham a caixinha antiga: anuladas aqui. */
@@ -588,7 +597,7 @@
   .ficha .fh-insp { top: calc(var(--fh-cover-h) - 58px); }
   .ficha .fh-hero-body {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "seal" "name" "sub" "tags";
+    grid-template-areas: "seal" "name" "sub" "tags" "actions";
     row-gap: 8px;
     padding: calc(var(--fh-cover-h) - 58px) 16px 16px;
   }
@@ -3508,7 +3517,7 @@
    ligada: antes estilo inline, agora classes. */
 .ficha .fh-actions { gap: 8px; margin: 0 0 18px; }
 .ficha .fh-actions .chip {
-  min-height: 40px;
+  min-height: 44px;
   padding: 7px 14px;
   border-radius: 999px;
   border: 1px solid rgba(224, 181, 94, 0.28);
