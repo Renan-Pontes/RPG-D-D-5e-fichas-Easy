@@ -79,6 +79,9 @@ test('Sheet: um botão Exportar no lugar dos 5 soltos, sem duplicar as saídas',
   // Exportar, Editar (fora de campanha; em campanha é um <span> travado) e Modo trapaça
   assert.equal((bar.match(/<button/g) || []).length, 3);
   assert.match(bar, /onClick=\{\(\) => setExportOpen\(true\)\}/);
+  assert.equal((s.match(/<div className="action-bar fh-actions no-print">/g) || []).length, 1);
+  assert.match(s, /const hideBrokenImg = /);
+  assert.match(s, /onError=\{hideBrokenImg\}/);
   for (const gone of ['onClick={onPrint}', 'onExportPdf({', 'onClick={onShare}', 'onClick={onExport}']) {
     assert.ok(!s.includes(gone), gone);
   }

@@ -88,6 +88,8 @@ const LevelUpButton = ({ char, lang, onLevelUp }) => {
   );
 };
 
+const hideBrokenImg = (e) => { e.currentTarget.style.display = 'none'; };
+
 // Topo da ficha (visual "Ficha Forjada", src/sheet/ficha.css: .fh-hero).
 // Mantém os dados essenciais de topo: nome, retrato com upload, selo de nível,
 // classe/raça/antecedente, etiquetas (tendência, XP, jogador) e o botão de Inspiração.
@@ -414,28 +416,6 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
           {!turnOnTop && <CombatActionPanel panel={combatPanel} char={char} lang={lang} />}
         </div>
       )}
-
-      {/* Barra de ações (src/sheet/ficha.css: .fh-actions): Exportar, Editar e Modo trapaça;
-          o travado e a trapaça ligada viraram classes (antes, estilo inline). Imprimir, os
-          dois PDFs, Compartilhar e o JSON eram botões soltos aqui: agora são as linhas do
-          modal Exportar (src/sheet/FhExport.jsx), com os mesmos handlers. */}
-      <div className="action-bar fh-actions no-print">
-        <button ref={exportBtnRef} type="button" className="chip fh-export-chip" aria-haspopup="dialog" onClick={() => setExportOpen(true)}>
-          <Icon name="download" size={14} className="chip-icon"/> {t('export', lang)}
-        </button>
-        {!char.inCampaign && (
-          <button className="chip" onClick={onEdit}><Icon name="edit" size={14} className="chip-icon"/> {t('edit', lang)}</button>
-        )}
-        {char.inCampaign && (
-          <span className="chip is-locked" title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
-            🔒 <Icon name="edit" size={14} className="chip-icon"/> {t('edit', lang)}
-          </span>
-        )}
-        <button className={`chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
-          🎲 {lang === 'pt' ? (char.cheatMode ? 'Trapaça ativa' : 'Modo trapaça') : (char.cheatMode ? 'Cheat on' : 'Cheat mode')}
-        </button>
-        {/* Inspiração: virou a estrela do topo (SheetHero), com o mesmo handler */}
-      </div>
 
       {cheatOpen && <CheatModeModal char={char} lang={lang} update={update} onClose={() => setCheatOpen(false)} />}
       {exportOpen && (
