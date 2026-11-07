@@ -50,11 +50,21 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
 
 ---
 
-## 3. Seamless Inline PB Formula (`1d12+2`, `5d6+2`, `4d8+2`, etc.)
+## 3. Consolidated Unified Formula on Dice Silhouette (`2d20+3`, `1d12+5`, `1d6-1`, etc.)
 
-- Rendered as a single inline label without any pill boxes, backgrounds, or borders.
-- Positioned inside the enlarged silhouette facet with generous negative space and zero border collisions.
-- Display typography: `font-family: var(--display)`, `font-size: clamp(0.80rem, 1.38vw, 0.94rem)`, bold golden styling with dark atmospheric text-shadow.
+- **Consolidated Unified Sum on Right Side of Dice Type**:
+  - All extraneous ability name crests (`WIS`, `STR`, etc.) and separate bottom foot bonus badges (`+1`, `+3`, etc.) were completely eliminated.
+  - The assigned ability score is communicated purely and elegantly through the hexad's theme color-coding (`is-bound tone-${slot.bound}`) and luminous edge glow.
+  - The modifier is unified into a singular mathematical sum positioned directly on the right side of the dice type:
+    - When bound: $\text{Bonus} = \text{AbilityMod} + (\text{pbActive} ? \text{ProfBonus} : 0)$ (e.g. WIS $+1$ with PB $+2$ yields a unified `+3`).
+    - When unbound with PB active: $\text{Bonus} = \text{ProfBonus}$ (e.g. `1d6+2`).
+    - When unbound with PB inactive: No modifier suffix (e.g. `1d6`).
+- **Dynamic 2d20 Stance Representation**:
+  - Whenever a d20 slot is toggled to Advantage or Disadvantage, the label dynamically updates to **`2d20`** (e.g. `2d20+3`), accurately disclosing that 2 dice are being rolled.
+  - When in Normal stance, it displays `1d20` (e.g. `1d20+3`).
+- **Typography & Centering**:
+  - Rendered inside the enlarged die silhouette centroid via `.fh-belt-dice-lockup` and `.fh-belt-slot-dice`.
+  - Display typography: `font-family: var(--display)`, `font-size: clamp(0.82rem, 1.4vw, 0.98rem)`, `font-weight: 800`, with golden illumination and atmospheric intaglio text shadow.
 
 ---
 
@@ -62,6 +72,7 @@ Every silhouette path is calculated with strict horizontal and vertical centroid
 
 - Stance mechanics (Advantage $\uparrow$ / Disadvantage $\downarrow$) are isolated exclusively to d20 slots (`slot.die === 20`).
 - The d20 silhouette itself acts as the gesture knob (`.is-d20-knob`).
+- **Dynamic 2d20 Roll & Label**: Setting Advantage or Disadvantage automatically switches the count from 1 to 2, displaying `2d20` and rolling 2 d20s.
 - **Advantage Feedback**: Top 2 edges of the hexad ignite with shiny green feedback (`#39e75f`, `#e4ffe8`) and a soft green glowing blur.
 - **Disadvantage Feedback**: Bottom 2 edges ignite with shiny red feedback (`#ff3344`, `#ffe4e6`) and a soft red glowing blur.
 

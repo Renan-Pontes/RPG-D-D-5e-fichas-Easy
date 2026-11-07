@@ -2350,10 +2350,21 @@ const BeltQuickSlot = ({
   const pt = lang === 'pt';
   const isBound = !!slot.bound;
   const boundMod = isBound ? Utils.abilityMod(char, slot.bound) : 0;
-  const totalMod = boundMod + (pbActive ? profB : 0);
-  const boundAbbr = isBound ? (BELT_ABBR[slot.bound] || slot.bound.toUpperCase()) : null;
   const isD20 = Number(slot.die) === 20;
   const advMode = isD20 ? (slot.advMode || 'normal') : 'normal';
+
+  // 1. Die count: When d20 is in Advantage or Disadvantage stance, display 2d20!
+  const hasStance = isD20 && (advMode === 'adv' || advMode === 'dis');
+  const count = hasStance ? 2 : (slot.count > 1 ? slot.count : 1);
+  const dieTypeStr = `${count}d${slot.die}`;
+
+  // 2. Consolidated bonus as a singular unified sum on the right side of the dice type:
+  // When an ability score is assigned, sum = boundMod + (pbActive ? profB : 0).
+  // When not assigned, if pbActive is on, sum = profB.
+  const hasBonus = isBound || pbActive;
+  const totalMod = (isBound ? boundMod : 0) + (pbActive ? profB : 0);
+  const bonusStr = hasBonus ? Utils.fmtMod(totalMod) : '';
+  const formulaLabel = `${dieTypeStr}${bonusStr}`;
 
   // Slot container gestures (swipe for die shift / count shift, tap to roll)
   const onDown = (e) => {
@@ -2491,8 +2502,8 @@ const BeltQuickSlot = ({
                    : '';
 
   const ariaLabel = pt
-    ? `Slot do cinto: ${slot.count > 1 ? slot.count : '1'}d${slot.die}${pbActive ? `+${profB}` : ''}${boundAbbr ? ` (${boundAbbr} ${Utils.fmtMod(boundMod)})` : ''}${stanceText}. Toque para rolar`
-    : `Belt slot: ${slot.count > 1 ? slot.count : '1'}d${slot.die}${pbActive ? `+${profB}` : ''}${boundAbbr ? ` (${boundAbbr} ${Utils.fmtMod(boundMod)})` : ''}${stanceText}. Tap to roll`;
+    ? `Slot do cinto: ${formulaLabel}${stanceText}. Toque para rolar`
+    : `Belt slot: ${formulaLabel}${stanceText}. Tap to roll`;
 
   return (
     <div className={`fh-belt-hex-wrap is-quick-slot die-d${slot.die}${isD20 ? ` adv-${advMode}` : ''}${isBound ? ` is-bound tone-${slot.bound}` : ''}`}>
@@ -2531,18 +2542,9 @@ const BeltQuickSlot = ({
         role="button"
         aria-label={ariaLabel}
         title={isD20
-          ? (pt ? `1d20: puxe a silhueta ↑ vantagem, ↓ desvantagem · toque para rolar` : `1d20: drag silhouette ↑ advantage, ↓ disadvantage · tap to roll`)
+          ? (pt ? `d20: puxe a silhueta ↑ vantagem (2d20), ↓ desvantagem (2d20) · toque para rolar` : `d20: drag silhouette ↑ advantage (2d20), ↓ disadvantage (2d20) · tap to roll`)
           : (pt ? `Deslize ↔ dado, ↕ qtd; toque para rolar` : `Swipe ↔ die, ↕ count; tap to roll`)}
       >
-        {/* Top Crest: Shows bound ability tag */}
-        <div className="fh-belt-slot-crest">
-          {isBound && (
-            <span className="fh-belt-slot-num">
-              {boundAbbr}
-            </span>
-          )}
-        </div>
-
         {/* Center: Perfectly Centered Die Silhouette Badge. When d20, silhouette is the stance knob! */}
         <div
           className={`fh-belt-die-badge die-d${slot.die}${isD20 ? ` is-d20-knob adv-${advMode}${isPulling ? ' is-pulling' : ''}` : ''}`}
@@ -2560,27 +2562,12 @@ const BeltQuickSlot = ({
           <svg className="fh-die-silhouette-svg" viewBox="0 0 100 100" aria-hidden="true">
             {renderDieShape(slot.die)}
           </svg>
-          {/* Clean inline text lockup without any boxes or borders: '1d12+2', '1d20+2', '1d6', etc. */}
+          {/* Clean inline consolidated formula: e.g. '2d20+3', '1d12+5', '1d6', etc. */}
           <div className="fh-belt-dice-lockup">
             <span className="fh-belt-slot-dice">
-              {slot.count > 1 ? `${slot.count}d${slot.die}` : `1d${slot.die}`}
-              {pbActive ? `+${profB}` : ''}
+              {formulaLabel}
             </span>
           </div>
-        </div>
-
-        {/* Bottom Foot: Total bonus solely when assigned */}
-        <div className="fh-belt-slot-foot">
-          {isBound && (
-            <span
-              className={`fh-belt-slot-bonus${pbActive ? ' has-pb' : ''}`}
-              title={pt
-                ? `Bônus: ${Utils.fmtMod(boundMod)}${pbActive ? ` + PB ${Utils.fmtMod(profB)} = ${Utils.fmtMod(totalMod)}` : ''}`
-                : `Bonus: ${Utils.fmtMod(boundMod)}${pbActive ? ` + PB ${Utils.fmtMod(profB)} = ${Utils.fmtMod(totalMod)}` : ''}`}
-            >
-              {Utils.fmtMod(totalMod)}
-            </span>
-          )}
         </div>
       </article>
     </div>
@@ -2642,23 +2629,27 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
 
   const onRollSlot = (idx) => {
     const s = slots[idx];
-    const boundMod = s.bound ? Utils.abilityMod(char, s.bound) : 0;
-    const totalMod = boundMod + (pbActive ? effectiveProfB : 0);
+    const isBound = !!s.bound;
+    const boundMod = isBound ? Utils.abilityMod(char, s.bound) : 0;
+    const totalMod = (isBound ? boundMod : 0) + (pbActive ? effectiveProfB : 0);
     const parts = [];
     if (s.bound) parts.push(`${BELT_ABBR[s.bound] || s.bound.toUpperCase()} ${Utils.fmtMod(boundMod)}`);
     if (pbActive) parts.push(`PB ${Utils.fmtMod(effectiveProfB)}`);
     const modText = parts.length ? ` (${parts.join(' + ')})` : '';
-    const advMode = Number(s.die) === 20 ? (s.advMode || 'normal') : 'normal';
+    const isD20 = Number(s.die) === 20;
+    const advMode = isD20 ? (s.advMode || 'normal') : 'normal';
+    const hasStance = isD20 && (advMode === 'adv' || advMode === 'dis');
+    const rollCount = hasStance ? 2 : (s.count || 1);
     const advText = advMode === 'adv' ? (pt ? ' (com vantagem)' : ' (with advantage)')
                   : advMode === 'dis' ? (pt ? ' (com desvantagem)' : ' (with disadvantage)')
                   : '';
     roll({
       die: s.die,
-      count: s.count,
+      count: rollCount,
       mod: totalMod,
       label: pt
-        ? `Cinto [Slot ${idx + 1}] ${s.count}d${s.die}${modText}${advText}`
-        : `Belt [Slot ${idx + 1}] ${s.count}d${s.die}${modText}${advText}`,
+        ? `Cinto [Slot ${idx + 1}] ${rollCount}d${s.die}${modText}${advText}`
+        : `Belt [Slot ${idx + 1}] ${rollCount}d${s.die}${modText}${advText}`,
       advMode,
     });
   };

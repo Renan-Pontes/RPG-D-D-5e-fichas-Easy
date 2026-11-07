@@ -1890,33 +1890,6 @@
   box-shadow: inset 0 0 0 1px var(--slot-bound-color, var(--gold)), inset 0 2px 6px rgba(0, 0, 0, 0.7);
 }
 
-/* Top Crest: Positioned absolute at top without compressing center */
-.ficha .fh-belt-slot-crest {
-  position: absolute;
-  top: 5px;
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 14px;
-  z-index: 4;
-  pointer-events: none;
-}
-.ficha .fh-belt-slot-num {
-  font-family: var(--display);
-  font-size: clamp(0.6rem, 1.1vw, 0.72rem);
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--gold-deep, #9d7529);
-  text-transform: uppercase;
-  line-height: 1;
-}
-.ficha .fh-belt-slot.is-bound .fh-belt-slot-num {
-  color: var(--slot-bound-color, var(--gold-bright));
-  text-shadow: 0 0 6px var(--hex-gem-glow);
-}
-
 /* 50% LARGER ACCURATE POLYHEDRAL DIE SILHOUETTE BADGE */
 .ficha .fh-belt-die-badge {
   position: absolute;
@@ -2009,49 +1982,17 @@
 
 .ficha .fh-belt-slot-dice {
   font-family: var(--display);
-  font-size: clamp(0.80rem, 1.38vw, 0.94rem);
-  font-weight: 700;
+  font-size: clamp(0.82rem, 1.4vw, 0.98rem);
+  font-weight: 800;
   color: var(--gold-bright, #edcb7a);
   line-height: 1;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.8);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-align: center;
 }
 .ficha .fh-belt-slot.is-bound .fh-belt-slot-dice {
   color: #fff9ee;
   text-shadow: 0 0 8px var(--hex-gem-glow), 0 2px 4px rgba(0, 0, 0, 0.95);
-}
-
-/* Bonus styling when PB is actively added */
-.ficha .fh-belt-slot-bonus.has-pb {
-  text-shadow: 0 0 8px rgba(212, 175, 55, 0.8), 0 0 4px rgba(78, 230, 130, 0.5);
-}
-
-/* Bottom Foot: Positioned absolute at bottom without compressing center */
-.ficha .fh-belt-slot-foot {
-  position: absolute;
-  bottom: 5px;
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 14px;
-  z-index: 4;
-  pointer-events: none;
-}
-.ficha .fh-belt-slot-bonus {
-  font-family: var(--display);
-  font-size: clamp(0.78rem, 1.4vw, 0.92rem);
-  font-weight: 700;
-  color: var(--slot-bound-color, var(--gold-bright));
-  text-shadow: 0 0 6px var(--hex-gem-glow);
-  line-height: 1;
-  letter-spacing: 0.04em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
 }
 
 .ficha .fh-honey-help,
