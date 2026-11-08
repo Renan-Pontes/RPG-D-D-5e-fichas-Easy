@@ -6,6 +6,8 @@ import {
   clean5eToolsTags,
   parse5eToolsEntries,
   convert5eToolsMonster,
+  parseDandWikiMonster,
+  parseWikidotCreature,
   fetchMonsterFromUrl,
 } from '../src/campaigns/url-monster-importer.js';
 
@@ -21,6 +23,17 @@ test('isMonsterUrl: detecta URLs válidas e rejeita buscas normais', () => {
   assert.equal(isMonsterUrl('https://open5e.com/monsters/aboleth'), true);
   assert.equal(isMonsterUrl('https://api.open5e.com/v1/monsters/aboleth'), true);
   assert.equal(isMonsterUrl('https://raw.githubusercontent.com/user/repo/main/monster.5emm.json'), true);
+
+  // URLs DandWiki, Wikidot, D&D Beyond, Roll20, AideDD, 5e.d20srd, e 5e.tools path format
+  assert.equal(isMonsterUrl('https://www.dandwiki.com/wiki/Barnaclops_(5e_Creature)'), true);
+  assert.equal(isMonsterUrl('https://www.dandwiki.com/wiki/Glitch_(5e_Creature)'), true);
+  assert.equal(isMonsterUrl('https://dndroll.wikidot.com/creatures:dust-mephit'), true);
+  assert.equal(isMonsterUrl('https://dndroll.wikidot.com/creatures:ice-mephit-summoner-variant'), true);
+  assert.equal(isMonsterUrl('https://roll20.net/compendium/dnd5e/Magma%20Mephit#content'), true);
+  assert.equal(isMonsterUrl('https://www.dndbeyond.com/monsters/16851-dust-mephit'), true);
+  assert.equal(isMonsterUrl('https://www.aidedd.org/dnd/monstres.php?vo=magma-mephit'), true);
+  assert.equal(isMonsterUrl('https://5e.d20srd.org/srd/monsters/mephit.htm'), true);
+  assert.equal(isMonsterUrl('https://5e.tools/bestiary/magma-mephit-xmm.html'), true);
 
   // Rejeita nomes comuns
   assert.equal(isMonsterUrl('goblin'), false);
@@ -48,6 +61,35 @@ test('parseMonsterUrl: extrai metadados estruturados', () => {
   const p4 = parseMonsterUrl('https://raw.githubusercontent.com/user/repo/main/boss.json');
   assert.equal(p4.kind, 'json');
   assert.equal(p4.label, 'boss.json');
+
+  const p5 = parseMonsterUrl('https://www.dandwiki.com/wiki/Barnaclops_(5e_Creature)');
+  assert.equal(p5.kind, 'dandwiki');
+  assert.equal(p5.name, 'Barnaclops');
+  assert.equal(p5.slug, 'Barnaclops_(5e_Creature)');
+
+  const p6 = parseMonsterUrl('https://dndroll.wikidot.com/creatures:ice-mephit-summoner-variant');
+  assert.equal(p6.kind, 'wikidot');
+  assert.equal(p6.slug, 'ice-mephit-summoner-variant');
+
+  const p7 = parseMonsterUrl('https://5e.tools/bestiary/magma-mephit-xmm.html');
+  assert.equal(p7.kind, '5etools');
+  assert.equal(p7.name, 'magma mephit');
+  assert.equal(p7.source, 'xmm');
+
+  const p8 = parseMonsterUrl('https://roll20.net/compendium/dnd5e/Magma%20Mephit#content');
+  assert.equal(p8.kind, 'compendium');
+  assert.equal(p8.name, 'Magma Mephit');
+  assert.equal(p8.source, 'Roll20');
+
+  const p9 = parseMonsterUrl('https://www.dndbeyond.com/monsters/16851-dust-mephit?srsltid=AYCX9vIrkArPZBRq');
+  assert.equal(p9.kind, 'compendium');
+  assert.equal(p9.name, 'dust mephit');
+  assert.equal(p9.source, 'D&D Beyond');
+
+  const p10 = parseMonsterUrl('https://www.aidedd.org/dnd/monstres.php?vo=steam-mephit');
+  assert.equal(p10.kind, 'compendium');
+  assert.equal(p10.name, 'steam mephit');
+  assert.equal(p10.source, 'AideDD');
 });
 
 test('clean5eToolsTags & parse5eToolsEntries: descontrói macros 5e.tools para linguagem natural', () => {
@@ -212,4 +254,112 @@ test('fetchMonsterFromUrl: rejeita links com monstros inexistentes com mensagem 
     () => fetchMonsterFromUrl('https://5e.tools/bestiary.html#monstro_fantasma_inexistente_irknemp'),
     /não encontrado/i
   );
+});
+
+test('parseDandWikiMonster: decompõe wikitext para ficha completa 1:1', () => {
+  const wikitextFixture = `
+== Barnaclops ==
+{{5e Creature
+|size=Large
+|type=monstrosity
+|alignment=unaligned
+|ac=18
+|armor=natural armor
+|hp=172
+|hd=15
+|speed=30 ft., swim 40 ft.
+|str=22
+|dex=10
+|con=22
+|int=4
+|wis=12
+|cha=6
+|strsave=yes
+|consave=yes
+|athletics=yes
+|perception=yes
+|senses=darkvision 60 ft., passive Perception 13
+|languages=—
+|cr=11
+|features=
+'''Barnacle Armor.''' Any creature that touches the barnaclops takes 1d6 piercing damage.
+|actions=
+'''Club.''' ''Melee Weapon Attack:'' +10 to hit, reach 10 ft., one target. ''Hit:'' 19 (3d8 + 6) bludgeoning damage.
+}}
+`;
+  const m = parseDandWikiMonster(wikitextFixture);
+  assert.equal(m.name.en, 'Barnaclops');
+  assert.equal(m.size, 'Large');
+  assert.equal(m.type, 'monstrosity');
+  assert.equal(m.ac, 18);
+  assert.equal(m.acText, '18 (natural armor)');
+  assert.equal(m.hp, 172);
+  assert.equal(m.hpText, '172 (15d10+90)');
+  assert.equal(m.speedText, '30 ft., swim 40 ft.');
+  assert.equal(m.cr, '11');
+  assert.equal(m.saves.str, 10);
+  assert.equal(m.saves.con, 10);
+  assert.equal(m.skills.athletics, 4);
+  assert.equal(m.skills.perception, 4);
+  assert.equal(m.traits.length, 1);
+  assert.equal(m.traits[0].name.en, 'Barnacle Armor');
+  assert.equal(m.actions.length, 1);
+  assert.equal(m.actions[0].name.en, 'Club');
+  assert.equal(m.actions[0].atk, 10);
+});
+
+test('parseWikidotCreature: extrai atributos, CA, PV e metadados de HTML Wikidot', () => {
+  const htmlFixture = `
+<div id="page-title">Ice Mephit Summoner Variant</div>
+<div id="page-content">
+  <p><br>Small elemental, neutral evil<br></p>
+  <p><strong>Armor Class</strong> 11<br>
+  <strong>Hit Points</strong> 21 (6d6)<br>
+  <strong>Speed</strong> 30 ft., fly 30 ft.<br></p>
+  <table>
+    <tr><td>Strength</td><td>7</td></tr>
+    <tr><td>Dexterity</td><td>13</td></tr>
+    <tr><td>Constitution</td><td>10</td></tr>
+    <tr><td>Intelligence</td><td>9</td></tr>
+    <tr><td>Wisdom</td><td>11</td></tr>
+    <tr><td>Charisma</td><td>12</td></tr>
+  </table>
+  <p><strong>Challenge</strong> 1/2 (100 XP)</p>
+</div>
+`;
+  const m = parseWikidotCreature(htmlFixture);
+  assert.equal(m.name.en, 'Ice Mephit Summoner Variant');
+  assert.equal(m.size, 'Small');
+  assert.equal(m.type, 'elemental');
+  assert.equal(m.ac, 11);
+  assert.equal(m.hp, 21);
+  assert.equal(m.hpText, '21 (6d6)');
+  assert.equal(m.abilities.dex, 13);
+  assert.equal(m.cr, '1/2');
+});
+
+test('fetchMonsterFromUrl: ingestão ao vivo de 5e.tools 2024 XMM e Compêndios (Roll20 / D&D Beyond / AideDD)', async () => {
+  // 1. 5e.tools 2024 XMM format
+  const resXmm = await fetchMonsterFromUrl('https://5e.tools/bestiary/magma-mephit-xmm.html');
+  assert.ok(resXmm.monster);
+  assert.equal(resXmm.monster.name.pt, 'Magma Mephit');
+  assert.equal(resXmm.monster.cr, '1/2');
+
+  // 2. Roll20 compendium link
+  const resRoll20 = await fetchMonsterFromUrl('https://roll20.net/compendium/dnd5e/Magma%20Mephit#content');
+  assert.ok(resRoll20.monster);
+  assert.equal(resRoll20.monster.name.en, 'Magma Mephit');
+  assert.equal(resRoll20.monster.source, 'Roll20');
+
+  // 3. D&D Beyond link
+  const resDdb = await fetchMonsterFromUrl('https://www.dndbeyond.com/monsters/16851-dust-mephit');
+  assert.ok(resDdb.monster);
+  assert.equal(resDdb.monster.name.en, 'Dust Mephit');
+  assert.equal(resDdb.monster.source, 'D&D Beyond');
+
+  // 4. AideDD link
+  const resAide = await fetchMonsterFromUrl('https://www.aidedd.org/dnd/monstres.php?vo=steam-mephit');
+  assert.ok(resAide.monster);
+  assert.equal(resAide.monster.name.en, 'Steam Mephit');
+  assert.equal(resAide.monster.source, 'AideDD');
 });

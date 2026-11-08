@@ -107,3 +107,24 @@ test('1:1 Fidelity - Combat Snapshot Bundling: monsterForCombat tags actions and
   assert.ok(snapshot.actions.some(a => a.kind === 'action'));
   assert.ok(snapshot.actions.some(a => a.kind === 'legendary'));
 });
+
+test('1:1 Fidelity - D&D 5e 2024 Layout Structure: Initiative, 6-col Ability Check & Save Buttons', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { dirname, resolve } = await import('node:path');
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+
+  const compSrc = readFileSync(resolve(__dirname, '../src/combat/MonsterStatblock.jsx'), 'utf8');
+  assert.ok(compSrc.includes('statblock-prop-init'), 'MonsterStatblock includes Initiative in primary metrics');
+  assert.ok(compSrc.includes('statblock-roll-btn init-btn'), 'MonsterStatblock includes interactive Initiative roll button');
+  assert.ok(compSrc.includes('dnd-2024-grid'), 'MonsterStatblock uses 2024 ability grid');
+  assert.ok(compSrc.includes('statblock-roll-btn abil-btn'), 'MonsterStatblock provides interactive Ability Check roll buttons');
+  assert.ok(compSrc.includes('statblock-roll-btn save-btn'), 'MonsterStatblock provides interactive Saving Throw roll buttons');
+  assert.ok(compSrc.includes('statblock-skill-chip'), 'MonsterStatblock provides interactive skill chips');
+
+  const cssSrc = readFileSync(resolve(__dirname, '../src/combat/monster-statblock.css'), 'utf8');
+  assert.ok(cssSrc.includes('.statblock-prop-init'), 'monster-statblock.css includes .statblock-prop-init');
+  assert.ok(cssSrc.includes('.statblock-roll-btn.abil-btn'), 'monster-statblock.css styles .abil-btn');
+  assert.ok(cssSrc.includes('.statblock-roll-btn.save-btn'), 'monster-statblock.css styles .save-btn');
+  assert.ok(cssSrc.includes('.statblock-skill-chip'), 'monster-statblock.css styles .statblock-skill-chip');
+});

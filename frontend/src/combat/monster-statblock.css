@@ -55,6 +55,12 @@
   line-height: 1.35;
 }
 
+.statblock-prop-init {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .statblock-prop-label {
   font-weight: 700;
   color: var(--blood-bright, #e0604f);
@@ -65,14 +71,57 @@
   color: var(--ink-primary, #f3e6cb);
 }
 
-/* Tabela dos 6 atributos */
+/* Botões de rolagem integrados (Iniciativa, Atributo, Salvaguarda, Perícia) */
+.statblock-roll-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: rgba(214, 176, 100, 0.08);
+  border: 1px solid rgba(214, 176, 100, 0.35);
+  border-radius: var(--radius-sm, 3px);
+  color: var(--gold-bright, #edcb7a);
+  font-family: inherit;
+  font-size: 0.82rem;
+  padding: 2px 7px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.statblock-roll-btn:hover {
+  background: rgba(214, 176, 100, 0.22);
+  border-color: var(--gold-bright, #edcb7a);
+  color: #fff8eb;
+  transform: translateY(-0.5px);
+  box-shadow: 0 0 8px rgba(237, 203, 122, 0.4);
+}
+
+.statblock-roll-btn:active {
+  transform: translateY(0.5px) scale(0.98);
+}
+
+.statblock-roll-btn.init-btn {
+  padding: 2px 9px;
+  font-weight: 700;
+  background: rgba(224, 181, 94, 0.12);
+  border-color: rgba(224, 181, 94, 0.5);
+}
+
+.statblock-roll-glyph {
+  font-size: 0.85em;
+  filter: drop-shadow(0 0 2px rgba(237, 203, 122, 0.6));
+}
+
+/* Tabela dos 6 atributos - D&D 5e 2024 Layout */
 .statblock-abilities {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 4px;
-  background: rgba(14, 10, 7, 0.55);
-  border: 1px solid rgba(214, 176, 100, 0.2);
-  border-radius: var(--radius-sm, 2px);
+  background: rgba(14, 10, 7, 0.65);
+  border: 1px solid rgba(214, 176, 100, 0.25);
+  border-radius: var(--radius-sm, 3px);
   padding: 8px 4px;
   margin: 8px 0;
   text-align: center;
@@ -82,7 +131,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
 }
 
 .statblock-abil-head {
@@ -94,11 +143,104 @@
   text-transform: uppercase;
 }
 
-.statblock-abil-val {
-  font-size: 0.86rem;
-  font-family: var(--body, Georgia, serif);
+.statblock-roll-btn.abil-btn {
+  width: 100%;
+  padding: 3px 2px;
+  font-size: 0.82rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+  line-height: 1.15;
+}
+
+.statblock-abil-score {
+  font-weight: 700;
+  font-size: 0.88rem;
   color: var(--ink-primary, #f3e6cb);
-  white-space: nowrap;
+}
+
+.statblock-abil-mod {
+  font-size: 0.76rem;
+  color: var(--gold-bright, #edcb7a);
+  font-weight: 600;
+}
+
+.statblock-roll-btn.save-btn {
+  width: 100%;
+  padding: 2px 2px;
+  font-size: 0.72rem;
+  background: rgba(224, 96, 79, 0.08);
+  border-color: rgba(224, 96, 79, 0.35);
+  color: #ffb4a8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.statblock-roll-btn.save-btn.is-proficient {
+  background: rgba(224, 96, 79, 0.22);
+  border-color: rgba(224, 96, 79, 0.65);
+  color: #ffe0da;
+  font-weight: 700;
+  box-shadow: 0 0 6px rgba(224, 96, 79, 0.3);
+}
+
+.statblock-save-tag {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+.statblock-save-val {
+  font-weight: 700;
+}
+
+/* Chips de Perícias Interativas */
+.statblock-skills-wrap {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-left: 2px;
+  vertical-align: middle;
+}
+
+.statblock-skill-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(214, 176, 100, 0.1);
+  border: 1px solid rgba(214, 176, 100, 0.35);
+  border-radius: 999px;
+  color: var(--gold-bright, #edcb7a);
+  font-family: inherit;
+  font-size: 0.78rem;
+  padding: 1px 8px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+}
+
+.statblock-skill-chip:hover {
+  background: rgba(214, 176, 100, 0.24);
+  border-color: var(--gold-bright, #edcb7a);
+  color: #fff9ee;
+  transform: translateY(-0.5px);
+  box-shadow: 0 0 6px rgba(237, 203, 122, 0.4);
+}
+
+.statblock-skill-glyph {
+  font-size: 0.8em;
+}
+
+.statblock-skill-name {
+  color: var(--ink-primary, #f3e6cb);
+}
+
+.statblock-skill-bonus {
+  font-weight: 700;
+  color: var(--gold-bright, #edcb7a);
 }
 
 /* Título de seções (Ações, Ações Lendárias, etc.) */

@@ -30,6 +30,8 @@
 - [ADR-0020: Foldable 4-Action Skills Grid, Tools Consolidation, Rollup Checkered Vignette Removal, and Configurable Character Portrait Framing](#adr-0020-foldable-4-action-skills-grid-tools-consolidation-rollup-checkered-vignette-removal-and-configurable-character-portrait-framing)
 - [ADR-0021: Features Tab Crash Remediation, Vertical Battle Action Skills Grid, Shorthand Ability Score Format, and Discrete Bottom Half-Roll Disclosure](#adr-0021-features-tab-crash-remediation-vertical-battle-action-skills-grid-shorthand-ability-score-format-and-discrete-bottom-half-roll-disclosure)
 - [ADR-0022: Auto-Magic Monster Statblock Ingestion via Direct Resource Links in Battle Picker](#adr-0022-auto-magic-monster-statblock-ingestion-via-direct-resource-links-in-battle-picker)
+- [ADR-0023: 1:1 D&D 5e Monster Statblock Fidelity & Ingestion Architecture](#adr-0023-11-dd-5e-monster-statblock-fidelity--ingestion-architecture)
+- [ADR-0024: Advanced In-Text Roll Parsing (Attacks, Saves, Checks), Universal Multi-Tool Web Ingestion, and D&D 5e 2024 Statblock Anatomy](#adr-0024-advanced-in-text-roll-parsing-attacks-saves-checks-universal-multi-tool-web-ingestion-and-dd-5e-2024-statblock-anatomy)
 
 ---
 
@@ -799,3 +801,50 @@ While URL-based monster ingestion (ADR-0022) enabled fetching monsters from 5e.t
 ### Consequences
 - **Positive:** Complete 1:1 parity with authentic D&D 5e and 5e.tools statblock anatomy; GMs have full in-combat and pre-combat access to traits, lore, cortex rules, defenses, and legendary actions; all dice expressions in statblocks are clickable tap-to-roll tokens; zero regressions.
 - **Verification:** 5/5 tests in `frontend/tests/monster-statblock-fidelity.test.js` pass; 7/7 tests in `frontend/tests/url-monster-importer.test.js` pass; 10/10 tests in `frontend/tests/import-5emm.test.js` pass.
+
+---
+
+## ADR-0024: Advanced In-Text Roll Parsing (Attacks, Saves, Checks), Universal Multi-Tool Web Ingestion, and D&D 5e 2024 Statblock Anatomy
+
+### Status
+Accepted & Implemented (2026-11-08)
+
+### Context
+1. **Interactive In-Text Roll Parsing Beyond Raw Dice Counts:** While inline dice parsing (`1d8`, `2d6+3`) was established in ADR-0019, players and GMs frequently encounter rolls written as attack bonuses (`+5 to hit`, `Melee Attack Roll: +7`, `+9 with spell attacks`, `+5 para acertar`), saving throw DCs (`DC 14 Dexterity save`, `CD 15 teste de resistência de Constituição`), or ability check DCs (`DC 12 Wisdom (Perception) check`, `CD 10 teste de Atletismo`). Previously, these remained static plain text, requiring manual mental translation into dice formulas.
+2. **Canonical D&D 5e 2024 Statblock Anatomy:** The revised D&D 5e 2024 rules (`https://www.dndbeyond.com/sources/dnd/br-2024/creature-stat-blocks`) established key updates to creature presentation:
+   - **Initiative** is elevated into the primary combat metrics header alongside AC, HP, and Speed: `Initiative +DexMod (10+DexMod)`.
+   - The **6 Ability Scores Table** integrates both Ability Score / Modifier and Saving Throw Modifier in every column (`MOD +3 (16)` and `SAVE +5`), reflecting that all creatures have a defined saving throw modifier for all six abilities.
+   - **Skills** are active combat rolls that should be instantly executable with a single tap.
+3. **Universal Web & Homebrew Compatibility:** GMs source encounter creatures across a diverse landscape of web compendiums and homebrew databases:
+   - D&D Wiki (`dandwiki.com` MediaWiki homebrew articles: `Barnaclops`, `Coronated Reaper`, `Fell Beast`, `Glitch`, `Mewtwo`).
+   - Wikidot (`dndroll.wikidot.com` creature pages).
+   - 5e.tools path-based permalinks (`5e.tools/bestiary/<name>-<source>.html`, including 2024 Monster Manual `xmm` books).
+   - Web compendiums: Roll20 (`roll20.net/compendium/dnd5e/...`), D&D Beyond (`dndbeyond.com/monsters/...`), AideDD (`aidedd.org/dnd/monstres.php?vo=...`), and 5e SRD (`5e.d20srd.org/srd/monsters/...`).
+
+### Decision Outcome
+1. **Enhanced Inline Roll Recognizer (`frontend/src/dice/dice-text.js` & `dice-text.jsx`):**
+   - Engineered regex tokenizers matching:
+     - `ATTACK_ROLL_REGEX`: Matches 2014 & 2024 attack roll patterns in English and Portuguese (`Melee Attack Roll: +7`, `+5 to hit`, `+9 with spell attacks`, `Ataque Corpo a Corpo: +5`), generating interactive `attack` tokens rolling `1d20+bonus` with `⚔️` icon.
+     - `SAVE_DC_REGEX`: Matches saving throw DCs in English and Portuguese (`DC 14 Dexterity save`, `CD 15 teste de resistência de Constituição`), generating interactive `save` tokens rolling `1d20` with `🛡️` icon and save flags.
+     - `CHECK_DC_REGEX`: Matches check DCs (`DC 12 Wisdom (Perception) check`, `CD 12 teste de Percepção`), generating interactive `check` tokens rolling `1d20` with `🎯` icon and check flags.
+     - `DICE_NOTATION_REGEX`: Retains robust formula parsing (`XdY+Z`), with precedence arbitration preventing formula collisions.
+   - Global event delegation in `setupGlobalDiceClickListener` intercepts taps on `[data-roll-attack]`, `[data-roll-save]`, `[data-roll-check]`, and `[data-dice-roll]`.
+2. **Dedicated Attack Roll Banner in Dice HUD (`DiceRoller.jsx` & `dice-styles.css`):**
+   - Added `.dice-attack-swords-banner` featuring animated entrance, crimson/iron gradients, twin swords icon `⚔️`, and localized title (`Rolagem de Ataque` / `Attack Roll`), completing the triumvirate alongside Save (`🛡️`) and Check (`🎯`) banners.
+3. **Canonical D&D 5e 2024 Statblock Layout (`MonsterStatblock.jsx` & `monster-statblock.css`):**
+   - **Header Initiative Badge:** Elevated Initiative into top metrics: `Initiative +DexMod (10+DexMod)`, with interactive roll button (`⚡`) executing `1d20+DexMod`.
+   - **Integrated 6-Column Ability & Save Grid (`.dnd-2024-grid`):**
+     - Each column renders:
+       - Header abbreviation (`FOR`, `DES`, `CON`, `INT`, `SAB`, `CAR`).
+       - Ability button (`.statblock-roll-btn.abil-btn`): Displays score and modifier (e.g. `+3 (16)`). Tapping triggers Ability Check (`1d20+3`, `isCheck: true`, `🎯`).
+       - Saving throw button (`.statblock-roll-btn.save-btn`): Displays saving throw modifier (e.g. `Salva +5`). Proficient saves are highlighted (`is-proficient`). Tapping triggers Saving Throw (`1d20+SaveMod`, `isSave: true`, `🛡️`).
+   - **Interactive Skill Chips:** Each creature skill is rendered as a clickable pill button (`.statblock-skill-chip`) rolling `1d20+bonus` with `🎯` check banner.
+4. **Universal Multi-Platform Web Ingestion (`url-monster-importer.js`):**
+   - **DandWiki Homebrew Ingestion:** Implemented `parseDandWikiMonster(wikitext)` fetching raw MediaWiki text (`?action=raw`), parsing traits, actions, bonus actions, reactions, legendary actions, AC notes, calculated hit dice formulas based on creature size, and clean portrait avatars.
+   - **Wikidot Ingestion:** Implemented `parseWikidotCreature(html)` extracting stat block parameters and portraits.
+   - **Compendium SRD Resolution:** For Roll20, D&D Beyond, AideDD, and 5e.d20srd links, extracts the creature slug and resolves against the local `BESTIARY` first (100% offline, 0ms), falling back to open GitHub Raw 5e.tools (`bestiary-mm.json`, `bestiary-xmm.json`) or Open5e.
+   - **5e.tools 2024 XMM Path Format:** Supports direct paths (`5e.tools/bestiary/magma-mephit-xmm.html`), resolving directly to the 2024 Monster Manual (`bestiary-xmm.json`).
+
+### Consequences
+- **Positive:** Complete coverage of all 19 community URLs with instantaneous, zero-CORS resolution; players and GMs can click any attack roll, save DC, ability check DC, or damage dice formula directly within statblock text; authentic D&D 5e 2024 statblock anatomy with clickable Initiative, Ability Checks, and Saving Throws; 100% backward compatible.
+- **Verification:** 10/10 tests in `frontend/tests/dice-text-click-roll.test.js` pass; 14/14 tests in `frontend/tests/url-monster-importer.test.js` pass; 6/6 tests in `frontend/tests/monster-statblock-fidelity.test.js` pass; 1,574 / 1,574 total frontend unit tests green across 20 suites; clean Vite production build in 14.41s.

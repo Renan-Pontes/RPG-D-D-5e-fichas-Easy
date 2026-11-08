@@ -6,6 +6,9 @@ import { dirname, resolve } from 'node:path';
 
 import {
   DICE_NOTATION_REGEX,
+  ATTACK_ROLL_REGEX,
+  SAVE_DC_REGEX,
+  CHECK_DC_REGEX,
   findDiceAtOffset,
   parseTextWithDice,
   getClickedDiceFormula,
@@ -144,4 +147,43 @@ test('dice-text: DiceRoller, FhFeatures, and Sheet components integrate dice-tex
 
   const cssSrc = readFileSync(resolve(__dirname, '../src/dice/dice-styles.css'), 'utf8');
   assert.ok(cssSrc.includes('.fh-dice-inline-token'), 'dice-styles.css contains .fh-dice-inline-token styling');
+  assert.ok(cssSrc.includes('.dice-attack-swords-banner'), 'dice-styles.css contains .dice-attack-swords-banner HUD banner');
+  assert.ok(cssSrc.includes('.fh-dice-inline-token.is-attack'), 'dice-styles.css contains token attack variant');
+  assert.ok(cssSrc.includes('.fh-dice-inline-token.is-save'), 'dice-styles.css contains token save variant');
+  assert.ok(cssSrc.includes('.fh-dice-inline-token.is-check'), 'dice-styles.css contains token check variant');
+});
+
+test('dice-text: ATTACK_ROLL_REGEX matches attack bonuses in 2014 and 2024 notation', () => {
+  const cases = [
+    { text: 'Melee Weapon Attack: +5 to hit', expectedFormula: '1d20+5' },
+    { text: 'Melee Attack Roll: +7, reach 5 ft.', expectedFormula: '1d20+7' },
+    { text: 'Ranged Attack Roll: +9, range 120 ft.', expectedFormula: '1d20+9' },
+    { text: '+8 with spell attacks', expectedFormula: '1d20+8' },
+    { text: 'Ataque Corpo a Corpo: +6', expectedFormula: '1d20+6' },
+  ];
+
+  for (const { text, expectedFormula } of cases) {
+    const parts = parseTextWithDice(text);
+    const atk = parts.find(p => p.type === 'attack');
+    assert.ok(atk, `Expected attack token for "${text}"`);
+    assert.equal(atk.formula, expectedFormula);
+  }
+});
+
+test('dice-text: SAVE_DC_REGEX and CHECK_DC_REGEX recognize DC checks and saving throws', () => {
+  const saveText = 'Each creature must make a DC 14 Dexterity save or take 21 (6d6) fire damage.';
+  const parts = parseTextWithDice(saveText);
+  const saveTok = parts.find(p => p.type === 'save');
+  const dieTok = parts.find(p => p.type === 'die');
+  assert.ok(saveTok, 'Expected save token');
+  assert.equal(saveTok.dc, 14);
+  assert.equal(saveTok.formula, '1d20');
+  assert.ok(dieTok, 'Expected 6d6 die token');
+  assert.equal(dieTok.formula, '6d6');
+
+  const checkText = 'DC 12 Wisdom (Perception) check to notice hidden traps.';
+  const checkParts = parseTextWithDice(checkText);
+  const checkTok = checkParts.find(p => p.type === 'check');
+  assert.ok(checkTok, 'Expected check token');
+  assert.equal(checkTok.dc, 12);
 });

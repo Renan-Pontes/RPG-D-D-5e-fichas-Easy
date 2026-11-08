@@ -173,10 +173,11 @@ const DiceRoller = ({ lang }) => {
     if (entry.animated) sheetGate.hold(entry.id, send); else send();
   }, [patchEntry]);
 
-  const rollParsed = useCallback((parsed, { label, adv = 'normal', isSave = false, isCheck = false } = {}) => {
+  const rollParsed = useCallback((parsed, { label, adv = 'normal', isSave = false, isCheck = false, isAttack = false } = {}) => {
     const r = rollFormula(parsed, { adv });
     const isSaveRoll = isSave || /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b|morte|death/i.test(label || '');
     const isCheckRoll = isCheck || (!isSaveRoll && /teste de (atributo|per[ií]cia)|ability check|skill check|\bcheck\b|perícia|atributo/i.test(label || ''));
+    const isAttackRoll = isAttack || (!isSaveRoll && !isCheckRoll && /ataque|attack|to hit|com ataques/i.test(label || ''));
     return present({
       label: label || parsed.text,
       formula: parsed.text,
@@ -184,6 +185,7 @@ const DiceRoller = ({ lang }) => {
       mod: r.mod, total: r.total, isCrit: r.isCrit, isFumble: r.isFumble, adv: r.adv,
       isSave: isSaveRoll,
       isCheck: isCheckRoll,
+      isAttack: isAttackRoll,
     });
   }, [present]);
 
@@ -191,12 +193,13 @@ const DiceRoller = ({ lang }) => {
   // ficha (perícia, salvaguarda, ataque, dano, iniciativa) e vai à Tela (V15).
   const performRoll = useCallback((arg = {}) => {
     const opts = typeof arg === 'string' ? { formula: arg } : (arg || {});
-    const { die = 20, count: cnt = 1, mod: m = 0, label = '', advMode: am, sheet: fromSheet, isSave, isCheck, formula: rawFormula } = opts;
+    const { die = 20, count: cnt = 1, mod: m = 0, label = '', advMode: am, sheet: fromSheet, isSave, isCheck, isAttack, formula: rawFormula } = opts;
     const parsed = rawFormula ? parseFormula(rawFormula) : parseFormula(`${cnt}d${die}${formatMod(m)}`);
     if (!parsed) return null;
     const isSaveRoll = isSave ?? /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b|morte|death/i.test(label || '');
     const isCheckRoll = isCheck ?? (!isSaveRoll && (/teste de (atributo|per[ií]cia)|ability check|skill check|\bcheck\b|perícia|atributo/i.test(label || '') || (cnt === 1 && die === 20 && !rawFormula && !/ataque|attack|dano|damage/i.test(label))));
-    const entry = rollParsed(parsed, { label: label || parsed.text, adv: am ?? advMode, isSave: isSaveRoll, isCheck: isCheckRoll });
+    const isAttackRoll = isAttack ?? (!isSaveRoll && !isCheckRoll && /ataque|attack|to hit|com ataques/i.test(label || ''));
+    const entry = rollParsed(parsed, { label: label || parsed.text, adv: am ?? advMode, isSave: isSaveRoll, isCheck: isCheckRoll, isAttack: isAttackRoll });
     if (fromSheet && entry) toTable(entry);
     return entry;
   }, [rollParsed, advMode, toTable]);
@@ -254,6 +257,7 @@ const DiceRoller = ({ lang }) => {
     isFumble: !!res.isFumble,
     isSave: !!res.isSave || /teste de resist[eê]ncia|salvaguarda|saving throw|\bsave\b|morte|death/i.test(res.label || ''),
     isCheck: !!res.isCheck || (!res.isSave && /teste de (atributo|per[ií]cia)|ability check|skill check|\bcheck\b|perícia|atributo/i.test(res.label || '')),
+    isAttack: !!res.isAttack || (!res.isSave && !res.isCheck && /ataque|attack|to hit|com ataques/i.test(res.label || '')),
     adv: res.adv || 'normal',
     source: res.source || 'server',
     tableNote: res.tableNote,
@@ -677,6 +681,12 @@ const DiceRoller = ({ lang }) => {
               <div className="dice-check-target-banner" aria-hidden="true">
                 <span className="dice-check-target-icon">🎯</span>
                 <span className="dice-check-target-title">{lang === 'pt' ? 'Teste de Atributo' : 'Ability Check'}</span>
+              </div>
+            )}
+            {overlay.isAttack && !overlay.isSave && !overlay.isCheck && (
+              <div className="dice-attack-swords-banner" aria-hidden="true">
+                <span className="dice-attack-swords-icon">⚔️</span>
+                <span className="dice-attack-swords-title">{lang === 'pt' ? 'Rolagem de Ataque' : 'Attack Roll'}</span>
               </div>
             )}
             <DiceStage
