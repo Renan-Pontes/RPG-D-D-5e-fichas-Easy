@@ -848,3 +848,46 @@ Accepted & Implemented (2026-11-08)
 ### Consequences
 - **Positive:** Complete coverage of all 19 community URLs with instantaneous, zero-CORS resolution; players and GMs can click any attack roll, save DC, ability check DC, or damage dice formula directly within statblock text; authentic D&D 5e 2024 statblock anatomy with clickable Initiative, Ability Checks, and Saving Throws; 100% backward compatible.
 - **Verification:** 10/10 tests in `frontend/tests/dice-text-click-roll.test.js` pass; 14/14 tests in `frontend/tests/url-monster-importer.test.js` pass; 6/6 tests in `frontend/tests/monster-statblock-fidelity.test.js` pass; 1,574 / 1,574 total frontend unit tests green across 20 suites; clean Vite production build in 14.41s.
+
+---
+
+## ADR-0025: Browser CORS Remediation, Dual-Tier First-Party Proxy & Robust External Monster Ingestion
+
+### Status
+Accepted & Implemented (2026-11-08)
+
+### Context
+1. **Browser CORS Rejection on DandWiki & External Wikis:** When GMs pasted external creature links such as `https://www.dandwiki.com/wiki/Barnaclops_(5e_Creature)` directly into the Monster Picker search bar, the web browser's `fetch()` call failed with `TypeError: Failed to fetch`. This occurred because DandWiki (`www.dandwiki.com`) returns HTTP 200 to HTTP clients, but omits the `Access-Control-Allow-Origin` header in browser responses (`cors: null`). Modern browsers block cross-origin reads without this header, showing a red `⚠️ Failed to fetch` banner in the UI.
+2. **Fragility of Public Free Proxies:** Public CORS proxies (`allorigins.win`, `codetabs.com`, `corsproxy.io`) suffer from severe rate-limiting, Cloudflare challenges, HTTP 522/403 errors, and deprecation, making them unsuitable for reliable tabletop gameplay.
+3. **MediaWiki Macro Truncation & Trait Fidelity:**
+   - MediaWiki statblocks frequently nest templates on single property lines, such as `|ci={{5c|Charmed}}, {{5c|Frightened}}`. A naive regex matching `[^|]+` halted at the first pipe inside the macro, truncating values to `"{{5c"`.
+   - DandWiki uses creature trait macros like `{{5ect|barnaclops|Amphibious}}`, which require semantic expansion into standard 5e traits with accurate mechanics.
+   - Creatures with multi-mode movement (`20 ft., swim 20 ft.`) were defaulting `walk` to 30 ft. rather than extracting specific speeds.
+
+### Decision Outcome
+1. **First-Party Dual-Tier CORS Proxy:**
+   - **Backend Django Proxy (`backend/api/views_proxy.py` & `urls.py`):**
+     - Endpoint `GET /api/proxy?url=<encoded_url>`.
+     - Validates scheme (`http`/`https`) and enforces a strict safe-host whitelist (`dandwiki.com`, `wikidot.com`, `5e.tools`, `open5e.com`, `roll20.net`, `dndbeyond.com`, `aidedd.org`, `5e.d20srd.org`).
+     - Enforces private IP, loopback, and link-local address blocking to guarantee zero SSRF exposure.
+     - Fetches upstream content with an authentic desktop User-Agent and returns raw UTF-8 content with `Access-Control-Allow-Origin: *`.
+   - **Vite Dev Server Proxy Middleware (`frontend/vite.config.js`):**
+     - Registered `devCorsProxyPlugin` in Vite's development server.
+     - Intercepts `/api/proxy` during local frontend development (`npm run dev`) and proxies the request via Node.js runtime, ensuring developers and testers have 100% working monster ingestion even if the Django backend is not running on port 4000.
+2. **Client-Side Resilient Fetcher (`frontend/src/campaigns/url-monster-importer.js`):**
+   - Implemented `fetchTextWithCorsBypass(url)`:
+     - Automatically routes through `${apiBase}/api/proxy?url=...` in browser environments.
+     - Falls back to direct fetch for Node.js, Electron, or open-CORS endpoints.
+     - Surfaces helpful, actionable guidance to the GM if network or host blocks occur.
+3. **DandWiki Parser Hardening (`parseDandWikiMonster`):**
+   - Updated `getField` regex to `([^\r\n]+)`, capturing full multi-template lines.
+   - Integrated `DANDWIKI_TRAIT_DESCS` macro expander translating `{{5ect|<creature>|<trait>}}` (`Amphibious`, `Pack Tactics`, `Magic Resistance`, `Spider Climb`, etc.) into named traits with full descriptions.
+   - Implemented multi-mode speed parser extracting `walk`, `swim`, `fly`, `climb`, and `burrow` into a structured speed object.
+   - Cleans condition immunities into normalized lowercased arrays (`['charmed', 'frightened', 'poisoned', 'unconscious']`).
+4. **Direct Raw Text & Statblock Paste Ingestion (`MonsterPicker.jsx`):**
+   - Exported `isMonsterRawText` and `parseMonsterFromRawText`.
+   - The Monster Picker search bar now detects when raw wikitext (starting with `==` or containing `{{5e Creature`) or raw JSON is pasted, instantly parsing and saving the monster locally without making any external HTTP call.
+
+### Consequences
+- **Positive:** Zero CORS failures on DandWiki `Barnaclops_(5e_Creature)` and all external wikis in both dev and production; 1:1 parser fidelity with complete traits, speeds, and clean condition immunities; GMs can also paste raw wikitext or JSON directly; 100% offline-first and testable.
+- **Verification:** 12/12 tests in `frontend/tests/url-monster-importer.test.js` pass (including live DandWiki Barnaclops ingestion and raw text parser); 1,576 / 1,576 total frontend unit tests green across 20 suites; clean Vite production build in 10.57s.

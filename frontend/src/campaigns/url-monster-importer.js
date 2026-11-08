@@ -480,7 +480,20 @@ export function convert5eToolsMonster(raw, { lang = 'pt' } = {}) {
     importedAt: new Date().toISOString(),
   };
 }
- /**
+ export const DANDWIKI_TRAIT_DESCS = {
+  amphibious: (c) => `The ${c} can breathe air and water.`,
+  'hold breath': (c) => `The ${c} can hold its breath.`,
+  'pack tactics': (c) => `The ${c} has advantage on an attack roll against a creature if at least one of the ${c}'s allies is within 5 feet of the creature and the ally isn't incapacitated.`,
+  'magic resistance': (c) => `The ${c} has advantage on saving throws against spells and other magical effects.`,
+  'spider climb': (c) => `The ${c} can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check.`,
+  'web walker': (c) => `The ${c} ignores movement restrictions caused by webbing.`,
+  'flyby': (c) => `The ${c} doesn't provoke opportunity attacks when it flies out of an enemy's reach.`,
+  'keen smell': (c) => `The ${c} has advantage on Wisdom (Perception) checks that rely on smell.`,
+  'keen sight': (c) => `The ${c} has advantage on Wisdom (Perception) checks that rely on sight.`,
+  'keen hearing and sight': (c) => `The ${c} has advantage on Wisdom (Perception) checks that rely on hearing or sight.`,
+};
+
+/**
  * Remove e decodifica marcações wikitext do D&D Wiki.
  */
 export function cleanWikitext(text) {
@@ -547,7 +560,7 @@ export function parseDandWikiMonster(rawText, { lang = 'pt', defaultName = 'Home
   const name = titleMatch ? titleMatch[1].trim() : defaultName;
 
   const getField = (field) => {
-    const r = new RegExp('^\\|\\s*' + field + '\\s*=\\s*([^\\n|]+)', 'mi');
+    const r = new RegExp('^\\|\\s*' + field + '\\s*=\\s*([^\\r\\n]+)', 'mi');
     const m = rawText.match(r);
     return m ? cleanWikitext(m[1].trim()) : '';
   };
@@ -578,6 +591,18 @@ export function parseDandWikiMonster(rawText, { lang = 'pt', defaultName = 'Home
   const hpText = `${hp} (${hd}d${hdDie}${conMod !== 0 ? (conMod > 0 ? `+${hd * conMod}` : `${hd * conMod}`) : ''})`;
 
   const speedText = getField('speed') || '30 ft.';
+  const speedObj = { walk: 30 };
+  const walkM = speedText.match(/(?:walk\s+)?(\d+)\s*ft/i);
+  if (walkM) speedObj.walk = parseInt(walkM[1], 10);
+  const swimM = speedText.match(/swim\s+(\d+)\s*ft/i);
+  if (swimM) speedObj.swim = parseInt(swimM[1], 10);
+  const flyM = speedText.match(/fly\s+(\d+)\s*ft/i);
+  if (flyM) speedObj.fly = parseInt(flyM[1], 10);
+  const climbM = speedText.match(/climb\s+(\d+)\s*ft/i);
+  if (climbM) speedObj.climb = parseInt(climbM[1], 10);
+  const burrowM = speedText.match(/burrow\s+(\d+)\s*ft/i);
+  if (burrowM) speedObj.burrow = parseInt(burrowM[1], 10);
+
   const str = parseInt(getField('str'), 10) || 10;
   const dex = parseInt(getField('dex'), 10) || 10;
   const int = parseInt(getField('int'), 10) || 10;
@@ -627,7 +652,17 @@ export function parseDandWikiMonster(rawText, { lang = 'pt', defaultName = 'Home
   const senses = [getField('senses'), getField('darkvision') ? `darkvision ${getField('darkvision')} ft.` : '', getField('blindsight') ? `blindsight ${getField('blindsight')} ft.` : '', getField('passive') ? `passive Perception ${getField('passive')}` : ''].filter(Boolean).join(', ') || '—';
   const languages = getField('languages') || '—';
 
-  const traits = parseWikitextEntries(getSection('features') || getSection('traits'));
+  // Expande macros de traços clássicos do DandWiki (ex: {{5ect|barnaclops|Amphibious}})
+  const rawFeatures = getSection('features') || getSection('traits');
+  const expandedFeatures = rawFeatures.replace(/\{\{5ect\|([^|]+)\|([^}]+)\}\}/gi, (_m, creature, trait) => {
+    const cName = creature.trim().replace(/_/g, ' ');
+    const tName = trait.trim().replace(/_/g, ' ');
+    const descGen = DANDWIKI_TRAIT_DESCS[tName.toLowerCase()];
+    const desc = descGen ? descGen(cName) : `The ${cName} has the ${tName} trait.`;
+    return `'''''${tName}.''''' ${desc}\n\n`;
+  });
+  const traits = parseWikitextEntries(expandedFeatures);
+
   const actions = parseWikitextEntries(getSection('actions'));
   const bonusActions = parseWikitextEntries(getSection('bonusactions') || getSection('bonus_actions'));
   const reactions = parseWikitextEntries(getSection('reactions'));
@@ -639,6 +674,11 @@ export function parseDandWikiMonster(rawText, { lang = 'pt', defaultName = 'Home
   if (portraitUrl && (!portraitUrl.startsWith('http') || portraitUrl.startsWith('<!--'))) {
     portraitUrl = null;
   }
+
+  const resistList = resistText ? resistText.split(/,\s*/).map(s => s.trim().toLowerCase()).filter(Boolean) : [];
+  const immuneList = immuneText ? immuneText.split(/,\s*/).map(s => s.trim().toLowerCase()).filter(Boolean) : [];
+  const vulnList = vulnText ? vulnText.split(/,\s*/).map(s => s.trim().toLowerCase()).filter(Boolean) : [];
+  const conditionList = conditionImmuneText ? conditionImmuneText.split(/,\s*/).map(s => s.trim().toLowerCase()).filter(Boolean) : [];
 
   return {
     id: `dandwiki-${slugify(name)}-${Date.now().toString(36)}`,
@@ -657,15 +697,15 @@ export function parseDandWikiMonster(rawText, { lang = 'pt', defaultName = 'Home
     acText,
     hp,
     hpText,
-    speed: { walk: 30 },
+    speed: speedObj,
     speedText,
     abilities,
     ...(Object.keys(saves).length ? { saves, saveText } : {}),
     ...(Object.keys(skills).length ? { skills, skillText } : {}),
-    ...(resistText ? { damageResistances: [resistText], resistText } : {}),
-    ...(immuneText ? { damageImmunities: [immuneText], immuneText } : {}),
-    ...(vulnText ? { damageVulnerabilities: [vulnText], vulnText } : {}),
-    ...(conditionImmuneText ? { conditionImmunities: [conditionImmuneText], conditionImmuneText } : {}),
+    ...(resistList.length ? { damageResistances: resistList, resistText } : {}),
+    ...(immuneList.length ? { damageImmunities: immuneList, immuneText } : {}),
+    ...(vulnList.length ? { damageVulnerabilities: vulnList, vulnText } : {}),
+    ...(conditionList.length ? { conditionImmunities: conditionList, conditionImmuneText } : {}),
     senses,
     languages,
     traits,
@@ -958,6 +998,103 @@ function findKeyCaseInsensitive(obj, key) {
 }
 
 /**
+ * Busca conteúdo textual com bypass de CORS resiliente:
+ * 1. Em navegadores, consulta primeiro o proxy da Forja (/api/proxy?url=...).
+ * 2. Em ambientes Node / Electron / sem restrição, tenta fetch direto.
+ * 3. Se falhar, tenta proxies adicionais ou emite erro claro.
+ */
+export async function fetchTextWithCorsBypass(url) {
+  const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+  const apiBase = (typeof window !== 'undefined' && window.__API_BASE__) || 
+                  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '';
+
+  // 1. Tentar proxy primeiro se estiver no navegador
+  if (isBrowser) {
+    try {
+      const proxyUrl = `${apiBase}/api/proxy?url=${encodeURIComponent(url)}`;
+      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
+      if (res.ok) {
+        return await res.text();
+      }
+    } catch {
+      // continua para tentativas seguintes
+    }
+
+    if (apiBase) {
+      try {
+        const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
+        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
+        if (res.ok) {
+          return await res.text();
+        }
+      } catch {
+        // continua
+      }
+    }
+  }
+
+  // 2. Tentar requisição direta (funciona em Node, curl ou endpoints com CORS)
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/plain,text/html,*/*'
+      },
+      signal: AbortSignal.timeout(12000)
+    });
+    if (res.ok) {
+      return await res.text();
+    }
+    throw new Error(`Servidor de origem retornou status HTTP ${res.status}`);
+  } catch (err) {
+    if (isBrowser) {
+      throw new Error(`Falha ao acessar ${url} (bloqueio CORS do navegador ou serviço inacessível). Certifique-se de que o backend Django ou Vite dev server está ativo para usar o proxy automático.`);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Detecta se uma string é um bloco bruto de criatura colado (DandWiki wikitext ou JSON).
+ */
+export function isMonsterRawText(str) {
+  if (!str || typeof str !== 'string') return false;
+  const s = str.trim();
+  if (s.includes('{{5e Creature') || (s.startsWith('==') && s.includes('|type='))) return true;
+  if (s.startsWith('{') && (
+    s.includes('"saveVersion"') ||
+    (s.includes('"hit_points"') && s.includes('"armor_class"')) ||
+    (s.includes('"ability_scores"') && s.includes('"hit_points"')) ||
+    (s.includes('"name"') && (s.includes('"hp"') || s.includes('"ac"')))
+  )) return true;
+  return false;
+}
+
+/**
+ * Converte um bloco de texto bruto colado em criatura do Heroes Forge.
+ */
+export function parseMonsterFromRawText(rawText, { lang = 'pt' } = {}) {
+  const s = String(rawText || '').trim();
+  if (s.includes('{{5e Creature') || (s.startsWith('==') && s.includes('|type='))) {
+    const monster = parseDandWikiMonster(s, { lang });
+    return { monster, warnings: [] };
+  }
+  if (s.startsWith('{')) {
+    try {
+      const json = JSON.parse(s);
+      if (json.saveVersion != null) return convert5emm(json, { lang });
+      if (json.hit_points != null && json.armor_class != null) return convertOpen5eV1(json, { lang });
+      if (json.ability_scores != null && json.hit_points != null) return convertOpen5eV2(json, { lang });
+      if (json.name && (json.hp || json.ac)) return { monster: convert5eToolsMonster(json, { lang }), warnings: [] };
+      if (Array.isArray(json.monster) && json.monster.length > 0) return { monster: convert5eToolsMonster(json.monster[0], { lang }), warnings: [] };
+    } catch (e) {
+      throw new Error(`JSON de monstro inválido: ${e.message}`);
+    }
+  }
+  throw new Error('Formato de texto de monstro não reconhecido.');
+}
+
+/**
  * Busca e reconstrói um monstro a partir de uma URL direta de qualquer plataforma suportada.
  */
 export async function fetchMonsterFromUrl(urlStr, { lang = 'pt' } = {}) {
@@ -966,9 +1103,7 @@ export async function fetchMonsterFromUrl(urlStr, { lang = 'pt' } = {}) {
   // 1. DandWiki Homebrew
   if (meta.kind === 'dandwiki') {
     const rawUrl = meta.rawUrl || `https://www.dandwiki.com/wiki/${meta.slug}?action=raw`;
-    const res = await fetch(rawUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    if (!res.ok) throw new Error(`Falha ao acessar artigo no D&D Wiki (HTTP ${res.status})`);
-    const rawText = await res.text();
+    const rawText = await fetchTextWithCorsBypass(rawUrl);
     const monster = parseDandWikiMonster(rawText, { lang, defaultName: meta.name });
     return { monster, warnings: [] };
   }
@@ -987,12 +1122,9 @@ export async function fetchMonsterFromUrl(urlStr, { lang = 'pt' } = {}) {
     }
 
     try {
-      const res = await fetch(meta.url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-      if (res.ok) {
-        const html = await res.text();
-        const monster = parseWikidotCreature(html, { lang, defaultName: meta.name });
-        return { monster, warnings: [] };
-      }
+      const html = await fetchTextWithCorsBypass(meta.url);
+      const monster = parseWikidotCreature(html, { lang, defaultName: meta.name });
+      return { monster, warnings: [] };
     } catch {
       // continua para fallback se falhar por rede/CORS
     }

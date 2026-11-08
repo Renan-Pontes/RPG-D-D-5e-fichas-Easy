@@ -12,7 +12,7 @@ import './combat-styles.css';
 import { monsterArt, monsterEmoji } from '../art.js';
 import ArtThumb from '../components/ArtThumb.jsx';
 import { matchesQuery, partyLevelOf, rankMonsters } from '../combat/common-monsters.js';
-import { isMonsterUrl, parseMonsterUrl, fetchMonsterFromUrl } from './url-monster-importer.js';
+import { isMonsterUrl, parseMonsterUrl, fetchMonsterFromUrl, isMonsterRawText, parseMonsterFromRawText } from './url-monster-importer.js';
 import MonsterStatblock from '../combat/MonsterStatblock.jsx';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
@@ -107,9 +107,38 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
     });
     return rankMonsters(found, query, { partyLevel });
   }, [all, query, typeFilter, crMin, crMax, onlyMine, partyLevel]);
-  // Ingestão mágica via link direto (5e.tools, Open5e, JSON)
+  // Ingestão mágica via link direto ou texto colado (5e.tools, DandWiki, Open5e, JSON)
   useEffect(() => {
     const trimmed = query.trim();
+
+    // 1. Detecção de bloco de texto bruto colado diretamente (wikitext ou JSON)
+    if (isMonsterRawText(trimmed)) {
+      try {
+        const { monster } = parseMonsterFromRawText(trimmed, { lang });
+        const nextCustom = saveCustomMonsters([monster]);
+        setCustom(nextCustom);
+        setSelectedId(monster.id);
+        setOnlyMine(false);
+        setQuery('');
+        setUrlStatus({
+          type: 'success',
+          icon: '✨',
+          text: t(lang, `"${monster.name?.[lang] || monster.name?.pt || monster.name?.en}" importado com sucesso!`, `"${monster.name?.[lang] || monster.name?.en}" imported successfully!`),
+          closable: true
+        });
+        return;
+      } catch (err) {
+        setUrlStatus({
+          type: 'error',
+          icon: '⚠️',
+          text: err?.message || t(lang, 'Erro ao interpretar monstro.', 'Error parsing monster.'),
+          closable: true
+        });
+        return;
+      }
+    }
+
+    // 2. Detecção de URL direta suportada
     if (!isMonsterUrl(trimmed)) return;
     const meta = parseMonsterUrl(trimmed);
     let alive = true;

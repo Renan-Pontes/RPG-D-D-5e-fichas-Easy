@@ -11,6 +11,7 @@ from . import views_admin
 from . import views_plans
 from . import views_insights
 from . import views_pulse
+from . import views_proxy
 from .plans import closed_guard
 from . import views_auth, views_characters, views_campaigns, views_approvals, views_dice, views_screen, views_combat, views_inventory, views_items, views_diary
 
@@ -40,6 +41,9 @@ def _wp2(module, name):
 # world/seen e world/<pk>/view (marcas pessoais de leitura). O PUT da vaga passa
 # para a view, que só aceita a pessoa soltar a própria ficha (o resto → 423).
 urlpatterns = [
+    # Proxy para evitar CORS em importacao de monstros externos
+    path('proxy', views_proxy.proxy_fetch),
+
     # Auth
     path('auth/csrf', views_auth.csrf),
     path('auth/signup', views_auth.signup),

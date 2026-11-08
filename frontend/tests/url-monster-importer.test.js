@@ -9,6 +9,9 @@ import {
   parseDandWikiMonster,
   parseWikidotCreature,
   fetchMonsterFromUrl,
+  isMonsterRawText,
+  parseMonsterFromRawText,
+  fetchTextWithCorsBypass,
 } from '../src/campaigns/url-monster-importer.js';
 
 test('isMonsterUrl: detecta URLs válidas e rejeita buscas normais', () => {
@@ -362,4 +365,80 @@ test('fetchMonsterFromUrl: ingestão ao vivo de 5e.tools 2024 XMM e Compêndios 
   assert.ok(resAide.monster);
   assert.equal(resAide.monster.name.en, 'Steam Mephit');
   assert.equal(resAide.monster.source, 'AideDD');
+});
+
+test('fetchMonsterFromUrl: ingestão ao vivo de DandWiki Barnaclops com fidelidade 1:1', async () => {
+  const res = await fetchMonsterFromUrl('https://www.dandwiki.com/wiki/Barnaclops_(5e_Creature)');
+  assert.ok(res.monster);
+  const m = res.monster;
+
+  assert.equal(m.name.en, 'Barnaclops');
+  assert.equal(m.size, 'Large');
+  assert.equal(m.type, 'monstrosity');
+  assert.equal(m.ac, 18);
+  assert.equal(m.acText, '18 (natural armor)');
+  assert.equal(m.hp, 172);
+  assert.equal(m.hpText, '172 (15d10+90)');
+  assert.equal(m.speed.walk, 20);
+  assert.equal(m.speed.swim, 20);
+  assert.equal(m.cr, '11');
+  assert.equal(m.crNum, 11);
+  assert.equal(m.proficiencyBonus, 4);
+
+  // Resistências e Imunidades limpas de macros {{5c}}
+  assert.ok(m.damageImmunities.includes('poison, psychic') || m.damageImmunities.includes('poison'));
+  assert.ok(m.damageVulnerabilities.includes('cold'));
+  assert.ok(m.conditionImmunities.includes('charmed'));
+  assert.ok(m.conditionImmunities.includes('frightened'));
+  assert.ok(m.conditionImmunities.includes('poisoned'));
+  assert.ok(m.conditionImmunities.includes('unconscious'));
+
+  // Traços (Amphibious expandido via {{5ect}}, Barnacle Armor, Cirriphobic Gaze)
+  assert.ok(m.traits.some(t => t.name.en === 'Amphibious'));
+  assert.ok(m.traits.some(t => t.name.en === 'Barnacle Armor'));
+  assert.ok(m.traits.some(t => t.name.en === 'Cirriphobic Gaze'));
+
+  // Ações e Ataques
+  const club = m.actions.find(a => a.name.en === 'Club');
+  assert.ok(club);
+  assert.equal(club.atk, 7);
+  assert.equal(club.damage, '9d6+3');
+  assert.equal(club.damageType, 'bludgeoning');
+
+  // Arte/Retrato
+  assert.equal(m.avatar, 'https://www.bogleech.com/mortasheen/barnaclops.png');
+});
+
+test('isMonsterRawText e parseMonsterFromRawText: suporta wikitext e JSON colados', () => {
+  const wikitext = `==Glitch==
+{{5e Creature
+|size=Medium
+|type=aberration
+|alignment=chaotic neutral
+|ac=14
+|hd=8
+|con=14
+|str=10
+|dex=18
+|speed=30 ft.
+|cr=3
+}}`;
+  assert.equal(isMonsterRawText(wikitext), true);
+  const parsedWiki = parseMonsterFromRawText(wikitext);
+  assert.equal(parsedWiki.monster.name.en, 'Glitch');
+  assert.equal(parsedWiki.monster.cr, '3');
+  assert.equal(parsedWiki.monster.type, 'aberration');
+
+  const jsonSample = JSON.stringify({
+    name: 'Glitch Drone',
+    hit_points: 45,
+    armor_class: 13,
+    challenge_rating: '2',
+  });
+  assert.equal(isMonsterRawText(jsonSample), true);
+  const parsedJson = parseMonsterFromRawText(jsonSample);
+  assert.equal(parsedJson.monster.name.pt, 'Glitch Drone');
+  assert.equal(parsedJson.monster.cr, '2');
+
+  assert.equal(isMonsterRawText('apenas um texto qualquer'), false);
 });
