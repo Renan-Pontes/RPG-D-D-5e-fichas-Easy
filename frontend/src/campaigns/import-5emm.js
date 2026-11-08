@@ -164,17 +164,57 @@ function stripCost(name) {
 
 function finalize(m, source) {
   const crNum = crToNumber(m.crNum ?? m.cr) ?? 0;
+  const cr = crLabel(crNum);
+  const size = normSize(m.size);
+  const type = normType(m.type);
+  const alignment = m.alignment || 'unaligned';
+  const typeLine = m.typeLine || `${size} ${type}, ${alignment}`;
+  const ac = Math.max(1, num(m.ac, 10));
+  const hp = Math.max(1, num(m.hp, 1));
+  const acText = m.acText || String(ac);
+  const hpText = m.hpText || (m.hitDice ? `${hp} (${m.hitDice})` : String(hp));
+  const speed = m.speed && Object.keys(m.speed).length ? m.speed : { walk: 30 };
+  const speedText = m.speedText || (
+    typeof speed === 'number'
+      ? `${speed} ft.`
+      : Object.entries(speed).map(([k, v]) => `${k !== 'walk' ? `${k} ` : ''}${v} ft.`).join(', ')
+  );
+  const saves = m.saves || {};
+  const saveText = m.saveText || Object.entries(saves)
+    .map(([k, v]) => `${k.toUpperCase()} ${Number(v) >= 0 ? '+' : ''}${v}`)
+    .join(', ');
+  const skills = m.skills || {};
+  const skillText = m.skillText || Object.entries(skills)
+    .map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1)} ${Number(v) >= 0 ? '+' : ''}${v}`)
+    .join(', ');
+  const resistText = m.resistText || (m.damageResistances || []).join(', ');
+  const immuneText = m.immuneText || (m.damageImmunities || []).join(', ');
+  const vulnText = m.vulnText || (m.damageVulnerabilities || []).join(', ');
+  const conditionImmuneText = m.conditionImmuneText || (m.conditionImmunities || []).join(', ');
+
   return {
     ...m,
     id: m.id,
-    cr: crLabel(crNum),
+    cr,
     crNum,
-    size: normSize(m.size),
-    type: normType(m.type),
-    speed: m.speed && Object.keys(m.speed).length ? m.speed : { walk: 30 },
-    ac: Math.max(1, num(m.ac, 10)),
-    hp: Math.max(1, num(m.hp, 1)),
+    size,
+    type,
+    alignment,
+    typeLine,
+    speed,
+    speedText,
+    ac,
+    acText,
+    hp,
+    hpText,
+    hitDice: m.hitDice || '',
     abilities: Object.fromEntries(['str', 'dex', 'con', 'int', 'wis', 'cha'].map(k => [k, Math.max(1, Math.min(30, num(m.abilities?.[k], 10)))])),
+    ...(Object.keys(saves).length ? { saves, saveText } : {}),
+    ...(Object.keys(skills).length ? { skills, skillText } : {}),
+    ...(resistText ? { resistText } : {}),
+    ...(immuneText ? { immuneText } : {}),
+    ...(vulnText ? { vulnText } : {}),
+    ...(conditionImmuneText ? { conditionImmuneText } : {}),
     actions: m.actions || [],
     traits: m.traits || [],
     custom: true,

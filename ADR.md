@@ -758,3 +758,44 @@ Technical challenges:
 ### Consequences
 - **Positive:** Zero context-switching friction for DMs; pasting a URL automatically reconstructs and inserts any official or homebrew monster into battle in < 300ms; complete offline persistence in `localStorage`; zero dependencies on third-party proxies.
 - **Verification:** 7/7 unit tests in `frontend/tests/url-monster-importer.test.js` pass (covering `Merchantman`, `Clapped-Out Steamjack`, `Sphinx`, `Goblin`, and `Aboleth`); 1,563 / 1,563 total frontend unit tests green across 20 suites; clean Vite production build in 14.45s.
+
+---
+
+## ADR-0023: 1:1 D&D 5e Monster Statblock Fidelity & Ingestion Architecture
+
+### Status
+Accepted & Implemented (2026-11-07)
+
+### Context
+While URL-based monster ingestion (ADR-0022) enabled fetching monsters from 5e.tools, Open5e, and JSON directly into the battle picker, the ingested models lacked complete 1:1 fidelity with authentic D&D 5e statblock anatomy:
+1. **Truncation of AC and HP Nuances:** AC source notes (`natural armor`, `shield`, etc.) and HP formulas (`4d10+20`) were flattened to plain integers, losing armor and hit dice provenance.
+2. **Missing Speed & Defense Text Formatting:** Conditional damage resistances (`from nonmagical attacks`), condition immunities, and multi-mode speeds (`fly 60 ft. (hover)`) were missing or unformatted.
+3. **Missing Challenge Metadata:** XP and official Proficiency Bonus (PB) were not calculated or attached.
+4. **Action Parsing Edge Cases:** Homebrew attacks with dynamic bonuses (e.g. `Hit: 1d8 + proficiency bonus bludgeoning damage` in Iron Kingdoms / Steamjack content) lacked parentheses averages and failed to extract base damage dice and damage types.
+5. **In-Combat Statblock Blindness:** In `CombatantSheet.jsx`, GMs previously had no tab to read a monster's lore, cortex commands, magical traits, or damage immunities during combat—only raw actions and HP.
+6. **Lack of 1:1 Statblock Inspection in Monster Picker:** In `MonsterPicker.jsx`, GMs could not preview the authentic 1:1 statblock before adding a creature to combat.
+
+### Decision Outcome
+1. **Comprehensive 1:1 Data Ingestion (`url-monster-importer.js` & `import-5emm.js`):**
+   - Attached `typeLine` with size, type, tags/subtypes, and alignment (e.g. `"Medium construct (steamjack), unaligned"`).
+   - Attached `acText` with AC value and sources/notes (e.g. `"16 (natural armor)"`).
+   - Attached `hpText` with average HP and exact hit dice formula (e.g. `"42 (4d10+20)"`).
+   - Attached `speedText` with all movement modes (e.g. `"30 ft., fly 60 ft. (hover)"`).
+   - Formatted `saveText` and `skillText` with standard shorthand formatting (`STR +5, CON +6`, `Athletics +5, Perception +2`).
+   - Formatted `resistText` (with conditional clauses), `immuneText`, `vulnText`, and `conditionImmuneText`.
+   - Attached `xp` via `CR_XP_MAP` and `proficiencyBonus` via `pbForCr(crNum)`.
+   - Added regex fallback in `mapActions` to parse non-standard dice notation (`1d8 + proficiency bonus bludgeoning damage`).
+   - Preserved `raw5eTools` on the imported object for lossless schema preservation.
+2. **Dedicated 1:1 Monster Statblock Component (`MonsterStatblock.jsx` + `monster-statblock.css`):**
+   - Renders authentic D&D 5e statblock card with header, metadata, tapered burgundy/gold gradient bars, AC, HP, speed, 6 ability score table with modifiers, saves, skills, vulnerabilities, resistances, immunities, condition immunities, senses, languages, CR with XP and PB, special traits, actions, bonus actions, reactions, and legendary actions.
+   - Embeds `<DiceText />` so all dice notations and formula references are interactive tap-to-roll tokens.
+3. **GM In-Combat Statblock Tab (`CombatantSheet.jsx`):**
+   - Added `statblock: '📜'` tab to `TAB_IDS` and `cs-tabs` for monsters (`c.type === 'monster' || !!c.stats`), rendering `<MonsterStatblock />` directly inside active combat.
+4. **MonsterPicker Statblock Inspection Modal (`MonsterPicker.jsx`):**
+   - Added `mp-statblock-btn` (`👁️ Ficha / Statblock`) to footer and discrete `👁️` inspect button on every monster list item.
+   - Opens a full-fidelity `MesaSheet` displaying `<MonsterStatblock />`.
+   - Rendered inline status pill `.mp-url-status`.
+
+### Consequences
+- **Positive:** Complete 1:1 parity with authentic D&D 5e and 5e.tools statblock anatomy; GMs have full in-combat and pre-combat access to traits, lore, cortex rules, defenses, and legendary actions; all dice expressions in statblocks are clickable tap-to-roll tokens; zero regressions.
+- **Verification:** 5/5 tests in `frontend/tests/monster-statblock-fidelity.test.js` pass; 7/7 tests in `frontend/tests/url-monster-importer.test.js` pass; 10/10 tests in `frontend/tests/import-5emm.test.js` pass.

@@ -110,16 +110,27 @@ test('convert5eToolsMonster: converte objeto bruto para modelo do Heroes Forge',
   assert.equal(converted.crNum, 10);
   assert.equal(converted.size, 'Huge');
   assert.equal(converted.type, 'construct');
+  assert.equal(converted.typeLine, 'Huge construct, unaligned');
   assert.equal(converted.ac, 18);
+  assert.equal(converted.acText, '18 (natural armor)');
   assert.equal(converted.hp, 150);
   assert.equal(converted.hitDice, '12d12 + 72');
+  assert.equal(converted.hpText, '150 (12d12 + 72)');
   assert.equal(converted.speed.walk, 40);
   assert.equal(converted.speed.climb, 20);
+  assert.equal(converted.speedText, '40 ft., climb 20 ft.');
   assert.equal(converted.abilities.str, 22);
   assert.equal(converted.saves.con, 10);
+  assert.equal(converted.saveText, 'CON +10, WIS +4');
   assert.equal(converted.skills.athletics, 10);
+  assert.equal(converted.skillText, 'Athletics +10, Perception +4');
   assert.deepEqual(converted.damageImmunities, ['poison', 'psychic']);
+  assert.equal(converted.immuneText, 'poison, psychic');
   assert.deepEqual(converted.conditionImmunities, ['charmed', 'exhaustion', 'poisoned']);
+  assert.equal(converted.conditionImmuneText, 'charmed, exhaustion, poisoned');
+  assert.equal(converted.xp, 5900);
+  assert.equal(converted.proficiencyBonus, 4);
+  assert.ok(converted.raw5eTools);
   assert.equal(converted.traits.length, 1);
   assert.equal(converted.traits[0].name.pt, 'Magic Resistance');
   assert.equal(converted.actions.length, 1);
@@ -138,7 +149,18 @@ test('fetchMonsterFromUrl: ingestão ao vivo dos 3 links de exemplo do usuário'
   assert.equal(res1.monster.name.pt, 'Merchantman');
   assert.equal(res1.monster.cr, '3');
   assert.equal(res1.monster.hp, 42);
+  assert.equal(res1.monster.hpText, '42 (4d10+20)');
   assert.equal(res1.monster.ac, 16);
+  assert.equal(res1.monster.acText, '16 (natural armor)');
+  assert.equal(res1.monster.typeLine, 'Large construct, unaligned');
+  assert.equal(res1.monster.speedText, '40 ft.');
+  assert.equal(res1.monster.saveText, 'STR +5, CON +6');
+  assert.equal(res1.monster.skillText, 'Athletics +5, Perception +2');
+  assert.equal(res1.monster.resistText, 'bludgeoning, piercing, slashing from nonmagical attacks');
+  assert.equal(res1.monster.immuneText, 'poison, psychic');
+  assert.equal(res1.monster.conditionImmuneText, 'charmed, frightened, paralyzed, petrified, poisoned');
+  assert.equal(res1.monster.xp, 700);
+  assert.equal(res1.monster.proficiencyBonus, 2);
   assert.ok(res1.monster.actions.some(a => a.name.pt === 'Slam'));
 
   // 2. Clapped-Out Steamjack (irkcore)
@@ -147,7 +169,12 @@ test('fetchMonsterFromUrl: ingestão ao vivo dos 3 links de exemplo do usuário'
   assert.equal(res2.monster.name.pt, 'Clapped-Out Steamjack');
   assert.equal(res2.monster.cr, '0');
   assert.equal(res2.monster.hp, 28);
+  assert.equal(res2.monster.hpText, '28 (3d8 + 15)');
   assert.equal(res2.monster.ac, 12);
+  assert.equal(res2.monster.acText, '12 (natural armor)');
+  assert.equal(res2.monster.typeLine, 'Medium construct (steamjack), unaligned');
+  assert.equal(res2.monster.actions[0].damage, '1d8');
+  assert.equal(res2.monster.actions[0].damageType, 'bludgeoning');
 
   // 3. Sphinx (irkbnb)
   const res3 = await fetchMonsterFromUrl('https://5e.tools/bestiary.html#sphinx_irkbnb');
@@ -155,7 +182,12 @@ test('fetchMonsterFromUrl: ingestão ao vivo dos 3 links de exemplo do usuário'
   assert.equal(res3.monster.name.pt, 'Sphinx');
   assert.equal(res3.monster.cr, '6');
   assert.equal(res3.monster.hp, 105);
+  assert.equal(res3.monster.hpText, '105 (10d10+50)');
   assert.equal(res3.monster.ac, 17);
+  assert.equal(res3.monster.acText, '17 (natural armor)');
+  assert.equal(res3.monster.typeLine, 'Large construct (myrmidon), unaligned');
+  assert.equal(res3.monster.xp, 2300);
+  assert.equal(res3.monster.proficiencyBonus, 3);
 });
 
 test('fetchMonsterFromUrl: ingestão de fontes oficiais e Open5e', async () => {

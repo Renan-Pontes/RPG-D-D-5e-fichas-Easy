@@ -1,0 +1,164 @@
+/* ==========================================================================
+   D&D 5e Monster Statblock 1:1 Rendering Component
+   Fiel ao layout canônico do Manual dos Monstros / SRD 5.2.1 / 5e.tools.
+   ========================================================================== */
+
+.statblock-card {
+  position: relative;
+  background: linear-gradient(180deg, #18120d 0%, #140e0a 100%);
+  border: 1px solid rgba(214, 176, 100, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius-sm, 2px);
+  padding: 16px;
+  color: var(--ink-primary, #f3e6cb);
+  font-family: var(--body, Georgia, serif);
+  line-height: 1.42;
+  font-size: 0.92rem;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Barra decorativa afunilada de ouro e carmim */
+.statblock-taper {
+  height: 3px;
+  background: linear-gradient(90deg, transparent 0%, #9e3322 15%, #d6b064 50%, #9e3322 85%, transparent 100%);
+  margin: 10px 0;
+  border: 0;
+  opacity: 0.85;
+}
+
+.statblock-header {
+  margin-bottom: 4px;
+}
+
+.statblock-name {
+  margin: 0;
+  font-family: var(--display, "Cinzel", Georgia, serif);
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--gold-bright, #edcb7a);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  text-transform: capitalize;
+}
+
+.statblock-meta {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--ink-secondary, #d9c9a6);
+}
+
+.statblock-prop {
+  margin: 3px 0;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.statblock-prop-label {
+  font-weight: 700;
+  color: var(--blood-bright, #e0604f);
+  margin-right: 4px;
+}
+
+.statblock-prop-val {
+  color: var(--ink-primary, #f3e6cb);
+}
+
+/* Tabela dos 6 atributos */
+.statblock-abilities {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  background: rgba(14, 10, 7, 0.55);
+  border: 1px solid rgba(214, 176, 100, 0.2);
+  border-radius: var(--radius-sm, 2px);
+  padding: 8px 4px;
+  margin: 8px 0;
+  text-align: center;
+}
+
+.statblock-abil-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.statblock-abil-head {
+  font-family: var(--display, "Cinzel", serif);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--gold, #d6b064);
+  text-transform: uppercase;
+}
+
+.statblock-abil-val {
+  font-size: 0.86rem;
+  font-family: var(--body, Georgia, serif);
+  color: var(--ink-primary, #f3e6cb);
+  white-space: nowrap;
+}
+
+/* Título de seções (Ações, Ações Lendárias, etc.) */
+.statblock-section-title {
+  margin: 14px 0 6px;
+  padding-bottom: 3px;
+  font-family: var(--display, "Cinzel", serif);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--blood-bright, #e0604f);
+  border-bottom: 1px solid rgba(224, 96, 79, 0.35);
+  text-transform: uppercase;
+}
+
+.statblock-section-desc {
+  margin: 4px 0 8px;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--ink-secondary, #d9c9a6);
+}
+
+/* Entradas de traços e ações */
+.statblock-entry {
+  margin-bottom: 8px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  word-break: break-word;
+  white-space: pre-line;
+}
+
+.statblock-entry-name {
+  font-weight: 700;
+  font-style: italic;
+  color: var(--gold-bright, #edcb7a);
+  margin-right: 4px;
+}
+
+.statblock-entry-cost {
+  font-weight: 600;
+  color: var(--amber, #e3a445);
+  margin-right: 4px;
+}
+
+/* Modo Gaveta/Modal de Inspeção */
+.statblock-modal {
+  max-height: 85vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+@media (max-width: 480px) {
+  .statblock-card {
+    padding: 12px;
+  }
+  .statblock-abilities {
+    gap: 2px;
+    padding: 6px 2px;
+  }
+  .statblock-abil-val {
+    font-size: 0.8rem;
+  }
+}

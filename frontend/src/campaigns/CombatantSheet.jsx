@@ -32,6 +32,7 @@ import { DamagePadBody, undoFlash } from '../play/DamagePad.jsx';
 import { newOpId } from '../play/damage-model.js';
 import { conditionIcon, CONDITION_EMOJI } from '../art.js';
 import { ArtIcon } from '../components/ArtThumb.jsx';
+import MonsterStatblock from '../combat/MonsterStatblock.jsx';
 import {
   KIND_ORDER, KIND_LABEL, actionName, actionStatus, actionSummary, groupCombatActions, hasLair,
   isAttack, isSave, legendaryInfo, legendaryResistanceInfo, limitLabel, reasonLabel,
@@ -103,8 +104,8 @@ export function ConditionChip({ cond, rounds = null, lang, onRemove, fromSheet =
   );
 }
 
-const TAB_IDS = ['actions', 'hp', 'conditions', 'resources'];
-const TAB_ICON = { actions: '⚔', hp: '❤', conditions: '✦', resources: '◆' };
+const TAB_IDS = ['actions', 'statblock', 'hp', 'conditions', 'resources'];
+const TAB_ICON = { actions: '⚔', statblock: '📜', hp: '❤', conditions: '✦', resources: '◆' };
 
 function hasResources(c) {
   if (c?.type !== 'monster') return false;
@@ -143,7 +144,12 @@ export function CombatantPanel({
   const [openIdx, setOpenIdx] = useState(null);
   const [busyIdx, setBusyIdx] = useState(null);
   const showResources = hasResources(c);
-  const tabs = TAB_IDS.filter(id => id !== 'resources' || showResources);
+  const showStatblock = c.type === 'monster' || !!c.stats;
+  const tabs = TAB_IDS.filter(id => {
+    if (id === 'resources') return showResources;
+    if (id === 'statblock') return showStatblock;
+    return true;
+  });
   const activeTab = tabs.includes(tab) ? tab : 'actions';
   const fromSheet = useMemo(() => sheetConditions(c, campaign), [c, campaign]);
 
@@ -262,6 +268,7 @@ export function CombatantPanel({
             <span className="cs-tab-ico" aria-hidden="true">{TAB_ICON[id]}</span>
             <span className="cs-tab-label">
               {id === 'actions' && t(lang, 'Ações', 'Actions')}
+              {id === 'statblock' && t(lang, 'Ficha', 'Statblock')}
               {id === 'hp' && t(lang, 'Dano/Cura', 'Dmg/Heal')}
               {id === 'conditions' && t(lang, 'Condições', 'Conditions')}
               {id === 'resources' && t(lang, 'Recursos', 'Resources')}
@@ -313,6 +320,12 @@ export function CombatantPanel({
             )}
           </div>
         ))}
+
+        {activeTab === 'statblock' && (
+          <div className="cs-statblock-tab">
+            <MonsterStatblock monster={c.stats?.monster || c.stats} lang={lang} />
+          </div>
+        )}
 
         {activeTab === 'hp' && (
           <DamagePadBody campaign={campaign} combat={combat || { combatants: allCombatants }} lang={lang} target={c} compact

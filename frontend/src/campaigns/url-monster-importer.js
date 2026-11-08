@@ -31,6 +31,28 @@ let cachedOfficialIndex = null;
 const both = (s) => ({ pt: s, en: s });
 const num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
 
+
+export const CR_XP_MAP = {
+  '0': 10, '1/8': 25, '1/4': 50, '1/2': 100, '1': 200, '2': 450, '3': 700,
+  '4': 1100, '5': 1800, '6': 2300, '7': 2900, '8': 3900, '9': 5000, '10': 5900,
+  '11': 7200, '12': 8400, '13': 10000, '14': 11500, '15': 13000, '16': 15000,
+  '17': 18000, '18': 20000, '19': 22000, '20': 25000, '21': 33000, '22': 41000,
+  '23': 50000, '24': 62000, '25': 75000, '26': 90000, '27': 105000, '28': 120000,
+  '29': 135000, '30': 155000,
+};
+
+export function pbForCr(crNum) {
+  const n = Number(crNum) || 0;
+  if (n < 5) return 2;
+  if (n < 9) return 3;
+  if (n < 13) return 4;
+  if (n < 17) return 5;
+  if (n < 21) return 6;
+  if (n < 25) return 7;
+  if (n < 29) return 8;
+  return 9;
+}
+
 function slugify(s) {
   return String(s || 'monster').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'monster';
@@ -52,7 +74,7 @@ export function clean5eToolsTags(str) {
       if (parts.includes('rs')) return 'Ranged Spell Attack:';
       return 'Attack:';
     })
-    .replace(/\{@hit\s+([+-]?\d+)\}(?:\s+to\s+hit,?)?/gi, (_m, g) => `${Number(g) >= 0 ? '+' : ''}${g} to hit,`)
+    .replace(/\{@hit\s+([+-]?\d+)\}/gi, (_m, g) => `${Number(g) >= 0 ? '+' : ''}${g}`)
     .replace(/\{@h\}/gi, 'Hit: ')
     .replace(/\{@damage\s+([^}]+)\}/gi, '$1')
     .replace(/\{@dice\s+([^}]+)\}/gi, '$1')
@@ -146,31 +168,87 @@ function stripCost(name) {
 export function convert5eToolsMonster(raw, { lang = 'pt' } = {}) {
   const crStr = typeof raw.cr === 'object' ? (raw.cr.cr || '0') : String(raw.cr ?? '0');
   const crNum = crToNumber(crStr) ?? 0;
+  const xp = CR_XP_MAP[crStr] ?? (raw.cr?.xp ?? 0);
+  const proficiencyBonus = raw.proficiencyBonus != null ? raw.proficiencyBonus : pbForCr(crNum);
 
+  // 1. Tipo, Subtipo (Tags), Tamanho e Alinhamento
+  let type = 'monstrosity';
+  let tags = [];
+  if (typeof raw.type === 'string') {
+    type = raw.type.toLowerCase();
+  } else if (raw.type && typeof raw.type === 'object') {
+    type = String(raw.type.type || 'monstrosity').toLowerCase();
+    if (Array.isArray(raw.type.tags)) tags = raw.type.tags.map(clean5eToolsTags);
+  }
+  const size = normSize(raw.size?.[0] || raw.size);
+  const alignment = normAlignment(raw.alignment);
+  const tagsStr = tags.length ? ` (${tags.join(', ')})` : '';
+  const typeLine = `${size} ${type}${tagsStr}, ${alignment}`;
+
+  // 2. Classe de Armadura detalhada
   let ac = 10;
-  if (Array.isArray(raw.ac)) {
+  let acText = '10';
+  if (Array.isArray(raw.ac) && raw.ac.length > 0) {
     const first = raw.ac[0];
     ac = typeof first === 'number' ? first : (first?.ac || 10);
+    const parts = raw.ac.map(item => {
+      if (typeof item === 'number') return String(item);
+      if (!item) return '';
+      let s = String(item.ac || ac);
+      if (item.from?.length) s += ` (${item.from.map(clean5eToolsTags).join(', ')})`;
+      if (item.condition) s += ` ${clean5eToolsTags(item.condition)}`;
+      return s;
+    }).filter(Boolean);
+    if (parts.length) acText = parts.join(', ');
   } else if (typeof raw.ac === 'number') {
     ac = raw.ac;
+    acText = String(raw.ac);
   }
 
-  const hp = raw.hp?.average || (typeof raw.hp === 'number' ? raw.hp : 10);
-  const hitDice = raw.hp?.formula || '';
+  // 3. Pontos de Vida e Fórmula de Dados
+  let hp = 10;
+  let hitDice = '';
+  let hpText = '10';
+  if (raw.hp && typeof raw.hp === 'object') {
+    hp = raw.hp.average || (typeof raw.hp === 'number' ? raw.hp : 10);
+    hitDice = raw.hp.formula ? raw.hp.formula.replace(/\s+/g, ' ') : '';
+    hpText = raw.hp.special ? clean5eToolsTags(raw.hp.special) : (hitDice ? `${hp} (${hitDice})` : String(hp));
+  } else if (typeof raw.hp === 'number') {
+    hp = raw.hp;
+    hpText = String(raw.hp);
+  }
 
+  // 4. Deslocamento e Modos de Movimento
+  const speedObj = typeof raw.speed === 'number' ? { walk: raw.speed } : (raw.speed || { walk: 30 });
   const speed = {
-    walk: typeof raw.speed === 'number' ? raw.speed : (raw.speed?.walk || 30),
-    fly: raw.speed?.fly?.number || (typeof raw.speed?.fly === 'number' ? raw.speed.fly : undefined),
-    swim: raw.speed?.swim?.number || (typeof raw.speed?.swim === 'number' ? raw.speed.swim : undefined),
-    climb: raw.speed?.climb?.number || (typeof raw.speed?.climb === 'number' ? raw.speed.climb : undefined),
-    burrow: raw.speed?.burrow?.number || (typeof raw.speed?.burrow === 'number' ? raw.speed.burrow : undefined),
-    hover: !!(raw.speed?.canHover || raw.speed?.hover),
+    walk: typeof speedObj === 'number' ? speedObj : (speedObj.walk || 30),
+    fly: speedObj.fly?.number || (typeof speedObj.fly === 'number' ? speedObj.fly : undefined),
+    swim: speedObj.swim?.number || (typeof speedObj.swim === 'number' ? speedObj.swim : undefined),
+    climb: speedObj.climb?.number || (typeof speedObj.climb === 'number' ? speedObj.climb : undefined),
+    burrow: speedObj.burrow?.number || (typeof speedObj.burrow === 'number' ? speedObj.burrow : undefined),
+    hover: !!(speedObj.canHover || speedObj.hover),
   };
-  // remove undefined
   for (const k of Object.keys(speed)) {
     if (speed[k] === undefined) delete speed[k];
   }
 
+  const speedParts = [];
+  if (speedObj.walk != null) speedParts.push(`${speedObj.walk} ft.`);
+  for (const [k, v] of Object.entries(speedObj)) {
+    if (k === 'walk' || k === 'canHover') continue;
+    if (typeof v === 'number') speedParts.push(`${k} ${v} ft.`);
+    else if (typeof v === 'object' && v != null) {
+      const numVal = v.number ?? 0;
+      const cond = v.condition ? ` ${clean5eToolsTags(v.condition)}` : '';
+      speedParts.push(`${k} ${numVal} ft.${cond}`);
+    }
+  }
+  if (speedObj.canHover && !speedParts.some(p => p.includes('hover'))) {
+    speedParts.push('(hover)');
+  }
+  const speedText = speedParts.join(', ') || '30 ft.';
+
+  // 5. Atributos
   const abilities = {
     str: Math.max(1, Math.min(30, num(raw.str, 10))),
     dex: Math.max(1, Math.min(30, num(raw.dex, 10))),
@@ -180,12 +258,16 @@ export function convert5eToolsMonster(raw, { lang = 'pt' } = {}) {
     cha: Math.max(1, Math.min(30, num(raw.cha, 10))),
   };
 
+  // 6. Salvaguardas e Perícias
   const saves = {};
   if (raw.save) {
     for (const [k, v] of Object.entries(raw.save)) {
       saves[k.toLowerCase()] = parseInt(v, 10) || 0;
     }
   }
+  const saveText = Object.entries(saves)
+    .map(([k, v]) => `${k.toUpperCase()} ${v >= 0 ? '+' : ''}${v}`)
+    .join(', ');
 
   const skills = {};
   if (raw.skill) {
@@ -193,7 +275,11 @@ export function convert5eToolsMonster(raw, { lang = 'pt' } = {}) {
       skills[k.toLowerCase()] = parseInt(v, 10) || 0;
     }
   }
+  const skillText = Object.entries(skills)
+    .map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1)} ${v >= 0 ? '+' : ''}${v}`)
+    .join(', ');
 
+  // 7. Defesas (Resistências, Imunidades, Vulnerabilidades)
   const damageResistances = (raw.resist || []).map(r => {
     if (typeof r === 'string') return clean5eToolsTags(r);
     if (r?.resist) {
@@ -202,6 +288,7 @@ export function convert5eToolsMonster(raw, { lang = 'pt' } = {}) {
     }
     return '';
   }).filter(Boolean);
+  const resistText = damageResistances.join(', ');
 
   const damageImmunities = (raw.immune || []).map(i => {
     if (typeof i === 'string') return clean5eToolsTags(i);
@@ -211,15 +298,20 @@ export function convert5eToolsMonster(raw, { lang = 'pt' } = {}) {
     }
     return '';
   }).filter(Boolean);
+  const immuneText = damageImmunities.join(', ');
 
   const damageVulnerabilities = (raw.vulnerable || []).map(v => (typeof v === 'string' ? clean5eToolsTags(v) : '')).filter(Boolean);
+  const vulnText = damageVulnerabilities.join(', ');
+
   const conditionImmunities = (raw.conditionImmune || []).map(c => {
     if (typeof c === 'string') return clean5eToolsTags(c).toLowerCase();
     if (c?.name) return clean5eToolsTags(c.name).toLowerCase();
     if (c?.conditionImmune) return Array.isArray(c.conditionImmune) ? c.conditionImmune.join(', ').toLowerCase() : String(c.conditionImmune).toLowerCase();
     return '';
   }).filter(Boolean);
+  const conditionImmuneText = conditionImmunities.join(', ');
 
+  // 8. Sentidos e Idiomas
   const sensesList = [];
   if (raw.senses) sensesList.push(...(Array.isArray(raw.senses) ? raw.senses.map(clean5eToolsTags) : [clean5eToolsTags(raw.senses)]));
   if (raw.passive) sensesList.push(`passive Perception ${raw.passive}`);
@@ -229,12 +321,12 @@ export function convert5eToolsMonster(raw, { lang = 'pt' } = {}) {
     ? raw.languages.map(clean5eToolsTags).join(', ')
     : (raw.languages ? clean5eToolsTags(raw.languages) : '—');
 
+  // 9. Traços e Conjuração de Magias
   const traits = (raw.trait || []).map(t => {
     const text = parse5eToolsEntries(t.entries);
     return { name: both(clean5eToolsTags(t.name)), desc: both(text) };
   });
 
-  // Spellcasting integration
   if (Array.isArray(raw.spellcasting)) {
     for (const sc of raw.spellcasting) {
       const header = (sc.headerEntries || []).map(clean5eToolsTags).join(' ');
@@ -264,6 +356,7 @@ export function convert5eToolsMonster(raw, { lang = 'pt' } = {}) {
     }
   }
 
+  // 10. Ações com parsing refinado e fallback
   const mapActions = (list = []) => list.map(a => {
     const rawName = clean5eToolsTags(a.name);
     const cleanName = stripCost(rawName);
@@ -282,6 +375,22 @@ export function convert5eToolsMonster(raw, { lang = 'pt' } = {}) {
     if (mech.save) action.save = mech.save;
     if (mech.recharge != null) action.recharge = mech.recharge;
     if (mech.uses != null) { action.uses = mech.uses; action.usesPer = mech.usesPer || 'day'; }
+
+    // Fallback de dano se parseActionText não pegou (ex: "Hit: 1d8 + proficiency bonus bludgeoning damage" ou sem média)
+    if (!action.damage) {
+      const paren = text.match(/(\d+)\s*\((\d+d\d+(?:\s*[+-]\s*[^)]+)?)\)\s*([A-Za-z]+)\s+damage/i);
+      if (paren) {
+        action.damage = paren[2].replace(/\s+/g, '');
+        action.damageType = paren[3].toLowerCase();
+      } else {
+        const diceMatch = text.match(/(\d+d\d+(?:\s*[+-]\s*\d+)?)\s*(?:\+\s*(?:proficiency bonus|[a-z]+ bonus|\w+)\s*)?([A-Za-z]+)\s+damage/i);
+        if (diceMatch) {
+          action.damage = diceMatch[1].replace(/\s+/g, '');
+          action.damageType = diceMatch[2].toLowerCase();
+        }
+      }
+    }
+
     return action;
   });
 
@@ -289,6 +398,7 @@ export function convert5eToolsMonster(raw, { lang = 'pt' } = {}) {
   const bonusActions = mapActions(raw.bonus);
   const reactions = mapActions(raw.reaction);
 
+  // 11. Ações Lendárias
   let legendary = null;
   if (Array.isArray(raw.legendary) && raw.legendary.length > 0) {
     const legActions = raw.legendary.map(la => {
@@ -317,6 +427,14 @@ export function convert5eToolsMonster(raw, { lang = 'pt' } = {}) {
     };
   }
 
+  // 12. Resistência Lendária
+  const legResTrait = traits.find(tr => /legendary resistance/i.test(tr.name.en));
+  let legendaryResistance = null;
+  if (legResTrait) {
+    const m = legResTrait.name.en.match(/\((\d+)\/day\)/i) || legResTrait.desc.en.match(/(\d+)\/day/i);
+    legendaryResistance = { uses: m ? parseInt(m[1], 10) : 3 };
+  }
+
   const srcSlug = slugify(raw.source || 'custom');
   const nameSlug = slugify(raw.name || 'monster');
   const id = `custom-5e-${nameSlug}-${srcSlug}-${Date.now().toString(36)}`;
@@ -328,20 +446,27 @@ export function convert5eToolsMonster(raw, { lang = 'pt' } = {}) {
     name: both(raw.name),
     cr: crLabel(crNum),
     crNum,
-    size: normSize(raw.size?.[0]),
-    type: normType(raw.type),
-    alignment: normAlignment(raw.alignment),
+    xp,
+    proficiencyBonus,
+    size,
+    type,
+    tags,
+    alignment,
+    typeLine,
     ac,
+    acText,
     hp,
     hitDice,
+    hpText,
     speed,
+    speedText,
     abilities,
-    ...(Object.keys(saves).length ? { saves } : {}),
-    ...(Object.keys(skills).length ? { skills } : {}),
-    ...(damageResistances.length ? { damageResistances } : {}),
-    ...(damageImmunities.length ? { damageImmunities } : {}),
-    ...(damageVulnerabilities.length ? { damageVulnerabilities } : {}),
-    ...(conditionImmunities.length ? { conditionImmunities } : {}),
+    ...(Object.keys(saves).length ? { saves, saveText } : {}),
+    ...(Object.keys(skills).length ? { skills, skillText } : {}),
+    ...(damageResistances.length ? { damageResistances, resistText } : {}),
+    ...(damageImmunities.length ? { damageImmunities, immuneText } : {}),
+    ...(damageVulnerabilities.length ? { damageVulnerabilities, vulnText } : {}),
+    ...(conditionImmunities.length ? { conditionImmunities, conditionImmuneText } : {}),
     senses,
     languages,
     traits,
@@ -349,11 +474,12 @@ export function convert5eToolsMonster(raw, { lang = 'pt' } = {}) {
     ...(bonusActions.length ? { bonusActions } : {}),
     ...(reactions.length ? { reactions } : {}),
     ...(legendary ? { legendary } : {}),
+    ...(legendaryResistance ? { legendaryResistance } : {}),
+    raw5eTools: raw,
     importedAt: new Date().toISOString(),
   };
 }
-
-/**
+ /**
  * Detecta se a string colada/digitada representa uma URL de recurso de monstro.
  */
 export function isMonsterUrl(input) {

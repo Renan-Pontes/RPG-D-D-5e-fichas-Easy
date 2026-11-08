@@ -593,6 +593,7 @@ button.cs-cond:focus-visible { outline: 2px solid var(--fh-gold-hi); outline-off
 .cs-panel.is-inline .mesa-seg-btn.cs-tab { flex-direction: column; gap: 2px; font-size: 13px; letter-spacing: 0; }
 .cs-panel.is-inline .cs-tab-n { position: absolute; top: 3px; left: calc(50% + 8px); min-width: 18px; height: 18px; padding: 0 4px; }
 .cs-tabpanel { min-width: 0; }
+.cs-statblock-tab { padding: 8px 0; max-height: 72vh; overflow-y: auto; }
 .cs-label {
   margin: 0;
   font-family: var(--display);

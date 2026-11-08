@@ -13,6 +13,7 @@ import { monsterArt, monsterEmoji } from '../art.js';
 import ArtThumb from '../components/ArtThumb.jsx';
 import { matchesQuery, partyLevelOf, rankMonsters } from '../combat/common-monsters.js';
 import { isMonsterUrl, parseMonsterUrl, fetchMonsterFromUrl } from './url-monster-importer.js';
+import MonsterStatblock from '../combat/MonsterStatblock.jsx';
 
 const t = (lang, pt, en) => lang === 'pt' ? pt : en;
 const CR_STEPS = CR_TABLE.map(r => r.numeric);
@@ -49,6 +50,7 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
   const [count, setCount] = useState(1);
   const [initiative, setInitiative] = useState('');
   const [selectedId, setSelectedId] = useState(null);
+  const [statblockMonster, setStatblockMonster] = useState(null);
   const [urlStatus, setUrlStatus] = useState(null);
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [editDirty, setEditDirty] = useState(false);
@@ -199,6 +201,9 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
             <button type="button" className="mesa-btn mp-custom" onClick={() => { setEditBase(selected); setView('edit'); }}>
               ✎ {selected.custom ? t(lang, 'Editar', 'Edit') : t(lang, 'Personalizar', 'Customize')}
             </button>
+            <button type="button" className="mesa-btn mp-statblock-btn" onClick={() => setStatblockMonster(selected)}>
+              👁️ {t(lang, 'Ficha', 'Statblock')}
+            </button>
           </>
         ) : (
           <p className="mp-foot-empty">{t(lang, 'Escolha um monstro na lista.', 'Pick a monster from the list.')}</p>
@@ -236,7 +241,8 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
 
   // Folha da mesa (portal na camada da mesa): fica acima das abas/barras fixas da casca.
   return (
-    <MesaSheet title={title} icon={view === 'list' ? '🐉' : view === 'import' ? '⇪' : '✎'} size="full" width="lg" lang={lang} dock="play"
+    <>
+      <MesaSheet title={title} icon={view === 'list' ? '🐉' : view === 'import' ? '⇪' : '✎'} size="full" width="lg" lang={lang} dock="play"
       onClose={onClose} dirty={(view === 'edit' && editDirty) || (view === 'import' && importDirty)}
       dirtyText={t(lang, 'O monstro ainda não foi salvo na sua lista.', 'The monster has not been saved to your list yet.')}
       className={`mp-sheet is-${view}`} bodyClassName="mp-sheet-body" footer={view === 'list' ? listFooter : null}
@@ -271,6 +277,15 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
                 {t(lang, 'Filtros', 'Filters')}{nFilters ? ` (${nFilters})` : ''} <span aria-hidden="true">{filtersOpen ? '▴' : '▾'}</span>
               </button>
             </div>
+            {urlStatus && (
+              <div className={`mp-url-status is-${urlStatus.type}`} role="status" aria-live="polite">
+                <span className="mp-url-icon" aria-hidden="true">{urlStatus.icon}</span>
+                <span className="mp-url-text">{urlStatus.text}</span>
+                {urlStatus.closable && (
+                  <button type="button" className="mesa-icon-btn mp-url-close" aria-label={t(lang, 'Fechar', 'Close')} onClick={() => setUrlStatus(null)}>×</button>
+                )}
+              </div>
+            )}
           </div>
 
           {filtersOpen && (
@@ -335,6 +350,10 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
                     </span>
                     {on && <span className="mp-pick-check" aria-hidden="true">✓</span>}
                   </button>
+                  <button type="button" className="mesa-icon-btn mp-inspect-btn" title={t(lang, 'Ver ficha completa', 'View full statblock')}
+                    aria-label={t(lang, `Ver ficha de ${nm}`, `View statblock for ${nm}`)} onClick={(e) => { e.stopPropagation(); setStatblockMonster(m); }}>
+                    👁️
+                  </button>
                   {m.custom && (
                     <button type="button" className="mesa-icon-btn mp-del" aria-label={t(lang, `Apagar ${nm} da sua lista`, `Delete ${nm} from your list`)}
                       onClick={() => removeMine(m.id)}>×</button>
@@ -352,5 +371,29 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
         </>
       )}
     </MesaSheet>
+
+    {statblockMonster && (
+      <MesaSheet
+        title={statblockMonster.name?.[lang] || statblockMonster.name?.pt || statblockMonster.name?.en || t(lang, 'Ficha do Monstro', 'Monster Statblock')}
+        icon="📜"
+        size="tall"
+        width="md"
+        lang={lang}
+        onClose={() => setStatblockMonster(null)}
+        className="mp-statblock-sheet"
+        footer={
+          <div className="mp-foot-btns" style={{ justifyContent: 'flex-end', width: '100%' }}>
+            <button type="button" className="mesa-btn mesa-btn-lg is-primary" onClick={() => setStatblockMonster(null)}>
+              {t(lang, 'Fechar', 'Close')}
+            </button>
+          </div>
+        }
+      >
+        <div className="statblock-modal">
+          <MonsterStatblock monster={statblockMonster} lang={lang} />
+        </div>
+      </MesaSheet>
+    )}
+  </>
   );
 }
