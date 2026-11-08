@@ -1084,7 +1084,8 @@ export async function fetchTextWithCorsBypass(url) {
       const res = await c.fn();
       if (res && res.ok) {
         const text = await res.text();
-        if (text && text.trim().length > 30) {
+        const isChallenge = text.includes('<title>Just a moment...</title>') || text.includes('cf-browser-verification');
+        if (text && text.trim().length > 30 && !isChallenge) {
           return text;
         }
       }

@@ -4,6 +4,50 @@
  * (D&D Wiki, Wikidot, Open5e, compendiums, arbitrary sites) on Vercel.
  * Compatible with Node.js and Edge runtimes.
  */
+async function fetchWithFallback(url, timeoutMs = 8000) {
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'text/plain,text/html,*/*',
+  };
+
+  // 1. Tentar busca direta
+  try {
+    const upstream = await fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
+    const text = await upstream.text();
+    const isCloudflareChallenge = text.includes('<title>Just a moment...</title>') || text.includes('cf-browser-verification');
+    if (upstream.ok && !isCloudflareChallenge && text.trim().length > 30) {
+      return { status: upstream.status, text };
+    }
+  } catch {
+    // continua para fallback
+  }
+
+  // 2. Fallback via Edge Worker
+  try {
+    const workerUrl = `https://cors-get-proxy.sirjosh.workers.dev/?url=${encodeURIComponent(url)}`;
+    const workerRes = await fetch(workerUrl, { signal: AbortSignal.timeout(timeoutMs) });
+    const text = await workerRes.text();
+    if (workerRes.ok && text.trim().length > 30) {
+      return { status: 200, text };
+    }
+  } catch {
+    // continua
+  }
+
+  // 3. Fallback via AllOrigins
+  try {
+    const aoRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(timeoutMs) });
+    const data = await aoRes.json();
+    if (data?.contents && data.contents.trim().length > 30) {
+      return { status: 200, text: data.contents };
+    }
+  } catch {
+    // esgotado
+  }
+
+  throw new Error('Upstream unreachable or protected by challenge');
+}
+
 export default async function handler(req, res) {
   // If Edge runtime (Web standard Request / Response)
   if (!res || typeof res.setHeader !== 'function') {
@@ -28,16 +72,9 @@ export default async function handler(req, res) {
     }
 
     try {
-      const upstream = await fetch(targetUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Accept': 'text/plain,text/html,*/*',
-        },
-        signal: AbortSignal.timeout(10000),
-      });
-      const text = await upstream.text();
-      return new Response(text, {
-        status: upstream.status,
+      const result = await fetchWithFallback(targetUrl);
+      return new Response(result.text, {
+        status: result.status,
         headers: {
           'Content-Type': 'text/plain; charset=utf-8',
           'Access-Control-Allow-Origin': '*',
@@ -66,17 +103,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const upstream = await fetch(queryUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/plain,text/html,*/*',
-      },
-      signal: AbortSignal.timeout(10000),
-    });
-
-    const text = await upstream.text();
+    const result = await fetchWithFallback(queryUrl);
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    return res.status(upstream.status).send(text);
+    return res.status(result.status).send(result.text);
   } catch (err) {
     return res.status(502).json({ error: 'proxy_failed', detail: err?.message || String(err) });
   }
