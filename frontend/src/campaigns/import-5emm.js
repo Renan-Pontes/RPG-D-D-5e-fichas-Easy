@@ -19,6 +19,7 @@
  * Copyright (c) 2024 Evan Shimizu — MIT
  */
 import { CR_TABLE, crLabel, crToNumber } from '../combat/cr-estimate.js';
+import { isMonsterRawText, parseMonsterFromRawText } from './url-monster-importer.js';
 
 const STAT_KEYS = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 const FULL_TO_ABBR = {
@@ -670,7 +671,18 @@ export function importMonsters(input, { lang = 'pt' } = {}) {
   const errors = [];
   const warnings = [];
   if (typeof input === 'string') {
-    try { data = JSON.parse(input.replace(/^﻿/, '')); } catch (e) {
+    const raw = input.replace(/^﻿/, '').trim();
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      if (isMonsterRawText(raw)) {
+        try {
+          const { monster, warnings: parseWarnings } = parseMonsterFromRawText(raw, { lang });
+          return { monsters: [monster], errors: [], warnings: parseWarnings || [] };
+        } catch (err) {
+          return { monsters: [], errors: [err?.message || L(lang, 'Erro ao interpretar monstro do texto.', 'Error parsing monster from text.')], warnings };
+        }
+      }
       return { monsters: [], errors: [L(lang, 'JSON inválido: ', 'Invalid JSON: ') + e.message], warnings };
     }
   }

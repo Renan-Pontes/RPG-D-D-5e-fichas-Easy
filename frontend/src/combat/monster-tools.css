@@ -509,3 +509,20 @@
   transition: opacity 0.15s;
 }
 .mp-url-close:hover { opacity: 1; }
+.mp-paste-statblock-btn {
+  flex: none;
+  background: rgba(214, 176, 100, 0.15);
+  border: 1px solid rgba(214, 176, 100, 0.5);
+  color: #f1c40f;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: var(--radius, 4px);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.mp-paste-statblock-btn:hover {
+  background: rgba(214, 176, 100, 0.3);
+  border-color: #f1c40f;
+  color: #fff;
+}

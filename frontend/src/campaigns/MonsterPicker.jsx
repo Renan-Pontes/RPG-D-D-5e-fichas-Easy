@@ -166,11 +166,17 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
       })
       .catch((err) => {
         if (!alive) return;
+        const rawMsg = err?.message || '';
+        const isCorsOrNet = rawMsg === 'Failed to fetch' || rawMsg.includes('NetworkError') || rawMsg.includes('CORS') || rawMsg.includes('bloqueio CORS');
+        const text = isCorsOrNet
+          ? t(lang, 'Falha ao acessar o link (bloqueio CORS ou serviço inacessível). Você também pode copiar o texto da criatura e colar diretamente na busca ou no importador!', 'Failed to access link (browser CORS restriction or unreachable host). You can also copy the creature text and paste it directly into the search bar or importer!')
+          : rawMsg || t(lang, 'Erro ao importar monstro da URL.', 'Error importing monster from URL.');
         setUrlStatus({
           type: 'error',
           icon: '⚠️',
-          text: err?.message || t(lang, 'Erro ao importar monstro da URL.', 'Error importing monster from URL.'),
-          closable: true
+          text,
+          closable: true,
+          canPasteFallback: true
         });
       });
 
@@ -310,6 +316,11 @@ export default function MonsterPicker({ lang, onPick, onClose, levelingMode, con
               <div className={`mp-url-status is-${urlStatus.type}`} role="status" aria-live="polite">
                 <span className="mp-url-icon" aria-hidden="true">{urlStatus.icon}</span>
                 <span className="mp-url-text">{urlStatus.text}</span>
+                {urlStatus.canPasteFallback && (
+                  <button type="button" className="mesa-btn mesa-btn-sm mp-paste-statblock-btn" onClick={() => { setView('import'); setUrlStatus(null); }}>
+                    📋 {t(lang, 'Colar Bloco do Monstro', 'Paste Statblock')}
+                  </button>
+                )}
                 {urlStatus.closable && (
                   <button type="button" className="mesa-icon-btn mp-url-close" aria-label={t(lang, 'Fechar', 'Close')} onClick={() => setUrlStatus(null)}>×</button>
                 )}

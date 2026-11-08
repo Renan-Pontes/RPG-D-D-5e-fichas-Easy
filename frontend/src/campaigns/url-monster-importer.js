@@ -802,23 +802,16 @@ export function parseWikidotCreature(html, { lang = 'pt', defaultName = 'Wikidot
 export function isMonsterUrl(input) {
   if (!input || typeof input !== 'string') return false;
   const str = input.trim();
-  if (!/^https?:\/\//i.test(str) && !/^5e\.tools/i.test(str) && !/^open5e\.com/i.test(str) && !/^roll20\.net/i.test(str) && !/^dndbeyond\.com/i.test(str)) {
-    return false;
-  }
+  if (/^https?:\/\//i.test(str)) return true;
   return (
-    /5e\.tools.*bestiary/i.test(str) ||
-    /github\.io.*bestiary/i.test(str) ||
-    /dandwiki\.com\/wiki\//i.test(str) ||
-    /wikidot\.com\/creatures:/i.test(str) ||
-    /dndbeyond\.com\/monsters\//i.test(str) ||
-    /roll20\.net\/compendium\/dnd5e\//i.test(str) ||
-    /aidedd\.org\/dnd\/monstres/i.test(str) ||
-    /5e\.d20srd\.org\/srd\/monsters\//i.test(str) ||
-    /open5e\.com\/monsters\//i.test(str) ||
-    /api\.open5e\.com\/v[12]\/(monsters|creatures)\//i.test(str) ||
-    /\.json(\?.*)?$/i.test(str) ||
-    /raw\.githubusercontent\.com/i.test(str) ||
-    /gist\.githubusercontent\.com/i.test(str)
+    /^5e\.tools/i.test(str) ||
+    /^open5e\.com/i.test(str) ||
+    /^roll20\.net/i.test(str) ||
+    /^dndbeyond\.com/i.test(str) ||
+    /^dandwiki\.com/i.test(str) ||
+    /^wikidot\.com/i.test(str) ||
+    /^aidedd\.org/i.test(str) ||
+    /^5e\.d20srd\.org/i.test(str)
   );
 }
 
@@ -965,10 +958,27 @@ export function parseMonsterUrl(input) {
     };
   }
 
+  // 11. Qualquer outro link arbitrário
+  const cleanUrl = str.startsWith('http') ? str : `https://${str}`;
+  let inferredName = '';
+  try {
+    const u = new URL(cleanUrl);
+    const pathname = u.pathname.replace(/\/$/, '');
+    const lastSeg = pathname.split('/').pop() || '';
+    inferredName = decodeURIComponent(lastSeg)
+      .replace(/[-_]+/g, ' ')
+      .replace(/\.(html?|php|aspx?)$/i, '')
+      .replace(/\b\w/g, c => c.toUpperCase())
+      .trim();
+  } catch {
+    // fallback
+  }
+
   return {
     kind: 'unknown',
-    url: str,
-    label: str,
+    url: cleanUrl,
+    name: inferredName || 'Criatura Externa',
+    label: inferredName ? `${inferredName} (Link Externo)` : 'Link Externo',
   };
 }
 
@@ -998,75 +1008,305 @@ function findKeyCaseInsensitive(obj, key) {
 }
 
 /**
- * Busca conteúdo textual com bypass de CORS resiliente:
- * 1. Em navegadores, consulta primeiro o proxy da Forja (/api/proxy?url=...).
- * 2. Em ambientes Node / Electron / sem restrição, tenta fetch direto.
- * 3. Se falhar, tenta proxies adicionais ou emite erro claro.
+ * Busca conteúdo textual com bypass de CORS resiliente e multi-estratégia:
+ * 1. Proxy próprio (Vercel Edge / Django / Vite dev server).
+ * 2. Gateway Edge Cloudflare ultrarrápido (cors-get-proxy.sirjosh.workers.dev).
+ * 3. AllOrigins GET API wrapper.
+ * 4. CodeTabs Proxy.
+ * 5. Requisição direta (endpoints com CORS ou ambientes Node/Electron).
  */
 export async function fetchTextWithCorsBypass(url) {
   const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
   const apiBase = (typeof window !== 'undefined' && window.__API_BASE__) || 
                   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '';
 
-  // 1. Tentar proxy primeiro se estiver no navegador
-  if (isBrowser) {
-    try {
-      const proxyUrl = `${apiBase}/api/proxy?url=${encodeURIComponent(url)}`;
-      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
-      if (res.ok) {
-        return await res.text();
-      }
-    } catch {
-      // continua para tentativas seguintes
-    }
+  const candidates = [];
 
+  // 1. Proxies próprios da Forja (se no navegador)
+  if (isBrowser) {
     if (apiBase) {
-      try {
-        const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
-        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
-        if (res.ok) {
-          return await res.text();
-        }
-      } catch {
-        // continua
-      }
+      candidates.push({
+        name: 'apiBase-proxy',
+        fn: () => fetch(`${apiBase}/api/proxy?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(4000) })
+      });
     }
+    candidates.push({
+      name: 'relative-proxy',
+      fn: () => fetch(`/api/proxy?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(4000) })
+    });
   }
 
-  // 2. Tentar requisição direta (funciona em Node, curl ou endpoints com CORS)
-  try {
-    const res = await fetch(url, {
+  // 2. Gateway Edge Cloudflare ultrarrápido (sirjosh.workers.dev)
+  candidates.push({
+    name: 'edge-worker-sirjosh',
+    fn: async () => {
+      const res = await fetch(`https://cors-get-proxy.sirjosh.workers.dev/?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(6000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      if (!text || text.trim().length < 30) throw new Error('Resposta vazia');
+      return { ok: true, text: async () => text };
+    }
+  });
+
+  // 3. AllOrigins GET wrapper
+  candidates.push({
+    name: 'allorigins-get',
+    fn: async () => {
+      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const j = await res.json();
+      if (!j?.contents || j.contents.trim().length < 30) throw new Error('Conteúdo vazio');
+      return { ok: true, text: async () => j.contents };
+    }
+  });
+
+  // 4. CodeTabs Proxy
+  candidates.push({
+    name: 'codetabs',
+    fn: () => fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(5000) })
+  });
+
+  // 5. Requisição direta
+  candidates.push({
+    name: 'direct',
+    fn: () => fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'text/plain,text/html,*/*'
       },
-      signal: AbortSignal.timeout(12000)
-    });
-    if (res.ok) {
-      return await res.text();
+      signal: AbortSignal.timeout(5000)
+    })
+  });
+
+  const errors = [];
+  for (const c of candidates) {
+    try {
+      const res = await c.fn();
+      if (res && res.ok) {
+        const text = await res.text();
+        if (text && text.trim().length > 30) {
+          return text;
+        }
+      }
+    } catch (err) {
+      errors.push(`${c.name}: ${err?.message || String(err)}`);
     }
-    throw new Error(`Servidor de origem retornou status HTTP ${res.status}`);
-  } catch (err) {
-    if (isBrowser) {
-      throw new Error(`Falha ao acessar ${url} (bloqueio CORS do navegador ou serviço inacessível). Certifique-se de que o backend Django ou Vite dev server está ativo para usar o proxy automático.`);
-    }
-    throw err;
   }
+
+  throw new Error(`Falha ao acessar ${url} após tentar múltiplos gateways e conexões diretas.`);
 }
 
 /**
- * Detecta se uma string é um bloco bruto de criatura colado (DandWiki wikitext ou JSON).
+ * Converte um bloco de estatísticas em texto puro ou markdown para o formato Heroes Forge.
+ * Suporta formatos padrão de 5e (D&D Beyond, GM Binder, Homebrewery, Monster Maker, etc.).
+ */
+export function parsePlainTextMonster(text, { lang = 'pt', defaultName = 'Custom Creature' } = {}) {
+  if (!text || typeof text !== 'string') throw new Error('Texto inválido');
+  const clean = text.replace(/<[^>]+>/g, ' ').replace(/\r/g, '');
+  const lines = clean.split('\n').map(l => l.trim()).filter(Boolean);
+  if (!lines.length) throw new Error('Texto vazio');
+
+  // Nome (primeira linha não-vazia ou default)
+  let name = defaultName;
+  if (lines[0] && !lines[0].match(/armor class|hit points|speed|str|dex|con/i)) {
+    name = lines[0].replace(/^#+\s*/, '').replace(/[*_~]/g, '').trim();
+  }
+
+  // TypeLine
+  let typeLine = 'Medium monstrosity, unaligned';
+  let size = 'Medium';
+  let type = 'monstrosity';
+  let alignment = 'unaligned';
+  const typeLineMatch = clean.match(/^(Tiny|Small|Medium|Large|Huge|Gargantuan)\s+([a-z\s]+?)(?:,\s*([^.\n]+))?$/mi);
+  if (typeLineMatch) {
+    size = typeLineMatch[1];
+    type = typeLineMatch[2].trim().toLowerCase();
+    alignment = typeLineMatch[3]?.trim().toLowerCase() || 'unaligned';
+    typeLine = `${size} ${type}, ${alignment}`;
+  }
+
+  // AC
+  const acMatch = clean.match(/(?:Armor Class|Classe de Armadura|CA)\s*[:.]?\s*(\d+)(?:\s*\(([^)]+)\))?/i);
+  const ac = acMatch ? parseInt(acMatch[1], 10) : 10;
+  const acText = acMatch ? (acMatch[2] ? `${ac} (${acMatch[2]})` : String(ac)) : String(ac);
+
+  // HP
+  const hpMatch = clean.match(/(?:Hit Points|Pontos de Vida|PV)\s*[:.]?\s*(\d+)(?:\s*\(([^)]+)\))?/i);
+  const hp = hpMatch ? parseInt(hpMatch[1], 10) : 10;
+  const hpText = hpMatch ? (hpMatch[2] ? `${hp} (${hpMatch[2]})` : String(hp)) : String(hp);
+  const hitDice = hpMatch?.[2] || '';
+
+  // Speed
+  const spMatch = clean.match(/(?:Speed|Deslocamento)\s*[:.]?\s*([^\n]+)/i);
+  const speedText = spMatch ? spMatch[1].trim() : '30 ft.';
+  const speed = { walk: 30 };
+  const walkM = speedText.match(/(?:^|\s|\b)(\d+)\s*(?:ft|pés|m)/i);
+  if (walkM) speed.walk = parseInt(walkM[1], 10);
+  const swimM = speedText.match(/swim\s+(\d+)\s*(?:ft|pés|m)/i);
+  if (swimM) speed.swim = parseInt(swimM[1], 10);
+  const flyM = speedText.match(/fly\s+(\d+)\s*(?:ft|pés|m)/i);
+  if (flyM) speed.fly = parseInt(flyM[1], 10);
+  const climbM = speedText.match(/climb\s+(\d+)\s*(?:ft|pés|m)/i);
+  if (climbM) speed.climb = parseInt(climbM[1], 10);
+  const burrowM = speedText.match(/burrow\s+(\d+)\s*(?:ft|pés|m)/i);
+  if (burrowM) speed.burrow = parseInt(burrowM[1], 10);
+  if (/hover/i.test(speedText)) speed.hover = true;
+
+  // Atributos (STR DEX CON INT WIS CHA)
+  const abilities = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+  const abilMatch = clean.match(/STR\s*(\d+)[\s\S]*?DEX\s*(\d+)[\s\S]*?CON\s*(\d+)[\s\S]*?INT\s*(\d+)[\s\S]*?WIS\s*(\d+)[\s\S]*?CHA\s*(\d+)/i) ||
+                    clean.match(/FOR\s*(\d+)[\s\S]*?DES\s*(\d+)[\s\S]*?CON\s*(\d+)[\s\S]*?INT\s*(\d+)[\s\S]*?SAB\s*(\d+)[\s\S]*?CAR\s*(\d+)/i);
+  if (abilMatch) {
+    abilities.str = parseInt(abilMatch[1], 10);
+    abilities.dex = parseInt(abilMatch[2], 10);
+    abilities.con = parseInt(abilMatch[3], 10);
+    abilities.int = parseInt(abilMatch[4], 10);
+    abilities.wis = parseInt(abilMatch[5], 10);
+    abilities.cha = parseInt(abilMatch[6], 10);
+  }
+
+  // CR
+  const crMatch = clean.match(/(?:Challenge|Desafio|CR|ND)\s*[:.]?\s*(\d+(?:\/\d+)?)/i);
+  const cr = crMatch ? crMatch[1] : '1';
+  const crNum = crToNumber(cr) ?? 1;
+  const pb = pbForCr(crNum);
+
+  // Saves & Skills
+  const saveMatch = clean.match(/(?:Saving Throws|Testes de Resistência)\s*[:.]?\s*([^\n]+)/i);
+  const saveText = saveMatch ? saveMatch[1].trim() : '';
+  const saves = {};
+  if (saveText) {
+    const parts = saveText.split(/,\s*/);
+    for (const p of parts) {
+      const sm = p.match(/([a-z]{3})\s*([+-]\d+)/i);
+      if (sm) saves[sm[1].toLowerCase()] = parseInt(sm[2], 10);
+    }
+  }
+
+  const skillMatch = clean.match(/(?:Skills|Perícias)\s*[:.]?\s*([^\n]+)/i);
+  const skillText = skillMatch ? skillMatch[1].trim() : '';
+  const skills = {};
+  if (skillText) {
+    const parts = skillText.split(/,\s*/);
+    for (const p of parts) {
+      const sm = p.match(/([a-z\s]+)\s*([+-]\d+)/i);
+      if (sm) skills[sm[1].trim().toLowerCase().replace(/\s+/g, '')] = parseInt(sm[2], 10);
+    }
+  }
+
+  const resistMatch = clean.match(/(?:Damage Resistances|Resistências a Dano)\s*[:.]?\s*([^\n]+)/i);
+  const resistText = resistMatch ? resistMatch[1].trim() : '';
+  const immuneMatch = clean.match(/(?:Damage Immunities|Imunidades a Dano)\s*[:.]?\s*([^\n]+)/i);
+  const immuneText = immuneMatch ? immuneMatch[1].trim() : '';
+  const vulnMatch = clean.match(/(?:Damage Vulnerabilities|Vulnerabilidades a Dano)\s*[:.]?\s*([^\n]+)/i);
+  const vulnText = vulnMatch ? vulnMatch[1].trim() : '';
+  const condMatch = clean.match(/(?:Condition Immunities|Imunidades a Condição)\s*[:.]?\s*([^\n]+)/i);
+  const conditionImmuneText = condMatch ? condMatch[1].trim() : '';
+
+  const sensesMatch = clean.match(/(?:Senses|Sentidos)\s*[:.]?\s*([^\n]+)/i);
+  const senses = sensesMatch ? sensesMatch[1].trim() : '—';
+  const langMatch = clean.match(/(?:Languages|Idiomas)\s*[:.]?\s*([^\n]+)/i);
+  const languages = langMatch ? langMatch[1].trim() : '—';
+
+  // Divide texto em Ações e Traços
+  const actionsIdx = clean.search(/(?:^|\n)(?:ACTIONS|AÇÕES)\b/i);
+  const traitsSection = actionsIdx !== -1 ? clean.slice(0, actionsIdx) : clean;
+  const actionsSection = actionsIdx !== -1 ? clean.slice(actionsIdx) : '';
+
+  const parseBlocks = (sec) => {
+    const lines = sec.split('\n');
+    const entries = [];
+    let cur = null;
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      if (/^(?:ACTIONS|AÇÕES|BONUS ACTIONS|AÇÕES BÔNUS|REACTIONS|REAÇÕES|LEGENDARY ACTIONS|AÇÕES LENDÁRIAS)\b/i.test(line)) {
+        cur = null;
+        continue;
+      }
+      const headerMatch = line.match(/^(?:###\s*|\*{2,3})?([A-Z][a-zA-Z0-9\s'()/-]+?)(?:\*{2,3})?(?:\.|\:|\s*—|\s*–|\s*--)\s*(.*)$/);
+      if (headerMatch) {
+        const bName = headerMatch[1].replace(/[*_#]/g, '').trim();
+        const bDesc = headerMatch[2].trim();
+        if (bName && !bName.match(/^(?:armor class|classe de armadura|hit points|pontos de vida|speed|deslocamento|str|dex|con|int|wis|cha|challenge|desafio|cr|nd|saving throws|testes de resist|skills|perícias|senses|sentidos|languages|idiomas|actions|ações)$/i)) {
+          const item = { name: both(bName), desc: both(bDesc) };
+          const mech = parseActionText(bDesc, bName);
+          if (mech.type) item.type = mech.type;
+          if (mech.atk != null) item.atk = mech.atk;
+          if (mech.damage) item.damage = mech.damage;
+          if (mech.damageType) item.damageType = mech.damageType;
+          if (mech.range) item.range = mech.range;
+          if (mech.save) item.save = mech.save;
+          entries.push(item);
+          cur = item;
+          continue;
+        }
+      }
+      if (cur) {
+        const appended = (cur.desc.en ? `${cur.desc.en} ` : '') + line;
+        cur.desc = both(appended);
+        const recheck = parseActionText(appended, cur.name.en);
+        if (recheck.type && !cur.type) cur.type = recheck.type;
+        if (recheck.atk != null && cur.atk == null) cur.atk = recheck.atk;
+        if (recheck.damage && !cur.damage) cur.damage = recheck.damage;
+        if (recheck.damageType && !cur.damageType) cur.damageType = recheck.damageType;
+      }
+    }
+    return entries;
+  };
+
+  const traits = parseBlocks(traitsSection);
+  const actions = parseBlocks(actionsSection);
+
+  return {
+    id: `custom-text-${slugify(name)}-${Date.now().toString(36)}`,
+    custom: true,
+    source: 'Plaintext Statblock',
+    name: both(name),
+    cr,
+    crNum,
+    xp: CR_XP_MAP[cr] ?? null,
+    proficiencyBonus: pb,
+    size,
+    type,
+    alignment,
+    typeLine,
+    ac,
+    acText,
+    hp,
+    hitDice,
+    hpText,
+    speed,
+    speedText,
+    abilities,
+    ...(Object.keys(saves).length ? { saves, saveText } : {}),
+    ...(Object.keys(skills).length ? { skills, skillText } : {}),
+    ...(resistText ? { damageResistances: resistText.split(/,\s*/), resistText } : {}),
+    ...(immuneText ? { damageImmunities: immuneText.split(/,\s*/), immuneText } : {}),
+    ...(vulnText ? { damageVulnerabilities: vulnText.split(/,\s*/), vulnText } : {}),
+    ...(conditionImmuneText ? { conditionImmunities: conditionImmuneText.split(/,\s*/), conditionImmuneText } : {}),
+    senses,
+    languages,
+    traits,
+    actions,
+    importedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Detecta se uma string é um bloco bruto de criatura colado (DandWiki wikitext, JSON ou Plaintext).
  */
 export function isMonsterRawText(str) {
   if (!str || typeof str !== 'string') return false;
   const s = str.trim();
-  if (s.includes('{{5e Creature') || (s.startsWith('==') && s.includes('|type='))) return true;
+  if (s.includes('{{5e Creature') || (s.startsWith('==') && (s.includes('|type=') || s.includes('|size=')))) return true;
   if (s.startsWith('{') && (
     s.includes('"saveVersion"') ||
     (s.includes('"hit_points"') && s.includes('"armor_class"')) ||
     (s.includes('"ability_scores"') && s.includes('"hit_points"')) ||
     (s.includes('"name"') && (s.includes('"hp"') || s.includes('"ac"')))
   )) return true;
+  if (/(?:Armor Class|Classe de Armadura|CA\s*\d+)[\s\S]{1,500}?(?:Hit Points|Pontos de Vida|PV\s*\d+)/i.test(s)) return true;
   return false;
 }
 
@@ -1075,7 +1315,7 @@ export function isMonsterRawText(str) {
  */
 export function parseMonsterFromRawText(rawText, { lang = 'pt' } = {}) {
   const s = String(rawText || '').trim();
-  if (s.includes('{{5e Creature') || (s.startsWith('==') && s.includes('|type='))) {
+  if (s.includes('{{5e Creature') || (s.startsWith('==') && (s.includes('|type=') || s.includes('|size=')))) {
     const monster = parseDandWikiMonster(s, { lang });
     return { monster, warnings: [] };
   }
@@ -1091,6 +1331,10 @@ export function parseMonsterFromRawText(rawText, { lang = 'pt' } = {}) {
       throw new Error(`JSON de monstro inválido: ${e.message}`);
     }
   }
+  if (/(?:Armor Class|Classe de Armadura|CA\s*\d+)[\s\S]{1,500}?(?:Hit Points|Pontos de Vida|PV\s*\d+)/i.test(s)) {
+    const monster = parsePlainTextMonster(s, { lang });
+    return { monster, warnings: [] };
+  }
   throw new Error('Formato de texto de monstro não reconhecido.');
 }
 
@@ -1100,12 +1344,27 @@ export function parseMonsterFromRawText(rawText, { lang = 'pt' } = {}) {
 export async function fetchMonsterFromUrl(urlStr, { lang = 'pt' } = {}) {
   const meta = parseMonsterUrl(urlStr);
 
-  // 1. DandWiki Homebrew
+  // 1. DandWiki Homebrew (com heurística de URLs alternativas)
   if (meta.kind === 'dandwiki') {
-    const rawUrl = meta.rawUrl || `https://www.dandwiki.com/wiki/${meta.slug}?action=raw`;
-    const rawText = await fetchTextWithCorsBypass(rawUrl);
-    const monster = parseDandWikiMonster(rawText, { lang, defaultName: meta.name });
-    return { monster, warnings: [] };
+    const urlsToTry = [
+      meta.rawUrl || `https://www.dandwiki.com/wiki/${meta.slug}?action=raw`,
+      `https://www.dandwiki.com/w/index.php?title=${meta.slug}&action=raw`,
+      `https://www.dandwiki.com/wiki/${meta.slug}`,
+    ];
+
+    let lastError = null;
+    for (const rawUrl of urlsToTry) {
+      try {
+        const rawText = await fetchTextWithCorsBypass(rawUrl);
+        const monster = parseDandWikiMonster(rawText, { lang, defaultName: meta.name });
+        if (monster && monster.name) {
+          return { monster, warnings: [] };
+        }
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError || new Error(`Falha ao acessar artigo no D&D Wiki (${meta.name}).`);
   }
 
   // 2. Wikidot
@@ -1315,6 +1574,91 @@ export async function fetchMonsterFromUrl(urlStr, { lang = 'pt' } = {}) {
     }
 
     throw new Error('Formato JSON não reconhecido (esperado .5emm.json, Open5e ou 5e.tools).');
+  }
+
+  // 7. Qualquer URL externa arbitrária (heurísticas universais)
+  if (meta.kind === 'unknown') {
+    let rawContent = '';
+    try {
+      rawContent = await fetchTextWithCorsBypass(meta.url);
+    } catch (err) {
+      if (meta.name) {
+        const targetName = meta.name.toLowerCase().trim();
+        const foundSrd = BESTIARY.find(b => {
+          const en = (b.name.en || b.name || '').toLowerCase().trim();
+          const pt = (b.name.pt || b.name || '').toLowerCase().trim();
+          return en === targetName || pt === targetName;
+        });
+        if (foundSrd) {
+          return { monster: { ...foundSrd, source: 'SRD (Nome do Link)' }, warnings: [] };
+        }
+      }
+      throw err;
+    }
+
+    const trimmed = rawContent.trim();
+
+    // A. JSON em link genérico
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const json = JSON.parse(trimmed);
+        if (json.saveVersion != null) return convert5emm(json, { lang });
+        if (json.hit_points != null && json.armor_class != null) return convertOpen5eV1(json, { lang });
+        if (json.ability_scores != null) return convertOpen5eV2(json, { lang });
+        if (json.name && (json.hp || json.ac)) return { monster: convert5eToolsMonster(json, { lang }), warnings: [] };
+        if (Array.isArray(json.monster) && json.monster.length > 0) {
+          return { monster: convert5eToolsMonster(json.monster[0], { lang }), warnings: [] };
+        }
+      } catch {
+        // continua para texto puro
+      }
+    }
+
+    // B. Wikitext MediaWiki em link genérico
+    if (trimmed.includes('{{5e Creature') || (trimmed.startsWith('==') && (trimmed.includes('|type=') || trimmed.includes('|size=')))) {
+      const monster = parseDandWikiMonster(trimmed, { lang, defaultName: meta.name });
+      return { monster, warnings: [] };
+    }
+
+    // C. HTML limpo / Plaintext / Markdown statblock
+    const textOnly = rawContent
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/div>/gi, '\n')
+      .replace(/<\/tr>/gi, '\n')
+      .replace(/<\/td>/gi, ' ')
+      .replace(/<\/th>/gi, ' ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&#39;/gi, "'")
+      .replace(/&quot;/gi, '"');
+
+    if (/(?:Armor Class|Classe de Armadura|CA\s*\d+)[\s\S]{1,600}?(?:Hit Points|Pontos de Vida|PV\s*\d+)/i.test(textOnly)) {
+      const monster = parsePlainTextMonster(textOnly, { lang });
+      if (monster && monster.name) {
+        return { monster: { ...monster, source: meta.url }, warnings: [] };
+      }
+    }
+
+    // D. Correspondência do nome inferido da URL no Bestiário SRD
+    if (meta.name) {
+      const targetName = meta.name.toLowerCase().trim();
+      const foundSrd = BESTIARY.find(b => {
+        const en = (b.name.en || b.name || '').toLowerCase().trim();
+        const pt = (b.name.pt || b.name || '').toLowerCase().trim();
+        return en === targetName || pt === targetName;
+      });
+      if (foundSrd) {
+        return { monster: { ...foundSrd, source: meta.url }, warnings: [] };
+      }
+    }
+
+    throw new Error('Não foi possível identificar um bloco de estatísticas de monstro nesta página.');
   }
 
   throw new Error('URL de recurso não reconhecida.');

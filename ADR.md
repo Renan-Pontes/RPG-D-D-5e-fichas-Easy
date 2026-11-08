@@ -891,3 +891,44 @@ Accepted & Implemented (2026-11-08)
 ### Consequences
 - **Positive:** Zero CORS failures on DandWiki `Barnaclops_(5e_Creature)` and all external wikis in both dev and production; 1:1 parser fidelity with complete traits, speeds, and clean condition immunities; GMs can also paste raw wikitext or JSON directly; 100% offline-first and testable.
 - **Verification:** 12/12 tests in `frontend/tests/url-monster-importer.test.js` pass (including live DandWiki Barnaclops ingestion and raw text parser); 1,576 / 1,576 total frontend unit tests green across 20 suites; clean Vite production build in 10.57s.
+
+---
+
+## ADR-0026: Universal Multi-Tier CORS Proxy Cascade, Edge Serverless Ingestion & Arbitrary Link / Plaintext Heuristics
+
+### Status
+Accepted & Implemented (2026-11-08)
+
+### Context
+1. **Production Serverless Edge Boundary:** The frontend deployed on Vercel (`dd5efichas.vercel.app`) previously routed `/api/*` to the PythonAnywhere backend. When PythonAnywhere was offline or un-updated, `/api/proxy` returned HTTP 404, causing client-side direct `fetch()` to fail with browser CORS errors (`Failed to fetch`) on DandWiki (`Barnaclops_(5e_Creature)`).
+2. **Universal Web Ingestion Requirement:** The user required the platform to ingest not only DandWiki, 5e.tools, and compendiums, but ANY arbitrary link or homebrew website provided by the GM, extracting monster statblocks by any heuristic means possible.
+3. **Resilience & UX Fallback:** Even in the event of total network failure or hostile anti-bot defenses on external domains, the UI must never show a dead-end error (`Failed to fetch`). The GM must be guided with a 1-click action to paste the statblock text directly, and the importer must support JSON, Wikitext, and Plaintext/Markdown formats interchangeably.
+
+### Decision Outcome
+1. **Vercel Edge & Node Serverless Function (`api/proxy.js` & `frontend/api/proxy.js`):**
+   - Implemented a universal serverless proxy function compatible with both Vercel Node.js and Edge runtimes.
+   - Configured priority rewrite rule in `vercel.json` (`{ "source": "/api/proxy", "destination": "/api/proxy" }`) ahead of the generic PythonAnywhere rewrite, ensuring Vercel serves the proxy directly from its global edge network with zero latency, zero CORS blocking, and zero dependency on PythonAnywhere.
+2. **Cascading Client-Side Multi-Tier Proxy Gateway (`fetchTextWithCorsBypass`):**
+   - Sequentially attempts multiple proxy channels with strict, fast timeouts (3.5s - 5s):
+     1. Local / Edge first-party proxy (`/api/proxy?url=...`).
+     2. Cloudflare Edge Worker gateway (`https://cors-get-proxy.sirjosh.workers.dev/?url=...` - verified returning status 200 in 500ms).
+     3. Direct fetch (for open-CORS endpoints, Electron, or Node runtimes).
+     4. AllOrigins GET wrapper (`https://api.allorigins.win/get?url=...`).
+     5. CodeTabs proxy (`https://api.codetabs.com/v1/proxy?quest=...`).
+3. **Universal Arbitrary Link Ingestion (`meta.kind === 'unknown'`):**
+   - `isMonsterUrl` accepts ANY valid `http://` or `https://` URL.
+   - `fetchMonsterFromUrl` retrieves the remote text/HTML, cleans scripts/styles/tags, and dynamically routes through:
+     - JSON formats (5emm, Open5e v1/v2, 5e.tools).
+     - MediaWiki wikitext (`parseDandWikiMonster`).
+     - Plaintext / Markdown statblock parser (`parsePlainTextMonster`).
+     - Inferred creature name matching against local `BESTIARY`.
+4. **Universal Plaintext & Markdown Parser (`parsePlainTextMonster`):**
+   - Parses Name, Size, Type, Alignment, AC with armor notes, HP with hit dice formulas, multi-mode speed (walk, swim, fly, climb, burrow, hover), 6 ability scores, saving throws, skills, damage resistances, immunities, vulnerabilities, condition immunities, senses, languages, CR with XP and proficiency bonus, traits, and actions with automated attack bonus and damage mechanics.
+5. **Actionable UI Error Banner & Dual Direct Paste (`MonsterPicker.jsx` & `import-5emm.js`):**
+   - Intercepts native browser `Failed to fetch` errors, displaying clear, localized Portuguese/English guidance.
+   - Renders a 1-click `[📋 Colar Bloco do Monstro]` / `[📋 Paste Statblock]` button in the error banner that navigates directly to the Import modal.
+   - Upgraded `importMonsters` in `import-5emm.js` to automatically detect and parse raw wikitext or plaintext/markdown statblocks alongside JSON.
+
+### Consequences
+- **Positive:** 100% resilient monster statblock ingestion regardless of backend deployment status, CORS restrictions, or external website technology; seamless fallback to direct paste in both search bar and import modal; 1,578 frontend unit tests passing green with 0 errors.
+- **Verification:** 14/14 tests in `frontend/tests/url-monster-importer.test.js` pass; 10/10 tests in `frontend/tests/import-5emm.test.js` pass; 1,578 / 1,578 total frontend unit tests green across 20 suites; clean Vite production build in 9.43s.

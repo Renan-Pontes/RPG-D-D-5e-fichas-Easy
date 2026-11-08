@@ -442,3 +442,87 @@ test('isMonsterRawText e parseMonsterFromRawText: suporta wikitext e JSON colado
 
   assert.equal(isMonsterRawText('apenas um texto qualquer'), false);
 });
+
+test('parsePlainTextMonster e parseMonsterFromRawText: suporta blocos em texto puro e markdown', () => {
+  const statblock = `Mephit King
+Medium elemental, neutral evil
+Armor Class 16 (natural armor)
+Hit Points 65 (10d8 + 20)
+Speed 30 ft., fly 40 ft.
+STR 12 (+1) DEX 16 (+3) CON 14 (+2) INT 12 (+1) WIS 10 (+0) CHA 14 (+2)
+Saving Throws DEX +5, CON +4
+Skills Stealth +5, Perception +2
+Damage Vulnerabilities cold
+Damage Resistances lightning
+Damage Immunities fire, poison
+Condition Immunities poisoned
+Senses darkvision 60 ft., passive Perception 12
+Languages Ignan, Common
+Challenge 4 (1,100 XP)
+
+Death Burst. When the king dies, it explodes in a burst of molten rock. Each creature within 10 feet must make a DC 13 Dexterity saving throw, taking 14 (4d6) fire damage on a failed save.
+
+ACTIONS
+Multiattack. The mephit makes two claw attacks.
+Claw. Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 7 (1d8 + 3) slashing damage plus 3 (1d6) fire damage.`;
+
+  assert.equal(isMonsterRawText(statblock), true);
+  const parsed = parseMonsterFromRawText(statblock);
+  const m = parsed.monster;
+
+  assert.equal(m.name.en, 'Mephit King');
+  assert.equal(m.size, 'Medium');
+  assert.equal(m.type, 'elemental');
+  assert.equal(m.ac, 16);
+  assert.equal(m.acText, '16 (natural armor)');
+  assert.equal(m.hp, 65);
+  assert.equal(m.hpText, '65 (10d8 + 20)');
+  assert.equal(m.speed.walk, 30);
+  assert.equal(m.speed.fly, 40);
+  assert.equal(m.abilities.str, 12);
+  assert.equal(m.abilities.dex, 16);
+  assert.equal(m.saves.dex, 5);
+  assert.equal(m.skills.stealth, 5);
+  assert.equal(m.cr, '4');
+  assert.equal(m.crNum, 4);
+  assert.ok(m.traits.some(t => t.name.en === 'Death Burst'));
+  assert.ok(m.actions.some(a => a.name.en === 'Claw' && a.atk === 5));
+});
+
+test('importMonsters: suporta wikitext e plaintext statblocks diretamente no importador', async () => {
+  const { importMonsters } = await import('../src/campaigns/import-5emm.js');
+  
+  const wiki = `==Troll Shaman==
+{{5e Creature
+|size=Large
+|type=giant
+|alignment=chaotic evil
+|ac=15
+|hd=10
+|con=18
+|str=18
+|dex=12
+|speed=30 ft.
+|cr=5
+}}`;
+  const resWiki = importMonsters(wiki);
+  assert.equal(resWiki.errors.length, 0);
+  assert.equal(resWiki.monsters.length, 1);
+  assert.equal(resWiki.monsters[0].name.en, 'Troll Shaman');
+  assert.equal(resWiki.monsters[0].cr, '5');
+
+  const plain = `Cave Fisher
+Medium monstrosity, unaligned
+Armor Class 16 (natural armor)
+Hit Points 58 (9d8 + 18)
+Speed 20 ft., climb 20 ft.
+STR 16 (+3) DEX 13 (+1) CON 14 (+2) INT 3 (-4) WIS 10 (+0) CHA 3 (-4)
+Challenge 3 (700 XP)
+ACTIONS
+Claws. Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) slashing damage.`;
+  const resPlain = importMonsters(plain);
+  assert.equal(resPlain.errors.length, 0);
+  assert.equal(resPlain.monsters.length, 1);
+  assert.equal(resPlain.monsters[0].name.en, 'Cave Fisher');
+  assert.equal(resPlain.monsters[0].cr, '3');
+});

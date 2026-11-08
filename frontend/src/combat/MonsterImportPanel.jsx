@@ -38,15 +38,15 @@ export default function MonsterImportPanel({ lang, onSave, onCancel, onDirty }) 
     <div className="mi-panel">
       <p className="mi-intro">
         {t(lang,
-          'Aceita arquivos .5emm.json do 5e Monster Maker e criaturas do Open5e (v1 /monsters ou v2 /creatures). Os monstros ficam só neste navegador.',
-          'Accepts .5emm.json files from 5e Monster Maker and Open5e creatures (v1 /monsters or v2 /creatures). Monsters stay in this browser only.')}
+          'Aceita arquivos .5emm.json do 5e Monster Maker criaturas do Open5e, wikitext (D&D Wiki) ou blocos de estatísticas em texto plano/Markdown. Os monstros ficam salvos neste navegador.',
+          'Accepts .5emm.json files from 5e Monster Maker Open5e creatures, wikitext (D&D Wiki), or plaintext/Markdown statblocks. Monsters are saved in this browser.')}
       </p>
       <label className="mesa-btn mi-file">
         📂 {t(lang, 'Escolher arquivo…', 'Choose file…')}
         <input type="file" accept=".json,application/json" onChange={onFile} className="mi-file-input" />
       </label>
       <div className="mi-paste">
-        <label className="mp-num-label" htmlFor={`${ids}-json`}>{t(lang, '…ou cole o JSON aqui', '…or paste the JSON here')}</label>
+        <label className="mp-num-label" htmlFor={`${ids}-json`}>{t(lang, '…ou cole o JSON ou texto da criatura aqui', '…or paste JSON or monster text here')}</label>
         <textarea id={`${ids}-json`} value={text} onChange={e => setText(e.target.value)} spellCheck={false} placeholder='{ "saveVersion": 11, "name": "…" }' />
       </div>
       <div className="mi-convert">
