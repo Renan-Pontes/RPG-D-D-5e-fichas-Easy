@@ -1866,3 +1866,37 @@ html.dice-lock, body.dice-lock { overflow: hidden !important; overscroll-behavio
 .mr-b.is-locked { animation: mr-punch .22s cubic-bezier(.18,1.8,.4,1); }
 .mr-b.is-locked::after { animation: mr-ripple 1.05s ease-out forwards; }
 .mr-b.is-spin { animation-duration: .75s; }
+
+/* ── Rolando com o DieShape do rolador principal: só o dado, sem moldura/rótulo ── */
+.mr-dshape { display: inline-grid; place-items: center; margin: 0 4px; position: relative; }
+.mr2.is-focus .mr2-array { gap: 10px; }
+
+/* vantagem/desvantagem: faixa de luz que cruza o centro dos dados e esmaece para fora,
+   com um ruído que corre na direção do roll-up (para cima) e amortece quando o número sai */
+.mr2.is-focus .mr2-row.is-adv,
+.mr2.is-focus .mr2-row.is-dis { background-color: transparent; box-shadow: none; position: relative; isolation: isolate; }
+.mr2.is-focus .mr2-row.is-adv::before,
+.mr2.is-focus .mr2-row.is-dis::before {
+  content: ""; position: absolute; inset: -18% -4%; z-index: -1; pointer-events: none;
+  background: radial-gradient(ellipse 58% 50% at 50% 50%, var(--mr-tint) 0%, color-mix(in srgb, var(--mr-tint) 45%, transparent) 38%, transparent 72%);
+  filter: blur(2px);
+}
+.mr2.is-focus .mr2-row.is-adv { --mr-tint: rgba(74, 222, 128, .55); }
+.mr2.is-focus .mr2-row.is-dis { --mr-tint: rgba(248, 113, 113, .55); }
+.mr2.is-focus .mr2-row.is-adv::after,
+.mr2.is-focus .mr2-row.is-dis::after {
+  content: ""; position: absolute; inset: -18% -4%; z-index: -1; pointer-events: none; opacity: .0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 160px 160px;
+  -webkit-mask-image: radial-gradient(ellipse 58% 50% at 50% 50%, #000 0%, transparent 72%);
+  mask-image: radial-gradient(ellipse 58% 50% at 50% 50%, #000 0%, transparent 72%);
+  mix-blend-mode: overlay;
+}
+.mr2.is-focus .mr2-row.is-rolling.is-adv::after,
+.mr2.is-focus .mr2-row.is-rolling.is-dis::after { opacity: .9; animation: mr-noise-run .12s linear infinite; }
+.mr2.is-focus .mr2-row.is-settled.is-adv::after,
+.mr2.is-focus .mr2-row.is-settled.is-dis::after { animation: mr-noise-damp 1.05s cubic-bezier(.1,.8,.3,1) forwards; }
+@keyframes mr-noise-run { from { background-position: 0 0; } to { background-position: 0 -160px; } }
+@keyframes mr-noise-damp { 0% { opacity: .9; background-position: 0 0; } 100% { opacity: .15; background-position: 0 -40px; } }
+@media (prefers-reduced-motion: reduce) { .mr2.is-focus .mr2-row::after { animation: none !important; } }
+.mr-dshape.dice-stage-2d { min-height: 0; height: auto; display: inline-grid; place-items: center; }

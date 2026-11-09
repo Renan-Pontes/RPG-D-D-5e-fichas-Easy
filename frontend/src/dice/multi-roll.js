@@ -63,9 +63,14 @@ export function rollDice(row, rand = Math.random) {
 
 /** Dados extras do crítico: os dados de dano (não-d20) rolam de novo. */
 export function critExtra(row, rand = Math.random) {
+  // dados acoplados ao d20 (Inspiração de Bardo d8, Bênção d4…) somam no teste e não dobram
+  const d20 = row.badges.findIndex(b => b.kind === 'die' && b.die === 20 && b.sign > 0);
+  const d20Group = d20 >= 0 ? row.badges[d20].group : null;
   const out = {};
   row.badges.forEach((b, i) => {
-    if (b.kind === 'die' && b.die !== 20) out[i] = Array.from({ length: b.count }, () => roll1(b.die, rand));
+    if (b.kind !== 'die' || b.die === 20) return;
+    if (d20Group && b.group === d20Group) return;
+    out[i] = Array.from({ length: b.count }, () => roll1(b.die, rand));
   });
   return out;
 }

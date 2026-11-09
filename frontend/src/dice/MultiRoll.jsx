@@ -11,7 +11,8 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import Utils from '../../utils.js';
 import { getActiveChar, subscribeActiveChar } from './active-char.js';
-import { FADEIN_DURATION_MS, ROLLUP_DURATION_MS } from './dice-rollup.js';
+import { FADEIN_DURATION_MS, ROLLUP_DURATION_MS, PUMP_DURATION_MS } from './dice-rollup.js';
+import DieShape from './DieShape.jsx';
 import {
   ABILS, ADV_NEXT, DICE, addBadgeTo, coupleBadges, critExtra, dropOnBadge, dropTemps, duplicateRow,
   evalRow, evalUnits, modsFromChar, defaultRows, unitStatics, newRow, removeOne, rollDice, staticValue, toggleLock, uncouple,
@@ -241,45 +242,38 @@ export default function MultiRoll({ lang }) {
     timers.current.forEach(clearTimeout); timers.current = [];
     const ids = rows.filter(r => sel.has(r.id) && r.badges.length).map(r => r.id);
     const list = ids.length ? ids : (rows.find(r => r.id === activeId)?.badges.length ? [activeId] : []);
-    const next = {};
-    const PREP = PREP_MS; // a interface termina de sair e as linhas crescem; só então os dados giram
-    list.forEach((id, ri) => {
-      const snap = rows.find(r => r.id === id);
-      const rolls = rollDice(snap);
-      const order = Object.keys(rolls).map(Number);
-      next[id] = { snap, rolls, extra: {}, locked: new Set(), phase: order.length ? 'spin' : 'done' };
-      const finishRow = () => setRows(rs => rs.map(r => (r.id === id ? dropTemps(r) : r))); // temporários somem
-      if (!order.length) finishRow();
-      order.forEach((idx, k) => {
-        timers.current.push(setTimeout(() => setPlay(p => {
-          const cur = p[id]; if (!cur) return p;
-          const locked = new Set(cur.locked); locked.add(idx);
-          if (locked.size < order.length) return { ...p, [id]: { ...cur, locked } };
-          const ev = evalRow(snap, mods, cur.rolls);
-          const extra = ev.crit ? critExtra(snap) : {};
-          const eo = Object.keys(extra).map(Number);
-          if (eo.length) {
-            eo.forEach((ix, j) => timers.current.push(setTimeout(() => setPlay(q => {
-              const c = q[id]; if (!c) return q;
-              const el = new Set(c.extraLocked || []); el.add(ix);
-              const doneNow = el.size === eo.length;
-              if (doneNow) finishRow();
-              return { ...q, [id]: { ...c, extraLocked: el, phase: doneNow ? 'done' : 'crit' } };
-            }), ROLLUP_DURATION_MS + j * STEP_LOCK)));
-            if (navigator.vibrate) navigator.vibrate([60, 40, 100]);
-            return { ...p, [id]: { ...cur, locked, phase: 'crit', extra, extraLocked: new Set() } };
-          }
-          finishRow();
-          if (navigator.vibrate) navigator.vibrate(30);
-          return { ...p, [id]: { ...cur, locked, phase: 'done' } };
-        }), PREP + ri * ROW_STAGGER + FIRST_LOCK + k * STEP_LOCK));
-      });
-    });
     if (!list.length) return;
+    // Linha do tempo igual à do rolador principal (DieShape): entrada → roll-up com o
+    // clímax aos 750 ms (soco 220 ms + onda) → crítico refaz só o dano com o mesmo roll-up.
+    const SETTLE = ROLLUP_DURATION_MS + PUMP_DURATION_MS;
+    const next = {};
+    list.forEach(id => {
+      const snap = rows.find(r => r.id === id);
+      next[id] = { snap, rolls: rollDice(snap), extra: {}, phase: 'spin', round: 0 };
+    });
     setFocusIds(new Set(list));
     setFocus(true);
     setPlay({});
-    timers.current.push(setTimeout(() => setPlay({ ...next }), PREP));
+    timers.current.push(setTimeout(() => setPlay({ ...next }), PREP_MS));
+    timers.current.push(setTimeout(() => {
+      let anyCrit = false;
+      const after = {};
+      for (const id of list) {
+        const cur = next[id];
+        const ev = evalRow(cur.snap, mods, cur.rolls);
+        const extra = ev.crit ? critExtra(cur.snap) : {};
+        if (Object.keys(extra).length) { anyCrit = true; after[id] = { ...cur, extra, phase: 'crit', round: 1 }; }
+        else after[id] = { ...cur, phase: 'done' };
+      }
+      setPlay(after);
+      if (navigator.vibrate) navigator.vibrate(anyCrit ? [60, 40, 100] : 30);
+      const finishAll = () => {
+        setRows(rs => rs.map(r => (list.includes(r.id) ? dropTemps(r) : r)));   // temporários somem
+        setPlay(p => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, { ...v, phase: 'done' }])));
+      };
+      if (anyCrit) timers.current.push(setTimeout(finishAll, SETTLE));
+      else finishAll();
+    }, PREP_MS + SETTLE));
   };
 
   const palette = [
@@ -316,6 +310,37 @@ export default function MultiRoll({ lang }) {
         </>
       );
     }
+    // Rolando (ou prestes a rolar): só os dados, desenhados pelo DieShape do rolador principal —
+    // mesmo tremor, mesmo soco e mesma onda; sem moldura, rótulo, ícone ou etiqueta em volta.
+    if (focus && focusIds.has(row.id) && !done) {
+      const snap = pl ? pl.snap : row;
+      const d20 = snap.badges.findIndex(x => x.kind === 'die' && x.die === 20 && x.sign > 0);
+      return snap.badges.map((b, idx) => {
+        if (b.kind !== 'die') return null;
+        const rolled = pl?.rolls?.[idx];
+        let value = '';
+        let rolling = false;
+        let key = `${idx}-idle`;
+        if (rolled) {
+          const extra = pl.extra?.[idx];
+          const base = idx === d20 && snap.adv !== 'normal'
+            ? (snap.adv === 'adv' ? Math.max(...rolled) : Math.min(...rolled))
+            : rolled.reduce((t, v) => t + v, 0);
+          value = base + (extra ? extra.reduce((t, v) => t + v, 0) : 0);
+          rolling = true;
+          key = `${idx}-r${extra ? 1 : 0}`;             // crítico: o dado de dano roda de novo
+        }
+        const isD20 = idx === d20;
+        return (
+          <span key={key} className={`mr-dshape dice-stage-2d${isD20 ? ` is-d20-${snap.adv}` : ''}${b.sign < 0 ? ' is-neg' : ''}`}
+            data-dice-mode="2d" data-dice-tone={isD20 && snap.adv !== 'normal' ? snap.adv : undefined}>
+            <DieShape die={b.die} value={value} rolling={rolling} animated size={52} lang={lang}
+              tone={isD20 && snap.adv !== 'normal' ? snap.adv : null}
+              isCrit={isD20 && rolling && value === 20} isFumble={isD20 && rolling && value === 1} />
+          </span>
+        );
+      });
+    }
     // rolando (ou prestes a rolar): estáticos já fundidos nos dados
     const merged = pl ? unitStatics(pl.snap, mods) : (focus && focusIds.has(row.id) ? unitStatics(row, mods) : null);
     const out = [];
@@ -333,7 +358,7 @@ export default function MultiRoll({ lang }) {
           const rolled = pl.rolls[idx];
           if (rolled) {
             const extra = pl.extra?.[idx];
-            if (!pl.locked.has(idx)) { value = rnd(b.die * Math.max(1, b.count)); state = ' is-spin'; }
+            if (!pl.locked?.has(idx)) { value = rnd(b.die * Math.max(1, b.count)); state = ' is-spin'; }
             else {
               const isD20 = b.die === 20 && b.sign > 0 && idx === bs.findIndex(x => x.kind === 'die' && x.die === 20 && x.sign > 0);
               if (isD20 && pl.snap.adv !== 'normal') { value = pl.snap.adv === 'adv' ? Math.max(...rolled) : Math.min(...rolled); sub = rolled.join('·'); }
@@ -373,7 +398,7 @@ export default function MultiRoll({ lang }) {
           const hoverRow = hover && hover !== 'new' && hover.row === row.id && hover.idx == null;
           return (
             <div key={row.id} data-mr-row={row.id}
-              className={`mr2-row is-${row.adv}${focus && !focusIds.has(row.id) ? ' is-away' : ''}${isSel ? ' is-sel' : ''}${row.id === activeId ? ' is-active' : ''}${hoverRow ? ' is-hover' : ''}${ev?.crit ? ' is-crit' : ''}${ev?.fumble ? ' is-fumble' : ''}`}
+              className={`mr2-row is-${row.adv}${focus && !focusIds.has(row.id) ? ' is-away' : ''}${pl && (pl.phase === 'spin' || pl.phase === 'crit') ? ' is-rolling' : ''}${pl?.phase === 'done' ? ' is-settled' : ''}${isSel ? ' is-sel' : ''}${row.id === activeId ? ' is-active' : ''}${hoverRow ? ' is-hover' : ''}${ev?.crit ? ' is-crit' : ''}${ev?.fumble ? ' is-fumble' : ''}`}
               onClick={() => setActive(row.id)}
               onPointerDown={(e) => {
                 if (e.target.closest('button, input, [data-mr-badge]')) return;

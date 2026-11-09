@@ -100,3 +100,14 @@ test('linhas iniciais: corpo a corpo, distância e mágico só para quem conjura
   // estáticos fundidos: teste +5 (FOR 3 + BP 2) no d20, dano +3 no d8
   assert.deepEqual(unitStatics(melee, { str: 3, pb: 2 }), { 0: 5, [d8]: 3 });
 });
+
+test('d8 de Inspiração acoplado ao d20 soma no teste e não dobra no crítico', () => {
+  let r = addBadgeTo(newRow(), { kind: 'die', die: 20 });
+  r = addBadgeTo(r, { kind: 'die', die: 10 });           // dano
+  r = dropOnBadge(r, 0, { kind: 'die', die: 8 });          // Inspiração no d20
+  const insp = r.badges.findIndex(b => b.die === 8);
+  const dmg = r.badges.findIndex(b => b.die === 10);
+  assert.deepEqual(Object.keys(critExtra(r, () => 0)).map(Number), [dmg]);
+  const u = evalUnits(r, {}, { 0: [20], [insp]: [5], [dmg]: [7] }, { [dmg]: [3] });
+  assert.deepEqual(u.map(x => [x.kind, x.value]), [['check', 25], ['damage', 10]]);
+});
