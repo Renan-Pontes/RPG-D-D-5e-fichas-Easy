@@ -29,6 +29,7 @@ import { trainingLines, featName, featPicksText, backgroundFeature } from '../sr
 import { placeFeatures, featureKey } from '../src/sheet/feature-placement.js';
 import FhFeatures, { FhFeatureItem } from '../src/sheet/FhFeatures.jsx';
 import { DiceText } from '../src/dice/dice-text.jsx';
+import BeltMultiRoll, { pairBeltSlots, rollBeltPairs } from '../src/dice/BeltMultiRoll.jsx';
 import { itemArt, conditionIcon, CONDITION_EMOJI, classArt, speciesArt } from '../src/art.js';
 import ArtThumb, { ArtIcon } from '../src/components/ArtThumb.jsx';
 import FhTitle from '../src/sheet/FhTitle.jsx';
@@ -3200,8 +3201,18 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
     }));
   };
 
+  const [beltMulti, setBeltMulti] = useState(null);
   const onRollSlot = (idx) => {
     const s = slots[idx];
+    // Padrão: rola todos os hexágonos de dado com o MESMO atributo, em pares 1d20 + 1 dano
+    // (2d20 + 2 danos = ataque múltiplo, um par por coluna).
+    const group = s.bound ? slots.filter((x) => x.bound === s.bound) : [];
+    if (group.length >= 2) {
+      const abilMod = Utils.abilityMod(char, s.bound);
+      const results = rollBeltPairs(pairBeltSlots(group), { abilMod, profB: effectiveProfB });
+      setBeltMulti({ results, abil: BELT_ABBR[s.bound] || s.bound.toUpperCase() });
+      return;
+    }
     const isBound = !!s.bound;
     const boundMod = isBound ? Utils.abilityMod(char, s.bound) : 0;
     const totalMod = (isBound ? boundMod : 0) + (s.pb ? effectiveProfB : 0);
@@ -3229,6 +3240,9 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
 
   return (
     <div className="fh-belt" data-fab-pass="">
+      {beltMulti && (
+        <BeltMultiRoll results={beltMulti.results} abilLabel={beltMulti.abil} lang={lang} onClose={() => setBeltMulti(null)} />
+      )}
       {dragLink && typeof document !== 'undefined' && createPortal(
         (() => {
           // Query the live spherical head badge so (cx, cy, r) is 100% physically locked with 0 offset

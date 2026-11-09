@@ -1980,3 +1980,12 @@ html.dice-lock, body.dice-lock { overflow: hidden !important; overscroll-behavio
 .mr2-roll-n { position: absolute; right: -4px; top: -4px; min-width: 16px; height: 16px; border-radius: 8px; background: #edcb7a; color: #140d07; font-size: .62rem; font-weight: 800; display: grid; place-items: center; padding: 0 3px; }
 .mr2.is-focus .mr2-row > .mr2-sel { opacity: 0; pointer-events: none; }
 .mr2.is-focus .mr2-row, .mr2.is-focus .mr2-rows { background-image: none; padding-left: 0; }
+
+/* ── Cinto: rolagem em pares (d20 + dano), um par por coluna ── */
+.dice-overlay.belt-mr { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; cursor: pointer; }
+.belt-mr-label { position: relative; z-index: 2; font-family: var(--fh-display, serif); letter-spacing: .14em; text-transform: uppercase; font-size: .8rem; color: #edcb7a; opacity: .85; }
+.belt-mr-cols { position: relative; z-index: 2; display: flex; justify-content: space-evenly; align-items: center; width: 100%; max-width: 720px; gap: 12px; }
+.belt-mr-col { display: flex; flex-direction: column; align-items: center; gap: 22px; min-width: 0; flex: 1 1 0; }
+.belt-mr-cols.n-1 .belt-mr-col { flex: 0 1 auto; }
+.belt-mr-sub { font-size: .7rem; letter-spacing: .1em; color: rgba(237,203,122,.7); margin-top: -10px; }
+.belt-mr .mr-dshape .die-shape.is-hero::before { width: 200% !important; height: 200% !important; }
