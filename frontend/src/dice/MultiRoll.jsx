@@ -24,7 +24,7 @@ const save = (char, rows) => { try { localStorage.setItem(KEY(char), JSON.string
 const SPIN_MS = 70, FIRST_LOCK = 420, STEP_LOCK = 300, ROW_STAGGER = 140;
 
 // Cores e ícones (sempre os mesmos em toda a ficha da rolagem)
-export const DIE_COLOR = { 4: '#f87171', 6: '#fb923c', 8: '#facc15', 10: '#4ade80', 12: '#38bdf8', 20: '#c084fc', 100: '#f472b6' };
+export const DIE_COLOR = { 4: '#f87171', 6: '#fb923c', 8: '#facc15', 10: '#4ade80', 12: '#38bdf8', 20: '#edcb7a', 100: '#f472b6' };
 export const ABIL_META = {
   str: { icon: '💪', pt: 'FOR', en: 'STR', color: '#ef4444' },
   dex: { icon: '🏹', pt: 'DES', en: 'DEX', color: '#22c55e' },
@@ -87,6 +87,8 @@ export default function MultiRoll({ lang }) {
   const [hover, setHover] = useState(null);       // { row, idx|null } | 'new'
   const [play, setPlay] = useState({});           // rowId → { snap, rolls, extra, locked, extraLocked, phase }
   const [, setTick] = useState(0);
+  // foco: durante a rolagem só as linhas roladas ficam, maiores; o resto volta depois
+  const [focus, setFocus] = useState(false);
   const drag = useRef(null);
   // escala: as linhas crescem para ocupar a tela (altura e largura disponíveis)
   const rowsRef = useRef(null);
@@ -95,19 +97,22 @@ export default function MultiRoll({ lang }) {
     const el = rowsRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return undefined;
     const fit = () => {
-      const n = Math.max(1, rows.length);
-      const H = el.clientHeight - 44 - n * 8;              // menos o "+ nova linha" e os vãos
+      const shown = focus ? rows.filter(r => play[r.id]) : rows;
+      const n = Math.max(1, shown.length);
+      const H = el.clientHeight - (focus ? 0 : 44) - n * 8;              // menos o "+ nova linha" e os vãos
       const perRow = H / n - 30;                            // menos o cabeçalho da linha
-      const widest = Math.max(1, ...rows.map(r => 40 + r.badges.reduce((w, b, i) => w + 50 + (b.group && r.badges[i - 1]?.group !== b.group ? 8 : 0), 0)));
+      const widest = Math.max(1, ...shown.map(r => 40 + r.badges.reduce((w, b, i) => w + 50 + (b.group && r.badges[i - 1]?.group !== b.group ? 8 : 0), 0)));
       const sH = perRow / 58;
       const sW = (el.clientWidth - 20) / widest;
-      setScale(Math.max(0.8, Math.min(2.4, Math.min(sH, sW))));
+      setScale(Math.max(0.8, Math.min(focus ? 3.2 : 2.4, Math.min(sH, sW))));
     };
     fit();
     const ro = new ResizeObserver(fit);
     ro.observe(el);
-    return () => ro.disconnect();
-  }, [rows]);
+    // a interface some/volta com transição: mede de novo durante e depois dela
+    const t1 = setTimeout(fit, 180), t2 = setTimeout(fit, 420);
+    return () => { ro.disconnect(); clearTimeout(t1); clearTimeout(t2); };
+  }, [rows, focus, Object.keys(play).join()]); // eslint-disable-line react-hooks/exhaustive-deps
   const charId = char?.id;
   useEffect(() => { setRows(load(char) || defaultRows(char, Utils, lang)); setSel(new Set()); setPlay({}); }, [charId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { save(char, rows); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -121,6 +126,12 @@ export default function MultiRoll({ lang }) {
   }, [spinning]);
   const timers = useRef([]);
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  const allDone = Object.keys(play).length > 0 && Object.values(play).every(p => p.phase === 'done');
+  useEffect(() => {
+    if (!focus || !allDone) return undefined;
+    const t = setTimeout(() => setFocus(false), 1100);   // deixa ver o resultado grande e devolve a interface
+    return () => clearTimeout(t);
+  }, [focus, allDone]);
 
   const setRow = (id, fn) => {
     setRows(rs => rs.map(r => (r.id === id ? fn(r) : r)));
@@ -158,6 +169,17 @@ export default function MultiRoll({ lang }) {
       }
       return;
     }
+    if (d.fromRow && !d.mode) {
+      const b = rows.find(r => r.id === d.fromRow)?.badges[d.fromIdx];
+      if (b?.kind === 'die' && b.die === 20 && Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx) * 1.3) {
+        // deslize no d20: ↑ vantagem, ↓ desvantagem (oposto volta ao normal)
+        d.mode = 'adv';
+        setRow(d.fromRow, r => ({ ...r, adv: dy < 0 ? (r.adv === 'dis' ? 'normal' : 'adv') : (r.adv === 'adv' ? 'normal' : 'dis') }));
+        if (navigator.vibrate) navigator.vibrate(15);
+        return;
+      }
+    }
+    if (d.mode === 'adv') return;
     if (!d.mode) {
       if (d.b && Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx) * 1.2) d.mode = d.b.kind === 'flat' ? 'scrub' : 'flip';
       else if (Math.hypot(dx, dy) > 14) d.mode = 'drag';
@@ -191,6 +213,8 @@ export default function MultiRoll({ lang }) {
         setRow(activeId, r => addBadgeTo(r, proto));
       }
       if (d.b.kind !== 'flat') setSigns(s => ({ ...s, [d.b.key]: 1 }));
+    } else if (d.fromRow && d.mode === 'adv') {
+      /* já aplicado */
     } else if (d.fromRow) {
       // emblema da linha: toque tira um; arrasto acopla (sobre outro) ou desacopla (vazio)
       if (!d.mode) setRow(d.fromRow, r => removeOne(r, d.fromIdx));
@@ -240,7 +264,8 @@ export default function MultiRoll({ lang }) {
         }), ri * ROW_STAGGER + FIRST_LOCK + k * STEP_LOCK));
       });
     });
-    setPlay(p => ({ ...p, ...next }));
+    if (list.length) setFocus(true);
+    setPlay(p => ({ ...next }));
   };
 
   const palette = [
@@ -288,6 +313,7 @@ export default function MultiRoll({ lang }) {
         const b = bs[idx];
         let value; let sub; let state = '';
         const isHover = hover && hover !== 'new' && hover.row === row.id && hover.idx === idx;
+        const advCls = b.kind === 'die' && b.die === 20 && b.sign > 0 ? ` is-d20-${(pl ? pl.snap : row).adv}` : '';
         if (pl && b.kind === 'die') {
           const rolled = pl.rolls[idx];
           if (rolled) {
@@ -307,11 +333,11 @@ export default function MultiRoll({ lang }) {
           }
         }
         return (
-          <Badge key={idx} b={b} lang={lang} mods={mods} value={value} sub={sub} state={`${state}${isHover ? ' is-target' : ''}`}
+          <Badge key={idx} b={b} lang={lang} mods={mods} value={value} sub={sub} state={`${state}${advCls}${isHover ? ' is-target' : ''}`}
             tag={merged && merged[idx] ? <span className="mr-b-mod">{fmt(merged[idx])}</span> : null}
             data-mr-badge={idx} data-mr-rowid={row.id}
             onPointerDown={pl ? undefined : (e) => { setActive(row.id); begin(e, { fromRow: row.id, fromIdx: idx }); }}
-            title={L(lang, 'Toque: tirar · Arraste sobre outro: acoplar · Arraste para o vazio: desacoplar', 'Tap: remove · Drag onto another: couple · Drag to empty space: uncouple')} />
+            title={b.kind === 'die' && b.die === 20 ? L(lang, 'Deslize ↑ vantagem · ↓ desvantagem · Toque: tirar', 'Swipe ↑ advantage · ↓ disadvantage · Tap: remove') : L(lang, 'Toque: tirar · Arraste sobre outro: acoplar · Arraste para o vazio: desacoplar', 'Tap: remove · Drag onto another: couple · Drag to empty space: uncouple')} />
         );
       });
       if (!nodes.length) continue;
@@ -323,7 +349,7 @@ export default function MultiRoll({ lang }) {
   };
 
   return (
-    <div className="mr2" onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={finish}>
+    <div className={`mr2${focus ? ' is-focus' : ''}`} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={finish}>
       <div className="mr2-rows" ref={rowsRef} style={{ '--mr-s': scale }}>
         {rows.map((row, ri) => {
           const pl = play[row.id];
@@ -332,7 +358,7 @@ export default function MultiRoll({ lang }) {
           const hoverRow = hover && hover !== 'new' && hover.row === row.id && hover.idx == null;
           return (
             <div key={row.id} data-mr-row={row.id}
-              className={`mr2-row is-${row.adv}${isSel ? ' is-sel' : ''}${row.id === activeId ? ' is-active' : ''}${hoverRow ? ' is-hover' : ''}${ev?.crit ? ' is-crit' : ''}${ev?.fumble ? ' is-fumble' : ''}`}
+              className={`mr2-row is-${row.adv}${focus && !pl ? ' is-away' : ''}${isSel ? ' is-sel' : ''}${row.id === activeId ? ' is-active' : ''}${hoverRow ? ' is-hover' : ''}${ev?.crit ? ' is-crit' : ''}${ev?.fumble ? ' is-fumble' : ''}`}
               onClick={() => setActive(row.id)}
               onPointerDown={(e) => {
                 if (e.target.closest('button, input, [data-mr-badge]')) return;

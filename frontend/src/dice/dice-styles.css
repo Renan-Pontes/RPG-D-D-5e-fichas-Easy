@@ -1823,3 +1823,26 @@ html.dice-lock, body.dice-lock { overflow: hidden !important; overscroll-behavio
   animation: mr-spark .7s ease-out forwards; pointer-events: none; }
 @keyframes mr-spark { from { transform: translate(-50%, 6px) scale(.4); opacity: 1; } to { transform: translate(-50%, -14px) scale(1.4); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .mr-b.is-spin, .mr-b.is-locked, .mr-b.is-locked::after, .mr-b.is-nat20.is-locked::before { animation: none; } }
+
+/* ── Foco na rolagem: o resto da interface sai de cena e volta depois ── */
+.dice-sheet.is-full .dice-sheet-head, .dice-sheet.is-full .dice-mode, .mr2-bar, .mr2-new, .mr2-row {
+  transition: max-height .32s cubic-bezier(.4,0,.2,1), opacity .25s, transform .32s cubic-bezier(.4,0,.2,1), margin .32s, padding .32s, border-width .32s;
+}
+.dice-sheet.is-full .dice-sheet-head, .dice-sheet.is-full .dice-mode { max-height: 80px; }
+.mr2-bar { max-height: 420px; }
+.mr2-row { max-height: 600px; }
+.dice-sheet.is-full:has(.mr2.is-focus) .dice-sheet-head,
+.dice-sheet.is-full:has(.mr2.is-focus) .dice-mode { max-height: 0; opacity: 0; transform: translateY(-100%); margin: 0; padding-top: 0; padding-bottom: 0; overflow: hidden; pointer-events: none; }
+.mr2.is-focus .mr2-bar { max-height: 0; opacity: 0; transform: translateY(100%); padding-top: 0; padding-bottom: 0; border-width: 0; overflow: hidden; pointer-events: none; }
+.mr2.is-focus .mr2-new { max-height: 0; opacity: 0; padding: 0; border-width: 0; margin: 0; overflow: hidden; }
+.mr2-row.is-away { max-height: 0; opacity: 0; transform: translateY(40px) scale(.96); padding-top: 0; padding-bottom: 0; border-width: 0; margin: -3px 0; overflow: hidden; pointer-events: none; }
+.mr2.is-focus .mr2-rows { justify-content: center; }
+.mr2.is-focus .mr2-row-top .mr2-mini, .mr2.is-focus .mr2-lock { opacity: 0; pointer-events: none; }
+
+/* d20: dourado = normal, verde = vantagem, vermelho = desvantagem */
+.mr-b.is-d20-normal { --bc: #edcb7a !important; }
+.mr-b.is-d20-adv { --bc: #4ade80 !important; box-shadow: 0 0 12px rgba(74,222,128,.6); }
+.mr-b.is-d20-dis { --bc: #f87171 !important; box-shadow: 0 0 12px rgba(248,113,113,.6); }
+.mr-b.is-d20-adv::before, .mr-b.is-d20-dis::before { position: absolute; top: -9px; right: -5px; font-size: .62rem; font-weight: 900; line-height: 1; padding: 1px 3px; border-radius: 3px; }
+.mr-b.is-d20-adv::before { content: "▲"; color: #052e16; background: #4ade80; }
+.mr-b.is-d20-dis::before { content: "▼"; color: #450a0a; background: #f87171; }
