@@ -2990,6 +2990,12 @@ const BeltQuickSlot = ({
       >
         {/* Specular Reflection Sheen when PB Active */}
         {pbActive && <div className={`fh-belt-sheen is-slot-${index}`} aria-hidden="true" />}
+        {pbActive && (
+          <svg className="fh-belt-pb-contour" viewBox="0 0 100 115.47" preserveAspectRatio="none" aria-hidden="true">
+            <path pathLength="100" d="M 50,0 L 100,28.87 L 100,86.60 L 50,115.47" />
+            <path pathLength="100" d="M 50,0 L 0,28.87 L 0,86.60 L 50,115.47" />
+          </svg>
+        )}
 
         {/* Center: Perfectly Centered Die Silhouette Badge. When d20, silhouette is the stance knob! */}
         <div
@@ -3021,13 +3027,13 @@ const BeltQuickSlot = ({
 };
 
 const BeltAbilities = ({ char, lang, roll, profB }) => {
-  const top = ['str', 'dex', 'con'];
-  const bottom = ['int', 'wis', 'cha'];
+  // DES ⇄ CON e SAB ⇄ CAR: FOR e DES ficam sobre os dois d20 centrais (os mais usados)
+  const top = ['str', 'con', 'dex'];
+  const bottom = ['int', 'cha', 'wis'];
   const pt = lang === 'pt';
   const effectiveProfB = profB != null ? profB : Utils.profBonus(char.level);
 
   const [activeSlot, setActiveSlot] = useState(0);
-  const [pbActive, setPbActive] = useState(false);
   const [dragLink, setDragLink] = useState(null);
   const dragLinkRef = useRef(null);
   dragLinkRef.current = dragLink;
@@ -3120,11 +3126,19 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
     });
   };
 
+  // 4 hexágonos de dado no meio do cinto; os dois centrais são d20 com FOR e DES já atribuídos
+  // e o BP ligado — cada um tem a sua cunha de BP no vão acima dele.
   const [slots, setSlots] = useState([
-    { die: 20, count: 1, bound: null, advMode: 'normal' },
-    { die: 6, count: 1, bound: null, advMode: 'normal' },
-    { die: 8, count: 1, bound: null, advMode: 'normal' },
+    { die: 6, count: 1, bound: null, advMode: 'normal', pb: false },
+    { die: 20, count: 1, bound: 'str', advMode: 'normal', pb: true },
+    { die: 20, count: 1, bound: 'dex', advMode: 'normal', pb: true },
+    { die: 8, count: 1, bound: null, advMode: 'normal', pb: false },
   ]);
+  const pbActive = slots.some((s) => s.pb);
+  const togglePb = (idx) => {
+    setSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, pb: !s.pb } : s)));
+    if (navigator.vibrate) navigator.vibrate(20);
+  };
 
   const onShiftDie = (idx, delta) => {
     setActiveSlot(idx);
@@ -3171,10 +3185,10 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
     const s = slots[idx];
     const isBound = !!s.bound;
     const boundMod = isBound ? Utils.abilityMod(char, s.bound) : 0;
-    const totalMod = (isBound ? boundMod : 0) + (pbActive ? effectiveProfB : 0);
+    const totalMod = (isBound ? boundMod : 0) + (s.pb ? effectiveProfB : 0);
     const parts = [];
     if (s.bound) parts.push(`${BELT_ABBR[s.bound] || s.bound.toUpperCase()} ${Utils.fmtMod(boundMod)}`);
-    if (pbActive) parts.push(`PB ${Utils.fmtMod(effectiveProfB)}`);
+    if (s.pb) parts.push(`PB ${Utils.fmtMod(effectiveProfB)}`);
     const modText = parts.length ? ` (${parts.join(' + ')})` : '';
     const isD20 = Number(s.die) === 20;
     const advMode = isD20 ? (s.advMode || 'normal') : 'normal';
@@ -3257,15 +3271,25 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
             isAssigned={slots.some((s) => s.bound === k)}
           />
         ))}
+        {/* Cunhas de BP nos vãos FOR|CON e CON|DES: tocar desce um contorno luminoso pelas
+            frestas até o hexágono de dado logo abaixo (slot 1 e slot 2), somando o BP nele. */}
+        {[1, 2].map((si) => (
+          <button
+            key={`pb${si}`}
+            type="button"
+            className={`fh-belt-pb-wedge is-${si === 1 ? 'left' : 'right'}${slots[si]?.pb ? ' is-on' : ''}`}
+            aria-pressed={!!slots[si]?.pb}
+            aria-label={pt
+              ? `BP +${effectiveProfB} no dado abaixo (${slots[si]?.pb ? 'ligado' : 'desligado'})`
+              : `PB +${effectiveProfB} on the die below (${slots[si]?.pb ? 'on' : 'off'})`}
+            onClick={(e) => { e.stopPropagation(); togglePb(si); }}
+          >
+            <svg viewBox="0 0 40 30" aria-hidden="true"><polygon points="2,2 38,2 20,28" /></svg>
+            <span>BP</span>
+          </button>
+        ))}
       </div>
       <div className="fh-belt-hive-row is-mid">
-        <BeltPbSlot
-          char={char}
-          lang={lang}
-          profB={effectiveProfB}
-          pbActive={pbActive}
-          onSetPb={setPbActive}
-        />
         {slots.map((slot, idx) => (
           <BeltQuickSlot
             key={idx}
@@ -3280,7 +3304,7 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
             onRoll={onRollSlot}
             char={char}
             lang={lang}
-            pbActive={pbActive}
+            pbActive={!!slot.pb}
             profB={effectiveProfB}
           />
         ))}
@@ -3302,8 +3326,8 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
       </div>
       <p className="fh-honey-help">
         {pt
-          ? 'PB: deslize → ligar, ← desligar · d20: arraste a silhueta ↑ vantagem 🟢, ↓ desvantagem 🔴 · segure um atributo para vincular ao cinto.'
-          : 'PB: swipe → add PB, ← remove PB · d20: drag silhouette ↑ advantage 🟢, ↓ disadvantage 🔴 · hold an attribute badge to bind to belt.'}
+          ? 'BP: toque na cunha acima do dado · d20: arraste a silhueta ↑ vantagem 🟢, ↓ desvantagem 🔴 · segure um atributo para vincular ao cinto.'
+          : 'PB: tap the wedge above a die · d20: drag silhouette ↑ advantage 🟢, ↓ disadvantage 🔴 · hold an attribute badge to bind to belt.'}
       </p>
     </div>
   );
