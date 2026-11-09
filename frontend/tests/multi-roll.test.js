@@ -85,3 +85,18 @@ test('trava: o que entra depois é temporário e some depois da rolagem', () => 
   assert.equal(dropTemps(r).badges.length, 1);
   assert.equal(dropTemps(r).locked, true);
 });
+
+import { unitStatics, defaultRows } from '../src/dice/multi-roll.js';
+
+test('linhas iniciais: corpo a corpo, distância e mágico só para quem conjura', () => {
+  const U = { spellcastingAbility: (c) => c.caster ? 'cha' : null };
+  assert.equal(defaultRows({}, U, 'en').length, 2);
+  const rows = defaultRows({ caster: true }, U, 'en');
+  assert.deepEqual(rows.map(r => r.name), ['Melee weapon attack', 'Ranged weapon attack', 'Spell attack']);
+  // dano corpo a corpo: d8 acoplado à FOR
+  const melee = rows[0];
+  const d8 = melee.badges.findIndex(b => b.kind === 'die' && b.die === 8);
+  assert.ok(melee.badges[d8].group && melee.badges.some((b, i) => i !== d8 && b.group === melee.badges[d8].group && b.abil === 'str'));
+  // estáticos fundidos: teste +5 (FOR 3 + BP 2) no d20, dano +3 no d8
+  assert.deepEqual(unitStatics(melee, { str: 3, pb: 2 }), { 0: 5, [d8]: 3 });
+});

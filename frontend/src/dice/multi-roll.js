@@ -232,3 +232,43 @@ export function evalUnits(row, mods = {}, rolls = {}, extra = {}) {
   }
   return out;
 }
+
+/** Parte fixa de cada unidade (estáticos já fundidos), para mostrar antes de rolar:
+ *  → { [índice do 1º dado da unidade]: +N } */
+export function unitStatics(row, mods = {}) {
+  const zero = {};
+  row.badges.forEach((b, i) => { if (b.kind === 'die') zero[i] = [0]; });
+  const out = {};
+  for (const u of evalUnits(row, mods, zero)) {
+    const first = u.idxs.find(i => row.badges[i]?.kind === 'die');
+    if (first != null) out[first] = u.value;
+  }
+  return out;
+}
+
+/** Linhas iniciais a partir da ficha: corpo a corpo, à distância e ataque mágico (se conjura). */
+export function defaultRows(char, Utils, lang = 'pt') {
+  const L = (pt, en) => (lang === 'pt' ? pt : en);
+  const weapon = (name, abil, die) => {
+    let r = newRow({ name });
+    r = addBadgeTo(r, { kind: 'die', die: 20 });
+    r = addBadgeTo(r, { kind: 'abil', abil });
+    r = addBadgeTo(r, { kind: 'pb' });
+    r = addBadgeTo(r, { kind: 'die', die });
+    return dropOnBadge(r, r.badges.length - 1, { kind: 'abil', abil });
+  };
+  const rows = [
+    weapon(L('Ataque corpo a corpo', 'Melee weapon attack'), 'str', 8),
+    weapon(L('Ataque à distância', 'Ranged weapon attack'), 'dex', 8),
+  ];
+  let ab = null;
+  try { ab = char && Utils ? Utils.spellcastingAbility(char) : null; } catch { ab = null; }
+  if (ab) {
+    let r = newRow({ name: L('Ataque mágico', 'Spell attack') });
+    r = addBadgeTo(r, { kind: 'die', die: 20 });
+    r = addBadgeTo(r, { kind: 'abil', abil: ab });
+    r = addBadgeTo(r, { kind: 'pb' });
+    rows.push(r);
+  }
+  return rows;
+}

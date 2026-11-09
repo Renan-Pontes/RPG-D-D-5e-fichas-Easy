@@ -13,12 +13,12 @@ import Utils from '../../utils.js';
 import { getActiveChar, subscribeActiveChar } from './active-char.js';
 import {
   ABILS, ADV_NEXT, DICE, addBadgeTo, coupleBadges, critExtra, dropOnBadge, dropTemps, duplicateRow,
-  evalRow, evalUnits, modsFromChar, newRow, removeOne, rollDice, staticValue, toggleLock, uncouple,
+  evalRow, evalUnits, modsFromChar, defaultRows, unitStatics, newRow, removeOne, rollDice, staticValue, toggleLock, uncouple,
 } from './multi-roll.js';
 
 const L = (lang, pt, en) => (lang === 'pt' ? pt : en);
 const fmt = (n) => (n >= 0 ? `+${n}` : `−${Math.abs(n)}`);
-const KEY = (char) => `fh-multiroll3:${char?.id ?? 'global'}`;
+const KEY = (char) => `fh-multiroll4:${char?.id ?? 'global'}`;
 const load = (char) => { try { const v = JSON.parse(localStorage.getItem(KEY(char)) || 'null'); return Array.isArray(v) ? v : null; } catch { return null; } };
 const save = (char, rows) => { try { localStorage.setItem(KEY(char), JSON.stringify(rows)); } catch { /* sem armazenamento */ } };
 const SPIN_MS = 70, FIRST_LOCK = 420, STEP_LOCK = 300, ROW_STAGGER = 140;
@@ -78,7 +78,7 @@ function Badge({ b, lang, mods, value, sub, state = '', tag = null, ...rest }) {
 export default function MultiRoll({ lang }) {
   const char = useSyncExternalStore(subscribeActiveChar, getActiveChar, getActiveChar);
   const mods = useMemo(() => modsFromChar(char, Utils), [char]);
-  const [rows, setRows] = useState(() => load(char) || [newRow(), newRow()]);
+  const [rows, setRows] = useState(() => load(char) || defaultRows(char, Utils, lang));
   const [sel, setSel] = useState(() => new Set());
   const [active, setActive] = useState(null);
   const [signs, setSigns] = useState({});
@@ -88,8 +88,28 @@ export default function MultiRoll({ lang }) {
   const [play, setPlay] = useState({});           // rowId → { snap, rolls, extra, locked, extraLocked, phase }
   const [, setTick] = useState(0);
   const drag = useRef(null);
+  // escala: as linhas crescem para ocupar a tela (altura e largura disponíveis)
+  const rowsRef = useRef(null);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const el = rowsRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const fit = () => {
+      const n = Math.max(1, rows.length);
+      const H = el.clientHeight - 44 - n * 8;              // menos o "+ nova linha" e os vãos
+      const perRow = H / n - 30;                            // menos o cabeçalho da linha
+      const widest = Math.max(1, ...rows.map(r => 40 + r.badges.reduce((w, b, i) => w + 50 + (b.group && r.badges[i - 1]?.group !== b.group ? 8 : 0), 0)));
+      const sH = perRow / 58;
+      const sW = (el.clientWidth - 20) / widest;
+      setScale(Math.max(0.8, Math.min(2.4, Math.min(sH, sW))));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [rows]);
   const charId = char?.id;
-  useEffect(() => { setRows(load(char) || [newRow(), newRow()]); setSel(new Set()); setPlay({}); }, [charId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setRows(load(char) || defaultRows(char, Utils, lang)); setSel(new Set()); setPlay({}); }, [charId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { save(char, rows); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
   const activeId = active && rows.some(r => r.id === active) ? active : rows[0]?.id;
 
@@ -129,6 +149,15 @@ export default function MultiRoll({ lang }) {
     const d = drag.current;
     if (!d) return;
     const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
+    if (d.swipeRow) {
+      // linha: deslizar ↑ = vantagem, ↓ = desvantagem (de novo no sentido oposto volta ao normal)
+      if (!d.done && Math.abs(dy) > 28 && Math.abs(dy) > Math.abs(dx) * 1.3) {
+        d.done = true;
+        setRow(d.swipeRow, r => ({ ...r, adv: dy < 0 ? (r.adv === 'dis' ? 'normal' : 'adv') : (r.adv === 'adv' ? 'normal' : 'dis') }));
+        if (navigator.vibrate) navigator.vibrate(15);
+      }
+      return;
+    }
     if (!d.mode) {
       if (d.b && Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx) * 1.2) d.mode = d.b.kind === 'flat' ? 'scrub' : 'flip';
       else if (Math.hypot(dx, dy) > 14) d.mode = 'drag';
@@ -150,6 +179,7 @@ export default function MultiRoll({ lang }) {
   const onUp = (e) => {
     const d = drag.current;
     if (!d) return;
+    if (d.swipeRow) { finish(); return; }
     const t = d.mode === 'drag' ? targetAt(e.clientX, e.clientY) : null;
     if (d.b) {
       const proto = protoOf(d.b, d);
@@ -247,13 +277,14 @@ export default function MultiRoll({ lang }) {
         </>
       );
     }
+    const merged = pl ? unitStatics(pl.snap, mods) : null;   // rolando: estáticos já fundidos nos dados
     const out = [];
     let i = 0;
     while (i < bs.length) {
       const g = bs[i].group;
       const members = [];
       do { members.push(i); i++; } while (g && i < bs.length && bs[i].group === g);
-      const nodes = members.map(idx => {
+      const nodes = members.filter(idx => !merged || bs[idx].kind === 'die').map(idx => {
         const b = bs[idx];
         let value; let sub; let state = '';
         const isHover = hover && hover !== 'new' && hover.row === row.id && hover.idx === idx;
@@ -277,21 +308,23 @@ export default function MultiRoll({ lang }) {
         }
         return (
           <Badge key={idx} b={b} lang={lang} mods={mods} value={value} sub={sub} state={`${state}${isHover ? ' is-target' : ''}`}
+            tag={merged && merged[idx] ? <span className="mr-b-mod">{fmt(merged[idx])}</span> : null}
             data-mr-badge={idx} data-mr-rowid={row.id}
             onPointerDown={pl ? undefined : (e) => { setActive(row.id); begin(e, { fromRow: row.id, fromIdx: idx }); }}
             title={L(lang, 'Toque: tirar · Arraste sobre outro: acoplar · Arraste para o vazio: desacoplar', 'Tap: remove · Drag onto another: couple · Drag to empty space: uncouple')} />
         );
       });
-      out.push(members.length > 1 || g
+      if (!nodes.length) continue;
+      out.push(!merged && (members.length > 1 || g)
         ? <span key={`g${members[0]}`} className="mr-grp" title={L(lang, 'Acoplados: somam juntos', 'Coupled: added together')}>{nodes}</span>
-        : nodes[0]);
+        : nodes);
     }
     return out;
   };
 
   return (
     <div className="mr2" onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={finish}>
-      <div className="mr2-rows">
+      <div className="mr2-rows" ref={rowsRef} style={{ '--mr-s': scale }}>
         {rows.map((row, ri) => {
           const pl = play[row.id];
           const ev = pl?.phase === 'done' ? evalRow(pl.snap, mods, pl.rolls, pl.extra) : null;
@@ -299,20 +332,21 @@ export default function MultiRoll({ lang }) {
           const hoverRow = hover && hover !== 'new' && hover.row === row.id && hover.idx == null;
           return (
             <div key={row.id} data-mr-row={row.id}
-              className={`mr2-row${isSel ? ' is-sel' : ''}${row.id === activeId ? ' is-active' : ''}${hoverRow ? ' is-hover' : ''}${ev?.crit ? ' is-crit' : ''}${ev?.fumble ? ' is-fumble' : ''}`}
-              onClick={() => setActive(row.id)}>
+              className={`mr2-row is-${row.adv}${isSel ? ' is-sel' : ''}${row.id === activeId ? ' is-active' : ''}${hoverRow ? ' is-hover' : ''}${ev?.crit ? ' is-crit' : ''}${ev?.fumble ? ' is-fumble' : ''}`}
+              onClick={() => setActive(row.id)}
+              onPointerDown={(e) => {
+                if (e.target.closest('button, input, [data-mr-badge]')) return;
+                setActive(row.id);
+                e.currentTarget.setPointerCapture?.(e.pointerId);
+                drag.current = { swipeRow: row.id, x0: e.clientX, y0: e.clientY };
+              }}>
               <div className="mr2-row-top">
+                {row.adv !== 'normal' && <span className={`mr2-advtag is-${row.adv}`}>{row.adv === 'adv' ? L(lang, '▲ VANTAGEM', '▲ ADVANTAGE') : L(lang, '▼ DESVANTAGEM', '▼ DISADVANTAGE')}</span>}
                 <button type="button" className={`mr2-sel${isSel ? ' is-on' : ''}`} aria-pressed={isSel} aria-label={L(lang, 'Selecionar linha', 'Select row')}
                   onClick={(e) => { e.stopPropagation(); setSel(s => { const n = new Set(s); n.has(row.id) ? n.delete(row.id) : n.add(row.id); return n; }); }} />
                 <input className="mr2-name" value={row.name} placeholder={L(lang, `Linha ${ri + 1}`, `Row ${ri + 1}`)}
                   onFocus={() => setActive(row.id)} onChange={e => setRow(row.id, r => ({ ...r, name: e.target.value }))} />
                 {ev?.crit && <em className="mr2-flag">{L(lang, 'CRÍTICO', 'CRIT')}</em>}
-                {row.badges.some(b => b.kind === 'die' && b.die === 20) && (
-                  <button type="button" className={`mr2-adv is-${row.adv}`} title={L(lang, 'Normal / Vantagem / Desvantagem', 'Normal / Advantage / Disadvantage')}
-                    onClick={(e) => { e.stopPropagation(); setRow(row.id, r => ({ ...r, adv: ADV_NEXT[r.adv] })); }}>
-                    {row.adv === 'adv' ? '▲' : row.adv === 'dis' ? '▼' : '='}
-                  </button>
-                )}
                 <button type="button" className="mr2-mini" aria-label={L(lang, 'Duplicar', 'Duplicate')}
                   onClick={(e) => { e.stopPropagation(); setRows(rs => { const i = rs.findIndex(r => r.id === row.id); return [...rs.slice(0, i + 1), duplicateRow(row), ...rs.slice(i + 1)]; }); }}>⧉</button>
                 <button type="button" className="mr2-mini is-danger" aria-label={L(lang, 'Apagar linha', 'Delete row')}
