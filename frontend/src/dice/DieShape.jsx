@@ -71,7 +71,7 @@ export default function DieShape({
     const el = dieRef.current;
     const stageWrap = isHero && el ? el.closest('.dice-hero-stage-wrap, .dice-flower-stage') : null;
 
-    const applyAnticipationVars = (profile) => {
+    const applyAnticipationVars = (profile, localP = 0) => {
       if (!el) return;
       const k = dimmed ? 0.45 : 1.0;
       el.style.setProperty('--shake-x', `${(profile.shakeX * k).toFixed(2)}px`);
@@ -306,6 +306,12 @@ export default function DieShape({
     return () => {
       if (animId) cancelAnimationFrame(animId);
       clearTimeout(pulseTimer);
+      if (typeof document !== 'undefined' && document.body) {
+        document.body.classList.remove('dice-rolling-shake');
+        document.body.style.removeProperty('--bg-shake-x');
+        document.body.style.removeProperty('--bg-shake-y');
+        document.body.style.removeProperty('--bg-shake-rot');
+      }
     };
   }, [shouldAnimateRoll, naturalVal, finalVal, isHero, dimmed, die, value, targetValue, petalIndex, petalCount, seed, stepOffset]);
 
@@ -470,7 +476,7 @@ export default function DieShape({
           </span>
         </div>
       )}
-      {isHero && isCrit && critFlashed && typeof document !== 'undefined' && (
+      {isHero && isCrit && critFlashed && typeof document !== 'undefined' && document.body && (
         createPortal(
           <div className="dice-crit-flash-screen" aria-hidden="true" />,
           document.body

@@ -39,7 +39,20 @@ async function fetchWithFallback(url, timeoutMs = 8000) {
     const aoRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(timeoutMs) });
     const data = await aoRes.json();
     if (data?.contents && data.contents.trim().length > 30) {
-      return { status: 200, text: data.contents };
+      let contents = data.contents;
+      if (typeof contents === 'string' && contents.startsWith('data:') && contents.includes(';base64,')) {
+        const b64 = contents.split(';base64,')[1];
+        try {
+          if (typeof Buffer !== 'undefined') {
+            contents = Buffer.from(b64, 'base64').toString('utf-8');
+          } else if (typeof atob === 'function') {
+            contents = decodeURIComponent(escape(atob(b64)));
+          }
+        } catch {
+          // fallback
+        }
+      }
+      return { status: 200, text: contents };
     }
   } catch {
     // esgotado

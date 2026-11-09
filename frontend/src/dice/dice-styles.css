@@ -1529,17 +1529,21 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
 }
 
 /* Exaggerated Background UI Shake during Roll-Up Anticipation */
-body.dice-rolling-shake .fh-shell,
-body.dice-rolling-shake #root,
+/* Note: We strictly avoid shaking #root, #app-root or body to prevent creating a containing-block
+   trap for position:fixed overlays like .dice-overlay */
 body.dice-rolling-shake .main-layout,
 body.dice-rolling-shake .camp-shell,
 body.dice-rolling-shake .page-shell,
 body.dice-rolling-shake .mesa-container,
-body.dice-rolling-shake .statblock-card,
-body.dice-rolling-shake .ficha {
+body.dice-rolling-shake .ficha-scroll-wrap,
+body.dice-rolling-shake .ficha-body {
   transform: translate3d(var(--bg-shake-x, 0px), var(--bg-shake-y, 0px), 0) rotate(var(--bg-shake-rot, 0deg));
   transition: none !important;
   will-change: transform;
+}
+
+.dice-overlay {
+  transform: none !important;
 }
 
 /* ==========================================================================

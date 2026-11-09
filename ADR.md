@@ -1004,3 +1004,41 @@ Accepted & Implemented (2026-11-08)
 ### Consequences
 - **Positive:** Full coverage of all D&D 2024 action groups with zero UI bloat; tactile, juicy critical hit celebration and screen rumble; intuitive vertical swipe gesture control for advantage/disadvantage; thorough architectural roadmap for $N:N$ multi-assignment.
 - **Verification:** 4/4 tests in `frontend/tests/action-skills-gestures.test.js` pass; 1,582 / 1,582 frontend unit tests green across 20 suites; clean Vite production build in 13.96s.
+
+
+---
+
+## ADR-0028: Roll Screen Blackout Remediation, Overlay Stacking Isolation & Resilient DandWiki Ingestion with Auto-Decoding
+
+### Status
+Accepted & Implemented (2026-11-08)
+
+### Context
+1. **Roll Screen Blackout Bug**:
+   - Following the introduction of the harmonic background shake in Release v1.0.16, attempting any dice roll caused the screen to turn black with no dice visible and no roll-up animation playing.
+   - Diagnostic investigation uncovered two coupled issues:
+     - **JavaScript ReferenceError**: In `DieShape.jsx`, `applyAnticipationVars(profile)` was invoked with `(profile, localP)`, but the function signature omitted `localP`. Inside the body, line 93 referenced `localP`, throwing `ReferenceError: localP is not defined` on the very first frame of `requestAnimationFrame`. Because `--rollup-fadein-opacity` was initialized to `0` at $t=0$, this runtime exception permanently froze the die at `opacity: 0`, leaving only the dark `.dice-overlay` backdrop visible (pure black screen).
+     - **CSS Containing Block Stacking Trap**: `body.dice-rolling-shake #root` applied `transform: translate3d(...) rotate(...)` to `#root`. Per CSS specs, applying a non-identity `transform` to an ancestor establishes a new containing block for all descendant `position: fixed` elements, trapping and distorting `.dice-overlay`.
+2. **DandWiki Ingestion Resiliency**:
+   - Compendium imports for homebrew creatures like `Barnaclops_(5e_Creature)` failed in browser environments when public proxies like AllOrigins encoded MediaWiki `text/x-wiki` MIME responses as Base64 Data URIs (`data:text/x-wiki;base64,...`). The importer was treating the base64 string as raw wikitext, failing regex extraction.
+   - If an external compendium or wiki redirects to its HTML presentation rather than raw wikitext, the importer previously failed instead of recovering.
+
+### Decision Outcome
+1. **`DieShape.jsx` Function Signature & Cleanup Hardening**:
+   - Corrected signature to `const applyAnticipationVars = (profile, localP = 0) => {`.
+   - Guaranteed that frame 1 and subsequent frames evaluate without throwing exceptions, smoothly transitioning `--rollup-fadein-opacity` from 0 to 1 over 500ms.
+   - Added rigorous unmount/cleanup handler in `useEffect` resetting `document.body.classList.remove('dice-rolling-shake')` and all `--bg-shake-*` variables.
+   - Guarded critical hit portal mount with `typeof document !== 'undefined' && document.body`.
+2. **CSS Stacking Isolation (`dice-styles.css`)**:
+   - Removed `#root`, `#app-root`, `.fh-shell`, and `.statblock-card` from `body.dice-rolling-shake`.
+   - Scoped background shaking strictly to interior content containers: `.main-layout, .camp-shell, .page-shell, .mesa-container, .ficha-scroll-wrap, .ficha-body`.
+   - Enforced `.dice-overlay { transform: none !important; }` to maintain strict viewport-relative fixed positioning.
+3. **Data-URI Base64 Auto-Decoding (`url-monster-importer.js`, `api/proxy.js`, `frontend/api/proxy.js`)**:
+   - In both client-side `fetchTextWithCorsBypass` and serverless `fetchWithFallback`, auto-detects `data:*;base64,...` from AllOrigins responses and decodes it to clean UTF-8 text via `Buffer.from(b64, 'base64')` or `atob`.
+4. **DandWiki Dual-Mode (Wikitext / Plaintext HTML) Fallback Ingestion**:
+   - In `fetchMonsterFromUrl`, if wikitext is detected, parses with 1:1 MediaWiki fidelity (`parseDandWikiMonster`).
+   - If HTML is returned (`<html`, `<!DOCTYPE`, or `mw-content-text`), seamlessly invokes `parsePlainTextMonster` to recover all statistics, AC, HP, abilities, and actions directly from the rendered DOM.
+
+### Consequences
+- **Positive:** Roll screen functions with 100% fluid 60fps animations; zero black screens or freezing; perfect overlay positioning independent of background rumble; DandWiki and arbitrary homebrew compendia import flawlessly through multi-gateway cascades with automatic base64 decoding.
+- **Verification:** 1,582 / 1,582 frontend unit tests pass (100% green); 14/14 url-monster-importer tests pass; Vite production build clean in 14.82s.

@@ -1056,7 +1056,20 @@ export async function fetchTextWithCorsBypass(url) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const j = await res.json();
       if (!j?.contents || j.contents.trim().length < 30) throw new Error('Conteúdo vazio');
-      return { ok: true, text: async () => j.contents };
+      let contents = j.contents;
+      if (typeof contents === 'string' && contents.startsWith('data:') && contents.includes(';base64,')) {
+        const b64 = contents.split(';base64,')[1];
+        try {
+          if (typeof atob === 'function') {
+            contents = decodeURIComponent(escape(atob(b64)));
+          } else if (typeof Buffer !== 'undefined') {
+            contents = Buffer.from(b64, 'base64').toString('utf-8');
+          }
+        } catch {
+          if (typeof atob === 'function') contents = atob(b64);
+        }
+      }
+      return { ok: true, text: async () => contents };
     }
   });
 
@@ -1345,7 +1358,7 @@ export function parseMonsterFromRawText(rawText, { lang = 'pt' } = {}) {
 export async function fetchMonsterFromUrl(urlStr, { lang = 'pt' } = {}) {
   const meta = parseMonsterUrl(urlStr);
 
-  // 1. DandWiki Homebrew (com heurística de URLs alternativas)
+  // 1. DandWiki Homebrew (com heurística de URLs alternativas e fallback HTML)
   if (meta.kind === 'dandwiki') {
     const urlsToTry = [
       meta.rawUrl || `https://www.dandwiki.com/wiki/${meta.slug}?action=raw`,
@@ -1357,9 +1370,22 @@ export async function fetchMonsterFromUrl(urlStr, { lang = 'pt' } = {}) {
     for (const rawUrl of urlsToTry) {
       try {
         const rawText = await fetchTextWithCorsBypass(rawUrl);
-        const monster = parseDandWikiMonster(rawText, { lang, defaultName: meta.name });
-        if (monster && monster.name) {
-          return { monster, warnings: [] };
+        if (rawText && (rawText.includes('{{5e Creature') || rawText.includes('==') || rawText.includes('|size='))) {
+          const monster = parseDandWikiMonster(rawText, { lang, defaultName: meta.name });
+          if (monster && monster.name) {
+            return { monster, warnings: [] };
+          }
+        }
+        if (rawText && (rawText.includes('<html') || rawText.includes('<!DOCTYPE') || rawText.includes('mw-content-text'))) {
+          try {
+            const monster = parsePlainTextMonster(rawText, { lang, defaultName: meta.name });
+            if (monster && monster.name) {
+              monster.source = 'D&D Wiki (5e Homebrew)';
+              return { monster, warnings: ['Importado a partir da página HTML do D&D Wiki'] };
+            }
+          } catch {
+            // continua para próxima URL
+          }
         }
       } catch (err) {
         lastError = err;
