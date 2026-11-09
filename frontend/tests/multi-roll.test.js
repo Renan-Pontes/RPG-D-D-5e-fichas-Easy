@@ -1,43 +1,50 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newRow, rollRow, rowFormula, rowMods, duplicateRow } from '../src/dice/multi-roll.js';
+import { newRow, addBadge, removeOne, rollDice, evalRow, critExtra, duplicateRow, rowText } from '../src/dice/multi-roll.js';
 
-// gerador determinístico: devolve a sequência de valores de dado pedida
-const seqRand = (sides, vals) => { let i = 0; return () => (vals[i++ % vals.length] - 1) / sides + 1e-9; };
-
-const axe = newRow({ name: 'Axe', abil: 'str', pb: true, flat: 3, dice: [{ count: 1, die: 12, role: 'damage' }, { count: 1, die: 8, role: 'bonus' }] });
 const mods = { str: 3, dex: 2, pb: 2 };
+const build = (...bs) => bs.reduce((r, b) => addBadge(r, b), newRow());
+const fixed = (vals) => { let i = 0; return () => vals[i++]; }; // rand() → valor pronto
+const r01 = (v, sides) => (v - 1) / sides + 1e-9;
 
-test('vínculos: ataque soma atributo+BP+fixo; dano soma atributo+fixo', () => {
-  assert.deepEqual(rowMods(axe, mods), { atk: 8, dmg: 6 });
-  assert.equal(rowFormula(axe, mods), '1d20+8 +1d8 | 1d12+6');
-  assert.equal(rowFormula({ ...axe, adv: 'adv' }, mods), '2d20+8 +1d8 | 1d12+6');
+test('emblemas iguais empilham; o fixo soma; tirar um desempilha', () => {
+  let r = build({ kind: 'die', die: 6 }, { kind: 'die', die: 6 }, { kind: 'flat', value: 2 }, { kind: 'flat', value: 1 });
+  assert.equal(r.badges.length, 2);
+  assert.equal(r.badges[0].count, 2);
+  assert.equal(r.badges[1].value, 3);
+  r = removeOne(r, 0);
+  assert.equal(r.badges[0].count, 1);
+  assert.equal(rowText(build({ kind: 'die', die: 20 }, { kind: 'abil', abil: 'str' }, { kind: 'pb' }, { kind: 'die', die: 12, sign: -1 })), 'd20 +STR +PB −d12');
 });
 
-test('crítico dobra só os dados de dano (não o modificador nem o bônus)', () => {
-  // d20 = 20 → depois d8 bônus = 4 → depois 2× d12 = 5, 7
-  const vals = [20, 4, 5, 7];
-  let i = 0; const sidesOrder = [20, 8, 12, 12];
-  const rand = () => { const v = vals[i]; const s = sidesOrder[i]; i++; return (v - 1) / s + 1e-9; };
-  const r = rollRow(axe, mods, rand);
-  assert.equal(r.crit, true);
-  assert.equal(r.damage[0].rolls.length, 2);
-  assert.equal(r.bonus[0].rolls.length, 1);
-  assert.equal(r.atk, 20 + 8 + 4);
-  assert.equal(r.dmg, 5 + 7 + 6);
+test('linha com d20: teste = d20+mods; dano = outros dados + atributo + fixo (sem BP)', () => {
+  const axe = build({ kind: 'die', die: 20 }, { kind: 'abil', abil: 'str' }, { kind: 'pb' }, { kind: 'flat', value: 3 }, { kind: 'die', die: 12 });
+  const rolls = { 0: [14], 4: [9] };
+  const ev = evalRow(axe, mods, rolls);
+  assert.equal(ev.check, 14 + 3 + 2 + 3);
+  assert.equal(ev.damage, 9 + 3 + 3);
+  assert.equal(ev.crit, false);
 });
 
-test('vantagem mantém o maior, desvantagem o menor', () => {
-  const a = rollRow({ ...axe, adv: 'adv', dice: [] }, mods, seqRand(20, [5, 15]));
-  assert.equal(a.kept, 15);
-  const d = rollRow({ ...axe, adv: 'dis', dice: [] }, mods, seqRand(20, [5, 15]));
-  assert.equal(d.kept, 5);
-  assert.equal(d.dmg, null);
+test('20 natural: crítico; o dano soma os dados extras', () => {
+  const axe = build({ kind: 'die', die: 20 }, { kind: 'abil', abil: 'str' }, { kind: 'die', die: 12 });
+  const ev = evalRow(axe, mods, { 0: [20], 2: [5] }, { 2: [7] });
+  assert.equal(ev.crit, true);
+  assert.equal(ev.damage, 5 + 7 + 3);
+  assert.deepEqual(Object.keys(critExtra(axe, () => 0)), ['2']);
 });
 
-test('duplicar cria outra linha independente', () => {
-  const c = duplicateRow(axe);
-  assert.notEqual(c.id, axe.id);
-  c.dice[0].count = 3;
-  assert.equal(axe.dice[0].count, 1);
+test('vantagem rola 2 d20 e mantém o maior; desvantagem o menor', () => {
+  const row = { ...build({ kind: 'die', die: 20 }), adv: 'adv' };
+  const rolls = rollDice(row, fixed([r01(5, 20), r01(15, 20)]));
+  assert.equal(rolls[0].length, 2);
+  assert.equal(evalRow(row, mods, rolls).check, 15);
+  assert.equal(evalRow({ ...row, adv: 'dis' }, mods, rolls).check, 5);
+});
+
+test('sem d20 é uma soma só; subtrair funciona', () => {
+  const r = build({ kind: 'die', die: 6 }, { kind: 'die', die: 4, sign: -1 }, { kind: 'abil', abil: 'dex' });
+  assert.equal(evalRow(r, mods, { 0: [6], 1: [3] }).total, 6 - 3 + 2);
+  const c = duplicateRow(r); c.badges[0].count = 9;
+  assert.equal(r.badges[0].count, 1);
 });

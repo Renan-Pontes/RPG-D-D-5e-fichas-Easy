@@ -148,6 +148,13 @@ const renderTopHudBanner = (overlay, lang) => {
 const DiceRoller = ({ lang }) => {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState(() => { try { return localStorage.getItem('fh-dice-mode') || 'quick'; } catch { return 'quick'; } });
+  // Rolagem múltipla: tela cheia e página travada, para os gestos não rolarem o fundo
+  useEffect(() => {
+    const on = open && mode === 'multi';
+    document.documentElement.classList.toggle('dice-lock', on);
+    document.body.classList.toggle('dice-lock', on);
+    return () => { document.documentElement.classList.remove('dice-lock'); document.body.classList.remove('dice-lock'); };
+  }, [open, mode]);
   const pickMode = (m) => { setMode(m); try { localStorage.setItem('fh-dice-mode', m); } catch { /* sem armazenamento */ } };
   const [count, setCount] = useState(1);
   const [mod, setMod] = useState(0);
@@ -528,7 +535,7 @@ const DiceRoller = ({ lang }) => {
       {open && (
         <section
           ref={sheetRef}
-          className={`dice-sheet no-print ${table || sheetMode ? 'has-table' : ''}`}
+          className={`dice-sheet no-print ${table || sheetMode ? 'has-table' : ''}${mode === 'multi' ? ' is-full' : ''}`}
           role="dialog"
           aria-modal="false"
           aria-label={t('rollDice', lang)}
