@@ -2970,7 +2970,7 @@ const BeltQuickSlot = ({
       )}
 
       <article
-        className={`fh-belt-slot${isActive ? ' is-active' : ''}${isDragTarget ? ' is-drag-target' : ''}${isBound ? ` is-bound tone-${slot.bound}` : ''}${isD20 ? ` adv-${advMode}` : ''}${isCharging ? ' is-charging-roll' : ''}`}
+        className={`fh-belt-slot${pbActive ? ' has-pb' : ''}${isActive ? ' is-active' : ''}${isDragTarget ? ' is-drag-target' : ''}${isBound ? ` is-bound tone-${slot.bound}` : ''}${isD20 ? ` adv-${advMode}` : ''}${isCharging ? ' is-charging-roll' : ''}`}
         data-quick-slot-index={index}
         onPointerDown={onDown}
         onPointerUp={onUp}
@@ -3209,7 +3209,7 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
   };
 
   return (
-    <div className={`fh-belt${pbActive ? ' is-pb-active' : ''}`} data-fab-pass="">
+    <div className="fh-belt" data-fab-pass="">
       {dragLink && typeof document !== 'undefined' && createPortal(
         (() => {
           // Query the live spherical head badge so (cx, cy, r) is 100% physically locked with 0 offset
