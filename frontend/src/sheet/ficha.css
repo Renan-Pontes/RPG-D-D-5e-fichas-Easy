@@ -6132,3 +6132,40 @@
 .ficha .fh-hero-rest .row { flex-direction: row !important; flex-wrap: nowrap !important; }
 .ficha .fh-spell-stat-lbl { overflow-wrap: normal; word-break: normal; }
 .ficha .fh-hero-rest .btn { flex-direction: row !important; white-space: nowrap; }
+
+/* ── Linha fechada da magia: escola (componentes) · duração · alcance · salvaguarda/ataque ── */
+.ficha .fh-spell-meta { flex-wrap: wrap; row-gap: 3px; }
+.ficha .fh-spell-badge {
+  display: inline-flex; align-items: center; padding: 0 6px; height: 18px; border-radius: 3px;
+  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap;
+}
+.ficha .fh-spell-badge.is-save { color: #f5d78e; border: 1px solid rgba(237, 203, 122, 0.5); background: rgba(237, 203, 122, 0.08); }
+.ficha .fh-spell-badge.is-atk { color: #fca5a5; border: 1px solid rgba(248, 113, 113, 0.5); background: rgba(248, 113, 113, 0.08); }
+.ficha .fh-spell-desc p { margin: 0 0 0.6em; line-height: 1.55; }
+.ficha .fh-spell-desc p:last-child { margin-bottom: 0; }
+
+/* ── Seletor de círculo em 9 seções ── */
+.ficha .fh-slot-slider { display: flex; flex-direction: column; gap: 6px; flex: 1 1 260px; min-width: 0; }
+.ficha .fh-ss-track { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 3px; }
+.ficha .fh-ss-seg {
+  height: 30px; padding: 0; border-radius: 3px; cursor: pointer;
+  border: 1px solid rgba(159, 176, 240, 0.4); background: rgba(93, 107, 224, 0.12);
+  color: #c9d4ff; font-weight: 700; font-variant-numeric: tabular-nums;
+  transition: background .15s, border-color .15s, color .15s, transform .1s;
+}
+.ficha .fh-ss-seg.is-up { border-color: rgba(159, 176, 240, 0.6); }
+.ficha .fh-ss-seg.is-on {
+  background: linear-gradient(180deg, #9fb0f0, #5d6be0); border-color: #e4e9ff; color: #0e0a07;
+  box-shadow: 0 0 10px rgba(159, 176, 240, 0.7);
+}
+.ficha .fh-ss-seg.is-out { opacity: 0.22; cursor: not-allowed; background: transparent; border-style: dashed; }
+.ficha .fh-ss-seg.is-none { opacity: 0.45; cursor: not-allowed; text-decoration: line-through; }
+@media (hover: hover) { .ficha .fh-ss-seg:not(:disabled):not(.is-on):hover { background: rgba(93, 107, 224, 0.3); } }
+.ficha .fh-ss-seg:focus-visible { outline: 2px solid var(--fh-gold-hi, #f5d78e); outline-offset: 2px; }
+.ficha .fh-ss-hint { font-size: 0.82rem; color: var(--ink, #e8dcc0); }
+.ficha .fh-ss-hint .fh-ss-up { color: #c9d4ff; text-shadow: 0 0 6px rgba(159, 176, 240, 0.6); }
+.ficha .fh-spell-acts { flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.ficha .fh-spell .spell-meta > span.fh-spell-badge::before { content: none !important; }
+.ficha .fh-spell .spell-meta > .fh-spell-badge { margin-left: 8px; }
+.ficha .fh-spell-stat-card-pair { align-items: stretch; }
+.ficha .fh-spell-stat-card { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 74px; }

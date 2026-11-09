@@ -25,6 +25,8 @@ import FhTitle from '../src/sheet/FhTitle.jsx';
 import FhMedal, { FhMedalDefs } from '../src/sheet/FhMedal.jsx';
 import FhFeatures from '../src/sheet/FhFeatures.jsx';
 import { DiceText } from '../src/dice/dice-text.jsx';
+import { useSpellText, spellMechanics, scaledDice, higherLevelText } from '../src/sheet/spell-text.js';
+import SPELL_TAGS from '../data/spell-tags.json';
 import { slotCircleLabel, gemLabel, lockedSlotTitle, slotSpent, slotTap, slotTapTitle } from '../src/sheet/gem-text.js';
 
 // Siglas das moedas (PHB em pt: peça de cobre/prata/electro/ouro/platina).
@@ -228,16 +230,17 @@ const UnifiedSpellsHUD = ({ char, lang, update, slots, casters, spellAb: propSpe
       <div className="fh-spells-hud-top">
         <div className="fh-spell-stats-cards">
           {groups.map(g => {
-            const classPrefix = (groups.length > 1 || g.classes.length > 1) && g.classes[0] ? `${g.classes.map(cn => tName('class', cn, lang)).join('/')}: ` : '';
+            // Só CD e ataque; o atributo aparece apenas quando há dois pares para distinguir.
+            const abTag = groups.length > 1 ? ` (${g.abilSh})` : '';
             return (
               <div key={g.ability} className="fh-spell-stat-card-pair">
                 <div className="fh-spell-stat-card card-dc" title={pt ? `Classe de Dificuldade de Magia (${g.abilSh})` : `Spell Save DC (${g.abilSh})`}>
                   <span className="fh-spell-stat-val">{g.dc}</span>
-                  <span className="fh-spell-stat-lbl">{classPrefix}{t('spellSaveDc', lang)} ({g.abilSh})</span>
+                  <span className="fh-spell-stat-lbl">{t('spellSaveDc', lang)}{abTag}</span>
                 </div>
                 <div className="fh-spell-stat-card card-atk" title={pt ? `Bônus de Ataque Mágico (${g.abilSh})` : `Spell Attack Bonus (${g.abilSh})`}>
                   <span className="fh-spell-stat-val">{Utils.fmtMod(g.atk)}</span>
-                  <span className="fh-spell-stat-lbl">{classPrefix}{t('spellAttack', lang)} ({g.abilSh})</span>
+                  <span className="fh-spell-stat-lbl">{t('spellAttack', lang)}{abTag}</span>
                 </div>
               </div>
             );
@@ -1058,6 +1061,46 @@ const SlotGems = ({ lang, lvl, max, used }) => {
   );
 };
 
+// Seletor de círculo em 9 seções: abaixo do círculo da magia e acima do maior espaço
+// livre ficam apagados; círculos sem espaço livre no meio, travados. Mostra como a
+// magia escala (dados) no círculo escolhido, ou a regra do texto quando não são dados.
+const SlotSlider = ({ lang, spellLevel, slots, char, value, onChange, spellId, text }) => {
+  const pt = lang === 'pt';
+  const free = (i) => ((slots || [])[i] || 0) - ((char.spellSlotsUsed || [])[i] || 0);
+  const maxFree = [...Array(9).keys()].reverse().find(i => free(i) > 0);
+  const top = maxFree == null ? 0 : maxFree + 1;
+  const sc = scaledDice(spellId, spellLevel, value);
+  const rule = higherLevelText(text);
+  return (
+    <div className="fh-slot-slider">
+      <div className="fh-ss-track" role="radiogroup" aria-label={pt ? 'Círculo do espaço' : 'Slot level'}>
+        {Array.from({ length: 9 }, (_, i) => {
+          const lvl = i + 1;
+          const out = lvl < spellLevel || lvl > top;
+          const none = !out && free(i) <= 0;
+          const on = lvl === value && !out && !none;
+          return (
+            <button key={lvl} type="button" role="radio" aria-checked={on} disabled={out || none}
+              className={`fh-ss-seg${out ? ' is-out' : ''}${none ? ' is-none' : ''}${on ? ' is-on' : ''}${lvl > spellLevel && !out ? ' is-up' : ''}`}
+              title={out ? (lvl < spellLevel ? (pt ? 'Abaixo do círculo da magia' : 'Below the spell level') : (pt ? 'Sem espaço deste círculo' : 'No slot this high'))
+                : none ? (pt ? 'Espaços deste círculo gastos' : 'Slots of this level spent')
+                  : `${slotCircleLabel(lvl, lang)} · ${free(i)}/${(slots || [])[i]}`}
+              onClick={() => onChange(lvl)}>
+              {lvl}
+            </button>
+          );
+        })}
+      </div>
+      {value > spellLevel && (sc?.plus || rule) && (
+        <div className="fh-ss-hint">
+          ↑ {slotCircleLabel(value, lang)}: {sc?.at ? <><b>{sc.base}</b> → <b className="fh-ss-up">{sc.at}</b></> : sc?.plus ? <b className="fh-ss-up">{sc.plus}</b> : <span>{rule}</span>}
+        </div>
+      )}
+      {value === spellLevel && sc?.base && <div className="fh-ss-hint muted">{sc.base}{rule ? ` · ${pt ? 'sobe por círculo' : 'scales per level'}` : ''}</div>}
+    </div>
+  );
+};
+
 const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char, slots, update, spellAtk, roll, preparedDisabled, preparedIcon, tag = null }) => {
   const [open, setOpen] = useState(false);
   const [casting, setCasting] = useState(false);
@@ -1069,6 +1112,14 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
   const pt = lang === 'pt';
   const name = tName('spellName', sp.id, lang);
   const meta = Utils.spellMeta(sp, lang);
+  // Linha fechada: escola (componentes sem o material), duração, alcance e salvaguarda/ataque.
+  const comps = String(meta.components || sp.components || '').replace(/\s*\([^)]*\)/g, '').trim();
+  const mech = spellMechanics(sp.id);
+  const tags = (sp.rulesVersion === '2024' || !SPELL_TAGS.legacy?.[sp.id]) ? SPELL_TAGS.spells?.[sp.id] : SPELL_TAGS.legacy[sp.id];
+  const saveAb = mech?.save || (tags?.save ? null : undefined); // null = salvaguarda sem atributo conhecido
+  const isAtk = !!(mech?.atk || (!mech && tags?.atk));
+  const dc = spellAtk != null ? 8 + spellAtk : null;
+  const fullText = useSpellText(sp.id, open);
 
   // Slot selecionado pra conjurar (default: nível mínimo possível = nível da magia)
   const available = (slots || []).map((max, i) => {
@@ -1137,12 +1188,20 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
               {name}
               {tag}
             </span>
-            <span className="spell-meta">
-              <span>{tName('school', sp.school, lang)}</span>
-              <span>{meta.castingTime}</span>
+            <span className="spell-meta fh-spell-meta">
+              <span className="fh-sm-school">{tName('school', sp.school, lang)}{comps ? ` (${comps})` : ''}</span>
+              <span>{meta.duration}</span>
               <span>{meta.range}</span>
               {sp.concentration && <span className="fh-mark is-c" title={pt ? 'Concentração' : 'Concentration'}>C</span>}
               {sp.ritual && <span className="fh-mark is-r" title="Ritual">R</span>}
+              {saveAb !== undefined && dc != null && (
+                <span className="fh-spell-badge is-save" title={pt ? 'Salvaguarda do alvo contra a sua CD' : 'Target saving throw vs your DC'}>
+                  {saveAb ? `${t(saveAb + 'Sh', lang) || saveAb.toUpperCase()} ` : (pt ? 'Salv. ' : 'Save ')}{pt ? 'CD' : 'DC'} {dc}
+                </span>
+              )}
+              {isAtk && spellAtk != null && (
+                <span className="fh-spell-badge is-atk" title={pt ? 'Ataque mágico' : 'Spell attack'}>{pt ? 'Atq' : 'Atk'} {Utils.fmtMod(spellAtk)}</span>
+              )}
             </span>
           </span>
           <span className="fh-lvl">{isCantrip ? (pt ? 'Truque' : 'Cantrip') : slotCircleLabel(sp.level, lang)}</span>
@@ -1160,27 +1219,17 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
         <div className="spell-row-body fh-spell-body" id={bodyId}>
           <div className="fh-spell-facts">
             <span className="fh-chipline"><span className="fh-chipline-k">{t('components', lang)}:</span> {meta.components}</span>
+            <span className="fh-chipline"><span className="fh-chipline-k">{pt ? 'Conjuração' : 'Casting time'}:</span> {meta.castingTime}</span>
             <span className={`fh-chipline${sp.concentration ? ' conc' : ''}`}><span className="fh-chipline-k">{t('duration', lang)}:</span> {meta.duration}</span>
           </div>
-          <div className="fh-spell-desc"><DiceText text={sp.desc[lang]} lang={lang} /></div>
+          <div className="fh-spell-desc">
+            {(fullText?.[lang] || fullText?.en || sp.desc[lang]).split(/\n+/).map((para, i) => <p key={i}><DiceText text={para} lang={lang} /></p>)}
+          </div>
           {error && <div className="fh-spell-error">{error}</div>}
           <div className="fh-spell-acts">
-            {!isCantrip && available.length > 0 && (
-              <label className="fh-spell-slot">
-                <span className="fh-spell-slot-k">Slot:</span>
-                <select
-                  value={effectiveSlot}
-                  onChange={e => setChosenSlot(parseInt(e.target.value))}
-                  className="input"
-                  onClick={e => e.stopPropagation()}
-                >
-                  {available.map(x => (
-                    <option key={x.level} value={x.level}>
-                      {slotCircleLabel(x.level, lang)} ({x.free}/{x.max}){x.level > sp.level ? ' ↑' : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            {!isCantrip && (
+              <SlotSlider lang={lang} spellLevel={sp.level} slots={slots} char={char} value={effectiveSlot}
+                onChange={setChosenSlot} spellId={sp.id} text={fullText?.[lang] || fullText?.en || ''} />
             )}
             <button
               className="btn btn-sm btn-primary fh-spell-cast"

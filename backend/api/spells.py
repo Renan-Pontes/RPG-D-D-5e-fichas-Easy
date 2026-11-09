@@ -230,4 +230,14 @@ def short_rest(character_data):
     # aos demais, então nada é zerado automaticamente.
     if (next_data.get('className') or '').lower() == 'warlock' and not is_multiclass(next_data):
         next_data['spellSlotsUsed'] = [0] * 9
+    else:
+        # Multiclasse com Pacto: os espaços do Pacto estão somados aos do mesmo círculo
+        # e o gasto conta primeiro neles (ficha: SlotMatrix) — o descanso curto devolve
+        # até a quantidade do Pacto em cada círculo.
+        wl = class_level(next_data, 'warlock')
+        if wl:
+            pact = spell_slots_max('warlock', wl)
+            used = list(next_data.get('spellSlotsUsed') or [])
+            used += [0] * (9 - len(used))
+            next_data['spellSlotsUsed'] = [max(0, int(used[i] or 0) - int(pact[i] or 0)) for i in range(9)]
     return next_data

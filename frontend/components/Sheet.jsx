@@ -277,9 +277,8 @@ const SheetHero = ({
             <RestButtons char={char} lang={lang} update={update} />
           </div>
           <div className="fh-hero-tools">
-            <button ref={exportBtnRef} type="button" className="fh-hero-chip is-icon" aria-haspopup="dialog"
-              aria-label={t('export', lang)} title={t('export', lang)} onClick={() => setExportOpen(true)}>
-              <Icon name="download" size={17} aria-hidden="true"/>
+            <button type="button" className={`fh-hero-chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
+              <span aria-hidden="true">🎲</span> {lang === 'pt' ? 'Trapaça' : 'Cheat'}
             </button>
             {!char.inCampaign ? (
               <button type="button" className="fh-hero-chip is-icon" aria-label={t('edit', lang)} title={t('edit', lang)} onClick={onEdit}>
@@ -292,8 +291,9 @@ const SheetHero = ({
                 <Icon name="edit" size={17} aria-hidden="true"/><span className="fh-chip-lock" aria-hidden="true">🔒</span>
               </span>
             )}
-            <button type="button" className={`fh-hero-chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
-              <span aria-hidden="true">🎲</span> {lang === 'pt' ? 'Trapaça' : 'Cheat'}
+            <button ref={exportBtnRef} type="button" className="fh-hero-chip is-icon" aria-haspopup="dialog"
+              aria-label={t('export', lang)} title={t('export', lang)} onClick={() => setExportOpen(true)}>
+              <Icon name="download" size={17} aria-hidden="true"/>
             </button>
           </div>
         </div>

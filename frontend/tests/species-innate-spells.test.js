@@ -133,7 +133,7 @@ test('raças de 2014 com magia por nível, atributo fixo ou à escolha', () => {
   assert.deepEqual([...yt.cantrips, ...yt.spells].sort(), ['animalFriendship', 'poisonSpray', 'suggestion']);
   assert.equal(yt.spellUses.animalFriendship, 'atWill');
   // MPMM/VRGR: atributo à escolha (pendente até escolher).
-  assert.deepEqual(speciesChoiceIssues({ rulesVersion: '2014', race: 'githyanki', level: 1 }).map(i => i.key), ['spellAbility']);
+  assert.deepEqual(speciesChoiceIssues({ rulesVersion: '2014', race: 'githyanki', level: 1 }).map(i => i.key).sort(), ['skill', 'spellAbility']);
   assert.deepEqual(ids('2014', 'githyanki', 5, { spellAbility: 'int' }), ['jump', 'mageHand', 'mistyStep']);
   assert.deepEqual(ids('2014', 'hexblood', 1, { spellAbility: 'cha' }), ['disguiseSelf', 'hex']);
   assert.deepEqual(ids('2014', 'duergar', 2), []);

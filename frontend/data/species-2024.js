@@ -268,6 +268,81 @@ export const SPECIES_2014_CHOICES = {
 };
 
 /**
+ * Suplementos (MPMM, VRGR, ERLW, GGR, AAG, MOoT…) e raças do PHB 2014 sem efeitos
+ * mecânicos registrados: visão no escuro, resistências, perícias (fixas ou à escolha),
+ * ferramentas e deslocamento. Mesclado em SPECIES_2014_CHOICES sem apagar o que já existe
+ * (listas unidas, visão no escuro pela maior, escolhas acrescentadas).
+ */
+const ALL_SKILLS = ['acrobatics', 'animalHandling', 'arcana', 'athletics', 'deception', 'history', 'insight', 'intimidation',
+  'investigation', 'medicine', 'nature', 'perception', 'performance', 'persuasion', 'religion', 'sleightOfHand', 'stealth', 'survival'];
+const SKILL_PICK = (from, count = 1, pt = 'Perícia da espécie', en = 'Species skill') => ({ key: 'skill', label: b(pt, en), from, count });
+export const SPECIES_SUPPLEMENTS = {
+  'dwarf-hill': { darkvision: 60, resist: ['poison'] },
+  'dwarf-mountain': { darkvision: 60, resist: ['poison'] },
+  'dwarf-mark-warding': { resist: ['poison'] },
+  'gnome-rock': { darkvision: 60 },
+  'half-orc': { darkvision: 60, skills: ['intimidation'] },
+  'halfling-stout': { resist: ['poison'] },
+  bugbear: { darkvision: 60, skills: ['stealth'] },
+  centaur: { speed: 40, choices: [SKILL_PICK(['animalHandling', 'medicine', 'nature', 'survival'])] },
+  changeling: { choices: [SKILL_PICK(['deception', 'insight', 'intimidation', 'performance', 'persuasion'], 2, 'Instintos de Metamorfo', 'Changeling Instincts')] },
+  goblin: { darkvision: 60 },
+  hobgoblin: { darkvision: 60 },
+  harengon: { skills: ['perception'] },
+  kenku: { choices: [SKILL_PICK(['acrobatics', 'deception', 'stealth', 'sleightOfHand'], 2, 'Treinamento Kenku', 'Kenku Recall')] },
+  kobold: { darkvision: 60 },
+  leonin: { darkvision: 60, speed: 35, choices: [SKILL_PICK(['athletics', 'intimidation', 'perception', 'survival'])] },
+  lizardfolk: { choices: [SKILL_PICK(['animalHandling', 'medicine', 'nature', 'perception', 'stealth', 'survival'], 2, 'Intuição do Caçador', "Hunter's Lore")] },
+  minotaur: { choices: [SKILL_PICK(['intimidation', 'persuasion'])] },
+  satyr: { speed: 35, skills: ['performance', 'persuasion'] },
+  tabaxi: { darkvision: 60, skills: ['perception', 'stealth'] },
+  tortle: { choices: [SKILL_PICK(['animalHandling', 'medicine', 'nature', 'perception', 'stealth', 'survival'], 1, 'Intuição da Natureza', "Nature's Intuition")] },
+  warforged: { resist: ['poison'], choices: [SKILL_PICK(ALL_SKILLS)] },
+  eladrin: { darkvision: 60, skills: ['perception'] },
+  'sea-elf': { darkvision: 60, resist: ['cold'], skills: ['perception'] },
+  'shadar-kai': { darkvision: 60, resist: ['necrotic'], skills: ['perception'] },
+  'astral-elf': { darkvision: 60, skills: ['perception'] },
+  'deep-gnome': { darkvision: 120 },
+  duergar: { darkvision: 120, resist: ['poison'] },
+  githyanki: { resist: ['psychic'], choices: [SKILL_PICK(ALL_SKILLS, 1, 'Conhecimento Astral', 'Astral Knowledge')] },
+  githzerai: { resist: ['psychic'] },
+  kalashtar: { resist: ['psychic'] },
+  kender: { choices: [SKILL_PICK(['insight', 'investigation', 'sleightOfHand', 'stealth', 'survival'], 1, 'Curiosidade Kender', 'Kender Curiosity')] },
+  locathah: { skills: ['athletics', 'perception'] },
+  owlin: { darkvision: 120, skills: ['stealth'] },
+  plasmoid: { darkvision: 60, resist: ['acid', 'poison'] },
+  shifter: { darkvision: 60, choices: [SKILL_PICK(['acrobatics', 'athletics', 'intimidation', 'survival'], 1, 'Instintos Bestiais', 'Bestial Instincts')] },
+  'simic-hybrid': { darkvision: 60 },
+  'thri-kreen': { darkvision: 60 },
+  verdan: { skills: ['persuasion'] },
+  grung: { skills: ['perception'], resist: ['poison'] },
+  dhampir: { darkvision: 60, choices: [SKILL_PICK(ALL_SKILLS, 2, 'Legado Ancestral', 'Ancestral Legacy')] },
+  hexblood: { darkvision: 60 },
+  reborn: { resist: ['poison'] },
+  'yuan-ti': { darkvision: 60, resist: ['poison'] },
+  'genasi-fire': { darkvision: 60, resist: ['fire'] },
+  'genasi-water': { resist: ['acid'] },
+  vedalken: { choices: [SKILL_PICK(['arcana', 'history', 'investigation', 'medicine', 'performance', 'sleightOfHand'], 1, 'Precisão Incansável', 'Tireless Precision')] },
+  aarakocra: {},
+  fairy: {},
+};
+
+function mergeSpecies(base = {}, add = {}) {
+  const out = { ...base };
+  if (add.darkvision) out.darkvision = Math.max(base.darkvision || 0, add.darkvision);
+  if (add.speed && !base.speed) out.speed = add.speed;
+  for (const k of ['skills', 'resist', 'tools']) if (add[k]?.length) out[k] = [...new Set([...(base[k] || []), ...add[k]])];
+  if (add.choices?.length) {
+    const have = new Set((base.choices || []).map(c => c.key));
+    out.choices = [...(base.choices || []), ...add.choices.filter(c => !have.has(c.key))];
+  }
+  return out;
+}
+for (const [id, add] of Object.entries(SPECIES_SUPPLEMENTS)) {
+  SPECIES_2014_CHOICES[id] = mergeSpecies(SPECIES_2014_CHOICES[id], add);
+}
+
+/**
  * Raça 2014 numa ficha 2024 usa o catálogo de magias 2024: ids 2014 que lá têm
  * outro nome são trocados (speciesGrants e o espelho do servidor, via catalog.json).
  */
