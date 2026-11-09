@@ -74,6 +74,15 @@ export default function DieShape({
   useEffect(() => {
     const el = dieRef.current;
     const stageWrap = isHero && el ? el.closest('.dice-hero-stage-wrap, .dice-flower-stage') : null;
+    // Na rolagem múltipla não mexemos em variáveis do body (invalidaria o estilo da página
+    // inteira a cada quadro): a vinheta é um elemento próprio, animado só com transform/opacity.
+    const vignette = drivesBody && el ? el.closest('.mr2')?.querySelector('.mr2-vignette') : null;
+    const useBody = drivesBody && !vignette;
+    const setVignette = (dark, open) => {
+      if (!vignette) return;
+      vignette.style.opacity = (0.35 + 0.65 * dark).toFixed(3);
+      vignette.style.transform = `translate(-50%, -50%) scale(${(0.73 + 0.87 * open).toFixed(3)})`;
+    };
 
     const applyAnticipationVars = (profile, localP = 0) => {
       if (!el) return;
@@ -92,8 +101,9 @@ export default function DieShape({
       el.style.setProperty('--sparks-emit', `${profile.sparksEmit || 0}`);
       el.style.setProperty('--sparks-blown', '0');
       el.style.setProperty('--sparks-opacity', `${profile.sparksEmit || 0}`);
+      if (vignette) { const q = localP || 0; setVignette(Math.pow(q, 1.8), 1 - Math.pow(q, 1.4)); }
 
-      if (drivesBody && typeof document !== 'undefined' && document.body) {
+      if (useBody && typeof document !== 'undefined' && document.body) {
         const p = localP != null ? localP : 0;
         const bgStrength = Math.pow(p, 2.4);
         const bgPhase = 2 * Math.PI * 0.75 * (3.5 * p + 4.5 * Math.pow(p, 2));
@@ -131,7 +141,7 @@ export default function DieShape({
       el.style.setProperty('--num-blur', '0px');
       el.style.setProperty('--num-trail', '0px');
       el.style.setProperty('--num-stretch', '1');
-      if (drivesBody && typeof document !== 'undefined' && document.body) {
+      if (useBody && typeof document !== 'undefined' && document.body) {
         document.body.classList.remove('dice-rolling-shake');
         document.body.style.removeProperty('--bg-shake-x');
         document.body.style.removeProperty('--bg-shake-y');
@@ -152,7 +162,8 @@ export default function DieShape({
       if (stageWrap) {
         stageWrap.style.setProperty('--falloff-roll-scale', `${falloffProfile.rollScale}`);
       }
-      if (drivesBody && typeof document !== 'undefined' && document.body) {
+      if (vignette) { const r = Math.pow(1 - Math.min(1, Math.max(0, falloffP)), 2); setVignette(r, 1 - r); }
+      if (useBody && typeof document !== 'undefined' && document.body) {
         // As the unravelling ripples expand outward, the blackout smoothly recedes
         // and the focal vignette returns to its normal open backdrop variables
         const p = Math.min(1, Math.max(0, falloffP));
@@ -178,7 +189,7 @@ export default function DieShape({
       if (stageWrap) {
         stageWrap.style.setProperty('--falloff-roll-scale', '1');
       }
-      if (drivesBody && typeof document !== 'undefined' && document.body) {
+      if (useBody && typeof document !== 'undefined' && document.body) {
         document.body.style.removeProperty('--overlay-blackout');
         document.body.style.removeProperty('--overlay-tunnel-inner');
         document.body.style.removeProperty('--overlay-tunnel-outer');
@@ -339,7 +350,7 @@ export default function DieShape({
     return () => {
       if (animId) cancelAnimationFrame(animId);
       clearTimeout(pulseTimer);
-      if (drivesBody && typeof document !== 'undefined' && document.body) {
+      if (useBody && typeof document !== 'undefined' && document.body) {
         document.body.classList.remove('dice-rolling-shake');
         document.body.style.removeProperty('--bg-shake-x');
         document.body.style.removeProperty('--bg-shake-y');

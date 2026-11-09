@@ -102,11 +102,14 @@ export default function MultiRoll({ lang }) {
   const drag = useRef(null);
   // escala: as linhas crescem para ocupar a tela (altura e largura disponíveis)
   const rowsRef = useRef(null);
+  const rollingRef = useRef(false);
   const [scale, setScale] = useState(1);
   useEffect(() => {
     const el = rowsRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return undefined;
     const fit = () => {
+      // durante a rolagem a escala fica congelada: mudar o zoom no meio relayouta tudo e engasga
+      if (rollingRef.current) return;
       const shown = focus ? rows.filter(r => focusIds.has(r.id)) : rows;
       const n = Math.max(1, shown.length);
       const H = el.clientHeight - (focus ? 0 : 44) - n * 8;              // menos o "+ nova linha" e os vãos
@@ -140,7 +143,7 @@ export default function MultiRoll({ lang }) {
   useEffect(() => {
     if (!focus || !allDone) return undefined;
     const dramatic = Object.values(play).some(p => { try { const ev = evalRow(p.snap, mods, p.rolls); return ev.crit || ev.fumble; } catch { return false; } });
-    const t = setTimeout(() => setFocus(false), dramatic ? HOLD_CRIT_MS : HOLD_MS); // o mesmo tempo do overlay
+    const t = setTimeout(() => { rollingRef.current = false; setFocus(false); }, dramatic ? HOLD_CRIT_MS : HOLD_MS); // o mesmo tempo do overlay
     return () => clearTimeout(t);
   }, [focus, allDone]);
 
@@ -271,7 +274,7 @@ export default function MultiRoll({ lang }) {
     setFocusIds(new Set(list));
     setFocus(true);
     setPlay({});
-    timers.current.push(setTimeout(() => setPlay({ ...next }), PREP_MS));
+    timers.current.push(setTimeout(() => { rollingRef.current = true; setPlay({ ...next }); }, PREP_MS));
     timers.current.push(setTimeout(() => {
       let anyCrit = false;
       const after = {};
@@ -419,6 +422,7 @@ export default function MultiRoll({ lang }) {
 
   return (
     <div className={`mr2${focus ? ' is-focus' : ''}`} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={finish}>
+      <div className="mr2-vignette" aria-hidden="true" />
       <div className="mr2-rows" ref={rowsRef} style={{ '--mr-s': scale }}>
         {rows.map((row, ri) => {
           const pl = play[row.id];

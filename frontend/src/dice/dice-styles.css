@@ -1882,7 +1882,6 @@ html.dice-lock, body.dice-lock { overflow: hidden !important; overscroll-behavio
     linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--mr-tint) 30%, transparent) 30%, var(--mr-tint) 46%, rgba(255,255,255,.85) 50%, var(--mr-tint) 54%, color-mix(in srgb, var(--mr-tint) 30%, transparent) 70%, transparent 100%);
   -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 22%, #000 78%, transparent 100%);
   mask-image: linear-gradient(90deg, transparent 0%, #000 22%, #000 78%, transparent 100%);
-  filter: blur(1.2px);
 }
 .mr2.is-focus .mr2-row.is-adv { --mr-tint: rgba(74, 222, 128, .9); }
 .mr2.is-focus .mr2-row.is-dis { --mr-tint: rgba(248, 113, 113, .9); }
@@ -1893,13 +1892,13 @@ html.dice-lock, body.dice-lock { overflow: hidden !important; overscroll-behavio
   background-size: 160px 160px;
   -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 22%, #000 78%, transparent 100%);
   mask-image: linear-gradient(90deg, transparent 0%, #000 22%, #000 78%, transparent 100%);
-  mix-blend-mode: overlay;
+  will-change: opacity;
 }
 .mr2.is-focus .mr2-row.is-rolling.is-adv::after,
 .mr2.is-focus .mr2-row.is-rolling.is-dis::after { opacity: .9; animation: mr-noise-run .12s linear infinite; }
 .mr2.is-focus .mr2-row.is-settled.is-adv::after,
 .mr2.is-focus .mr2-row.is-settled.is-dis::after { animation: mr-noise-damp 1.05s cubic-bezier(.1,.8,.3,1) forwards; }
-@keyframes mr-noise-run { from { background-position: 0 0; } to { background-position: 0 -160px; } }
+@keyframes mr-noise-run { from { background-position: 0 0; } to { background-position: 0 -26px; } }
 @keyframes mr-noise-damp { 0% { opacity: .9; background-position: 0 0; } 100% { opacity: .15; background-position: 0 -40px; } }
 @media (prefers-reduced-motion: reduce) { .mr2.is-focus .mr2-row::after { animation: none !important; } }
 .mr-dshape.dice-stage-2d { min-height: 0; height: auto; display: inline-grid; place-items: center; }
@@ -1917,14 +1916,20 @@ html.dice-lock, body.dice-lock { overflow: hidden !important; overscroll-behavio
    a abertura focal fecha durante o roll-up, apaga no clímax e reabre com a onda. */
 .mr2.is-focus { position: relative; isolation: isolate; }
 .mr2.is-focus .mr2-rows { position: relative; z-index: 1; }
-.mr2.is-focus::after {
-  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  background: radial-gradient(circle at 50% 50%,
-    rgba(0,0,0,0) var(--overlay-tunnel-inner, 48%),
-    rgba(0,0,0,.92) var(--overlay-tunnel-outer, 88%),
-    #000 100%);
-  opacity: calc(.35 + .65 * var(--overlay-blackout, 0));
-  transition: opacity .2s linear;
+.mr2-vignette { display: none; }
+.mr2.is-focus .mr2-vignette {
+  /* buraco radial fixo; a abertura focal fecha com scale (compositor, sem repintura) */
+  display: block; position: fixed; left: 50%; top: 50%; width: 150vmax; height: 150vmax; z-index: 0;
+  pointer-events: none; border-radius: 50%; opacity: .35; transform: translate(-50%, -50%) scale(1.6);
+  background: radial-gradient(circle, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 17%, rgba(0,0,0,.92) 32%, #000 40%);
+  will-change: transform, opacity; contain: strict;
+}
+/* desempenho: só o necessário anima por quadro. Sem drop-shadow de raio variável (o mais caro),
+   brilho via filtro barato; cada dado vira sua própria camada. */
+.mr-dshape { contain: layout style; }
+.mr-dshape .die-shape { will-change: transform; }
+.dice-stage-2d.mr-dshape .die-shape.is-phase-rollup .die-main-svg {
+  filter: brightness(calc(1 + var(--charge-glow, 0) * 0.95)) blur(var(--die-blur, 0px)) !important;
 }
 /* clarão no clímax: um flash branco curto atrás do dado, junto com o soco e a onda */
 .mr-dshape:has(.die-shape.is-phase-pump-up, .die-shape.is-phase-pump-down, .die-shape.is-phase-snap-shake)::after {
@@ -1937,3 +1942,7 @@ html.dice-lock, body.dice-lock { overflow: hidden !important; overscroll-behavio
 /* o halo do herói (380 px) fica do tamanho do dado na linha */
 .mr-dshape .die-shape.is-hero::before { width: 230% !important; height: 230% !important; }
 @media (prefers-reduced-motion: reduce) { .mr-dshape::after { animation: none !important; opacity: 0 !important; } }
+/* A onda da rolagem múltipla sem drop-shadow: o filtro duplo era re-rasterizado a cada quadro
+   em cada dado (o maior custo medido). O brilho fica com o pulso radial e um traço mais largo. */
+.mr-dshape .die-falloff-ring { filter: none !important; }
+.mr-dshape .die-falloff-ring-poly { stroke-width: 4.6; stroke-opacity: .95; }
