@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import Utils from '../../utils.js';
 import { getActiveChar, subscribeActiveChar } from './active-char.js';
+import { FADEIN_DURATION_MS, ROLLUP_DURATION_MS } from './dice-rollup.js';
 import {
   ABILS, ADV_NEXT, DICE, addBadgeTo, coupleBadges, critExtra, dropOnBadge, dropTemps, duplicateRow,
   evalRow, evalUnits, modsFromChar, defaultRows, unitStatics, newRow, removeOne, rollDice, staticValue, toggleLock, uncouple,
@@ -21,7 +22,14 @@ const fmt = (n) => (n >= 0 ? `+${n}` : `−${Math.abs(n)}`);
 const KEY = (char) => `fh-multiroll4:${char?.id ?? 'global'}`;
 const load = (char) => { try { const v = JSON.parse(localStorage.getItem(KEY(char)) || 'null'); return Array.isArray(v) ? v : null; } catch { return null; } };
 const save = (char, rows) => { try { localStorage.setItem(KEY(char), JSON.stringify(rows)); } catch { /* sem armazenamento */ } };
-const SPIN_MS = 70, FIRST_LOCK = 420, STEP_LOCK = 300, ROW_STAGGER = 140;
+// Tempos do rolador principal (dice-rollup.js), 1:1: entrada, giro, soco e o tempo que o
+// resultado fica à vista antes de a interface voltar (o overlay some em 3,5 s; 5 s em 20/1).
+const SPIN_MS = 60;
+const FIRST_LOCK = ROLLUP_DURATION_MS;        // cada dado gira o mesmo tempo do roll-up
+const STEP_LOCK = 110;                         // vizinhos alcançam logo depois, como no rolador
+const ROW_STAGGER = 120;
+const PREP_MS = FADEIN_DURATION_MS;            // a interface sai e as linhas crescem
+const HOLD_MS = 3500, HOLD_CRIT_MS = 5000;     // resultado à vista antes de devolver a interface
 
 // Cores e ícones (sempre os mesmos em toda a ficha da rolagem)
 export const DIE_COLOR = { 4: '#f87171', 6: '#fb923c', 8: '#facc15', 10: '#4ade80', 12: '#38bdf8', 20: '#edcb7a', 100: '#f472b6' };
@@ -102,7 +110,7 @@ export default function MultiRoll({ lang }) {
       const n = Math.max(1, shown.length);
       const H = el.clientHeight - (focus ? 0 : 44) - n * 8;              // menos o "+ nova linha" e os vãos
       const perRow = H / n - (focus ? 6 : 30);                            // menos o cabeçalho da linha
-      const widest = Math.max(1, ...shown.map(r => (focus ? 8 : 40) + r.badges.reduce((w, b, i) => w + (focus && b.kind !== 'die' ? 0 : 50) + (!focus && b.group && r.badges[i - 1]?.group !== b.group ? 8 : 0), 0)));
+      const widest = Math.max(1, ...shown.map(r => (focus ? 8 : 40) + r.badges.reduce((w, b, i) => w + (focus ? (b.kind === 'die' ? 62 : 0) : 50) + (!focus && b.group && r.badges[i - 1]?.group !== b.group ? 8 : 0), 0)));
       const sH = perRow / 58;
       const sW = (el.clientWidth - 20) / widest;
       setScale(Math.max(0.8, Math.min(focus ? 5 : 2.4, Math.min(sH, sW))));
@@ -130,7 +138,8 @@ export default function MultiRoll({ lang }) {
   const allDone = Object.keys(play).length > 0 && Object.values(play).every(p => p.phase === 'done');
   useEffect(() => {
     if (!focus || !allDone) return undefined;
-    const t = setTimeout(() => setFocus(false), 1100);   // deixa ver o resultado grande e devolve a interface
+    const dramatic = Object.values(play).some(p => { try { const ev = evalRow(p.snap, mods, p.rolls); return ev.crit || ev.fumble; } catch { return false; } });
+    const t = setTimeout(() => setFocus(false), dramatic ? HOLD_CRIT_MS : HOLD_MS); // o mesmo tempo do overlay
     return () => clearTimeout(t);
   }, [focus, allDone]);
 
@@ -233,7 +242,7 @@ export default function MultiRoll({ lang }) {
     const ids = rows.filter(r => sel.has(r.id) && r.badges.length).map(r => r.id);
     const list = ids.length ? ids : (rows.find(r => r.id === activeId)?.badges.length ? [activeId] : []);
     const next = {};
-    const PREP = 420; // a interface termina de sair e as linhas crescem; só então os dados giram
+    const PREP = PREP_MS; // a interface termina de sair e as linhas crescem; só então os dados giram
     list.forEach((id, ri) => {
       const snap = rows.find(r => r.id === id);
       const rolls = rollDice(snap);
@@ -256,7 +265,7 @@ export default function MultiRoll({ lang }) {
               const doneNow = el.size === eo.length;
               if (doneNow) finishRow();
               return { ...q, [id]: { ...c, extraLocked: el, phase: doneNow ? 'done' : 'crit' } };
-            }), 700 + j * STEP_LOCK)));
+            }), ROLLUP_DURATION_MS + j * STEP_LOCK)));
             if (navigator.vibrate) navigator.vibrate([60, 40, 100]);
             return { ...p, [id]: { ...cur, locked, phase: 'crit', extra, extraLocked: new Set() } };
           }

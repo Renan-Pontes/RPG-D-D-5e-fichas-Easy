@@ -1857,3 +1857,12 @@ html.dice-lock, body.dice-lock { overflow: hidden !important; overscroll-behavio
 .mr2.is-focus .mr2-array { justify-content: center; }
 .mr2.is-focus .mr2-rows { gap: 10px; padding: 8px 4px; }
 .mr2-array { transition: zoom .35s cubic-bezier(.4,0,.2,1); }
+
+/* ── Rolagem em foco: cada linha continua uma linha (sem quebra), distribuídas na tela ── */
+.mr2.is-focus .mr2-rows { justify-content: space-evenly; }
+.mr2.is-focus .mr2-array { flex-wrap: nowrap; justify-content: center; align-items: center; }
+.mr2.is-focus .mr2-grp { flex-wrap: nowrap; }
+/* tempos 1:1 com o rolador principal: soco 220 ms, onda 1050 ms */
+.mr-b.is-locked { animation: mr-punch .22s cubic-bezier(.18,1.8,.4,1); }
+.mr-b.is-locked::after { animation: mr-ripple 1.05s ease-out forwards; }
+.mr-b.is-spin { animation-duration: .75s; }
