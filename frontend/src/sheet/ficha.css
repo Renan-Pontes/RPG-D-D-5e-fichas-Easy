@@ -6309,3 +6309,14 @@
 .ficha .fh-honey-half.is-charging-roll { animation: fh-half-charge .5s ease-in-out infinite alternate; }
 .ficha .fh-honey-half.is-charging-roll .fh-honey-val { transform: scale(1.12); transition: transform .15s; }
 @keyframes fh-half-charge { from { box-shadow: inset 0 0 0 2px rgba(237,203,122,.5); } to { box-shadow: inset 0 0 0 2px #edcb7a, inset 0 0 14px rgba(237,203,122,.55); } }
+
+/* Cunhas de carga I/II: o mesmo desenho da cunha de BP, invertido nos vãos de baixo */
+.ficha .fh-belt-pb-wedge.is-loadout {
+  top: auto; bottom: 0;
+  clip-path: polygon(calc(var(--belt-gap) * 2) 100%, calc(100% - var(--belt-gap) * 2) 100%, 50% calc(var(--belt-gap) * 1.155));
+}
+.ficha .fh-belt-pb-wedge.is-loadout svg { top: auto; bottom: 0; }
+.ficha .fh-belt-pb-wedge.is-loadout span {
+  top: auto; bottom: calc((100% - var(--belt-gap) * 1.155) * 0.323); transform: translate(-50%, 50%);
+  font-family: 'Cinzel', var(--fh-display, serif); letter-spacing: .04em; padding-left: 0;
+}

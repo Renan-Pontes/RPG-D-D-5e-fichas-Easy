@@ -3148,12 +3148,31 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
 
   // 4 hexágonos de dado no meio do cinto; os dois centrais são d20 com FOR e DES já atribuídos
   // e o BP ligado — cada um tem a sua cunha de BP no vão acima dele.
-  const [slots, setSlots] = useState([
+  // Cinto salvo por personagem (slots + as duas "cargas" I/II de cada metade)
+  const beltKey = `fh-belt:${char?.id ?? 'local'}`;
+  const beltSaved = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem(beltKey) || 'null'); } catch { return null; }
+  }, [beltKey]);
+  const [slots, setSlots] = useState(() => (Array.isArray(beltSaved?.slots) && beltSaved.slots.length === 4 ? beltSaved.slots : [
     { die: 6, count: 1, bound: null, advMode: 'normal', pb: false },
     { die: 20, count: 1, bound: 'str', advMode: 'normal', pb: true },
     { die: 20, count: 1, bound: 'dex', advMode: 'normal', pb: true },
     { die: 8, count: 1, bound: null, advMode: 'normal', pb: false },
-  ]);
+  ]));
+  // carga ativa (0 = I, 1 = II) e a carga guardada de cada metade do cinto
+  const [loadouts, setLoadouts] = useState(() => beltSaved?.loadouts || { L: { active: 0, other: null }, R: { active: 0, other: null } });
+  useEffect(() => {
+    try { localStorage.setItem(beltKey, JSON.stringify({ slots, loadouts })); } catch { /* sem armazenamento */ }
+  }, [beltKey, slots, loadouts]);
+  const swapLoadout = (side) => {
+    const idxs = side === 'L' ? [0, 1] : [2, 3];
+    const cur = idxs.map((i) => slots[i]);
+    const lo = loadouts[side];
+    const next = lo.other || cur.map((x) => ({ ...x }));   // primeira vez: II nasce como cópia de I
+    setSlots((prev) => prev.map((x, i) => (idxs.includes(i) ? next[idxs.indexOf(i)] : x)));
+    setLoadouts((prev) => ({ ...prev, [side]: { active: 1 - prev[side].active, other: cur } }));
+    if (navigator.vibrate) navigator.vibrate(20);
+  };
   const pbActive = slots.some((s) => s.pb);
   const togglePb = (idx) => {
     setSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, pb: !s.pb } : s)));
@@ -3241,7 +3260,7 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
   return (
     <div className="fh-belt" data-fab-pass="">
       {beltMulti && (
-        <BeltMultiRoll results={beltMulti.results} abilLabel={beltMulti.abil} lang={lang} onClose={() => setBeltMulti(null)} />
+        <BeltMultiRoll results={beltMulti.results} lang={lang} onClose={() => setBeltMulti(null)} />
       )}
       {dragLink && typeof document !== 'undefined' && createPortal(
         (() => {
@@ -3390,11 +3409,39 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
             isAssigned={slots.some((s) => s.bound === k)}
           />
         ))}
+        {/* Cargas I/II: cunhas nos vãos de baixo (INT|CHA e CHA|SAB). Cada uma troca a
+            configuração dos 2 dados daquele lado do cinto. */}
+        {['L', 'R'].map((side) => (
+          <button
+            key={`lo${side}`}
+            type="button"
+            className={`fh-belt-pb-wedge is-loadout is-${side === 'L' ? 'left' : 'right'}${loadouts[side].active ? ' is-on' : ''}`}
+            aria-label={pt
+              ? `Carga ${loadouts[side].active ? 'II' : 'I'} dos dados da ${side === 'L' ? 'esquerda' : 'direita'}: toque para trocar`
+              : `${side === 'L' ? 'Left' : 'Right'} dice loadout ${loadouts[side].active ? 'II' : 'I'}: tap to swap`}
+            onClick={(e) => { e.stopPropagation(); swapLoadout(side); }}
+          >
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id={`low-face-${side}`} x1="0" y1="1" x2="0" y2="0">
+                  <stop offset="0" className="pbw-face-a" />
+                  <stop offset=".55" className="pbw-face-b" />
+                  <stop offset="1" className="pbw-face-c" />
+                </linearGradient>
+              </defs>
+              <polygon className="pbw-body" fill={`url(#low-face-${side})`} points="9,97 91,97 95.5,92.5 53,9 47,9 4.5,92.5" />
+              <polyline className="pbw-bevel-mid" points="4.5,92.5 47,9 53,9" />
+              <polyline className="pbw-bevel-lo" points="53,9 95.5,92.5 91,97 9,97 4.5,92.5" />
+              <polygon className="pbw-face" fill={`url(#low-face-${side})`} points="14,91 86,91 50,21" />
+            </svg>
+            <span>{loadouts[side].active ? 'II' : 'I'}</span>
+          </button>
+        ))}
       </div>
       <p className="fh-honey-help">
         {pt
-          ? 'Rolar: segure e solte · BP: toque na cunha acima do dado · d20: arraste a silhueta ↑ vantagem 🟢, ↓ desvantagem 🔴 · segure um atributo para vincular ao cinto.'
-          : 'Roll: hold and release · PB: tap the wedge above a die · d20: drag silhouette ↑ advantage 🟢, ↓ disadvantage 🔴 · hold an attribute badge to bind to belt.'}
+          ? 'Rolar: segure e solte · BP: toque na cunha acima do dado · I/II: troca a carga dos dados · d20: arraste a silhueta ↑ vantagem 🟢, ↓ desvantagem 🔴 · segure um atributo para vincular ao cinto.'
+          : 'Roll: hold and release · PB: tap the wedge above a die · I/II: swap the dice loadout on that side · d20: drag silhouette ↑ advantage 🟢, ↓ disadvantage 🔴 · hold an attribute badge to bind to belt.'}
       </p>
     </div>
   );

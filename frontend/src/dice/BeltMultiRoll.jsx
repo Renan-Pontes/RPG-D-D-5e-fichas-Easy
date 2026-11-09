@@ -9,6 +9,16 @@ import DieShape from './DieShape.jsx';
 import { ROLLUP_DURATION_MS, PUMP_DURATION_MS, FALLOFF_DURATION_MS } from './dice-rollup.js';
 
 const D20_SCALE = 1.7;                 // o d20 rola mais devagar: o dano sempre revela antes
+// Nenhum roll-up igual ao outro: cada dado ganha atraso (0–200 ms), aceleração (0–25 %)
+// e um desvio sutil de matiz/saturação/brilho (±20 %).
+const vary = () => {
+  const j = () => Math.random() * 2 - 1;
+  return {
+    delay: Math.random() * 200,
+    speed: 1 / (1 + Math.random() * 0.25),
+    filter: `hue-rotate(${(j() * 0.2 * 60).toFixed(1)}deg) saturate(${(1 + j() * 0.2).toFixed(2)}) brightness(${(1 + j() * 0.2).toFixed(2)})`,
+  };
+};
 const HOLD_MS = 3500, HOLD_CRIT_MS = 5000;
 const r = (n) => 1 + Math.floor(Math.random() * n);
 const rollN = (count, die) => Array.from({ length: Math.max(1, count) }, () => r(die));
@@ -45,57 +55,66 @@ export function rollBeltPairs(pairs, { abilMod, profB }) {
   });
 }
 
-export default function BeltMultiRoll({ results, abilLabel, lang = 'pt', onClose }) {
+export default function BeltMultiRoll({ results, lang = 'pt', onClose }) {
   const pt = lang === 'pt';
-  const [critPhase, setCritPhase] = useState(false);
-  const anyCrit = results.some(x => x.a?.crit && x.d);
+  // variações fixas por coluna (sorteadas uma vez)
+  const fx = useMemo(() => results.map(() => {
+    const a = vary(); const d = vary();
+    // o d20 continua revelando depois do seu dano
+    a.scale = D20_SCALE * a.speed; d.scale = d.speed;
+    if (a.delay + ROLLUP_DURATION_MS * a.scale < d.delay + ROLLUP_DURATION_MS * d.scale + 150) a.delay = d.delay + 150;
+    return { a, d };
+  }), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [crit, setCrit] = useState(() => new Set());
   const timers = useRef([]);
-  // a última coluna conduz a vinheta do overlay
   const driver = results.length - 1;
 
   useEffect(() => {
-    const climaxD20 = ROLLUP_DURATION_MS * D20_SCALE + PUMP_DURATION_MS;
-    if (anyCrit) timers.current.push(setTimeout(() => setCritPhase(true), climaxD20 + 120));
-    const settle = anyCrit
-      ? climaxD20 + 120 + ROLLUP_DURATION_MS + FALLOFF_DURATION_MS
-      : ROLLUP_DURATION_MS * D20_SCALE + FALLOFF_DURATION_MS;
-    timers.current.push(setTimeout(onClose, settle + (results.some(x => x.a?.crit || x.a?.fumble) ? HOLD_CRIT_MS : HOLD_MS)));
+    let end = 0;
+    results.forEach((x, i) => {
+      const f = fx[i];
+      const climax = f.a.delay + ROLLUP_DURATION_MS * f.a.scale + PUMP_DURATION_MS;
+      if (x.a && x.a.crit && x.d) {
+        timers.current.push(setTimeout(() => setCrit(s => new Set(s).add(i)), climax + 120));
+        end = Math.max(end, climax + 120 + ROLLUP_DURATION_MS * f.d.scale + FALLOFF_DURATION_MS);
+      }
+      end = Math.max(end, f.a.delay + ROLLUP_DURATION_MS * f.a.scale + FALLOFF_DURATION_MS, f.d.delay + ROLLUP_DURATION_MS * f.d.scale + FALLOFF_DURATION_MS);
+    });
+    const dramatic = results.some(x => x.a?.crit || x.a?.fumble);
+    timers.current.push(setTimeout(onClose, end + (dramatic ? HOLD_CRIT_MS : HOLD_MS)));
     if (navigator.vibrate) navigator.vibrate(20);
     return () => timers.current.forEach(clearTimeout);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const label = useMemo(() => {
-    const n = results.length;
-    if (n > 1) return pt ? `${abilLabel} · ataque múltiplo ×${n}` : `${abilLabel} · multiattack ×${n}`;
-    return abilLabel;
-  }, [results.length, abilLabel, pt]);
-
+  // sem rótulos na tela (só o dado fala); o texto completo fica para leitores de tela
   const node = (
     <div className="dice-overlay belt-mr" role="status" aria-live="polite" onClick={onClose}
-      aria-label={results.map((x, i) => `${i + 1}: ${x.a ? `${pt ? 'ataque' : 'attack'} ${x.a.total}` : ''}${x.d ? ` ${pt ? 'dano' : 'damage'} ${critPhase && x.d.extra ? x.d.critTotal : x.d.total}` : ''}`).join(' · ')}>
-      <div className="belt-mr-label">{label}</div>
+      aria-label={results.map((x, i) => `${i + 1}: ${x.a ? `${pt ? 'ataque' : 'attack'} ${x.a.total}` : ''}${x.d ? ` ${pt ? 'dano' : 'damage'} ${crit.has(i) && x.d.extra ? x.d.critTotal : x.d.total}` : ''}`).join(' · ')}>
       <div className={`belt-mr-cols n-${results.length}`}>
-        {results.map((x, i) => (
-          <div key={i} className="belt-mr-col">
-            {x.a && (
-              <span className="mr-dshape dice-stage-2d belt-mr-d20" data-dice-tone={x.a.adv !== 'normal' ? x.a.adv : undefined}>
-                <DieShape die={20} value={x.a.nat} targetValue={x.a.total} rolling animated isHero size={x.d ? 96 : 120} lang={lang}
-                  timeScale={D20_SCALE} bodyFx={i === driver}
-                  tone={x.a.adv !== 'normal' ? x.a.adv : null} isCrit={x.a.crit} isFumble={x.a.fumble} />
-              </span>
-            )}
-            {x.d && (
-              <span key={critPhase && x.d.extra ? 'crit' : 'base'} className="mr-dshape dice-stage-2d belt-mr-dmg">
-                {critPhase && x.d.extra
-                  ? <DieShape die={x.d.die} value={x.d.sum + x.d.extra.reduce((t, v) => t + v, 0)} targetValue={x.d.critTotal}
-                      rolling animated isHero bodyFx={false} size={x.a ? 72 : 110} lang={lang} />
-                  : <DieShape die={x.d.die} value={x.d.sum} targetValue={x.d.total}
-                      rolling animated isHero bodyFx={!x.a && i === driver} size={x.a ? 72 : 110} lang={lang} />}
-              </span>
-            )}
-            {x.d && <span className="belt-mr-sub">{x.d.count}d{x.d.die}{critPhase && x.d.extra ? ` + ${x.d.count}d${x.d.die}` : ''}</span>}
-          </div>
-        ))}
+        {results.map((x, i) => {
+          const f = fx[i];
+          const critOn = crit.has(i) && x.d?.extra;
+          return (
+            <div key={i} className="belt-mr-col">
+              {x.a && (
+                <span className="mr-dshape dice-stage-2d belt-mr-d20" style={{ filter: f.a.filter }} data-dice-tone={x.a.adv !== 'normal' ? x.a.adv : undefined}>
+                  <DieShape die={20} value={x.a.nat} targetValue={x.a.total} rolling animated isHero size={x.d ? 96 : 120} lang={lang}
+                    delayMs={f.a.delay} timeScale={f.a.scale} bodyFx={i === driver}
+                    tone={x.a.adv !== 'normal' ? x.a.adv : null} isCrit={x.a.crit} isFumble={x.a.fumble} />
+                </span>
+              )}
+              {x.d && (
+                <span key={critOn ? 'crit' : 'base'} className="mr-dshape dice-stage-2d belt-mr-dmg" style={{ filter: f.d.filter }}>
+                  {critOn
+                    ? <DieShape die={x.d.die} value={x.d.sum + x.d.extra.reduce((t, v) => t + v, 0)} targetValue={x.d.critTotal}
+                        rolling animated isHero bodyFx={false} timeScale={f.d.scale} size={x.a ? 72 : 110} lang={lang} />
+                    : <DieShape die={x.d.die} value={x.d.sum} targetValue={x.d.total}
+                        rolling animated isHero bodyFx={!x.a && i === driver} delayMs={f.d.delay} timeScale={f.d.scale} size={x.a ? 72 : 110} lang={lang} />}
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
