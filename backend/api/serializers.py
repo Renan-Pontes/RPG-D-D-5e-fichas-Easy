@@ -257,7 +257,6 @@ class CampaignSerializer(serializers.ModelSerializer):
         else:
             # esconde tokens privados e o que é só do mestre (nudges, concentração,
             # diarySessions, screenCard cru…) para não-DM
-            data.pop('inviteCode', None)
             data.pop('screenToken', None)
             data['state'] = public_state(instance.state, PLAYER_KEYS)
             data['stage'] = public_stage(instance, card=card)
@@ -305,13 +304,15 @@ class CampaignListSerializer(serializers.ModelSerializer):
             data['myMemberships'] = [
                 {'id': m['id'], 'characterId': m['character_id'],
                  'characterName': m['character__name'], 'sponsored': m['sponsored'],
-                 'isNpc': m.get('is_npc', False), 'charType': m.get('char_type', 'player')}
+                 'isNpc': m.get('is_npc', False), 'charType': m.get('char_type', 'player'),
+                 'role': m.get('role')}
                 for m in m_list
             ]
             m_primary = next((m for m in m_list if m['character_id']), m_list[0])
             data['myMembership'] = {'id': m_primary['id'], 'characterId': m_primary['character_id'],
                                     'characterName': m_primary['character__name'], 'sponsored': m_primary['sponsored'],
-                                    'isNpc': m_primary.get('is_npc', False), 'charType': m_primary.get('char_type', 'player')}
+                                    'isNpc': m_primary.get('is_npc', False), 'charType': m_primary.get('char_type', 'player'),
+                                    'role': m_primary.get('role')}
         return data
 
     def get_coverUrl(self, obj):

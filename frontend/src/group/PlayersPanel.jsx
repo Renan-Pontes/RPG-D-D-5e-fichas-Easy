@@ -74,7 +74,7 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
     setAssigning(null);
   }, t(lang, 'Personagem da mesa atualizado.', 'Table character updated.'));
 
-  const addCharacter = (charId) => run(async () => {
+  const addCharacter = (charId, isNpc = false) => run(async () => {
     let inviteCode = campaign.inviteCode || campaign.invite_code || '';
     if (!inviteCode && campaign.id) {
       try {
@@ -82,9 +82,16 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
         inviteCode = detail?.campaign?.inviteCode || detail?.campaign?.invite_code || '';
       } catch { /* ignore */ }
     }
-    await api.joinCampaign({ inviteCode, campaignId: campaign.id, characterId: charId });
+    await api.joinCampaign({
+      inviteCode,
+      campaignId: campaign.id,
+      characterId: charId,
+      isNpc,
+      charType: isNpc ? 'npc' : 'player',
+    });
     setAddingChar(false);
-  }, t(lang, 'Personagem adicionado à mesa.', 'Character added to the table.'));
+  }, t(lang, isNpc ? 'NPC adicionado à mesa.' : 'Personagem adicionado à mesa.',
+             isNpc ? 'NPC added to the table.' : 'Character added to the table.'));
 
   const removeMember = async (m) => {
     const who = m.character?.name || m.user?.displayName || '';
@@ -411,6 +418,7 @@ function AssignSheet({ lang, member, members = [], characters, released, onPick,
 }
 
 function AddCharacterSheet({ lang, members = [], characters = [], onPick, onClose }) {
+  const [asNpc, setAsNpc] = useState(false);
   const available = (Array.isArray(characters) ? characters : []).filter(
     ch => ch && typeof ch.id === 'number' && !members.some(m => m.character?.id === ch.id)
   );
@@ -420,6 +428,27 @@ function AddCharacterSheet({ lang, members = [], characters = [], onPick, onClos
       onClose={onClose}
       footer={<div className="mesa-actions"><button type="button" className="mesa-btn" onClick={onClose}>{t(lang, 'Cancelar', 'Cancel')}</button></div>}>
       <p className="mesa-sheet-text">{t(lang, 'Escolha uma ficha da sua conta para colocar nesta campanha:', 'Choose a sheet from your account to add to this campaign:')}</p>
+
+      {/* Seletor de Papel: Jogador Ativo vs NPC (Não consome vaga) */}
+      <div style={{ display: 'flex', gap: 6, margin: '0 0 12px', background: 'rgba(0,0,0,0.35)', padding: 4, borderRadius: 6, border: '1px solid rgba(214,176,100,0.2)' }}>
+        <button
+          type="button"
+          className={`mesa-btn btn-sm ${!asNpc ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ flex: 1, fontSize: '0.82rem', fontWeight: 700 }}
+          onClick={() => setAsNpc(false)}
+        >
+          👤 {t(lang, 'Jogador Ativo', 'Active Player')}
+        </button>
+        <button
+          type="button"
+          className={`mesa-btn btn-sm ${asNpc ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ flex: 1, fontSize: '0.82rem', fontWeight: 700 }}
+          onClick={() => setAsNpc(true)}
+        >
+          🎭 {t(lang, 'NPC / Inativo (Sem vaga)', 'NPC / Inactive (No seat)')}
+        </button>
+      </div>
+
       <div className="grp-assign-list mesa-panel is-sunk" role="radiogroup" aria-label={t(lang, 'Adicionar personagem à mesa', 'Add character to table')}>
         {available.length === 0 ? (
           <p className="muted small" style={{ padding: '16px 12px', margin: 0, textAlign: 'center' }}>
@@ -430,12 +459,13 @@ function AddCharacterSheet({ lang, members = [], characters = [], onPick, onClos
             let cls = '';
             try { cls = Utils.classLabel(ch, lang, tName); } catch { cls = ''; }
             return (
-              <button key={ch.id} type="button" className="mesa-row grp-assign-row" onClick={() => onPick(ch.id)}>
+              <button key={ch.id} type="button" className="mesa-row grp-assign-row" onClick={() => onPick(ch.id, asNpc)}>
                 <span className="grp-assign-mark" aria-hidden="true">+</span>
                 <span className="mesa-row-main">
                   <span className="mesa-row-title">{ch.name || t(lang, 'Sem nome', 'Unnamed')}</span>
                   {cls && <span className="mesa-row-sub">{cls}</span>}
                 </span>
+                <span className="muted small" style={{ fontSize: '0.74rem' }}>{asNpc ? '🎭 NPC' : '👤'}</span>
               </button>
             );
           })

@@ -44,6 +44,7 @@ import FhExportModal from '../src/sheet/FhExport.jsx';
 import SheetRollTarget from '../src/sheet/SheetRollTarget.jsx';
 import { clearSheetRolls, maybeRecheck, setSheetPolicy, setSheetRecheck, setSheetRolls } from '../src/dice/sheet-roll.js';
 import '../src/sheet/ficha.css';
+import '../src/combat/monster-statblock.css';
 
 // Modal "Campanha" (atrelar, desatrelar, trocar): só carrega quando abre.
 const CampaignLinkModal = lazy(() => import('../src/sheet/CampaignLinkModal.jsx'));
@@ -203,27 +204,29 @@ const SheetHero = ({
           <FhConditionArt conditions={char.conditions} down={char.currentHp === 0} />
         </div>
         <div className="fh-hero-body">
-          {/* Cluster de medalhas no canto superior esquerdo: Retrato -> Nível -> Campanhas */}
-          <div className="fh-hero-top-left-cluster no-print">
-            <div className="fh-hero-portrait-medal" title={pt ? 'Foto do personagem' : 'Character portrait'}>
-              <AvatarUpload
-                value={char.avatar}
-                onChange={onAvatar}
-                position={char.avatarPosition}
-                onPositionChange={onAvatarPosition}
-                lang={lang}
-                size={48}
-                letter={letter}
-              />
-              <span className="fh-hero-photo-badge" aria-hidden="true"><Icon name="image" size={10}/></span>
+          {/* Header Row: Medalhas Top-Left + Nome do Personagem imediatamente adjacente */}
+          <div className="fh-hero-header-row">
+            <div className="fh-hero-top-left-cluster no-print">
+              <div className="fh-hero-portrait-medal" title={pt ? 'Foto do personagem' : 'Character portrait'}>
+                <AvatarUpload
+                  value={char.avatar}
+                  onChange={onAvatar}
+                  position={char.avatarPosition}
+                  onPositionChange={onAvatarPosition}
+                  lang={lang}
+                  size={48}
+                  letter={letter}
+                />
+                <span className="fh-hero-photo-badge" aria-hidden="true"><Icon name="image" size={10}/></span>
+              </div>
+              <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
+              <CampaignSealButton count={campaignsList.length} campFoldOpen={campFoldOpen} onToggle={() => setCampFoldOpen?.(v => !v)} lang={lang} />
+              <InspirationSealButton inspired={!!char.inspiration} onToggle={onInspiration} lang={lang} />
             </div>
-            <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
-            <CampaignSealButton count={campaignsList.length} campFoldOpen={campFoldOpen} onToggle={() => setCampFoldOpen?.(v => !v)} lang={lang} />
-            <InspirationSealButton inspired={!!char.inspiration} onToggle={onInspiration} lang={lang} />
-          </div>
 
-          <div className={char.name ? 'hero-name' : 'hero-name is-unnamed'}>
-            {char.name ? <span className="fh-foil">{char.name}</span> : (pt ? 'Sem nome' : 'Unnamed')}
+            <div className={char.name ? 'hero-name' : 'hero-name is-unnamed'}>
+              {char.name ? <span className="fh-foil">{char.name}</span> : (pt ? 'Sem nome' : 'Unnamed')}
+            </div>
           </div>
           <div className="hero-sub">
             {(() => {
@@ -265,6 +268,7 @@ const SheetHero = ({
 
             {/* Ações minimalistas e discretas alinhadas na mesma linha do rodapé */}
             <div className="action-bar fh-actions fh-hero-corner-actions no-print">
+              <RestButtons char={char} lang={lang} update={update} />
               <button ref={exportBtnRef} type="button" className="fh-corner-chip fh-export-chip" aria-haspopup="dialog" onClick={() => setExportOpen(true)}>
                 <Icon name="download" size={13} className="chip-icon"/> {t('export', lang)}
               </button>
@@ -1947,13 +1951,7 @@ const SheetPlay = ({ char, lang, update, applyHp, ac, speed, profB, initBonus, p
           <AbilitySeals char={char} lang={lang} roll={roll} rollLabel={k => t(k, lang) + ' ' + t('abilityCheck', lang)} />
         </section>
     ) },
-    { h: PLAY_H.rest, el: (
-        /* Descanso: mesma lógica (e endpoint) da aba de magias */
-        <section key="rest" className="fh-panel">
-          <FhTitle hint={<GrimoireHint id="descanso-curto" lang={lang} />}>{lang === 'pt' ? 'Descanso' : 'Rest'}</FhTitle>
-          <RestButtons char={char} lang={lang} update={update} />
-        </section>
-    ) },
+
   ].filter(Boolean);
   const split = splitColumns(panels.map(p => p.h));
 

@@ -23,14 +23,14 @@ test('Subclass Spells: auto-prepared and auto-known subclass spells synthesized 
   // Ray of Sickness & Healing Word are level 3 Alchemist subclass spells
   assert.ok(prog.autoSpells.includes('rayOfSickness') || prog.autoSpells.includes('ray-of-sickness') || prog.autoSpells.some(s => /healingWord|rayOfSickness/i.test(s)));
 
-  // Verify SheetTabs code displays subclass spells as golden always-prepared
+  // Verify SheetTabs code displays subclass spells as golden always-prepared without text tag
   const sheetTabsSrc = read('../components/SheetTabs.jsx');
   assert.match(sheetTabsSrc, /UnifiedSpellsHUD/);
   assert.match(sheetTabsSrc, /fh-spells-unified-hud/);
   assert.match(sheetTabsSrc, /isAlwaysPrepared/);
   assert.match(sheetTabsSrc, /is-always-prepared/);
-  assert.match(sheetTabsSrc, /SEMPRE PREPARADA/);
-  assert.match(sheetTabsSrc, /ALWAYS PREPARED/);
+  assert.match(sheetTabsSrc, /fh-spell-slot-indicator/);
+  assert.match(sheetTabsSrc, /fh-spells-slots-grid/);
 });
 
 test('Party Holster: NPCs separated from active players and do not consume seats', () => {

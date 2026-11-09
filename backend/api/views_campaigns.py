@@ -469,10 +469,15 @@ def campaign_join(request):
     code = (request.data.get('inviteCode') or '').strip().upper()
     campaign_id = request.data.get('campaignId')
     character_id = request.data.get('characterId')
+    is_npc = bool(request.data.get('isNpc') or request.data.get('charType') == 'npc')
+    char_type = 'npc' if is_npc else 'player'
 
     campaign = None
     if campaign_id:
-        campaign = Campaign.objects.filter(pk=campaign_id).first()
+        if str(campaign_id).isdigit():
+            campaign = Campaign.objects.filter(pk=int(campaign_id)).first()
+        if not campaign:
+            campaign = Campaign.objects.filter(slug=str(campaign_id)).first()
     if not campaign and code:
         campaign = Campaign.objects.filter(invite_code=code).first()
 
@@ -497,18 +502,28 @@ def campaign_join(request):
         # mas nunca duas vezes na MESMA campanha.
         same_camp_seat = Membership.objects.filter(campaign=campaign, character=char).first()
         if same_camp_seat:
+            if 'isNpc' in request.data or 'charType' in request.data:
+                same_camp_seat.is_npc = is_npc
+                same_camp_seat.char_type = char_type
+                same_camp_seat.sponsored = False if is_npc else P.decide_sponsored(request.user, campaign, char, same_camp_seat)
+                same_camp_seat.save()
+                if is_npc:
+                    _sync_char_to_world_npc(campaign, char)
+                return Response(join_payload(campaign, same_camp_seat))
             return Response({'error': 'character_already_in_campaign', 'campaignId': campaign.id,
                              'campaignName': campaign.name}, status=409)
 
     with transaction.atomic():
-        # Jogador no limite de personagens entra ocupando uma vaga do mestre (se houver).
-        sponsored = P.decide_sponsored(request.user, campaign, char, None)
+        # NPC não consome vaga do mestre
+        sponsored = False if is_npc else P.decide_sponsored(request.user, campaign, char, None)
         if char:
             # Se o usuário já tiver uma membership nesta campanha sem personagem atrelado (exceto vaga mestre pura), reaproveita
             existing_empty = Membership.objects.filter(campaign=campaign, user=request.user, character__isnull=True).exclude(role='dm').first()
             if existing_empty:
                 existing_empty.character = char
                 existing_empty.sponsored = sponsored
+                existing_empty.is_npc = is_npc
+                existing_empty.char_type = char_type
                 existing_empty.save()
                 m = existing_empty
             else:
@@ -519,7 +534,11 @@ def campaign_join(request):
                     character=char,
                     role='player',
                     sponsored=sponsored,
+                    is_npc=is_npc,
+                    char_type=char_type,
                 )
+            if is_npc:
+                _sync_char_to_world_npc(campaign, char)
         else:
             # Sem ficha: se já é membro, retorna membership existente; se não, cria
             existing_m = Membership.objects.filter(campaign=campaign, user=request.user).first()
@@ -567,26 +586,36 @@ def campaign_leave(request, id_or_slug):
 
 
 def _sync_char_to_world_npc(campaign, char):
-    if not char:
+    if not char or not campaign:
         return
     from .models import WorldEntry
     data = char.data if isinstance(char.data, dict) else {}
     race = data.get('race') or ''
     bg = data.get('background') or ''
-    cls = char.className or data.get('class') or ''
+    cls = char.className or data.get('class') or data.get('className') or ''
     lvl = char.level or data.get('level') or 1
+    subclass = data.get('subclass') or ''
 
     parts = []
     if race:
         parts.append(f"{race} ({bg})" if bg else str(race))
     if cls:
-        parts.append(f"{cls} {lvl}")
+        cls_str = f"{cls} ({subclass}) {lvl}" if subclass else f"{cls} {lvl}"
+        parts.append(cls_str)
     summary = ', '.join(parts) or 'NPC'
 
-    entry = (
-        WorldEntry.objects.filter(campaign=campaign, kind='npc', data__characterId=char.id).first()
-        or WorldEntry.objects.filter(campaign=campaign, kind='npc', name=char.name).first()
-    )
+    all_npcs = WorldEntry.objects.filter(campaign=campaign, kind='npc')
+    entry = None
+    for cand in all_npcs:
+        cand_data = cand.data if isinstance(cand.data, dict) else {}
+        if cand_data.get('characterId') and str(cand_data.get('characterId')) == str(char.id):
+            entry = cand
+            break
+    if not entry:
+        for cand in all_npcs:
+            if cand.name.strip().lower() == char.name.strip().lower():
+                entry = cand
+                break
     npc_data = {
         'role': f"{cls} {lvl}".strip(),
         'appearance': str(data.get('appearance', ''))[:600],

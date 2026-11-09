@@ -298,6 +298,7 @@ DATA_FIELDS = {
     'npc': {
         'role': (_txt(80), True), 'appearance': (_txt(600), True),
         'mannerism': (_txt(300), True), 'wants': (_txt(600), True),
+        'characterId': (_pos_int, False),
         'statblock': (_clean_statblock, False),
     },
     'place': {'placeType': (_enum(PLACE_TYPES), True), 'map': (_clean_map, True)},

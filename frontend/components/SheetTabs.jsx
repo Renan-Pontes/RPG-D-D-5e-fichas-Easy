@@ -135,19 +135,47 @@ const RestButtons = ({ char, lang, update }) => {
  * HUD unificado e compacto de conjuração: Atributo, CD de Resistência, Bônus de Ataque,
  * Descanso Curto/Longo e Espaços de Magia numa única interface contínua.
  */
-const UnifiedSpellsHUD = ({ char, lang, update, slots, spellAb, spellDc, spellAtk }) => {
+const UnifiedSpellsHUD = ({ char, lang, update, slots, casters, spellAb: propSpellAb, spellDc: propSpellDc, spellAtk: propSpellAtk }) => {
   const pt = lang === 'pt';
   const hasSlots = slots && slots.length > 0 && slots.some(s => s);
+
+  const groups = useMemo(() => {
+    const list = casters && casters.length > 0 ? casters : [char];
+    const map = new Map();
+    list.forEach(c => {
+      const ab = (Utils.spellcastingAbilityOfClass ? Utils.spellcastingAbilityOfClass(c) : Utils.spellcastingAbility(c)) || propSpellAb || 'int';
+      const dc = propSpellDc != null ? propSpellDc : (8 + Utils.profBonus(char) + Utils.abilityMod(char, ab));
+      const atk = propSpellAtk != null ? propSpellAtk : (Utils.profBonus(char) + Utils.abilityMod(char, ab));
+      const abilSh = (t(ab + 'Sh', lang) || ab).toUpperCase();
+      const cName = c.className || char.className || '';
+      if (!map.has(ab)) {
+        map.set(ab, { ability: ab, abilSh, dc, atk, classes: [cName] });
+      } else {
+        map.get(ab).classes.push(cName);
+      }
+    });
+    return Array.from(map.values());
+  }, [casters, char, lang, propSpellAb, propSpellDc, propSpellAtk]);
+
   return (
     <div className="fh-spells-unified-hud">
       <div className="fh-spells-hud-top">
-        <div className="fh-spell-stats">
-          <FhMedal shape="hex" value={spellAb ? t(spellAb + 'Sh', lang) : '—'} label={t('spellAbility', lang)} sub={spellAb ? t(spellAb, lang) : null} />
-          <FhMedal shape="shield" value={spellDc || '—'} label={t('spellSaveDc', lang)} />
-          <FhMedal shape="circle" value={spellAtk !== null ? Utils.fmtMod(spellAtk) : '—'} label={t('spellAttack', lang)} />
-        </div>
-        <div className="fh-spells-hud-rest">
-          <RestButtons char={char} lang={lang} update={update} />
+        <div className="fh-spell-stats-cards">
+          {groups.map(g => {
+            const classPrefix = groups.length > 1 && g.classes[0] ? `${g.classes.map(cn => tName('class', cn, lang)).join('/')}: ` : '';
+            return (
+              <div key={g.ability} className="fh-spell-stat-card-pair">
+                <div className="fh-spell-stat-card card-dc" title={pt ? `Classe de Dificuldade de Magia (${g.abilSh})` : `Spell Save DC (${g.abilSh})`}>
+                  <span className="fh-spell-stat-val">{g.dc}</span>
+                  <span className="fh-spell-stat-lbl">{classPrefix}{t('spellSaveDc', lang)} ({g.abilSh})</span>
+                </div>
+                <div className="fh-spell-stat-card card-atk" title={pt ? `Bônus de Ataque Mágico (${g.abilSh})` : `Spell Attack Bonus (${g.abilSh})`}>
+                  <span className="fh-spell-stat-val">{Utils.fmtMod(g.atk)}</span>
+                  <span className="fh-spell-stat-lbl">{classPrefix}{t('spellAttack', lang)} ({g.abilSh})</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
       {hasSlots && (
@@ -207,30 +235,14 @@ const SheetSpells = ({ char, lang, update, slots, roll, placed }) => {
   const singleCaster = !!Utils.spellcastingAbility(char) && (Utils.casterViews(char).length > 0 || Utils.spellSlots(char).some(Boolean));
   const casters = multi ? Utils.casterViews(char) : (singleCaster ? [char] : []);
   const hasGrants = grantEntriesOf(char).length > 0;
-  const spellFeats = placed?.by.spells || [];
-  const cantripFeats = placed?.by.cantrips || [];
-  const featsOf = (classId) => ({ spells: spellFeats.filter(f => f.classId === classId), cantrips: cantripFeats.filter(f => f.classId === classId) });
-  const withSection = new Set(casters.map(v => v.className));
-  const looseSpells = spellFeats.filter(f => !withSection.has(f.classId));
-  const looseCantrips = cantripFeats.filter(f => !withSection.has(f.classId));
-  const loosePanel = (looseSpells.length > 0 || looseCantrips.length > 0) && (
-    <section className="fh-panel">
-      <FhTitle>{lang === 'pt' ? 'Traços de magia' : 'Spell features'}</FhTitle>
-      <FhFeatures items={looseSpells} multi={placed.multi} lang={lang} label={null} className="fh-cf-first" />
-      <FhFeatures items={looseCantrips} multi={placed.multi} lang={lang} place="cantrips" />
-    </section>
-  );
   if (!casters.length && !hasGrants) {
     return (
-      <>
-        <div className="card text-center" style={{ padding: 'var(--s-7)' }}>
-          <Icon name="sparkle" size={36} style={{ color: 'var(--gold-deep)', marginBottom: 12 }}/>
-          <p className="muted">{!multi && Utils.spellcastingAbility(char) && ['paladin', 'ranger'].includes(char.className)
-            ? (lang === 'pt' ? 'Você ganha magias a partir do nível 2.' : 'You gain spells starting at level 2.')
-            : t('notSpellcaster', lang)}</p>
-        </div>
-        {loosePanel}
-      </>
+      <div className="card text-center" style={{ padding: 'var(--s-7)' }}>
+        <Icon name="sparkle" size={36} style={{ color: 'var(--gold-deep)', marginBottom: 12 }}/>
+        <p className="muted">{!multi && Utils.spellcastingAbility(char) && ['paladin', 'ranger'].includes(char.className)
+          ? (lang === 'pt' ? 'Você ganha magias a partir do nível 2.' : 'You gain spells starting at level 2.')
+          : t('notSpellcaster', lang)}</p>
+      </div>
     );
   }
 
@@ -253,7 +265,7 @@ const SheetSpells = ({ char, lang, update, slots, roll, placed }) => {
       <FhMedalDefs />
       {slots && slots.length > 0 && slots.some(s => s) && casters.length === 0 && (
         <section className="fh-panel">
-          <FhTitle act={<RestButtons char={char} lang={lang} update={update} />}>{t('slots', lang)}</FhTitle>
+          <FhTitle>{t('slots', lang)}</FhTitle>
           {char.inCampaign && (
             <div className="muted small" style={{ fontSize: '0.8em', marginBottom: 6 }}>
               🔒 {lang === 'pt' ? 'Em campanha: slots travados. Use "Conjurar" nas magias abaixo.' : 'In campaign: slots locked. Use "Cast" on spells below.'}
@@ -300,12 +312,10 @@ const SheetSpells = ({ char, lang, update, slots, roll, placed }) => {
 
       {casters.map(v => {
         const { view, save } = scoped(v);
-        return <ClassSpells key={v.className} char={view} lang={lang} update={save} slots={slots} roll={roll} showClass={multi}
-          feats={featsOf(v.className)} multiFeats={!!placed?.multi} />;
+        return <ClassSpells key={v.className} char={view} lang={lang} update={save} slots={slots} roll={roll} showClass={multi} />;
       })}
 
       <GrantedSpellsSection char={char} lang={lang} update={update} slots={slots} roll={roll} />
-      {loosePanel}
     </>
   );
 };
@@ -436,9 +446,8 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass, feats = { spe
     <section className={`fh-panel fh-spells${showClass ? ' class-spells' : ''}`}>
       <FhTitle>{lang === 'pt' ? `Magias de ${tName('class', char.className, lang)}` : `${tName('class', char.className, lang)} spells`}</FhTitle>
       
-      {/* HUD unificado de conjuração: Medalhões, Descanso e Espaços */}
+      {/* HUD unificado de conjuração: Cartões CD/Ataque com atributo e Espaços Horizontais */}
       <UnifiedSpellsHUD char={char} lang={lang} update={update} slots={slots} spellAb={spellAb} spellDc={spellDc} spellAtk={spellAtk} />
-      <FhFeatures items={feats.spells} multi={multiFeats} lang={lang} place="spells" className="fh-cf-spells" />
 
       {isPrepared ? (
         <PreparedSpellsView
@@ -458,7 +467,7 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass, feats = { spe
           book={book}
           offList={offList}
           onRemove={removeSpell}
-          cantripFeats={<FhFeatures items={feats.cantrips} multi={multiFeats} lang={lang} place="cantrips" className="fh-cf-cantrips" />}
+          
           isTakenOver={grants.isTakenOver}
         />
       ) : (
@@ -474,7 +483,7 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass, feats = { spe
           roll={roll}
           slots={slots}
           update={update}
-          cantripFeats={<FhFeatures items={feats.cantrips} multi={multiFeats} lang={lang} place="cantrips" className="fh-cf-cantrips" />}
+          
         />
       )}
     </section>
@@ -543,7 +552,7 @@ const PreparedSpellsView = ({ lang, char, spellEntries, classCantrips, classSpel
         </div>
       )}
       <OffListWarning lang={lang} char={char} offList={offList} onRemove={onRemove} />
-      {cantripFeats}
+      
 
       {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
         <details key={lvl} className="spell-group fh-by-level">
@@ -846,7 +855,7 @@ const KnownSpellsView = ({ lang, char, spellEntries, available, onAddSpell, onRe
       </div>
 
       <OffListWarning lang={lang} char={char} offList={offList} onRemove={onRemove} />
-      {cantripFeats}
+      
 
       {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
         <details key={lvl} className="spell-group fh-by-level">
@@ -966,13 +975,8 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
         <button type="button" className="spell-row-header fh-spell-toggle" aria-expanded={open} aria-controls={open ? bodyId : undefined} onClick={() => setOpen(!open)}>
           <SchoolBadge school={sp.school} lang={lang} size={38} />
           <span className="fh-spell-main">
-            <span className="spell-row-name">
+            <span className={`spell-row-name${isAlwaysPrepared ? ' is-always-prepared-name' : ''}`}>
               {name}
-              {isAlwaysPrepared && (
-                <span className="fh-spell-fixed-tag" title={pt ? 'Magia sempre preparada pela subclasse' : 'Always prepared by subclass'}>
-                  ✦ {pt ? 'SEMPRE PREPARADA' : 'ALWAYS PREPARED'}
-                </span>
-              )}
               {tag}
             </span>
             <span className="spell-meta">
@@ -984,6 +988,26 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
             </span>
           </span>
           <span className="fh-lvl">{isCantrip ? (pt ? 'Truque' : 'Cantrip') : slotCircleLabel(sp.level, lang)}</span>
+          {!isCantrip && (() => {
+            const spellLvl = sp.level || 1;
+            const maxSlots = (slots || [])[spellLvl - 1] || 0;
+            const usedSlots = ((char.spellSlotsUsed || [])[spellLvl - 1]) || 0;
+            const remaining = Math.max(0, maxSlots - usedSlots);
+            const hasSlotsAvailable = remaining > 0;
+            if (maxSlots <= 0) return null;
+            return (
+              <span
+                className={`fh-spell-slot-indicator ${hasSlotsAvailable ? 'is-available' : 'is-expended'}`}
+                title={pt
+                  ? `${remaining}/${maxSlots} espaços de ${slotCircleLabel(spellLvl, lang)} disponíveis`
+                  : `${remaining}/${maxSlots} slots of ${slotCircleLabel(spellLvl, lang)} available`}
+                aria-label={pt ? `${remaining} espaços disponíveis` : `${remaining} slots available`}
+              >
+                <span className="fh-spell-slot-gem" aria-hidden="true">◆</span>
+                <span className="fh-spell-slot-num">{remaining}</span>
+              </span>
+            );
+          })()}
           <Icon name={open ? 'chevron-up' : 'chevron-down'} size={18} className="fh-spell-chev" aria-hidden="true"/>
         </button>
       </div>
