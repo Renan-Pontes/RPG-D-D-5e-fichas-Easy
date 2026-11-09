@@ -89,6 +89,7 @@ export default function MultiRoll({ lang }) {
   const [, setTick] = useState(0);
   // foco: durante a rolagem só as linhas roladas ficam, maiores; o resto volta depois
   const [focus, setFocus] = useState(false);
+  const [focusIds, setFocusIds] = useState(() => new Set());   // linhas que vão rolar (antes de girar)
   const drag = useRef(null);
   // escala: as linhas crescem para ocupar a tela (altura e largura disponíveis)
   const rowsRef = useRef(null);
@@ -97,14 +98,14 @@ export default function MultiRoll({ lang }) {
     const el = rowsRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return undefined;
     const fit = () => {
-      const shown = focus ? rows.filter(r => play[r.id]) : rows;
+      const shown = focus ? rows.filter(r => focusIds.has(r.id)) : rows;
       const n = Math.max(1, shown.length);
       const H = el.clientHeight - (focus ? 0 : 44) - n * 8;              // menos o "+ nova linha" e os vãos
-      const perRow = H / n - 30;                            // menos o cabeçalho da linha
-      const widest = Math.max(1, ...shown.map(r => 40 + r.badges.reduce((w, b, i) => w + 50 + (b.group && r.badges[i - 1]?.group !== b.group ? 8 : 0), 0)));
+      const perRow = H / n - (focus ? 6 : 30);                            // menos o cabeçalho da linha
+      const widest = Math.max(1, ...shown.map(r => (focus ? 8 : 40) + r.badges.reduce((w, b, i) => w + (focus && b.kind !== 'die' ? 0 : 50) + (!focus && b.group && r.badges[i - 1]?.group !== b.group ? 8 : 0), 0)));
       const sH = perRow / 58;
       const sW = (el.clientWidth - 20) / widest;
-      setScale(Math.max(0.8, Math.min(focus ? 3.2 : 2.4, Math.min(sH, sW))));
+      setScale(Math.max(0.8, Math.min(focus ? 5 : 2.4, Math.min(sH, sW))));
     };
     fit();
     const ro = new ResizeObserver(fit);
@@ -112,7 +113,7 @@ export default function MultiRoll({ lang }) {
     // a interface some/volta com transição: mede de novo durante e depois dela
     const t1 = setTimeout(fit, 180), t2 = setTimeout(fit, 420);
     return () => { ro.disconnect(); clearTimeout(t1); clearTimeout(t2); };
-  }, [rows, focus, Object.keys(play).join()]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rows, focus, [...focusIds].join()]); // eslint-disable-line react-hooks/exhaustive-deps
   const charId = char?.id;
   useEffect(() => { setRows(load(char) || defaultRows(char, Utils, lang)); setSel(new Set()); setPlay({}); }, [charId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { save(char, rows); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -232,6 +233,7 @@ export default function MultiRoll({ lang }) {
     const ids = rows.filter(r => sel.has(r.id) && r.badges.length).map(r => r.id);
     const list = ids.length ? ids : (rows.find(r => r.id === activeId)?.badges.length ? [activeId] : []);
     const next = {};
+    const PREP = 420; // a interface termina de sair e as linhas crescem; só então os dados giram
     list.forEach((id, ri) => {
       const snap = rows.find(r => r.id === id);
       const rolls = rollDice(snap);
@@ -261,11 +263,14 @@ export default function MultiRoll({ lang }) {
           finishRow();
           if (navigator.vibrate) navigator.vibrate(30);
           return { ...p, [id]: { ...cur, locked, phase: 'done' } };
-        }), ri * ROW_STAGGER + FIRST_LOCK + k * STEP_LOCK));
+        }), PREP + ri * ROW_STAGGER + FIRST_LOCK + k * STEP_LOCK));
       });
     });
-    if (list.length) setFocus(true);
-    setPlay(p => ({ ...next }));
+    if (!list.length) return;
+    setFocusIds(new Set(list));
+    setFocus(true);
+    setPlay({});
+    timers.current.push(setTimeout(() => setPlay({ ...next }), PREP));
   };
 
   const palette = [
@@ -302,7 +307,8 @@ export default function MultiRoll({ lang }) {
         </>
       );
     }
-    const merged = pl ? unitStatics(pl.snap, mods) : null;   // rolando: estáticos já fundidos nos dados
+    // rolando (ou prestes a rolar): estáticos já fundidos nos dados
+    const merged = pl ? unitStatics(pl.snap, mods) : (focus && focusIds.has(row.id) ? unitStatics(row, mods) : null);
     const out = [];
     let i = 0;
     while (i < bs.length) {
@@ -358,7 +364,7 @@ export default function MultiRoll({ lang }) {
           const hoverRow = hover && hover !== 'new' && hover.row === row.id && hover.idx == null;
           return (
             <div key={row.id} data-mr-row={row.id}
-              className={`mr2-row is-${row.adv}${focus && !pl ? ' is-away' : ''}${isSel ? ' is-sel' : ''}${row.id === activeId ? ' is-active' : ''}${hoverRow ? ' is-hover' : ''}${ev?.crit ? ' is-crit' : ''}${ev?.fumble ? ' is-fumble' : ''}`}
+              className={`mr2-row is-${row.adv}${focus && !focusIds.has(row.id) ? ' is-away' : ''}${isSel ? ' is-sel' : ''}${row.id === activeId ? ' is-active' : ''}${hoverRow ? ' is-hover' : ''}${ev?.crit ? ' is-crit' : ''}${ev?.fumble ? ' is-fumble' : ''}`}
               onClick={() => setActive(row.id)}
               onPointerDown={(e) => {
                 if (e.target.closest('button, input, [data-mr-badge]')) return;
