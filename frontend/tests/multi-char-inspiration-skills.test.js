@@ -88,11 +88,11 @@ test('Ações no rodapé do painel: exportar, editar e trapaça alinhadas com as
 
   // fh-hero-corner-actions alinhadas em linha única no rodapé fh-hero-tags-actions-bar
   assert.match(sheetSrc, /fh-hero-tags-actions-bar/);
-  assert.match(sheetSrc, /className="action-bar fh-actions fh-hero-corner-actions no-print"/);
+  assert.match(sheetSrc, /className="fh-hero-tools"/);
 
   // CSS garante alinhamento flexível à direita da barra de tags sem sobreposição
   assert.match(css, /\.ficha \.fh-hero-tags-actions-bar/);
-  assert.match(css, /\.ficha \.fh-hero-corner-actions/);
+  assert.match(css, /\.ficha \.fh-hero-tools/);
 });
 
 test('Perícias padrão parcialmente recolhidas: expõem apenas perícias treinadas divergentes do baseline', () => {

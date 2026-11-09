@@ -814,6 +814,17 @@ function spellSlots(char) {
   return classSlots(char);
 }
 
+// Espaços de Magia de Pacto por círculo (já somados em spellSlots): só o bruxo,
+// sozinho ou em multiclasse. Voltam no descanso curto.
+function pactSlots(char) {
+  if (!char) return [];
+  if (MC.isMulticlass(char)) {
+    const pact = classViews(char).find(v => v.className === 'warlock');
+    return pact ? classSlots(pact) : [];
+  }
+  return char.className === 'warlock' ? classSlots(char) : [];
+}
+
 function spellListClass(char) {
   const sub = (char.subclass || '').toLowerCase();
   return ((char.className === 'fighter' && sub === 'eldritchknight') || (char.className === 'rogue' && sub === 'arcanetrickster')) ? 'wizard' : char.className;
@@ -1001,7 +1012,7 @@ return {
   classEntries: MC.classEntries, classLevel: MC.classLevel, hasClass: MC.hasClass, isMulticlass: MC.isMulticlass,
   classView: MC.classView, classSequence: MC.classSequence, canMulticlassInto: MC.canMulticlassInto,
   missingPrereqs: MC.missingPrereqs, multiclassProfs: MC.multiclassProfs, MULTICLASS_PREREQS: MC.MULTICLASS_PREREQS,
-  classViews, casterViews, casterLevelOf,
+  classViews, casterViews, casterLevelOf, pactSlots,
   spellcastingAbilityOfClass,
   // "Druida 3 / Guerreiro 1" (ou "Druida 4" com uma classe só)
   classLabel: (char, lang, tn) => MC.classEntries(char).map(e => `${tn('class', e.id, lang)} ${e.level}`).join(' / '),

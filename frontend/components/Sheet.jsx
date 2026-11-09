@@ -266,31 +266,36 @@ const SheetHero = ({
               {char.cheatMode && <span className="tag fh-tag-cheat">🎲 {pt ? 'Trapaça' : 'Cheat'}</span>}
             </div>
 
-            {/* Ações minimalistas e discretas alinhadas na mesma linha do rodapé */}
-            <div className="action-bar fh-actions fh-hero-corner-actions no-print">
-              <button ref={exportBtnRef} type="button" className="fh-corner-chip fh-export-chip" aria-haspopup="dialog" onClick={() => setExportOpen(true)}>
-                <Icon name="download" size={13} className="chip-icon"/> {t('export', lang)}
-              </button>
-              {!char.inCampaign && (
-                <button className="fh-corner-chip" onClick={onEdit}><Icon name="edit" size={13} className="chip-icon"/> {t('edit', lang)}</button>
-              )}
-              {char.inCampaign && (
-                <span className="fh-corner-chip is-locked" title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
-                  🔒 <Icon name="edit" size={13} className="chip-icon"/> {t('edit', lang)}
-                </span>
-              )}
-              <button className={`fh-corner-chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
-                🎲 {lang === 'pt' ? 'Trapaça' : 'Cheat'}
-              </button>
-            </div>
           </div>
 
           {/* Status/faixa da campanha contidos no painel do personagem */}
           {campaignBanner}
         </div>
-        {/* Descansos valem em qualquer aba: ficam no canto inferior direito do painel */}
-        <div className="fh-hero-rest no-print">
-          <RestButtons char={char} lang={lang} update={update} />
+        {/* Rodapé do painel: descansos (valem em qualquer aba) à esquerda, ações à direita */}
+        <div className="fh-hero-footer no-print">
+          <div className="fh-hero-rest">
+            <RestButtons char={char} lang={lang} update={update} />
+          </div>
+          <div className="fh-hero-tools">
+            <button ref={exportBtnRef} type="button" className="fh-hero-chip is-icon" aria-haspopup="dialog"
+              aria-label={t('export', lang)} title={t('export', lang)} onClick={() => setExportOpen(true)}>
+              <Icon name="download" size={17} aria-hidden="true"/>
+            </button>
+            {!char.inCampaign ? (
+              <button type="button" className="fh-hero-chip is-icon" aria-label={t('edit', lang)} title={t('edit', lang)} onClick={onEdit}>
+                <Icon name="edit" size={17} aria-hidden="true"/>
+              </button>
+            ) : (
+              <span className="fh-hero-chip is-icon is-locked" role="img"
+                aria-label={lang === 'pt' ? 'Editar (bloqueado em campanha)' : 'Edit (locked in campaign)'}
+                title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
+                <Icon name="edit" size={17} aria-hidden="true"/><span className="fh-chip-lock" aria-hidden="true">🔒</span>
+              </span>
+            )}
+            <button type="button" className={`fh-hero-chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
+              <span aria-hidden="true">🎲</span> {lang === 'pt' ? 'Trapaça' : 'Cheat'}
+            </button>
+          </div>
         </div>
       </div>
     </>

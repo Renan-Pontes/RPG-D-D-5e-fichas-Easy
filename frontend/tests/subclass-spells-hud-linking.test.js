@@ -30,7 +30,7 @@ test('Subclass Spells: auto-prepared and auto-known subclass spells synthesized 
   assert.match(sheetTabsSrc, /isAlwaysPrepared/);
   assert.match(sheetTabsSrc, /is-always-prepared/);
   assert.match(sheetTabsSrc, /SlotGems/);
-  assert.match(sheetTabsSrc, /fh-spells-slots-grid/);
+  assert.match(sheetTabsSrc, /SlotMatrix/);
 });
 
 test('Party Holster: NPCs separated from active players and do not consume seats', () => {
@@ -56,7 +56,7 @@ test('Single-row Hero Footer and Indented Skills Accordion', () => {
 
   // Single row bar contains tags on left and actions on right
   assert.match(sheetSrc, /fh-hero-tags-actions-bar/);
-  assert.match(sheetSrc, /fh-hero-corner-actions/);
+  assert.match(sheetSrc, /fh-hero-tools/);
 
   // Indented skills partial disclosure beneath accordion
   assert.match(sheetSrc, /statblock-action-indented-profs/);
