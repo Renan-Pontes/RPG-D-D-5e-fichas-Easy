@@ -2990,12 +2990,6 @@ const BeltQuickSlot = ({
       >
         {/* Specular Reflection Sheen when PB Active */}
         {pbActive && <div className={`fh-belt-sheen is-slot-${index}`} aria-hidden="true" />}
-        {pbActive && (
-          <svg className="fh-belt-pb-contour" viewBox="0 0 100 115.47" preserveAspectRatio="none" aria-hidden="true">
-            <path pathLength="100" d="M 50,0 L 100,28.87 L 100,86.60 L 50,115.47" />
-            <path pathLength="100" d="M 50,0 L 0,28.87 L 0,86.60 L 50,115.47" />
-          </svg>
-        )}
 
         {/* Center: Perfectly Centered Die Silhouette Badge. When d20, silhouette is the stance knob! */}
         <div
@@ -3022,6 +3016,12 @@ const BeltQuickSlot = ({
           </div>
         </div>
       </article>
+      {pbActive && (
+          <svg className="fh-belt-pb-contour" viewBox="0 0 100 115.47" preserveAspectRatio="none" aria-hidden="true">
+            <path pathLength="100" d="M 50,0 L 100,28.87 L 100,86.60 L 50,115.47" />
+            <path pathLength="100" d="M 50,0 L 0,28.87 L 0,86.60 L 50,115.47" />
+          </svg>
+        )}
     </div>
   );
 };
@@ -3309,6 +3309,13 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
             </svg>
             <span>BP</span>
           </button>
+        ))}
+        {[1, 2].map((si) => slots[si]?.pb && (
+          <svg key={`pbs${si}`} className={`fh-belt-pb-slits is-${si === 1 ? 'left' : 'right'}`} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            {/* fio dourado no meio das frestas: em volta da cunha e descendo até o dado */}
+            <polyline pathLength="100" points="0,0 50,100 100,0" />
+            <line pathLength="100" x1="50" y1="100" x2="50" y2="300" />
+          </svg>
         ))}
       </div>
       <div className="fh-belt-hive-row is-mid">

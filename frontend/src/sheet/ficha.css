@@ -6213,13 +6213,15 @@
   height: calc(var(--belt-h) * 0.25 + var(--belt-gap) * 0.28868);
   transform: translateX(-50%); padding: 0; border: 0; background: transparent; cursor: pointer;
   display: grid; place-items: start center; -webkit-tap-highlight-color: transparent;
-  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  /* recuo igual ao vão dos outros hexágonos: as arestas são de 30°, então o recuo
+     horizontal é 2× o vão e o vértice sobe 1,155× */
+  clip-path: polygon(calc(var(--belt-gap) * 2) 0, calc(100% - var(--belt-gap) * 2) 0, 50% calc(100% - var(--belt-gap) * 1.155));
 }
 .ficha .fh-belt-pb-wedge.is-left { left: calc(50% - (var(--belt-w) + var(--belt-gap)) / 2); }
 .ficha .fh-belt-pb-wedge.is-right { left: calc(50% + (var(--belt-w) + var(--belt-gap)) / 2); }
-.ficha .fh-belt-pb-wedge svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.ficha .fh-belt-pb-wedge svg { position: absolute; top: 0; left: calc(var(--belt-gap) * 2); width: calc(100% - var(--belt-gap) * 4); height: calc(100% - var(--belt-gap) * 1.155); overflow: visible; }
 .ficha .fh-belt-pb-wedge svg * { vector-effect: non-scaling-stroke; }
-.ficha .fh-belt-pb-wedge .pbw-slit { fill: #040201; }
+.ficha .fh-belt-pb-wedge .pbw-slit { display: none; }
 .ficha .fh-belt-pb-wedge .pbw-body { filter: drop-shadow(0 1.5px 1px rgba(0,0,0,.8)); }
 .ficha .fh-belt-pb-wedge .pbw-bevel-hi { fill: none; stroke: rgba(255, 236, 190, .55); stroke-width: 1.4; stroke-linejoin: round; }
 .ficha .fh-belt-pb-wedge .pbw-bevel-mid { fill: none; stroke: rgba(255, 220, 160, .22); stroke-width: 1.2; }
@@ -6255,3 +6257,23 @@
 }
 @keyframes fh-pb-contour { to { stroke-dashoffset: 0; } }
 @media (prefers-reduced-motion: reduce) { .ficha .fh-belt-pb-contour path { animation: none; stroke-dashoffset: 0; } }
+
+/* Ligada: as frestas em volta da cunha e a que desce até o d20 ganham um fio dourado
+   luminoso (linha média do vão), e o contorno do hexágono de dado corre nas frestas dele. */
+.ficha .fh-belt-pb-slits {
+  position: absolute; top: 0; z-index: 11; pointer-events: none; overflow: visible;
+  width: calc(var(--belt-w) + var(--belt-gap) - var(--belt-gap) * 2);
+  height: calc(var(--belt-h) * 0.25 + var(--belt-gap) * 0.28868 - var(--belt-gap) * 0.577);
+  transform: translateX(-50%);
+}
+.ficha .fh-belt-pb-slits.is-left { left: calc(50% - (var(--belt-w) + var(--belt-gap)) / 2); }
+.ficha .fh-belt-pb-slits.is-right { left: calc(50% + (var(--belt-w) + var(--belt-gap)) / 2); }
+.ficha .fh-belt-pb-slits polyline, .ficha .fh-belt-pb-slits line {
+  fill: none; stroke: #ffe08a; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px #ffcf5a) drop-shadow(0 0 4px rgba(255, 196, 80, .8));
+  stroke-dasharray: 100; stroke-dashoffset: 100; animation: fh-pb-contour .35s ease-out forwards;
+}
+.ficha .fh-belt-pb-slits line { animation-delay: .25s; }
+.ficha .fh-belt-pb-contour { z-index: 13; top: calc(var(--belt-gap) * -0.5); left: calc(var(--belt-gap) * -0.5); width: calc(100% + var(--belt-gap)); height: calc(100% + var(--belt-gap) * 1.1547); }
+.ficha .fh-belt-pb-contour path { stroke-width: 2.4; vector-effect: non-scaling-stroke; animation-delay: .45s;
+  filter: drop-shadow(0 0 2px #ffcf5a) drop-shadow(0 0 4px rgba(255, 196, 80, .8)); }
