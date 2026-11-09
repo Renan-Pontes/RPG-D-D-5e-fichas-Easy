@@ -3284,7 +3284,7 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
               : `PB +${effectiveProfB} on the die below (${slots[si]?.pb ? 'on' : 'off'})`}
             onClick={(e) => { e.stopPropagation(); togglePb(si); }}
           >
-            <svg viewBox="0 0 40 30" aria-hidden="true"><polygon points="2,2 38,2 20,28" /></svg>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polygon points="3,1.5 97,1.5 50,96" vectorEffect="non-scaling-stroke" /></svg>
             <span>BP</span>
           </button>
         ))}

@@ -6206,10 +6206,14 @@
    Ligadas, brilham e um contorno luminoso desce pelas frestas e percorre as bordas do
    hexágono de dado logo abaixo (o BP soma naquele dado). */
 .ficha .fh-belt-pb-wedge {
-  position: absolute; top: calc(var(--belt-h) * 0.60); z-index: 12;
-  width: calc(var(--belt-gap) + var(--belt-w) * 0.30); height: calc(var(--belt-h) * 0.26);
+  /* triângulo exato do vão: a aresta de cima liga o vértice do topo de um hexágono ao do
+     vizinho; os lados seguem as arestas superiores dos dois e o vértice desce até a fresta */
+  position: absolute; top: 0; z-index: 12;
+  width: calc(var(--belt-w) + var(--belt-gap));
+  height: calc(var(--belt-h) * 0.25 + var(--belt-gap) * 0.28868);
   transform: translateX(-50%); padding: 0; border: 0; background: transparent; cursor: pointer;
   display: grid; place-items: start center; -webkit-tap-highlight-color: transparent;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 .ficha .fh-belt-pb-wedge.is-left { left: calc(50% - (var(--belt-w) + var(--belt-gap)) / 2); }
 .ficha .fh-belt-pb-wedge.is-right { left: calc(50% + (var(--belt-w) + var(--belt-gap)) / 2); }
@@ -6219,16 +6223,15 @@
   transition: fill .2s, stroke .2s, filter .2s;
 }
 .ficha .fh-belt-pb-wedge span {
-  position: relative; margin-top: 8%; font-family: var(--fh-display, serif); font-weight: 800;
+  position: relative; margin-top: 4%; font-family: var(--fh-display, serif); font-weight: 800;
   font-size: clamp(.5rem, 1.9vw, .66rem); letter-spacing: .06em; color: rgba(237, 203, 122, .6);
   pointer-events: none; transition: color .2s;
 }
 .ficha .fh-belt-pb-wedge.is-on polygon {
   fill: radial-gradient(#000, #000); fill: #c9a24e; stroke: #fff1c4;
-  filter: drop-shadow(0 0 5px rgba(255, 220, 130, .9));
-}
+  }
 .ficha .fh-belt-pb-wedge.is-on span { color: #1a0f05; }
-.ficha .fh-belt-pb-wedge:active { transform: translateX(-50%) translateY(2px) scale(.94); }
+.ficha .fh-belt-pb-wedge:active { filter: brightness(1.25); }
 
 .ficha .fh-belt-pb-contour {
   position: absolute; inset: 0; width: 100%; height: 100%; z-index: 9; pointer-events: none; overflow: visible;
