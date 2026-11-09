@@ -2092,6 +2092,25 @@ const HONEY_ABILITY_META = {
 const isActionKey = (e) => e.key === 'Enter' || e.key === ' ';
 const BELT_ABBR = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' };
 
+
+// Segurar → soltar para rolar (o mesmo gesto dos hexágonos de dado do cinto): um toque
+// rápido não rola; arrastar cancela. Enquanto segura, o botão "carrega" (.is-charging-roll).
+const BELT_HOLD_MS = 220;
+const beltHoldToRoll = (fn) => {
+  let t0 = 0; let x0 = 0; let y0 = 0; let moved = false; let timer = null; let el = null;
+  const clear = () => { clearTimeout(timer); timer = null; el?.classList.remove('is-charging-roll'); };
+  return {
+    onPointerDown: (e) => {
+      t0 = Date.now(); x0 = e.clientX; y0 = e.clientY; moved = false; el = e.currentTarget;
+      el.setPointerCapture?.(e.pointerId);
+      timer = setTimeout(() => { el?.classList.add('is-charging-roll'); if (navigator.vibrate) navigator.vibrate(12); }, BELT_HOLD_MS);
+    },
+    onPointerMove: (e) => { if (t0 && Math.hypot(e.clientX - x0, e.clientY - y0) > 12) { moved = true; clear(); } },
+    onPointerUp: () => { const held = t0 && !moved && Date.now() - t0 >= BELT_HOLD_MS; t0 = 0; clear(); if (held) fn(); },
+    onPointerCancel: () => { t0 = 0; clear(); },
+    onContextMenu: (e) => e.preventDefault(),
+  };
+};
 const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag }) => {
   const [advMode, setAdvMode] = useState('normal'); // 'normal' | 'adv' | 'dis'
   const [pullY, setPullY] = useState(0);
@@ -2360,7 +2379,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
           <button
             type="button"
             className="fh-honey-half is-check"
-            onClick={() => onRollHalf(checkMod, `${t(k, lang)} ${t('abilityCheck', lang)}`)}
+            {...beltHoldToRoll(() => onRollHalf(checkMod, `${t(k, lang)} ${t('abilityCheck', lang)}`))}
             onKeyDown={(e) => {
               if (!isActionKey(e)) return;
               e.preventDefault();
@@ -2375,7 +2394,7 @@ const BeltHex = ({ k, char, lang, roll, onBind, isBound, isAssigned, onStartDrag
           <button
             type="button"
             className={`fh-honey-half is-save${isProf ? ' is-prof' : ''}`}
-            onClick={() => onRollHalf(saveMod, `${t(k, lang)} ${t('saveRoll', lang)}`, true)}
+            {...beltHoldToRoll(() => onRollHalf(saveMod, `${t(k, lang)} ${t('saveRoll', lang)}`, true))}
             onKeyDown={(e) => {
               if (!isActionKey(e)) return;
               e.preventDefault();
@@ -3360,8 +3379,8 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
       </div>
       <p className="fh-honey-help">
         {pt
-          ? 'BP: toque na cunha acima do dado · d20: arraste a silhueta ↑ vantagem 🟢, ↓ desvantagem 🔴 · segure um atributo para vincular ao cinto.'
-          : 'PB: tap the wedge above a die · d20: drag silhouette ↑ advantage 🟢, ↓ disadvantage 🔴 · hold an attribute badge to bind to belt.'}
+          ? 'Rolar: segure e solte · BP: toque na cunha acima do dado · d20: arraste a silhueta ↑ vantagem 🟢, ↓ desvantagem 🔴 · segure um atributo para vincular ao cinto.'
+          : 'Roll: hold and release · PB: tap the wedge above a die · d20: drag silhouette ↑ advantage 🟢, ↓ disadvantage 🔴 · hold an attribute badge to bind to belt.'}
       </p>
     </div>
   );

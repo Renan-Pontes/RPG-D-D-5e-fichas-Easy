@@ -6303,3 +6303,9 @@
   .ficha .fh-belt-pb-slits, .ficha .fh-belt-pb-contour { animation: none; }
   .ficha .fh-belt-pb-slits path { animation: none; stroke-dashoffset: 0; }
 }
+
+/* meia-face de atributo carregando a rolagem (segurar → soltar) */
+.ficha .fh-honey-half { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.ficha .fh-honey-half.is-charging-roll { animation: fh-half-charge .5s ease-in-out infinite alternate; }
+.ficha .fh-honey-half.is-charging-roll .fh-honey-val { transform: scale(1.12); transition: transform .15s; }
+@keyframes fh-half-charge { from { box-shadow: inset 0 0 0 2px rgba(237,203,122,.5); } to { box-shadow: inset 0 0 0 2px #edcb7a, inset 0 0 14px rgba(237,203,122,.55); } }
