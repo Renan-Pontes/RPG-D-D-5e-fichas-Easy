@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import Utils from '../../utils.js';
 import { getActiveChar, subscribeActiveChar } from './active-char.js';
-import { FADEIN_DURATION_MS, ROLLUP_DURATION_MS, PUMP_DURATION_MS } from './dice-rollup.js';
+import { FADEIN_DURATION_MS, ROLLUP_DURATION_MS, PUMP_DURATION_MS, FALLOFF_DURATION_MS } from './dice-rollup.js';
 import DieShape from './DieShape.jsx';
 import {
   ABILS, ADV_NEXT, DICE, addBadgeTo, coupleBadges, critExtra, dropOnBadge, dropTemps, duplicateRow,
@@ -245,12 +245,29 @@ export default function MultiRoll({ lang }) {
     if (!list.length) return;
     // Linha do tempo igual à do rolador principal (DieShape): entrada → roll-up com o
     // clímax aos 750 ms (soco 220 ms + onda) → crítico refaz só o dano com o mesmo roll-up.
-    const SETTLE = ROLLUP_DURATION_MS + PUMP_DURATION_MS;
+    // Cada dado larga com atraso aleatório (0–200 ms) e tem duração própria: as escalas se
+    // espalham por 0,8–1,25× (≥ 25 % entre o mais rápido e o mais lento) e só o dado que
+    // termina por último conduz a vinheta/abertura focal da tela.
     const next = {};
+    const all = [];
     list.forEach(id => {
       const snap = rows.find(r => r.id === id);
-      next[id] = { snap, rolls: rollDice(snap), extra: {}, phase: 'spin', round: 0 };
+      next[id] = { snap, rolls: rollDice(snap), extra: {}, phase: 'spin', round: 0, fx: {} };
+      snap.badges.forEach((b, idx) => { if (b.kind === 'die') all.push([id, idx]); });
     });
+    const n = all.length;
+    const order = all.map((_, k) => k).sort(() => Math.random() - 0.5);
+    let check = 0; let end = 0; let driver = null;
+    all.forEach(([id, idx], k) => {
+      const spread = n > 1 ? order[k] / (n - 1) : Math.random();
+      const scale = 0.8 + 0.45 * Math.min(1, Math.max(0, spread + (Math.random() - 0.5) * 0.08));
+      const delay = Math.random() * 200;
+      next[id].fx[idx] = { delay, scale };
+      check = Math.max(check, delay + (ROLLUP_DURATION_MS + PUMP_DURATION_MS) * scale);
+      const e = delay + (ROLLUP_DURATION_MS + FALLOFF_DURATION_MS) * scale;
+      if (e > end) { end = e; driver = `${id}:${idx}`; }
+    });
+    list.forEach(id => { next[id].driver = driver; });
     setFocusIds(new Set(list));
     setFocus(true);
     setPlay({});
@@ -263,7 +280,7 @@ export default function MultiRoll({ lang }) {
         const ev = evalRow(cur.snap, mods, cur.rolls);
         const extra = ev.crit ? critExtra(cur.snap) : {};
         if (Object.keys(extra).length) { anyCrit = true; after[id] = { ...cur, extra, phase: 'crit', round: 1 }; }
-        else after[id] = { ...cur, phase: 'done' };
+        else after[id] = { ...cur };
       }
       setPlay(after);
       if (navigator.vibrate) navigator.vibrate(anyCrit ? [60, 40, 100] : 30);
@@ -271,9 +288,9 @@ export default function MultiRoll({ lang }) {
         setRows(rs => rs.map(r => (list.includes(r.id) ? dropTemps(r) : r)));   // temporários somem
         setPlay(p => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, { ...v, phase: 'done' }])));
       };
-      if (anyCrit) timers.current.push(setTimeout(finishAll, SETTLE));
-      else finishAll();
-    }, PREP_MS + SETTLE));
+      // a onda/clarão termina antes de os dados se fundirem nos totais
+      timers.current.push(setTimeout(finishAll, anyCrit ? end : Math.max(0, end - check)));
+    }, PREP_MS + check));
   };
 
   const palette = [
@@ -296,7 +313,6 @@ export default function MultiRoll({ lang }) {
           <DieShape die={u.die || 6} value={u.value} rolling={false} animated={false} size={52} lang={lang}
             tone={u.kind === 'check' && pl.snap.adv !== 'normal' ? pl.snap.adv : (u.nat === 20 ? 'crit' : null)}
             isCrit={u.nat === 20} isFumble={u.nat === 1} />
-          <span className="mr-dshape-role" aria-hidden="true">{u.kind === 'check' ? '⚔' : u.kind === 'damage' ? '💥' : 'Σ'}</span>
         </span>
       ));
     }
@@ -311,13 +327,12 @@ export default function MultiRoll({ lang }) {
             return (
               <Badge key={`u${k}`} b={base} lang={lang} mods={mods} value={u.value}
                 state={` is-result is-${u.kind}${natCls}`}
-                tag={<span className="mr-b-role">{u.kind === 'check' ? '⚔' : u.kind === 'damage' ? '💥' : 'Σ'}</span>}
                 title={u.idxs.map(i => bs[i]).filter(Boolean).map(b => (b.kind === 'die' ? `${b.count}d${b.die}` : b.kind === 'abil' ? b.abil.toUpperCase() : b.kind === 'pb' ? 'PB' : fmt(b.value))).join(' + ')} />
             );
           })}
           {dmgUnits.length > 1 && (
             <Badge b={{ kind: 'flat', value: 0 }} lang={lang} mods={mods} value={dmgUnits.reduce((s, u) => s + u.value, 0)}
-              state=" is-result is-damage is-total" tag={<span className="mr-b-role">Σ💥</span>} />
+              state=" is-result is-damage is-total" />
           )}
         </>
       );
@@ -343,10 +358,12 @@ export default function MultiRoll({ lang }) {
           key = `${idx}-r${extra ? 1 : 0}`;             // crítico: o dado de dano roda de novo
         }
         const isD20 = idx === d20;
+        const fx = pl?.fx?.[idx] || { delay: 0, scale: 1 };
         return (
           <span key={key} className={`mr-dshape dice-stage-2d${isD20 ? ` is-d20-${snap.adv}` : ''}${b.sign < 0 ? ' is-neg' : ''}`}
             data-dice-mode="2d" data-dice-tone={isD20 && snap.adv !== 'normal' ? snap.adv : undefined}>
-            <DieShape die={b.die} value={value} rolling={rolling} animated size={52} lang={lang}
+            <DieShape die={b.die} value={value} rolling={rolling} animated size={52} lang={lang} isHero
+              delayMs={fx.delay} timeScale={fx.scale} bodyFx={pl?.driver === `${row.id}:${idx}`}
               tone={isD20 && snap.adv !== 'normal' ? snap.adv : null}
               isCrit={isD20 && rolling && value === 20} isFumble={isD20 && rolling && value === 1} />
           </span>

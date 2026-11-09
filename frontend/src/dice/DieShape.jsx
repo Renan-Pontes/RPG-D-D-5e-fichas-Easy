@@ -34,8 +34,12 @@ export default function DieShape({
   petalAngle = null,
   petalIndex = 0,
   petalCount = 1,
+  delayMs = 0,
+  timeScale = 1,
+  bodyFx = null,
 }) {
   const dieRef = useRef(null);
+  const drivesBody = bodyFx == null ? isHero : bodyFx;
   const isNumericRoll = value !== '' && value != null && Number.isFinite(Number(value));
   const shouldAnimateRoll = animated && isNumericRoll && (isHero || dimmed || rolling);
   const naturalVal = isNumericRoll ? Math.round(Number(value)) : value;
@@ -89,7 +93,7 @@ export default function DieShape({
       el.style.setProperty('--sparks-blown', '0');
       el.style.setProperty('--sparks-opacity', `${profile.sparksEmit || 0}`);
 
-      if (isHero && typeof document !== 'undefined' && document.body) {
+      if (drivesBody && typeof document !== 'undefined' && document.body) {
         const p = localP != null ? localP : 0;
         const bgStrength = Math.pow(p, 2.4);
         const bgPhase = 2 * Math.PI * 0.75 * (3.5 * p + 4.5 * Math.pow(p, 2));
@@ -127,7 +131,7 @@ export default function DieShape({
       el.style.setProperty('--num-blur', '0px');
       el.style.setProperty('--num-trail', '0px');
       el.style.setProperty('--num-stretch', '1');
-      if (isHero && typeof document !== 'undefined' && document.body) {
+      if (drivesBody && typeof document !== 'undefined' && document.body) {
         document.body.classList.remove('dice-rolling-shake');
         document.body.style.removeProperty('--bg-shake-x');
         document.body.style.removeProperty('--bg-shake-y');
@@ -148,7 +152,7 @@ export default function DieShape({
       if (stageWrap) {
         stageWrap.style.setProperty('--falloff-roll-scale', `${falloffProfile.rollScale}`);
       }
-      if (isHero && typeof document !== 'undefined' && document.body) {
+      if (drivesBody && typeof document !== 'undefined' && document.body) {
         // As the unravelling ripples expand outward, the blackout smoothly recedes
         // and the focal vignette returns to its normal open backdrop variables
         const p = Math.min(1, Math.max(0, falloffP));
@@ -174,7 +178,7 @@ export default function DieShape({
       if (stageWrap) {
         stageWrap.style.setProperty('--falloff-roll-scale', '1');
       }
-      if (isHero && typeof document !== 'undefined' && document.body) {
+      if (drivesBody && typeof document !== 'undefined' && document.body) {
         document.body.style.removeProperty('--overlay-blackout');
         document.body.style.removeProperty('--overlay-tunnel-inner');
         document.body.style.removeProperty('--overlay-tunnel-outer');
@@ -227,7 +231,10 @@ export default function DieShape({
 
     const step = (now) => {
       if (startTime == null) startTime = now;
-      const elapsed = now - startTime;
+      // atraso de largada e duração própria (cada dado da rolagem múltipla tem os seus)
+      const raw = now - startTime - delayMs;
+      if (raw < 0) { animId = requestAnimationFrame(step); return; }
+      const elapsed = raw / (timeScale > 0 ? timeScale : 1);
 
       // Smooth 0.5-second (500ms) fade-in of the whole roll-up interface
       if (elapsed <= FADEIN_DURATION_MS) {
@@ -332,7 +339,7 @@ export default function DieShape({
     return () => {
       if (animId) cancelAnimationFrame(animId);
       clearTimeout(pulseTimer);
-      if (typeof document !== 'undefined' && document.body) {
+      if (drivesBody && typeof document !== 'undefined' && document.body) {
         document.body.classList.remove('dice-rolling-shake');
         document.body.style.removeProperty('--bg-shake-x');
         document.body.style.removeProperty('--bg-shake-y');
@@ -342,7 +349,7 @@ export default function DieShape({
         document.body.style.removeProperty('--overlay-tunnel-outer');
       }
     };
-  }, [shouldAnimateRoll, naturalVal, finalVal, isHero, dimmed, die, value, targetValue, petalIndex, petalCount, seed, stepOffset]);
+  }, [shouldAnimateRoll, naturalVal, finalVal, isHero, dimmed, die, value, targetValue, petalIndex, petalCount, seed, stepOffset, delayMs, timeScale, drivesBody]);
 
   const rand = (n) => {
     const x = Math.sin(seed * 9999 + n) * 10000;
