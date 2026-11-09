@@ -1135,3 +1135,59 @@ Accepted & Implemented (2026-11-09)
 ### Consequences
 - **Positive:** No collision between roll banner and central die stage; attack rolls accurately styled by subtype; characters can participate in multiple campaigns simultaneously; player skills tab shares 100% UI/UX parity with monster statblocks; clean, decluttered hero header.
 - **Verification:** 1,588 / 1,588 unit tests pass (100% green); Vite production build completes cleanly in 10.76s.
+
+
+## ADR-0031: Multi-Character Campaign Support (N Characters per User), DM Active Player / NPC Toggle, Campaign Seal Medal Trinity, and Skills & Progression Scoping
+
+### Status
+Accepted & Implemented (2026-11-09)
+
+### Context
+1. **Multi-Character Campaign Assignment ($N$ Characters per User in Same Campaign)**:
+   - A single user could not assign more than one character to the same campaign due to `Membership.Meta.unique_together = [('campaign', 'user')]` in `backend/api/models.py` and `update_or_create(campaign=campaign, user=request.user)`. The user requirement expects full $N:N$ relational freedom: a user can create $N$ characters, a character can participate in $N$ campaigns, and a user can assign $N$ characters to the same campaign simultaneously (e.g., controlling a party, a companion, or an alternate). The sole constraint is that the *exact same character* cannot occupy duplicate seats in the same campaign.
+2. **DM Active Player vs NPC Designation**:
+   - DMs in live campaigns frequently adopt player sheets as campaign NPCs or retain inactive characters as NPCs. The DM needed a direct toggle on player cards in the group panel to switch between "Active Player" (`player`) and "NPC" (`npc`), with distinct visual badge recognition (`🎭 NPC`).
+3. **Campaign Badge Visual Trinity**:
+   - The campaign badge previously rendered as an oblong pill that clashed with the circular geometry of the Portrait medal (`.fh-hero-portrait-medal`) and the Level badge (`.hero-level.fh-seal`). The top-left corner required a harmonious trinity of 48px circular golden seals.
+4. **Skills Tab Spacing & Proficient Skills Exposure**:
+   - Wasted vertical space existed between folded action skill rows (`gap: 14px; margin-bottom: 8px`). Additionally, previous exception chips exposed any skill with a modifier mismatch (such as -1 Athletics under Hide), whereas the user explicitly requested exposing only skills with proficiency or expertise.
+5. **Redundant Elements in Skills Tab**:
+   - The "Expand/collapse all actions" toolbar button and "Passive Perception" header label were redundant because each card operates independently and the "Search" action group baseline already computes and displays passive perception.
+   - The 5th action group title needed to be cleaned up from "Battle Action : Use Tool" to "Use Tool" / "Usar Ferramenta".
+6. **Feature & Progression Scoping Discipline**:
+   - `SheetTools` (Languages and tool proficiencies) was situated in Skills despite being character background/class traits belonging to the "Features" tab.
+   - `ProgressionPanel` was rendered via `{children}` outside the tab container, causing it to display globally across all 9 tabs. It needed to be restricted strictly to `{tab === 'play' && ...}`.
+7. **Hero Description Languages & Corner Actions**:
+   - Spoken languages needed to appear directly beneath the character name: `Species (Background), Class1 (Subclass), Speaks Language1, Language2, LanguageN`.
+   - Export, Edit, and Cheat mode buttons needed relocation to the bottom-right corner of the character panel with discrete, minimalist `.fh-corner-chip` styling.
+
+### Decision Outcome
+1. **Database & API Multi-Character Support (`models.py`, `serializers.py`, `views_campaigns.py`, `views_characters.py`, `0014_migration`)**:
+   - Removed `unique_together = [('campaign', 'user')]` on `Membership`.
+   - Added `char_type = models.CharField(max_length=10, choices=[('player', 'Player'), ('npc', 'NPC')], default='player')` and `is_npc = models.BooleanField(default=False)`.
+   - Added database indexes on `['user']` and `['campaign', 'character']`.
+   - Updated `campaign_join` to accept `campaignId` (for existing members adding another character) or `inviteCode`. If `char` is provided, creates a new membership or fills an empty one, strictly disallowing duplicate assignment of the *same* character (`Membership.objects.filter(campaign=campaign, character=char).first()`).
+   - Added `campaignIds` to `CharacterSerializer` so clients immediately know which campaigns a character belongs to.
+   - Updated `CampaignSerializer` to provide `myMemberships` (full list) while retaining `myMembership` (primary) for backwards compatibility.
+   - Included `coverVer`, `coverUrl`, `isNpc`, and `charType` in `character_campaigns`.
+2. **DM Active Player / NPC Toggle (`PlayersPanel.jsx`)**:
+   - Added `toggleNpc` handler updating `isNpc` and `charType` via `PUT /api/campaigns/<id>/members/<id>`.
+   - Added DM context menu action: `🎭 Definir como NPC` / `👤 Definir como Jogador Ativo`.
+   - Rendered high-contrast `🎭 NPC` badge in player card header when `isNpc` is true.
+3. **Campaign Seal Trinity (`Sheet.jsx`, `ficha.css`)**:
+   - Replaced oblong pill with `CampaignSealButton` (`hero-camp fh-seal`), adopting the exact 48px circular geometry, SVG concentric rings, gold core, castle icon `🏰`, label `MESAS` / `CAMP.`, and top-right notification pip (`.hero-camp-pip`).
+4. **Skills Spacing & Trained Skills Exposure (`Sheet.jsx`, `ficha.css`)**:
+   - Tightened `.fh-skill-categories-grid` gap to `4px` and `.fh-skills-action-details` margin to `0px`.
+   - Filtered folded action summary chips strictly to `(grp.skills || []).filter(sk => Utils.hasSkillProf(char, sk.id) || Utils.hasExpertise(char, sk.id))`.
+5. **Skills Tab Cleanup & Scoping (`Sheet.jsx`)**:
+   - Removed `fh-skills-collapse-all` button and `Passive Perception` label from `FhTitle`.
+   - Renamed 5th action group to `Usar Ferramenta` / `Use Tool`.
+   - Relocated `<SheetTools />` to `SheetFeatures`.
+   - Restricted `{children}` (`ProgressionPanel`) strictly to `{tab === 'play' && ...}`.
+6. **Hero Description Languages & Corner Actions (`Sheet.jsx`, `ficha.css`)**:
+   - Formatted `hero-sub` with `[speciesBg, classesListStr, langsText].filter(Boolean).join(', ')`.
+   - Pinned `.fh-hero-corner-actions` (`fh-export-chip`, `Edit`, `Cheat`) to `bottom: 10px; right: 14px;` with discrete frosted glass `.fh-corner-chip` styling.
+
+### Consequences
+- **Positive:** Players can bring multiple characters to the same table; DMs can flag any sheet as NPC with 1 click; 48px seal trinity creates geometric balance in the hero header; skills tab is compact, clean, and reveals only trained skills on folded headers; progression is scoped strictly to Play.
+- **Verification:** 1,588/1,588 frontend unit tests green across 20 suites; clean Vite production build in 11.37s.

@@ -58,7 +58,7 @@ test('linkErrorText: encerrada, mestre na própria mesa, convite e rede', () => 
 test('confirmações dizem o que acontece com a ficha e com a vaga', () => {
   const a = attachConfirm({ charName: 'Velna', table: 'Ecos', seat: { kind: 'other', name: 'Toco' }, lang: 'pt' });
   assert.equal(a.title, 'Atrelar Velna a “Ecos”?');
-  assert.match(a.text, /já tem Toco\. Toco sai da mesa \(a ficha continua com você\)/);
+  assert.match(a.text, /ao lado de Toco\. Você pode ter múltiplos personagens/);
   assert.doesNotMatch(attachConfirm({ charName: 'Velna', table: 'Ecos', seat: { kind: 'free' } }).text, /Toco/);
 
   const d = detachConfirm({ charName: 'Velna', from: 'Ecos', sponsored: true, lang: 'pt' });

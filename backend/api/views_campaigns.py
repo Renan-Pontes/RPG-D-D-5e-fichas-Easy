@@ -467,12 +467,22 @@ def _release_seats(seats):
 @permission_classes([IsAuthenticated])
 def campaign_join(request):
     code = (request.data.get('inviteCode') or '').upper()
+    campaign_id = request.data.get('campaignId')
     character_id = request.data.get('characterId')
-    if not code:
+
+    campaign = None
+    if campaign_id:
+        campaign = Campaign.objects.filter(pk=campaign_id).first()
+        if not campaign:
+            return Response({'error': 'campaign_not_found'}, status=404)
+        if not Membership.objects.filter(campaign=campaign, user=request.user).exists() and campaign.dm_id != request.user.id:
+            return Response({'error': 'not_a_member'}, status=403)
+    elif code:
+        campaign = Campaign.objects.filter(invite_code=code).first()
+        if not campaign:
+            return Response({'error': 'invite_invalid'}, status=404)
+    else:
         raise ValidationError({'error': 'invalid_input'})
-    campaign = Campaign.objects.filter(invite_code=code).first()
-    if not campaign:
-        return Response({'error': 'invite_invalid'}, status=404)
     P.require_open(campaign)
 
     char = None
@@ -485,23 +495,44 @@ def campaign_join(request):
             return Response(DM_CANNOT_PLAY, status=400)
         # Suporte N:N: Um personagem pode estar em N campanhas concorrentemente,
         # mas nunca duas vezes na MESMA campanha.
-        same_camp_seat = Membership.objects.filter(campaign=campaign, character=char).exclude(user=request.user).first()
+        same_camp_seat = Membership.objects.filter(campaign=campaign, character=char).first()
         if same_camp_seat:
             return Response({'error': 'character_already_in_campaign', 'campaignId': campaign.id,
                              'campaignName': campaign.name}, status=409)
 
     with transaction.atomic():
-        existing = Membership.objects.filter(campaign=campaign, user=request.user).first()
         # Jogador no limite de personagens entra ocupando uma vaga do mestre (se houver).
-        sponsored = P.decide_sponsored(request.user, campaign, char, existing)
-        m, _ = Membership.objects.update_or_create(
-            campaign=campaign, user=request.user,
-            defaults={
-                'character': char,
-                'role': 'dm' if campaign.dm_id == request.user.id else 'player',
-                'sponsored': sponsored,
-            },
-        )
+        sponsored = P.decide_sponsored(request.user, campaign, char, None)
+        if char:
+            # Se o usuário já tiver uma membership nesta campanha sem personagem atrelado, reaproveita
+            existing_empty = Membership.objects.filter(campaign=campaign, user=request.user, character__isnull=True).first()
+            if existing_empty:
+                existing_empty.character = char
+                existing_empty.sponsored = sponsored
+                existing_empty.save()
+                m = existing_empty
+            else:
+                # O usuário pode ter N personagens na mesma campanha! Cria nova vaga de membership.
+                m = Membership.objects.create(
+                    campaign=campaign,
+                    user=request.user,
+                    character=char,
+                    role='dm' if campaign.dm_id == request.user.id else 'player',
+                    sponsored=sponsored,
+                )
+        else:
+            # Sem ficha: se já é membro, retorna membership existente; se não, cria
+            existing_m = Membership.objects.filter(campaign=campaign, user=request.user).first()
+            if existing_m:
+                m = existing_m
+            else:
+                m = Membership.objects.create(
+                    campaign=campaign,
+                    user=request.user,
+                    character=None,
+                    role='dm' if campaign.dm_id == request.user.id else 'player',
+                    sponsored=False,
+                )
     return Response(join_payload(campaign, m))
 
 
@@ -560,6 +591,17 @@ def campaign_member(request, id_or_slug, membership_id):
     # PUT: o próprio jogador pode mudar seu personagem; DM idem
     if m.user_id != request.user.id and not is_dm(request.user, campaign):
         raise PermissionDenied('forbidden')
+
+    # Mestre pode alternar entre 'Jogador Ativo' e 'NPC'
+    if 'isNpc' in request.data or 'charType' in request.data:
+        require_dm(request.user, campaign)
+        is_npc_val = request.data.get('isNpc')
+        if is_npc_val is None and 'charType' in request.data:
+            is_npc_val = (request.data.get('charType') == 'npc')
+        m.is_npc = bool(is_npc_val)
+        m.char_type = 'npc' if m.is_npc else 'player'
+        m.save()
+        return Response({'membership': {'id': m.id, 'characterId': m.character_id, 'isNpc': m.is_npc, 'charType': m.char_type, 'sponsored': m.sponsored}})
 
     char_id = request.data.get('characterId', None)
     # Encerrada é só leitura (o closed_guard deixa o PUT chegar aqui): a única

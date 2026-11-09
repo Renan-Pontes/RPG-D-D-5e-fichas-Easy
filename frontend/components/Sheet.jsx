@@ -90,6 +90,29 @@ const LevelUpButton = ({ char, lang, onLevelUp }) => {
   );
 };
 
+const CampaignSealButton = ({ count, campFoldOpen, onToggle, lang }) => {
+  const pt = lang === 'pt';
+  return (
+    <button
+      type="button"
+      className={`hero-camp fh-seal no-print ${campFoldOpen ? 'is-active' : ''}`}
+      onClick={onToggle}
+      aria-expanded={campFoldOpen}
+      title={pt ? `Campanhas atribuídas (${count}). Clique para gerenciar.` : `Assigned campaigns (${count}). Click to manage.`}
+    >
+      <svg className="fh-seal-ring" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="30" fill="none" stroke="#e0b55e" strokeWidth="1.2" strokeDasharray="2 4"/>
+        <circle cx="32" cy="32" r="27" fill="none" stroke="#9a7231" strokeWidth="0.8"/>
+      </svg>
+      <span className="fh-seal-core">
+        <span className="hero-camp-icon" aria-hidden="true">🏰</span>
+        <span className="hero-camp-label">{pt ? 'MESAS' : 'CAMP.'}</span>
+      </span>
+      {count > 0 && <span className="hero-level-up hero-camp-pip">{count}</span>}
+    </button>
+  );
+};
+
 const hideBrokenImg = (e) => { e.currentTarget.style.display = 'none'; };
 
 // Topo da ficha (visual "Ficha Forjada", src/sheet/ficha.css: .fh-hero).
@@ -171,25 +194,42 @@ const SheetHero = ({
               <span className="fh-hero-photo-badge" aria-hidden="true"><Icon name="image" size={10}/></span>
             </div>
             <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
-            <button
-              type="button"
-              className={`fh-hero-camp-badge ${campFoldOpen ? 'is-active' : ''}`}
-              onClick={() => setCampFoldOpen?.(v => !v)}
-              aria-expanded={campFoldOpen}
-              title={pt ? `Campanhas atribuídas (${campaignsList.length}). Clique para gerenciar.` : `Assigned campaigns (${campaignsList.length}). Click to manage.`}
-            >
-              <span className="fh-hero-camp-badge-icon" aria-hidden="true">🏰</span>
-              <span className="fh-hero-camp-badge-count">{campaignsList.length}</span>
-            </button>
+            <CampaignSealButton count={campaignsList.length} campFoldOpen={campFoldOpen} onToggle={() => setCampFoldOpen?.(v => !v)} lang={lang} />
           </div>
 
           <div className={char.name ? 'hero-name' : 'hero-name is-unnamed'}>
             {char.name ? <span className="fh-foil">{char.name}</span> : (pt ? 'Sem nome' : 'Unnamed')}
           </div>
           <div className="hero-sub">
-            {race ? <b>{tName('race', race.id, lang)}</b> : '—'}
-            {cls ? ` · ${Utils.classLabel(char, lang, tName)}` : ''}
-            {bg ? ` · ${tName('background', bg.id, lang)}` : ''}
+            {(() => {
+              const speciesName = race ? tName('race', race.id, lang) : (char.race || '');
+              const bgName = bg ? tName('background', bg.id, lang) : (char.background || '');
+              const speciesBg = speciesName && bgName ? `${speciesName} (${bgName})` : (speciesName || bgName || '—');
+
+              let classesListStr = '';
+              if (char.classes && char.classes.length > 0) {
+                classesListStr = char.classes.map(c => {
+                  const cName = tName('class', c.name || c.id, lang);
+                  const sub = char.subclasses?.[c.name || c.id] || c.subclass;
+                  const subName = sub ? (tName('subclass', sub, lang) || sub) : null;
+                  return subName ? `${cName} ${c.level} (${subName})` : `${cName} ${c.level}`;
+                }).join(', ');
+              } else if (cls) {
+                const cName = tName('class', cls.id, lang);
+                const subName = currentSubclassName || null;
+                classesListStr = subName ? `${cName} ${char.level || 1} (${subName})` : `${cName} ${char.level || 1}`;
+              }
+
+              const langs = Utils.languagesFor ? Utils.languagesFor(char) : (char.languages || []);
+              const langsFormatted = langs
+                .filter(l => typeof l === 'string' && !/^\+\d/.test(l))
+                .map(l => (Utils.languageLabel ? Utils.languageLabel(l, lang) : l));
+              const langsText = langsFormatted.length > 0
+                ? `${pt ? 'Fala ' : 'Speaks '}${langsFormatted.join(', ')}`
+                : '';
+
+              return [speciesBg, classesListStr, langsText].filter(Boolean).join(', ');
+            })()}
           </div>
           <div className="hero-tags">
             {char.alignment && <span className="tag hero-alignment-tag">{tName('alignment', char.alignment, lang)}</span>}
@@ -199,60 +239,23 @@ const SheetHero = ({
             {char.cheatMode && <span className="tag fh-tag-cheat">🎲 {pt ? 'Trapaça' : 'Cheat'}</span>}
           </div>
 
-          {/* Barra de ações (src/sheet/ficha.css: .fh-actions): Exportar, Editar e Modo trapaça */}
-          <div className="action-bar fh-actions no-print">
-            <button ref={exportBtnRef} type="button" className="chip fh-export-chip" aria-haspopup="dialog" onClick={() => setExportOpen(true)}>
-              <Icon name="download" size={14} className="chip-icon"/> {t('export', lang)}
+          {/* Ações minimalistas e discretas no canto inferior direito do painel */}
+          <div className="action-bar fh-actions fh-hero-corner-actions no-print">
+            <button ref={exportBtnRef} type="button" className="fh-corner-chip fh-export-chip" aria-haspopup="dialog" onClick={() => setExportOpen(true)}>
+              <Icon name="download" size={13} className="chip-icon"/> {t('export', lang)}
             </button>
             {!char.inCampaign && (
-              <button className="chip" onClick={onEdit}><Icon name="edit" size={14} className="chip-icon"/> {t('edit', lang)}</button>
+              <button className="fh-corner-chip" onClick={onEdit}><Icon name="edit" size={13} className="chip-icon"/> {t('edit', lang)}</button>
             )}
             {char.inCampaign && (
-              <span className="chip is-locked" title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
-                🔒 <Icon name="edit" size={14} className="chip-icon"/> {t('edit', lang)}
+              <span className="fh-corner-chip is-locked" title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
+                🔒 <Icon name="edit" size={13} className="chip-icon"/> {t('edit', lang)}
               </span>
             )}
-            <button className={`chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
-              🎲 {lang === 'pt' ? (char.cheatMode ? 'Trapaça ativa' : 'Modo trapaça') : (char.cheatMode ? 'Cheat on' : 'Cheat mode')}
+            <button className={`fh-corner-chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
+              🎲 {lang === 'pt' ? (char.cheatMode ? 'Trapaça' : 'Trapaça') : (char.cheatMode ? 'Cheat' : 'Cheat')}
             </button>
           </div>
-
-          {/* Accordions consolidados na base do painel do herói: Subclasse & Progressão */}
-          {update && (
-            <div className="fh-hero-bottom-accordions no-print">
-              <details className="fh-hero-accordion fh-subclass-accordion" open={hasPendingSubclass}>
-                <summary className="fh-hero-accordion-summary">
-                  <span className="fh-hero-accordion-summary-left">
-                    <span className="fh-hero-accordion-icon" aria-hidden="true">👑</span>
-                    <span className="fh-hero-accordion-title">
-                      {pt ? 'Subclasse' : 'Subclass'}{currentSubclassName ? `: ${currentSubclassName}` : ''}
-                    </span>
-                  </span>
-                  {hasPendingSubclass && <span className="fh-hero-accordion-badge is-alert">{pt ? 'Escolha pendente' : 'Choice pending'}</span>}
-                  <span className="fh-hero-accordion-chevron" aria-hidden="true">▾</span>
-                </summary>
-                <div className="fh-hero-accordion-body">
-                  <SubclassBanner char={char} lang={lang} update={update} />
-                </div>
-              </details>
-
-              <details className="fh-hero-accordion fh-progression-accordion" open={hasPendingSpecies}>
-                <summary className="fh-hero-accordion-summary">
-                  <span className="fh-hero-accordion-summary-left">
-                    <span className="fh-hero-accordion-icon" aria-hidden="true">⚡</span>
-                    <span className="fh-hero-accordion-title">
-                      {pt ? 'Progressão & Escolhas de Espécie' : 'Progression & Species Choices'}
-                    </span>
-                  </span>
-                  {hasPendingSpecies && <span className="fh-hero-accordion-badge is-alert">{pt ? 'Escolha pendente' : 'Choice pending'}</span>}
-                  <span className="fh-hero-accordion-chevron" aria-hidden="true">▾</span>
-                </summary>
-                <div className="fh-hero-accordion-body">
-                  <SpeciesBanner char={char} lang={lang} update={update} />
-                </div>
-              </details>
-            </div>
-          )}
 
           {/* Status/faixa da campanha contidos no painel do personagem, abaixo das ações */}
           {campaignBanner}
@@ -587,11 +590,20 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         onTouchEnd={onTabBodyTouchEnd}
       >
         {tab === 'play' && (
-          <SheetPlay
-            char={char} lang={lang} update={update} applyHp={applyHp}
-            ac={ac} speed={speed} profB={profB} initBonus={initBonus}
-            passPerc={passPerc} slots={slots} roll={roll} placed={placed}
-          />
+          <>
+            {update && (
+              <div className="fh-play-progression-banners no-print">
+                <SubclassBanner char={char} lang={lang} update={update} />
+                <SpeciesBanner char={char} lang={lang} update={update} />
+              </div>
+            )}
+            <SheetPlay
+              char={char} lang={lang} update={update} applyHp={applyHp}
+              ac={ac} speed={speed} profB={profB} initBonus={initBonus}
+              passPerc={passPerc} slots={slots} roll={roll} placed={placed}
+            />
+            {children && <div className="fh-after no-print">{children}</div>}
+          </>
         )}
 
         {tab === 'stats' && (
@@ -626,9 +638,6 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
         {tab === 'notes' && <SheetNotes char={char} lang={lang} update={update} />}
         {tab === 'npcs'  && <SheetNpcs char={char} lang={lang} update={update} />}
       </div>
-
-      {/* Conteúdo extra da ficha (ex.: painel de Progressão) antes da zona de perigo */}
-      <div className="fh-after">{children}</div>
 
       <div className="fh-danger-zone no-print">
         <button className="btn btn-ghost btn-danger btn-sm" onClick={onDelete}>
@@ -3494,24 +3503,13 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
   return (
     <div className="fh-scope-content fh-scope-skills">
       <section className="fh-panel">
-        <FhTitle sub={<>
-          <span>{t('passivePerception', lang)} <span className="fh-sub-hi">{passPerc}</span></span>
-          <span aria-hidden="true">·</span>
-          <span><FhTapToRoll lang={lang} /></span>
-        </>}>{t('skills', lang)}</FhTitle>
-
-        <div className="fh-skills-toolbar no-print">
-          <button type="button" className="btn btn-ghost btn-xs fh-skills-collapse-all" onClick={toggleAll}>
-            {allCollapsed
-              ? (pt ? '▾ Expandir todas as ações' : '▾ Expand all actions')
-              : (pt ? '▸ Recolher todas as ações' : '▸ Collapse all actions')}
-          </button>
-        </div>
+        <FhTitle sub={<span><FhTapToRoll lang={lang} /></span>}>{t('skills', lang)}</FhTitle>
 
         {/* 4 Categorical Rows / Foldable Cards: Search, Hide, Influence, Study */}
         <div className="fh-skill-categories-grid">
           {actionSkillData.map(grp => {
             const isFolded = !!collapsed[grp.key];
+            const trainedSkills = (grp.skills || []).filter(sk => Utils.hasSkillProf(char, sk.id) || Utils.hasExpertise?.(char, sk.id));
             return (
               <div key={grp.key} className={`fh-skill-group-card card statblock-action-details fh-skills-action-details ${isFolded ? 'is-collapsed' : 'open'}`}>
                 <div
@@ -3545,7 +3543,8 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
                       <span className="statblock-action-roll-score">{grp.baselinePassive}/{grp.baselineBonusStr}</span>
                     </button>
 
-                    {grp.exceptions?.map(exc => (
+                    {/* Exposição parcial das perícias nas quais o personagem é proficiente */}
+                    {trainedSkills.map(exc => (
                       <button
                         key={exc.id}
                         type="button"
@@ -3558,10 +3557,11 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
                           e.preventDefault();
                           handleSkillRoll(`1d20${exc.bonusStr}`, `${exc.name} (${exc.bonusStr})`, exc.defaultAdv, e);
                         }}
-                        title={pt ? `Rolar ${exc.name} (1d20${exc.bonusStr})${exc.isKeen ? ' [Vantagem automática]' : ''}` : `Roll ${exc.name} (1d20${exc.bonusStr})${exc.isKeen ? ' [Automatic Advantage]' : ''}`}
+                        title={pt ? `Rolar perícia treinada ${exc.name} (${exc.bonusStr})` : `Roll proficient skill ${exc.name} (${exc.bonusStr})`}
                       >
-                        <span className="statblock-exception-text">{exc.passive}/{exc.bonusStr} {exc.name}</span>
-                        {exc.defaultAdv && <span className="statblock-adv-badge" aria-label="Vantagem">▲</span>}
+                        <span className="statblock-action-roll-dice" aria-hidden="true">◆</span>
+                        <span className="statblock-action-roll-score">{exc.passive}/{exc.bonusStr} {exc.name}</span>
+                        {exc.defaultAdv && <span className="statblock-action-adv-pill">▲</span>}
                       </button>
                     ))}
                   </div>
@@ -3628,7 +3628,7 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
               <span className="statblock-action-header-left">
                 <span className="fh-skill-group-chevron statblock-action-chevron" aria-hidden="true">{collapsed.tools ? '▸' : '▾'}</span>
                 <span className="fh-skill-group-icon statblock-action-icon" aria-hidden="true">🛠️</span>
-                <span className="fh-skill-group-title statblock-action-title">{pt ? 'Ação: Usar Ferramenta (Use Tool)' : 'Battle Action: Use Tool'}</span>
+                <span className="fh-skill-group-title statblock-action-title">{pt ? 'Usar Ferramenta' : 'Use Tool'}</span>
               </span>
 
               <div className="statblock-action-summary-actions">
@@ -3682,9 +3682,6 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
         <FhProfLegend lang={lang} expert />
         {placed?.by?.skills && <FhFeatures items={placed.by.skills} multi={placed.multi} lang={lang} place="skills" />}
       </section>
-
-      {/* Ferramentas consolidadas na aba de Perícias (usar ferramentas é uma Ação e Teste de Atributo) */}
-      <SheetTools char={char} lang={lang} update={update} placed={placed} />
     </div>
   );
 };
@@ -3770,6 +3767,9 @@ export const SheetFeatures = ({ char, lang, placed, cls, race, update }) => {
           </div>
         </section>
       )}
+
+      {/* Idiomas e Proficiências de Ferramentas: escopo correto na aba Características */}
+      <SheetTools char={char} lang={lang} update={update} placed={placed} />
 
       {/* Species Traits: officially on Features tab with full interactive choices and traits */}
       {race && <SpeciesTraits char={char} lang={lang} update={update} race={race} />}

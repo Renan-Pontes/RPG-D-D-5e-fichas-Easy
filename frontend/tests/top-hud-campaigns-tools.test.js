@@ -37,22 +37,35 @@ test('Top HUD Roll Banner: posicionado no topo da tela com suporte expandido par
   assert.match(css, /\.dice-top-hud-banner\.is-attack-generic/);
 });
 
-test('N:N Multi-Campanhas: backend permite o mesmo personagem em N campanhas distintas, proibindo apenas duplicata na mesma campanha', () => {
+test('N:N Multi-Campanhas e N Personagens por Usuário: suporte a múltiplos personagens na mesma mesa e toggle NPC pelo mestre', () => {
   const campViews = read('../../backend/api/views_campaigns.py');
   const charViews = read('../../backend/api/views_characters.py');
+  const modelsSrc = read('../../backend/api/models.py');
+  const playersPanelSrc = read('../src/group/PlayersPanel.jsx');
 
-  // Em campaign_join: verifica duplicata apenas na campanha alvo
-  assert.match(campViews, /Membership\.objects\.filter\(campaign=campaign,\s*character=char\)\.exclude\(user=request\.user\)\.first\(\)/);
+  // models.py: não possui unique_together de (campaign, user)
+  assert.ok(!modelsSrc.includes("unique_together = [('campaign', 'user')]"));
+  assert.match(modelsSrc, /char_type = models\.CharField/);
+  assert.match(modelsSrc, /is_npc = models\.BooleanField/);
+
+  // Em campaign_join: verifica duplicata do mesmo personagem, permitindo múltiplos personagens do mesmo usuário
+  assert.match(campViews, /Membership\.objects\.filter\(campaign=campaign,\s*character=char\)\.first\(\)/);
   assert.ok(!campViews.includes('_other_seats(char)'), 'Não deve ejetar de outras campanhas');
 
-  // Em membership_update: verifica duplicata apenas dentro da mesma campanha
+  // Em membership_update: verifica duplicata apenas do mesmo personagem
   assert.match(campViews, /Membership\.objects\.filter\(campaign=campaign,\s*character=char\)\.exclude\(pk=m\.id\)\.first\(\)/);
 
-  // coverImage é repassado no payload de character_campaigns
+  // coverUrl, coverImage, isNpc repassados no payload de character_campaigns
   assert.match(charViews, /'coverImage':\s*m\.campaign\.cover_image\s*or\s*''/);
+  assert.match(charViews, /'coverUrl':/);
+  assert.match(charViews, /'isNpc':/);
+
+  // PlayersPanel permite ao DM definir personagem como Jogador Ativo ou NPC
+  assert.match(playersPanelSrc, /toggle-npc/);
+  assert.match(playersPanelSrc, /grp-card-npc-badge/);
 });
 
-test('Aba Perícias: paridade visual e funcional com bloco de monstros em 4 ações + 5ª ação Usar Ferramenta', () => {
+test('Aba Perícias e Características: paridade de ações, remoção de redundâncias e exposição de perícias treinadas', () => {
   const sheetSrc = read('../components/Sheet.jsx');
   const css = read('../src/sheet/ficha.css');
 
@@ -66,37 +79,52 @@ test('Aba Perícias: paridade visual e funcional com bloco de monstros em 4 aç�
   // Botões de rolagem direta na linha do cabeçalho da ação
   assert.match(sheetSrc, /statblock-action-header-roll-btn/);
 
-  // Exceções e detalhes dobráveis com grid de 2 colunas
-  const mbCss = read('../src/combat/monster-statblock.css');
-  assert.match(mbCss, /\.statblock-action-grid \{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*1fr 1fr;/);
+  // Exposição parcial de perícias apenas treinadas/proficientes
+  assert.match(sheetSrc, /trainedSkills\s*=\s*\(grp\.skills \|\| \[\]\)\.filter/);
+
+  // Botão Expandir todas as ações e Passive Perception removidos do cabeçalho de Skills
+  assert.ok(!sheetSrc.includes('fh-skills-collapse-all'));
+  assert.ok(!sheetSrc.includes('Passive Perception'));
 
   // 5º Grupo de Ação: Usar Ferramenta (Use Tool) com ícone 🛠️
   assert.match(sheetSrc, /🛠️/);
-  assert.match(sheetSrc, /Ação: Usar Ferramenta|Action: Use Tool/);
+  assert.match(sheetSrc, /Usar Ferramenta/);
+  assert.match(sheetSrc, /Use Tool/);
   assert.match(sheetSrc, /toolItems\.map/);
+
+  // Idiomas e Proficiências de Ferramentas (SheetTools) no escopo correto da aba Características
+  assert.match(sheetSrc, /export const SheetFeatures =/);
+  assert.match(sheetSrc, /<SheetTools char=\{char\}/);
+
+  // CSS com espaçamento reduzido entre grupos de ações
+  assert.match(css, /\.ficha \.fh-skill-categories-grid \{[^}]*gap:\s*4px;/);
 });
 
-test('Hero Header: agrupamento superior esquerdo de medalha, nível e badge minimalista com contagem de campanhas', () => {
+test('Hero Header e Escopo de Progressão: medalha de campanhas 48px, idiomas no subtítulo, ações no canto inferior direito e progressão apenas em Play', () => {
   const sheetSrc = read('../components/Sheet.jsx');
   const css = read('../src/sheet/ficha.css');
 
-  // Cluster superior esquerdo
+  // Cluster superior esquerdo: Medalha do Retrato -> Nível -> Campanhas
   assert.match(sheetSrc, /fh-hero-top-left-cluster/);
   assert.match(sheetSrc, /fh-hero-portrait-medal/);
-  assert.match(sheetSrc, /fh-hero-camp-badge/);
+  assert.match(sheetSrc, /CampaignSealButton/);
+  assert.match(sheetSrc, /hero-camp fh-seal/);
 
-  // Badge exibe contagem de campanhas
-  assert.match(sheetSrc, /campaignsList\.length/);
+  // Subtítulo do Herói expõe idiomas falados
+  assert.match(sheetSrc, /langsText/);
+  assert.match(sheetSrc, /Fala /);
+  assert.match(sheetSrc, /Speaks /);
 
-  // Acordeões inferiores de Subclasse e Progressão no rodapé do herói
-  assert.match(sheetSrc, /fh-hero-bottom-accordions/);
-  assert.match(sheetSrc, /fh-hero-accordion/);
-  assert.match(sheetSrc, /SubclassBanner/);
-  assert.match(sheetSrc, /SpeciesBanner/);
+  // Ações Exportar, Editar e Trapaça no canto inferior direito
+  assert.match(sheetSrc, /fh-hero-corner-actions/);
+  assert.match(sheetSrc, /fh-corner-chip/);
+  assert.match(css, /\.ficha \.fh-hero-corner-actions \{[^}]*position:\s*absolute;[^}]*bottom:\s*10px;[^}]*right:\s*14px;/);
 
-  // CSS posiciona o cluster e estiliza o painel retrátil de campanhas
-  assert.match(css, /\.fh-hero-top-left-cluster/);
-  assert.match(css, /\.fh-hero-camp-badge/);
-  assert.match(css, /\.fh-hero-campaigns-panel/);
-  assert.match(css, /\.fh-hero-campaign-card/);
+  // Trinity de Selos Circulares de 48px
+  assert.match(css, /\.ficha \.fh-hero-top-left-cluster \.fh-seal \{[^}]*width:\s*48px;\s*height:\s*48px;/);
+  assert.match(css, /\.ficha \.fh-seal\.hero-camp/);
+  assert.match(css, /\.hero-camp-pip/);
+
+  // Progressão da Ficha (children) restrita estritamente à aba 'play'
+  assert.match(sheetSrc, /\{tab === 'play' && \([\s\S]*?\{children && <div className="fh-after no-print">\{children\}<\/div>\}/);
 });

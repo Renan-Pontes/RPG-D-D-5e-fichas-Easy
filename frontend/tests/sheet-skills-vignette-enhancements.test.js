@@ -29,17 +29,14 @@ test('Item 2: Banner de Teste de Atributo (Ability Check) com iconografia 🎯 e
   assert.match(css, /\.dice-check-target-title/);
 });
 
-test('Item 3: Subclasse e Progressão consolidadas no painel do herói em acordeões dobráveis', () => {
+test('Item 3: Subclasse e Progressão consolidadas estritamente na aba Jogar (Play) e características na aba Features', () => {
   const sheetSrc = read('../components/Sheet.jsx');
   const tabsSrc = read('../components/SheetTabs.jsx');
 
-  // SubclassBanner e SpeciesBanner consolidados dentro de acordeões no rodapé do painel do herói (SheetHero)
-  assert.match(sheetSrc, /fh-hero-bottom-accordions/);
-  assert.match(sheetSrc, /<SubclassBanner char=\{char\} lang=\{lang\} update=\{update\} \/>/);
-  assert.match(sheetSrc, /<SpeciesBanner char=\{char\} lang=\{lang\} update=\{update\} \/>/);
-
-  // Removido de todas as outras abas (não está solto na aba play)
-  assert.ok(!sheetSrc.includes("{tab === 'play' && (\n          <>\n            <SubclassBanner"), 'SubclassBanner não deve estar solto na aba play');
+  // SubclassBanner e SpeciesBanner consolidados estritamente dentro da aba play
+  assert.match(sheetSrc, /\{tab === 'play' && \([\s\S]*?<SubclassBanner char=\{char\} lang=\{lang\} update=\{update\} \/>/);
+  assert.match(sheetSrc, /\{tab === 'play' && \([\s\S]*?<SpeciesBanner char=\{char\} lang=\{lang\} update=\{update\} \/>/);
+  assert.match(sheetSrc, /\{tab === 'play' && \([\s\S]*?\{children && <div className="fh-after no-print">\{children\}<\/div>\}/);
 
   // SpeciesTraits NÃO está mais no final de SheetStory
   const storyEnd = tabsSrc.slice(tabsSrc.indexOf('const SheetStory ='), tabsSrc.indexOf('// ===== Notes / Journal ====='));
@@ -129,17 +126,19 @@ test('Item 8: Sequência canônica de 9 abas (tools consolidada em skills) no SH
   assert.deepEqual(tabIds, expectedTabs, 'A ordem de SHEET_TABS deve corresponder exatamente à sequência esperada');
 });
 
-test('Item 9: Grade de perícias dobrável/recolhível por ação e aba Ferramentas consolidada em Perícias', () => {
+test('Item 9: Grade de perícias dobrável/recolhível por ação e aba Ferramentas consolidada em Características', () => {
   const sheetSrc = read('../components/Sheet.jsx');
   assert.match(sheetSrc, /const \[collapsed, setCollapsed\] = useState/);
   assert.match(sheetSrc, /toggleGroup/);
-  assert.match(sheetSrc, /toggleAll/);
-  assert.match(sheetSrc, /fh-skills-collapse-all/);
   assert.match(sheetSrc, /fh-skill-group-chevron/);
   assert.match(sheetSrc, /aria-expanded=/);
 
-  const skillsFunctionBody = sheetSrc.slice(sheetSrc.indexOf('export const SheetSkills ='), sheetSrc.indexOf('export const SheetTools ='));
-  assert.match(skillsFunctionBody, /<SheetTools char=\{char\} lang=\{lang\} update=\{update\} placed=\{placed\} \/>/);
+  // Botão Expandir todas as ações e Passive Perception removidos por redundância
+  assert.ok(!sheetSrc.includes('fh-skills-collapse-all'));
+
+  // SheetTools transferido do escopo de Perícias para Características (SheetFeatures)
+  const featuresBody = sheetSrc.slice(sheetSrc.indexOf('export const SheetFeatures ='));
+  assert.match(featuresBody, /<SheetTools char=\{char\} lang=\{lang\} update=\{update\} placed=\{placed\} \/>/);
 });
 
 test('Item 10: Enquadramento e reposicionamento configurável do banner e avatar do personagem', () => {

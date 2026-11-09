@@ -49,10 +49,16 @@ def character_list(request):
         out = {'character': None}
         if campaign is not None:
             from .views_campaigns import join_payload
-            m, _ = Membership.objects.update_or_create(
-                campaign=campaign, user=request.user,
-                defaults={'character': obj, 'sponsored': sponsored,
-                          'role': 'dm' if campaign.dm_id == request.user.id else 'player'})
+            existing_empty = Membership.objects.filter(campaign=campaign, user=request.user, character__isnull=True).first()
+            if existing_empty:
+                existing_empty.character = obj
+                existing_empty.sponsored = sponsored
+                existing_empty.save()
+                m = existing_empty
+            else:
+                m = Membership.objects.create(
+                    campaign=campaign, user=request.user, character=obj, sponsored=sponsored,
+                    role='dm' if campaign.dm_id == request.user.id else 'player')
             out['join'] = join_payload(campaign, m)
     out['character'] = CharacterSerializer(obj).data
     return Response(out)
@@ -487,7 +493,11 @@ def character_campaigns(request, pk):
                 'name': m.campaign.name,
                 'slug': m.campaign.slug,
                 'coverImage': m.campaign.cover_image or '',
+                'coverVer': m.campaign.cover_ver,
+                'coverUrl': f'/api/campaigns/{m.campaign.id}/cover?v={m.campaign.cover_ver}' if m.campaign.cover_ver else (m.campaign.cover_image or ''),
                 'membershipId': m.id,
+                'isNpc': getattr(m, 'is_npc', False),
+                'charType': getattr(m, 'char_type', 'player'),
                 # modal "Campanha" da ficha: encerrada (somente leitura) e vaga emprestada
                 'status': m.campaign.status,
                 'purgeAt': P.purge_at(m.campaign).isoformat() if P.purge_at(m.campaign) else None,

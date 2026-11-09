@@ -305,7 +305,7 @@ function JoinCampaignModal({ lang, onClose, onJoined, initialCode = '', characte
   const [code, setCode] = useState(normalizeInviteCode(initialCode));
   // Só fichas da conta (id do servidor); as que já estão numa mesa ficam desabilitadas.
   const mine = characters.filter(c => typeof c.id === 'number');
-  const [charId, setCharId] = useState(() => (mine.find(c => !c.inCampaign)?.id ?? ''));
+  const [charId, setCharId] = useState(() => (mine[0]?.id ?? ''));
   const [table, setTable] = useState(null);
   const [seatsFree, setSeatsFree] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -383,13 +383,18 @@ function JoinCampaignModal({ lang, onClose, onJoined, initialCode = '', characte
           <fieldset className="col gap-1" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
             <legend style={{ marginBottom: 'var(--s-1)' }}>{t(lang, 'Qual personagem vai para a mesa?', 'Which character goes to the table?')}</legend>
             <div className="join-chars">
-              {mine.map(c => (
-                <label key={c.id} className={`join-char ${c.inCampaign ? 'is-disabled' : ''}`}>
-                  <input type="radio" name="join-char" checked={charId === c.id} disabled={!!c.inCampaign} onChange={() => setCharId(c.id)} />
-                  <span className="join-char-name">{c.name || t(lang, 'Sem nome', 'Unnamed')}</span>
-                  <span className="muted text-sm">{c.inCampaign ? t(lang, 'já está numa mesa', 'already in a table') : `${t(lang, 'nível', 'level')} ${c.level || 1}`}</span>
-                </label>
-              ))}
+              {mine.map(c => {
+                const alreadyInThisTable = table?.campaignId
+                  ? Boolean(c.campaignIds?.includes(table.campaignId))
+                  : Boolean(table?.members && Array.isArray(table.members) && table.members.some(m => m.character?.id === c.id));
+                return (
+                  <label key={c.id} className={`join-char ${alreadyInThisTable ? 'is-disabled' : ''}`}>
+                    <input type="radio" name="join-char" checked={charId === c.id} disabled={alreadyInThisTable} onChange={() => setCharId(c.id)} />
+                    <span className="join-char-name">{c.name || t(lang, 'Sem nome', 'Unnamed')}</span>
+                    <span className="muted text-sm">{alreadyInThisTable ? t(lang, 'já está nesta mesa', 'already at this table') : `${t(lang, 'nível', 'level')} ${c.level || 1}`}</span>
+                  </label>
+                );
+              })}
               <label className="join-char">
                 <input type="radio" name="join-char" checked={charId === ''} onChange={() => setCharId('')} />
                 <span className="join-char-name">{t(lang, 'Escolho depois', "I'll pick later")}</span>

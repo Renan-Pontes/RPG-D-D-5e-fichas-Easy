@@ -101,6 +101,14 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
     });
     if (ok) run(() => api.wildShapeForceEnd(m.character.id, {}), t(lang, `${m.character.name} voltou à forma normal.`, `${m.character.name} is back to normal form.`));
   };
+  const toggleNpc = async (m) => {
+    const isNpc = !(m.isNpc || m.charType === 'npc');
+    await run(
+      () => api.updateMembership(campaign.id, m.id, { isNpc, charType: isNpc ? 'npc' : 'player' }),
+      t(lang, isNpc ? 'Personagem definido como NPC.' : 'Personagem definido como Jogador Ativo.',
+             isNpc ? 'Character set as NPC.' : 'Character set as Active Player.')
+    );
+  };
 
   return (
     <div className="grp-players">
@@ -130,6 +138,7 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
                   pending={m.character ? levelupFor(approvals, m.character.id, 'pending') : null}
                   unlocked={m.character ? levelupFor(approvals, m.character.id, 'approved') : null}
                   onAssignStart={() => setAssigning(m.id)}
+                  onToggleNpc={() => toggleNpc(m)}
                   onEdit={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data })}
                   onLog={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data, section: 'log' })}
                   onGive={campaign.status === 'closed' ? null : () => setGiving({ id: m.character.id, name: m.character.name })}
@@ -147,7 +156,7 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
       {!isDM && afterMine && !ordered.some(m => m.user?.id === meId) && <div className="grp-after-mine">{afterMine}</div>}
 
       {assigningMember && (
-        <AssignSheet lang={lang} member={assigningMember} characters={characters}
+        <AssignSheet lang={lang} member={assigningMember} members={players} characters={characters}
           released={released.current} onPick={(id) => assign(assigningMember, id)} onClose={() => setAssigning(null)} />
       )}
       {editing && (
@@ -188,10 +197,11 @@ function usePartyRoles(campaign, isDM, lang) {
   }, [rx, key, lang]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, onAssignStart, onEdit, onLog, onGive, onEndForm, onRemove, onLeave, roles, onRoles }) {
+function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, onAssignStart, onToggleNpc, onEdit, onLog, onGive, onEndForm, onRemove, onLeave, roles, onRoles }) {
   const c = m.character;
   const s = memberStats(m);
   const name = c?.name || m.user?.displayName;
+  const isNpc = !!(m.isNpc || m.charType === 'npc');
   const log = isDM ? editLogEntries(c?.data) : [];
   const tone = s ? hpTone(s.hp, s.maxHp) : 'unknown';
   const pills = statPills(s, lang);
@@ -201,6 +211,14 @@ function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, onAssignSt
     isDM && c?.data && log.length > 0 && {
       id: 'log', label: `📜 ${t(lang, 'Registro', 'Edit log')} (${log.length})`, onSelect: onLog,
       hint: t(lang, `Última edição: ${formatEditLogDate(log[0].at, lang)}`, `Last edit: ${formatEditLogDate(log[0].at, lang)}`),
+    },
+    isDM && {
+      id: 'toggle-npc',
+      label: isNpc ? `👤 ${t(lang, 'Definir como Jogador Ativo', 'Set as Active Player')}` : `🎭 ${t(lang, 'Definir como NPC', 'Set as NPC')}`,
+      onSelect: onToggleNpc,
+      hint: isNpc
+        ? t(lang, 'Personagem volta a contar como jogador ativo.', 'Character returns to active player status.')
+        : t(lang, 'Mestre define o personagem como NPC da campanha.', 'DM sets character as a campaign NPC.'),
     },
     wild && { id: 'wild', label: `🐾 ${t(lang, 'Encerrar forma', 'End form')}`, onSelect: onEndForm,
       hint: t(lang, 'Tira o personagem da forma selvagem (com confirmação).', 'Takes the character out of wild shape (asks first).') },
@@ -220,7 +238,14 @@ function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, onAssignSt
         <div className="grp-card-who">
           <strong className="grp-card-name">{name}</strong>
           <span className="grp-card-line">{c ? charLine(c.summary || c.data, lang) : t(lang, 'Sem personagem ainda', 'No character yet')}</span>
-          <span className="grp-card-player">{t(lang, 'Jogador', 'Player')}: {m.user?.displayName}{isMe && !isDM ? ` · ${t(lang, 'você', 'you')}` : ''}</span>
+          <span className="grp-card-player">
+            {t(lang, 'Jogador', 'Player')}: {m.user?.displayName}{isMe && !isDM ? ` · ${t(lang, 'você', 'you')}` : ''}
+            {isNpc && (
+              <span className="grp-card-npc-badge" style={{ marginLeft: 6, padding: '1px 6px', borderRadius: 4, background: 'rgba(168, 85, 247, 0.22)', border: '1px solid rgba(192, 132, 252, 0.65)', color: '#f3e8ff', fontSize: '0.72rem', fontWeight: 800 }}>
+                🎭 NPC
+              </span>
+            )}
+          </span>
         </div>
         <MoreMenu items={menu} lang={lang} label={t(lang, `Mais ações: ${name}`, `More actions: ${name}`)} sheetTitle={name} />
       </header>
@@ -283,7 +308,7 @@ function PlayerCard({ m, lang, isDM, xpMode, isMe, pending, unlocked, onAssignSt
  * servidor também recusa: uma ficha numa campanha por vez). `released`: as que
  * acabaram de sair desta mesa (a lista do app ainda as marca em campanha).
  */
-function AssignSheet({ lang, member, characters, released, onPick, onClose }) {
+function AssignSheet({ lang, member, members = [], characters, released, onPick, onClose }) {
   const cur = member.character?.id ?? null;
   return (
     <MesaSheet lang={lang} size="auto" width="sm" icon="🛡"
@@ -294,7 +319,7 @@ function AssignSheet({ lang, member, characters, released, onPick, onClose }) {
       <div className="grp-assign-list mesa-panel is-sunk" role="radiogroup" aria-label={t(lang, 'Personagem nesta mesa', 'Character at this table')}>
         {characters.map(ch => {
           const here = ch.id === cur;
-          const busy = !!ch.inCampaign && !here && !released?.has(ch.id);
+          const busy = members.some(other => other.id !== member.id && other.character?.id === ch.id);
           let cls = '';
           try { cls = Utils.classLabel(ch, lang, tName); } catch { cls = ''; }
           return (
@@ -304,7 +329,7 @@ function AssignSheet({ lang, member, characters, released, onPick, onClose }) {
               <span className="mesa-row-main">
                 <span className="mesa-row-title">{ch.name || t(lang, 'Sem nome', 'Unnamed')}</span>
                 <span className="mesa-row-sub">
-                  {[cls, here ? t(lang, 'nesta mesa', 'at this table') : busy ? t(lang, 'já está em outra mesa', 'already at another table') : ''].filter(Boolean).join(' · ')}
+                  {[cls, here ? t(lang, 'nesta vaga', 'in this seat') : busy ? t(lang, 'já está nesta mesa', 'already at this table') : ''].filter(Boolean).join(' · ')}
                 </span>
               </span>
             </button>

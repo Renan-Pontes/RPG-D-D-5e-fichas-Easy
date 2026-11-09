@@ -101,8 +101,8 @@ export function attachConfirm({ charName, table, seat, lang = 'pt' }) {
     title: L(lang, `Atrelar ${who} a ${where}?`, `Link ${who} to ${where}?`),
     text: other
       ? L(lang,
-        `Sua vaga nesta mesa já tem ${other}. ${other} sai da mesa (a ficha continua com você) e ${who} entra no lugar. Em campanha, nível, PV máximo, atributos e itens passam a ser cuidados pelo mestre.`,
-        `Your seat at this table already has ${other}. ${other} leaves the table (the sheet stays with you) and ${who} takes the seat. In a campaign, level, max HP, abilities and items are handled by the GM.`)
+        `${who} entra na mesa ${where} ao lado de ${other}. Você pode ter múltiplos personagens ativos na mesma campanha. Em campanha, nível, PV máximo, atributos e itens passam a ser cuidados pelo mestre.`,
+        `${who} joins ${where} alongside ${other}. You can have multiple characters active in the same campaign. In a campaign, level, max HP, abilities and items are handled by the GM.`)
       : L(lang,
         `${who} entra na mesa. Em campanha, nível, PV máximo, atributos e itens passam a ser cuidados pelo mestre.`,
         `${who} joins the table. In a campaign, level, max HP, abilities and items are handled by the GM.`),

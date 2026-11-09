@@ -96,26 +96,26 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
 
   const pickTable = (table) => {
     const seat = seatState(table, char.id);
-    const attach = (move) => run(async () => {
-      const res = await putSeat(table, move);
-      if (move) await keepOnly(table.id);
-      return linkToast(move ? 'switch' : 'attach', { charName, table: table.name, lang }) + seatNote(res, '');
-    }, { onConflict: (other) => switchTo(table.name, seat, other.campaignName, () => attach(true)) });
-    if (linked) setConfirm(switchTo(table.name, seat, undefined, () => attach(true)));
-    else setConfirm({ ...attachConfirm({ charName, table: table.name, seat, lang }), run: () => attach(false) });
+    const attach = () => run(async () => {
+      let res;
+      if (table.myMembership?.characterId && String(table.myMembership.characterId) !== String(char.id)) {
+        res = await api.joinCampaign({ campaignId: table.id, characterId: char.id });
+      } else {
+        res = await putSeat(table, false);
+      }
+      return linkToast('attach', { charName, table: table.name, lang }) + seatNote(res, '');
+    });
+    setConfirm({ ...attachConfirm({ charName, table: table.name, seat, lang }), run: attach });
   };
 
-  // Código de convite: sem campanha entra direto (a prévia da mesa já está na tela);
-  // com campanha, confirma a troca antes.
+  // Código de convite: entra na mesa com este personagem (suporte a N personagens na mesma campanha).
   const joinCode = (code, table) => {
-    const go = (move) => run(async () => {
+    const go = () => run(async () => {
       const body = { inviteCode: code, characterId: char.id };
-      const res = await api.joinCampaign(move ? { ...body, move: true } : body);
-      if (move && res?.campaignId != null) await keepOnly(res.campaignId);
-      return linkToast(move ? 'switch' : 'attach', { charName, table: table?.name, lang }) + seatNote(res, table?.dmName);
-    }, { onConflict: (other) => switchTo(table?.name, null, other.campaignName, () => go(true)) });
-    if (linked) setConfirm(switchTo(table?.name || code, null, undefined, () => go(true)));
-    else go(false);
+      const res = await api.joinCampaign(body);
+      return linkToast('attach', { charName, table: table?.name, lang }) + seatNote(res, table?.dmName);
+    });
+    go();
   };
 
   const detach = (link) => {
@@ -123,7 +123,7 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
       ...detachConfirm({ charName, from: link.name, sponsored: !!link.sponsored, lang }),
       danger: true,
       run: () => run(async () => {
-        await api.updateMembership(link.id, link.membershipId, { characterId: null });
+        await api.removeMember(link.id, link.membershipId);
         return linkToast('detach', { charName, table: link.name, lang });
       }),
     });

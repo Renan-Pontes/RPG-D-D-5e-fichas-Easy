@@ -113,11 +113,14 @@ class Campaign(models.Model):
 # === Membership ===
 class Membership(models.Model):
     ROLE_CHOICES = [('player', 'Player'), ('dm', 'DM')]
+    CHAR_TYPE_CHOICES = [('player', 'Player'), ('npc', 'NPC')]
 
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='memberships')
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='memberships')
     character = models.ForeignKey(Character, on_delete=models.SET_NULL, null=True, blank=True, related_name='memberships')
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='player')
+    char_type = models.CharField(max_length=10, choices=CHAR_TYPE_CHOICES, default='player')
+    is_npc = models.BooleanField(default=False)
     joined_at = models.DateTimeField(auto_now_add=True)
     world_seen_at = models.DateTimeField(null=True, blank=True)  # selo "Novo!" do Mundo do jogador
     # Vaga de mesa: o personagem ocupa uma vaga do plano do MESTRE e não conta no
@@ -125,8 +128,10 @@ class Membership(models.Model):
     sponsored = models.BooleanField(default=False)
 
     class Meta:
-        unique_together = [('campaign', 'user')]
-        indexes = [models.Index(fields=['user'])]
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['campaign', 'character']),
+        ]
 
 
 # === Approval ===

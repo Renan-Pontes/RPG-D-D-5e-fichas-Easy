@@ -392,7 +392,7 @@
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: "seal name" "sub sub" "tags tags" "actions actions" "camp camp" "accordions accordions";
+  grid-template-areas: "seal name" "sub sub" "tags tags" "camp camp";
   align-items: center;
   column-gap: 14px;
   row-gap: 8px;
@@ -5065,8 +5065,8 @@
 .ficha .fh-skill-categories-grid {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin-bottom: 14px;
+  gap: 4px;
+  margin-bottom: 8px;
   width: 100%;
 }
 
@@ -5241,7 +5241,7 @@
   grid-area: seal;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
   z-index: 5;
 }
@@ -5273,7 +5273,73 @@
   font-size: 1.3rem;
 }
 
-/* Minimalist Campaign Badge with Notification Count */
+/* Seal Trinity: Unify Level Badge & Campaign Badge to 48px Circular Medals */
+.ficha .fh-hero-top-left-cluster .fh-seal {
+  grid-area: auto;
+  position: relative;
+  width: 48px;
+  height: 48px;
+}
+
+.ficha .fh-hero-top-left-cluster .fh-seal-core {
+  width: 40px;
+  height: 40px;
+}
+
+.ficha .fh-hero-top-left-cluster .hero-level-label {
+  font-size: 0.44rem;
+}
+
+.ficha .fh-hero-top-left-cluster .hero-level-num {
+  font-size: 1.1rem;
+}
+
+/* Campaign Seal Button */
+.ficha .fh-seal.hero-camp {
+  cursor: pointer;
+}
+
+.ficha .fh-seal.hero-camp .hero-camp-icon {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.ficha .fh-seal.hero-camp .hero-camp-label {
+  font-family: var(--display);
+  font-size: 0.44rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--on-gold);
+  margin-top: 1px;
+}
+
+.ficha .fh-seal.hero-camp:hover .fh-seal-core,
+.ficha .fh-seal.hero-camp.is-active .fh-seal-core {
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5), 0 0 20px rgba(240, 190, 90, 0.7);
+  background: radial-gradient(circle at 35% 30%, #fff7d6, #eec774 45%, #9b702d 100%);
+}
+
+.ficha .fh-seal.hero-camp .hero-camp-pip {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #140e0b;
+  background: var(--gold-bright, #edcb7a);
+  box-shadow: 0 0 0 2px #140e0b, 0 0 8px rgba(237, 203, 122, 0.6);
+}
+
+/* Minimalist Campaign Badge with Notification Count (Fallback / Legacy) */
 .ficha .fh-hero-camp-badge {
   display: inline-flex;
   align-items: center;
@@ -5494,7 +5560,7 @@
 
 /* Character Skills Tab Parity with Monster Statblock */
 .ficha .fh-skills-action-details {
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 
 .ficha .fh-skill-cycle-btn {
@@ -5508,4 +5574,72 @@
 
 .ficha .statblock-action-skill-row .fh-skill-cycle-btn {
   margin-right: 2px;
+}
+
+/* Minimalist & Discrete Hero Panel Corner Actions (Bottom Right) */
+.ficha .fh-hero-corner-actions {
+  position: absolute;
+  bottom: 10px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 10;
+}
+
+.ficha .fh-corner-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  min-height: 26px;
+  border-radius: 4px;
+  font-family: var(--display);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--ink-secondary);
+  background: rgba(14, 10, 8, 0.72);
+  border: 1px solid rgba(224, 181, 94, 0.22);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.ficha .fh-corner-chip:hover {
+  color: var(--gold-bright);
+  border-color: rgba(224, 181, 94, 0.6);
+  background: rgba(26, 18, 14, 0.92);
+}
+
+.ficha .fh-corner-chip.is-locked {
+  opacity: 0.65;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.ficha .fh-corner-chip.is-cheat {
+  color: #ffbfb5;
+  border-color: rgba(220, 50, 40, 0.45);
+  background: rgba(70, 15, 12, 0.75);
+}
+
+.ficha .fh-corner-chip.is-cheat:hover {
+  color: #fff;
+  border-color: var(--blood-bright);
+  background: rgba(100, 20, 15, 0.9);
+}
+
+.ficha .fh-corner-chip .chip-icon {
+  opacity: 0.85;
+}
+
+@media (max-width: 600px) {
+  .ficha .fh-hero-corner-actions {
+    position: static;
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+    margin-top: 6px;
+  }
 }

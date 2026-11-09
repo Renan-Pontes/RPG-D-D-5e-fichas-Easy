@@ -59,13 +59,19 @@ class LoginSerializer(serializers.Serializer):
 # === Character ===
 class CharacterSerializer(serializers.ModelSerializer):
     inCampaign = serializers.SerializerMethodField()
+    campaignIds = serializers.SerializerMethodField()
     campaignLeveling = serializers.SerializerMethodField()
     tableSlot = serializers.SerializerMethodField()
 
     class Meta:
         model = Character
-        fields = ['id', 'name', 'data', 'created_at', 'updated_at', 'inCampaign', 'campaignLeveling', 'tableSlot']
-        read_only_fields = ['id', 'created_at', 'updated_at', 'inCampaign', 'campaignLeveling', 'tableSlot']
+        fields = ['id', 'name', 'data', 'created_at', 'updated_at', 'inCampaign', 'campaignIds', 'campaignLeveling', 'tableSlot']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'inCampaign', 'campaignIds', 'campaignLeveling', 'tableSlot']
+
+    def get_campaignIds(self, obj):
+        """Lista de IDs das campanhas em que este personagem participa (suporte N:N)."""
+        from .models import Membership
+        return list(Membership.objects.filter(character=obj).values_list('campaign_id', flat=True))
 
     def get_tableSlot(self, obj):
         """Ficha numa VAGA DE MESA (não conta no limite do jogador): {campaignId,
@@ -98,10 +104,12 @@ class CharacterSerializer(serializers.ModelSerializer):
 class MembershipSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     character = serializers.SerializerMethodField()
+    isNpc = serializers.BooleanField(source='is_npc', read_only=True)
+    charType = serializers.CharField(source='char_type', read_only=True)
 
     class Meta:
         model = Membership
-        fields = ['id', 'user', 'character', 'role', 'joined_at', 'sponsored']
+        fields = ['id', 'user', 'character', 'role', 'char_type', 'is_npc', 'charType', 'isNpc', 'joined_at', 'sponsored']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -110,6 +118,8 @@ class MembershipSerializer(serializers.ModelSerializer):
         if not self.context.get('is_dm', False) and instance.user_id != viewer_id \
                 and isinstance(data.get('user'), dict):
             data['user'].pop('email', None)   # jogador vê só o nome dos colegas
+        data['isNpc'] = bool(getattr(instance, 'is_npc', False) or getattr(instance, 'char_type', '') == 'npc')
+        data['charType'] = 'npc' if data['isNpc'] else 'player'
         return data
 
     def get_character(self, obj):
@@ -288,26 +298,38 @@ class CampaignListSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = _lifecycle(super().to_representation(instance), instance)
-        # A vaga de JOGADOR de quem vê (modal "Campanha" da ficha: qual personagem
-        # ocupa a vaga). Na mesa que a pessoa mestra não vem (nem consulta).
-        m = None if _viewer_is_dm(self, instance) else self._mine(instance)
-        if m:
+        # Vagas de JOGADOR de quem vê (suporte a N personagens do mesmo usuário)
+        m_list = None if _viewer_is_dm(self, instance) else self._mine_list(instance)
+        if m_list:
+            data['myMemberships'] = [
+                {'id': m['id'], 'characterId': m['character_id'],
+                 'characterName': m['character__name'], 'sponsored': m['sponsored'],
+                 'isNpc': m.get('is_npc', False), 'charType': m.get('char_type', 'player')}
+                for m in m_list
+            ]
+            m = m_list[0]
             data['myMembership'] = {'id': m['id'], 'characterId': m['character_id'],
-                                    'characterName': m['character__name'], 'sponsored': m['sponsored']}
+                                    'characterName': m['character__name'], 'sponsored': m['sponsored'],
+                                    'isNpc': m.get('is_npc', False), 'charType': m.get('char_type', 'player')}
         return data
 
     def get_coverUrl(self, obj):
         return _cover_url(obj)
 
-    def _mine(self, obj):
-        """Membership de quem vê nesta campanha (uma consulta leve, sem a ficha)."""
-        cache = self.context.setdefault('_mine', {})
+    def _mine_list(self, obj):
+        """Lista de memberships de quem vê nesta campanha (suporte a múltiplos personagens)."""
+        cache = self.context.setdefault('_mine_list', {})
         if obj.id not in cache:
             request = self.context.get('request')
-            cache[obj.id] = None if not request or not request.user.is_authenticated else (
+            cache[obj.id] = [] if not request or not request.user.is_authenticated else list(
                 obj.memberships.filter(user=request.user)
-                .values('id', 'role', 'character_id', 'character__name', 'sponsored').first())
+                .values('id', 'role', 'character_id', 'character__name', 'sponsored', 'is_npc', 'char_type'))
         return cache[obj.id]
+
+    def _mine(self, obj):
+        """Membership primária de quem vê nesta campanha (compatibilidade)."""
+        lst = self._mine_list(obj)
+        return lst[0] if lst else None
 
     def get_role(self, obj):
         request = self.context.get('request')
