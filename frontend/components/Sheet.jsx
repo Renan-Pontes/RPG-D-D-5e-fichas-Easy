@@ -3313,9 +3313,14 @@ const BeltAbilities = ({ char, lang, roll, profB }) => {
         {[1, 2].map((si) => slots[si]?.pb && (
           <svg key={`pbs${si}`} className={`fh-belt-pb-slits is-${si === 1 ? 'left' : 'right'}`} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             {/* fio dourado no meio das frestas: em volta da cunha e descendo até o dado */}
-            <polyline pathLength="100" points="0,0 50,100 100,0" />
-            <line pathLength="100" x1="50" y1="100" x2="50" y2="300" />
+            {/* 1) contorna a cunha partindo do meio da aresta de cima até o vértice */}
+            <path pathLength="100" d="M 50,0 L 0,0 L 50,100" />
+            <path pathLength="100" d="M 50,0 L 100,0 L 50,100" />
           </svg>
+        ))}
+        {/* 2) desce pela fresta entre os hexágonos de atributo até o vértice do dado */}
+        {[1, 2].map((si) => slots[si]?.pb && (
+          <span key={`pbd${si}`} className={`fh-belt-pb-drop is-${si === 1 ? 'left' : 'right'}`} aria-hidden="true" />
         ))}
       </div>
       <div className="fh-belt-hive-row is-mid">
