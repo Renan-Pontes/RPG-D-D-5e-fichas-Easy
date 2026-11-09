@@ -74,9 +74,9 @@ function Badge({ b, lang, mods, value, sub, state = '', tag = null, ...rest }) {
         </span>
       )}
       {b.kind === 'die' && <span className="mr-b-k">{neg ? '−' : ''}{count}d{b.die}</span>}
-      {b.kind === 'abil' && <><span className="mr-b-ico" aria-hidden="true">{ABIL_META[b.abil].icon}</span><span className="mr-b-k">{neg ? '−' : ''}{count}{ABIL_META[b.abil][lang === 'pt' ? 'pt' : 'en']}</span><span className="mr-b-v">{fmt(value ?? staticValue(b, mods))}</span></>}
-      {b.kind === 'pb' && <><span className="mr-b-ico" aria-hidden="true">⭐</span><span className="mr-b-k">{neg ? '−' : ''}{count}{L(lang, 'BP', 'PB')}</span><span className="mr-b-v">{fmt(value ?? staticValue(b, mods))}</span></>}
-      {b.kind === 'flat' && <><span className="mr-b-ico" aria-hidden="true">±</span><span className="mr-b-v">{fmt(value ?? b.value)}</span></>}
+      {b.kind === 'abil' && <><span className="mr-b-k">{neg ? '−' : ''}{count}{ABIL_META[b.abil][lang === 'pt' ? 'pt' : 'en']}</span><span className="mr-b-v">{fmt(value ?? staticValue(b, mods))}</span></>}
+      {b.kind === 'pb' && <><span className="mr-b-k">{neg ? '−' : ''}{count}{L(lang, 'BP', 'PB')}</span><span className="mr-b-v">{fmt(value ?? staticValue(b, mods))}</span></>}
+      {b.kind === 'flat' && <><span className="mr-b-v">{fmt(value ?? b.value)}</span></>}
       {sub && <span className="mr-b-sub">{sub}</span>}
       {b.temp && <span className="mr-b-temp" aria-label={L(lang, 'temporário', 'temporary')}>⏳</span>}
       {tag}
@@ -345,8 +345,48 @@ export default function MultiRoll({ lang }) {
     if (focus && focusIds.has(row.id) && !done) {
       const snap = pl ? pl.snap : row;
       const d20 = snap.badges.findIndex(x => x.kind === 'die' && x.die === 20 && x.sign > 0);
+      const g20 = d20 >= 0 ? snap.badges[d20].group : null;
+      // dados acoplados ao d20 rolam empilhados sob ele e, no clímax, o d20 bombeia até a soma
+      const stacked = g20 ? snap.badges.map((x, i) => (i !== d20 && x.kind === 'die' && x.group === g20 ? i : -1)).filter(i => i >= 0) : [];
+      const dieVal = (idx) => {
+        const rolled = pl?.rolls?.[idx];
+        if (!rolled) return null;
+        const b = snap.badges[idx];
+        const extra = pl.extra?.[idx];
+        const base = idx === d20 && snap.adv !== 'normal'
+          ? (snap.adv === 'adv' ? Math.max(...rolled) : Math.min(...rolled))
+          : rolled.reduce((t, v) => t + v, 0);
+        return (base + (extra ? extra.reduce((t, v) => t + v, 0) : 0)) * (idx === d20 ? 1 : (b.sign < 0 ? -1 : 1));
+      };
+      const renderDie = (b, idx, extraProps = {}) => {
+        const rolled = pl?.rolls?.[idx];
+        const extra = pl?.extra?.[idx];
+        const v = dieVal(idx);
+        const fx = pl?.fx?.[idx] || { delay: 0, scale: 1 };
+        return (
+          <DieShape key={`${idx}-r${extra ? 1 : 0}${rolled ? '' : '-idle'}`} die={b.die} value={v == null ? '' : Math.abs(v)} rolling={!!rolled} animated size={52} lang={lang} isHero
+            delayMs={fx.delay} timeScale={fx.scale} bodyFx={pl?.driver === `${row.id}:${idx}`} {...extraProps} />
+        );
+      };
       return snap.badges.map((b, idx) => {
         if (b.kind !== 'die') return null;
+        if (stacked.includes(idx)) return null;
+        if (idx === d20 && stacked.length) {
+          const v = dieVal(idx);
+          const sum = v == null ? null : v + stacked.reduce((t, i) => t + (dieVal(i) || 0), 0);
+          const tone = snap.adv !== 'normal' ? snap.adv : null;
+          return (
+            <span key={`${idx}-stack${v == null ? '-idle' : ''}`} className={`mr-dshape dice-stage-2d is-d20-${snap.adv} has-stack`}
+              data-dice-mode="2d" data-dice-tone={tone || undefined}>
+              <span className="mr-stack" aria-hidden="true">
+                {stacked.map((i, k) => (
+                  <span key={i} className="mr-stack-die" style={{ '--k': k }}>{renderDie(snap.badges[i], i, { bodyFx: false })}</span>
+                ))}
+              </span>
+              {renderDie(b, idx, { targetValue: sum, tone, isCrit: v === 20, isFumble: v === 1 })}
+            </span>
+          );
+        }
         const rolled = pl?.rolls?.[idx];
         let value = '';
         let rolling = false;
@@ -440,7 +480,6 @@ export default function MultiRoll({ lang }) {
                 drag.current = { swipeRow: row.id, x0: e.clientX, y0: e.clientY };
               }}>
               <div className="mr2-row-top">
-                {row.adv !== 'normal' && <span className={`mr2-advtag is-${row.adv}`}>{row.adv === 'adv' ? L(lang, '▲ VANTAGEM', '▲ ADVANTAGE') : L(lang, '▼ DESVANTAGEM', '▼ DISADVANTAGE')}</span>}
                 <button type="button" className={`mr2-sel${isSel ? ' is-on' : ''}`} aria-pressed={isSel} aria-label={L(lang, 'Selecionar linha', 'Select row')}
                   onClick={(e) => { e.stopPropagation(); setSel(s => { const n = new Set(s); n.has(row.id) ? n.delete(row.id) : n.add(row.id); return n; }); }} />
                 <input className="mr2-name" value={row.name} placeholder={L(lang, `Linha ${ri + 1}`, `Row ${ri + 1}`)}

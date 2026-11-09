@@ -1739,6 +1739,7 @@ html.dice-lock, body.dice-lock { overflow: hidden !important; overscroll-behavio
 .mr2-new.is-hover { border-color: #9fb0f0; color: #c9d4ff; }
 .mr2-bar { flex: none; border-top: 1px solid rgba(214,176,100,.3); padding: 8px 2px calc(8px + env(safe-area-inset-bottom)); background: rgba(10,8,6,.92); display: flex; flex-direction: column; gap: 8px; }
 .mr2-rollbar { display: flex; align-items: center; gap: 8px; }
+.mr2-rollbar .mr2-roll { order: -1; } /* Rolar à esquerda, sob a seleção das linhas */
 .mr2-hint { flex: 1 1 auto; font-size: .66rem; color: var(--ink-muted, #a89a80); line-height: 1.3; }
 .mr2-roll { flex: none; min-width: 110px; }
 .mr2-palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 4px; }
@@ -1946,3 +1947,14 @@ html.dice-lock, body.dice-lock { overflow: hidden !important; overscroll-behavio
    em cada dado (o maior custo medido). O brilho fica com o pulso radial e um traço mais largo. */
 .mr-dshape .die-falloff-ring { filter: none !important; }
 .mr-dshape .die-falloff-ring-poly { stroke-width: 4.6; stroke-opacity: .95; }
+
+/* sem ícones nos emblemas da paleta: só o rótulo curto (d6, FOR, PB, +1) */
+.mr-b.is-src .mr-b-die { display: none; }
+/* dados acoplados ao d20: empilhados atrás dele, deslocados, e somem quando ele bombeia até a soma */
+.mr-dshape.has-stack { position: relative; }
+.mr-stack { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.mr-stack-die { position: absolute; left: 50%; top: 50%;
+  transform: translate(calc(-50% + 16px + var(--k) * 8px), calc(-50% + 12px + var(--k) * 6px)) scale(.72);
+  opacity: .9; transition: opacity .3s ease, transform .3s ease; }
+.mr-dshape.has-stack:has(> .die-shape.is-phase-pump-up, > .die-shape.is-phase-pump-down, > .die-shape.is-phase-snap-shake, > .die-shape.is-phase-falloff, > .die-shape.is-phase-settled) .mr-stack-die {
+  opacity: 0; transform: translate(-50%, -50%) scale(.5); }
