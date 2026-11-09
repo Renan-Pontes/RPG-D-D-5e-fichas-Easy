@@ -174,6 +174,22 @@ const App = () => {
     }
   }, [auth.migrated, lang]);
 
+  // Referência a uma ficha (cartão de NPC no Mundo): #ficha=<id> abre a ficha, se for sua.
+  useEffect(() => {
+    const go = () => {
+      const m = /^#ficha=(\d+)$/.exec(window.location.hash);
+      if (!m || listState !== 'ready') return;
+      const id = Number(m[1]);
+      history.replaceState(null, '', window.location.pathname);
+      if (characters.some(c => c.id === id)) { setActiveId(id); setScreen(SCREENS.SHEET); }
+      else setToast(lang === 'pt' ? 'Essa ficha é de outra pessoa: os dados dela estão no cartão do NPC.' : "That sheet belongs to someone else: its data is on the NPC card.");
+    };
+    go();
+    window.addEventListener('hashchange', go);
+    return () => window.removeEventListener('hashchange', go);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listState, characters]);
+
   // Abrir ficha compartilhada: #s=<token> (link curto, 24h) ou #share=<json> (links antigos).
   // Espera o login terminar (storage definitivo) e a lista recarregar antes de abrir a
   // ficha: senão o "sem ficha ativa" da tela SHEET devolvia para a tela inicial.

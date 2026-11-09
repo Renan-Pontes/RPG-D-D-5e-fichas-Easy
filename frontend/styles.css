@@ -2575,3 +2575,27 @@ body:has(.wizard-footer) .dice-fab { bottom: calc(92px + env(safe-area-inset-bot
 .xp-award input[type="number"] { width: 110px; font-size: 16px; }
 .xp-split { display: inline-flex; gap: 6px; align-items: center; min-height: 40px; font-family: var(--body); text-transform: none; letter-spacing: 0; }
 .xp-split input { width: 18px; height: 18px; min-height: 0; }
+
+/* ═══ Linhas alternadas (zebra) em todo o site ═══
+   Cada segunda linha de texto repetido ganha um véu quente bem leve (desvia matiz,
+   saturação e valor do fundo), para o olho não perder a linha. :where() mantém a
+   especificidade zero: componentes com fundo próprio continuam mandando; o véu entra
+   como background-image, por cima da cor de fundo de cada um. */
+:root {
+  --zebra: linear-gradient(rgba(255, 228, 176, 0.045), rgba(255, 228, 176, 0.045));
+  --zebra-strong: linear-gradient(rgba(255, 228, 176, 0.07), rgba(255, 228, 176, 0.07));
+}
+:where(ul, ol):not([role="tablist"]):not([role="menu"]):not(.no-zebra) > li:nth-child(even),
+:where(table) tr:nth-child(even) > :where(td, th),
+:where(.slot-row, .spell-row, .mesa-row, .fh-feature, .fh-feat-item, .statblock-action-skill-row,
+  .grp-assign-row, .cl-table, .wl-row, .pl-row, .fh-res-row):nth-of-type(even),
+:where(.fh-spell-desc, .wl-ed-read, .pl-viewer, .fh-feature-body, .statblock-text, .grim-body) > :where(p, li, div):nth-child(even),
+:where(.pl-viewer-p):nth-of-type(even) {
+  background-image: var(--zebra);
+  background-clip: padding-box;
+}
+:where(.fh-spell-desc, .wl-ed-read, .grim-body) > :where(p, div) { padding: 4px 8px; border-radius: 3px; }
+@media (prefers-contrast: more) {
+  :root { --zebra: var(--zebra-strong); }
+}
+@media print { :root { --zebra: none; --zebra-strong: none; } }

@@ -228,40 +228,34 @@ const SheetHero = ({
               {char.name ? <span className="fh-foil">{char.name}</span> : (pt ? 'Sem nome' : 'Unnamed')}
             </div>
           </div>
-          <div className="hero-sub">
+          <div className="hero-sub fh-hero-rows">
             {(() => {
               const speciesName = race ? tName('race', race.id, lang) : (char.race || '');
               const bgName = bg ? tName('background', bg.id, lang) : (char.background || '');
-              const speciesBg = speciesName && bgName ? `${speciesName} (${bgName})` : (speciesName || bgName || '—');
-
-              let classesListStr = '';
-              if (char.classes && char.classes.length > 0) {
-                classesListStr = char.classes.map(c => {
-                  const cName = tName('class', c.name || c.id, lang);
-                  const sub = char.subclasses?.[c.name || c.id] || c.subclass;
-                  const subName = sub ? (tName('subclass', sub, lang) || sub) : null;
-                  return subName ? `${cName} ${c.level} (${subName})` : `${cName} ${c.level}`;
-                }).join(', ');
-              } else if (cls) {
-                const cName = tName('class', cls.id, lang);
-                const subName = currentSubclassName || null;
-                classesListStr = subName ? `${cName} ${char.level || 1} (${subName})` : `${cName} ${char.level || 1}`;
-              }
-
-              const langs = Utils.languagesFor ? Utils.languagesFor(char) : (char.languages || []);
-              const langsFormatted = langs
+              const speciesBg = speciesName && bgName ? `${speciesName} (${bgName})` : (speciesName || bgName || '');
+              const align = char.alignment ? tName('alignment', char.alignment, lang) : '';
+              let classes = [];
+              try {
+                classes = Utils.classEntries(char).map(e => {
+                  const view = Utils.classView(char, e);
+                  const sub = view.subclass ? (tName('subclass', view.subclass, lang) || subclassesFor(view).find(x => x.id === view.subclass)?.name?.[lang] || view.subclass) : null;
+                  return `${tName('class', e.id, lang)} ${e.level}${sub ? ` (${sub})` : ''}`;
+                });
+              } catch { classes = cls ? [`${tName('class', cls.id, lang)} ${char.level || 1}`] : []; }
+              const langs = (Utils.languagesFor ? Utils.languagesFor(char) : (char.languages || []))
                 .filter(l => typeof l === 'string' && !/^\+\d/.test(l))
                 .map(l => (Utils.languageLabel ? Utils.languageLabel(l, lang) : l));
-              const langsText = langsFormatted.length > 0
-                ? `${pt ? 'Fala ' : 'Speaks '}${langsFormatted.join(', ')}`
-                : '';
-
-              return [speciesBg, classesListStr, langsText].filter(Boolean).join(', ');
+              return (
+                <>
+                  {(align || speciesBg) && <div className="fh-hero-row">{[align, speciesBg].filter(Boolean).join(', ')}</div>}
+                  {classes.length > 0 && <div className="fh-hero-row is-classes">{classes.join(', ')}</div>}
+                  {langs.length > 0 && <div className="fh-hero-row is-langs">{pt ? 'Fala ' : 'Speaks '}{langs.join(', ')}</div>}
+                </>
+              );
             })()}
           </div>
           <div className="fh-hero-tags-actions-bar">
             <div className="hero-tags">
-              {char.alignment && <span className="tag hero-alignment-tag">{tName('alignment', char.alignment, lang)}</span>}
               {char.player && <span className="tag">{char.player}</span>}
               {char.cheatMode && <span className="tag fh-tag-cheat">🎲 {pt ? 'Trapaça' : 'Cheat'}</span>}
             </div>
@@ -297,6 +291,7 @@ const SheetHero = ({
             </button>
           </div>
         </div>
+        {update && <HeroChoicesFold char={char} lang={lang} update={update} />}
       </div>
     </>
   );
@@ -622,12 +617,6 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
       >
         {tab === 'play' && (
           <>
-            {update && (
-              <div className="fh-play-progression-banners no-print">
-                <SubclassBanner char={char} lang={lang} update={update} />
-                <SpeciesBanner char={char} lang={lang} update={update} />
-              </div>
-            )}
             <SheetPlay
               char={char} lang={lang} update={update} applyHp={applyHp}
               ac={ac} speed={speed} profB={profB} initBonus={initBonus}
@@ -703,6 +692,38 @@ const SUBCLASS_LABEL = {
   sorcerer:  { pt: 'Origem de Feiticeiro', en: 'Sorcerous Origin' },
   warlock:   { pt: 'Patrono Sobrenatural', en: 'Otherworldly Patron' },
   wizard:    { pt: 'Tradição Arcana', en: 'Arcane Tradition' },
+};
+
+
+// Escolhas de subclasse (e de espécie pendentes) dobradas no pé do painel do personagem:
+// o resumo diz o que já foi escolhido; abre sozinho quando falta escolher algo.
+const HeroChoicesFold = ({ char, lang, update }) => {
+  const pt = lang === 'pt';
+  const entries = (() => { try { return Utils.classEntries(char); } catch { return []; } })();
+  const rows = entries.map(e => {
+    const view = Utils.classView(char, e);
+    const subs = subclassesFor(view);
+    const eligible = subs.length && (view.level || 1) >= Utils.subclassLevel(view);
+    const cur = subs.find(x => x.id === view.subclass);
+    return { e, eligible, name: cur?.name?.[lang] || null };
+  }).filter(r => r.eligible);
+  let speciesPending = 0;
+  try { speciesPending = Utils.speciesChoiceIssues(char).filter(i => !(char.inCampaign && (i.key === 'feat' || i.key === 'asi'))).length; } catch { /* sem espécie */ }
+  if (!rows.length && !speciesPending) return null;
+  const pending = rows.some(r => !r.name) || speciesPending > 0;
+  const names = rows.filter(r => r.name).map(r => r.name).join(' · ');
+  return (
+    <details className={`fh-hero-fold no-print${pending ? ' is-pending' : ''}`} open={pending}>
+      <summary>
+        <span className="fh-hero-fold-k">⚜ {pt ? 'Subclasses' : 'Subclasses'}</span>
+        <span className="fh-hero-fold-v">{names || (pt ? 'escolha pendente' : 'choice pending')}{pending && <span className="fh-hero-fold-dot" aria-label={pt ? 'pendente' : 'pending'} />}</span>
+      </summary>
+      <div className="fh-hero-fold-body">
+        <SubclassBanner char={char} lang={lang} update={update} />
+        <SpeciesBanner char={char} lang={lang} update={update} />
+      </div>
+    </details>
+  );
 };
 
 // Uma faixa por classe: em multiclasse cada classe escolhe a própria subclasse

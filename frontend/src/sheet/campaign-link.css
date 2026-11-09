@@ -82,3 +82,12 @@
 @media (forced-colors: active) {
   .cl-current, .cl-table, .cl-code { border: 1px solid CanvasText; }
 }
+
+/* Mesas que a pessoa mestra: ficha como NPC no Mundo */
+.cl-npc-tables { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(214, 176, 100, 0.25); }
+.cl-npc-title { margin: 0 0 4px; font-family: var(--display); letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.8rem; color: var(--gold-bright, #edcb7a); }
+.cl-npc-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.cl-status { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  font-size: 0.7rem; letter-spacing: 0.06em; border: 1px solid rgba(214, 176, 100, 0.35); color: var(--ink-muted, #a89a80); text-transform: none; }
+.cl-status.is-player { color: #bbf7d0; border-color: rgba(74, 222, 128, 0.45); }
+.cl-status.is-npc { color: #e9d5ff; border-color: rgba(192, 132, 252, 0.5); }

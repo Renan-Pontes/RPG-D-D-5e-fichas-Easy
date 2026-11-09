@@ -113,7 +113,7 @@ test('Hero Header e Escopo de Progressão: medalha de campanhas 48px, inspiraç�
   assert.match(sheetSrc, /hero-insp fh-seal/);
 
   // Subtítulo do Herói expõe idiomas falados
-  assert.match(sheetSrc, /langsText/);
+  assert.match(sheetSrc, /fh-hero-row is-langs/);
   assert.match(sheetSrc, /Fala /);
   assert.match(sheetSrc, /Speaks /);
 

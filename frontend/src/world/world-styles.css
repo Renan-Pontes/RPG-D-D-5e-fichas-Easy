@@ -816,3 +816,9 @@ button.wl-tag:hover { color: var(--ink-primary); border-color: var(--stroke-stro
 .wl-atlas .wl-card .wl-seal { font-size: 12px; }
 .wl-atlas .wl-card .lv-whisper-icons small { font-size: 12px; }
 .wl-atlas .wl-card .wl-act { min-height: 44px; font-size: 0.9rem; }
+.wl-sheet-ref {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px; padding: 6px 12px; border-radius: 4px;
+  border: 1px solid rgba(214, 176, 100, 0.55); color: var(--gold-bright, #edcb7a); text-decoration: none;
+  font-weight: 700; letter-spacing: 0.06em; background: rgba(34, 24, 13, 0.6);
+}
+.wl-sheet-ref:hover { border-color: var(--gold-bright, #edcb7a); background: rgba(52, 36, 16, 0.9); }

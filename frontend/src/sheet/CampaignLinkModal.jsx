@@ -13,6 +13,7 @@ import {
   attachConfirm, detachConfirm, switchConfirm, linkToast, findMyMembership, quoteList,
 } from './campaign-link.js';
 import './campaign-link.css';
+import { npcStatus, upsertNpc, removeNpc } from './npc-link.js';
 
 const L = (lang, pt, en) => (lang === 'en' ? en : pt);
 
@@ -166,7 +167,7 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
       <>
         {links.map(link => (
           <div key={link.membershipId} className={`cl-current${link.status === 'closed' ? ' is-closed' : ''}`}>
-            <span className="cl-eyebrow">🏰 {L(lang, 'Esta ficha está em', 'This sheet is in')}</span>
+            <span className="cl-eyebrow">🏰 {L(lang, 'Esta ficha está em', 'This sheet is in')} <span className="cl-status is-player">👤 {L(lang, 'Como jogador', 'As a Player')}</span></span>
             <strong className="cl-current-name">{link.name}</strong>
             {link.status === 'closed' && (
               <p className="cl-note">{closedText(link, lang)} {L(lang,
@@ -257,7 +258,10 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
 
   return (
     <Modal onClose={onClose} title={L(lang, 'Campanha', 'Campaign')}>
-      <div className="cl-modal">{body}</div>
+      <div className="cl-modal">
+        {body}
+        {data && !confirm && <DmNpcTables char={char} lang={lang} campaigns={(data.campaigns || []).filter(c => c.role === 'dm' && c.status !== 'closed')} />}
+      </div>
     </Modal>
   );
 }
@@ -308,6 +312,80 @@ function InviteCodeJoin({ lang, busy, openAtStart, switching, onJoin }) {
         onClick={() => onJoin(c, table)}>
         {switching ? L(lang, 'Trocar para esta mesa', 'Move to this table') : L(lang, 'Entrar com esta ficha', 'Join with this sheet')}
       </button>
+    </div>
+  );
+}
+
+/**
+ * Mesas que a pessoa mestra: a ficha entra como NPC no Mundo da campanha (cartão com os
+ * dados da ficha e a referência a ela). Usa só a API do Mundo — funciona em qualquer
+ * versão do servidor.
+ */
+function DmNpcTables({ char, lang, campaigns }) {
+  const [state, setState] = useState({});   // { [campaignId]: entry | null | 'loading' | 'busy' }
+  const [err, setErr] = useState('');
+  const ids = campaigns.map(c => c.id).join(',');
+  useEffect(() => {
+    let alive = true;
+    campaigns.forEach(c => {
+      setState(s => ({ ...s, [c.id]: 'loading' }));
+      npcStatus(c.id, char.id).then(e => alive && setState(s => ({ ...s, [c.id]: e })))
+        .catch(() => alive && setState(s => ({ ...s, [c.id]: null })));
+    });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids, char.id]);
+  if (!campaigns.length) return null;
+  const act = async (c, fn) => {
+    setErr('');
+    const prev = state[c.id];
+    setState(s => ({ ...s, [c.id]: 'busy' }));
+    try { const out = await fn(prev); setState(s => ({ ...s, [c.id]: out })); }
+    catch (e) { setErr(linkErrorText(e, lang)); setState(s => ({ ...s, [c.id]: prev })); }
+  };
+  return (
+    <div className="cl-npc-tables">
+      <h4 className="cl-npc-title">🎭 {L(lang, 'Mesas que você mestra', 'Tables you run')}</h4>
+      <p className="cl-hint muted">{L(lang,
+        'Como NPC, a ficha vira um cartão no Mundo da campanha, preenchido com os dados dela e com a referência à ficha. Atualize quando a ficha mudar.',
+        "As an NPC, the sheet becomes a card in the campaign's World, filled from its data and referencing the sheet. Re-sync when the sheet changes.")}</p>
+      <ul className="cl-tables">
+        {campaigns.map(c => {
+          const st = state[c.id];
+          const busy = st === 'loading' || st === 'busy';
+          const entry = st && typeof st === 'object' ? st : null;
+          return (
+            <li key={c.id} className="cl-table">
+              <div className="cl-table-text">
+                <strong>{c.name}</strong>
+                {entry
+                  ? <span className="cl-status is-npc">🎭 {L(lang, 'Como NPC', 'As an NPC')}</span>
+                  : !busy && <span className="cl-status">{L(lang, 'Fora da mesa', 'Not at this table')}</span>}
+              </div>
+              <div className="cl-npc-acts">
+                {entry ? (
+                  <>
+                    <button type="button" className="btn btn-ghost cl-btn" disabled={busy}
+                      onClick={() => act(c, (prev) => upsertNpc(c.id, char, lang, prev))}>
+                      ↻ {L(lang, 'Atualizar', 'Re-sync')}
+                    </button>
+                    <button type="button" className="btn btn-ghost cl-btn" disabled={busy}
+                      onClick={() => act(c, async (prev) => { await removeNpc(prev.id); return null; })}>
+                      {L(lang, 'Tirar do Mundo', 'Remove')}
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="btn btn-primary cl-btn" disabled={busy}
+                    onClick={() => act(c, () => upsertNpc(c.id, char, lang, null))}>
+                    {busy ? '…' : `🎭 ${L(lang, 'Adicionar como NPC', 'Add as NPC')}`}
+                  </button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      {err && <p className="cl-error" role="alert">{err}</p>}
     </div>
   );
 }

@@ -6,6 +6,7 @@
 // topo; "Pronto" e o ⋯ (Apagar cartão) presos embaixo; o corpo em seções com título.
 // readOnly (campanha encerrada): abre para LER — sem Subir imagem, sem Apagar, campos
 // apagados e nada vai ao servidor (antes abria editável e falhava com "Erro ao salvar").
+import { sheetIdFromTags } from '../sheet/npc-link.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import useConfirm from '../../components/ConfirmDialog.jsx';
@@ -329,6 +330,12 @@ export default function EntryEditor({
             </fieldset>
           )}
 
+          {sheetIdFromTags(entry.tags) != null && (
+            <a className="wl-sheet-ref" href={`#ficha=${sheetIdFromTags(entry.tags)}`}
+              title={t(lang, 'Abrir a ficha completa deste NPC', "Open this NPC's full sheet")}>
+              📜 {t(lang, 'Ficha de referência — abrir', 'Reference sheet — open')}
+            </a>
+          )}
           <section className="wl-ed-sec">
             {readOnly ? (
               <>
