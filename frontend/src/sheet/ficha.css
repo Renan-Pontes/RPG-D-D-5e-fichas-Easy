@@ -3170,11 +3170,6 @@
 }
 
 /* Magias Sempre Preparadas / Subclasse de Ouro */
-.ficha .spell-row.is-always-prepared {
-  border-left: 3px solid var(--gold-bright, #edcb7a) !important;
-  background: linear-gradient(90deg, rgba(237, 203, 122, 0.08), transparent 40%) !important;
-}
-
 .ficha .spell-row.is-always-prepared .spell-row-name {
   color: var(--gold-bright, #edcb7a) !important;
   font-weight: 700 !important;
@@ -5966,3 +5961,54 @@
   border-color: var(--gold-bright, #edcb7a) !important;
   color: #fff9ea !important;
 }
+
+/* Cabeçalho do círculo: espaços como diamantes à direita (aceso = livre, apagado = gasto) */
+.ficha .spell-group.has-gems > summary::before { display: none; }
+.ficha .fh-slot-gems { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding-right: 4px; }
+.ficha .fh-slot-gem {
+  width: 11px; height: 11px; transform: rotate(45deg);
+  background: linear-gradient(135deg, #e4e9ff 0%, #9fb0f0 45%, #5d6be0 100%);
+  box-shadow: 0 0 8px rgba(159, 176, 240, 0.85), 0 0 2px rgba(255, 255, 255, 0.7) inset;
+  transition: opacity 0.2s, box-shadow 0.2s, filter 0.2s;
+}
+.ficha .fh-slot-gem.is-spent {
+  background: rgba(93, 107, 224, 0.18);
+  border: 1px solid rgba(159, 176, 240, 0.35);
+  box-shadow: none; filter: saturate(0.4); opacity: 0.55;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ficha .fh-slot-gem.is-on { animation: fh-gem-glow 2.8s ease-in-out infinite; }
+}
+@keyframes fh-gem-glow { 50% { box-shadow: 0 0 12px rgba(159, 176, 240, 1), 0 0 2px rgba(255,255,255,.8) inset; } }
+
+/* Painel do personagem: mesma distância da borda em todos os lados (o rodapé — alinhamento,
+   jogador, ações — encosta no fim do painel em vez de flutuar no meio de uma altura mínima) */
+@media (min-width: 720px) {
+  .ficha .fh-hero { --fh-hero-pad: 20px; min-height: 0; justify-content: flex-start; }
+  .ficha .fh-hero-body { padding: var(--fh-hero-pad) 24px var(--fh-hero-pad) !important; row-gap: 8px; }
+  .ficha .fh-hero-rest {
+    position: absolute; right: 24px; bottom: var(--fh-hero-pad); z-index: 3;
+  }
+}
+@media (max-width: 719px) {
+  .ficha .fh-hero-rest { display: flex; justify-content: flex-end; padding: 0 16px 16px; margin-top: -6px; }
+}
+.ficha .fh-hero-rest .row { display: flex; gap: 8px; }
+.ficha .fh-hero-rest .btn {
+  background: rgba(14, 10, 7, 0.78);
+  border: 1px solid rgba(214, 176, 100, 0.55);
+  color: var(--gold-bright, #edcb7a);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  letter-spacing: 0.12em;
+  min-height: 34px;
+}
+@media (hover: hover) {
+  .ficha .fh-hero-rest .btn:hover { border-color: var(--gold-bright, #edcb7a); background: rgba(40, 28, 14, 0.9); }
+}
+/* O nome vem logo à direita do selo de Inspiração (nunca centralizado no painel) */
+.ficha .fh-hero-header-row { justify-content: flex-start !important; }
+.ficha .fh-hero-header-row .hero-name { grid-area: auto; flex: 0 1 auto; margin: 0 !important; text-align: left !important; justify-self: start; }
+.ficha .fh-spell-head .fh-slot-gems { margin-left: 8px; gap: 5px; }
+.ficha .fh-spell-head .fh-slot-gem { width: 9px; height: 9px; }
+.ficha .fh-by-level .fh-spell-head .fh-lvl { display: none; }

@@ -162,7 +162,7 @@ const UnifiedSpellsHUD = ({ char, lang, update, slots, casters, spellAb: propSpe
       <div className="fh-spells-hud-top">
         <div className="fh-spell-stats-cards">
           {groups.map(g => {
-            const classPrefix = groups.length > 1 && g.classes[0] ? `${g.classes.map(cn => tName('class', cn, lang)).join('/')}: ` : '';
+            const classPrefix = (groups.length > 1 || g.classes.length > 1) && g.classes[0] ? `${g.classes.map(cn => tName('class', cn, lang)).join('/')}: ` : '';
             return (
               <div key={g.ability} className="fh-spell-stat-card-pair">
                 <div className="fh-spell-stat-card card-dc" title={pt ? `Classe de Dificuldade de Magia (${g.abilSh})` : `Spell Save DC (${g.abilSh})`}>
@@ -310,9 +310,17 @@ const SheetSpells = ({ char, lang, update, slots, roll, placed }) => {
 
       {/* Forma Selvagem fica na aba Jogar (painel completo, com Forma Estelar). */}
 
+      {/* Multiclasse: um HUD só — CD/ataque por atributo (classes com o mesmo atributo
+          ficam juntas; atributo diferente ganha o próprio par) e os espaços uma vez. */}
+      {multi && casters.length > 0 && (
+        <section className="fh-panel fh-spells fh-spells-hud-panel">
+          <FhTitle>{lang === 'pt' ? 'Conjuração' : 'Spellcasting'}</FhTitle>
+          <UnifiedSpellsHUD char={char} lang={lang} update={update} slots={slots} casters={casters} />
+        </section>
+      )}
       {casters.map(v => {
         const { view, save } = scoped(v);
-        return <ClassSpells key={v.className} char={view} lang={lang} update={save} slots={slots} roll={roll} showClass={multi} />;
+        return <ClassSpells key={v.className} char={view} lang={lang} update={save} slots={slots} roll={roll} showClass={multi} hud={!multi} />;
       })}
 
       <GrantedSpellsSection char={char} lang={lang} update={update} slots={slots} roll={roll} />
@@ -370,7 +378,7 @@ const GrantedSpellsSection = ({ char, lang, update, slots, roll }) => {
 
 // feats: { spells, cantrips } — traços desta classe (src/sheet/feature-placement.js): os de magia
 // embaixo dos medalhões; os de truque logo acima dos truques.
-const ClassSpells = ({ char, lang, update, slots, roll, showClass, feats = { spells: [], cantrips: [] }, multiFeats = false }) => {
+const ClassSpells = ({ char, lang, update, slots, roll, showClass, hud = true, feats = { spells: [], cantrips: [] }, multiFeats = false }) => {
   const spellAb = Utils.spellcastingAbilityOfClass(char);
   const spellDc = spellAb ? 8 + Utils.profBonus(char) + Utils.abilityMod(char, spellAb) : null;
   const spellAtk = spellAb ? Utils.profBonus(char) + Utils.abilityMod(char, spellAb) : null;
@@ -447,7 +455,7 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass, feats = { spe
       <FhTitle>{lang === 'pt' ? `Magias de ${tName('class', char.className, lang)}` : `${tName('class', char.className, lang)} spells`}</FhTitle>
       
       {/* HUD unificado de conjuração: Cartões CD/Ataque com atributo e Espaços Horizontais */}
-      <UnifiedSpellsHUD char={char} lang={lang} update={update} slots={slots} spellAb={spellAb} spellDc={spellDc} spellAtk={spellAtk} />
+      {hud && <UnifiedSpellsHUD char={char} lang={lang} update={update} slots={slots} spellAb={spellAb} spellDc={spellDc} spellAtk={spellAtk} />}
 
       {isPrepared ? (
         <PreparedSpellsView
@@ -554,18 +562,23 @@ const PreparedSpellsView = ({ lang, char, spellEntries, classCantrips, classSpel
       <OffListWarning lang={lang} char={char} offList={offList} onRemove={onRemove} />
       
 
-      {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => (
-        <details key={lvl} className="spell-group fh-by-level">
+      {Object.keys(byLevel).sort((a, b) => +a - +b).map(lvl => {
+        const max = +lvl > 0 ? ((slots || [])[+lvl - 1] || 0) : 0;
+        return (
+        <details key={lvl} className={`spell-group fh-by-level${max > 0 ? ' has-gems' : ''}`}>
           <summary>
             <span>{levelLabel(lvl, lang)}</span>
-            <span className="spell-group-count mono">{byLevel[lvl].length}</span>
+            {max > 0
+              ? <SlotGems lang={lang} lvl={+lvl} max={max} used={((char.spellSlotsUsed || [])[+lvl - 1]) || 0} />
+              : <span className="spell-group-count mono">{byLevel[lvl].length}</span>}
           </summary>
           {byLevel[lvl].map(s => (
             <SpellRow key={s.id} spell={s} lang={lang} showPrepared={false} char={char} slots={slots} update={update} spellAtk={spellAtk} roll={roll}
               tag={offList.has(s.id) ? <OffListTag lang={lang} /> : null} />
           ))}
         </details>
-      ))}
+        );
+      })}
 
       {!ready.length && (
         <div className="empty-card">
@@ -900,6 +913,22 @@ const SchoolBadge = ({ school, lang, size = 30 }) => (
 //   dentro do cabeçalho clicável; botão dentro de botão é HTML inválido).
 // - Etiqueta de círculo ("Truque" / "1º círculo"), sub "escola · tempo · alcance" e as
 //   marcas C/R. Sem espaço livre para conjurar (o mesmo canCast do botão), a linha esmaece.
+// Espaços de um círculo como diamantes à direita do cabeçalho: aceso = disponível,
+// apagado = gasto. Só leitura (gastar é pelo Conjurar / descanso).
+const SlotGems = ({ lang, lvl, max, used }) => {
+  const left = Math.max(0, max - used);
+  const pt = lang === 'pt';
+  return (
+    <span className="fh-slot-gems" role="img"
+      aria-label={pt ? `${left} de ${max} espaços de ${lvl}º círculo disponíveis` : `${left} of ${max} level ${lvl} slots available`}
+      title={pt ? `${left}/${max} espaços disponíveis` : `${left}/${max} slots available`}>
+      {Array.from({ length: max }, (_, i) => (
+        <span key={i} className={`fh-slot-gem${i < left ? ' is-on' : ' is-spent'}`} aria-hidden="true" />
+      ))}
+    </span>
+  );
+};
+
 const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char, slots, update, spellAtk, roll, preparedDisabled, preparedIcon, tag = null }) => {
   const [open, setOpen] = useState(false);
   const [casting, setCasting] = useState(false);
@@ -992,21 +1021,8 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
             const spellLvl = sp.level || 1;
             const maxSlots = (slots || [])[spellLvl - 1] || 0;
             const usedSlots = ((char.spellSlotsUsed || [])[spellLvl - 1]) || 0;
-            const remaining = Math.max(0, maxSlots - usedSlots);
-            const hasSlotsAvailable = remaining > 0;
             if (maxSlots <= 0) return null;
-            return (
-              <span
-                className={`fh-spell-slot-indicator ${hasSlotsAvailable ? 'is-available' : 'is-expended'}`}
-                title={pt
-                  ? `${remaining}/${maxSlots} espaços de ${slotCircleLabel(spellLvl, lang)} disponíveis`
-                  : `${remaining}/${maxSlots} slots of ${slotCircleLabel(spellLvl, lang)} available`}
-                aria-label={pt ? `${remaining} espaços disponíveis` : `${remaining} slots available`}
-              >
-                <span className="fh-spell-slot-gem" aria-hidden="true">◆</span>
-                <span className="fh-spell-slot-num">{remaining}</span>
-              </span>
-            );
+            return <SlotGems lang={lang} lvl={spellLvl} max={maxSlots} used={usedSlots} />;
           })()}
           <Icon name={open ? 'chevron-up' : 'chevron-down'} size={18} className="fh-spell-chev" aria-hidden="true"/>
         </button>

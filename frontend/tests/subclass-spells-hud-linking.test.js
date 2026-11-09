@@ -29,7 +29,7 @@ test('Subclass Spells: auto-prepared and auto-known subclass spells synthesized 
   assert.match(sheetTabsSrc, /fh-spells-unified-hud/);
   assert.match(sheetTabsSrc, /isAlwaysPrepared/);
   assert.match(sheetTabsSrc, /is-always-prepared/);
-  assert.match(sheetTabsSrc, /fh-spell-slot-indicator/);
+  assert.match(sheetTabsSrc, /SlotGems/);
   assert.match(sheetTabsSrc, /fh-spells-slots-grid/);
 });
 

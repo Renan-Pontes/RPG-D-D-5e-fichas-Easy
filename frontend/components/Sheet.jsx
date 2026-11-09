@@ -268,7 +268,6 @@ const SheetHero = ({
 
             {/* Ações minimalistas e discretas alinhadas na mesma linha do rodapé */}
             <div className="action-bar fh-actions fh-hero-corner-actions no-print">
-              <RestButtons char={char} lang={lang} update={update} />
               <button ref={exportBtnRef} type="button" className="fh-corner-chip fh-export-chip" aria-haspopup="dialog" onClick={() => setExportOpen(true)}>
                 <Icon name="download" size={13} className="chip-icon"/> {t('export', lang)}
               </button>
@@ -288,6 +287,10 @@ const SheetHero = ({
 
           {/* Status/faixa da campanha contidos no painel do personagem */}
           {campaignBanner}
+        </div>
+        {/* Descansos valem em qualquer aba: ficam no canto inferior direito do painel */}
+        <div className="fh-hero-rest no-print">
+          <RestButtons char={char} lang={lang} update={update} />
         </div>
       </div>
     </>

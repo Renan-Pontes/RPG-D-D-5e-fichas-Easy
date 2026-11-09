@@ -585,79 +585,89 @@ def campaign_leave(request, id_or_slug):
     return Response({'ok': True})
 
 
-def _sync_char_to_world_npc(campaign, char):
-    if not char or not campaign:
-        return
-    from .models import WorldEntry
+def _npc_summary_from(char):
+    """Linha + campos de NPC do Mundo tirados da ficha (dados que existirem)."""
     data = char.data if isinstance(char.data, dict) else {}
-    race = data.get('race') or ''
-    bg = data.get('background') or ''
-    cls = char.className or data.get('class') or data.get('className') or ''
-    lvl = char.level or data.get('level') or 1
-    subclass = data.get('subclass') or ''
-
+    txt = lambda k: str(data.get(k) or '').strip()
+    num = lambda v, d: v if isinstance(v, (int, float)) and not isinstance(v, bool) else d
+    classes = data.get('classes') if isinstance(data.get('classes'), list) else []
+    if classes:
+        cls_parts = []
+        for e in classes:
+            if isinstance(e, dict) and e.get('id'):
+                sub = f" ({e['subclass']})" if e.get('subclass') else ''
+                cls_parts.append(f"{str(e['id']).title()}{sub} {e.get('level') or ''}".strip())
+        cls_line = ' / '.join(cls_parts)
+    else:
+        cls = txt('className')
+        sub = txt('subclass')
+        lvl = num(data.get('level'), 1)
+        cls_line = (f"{cls.title()} ({sub.replace('-', ' ').title()}) {lvl}" if sub else f"{cls.title()} {lvl}") if cls else ''
+    race, bg = txt('race').replace('-', ' ').title(), txt('background').replace('-', ' ').title()
     parts = []
     if race:
-        parts.append(f"{race} ({bg})" if bg else str(race))
-    if cls:
-        cls_str = f"{cls} ({subclass}) {lvl}" if subclass else f"{cls} {lvl}"
-        parts.append(cls_str)
+        parts.append(f"{race} ({bg})" if bg else race)
+    if cls_line:
+        parts.append(cls_line)
+    if txt('alignment'):
+        parts.append(txt('alignment'))
     summary = ', '.join(parts) or 'NPC'
 
-    all_npcs = WorldEntry.objects.filter(campaign=campaign, kind='npc')
-    entry = None
-    for cand in all_npcs:
-        cand_data = cand.data if isinstance(cand.data, dict) else {}
-        if cand_data.get('characterId') and str(cand_data.get('characterId')) == str(char.id):
-            entry = cand
-            break
-    if not entry:
-        for cand in all_npcs:
-            if cand.name.strip().lower() == char.name.strip().lower():
-                entry = cand
-                break
-    npc_data = {
-        'role': f"{cls} {lvl}".strip(),
-        'appearance': str(data.get('appearance', ''))[:600],
-        'mannerism': str(data.get('personality', ''))[:300],
-        'wants': str(data.get('ideals', ''))[:600] or str(data.get('bonds', ''))[:600],
+    abil = data.get('abilities') if isinstance(data.get('abilities'), dict) else {}
+    bonus = data.get('raceBonus') if isinstance(data.get('raceBonus'), dict) else {}
+    score = lambda k: int(num(abil.get(k), 10)) + int(num(bonus.get(k), 0))
+    statblock = {k: score(k) for k in ('str', 'dex', 'con', 'int', 'wis', 'cha')}
+    statblock['hp'] = int(num(data.get('maxHp'), num((data.get('hp') or {}).get('max') if isinstance(data.get('hp'), dict) else None, 10)))
+    statblock['ac'] = int(num(data.get('armorClass'), num(data.get('ac'), 10)))
+    wants = ' · '.join(x for x in (txt('ideals'), txt('bonds')) if x)
+    mannerism = ' · '.join(x for x in (txt('personality'), txt('flaws')) if x)
+    fields = {
+        'role': (cls_line or 'NPC')[:80],
+        'appearance': txt('appearance')[:600],
+        'mannerism': mannerism[:300],
+        'wants': wants[:600],
         'characterId': char.id,
+        'statblock': statblock,
     }
-    abilities = data.get('abilities', {}) if isinstance(data.get('abilities'), dict) else {}
-    hp = data.get('hp', {}) if isinstance(data.get('hp'), dict) else {}
-    npc_data['statblock'] = {
-        'hp': hp.get('max', 10),
-        'ac': data.get('ac', 10),
-        'str': abilities.get('str', 10),
-        'dex': abilities.get('dex', 10),
-        'con': abilities.get('con', 10),
-        'int': abilities.get('int', 10),
-        'wis': abilities.get('wis', 10),
-        'cha': abilities.get('cha', 10),
-    }
+    body = '\n\n'.join(x for x in (txt('backstory'), txt('notes')) if x)
+    return summary[:280], {k: v for k, v in fields.items() if v not in ('', None)}, body
 
-    if entry:
-        entry.name = char.name
-        entry.summary = summary[:280]
-        if not entry.body and (data.get('backstory') or data.get('notes')):
-            entry.body = str(data.get('backstory') or data.get('notes'))
-        entry.visibility = 'revealed'
-        if not isinstance(entry.data, dict):
-            entry.data = {}
-        entry.data.update(npc_data)
-        entry.save()
-    else:
-        last_sort = WorldEntry.objects.filter(campaign=campaign).order_by('-sort').values_list('sort', flat=True).first() or 0
-        WorldEntry.objects.create(
-            campaign=campaign,
-            kind='npc',
-            name=char.name,
-            summary=summary[:280],
-            body=str(data.get('backstory') or data.get('notes') or ''),
-            visibility='revealed',
-            sort=last_sort + 1,
-            data=npc_data,
+
+def _sync_char_to_world_npc(campaign, char):
+    """Ficha marcada como NPC → cartão de NPC no Mundo da campanha (cria ou
+    atualiza o já ligado à ficha). Nunca derruba a troca de vaga."""
+    if not char or not campaign:
+        return None
+    from .models import WorldEntry
+    try:
+        summary, npc_data, body = _npc_summary_from(char)
+        entry = None
+        npcs = list(WorldEntry.objects.filter(campaign=campaign, kind='npc'))
+        entry = next((e for e in npcs if isinstance(e.data, dict)
+                      and str(e.data.get('characterId') or '') == str(char.id)), None)
+        if entry is None:
+            entry = next((e for e in npcs if e.name.strip().lower() == char.name.strip().lower()), None)
+        if entry:
+            entry.name = char.name[:120]
+            entry.summary = summary
+            if body and not entry.body:
+                entry.body = body
+            data = entry.data if isinstance(entry.data, dict) else {}
+            data.update(npc_data)
+            entry.data = data
+            entry.save()
+            return entry
+        last_sort = (WorldEntry.objects.filter(campaign=campaign).order_by('-sort')
+                     .values_list('sort', flat=True).first() or 0)
+        return WorldEntry.objects.create(
+            campaign=campaign, kind='npc', name=char.name[:120], summary=summary, body=body,
+            visibility='revealed', sort=last_sort + 1, data=npc_data,
+            tags=['npc', 'ficha'],
         )
+    except Exception:  # pragma: no cover — o Mundo não pode impedir a vaga de mudar
+        import logging
+        logging.getLogger(__name__).exception('npc world sync failed')
+        return None
 
 
 @api_view(['PUT', 'DELETE'])
