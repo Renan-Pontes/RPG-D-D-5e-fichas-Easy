@@ -288,6 +288,18 @@ export default function MultiRoll({ lang }) {
   const renderArray = (row, pl) => {
     const bs = pl ? pl.snap.badges : row.badges;
     const done = pl?.phase === 'done';
+    if (focus && focusIds.has(row.id) && done) {
+      // assentou: cada grupo vira um dado com o total (estáticos fundidos), ainda sem moldura
+      const units = evalUnits(pl.snap, mods, pl.rolls, pl.extra);
+      return units.map((u, k) => (
+        <span key={`t${k}`} className={`mr-dshape dice-stage-2d is-total${u.kind === 'check' ? ` is-d20-${pl.snap.adv}` : ''}`}>
+          <DieShape die={u.die || 6} value={u.value} rolling={false} animated={false} size={52} lang={lang}
+            tone={u.kind === 'check' && pl.snap.adv !== 'normal' ? pl.snap.adv : (u.nat === 20 ? 'crit' : null)}
+            isCrit={u.nat === 20} isFumble={u.nat === 1} />
+          <span className="mr-dshape-role" aria-hidden="true">{u.kind === 'check' ? '⚔' : u.kind === 'damage' ? '💥' : 'Σ'}</span>
+        </span>
+      ));
+    }
     if (done) {
       const units = evalUnits(pl.snap, mods, pl.rolls, pl.extra);
       const dmgUnits = units.filter(u => u.kind === 'damage');

@@ -1900,3 +1900,12 @@ html.dice-lock, body.dice-lock { overflow: hidden !important; overscroll-behavio
 @keyframes mr-noise-damp { 0% { opacity: .9; background-position: 0 0; } 100% { opacity: .15; background-position: 0 -40px; } }
 @media (prefers-reduced-motion: reduce) { .mr2.is-focus .mr2-row::after { animation: none !important; } }
 .mr-dshape.dice-stage-2d { min-height: 0; height: auto; display: inline-grid; place-items: center; }
+
+/* Na rolagem múltipla o dado rola NO LUGAR (sem a trajetória de arremesso pela tela) e o
+   halo fica do tamanho do dado (o de 380 px é do dado grande do overlay; com o zoom da
+   linha ele cobria a tela inteira). */
+.mr-dshape .die-shape.rolling { animation: none !important; transform: none; }
+.mr-dshape .die-shape::before { width: 230% !important; height: 230% !important; }
+.mr-dshape { overflow: visible; isolation: isolate; }
+.mr-dshape.is-total { animation: mr-merge .35s cubic-bezier(.2,1.5,.4,1); }
+.mr-dshape-role { position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); font-size: .7rem; opacity: .85; }
