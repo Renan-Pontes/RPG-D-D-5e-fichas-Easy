@@ -98,12 +98,19 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
     const seat = seatState(table, char.id);
     const attach = () => run(async () => {
       let res;
+      let inviteCode = table.inviteCode || table.invite_code || '';
+      if (!inviteCode && table.id) {
+        try {
+          const detail = await api.getCampaign(table.id);
+          inviteCode = detail?.campaign?.inviteCode || detail?.campaign?.invite_code || '';
+        } catch { /* ignore fallback */ }
+      }
       const memberships = table.myMemberships || (table.myMembership ? [table.myMembership] : []);
       const emptySeat = memberships.find(m => m.characterId == null && m.role !== 'dm');
       if (emptySeat) {
         res = await api.updateMembership(table.id, emptySeat.id, { characterId: char.id });
       } else {
-        res = await api.joinCampaign({ campaignId: table.id, characterId: char.id });
+        res = await api.joinCampaign({ inviteCode, campaignId: table.id, characterId: char.id });
       }
       return linkToast('attach', { charName, table: table.name, lang }) + seatNote(res, '');
     });
@@ -113,7 +120,7 @@ export default function CampaignLinkModal({ char, lang = 'pt', onClose, onDone }
   // Código de convite: entra na mesa com este personagem (suporte a N personagens na mesma campanha).
   const joinCode = (code, table) => {
     const go = () => run(async () => {
-      const body = { inviteCode: code, characterId: char.id };
+      const body = { inviteCode: code, campaignId: table?.id, characterId: char.id };
       const res = await api.joinCampaign(body);
       return linkToast('attach', { charName, table: table?.name, lang }) + seatNote(res, table?.dmName);
     });

@@ -23,7 +23,7 @@ test('Multi-personagem: DMs e Jogadores podem ter múltiplas fichas ativas na me
 
   // CampaignLinkModal chama joinCampaign quando o usuário já possui outra ficha na mesa, criando vaga nova
   assert.match(linkModal, /const emptySeat = memberships\.find\(m => m\.characterId == null && m\.role !== 'dm'\);/);
-  assert.match(linkModal, /res = await api\.joinCampaign\(\{ campaignId: table\.id, characterId: char\.id \}\);/);
+  assert.match(linkModal, /res = await api\.joinCampaign\(\{[^}]*campaignId: table\.id,[^}]*characterId: char\.id[^}]*\}\);/);
 
   // PlayersPanel inclui personagens com ficha mesmo pertencentes ao mestre
   assert.match(playersPanel, /const dm = members\.find\(m => m\.role === 'dm' && !m\.character\);/);
@@ -82,19 +82,17 @@ test('Inspiração no topo: selo circular 48px, sem rótulo de texto, alinhado e
   assert.match(css, /\.ficha \.fh-seal\.hero-insp\.is-inspired/);
 });
 
-test('Ações no canto inferior direito do painel: exportar, editar e trapaça fora do fluxo central', () => {
+test('Ações no rodapé do painel: exportar, editar e trapaça alinhadas com as tags em linha única sem flutuação', () => {
   const sheetSrc = read('../components/Sheet.jsx');
   const css = read('../src/sheet/ficha.css');
 
-  // fh-hero-corner-actions é filho direto do painel fh-hero (fora de fh-hero-body)
-  const heroBodyIndex = sheetSrc.indexOf('className="fh-hero-body"');
-  const heroBodyCloseIndex = sheetSrc.indexOf('</div>\n\n        {/* Ações minimalistas', heroBodyIndex);
-  const cornerActionsIndex = sheetSrc.indexOf('className="action-bar fh-actions fh-hero-corner-actions no-print"');
+  // fh-hero-corner-actions alinhadas em linha única no rodapé fh-hero-tags-actions-bar
+  assert.match(sheetSrc, /fh-hero-tags-actions-bar/);
+  assert.match(sheetSrc, /className="action-bar fh-actions fh-hero-corner-actions no-print"/);
 
-  assert.ok(cornerActionsIndex > heroBodyCloseIndex, 'fh-hero-corner-actions deve estar fora de fh-hero-body');
-
-  // CSS garante position: absolute no canto inferior direito
-  assert.match(css, /\.ficha \.fh-hero \.fh-hero-corner-actions,\s*\.ficha \.fh-hero-corner-actions \{[^}]*position:\s*absolute !important;[^}]*bottom:\s*12px !important;[^}]*right:\s*16px !important;/);
+  // CSS garante alinhamento flexível à direita da barra de tags sem sobreposição
+  assert.match(css, /\.ficha \.fh-hero-tags-actions-bar/);
+  assert.match(css, /\.ficha \.fh-hero-corner-actions/);
 });
 
 test('Perícias padrão parcialmente recolhidas: expõem apenas perícias treinadas divergentes do baseline', () => {

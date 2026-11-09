@@ -117,10 +117,11 @@ test('Hero Header e Escopo de Progressão: medalha de campanhas 48px, inspiraç�
   assert.match(sheetSrc, /Fala /);
   assert.match(sheetSrc, /Speaks /);
 
-  // Ações Exportar, Editar e Trapaça ancoradas no canto inferior direito
+  // Ações Exportar, Editar e Trapaça ancoradas no rodapé junto com as tags em linha única
   assert.match(sheetSrc, /fh-hero-corner-actions/);
   assert.match(sheetSrc, /fh-corner-chip/);
-  assert.match(css, /\.ficha \.fh-hero-corner-actions \{[^}]*position:\s*absolute !important;[^}]*bottom:\s*12px !important;[^}]*right:\s*16px !important;/);
+  assert.match(css, /\.ficha \.fh-hero-tags-actions-bar/);
+  assert.match(css, /\.ficha \.fh-hero-corner-actions/);
 
   // Quadrilátero de Selos Circulares de 48px
   assert.match(css, /\.ficha \.fh-hero-top-left-cluster \.fh-seal \{[^}]*width:\s*48px;\s*height:\s*48px;/);

@@ -43,11 +43,13 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
   const members = campaign.members || [];
   const dm = members.find(m => m.role === 'dm' && !m.character);
   const players = members.filter(m => m.character != null || m.role !== 'dm');
+  const activePlayers = players.filter(m => !m.isNpc && m.charType !== 'npc');
+  const npcPlayers = players.filter(m => !!(m.isNpc || m.charType === 'npc'));
   const meId = typeof window !== 'undefined' ? window.__currentUserId__ : null;
   const { goTo } = useArea();
   const roles = usePartyRoles(campaign, isDM, lang);
   // o jogador se vê primeiro (com os próprios pedidos logo abaixo); o mestre vê a ordem da mesa
-  const ordered = isDM ? players : [...players.filter(m => m.user?.id === meId), ...players.filter(m => m.user?.id !== meId)];
+  const orderedActive = isDM ? activePlayers : [...activePlayers.filter(m => m.user?.id === meId), ...activePlayers.filter(m => m.user?.id !== meId)];
   const assigningMember = assigning != null ? players.find(m => m.id === assigning) : null;
 
   // busca rápida (membro) → traz o cartão à vista e acende por um instante
@@ -73,7 +75,14 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
   }, t(lang, 'Personagem da mesa atualizado.', 'Table character updated.'));
 
   const addCharacter = (charId) => run(async () => {
-    await api.joinCampaign({ campaignId: campaign.id, characterId: charId });
+    let inviteCode = campaign.inviteCode || campaign.invite_code || '';
+    if (!inviteCode && campaign.id) {
+      try {
+        const detail = await api.getCampaign(campaign.id);
+        inviteCode = detail?.campaign?.inviteCode || detail?.campaign?.invite_code || '';
+      } catch { /* ignore */ }
+    }
+    await api.joinCampaign({ inviteCode, campaignId: campaign.id, characterId: charId });
     setAddingChar(false);
   }, t(lang, 'Personagem adicionado à mesa.', 'Character added to the table.'));
 
@@ -122,7 +131,8 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
         {dm && (
           <p className="grp-dm-line muted small" style={{ margin: 0 }}>
             👑 {t(lang, 'Mestre', 'DM')}: <strong>{dm.user?.displayName}</strong>
-            {' · '}{players.length === 1 ? t(lang, '1 personagem', '1 character') : t(lang, `${players.length} personagens`, `${players.length} characters`)}
+            {' · '}{activePlayers.length === 1 ? t(lang, '1 jogador ativo', '1 active player') : t(lang, `${activePlayers.length} jogadores ativos`, `${activePlayers.length} active players`)}
+            {npcPlayers.length > 0 && ` · ${npcPlayers.length} NPC${npcPlayers.length > 1 ? 's' : ''}`}
           </p>
         )}
         {campaign.status !== 'closed' && (
@@ -146,9 +156,9 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
         </div>
       )}
 
-      {players.length > 0 && (
+      {activePlayers.length > 0 && (
         <div className="grp-card-grid" ref={gridRef}>
-          {ordered.map(m => {
+          {orderedActive.map(m => {
             const isMe = m.user?.id === meId;
             return (
               <Fragment key={m.id}>
@@ -170,8 +180,38 @@ export default function PlayersPanel({ campaign, lang, isDM, characters = [], ap
         </div>
       )}
 
+      {npcPlayers.length > 0 && (
+        <>
+          <div className="grp-section-divider" style={{ width: '100%', margin: '18px 0 10px', padding: '6px 12px', background: 'rgba(168, 85, 247, 0.12)', border: '1px solid rgba(192, 132, 252, 0.35)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#f3e8ff', fontSize: '0.84rem', fontWeight: 700 }}>
+            <span>🎭 {t(lang, 'NPCs da Campanha (Inativos / Aliados / Conduzidos pelo Mestre)', 'Campaign NPCs (Inactive / Allies / DM Controlled)')} ({npcPlayers.length})</span>
+            <span className="muted small" style={{ color: '#d8b4fe', fontWeight: 400 }}>{t(lang, 'Não consomem vaga de jogador', 'Do not consume player seats')}</span>
+          </div>
+          <div className="grp-card-grid grp-npc-grid" style={{ opacity: 0.95 }}>
+            {npcPlayers.map(m => {
+              const isMe = m.user?.id === meId;
+              return (
+                <Fragment key={m.id}>
+                  <PlayerCard m={m} lang={lang} isDM={isDM} xpMode={xpMode} isMe={isMe}
+                    pending={m.character ? levelupFor(approvals, m.character.id, 'pending') : null}
+                    unlocked={m.character ? levelupFor(approvals, m.character.id, 'approved') : null}
+                    onAssignStart={() => setAssigning(m.id)}
+                    onToggleNpc={() => toggleNpc(m)}
+                    onEdit={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data })}
+                    onLog={() => setEditing({ id: m.character.id, name: m.character.name, data: m.character.data, section: 'log' })}
+                    onGive={campaign.status === 'closed' ? null : () => setGiving({ id: m.character.id, name: m.character.name })}
+                    onEndForm={() => endForm(m)} onRemove={() => removeMember(m)} onLeave={leave}
+                    roles={isDM && m.character?.data ? (roles ? roles[m.character.id] || [] : null) : undefined}
+                    onRoles={() => goTo('group', 'insights', { focus: m.character.id })} />
+                  {isMe && !isDM && afterMine && <div className="grp-after-mine">{afterMine}</div>}
+                </Fragment>
+              );
+            })}
+          </div>
+        </>
+      )}
+
       {/* sem o próprio cartão na lista (ainda sem a conta carregada): os pedidos vêm depois */}
-      {!isDM && afterMine && !ordered.some(m => m.user?.id === meId) && <div className="grp-after-mine">{afterMine}</div>}
+      {!isDM && afterMine && !orderedActive.some(m => m.user?.id === meId) && <div className="grp-after-mine">{afterMine}</div>}
 
       {assigningMember && (
         <AssignSheet lang={lang} member={assigningMember} members={players} characters={characters}

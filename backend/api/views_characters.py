@@ -490,6 +490,8 @@ def character_campaigns(request, pk):
                 'id': m.campaign.id,
                 'name': m.campaign.name,
                 'slug': m.campaign.slug,
+                'inviteCode': m.campaign.invite_code,
+                'levelingMode': 'xp' if (m.campaign.state or {}).get('levelingMode') == 'xp' else 'milestone',
                 'coverImage': m.campaign.cover_image or '',
                 'coverVer': m.campaign.cover_ver,
                 'coverUrl': f'/api/campaigns/{m.campaign.id}/cover?v={m.campaign.cover_ver}' if m.campaign.cover_ver else (m.campaign.cover_image or ''),

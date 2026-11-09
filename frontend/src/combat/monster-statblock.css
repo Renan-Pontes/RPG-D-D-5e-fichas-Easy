@@ -503,3 +503,22 @@
   font-size: 0.76rem;
   font-family: var(--mono, monospace);
 }
+
+/* Exposição parcial identada para perícias treinadas sob o painel */
+.statblock-action-indented-profs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 8px 6px 14px;
+  margin: 0 4px 4px 12px;
+  border-left: 2px solid rgba(214, 176, 100, 0.35);
+  background: rgba(14, 10, 7, 0.45);
+  border-radius: 0 4px 4px 0;
+}
+
+.statblock-action-prof-mark {
+  font-size: 0.72rem;
+  color: var(--gold-bright, #edcb7a);
+  margin-right: 6px;
+  flex-shrink: 0;
+}

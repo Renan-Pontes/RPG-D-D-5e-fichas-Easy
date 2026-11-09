@@ -286,11 +286,12 @@ class CampaignListSerializer(serializers.ModelSerializer):
     state = serializers.SerializerMethodField()
     coverVer = serializers.CharField(source='cover_ver', read_only=True)
     coverUrl = serializers.SerializerMethodField()
+    inviteCode = serializers.CharField(source='invite_code', read_only=True)
 
     class Meta:
         model = Campaign
         fields = ['id', 'name', 'slug', 'description', 'state', 'role',
-                  'tagline', 'accent', 'tone', 'coverVer', 'coverUrl']
+                  'tagline', 'accent', 'tone', 'coverVer', 'coverUrl', 'inviteCode']
 
     def get_state(self, obj):
         from .campaign_state import public_state

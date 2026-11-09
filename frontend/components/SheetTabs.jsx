@@ -1,6 +1,6 @@
 /* Spells / Inventory / Story / Notes tabs */
 import { errorMessage } from '../src/api/errors.js';
-import { useId, useState } from 'react';
+import { useId, useState, useMemo } from 'react';
 import SRD from '../data/srd.js';
 import Utils from '../utils.js';
 import { restResources } from '../src/progression/resources.js';
@@ -14,7 +14,7 @@ import * as Book from '../src/progression/spellbook.js';
 import { SpeciesChoicesModal, speciesSummary } from '../src/progression/SpeciesChoices.jsx';
 import { speciesChoiceSpecs, speciesGrants } from '../src/progression/species.js';
 import { grantedSpells } from '../src/creator/spell-helpers.js';
-import { grantTakesOver } from '../src/progression/engine.js';
+import { grantTakesOver, computeProgression } from '../src/progression/engine.js';
 import { propLabel, armorTypeLabel } from '../src/creator/equipment-helpers.js';
 import { itemEmoji, schoolIcon, SCHOOL_EMOJI } from '../src/art.js';
 import { itemArtFor } from '../src/items/item-art.js';
@@ -75,6 +75,128 @@ const UsesTag = ({ uses, char, lang }) => {
   return text ? <span className="spell-tag-uses">{text[lang] || text.pt}</span> : null;
 };
 
+/**
+ * Botões de descanso. Em campanha: chama backend (recurso autorizado pra dono
+ * ou DM). Em standalone: aplica local.
+ */
+const RestButtons = ({ char, lang, update }) => {
+  const [busy, setBusy] = useState(false);
+  const restore = async (type) => {
+    setBusy(true);
+    try {
+      if (typeof char.id === 'number') {
+        const res = await api.rest(char.id, { type });
+        const d = res.character.data || {};
+        update({
+          spellSlotsUsed: d.spellSlotsUsed,
+          wildShapeUses: d.wildShapeUses,
+          currentHp: d.currentHp,
+          tempHp: d.tempHp,
+          conditions: d.conditions,
+          deathSaves: d.deathSaves,
+          hitDiceUsed: d.hitDiceUsed,
+          resourcesUsed: d.resourcesUsed || {},
+          ...(char.starryForm?.active ? { starryForm: { active: false } } : {}),
+        });
+      } else {
+        const patch = {};
+        if (char.starryForm?.active) patch.starryForm = { active: false };
+        if (type === 'long') {
+          patch.spellSlotsUsed = [0,0,0,0,0,0,0,0,0];
+          patch.wildShapeUses = 0;
+          patch.currentHp = char.maxHp;
+          patch.tempHp = 0;
+          patch.conditions = (char.conditions || []).filter(c => c !== 'unconscious');
+          patch.deathSaves = { success: 0, fail: 0 };
+          patch.hitDiceUsed = char.rulesVersion === '2024' ? 0 : Math.max(0, (char.hitDiceUsed || 0) - Math.max(1, Math.floor(char.level / 2)));
+        } else {
+          if (char.className === 'warlock' && !Utils.isMulticlass(char)) patch.spellSlotsUsed = [0,0,0,0,0,0,0,0,0];
+          if (Utils.hasClass(char, 'druid')) patch.wildShapeUses = char.rulesVersion === '2024' ? Math.max(0, (char.wildShapeUses || 0) - 1) : 0;
+        }
+        patch.resourcesUsed = restResources(char, type).resourcesUsed;
+        update(patch);
+      }
+    } catch (e) { console.warn('rest failed', e); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="row gap-1">
+      <button className="btn btn-sm btn-ghost" onClick={() => restore('short')} disabled={busy} title={lang === 'pt' ? 'Descanso curto' : 'Short rest'}>
+        ☕ {lang === 'pt' ? 'Curto' : 'Short'}
+      </button>
+      <button className="btn btn-sm btn-ghost" onClick={() => restore('long')} disabled={busy} title={lang === 'pt' ? 'Descanso longo' : 'Long rest'}>
+        🛌 {lang === 'pt' ? 'Longo' : 'Long'}
+      </button>
+    </div>
+  );
+};
+
+/**
+ * HUD unificado e compacto de conjuração: Atributo, CD de Resistência, Bônus de Ataque,
+ * Descanso Curto/Longo e Espaços de Magia numa única interface contínua.
+ */
+const UnifiedSpellsHUD = ({ char, lang, update, slots, spellAb, spellDc, spellAtk }) => {
+  const pt = lang === 'pt';
+  const hasSlots = slots && slots.length > 0 && slots.some(s => s);
+  return (
+    <div className="fh-spells-unified-hud">
+      <div className="fh-spells-hud-top">
+        <div className="fh-spell-stats">
+          <FhMedal shape="hex" value={spellAb ? t(spellAb + 'Sh', lang) : '—'} label={t('spellAbility', lang)} sub={spellAb ? t(spellAb, lang) : null} />
+          <FhMedal shape="shield" value={spellDc || '—'} label={t('spellSaveDc', lang)} />
+          <FhMedal shape="circle" value={spellAtk !== null ? Utils.fmtMod(spellAtk) : '—'} label={t('spellAttack', lang)} />
+        </div>
+        <div className="fh-spells-hud-rest">
+          <RestButtons char={char} lang={lang} update={update} />
+        </div>
+      </div>
+      {hasSlots && (
+        <div className="fh-spells-hud-slots">
+          {char.inCampaign && (
+            <div className="muted small" style={{ fontSize: '0.78rem', margin: '4px 0 6px' }}>
+              🔒 {pt ? 'Em campanha: slots gerenciados pelo mestre ou botão Conjurar.' : 'In campaign: slots locked or deducted via Cast.'}
+            </div>
+          )}
+          <div className="fh-spells-slots-grid">
+            {slots.map((max, idx) => {
+              if (!max) return null;
+              const used = (char.spellSlotsUsed && char.spellSlotsUsed[idx]) || 0;
+              const campaignLocked = !!char.inCampaign;
+              const circle = slotCircleLabel(idx + 1, lang);
+              return (
+                <div key={idx} className="slot-row fh-slot-line">
+                  <div className="slot-level">{circle}</div>
+                  <div className="slot-pips">
+                    {Array.from({ length: max }).map((_, i) => {
+                      const spent = slotSpent(i, max, used);
+                      return (
+                        <button
+                          key={i} type="button"
+                          className={`slot-pip ${spent ? 'used' : ''} ${campaignLocked ? 'locked' : ''}`}
+                          disabled={campaignLocked}
+                          aria-label={gemLabel(circle, i, max, spent, lang)}
+                          title={campaignLocked ? lockedSlotTitle(true, lang) : slotTapTitle(spent, lang)}
+                          onClick={campaignLocked ? undefined : () => {
+                            const arr = [...(char.spellSlotsUsed || [])];
+                            while (arr.length <= idx) arr.push(0);
+                            arr[idx] = slotTap(used, max, spent);
+                            update({ spellSlotsUsed: arr });
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                  <span className="fh-gem-count">{max - used}/{max}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Aba Magias: espaços (compartilhados entre as classes) e uma seção por classe
 // conjuradora — em multiclasse cada uma tem atributo, CD, limites e lista próprios.
 // `placed` (src/sheet/feature-placement.js): os traços de magia e de truques de cada classe
@@ -129,7 +251,7 @@ const SheetSpells = ({ char, lang, update, slots, roll, placed }) => {
     <>
       {/* degradê dourado dos medalhões de CD e ataque: um só por aba (id único) */}
       <FhMedalDefs />
-      {slots && slots.length > 0 && slots.some(s => s) && (
+      {slots && slots.length > 0 && slots.some(s => s) && casters.length === 0 && (
         <section className="fh-panel">
           <FhTitle act={<RestButtons char={char} lang={lang} update={update} />}>{t('slots', lang)}</FhTitle>
           {char.inCampaign && (
@@ -251,16 +373,32 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass, feats = { spe
   const preparedLimit = isPrepared ? (cheat ? Infinity : Utils.preparedSpellsLimit(char)) : null;
   const inList = sp => cheat || Utils.inSpellList(char, sp);
 
+  const prog = useMemo(() => {
+    try { return computeProgression(char); } catch { return null; }
+  }, [char]);
+  const progAutoSpells = prog?.autoSpells || [];
+  const progAutoCantrips = prog?.autoCantrips || [];
+  const progAutoSet = useMemo(() => new Set([...progAutoSpells, ...progAutoCantrips]), [progAutoSpells, progAutoCantrips]);
+
   const allEntries = char.spells || [];
-  // Magias de talento/espécie ficam na seção própria (GrantedSpellsSection), fora das
-  // listas e dos limites da classe, inclusive as que a ficha ainda não gravou.
+  const existingMap = new Map(allEntries.map(s => [s.id, s]));
+  const synthesizedEntries = [...allEntries];
+  [...progAutoSpells, ...progAutoCantrips].forEach(id => {
+    if (!existingMap.has(id)) {
+      synthesizedEntries.push({ id, auto: true, prepared: true, alwaysPrepared: true });
+    }
+  });
+
   const grants = grantStateOf(char);
   const grantIds = new Set(grants.entries.map(s => s.id));
-  const spellEntries = allEntries.filter(s => !isGrantEntry(s) && !grants.isTakenOver(s));
-  const autoIds = new Set(spellEntries.filter(s => s.auto).map(s => s.id));
+  const spellEntries = synthesizedEntries.filter(s => !isGrantEntry(s) && !grants.isTakenOver(s));
+  const autoIds = new Set([
+    ...spellEntries.filter(s => s.auto || s.alwaysPrepared).map(s => s.id),
+    ...progAutoSet,
+  ]);
   // Entradas da classe fora da lista dela (sobras de outra classe, Segredos Mágicos…): sinalizadas.
   const offList = new Set(cheat ? [] : spellEntries.filter(s => {
-    if (s.auto) return false;
+    if (s.auto || s.alwaysPrepared || autoIds.has(s.id)) return false;
     const def = Utils.spellCatalog(char).find(x => x.id === s.id);
     return def && !Utils.inSpellList(char, def);
   }).map(s => s.id));
@@ -297,18 +435,16 @@ const ClassSpells = ({ char, lang, update, slots, roll, showClass, feats = { spe
   return (
     <section className={`fh-panel fh-spells${showClass ? ' class-spells' : ''}`}>
       <FhTitle>{lang === 'pt' ? `Magias de ${tName('class', char.className, lang)}` : `${tName('class', char.className, lang)} spells`}</FhTitle>
-      {/* Atributo de conjuração, CD e bônus de ataque em três medalhões (o antigo cartão) */}
-      <div className="fh-spell-stats">
-        <FhMedal shape="hex" value={spellAb ? t(spellAb + 'Sh', lang) : '—'} label={t('spellAbility', lang)} sub={spellAb ? t(spellAb, lang) : null} />
-        <FhMedal shape="shield" value={spellDc || '—'} label={t('spellSaveDc', lang)} />
-        <FhMedal shape="circle" value={spellAtk !== null ? Utils.fmtMod(spellAtk) : '—'} label={t('spellAttack', lang)} />
-      </div>
+      
+      {/* HUD unificado de conjuração: Medalhões, Descanso e Espaços */}
+      <UnifiedSpellsHUD char={char} lang={lang} update={update} slots={slots} spellAb={spellAb} spellDc={spellDc} spellAtk={spellAtk} />
       <FhFeatures items={feats.spells} multi={multiFeats} lang={lang} place="spells" className="fh-cf-spells" />
 
       {isPrepared ? (
         <PreparedSpellsView
           lang={lang}
           char={char}
+          spellEntries={spellEntries}
           classCantrips={classCantrips}
           classSpells={classSpells}
           autoIds={autoIds}
@@ -358,16 +494,26 @@ const levelLabel = (lvl, lang) => (+lvl === 0 ? t('cantrips', lang) : slotCircle
 // Conjuradores preparados: a ficha mostra só o que está pronto, agrupado por círculo
 // (fechado até tocar). A escolha diária acontece no modal "Preparar magias".
 // cantripFeats: os traços de truque da classe (ClassSpells), desenhados logo acima dos truques.
-const PreparedSpellsView = ({ lang, char, classCantrips, classSpells, autoIds, cantripLimit, preparedLimit, maxLvl, spellAtk, roll, slots, update, book = false, offList = new Set(), onRemove, cantripFeats = null, isTakenOver = () => false }) => {
+const PreparedSpellsView = ({ lang, char, spellEntries, classCantrips, classSpells, autoIds, cantripLimit, preparedLimit, maxLvl, spellAtk, roll, slots, update, book = false, offList = new Set(), onRemove, cantripFeats = null, isTakenOver = () => false }) => {
   const pt = lang === 'pt';
   const [picking, setPicking] = useState(false);
   const catalog = Utils.spellCatalog(char);
+  const entries = spellEntries || char.spells || [];
   // Mago: magias do grimório não preparadas ficam só na seção Grimório.
-  const ready = (char.spells || [])
-    .map(cs => ({ ...cs, def: catalog.find(s => s.id === cs.id) }))
+  const ready = entries
+    .map(cs => {
+      const isAuto = autoIds.has(cs.id) || cs.auto || cs.alwaysPrepared;
+      return {
+        ...cs,
+        auto: isAuto,
+        alwaysPrepared: isAuto,
+        prepared: isAuto ? true : cs.prepared,
+        def: catalog.find(s => s.id === cs.id),
+      };
+    })
     .filter(s => s.def && !isGrantEntry(s) && !isTakenOver(s) && !(book && Book.isInBook(char, s) && !Book.isPreparedEntry(s)));
   const byLevel = groupByLevel(ready);
-  const nonAuto = (lvl0) => ready.filter(s => !autoIds.has(s.id) && (s.def.level === 0) === lvl0).length;
+  const nonAuto = (lvl0) => ready.filter(s => !s.alwaysPrepared && !s.auto && !autoIds.has(s.id) && (s.def.level === 0) === lvl0).length;
   const fmt = (n) => (Number.isFinite(n) ? n : '∞');
   const hasSpells = classSpells.some(s => s.level > 0);
   // 2024: Bardo, Feiticeiro e Bruxo trocam as preparadas ao subir de nível (os demais, no descanso longo).
@@ -795,29 +941,40 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
     }
   };
 
+  const isAlwaysPrepared = !!(spell.alwaysPrepared || spell.auto);
   const canCast = isCantrip || available.length > 0;
-  const starTitle = spell.prepared ? t('prepared', lang) : (preparedDisabled ? (pt ? 'Limite atingido' : 'Limit reached') : (pt ? 'Preparar' : 'Prepare'));
+  const starTitle = isAlwaysPrepared
+    ? (pt ? 'Magia sempre preparada pela subclasse (fixa)' : 'Always prepared by subclass (fixed)')
+    : (spell.prepared ? t('prepared', lang) : (preparedDisabled ? (pt ? 'Limite atingido' : 'Limit reached') : (pt ? 'Preparar' : 'Prepare')));
 
   return (
-    <div className={`spell-row fh-spell${open ? ' open' : ''}${showPrepared && !spell.prepared ? ' unprepared' : ''}${canCast ? '' : ' no-slot'}`}>
+    <div className={`spell-row fh-spell${open ? ' open' : ''}${isAlwaysPrepared ? ' is-always-prepared' : ''}${showPrepared && !spell.prepared && !isAlwaysPrepared ? ' unprepared' : ''}${canCast ? '' : ' no-slot'}`}>
       <div className="fh-spell-head">
         {showPrepared && (
           <button
             type="button"
-            className={`spell-prepared fh-spell-star ${spell.prepared ? 'on' : ''}`}
-            onClick={() => { if (!preparedDisabled || spell.prepared) onTogglePrepared(); }}
-            disabled={preparedDisabled && !spell.prepared}
+            className={`spell-prepared fh-spell-star ${spell.prepared || isAlwaysPrepared ? 'on' : ''}${isAlwaysPrepared ? ' is-fixed' : ''}`}
+            onClick={() => { if (!isAlwaysPrepared && (!preparedDisabled || spell.prepared)) onTogglePrepared(); }}
+            disabled={isAlwaysPrepared || (preparedDisabled && !spell.prepared)}
             title={starTitle}
             aria-label={`${t('prepared', lang)}: ${name}`}
-            aria-pressed={!!spell.prepared}
+            aria-pressed={!!(spell.prepared || isAlwaysPrepared)}
           >
-            <Icon name={spell.prepared ? 'star-fill' : (preparedIcon || 'star')} size={18} aria-hidden="true"/>
+            <Icon name={spell.prepared || isAlwaysPrepared ? 'star-fill' : (preparedIcon || 'star')} size={18} aria-hidden="true"/>
           </button>
         )}
         <button type="button" className="spell-row-header fh-spell-toggle" aria-expanded={open} aria-controls={open ? bodyId : undefined} onClick={() => setOpen(!open)}>
           <SchoolBadge school={sp.school} lang={lang} size={38} />
           <span className="fh-spell-main">
-            <span className="spell-row-name">{name}{tag}</span>
+            <span className="spell-row-name">
+              {name}
+              {isAlwaysPrepared && (
+                <span className="fh-spell-fixed-tag" title={pt ? 'Magia sempre preparada pela subclasse' : 'Always prepared by subclass'}>
+                  ✦ {pt ? 'SEMPRE PREPARADA' : 'ALWAYS PREPARED'}
+                </span>
+              )}
+              {tag}
+            </span>
             <span className="spell-meta">
               <span>{tName('school', sp.school, lang)}</span>
               <span>{meta.castingTime}</span>
@@ -881,64 +1038,7 @@ const SpellRow = ({ spell, lang, showPrepared, onTogglePrepared, onRemove, char,
   );
 };
 
-/**
- * Botões de descanso. Em campanha: chama backend (recurso autorizado pra dono
- * ou DM). Em standalone: aplica local.
- */
-const RestButtons = ({ char, lang, update }) => {
-  const [busy, setBusy] = useState(false);
-  const restore = async (type) => {
-    setBusy(true);
-    try {
-      if (typeof char.id === 'number') {
-        const res = await api.rest(char.id, { type });
-        const d = res.character.data || {};
-        update({
-          spellSlotsUsed: d.spellSlotsUsed,
-          wildShapeUses: d.wildShapeUses,
-          currentHp: d.currentHp,
-          tempHp: d.tempHp,
-          conditions: d.conditions,
-          deathSaves: d.deathSaves,
-          hitDiceUsed: d.hitDiceUsed,
-          resourcesUsed: d.resourcesUsed || {},
-          // Forma Estelar dura 10 min; qualquer descanso a encerra.
-          ...(char.starryForm?.active ? { starryForm: { active: false } } : {}),
-        });
-      } else {
-        // Local — aplica via merge
-        const patch = {};
-        if (char.starryForm?.active) patch.starryForm = { active: false };
-        if (type === 'long') {
-          patch.spellSlotsUsed = [0,0,0,0,0,0,0,0,0];
-          patch.wildShapeUses = 0;
-          patch.currentHp = char.maxHp;
-          patch.tempHp = 0;
-          patch.conditions = (char.conditions || []).filter(c => c !== 'unconscious');
-          patch.deathSaves = { success: 0, fail: 0 };
-          patch.hitDiceUsed = char.rulesVersion === '2024' ? 0 : Math.max(0, (char.hitDiceUsed || 0) - Math.max(1, Math.floor(char.level / 2)));
-        } else {
-          // Pacto em multiclasse fica somado aos outros espaços: não zera tudo (igual ao servidor).
-          if (char.className === 'warlock' && !Utils.isMulticlass(char)) patch.spellSlotsUsed = [0,0,0,0,0,0,0,0,0];
-          if (Utils.hasClass(char, 'druid')) patch.wildShapeUses = char.rulesVersion === '2024' ? Math.max(0, (char.wildShapeUses || 0) - 1) : 0;
-        }
-        patch.resourcesUsed = restResources(char, type).resourcesUsed;
-        update(patch);
-      }
-    } catch (e) { console.warn('rest failed', e); }
-    finally { setBusy(false); }
-  };
-  return (
-    <div className="row gap-1">
-      <button className="btn btn-sm btn-ghost" onClick={() => restore('short')} disabled={busy} title={lang === 'pt' ? 'Descanso curto' : 'Short rest'}>
-        ☕ {lang === 'pt' ? 'Curto' : 'Short'}
-      </button>
-      <button className="btn btn-sm btn-ghost" onClick={() => restore('long')} disabled={busy} title={lang === 'pt' ? 'Descanso longo' : 'Long rest'}>
-        🛌 {lang === 'pt' ? 'Longo' : 'Long'}
-      </button>
-    </div>
-  );
-};
+
 
 // ===== Inventory =====
 // placed (src/sheet/feature-placement.js): traços de itens (infusões, sintonia…) no Equipamento.

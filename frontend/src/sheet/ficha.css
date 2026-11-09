@@ -3101,6 +3101,93 @@
 /* o .class-spells global (multiclasse) separava as seções com um filete no topo: aqui
    cada classe já é um painel com o filete dourado */
 .ficha .fh-spells.class-spells { margin-top: 0; border-top: 1px solid transparent; }
+
+/* HUD Unificado de Conjuração (Atributos + Descanso + Espaços de Magia) */
+.ficha .fh-spells-unified-hud {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(22, 17, 14, 0.88), rgba(12, 9, 7, 0.94));
+  border: 1px solid rgba(224, 181, 94, 0.28);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(224, 181, 94, 0.15);
+}
+
+.ficha .fh-spells-hud-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(224, 181, 94, 0.15);
+}
+
+.ficha .fh-spells-hud-top .fh-spell-stats {
+  margin: 0;
+  max-width: none;
+  flex: 1 1 280px;
+}
+
+.ficha .fh-spells-hud-rests {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ficha .fh-spells-hud-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ficha .fh-spells-slots-title {
+  font-family: var(--display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-bright, #edcb7a);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ficha .fh-spells-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+/* Magias Sempre Preparadas / Subclasse de Ouro */
+.ficha .spell-row.is-always-prepared {
+  border-left: 3px solid var(--gold-bright, #edcb7a) !important;
+  background: linear-gradient(90deg, rgba(237, 203, 122, 0.08), transparent 40%) !important;
+}
+
+.ficha .spell-row.is-always-prepared .spell-row-name {
+  color: var(--gold-bright, #edcb7a) !important;
+  font-weight: 700 !important;
+  text-shadow: 0 0 10px rgba(237, 203, 122, 0.25);
+}
+
+.ficha .fh-spell-fixed-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  font-family: var(--display);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff2c8;
+  background: linear-gradient(135deg, rgba(214, 176, 100, 0.28), rgba(160, 118, 48, 0.4));
+  border: 1px solid rgba(237, 203, 122, 0.6);
+  border-radius: 4px;
+  box-shadow: 0 0 8px rgba(237, 203, 122, 0.2);
+}
+
 .ficha .fh-spell-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -5622,17 +5709,41 @@
   margin-right: 2px;
 }
 
-/* Minimalist & Discrete Hero Panel Corner Actions (Bottom Right) */
+/* Hero Panel Tags & Actions Bar: Alignment/Player on left, Actions on right in the SAME row */
+.ficha .fh-hero-tags-actions-bar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 6px !important;
+  width: 100% !important;
+}
+
+.ficha .fh-hero-tags-actions-bar .hero-tags {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  margin: 0 !important;
+}
+
+/* Minimalist & Discrete Hero Panel Corner Actions (Aligned on the right of tags bar) */
 .ficha .fh-hero .fh-hero-corner-actions,
 .ficha .fh-hero-corner-actions {
-  position: absolute !important;
-  bottom: 12px !important;
-  right: 16px !important;
+  position: static !important;
   display: flex !important;
   align-items: center !important;
   gap: 6px !important;
   margin: 0 !important;
-  z-index: 25 !important;
+  margin-left: auto !important;
+  z-index: 5 !important;
+}
+
+.ficha .fh-skill-categories-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
 }
 
 .ficha .fh-corner-chip {
@@ -5686,10 +5797,7 @@
 @media (max-width: 600px) {
   .ficha .fh-hero .fh-hero-corner-actions,
   .ficha .fh-hero-corner-actions {
-    position: absolute !important;
-    bottom: 8px !important;
-    right: 10px !important;
-    margin: 0 !important;
-    z-index: 25 !important;
+    position: static !important;
+    margin: 4px 0 0 auto !important;
   }
 }

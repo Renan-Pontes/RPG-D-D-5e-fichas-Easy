@@ -256,34 +256,34 @@ const SheetHero = ({
               return [speciesBg, classesListStr, langsText].filter(Boolean).join(', ');
             })()}
           </div>
-          <div className="hero-tags">
-            {char.alignment && <span className="tag hero-alignment-tag">{tName('alignment', char.alignment, lang)}</span>}
-            {char.player && <span className="tag">{char.player}</span>}
-            {Utils.levelingMode(char) === 'xp' && <span className="tag">{char.xp || 0} XP</span>}
-            {Utils.levelingMode(char) === 'milestone' && <span className="tag" title={pt ? 'Sobe de nível por marcos da história (sem XP)' : 'Levels up at story milestones (no XP)'}>{pt ? 'Marcos' : 'Milestones'}</span>}
-            {char.cheatMode && <span className="tag fh-tag-cheat">🎲 {pt ? 'Trapaça' : 'Cheat'}</span>}
+          <div className="fh-hero-tags-actions-bar">
+            <div className="hero-tags">
+              {char.alignment && <span className="tag hero-alignment-tag">{tName('alignment', char.alignment, lang)}</span>}
+              {char.player && <span className="tag">{char.player}</span>}
+              {char.cheatMode && <span className="tag fh-tag-cheat">🎲 {pt ? 'Trapaça' : 'Cheat'}</span>}
+            </div>
+
+            {/* Ações minimalistas e discretas alinhadas na mesma linha do rodapé */}
+            <div className="action-bar fh-actions fh-hero-corner-actions no-print">
+              <button ref={exportBtnRef} type="button" className="fh-corner-chip fh-export-chip" aria-haspopup="dialog" onClick={() => setExportOpen(true)}>
+                <Icon name="download" size={13} className="chip-icon"/> {t('export', lang)}
+              </button>
+              {!char.inCampaign && (
+                <button className="fh-corner-chip" onClick={onEdit}><Icon name="edit" size={13} className="chip-icon"/> {t('edit', lang)}</button>
+              )}
+              {char.inCampaign && (
+                <span className="fh-corner-chip is-locked" title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
+                  🔒 <Icon name="edit" size={13} className="chip-icon"/> {t('edit', lang)}
+                </span>
+              )}
+              <button className={`fh-corner-chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
+                🎲 {lang === 'pt' ? 'Trapaça' : 'Cheat'}
+              </button>
+            </div>
           </div>
 
           {/* Status/faixa da campanha contidos no painel do personagem */}
           {campaignBanner}
-        </div>
-
-        {/* Ações minimalistas e discretas no canto inferior direito do painel */}
-        <div className="action-bar fh-actions fh-hero-corner-actions no-print">
-          <button ref={exportBtnRef} type="button" className="fh-corner-chip fh-export-chip" aria-haspopup="dialog" onClick={() => setExportOpen(true)}>
-            <Icon name="download" size={13} className="chip-icon"/> {t('export', lang)}
-          </button>
-          {!char.inCampaign && (
-            <button className="fh-corner-chip" onClick={onEdit}><Icon name="edit" size={13} className="chip-icon"/> {t('edit', lang)}</button>
-          )}
-          {char.inCampaign && (
-            <span className="fh-corner-chip is-locked" title={lang === 'pt' ? 'Em campanha: peça ao mestre pra usar o "Editar ficha (modo mestre)"' : 'In campaign: ask DM to use "Edit sheet (DM mode)"'}>
-              🔒 <Icon name="edit" size={13} className="chip-icon"/> {t('edit', lang)}
-            </span>
-          )}
-          <button className={`fh-corner-chip${char.cheatMode ? ' is-cheat' : ''}`} onClick={() => setCheatOpen(true)}>
-            🎲 {lang === 'pt' ? (char.cheatMode ? 'Trapaça' : 'Trapaça') : (char.cheatMode ? 'Cheat' : 'Cheat')}
-          </button>
         </div>
       </div>
     </>
@@ -1008,7 +1008,7 @@ const CampaignModeBanner = ({
           🏰 {pt ? 'Campanhas do Personagem' : 'Character Campaigns'} ({campaignsList.length})
         </span>
         <div className="fh-hero-campaigns-header-actions">
-          {onManage && (
+          {campaignsList.length > 0 && onManage && (
             <button type="button" className="btn btn-ghost btn-xs" onClick={onManage}>
               + {pt ? 'Atrelar' : 'Link'}
             </button>
@@ -1051,6 +1051,9 @@ const CampaignModeBanner = ({
               <div className="fh-hero-campaign-card-header">
                 <div className="fh-hero-campaign-name-block">
                   <strong className="fh-hero-campaign-name">{camp.name}</strong>
+                  <span className="tag fh-hero-camp-tag-mode" style={{ fontSize: '0.72rem', padding: '1px 6px', margin: '0 4px', background: 'rgba(214, 176, 100, 0.15)', border: '1px solid rgba(214, 176, 100, 0.4)', borderRadius: 3, color: '#f3e6cb' }}>
+                    {camp.levelingMode === 'xp' ? (camp.xp ? `${camp.xp} XP` : 'XP') : (pt ? 'Marcos' : 'Milestones')}
+                  </span>
                   {camp.sponsored && <span className="fh-hero-camp-tag-sponsored">{pt ? 'Vaga da mesa' : 'Table seat'}</span>}
                 </div>
                 <button
@@ -3566,30 +3569,48 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
                       <span className="statblock-action-roll-dice" aria-hidden="true">🎲</span>
                       <span className="statblock-action-roll-score">{grp.baselinePassive}/{grp.baselineBonusStr}</span>
                     </button>
-
-                    {/* Exposição parcial das perícias nas quais o personagem é proficiente */}
-                    {trainedSkills.map(exc => (
-                      <button
-                        key={exc.id}
-                        type="button"
-                        className={`statblock-roll-btn statblock-action-exception-btn${exc.defaultAdv ? ' has-adv' : ''}`}
-                        data-roll-check={`1d20${exc.bonusStr}`}
-                        data-roll-label={`${char.name || (pt ? 'Personagem' : 'Character')}: ${exc.name} (${exc.bonusStr})`}
-                        data-roll-adv={exc.defaultAdv}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          handleSkillRoll(`1d20${exc.bonusStr}`, `${exc.name} (${exc.bonusStr})`, exc.defaultAdv, e);
-                        }}
-                        title={pt ? `Rolar perícia treinada ${exc.name} (${exc.bonusStr})` : `Roll proficient skill ${exc.name} (${exc.bonusStr})`}
-                      >
-                        <span className="statblock-action-roll-dice" aria-hidden="true">◆</span>
-                        <span className="statblock-action-roll-score">{exc.passive}/{exc.bonusStr} {exc.name}</span>
-                        {exc.defaultAdv && <span className="statblock-action-adv-pill">▲</span>}
-                      </button>
-                    ))}
                   </div>
                 </div>
+
+                {/* Exposição parcial e identada das perícias treinadas sob o cabeçalho sanfonado */}
+                {isFolded && (grp.skills || []).some(sk => Utils.hasSkillProf(char, sk.id) || Utils.hasExpertise?.(char, sk.id)) && (
+                  <div className="statblock-action-indented-profs">
+                    {(grp.skills || [])
+                      .filter(sk => Utils.hasSkillProf(char, sk.id) || Utils.hasExpertise?.(char, sk.id))
+                      .map(sk => {
+                        const isExpert = Utils.hasExpertise?.(char, sk.id);
+                        return (
+                          <div key={sk.id} className="statblock-action-skill-row is-trained">
+                            <div style={{ display: 'inline-flex', alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
+                              <span className="statblock-action-prof-mark" aria-hidden="true">
+                                {isExpert ? '⭐' : '●'}
+                              </span>
+                              <span className="statblock-action-skill-name" title={`${sk.name} (${sk.abilUpper})`}>
+                                {sk.name} <abbr>({sk.abilUpper})</abbr>
+                              </span>
+                            </div>
+
+                            <div className="statblock-action-skill-controls">
+                              <span className="statblock-action-skill-pass" title={pt ? 'Passiva' : 'Passive'}>
+                                {sk.passive}
+                              </span>
+                              <button
+                                type="button"
+                                className={`statblock-roll-btn statblock-action-skill-btn${sk.defaultAdv ? ' has-adv' : ''}`}
+                                data-roll-check={`1d20${sk.bonusStr}`}
+                                data-roll-label={`${char.name || (pt ? 'Personagem' : 'Character')}: ${sk.name} (${sk.bonusStr})`}
+                                data-roll-adv={sk.defaultAdv}
+                                onClick={(e) => handleSkillRoll(`1d20${sk.bonusStr}`, `${sk.name} (${sk.bonusStr})`, sk.defaultAdv, e)}
+                                title={pt ? `Toque para rolar ${sk.name} (1d20${sk.bonusStr}). Deslize ↑ para Vantagem ou ↓ para Desvantagem.` : `Tap to roll ${sk.name} (1d20${sk.bonusStr}). Swipe ↑ for Advantage or ↓ for Disadvantage.`}
+                              >
+                                {sk.bonusStr}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
 
                 {!isFolded && (
                   <div id={`fh-skill-group-${grp.key}`} className="statblock-action-grid">
@@ -3671,27 +3692,40 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
                   <span className="statblock-action-roll-dice" aria-hidden="true">🎲</span>
                   <span className="statblock-action-roll-score">{toolBaselinePassive}/{toolBaselineBonusStr}</span>
                 </button>
-
-                {toolItems.slice(1).filter(t => t.isTrained && !(t.passive === toolBaselinePassive && t.bonusStr === toolBaselineBonusStr)).map(exc => (
-                  <button
-                    key={exc.id}
-                    type="button"
-                    className="statblock-roll-btn statblock-action-exception-btn"
-                    data-roll-check={exc.formula}
-                    data-roll-label={`${char.name || (pt ? 'Personagem' : 'Character')}: ${exc.name} (${exc.bonusStr})`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      handleSkillRoll(exc.formula, `${exc.name} (${exc.bonusStr})`, undefined, e);
-                    }}
-                    title={pt ? `Rolar ferramenta treinada ${exc.name} (${exc.bonusStr})` : `Roll proficient tool ${exc.name} (${exc.bonusStr})`}
-                  >
-                    <span className="statblock-action-exception-score">{exc.passive}/{exc.bonusStr}</span>
-                    <span className="statblock-action-exception-name">{exc.name}</span>
-                  </button>
-                ))}
               </div>
             </div>
+
+            {/* Exposição parcial e identada das ferramentas sob o cabeçalho sanfonado */}
+            {collapsed.tools && toolItems.filter(t => t.isTrained).length > 0 && (
+              <div className="statblock-action-indented-profs">
+                {toolItems.filter(t => t.isTrained).map(tool => (
+                  <div key={tool.id} className="statblock-action-skill-row is-trained">
+                    <div style={{ display: 'inline-flex', alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
+                      <span className="statblock-action-prof-mark" aria-hidden="true">🛠️</span>
+                      <span className="statblock-action-skill-name" title={`${tool.name} (${tool.stat})`}>
+                        {tool.name} <abbr>({tool.stat})</abbr>
+                      </span>
+                    </div>
+
+                    <div className="statblock-action-skill-controls">
+                      <span className="statblock-action-skill-pass" title={pt ? 'Passiva' : 'Passive'}>
+                        {tool.passive}
+                      </span>
+                      <button
+                        type="button"
+                        className="statblock-roll-btn statblock-action-skill-btn"
+                        data-roll-check={tool.formula}
+                        data-roll-label={`${char.name || (pt ? 'Personagem' : 'Character')}: ${tool.name} (${tool.bonusStr})`}
+                        onClick={(e) => handleSkillRoll(tool.formula, `${tool.name} (${tool.bonusStr})`, undefined, e)}
+                        title={pt ? `Toque para rolar ${tool.name} (${tool.formula}).` : `Tap to roll ${tool.name} (${tool.formula}).`}
+                      >
+                        {tool.bonusStr}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {!collapsed.tools && (
               <div id="fh-skill-group-tools" className="statblock-action-grid">

@@ -466,23 +466,26 @@ def _release_seats(seats):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def campaign_join(request):
-    code = (request.data.get('inviteCode') or '').upper()
+    code = (request.data.get('inviteCode') or '').strip().upper()
     campaign_id = request.data.get('campaignId')
     character_id = request.data.get('characterId')
 
     campaign = None
     if campaign_id:
         campaign = Campaign.objects.filter(pk=campaign_id).first()
-        if not campaign:
-            return Response({'error': 'campaign_not_found'}, status=404)
-        if not Membership.objects.filter(campaign=campaign, user=request.user).exists() and campaign.dm_id != request.user.id:
-            return Response({'error': 'not_a_member'}, status=403)
-    elif code:
+    if not campaign and code:
         campaign = Campaign.objects.filter(invite_code=code).first()
-        if not campaign:
-            return Response({'error': 'invite_invalid'}, status=404)
-    else:
-        raise ValidationError({'error': 'invalid_input'})
+
+    if not campaign:
+        if not campaign_id and not code:
+            raise ValidationError({'error': 'invalid_input'})
+        return Response({'error': 'campaign_not_found'}, status=404)
+
+    is_dm = (campaign.dm_id == request.user.id)
+    is_member = Membership.objects.filter(campaign=campaign, user=request.user).exists()
+    has_valid_code = bool(code and campaign.invite_code.upper() == code)
+    if not (is_dm or is_member or has_valid_code):
+        return Response({'error': 'not_a_member'}, status=403)
     P.require_open(campaign)
 
     char = None
@@ -563,6 +566,71 @@ def campaign_leave(request, id_or_slug):
     return Response({'ok': True})
 
 
+def _sync_char_to_world_npc(campaign, char):
+    if not char:
+        return
+    from .models import WorldEntry
+    data = char.data if isinstance(char.data, dict) else {}
+    race = data.get('race') or ''
+    bg = data.get('background') or ''
+    cls = char.className or data.get('class') or ''
+    lvl = char.level or data.get('level') or 1
+
+    parts = []
+    if race:
+        parts.append(f"{race} ({bg})" if bg else str(race))
+    if cls:
+        parts.append(f"{cls} {lvl}")
+    summary = ', '.join(parts) or 'NPC'
+
+    entry = (
+        WorldEntry.objects.filter(campaign=campaign, kind='npc', data__characterId=char.id).first()
+        or WorldEntry.objects.filter(campaign=campaign, kind='npc', name=char.name).first()
+    )
+    npc_data = {
+        'role': f"{cls} {lvl}".strip(),
+        'appearance': str(data.get('appearance', ''))[:600],
+        'mannerism': str(data.get('personality', ''))[:300],
+        'wants': str(data.get('ideals', ''))[:600] or str(data.get('bonds', ''))[:600],
+        'characterId': char.id,
+    }
+    abilities = data.get('abilities', {}) if isinstance(data.get('abilities'), dict) else {}
+    hp = data.get('hp', {}) if isinstance(data.get('hp'), dict) else {}
+    npc_data['statblock'] = {
+        'hp': hp.get('max', 10),
+        'ac': data.get('ac', 10),
+        'str': abilities.get('str', 10),
+        'dex': abilities.get('dex', 10),
+        'con': abilities.get('con', 10),
+        'int': abilities.get('int', 10),
+        'wis': abilities.get('wis', 10),
+        'cha': abilities.get('cha', 10),
+    }
+
+    if entry:
+        entry.name = char.name
+        entry.summary = summary[:280]
+        if not entry.body and (data.get('backstory') or data.get('notes')):
+            entry.body = str(data.get('backstory') or data.get('notes'))
+        entry.visibility = 'revealed'
+        if not isinstance(entry.data, dict):
+            entry.data = {}
+        entry.data.update(npc_data)
+        entry.save()
+    else:
+        last_sort = WorldEntry.objects.filter(campaign=campaign).order_by('-sort').values_list('sort', flat=True).first() or 0
+        WorldEntry.objects.create(
+            campaign=campaign,
+            kind='npc',
+            name=char.name,
+            summary=summary[:280],
+            body=str(data.get('backstory') or data.get('notes') or ''),
+            visibility='revealed',
+            sort=last_sort + 1,
+            data=npc_data,
+        )
+
+
 @api_view(['PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def campaign_member(request, id_or_slug, membership_id):
@@ -597,6 +665,14 @@ def campaign_member(request, id_or_slug, membership_id):
             is_npc_val = (request.data.get('charType') == 'npc')
         m.is_npc = bool(is_npc_val)
         m.char_type = 'npc' if m.is_npc else 'player'
+        if m.is_npc:
+            # NPC da mesa não consome vaga/cota de jogador
+            m.sponsored = False
+            if m.character:
+                _sync_char_to_world_npc(campaign, m.character)
+        else:
+            if m.character:
+                m.sponsored = P.decide_sponsored(m.user, campaign, m.character, m)
         m.save()
         return Response({'membership': {'id': m.id, 'characterId': m.character_id, 'isNpc': m.is_npc, 'charType': m.char_type, 'sponsored': m.sponsored}})
 
