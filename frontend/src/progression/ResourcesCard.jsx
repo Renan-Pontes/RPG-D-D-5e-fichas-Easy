@@ -21,6 +21,10 @@ export default function ResourcesCard({ char, lang, update, canRestore = !!char.
   const loose = features.filter(f => !keys.has(f.resourceKey));
   if (!list.length && !loose.length) return null;
   const multi = new Set(list.map(r => r.classId)).size > 1;
+  // Por cadência: descanso curto, depois longo, depois o resto (ordem original dentro de cada uma).
+  const cadence = (r) => (r.recharge === 'short' ? 'short' : r.recharge === 'long' ? 'long' : 'other');
+  const RANK = { short: 0, long: 1, other: 2 };
+  const grouped = list.map((r, i) => [r, i]).sort((a, b) => RANK[cadence(a[0])] - RANK[cadence(b[0])] || a[1] - b[1]).map(x => x[0]);
 
   const change = async (r, delta) => {
     if (busy) return;
@@ -41,14 +45,21 @@ export default function ResourcesCard({ char, lang, update, canRestore = !!char.
     <div style={{ marginTop: 12 }}>
       <div className="eyebrow" style={{ marginBottom: 8 }}>{t(lang, 'Recursos', 'Resources')}</div>
       {!canRestore && list.length > 0 && <div className="text-xs muted" style={{ marginBottom: 6 }}>{t(lang, 'Gastos voltam no descanso indicado.', 'Spent uses return on the listed rest.')}</div>}
-      {list.map(r => {
+      {grouped.map((r, i) => {
         const left = r.max - r.used;
+        const cad = cadence(r);
+        const head = i === 0 || cadence(grouped[i - 1]) !== cad ? (
+          <div className={`fh-res-cadence is-${cad}`} role="heading" aria-level={4}>
+            {cad === 'short' ? t(lang, '☕ Descanso curto', '☕ Short rest') : cad === 'long' ? t(lang, '🌙 Descanso longo', '🌙 Long rest') : t(lang, '✦ Outros', '✦ Other')}
+          </div>
+        ) : null;
         const rest = r.recharge === 'short'
           ? (r.shortRestRegain ? t(lang, `curto +${r.shortRestRegain} · longo`, `short +${r.shortRestRegain} · long`) : t(lang, 'curto', 'short'))
           : (r.shortRestRegain ? t(lang, `longo · curto +${r.shortRestRegain}`, `long · short +${r.shortRestRegain}`) : t(lang, 'longo', 'long'));
         const mine = features.filter(f => f.resourceKey === r.key);
         return (
           <Fragment key={r.key}>
+            {head}
             <div className={`slot-row${mine.length ? ' has-feats' : ''}`} title={r.desc?.[lang] || ''} style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 180px', minWidth: 0 }}>
                 <div style={{ fontFamily: 'var(--display)', color: 'var(--gold)' }}>

@@ -6169,3 +6169,13 @@
 .ficha .fh-spell .spell-meta > .fh-spell-badge { margin-left: 8px; }
 .ficha .fh-spell-stat-card-pair { align-items: stretch; }
 .ficha .fh-spell-stat-card { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 74px; }
+
+/* Recursos agrupados por cadência de recuperação */
+.fh-res-cadence {
+  margin: 14px 0 6px; padding-bottom: 4px;
+  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  border-bottom: 1px solid rgba(214, 176, 100, 0.25);
+}
+.fh-res-cadence.is-short { color: #d8b4fe; border-bottom-color: rgba(192, 132, 252, 0.35); }
+.fh-res-cadence.is-long { color: #b8c4f5; border-bottom-color: rgba(159, 176, 240, 0.35); }
+.fh-res-cadence.is-other { color: var(--ink-muted, #a89a80); }

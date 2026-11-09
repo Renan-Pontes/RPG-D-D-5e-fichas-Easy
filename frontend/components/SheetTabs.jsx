@@ -89,8 +89,15 @@ const RestButtons = ({ char, lang, update }) => {
       if (typeof char.id === 'number') {
         const res = await api.rest(char.id, { type });
         const d = res.character.data || {};
+        // Servidor antigo não devolve os espaços do Pacto no descanso curto: fora de campanha
+        // a ficha aplica a devolução aqui (em campanha o espaço é do servidor).
+        let slotsUsed = d.spellSlotsUsed;
+        if (type === 'short' && !char.inCampaign) {
+          const pact = Utils.pactSlots(char);
+          if (pact.some(Boolean)) slotsUsed = (slotsUsed || []).map((u, i) => Math.max(0, (u || 0) - (pact[i] || 0)));
+        }
         update({
-          spellSlotsUsed: d.spellSlotsUsed,
+          spellSlotsUsed: slotsUsed,
           wildShapeUses: d.wildShapeUses,
           currentHp: d.currentHp,
           tempHp: d.tempHp,
