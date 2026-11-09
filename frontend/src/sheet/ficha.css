@@ -392,7 +392,7 @@
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: "seal name" "sub sub" "tags tags" "actions actions" "camp camp";
+  grid-template-areas: "seal name" "sub sub" "tags tags" "actions actions" "camp camp" "accordions accordions";
   align-items: center;
   column-gap: 14px;
   row-gap: 8px;
@@ -5230,4 +5230,282 @@
 
 .ficha .fh-skill.is-prof .fh-skill-mod .fh-score-num {
   color: var(--gold-bright);
+}
+
+/* ==========================================================================
+   Hero Header Top-Left Cluster & Minimalist Campaign Badge & Bottom Accordions
+   ========================================================================== */
+
+/* Top-Left Badge Cluster: Portrait Medal -> Level Badge -> Campaigns Badge */
+.ficha .fh-hero-top-left-cluster {
+  grid-area: seal;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  z-index: 5;
+}
+
+.ficha .fh-hero-portrait-medal {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.ficha .fh-hero-portrait-medal .hero-avatar {
+  border: 2px solid var(--gold);
+  background: radial-gradient(circle at 50% 35%, #2c1f17, #120c09 75%);
+  box-shadow: 0 0 0 2px rgba(10, 7, 6, 0.8), 0 4px 12px rgba(0, 0, 0, 0.6);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.ficha .fh-hero-portrait-medal:hover .hero-avatar {
+  border-color: var(--fh-gold-hi);
+  box-shadow: 0 0 0 2px rgba(10, 7, 6, 0.8), 0 0 12px rgba(240, 190, 90, 0.5);
+}
+
+.ficha .fh-hero-portrait-medal .hero-avatar-letter {
+  font-family: var(--fh-deco);
+  font-weight: 700;
+  font-size: 1.3rem;
+}
+
+/* Minimalist Campaign Badge with Notification Count */
+.ficha .fh-hero-camp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  min-height: 38px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(32, 22, 16, 0.92) 0%, rgba(14, 10, 8, 0.96) 100%);
+  border: 1.5px solid rgba(214, 176, 100, 0.45);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 230, 170, 0.15);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ficha .fh-hero-camp-badge:hover,
+.ficha .fh-hero-camp-badge.is-active {
+  border-color: var(--gold-bright, #edcb7a);
+  background: linear-gradient(180deg, rgba(48, 34, 24, 0.96) 0%, rgba(20, 14, 10, 0.98) 100%);
+  box-shadow: 0 0 12px rgba(214, 176, 100, 0.45);
+}
+
+.ficha .fh-hero-camp-badge-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.ficha .fh-hero-camp-badge-count {
+  font-family: var(--mono, monospace);
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--gold-bright, #edcb7a);
+  background: rgba(10, 7, 6, 0.7);
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(214, 176, 100, 0.35);
+}
+
+/* Unfolded Campaigns Panel */
+.ficha .fh-hero-campaigns-panel {
+  grid-area: camp;
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  background: rgba(16, 11, 8, 0.96);
+  border: 1px solid rgba(214, 176, 100, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75);
+  animation: camp-panel-fade 0.25s ease-out;
+}
+
+@keyframes camp-panel-fade {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ficha .fh-hero-campaigns-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(214, 176, 100, 0.2);
+}
+
+.ficha .fh-hero-campaigns-title {
+  font-family: var(--display, serif);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--gold-bright, #edcb7a);
+  text-transform: uppercase;
+}
+
+.ficha .fh-hero-campaigns-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ficha .fh-hero-campaigns-empty {
+  padding: 10px 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.ficha .fh-hero-campaigns-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ficha .fh-hero-campaign-card {
+  position: relative;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: 1.5px solid rgba(214, 176, 100, 0.35);
+  background: rgba(22, 16, 12, 0.92);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+}
+
+.ficha .fh-hero-campaign-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ficha .fh-hero-campaign-name {
+  font-family: var(--display, serif);
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff8e8;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.ficha .fh-hero-camp-tag-sponsored {
+  margin-left: 8px;
+  font-size: 0.68rem;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(30, 60, 45, 0.85);
+  border: 1px solid rgba(52, 211, 153, 0.6);
+  color: #a7f3d0;
+}
+
+.ficha .fh-hero-campaign-leave {
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+.ficha .fh-hero-campaign-leave:hover {
+  background: rgba(127, 29, 29, 0.4);
+  border-color: rgba(239, 68, 68, 0.8);
+  color: #fff;
+}
+
+/* Bottom Accordions in Character Panel: Subclass & Progression */
+.ficha .fh-hero-bottom-accordions {
+  grid-area: accordions;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0 0;
+  width: 100%;
+}
+
+.ficha .fh-hero-accordion {
+  background: rgba(18, 12, 8, 0.7);
+  border: 1px solid rgba(214, 176, 100, 0.25);
+  border-radius: 6px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.ficha .fh-hero-accordion[open] {
+  background: rgba(22, 15, 10, 0.94);
+  border-color: rgba(214, 176, 100, 0.45);
+}
+
+.ficha .fh-hero-accordion-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ficha .fh-hero-accordion-summary::-webkit-details-marker {
+  display: none;
+}
+
+.ficha .fh-hero-accordion-summary-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ficha .fh-hero-accordion-title {
+  font-family: var(--display, serif);
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--gold-bright, #edcb7a);
+  text-transform: uppercase;
+}
+
+.ficha .fh-hero-accordion-badge.is-alert {
+  font-family: var(--mono, monospace);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(248, 113, 113, 0.7);
+  color: #fca5a5;
+}
+
+.ficha .fh-hero-accordion-chevron {
+  font-size: 0.75rem;
+  color: var(--gold, #d6b064);
+  transition: transform 0.2s ease;
+}
+
+.ficha .fh-hero-accordion[open] .fh-hero-accordion-chevron {
+  transform: rotate(180deg);
+}
+
+.ficha .fh-hero-accordion-body {
+  padding: 8px 12px 12px;
+  border-top: 1px solid rgba(214, 176, 100, 0.15);
+}
+
+/* Character Skills Tab Parity with Monster Statblock */
+.ficha .fh-skills-action-details {
+  margin-bottom: 8px;
+}
+
+.ficha .fh-skill-cycle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.ficha .statblock-action-skill-row .fh-skill-cycle-btn {
+  margin-right: 2px;
 }

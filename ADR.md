@@ -1092,3 +1092,46 @@ Accepted & Implemented (2026-11-08)
 ### Consequences
 - **Positive:** Ability checks and saves in monster statblocks reliably honor Advantage/Disadvantage; Keen Senses creatures automatically roll Perception with Advantage; roll-up animation features dramatic focal blackout with golden critical flash; action group summaries offer both accordion exploration and instant 1-click rolling; external creature links (DandWiki Barnaclops and arbitrary URLs) resolve in < 1.5s with zero CORS or timeout errors.
 - **Verification:** 1,584 / 1,584 frontend unit tests pass (100% green); 14/14 url-monster-importer tests pass; 6/6 action-skills-gestures tests pass; Vite production build clean in 15.68s.
+
+---
+
+## ADR-0030: Top HUD Roll Banners, N:N Multi-Campaign Assignment Support, Player Character Skills & Tools Monster Parity, and Hero Header Top-Left Badge Cluster
+
+### Status
+Accepted & Implemented (2026-11-09)
+
+### Context
+1. **Roll Screen HUD Overlap with Die Stage**:
+   - The roll overlay HUD banners (`🎯 ABILITY CHECK`, `🛡️ SAVING THROW`, `⚔️ ATTACK ROLL`) were positioned with `position: absolute; top: 14px;` inside `.dice-overlay-inner`. Because the inner stage is centered vertically and horizontally in the viewport, the HUD badge directly overlapped the tumbling d20 during anticipation, critical bursts, and number settlement.
+   - Attack rolls also required granular subtype visualization (Melee, Ranged, Spell, Unarmed, Weapon, and Generic) with distinctive combat themes, icons, and glows.
+2. **Multi-Campaign Architecture ($N:N$ Character Assignment)**:
+   - The expected campaign relationship is: A user can have $N$ characters; a character can belong to $N$ campaigns; a user can have $N$ characters assigned across $N$ campaigns. The sole restriction is that the **same character cannot be assigned twice to the same campaign**.
+   - Previously, `backend/api/views_campaigns.py` performed cross-campaign checks (`_other_seats(char)`), either ejecting characters from other campaigns or returning HTTP 409 `character_in_other_campaign`.
+3. **Player Character Skills & Tools Parity with Monster Statblock**:
+   - The character's "Skills" tab had a legacy flat or double-column presentation diverging from the monster statblock. The D&D 5e 2024 canonical 4 action groups (`Search`, `Study`, `Influence`, `Hide`) needed identical representation: accordion workflow, consolidated baseline calculation (`baselinePassive/baselineBonusStr`), exception chips, direct 1-click header rolls, and 2-column compact grid with 3-state swipe Advantage/Disadvantage.
+   - Furthermore, a 5th action group was required: **"Use Tool" / "Usar Ferramenta" (`🛠️`)**, consolidating all tool proficiencies with modifier calculations (PB + ability modifier + tool expertise) and direct rollability.
+4. **Hero Header Layout Consolidation & Minimalist Campaign Badge**:
+   - Full-width campaign banners in the hero panel caused visual clutter. A minimalist notification badge (`🏰 N`) embedded on the character nameplate was needed. Clicking toggles a clean embedded panel with Campaign Name, Rolls Broadcast Toggle (`📺 On screen / 🔒 Only me`), and Leave button against the campaign's cover image.
+   - All interactive badges needed consolidation in the top-left corner (`Portrait medal -> Level badge -> Minimalist campaigns badge`).
+   - Subclass and Progression banners needed to be consolidated inside foldable accordions at the bottom of the character panel, removed completely from all other sheet tabs.
+
+### Decision Outcome
+1. **Fixed Viewport Top HUD Roll Banner (`DiceRoller.jsx`, `dice-styles.css`)**:
+   - Relocated HUD banners from `.dice-overlay-inner` to root `.dice-overlay` with `position: fixed !important; top: max(24px, env(safe-area-inset-top, 24px)); left: 50%; transform: translateX(-50%); z-index: 10005`.
+   - Implemented `getAttackSubtype(label)` and `renderTopHudBanner(overlay, lang)` with support for 6 attack variants (`is-attack-melee`, `is-attack-ranged`, `is-attack-spell`, `is-attack-unarmed`, `is-attack-weapon`, `is-attack-generic`) plus `is-save` and `is-check`.
+2. **N:N Multi-Campaign Assignment Support (`backend/api/views_campaigns.py`, `views_characters.py`)**:
+   - In `campaign_join`: scoped duplicate checks strictly to `Membership.objects.filter(campaign=campaign, character=char).exclude(user=request.user).first()`. Removed `_release_seats(others)` to keep the character in other campaigns.
+   - In `membership_update`: updated intra-campaign validation (`Membership.objects.filter(campaign=campaign, character=char).exclude(pk=m.id).first()`). Removed cross-campaign ejection.
+   - In `character_campaigns`: removed `.defer('campaign__cover_image')` and included `'coverImage': m.campaign.cover_image or ''` in JSON response.
+3. **Player Skills Tab Action Group & Tool Parity (`Sheet.jsx`, `ficha.css`)**:
+   - Mapped character skills through `computeActionGroupData` from `monster-action-skills.js`, rendering canonical action groups (`search`, `study`, `influence`, `hide`).
+   - Integrated direct roll buttons (`statblock-action-header-roll-btn`), exception chips, and compact 2-column grid.
+   - Added 5th action group: **"Use Tool" / "Usar Ferramenta" (`🛠️`)** using `TOOL_ABILITY_MAP` covering 34 tool categories with standard D&D 5e/2024 abilities.
+4. **Hero Header Top-Left Cluster & Bottom Accordions (`Sheet.jsx`, `ficha.css`)**:
+   - Clustered interactive items in top-left corner: Portrait medal (`.fh-hero-portrait-medal`) -> Level badge (`LevelUpButton`) -> Minimalist campaigns badge (`.fh-hero-camp-badge`).
+   - Created foldable `.fh-hero-campaigns-panel` with campaign cards, live roll target toggles, and leave action.
+   - Consolidated Subclass and Progression into foldable accordions (`.fh-hero-bottom-accordions`) at the bottom of `SheetHero`, removing them from all other tabs.
+
+### Consequences
+- **Positive:** No collision between roll banner and central die stage; attack rolls accurately styled by subtype; characters can participate in multiple campaigns simultaneously; player skills tab shares 100% UI/UX parity with monster statblocks; clean, decluttered hero header.
+- **Verification:** 1,588 / 1,588 unit tests pass (100% green); Vite production build completes cleanly in 10.76s.

@@ -29,12 +29,17 @@ test('Item 2: Banner de Teste de Atributo (Ability Check) com iconografia 🎯 e
   assert.match(css, /\.dice-check-target-title/);
 });
 
-test('Item 3: Progressão restrita exclusivamente à aba Jogar (play) e Traços de Espécie na aba Características (features)', () => {
+test('Item 3: Subclasse e Progressão consolidadas no painel do herói em acordeões dobráveis', () => {
   const sheetSrc = read('../components/Sheet.jsx');
   const tabsSrc = read('../components/SheetTabs.jsx');
 
-  // SubclassBanner e SpeciesBanner encapsulados estritamente dentro de tab === 'play'
-  assert.match(sheetSrc, /\{tab === 'play' && \(\s*<>\s*<SubclassBanner char=\{char\} lang=\{lang\} update=\{update\} \/>\s*<SpeciesBanner/);
+  // SubclassBanner e SpeciesBanner consolidados dentro de acordeões no rodapé do painel do herói (SheetHero)
+  assert.match(sheetSrc, /fh-hero-bottom-accordions/);
+  assert.match(sheetSrc, /<SubclassBanner char=\{char\} lang=\{lang\} update=\{update\} \/>/);
+  assert.match(sheetSrc, /<SpeciesBanner char=\{char\} lang=\{lang\} update=\{update\} \/>/);
+
+  // Removido de todas as outras abas (não está solto na aba play)
+  assert.ok(!sheetSrc.includes("{tab === 'play' && (\n          <>\n            <SubclassBanner"), 'SubclassBanner não deve estar solto na aba play');
 
   // SpeciesTraits NÃO está mais no final de SheetStory
   const storyEnd = tabsSrc.slice(tabsSrc.indexOf('const SheetStory ='), tabsSrc.indexOf('// ===== Notes / Journal ====='));

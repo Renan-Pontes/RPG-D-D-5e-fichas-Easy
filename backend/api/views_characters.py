@@ -478,7 +478,6 @@ def character_campaigns(request, pk):
         Membership.objects
         .filter(character=obj)
         .select_related('campaign')
-        .defer('campaign__cover_image')
         .order_by('id')
     )
     return Response({
@@ -487,6 +486,7 @@ def character_campaigns(request, pk):
                 'id': m.campaign.id,
                 'name': m.campaign.name,
                 'slug': m.campaign.slug,
+                'coverImage': m.campaign.cover_image or '',
                 'membershipId': m.id,
                 # modal "Campanha" da ficha: encerrada (somente leitura) e vaga emprestada
                 'status': m.campaign.status,

@@ -22,7 +22,8 @@ import { combatPanelSpot } from '../src/player/player-model.js';
 import PlayerChecksBanner from '../src/checks/PlayerChecksBanner.jsx';
 import * as FS from '../src/progression/fighting-styles.js';
 import GrimoireHint from '../src/grimoire/GrimoireHint.jsx';
-import { isArmorProficient } from '../src/creator/start-data.js';
+import { isArmorProficient, TOOLS, toolName } from '../src/creator/start-data.js';
+import { ACTION_SKILL_GROUPS, computeActionGroupData, hasKeenSenses } from '../src/combat/monster-action-skills.js';
 import { trainingLines, featName, featPicksText, backgroundFeature } from '../src/sheet/sheet-text.js';
 import { placeFeatures, featureKey } from '../src/sheet/feature-placement.js';
 import FhFeatures, { FhFeatureItem } from '../src/sheet/FhFeatures.jsx';
@@ -114,6 +115,10 @@ const SheetHero = ({
   setExportOpen,
   setCheatOpen,
   campaignBanner,
+  campaignsList = [],
+  campFoldOpen = false,
+  setCampFoldOpen,
+  update,
 }) => {
   const pt = lang === 'pt';
   const letter = (char.name || '?').charAt(0).toUpperCase();
@@ -121,6 +126,23 @@ const SheetHero = ({
   const heroArtPos = {
     objectPosition: `${char.avatarPosition?.x ?? 50}% ${char.avatarPosition?.y ?? 22}%`
   };
+
+  const currentSubclassName = useMemo(() => {
+    const subs = subclassesFor(char);
+    return subs.find(s => s.id === char.subclass)?.name?.[lang] || char.subclass || '';
+  }, [char.subclass, char.className, lang]);
+
+  const hasPendingSubclass = useMemo(() => {
+    const subs = subclassesFor(char);
+    const subLv = Utils.subclassLevel(char);
+    return subs.length > 0 && (char.level || 1) >= subLv && !char.subclass;
+  }, [char.subclass, char.className, char.level]);
+
+  const hasPendingSpecies = useMemo(() => {
+    const issues = Utils.speciesChoiceIssues(char).filter(i => !(char.inCampaign && (i.key === 'feat' || i.key === 'asi')));
+    return issues.length > 0;
+  }, [char]);
+
   return (
     <>
       <button className="btn btn-ghost btn-sm no-print" onClick={onBack} style={{ marginBottom: 12 }}>
@@ -134,7 +156,33 @@ const SheetHero = ({
           <FhConditionArt conditions={char.conditions} down={char.currentHp === 0} />
         </div>
         <div className="fh-hero-body">
-          <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
+          {/* Cluster de medalhas no canto superior esquerdo: Retrato -> Nível -> Campanhas */}
+          <div className="fh-hero-top-left-cluster no-print">
+            <div className="fh-hero-portrait-medal" title={pt ? 'Foto do personagem' : 'Character portrait'}>
+              <AvatarUpload
+                value={char.avatar}
+                onChange={onAvatar}
+                position={char.avatarPosition}
+                onPositionChange={onAvatarPosition}
+                lang={lang}
+                size={48}
+                letter={letter}
+              />
+              <span className="fh-hero-photo-badge" aria-hidden="true"><Icon name="image" size={10}/></span>
+            </div>
+            <LevelUpButton char={char} lang={lang} onLevelUp={onLevelUp} />
+            <button
+              type="button"
+              className={`fh-hero-camp-badge ${campFoldOpen ? 'is-active' : ''}`}
+              onClick={() => setCampFoldOpen?.(v => !v)}
+              aria-expanded={campFoldOpen}
+              title={pt ? `Campanhas atribuídas (${campaignsList.length}). Clique para gerenciar.` : `Assigned campaigns (${campaignsList.length}). Click to manage.`}
+            >
+              <span className="fh-hero-camp-badge-icon" aria-hidden="true">🏰</span>
+              <span className="fh-hero-camp-badge-count">{campaignsList.length}</span>
+            </button>
+          </div>
+
           <div className={char.name ? 'hero-name' : 'hero-name is-unnamed'}>
             {char.name ? <span className="fh-foil">{char.name}</span> : (pt ? 'Sem nome' : 'Unnamed')}
           </div>
@@ -151,8 +199,7 @@ const SheetHero = ({
             {char.cheatMode && <span className="tag fh-tag-cheat">🎲 {pt ? 'Trapaça' : 'Cheat'}</span>}
           </div>
 
-          {/* Barra de ações (src/sheet/ficha.css: .fh-actions): Exportar, Editar e Modo trapaça;
-              contidos dentro do painel do personagem, abaixo da etiqueta de tendência. */}
+          {/* Barra de ações (src/sheet/ficha.css: .fh-actions): Exportar, Editar e Modo trapaça */}
           <div className="action-bar fh-actions no-print">
             <button ref={exportBtnRef} type="button" className="chip fh-export-chip" aria-haspopup="dialog" onClick={() => setExportOpen(true)}>
               <Icon name="download" size={14} className="chip-icon"/> {t('export', lang)}
@@ -170,6 +217,43 @@ const SheetHero = ({
             </button>
           </div>
 
+          {/* Accordions consolidados na base do painel do herói: Subclasse & Progressão */}
+          {update && (
+            <div className="fh-hero-bottom-accordions no-print">
+              <details className="fh-hero-accordion fh-subclass-accordion" open={hasPendingSubclass}>
+                <summary className="fh-hero-accordion-summary">
+                  <span className="fh-hero-accordion-summary-left">
+                    <span className="fh-hero-accordion-icon" aria-hidden="true">👑</span>
+                    <span className="fh-hero-accordion-title">
+                      {pt ? 'Subclasse' : 'Subclass'}{currentSubclassName ? `: ${currentSubclassName}` : ''}
+                    </span>
+                  </span>
+                  {hasPendingSubclass && <span className="fh-hero-accordion-badge is-alert">{pt ? 'Escolha pendente' : 'Choice pending'}</span>}
+                  <span className="fh-hero-accordion-chevron" aria-hidden="true">▾</span>
+                </summary>
+                <div className="fh-hero-accordion-body">
+                  <SubclassBanner char={char} lang={lang} update={update} />
+                </div>
+              </details>
+
+              <details className="fh-hero-accordion fh-progression-accordion" open={hasPendingSpecies}>
+                <summary className="fh-hero-accordion-summary">
+                  <span className="fh-hero-accordion-summary-left">
+                    <span className="fh-hero-accordion-icon" aria-hidden="true">⚡</span>
+                    <span className="fh-hero-accordion-title">
+                      {pt ? 'Progressão & Escolhas de Espécie' : 'Progression & Species Choices'}
+                    </span>
+                  </span>
+                  {hasPendingSpecies && <span className="fh-hero-accordion-badge is-alert">{pt ? 'Escolha pendente' : 'Choice pending'}</span>}
+                  <span className="fh-hero-accordion-chevron" aria-hidden="true">▾</span>
+                </summary>
+                <div className="fh-hero-accordion-body">
+                  <SpeciesBanner char={char} lang={lang} update={update} />
+                </div>
+              </details>
+            </div>
+          )}
+
           {/* Status/faixa da campanha contidos no painel do personagem, abaixo das ações */}
           {campaignBanner}
         </div>
@@ -179,18 +263,6 @@ const SheetHero = ({
           <span className="fh-insp-gem"><Icon name={char.inspiration ? 'star-fill' : 'star'} size={22}/></span>
           <span className="fh-insp-label">{t('inspiration', lang)}</span>
         </button>
-        <div className="fh-hero-photo">
-          <AvatarUpload
-            value={char.avatar}
-            onChange={onAvatar}
-            position={char.avatarPosition}
-            onPositionChange={onAvatarPosition}
-            lang={lang}
-            size={52}
-            letter={letter}
-          />
-          <span className="fh-hero-photo-badge" aria-hidden="true"><Icon name="image" size={11}/></span>
-        </div>
       </div>
     </>
   );
@@ -260,10 +332,50 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
   // buscam a campanha de novo (na troca A→B, inCampaign continua true).
   const [campOpen, setCampOpen] = useState(false);
   const [campRev, setCampRev] = useState(0);
+  const [campaignsList, setCampaignsList] = useState([]);
+  const [campFoldOpen, setCampFoldOpen] = useState(false);
+  const [busyLeaveId, setBusyLeaveId] = useState(null);
+
+  useEffect(() => {
+    if (typeof char.id !== 'number') {
+      setCampaignsList([]);
+      return;
+    }
+    let cancelled = false;
+    api.characterCampaigns(char.id).then(r => {
+      if (cancelled) return;
+      const list = r.campaigns || [];
+      setCampaignsList(list);
+      const c = list[0];
+      if (c) {
+        setSheetPolicy(char.id, { allowed: c.sheetRolls, live: c.live, mode: c.sheetRollsMode });
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [char.id, campRev]);
+
   const campaignChanged = async (msg) => {
     setCampOpen(false);
     setCampRev(n => n + 1);
     await onCampaignChange?.(msg);
+  };
+
+  const leaveCampaign = async (camp) => {
+    if (!confirm(lang === 'pt'
+      ? `Sair da campanha "${camp.name}"? A ficha continua com você.`
+      : `Leave campaign "${camp.name}"? The sheet stays with you.`)) return;
+    setBusyLeaveId(camp.id);
+    try {
+      await api.removeMember(camp.id, camp.membershipId);
+      const remaining = campaignsList.filter(c => c.id !== camp.id);
+      setCampaignsList(remaining);
+      onUpdate({ ...char, inCampaign: remaining.length > 0 });
+      await campaignChanged(lang === 'pt' ? `Você saiu da campanha "${camp.name}".` : `You left campaign "${camp.name}".`);
+    } catch (e) {
+      alert(errorMessage(e));
+    } finally {
+      setBusyLeaveId(null);
+    }
   };
   // Cerimônias (só visual, src/sheet/FhCeremonies.jsx): o selo quando o nível sobe e as
   // gemas que reacendem (descanso, trapaça, mestre).
@@ -416,21 +528,22 @@ const Sheet = ({ lang, char, onUpdate, onEdit, onPrint, onExportPdf, onShare, on
             rev={campRev}
             onManage={typeof char.id === 'number' ? () => setCampOpen(true) : null}
             onLogin={onLogin}
+            campFoldOpen={campFoldOpen}
+            setCampFoldOpen={setCampFoldOpen}
+            campaignsList={campaignsList}
+            onLeaveCampaign={leaveCampaign}
+            busyLeaveId={busyLeaveId}
           />
         }
+        campaignsList={campaignsList}
+        campFoldOpen={campFoldOpen}
+        setCampFoldOpen={setCampFoldOpen}
+        update={update}
       />
 
       {/* Pedido de teste do mestre: logo abaixo do topo, para ser visto sem rolar */}
       {char.inCampaign && typeof char.id === 'number' && (
         <PlayerChecksBanner char={char} lang={lang} />
-      )}
-
-      {/* Progressão: estritamente restrita à aba Jogar ('play') */}
-      {tab === 'play' && (
-        <>
-          <SubclassBanner char={char} lang={lang} update={update} />
-          <SpeciesBanner char={char} lang={lang} update={update} />
-        </>
       )}
       {campOpen && (
         <Suspense fallback={null}>
@@ -828,111 +941,109 @@ const CheatModeModal = ({ char, lang, update, onClose }) => {
 // Faixa da campanha. onManage: abre o modal "Campanha" (só ficha da conta);
 // onLogin: ficha do aparelho, dica para entrar na conta. rev: busca de novo depois
 // de atrelar/desatrelar/trocar.
-const CampaignModeBanner = ({ char, lang, onChange, onManage, onLogin, rev = 0 }) => {
-  const [campInfo, setCampInfo] = useState(null);
+const CampaignModeBanner = ({
+  char,
+  lang,
+  onChange,
+  onManage,
+  onLogin,
+  rev = 0,
+  campFoldOpen,
+  setCampFoldOpen,
+  campaignsList = [],
+  onLeaveCampaign,
+  busyLeaveId,
+}) => {
   const [busy, setBusy] = useState(false);
-  // V15: com as rolagens das fichas desligadas pelo mestre (ou sem sessão ao vivo) a
-  // ficha não manda nada; esta busca de novo (no máximo a cada 30 s, só enquanto
-  // parada) quando a ficha volta à vista ou o jogador rola, para valer de novo assim
-  // que ele religar ou começar a sessão.
-  const [recheck, setRecheck] = useState(0);
   const pt = lang === 'pt';
-  const inTable = !!char.inCampaign && typeof char.id === 'number';
 
-  useEffect(() => {
-    if (!inTable) { setCampInfo(null); return; }
-    let cancelled = false;
-    api.characterCampaigns(char.id).then(r => {
-      if (cancelled) return;
-      const c = (r.campaigns || [])[0];
-      setCampInfo(c || null);
-      // a regra do mestre (todas · só 20 e 1 · nenhuma) e a sessão ao vivo: fora dela a ficha não manda nada
-      if (c) setSheetPolicy(char.id, { allowed: c.sheetRolls, live: c.live, mode: c.sheetRollsMode });
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [char.id, inTable, rev, recheck]);
-
-  useEffect(() => {
-    if (!inTable) return undefined;
-    setSheetRecheck(() => setRecheck(n => n + 1));
-    const onVis = () => { if (!document.hidden) maybeRecheck(); };
-    document.addEventListener('visibilitychange', onVis);
-    return () => { setSheetRecheck(null); document.removeEventListener('visibilitychange', onVis); };
-  }, [inTable, char.id]);
-
-  const leave = async () => {
-    if (!campInfo) return;
+  const leave = async (c) => {
+    if (!c) return;
     if (!confirm(lang === 'pt'
-      ? `Sair da campanha "${campInfo.name}"? Você volta a ter controle total da ficha.`
-      : `Leave campaign "${campInfo.name}"? You'll regain full sheet control.`)) return;
+      ? `Sair da campanha "${c.name}"? A ficha continua com você.`
+      : `Leave campaign "${c.name}"? The sheet stays with you.`)) return;
     setBusy(true);
     try {
-      await api.removeMember(campInfo.id, campInfo.membershipId);
-      // Forçar reload da ficha pra atualizar inCampaign
+      await api.removeMember(c.id, c.membershipId);
       onChange({ ...char, inCampaign: false });
     } catch (e) {
       alert(errorMessage(e));
     } finally { setBusy(false); }
   };
 
-  if (!char.inCampaign) {
-    const local = typeof char.id !== 'number';
-    return (
-      <div className="campaign-mode-inline fh-camp-inline no-print">
-        <span className="fh-camp-inline-text">
-          📜 <strong>{pt ? 'Ficha pessoal' : 'Personal sheet'}</strong>
-          <span className="muted"> · {pt ? 'fora de campanha; nível e atributos sobem pela Progressão' : 'not in a campaign; level and abilities change through Progression'}</span>
-          {local && onLogin && (
-            <span className="muted fh-camp-inline-hint"> {pt
-              ? 'Para jogar numa campanha, entre na sua conta: as fichas deste aparelho vão junto.'
-              : 'To play in a campaign, log in to your account: the sheets on this device come along.'}</span>
-          )}
-        </span>
-        {onManage && (
-          <button type="button" className="btn btn-ghost btn-sm fh-camp-link" onClick={onManage}>
-            🏰 {pt ? 'Atrelar a uma campanha' : 'Link to a campaign'}
-          </button>
-        )}
-        {local && onLogin && (
-          <button type="button" className="btn btn-ghost btn-sm fh-camp-link" onClick={onLogin}>
-            {pt ? 'Entrar na conta' : 'Log in'}
-          </button>
-        )}
-      </div>
-    );
-  }
+  if (!campFoldOpen) return null;
 
-  // Faixa da campanha (src/sheet/ficha.css: .fh-camp): [🏰] rótulo + nome / travas [Sair]
   return (
-    <div className="campaign-mode-banner in-campaign fh-camp">
-      <span className="cmb-icon" aria-hidden="true">🏰</span>
-      <div className="fh-camp-text">
-        <span className="cmb-label">{lang === 'pt' ? 'Em campanha' : 'In campaign'}</span>
-        {campInfo && <strong className="cmb-name">{campInfo.name}</strong>}
-        <span className="muted small fh-camp-note">
-          {lang === 'pt'
-            ? 'Itens, slots, HP máximo e atributos são gerenciados pelo mestre.'
-            : 'Items, slots, max HP and abilities are managed by the DM.'}
+    <div className="fh-hero-campaigns-panel card no-print">
+      <div className="fh-hero-campaigns-header">
+        <span className="fh-hero-campaigns-title">
+          🏰 {pt ? 'Campanhas do Personagem' : 'Character Campaigns'} ({campaignsList.length})
         </span>
-      </div>
-      {(onManage || campInfo) && (
-        <div className="fh-camp-actions">
+        <div className="fh-hero-campaigns-header-actions">
           {onManage && (
-            <button className="btn btn-ghost btn-sm" onClick={onManage}
-              title={pt ? 'Desatrelar a ficha ou trocar de campanha' : 'Unlink the sheet or move it to another campaign'}>
-              {pt ? 'Campanha' : 'Campaign'}
+            <button type="button" className="btn btn-ghost btn-xs" onClick={onManage}>
+              + {pt ? 'Atrelar' : 'Link'}
             </button>
           )}
-          {campInfo && (
-            <button className="btn btn-ghost btn-sm" onClick={leave} disabled={busy}
-              title={pt ? 'Sair da campanha (a ficha continua com você)' : 'Leave the campaign (the sheet stays with you)'}>
-              {busy ? '…' : (pt ? 'Sair' : 'Leave')}
+          {setCampFoldOpen && (
+            <button type="button" className="btn btn-ghost btn-xs" onClick={() => setCampFoldOpen(false)} aria-label="Fechar">
+              ✕
             </button>
           )}
         </div>
+      </div>
+      {campaignsList.length === 0 ? (
+        <div className="fh-hero-campaigns-empty">
+          <p className="muted small">
+            {pt ? 'Ficha pessoal (não está em nenhuma campanha).' : 'Personal sheet (not assigned to any campaign).'}
+          </p>
+          {onManage && (
+            <button type="button" className="btn btn-primary btn-sm" onClick={onManage}>
+              🏰 {pt ? 'Atrelar a uma campanha' : 'Link to a campaign'}
+            </button>
+          )}
+          {typeof char.id !== 'number' && onLogin && (
+            <button type="button" className="btn btn-primary btn-sm" onClick={onLogin}>
+              {pt ? 'Entrar na conta' : 'Log in'}
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="fh-hero-campaigns-list">
+          {campaignsList.map(camp => (
+            <div
+              key={camp.id}
+              className="fh-hero-campaign-card"
+              style={camp.coverImage ? {
+                backgroundImage: `linear-gradient(rgba(14, 10, 8, 0.8), rgba(14, 10, 8, 0.94)), url(${camp.coverImage})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              } : {}}
+            >
+              <div className="fh-hero-campaign-card-header">
+                <div className="fh-hero-campaign-name-block">
+                  <strong className="fh-hero-campaign-name">{camp.name}</strong>
+                  {camp.sponsored && <span className="fh-hero-camp-tag-sponsored">{pt ? 'Vaga da mesa' : 'Table seat'}</span>}
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs fh-hero-campaign-leave"
+                  onClick={() => onLeaveCampaign ? onLeaveCampaign(camp) : leave(camp)}
+                  disabled={busyLeaveId === camp.id || busy}
+                  title={pt ? `Sair da campanha "${camp.name}"` : `Leave campaign "${camp.name}"`}
+                >
+                  {busyLeaveId === camp.id || busy ? '…' : (pt ? '🚪 Sair' : '🚪 Leave')}
+                </button>
+              </div>
+              {typeof char.id === 'number' && camp.status !== 'closed' && (
+                <div className="fh-hero-campaign-card-rolls">
+                  <SheetRollTarget lang={lang} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
-      {/* 📺 Na Tela · 🔒 Só eu das rolagens desta ficha (V15); só ficha da conta */}
-      {typeof char.id === 'number' && campInfo?.status !== 'closed' && <SheetRollTarget lang={lang} />}
     </div>
   );
 };
@@ -3199,30 +3310,60 @@ export const SheetAbilities = ({ char, lang, update, profB, roll }) => {
   );
 };
 
+export const TOOL_ABILITY_MAP = {
+  thievesTools: 'dex',
+  alchemistsSupplies: 'int',
+  brewersSupplies: 'con',
+  calligraphersSupplies: 'dex',
+  carpentersTools: 'str',
+  cartographersTools: 'wis',
+  cobblersTools: 'dex',
+  cooksUtensils: 'wis',
+  glassblowersTools: 'dex',
+  jewelersTools: 'dex',
+  leatherworkersTools: 'dex',
+  masonsTools: 'str',
+  paintersSupplies: 'dex',
+  pottersTools: 'dex',
+  smithsTools: 'str',
+  tinkersTools: 'dex',
+  weaversTools: 'dex',
+  woodcarversTools: 'dex',
+  disguiseKit: 'cha',
+  forgeryKit: 'dex',
+  herbalismKit: 'wis',
+  navigatorsTools: 'wis',
+  poisonersKit: 'int',
+  bagpipes: 'cha', drum: 'cha', dulcimer: 'cha', flute: 'cha', horn: 'cha',
+  lute: 'cha', lyre: 'cha', panFlute: 'cha', shawm: 'cha', viol: 'cha',
+  diceSet: 'wis', dragonchessSet: 'int', playingCardSet: 'cha', threeDragonAnteSet: 'cha',
+  vehiclesLand: 'dex', vehiclesWater: 'dex',
+};
+
 export const SKILL_GROUPS = [
   {
     id: 'search',
     name: { pt: 'Ação: Busca (Search)', en: 'Battle Action: Search' },
     icon: '🔍',
-    skillIds: ['insight', 'perception', 'survival'],
+    skillIds: ['survival', 'insight', 'medicine', 'perception'],
   },
   {
     id: 'hide',
     name: { pt: 'Ação: Furtividade & Evasão (Hide)', en: 'Battle Action: Hide & Agility' },
-    icon: '🫥',
-    skillIds: ['stealth', 'sleightOfHand', 'acrobatics', 'athletics'],
+    icon: '👣',
+    skillIds: ['acrobatics', 'athletics', 'sleightOfHand', 'stealth'],
   },
   {
     id: 'influence',
     name: { pt: 'Ação: Influência (Influence)', en: 'Battle Action: Influence' },
-    icon: '👥',
-    skillIds: ['performance', 'deception', 'persuasion', 'intimidation', 'animalHandling'],
+    icon: '💬',
+    skillIds: ['animalHandling', 'deception', 'intimidation', 'performance', 'persuasion'],
   },
   {
     id: 'study',
     name: { pt: 'Ação: Estudo (Study)', en: 'Battle Action: Study' },
-    icon: '📖',
-    skillIds: ['arcana', 'history', 'investigation', 'medicine', 'nature', 'religion'],
+    icon: '📚',
+    skillIds: ['arcana', 'history', 'investigation', 'nature', 'religion'],
   },
 ];
 
@@ -3230,12 +3371,13 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
   const pt = lang === 'pt';
   const profText = (level) => level === 2 ? (pt ? 'Especialista' : 'Expertise') : level ? (pt ? 'Treinado' : 'Proficient') : (pt ? 'Sem treino' : 'Not proficient');
 
-  // Estado recolhível/dobrável para cada uma das 4 categorias de ações
+  // Estado recolhível/dobrável para cada uma das categorias de ações
   const [collapsed, setCollapsed] = useState({
     search: false,
     hide: false,
     influence: false,
     study: false,
+    tools: false,
   });
 
   const toggleGroup = (groupId) => {
@@ -3245,8 +3387,109 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
   const allCollapsed = Object.values(collapsed).every(Boolean);
   const toggleAll = () => {
     const nextVal = !allCollapsed;
-    setCollapsed({ search: nextVal, hide: nextVal, influence: nextVal, study: nextVal });
+    setCollapsed({ search: nextVal, hide: nextVal, influence: nextVal, study: nextVal, tools: nextVal });
   };
+
+  const explicitSkillMap = useMemo(() => {
+    const map = new Map();
+    for (const s of SRD.SKILLS) {
+      const bonus = Utils.skillBonus(char, s.id);
+      map.set(s.id.toLowerCase().replace(/[\s_\-]/g, ''), bonus);
+    }
+    return map;
+  }, [char]);
+
+  const keen = useMemo(() => hasKeenSenses(char), [char]);
+
+  const actionSkillData = useMemo(() => {
+    return ACTION_SKILL_GROUPS.map((grp) => ({
+      ...grp,
+      ...computeActionGroupData(grp, char.abilities, explicitSkillMap, lang, { hasKeen: keen }),
+    }));
+  }, [char.abilities, explicitSkillMap, lang, keen]);
+
+  const handleSkillRoll = (formula, label, defaultAdv, e) => {
+    const el = e?.currentTarget;
+    const swipedAdv = el?.getAttribute('data-roll-adv');
+    const finalAdv = swipedAdv || defaultAdv;
+    const match = formula.match(/1d20([+-]\d+)/);
+    const mod = match ? parseInt(match[1], 10) : 0;
+    roll({
+      die: 20,
+      mod,
+      formula,
+      label,
+      isCheck: true,
+      ...(finalAdv ? { adv: finalAdv, advMode: finalAdv } : {}),
+    });
+  };
+
+  const toggleProf = (sId) => {
+    const isExpert = Utils.hasExpertise(char, sId);
+    const isProf = Utils.hasSkillProf(char, sId);
+    if (isExpert) {
+      update({
+        skillExpertise: (char.skillExpertise || []).filter(x => x !== sId),
+        skillProfs: (char.skillProfs || []).filter(x => x !== sId),
+      });
+    } else if (isProf) {
+      update({ skillExpertise: [...(char.skillExpertise || []), sId] });
+    } else {
+      update({ skillProfs: [...(char.skillProfs || []), sId] });
+    }
+  };
+
+  // 5th Action Group: Action: Use Tool (Usar Ferramenta)
+  const toolItems = useMemo(() => {
+    const profs = new Set([
+      ...(char.toolProfs || []),
+      ...(char.creation?.toolChoices?.background || []),
+      ...(char.creation?.toolChoices?.class || []),
+    ]);
+    const pb = Utils.profBonus(char);
+    const hasToolExp = (char.className === 'artificer' && (char.level || 1) >= 6) ||
+      (char.features || []).some(f => /toolExpertise/i.test(f.id || f.name));
+
+    const list = [];
+    profs.forEach(tId => {
+      const stat = TOOL_ABILITY_MAP[tId] || 'dex';
+      const abilMod = Utils.abilityMod(char, stat);
+      const bonus = abilMod + pb * (hasToolExp ? 2 : 1);
+      const bonusStr = bonus >= 0 ? `+${bonus}` : `${bonus}`;
+      const passive = 10 + bonus;
+      const name = toolName(tId, lang);
+      list.push({
+        id: tId,
+        name,
+        stat: stat.toUpperCase(),
+        bonus,
+        bonusStr,
+        passive,
+        isTrained: true,
+        formula: `1d20${bonusStr}`,
+      });
+    });
+    if (!list.length) {
+      const stat = 'dex';
+      const abilMod = Utils.abilityMod(char, stat);
+      const bonusStr = abilMod >= 0 ? `+${abilMod}` : `${abilMod}`;
+      list.push({
+        id: 'improvised',
+        name: pt ? 'Ferramentas Improvisadas' : 'Improvised Tools',
+        stat: 'DEX',
+        bonus: abilMod,
+        bonusStr,
+        passive: 10 + abilMod,
+        isTrained: false,
+        formula: `1d20${bonusStr}`,
+      });
+    }
+    return list;
+  }, [char, lang, pt]);
+
+  const toolBaselineBonus = toolItems[0]?.bonus || 0;
+  const toolBaselineBonusStr = toolBaselineBonus >= 0 ? `+${toolBaselineBonus}` : `${toolBaselineBonus}`;
+  const toolBaselinePassive = 10 + toolBaselineBonus;
 
   return (
     <div className="fh-scope-content fh-scope-skills">
@@ -3267,64 +3510,103 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
 
         {/* 4 Categorical Rows / Foldable Cards: Search, Hide, Influence, Study */}
         <div className="fh-skill-categories-grid">
-          {SKILL_GROUPS.map(grp => {
-            const isFolded = !!collapsed[grp.id];
-            let trainedCount = 0;
-            let expertCount = 0;
-            grp.skillIds.forEach(id => {
-              if (Utils.hasExpertise(char, id)) expertCount++;
-              else if (Utils.hasSkillProf(char, id)) trainedCount++;
-            });
-
-            const summaryPill = expertCount > 0 || trainedCount > 0
-              ? (pt ? `${trainedCount + expertCount}/${grp.skillIds.length} treinadas` : `${trainedCount + expertCount}/${grp.skillIds.length} trained`)
-              : (pt ? `${grp.skillIds.length} perícias` : `${grp.skillIds.length} skills`);
-
+          {actionSkillData.map(grp => {
+            const isFolded = !!collapsed[grp.key];
             return (
-              <div key={grp.id} className={`fh-skill-group-card card ${isFolded ? 'is-collapsed' : ''}`}>
-                <button
-                  type="button"
-                  className="fh-skill-group-header"
-                  onClick={() => toggleGroup(grp.id)}
+              <div key={grp.key} className={`fh-skill-group-card card statblock-action-details fh-skills-action-details ${isFolded ? 'is-collapsed' : 'open'}`}>
+                <div
+                  className="fh-skill-group-header statblock-action-summary"
+                  onClick={() => toggleGroup(grp.key)}
+                  role="button"
+                  tabIndex={0}
                   aria-expanded={!isFolded}
-                  aria-controls={`fh-skill-group-${grp.id}`}
+                  aria-controls={`fh-skill-group-${grp.key}`}
                 >
-                  <span className="fh-skill-group-chevron" aria-hidden="true">{isFolded ? '▸' : '▾'}</span>
-                  <span className="fh-skill-group-icon" aria-hidden="true">{grp.icon}</span>
-                  <span className="fh-skill-group-title">{grp.name[lang] || grp.name.pt}</span>
-                  <span className="fh-skill-group-count">{summaryPill}</span>
-                </button>
+                  <span className="statblock-action-header-left">
+                    <span className="fh-skill-group-chevron statblock-action-chevron" aria-hidden="true">{isFolded ? '▸' : '▾'}</span>
+                    <span className="fh-skill-group-icon statblock-action-icon" aria-hidden="true">{grp.icon}</span>
+                    <span className="fh-skill-group-title statblock-action-title">{grp.groupTitle}</span>
+                  </span>
+
+                  <div className="statblock-action-summary-actions">
+                    <button
+                      type="button"
+                      className="statblock-roll-btn statblock-action-header-roll-btn"
+                      data-roll-check={`1d20${grp.baselineBonusStr}`}
+                      data-roll-label={`${char.name || (pt ? 'Personagem' : 'Character')}: ${grp.groupTitle} (${grp.baselineBonusStr})`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        handleSkillRoll(`1d20${grp.baselineBonusStr}`, `${grp.groupTitle} (${grp.baselineBonusStr})`, undefined, e);
+                      }}
+                      title={pt ? `Rolar ação consolidada ${grp.groupTitle} (1d20${grp.baselineBonusStr})` : `Roll consolidated action ${grp.groupTitle} (1d20${grp.baselineBonusStr})`}
+                    >
+                      <span className="statblock-action-roll-dice" aria-hidden="true">🎲</span>
+                      <span className="statblock-action-roll-score">{grp.baselinePassive}/{grp.baselineBonusStr}</span>
+                    </button>
+
+                    {grp.exceptions?.map(exc => (
+                      <button
+                        key={exc.id}
+                        type="button"
+                        className={`statblock-roll-btn statblock-action-exception-btn${exc.defaultAdv ? ' has-adv' : ''}`}
+                        data-roll-check={`1d20${exc.bonusStr}`}
+                        data-roll-label={`${char.name || (pt ? 'Personagem' : 'Character')}: ${exc.name} (${exc.bonusStr})`}
+                        data-roll-adv={exc.defaultAdv}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          handleSkillRoll(`1d20${exc.bonusStr}`, `${exc.name} (${exc.bonusStr})`, exc.defaultAdv, e);
+                        }}
+                        title={pt ? `Rolar ${exc.name} (1d20${exc.bonusStr})${exc.isKeen ? ' [Vantagem automática]' : ''}` : `Roll ${exc.name} (1d20${exc.bonusStr})${exc.isKeen ? ' [Automatic Advantage]' : ''}`}
+                      >
+                        <span className="statblock-exception-text">{exc.passive}/{exc.bonusStr} {exc.name}</span>
+                        {exc.defaultAdv && <span className="statblock-adv-badge" aria-label="Vantagem">▲</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {!isFolded && (
-                  <div id={`fh-skill-group-${grp.id}`} className="fh-skills-group-list">
-                    {grp.skillIds.map(id => {
-                      const s = SRD.SKILLS.find(x => x.id === id) || { id, stat: 'wis' };
-                      const bonus = Utils.skillBonus(char, s.id);
-                      const isProf = Utils.hasSkillProf(char, s.id);
-                      const isExpert = Utils.hasExpertise(char, s.id);
+                  <div id={`fh-skill-group-${grp.key}`} className="statblock-action-grid">
+                    {grp.skills.map(sk => {
+                      const isExpert = Utils.hasExpertise(char, sk.id);
+                      const isProf = Utils.hasSkillProf(char, sk.id);
                       const level = isExpert ? 2 : isProf ? 1 : 0;
-                      const passive = 10 + bonus;
                       return (
-                        <FhSkillRow
-                          key={s.id}
-                          name={tName('skill', s.id, lang)}
-                          abbr={t(s.stat + 'Sh', lang)}
-                          bonus={Utils.fmtMod(bonus)}
-                          passive={passive}
-                          level={level}
-                          lang={lang}
-                          profTitle={profText(level)}
-                          profLabel={`${tName('skill', s.id, lang)}: ${profText(level)}`}
-                          onToggle={() => {
-                            if (isExpert) {
-                              update({ skillExpertise: (char.skillExpertise || []).filter(x => x !== s.id), skillProfs: (char.skillProfs || []).filter(x => x !== s.id) });
-                            } else if (isProf) {
-                              update({ skillExpertise: [...(char.skillExpertise || []), s.id] });
-                            } else {
-                              update({ skillProfs: [...(char.skillProfs || []), s.id] });
-                            }
-                          }}
-                          onRoll={() => roll({ die: 20, mod: bonus, label: tName('skill', s.id, lang), isCheck: true })}
-                        />
+                        <div key={sk.id} className={`statblock-action-skill-row${isProf || isExpert ? ' is-trained' : ''}`}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
+                            <button
+                              type="button"
+                              className="fh-skill-cycle-btn no-print"
+                              onClick={() => toggleProf(sk.id)}
+                              title={profText(level)}
+                              aria-label={`${sk.name}: ${profText(level)}`}
+                            >
+                              {level === 2 ? '⭐' : level === 1 ? '●' : '○'}
+                            </button>
+                            <span className="statblock-action-skill-name" title={`${sk.name} (${sk.abilUpper})`}>
+                              {sk.name} <abbr>({sk.abilUpper})</abbr>
+                            </span>
+                          </div>
+
+                          <div className="statblock-action-skill-controls">
+                            <span className="statblock-action-skill-pass" title={pt ? 'Passiva' : 'Passive'}>
+                              {sk.passive}
+                            </span>
+                            <button
+                              type="button"
+                              className={`statblock-roll-btn statblock-action-skill-btn${sk.defaultAdv ? ' has-adv' : ''}`}
+                              data-roll-check={`1d20${sk.bonusStr}`}
+                              data-roll-label={`${char.name || (pt ? 'Personagem' : 'Character')}: ${sk.name} (${sk.bonusStr})`}
+                              data-roll-adv={sk.defaultAdv}
+                              onClick={(e) => handleSkillRoll(`1d20${sk.bonusStr}`, `${sk.name} (${sk.bonusStr})`, sk.defaultAdv, e)}
+                              title={pt ? `Toque para rolar ${sk.name} (1d20${sk.bonusStr}). Deslize ↑ para Vantagem ou ↓ para Desvantagem.` : `Tap to roll ${sk.name} (1d20${sk.bonusStr}). Swipe ↑ for Advantage or ↓ for Disadvantage.`}
+                            >
+                              {sk.bonusStr}
+                            </button>
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
@@ -3332,6 +3614,69 @@ export const SheetSkills = ({ char, lang, update, passPerc, roll, placed }) => {
               </div>
             );
           })}
+
+          {/* 5th Action Group: Action: Use Tool (Usar Ferramenta) */}
+          <div className={`fh-skill-group-card card statblock-action-details fh-skills-action-details ${collapsed.tools ? 'is-collapsed' : 'open'}`}>
+            <div
+              className="fh-skill-group-header statblock-action-summary"
+              onClick={() => toggleGroup('tools')}
+              role="button"
+              tabIndex={0}
+              aria-expanded={!collapsed.tools}
+              aria-controls="fh-skill-group-tools"
+            >
+              <span className="statblock-action-header-left">
+                <span className="fh-skill-group-chevron statblock-action-chevron" aria-hidden="true">{collapsed.tools ? '▸' : '▾'}</span>
+                <span className="fh-skill-group-icon statblock-action-icon" aria-hidden="true">🛠️</span>
+                <span className="fh-skill-group-title statblock-action-title">{pt ? 'Ação: Usar Ferramenta (Use Tool)' : 'Battle Action: Use Tool'}</span>
+              </span>
+
+              <div className="statblock-action-summary-actions">
+                <button
+                  type="button"
+                  className="statblock-roll-btn statblock-action-header-roll-btn"
+                  data-roll-check={`1d20${toolBaselineBonusStr}`}
+                  data-roll-label={`${char.name || (pt ? 'Personagem' : 'Character')}: ${pt ? 'Usar Ferramenta' : 'Use Tool'} (${toolBaselineBonusStr})`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    handleSkillRoll(`1d20${toolBaselineBonusStr}`, `${pt ? 'Usar Ferramenta' : 'Use Tool'} (${toolBaselineBonusStr})`, undefined, e);
+                  }}
+                  title={pt ? `Rolar uso de ferramenta (1d20${toolBaselineBonusStr})` : `Roll tool use (1d20${toolBaselineBonusStr})`}
+                >
+                  <span className="statblock-action-roll-dice" aria-hidden="true">🎲</span>
+                  <span className="statblock-action-roll-score">{toolBaselinePassive}/{toolBaselineBonusStr}</span>
+                </button>
+              </div>
+            </div>
+
+            {!collapsed.tools && (
+              <div id="fh-skill-group-tools" className="statblock-action-grid">
+                {toolItems.map(tool => (
+                  <div key={tool.id} className="statblock-action-skill-row is-trained">
+                    <span className="statblock-action-skill-name" title={`${tool.name} (${tool.stat})`}>
+                      🛠️ {tool.name} <abbr>({tool.stat})</abbr>
+                    </span>
+                    <div className="statblock-action-skill-controls">
+                      <span className="statblock-action-skill-pass" title={pt ? 'Passiva' : 'Passive'}>
+                        {tool.passive}
+                      </span>
+                      <button
+                        type="button"
+                        className="statblock-roll-btn statblock-action-skill-btn"
+                        data-roll-check={tool.formula}
+                        data-roll-label={`${char.name || (pt ? 'Personagem' : 'Character')}: ${tool.name} (${tool.bonusStr})`}
+                        onClick={(e) => handleSkillRoll(tool.formula, `${tool.name} (${tool.bonusStr})`, undefined, e)}
+                        title={pt ? `Toque para rolar ${tool.name} (${tool.formula}). Deslize ↑ para Vantagem ou ↓ para Desvantagem.` : `Tap to roll ${tool.name} (${tool.formula}). Swipe ↑ for Advantage or ↓ for Disadvantage.`}
+                      >
+                        {tool.bonusStr}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <FhProfLegend lang={lang} expert />

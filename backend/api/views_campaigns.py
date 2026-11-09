@@ -476,7 +476,6 @@ def campaign_join(request):
     P.require_open(campaign)
 
     char = None
-    others = []
     if character_id:
         char = Character.objects.filter(pk=character_id).first()
         if not char or char.owner_id != request.user.id:
@@ -484,12 +483,14 @@ def campaign_join(request):
         # O mestre não joga com ficha na própria mesa.
         if campaign.dm_id == request.user.id:
             return Response(DM_CANNOT_PLAY, status=400)
-        others = _other_seats(char, exclude_campaign=campaign)
-        if others and not _wants_move(request):
-            return _in_other_campaign(others[0])
+        # Suporte N:N: Um personagem pode estar em N campanhas concorrentemente,
+        # mas nunca duas vezes na MESMA campanha.
+        same_camp_seat = Membership.objects.filter(campaign=campaign, character=char).exclude(user=request.user).first()
+        if same_camp_seat:
+            return Response({'error': 'character_already_in_campaign', 'campaignId': campaign.id,
+                             'campaignName': campaign.name}, status=409)
 
     with transaction.atomic():
-        _release_seats(others)
         existing = Membership.objects.filter(campaign=campaign, user=request.user).first()
         # Jogador no limite de personagens entra ocupando uma vaga do mestre (se houver).
         sponsored = P.decide_sponsored(request.user, campaign, char, existing)
@@ -567,7 +568,6 @@ def campaign_member(request, id_or_slug, membership_id):
     if not (char_id in (None, '') and m.user_id == request.user.id):
         P.require_open(campaign)
     char = None
-    others = []
     if char_id is not None and char_id != '':
         char = Character.objects.filter(pk=char_id).first()
         if not char:
@@ -578,15 +578,14 @@ def campaign_member(request, id_or_slug, membership_id):
         # a vaga do mestre não recebe ficha: ele não joga na própria mesa
         if m.user_id == campaign.dm_id:
             return Response(DM_CANNOT_PLAY, status=400)
-        # 1 campanha por vez (ver campaign_join). A mesma ficha na mesma vaga não
-        # muda nada; só o dono pode tirá-la da outra mesa (`move`).
+        # Suporte N:N: A ficha pode estar em N mesas, mas nunca 2 vezes na mesma mesa
         if m.character_id != char.id:
-            others = _other_seats(char, exclude_pk=m.id)
-            if others and not (_wants_move(request) and request.user.id == char.owner_id):
-                return _in_other_campaign(others[0])
+            same_camp_seat = Membership.objects.filter(campaign=campaign, character=char).exclude(pk=m.id).first()
+            if same_camp_seat:
+                return Response({'error': 'character_already_in_campaign', 'campaignId': campaign.id,
+                                 'campaignName': campaign.name}, status=409)
     with transaction.atomic():
-        _release_seats(others)
-        # vaga emprestada decidida depois de soltar a outra (ela pode ter sido emprestada)
+        # vaga emprestada decidida mantendo o personagem
         m.sponsored = P.decide_sponsored(m.user, campaign, char, m) if char else False
         m.character = char
         m.save()

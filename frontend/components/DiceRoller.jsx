@@ -94,6 +94,56 @@ const tableNoteText = (note, lang) => ({
   'sheet-failed': L(lang, 'Não foi para a Tela', 'Did not reach the screen'),
 }[note] || '');
 
+const getAttackSubtype = (label = '') => {
+  const l = String(label || '').toLowerCase();
+  if (/desarmad|unarmed/i.test(l)) return 'unarmed';
+  if (/magia|spell/i.test(l)) return 'spell';
+  if (/corpo a corpo|melee/i.test(l)) return 'melee';
+  if (/dist[aâ]ncia|ranged/i.test(l)) return 'ranged';
+  if (/arma|weapon/i.test(l)) return 'weapon';
+  return 'generic';
+};
+
+const renderTopHudBanner = (overlay, lang) => {
+  if (!overlay) return null;
+  const pt = lang === 'pt';
+  if (overlay.isSave) {
+    return (
+      <div className="dice-top-hud-banner dice-save-shield-banner is-save" aria-hidden="true">
+        <span className="dice-top-hud-icon dice-save-shield-icon">🛡️</span>
+        <span className="dice-top-hud-title dice-save-shield-title">{pt ? 'Teste de Resistência' : 'Saving Throw'}</span>
+      </div>
+    );
+  }
+  if (overlay.isCheck) {
+    return (
+      <div className="dice-top-hud-banner dice-check-target-banner is-check" aria-hidden="true">
+        <span className="dice-top-hud-icon dice-check-target-icon">🎯</span>
+        <span className="dice-top-hud-title dice-check-target-title">{pt ? 'Teste de Atributo' : 'Ability Check'}</span>
+      </div>
+    );
+  }
+  if (overlay.isAttack) {
+    const subtype = getAttackSubtype(overlay.label);
+    const configs = {
+      melee: { icon: '⚔️', title: pt ? 'Ataque Corpo a Corpo' : 'Melee Attack', cls: 'is-attack-melee' },
+      ranged: { icon: '🏹', title: pt ? 'Ataque à Distância' : 'Ranged Attack', cls: 'is-attack-ranged' },
+      spell: { icon: '✨', title: pt ? 'Ataque Mágico' : 'Spell Attack', cls: 'is-attack-spell' },
+      unarmed: { icon: '👊', title: pt ? 'Golpe Desarmado' : 'Unarmed Strike', cls: 'is-attack-unarmed' },
+      weapon: { icon: '🗡️', title: pt ? 'Ataque com Arma' : 'Weapon Attack', cls: 'is-attack-weapon' },
+      generic: { icon: '⚔️', title: pt ? 'Rolagem de Ataque' : 'Attack Roll', cls: 'is-attack-generic' },
+    };
+    const cfg = configs[subtype] || configs.generic;
+    return (
+      <div className={`dice-top-hud-banner dice-attack-swords-banner is-attack ${cfg.cls}`} aria-hidden="true">
+        <span className="dice-top-hud-icon dice-attack-swords-icon">{cfg.icon}</span>
+        <span className="dice-top-hud-title dice-attack-swords-title">{cfg.title}</span>
+      </div>
+    );
+  }
+  return null;
+};
+
 const DiceRoller = ({ lang }) => {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(1);
@@ -671,25 +721,8 @@ const DiceRoller = ({ lang }) => {
       {/* === Overlay da rolagem (Minimalist & Clean Hero Die) === */}
       {overlay && (
         <div key={overlay.id} className="dice-overlay no-print" onClick={() => { sheetGate.settle(overlay.id); setOverlay(null); }} role="status" aria-live="polite">
+          {renderTopHudBanner(overlay, lang)}
           <div className={`dice-overlay-inner ${overlay.settled && overlay.isCrit ? 'is-crit' : ''} ${overlay.settled && overlay.isFumble ? 'is-fumble' : ''} ${overlay.isSave ? 'is-save' : ''}`}>
-            {overlay.isSave && (
-              <div className="dice-save-shield-banner" aria-hidden="true">
-                <span className="dice-save-shield-icon">🛡️</span>
-                <span className="dice-save-shield-title">{lang === 'pt' ? 'Teste de Resistência' : 'Saving Throw'}</span>
-              </div>
-            )}
-            {overlay.isCheck && !overlay.isSave && (
-              <div className="dice-check-target-banner" aria-hidden="true">
-                <span className="dice-check-target-icon">🎯</span>
-                <span className="dice-check-target-title">{lang === 'pt' ? 'Teste de Atributo' : 'Ability Check'}</span>
-              </div>
-            )}
-            {overlay.isAttack && !overlay.isSave && !overlay.isCheck && (
-              <div className="dice-attack-swords-banner" aria-hidden="true">
-                <span className="dice-attack-swords-icon">⚔️</span>
-                <span className="dice-attack-swords-title">{lang === 'pt' ? 'Rolagem de Ataque' : 'Attack Roll'}</span>
-              </div>
-            )}
             <DiceStage
               key={overlay.id}
               mode="2d"

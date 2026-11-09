@@ -906,32 +906,29 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   box-shadow: 0 0 8px #ff1a2e, 0 0 16px #990012;
 }
 
-/* Resistance Saving Throw HUD Shield Banner */
-.dice-save-shield-banner {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
+/* Top HUD Roll Banner (Positioned at the very top of screen, never colliding with the roll-up die) */
+.dice-top-hud-banner {
+  position: fixed !important;
+  top: max(24px, env(safe-area-inset-top, 24px)) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 18px;
+  gap: 10px;
+  padding: 8px 22px;
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(74, 14, 20, 0.92) 0%, rgba(26, 10, 12, 0.96) 100%);
-  border: 1.5px solid rgba(255, 75, 90, 0.85);
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.75),
-    0 0 18px rgba(255, 60, 75, 0.65),
-    inset 0 1px 0 rgba(255, 200, 205, 0.4);
-  z-index: 25;
+  z-index: 10005 !important;
   pointer-events: none;
-  animation: save-banner-entrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: hud-banner-entrance 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  white-space: nowrap;
 }
 
-@keyframes save-banner-entrance {
+@keyframes hud-banner-entrance {
   from {
     opacity: 0;
-    transform: translate(-50%, -12px) scale(0.92);
+    transform: translate(-50%, -18px) scale(0.92);
   }
   to {
     opacity: 1;
@@ -939,18 +936,37 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   }
 }
 
-.dice-save-shield-icon {
+.dice-top-hud-icon {
   font-size: 1.15rem;
   line-height: 1;
-  filter: drop-shadow(0 0 6px #ff4a5a);
 }
 
-.dice-save-shield-title {
+.dice-top-hud-title {
   font-family: var(--display, serif);
   font-size: 0.88rem;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+/* Resistance Saving Throw HUD Shield Banner */
+.dice-save-shield-banner,
+.dice-top-hud-banner.is-save {
+  background: linear-gradient(180deg, rgba(74, 14, 20, 0.94) 0%, rgba(26, 10, 12, 0.97) 100%);
+  border: 1.5px solid rgba(255, 75, 90, 0.88);
+  box-shadow:
+    0 4px 18px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(255, 60, 75, 0.65),
+    inset 0 1px 0 rgba(255, 200, 205, 0.4);
+}
+
+.dice-save-shield-icon,
+.dice-top-hud-banner.is-save .dice-top-hud-icon {
+  filter: drop-shadow(0 0 8px #ff4a5a);
+}
+
+.dice-save-shield-title,
+.dice-top-hud-banner.is-save .dice-top-hud-title {
   color: #fff1f2;
   text-shadow: 0 0 10px rgba(255, 75, 90, 0.9), 0 1px 2px #000;
 }
@@ -1277,41 +1293,25 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
 
 
 /* Ability Check HUD Target Banner */
-.dice-check-target-banner {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 18px;
-  border-radius: 999px;
+.dice-check-target-banner,
+.dice-top-hud-banner.is-check {
   background: linear-gradient(180deg, rgba(46, 34, 10, 0.94) 0%, rgba(20, 14, 5, 0.96) 100%);
-  border: 1.5px solid rgba(237, 203, 122, 0.85);
+  border: 1.5px solid rgba(237, 203, 122, 0.88);
   box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.75),
-    0 0 18px rgba(237, 203, 122, 0.55),
-    inset 0 1px 0 rgba(255, 235, 170, 0.35);
-  z-index: 25;
-  pointer-events: none;
-  animation: save-banner-entrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    0 4px 18px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(237, 203, 122, 0.65),
+    inset 0 1px 0 rgba(255, 235, 170, 0.4);
 }
 
-.dice-check-target-icon {
-  font-size: 1.15rem;
-  line-height: 1;
-  filter: drop-shadow(0 0 6px #edcb7a);
+.dice-check-target-icon,
+.dice-top-hud-banner.is-check .dice-top-hud-icon {
+  filter: drop-shadow(0 0 8px #edcb7a);
 }
 
-.dice-check-target-title {
-  font-family: var(--display, serif);
-  font-size: 0.88rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+.dice-check-target-title,
+.dice-top-hud-banner.is-check .dice-top-hud-title {
   color: #fff8e8;
-  text-shadow: 0 0 10px rgba(237, 203, 122, 0.85), 0 1px 2px #000;
+  text-shadow: 0 0 10px rgba(237, 203, 122, 0.9), 0 1px 2px #000;
 }
 
 /* Sparks Emitter for juicy roll-up build & explosive ripple blow-away */
@@ -1431,53 +1431,110 @@ body.dice-sheet-open { padding-bottom: var(--dice-sheet-h, 60vh); }
   letter-spacing: 0.02em;
 }
 
-/* Attack Roll HUD Swords Banner */
-.dice-attack-swords-banner {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 18px;
-  border-radius: 999px;
+/* Attack Roll HUD Banners & Subtypes (Melee, Ranged, Spell, Unarmed, Weapon, Generic) */
+.dice-attack-swords-banner,
+.dice-top-hud-banner.is-attack {
   background: linear-gradient(180deg, rgba(64, 20, 20, 0.94) 0%, rgba(24, 10, 10, 0.96) 100%);
-  border: 1.5px solid rgba(240, 96, 80, 0.85);
+  border: 1.5px solid rgba(240, 96, 80, 0.88);
   box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.75),
-    0 0 18px rgba(240, 96, 80, 0.55),
-    inset 0 1px 0 rgba(255, 180, 170, 0.35);
-  z-index: 25;
-  pointer-events: none;
-  animation: attack-banner-entrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    0 4px 18px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(240, 96, 80, 0.65),
+    inset 0 1px 0 rgba(255, 180, 170, 0.4);
 }
 
-@keyframes attack-banner-entrance {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -12px) scale(0.92);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0) scale(1);
-  }
+.dice-attack-swords-icon,
+.dice-top-hud-banner.is-attack .dice-top-hud-icon {
+  filter: drop-shadow(0 0 8px #f06050);
 }
 
-.dice-attack-swords-icon {
-  font-size: 1.15rem;
-  line-height: 1;
-  filter: drop-shadow(0 0 6px #f06050);
-}
-
-.dice-attack-swords-title {
-  font-family: var(--display, serif);
-  font-size: 0.88rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+.dice-attack-swords-title,
+.dice-top-hud-banner.is-attack .dice-top-hud-title {
   color: #fff2f0;
   text-shadow: 0 0 10px rgba(240, 96, 80, 0.9), 0 1px 2px #000;
+}
+
+/* Melee Attack: Fiery crimson/amber */
+.dice-top-hud-banner.is-attack-melee {
+  background: linear-gradient(180deg, rgba(82, 24, 24, 0.95) 0%, rgba(32, 10, 10, 0.97) 100%);
+  border-color: rgba(248, 113, 113, 0.9);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.8), 0 0 22px rgba(239, 68, 68, 0.7), inset 0 1px 0 rgba(254, 202, 202, 0.45);
+}
+.dice-top-hud-banner.is-attack-melee .dice-top-hud-icon {
+  filter: drop-shadow(0 0 8px #ef4444);
+}
+.dice-top-hud-banner.is-attack-melee .dice-top-hud-title {
+  color: #fff1f2;
+  text-shadow: 0 0 12px rgba(239, 68, 68, 0.95), 0 1px 2px #000;
+}
+
+/* Ranged Attack: Forest emerald / archer green */
+.dice-top-hud-banner.is-attack-ranged {
+  background: linear-gradient(180deg, rgba(16, 68, 48, 0.95) 0%, rgba(8, 30, 20, 0.97) 100%);
+  border-color: rgba(52, 211, 153, 0.9);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.8), 0 0 22px rgba(16, 185, 129, 0.7), inset 0 1px 0 rgba(167, 243, 208, 0.45);
+}
+.dice-top-hud-banner.is-attack-ranged .dice-top-hud-icon {
+  filter: drop-shadow(0 0 8px #10b981);
+}
+.dice-top-hud-banner.is-attack-ranged .dice-top-hud-title {
+  color: #ecfdf5;
+  text-shadow: 0 0 12px rgba(16, 185, 129, 0.95), 0 1px 2px #000;
+}
+
+/* Spell Attack: Arcane violet / mystic purple */
+.dice-top-hud-banner.is-attack-spell {
+  background: linear-gradient(180deg, rgba(58, 20, 84, 0.95) 0%, rgba(24, 8, 36, 0.97) 100%);
+  border-color: rgba(192, 132, 252, 0.9);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.8), 0 0 22px rgba(168, 85, 247, 0.7), inset 0 1px 0 rgba(233, 213, 255, 0.45);
+}
+.dice-top-hud-banner.is-attack-spell .dice-top-hud-icon {
+  filter: drop-shadow(0 0 8px #c084fc);
+}
+.dice-top-hud-banner.is-attack-spell .dice-top-hud-title {
+  color: #faf5ff;
+  text-shadow: 0 0 12px rgba(168, 85, 247, 0.95), 0 1px 2px #000;
+}
+
+/* Unarmed Strike: Warm brass / brawler amber */
+.dice-top-hud-banner.is-attack-unarmed {
+  background: linear-gradient(180deg, rgba(76, 44, 18, 0.95) 0%, rgba(30, 16, 6, 0.97) 100%);
+  border-color: rgba(251, 191, 36, 0.9);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.8), 0 0 22px rgba(245, 158, 11, 0.7), inset 0 1px 0 rgba(254, 243, 199, 0.45);
+}
+.dice-top-hud-banner.is-attack-unarmed .dice-top-hud-icon {
+  filter: drop-shadow(0 0 8px #fbbf24);
+}
+.dice-top-hud-banner.is-attack-unarmed .dice-top-hud-title {
+  color: #fffbeb;
+  text-shadow: 0 0 12px rgba(245, 158, 11, 0.95), 0 1px 2px #000;
+}
+
+/* Weapon Attack: Steel platinum / blade silver */
+.dice-top-hud-banner.is-attack-weapon {
+  background: linear-gradient(180deg, rgba(40, 52, 68, 0.95) 0%, rgba(15, 23, 42, 0.97) 100%);
+  border-color: rgba(148, 163, 184, 0.9);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.8), 0 0 22px rgba(203, 213, 225, 0.7), inset 0 1px 0 rgba(241, 245, 249, 0.45);
+}
+.dice-top-hud-banner.is-attack-weapon .dice-top-hud-icon {
+  filter: drop-shadow(0 0 8px #cbd5e1);
+}
+.dice-top-hud-banner.is-attack-weapon .dice-top-hud-title {
+  color: #f8fafc;
+  text-shadow: 0 0 12px rgba(203, 213, 225, 0.95), 0 1px 2px #000;
+}
+
+/* Generic Attack: Classic combat crimson */
+.dice-top-hud-banner.is-attack-generic {
+  background: linear-gradient(180deg, rgba(74, 20, 20, 0.95) 0%, rgba(28, 10, 10, 0.97) 100%);
+  border-color: rgba(244, 63, 94, 0.9);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.8), 0 0 22px rgba(244, 63, 94, 0.7), inset 0 1px 0 rgba(254, 205, 211, 0.45);
+}
+.dice-top-hud-banner.is-attack-generic .dice-top-hud-icon {
+  filter: drop-shadow(0 0 8px #f43f5e);
+}
+.dice-top-hud-banner.is-attack-generic .dice-top-hud-title {
+  color: #fff1f2;
+  text-shadow: 0 0 12px rgba(244, 63, 94, 0.95), 0 1px 2px #000;
 }
 
 /* Token Variants: Attack, Save, Check */
